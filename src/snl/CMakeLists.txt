@@ -1,0 +1,18 @@
+SET(SOURCES
+  MemoryUsage.cpp
+  PerfTracker.cpp
+  Card.cpp
+  SNLObject.cpp
+  SNLDB.cpp SNLLibrary.cpp SNLDesign.cpp SNLDesignObject.cpp
+  SNLNet.cpp SNLBusNet.cpp SNLBitNet.cpp SNLScalarNet.cpp
+  SNLTerm.cpp SNLBusTerm.cpp SNLBitTerm.cpp SNLScalarTerm.cpp
+  SNLInstance.cpp
+  SNLLevelize.cpp SNLDump.cpp
+)
+
+ADD_LIBRARY(snl SHARED ${SOURCES})
+
+TARGET_INCLUDE_DIRECTORIES(snl SYSTEM BEFORE PUBLIC ${Boost_INCLUDE_DIR})
+TARGET_INCLUDE_DIRECTORIES(snl PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+
+ADD_SUBDIRECTORY(swig)
