@@ -7,7 +7,7 @@ SET(SOURCES
   SNLNet.cpp SNLBusNet.cpp SNLBitNet.cpp SNLScalarNet.cpp
   SNLTerm.cpp SNLBusTerm.cpp SNLBitTerm.cpp SNLScalarTerm.cpp
   SNLInstance.cpp
-  SNLLevelize.cpp SNLDump.cpp
+  #SNLLevelize.cpp SNLDump.cpp
 )
 
 ADD_LIBRARY(snl SHARED ${SOURCES})
