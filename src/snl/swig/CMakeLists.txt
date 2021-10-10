@@ -3,4 +3,4 @@ INCLUDE(${SWIG_USE_FILE})
 SET_PROPERTY(SOURCE snl.i PROPERTY CPLUSPLUS ON)
 SWIG_ADD_LIBRARY(snl_python LANGUAGE python SOURCES snl.i)
 
-TARGET_LINK_LIBRARIES(snl_python snl Python::Python)
+TARGET_LINK_LIBRARIES(snl_python snl Python3::Python)
