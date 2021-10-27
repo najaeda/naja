@@ -27,6 +27,8 @@ void SNLInstance::preCreate(SNLDesign* design, const SNLName& name) {
 void SNLInstance::postCreate() {
   super::postCreate();
   getDesign()->addInstance(this);
+  //create instance terminals
+  //FIXME
 }
 
 void SNLInstance::commonPreDestroy() {

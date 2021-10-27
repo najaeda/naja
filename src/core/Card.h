@@ -1,6 +1,7 @@
 #ifndef __CARD_H_
 #define __CARD_H_
 
+#include <memory>
 #include <vector>
 
 #include "CardItem.h"

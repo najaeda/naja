@@ -1,0 +1,9 @@
+SET(SOURCES
+  MemoryUsage.cpp
+  PerfTracker.cpp
+  Card.cpp
+)
+
+ADD_LIBRARY(naja_core SHARED ${SOURCES})
+
+TARGET_INCLUDE_DIRECTORIES(naja_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

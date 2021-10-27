@@ -1,16 +1,20 @@
 #ifndef __SNL_INSTANCE_H_
 #define __SNL_INSTANCE_H_
 
+#include <vector>
 #include <boost/intrusive/set.hpp>
 #include "SNLDesignObject.h"
 #include "SNLName.h"
 
 namespace SNL {
 
+class SNLInstTerm;
+
 class SNLInstance final: public SNLDesignObject {
   public:
     friend class SNLDesign;
     using super = SNLDesignObject;
+    using SNLInstanceInstTerms = std::vector<SNLInstTerm*>; 
 
     static SNLInstance* create(SNLDesign* design, SNLDesign* model, const SNLName& name);
 
@@ -35,10 +39,11 @@ class SNLInstance final: public SNLDesignObject {
       return li.name_ < ri.name_;
     }
 
-    SNLDesign*                          design_;
-    SNLDesign*                          model_;
+    SNLDesign*                          design_			{nullptr};
+    SNLDesign*                          model_			{nullptr};
     SNLName                             name_;
-    boost::intrusive::set_member_hook<> designInstancesHook_  {};
+    SNLInstanceInstTerms		instTerms_		{};
+    boost::intrusive::set_member_hook<> designInstancesHook_	{};
 };
 
 }

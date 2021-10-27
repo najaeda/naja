@@ -7,7 +7,8 @@ namespace SNL {
 
 class SNLDB;
 
-class SNLLibrary final: public SNLObject {
+//class SNLLibrary final: public SNLObject {
+class SNLLibrary: public SNLObject {
   public:
     friend class SNLDB;
     friend class SNLDesign;

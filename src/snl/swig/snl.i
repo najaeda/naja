@@ -1,5 +1,9 @@
 %module snl
 %{
-#include "SNLDB.h"
-#include "SNLLibrary.h"
+  #include "SNLName.h"
+  #include "SNLDB.h"
+  #include "SNLLibrary.h"
 %}
+
+%include SNLLibrary.h
+
