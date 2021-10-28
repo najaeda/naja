@@ -1,6 +1,7 @@
 #ifndef __SNL_DESIGN_H_
 #define __SNL_DESIGN_H_
 
+#include "SNLID.h"
 #include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
 #include "SNLInstance.h"
@@ -26,6 +27,7 @@ class SNLDesign final: public SNLObject {
     SNLDesign() = delete;
     SNLDesign(const SNLDesign& design) = delete;
 
+    static SNLDesign* create(SNLLibrary* library);
     static SNLDesign* create(SNLLibrary* library, const std::string& name);
 
     SNLScalarTerm* getScalarTerm(const SNLName& netName);
@@ -41,8 +43,12 @@ class SNLDesign final: public SNLObject {
     std::string getString() const override;
     std::string getDescription() const override;
     Card* getCard() const override;
+    SNLID getSNLID() const;
+    SNLID::DesignID getID() const { return id_; }
   private:
+    SNLDesign(SNLLibrary* library);
     SNLDesign(SNLLibrary* library, const SNLName& name);
+    static void preCreate(const SNLLibrary* library);
     static void preCreate(const SNLLibrary* library, const std::string& name);
     void destroyFromLibrary();
     void postCreate();
@@ -60,7 +66,7 @@ class SNLDesign final: public SNLObject {
     void removeBusNet(SNLBusNet* busNet);
 
     friend bool operator< (const SNLDesign &ld, const SNLDesign &rd) {
-      return ld.getName() < rd.getName();
+      return ld.getSNLID() < rd.getSNLID();
     }
 
     using SNLDesignScalarTermsHook =
@@ -79,6 +85,7 @@ class SNLDesign final: public SNLObject {
       boost::intrusive::member_hook<SNLBusNet, boost::intrusive::set_member_hook<>, &SNLBusNet::designBusNetsHook_>;
     using SNLDesignBusNets = boost::intrusive::set<SNLBusNet, SNLDesignBusNetsHook>;
 
+    SNLID::DesignID                     id_;
     SNLName                             name_;
     SNLLibrary*                         library_;
     boost::intrusive::set_member_hook<> libraryDesignsHook_ {};

@@ -12,7 +12,6 @@ class SNLLibraryTest: public ::testing::Test {
       db_->destroy();
     }
     SNLDB*  db_;
-    
 };
 
 TEST_F(SNLLibraryTest, test) {

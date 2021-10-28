@@ -86,9 +86,13 @@ SNLLibrary* SNLLibrary::getParentLibrary() const {
 }
 
 SNLLibrary* SNLLibrary::getLibrary(const SNLName& name) {
-  auto it = libraries_.find(name, SNLNameComp<SNLLibrary>());
-  if (it != libraries_.end()) {
-    return &*it;
+  auto iit = nameIDMap_.find(name);
+  if (iit != nameIDMap_.end()) {
+    SNLID::LibraryID id = iit->second;
+    auto it = libraries_.find(SNLID(id), SNLIDComp<SNLLibrary>());
+    if (it != libraries_.end()) {
+      return &*it;
+    }
   }
   return nullptr;
 }
@@ -103,6 +107,7 @@ SNLCollection<SNLDesign> SNLLibrary::getDesigns() {
 
 void SNLLibrary::addLibrary(SNLLibrary* library) {
   libraries_.insert(*library);
+  nameIDMap_[library->getName()] = library->getID();
 }
 
 void SNLLibrary::removeLibrary(SNLLibrary* library) {
@@ -110,6 +115,14 @@ void SNLLibrary::removeLibrary(SNLLibrary* library) {
 }
 
 void SNLLibrary::addDesign(SNLDesign* design) {
+  if (designs_.empty()) {
+    design->id_ = 0;
+  } else {
+    auto it = designs_.rbegin();
+    SNLDesign* lastDesign = &(*it);
+    SNLID::DesignID designID = ++lastDesign->id_;
+    design->id_ = designID;
+  }
   designs_.insert(*design);
 }
 
@@ -127,6 +140,10 @@ std::string SNLLibrary::getString() const {
 
 std::string SNLLibrary::getDescription() const {
   return "<" + std::string(getTypeName()) + " " + name_ + ">";  
+}
+
+SNLID SNLLibrary::getSNLID() const {
+  return SNLID(getID());
 }
 
 }

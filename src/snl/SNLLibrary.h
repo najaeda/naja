@@ -1,14 +1,14 @@
 #ifndef __SNL_LIBRARY_H_
 #define __SNL_LIBRARY_H_
 
+#include <map>
 #include "SNLDesign.h"
 
 namespace SNL {
 
 class SNLDB;
 
-//class SNLLibrary final: public SNLObject {
-class SNLLibrary: public SNLObject {
+class SNLLibrary final: public SNLObject {
   public:
     friend class SNLDB;
     friend class SNLDesign;
@@ -28,13 +28,15 @@ class SNLLibrary: public SNLObject {
     SNLCollection<SNLLibrary> getLibraries();
     SNLCollection<SNLDesign> getDesigns();
 
+    SNLID::LibraryID getID() const { return id_; }
+    SNLID getSNLID() const;
     SNLName getName() const { return name_; }
     constexpr const char* getTypeName() const override;
     std::string getString() const override;
     std::string getDescription() const override;
 
     friend bool operator< (const SNLLibrary &ll, const SNLLibrary &rl) {
-      return ll.name_ < rl.name_;
+      return ll.getSNLID() < rl.getSNLID();
     }
   private:
     static void preCreate(const SNLDB* db, const SNLName& name);
@@ -51,9 +53,12 @@ class SNLLibrary: public SNLObject {
     void addDesign(SNLDesign* design);
     void removeDesign(SNLDesign* design);
 
+    SNLID::LibraryID  id_;
     SNLName           name_;
     void*             parent_;
     bool              isRootLibrary_;
+    using LibraryNameIDMap = std::map<SNLName, SNLID::LibraryID>;
+    LibraryNameIDMap  nameIDMap_  {};
     boost::intrusive::set_member_hook<> librariesHook_    {};
     using SNLLibraryLibrariesHook =
       boost::intrusive::member_hook<SNLLibrary, boost::intrusive::set_member_hook<>, &SNLLibrary::librariesHook_>;

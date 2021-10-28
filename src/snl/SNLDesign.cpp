@@ -14,20 +14,32 @@ SNLDesign* SNLDesign::create(SNLLibrary* library, const SNLName& name) {
   return design;
 }
 
+SNLDesign::SNLDesign(SNLLibrary* library):
+  super(),
+  library_(library)
+{}
+  
+  
 SNLDesign::SNLDesign(SNLLibrary* library, const SNLName& name):
   super(),
   library_(library),
   name_(name)
 {}
 
-void SNLDesign::preCreate(const SNLLibrary* library, const SNLName& name) {
+void SNLDesign::preCreate(const SNLLibrary* library) {
   super::preCreate();
+}
+void SNLDesign::preCreate(const SNLLibrary* library, const SNLName& name) {
+  preCreate(library);
   //test if design with same name exists in library
 }
 
 void SNLDesign::postCreate() {
   super::postCreate();
   library_->addDesign(this);
+  if (not name_.empty()) {
+    //designNames_[name_] = id_; 
+  }
 }
 
 void SNLDesign::commonPreDestroy() {
@@ -180,9 +192,14 @@ std::string SNLDesign::getDescription() const {
 
 Card* SNLDesign::getCard() const {
   Card* card = super::getCard();
+  //card->addItem(new CardDataItem<SNLID>("ID", id_));
   card->addItem(new CardDataItem<const SNLName>("Name", name_));
   card->addItem(new CardDataItem<const SNLLibrary*>("Library", library_));
   return card;
+}
+
+SNLID SNLDesign::getSNLID() const {
+  return SNLID(library_->getID(), getID());
 }
 
 }

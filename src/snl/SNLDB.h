@@ -9,6 +9,7 @@ namespace SNL {
 class SNLDB final: public SNLObject {
   public:
     friend class SNLLibrary;
+    SNLDB(const SNLDB&) = delete;
 
     using SNLDBLibrariesHook =
       boost::intrusive::member_hook<SNLLibrary, boost::intrusive::set_member_hook<>, &SNLLibrary::librariesHook_>;
@@ -33,7 +34,10 @@ class SNLDB final: public SNLObject {
 
     SNLDB() = default;
 
-    SNLDBLibraries  libraries_  {};
+    SNLDBLibraries    libraries_  {};
+    using LibraryNameIDMap = std::map<SNLName, SNLID::LibraryID>;
+    LibraryNameIDMap  nameIDMap_  {};
+    
 };
 
 }

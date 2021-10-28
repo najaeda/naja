@@ -31,6 +31,7 @@ void SNLDB::preDestroy() {
 
 void SNLDB::addLibrary(SNLLibrary* library) {
   libraries_.insert(*library);
+  nameIDMap_[library->getName()] = library->getID();
 }
 
 void SNLDB::removeLibrary(SNLLibrary* library) {
@@ -38,9 +39,13 @@ void SNLDB::removeLibrary(SNLLibrary* library) {
 }
 
 SNLLibrary* SNLDB::getLibrary(const SNLName& name) {
-  auto it = libraries_.find(name, SNLNameComp<SNLLibrary>());
-  if (it != libraries_.end()) {
-    return &*it;
+  auto iit = nameIDMap_.find(name);
+  if (iit != nameIDMap_.end()) {
+    SNLID::LibraryID id = iit->second;
+    auto it = libraries_.find(SNLID(id), SNLIDComp<SNLLibrary>());
+    if (it != libraries_.end()) {
+      return &*it;
+    }
   }
   return nullptr;
 }
