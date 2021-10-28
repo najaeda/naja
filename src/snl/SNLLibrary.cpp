@@ -86,8 +86,8 @@ SNLLibrary* SNLLibrary::getParentLibrary() const {
 }
 
 SNLLibrary* SNLLibrary::getLibrary(const SNLName& name) {
-  auto iit = nameIDMap_.find(name);
-  if (iit != nameIDMap_.end()) {
+  auto iit = libraryNameIDMap_.find(name);
+  if (iit != libraryNameIDMap_.end()) {
     SNLID::LibraryID id = iit->second;
     auto it = libraries_.find(SNLID(id), SNLIDComp<SNLLibrary>());
     if (it != libraries_.end()) {
@@ -106,8 +106,16 @@ SNLCollection<SNLDesign> SNLLibrary::getDesigns() {
 }
 
 void SNLLibrary::addLibrary(SNLLibrary* library) {
+  if (libraries_.empty()) {
+    library->id_ = 0;
+  } else {
+    auto it = libraries_.rbegin();
+    SNLLibrary* lastLibrary = &(*it);
+    SNLID::LibraryID libraryID = lastLibrary->id_+1;
+    library->id_ = libraryID;
+  }
   libraries_.insert(*library);
-  nameIDMap_[library->getName()] = library->getID();
+  libraryNameIDMap_[library->getName()] = library->id_;
 }
 
 void SNLLibrary::removeLibrary(SNLLibrary* library) {
@@ -120,13 +128,19 @@ void SNLLibrary::addDesign(SNLDesign* design) {
   } else {
     auto it = designs_.rbegin();
     SNLDesign* lastDesign = &(*it);
-    SNLID::DesignID designID = ++lastDesign->id_;
+    SNLID::DesignID designID = lastDesign->id_+1;
     design->id_ = designID;
   }
   designs_.insert(*design);
+  if (not design->getName().empty()) {
+    designNameIDMap_[design->getName()] = design->id_;
+  }
 }
 
 void SNLLibrary::removeDesign(SNLDesign* design) {
+  if (not design->getName().empty()) {
+    designNameIDMap_.erase(design->getName());
+  }
   designs_.erase(*design);
 }
 

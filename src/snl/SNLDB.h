@@ -34,9 +34,9 @@ class SNLDB final: public SNLObject {
 
     SNLDB() = default;
 
-    SNLDBLibraries    libraries_  {};
+    SNLDBLibraries    libraries_        {};
     using LibraryNameIDMap = std::map<SNLName, SNLID::LibraryID>;
-    LibraryNameIDMap  nameIDMap_  {};
+    LibraryNameIDMap  libraryNameIDMap_ {};
     
 };
 

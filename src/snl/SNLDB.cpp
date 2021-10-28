@@ -26,21 +26,31 @@ void SNLDB::preDestroy() {
     }
   };
   libraries_.clear_and_dispose(destroyLibraryFromDB());
+  libraryNameIDMap_.clear();
   super::preDestroy();
 }
 
 void SNLDB::addLibrary(SNLLibrary* library) {
+  if (libraries_.empty()) {
+    library->id_ = 0;
+  } else {
+    auto it = libraries_.rbegin();
+    SNLLibrary* lastLibrary = &(*it);
+    SNLID::LibraryID libraryID = lastLibrary->id_+1;
+    library->id_ = libraryID;
+  }
   libraries_.insert(*library);
-  nameIDMap_[library->getName()] = library->getID();
+  libraryNameIDMap_[library->getName()] = library->id_;
 }
 
 void SNLDB::removeLibrary(SNLLibrary* library) {
   libraries_.erase(*library);
+  libraryNameIDMap_.erase(library->getName());
 }
 
 SNLLibrary* SNLDB::getLibrary(const SNLName& name) {
-  auto iit = nameIDMap_.find(name);
-  if (iit != nameIDMap_.end()) {
+  auto iit = libraryNameIDMap_.find(name);
+  if (iit != libraryNameIDMap_.end()) {
     SNLID::LibraryID id = iit->second;
     auto it = libraries_.find(SNLID(id), SNLIDComp<SNLLibrary>());
     if (it != libraries_.end()) {

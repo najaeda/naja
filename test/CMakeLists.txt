@@ -1,4 +1,4 @@
-ADD_SUBDIRECTORY(googletest-release-1.10.0)
+ADD_SUBDIRECTORY(googletest)
 
 INCLUDE(GoogleTest)
 
