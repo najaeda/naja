@@ -23,8 +23,10 @@ class SNLInstance final: public SNLDesignObject {
     SNLDesign* getDesign() const override { return design_; }
     SNLDesign* getModel() const { return model_; }
 
+    SNLID::DesignObjectID getID() const { return id_; }
     SNLID getSNLID() const override;
     SNLName getName() const { return name_; }
+    bool isAnonymous() const { return name_.empty(); }
     constexpr const char* getTypeName() const override;
     std::string getString() const override;
     std::string getDescription() const override;

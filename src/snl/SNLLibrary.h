@@ -22,11 +22,13 @@ class SNLLibrary final: public SNLObject {
     bool isRootLibrary() const { return isRootLibrary_; }
 
     SNLDB* getDB() const;
+
+    SNLCollection<SNLLibrary> getLibraries();
     SNLLibrary* getParentLibrary() const;
     SNLLibrary* getLibrary(const SNLName& name);
 
-    SNLCollection<SNLLibrary> getLibraries();
     SNLCollection<SNLDesign> getDesigns();
+    SNLDesign* getDesign(const SNLName& name);
 
     SNLID::LibraryID getID() const { return id_; }
     SNLID getSNLID() const;

@@ -3,15 +3,19 @@
 
 #include <filesystem>
 
+#include "SNLName.h"
+
 namespace SNL {
 
 class SNLDesign;
+class SNLInstance;
 
 class SNLVRLDumper {
   public:
     class Configuration {
     };
-    void dump(const SNLDesign* design, std::ostream& o); 
+    static SNLName createInstanceName(const SNLInstance* instance);
+    void dump(const SNLDesign* design, std::ostream& o);
 };
 
 }

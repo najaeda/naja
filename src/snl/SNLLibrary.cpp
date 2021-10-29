@@ -101,6 +101,18 @@ SNLCollection<SNLLibrary> SNLLibrary::getLibraries() {
   return SNLCollection<SNLLibrary>(new SNLIntrusiveSetCollection<SNLLibrary, SNLLibraryLibrariesHook>(&libraries_));
 }
 
+SNLDesign* SNLLibrary::getDesign(const SNLName& name) {
+  auto dit = designNameIDMap_.find(name);
+  if (dit != designNameIDMap_.end()) {
+    SNLID::DesignObjectID id = dit->second;
+    auto it = designs_.find(SNLID(getID(), id), SNLIDComp<SNLDesign>());
+    if (it != designs_.end()) {
+      return &*it;
+    }
+  }
+  return nullptr;
+}
+
 SNLCollection<SNLDesign> SNLLibrary::getDesigns() {
   return SNLCollection<SNLDesign>(new SNLIntrusiveSetCollection<SNLDesign, SNLLibraryDesignsHook>(&designs_));
 }

@@ -1,4 +1,10 @@
-PROJECT(naja)
+cmake_policy(SET CMP0048 NEW) 
+
+project(naja
+  VERSION 0.1.0
+  HOMEPAGE_URL https://github.com/xtofalex/naja
+  LANGUAGES CXX
+)
 CMAKE_MINIMUM_REQUIRED(VERSION 3.19)
 SET(CMAKE_CXX_STANDARD 20)
 
@@ -7,9 +13,8 @@ FIND_PACKAGE(SWIG 4.0 COMPONENTS python REQUIRED)
 FIND_PACKAGE(Python3 COMPONENTS Development)
 FIND_PACKAGE(LibXml2 REQUIRED)
 
-
 ADD_SUBDIRECTORY(src)
 
-INCLUDE(CTest)
-ENABLE_TESTING()
-ADD_SUBDIRECTORY(test)
+include(CTest)
+enable_testing()
+add_subdirectory(test)
