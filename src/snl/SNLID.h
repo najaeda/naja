@@ -6,15 +6,16 @@
 namespace SNL {
 
 struct SNLID {
-  enum class Type {Library, Design};
+  enum class Type {Library, Design, Term};
   using LibraryID = unsigned short;
   using DesignID = unsigned int;
   using DesignObjectID =  unsigned int;
   using BitID = int; 
 
-  Type      type_;
-  LibraryID libraryID_  {0};
-  DesignID  designID_   {0};
+  Type            type_;
+  LibraryID       libraryID_      {0};
+  DesignID        designID_       {0};
+  DesignObjectID  designObjectID_ {0};
 
   SNLID(LibraryID libraryID):
     type_(SNLID::Type::Library),
@@ -25,6 +26,13 @@ struct SNLID {
     type_(SNLID::Type::Design),
     libraryID_(libraryID),
     designID_(designID)
+  {}
+
+  SNLID(Type type, LibraryID libraryID, DesignID designID, DesignObjectID id):
+    type_(type),
+    libraryID_(libraryID),
+    designID_(designID),
+    designObjectID_(id)
   {}
 
   friend bool operator< (const SNLID &lid, const SNLID &rid) {

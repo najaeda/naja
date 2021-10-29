@@ -3,3 +3,4 @@ ADD_SUBDIRECTORY(googletest)
 INCLUDE(GoogleTest)
 
 ADD_SUBDIRECTORY(snl)
+ADD_SUBDIRECTORY(formats)

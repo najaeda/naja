@@ -38,6 +38,7 @@ class SNLDesign final: public SNLObject {
 
     SNLCollection<SNLInstance> getInstances() const;
 
+    bool isAnonymous() const { return name_.empty(); }
     SNLName getName() const { return name_; }
     constexpr const char* getTypeName() const override;
     std::string getString() const override;

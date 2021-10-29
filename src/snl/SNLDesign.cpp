@@ -14,6 +14,13 @@ SNLDesign* SNLDesign::create(SNLLibrary* library, const SNLName& name) {
   return design;
 }
 
+SNLDesign* SNLDesign::create(SNLLibrary* library) {
+  preCreate(library);
+  SNLDesign* design = new SNLDesign(library);
+  design->postCreate();
+  return design;
+}
+
 SNLDesign::SNLDesign(SNLLibrary* library):
   super(),
   library_(library)
@@ -37,9 +44,6 @@ void SNLDesign::preCreate(const SNLLibrary* library, const SNLName& name) {
 void SNLDesign::postCreate() {
   super::postCreate();
   library_->addDesign(this);
-  if (not name_.empty()) {
-    //designNames_[name_] = id_; 
-  }
 }
 
 void SNLDesign::commonPreDestroy() {
