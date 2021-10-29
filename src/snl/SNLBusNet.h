@@ -16,6 +16,8 @@ class SNLBusNet final: public SNLNet {
 
     SNLDesign* getDesign() const override { return design_; }
 
+    SNLID::DesignObjectID getID() const { return id_; }
+    SNLID getSNLID() const override;
     SNLName getName() const { return name_; }
     constexpr const char* getTypeName() const override;
     std::string getString() const override;
@@ -34,6 +36,7 @@ class SNLBusNet final: public SNLNet {
     }
 
     SNLDesign*                          design_;
+    SNLID::DesignObjectID               id_;
     SNLName                             name_;
     boost::intrusive::set_member_hook<> designBusNetsHook_ {};
 };

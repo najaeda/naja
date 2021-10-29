@@ -3,7 +3,9 @@
 
 #include <vector>
 #include <boost/intrusive/set.hpp>
+
 #include "SNLDesignObject.h"
+#include "SNLID.h"
 #include "SNLName.h"
 
 namespace SNL {
@@ -21,6 +23,7 @@ class SNLInstance final: public SNLDesignObject {
     SNLDesign* getDesign() const override { return design_; }
     SNLDesign* getModel() const { return model_; }
 
+    SNLID getSNLID() const override;
     SNLName getName() const { return name_; }
     constexpr const char* getTypeName() const override;
     std::string getString() const override;
@@ -39,11 +42,12 @@ class SNLInstance final: public SNLDesignObject {
       return li.name_ < ri.name_;
     }
 
-    SNLDesign*                          design_			{nullptr};
-    SNLDesign*                          model_			{nullptr};
-    SNLName                             name_;
-    SNLInstanceInstTerms		instTerms_		{};
-    boost::intrusive::set_member_hook<> designInstancesHook_	{};
+    SNLDesign*                          design_               {nullptr};
+    SNLDesign*                          model_                {nullptr};
+    SNLID::InstanceID                   id_;
+    SNLName                             name_                 {};
+    SNLInstanceInstTerms                instTerms_            {};
+    boost::intrusive::set_member_hook<> designInstancesHook_  {};
 };
 
 }

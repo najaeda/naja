@@ -9,6 +9,7 @@ struct SNLID {
   enum class Type {Library, Design, Term};
   using LibraryID = unsigned short;
   using DesignID = unsigned int;
+  using InstanceID = unsigned int;
   using DesignObjectID =  unsigned int;
   using BitID = int; 
 

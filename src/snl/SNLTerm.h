@@ -10,6 +10,8 @@ class SNLTerm: public SNLDesignObject {
     friend class SNLDesign;
     using super = SNLDesignObject;
 
+    virtual bool isAnonymous() const = 0;
+
   protected:
     SNLTerm() = default;
 

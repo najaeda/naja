@@ -1,6 +1,8 @@
 #ifndef __CARD_ITEM_H_
 #define __CARD_ITEM_H_
 
+#include <string>
+
 class Card;
 
 class CardItem {
