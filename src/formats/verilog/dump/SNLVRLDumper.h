@@ -11,7 +11,7 @@ class SNLVRLDumper {
   public:
     class Configuration {
     };
-    void dump(SNLDesign* design); 
+    void dump(const SNLDesign* design, std::ostream& o); 
 };
 
 }

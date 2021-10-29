@@ -1,5 +1,6 @@
 #include "SNLBusTerm.h"
 
+#include "SNLLibrary.h"
 #include "SNLDesign.h"
 
 namespace SNL {
@@ -12,9 +13,17 @@ SNLBusTerm::SNLBusTerm(SNLDesign* design, const SNLName& name):
 
 SNLBusTerm* SNLBusTerm::create(SNLDesign* design, const SNLName& name) {
   preCreate(design, name);
-  SNLBusTerm* net = new SNLBusTerm(design, name);
-  net->postCreate();
-  return net;
+  SNLBusTerm* term = new SNLBusTerm(design, name);
+  term->postCreate();
+  return term;
+}
+
+SNLID SNLBusTerm::getSNLID() const {
+  return SNLID(
+      SNLID::Type::Term,
+      getDesign()->getLibrary()->getID(),
+      getDesign()->getID(),
+      id_);
 }
 
 constexpr const char* SNLBusTerm::getTypeName() const {

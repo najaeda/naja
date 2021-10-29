@@ -32,11 +32,8 @@ class SNLScalarNet: public SNLBitNet {
 
     SNLScalarNet(SNLDesign* design, const SNLName& name);
 
-    friend bool operator< (const SNLScalarNet &ln, const SNLScalarNet &rn) {
-      return ln.name_ < rn.name_;
-    }
-
     SNLDesign*                          design_;
+    SNLID::DesignObjectID               id_;
     SNLName                             name_;
     boost::intrusive::set_member_hook<> designScalarNetsHook_ {};
 };

@@ -31,10 +31,6 @@ class SNLBusNet final: public SNLNet {
     void preDestroy() override;
     SNLBusNet(SNLDesign* design, const SNLName& name);
 
-    friend bool operator< (const SNLBusNet &ln, const SNLBusNet &rn) {
-      return ln.name_ < rn.name_;
-    }
-
     SNLDesign*                          design_;
     SNLID::DesignObjectID               id_;
     SNLName                             name_;

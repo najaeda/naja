@@ -16,6 +16,10 @@ class SNLDesignObject: public SNLObject {
 
     virtual SNLDesign* getDesign() const = 0;
     virtual SNLID getSNLID() const = 0;
+
+    friend bool operator< (const SNLDesignObject &ldo, const SNLDesignObject &rdo) {
+      return ldo.getSNLID() < rdo.getSNLID();
+    }
   protected:
     SNLDesignObject() = default;
 

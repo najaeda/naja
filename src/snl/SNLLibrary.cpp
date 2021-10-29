@@ -86,9 +86,9 @@ SNLLibrary* SNLLibrary::getParentLibrary() const {
 }
 
 SNLLibrary* SNLLibrary::getLibrary(const SNLName& name) {
-  auto iit = libraryNameIDMap_.find(name);
-  if (iit != libraryNameIDMap_.end()) {
-    SNLID::LibraryID id = iit->second;
+  auto lit = libraryNameIDMap_.find(name);
+  if (lit != libraryNameIDMap_.end()) {
+    SNLID::LibraryID id = lit->second;
     auto it = libraries_.find(SNLID(id), SNLIDComp<SNLLibrary>());
     if (it != libraries_.end()) {
       return &*it;

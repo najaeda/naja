@@ -13,6 +13,7 @@ class SNLScalarTerm: public SNLBitTerm {
     using super = SNLBitTerm;
 
     static SNLScalarTerm* create(SNLDesign* design, const SNLName& name);
+    static SNLScalarTerm* create(SNLDesign* design);
 
     SNLDesign* getDesign() const override { return design_; }
 
@@ -23,17 +24,14 @@ class SNLScalarTerm: public SNLBitTerm {
     std::string getString() const override;
     std::string getDescription() const override;
   private:
+    SNLScalarTerm(SNLDesign* design, const SNLName& name);
+    SNLScalarTerm(SNLDesign* design);
     static void preCreate(const SNLDesign* design, const SNLName& name);
+    static void preCreate(const SNLDesign* design);
     void postCreate();
     void destroyFromDesign();
     void commonPreDestroy();
     void preDestroy() override;
-
-    SNLScalarTerm(SNLDesign* design, const SNLName& name);
-
-    friend bool operator< (const SNLScalarTerm &ln, const SNLScalarTerm &rn) {
-      return ln.name_ < rn.name_;
-    }
 
     SNLDesign*                          design_;
     SNLID::DesignObjectID               id_;

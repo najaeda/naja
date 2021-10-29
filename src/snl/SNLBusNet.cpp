@@ -2,6 +2,7 @@
 
 #include "Card.h"
 
+#include "SNLLibrary.h"
 #include "SNLDesign.h"
 
 namespace SNL {
@@ -41,6 +42,14 @@ void SNLBusNet::destroyFromDesign() {
 void SNLBusNet::preDestroy() {
   commonPreDestroy();
   getDesign()->removeBusNet(this);
+}
+
+SNLID SNLBusNet::getSNLID() const {
+  return SNLID(
+      SNLID::Type::Net,
+      getDesign()->getLibrary()->getID(),
+      getDesign()->getID(),
+      id_);
 }
 
 constexpr const char* SNLBusNet::getTypeName() const {

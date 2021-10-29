@@ -1,6 +1,7 @@
 #include "SNLInstance.h"
 
 #include "Card.h"
+#include "SNLLibrary.h"
 #include "SNLDesign.h"
 
 namespace SNL {
@@ -43,6 +44,14 @@ void SNLInstance::destroyFromDesign() {
 void SNLInstance::preDestroy() {
   commonPreDestroy();
   getDesign()->removeInstance(this);
+}
+
+SNLID SNLInstance::getSNLID() const {
+  return SNLID(
+      SNLID::Type::Instance,
+      getDesign()->getLibrary()->getID(),
+      getDesign()->getID(),
+      id_);
 }
 
 constexpr const char* SNLInstance::getTypeName() const {

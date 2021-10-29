@@ -38,10 +38,6 @@ class SNLInstance final: public SNLDesignObject {
 
     SNLInstance(SNLDesign* design, SNLDesign* model, const SNLName& name);
 
-    friend bool operator< (const SNLInstance &li, const SNLInstance &ri) {
-      return li.name_ < ri.name_;
-    }
-
     SNLDesign*                          design_               {nullptr};
     SNLDesign*                          model_                {nullptr};
     SNLID::InstanceID                   id_;

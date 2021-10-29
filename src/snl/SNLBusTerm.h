@@ -31,10 +31,6 @@ class SNLBusTerm: public SNLTerm {
     void preDestroy() override;
     SNLBusTerm(SNLDesign* design, const SNLName& name);
 
-    friend bool operator< (const SNLBusTerm &ln, const SNLBusTerm &rn) {
-      return ln.name_ < rn.name_;
-    }
-
     SNLDesign*                          design_;
     SNLID::DesignObjectID               id_;
     SNLName                             name_;

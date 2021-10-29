@@ -1,6 +1,8 @@
 #ifndef __SNL_DESIGN_H_
 #define __SNL_DESIGN_H_
 
+#include <map>
+
 #include "SNLID.h"
 #include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
@@ -30,6 +32,7 @@ class SNLDesign final: public SNLObject {
     static SNLDesign* create(SNLLibrary* library);
     static SNLDesign* create(SNLLibrary* library, const std::string& name);
 
+    SNLLibrary* getLibrary() const { return library_; }
     SNLScalarTerm* getScalarTerm(const SNLName& netName);
     SNLBusTerm* getBusTerm(const SNLName& netName);
     SNLInstance* getInstance(const SNLName& instanceName);
@@ -38,14 +41,14 @@ class SNLDesign final: public SNLObject {
 
     SNLCollection<SNLInstance> getInstances() const;
 
+    SNLID::DesignID getID() const { return id_; }
+    SNLID getSNLID() const;
     bool isAnonymous() const { return name_.empty(); }
     SNLName getName() const { return name_; }
     constexpr const char* getTypeName() const override;
     std::string getString() const override;
     std::string getDescription() const override;
     Card* getCard() const override;
-    SNLID getSNLID() const;
-    SNLID::DesignID getID() const { return id_; }
   private:
     SNLDesign(SNLLibrary* library);
     SNLDesign(SNLLibrary* library, const SNLName& name);
@@ -79,6 +82,7 @@ class SNLDesign final: public SNLObject {
     using SNLDesignInstancesHook =
       boost::intrusive::member_hook<SNLInstance, boost::intrusive::set_member_hook<>, &SNLInstance::designInstancesHook_>;
     using SNLDesignInstances = boost::intrusive::set<SNLInstance, SNLDesignInstancesHook>;
+    using SNLInstanceNameIDMap = std::map<SNLName, SNLID::InstanceID>;
     using SNLDesignScalarNetsHook =
       boost::intrusive::member_hook<SNLScalarNet, boost::intrusive::set_member_hook<>, &SNLScalarNet::designScalarNetsHook_>;
     using SNLDesignScalarNets = boost::intrusive::set<SNLScalarNet, SNLDesignScalarNetsHook>;
@@ -87,12 +91,13 @@ class SNLDesign final: public SNLObject {
     using SNLDesignBusNets = boost::intrusive::set<SNLBusNet, SNLDesignBusNetsHook>;
 
     SNLID::DesignID                     id_;
-    SNLName                             name_;
+    SNLName                             name_               {};
     SNLLibrary*                         library_;
     boost::intrusive::set_member_hook<> libraryDesignsHook_ {};
     SNLDesignScalarTerms                scalarTerms_        {};
     SNLDesignBusTerms                   busTerms_           {};
     SNLDesignInstances                  instances_          {};
+    SNLInstanceNameIDMap                instanceNameIDMap_  {};
     SNLDesignScalarNets                 scalarNets_         {};
     SNLDesignBusNets                    busNets_            {};
 };

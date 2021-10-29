@@ -6,7 +6,7 @@
 namespace SNL {
 
 struct SNLID {
-  enum class Type {Library, Design, Term};
+  enum class Type {Library, Design, Term, Net, Instance};
   using LibraryID = unsigned short;
   using DesignID = unsigned int;
   using InstanceID = unsigned int;
@@ -37,8 +37,8 @@ struct SNLID {
   {}
 
   friend bool operator< (const SNLID &lid, const SNLID &rid) {
-    return std::make_tuple(lid.type_, lid.libraryID_, lid.designID_)
-            < std::make_tuple(rid.type_, rid.libraryID_, rid.designID_);
+    return std::make_tuple(lid.type_, lid.libraryID_, lid.designID_, lid.designObjectID_)
+            < std::make_tuple(rid.type_, rid.libraryID_, rid.designID_, rid.designObjectID_);
   }
   
 

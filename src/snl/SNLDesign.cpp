@@ -36,6 +36,7 @@ SNLDesign::SNLDesign(SNLLibrary* library, const SNLName& name):
 void SNLDesign::preCreate(const SNLLibrary* library) {
   super::preCreate();
 }
+
 void SNLDesign::preCreate(const SNLLibrary* library, const SNLName& name) {
   preCreate(library);
   //test if design with same name exists in library
@@ -127,17 +128,37 @@ SNLBusTerm* SNLDesign::getBusTerm(const SNLName& name) {
 }
 
 void SNLDesign::addInstance(SNLInstance* instance) {
+  if (instances_.empty()) {
+    instance->id_ = 0;
+  } else {
+    auto it = instances_.rbegin();
+    SNLInstance* lastInstance = &(*it);
+    SNLID::InstanceID instanceID = lastInstance->id_+1;
+    instance->id_ = instanceID;
+  }
   instances_.insert(*instance);
+  if (not instance->getName().empty()) {
+    instanceNameIDMap_[instance->getName()] = instance->id_;
+  }
 }
 
 void SNLDesign::removeInstance(SNLInstance* instance) {
+  if (not instance->getName().empty()) {
+    instanceNameIDMap_.erase(instance->getName());
+  }
   instances_.erase(*instance);
 }
 
 SNLInstance* SNLDesign::getInstance(const SNLName& name) {
-  auto it = instances_.find(name, SNLNameComp<SNLInstance>());
-  if (it != instances_.end()) {
-    return &*it;
+  auto iit = instanceNameIDMap_.find(name);
+  if (iit != instanceNameIDMap_.end()) {
+    SNLID::InstanceID id = iit->second;
+    auto it = instances_.find(
+        SNLID(SNLID::Type::Instance, getLibrary()->getID(), getID(), id),
+        SNLIDComp<SNLInstance>());
+    if (it != instances_.end()) {
+      return &*it;
+    }
   }
   return nullptr;
 }
