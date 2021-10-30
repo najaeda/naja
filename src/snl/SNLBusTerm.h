@@ -11,7 +11,8 @@ class SNLBusTerm final: public SNLTerm {
     friend class SNLDesign;
     using super = SNLTerm;
 
-    static SNLBusTerm* create(SNLDesign* design, const SNLName& name);
+    static SNLBusTerm* create(SNLDesign* design, const SNLName& name, const Direction& direction);
+    static SNLBusTerm* create(SNLDesign* design, const Direction& direction);
 
     SNLDesign* getDesign() const override { return design_; }
 
@@ -20,11 +21,12 @@ class SNLBusTerm final: public SNLTerm {
     SNLName getName() const override { return name_; }
     bool isAnonymous() const override { return name_.empty(); }
     constexpr const char* getTypeName() const override;
+    SNLTerm::Direction getDirection() const override { return direction_; }
     std::string getString() const override;
     std::string getDescription() const override;
   private:
-    SNLBusTerm(SNLDesign* design);
-    SNLBusTerm(SNLDesign* design, const SNLName& name);
+    SNLBusTerm(SNLDesign* design, const Direction& direction);
+    SNLBusTerm(SNLDesign* design, const SNLName& name, const Direction& direction);
     static void preCreate(const SNLDesign* design);
     static void preCreate(const SNLDesign* design, const SNLName& name);
     void postCreate();
@@ -37,6 +39,7 @@ class SNLBusTerm final: public SNLTerm {
     SNLDesign*                          design_;
     SNLID::DesignObjectID               id_;
     SNLName                             name_;
+    SNLTerm::Direction                  direction_;
 };
 
 }

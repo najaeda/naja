@@ -11,20 +11,22 @@ class SNLScalarTerm final: public SNLBitTerm {
     friend class SNLDesign;
     using super = SNLBitTerm;
 
-    static SNLScalarTerm* create(SNLDesign* design, const SNLName& name);
-    static SNLScalarTerm* create(SNLDesign* design);
+    static SNLScalarTerm* create(SNLDesign* design, const SNLName& name, const Direction& direction);
+    static SNLScalarTerm* create(SNLDesign* design, const Direction& direction);
 
     SNLDesign* getDesign() const override { return design_; }
 
     SNLID getSNLID() const override;
+    SNLID::DesignObjectID getID() const override { return id_; }
     SNLName getName() const override { return name_; }
     bool isAnonymous() const override { return name_.empty(); }
+    SNLTerm::Direction getDirection() const override { return direction_; }
     constexpr const char* getTypeName() const override;
     std::string getString() const override;
     std::string getDescription() const override;
   private:
-    SNLScalarTerm(SNLDesign* design);
-    SNLScalarTerm(SNLDesign* design, const SNLName& name);
+    SNLScalarTerm(SNLDesign* design, const Direction& direction);
+    SNLScalarTerm(SNLDesign* design, const SNLName& name, const Direction& direction);
     static void preCreate(const SNLDesign* design);
     static void preCreate(const SNLDesign* design, const SNLName& name);
     void postCreate();
@@ -32,12 +34,12 @@ class SNLScalarTerm final: public SNLBitTerm {
     void commonPreDestroy();
     void preDestroy() override;
 
-    SNLID::DesignObjectID getID() const override { return id_; }
     void setID(SNLID::DesignObjectID id) override { id_ = id; }
 
-    SNLDesign*                          design_;
-    SNLID::DesignObjectID               id_;
-    SNLName                             name_;
+    SNLDesign*            design_;
+    SNLID::DesignObjectID id_;
+    SNLName               name_;
+    SNLTerm::Direction    direction_;  
 };
 
 }

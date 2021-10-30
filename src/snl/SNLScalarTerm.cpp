@@ -5,27 +5,29 @@
 
 namespace SNL {
 
-SNLScalarTerm::SNLScalarTerm(SNLDesign* design):
-  super(),
-  design_(design)
-{}
-
-SNLScalarTerm::SNLScalarTerm(SNLDesign* design, const SNLName& name):
+SNLScalarTerm::SNLScalarTerm(SNLDesign* design, const Direction& direction):
   super(),
   design_(design),
-  name_(name)
+  direction_(direction)
 {}
 
-SNLScalarTerm* SNLScalarTerm::create(SNLDesign* design, const SNLName& name) {
+SNLScalarTerm::SNLScalarTerm(SNLDesign* design, const SNLName& name, const Direction& direction):
+  super(),
+  design_(design),
+  name_(name),
+  direction_(direction)
+{}
+
+SNLScalarTerm* SNLScalarTerm::create(SNLDesign* design, const SNLName& name, const Direction& direction) {
   preCreate(design, name);
-  SNLScalarTerm* net = new SNLScalarTerm(design, name);
+  SNLScalarTerm* net = new SNLScalarTerm(design, name, direction);
   net->postCreate();
   return net;
 }
 
-SNLScalarTerm* SNLScalarTerm::create(SNLDesign* design) {
+SNLScalarTerm* SNLScalarTerm::create(SNLDesign* design, const Direction& direction) {
   preCreate(design);
-  SNLScalarTerm* term = new SNLScalarTerm(design);
+  SNLScalarTerm* term = new SNLScalarTerm(design, direction);
   term->postCreate();
   return term;
 }
