@@ -4,6 +4,8 @@
 
 #include "SNLCommon.h"
 #include "SNLLibrary.h"
+#include "SNLScalarTerm.h"
+#include "SNLBusTerm.h"
 
 namespace SNL {
 
@@ -48,19 +50,12 @@ void SNLDesign::postCreate() {
 }
 
 void SNLDesign::commonPreDestroy() {
-  struct destroyScalarTermFromDesign {
-    void operator()(SNLScalarTerm* net) {
-      net->destroyFromDesign();
+  struct destroyTermFromDesign {
+    void operator()(SNLTerm* term) {
+      term->destroyFromDesign();
     }
   };
-  scalarTerms_.clear_and_dispose(destroyScalarTermFromDesign());
-
-  struct destroyBusTermFromDesign {
-    void operator()(SNLBusTerm* net) {
-      net->destroyFromDesign();
-    }
-  };
-  busTerms_.clear_and_dispose(destroyBusTermFromDesign());
+  terms_.clear_and_dispose(destroyTermFromDesign());
 
   struct destroyInstanceFromDesign {
     void operator()(SNLInstance* instance) {
@@ -95,36 +90,52 @@ void SNLDesign::preDestroy() {
   commonPreDestroy();
 }
 
-void SNLDesign::addScalarTerm(SNLScalarTerm* scalarTerm) {
-  scalarTerms_.insert(*scalarTerm);
+void SNLDesign::addTerm(SNLTerm* term) {
+  assert(dynamic_cast<SNLScalarTerm*>(term) or dynamic_cast<SNLBusTerm*>(term));
+
+  if (terms_.empty()) {
+    term->setID(0);
+  } else {
+    auto it = terms_.rbegin();
+    SNLTerm* lastTerm = &(*it);
+    SNLID::DesignObjectID termID = lastTerm->getID()+1;
+    term->setID(termID);
+  }
+  terms_.insert(*term);
+  if (not term->getName().empty()) {
+    termNameIDMap_[term->getName()] = term->getID();
+  }
 }
 
-void SNLDesign::removeScalarTerm(SNLScalarTerm* scalarTerm) {
-  scalarTerms_.erase(*scalarTerm);
+void SNLDesign::removeTerm(SNLTerm* term) {
+  assert(dynamic_cast<SNLScalarTerm*>(term) or dynamic_cast<SNLBusTerm*>(term));
+
+  if (not term->getName().empty()) {
+    termNameIDMap_.erase(term->getName());
+  }
+  terms_.erase(*term);
+}
+
+SNLTerm* SNLDesign::getTerm(const SNLName& name) {
+  auto tit = termNameIDMap_.find(name);
+  if (tit != termNameIDMap_.end()) {
+    SNLID::DesignObjectID id = tit->second;
+    auto it = terms_.find(
+        SNLID(SNLID::Type::Term, getLibrary()->getID(), getID(), id),
+        SNLIDComp<SNLTerm>());
+    if (it != terms_.end()) {
+      return &*it;
+    }
+  }
+  return nullptr;
 }
 
 SNLScalarTerm* SNLDesign::getScalarTerm(const SNLName& name) {
-  auto it = scalarTerms_.find(name, SNLNameComp<SNLScalarTerm>());
-  if (it != scalarTerms_.end()) {
-    return &*it;
-  }
-  return nullptr;
-}
-
-void SNLDesign::addBusTerm(SNLBusTerm* busTerm) {
-  busTerms_.insert(*busTerm);
-}
-
-void SNLDesign::removeBusTerm(SNLBusTerm* busTerm) {
-  busTerms_.erase(*busTerm);
+  return dynamic_cast<SNLScalarTerm*>(getTerm(name));
 }
 
 SNLBusTerm* SNLDesign::getBusTerm(const SNLName& name) {
-  auto it = busTerms_.find(name, SNLNameComp<SNLBusTerm>());
-  if (it != busTerms_.end()) {
-    return &*it;
-  }
-  return nullptr;
+  return dynamic_cast<SNLBusTerm*>(getTerm(name));
 }
 
 void SNLDesign::addInstance(SNLInstance* instance) {

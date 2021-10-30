@@ -45,7 +45,7 @@ void SNLBusTerm::preCreate(const SNLDesign* design, const SNLName& name) {
 
 void SNLBusTerm::postCreate() {
   super::postCreate();
-  getDesign()->addBusTerm(this);
+  getDesign()->addTerm(this);
 }
 
 void SNLBusTerm::commonPreDestroy() {
@@ -59,7 +59,7 @@ void SNLBusTerm::destroyFromDesign() {
 
 void SNLBusTerm::preDestroy() {
   commonPreDestroy();
-  getDesign()->removeBusTerm(this);
+  getDesign()->removeTerm(this);
 }
 
 }

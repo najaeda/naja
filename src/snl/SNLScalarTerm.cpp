@@ -42,7 +42,7 @@ void SNLScalarTerm::preCreate(const SNLDesign* design, const SNLName& name) {
 
 void SNLScalarTerm::postCreate() {
   super::postCreate();
-  getDesign()->addScalarTerm(this);
+  getDesign()->addTerm(this);
 }
 
 void SNLScalarTerm::commonPreDestroy() {
@@ -56,7 +56,7 @@ void SNLScalarTerm::destroyFromDesign() {
 
 void SNLScalarTerm::preDestroy() {
   commonPreDestroy();
-  getDesign()->removeScalarTerm(this);
+  getDesign()->removeTerm(this);
 }
 
 SNLID SNLScalarTerm::getSNLID() const {
