@@ -25,9 +25,11 @@ class SNLLibrary final: public SNLObject {
 
     SNLCollection<SNLLibrary> getLibraries();
     SNLLibrary* getParentLibrary() const;
+    SNLLibrary* getLibrary(SNLID::LibraryID id);
     SNLLibrary* getLibrary(const SNLName& name);
 
     SNLCollection<SNLDesign> getDesigns();
+    SNLDesign* getDesign(SNLID::DesignID id);
     SNLDesign* getDesign(const SNLName& name);
 
     SNLID::LibraryID getID() const { return id_; }

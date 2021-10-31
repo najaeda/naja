@@ -18,7 +18,10 @@ TEST_F(SNLDBTest, test) {
   ASSERT_TRUE(universe);
   SNLDB* db1 = SNLDB::create(universe);
   EXPECT_EQ(1, db1->getID());
+  EXPECT_EQ(universe->getDB(1), db1);
   SNLDB* db2 = SNLDB::create(universe);
   EXPECT_EQ(2, db2->getID());
+  EXPECT_EQ(universe->getDB(2), db2);
   db1->destroy();
+  EXPECT_FALSE(universe->getDB(1));
 }

@@ -239,7 +239,7 @@ Card* SNLDesign::getCard() const {
 }
 
 SNLID SNLDesign::getSNLID() const {
-  return SNLID(library_->getID(), getID());
+  return SNLID(getDB()->getID(), library_->getID(), getID());
 }
 
 }

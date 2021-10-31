@@ -85,14 +85,19 @@ SNLLibrary* SNLLibrary::getParentLibrary() const {
   return nullptr;
 }
 
+SNLLibrary* SNLLibrary::getLibrary(SNLID::LibraryID id) {
+  auto it = libraries_.find(SNLID(getDB()->getID(), id), SNLIDComp<SNLLibrary>());
+  if (it != libraries_.end()) {
+    return &*it;
+  }
+  return nullptr;
+}
+
 SNLLibrary* SNLLibrary::getLibrary(const SNLName& name) {
   auto lit = libraryNameIDMap_.find(name);
   if (lit != libraryNameIDMap_.end()) {
     SNLID::LibraryID id = lit->second;
-    auto it = libraries_.find(SNLID(getDB()->getID(), id), SNLIDComp<SNLLibrary>());
-    if (it != libraries_.end()) {
-      return &*it;
-    }
+    return getLibrary(id);
   }
   return nullptr;
 }
@@ -101,14 +106,19 @@ SNLCollection<SNLLibrary> SNLLibrary::getLibraries() {
   return SNLCollection<SNLLibrary>(new SNLIntrusiveSetCollection<SNLLibrary, SNLLibraryLibrariesHook>(&libraries_));
 }
 
+SNLDesign* SNLLibrary::getDesign(SNLID::DesignID id) {
+  auto it = designs_.find(SNLID(getDB()->getID(), getID(), id), SNLIDComp<SNLDesign>());
+  if (it != designs_.end()) {
+    return &*it;
+  }
+  return nullptr;
+}
+
 SNLDesign* SNLLibrary::getDesign(const SNLName& name) {
   auto dit = designNameIDMap_.find(name);
   if (dit != designNameIDMap_.end()) {
-    SNLID::DesignObjectID id = dit->second;
-    auto it = designs_.find(SNLID(getID(), id), SNLIDComp<SNLDesign>());
-    if (it != designs_.end()) {
-      return &*it;
-    }
+    SNLID::DesignID id = dit->second;
+    return getDesign(id);
   }
   return nullptr;
 }

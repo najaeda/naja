@@ -14,10 +14,12 @@ class SNLUniverse final: public SNLObject {
     static SNLUniverse* create();
     static SNLUniverse* get();
 
+    SNLCollection<SNLDB> getDBs();
+    SNLDB* getDB(SNLID::DBID id);
+
     constexpr const char* getTypeName() const override;
     std::string getString() const override;
     std::string getDescription() const override;
-
   private:
     SNLUniverse() = default;
     static void preCreate();

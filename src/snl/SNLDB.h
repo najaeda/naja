@@ -25,6 +25,8 @@ class SNLDB final: public SNLObject {
 
     SNLID::DBID getID() const { return id_; }
     SNLID getSNLID() const;
+
+    SNLLibrary* getLibrary(SNLID::LibraryID id);
     SNLLibrary* getLibrary(const SNLName& name);
 
     constexpr const char* getTypeName() const override;

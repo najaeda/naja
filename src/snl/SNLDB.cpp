@@ -59,14 +59,19 @@ void SNLDB::removeLibrary(SNLLibrary* library) {
   libraryNameIDMap_.erase(library->getName());
 }
 
+SNLLibrary* SNLDB::getLibrary(SNLID::LibraryID id) {
+  auto it = libraries_.find(SNLID(getID(), id), SNLIDComp<SNLLibrary>());
+  if (it != libraries_.end()) {
+    return &*it;
+  }
+  return nullptr;
+}
+
 SNLLibrary* SNLDB::getLibrary(const SNLName& name) {
   auto iit = libraryNameIDMap_.find(name);
   if (iit != libraryNameIDMap_.end()) {
     SNLID::LibraryID id = iit->second;
-    auto it = libraries_.find(SNLID(getID(), id), SNLIDComp<SNLLibrary>());
-    if (it != libraries_.end()) {
-      return &*it;
-    }
+    return getLibrary(id);
   }
   return nullptr;
 }

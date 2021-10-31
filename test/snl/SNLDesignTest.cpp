@@ -24,11 +24,13 @@ class SNLDesignTest: public ::testing::Test {
 TEST_F(SNLDesignTest, testCreation) {
   SNLLibrary* library = db_->getLibrary(SNLName("MYLIB"));
   ASSERT_TRUE(library);
-  SNLDesign* design = SNLDesign::create(library, "design");
+  SNLDesign* design = SNLDesign::create(library, SNLName("design"));
   ASSERT_TRUE(design);
-  EXPECT_EQ("design", design->getName());
+  EXPECT_EQ(SNLName("design"), design->getName());
   EXPECT_EQ(0, design->getID());
   EXPECT_FALSE(design->isAnonymous());
+  EXPECT_EQ(design, library->getDesign(0));
+  EXPECT_EQ(design, library->getDesign(SNLName("design")));
   SNLScalarTerm* term0 = SNLScalarTerm::create(design, SNLName("term0"), SNLTerm::Direction::Input);
   ASSERT_TRUE(term0);
   EXPECT_EQ(SNLName("term0"), term0->getName());
@@ -65,10 +67,13 @@ TEST_F(SNLDesignTest, testCreation) {
   EXPECT_EQ("model", model->getName());
   EXPECT_EQ(1, model->getID());
   EXPECT_FALSE(model->isAnonymous());
+  EXPECT_EQ(model, library->getDesign(1));
+  EXPECT_EQ(model, library->getDesign(SNLName("model")));
 
   //anonymous design
   SNLDesign* anon = SNLDesign::create(library);
   ASSERT_TRUE(anon);
   EXPECT_EQ(2, anon->getID());
   EXPECT_TRUE(anon->isAnonymous());
+  EXPECT_EQ(anon, library->getDesign(2));
 }

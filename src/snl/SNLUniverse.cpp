@@ -55,6 +55,18 @@ void SNLUniverse::removeDB(SNLDB* db) {
   dbs_.erase(*db);
 }
 
+SNLCollection<SNLDB> SNLUniverse::getDBs() {
+  return SNLCollection<SNLDB>(new SNLIntrusiveSetCollection<SNLDB, SNLUniverseDBsHook>(&dbs_));
+}
+
+SNLDB* SNLUniverse::getDB(SNLID::DBID id) {
+  auto it = dbs_.find(SNLID(id), SNLIDComp<SNLDB>());
+  if (it != dbs_.end()) {
+    return &*it;
+  }
+  return nullptr;
+}
+
 constexpr const char* SNLUniverse::getTypeName() const {
   return "SNLUniverse";
 }
