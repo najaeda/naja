@@ -1,10 +1,18 @@
 # naja
+***
+![build](https://github.com/xtofalex/naja/actions/workflows/build.yml/badge.svg)
+***
+## Introduction
+## Main objects
+## 
 
-## NJID
-Field       | Type           | Size (bytes) | Max value | Remarks
-------------|----------------|--------------|-----------|---------
+
+## SNL Object identifications
+Field       | Type           | Size (bytes) | Max value |
+------------|----------------|--------------|-----------|
 Object type | unsigned char  | 1            | 0-255     |
-Library     | unsigned short | 2            | 0 - 65535 | global ID or related to parent (library or DB) ?
+DB.         | unsigned char  | 1.           | 0-255     |
+Library     | unsigned short | 2            | 0 - 65535 |
 Design      | unsigned int   | 4            | 0 - 4,294,967,295 |
 Instance    | unsigned int   | 4            | 0 - 4,294,967,295 |
 Net object  | unsigned int   | 4            | 0 - 4,294,967,295 |
