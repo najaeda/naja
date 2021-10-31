@@ -1,6 +1,7 @@
 SET(SOURCES
   SNLObject.cpp
-  SNLUniverse.cpp SNLDB.cpp SNLLibrary.cpp SNLDesign.cpp SNLDesignObject.cpp
+  SNLUniverse.cpp SNLDB.cpp SNLDB0.cpp
+  SNLLibrary.cpp SNLDesign.cpp SNLDesignObject.cpp
   SNLNet.cpp SNLBusNet.cpp SNLBitNet.cpp SNLScalarNet.cpp
   SNLTerm.cpp SNLBusTerm.cpp SNLBitTerm.cpp SNLScalarTerm.cpp
   SNLInstance.cpp

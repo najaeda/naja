@@ -1,5 +1,7 @@
 #include "SNLUniverse.h"
 
+#include "SNLDB0.h"
+
 namespace SNL {
 
 SNLUniverse* SNLUniverse::universe_ = nullptr;
@@ -18,6 +20,9 @@ void SNLUniverse::preCreate() {
 
 void SNLUniverse::postCreate() {
   super::postCreate();
+  //create the special DB0 which holds the SNL managed libraries
+  //such as assign cell
+  SNLDB0::create(this);
 }
 
 void SNLUniverse::preDestroy() {
