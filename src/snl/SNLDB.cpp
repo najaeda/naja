@@ -1,12 +1,16 @@
 #include "SNLDB.h"
 
-#include "SNLCommon.h"
+#include "SNLUniverse.h"
 
 namespace SNL {
 
-SNLDB* SNLDB::create() {
+SNLDB::SNLDB(SNLUniverse* universe):
+  universe_(universe)
+{}
+
+SNLDB* SNLDB::create(SNLUniverse* universe) {
   preCreate();
-  SNLDB* db = new SNLDB();
+  SNLDB* db = new SNLDB(universe);
   db->postCreate();
   return db;
 }
@@ -17,6 +21,7 @@ void SNLDB::preCreate() {
 
 void SNLDB::postCreate() {
   super::postCreate();
+  universe_->addDB(this);
 }
 
 void SNLDB::preDestroy() {
@@ -28,6 +33,11 @@ void SNLDB::preDestroy() {
   libraries_.clear_and_dispose(destroyLibraryFromDB());
   libraryNameIDMap_.clear();
   super::preDestroy();
+}
+
+void SNLDB::destroyFromUniverse() {
+  super::preDestroy();
+  delete this;
 }
 
 void SNLDB::addLibrary(SNLLibrary* library) {
@@ -52,12 +62,16 @@ SNLLibrary* SNLDB::getLibrary(const SNLName& name) {
   auto iit = libraryNameIDMap_.find(name);
   if (iit != libraryNameIDMap_.end()) {
     SNLID::LibraryID id = iit->second;
-    auto it = libraries_.find(SNLID(id), SNLIDComp<SNLLibrary>());
+    auto it = libraries_.find(SNLID(getID(), id), SNLIDComp<SNLLibrary>());
     if (it != libraries_.end()) {
       return &*it;
     }
   }
   return nullptr;
+}
+
+SNLID SNLDB::getSNLID() const {
+  return SNLID(id_);
 }
 
 constexpr const char* SNLDB::getTypeName() const {

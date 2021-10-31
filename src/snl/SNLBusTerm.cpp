@@ -1,6 +1,5 @@
 #include "SNLBusTerm.h"
 
-#include "SNLLibrary.h"
 #include "SNLDesign.h"
 
 namespace SNL {
@@ -62,11 +61,7 @@ void SNLBusTerm::preDestroy() {
 }
 
 SNLID SNLBusTerm::getSNLID() const {
-  return SNLID(
-      SNLID::Type::Term,
-      getDesign()->getLibrary()->getID(),
-      getDesign()->getID(),
-      id_);
+  return SNLDesignObject::getSNLID(SNLID::Type::Term, id_);
 }
 
 constexpr const char* SNLBusTerm::getTypeName() const {

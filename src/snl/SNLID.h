@@ -6,7 +6,8 @@
 namespace SNL {
 
 struct SNLID {
-  enum class Type {Library, Design, Term, Net, Instance};
+  enum class Type {DB, Library, Design, Term, Net, Instance};
+  using DBID = unsigned char;
   using LibraryID = unsigned short;
   using DesignID = unsigned int;
   using InstanceID = unsigned int;
@@ -14,45 +15,41 @@ struct SNLID {
   using BitID = int; 
 
   Type            type_;
+  DBID            dbID_           {0};
   LibraryID       libraryID_      {0};
   DesignID        designID_       {0};
   DesignObjectID  designObjectID_ {0};
 
-  SNLID(LibraryID libraryID):
+  SNLID(DBID dbID):
+    type_(SNLID::Type::DB),
+    dbID_(dbID)
+  {}
+
+  SNLID(DBID dbID, LibraryID libraryID):
     type_(SNLID::Type::Library),
+    dbID_(dbID),
     libraryID_(libraryID)
   {}
 
-  SNLID(LibraryID libraryID, DesignID designID):
+  SNLID(DBID dbID, LibraryID libraryID, DesignID designID):
     type_(SNLID::Type::Design),
+    dbID_(dbID),
     libraryID_(libraryID),
     designID_(designID)
   {}
 
-  SNLID(Type type, LibraryID libraryID, DesignID designID, DesignObjectID id):
+  SNLID(Type type, DBID dbID, LibraryID libraryID, DesignID designID, DesignObjectID id):
     type_(type),
+    dbID_(dbID),
     libraryID_(libraryID),
     designID_(designID),
     designObjectID_(id)
   {}
 
   friend bool operator< (const SNLID &lid, const SNLID &rid) {
-    return std::make_tuple(lid.type_, lid.libraryID_, lid.designID_, lid.designObjectID_)
-            < std::make_tuple(rid.type_, rid.libraryID_, rid.designID_, rid.designObjectID_);
+    return std::make_tuple(lid.type_, lid.dbID_, lid.libraryID_, lid.designID_, lid.designObjectID_)
+            < std::make_tuple(rid.type_, rid.dbID_, rid.libraryID_, rid.designID_, rid.designObjectID_);
   }
-  
-
-#if 0
-  enum  type;
-  unsigned short  libraryID_;
-  unsigned int    designID_;
-  unsigned int 
-  size_t  libraryID_
-  size_t  designID_
-  size_t  objectID_;
-
-  SNLID(unsigned
-#endif
   
 };
 

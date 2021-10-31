@@ -6,38 +6,50 @@
 
 namespace SNL {
 
+class SNLUniverse;
+
 class SNLDB final: public SNLObject {
   public:
+    friend class SNLUniverse;
     friend class SNLLibrary;
-    SNLDB(const SNLDB&) = delete;
+    using super = SNLObject;
 
     using SNLDBLibrariesHook =
       boost::intrusive::member_hook<SNLLibrary, boost::intrusive::set_member_hook<>, &SNLLibrary::librariesHook_>;
     using SNLDBLibraries = boost::intrusive::set<SNLLibrary, SNLDBLibrariesHook>;
 
-    using super = SNLObject;
+    SNLDB() = delete;
+    SNLDB(const SNLDB&) = delete;
 
-    static SNLDB* create();
+    static SNLDB* create(SNLUniverse* universe);
 
+    SNLID::DBID getID() const { return id_; }
+    SNLID getSNLID() const;
     SNLLibrary* getLibrary(const SNLName& name);
 
     constexpr const char* getTypeName() const override;
     std::string getString() const override;
     std::string getDescription() const override;
+
+    friend bool operator< (const SNLDB &ldb, const SNLDB &rdb) {
+      return ldb.getSNLID() < rdb.getSNLID();
+    }
   private:
+    SNLDB(SNLUniverse* universe);
     static void preCreate();
     void postCreate();
     void preDestroy() override;
+    void destroyFromUniverse();
 
     void addLibrary(SNLLibrary* library);
     void removeLibrary(SNLLibrary* library);
 
-    SNLDB() = default;
-
-    SNLDBLibraries    libraries_        {};
+    SNLUniverse*      universe_;
+    SNLID::DBID       id_;
+    boost::intrusive::set_member_hook<> universeDBsHook_  {};
+    SNLDBLibraries    libraries_                          {};
     using LibraryNameIDMap = std::map<SNLName, SNLID::LibraryID>;
-    LibraryNameIDMap  libraryNameIDMap_ {};
-    
+    LibraryNameIDMap  libraryNameIDMap_                   {};
 };
 
 }

@@ -89,7 +89,7 @@ SNLLibrary* SNLLibrary::getLibrary(const SNLName& name) {
   auto lit = libraryNameIDMap_.find(name);
   if (lit != libraryNameIDMap_.end()) {
     SNLID::LibraryID id = lit->second;
-    auto it = libraries_.find(SNLID(id), SNLIDComp<SNLLibrary>());
+    auto it = libraries_.find(SNLID(getDB()->getID(), id), SNLIDComp<SNLLibrary>());
     if (it != libraries_.end()) {
       return &*it;
     }
@@ -169,7 +169,7 @@ std::string SNLLibrary::getDescription() const {
 }
 
 SNLID SNLLibrary::getSNLID() const {
-  return SNLID(getID());
+  return SNLID(getDB()->getID(), getID());
 }
 
 }

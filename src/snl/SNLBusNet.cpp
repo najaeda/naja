@@ -2,6 +2,7 @@
 
 #include "Card.h"
 
+#include "SNLDB.h"
 #include "SNLLibrary.h"
 #include "SNLDesign.h"
 
@@ -47,6 +48,7 @@ void SNLBusNet::preDestroy() {
 SNLID SNLBusNet::getSNLID() const {
   return SNLID(
       SNLID::Type::Net,
+      getDesign()->getLibrary()->getDB()->getID(),
       getDesign()->getLibrary()->getID(),
       getDesign()->getID(),
       id_);

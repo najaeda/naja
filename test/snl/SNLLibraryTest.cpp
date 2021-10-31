@@ -1,32 +1,33 @@
 #include "gtest/gtest.h"
 
-#include "SNLDB.h"
+#include "SNLUniverse.h"
 using namespace SNL;
 
 class SNLLibraryTest: public ::testing::Test {
   protected:
     void SetUp() override {
-      db_ = SNLDB::create();
+      universe_ = SNLUniverse::create();
     }
     void TearDown() override {
-      db_->destroy();
+      universe_->destroy();
     }
-    SNLDB*  db_;
+    SNLUniverse*  universe_;
 };
 
 TEST_F(SNLLibraryTest, test) {
-  SNLLibrary* lib1 = db_->getLibrary(SNLName("LIB1"));
+  SNLDB* db = SNLDB::create(universe_);
+  SNLLibrary* lib1 = db->getLibrary(SNLName("LIB1"));
   EXPECT_FALSE(lib1);
-  lib1 = SNLLibrary::create(db_, SNLName("LIB1"));
+  lib1 = SNLLibrary::create(db, SNLName("LIB1"));
   ASSERT_TRUE(lib1);
-  SNLLibrary* testLib1 = db_->getLibrary(SNLName("LIB1"));
+  SNLLibrary* testLib1 = db->getLibrary(SNLName("LIB1"));
   ASSERT_TRUE(testLib1);
   EXPECT_EQ(testLib1, lib1);
   EXPECT_EQ("LIB1", lib1->getName());
 
-  SNLLibrary* lib2 = SNLLibrary::create(db_, SNLName("LIB2"));
+  SNLLibrary* lib2 = SNLLibrary::create(db, SNLName("LIB2"));
   ASSERT_TRUE(lib2);
-  SNLLibrary* testLib2 = db_->getLibrary(SNLName("LIB2"));
+  SNLLibrary* testLib2 = db->getLibrary(SNLName("LIB2"));
   ASSERT_TRUE(testLib2);
   EXPECT_EQ(testLib2, lib2);
   EXPECT_EQ("LIB2", lib2->getName());
@@ -50,6 +51,6 @@ TEST_F(SNLLibraryTest, test) {
   EXPECT_FALSE(testLib4);
 
   lib2->destroy();
-  testLib2 = db_->getLibrary(SNLName("LIB2"));
+  testLib2 = db->getLibrary(SNLName("LIB2"));
   EXPECT_FALSE(testLib2);
 }

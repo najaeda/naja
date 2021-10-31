@@ -2,7 +2,7 @@
 
 #include "Card.h"
 
-#include "SNLCommon.h"
+#include "SNLDB.h" 
 #include "SNLLibrary.h"
 #include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
@@ -116,12 +116,16 @@ void SNLDesign::removeTerm(SNLTerm* term) {
   terms_.erase(*term);
 }
 
+SNLDB* SNLDesign::getDB() const {
+  return getLibrary()->getDB();
+}
+
 SNLTerm* SNLDesign::getTerm(const SNLName& name) {
   auto tit = termNameIDMap_.find(name);
   if (tit != termNameIDMap_.end()) {
     SNLID::DesignObjectID id = tit->second;
     auto it = terms_.find(
-        SNLID(SNLID::Type::Term, getLibrary()->getID(), getID(), id),
+        SNLID(SNLID::Type::Term, getDB()->getID(), getLibrary()->getID(), getID(), id),
         SNLIDComp<SNLTerm>());
     if (it != terms_.end()) {
       return &*it;
@@ -165,7 +169,7 @@ SNLInstance* SNLDesign::getInstance(const SNLName& name) {
   if (iit != instanceNameIDMap_.end()) {
     SNLID::InstanceID id = iit->second;
     auto it = instances_.find(
-        SNLID(SNLID::Type::Instance, getLibrary()->getID(), getID(), id),
+        SNLID(SNLID::Type::Instance, getDB()->getID(), getLibrary()->getID(), getID(), id),
         SNLIDComp<SNLInstance>());
     if (it != instances_.end()) {
       return &*it;
@@ -183,10 +187,10 @@ void SNLDesign::removeScalarNet(SNLScalarNet* scalarNet) {
 }
 
 SNLScalarNet* SNLDesign::getScalarNet(const SNLName& name) {
-  auto it = scalarNets_.find(name, SNLNameComp<SNLScalarNet>());
-  if (it != scalarNets_.end()) {
-    return &*it;
-  }
+  //auto it = scalarNets_.find(name, SNLNameComp<SNLScalarNet>());
+  //if (it != scalarNets_.end()) {
+  //  return &*it;
+  //}
   return nullptr;
 }
 
@@ -199,10 +203,10 @@ void SNLDesign::removeBusNet(SNLBusNet* busNet) {
 }
 
 SNLBusNet* SNLDesign::getBusNet(const SNLName& name) {
-  auto it = busNets_.find(name, SNLNameComp<SNLBusNet>());
-  if (it != busNets_.end()) {
-    return &*it;
-  }
+  //auto it = busNets_.find(name, SNLNameComp<SNLBusNet>());
+  //if (it != busNets_.end()) {
+  //  return &*it;
+  //}
   return nullptr;
 }
 

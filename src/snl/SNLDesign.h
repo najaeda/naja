@@ -33,6 +33,7 @@ class SNLDesign final: public SNLObject {
     static SNLDesign* create(SNLLibrary* library);
     static SNLDesign* create(SNLLibrary* library, const std::string& name);
 
+    SNLDB* getDB() const;
     SNLLibrary* getLibrary() const { return library_; }
     SNLTerm* getTerm(const SNLName& netName);
     SNLScalarTerm* getScalarTerm(const SNLName& netName);

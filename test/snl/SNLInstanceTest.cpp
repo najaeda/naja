@@ -1,5 +1,6 @@
 #include "gtest/gtest.h"
 
+#include "SNLUniverse.h"
 #include "SNLDB.h"
 #include "SNLDesign.h"
 #include "SNLInstance.h"
@@ -9,10 +10,11 @@ using namespace SNL;
 class SNLInstanceTest: public ::testing::Test {
   protected:
     void SetUp() override {
-      db_ = SNLDB::create();
+      auto universe = SNLUniverse::create();
+      db_ = SNLDB::create(universe);
     }
     void TearDown() override {
-      db_->destroy();
+      SNLUniverse::get()->destroy();
     }
     SNLDB*  db_;
 };

@@ -1,6 +1,9 @@
 #include "SNLDesignObject.h"
 
 #include "Card.h"
+
+#include "SNLDB.h"
+#include "SNLLibrary.h"
 #include "SNLDesign.h"
 
 namespace SNL {
@@ -11,6 +14,22 @@ void SNLDesignObject::postCreate() {
 
 void SNLDesignObject::preDestroy() {
   super::preDestroy();
+}
+
+SNLLibrary* SNLDesignObject::getLibrary() const {
+  return getDesign()->getLibrary();
+}
+
+SNLDB* SNLDesignObject::getDB() const {
+  return getLibrary()->getDB();
+}
+
+SNLID SNLDesignObject::getSNLID(const SNLID::Type& type, SNLID::DesignObjectID id) const {
+  return SNLID(type,
+      getDB()->getID(),
+      getLibrary()->getID(),
+      getDesign()->getID(),
+      id);
 }
 
 }

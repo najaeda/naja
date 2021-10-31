@@ -61,10 +61,10 @@ class SNLLibrary final: public SNLObject {
     using SNLLibraryDesigns = boost::intrusive::set<SNLDesign, SNLLibraryDesignsHook>;
     using SNLDesignNameIDMap = std::map<SNLName, SNLID::DesignID>;
 
-    SNLID::LibraryID  id_;
-    SNLName           name_;
-    void*             parent_;
-    bool              isRootLibrary_;
+    SNLID::LibraryID                    id_;
+    SNLName                             name_;
+    void*                               parent_;
+    bool                                isRootLibrary_;
     boost::intrusive::set_member_hook<> librariesHook_    {};
     using SNLLibraryLibrariesHook =
       boost::intrusive::member_hook<SNLLibrary, boost::intrusive::set_member_hook<>, &SNLLibrary::librariesHook_>;

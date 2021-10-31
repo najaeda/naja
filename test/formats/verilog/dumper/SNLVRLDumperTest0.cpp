@@ -5,6 +5,7 @@
 
 #include "SNLVRLDumper.h"
 
+#include "SNLUniverse.h"
 #include "SNLDB.h"
 
 using namespace SNL;
@@ -12,7 +13,8 @@ using namespace SNL;
 class SNLVRLDumperTest0: public ::testing::Test {
   protected:
     void SetUp() override {
-      db_ = SNLDB::create();
+      SNLUniverse* universe = SNLUniverse::create();
+      db_ = SNLDB::create(universe);
       SNLLibrary* library = SNLLibrary::create(db_, "MYLIB");
       SNLDesign* design = SNLDesign::create(library, "design");
       SNLDesign* model = SNLDesign::create(library, "model");
@@ -20,7 +22,7 @@ class SNLVRLDumperTest0: public ::testing::Test {
       SNLInstance* instance2 = SNLInstance::create(design, model, "instance2");
     }
     void TearDown() override {
-      db_->destroy();
+      SNLUniverse::get()->destroy();
     }
   protected:
     SNLDB*      db_;

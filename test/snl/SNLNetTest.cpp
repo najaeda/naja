@@ -1,5 +1,6 @@
 #include "gtest/gtest.h"
 
+#include "SNLUniverse.h"
 #include "SNLDB.h"
 
 using namespace SNL;
@@ -7,7 +8,8 @@ using namespace SNL;
 class SNLNetTest: public ::testing::Test {
   protected:
     void SetUp() override {
-      db_ = SNLDB::create();
+      auto universe = SNLUniverse::create();
+      db_ = SNLDB::create(universe);
       library_ = SNLLibrary::create(db_, "LIB");
       SNLDesign* design = SNLDesign::create(library_, "Design");
     }
