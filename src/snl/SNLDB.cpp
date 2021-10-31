@@ -25,6 +25,7 @@ void SNLDB::postCreate() {
 }
 
 void SNLDB::preDestroy() {
+  SNLUniverse::get()->removeDB(this);
   struct destroyLibraryFromDB {
     void operator()(SNL::SNLLibrary* library) {
       library->destroyFromDB();

@@ -46,6 +46,10 @@ void SNLUniverse::addDB(SNLDB* db) {
   dbs_.insert(*db);
 }
 
+void SNLUniverse::removeDB(SNLDB* db) {
+  dbs_.erase(*db);
+}
+
 constexpr const char* SNLUniverse::getTypeName() const {
   return "SNLUniverse";
 }
