@@ -20,6 +20,9 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+        submodules: true
     # install dependencies
     - name: boost
       run: sudo apt-get update && sudo apt-get install -yq libboost-dev
