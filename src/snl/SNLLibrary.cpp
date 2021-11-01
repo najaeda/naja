@@ -1,7 +1,6 @@
 #include "SNLLibrary.h"
 
 #include "SNLDB.h"
-#include "SNLCommon.h"
 
 namespace SNL {
 
