@@ -47,8 +47,8 @@ struct SNLID {
   {}
 
   friend bool operator< (const SNLID &lid, const SNLID &rid) {
-    return std::make_tuple(lid.type_, lid.dbID_, lid.libraryID_, lid.designID_, lid.designObjectID_)
-            < std::make_tuple(rid.type_, rid.dbID_, rid.libraryID_, rid.designID_, rid.designObjectID_);
+    return std::tie(lid.type_, lid.dbID_, lid.libraryID_, lid.designID_, lid.designObjectID_)
+            < std::tie(rid.type_, rid.dbID_, rid.libraryID_, rid.designID_, rid.designObjectID_);
   }
   
 };

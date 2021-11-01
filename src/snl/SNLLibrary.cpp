@@ -128,19 +128,17 @@ SNLCollection<SNLDesign> SNLLibrary::getDesigns() {
 }
 
 void SNLLibrary::addLibrary(SNLLibrary* library) {
-  if (libraries_.empty()) {
-    library->id_ = 0;
-  } else {
-    auto it = libraries_.rbegin();
-    SNLLibrary* lastLibrary = &(*it);
-    SNLID::LibraryID libraryID = lastLibrary->id_+1;
-    library->id_ = libraryID;
-  }
+  library->id_ = getDB()->nextLibraryID_++;
   libraries_.insert(*library);
-  libraryNameIDMap_[library->getName()] = library->id_;
+  if (not library->isAnonymous()) {
+    libraryNameIDMap_[library->getName()] = library->id_;
+  }
 }
 
 void SNLLibrary::removeLibrary(SNLLibrary* library) {
+  if (not library->isAnonymous()) {
+    libraryNameIDMap_.erase(library->getName());
+  }
   libraries_.erase(*library);
 }
 
@@ -154,13 +152,13 @@ void SNLLibrary::addDesign(SNLDesign* design) {
     design->id_ = designID;
   }
   designs_.insert(*design);
-  if (not design->getName().empty()) {
+  if (not design->isAnonymous()) {
     designNameIDMap_[design->getName()] = design->id_;
   }
 }
 
 void SNLLibrary::removeDesign(SNLDesign* design) {
-  if (not design->getName().empty()) {
+  if (not design->isAnonymous()) {
     designNameIDMap_.erase(design->getName());
   }
   designs_.erase(*design);

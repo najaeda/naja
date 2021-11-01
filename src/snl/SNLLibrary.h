@@ -16,8 +16,8 @@ class SNLLibrary final: public SNLObject {
 
     SNLLibrary() = delete;
 
-    static SNLLibrary* create(SNLDB* db, const SNLName& name);
-    static SNLLibrary* create(SNLLibrary* parent, const SNLName& name);
+    static SNLLibrary* create(SNLDB* db, const SNLName& name = SNLName());
+    static SNLLibrary* create(SNLLibrary* parent, const SNLName& name = SNLName());
 
     bool isRootLibrary() const { return isRootLibrary_; }
 
@@ -35,6 +35,7 @@ class SNLLibrary final: public SNLObject {
     SNLID::LibraryID getID() const { return id_; }
     SNLID getSNLID() const;
     SNLName getName() const { return name_; }
+    bool isAnonymous() const { return name_.empty(); }
     constexpr const char* getTypeName() const override;
     std::string getString() const override;
     std::string getDescription() const override;
