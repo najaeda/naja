@@ -4,6 +4,8 @@
 #include "SNLObject.h"
 #include "SNLLibrary.h"
 
+#include "SNLNewCollection.h"
+
 namespace SNL {
 
 class SNLUniverse;
@@ -28,6 +30,9 @@ class SNLDB final: public SNLObject {
 
     SNLLibrary* getLibrary(SNLID::LibraryID id);
     SNLLibrary* getLibrary(const SNLName& name);
+
+
+    NEWSNL::SNLCollection<SNLLibrary*> getLibraries();
 
     constexpr const char* getTypeName() const override;
     std::string getString() const override;

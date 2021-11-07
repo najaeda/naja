@@ -24,4 +24,8 @@ TEST_F(SNLDBTest, test) {
   EXPECT_EQ(universe->getDB(2), db2);
   db1->destroy();
   EXPECT_FALSE(universe->getDB(1));
+
+  for (SNLLibrary* library: db1->getLibraries()) {
+    std::cerr << library->getName() << std::endl;
+  }
 }

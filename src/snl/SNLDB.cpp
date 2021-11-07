@@ -69,6 +69,10 @@ SNLLibrary* SNLDB::getLibrary(const SNLName& name) {
   return nullptr;
 }
 
+NEWSNL::SNLCollection<SNLLibrary*> SNLDB::getLibraries() {
+  return NEWSNL::SNLCollection<SNLLibrary>(new NEWSNL::SNLIntrusiveSetCollection<SNLLibrary, SNLDBLibrariesHook>(&libraries_));
+}
+
 SNLID SNLDB::getSNLID() const {
   return SNLID(id_);
 }
