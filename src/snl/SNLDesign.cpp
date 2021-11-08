@@ -6,19 +6,14 @@
 #include "SNLLibrary.h"
 #include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
+#include "SNLScalarNet.h"
+#include "SNLBusNet.h"
 
 namespace SNL {
 
 SNLDesign* SNLDesign::create(SNLLibrary* library, const SNLName& name) {
   preCreate(library, name);
   SNLDesign* design = new SNLDesign(library, name);
-  design->postCreate();
-  return design;
-}
-
-SNLDesign* SNLDesign::create(SNLLibrary* library) {
-  preCreate(library);
-  SNLDesign* design = new SNLDesign(library);
   design->postCreate();
   return design;
 }
@@ -35,13 +30,11 @@ SNLDesign::SNLDesign(SNLLibrary* library, const SNLName& name):
   name_(name)
 {}
 
-void SNLDesign::preCreate(const SNLLibrary* library) {
-  super::preCreate();
-}
-
 void SNLDesign::preCreate(const SNLLibrary* library, const SNLName& name) {
-  preCreate(library);
+  super::preCreate();
   //test if design with same name exists in library
+  if (not name.empty()) {
+  }
 }
 
 void SNLDesign::postCreate() {
@@ -64,19 +57,13 @@ void SNLDesign::commonPreDestroy() {
   };
   instances_.clear_and_dispose(destroyInstanceFromDesign());
 
-  struct destroyScalarNetFromDesign {
-    void operator()(SNLScalarNet* net) {
+  struct destroyNetFromDesign {
+    void operator()(SNLNet* net) {
       net->destroyFromDesign();
     }
   };
-  scalarNets_.clear_and_dispose(destroyScalarNetFromDesign());
+  nets_.clear_and_dispose(destroyNetFromDesign());
 
-  struct destroyBusNetFromDesign {
-    void operator()(SNLBusNet* net) {
-      net->destroyFromDesign();
-    }
-  };
-  busNets_.clear_and_dispose(destroyBusNetFromDesign());
   super::preDestroy();
 }
 
@@ -116,16 +103,12 @@ void SNLDesign::removeTerm(SNLTerm* term) {
   terms_.erase(*term);
 }
 
-SNLDB* SNLDesign::getDB() const {
-  return getLibrary()->getDB();
-}
-
 SNLTerm* SNLDesign::getTerm(const SNLName& name) {
   auto tit = termNameIDMap_.find(name);
   if (tit != termNameIDMap_.end()) {
     SNLID::DesignObjectID id = tit->second;
     auto it = terms_.find(
-        SNLID(SNLID::Type::Term, getDB()->getID(), getLibrary()->getID(), getID(), id),
+        SNLID(SNLID::Type::Term, getDB()->getID(), getLibrary()->getID(), getID(), id, 0, 0),
         SNLIDComp<SNLTerm>());
     if (it != terms_.end()) {
       return &*it;
@@ -169,7 +152,7 @@ SNLInstance* SNLDesign::getInstance(const SNLName& name) {
   if (iit != instanceNameIDMap_.end()) {
     SNLID::InstanceID id = iit->second;
     auto it = instances_.find(
-        SNLID(SNLID::Type::Instance, getDB()->getID(), getLibrary()->getID(), getID(), id),
+        SNLID(SNLID::Type::Instance, getDB()->getID(), getLibrary()->getID(), getID(), 0, id, 0),
         SNLIDComp<SNLInstance>());
     if (it != instances_.end()) {
       return &*it;
@@ -178,36 +161,56 @@ SNLInstance* SNLDesign::getInstance(const SNLName& name) {
   return nullptr;
 }
 
-void SNLDesign::addScalarNet(SNLScalarNet* scalarNet) {
-  scalarNets_.insert(*scalarNet);
+void SNLDesign::addNet(SNLNet* net) {
+  assert(dynamic_cast<SNLScalarNet*>(net) or dynamic_cast<SNLBusNet*>(net));
+
+  if (nets_.empty()) {
+    net->setID(0);
+  } else {
+    auto it = nets_.rbegin();
+    SNLNet* lastNet = &(*it);
+    SNLID::DesignObjectID netID = lastNet->getID()+1;
+    net->setID(netID);
+  }
+  nets_.insert(*net);
+  if (not net->getName().empty()) {
+    netNameIDMap_[net->getName()] = net->getID();
+  }
 }
 
-void SNLDesign::removeScalarNet(SNLScalarNet* scalarNet) {
-  scalarNets_.erase(*scalarNet);
+void SNLDesign::removeNet(SNLNet* net) {
+  assert(dynamic_cast<SNLScalarNet*>(net) or dynamic_cast<SNLBusNet*>(net));
+
+  if (not net->getName().empty()) {
+    netNameIDMap_.erase(net->getName());
+  }
+  nets_.erase(*net);
+}
+
+SNLNet* SNLDesign::getNet(const SNLName& name) {
+  auto tit = netNameIDMap_.find(name);
+  if (tit != netNameIDMap_.end()) {
+    SNLID::DesignObjectID id = tit->second;
+    auto it = nets_.find(
+        SNLID(SNLID::Type::Net, getDB()->getID(), getLibrary()->getID(), getID(), id, 0, 0),
+        SNLIDComp<SNLNet>());
+    if (it != nets_.end()) {
+      return &*it;
+    }
+  }
+  return nullptr;
 }
 
 SNLScalarNet* SNLDesign::getScalarNet(const SNLName& name) {
-  //auto it = scalarNets_.find(name, SNLNameComp<SNLScalarNet>());
-  //if (it != scalarNets_.end()) {
-  //  return &*it;
-  //}
-  return nullptr;
-}
-
-void SNLDesign::addBusNet(SNLBusNet* busNet) {
-  busNets_.insert(*busNet);
-}
-
-void SNLDesign::removeBusNet(SNLBusNet* busNet) {
-  busNets_.erase(*busNet);
+  return dynamic_cast<SNLScalarNet*>(getNet(name));
 }
 
 SNLBusNet* SNLDesign::getBusNet(const SNLName& name) {
-  //auto it = busNets_.find(name, SNLNameComp<SNLBusNet>());
-  //if (it != busNets_.end()) {
-  //  return &*it;
-  //}
-  return nullptr;
+  return dynamic_cast<SNLBusNet*>(getNet(name));
+}
+
+SNLDB* SNLDesign::getDB() const {
+  return getLibrary()->getDB();
 }
 
 //SNLCollection<SNLInstance> SNLDesign::getInstances() {

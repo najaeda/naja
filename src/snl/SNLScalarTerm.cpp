@@ -4,41 +4,25 @@
 
 namespace SNL {
 
-SNLScalarTerm::SNLScalarTerm(SNLDesign* design, const Direction& direction):
-  super(),
-  design_(design),
-  direction_(direction)
-{}
-
-SNLScalarTerm::SNLScalarTerm(SNLDesign* design, const SNLName& name, const Direction& direction):
+SNLScalarTerm::SNLScalarTerm(SNLDesign* design, const Direction& direction, const SNLName& name):
   super(),
   design_(design),
   name_(name),
   direction_(direction)
 {}
 
-SNLScalarTerm* SNLScalarTerm::create(SNLDesign* design, const SNLName& name, const Direction& direction) {
+SNLScalarTerm* SNLScalarTerm::create(SNLDesign* design, const Direction& direction, const SNLName& name) {
   preCreate(design, name);
-  SNLScalarTerm* net = new SNLScalarTerm(design, name, direction);
+  SNLScalarTerm* net = new SNLScalarTerm(design, direction, name);
   net->postCreate();
   return net;
-}
-
-SNLScalarTerm* SNLScalarTerm::create(SNLDesign* design, const Direction& direction) {
-  preCreate(design);
-  SNLScalarTerm* term = new SNLScalarTerm(design, direction);
-  term->postCreate();
-  return term;
-}
-
-void SNLScalarTerm::preCreate(const SNLDesign* design) {
-  super::preCreate();
-  //verify that there is not an instance of name in this design
 }
 
 void SNLScalarTerm::preCreate(const SNLDesign* design, const SNLName& name) {
   super::preCreate();
   //verify that there is not an instance of name in this design
+  if (not name.empty()) {
+  }
 }
 
 void SNLScalarTerm::postCreate() {
@@ -61,7 +45,7 @@ void SNLScalarTerm::preDestroy() {
 }
 
 SNLID SNLScalarTerm::getSNLID() const {
-  return SNLDesignObject::getSNLID(SNLID::Type::Term, id_);
+  return SNLDesignObject::getSNLID(SNLID::Type::Term, id_, 0, 0);
 }
 
 constexpr const char* SNLScalarTerm::getTypeName() const {

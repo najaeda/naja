@@ -28,7 +28,7 @@ void SNLScalarNet::preCreate(const SNLDesign* design, const SNLName& name) {
 
 void SNLScalarNet::postCreate() {
   super::postCreate();
-  getDesign()->addScalarNet(this);
+  getDesign()->addNet(this);
 }
 
 void SNLScalarNet::commonPreDestroy() {
@@ -42,16 +42,11 @@ void SNLScalarNet::destroyFromDesign() {
 
 void SNLScalarNet::preDestroy() {
   commonPreDestroy();
-  getDesign()->removeScalarNet(this);
+  getDesign()->removeNet(this);
 }
 
 SNLID SNLScalarNet::getSNLID() const {
-  return SNLID(
-      SNLID::Type::Net,
-      getDB()->getID(),
-      getLibrary()->getID(),
-      getDesign()->getID(),
-      id_);
+  return SNLDesignObject::getSNLID(SNLID::Type::Net, id_, 0, 0);
 }
 
 constexpr const char* SNLScalarNet::getTypeName() const {

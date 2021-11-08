@@ -9,6 +9,8 @@ class SNLBitTerm: public SNLTerm {
   public:
     using super = SNLTerm;
 
+    virtual SNLID::Bit getBit() const = 0;
+
   protected:
     SNLBitTerm() = default;
     static void preCreate();

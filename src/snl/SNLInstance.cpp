@@ -47,7 +47,7 @@ void SNLInstance::preDestroy() {
 }
 
 SNLID SNLInstance::getSNLID() const {
-  return SNLDesignObject::getSNLID(SNLID::Type::Instance, id_);
+  return SNLDesignObject::getSNLID(SNLID::Type::Instance, 0, id_, 0);
 }
 
 constexpr const char* SNLInstance::getTypeName() const {

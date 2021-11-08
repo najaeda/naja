@@ -15,6 +15,8 @@ class SNLObject {
     ///\return a string extensively describing the object. Useful for debug.
     virtual std::string getDescription() const = 0;
     virtual Card* getCard() const;
+
+    ///destroy this SNLObject and remove it cleanly from SNL.
     void destroy();
   protected:
     SNLObject() = default;

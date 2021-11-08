@@ -18,7 +18,7 @@ class SNLInstance final: public SNLDesignObject {
     using super = SNLDesignObject;
     using SNLInstanceInstTerms = std::vector<SNLInstTerm*>; 
 
-    static SNLInstance* create(SNLDesign* design, SNLDesign* model, const SNLName& name);
+    static SNLInstance* create(SNLDesign* design, SNLDesign* model, const SNLName& name=SNLName());
 
     SNLDesign* getDesign() const override { return design_; }
     SNLDesign* getModel() const { return model_; }
@@ -26,7 +26,7 @@ class SNLInstance final: public SNLDesignObject {
     SNLID::DesignObjectID getID() const { return id_; }
     SNLID getSNLID() const override;
     SNLName getName() const { return name_; }
-    bool isAnonymous() const { return name_.empty(); }
+    bool isAnonymous() const override { return name_.empty(); }
     constexpr const char* getTypeName() const override;
     std::string getString() const override;
     std::string getDescription() const override;
