@@ -28,7 +28,7 @@ void SNLBusNet::preCreate(const SNLDesign* design, const SNLName& name) {
 
 void SNLBusNet::postCreate() {
   super::postCreate();
-  getDesign()->addBusNet(this);
+  getDesign()->addNet(this);
 }
 
 void SNLBusNet::commonPreDestroy() {
@@ -42,16 +42,11 @@ void SNLBusNet::destroyFromDesign() {
 
 void SNLBusNet::preDestroy() {
   commonPreDestroy();
-  getDesign()->removeBusNet(this);
+  getDesign()->removeNet(this);
 }
 
 SNLID SNLBusNet::getSNLID() const {
-  return SNLID(
-      SNLID::Type::Net,
-      getDesign()->getLibrary()->getDB()->getID(),
-      getDesign()->getLibrary()->getID(),
-      getDesign()->getID(),
-      id_);
+  return SNLDesignObject::getSNLID(SNLID::Type::Net, id_, 0, 0);
 }
 
 constexpr const char* SNLBusNet::getTypeName() const {

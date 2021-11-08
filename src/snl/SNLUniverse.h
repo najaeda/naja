@@ -5,16 +5,26 @@
 
 namespace SNL {
 
+/**
+  * \brief SNLUniverse is a singleton class holding all SNL managed objects.
+  *
+  * Several SNLDB can live and share inside SNLUniverse.
+  */
+
 class SNLUniverse final: public SNLObject {
   public:
     friend class SNLDB;
     using super = SNLObject;
     SNLUniverse(const SNLUniverse&) = delete;
 
+    ///\return a created singleton SNLUniverse or an error if it exists already
     static SNLUniverse* create();
+    ///\return the singleron SNLUniverse or null if it does not exist.
     static SNLUniverse* get();
 
     SNLCollection<SNLDB> getDBs();
+
+    ///\return the SNLDB with SNLID::DBID:id or null if it does not exist
     SNLDB* getDB(SNLID::DBID id);
 
     constexpr const char* getTypeName() const override;

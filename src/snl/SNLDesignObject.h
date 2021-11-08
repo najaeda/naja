@@ -18,9 +18,13 @@ class SNLDesignObject: public SNLObject {
 
     virtual SNLDesign* getDesign() const = 0;
     virtual SNLID getSNLID() const = 0;
-    SNLID getSNLID(const SNLID::Type& type, SNLID::DesignObjectID id) const;
+    SNLID getSNLID(const SNLID::Type& type,
+        SNLID::DesignObjectID id,
+        SNLID::DesignObjectID instanceID,
+        SNLID::Bit bit) const;
     SNLLibrary* getLibrary() const;
     SNLDB* getDB() const;
+    virtual bool isAnonymous() const = 0;
 
     friend bool operator< (const SNLDesignObject &ldo, const SNLDesignObject &rdo) {
       return ldo.getSNLID() < rdo.getSNLID();

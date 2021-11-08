@@ -5,16 +5,25 @@ project(naja
   HOMEPAGE_URL https://github.com/xtofalex/naja
   LANGUAGES CXX
 )
-CMAKE_MINIMUM_REQUIRED(VERSION 3.19)
-SET(CMAKE_CXX_STANDARD 20)
 
-FIND_PACKAGE(Boost REQUIRED)
-FIND_PACKAGE(SWIG 4.0 COMPONENTS python REQUIRED)
-FIND_PACKAGE(Python3 COMPONENTS Development)
-FIND_PACKAGE(LibXml2 REQUIRED)
+cmake_minimum_required(VERSION 3.19)
+set(CMAKE_CXX_STANDARD 20)
 
-ADD_SUBDIRECTORY(src)
+find_package(Boost REQUIRED)
+find_package(SWIG 4.0 COMPONENTS python REQUIRED)
+find_package(Python3 COMPONENTS Development)
+find_package(LibXml2 REQUIRED)
+
+add_subdirectory(src)
 
 include(CTest)
 enable_testing()
 add_subdirectory(test)
+
+# Doxygen
+
+# look for Doxygen package
+find_package(Doxygen)
+if(DOXYGEN_FOUND)
+  add_subdirectory(docs)
+endif(DOXYGEN_FOUND)

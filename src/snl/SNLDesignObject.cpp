@@ -24,12 +24,18 @@ SNLDB* SNLDesignObject::getDB() const {
   return getLibrary()->getDB();
 }
 
-SNLID SNLDesignObject::getSNLID(const SNLID::Type& type, SNLID::DesignObjectID id) const {
+SNLID SNLDesignObject::getSNLID(
+    const SNLID::Type& type,
+    SNLID::DesignObjectID objectID,
+    SNLID::DesignObjectID instanceID,
+    SNLID::Bit bit) const {
   return SNLID(type,
       getDB()->getID(),
       getLibrary()->getID(),
       getDesign()->getID(),
-      id);
+      objectID,
+      instanceID,
+      bit);
 }
 
 }

@@ -11,13 +11,13 @@ class SNLScalarTerm final: public SNLBitTerm {
     friend class SNLDesign;
     using super = SNLBitTerm;
 
-    static SNLScalarTerm* create(SNLDesign* design, const SNLName& name, const Direction& direction);
-    static SNLScalarTerm* create(SNLDesign* design, const Direction& direction);
+    static SNLScalarTerm* create(SNLDesign* design, const Direction& direction, const SNLName& name=SNLName());
 
     SNLDesign* getDesign() const override { return design_; }
 
     SNLID getSNLID() const override;
     SNLID::DesignObjectID getID() const override { return id_; }
+    SNLID::Bit getBit() const override { return 0; }
     SNLName getName() const override { return name_; }
     bool isAnonymous() const override { return name_.empty(); }
     SNLTerm::Direction getDirection() const override { return direction_; }
@@ -25,9 +25,7 @@ class SNLScalarTerm final: public SNLBitTerm {
     std::string getString() const override;
     std::string getDescription() const override;
   private:
-    SNLScalarTerm(SNLDesign* design, const Direction& direction);
-    SNLScalarTerm(SNLDesign* design, const SNLName& name, const Direction& direction);
-    static void preCreate(const SNLDesign* design);
+    SNLScalarTerm(SNLDesign* design, const Direction& direction, const SNLName& name);
     static void preCreate(const SNLDesign* design, const SNLName& name);
     void postCreate();
     void destroyFromDesign() override;

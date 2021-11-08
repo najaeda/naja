@@ -1,10 +1,12 @@
 SET(SOURCES
   SNLObject.cpp
   SNLUniverse.cpp SNLDB.cpp SNLDB0.cpp
-  SNLLibrary.cpp SNLDesign.cpp SNLDesignObject.cpp
+  SNLLibrary.cpp SNLDesign.cpp
+  SNLDesignObject.cpp
   SNLNet.cpp SNLBusNet.cpp SNLBitNet.cpp SNLScalarNet.cpp
+  SNLNetComponent.cpp
   SNLTerm.cpp SNLBusTerm.cpp SNLBitTerm.cpp SNLScalarTerm.cpp
-  SNLInstance.cpp
+  SNLInstance.cpp SNLInstTerm.cpp
   #SNLLevelize.cpp SNLDump.cpp
 )
 

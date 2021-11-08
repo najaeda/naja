@@ -31,18 +31,23 @@ TEST_F(SNLDesignTest, testCreation) {
   EXPECT_FALSE(design->isAnonymous());
   EXPECT_EQ(design, library->getDesign(0));
   EXPECT_EQ(design, library->getDesign(SNLName("design")));
-  SNLScalarTerm* term0 = SNLScalarTerm::create(design, SNLName("term0"), SNLTerm::Direction::Input);
+  EXPECT_EQ(library, design->getLibrary());
+  EXPECT_EQ(db_, design->getDB());
+  EXPECT_EQ(SNLID(1, 0, 0), design->getSNLID());
+  SNLScalarTerm* term0 = SNLScalarTerm::create(design, SNLTerm::Direction::Input, SNLName("term0"));
   ASSERT_TRUE(term0);
   EXPECT_EQ(SNLName("term0"), term0->getName());
   ASSERT_FALSE(term0->isAnonymous());
   EXPECT_EQ(0, term0->getID());
+  EXPECT_EQ(SNLID(SNLID::Type::Term, 1, 0, 0, 0, 0, 0), term0->getSNLID());
   EXPECT_EQ(design, term0->getDesign());
   EXPECT_EQ(SNLTerm::Direction::Input, term0->getDirection());
-  SNLScalarTerm* term1 = SNLScalarTerm::create(design, SNLName("term1"), SNLTerm::Direction::Output);
+  SNLScalarTerm* term1 = SNLScalarTerm::create(design, SNLTerm::Direction::Output, SNLName("term1"));
   ASSERT_TRUE(term1);
   EXPECT_EQ(SNLName("term1"), term1->getName());
   ASSERT_FALSE(term1->isAnonymous());
   EXPECT_EQ(1, term1->getID());
+  EXPECT_EQ(SNLID(SNLID::Type::Term, 1, 0, 0, 1, 0, 0), term1->getSNLID());
   EXPECT_EQ(design, term1->getDesign());
   EXPECT_EQ(SNLTerm::Direction::Output, term1->getDirection());
   //anonymous scalar term
@@ -51,14 +56,16 @@ TEST_F(SNLDesignTest, testCreation) {
   EXPECT_TRUE(term2->getName().empty());
   ASSERT_TRUE(term2->isAnonymous());
   EXPECT_EQ(2, term2->getID());
+  EXPECT_EQ(SNLID(SNLID::Type::Term, 1, 0, 0, 2, 0, 0), term2->getSNLID());
   EXPECT_EQ(SNLTerm::Direction::InOut, term2->getDirection());
   EXPECT_EQ(design, term2->getDesign());
 
-  SNLBusTerm* term3 = SNLBusTerm::create(design, SNLName("term3"), SNLTerm::Direction::Input);
+  SNLBusTerm* term3 = SNLBusTerm::create(design, SNLTerm::Direction::Input, SNLName("term3"));
   ASSERT_TRUE(term3);
   EXPECT_EQ(SNLName("term3"), term3->getName());
   ASSERT_FALSE(term3->isAnonymous());
   EXPECT_EQ(3, term3->getID());
+  EXPECT_EQ(SNLID(SNLID::Type::Term, 1, 0, 0, 3, 0, 0), term3->getSNLID());
   EXPECT_EQ(SNLTerm::Direction::Input, term3->getDirection());
   EXPECT_EQ(design, term3->getDesign()); 
 
@@ -76,4 +83,7 @@ TEST_F(SNLDesignTest, testCreation) {
   EXPECT_EQ(2, anon->getID());
   EXPECT_TRUE(anon->isAnonymous());
   EXPECT_EQ(anon, library->getDesign(2));
+  EXPECT_EQ(library, anon->getLibrary());
+  EXPECT_EQ(db_, anon->getDB());
+  EXPECT_EQ(SNLID(1, 0, 2), anon->getSNLID());
 }

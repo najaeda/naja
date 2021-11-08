@@ -4,14 +4,14 @@
 #include <boost/intrusive/set.hpp>
 
 #include "SNLName.h"
-#include "SNLDesignObject.h"
+#include "SNLNetComponent.h"
 
 namespace SNL {
 
-class SNLTerm: public SNLDesignObject {
+class SNLTerm: public SNLNetComponent {
   public:
     friend class SNLDesign;
-    using super = SNLDesignObject;
+    using super = SNLNetComponent;
     class Direction {
       public:
         enum DirectionEnum {
@@ -27,7 +27,6 @@ class SNLTerm: public SNLDesignObject {
 
     virtual SNLID::DesignObjectID getID() const = 0;
     virtual SNLName getName() const = 0;
-    virtual bool isAnonymous() const = 0;
     virtual Direction getDirection() const = 0;
 
   protected:
@@ -41,7 +40,6 @@ class SNLTerm: public SNLDesignObject {
     //following used in BusTerm and ScalarTerm
     virtual void setID(SNLID::DesignObjectID id) = 0;
     boost::intrusive::set_member_hook<> designTermsHook_  {};
-    //
 
     virtual void destroyFromDesign() = 0;
 };
