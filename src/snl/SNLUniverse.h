@@ -6,14 +6,14 @@
 namespace SNL {
 
 /**
-  * \brief SNLUniverse is a singleton class holding all SNL managed objects.
-  *
-  * Several SNLDB can live and share inside SNLUniverse.
-  */
-
+ * \brief SNLUniverse is a singleton class holding all SNL managed objects.
+ *
+ * Several SNLDB can live and share inside SNLUniverse.
+ */
 class SNLUniverse final: public SNLObject {
   public:
     friend class SNLDB;
+    friend class SNLDB0;
     using super = SNLObject;
     SNLUniverse(const SNLUniverse&) = delete;
 
@@ -22,10 +22,18 @@ class SNLUniverse final: public SNLObject {
     ///\return the singleron SNLUniverse or null if it does not exist.
     static SNLUniverse* get();
 
+
     SNLCollection<SNLDB> getDBs();
 
     ///\return the SNLDB with SNLID::DBID:id or null if it does not exist
     SNLDB* getDB(SNLID::DBID id);
+
+    //DB0 methods
+    static bool isDB0(const SNLDB* db);
+    static SNLDesign* getAssign(); 
+    static bool isAssign(const SNLDesign* design);
+    static SNLScalarTerm* getAssignInput();
+    static SNLScalarTerm* getAssignOutput();
 
     constexpr const char* getTypeName() const override;
     std::string getString() const override;
@@ -44,7 +52,11 @@ class SNLUniverse final: public SNLObject {
     using SNLUniverseDBs = boost::intrusive::set<SNLDB, SNLUniverseDBsHook>;
 
     static SNLUniverse* universe_;
-    SNLUniverseDBs      dbs_;
+    SNLUniverseDBs      dbs_          {};
+    SNLDB*              db0_          {nullptr};
+    SNLDesign*          assign_       {nullptr};
+    SNLScalarTerm*      assignInput_  {nullptr};
+    SNLScalarTerm*      assignOutput_ {nullptr};
 };
 
 }

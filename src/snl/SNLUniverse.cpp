@@ -22,7 +22,7 @@ void SNLUniverse::postCreate() {
   super::postCreate();
   //create the special DB0 which holds the SNL managed libraries
   //such as assign cell
-  SNLDB0::create(this);
+  db0_ = SNLDB0::create(this);
 }
 
 void SNLUniverse::preDestroy() {
@@ -55,6 +55,38 @@ void SNLUniverse::removeDB(SNLDB* db) {
   dbs_.erase(*db);
 }
 
+bool SNLUniverse::isDB0(const SNLDB* db) {
+  auto universe = get();
+  if (universe) {
+    return db == universe->db0_;
+  }
+  return false;
+}
+
+SNLDesign* SNLUniverse::getAssign() {
+  auto universe = get();
+  if (universe) {
+    return universe->assign_;
+  }
+  return nullptr;
+}
+
+SNLScalarTerm* SNLUniverse::getAssignInput() {
+  auto universe = get();
+  if (universe) {
+    return universe->assignInput_;
+  }
+  return nullptr;
+}
+
+SNLScalarTerm* SNLUniverse::getAssignOutput() {
+  auto universe = get();
+  if (universe) {
+    return universe->assignOutput_;
+  }
+  return nullptr;
+}
+
 SNLCollection<SNLDB> SNLUniverse::getDBs() {
   return SNLCollection<SNLDB>(new SNLIntrusiveSetCollection<SNLDB, SNLUniverseDBsHook>(&dbs_));
 }
@@ -78,6 +110,5 @@ std::string SNLUniverse::getString() const {
 std::string SNLUniverse::getDescription() const {
   return "<" + std::string(getTypeName()) + ">";  
 }
-
 
 }

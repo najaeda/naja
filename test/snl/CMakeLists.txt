@@ -1,7 +1,7 @@
 INCLUDE(GoogleTest)
 
 SET(snl_tests
-    SNLDBTest.cpp SNLLibraryTest.cpp SNLDesignTest.cpp
+    SNLUniverseTest.cpp SNLDBTest.cpp SNLLibraryTest.cpp SNLDesignTest.cpp
     SNLInstanceTest.cpp SNLNetTest.cpp #SNLLargeDBTest.cpp
 )
 
