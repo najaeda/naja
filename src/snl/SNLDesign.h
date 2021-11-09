@@ -35,12 +35,28 @@ class SNLDesign final: public SNLObject {
 
     SNLDB* getDB() const;
     SNLLibrary* getLibrary() const { return library_; }
-    SNLTerm* getTerm(const SNLName& netName);
+
+    ///\return SNLTerm with SNLID::DesignObjectID id or nullptr if it does not exist
+    SNLTerm* getTerm(SNLID::DesignObjectID id);
+    ///\return SNLTerm with SNLName name or nullptr if it does not exist
+    SNLTerm* getTerm(const SNLName& name);
+    ///\return SNLScalarTerm with SNLName name or nullptr if it does not exist
     SNLScalarTerm* getScalarTerm(const SNLName& netName);
+    ///\return SNLBusTerm with SNLName name or nullptr if it does not exist
     SNLBusTerm* getBusTerm(const SNLName& netName);
+
+    ///\return SNLInstance with SNLID::DesignObjectID id or nullptr if it does not exist
+    SNLInstance* getInstance(SNLID::DesignObjectID id);
+    ///\return SNLInstance with SNLName name if it does not exist
     SNLInstance* getInstance(const SNLName& instanceName);
+
+    ///\return SNLNet with SNLID::DesignObjectID id or nullptr if it does not exist
+    SNLNet* getNet(SNLID::DesignObjectID id);
+    ///\return SNLNet with SNLName name or nullptr if it does not exist
     SNLNet* getNet(const SNLName& netName);
+    ///\return SNLScalarNet with SNLName name or nullptr if it does not exist
     SNLScalarNet* getScalarNet(const SNLName& netName);
+    ///\return SNLBusNet with SNLName name or nullptr if it does not exist
     SNLBusNet* getBusNet(const SNLName& netName);
 
     SNLCollection<SNLInstance> getInstances() const;

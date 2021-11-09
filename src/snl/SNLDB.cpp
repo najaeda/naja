@@ -61,9 +61,9 @@ SNLLibrary* SNLDB::getLibrary(SNLID::LibraryID id) {
 }
 
 SNLLibrary* SNLDB::getLibrary(const SNLName& name) {
-  auto iit = libraryNameIDMap_.find(name);
-  if (iit != libraryNameIDMap_.end()) {
-    SNLID::LibraryID id = iit->second;
+  auto it = libraryNameIDMap_.find(name);
+  if (it != libraryNameIDMap_.end()) {
+    SNLID::LibraryID id = it->second;
     return getLibrary(id);
   }
   return nullptr;
