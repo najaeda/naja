@@ -11,9 +11,18 @@ class SNLBusTerm final: public SNLTerm {
     friend class SNLDesign;
     using super = SNLTerm;
 
-    static SNLBusTerm* create(SNLDesign* design, const Direction& direction, const SNLName& name=SNLName());
+    static SNLBusTerm* create(
+        SNLDesign* design,
+        const Direction& direction,
+        SNLID::Bit msb,
+        SNLID::Bit lsb,
+        const SNLName& name=SNLName());
 
     SNLDesign* getDesign() const override { return design_; }
+    ///\return MSB (Most Significant Bit) or left hand side of the bus range.
+    SNLID::Bit getMSB() const { return msb_; }
+    ///\return LSB (Most Significant Bit) or right hand side of the bus range.
+    SNLID::Bit getLSB() const { return lsb_; }
 
     SNLID::DesignObjectID getID() const override { return id_; }
     SNLID getSNLID() const override;
@@ -24,7 +33,12 @@ class SNLBusTerm final: public SNLTerm {
     std::string getString() const override;
     std::string getDescription() const override;
   private:
-    SNLBusTerm(SNLDesign* design, const Direction& direction, const SNLName& name);
+    SNLBusTerm(
+        SNLDesign* design,
+        const Direction& direction,
+        SNLID::Bit msb,
+        SNLID::Bit lsb,
+        const SNLName& name);
     static void preCreate(const SNLDesign* design, const SNLName& name);
     void postCreate();
     void destroyFromDesign() override;
@@ -37,6 +51,8 @@ class SNLBusTerm final: public SNLTerm {
     SNLID::DesignObjectID               id_;
     SNLName                             name_;
     SNLTerm::Direction                  direction_;
+    SNLID::Bit                          msb_;
+    SNLID::Bit                          lsb_;
 };
 
 }

@@ -8,15 +8,25 @@
 
 namespace SNL {
 
-SNLBusNet::SNLBusNet(SNLDesign* design, const SNLName& name):
+SNLBusNet::SNLBusNet(
+    SNLDesign* design,
+    SNLID::Bit msb,
+    SNLID::Bit lsb,
+    const SNLName& name):
   super(),
   name_(name),
-  design_(design)
+  design_(design),
+  msb_(msb),
+  lsb_(lsb)
 {}
 
-SNLBusNet* SNLBusNet::create(SNLDesign* design, const SNLName& name) {
+SNLBusNet* SNLBusNet::create(
+    SNLDesign* design,
+    SNLID::Bit msb,
+    SNLID::Bit lsb,
+    const SNLName& name) {
   preCreate(design, name);
-  SNLBusNet* net = new SNLBusNet(design, name);
+  SNLBusNet* net = new SNLBusNet(design, msb, lsb, name);
   net->postCreate();
   return net;
 }

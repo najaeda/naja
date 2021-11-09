@@ -4,16 +4,28 @@
 
 namespace SNL {
 
-SNLBusTerm::SNLBusTerm(SNLDesign* design, const Direction& direction, const SNLName& name):
+SNLBusTerm::SNLBusTerm(
+    SNLDesign* design,
+    const Direction& direction,
+    SNLID::Bit msb,
+    SNLID::Bit lsb,
+    const SNLName& name):
   super(),
   name_(name),
   design_(design),
-  direction_(direction)
+  direction_(direction),
+  msb_(msb),
+  lsb_(lsb)
 {}
 
-SNLBusTerm* SNLBusTerm::create(SNLDesign* design, const Direction& direction, const SNLName& name) {
+SNLBusTerm* SNLBusTerm::create(
+    SNLDesign* design,
+    const Direction& direction,
+    SNLID::Bit msb,
+    SNLID::Bit lsb,
+    const SNLName& name) {
   preCreate(design, name);
-  SNLBusTerm* term = new SNLBusTerm(design, direction, name);
+  SNLBusTerm* term = new SNLBusTerm(design, direction, msb, lsb, name);
   term->postCreate();
   return term;
 }

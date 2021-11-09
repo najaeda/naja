@@ -32,6 +32,7 @@ void SNLUniverse::preDestroy() {
     }
   };
   dbs_.clear_and_dispose(destroyDBFromUniverse());
+  universe_ = nullptr;
   super::preDestroy();
 }
 

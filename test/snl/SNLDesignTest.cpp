@@ -60,7 +60,7 @@ TEST_F(SNLDesignTest, testCreation) {
   EXPECT_EQ(SNLTerm::Direction::InOut, term2->getDirection());
   EXPECT_EQ(design, term2->getDesign());
 
-  SNLBusTerm* term3 = SNLBusTerm::create(design, SNLTerm::Direction::Input, SNLName("term3"));
+  SNLBusTerm* term3 = SNLBusTerm::create(design, SNLTerm::Direction::Input, 4, 0, SNLName("term3"));
   ASSERT_TRUE(term3);
   EXPECT_EQ(SNLName("term3"), term3->getName());
   ASSERT_FALSE(term3->isAnonymous());
@@ -68,6 +68,8 @@ TEST_F(SNLDesignTest, testCreation) {
   EXPECT_EQ(SNLID(SNLID::Type::Term, 1, 0, 0, 3, 0, 0), term3->getSNLID());
   EXPECT_EQ(SNLTerm::Direction::Input, term3->getDirection());
   EXPECT_EQ(design, term3->getDesign()); 
+  EXPECT_EQ(4, term3->getMSB());
+  EXPECT_EQ(0, term3->getLSB());
 
   SNLDesign* model = SNLDesign::create(library, "model");
   ASSERT_TRUE(model);
