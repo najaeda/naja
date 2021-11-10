@@ -34,6 +34,7 @@ TEST_F(SNLNetTest, testCreation) {
   EXPECT_EQ(0, net0->getID());
   EXPECT_EQ(31, net0->getMSB());
   EXPECT_EQ(0, net0->getLSB());
+  //EXPECT_EQ(32, net0->getSize());
   EXPECT_EQ(design_, net0->getDesign());
   EXPECT_FALSE(net0->isAnonymous());
   EXPECT_EQ(net0, design_->getNet(0));

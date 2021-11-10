@@ -5,7 +5,9 @@ SET(SOURCES
   SNLDesignObject.cpp
   SNLNet.cpp SNLBusNet.cpp SNLBitNet.cpp SNLScalarNet.cpp
   SNLNetComponent.cpp
-  SNLTerm.cpp SNLBusTerm.cpp SNLBitTerm.cpp SNLScalarTerm.cpp
+  SNLTerm.cpp SNLBitTerm.cpp 
+  SNLBusTerm.cpp SNLScalarTerm.cpp
+  SNLBusTermBit.cpp
   SNLInstance.cpp SNLInstTerm.cpp
   #SNLLevelize.cpp SNLDump.cpp
 )

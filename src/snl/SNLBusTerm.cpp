@@ -1,6 +1,7 @@
 #include "SNLBusTerm.h"
 
 #include "SNLDesign.h"
+#include "SNLBusTermBit.h"
 
 namespace SNL {
 
@@ -40,9 +41,16 @@ void SNLBusTerm::preCreate(const SNLDesign* design, const SNLName& name) {
 void SNLBusTerm::postCreate() {
   super::postCreate();
   getDesign()->addTerm(this);
+  //create bits
+  for (size_t i=0; i<getSize()-1; i++) {
+    SNLBusTermBit::create(this, i);
+  }
 }
 
 void SNLBusTerm::commonPreDestroy() {
+  for (SNLBusTermBit* bit: bits_) {
+    bit->destroyFromBus();
+  }
   super::preDestroy();
 }
 
@@ -54,6 +62,10 @@ void SNLBusTerm::destroyFromDesign() {
 void SNLBusTerm::preDestroy() {
   commonPreDestroy();
   getDesign()->removeTerm(this);
+}
+
+size_t SNLBusTerm::getSize() const {
+  return std::abs(getLSB() - getMSB()) + 1;
 }
 
 SNLID SNLBusTerm::getSNLID() const {

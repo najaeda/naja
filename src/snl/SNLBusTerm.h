@@ -1,10 +1,14 @@
 #ifndef __SNL_BUS_TERM_H_
 #define __SNL_BUS_TERM_H_
 
+#include <vector>
+
 #include "SNLTerm.h"
 #include "SNLName.h"
 
 namespace SNL {
+
+class SNLBusTermBit;
 
 class SNLBusTerm final: public SNLTerm {
   public:
@@ -23,6 +27,7 @@ class SNLBusTerm final: public SNLTerm {
     SNLID::Bit getMSB() const { return msb_; }
     ///\return LSB (Most Significant Bit) or right hand side of the bus range.
     SNLID::Bit getLSB() const { return lsb_; }
+    size_t getSize() const;
 
     SNLID::DesignObjectID getID() const override { return id_; }
     SNLID getSNLID() const override;
@@ -47,12 +52,15 @@ class SNLBusTerm final: public SNLTerm {
 
     void setID(SNLID::DesignObjectID id) override { id_ = id; }
 
-    SNLDesign*                          design_;
-    SNLID::DesignObjectID               id_;
-    SNLName                             name_;
-    SNLTerm::Direction                  direction_;
-    SNLID::Bit                          msb_;
-    SNLID::Bit                          lsb_;
+    using Bits = std::vector<SNLBusTermBit*>;
+
+    SNLDesign*              design_;
+    SNLID::DesignObjectID   id_;
+    SNLName                 name_     {};
+    SNLTerm::Direction      direction_;
+    SNLID::Bit              msb_;
+    SNLID::Bit              lsb_;
+    Bits                    bits_     {};
 };
 
 }
