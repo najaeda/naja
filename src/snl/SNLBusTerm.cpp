@@ -42,8 +42,10 @@ void SNLBusTerm::postCreate() {
   super::postCreate();
   getDesign()->addTerm(this);
   //create bits
+  bits_.resize(getSize(), nullptr);
   for (size_t i=0; i<getSize()-1; i++) {
-    SNLBusTermBit::create(this, i);
+    SNLID::Bit bit = (getMSB()>getLSB())?getMSB()-i:getMSB()+i;
+    bits_[i] = SNLBusTermBit::create(this, bit);
   }
 }
 

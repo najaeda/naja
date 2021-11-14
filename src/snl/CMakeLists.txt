@@ -3,7 +3,8 @@ SET(SOURCES
   SNLUniverse.cpp SNLDB.cpp SNLDB0.cpp
   SNLLibrary.cpp SNLDesign.cpp
   SNLDesignObject.cpp
-  SNLNet.cpp SNLBusNet.cpp SNLBitNet.cpp SNLScalarNet.cpp
+  SNLNet.cpp SNLBusNet.cpp
+  SNLBitNet.cpp SNLScalarNet.cpp SNLBusNetBit.cpp
   SNLNetComponent.cpp
   SNLTerm.cpp SNLBitTerm.cpp 
   SNLBusTerm.cpp SNLScalarTerm.cpp

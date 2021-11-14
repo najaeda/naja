@@ -5,6 +5,7 @@
 #include "SNLDB.h"
 #include "SNLLibrary.h"
 #include "SNLDesign.h"
+#include "SNLBusNetBit.h"
 
 namespace SNL {
 
@@ -39,6 +40,12 @@ void SNLBusNet::preCreate(const SNLDesign* design, const SNLName& name) {
 void SNLBusNet::postCreate() {
   super::postCreate();
   getDesign()->addNet(this);
+  //create bits
+  bits_.resize(getSize(), nullptr);
+  for (size_t i=0; i<getSize()-1; i++) {
+    SNLID::Bit bit = (getMSB()>getLSB())?getMSB()-i:getMSB()+i;
+    bits_[i] = SNLBusNetBit::create(this, bit);
+  }
 }
 
 void SNLBusNet::commonPreDestroy() {
@@ -53,6 +60,10 @@ void SNLBusNet::destroyFromDesign() {
 void SNLBusNet::preDestroy() {
   commonPreDestroy();
   getDesign()->removeNet(this);
+}
+
+size_t SNLBusNet::getSize() const {
+  return std::abs(getLSB() - getMSB()) + 1;
 }
 
 SNLID SNLBusNet::getSNLID() const {
