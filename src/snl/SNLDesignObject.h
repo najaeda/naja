@@ -16,14 +16,18 @@ class SNLDesignObject: public SNLObject {
     SNLDesignObject(const SNLDesignObject&) = delete;
     SNLDesignObject(const SNLDesignObject&&) = delete;
 
+    ///\return the owner SNLDesign of this SNLDesignObject
     virtual SNLDesign* getDesign() const = 0;
     virtual SNLID getSNLID() const = 0;
     SNLID getSNLID(const SNLID::Type& type,
         SNLID::DesignObjectID id,
         SNLID::DesignObjectID instanceID,
         SNLID::Bit bit) const;
+    ///\return the owner SNLLibrary of this SNLDesignObject
     SNLLibrary* getLibrary() const;
+    ///\return the owner SNLDB of this SNLDesignObject
     SNLDB* getDB() const;
+    ///\return true if this SNLDesignObject is anonymous, false if not.
     virtual bool isAnonymous() const = 0;
 
     friend bool operator< (const SNLDesignObject &ldo, const SNLDesignObject &rdo) {
