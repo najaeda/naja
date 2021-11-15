@@ -25,8 +25,20 @@ class SNLDesign final: public SNLObject {
     friend class SNLInstance;
     friend class SNLScalarNet;
     friend class SNLBusNet;
-
     using super = SNLObject;
+
+    class Type {
+      public:
+        enum TypeEnum {
+          Standard, Blackbox, Primitive
+        };
+        Type(const TypeEnum& typeEnum);
+        Type(const Type& type) = default;
+        operator const TypeEnum&() const {return typeEnum_;}
+        std::string getString() const;
+        private:
+          TypeEnum typeEnum_;
+    };
 
     SNLDesign() = delete;
     SNLDesign(const SNLDesign& design) = delete;
@@ -102,6 +114,7 @@ class SNLDesign final: public SNLObject {
 
     SNLID::DesignID                     id_;
     SNLName                             name_               {};
+    Type                                type_               { Type::Standard };
     SNLLibrary*                         library_;
     boost::intrusive::set_member_hook<> libraryDesignsHook_ {};
     SNLDesignTerms                      terms_              {};

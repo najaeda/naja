@@ -11,6 +11,19 @@
 
 namespace SNL {
 
+SNLDesign::Type::Type(const TypeEnum& typeEnum):
+  typeEnum_(typeEnum) 
+{}
+
+std::string SNLDesign::Type::getString() const {
+  switch (typeEnum_) {
+    case Type::Standard: return "Standard";
+    case Type::Blackbox: return "Blackbox";
+    case Type::Primitive: return "Primitive";
+  }
+  return "Unknown";
+}
+
 SNLDesign* SNLDesign::create(SNLLibrary* library, const SNLName& name) {
   preCreate(library, name);
   SNLDesign* design = new SNLDesign(library, name);

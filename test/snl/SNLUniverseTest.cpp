@@ -28,4 +28,7 @@ TEST_F(SNLUniverseTest, test) {
   auto assignOutput = SNLUniverse::getAssignOutput();
   ASSERT_TRUE(assignOutput);
   EXPECT_EQ(1, assignOutput->getID());
+  SNLBitNet* assignFT = assignInput->getNet();
+  ASSERT_TRUE(assignFT);
+  EXPECT_EQ(assignOutput->getNet(), assignFT);
 }
