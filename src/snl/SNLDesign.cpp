@@ -96,6 +96,9 @@ void SNLDesign::destroyFromLibrary() {
 }
 
 void SNLDesign::preDestroy() {
+  if (design->isPrimitive()) {
+    //FIXME: Error
+  }
   library_->removeDesign(this);
   commonPreDestroy();
 }
