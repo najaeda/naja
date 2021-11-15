@@ -11,9 +11,8 @@ class SNLBaseIterator {
     SNLBaseIterator(const SNLBaseIterator&) = delete;
     SNLBaseIterator(SNLBaseIterator&&) = delete;
     virtual ~SNLBaseIterator() {}
-    virtual Element* getElement() const = 0;
+    virtual Element getElement() const = 0;
     virtual void progress() = 0;
-    virtual bool isValid() const = 0;
   protected:
     SNLBaseIterator() = default;
 };
@@ -21,7 +20,8 @@ class SNLBaseIterator {
 template<class Element>
 class SNLBaseCollection {
   public:
-    virtual SNLBaseIterator<Element>* getIterator() const = 0;
+    virtual SNLBaseIterator<Element>* begin() const = 0;
+    virtual SNLBaseIterator<Element>* end() const = 0;
 
     SNLBaseCollection(const SNLBaseCollection&) = delete;
     SNLBaseCollection(SNLBaseCollection&&) = delete;
@@ -86,41 +86,70 @@ class SNLIntrusiveSetCollection: public SNLBaseCollection<Element> {
         SetIterator it_   {};
     };
 
+#if 0
     SNLBaseIterator<Element>* getIterator() const override {
       return new SNLIntrusiveSetCollectionIterator(set_);
     }
+#endif
     SNLIntrusiveSetCollection() = delete;
     SNLIntrusiveSetCollection(const SNLIntrusiveSetCollection&) = delete;
     SNLIntrusiveSetCollection(SNLIntrusiveSetCollection&&) = delete;
     SNLIntrusiveSetCollection(Set* set): super(), set_(set) {}
+
+    SNLBaseIterator<Element>* begin() const override;
+    SNLBaseIterator<Element>* end() const override;
+
   private:
     Set*  set_  {nullptr};
 };
 
-template<class Element>
-class SNLIterator {
-  public:
-    SNLIterator() = default;
-    SNLIterator(SNLBaseIterator<Element>* iterator): iterator_(iterator) {}
-    SNLIterator(const SNLIterator&) = delete;
-    SNLIterator(SNLIterator&&) = delete;
-    ~SNLIterator() { delete iterator_; }
-    Element* getElement() const { if (iterator_) { return iterator_->getElement(); } return nullptr; }
-    SNLIterator& operator++() { if (iterator_) { iterator_->progress(); } return *this; }
-    bool isValid() const { if (iterator_) { return iterator_->isValid(); } return false; }
-  private:
-    SNLBaseIterator<Element>* iterator_ {nullptr};
-};
+//template<class Element>
+//class SNLIterator {
+//  public:
+//    SNLIterator() = default;
+//    SNLIterator(SNLBaseIterator<Element>* iterator): iterator_(iterator) {}
+//    SNLIterator(const SNLIterator&) = delete;
+//    SNLIterator(SNLIterator&&) = delete;
+//    ~SNLIterator() { delete iterator_; }
+//    Element* getElement() const { if (iterator_) { return iterator_->getElement(); } return nullptr; }
+//    SNLIterator& operator++() { if (iterator_) { iterator_->progress(); } return *this; }
+//    bool isValid() const { if (iterator_) { return iterator_->isValid(); } return false; }
+//  private:
+//};
 
 template<class Element>
 class SNLCollection {
   public:
-    virtual SNLIterator<Element> getIterator() const {
-      if (collection_) {
-        return SNLIterator(collection_->getIterator());
-      }
-      return SNLIterator<Element>();
-    } 
+    struct Iterator {
+        using iterator_category = std::input_iterator_tag;
+        using difference_type   = std::ptrdiff_t;
+        using value_type        = Element;
+        using pointer           = value_type*;
+        using reference         = value_type&;
+
+        Iterator() = delete;
+        Iterator(SNLBaseIterator<Element>* iterator): iterator_(iterator) {}
+
+        Iterator& operator++() { iterator_->progress(); return *this; }
+
+        value_type operator*() const { return iterator_->getElement(); }
+
+        friend bool operator== (const Iterator& l, const Iterator& r) { return l.iterator_ == r.iterator_; };
+        friend bool operator!= (const Iterator& l, const Iterator& r) { return l.iterator_ != r.iterator_; };
+
+      private:
+        SNLBaseIterator<Element>* iterator_ {nullptr};
+    };
+
+    Iterator begin() { return Iterator(collection_->begin()); }
+    Iterator end() { return Iterator(collection_->end()); }
+
+    //virtual SNLIterator<Element> getIterator() const {
+    //  if (collection_) {
+    //    return SNLIterator(collection_->getIterator());
+    //  }
+    //  return SNLIterator<Element>();
+    //} 
 
     SNLCollection() = delete;
     SNLCollection(const SNLBaseCollection<Element>* collection): collection_(collection) {}
