@@ -15,11 +15,15 @@ SNLName SNLVRLDumper::createInstanceName(const SNLInstance* instance) {
   return instanceName;
 }
 
-void SNLVRLDumper::dump(const SNLDesign* design, std::ostream& o) {
+void SNLVRLDumper::dumpDesign(const SNLDesign* design, std::ostream& o) {
   if (design->isAnonymous()) {
     return;
   }
   o << "module " << design->getName() << std::endl;
+
+  SNLCollection<SNLNet> nets = design->getNets();
+  SNLIterator<SNLNet> netIt = nets.getIterator();
+
   SNLCollection<SNLInstance> instances = design->getInstances();
   SNLIterator<SNLInstance> instanceIt = instances.getIterator();
   while (instanceIt.isValid()) {

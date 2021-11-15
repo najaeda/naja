@@ -6,7 +6,7 @@
 
 namespace SNL {
 
-class SNLScalarNet: public SNLBitNet {
+class SNLScalarNet final: public SNLBitNet {
   public:
     friend class SNLDesign;
     using super = SNLBitNet;

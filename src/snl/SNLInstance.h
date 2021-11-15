@@ -35,17 +35,18 @@ class SNLInstance final: public SNLDesignObject {
     static void preCreate(SNLDesign* design, const SNLName& name);
     void postCreate();
     void destroyFromDesign();
-    void commonPreDestroy();
+    void destroyFromModel();
     void preDestroy() override;
 
     SNLInstance(SNLDesign* design, SNLDesign* model, const SNLName& name);
 
-    SNLDesign*                          design_               {nullptr};
-    SNLDesign*                          model_                {nullptr};
+    SNLDesign*                          design_                   {nullptr};
+    SNLDesign*                          model_                    {nullptr};
     SNLID::InstanceID                   id_;
-    SNLName                             name_                 {};
-    SNLInstanceInstTerms                instTerms_            {};
-    boost::intrusive::set_member_hook<> designInstancesHook_  {};
+    SNLName                             name_                     {};
+    SNLInstanceInstTerms                instTerms_                {};
+    boost::intrusive::set_member_hook<> designInstancesHook_      {};
+    boost::intrusive::set_member_hook<> designSlaveInstancesHook_ {};
 };
 
 }

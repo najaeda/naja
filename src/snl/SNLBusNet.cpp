@@ -5,18 +5,29 @@
 #include "SNLDB.h"
 #include "SNLLibrary.h"
 #include "SNLDesign.h"
+#include "SNLBusNetBit.h"
 
 namespace SNL {
 
-SNLBusNet::SNLBusNet(SNLDesign* design, const SNLName& name):
+SNLBusNet::SNLBusNet(
+    SNLDesign* design,
+    SNLID::Bit msb,
+    SNLID::Bit lsb,
+    const SNLName& name):
   super(),
   name_(name),
-  design_(design)
+  design_(design),
+  msb_(msb),
+  lsb_(lsb)
 {}
 
-SNLBusNet* SNLBusNet::create(SNLDesign* design, const SNLName& name) {
+SNLBusNet* SNLBusNet::create(
+    SNLDesign* design,
+    SNLID::Bit msb,
+    SNLID::Bit lsb,
+    const SNLName& name) {
   preCreate(design, name);
-  SNLBusNet* net = new SNLBusNet(design, name);
+  SNLBusNet* net = new SNLBusNet(design, msb, lsb, name);
   net->postCreate();
   return net;
 }
@@ -29,6 +40,12 @@ void SNLBusNet::preCreate(const SNLDesign* design, const SNLName& name) {
 void SNLBusNet::postCreate() {
   super::postCreate();
   getDesign()->addNet(this);
+  //create bits
+  bits_.resize(getSize(), nullptr);
+  for (size_t i=0; i<getSize()-1; i++) {
+    SNLID::Bit bit = (getMSB()>getLSB())?getMSB()-i:getMSB()+i;
+    bits_[i] = SNLBusNetBit::create(this, bit);
+  }
 }
 
 void SNLBusNet::commonPreDestroy() {
@@ -43,6 +60,10 @@ void SNLBusNet::destroyFromDesign() {
 void SNLBusNet::preDestroy() {
   commonPreDestroy();
   getDesign()->removeNet(this);
+}
+
+size_t SNLBusNet::getSize() const {
+  return std::abs(getLSB() - getMSB()) + 1;
 }
 
 SNLID SNLBusNet::getSNLID() const {

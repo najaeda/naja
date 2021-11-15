@@ -40,7 +40,6 @@ class SNLTerm: public SNLNetComponent {
     //following used in BusTerm and ScalarTerm
     virtual void setID(SNLID::DesignObjectID id) = 0;
     boost::intrusive::set_member_hook<> designTermsHook_  {};
-
     virtual void destroyFromDesign() = 0;
 };
 

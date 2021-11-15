@@ -28,6 +28,15 @@ TEST_F(SNLNetTest, testCreation) {
   EXPECT_EQ(design_, design_->getLibrary()->getDesign(0));
   EXPECT_EQ(design_, design_->getLibrary()->getDesign(SNLName("Design")));
 
-  SNLBusNet* net0 = SNLBusNet::create(design_, SNLName("net0"));
+  SNLBusNet* net0 = SNLBusNet::create(design_, 31, 0, SNLName("net0"));
   ASSERT_TRUE(net0);
+  EXPECT_EQ(SNLName("net0"), net0->getName());
+  EXPECT_EQ(0, net0->getID());
+  EXPECT_EQ(31, net0->getMSB());
+  EXPECT_EQ(0, net0->getLSB());
+  //EXPECT_EQ(32, net0->getSize());
+  EXPECT_EQ(design_, net0->getDesign());
+  EXPECT_FALSE(net0->isAnonymous());
+  EXPECT_EQ(net0, design_->getNet(0));
+  EXPECT_EQ(net0, design_->getNet(SNLName("net0")));
 }

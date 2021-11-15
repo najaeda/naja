@@ -17,7 +17,7 @@ class SNLObject {
     virtual Card* getCard() const;
 
     ///destroy this SNLObject and remove it cleanly from SNL.
-    void destroy();
+    virtual void destroy();
   protected:
     SNLObject() = default;
     virtual ~SNLObject() = default;

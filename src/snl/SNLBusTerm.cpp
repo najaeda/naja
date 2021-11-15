@@ -1,19 +1,32 @@
 #include "SNLBusTerm.h"
 
 #include "SNLDesign.h"
+#include "SNLBusTermBit.h"
 
 namespace SNL {
 
-SNLBusTerm::SNLBusTerm(SNLDesign* design, const Direction& direction, const SNLName& name):
+SNLBusTerm::SNLBusTerm(
+    SNLDesign* design,
+    const Direction& direction,
+    SNLID::Bit msb,
+    SNLID::Bit lsb,
+    const SNLName& name):
   super(),
   name_(name),
   design_(design),
-  direction_(direction)
+  direction_(direction),
+  msb_(msb),
+  lsb_(lsb)
 {}
 
-SNLBusTerm* SNLBusTerm::create(SNLDesign* design, const Direction& direction, const SNLName& name) {
+SNLBusTerm* SNLBusTerm::create(
+    SNLDesign* design,
+    const Direction& direction,
+    SNLID::Bit msb,
+    SNLID::Bit lsb,
+    const SNLName& name) {
   preCreate(design, name);
-  SNLBusTerm* term = new SNLBusTerm(design, direction, name);
+  SNLBusTerm* term = new SNLBusTerm(design, direction, msb, lsb, name);
   term->postCreate();
   return term;
 }
@@ -28,9 +41,18 @@ void SNLBusTerm::preCreate(const SNLDesign* design, const SNLName& name) {
 void SNLBusTerm::postCreate() {
   super::postCreate();
   getDesign()->addTerm(this);
+  //create bits
+  bits_.resize(getSize(), nullptr);
+  for (size_t i=0; i<getSize()-1; i++) {
+    SNLID::Bit bit = (getMSB()>getLSB())?getMSB()-i:getMSB()+i;
+    bits_[i] = SNLBusTermBit::create(this, bit);
+  }
 }
 
 void SNLBusTerm::commonPreDestroy() {
+  for (SNLBusTermBit* bit: bits_) {
+    bit->destroyFromBus();
+  }
   super::preDestroy();
 }
 
@@ -42,6 +64,10 @@ void SNLBusTerm::destroyFromDesign() {
 void SNLBusTerm::preDestroy() {
   commonPreDestroy();
   getDesign()->removeTerm(this);
+}
+
+size_t SNLBusTerm::getSize() const {
+  return std::abs(getLSB() - getMSB()) + 1;
 }
 
 SNLID SNLBusTerm::getSNLID() const {

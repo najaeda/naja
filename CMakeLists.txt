@@ -10,8 +10,6 @@ cmake_minimum_required(VERSION 3.19)
 set(CMAKE_CXX_STANDARD 20)
 
 find_package(Boost REQUIRED)
-find_package(SWIG 4.0 COMPONENTS python REQUIRED)
-find_package(Python3 COMPONENTS Development)
 find_package(LibXml2 REQUIRED)
 
 add_subdirectory(src)
