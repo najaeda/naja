@@ -21,7 +21,7 @@ namespace SNL {
  * Bit         | unsigned int   | 4            | 0 - 4,294,967,295 |
  */
 
-struct SNLID {
+struct SNLID final {
   enum class Type {DB, Library, Design, Term, Net, Instance, InstTerm};
   using DBID = unsigned char;
   using LibraryID = unsigned short;

@@ -14,4 +14,13 @@ void SNLBitNet::preDestroy() {
   super::preDestroy();
 }
 
+void SNLBitNet::addComponent(SNLNetComponent* component) {
+  //FIXME: should assert that component is not in bitNet ? not connected hook ?
+  components_.insert(*component);
+}
+
+void SNLBitNet::removeComponent(SNLNetComponent* component) {
+  components_.erase(*component);
+}
+
 }
