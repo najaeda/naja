@@ -28,21 +28,31 @@ void SNLInstance::preCreate(SNLDesign* design, const SNLName& name) {
 void SNLInstance::postCreate() {
   super::postCreate();
   getDesign()->addInstance(this);
+  if (not getModel()->isPrimitive()) {
+    //Always execute addSlaveInstance after addInstance.
+    //addInstance determines the instance ID.
+    getModel()->addSlaveInstance(this);
+  }
   //create instance terminals
   //FIXME
 }
 
-void SNLInstance::commonPreDestroy() {
-  super::preDestroy();
+void SNLInstance::destroyFromModel() {
+  getDesign()->removeInstance(this);
+  delete this;
 }
 
 void SNLInstance::destroyFromDesign() {
-  commonPreDestroy();
+  if (not getModel()->isPrimitive()) {
+    getModel()->removeSlaveInstance(this);
+  }
   delete this;
 }
 
 void SNLInstance::preDestroy() {
-  commonPreDestroy();
+  if (not getModel()->isPrimitive()) {
+    getModel()->removeSlaveInstance(this);
+  }
   getDesign()->removeInstance(this);
 }
 

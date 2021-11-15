@@ -26,18 +26,19 @@ std::string SNLDesign::Type::getString() const {
 
 SNLDesign* SNLDesign::create(SNLLibrary* library, const SNLName& name) {
   preCreate(library, name);
-  SNLDesign* design = new SNLDesign(library, name);
+  SNLDesign* design = new SNLDesign(library, Type::Standard, name);
   design->postCreate();
   return design;
 }
 
-SNLDesign::SNLDesign(SNLLibrary* library):
-  super(),
-  library_(library)
-{}
-  
-  
-SNLDesign::SNLDesign(SNLLibrary* library, const SNLName& name):
+SNLDesign* SNLDesign::create(SNLLibrary* library, const Type& type, const SNLName& name) {
+  preCreate(library, name);
+  SNLDesign* design = new SNLDesign(library, type, name);
+  design->postCreate();
+  return design;
+}
+
+SNLDesign::SNLDesign(SNLLibrary* library, const Type& type, const SNLName& name):
   super(),
   library_(library),
   name_(name)
@@ -69,6 +70,15 @@ void SNLDesign::commonPreDestroy() {
     }
   };
   instances_.clear_and_dispose(destroyInstanceFromDesign());
+
+  if (not isPrimitive()) {
+    struct destroySlaveInstanceFromModel {
+      void operator()(SNLInstance* instance) {
+        instance->destroyFromModel();
+      }
+    };
+    instances_.clear_and_dispose(destroySlaveInstanceFromModel());
+  }
 
   struct destroyNetFromDesign {
     void operator()(SNLNet* net) {
@@ -182,6 +192,15 @@ SNLInstance* SNLDesign::getInstance(const SNLName& name) {
     return getInstance(id);
   }
   return nullptr;
+}
+
+void SNLDesign::addSlaveInstance(SNLInstance* instance) {
+  //addSlaveInstance must be executed after addInstance.
+  slaveInstances_.insert(*instance);
+}
+
+void SNLDesign::removeSlaveInstance(SNLInstance* instance) {
+  slaveInstances_.erase(*instance);
 }
 
 void SNLDesign::addNet(SNLNet* net) {

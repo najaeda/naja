@@ -24,6 +24,8 @@ SNLScalarNet* SNLScalarNet::create(SNLDesign* design, const SNLName& name) {
 void SNLScalarNet::preCreate(const SNLDesign* design, const SNLName& name) {
   super::preCreate();
   //verify that there is not an instance of name in this design
+  if (not name.empty()) {
+  }
 }
 
 void SNLScalarNet::postCreate() {

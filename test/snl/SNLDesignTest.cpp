@@ -34,6 +34,7 @@ TEST_F(SNLDesignTest, testCreation) {
   EXPECT_EQ(library, design->getLibrary());
   EXPECT_EQ(db_, design->getDB());
   EXPECT_EQ(SNLID(1, 0, 0), design->getSNLID());
+  EXPECT_TRUE(design->isStandard());
   SNLScalarTerm* term0 = SNLScalarTerm::create(design, SNLTerm::Direction::Input, SNLName("term0"));
   ASSERT_TRUE(term0);
   EXPECT_EQ(SNLName("term0"), term0->getName());
@@ -89,4 +90,5 @@ TEST_F(SNLDesignTest, testCreation) {
   EXPECT_EQ(library, anon->getLibrary());
   EXPECT_EQ(db_, anon->getDB());
   EXPECT_EQ(SNLID(1, 0, 2), anon->getSNLID());
+  EXPECT_TRUE(anon->isStandard());
 }

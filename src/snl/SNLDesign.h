@@ -44,6 +44,7 @@ class SNLDesign final: public SNLObject {
     SNLDesign(const SNLDesign& design) = delete;
 
     static SNLDesign* create(SNLLibrary* library, const SNLName& name=SNLName());
+    static SNLDesign* create(SNLLibrary* library, const Type& type, const SNLName& name=SNLName());
 
     SNLDB* getDB() const;
     SNLLibrary* getLibrary() const { return library_; }
@@ -75,15 +76,20 @@ class SNLDesign final: public SNLObject {
 
     SNLID::DesignID getID() const { return id_; }
     SNLID getSNLID() const;
-    bool isAnonymous() const { return name_.empty(); }
+
     SNLName getName() const { return name_; }
+    bool isAnonymous() const { return name_.empty(); }
+    
+    bool isStandard() const { return type_ == Type::Standard; }
+    bool isBlackBox() const { return type_ == Type::Blackbox; }
+    bool isPrimitive() const { return type_ == Type::Primitive; }
+
     constexpr const char* getTypeName() const override;
     std::string getString() const override;
     std::string getDescription() const override;
     Card* getCard() const override;
   private:
-    SNLDesign(SNLLibrary* library);
-    SNLDesign(SNLLibrary* library, const SNLName& name);
+    SNLDesign(SNLLibrary* library, const Type& type, const SNLName& name);
     static void preCreate(const SNLLibrary* library, const std::string& name);
     void destroyFromLibrary();
     void postCreate();
@@ -93,6 +99,8 @@ class SNLDesign final: public SNLObject {
     void removeTerm(SNLTerm* term);
     void addInstance(SNLInstance* instance);
     void removeInstance(SNLInstance* instance);
+    void addSlaveInstance(SNLInstance* instance);
+    void removeSlaveInstance(SNLInstance* instance);
     void addNet(SNLNet* net);
     void removeNet(SNLNet* net);
 
@@ -107,6 +115,9 @@ class SNLDesign final: public SNLObject {
     using SNLDesignInstancesHook =
       boost::intrusive::member_hook<SNLInstance, boost::intrusive::set_member_hook<>, &SNLInstance::designInstancesHook_>;
     using SNLDesignInstances = boost::intrusive::set<SNLInstance, SNLDesignInstancesHook>;
+    using SNLDesignSlaveInstancesHook =
+      boost::intrusive::member_hook<SNLInstance, boost::intrusive::set_member_hook<>, &SNLInstance::designSlaveInstancesHook_>;
+    using SNLDesignSlaveInstances = boost::intrusive::set<SNLInstance, SNLDesignSlaveInstancesHook>;
     using SNLInstanceNameIDMap = std::map<SNLName, SNLID::InstanceID>;
     using SNLDesignNetsHook =
       boost::intrusive::member_hook<SNLNet, boost::intrusive::set_member_hook<>, &SNLNet::designNetsHook_>;
@@ -121,6 +132,7 @@ class SNLDesign final: public SNLObject {
     SNLDesignObjectNameIDMap            termNameIDMap_      {};
     SNLDesignInstances                  instances_          {};
     SNLInstanceNameIDMap                instanceNameIDMap_  {};
+    SNLDesignSlaveInstances             slaveInstances_     {};
     SNLDesignNets                       nets_               {};
     SNLDesignObjectNameIDMap            netNameIDMap_       {};
 };
