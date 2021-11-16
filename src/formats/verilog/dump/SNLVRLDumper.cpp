@@ -15,6 +15,21 @@ SNLName SNLVRLDumper::createInstanceName(const SNLInstance* instance) {
   return instanceName;
 }
 
+void SNLVRLDumper::dumpInstance(const SNLInstance* instance, std::ostream& o) {
+  SNLName instanceName;
+  if (instance->isAnonymous()) {
+    instanceName = createInstanceName(instance);
+  } else {
+    instanceName = instance->getName();
+  }
+  auto model = instance->getModel();
+  if (model->isAnonymous()) {
+    o << instanceName << std::endl;
+  } else {
+    o << model->getName() << " " << instanceName << std::endl;
+  }
+}
+
 void SNLVRLDumper::dumpDesign(const SNLDesign* design, std::ostream& o) {
   if (design->isAnonymous()) {
     return;
@@ -28,18 +43,7 @@ void SNLVRLDumper::dumpDesign(const SNLDesign* design, std::ostream& o) {
   SNLIterator<SNLInstance> instanceIt = instances.getIterator();
   while (instanceIt.isValid()) {
     auto instance = instanceIt.getElement();
-    SNLName instanceName;
-    if (instance->isAnonymous()) {
-      instanceName = createInstanceName(instance);
-    } else {
-      instanceName = instance->getName();
-    }
-    auto model = instance->getModel();
-    if (model->isAnonymous()) {
-      o << instanceName << std::endl;
-    } else {
-      o << model->getName() << " " << instanceName << std::endl;
-    }
+    dumpInstance(instance, o);
     ++instanceIt;
   }
   o << "endmodule //" << design->getName();

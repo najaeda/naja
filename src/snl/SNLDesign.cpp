@@ -41,7 +41,8 @@ SNLDesign* SNLDesign::create(SNLLibrary* library, const Type& type, const SNLNam
 SNLDesign::SNLDesign(SNLLibrary* library, const Type& type, const SNLName& name):
   super(),
   library_(library),
-  name_(name)
+  name_(name),
+  type_(type)
 {}
 
 void SNLDesign::preCreate(const SNLLibrary* library, const SNLName& name) {
@@ -96,7 +97,7 @@ void SNLDesign::destroyFromLibrary() {
 }
 
 void SNLDesign::preDestroy() {
-  if (design->isPrimitive()) {
+  if (isPrimitive()) {
     //FIXME: Error
   }
   library_->removeDesign(this);
@@ -257,6 +258,10 @@ SNLScalarNet* SNLDesign::getScalarNet(const SNLName& name) {
 
 SNLBusNet* SNLDesign::getBusNet(const SNLName& name) {
   return dynamic_cast<SNLBusNet*>(getNet(name));
+}
+
+SNLCollection<SNLNet> SNLDesign::getNets() const {
+  return SNLCollection<SNLNet>(new SNLIntrusiveConstSetCollection<SNLNet, SNLDesignNetsHook>(&nets_));
 }
 
 SNLDB* SNLDesign::getDB() const {

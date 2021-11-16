@@ -14,8 +14,11 @@ class SNLVRLDumper {
   public:
     class Configuration {
     };
+    void dumpDesign(const SNLDesign* design, std::ostream& o);
+  private:
     static SNLName createInstanceName(const SNLInstance* instance);
-    void dump(const SNLDesign* design, std::ostream& o);
+    void dumpInstance(const SNLInstance* instance, std::ostream& o);
+
 };
 
 }
