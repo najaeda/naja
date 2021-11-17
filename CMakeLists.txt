@@ -11,6 +11,7 @@ set(CMAKE_CXX_STANDARD 20)
 
 find_package(Boost REQUIRED)
 find_package(LibXml2 REQUIRED)
+find_package(Python3 COMPONENTS Development REQUIRED)
 
 add_subdirectory(src)
 

@@ -168,7 +168,7 @@ constexpr const char* SNLLibrary::getTypeName() const {
 }
 
 std::string SNLLibrary::getString() const {
-  return std::string();
+  return getName();
 }
 
 std::string SNLLibrary::getDescription() const {
