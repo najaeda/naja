@@ -24,4 +24,4 @@ extern void         PySNLUniverse_LinkPyType();
 
 }  // PYSNL namespace.
  
-# endif  /* __PY_SNL_UNIVERSE_H_ */
+#endif /* __PY_SNL_UNIVERSE_H_ */
