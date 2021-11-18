@@ -79,7 +79,7 @@ constexpr const char* SNLBusTerm::getTypeName() const {
 }
 
 std::string SNLBusTerm::getString() const {
-  return std::string();
+  return getName() + "[" + std::to_string(getMSB()) + ":" + std::to_string(getLSB()) + "]";
 }
 
 std::string SNLBusTerm::getDescription() const {

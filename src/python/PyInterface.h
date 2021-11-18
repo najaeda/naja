@@ -159,4 +159,15 @@
     PyType_GenericNew /* tp_new */                                  \
 };
 
+#define GENERIC_METHOD_HEAD(SELF_TYPE,SELF_OBJECT,function)                               \
+  if (not self->ACCESS_OBJECT) {                                                          \
+    /*PyErr_SetString(ProxyError, "Attempt to call " function " on an unbound object");*/ \
+    return nullptr;                                                                       \
+  }                                                                                       \
+  SELF_TYPE* SELF_OBJECT = dynamic_cast<SELF_TYPE*>(self->ACCESS_OBJECT);                 \
+  if (not SELF_OBJECT) {                                                                  \
+    /*PyErr_SetString( ProxyError, "Invalid dynamic_cast<> while calling " function "");*/  \
+    return nullptr;                                                                       \
+  }
+
 #endif /* __PY_INTERFACE_H */
