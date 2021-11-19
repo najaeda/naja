@@ -22,6 +22,6 @@ extern void         PySNLLibrary_LinkPyType();
 #define PYSNLLibrary(v)   ((PySNLLibrary*)(v))
 #define PYSNLLibrary_O(v) (PYSNLLibrary(v)->object_)
 
-}  // PYSNL namespace.
+} /* PYSNL namespace */
  
-# endif  /* __PY_SNL_LIBRARY_H_ */
+#endif /* __PY_SNL_LIBRARY_H_ */

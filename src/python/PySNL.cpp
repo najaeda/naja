@@ -1,6 +1,7 @@
 #include "PySNLUniverse.h"
 #include "PySNLDB.h"
 #include "PySNLLibrary.h"
+#include "PySNLDesign.h"
 
 namespace PYSNL {
 
@@ -20,14 +21,17 @@ PyMODINIT_FUNC PyInit_snl(void) {
   PySNLUniverse_LinkPyType();
   PySNLDB_LinkPyType();
   PySNLLibrary_LinkPyType();
+  PySNLDesign_LinkPyType();
 
   PYTYPE_READY(SNLUniverse);
   PYTYPE_READY(SNLDB);
   PYTYPE_READY(SNLLibrary);
+  PYTYPE_READY(SNLDesign);
 
   Py_INCREF(&PyTypeSNLUniverse);
   Py_INCREF(&PyTypeSNLDB);
   Py_INCREF(&PyTypeSNLLibrary);
+  Py_INCREF(&PyTypeSNLDesign);
 
   PyObject* mod = PyModule_Create(&snlModule);
 
@@ -40,6 +44,7 @@ PyMODINIT_FUNC PyInit_snl(void) {
   PyModule_AddObject(mod, "SNLUniverse", (PyObject*)&PyTypeSNLUniverse);
   PyModule_AddObject(mod, "SNLDB", (PyObject*)&PyTypeSNLDB);
   PyModule_AddObject(mod, "SNLLibrary", (PyObject*)&PyTypeSNLLibrary);
+  PyModule_AddObject(mod, "SNLDesign", (PyObject*)&PyTypeSNLDesign);
 
   return mod;
 }

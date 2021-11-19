@@ -22,6 +22,6 @@ extern void         PySNLDB_LinkPyType();
 #define PYSNLDB(v)   ((PySNLDB*)(v))
 #define PYSNLDB_O(v) (PYSNLDB(v)->object_)
 
-}  // PYSNL namespace.
+} /* PYSNL namespace */
  
-# endif  /* __PY_SNL_DB_H_ */
+#endif /* __PY_SNL_DB_H_ */

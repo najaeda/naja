@@ -1,5 +1,7 @@
 #include "SNLDesign.h"
 
+#include <sstream>
+
 #include "Card.h"
 
 #include "SNLDB.h" 
@@ -277,7 +279,17 @@ constexpr const char* SNLDesign::getTypeName() const {
 }
 
 std::string SNLDesign::getString() const {
-  return std::string();
+  std::ostringstream str;
+  if (not getLibrary()->isAnonymous()) {
+    str << getLibrary()->getName();
+  }
+  str << "(" << getLibrary()->getID() << ")";
+  str << ":";
+  if (not isAnonymous()) {
+    str << getName();
+  }
+  str << "(" << getID() << ")";
+  return str.str();
 }
 
 std::string SNLDesign::getDescription() const {

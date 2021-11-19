@@ -17,6 +17,9 @@ static PyObject* PySNLDB_create(PyObject*, PyObject* args) {
     //PyErr_SetString("");
     return nullptr;
   }
+  if (not IsPySNLUniverse(arg)) {
+    return nullptr;
+  }
   auto universe = PYSNLUNIVERSE_O(arg);
   auto db = SNL::SNLDB::create(universe);
   return PySNLDB_Link(db);

@@ -120,7 +120,7 @@
 #define PyTypeObjectDefinitions(SELF_TYPE)                          \
   PyTypeObject PyType##SELF_TYPE = {                                \
     PyVarObject_HEAD_INIT(NULL, 0)                                  \
-    "#SELF_TYPE", /* tp_name */                                     \
+    #SELF_TYPE, /* tp_name */                                       \
     sizeof(Py##SELF_TYPE), /* tp_basicsize */                       \
     0, /* tp_itemsize */                                            \
     0, /* tp_dealloc */                                             \

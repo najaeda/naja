@@ -22,6 +22,6 @@ extern void         PySNLUniverse_LinkPyType();
 #define PYSNLUNIVERSE(v)   ((PySNLUniverse*)(v))
 #define PYSNLUNIVERSE_O(v) (PYSNLUNIVERSE(v)->object_)
 
-}  // PYSNL namespace.
+} /* PYSNL namespace */
  
 #endif /* __PY_SNL_UNIVERSE_H_ */
