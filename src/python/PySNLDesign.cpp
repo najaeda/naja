@@ -12,20 +12,23 @@ static PyObject* PySNLDesign_create(PyObject*, PyObject* args) {
   PyObject* arg0 = nullptr;
   const char* arg1 = nullptr;
   if (not PyArg_ParseTuple(args, "O|s:SNLDB.create", &arg0, &arg1)) {
-    //PyErr_SetString("");
+    setError("malformed SNLDesign create method");
     return nullptr;
   }
-  SNLDesign* design = nullptr;
   SNLName name;
   if (arg1) {
     name = SNLName(arg1);
   }
+
+  SNLDesign* design = nullptr;
+  SNLTRY
   if (IsPySNLLibrary(arg0)) {
     design = SNLDesign::create(PYSNLLibrary_O(arg0), name);
   } else {
-    //PyErr_SetString("");
+    setError("SNLDesign create accepts SNLLibrary as first argument");
     return nullptr;
   }
+  SNLCATCH
   return PySNLDesign_Link(design);
 }
 

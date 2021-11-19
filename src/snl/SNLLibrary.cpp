@@ -1,6 +1,7 @@
 #include "SNLLibrary.h"
 
 #include "SNLDB.h"
+#include "SNLException.h"
 
 namespace SNL {
 
@@ -18,9 +19,9 @@ SNLLibrary::SNLLibrary(SNLLibrary* parent, const SNLName& name):
   isRootLibrary_(false)
 {}
 
-SNLLibrary* SNLLibrary::create(SNLDB* parent, const SNLName& name) {
-  preCreate(parent, name);
-  SNLLibrary* library = new SNLLibrary(parent, name);
+SNLLibrary* SNLLibrary::create(SNLDB* db, const SNLName& name) {
+  preCreate(db, name);
+  SNLLibrary* library = new SNLLibrary(db, name);
   library->postCreate();
   return library;
 }
@@ -32,12 +33,26 @@ SNLLibrary* SNLLibrary::create(SNLLibrary* parent, const SNLName& name) {
   return library;
 }
 
-void SNLLibrary::preCreate(const SNLDB* parent, const SNLName& name) {
+void SNLLibrary::preCreate(SNLDB* db, const SNLName& name) {
   super::preCreate();
+  if (not db) {
+    throw SNLException("malformed SNLLibrary creator with NULL db argument");
+  }
+  if (not name.empty() and db->getLibrary(name)) {
+    std::string reason = "SNLDB " + db->getString() + " contains already a SNLLibrary named: " + name;
+    throw SNLException(reason);
+  }
 }
 
-void SNLLibrary::preCreate(const SNLLibrary* parent, const SNLName& name) {
+void SNLLibrary::preCreate(SNLLibrary* library, const SNLName& name) {
   super::preCreate();
+  if (not library) {
+    throw SNLException("malformed SNLLibrary creator with NULL parent library argument");
+  }
+  if (not name.empty() and library->getLibrary(name)) {
+    std::string reason = "SNLLibrary " + library->getString() + " contains already a SNLLibrary named: " + name;
+    throw SNLException(reason);
+  }
 }
 
 void SNLLibrary::postCreate() {

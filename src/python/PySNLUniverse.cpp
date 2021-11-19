@@ -7,7 +7,10 @@ namespace PYSNL {
 using namespace SNL;
 
 static PyObject* PySNLUniverse_create() {
-  auto universe = SNL::SNLUniverse::create();
+  SNL::SNLUniverse* universe = nullptr;
+  SNLTRY
+  universe = SNL::SNLUniverse::create();
+  SNLCATCH
   return PySNLUniverse_Link(universe);
 }
 

@@ -2,6 +2,7 @@
 #include "PySNLDB.h"
 #include "PySNLLibrary.h"
 #include "PySNLDesign.h"
+#include "PySNLScalarTerm.h"
 
 namespace PYSNL {
 
@@ -22,16 +23,19 @@ PyMODINIT_FUNC PyInit_snl(void) {
   PySNLDB_LinkPyType();
   PySNLLibrary_LinkPyType();
   PySNLDesign_LinkPyType();
+  PySNLScalarTerm_LinkPyType();
 
   PYTYPE_READY(SNLUniverse);
   PYTYPE_READY(SNLDB);
   PYTYPE_READY(SNLLibrary);
   PYTYPE_READY(SNLDesign);
+  PYTYPE_READY(SNLScalarTerm);
 
   Py_INCREF(&PyTypeSNLUniverse);
   Py_INCREF(&PyTypeSNLDB);
   Py_INCREF(&PyTypeSNLLibrary);
   Py_INCREF(&PyTypeSNLDesign);
+  Py_INCREF(&PyTypeSNLScalarTerm);
 
   PyObject* mod = PyModule_Create(&snlModule);
 
@@ -45,6 +49,7 @@ PyMODINIT_FUNC PyInit_snl(void) {
   PyModule_AddObject(mod, "SNLDB", (PyObject*)&PyTypeSNLDB);
   PyModule_AddObject(mod, "SNLLibrary", (PyObject*)&PyTypeSNLLibrary);
   PyModule_AddObject(mod, "SNLDesign", (PyObject*)&PyTypeSNLDesign);
+  PyModule_AddObject(mod, "SNLScalarTerm", (PyObject*)&PyTypeSNLScalarTerm);
 
   return mod;
 }

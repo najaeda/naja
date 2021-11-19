@@ -2,6 +2,7 @@ set(SOURCES
   PySNLUniverse.cpp
   PySNLDB.cpp PySNLLibrary.cpp
   PySNLDesign.cpp
+  PySNLScalarTerm.cpp
   PySNL.cpp
 )
 

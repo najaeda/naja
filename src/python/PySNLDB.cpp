@@ -14,14 +14,18 @@ using namespace SNL;
 static PyObject* PySNLDB_create(PyObject*, PyObject* args) {
   PyObject* arg = nullptr;
   if (not PyArg_ParseTuple(args, "O:SNLDB.create", &arg)) {
-    //PyErr_SetString("");
+    setError("malformed SNLDB create");
     return nullptr;
   }
   if (not IsPySNLUniverse(arg)) {
+    setError("SNLDB create should be a SNLUniverse");
     return nullptr;
   }
   auto universe = PYSNLUNIVERSE_O(arg);
-  auto db = SNL::SNLDB::create(universe);
+  SNL::SNLDB* db = nullptr;
+  SNLTRY
+  db = SNL::SNLDB::create(universe);
+  SNLCATCH
   return PySNLDB_Link(db);
 }
 
@@ -32,7 +36,7 @@ static PyObject* PySNLDB_getLibrary(PySNLLibrary* self, PyObject* arg) {
   if (PyUnicode_Check(arg)) {
     subLibrary = db->getLibrary(SNLName("toto"));
   } else {
-    //PyErr_SetString
+    setError("getLibrary takes a string argument");
     return nullptr;
   }
   return PySNLLibrary_Link(subLibrary);

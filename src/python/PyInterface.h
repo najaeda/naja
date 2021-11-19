@@ -7,9 +7,34 @@
 #define PY_SSIZE_T_CLEAN /* Make "s#" use Py_ssize_t rather than int. */
 #include <Python.h>
 
+#include "SNLException.h"
+
+namespace PYSNL {
+
+static void setError(const std::string& reason) {
+  //Mabybe create a custom error type in the future ?
+  PyErr_SetString(PyExc_RuntimeError, reason.c_str());
+}
+
+}
+
 // This macro must be redefined in derived classes.
 // Example : baseOject_.object_
 #define ACCESS_OBJECT object_
+
+#define SNLTRY try {
+
+#define SNLCATCH                                        \
+  } catch (const SNL::SNLException& e) {                \
+    setError("SNL exception: " + e.getReason());        \
+    return nullptr;                                     \
+  } catch (const std::exception& e) {                   \
+    setError("Exception " + std::string(e.what()));     \
+    return nullptr;                                     \
+  } catch (...) {                                       \
+    setError("Unknown exception");                      \
+    return nullptr;                                     \
+  }
 
 #define DirectReprMethod(PY_FUNC_NAME,PY_SELF_TYPE,SELF_TYPE)                                   \
   static PyObject* PY_FUNC_NAME(PY_SELF_TYPE *self ) {                                          \
@@ -60,9 +85,7 @@
 #define DBoDestroyAttribute(PY_FUNC_NAME, PY_SELF_TYPE)                                    \
   static PyObject* PY_FUNC_NAME(PY_SELF_TYPE *self) {                                      \
     if (not self->ACCESS_OBJECT) {                                                         \
-      std::ostringstream message;                                                          \
-      message << "applying a destroy() to a Python object with no object attached";        \
-      /*PyErr_SetString(ProxyError, message.str().c_str());*/                              \
+      setError("applying a destroy() to a Python object with no object attached");         \
       return nullptr;                                                                      \
     }                                                                                      \
     self->ACCESS_OBJECT->destroy();                                                        \
@@ -159,15 +182,15 @@
     PyType_GenericNew /* tp_new */                                  \
 };
 
-#define GENERIC_METHOD_HEAD(SELF_TYPE,SELF_OBJECT,function)                               \
-  if (not self->ACCESS_OBJECT) {                                                          \
-    /*PyErr_SetString(ProxyError, "Attempt to call " function " on an unbound object");*/ \
-    return nullptr;                                                                       \
-  }                                                                                       \
-  SELF_TYPE* SELF_OBJECT = dynamic_cast<SELF_TYPE*>(self->ACCESS_OBJECT);                 \
-  if (not SELF_OBJECT) {                                                                  \
-    /*PyErr_SetString( ProxyError, "Invalid dynamic_cast<> while calling " function "");*/  \
-    return nullptr;                                                                       \
+#define GENERIC_METHOD_HEAD(SELF_TYPE,SELF_OBJECT,function)                                 \
+  if (not self->ACCESS_OBJECT) {                                                            \
+    setError("Attempt to call " function " on an unbound object");                          \
+    return nullptr;                                                                         \
+  }                                                                                         \
+  SELF_TYPE* SELF_OBJECT = dynamic_cast<SELF_TYPE*>(self->ACCESS_OBJECT);                   \
+  if (not SELF_OBJECT) {                                                                    \
+    setError("Invalid dynamic_cast<> while calling " function "");                          \
+    return nullptr;                                                                         \
   }
 
 #endif /* __PY_INTERFACE_H */

@@ -44,8 +44,8 @@ class SNLLibrary final: public SNLObject {
       return ll.getSNLID() < rl.getSNLID();
     }
   private:
-    static void preCreate(const SNLDB* db, const SNLName& name);
-    static void preCreate(const SNLLibrary* parent, const SNLName& name);
+    static void preCreate(SNLDB* db, const SNLName& name);
+    static void preCreate(SNLLibrary* parent, const SNLName& name);
     void destroyFromDB();
     void postCreate();
     void preDestroy() override;
