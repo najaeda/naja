@@ -4,7 +4,7 @@
 ***
 ## Introduction
 ## Code snippet
-https://github.com/xtofalex/naja/blob/main/src/snippet/SNLSnippet.cpp
+https://github.com/xtofalex/naja/blob/main/src/snippet/cpp/SNLSnippet.cpp
 
 ## Main objects
 ### Object identification
