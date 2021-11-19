@@ -3,6 +3,7 @@ set(SOURCES
   PySNLDB.cpp PySNLLibrary.cpp
   PySNLDesign.cpp
   PySNLScalarTerm.cpp
+  PySNLInstance.cpp
   PySNL.cpp
 )
 

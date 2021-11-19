@@ -9,13 +9,18 @@ def main() -> int:
   lib1 = snl.SNLLibrary.create(db2)
   lib2 = snl.SNLLibrary.create(lib0)
 
+  model0 = snl.SNLDesign.create(lib1)
+  model1 = snl.SNLDesign.create(lib1)
   d0 = snl.SNLDesign.create(lib2)
-  d1 = snl.SNLDesign.create(lib2)
-  d2 = snl.SNLDesign.create(lib2)
-  print('Design:', d2)
+  print('Design:', d0)
 
   i0 = snl.SNLScalarTerm.create(d0, "I0")
   print(i0)
+
+  i0 = snl.SNLInstance.create(d0, model0, "i0")
+  i1 = snl.SNLInstance.create(d0, model0)
+  print('Instance:', i0)
+  print('Instance:', i1)
 
 
 if __name__ == '__main__':

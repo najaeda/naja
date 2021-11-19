@@ -1,5 +1,7 @@
 #include "SNLInstance.h"
 
+#include <sstream>
+
 #include "Card.h"
 
 #include "SNLDesign.h"
@@ -65,7 +67,12 @@ constexpr const char* SNLInstance::getTypeName() const {
 }
 
 std::string SNLInstance::getString() const {
-  return std::string();
+  std::ostringstream str; 
+  if (not isAnonymous()) {
+    str << getName();
+  }
+  str << "(" << getID() << ")";
+  return str.str();
 }
 
 std::string SNLInstance::getDescription() const {
