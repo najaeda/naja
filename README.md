@@ -7,6 +7,6 @@
 ### c++
 https://github.com/xtofalex/naja/blob/main/src/snippet/cpp/SNLSnippet.cpp
 ### python
-https://github.com/xtofalex/naja/blob/main/src/snippet/python/sln_snippet.py
+https://github.com/xtofalex/naja/blob/main/src/snippet/python/snl_snippet.py
 ## Main objects
 ### Object identification
