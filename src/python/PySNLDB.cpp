@@ -34,7 +34,12 @@ static PyObject* PySNLDB_getLibrary(PySNLLibrary* self, PyObject* arg) {
   SNLLibrary* subLibrary = NULL;
 
   if (PyUnicode_Check(arg)) {
-    subLibrary = db->getLibrary(SNLName("toto"));
+    Py_ssize_t size;
+    const char* str = PyUnicode_AsUTF8AndSize(arg, &size);
+    if (not str) {
+      return nullptr;
+    }
+    subLibrary = db->getLibrary(SNLName(str));
   } else {
     setError("getLibrary takes a string argument");
     return nullptr;

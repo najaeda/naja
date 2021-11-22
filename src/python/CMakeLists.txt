@@ -1,7 +1,7 @@
 set(SOURCES
   PySNLUniverse.cpp
-  PySNLDB.cpp PySNLLibrary.cpp
-  PySNLDesign.cpp
+  PySNLDB.cpp PySNLLibrary.cpp PySNLDesign.cpp
+  PySNLDesignObject.cpp
   PySNLScalarTerm.cpp
   PySNLInstance.cpp
   PySNL.cpp

@@ -8,6 +8,12 @@ namespace PYSNL {
 
 using namespace SNL;
 
+#undef   ACCESS_OBJECT
+#undef   ACCESS_CLASS
+#define  ACCESS_OBJECT           parent_.object_
+#define  ACCESS_CLASS(_pyObject)  &(_pyObject->parent_)
+#define  METHOD_HEAD(function)   GENERIC_METHOD_HEAD(Instance,instance,function)
+
 static PyObject* PySNLInstance_create(PyObject*, PyObject* args) {
   PyObject* arg0 = nullptr;
   PyObject* arg1 = nullptr;
@@ -47,6 +53,6 @@ DBoDeallocMethod(SNLInstance)
 
 DBoLinkCreateMethod(SNLInstance)
 PyTypeObjectLinkPyType(SNLInstance)
-PyTypeObjectDefinitions(SNLInstance)
+PyTypeInheritedObjectDefinitions(SNLInstance, SNLDesignObject)
 
 }

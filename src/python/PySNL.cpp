@@ -24,6 +24,7 @@ PyMODINIT_FUNC PyInit_snl(void) {
   PySNLDB_LinkPyType();
   PySNLLibrary_LinkPyType();
   PySNLDesign_LinkPyType();
+  PySNLDesignObject_LinkPyType ();
   PySNLScalarTerm_LinkPyType();
   PySNLInstance_LinkPyType();
 
@@ -31,13 +32,15 @@ PyMODINIT_FUNC PyInit_snl(void) {
   PYTYPE_READY(SNLDB);
   PYTYPE_READY(SNLLibrary);
   PYTYPE_READY(SNLDesign);
+  PYTYPE_READY(SNLDesignObject);
   PYTYPE_READY(SNLScalarTerm);
-  PYTYPE_READY(SNLInstance);
+  PYTYPE_READY_SUB(SNLInstance, SNLDesignObject);
 
   Py_INCREF(&PyTypeSNLUniverse);
   Py_INCREF(&PyTypeSNLDB);
   Py_INCREF(&PyTypeSNLLibrary);
   Py_INCREF(&PyTypeSNLDesign);
+  Py_INCREF(&PyTypeSNLDesignObject);
   Py_INCREF(&PyTypeSNLScalarTerm);
   Py_INCREF(&PyTypeSNLInstance);
 
@@ -53,6 +56,7 @@ PyMODINIT_FUNC PyInit_snl(void) {
   PyModule_AddObject(mod, "SNLDB", (PyObject*)&PyTypeSNLDB);
   PyModule_AddObject(mod, "SNLLibrary", (PyObject*)&PyTypeSNLLibrary);
   PyModule_AddObject(mod, "SNLDesign", (PyObject*)&PyTypeSNLDesign);
+  PyModule_AddObject(mod, "SNLDesignObject", (PyObject*)&PyTypeSNLDesignObject);
   PyModule_AddObject(mod, "SNLScalarTerm", (PyObject*)&PyTypeSNLScalarTerm);
   PyModule_AddObject(mod, "SNLInstance", (PyObject*)&PyTypeSNLInstance);
 

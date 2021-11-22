@@ -1,14 +1,13 @@
 #ifndef __PY_SNL_INSTANCE_H_
 #define __PY_SNL_INSTANCE_H_
 
-#include "PyInterface.h"
+#include "PySNLDesignObject.h"
 #include "SNLInstance.h"
 
 namespace PYSNL {
 
 typedef struct {
-  PyObject_HEAD
-  SNL::SNLInstance* object_;
+  PySNLDesignObject parent_;
 } PySNLInstance;
 
 extern PyTypeObject PyTypeSNLInstance;
@@ -19,8 +18,8 @@ extern void         PySNLInstance_LinkPyType();
 
 
 #define IsPySNLInstance(v) ((v)->ob_type == &PyTypeSNLInstance)
-#define PYSNLInstance(v)   ((PySNLInstance*)(v))
-#define PYSNLInstance_O(v) (PYSNLInstance(v)->object_)
+#define PYSNLInstance(v)   (static_cast<PySNLInstance*>(v))
+#define PYSNLInstance_O(v) (static_cast<SNL::SNLInstance*>(PYSNLInstance(v)->parent_->object_))
 
 } /* PYSNL namespace */
  
