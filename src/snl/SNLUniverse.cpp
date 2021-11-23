@@ -105,11 +105,11 @@ constexpr const char* SNLUniverse::getTypeName() const {
 }
 
 std::string SNLUniverse::getString() const {
-  return std::string();
+  return "SNLUniverse";
 }
 
 std::string SNLUniverse::getDescription() const {
-  return "<" + std::string(getTypeName()) + ">";  
+  return "<" + std::string(getTypeName()) + " " + getString() + ">";  
 }
 
 }

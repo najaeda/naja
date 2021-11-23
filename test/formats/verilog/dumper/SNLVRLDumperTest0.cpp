@@ -36,6 +36,6 @@ TEST_F(SNLVRLDumperTest0, test0) {
   std::filesystem::path outPath("test.v");
   std::ofstream ofs(outPath, std::ofstream::out);
   SNLVRLDumper dumper;
-  dumper.dump(top, ofs);
+  dumper.dumpDesign(top, ofs);
   ofs.close();
 }
