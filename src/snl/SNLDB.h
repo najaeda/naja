@@ -31,6 +31,8 @@ class SNLDB final: public SNLObject {
     ///\return the SNLLibrary in this SNLDB with SNLName:name 
     SNLLibrary* getLibrary(const SNLName& name);
 
+    SNLCollection<SNLLibrary> getLibraries();
+
     constexpr const char* getTypeName() const override;
     std::string getString() const override;
     std::string getDescription() const override;
