@@ -8,6 +8,12 @@ namespace PYSNL {
 
 using namespace SNL;
 
+#undef   ACCESS_OBJECT
+#undef   ACCESS_CLASS
+#define  ACCESS_OBJECT           parent_.parent_.parent_.parent_.object_
+#define  ACCESS_CLASS(_pyObject)  &(_pyObject->parent_)
+#define  METHOD_HEAD(function)   GENERIC_METHOD_HEAD(Instance, instance, function)
+
 static PyObject* PySNLScalarTerm_create(PyObject*, PyObject* args) {
   PyObject* arg0 = nullptr;
   const char* arg1 = nullptr;

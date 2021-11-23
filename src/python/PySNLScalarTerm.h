@@ -1,14 +1,13 @@
 #ifndef __PY_SNL_SCALAR_TERM_H_
 #define __PY_SNL_SCALAR_TERM_H_
 
-#include "PyInterface.h"
+#include "PySNLBitTerm.h"
 #include "SNLScalarTerm.h"
 
 namespace PYSNL {
 
 typedef struct {
-  PyObject_HEAD
-  SNL::SNLScalarTerm* object_;
+  PySNLBitTerm parent_;
 } PySNLScalarTerm;
 
 extern PyTypeObject PyTypeSNLScalarTerm;
@@ -19,7 +18,7 @@ extern void         PySNLScalarTerm_LinkPyType();
 
 
 #define IsPySNLScalarTerm(v) ((v)->ob_type == &PyTypeSNLScalarTerm)
-#define PYSNLScalarTerm(v)   ((PySNLScalarTerm*)(v))
+#define PYSNLScalarTerm(v)   (static_cast<PySNLScalarTerm*>(v))
 #define PYSNLScalarTerm_O(v) (PYSNLScalarTerm(v)->object_)
 
 } /* PYSNL namespace */
