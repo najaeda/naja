@@ -2,6 +2,7 @@
 #include "PySNLDB.h"
 #include "PySNLLibrary.h"
 #include "PySNLDesign.h"
+#include "PySNLNet.h"
 #include "PySNLScalarTerm.h"
 #include "PySNLInstance.h"
 
@@ -25,6 +26,10 @@ PyMODINIT_FUNC PyInit_snl(void) {
   PySNLLibrary_LinkPyType();
   PySNLDesign_LinkPyType();
   PySNLDesignObject_LinkPyType ();
+  PySNLNet_LinkPyType();
+  PySNLNetComponent_LinkPyType ();
+  PySNLTerm_LinkPyType();
+  PySNLBitTerm_LinkPyType();
   PySNLScalarTerm_LinkPyType();
   PySNLInstance_LinkPyType();
 
@@ -33,7 +38,11 @@ PyMODINIT_FUNC PyInit_snl(void) {
   PYTYPE_READY(SNLLibrary);
   PYTYPE_READY(SNLDesign);
   PYTYPE_READY(SNLDesignObject);
-  PYTYPE_READY(SNLScalarTerm);
+  PYTYPE_READY_SUB(SNLNet, SNLDesignObject);
+  PYTYPE_READY_SUB(SNLNetComponent, SNLDesignObject);
+  PYTYPE_READY_SUB(SNLTerm, SNLNetComponent);
+  PYTYPE_READY_SUB(SNLBitTerm, SNLTerm);
+  PYTYPE_READY_SUB(SNLScalarTerm, SNLBitTerm);
   PYTYPE_READY_SUB(SNLInstance, SNLDesignObject);
 
   Py_INCREF(&PyTypeSNLUniverse);
@@ -41,6 +50,10 @@ PyMODINIT_FUNC PyInit_snl(void) {
   Py_INCREF(&PyTypeSNLLibrary);
   Py_INCREF(&PyTypeSNLDesign);
   Py_INCREF(&PyTypeSNLDesignObject);
+  Py_INCREF(&PyTypeSNLNet);
+  Py_INCREF(&PyTypeSNLNetComponent);
+  Py_INCREF(&PyTypeSNLTerm);
+  Py_INCREF(&PyTypeSNLBitTerm);
   Py_INCREF(&PyTypeSNLScalarTerm);
   Py_INCREF(&PyTypeSNLInstance);
 
@@ -57,6 +70,10 @@ PyMODINIT_FUNC PyInit_snl(void) {
   PyModule_AddObject(mod, "SNLLibrary", (PyObject*)&PyTypeSNLLibrary);
   PyModule_AddObject(mod, "SNLDesign", (PyObject*)&PyTypeSNLDesign);
   PyModule_AddObject(mod, "SNLDesignObject", (PyObject*)&PyTypeSNLDesignObject);
+  PyModule_AddObject(mod, "SNLNet", (PyObject*)&PyTypeSNLNet);
+  PyModule_AddObject(mod, "SNLNetComponent", (PyObject*)&PyTypeSNLNetComponent);
+  PyModule_AddObject(mod, "SNLTerm", (PyObject*)&PyTypeSNLTerm);
+  PyModule_AddObject(mod, "SNLBitTerm", (PyObject*)&PyTypeSNLBitTerm);
   PyModule_AddObject(mod, "SNLScalarTerm", (PyObject*)&PyTypeSNLScalarTerm);
   PyModule_AddObject(mod, "SNLInstance", (PyObject*)&PyTypeSNLInstance);
 
