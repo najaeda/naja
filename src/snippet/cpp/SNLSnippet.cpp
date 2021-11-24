@@ -15,7 +15,7 @@ int main() {
   auto model2 = SNLDesign::create(mylib, "Model2");
   SNLBusTerm::create(model2, SNLTerm::Direction::Input, 4, 0, "i0");
   SNLScalarTerm::create(model2, SNLTerm::Direction::Input, "i1");
-  SNLBusTerm::create(model2, SNLTerm::Direction::Output, 32, 0, "o");
+  SNLBusTerm::create(model2, SNLTerm::Direction::Output, 31, 0, "o");
   
   return 0;
 }

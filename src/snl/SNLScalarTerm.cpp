@@ -2,6 +2,7 @@
 
 #include <sstream>
 
+#include "SNLException.h"
 #include "SNLDesign.h"
 
 namespace SNL {
@@ -20,10 +21,14 @@ SNLScalarTerm* SNLScalarTerm::create(SNLDesign* design, const Direction& directi
   return net;
 }
 
-void SNLScalarTerm::preCreate(const SNLDesign* design, const SNLName& name) {
+void SNLScalarTerm::preCreate(SNLDesign* design, const SNLName& name) {
   super::preCreate();
-  //verify that there is not an instance of name in this design
-  if (not name.empty()) {
+  if (not design) {
+    throw SNLException("malformed SNLScalarTerm creator with NULL design argument");
+  }
+  if (not name.empty() and design->getTerm(name)) {
+    std::string reason = "SNLDesign " + design->getString() + " contains already a SNLScalarTerm named: " + name;
+    throw SNLException(reason);
   }
 }
 
