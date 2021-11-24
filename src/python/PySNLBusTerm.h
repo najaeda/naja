@@ -23,4 +23,4 @@ extern void         PySNLBusTerm_LinkPyType();
 
 } /* PYSNL namespace */
  
-#endif /* __PY_SNL_SCALAR_TERM_H_ */
+#endif /* __PY_SNL_BUS_TERM_H_ */

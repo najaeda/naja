@@ -2,6 +2,7 @@
 #include "PySNLDB.h"
 #include "PySNLLibrary.h"
 #include "PySNLDesign.h"
+#include "PySNLBusNet.h"
 #include "PySNLScalarNet.h"
 #include "PySNLScalarTerm.h"
 #include "PySNLBusTerm.h"
@@ -28,6 +29,7 @@ PyMODINIT_FUNC PyInit_snl(void) {
   PySNLDesign_LinkPyType();
   PySNLDesignObject_LinkPyType ();
   PySNLNet_LinkPyType();
+  PySNLBusNet_LinkPyType();
   PySNLBitNet_LinkPyType();
   PySNLScalarNet_LinkPyType();
   PySNLNetComponent_LinkPyType ();
@@ -43,6 +45,7 @@ PyMODINIT_FUNC PyInit_snl(void) {
   PYTYPE_READY(SNLDesign);
   PYTYPE_READY(SNLDesignObject);
   PYTYPE_READY_SUB(SNLNet, SNLDesignObject);
+  PYTYPE_READY_SUB(SNLBusNet, SNLNet);
   PYTYPE_READY_SUB(SNLBitNet, SNLNet);
   PYTYPE_READY_SUB(SNLScalarNet, SNLBitNet);
   PYTYPE_READY_SUB(SNLNetComponent, SNLDesignObject);
@@ -58,6 +61,7 @@ PyMODINIT_FUNC PyInit_snl(void) {
   Py_INCREF(&PyTypeSNLDesign);
   Py_INCREF(&PyTypeSNLDesignObject);
   Py_INCREF(&PyTypeSNLNet);
+  Py_INCREF(&PyTypeSNLBusNet);
   Py_INCREF(&PyTypeSNLBitNet);
   Py_INCREF(&PyTypeSNLScalarNet);
   Py_INCREF(&PyTypeSNLNetComponent);
@@ -81,6 +85,7 @@ PyMODINIT_FUNC PyInit_snl(void) {
   PyModule_AddObject(mod, "SNLDesign", (PyObject*)&PyTypeSNLDesign);
   PyModule_AddObject(mod, "SNLDesignObject", (PyObject*)&PyTypeSNLDesignObject);
   PyModule_AddObject(mod, "SNLNet", (PyObject*)&PyTypeSNLNet);
+  PyModule_AddObject(mod, "SNLBusNet", (PyObject*)&PyTypeSNLBusNet);
   PyModule_AddObject(mod, "SNLBitNet", (PyObject*)&PyTypeSNLBitNet);
   PyModule_AddObject(mod, "SNLScalarNet", (PyObject*)&PyTypeSNLScalarNet);
   PyModule_AddObject(mod, "SNLNetComponent", (PyObject*)&PyTypeSNLNetComponent);
