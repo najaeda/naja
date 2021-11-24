@@ -1,5 +1,7 @@
 #include "SNLScalarNet.h"
 
+#include <sstream>
+
 #include "Card.h"
 
 #include "SNLDB.h"
@@ -56,7 +58,12 @@ constexpr const char* SNLScalarNet::getTypeName() const {
 }
 
 std::string SNLScalarNet::getString() const {
-  return std::string();
+  std::ostringstream str;
+  if (not isAnonymous()) {
+    str << getName();
+  }
+  str << "(" << getID() << ")";
+  return str.str();
 }
 
 std::string SNLScalarNet::getDescription() const {

@@ -1,5 +1,7 @@
 #include "SNLScalarTerm.h"
 
+#include <sstream>
+
 #include "SNLDesign.h"
 
 namespace SNL {
@@ -53,7 +55,13 @@ constexpr const char* SNLScalarTerm::getTypeName() const {
 }
  
 std::string SNLScalarTerm::getString() const {
-  return std::string();
+  std::ostringstream str;
+  if (not isAnonymous()) {
+    str << getName();
+  }
+  str << "(" << getID() << ")";
+  return str.str();
+
 }
 
 std::string SNLScalarTerm::getDescription() const {

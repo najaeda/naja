@@ -16,9 +16,9 @@ extern PyMethodDef  PySNLBitNet_Methods[];
 extern PyObject*    PySNLBitNet_Link(SNL::SNLBitNet*);
 extern void         PySNLBitNet_LinkPyType();
 
-#define IsPySNLBitNet(v) ((v)->ob_type == &PyTypeSNLBitNet)
-#define PYSNLBitNet(v)   (static_cast<PySNLBitNet*>(v))
-#define PYSNLBitNet_O(v) (static_cast<SNL::SNLBitNet*>(PYSNLBitNet(v)->parent_->parent_->object_))
+#define IsPySNLBitNet(v) (PyObject_TypeCheck(v, &PyTypeSNLBitNet))
+#define PYSNLBitNet(v)   ((PySNLBitNet*)(v))
+#define PYSNLBitNet_O(v) (static_cast<SNL::SNLBitNet*>(PYSNLBitNet(v)->parent_.parent_.object_))
 
 } /* PYSNL namespace */
  

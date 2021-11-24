@@ -17,8 +17,7 @@ extern PyMethodDef  PySNLLibrary_Methods[];
 extern PyObject*    PySNLLibrary_Link(SNL::SNLLibrary* u);
 extern void         PySNLLibrary_LinkPyType();
 
-
-#define IsPySNLLibrary(v) ((v)->ob_type == &PyTypeSNLLibrary)
+#define IsPySNLLibrary(v) (PyObject_TypeCheck(v, &PyTypeSNLLibrary))
 #define PYSNLLibrary(v)   ((PySNLLibrary*)(v))
 #define PYSNLLibrary_O(v) (PYSNLLibrary(v)->object_)
 

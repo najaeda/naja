@@ -16,7 +16,7 @@ extern PyMethodDef  PySNLNet_Methods[];
 extern PyObject*    PySNLNet_Link(SNL::SNLNet*);
 extern void         PySNLNet_LinkPyType();
 
-#define IsPySNLNet(v) ((v)->ob_type == &PyTypeSNLNet)
+#define IsPySNLNet(v) (PyObject_TypeCheck(v, &PyTypeSNLNet))
 #define PYSNLNet(v)   (static_cast<PySNLNet*>(v))
 #define PYSNLNet_O(v) (static_cast<SNL::SNLNet*>(PYSNLNet(v)->parent_->object_))
 

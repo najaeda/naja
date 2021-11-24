@@ -2,7 +2,7 @@ set(SOURCES
   PySNLUniverse.cpp
   PySNLDB.cpp PySNLLibrary.cpp PySNLDesign.cpp
   PySNLDesignObject.cpp
-  PySNLNet.cpp PySNLBitNet.cpp
+  PySNLNet.cpp PySNLBitNet.cpp PySNLScalarNet.cpp
   PySNLNetComponent.cpp PySNLTerm.cpp PySNLBitTerm.cpp
   PySNLScalarTerm.cpp
   PySNLInstance.cpp

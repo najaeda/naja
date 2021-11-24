@@ -17,8 +17,7 @@ extern PyMethodDef  PySNLDB_Methods[];
 extern PyObject*    PySNLDB_Link(SNL::SNLDB* u);
 extern void         PySNLDB_LinkPyType();
 
-
-#define IsPySNLDB(v) ((v)->ob_type == &PyTypeSNLDB)
+#define IsPySNLDB(v) (PyObject_TypeCheck(v, &PyTypeSNLDB))
 #define PYSNLDB(v)   ((PySNLDB*)(v))
 #define PYSNLDB_O(v) (PYSNLDB(v)->object_)
 
