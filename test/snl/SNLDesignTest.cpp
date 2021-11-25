@@ -73,6 +73,10 @@ TEST_F(SNLDesignTest, testCreation) {
   EXPECT_EQ(0, term3->getLSB());
   EXPECT_EQ(5, term3->getSize());
 
+  EXPECT_FALSE(design->getTerms().empty());
+  EXPECT_EQ(4, design->getTerms().size());
+  //EXPECT_EQ(3, design->getScalarTerms().size());
+
   SNLDesign* model = SNLDesign::create(library, "model");
   ASSERT_TRUE(model);
   EXPECT_EQ("model", model->getName());

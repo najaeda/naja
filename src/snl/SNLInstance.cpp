@@ -6,6 +6,9 @@
 
 #include "SNLException.h"
 #include "SNLDesign.h"
+#include "SNLBusTerm.h"
+#include "SNLScalarTerm.h"
+#include "SNLInstTerm.h"
 
 namespace SNL {
 
@@ -43,7 +46,20 @@ void SNLInstance::postCreate() {
     getModel()->addSlaveInstance(this);
   }
   //create instance terminals
-  //FIXME
+  size_t nbTerms = getModel()->getTerms().size();
+  instTerms_.reserve(nbTerms);
+  SNLCollection<SNLTerm> terms = getModel()->getTerms();
+  SNLIterator<SNLTerm> termIt = terms.getIterator();
+  while (termIt.isValid()) {
+    auto term = termIt.getElement();
+    if (SNLBusTerm* busTerm = dynamic_cast<SNLBusTerm*>(term)) {
+      //FIXME
+    } else {
+      auto scalarTerm = static_cast<SNLScalarTerm*>(term);
+      instTerms_.push_back(SNLInstTerm::create(this, scalarTerm));
+    }
+    ++termIt;
+  }
 }
 
 void SNLInstance::destroyFromModel() {

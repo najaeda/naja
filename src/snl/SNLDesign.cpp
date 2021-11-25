@@ -159,6 +159,10 @@ SNLBusTerm* SNLDesign::getBusTerm(const SNLName& name) {
   return dynamic_cast<SNLBusTerm*>(getTerm(name));
 }
 
+SNLCollection<SNLTerm> SNLDesign::getTerms() const {
+  return SNLCollection<SNLTerm>(new SNLIntrusiveConstSetCollection<SNLTerm, SNLDesignTermsHook>(&terms_));
+}
+
 void SNLDesign::addInstance(SNLInstance* instance) {
   if (instances_.empty()) {
     instance->id_ = 0;

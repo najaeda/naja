@@ -23,6 +23,9 @@ class SNLBaseCollection {
   public:
     virtual SNLBaseIterator<Element>* getIterator() const = 0;
 
+    virtual size_t size() const noexcept = 0;
+    virtual bool empty() const noexcept = 0;
+
     SNLBaseCollection(const SNLBaseCollection&) = delete;
     SNLBaseCollection(SNLBaseCollection&&) = delete;
     virtual ~SNLBaseCollection() = default;
@@ -59,6 +62,21 @@ class SNLIntrusiveConstSetCollection: public SNLBaseCollection<Element> {
     SNLIntrusiveConstSetCollection(const SNLIntrusiveConstSetCollection&) = delete;
     SNLIntrusiveConstSetCollection(SNLIntrusiveConstSetCollection&&) = delete;
     SNLIntrusiveConstSetCollection(const Set* set): super(), set_(set) {}
+
+    size_t size() const noexcept override {
+      if (set_) {
+        return set_->size();
+      }
+      return 0;
+    }
+
+    bool empty() const noexcept override {
+      if (set_) {
+        return set_->empty();
+      }
+      return true;
+    }
+
   private:
     const Set*  set_  {nullptr};
 };
@@ -93,6 +111,20 @@ class SNLIntrusiveSetCollection: public SNLBaseCollection<Element> {
     SNLIntrusiveSetCollection(const SNLIntrusiveSetCollection&) = delete;
     SNLIntrusiveSetCollection(SNLIntrusiveSetCollection&&) = delete;
     SNLIntrusiveSetCollection(Set* set): super(), set_(set) {}
+
+    size_t size() const noexcept override {
+      if (set_) {
+        return set_->size();
+      }
+      return 0;
+    }
+
+    bool empty() const noexcept override {
+      if (set_) {
+        return set_->empty();
+      }
+      return true;
+    }
   private:
     Set*  set_  {nullptr};
 };

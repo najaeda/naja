@@ -57,6 +57,7 @@ class SNLDesign final: public SNLObject {
     SNLScalarTerm* getScalarTerm(const SNLName& netName);
     ///\return SNLBusTerm with SNLName name or nullptr if it does not exist
     SNLBusTerm* getBusTerm(const SNLName& netName);
+    SNLCollection<SNLTerm> getTerms() const;
 
     ///\return SNLInstance with SNLID::DesignObjectID id or nullptr if it does not exist
     SNLInstance* getInstance(SNLID::DesignObjectID id);
