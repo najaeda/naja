@@ -11,7 +11,7 @@ class SNLBaseIterator {
     SNLBaseIterator(const SNLBaseIterator&) = delete;
     SNLBaseIterator(SNLBaseIterator&&) = delete;
     virtual ~SNLBaseIterator() {}
-    virtual Element getElement() const = 0;
+    virtual Element* getElement() const = 0;
     virtual void progress() = 0;
   protected:
     SNLBaseIterator() = default;
@@ -52,9 +52,19 @@ class SNLIntrusiveConstSetCollection: public SNLBaseCollection<Element> {
         SetIterator it_   {};
     };
 
+    SNLBaseIterator<Element>* begin() const override {
+      return nullptr;
+    }
+
+    SNLBaseIterator<Element>* end() const override {
+      return nullptr;
+    }
+
+#if 0
     SNLBaseIterator<Element>* getIterator() const override {
       return new SNLIntrusiveConstSetCollectionIterator(set_);
     }
+#endif
     SNLIntrusiveConstSetCollection() = delete;
     SNLIntrusiveConstSetCollection(const SNLIntrusiveConstSetCollection&) = delete;
     SNLIntrusiveConstSetCollection(SNLIntrusiveConstSetCollection&&) = delete;
@@ -96,8 +106,11 @@ class SNLIntrusiveSetCollection: public SNLBaseCollection<Element> {
     SNLIntrusiveSetCollection(SNLIntrusiveSetCollection&&) = delete;
     SNLIntrusiveSetCollection(Set* set): super(), set_(set) {}
 
-    SNLBaseIterator<Element>* begin() const override;
-    SNLBaseIterator<Element>* end() const override;
+    SNLBaseIterator<Element>* begin() const override {
+      return new SNLIntrusiveSetCollectionIterator(set_);
+    }
+    SNLBaseIterator<Element>* end() const override {
+    }
 
   private:
     Set*  set_  {nullptr};
