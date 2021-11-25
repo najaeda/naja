@@ -3,8 +3,8 @@ set(SOURCES
   PySNLDB.cpp PySNLLibrary.cpp PySNLDesign.cpp
   PySNLDesignObject.cpp
   PySNLNet.cpp PySNLBusNet.cpp PySNLBitNet.cpp PySNLScalarNet.cpp PySNLBusNetBit.cpp
-  PySNLNetComponent.cpp PySNLTerm.cpp PySNLBusTerm.cpp
-  PySNLBitTerm.cpp PySNLScalarTerm.cpp
+  PySNLNetComponent.cpp
+  PySNLTerm.cpp PySNLBusTerm.cpp PySNLBitTerm.cpp PySNLScalarTerm.cpp PySNLBusTermBit.cpp
   PySNLInstance.cpp
   PySNL.cpp
 )
