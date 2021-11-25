@@ -16,8 +16,7 @@ extern PyMethodDef  PySNLScalarTerm_Methods[];
 extern PyObject*    PySNLScalarTerm_Link(SNL::SNLScalarTerm* t);
 extern void         PySNLScalarTerm_LinkPyType();
 
-
-#define IsPySNLScalarTerm(v) ((v)->ob_type == &PyTypeSNLScalarTerm)
+#define IsPySNLScalarTerm(v) (PyObject_TypeCheck(v, &PyTypeSNLScalarTerm))
 #define PYSNLScalarTerm(v)   (static_cast<PySNLScalarTerm*>(v))
 #define PYSNLScalarTerm_O(v) (PYSNLScalarTerm(v)->object_)
 

@@ -4,6 +4,7 @@
 
 #include "Card.h"
 
+#include "SNLException.h"
 #include "SNLDesign.h"
 
 namespace SNL {
@@ -24,7 +25,13 @@ SNLInstance* SNLInstance::create(SNLDesign* design, SNLDesign* model, const SNLN
 
 void SNLInstance::preCreate(SNLDesign* design, const SNLName& name) {
   super::preCreate();
-  //verify that there is not an instance of name in this design
+  if (not design) {
+    throw SNLException("malformed SNLInstance creator with NULL design argument");
+  }
+  if (not name.empty() and design->getInstance(name)) {
+    std::string reason = "SNLDesign " + design->getString() + " contains already a SNLInstance named: " + name;
+    throw SNLException(reason);
+  }
 }
 
 void SNLInstance::postCreate() {

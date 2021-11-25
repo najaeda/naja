@@ -16,7 +16,7 @@ extern PyMethodDef  PySNLTerm_Methods[];
 extern PyObject*    PySNLTerm_Link(SNL::SNLTerm*);
 extern void         PySNLTerm_LinkPyType();
 
-#define IsPySNLTerm(v) ((v)->ob_type == &PyTypeSNLTerm)
+#define IsPySNLTerm(v) (PyObject_TypeCheck(v, &PyTypeSNLTerm))
 #define PYSNLTerm(v)   (static_cast<PySNLTerm*>(v))
 #define PYSNLTerm_O(v) (static_cast<SNL::SNLTerm*>(PYSNLTerm(v)->parent_->parent_->object_))
 

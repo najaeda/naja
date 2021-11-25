@@ -17,8 +17,7 @@ extern PyMethodDef  PySNLUniverse_Methods[];
 extern PyObject*    PySNLUniverse_Link(SNL::SNLUniverse* u);
 extern void         PySNLUniverse_LinkPyType();
 
-
-#define IsPySNLUniverse(v) ((v)->ob_type == &PyTypeSNLUniverse)
+#define IsPySNLUniverse(v) (PyObject_TypeCheck(v, &PyTypeSNLUniverse))
 #define PYSNLUNIVERSE(v)   ((PySNLUniverse*)(v))
 #define PYSNLUNIVERSE_O(v) (PYSNLUNIVERSE(v)->object_)
 

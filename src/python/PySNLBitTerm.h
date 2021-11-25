@@ -16,7 +16,7 @@ extern PyMethodDef  PySNLBitTerm_Methods[];
 extern PyObject*    PySNLBitTerm_Link(SNL::SNLBitTerm*);
 extern void         PySNLBitTerm_LinkPyType();
 
-#define IsPySNLBitTerm(v) ((v)->ob_type == &PyTypeSNLBitTerm)
+#define IsPySNLBitTerm(v) (PyObject_TypeCheck(v, &PyTypeSNLBitTerm))
 #define PYSNLBitTerm(v)   (static_cast<PySNLBitTerm*>(v))
 #define PYSNLBitTerm_O(v) (static_cast<SNL::SNLBitTerm*>(PYSNLBitTerm(v)->parent_->parent_->parent_->object_))
 

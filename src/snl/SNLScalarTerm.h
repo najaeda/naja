@@ -26,7 +26,7 @@ class SNLScalarTerm final: public SNLBitTerm {
     std::string getDescription() const override;
   private:
     SNLScalarTerm(SNLDesign* design, const Direction& direction, const SNLName& name);
-    static void preCreate(const SNLDesign* design, const SNLName& name);
+    static void preCreate(SNLDesign* design, const SNLName& name);
     void postCreate();
     void destroyFromDesign() override;
     void commonPreDestroy();

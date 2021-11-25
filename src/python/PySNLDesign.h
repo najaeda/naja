@@ -17,8 +17,7 @@ extern PyMethodDef  PySNLDesign_Methods[];
 extern PyObject*    PySNLDesign_Link(SNL::SNLDesign* u);
 extern void         PySNLDesign_LinkPyType();
 
-
-#define IsPySNLDesign(v) ((v)->ob_type == &PyTypeSNLDesign)
+#define IsPySNLDesign(v) (PyObject_TypeCheck(v, &PyTypeSNLDesign))
 #define PYSNLDesign(v)   ((PySNLDesign*)(v))
 #define PYSNLDesign_O(v) (PYSNLDesign(v)->object_)
 

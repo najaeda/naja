@@ -16,8 +16,7 @@ extern PyMethodDef  PySNLInstance_Methods[];
 extern PyObject*    PySNLInstance_Link(SNL::SNLInstance* u);
 extern void         PySNLInstance_LinkPyType();
 
-
-#define IsPySNLInstance(v) ((v)->ob_type == &PyTypeSNLInstance)
+#define IsPySNLInstance(v) (PyObject_TypeCheck(v, &PyTypeSNLInstance))
 #define PYSNLInstance(v)   (static_cast<PySNLInstance*>(v))
 #define PYSNLInstance_O(v) (static_cast<SNL::SNLInstance*>(PYSNLInstance(v)->parent_->parent_->object_))
 
