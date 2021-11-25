@@ -2,7 +2,10 @@
 #define __PY_SNL_LIBRARY_H_
 
 #include "PyInterface.h"
-#include "SNLLibrary.h"
+
+namespace SNL {
+  class SNLLibrary;
+}
 
 namespace PYSNL {
 

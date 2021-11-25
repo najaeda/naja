@@ -2,7 +2,10 @@
 #define __PY_SNL_INSTANCE_H_
 
 #include "PySNLDesignObject.h"
-#include "SNLInstance.h"
+
+namespace SNL {
+  class SNLInstance;
+}
 
 namespace PYSNL {
 

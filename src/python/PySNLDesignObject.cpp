@@ -10,12 +10,12 @@ using namespace SNL;
 
 static PyObject* PySNLDesignObject_getDesign(PySNLDesignObject* self) {
   METHOD_HEAD("SNLDesignObject.getDesign()")
-  SNL::SNLDesign* design = designObject->getDesign();
   return PySNLDesign_Link(designObject->getDesign());
 }
 
 PyMethodDef PySNLDesignObject_Methods[] = {
-  {"getDesign", (PyCFunction)PySNLDesignObject_getDesign, METH_NOARGS, "Returns the SNLDesignObject owner design."},
+  {"getDesign", (PyCFunction)PySNLDesignObject_getDesign, METH_NOARGS,
+    "Returns the SNLDesignObject owner design."},
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 

@@ -19,15 +19,18 @@ static PyObject* PySNLUniverse_get() {
   return PySNLUniverse_Link(universe);
 }
 
+DBoDestroyAttribute(PySNLUniverse_destroy, PySNLUniverse)
+
 PyMethodDef PySNLUniverse_Methods[] = {
   { "create", (PyCFunction)PySNLUniverse_create, METH_NOARGS|METH_STATIC,
     "create the SNL Universe (static object)"},
+  { "destroy", (PyCFunction)PySNLUniverse_destroy, METH_NOARGS,
+    "destroy the associated SNLUniverse"},
   { "get", (PyCFunction)PySNLUniverse_get, METH_NOARGS|METH_STATIC,
     "get the SNL Universe (static object)"},
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 
-DBoDestroyAttribute(PySNLUniverse_destroy, PySNLUniverse)
 DBoDeallocMethod(SNLUniverse)
 
 DBoLinkCreateMethod(SNLUniverse)

@@ -2,7 +2,10 @@
 #define __PY_SNL_DESIGN_H_
 
 #include "PyInterface.h"
-#include "SNLDesign.h"
+
+namespace SNL {
+  class SNLDesign;
+}
 
 namespace PYSNL {
 
