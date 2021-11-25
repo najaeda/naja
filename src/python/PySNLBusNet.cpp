@@ -40,9 +40,16 @@ static PyObject* PySNLBusNet_create(PyObject*, PyObject* args) {
   return PySNLBusNet_Link(net);
 }
 
+DirectGetIntMethod(PySNLBusNet_getMSB, getMSB, PySNLBusNet, SNLBusNet)
+DirectGetIntMethod(PySNLBusNet_getLSB, getLSB, PySNLBusNet, SNLBusNet)
+
 PyMethodDef PySNLBusNet_Methods[] = {
   { "create", (PyCFunction)PySNLBusNet_create, METH_VARARGS|METH_STATIC,
     "SNLBusNet creator"},
+  { "getMSB", (PyCFunction)PySNLBusNet_getMSB, METH_NOARGS,
+    "get SNLBusNet MSB value"},
+  { "getLSB", (PyCFunction)PySNLBusNet_getLSB, METH_NOARGS,
+    "get SNLBusNet LSB value"},
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 

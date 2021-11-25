@@ -12,7 +12,7 @@ using namespace SNL;
 #undef   ACCESS_CLASS
 #define  ACCESS_OBJECT           parent_.object_
 #define  ACCESS_CLASS(_pyObject)  &(_pyObject->parent_)
-#define  METHOD_HEAD(function)   GENERIC_METHOD_HEAD(Instance, instance, function)
+#define  METHOD_HEAD(function)   GENERIC_METHOD_HEAD(SNLInstance, instance, function)
 
 static PyObject* PySNLInstance_create(PyObject*, PyObject* args) {
   PyObject* arg0 = nullptr;
@@ -42,9 +42,16 @@ static PyObject* PySNLInstance_create(PyObject*, PyObject* args) {
   return PySNLInstance_Link(instance);
 }
 
+static PyObject* PySNLInstance_getModel(PySNLInstance* self) {
+  METHOD_HEAD("SNLInstance.getModel()")
+  return PySNLDesign_Link(instance->getModel());
+}
+
 PyMethodDef PySNLInstance_Methods[] = {
   { "create", (PyCFunction)PySNLInstance_create, METH_VARARGS|METH_STATIC,
     "SNLInstance creator"},
+  {"getModel", (PyCFunction)PySNLInstance_getModel, METH_NOARGS,
+    "Returns the SNLInstance model SNLDesign."},
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 

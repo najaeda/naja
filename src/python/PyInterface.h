@@ -82,6 +82,13 @@ static void setError(const std::string& reason) {
     return (long)self->ACCESS_OBJECT;                                         \
   }
 
+
+#define DirectGetIntMethod(PY_FUNC_NAME,FUNC_NAME,PY_SELF_TYPE,SELF_TYPE) \
+  static PyObject* PY_FUNC_NAME(PY_SELF_TYPE* self, PyObject *args ) {    \
+    GENERIC_METHOD_HEAD(SELF_TYPE,cobject,#FUNC_NAME"()")                 \
+    return Py_BuildValue("i", cobject->FUNC_NAME());                      \
+  }
+
 #define DBoDestroyAttribute(PY_FUNC_NAME, PY_SELF_TYPE)                                    \
   static PyObject* PY_FUNC_NAME(PY_SELF_TYPE *self) {                                      \
     if (not self->ACCESS_OBJECT) {                                                         \

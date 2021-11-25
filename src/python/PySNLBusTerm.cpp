@@ -40,9 +40,16 @@ static PyObject* PySNLBusTerm_create(PyObject*, PyObject* args) {
   return PySNLBusTerm_Link(term);
 }
 
+DirectGetIntMethod(PySNLBusTerm_getMSB, getMSB, PySNLBusTerm, SNLBusTerm)
+DirectGetIntMethod(PySNLBusTerm_getLSB, getLSB, PySNLBusTerm, SNLBusTerm)
+
 PyMethodDef PySNLBusTerm_Methods[] = {
   { "create", (PyCFunction)PySNLBusTerm_create, METH_VARARGS|METH_STATIC,
     "SNLBusTerm creator"},
+  { "getMSB", (PyCFunction)PySNLBusTerm_getMSB, METH_NOARGS,
+    "get SNLBusTerm MSB value"},
+  { "getLSB", (PyCFunction)PySNLBusTerm_getLSB, METH_NOARGS,
+    "get SNLBusTerm LSB value"},
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 

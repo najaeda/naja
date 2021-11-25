@@ -8,6 +8,8 @@ namespace PYSNL {
 
 using namespace SNL;
 
+#define METHOD_HEAD(function) GENERIC_METHOD_HEAD(SNLDesign, design, function)
+
 static PyObject* PySNLDesign_create(PyObject*, PyObject* args) {
   PyObject* arg0 = nullptr;
   const char* arg1 = nullptr;
@@ -32,9 +34,16 @@ static PyObject* PySNLDesign_create(PyObject*, PyObject* args) {
   return PySNLDesign_Link(design);
 }
 
+static PyObject* PySNLDesign_getLibrary(PySNLDesign* self) {
+  METHOD_HEAD("SNLDesign.getLibrary()")
+  return PySNLLibrary_Link(design->getLibrary());
+}
+
 PyMethodDef PySNLDesign_Methods[] = {
   { "create", (PyCFunction)PySNLDesign_create, METH_VARARGS|METH_STATIC,
     "SNLDesign creator"},
+  {"getLibrary", (PyCFunction)PySNLDesign_getLibrary, METH_NOARGS,
+    "Returns the SNLDesign owner SNLLibrary."},
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 
