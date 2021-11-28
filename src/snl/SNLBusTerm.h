@@ -5,6 +5,7 @@
 
 #include "SNLTerm.h"
 #include "SNLName.h"
+#include "SNLCollection.h"
 
 namespace SNL {
 
@@ -37,6 +38,8 @@ class SNLBusTerm final: public SNLTerm {
     SNLTerm::Direction getDirection() const override { return direction_; }
     std::string getString() const override;
     std::string getDescription() const override;
+
+    SNLCollection<SNLBusTermBit> getBits() const;
   private:
     SNLBusTerm(
         SNLDesign* design,
