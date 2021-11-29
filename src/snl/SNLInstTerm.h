@@ -26,12 +26,14 @@ class SNLInstTerm final: public SNLNetComponent {
     SNLInstance* getInstance() const { return instance_; }
     SNLBitTerm* getTerm() const { return term_; }
 
+    void destroy() override;
   private:
     SNLInstTerm(SNLInstance* instance, SNLBitTerm* term);
     static SNLInstTerm* create(SNLInstance* instance, SNLBitTerm* term);
     static void preCreate(const SNLInstance* instance, const SNLBitTerm* term);
     void postCreate();
     void preDestroy() override;
+    void destroyFromInstance();
 
     SNLInstance*  instance_;
     SNLBitTerm*   term_;

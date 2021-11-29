@@ -49,6 +49,9 @@ void SNLBusNet::postCreate() {
 }
 
 void SNLBusNet::commonPreDestroy() {
+  for (auto bit: bits_) {
+    bit->destroyFromBus();
+  }
   super::preDestroy();
 }
 

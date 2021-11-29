@@ -1,9 +1,11 @@
 #include "SNLDesign.h"
 
+#include <iostream>
 #include <sstream>
 
 #include "Card.h"
 
+#include "SNLException.h"
 #include "SNLDB.h" 
 #include "SNLLibrary.h"
 #include "SNLScalarTerm.h"
@@ -27,14 +29,14 @@ std::string SNLDesign::Type::getString() const {
 }
 
 SNLDesign* SNLDesign::create(SNLLibrary* library, const SNLName& name) {
-  preCreate(library, name);
+  preCreate(library, Type::Standard, name);
   SNLDesign* design = new SNLDesign(library, Type::Standard, name);
   design->postCreate();
   return design;
 }
 
 SNLDesign* SNLDesign::create(SNLLibrary* library, const Type& type, const SNLName& name) {
-  preCreate(library, name);
+  preCreate(library, type, name);
   SNLDesign* design = new SNLDesign(library, type, name);
   design->postCreate();
   return design;
@@ -47,8 +49,11 @@ SNLDesign::SNLDesign(SNLLibrary* library, const Type& type, const SNLName& name)
   type_(type)
 {}
 
-void SNLDesign::preCreate(const SNLLibrary* library, const SNLName& name) {
+void SNLDesign::preCreate(const SNLLibrary* library, const Type& type, const SNLName& name) {
   super::preCreate();
+  if (type == Type::Primitive and not library->isPrimitives()) {
+    throw SNLException("non compatible types in design constructor");
+  }
   //test if design with same name exists in library
   if (not name.empty()) {
   }
@@ -60,6 +65,9 @@ void SNLDesign::postCreate() {
 }
 
 void SNLDesign::commonPreDestroy() {
+#if DEBUG
+  std::cerr << "commonPreDestroy: " << getString() << std::endl;
+#endif
   struct destroyTermFromDesign {
     void operator()(SNLTerm* term) {
       term->destroyFromDesign();
@@ -80,7 +88,7 @@ void SNLDesign::commonPreDestroy() {
         instance->destroyFromModel();
       }
     };
-    instances_.clear_and_dispose(destroySlaveInstanceFromModel());
+    slaveInstances_.clear_and_dispose(destroySlaveInstanceFromModel());
   }
 
   struct destroyNetFromDesign {

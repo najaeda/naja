@@ -5,35 +5,64 @@
 
 namespace SNL {
 
-SNLLibrary::SNLLibrary(SNLDB* parent, const SNLName& name):
+SNLLibrary::Type::Type(const TypeEnum& typeEnum):
+  typeEnum_(typeEnum) 
+{}
+
+std::string SNLLibrary::Type::getString() const {
+  switch (typeEnum_) {
+    case Type::Standard: return "Standard";
+    case Type::InDB0: return "InDB0";
+    case Type::Primitives: return "Primitives";
+  }
+  return "Unknown";
+}
+
+SNLLibrary::SNLLibrary(SNLDB* parent, const Type& type, const SNLName& name):
   super(),
   name_(name),
+  type_(type),
   parent_(parent),
   isRootLibrary_(true)
 {}
 
-SNLLibrary::SNLLibrary(SNLLibrary* parent, const SNLName& name):
+SNLLibrary::SNLLibrary(SNLLibrary* parent, const Type& type, const SNLName& name):
   super(),
   name_(name),
+  type_(type),
   parent_(parent),
   isRootLibrary_(false)
 {}
 
 SNLLibrary* SNLLibrary::create(SNLDB* db, const SNLName& name) {
-  preCreate(db, name);
-  SNLLibrary* library = new SNLLibrary(db, name);
+  preCreate(db, Type::Standard, name);
+  SNLLibrary* library = new SNLLibrary(db, Type::Standard, name);
+  library->postCreate();
+  return library;
+}
+
+SNLLibrary* SNLLibrary::create(SNLDB* db, const Type& type, const SNLName& name) {
+  preCreate(db, type, name);
+  SNLLibrary* library = new SNLLibrary(db, type, name);
   library->postCreate();
   return library;
 }
 
 SNLLibrary* SNLLibrary::create(SNLLibrary* parent, const SNLName& name) {
-  preCreate(parent, name);
-  SNLLibrary* library = new SNLLibrary(parent, name);
+  preCreate(parent, Type::Standard, name);
+  SNLLibrary* library = new SNLLibrary(parent, Type::Standard, name);
   library->postCreate();
   return library;
 }
 
-void SNLLibrary::preCreate(SNLDB* db, const SNLName& name) {
+SNLLibrary* SNLLibrary::create(SNLLibrary* parent, const Type& type, const SNLName& name) {
+  preCreate(parent, type, name);
+  SNLLibrary* library = new SNLLibrary(parent, type, name);
+  library->postCreate();
+  return library;
+}
+
+void SNLLibrary::preCreate(SNLDB* db, const Type& type, const SNLName& name) {
   super::preCreate();
   if (not db) {
     throw SNLException("malformed SNLLibrary creator with NULL db argument");
@@ -44,13 +73,16 @@ void SNLLibrary::preCreate(SNLDB* db, const SNLName& name) {
   }
 }
 
-void SNLLibrary::preCreate(SNLLibrary* library, const SNLName& name) {
+void SNLLibrary::preCreate(SNLLibrary* parentLibrary, const Type& type, const SNLName& name) {
   super::preCreate();
-  if (not library) {
+  if (not parentLibrary) {
     throw SNLException("malformed SNLLibrary creator with NULL parent library argument");
   }
-  if (not name.empty() and library->getLibrary(name)) {
-    std::string reason = "SNLLibrary " + library->getString() + " contains already a SNLLibrary named: " + name;
+  if (type not_eq parentLibrary->getType()) {
+    throw SNLException("non compatible types in library constructor");
+  }
+  if (not name.empty() and parentLibrary->getLibrary(name)) {
+    std::string reason = "SNLLibrary " + parentLibrary->getString() + " contains already a SNLLibrary named: " + name;
     throw SNLException(reason);
   }
 }
@@ -64,8 +96,24 @@ void SNLLibrary::postCreate() {
   }
 }
 
-void SNLLibrary::destroyFromDB() {
+void SNLLibrary::commonPreDestroy() {
+  struct destroyDesignFromLibrary {
+    void operator()(SNLDesign* design) {
+      design->destroyFromLibrary();
+    }
+  };
+  designs_.clear_and_dispose(destroyDesignFromLibrary());
+  struct destroyLibraryFromLibrary {
+    void operator()(SNLLibrary* library) {
+      library->destroyFromParent();
+    }
+  };
+  libraries_.clear_and_dispose(destroyLibraryFromLibrary());
   super::preDestroy();
+}
+
+void SNLLibrary::destroyFromParent() {
+  commonPreDestroy();
   delete this;
 }
 
@@ -75,13 +123,7 @@ void SNLLibrary::preDestroy() {
   } else {
     static_cast<SNLLibrary*>(parent_)->removeLibrary(this);
   }
-  struct destroyDesignFromLibrary {
-    void operator()(SNLDesign* design) {
-      design->destroyFromLibrary();
-    }
-  };
-  designs_.clear_and_dispose(destroyDesignFromLibrary());
-  super::preDestroy();
+  commonPreDestroy();
 }
 
 SNLDB* SNLLibrary::getDB() const {
@@ -116,8 +158,8 @@ SNLLibrary* SNLLibrary::getLibrary(const SNLName& name) {
   return nullptr;
 }
 
-SNLCollection<SNLLibrary*> SNLLibrary::getLibraries() {
-  return SNLCollection<SNLLibrary*>(new SNLIntrusiveSetCollection<SNLLibrary, SNLLibraryLibrariesHook>(&libraries_));
+SNLCollection<SNLLibrary*> SNLLibrary::getLibraries() const {
+  return SNLCollection<SNLLibrary*>(new SNLIntrusiveConstSetCollection<SNLLibrary, SNLLibraryLibrariesHook>(&libraries_));
 }
 
 SNLDesign* SNLLibrary::getDesign(SNLID::DesignID id) {
@@ -137,8 +179,8 @@ SNLDesign* SNLLibrary::getDesign(const SNLName& name) {
   return nullptr;
 }
 
-SNLCollection<SNLDesign*> SNLLibrary::getDesigns() {
-  return SNLCollection<SNLDesign*>(new SNLIntrusiveSetCollection<SNLDesign, SNLLibraryDesignsHook>(&designs_));
+SNLCollection<SNLDesign*> SNLLibrary::getDesigns() const {
+  return SNLCollection<SNLDesign*>(new SNLIntrusiveConstSetCollection<SNLDesign, SNLLibraryDesignsHook>(&designs_));
 }
 
 void SNLLibrary::addLibrary(SNLLibrary* library) {

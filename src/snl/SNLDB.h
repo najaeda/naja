@@ -33,7 +33,7 @@ class SNLDB final: public SNLObject {
     ///\return the SNLLibrary in this SNLDB with SNLName:name 
     SNLLibrary* getLibrary(const SNLName& name);
 
-    SNLCollection<SNLLibrary*> getLibraries();
+    SNLCollection<SNLLibrary*> getLibraries() const;
 
     constexpr const char* getTypeName() const override;
     std::string getString() const override;
@@ -46,6 +46,7 @@ class SNLDB final: public SNLObject {
     SNLDB(SNLUniverse* universe);
     static void preCreate();
     void postCreate();
+    void commonPreDrestroy();
     void preDestroy() override;
     void destroyFromUniverse();
 

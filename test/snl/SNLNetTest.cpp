@@ -13,7 +13,7 @@ class SNLNetTest: public ::testing::Test {
     void SetUp() override {
       auto universe = SNLUniverse::create();
       auto db = SNLDB::create(universe);
-      SNLLibrary::create(db, "PRIMITIVES");
+      SNLLibrary::create(db, SNLLibrary::Type::Primitives, "PRIMITIVES");
       auto library = SNLLibrary::create(db, "LIB");
       design_ = SNLDesign::create(library, "Design");
     }
@@ -30,14 +30,13 @@ TEST_F(SNLNetTest, testCreation) {
   ASSERT_TRUE(db);
   auto primitives = db->getLibrary(SNLName("PRIMITIVES"));
   ASSERT_TRUE(primitives);
+  EXPECT_TRUE(primitives->isPrimitives());
   auto primitive = SNLDesign::create(primitives, SNLDesign::Type::Primitive);
   ASSERT_TRUE(primitive);
   EXPECT_TRUE(primitive->isPrimitive());
   SNLScalarTerm::create(primitive, SNLTerm::Direction::Input, SNLName("i0"));
   SNLScalarTerm::create(primitive, SNLTerm::Direction::Input, SNLName("i1"));
   SNLScalarTerm::create(primitive, SNLTerm::Direction::Output, SNLName("o"));
-
-
 
   ASSERT_TRUE(design_);
   EXPECT_EQ(SNLName("Design"), design_->getName());

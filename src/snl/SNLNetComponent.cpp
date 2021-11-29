@@ -13,6 +13,7 @@ void SNLNetComponent::postCreate() {
 }
 
 void SNLNetComponent::preDestroy() {
+  setNet(nullptr);
   super::preDestroy();
 }
 

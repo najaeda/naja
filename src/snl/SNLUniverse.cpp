@@ -88,8 +88,8 @@ SNLScalarTerm* SNLUniverse::getAssignOutput() {
   return nullptr;
 }
 
-SNLCollection<SNLDB*> SNLUniverse::getDBs() {
-  return SNLCollection<SNLDB*>(new SNLIntrusiveSetCollection<SNLDB, SNLUniverseDBsHook>(&dbs_));
+SNLCollection<SNLDB*> SNLUniverse::getDBs() const {
+  return SNLCollection<SNLDB*>(new SNLIntrusiveConstSetCollection<SNLDB, SNLUniverseDBsHook>(&dbs_));
 }
 
 SNLDB* SNLUniverse::getDB(SNLID::DBID id) {

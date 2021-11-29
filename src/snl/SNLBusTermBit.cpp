@@ -2,6 +2,7 @@
 
 #include <iostream>
 
+#include "SNLException.h"
 #include "SNLBusTerm.h"
 
 namespace SNL {
@@ -35,9 +36,7 @@ void SNLBusTermBit::destroyFromBus() {
 }
 
 void SNLBusTermBit::destroy() {
-  //FIXME:manage with exception in the future ??
-  std::cerr << "Unauthorized destroy of BusTermBit" << std::endl; 
-  exit(-35);
+  throw SNLException("Unauthorized destroy of SNLBusTermBit");
 }
 
 void SNLBusTermBit::preDestroy() {

@@ -82,6 +82,7 @@ class SNLDesign final: public SNLObject {
     SNLName getName() const { return name_; }
     bool isAnonymous() const { return name_.empty(); }
     
+    Type getType() const { return type_; }
     bool isStandard() const { return type_ == Type::Standard; }
     bool isBlackBox() const { return type_ == Type::Blackbox; }
     bool isPrimitive() const { return type_ == Type::Primitive; }
@@ -92,7 +93,7 @@ class SNLDesign final: public SNLObject {
     Card* getCard() const override;
   private:
     SNLDesign(SNLLibrary* library, const Type& type, const SNLName& name);
-    static void preCreate(const SNLLibrary* library, const std::string& name);
+    static void preCreate(const SNLLibrary* library, const Type& type, const std::string& name);
     void destroyFromLibrary();
     void postCreate();
     void commonPreDestroy();

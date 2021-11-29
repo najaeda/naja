@@ -25,7 +25,7 @@ class SNLNetComponent: public SNLDesignObject {
     void preDestroy() override;
 
   private:
-    SNLBitNet*  net_;
+    SNLBitNet*  net_                                        { nullptr };
     boost::intrusive::set_member_hook<> netComponentsHook_  {};
 };
 

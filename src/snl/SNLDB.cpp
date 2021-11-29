@@ -1,5 +1,7 @@
 #include "SNLDB.h"
 
+#include <list>
+
 #include "SNLUniverse.h"
 
 namespace SNL {
@@ -24,20 +26,39 @@ void SNLDB::postCreate() {
   universe_->addDB(this);
 }
 
-void SNLDB::preDestroy() {
-  SNLUniverse::get()->removeDB(this);
+void SNLDB::commonPreDrestroy() {
   struct destroyLibraryFromDB {
     void operator()(SNL::SNLLibrary* library) {
-      library->destroyFromDB();
+      library->destroyFromParent();
     }
   };
+  //First delete standard primitives
+  //collect standard libraries
+  using StandardLibraries = std::list<SNLLibrary*>;
+  StandardLibraries standardLibraries;
+  for (auto it = libraries_.begin(); it!=libraries_.end(); ++it) {
+    SNLLibrary* library = &*it;
+    if (library->isStandard()) {
+      standardLibraries.push_back(library);
+    }
+  }
+  for (auto library: standardLibraries) {
+    libraries_.erase_and_dispose(*library, destroyLibraryFromDB());
+  }
+
+  //remove all the rest
   libraries_.clear_and_dispose(destroyLibraryFromDB());
   libraryNameIDMap_.clear();
   super::preDestroy();
 }
 
+void SNLDB::preDestroy() {
+  commonPreDrestroy();
+  SNLUniverse::get()->removeDB(this);
+}
+
 void SNLDB::destroyFromUniverse() {
-  super::preDestroy();
+  commonPreDrestroy();
   delete this;
 }
 
@@ -69,8 +90,8 @@ SNLLibrary* SNLDB::getLibrary(const SNLName& name) {
   return nullptr;
 }
 
-SNLCollection<SNLLibrary*> SNLDB::getLibraries() {
-  return SNLCollection<SNLLibrary*>(new SNLIntrusiveSetCollection<SNLLibrary, SNLDBLibrariesHook>(&libraries_));
+SNLCollection<SNLLibrary*> SNLDB::getLibraries() const {
+  return SNLCollection<SNLLibrary*>(new SNLIntrusiveConstSetCollection<SNLLibrary, SNLDBLibrariesHook>(&libraries_));
 }
 
 SNLID SNLDB::getSNLID() const {

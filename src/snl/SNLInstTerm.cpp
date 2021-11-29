@@ -1,5 +1,6 @@
 #include "SNLInstTerm.h"
 
+#include "SNLException.h"
 #include "SNLDesign.h"
 #include "SNLBitTerm.h"
 
@@ -27,6 +28,15 @@ void SNLInstTerm::postCreate() {
 
 void SNLInstTerm::preDestroy() {
   super::preDestroy();
+}
+
+void SNLInstTerm::destroyFromInstance() {
+  preDestroy();
+  delete this;
+}
+
+void SNLInstTerm::destroy() {
+  throw SNLException("Unauthorized destroy of SNLInstTerm");
 }
 
 SNLDesign* SNLInstTerm::getDesign() const {

@@ -1,5 +1,6 @@
 #include "SNLInstance.h"
 
+#include <iostream>
 #include <sstream>
 
 #include "Card.h"
@@ -48,7 +49,6 @@ void SNLInstance::postCreate() {
   //create instance terminals
   size_t nbTerms = getModel()->getTerms().size();
   instTerms_.reserve(nbTerms);
-  SNLCollection<SNLTerm*> terms = getModel()->getTerms();
   for (SNLTerm* term: getModel()->getTerms()) {
     if (SNLBusTerm* busTerm = dynamic_cast<SNLBusTerm*>(term)) {
       //FIXME
@@ -59,8 +59,19 @@ void SNLInstance::postCreate() {
   }
 }
 
+void SNLInstance::commonPreDestroy() {
+#if DEBUG
+  std::cerr << "commonPreDestroy: " << getString() << std::endl;
+#endif
+  for (auto instTerm: instTerms_) {
+    instTerm->destroyFromInstance();
+  }
+  super::preDestroy();
+}
+
 void SNLInstance::destroyFromModel() {
   getDesign()->removeInstance(this);
+  commonPreDestroy();
   delete this;
 }
 
@@ -68,6 +79,7 @@ void SNLInstance::destroyFromDesign() {
   if (not getModel()->isPrimitive()) {
     getModel()->removeSlaveInstance(this);
   }
+  commonPreDestroy();
   delete this;
 }
 
@@ -76,6 +88,7 @@ void SNLInstance::preDestroy() {
     getModel()->removeSlaveInstance(this);
   }
   getDesign()->removeInstance(this);
+  commonPreDestroy();
 }
 
 SNLID SNLInstance::getSNLID() const {

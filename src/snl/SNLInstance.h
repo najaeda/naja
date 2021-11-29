@@ -34,6 +34,7 @@ class SNLInstance final: public SNLDesignObject {
   private:
     static void preCreate(SNLDesign* design, const SNLName& name);
     void postCreate();
+    void commonPreDestroy();
     void destroyFromDesign();
     void destroyFromModel();
     void preDestroy() override;
