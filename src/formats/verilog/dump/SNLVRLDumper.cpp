@@ -36,15 +36,8 @@ void SNLVRLDumper::dumpDesign(const SNLDesign* design, std::ostream& o) {
   }
   o << "module " << design->getName() << std::endl;
 
-  SNLCollection<SNLNet> nets = design->getNets();
-  SNLIterator<SNLNet> netIt = nets.getIterator();
-
-  SNLCollection<SNLInstance> instances = design->getInstances();
-  SNLIterator<SNLInstance> instanceIt = instances.getIterator();
-  while (instanceIt.isValid()) {
-    auto instance = instanceIt.getElement();
+  for (auto instance: design->getInstances()) {
     dumpInstance(instance, o);
-    ++instanceIt;
   }
   o << "endmodule //" << design->getName();
   o << std::endl;

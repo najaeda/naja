@@ -57,12 +57,13 @@ class SNLDesign final: public SNLObject {
     SNLScalarTerm* getScalarTerm(const SNLName& netName);
     ///\return SNLBusTerm with SNLName name or nullptr if it does not exist
     SNLBusTerm* getBusTerm(const SNLName& netName);
+    SNLCollection<SNLTerm*> getTerms() const;
 
     ///\return SNLInstance with SNLID::DesignObjectID id or nullptr if it does not exist
     SNLInstance* getInstance(SNLID::DesignObjectID id);
     ///\return SNLInstance with SNLName name if it does not exist
     SNLInstance* getInstance(const SNLName& instanceName);
-    SNLCollection<SNLInstance> getInstances() const;
+    SNLCollection<SNLInstance*> getInstances() const;
 
     ///\return SNLNet with SNLID::DesignObjectID id or nullptr if it does not exist
     SNLNet* getNet(SNLID::DesignObjectID id);
@@ -72,7 +73,7 @@ class SNLDesign final: public SNLObject {
     SNLScalarNet* getScalarNet(const SNLName& netName);
     ///\return SNLBusNet with SNLName name or nullptr if it does not exist
     SNLBusNet* getBusNet(const SNLName& netName);
-    SNLCollection<SNLNet> getNets() const;
+    SNLCollection<SNLNet*> getNets() const;
 
 
     SNLID::DesignID getID() const { return id_; }

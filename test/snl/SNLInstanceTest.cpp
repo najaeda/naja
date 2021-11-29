@@ -42,11 +42,8 @@ TEST_F(SNLInstanceTest, testCreation) {
     SNLInstance* instance2Test = design->getInstance(SNLName("instance2"));
     EXPECT_EQ(instance2Test, instance2);
 
-    SNLCollection<SNLInstance> instances = design->getInstances();
-    SNLIterator<SNLInstance> instanceIt = instances.getIterator();
-    while (instanceIt.isValid()) {
-      cerr << instanceIt.getElement()->getDescription() << endl;
-      ++instanceIt;
+    for (auto instance: design->getInstances()) {
+      cerr << instance->getDescription() << endl;
     }
     
     instance1Test->destroy();

@@ -159,6 +159,10 @@ SNLBusTerm* SNLDesign::getBusTerm(const SNLName& name) {
   return dynamic_cast<SNLBusTerm*>(getTerm(name));
 }
 
+SNLCollection<SNLTerm*> SNLDesign::getTerms() const {
+  return SNLCollection<SNLTerm*>(new SNLIntrusiveConstSetCollection<SNLTerm, SNLDesignTermsHook>(&terms_));
+}
+
 void SNLDesign::addInstance(SNLInstance* instance) {
   if (instances_.empty()) {
     instance->id_ = 0;
@@ -262,16 +266,16 @@ SNLBusNet* SNLDesign::getBusNet(const SNLName& name) {
   return dynamic_cast<SNLBusNet*>(getNet(name));
 }
 
-SNLCollection<SNLNet> SNLDesign::getNets() const {
-  return SNLCollection<SNLNet>(new SNLIntrusiveConstSetCollection<SNLNet, SNLDesignNetsHook>(&nets_));
+SNLCollection<SNLNet*> SNLDesign::getNets() const {
+  return SNLCollection<SNLNet*>(new SNLIntrusiveConstSetCollection<SNLNet, SNLDesignNetsHook>(&nets_));
 }
 
 SNLDB* SNLDesign::getDB() const {
   return getLibrary()->getDB();
 }
 
-SNLCollection<SNLInstance> SNLDesign::getInstances() const {
-  return SNLCollection<SNLInstance>(new SNLIntrusiveConstSetCollection<SNLInstance, SNLDesignInstancesHook>(&instances_));
+SNLCollection<SNLInstance*> SNLDesign::getInstances() const {
+  return SNLCollection<SNLInstance*>(new SNLIntrusiveConstSetCollection<SNLInstance, SNLDesignInstancesHook>(&instances_));
 }
 
 constexpr const char* SNLDesign::getTypeName() const {

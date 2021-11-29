@@ -12,7 +12,7 @@ class SNLBitNet: public SNLNet {
     friend class SNLNetComponent;
     using super = SNLNet;
 
-    SNLCollection<SNLNetComponent> getComponents() const;
+    SNLCollection<SNLNetComponent*> getComponents() const;
   protected:
     SNLBitNet() = default;
     static void preCreate();
