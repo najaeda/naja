@@ -46,7 +46,8 @@ void SNLUniverse::addDB(SNLDB* db) {
   } else {
     auto it = dbs_.rbegin();
     SNLDB* lastDB = &(*it);
-    SNLID::DBID dbID = lastDB->id_+1;
+    SNLID::DBID dbID = lastDB->id_;
+    ++dbID;
     db->id_ = dbID;
   }
   dbs_.insert(*db);

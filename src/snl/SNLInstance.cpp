@@ -8,6 +8,7 @@
 #include "SNLException.h"
 #include "SNLDesign.h"
 #include "SNLBusTerm.h"
+#include "SNLBusTermBit.h"
 #include "SNLScalarTerm.h"
 #include "SNLInstTerm.h"
 
@@ -49,9 +50,10 @@ void SNLInstance::postCreate() {
   //create instance terminals
   for (SNLTerm* term: getModel()->getTerms()) {
     if (SNLBusTerm* busTerm = dynamic_cast<SNLBusTerm*>(term)) {
-      //for (auto bit: busTerm->getBits()) {
-      //  //FIXME
-      //}
+      for (auto bit: busTerm->getBits()) {
+        //FIXME
+        std::cerr << bit->getString() << std::endl;
+      }
     } else {
       auto scalarTerm = static_cast<SNLScalarTerm*>(term);
       instTerms_.push_back(SNLInstTerm::create(this, scalarTerm));
