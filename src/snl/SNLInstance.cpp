@@ -47,11 +47,11 @@ void SNLInstance::postCreate() {
     getModel()->addSlaveInstance(this);
   }
   //create instance terminals
-  size_t nbTerms = getModel()->getTerms().size();
-  instTerms_.reserve(nbTerms);
   for (SNLTerm* term: getModel()->getTerms()) {
     if (SNLBusTerm* busTerm = dynamic_cast<SNLBusTerm*>(term)) {
-      //FIXME
+      //for (auto bit: busTerm->getBits()) {
+      //  //FIXME
+      //}
     } else {
       auto scalarTerm = static_cast<SNLScalarTerm*>(term);
       instTerms_.push_back(SNLInstTerm::create(this, scalarTerm));
