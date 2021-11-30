@@ -182,8 +182,8 @@ class SNLCollection {
 
         Element operator*() const { return it_->getElement(); }
 
-        bool operator==(const Iterator& r) { return it_->isEqual(r.it_); }
-        bool operator!=(const Iterator& r) { return it_->isDifferent(r.it_); }
+        bool operator==(const Iterator& r) const { return it_->isEqual(r.it_); }
+        bool operator!=(const Iterator& r) const { return it_->isDifferent(r.it_); }
       private:
         SNLBaseIterator<Element>* it_ {nullptr};
     };

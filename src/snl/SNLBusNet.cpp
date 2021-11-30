@@ -15,8 +15,8 @@ SNLBusNet::SNLBusNet(
     SNLID::Bit lsb,
     const SNLName& name):
   super(),
-  name_(name),
   design_(design),
+  name_(name),
   msb_(msb),
   lsb_(lsb)
 {}
@@ -43,7 +43,7 @@ void SNLBusNet::postCreate() {
   //create bits
   bits_.resize(getSize(), nullptr);
   for (size_t i=0; i<getSize(); i++) {
-    SNLID::Bit bit = (getMSB()>getLSB())?getMSB()-i:getMSB()+i;
+    SNLID::Bit bit = (getMSB()>getLSB())?getMSB()-int(i):getMSB()+int(i);
     bits_[i] = SNLBusNetBit::create(this, bit);
   }
 }
@@ -66,7 +66,7 @@ void SNLBusNet::preDestroy() {
 }
 
 size_t SNLBusNet::getSize() const {
-  return std::abs(getLSB() - getMSB()) + 1;
+  return static_cast<size_t>(std::abs(getLSB() - getMSB()) + 1);
 }
 
 SNLID SNLBusNet::getSNLID() const {
