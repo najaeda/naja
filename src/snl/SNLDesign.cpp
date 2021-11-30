@@ -44,9 +44,9 @@ SNLDesign* SNLDesign::create(SNLLibrary* library, const Type& type, const SNLNam
 
 SNLDesign::SNLDesign(SNLLibrary* library, const Type& type, const SNLName& name):
   super(),
-  library_(library),
   name_(name),
-  type_(type)
+  type_(type),
+  library_(library)
 {}
 
 void SNLDesign::preCreate(const SNLLibrary* library, const Type& type, const SNLName& name) {

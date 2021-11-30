@@ -12,8 +12,8 @@ SNLBusTerm::SNLBusTerm(
     SNLID::Bit lsb,
     const SNLName& name):
   super(),
-  name_(name),
   design_(design),
+  name_(name),
   direction_(direction),
   msb_(msb),
   lsb_(lsb)
@@ -44,7 +44,7 @@ void SNLBusTerm::postCreate() {
   //create bits
   bits_.resize(getSize(), nullptr);
   for (size_t i=0; i<getSize(); i++) {
-    SNLID::Bit bit = (getMSB()>getLSB())?getMSB()-i:getMSB()+i;
+    SNLID::Bit bit = (getMSB()>getLSB())?getMSB()-int(i):getMSB()+int(i);
     bits_[i] = SNLBusTermBit::create(this, bit);
   }
 }
@@ -67,7 +67,7 @@ void SNLBusTerm::preDestroy() {
 }
 
 size_t SNLBusTerm::getSize() const {
-  return std::abs(getLSB() - getMSB()) + 1;
+  return static_cast<size_t>(std::abs(getLSB() - getMSB()) + 1);
 }
 
 SNLID SNLBusTerm::getSNLID() const {

@@ -6,5 +6,5 @@ PerfTracker::PerfTracker(const std::string& name):
 {}
 
 PerfTracker::~PerfTracker() {
-  auto stop = std::chrono::high_resolution_clock::now();
+  //auto stop = std::chrono::high_resolution_clock::now();
 }

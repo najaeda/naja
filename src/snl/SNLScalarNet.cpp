@@ -12,8 +12,8 @@ namespace SNL {
 
 SNLScalarNet::SNLScalarNet(SNLDesign* design, const SNLName& name):
   super(),
-  name_(name),
-  design_(design)
+  design_(design),
+  name_(name)
 {}
 
 SNLScalarNet* SNLScalarNet::create(SNLDesign* design, const SNLName& name) {
