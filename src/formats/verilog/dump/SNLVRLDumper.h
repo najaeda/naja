@@ -8,6 +8,7 @@
 namespace SNL {
 
 class SNLDesign;
+class SNLNet;
 class SNLInstance;
 
 class SNLVRLDumper {
@@ -16,9 +17,10 @@ class SNLVRLDumper {
     };
     void dumpDesign(const SNLDesign* design, std::ostream& o);
   private:
-    static SNLName createInstanceName(const SNLInstance* instance);
+    static std::string createDesignName(const SNLDesign* design);
+    static std::string createInstanceName(const SNLInstance* instance);
     void dumpInstance(const SNLInstance* instance, std::ostream& o);
-
+    void dumpNet(const SNLNet* net, std::ostream& o);
 };
 
 }

@@ -14,7 +14,7 @@ set(SOURCES
 )
 
 add_library(naja_snl SHARED ${SOURCES})
-target_link_libraries(naja_snl naja_core)
+target_link_libraries(naja_snl naja_core coverage_config)
 
 target_compile_options(naja_snl PRIVATE ${NAJA_CXX_WARNINGS}) 
 

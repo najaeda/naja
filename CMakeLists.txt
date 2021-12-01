@@ -10,6 +10,18 @@ cmake_minimum_required(VERSION 3.19)
 set(CMAKE_CXX_STANDARD 20)
 set(NAJA_CXX_WARNINGS -Werror -Wall -pedantic-errors -Wconversion -Wsign-conversion -Wextra -Wno-unused-parameter)
 
+add_library(coverage_config INTERFACE)
+option(CODE_COVERAGE "Enable coverage reporting" OFF)
+if(CODE_COVERAGE)
+  # Add required flags (GCC & LLVM/Clang)
+  target_compile_options(coverage_config INTERFACE
+    -O0        # no optimization
+    -g         # generate debug info
+    --coverage # sets all required flags
+  )
+  target_link_options(coverage_config INTERFACE --coverage)
+endif(CODE_COVERAGE)
+
 find_package(Boost REQUIRED)
 find_package(LibXml2 REQUIRED)
 find_package(Python3 COMPONENTS Development REQUIRED)
