@@ -10,6 +10,7 @@ set(SOURCES
   SNLBusTerm.cpp SNLScalarTerm.cpp
   SNLBusTermBit.cpp
   SNLInstance.cpp SNLInstTerm.cpp
+  SNLSharedPath.cpp SNLPath.cpp
   #SNLLevelize.cpp SNLDump.cpp
 )
 

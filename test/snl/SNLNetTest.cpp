@@ -51,10 +51,14 @@ TEST_F(SNLNetTest, testCreation) {
 
   auto i0Net = SNLScalarNet::create(design_);
   EXPECT_EQ(0, i0Net->getID());
+  EXPECT_FALSE(i0Term->getNet());
   i0Term->setNet(i0Net);
+  EXPECT_EQ(i0Net, i0Term->getNet());
   auto i1Net = SNLScalarNet::create(design_);
   EXPECT_EQ(1, i1Net->getID());
+  EXPECT_FALSE(i1Term->getNet());
   i1Term->setNet(i1Net);
+  EXPECT_EQ(i1Net, i1Term->getNet());
 
   auto instance0 = SNLInstance::create(design_, primitive, SNLName("instance0"));
   auto instance1 = SNLInstance::create(design_, primitive, SNLName("instance1"));
