@@ -1,5 +1,7 @@
 #include "SNLSharedPath.h"
 
+#include "SNLInstance.h"
+
 namespace SNL {
 
 SNLSharedPath::SNLSharedPath(SNLInstance* headInstance, SNLSharedPath* tailSharedPath):
@@ -17,7 +19,7 @@ SNLSharedPath* SNLSharedPath::getHeadSharedPath() const {
   }
 
   SNLSharedPath* tailSharedPath = tailSharedPath_->getHeadSharedPath();
-  SNLSharedPath* headSharedPath = nullptr; //headInstance_->_getSharedPath(tailSharedPath);
+  SNLSharedPath* headSharedPath = headInstance_->getSharedPath(tailSharedPath);
 
   if (not headSharedPath) headSharedPath = new SNLSharedPath(headInstance_, tailSharedPath);
   return headSharedPath;

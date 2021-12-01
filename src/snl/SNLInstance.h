@@ -12,10 +12,13 @@
 namespace SNL {
 
 class SNLInstTerm;
+class SNLSharedPath;
 
 class SNLInstance final: public SNLDesignObject {
   public:
     friend class SNLDesign;
+    friend class SNLSharedPath;
+    friend class SNLPath;
     using super = SNLDesignObject;
     using SNLInstanceInstTerms = std::vector<SNLInstTerm*>; 
 
@@ -41,6 +44,7 @@ class SNLInstance final: public SNLDesignObject {
     void destroyFromDesign();
     void destroyFromModel();
     void preDestroy() override;
+    SNLSharedPath* getSharedPath(const SNLSharedPath* sharedPath) const { return nullptr; }
 
     SNLInstance(SNLDesign* design, SNLDesign* model, const SNLName& name);
 

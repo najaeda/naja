@@ -7,6 +7,7 @@ class SNLInstance;
 
 class SNLSharedPath {
   public:
+    friend class SNLPath;
     SNLSharedPath() = delete;
     SNLSharedPath(const SNLSharedPath&) = delete;
 
@@ -16,7 +17,7 @@ class SNLSharedPath {
     SNLInstance* getTailInstance() const;
 
   private:
-    SNLSharedPath(SNLInstance* headInstance, SNLSharedPath* tailSharedPath); 
+    SNLSharedPath(SNLInstance* headInstance, SNLSharedPath* tailSharedPath=nullptr); 
 
     SNLInstance*    headInstance_   {nullptr};
     SNLSharedPath*  tailSharedPath_ {nullptr};

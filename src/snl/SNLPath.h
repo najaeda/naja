@@ -10,6 +10,7 @@ class SNLPath {
   public:
     SNLPath() = default;
     SNLPath(SNLSharedPath* sharedPath);
+    SNLPath(SNLInstance* instance);
 
     SNLInstance* getHeadInstance() const;
     SNLPath getTailSharedPath() const;
