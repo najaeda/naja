@@ -8,6 +8,7 @@
 #include "SNLException.h"
 #include "SNLDesign.h"
 #include "SNLBusTerm.h"
+#include "SNLBusTermBit.h"
 #include "SNLScalarTerm.h"
 #include "SNLInstTerm.h"
 
@@ -47,11 +48,11 @@ void SNLInstance::postCreate() {
     getModel()->addSlaveInstance(this);
   }
   //create instance terminals
-  size_t nbTerms = getModel()->getTerms().size();
-  instTerms_.reserve(nbTerms);
   for (SNLTerm* term: getModel()->getTerms()) {
-    if (SNLBusTerm* busTerm = dynamic_cast<SNLBusTerm*>(term)) {
-      //FIXME
+    if (auto busTerm = dynamic_cast<SNLBusTerm*>(term)) {
+      for (auto bit: busTerm->getBits()) {
+        instTerms_.push_back(SNLInstTerm::create(this, bit));
+      }
     } else {
       auto scalarTerm = static_cast<SNLScalarTerm*>(term);
       instTerms_.push_back(SNLInstTerm::create(this, scalarTerm));
@@ -122,6 +123,10 @@ Card* SNLInstance::getCard() const {
   card->addItem(new CardDataItem<const SNLDesign*>("Design", design_));
   card->addItem(new CardDataItem<const SNLDesign*>("Model", model_));
   return card;
+}
+
+SNLCollection<SNLInstTerm*> SNLInstance::getInstTerms() const {
+  return SNLCollection<SNLInstTerm*>(new SNLBitsCollection<SNLInstTerm*>(&instTerms_));
 }
 
 }

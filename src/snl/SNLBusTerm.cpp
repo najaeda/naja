@@ -86,4 +86,8 @@ std::string SNLBusTerm::getDescription() const {
   return "<" + std::string(getTypeName()) + " " + name_ + " " + design_->getName() + ">";  
 }
 
+SNLCollection<SNLBusTermBit*> SNLBusTerm::getBits() const {
+  return SNLCollection<SNLBusTermBit*>(new SNLBitsCollection<SNLBusTermBit*>(&bits_));
+}
+
 }

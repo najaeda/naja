@@ -2,6 +2,7 @@
 #define __SNL_COLLECTION_H_
 
 #include <boost/intrusive/set.hpp>
+#include <vector>
 
 namespace SNL {
 
@@ -122,7 +123,7 @@ class SNLIntrusiveSetCollection: public SNLBaseCollection<Element*> {
           }
         }
         Element* getElement() const override { return &*it_; } 
-        void progress() override { if (it_) { ++it_; } }
+        void progress() override { ++it_; }
         bool isEqual(const SNLBaseIterator<Element*>* r) override {
           if (const SNLIntrusiveSetCollectionIterator* rit = dynamic_cast<const SNLIntrusiveSetCollectionIterator*>(r)) {
             return it_ == rit->it_;
@@ -167,6 +168,72 @@ class SNLIntrusiveSetCollection: public SNLBaseCollection<Element*> {
     }
   private:
     Set*  set_  {nullptr};
+};
+
+template<class Element>
+class SNLBitsCollection: public SNLBaseCollection<Element> {
+  public:
+    using super = SNLBaseCollection<Element>;
+    using Bits = std::vector<Element>;
+
+    class SNLBitsCollectionIterator: public SNLBaseIterator<Element> {
+      public:
+        using BitsIterator = typename Bits::const_iterator;
+        SNLBitsCollectionIterator(const Bits* bits, bool beginOrEnd=true): bits_(bits) {
+          if (bits_) {
+            if (beginOrEnd) {
+              it_ = bits->begin();
+            } else {
+              it_ = bits->end();
+            }
+          }
+        }
+        Element getElement() const override { return *it_; } 
+        void progress() override { ++it_; }
+        bool isEqual(const SNLBaseIterator<Element>* r) override {
+          if (const SNLBitsCollectionIterator* rit = dynamic_cast<const SNLBitsCollectionIterator*>(r)) {
+            return it_ == rit->it_;
+          }
+          return false;
+        }
+        bool isDifferent(const SNLBaseIterator<Element>* r) override {
+          if (const SNLBitsCollectionIterator* rit = dynamic_cast<const SNLBitsCollectionIterator*>(r)) {
+            return it_ != rit->it_;
+          }
+          return true;
+        }
+      private:
+        const Bits*   bits_ {nullptr};
+        BitsIterator  it_   {};
+    };
+
+    SNLBitsCollection() = delete;
+    SNLBitsCollection(const SNLBitsCollection&) = delete;
+    SNLBitsCollection(SNLBitsCollection&&) = delete;
+    SNLBitsCollection(const Bits* bits): super(), bits_(bits) {}
+
+    SNLBaseIterator<Element>* begin() const override {
+      return new SNLBitsCollectionIterator(bits_, true);
+    }
+    SNLBaseIterator<Element>* end() const override {
+      return new SNLBitsCollectionIterator(bits_, false);
+    }
+
+    size_t size() const noexcept override {
+      if (bits_) {
+        return bits_->size();
+      }
+      return 0;
+    }
+
+    bool empty() const noexcept override {
+      if (bits_) {
+        return bits_->empty();
+      }
+      return true;
+    }
+  private:
+    const Bits* bits_ {nullptr};
 };
 
 template<class Element>

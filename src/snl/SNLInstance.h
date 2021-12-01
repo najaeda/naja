@@ -7,6 +7,7 @@
 #include "SNLDesignObject.h"
 #include "SNLID.h"
 #include "SNLName.h"
+#include "SNLCollection.h"
 
 namespace SNL {
 
@@ -31,6 +32,8 @@ class SNLInstance final: public SNLDesignObject {
     std::string getString() const override;
     std::string getDescription() const override;
     Card* getCard() const override;
+
+    SNLCollection<SNLInstTerm*> getInstTerms() const;
   private:
     static void preCreate(SNLDesign* design, const SNLName& name);
     void postCreate();
