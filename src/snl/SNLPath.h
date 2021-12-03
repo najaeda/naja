@@ -3,21 +3,32 @@
 
 namespace SNL {
 
+class SNLDesign;
 class SNLInstance;
 class SNLSharedPath;
 
 class SNLPath {
   public:
     SNLPath() = default;
+    SNLPath(const SNLPath&) = default;
     SNLPath(SNLSharedPath* sharedPath);
     SNLPath(SNLInstance* instance);
+    SNLPath(SNLInstance* headInstance, const SNLPath& tailPath);
+    SNLPath(const SNLPath& headPath, SNLInstance* tailInstance);
 
     SNLInstance* getHeadInstance() const;
-    SNLPath getTailSharedPath() const;
-    SNLPath getHeadSharedPath() const;
+    SNLPath getTailPath() const;
+    SNLPath getHeadPath() const;
     SNLInstance* getTailInstance() const;
+    SNLDesign* getDesign() const;
+    SNLDesign* getModel() const;
 
     bool empty() const;
+
+    SNLPath& operator=(const SNLPath& path) = default;
+    bool operator==(const SNLPath& path) const = default;
+    bool operator!=(const SNLPath& path) const = default;
+
   private:
     SNLSharedPath*  sharedPath_ {nullptr};
 };
