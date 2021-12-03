@@ -90,4 +90,12 @@ SNLDesign* SNLPath::getModel() const {
   return sharedPath_?sharedPath_->getModel():nullptr; 
 }
 
+bool SNLPath::operator==(const SNLPath& path) const {
+  return sharedPath_ == path.sharedPath_;
+}
+
+bool SNLPath::operator!=(const SNLPath& path) const {
+  return sharedPath_ != path.sharedPath_;
+}
+
 }
