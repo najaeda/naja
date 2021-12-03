@@ -34,4 +34,8 @@ SNLInstance* SNLPath::getTailInstance() const {
   return sharedPath_?sharedPath_->getTailInstance():nullptr;
 }
 
+bool SNLPath::empty() const {
+  return not sharedPath_;
+}
+
 }

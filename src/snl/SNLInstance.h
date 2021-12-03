@@ -2,6 +2,7 @@
 #define __SNL_INSTANCE_H_
 
 #include <vector>
+#include <map>
 #include <boost/intrusive/set.hpp>
 
 #include "SNLDesignObject.h"
@@ -21,6 +22,7 @@ class SNLInstance final: public SNLDesignObject {
     friend class SNLPath;
     using super = SNLDesignObject;
     using SNLInstanceInstTerms = std::vector<SNLInstTerm*>; 
+    using SNLSharedPaths = std::map<const SNLSharedPath*, SNLSharedPath*>;
 
     static SNLInstance* create(SNLDesign* design, SNLDesign* model, const SNLName& name=SNLName());
 
@@ -44,9 +46,11 @@ class SNLInstance final: public SNLDesignObject {
     void destroyFromDesign();
     void destroyFromModel();
     void preDestroy() override;
-    SNLSharedPath* getSharedPath(const SNLSharedPath* sharedPath) const { return nullptr; }
 
     SNLInstance(SNLDesign* design, SNLDesign* model, const SNLName& name);
+
+    SNLSharedPath* getSharedPath(const SNLSharedPath* tailSharedPath) const;
+    void addSharedPath(const SNLSharedPath* tailSharedPath);
 
     SNLDesign*                          design_                   {nullptr};
     SNLDesign*                          model_                    {nullptr};
@@ -55,6 +59,7 @@ class SNLInstance final: public SNLDesignObject {
     SNLInstanceInstTerms                instTerms_                {};
     boost::intrusive::set_member_hook<> designInstancesHook_      {};
     boost::intrusive::set_member_hook<> designSlaveInstancesHook_ {};
+    SNLSharedPaths                      sharedPaths_              {};
 };
 
 }

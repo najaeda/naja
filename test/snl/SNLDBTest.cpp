@@ -11,17 +11,17 @@ class SNLDBTest: public ::testing::Test {
 };
 
 TEST_F(SNLDBTest, test) {
-  ASSERT_FALSE(SNLUniverse::get());
+  ASSERT_EQ(SNLUniverse::get(), nullptr);
   SNLUniverse::create();
-  ASSERT_TRUE(SNLUniverse::get());
+  ASSERT_NE(SNLUniverse::get(), nullptr);
   auto universe = SNLUniverse::get();
-  ASSERT_TRUE(universe);
+  ASSERT_NE(universe, nullptr);
   SNLDB* db1 = SNLDB::create(universe);
-  ASSERT_TRUE(db1);
+  ASSERT_NE(db1, nullptr);
   EXPECT_EQ(1, db1->getID());
   EXPECT_EQ(universe->getDB(1), db1);
   SNLDB* db2 = SNLDB::create(universe);
-  ASSERT_TRUE(db2);
+  ASSERT_NE(db2, nullptr);
   EXPECT_EQ(2, db2->getID());
   EXPECT_EQ(universe->getDB(2), db2);
 
@@ -31,5 +31,5 @@ TEST_F(SNLDBTest, test) {
   EXPECT_EQ(0, db2->getLibraries().size());
     
   db1->destroy();
-  EXPECT_FALSE(universe->getDB(1));
+  EXPECT_EQ(universe->getDB(1), nullptr);
 }

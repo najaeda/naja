@@ -23,9 +23,9 @@ class SNLDesignTest: public ::testing::Test {
 
 TEST_F(SNLDesignTest, testCreation) {
   SNLLibrary* library = db_->getLibrary(SNLName("MYLIB"));
-  ASSERT_TRUE(library);
+  ASSERT_NE(library, nullptr);
   SNLDesign* design = SNLDesign::create(library, SNLName("design"));
-  ASSERT_TRUE(design);
+  ASSERT_NE(design, nullptr);
   EXPECT_EQ(SNLName("design"), design->getName());
   EXPECT_EQ(0, design->getID());
   EXPECT_FALSE(design->isAnonymous());
@@ -36,7 +36,7 @@ TEST_F(SNLDesignTest, testCreation) {
   EXPECT_EQ(SNLID(1, 0, 0), design->getSNLID());
   EXPECT_TRUE(design->isStandard());
   SNLScalarTerm* term0 = SNLScalarTerm::create(design, SNLTerm::Direction::Input, SNLName("term0"));
-  ASSERT_TRUE(term0);
+  ASSERT_NE(term0, nullptr);
   EXPECT_EQ(SNLName("term0"), term0->getName());
   ASSERT_FALSE(term0->isAnonymous());
   EXPECT_EQ(0, term0->getID());
@@ -44,7 +44,7 @@ TEST_F(SNLDesignTest, testCreation) {
   EXPECT_EQ(design, term0->getDesign());
   EXPECT_EQ(SNLTerm::Direction::Input, term0->getDirection());
   SNLScalarTerm* term1 = SNLScalarTerm::create(design, SNLTerm::Direction::Output, SNLName("term1"));
-  ASSERT_TRUE(term1);
+  ASSERT_NE(term1, nullptr);
   EXPECT_EQ(SNLName("term1"), term1->getName());
   ASSERT_FALSE(term1->isAnonymous());
   EXPECT_EQ(1, term1->getID());
@@ -53,7 +53,7 @@ TEST_F(SNLDesignTest, testCreation) {
   EXPECT_EQ(SNLTerm::Direction::Output, term1->getDirection());
   //anonymous scalar term
   SNLScalarTerm* term2 = SNLScalarTerm::create(design, SNLTerm::Direction::InOut);
-  ASSERT_TRUE(term2);
+  ASSERT_NE(term2, nullptr);
   EXPECT_TRUE(term2->getName().empty());
   ASSERT_TRUE(term2->isAnonymous());
   EXPECT_EQ(2, term2->getID());
@@ -62,7 +62,7 @@ TEST_F(SNLDesignTest, testCreation) {
   EXPECT_EQ(design, term2->getDesign());
 
   SNLBusTerm* term3 = SNLBusTerm::create(design, SNLTerm::Direction::Input, 4, 0, SNLName("term3"));
-  ASSERT_TRUE(term3);
+  ASSERT_NE(term3, nullptr);
   EXPECT_EQ(SNLName("term3"), term3->getName());
   ASSERT_FALSE(term3->isAnonymous());
   EXPECT_EQ(3, term3->getID());
@@ -78,7 +78,7 @@ TEST_F(SNLDesignTest, testCreation) {
   //EXPECT_EQ(3, design->getScalarTerms().size());
 
   SNLDesign* model = SNLDesign::create(library, "model");
-  ASSERT_TRUE(model);
+  ASSERT_NE(model, nullptr);
   EXPECT_EQ("model", model->getName());
   EXPECT_EQ(1, model->getID());
   EXPECT_FALSE(model->isAnonymous());
@@ -87,7 +87,7 @@ TEST_F(SNLDesignTest, testCreation) {
 
   //anonymous design
   SNLDesign* anon = SNLDesign::create(library);
-  ASSERT_TRUE(anon);
+  ASSERT_NE(anon, nullptr);
   EXPECT_EQ(2, anon->getID());
   EXPECT_TRUE(anon->isAnonymous());
   EXPECT_EQ(anon, library->getDesign(2));

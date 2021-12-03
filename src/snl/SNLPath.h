@@ -16,6 +16,8 @@ class SNLPath {
     SNLPath getTailSharedPath() const;
     SNLPath getHeadSharedPath() const;
     SNLInstance* getTailInstance() const;
+
+    bool empty() const;
   private:
     SNLSharedPath*  sharedPath_ {nullptr};
 };
