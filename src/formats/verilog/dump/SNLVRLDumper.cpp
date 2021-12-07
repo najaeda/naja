@@ -27,6 +27,9 @@ std::string SNLVRLDumper::createInstanceName(const SNLInstance* instance) {
   return instanceName;
 }
 
+void SNLVRLDumper::dumpTerm(const SNLTerm* term, std::ostream& o) {
+}
+
 void SNLVRLDumper::dumpNet(const SNLNet* net, std::ostream& o) {
 
 }
@@ -51,6 +54,10 @@ void SNLVRLDumper::dumpDesign(const SNLDesign* design, std::ostream& o) {
     createDesignName(design);
   }
   o << "module " << design->getName() << std::endl;
+
+  for (auto term: design->getTerms()) {
+    dumpTerm(term, o);
+  }
 
   for (auto net: design->getNets()) {
     dumpNet(net, o);

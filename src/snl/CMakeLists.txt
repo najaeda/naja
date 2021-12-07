@@ -11,6 +11,7 @@ set(SOURCES
   SNLBusTermBit.cpp
   SNLInstance.cpp SNLInstTerm.cpp
   SNLSharedPath.cpp SNLPath.cpp
+  SNLParameter.cpp
   #SNLLevelize.cpp SNLDump.cpp
 )
 

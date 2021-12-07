@@ -7,6 +7,7 @@
 #include "SNLTerm.h"
 #include "SNLInstance.h"
 #include "SNLNet.h"
+#include "SNLParameter.h"
 #include "SNLCollection.h"
 
 namespace SNL {
@@ -125,6 +126,9 @@ class SNLDesign final: public SNLObject {
     using SNLDesignNetsHook =
       boost::intrusive::member_hook<SNLNet, boost::intrusive::set_member_hook<>, &SNLNet::designNetsHook_>;
     using SNLDesignNets = boost::intrusive::set<SNLNet, SNLDesignNetsHook>;
+    using SNLDesignParametersHook =
+      boost::intrusive::member_hook<SNLParameter, boost::intrusive::set_member_hook<>, &SNLParameter::designParametersHook_>;
+    using SNLDesignParameters = boost::intrusive::set<SNLParameter, SNLDesignParametersHook>;
 
     SNLID::DesignID                     id_;
     SNLName                             name_               {};
@@ -138,6 +142,7 @@ class SNLDesign final: public SNLObject {
     SNLDesignSlaveInstances             slaveInstances_     {};
     SNLDesignNets                       nets_               {};
     SNLDesignObjectNameIDMap            netNameIDMap_       {};
+    SNLDesignParameters                 parameters_         {};
 };
 
 }
