@@ -50,13 +50,13 @@ SNLPath::SNLPath(const SNLPath& headPath, SNLInstance* tailInstance): SNLPath() 
     sharedPath_ = tailInstance->getSharedPath(nullptr);
     if (not sharedPath_) {
       sharedPath_ = new SNLSharedPath(tailInstance);
-    } else {
-      SNLInstance* headInstance = headPath.getHeadInstance();
-      SNLSharedPath* tailSharedPath = SNLPath(headPath.getTailPath(), tailInstance).sharedPath_;
-      sharedPath_ = headInstance->getSharedPath(tailSharedPath);
-      if (not sharedPath_) {
-        sharedPath_ = new SNLSharedPath(headInstance, tailSharedPath);
-      }
+    }
+  } else {
+    SNLInstance* headInstance = headPath.getHeadInstance();
+    SNLSharedPath* tailSharedPath = SNLPath(headPath.getTailPath(), tailInstance).sharedPath_;
+    sharedPath_ = headInstance->getSharedPath(tailSharedPath);
+    if (not sharedPath_) {
+      sharedPath_ = new SNLSharedPath(headInstance, tailSharedPath);
     }
   }
 }
@@ -88,6 +88,14 @@ SNLDesign* SNLPath::getDesign() const {
 
 SNLDesign* SNLPath::getModel() const {
   return sharedPath_?sharedPath_->getModel():nullptr; 
+}
+
+bool SNLPath::operator==(const SNLPath& path) const {
+  return sharedPath_ == path.sharedPath_;
+}
+
+bool SNLPath::operator!=(const SNLPath& path) const {
+  return sharedPath_ != path.sharedPath_;
 }
 
 }

@@ -26,8 +26,8 @@ class SNLPath {
     bool empty() const;
 
     SNLPath& operator=(const SNLPath& path) = default;
-    bool operator==(const SNLPath& path) const = default;
-    bool operator!=(const SNLPath& path) const = default;
+    bool operator==(const SNLPath& path) const;
+    bool operator!=(const SNLPath& path) const;
 
   private:
     SNLSharedPath*  sharedPath_ {nullptr};
