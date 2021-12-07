@@ -26,6 +26,7 @@ class SNLDesign final: public SNLObject {
     friend class SNLInstance;
     friend class SNLScalarNet;
     friend class SNLBusNet;
+    friend class SNLParameter;
     using super = SNLObject;
 
     class Type {
@@ -76,6 +77,9 @@ class SNLDesign final: public SNLObject {
     SNLBusNet* getBusNet(const SNLName& netName);
     SNLCollection<SNLNet*> getNets() const;
 
+    ///\return SNLParameter with SNLName name or nullptr if it does not exist
+    SNLParameter* getParameter(const SNLName& name);
+
 
     SNLID::DesignID getID() const { return id_; }
     SNLID getSNLID() const;
@@ -107,6 +111,8 @@ class SNLDesign final: public SNLObject {
     void removeSlaveInstance(SNLInstance* instance);
     void addNet(SNLNet* net);
     void removeNet(SNLNet* net);
+    void addParameter(SNLParameter* parameter);
+    void removeParameter(SNLParameter* parameter);
 
     friend bool operator< (const SNLDesign &ld, const SNLDesign &rd) {
       return ld.getSNLID() < rd.getSNLID();

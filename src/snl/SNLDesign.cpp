@@ -98,6 +98,13 @@ void SNLDesign::commonPreDestroy() {
   };
   nets_.clear_and_dispose(destroyNetFromDesign());
 
+  struct destroyParameterFromDesign {
+    void operator()(SNLParameter* parameter) {
+      parameter->destroyFromDesign();
+    }
+  };
+  parameters_.clear_and_dispose(destroyParameterFromDesign());
+
   super::preDestroy();
 }
 
@@ -284,6 +291,22 @@ SNLDB* SNLDesign::getDB() const {
 
 SNLCollection<SNLInstance*> SNLDesign::getInstances() const {
   return SNLCollection<SNLInstance*>(new SNLIntrusiveConstSetCollection<SNLInstance, SNLDesignInstancesHook>(&instances_));
+}
+
+void SNLDesign::addParameter(SNLParameter* parameter) {
+  parameters_.insert(*parameter);
+}
+
+void SNLDesign::removeParameter(SNLParameter* parameter) {
+  parameters_.erase(*parameter);
+}
+
+SNLParameter* SNLDesign::getParameter(const SNLName& name) {
+  auto it = parameters_.find(name, SNLParameter::SNLParameterComp());
+  if (it != parameters_.end()) {
+    return &*it;
+  }
+  return nullptr;
 }
 
 constexpr const char* SNLDesign::getTypeName() const {
