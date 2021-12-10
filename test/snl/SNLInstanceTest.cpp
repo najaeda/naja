@@ -44,6 +44,7 @@ TEST_F(SNLInstanceTest, testCreation) {
   EXPECT_EQ(0, instance1->getID());
   EXPECT_EQ(SNLID(SNLID::Type::Instance, 1, 0, 0, 0, instance1->getID(), 0), instance1->getSNLID());
 
+#if 0
   using InstTermsVector = std::vector<SNLInstTerm*>;
   InstTermsVector instTermsVector(instance1->getInstTerms().begin(), instance1->getInstTerms().end());
   EXPECT_EQ(7, instTermsVector.size());
@@ -52,6 +53,7 @@ TEST_F(SNLInstanceTest, testCreation) {
     auto instTerm = instTermsVector[i];
     std::cerr << i << ":" << instTerm->getSNLID().getString() << std::endl;
   }
+#endif
   ////i0
   //EXPECT_EQ(SNLID(SNLID::Type::InstTerm, 1, 0, 0, 0, 0, 0), instTermsVector[0]->getSNLID());
   ////anon bus[0,3]
