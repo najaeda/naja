@@ -1,5 +1,5 @@
 set(SOURCES
-  SNLObject.cpp
+  SNLObject.cpp SNLID.cpp
   SNLUniverse.cpp SNLDB.cpp SNLDB0.cpp
   SNLLibrary.cpp SNLDesign.cpp
   SNLDesignObject.cpp

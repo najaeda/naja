@@ -6,6 +6,7 @@
 #include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
 #include "SNLInstance.h"
+#include "SNLInstTerm.h"
 using namespace std;
 using namespace SNL;
 
@@ -40,6 +41,24 @@ TEST_F(SNLInstanceTest, testCreation) {
   EXPECT_EQ(design, instance1->getDesign());
   EXPECT_EQ(model, instance1->getModel());
   EXPECT_EQ(7, instance1->getInstTerms().size());
+  EXPECT_EQ(0, instance1->getID());
+  EXPECT_EQ(SNLID(SNLID::Type::Instance, 1, 0, 0, 0, instance1->getID(), 0), instance1->getSNLID());
+
+  using InstTermsVector = std::vector<SNLInstTerm*>;
+  InstTermsVector instTermsVector(instance1->getInstTerms().begin(), instance1->getInstTerms().end());
+  EXPECT_EQ(7, instTermsVector.size());
+
+  for (auto i=0; i<instTermsVector.size(); ++i) {
+    auto instTerm = instTermsVector[i];
+    std::cerr << i << ":" << instTerm->getSNLID().getString() << std::endl;
+  }
+  ////i0
+  //EXPECT_EQ(SNLID(SNLID::Type::InstTerm, 1, 0, 0, 0, 0, 0), instTermsVector[0]->getSNLID());
+  ////anon bus[0,3]
+  //EXPECT_EQ(SNLID(SNLID::Type::InstTerm, 1, 0, 0, 1, 0, 0), instTermsVector[1]->getSNLID());
+  //EXPECT_EQ(SNLID(SNLID::Type::InstTerm, 1, 0, 0, 1, 0, 1), instTermsVector[2]->getSNLID());
+  //EXPECT_EQ(SNLID(SNLID::Type::InstTerm, 1, 0, 0, 1, 0, 2), instTermsVector[3]->getSNLID());
+  //EXPECT_EQ(SNLID(SNLID::Type::InstTerm, 1, 0, 0, 1, 0, 3), instTermsVector[4]->getSNLID());
 
   SNLInstance* instance2 = SNLInstance::create(design, model, "instance2");
   ASSERT_NE(instance2, nullptr);
