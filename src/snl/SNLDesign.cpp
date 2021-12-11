@@ -309,6 +309,10 @@ SNLParameter* SNLDesign::getParameter(const SNLName& name) {
   return nullptr;
 }
 
+SNLCollection<SNLParameter*> SNLDesign::getParameters() const {
+  return SNLCollection<SNLParameter*>(new SNLIntrusiveConstSetCollection<SNLParameter, SNLDesignParametersHook>(&parameters_));
+}
+
 constexpr const char* SNLDesign::getTypeName() const {
   return "SNLDesign";
 }

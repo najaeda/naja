@@ -38,5 +38,5 @@ jobs:
 
     - name: Test
       working-directory: ${{github.workspace}}/build/test/snl
-      run: valgrind --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./snlTests
+      run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./snlTests
 
