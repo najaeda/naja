@@ -13,9 +13,11 @@ class SNLParameter {
   public:
     friend class SNLDesign;
 
+    SNLParameter() = delete;
+    SNLParameter(const SNLParameter&) = delete;
+
     static SNLParameter* create(SNLDesign* design, const SNLName& name, const SNLName& value);
     void destroy();
-    SNLDesign* getDesign() const { return design_; }
     SNLName getName() const { return name_; }
     std::string getValue() const { return value_; }
 
@@ -31,15 +33,15 @@ class SNLParameter {
       }
     };
   private:
-    SNLParameter(const SNLName& name, const SNLName& value);
+    SNLParameter(SNLDesign* design, const SNLName& name, const SNLName& value);
     static void preCreate(SNLDesign* design, const SNLName& name);
     void postCreate();
     void destroyFromDesign();
 
-    SNLDesign*                          design_;
-    SNLName                             name_;
-    std::string                         value_;
-    boost::intrusive::set_member_hook<> designParametersHook_;
+    SNLDesign*                          design_                 {nullptr};
+    SNLName                             name_                   {};
+    std::string                         value_                  {};
+    boost::intrusive::set_member_hook<> designParametersHook_   {};
 };
 
 }

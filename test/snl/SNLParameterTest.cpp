@@ -29,9 +29,9 @@ TEST_F(SNLParameterTest, test) {
   EXPECT_EQ(SNL::SNLName("PARAM1"), param1->getName());
   EXPECT_EQ("45", param1->getValue());
 
-  //EXPECT_FALSE(design_->getParameters().empty());
-  //EXPECT_EQ(1, design_->getParameters().size());
+  EXPECT_FALSE(design_->getParameters().empty());
+  EXPECT_EQ(1, design_->getParameters().size());
 
-  //auto designParam1 = design_->getParameter(SNL::SNLName("PARAM1"));
-  //ASSERT_NE(designParam1, nullptr);
+  auto designParam1 = design_->getParameter(SNL::SNLName("PARAM1"));
+  ASSERT_NE(designParam1, nullptr);
 }
