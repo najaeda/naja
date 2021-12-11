@@ -12,6 +12,7 @@ SNLParameter::SNLParameter(const SNLName& name, const SNLName& value):
 SNLParameter* SNLParameter::create(SNLDesign* design, const SNLName& name, const SNLName& value) {
   preCreate(design, name);
   SNLParameter* parameter = new SNLParameter(name, value);
+  //parameter->postCreate();
   return parameter;
 }
 

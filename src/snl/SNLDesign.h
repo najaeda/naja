@@ -79,7 +79,7 @@ class SNLDesign final: public SNLObject {
 
     ///\return SNLParameter with SNLName name or nullptr if it does not exist
     SNLParameter* getParameter(const SNLName& name);
-
+    SNLCollection<SNLParameter*> getParameters() const;
 
     SNLID::DesignID getID() const { return id_; }
     SNLID getSNLID() const;
