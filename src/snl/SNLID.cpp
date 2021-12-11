@@ -1,6 +1,5 @@
 #include "SNLID.h"
 
-#include <string>
 #include <sstream>
 
 namespace SNL {

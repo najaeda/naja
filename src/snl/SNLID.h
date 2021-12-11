@@ -2,6 +2,7 @@
 #define __SNL_ID_H_
 
 #include <tuple>
+#include <string>
 
 namespace SNL {
 
