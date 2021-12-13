@@ -39,6 +39,7 @@ class SNLBusTerm final: public SNLTerm {
     std::string getString() const override;
     std::string getDescription() const override;
 
+    SNLBusTermBit* getBit(SNLID::Bit bit) const;
     SNLCollection<SNLBusTermBit*> getBits() const;
   private:
     SNLBusTerm(

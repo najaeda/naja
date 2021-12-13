@@ -43,8 +43,12 @@ void SNLBusTermBit::preDestroy() {
   super::preDestroy();
 }
 
+SNLID::DesignObjectID SNLBusTermBit::getID() const {
+  return getBus()->getID();
+}
+
 SNLID SNLBusTermBit::getSNLID() const {
-  return SNLDesignObject::getSNLID(SNLID::Type::Net, getBus()->getID(), 0, getBit());
+  return SNLDesignObject::getSNLID(SNLID::Type::Net, getID(), 0, getBit());
 }
 
 SNLDesign* SNLBusTermBit::getDesign() const {

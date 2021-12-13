@@ -9,13 +9,14 @@ namespace SNL {
 template<class Element>
 class SNLBaseIterator {
   public:
-    SNLBaseIterator(const SNLBaseIterator&) = delete;
+    SNLBaseIterator(const SNLBaseIterator&) = default;
     SNLBaseIterator(SNLBaseIterator&&) = delete;
     virtual ~SNLBaseIterator() {}
     virtual Element getElement() const = 0;
     virtual void progress() = 0;
     virtual bool isEqual(const SNLBaseIterator<Element>* r) = 0;
     virtual bool isDifferent(const SNLBaseIterator<Element>* r) = 0;
+    virtual SNLBaseIterator<Element>* clone() = 0;
   protected:
     SNLBaseIterator() = default;
 };
@@ -45,6 +46,7 @@ class SNLIntrusiveConstSetCollection: public SNLBaseCollection<Element*> {
     class SNLIntrusiveConstSetCollectionIterator: public SNLBaseIterator<Element*> {
       public:
         using SetIterator = typename Set::const_iterator;
+        SNLIntrusiveConstSetCollectionIterator(const SNLIntrusiveConstSetCollectionIterator&) = default;
         SNLIntrusiveConstSetCollectionIterator(const Set* set, bool beginOrEnd=true): set_(set) {
           if (set_) {
             if (beginOrEnd) {
@@ -67,6 +69,9 @@ class SNLIntrusiveConstSetCollection: public SNLBaseCollection<Element*> {
             return it_ != rit->it_;
           }
           return true;
+        }
+        SNLBaseIterator<Element*>* clone() override {
+          return new SNLIntrusiveConstSetCollectionIterator(*this);
         }
       private:
         const Set*  set_  {nullptr};
@@ -188,6 +193,10 @@ class SNLBitsCollection: public SNLBaseCollection<Element> {
             }
           }
         }
+        SNLBitsCollectionIterator(SNLBitsCollectionIterator&) = default;
+        SNLBaseIterator<Element>* clone() override {
+          return new SNLBitsCollectionIterator(*this);
+        }
         Element getElement() const override { return *it_; } 
         void progress() override { ++it_; }
         bool isEqual(const SNLBaseIterator<Element>* r) override {
@@ -242,17 +251,22 @@ class SNLCollection {
     class Iterator: public std::iterator<std::input_iterator_tag, Element> {
       public:
         Iterator() = delete;
-        Iterator(SNLBaseIterator<Element>* iterator): it_(iterator) {}
-        ~Iterator() { if (it_) { delete it_; } }
+        Iterator(const Iterator& it) {
+          if (it.baseIt_) {
+            baseIt_ = it.baseIt_->clone();
+          }
+        }
+        Iterator(SNLBaseIterator<Element>* iterator): baseIt_(iterator) {}
+        ~Iterator() { if (baseIt_) { delete baseIt_; } }
 
-        Iterator& operator++() { it_->progress(); return *this; }
+        Iterator& operator++() { baseIt_->progress(); return *this; }
 
-        Element operator*() const { return it_->getElement(); }
+        Element operator*() const { return baseIt_->getElement(); }
 
-        bool operator==(const Iterator& r) const { return it_->isEqual(r.it_); }
-        bool operator!=(const Iterator& r) const { return it_->isDifferent(r.it_); }
+        bool operator==(const Iterator& r) const { return baseIt_->isEqual(r.baseIt_); }
+        bool operator!=(const Iterator& r) const { return baseIt_->isDifferent(r.baseIt_); }
       private:
-        SNLBaseIterator<Element>* it_ {nullptr};
+        SNLBaseIterator<Element>* baseIt_ {nullptr};
     };
 
     Iterator begin() { return Iterator(collection_->begin()); }
