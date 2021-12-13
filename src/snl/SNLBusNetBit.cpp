@@ -3,6 +3,7 @@
 #include <iostream>
 
 #include "SNLBusNet.h"
+#include "SNLException.h"
 
 namespace SNL {
 
@@ -35,13 +36,15 @@ void SNLBusNetBit::destroyFromBus() {
 }
 
 void SNLBusNetBit::destroy() {
-  //FIXME:manage with exception in the future ??
-  std::cerr << "Unauthorized destroy of BusNetBit" << std::endl; 
-  exit(-35);
+  throw SNLException("Unexpected call of SNLBusNetBit::destroy()");
 }
 
 void SNLBusNetBit::preDestroy() {
   super::preDestroy();
+}
+
+SNLID::DesignObjectID SNLBusNetBit::getID() const {
+  return getBus()->getID();
 }
 
 SNLID SNLBusNetBit::getSNLID() const {

@@ -15,7 +15,8 @@ class SNLBusNetBit final: public SNLBitNet {
     SNLDesign* getDesign() const override;
 
     void setID(SNLID::DesignObjectID id) override {}
-    SNLID::DesignObjectID getID() const override { return 0; }
+    //\remark returns the owner SNLBusNet ID
+    SNLID::DesignObjectID getID() const override;
     SNLID getSNLID() const override;
     SNLBusNet* getBus() const { return bus_; }
     SNLID::Bit getBit() const { return bit_; }
