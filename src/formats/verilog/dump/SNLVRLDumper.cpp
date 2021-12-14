@@ -2,6 +2,26 @@
 
 #include "SNLLibrary.h"
 #include "SNLDesign.h"
+#include "SNLBusTerm.h"
+#include "SNLBusNet.h"
+
+namespace {
+
+void dumpDirection(const SNL::SNLTerm* term, std::ostream& o) {
+  switch (term->getDirection()) {
+    case SNL::SNLTerm::Direction::Input:
+      o << "input";
+      break;
+    case SNL::SNLTerm::Direction::Output:
+      o << "output";
+      break;
+    case SNL::SNLTerm::Direction::InOut:
+      o << "inout";
+      break;
+  }
+}
+
+}
 
 namespace SNL {
 
@@ -27,11 +47,39 @@ std::string SNLVRLDumper::createInstanceName(const SNLInstance* instance) {
   return instanceName;
 }
 
-void SNLVRLDumper::dumpTerm(const SNLTerm* term, std::ostream& o) {
+void SNLVRLDumper::dumpInterface(const SNLDesign* design, std::ostream& o) {
+  o << "(";
+  bool first = true;
+  for (auto term: design->getTerms()) {
+    if (not first) {
+      o << " ,";
+    } else {
+      first = false;
+    }
+    dumpDirection(term, o);
+    o << " ";
+    if (auto bus = dynamic_cast<SNLBusTerm*>(term)) {
+      o << "[" << bus->getMSB() << ":" << bus->getLSB() << "] ";
+    }
+    o << term->getName();
+  }
+  o << ");";
 }
 
-void SNLVRLDumper::dumpNet(const SNLNet* net, std::ostream& o) {
+void SNLVRLDumper::dumpNets(const SNLDesign* design, std::ostream& o) {
+  for (auto net: design->getNets()) {
+    o << "wire ";
+    if (auto bus = dynamic_cast<SNLBusNet*>(net)) {
+      o << "[" << bus->getMSB() << ":" << bus->getLSB() << "] ";
+    }
+    o << net->getName();
+    o << ";" << std::endl;
+  }
+  o << std::endl;
+}
 
+void SNLVRLDumper::dumpInstanceInterface(const SNLInstance* instance, std::ostream& o) {
+  o << "()";
 }
 
 void SNLVRLDumper::dumpInstance(const SNLInstance* instance, std::ostream& o) {
@@ -45,7 +93,15 @@ void SNLVRLDumper::dumpInstance(const SNLInstance* instance, std::ostream& o) {
   if (model->isAnonymous()) {
     o << instanceName << std::endl;
   } else {
-    o << model->getName() << " " << instanceName << std::endl;
+    o << model->getName() << " " << instanceName;
+  }
+  dumpInstanceInterface(instance, o);
+  o << ";" << std::endl;
+}
+
+void SNLVRLDumper::dumpInstances(const SNLDesign* design, std::ostream& o) {
+  for (auto instance: design->getInstances()) {
+    dumpInstance(instance, o);
   }
 }
 
@@ -53,19 +109,16 @@ void SNLVRLDumper::dumpDesign(const SNLDesign* design, std::ostream& o) {
   if (design->isAnonymous()) {
     createDesignName(design);
   }
-  o << "module " << design->getName() << std::endl;
+  o << "module " << design->getName();
 
-  for (auto term: design->getTerms()) {
-    dumpTerm(term, o);
-  }
+  dumpInterface(design, o);
 
-  for (auto net: design->getNets()) {
-    dumpNet(net, o);
-  }
+  o << std::endl;
 
-  for (auto instance: design->getInstances()) {
-    dumpInstance(instance, o);
-  }
+  dumpNets(design, o);
+
+  dumpInstances(design, o);
+
   o << "endmodule //" << design->getName();
   o << std::endl;
 }

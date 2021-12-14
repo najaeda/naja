@@ -13,15 +13,15 @@ class SNLNet: public SNLDesignObject {
     friend class SNLDesign;
     using super = SNLDesignObject;
 
+    virtual SNLID::DesignObjectID getID() const = 0;
+    virtual SNLName getName() const = 0;
+
   protected:
     SNLNet() = default;
 
     static void preCreate();
     void postCreate();
     void preDestroy() override;
-
-    virtual SNLID::DesignObjectID getID() const = 0;
-    virtual SNLName getName() const = 0;
 
   private:
     //following used in BusNet and ScalarNet
