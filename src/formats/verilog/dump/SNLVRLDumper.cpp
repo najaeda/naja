@@ -52,7 +52,7 @@ void SNLVRLDumper::dumpInterface(const SNLDesign* design, std::ostream& o) {
   bool first = true;
   for (auto term: design->getTerms()) {
     if (not first) {
-      o << " ,";
+      o << ", ";
     } else {
       first = false;
     }

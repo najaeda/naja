@@ -34,4 +34,24 @@ TEST_F(SNLParameterTest, test) {
 
   auto designParam1 = design_->getParameter(SNL::SNLName("PARAM1"));
   ASSERT_NE(designParam1, nullptr);
+
+  auto param2 = SNL::SNLParameter::create(design_, SNL::SNLName("PARAM2"), "56");
+  ASSERT_NE(nullptr, param2);
+  EXPECT_EQ(SNL::SNLName("PARAM2"), param2->getName());
+  EXPECT_EQ("56", param2->getValue());
+
+  EXPECT_FALSE(design_->getParameters().empty());
+  EXPECT_EQ(2, design_->getParameters().size());
+
+  auto designParam2 = design_->getParameter(SNL::SNLName("PARAM2"));
+  ASSERT_NE(designParam2, nullptr);
+
+  EXPECT_EQ(param1, designParam1);
+  EXPECT_EQ(param2, designParam2);
+
+  using ParamsVector = std::vector<SNL::SNLParameter*>;
+  ParamsVector paramsVector(design_->getParameters().begin(), design_->getParameters().end());
+  ASSERT_EQ(2, paramsVector.size());
+  EXPECT_EQ(param1, paramsVector[0]);
+  EXPECT_EQ(param2, paramsVector[1]);
 }

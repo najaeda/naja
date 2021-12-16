@@ -48,7 +48,9 @@ class SNLDesign final: public SNLObject {
     static SNLDesign* create(SNLLibrary* library, const SNLName& name=SNLName());
     static SNLDesign* create(SNLLibrary* library, const Type& type, const SNLName& name=SNLName());
 
+    ///\return owning SNLDB
     SNLDB* getDB() const;
+    ///\return owning SNLLibrary
     SNLLibrary* getLibrary() const { return library_; }
 
     ///\return SNLTerm with SNLID::DesignObjectID id or nullptr if it does not exist
