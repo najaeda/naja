@@ -1,3 +1,3 @@
-ADD_EXECUTABLE(snl_snippet SNLSnippet.cpp)
+add_executable(snl_snippet SNLSnippet.cpp)
 
-TARGET_LINK_LIBRARIES(snl_snippet naja_snl)
+target_link_libraries(snl_snippet naja_snl)
