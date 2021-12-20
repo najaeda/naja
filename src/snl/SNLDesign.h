@@ -4,9 +4,12 @@
 #include <map>
 
 #include <range/v3/view/transform.hpp>
+#include <range/v3/view/remove_if.hpp>
+#include <range/v3/view/for_each.hpp>
 
-#include "SNLID.h"
-#include "SNLTerm.h"
+#include "SNLBusTerm.h"
+#include "SNLScalarTerm.h"
+#include "SNLBusTermBit.h"
 #include "SNLInstance.h"
 #include "SNLNet.h"
 #include "SNLParameter.h"
@@ -14,8 +17,6 @@
 namespace SNL {
 
 class SNLLibrary;
-class SNLScalarTerm;
-class SNLBusTerm;
 class SNLScalarNet;
 class SNLBusNet;
 
@@ -66,6 +67,27 @@ class SNLDesign final: public SNLObject {
       return ranges::views::all(terms_)
         | ranges::views::transform([](const SNLTerm& t) { return const_cast<SNLTerm*>(&t); });
     }
+    auto getBusTerms() const {
+      return getTerms()
+        | ranges::views::remove_if([](SNLTerm* t) { return not dynamic_cast<SNLBusTerm*>(t); }); 
+    }
+    auto getScalarTerms() const {
+      return getTerms()
+        | ranges::views::remove_if([](SNLTerm* t) { return not dynamic_cast<SNLScalarTerm*>(t); }); 
+    }
+    /*
+    auto getBitTerms() const {
+      return ranges::views::for_each(getTerms(), [](SNLTerm* t) {
+          if (SNLBusTerm* bus = dynamic_cast<SNLBusTerm*>(t)) {
+            return bus->getBits()
+            | ranges::views::transform([](SNLBusTermBit* t) { return static_cast<SNLBitTerm*>(t); });
+          }
+          else {
+            return ranges::yield(static_cast<SNLBitTerm*>(t));
+          }
+        });
+    }
+    */
 
     ///\return SNLInstance with SNLID::DesignObjectID id or nullptr if it does not exist
     SNLInstance* getInstance(SNLID::DesignObjectID id);
