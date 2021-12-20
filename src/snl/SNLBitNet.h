@@ -3,7 +3,6 @@
 
 #include "SNLNet.h"
 #include "SNLNetComponent.h"
-#include "SNLCollection.h"
 
 namespace SNL {
 
@@ -12,7 +11,8 @@ class SNLBitNet: public SNLNet {
     friend class SNLNetComponent;
     using super = SNLNet;
 
-    SNLCollection<SNLNetComponent*> getComponents() const;
+    auto getComponents() const {
+    }
   protected:
     SNLBitNet() = default;
     static void preCreate();

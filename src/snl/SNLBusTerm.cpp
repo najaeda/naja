@@ -94,8 +94,4 @@ SNLBusTermBit* SNLBusTerm::getBit(SNLID::Bit bit) const {
   return nullptr;
 }
 
-SNLCollection<SNLBusTermBit*> SNLBusTerm::getBits() const {
-  return SNLCollection<SNLBusTermBit*>(new SNLBitsCollection<SNLBusTermBit*>(&bits_));
-}
-
 }

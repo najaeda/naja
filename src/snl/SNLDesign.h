@@ -3,12 +3,13 @@
 
 #include <map>
 
+#include <range/v3/view/transform.hpp>
+
 #include "SNLID.h"
 #include "SNLTerm.h"
 #include "SNLInstance.h"
 #include "SNLNet.h"
 #include "SNLParameter.h"
-#include "SNLCollection.h"
 
 namespace SNL {
 
@@ -61,13 +62,20 @@ class SNLDesign final: public SNLObject {
     SNLScalarTerm* getScalarTerm(const SNLName& netName);
     ///\return SNLBusTerm with SNLName name or nullptr if it does not exist
     SNLBusTerm* getBusTerm(const SNLName& netName);
-    SNLCollection<SNLTerm*> getTerms() const;
+    auto getTerms() const {
+      return ranges::views::all(terms_)
+        | ranges::views::transform([](const SNLTerm& t) { return const_cast<SNLTerm*>(&t); });
+    }
 
     ///\return SNLInstance with SNLID::DesignObjectID id or nullptr if it does not exist
     SNLInstance* getInstance(SNLID::DesignObjectID id);
     ///\return SNLInstance with SNLName name if it does not exist
     SNLInstance* getInstance(const SNLName& instanceName);
-    SNLCollection<SNLInstance*> getInstances() const;
+
+    auto getInstances() const {
+      return ranges::views::all(instances_)
+        | ranges::views::transform([](const SNLInstance& i) { return const_cast<SNLInstance*>(&i); });
+    }
 
     ///\return SNLNet with SNLID::DesignObjectID id or nullptr if it does not exist
     SNLNet* getNet(SNLID::DesignObjectID id);
@@ -77,11 +85,17 @@ class SNLDesign final: public SNLObject {
     SNLScalarNet* getScalarNet(const SNLName& netName);
     ///\return SNLBusNet with SNLName name or nullptr if it does not exist
     SNLBusNet* getBusNet(const SNLName& netName);
-    SNLCollection<SNLNet*> getNets() const;
+    auto getNets() const {
+      return ranges::views::all(nets_)
+        | ranges::views::transform([](const SNLNet& n) { return const_cast<SNLNet*>(&n); });
+    }
 
     ///\return SNLParameter with SNLName name or nullptr if it does not exist
     SNLParameter* getParameter(const SNLName& name);
-    SNLCollection<SNLParameter*> getParameters() const;
+    auto getParameters() const {
+      return ranges::views::all(parameters_)
+        | ranges::views::transform([](const SNLParameter& p) { return const_cast<SNLParameter*>(&p); });
+    }
 
     SNLID::DesignID getID() const { return id_; }
     SNLID getSNLID() const;

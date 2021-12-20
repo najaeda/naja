@@ -22,8 +22,7 @@ class SNLUniverse final: public SNLObject {
     ///\return the singleron SNLUniverse or null if it does not exist.
     static SNLUniverse* get();
 
-
-    SNLCollection<SNLDB*> getDBs() const;
+    auto getDBs() const;
 
     ///\return the SNLDB with SNLID::DBID:id or null if it does not exist
     SNLDB* getDB(SNLID::DBID id);

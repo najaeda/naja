@@ -39,12 +39,18 @@ class SNLLibrary final: public SNLObject {
 
     SNLDB* getDB() const;
 
-    SNLCollection<SNLLibrary*> getLibraries() const;
     SNLLibrary* getParentLibrary() const;
     SNLLibrary* getLibrary(SNLID::LibraryID id);
     SNLLibrary* getLibrary(const SNLName& name);
+    auto getLibraries() const {
+      return ranges::views::all(libraries_)
+        | ranges::views::transform([](const SNLLibrary& l) { return const_cast<SNLLibrary*>(&l); });
+    }
 
-    SNLCollection<SNLDesign*> getDesigns() const;
+    auto getDesigns() const {
+      return ranges::views::all(designs_)
+        | ranges::views::transform([](const SNLDesign& d) { return const_cast<SNLDesign*>(&d); });
+    }
     SNLDesign* getDesign(SNLID::DesignID id);
     SNLDesign* getDesign(const SNLName& name);
 

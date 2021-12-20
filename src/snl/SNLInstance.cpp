@@ -136,8 +136,4 @@ Card* SNLInstance::getCard() const {
   return card;
 }
 
-SNLCollection<SNLInstTerm*> SNLInstance::getInstTerms() const {
-  return SNLCollection<SNLInstTerm*>(new SNLBitsCollection<SNLInstTerm*>(&instTerms_));
-}
-
 }

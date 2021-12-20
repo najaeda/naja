@@ -3,9 +3,10 @@
 
 #include <vector>
 
+#include <range/v3/view/all.hpp>
+
 #include "SNLTerm.h"
 #include "SNLName.h"
-#include "SNLCollection.h"
 
 namespace SNL {
 
@@ -40,7 +41,9 @@ class SNLBusTerm final: public SNLTerm {
     std::string getDescription() const override;
 
     SNLBusTermBit* getBit(SNLID::Bit bit) const;
-    SNLCollection<SNLBusTermBit*> getBits() const;
+    auto getBits() const {
+      return ranges::views::all(bits_);
+    }
   private:
     SNLBusTerm(
         SNLDesign* design,

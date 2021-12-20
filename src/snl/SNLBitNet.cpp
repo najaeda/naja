@@ -23,8 +23,4 @@ void SNLBitNet::removeComponent(SNLNetComponent* component) {
   components_.erase(*component);
 }
 
-SNLCollection<SNLNetComponent*> SNLBitNet::getComponents() const {
-  return SNLCollection<SNLNetComponent*>(new SNLIntrusiveConstSetCollection<SNLNetComponent, SNLBitNetComponentsHook>(&components_));
-}
-
 }

@@ -89,10 +89,6 @@ SNLScalarTerm* SNLUniverse::getAssignOutput() {
   return nullptr;
 }
 
-SNLCollection<SNLDB*> SNLUniverse::getDBs() const {
-  return SNLCollection<SNLDB*>(new SNLIntrusiveConstSetCollection<SNLDB, SNLUniverseDBsHook>(&dbs_));
-}
-
 SNLDB* SNLUniverse::getDB(SNLID::DBID id) {
   auto it = dbs_.find(SNLID(id), SNLIDComp<SNLDB>());
   if (it != dbs_.end()) {
