@@ -1,17 +1,18 @@
-CMAKE_POLICY(SET CMP0048 NEW) 
+cmake_policy(SET CMP0048 NEW)
 
-PROJECT(naja
+project(naja
   VERSION 0.1.0
   HOMEPAGE_URL https://github.com/xtofalex/naja
   LANGUAGES CXX
 )
 
-CMAKE_MINIMUM_REQUIRED(VERSION 3.19)
-SET(CMAKE_CXX_STANDARD 20)
-SET(NAJA_CXX_WARNINGS -Werror -Wall -pedantic-errors -Wconversion -Wsign-conversion -Wextra -Wno-unused-parameter)
+cmake_minimum_required(VERSION 3.19)
 
-ADD_LIBRARY(coverage_config INTERFACE)
-OPTION(CODE_COVERAGE "Enable coverage reporting" OFF)
+set(CMAKE_CXX_STANDARD 20)
+set(NAJA_CXX_WARNINGS -Werror -Wall -pedantic-errors -Wconversion -Wsign-conversion -Wextra -Wno-unused-parameter)
+
+add_library(coverage_config INTERFACE)
+option(CODE_COVERAGE "Enable coverage reporting" OFF)
 IF(CODE_COVERAGE)
   # Add required flags (GCC & LLVM/Clang)
   TARGET_COMPILE_OPTIONS(coverage_config INTERFACE
@@ -22,12 +23,12 @@ IF(CODE_COVERAGE)
   target_link_options(coverage_config INTERFACE --coverage)
 ENDIF(CODE_COVERAGE)
 
-FIND_PACKAGE(Boost REQUIRED)
-FIND_PACKAGE(LibXml2 REQUIRED)
-FIND_PACKAGE(Python3 COMPONENTS Development REQUIRED)
+find_package(Boost REQUIRED)
+find_package(LibXml2 REQUIRED)
+find_package(Python3 COMPONENTS Development)
 
-ADD_SUBDIRECTORY(thirdparty)
-ADD_SUBDIRECTORY(src)
+add_subdirectory(thirdparty)
+add_subdirectory(src)
 
 include(CTest)
 enable_testing()

@@ -1,5 +1,8 @@
-INCLUDE(GoogleTest)
+include(GoogleTest)
 
-ADD_SUBDIRECTORY(snl)
-ADD_SUBDIRECTORY(formats)
-#ADD_SUBDIRECTORY(python)
+add_subdirectory(snl)
+add_subdirectory(formats)
+
+if(Python3_Development_FOUND)
+  #add_subdirectory(python)
+endif(Python3_Development_FOUND)
