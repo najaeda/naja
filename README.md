@@ -32,10 +32,14 @@ make
 make test
 make install
 ```
+### Building documentation
+```bash
+#make sure that doxygen was available when launching the cmake command
+cd build
+make docs
+```
 ## Snippets
 ### c++
 https://github.com/xtofalex/naja/blob/main/src/snippet/cpp/SNLSnippet.cpp
 ### python
 https://github.com/xtofalex/naja/blob/main/src/snippet/python/snl_snippet.py
-## Main objects
-### Object identification
