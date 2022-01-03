@@ -23,11 +23,13 @@ Optional dependencies:
 2. Doxygen: for the documentation
 ### Building
 ```bash
+#First define an env variable that points to the directory where you want naja to be installed:
+export NAJA_INSTALL=<path_to_installation_dir>
 # Create a build dir and go inside it
 mkdir build
 cd build
-cmake <path_to_naja_sources_dir> --prefix <path_to_installation_dir>
-#For instance: cmake ~/srcs/naja ~/install
+cmake <path_to_naja_sources_dir> --prefix $NAJA_INSTALL
+#For instance: cmake ~/srcs/naja --prefix $NAJA_INSTALL
 make
 make test
 make install
@@ -37,9 +39,18 @@ make install
 #make sure that doxygen was available when launching the cmake command
 cd build
 make docs
+make install
 ```
 ## Snippets
 ### c++
-https://github.com/xtofalex/naja/blob/main/src/snippet/cpp/SNLSnippet.cpp
+https://github.com/xtofalex/naja/blob/main/src/snippet/app/src/SNLSnippet.cpp
 ### python
 https://github.com/xtofalex/naja/blob/main/src/snippet/python/snl_snippet.py
+### Application snippet
+An application snippet can be found at:
+
+https://github.com/xtofalex/naja/blob/main/src/snippet/app
+
+This "app" directory and its contents can be copied to start a new application.
+
+
