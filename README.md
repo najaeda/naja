@@ -1,8 +1,10 @@
-# naja
+# Naja
 ***
 ![build](https://github.com/xtofalex/naja/actions/workflows/build.yml/badge.svg)
 ***
 ## Introduction
+Naja is an umbrella repository containing mainly (for the moment) the SNL netlist data structure.
+
 ## Compilation
 ### Getting sources
 ```bash
@@ -16,11 +18,18 @@ git submodule update
 Mandatory dependencies:
 1. Boost
 2. libxml2 
-3. cmake: at least 3.19 version
+3. cmake: at least 3.22 version
 
 Optional dependencies:
 1. Python3: for building the Python3 interface
 2. Doxygen: for the documentation
+
+Embedded dependencies:
+
+For convenience, the following dependencies are provided through git submodules:
+1. google test https://github.com/google/googletest
+2. range-v3 https://github.com/ericniebler/range-v3: Naja relies on range-v3 for everything related to browsing of the data structures. range-v3 is not only embedded in the sources but also part of the installation tree to avoid versions crash.
+
 ### Building
 ```bash
 #First define an env variable that points to the directory where you want naja to be installed:
