@@ -50,6 +50,7 @@ cd build
 make docs
 make install
 ```
+Documentation will be installed in $NAJA_INSTALL/doc directory. Starting file to open in browser is: $NAJA_INSTALL/doc/html/index.html.
 ## Snippets
 ### c++
 https://github.com/xtofalex/naja/blob/main/src/snippet/app/src/SNLSnippet.cpp
