@@ -29,6 +29,7 @@ find_package(Python3 COMPONENTS Development)
 
 add_subdirectory(thirdparty)
 add_subdirectory(src)
+add_subdirectory(cmake)
 
 include(CTest)
 enable_testing()

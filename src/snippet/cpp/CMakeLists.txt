@@ -1,3 +1,3 @@
-add_executable(snl_snippet SNLSnippet.cpp)
+add_executable(snl_snippet ${PROJECT_SOURCE_DIR}/src/snippet/app/src/SNLSnippet.cpp)
 
 target_link_libraries(snl_snippet naja_snl)
