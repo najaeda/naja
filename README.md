@@ -16,7 +16,7 @@ git submodule update
 Mandatory dependencies:
 1. Boost
 2. libxml2 
-3. cmake: at least 3.19 version
+3. cmake: at least 3.22 version
 
 Optional dependencies:
 1. Python3: for building the Python3 interface
