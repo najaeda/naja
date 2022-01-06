@@ -304,19 +304,19 @@ constexpr const char* SNLDesign::getTypeName() const {
 std::string SNLDesign::getString() const {
   std::ostringstream str;
   if (not getLibrary()->isAnonymous()) {
-    str << getLibrary()->getName();
+    str << getLibrary()->getName().getString();
   }
   str << "(" << getLibrary()->getID() << ")";
   str << ":";
   if (not isAnonymous()) {
-    str << getName();
+    str << getName().getString();
   }
   str << "(" << getID() << ")";
   return str.str();
 }
 
 std::string SNLDesign::getDescription() const {
-  return "<" + std::string(getTypeName()) + " " + name_ + " " + library_->getName() + ">";  
+  return "<" + std::string(getTypeName()) + " " + name_.getString() + " " + library_->getName().getString() + ">";  
 }
 
 Card* SNLDesign::getCard() const {

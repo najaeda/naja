@@ -5,11 +5,11 @@
 
 namespace SNL {
 
-SNLParameter::SNLParameter(SNLDesign* design, const SNLName& name, const SNLName& value):
+SNLParameter::SNLParameter(SNLDesign* design, const SNLName& name, const std::string& value):
   design_(design), name_(name), value_(value)
 {}
 
-SNLParameter* SNLParameter::create(SNLDesign* design, const SNLName& name, const SNLName& value) {
+SNLParameter* SNLParameter::create(SNLDesign* design, const SNLName& name, const std::string& value) {
   preCreate(design, name);
   SNLParameter* parameter = new SNLParameter(design, name, value);
   parameter->postCreate();
@@ -22,7 +22,7 @@ void SNLParameter::postCreate() {
 
 void SNLParameter::preCreate(SNLDesign* design, const SNLName& name) {
   if (design->getParameter(name)) {
-    std::string reason = "SNLDesign " + design->getString() + " contains already a SNLParameter named: " + name;
+    std::string reason = "SNLDesign " + design->getString() + " contains already a SNLParameter named: " + name.getString();
     throw SNLException(reason);
   }
 }

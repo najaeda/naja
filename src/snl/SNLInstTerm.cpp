@@ -1,5 +1,7 @@
 #include "SNLInstTerm.h"
 
+#include <sstream>
+
 #include "SNLException.h"
 #include "SNLDesign.h"
 #include "SNLBitTerm.h"
@@ -56,11 +58,21 @@ constexpr const char* SNLInstTerm::getTypeName() const {
 }
 
 std::string SNLInstTerm::getString() const {
-  return std::string();
+  std::ostringstream str;
+  if (not getInstance()->isAnonymous()) {
+    str << getInstance()->getName().getString();
+  }
+  str << "(" << getInstance()->getID() << ")";
+  str << ":";
+  if (not getTerm()->isAnonymous()) {
+    str << getTerm()->getName().getString();
+  }
+  str << "(" << getTerm()->getID() << ")";
+  return str.str();
 }
 
 std::string SNLInstTerm::getDescription() const {
-  return "<" + std::string(getTypeName()) + " " + getDesign()->getName() + ">";  
+  return "<" + std::string(getTypeName()) + " " + getDesign()->getName().getString() + ">";  
 }
 
 }

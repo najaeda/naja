@@ -30,9 +30,9 @@ class SNLVRLDumperTest0: public ::testing::Test {
       SNLBusNet::create(design, 31, 0);
       SNLScalarNet::create(design, SNLName("o"));
 
-      SNLDesign* model = SNLDesign::create(library, "model");
-      SNLInstance* instance1 = SNLInstance::create(design, model, "instance1");
-      SNLInstance* instance2 = SNLInstance::create(design, model, "instance2");
+      SNLDesign* model = SNLDesign::create(library, SNLName("model"));
+      SNLInstance* instance1 = SNLInstance::create(design, model, SNLName("instance1"));
+      SNLInstance* instance2 = SNLInstance::create(design, model, SNLName("instance2"));
     }
     void TearDown() override {
       SNLUniverse::get()->destroy();
@@ -42,9 +42,9 @@ class SNLVRLDumperTest0: public ::testing::Test {
 };
 
 TEST_F(SNLVRLDumperTest0, test0) {
-  auto lib = db_->getLibrary("MYLIB");  
+  auto lib = db_->getLibrary(SNLName("MYLIB"));  
   ASSERT_TRUE(lib);
-  auto top = lib->getDesign("design");
+  auto top = lib->getDesign(SNLName("design"));
   ASSERT_TRUE(top);
   std::filesystem::path outPath("test.v");
   std::ofstream ofs(outPath, std::ofstream::out);

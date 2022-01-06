@@ -13,7 +13,7 @@ class SNLDesignTest: public ::testing::Test {
     void SetUp() override {
       SNLUniverse* universe = SNLUniverse::create();
       db_ = SNLDB::create(universe);
-      SNLLibrary* library = SNLLibrary::create(db_, "MYLIB");
+      SNLLibrary* library = SNLLibrary::create(db_, SNLName("MYLIB"));
     }
     void TearDown() override {
       SNLUniverse::get()->destroy();
@@ -80,9 +80,9 @@ TEST_F(SNLDesignTest, testCreation) {
   EXPECT_FALSE(design->getBusTerms().empty());
   //EXPECT_EQ(1, design->getBusTerms().size());
 
-  SNLDesign* model = SNLDesign::create(library, "model");
+  SNLDesign* model = SNLDesign::create(library, SNLName("model"));
   ASSERT_NE(model, nullptr);
-  EXPECT_EQ("model", model->getName());
+  EXPECT_EQ("model", model->getName().getString());
   EXPECT_EQ(1, model->getID());
   EXPECT_FALSE(model->isAnonymous());
   EXPECT_EQ(model, library->getDesign(1));

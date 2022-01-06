@@ -16,7 +16,7 @@ class SNLParameter {
     SNLParameter() = delete;
     SNLParameter(const SNLParameter&) = delete;
 
-    static SNLParameter* create(SNLDesign* design, const SNLName& name, const SNLName& value);
+    static SNLParameter* create(SNLDesign* design, const SNLName& name, const std::string& value);
     void destroy();
     SNLName getName() const { return name_; }
     std::string getValue() const { return value_; }
@@ -33,7 +33,7 @@ class SNLParameter {
       }
     };
   private:
-    SNLParameter(SNLDesign* design, const SNLName& name, const SNLName& value);
+    SNLParameter(SNLDesign* design, const SNLName& name, const std::string& value);
     static void preCreate(SNLDesign* design, const SNLName& name);
     void postCreate();
     void destroyFromDesign();

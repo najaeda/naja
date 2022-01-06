@@ -24,11 +24,11 @@ class SNLInstanceTest: public ::testing::Test {
 };
 
 TEST_F(SNLInstanceTest, testCreation) {
-  SNLLibrary* library = SNLLibrary::create(db_, "MYLIB");
-  SNLDesign* design = SNLDesign::create(library, "design");
-  SNLDesign* model = SNLDesign::create(library, "model");
-  EXPECT_EQ("design", design->getName());
-  EXPECT_EQ("model", model->getName());
+  SNLLibrary* library = SNLLibrary::create(db_, SNLName("MYLIB"));
+  SNLDesign* design = SNLDesign::create(library, SNLName("design"));
+  SNLDesign* model = SNLDesign::create(library, SNLName("model"));
+  EXPECT_EQ(SNLName("design"), design->getName());
+  EXPECT_EQ(SNLName("model"), model->getName());
   EXPECT_EQ(0, design->getID());
   EXPECT_EQ(1, model->getID());
   EXPECT_EQ(SNLID(SNLID::Type::Design, 1, 0, 0, 0, 0, 0), design->getSNLID());
@@ -59,9 +59,9 @@ TEST_F(SNLInstanceTest, testCreation) {
   EXPECT_EQ(SNLName("i1"), termsVector[2]->getName());
   EXPECT_EQ(SNLName("i2"), termsVector[3]->getName());
 
-  SNLInstance* instance1 = SNLInstance::create(design, model, "instance1");
+  SNLInstance* instance1 = SNLInstance::create(design, model, SNLName("instance1"));
   ASSERT_NE(instance1, nullptr);
-  EXPECT_EQ("instance1", instance1->getName());
+  EXPECT_EQ(SNLName("instance1"), instance1->getName());
   EXPECT_EQ(design, instance1->getDesign());
   EXPECT_EQ(model, instance1->getModel());
   EXPECT_EQ(7, instance1->getInstTerms().size());
@@ -100,9 +100,9 @@ TEST_F(SNLInstanceTest, testCreation) {
     EXPECT_EQ(SNLID(SNLID::Type::InstTerm, 1, 0, 0, 3, 0, 0), instTermsVector[6]->getSNLID());
   }
 
-  SNLInstance* instance2 = SNLInstance::create(design, model, "instance2");
+  SNLInstance* instance2 = SNLInstance::create(design, model, SNLName("instance2"));
   ASSERT_NE(instance2, nullptr);
-  EXPECT_EQ("instance2", instance2->getName());
+  EXPECT_EQ(SNLName("instance2"), instance2->getName());
   EXPECT_EQ(design, instance2->getDesign());
   EXPECT_EQ(model, instance2->getModel());
 

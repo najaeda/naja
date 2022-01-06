@@ -54,7 +54,7 @@ Documentation will be installed in $NAJA_INSTALL/doc directory. Starting file to
 ## Snippets
 ### c++
 https://github.com/xtofalex/naja/blob/main/src/snippet/app/src/SNLSnippet.cpp
-### python
+### Python
 https://github.com/xtofalex/naja/blob/main/src/snippet/python/snl_snippet.py
 ### Application snippet
 An application snippet can be found at:

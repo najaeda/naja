@@ -13,9 +13,9 @@ class SNLNetTest: public ::testing::Test {
     void SetUp() override {
       auto universe = SNLUniverse::create();
       auto db = SNLDB::create(universe);
-      SNLLibrary::create(db, SNLLibrary::Type::Primitives, "PRIMITIVES");
-      auto library = SNLLibrary::create(db, "LIB");
-      design_ = SNLDesign::create(library, "Design");
+      SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("PRIMITIVES"));
+      auto library = SNLLibrary::create(db, SNLName("LIB"));
+      design_ = SNLDesign::create(library, SNLName("Design"));
     }
     void TearDown() override {
       SNLUniverse::get()->destroy();

@@ -7,6 +7,7 @@
 
 #include "SNLException.h"
 #include "SNLDesign.h"
+#include "SNLInstance.h"
 #include "SNLBusTerm.h"
 #include "SNLBusTermBit.h"
 #include "SNLScalarTerm.h"
@@ -45,7 +46,7 @@ void SNLInstance::preCreate(SNLDesign* design, const SNLName& name) {
     throw SNLException("malformed SNLInstance creator with NULL design argument");
   }
   if (not name.empty() and design->getInstance(name)) {
-    std::string reason = "SNLDesign " + design->getString() + " contains already a SNLInstance named: " + name;
+    std::string reason = "SNLDesign " + design->getString() + " contains already a SNLInstance named: " + name.getString();
     throw SNLException(reason);
   }
 }
@@ -107,6 +108,21 @@ SNLID SNLInstance::getSNLID() const {
   return SNLDesignObject::getSNLID(SNLID::Type::Instance, 0, id_, 0);
 }
 
+SNLInstTerm* SNLInstance::getInstTerm(const SNLBitTerm* term) {
+  if (term->getDesign() != getModel()) {
+    std::string reason = "SNLInstance::getInsTerm incoherency: "
+      + getName().getString() + " model: " + getModel()->getName().getString()
+      + " and " + term->getString() + " model: " + term->getDesign()->getName().getString()
+      + " should be the same";
+    throw SNLException(reason);
+  }
+  if (term->getID() > instTerms_.size()) {
+    std::string reason = "SNLInstance::getInsTerm error: size issue";
+    throw SNLException(reason);
+  }
+  return instTerms_[term->getID()];
+}
+
 constexpr const char* SNLInstance::getTypeName() const {
   return "SNLInstance";
 }
@@ -114,7 +130,7 @@ constexpr const char* SNLInstance::getTypeName() const {
 std::string SNLInstance::getString() const {
   std::ostringstream str; 
   if (not isAnonymous()) {
-    str << getName();
+    str << getName().getString();
   }
   str << "(" << getID() << ")";
   return str.str();
@@ -122,9 +138,9 @@ std::string SNLInstance::getString() const {
 
 std::string SNLInstance::getDescription() const {
   return "<" + std::string(getTypeName())
-    + " " + name_
-    + " " + design_->getName()
-    + " " + model_->getName()
+    + " " + name_.getString()
+    + " " + design_->getName().getString()
+    + " " + model_->getName().getString()
     + ">";  
 }
 

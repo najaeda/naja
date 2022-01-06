@@ -136,7 +136,7 @@ class SNLDesign final: public SNLObject {
     Card* getCard() const override;
   private:
     SNLDesign(SNLLibrary* library, const Type& type, const SNLName& name);
-    static void preCreate(const SNLLibrary* library, const Type& type, const std::string& name);
+    static void preCreate(const SNLLibrary* library, const Type& type, const SNLName& name);
     void destroyFromLibrary();
     void postCreate();
     void commonPreDestroy();

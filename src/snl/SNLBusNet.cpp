@@ -82,7 +82,7 @@ std::string SNLBusNet::getString() const {
 }
 
 std::string SNLBusNet::getDescription() const {
-  return "<" + std::string(getTypeName()) + " " + name_ + " " + design_->getName() + ">";  
+  return "<" + std::string(getTypeName()) + " " + name_.getString() + " " + design_->getName().getString() + ">";  
 }
 
 Card* SNLBusNet::getCard() const {

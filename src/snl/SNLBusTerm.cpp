@@ -79,11 +79,11 @@ constexpr const char* SNLBusTerm::getTypeName() const {
 }
 
 std::string SNLBusTerm::getString() const {
-  return getName() + "[" + std::to_string(getMSB()) + ":" + std::to_string(getLSB()) + "]";
+  return getName().getString() + "[" + std::to_string(getMSB()) + ":" + std::to_string(getLSB()) + "]";
 }
 
 std::string SNLBusTerm::getDescription() const {
-  return "<" + std::string(getTypeName()) + " " + name_ + " " + design_->getName() + ">";  
+  return "<" + std::string(getTypeName()) + " " + name_.getString() + " " + design_->getName().getString() + ">";  
 }
 
 SNLBusTermBit* SNLBusTerm::getBit(SNLID::Bit bit) const {

@@ -61,7 +61,7 @@ void SNLVRLDumper::dumpInterface(const SNLDesign* design, std::ostream& o) {
     if (auto bus = dynamic_cast<SNLBusTerm*>(term)) {
       o << "[" << bus->getMSB() << ":" << bus->getLSB() << "] ";
     }
-    o << term->getName();
+    o << term->getName().getString();
   }
   o << ");";
 }
@@ -72,7 +72,7 @@ void SNLVRLDumper::dumpNets(const SNLDesign* design, std::ostream& o) {
     if (auto bus = dynamic_cast<SNLBusNet*>(net)) {
       o << "[" << bus->getMSB() << ":" << bus->getLSB() << "] ";
     }
-    o << net->getName();
+    o << net->getName().getString();
     o << ";" << std::endl;
   }
   o << std::endl;
@@ -91,9 +91,9 @@ void SNLVRLDumper::dumpInstance(const SNLInstance* instance, std::ostream& o) {
   }
   auto model = instance->getModel();
   if (model->isAnonymous()) {
-    o << instanceName << std::endl;
+    o << instanceName.getString() << std::endl;
   } else {
-    o << model->getName() << " " << instanceName;
+    o << model->getName().getString() << " " << instanceName.getString();
   }
   dumpInstanceInterface(instance, o);
   o << ";" << std::endl;
@@ -109,7 +109,7 @@ void SNLVRLDumper::dumpDesign(const SNLDesign* design, std::ostream& o) {
   if (design->isAnonymous()) {
     createDesignName(design);
   }
-  o << "module " << design->getName();
+  o << "module " << design->getName().getString();
 
   dumpInterface(design, o);
 
@@ -119,7 +119,7 @@ void SNLVRLDumper::dumpDesign(const SNLDesign* design, std::ostream& o) {
 
   dumpInstances(design, o);
 
-  o << "endmodule //" << design->getName();
+  o << "endmodule //" << design->getName().getString();
   o << std::endl;
 }
 

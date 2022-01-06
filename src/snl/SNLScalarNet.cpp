@@ -60,14 +60,14 @@ constexpr const char* SNLScalarNet::getTypeName() const {
 std::string SNLScalarNet::getString() const {
   std::ostringstream str;
   if (not isAnonymous()) {
-    str << getName();
+    str << getName().getString();
   }
   str << "(" << getID() << ")";
   return str.str();
 }
 
 std::string SNLScalarNet::getDescription() const {
-  return "<" + std::string(typeid(this).name()) + " " + name_ + " " + design_->getName() + ">";  
+  return "<" + std::string(typeid(this).name()) + " " + name_.getString() + " " + design_->getName().getString() + ">";  
 }
 
 Card* SNLScalarNet::getCard() const {

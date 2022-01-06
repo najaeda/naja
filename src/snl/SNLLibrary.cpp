@@ -68,7 +68,7 @@ void SNLLibrary::preCreate(SNLDB* db, const Type& type, const SNLName& name) {
     throw SNLException("malformed SNLLibrary creator with NULL db argument");
   }
   if (not name.empty() and db->getLibrary(name)) {
-    std::string reason = "SNLDB " + db->getString() + " contains already a SNLLibrary named: " + name;
+    std::string reason = "SNLDB " + db->getString() + " contains already a SNLLibrary named: " + name.getString();
     throw SNLException(reason);
   }
 }
@@ -82,7 +82,7 @@ void SNLLibrary::preCreate(SNLLibrary* parentLibrary, const Type& type, const SN
     throw SNLException("non compatible types in library constructor");
   }
   if (not name.empty() and parentLibrary->getLibrary(name)) {
-    std::string reason = "SNLLibrary " + parentLibrary->getString() + " contains already a SNLLibrary named: " + name;
+    std::string reason = "SNLLibrary " + parentLibrary->getString() + " contains already a SNLLibrary named: " + name.getString();
     throw SNLException(reason);
   }
 }
@@ -217,11 +217,11 @@ constexpr const char* SNLLibrary::getTypeName() const {
 }
 
 std::string SNLLibrary::getString() const {
-  return getName();
+  return getName().getString();
 }
 
 std::string SNLLibrary::getDescription() const {
-  return "<" + std::string(getTypeName()) + " " + name_ + ">";  
+  return "<" + std::string(getTypeName()) + " " + name_.getString() + ">";  
 }
 
 SNLID SNLLibrary::getSNLID() const {

@@ -13,6 +13,7 @@
 
 namespace SNL {
 
+class SNLBitTerm;
 class SNLInstTerm;
 class SNLSharedPath;
 
@@ -39,6 +40,7 @@ class SNLInstance final: public SNLDesignObject {
     std::string getDescription() const override;
     Card* getCard() const override;
 
+    SNLInstTerm* getInstTerm(const SNLBitTerm* term);
     auto getInstTerms() const {
       return ranges::views::all(instTerms_);
     }
