@@ -3,10 +3,7 @@
 
 #include <map>
 
-#include <range/v3/view/transform.hpp>
-#include <range/v3/view/remove_if.hpp>
-#include <range/v3/view/for_each.hpp>
-
+#include "SNLCollection.h"
 #include "SNLBusTerm.h"
 #include "SNLScalarTerm.h"
 #include "SNLBusTermBit.h"
@@ -63,41 +60,17 @@ class SNLDesign final: public SNLObject {
     SNLScalarTerm* getScalarTerm(const SNLName& netName);
     ///\return SNLBusTerm with SNLName name or nullptr if it does not exist
     SNLBusTerm* getBusTerm(const SNLName& netName);
-    auto getTerms() const {
-      return ranges::views::all(terms_)
-        | ranges::views::transform([](const SNLTerm& t) { return const_cast<SNLTerm*>(&t); });
-    }
-    auto getBusTerms() const {
-      return getTerms()
-        | ranges::views::remove_if([](SNLTerm* t) { return not dynamic_cast<SNLBusTerm*>(t); }); 
-    }
-    auto getScalarTerms() const {
-      return getTerms()
-        | ranges::views::remove_if([](SNLTerm* t) { return not dynamic_cast<SNLScalarTerm*>(t); }); 
-    }
-    /*
-    auto getBitTerms() const {
-      return ranges::views::for_each(getTerms(), [](SNLTerm* t) {
-          if (SNLBusTerm* bus = dynamic_cast<SNLBusTerm*>(t)) {
-            return bus->getBits()
-            | ranges::views::transform([](SNLBusTermBit* t) { return static_cast<SNLBitTerm*>(t); });
-          }
-          else {
-            return ranges::yield(static_cast<SNLBitTerm*>(t));
-          }
-        });
-    }
-    */
+    SNLCollection<SNLTerm*> getTerms() const;
+    SNLCollection<SNLBusTerm*> getBusTerms() const;
+    SNLCollection<SNLScalarTerm*> getScalarTerms() const;
+    SNLCollection<SNLBitTerm*> getBitTerms() const;
 
     ///\return SNLInstance with SNLID::DesignObjectID id or nullptr if it does not exist
     SNLInstance* getInstance(SNLID::DesignObjectID id);
     ///\return SNLInstance with SNLName name if it does not exist
     SNLInstance* getInstance(const SNLName& instanceName);
 
-    auto getInstances() const {
-      return ranges::views::all(instances_)
-        | ranges::views::transform([](const SNLInstance& i) { return const_cast<SNLInstance*>(&i); });
-    }
+    SNLCollection<SNLInstance*> getInstances() const;
 
     ///\return SNLNet with SNLID::DesignObjectID id or nullptr if it does not exist
     SNLNet* getNet(SNLID::DesignObjectID id);
@@ -107,17 +80,11 @@ class SNLDesign final: public SNLObject {
     SNLScalarNet* getScalarNet(const SNLName& netName);
     ///\return SNLBusNet with SNLName name or nullptr if it does not exist
     SNLBusNet* getBusNet(const SNLName& netName);
-    auto getNets() const {
-      return ranges::views::all(nets_)
-        | ranges::views::transform([](const SNLNet& n) { return const_cast<SNLNet*>(&n); });
-    }
+    SNLCollection<SNLNet*> getNets() const;
 
     ///\return SNLParameter with SNLName name or nullptr if it does not exist
     SNLParameter* getParameter(const SNLName& name);
-    auto getParameters() const {
-      return ranges::views::all(parameters_)
-        | ranges::views::transform([](const SNLParameter& p) { return const_cast<SNLParameter*>(&p); });
-    }
+    SNLCollection<SNLParameter*> getParameters() const;
 
     SNLID::DesignID getID() const { return id_; }
     SNLID getSNLID() const;

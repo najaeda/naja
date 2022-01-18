@@ -31,10 +31,7 @@ class SNLDB final: public SNLObject {
     ///\return the SNLLibrary in this SNLDB with SNLName:name 
     SNLLibrary* getLibrary(const SNLName& name);
 
-    auto getLibraries() const {
-      return ranges::views::all(libraries_)
-        | ranges::views::transform([](const SNLLibrary& l) { return const_cast<SNLLibrary*>(&l); });
-    }
+    SNLCollection<SNLLibrary*> getLibraries() const;
 
     constexpr const char* getTypeName() const override;
     std::string getString() const override;
