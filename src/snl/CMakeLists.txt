@@ -12,7 +12,7 @@ set(SOURCES
   SNLInstance.cpp SNLInstTerm.cpp
   SNLSharedPath.cpp SNLPath.cpp
   SNLParameter.cpp
-  #SNLLevelize.cpp SNLDump.cpp
+  #SNLLevelize.cpp
 )
 
 set(HEADERS
