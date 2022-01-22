@@ -136,6 +136,11 @@ void SNLDesign::addTerm(SNLTerm* term) {
   if (not term->getName().empty()) {
     termNameIDMap_[term->getName()] = term->getID();
   }
+
+  //Create corresponding instance terminals in slave instances
+  for (auto instance: getSlaveInstances()) {
+    instance->createInstTerm(term);
+  }
 }
 
 void SNLDesign::removeTerm(SNLTerm* term) {
@@ -145,6 +150,8 @@ void SNLDesign::removeTerm(SNLTerm* term) {
     termNameIDMap_.erase(term->getName());
   }
   terms_.erase(*term);
+
+  //Remove corresponding instance terminals in slave instances
 }
 
 SNLTerm* SNLDesign::getTerm(SNLID::DesignObjectID id) {

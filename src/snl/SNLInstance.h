@@ -13,6 +13,7 @@
 
 namespace SNL {
 
+class SNLTerm;
 class SNLBitTerm;
 class SNLInstTerm;
 class SNLSharedPath;
@@ -51,6 +52,7 @@ class SNLInstance final: public SNLDesignObject {
     void destroyFromDesign();
     void destroyFromModel();
     void preDestroy() override;
+    void createInstTerm(SNLTerm* term);
 
     SNLInstance(SNLDesign* design, SNLDesign* model, const SNLName& name);
 

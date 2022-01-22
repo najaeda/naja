@@ -40,13 +40,13 @@ void SNLBusTerm::preCreate(const SNLDesign* design, const SNLName& name) {
 
 void SNLBusTerm::postCreate() {
   super::postCreate();
-  getDesign()->addTerm(this);
   //create bits
   bits_.resize(getSize(), nullptr);
   for (size_t i=0; i<getSize(); i++) {
     SNLID::Bit bit = (getMSB()>getLSB())?getMSB()-int(i):getMSB()+int(i);
     bits_[i] = SNLBusTermBit::create(this, bit);
   }
+  getDesign()->addTerm(this);
 }
 
 void SNLBusTerm::commonPreDestroy() {

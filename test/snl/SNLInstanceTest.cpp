@@ -142,10 +142,79 @@ TEST_F(SNLInstanceTest, testCreation) {
   SNLInstance* instance2Test = design->getInstance(SNLName("instance2"));
   EXPECT_EQ(instance2Test, instance2);
 
+  EXPECT_EQ(2, design->getInstances().size());
+  EXPECT_EQ(2, model->getSlaveInstances().size());
+
   //for (auto instance: design->getInstances()) {
   //  cerr << instance->getDescription() << endl;
   //}
-  
+
+  //create new terminals on model and verify corresponding instance terminals creation
+  SNLScalarTerm::create(model, SNLTerm::Direction::Input, SNLName("i3"));
+  EXPECT_EQ(5, model->getTerms().size());
+  termsVector = TermsVector(model->getTerms().begin(), model->getTerms().end());
+  EXPECT_EQ(5, termsVector.size());
+  EXPECT_EQ(SNLID(SNLID::Type::Term, 1, 0, 1, 4, 0, 0), termsVector[4]->getSNLID());
+  EXPECT_FALSE(termsVector[4]->isAnonymous());
+  EXPECT_EQ(8, instance1->getInstTerms().size());
+  EXPECT_EQ(8, instance2->getInstTerms().size());
+
+  SNLBusTerm::create(model, SNLTerm::Direction::Input, -2, 3, SNLName("o"));
+  EXPECT_EQ(6, model->getTerms().size());
+  termsVector = TermsVector(model->getTerms().begin(), model->getTerms().end());
+  EXPECT_EQ(6, termsVector.size());
+  EXPECT_EQ(SNLID(SNLID::Type::Term, 1, 0, 1, 5, 0, 0), termsVector[5]->getSNLID());
+  EXPECT_FALSE(termsVector[5]->isAnonymous());
+  EXPECT_EQ(14, instance1->getInstTerms().size());
+  EXPECT_EQ(14, instance2->getInstTerms().size());
+
+  {
+    InstTermsVector instTermsVector(instance2->getInstTerms().begin(), instance2->getInstTerms().end());
+    EXPECT_EQ(14, instTermsVector.size());
+
+    //for (auto i=0; i<instTermsVector.size(); ++i) {
+    //  auto instTerm = instTermsVector[i];
+    //  std::cerr << i << ":" << instTerm->getSNLID().getString() << std::endl;
+    //  std::cerr << i << ":" << instTerm->getTerm()->getSNLID().getString() << std::endl;
+    //}
+
+    EXPECT_EQ(termsVector[0], instTermsVector[0]->getTerm());
+    EXPECT_EQ(dynamic_cast<SNLBusTerm*>(termsVector[1])->getBit(0), instTermsVector[1]->getTerm());
+    EXPECT_EQ(dynamic_cast<SNLBusTerm*>(termsVector[1])->getBit(1), instTermsVector[2]->getTerm());
+    EXPECT_EQ(dynamic_cast<SNLBusTerm*>(termsVector[1])->getBit(2), instTermsVector[3]->getTerm());
+    EXPECT_EQ(dynamic_cast<SNLBusTerm*>(termsVector[1])->getBit(3), instTermsVector[4]->getTerm());
+    EXPECT_EQ(termsVector[2], instTermsVector[5]->getTerm());
+    EXPECT_EQ(termsVector[3], instTermsVector[6]->getTerm());
+    EXPECT_EQ(termsVector[4], instTermsVector[7]->getTerm());
+    EXPECT_EQ(dynamic_cast<SNLBusTerm*>(termsVector[5])->getBit(-2), instTermsVector[8]->getTerm());
+    EXPECT_EQ(dynamic_cast<SNLBusTerm*>(termsVector[5])->getBit(-1), instTermsVector[9]->getTerm());
+    EXPECT_EQ(dynamic_cast<SNLBusTerm*>(termsVector[5])->getBit(0), instTermsVector[10]->getTerm());
+    EXPECT_EQ(dynamic_cast<SNLBusTerm*>(termsVector[5])->getBit(1), instTermsVector[11]->getTerm());
+    EXPECT_EQ(dynamic_cast<SNLBusTerm*>(termsVector[5])->getBit(2), instTermsVector[12]->getTerm());
+    EXPECT_EQ(dynamic_cast<SNLBusTerm*>(termsVector[5])->getBit(3), instTermsVector[13]->getTerm());
+
+    //i0
+    EXPECT_EQ(SNLID(SNLID::Type::InstTerm, 1, 0, 0, 0, 1, 0), instTermsVector[0]->getSNLID());
+    //anon bus[0,3]
+    EXPECT_EQ(SNLID(SNLID::Type::InstTerm, 1, 0, 0, 1, 1, 0), instTermsVector[1]->getSNLID());
+    EXPECT_EQ(SNLID(SNLID::Type::InstTerm, 1, 0, 0, 1, 1, 1), instTermsVector[2]->getSNLID());
+    EXPECT_EQ(SNLID(SNLID::Type::InstTerm, 1, 0, 0, 1, 1, 2), instTermsVector[3]->getSNLID());
+    EXPECT_EQ(SNLID(SNLID::Type::InstTerm, 1, 0, 0, 1, 1, 3), instTermsVector[4]->getSNLID());
+    //i1
+    EXPECT_EQ(SNLID(SNLID::Type::InstTerm, 1, 0, 0, 2, 1, 0), instTermsVector[5]->getSNLID());
+    //i2
+    EXPECT_EQ(SNLID(SNLID::Type::InstTerm, 1, 0, 0, 3, 1, 0), instTermsVector[6]->getSNLID());
+    //i3
+    EXPECT_EQ(SNLID(SNLID::Type::InstTerm, 1, 0, 0, 4, 1, 0), instTermsVector[7]->getSNLID());
+    //o bus[-2,3]
+    EXPECT_EQ(SNLID(SNLID::Type::InstTerm, 1, 0, 0, 5, 1, -2), instTermsVector[8]->getSNLID());
+    EXPECT_EQ(SNLID(SNLID::Type::InstTerm, 1, 0, 0, 5, 1, -1), instTermsVector[9]->getSNLID());
+    EXPECT_EQ(SNLID(SNLID::Type::InstTerm, 1, 0, 0, 5, 1, 0), instTermsVector[10]->getSNLID());
+    EXPECT_EQ(SNLID(SNLID::Type::InstTerm, 1, 0, 0, 5, 1, 1), instTermsVector[11]->getSNLID());
+    EXPECT_EQ(SNLID(SNLID::Type::InstTerm, 1, 0, 0, 5, 1, 2), instTermsVector[12]->getSNLID());
+    EXPECT_EQ(SNLID(SNLID::Type::InstTerm, 1, 0, 0, 5, 1, 3), instTermsVector[13]->getSNLID());
+  }
+
   instance1Test->destroy();
   EXPECT_EQ(design->getInstance(SNLName("instance1")), nullptr);
   instance2Test->destroy();
