@@ -211,6 +211,10 @@ SNLCollection<SNLInstance*> SNLDesign::getInstances() const {
   return SNLCollection<SNLInstance*>(new SNLIntrusiveConstSetCollection<SNLInstance, SNLDesignInstancesHook>(&instances_));
 }
 
+SNLCollection<SNLInstance*> SNLDesign::getSlaveInstances() const {
+  return SNLCollection<SNLInstance*>(new SNLIntrusiveConstSetCollection<SNLInstance, SNLDesignSlaveInstancesHook>(&slaveInstances_));
+}
+
 SNLInstance* SNLDesign::getInstance(SNLID::DesignObjectID id) {
   auto it = instances_.find(
       SNLID(SNLID::Type::Instance, getDB()->getID(), getLibrary()->getID(), getID(), 0, id, 0),

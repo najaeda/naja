@@ -245,6 +245,8 @@ class SNLBitsCollection: public SNLBaseCollection<Element> {
     const Bits* bits_ {nullptr};
 };
 
+#if 0
+
 template<class Element, SubElement> class SNLSubElementCollection: public SNLCollection<SubElement> {
   public:
     using super = SNLCollection<SubElement>;
@@ -261,6 +263,8 @@ template<class Element, SubElement> class SNLSubElementCollection: public SNLCol
 
 
 };
+
+#endif
 
 template<class Element>
 class SNLCollection {
