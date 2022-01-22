@@ -6,6 +6,8 @@
 class Card;
 class CardItem;
 
+namespace SNL {
+
 class SNLObject {
   public:
     ///\return a string describing the object type
@@ -26,5 +28,7 @@ class SNLObject {
     void postCreate();
     virtual void preDestroy();
 };
+
+}
 
 #endif /* __SNL_OBJECT_H_ */
