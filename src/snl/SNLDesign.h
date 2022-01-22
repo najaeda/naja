@@ -93,9 +93,16 @@ class SNLDesign final: public SNLObject {
     SNLInstance* getInstance(SNLID::DesignObjectID id);
     ///\return SNLInstance with SNLName name if it does not exist
     SNLInstance* getInstance(const SNLName& instanceName);
-
+    ///\return the collection of SNLInstance instantiated IN this SNLDesign (instance/master relationship) 
     auto getInstances() const {
       return ranges::views::all(instances_)
+        | ranges::views::transform([](const SNLInstance& i) { return const_cast<SNLInstance*>(&i); });
+    }
+    ///\return the collection of SNLInstance instantiated BY this SNLDesign (instance/model relationship)
+    ///\remark SNLInstance/SNLDesign model relationship is not constructed for Primitives.
+    ///\sa isPrimitive
+    auto getSlaveInstances() const {
+      return ranges::views::all(slaveInstances_)
         | ranges::views::transform([](const SNLInstance& i) { return const_cast<SNLInstance*>(&i); });
     }
 
@@ -128,6 +135,7 @@ class SNLDesign final: public SNLObject {
     Type getType() const { return type_; }
     bool isStandard() const { return type_ == Type::Standard; }
     bool isBlackBox() const { return type_ == Type::Blackbox; }
+    ///\return true if this SNLDesign is a primitive.
     bool isPrimitive() const { return type_ == Type::Primitive; }
 
     constexpr const char* getTypeName() const override;

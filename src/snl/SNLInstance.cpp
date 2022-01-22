@@ -61,14 +61,18 @@ void SNLInstance::postCreate() {
   }
   //create instance terminals
   for (SNLTerm* term: getModel()->getTerms()) {
-    if (auto busTerm = dynamic_cast<SNLBusTerm*>(term)) {
-      for (auto bit: busTerm->getBits()) {
-        instTerms_.push_back(SNLInstTerm::create(this, bit));
-      }
-    } else {
-      auto scalarTerm = static_cast<SNLScalarTerm*>(term);
-      instTerms_.push_back(SNLInstTerm::create(this, scalarTerm));
+    createInstTerm(term);
+  }
+}
+
+void SNLInstance::createInstTerm(SNLTerm* term) {
+  if (auto busTerm = dynamic_cast<SNLBusTerm*>(term)) {
+    for (auto bit: busTerm->getBits()) {
+      instTerms_.push_back(SNLInstTerm::create(this, bit));
     }
+  } else {
+    auto scalarTerm = static_cast<SNLScalarTerm*>(term);
+    instTerms_.push_back(SNLInstTerm::create(this, scalarTerm));
   }
 }
 
