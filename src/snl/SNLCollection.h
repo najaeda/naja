@@ -245,6 +245,23 @@ class SNLBitsCollection: public SNLBaseCollection<Element> {
     const Bits* bits_ {nullptr};
 };
 
+template<class Element, SubElement> class SNLSubElementCollection: public SNLCollection<SubElement> {
+  public:
+    using super = SNLCollection<SubElement>;
+
+    SNLSubElementCollection(): super(), collection_ {}
+    SNLSubElementCollection(const SNLSubElementCollection&) = delete;
+    SNLSubElementCollection& operator=(const SNLSubElementCollection&) = delete;
+
+    public: virtual Hurricane::Locator<SubType>* getLocator() const
+    // ************************************************************
+    {
+        return new Locator(_collection);
+    }
+
+
+};
+
 template<class Element>
 class SNLCollection {
   public:
@@ -271,6 +288,10 @@ class SNLCollection {
 
     Iterator begin() { return Iterator(collection_->begin()); }
     Iterator end() { return Iterator(collection_->end()); }
+
+    template<class SubElement> SNLBaseCollection<SubElement> getSubCollection() const {
+      return SubTypeCollection<Element, SubElement>(this);
+    }
 
     SNLCollection() = delete;
     SNLCollection(const SNLBaseCollection<Element>* collection): collection_(collection) {}
