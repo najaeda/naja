@@ -127,6 +127,11 @@ SNLInstTerm* SNLInstance::getInstTerm(const SNLBitTerm* term) {
   return instTerms_[term->getID()];
 }
 
+SNLCollection<SNLInstTerm*> SNLInstance::getInstTerms() const {
+  //FIXME: filter non null inst terms
+  return SNLCollection<SNLInstTerm*>(new SNLVectorCollection<SNLInstTerm*>(&instTerms_));
+}
+
 constexpr const char* SNLInstance::getTypeName() const {
   return "SNLInstance";
 }

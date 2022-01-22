@@ -176,15 +176,15 @@ class SNLIntrusiveSetCollection: public SNLBaseCollection<Element*> {
 };
 
 template<class Element>
-class SNLBitsCollection: public SNLBaseCollection<Element> {
+class SNLVectorCollection: public SNLBaseCollection<Element> {
   public:
     using super = SNLBaseCollection<Element>;
-    using Bits = std::vector<Element>;
+    using Vector = std::vector<Element>;
 
-    class SNLBitsCollectionIterator: public SNLBaseIterator<Element> {
+    class SNLVectorCollectionIterator: public SNLBaseIterator<Element> {
       public:
-        using BitsIterator = typename Bits::const_iterator;
-        SNLBitsCollectionIterator(const Bits* bits, bool beginOrEnd=true): bits_(bits) {
+        using VectorIterator = typename Vector::const_iterator;
+        SNLVectorCollectionIterator(const Vector* bits, bool beginOrEnd=true): bits_(bits) {
           if (bits_) {
             if (beginOrEnd) {
               it_ = bits->begin();
@@ -193,39 +193,39 @@ class SNLBitsCollection: public SNLBaseCollection<Element> {
             }
           }
         }
-        SNLBitsCollectionIterator(SNLBitsCollectionIterator&) = default;
+        SNLVectorCollectionIterator(SNLVectorCollectionIterator&) = default;
         SNLBaseIterator<Element>* clone() override {
-          return new SNLBitsCollectionIterator(*this);
+          return new SNLVectorCollectionIterator(*this);
         }
         Element getElement() const override { return *it_; } 
         void progress() override { ++it_; }
         bool isEqual(const SNLBaseIterator<Element>* r) override {
-          if (const SNLBitsCollectionIterator* rit = dynamic_cast<const SNLBitsCollectionIterator*>(r)) {
+          if (const SNLVectorCollectionIterator* rit = dynamic_cast<const SNLVectorCollectionIterator*>(r)) {
             return it_ == rit->it_;
           }
           return false;
         }
         bool isDifferent(const SNLBaseIterator<Element>* r) override {
-          if (const SNLBitsCollectionIterator* rit = dynamic_cast<const SNLBitsCollectionIterator*>(r)) {
+          if (const SNLVectorCollectionIterator* rit = dynamic_cast<const SNLVectorCollectionIterator*>(r)) {
             return it_ != rit->it_;
           }
           return true;
         }
       private:
-        const Bits*   bits_ {nullptr};
-        BitsIterator  it_   {};
+        const Vector*   bits_ {nullptr};
+        VectorIterator  it_   {};
     };
 
-    SNLBitsCollection() = delete;
-    SNLBitsCollection(const SNLBitsCollection&) = delete;
-    SNLBitsCollection(SNLBitsCollection&&) = delete;
-    SNLBitsCollection(const Bits* bits): super(), bits_(bits) {}
+    SNLVectorCollection() = delete;
+    SNLVectorCollection(const SNLVectorCollection&) = delete;
+    SNLVectorCollection(SNLVectorCollection&&) = delete;
+    SNLVectorCollection(const Vector* bits): super(), bits_(bits) {}
 
     SNLBaseIterator<Element>* begin() const override {
-      return new SNLBitsCollectionIterator(bits_, true);
+      return new SNLVectorCollectionIterator(bits_, true);
     }
     SNLBaseIterator<Element>* end() const override {
-      return new SNLBitsCollectionIterator(bits_, false);
+      return new SNLVectorCollectionIterator(bits_, false);
     }
 
     size_t size() const noexcept override {
@@ -242,7 +242,7 @@ class SNLBitsCollection: public SNLBaseCollection<Element> {
       return true;
     }
   private:
-    const Bits* bits_ {nullptr};
+    const Vector* bits_ {nullptr};
 };
 
 #if 0
