@@ -152,6 +152,9 @@ void SNLDesign::removeTerm(SNLTerm* term) {
   terms_.erase(*term);
 
   //Remove corresponding instance terminals in slave instances
+  for (auto instance: getSlaveInstances()) {
+    instance->removeInstTerms(term);
+  }
 }
 
 SNLTerm* SNLDesign::getTerm(SNLID::DesignObjectID id) {

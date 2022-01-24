@@ -76,6 +76,18 @@ void SNLInstance::createInstTerm(SNLTerm* term) {
   }
 }
 
+void SNLInstance::removeInstTerms(SNLTerm* term) {
+  if (auto busTerm = dynamic_cast<SNLBusTerm*>(term)) {
+    for (auto bit: busTerm->getBits()) {
+
+      instTerms_.push_back(SNLInstTerm::create(this, bit));
+    }
+  } else {
+    auto scalarTerm = static_cast<SNLScalarTerm*>(term);
+    instTerms_.push_back(SNLInstTerm::create(this, scalarTerm));
+  }
+}
+
 void SNLInstance::commonPreDestroy() {
 #if DEBUG
   std::cerr << "commonPreDestroy: " << getString() << std::endl;
