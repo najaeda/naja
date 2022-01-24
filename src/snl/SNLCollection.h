@@ -6,6 +6,8 @@
 
 namespace SNL {
 
+template<class Type> class SNLCollection;
+
 template<class Type>
 class SNLBaseIterator {
   public:
@@ -245,26 +247,39 @@ class SNLVectorCollection: public SNLBaseCollection<Type> {
     const Vector* bits_ {nullptr};
 };
 
-#if 0
-
-template<class Type, SubType> class SNLSubTypeCollection: public SNLCollection<SubType> {
+template<class Type, class SubType> class SNLSubTypeCollection: public SNLBaseCollection<SubType*> {
   public:
-    using super = SNLCollection<SubType>;
+    using super = SNLBaseCollection<SubType>;
 
-    SNLSubTypeCollection(): super(), collection_ {}
+    class SNLSubTypeCollectionIterator: public SNLBaseIterator<Type*> {
+      public:
+    };
+
+    //SNLSubTypeCollection(): super(), collection_ {}
+    SNLSubTypeCollection(const SNLCollection<Type*>& collection): collection_(collection) {}
     SNLSubTypeCollection(const SNLSubTypeCollection&) = delete;
     SNLSubTypeCollection& operator=(const SNLSubTypeCollection&) = delete;
 
-    public: virtual Hurricane::Locator<SubType>* getLocator() const
-    // ************************************************************
-    {
-        return new Locator(_collection);
+    SNLBaseIterator<SubType*>* begin() const override {
+      return nullptr;
+    }
+    SNLBaseIterator<SubType*>* end() const override {
+      return nullptr;
     }
 
+    size_t size() const noexcept override {
+      //FIXME
+      return 0;
+    }
 
+    bool empty() const noexcept override {
+      //FIXME
+      return true;
+    }
+
+  private:
+    SNLCollection<Type*> collection_;
 };
-
-#endif
 
 template<class Type>
 class SNLCollection {
@@ -293,13 +308,13 @@ class SNLCollection {
     Iterator begin() { return Iterator(collection_->begin()); }
     Iterator end() { return Iterator(collection_->end()); }
 
-    template<class SubType> SNLBaseCollection<SubType> getSubCollection() const {
-      return SubTypeCollection<Type, SubType>(this);
+    template<class SubType> SNLCollection<SubType> getSubCollection() const {
+      return SNLSubTypeCollection<Type, SubType>(this);
     }
 
     SNLCollection() = delete;
     SNLCollection(const SNLBaseCollection<Type>* collection): collection_(collection) {}
-    SNLCollection(const SNLCollection&) = delete;
+    SNLCollection(const SNLCollection& collection): collection_(collection.getClone()) {}
     SNLCollection(SNLCollection&&) = delete;
     virtual ~SNLCollection() { delete collection_; }
 

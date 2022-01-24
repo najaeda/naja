@@ -60,8 +60,15 @@ class SNLDesign final: public SNLObject {
     SNLScalarTerm* getScalarTerm(const SNLName& netName);
     ///\return SNLBusTerm with SNLName name or nullptr if it does not exist
     SNLBusTerm* getBusTerm(const SNLName& netName);
+    ///\return the collection of SNLTerm of this SNLDesign
     SNLCollection<SNLTerm*> getTerms() const;
+    ///\return the collection of SNLBusTerm of this SNLDesign (SNLBusTerm subset of getTerms())
+    ///\see getTerms()
+    ///\see getScalarTerms()
     SNLCollection<SNLBusTerm*> getBusTerms() const;
+    ///\return the collection of SNLScalarTerm of this SNLDesign (SNLScalarTerm subset of getTerms())
+    ///\see getTerms()
+    ///\see getBusTerms()
     SNLCollection<SNLScalarTerm*> getScalarTerms() const;
     SNLCollection<SNLBitTerm*> getBitTerms() const;
 

@@ -185,6 +185,10 @@ SNLCollection<SNLTerm*> SNLDesign::getTerms() const {
   return SNLCollection<SNLTerm*>(new SNLIntrusiveConstSetCollection<SNLTerm, SNLDesignTermsHook>(&terms_));
 }
 
+SNLCollection<SNLBusTerm*> SNLDesign::getBusTerms() const {
+  return getTerms().getSubCollection<SNLBusTerm*>();
+}
+
 void SNLDesign::addInstance(SNLInstance* instance) {
   if (instances_.empty()) {
     instance->id_ = 0;
