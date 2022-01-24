@@ -6,26 +6,26 @@
 
 namespace SNL {
 
-template<class Element>
+template<class Type>
 class SNLBaseIterator {
   public:
     SNLBaseIterator(const SNLBaseIterator&) = default;
     SNLBaseIterator(SNLBaseIterator&&) = delete;
     virtual ~SNLBaseIterator() {}
-    virtual Element getElement() const = 0;
+    virtual Type getElement() const = 0;
     virtual void progress() = 0;
-    virtual bool isEqual(const SNLBaseIterator<Element>* r) = 0;
-    virtual bool isDifferent(const SNLBaseIterator<Element>* r) = 0;
-    virtual SNLBaseIterator<Element>* clone() = 0;
+    virtual bool isEqual(const SNLBaseIterator<Type>* r) = 0;
+    virtual bool isDifferent(const SNLBaseIterator<Type>* r) = 0;
+    virtual SNLBaseIterator<Type>* clone() = 0;
   protected:
     SNLBaseIterator() = default;
 };
 
-template<class Element>
+template<class Type>
 class SNLBaseCollection {
   public:
-    virtual SNLBaseIterator<Element>* begin() const = 0;
-    virtual SNLBaseIterator<Element>* end() const = 0;
+    virtual SNLBaseIterator<Type>* begin() const = 0;
+    virtual SNLBaseIterator<Type>* end() const = 0;
 
     virtual size_t size() const noexcept = 0;
     virtual bool empty() const noexcept = 0;
@@ -37,13 +37,13 @@ class SNLBaseCollection {
     SNLBaseCollection() = default;
 };
 
-template<class Element, class HookType>
-class SNLIntrusiveConstSetCollection: public SNLBaseCollection<Element*> {
+template<class Type, class HookType>
+class SNLIntrusiveConstSetCollection: public SNLBaseCollection<Type*> {
   public:
-    using super = SNLBaseCollection<Element*>;
-    using Set = boost::intrusive::set<Element, HookType>;
+    using super = SNLBaseCollection<Type*>;
+    using Set = boost::intrusive::set<Type, HookType>;
 
-    class SNLIntrusiveConstSetCollectionIterator: public SNLBaseIterator<Element*> {
+    class SNLIntrusiveConstSetCollectionIterator: public SNLBaseIterator<Type*> {
       public:
         using SetIterator = typename Set::const_iterator;
         SNLIntrusiveConstSetCollectionIterator(const SNLIntrusiveConstSetCollectionIterator&) = default;
@@ -56,21 +56,21 @@ class SNLIntrusiveConstSetCollection: public SNLBaseCollection<Element*> {
             }
           }
         }
-        Element* getElement() const override { return const_cast<Element*>(&*it_); }
+        Type* getElement() const override { return const_cast<Type*>(&*it_); }
         void progress() override { ++it_; }
-        bool isEqual(const SNLBaseIterator<Element*>* r) override {
+        bool isEqual(const SNLBaseIterator<Type*>* r) override {
           if (const SNLIntrusiveConstSetCollectionIterator* rit = dynamic_cast<const SNLIntrusiveConstSetCollectionIterator*>(r)) {
             return it_ == rit->it_;
           }
           return false;
         }
-        bool isDifferent(const SNLBaseIterator<Element*>* r) override {
+        bool isDifferent(const SNLBaseIterator<Type*>* r) override {
           if (const SNLIntrusiveConstSetCollectionIterator* rit = dynamic_cast<const SNLIntrusiveConstSetCollectionIterator*>(r)) {
             return it_ != rit->it_;
           }
           return true;
         }
-        SNLBaseIterator<Element*>* clone() override {
+        SNLBaseIterator<Type*>* clone() override {
           return new SNLIntrusiveConstSetCollectionIterator(*this);
         }
       private:
@@ -78,11 +78,11 @@ class SNLIntrusiveConstSetCollection: public SNLBaseCollection<Element*> {
         SetIterator it_   {};
     };
 
-    SNLBaseIterator<Element*>* begin() const override {
+    SNLBaseIterator<Type*>* begin() const override {
       return new SNLIntrusiveConstSetCollectionIterator(set_, true);
     }
 
-    SNLBaseIterator<Element*>* end() const override {
+    SNLBaseIterator<Type*>* end() const override {
       return new SNLIntrusiveConstSetCollectionIterator(set_, false);
     }
 
@@ -109,13 +109,13 @@ class SNLIntrusiveConstSetCollection: public SNLBaseCollection<Element*> {
     const Set*  set_  {nullptr};
 };
 
-template<class Element, class HookType>
-class SNLIntrusiveSetCollection: public SNLBaseCollection<Element*> {
+template<class Type, class HookType>
+class SNLIntrusiveSetCollection: public SNLBaseCollection<Type*> {
   public:
-    using super = SNLBaseCollection<Element*>;
-    using Set = boost::intrusive::set<Element, HookType>;
+    using super = SNLBaseCollection<Type*>;
+    using Set = boost::intrusive::set<Type, HookType>;
 
-    class SNLIntrusiveSetCollectionIterator: public SNLBaseIterator<Element*> {
+    class SNLIntrusiveSetCollectionIterator: public SNLBaseIterator<Type*> {
       public:
         using SetIterator = typename Set::iterator;
         SNLIntrusiveSetCollectionIterator(Set* set, bool beginOrEnd=true): set_(set) {
@@ -127,15 +127,15 @@ class SNLIntrusiveSetCollection: public SNLBaseCollection<Element*> {
             }
           }
         }
-        Element* getElement() const override { return &*it_; } 
+        Type* getElement() const override { return &*it_; } 
         void progress() override { ++it_; }
-        bool isEqual(const SNLBaseIterator<Element*>* r) override {
+        bool isEqual(const SNLBaseIterator<Type*>* r) override {
           if (const SNLIntrusiveSetCollectionIterator* rit = dynamic_cast<const SNLIntrusiveSetCollectionIterator*>(r)) {
             return it_ == rit->it_;
           }
           return false;
         }
-        bool isDifferent(const SNLBaseIterator<Element*>* r) override {
+        bool isDifferent(const SNLBaseIterator<Type*>* r) override {
           if (const SNLIntrusiveSetCollectionIterator* rit = dynamic_cast<const SNLIntrusiveSetCollectionIterator*>(r)) {
             return it_ != rit->it_;
           }
@@ -151,10 +151,10 @@ class SNLIntrusiveSetCollection: public SNLBaseCollection<Element*> {
     SNLIntrusiveSetCollection(SNLIntrusiveSetCollection&&) = delete;
     SNLIntrusiveSetCollection(Set* set): super(), set_(set) {}
 
-    SNLBaseIterator<Element*>* begin() const override {
+    SNLBaseIterator<Type*>* begin() const override {
       return new SNLIntrusiveSetCollectionIterator(set_, true);
     }
-    SNLBaseIterator<Element*>* end() const override {
+    SNLBaseIterator<Type*>* end() const override {
       return new SNLIntrusiveSetCollectionIterator(set_, false);
     }
 
@@ -175,13 +175,13 @@ class SNLIntrusiveSetCollection: public SNLBaseCollection<Element*> {
     Set*  set_  {nullptr};
 };
 
-template<class Element>
-class SNLVectorCollection: public SNLBaseCollection<Element> {
+template<class Type>
+class SNLVectorCollection: public SNLBaseCollection<Type> {
   public:
-    using super = SNLBaseCollection<Element>;
-    using Vector = std::vector<Element>;
+    using super = SNLBaseCollection<Type>;
+    using Vector = std::vector<Type>;
 
-    class SNLVectorCollectionIterator: public SNLBaseIterator<Element> {
+    class SNLVectorCollectionIterator: public SNLBaseIterator<Type> {
       public:
         using VectorIterator = typename Vector::const_iterator;
         SNLVectorCollectionIterator(const Vector* bits, bool beginOrEnd=true): bits_(bits) {
@@ -194,18 +194,18 @@ class SNLVectorCollection: public SNLBaseCollection<Element> {
           }
         }
         SNLVectorCollectionIterator(SNLVectorCollectionIterator&) = default;
-        SNLBaseIterator<Element>* clone() override {
+        SNLBaseIterator<Type>* clone() override {
           return new SNLVectorCollectionIterator(*this);
         }
-        Element getElement() const override { return *it_; } 
+        Type getElement() const override { return *it_; } 
         void progress() override { ++it_; }
-        bool isEqual(const SNLBaseIterator<Element>* r) override {
+        bool isEqual(const SNLBaseIterator<Type>* r) override {
           if (const SNLVectorCollectionIterator* rit = dynamic_cast<const SNLVectorCollectionIterator*>(r)) {
             return it_ == rit->it_;
           }
           return false;
         }
-        bool isDifferent(const SNLBaseIterator<Element>* r) override {
+        bool isDifferent(const SNLBaseIterator<Type>* r) override {
           if (const SNLVectorCollectionIterator* rit = dynamic_cast<const SNLVectorCollectionIterator*>(r)) {
             return it_ != rit->it_;
           }
@@ -221,10 +221,10 @@ class SNLVectorCollection: public SNLBaseCollection<Element> {
     SNLVectorCollection(SNLVectorCollection&&) = delete;
     SNLVectorCollection(const Vector* bits): super(), bits_(bits) {}
 
-    SNLBaseIterator<Element>* begin() const override {
+    SNLBaseIterator<Type>* begin() const override {
       return new SNLVectorCollectionIterator(bits_, true);
     }
-    SNLBaseIterator<Element>* end() const override {
+    SNLBaseIterator<Type>* end() const override {
       return new SNLVectorCollectionIterator(bits_, false);
     }
 
@@ -247,13 +247,13 @@ class SNLVectorCollection: public SNLBaseCollection<Element> {
 
 #if 0
 
-template<class Element, SubElement> class SNLSubElementCollection: public SNLCollection<SubElement> {
+template<class Type, SubType> class SNLSubTypeCollection: public SNLCollection<SubType> {
   public:
-    using super = SNLCollection<SubElement>;
+    using super = SNLCollection<SubType>;
 
-    SNLSubElementCollection(): super(), collection_ {}
-    SNLSubElementCollection(const SNLSubElementCollection&) = delete;
-    SNLSubElementCollection& operator=(const SNLSubElementCollection&) = delete;
+    SNLSubTypeCollection(): super(), collection_ {}
+    SNLSubTypeCollection(const SNLSubTypeCollection&) = delete;
+    SNLSubTypeCollection& operator=(const SNLSubTypeCollection&) = delete;
 
     public: virtual Hurricane::Locator<SubType>* getLocator() const
     // ************************************************************
@@ -266,10 +266,10 @@ template<class Element, SubElement> class SNLSubElementCollection: public SNLCol
 
 #endif
 
-template<class Element>
+template<class Type>
 class SNLCollection {
   public:
-    class Iterator: public std::iterator<std::input_iterator_tag, Element> {
+    class Iterator: public std::iterator<std::input_iterator_tag, Type> {
       public:
         Iterator() = delete;
         Iterator(const Iterator& it) {
@@ -277,28 +277,28 @@ class SNLCollection {
             baseIt_ = it.baseIt_->clone();
           }
         }
-        Iterator(SNLBaseIterator<Element>* iterator): baseIt_(iterator) {}
+        Iterator(SNLBaseIterator<Type>* iterator): baseIt_(iterator) {}
         ~Iterator() { if (baseIt_) { delete baseIt_; } }
 
         Iterator& operator++() { baseIt_->progress(); return *this; }
 
-        Element operator*() const { return baseIt_->getElement(); }
+        Type operator*() const { return baseIt_->getElement(); }
 
         bool operator==(const Iterator& r) const { return baseIt_->isEqual(r.baseIt_); }
         bool operator!=(const Iterator& r) const { return baseIt_->isDifferent(r.baseIt_); }
       private:
-        SNLBaseIterator<Element>* baseIt_ {nullptr};
+        SNLBaseIterator<Type>* baseIt_ {nullptr};
     };
 
     Iterator begin() { return Iterator(collection_->begin()); }
     Iterator end() { return Iterator(collection_->end()); }
 
-    template<class SubElement> SNLBaseCollection<SubElement> getSubCollection() const {
-      return SubTypeCollection<Element, SubElement>(this);
+    template<class SubType> SNLBaseCollection<SubType> getSubCollection() const {
+      return SubTypeCollection<Type, SubType>(this);
     }
 
     SNLCollection() = delete;
-    SNLCollection(const SNLBaseCollection<Element>* collection): collection_(collection) {}
+    SNLCollection(const SNLBaseCollection<Type>* collection): collection_(collection) {}
     SNLCollection(const SNLCollection&) = delete;
     SNLCollection(SNLCollection&&) = delete;
     virtual ~SNLCollection() { delete collection_; }
@@ -306,7 +306,7 @@ class SNLCollection {
     size_t size() const noexcept { if (collection_) { return collection_->size(); } return 0; }
     bool empty() const noexcept { if (collection_) { return collection_->empty(); } return true; }
   private:
-    const SNLBaseCollection<Element>*  collection_ {nullptr};
+    const SNLBaseCollection<Type>*  collection_ {nullptr};
 };
 
 }
