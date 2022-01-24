@@ -2,6 +2,8 @@
 
 #include "Card.h"
 
+namespace SNL {
+
 void SNLObject::destroy() {
   preDestroy();
   delete this;
@@ -16,4 +18,6 @@ void SNLObject::postCreate() {
 }
 
 void SNLObject::preDestroy() {
+}
+
 }
