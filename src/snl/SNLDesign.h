@@ -53,13 +53,13 @@ class SNLDesign final: public SNLObject {
     SNLLibrary* getLibrary() const { return library_; }
 
     ///\return SNLTerm with SNLID::DesignObjectID id or nullptr if it does not exist
-    SNLTerm* getTerm(SNLID::DesignObjectID id);
+    SNLTerm* getTerm(SNLID::DesignObjectID id) const;
     ///\return SNLTerm with SNLName name or nullptr if it does not exist
-    SNLTerm* getTerm(const SNLName& name);
+    SNLTerm* getTerm(const SNLName& name) const;
     ///\return SNLScalarTerm with SNLName name or nullptr if it does not exist
-    SNLScalarTerm* getScalarTerm(const SNLName& netName);
+    SNLScalarTerm* getScalarTerm(const SNLName& netName) const;
     ///\return SNLBusTerm with SNLName name or nullptr if it does not exist
-    SNLBusTerm* getBusTerm(const SNLName& netName);
+    SNLBusTerm* getBusTerm(const SNLName& netName) const;
     ///\return the collection of SNLTerm of this SNLDesign
     SNLCollection<SNLTerm*> getTerms() const;
     ///\return the collection of SNLBusTerm of this SNLDesign (SNLBusTerm subset of getTerms())
@@ -73,9 +73,9 @@ class SNLDesign final: public SNLObject {
     SNLCollection<SNLBitTerm*> getBitTerms() const;
 
     ///\return SNLInstance with SNLID::DesignObjectID id or nullptr if it does not exist
-    SNLInstance* getInstance(SNLID::DesignObjectID id);
+    SNLInstance* getInstance(SNLID::DesignObjectID id) const;
     ///\return SNLInstance with SNLName name if it does not exist
-    SNLInstance* getInstance(const SNLName& instanceName);
+    SNLInstance* getInstance(const SNLName& instanceName) const;
     ///\return the collection of SNLInstance instantiated IN this SNLDesign (instance/master relationship) 
     SNLCollection<SNLInstance*> getInstances() const;
     ///\return the collection of SNLInstance instantiated BY this SNLDesign (instance/model relationship)
@@ -84,17 +84,17 @@ class SNLDesign final: public SNLObject {
     SNLCollection<SNLInstance*> getSlaveInstances() const;
 
     ///\return SNLNet with SNLID::DesignObjectID id or nullptr if it does not exist
-    SNLNet* getNet(SNLID::DesignObjectID id);
+    SNLNet* getNet(SNLID::DesignObjectID id) const;
     ///\return SNLNet with SNLName name or nullptr if it does not exist
-    SNLNet* getNet(const SNLName& netName);
+    SNLNet* getNet(const SNLName& netName) const;
     ///\return SNLScalarNet with SNLName name or nullptr if it does not exist
-    SNLScalarNet* getScalarNet(const SNLName& netName);
+    SNLScalarNet* getScalarNet(const SNLName& netName) const;
     ///\return SNLBusNet with SNLName name or nullptr if it does not exist
-    SNLBusNet* getBusNet(const SNLName& netName);
+    SNLBusNet* getBusNet(const SNLName& netName) const;
     SNLCollection<SNLNet*> getNets() const;
 
     ///\return SNLParameter with SNLName name or nullptr if it does not exist
-    SNLParameter* getParameter(const SNLName& name);
+    SNLParameter* getParameter(const SNLName& name) const;
     SNLCollection<SNLParameter*> getParameters() const;
 
     SNLID::DesignID getID() const { return id_; }

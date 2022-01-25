@@ -61,19 +61,26 @@ void SNLInstance::postCreate() {
   }
   //create instance terminals
   for (SNLTerm* term: getModel()->getTerms()) {
-    createInstTerm(term);
+    if (SNLBusTerm* bus = dynamic_cast<SNLBusTerm*>(term)) {
+      for (auto bit: bus->getBits()) {
+        createInstTerm(bit);
+      }
+    } else {
+      SNLScalarTerm* scalar = static_cast<SNLScalarTerm*>(term);
+      createInstTerm(scalar);
+    }
   }
 }
 
-void SNLInstance::createInstTerm(SNLTerm* term) {
-  if (auto busTerm = dynamic_cast<SNLBusTerm*>(term)) {
-    for (auto bit: busTerm->getBits()) {
-      instTerms_.push_back(SNLInstTerm::create(this, bit));
-    }
-  } else {
-    auto scalarTerm = static_cast<SNLScalarTerm*>(term);
-    instTerms_.push_back(SNLInstTerm::create(this, scalarTerm));
+void SNLInstance::createInstTerm(SNLBitTerm* term) {
+  instTerms_.push_back(SNLInstTerm::create(this, term));
+}
+
+void SNLInstance::removeInstTerm(SNLBitTerm* term) {
+  if (term->getPosition() > instTerms_.size()) {
+    throw SNLException("");
   }
+  instTerms_[term->getPosition()] = nullptr;
 }
 
 void SNLInstance::removeInstTerms(SNLTerm* term) {
@@ -132,11 +139,11 @@ SNLInstTerm* SNLInstance::getInstTerm(const SNLBitTerm* term) {
       + " should be the same";
     throw SNLException(reason);
   }
-  if (term->getID() > instTerms_.size()) {
+  if (term->getPosition() > instTerms_.size()) {
     std::string reason = "SNLInstance::getInsTerm error: size issue";
     throw SNLException(reason);
   }
-  return instTerms_[term->getID()];
+  return instTerms_[term->getPosition()];
 }
 
 SNLCollection<SNLInstTerm*> SNLInstance::getInstTerms() const {

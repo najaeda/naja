@@ -130,7 +130,15 @@ void SNLDesign::addTerm(SNLTerm* term) {
     auto it = terms_.rbegin();
     SNLTerm* lastTerm = &(*it);
     SNLID::DesignObjectID termID = lastTerm->getID()+1;
+    size_t position = 0;
+    if (SNLScalarTerm* scalarTerm = dynamic_cast<SNLScalarTerm*>(lastTerm)) {
+      position = scalarTerm->getPosition() + 1;
+    } else {
+      SNLBusTerm* busTerm = static_cast<SNLBusTerm*>(lastTerm);
+      position = busTerm->position_ + busTerm->getSize();
+    }
     term->setID(termID);
+    term->setPosition(position);
   }
   terms_.insert(*term);
   if (not term->getName().empty()) {
@@ -139,35 +147,48 @@ void SNLDesign::addTerm(SNLTerm* term) {
 
   //Create corresponding instance terminals in slave instances
   for (auto instance: getSlaveInstances()) {
-    instance->createInstTerm(term);
+    if (SNLScalarTerm* scalarTerm = dynamic_cast<SNLScalarTerm*>(term)) {
+      instance->createInstTerm(scalarTerm);
+    } else {
+      SNLBusTerm* busTerm = static_cast<SNLBusTerm*>(term);
+      for (auto bit: busTerm->getBits()) {
+        instance->createInstTerm(bit);
+      }
+    }
   }
 }
 
 void SNLDesign::removeTerm(SNLTerm* term) {
-  assert(dynamic_cast<SNLScalarTerm*>(term) or dynamic_cast<SNLBusTerm*>(term));
-
-  if (not term->getName().empty()) {
-    termNameIDMap_.erase(term->getName());
-  }
-  terms_.erase(*term);
-
   //Remove corresponding instance terminals in slave instances
   for (auto instance: getSlaveInstances()) {
-    instance->removeInstTerms(term);
+    if (SNLBusTerm* bus = dynamic_cast<SNLBusTerm*>(term)) {
+      for (auto bit: bus->getBits()) {
+        instance->removeInstTerm(bit);
+      }
+    } else {
+      SNLBitTerm* bitTerm = static_cast<SNLBitTerm*>(term);
+      instance->removeInstTerm(bitTerm);
+    }
+  }
+  if (dynamic_cast<SNLBusTerm*>(term) or dynamic_cast<SNLScalarTerm*>(term)) {
+    if (not term->getName().empty()) {
+      termNameIDMap_.erase(term->getName());
+    }
+    terms_.erase(*term);
   }
 }
 
-SNLTerm* SNLDesign::getTerm(SNLID::DesignObjectID id) {
+SNLTerm* SNLDesign::getTerm(SNLID::DesignObjectID id) const {
   auto it = terms_.find(
       SNLID(SNLID::Type::Term, getDB()->getID(), getLibrary()->getID(), getID(), id, 0, 0),
       SNLIDComp<SNLTerm>());
   if (it != terms_.end()) {
-    return &*it;
+    return const_cast<SNLTerm*>(&*it);
   }
   return nullptr;
 }
 
-SNLTerm* SNLDesign::getTerm(const SNLName& name) {
+SNLTerm* SNLDesign::getTerm(const SNLName& name) const {
   auto it = termNameIDMap_.find(name);
   if (it != termNameIDMap_.end()) {
     SNLID::DesignObjectID id = it->second;
@@ -176,11 +197,11 @@ SNLTerm* SNLDesign::getTerm(const SNLName& name) {
   return nullptr;
 }
 
-SNLScalarTerm* SNLDesign::getScalarTerm(const SNLName& name) {
+SNLScalarTerm* SNLDesign::getScalarTerm(const SNLName& name) const {
   return dynamic_cast<SNLScalarTerm*>(getTerm(name));
 }
 
-SNLBusTerm* SNLDesign::getBusTerm(const SNLName& name) {
+SNLBusTerm* SNLDesign::getBusTerm(const SNLName& name) const {
   return dynamic_cast<SNLBusTerm*>(getTerm(name));
 }
 
@@ -222,17 +243,17 @@ SNLCollection<SNLInstance*> SNLDesign::getSlaveInstances() const {
   return SNLCollection<SNLInstance*>(new SNLIntrusiveConstSetCollection<SNLInstance, SNLDesignSlaveInstancesHook>(&slaveInstances_));
 }
 
-SNLInstance* SNLDesign::getInstance(SNLID::DesignObjectID id) {
+SNLInstance* SNLDesign::getInstance(SNLID::DesignObjectID id) const {
   auto it = instances_.find(
       SNLID(SNLID::Type::Instance, getDB()->getID(), getLibrary()->getID(), getID(), 0, id, 0),
       SNLIDComp<SNLInstance>());
   if (it != instances_.end()) {
-    return &*it;
+    return const_cast<SNLInstance*>(&*it);
   }
   return nullptr;
 }
 
-SNLInstance* SNLDesign::getInstance(const SNLName& name) {
+SNLInstance* SNLDesign::getInstance(const SNLName& name) const {
   auto it = instanceNameIDMap_.find(name);
   if (it != instanceNameIDMap_.end()) {
     SNLID::InstanceID id = it->second;
@@ -276,17 +297,17 @@ void SNLDesign::removeNet(SNLNet* net) {
   nets_.erase(*net);
 }
 
-SNLNet* SNLDesign::getNet(SNLID::DesignObjectID id) {
+SNLNet* SNLDesign::getNet(SNLID::DesignObjectID id) const {
   auto it = nets_.find(
       SNLID(SNLID::Type::Net, getDB()->getID(), getLibrary()->getID(), getID(), id, 0, 0),
       SNLIDComp<SNLNet>());
   if (it != nets_.end()) {
-    return &*it;
+    return const_cast<SNLNet*>(&*it);
   }
   return nullptr;
 }
 
-SNLNet* SNLDesign::getNet(const SNLName& name) {
+SNLNet* SNLDesign::getNet(const SNLName& name) const {
   auto tit = netNameIDMap_.find(name);
   if (tit != netNameIDMap_.end()) {
     SNLID::DesignObjectID id = tit->second;
@@ -295,11 +316,11 @@ SNLNet* SNLDesign::getNet(const SNLName& name) {
   return nullptr;
 }
 
-SNLScalarNet* SNLDesign::getScalarNet(const SNLName& name) {
+SNLScalarNet* SNLDesign::getScalarNet(const SNLName& name) const {
   return dynamic_cast<SNLScalarNet*>(getNet(name));
 }
 
-SNLBusNet* SNLDesign::getBusNet(const SNLName& name) {
+SNLBusNet* SNLDesign::getBusNet(const SNLName& name) const {
   return dynamic_cast<SNLBusNet*>(getNet(name));
 }
 
@@ -319,10 +340,10 @@ void SNLDesign::removeParameter(SNLParameter* parameter) {
   parameters_.erase(*parameter);
 }
 
-SNLParameter* SNLDesign::getParameter(const SNLName& name) {
+SNLParameter* SNLDesign::getParameter(const SNLName& name) const {
   auto it = parameters_.find(name, SNLParameter::SNLParameterComp());
   if (it != parameters_.end()) {
-    return &*it;
+    return const_cast<SNLParameter*>(&*it);
   }
   return nullptr;
 }

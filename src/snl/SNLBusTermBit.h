@@ -14,12 +14,12 @@ class SNLBusTermBit final: public SNLBitTerm {
 
     SNLDesign* getDesign() const override;
 
-    void setID(SNLID::DesignObjectID id) override {}
     //\remark returns the owner SNLBusTerm ID
     SNLID::DesignObjectID getID() const override;
     SNLID getSNLID() const override;
     SNLBusTerm* getBus() const { return bus_; }
     SNLID::Bit getBit() const override { return bit_; }
+    size_t getPosition() const override;
 
     constexpr const char* getTypeName() const override;
     SNLName getName() const override;
@@ -31,6 +31,9 @@ class SNLBusTermBit final: public SNLBitTerm {
     void destroy() override;
   private:
     static SNLBusTermBit* create(SNLBusTerm* bus, SNLID::Bit bit);
+
+    void setID(SNLID::DesignObjectID id) override {}
+    void setPosition(size_t position) override {}
 
     SNLBusTermBit(SNLBusTerm* bus, SNLID::Bit bit);
     static void preCreate(const SNLBusTerm* bus, SNLID::Bit bit);

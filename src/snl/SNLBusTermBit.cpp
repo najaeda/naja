@@ -1,6 +1,6 @@
 #include "SNLBusTermBit.h"
 
-#include <iostream>
+#include <sstream>
 
 #include "SNLException.h"
 #include "SNLBusTerm.h"
@@ -51,6 +51,10 @@ SNLID SNLBusTermBit::getSNLID() const {
   return SNLDesignObject::getSNLID(SNLID::Type::Net, getID(), 0, getBit());
 }
 
+size_t SNLBusTermBit::getPosition() const {
+  return getBus()->getPosition() + size_t(std::abs(getBit() - getBus()->getMSB()));
+}
+
 SNLDesign* SNLBusTermBit::getDesign() const {
   return getBus()->getDesign();
 }
@@ -68,7 +72,13 @@ SNLTerm::Direction SNLBusTermBit::getDirection() const {
 }
 
 std::string SNLBusTermBit::getString() const {
-  return std::string();
+  std::ostringstream str;
+  if (not getBus()->isAnonymous()) {
+    str << getBus()->getName().getString();
+  }
+  str << "(" << getBus()->getID() << ")";
+  str << "[" << getBit() << "]";
+  return str.str();
 }
 
 std::string SNLBusTermBit::getDescription() const {

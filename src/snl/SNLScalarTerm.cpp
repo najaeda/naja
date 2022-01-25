@@ -66,7 +66,6 @@ std::string SNLScalarTerm::getString() const {
   }
   str << "(" << getID() << ")";
   return str.str();
-
 }
 
 std::string SNLScalarTerm::getDescription() const {
