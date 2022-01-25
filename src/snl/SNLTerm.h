@@ -26,6 +26,7 @@ class SNLTerm: public SNLNetComponent {
     };
 
     virtual SNLID::DesignObjectID getID() const = 0;
+    virtual size_t getPosition() const = 0;
     virtual SNLName getName() const = 0;
     virtual Direction getDirection() const = 0;
 
@@ -39,6 +40,7 @@ class SNLTerm: public SNLNetComponent {
   private:
     //following used in BusTerm and ScalarTerm
     virtual void setID(SNLID::DesignObjectID id) = 0;
+    virtual void setPosition(size_t position) = 0;
     boost::intrusive::set_member_hook<> designTermsHook_  {};
     virtual void destroyFromDesign() = 0;
 };

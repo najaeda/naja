@@ -64,10 +64,7 @@ std::string SNLInstTerm::getString() const {
   }
   str << "(" << getInstance()->getID() << ")";
   str << ":";
-  if (not getTerm()->isAnonymous()) {
-    str << getTerm()->getName().getString();
-  }
-  str << "(" << getTerm()->getID() << ")";
+  str << getTerm()->getString();
   return str.str();
 }
 

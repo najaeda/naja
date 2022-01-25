@@ -52,7 +52,8 @@ class SNLInstance final: public SNLDesignObject {
     void destroyFromDesign();
     void destroyFromModel();
     void preDestroy() override;
-    void createInstTerm(SNLTerm* term);
+    void createInstTerm(SNLBitTerm* term);
+    void removeInstTerm(SNLBitTerm* term);
 
     SNLInstance(SNLDesign* design, SNLDesign* model, const SNLName& name);
 
