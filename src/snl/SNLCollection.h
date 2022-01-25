@@ -7,6 +7,8 @@
 namespace SNL {
 
 template<class Type> class SNLCollection;
+template<class Type, class SubType> class SNLSubTypeCollection;
+
 
 template<class Type>
 class SNLBaseIterator {
@@ -26,17 +28,24 @@ class SNLBaseIterator {
 template<class Type>
 class SNLBaseCollection {
   public:
+    SNLBaseCollection(SNLBaseCollection&&) = default;
+    virtual ~SNLBaseCollection() = default;
+
+    //virtual SNLBaseCollection<Type>* getClone() const = 0;
+
     virtual SNLBaseIterator<Type>* begin() const = 0;
     virtual SNLBaseIterator<Type>* end() const = 0;
 
     virtual size_t size() const noexcept = 0;
     virtual bool empty() const noexcept = 0;
 
-    SNLBaseCollection(const SNLBaseCollection&) = delete;
-    SNLBaseCollection(SNLBaseCollection&&) = delete;
-    virtual ~SNLBaseCollection() = default;
+    //template<class SubType> SNLBaseCollection<SubType> getSubCollection() const {
+    //  return SNLSubTypeCollection<Type, SubType>(this);
+    //}
+
   protected:
     SNLBaseCollection() = default;
+    SNLBaseCollection(const SNLBaseCollection&) = default;
 };
 
 template<class Type, class HookType>
@@ -92,6 +101,12 @@ class SNLIntrusiveConstSetCollection: public SNLBaseCollection<Type*> {
     SNLIntrusiveConstSetCollection(const SNLIntrusiveConstSetCollection&) = delete;
     SNLIntrusiveConstSetCollection(SNLIntrusiveConstSetCollection&&) = delete;
     SNLIntrusiveConstSetCollection(const Set* set): super(), set_(set) {}
+
+    /*
+    SNLBaseCollection<Type*>* getClone() const override {
+      return new SNLIntrusiveConstSetCollection(set_);
+    }
+    */
 
     size_t size() const noexcept override {
       if (set_) {
@@ -223,6 +238,8 @@ class SNLVectorCollection: public SNLBaseCollection<Type> {
     SNLVectorCollection(SNLVectorCollection&&) = delete;
     SNLVectorCollection(const Vector* bits): super(), bits_(bits) {}
 
+    
+
     SNLBaseIterator<Type>* begin() const override {
       return new SNLVectorCollectionIterator(bits_, true);
     }
@@ -247,18 +264,19 @@ class SNLVectorCollection: public SNLBaseCollection<Type> {
     const Vector* bits_ {nullptr};
 };
 
-template<class Type, class SubType> class SNLSubTypeCollection: public SNLBaseCollection<SubType*> {
+
+#if 0
+template<class Type, class SubType> class SNLSubTypeCollection: public SNLBaseCollection<SubType> {
   public:
     using super = SNLBaseCollection<SubType>;
 
-    class SNLSubTypeCollectionIterator: public SNLBaseIterator<Type*> {
-      public:
-    };
-
-    //SNLSubTypeCollection(): super(), collection_ {}
-    SNLSubTypeCollection(const SNLCollection<Type*>& collection): collection_(collection) {}
+    SNLSubTypeCollection(const SNLBaseCollection<Type>* collection): super(), collection_(collection->getClone()) {}
     SNLSubTypeCollection(const SNLSubTypeCollection&) = delete;
     SNLSubTypeCollection& operator=(const SNLSubTypeCollection&) = delete;
+
+    SNLBaseCollection<SubType>* getClone() const override {
+      return new SNLIntrusiveConstSetCollection(set_);
+    }
 
     SNLBaseIterator<SubType*>* begin() const override {
       return nullptr;
@@ -278,8 +296,10 @@ template<class Type, class SubType> class SNLSubTypeCollection: public SNLBaseCo
     }
 
   private:
-    SNLCollection<Type*> collection_;
+    SNLCollection<Type> collection_;
 };
+
+#endif
 
 template<class Type>
 class SNLCollection {
@@ -308,14 +328,10 @@ class SNLCollection {
     Iterator begin() { return Iterator(collection_->begin()); }
     Iterator end() { return Iterator(collection_->end()); }
 
-    template<class SubType> SNLCollection<SubType> getSubCollection() const {
-      return SNLSubTypeCollection<Type, SubType>(this);
-    }
-
-    SNLCollection() = delete;
+    SNLCollection() = default;
+    SNLCollection(SNLCollection&&) = default;
     SNLCollection(const SNLBaseCollection<Type>* collection): collection_(collection) {}
     SNLCollection(const SNLCollection& collection): collection_(collection.getClone()) {}
-    SNLCollection(SNLCollection&&) = delete;
     virtual ~SNLCollection() { delete collection_; }
 
     size_t size() const noexcept { if (collection_) { return collection_->size(); } return 0; }
