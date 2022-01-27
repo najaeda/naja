@@ -9,18 +9,16 @@ namespace SNL {
 template<class Type> class SNLCollection;
 template<class Type, class SubType> class SNLSubTypeCollection;
 
-
 template<class Type>
 class SNLBaseIterator {
   public:
-    SNLBaseIterator(const SNLBaseIterator&) = default;
+    SNLBaseIterator(const SNLBaseIterator&) = delete;
     SNLBaseIterator(SNLBaseIterator&&) = delete;
     virtual ~SNLBaseIterator() {}
     virtual Type getElement() const = 0;
     virtual void progress() = 0;
     virtual bool isEqual(const SNLBaseIterator<Type>* r) = 0;
     virtual bool isDifferent(const SNLBaseIterator<Type>* r) = 0;
-    virtual SNLBaseIterator<Type>* clone() = 0;
   protected:
     SNLBaseIterator() = default;
 };
@@ -28,7 +26,7 @@ class SNLBaseIterator {
 template<class Type>
 class SNLBaseCollection {
   public:
-    SNLBaseCollection(SNLBaseCollection&&) = default;
+    SNLBaseCollection(SNLBaseCollection&&) = delete;
     virtual ~SNLBaseCollection() = default;
 
     //virtual SNLBaseCollection<Type>* getClone() const = 0;
@@ -38,11 +36,6 @@ class SNLBaseCollection {
 
     virtual size_t size() const = 0;
     virtual bool empty() const = 0;
-
-    //template<class SubType> SNLBaseCollection<SubType> getSubCollection() const {
-    //  return SNLSubTypeCollection<Type, SubType>(this);
-    //}
-
   protected:
     SNLBaseCollection() = default;
     SNLBaseCollection(const SNLBaseCollection&) = default;
@@ -81,9 +74,9 @@ class SNLIntrusiveConstSetCollection: public SNLBaseCollection<Type*> {
           }
           return true;
         }
-        SNLBaseIterator<Type*>* clone() override {
-          return new SNLIntrusiveConstSetCollectionIterator(*this);
-        }
+        //SNLBaseIterator<Type*>* clone() override {
+        //  return new SNLIntrusiveConstSetCollectionIterator(*this);
+        //}
       private:
         const Set*  set_  {nullptr};
         SetIterator it_   {};
@@ -201,6 +194,8 @@ class SNLVectorCollection: public SNLBaseCollection<Type> {
     class SNLVectorCollectionIterator: public SNLBaseIterator<Type> {
       public:
         using VectorIterator = typename Vector::const_iterator;
+
+        SNLVectorCollectionIterator(SNLVectorCollectionIterator&) = default;
         SNLVectorCollectionIterator(const Vector* bits, bool beginOrEnd=true): bits_(bits) {
           if (bits_) {
             if (beginOrEnd) {
@@ -210,20 +205,17 @@ class SNLVectorCollection: public SNLBaseCollection<Type> {
             }
           }
         }
-        SNLVectorCollectionIterator(SNLVectorCollectionIterator&) = default;
-        SNLBaseIterator<Type>* clone() override {
-          return new SNLVectorCollectionIterator(*this);
-        }
+
         Type getElement() const override { return *it_; } 
         void progress() override { ++it_; }
         bool isEqual(const SNLBaseIterator<Type>* r) override {
-          if (const SNLVectorCollectionIterator* rit = dynamic_cast<const SNLVectorCollectionIterator*>(r)) {
+          if (auto rit = dynamic_cast<const SNLVectorCollectionIterator*>(r)) {
             return it_ == rit->it_;
           }
           return false;
         }
         bool isDifferent(const SNLBaseIterator<Type>* r) override {
-          if (const SNLVectorCollectionIterator* rit = dynamic_cast<const SNLVectorCollectionIterator*>(r)) {
+          if (auto rit = dynamic_cast<const SNLVectorCollectionIterator*>(r)) {
             return it_ != rit->it_;
           }
           return true;
@@ -237,8 +229,6 @@ class SNLVectorCollection: public SNLBaseCollection<Type> {
     SNLVectorCollection(const SNLVectorCollection&) = delete;
     SNLVectorCollection(SNLVectorCollection&&) = delete;
     SNLVectorCollection(const Vector* bits): super(), bits_(bits) {}
-
-    
 
     SNLBaseIterator<Type>* begin() const override {
       return new SNLVectorCollectionIterator(bits_, true);
@@ -267,32 +257,97 @@ class SNLVectorCollection: public SNLBaseCollection<Type> {
 template<class Type, class SubType> class SNLSubTypeCollection: public SNLBaseCollection<SubType> {
   public:
     using super = SNLBaseCollection<SubType>;
-    SNLSubTypeCollection(const SNLBaseCollection<Type>* collection) {}
-    SNLBaseIterator<SubType>* begin() const override {
-      return nullptr;
-    }
-    SNLBaseIterator<SubType>* end() const override {
-      return nullptr;
-    }
-    size_t size() const override {
-      return 0;
-    }
-    bool empty() const override {
-      return true;
-    }
-  #if 0
-  public:
 
     SNLSubTypeCollection(const SNLSubTypeCollection&) = delete;
     SNLSubTypeCollection& operator=(const SNLSubTypeCollection&) = delete;
+    SNLSubTypeCollection(const SNLSubTypeCollection&&) = delete;
 
-    SNLBaseCollection<SubType>* getClone() const override {
-      return new SNLIntrusiveConstSetCollection(set_);
+    class SNLSubTypeCollectionIterator: public SNLBaseIterator<SubType> {
+      public:
+        using super = SNLBaseIterator<SubType>;
+        SNLSubTypeCollectionIterator(const SNLBaseCollection<Type>* collection, bool beginOrEnd=true):
+          super() {
+          if (collection) {
+            endIt_ = collection->end();
+            if (not beginOrEnd) {
+              it_ = endIt_;
+            } else {
+              it_ = collection->begin();
+              while (isValid() and not dynamic_cast<SubType>(it_->getElement())) {
+                it_->progress();
+              }
+            }
+          }
+        }
+        ~SNLSubTypeCollectionIterator() {
+          delete it_;
+          delete endIt_;
+        }
+        SubType getElement() const override { return static_cast<SubType>(it_->getElement()); } 
+        void progress() override {
+          if (isValid()) {
+            do {
+              it_->progress();
+            } while (isValid() and not dynamic_cast<SubType>(it_->getElement()));
+          }
+        }
+        bool isEqual(const SNLBaseIterator<SubType>* r) override {
+          if (it_) {
+            if (auto rit = dynamic_cast<const SNLSubTypeCollectionIterator*>(r)) {
+              return it_ == rit->it_;
+            }
+          }
+          return false;
+        }
+        bool isDifferent(const SNLBaseIterator<SubType>* r) override {
+          if (it_) {
+            if (auto rit = dynamic_cast<const SNLSubTypeCollectionIterator*>(r)) {
+              return it_ != rit->it_;
+            }
+          }
+          return true;
+        }
+      private:
+        bool isValid() const {
+          return it_ and endIt_ and it_->isDifferent(endIt_);
+        }
+
+        SNLBaseIterator<Type>*  it_     {nullptr};
+        SNLBaseIterator<Type>*  endIt_  {nullptr};
+    };
+
+    SNLSubTypeCollection(const SNLBaseCollection<Type>* collection):
+      super(), collection_(collection)
+    {}
+    SNLBaseIterator<SubType>* begin() const override {
+      return new SNLSubTypeCollectionIterator(collection_, true);
     }
-  
+    SNLBaseIterator<SubType>* end() const override {
+      return new SNLSubTypeCollectionIterator(collection_, false);
+    }
+    size_t size() const override {
+      size_t size = 0;
+      if (collection_) {
+        auto it = begin();
+        auto endIt = end();
+        while (it->isDifferent(endIt)) {
+          ++size;
+          it->progress();
+        }
+      }
+      return size;
+    }
+    bool empty() const override {
+      if (collection_) {
+        auto it = begin();
+        auto endIt = end();
+        return it->isDifferent(endIt);
+      }
+      return true;
+    }
+
   private:
-    SNLCollection<Type> collection_;
-    #endif
+    const SNLBaseCollection<Type>* collection_;
 };
 
 template<class Type>
