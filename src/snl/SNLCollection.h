@@ -36,8 +36,8 @@ class SNLBaseCollection {
     virtual SNLBaseIterator<Type>* begin() const = 0;
     virtual SNLBaseIterator<Type>* end() const = 0;
 
-    virtual size_t size() const noexcept = 0;
-    virtual bool empty() const noexcept = 0;
+    virtual size_t size() const = 0;
+    virtual bool empty() const = 0;
 
     //template<class SubType> SNLBaseCollection<SubType> getSubCollection() const {
     //  return SNLSubTypeCollection<Type, SubType>(this);
@@ -108,14 +108,14 @@ class SNLIntrusiveConstSetCollection: public SNLBaseCollection<Type*> {
     }
     */
 
-    size_t size() const noexcept override {
+    size_t size() const override {
       if (set_) {
         return set_->size();
       }
       return 0;
     }
 
-    bool empty() const noexcept override {
+    bool empty() const override {
       if (set_) {
         return set_->empty();
       }
@@ -175,14 +175,14 @@ class SNLIntrusiveSetCollection: public SNLBaseCollection<Type*> {
       return new SNLIntrusiveSetCollectionIterator(set_, false);
     }
 
-    size_t size() const noexcept override {
+    size_t size() const override {
       if (set_) {
         return set_->size();
       }
       return 0;
     }
 
-    bool empty() const noexcept override {
+    bool empty() const override {
       if (set_) {
         return set_->empty();
       }
@@ -247,14 +247,14 @@ class SNLVectorCollection: public SNLBaseCollection<Type> {
       return new SNLVectorCollectionIterator(bits_, false);
     }
 
-    size_t size() const noexcept override {
+    size_t size() const override {
       if (bits_) {
         return bits_->size();
       }
       return 0;
     }
 
-    bool empty() const noexcept override {
+    bool empty() const override {
       if (bits_) {
         return bits_->empty();
       }
@@ -264,42 +264,36 @@ class SNLVectorCollection: public SNLBaseCollection<Type> {
     const Vector* bits_ {nullptr};
 };
 
-
-#if 0
 template<class Type, class SubType> class SNLSubTypeCollection: public SNLBaseCollection<SubType> {
   public:
     using super = SNLBaseCollection<SubType>;
+    SNLSubTypeCollection(const SNLBaseCollection<Type>* collection) {}
+    SNLBaseIterator<SubType>* begin() const override {
+      return nullptr;
+    }
+    SNLBaseIterator<SubType>* end() const override {
+      return nullptr;
+    }
+    size_t size() const override {
+      return 0;
+    }
+    bool empty() const override {
+      return true;
+    }
+  #if 0
+  public:
 
-    SNLSubTypeCollection(const SNLBaseCollection<Type>* collection): super(), collection_(collection->getClone()) {}
     SNLSubTypeCollection(const SNLSubTypeCollection&) = delete;
     SNLSubTypeCollection& operator=(const SNLSubTypeCollection&) = delete;
 
     SNLBaseCollection<SubType>* getClone() const override {
       return new SNLIntrusiveConstSetCollection(set_);
     }
-
-    SNLBaseIterator<SubType*>* begin() const override {
-      return nullptr;
-    }
-    SNLBaseIterator<SubType*>* end() const override {
-      return nullptr;
-    }
-
-    size_t size() const noexcept override {
-      //FIXME
-      return 0;
-    }
-
-    bool empty() const noexcept override {
-      //FIXME
-      return true;
-    }
-
+  
   private:
     SNLCollection<Type> collection_;
+    #endif
 };
-
-#endif
 
 template<class Type>
 class SNLCollection {
@@ -325,17 +319,21 @@ class SNLCollection {
         SNLBaseIterator<Type>* baseIt_ {nullptr};
     };
 
-    Iterator begin() { return Iterator(collection_->begin()); }
-    Iterator end() { return Iterator(collection_->end()); }
-
     SNLCollection() = default;
-    SNLCollection(SNLCollection&&) = default;
+    SNLCollection(SNLCollection&&) = delete;
     SNLCollection(const SNLBaseCollection<Type>* collection): collection_(collection) {}
     SNLCollection(const SNLCollection& collection): collection_(collection.getClone()) {}
     virtual ~SNLCollection() { delete collection_; }
 
-    size_t size() const noexcept { if (collection_) { return collection_->size(); } return 0; }
-    bool empty() const noexcept { if (collection_) { return collection_->empty(); } return true; }
+    template<class SubType> SNLCollection<SubType> getSubCollection() {
+      return SNLCollection<SubType>(new SNLSubTypeCollection<Type, SubType>(collection_));
+    }
+
+    Iterator begin() { return Iterator(collection_->begin()); }
+    Iterator end() { return Iterator(collection_->end()); }
+
+    size_t size() const { if (collection_) { return collection_->size(); } return 0; }
+    bool empty() const { if (collection_) { return collection_->empty(); } return true; }
   private:
     const SNLBaseCollection<Type>*  collection_ {nullptr};
 };

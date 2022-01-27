@@ -210,12 +210,12 @@ SNLCollection<SNLTerm*> SNLDesign::getTerms() const {
 }
 
 SNLCollection<SNLBusTerm*> SNLDesign::getBusTerms() const {
-  return SNLCollection<SNLBusTerm*>();
-  //return getTerms().getSubCollection<SNLBusTerm*>();
+  return getTerms().getSubCollection<SNLBusTerm*>();
 }
 
 SNLCollection<SNLScalarTerm*> SNLDesign::getScalarTerms() const {
   return SNLCollection<SNLScalarTerm*>();
+  //return getTerms().getSubCollection<SNLScalarTerm*>();
 }
 
 void SNLDesign::addInstance(SNLInstance* instance) {
