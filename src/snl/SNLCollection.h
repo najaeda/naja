@@ -30,7 +30,7 @@ class SNLBaseCollection {
     SNLBaseCollection(SNLBaseCollection&&) = delete;
     virtual ~SNLBaseCollection() = default;
 
-    //virtual SNLBaseCollection<Type>* getClone() const = 0;
+    virtual SNLBaseCollection<Type>* clone() const = 0;
 
     virtual SNLBaseIterator<Type>* begin() const = 0;
     virtual SNLBaseIterator<Type>* end() const = 0;
@@ -96,9 +96,9 @@ class SNLIntrusiveConstSetCollection: public SNLBaseCollection<Type*> {
     SNLIntrusiveConstSetCollection(SNLIntrusiveConstSetCollection&&) = delete;
     SNLIntrusiveConstSetCollection(const Set* set): super(), set_(set) {}
 
-    //SNLBaseCollection<Type*>* getClone() const override {
-    //  return new SNLIntrusiveConstSetCollection(set_);
-    //}
+    SNLBaseCollection<Type*>* clone() const override {
+      return new SNLIntrusiveConstSetCollection(set_);
+    }
 
     size_t size() const override {
       if (set_) {
@@ -232,6 +232,9 @@ class SNLVectorCollection: public SNLBaseCollection<Type> {
     SNLVectorCollection(const SNLVectorCollection&) = delete;
     SNLVectorCollection(SNLVectorCollection&&) = delete;
     SNLVectorCollection(const Vector* bits): super(), bits_(bits) {}
+    SNLBaseCollection<Type>* clone() const override {
+      return new SNLVectorCollection(bits_);
+    }
 
     SNLBaseIterator<Type>* begin() const override {
       return new SNLVectorCollectionIterator(bits_, true);
@@ -260,10 +263,6 @@ class SNLVectorCollection: public SNLBaseCollection<Type> {
 template<class Type, class SubType> class SNLSubTypeCollection: public SNLBaseCollection<SubType> {
   public:
     using super = SNLBaseCollection<SubType>;
-
-    SNLSubTypeCollection(const SNLSubTypeCollection&) = delete;
-    SNLSubTypeCollection& operator=(const SNLSubTypeCollection&) = delete;
-    SNLSubTypeCollection(const SNLSubTypeCollection&&) = delete;
 
     class SNLSubTypeCollectionIterator: public SNLBaseIterator<SubType> {
       public:
@@ -322,9 +321,15 @@ template<class Type, class SubType> class SNLSubTypeCollection: public SNLBaseCo
         SNLBaseIterator<Type>*  endIt_  {nullptr};
     };
 
+    SNLSubTypeCollection(const SNLSubTypeCollection&) = delete;
+    SNLSubTypeCollection& operator=(const SNLSubTypeCollection&) = delete;
+    SNLSubTypeCollection(const SNLSubTypeCollection&&) = delete;
     SNLSubTypeCollection(const SNLBaseCollection<Type>* collection):
       super(), collection_(collection)
     {}
+    SNLBaseCollection<SubType>* clone() const override {
+      return new SNLSubTypeCollection(collection_);
+    }
     SNLBaseIterator<SubType>* begin() const override {
       return new SNLSubTypeCollectionIterator(collection_, true);
     }
@@ -347,7 +352,7 @@ template<class Type, class SubType> class SNLSubTypeCollection: public SNLBaseCo
       if (collection_) {
         auto it = begin();
         auto endIt = end();
-        return it->isDifferent(endIt);
+        return it->isEqual(endIt);
       }
       return true;
     }
@@ -383,11 +388,13 @@ class SNLCollection {
     SNLCollection() = default;
     SNLCollection(SNLCollection&&) = delete;
     SNLCollection(const SNLBaseCollection<Type>* collection): collection_(collection) {}
-    SNLCollection(const SNLCollection& collection): collection_(collection.getClone()) {}
     virtual ~SNLCollection() { delete collection_; }
 
     template<class SubType> SNLCollection<SubType> getSubCollection() {
-      return SNLCollection<SubType>(new SNLSubTypeCollection<Type, SubType>(collection_));
+      if (collection_) {
+        return SNLCollection<SubType>(new SNLSubTypeCollection<Type, SubType>(collection_->clone()));
+      }
+      return SNLCollection<SubType>();
     }
 
     Iterator begin() { return Iterator(collection_->begin()); }

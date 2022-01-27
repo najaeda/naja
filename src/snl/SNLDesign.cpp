@@ -214,8 +214,7 @@ SNLCollection<SNLBusTerm*> SNLDesign::getBusTerms() const {
 }
 
 SNLCollection<SNLScalarTerm*> SNLDesign::getScalarTerms() const {
-  return SNLCollection<SNLScalarTerm*>();
-  //return getTerms().getSubCollection<SNLScalarTerm*>();
+  return getTerms().getSubCollection<SNLScalarTerm*>();
 }
 
 void SNLDesign::addInstance(SNLInstance* instance) {
