@@ -12,15 +12,16 @@ template<class Type, class SubType> class SNLSubTypeCollection;
 template<class Type>
 class SNLBaseIterator {
   public:
-    SNLBaseIterator(const SNLBaseIterator&) = delete;
     SNLBaseIterator(SNLBaseIterator&&) = delete;
     virtual ~SNLBaseIterator() {}
     virtual Type getElement() const = 0;
     virtual void progress() = 0;
     virtual bool isEqual(const SNLBaseIterator<Type>* r) = 0;
     virtual bool isDifferent(const SNLBaseIterator<Type>* r) = 0;
+    virtual SNLBaseIterator<Type>* clone() = 0;
   protected:
     SNLBaseIterator() = default;
+    SNLBaseIterator(const SNLBaseIterator&) = default;
 };
 
 template<class Type>
@@ -74,9 +75,9 @@ class SNLIntrusiveConstSetCollection: public SNLBaseCollection<Type*> {
           }
           return true;
         }
-        //SNLBaseIterator<Type*>* clone() override {
-        //  return new SNLIntrusiveConstSetCollectionIterator(*this);
-        //}
+        SNLBaseIterator<Type*>* clone() override {
+          return new SNLIntrusiveConstSetCollectionIterator(*this);
+        }
       private:
         const Set*  set_  {nullptr};
         SetIterator it_   {};
@@ -95,11 +96,9 @@ class SNLIntrusiveConstSetCollection: public SNLBaseCollection<Type*> {
     SNLIntrusiveConstSetCollection(SNLIntrusiveConstSetCollection&&) = delete;
     SNLIntrusiveConstSetCollection(const Set* set): super(), set_(set) {}
 
-    /*
-    SNLBaseCollection<Type*>* getClone() const override {
-      return new SNLIntrusiveConstSetCollection(set_);
-    }
-    */
+    //SNLBaseCollection<Type*>* getClone() const override {
+    //  return new SNLIntrusiveConstSetCollection(set_);
+    //}
 
     size_t size() const override {
       if (set_) {
@@ -206,6 +205,10 @@ class SNLVectorCollection: public SNLBaseCollection<Type> {
           }
         }
 
+        SNLBaseIterator<Type>* clone() override {
+          return new SNLVectorCollectionIterator(*this);
+        }
+
         Type getElement() const override { return *it_; } 
         void progress() override { ++it_; }
         bool isEqual(const SNLBaseIterator<Type>* r) override {
@@ -282,6 +285,9 @@ template<class Type, class SubType> class SNLSubTypeCollection: public SNLBaseCo
         ~SNLSubTypeCollectionIterator() {
           delete it_;
           delete endIt_;
+        }
+        SNLBaseIterator<SubType>* clone() override {
+          return new SNLSubTypeCollectionIterator(*this);
         }
         SubType getElement() const override { return static_cast<SubType>(it_->getElement()); } 
         void progress() override {
