@@ -16,7 +16,6 @@ class SNLBaseIterator {
     virtual Type getElement() const = 0;
     virtual void progress() = 0;
     virtual bool isEqual(const SNLBaseIterator<Type>* r) = 0;
-    virtual bool isDifferent(const SNLBaseIterator<Type>* r) = 0;
     virtual SNLBaseIterator<Type>* clone() = 0;
   protected:
     SNLBaseIterator() = default;
@@ -67,12 +66,6 @@ class SNLIntrusiveConstSetCollection: public SNLBaseCollection<Type*> {
             return it_ == rit->it_;
           }
           return false;
-        }
-        bool isDifferent(const SNLBaseIterator<Type*>* r) override {
-          if (const SNLIntrusiveConstSetCollectionIterator* rit = dynamic_cast<const SNLIntrusiveConstSetCollectionIterator*>(r)) {
-            return it_ != rit->it_;
-          }
-          return true;
         }
         SNLBaseIterator<Type*>* clone() override {
           return new SNLIntrusiveConstSetCollectionIterator(*this);
@@ -143,12 +136,6 @@ class SNLIntrusiveSetCollection: public SNLBaseCollection<Type*> {
           }
           return false;
         }
-        bool isDifferent(const SNLBaseIterator<Type*>* r) override {
-          if (const SNLIntrusiveSetCollectionIterator* rit = dynamic_cast<const SNLIntrusiveSetCollectionIterator*>(r)) {
-            return it_ != rit->it_;
-          }
-          return true;
-        }
       private:
         Set*        set_  {nullptr};
         SetIterator it_   {};
@@ -215,12 +202,6 @@ class SNLVectorCollection: public SNLBaseCollection<Type> {
             return it_ == rit->it_;
           }
           return false;
-        }
-        bool isDifferent(const SNLBaseIterator<Type>* r) override {
-          if (auto rit = dynamic_cast<const SNLVectorCollectionIterator*>(r)) {
-            return it_ != rit->it_;
-          }
-          return true;
         }
       private:
         const Vector*   bits_ {nullptr};
@@ -305,12 +286,9 @@ template<class Type, class SubType> class SNLSubTypeCollection: public SNLBaseCo
           }
           return false;
         }
-        bool isDifferent(const SNLBaseIterator<SubType>* r) override {
-          return not isEqual(r);
-        }
       private:
         bool isValid() const {
-          return it_ and endIt_ and it_->isDifferent(endIt_);
+          return it_ and endIt_ and not it_->isEqual(endIt_);
         }
 
         SNLBaseIterator<Type>*  it_     {nullptr};
@@ -340,7 +318,7 @@ template<class Type, class SubType> class SNLSubTypeCollection: public SNLBaseCo
       if (collection_) {
         auto it = std::make_unique<SNLSubTypeCollectionIterator>(collection_, true);
         auto endIt = std::make_unique<SNLSubTypeCollectionIterator>(collection_, false);
-        while (it->isDifferent(endIt.get())) {
+        while (not it->isEqual(endIt.get())) {
           ++size;
           it->progress();
         }
@@ -379,7 +357,7 @@ class SNLCollection {
         Type operator*() const { return baseIt_->getElement(); }
 
         bool operator==(const Iterator& r) const { return baseIt_->isEqual(r.baseIt_); }
-        bool operator!=(const Iterator& r) const { return baseIt_->isDifferent(r.baseIt_); }
+        bool operator!=(const Iterator& r) const { return not baseIt_->isEqual(r.baseIt_); }
       private:
         SNLBaseIterator<Type>* baseIt_ {nullptr};
     };
