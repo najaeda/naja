@@ -367,7 +367,7 @@ class SNLCollection {
     SNLCollection(const SNLBaseCollection<Type>* collection): collection_(collection) {}
     ~SNLCollection() { delete collection_; }
 
-    template<class SubType> SNLCollection<SubType> getSubCollection() {
+    template<class SubType> SNLCollection<SubType> getSubCollection() const {
       if (collection_) {
         return SNLCollection<SubType>(new SNLSubTypeCollection<Type, SubType>(collection_->clone()));
       }
