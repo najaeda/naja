@@ -12,6 +12,7 @@
 #include "SNLBusTermBit.h"
 #include "SNLScalarTerm.h"
 #include "SNLInstTerm.h"
+#include "SNLFilter.h"
 
 namespace SNL {
 
@@ -135,8 +136,7 @@ SNLInstTerm* SNLInstance::getInstTerm(const SNLBitTerm* term) {
 }
 
 SNLCollection<SNLInstTerm*> SNLInstance::getInstTerms() const {
-  //FIXME: filter non null inst terms
-  return SNLCollection<SNLInstTerm*>(new SNLVectorCollection<SNLInstTerm*>(&instTerms_));
+  return SNLCollection<SNLInstTerm*>(new SNLVectorCollection<SNLInstTerm*>(&instTerms_)).getSubCollection(SNLNonNULLFilter<SNLInstTerm*>());
 }
 
 constexpr const char* SNLInstance::getTypeName() const {

@@ -6,6 +6,8 @@
 
 #include <boost/intrusive/set.hpp>
 
+#include "SNLFilter.h"
+
 namespace SNL {
 
 template<class Type>
@@ -338,8 +340,95 @@ template<class Type, class SubType> class SNLSubTypeCollection: public SNLBaseCo
     const SNLBaseCollection<Type>* collection_;
 };
 
-template<class Type>
-class SNLCollection {
+template<class Type> class SNLFilteredCollection: public SNLBaseCollection<Type> {
+  public:
+    using super = SNLBaseCollection<Type>;
+
+    class SNLFilteredCollectionIterator: public SNLBaseIterator<Type> {
+      public:
+        using super = SNLBaseIterator<Type>;
+#if 0
+        SNLFilteredCollectionIterator(const SNLBaseCollection<Type>* collection, bool beginOrEnd=true):
+          super() {
+          if (collection) {
+            endIt_ = collection->end();
+            if (not beginOrEnd) {
+              it_ = endIt_;
+            } else {
+              it_ = collection->begin();
+              while (isValid() and not dynamic_cast<SubType>(it_->getElement())) {
+                it_->progress();
+              }
+            }
+          }
+        }
+        ~SNLSubTypeCollectionIterator() {
+          if (it_ not_eq endIt_) {
+            delete it_;
+          }
+          delete endIt_;
+        }
+        SNLBaseIterator<SubType>* clone() override {
+          return new SNLSubTypeCollectionIterator(*this);
+        }
+        SubType getElement() const override { return static_cast<SubType>(it_->getElement()); } 
+        void progress() override {
+          if (isValid()) {
+            do {
+              it_->progress();
+            } while (isValid() and not dynamic_cast<SubType>(it_->getElement()));
+          }
+        }
+        bool isEqual(const SNLBaseIterator<SubType>* r) override {
+          if (it_) {
+            if (auto rit = dynamic_cast<const SNLSubTypeCollectionIterator*>(r)) {
+              return it_->isEqual(rit->it_);
+            }
+          }
+          return false;
+        }
+      private:
+        bool isValid() const {
+          return it_ and endIt_ and not it_->isEqual(endIt_);
+        }
+
+        SNLBaseIterator<Type>*  it_     {nullptr};
+        SNLBaseIterator<Type>*  endIt_  {nullptr};
+#endif
+    };
+
+    SNLFilteredCollection(const SNLFilteredCollection&) = delete;
+    SNLFilteredCollection& operator=(const SNLFilteredCollection&) = delete;
+    SNLFilteredCollection(const SNLFilteredCollection&&) = delete;
+    SNLFilteredCollection(const SNLBaseCollection<Type>* collection, const SNLFilter<Type>& filter):
+      super(), collection_(collection), filter_(filter) 
+    {}
+    ~SNLFilteredCollection() {
+      delete collection_;
+    }
+    SNLBaseCollection<Type>* clone() const override {
+      return new SNLFilteredCollection(collection_, filter_);
+    }
+    SNLBaseIterator<Type>* begin() const override {
+      return nullptr;
+    }
+    SNLBaseIterator<Type>* end() const override {
+      return nullptr;
+    }
+    size_t size() const override {
+      size_t size = 0;
+      return size;
+    }
+    bool empty() const override {
+      return true;
+    }
+
+  private:
+    const SNLBaseCollection<Type>*  collection_;
+    SNLFilter<Type>                 filter_;
+};
+
+template<class Type> class SNLCollection {
   public:
     class Iterator: public std::iterator<std::input_iterator_tag, Type> {
       public:
@@ -372,6 +461,13 @@ class SNLCollection {
         return SNLCollection<SubType>(new SNLSubTypeCollection<Type, SubType>(collection_->clone()));
       }
       return SNLCollection<SubType>();
+    }
+
+    SNLCollection<Type> getSubCollection(const SNLFilter<Type>& filter) const {
+      if (collection_) {
+        return SNLCollection<Type>(new SNLFilteredCollection<Type>(collection_->clone(), filter));
+      }
+      return SNLCollection<Type>();
     }
 
     Iterator begin() { return Iterator(collection_->begin()); }
