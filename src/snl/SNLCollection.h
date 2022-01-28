@@ -385,7 +385,7 @@ class SNLCollection {
     SNLCollection() = default;
     SNLCollection(SNLCollection&&) = delete;
     SNLCollection(const SNLBaseCollection<Type>* collection): collection_(collection) {}
-    virtual ~SNLCollection() { delete collection_; }
+    ~SNLCollection() { delete collection_; }
 
     template<class SubType> SNLCollection<SubType> getSubCollection() {
       if (collection_) {
