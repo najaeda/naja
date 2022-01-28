@@ -6,9 +6,6 @@
 
 namespace SNL {
 
-template<class Type> class SNLCollection;
-template<class Type, class SubType> class SNLSubTypeCollection;
-
 template<class Type>
 class SNLBaseIterator {
   public:
