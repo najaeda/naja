@@ -1,8 +1,10 @@
 #ifndef __SNL_COLLECTION_H_
 #define __SNL_COLLECTION_H_
 
-#include <boost/intrusive/set.hpp>
 #include <vector>
+#include <memory>
+
+#include <boost/intrusive/set.hpp>
 
 namespace SNL {
 
@@ -279,7 +281,9 @@ template<class Type, class SubType> class SNLSubTypeCollection: public SNLBaseCo
           }
         }
         ~SNLSubTypeCollectionIterator() {
-          delete it_;
+          if (it_ not_eq endIt_) {
+            delete it_;
+          }
           delete endIt_;
         }
         SNLBaseIterator<SubType>* clone() override {
@@ -296,18 +300,13 @@ template<class Type, class SubType> class SNLSubTypeCollection: public SNLBaseCo
         bool isEqual(const SNLBaseIterator<SubType>* r) override {
           if (it_) {
             if (auto rit = dynamic_cast<const SNLSubTypeCollectionIterator*>(r)) {
-              return it_ == rit->it_;
+              return it_->isEqual(rit->it_);
             }
           }
           return false;
         }
         bool isDifferent(const SNLBaseIterator<SubType>* r) override {
-          if (it_) {
-            if (auto rit = dynamic_cast<const SNLSubTypeCollectionIterator*>(r)) {
-              return it_ != rit->it_;
-            }
-          }
-          return true;
+          return not isEqual(r);
         }
       private:
         bool isValid() const {
@@ -324,6 +323,9 @@ template<class Type, class SubType> class SNLSubTypeCollection: public SNLBaseCo
     SNLSubTypeCollection(const SNLBaseCollection<Type>* collection):
       super(), collection_(collection)
     {}
+    ~SNLSubTypeCollection() {
+      delete collection_;
+    }
     SNLBaseCollection<SubType>* clone() const override {
       return new SNLSubTypeCollection(collection_);
     }
@@ -336,9 +338,9 @@ template<class Type, class SubType> class SNLSubTypeCollection: public SNLBaseCo
     size_t size() const override {
       size_t size = 0;
       if (collection_) {
-        auto it = begin();
-        auto endIt = end();
-        while (it->isDifferent(endIt)) {
+        auto it = std::make_unique<SNLSubTypeCollectionIterator>(collection_, true);
+        auto endIt = std::make_unique<SNLSubTypeCollectionIterator>(collection_, false);
+        while (it->isDifferent(endIt.get())) {
           ++size;
           it->progress();
         }
@@ -347,9 +349,9 @@ template<class Type, class SubType> class SNLSubTypeCollection: public SNLBaseCo
     }
     bool empty() const override {
       if (collection_) {
-        auto it = begin();
-        auto endIt = end();
-        return it->isEqual(endIt);
+        auto it = std::make_unique<SNLSubTypeCollectionIterator>(collection_, true);
+        auto endIt = std::make_unique<SNLSubTypeCollectionIterator>(collection_, false);
+        return it->isEqual(endIt.get());
       }
       return true;
     }

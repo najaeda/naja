@@ -76,9 +76,9 @@ TEST_F(SNLDesignTest, testCreation) {
   EXPECT_FALSE(design->getTerms().empty());
   EXPECT_EQ(4, design->getTerms().size());
   EXPECT_FALSE(design->getScalarTerms().empty());
-  //EXPECT_EQ(3, ranges::size(design->getScalarTerms()));
+  EXPECT_EQ(3, design->getScalarTerms().size());
   EXPECT_FALSE(design->getBusTerms().empty());
-  //EXPECT_EQ(1, design->getBusTerms().size());
+  EXPECT_EQ(1, design->getBusTerms().size());
 
   SNLDesign* model = SNLDesign::create(library, SNLName("model"));
   ASSERT_NE(model, nullptr);
