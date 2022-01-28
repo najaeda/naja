@@ -24,6 +24,8 @@ class SNLDesignTest: public ::testing::Test {
 TEST_F(SNLDesignTest, testCreation) {
   SNLLibrary* library = db_->getLibrary(SNLName("MYLIB"));
   ASSERT_NE(library, nullptr);
+  EXPECT_EQ(0, library->getDesigns().size());
+  EXPECT_TRUE(library->getDesigns().empty());
   SNLDesign* design = SNLDesign::create(library, SNLName("design"));
   ASSERT_NE(design, nullptr);
   EXPECT_EQ(SNLName("design"), design->getName());
@@ -32,6 +34,8 @@ TEST_F(SNLDesignTest, testCreation) {
   EXPECT_EQ(design, library->getDesign(0));
   EXPECT_EQ(design, library->getDesign(SNLName("design")));
   EXPECT_EQ(library, design->getLibrary());
+  EXPECT_EQ(1, library->getDesigns().size());
+  EXPECT_FALSE(library->getDesigns().empty());
   EXPECT_EQ(db_, design->getDB());
   EXPECT_EQ(SNLID(1, 0, 0), design->getSNLID());
   EXPECT_TRUE(design->isStandard());
@@ -76,9 +80,9 @@ TEST_F(SNLDesignTest, testCreation) {
   EXPECT_FALSE(design->getTerms().empty());
   EXPECT_EQ(4, design->getTerms().size());
   EXPECT_FALSE(design->getScalarTerms().empty());
-  //EXPECT_EQ(3, ranges::size(design->getScalarTerms()));
+  EXPECT_EQ(3, design->getScalarTerms().size());
   EXPECT_FALSE(design->getBusTerms().empty());
-  //EXPECT_EQ(1, design->getBusTerms().size());
+  EXPECT_EQ(1, design->getBusTerms().size());
 
   SNLDesign* model = SNLDesign::create(library, SNLName("model"));
   ASSERT_NE(model, nullptr);
@@ -87,6 +91,8 @@ TEST_F(SNLDesignTest, testCreation) {
   EXPECT_FALSE(model->isAnonymous());
   EXPECT_EQ(model, library->getDesign(1));
   EXPECT_EQ(model, library->getDesign(SNLName("model")));
+  EXPECT_EQ(2, library->getDesigns().size());
+  EXPECT_FALSE(library->getDesigns().empty());
 
   //anonymous design
   SNLDesign* anon = SNLDesign::create(library);
@@ -98,4 +104,6 @@ TEST_F(SNLDesignTest, testCreation) {
   EXPECT_EQ(db_, anon->getDB());
   EXPECT_EQ(SNLID(1, 0, 2), anon->getSNLID());
   EXPECT_TRUE(anon->isStandard());
+  EXPECT_EQ(3, library->getDesigns().size());
+  EXPECT_FALSE(library->getDesigns().empty());
 }

@@ -1,11 +1,9 @@
 #ifndef __SNL_BIT_NET_H_
 #define __SNL_BIT_NET_H_
 
-#include <range/v3/view/all.hpp>
-#include <range/v3/view/transform.hpp>
-
 #include "SNLNet.h"
 #include "SNLNetComponent.h"
+#include "SNLCollection.h"
 
 namespace SNL {
 
@@ -14,10 +12,8 @@ class SNLBitNet: public SNLNet {
     friend class SNLNetComponent;
     using super = SNLNet;
 
-    auto getComponents() const {
-      return ranges::views::all(components_)
-        | ranges::views::transform([](const SNLNetComponent& c) { return const_cast<SNLNetComponent*>(&c); });
-    }
+    SNLCollection<SNLNetComponent*> getComponents() const;
+
   protected:
     SNLBitNet() = default;
     static void preCreate();

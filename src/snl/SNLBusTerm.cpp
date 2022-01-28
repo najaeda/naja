@@ -1,5 +1,6 @@
 #include "SNLBusTerm.h"
 
+#include "SNLException.h"
 #include "SNLDesign.h"
 #include "SNLBusTermBit.h"
 
@@ -34,7 +35,10 @@ SNLBusTerm* SNLBusTerm::create(
 void SNLBusTerm::preCreate(const SNLDesign* design, const SNLName& name) {
   super::preCreate();
   //verify that there is not an instance of name in this design
-  if (not name.empty()) {
+  if (not name.empty() and design->getTerm(name)) {
+    std::string reason = "cannot create SNLBusTerm with name " + name.getString();
+    reason += "A terminal with this name already exists.";
+    throw SNLException(reason);
   }
 }
 
@@ -92,6 +96,10 @@ SNLBusTermBit* SNLBusTerm::getBit(SNLID::Bit bit) const {
     return bits_[pos];
   }
   return nullptr;
+}
+
+SNLCollection<SNLBusTermBit*> SNLBusTerm::getBits() const {
+  return SNLCollection<SNLBusTermBit*>(new SNLVectorCollection<SNLBusTermBit*>(&bits_));
 }
 
 }

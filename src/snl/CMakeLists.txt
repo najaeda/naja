@@ -38,7 +38,6 @@ target_link_libraries(naja_snl naja_core coverage_config)
 target_compile_options(naja_snl PRIVATE ${NAJA_CXX_WARNINGS}) 
 
 target_include_directories(naja_snl SYSTEM BEFORE PUBLIC ${Boost_INCLUDE_DIR})
-target_include_directories(naja_snl PUBLIC ${PROJECT_SOURCE_DIR}/thirdparty/range-v3/include)
 target_include_directories(naja_snl PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 set_target_properties(naja_snl PROPERTIES PUBLIC_HEADER "${HEADERS}")

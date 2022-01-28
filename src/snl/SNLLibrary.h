@@ -2,6 +2,7 @@
 #define __SNL_LIBRARY_H_
 
 #include <map>
+#include "SNLCollection.h"
 #include "SNLDesign.h"
 
 namespace SNL {
@@ -39,20 +40,20 @@ class SNLLibrary final: public SNLObject {
 
     SNLDB* getDB() const;
 
+    ///\return parent SNLLibrary
     SNLLibrary* getParentLibrary() const;
+    ///\return child SNLLibrary with SNLID::LibraryID id
     SNLLibrary* getLibrary(SNLID::LibraryID id);
+    ///\return child SNLLibrary named name
     SNLLibrary* getLibrary(const SNLName& name);
-    auto getLibraries() const {
-      return ranges::views::all(libraries_)
-        | ranges::views::transform([](const SNLLibrary& l) { return const_cast<SNLLibrary*>(&l); });
-    }
-
-    auto getDesigns() const {
-      return ranges::views::all(designs_)
-        | ranges::views::transform([](const SNLDesign& d) { return const_cast<SNLDesign*>(&d); });
-    }
+    ///\return the collection of sub SNLLibrary
+    SNLCollection<SNLLibrary*> getLibraries() const;
+    ///\return SNLDesign with SNLID::DesignID id
     SNLDesign* getDesign(SNLID::DesignID id);
+    ///\return SNLDesign named name
     SNLDesign* getDesign(const SNLName& name);
+    ///\return the collection of SNLDesign contained in this SNLLibrary
+    SNLCollection<SNLDesign*> getDesigns() const;
 
     SNLID::LibraryID getID() const { return id_; }
     SNLID getSNLID() const;

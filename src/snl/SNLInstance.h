@@ -5,11 +5,10 @@
 #include <map>
 #include <boost/intrusive/set.hpp>
 
-#include <range/v3/view/all.hpp>
-
 #include "SNLDesignObject.h"
 #include "SNLID.h"
 #include "SNLName.h"
+#include "SNLCollection.h"
 
 namespace SNL {
 
@@ -42,9 +41,7 @@ class SNLInstance final: public SNLDesignObject {
     Card* getCard() const override;
 
     SNLInstTerm* getInstTerm(const SNLBitTerm* term);
-    auto getInstTerms() const {
-      return ranges::views::all(instTerms_);
-    }
+    SNLCollection<SNLInstTerm*> getInstTerms() const;
   private:
     static void preCreate(SNLDesign* design, const SNLName& name);
     void postCreate();
@@ -52,7 +49,8 @@ class SNLInstance final: public SNLDesignObject {
     void destroyFromDesign();
     void destroyFromModel();
     void preDestroy() override;
-    void createInstTerm(SNLTerm* term);
+    void createInstTerm(SNLBitTerm* term);
+    void removeInstTerm(SNLBitTerm* term);
 
     SNLInstance(SNLDesign* design, SNLDesign* model, const SNLName& name);
 

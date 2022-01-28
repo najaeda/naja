@@ -1,8 +1,6 @@
 #ifndef __SNL_SCALAR_NET_H_
 #define __SNL_SCALAR_NET_H_
 
-#include <range/v3/view/transform.hpp>
-
 #include "SNLBitNet.h"
 #include "SNLName.h"
 
