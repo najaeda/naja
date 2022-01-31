@@ -1,4 +1,6 @@
 #include "gtest/gtest.h"
+#include "gmock/gmock.h"
+using ::testing::ElementsAre;
 
 #include "SNLUniverse.h"
 #include "SNLParameter.h"
@@ -54,4 +56,6 @@ TEST_F(SNLParameterTest, test) {
   ASSERT_EQ(2, paramsVector.size());
   EXPECT_EQ(param1, paramsVector[0]);
   EXPECT_EQ(param2, paramsVector[1]);
+  EXPECT_THAT(std::vector(design_->getParameters().begin(), design_->getParameters().end()),
+    ElementsAre(param1, param2));
 }

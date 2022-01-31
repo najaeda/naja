@@ -1,4 +1,6 @@
 #include "gtest/gtest.h"
+#include "gmock/gmock.h"
+using ::testing::ElementsAre;
 
 #include "SNLUniverse.h"
 using namespace SNL;
@@ -30,6 +32,7 @@ TEST_F(SNLLibraryTest, test) {
 
   EXPECT_EQ(1, db->getLibraries().size());
   EXPECT_FALSE(db->getLibraries().empty());
+  EXPECT_THAT(std::vector(db->getLibraries().begin(), db->getLibraries().end()), ElementsAre(lib1));
   EXPECT_EQ(0, lib1->getLibraries().size());
   EXPECT_TRUE(lib1->getLibraries().empty());
   EXPECT_EQ(0, lib1->getDesigns().size());
@@ -44,6 +47,8 @@ TEST_F(SNLLibraryTest, test) {
 
   EXPECT_EQ(2, db->getLibraries().size());
   EXPECT_FALSE(db->getLibraries().empty());
+  EXPECT_THAT(std::vector(db->getLibraries().begin(), db->getLibraries().end()),
+    ElementsAre(lib1, lib2));
   EXPECT_EQ(0, lib1->getLibraries().size());
   EXPECT_TRUE(lib1->getLibraries().empty());
   EXPECT_EQ(0, lib1->getDesigns().size());
@@ -66,6 +71,7 @@ TEST_F(SNLLibraryTest, test) {
   EXPECT_TRUE(lib1->getLibraries().empty());
   EXPECT_EQ(1, lib2->getLibraries().size());
   EXPECT_FALSE(lib2->getLibraries().empty());
+  EXPECT_THAT(std::vector(lib2->getLibraries().begin(), lib2->getLibraries().end()), ElementsAre(lib3));
   EXPECT_EQ(0, lib3->getLibraries().size());
   EXPECT_TRUE(lib3->getLibraries().empty());
   EXPECT_EQ(0, lib3->getDesigns().size());
@@ -84,6 +90,7 @@ TEST_F(SNLLibraryTest, test) {
   EXPECT_TRUE(lib1->getLibraries().empty());
   EXPECT_EQ(2, lib2->getLibraries().size());
   EXPECT_FALSE(lib2->getLibraries().empty());
+  EXPECT_THAT(std::vector(lib2->getLibraries().begin(), lib2->getLibraries().end()), ElementsAre(lib3, lib4));
   EXPECT_EQ(0, lib3->getLibraries().size());
   EXPECT_TRUE(lib3->getLibraries().empty());
   EXPECT_EQ(0, lib4->getLibraries().size());
@@ -99,13 +106,14 @@ TEST_F(SNLLibraryTest, test) {
   EXPECT_TRUE(lib1->getLibraries().empty());
   EXPECT_EQ(1, lib2->getLibraries().size());
   EXPECT_FALSE(lib2->getLibraries().empty());
+  EXPECT_THAT(std::vector(lib2->getLibraries().begin(), lib2->getLibraries().end()), ElementsAre(lib3));
   EXPECT_EQ(0, lib3->getLibraries().size());
   EXPECT_TRUE(lib3->getLibraries().empty());
 
   lib2->destroy();
   testLib2 = db->getLibrary(SNLName("LIB2"));
   EXPECT_FALSE(testLib2);
-
+  EXPECT_THAT(std::vector(db->getLibraries().begin(), db->getLibraries().end()), ElementsAre(lib1));
   EXPECT_EQ(1, db->getLibraries().size());
   EXPECT_FALSE(db->getLibraries().empty());
   EXPECT_EQ(0, lib1->getLibraries().size());

@@ -1,4 +1,7 @@
 #include "gtest/gtest.h"
+#include "gmock/gmock.h"
+using namespace std;
+using ::testing::ElementsAre;
 
 #include "SNLUniverse.h"
 #include "SNLDB.h"
@@ -8,7 +11,6 @@
 #include "SNLBusTermBit.h"
 #include "SNLInstance.h"
 #include "SNLInstTerm.h"
-using namespace std;
 using namespace SNL;
 
 class SNLInstanceTest: public ::testing::Test {
@@ -33,12 +35,14 @@ TEST_F(SNLInstanceTest, testCreation) {
   EXPECT_EQ(1, model->getID());
   EXPECT_EQ(SNLID(SNLID::Type::Design, 1, 0, 0, 0, 0, 0), design->getSNLID());
   EXPECT_EQ(SNLID(SNLID::Type::Design, 1, 0, 1, 0, 0, 0), model->getSNLID());
-  SNLScalarTerm::create(model, SNLTerm::Direction::Input, SNLName("i0"));
-  SNLBusTerm::create(model, SNLTerm::Direction::Input, 0, 3);
-  SNLScalarTerm::create(model, SNLTerm::Direction::Input, SNLName("i1"));
-  SNLScalarTerm::create(model, SNLTerm::Direction::Input, SNLName("i2"));
+  auto term0 = SNLScalarTerm::create(model, SNLTerm::Direction::Input, SNLName("i0"));
+  auto term1 = SNLBusTerm::create(model, SNLTerm::Direction::Input, 0, 3);
+  auto term2 = SNLScalarTerm::create(model, SNLTerm::Direction::Input, SNLName("i1"));
+  auto term3 = SNLScalarTerm::create(model, SNLTerm::Direction::Input, SNLName("i2"));
   EXPECT_FALSE(model->getTerms().empty());
   EXPECT_EQ(4, model->getTerms().size());
+  EXPECT_THAT(std::vector(model->getTerms().begin(), model->getTerms().end()),
+    ElementsAre(term0, term1, term2, term3));
 
   using TermsVector = std::vector<SNLTerm*>;
   TermsVector termsVector(model->getTerms().begin(), model->getTerms().end());
@@ -170,15 +174,19 @@ TEST_F(SNLInstanceTest, testCreation) {
   EXPECT_EQ(instance2Test, instance2);
 
   EXPECT_EQ(2, design->getInstances().size());
+  EXPECT_THAT(std::vector(design->getInstances().begin(), design->getInstances().end()),
+    ElementsAre(instance1, instance2));
+  EXPECT_TRUE(design->getSlaveInstances().empty());
   EXPECT_EQ(2, model->getSlaveInstances().size());
-
-  //for (auto instance: design->getInstances()) {
-  //  cerr << instance->getDescription() << endl;
-  //}
+  EXPECT_THAT(std::vector(model->getSlaveInstances().begin(), model->getSlaveInstances().end()),
+    ElementsAre(instance1, instance2));
+  EXPECT_TRUE(model->getInstances().empty());
 
   //create new terminals on model and verify corresponding instance terminals creation
-  SNLScalarTerm::create(model, SNLTerm::Direction::Input, SNLName("i3"));
+  auto term4 =  SNLScalarTerm::create(model, SNLTerm::Direction::Input, SNLName("i3"));
   EXPECT_EQ(5, model->getTerms().size());
+  EXPECT_THAT(std::vector(model->getTerms().begin(), model->getTerms().end()),
+    ElementsAre(term0, term1, term2, term3, term4));
   termsVector = TermsVector(model->getTerms().begin(), model->getTerms().end());
   EXPECT_EQ(5, termsVector.size());
   EXPECT_EQ(SNLID(SNLID::Type::Term, 1, 0, 1, 4, 0, 0), termsVector[4]->getSNLID());
@@ -186,8 +194,10 @@ TEST_F(SNLInstanceTest, testCreation) {
   EXPECT_EQ(8, instance1->getInstTerms().size());
   EXPECT_EQ(8, instance2->getInstTerms().size());
 
-  SNLBusTerm::create(model, SNLTerm::Direction::Input, -2, 3, SNLName("o"));
+  auto term5 = SNLBusTerm::create(model, SNLTerm::Direction::Input, -2, 3, SNLName("o"));
   EXPECT_EQ(6, model->getTerms().size());
+  EXPECT_THAT(std::vector(model->getTerms().begin(), model->getTerms().end()),
+    ElementsAre(term0, term1, term2, term3, term4, term5));
   termsVector = TermsVector(model->getTerms().begin(), model->getTerms().end());
   EXPECT_EQ(6, termsVector.size());
   EXPECT_EQ(SNLID(SNLID::Type::Term, 1, 0, 1, 5, 0, 0), termsVector[5]->getSNLID());
