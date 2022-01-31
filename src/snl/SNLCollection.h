@@ -232,7 +232,6 @@ class SNLVectorCollection: public SNLBaseCollection<Type> {
     SNLBaseCollection<Type>* clone() const override {
       return new SNLVectorCollection(bits_);
     }
-
     SNLBaseIterator<Type>* begin() const override {
       return new SNLVectorCollectionIterator(bits_, true);
     }
