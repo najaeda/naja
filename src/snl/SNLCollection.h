@@ -19,6 +19,7 @@
 
 #include <vector>
 #include <memory>
+#include <functional>
 
 #include <boost/intrusive/set.hpp>
 
