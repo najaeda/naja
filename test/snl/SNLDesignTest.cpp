@@ -1,4 +1,6 @@
 #include "gtest/gtest.h"
+#include "gmock/gmock.h"
+using ::testing::ElementsAre;
 
 #include "SNLUniverse.h"
 #include "SNLDB.h"
@@ -93,6 +95,8 @@ TEST_F(SNLDesignTest, testCreation) {
   EXPECT_EQ(model, library->getDesign(SNLName("model")));
   EXPECT_EQ(2, library->getDesigns().size());
   EXPECT_FALSE(library->getDesigns().empty());
+  EXPECT_THAT(std::vector(library->getDesigns().begin(), library->getDesigns().end()),
+    ElementsAre(design, model));
 
   //anonymous design
   SNLDesign* anon = SNLDesign::create(library);
