@@ -22,8 +22,6 @@
 
 #include <boost/intrusive/set.hpp>
 
-#include "SNLFilter.h"
-
 namespace SNL {
 
 template<class Type>
@@ -359,45 +357,46 @@ template<class Type, class SubType> class SNLSubTypeCollection: public SNLBaseCo
 template<class Type> class SNLFilteredCollection: public SNLBaseCollection<Type> {
   public:
     using super = SNLBaseCollection<Type>;
+    using Filter = std::function<bool(Type)>;
 
     class SNLFilteredCollectionIterator: public SNLBaseIterator<Type> {
       public:
         using super = SNLBaseIterator<Type>;
-#if 0
-        SNLFilteredCollectionIterator(const SNLBaseCollection<Type>* collection, bool beginOrEnd=true):
-          super() {
+        SNLFilteredCollectionIterator(const SNLBaseCollection<Type>* collection, const Filter& filter, bool beginOrEnd=true):
+          super(),
+          filter_(filter) {
           if (collection) {
             endIt_ = collection->end();
             if (not beginOrEnd) {
               it_ = endIt_;
             } else {
               it_ = collection->begin();
-              while (isValid() and not dynamic_cast<SubType>(it_->getElement())) {
+              while (isValid() and not filter_(it_->getElement())) {
                 it_->progress();
               }
             }
           }
         }
-        ~SNLSubTypeCollectionIterator() {
+        ~SNLFilteredCollectionIterator() {
           if (it_ not_eq endIt_) {
             delete it_;
           }
           delete endIt_;
         }
-        SNLBaseIterator<SubType>* clone() override {
-          return new SNLSubTypeCollectionIterator(*this);
+        SNLBaseIterator<Type>* clone() override {
+          return new SNLFilteredCollectionIterator(*this);
         }
-        SubType getElement() const override { return static_cast<SubType>(it_->getElement()); } 
+        Type getElement() const override { return static_cast<Type>(it_->getElement()); } 
         void progress() override {
           if (isValid()) {
             do {
               it_->progress();
-            } while (isValid() and not dynamic_cast<SubType>(it_->getElement()));
+            } while (isValid() and not filter_(it_->getElement()));
           }
         }
-        bool isEqual(const SNLBaseIterator<SubType>* r) override {
+        bool isEqual(const SNLBaseIterator<Type>* r) override {
           if (it_) {
-            if (auto rit = dynamic_cast<const SNLSubTypeCollectionIterator*>(r)) {
+            if (auto rit = dynamic_cast<const SNLFilteredCollectionIterator*>(r)) {
               return it_->isEqual(rit->it_);
             }
           }
@@ -407,16 +406,15 @@ template<class Type> class SNLFilteredCollection: public SNLBaseCollection<Type>
         bool isValid() const {
           return it_ and endIt_ and not it_->isEqual(endIt_);
         }
-
         SNLBaseIterator<Type>*  it_     {nullptr};
         SNLBaseIterator<Type>*  endIt_  {nullptr};
-#endif
+        const Filter&           filter_;
     };
 
     SNLFilteredCollection(const SNLFilteredCollection&) = delete;
     SNLFilteredCollection& operator=(const SNLFilteredCollection&) = delete;
     SNLFilteredCollection(const SNLFilteredCollection&&) = delete;
-    SNLFilteredCollection(const SNLBaseCollection<Type>* collection, const SNLFilter<Type>& filter):
+    SNLFilteredCollection(const SNLBaseCollection<Type>* collection, const Filter& filter):
       super(), collection_(collection), filter_(filter) 
     {}
     ~SNLFilteredCollection() {
@@ -426,22 +424,32 @@ template<class Type> class SNLFilteredCollection: public SNLBaseCollection<Type>
       return new SNLFilteredCollection(collection_, filter_);
     }
     SNLBaseIterator<Type>* begin() const override {
-      return nullptr;
+      return new SNLFilteredCollectionIterator(collection_, filter_, true);
     }
     SNLBaseIterator<Type>* end() const override {
-      return nullptr;
+      return new SNLFilteredCollectionIterator(collection_, filter_, false);
     }
     size_t size() const override {
       size_t size = 0;
+      if (collection_) {
+        auto it = std::make_unique<SNLFilteredCollectionIterator>(collection_, filter_, true);
+        auto endIt = std::make_unique<SNLFilteredCollectionIterator>(collection_, filter_,false);
+        while (not it->isEqual(endIt.get())) {
+          ++size;
+          it->progress();
+        }
+      }
       return size;
     }
     bool empty() const override {
-      return true;
+      auto it = std::make_unique<SNLFilteredCollectionIterator>(collection_, filter_,true);
+      auto endIt = std::make_unique<SNLFilteredCollectionIterator>(collection_, filter_, false);
+      return it->isEqual(endIt.get());
     }
 
   private:
     const SNLBaseCollection<Type>*  collection_;
-    SNLFilter<Type>                 filter_;
+    Filter                          filter_;
 };
 
 template<class Type> class SNLCollection {
@@ -479,7 +487,7 @@ template<class Type> class SNLCollection {
       return SNLCollection<SubType>();
     }
 
-    SNLCollection<Type> getSubCollection(const SNLFilter<Type>& filter) const {
+    SNLCollection<Type> getSubCollection(const std::function<bool(Type)>& filter) const {
       if (collection_) {
         return SNLCollection<Type>(new SNLFilteredCollection<Type>(collection_->clone(), filter));
       }

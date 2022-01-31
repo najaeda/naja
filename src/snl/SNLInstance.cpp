@@ -28,7 +28,6 @@
 #include "SNLBusTermBit.h"
 #include "SNLScalarTerm.h"
 #include "SNLInstTerm.h"
-#include "SNLFilter.h"
 
 namespace SNL {
 
@@ -105,7 +104,9 @@ void SNLInstance::commonPreDestroy() {
   std::cerr << "commonPreDestroy: " << getString() << std::endl;
 #endif
   for (auto instTerm: instTerms_) {
-    instTerm->destroyFromInstance();
+    if (instTerm) {
+      instTerm->destroyFromInstance();
+    }
   }
   super::preDestroy();
 }
@@ -152,7 +153,9 @@ SNLInstTerm* SNLInstance::getInstTerm(const SNLBitTerm* term) {
 }
 
 SNLCollection<SNLInstTerm*> SNLInstance::getInstTerms() const {
-  return SNLCollection<SNLInstTerm*>(new SNLVectorCollection<SNLInstTerm*>(&instTerms_)).getSubCollection(SNLNonNULLFilter<SNLInstTerm*>());
+  std::function<bool(SNLInstTerm*)> filter = [](const SNLInstTerm* it) {return it != nullptr; };
+  return SNLCollection<SNLInstTerm*>(
+    new SNLVectorCollection<SNLInstTerm*>(&instTerms_)).getSubCollection(filter);
 }
 
 constexpr const char* SNLInstance::getTypeName() const {

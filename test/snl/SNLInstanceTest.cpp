@@ -284,6 +284,25 @@ TEST_F(SNLInstanceTest, testCreation) {
     EXPECT_EQ(instTermsVector[13], instance2->getInstTerm(dynamic_cast<SNLBusTerm*>(termsVector[5])->getBit(3)));
   }
 
+  //destroy some terminals and verify instance terminals
+  term4->destroy();
+  EXPECT_EQ(5, model->getTerms().size());
+  EXPECT_THAT(std::vector(model->getTerms().begin(), model->getTerms().end()),
+    ElementsAre(term0, term1, term2, term3, term5));
+  termsVector = TermsVector(model->getTerms().begin(), model->getTerms().end());
+  EXPECT_EQ(5, termsVector.size());
+  EXPECT_EQ(13, instance1->getInstTerms().size());
+  EXPECT_EQ(13, instance2->getInstTerms().size());
+
+  term1->destroy();
+  EXPECT_EQ(4, model->getTerms().size());
+  EXPECT_THAT(std::vector(model->getTerms().begin(), model->getTerms().end()),
+    ElementsAre(term0, term2, term3, term5));
+  termsVector = TermsVector(model->getTerms().begin(), model->getTerms().end());
+  EXPECT_EQ(4, termsVector.size());
+  EXPECT_EQ(9, instance1->getInstTerms().size());
+  EXPECT_EQ(9, instance2->getInstTerms().size());
+
   instance1Test->destroy();
   EXPECT_EQ(design->getInstance(SNLName("instance1")), nullptr);
   instance2Test->destroy();

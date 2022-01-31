@@ -82,8 +82,8 @@ void SNLBusTerm::destroyFromDesign() {
 }
 
 void SNLBusTerm::preDestroy() {
-  commonPreDestroy();
   getDesign()->removeTerm(this);
+  commonPreDestroy();
 }
 
 size_t SNLBusTerm::getSize() const {
