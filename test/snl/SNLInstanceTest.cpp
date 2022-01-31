@@ -288,7 +288,6 @@ TEST_F(SNLInstanceTest, testCreation) {
     EXPECT_EQ(instTermsVector[13], instance2->getInstTerm(dynamic_cast<SNLBusTerm*>(termsVector[5])->getBit(3)));
   }
 
-#if 0
   //destroy some terminals and verify instance terminals
   term4->destroy();
   EXPECT_EQ(5, model->getTerms().size());
@@ -307,7 +306,6 @@ TEST_F(SNLInstanceTest, testCreation) {
   EXPECT_EQ(4, termsVector.size());
   EXPECT_EQ(9, instance1->getInstTerms().size());
   EXPECT_EQ(9, instance2->getInstTerms().size());
-#endif
 
   instance1Test->destroy();
   EXPECT_EQ(design->getInstance(SNLName("instance1")), nullptr);

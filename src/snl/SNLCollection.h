@@ -278,10 +278,12 @@ template<class Type, class SubType> class SNLSubTypeCollection: public SNLBaseCo
           }
         }
         ~SNLSubTypeCollectionIterator() {
+#if 0
           if (it_ not_eq endIt_) {
             delete it_;
           }
           delete endIt_;
+#endif
         }
         SNLBaseIterator<SubType>* clone() override {
           return new SNLSubTypeCollectionIterator(*this);
@@ -378,10 +380,12 @@ template<class Type> class SNLFilteredCollection: public SNLBaseCollection<Type>
           }
         }
         ~SNLFilteredCollectionIterator() {
+#if 0
           if (it_ not_eq endIt_) {
             delete it_;
           }
           delete endIt_;
+#endif
         }
         SNLBaseIterator<Type>* clone() override {
           return new SNLFilteredCollectionIterator(*this);
@@ -408,7 +412,7 @@ template<class Type> class SNLFilteredCollection: public SNLBaseCollection<Type>
         }
         SNLBaseIterator<Type>*  it_     {nullptr};
         SNLBaseIterator<Type>*  endIt_  {nullptr};
-        const Filter&           filter_;
+        Filter                  filter_;
     };
 
     SNLFilteredCollection(const SNLFilteredCollection&) = delete;

@@ -153,10 +153,9 @@ SNLInstTerm* SNLInstance::getInstTerm(const SNLBitTerm* term) {
 }
 
 SNLCollection<SNLInstTerm*> SNLInstance::getInstTerms() const {
-  //std::function<bool(SNLInstTerm*)> filter = [](const SNLInstTerm* it) {return it != nullptr; };
-  //return SNLCollection<SNLInstTerm*>(
-  //  new SNLVectorCollection<SNLInstTerm*>(&instTerms_)).getSubCollection(filter);
-  return SNLCollection<SNLInstTerm*>(new SNLVectorCollection<SNLInstTerm*>(&instTerms_));
+  std::function<bool(SNLInstTerm*)> filter = [](const SNLInstTerm* it) {return it != nullptr; };
+  return SNLCollection<SNLInstTerm*>(
+    new SNLVectorCollection<SNLInstTerm*>(&instTerms_)).getSubCollection(filter);
 }
 
 constexpr const char* SNLInstance::getTypeName() const {
