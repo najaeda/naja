@@ -189,7 +189,9 @@ TEST_F(SNLInstanceTest, testCreation) {
   EXPECT_EQ(5, model->getTerms().size());
   EXPECT_THAT(std::vector(model->getTerms().begin(), model->getTerms().end()),
     ElementsAre(term0, term1, term2, term3, term4));
-  termsVector = TermsVector(model->getTerms().begin(), model->getTerms().end());
+  auto termsBegin = model->getTerms().begin();
+  auto termsEnd = model->getTerms().end();
+  termsVector = TermsVector(termsBegin, termsEnd);
   EXPECT_EQ(5, termsVector.size());
   EXPECT_EQ(SNLID(SNLID::Type::Term, 1, 0, 1, 4, 0, 0), termsVector[4]->getSNLID());
   EXPECT_FALSE(termsVector[4]->isAnonymous());
