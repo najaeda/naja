@@ -42,6 +42,14 @@ class SNLInstance final: public SNLDesignObject {
     using SNLInstanceInstTerms = std::vector<SNLInstTerm*>; 
     using SNLSharedPaths = std::map<const SNLSharedPath*, SNLSharedPath*>;
 
+    /**
+     * @brief SNLInstance creator 
+     * 
+     * @param design owner SNLDesign
+     * @param model instanciated SNLDesign
+     * @param name optional name
+     * @return SNLInstance* 
+     */
     static SNLInstance* create(SNLDesign* design, SNLDesign* model, const SNLName& name=SNLName());
 
     SNLDesign* getDesign() const override { return design_; }
