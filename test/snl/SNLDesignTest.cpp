@@ -1,4 +1,6 @@
 #include "gtest/gtest.h"
+#include "gmock/gmock.h"
+using ::testing::ElementsAre;
 
 #include "SNLUniverse.h"
 #include "SNLDB.h"
@@ -79,10 +81,17 @@ TEST_F(SNLDesignTest, testCreation) {
 
   EXPECT_FALSE(design->getTerms().empty());
   EXPECT_EQ(4, design->getTerms().size());
+  EXPECT_THAT(std::vector(design->getTerms().begin(), design->getTerms().end()),
+      ElementsAre(term0, term1, term2, term3));
   EXPECT_FALSE(design->getScalarTerms().empty());
   EXPECT_EQ(3, design->getScalarTerms().size());
+  EXPECT_THAT(std::vector(design->getScalarTerms().begin(), design->getScalarTerms().end()),
+      ElementsAre(term0, term1, term2));
   EXPECT_FALSE(design->getBusTerms().empty());
   EXPECT_EQ(1, design->getBusTerms().size());
+  auto busTermsBegin = design->getBusTerms().begin();
+  auto busTermsEnd = design->getBusTerms().end();
+  EXPECT_THAT(std::vector(busTermsBegin, busTermsEnd), ElementsAre(term3));
 
   SNLDesign* model = SNLDesign::create(library, SNLName("model"));
   ASSERT_NE(model, nullptr);
@@ -93,6 +102,8 @@ TEST_F(SNLDesignTest, testCreation) {
   EXPECT_EQ(model, library->getDesign(SNLName("model")));
   EXPECT_EQ(2, library->getDesigns().size());
   EXPECT_FALSE(library->getDesigns().empty());
+  EXPECT_THAT(std::vector(library->getDesigns().begin(), library->getDesigns().end()),
+    ElementsAre(design, model));
 
   //anonymous design
   SNLDesign* anon = SNLDesign::create(library);
@@ -106,4 +117,6 @@ TEST_F(SNLDesignTest, testCreation) {
   EXPECT_TRUE(anon->isStandard());
   EXPECT_EQ(3, library->getDesigns().size());
   EXPECT_FALSE(library->getDesigns().empty());
+  EXPECT_THAT(std::vector(library->getDesigns().begin(), library->getDesigns().end()),
+    ElementsAre(design, model, anon));
 }

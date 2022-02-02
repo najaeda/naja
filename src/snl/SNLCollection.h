@@ -1,8 +1,25 @@
+/*
+ * Copyright 2022 The Naja Authors.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 #ifndef __SNL_COLLECTION_H_
 #define __SNL_COLLECTION_H_
 
 #include <vector>
 #include <memory>
+#include <functional>
 
 #include <boost/intrusive/set.hpp>
 
@@ -215,7 +232,6 @@ class SNLVectorCollection: public SNLBaseCollection<Type> {
     SNLBaseCollection<Type>* clone() const override {
       return new SNLVectorCollection(bits_);
     }
-
     SNLBaseIterator<Type>* begin() const override {
       return new SNLVectorCollectionIterator(bits_, true);
     }
@@ -262,10 +278,12 @@ template<class Type, class SubType> class SNLSubTypeCollection: public SNLBaseCo
           }
         }
         ~SNLSubTypeCollectionIterator() {
+#if 0
           if (it_ not_eq endIt_) {
             delete it_;
           }
           delete endIt_;
+#endif
         }
         SNLBaseIterator<SubType>* clone() override {
           return new SNLSubTypeCollectionIterator(*this);
@@ -338,8 +356,107 @@ template<class Type, class SubType> class SNLSubTypeCollection: public SNLBaseCo
     const SNLBaseCollection<Type>* collection_;
 };
 
-template<class Type>
-class SNLCollection {
+template<class Type> class SNLFilteredCollection: public SNLBaseCollection<Type> {
+  public:
+    using super = SNLBaseCollection<Type>;
+    using Filter = std::function<bool(Type)>;
+
+    class SNLFilteredCollectionIterator: public SNLBaseIterator<Type> {
+      public:
+        using super = SNLBaseIterator<Type>;
+        SNLFilteredCollectionIterator(const SNLBaseCollection<Type>* collection, const Filter& filter, bool beginOrEnd=true):
+          super(),
+          filter_(filter) {
+          if (collection) {
+            endIt_ = collection->end();
+            if (not beginOrEnd) {
+              it_ = endIt_;
+            } else {
+              it_ = collection->begin();
+              while (isValid() and not filter_(it_->getElement())) {
+                it_->progress();
+              }
+            }
+          }
+        }
+        ~SNLFilteredCollectionIterator() {
+#if 0
+          if (it_ not_eq endIt_) {
+            delete it_;
+          }
+          delete endIt_;
+#endif
+        }
+        SNLBaseIterator<Type>* clone() override {
+          return new SNLFilteredCollectionIterator(*this);
+        }
+        Type getElement() const override { return static_cast<Type>(it_->getElement()); } 
+        void progress() override {
+          if (isValid()) {
+            do {
+              it_->progress();
+            } while (isValid() and not filter_(it_->getElement()));
+          }
+        }
+        bool isEqual(const SNLBaseIterator<Type>* r) override {
+          if (it_) {
+            if (auto rit = dynamic_cast<const SNLFilteredCollectionIterator*>(r)) {
+              return it_->isEqual(rit->it_);
+            }
+          }
+          return false;
+        }
+      private:
+        bool isValid() const {
+          return it_ and endIt_ and not it_->isEqual(endIt_);
+        }
+        SNLBaseIterator<Type>*  it_     {nullptr};
+        SNLBaseIterator<Type>*  endIt_  {nullptr};
+        Filter                  filter_;
+    };
+
+    SNLFilteredCollection(const SNLFilteredCollection&) = delete;
+    SNLFilteredCollection& operator=(const SNLFilteredCollection&) = delete;
+    SNLFilteredCollection(const SNLFilteredCollection&&) = delete;
+    SNLFilteredCollection(const SNLBaseCollection<Type>* collection, const Filter& filter):
+      super(), collection_(collection), filter_(filter) 
+    {}
+    ~SNLFilteredCollection() {
+      delete collection_;
+    }
+    SNLBaseCollection<Type>* clone() const override {
+      return new SNLFilteredCollection(collection_, filter_);
+    }
+    SNLBaseIterator<Type>* begin() const override {
+      return new SNLFilteredCollectionIterator(collection_, filter_, true);
+    }
+    SNLBaseIterator<Type>* end() const override {
+      return new SNLFilteredCollectionIterator(collection_, filter_, false);
+    }
+    size_t size() const override {
+      size_t size = 0;
+      if (collection_) {
+        auto it = std::make_unique<SNLFilteredCollectionIterator>(collection_, filter_, true);
+        auto endIt = std::make_unique<SNLFilteredCollectionIterator>(collection_, filter_,false);
+        while (not it->isEqual(endIt.get())) {
+          ++size;
+          it->progress();
+        }
+      }
+      return size;
+    }
+    bool empty() const override {
+      auto it = std::make_unique<SNLFilteredCollectionIterator>(collection_, filter_,true);
+      auto endIt = std::make_unique<SNLFilteredCollectionIterator>(collection_, filter_, false);
+      return it->isEqual(endIt.get());
+    }
+
+  private:
+    const SNLBaseCollection<Type>*  collection_;
+    Filter                          filter_;
+};
+
+template<class Type> class SNLCollection {
   public:
     class Iterator: public std::iterator<std::input_iterator_tag, Type> {
       public:
@@ -367,11 +484,18 @@ class SNLCollection {
     SNLCollection(const SNLBaseCollection<Type>* collection): collection_(collection) {}
     ~SNLCollection() { delete collection_; }
 
-    template<class SubType> SNLCollection<SubType> getSubCollection() {
+    template<class SubType> SNLCollection<SubType> getSubCollection() const {
       if (collection_) {
         return SNLCollection<SubType>(new SNLSubTypeCollection<Type, SubType>(collection_->clone()));
       }
       return SNLCollection<SubType>();
+    }
+
+    SNLCollection<Type> getSubCollection(const std::function<bool(Type)>& filter) const {
+      if (collection_) {
+        return SNLCollection<Type>(new SNLFilteredCollection<Type>(collection_->clone(), filter));
+      }
+      return SNLCollection<Type>();
     }
 
     Iterator begin() { return Iterator(collection_->begin()); }
