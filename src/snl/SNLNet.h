@@ -29,8 +29,23 @@ class SNLNet: public SNLDesignObject {
     friend class SNLDesign;
     using super = SNLDesignObject;
 
+    class Type {
+      public:
+        enum TypeEnum {
+          Standard, Assign0, Assign1, Supply0, Supply1
+        };
+        Type(const TypeEnum& dirEnum);
+        Type(const Type& direction) = default;
+        operator const TypeEnum&() const {return typeEnum_;}
+        std::string getString() const;
+        private:
+          TypeEnum typeEnum_;
+    };
+
     virtual SNLID::DesignObjectID getID() const = 0;
     virtual SNLName getName() const = 0;
+
+    virtual void setType(const Type& type) = 0;
 
   protected:
     SNLNet() = default;

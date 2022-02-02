@@ -95,7 +95,11 @@ void SNLVRLDumper::dumpNets(const SNLDesign* design, std::ostream& o) {
 }
 
 void SNLVRLDumper::dumpInstanceInterface(const SNLInstance* instance, std::ostream& o) {
-  o << "()";
+  //// browse instance model terminals 
+  //std::vector<SNLInstTerm*> InstTerms;
+  //InstTerms instTerms(instance->getInstTerms().begin(), instance->getInstTerms().end());
+  //for (instTerm: instance->getInstTerms()) {
+  //}
 }
 
 void SNLVRLDumper::dumpInstance(const SNLInstance* instance, std::ostream& o) {

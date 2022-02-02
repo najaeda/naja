@@ -41,10 +41,13 @@ class SNLBusTerm final: public SNLTerm {
 
     SNLDesign* getDesign() const override { return design_; }
     ///\return MSB (Most Significant Bit) or left hand side of the bus range.
+
     SNLID::Bit getMSB() const { return msb_; }
     ///\return LSB (Most Significant Bit) or right hand side of the bus range.
     SNLID::Bit getLSB() const { return lsb_; }
     size_t getSize() const;
+    SNLBusTermBit* getBit(SNLID::Bit bit) const;
+    SNLCollection<SNLBusTermBit*> getBits() const;
 
     SNLID::DesignObjectID getID() const override { return id_; }
     SNLID getSNLID() const override;
@@ -56,8 +59,6 @@ class SNLBusTerm final: public SNLTerm {
     std::string getString() const override;
     std::string getDescription() const override;
 
-    SNLBusTermBit* getBit(SNLID::Bit bit) const;
-    SNLCollection<SNLBusTermBit*> getBits() const;
   private:
     SNLBusTerm(
         SNLDesign* design,
