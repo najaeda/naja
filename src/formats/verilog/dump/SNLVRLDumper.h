@@ -18,6 +18,7 @@
 #define __SNL_VRL_DUMPER_H_
 
 #include <filesystem>
+#include <vector>
 
 #include "SNLName.h"
 
