@@ -99,19 +99,34 @@ void SNLVRLDumper::dumpNets(const SNLDesign* design, std::ostream& o) {
   o << std::endl;
 }
 
+void SNLVRLDumper::dumpRange(const ContiguousNetBits& bits, std::ostream& o) {
+
+}
+
 void SNLVRLDumper::dumpInsTermConnectivity(const SNLTerm* term, BitNetVector& termNets, std::ostream& o) {
   if (std::all_of(termNets.begin(), termNets.end(), [](const SNLBitNet* n){ return n != nullptr; })) {
    assert(not termNets.empty());
    o << "." << term->getName().getString() << "(";
-   using ContiguousBits = std::vector<SNLBusNetBit*>;
-   ContiguousBits contiguousBits;
+   ContiguousNetBits contiguousBits;
    for (auto net: termNets) {
      if (net) {
        if (dynamic_cast<SNLScalarNet*>(net)) {
+         dumpRange(contiguousBits, o);
+         contiguousBits.clear();
          o << net->getName().getString();
        } else {
          auto busNetBit = static_cast<SNLBusNetBit*>(net);
          auto busNet = busNetBit->getBus();
+         if (not contiguousBits.empty()) {
+           SNLBusNetBit* previousBit = contiguousBits.back();
+           if (busNet == previousBit->getBus()
+           and ((previousBit->getBit() == busNetBit->getBit()+1)
+           or (previousBit->getBit() == busNetBit->getBit()-1))) {
+             contiguousBits.push_back(busNetBit);
+           } else {
+
+           }
+         }
        }
      }
    }
