@@ -26,6 +26,7 @@ namespace SNL {
 class SNLDesign;
 class SNLTerm;
 class SNLNet;
+class SNLBitNet;
 class SNLInstance;
 
 class SNLVRLDumper {
@@ -41,6 +42,8 @@ class SNLVRLDumper {
     void dumpInstanceInterface(const SNLInstance* instance, std::ostream& o);
     void dumpNets(const SNLDesign* design, std::ostream& o);
     void dumpInterface(const SNLDesign* design, std::ostream& o);
+    using BitNetVector = std::vector<SNLBitNet*>;
+    void dumpInsTermConnectivity(const SNLTerm* term, BitNetVector& termNets, std::ostream& o);
 };
 
 }

@@ -16,10 +16,15 @@
 
 #include "SNLVRLDumper.h"
 
+#include <cassert>
+
 #include "SNLLibrary.h"
 #include "SNLDesign.h"
 #include "SNLBusTerm.h"
+#include "SNLScalarNet.h"
 #include "SNLBusNet.h"
+#include "SNLBusNetBit.h"
+#include "SNLInstTerm.h"
 
 namespace {
 
@@ -94,12 +99,53 @@ void SNLVRLDumper::dumpNets(const SNLDesign* design, std::ostream& o) {
   o << std::endl;
 }
 
+void SNLVRLDumper::dumpInsTermConnectivity(const SNLTerm* term, BitNetVector& termNets, std::ostream& o) {
+  if (std::all_of(termNets.begin(), termNets.end(), [](const SNLBitNet* n){ return n != nullptr; })) {
+   assert(not termNets.empty());
+   o << "." << term->getName().getString() << "(";
+   using ContiguousBits = std::vector<SNLBusNetBit*>;
+   ContiguousBits contiguousBits;
+   for (auto net: termNets) {
+     if (net) {
+       if (dynamic_cast<SNLScalarNet*>(net)) {
+         o << net->getName().getString();
+       } else {
+         auto busNetBit = static_cast<SNLBusNetBit*>(net);
+         auto busNet = busNetBit->getBus();
+       }
+     }
+   }
+   o << ")";
+  }
+}
+
 void SNLVRLDumper::dumpInstanceInterface(const SNLInstance* instance, std::ostream& o) {
-  //// browse instance model terminals 
-  //std::vector<SNLInstTerm*> InstTerms;
-  //InstTerms instTerms(instance->getInstTerms().begin(), instance->getInstTerms().end());
-  //for (instTerm: instance->getInstTerms()) {
-  //}
+  o << "(";
+  BitNetVector termNets;
+  SNLTerm* previousTerm = nullptr;
+  for (auto instTerm: instance->getInstTerms()) {
+    SNLTerm* currentTerm = nullptr;
+    auto bitTerm = instTerm->getTerm();
+    if (dynamic_cast<SNLScalarTerm*>(bitTerm)) {
+      currentTerm = bitTerm;
+    } else {
+      auto busTermBit = static_cast<SNLBusTermBit*>(bitTerm);
+      currentTerm = busTermBit->getBus();
+    }
+    if (currentTerm == previousTerm) {
+      termNets.push_back(instTerm->getNet());
+    } else {
+      if (previousTerm) {
+        dumpInsTermConnectivity(previousTerm, termNets, o);
+      }
+      termNets = { instTerm->getNet() };
+    }
+    previousTerm = currentTerm;
+  }
+  if (previousTerm) {
+    dumpInsTermConnectivity(previousTerm, termNets, o);
+  }
+  o << ")";
 }
 
 void SNLVRLDumper::dumpInstance(const SNLInstance* instance, std::ostream& o) {

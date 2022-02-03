@@ -37,6 +37,9 @@ class SNLNet: public SNLDesignObject {
         Type(const TypeEnum& dirEnum);
         Type(const Type& direction) = default;
         operator const TypeEnum&() const {return typeEnum_;}
+        constexpr bool isAssign() { return typeEnum_ == Assign0 or typeEnum_ == Assign1; }
+        constexpr bool isSupply() { return typeEnum_ == Supply0 or typeEnum_ == Supply1; }
+        constexpr bool isDriving() { return isAssign() or isSupply(); }
         std::string getString() const;
         private:
           TypeEnum typeEnum_;
@@ -55,11 +58,11 @@ class SNLNet: public SNLDesignObject {
     void preDestroy() override;
 
   private:
+    virtual void destroyFromDesign() = 0;
+
     //following used in BusNet and ScalarNet
     virtual void setID(SNLID::DesignObjectID id) = 0;
     boost::intrusive::set_member_hook<> designNetsHook_ {};
-
-    virtual void destroyFromDesign() = 0;
 };
 
 }

@@ -11,6 +11,7 @@
 #include "SNLBusTerm.h"
 #include "SNLScalarNet.h"
 #include "SNLBusNet.h"
+#include "SNLInstTerm.h"
 
 using namespace SNL;
 
@@ -28,11 +29,17 @@ class SNLVRLDumperTest0: public ::testing::Test {
 
       SNLScalarNet::create(design);
       SNLBusNet::create(design, 31, 0);
-      SNLScalarNet::create(design, SNLName("o"));
+      SNLScalarNet::create(design, SNLName("n1"));
 
       SNLDesign* model = SNLDesign::create(library, SNLName("model"));
+      SNLScalarTerm::create(model, SNLTerm::Direction::Input, SNLName("i"));
+      SNLScalarTerm::create(model, SNLTerm::Direction::Output, SNLName("o"));
       SNLInstance* instance1 = SNLInstance::create(design, model, SNLName("instance1"));
       SNLInstance* instance2 = SNLInstance::create(design, model, SNLName("instance2"));
+
+      //connections between instances
+      instance1->getInstTerm(model->getScalarTerm(SNLName("o")))->setNet(design->getScalarNet(SNLName("n1")));
+      instance2->getInstTerm(model->getScalarTerm(SNLName("i")))->setNet(design->getScalarNet(SNLName("n1")));
     }
     void TearDown() override {
       SNLUniverse::get()->destroy();
