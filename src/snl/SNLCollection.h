@@ -127,66 +127,6 @@ class SNLIntrusiveConstSetCollection: public SNLBaseCollection<Type*> {
     const Set*  set_  {nullptr};
 };
 
-template<class Type, class HookType>
-class SNLIntrusiveSetCollection: public SNLBaseCollection<Type*> {
-  public:
-    using super = SNLBaseCollection<Type*>;
-    using Set = boost::intrusive::set<Type, HookType>;
-
-    class SNLIntrusiveSetCollectionIterator: public SNLBaseIterator<Type*> {
-      public:
-        using SetIterator = typename Set::iterator;
-        SNLIntrusiveSetCollectionIterator(Set* set, bool beginOrEnd=true): set_(set) {
-          if (set_) {
-            if (beginOrEnd) {
-              it_ = set->begin();
-            } else {
-              it_ = set->end();
-            }
-          }
-        }
-        Type* getElement() const override { return &*it_; } 
-        void progress() override { ++it_; }
-        bool isEqual(const SNLBaseIterator<Type*>* r) override {
-          if (const SNLIntrusiveSetCollectionIterator* rit = dynamic_cast<const SNLIntrusiveSetCollectionIterator*>(r)) {
-            return it_ == rit->it_;
-          }
-          return false;
-        }
-      private:
-        Set*        set_  {nullptr};
-        SetIterator it_   {};
-    };
-
-    SNLIntrusiveSetCollection() = delete;
-    SNLIntrusiveSetCollection(const SNLIntrusiveSetCollection&) = delete;
-    SNLIntrusiveSetCollection(SNLIntrusiveSetCollection&&) = delete;
-    SNLIntrusiveSetCollection(Set* set): super(), set_(set) {}
-
-    SNLBaseIterator<Type*>* begin() const override {
-      return new SNLIntrusiveSetCollectionIterator(set_, true);
-    }
-    SNLBaseIterator<Type*>* end() const override {
-      return new SNLIntrusiveSetCollectionIterator(set_, false);
-    }
-
-    size_t size() const override {
-      if (set_) {
-        return set_->size();
-      }
-      return 0;
-    }
-
-    bool empty() const override {
-      if (set_) {
-        return set_->empty();
-      }
-      return true;
-    }
-  private:
-    Set*  set_  {nullptr};
-};
-
 template<class Type>
 class SNLVectorCollection: public SNLBaseCollection<Type> {
   public:
