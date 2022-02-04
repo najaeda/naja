@@ -385,7 +385,7 @@ template<class Type> class SNLFilteredCollection: public SNLBaseCollection<Type>
             }
           }
         }
-        SNLFilteredCollectionIterator(const SNLFilteredCollectionIterator& it) {
+        SNLFilteredCollectionIterator(const SNLFilteredCollectionIterator& it): filter_(it.filter_) {
           endIt_ = it.endIt_->clone();
           if (it.it_ not_eq it.endIt_) {
             it_ = it.it_->clone();
