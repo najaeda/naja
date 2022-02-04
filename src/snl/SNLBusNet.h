@@ -21,6 +21,7 @@
 
 #include "SNLNet.h"
 #include "SNLName.h"
+#include "SNLCollection.h"
 
 namespace SNL {
 
@@ -43,11 +44,16 @@ class SNLBusNet final: public SNLNet {
     ///\return LSB (Most Significant Bit) or right hand side of the bus range.
     SNLID::Bit getLSB() const { return lsb_; }
     size_t getSize() const;
+    SNLBusNetBit* getBit(SNLID::Bit bit) const;
+    SNLCollection<SNLBusNetBit*> getBits() const;
 
     SNLID::DesignObjectID getID() const override { return id_; }
     SNLID getSNLID() const override;
     SNLName getName() const override { return name_; }
     bool isAnonymous() const override { return name_.empty(); }
+
+    void setType(const Type& type) override;
+
     constexpr const char* getTypeName() const override;
     std::string getString() const override;
     std::string getDescription() const override;

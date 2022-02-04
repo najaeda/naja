@@ -18,6 +18,21 @@
 
 namespace SNL {
 
+SNLNet::Type::Type(const TypeEnum& typeEnum):
+  typeEnum_(typeEnum) 
+{}
+
+std::string SNLNet::Type::getString() const {
+  switch (typeEnum_) {
+    case Type::Standard: return "Standard";
+    case Type::Assign0:  return "Assign0";
+    case Type::Assign1:  return "Assign1";
+    case Type::Supply0:  return "Supply0";
+    case Type::Supply1:  return "Supply1";
+  }
+  return "Unknown";
+}
+
 void SNLNet::preCreate() {
   super::preCreate();
 }

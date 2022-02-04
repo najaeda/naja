@@ -74,16 +74,15 @@ TEST_F(SNLInstanceTest, testCreation) {
 
   using InstTermsVector = std::vector<SNLInstTerm*>;
   {
-    auto begin = instance1->getInstTerms().begin();
-    auto end = instance1->getInstTerms().end();
-    InstTermsVector instTermsVector(begin, end);
+    InstTermsVector instTermsVector(
+      instance1->getInstTerms().begin(),
+      instance1->getInstTerms().end());
     EXPECT_EQ(7, instTermsVector.size());
 
-    //for (auto i=0; i<instTermsVector.size(); ++i) {
-    //  auto instTerm = instTermsVector[i];
-    //  std::cerr << i << ":" << instTerm->getSNLID().getString() << std::endl;
-    //  std::cerr << i << ":" << instTerm->getTerm()->getSNLID().getString() << std::endl;
-    //}
+    auto instTermsBegin = instance1->getInstTerms().begin();
+    auto instTermsEnd = instance1->getInstTerms().end();
+    instTermsVector = InstTermsVector(instTermsBegin, instTermsEnd);
+    EXPECT_EQ(7, instTermsVector.size());
 
     EXPECT_EQ(termsVector[0], instTermsVector[0]->getTerm());
     EXPECT_EQ(dynamic_cast<SNLBusTerm*>(termsVector[1])->getBit(0), instTermsVector[1]->getTerm());
@@ -92,6 +91,18 @@ TEST_F(SNLInstanceTest, testCreation) {
     EXPECT_EQ(dynamic_cast<SNLBusTerm*>(termsVector[1])->getBit(3), instTermsVector[4]->getTerm());
     EXPECT_EQ(termsVector[2], instTermsVector[5]->getTerm());
     EXPECT_EQ(termsVector[3], instTermsVector[6]->getTerm());
+
+    EXPECT_THAT(instTermsVector,
+      ElementsAre(
+        instance1->getInstTerm(dynamic_cast<SNLScalarTerm*>(termsVector[0])),
+        instance1->getInstTerm(dynamic_cast<SNLBusTerm*>(termsVector[1])->getBit(0)),
+        instance1->getInstTerm(dynamic_cast<SNLBusTerm*>(termsVector[1])->getBit(1)),
+        instance1->getInstTerm(dynamic_cast<SNLBusTerm*>(termsVector[1])->getBit(2)),
+        instance1->getInstTerm(dynamic_cast<SNLBusTerm*>(termsVector[1])->getBit(3)),
+        instance1->getInstTerm(dynamic_cast<SNLScalarTerm*>(termsVector[2])),
+        instance1->getInstTerm(dynamic_cast<SNLScalarTerm*>(termsVector[3]))
+      )
+    );
 
     EXPECT_EQ(0, termsVector[0]->getPosition());
     EXPECT_EQ(1, termsVector[1]->getPosition());
@@ -287,6 +298,7 @@ TEST_F(SNLInstanceTest, testCreation) {
     EXPECT_EQ(instTermsVector[12], instance2->getInstTerm(dynamic_cast<SNLBusTerm*>(termsVector[5])->getBit(2)));
     EXPECT_EQ(instTermsVector[13], instance2->getInstTerm(dynamic_cast<SNLBusTerm*>(termsVector[5])->getBit(3)));
   }
+
 
   //destroy some terminals and verify instance terminals
   term4->destroy();

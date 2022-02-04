@@ -33,8 +33,10 @@ class SNLScalarNet final: public SNLBitNet {
 
     SNLID getSNLID() const override;
     SNLID::DesignObjectID getID() const override { return id_; }
+
     SNLName getName() const override { return name_; }
     bool isAnonymous() const override { return name_.empty(); }
+
     constexpr const char* getTypeName() const override;
     std::string getString() const override;
     std::string getDescription() const override;

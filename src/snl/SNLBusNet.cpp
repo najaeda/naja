@@ -89,6 +89,22 @@ SNLID SNLBusNet::getSNLID() const {
   return SNLDesignObject::getSNLID(SNLID::Type::Net, id_, 0, 0);
 }
 
+SNLBusNetBit* SNLBusNet::getBit(SNLID::Bit bit) const {
+  size_t pos = static_cast<size_t>(std::abs(getMSB()-bit));
+  if (pos < bits_.size()) {
+    return bits_[pos];
+  }
+  return nullptr;
+}
+
+SNLCollection<SNLBusNetBit*> SNLBusNet::getBits() const {
+  return SNLCollection<SNLBusNetBit*>(new SNLVectorCollection<SNLBusNetBit*>(&bits_));
+}
+
+void SNLBusNet::setType(const Type& type) {
+  std::for_each(bits_.begin(), bits_.end(), [type](SNLBusNetBit* b){ if (b) b->setType(type); });
+}
+
 constexpr const char* SNLBusNet::getTypeName() const {
   return "SNLBusNet";
 }

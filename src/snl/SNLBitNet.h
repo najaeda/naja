@@ -27,6 +27,9 @@ class SNLBitNet: public SNLNet {
   public:
     friend class SNLNetComponent;
     using super = SNLNet;
+    
+    void setType(const Type& type) override { type_ = type; }
+    Type getType() const { return type_; }
 
     SNLCollection<SNLNetComponent*> getComponents() const;
 
@@ -44,7 +47,8 @@ class SNLBitNet: public SNLNet {
       boost::intrusive::member_hook<SNLNetComponent, boost::intrusive::set_member_hook<>, &SNLNetComponent::netComponentsHook_>;
     using SNLBitNetComponents = boost::intrusive::set<SNLNetComponent, SNLBitNetComponentsHook>;
 
-    SNLBitNetComponents components_;
+    Type                type_       { Type::Standard };
+    SNLBitNetComponents components_ {};
 };
 
 }

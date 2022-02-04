@@ -16,10 +16,15 @@
 
 #include "SNLVRLDumper.h"
 
+#include <cassert>
+
 #include "SNLLibrary.h"
 #include "SNLDesign.h"
 #include "SNLBusTerm.h"
+#include "SNLScalarNet.h"
 #include "SNLBusNet.h"
+#include "SNLBusNetBit.h"
+#include "SNLInstTerm.h"
 
 namespace {
 
@@ -94,8 +99,68 @@ void SNLVRLDumper::dumpNets(const SNLDesign* design, std::ostream& o) {
   o << std::endl;
 }
 
+void SNLVRLDumper::dumpRange(const ContiguousNetBits& bits, std::ostream& o) {
+
+}
+
+void SNLVRLDumper::dumpInsTermConnectivity(const SNLTerm* term, BitNetVector& termNets, std::ostream& o) {
+  if (std::all_of(termNets.begin(), termNets.end(), [](const SNLBitNet* n){ return n != nullptr; })) {
+   assert(not termNets.empty());
+   o << "." << term->getName().getString() << "(";
+   ContiguousNetBits contiguousBits;
+   for (auto net: termNets) {
+     if (net) {
+       if (dynamic_cast<SNLScalarNet*>(net)) {
+         dumpRange(contiguousBits, o);
+         contiguousBits.clear();
+         o << net->getName().getString();
+       } else {
+         auto busNetBit = static_cast<SNLBusNetBit*>(net);
+         auto busNet = busNetBit->getBus();
+         if (not contiguousBits.empty()) {
+           SNLBusNetBit* previousBit = contiguousBits.back();
+           if (busNet == previousBit->getBus()
+           and ((previousBit->getBit() == busNetBit->getBit()+1)
+           or (previousBit->getBit() == busNetBit->getBit()-1))) {
+             contiguousBits.push_back(busNetBit);
+           } else {
+
+           }
+         }
+       }
+     }
+   }
+   o << ")";
+  }
+}
+
 void SNLVRLDumper::dumpInstanceInterface(const SNLInstance* instance, std::ostream& o) {
-  o << "()";
+  o << "(";
+  BitNetVector termNets;
+  SNLTerm* previousTerm = nullptr;
+  for (auto instTerm: instance->getInstTerms()) {
+    SNLTerm* currentTerm = nullptr;
+    auto bitTerm = instTerm->getTerm();
+    if (dynamic_cast<SNLScalarTerm*>(bitTerm)) {
+      currentTerm = bitTerm;
+    } else {
+      auto busTermBit = static_cast<SNLBusTermBit*>(bitTerm);
+      currentTerm = busTermBit->getBus();
+    }
+    if (currentTerm == previousTerm) {
+      termNets.push_back(instTerm->getNet());
+    } else {
+      if (previousTerm) {
+        dumpInsTermConnectivity(previousTerm, termNets, o);
+      }
+      termNets = { instTerm->getNet() };
+    }
+    previousTerm = currentTerm;
+  }
+  if (previousTerm) {
+    dumpInsTermConnectivity(previousTerm, termNets, o);
+  }
+  o << ")";
 }
 
 void SNLVRLDumper::dumpInstance(const SNLInstance* instance, std::ostream& o) {

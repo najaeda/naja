@@ -18,15 +18,18 @@
 #define __SNL_VRL_DUMPER_H_
 
 #include <filesystem>
+#include <vector>
 
 #include "SNLName.h"
 
 namespace SNL {
 
 class SNLDesign;
+class SNLInstance;
 class SNLTerm;
 class SNLNet;
-class SNLInstance;
+class SNLBitNet;
+class SNLBusNetBit;
 
 class SNLVRLDumper {
   public:
@@ -41,6 +44,10 @@ class SNLVRLDumper {
     void dumpInstanceInterface(const SNLInstance* instance, std::ostream& o);
     void dumpNets(const SNLDesign* design, std::ostream& o);
     void dumpInterface(const SNLDesign* design, std::ostream& o);
+    using BitNetVector = std::vector<SNLBitNet*>;
+    void dumpInsTermConnectivity(const SNLTerm* term, BitNetVector& termNets, std::ostream& o);
+    using ContiguousNetBits = std::vector<SNLBusNetBit*>;
+    void dumpRange(const ContiguousNetBits& bits, std::ostream& o);
 };
 
 }

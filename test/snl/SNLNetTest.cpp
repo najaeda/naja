@@ -5,6 +5,7 @@
 #include "SNLBusTerm.h"
 #include "SNLScalarNet.h"
 #include "SNLBusNet.h"
+#include "SNLBusNetBit.h"
 
 using namespace SNL;
 
@@ -60,6 +61,12 @@ TEST_F(SNLNetTest, testCreation) {
   i1Term->setNet(i1Net);
   EXPECT_EQ(i1Net, i1Term->getNet());
 
+  EXPECT_EQ(SNLNet::Type::Standard ,i0Net->getType());
+  i0Net->setType(SNLBitNet::Type::Assign0);
+  EXPECT_EQ(SNLNet::Type::Assign0 ,i0Net->getType());
+  i0Net->setType(SNLBitNet::Type::Supply1);
+  EXPECT_EQ(SNLNet::Type::Supply1 ,i0Net->getType());
+
   auto instance0 = SNLInstance::create(design_, primitive, SNLName("instance0"));
   auto instance1 = SNLInstance::create(design_, primitive, SNLName("instance1"));
   auto instance2 = SNLInstance::create(design_, primitive, SNLName("instance2"));
@@ -70,9 +77,37 @@ TEST_F(SNLNetTest, testCreation) {
   EXPECT_EQ(2, net0->getID());
   EXPECT_EQ(31, net0->getMSB());
   EXPECT_EQ(0, net0->getLSB());
-  //EXPECT_EQ(32, net0->getSize());
+  EXPECT_EQ(32, net0->getSize());
   EXPECT_EQ(design_, net0->getDesign());
   EXPECT_FALSE(net0->isAnonymous());
   EXPECT_EQ(net0, design_->getNet(2));
   EXPECT_EQ(net0, design_->getNet(SNLName("net0")));
+
+  for (auto bit: net0->getBits()) {
+    EXPECT_EQ(SNLNet::Type::Standard, bit->getType());
+    EXPECT_FALSE(bit->getType());
+  }
+  net0->setType(SNLBitNet::Type::Supply1);
+  for (auto bit: net0->getBits()) {
+    EXPECT_EQ(SNLNet::Type::Supply1, bit->getType());
+    EXPECT_TRUE(bit->getType().isSupply());
+    EXPECT_TRUE(bit->getType().isDriving());
+  }
+  net0->setType(SNLBitNet::Type::Assign0);
+  for (auto bit: net0->getBits()) {
+    EXPECT_EQ(SNLNet::Type::Assign0, bit->getType());
+    EXPECT_TRUE(bit->getType().isDriving());
+  }
+}
+
+TEST_F(SNLNetTest, testNetType) {
+  EXPECT_TRUE(SNLNet::Type(SNLNet::Type::Assign0).isAssign());
+  EXPECT_TRUE(SNLNet::Type(SNLNet::Type::Assign1).isAssign());
+  EXPECT_TRUE(SNLNet::Type(SNLNet::Type::Supply0).isSupply());
+  EXPECT_TRUE(SNLNet::Type(SNLNet::Type::Supply1).isSupply());
+  EXPECT_TRUE(SNLNet::Type(SNLNet::Type::Assign0).isDriving());
+  EXPECT_TRUE(SNLNet::Type(SNLNet::Type::Assign1).isDriving());
+  EXPECT_TRUE(SNLNet::Type(SNLNet::Type::Supply0).isDriving());
+  EXPECT_TRUE(SNLNet::Type(SNLNet::Type::Supply1).isDriving());
+  EXPECT_FALSE(SNLNet::Type(SNLNet::Type::Standard).isDriving());
 }
