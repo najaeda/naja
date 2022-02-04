@@ -33,7 +33,7 @@ void SNLBitNet::preDestroy() {
 }
 
 SNLCollection<SNLNetComponent*> SNLBitNet::getComponents() const {
-  return SNLCollection<SNLNetComponent*>(new SNLIntrusiveConstSetCollection<SNLNetComponent, SNLBitNetComponentsHook>(&components_));
+  return SNLCollection<SNLNetComponent*>(new SNLIntrusiveSetCollection<SNLNetComponent, SNLBitNetComponentsHook>(&components_));
 }
 
 void SNLBitNet::addComponent(SNLNetComponent* component) {

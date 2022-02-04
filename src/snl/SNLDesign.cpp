@@ -222,7 +222,7 @@ SNLBusTerm* SNLDesign::getBusTerm(const SNLName& name) const {
 }
 
 SNLCollection<SNLTerm*> SNLDesign::getTerms() const {
-  return SNLCollection<SNLTerm*>(new SNLIntrusiveConstSetCollection<SNLTerm, SNLDesignTermsHook>(&terms_));
+  return SNLCollection<SNLTerm*>(new SNLIntrusiveSetCollection<SNLTerm, SNLDesignTermsHook>(&terms_));
 }
 
 SNLCollection<SNLBusTerm*> SNLDesign::getBusTerms() const {
@@ -256,11 +256,11 @@ void SNLDesign::removeInstance(SNLInstance* instance) {
 }
 
 SNLCollection<SNLInstance*> SNLDesign::getInstances() const {
-  return SNLCollection<SNLInstance*>(new SNLIntrusiveConstSetCollection<SNLInstance, SNLDesignInstancesHook>(&instances_));
+  return SNLCollection<SNLInstance*>(new SNLIntrusiveSetCollection<SNLInstance, SNLDesignInstancesHook>(&instances_));
 }
 
 SNLCollection<SNLInstance*> SNLDesign::getSlaveInstances() const {
-  return SNLCollection<SNLInstance*>(new SNLIntrusiveConstSetCollection<SNLInstance, SNLDesignSlaveInstancesHook>(&slaveInstances_));
+  return SNLCollection<SNLInstance*>(new SNLIntrusiveSetCollection<SNLInstance, SNLDesignSlaveInstancesHook>(&slaveInstances_));
 }
 
 SNLInstance* SNLDesign::getInstance(SNLID::DesignObjectID id) const {
@@ -345,7 +345,7 @@ SNLBusNet* SNLDesign::getBusNet(const SNLName& name) const {
 }
 
 SNLCollection<SNLNet*> SNLDesign::getNets() const {
-  return SNLCollection<SNLNet*>(new SNLIntrusiveConstSetCollection<SNLNet, SNLDesignNetsHook>(&nets_));
+  return SNLCollection<SNLNet*>(new SNLIntrusiveSetCollection<SNLNet, SNLDesignNetsHook>(&nets_));
 }
 
 SNLDB* SNLDesign::getDB() const {
@@ -369,7 +369,7 @@ SNLParameter* SNLDesign::getParameter(const SNLName& name) const {
 }
 
 SNLCollection<SNLParameter*> SNLDesign::getParameters() const {
-  return SNLCollection<SNLParameter*>(new SNLIntrusiveConstSetCollection<SNLParameter, SNLDesignParametersHook>(&parameters_));
+  return SNLCollection<SNLParameter*>(new SNLIntrusiveSetCollection<SNLParameter, SNLDesignParametersHook>(&parameters_));
 }
 
 constexpr const char* SNLDesign::getTypeName() const {
