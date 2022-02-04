@@ -96,6 +96,10 @@ void SNLInstance::removeInstTerm(SNLBitTerm* term) {
   if (term->getPosition() > instTerms_.size()) {
     throw SNLException("");
   }
+  auto instTerm = instTerms_[term->getPosition()];
+  if (instTerm) {
+    instTerm->destroyFromInstance();
+  }
   instTerms_[term->getPosition()] = nullptr;
 }
 

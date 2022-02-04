@@ -299,6 +299,7 @@ TEST_F(SNLInstanceTest, testCreation) {
     EXPECT_EQ(instTermsVector[13], instance2->getInstTerm(dynamic_cast<SNLBusTerm*>(termsVector[5])->getBit(3)));
   }
 
+
   //destroy some terminals and verify instance terminals
   term4->destroy();
   EXPECT_EQ(5, model->getTerms().size());
