@@ -58,16 +58,16 @@ class SNLBaseCollection {
 };
 
 template<class Type, class HookType>
-class SNLIntrusiveConstSetCollection: public SNLBaseCollection<Type*> {
+class SNLIntrusiveSetCollection: public SNLBaseCollection<Type*> {
   public:
     using super = SNLBaseCollection<Type*>;
     using Set = boost::intrusive::set<Type, HookType>;
 
-    class SNLIntrusiveConstSetCollectionIterator: public SNLBaseIterator<Type*> {
+    class SNLIntrusiveSetCollectionIterator: public SNLBaseIterator<Type*> {
       public:
         using SetIterator = typename Set::const_iterator;
-        SNLIntrusiveConstSetCollectionIterator(const SNLIntrusiveConstSetCollectionIterator&) = default;
-        SNLIntrusiveConstSetCollectionIterator(const Set* set, bool beginOrEnd=true): set_(set) {
+        SNLIntrusiveSetCollectionIterator(const SNLIntrusiveSetCollectionIterator&) = default;
+        SNLIntrusiveSetCollectionIterator(const Set* set, bool beginOrEnd=true): set_(set) {
           if (set_) {
             if (beginOrEnd) {
               it_ = set->begin();
@@ -79,13 +79,13 @@ class SNLIntrusiveConstSetCollection: public SNLBaseCollection<Type*> {
         Type* getElement() const override { return const_cast<Type*>(&*it_); }
         void progress() override { ++it_; }
         bool isEqual(const SNLBaseIterator<Type*>* r) override {
-          if (const SNLIntrusiveConstSetCollectionIterator* rit = dynamic_cast<const SNLIntrusiveConstSetCollectionIterator*>(r)) {
+          if (const SNLIntrusiveSetCollectionIterator* rit = dynamic_cast<const SNLIntrusiveSetCollectionIterator*>(r)) {
             return it_ == rit->it_;
           }
           return false;
         }
         SNLBaseIterator<Type*>* clone() override {
-          return new SNLIntrusiveConstSetCollectionIterator(*this);
+          return new SNLIntrusiveSetCollectionIterator(*this);
         }
       private:
         const Set*  set_  {nullptr};
@@ -93,20 +93,20 @@ class SNLIntrusiveConstSetCollection: public SNLBaseCollection<Type*> {
     };
 
     SNLBaseIterator<Type*>* begin() const override {
-      return new SNLIntrusiveConstSetCollectionIterator(set_, true);
+      return new SNLIntrusiveSetCollectionIterator(set_, true);
     }
 
     SNLBaseIterator<Type*>* end() const override {
-      return new SNLIntrusiveConstSetCollectionIterator(set_, false);
+      return new SNLIntrusiveSetCollectionIterator(set_, false);
     }
 
-    SNLIntrusiveConstSetCollection() = delete;
-    SNLIntrusiveConstSetCollection(const SNLIntrusiveConstSetCollection&) = delete;
-    SNLIntrusiveConstSetCollection(SNLIntrusiveConstSetCollection&&) = delete;
-    SNLIntrusiveConstSetCollection(const Set* set): super(), set_(set) {}
+    SNLIntrusiveSetCollection() = delete;
+    SNLIntrusiveSetCollection(const SNLIntrusiveSetCollection&) = delete;
+    SNLIntrusiveSetCollection(SNLIntrusiveSetCollection&&) = delete;
+    SNLIntrusiveSetCollection(const Set* set): super(), set_(set) {}
 
     SNLBaseCollection<Type*>* clone() const override {
-      return new SNLIntrusiveConstSetCollection(set_);
+      return new SNLIntrusiveSetCollection(set_);
     }
 
     size_t size() const override {
