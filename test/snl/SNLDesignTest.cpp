@@ -41,6 +41,7 @@ TEST_F(SNLDesignTest, testCreation) {
   EXPECT_EQ(db_, design->getDB());
   EXPECT_EQ(SNLID(1, 0, 0), design->getSNLID());
   EXPECT_TRUE(design->isStandard());
+
   SNLScalarTerm* term0 = SNLScalarTerm::create(design, SNLTerm::Direction::Input, SNLName("term0"));
   ASSERT_NE(term0, nullptr);
   EXPECT_EQ(SNLName("term0"), term0->getName());
@@ -49,6 +50,7 @@ TEST_F(SNLDesignTest, testCreation) {
   EXPECT_EQ(SNLID(SNLID::Type::Term, 1, 0, 0, 0, 0, 0), term0->getSNLID());
   EXPECT_EQ(design, term0->getDesign());
   EXPECT_EQ(SNLTerm::Direction::Input, term0->getDirection());
+
   SNLScalarTerm* term1 = SNLScalarTerm::create(design, SNLTerm::Direction::Output, SNLName("term1"));
   ASSERT_NE(term1, nullptr);
   EXPECT_EQ(SNLName("term1"), term1->getName());
@@ -57,6 +59,7 @@ TEST_F(SNLDesignTest, testCreation) {
   EXPECT_EQ(SNLID(SNLID::Type::Term, 1, 0, 0, 1, 0, 0), term1->getSNLID());
   EXPECT_EQ(design, term1->getDesign());
   EXPECT_EQ(SNLTerm::Direction::Output, term1->getDirection());
+
   //anonymous scalar term
   SNLScalarTerm* term2 = SNLScalarTerm::create(design, SNLTerm::Direction::InOut);
   ASSERT_NE(term2, nullptr);
@@ -95,6 +98,8 @@ TEST_F(SNLDesignTest, testCreation) {
   auto busTermsBegin = design->getBusTerms().begin();
   auto busTermsEnd = design->getBusTerms().end();
   EXPECT_THAT(std::vector(busTermsBegin, busTermsEnd), ElementsAre(term3));
+  EXPECT_FALSE(design->getBitTerms().empty());
+  EXPECT_EQ(1+1+1+5, design->getBitTerms().size());
 
   SNLDesign* model = SNLDesign::create(library, SNLName("model"));
   ASSERT_NE(model, nullptr);

@@ -86,6 +86,7 @@ class SNLDesign final: public SNLObject {
     ///\see getTerms()
     ///\see getBusTerms()
     SNLCollection<SNLScalarTerm*> getScalarTerms() const;
+    ///\return the collection of SNLBitTerm of this SNLDesign (SNLScalarTerm and flattened SNLBusTerm to SNLBusTermBit)
     SNLCollection<SNLBitTerm*> getBitTerms() const;
 
     ///\return SNLInstance with SNLID::DesignObjectID id or nullptr if it does not exist

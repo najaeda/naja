@@ -107,7 +107,7 @@ SNLLibrary* SNLDB::getLibrary(const SNLName& name) {
 }
 
 SNLCollection<SNLLibrary*> SNLDB::getLibraries() const {
-  return SNLCollection<SNLLibrary*>(new SNLIntrusiveConstSetCollection<SNLLibrary, SNLDBLibrariesHook>(&libraries_));
+  return SNLCollection<SNLLibrary*>(new SNLIntrusiveSetCollection<SNLLibrary, SNLDBLibrariesHook>(&libraries_));
 }
 
 SNLID SNLDB::getSNLID() const {

@@ -175,7 +175,7 @@ SNLLibrary* SNLLibrary::getLibrary(const SNLName& name) {
 }
 
 SNLCollection<SNLLibrary*> SNLLibrary::getLibraries() const {
-  return SNLCollection<SNLLibrary*>(new SNLIntrusiveConstSetCollection<SNLLibrary, SNLLibraryLibrariesHook>(&libraries_));
+  return SNLCollection<SNLLibrary*>(new SNLIntrusiveSetCollection<SNLLibrary, SNLLibraryLibrariesHook>(&libraries_));
 }
 
 SNLDesign* SNLLibrary::getDesign(SNLID::DesignID id) {
@@ -196,7 +196,7 @@ SNLDesign* SNLLibrary::getDesign(const SNLName& name) {
 }
 
 SNLCollection<SNLDesign*> SNLLibrary::getDesigns() const {
-  return SNLCollection<SNLDesign*>(new SNLIntrusiveConstSetCollection<SNLDesign, SNLLibraryDesignsHook>(&designs_));
+  return SNLCollection<SNLDesign*>(new SNLIntrusiveSetCollection<SNLDesign, SNLLibraryDesignsHook>(&designs_));
 }
 
 void SNLLibrary::addLibrary(SNLLibrary* library) {
