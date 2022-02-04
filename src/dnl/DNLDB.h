@@ -14,14 +14,19 @@
  * limitations under the License.
  */
 
-#ifndef __DNL_H_
-#define __DNL_H_
+#ifndef __DNLDB_H_
+#define __DNLDB_H_
+
+#include <vector>
+
+#include "DNLInstance.h"
+#include "DNLEqui.h"
 
 namespace DNL {
 
-class DNL {
+class DNLDB {
   /**
-   * @brief DNL 
+   * @brief DNLDB 
    * 
    * Top:
    * SNLID
@@ -34,6 +39,8 @@ class DNL {
    * [ SNL::InstanceOccurrence, 12, 56 ] 
    * 
    * Terminals
+   * Const0 Equi == Index 0
+   * Const1 Equi == Index 1
    * vector<EquiID>
    * 
    * Equis:
@@ -49,8 +56,27 @@ class DNL {
    * 
    * 
    */
+
+  public:
+    using DNLInstances = std::vector<DNLInstance>;
+    //using DNLTerminals = std::vector<DNLTerm>;
+    using DNLEquis = std::vector<DNLEqui>;
+    using DNLEquisConnectivity = std::vector<size_t>;
+
+    static DNLDB* create();
+    void destroy();
+  private:
+    static void preCreate();
+    void postCreate();
+    void preDestroy();
+
+    void addInstance(size_t start, size_t end);
+
+    DNLInstances  instances_;
+    //DNLTerminals  terminals_;
+    DNLEquis      equis_;
 };
 
 }
 
-#endif /* __DNL_H_ */
+#endif /* __DNL_DB_H_ */
