@@ -85,6 +85,9 @@ TEST_F(SNLDesignTest, testCreation) {
       ElementsAre(term0, term1, term2, term3));
   EXPECT_FALSE(design->getScalarTerms().empty());
   EXPECT_EQ(3, design->getScalarTerms().size());
+  auto scalarTermsBegin = design->getScalarTerms().begin();
+  auto scalarTermsEnd = design->getScalarTerms().end();
+  EXPECT_THAT(std::vector(scalarTermsBegin, scalarTermsEnd), ElementsAre(term0, term1, term2));
   EXPECT_THAT(std::vector(design->getScalarTerms().begin(), design->getScalarTerms().end()),
       ElementsAre(term0, term1, term2));
   EXPECT_FALSE(design->getBusTerms().empty());
