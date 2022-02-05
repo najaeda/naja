@@ -86,7 +86,7 @@ class SNLIntrusiveSetCollection: public SNLBaseCollection<Type*> {
           return false;
         }
         bool isValid() const override {
-          return it_ != set_->end();
+          return set_ and it_ != set_->end();
         }
         SNLBaseIterator<Type*>* clone() override {
           return new SNLIntrusiveSetCollectionIterator(*this);
@@ -112,14 +112,12 @@ class SNLIntrusiveSetCollection: public SNLBaseCollection<Type*> {
     SNLBaseCollection<Type*>* clone() const override {
       return new SNLIntrusiveSetCollection(set_);
     }
-
     size_t size() const override {
       if (set_) {
         return set_->size();
       }
       return 0;
     }
-
     bool empty() const override {
       if (set_) {
         return set_->empty();
@@ -165,7 +163,7 @@ class SNLVectorCollection: public SNLBaseCollection<Type> {
           return false;
         }
         bool isValid() const override {
-          return it_ != bits_->end();
+          return bits_ and it_ != bits_->end();
         }
       private:
         const Vector*   bits_ {nullptr};
@@ -299,8 +297,7 @@ template<class Type, class SubType> class SNLSubTypeCollection: public SNLBaseCo
     bool empty() const override {
       if (collection_) {
         auto it = std::make_unique<SNLSubTypeCollectionIterator>(collection_, true);
-        auto endIt = std::make_unique<SNLSubTypeCollectionIterator>(collection_, false);
-        return it->isEqual(endIt.get());
+        return not it->isValid();
       }
       return true;
     }
@@ -369,7 +366,6 @@ template<class Type> class SNLFilteredCollection: public SNLBaseCollection<Type>
           return it_ and endIt_ and not it_->isEqual(endIt_);
         }
       private:
-        
         SNLBaseIterator<Type>*  it_     {nullptr};
         SNLBaseIterator<Type>*  endIt_  {nullptr};
         Filter                  filter_;
@@ -406,9 +402,11 @@ template<class Type> class SNLFilteredCollection: public SNLBaseCollection<Type>
       return size;
     }
     bool empty() const override {
-      auto it = std::make_unique<SNLFilteredCollectionIterator>(collection_, filter_,true);
-      auto endIt = std::make_unique<SNLFilteredCollectionIterator>(collection_, filter_, false);
-      return it->isEqual(endIt.get());
+      if (collection_) {
+        auto it = std::make_unique<SNLFilteredCollectionIterator>(collection_, filter_,true);
+        return not it->isValid();
+      }
+      return true;
     }
 
   private:
