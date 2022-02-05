@@ -424,6 +424,7 @@ class SNLFlatCollection: public SNLBaseCollection<FlatType> {
         using super = SNLBaseIterator<FlatType>;
         SNLFlatCollectionIterator(const SNLBaseCollection<Type>* collection, bool beginOrEnd=true):
           super() {
+#if 0
           if (collection) {
             endIt_ = collection->end();
             if (not beginOrEnd) {
@@ -443,6 +444,7 @@ class SNLFlatCollection: public SNLBaseCollection<FlatType> {
               }
             }
           }
+#endif
         }
 #if 0
         SNLSubTypeCollectionIterator(const SNLSubTypeCollectionIterator& it) {
@@ -464,23 +466,26 @@ class SNLFlatCollection: public SNLBaseCollection<FlatType> {
           return new SNLFlatCollectionIterator(*this);
         }
         FlatType getElement() const override { return element_; } 
-#if 0
         void progress() override {
+#if 0
           if (isValid()) {
-            do {
-              it_->progress();
-            } while (isValid() and not dynamic_cast<SubType>(it_->getElement()));
-          }
-        }
-        bool isEqual(const SNLBaseIterator<SubType>* r) override {
-          if (it_) {
-            if (auto rit = dynamic_cast<const SNLSubTypeCollectionIterator*>(r)) {
-              return it_->isEqual(rit->it_);
+            if (flattenIt_->isValid()) {
+              flattenIt_->progress();
+              if (flattenIt_->isValid()) {
+                element_ = flattenIt_->getElement();
+              }
             }
           }
+#endif
+        }
+        bool isEqual(const SNLBaseIterator<FlatType>* r) override {
+          //if (it_) {
+          //  if (auto rit = dynamic_cast<const SNLSubTypeCollectionIterator*>(r)) {
+          //    return it_->isEqual(rit->it_);
+          //  }
+          //}
           return false;
         }
-#endif
       private:
         bool isValid() const override {
           return element_ != nullptr;
@@ -489,7 +494,7 @@ class SNLFlatCollection: public SNLBaseCollection<FlatType> {
         SNLBaseIterator<Type>*      it_         {nullptr};
         SNLBaseIterator<Type>*      endIt_      {nullptr};
         SNLBaseIterator<FlatType>*  flattenIt_  {nullptr};
-        FlatType*                   element_    {nullptr};
+        FlatType                    element_    {nullptr};
     };
 
     SNLFlatCollection(const SNLFlatCollection&) = delete;
