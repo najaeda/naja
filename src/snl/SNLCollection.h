@@ -416,31 +416,37 @@ template<class Type> class SNLFilteredCollection: public SNLBaseCollection<Type>
     Filter                          filter_;
 };
 
-template<class Type, class MasterType, class FlattenedType>
-class SNLFlattenedCollection: public SNLBaseCollection<FlattenedType> {
+template<class Type, class MasterType, class FlatType>
+class SNLFlatCollection: public SNLBaseCollection<FlatType> {
   public:
-    using super = SNLBaseCollection<FlattenedType>;
+    using super = SNLBaseCollection<FlatType>;
 
-#if 0
-    class SNLFlattenedCollectionIterator: public SNLBaseIterator<FlattenedType> {
+    class SNLFlatCollectionIterator: public SNLBaseIterator<FlatType> {
       public:
-        using super = SNLBaseIterator<FlattenedType>;
-        SNLFlattenedCollectionIterator(const SNLBaseCollection<Type>* collection, bool beginOrEnd=true):
+        using super = SNLBaseIterator<FlatType>;
+        SNLFlatCollectionIterator(const SNLBaseCollection<Type>* collection, bool beginOrEnd=true):
           super() {
           if (collection) {
             endIt_ = collection->end();
             if (not beginOrEnd) {
               it_ = endIt_;
+              element_ = nullptr;
             } else {
               it_ = collection->begin();
-              Type element = it_->getElement();
-              if (not dynamic_cast<SubType>(element)) {
-                MasterType master = static_cast<MasterType>(element);
-                flattenIt_ = master->get().begin();
+              Type e = it_->getElement();
+              if (not dynamic_cast<FlatType>(e)) {
+                MasterType master = static_cast<MasterType>(e);
+                //flattenIt_ = master->getXX().begin();
+                if (flattenIt_->isValid()) {
+                  element_ = flattenIt_->getElement();
+                }
+              } else {
+                element_ = e;
               }
             }
           }
         }
+#if 0
         SNLSubTypeCollectionIterator(const SNLSubTypeCollectionIterator& it) {
           endIt_ = it.endIt_->clone();
           if (it.it_ not_eq it.endIt_) {
@@ -455,10 +461,12 @@ class SNLFlattenedCollection: public SNLBaseCollection<FlattenedType> {
           }
           delete endIt_;
         }
-        SNLBaseIterator<SubType>* clone() override {
-          return new SNLSubTypeCollectionIterator(*this);
+#endif
+        SNLBaseIterator<FlatType>* clone() override {
+          return new SNLFlatCollectionIterator(*this);
         }
-        SubType getElement() const override { return static_cast<FlattendType>(flattenIt_->getElement()); } 
+        FlatType getElement() const override { return element_; } 
+#if 0
         void progress() override {
           if (isValid()) {
             do {
@@ -474,60 +482,54 @@ class SNLFlattenedCollection: public SNLBaseCollection<FlattenedType> {
           }
           return false;
         }
+#endif
       private:
-        bool isValid() const {
+        bool isValid() const override {
           return element_ != nullptr;
         }
 
-        SNLBaseIterator<Type>*        it_         {nullptr};
-        SNLBaseIterator<Type>*        endIt_      {nullptr};
-        SNLBaseIterator<FlattenType>* flattenIt_  {nullptr};
-        FlattenedType*                element_    {nullptr};
+        SNLBaseIterator<Type>*      it_         {nullptr};
+        SNLBaseIterator<Type>*      endIt_      {nullptr};
+        SNLBaseIterator<FlatType>*  flattenIt_  {nullptr};
+        FlatType*                   element_    {nullptr};
     };
-#endif
 
-    SNLFlattenedCollection(const SNLFlattenedCollection&) = delete;
-    SNLFlattenedCollection& operator=(const SNLFlattenedCollection&) = delete;
-    SNLFlattenedCollection(const SNLFlattenedCollection&&) = delete;
-    SNLFlattenedCollection(const SNLBaseCollection<Type>* collection):
+    SNLFlatCollection(const SNLFlatCollection&) = delete;
+    SNLFlatCollection& operator=(const SNLFlatCollection&) = delete;
+    SNLFlatCollection(const SNLFlatCollection&&) = delete;
+    SNLFlatCollection(const SNLBaseCollection<Type>* collection):
       super(), collection_(collection)
     {}
-    ~SNLFlattenedCollection() {
+    ~SNLFlatCollection() {
       delete collection_;
     }
-    SNLBaseCollection<FlattenedType>* clone() const override {
-      return new SNLFlattenedCollection(collection_);
+    SNLBaseCollection<FlatType>* clone() const override {
+      return new SNLFlatCollection(collection_);
     }
-    SNLBaseIterator<FlattenedType>* begin() const override {
-      return nullptr;
-      //return new SNLFlattenedCollectionIterator(collection_, true);
+    SNLBaseIterator<FlatType>* begin() const override {
+      return new SNLFlatCollectionIterator(collection_, true);
     }
-    SNLBaseIterator<FlattenedType>* end() const override {
-      return nullptr;
-      //return new SNLFlattenedCollectionIterator(collection_, false);
+    SNLBaseIterator<FlatType>* end() const override {
+      return new SNLFlatCollectionIterator(collection_, false);
     }
     size_t size() const override {
       size_t size = 0;
-#if 0
       if (collection_) {
-        auto it = std::make_unique<SNLSubTypeCollectionIterator>(collection_, true);
-        auto endIt = std::make_unique<SNLSubTypeCollectionIterator>(collection_, false);
+        auto it = std::make_unique<SNLFlatCollectionIterator>(collection_, true);
+        auto endIt = std::make_unique<SNLFlatCollectionIterator>(collection_, false);
         while (not it->isEqual(endIt.get())) {
           ++size;
           it->progress();
         }
       }
-#endif
       return size;
     }
     bool empty() const override {
-#if 0
       if (collection_) {
-        auto it = std::make_unique<SNLSubTypeCollectionIterator>(collection_, true);
-        auto endIt = std::make_unique<SNLSubTypeCollectionIterator>(collection_, false);
+        auto it = std::make_unique<SNLFlatCollectionIterator>(collection_, true);
+        auto endIt = std::make_unique<SNLFlatCollectionIterator>(collection_, false);
         return it->isEqual(endIt.get());
       }
-#endif
       return true;
     }
 
@@ -577,11 +579,11 @@ template<class Type> class SNLCollection {
       return SNLCollection<Type>();
     }
 
-    template<class MasterType, class FlattenedType> SNLCollection<FlattenedType> getFlattenedCollection() const {
+    template<class MasterType, class FlatType> SNLCollection<FlatType> getFlatCollection() const {
       if (collection_) {
-        return SNLCollection<FlattenedType>(new SNLFlattenedCollection<Type, MasterType, FlattenedType>(collection_->clone()));
+        return SNLCollection<FlatType>(new SNLFlatCollection<Type, MasterType, FlatType>(collection_->clone()));
       }
-      return SNLCollection<FlattenedType>();
+      return SNLCollection<FlatType>();
     }
 
     Iterator begin() { return Iterator(collection_->begin()); }
