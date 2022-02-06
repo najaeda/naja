@@ -424,11 +424,11 @@ class SNLFlatCollection: public SNLBaseCollection<FlatType> {
         using super = SNLBaseIterator<FlatType>;
         SNLFlatCollectionIterator(const SNLBaseCollection<Type>* collection, bool beginOrEnd=true):
           super() {
-#if 0
           if (collection) {
             endIt_ = collection->end();
             if (not beginOrEnd) {
               it_ = endIt_;
+              flattenIt_ = nullptr;
               element_ = nullptr;
             } else {
               it_ = collection->begin();
@@ -436,15 +436,13 @@ class SNLFlatCollection: public SNLBaseCollection<FlatType> {
               if (not dynamic_cast<FlatType>(e)) {
                 MasterType master = static_cast<MasterType>(e);
                 //flattenIt_ = master->getXX().begin();
-                if (flattenIt_->isValid()) {
-                  element_ = flattenIt_->getElement();
-                }
+                assert(flattenIt_->isValid());
+                element_ = flattenIt_->getElement();
               } else {
                 element_ = e;
               }
             }
           }
-#endif
         }
 #if 0
         SNLSubTypeCollectionIterator(const SNLSubTypeCollectionIterator& it) {
@@ -455,13 +453,14 @@ class SNLFlatCollection: public SNLBaseCollection<FlatType> {
             it_ = endIt_;
           }
         }
+#endif
         ~SNLSubTypeCollectionIterator() {
           if (it_ not_eq endIt_) {
             delete it_;
           }
           delete endIt_;
+          delete flattenIt;
         }
-#endif
         SNLBaseIterator<FlatType>* clone() override {
           return new SNLFlatCollectionIterator(*this);
         }
