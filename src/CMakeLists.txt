@@ -1,9 +1,3 @@
 add_subdirectory(core)
 add_subdirectory(snl)
 add_subdirectory(dnl)
-add_subdirectory(formats)
-add_subdirectory(snippet)
-
-if(Python3_Development_FOUND)
-  add_subdirectory(python)
-endif(Python3_Development_FOUND)

@@ -1,45 +1,7 @@
-set(SOURCES
-  SNLObject.cpp SNLID.cpp
-  SNLUniverse.cpp SNLDB.cpp SNLDB0.cpp
-  SNLLibrary.cpp SNLDesign.cpp
-  SNLDesignObject.cpp
-  SNLNet.cpp SNLBusNet.cpp
-  SNLBitNet.cpp SNLScalarNet.cpp SNLBusNetBit.cpp
-  SNLNetComponent.cpp
-  SNLTerm.cpp SNLBitTerm.cpp 
-  SNLBusTerm.cpp SNLScalarTerm.cpp
-  SNLBusTermBit.cpp
-  SNLInstance.cpp SNLInstTerm.cpp
-  SNLSharedPath.cpp SNLPath.cpp
-  SNLParameter.cpp
-  #SNLLevelize.cpp SNLDump.cpp
-)
+add_subdirectory(kernel)
+add_subdirectory(formats)
+add_subdirectory(snippet)
 
-set(HEADERS
-  SNLName.h
-  SNLObject.h SNLID.h
-  SNLUniverse.h SNLDB.h
-  SNLLibrary.h SNLDesign.h
-  SNLDesignObject.h
-  SNLNet.h SNLBusNet.h
-  SNLBitNet.h SNLScalarNet.h SNLBusNetBit.cpp
-  SNLNetComponent.h
-  SNLTerm.h SNLBitTerm.h 
-  SNLBusTerm.h SNLScalarTerm.h
-  SNLBusTermBit.h
-  SNLInstance.h SNLInstTerm.h
-  SNLSharedPath.h SNLPath.h
-  SNLParameter.h
-)
-
-add_library(naja_snl SHARED ${SOURCES})
-target_link_libraries(naja_snl naja_core coverage_config)
-
-target_compile_options(naja_snl PRIVATE ${NAJA_CXX_WARNINGS}) 
-
-target_include_directories(naja_snl SYSTEM BEFORE PUBLIC ${Boost_INCLUDE_DIR})
-target_include_directories(naja_snl PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-
-set_target_properties(naja_snl PROPERTIES PUBLIC_HEADER "${HEADERS}")
-
-install(TARGETS naja_snl LIBRARY DESTINATION lib PUBLIC_HEADER DESTINATION include) 
+if(Python3_Development_FOUND)
+  add_subdirectory(python)
+endif(Python3_Development_FOUND)
