@@ -1,15 +1,7 @@
-INCLUDE(GoogleTest)
 
-SET(snl_tests
-    SNLUniverseTest.cpp SNLDBTest.cpp SNLLibraryTest.cpp SNLDesignTest.cpp
-    SNLInstanceTest.cpp
-    SNLNetTest.cpp #SNLLargeDBTest.cpp
-    #SNLPathTest.cpp
-    SNLParameterTest.cpp
-)
+add_subdirectory(kernel)
+add_subdirectory(formats)
 
-ADD_EXECUTABLE(snlTests ${snl_tests})
-
-TARGET_LINK_LIBRARIES(snlTests naja_snl gtest gmock gtest_main)
-
-GTEST_DISCOVER_TESTS(snlTests)
+if(Python3_Development_FOUND)
+  #add_subdirectory(python)
+endif(Python3_Development_FOUND)
