@@ -54,8 +54,26 @@ class DNLDB {
    * - get EquiID
    * - get EquiType,  
    * 
+   *    
    * 
-   */
+   *    FlatEquis
+   *    [ 0 | 1 | 34 56 67 34 14 | 0 10 45 36 67 | [] [] [] ]
+   * 
+   *          TOP
+   *       A       B
+   *     p1 p2   p3 p4
+   * 
+   * 
+   * 
+   * 
+   *    FlatInstances
+   *    [ [SNLInstanceID parentId [childID childID childID] startTerminalID stopTerminalID] |     ] 
+   * 
+   *    FlatTerminals
+   *      .... 34 ....
+   *    [ |    2        |   ]
+   *           4
+   */          
 
   public:
     using DNLInstances = std::vector<DNLInstance>;
