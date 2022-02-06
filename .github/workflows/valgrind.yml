@@ -36,7 +36,12 @@ jobs:
       # Build your program with the given configuration
       run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
 
-    - name: Test
+    - name: TestSNLKernel
       working-directory: ${{github.workspace}}/build/test/snl/kernel
       run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./snlTests
+    
+    - name: TestSNLVRLDumper
+      working-directory: ${{github.workspace}}/build/test/snl/formats/verilog/dumper
+      run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./snlVRLTests
+
 
