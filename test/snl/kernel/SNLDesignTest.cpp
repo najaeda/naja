@@ -24,7 +24,7 @@ class SNLDesignTest: public ::testing::Test {
     SNLDB*  db_;
 };
 
-TEST_F(SNLDesignTest, testCreation) {
+TEST_F(SNLDesignTest, testCreation0) {
   SNLLibrary* library = db_->getLibrary(SNLName("MYLIB"));
   ASSERT_NE(library, nullptr);
   EXPECT_EQ(0, library->getDesigns().size());
@@ -162,4 +162,26 @@ TEST_F(SNLDesignTest, testCreation) {
   EXPECT_FALSE(library->getDesigns().empty());
   EXPECT_THAT(std::vector(library->getDesigns().begin(), library->getDesigns().end()),
     ElementsAre(design, model, anon));
+}
+
+TEST_F(SNLDesignTest, testCreation1) {
+  SNLLibrary* library = db_->getLibrary(SNLName("MYLIB"));
+  ASSERT_NE(library, nullptr);
+  EXPECT_EQ(0, library->getDesigns().size());
+  EXPECT_TRUE(library->getDesigns().empty());
+
+  //anonymous design
+  SNLDesign* anon = SNLDesign::create(library);
+  ASSERT_NE(anon, nullptr);
+  EXPECT_EQ(0, anon->getID());
+  EXPECT_TRUE(anon->isAnonymous());
+  EXPECT_EQ(anon, library->getDesign(0));
+  EXPECT_EQ(library, anon->getLibrary());
+  EXPECT_EQ(db_, anon->getDB());
+  EXPECT_EQ(SNLID(1, 0, 0), anon->getSNLID());
+  EXPECT_TRUE(anon->isStandard());
+  EXPECT_EQ(1, library->getDesigns().size());
+  EXPECT_FALSE(library->getDesigns().empty());
+  EXPECT_THAT(std::vector(library->getDesigns().begin(), library->getDesigns().end()),
+    ElementsAre(anon));
 }
