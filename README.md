@@ -1,6 +1,7 @@
 # Naja
 ***
 ![build](https://github.com/xtofalex/naja/actions/workflows/build.yml/badge.svg)
+[![codecov](https://codecov.io/gh/xtofalex/naja/branch/main/graph/badge.svg?token=59ZKZ74HFP)](https://codecov.io/gh/xtofalex/naja)
 ***
 ## Introduction
 Naja is an umbrella repository containing mainly (for the moment) the SNL netlist data structure.
