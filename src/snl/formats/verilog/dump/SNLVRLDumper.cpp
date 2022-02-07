@@ -20,7 +20,9 @@
 
 #include "SNLLibrary.h"
 #include "SNLDesign.h"
+#include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
+#include "SNLBusTermBit.h"
 #include "SNLScalarNet.h"
 #include "SNLBusNet.h"
 #include "SNLBusNetBit.h"

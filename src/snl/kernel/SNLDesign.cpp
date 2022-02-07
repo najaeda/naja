@@ -26,8 +26,10 @@
 #include "SNLLibrary.h"
 #include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
+#include "SNLBusTermBit.h"
 #include "SNLScalarNet.h"
 #include "SNLBusNet.h"
+#include "SNLBusNetBit.h"
 
 namespace SNL {
 
@@ -234,8 +236,8 @@ SNLCollection<SNLScalarTerm*> SNLDesign::getScalarTerms() const {
 }
 
 SNLCollection<SNLBitTerm*> SNLDesign::getBitTerms() const {
-  auto flattener = [](const SNLDesign* d) { return d->getTerms(); };
-  return getTerms().getFlatCollection<SNLBusTerm*, SNLBitTerm*>(flattener);
+  auto flattener = [](const SNLBusTerm* b) { return b->getBits(); };
+  return getTerms().getFlatCollection<SNLBusTerm*, SNLBusTermBit*, SNLBitTerm*>(flattener);
 }
 
 void SNLDesign::addInstance(SNLInstance* instance) {
@@ -351,6 +353,11 @@ SNLBusNet* SNLDesign::getBusNet(const SNLName& name) const {
 
 SNLCollection<SNLNet*> SNLDesign::getNets() const {
   return SNLCollection<SNLNet*>(new SNLIntrusiveSetCollection<SNLNet, SNLDesignNetsHook>(&nets_));
+}
+
+SNLCollection<SNLBitNet*> SNLDesign::getBitNets() const {
+  auto flattener = [](const SNLBusNet* b) { return b->getBits(); };
+  return getNets().getFlatCollection<SNLBusNet*, SNLBusNetBit*, SNLBitNet*>(flattener);
 }
 
 SNLDB* SNLDesign::getDB() const {

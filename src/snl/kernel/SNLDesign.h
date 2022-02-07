@@ -20,18 +20,20 @@
 #include <map>
 
 #include "SNLCollection.h"
-#include "SNLBusTerm.h"
-#include "SNLScalarTerm.h"
-#include "SNLBusTermBit.h"
-#include "SNLInstance.h"
+#include "SNLTerm.h"
 #include "SNLNet.h"
+#include "SNLInstance.h"
 #include "SNLParameter.h"
 
 namespace SNL {
 
 class SNLLibrary;
+class SNLBitNet;
 class SNLScalarNet;
 class SNLBusNet;
+class SNLBitTerm;
+class SNLScalarTerm;
+class SNLBusTerm;
 
 class SNLDesign final: public SNLObject {
   public:
@@ -109,6 +111,8 @@ class SNLDesign final: public SNLObject {
     ///\return SNLBusNet with SNLName name or nullptr if it does not exist
     SNLBusNet* getBusNet(const SNLName& netName) const;
     SNLCollection<SNLNet*> getNets() const;
+    ///\return the collection of SNLBitNet of this SNLDesign (SNLScalarNet and flattened SNLBusNet to SNLBusNetBit)
+    SNLCollection<SNLBitNet*> getBitNets() const;
 
     ///\return SNLParameter with SNLName name or nullptr if it does not exist
     SNLParameter* getParameter(const SNLName& name) const;

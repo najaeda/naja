@@ -412,14 +412,14 @@ template<class Type, typename Filter> class SNLFilteredCollection: public SNLBas
     Filter                          filter_;
 };
 
-template<class Type, class MasterType, class FlatType, typename Flattener>
-class SNLFlatCollection: public SNLBaseCollection<FlatType> {
+template<class Type, class MasterType, class FlatType, class ReturnType, typename Flattener>
+class SNLFlatCollection: public SNLBaseCollection<ReturnType> {
   public:
-    using super = SNLBaseCollection<FlatType>;
+    using super = SNLBaseCollection<ReturnType>;
 
-    class SNLFlatCollectionIterator: public SNLBaseIterator<FlatType> {
+    class SNLFlatCollectionIterator: public SNLBaseIterator<ReturnType> {
       public:
-        using super = SNLBaseIterator<FlatType>;
+        using super = SNLBaseIterator<ReturnType>;
         SNLFlatCollectionIterator(const SNLBaseCollection<Type>* collection, const Flattener& flattener, bool beginOrEnd=true):
           super(),
           flattener_(flattener) {
@@ -431,28 +431,31 @@ class SNLFlatCollection: public SNLBaseCollection<FlatType> {
               element_ = nullptr;
             } else {
               it_ = collection->begin();
-              Type e = it_->getElement();
-              if (not dynamic_cast<FlatType>(e)) {
-                //MasterType master = static_cast<MasterType>(e);
-                //flattenIt_ = master->getXX().begin();
-                assert(flattenIt_->isValid());
-                element_ = flattenIt_->getElement();
-              } else {
-                //element_ = e;
+              if (it_->isValid()) {
+                Type e = it_->getElement();
+                if (auto r = dynamic_cast<ReturnType>(e)) {
+                  element_ = r;
+                } else {
+                  MasterType master = static_cast<MasterType>(e);
+                  flattenIt_ = flattener_(master).begin_();
+                  assert(flattenIt_->isValid());
+                  element_ = flattenIt_->getElement();
+                }
               }
             }
           }
         }
-#if 0
-        SNLSubTypeCollectionIterator(const SNLSubTypeCollectionIterator& it) {
+        SNLFlatCollectionIterator(const SNLFlatCollectionIterator& it): element_(it.element_), flattener_(it.flattener_) {
           endIt_ = it.endIt_->clone();
           if (it.it_ not_eq it.endIt_) {
             it_ = it.it_->clone();
           } else {
             it_ = endIt_;
           }
+          if (it.flattenIt_) {
+            flattenIt_ = it.flattenIt_->clone();
+          }
         }
-#endif
         ~SNLFlatCollectionIterator() {
           if (it_ not_eq endIt_) {
             delete it_;
@@ -460,28 +463,51 @@ class SNLFlatCollection: public SNLBaseCollection<FlatType> {
           delete endIt_;
           delete flattenIt_;
         }
-        SNLBaseIterator<FlatType>* clone() override {
+        SNLBaseIterator<ReturnType>* clone() override {
           return new SNLFlatCollectionIterator(*this);
         }
-        FlatType getElement() const override { return element_; } 
+        ReturnType getElement() const override { return element_; } 
         void progress() override {
-#if 0
           if (isValid()) {
-            if (flattenIt_->isValid()) {
+            element_ = nullptr;
+            if (flattenIt_ and flattenIt_->isValid()) {
               flattenIt_->progress();
               if (flattenIt_->isValid()) {
+                element_ = flattenIt_->getElement();
+                return;
+              } else {
+                flattenIt_ = nullptr;
+              }
+            }
+            if (it_->isValid()) {
+              it_->progress();
+            }
+            if (it_->isValid()) {
+              Type e = it_->getElement();
+              if (auto r = dynamic_cast<ReturnType>(e)) {
+                element_ = r;
+                flattenIt_ = nullptr;
+              } else {
+                MasterType master = static_cast<MasterType>(e);
+                flattenIt_ = flattener_(master).begin_();
+                assert(flattenIt_->isValid());
                 element_ = flattenIt_->getElement();
               }
             }
           }
-#endif
         }
-        bool isEqual(const SNLBaseIterator<FlatType>* r) override {
-          //if (it_) {
-          //  if (auto rit = dynamic_cast<const SNLSubTypeCollectionIterator*>(r)) {
-          //    return it_->isEqual(rit->it_);
-          //  }
-          //}
+        bool isEqual(const SNLBaseIterator<ReturnType>* r) override {
+          if (it_) {
+            if (auto rit = dynamic_cast<const SNLFlatCollectionIterator*>(r)) {
+              if (it_->isEqual(rit->it_)) {
+                if (flattenIt_) {
+                  return flattenIt_->isEqual(rit->flattenIt_);
+                } else {
+                  return not rit->flattenIt_;
+                }
+              }
+            }
+          }
           return false;
         }
         bool isValid() const override {
@@ -492,7 +518,7 @@ class SNLFlatCollection: public SNLBaseCollection<FlatType> {
         SNLBaseIterator<Type>*      it_         {nullptr};
         SNLBaseIterator<Type>*      endIt_      {nullptr};
         SNLBaseIterator<FlatType>*  flattenIt_  {nullptr};
-        FlatType                    element_    {nullptr};
+        ReturnType                  element_    {nullptr};
         Flattener                   flattener_;
     };
 
@@ -505,13 +531,13 @@ class SNLFlatCollection: public SNLBaseCollection<FlatType> {
     ~SNLFlatCollection() {
       delete collection_;
     }
-    SNLBaseCollection<FlatType>* clone() const override {
+    SNLBaseCollection<ReturnType>* clone() const override {
       return new SNLFlatCollection(collection_, flattener_);
     }
-    SNLBaseIterator<FlatType>* begin() const override {
+    SNLBaseIterator<ReturnType>* begin() const override {
       return new SNLFlatCollectionIterator(collection_, flattener_, true);
     }
-    SNLBaseIterator<FlatType>* end() const override {
+    SNLBaseIterator<ReturnType>* end() const override {
       return new SNLFlatCollectionIterator(collection_, flattener_, false);
     }
     size_t size() const override {
@@ -581,15 +607,18 @@ template<class Type> class SNLCollection {
       return SNLCollection<Type>();
     }
 
-    template<class MasterType, class FlatType, typename Flattener> SNLCollection<FlatType> getFlatCollection(const Flattener& flattener) const {
+    template<class MasterType, class FlatType, class ReturnType, typename Flattener>
+      SNLCollection<ReturnType> getFlatCollection(const Flattener& flattener) const {
       if (collection_) {
-        return SNLCollection<FlatType>(new SNLFlatCollection<Type, MasterType, FlatType, Flattener>(collection_->clone(), flattener));
+        return SNLCollection<ReturnType>(new SNLFlatCollection<Type, MasterType, FlatType, ReturnType, Flattener>(collection_->clone(), flattener));
       }
-      return SNLCollection<FlatType>();
+      return SNLCollection<ReturnType>();
     }
 
-    Iterator begin() { return Iterator(collection_->begin()); }
-    Iterator end() { return Iterator(collection_->end()); }
+    SNLBaseIterator<Type>* begin_() { return collection_->begin(); }
+    SNLBaseIterator<Type>* end_() { return collection_->end(); }
+    Iterator begin() { return Iterator(begin_()); }
+    Iterator end() { return Iterator(end_()); }
 
     size_t size() const { if (collection_) { return collection_->size(); } return 0; }
     bool empty() const { if (collection_) { return collection_->empty(); } return true; }
