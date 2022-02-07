@@ -16,9 +16,10 @@
 
 #include "SNLBitNet.h"
 
+#include "SNLBitTerm.h"
+#include "SNLInstTerm.h"
+
 namespace SNL {
-
-
 
 void SNLBitNet::preCreate() {
   super::preCreate();
@@ -34,6 +35,14 @@ void SNLBitNet::preDestroy() {
 
 SNLCollection<SNLNetComponent*> SNLBitNet::getComponents() const {
   return SNLCollection<SNLNetComponent*>(new SNLIntrusiveSetCollection<SNLNetComponent, SNLBitNetComponentsHook>(&components_));
+}
+
+SNLCollection<SNLInstTerm*> SNLBitNet::getInstTerms() const {
+  return getComponents().getSubCollection<SNLInstTerm*>();
+}
+
+SNLCollection<SNLBitTerm*> SNLBitNet::getBitTerms() const {
+  return getComponents().getSubCollection<SNLBitTerm*>();
 }
 
 void SNLBitNet::addComponent(SNLNetComponent* component) {
