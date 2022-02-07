@@ -162,6 +162,18 @@ SNLCollection<SNLInstTerm*> SNLInstance::getInstTerms() const {
     new SNLVectorCollection<SNLInstTerm*>(&instTerms_)).getSubCollection(filter);
 }
 
+SNLCollection<SNLInstTerm*> SNLInstance::getInstScalarTerms() const {
+  auto filter = [](const SNLInstTerm* it) {return it and dynamic_cast<SNLScalarTerm*>(it->getTerm()); };
+  return SNLCollection<SNLInstTerm*>(
+    new SNLVectorCollection<SNLInstTerm*>(&instTerms_)).getSubCollection(filter);
+}
+
+SNLCollection<SNLInstTerm*> SNLInstance::getInstBusTermBits() const {
+  auto filter = [](const SNLInstTerm* it) {return it and dynamic_cast<SNLBusTermBit*>(it->getTerm()); };
+  return SNLCollection<SNLInstTerm*>(
+    new SNLVectorCollection<SNLInstTerm*>(&instTerms_)).getSubCollection(filter);
+}
+
 constexpr const char* SNLInstance::getTypeName() const {
   return "SNLInstance";
 }
