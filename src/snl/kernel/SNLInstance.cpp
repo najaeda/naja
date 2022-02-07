@@ -157,7 +157,7 @@ SNLInstTerm* SNLInstance::getInstTerm(const SNLBitTerm* term) {
 }
 
 SNLCollection<SNLInstTerm*> SNLInstance::getInstTerms() const {
-  std::function<bool(SNLInstTerm*)> filter = [](const SNLInstTerm* it) {return it != nullptr; };
+  auto filter = [](const SNLInstTerm* it) {return it != nullptr; };
   return SNLCollection<SNLInstTerm*>(
     new SNLVectorCollection<SNLInstTerm*>(&instTerms_)).getSubCollection(filter);
 }

@@ -19,7 +19,6 @@
 
 #include <vector>
 #include <memory>
-#include <functional>
 
 #include <boost/intrusive/set.hpp>
 
@@ -306,10 +305,9 @@ template<class Type, class SubType> class SNLSubTypeCollection: public SNLBaseCo
     const SNLBaseCollection<Type>* collection_;
 };
 
-template<class Type> class SNLFilteredCollection: public SNLBaseCollection<Type> {
+template<class Type, typename Filter> class SNLFilteredCollection: public SNLBaseCollection<Type> {
   public:
     using super = SNLBaseCollection<Type>;
-    using Filter = std::function<bool(Type)>;
 
     class SNLFilteredCollectionIterator: public SNLBaseIterator<Type> {
       public:
@@ -449,9 +447,9 @@ template<class Type> class SNLCollection {
       return SNLCollection<SubType>();
     }
 
-    SNLCollection<Type> getSubCollection(const std::function<bool(Type)>& filter) const {
+    template<typename Filter> SNLCollection<Type> getSubCollection(const Filter& filter) const {
       if (collection_) {
-        return SNLCollection<Type>(new SNLFilteredCollection<Type>(collection_->clone(), filter));
+        return SNLCollection<Type>(new SNLFilteredCollection<Type, Filter>(collection_->clone(), filter));
       }
       return SNLCollection<Type>();
     }
