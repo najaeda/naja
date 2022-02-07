@@ -234,7 +234,8 @@ SNLCollection<SNLScalarTerm*> SNLDesign::getScalarTerms() const {
 }
 
 SNLCollection<SNLBitTerm*> SNLDesign::getBitTerms() const {
-  return getTerms().getFlatCollection<SNLBusTerm*, SNLBitTerm*>();
+  auto flattener = [](const SNLDesign* d) { return d->getTerms(); };
+  return getTerms().getFlatCollection<SNLBusTerm*, SNLBitTerm*>(flattener);
 }
 
 void SNLDesign::addInstance(SNLInstance* instance) {
