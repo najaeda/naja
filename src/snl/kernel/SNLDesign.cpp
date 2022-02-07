@@ -355,6 +355,14 @@ SNLCollection<SNLNet*> SNLDesign::getNets() const {
   return SNLCollection<SNLNet*>(new SNLIntrusiveSetCollection<SNLNet, SNLDesignNetsHook>(&nets_));
 }
 
+SNLCollection<SNLBusNet*> SNLDesign::getBusNets() const {
+  return getNets().getSubCollection<SNLBusNet*>();
+}
+
+SNLCollection<SNLScalarNet*> SNLDesign::getScalarNets() const {
+  return getNets().getSubCollection<SNLScalarNet*>();
+}
+
 SNLCollection<SNLBitNet*> SNLDesign::getBitNets() const {
   auto flattener = [](const SNLBusNet* b) { return b->getBits(); };
   return getNets().getFlatCollection<SNLBusNet*, SNLBusNetBit*, SNLBitNet*>(flattener);

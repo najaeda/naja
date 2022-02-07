@@ -476,6 +476,7 @@ class SNLFlatCollection: public SNLBaseCollection<ReturnType> {
                 element_ = flattenIt_->getElement();
                 return;
               } else {
+                delete flattenIt_;
                 flattenIt_ = nullptr;
               }
             }
@@ -486,6 +487,9 @@ class SNLFlatCollection: public SNLBaseCollection<ReturnType> {
               Type e = it_->getElement();
               if (auto r = dynamic_cast<ReturnType>(e)) {
                 element_ = r;
+                if (flattenIt_) {
+                  delete flattenIt_;
+                }
                 flattenIt_ = nullptr;
               } else {
                 MasterType master = static_cast<MasterType>(e);
