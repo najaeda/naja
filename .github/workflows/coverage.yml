@@ -42,10 +42,8 @@ jobs:
       # See https://cmake.org/cmake/help/latest/manual/ctest.1.html for more detail
       run: ctest -VV -C ${{env.BUILD_TYPE}}
       
-    - name: Upload coverage to Codecov 
-      uses: codecov/codecov-action@v2
-      with:
-      flags: unittests # optional
-      name: naja-coverage # optional
-      fail_ci_if_error: true # optional (default = false)
-      verbose: true # optional (default = false)
+    - name: lcov
+      working-directory: ${{github.workspace}}/build
+      run: |
+           lcov --directory . --capture --output-file coverage.info
+           lcov --remove coverage.info '/usr/*' "test/*' --output-file coverage.info
