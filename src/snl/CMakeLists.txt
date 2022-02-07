@@ -1,4 +1,5 @@
 add_subdirectory(kernel)
+add_subdirectory(flattener)
 add_subdirectory(formats)
 add_subdirectory(snippet)
 
