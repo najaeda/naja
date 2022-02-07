@@ -68,7 +68,11 @@ TEST_F(SNLInstanceTest, testCreation) {
   EXPECT_EQ(SNLName("instance1"), instance1->getName());
   EXPECT_EQ(design, instance1->getDesign());
   EXPECT_EQ(model, instance1->getModel());
+  EXPECT_FALSE(instance1->getInstTerms().empty());
+  EXPECT_FALSE(instance1->getInstScalarTerms().empty());
   EXPECT_EQ(7, instance1->getInstTerms().size());
+  EXPECT_EQ(3, instance1->getInstScalarTerms().size());
+  EXPECT_EQ(4, instance1->getInstBusTermBits().size());
   EXPECT_EQ(0, instance1->getID());
   EXPECT_EQ(SNLID(SNLID::Type::Instance, 1, 0, 0, 0, instance1->getID(), 0), instance1->getSNLID());
 
@@ -101,6 +105,23 @@ TEST_F(SNLInstanceTest, testCreation) {
         instance1->getInstTerm(dynamic_cast<SNLBusTerm*>(termsVector[1])->getBit(3)),
         instance1->getInstTerm(dynamic_cast<SNLScalarTerm*>(termsVector[2])),
         instance1->getInstTerm(dynamic_cast<SNLScalarTerm*>(termsVector[3]))
+      )
+    );
+
+    EXPECT_THAT(std::vector(instance1->getInstScalarTerms().begin(), instance1->getInstScalarTerms().end()),
+      ElementsAre(
+        instance1->getInstTerm(dynamic_cast<SNLScalarTerm*>(termsVector[0])),
+        instance1->getInstTerm(dynamic_cast<SNLScalarTerm*>(termsVector[2])),
+        instance1->getInstTerm(dynamic_cast<SNLScalarTerm*>(termsVector[3]))
+      )
+    );
+
+    EXPECT_THAT(std::vector(instance1->getInstBusTermBits().begin(), instance1->getInstBusTermBits().end()),
+      ElementsAre(
+        instance1->getInstTerm(dynamic_cast<SNLBusTerm*>(termsVector[1])->getBit(0)),
+        instance1->getInstTerm(dynamic_cast<SNLBusTerm*>(termsVector[1])->getBit(1)),
+        instance1->getInstTerm(dynamic_cast<SNLBusTerm*>(termsVector[1])->getBit(2)),
+        instance1->getInstTerm(dynamic_cast<SNLBusTerm*>(termsVector[1])->getBit(3))
       )
     );
 
