@@ -4,10 +4,13 @@
 namespace SNL {
 
 class SNLDesign;
+class SNLFlattenerInstanceTree;
 
 class SNLFlattener {
-  void process(const SNLDesign* top);
-
+  public:
+    void process(const SNLDesign* top);
+  private:
+    void processTop(SNLFlattenerInstanceTree* tree, const SNLDesign* top);
 };
 
 }

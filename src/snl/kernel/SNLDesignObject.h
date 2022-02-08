@@ -32,6 +32,12 @@ class SNLDesignObject: public SNLObject {
     SNLDesignObject(const SNLDesignObject&) = delete;
     SNLDesignObject(const SNLDesignObject&&) = delete;
 
+    struct PointerLess {
+      bool operator()(const SNLDesignObject* lo, const SNLDesignObject* ro) const {
+        return *lo < *ro;
+      }
+    };
+
     ///\return the owner SNLDesign of this SNLDesignObject
     virtual SNLDesign* getDesign() const = 0;
     virtual SNLID getSNLID() const = 0;
@@ -46,7 +52,7 @@ class SNLDesignObject: public SNLObject {
     ///\return true if this SNLDesignObject is anonymous, false if not.
     virtual bool isAnonymous() const = 0;
 
-    friend bool operator< (const SNLDesignObject &ldo, const SNLDesignObject &rdo) {
+    friend bool operator<(const SNLDesignObject &ldo, const SNLDesignObject &rdo) {
       return ldo.getSNLID() < rdo.getSNLID();
     }
   protected:

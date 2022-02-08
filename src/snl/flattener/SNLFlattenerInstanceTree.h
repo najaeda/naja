@@ -10,10 +10,12 @@ class SNLFlattenerInstanceTree {
     SNLFlattenerInstanceTree(const SNLFlattenerInstanceTree&) = delete;
     SNLFlattenerInstanceTree(const SNLFlattenerInstanceTree&&) = delete;
     static SNLFlattenerInstanceTree* create();
+    void destroy();
 
     SNLFlattenerInstanceTreeNode* getRoot() const { return root_; }
   private:
     SNLFlattenerInstanceTree() = default;
+    ~SNLFlattenerInstanceTree();
 
     SNLFlattenerInstanceTreeNode* root_;
 };
