@@ -30,14 +30,31 @@ jobs:
     - name: Configure CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
       # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
-      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCOVERAGE=ON
+      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCODE_COVERAGE=ON
 
     - name: Build
       # Build your program with the given configuration
-      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
+      run: cmake --build ${{github.workspace}}/build -j 4 --config ${{env.BUILD_TYPE}}
 
     - name: Test
       working-directory: ${{github.workspace}}/build
       # Execute tests defined by the CMake configuration.  
       # See https://cmake.org/cmake/help/latest/manual/ctest.1.html for more detail
       run: ctest -VV -C ${{env.BUILD_TYPE}}
+      
+    - name: lcov
+      working-directory: ${{github.workspace}}/build
+      run: |
+           lcov --directory . --capture --output-file coverage.info
+           lcov --remove coverage.info --output-file coverage.info '/usr/*' '*/naja/test/*'
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v2
+      with:
+        directory: ${{github.workspace}}/build
+        #env_vars: OS,PYTHON
+        fail_ci_if_error: true
+        files: coverage.info
+        flags: unittests
+        name: codecov-umbrella
+        #path_to_write_report: ./coverage/codecov_report.txt
+        verbose: true

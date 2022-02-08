@@ -1,6 +1,7 @@
 # Naja
 ***
 ![build](https://github.com/xtofalex/naja/actions/workflows/build.yml/badge.svg)
+[![codecov](https://codecov.io/gh/xtofalex/naja/branch/main/graph/badge.svg?token=59ZKZ74HFP)](https://codecov.io/gh/xtofalex/naja)
 ***
 ## Introduction
 Naja is an umbrella repository containing mainly (for the moment) the SNL netlist data structure.
@@ -51,13 +52,13 @@ make install
 Documentation will be installed in $NAJA_INSTALL/doc directory. Starting file to open in browser is: $NAJA_INSTALL/doc/html/index.html.
 ## Snippets
 ### c++
-https://github.com/xtofalex/naja/blob/main/src/snippet/app/src/SNLSnippet.cpp
+https://github.com/xtofalex/naja/blob/main/src/snl/snippet/app/src/SNLSnippet.cpp
 ### Python
-https://github.com/xtofalex/naja/blob/main/src/snippet/python/snl_snippet.py
+https://github.com/xtofalex/naja/blob/main/src/snl/snippet/python/snl_snippet.py
 ### Application snippet
 An application snippet can be found at:
 
-https://github.com/xtofalex/naja/blob/main/src/snippet/app
+https://github.com/xtofalex/naja/blob/main/src/snl/snippet/app
 
 This "app" directory and its contents can be copied to start a new application.
 
