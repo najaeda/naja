@@ -18,7 +18,7 @@
 
 #include <sstream>
 
-namespace SNL {
+namespace naja { namespace SNL {
 
 //LCOV_EXCL_START
 std::string SNLID::getString() const {
@@ -46,4 +46,4 @@ std::string SNLID::getString() const {
 }
 //LCOV_EXCL_STOP
 
-}
+}} // namespace SNL // namespace naja

@@ -18,7 +18,7 @@
 
 #include "SNLDB0.h"
 
-namespace SNL {
+namespace naja { namespace SNL {
 
 SNLUniverse* SNLUniverse::universe_ = nullptr;
 
@@ -125,4 +125,4 @@ std::string SNLUniverse::getDescription() const {
   return "<" + std::string(getTypeName()) + " " + getString() + ">";  
 }
 
-}
+}} // namespace SNL // namespace naja

@@ -20,7 +20,7 @@
 
 namespace PYSNL {
 
-using namespace SNL;
+using namespace naja::SNL;
 
 #undef   ACCESS_OBJECT
 #undef   ACCESS_CLASS
@@ -30,7 +30,7 @@ using namespace SNL;
 
 static PyObject* PySNLNetComponent_getNet(PySNLNetComponent* self) {
   METHOD_HEAD("SNLNetComponent.getNet()")
-  SNL::SNLBitNet* net = netComponent->getNet();
+  SNLBitNet* net = netComponent->getNet();
   return PySNLBitNet_Link(net);
 }
 

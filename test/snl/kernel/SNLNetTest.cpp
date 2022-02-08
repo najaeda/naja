@@ -9,7 +9,7 @@ using ::testing::ElementsAre;
 #include "SNLBusNet.h"
 #include "SNLBusNetBit.h"
 
-using namespace SNL;
+using namespace naja::SNL;
 
 class SNLNetTest: public ::testing::Test {
   protected:

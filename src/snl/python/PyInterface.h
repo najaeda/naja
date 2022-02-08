@@ -41,7 +41,7 @@ static void setError(const std::string& reason) {
 #define SNLTRY try {
 
 #define SNLCATCH                                        \
-  } catch (const SNL::SNLException& e) {                \
+  } catch (const naja::SNL::SNLException& e) {                \
     setError("SNL exception: " + e.getReason());        \
     return nullptr;                                     \
   } catch (const std::exception& e) {                   \

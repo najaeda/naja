@@ -9,7 +9,7 @@ using ::testing::ElementsAre;
 #include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
 #include "SNLBusTermBit.h"
-using namespace SNL;
+using namespace naja::SNL;
 
 class SNLDesignTest: public ::testing::Test {
   protected:

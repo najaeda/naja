@@ -20,7 +20,7 @@
 #include "SNLInstance.h"
 #include "SNLException.h"
 
-namespace SNL {
+namespace naja { namespace SNL {
 
 SNLPath::SNLPath(SNLSharedPath* sharedPath):
   sharedPath_(sharedPath)
@@ -114,4 +114,4 @@ bool SNLPath::operator!=(const SNLPath& path) const {
   return sharedPath_ != path.sharedPath_;
 }
 
-}
+}} // namespace SNL // namespace naja

@@ -1,7 +1,7 @@
 set(SOURCES
   SNLObject.cpp SNLID.cpp
   SNLUniverse.cpp SNLDB.cpp SNLDB0.cpp
-  SNLLibrary.cpp SNLDesign.cpp
+  SNLLibrary.cpp
   SNLDesignObject.cpp
   SNLNet.cpp SNLBusNet.cpp
   SNLBitNet.cpp SNLScalarNet.cpp SNLBusNetBit.cpp
@@ -10,9 +10,9 @@ set(SOURCES
   SNLBusTerm.cpp SNLScalarTerm.cpp
   SNLBusTermBit.cpp
   SNLInstance.cpp SNLInstTerm.cpp
+  SNLDesign.cpp
   SNLSharedPath.cpp SNLPath.cpp
   SNLParameter.cpp
-  #SNLLevelize.cpp SNLDump.cpp
 )
 
 set(HEADERS

@@ -18,7 +18,7 @@
 
 #include "SNLInstance.h"
 
-namespace SNL {
+namespace naja { namespace SNL {
 
 SNLSharedPath::SNLSharedPath(SNLInstance* headInstance, SNLSharedPath* tailSharedPath):
   headInstance_(headInstance),
@@ -61,4 +61,4 @@ SNLDesign* SNLSharedPath::getModel() const {
   return model;
 }
 
-}
+}} // namespace SNL // namespace naja

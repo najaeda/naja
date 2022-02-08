@@ -21,7 +21,7 @@
 #include "SNLException.h"
 #include "SNLBusTerm.h"
 
-namespace SNL {
+namespace naja { namespace SNL {
 
 SNLBusTermBit::SNLBusTermBit(
     SNLBusTerm* bus,
@@ -111,4 +111,4 @@ bool SNLBusTermBit::isAnonymous() const {
   return getBus()->isAnonymous();
 }
 
-}
+}} // namespace SNL // namespace naja

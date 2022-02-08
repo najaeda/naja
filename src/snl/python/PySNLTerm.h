@@ -29,12 +29,12 @@ typedef struct {
 extern PyTypeObject PyTypeSNLTerm;
 extern PyMethodDef  PySNLTerm_Methods[];
 
-extern PyObject*    PySNLTerm_Link(SNL::SNLTerm*);
+extern PyObject*    PySNLTerm_Link(naja::SNL::SNLTerm*);
 extern void         PySNLTerm_LinkPyType();
 
 #define IsPySNLTerm(v) (PyObject_TypeCheck(v, &PyTypeSNLTerm))
 #define PYSNLTerm(v)   (static_cast<PySNLTerm*>(v))
-#define PYSNLTerm_O(v) (static_cast<SNL::SNLTerm*>(PYSNLTerm(v)->parent_->parent_->object_))
+#define PYSNLTerm_O(v) (static_cast<naja::SNL::SNLTerm*>(PYSNLTerm(v)->parent_->parent_->object_))
 
 } /* PYSNL namespace */
  

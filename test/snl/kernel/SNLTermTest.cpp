@@ -6,7 +6,7 @@ using ::testing::ElementsAre;
 #include "SNLBusTerm.h"
 #include "SNLBusTermBit.h"
 #include "SNLException.h"
-using namespace SNL;
+using namespace naja::SNL;
 
 class SNLTermTest: public ::testing::Test {
   protected:

@@ -21,7 +21,7 @@
 #include "SNLException.h"
 #include "SNLDesign.h"
 
-namespace SNL {
+namespace naja { namespace SNL {
 
 SNLScalarTerm::SNLScalarTerm(SNLDesign* design, const Direction& direction, const SNLName& name):
   super(),
@@ -88,4 +88,4 @@ std::string SNLScalarTerm::getDescription() const {
   return "<" + std::string(getTypeName()) + " " + name_.getString() + " " + design_->getName().getString() + ">";  
 }
 
-}
+}} // namespace SNL // namespace naja

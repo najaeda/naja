@@ -22,7 +22,7 @@
 #include "SNLName.h"
 #include "SNLDesignObject.h"
 
-namespace SNL {
+namespace naja { namespace SNL {
 
 class SNLNet: public SNLDesignObject {
   public:
@@ -65,6 +65,6 @@ class SNLNet: public SNLDesignObject {
     boost::intrusive::set_member_hook<> designNetsHook_ {};
 };
 
-}
+}} // namespace SNL // namespace naja
 
-#endif /* __SNL_NET_H_ */ 
+#endif // __SNL_NET_H_

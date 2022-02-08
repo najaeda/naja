@@ -19,7 +19,7 @@
 
 #include "SNLDB.h"
 
-namespace SNL {
+namespace naja { namespace SNL {
 
 /**
  * \brief SNLUniverse is a singleton class holding all SNL managed objects.
@@ -74,6 +74,6 @@ class SNLUniverse final: public SNLObject {
     SNLScalarTerm*      assignOutput_ {nullptr};
 };
 
-}
+}} // namespace SNL // namespace naja
 
-#endif /* __SNL_UNIVERSE_H_ */
+#endif // __SNL_UNIVERSE_H_

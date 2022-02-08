@@ -17,7 +17,7 @@
 #ifndef __SNL_SHARED_PATH_H_
 #define __SNL_SHARED_PATH_H_
 
-namespace SNL {
+namespace naja { namespace SNL {
 
 class SNLInstance;
 class SNLDesign;
@@ -48,6 +48,6 @@ class SNLSharedPath {
     SNLSharedPath*                      tailSharedPath_           {nullptr};
 };
 
-}
+}} // namespace SNL // namespace naja
 
-#endif /* __SNL_SHARED_PATH_H_ */
+#endif // __SNL_SHARED_PATH_H_

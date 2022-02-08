@@ -22,7 +22,7 @@
 #include "SNLName.h"
 #include "SNLNetComponent.h"
 
-namespace SNL {
+namespace naja { namespace SNL {
 
 class SNLTerm: public SNLNetComponent {
   public:
@@ -61,6 +61,6 @@ class SNLTerm: public SNLNetComponent {
     virtual void destroyFromDesign() = 0;
 };
 
-}
+}} // namespace SNL // namespace naja
 
-#endif /* __SNL_TERM_H_ */ 
+#endif // __SNL_TERM_H_

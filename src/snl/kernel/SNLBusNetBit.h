@@ -19,7 +19,7 @@
 
 #include "SNLBitNet.h"
 
-namespace SNL {
+namespace naja { namespace SNL {
 
 class SNLBusNet;
 
@@ -58,6 +58,6 @@ class SNLBusNetBit final: public SNLBitNet {
     SNLID::Bit  bit_;
 };
 
-}
+}} // namespace SNL // namespace naja
 
-#endif /* __SNL_BUS_NET_BIT_H_ */ 
+#endif // __SNL_BUS_NET_BIT_H_

@@ -29,7 +29,7 @@
 #include "SNLScalarTerm.h"
 #include "SNLInstTerm.h"
 
-namespace SNL {
+namespace naja { namespace SNL {
 
 SNLInstance::SNLInstance(SNLDesign* design, SNLDesign* model, const SNLName& name):
   super(),
@@ -209,4 +209,4 @@ Card* SNLInstance::getCard() const {
   return card;
 }
 
-}
+}} // namespace SNL // namespace naja

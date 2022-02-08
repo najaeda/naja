@@ -17,7 +17,7 @@
 #ifndef __SNL_EXCEPTION_H_
 #define __SNL_EXCEPTION_H_
 
-namespace SNL {
+namespace naja { namespace SNL {
 
 struct SNLException: public std::exception {
   public:
@@ -41,6 +41,6 @@ struct SNLException: public std::exception {
     const std::string reason_;
 };
 
-}
+}} // namespace SNL // namespace naja
 
-#endif /* __SNL_EXCEPTION_H_ */
+#endif // __SNL_EXCEPTION_H_

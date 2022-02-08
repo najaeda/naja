@@ -23,7 +23,7 @@
 #include "SNLName.h"
 #include "SNLCollection.h"
 
-namespace SNL {
+namespace naja { namespace SNL {
 
 class SNLBusTermBit;
 
@@ -87,6 +87,6 @@ class SNLBusTerm final: public SNLTerm {
     Bits                    bits_     {};
 };
 
-}
+}} // namespace SNL // namespace naja
 
-#endif /* __SNL_BUS_TERM_H_ */ 
+#endif // __SNL_BUS_TERM_H_

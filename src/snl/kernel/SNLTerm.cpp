@@ -16,7 +16,7 @@
 
 #include "SNLTerm.h"
 
-namespace SNL {
+namespace naja { namespace SNL {
 
 SNLTerm::Direction::Direction(const DirectionEnum& dirEnum):
   dirEnum_(dirEnum) 
@@ -45,5 +45,4 @@ void SNLTerm::preDestroy() {
   super::preDestroy();
 }
 
-
-}
+}} // namespace SNL // namespace naja

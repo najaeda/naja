@@ -23,7 +23,7 @@
 
 namespace PYSNL {
 
-using namespace SNL;
+using namespace naja::SNL;
 
 #define METHOD_HEAD(function) GENERIC_METHOD_HEAD(SNLDB,db,function)
 
@@ -38,9 +38,9 @@ static PyObject* PySNLDB_create(PyObject*, PyObject* args) {
     return nullptr;
   }
   auto universe = PYSNLUNIVERSE_O(arg);
-  SNL::SNLDB* db = nullptr;
+  SNLDB* db = nullptr;
   SNLTRY
-  db = SNL::SNLDB::create(universe);
+  db = SNLDB::create(universe);
   SNLCATCH
   return PySNLDB_Link(db);
 }

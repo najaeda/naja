@@ -24,7 +24,7 @@
 #include "SNLLibrary.h"
 #include "SNLDesign.h"
 
-namespace SNL {
+namespace naja { namespace SNL {
 
 SNLScalarNet::SNLScalarNet(SNLDesign* design, const SNLName& name):
   super(),
@@ -102,4 +102,4 @@ Card* SNLScalarNet::getCard() const {
 }
 //LCOV_EXCL_STOP
 
-}
+}} // namespace SNL // namespace naja

@@ -24,13 +24,13 @@ namespace PYSNL {
 
 typedef struct {
   PyObject_HEAD
-  SNL::SNLDB* object_;
+  naja::SNL::SNLDB* object_;
 } PySNLDB;
 
 extern PyTypeObject PyTypeSNLDB;
 extern PyMethodDef  PySNLDB_Methods[];
 
-extern PyObject*    PySNLDB_Link(SNL::SNLDB* u);
+extern PyObject*    PySNLDB_Link(naja::SNL::SNLDB* u);
 extern void         PySNLDB_LinkPyType();
 
 #define IsPySNLDB(v) (PyObject_TypeCheck(v, &PyTypeSNLDB))

@@ -19,7 +19,7 @@
 
 #include "SNLTerm.h"
 
-namespace SNL {
+namespace naja { namespace SNL {
 
 class SNLBitTerm: public SNLTerm {
   public:
@@ -33,6 +33,6 @@ class SNLBitTerm: public SNLTerm {
     void preDestroy() override;
 };
 
-}
+}} // namespace SNL // namespace naja
 
-#endif /* __SNL_BIT_TERM_H_ */ 
+#endif // __SNL_BIT_TERM_H_

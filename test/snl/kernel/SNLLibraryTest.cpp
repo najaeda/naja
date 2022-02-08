@@ -4,7 +4,7 @@ using ::testing::ElementsAre;
 
 #include "SNLUniverse.h"
 #include "SNLException.h"
-using namespace SNL;
+using namespace naja::SNL;
 
 class SNLLibraryTest: public ::testing::Test {
   protected:

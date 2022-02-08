@@ -22,7 +22,7 @@
 
 #include <boost/intrusive/set.hpp>
 
-namespace SNL {
+namespace naja { namespace SNL {
 
 template<class Type>
 class SNLBaseIterator {
@@ -630,6 +630,6 @@ template<class Type> class SNLCollection {
     const SNLBaseCollection<Type>*  collection_ {nullptr};
 };
 
-}
+}} // namespace SNL // namespace naja
 
-#endif /* __SNL_COLLECTION_H_ */
+#endif // __SNL_COLLECTION_H_

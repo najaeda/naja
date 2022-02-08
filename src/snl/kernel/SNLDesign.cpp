@@ -31,7 +31,7 @@
 #include "SNLBusNet.h"
 #include "SNLBusNetBit.h"
 
-namespace SNL {
+namespace naja { namespace SNL {
 
 SNLDesign::Type::Type(const TypeEnum& typeEnum):
   typeEnum_(typeEnum) 
@@ -432,4 +432,4 @@ bool SNLDesign::isBetween(int n, int MSB, int LSB) {
   return n>=min and n<=max;
 }
 
-}
+}} // namespace SNL // namespace naja

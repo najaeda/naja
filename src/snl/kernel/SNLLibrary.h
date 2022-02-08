@@ -21,7 +21,7 @@
 #include "SNLCollection.h"
 #include "SNLDesign.h"
 
-namespace SNL {
+namespace naja { namespace SNL {
 
 class SNLDB;
 
@@ -124,6 +124,6 @@ class SNLLibrary final: public SNLObject {
     SNLDesignNameIDMap                  designNameIDMap_  {};
 };
 
-}
+}} // namespace SNL // namespace naja
 
-#endif /* __SNL_LIBRARY_H_ */ 
+#endif // __SNL_LIBRARY_H_

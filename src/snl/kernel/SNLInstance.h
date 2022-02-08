@@ -26,7 +26,7 @@
 #include "SNLName.h"
 #include "SNLCollection.h"
 
-namespace SNL {
+namespace naja { namespace SNL {
 
 class SNLTerm;
 class SNLBitTerm;
@@ -85,6 +85,6 @@ class SNLInstance final: public SNLDesignObject {
     SNLSharedPaths                      sharedPaths_              {};
 };
 
-}
+}} // namespace SNL // namespace naja
 
-#endif /* __SNL_INSTANCE_H_ */ 
+#endif // __SNL_INSTANCE_H_ 

@@ -29,7 +29,7 @@ typedef struct {
 extern PyTypeObject PyTypeSNLNetComponent;
 extern PyMethodDef  PySNLNetComponent_Methods[];
 
-extern PyObject*    PySNLNetComponent_Link(SNL::SNLNetComponent* u);
+extern PyObject*    PySNLNetComponent_Link(naja::SNL::SNLNetComponent* u);
 extern void         PySNLNetComponent_LinkPyType();
 
 #define IsPySNLNetComponent(v) (PyObject_TypeCheck(v, &PyTypeSNLNetComponent))

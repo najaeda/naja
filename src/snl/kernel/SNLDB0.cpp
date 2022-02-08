@@ -20,7 +20,7 @@
 #include "SNLScalarTerm.h"
 #include "SNLScalarNet.h"
 
-namespace SNL {
+namespace naja { namespace SNL {
 
 SNLDB* SNLDB0::create(SNLUniverse* universe) {
   SNLDB* db = SNLDB::create(universe);
@@ -40,4 +40,4 @@ SNLDB* SNLDB0::create(SNLUniverse* universe) {
   return db;
 }
 
-}
+}} // namespace SNL // namespace naja

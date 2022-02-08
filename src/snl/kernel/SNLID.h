@@ -20,7 +20,7 @@
 #include <tuple>
 #include <string>
 
-namespace SNL {
+namespace naja { namespace SNL {
 
 /**
  * \brief The SNLID structure allows global comparison between the various SNL objects and allows to uniquely identify any object. 
@@ -112,6 +112,6 @@ struct SNLIDComp {
   }
 };
 
-}
+}} // namespace SNL // namespace naja
 
-#endif /* __SNL_ID_H_ */
+#endif // __SNL_ID_H_

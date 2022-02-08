@@ -20,18 +20,18 @@
 
 namespace PYSNL {
 
-using namespace SNL;
+using namespace naja::SNL;
 
 static PyObject* PySNLUniverse_create() {
-  SNL::SNLUniverse* universe = nullptr;
+  SNLUniverse* universe = nullptr;
   SNLTRY
-  universe = SNL::SNLUniverse::create();
+  universe = SNLUniverse::create();
   SNLCATCH
   return PySNLUniverse_Link(universe);
 }
 
 static PyObject* PySNLUniverse_get() {
-  auto universe = SNL::SNLUniverse::get();
+  auto universe = SNLUniverse::get();
   return PySNLUniverse_Link(universe);
 }
 
