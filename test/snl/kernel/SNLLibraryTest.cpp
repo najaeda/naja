@@ -3,6 +3,7 @@
 using ::testing::ElementsAre;
 
 #include "SNLUniverse.h"
+#include "SNLException.h"
 using namespace SNL;
 
 class SNLLibraryTest: public ::testing::Test {
@@ -16,7 +17,7 @@ class SNLLibraryTest: public ::testing::Test {
     SNLUniverse*  universe_;
 };
 
-TEST_F(SNLLibraryTest, test) {
+TEST_F(SNLLibraryTest, test0) {
   SNLDB* db = SNLDB::create(universe_);
   EXPECT_EQ(0, db->getLibraries().size());
   EXPECT_TRUE(db->getLibraries().empty());
@@ -120,4 +121,43 @@ TEST_F(SNLLibraryTest, test) {
   EXPECT_TRUE(lib1->getLibraries().empty());
   EXPECT_EQ(0, lib1->getDesigns().size());
   EXPECT_TRUE(lib1->getDesigns().empty());
+}
+
+TEST_F(SNLLibraryTest, test1) {
+  SNLDB* db = SNLDB::create(universe_);
+  ASSERT_TRUE(db);
+  SNLLibrary* root = SNLLibrary::create(db, SNLLibrary::Type::Primitives);
+  ASSERT_TRUE(root);
+  EXPECT_TRUE(root->isAnonymous());
+  EXPECT_EQ(0, root->getID());
+
+  SNLLibrary* primitives0 = SNLLibrary::create(root, SNLLibrary::Type::Primitives, SNLName("Primitives0"));
+  EXPECT_FALSE(primitives0->isAnonymous());
+  EXPECT_EQ(SNLName("Primitives0"), primitives0->getName());
+  EXPECT_EQ(1, primitives0->getID());
+
+  SNLLibrary* primitives1 = SNLLibrary::create(root, SNLLibrary::Type::Primitives);
+  EXPECT_TRUE(primitives1->isAnonymous());
+  EXPECT_EQ(2, primitives1->getID());
+
+  EXPECT_EQ(primitives0, root->getLibrary(SNLName("Primitives0")));
+  EXPECT_EQ(primitives0, root->getLibrary(1));
+
+  EXPECT_EQ(primitives1, root->getLibrary(2));
+
+  EXPECT_FALSE(root->getLibrary(3));
+  EXPECT_FALSE(root->getLibrary(SNLName("UNKNOWN")));
+}
+
+TEST_F(SNLLibraryTest, testErrors) {
+  SNLDB* db = SNLDB::create(universe_);
+  ASSERT_TRUE(db);
+  SNLLibrary* root = SNLLibrary::create(db);
+  ASSERT_TRUE(root);
+  EXPECT_TRUE(root->isAnonymous());
+
+  SNLDB* nullDB = nullptr;
+  EXPECT_THROW(SNLLibrary::create(nullDB), SNLException);
+  SNLLibrary* nullLibrary = nullptr;
+  EXPECT_THROW(SNLLibrary::create(nullLibrary), SNLException);
 }
