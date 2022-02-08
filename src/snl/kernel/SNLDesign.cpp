@@ -426,4 +426,10 @@ SNLID SNLDesign::getSNLID() const {
   return SNLID(getDB()->getID(), library_->getID(), getID());
 }
 
+bool SNLDesign::isBetween(int n, int MSB, int LSB) {
+  int min = std::min(MSB, LSB);
+  int max = std::max(MSB, LSB);
+  return n>=min and n<=max;
+}
+
 }

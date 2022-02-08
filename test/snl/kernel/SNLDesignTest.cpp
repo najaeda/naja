@@ -108,6 +108,13 @@ TEST_F(SNLDesignTest, testCreation0) {
   EXPECT_EQ(4, term3->getMSB());
   EXPECT_EQ(0, term3->getLSB());
   EXPECT_EQ(5, term3->getSize());
+  EXPECT_FALSE(term3->getBits().empty());
+  EXPECT_EQ(5, term3->getBits().size());
+  for (auto bit: term3->getBits()) {
+    EXPECT_EQ(SNLTerm::Direction::Input, bit->getDirection());
+    EXPECT_EQ(term3, bit->getBus());
+  }
+
   EXPECT_FALSE(design->getTerms().empty());
   EXPECT_FALSE(design->getScalarTerms().empty());
   EXPECT_FALSE(design->getBusTerms().empty());

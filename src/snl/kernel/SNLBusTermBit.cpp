@@ -64,7 +64,7 @@ SNLID::DesignObjectID SNLBusTermBit::getID() const {
 }
 
 SNLID SNLBusTermBit::getSNLID() const {
-  return SNLDesignObject::getSNLID(SNLID::Type::Net, getID(), 0, getBit());
+  return SNLDesignObject::getSNLID(SNLID::Type::TermBit, getID(), 0, getBit());
 }
 
 size_t SNLBusTermBit::getPosition() const {
@@ -75,10 +75,6 @@ SNLDesign* SNLBusTermBit::getDesign() const {
   return getBus()->getDesign();
 }
 
-constexpr const char* SNLBusTermBit::getTypeName() const {
-  return "SNLBusTermBit";
-}
-
 SNLName SNLBusTermBit::getName() const {
   return getBus()->getName();
 }
@@ -87,6 +83,13 @@ SNLTerm::Direction SNLBusTermBit::getDirection() const {
   return getBus()->getDirection();
 }
 
+//LCOV_EXCL_START
+constexpr const char* SNLBusTermBit::getTypeName() const {
+  return "SNLBusTermBit";
+}
+//LCOV_EXCL_STOP
+
+//LCOV_EXCL_START
 std::string SNLBusTermBit::getString() const {
   std::ostringstream str;
   if (not getBus()->isAnonymous()) {
@@ -96,10 +99,13 @@ std::string SNLBusTermBit::getString() const {
   str << "[" << getBit() << "]";
   return str.str();
 }
+//LCOV_EXCL_STOP
 
+//LCOV_EXCL_START
 std::string SNLBusTermBit::getDescription() const {
   return "";
 }
+//LCOV_EXCL_STOP
 
 bool SNLBusTermBit::isAnonymous() const {
   return getBus()->isAnonymous();

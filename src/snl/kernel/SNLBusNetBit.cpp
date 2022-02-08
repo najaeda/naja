@@ -64,28 +64,34 @@ SNLID::DesignObjectID SNLBusNetBit::getID() const {
 }
 
 SNLID SNLBusNetBit::getSNLID() const {
-  return SNLDesignObject::getSNLID(SNLID::Type::Net, getBus()->getID(), 0, getBit());
+  return SNLDesignObject::getSNLID(SNLID::Type::NetBit, getBus()->getID(), 0, getBit());
 }
 
 SNLDesign* SNLBusNetBit::getDesign() const {
   return getBus()->getDesign();
 }
 
+//LCOV_EXCL_START
 constexpr const char* SNLBusNetBit::getTypeName() const {
   return "SNLBusNetBit";
 }
+//LCOV_EXCL_STOP
 
 SNLName SNLBusNetBit::getName() const {
   return getBus()->getName();
 }
 
+//LCOV_EXCL_START
 std::string SNLBusNetBit::getString() const {
   return std::string();
 }
+//LCOV_EXCL_STOP
 
+//LCOV_EXCL_START
 std::string SNLBusNetBit::getDescription() const {
   return "";
 }
+//LCOV_EXCL_STOP
 
 bool SNLBusNetBit::isAnonymous() const {
   return getBus()->isAnonymous();

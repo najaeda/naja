@@ -20,6 +20,7 @@
 
 namespace SNL {
 
+//LCOV_EXCL_START
 std::string SNLID::getString() const {
   std::ostringstream stream;
   stream << "Type:";
@@ -28,7 +29,9 @@ std::string SNLID::getString() const {
     case Type::Library: stream << "Library"; break;
     case Type::Design: stream << "Design"; break;
     case Type::Term: stream << "Term"; break;
+    case Type::TermBit: stream << "TermBit"; break;
     case Type::Net: stream << "Net"; break;
+    case Type::NetBit: stream << "NetBit"; break;
     case Type::Instance: stream << "Instance"; break;
     case Type::InstTerm: stream << "InstTerm"; break;
   }
@@ -41,5 +44,6 @@ std::string SNLID::getString() const {
   stream << "Bit:" << bit_ << " ";
   return stream.str();
 }
+//LCOV_EXCL_STOP
 
 }

@@ -174,10 +174,13 @@ SNLCollection<SNLInstTerm*> SNLInstance::getInstBusTermBits() const {
     new SNLVectorCollection<SNLInstTerm*>(&instTerms_)).getSubCollection(filter);
 }
 
+//LCOV_EXCL_START
 constexpr const char* SNLInstance::getTypeName() const {
   return "SNLInstance";
 }
+//LCOV_EXCL_STOP
 
+//LCOV_EXCL_START
 std::string SNLInstance::getString() const {
   std::ostringstream str; 
   if (not isAnonymous()) {
@@ -186,7 +189,9 @@ std::string SNLInstance::getString() const {
   str << "(" << getID() << ")";
   return str.str();
 }
+//LCOV_EXCL_STOP
 
+//LCOV_EXCL_START
 std::string SNLInstance::getDescription() const {
   return "<" + std::string(getTypeName())
     + " " + name_.getString()
@@ -194,6 +199,7 @@ std::string SNLInstance::getDescription() const {
     + " " + model_->getName().getString()
     + ">";  
 }
+//LCOV_EXCL_STOP
 
 Card* SNLInstance::getCard() const {
   Card* card = super::getCard();

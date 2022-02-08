@@ -69,10 +69,13 @@ bool SNLInstTerm::isAnonymous() const {
   return getTerm()->isAnonymous();
 }
 
+//LCOV_EXCL_START
 constexpr const char* SNLInstTerm::getTypeName() const {
   return "SNLInstTerm";
 }
+//LCOV_EXCL_STOP
 
+//LCOV_EXCL_START
 std::string SNLInstTerm::getString() const {
   std::ostringstream str;
   if (not getInstance()->isAnonymous()) {
@@ -83,9 +86,12 @@ std::string SNLInstTerm::getString() const {
   str << getTerm()->getString();
   return str.str();
 }
+//LCOV_EXCL_STOP
 
+//LCOV_EXCL_START
 std::string SNLInstTerm::getDescription() const {
   return "<" + std::string(getTypeName()) + " " + getDesign()->getName().getString() + ">";  
 }
+//LCOV_EXCL_STOP
 
 }
