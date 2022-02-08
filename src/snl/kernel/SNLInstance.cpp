@@ -157,15 +157,30 @@ SNLInstTerm* SNLInstance::getInstTerm(const SNLBitTerm* term) {
 }
 
 SNLCollection<SNLInstTerm*> SNLInstance::getInstTerms() const {
-  std::function<bool(SNLInstTerm*)> filter = [](const SNLInstTerm* it) {return it != nullptr; };
+  auto filter = [](const SNLInstTerm* it) {return it != nullptr; };
   return SNLCollection<SNLInstTerm*>(
     new SNLVectorCollection<SNLInstTerm*>(&instTerms_)).getSubCollection(filter);
 }
 
+SNLCollection<SNLInstTerm*> SNLInstance::getInstScalarTerms() const {
+  auto filter = [](const SNLInstTerm* it) {return it and dynamic_cast<SNLScalarTerm*>(it->getTerm()); };
+  return SNLCollection<SNLInstTerm*>(
+    new SNLVectorCollection<SNLInstTerm*>(&instTerms_)).getSubCollection(filter);
+}
+
+SNLCollection<SNLInstTerm*> SNLInstance::getInstBusTermBits() const {
+  auto filter = [](const SNLInstTerm* it) {return it and dynamic_cast<SNLBusTermBit*>(it->getTerm()); };
+  return SNLCollection<SNLInstTerm*>(
+    new SNLVectorCollection<SNLInstTerm*>(&instTerms_)).getSubCollection(filter);
+}
+
+//LCOV_EXCL_START
 constexpr const char* SNLInstance::getTypeName() const {
   return "SNLInstance";
 }
+//LCOV_EXCL_STOP
 
+//LCOV_EXCL_START
 std::string SNLInstance::getString() const {
   std::ostringstream str; 
   if (not isAnonymous()) {
@@ -174,7 +189,9 @@ std::string SNLInstance::getString() const {
   str << "(" << getID() << ")";
   return str.str();
 }
+//LCOV_EXCL_STOP
 
+//LCOV_EXCL_START
 std::string SNLInstance::getDescription() const {
   return "<" + std::string(getTypeName())
     + " " + name_.getString()
@@ -182,6 +199,7 @@ std::string SNLInstance::getDescription() const {
     + " " + model_->getName().getString()
     + ">";  
 }
+//LCOV_EXCL_STOP
 
 Card* SNLInstance::getCard() const {
   Card* card = super::getCard();

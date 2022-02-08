@@ -69,10 +69,14 @@ SNLID SNLScalarNet::getSNLID() const {
   return SNLDesignObject::getSNLID(SNLID::Type::Net, id_, 0, 0);
 }
 
+//LCOV_EXCL_START
 constexpr const char* SNLScalarNet::getTypeName() const {
   return "SNLScalarNet";
 }
+//LCOV_EXCL_STOP
 
+
+//LCOV_EXCL_START
 std::string SNLScalarNet::getString() const {
   std::ostringstream str;
   if (not isAnonymous()) {
@@ -81,16 +85,21 @@ std::string SNLScalarNet::getString() const {
   str << "(" << getID() << ")";
   return str.str();
 }
+//LCOV_EXCL_STOP
 
+//LCOV_EXCL_START
 std::string SNLScalarNet::getDescription() const {
   return "<" + std::string(typeid(this).name()) + " " + name_.getString() + " " + design_->getName().getString() + ">";  
 }
+//LCOV_EXCL_STOP
 
+//LCOV_EXCL_START
 Card* SNLScalarNet::getCard() const {
   Card* card = super::getCard();
   card->addItem(new CardDataItem<const SNLName>("Name", name_));
   card->addItem(new CardDataItem<const SNLDesign*>("Design", design_));
   return card;
 }
+//LCOV_EXCL_STOP
 
 }

@@ -23,6 +23,9 @@
 
 namespace SNL {
 
+class SNLInstTerm;
+class SNLBitTerm;
+
 class SNLBitNet: public SNLNet {
   public:
     friend class SNLNetComponent;
@@ -31,7 +34,12 @@ class SNLBitNet: public SNLNet {
     void setType(const Type& type) override { type_ = type; }
     Type getType() const { return type_; }
 
+    ///\return the collection of SNLComponent ot this SNLBitNet
     SNLCollection<SNLNetComponent*> getComponents() const;
+    ///\return the collection of SNLInstTerm of this SNLDesign (SNLInstTerm subset of getComponents())
+    SNLCollection<SNLInstTerm*> getInstTerms() const;
+    ///\return the collection of SNLBitTerm of this SNLDesign (SNLBitTerm subset of getComponents())
+    SNLCollection<SNLBitTerm*> getBitTerms() const;
 
   protected:
     SNLBitNet() = default;

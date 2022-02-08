@@ -90,8 +90,8 @@ SNLID SNLBusNet::getSNLID() const {
 }
 
 SNLBusNetBit* SNLBusNet::getBit(SNLID::Bit bit) const {
-  size_t pos = static_cast<size_t>(std::abs(getMSB()-bit));
-  if (pos < bits_.size()) {
+  if (SNLDesign::isBetween(bit, getMSB(), getLSB())) {
+    size_t pos = static_cast<size_t>(std::abs(getMSB()-bit));
     return bits_[pos];
   }
   return nullptr;
@@ -105,17 +105,23 @@ void SNLBusNet::setType(const Type& type) {
   std::for_each(bits_.begin(), bits_.end(), [type](SNLBusNetBit* b){ if (b) b->setType(type); });
 }
 
+//LCOV_EXCL_START
 constexpr const char* SNLBusNet::getTypeName() const {
   return "SNLBusNet";
 }
+//LCOV_EXCL_STOP
 
+//LCOV_EXCL_START
 std::string SNLBusNet::getString() const {
   return std::string();
 }
+//LCOV_EXCL_STOP
 
+//LCOV_EXCL_START
 std::string SNLBusNet::getDescription() const {
   return "<" + std::string(getTypeName()) + " " + name_.getString() + " " + design_->getName().getString() + ">";  
 }
+//LCOV_EXCL_STOP
 
 Card* SNLBusNet::getCard() const {
   Card* card = super::getCard();

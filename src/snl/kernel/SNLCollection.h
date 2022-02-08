@@ -19,7 +19,6 @@
 
 #include <vector>
 #include <memory>
-#include <functional>
 
 #include <boost/intrusive/set.hpp>
 
@@ -306,10 +305,9 @@ template<class Type, class SubType> class SNLSubTypeCollection: public SNLBaseCo
     const SNLBaseCollection<Type>* collection_;
 };
 
-template<class Type> class SNLFilteredCollection: public SNLBaseCollection<Type> {
+template<class Type, typename Filter> class SNLFilteredCollection: public SNLBaseCollection<Type> {
   public:
     using super = SNLBaseCollection<Type>;
-    using Filter = std::function<bool(Type)>;
 
     class SNLFilteredCollectionIterator: public SNLBaseIterator<Type> {
       public:
@@ -414,6 +412,163 @@ template<class Type> class SNLFilteredCollection: public SNLBaseCollection<Type>
     Filter                          filter_;
 };
 
+template<class Type, class MasterType, class FlatType, class ReturnType, typename Flattener>
+class SNLFlatCollection: public SNLBaseCollection<ReturnType> {
+  public:
+    using super = SNLBaseCollection<ReturnType>;
+
+    class SNLFlatCollectionIterator: public SNLBaseIterator<ReturnType> {
+      public:
+        using super = SNLBaseIterator<ReturnType>;
+        SNLFlatCollectionIterator(const SNLBaseCollection<Type>* collection, const Flattener& flattener, bool beginOrEnd=true):
+          super(),
+          flattener_(flattener) {
+          if (collection) {
+            endIt_ = collection->end();
+            if (not beginOrEnd) {
+              it_ = endIt_;
+              flattenIt_ = nullptr;
+              element_ = nullptr;
+            } else {
+              it_ = collection->begin();
+              if (it_->isValid()) {
+                Type e = it_->getElement();
+                if (auto r = dynamic_cast<ReturnType>(e)) {
+                  element_ = r;
+                } else {
+                  MasterType master = static_cast<MasterType>(e);
+                  flattenIt_ = flattener_(master).begin_();
+                  assert(flattenIt_->isValid());
+                  element_ = flattenIt_->getElement();
+                }
+              }
+            }
+          }
+        }
+        SNLFlatCollectionIterator(const SNLFlatCollectionIterator& it): element_(it.element_), flattener_(it.flattener_) {
+          endIt_ = it.endIt_->clone();
+          if (it.it_ not_eq it.endIt_) {
+            it_ = it.it_->clone();
+          } else {
+            it_ = endIt_;
+          }
+          if (it.flattenIt_) {
+            flattenIt_ = it.flattenIt_->clone();
+          }
+        }
+        ~SNLFlatCollectionIterator() {
+          if (it_ not_eq endIt_) {
+            delete it_;
+          }
+          delete endIt_;
+          delete flattenIt_;
+        }
+        SNLBaseIterator<ReturnType>* clone() override {
+          return new SNLFlatCollectionIterator(*this);
+        }
+        ReturnType getElement() const override { return element_; } 
+        void progress() override {
+          if (isValid()) {
+            element_ = nullptr;
+            if (flattenIt_ and flattenIt_->isValid()) {
+              flattenIt_->progress();
+              if (flattenIt_->isValid()) {
+                element_ = flattenIt_->getElement();
+                return;
+              } else {
+                delete flattenIt_;
+                flattenIt_ = nullptr;
+              }
+            }
+            if (it_->isValid()) {
+              it_->progress();
+            }
+            if (it_->isValid()) {
+              Type e = it_->getElement();
+              if (auto r = dynamic_cast<ReturnType>(e)) {
+                element_ = r;
+                if (flattenIt_) {
+                  delete flattenIt_;
+                }
+                flattenIt_ = nullptr;
+              } else {
+                MasterType master = static_cast<MasterType>(e);
+                flattenIt_ = flattener_(master).begin_();
+                assert(flattenIt_->isValid());
+                element_ = flattenIt_->getElement();
+              }
+            }
+          }
+        }
+        bool isEqual(const SNLBaseIterator<ReturnType>* r) override {
+          if (it_) {
+            if (auto rit = dynamic_cast<const SNLFlatCollectionIterator*>(r)) {
+              if (it_->isEqual(rit->it_)) {
+                if (flattenIt_) {
+                  return flattenIt_->isEqual(rit->flattenIt_);
+                } else {
+                  return not rit->flattenIt_;
+                }
+              }
+            }
+          }
+          return false;
+        }
+        bool isValid() const override {
+          return element_ != nullptr;
+        }
+      private:
+
+        SNLBaseIterator<Type>*      it_         {nullptr};
+        SNLBaseIterator<Type>*      endIt_      {nullptr};
+        SNLBaseIterator<FlatType>*  flattenIt_  {nullptr};
+        ReturnType                  element_    {nullptr};
+        Flattener                   flattener_;
+    };
+
+    SNLFlatCollection(const SNLFlatCollection&) = delete;
+    SNLFlatCollection& operator=(const SNLFlatCollection&) = delete;
+    SNLFlatCollection(const SNLFlatCollection&&) = delete;
+    SNLFlatCollection(const SNLBaseCollection<Type>* collection, const Flattener& flattener):
+      super(), collection_(collection), flattener_(flattener)
+    {}
+    ~SNLFlatCollection() {
+      delete collection_;
+    }
+    SNLBaseCollection<ReturnType>* clone() const override {
+      return new SNLFlatCollection(collection_, flattener_);
+    }
+    SNLBaseIterator<ReturnType>* begin() const override {
+      return new SNLFlatCollectionIterator(collection_, flattener_, true);
+    }
+    SNLBaseIterator<ReturnType>* end() const override {
+      return new SNLFlatCollectionIterator(collection_, flattener_, false);
+    }
+    size_t size() const override {
+      size_t size = 0;
+      if (collection_) {
+        auto it = std::make_unique<SNLFlatCollectionIterator>(collection_, flattener_, true);
+        auto endIt = std::make_unique<SNLFlatCollectionIterator>(collection_, flattener_, false);
+        while (not it->isEqual(endIt.get())) {
+          ++size;
+          it->progress();
+        }
+      }
+      return size;
+    }
+    bool empty() const override {
+      if (collection_) {
+        auto it = std::make_unique<SNLFlatCollectionIterator>(collection_, flattener_, true);
+        return not it->isValid();
+      }
+      return true;
+    }
+
+  private:
+    const SNLBaseCollection<Type>* collection_;
+    Flattener                      flattener_;
+};
+
 template<class Type> class SNLCollection {
   public:
     class Iterator: public std::iterator<std::input_iterator_tag, Type> {
@@ -449,15 +604,25 @@ template<class Type> class SNLCollection {
       return SNLCollection<SubType>();
     }
 
-    SNLCollection<Type> getSubCollection(const std::function<bool(Type)>& filter) const {
+    template<typename Filter> SNLCollection<Type> getSubCollection(const Filter& filter) const {
       if (collection_) {
-        return SNLCollection<Type>(new SNLFilteredCollection<Type>(collection_->clone(), filter));
+        return SNLCollection<Type>(new SNLFilteredCollection<Type, Filter>(collection_->clone(), filter));
       }
       return SNLCollection<Type>();
     }
 
-    Iterator begin() { return Iterator(collection_->begin()); }
-    Iterator end() { return Iterator(collection_->end()); }
+    template<class MasterType, class FlatType, class ReturnType, typename Flattener>
+      SNLCollection<ReturnType> getFlatCollection(const Flattener& flattener) const {
+      if (collection_) {
+        return SNLCollection<ReturnType>(new SNLFlatCollection<Type, MasterType, FlatType, ReturnType, Flattener>(collection_->clone(), flattener));
+      }
+      return SNLCollection<ReturnType>();
+    }
+
+    SNLBaseIterator<Type>* begin_() { return collection_->begin(); }
+    SNLBaseIterator<Type>* end_() { return collection_->end(); }
+    Iterator begin() { return Iterator(begin_()); }
+    Iterator end() { return Iterator(end_()); }
 
     size_t size() const { if (collection_) { return collection_->size(); } return 0; }
     bool empty() const { if (collection_) { return collection_->empty(); } return true; }

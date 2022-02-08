@@ -94,21 +94,27 @@ SNLID SNLBusTerm::getSNLID() const {
   return SNLDesignObject::getSNLID(SNLID::Type::Term, id_, 0, 0);
 }
 
+//LCOV_EXCL_START
 constexpr const char* SNLBusTerm::getTypeName() const {
   return "SNLBusTerm";
 }
+//LCOV_EXCL_STOP
 
+//LCOV_EXCL_START
 std::string SNLBusTerm::getString() const {
   return getName().getString() + "[" + std::to_string(getMSB()) + ":" + std::to_string(getLSB()) + "]";
 }
+//LCOV_EXCL_STOP
 
+//LCOV_EXCL_START
 std::string SNLBusTerm::getDescription() const {
   return "<" + std::string(getTypeName()) + " " + name_.getString() + " " + design_->getName().getString() + ">";  
 }
+//LCOV_EXCL_STOP
 
 SNLBusTermBit* SNLBusTerm::getBit(SNLID::Bit bit) const {
-  size_t pos = static_cast<size_t>(std::abs(getMSB()-bit));
-  if (pos < bits_.size()) {
+  if (SNLDesign::isBetween(bit, getMSB(), getLSB())) {
+    size_t pos = static_cast<size_t>(std::abs(getMSB()-bit));
     return bits_[pos];
   }
   return nullptr;

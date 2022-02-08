@@ -26,8 +26,10 @@
 #include "SNLLibrary.h"
 #include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
+#include "SNLBusTermBit.h"
 #include "SNLScalarNet.h"
 #include "SNLBusNet.h"
+#include "SNLBusNetBit.h"
 
 namespace SNL {
 
@@ -233,6 +235,11 @@ SNLCollection<SNLScalarTerm*> SNLDesign::getScalarTerms() const {
   return getTerms().getSubCollection<SNLScalarTerm*>();
 }
 
+SNLCollection<SNLBitTerm*> SNLDesign::getBitTerms() const {
+  auto flattener = [](const SNLBusTerm* b) { return b->getBits(); };
+  return getTerms().getFlatCollection<SNLBusTerm*, SNLBusTermBit*, SNLBitTerm*>(flattener);
+}
+
 void SNLDesign::addInstance(SNLInstance* instance) {
   if (instances_.empty()) {
     instance->id_ = 0;
@@ -348,6 +355,19 @@ SNLCollection<SNLNet*> SNLDesign::getNets() const {
   return SNLCollection<SNLNet*>(new SNLIntrusiveSetCollection<SNLNet, SNLDesignNetsHook>(&nets_));
 }
 
+SNLCollection<SNLBusNet*> SNLDesign::getBusNets() const {
+  return getNets().getSubCollection<SNLBusNet*>();
+}
+
+SNLCollection<SNLScalarNet*> SNLDesign::getScalarNets() const {
+  return getNets().getSubCollection<SNLScalarNet*>();
+}
+
+SNLCollection<SNLBitNet*> SNLDesign::getBitNets() const {
+  auto flattener = [](const SNLBusNet* b) { return b->getBits(); };
+  return getNets().getFlatCollection<SNLBusNet*, SNLBusNetBit*, SNLBitNet*>(flattener);
+}
+
 SNLDB* SNLDesign::getDB() const {
   return getLibrary()->getDB();
 }
@@ -404,6 +424,12 @@ Card* SNLDesign::getCard() const {
 
 SNLID SNLDesign::getSNLID() const {
   return SNLID(getDB()->getID(), library_->getID(), getID());
+}
+
+bool SNLDesign::isBetween(int n, int MSB, int LSB) {
+  int min = std::min(MSB, LSB);
+  int max = std::max(MSB, LSB);
+  return n>=min and n<=max;
 }
 
 }

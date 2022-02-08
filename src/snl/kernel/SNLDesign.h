@@ -20,18 +20,20 @@
 #include <map>
 
 #include "SNLCollection.h"
-#include "SNLBusTerm.h"
-#include "SNLScalarTerm.h"
-#include "SNLBusTermBit.h"
-#include "SNLInstance.h"
+#include "SNLTerm.h"
 #include "SNLNet.h"
+#include "SNLInstance.h"
 #include "SNLParameter.h"
 
 namespace SNL {
 
 class SNLLibrary;
+class SNLBitNet;
 class SNLScalarNet;
 class SNLBusNet;
+class SNLBitTerm;
+class SNLScalarTerm;
+class SNLBusTerm;
 
 class SNLDesign final: public SNLObject {
   public:
@@ -86,6 +88,7 @@ class SNLDesign final: public SNLObject {
     ///\see getTerms()
     ///\see getBusTerms()
     SNLCollection<SNLScalarTerm*> getScalarTerms() const;
+    ///\return the collection of SNLBitTerm of this SNLDesign (SNLScalarTerm and flattened SNLBusTerm to SNLBusTermBit)
     SNLCollection<SNLBitTerm*> getBitTerms() const;
 
     ///\return SNLInstance with SNLID::DesignObjectID id or nullptr if it does not exist
@@ -107,10 +110,26 @@ class SNLDesign final: public SNLObject {
     SNLScalarNet* getScalarNet(const SNLName& netName) const;
     ///\return SNLBusNet with SNLName name or nullptr if it does not exist
     SNLBusNet* getBusNet(const SNLName& netName) const;
+    ///\return the collection of SNLNet of this SNLDesign
     SNLCollection<SNLNet*> getNets() const;
+    /*
+     * \return the collection of SNLBusNet of this SNLDesign (SNLBusNet subset of getNets())
+     * \see getNets()
+     * \see getScalarNets()
+     */
+    SNLCollection<SNLBusNet*> getBusNets() const;
+    /*
+     * \return the collection of SNLScalarNet of this SNLDesign (SNLScalarNet subset of getNets())
+     * \see getNets()
+     * \see getBusNets()
+     */
+    SNLCollection<SNLScalarNet*> getScalarNets() const;
+    ///\return the collection of SNLBitNet of this SNLDesign (SNLScalarNet and flattened SNLBusNet to SNLBusNetBit)
+    SNLCollection<SNLBitNet*> getBitNets() const;
 
     ///\return SNLParameter with SNLName name or nullptr if it does not exist
     SNLParameter* getParameter(const SNLName& name) const;
+    ///\return the collection of SNLParameter of this SNLDesign
     SNLCollection<SNLParameter*> getParameters() const;
 
     SNLID::DesignID getID() const { return id_; }
@@ -146,6 +165,7 @@ class SNLDesign final: public SNLObject {
     void removeNet(SNLNet* net);
     void addParameter(SNLParameter* parameter);
     void removeParameter(SNLParameter* parameter);
+    static bool isBetween(int n, int MSB, int LSB);
 
     friend bool operator< (const SNLDesign &ld, const SNLDesign &rd) {
       return ld.getSNLID() < rd.getSNLID();

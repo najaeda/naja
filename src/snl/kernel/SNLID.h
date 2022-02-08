@@ -39,7 +39,7 @@ namespace SNL {
  */
 
 struct SNLID final {
-  enum class Type {DB, Library, Design, Term, Net, Instance, InstTerm};
+  enum class Type {DB, Library, Design, Term, TermBit, Net, NetBit, Instance, InstTerm};
   using DBID = unsigned char;
   using LibraryID = unsigned short;
   using DesignID = unsigned int;

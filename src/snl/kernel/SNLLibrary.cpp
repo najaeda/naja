@@ -236,17 +236,23 @@ void SNLLibrary::removeDesign(SNLDesign* design) {
   designs_.erase(*design);
 }
 
+//LCOV_EXCL_START
 constexpr const char* SNLLibrary::getTypeName() const {
   return "SNLLibrary";
 }
+//LCOV_EXCL_STOP
 
+//LCOV_EXCL_START
 std::string SNLLibrary::getString() const {
   return getName().getString();
 }
+//LCOV_EXCL_STOP
 
+//LCOV_EXCL_START
 std::string SNLLibrary::getDescription() const {
   return "<" + std::string(getTypeName()) + " " + name_.getString() + ">";  
 }
+//LCOV_EXCL_STOP
 
 SNLID SNLLibrary::getSNLID() const {
   return SNLID(getDB()->getID(), getID());
