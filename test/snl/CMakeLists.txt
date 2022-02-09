@@ -1,5 +1,6 @@
 
 add_subdirectory(kernel)
+add_subdirectory(netlists)
 add_subdirectory(formats)
 
 if(Python3_Development_FOUND)

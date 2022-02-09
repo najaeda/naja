@@ -74,10 +74,10 @@ class SNLDesign final: public SNLObject {
     SNLTerm* getTerm(SNLID::DesignObjectID id) const;
     ///\return SNLTerm with SNLName name or nullptr if it does not exist
     SNLTerm* getTerm(const SNLName& name) const;
-    ///\return SNLScalarTerm with SNLName name or nullptr if it does not exist
-    SNLScalarTerm* getScalarTerm(const SNLName& netName) const;
-    ///\return SNLBusTerm with SNLName name or nullptr if it does not exist
-    SNLBusTerm* getBusTerm(const SNLName& netName) const;
+    ///\return SNLScalarTerm with SNLName termName or nullptr if it does not exist
+    SNLScalarTerm* getScalarTerm(const SNLName& termName) const;
+    ///\return SNLBusTerm with SNLName termName or nullptr if it does not exist
+    SNLBusTerm* getBusTerm(const SNLName& termName) const;
     ///\return the collection of SNLTerm of this SNLDesign
     SNLCollection<SNLTerm*> getTerms() const;
     ///\return the collection of SNLBusTerm of this SNLDesign (SNLBusTerm subset of getTerms())
