@@ -71,10 +71,13 @@ SNLID SNLScalarTerm::getSNLID() const {
   return SNLDesignObject::getSNLID(SNLID::Type::Term, id_, 0, 0);
 }
 
+//LCOV_EXCL_START
 constexpr const char* SNLScalarTerm::getTypeName() const {
   return "SNLScalarTerm";
 }
+//LCOV_EXCL_STOP
  
+//LCOV_EXCL_START
 std::string SNLScalarTerm::getString() const {
   std::ostringstream str;
   if (not isAnonymous()) {
@@ -83,9 +86,12 @@ std::string SNLScalarTerm::getString() const {
   str << "(" << getID() << ")";
   return str.str();
 }
+//LCOV_EXCL_STOP
 
+//LCOV_EXCL_START
 std::string SNLScalarTerm::getDescription() const {
   return "<" + std::string(getTypeName()) + " " + name_.getString() + " " + design_->getName().getString() + ">";  
 }
+//LCOV_EXCL_STOP
 
 }} // namespace SNL // namespace naja
