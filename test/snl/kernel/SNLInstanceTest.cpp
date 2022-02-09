@@ -11,6 +11,7 @@ using ::testing::ElementsAre;
 #include "SNLBusTermBit.h"
 #include "SNLInstance.h"
 #include "SNLInstTerm.h"
+#include "SNLException.h"
 using namespace naja::SNL;
 
 class SNLInstanceTest: public ::testing::Test {
@@ -344,4 +345,74 @@ TEST_F(SNLInstanceTest, testCreation) {
   EXPECT_EQ(design->getInstance(SNLName("instance1")), nullptr);
   instance2Test->destroy();
   EXPECT_EQ(design->getInstance(SNLName("instance2")), nullptr);
+}
+
+TEST_F(SNLInstanceTest, testInstTerm) {
+  SNLLibrary* library = SNLLibrary::create(db_, SNLName("MYLIB"));
+  SNLDesign* design = SNLDesign::create(library, SNLName("design"));
+  SNLDesign* model0 = SNLDesign::create(library, SNLName("model0"));
+  auto model0Term = SNLScalarTerm::create(model0, SNLTerm::Direction::Input, SNLName("i0"));
+  EXPECT_EQ(1, model0->getID());
+  EXPECT_EQ(SNLID(SNLID::Type::Design, 1, 0, 1, 0, 0, 0), model0->getSNLID());
+  EXPECT_EQ(SNLID(SNLID::Type::Term, 1, 0, 1, 0, 0, 0), model0Term->getSNLID());
+
+  SNLDesign* model1 = SNLDesign::create(library, SNLName("model1"));
+  auto model1Term = SNLScalarTerm::create(model1, SNLTerm::Direction::Input, SNLName("i0"));
+  EXPECT_EQ(2, model1->getID());
+  EXPECT_EQ(SNLID(SNLID::Type::Design, 1, 0, 2, 0, 0, 0), model1->getSNLID());
+  EXPECT_EQ(SNLID(SNLID::Type::Term, 1, 0, 2, 0, 0, 0), model1Term->getSNLID());
+
+  SNLInstance* instance = SNLInstance::create(design, model0, SNLName("instance"));
+
+  auto it0 = instance->getInstTerm(model0Term);
+  EXPECT_NE(nullptr, it0);
+  EXPECT_THROW(instance->getInstTerm(model1Term), SNLException);
+}
+
+TEST_F(SNLInstanceTest, testModelDestroy) {
+  SNLLibrary* library = SNLLibrary::create(db_, SNLName("MYLIB"));
+  SNLDesign* design = SNLDesign::create(library, SNLName("design"));
+  SNLDesign* model0 = SNLDesign::create(library, SNLName("model0"));
+  SNLDesign* model1 = SNLDesign::create(library, SNLName("model1"));
+
+  EXPECT_FALSE(library->getDesigns().empty());
+  EXPECT_EQ(3, library->getDesigns().size());
+
+  EXPECT_TRUE(design->getInstances().empty());
+  EXPECT_TRUE(model0->getSlaveInstances().empty());
+  EXPECT_TRUE(model1->getSlaveInstances().empty());
+
+  for (int i=0; i<4; ++i) {
+    auto inst0 = SNLInstance::create(design, model0);
+    auto inst1 = SNLInstance::create(design, model1);
+  }
+
+  EXPECT_FALSE(design->getInstances().empty());
+  EXPECT_FALSE(model0->getSlaveInstances().empty());
+  EXPECT_FALSE(model1->getSlaveInstances().empty());
+  EXPECT_EQ(8, design->getInstances().size());
+  EXPECT_EQ(4, model0->getSlaveInstances().size());
+  EXPECT_EQ(4, model1->getSlaveInstances().size());
+
+  model0->destroy();
+  EXPECT_EQ(2, library->getDesigns().size());
+  EXPECT_EQ(4, design->getInstances().size());
+  EXPECT_EQ(4, model1->getSlaveInstances().size());
+
+  model1->destroy();
+  EXPECT_EQ(1, library->getDesigns().size());
+  EXPECT_EQ(0, design->getInstances().size());
+  EXPECT_TRUE(design->getInstances().empty());
+}
+
+TEST_F(SNLInstanceTest, testErrors) {
+  SNLLibrary* library = SNLLibrary::create(db_, SNLName("MYLIB"));
+  SNLDesign* design = SNLDesign::create(library, SNLName("design"));
+  SNLDesign* model = SNLDesign::create(library, SNLName("model"));
+
+  EXPECT_THROW(SNLInstance::create(nullptr, model), SNLException);
+  EXPECT_THROW(SNLInstance::create(design, nullptr), SNLException);
+
+  SNLInstance::create(design, model, SNLName("name"));
+  EXPECT_THROW(SNLInstance::create(design, model, SNLName("name")), SNLException);
 }
