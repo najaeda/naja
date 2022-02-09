@@ -39,7 +39,7 @@ SNLInstance::SNLInstance(SNLDesign* design, SNLDesign* model, const SNLName& nam
 {}
 
 SNLInstance* SNLInstance::create(SNLDesign* design, SNLDesign* model, const SNLName& name) {
-  preCreate(design, name);
+  preCreate(design, model, name);
   SNLInstance* instance = new SNLInstance(design, model, name);
   instance->postCreate();
   return instance;
@@ -56,10 +56,13 @@ SNLSharedPath* SNLInstance::getSharedPath(const SNLSharedPath* tailSharedPath) c
 void SNLInstance::addSharedPath(const SNLSharedPath* tailSharedPath) {
 }
 
-void SNLInstance::preCreate(SNLDesign* design, const SNLName& name) {
+void SNLInstance::preCreate(SNLDesign* design, const SNLDesign* model, const SNLName& name) {
   super::preCreate();
   if (not design) {
     throw SNLException("malformed SNLInstance creator with NULL design argument");
+  }
+  if (not model) {
+    throw SNLException("malformed SNLInstance creator with NULL model argument");
   }
   if (not name.empty() and design->getInstance(name)) {
     std::string reason = "SNLDesign " + design->getString() + " contains already a SNLInstance named: " + name.getString();

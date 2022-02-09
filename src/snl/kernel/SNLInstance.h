@@ -61,7 +61,7 @@ class SNLInstance final: public SNLDesignObject {
     SNLCollection<SNLInstTerm*> getInstScalarTerms() const;
     SNLCollection<SNLInstTerm*> getInstBusTermBits() const;
   private:
-    static void preCreate(SNLDesign* design, const SNLName& name);
+    static void preCreate(SNLDesign* design, const SNLDesign* model, const SNLName& name);
     void postCreate();
     void commonPreDestroy();
     void destroyFromDesign();

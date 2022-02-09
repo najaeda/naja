@@ -404,3 +404,15 @@ TEST_F(SNLInstanceTest, testModelDestroy) {
   EXPECT_EQ(0, design->getInstances().size());
   EXPECT_TRUE(design->getInstances().empty());
 }
+
+TEST_F(SNLInstanceTest, testErrors) {
+  SNLLibrary* library = SNLLibrary::create(db_, SNLName("MYLIB"));
+  SNLDesign* design = SNLDesign::create(library, SNLName("design"));
+  SNLDesign* model = SNLDesign::create(library, SNLName("model"));
+
+  EXPECT_THROW(SNLInstance::create(nullptr, model), SNLException);
+  EXPECT_THROW(SNLInstance::create(design, nullptr), SNLException);
+
+  SNLInstance::create(design, model, SNLName("name"));
+  EXPECT_THROW(SNLInstance::create(design, model, SNLName("name")), SNLException);
+}
