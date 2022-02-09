@@ -1,6 +1,6 @@
 #include "SNLFlattenerInstanceTreeNode.h"
 
-namespace SNL {
+namespace naja { namespace SNL {
 
 SNLFlattenerInstanceTreeNode::SNLFlattenerInstanceTreeNode(
   SNLFlattenerInstanceTreeNode* parent,
@@ -32,4 +32,4 @@ SNLFlattenerInstanceTree* SNLFlattenerInstanceTreeNode::getTree() const {
   return getParent()->getTree();
 }
 
-}
+}} // namespace SNL // namespace naja

@@ -6,7 +6,7 @@
 #include "SNLFlattenerInstanceTreeNode.h"
 
 
-namespace SNL {
+namespace naja { namespace SNL {
 
 void SNLFlattener::processTop(SNLFlattenerInstanceTree* tree, const SNLDesign* top) {
   auto root = tree->getRoot();
@@ -20,4 +20,4 @@ void SNLFlattener::process(const SNLDesign* top) {
   processTop(tree, top);
 }
 
-}
+}} // namespace SNL // namespace naja

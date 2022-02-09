@@ -1,6 +1,6 @@
 #include "DNLDB.h"
 
-namespace DNL {
+namespace naja { namespace DNL {
 
 DNLDB* DNLDB::create() {
   preCreate();
@@ -24,4 +24,4 @@ void addInstance() {
   
 }
 
-}
+}} //namespace DNL // namespace naja

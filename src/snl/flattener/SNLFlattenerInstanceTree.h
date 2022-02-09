@@ -1,7 +1,7 @@
 #ifndef __SNL_FLATTENER_INSTANCE_TREE_H_
 #define __SNL_FLATTENER_INSTANCE_TREE_H_
 
-namespace SNL {
+namespace naja { namespace SNL {
 
 class SNLFlattenerInstanceTreeNode;
 
@@ -20,6 +20,6 @@ class SNLFlattenerInstanceTree {
     SNLFlattenerInstanceTreeNode* root_;
 };
 
-}
+}} // namespace SNL // namespace naja
 
 #endif /* __SNL_FLATTENER_INSTANCE_TREE_H_ */

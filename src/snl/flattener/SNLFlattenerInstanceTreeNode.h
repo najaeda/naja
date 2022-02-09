@@ -3,7 +3,7 @@
 
 #include "SNLInstance.h"
 
-namespace SNL {
+namespace naja { namespace SNL {
 
 class SNLFlattenerInstanceTree;
 
@@ -31,6 +31,6 @@ class SNLFlattenerInstanceTreeNode {
     Children            children_ {};
 };
 
-}
+}} // namespace SNL // namespace naja
 
 #endif /* __SNL_FLATTENER_INSTANCE_TREE_NODE_H_ */

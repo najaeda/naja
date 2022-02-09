@@ -22,7 +22,7 @@
 #include "DNLInstance.h"
 #include "DNLEqui.h"
 
-namespace DNL {
+namespace naja { namespace DNL {
 
 class DNLDB {
   /**
@@ -95,6 +95,6 @@ class DNLDB {
     DNLEquis      equis_;
 };
 
-}
+}} //namespace DNL // namespace naja
 
-#endif /* __DNL_DB_H_ */
+#endif // __DNL_DB_H_
