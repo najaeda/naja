@@ -24,19 +24,19 @@ namespace PYSNL {
 
 typedef struct {
   PyObject_HEAD
-  SNL::SNLUniverse* object_;
+  naja::SNL::SNLUniverse* object_;
 } PySNLUniverse;
 
 extern PyTypeObject PyTypeSNLUniverse;
 extern PyMethodDef  PySNLUniverse_Methods[];
 
-extern PyObject*    PySNLUniverse_Link(SNL::SNLUniverse* u);
+extern PyObject*    PySNLUniverse_Link(naja::SNL::SNLUniverse* u);
 extern void         PySNLUniverse_LinkPyType();
 
 #define IsPySNLUniverse(v) (PyObject_TypeCheck(v, &PyTypeSNLUniverse))
 #define PYSNLUNIVERSE(v)   ((PySNLUniverse*)(v))
 #define PYSNLUNIVERSE_O(v) (PYSNLUNIVERSE(v)->object_)
 
-} /* PYSNL namespace */
+} // PYSNL namespace
  
-#endif /* __PY_SNL_UNIVERSE_H_ */
+#endif // __PY_SNL_UNIVERSE_H_

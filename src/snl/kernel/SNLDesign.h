@@ -25,7 +25,7 @@
 #include "SNLInstance.h"
 #include "SNLParameter.h"
 
-namespace SNL {
+namespace naja { namespace SNL {
 
 class SNLLibrary;
 class SNLBitNet;
@@ -204,6 +204,6 @@ class SNLDesign final: public SNLObject {
     SNLDesignParameters                 parameters_         {};
 };
 
-}
+}} // namespace SNL // namespace naja
 
-#endif /* __SNL_DESIGN_H_ */ 
+#endif // __SNL_DESIGN_H_

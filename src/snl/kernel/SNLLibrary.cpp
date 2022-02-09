@@ -19,7 +19,7 @@
 #include "SNLDB.h"
 #include "SNLException.h"
 
-namespace SNL {
+namespace naja { namespace SNL {
 
 SNLLibrary::Type::Type(const TypeEnum& typeEnum):
   typeEnum_(typeEnum) 
@@ -258,4 +258,4 @@ SNLID SNLLibrary::getSNLID() const {
   return SNLID(getDB()->getID(), getID());
 }
 
-}
+}} // namespace SNL // namespace naja

@@ -16,7 +16,7 @@
 
 #include "SNLBitTerm.h"
 
-namespace SNL {
+namespace naja { namespace SNL {
 
 void SNLBitTerm::preCreate() {
   super::preCreate();
@@ -30,4 +30,4 @@ void SNLBitTerm::preDestroy() {
   super::preDestroy();
 }
 
-}
+}} // namespace SNL // namespace naja

@@ -20,7 +20,7 @@
 
 namespace PYSNL {
 
-using namespace SNL;
+using namespace naja::SNL;
 
 #define METHOD_HEAD(function) GENERIC_METHOD_HEAD(SNLDesignObject, designObject, function)
 

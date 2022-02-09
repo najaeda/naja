@@ -20,7 +20,7 @@
 
 #include "SNLUniverse.h"
 
-namespace SNL {
+namespace naja { namespace SNL {
 
 SNLDB::SNLDB(SNLUniverse* universe):
   universe_(universe)
@@ -126,4 +126,4 @@ std::string SNLDB::getDescription() const {
   return "<" + std::string(getTypeName()) + ">";  
 }
 
-}
+}} // namespace SNL // namespace naja

@@ -19,7 +19,7 @@
 #include "SNLDesign.h"
 #include "SNLException.h"
 
-namespace SNL {
+namespace naja { namespace SNL {
 
 SNLParameter::SNLParameter(SNLDesign* design, const SNLName& name, const std::string& value):
   design_(design), name_(name), value_(value)
@@ -52,4 +52,4 @@ void SNLParameter::destroyFromDesign() {
   delete this;
 }
 
-}
+}} // namespace SNL // namespace naja

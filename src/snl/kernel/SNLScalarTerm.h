@@ -20,7 +20,7 @@
 #include "SNLBitTerm.h"
 #include "SNLName.h"
 
-namespace SNL {
+namespace naja { namespace SNL {
 
 class SNLScalarTerm final: public SNLBitTerm {
   public:
@@ -59,6 +59,6 @@ class SNLScalarTerm final: public SNLBitTerm {
     SNLTerm::Direction    direction_;  
 };
 
-}
+}} // namespace SNL // namespace naja
 
-#endif /* __SNL_SCALAR_TERM_H_ */ 
+#endif // __SNL_SCALAR_TERM_H_

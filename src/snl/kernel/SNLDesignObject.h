@@ -20,7 +20,7 @@
 #include "SNLObject.h"
 #include "SNLID.h"
 
-namespace SNL {
+namespace naja { namespace SNL {
 
 class SNLDB;
 class SNLLibrary;
@@ -62,6 +62,6 @@ class SNLDesignObject: public SNLObject {
     void preDestroy() override;
 };
 
-}
+}} // namespace SNL // namespace naja
 
-#endif /* __SNL_DESIGN_OBJECT_H_ */
+#endif // __SNL_DESIGN_OBJECT_H_

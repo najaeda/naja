@@ -1,7 +1,7 @@
 #include "gtest/gtest.h"
 
 #include "SNLUniverse.h"
-using namespace SNL;
+using namespace naja::SNL;
 
 class SNLDBTest: public ::testing::Test {
   protected:

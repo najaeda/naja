@@ -17,7 +17,7 @@
 #ifndef __SNL_DB0_H_
 #define __SNL_DB0_H_
 
-namespace SNL {
+namespace naja { namespace SNL {
 
 class SNLUniverse;
 class SNLDB;
@@ -38,6 +38,6 @@ class SNLDB0 {
     static SNLDB* create(SNLUniverse* universe);
 };
 
-}
+}} // namespace SNL // namespace naja
 
-#endif /* __SNL_DB0_H_ */
+#endif // __SNL_DB0_H_

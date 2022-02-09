@@ -20,7 +20,7 @@
 #include "SNLObject.h"
 #include "SNLLibrary.h"
 
-namespace SNL {
+namespace naja { namespace SNL {
 
 class SNLUniverse;
 
@@ -76,6 +76,6 @@ class SNLDB final: public SNLObject {
     LibraryNameIDMap  libraryNameIDMap_                   {};
 };
 
-}
+}} // namespace SNL // namespace naja
 
-#endif /* __SNL_DB_H_ */ 
+#endif // __SNL_DB_H_

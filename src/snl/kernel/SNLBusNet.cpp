@@ -23,7 +23,7 @@
 #include "SNLDesign.h"
 #include "SNLBusNetBit.h"
 
-namespace SNL {
+namespace naja { namespace SNL {
 
 SNLBusNet::SNLBusNet(
     SNLDesign* design,
@@ -130,4 +130,4 @@ Card* SNLBusNet::getCard() const {
   return card;
 }
 
-}
+}} // namespace SNL // namespace naja

@@ -20,7 +20,7 @@
 #include "SNLDesign.h"
 #include "SNLBusTermBit.h"
 
-namespace SNL {
+namespace naja { namespace SNL {
 
 SNLBusTerm::SNLBusTerm(
     SNLDesign* design,
@@ -124,4 +124,4 @@ SNLCollection<SNLBusTermBit*> SNLBusTerm::getBits() const {
   return SNLCollection<SNLBusTermBit*>(new SNLVectorCollection<SNLBusTermBit*>(&bits_));
 }
 
-}
+}} // namespace SNL // namespace naja

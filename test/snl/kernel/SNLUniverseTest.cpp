@@ -2,7 +2,7 @@
 
 #include "SNLUniverse.h"
 #include "SNLScalarTerm.h"
-using namespace SNL;
+using namespace naja::SNL;
 
 class SNLUniverseTest: public ::testing::Test {
   protected:

@@ -19,7 +19,7 @@
 #include "SNLBitTerm.h"
 #include "SNLInstTerm.h"
 
-namespace SNL {
+namespace naja { namespace SNL {
 
 void SNLBitNet::preCreate() {
   super::preCreate();
@@ -54,4 +54,4 @@ void SNLBitNet::removeComponent(SNLNetComponent* component) {
   components_.erase(*component);
 }
 
-}
+}} // namespace SNL // namespace naja

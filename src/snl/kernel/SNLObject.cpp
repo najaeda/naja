@@ -18,7 +18,7 @@
 
 #include "Card.h"
 
-namespace SNL {
+namespace naja { namespace SNL {
 
 void SNLObject::destroy() {
   preDestroy();
@@ -36,4 +36,4 @@ void SNLObject::postCreate() {
 void SNLObject::preDestroy() {
 }
 
-}
+}} // namespace SNL // namespace naja

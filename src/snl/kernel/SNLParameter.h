@@ -21,7 +21,7 @@
 
 #include "SNLName.h"
 
-namespace SNL {
+namespace naja { namespace SNL {
 
 class SNLDesign;
 
@@ -60,6 +60,6 @@ class SNLParameter {
     boost::intrusive::set_member_hook<> designParametersHook_   {};
 };
 
-}
+}} // namespace SNL // namespace naja
 
-#endif /* __SNL_PARAMETER_H_ */
+#endif // __SNL_PARAMETER_H_

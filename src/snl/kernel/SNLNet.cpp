@@ -16,7 +16,7 @@
 
 #include "SNLNet.h"
 
-namespace SNL {
+namespace naja { namespace SNL {
 
 SNLNet::Type::Type(const TypeEnum& typeEnum):
   typeEnum_(typeEnum) 
@@ -47,4 +47,4 @@ std::string SNLNet::Type::getString() const {
 }
 //LCOV_EXCL_STOP
 
-}
+}} // namespace SNL // namespace naja

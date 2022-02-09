@@ -29,13 +29,13 @@ typedef struct {
 extern PyTypeObject PyTypeSNLScalarTerm;
 extern PyMethodDef  PySNLScalarTerm_Methods[];
 
-extern PyObject*    PySNLScalarTerm_Link(SNL::SNLScalarTerm* t);
+extern PyObject*    PySNLScalarTerm_Link(naja::SNL::SNLScalarTerm* t);
 extern void         PySNLScalarTerm_LinkPyType();
 
 #define IsPySNLScalarTerm(v) (PyObject_TypeCheck(v, &PyTypeSNLScalarTerm))
 #define PYSNLScalarTerm(v)   (static_cast<PySNLScalarTerm*>(v))
 #define PYSNLScalarTerm_O(v) (PYSNLScalarTerm(v)->object_)
 
-} /* PYSNL namespace */
+} // PYSNL namespace
  
-#endif /* __PY_SNL_SCALAR_TERM_H_ */
+#endif // __PY_SNL_SCALAR_TERM_H_

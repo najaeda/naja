@@ -30,15 +30,15 @@
 
 namespace {
 
-void dumpDirection(const SNL::SNLTerm* term, std::ostream& o) {
+void dumpDirection(const naja::SNL::SNLTerm* term, std::ostream& o) {
   switch (term->getDirection()) {
-    case SNL::SNLTerm::Direction::Input:
+    case naja::SNL::SNLTerm::Direction::Input:
       o << "input";
       break;
-    case SNL::SNLTerm::Direction::Output:
+    case naja::SNL::SNLTerm::Direction::Output:
       o << "output";
       break;
-    case SNL::SNLTerm::Direction::InOut:
+    case naja::SNL::SNLTerm::Direction::InOut:
       o << "inout";
       break;
   }
@@ -46,7 +46,7 @@ void dumpDirection(const SNL::SNLTerm* term, std::ostream& o) {
 
 }
 
-namespace SNL {
+namespace naja { namespace SNL {
 
 std::string SNLVRLDumper::createDesignName(const SNLDesign* design) {
   auto library = design->getLibrary();
@@ -206,4 +206,4 @@ void SNLVRLDumper::dumpDesign(const SNLDesign* design, std::ostream& o) {
   o << std::endl;
 }
 
-}
+}} // namespace SNL // namespace naja

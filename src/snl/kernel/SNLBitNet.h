@@ -21,7 +21,7 @@
 #include "SNLNetComponent.h"
 #include "SNLCollection.h"
 
-namespace SNL {
+namespace naja { namespace SNL {
 
 class SNLInstTerm;
 class SNLBitTerm;
@@ -59,6 +59,6 @@ class SNLBitNet: public SNLNet {
     SNLBitNetComponents components_ {};
 };
 
-}
+}} // namespace SNL // namespace naja
 
-#endif /* __SNL_BIT_NET_H_ */ 
+#endif // __SNL_BIT_NET_H_

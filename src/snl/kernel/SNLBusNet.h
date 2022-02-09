@@ -23,7 +23,7 @@
 #include "SNLName.h"
 #include "SNLCollection.h"
 
-namespace SNL {
+namespace naja { namespace SNL {
 
 class SNLBusNetBit;
 
@@ -82,6 +82,6 @@ class SNLBusNet final: public SNLNet {
     Bits                  bits_   {};
 };
 
-}
+}} // namespace SNL // namespace naja
 
-#endif /* __SNL_BUS_NET_H_ */ 
+#endif // __SNL_BUS_NET_H_

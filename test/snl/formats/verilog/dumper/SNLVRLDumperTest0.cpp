@@ -13,7 +13,7 @@
 #include "SNLBusNet.h"
 #include "SNLInstTerm.h"
 
-using namespace SNL;
+using namespace naja::SNL;
 
 class SNLVRLDumperTest0: public ::testing::Test {
   protected:

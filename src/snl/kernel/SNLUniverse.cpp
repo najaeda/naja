@@ -18,7 +18,7 @@
 
 #include "SNLDB0.h"
 
-namespace SNL {
+namespace naja { namespace SNL {
 
 SNLUniverse* SNLUniverse::universe_ = nullptr;
 
@@ -113,16 +113,22 @@ SNLDB* SNLUniverse::getDB(SNLID::DBID id) {
   return nullptr;
 }
 
+//LCOV_EXCL_START
 constexpr const char* SNLUniverse::getTypeName() const {
   return "SNLUniverse";
 }
+//LCOV_EXCL_STOP
 
+//LCOV_EXCL_START
 std::string SNLUniverse::getString() const {
   return "SNLUniverse";
 }
+//LCOV_EXCL_STOP
 
+//LCOV_EXCL_START
 std::string SNLUniverse::getDescription() const {
   return "<" + std::string(getTypeName()) + " " + getString() + ">";  
 }
+//LCOV_EXCL_STOP
 
-}
+}} // namespace SNL // namespace naja

@@ -22,7 +22,7 @@
 #include "SNLLibrary.h"
 #include "SNLDesign.h"
 
-namespace SNL {
+namespace naja { namespace SNL {
 
 void SNLDesignObject::postCreate() {
   super::postCreate();
@@ -54,4 +54,4 @@ SNLID SNLDesignObject::getSNLID(
       bit);
 }
 
-}
+}} // namespace SNL // namespace naja

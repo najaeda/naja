@@ -19,7 +19,7 @@
 
 #include <string>
 
-namespace SNL {
+namespace naja { namespace SNL {
 
 class SNLName {
   public:
@@ -42,6 +42,6 @@ class SNLName {
     std::string string_;
 };
 
-}
+}} // namespace SNL // namespace naja
 
-#endif /* __SNL_NAME_H_ */
+#endif // __SNL_NAME_H_

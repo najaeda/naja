@@ -24,13 +24,13 @@ namespace PYSNL {
 
 typedef struct {
   PyObject_HEAD
-  SNL::SNLDesignObject* object_;
+  naja::SNL::SNLDesignObject* object_;
 } PySNLDesignObject;
 
 extern PyTypeObject PyTypeSNLDesignObject;
 extern PyMethodDef  PySNLDesignObject_Methods[];
 
-extern PyObject*    PySNLDesignObject_Link(SNL::SNLDesignObject* u);
+extern PyObject*    PySNLDesignObject_Link(naja::SNL::SNLDesignObject* u);
 extern void         PySNLDesignObject_LinkPyType();
 
 #define IsPySNLDesignObject(v) (PyObject_TypeCheck(v, &PyTypeSNLDesignObject))

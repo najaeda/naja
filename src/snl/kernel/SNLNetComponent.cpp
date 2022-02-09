@@ -18,7 +18,7 @@
 
 #include "SNLBitNet.h"
 
-namespace SNL {
+namespace naja { namespace SNL {
 
 void SNLNetComponent::preCreate() {
   super::preCreate();
@@ -45,4 +45,4 @@ void SNLNetComponent::setNet(SNLBitNet* net) {
   }
 }
 
-}
+}} // namespace SNL // namespace naja

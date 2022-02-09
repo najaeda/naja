@@ -31,7 +31,7 @@
 #include "SNLBusNet.h"
 #include "SNLBusNetBit.h"
 
-namespace SNL {
+namespace naja { namespace SNL {
 
 SNLDesign::Type::Type(const TypeEnum& typeEnum):
   typeEnum_(typeEnum) 
@@ -392,28 +392,6 @@ SNLCollection<SNLParameter*> SNLDesign::getParameters() const {
   return SNLCollection<SNLParameter*>(new SNLIntrusiveSetCollection<SNLParameter, SNLDesignParametersHook>(&parameters_));
 }
 
-constexpr const char* SNLDesign::getTypeName() const {
-  return "SNLDesign";
-}
-
-std::string SNLDesign::getString() const {
-  std::ostringstream str;
-  if (not getLibrary()->isAnonymous()) {
-    str << getLibrary()->getName().getString();
-  }
-  str << "(" << getLibrary()->getID() << ")";
-  str << ":";
-  if (not isAnonymous()) {
-    str << getName().getString();
-  }
-  str << "(" << getID() << ")";
-  return str.str();
-}
-
-std::string SNLDesign::getDescription() const {
-  return "<" + std::string(getTypeName()) + " " + name_.getString() + " " + library_->getName().getString() + ">";  
-}
-
 Card* SNLDesign::getCard() const {
   Card* card = super::getCard();
   //card->addItem(new CardDataItem<SNLID>("ID", id_));
@@ -432,4 +410,32 @@ bool SNLDesign::isBetween(int n, int MSB, int LSB) {
   return n>=min and n<=max;
 }
 
+//LCOV_EXCL_START
+constexpr const char* SNLDesign::getTypeName() const {
+  return "SNLDesign";
 }
+//LCOV_EXCL_STOP
+
+//LCOV_EXCL_START
+std::string SNLDesign::getString() const {
+  std::ostringstream str;
+  if (not getLibrary()->isAnonymous()) {
+    str << getLibrary()->getName().getString();
+  }
+  str << "(" << getLibrary()->getID() << ")";
+  str << ":";
+  if (not isAnonymous()) {
+    str << getName().getString();
+  }
+  str << "(" << getID() << ")";
+  return str.str();
+}
+//LCOV_EXCL_STOP
+
+//LCOV_EXCL_START
+std::string SNLDesign::getDescription() const {
+  return "<" + std::string(getTypeName()) + " " + name_.getString() + " " + library_->getName().getString() + ">";  
+}
+//LCOV_EXCL_STOP
+
+}} // namespace SNL // namespace naja

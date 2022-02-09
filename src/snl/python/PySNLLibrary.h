@@ -19,7 +19,7 @@
 
 #include "PyInterface.h"
 
-namespace SNL {
+namespace naja::SNL {
   class SNLLibrary;
 }
 
@@ -27,13 +27,13 @@ namespace PYSNL {
 
 typedef struct {
   PyObject_HEAD
-  SNL::SNLLibrary* object_;
+  naja::SNL::SNLLibrary* object_;
 } PySNLLibrary;
 
 extern PyTypeObject PyTypeSNLLibrary;
 extern PyMethodDef  PySNLLibrary_Methods[];
 
-extern PyObject*    PySNLLibrary_Link(SNL::SNLLibrary* u);
+extern PyObject*    PySNLLibrary_Link(naja::SNL::SNLLibrary* u);
 extern void         PySNLLibrary_LinkPyType();
 
 #define IsPySNLLibrary(v) (PyObject_TypeCheck(v, &PyTypeSNLLibrary))

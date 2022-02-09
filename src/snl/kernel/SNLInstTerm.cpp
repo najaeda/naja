@@ -22,7 +22,7 @@
 #include "SNLDesign.h"
 #include "SNLBitTerm.h"
 
-namespace SNL {
+namespace naja { namespace SNL {
 
 SNLInstTerm::SNLInstTerm(SNLInstance* instance, SNLBitTerm* term):
   instance_(instance),
@@ -94,4 +94,4 @@ std::string SNLInstTerm::getDescription() const {
 }
 //LCOV_EXCL_STOP
 
-}
+}} // namespace SNL // namespace naja

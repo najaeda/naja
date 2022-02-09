@@ -21,7 +21,7 @@
 
 #include "SNLDesignObject.h"
 
-namespace SNL {
+namespace naja { namespace SNL {
 
 class SNLBitNet;
 
@@ -45,6 +45,6 @@ class SNLNetComponent: public SNLDesignObject {
     boost::intrusive::set_member_hook<> netComponentsHook_  {};
 };
 
-}
+}} // namespace SNL // namespace naja
 
-#endif /* __SNL_NET_COMPONENT_H_ */
+#endif // __SNL_NET_COMPONENT_H_
