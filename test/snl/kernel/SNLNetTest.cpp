@@ -149,7 +149,10 @@ TEST_F(SNLNetTest, testCreation) {
 
   for (auto bit: net0->getBits()) {
     EXPECT_EQ(SNLNet::Type::Standard, bit->getType());
-    EXPECT_FALSE(bit->getType());
+    EXPECT_EQ(net0, bit->getBus());
+    EXPECT_EQ(design_, bit->getDesign());
+    EXPECT_FALSE(bit->getType().isDriving());
+    EXPECT_FALSE(bit->isAnonymous());
   }
   net0->setType(SNLBitNet::Type::Supply1);
   for (auto bit: net0->getBits()) {
