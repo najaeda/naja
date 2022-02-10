@@ -1,5 +1,4 @@
 add_subdirectory(snl)
-#add_subdirectory(dump)
 add_subdirectory(formats)
 add_subdirectory(snippet)
 

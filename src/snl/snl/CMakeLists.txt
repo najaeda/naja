@@ -1,4 +1,4 @@
-set(KERNEL_SOURCES
+set(SNL_KERNEL_SOURCES
   kernel/SNLObject.cpp kernel/SNLID.cpp
   kernel/SNLUniverse.cpp kernel/SNLDB.cpp kernel/SNLDB0.cpp
   kernel/SNLLibrary.cpp
@@ -15,7 +15,8 @@ set(KERNEL_SOURCES
   kernel/SNLParameter.cpp
 )
 
-set(KERNEL_HEADERS
+
+set(SNL_KERNEL_HEADERS
   kernel/SNLName.h
   kernel/SNLObject.h kernel/SNLID.h
   kernel/SNLUniverse.h kernel/SNLDB.h
@@ -32,14 +33,23 @@ set(KERNEL_HEADERS
   kernel/SNLParameter.h
 )
 
-add_library(naja_snl SHARED ${KERNEL_SOURCES})
+set(SNL_DUMP_SOURCES
+  dump/SNLDumpManifest.cpp
+  dump/SNLDumper.cpp
+  dump/SNLLoader.cpp
+)
+
+add_library(naja_snl SHARED ${SNL_KERNEL_SOURCES} ${SNL_DUMP_SOURCES})
 target_link_libraries(naja_snl naja_core coverage_config)
 
 target_compile_options(naja_snl PRIVATE ${NAJA_CXX_WARNINGS}) 
 
 target_include_directories(naja_snl SYSTEM BEFORE PUBLIC ${Boost_INCLUDE_DIR})
-target_include_directories(naja_snl PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/kernel)
+target_include_directories(naja_snl PUBLIC
+  ${CMAKE_CURRENT_SOURCE_DIR}/kernel
+  ${CMAKE_CURRENT_SOURCE_DIR}/dump
+)
 
-set_target_properties(naja_snl PROPERTIES PUBLIC_HEADER "${KERNEL_HEADERS}")
+set_target_properties(naja_snl PROPERTIES PUBLIC_HEADER "${SNL_KERNEL_HEADERS}")
 
 install(TARGETS naja_snl LIBRARY DESTINATION lib PUBLIC_HEADER DESTINATION include) 
