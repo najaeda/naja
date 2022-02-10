@@ -1,5 +1,4 @@
 add_subdirectory(snl)
-add_subdirectory(formats)
 
 if(Python3_Development_FOUND)
   #add_subdirectory(python)
