@@ -1,4 +1,4 @@
-add_subdirectory(kernel)
+add_subdirectory(snl)
 add_subdirectory(formats)
 add_subdirectory(snippet)
 
