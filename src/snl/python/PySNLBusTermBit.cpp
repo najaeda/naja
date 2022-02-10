@@ -20,7 +20,7 @@
 
 namespace PYSNL {
 
-using namespace SNL;
+using namespace naja::SNL;
 
 #undef   ACCESS_OBJECT
 #undef   ACCESS_CLASS

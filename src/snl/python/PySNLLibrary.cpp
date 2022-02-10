@@ -22,7 +22,7 @@
 
 namespace PYSNL {
 
-using namespace SNL;
+using namespace naja::SNL;
 
 static PyObject* PySNLLibrary_create(PyObject*, PyObject* args) {
   PyObject* arg0 = nullptr;

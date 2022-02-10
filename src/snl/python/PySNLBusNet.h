@@ -30,7 +30,7 @@ typedef struct {
 extern PyTypeObject PyTypeSNLBusNet;
 extern PyMethodDef  PySNLBusNet_Methods[];
 
-extern PyObject*    PySNLBusNet_Link(SNL::SNLBusNet* t);
+extern PyObject*    PySNLBusNet_Link(naja::SNL::SNLBusNet* t);
 extern void         PySNLBusNet_LinkPyType();
 
 #define IsPySNLBusNet(v)  (PyObject_TypeCheck(v, &PyTypeSNLBusNet))

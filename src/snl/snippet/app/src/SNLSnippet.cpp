@@ -7,7 +7,7 @@
 #include "SNLScalarNet.h"
 #include "SNLInstTerm.h"
 
-using namespace SNL;
+using namespace naja::SNL;
 
 int main() {
   SNLUniverse::create();

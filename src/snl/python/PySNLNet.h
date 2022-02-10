@@ -29,12 +29,12 @@ typedef struct {
 extern PyTypeObject PyTypeSNLNet;
 extern PyMethodDef  PySNLNet_Methods[];
 
-extern PyObject*    PySNLNet_Link(SNL::SNLNet*);
+extern PyObject*    PySNLNet_Link(naja::SNL::SNLNet*);
 extern void         PySNLNet_LinkPyType();
 
 #define IsPySNLNet(v) (PyObject_TypeCheck(v, &PyTypeSNLNet))
 #define PYSNLNet(v)   (static_cast<PySNLNet*>(v))
-#define PYSNLNet_O(v) (static_cast<SNL::SNLNet*>(PYSNLNet(v)->parent_->object_))
+#define PYSNLNet_O(v) (static_cast<naja::SNL::SNLNet*>(PYSNLNet(v)->parent_->object_))
 
 } /* PYSNL namespace */
  

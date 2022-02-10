@@ -19,7 +19,7 @@
 
 #include "PyInterface.h"
 
-namespace SNL {
+namespace naja::SNL {
   class SNLDesign;
 }
 
@@ -27,13 +27,13 @@ namespace PYSNL {
 
 typedef struct {
   PyObject_HEAD
-  SNL::SNLDesign* object_;
+  naja::SNL::SNLDesign* object_;
 } PySNLDesign;
 
 extern PyTypeObject PyTypeSNLDesign;
 extern PyMethodDef  PySNLDesign_Methods[];
 
-extern PyObject*    PySNLDesign_Link(SNL::SNLDesign* u);
+extern PyObject*    PySNLDesign_Link(naja::SNL::SNLDesign* u);
 extern void         PySNLDesign_LinkPyType();
 
 #define IsPySNLDesign(v) (PyObject_TypeCheck(v, &PyTypeSNLDesign))

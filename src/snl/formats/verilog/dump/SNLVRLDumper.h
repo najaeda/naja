@@ -22,7 +22,7 @@
 
 #include "SNLName.h"
 
-namespace SNL {
+namespace naja { namespace SNL {
 
 class SNLDesign;
 class SNLInstance;
@@ -50,6 +50,6 @@ class SNLVRLDumper {
     void dumpRange(const ContiguousNetBits& bits, std::ostream& o);
 };
 
-}
+}} // namespace SNL // namespace naja
 
-#endif /* __SNL_VRL_DUMPER_H_ */
+#endif // __SNL_VRL_DUMPER_H_

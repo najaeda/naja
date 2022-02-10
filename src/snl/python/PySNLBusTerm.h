@@ -30,13 +30,13 @@ typedef struct {
 extern PyTypeObject PyTypeSNLBusTerm;
 extern PyMethodDef  PySNLBusTerm_Methods[];
 
-extern PyObject*    PySNLBusTerm_Link(SNL::SNLBusTerm* t);
+extern PyObject*    PySNLBusTerm_Link(naja::SNL::SNLBusTerm* t);
 extern void         PySNLBusTerm_LinkPyType();
 
 #define IsPySNLBusTerm(v) (PyObject_TypeCheck(v, &PyTypeSNLBusTerm))
 #define PYSNLBusTerm(v)   ((PySNLBusTerm*)(v))
 #define PYSNLBusTerm_O(v) (PYSNLBusTerm(v)->object_)
 
-} /* PYSNL namespace */
+} // PYSNL namespace
  
-#endif /* __PY_SNL_BUS_TERM_H_ */
+#endif // __PY_SNL_BUS_TERM_H_

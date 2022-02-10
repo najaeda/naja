@@ -1,1 +1,1 @@
-ADD_SUBDIRECTORY(dump)
+add_subdirectory(dump)
