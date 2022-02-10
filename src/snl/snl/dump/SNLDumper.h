@@ -25,7 +25,7 @@ namespace naja { namespace SNL {
 class SNLDesign;
 
 class SNLDumper {
-  private:
+  public:
     static void dump(const SNLDesign* top, const std::filesystem::path& path);
 };
 

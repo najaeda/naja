@@ -15,7 +15,6 @@ set(SNL_KERNEL_SOURCES
   kernel/SNLParameter.cpp
 )
 
-
 set(SNL_KERNEL_HEADERS
   kernel/SNLName.h
   kernel/SNLObject.h kernel/SNLID.h
@@ -39,6 +38,12 @@ set(SNL_DUMP_SOURCES
   dump/SNLLoader.cpp
 )
 
+set(SNL_FLATTENER_SOURCES
+  flattener/SNLFlattener.cpp
+  flattener/SNLFlattenerInstanceTreeNode.cpp 
+  flattener/SNLFlattenerInstanceTree.cpp
+)
+
 add_library(naja_snl SHARED ${SNL_KERNEL_SOURCES} ${SNL_DUMP_SOURCES})
 target_link_libraries(naja_snl naja_core coverage_config)
 
@@ -48,6 +53,7 @@ target_include_directories(naja_snl SYSTEM BEFORE PUBLIC ${Boost_INCLUDE_DIR})
 target_include_directories(naja_snl PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/kernel
   ${CMAKE_CURRENT_SOURCE_DIR}/dump
+  ${CMAKE_CURRENT_SOURCE_DIR}/flattener
 )
 
 set_target_properties(naja_snl PROPERTIES PUBLIC_HEADER "${SNL_KERNEL_HEADERS}")

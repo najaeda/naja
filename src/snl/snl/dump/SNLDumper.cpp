@@ -27,9 +27,9 @@ namespace {
 using namespace naja::SNL;
 using DesignsLevel = std::map<const SNLDesign*, unsigned>;
 
-unsigned levelize(const SNLDesign* top, DesignsLevel& designsLevel) {
+unsigned levelize(const SNLDesign* design, DesignsLevel& designsLevel) {
   unsigned maxLevel = 0;
-  for (auto instance: top->getInstances()) {
+  for (auto instance: design->getInstances()) {
     unsigned level = 0;
     auto model = instance->getModel();
     auto it = designsLevel.find(model);

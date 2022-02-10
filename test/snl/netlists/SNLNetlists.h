@@ -2,14 +2,13 @@
 #define __SNL_NETLISTS_H_
 
 namespace naja::SNL {
-  class SNLLibrary;
+  class SNLDB;
   class SNLDesign;
 }
 
 class SNLNetlists {
   public:
-    static naja::SNL::SNLDesign*
-      createNetlist0(naja::SNL::SNLLibrary* primitivesLib, naja::SNL::SNLLibrary* designsLib);
+    static naja::SNL::SNLDesign* createNetlist0(naja::SNL::SNLDB* db);
 };
 
 #endif // __SNL_NETLISTS_H_
