@@ -4,6 +4,7 @@ using ::testing::ElementsAre;
 
 #include "SNLUniverse.h"
 #include "SNLParameter.h"
+#include "SNLException.h"
 
 using namespace naja::SNL;
 
@@ -19,7 +20,6 @@ class SNLParameterTest: public ::testing::Test {
       SNLUniverse::get()->destroy();
       design_ = nullptr;
     }
-
    SNLDesign*   design_ {nullptr};
 };
 
@@ -60,4 +60,13 @@ TEST_F(SNLParameterTest, test) {
   EXPECT_EQ(param2, paramsVector[1]);
   EXPECT_THAT(std::vector(design_->getParameters().begin(), design_->getParameters().end()),
     ElementsAre(param1, param2));
+
+  EXPECT_THROW(SNLParameter::create(design_, SNLName("PARAM1"), "56"), SNLException);
+
+  param1->destroy();
+  EXPECT_EQ(nullptr, design_->getParameter(SNLName("PARAM1")));
+  EXPECT_NE(nullptr, design_->getParameter(SNLName("PARAM2")));
+  EXPECT_EQ(1, design_->getParameters().size());
+  EXPECT_THAT(std::vector(design_->getParameters().begin(), design_->getParameters().end()),
+    ElementsAre(param2));
 }
