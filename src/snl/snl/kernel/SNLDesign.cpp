@@ -37,6 +37,7 @@ SNLDesign::Type::Type(const TypeEnum& typeEnum):
   typeEnum_(typeEnum) 
 {}
 
+//LCOV_EXCL_START
 std::string SNLDesign::Type::getString() const {
   switch (typeEnum_) {
     case Type::Standard: return "Standard";
@@ -45,6 +46,7 @@ std::string SNLDesign::Type::getString() const {
   }
   return "Unknown";
 }
+//LCOV_EXCL_STOP
 
 SNLDesign* SNLDesign::create(SNLLibrary* library, const SNLName& name) {
   preCreate(library, Type::Standard, name);
