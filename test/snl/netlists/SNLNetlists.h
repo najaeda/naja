@@ -9,7 +9,7 @@ namespace naja::SNL {
 class SNLNetlists {
   public:
     static naja::SNL::SNLDesign*
-      createDesign0(naja::SNL::SNLLibrary* primitivesLib, naja::SNL::SNLLibrary* designsLib);
+      createNetlist0(naja::SNL::SNLLibrary* primitivesLib, naja::SNL::SNLLibrary* designsLib);
 };
 
 #endif // __SNL_NETLISTS_H_

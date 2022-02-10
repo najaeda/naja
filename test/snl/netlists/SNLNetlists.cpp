@@ -8,7 +8,7 @@
 
 using namespace naja::SNL;
 
-SNLDesign* createDesign0(SNLLibrary* primitivesLib, SNLLibrary* designsLib) {
+SNLDesign* SNLNetlists::createNetlist0(SNLLibrary* primitivesLib, SNLLibrary* designsLib) {
   auto and2 = SNLDesign::create(primitivesLib, SNLDesign::Type::Primitive, SNLName("AND2"));
   {
     auto i0 = SNLScalarTerm::create(and2, SNLTerm::Direction::Input , SNLName("i0"));
