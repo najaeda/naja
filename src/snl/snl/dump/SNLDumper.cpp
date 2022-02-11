@@ -109,7 +109,7 @@ void SNLDumper::dump(const SNLDesign* top, const std::filesystem::path& path) {
       return ldl.second < rdl.second;
     }
   );
-  std::filesystem::path dumpPath(dir/dirName);
+  std::filesystem::path dumpPath(dir/"design.db");
   std::ofstream dumpStream(dumpPath);
   for (const DesignLevel& dl: designs) {
     dumpDesign(dl.first, dumpStream);

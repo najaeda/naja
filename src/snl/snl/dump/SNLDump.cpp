@@ -14,25 +14,12 @@
  * limitations under the License.
  */
 
-#include "SNLDumpManifest.h"
-
-#include <fstream>
-
-#include "NajaUtils.h"
-#include "SNLDump.h"
-
 namespace naja { namespace SNL {
 
-void SNLDumpManifest::create(const SNLDesign* top, const std::filesystem::path& snlDir) {
-  std::filesystem::path manifestPath(snlDir/"snl.mf");
-  std::ofstream stream(manifestPath);
-  core::NajaUtils::createBanner(stream, "SNL manifest", "#");
-  stream << "V"
-    << " " << SNLDump::Version::getMajor()
-    << " " << SNLDump::Version::getMinor()
-    << " " << SNLDump::Version::getRevision()
-    << std::endl;
+std::string SNLDump::Version::getString() {
+  return std::to_string(getMajor())
+    + "." + std::to_string(getMinor())
+    + "." + std::to_string(getRevision());
 }
-
 
 }} // namespace SNL // namespace naja
