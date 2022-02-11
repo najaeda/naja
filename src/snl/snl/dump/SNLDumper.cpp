@@ -29,18 +29,22 @@ using DesignsLevel = std::map<const SNLDesign*, unsigned>;
 
 unsigned levelize(const SNLDesign* design, DesignsLevel& designsLevel) {
   unsigned maxLevel = 0;
-  for (auto instance: design->getInstances()) {
-    unsigned level = 0;
-    auto model = instance->getModel();
-    auto it = designsLevel.find(model);
-    if (it == designsLevel.end()) {
-      level = levelize(model, designsLevel);
-      designsLevel[model] = level;
-    } else {
-      level = it->second;
-    }
-    if (level > maxLevel) {
-      maxLevel = level;
+  if (design->getInstances().empty()) {
+    designsLevel[design] = 0;
+  } else {
+    for (auto instance: design->getInstances()) {
+      unsigned level = 0;
+      auto model = instance->getModel();
+      auto it = designsLevel.find(model);
+      if (it == designsLevel.end()) {
+        level = levelize(model, designsLevel);
+        designsLevel[model] = level;
+      } else {
+        level = it->second;
+      }
+      if (level > maxLevel) {
+        maxLevel = level;
+      }
     }
   }
   return maxLevel;
@@ -90,11 +94,11 @@ void SNLDumper::dump(const SNLDesign* top, const std::filesystem::path& path) {
     dirName = "anon";
   }
   dirName += ".snl";
-  std::filesystem::path dir(dirName);
+  std::filesystem::path dir(path/dirName);
   if (std::filesystem::exists(dir)) {
     std::filesystem::remove_all(dir);
   }
-  std::filesystem::create_directory(dirName);
+  std::filesystem::create_directory(dir);
   //publish manifest
   SNLDumpManifest::create(top, dir);
 

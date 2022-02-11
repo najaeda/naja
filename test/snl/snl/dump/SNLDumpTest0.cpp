@@ -13,11 +13,13 @@ using namespace naja::SNL;
 
 namespace {
 
-void createDumpsDir() {
+std::filesystem::path createDumpsDir() {
   std::filesystem::path dumpsPath(SNL_DUMP_PATHS);
+  dumpsPath /= "dumps";
   if (not std::filesystem::exists(dumpsPath)) {
     std::filesystem::create_directory(dumpsPath);
-  } 
+  }
+  return dumpsPath;
 }
 
 }
@@ -25,7 +27,7 @@ void createDumpsDir() {
 class SNLDumpTest0: public ::testing::Test {
   protected:
     void SetUp() override {
-      createDumpsDir();
+      dumpsPath_ = createDumpsDir();
       auto u = SNLUniverse::create();
       auto db = SNLDB::create(u);
       top_ = SNLNetlists::createNetlist0(db);
@@ -33,10 +35,11 @@ class SNLDumpTest0: public ::testing::Test {
     void TearDown() override {
       SNLUniverse::get()->destroy();
     }
-    SNLDesign*  top_;
+    SNLDesign*            top_;
+    std::filesystem::path dumpsPath_;
 };
 
 TEST_F(SNLDumpTest0, test) {
-  std::filesystem::path test0Path(SNL_DUMP_PATHS);
+  std::filesystem::path test0Path(dumpsPath_);
   SNLDumper::dump(top_, test0Path);
 }

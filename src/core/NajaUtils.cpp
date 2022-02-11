@@ -18,7 +18,7 @@ void NajaUtils::createBanner(
   std::ostream& stream,
   const std::string& title,
   const std::string& commentChar) {
-  stream << commentChar << " " << currentDate() << std::endl;
+  stream << commentChar << " " << currentDate();
   stream << commentChar << " " << title << std::endl;
 }
 
