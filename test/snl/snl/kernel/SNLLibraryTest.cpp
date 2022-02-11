@@ -38,6 +38,8 @@ TEST_F(SNLLibraryTest, test0) {
   EXPECT_TRUE(lib1->getLibraries().empty());
   EXPECT_EQ(0, lib1->getDesigns().size());
   EXPECT_TRUE(lib1->getDesigns().empty());
+  EXPECT_EQ(nullptr, lib1->getLibrary(2));
+  EXPECT_EQ(nullptr, lib1->getLibrary(SNLName("UNKNOWN")));
 
   SNLLibrary* lib2 = SNLLibrary::create(db, SNLName("LIB2"));
   ASSERT_TRUE(lib2);
@@ -130,6 +132,7 @@ TEST_F(SNLLibraryTest, test1) {
   ASSERT_TRUE(root);
   EXPECT_TRUE(root->isAnonymous());
   EXPECT_EQ(0, root->getID());
+  EXPECT_EQ(nullptr, root->getParentLibrary());
 
   SNLLibrary* primitives0 = SNLLibrary::create(root, SNLLibrary::Type::Primitives, SNLName("Primitives0"));
   EXPECT_FALSE(primitives0->isAnonymous());
@@ -160,4 +163,14 @@ TEST_F(SNLLibraryTest, testErrors) {
   EXPECT_THROW(SNLLibrary::create(nullDB), SNLException);
   SNLLibrary* nullLibrary = nullptr;
   EXPECT_THROW(SNLLibrary::create(nullLibrary), SNLException);
+
+  SNLLibrary* prims = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("PRIMS"));
+  EXPECT_THROW(SNLLibrary::create(prims, SNLName("SUB_PRIMS")), SNLException);
+
+  EXPECT_THROW(SNLLibrary::create(db, SNLName("PRIMS")), SNLException);
+
+  auto subPrims = SNLLibrary::create(prims, SNLLibrary::Type::Primitives, SNLName("SUB_PRIMS"));
+  ASSERT_NE(nullptr, subPrims);
+  EXPECT_THROW(SNLLibrary::create(prims, SNLLibrary::Type::Primitives, SNLName("SUB_PRIMS")), SNLException);
+  EXPECT_EQ(prims, subPrims->getParentLibrary());
 }

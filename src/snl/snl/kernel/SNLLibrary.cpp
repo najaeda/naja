@@ -25,6 +25,7 @@ SNLLibrary::Type::Type(const TypeEnum& typeEnum):
   typeEnum_(typeEnum) 
 {}
 
+//LCOV_EXCL_START
 std::string SNLLibrary::Type::getString() const {
   switch (typeEnum_) {
     case Type::Standard: return "Standard";
@@ -33,6 +34,7 @@ std::string SNLLibrary::Type::getString() const {
   }
   return "Unknown";
 }
+//LCOV_EXCL_STOP
 
 SNLLibrary::SNLLibrary(SNLDB* parent, const Type& type, const SNLName& name):
   super(),
