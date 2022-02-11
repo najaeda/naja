@@ -1,4 +1,5 @@
 set(SOURCES
+  NajaUtils.cpp
   MemoryUsage.cpp
   PerfTracker.cpp
   Card.cpp

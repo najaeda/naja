@@ -1,1 +1,1 @@
-ADD_SUBDIRECTORY(verilog)
+add_subdirectory(verilog)

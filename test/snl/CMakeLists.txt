@@ -1,5 +1,6 @@
-add_subdirectory(snl)
+add_subdirectory(netlists)
 add_subdirectory(formats)
+add_subdirectory(snl)
 
 if(Python3_Development_FOUND)
   #add_subdirectory(python)
