@@ -43,11 +43,12 @@ SNLDesign* SNLNetlists::createNetlist0(SNLDB* db) {
   }
 
   auto top = SNLDesign::create(designsLib, SNLName("top"));
-  auto i = SNLBusTerm::create(top, SNLTerm::Direction::Input, 0, 1, SNLName("i"));
-  auto o = SNLBusTerm::create(top, SNLTerm::Direction::InOut, 0, 1, SNLName("o"));
-
-  //Instances
-
-
+  {
+    auto i = SNLBusTerm::create(top, SNLTerm::Direction::Input, 0, 1, SNLName("i"));
+    auto o = SNLBusTerm::create(top, SNLTerm::Direction::InOut, 0, 1, SNLName("o"));
+    auto module0Ins0 = SNLInstance::create(top, module0, SNLName("ins0"));
+    auto module0Ins1 = SNLInstance::create(top, module0, SNLName("ins1"));
+  }
+  
   return top;
 }

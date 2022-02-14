@@ -44,7 +44,8 @@ set(SNL_FLATTENER_SOURCES
   flattener/SNLFlattenerInstanceTree.cpp
 )
 
-add_library(naja_snl SHARED ${SNL_KERNEL_SOURCES} ${SNL_DUMP_SOURCES})
+add_library(naja_snl SHARED
+  ${SNL_KERNEL_SOURCES} ${SNL_DUMP_SOURCES} ${SNL_FLATTENER_SOURCES})
 target_link_libraries(naja_snl naja_core coverage_config)
 
 target_compile_options(naja_snl PRIVATE ${NAJA_CXX_WARNINGS}) 
