@@ -30,7 +30,6 @@ class SNLBusNetBit final: public SNLBitNet {
 
     SNLDesign* getDesign() const override;
 
-    void setID(SNLID::DesignObjectID id) override {}
     //\remark returns the owner SNLBusNet ID
     SNLID::DesignObjectID getID() const override;
     SNLID getSNLID() const override;
@@ -51,8 +50,9 @@ class SNLBusNetBit final: public SNLBitNet {
     static void preCreate(const SNLBusNet* bus, SNLID::Bit bit);
     void postCreate();
     void destroyFromBus();
-    void destroyFromDesign() override {}
+    void destroyFromDesign() override {} //LCOV_EXCL_LINE
     void preDestroy() override;
+    void setID(SNLID::DesignObjectID id) override {} //LCOV_EXCL_LINE
 
     SNLBusNet*  bus_;
     SNLID::Bit  bit_;
