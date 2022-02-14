@@ -147,6 +147,9 @@ TEST_F(SNLNetTest, testCreation) {
       net0->getBit(7),  net0->getBit(6),  net0->getBit(5),  net0->getBit(4),
       net0->getBit(3) , net0->getBit(2),  net0->getBit(1),  net0->getBit(0)));
 
+  EXPECT_EQ(nullptr, net0->getBit(32));
+  EXPECT_EQ(nullptr, net0->getBit(-1));
+
   for (auto bit: net0->getBits()) {
     EXPECT_EQ(SNLNet::Type::Standard, bit->getType());
     EXPECT_EQ(net0, bit->getBus());
@@ -165,6 +168,11 @@ TEST_F(SNLNetTest, testCreation) {
     EXPECT_EQ(SNLNet::Type::Assign0, bit->getType());
     EXPECT_TRUE(bit->getType().isDriving());
   }
+
+  net0->destroy();
+  EXPECT_EQ(nullptr, design_->getNet(2));
+  EXPECT_EQ(nullptr, design_->getNet(SNLName("net0")));
+
 }
 
 TEST_F(SNLNetTest, testNetType) {

@@ -2,7 +2,7 @@
 #include <filesystem>
 
 #include "SNLUniverse.h"
-#include "SNLDumper.h"
+#include "SNLDump.h"
 using namespace naja::SNL;
 
 #include "SNLNetlists.h"
@@ -41,5 +41,5 @@ class SNLDumpTest0: public ::testing::Test {
 
 TEST_F(SNLDumpTest0, test) {
   std::filesystem::path test0Path(dumpsPath_);
-  SNLDumper::dump(top_, test0Path);
+  SNLDump::dump(top_, test0Path);
 }

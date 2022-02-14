@@ -14,14 +14,15 @@
  * limitations under the License.
  */
 
-#include "SNLDumper.h"
+#include "SNLDump.h"
 
 #include <map>
 #include <fstream>
 
 #include "SNLLibrary.h"
 #include "SNLDesign.h"
-#include "SNLDumpManifest.h" 
+#include "SNLDump.h"
+#include "SNLDumpManifest.h"
 
 namespace {
 using namespace naja::SNL;
@@ -51,19 +52,36 @@ unsigned levelize(const SNLDesign* design, DesignsLevel& designsLevel) {
 }
 
 void dumpParameter(const SNLParameter* parameter, std::ostream& stream) {
-}
+  stream << SNLDump::Tag::Parameter
+    << " " << parameter->getName().getString()
+    << " " << parameter->getValue()
+    << std::endl;
+} 
 
 void dumpTerm(const SNLTerm* term, std::ostream& stream) {
+  stream << "T"
+    << " " << term->getID()
+    << " " << term->getDirection();
+  if (not term->isAnonymous()) {
+    stream << " " << term->getName().getString();
+  }
+  stream << std::endl;
 }
 
 void dumpNet(const SNLNet* net, std::ostream& stream) {
+  stream << "N"
+    << " " << net->getID();
+  if (not net->isAnonymous()) {
+    stream << " " << net->getName().getString();
+  }
+  stream << std::endl;
 }
 
 void dumpInstance(const SNLInstance* instance, std::ostream& stream) {
 }
 
 void dumpDesign(const SNLDesign* design, std::ostream& stream) {
-  stream << "D"
+  stream << SNLDump::Tag::Design
     << " " << design->getLibrary()->getID()
     << " " << design->getID()
     << " " << design->getName().getString() << std::endl;
@@ -85,7 +103,7 @@ void dumpDesign(const SNLDesign* design, std::ostream& stream) {
 
 namespace naja { namespace SNL {
 
-void SNLDumper::dump(const SNLDesign* top, const std::filesystem::path& path) {
+void SNLDump::dump(const SNLDesign* top, const std::filesystem::path& path) {
   //create directory .snl with top name
   std::string dirName;
   if (not top->isAnonymous()) {

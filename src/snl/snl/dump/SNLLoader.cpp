@@ -14,8 +14,12 @@
  * limitations under the License.
  */
 
-#include "SNLLoader.h"
+#include "SNLDump.h"
 
 namespace naja { namespace SNL {
+
+void SNLDump::load(const std::filesystem::path& path) {
+}
+
 
 }} // namespace SNL // namespace naja

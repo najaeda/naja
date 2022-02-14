@@ -17,20 +17,33 @@
 #ifndef __SNL_DUMP_H_
 #define __SNL_DUMP_H_
 
+#include <filesystem>
+#include <string>
+
 namespace naja { namespace SNL {
+
+class SNLDesign;
 
 class SNLDump {
   public:
     class Version {
       public:
-        static constexpr short major_    { 0 };
-        static constexpr short minor_    { 0 };
-        static constexpr short revision_ { 1 };
-        static constexpr short getMajor() { return major_; }
-        static constexpr short getMinor() { return minor_; }
-        static constexpr short getRevision() { return revision_; }
+        static constexpr short Major    { 0 };
+        static constexpr short Minor    { 0 };
+        static constexpr short Revision { 1 };
+        static constexpr short getMajor()     { return Major; }
+        static constexpr short getMinor()     { return Minor; }
+        static constexpr short getRevision()  { return Revision; }
         static std::string getString();
     };
+    class Tag {
+      public:
+        static constexpr char Design      { 'D' };
+        static constexpr char Parameter   { 'P' };
+    };
+
+    static void dump(const SNLDesign* top, const std::filesystem::path& path);
+    static void load(const std::filesystem::path& path);
 };
 
 }} // namespace SNL // namespace naja
