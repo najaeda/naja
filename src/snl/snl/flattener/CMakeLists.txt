@@ -2,6 +2,8 @@ set(SOURCES
   SNLFlattener.cpp
   SNLFlattenerInstanceTreeNode.cpp 
   SNLFlattenerInstanceTree.cpp
+  SNLFlattenerNetTree.cpp
+  SNLFlattenerNetTreeNode.cpp
 )
 
 add_library(naja_snl_flattener SHARED ${SOURCES})

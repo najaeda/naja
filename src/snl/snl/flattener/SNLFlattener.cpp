@@ -16,7 +16,12 @@
 
 #include "SNLFlattener.h"
 
+#include <iostream>
+
 #include "SNLDesign.h"
+#include "SNLBitNet.h"
+#include "SNLBitTerm.h"
+#include "SNLInstTerm.h"
 
 #include "SNLFlattenerInstanceTree.h"
 #include "SNLFlattenerInstanceTreeNode.h"
@@ -28,22 +33,46 @@ SNLFlattener::~SNLFlattener() {
   delete tree_;
 }
 
-void SNLFlattener::processDesign(SNLFlattenerInstanceTreeNode* parent, const SNLDesign* design) {
+void SNLFlattener::processDesign(
+  SNLFlattenerInstanceTreeNode* parent,
+  const SNLDesign* design,
+  const TermNodesMap& termNodesMap) {
+  for (auto net: design->getBitNets()) {
+    if (net->getType().isConst0()) {
+
+    } else if (net->getType().isConst1()) {
+
+    } else {
+      for (auto component: net->getComponents()) {
+        if (auto term = dynamic_cast<SNLBitTerm*>(component)) {
+
+        } else {
+          auto instTerm = static_cast<SNLInstTerm*>(component);
+          std::cerr << instTerm->getString() << std::endl;
+        }
+      }
+    }
+  }
   for (auto instance: design->getInstances()) {
-    processInstance(parent, instance);
+    TermNodesMap termNodesMap;
+    processInstance(parent, instance, termNodesMap);
   }
 }
 
-void SNLFlattener::processInstance(SNLFlattenerInstanceTreeNode* parent, const SNLInstance* instance) {
+void SNLFlattener::processInstance(
+  SNLFlattenerInstanceTreeNode* parent,
+  const SNLInstance* instance,
+  const TermNodesMap& termNodesMap) {
   auto node = parent->addChild(instance);
   SNLDesign* model = instance->getModel();
-  processDesign(node, model);
+  processDesign(node, model, termNodesMap);
 }
 
 void SNLFlattener::processTop(const SNLDesign* top) {
   auto root = tree_->getRoot();
   for (auto instance: top->getInstances()) {
-    processInstance(root, instance);
+    TermNodesMap termNodesMap;
+    processInstance(root, instance, termNodesMap);
   }
 }
 

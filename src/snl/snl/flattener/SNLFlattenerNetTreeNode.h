@@ -14,34 +14,28 @@
  * limitations under the License.
  */
 
-#ifndef __SNL_FLATTENER_INSTANCE_TREE_H_
-#define __SNL_FLATTENER_INSTANCE_TREE_H_
+#ifndef __SNL_FLATTENER_NET_TREE_NODE_H_
+#define __SNL_FLATTENER_NET_TREE_NODE_H_
 
 #include <ostream>
 
 namespace naja { namespace SNL {
 
-class SNLDesign;
-class SNLFlattenerInstanceTreeNode;
+class SNLFlattenerNetTree;
 
-class SNLFlattenerInstanceTree {
+class SNLFlattenerNetTreeNode {
   public:
-    friend class SNLFlattener;
-    SNLFlattenerInstanceTree(const SNLFlattenerInstanceTree&) = delete;
-    SNLFlattenerInstanceTree(const SNLFlattenerInstanceTree&&) = delete;
-    static SNLFlattenerInstanceTree* create(const SNLDesign* top);
-    void destroy();
+    SNLFlattenerNetTreeNode(const SNLFlattenerNetTreeNode&) = delete;
+    SNLFlattenerNetTreeNode(const SNLFlattenerNetTreeNode&&) = delete;
 
-    SNLFlattenerInstanceTreeNode* getRoot() const { return root_; }
+    SNLFlattenerNetTree* getTree() const;
 
     void print(std::ostream& stream) const;
   private:
-    SNLFlattenerInstanceTree() = default;
-    ~SNLFlattenerInstanceTree();
-
-    SNLFlattenerInstanceTreeNode* root_;
+    SNLFlattenerNetTreeNode() = default;
+    ~SNLFlattenerNetTreeNode();
 };
 
 }} // namespace SNL // namespace naja
 
-#endif /* __SNL_FLATTENER_INSTANCE_TREE_H_ */
+#endif /* __SNL_FLATTENER_NET_TREE_NODE_H_ */

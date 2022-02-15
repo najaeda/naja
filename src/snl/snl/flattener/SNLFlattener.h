@@ -17,12 +17,15 @@
 #ifndef __SNL_FLATTENER_H_
 #define __SNL_FLATTENER_H_
 
+#include <map>
 namespace naja { namespace SNL {
 
 class SNLDesign;
 class SNLInstance;
+class SNLBitTerm;
 class SNLFlattenerInstanceTree;
 class SNLFlattenerInstanceTreeNode;
+class SNLFlattenerNetTreeNode;
 
 class SNLFlattener {
   public:
@@ -34,9 +37,16 @@ class SNLFlattener {
     SNLFlattenerInstanceTree* getTree() const { return tree_; }
     void process(const SNLDesign* top);
   private:
+    using TermNodesMap = std::map<SNLBitTerm*, SNLFlattenerNetTreeNode*>;
     void processTop(const SNLDesign* top);
-    void processInstance(SNLFlattenerInstanceTreeNode* parent, const SNLInstance* instance);
-    void processDesign(SNLFlattenerInstanceTreeNode* node, const SNLDesign* model);
+    void processInstance(
+      SNLFlattenerInstanceTreeNode* parent,
+      const SNLInstance* instance,
+      const TermNodesMap& termNodesMap);
+    void processDesign(
+      SNLFlattenerInstanceTreeNode* node,
+      const SNLDesign* model,
+      const TermNodesMap& termNodesMap);
 
     SNLFlattenerInstanceTree* tree_ { nullptr };
 };
