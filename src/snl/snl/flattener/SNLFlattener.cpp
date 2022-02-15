@@ -45,7 +45,7 @@ void SNLFlattener::processDesign(
     } else {
       for (auto component: net->getComponents()) {
         if (auto term = dynamic_cast<SNLBitTerm*>(component)) {
-
+          std::cerr << term->getString() << std::endl;
         } else {
           auto instTerm = static_cast<SNLInstTerm*>(component);
           std::cerr << instTerm->getString() << std::endl;
