@@ -113,6 +113,7 @@ TEST_F(SNLNetTest, testCreation) {
   SNLBusNet* net0 = SNLBusNet::create(design_, 31, 0, SNLName("net0"));
   ASSERT_TRUE(net0);
   EXPECT_EQ(SNLName("net0"), net0->getName());
+  EXPECT_EQ(SNLID(SNLID::Type::Net, 1, 1, 0, 2, 0, 0), net0->getSNLID());
   EXPECT_EQ(2, net0->getID());
   EXPECT_EQ(31, net0->getMSB());
   EXPECT_EQ(0, net0->getLSB());
@@ -146,16 +147,20 @@ TEST_F(SNLNetTest, testCreation) {
       net0->getBit(11), net0->getBit(10), net0->getBit(9),  net0->getBit(8),
       net0->getBit(7),  net0->getBit(6),  net0->getBit(5),  net0->getBit(4),
       net0->getBit(3) , net0->getBit(2),  net0->getBit(1),  net0->getBit(0)));
+  
 
   EXPECT_EQ(nullptr, net0->getBit(32));
   EXPECT_EQ(nullptr, net0->getBit(-1));
 
+  SNLID::Bit bitNumber = 31;
   for (auto bit: net0->getBits()) {
     EXPECT_EQ(SNLNet::Type::Standard, bit->getType());
     EXPECT_EQ(net0, bit->getBus());
+    EXPECT_EQ(net0->getID(), bit->getID());
     EXPECT_EQ(design_, bit->getDesign());
     EXPECT_FALSE(bit->getType().isDriving());
     EXPECT_FALSE(bit->isAnonymous());
+    EXPECT_EQ(SNLID(SNLID::Type::NetBit, 1, 1, 0, 2, 0, bitNumber--), bit->getSNLID());
   }
   net0->setType(SNLBitNet::Type::Supply1);
   for (auto bit: net0->getBits()) {
