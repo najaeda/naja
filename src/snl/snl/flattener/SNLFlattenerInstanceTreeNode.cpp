@@ -22,8 +22,11 @@
 
 namespace naja { namespace SNL {
 
-SNLFlattenerInstanceTreeNode::SNLFlattenerInstanceTreeNode(const SNLDesign* top):
+SNLFlattenerInstanceTreeNode::SNLFlattenerInstanceTreeNode(
+  SNLFlattenerInstanceTree* tree,
+  const SNLDesign* top):
   isRoot_(true),
+  parent_(tree),
   object_(top)
 {}
 
@@ -31,6 +34,7 @@ SNLFlattenerInstanceTreeNode::SNLFlattenerInstanceTreeNode(
   SNLFlattenerInstanceTreeNode* parent,
   const SNLInstance* instance):
   isRoot_(false),
+  parent_(parent),
   object_(instance)
 {}
 
@@ -56,6 +60,18 @@ SNLFlattenerInstanceTree* SNLFlattenerInstanceTreeNode::getTree() const {
     return static_cast<SNLFlattenerInstanceTree*>(parent_);
   }
   return getParent()->getTree();
+}
+
+SNLFlattenerInstanceTreeNode*
+SNLFlattenerInstanceTreeNode::getChildNode(const SNLInstance* instance) const {
+  if (not instance) {
+    return nullptr;
+  }
+  auto it = children_.find(instance);
+  if (it != children_.end()) {
+    return it->second;
+  }
+  return nullptr;
 }
 
 const SNLDesign* SNLFlattenerInstanceTreeNode::getDesign() const {

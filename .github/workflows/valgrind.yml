@@ -44,6 +44,10 @@ jobs:
       working-directory: ${{github.workspace}}/build/test/snl/snl/dump
       run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./snlDumpTests
 
+    - name: TestSNLNetlists
+      working-directory: ${{github.workspace}}/build/test/snl/netlists
+      run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./snlNetlistTests
+
     - name: TestSNLFlattener
       working-directory: ${{github.workspace}}/build/test/snl/snl/flattener
       run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./snlFlattenerTests

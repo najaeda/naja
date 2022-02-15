@@ -5,7 +5,7 @@
 #include "SNLDump.h"
 using namespace naja::SNL;
 
-#include "SNLNetlists.h"
+#include "SNLNetlist0.h"
 
 #ifndef SNL_DUMP_PATHS
 #define SNL_DUMP_PATHS "Undefined"
@@ -30,7 +30,7 @@ class SNLDumpTest0: public ::testing::Test {
       dumpsPath_ = createDumpsDir();
       auto u = SNLUniverse::create();
       auto db = SNLDB::create(u);
-      top_ = SNLNetlists::createNetlist0(db);
+      top_ = SNLNetlist0::create(db);
     }
     void TearDown() override {
       SNLUniverse::get()->destroy();

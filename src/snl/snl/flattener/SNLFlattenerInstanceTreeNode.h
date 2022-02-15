@@ -40,13 +40,16 @@ class SNLFlattenerInstanceTreeNode {
 
     bool isRoot() const { return isRoot_; }
 
+    
+    SNLFlattenerInstanceTreeNode* getChildNode(const SNLInstance* instance) const;
+
     const SNLDesign* getDesign() const;
     const SNLInstance* getInstance() const;
 
     void print(std::ostream& stream, unsigned indent=0) const;
     std::string getString() const;
   private:
-    SNLFlattenerInstanceTreeNode(const SNLDesign* top);
+    SNLFlattenerInstanceTreeNode(SNLFlattenerInstanceTree* tree, const SNLDesign* top);
     SNLFlattenerInstanceTreeNode(SNLFlattenerInstanceTreeNode* parent, const SNLInstance* instance);
     SNLFlattenerInstanceTreeNode* addChild(const SNLInstance* instance);
 
