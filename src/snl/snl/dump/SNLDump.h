@@ -39,6 +39,7 @@ class SNLDump {
     class Tag {
       public:
         static constexpr char Design      { 'D' };
+        static constexpr char Instance    { 'I' };
         static constexpr char Parameter   { 'P' };
     };
 

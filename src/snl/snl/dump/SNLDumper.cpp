@@ -19,6 +19,7 @@
 #include <map>
 #include <fstream>
 
+#include "SNLDB.h"
 #include "SNLLibrary.h"
 #include "SNLDesign.h"
 #include "SNLDump.h"
@@ -78,6 +79,12 @@ void dumpNet(const SNLNet* net, std::ostream& stream) {
 }
 
 void dumpInstance(const SNLInstance* instance, std::ostream& stream) {
+  stream << SNLDump::Tag::Instance
+    << " " << instance->getModel()->getDB()->getID()
+    << " " << instance->getModel()->getLibrary()->getID()
+    << " " << instance->getModel()->getID()
+    << " " << instance->getID()
+    << std::endl;
 }
 
 void dumpDesign(const SNLDesign* design, std::ostream& stream) {
