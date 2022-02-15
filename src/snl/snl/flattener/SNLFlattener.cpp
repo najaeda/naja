@@ -24,6 +24,10 @@
 
 namespace naja { namespace SNL {
 
+SNLFlattener::~SNLFlattener() {
+  delete tree_;
+}
+
 void SNLFlattener::processDesign(SNLFlattenerInstanceTreeNode* parent, const SNLDesign* design) {
   for (auto instance: design->getInstances()) {
     processInstance(parent, instance);
@@ -36,8 +40,8 @@ void SNLFlattener::processInstance(SNLFlattenerInstanceTreeNode* parent, const S
   processDesign(node, model);
 }
 
-void SNLFlattener::processTop(SNLFlattenerInstanceTree* tree, const SNLDesign* top) {
-  auto root = tree->getRoot();
+void SNLFlattener::processTop(const SNLDesign* top) {
+  auto root = tree_->getRoot();
   for (auto instance: top->getInstances()) {
     processInstance(root, instance);
   }
@@ -45,7 +49,7 @@ void SNLFlattener::processTop(SNLFlattenerInstanceTree* tree, const SNLDesign* t
 
 void SNLFlattener::process(const SNLDesign* top) {
   tree_ = SNLFlattenerInstanceTree::create(top);
-  processTop(tree_, top);
+  processTop(top);
 }
 
 }} // namespace SNL // namespace naja

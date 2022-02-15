@@ -29,11 +29,12 @@ class SNLFlattener {
     SNLFlattener() = default;
     SNLFlattener(const SNLFlattener&) = delete;
     SNLFlattener(SNLFlattener&&) = delete;
+    ~SNLFlattener();
 
     SNLFlattenerInstanceTree* getTree() const { return tree_; }
     void process(const SNLDesign* top);
   private:
-    void processTop(SNLFlattenerInstanceTree* tree, const SNLDesign* top);
+    void processTop(const SNLDesign* top);
     void processInstance(SNLFlattenerInstanceTreeNode* parent, const SNLInstance* instance);
     void processDesign(SNLFlattenerInstanceTreeNode* node, const SNLDesign* model);
 
