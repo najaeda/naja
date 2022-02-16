@@ -1,5 +1,6 @@
 add_subdirectory(snl)
 add_subdirectory(formats)
+add_subdirectory(snippet)
 
 if(Python3_Development_FOUND)
   add_subdirectory(python)

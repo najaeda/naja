@@ -10,7 +10,7 @@ def main() -> int:
   lib2 = snl.SNLLibrary.create(lib0)
 
   model0 = snl.SNLDesign.create(lib1)
-  print('Model:', model0) 
+  print('Model:', model0)
   i0 = snl.SNLScalarTerm.create(model0, 'i0')
   i0Net = snl.SNLScalarNet.create(model0, 'i0')
   i0.setNet(i0Net)
@@ -19,6 +19,7 @@ def main() -> int:
   print('BusTerm:', i1, 'in design:', i0.getDesign(), 'connected to:', i1.getNet())
 
   model1 = snl.SNLDesign.create(lib1)
+  print('Model:', model1)
   d0 = snl.SNLDesign.create(lib2)
   print('Design:', d0)
 

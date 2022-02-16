@@ -217,8 +217,16 @@ SNLTerm* SNLDesign::getTerm(const SNLName& name) const {
   return nullptr;
 }
 
+SNLScalarTerm* SNLDesign::getScalarTerm(SNLID::DesignObjectID id) const {
+  return dynamic_cast<SNLScalarTerm*>(getTerm(id));
+}
+
 SNLScalarTerm* SNLDesign::getScalarTerm(const SNLName& name) const {
   return dynamic_cast<SNLScalarTerm*>(getTerm(name));
+}
+
+SNLBusTerm* SNLDesign::getBusTerm(SNLID::DesignObjectID id) const {
+  return dynamic_cast<SNLBusTerm*>(getTerm(id));
 }
 
 SNLBusTerm* SNLDesign::getBusTerm(const SNLName& name) const {
@@ -345,8 +353,16 @@ SNLNet* SNLDesign::getNet(const SNLName& name) const {
   return nullptr;
 }
 
+SNLScalarNet* SNLDesign::getScalarNet(SNLID::DesignObjectID id) const {
+  return dynamic_cast<SNLScalarNet*>(getNet(id));
+}
+
 SNLScalarNet* SNLDesign::getScalarNet(const SNLName& name) const {
   return dynamic_cast<SNLScalarNet*>(getNet(name));
+}
+
+SNLBusNet* SNLDesign::getBusNet(SNLID::DesignObjectID id) const {
+  return dynamic_cast<SNLBusNet*>(getNet(id));
 }
 
 SNLBusNet* SNLDesign::getBusNet(const SNLName& name) const {
