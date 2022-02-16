@@ -33,9 +33,11 @@ struct SNLException: public std::exception {
       return reason_;
     }
 
+    //LCOV_EXCL_START
     const char* what() const noexcept override {
       return reason_.c_str();
     }
+    //LCOV_EXCL_STOP
 
   private:
     const std::string reason_;

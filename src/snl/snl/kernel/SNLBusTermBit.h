@@ -48,14 +48,14 @@ class SNLBusTermBit final: public SNLBitTerm {
   private:
     static SNLBusTermBit* create(SNLBusTerm* bus, SNLID::Bit bit);
 
-    void setID(SNLID::DesignObjectID id) override {}
-    void setPosition(size_t position) override {}
+    void setID(SNLID::DesignObjectID id) override {} //LCOV_EXCL_LINE
+    void setPosition(size_t position) override {} //LCOV_EXCL_LINE
 
     SNLBusTermBit(SNLBusTerm* bus, SNLID::Bit bit);
     static void preCreate(const SNLBusTerm* bus, SNLID::Bit bit);
     void postCreate();
     void destroyFromBus();
-    void destroyFromDesign() override {}
+    void destroyFromDesign() override {} //LCOV_EXCL_LINE
     void preDestroy() override;
 
     SNLBusTerm* bus_;
