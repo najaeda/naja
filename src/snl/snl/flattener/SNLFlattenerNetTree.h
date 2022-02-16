@@ -17,13 +17,18 @@
 #ifndef __SNL_FLATTENER_NET_TREE_H_
 #define __SNL_FLATTENER_NET_TREE_H_
 
+#include <ostream>
+
 namespace naja { namespace SNL {
+
+class SNLBitNet;
+class SNLFlattenerNetTreeNode;
 
 class SNLFlattenerNetTree {
   public:
     SNLFlattenerNetTree(const SNLFlattenerNetTree&) = delete;
     SNLFlattenerNetTree(const SNLFlattenerNetTree&&) = delete;
-    static SNLFlattenerNetTree* create(const SNLBitNet* top);
+    static SNLFlattenerNetTree* create(const SNLBitNet* root);
     void destroy();
 
     SNLFlattenerNetTreeNode* getRoot() const { return root_; }

@@ -42,6 +42,9 @@ set(SNL_FLATTENER_SOURCES
   flattener/SNLFlattener.cpp
   flattener/SNLFlattenerInstanceTreeNode.cpp 
   flattener/SNLFlattenerInstanceTree.cpp
+  flattener/SNLFlattenerNetTreeNode.cpp
+  flattener/SNLFlattenerNetTree.cpp
+  flattener/SNLFlattenerNetForest.cpp
 )
 
 add_library(naja_snl SHARED

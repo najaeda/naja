@@ -30,7 +30,8 @@ class SNLFlattenerNetTreeNode {
 
     SNLFlattenerNetTree* getTree() const;
 
-    void print(std::ostream& stream) const;
+    void print(std::ostream& stream, unsigned indent=0) const;
+    std::string getString() const;
   private:
     SNLFlattenerNetTreeNode() = default;
     ~SNLFlattenerNetTreeNode();

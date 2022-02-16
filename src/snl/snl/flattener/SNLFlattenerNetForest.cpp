@@ -14,25 +14,10 @@
  * limitations under the License.
  */
 
-#ifndef __SNL_FLATTENER_NET_FOREST_H_
-#define __SNL_FLATTENER_NET_FOREST_H_
-
-#include <ostream>
+#include "SNLFlattenerNetForest.h"
 
 namespace naja { namespace SNL {
 
-class SNLFlattenerNetForest {
-  public:
-    friend class SNLFlattener;
-    SNLFlattenerNetForest(const SNLFlattenerNetForest&) = delete;
-    SNLFlattenerNetForest(const SNLFlattenerNetForest&&) = delete;
-
-    void print(std::ostream& stream) const;
-  private:
-    SNLFlattenerNetForest() = default;
-    ~SNLFlattenerNetForest();
-};
+SNLFlattenerNetForest::~SNLFlattenerNetForest() {}
 
 }} // namespace SNL // namespace naja
-
-#endif /* __SNL_FLATTENER_NET_FOREST_H_ */

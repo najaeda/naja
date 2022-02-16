@@ -32,6 +32,7 @@ namespace naja { namespace SNL {
 
 SNLFlattener::~SNLFlattener() {
   delete tree_;
+  delete forest_;
 }
 
 void SNLFlattener::processDesign(
