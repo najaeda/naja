@@ -20,10 +20,8 @@
 
 namespace naja { namespace SNL {
 
-SNLFlattenerInstanceTree* SNLFlattenerInstanceTree::create(const SNLDesign* top) {
-  auto tree = new SNLFlattenerInstanceTree();
-  tree->root_ = new SNLFlattenerInstanceTreeNode(tree, top);
-  return tree;
+SNLFlattenerInstanceTree::SNLFlattenerInstanceTree(const SNLDesign* top) {
+  root_ = new SNLFlattenerInstanceTreeNode(this, top);
 }
 
 SNLFlattenerInstanceTree::~SNLFlattenerInstanceTree() {

@@ -14,20 +14,24 @@
  * limitations under the License.
  */
 
-#ifndef __SNL_DUMP_H_
-#define __SNL_DUMP_H_
+#ifndef __SNL_FLATTENER_NET_FOREST_H_
+#define __SNL_FLATTENER_NET_FOREST_H_
 
-#include <filesystem>
+namespace naja { namespace SNL {
 
-namespace SNL {
-
-class SNLDesign;
-
-class SNLDump {
+class SNLFlattenerNetForest {
   public:
-    void dump(const SNLDesign* top, const std::filesystem::path& path);
+    friend class SNLFlattener;
+    SNLFlattenerNetForest(const SNLFlattenerNetForest&) = delete;
+    SNLFlattenerNetForest(const SNLFlattenerNetForest&&) = delete;
+
+    void print(std::ostream& stream) const;
+  private:
+    SNLFlattenerNetForest() = default;
+    ~SNLFlattenerNetForest();
+
 };
 
-}
+}} // namespace SNL // namespace naja
 
-#endif /* __SNL_DUMP_H_ */
+#endif /* __SNL_FLATTENER_NET_FOREST_H_ */

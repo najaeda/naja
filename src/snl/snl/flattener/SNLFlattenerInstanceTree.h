@@ -27,16 +27,15 @@ class SNLFlattenerInstanceTreeNode;
 class SNLFlattenerInstanceTree {
   public:
     friend class SNLFlattener;
+    SNLFlattenerInstanceTree() = delete;
     SNLFlattenerInstanceTree(const SNLFlattenerInstanceTree&) = delete;
     SNLFlattenerInstanceTree(const SNLFlattenerInstanceTree&&) = delete;
-    static SNLFlattenerInstanceTree* create(const SNLDesign* top);
-    void destroy();
 
     SNLFlattenerInstanceTreeNode* getRoot() const { return root_; }
 
     void print(std::ostream& stream) const;
   private:
-    SNLFlattenerInstanceTree() = default;
+    SNLFlattenerInstanceTree(const SNLDesign* top);
     ~SNLFlattenerInstanceTree();
 
     SNLFlattenerInstanceTreeNode* root_;

@@ -24,6 +24,7 @@
 #include "SNLInstTerm.h"
 
 #include "SNLFlattenerInstanceTree.h"
+#include "SNLFlattenerNetForest.h"
 #include "SNLFlattenerInstanceTreeNode.h"
 
 
@@ -77,7 +78,8 @@ void SNLFlattener::processTop(const SNLDesign* top) {
 }
 
 void SNLFlattener::process(const SNLDesign* top) {
-  tree_ = SNLFlattenerInstanceTree::create(top);
+  tree_ = new SNLFlattenerInstanceTree(top);
+  forest_ = new SNLFlattenerNetForest();
   processTop(top);
 }
 

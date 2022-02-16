@@ -26,6 +26,7 @@ class SNLBitTerm;
 class SNLFlattenerInstanceTree;
 class SNLFlattenerInstanceTreeNode;
 class SNLFlattenerNetTreeNode;
+class SNLFlattenerNetForest;
 
 class SNLFlattener {
   public:
@@ -34,8 +35,11 @@ class SNLFlattener {
     SNLFlattener(SNLFlattener&&) = delete;
     ~SNLFlattener();
 
-    SNLFlattenerInstanceTree* getTree() const { return tree_; }
     void process(const SNLDesign* top);
+
+    SNLFlattenerInstanceTree* getTree() const { return tree_; }
+    SNLFlattenerNetForest* getForest() const { return forest_; }
+
   private:
     using TermNodesMap = std::map<SNLBitTerm*, SNLFlattenerNetTreeNode*>;
     void processTop(const SNLDesign* top);
@@ -48,7 +52,8 @@ class SNLFlattener {
       const SNLDesign* model,
       const TermNodesMap& termNodesMap);
 
-    SNLFlattenerInstanceTree* tree_ { nullptr };
+    SNLFlattenerInstanceTree* tree_   { nullptr };
+    SNLFlattenerNetForest*    forest_ { nullptr };
 };
 
 }} // namespace SNL // namespace naja
