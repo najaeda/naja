@@ -19,6 +19,7 @@
 #include <fstream>
 #include <sstream>
 #include <iostream>
+#include <stack>
 
 #include <nlohmann/json.hpp>
 
