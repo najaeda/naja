@@ -1,8 +1,8 @@
-SET(SOURCES
+set(SOURCES
   SNLVRLDumper.cpp
 )
 
-ADD_LIBRARY(naja_snl_verilog SHARED ${SOURCES})
-TARGET_LINK_LIBRARIES(naja_snl_verilog naja_snl)
+add_library(naja_snl_verilog SHARED ${SOURCES})
+target_link_libraries(naja_snl_verilog naja_snl)
 
-TARGET_INCLUDE_DIRECTORIES(naja_snl_verilog PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(naja_snl_verilog PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

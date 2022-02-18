@@ -14,21 +14,22 @@
  * limitations under the License.
  */
 
-#include "SNLFlattenerNetTreeNode.h"
+#ifndef __NAJA_LOG_H_
+#define __NAJA_LOG_H_
 
-namespace naja { namespace SNL {
+#include <string>
 
-//LCOV_EXCL_START
-void SNLFlattenerNetTreeNode::print(std::ostream& stream, unsigned indent) const {
-  stream << std::string(indent, ' ') << getString() << std::endl;
-  indent += 2;
-}
-//LCOV_EXCL_STOP
+namespace naja { namespace core {
 
-//LCOV_EXCL_START
-std::string SNLFlattenerNetTreeNode::getString() const {
-  return std::string();
-}
-//LCOV_EXCL_STOP
+//Just initiating a placeholder class
+//This needs heavy refinemenent in the future
+class NajaLog {
+  public:
+    static void echo(const std::string_view& tag, const std::string_view& message);
+    static void error(const std::string_view& tag, const std::string_view& message);
+};
 
-}} // namespace SNL // namespace naja
+
+}} // namespace core // namespace naja
+
+#endif //__NAJA_LOG_H_

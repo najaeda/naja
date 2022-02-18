@@ -14,21 +14,22 @@
  * limitations under the License.
  */
 
-#include "SNLFlattenerNetTreeNode.h"
+#include <istream>
+#include <filesystem>
+
+#ifndef __SNL_YOSYS_JSON_PARSER_H_
+#define __SNL_YOSYS_JSON_PARSER_H_
 
 namespace naja { namespace SNL {
 
-//LCOV_EXCL_START
-void SNLFlattenerNetTreeNode::print(std::ostream& stream, unsigned indent) const {
-  stream << std::string(indent, ' ') << getString() << std::endl;
-  indent += 2;
-}
-//LCOV_EXCL_STOP
+class SNLLibrary;
 
-//LCOV_EXCL_START
-std::string SNLFlattenerNetTreeNode::getString() const {
-  return std::string();
-}
-//LCOV_EXCL_STOP
+class SNLYosysJSONParser {
+  public:
+    static void parse(const std::filesystem::path& inputPath, SNLLibrary* library);
+    static void parse(std::istream& input, SNLLibrary* library);
+};
 
 }} // namespace SNL // namespace naja
+
+#endif //__SNL_YOSYS_JSON_PARSER_H_ 

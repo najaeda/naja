@@ -1,4 +1,6 @@
 set(SOURCES
+  NajaObject.cpp
+  NajaLog.cpp
   NajaUtils.cpp
   MemoryUsage.cpp
   PerfTracker.cpp

@@ -114,16 +114,22 @@ SNLID SNLDB::getSNLID() const {
   return SNLID(id_);
 }
 
+//LCOV_EXCL_START
 constexpr const char* SNLDB::getTypeName() const {
   return "SNLDB";
 }
+//LCOV_EXCL_STOP
 
+//LCOV_EXCL_START
 std::string SNLDB::getString() const {
   return std::string();
 }
+//LCOV_EXCL_STOP
 
+//LCOV_EXCL_START
 std::string SNLDB::getDescription() const {
   return "<" + std::string(getTypeName()) + ">";  
 }
+//LCOV_EXCL_STOP
 
 }} // namespace SNL // namespace naja

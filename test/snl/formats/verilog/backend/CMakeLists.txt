@@ -1,9 +1,9 @@
-INCLUDE(GoogleTest)
+include(GoogleTest)
 
-SET(snl_vrl_tests SNLVRLDumperTest0.cpp)
+set(snl_vrl_tests SNLVRLDumperTest0.cpp)
 
-ADD_EXECUTABLE(snlVRLTests ${snl_vrl_tests})
+add_executable(snlVRLTests ${snl_vrl_tests})
 
-TARGET_LINK_LIBRARIES(snlVRLTests naja_snl_verilog gtest gtest_main)
+target_link_libraries(snlVRLTests naja_snl_verilog gtest gtest_main)
 
 GTEST_DISCOVER_TESTS(snlVRLTests)
