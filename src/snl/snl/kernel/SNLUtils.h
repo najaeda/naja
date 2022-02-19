@@ -14,28 +14,24 @@
  * limitations under the License.
  */
 
-#include <istream>
-#include <filesystem>
+#ifndef __SNL_UTILS_H_
+#define __SNL_UTILS_H_
 
-#ifndef __SNL_YOSYS_JSON_PARSER_H_
-#define __SNL_YOSYS_JSON_PARSER_H_
+#include <map>
 
 namespace naja { namespace SNL {
 
-class SNLLibrary;
+class SNLDesign;
 
-class SNLYosysJSONParser {
+class SNLUtils {
   public:
-    static void parse(
-      const std::filesystem::path& inputPath,
-      SNLLibrary* primitives,
-      SNLLibrary* designs);
-    static void parse(
-      std::istream& input,
-      SNLLibrary* primitives,
-      SNLLibrary* designs);
+    using DesignsLevel = std::map<const SNLDesign*, unsigned>;
+    static unsigned levelize(const SNLDesign* design, DesignsLevel& designsLevel);
+    using DesignLevel = std::pair<const SNLDesign*, unsigned>;
+    using SortedDesigns = std::vector<DesignLevel>;
+    static void getDesignsSortedByHierarchicalLevel(const SNLDesign* top, SortedDesigns& sortedDesigns);
 };
 
 }} // namespace SNL // namespace naja
 
-#endif //__SNL_YOSYS_JSON_PARSER_H_ 
+#endif // __SNL_UTILS_H_

@@ -27,6 +27,7 @@
 #include "SNLBusNet.h"
 #include "SNLBusNetBit.h"
 #include "SNLInstTerm.h"
+#include "SNLUtils.h"
 
 namespace {
 
@@ -188,7 +189,7 @@ void SNLVRLDumper::dumpInstances(const SNLDesign* design, std::ostream& o) {
   }
 }
 
-void SNLVRLDumper::dumpDesign(const SNLDesign* design, std::ostream& o) {
+void SNLVRLDumper::dumpOneDesign(const SNLDesign* design, std::ostream& o) {
   if (design->isAnonymous()) {
     createDesignName(design);
   }
@@ -204,6 +205,15 @@ void SNLVRLDumper::dumpDesign(const SNLDesign* design, std::ostream& o) {
 
   o << "endmodule //" << design->getName().getString();
   o << std::endl;
+}
+
+void SNLVRLDumper::dumpDesign(const SNLDesign* design, std::ostream& o) {
+  SNLUtils::SortedDesigns designs;
+  SNLUtils::getDesignsSortedByHierarchicalLevel(design, designs);
+  for (auto designLevel: designs) {
+    const SNLDesign* design = designLevel.first;
+    dumpOneDesign(design, o);
+  }
 }
 
 }} // namespace SNL // namespace naja

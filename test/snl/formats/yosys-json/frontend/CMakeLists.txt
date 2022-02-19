@@ -4,7 +4,7 @@ set(snl_yosys_json_parser_tests SNLYosysJSONParserTest0.cpp)
 
 add_executable(snlYosysJSONParserTests ${snl_yosys_json_parser_tests})
 
-target_link_libraries(snlYosysJSONParserTests naja_snl_yosys_json gtest gtest_main)
+target_link_libraries(snlYosysJSONParserTests naja_snl_yosys_json naja_snl_verilog gtest gtest_main)
 target_compile_definitions(snlYosysJSONParserTests PRIVATE SNL_YOSYS_JSON_TEST_PATH="${CMAKE_CURRENT_SOURCE_DIR}")
 
 GTEST_DISCOVER_TESTS(snlYosysJSONParserTests)

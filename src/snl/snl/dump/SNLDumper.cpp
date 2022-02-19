@@ -16,41 +16,17 @@
 
 #include "SNLDump.h"
 
-#include <map>
 #include <fstream>
 
 #include "SNLDB.h"
 #include "SNLLibrary.h"
 #include "SNLDesign.h"
+#include "SNLUtils.h"
 #include "SNLDump.h"
 #include "SNLDumpManifest.h"
 
 namespace {
 using namespace naja::SNL;
-using DesignsLevel = std::map<const SNLDesign*, unsigned>;
-
-unsigned levelize(const SNLDesign* design, DesignsLevel& designsLevel) {
-  unsigned maxLevel = 0;
-  if (design->getInstances().empty()) {
-    designsLevel[design] = 0;
-  } else {
-    for (auto instance: design->getInstances()) {
-      unsigned level = 0;
-      auto model = instance->getModel();
-      auto it = designsLevel.find(model);
-      if (it == designsLevel.end()) {
-        level = levelize(model, designsLevel);
-        designsLevel[model] = level;
-      } else {
-        level = it->second;
-      }
-      if (level > maxLevel) {
-        maxLevel = level;
-      }
-    }
-  }
-  return maxLevel;
-}
 
 void dumpParameter(const SNLParameter* parameter, std::ostream& stream) {
   stream << SNLDump::Tag::Parameter
@@ -126,21 +102,12 @@ void SNLDump::dump(const SNLDesign* top, const std::filesystem::path& path) {
   std::filesystem::create_directory(dir);
   //publish manifest
   SNLDumpManifest::create(top, dir);
-
-  DesignsLevel designsLevel;
-  levelize(top, designsLevel);
-
-  using DesignLevel = std::pair<const SNLDesign*, unsigned>;
-  using SortedDesigns = std::vector<DesignLevel>;
-  SortedDesigns designs(designsLevel.begin(), designsLevel.end());
-  std::sort(designs.begin(), designs.end(),
-    [](const DesignLevel& ldl, const DesignLevel& rdl) { 
-      return ldl.second < rdl.second;
-    }
-  );
+  
   std::filesystem::path dumpPath(dir/"design.db");
   std::ofstream dumpStream(dumpPath);
-  for (const DesignLevel& dl: designs) {
+  SNLUtils::SortedDesigns designs;
+  SNLUtils::getDesignsSortedByHierarchicalLevel(top, designs);
+  for (const SNLUtils::DesignLevel& dl: designs) {
     dumpDesign(dl.first, dumpStream);
   }
 }

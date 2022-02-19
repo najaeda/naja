@@ -13,6 +13,7 @@ set(SNL_KERNEL_SOURCES
   kernel/SNLDesign.cpp
   kernel/SNLSharedPath.cpp kernel/SNLPath.cpp
   kernel/SNLParameter.cpp
+  kernel/SNLUtils.cpp
 )
 
 set(SNL_KERNEL_HEADERS

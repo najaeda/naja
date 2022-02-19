@@ -7,6 +7,7 @@
 #include "SNLException.h"
 #include "SNLScalarTerm.h"
 #include "SNLYosysJSONParser.h"
+#include "SNLVRLDumper.h"
 
 using namespace naja::SNL;
 
@@ -19,27 +20,32 @@ class SNLYosysJSONParserTest0: public ::testing::Test {
     void SetUp() override {
       SNLUniverse* universe = SNLUniverse::create();
       auto db = SNLDB::create(universe);
-      library_ = SNLLibrary::create(db, SNLName("MYLIB"));
+      primitives_ = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("Primitives"));
+      designs_ = SNLLibrary::create(db, SNLName("Designs"));
     }
     void TearDown() override {
       if (SNLUniverse::get()) {
         SNLUniverse::get()->destroy();
       }
     }
-    SNLLibrary* library_;
+    SNLLibrary* primitives_;
+    SNLLibrary* designs_;
 };
 
 TEST_F(SNLYosysJSONParserTest0, test) {
-  EXPECT_THROW(SNLYosysJSONParser::parse(std::filesystem::path("ERROR"), library_), SNLException);
+  EXPECT_THROW(SNLYosysJSONParser::parse(std::filesystem::path("ERROR"), primitives_, designs_), SNLException);
 
-  ASSERT_NE(nullptr, library_);
+  ASSERT_NE(nullptr, primitives_);
+  ASSERT_NE(nullptr, designs_);
   std::filesystem::path jsonNetlist0Path(SNL_YOSYS_JSON_TEST_PATH);
   jsonNetlist0Path /= "files";
   jsonNetlist0Path /= "mux4.json";
-  SNLYosysJSONParser::parse(jsonNetlist0Path, library_);
+  SNLYosysJSONParser::parse(jsonNetlist0Path, primitives_, designs_);
 
-  EXPECT_EQ(2, library_->getDesigns().size());
-  auto mux2 = library_->getDesign(SNLName("MUX2"));
+  EXPECT_EQ(1, primitives_->getDesigns().size());
+
+  EXPECT_EQ(2, designs_->getDesigns().size());
+  auto mux2 = designs_->getDesign(SNLName("MUX2"));
   ASSERT_NE(nullptr, mux2);
   EXPECT_EQ(4, mux2->getTerms().size());
   EXPECT_EQ(4, mux2->getScalarTerms().size());
@@ -59,15 +65,15 @@ TEST_F(SNLYosysJSONParserTest0, test) {
   EXPECT_EQ(SNLTerm::Direction::Input, s0->getDirection());
   EXPECT_EQ(SNLTerm::Direction::Output, o->getDirection());
 
-#if 0
-  auto lib = db_->getLibrary(SNLName("MYLIB"));  
-  ASSERT_TRUE(lib);
-  auto top = lib->getDesign(SNLName("design"));
-  ASSERT_TRUE(top);
-  std::filesystem::path outPath("test.v");
+  EXPECT_EQ(1, mux2->getInstances().size());
+
+  auto mux4 = designs_->getDesign(SNLName("MUX4"));
+  ASSERT_NE(nullptr, mux4);
+  EXPECT_EQ(3, mux4->getInstances().size());
+
+  std::filesystem::path outPath("mux4.v");
   std::ofstream ofs(outPath, std::ofstream::out);
   SNLVRLDumper dumper;
-  dumper.dumpDesign(top, ofs);
+  dumper.dumpDesign(mux4, ofs);
   ofs.close();
-#endif
 }

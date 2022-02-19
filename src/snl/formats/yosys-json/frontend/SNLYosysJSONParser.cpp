@@ -47,7 +47,9 @@ SNLTerm::Direction getSNLDirection(const std::string& direction) {
 
 class SNLYosysJSONSaxHandler: public json::json_sax_t {
   public:
-    SNLYosysJSONSaxHandler(SNLLibrary* library): library_(library) {}
+    explicit SNLYosysJSONSaxHandler(SNLLibrary* primitives, SNLLibrary* designs):
+      primitives_(primitives),
+      designs_(designs) {}
     bool null() override {
       std::cout << "null" << std::endl;
       assert(not contexts_.empty());
@@ -66,38 +68,41 @@ class SNLYosysJSONSaxHandler: public json::json_sax_t {
       contexts_.pop();
       return true;
     }
+
     bool number_unsigned(number_unsigned_t val) override {
       std::cout << "unsigned: " << val << std::endl;
       assert(not contexts_.empty());
+      auto tag = contexts_.top().first;
+      port_.bit_ = val;
+
       contexts_.pop();
-      #if 0
-      if (not context_.empty()) {
-        auto tag = context_.top().second;
-        if (tag == Tag::Bits) {
-          //port for the moment
-          port_.bit_ = val;
-        }
-      }
-      #endif
-      std::cout << "unsigned: " << val << std::endl;
       return true;
     }
+
     bool number_float(number_float_t val, const string_t& s) override {
       std::cout << "float: " << s << ":" << val << std::endl;
       assert(not contexts_.empty());
       contexts_.pop();
       return true;
     }
+
     bool string(string_t& val) override {
       std::cout << "string: " << val << std::endl;
       assert(not contexts_.empty());
       auto tag = contexts_.top().first;
       if (tag == Tag::Direction) {
         port_.direction_ = val;
+      } else if (tag == Tag::CellType) {
+        cell_.type_ = val;
+      } else if (tag == Tag::CellPort) {
+        std::cout << "cellport direction = " << val << std::endl;
+        assert(not cell_.ports_.empty());
+        cell_.ports_.back().direction_ = val;
       }
       contexts_.pop();
       return true;
     }
+
     bool binary(binary_t& val) override {
       std::cout << "binary: " << std::endl;
       assert(not contexts_.empty());
@@ -119,15 +124,31 @@ class SNLYosysJSONSaxHandler: public json::json_sax_t {
       } else if (val == "ports") {
         contexts_.push(Context(Tag::Ports, val));
         return true;
+      } else if (val == "port_directions") {
+        contexts_.push(Context(Tag::CellPorts, val));
+        return true;
       } else if (val == "direction") {
         assert((not contexts_.empty()) and contexts_.top().first == Tag::Port);
         contexts_.push(Context(Tag::Direction, val));
+        return true;
+      } else if (val == "bits") {
+        if ((not contexts_.empty()) and contexts_.top().first == Tag::Port) {
+          contexts_.push(Context(Tag::PortBits, val));
+          return true;
+        }
+      } else if (val == "type") {
+        if ((not contexts_.empty()) and contexts_.top().first == Tag::Cell) {
+          contexts_.push(Context(Tag::CellType, val));
+          return true;
+        }
+      } else if (val == "cells") {
+        contexts_.push(Context(Tag::Cells, val));
         return true;
       } else if (not contexts_.empty()) {
         auto context = contexts_.top();
         auto tag = context.first;
         if (tag == Tag::Modules) {
-          design_ = SNLDesign::create(library_, SNLName(val));
+          design_ = SNLDesign::create(designs_, SNLName(val));
           std::cout << "CREATED " << design_->getString() << std::endl;
           contexts_.push(Context(Tag::Module, val));
           return true;
@@ -135,63 +156,17 @@ class SNLYosysJSONSaxHandler: public json::json_sax_t {
           port_ = Port(val);
           contexts_.push(Context(Tag::Port, val));
           return true;
+        } if (tag == Tag::CellPorts) {
+          cell_.ports_.push_back(Port(val));
+          contexts_.push(Context(Tag::CellPort, val));
+          return true;
+        } else if (tag == Tag::Cells) {
+          cell_ = Cell(val);
+          contexts_.push(Context(Tag::Cell, val));
+          return true;
         }
       }
       contexts_.push(Context(Tag::Key, val));
-      /*
-        contexts_.top().first = Tag::Modules;
-      } else if (val == "ports") {
-        assert(not contexts_.empty());
-        contexts_.top().first = Tag::Ports;
-      } else if (val == "direction") {
-        assert(not contexts_.empty());
-        assert(contexts_.top().first == Tag::Port);
-        contexts_.push(Context(Tag::Direction, ""));
-      } else if (not contexts_.empty()) {
-        auto tag = contexts_.top().first;
-        if (tag == Tag::Module) {
-          contexts_.top().second = val;
-        } else if (tag == Tag::Port) {
-          contexts_.top().second = val;
-          port_ = Port(val);
-        }
-      }
-      */
-      /*
-      if (not context_.empty()) {
-        auto tag = context_.top().second;
-        if (tag == Tag::Modules) {
-          //create module
-          auto design = SNLDesign::create(library_, SNLName(val));
-          std::cout << "CREATED " << design->getString() << std::endl;
-          detectedContext = true;
-        } else if (tag == Tag::Ports) {
-          port_ = Port(val);
-          std::cout << "CREATED " << port_.getString() << std::endl;
-          context_.push(Object(val, Tag::Port));
-          detectedContext = true;
-        } else {
-          std::cout << "Not detected context: " << tag.getString() << std::endl;
-        }
-      }
-      if (not detectedContext) {
-        if (val == "attributes") {
-          context_.push(Object(val, Tag::DontCare));
-        } else if (val == "modules") {
-          context_.push(Object(val, Tag::Modules));
-        } else if (val == "ports") {
-          context_.push(Object(val, Tag::Ports));
-        } else if (val == "direction") {
-          context_.push(Object(val, Tag::Direction));
-        } else if (val == "bits") {
-          context_.push(Object(val, Tag::Bits));
-        } else {
-          context_.push(Object(val, Tag::DontCare));
-        }
-      }
-      std::cout << "Context " << context_.top().second.getString() << std::endl;
-      startObject_ = false;
-      */
       return true;
     }
     bool end_object() override {
@@ -205,22 +180,24 @@ class SNLYosysJSONSaxHandler: public json::json_sax_t {
       } else if (tag == Tag::Port) {
         auto term = SNLScalarTerm::create(design_, getSNLDirection(port_.direction_), SNLName(port_.name_));
         std::cout << "CREATED " << term->getString() << std::endl;
-        port_.name_ = std::string();
+        port_ = Port();
+      } else if (tag == Tag::Cell) {
+        createInstance(cell_);
+        cell_ = Cell();
       }
       contexts_.pop();
       return true;
     }
     bool start_array(std::size_t elements) override {
       std::cout << "start array" << std::endl;
-      contexts_.push(Context(Tag::Array, ""));
-      #if 0
-      if (not context_.empty()) {
-        auto tag = context_.top().second;
-        if (tag == Tag::Bits) {
-          std::cout << "In Bits" << std::endl;
+      if (not contexts_.empty()) {
+        auto tag = contexts_.top().first;
+        if (tag == Tag::PortBits) {
+          contexts_.push(Context(Tag::PortBitsArray, ""));
+          return true;
         }
       }
-      #endif
+      contexts_.push(Context(Tag::Array, ""));
       return true;
     }
     bool end_array() override {
@@ -238,9 +215,11 @@ class SNLYosysJSONSaxHandler: public json::json_sax_t {
     class Tag {
       public:
         enum TagEnum {
-          Top, Key, Array, Modules, Module, Ports, Port, Direction //, Bits
+          Top, Key, Modules, Module, Ports, Port, Direction, PortBits,
+          Array, PortBitsArray,
+          Cells, Cell, CellType, CellPorts, CellPort
         };
-        Tag(const TagEnum& tagEnum): tagEnum_(tagEnum) {}
+        explicit Tag(const TagEnum& tagEnum): tagEnum_(tagEnum) {}
         Tag(const Tag& tag) = default;
         operator const TagEnum&() const { return tagEnum_; }
         std::string getString() const {
@@ -249,8 +228,6 @@ class SNLYosysJSONSaxHandler: public json::json_sax_t {
               return "Top";
             case Key:
               return "Key";
-            case Array:
-              return "Array";
             case Modules:
               return "Modules";
             case Module:
@@ -261,10 +238,22 @@ class SNLYosysJSONSaxHandler: public json::json_sax_t {
               return "Port";
             case Direction:
               return "Direction";
-            /*
-            case Bits:
-              return "Bits";
-            */
+            case PortBits:
+              return "PortBits";
+            case Array:
+              return "Array";
+            case PortBitsArray:
+              return "PortBitsArray";
+            case Cells:
+              return "Cells";
+            case Cell:
+              return "Cell";
+            case CellType:
+              return "CellType";
+            case CellPorts:
+              return "CellPorts";
+            case CellPort:
+              return "CellPort";
           }
           return "ERROR";
         }
@@ -272,32 +261,80 @@ class SNLYosysJSONSaxHandler: public json::json_sax_t {
           TagEnum tagEnum_;
     };
     struct Port {
-      Port() {}
-      Port(const std::string& name): name_(name) {}
+      Port() = default;
+      explicit Port(const std::string& name): undefined_(false), name_(name) {}
       std::string getString() const {
         return "<Port n:" + name_ + " d:" + direction_ + "b:" + std::to_string(bit_) + ">";
       }
-      std::string name_;
+      bool        undefined_  {true};
+      std::string name_       {};
       std::string direction_;
-      unsigned bit_;
+      unsigned    bit_        {0};
     };
+    struct Cell {
+      Cell() = default;
+      Cell(const std::string& name): name_(name) {}
+      std::string getString() const {
+        std::ostringstream stream;
+        stream << "<Cell u:" << std::to_string(undefined_);
+        if (anonymous_) {
+          stream << " anon";
+        } else {
+          stream << " n:" << name_;
+        }
+        stream << " t:" + type_ + ">";
+        return stream.str();
+      }
+      using Ports = std::vector<Port>;
+      bool        undefined_  {true};
+      bool        anonymous_  {false};
+      std::string name_       {};
+      std::string type_       {};
+      Ports       ports_      {};
+    };
+
+    void createInstance(const Cell& cell) {
+      std::string type = cell.type_;
+      assert(not type.empty());
+      if (type.starts_with("$")) {
+        //create primitive
+        std::string primName = cell.type_.substr(1, std::string::npos);
+        auto prim = SNLDesign::create(primitives_, SNLDesign::Type::Primitive, SNLName(primName));
+        for (auto port: cell.ports_) {
+          SNLScalarTerm::create(prim, getSNLDirection(port.direction_), SNLName(port.name_));
+        }
+        //now create instance
+        //FIXME: manage anonymous
+        SNLInstance::create(design_, prim, SNLName(cell.name_));
+      } else {
+        auto model = designs_->getDesign(SNLName(type));
+        assert(model);
+        SNLInstance::create(design_, model, SNLName(cell.name_));
+      }
+    }
+
     using Context = std::pair<Tag, std::string>;
     using Contexts = std::stack<Context>;
-    Contexts    contexts_      {};
-    SNLLibrary* library_      {nullptr}; 
+    Contexts    contexts_     {};
+    SNLLibrary* primitives_   {nullptr}; 
+    SNLLibrary* designs_       {nullptr}; 
     bool        inModules_    {false};
     SNLDesign*  design_       {nullptr};
     Port        port_         {};
+    Cell        cell_         {};
 };
 
 }
 
 namespace naja { namespace SNL {
 
-void SNLYosysJSONParser::parse(std::istream& input, SNLLibrary* library) {
+void SNLYosysJSONParser::parse(
+  std::istream& input,
+  SNLLibrary* primitives,
+  SNLLibrary* designs) {
   json j;
   try {
-    SNLYosysJSONSaxHandler handler(library);
+    SNLYosysJSONSaxHandler handler(primitives, designs);
     bool result = json::sax_parse(input, &handler);
     assert(handler.contexts_.empty());
   } catch (json::parse_error& ex) {
@@ -307,7 +344,10 @@ void SNLYosysJSONParser::parse(std::istream& input, SNLLibrary* library) {
   }
 }
 
-void SNLYosysJSONParser::parse(const std::filesystem::path& inputPath, SNLLibrary* library) {
+void SNLYosysJSONParser::parse(
+  const std::filesystem::path& inputPath,
+  SNLLibrary* primitives,
+  SNLLibrary* designs) {
   if (not std::filesystem::exists(inputPath)) {
     std::stringstream reason;
     reason << inputPath.string() << " is not a valid path";
@@ -316,7 +356,7 @@ void SNLYosysJSONParser::parse(const std::filesystem::path& inputPath, SNLLibrar
   std::ifstream input;
   input.open(inputPath);
   core::NajaLog::echo("YOSYS-JSON", "Starting Parsing of " + inputPath.string());
-  parse(input, library);
+  parse(input, primitives, designs);
 }
 
 }} // namespace SNL // namespace naja

@@ -39,6 +39,7 @@ class SNLVRLDumper {
   private:
     static std::string createDesignName(const SNLDesign* design);
     static std::string createInstanceName(const SNLInstance* instance);
+    void dumpOneDesign(const SNLDesign* design, std::ostream& o);
     void dumpInstances(const SNLDesign* design, std::ostream& o);
     void dumpInstance(const SNLInstance* instance, std::ostream& o);
     void dumpInstanceInterface(const SNLInstance* instance, std::ostream& o);
