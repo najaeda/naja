@@ -46,7 +46,7 @@ jobs:
       working-directory: ${{github.workspace}}/build
       run: |
            lcov --directory . --capture --output-file coverage.info
-           lcov --remove coverage.info --output-file coverage.info '/usr/*' '*/naja/test/*'
+           lcov --remove coverage.info --output-file coverage.info '/usr/*' '*/naja/test/*' '*/naja/thirdparty/*'
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v2
       with:

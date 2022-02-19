@@ -18,6 +18,7 @@
 #define __SNL_UTILS_H_
 
 #include <map>
+#include <vector>
 
 namespace naja { namespace SNL {
 
