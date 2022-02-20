@@ -16,6 +16,7 @@
 
 #include "SNLScalarTerm.h"
 
+#include <iostream>
 #include <sstream>
 
 #include "SNLException.h"
@@ -54,6 +55,9 @@ void SNLScalarTerm::postCreate() {
 }
 
 void SNLScalarTerm::commonPreDestroy() {
+#ifdef SNL_DESTROY_DEBUG
+  std::cerr << "Destroying " << getString() << std::endl; 
+#endif
   super::preDestroy();
 }
 

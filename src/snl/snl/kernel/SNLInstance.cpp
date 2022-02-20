@@ -107,8 +107,8 @@ void SNLInstance::removeInstTerm(SNLBitTerm* term) {
 }
 
 void SNLInstance::commonPreDestroy() {
-#if DEBUG
-  std::cerr << "commonPreDestroy: " << getString() << std::endl;
+#ifdef SNL_DESTROY_DEBUG
+  std::cerr << "commonPreDestroy " << getString() << std::endl; 
 #endif
   for (auto instTerm: instTerms_) {
     if (instTerm) {
@@ -125,6 +125,9 @@ void SNLInstance::destroyFromModel() {
 }
 
 void SNLInstance::destroyFromDesign() {
+#ifdef SNL_DESTROY_DEBUG
+  std::cerr << "Destroying from Design " << getString() << std::endl; 
+#endif
   if (not getModel()->isPrimitive()) {
     getModel()->removeSlaveInstance(this);
   }

@@ -17,6 +17,7 @@
 #include "SNLInstTerm.h"
 
 #include <sstream>
+#include <iostream>
 
 #include "SNLException.h"
 #include "SNLDesign.h"
@@ -45,6 +46,9 @@ void SNLInstTerm::postCreate() {
 }
 
 void SNLInstTerm::preDestroy() {
+#ifdef SNL_DESTROY_DEBUG
+  std::cerr << "Destroying " << getString() << std::endl; 
+#endif
   super::preDestroy();
 }
 

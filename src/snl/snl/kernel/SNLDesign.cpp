@@ -85,8 +85,8 @@ void SNLDesign::postCreate() {
 }
 
 void SNLDesign::commonPreDestroy() {
-#if DEBUG
-  std::cerr << "commonPreDestroy: " << getString() << std::endl;
+#ifdef SNL_DESTROY_DEBUG
+  std::cerr << "Destroying " << getString() << std::endl; 
 #endif
   struct destroyTermFromDesign {
     void operator()(SNLTerm* term) {
