@@ -49,25 +49,30 @@ class SNLVRLDumper {
     struct DesignInsideAnonymousNaming {
       using InstanceNames = std::map<SNLID::DesignObjectID, std::string>;
       using InstanceNameSet = std::set<std::string>;
-      using NetNames = std::map<SNLID::DesignObjectID, std::string>;
-      using NetNameSet = std::set<std::string>;
+      using NetNames = std::map<SNLID::DesignObjectID, SNLName>;
+      using NetTermNameSet = std::set<SNLName>;
       InstanceNames   instanceNames_    {};
       InstanceNameSet instanceNameSet_  {};
       NetNames        netNames_         {};
-      NetNameSet      netNameSet_       {};
+      NetTermNameSet  netTermNameSet_   {};
     };
     static std::string createDesignName(const SNLDesign* design);
     static std::string createInstanceName(const SNLInstance* instance, DesignInsideAnonymousNaming& naming);
-    static std::string createNetName(const SNLNet* net, DesignInsideAnonymousNaming& naming);
+    static SNLName createNetName(const SNLNet* net, DesignInsideAnonymousNaming& naming);
+    static SNLName getNetName(const SNLNet* net, const DesignInsideAnonymousNaming& naming);
     void dumpOneDesign(const SNLDesign* design, std::ostream& o);
     void dumpInstances(const SNLDesign* design, std::ostream& o, DesignInsideAnonymousNaming& naming);
     void dumpInstance(const SNLInstance* instance, std::ostream& o, DesignInsideAnonymousNaming& naming);
-    void dumpInstanceInterface(const SNLInstance* instance, std::ostream& o);
+    void dumpInstanceInterface(const SNLInstance* instance, std::ostream& o, const DesignInsideAnonymousNaming& naming);
     void dumpNets(const SNLDesign* design, std::ostream& o, DesignInsideAnonymousNaming& naming);
     void dumpNet(const SNLNet* net, std::ostream& o, DesignInsideAnonymousNaming& naming);
     void dumpInterface(const SNLDesign* design, std::ostream& o, DesignInsideAnonymousNaming& naming);
     using BitNetVector = std::vector<SNLBitNet*>;
-    void dumpInsTermConnectivity(const SNLTerm* term, BitNetVector& termNets, std::ostream& o);
+    void dumpInsTermConnectivity(
+      const SNLTerm* term,
+      BitNetVector& termNets,
+      std::ostream& o,
+      const DesignInsideAnonymousNaming& naming);
     using ContiguousNetBits = std::vector<SNLBusNetBit*>;
     void dumpRange(const ContiguousNetBits& bits, std::ostream& o);
 

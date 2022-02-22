@@ -75,19 +75,28 @@ std::string SNLVRLDumper::createInstanceName(const SNLInstance* instance, Design
   return uniqueInstanceName;
 }
 
-std::string SNLVRLDumper::createNetName(const SNLNet* net, DesignInsideAnonymousNaming& naming) {
+SNLName SNLVRLDumper::createNetName(const SNLNet* net, DesignInsideAnonymousNaming& naming) {
   auto design = net->getDesign();
   auto netID = net->getID();
   std::string netName = "net_" + std::to_string(netID);
   int conflict = 0;
-  std::string uniqueNetName(netName);
-  while (design->getNet(SNLName(uniqueNetName))
-      && naming.netNameSet_.find(uniqueNetName) != naming.netNameSet_.end()) {
-    uniqueNetName = netName + "_" + std::to_string(conflict++); 
+  SNLName uniqueNetName(netName);
+  while (naming.netTermNameSet_.find(SNLName(uniqueNetName)) != naming.netTermNameSet_.end()) {
+    uniqueNetName = SNLName(netName + "_" + std::to_string(conflict++)); 
   }
-  naming.netNameSet_.insert(uniqueNetName);
+  naming.netTermNameSet_.insert(uniqueNetName);
   naming.netNames_[net->getID()] = uniqueNetName;
   return uniqueNetName;
+}
+
+SNLName SNLVRLDumper::getNetName(const SNLNet* net, const DesignInsideAnonymousNaming& naming) {
+  if (net->isAnonymous()) {
+    auto it = naming.netNames_.find(net->getID());
+    assert(it != naming.netNames_.end());
+    return it->second;
+  } else {
+    return net->getName();
+  }
 }
 
 void SNLVRLDumper::dumpInterface(const SNLDesign* design, std::ostream& o, DesignInsideAnonymousNaming& naming) {
@@ -110,17 +119,17 @@ void SNLVRLDumper::dumpInterface(const SNLDesign* design, std::ostream& o, Desig
 }
 
 void SNLVRLDumper::dumpNet(const SNLNet* net, std::ostream& o, DesignInsideAnonymousNaming& naming) {
-  std::string netName;
+  SNLName netName;
   if (net->isAnonymous()) {
     netName = createNetName(net, naming);
   } else {
-    netName = net->getName().getString();
+    netName = net->getName();
   }
   o << "wire ";
   if (auto bus = dynamic_cast<const SNLBusNet*>(net)) {
     o << "[" << bus->getMSB() << ":" << bus->getLSB() << "] ";
   }
-  o << netName;
+  o << netName.getString();
   o << ";" << std::endl;
 }
 
@@ -135,7 +144,11 @@ void SNLVRLDumper::dumpRange(const ContiguousNetBits& bits, std::ostream& o) {
 
 }
 
-void SNLVRLDumper::dumpInsTermConnectivity(const SNLTerm* term, BitNetVector& termNets, std::ostream& o) {
+void SNLVRLDumper::dumpInsTermConnectivity(
+  const SNLTerm* term,
+  BitNetVector& termNets,
+  std::ostream& o,
+  const DesignInsideAnonymousNaming& naming) {
   if (std::all_of(termNets.begin(), termNets.end(), [](const SNLBitNet* n){ return n != nullptr; })) {
    assert(not termNets.empty());
    o << "." << term->getName().getString() << "(";
@@ -145,7 +158,8 @@ void SNLVRLDumper::dumpInsTermConnectivity(const SNLTerm* term, BitNetVector& te
        if (dynamic_cast<SNLScalarNet*>(net)) {
          dumpRange(contiguousBits, o);
          contiguousBits.clear();
-         o << net->getName().getString();
+         SNLName netName = getNetName(net, naming);
+         o << netName.getString();
        } else {
          auto busNetBit = static_cast<SNLBusNetBit*>(net);
          auto busNet = busNetBit->getBus();
@@ -166,7 +180,10 @@ void SNLVRLDumper::dumpInsTermConnectivity(const SNLTerm* term, BitNetVector& te
   }
 }
 
-void SNLVRLDumper::dumpInstanceInterface(const SNLInstance* instance, std::ostream& o) {
+void SNLVRLDumper::dumpInstanceInterface(
+  const SNLInstance* instance,
+  std::ostream& o,
+  const DesignInsideAnonymousNaming& naming) {
   o << "(";
   BitNetVector termNets;
   SNLTerm* previousTerm = nullptr;
@@ -189,7 +206,7 @@ void SNLVRLDumper::dumpInstanceInterface(const SNLInstance* instance, std::ostre
         } else {
           o << ", ";
         }
-        dumpInsTermConnectivity(previousTerm, termNets, o);
+        dumpInsTermConnectivity(previousTerm, termNets, o, naming);
       }
       termNets = { instTerm->getNet() };
     }
@@ -201,7 +218,7 @@ void SNLVRLDumper::dumpInstanceInterface(const SNLInstance* instance, std::ostre
     } else {
       o << ", ";
     }
-    dumpInsTermConnectivity(previousTerm, termNets, o);
+    dumpInsTermConnectivity(previousTerm, termNets, o, naming);
   }
   o << ")";
 }
@@ -219,7 +236,7 @@ void SNLVRLDumper::dumpInstance(const SNLInstance* instance, std::ostream& o, De
   } else {
     o << model->getName().getString() << " " << instanceName;
   }
-  dumpInstanceInterface(instance, o);
+  dumpInstanceInterface(instance, o, naming);
   o << ";" << std::endl;
 }
 
@@ -236,6 +253,16 @@ void SNLVRLDumper::dumpInstances(const SNLDesign* design, std::ostream& o, Desig
 
 void SNLVRLDumper::dumpOneDesign(const SNLDesign* design, std::ostream& o) {
   DesignInsideAnonymousNaming naming;
+  for (auto term: design->getTerms()) {
+    if (not term->isAnonymous()) {
+      naming.netTermNameSet_.insert(term->getName());
+    }
+  }
+  for (auto net: design->getNets()) {
+    if (not net->isAnonymous()) {
+      naming.netTermNameSet_.insert(net->getName());
+    }
+  }
   if (design->isAnonymous()) {
     createDesignName(design);
   }
