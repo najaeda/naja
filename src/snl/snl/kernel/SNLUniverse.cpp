@@ -16,6 +16,7 @@
 
 #include "SNLUniverse.h"
 
+#include <iostream>
 #include "SNLDB0.h"
 
 namespace naja { namespace SNL {
@@ -42,6 +43,9 @@ void SNLUniverse::postCreate() {
 }
 
 void SNLUniverse::preDestroy() {
+#ifdef SNL_DESTROY_DEBUG
+  std::cerr << "Destroying " << getDescription() << std::endl; 
+#endif
   struct destroyDBFromUniverse {
     void operator()(SNL::SNLDB* db) {
       db->destroyFromUniverse();
@@ -127,7 +131,7 @@ std::string SNLUniverse::getString() const {
 
 //LCOV_EXCL_START
 std::string SNLUniverse::getDescription() const {
-  return "<" + std::string(getTypeName()) + " " + getString() + ">";  
+  return "<" + std::string(getTypeName()) + ">";  
 }
 //LCOV_EXCL_STOP
 

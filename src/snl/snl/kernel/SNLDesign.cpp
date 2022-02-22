@@ -86,15 +86,8 @@ void SNLDesign::postCreate() {
 
 void SNLDesign::commonPreDestroy() {
 #ifdef SNL_DESTROY_DEBUG
-  std::cerr << "Destroying " << getString() << std::endl; 
+  std::cerr << "Destroying " << getDescription() << std::endl; 
 #endif
-  struct destroyTermFromDesign {
-    void operator()(SNLTerm* term) {
-      term->destroyFromDesign();
-    }
-  };
-  terms_.clear_and_dispose(destroyTermFromDesign());
-
   struct destroyInstanceFromDesign {
     void operator()(SNLInstance* instance) {
       instance->destroyFromDesign();
@@ -110,6 +103,13 @@ void SNLDesign::commonPreDestroy() {
     };
     slaveInstances_.clear_and_dispose(destroySlaveInstanceFromModel());
   }
+
+  struct destroyTermFromDesign {
+    void operator()(SNLTerm* term) {
+      term->destroyFromDesign();
+    }
+  };
+  terms_.clear_and_dispose(destroyTermFromDesign());
 
   struct destroyNetFromDesign {
     void operator()(SNLNet* net) {
@@ -452,7 +452,21 @@ std::string SNLDesign::getString() const {
 
 //LCOV_EXCL_START
 std::string SNLDesign::getDescription() const {
-  return "<" + std::string(getTypeName()) + " " + name_.getString() + " " + library_->getName().getString() + ">";  
+  std::ostringstream stream;
+  stream << "<" + std::string(getTypeName());
+  if (not isAnonymous()) {
+    stream << " " + getName().getString();
+  }
+  stream << " " << getID();
+  if (isPrimitive()) {
+    stream << " (prim)";
+  }
+  if (not getLibrary()->isAnonymous()) {
+    stream << " " << getLibrary()->getName().getString();
+  }
+  stream << " " << getLibrary()->getID();
+  stream << ">";
+  return stream.str();
 }
 //LCOV_EXCL_STOP
 

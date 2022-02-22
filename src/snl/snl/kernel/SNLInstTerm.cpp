@@ -47,7 +47,7 @@ void SNLInstTerm::postCreate() {
 
 void SNLInstTerm::preDestroy() {
 #ifdef SNL_DESTROY_DEBUG
-  std::cerr << "Destroying " << getString() << std::endl; 
+  std::cerr << "Destroying " << getDescription() << std::endl; 
 #endif
   super::preDestroy();
 }
@@ -94,7 +94,18 @@ std::string SNLInstTerm::getString() const {
 
 //LCOV_EXCL_START
 std::string SNLInstTerm::getDescription() const {
-  return "<" + std::string(getTypeName()) + " " + getDesign()->getName().getString() + ">";  
+  std::ostringstream str;
+  str << "<" << getTypeName();
+  if (not getInstance()->isAnonymous()) {
+    str << getInstance()->getName().getString();
+  }
+  str << " " << getInstance()->getID();
+  if (not getTerm()->isAnonymous()) {
+    str << " " << getTerm()->getName().getString();
+  }
+  str << " " << getTerm()->getID();
+  str << ">";
+  return str.str();
 }
 //LCOV_EXCL_STOP
 

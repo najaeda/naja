@@ -56,7 +56,7 @@ void SNLScalarTerm::postCreate() {
 
 void SNLScalarTerm::commonPreDestroy() {
 #ifdef SNL_DESTROY_DEBUG
-  std::cerr << "Destroying " << getString() << std::endl; 
+  std::cerr << "Destroying " << getDescription() << std::endl; 
 #endif
   super::preDestroy();
 }
@@ -94,7 +94,18 @@ std::string SNLScalarTerm::getString() const {
 
 //LCOV_EXCL_START
 std::string SNLScalarTerm::getDescription() const {
-  return "<" + std::string(getTypeName()) + " " + name_.getString() + " " + design_->getName().getString() + ">";  
+  std::ostringstream stream;
+  stream << "<" << std::string(getTypeName());
+  if (not isAnonymous()) {
+    stream << " " + getName().getString();
+  }
+  stream << " " << getID();
+  if (not getDesign()->isAnonymous()) {
+    stream << " " + getDesign()->getName().getString();
+  }
+  stream << " " << getDesign()->getID();
+  stream << ">";
+  return stream.str(); 
 }
 //LCOV_EXCL_STOP
 

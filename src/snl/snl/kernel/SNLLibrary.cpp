@@ -16,6 +16,9 @@
 
 #include "SNLLibrary.h"
 
+#include <iostream>
+#include <sstream>
+
 #include "SNLDB.h"
 #include "SNLException.h"
 
@@ -115,6 +118,9 @@ void SNLLibrary::postCreate() {
 }
 
 void SNLLibrary::commonPreDestroy() {
+#ifdef SNL_DESTROY_DEBUG
+  std::cerr << "Destroying " << getDescription() << std::endl; 
+#endif
   struct destroyDesignFromLibrary {
     void operator()(SNLDesign* design) {
       design->destroyFromLibrary();
@@ -252,7 +258,17 @@ std::string SNLLibrary::getString() const {
 
 //LCOV_EXCL_START
 std::string SNLLibrary::getDescription() const {
-  return "<" + std::string(getTypeName()) + " " + name_.getString() + ">";  
+  std::ostringstream description;
+  description << "<" + std::string(getTypeName());
+  if (not isAnonymous()) {
+    description << " " + name_.getString();
+  }
+  if (isPrimitives()) {
+    description << " (prim)";
+  }
+  description << " " << getID();
+  description << ">";  
+  return description.str();
 }
 //LCOV_EXCL_STOP
 

@@ -26,10 +26,11 @@ SNLDB* SNLDB0::create(SNLUniverse* universe) {
   SNLDB* db = SNLDB::create(universe);
   assert(db->getID() == 0);
 
-  auto db0RootLibrary = SNLLibrary::create(db);
-  auto primitivesLibrary = SNLLibrary::create(db0RootLibrary, SNLName("Primitives"));
+  auto db0RootLibrary = SNLLibrary::create(db, SNLLibrary::Type::Primitives);
+  auto primitivesLibrary =
+    SNLLibrary::create(db0RootLibrary, SNLLibrary::Type::Primitives, SNLName("Primitives"));
 
-  universe->assign_ = SNLDesign::create(primitivesLibrary);
+  universe->assign_ = SNLDesign::create(primitivesLibrary, SNLDesign::Type::Primitive);
   universe->assignInput_ = SNLScalarTerm::create(universe->assign_, SNLTerm::Direction::Input);
   universe->assignOutput_ = SNLScalarTerm::create(universe->assign_, SNLTerm::Direction::Output);
 

@@ -17,6 +17,7 @@
 #include "SNLDB.h"
 
 #include <list>
+#include <iostream>
 
 #include "SNLUniverse.h"
 
@@ -43,6 +44,9 @@ void SNLDB::postCreate() {
 }
 
 void SNLDB::commonPreDrestroy() {
+#ifdef SNL_DESTROY_DEBUG
+  std::cerr << "Destroying " << getDescription() << std::endl; 
+#endif
   struct destroyLibraryFromDB {
     void operator()(SNL::SNLLibrary* library) {
       library->destroyFromParent();
@@ -128,7 +132,7 @@ std::string SNLDB::getString() const {
 
 //LCOV_EXCL_START
 std::string SNLDB::getDescription() const {
-  return "<" + std::string(getTypeName()) + ">";  
+  return "<" + std::string(getTypeName()) + " " + std::to_string(getID()) + ">";  
 }
 //LCOV_EXCL_STOP
 
