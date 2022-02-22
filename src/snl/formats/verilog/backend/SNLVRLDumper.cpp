@@ -54,7 +54,7 @@ std::string SNLVRLDumper::createDesignName(const SNLDesign* design) {
   auto designID = design->getID();
   std::string designName = "module" + std::to_string(designID);
   int conflict = 0;
-  while (library->getDesign(designName)) {
+  while (library->getDesign(SNLName(designName))) {
     designName += "_" + std::to_string(conflict++); 
   }
   return designName;
@@ -66,13 +66,28 @@ std::string SNLVRLDumper::createInstanceName(const SNLInstance* instance, Design
   std::string instanceName = "instance_" + std::to_string(instanceID);
   int conflict = 0;
   std::string uniqueInstanceName(instanceName);
-  while (design->getInstance(uniqueInstanceName)
+  while (design->getInstance(SNLName(uniqueInstanceName))
       && naming.instanceNameSet_.find(uniqueInstanceName) != naming.instanceNameSet_.end()) {
     uniqueInstanceName = instanceName + "_" + std::to_string(conflict++); 
   }
   naming.instanceNameSet_.insert(uniqueInstanceName);
   naming.instanceNames_[instance->getID()] = uniqueInstanceName;
   return uniqueInstanceName;
+}
+
+std::string SNLVRLDumper::createNetName(const SNLNet* net, DesignInsideAnonymousNaming& naming) {
+  auto design = net->getDesign();
+  auto netID = net->getID();
+  std::string netName = "net_" + std::to_string(netID);
+  int conflict = 0;
+  std::string uniqueNetName(netName);
+  while (design->getNet(SNLName(uniqueNetName))
+      && naming.netNameSet_.find(uniqueNetName) != naming.netNameSet_.end()) {
+    uniqueNetName = netName + "_" + std::to_string(conflict++); 
+  }
+  naming.netNameSet_.insert(uniqueNetName);
+  naming.netNames_[net->getID()] = uniqueNetName;
+  return uniqueNetName;
 }
 
 void SNLVRLDumper::dumpInterface(const SNLDesign* design, std::ostream& o, DesignInsideAnonymousNaming& naming) {
@@ -94,14 +109,24 @@ void SNLVRLDumper::dumpInterface(const SNLDesign* design, std::ostream& o, Desig
   o << ");";
 }
 
+void SNLVRLDumper::dumpNet(const SNLNet* net, std::ostream& o, DesignInsideAnonymousNaming& naming) {
+  std::string netName;
+  if (net->isAnonymous()) {
+    netName = createNetName(net, naming);
+  } else {
+    netName = net->getName().getString();
+  }
+  o << "wire ";
+  if (auto bus = dynamic_cast<const SNLBusNet*>(net)) {
+    o << "[" << bus->getMSB() << ":" << bus->getLSB() << "] ";
+  }
+  o << netName;
+  o << ";" << std::endl;
+}
+
 void SNLVRLDumper::dumpNets(const SNLDesign* design, std::ostream& o, DesignInsideAnonymousNaming& naming) {
   for (auto net: design->getNets()) {
-    o << "wire ";
-    if (auto bus = dynamic_cast<SNLBusNet*>(net)) {
-      o << "[" << bus->getMSB() << ":" << bus->getLSB() << "] ";
-    }
-    o << net->getName().getString();
-    o << ";" << std::endl;
+    dumpNet(net, o, naming);
   }
   o << std::endl;
 }
@@ -145,6 +170,7 @@ void SNLVRLDumper::dumpInstanceInterface(const SNLInstance* instance, std::ostre
   o << "(";
   BitNetVector termNets;
   SNLTerm* previousTerm = nullptr;
+  bool first = true;
   for (auto instTerm: instance->getInstTerms()) {
     SNLTerm* currentTerm = nullptr;
     auto bitTerm = instTerm->getTerm();
@@ -158,6 +184,11 @@ void SNLVRLDumper::dumpInstanceInterface(const SNLInstance* instance, std::ostre
       termNets.push_back(instTerm->getNet());
     } else {
       if (previousTerm) {
+        if (first) {
+          first = false;
+        } else {
+          o << ", ";
+        }
         dumpInsTermConnectivity(previousTerm, termNets, o);
       }
       termNets = { instTerm->getNet() };
@@ -165,23 +196,28 @@ void SNLVRLDumper::dumpInstanceInterface(const SNLInstance* instance, std::ostre
     previousTerm = currentTerm;
   }
   if (previousTerm) {
+    if (first) {
+      first = false;
+    } else {
+      o << ", ";
+    }
     dumpInsTermConnectivity(previousTerm, termNets, o);
   }
   o << ")";
 }
 
 void SNLVRLDumper::dumpInstance(const SNLInstance* instance, std::ostream& o, DesignInsideAnonymousNaming& naming) {
-  SNLName instanceName;
+  std::string instanceName;
   if (instance->isAnonymous()) {
     instanceName = createInstanceName(instance, naming);
   } else {
-    instanceName = instance->getName();
+    instanceName = instance->getName().getString();
   }
   auto model = instance->getModel();
   if (model->isAnonymous()) {
-    o << instanceName.getString() << std::endl;
+    o << instanceName << std::endl;
   } else {
-    o << model->getName().getString() << " " << instanceName.getString();
+    o << model->getName().getString() << " " << instanceName;
   }
   dumpInstanceInterface(instance, o);
   o << ";" << std::endl;

@@ -23,7 +23,7 @@ namespace naja { namespace SNL {
 
 class SNLName {
   public:
-    SNLName(const std::string& name = std::string()):
+    explicit SNLName(const std::string& name = std::string()):
       string_(name)
     {}
     std::string getString() const {
