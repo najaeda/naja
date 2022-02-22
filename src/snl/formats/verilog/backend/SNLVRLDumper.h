@@ -19,8 +19,11 @@
 
 #include <filesystem>
 #include <vector>
+#include <map>
+#include <set>
 
 #include "SNLName.h"
+#include "SNLID.h"
 
 namespace naja { namespace SNL {
 
@@ -37,18 +40,34 @@ class SNLVRLDumper {
     };
     void dumpDesign(const SNLDesign* design, std::ostream& o);
   private:
+    struct DesignAnonymousNaming {
+      using TermNames = std::map<SNLID::DesignObjectID, std::string>;
+      std::string name_;
+      TermNames   termNames_;
+    };
+    using DesignsAnonynousNaming = std::map<SNLID, DesignAnonymousNaming>;
+    struct DesignInsideAnonymousNaming {
+      using InstanceNames = std::map<SNLID::DesignObjectID, std::string>;
+      using InstanceNameSet = std::set<std::string>;
+      using NetNames = std::map<SNLID::DesignObjectID, std::string>;
+      InstanceNames   instanceNames_    {};
+      InstanceNameSet instanceNameSet_  {};
+      NetNames        netNames_         {};
+    };
     static std::string createDesignName(const SNLDesign* design);
-    static std::string createInstanceName(const SNLInstance* instance);
+    static std::string createInstanceName(const SNLInstance* instance, DesignInsideAnonymousNaming& naming);
     void dumpOneDesign(const SNLDesign* design, std::ostream& o);
-    void dumpInstances(const SNLDesign* design, std::ostream& o);
-    void dumpInstance(const SNLInstance* instance, std::ostream& o);
+    void dumpInstances(const SNLDesign* design, std::ostream& o, DesignInsideAnonymousNaming& naming);
+    void dumpInstance(const SNLInstance* instance, std::ostream& o, DesignInsideAnonymousNaming& naming);
     void dumpInstanceInterface(const SNLInstance* instance, std::ostream& o);
-    void dumpNets(const SNLDesign* design, std::ostream& o);
-    void dumpInterface(const SNLDesign* design, std::ostream& o);
+    void dumpNets(const SNLDesign* design, std::ostream& o, DesignInsideAnonymousNaming& naming);
+    void dumpInterface(const SNLDesign* design, std::ostream& o, DesignInsideAnonymousNaming& naming);
     using BitNetVector = std::vector<SNLBitNet*>;
     void dumpInsTermConnectivity(const SNLTerm* term, BitNetVector& termNets, std::ostream& o);
     using ContiguousNetBits = std::vector<SNLBusNetBit*>;
     void dumpRange(const ContiguousNetBits& bits, std::ostream& o);
+
+    DesignsAnonynousNaming designsAnonymousNaming_ {};
 };
 
 }} // namespace SNL // namespace naja

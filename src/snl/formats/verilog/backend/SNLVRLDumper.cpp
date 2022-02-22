@@ -60,18 +60,22 @@ std::string SNLVRLDumper::createDesignName(const SNLDesign* design) {
   return designName;
 }
 
-std::string SNLVRLDumper::createInstanceName(const SNLInstance* instance) {
+std::string SNLVRLDumper::createInstanceName(const SNLInstance* instance, DesignInsideAnonymousNaming& naming) {
   auto design = instance->getDesign();
   auto instanceID = instance->getID();
-  std::string instanceName = "inst" + std::to_string(instanceID);
+  std::string instanceName = "instance_" + std::to_string(instanceID);
   int conflict = 0;
-  while (design->getInstance(instanceName)) {
-    instanceName += "_" + std::to_string(conflict++); 
+  std::string uniqueInstanceName(instanceName);
+  while (design->getInstance(uniqueInstanceName)
+      && naming.instanceNameSet_.find(uniqueInstanceName) != naming.instanceNameSet_.end()) {
+    uniqueInstanceName = instanceName + "_" + std::to_string(conflict++); 
   }
-  return instanceName;
+  naming.instanceNameSet_.insert(uniqueInstanceName);
+  naming.instanceNames_[instance->getID()] = uniqueInstanceName;
+  return uniqueInstanceName;
 }
 
-void SNLVRLDumper::dumpInterface(const SNLDesign* design, std::ostream& o) {
+void SNLVRLDumper::dumpInterface(const SNLDesign* design, std::ostream& o, DesignInsideAnonymousNaming& naming) {
   o << "(";
   bool first = true;
   for (auto term: design->getTerms()) {
@@ -90,7 +94,7 @@ void SNLVRLDumper::dumpInterface(const SNLDesign* design, std::ostream& o) {
   o << ");";
 }
 
-void SNLVRLDumper::dumpNets(const SNLDesign* design, std::ostream& o) {
+void SNLVRLDumper::dumpNets(const SNLDesign* design, std::ostream& o, DesignInsideAnonymousNaming& naming) {
   for (auto net: design->getNets()) {
     o << "wire ";
     if (auto bus = dynamic_cast<SNLBusNet*>(net)) {
@@ -166,10 +170,10 @@ void SNLVRLDumper::dumpInstanceInterface(const SNLInstance* instance, std::ostre
   o << ")";
 }
 
-void SNLVRLDumper::dumpInstance(const SNLInstance* instance, std::ostream& o) {
+void SNLVRLDumper::dumpInstance(const SNLInstance* instance, std::ostream& o, DesignInsideAnonymousNaming& naming) {
   SNLName instanceName;
   if (instance->isAnonymous()) {
-    instanceName = createInstanceName(instance);
+    instanceName = createInstanceName(instance, naming);
   } else {
     instanceName = instance->getName();
   }
@@ -183,25 +187,31 @@ void SNLVRLDumper::dumpInstance(const SNLInstance* instance, std::ostream& o) {
   o << ";" << std::endl;
 }
 
-void SNLVRLDumper::dumpInstances(const SNLDesign* design, std::ostream& o) {
+void SNLVRLDumper::dumpInstances(const SNLDesign* design, std::ostream& o, DesignInsideAnonymousNaming& naming) {
+  bool first = true;
   for (auto instance: design->getInstances()) {
-    dumpInstance(instance, o);
+    if (not first) {
+      o << std::endl;
+    }
+    first = false;
+    dumpInstance(instance, o, naming);
   }
 }
 
 void SNLVRLDumper::dumpOneDesign(const SNLDesign* design, std::ostream& o) {
+  DesignInsideAnonymousNaming naming;
   if (design->isAnonymous()) {
     createDesignName(design);
   }
   o << "module " << design->getName().getString();
 
-  dumpInterface(design, o);
+  dumpInterface(design, o, naming);
 
   o << std::endl;
 
-  dumpNets(design, o);
+  dumpNets(design, o, naming);
 
-  dumpInstances(design, o);
+  dumpInstances(design, o, naming);
 
   o << "endmodule //" << design->getName().getString();
   o << std::endl;
@@ -210,8 +220,13 @@ void SNLVRLDumper::dumpOneDesign(const SNLDesign* design, std::ostream& o) {
 void SNLVRLDumper::dumpDesign(const SNLDesign* design, std::ostream& o) {
   SNLUtils::SortedDesigns designs;
   SNLUtils::getDesignsSortedByHierarchicalLevel(design, designs);
+  bool first = true;
   for (auto designLevel: designs) {
     const SNLDesign* design = designLevel.first;
+    if (not first) {
+      o << std::endl;
+    }
+    first = false;
     dumpOneDesign(design, o);
   }
 }
