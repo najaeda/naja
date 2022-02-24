@@ -53,7 +53,7 @@ add_library(naja_snl SHARED
 target_link_libraries(naja_snl naja_core coverage_config)
 
 target_compile_options(naja_snl PRIVATE ${NAJA_CXX_WARNINGS}) 
-target_compile_definitions(naja_snl PRIVATE SNL_DESTROY_DEBUG)
+#target_compile_definitions(naja_snl PRIVATE SNL_DESTROY_DEBUG)
 
 
 target_include_directories(naja_snl SYSTEM BEFORE PUBLIC ${Boost_INCLUDE_DIR})
