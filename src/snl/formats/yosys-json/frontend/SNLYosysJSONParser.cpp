@@ -27,6 +27,7 @@
 
 #include "SNLLibrary.h"
 #include "SNLScalarNet.h"
+#include "SNLBusNet.h"
 #include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
 #include "SNLBusTermBit.h"
@@ -499,26 +500,38 @@ class SNLYosysJSONSaxHandler: public json::json_sax_t {
       Ports       ports_      {};
     };
     using Components = std::vector<SNLNetComponent*>;
-    using Net = std::pair<NetInfos, Components>;
+    using NetComponents = std::vector<Components>;
+    using Net = std::pair<NetInfos, NetComponents>;
     using Connections = std::map<unsigned, Net>;
 
     void createConnections() {
       for (auto connection: connections_) {
         const NetInfos& netInfos = connection.second.first;
-        const Components& components = connection.second.second;
-        SNLBitNet* net = nullptr;
-        if (netInfos.anonymous_) {
-          net = SNLScalarNet::create(design_);
-        } else {
-          net = SNLScalarNet::create(design_, SNLName(netInfos.name_));
-        }
-        for (auto component: components) {
-          component->setNet(net);
+        const NetComponents& netComponents = connection.second.second;
+        if (netComponents.size() == 1) {
+          SNLScalarNet* net = nullptr;
+          if (netInfos.anonymous_) {
+            net = SNLScalarNet::create(design_);
+          } else {
+            net = SNLScalarNet::create(design_, SNLName(netInfos.name_));
+          }
+          const Components& components = netComponents[0];
+          for (auto component: components) {
+            component->setNet(net);
 #ifdef YOSYS_JSON_PARSER_DEBUG
-          std::cout << component->getString() << std::endl;
-          std::cout << "setNet: " << net->getString() << std::endl;
+            std::cout << component->getString() << std::endl;
+            std::cout << "setNet: " << net->getString() << std::endl;
 #endif
-        } 
+          }
+        } else {
+          SNLBusNet* net = nullptr;
+          size_t msb = netInfos.bits_.size()-1;
+          if (netInfos.anonymous_) {
+            net = SNLBusNet::create(design_, msb, 0);
+          } else {
+            net = SNLBusNet::create(design_, msb, 0, SNLName(netInfos.name_));
+          }
+        }
       }
     }
 
@@ -530,6 +543,23 @@ class SNLYosysJSONSaxHandler: public json::json_sax_t {
         auto it = connections_.find(bit);
         assert(it != connections_.end());
         it->second.first = netInfos_;
+      } else {
+        using Bus = std::vector<Net>;
+        Bus bus;
+        for (auto bit: netInfos_.bits_) {
+          auto it = connections_.find(bit);
+          assert(it != connections_.end());
+          Net net = it->second;
+          connections_.erase(it);
+          bus.push_back(net);
+        }
+        //take first element
+        Net busNet = bus[0];
+        busNet.first = netInfos_;
+        for (size_t i=1; i<bus.size(); i++) {
+          busNet.second.push_back(bus[i].second[0]);
+        }
+        connections_[netInfos_.bits_[0]] = busNet;
       }
     }
 
@@ -583,9 +613,11 @@ class SNLYosysJSONSaxHandler: public json::json_sax_t {
         auto bit = port.bits_[0];
         auto it = connections_.find(bit);
         if (it == connections_.end()) {
-          connections_[bit] = Net(NetInfos(), {instTerm});
+          connections_[bit] = Net(NetInfos(), {{instTerm}});
         } else {
-          it->second.second.push_back(instTerm);
+          Net& net = it->second;
+          assert(net.second.size() == 1);
+          net.second[0].push_back(instTerm);
         }
       } else {
         SNLBusTerm* busTerm = dynamic_cast<SNLBusTerm*>(term);
@@ -598,9 +630,11 @@ class SNLYosysJSONSaxHandler: public json::json_sax_t {
           auto bit = port.bits_[i];
           auto it = connections_.find(bit);
           if (it == connections_.end()) {
-            connections_[bit] = Net(NetInfos(), {instTerm});
+            connections_[bit] = Net(NetInfos(), {{instTerm}});
           } else {
-            it->second.second.push_back(instTerm);
+            Net& net = it->second;
+            assert(net.second.size() == 1);
+            net.second[0].push_back(instTerm);
           }
         }
       }
@@ -613,9 +647,11 @@ class SNLYosysJSONSaxHandler: public json::json_sax_t {
         auto bit = port_.bits_[0];
         auto it = connections_.find(bit);
         if (it == connections_.end()) {
-          connections_[bit] = Net(NetInfos(), {term});
+          connections_[bit] = Net(NetInfos(), {{term}});
         } else {
-          it->second.second.push_back(term);
+          Net& net = it->second;
+          assert(net.second.size() == 1);
+          net.second[0].push_back(term);
         }
       } else {
         SNLBusTerm* term = SNLBusTerm::create(design_, getSNLDirection(port_.direction_), port_.bits_.size()-1, 0, SNLName(port_.name_));
@@ -625,9 +661,11 @@ class SNLYosysJSONSaxHandler: public json::json_sax_t {
           auto bit = port_.bits_[i];
           auto it = connections_.find(bit);
           if (it == connections_.end()) {
-            connections_[bit] = Net(NetInfos(), {bitTerm});
+            connections_[bit] = Net(NetInfos(), {{bitTerm}});
           } else {
-            it->second.second.push_back(bitTerm);
+            Net& net = it->second;
+            assert(net.second.size() == 1);
+            net.second[0].push_back(bitTerm);
           }
         }
 #ifdef YOSYS_JSON_PARSER_DEBUG

@@ -150,33 +150,36 @@ void SNLVRLDumper::dumpInsTermConnectivity(
   std::ostream& o,
   const DesignInsideAnonymousNaming& naming) {
   if (std::all_of(termNets.begin(), termNets.end(), [](const SNLBitNet* n){ return n != nullptr; })) {
-   assert(not termNets.empty());
-   o << "." << term->getName().getString() << "(";
-   ContiguousNetBits contiguousBits;
-   for (auto net: termNets) {
-     if (net) {
-       if (dynamic_cast<SNLScalarNet*>(net)) {
-         dumpRange(contiguousBits, o);
-         contiguousBits.clear();
-         SNLName netName = getNetName(net, naming);
-         o << netName.getString();
-       } else {
-         auto busNetBit = static_cast<SNLBusNetBit*>(net);
-         auto busNet = busNetBit->getBus();
-         if (not contiguousBits.empty()) {
-           SNLBusNetBit* previousBit = contiguousBits.back();
-           if (busNet == previousBit->getBus()
-           and ((previousBit->getBit() == busNetBit->getBit()+1)
-           or (previousBit->getBit() == busNetBit->getBit()-1))) {
-             contiguousBits.push_back(busNetBit);
-           } else {
+    assert(not termNets.empty());
+    o << "." << term->getName().getString() << "(";
+    ContiguousNetBits contiguousBits;
+    for (auto net: termNets) {
+      if (net) {
+        if (dynamic_cast<SNLScalarNet*>(net)) {
+          dumpRange(contiguousBits, o);
+          contiguousBits.clear();
+          SNLName netName = getNetName(net, naming);
+          o << netName.getString();
+        } else {
+          auto busNetBit = static_cast<SNLBusNetBit*>(net);
+          auto busNet = busNetBit->getBus();
+          if (not contiguousBits.empty()) {
+            SNLBusNetBit* previousBit = contiguousBits.back();
+            if (busNet == previousBit->getBus()
+            and ((previousBit->getBit() == busNetBit->getBit()+1)
+            or (previousBit->getBit() == busNetBit->getBit()-1))) {
+              contiguousBits.push_back(busNetBit);
+            } else {
 
-           }
-         }
-       }
-     }
-   }
-   o << ")";
+            }
+          }
+        }
+      }
+    }
+    o << ")";
+  } else {
+    //should we not dump anything for non connected inst terms ?
+    o << "." << term->getName().getString() << "()"; 
   }
 }
 

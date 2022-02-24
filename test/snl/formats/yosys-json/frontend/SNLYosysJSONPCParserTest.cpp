@@ -42,13 +42,12 @@ TEST_F(SNLYosysJSONPCParserTest, test) {
   jsonPCPath /= "pc.json";
   SNLYosysJSONParser::parse(jsonPCPath, primitives_, designs_);
 
+  EXPECT_EQ(2, primitives_->getDesigns().size());
+
+  EXPECT_EQ(1, designs_->getDesigns().size());
+  auto pc = designs_->getDesign(SNLName("PC"));
+  ASSERT_NE(nullptr, pc);
 #if 0
-
-  EXPECT_EQ(1, primitives_->getDesigns().size());
-
-  EXPECT_EQ(2, designs_->getDesigns().size());
-  auto mux2 = designs_->getDesign(SNLName("MUX2"));
-  ASSERT_NE(nullptr, mux2);
   EXPECT_EQ(4, mux2->getTerms().size());
   EXPECT_EQ(4, mux2->getScalarTerms().size());
   EXPECT_TRUE(mux2->getBusTerms().empty());
@@ -67,12 +66,9 @@ TEST_F(SNLYosysJSONPCParserTest, test) {
   EXPECT_EQ(SNLTerm::Direction::Input, s0->getDirection());
   EXPECT_EQ(SNLTerm::Direction::Output, o->getDirection());
 
-  EXPECT_EQ(1, mux2->getInstances().size());
 #endif
-
-  auto pc = designs_->getDesign(SNLName("PC"));
-  ASSERT_NE(nullptr, pc);
   EXPECT_EQ(2, pc->getInstances().size());
+
 
   std::filesystem::path outPath("pc.v");
   std::ofstream ofs(outPath, std::ofstream::out);
