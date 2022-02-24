@@ -28,6 +28,8 @@
 #include "SNLLibrary.h"
 #include "SNLScalarNet.h"
 #include "SNLScalarTerm.h"
+#include "SNLBusTerm.h"
+#include "SNLBusTermBit.h"
 #include "SNLInstTerm.h"
 #include "SNLException.h"
 
@@ -56,24 +58,21 @@ class SNLYosysJSONSaxHandler: public json::json_sax_t {
 #ifdef YOSYS_JSON_PARSER_DEBUG
       std::cout << "null" << std::endl;
 #endif
-      assert(not contexts_.empty());
-      contexts_.pop();
+      popContexts();
       return true;
     }
     bool boolean(bool val) override {
 #ifdef YOSYS_JSON_PARSER_DEBUG
       std::cout << "bool: " << val << std::endl;
 #endif
-      assert(not contexts_.empty());
-      contexts_.pop();
+      popContexts();
       return true;
     }
     bool number_integer(number_integer_t val) override {
 #ifdef YOSYS_JSON_PARSER_DEBUG
       std::cout << "integer: " << val << std::endl;
 #endif
-      assert(not contexts_.empty());
-      contexts_.pop();
+      popContexts();
       return true;
     }
 
@@ -84,17 +83,19 @@ class SNLYosysJSONSaxHandler: public json::json_sax_t {
       assert(not contexts_.empty());
       auto tag = contexts_.top().first;
       if (tag == Tag::PortBitsArray) {
-        port_.bit_ = val;
+        port_.bits_.push_back(val);
+        return true;
       } else if (tag == Tag::NetBitsArray) {
         assert(not netInfos_.undefined_);
-        netInfos_.bit_ = val;
+        netInfos_.bits_.push_back(val);
+        return true;
       } else if (tag == Tag::CellConnectionArray) {
         assert(not currentCellPort_.empty());
         auto it = cell_.ports_.find(currentCellPort_);
         assert(it != cell_.ports_.end());
         Port& port = it->second;
-        port.bit_ = val;
-        currentCellPort_ = std::string();
+        port.bits_.push_back(val);
+        return true;
       } else if (tag == Tag::CellHideName) {
         assert(not cell_.undefined_);
         if (val == 1) {
@@ -114,7 +115,7 @@ class SNLYosysJSONSaxHandler: public json::json_sax_t {
           assert(false);
         }
       }
-      contexts_.pop();
+      popContexts();
       return true;
     }
 
@@ -122,8 +123,7 @@ class SNLYosysJSONSaxHandler: public json::json_sax_t {
 #ifdef YOSYS_JSON_PARSER_DEBUG
       std::cout << "float: " << s << ":" << val << std::endl;
 #endif
-      assert(not contexts_.empty());
-      contexts_.pop();
+      popContexts();
       return true;
     }
 
@@ -159,7 +159,7 @@ class SNLYosysJSONSaxHandler: public json::json_sax_t {
         }
         assert(it != cell_.ports_.end());
       }
-      contexts_.pop();
+      popContexts();
       return true;
     }
 
@@ -167,8 +167,7 @@ class SNLYosysJSONSaxHandler: public json::json_sax_t {
 #ifdef YOSYS_JSON_PARSER_DEBUG
       std::cout << "binary: " << std::endl;
 #endif
-      assert(not contexts_.empty());
-      contexts_.pop();
+      popContexts();
       return true;
     }
     bool start_object(std::size_t elements) override {
@@ -287,12 +286,7 @@ class SNLYosysJSONSaxHandler: public json::json_sax_t {
         design_ = nullptr;
         connections_ = Connections();
       } else if (tag == Tag::Port) {
-        auto term = SNLScalarTerm::create(design_, getSNLDirection(port_.direction_), SNLName(port_.name_));
-        assert(port_.bitIsDefined());
-        addComponentToConnection(port_.bit_, term);
-#ifdef YOSYS_JSON_PARSER_DEBUG
-        std::cout << "CREATED " << term->getString() << std::endl;
-#endif
+        createAndConnectTerm(design_, port_);
         port_ = Port();
       } else if (tag == Tag::Cell) {
         createInstance();
@@ -304,7 +298,7 @@ class SNLYosysJSONSaxHandler: public json::json_sax_t {
         createNet();
         netInfos_ = NetInfos();
       }
-      contexts_.pop();
+      popContexts();
       return true;
     }
     bool start_array(std::size_t elements) override {
@@ -338,7 +332,18 @@ class SNLYosysJSONSaxHandler: public json::json_sax_t {
 #ifdef YOSYS_JSON_PARSER_DEBUG
       std::cout << "end " << contexts_.top().first.getString() << std::endl;
 #endif
-      contexts_.pop();
+      if (not contexts_.empty()) {
+        auto tag = contexts_.top().first;
+        if (tag == Tag::PortBitsArray) {
+          popContexts();
+        } else if (tag == Tag::CellConnectionArray) {
+          currentCellPort_ = std::string();
+          popContexts();
+        } else if (tag == Tag::NetBitsArray) {
+          popContexts();
+        }
+      }
+      popContexts();
       return true;
     }
     bool parse_error(std::size_t position,
@@ -416,29 +421,58 @@ class SNLYosysJSONSaxHandler: public json::json_sax_t {
       private:
           TagEnum tagEnum_;
     };
+    using Bits = std::vector<unsigned>;
     struct Port {
       Port() = default;
       explicit Port(const std::string& name): undefined_(false), name_(name) {}
       std::string getString() const {
-        return "<Port n:" + name_ + " d:" + direction_ + "b:" + std::to_string(bit_) + ">";
+        std::ostringstream stream;
+        stream << "<Port";
+        if (undefined_) {
+          stream << " undefined>";
+        } else {
+          stream << " n:" + name_ + " d:" + direction_;
+          stream << " b:[";
+          for (auto bit: bits_) {
+            stream << " " << std::to_string(bit);
+          }
+          stream << "]>";
+        }
+        return stream.str();
       }
-      bool bitIsDefined() const { return bit_ != UINT_MAX; }
+      bool definedBits() const { return not bits_.empty(); }
       bool        undefined_  {true};
       std::string name_       {};
-      std::string direction_;
-      unsigned    bit_        {UINT_MAX};
+      std::string direction_  {};
+      Bits        bits_       {};
     };
     struct NetInfos {
       NetInfos() = default;
       explicit NetInfos(const std::string& name): undefined_(false), name_(name) {}
       std::string getString() const {
-        return "<NetInfos n:" + name_ + "b:" + std::to_string(bit_) + ">";
+        std::ostringstream stream;
+        stream << "<NetInfos";
+        if (undefined_) {
+          stream << " undefined>";
+        } else {
+          if (anonymous_) {
+            stream << " anon";
+          } else {
+            stream << " n:" << name_;
+          }
+          stream << " b:[";
+          for (auto bit: bits_) {
+            stream << " " << std::to_string(bit);
+          }
+          stream << "]>";
+        }
+        return stream.str();
       }
-      bool bitIsDefined() const { return bit_ != UINT_MAX; }
+      bool definedBits() const { return not bits_.empty(); }
       bool        undefined_  {true};
       bool        anonymous_  {false};
       std::string name_       {};
-      unsigned    bit_        {UINT_MAX};
+      Bits        bits_       {};
     };
     struct Cell {
       Cell() = default;
@@ -490,11 +524,13 @@ class SNLYosysJSONSaxHandler: public json::json_sax_t {
 
     void createNet() {
       assert(not netInfos_.undefined_);
-      assert(netInfos_.bitIsDefined());
-      auto bit = netInfos_.bit_;
-      auto it = connections_.find(bit);
-      assert(it != connections_.end());
-      it->second.first = netInfos_;
+      assert(netInfos_.definedBits());
+      if (netInfos_.bits_.size() == 1) {
+        auto bit = netInfos_.bits_[0];
+        auto it = connections_.find(bit);
+        assert(it != connections_.end());
+        it->second.first = netInfos_;
+      }
     }
 
     void createInstance() {
@@ -507,7 +543,12 @@ class SNLYosysJSONSaxHandler: public json::json_sax_t {
         auto prim = SNLDesign::create(primitives_, SNLDesign::Type::Primitive, SNLName(primName));
         for (auto portIt: cell_.ports_) {
           const Port& port = portIt.second;
-          SNLScalarTerm::create(prim, getSNLDirection(port.direction_), SNLName(port.name_));
+          assert(port.definedBits());
+          if (port.bits_.size() == 1) {
+            SNLScalarTerm::create(prim, getSNLDirection(port.direction_), SNLName(port.name_));
+          } else {
+            SNLBusTerm::create(prim, getSNLDirection(port.direction_), port.bits_.size()-1, 0, SNLName(port.name_));
+          }
         }
         //now create instance
         if (cell_.anonymous_) {
@@ -525,23 +566,82 @@ class SNLYosysJSONSaxHandler: public json::json_sax_t {
         }
       }
       for (auto it: cell_.ports_) {
-        std::string portName = it.first;
-        SNLScalarTerm* term = instance->getModel()->getScalarTerm(SNLName(portName));
-        assert(term);
         const Port& port = it.second;
-        assert(port.bitIsDefined());
-        unsigned bit = port.bit_;
-        addComponentToConnection(bit, instance->getInstTerm(term));
+        connectInstTerms(instance, port);
       }
     }
 
-    void addComponentToConnection(unsigned connection, SNLNetComponent* component) {
-      auto it = connections_.find(connection);
-      if (it == connections_.end()) {
-        connections_[connection] = Net(NetInfos(), {component});
+    void connectInstTerms(SNLInstance* instance, const Port& port) { 
+      SNLTerm* term = instance->getModel()->getTerm(SNLName(port.name_));
+      assert(term);
+      assert(port.definedBits());
+      if (port.bits_.size() == 1) {
+        SNLScalarTerm* scalarTerm = dynamic_cast<SNLScalarTerm*>(term);
+        assert(scalarTerm);
+        SNLInstTerm* instTerm = instance->getInstTerm(scalarTerm);
+        assert(instTerm);
+        auto bit = port.bits_[0];
+        auto it = connections_.find(bit);
+        if (it == connections_.end()) {
+          connections_[bit] = Net(NetInfos(), {instTerm});
+        } else {
+          it->second.second.push_back(instTerm);
+        }
       } else {
-        it->second.second.push_back(component);
+        SNLBusTerm* busTerm = dynamic_cast<SNLBusTerm*>(term);
+        assert(busTerm);
+        for (unsigned i=0; i<port.bits_.size(); ++i) {
+          SNLBusTermBit* bitTerm = busTerm->getBit(port.bits_.size()-1-i);
+          assert(bitTerm);
+          SNLInstTerm* instTerm = instance->getInstTerm(bitTerm);
+          assert(instTerm);
+          auto bit = port.bits_[i];
+          auto it = connections_.find(bit);
+          if (it == connections_.end()) {
+            connections_[bit] = Net(NetInfos(), {instTerm});
+          } else {
+            it->second.second.push_back(instTerm);
+          }
+        }
       }
+    }
+
+    void createAndConnectTerm(SNLDesign* design, const Port& port) {
+      assert(port_.definedBits());
+      if (port_.bits_.size() == 1) {
+        SNLScalarTerm* term = SNLScalarTerm::create(design_, getSNLDirection(port_.direction_), SNLName(port_.name_));
+        auto bit = port_.bits_[0];
+        auto it = connections_.find(bit);
+        if (it == connections_.end()) {
+          connections_[bit] = Net(NetInfos(), {term});
+        } else {
+          it->second.second.push_back(term);
+        }
+      } else {
+        SNLBusTerm* term = SNLBusTerm::create(design_, getSNLDirection(port_.direction_), port_.bits_.size()-1, 0, SNLName(port_.name_));
+        for (unsigned i=0; i<port_.bits_.size(); ++i) {
+          SNLBusTermBit* bitTerm = term->getBit(port_.bits_.size()-1-i);
+          assert(bitTerm);
+          auto bit = port_.bits_[i];
+          auto it = connections_.find(bit);
+          if (it == connections_.end()) {
+            connections_[bit] = Net(NetInfos(), {bitTerm});
+          } else {
+            it->second.second.push_back(bitTerm);
+          }
+        }
+#ifdef YOSYS_JSON_PARSER_DEBUG
+        std::cout << "CREATED " << term->getString() << std::endl;
+#endif
+      }
+    }
+
+    void popContexts() {
+      assert(not contexts_.empty());
+#ifdef YOSYS_JSON_PARSER_DEBUG
+      std::cout << "Pop: " << contexts_.top().first.getString() << std::endl;
+#endif
+      contexts_.pop();
     }
 
     using Context = std::pair<Tag, std::string>;

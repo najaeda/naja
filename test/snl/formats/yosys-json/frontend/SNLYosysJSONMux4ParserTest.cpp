@@ -15,7 +15,7 @@ using namespace naja::SNL;
 #define SNL_YOSYS_JSON_TEST_PATH "Undefined"
 #endif
 
-class SNLYosysJSONParserTest0: public ::testing::Test {
+class SNLYosysJSONMux4ParserTest: public ::testing::Test {
   protected:
     void SetUp() override {
       SNLUniverse* universe = SNLUniverse::create();
@@ -32,7 +32,7 @@ class SNLYosysJSONParserTest0: public ::testing::Test {
     SNLLibrary* designs_;
 };
 
-TEST_F(SNLYosysJSONParserTest0, test) {
+TEST_F(SNLYosysJSONMux4ParserTest, test) {
   EXPECT_THROW(SNLYosysJSONParser::parse(std::filesystem::path("ERROR"), primitives_, designs_), SNLException);
 
   ASSERT_NE(nullptr, primitives_);

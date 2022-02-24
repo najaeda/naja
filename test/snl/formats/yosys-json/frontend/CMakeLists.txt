@@ -1,6 +1,8 @@
 include(GoogleTest)
 
-set(snl_yosys_json_parser_tests SNLYosysJSONParserTest0.cpp)
+set(snl_yosys_json_parser_tests
+  SNLYosysJSONMux4ParserTest.cpp
+  SNLYosysJSONPCParserTest.cpp)
 
 add_executable(snlYosysJSONParserTests ${snl_yosys_json_parser_tests})
 
