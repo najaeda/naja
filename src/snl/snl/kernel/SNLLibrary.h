@@ -65,9 +65,9 @@ class SNLLibrary final: public SNLObject {
     ///\return the collection of sub SNLLibrary
     SNLCollection<SNLLibrary*> getLibraries() const;
     ///\return SNLDesign with SNLID::DesignID id
-    SNLDesign* getDesign(SNLID::DesignID id);
+    SNLDesign* getDesign(SNLID::DesignID id) const;
     ///\return SNLDesign named name
-    SNLDesign* getDesign(const SNLName& name);
+    SNLDesign* getDesign(const SNLName& name) const;
     ///\return the collection of SNLDesign contained in this SNLLibrary
     SNLCollection<SNLDesign*> getDesigns() const;
 

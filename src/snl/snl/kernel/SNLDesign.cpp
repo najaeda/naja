@@ -71,11 +71,16 @@ SNLDesign::SNLDesign(SNLLibrary* library, const Type& type, const SNLName& name)
 
 void SNLDesign::preCreate(const SNLLibrary* library, const Type& type, const SNLName& name) {
   super::preCreate();
+  if (not library) {
+    throw SNLException("malformed design creator with null library");
+  }
   if (type == Type::Primitive and not library->isPrimitives()) {
     throw SNLException("non compatible types in design constructor");
   }
   //test if design with same name exists in library
-  if (not name.empty()) {
+  if (not name.empty() and library->getDesign(name)) {
+    std::string reason = "SNLLibrary " + library->getString() + " contains already a SNLDesign named: " + name.getString();
+    throw SNLException(reason);
   }
 }
 

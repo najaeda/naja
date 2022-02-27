@@ -9,6 +9,7 @@ using ::testing::ElementsAre;
 #include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
 #include "SNLBusTermBit.h"
+#include "SNLException.h"
 using namespace naja::SNL;
 
 class SNLDesignTest: public ::testing::Test {
@@ -200,4 +201,24 @@ TEST_F(SNLDesignTest, testCreation1) {
   EXPECT_FALSE(library->getDesigns().empty());
   EXPECT_THAT(std::vector(library->getDesigns().begin(), library->getDesigns().end()),
     ElementsAre(anon));
+}
+
+TEST_F(SNLDesignTest, testPrimitives) {
+  SNLLibrary* library = db_->getLibrary(SNLName("MYLIB"));
+  ASSERT_NE(library, nullptr);
+
+  EXPECT_THROW(
+    SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("ERROR")),
+    SNLException);
+
+  auto prims = SNLLibrary::create(db_, SNLLibrary::Type::Primitives, SNLName("Primitives"));
+  EXPECT_TRUE(prims->isPrimitives());
+  auto prim = SNLDesign::create(prims, SNLDesign::Type::Primitive, SNLName("Primitive"));
+  EXPECT_NE(nullptr, prim);
+  EXPECT_TRUE(prim->isPrimitive());
+
+
+  EXPECT_THROW(
+    SNLDesign::create(prims, SNLDesign::Type::Primitive, SNLName("Primitive")),
+    SNLException);
 }
