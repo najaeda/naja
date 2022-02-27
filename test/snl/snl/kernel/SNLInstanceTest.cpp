@@ -267,6 +267,21 @@ TEST_F(SNLInstanceTest, testCreation) {
     EXPECT_EQ(dynamic_cast<SNLBusTerm*>(termsVector[5])->getBit(2), instTermsVector[12]->getTerm());
     EXPECT_EQ(dynamic_cast<SNLBusTerm*>(termsVector[5])->getBit(3), instTermsVector[13]->getTerm());
 
+    EXPECT_FALSE(instTermsVector[0]->isAnonymous());
+    EXPECT_TRUE(instTermsVector[1]->isAnonymous());
+    EXPECT_TRUE(instTermsVector[2]->isAnonymous());
+    EXPECT_TRUE(instTermsVector[3]->isAnonymous());
+    EXPECT_TRUE(instTermsVector[4]->isAnonymous());
+    EXPECT_FALSE(instTermsVector[5]->isAnonymous());
+    EXPECT_FALSE(instTermsVector[6]->isAnonymous());
+    EXPECT_FALSE(instTermsVector[7]->isAnonymous());
+    EXPECT_FALSE(instTermsVector[8]->isAnonymous());
+    EXPECT_FALSE(instTermsVector[9]->isAnonymous());
+    EXPECT_FALSE(instTermsVector[10]->isAnonymous());
+    EXPECT_FALSE(instTermsVector[11]->isAnonymous());
+    EXPECT_FALSE(instTermsVector[12]->isAnonymous());
+    EXPECT_FALSE(instTermsVector[13]->isAnonymous());
+
     EXPECT_EQ(0,  termsVector[0]->getPosition());
     EXPECT_EQ(1,  termsVector[1]->getPosition());
     EXPECT_EQ(1,  dynamic_cast<SNLBusTerm*>(termsVector[1])->getBit(0)->getPosition());
@@ -367,6 +382,8 @@ TEST_F(SNLInstanceTest, testInstTerm) {
   auto it0 = instance->getInstTerm(model0Term);
   EXPECT_NE(nullptr, it0);
   EXPECT_THROW(instance->getInstTerm(model1Term), SNLException);
+
+  EXPECT_THROW(instance->getInstTerm(model0Term)->destroy(), SNLException);
 }
 
 TEST_F(SNLInstanceTest, testModelDestroy) {

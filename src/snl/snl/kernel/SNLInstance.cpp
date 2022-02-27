@@ -210,6 +210,7 @@ std::string SNLInstance::getDescription() const {
 }
 //LCOV_EXCL_STOP
 
+//LCOV_EXCL_START
 Card* SNLInstance::getCard() const {
   Card* card = super::getCard();
   card->addItem(new CardDataItem<const SNLName>("Name", name_));
@@ -217,5 +218,6 @@ Card* SNLInstance::getCard() const {
   card->addItem(new CardDataItem<const SNLDesign*>("Model", model_));
   return card;
 }
+//LCOV_EXCL_STOP
 
 }} // namespace SNL // namespace naja

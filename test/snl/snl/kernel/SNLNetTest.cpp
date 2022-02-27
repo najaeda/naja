@@ -178,6 +178,8 @@ TEST_F(SNLNetTest, testCreation) {
   EXPECT_EQ(nullptr, design_->getNet(2));
   EXPECT_EQ(nullptr, design_->getNet(SNLName("net0")));
 
+  i1Net->destroy();
+  EXPECT_EQ(nullptr, design_->getNet(1));
 }
 
 TEST_F(SNLNetTest, testNetType) {

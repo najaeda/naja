@@ -50,6 +50,9 @@ SNLBusTerm* SNLBusTerm::create(
 
 void SNLBusTerm::preCreate(const SNLDesign* design, const SNLName& name) {
   super::preCreate();
+  if (not design) {
+    throw SNLException("malformed SNLBusTerm creator with NULL design argument");
+  }
   //verify that there is not an instance of name in this design
   if (not name.empty() and design->getTerm(name)) {
     std::string reason = "cannot create SNLBusTerm with name " + name.getString();

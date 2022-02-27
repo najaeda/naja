@@ -3,6 +3,7 @@
 using ::testing::ElementsAre;
 
 #include "SNLUniverse.h"
+#include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
 #include "SNLBusTermBit.h"
 #include "SNLException.h"
@@ -57,4 +58,21 @@ TEST_F(SNLTermTest, testCreation) {
   EXPECT_FALSE(term0->getBit(0));
 
   EXPECT_THROW(term0->getBit(-4)->destroy(), SNLException);
+}
+
+TEST_F(SNLTermTest, testErrors) {
+  EXPECT_THROW(SNLScalarTerm::create(nullptr, SNLTerm::Direction::Input), SNLException);
+  EXPECT_THROW(SNLBusTerm::create(nullptr, SNLTerm::Direction::Input, 31, 0), SNLException);
+
+  SNLLibrary* library = db_->getLibrary(SNLName("MYLIB"));
+  ASSERT_NE(library, nullptr);
+  SNLDesign* design = SNLDesign::create(library, SNLName("design"));
+  ASSERT_NE(design, nullptr);
+
+  SNLScalarTerm* term0 = SNLScalarTerm::create(design, SNLTerm::Direction::Input, SNLName("term0"));
+  ASSERT_NE(nullptr, term0);
+  SNLBusTerm* term1 = SNLBusTerm::create(design, SNLTerm::Direction::Input, 31, 0, SNLName("term1"));
+  ASSERT_NE(nullptr, term1);
+  EXPECT_THROW(SNLBusTerm::create(design, SNLTerm::Direction::Input, 31, 0, SNLName("term0")), SNLException);
+  EXPECT_THROW(SNLScalarTerm::create(design, SNLTerm::Direction::Input, SNLName("term1")), SNLException);
 }

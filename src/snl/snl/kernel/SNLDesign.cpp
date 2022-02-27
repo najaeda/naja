@@ -410,6 +410,7 @@ SNLCollection<SNLParameter*> SNLDesign::getParameters() const {
   return SNLCollection<SNLParameter*>(new SNLIntrusiveSetCollection<SNLParameter, SNLDesignParametersHook>(&parameters_));
 }
 
+//LCOV_EXCL_START
 Card* SNLDesign::getCard() const {
   Card* card = super::getCard();
   //card->addItem(new CardDataItem<SNLID>("ID", id_));
@@ -417,6 +418,7 @@ Card* SNLDesign::getCard() const {
   card->addItem(new CardDataItem<const SNLLibrary*>("Library", library_));
   return card;
 }
+//LCOV_EXCL_STOP
 
 SNLID SNLDesign::getSNLID() const {
   return SNLID(getDB()->getID(), library_->getID(), getID());
