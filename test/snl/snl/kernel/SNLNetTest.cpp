@@ -129,6 +129,8 @@ TEST_F(SNLNetTest, testCreation) {
   EXPECT_FALSE(net0->isAnonymous());
   EXPECT_EQ(net0, design_->getNet(2));
   EXPECT_EQ(net0, design_->getNet(SNLName("net0")));
+  EXPECT_EQ(net0, design_->getBusNet(SNLName("net0")));
+  EXPECT_EQ(nullptr, design_->getScalarNet(SNLName("net0")));
   EXPECT_EQ(SNLID(SNLID::Type::Net, 1, 1, 0, 2, 0, 0), net0->getSNLID());
   EXPECT_EQ(net0, design_->getNet(2));
   EXPECT_EQ(net0, design_->getBusNet(2));
