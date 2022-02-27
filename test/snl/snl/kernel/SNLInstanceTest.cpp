@@ -205,8 +205,14 @@ TEST_F(SNLInstanceTest, testCreation) {
 
   SNLInstance* instance1Test = design->getInstance(SNLName("instance1"));
   EXPECT_EQ(instance1Test, instance1);
+  EXPECT_EQ(instance1, design->getInstance(0));
+
   SNLInstance* instance2Test = design->getInstance(SNLName("instance2"));
   EXPECT_EQ(instance2Test, instance2);
+  EXPECT_EQ(instance2, design->getInstance(1));
+
+  EXPECT_EQ(nullptr, design->getInstance(SNLName("NON_EXIST")));
+  EXPECT_EQ(nullptr, design->getInstance(3));
 
   EXPECT_EQ(2, design->getInstances().size());
   EXPECT_THAT(std::vector(design->getInstances().begin(), design->getInstances().end()),
