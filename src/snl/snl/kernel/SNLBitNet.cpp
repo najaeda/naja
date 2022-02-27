@@ -16,6 +16,8 @@
 
 #include "SNLBitNet.h"
 
+#include <list>
+
 #include "SNLBitTerm.h"
 #include "SNLInstTerm.h"
 
@@ -30,6 +32,11 @@ void SNLBitNet::postCreate() {
 }
 
 void SNLBitNet::preDestroy() {
+  using Components = std::list<SNLNetComponent*>;
+  Components components(getComponents().begin(), getComponents().end());
+  for (auto component: components) {
+    component->setNet(nullptr);
+  }
   super::preDestroy();
 }
 
