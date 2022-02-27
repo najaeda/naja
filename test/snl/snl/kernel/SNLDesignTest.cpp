@@ -78,6 +78,10 @@ TEST_F(SNLDesignTest, testCreation0) {
   EXPECT_EQ(2, design->getTerms().size());
   EXPECT_EQ(2, design->getScalarTerms().size());
   EXPECT_EQ(2, design->getBitTerms().size());
+  EXPECT_EQ(term1, design->getScalarTerm(SNLName("term1")));
+  EXPECT_EQ(term1, design->getScalarTerm(SNLID(SNLID::Type::Term, 1, 0, 0, 1, 0, 0)));
+  EXPECT_EQ(nullptr, design->getScalarTerm(SNLName("term2")));
+  EXPECT_EQ(nullptr, design->getScalarTerm(SNLID(SNLID::Type::Term, 1, 0, 0, 2, 0, 0)));
 
   //anonymous scalar term
   SNLScalarTerm* term2 = SNLScalarTerm::create(design, SNLTerm::Direction::InOut);
@@ -96,6 +100,7 @@ TEST_F(SNLDesignTest, testCreation0) {
   EXPECT_EQ(3, design->getTerms().size());
   EXPECT_EQ(3, design->getScalarTerms().size());
   EXPECT_EQ(3, design->getBitTerms().size());
+  EXPECT_EQ(term2, design->getScalarTerm(SNLID(SNLID::Type::Term, 1, 0, 0, 2, 0, 0));
 
   SNLBusTerm* term3 = SNLBusTerm::create(design, SNLTerm::Direction::Input, 4, 0, SNLName("term3"));
   ASSERT_NE(term3, nullptr);
@@ -114,6 +119,10 @@ TEST_F(SNLDesignTest, testCreation0) {
     EXPECT_EQ(SNLTerm::Direction::Input, bit->getDirection());
     EXPECT_EQ(term3, bit->getBus());
   }
+  EXPECT_EQ(term3, design->getBusTerm(SNLName("term3")));
+  EXPECT_EQ(term3, design->getBusTerm(SNLID(SNLID::Type::Term, 1, 0, 0, 3, 0, 0)));
+  EXPECT_EQ(nullptr, design->getBusTerm(SNLName("term4")));
+  EXPECT_EQ(nullptr, design->getBusTerm(SNLID(SNLID::Type::Term, 1, 0, 0, 4, 0, 0)));
 
   EXPECT_FALSE(design->getTerms().empty());
   EXPECT_FALSE(design->getScalarTerms().empty());

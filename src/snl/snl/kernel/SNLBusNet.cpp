@@ -123,11 +123,13 @@ std::string SNLBusNet::getDescription() const {
 }
 //LCOV_EXCL_STOP
 
+//LCOV_EXCL_START
 Card* SNLBusNet::getCard() const {
   Card* card = super::getCard();
   card->addItem(new CardDataItem<const SNLName>("Name", name_));
   card->addItem(new CardDataItem<const SNLDesign*>("Design", design_));
   return card;
 }
+//LCOV_EXCL_STOP
 
 }} // namespace SNL // namespace naja
