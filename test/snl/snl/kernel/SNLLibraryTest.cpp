@@ -153,6 +153,19 @@ TEST_F(SNLLibraryTest, test1) {
   EXPECT_FALSE(root->getLibrary(SNLName("UNKNOWN")));
 }
 
+TEST_F(SNLLibraryTest, testDesignSearch) {
+  SNLDB* db = SNLDB::create(universe_);
+  EXPECT_NE(nullptr, db);
+  SNLLibrary* root = SNLLibrary::create(db);
+  EXPECT_NE(nullptr, root);
+  SNLDesign* design = SNLDesign::create(root, SNLName("DESIGN"));
+  EXPECT_NE(nullptr, design);
+  EXPECT_EQ(design, root->getDesign(SNLName("DESIGN")));
+  EXPECT_EQ(design, root->getDesign(0));
+  EXPECT_EQ(nullptr, root->getDesign(SNLName("UNKNOWN")));
+  EXPECT_EQ(nullptr, root->getDesign(1));
+}
+
 TEST_F(SNLLibraryTest, testErrors) {
   SNLDB* db = SNLDB::create(universe_);
   ASSERT_TRUE(db);
