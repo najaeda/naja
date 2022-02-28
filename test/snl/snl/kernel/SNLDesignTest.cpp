@@ -204,6 +204,10 @@ TEST_F(SNLDesignTest, testCreation1) {
 }
 
 TEST_F(SNLDesignTest, testPrimitives) {
+  EXPECT_THROW(
+    SNLDesign::create(nullptr, SNLName("ERROR")),
+    SNLException);
+
   SNLLibrary* library = db_->getLibrary(SNLName("MYLIB"));
   ASSERT_NE(library, nullptr);
 

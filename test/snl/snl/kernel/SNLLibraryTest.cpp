@@ -40,6 +40,7 @@ TEST_F(SNLLibraryTest, test0) {
   EXPECT_TRUE(lib1->getDesigns().empty());
   EXPECT_EQ(nullptr, lib1->getLibrary(2));
   EXPECT_EQ(nullptr, lib1->getLibrary(SNLName("UNKNOWN")));
+  EXPECT_EQ(nullptr, lib1->getLibrary(3));
 
   SNLLibrary* lib2 = SNLLibrary::create(db, SNLName("LIB2"));
   ASSERT_TRUE(lib2);
