@@ -16,6 +16,8 @@
 
 #include "SNLBusNet.h"
 
+#include <algorithm>
+
 #include "Card.h"
 
 #include "SNLDB.h"

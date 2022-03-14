@@ -17,6 +17,7 @@
 #include "SNLVRLDumper.h"
 
 #include <cassert>
+#include <algorithm>
 
 #include "SNLLibrary.h"
 #include "SNLDesign.h"

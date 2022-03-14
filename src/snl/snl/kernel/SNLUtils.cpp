@@ -1,5 +1,7 @@
 #include "SNLUtils.h"
 
+#include <algorithm>
+
 #include "SNLDesign.h"
 
 namespace naja { namespace SNL {
