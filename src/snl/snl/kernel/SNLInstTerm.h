@@ -36,7 +36,7 @@ class SNLInstTerm final: public SNLNetComponent {
 
     bool isAnonymous() const override;
     SNLTerm::Direction getDirection() const;
-    constexpr const char* getTypeName() const override;
+    const char* getTypeName() const override;
     std::string getString() const override;
     std::string getDescription() const override;
     SNLInstance* getInstance() const { return instance_; }

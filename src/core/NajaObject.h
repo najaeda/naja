@@ -30,7 +30,7 @@ class NajaObject {
     virtual ~NajaObject() = default;
 
     ///\return a string describing the object type
-    virtual constexpr const char* getTypeName() const = 0;
+    virtual const char* getTypeName() const = 0;
     ///\return a simple string describing the object. Usually object name.
     virtual std::string getString() const = 0;
     ///\return a string extensively describing the object. Useful for debug.

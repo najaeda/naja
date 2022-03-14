@@ -118,7 +118,7 @@ SNLDB* SNLUniverse::getDB(SNLID::DBID id) {
 }
 
 //LCOV_EXCL_START
-constexpr const char* SNLUniverse::getTypeName() const {
+const char* SNLUniverse::getTypeName() const {
   return "SNLUniverse";
 }
 //LCOV_EXCL_STOP

@@ -245,7 +245,7 @@ void SNLLibrary::removeDesign(SNLDesign* design) {
 }
 
 //LCOV_EXCL_START
-constexpr const char* SNLLibrary::getTypeName() const {
+const char* SNLLibrary::getTypeName() const {
   return "SNLLibrary";
 }
 //LCOV_EXCL_STOP

@@ -152,7 +152,7 @@ class SNLDesign final: public SNLObject {
     ///\return true if this SNLDesign is a primitive.
     bool isPrimitive() const { return type_ == Type::Primitive; }
 
-    constexpr const char* getTypeName() const override;
+    const char* getTypeName() const override;
     std::string getString() const override;
     std::string getDescription() const override;
     Card* getCard() const override;

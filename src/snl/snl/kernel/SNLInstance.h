@@ -59,7 +59,7 @@ class SNLInstance final: public SNLDesignObject {
     SNLID getSNLID() const override;
     SNLName getName() const { return name_; }
     bool isAnonymous() const override { return name_.empty(); }
-    constexpr const char* getTypeName() const override;
+    const char* getTypeName() const override;
     std::string getString() const override;
     std::string getDescription() const override;
     Card* getCard() const override;

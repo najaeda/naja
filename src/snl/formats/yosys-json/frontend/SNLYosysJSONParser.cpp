@@ -567,7 +567,7 @@ class SNLYosysJSONSaxHandler: public json::json_sax_t {
       std::string type = cell_.type_;
       assert(not type.empty());
       SNLInstance* instance = nullptr;
-      if (type.starts_with("$")) {
+      if (not type.empty() and type.at(0) == '$') { 
         //create primitive
         std::string primName = cell_.type_.substr(1, std::string::npos);
         auto prim = SNLDesign::create(primitives_, SNLDesign::Type::Primitive, SNLName(primName));

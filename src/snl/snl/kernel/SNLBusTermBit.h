@@ -37,7 +37,7 @@ class SNLBusTermBit final: public SNLBitTerm {
     SNLID::Bit getBit() const override { return bit_; }
     size_t getPosition() const override;
 
-    constexpr const char* getTypeName() const override;
+    const char* getTypeName() const override;
     SNLName getName() const override;
     SNLTerm::Direction getDirection() const override;
     std::string getString() const override;

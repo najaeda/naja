@@ -84,7 +84,7 @@ SNLTerm::Direction SNLBusTermBit::getDirection() const {
 }
 
 //LCOV_EXCL_START
-constexpr const char* SNLBusTermBit::getTypeName() const {
+const char* SNLBusTermBit::getTypeName() const {
   return "SNLBusTermBit";
 }
 //LCOV_EXCL_STOP

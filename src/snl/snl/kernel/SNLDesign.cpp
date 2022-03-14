@@ -436,7 +436,7 @@ bool SNLDesign::isBetween(int n, int MSB, int LSB) {
 }
 
 //LCOV_EXCL_START
-constexpr const char* SNLDesign::getTypeName() const {
+const char* SNLDesign::getTypeName() const {
   return "SNLDesign";
 }
 //LCOV_EXCL_STOP

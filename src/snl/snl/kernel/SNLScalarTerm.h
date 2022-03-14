@@ -38,7 +38,7 @@ class SNLScalarTerm final: public SNLBitTerm {
     SNLName getName() const override { return name_; }
     bool isAnonymous() const override { return name_.empty(); }
     SNLTerm::Direction getDirection() const override { return direction_; }
-    constexpr const char* getTypeName() const override;
+    const char* getTypeName() const override;
     std::string getString() const override;
     std::string getDescription() const override;
   private:

@@ -72,7 +72,7 @@ SNLDesign* SNLBusNetBit::getDesign() const {
 }
 
 //LCOV_EXCL_START
-constexpr const char* SNLBusNetBit::getTypeName() const {
+const char* SNLBusNetBit::getTypeName() const {
   return "SNLBusNetBit";
 }
 //LCOV_EXCL_STOP

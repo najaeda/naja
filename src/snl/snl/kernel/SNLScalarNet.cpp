@@ -70,7 +70,7 @@ SNLID SNLScalarNet::getSNLID() const {
 }
 
 //LCOV_EXCL_START
-constexpr const char* SNLScalarNet::getTypeName() const {
+const char* SNLScalarNet::getTypeName() const {
   return "SNLScalarNet";
 }
 //LCOV_EXCL_STOP

@@ -106,7 +106,7 @@ void SNLBusNet::setType(const Type& type) {
 }
 
 //LCOV_EXCL_START
-constexpr const char* SNLBusNet::getTypeName() const {
+const char* SNLBusNet::getTypeName() const {
   return "SNLBusNet";
 }
 //LCOV_EXCL_STOP

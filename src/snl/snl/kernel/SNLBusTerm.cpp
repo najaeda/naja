@@ -98,7 +98,7 @@ SNLID SNLBusTerm::getSNLID() const {
 }
 
 //LCOV_EXCL_START
-constexpr const char* SNLBusTerm::getTypeName() const {
+const char* SNLBusTerm::getTypeName() const {
   return "SNLBusTerm";
 }
 //LCOV_EXCL_STOP

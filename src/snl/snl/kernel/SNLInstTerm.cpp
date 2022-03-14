@@ -74,7 +74,7 @@ bool SNLInstTerm::isAnonymous() const {
 }
 
 //LCOV_EXCL_START
-constexpr const char* SNLInstTerm::getTypeName() const {
+const char* SNLInstTerm::getTypeName() const {
   return "SNLInstTerm";
 }
 //LCOV_EXCL_STOP

@@ -119,7 +119,7 @@ SNLID SNLDB::getSNLID() const {
 }
 
 //LCOV_EXCL_START
-constexpr const char* SNLDB::getTypeName() const {
+const char* SNLDB::getTypeName() const {
   return "SNLDB";
 }
 //LCOV_EXCL_STOP

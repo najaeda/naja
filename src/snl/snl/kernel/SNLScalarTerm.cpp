@@ -76,7 +76,7 @@ SNLID SNLScalarTerm::getSNLID() const {
 }
 
 //LCOV_EXCL_START
-constexpr const char* SNLScalarTerm::getTypeName() const {
+const char* SNLScalarTerm::getTypeName() const {
   return "SNLScalarTerm";
 }
 //LCOV_EXCL_STOP

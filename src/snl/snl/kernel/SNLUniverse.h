@@ -50,7 +50,7 @@ class SNLUniverse final: public SNLObject {
     static SNLScalarTerm* getAssignInput();
     static SNLScalarTerm* getAssignOutput();
 
-    constexpr const char* getTypeName() const override;
+    const char* getTypeName() const override;
     std::string getString() const override;
     std::string getDescription() const override;
   private:

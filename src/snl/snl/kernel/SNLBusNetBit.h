@@ -36,7 +36,7 @@ class SNLBusNetBit final: public SNLBitNet {
     SNLBusNet* getBus() const { return bus_; }
     SNLID::Bit getBit() const { return bit_; }
 
-    constexpr const char* getTypeName() const override;
+    const char* getTypeName() const override;
     SNLName getName() const override;
     std::string getString() const override;
     std::string getDescription() const override;

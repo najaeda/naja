@@ -49,7 +49,7 @@ class SNLDB final: public SNLObject {
 
     SNLCollection<SNLLibrary*> getLibraries() const;
 
-    constexpr const char* getTypeName() const override;
+    const char* getTypeName() const override;
     std::string getString() const override;
     std::string getDescription() const override;
 

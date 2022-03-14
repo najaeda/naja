@@ -54,7 +54,7 @@ class SNLBusNet final: public SNLNet {
 
     void setType(const Type& type) override;
 
-    constexpr const char* getTypeName() const override;
+    const char* getTypeName() const override;
     std::string getString() const override;
     std::string getDescription() const override;
     Card* getCard() const override;

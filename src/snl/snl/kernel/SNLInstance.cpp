@@ -184,7 +184,7 @@ SNLCollection<SNLInstTerm*> SNLInstance::getInstBusTermBits() const {
 }
 
 //LCOV_EXCL_START
-constexpr const char* SNLInstance::getTypeName() const {
+const char* SNLInstance::getTypeName() const {
   return "SNLInstance";
 }
 //LCOV_EXCL_STOP
