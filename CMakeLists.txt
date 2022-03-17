@@ -8,7 +8,7 @@ project(naja
 
 cmake_minimum_required(VERSION 3.19)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(NAJA_CXX_WARNINGS -Werror -Wall -pedantic-errors -Wconversion -Wsign-conversion -Wextra -Wno-unused-parameter)
 
 add_library(coverage_config INTERFACE)
