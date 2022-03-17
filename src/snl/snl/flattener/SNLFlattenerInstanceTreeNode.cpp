@@ -17,6 +17,7 @@
 #include "SNLFlattenerInstanceTreeNode.h"
 
 #include <iostream>
+#include <algorithm>
 
 #include "SNLDesign.h"
 
