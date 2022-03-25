@@ -571,8 +571,14 @@ class SNLFlatCollection: public SNLBaseCollection<ReturnType> {
 
 template<class Type> class SNLCollection {
   public:
-    class Iterator: public std::iterator<std::input_iterator_tag, Type> {
+    class Iterator {
       public:
+        using iterator_category = std::input_iterator_tag;
+        using value_type = Type;
+        using difference_type = std::ptrdiff_t;
+        using pointer = Type*;
+        using reference = Type&;
+
         Iterator() = delete;
         Iterator(const Iterator& it) {
           if (it.baseIt_) {
