@@ -1,4 +1,4 @@
-name: naja_app_build
+name: snl_app_build
 
 on:
   push:
@@ -43,16 +43,18 @@ jobs:
       # See https://cmake.org/cmake/help/latest/manual/ctest.1.html for more detail
       run: ctest -VV -C ${{env.BUILD_TYPE}}
     
-    - name: CreateInstallDir
-      run: mkdir -p ${{env.NAJA_INSTALL}} 
+    - name: CreateDirs
+      run: |
+           mkdir -p ${{env.NAJA_INSTALL}} 
+           mkdir -p ${{github.workspace}}/snlapp
 
     - name: Install
       working-directory: ${{github.workspace}}/build
       run: make install
       
     - name: CopySnipperApp
-      working-directory: ${{github.workspace}}/WORK
-      run: cp -R ${{github.workspace}}/src/snl/snippet/app snlapp
+      working-directory: ${{github.workspace}}/snlapp
+      run: cp -R ${{github.workspace}}/src/snl/snippet/app .
 
     #-name: ConfigureSnippetApp
     #  working-directory: ${{github.workspace}}/WORK/snlapp
