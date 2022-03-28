@@ -57,7 +57,7 @@ jobs:
       run: cp -R ${{github.workspace}}/src/snl/snippet/app .
 
     - name: ConfigureSnippetApp
-      working-directory: ${{github.workspace}}/snlapp
+      working-directory: ${{github.workspace}}/snlapp/app
       run: cmake -B ${{github.workspace}}/snlapp/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
 
     - name: BuildSnippetApp
