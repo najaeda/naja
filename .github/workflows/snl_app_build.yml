@@ -52,10 +52,15 @@ jobs:
       working-directory: ${{github.workspace}}/build
       run: make install
       
-    - name: CopySnipperApp
+    - name: CopySnippetApp
       working-directory: ${{github.workspace}}/snlapp
       run: cp -R ${{github.workspace}}/src/snl/snippet/app .
 
-    #-name: ConfigureSnippetApp
-    #  working-directory: ${{github.workspace}}/WORK/snlapp
-    #  run: cmake -B ${{github.workspace}}/WORK/snlapp/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
+    - name: ConfigureSnippetApp
+      working-directory: ${{github.workspace}}/snlapp
+      run: cmake -B ${{github.workspace}}/snlapp/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
+
+    - name: BuildSnippetApp
+      run: cmake --build ${{github.workspace}}/snlapp -j 4 --config ${{env.BUILD_TYPE}}
+
+
