@@ -63,4 +63,6 @@ jobs:
     - name: BuildSnippetApp
       run: cmake --build ${{github.workspace}}/snlapp/build -j 4 --config ${{env.BUILD_TYPE}}
 
-
+    - name: ExecuteSnippetApp
+      working-directory: ${{github.workspace}}/snlapp/build/src/snl_app
+      run: ./snl_app

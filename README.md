@@ -37,18 +37,18 @@ export NAJA_INSTALL=<path_to_installation_dir>
 # Create a build dir and go inside it
 mkdir build
 cd build
-cmake <path_to_naja_sources_dir> --prefix $NAJA_INSTALL
-#For instance: cmake ~/srcs/naja --prefix $NAJA_INSTALL
+cmake <path_to_naja_sources_dir>
+#For instance: cmake ~/srcs/naja
 make
 make test
-make install
+make DESTDIR=$NAJA_INSTALL install
 ```
 ### Building documentation
 ```bash
 #make sure that doxygen was available when launching the cmake command
 cd build
 make docs
-make install
+make DESTDIR=$NAJA_INSTALL install
 ```
 Documentation will be installed in $NAJA_INSTALL/doc directory. Starting file to open in browser is: $NAJA_INSTALL/doc/html/index.html.
 ## Snippets
