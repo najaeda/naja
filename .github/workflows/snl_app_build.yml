@@ -65,5 +65,6 @@ jobs:
 
     - name: ExecuteSnippetApp
       working-directory: ${{github.workspace}}/snlapp/build/src
-      env: LD_LIBRARY_PATH: $LD_LIBRARY_PATH:${{env.NAJA_INSTALL}}/lib
+      env:
+        LD_LIBRARY_PATH: ${{env.LD_LIBRARY_PATH}}:${{env.NAJA_INSTALL}}/lib
       run: ./snl_app
