@@ -4,7 +4,6 @@ set(SOURCES
   NajaUtils.cpp
   MemoryUsage.cpp
   PerfTracker.cpp
-  Card.cpp
 )
 
 set(NAJA_CORE_HEADERS

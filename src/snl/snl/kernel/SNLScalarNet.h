@@ -40,7 +40,6 @@ class SNLScalarNet final: public SNLBitNet {
     const char* getTypeName() const override;
     std::string getString() const override;
     std::string getDescription() const override;
-    Card* getCard() const override;
   private:
     SNLScalarNet(SNLDesign* design, const SNLName& name);
     static void preCreate(const SNLDesign* design, const SNLName& name);

@@ -16,8 +16,6 @@
 
 #include "SNLDesignObject.h"
 
-#include "Card.h"
-
 #include "SNLDB.h"
 #include "SNLLibrary.h"
 #include "SNLDesign.h"

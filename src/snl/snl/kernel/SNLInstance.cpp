@@ -19,8 +19,6 @@
 #include <iostream>
 #include <sstream>
 
-#include "Card.h"
-
 #include "SNLException.h"
 #include "SNLDesign.h"
 #include "SNLInstance.h"
@@ -207,16 +205,6 @@ std::string SNLInstance::getDescription() const {
     + " " + design_->getName().getString()
     + " " + model_->getName().getString()
     + ">";  
-}
-//LCOV_EXCL_STOP
-
-//LCOV_EXCL_START
-Card* SNLInstance::getCard() const {
-  Card* card = super::getCard();
-  card->addItem(new CardDataItem<const SNLName>("Name", name_));
-  card->addItem(new CardDataItem<const SNLDesign*>("Design", design_));
-  card->addItem(new CardDataItem<const SNLDesign*>("Model", model_));
-  return card;
 }
 //LCOV_EXCL_STOP
 

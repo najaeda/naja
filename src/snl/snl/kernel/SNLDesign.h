@@ -155,7 +155,6 @@ class SNLDesign final: public SNLObject {
     const char* getTypeName() const override;
     std::string getString() const override;
     std::string getDescription() const override;
-    Card* getCard() const override;
   private:
     SNLDesign(SNLLibrary* library, const Type& type, const SNLName& name);
     static void preCreate(const SNLLibrary* library, const Type& type, const SNLName& name);

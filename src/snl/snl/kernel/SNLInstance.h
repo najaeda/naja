@@ -62,7 +62,6 @@ class SNLInstance final: public SNLDesignObject {
     const char* getTypeName() const override;
     std::string getString() const override;
     std::string getDescription() const override;
-    Card* getCard() const override;
 
     SNLInstTerm* getInstTerm(const SNLBitTerm* term);
     SNLCollection<SNLInstTerm*> getInstTerms() const;

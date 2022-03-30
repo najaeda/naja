@@ -57,7 +57,6 @@ class SNLBusNet final: public SNLNet {
     const char* getTypeName() const override;
     std::string getString() const override;
     std::string getDescription() const override;
-    Card* getCard() const override;
   private:
     SNLBusNet(
         SNLDesign* design,

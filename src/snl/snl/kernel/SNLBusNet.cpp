@@ -18,8 +18,6 @@
 
 #include <algorithm>
 
-#include "Card.h"
-
 #include "SNLDB.h"
 #include "SNLLibrary.h"
 #include "SNLDesign.h"
@@ -122,15 +120,6 @@ std::string SNLBusNet::getString() const {
 //LCOV_EXCL_START
 std::string SNLBusNet::getDescription() const {
   return "<" + std::string(getTypeName()) + " " + name_.getString() + " " + design_->getName().getString() + ">";  
-}
-//LCOV_EXCL_STOP
-
-//LCOV_EXCL_START
-Card* SNLBusNet::getCard() const {
-  Card* card = super::getCard();
-  card->addItem(new CardDataItem<const SNLName>("Name", name_));
-  card->addItem(new CardDataItem<const SNLDesign*>("Design", design_));
-  return card;
 }
 //LCOV_EXCL_STOP
 

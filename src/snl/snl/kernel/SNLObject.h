@@ -19,15 +19,12 @@
 
 #include "NajaObject.h"
 
-class Card;
 class CardItem;
 
 namespace naja { namespace SNL {
 
 class SNLObject: public naja::core::NajaObject {
   public:
-    virtual Card* getCard() const;
-
     ///destroy this SNLObject and remove it cleanly from SNL.
     virtual void destroy();
   protected:

@@ -19,8 +19,6 @@
 #include <iostream>
 #include <sstream>
 
-#include "Card.h"
-
 #include "SNLException.h"
 #include "SNLDB.h" 
 #include "SNLLibrary.h"
@@ -414,16 +412,6 @@ SNLParameter* SNLDesign::getParameter(const SNLName& name) const {
 SNLCollection<SNLParameter*> SNLDesign::getParameters() const {
   return SNLCollection<SNLParameter*>(new SNLIntrusiveSetCollection<SNLParameter, SNLDesignParametersHook>(&parameters_));
 }
-
-//LCOV_EXCL_START
-Card* SNLDesign::getCard() const {
-  Card* card = super::getCard();
-  //card->addItem(new CardDataItem<SNLID>("ID", id_));
-  card->addItem(new CardDataItem<const SNLName>("Name", name_));
-  card->addItem(new CardDataItem<const SNLLibrary*>("Library", library_));
-  return card;
-}
-//LCOV_EXCL_STOP
 
 SNLID SNLDesign::getSNLID() const {
   return SNLID(getDB()->getID(), library_->getID(), getID());
