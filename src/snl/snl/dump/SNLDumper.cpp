@@ -21,6 +21,8 @@
 #include "SNLDB.h"
 #include "SNLLibrary.h"
 #include "SNLDesign.h"
+#include "SNLScalarTerm.h"
+#include "SNLBusTerm.h"
 #include "SNLUtils.h"
 #include "SNLDump.h"
 #include "SNLDumpManifest.h"
@@ -33,10 +35,22 @@ void dumpParameter(const SNLParameter* parameter, std::ostream& stream) {
     << " " << parameter->getName().getString()
     << " " << parameter->getValue()
     << std::endl;
-} 
+}
 
-void dumpTerm(const SNLTerm* term, std::ostream& stream) {
-  stream << "T"
+void dumpBusTerm(const SNLBusTerm* term, std::ostream& stream) {
+  stream << SNLDump::Tag::BusTerm
+    << " " << term->getID()
+    << " " << term->getDirection()
+    << " " << term->getLSB()
+    << " " << term->getMSB();
+  if (not term->isAnonymous()) {
+    stream << " " << term->getName().getString();
+  }
+  stream << std::endl;
+}
+
+void dumpScalarTerm(const SNLScalarTerm* term, std::ostream& stream) {
+  stream << SNLDump::Tag::ScalarTerm
     << " " << term->getID()
     << " " << term->getDirection();
   if (not term->isAnonymous()) {
@@ -45,8 +59,18 @@ void dumpTerm(const SNLTerm* term, std::ostream& stream) {
   stream << std::endl;
 }
 
+void dumpTerm(const SNLTerm* term, std::ostream& stream) {
+  if (auto bus = dynamic_cast<const SNLBusTerm*>(term)) {
+    dumpBusTerm(bus, stream);
+  } else {
+    auto scalar = static_cast<const SNLScalarTerm*>(term);
+    dumpScalarTerm(scalar, stream);
+  }
+ 
+}
+
 void dumpNet(const SNLNet* net, std::ostream& stream) {
-  stream << "N"
+  stream << SNLDump::Tag::Net
     << " " << net->getID();
   if (not net->isAnonymous()) {
     stream << " " << net->getName().getString();
@@ -55,12 +79,17 @@ void dumpNet(const SNLNet* net, std::ostream& stream) {
 }
 
 void dumpInstance(const SNLInstance* instance, std::ostream& stream) {
+  //DBID is unsigned char
+  //+ promotes it to numerical value
   stream << SNLDump::Tag::Instance
-    << " " << instance->getModel()->getDB()->getID()
+    << " " << +instance->getModel()->getDB()->getID()
     << " " << instance->getModel()->getLibrary()->getID()
     << " " << instance->getModel()->getID()
-    << " " << instance->getID()
-    << std::endl;
+    << " " << instance->getID();
+  if (not instance->isAnonymous()) {
+    stream << " " << instance->getName().getString();
+  }
+  stream << std::endl;
 }
 
 void dumpDesign(const SNLDesign* design, std::ostream& stream) {

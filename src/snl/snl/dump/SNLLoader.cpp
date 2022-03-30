@@ -15,10 +15,17 @@
  */
 
 #include "SNLDump.h"
+#include "SNLDumpManifest.h"
 
 namespace naja { namespace SNL {
 
 void SNLDump::load(const std::filesystem::path& path) {
+  if (std::filesystem::exists(path)) {
+    //create error
+    return;
+  }
+  //load manifest
+  SNLDumpManifest::load(path);
 }
 
 

@@ -34,5 +34,8 @@ void SNLDumpManifest::create(const SNLDesign* top, const std::filesystem::path& 
     << std::endl;
 }
 
+void SNLDumpManifest::load(const std::filesystem::path& dir) {
+
+}
 
 }} // namespace SNL // namespace naja

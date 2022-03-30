@@ -39,6 +39,9 @@ class SNLDump {
     class Tag {
       public:
         static constexpr char Design      { 'D' };
+        static constexpr char ScalarTerm  { 'T' };
+        static constexpr char BusTerm     { 'B' };
+        static constexpr char Net         { 'N' };
         static constexpr char Instance    { 'I' };
         static constexpr char Parameter   { 'P' };
     };

@@ -26,7 +26,7 @@ class SNLDesign;
 class SNLDumpManifest {
   public:
     static void create(const SNLDesign* top, const std::filesystem::path& snlDir);
-
+    static void load(const std::filesystem::path& snlDir);
 };
 
 }} // namespace SNL // namespace naja
