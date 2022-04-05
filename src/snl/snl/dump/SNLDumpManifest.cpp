@@ -19,6 +19,7 @@
 #include <fstream>
 #include <sstream>
 #include <vector>
+#include <iterator>
 
 #include "NajaUtils.h"
 #include "SNLDump.h"
