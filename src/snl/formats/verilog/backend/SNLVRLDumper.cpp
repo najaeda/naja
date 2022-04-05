@@ -351,7 +351,6 @@ void SNLVRLDumper::dumpDesign(const SNLDesign* design, const std::filesystem::pa
     streamDumper.setConfiguration(configuration);
     SNLUtils::SortedDesigns designs;
     SNLUtils::getDesignsSortedByHierarchicalLevel(design, designs);
-    bool first = true;
     for (auto designLevel: designs) {
       const SNLDesign* design = designLevel.first;
       std::filesystem::path filePath = path/getTopFileName(design);
