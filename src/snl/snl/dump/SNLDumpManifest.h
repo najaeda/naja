@@ -17,16 +17,22 @@
 #ifndef __SNL_DUMP_MANIFEST_H_
 #define __SNL_DUMP_MANIFEST_H_
 
-#include <filesystem>
+#include "SNLDump.h"
 
 namespace naja { namespace SNL {
 
-class SNLDesign;
-
 class SNLDumpManifest {
   public:
-    static void create(const SNLDesign* top, const std::filesystem::path& snlDir);
-    static void load(const std::filesystem::path& snlDir);
+    SNLDump::Version getVersion() const { return version_; }
+    static SNLDumpManifest load(const std::filesystem::path& snlDir);
+  private:
+    SNLDumpManifest(): version_(0, 0, 0) {}
+    SNLDump::Version  version_;
+};
+
+class SNLDumpManifestDumper {
+  public:
+    static void dump(const SNLDesign* top, const std::filesystem::path& snlDir);
 };
 
 }} // namespace SNL // namespace naja

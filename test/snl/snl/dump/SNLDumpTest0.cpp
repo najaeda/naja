@@ -41,5 +41,10 @@ class SNLDumpTest0: public ::testing::Test {
 
 TEST_F(SNLDumpTest0, test) {
   std::filesystem::path test0Path(dumpsPath_);
+  test0Path /= "test0.snl";
   SNLDump::dump(top_, test0Path);
+
+  {
+    SNLDump::load(test0Path);
+  }
 }

@@ -26,16 +26,23 @@ class SNLDesign;
 
 class SNLDump {
   public:
-    class Version {
-      public:
-        static constexpr short Major    { 0 };
-        static constexpr short Minor    { 0 };
-        static constexpr short Revision { 1 };
-        static constexpr short getMajor()     { return Major; }
-        static constexpr short getMinor()     { return Minor; }
-        static constexpr short getRevision()  { return Revision; }
-        static std::string getString();
+    struct Version {
+      Version() = delete;
+      Version(unsigned major, unsigned minor, unsigned revision):
+        major_(major), minor_(minor), revision_(revision)
+      {}
+      unsigned major_;
+      unsigned minor_;
+      unsigned revision_;
+      unsigned getMajor() const    { return major_; }
+      unsigned getMinor() const    { return minor_; }
+      unsigned getRevision() const { return revision_; }
+      std::string getString();
     };
+
+    static const Version  version_;
+    static Version getVersion() { return version_; }
+
     class Tag {
       public:
         static constexpr char Design      { 'D' };

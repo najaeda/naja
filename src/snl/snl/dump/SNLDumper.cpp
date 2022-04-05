@@ -115,24 +115,19 @@ void dumpDesign(const SNLDesign* design, std::ostream& stream) {
 
 namespace naja { namespace SNL {
 
+const SNLDump::Version SNLDump::version_ = SNLDump::Version(0, 1, 0);
+
 void SNLDump::dump(const SNLDesign* top, const std::filesystem::path& path) {
-  //create directory .snl with top name
-  std::string dirName;
-  if (not top->isAnonymous()) {
-    dirName = top->getName().getString();
-  } else {
-    dirName = "anon";
+  //create directory
+  if (std::filesystem::exists(path)) {
+    //error
+    return;
   }
-  dirName += ".snl";
-  std::filesystem::path dir(path/dirName);
-  if (std::filesystem::exists(dir)) {
-    std::filesystem::remove_all(dir);
-  }
-  std::filesystem::create_directory(dir);
+  std::filesystem::create_directory(path);
   //publish manifest
-  SNLDumpManifest::create(top, dir);
+  SNLDumpManifestDumper::dump(top, path);
   
-  std::filesystem::path dumpPath(dir/"design.db");
+  std::filesystem::path dumpPath(path/"design.db");
   std::ofstream dumpStream(dumpPath);
   SNLUtils::SortedDesigns designs;
   SNLUtils::getDesignsSortedByHierarchicalLevel(top, designs);

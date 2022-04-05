@@ -20,7 +20,7 @@
 namespace naja { namespace SNL {
 
 void SNLDump::load(const std::filesystem::path& path) {
-  if (std::filesystem::exists(path)) {
+  if (not std::filesystem::exists(path)) {
     //create error
     return;
   }

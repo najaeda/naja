@@ -17,25 +17,65 @@
 #include "SNLDumpManifest.h"
 
 #include <fstream>
+#include <sstream>
+#include <vector>
 
 #include "NajaUtils.h"
 #include "SNLDump.h"
 
+namespace {
+
+using Tokens = std::vector<std::string>;
+Tokens extractTokens(const std::string& s) {
+  std::stringstream ss(s);
+  std::istream_iterator<std::string> begin(ss);
+  std::istream_iterator<std::string> end;
+  return Tokens(begin, end);
+}
+
+}
+
 namespace naja { namespace SNL {
 
-void SNLDumpManifest::create(const SNLDesign* top, const std::filesystem::path& snlDir) {
+void SNLDumpManifestDumper::dump(const SNLDesign* top, const std::filesystem::path& snlDir) {
   std::filesystem::path manifestPath(snlDir/"snl.mf");
   std::ofstream stream(manifestPath);
   core::NajaUtils::createBanner(stream, "SNL manifest", "#");
   stream << "V"
-    << " " << SNLDump::Version::getMajor()
-    << " " << SNLDump::Version::getMinor()
-    << " " << SNLDump::Version::getRevision()
+    << " " << SNLDump::getVersion().getMajor()
+    << " " << SNLDump::getVersion().getMinor()
+    << " " << SNLDump::getVersion().getRevision()
     << std::endl;
 }
 
-void SNLDumpManifest::load(const std::filesystem::path& dir) {
-
+SNLDumpManifest SNLDumpManifest::load(const std::filesystem::path& snlDir) {
+  std::filesystem::path manifestPath(snlDir/"snl.mf");
+  if (not std::filesystem::is_regular_file(manifestPath)) {
+    //Error
+  }
+  std::ifstream stream(manifestPath);
+  std::string line;
+  SNLDumpManifest manifest;
+  while (std::getline(stream, line)) {
+    if (not line.empty()) {
+      Tokens tokens = extractTokens(line);
+      if (not tokens.empty()) {
+        std::string command = tokens[0];
+        if (command == "#") {
+          continue;
+        } else if (command == "V") {
+          //extract version
+          if (tokens.size() != 4) {
+            //error
+          }
+          manifest.version_.major_ = static_cast<unsigned>(std::stoi(tokens[1]));
+          manifest.version_.minor_ = static_cast<unsigned>(std::stoi(tokens[2]));
+          manifest.version_.revision_ = static_cast<unsigned>(std::stoi(tokens[3]));
+        }
+      }
+    }
+  }
+  return manifest;
 }
 
 }} // namespace SNL // namespace naja
