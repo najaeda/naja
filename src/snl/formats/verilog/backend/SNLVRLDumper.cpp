@@ -18,6 +18,8 @@
 
 #include <cassert>
 #include <algorithm>
+#include <sstream>
+#include <fstream>
 
 #include "SNLLibrary.h"
 #include "SNLDesign.h"
@@ -49,6 +51,18 @@ void dumpDirection(const naja::SNL::SNLTerm* term, std::ostream& o) {
 }
 
 namespace naja { namespace SNL {
+
+void SNLVRLDumper::setSingleFile(bool mode) {
+  configuration_.setSingleFile(mode);
+}
+
+void SNLVRLDumper::setTopFileName(const std::string& name) {
+  configuration_.setTopFileName(name);
+}
+
+void SNLVRLDumper::setDumpHierarchy(bool mode) {
+  configuration_.setDumpHierarchy(mode);
+}
 
 std::string SNLVRLDumper::createDesignName(const SNLDesign* design) {
   auto library = design->getLibrary();
@@ -285,16 +299,65 @@ void SNLVRLDumper::dumpOneDesign(const SNLDesign* design, std::ostream& o) {
 }
 
 void SNLVRLDumper::dumpDesign(const SNLDesign* design, std::ostream& o) {
-  SNLUtils::SortedDesigns designs;
-  SNLUtils::getDesignsSortedByHierarchicalLevel(design, designs);
-  bool first = true;
-  for (auto designLevel: designs) {
-    const SNLDesign* design = designLevel.first;
-    if (not first) {
-      o << std::endl;
+  if (configuration_.isDumpHierarchy()) {
+    SNLUtils::SortedDesigns designs;
+    SNLUtils::getDesignsSortedByHierarchicalLevel(design, designs);
+    bool first = true;
+    for (auto designLevel: designs) {
+      const SNLDesign* design = designLevel.first;
+      if (not first) {
+        o << std::endl;
+      }
+      first = false;
+      dumpOneDesign(design, o);
     }
-    first = false;
+  } else {
     dumpOneDesign(design, o);
+  }
+}
+
+std::string SNLVRLDumper::getTopFileName(const SNLDesign* top) const {
+  if (configuration_.hasTopFileName()) {
+    return configuration_.getTopFileName() + ".v";
+  }
+  if (not top->isAnonymous()) {
+    return top->getName().getString() + ".v";
+  }
+  return "top.v";
+} 
+
+void SNLVRLDumper::dumpDesign(const SNLDesign* design, const std::filesystem::path& path) {
+  if (not std::filesystem::exists(path)) {
+    std::ostringstream reason;
+    if (not design->isAnonymous()) {
+      reason << design->getName().getString();
+    } else {
+      reason << "anonymous design";
+    }
+    reason << " cannot be dumped: ";
+    reason << path.string() << " " << " does not exist";
+    throw SNLVRLDumperException(reason.str());
+  }
+  if (configuration_.isSingleFile()) {
+    //create file
+    std::filesystem::path filePath = path/getTopFileName(design);
+    std::ofstream outFile;
+    outFile.open(filePath);
+    dumpDesign(design, outFile);
+  } else {
+    SNLVRLDumper streamDumper;
+    SNLVRLDumper::Configuration configuration(configuration_);
+    configuration.setDumpHierarchy(false);
+    streamDumper.setConfiguration(configuration);
+    SNLUtils::SortedDesigns designs;
+    SNLUtils::getDesignsSortedByHierarchicalLevel(design, designs);
+    for (auto designLevel: designs) {
+      const SNLDesign* design = designLevel.first;
+      std::filesystem::path filePath = path/getTopFileName(design);
+      std::ofstream outFile;
+      outFile.open(filePath);
+      streamDumper.dumpDesign(design, outFile);
+    }
   }
 }
 

@@ -15,6 +15,10 @@
 
 using namespace naja::SNL;
 
+#ifndef SNL_VRL_DUMPER_TEST_PATH
+#define SNL_VRL_DUMPER_TEST_PATH "Undefined"
+#endif
+
 class SNLVRLDumperTest0: public ::testing::Test {
   protected:
     void SetUp() override {
@@ -48,14 +52,46 @@ class SNLVRLDumperTest0: public ::testing::Test {
     SNLDB*      db_;
 };
 
-TEST_F(SNLVRLDumperTest0, test0) {
+TEST_F(SNLVRLDumperTest0, testNonExistingPath) {
   auto lib = db_->getLibrary(SNLName("MYLIB"));  
   ASSERT_TRUE(lib);
   auto top = lib->getDesign(SNLName("design"));
   ASSERT_TRUE(top);
-  std::filesystem::path outPath("test.v");
-  std::ofstream ofs(outPath, std::ofstream::out);
+  std::filesystem::path outPath(SNL_VRL_DUMPER_TEST_PATH);
+  outPath = outPath / "ERROR";
   SNLVRLDumper dumper;
-  dumper.dumpDesign(top, ofs);
-  ofs.close();
+  ASSERT_THROW(dumper.dumpDesign(top, outPath), SNLVRLDumperException);
+}
+
+TEST_F(SNLVRLDumperTest0, testSingleFile) {
+  auto lib = db_->getLibrary(SNLName("MYLIB"));  
+  ASSERT_TRUE(lib);
+  auto top = lib->getDesign(SNLName("design"));
+  ASSERT_TRUE(top);
+  std::filesystem::path outPath(SNL_VRL_DUMPER_TEST_PATH);
+  outPath = outPath / "test0SingleFile";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+  SNLVRLDumper dumper;
+  dumper.setTopFileName(top->getName().getString());
+  dumper.setSingleFile(true);
+  dumper.dumpDesign(top, outPath);
+}
+
+TEST_F(SNLVRLDumperTest0, testMultipleFiles) {
+  auto lib = db_->getLibrary(SNLName("MYLIB"));  
+  ASSERT_TRUE(lib);
+  auto top = lib->getDesign(SNLName("design"));
+  ASSERT_TRUE(top);
+  std::filesystem::path outPath(SNL_VRL_DUMPER_TEST_PATH);
+  outPath = outPath / "test0MultipleFiles";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+  SNLVRLDumper dumper;
+  dumper.setSingleFile(false);
+  dumper.dumpDesign(top, outPath);
 }
