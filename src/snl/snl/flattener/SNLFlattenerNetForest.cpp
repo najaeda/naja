@@ -20,4 +20,9 @@ namespace naja { namespace SNL {
 
 SNLFlattenerNetForest::~SNLFlattenerNetForest() {}
 
+void SNLFlattenerNetForest::print(std::ostream& stream) const {
+    
+
+}
+
 }} // namespace SNL // namespace naja

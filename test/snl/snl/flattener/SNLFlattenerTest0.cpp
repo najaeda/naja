@@ -10,8 +10,13 @@
 #include "SNLFlattener.h"
 #include "SNLFlattenerInstanceTree.h"
 #include "SNLFlattenerInstanceTreeNode.h"
+#include "SNLFlattenerNetForest.h"
 
 using namespace naja::SNL;
+
+#ifndef FLATTENER_DUMP_PATHS
+#define FLATTENER_DUMP_PATHS "Undefined"
+#endif
 
 class SNLFlattenerTest0: public ::testing::Test {
   protected:
@@ -32,7 +37,7 @@ TEST_F(SNLFlattenerTest0, test0) {
   ASSERT_NE(nullptr, top_);
   SNLFlattener flattener;
   flattener.process(top_);
-  SNLFlattenerInstanceTree* tree = flattener.getTree();
+  SNLFlattenerInstanceTree* tree = flattener.getInstanceTree();
   tree->print(std::cerr);
   ASSERT_NE(nullptr, tree);
   auto root = tree->getRoot();
@@ -45,4 +50,18 @@ TEST_F(SNLFlattenerTest0, test0) {
   EXPECT_EQ(root, ins1Node->getParent());
   EXPECT_EQ(tree, ins0Node->getTree());
   EXPECT_EQ(tree, ins1Node->getTree());
+
+  SNLFlattenerNetForest* forest = flattener.getNetForest();
+  ASSERT_NE(nullptr, forest);
+
+  std::filesystem::path dumpsPath(FLATTENER_DUMP_PATHS);
+  std::filesystem::path instanceTreePath = dumpsPath/"SNFlattenerTest0Test0InstanceTree.debug";
+  std::ofstream instanceTreeFile;
+  instanceTreeFile.open (instanceTreePath, std::ios::out);
+  tree->print(instanceTreeFile);
+
+  std::filesystem::path netForestPath = dumpsPath/"SNFlattenerTest0Test0NetForest.debug";
+  std::ofstream netForestFile;
+  netForestFile.open (netForestPath, std::ios::out);
+  forest->print(netForestFile);
 }

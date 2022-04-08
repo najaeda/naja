@@ -31,5 +31,5 @@ SNLFlattenerInstanceTree::~SNLFlattenerInstanceTree() {
 void SNLFlattenerInstanceTree::print(std::ostream& stream) const {
   getRoot()->print(stream);
 }
-  
+
 }} // namespace SNL // namespace naja

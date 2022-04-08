@@ -18,6 +18,29 @@
 
 namespace naja { namespace SNL {
 
+SNLFlattenerNetTreeNode::Type::Type(const TypeEnum& typeEnum):
+  typeEnum_(typeEnum) 
+{}
+
+SNLFlattenerNetTreeNode::SNLFlattenerNetTreeNode(SNLFlattenerNetTree* tree, const SNLBitNet* rootNet):
+  parent_(tree),
+  type_(Type::Root)
+{}
+
+SNLFlattenerNetTree* SNLFlattenerNetTreeNode::getTree() const {
+  if (isRoot()) {
+    return static_cast<SNLFlattenerNetTree*>(parent_);
+  }
+  return getParent()->getTree();
+}
+
+SNLFlattenerNetTreeNode* SNLFlattenerNetTreeNode::getParent() const {
+  if (not isRoot()) {
+   return static_cast<SNLFlattenerNetTreeNode*>(parent_);
+  }
+  return nullptr;
+}
+
 //LCOV_EXCL_START
 void SNLFlattenerNetTreeNode::print(std::ostream& stream, unsigned indent) const {
   stream << std::string(indent, ' ') << getString() << std::endl;

@@ -22,19 +22,45 @@
 namespace naja { namespace SNL {
 
 class SNLFlattenerNetTree;
+class SNLBitNet;
 
 class SNLFlattenerNetTreeNode {
   public:
-    SNLFlattenerNetTreeNode(const SNLFlattenerNetTreeNode&) = delete;
-    SNLFlattenerNetTreeNode(const SNLFlattenerNetTreeNode&&) = delete;
+    class Type {
+      public:
+        enum TypeEnum {
+          Root
+        };
+        Type() = delete;
+        Type(const TypeEnum& typeEnum);
+        Type(const Type&) = default;
+        Type& operator=(const Type&) = default;
 
+        operator const TypeEnum&() const {return typeEnum_;}
+        std::string getString() const;
+      private:
+        TypeEnum typeEnum_;
+    };
+
+    SNLFlattenerNetTreeNode() = delete;
+    SNLFlattenerNetTreeNode(const SNLFlattenerNetTreeNode&) = delete;
+    SNLFlattenerNetTreeNode(SNLFlattenerNetTreeNode&&) = delete;
+    SNLFlattenerNetTreeNode(SNLFlattenerNetTree* tree, const SNLBitNet* rootNet);
+
+    bool isRoot() const { return type_ == Type::Root; }
+
+
+    SNLFlattenerNetTreeNode* getParent() const;
     SNLFlattenerNetTree* getTree() const;
 
     void print(std::ostream& stream, unsigned indent=0) const;
     std::string getString() const;
   private:
-    SNLFlattenerNetTreeNode() = default;
     ~SNLFlattenerNetTreeNode();
+
+    void*       parent_ {nullptr};
+    Type        type_   {Type::Root};
+    const void* object_ {nullptr};
 };
 
 }} // namespace SNL // namespace naja

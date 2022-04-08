@@ -22,23 +22,26 @@
 namespace naja { namespace SNL {
 
 class SNLBitNet;
+class SNLFlattenerNetForest;
 class SNLFlattenerNetTreeNode;
 
 class SNLFlattenerNetTree {
   public:
+    SNLFlattenerNetTree() = delete;
     SNLFlattenerNetTree(const SNLFlattenerNetTree&) = delete;
-    SNLFlattenerNetTree(const SNLFlattenerNetTree&&) = delete;
-    static SNLFlattenerNetTree* create(const SNLBitNet* root);
+    SNLFlattenerNetTree(SNLFlattenerNetTree&&) = delete;
+    static SNLFlattenerNetTree* create(SNLFlattenerNetForest* forest, const SNLBitNet* net);
     void destroy();
 
     SNLFlattenerNetTreeNode* getRoot() const { return root_; }
 
     void print(std::ostream& stream) const;
   private:
-    SNLFlattenerNetTree() = default;
+    SNLFlattenerNetTree(SNLFlattenerNetForest* forest, const SNLBitNet* net);
     ~SNLFlattenerNetTree();
 
-    SNLFlattenerNetTreeNode* root_;
+    SNLFlattenerNetForest*    forest_ {nullptr};
+    SNLFlattenerNetTreeNode*  root_   {nullptr};
 };
 
 }} // namespace SNL // namespace naja

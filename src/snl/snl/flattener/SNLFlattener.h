@@ -37,8 +37,8 @@ class SNLFlattener {
 
     void process(const SNLDesign* top);
 
-    SNLFlattenerInstanceTree* getTree() const { return tree_; }
-    SNLFlattenerNetForest* getForest() const { return forest_; }
+    SNLFlattenerInstanceTree* getInstanceTree() const { return tree_; }
+    SNLFlattenerNetForest* getNetForest() const { return forest_; }
 
   private:
     using TermNodesMap = std::map<SNLBitTerm*, SNLFlattenerNetTreeNode*>;

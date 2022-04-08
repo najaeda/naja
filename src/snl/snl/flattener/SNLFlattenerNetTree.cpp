@@ -16,6 +16,19 @@
 
 #include "SNLFlattenerNetTree.h"
 
+#include "SNLFlattenerNetTreeNode.h"
+
 namespace naja { namespace SNL {
+
+SNLFlattenerNetTree::SNLFlattenerNetTree(SNLFlattenerNetForest* forest, const SNLBitNet* net):
+  forest_(forest) {
+  root_ = new SNLFlattenerNetTreeNode(this, net);
+
+}
+
+SNLFlattenerNetTree* SNLFlattenerNetTree::create(SNLFlattenerNetForest* forest, const SNLBitNet* net) {
+    SNLFlattenerNetTree* tree = new SNLFlattenerNetTree(forest, net);
+    return tree;
+}
 
 }} // namespace SNL // namespace naja
