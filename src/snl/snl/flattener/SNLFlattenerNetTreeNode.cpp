@@ -24,8 +24,36 @@ SNLFlattenerNetTreeNode::Type::Type(const TypeEnum& typeEnum):
 
 SNLFlattenerNetTreeNode::SNLFlattenerNetTreeNode(SNLFlattenerNetTree* tree, const SNLBitNet* rootNet):
   parent_(tree),
-  type_(Type::Root)
+  type_(Type::Root),
+  object_(rootNet)
 {}
+
+SNLFlattenerNetTreeNode::SNLFlattenerNetTreeNode(SNLFlattenerNetTreeNode* parent, const SNLInstTerm* instTerm):
+  parent_(parent),
+  type_(Type::InstTerm),
+  object_(instTerm)
+{}
+
+SNLFlattenerNetTreeNode::SNLFlattenerNetTreeNode(SNLFlattenerNetTreeNode* parent, const SNLBitTerm* term):
+  parent_(parent),
+  type_(Type::Term),
+  object_(term)
+{}
+
+SNLFlattenerNetTreeNode* SNLFlattenerNetTreeNode::create(SNLFlattenerNetTree* tree, const SNLBitNet* rootNet) {
+  auto node = new SNLFlattenerNetTreeNode(tree, rootNet);
+  return node;
+}
+
+SNLFlattenerNetTreeNode* SNLFlattenerNetTreeNode::create(SNLFlattenerNetTreeNode* parent, const SNLInstTerm* instTerm) {
+  auto node = new SNLFlattenerNetTreeNode(parent, instTerm);
+  return node;
+}
+
+SNLFlattenerNetTreeNode* SNLFlattenerNetTreeNode::create(SNLFlattenerNetTreeNode* parent, const SNLBitTerm* term) {
+  auto node = new SNLFlattenerNetTreeNode(parent, term);
+  return node;
+}
 
 SNLFlattenerNetTree* SNLFlattenerNetTreeNode::getTree() const {
   if (isRoot()) {

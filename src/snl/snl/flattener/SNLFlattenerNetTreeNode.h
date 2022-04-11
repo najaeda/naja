@@ -23,13 +23,15 @@ namespace naja { namespace SNL {
 
 class SNLFlattenerNetTree;
 class SNLBitNet;
+class SNLBitTerm;
+class SNLInstTerm;
 
 class SNLFlattenerNetTreeNode {
   public:
     class Type {
       public:
         enum TypeEnum {
-          Root
+          Root, InstTerm, Term
         };
         Type() = delete;
         Type(const TypeEnum& typeEnum);
@@ -45,17 +47,22 @@ class SNLFlattenerNetTreeNode {
     SNLFlattenerNetTreeNode() = delete;
     SNLFlattenerNetTreeNode(const SNLFlattenerNetTreeNode&) = delete;
     SNLFlattenerNetTreeNode(SNLFlattenerNetTreeNode&&) = delete;
-    SNLFlattenerNetTreeNode(SNLFlattenerNetTree* tree, const SNLBitNet* rootNet);
 
-    bool isRoot() const { return type_ == Type::Root; }
-
+    static SNLFlattenerNetTreeNode* create(SNLFlattenerNetTree* tree, const SNLBitNet* rootNet);
+    static SNLFlattenerNetTreeNode* create(SNLFlattenerNetTreeNode* parent, const SNLInstTerm* instTerm);
+    static SNLFlattenerNetTreeNode* create(SNLFlattenerNetTreeNode* parent, const SNLBitTerm* term);
 
     SNLFlattenerNetTreeNode* getParent() const;
     SNLFlattenerNetTree* getTree() const;
 
+    bool isRoot() const { return type_ == Type::Root; }
+
     void print(std::ostream& stream, unsigned indent=0) const;
     std::string getString() const;
   private:
+    SNLFlattenerNetTreeNode(SNLFlattenerNetTree* tree, const SNLBitNet* rootNet);
+    SNLFlattenerNetTreeNode(SNLFlattenerNetTreeNode* parent, const SNLInstTerm* instTerm);
+    SNLFlattenerNetTreeNode(SNLFlattenerNetTreeNode* parent, const SNLBitTerm* term);
     ~SNLFlattenerNetTreeNode();
 
     void*       parent_ {nullptr};

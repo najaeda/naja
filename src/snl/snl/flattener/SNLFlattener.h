@@ -43,6 +43,7 @@ class SNLFlattener {
   private:
     using TermNodesMap = std::map<SNLBitTerm*, SNLFlattenerNetTreeNode*>;
     void processTop(const SNLDesign* top);
+    void processTopNets(const SNLDesign* top);
     void processInstance(
       SNLFlattenerInstanceTreeNode* parent,
       const SNLInstance* instance,

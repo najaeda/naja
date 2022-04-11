@@ -15,14 +15,16 @@
  */
 
 #include "SNLFlattenerNetForest.h"
+#include "SNLFlattenerNetTree.h"
 
 namespace naja { namespace SNL {
 
 SNLFlattenerNetForest::~SNLFlattenerNetForest() {}
 
 void SNLFlattenerNetForest::print(std::ostream& stream) const {
-    
-
+    for (auto tree: trees_) {
+        tree->print(stream);
+    }
 }
 
 }} // namespace SNL // namespace naja

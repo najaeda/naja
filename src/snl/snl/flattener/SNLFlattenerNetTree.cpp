@@ -22,13 +22,16 @@ namespace naja { namespace SNL {
 
 SNLFlattenerNetTree::SNLFlattenerNetTree(SNLFlattenerNetForest* forest, const SNLBitNet* net):
   forest_(forest) {
-  root_ = new SNLFlattenerNetTreeNode(this, net);
-
+  root_ = SNLFlattenerNetTreeNode::create(this, net);
 }
 
 SNLFlattenerNetTree* SNLFlattenerNetTree::create(SNLFlattenerNetForest* forest, const SNLBitNet* net) {
-    SNLFlattenerNetTree* tree = new SNLFlattenerNetTree(forest, net);
-    return tree;
+  SNLFlattenerNetTree* tree = new SNLFlattenerNetTree(forest, net);
+  return tree;
+}
+
+void SNLFlattenerNetTree::print(std::ostream& stream) const {
+  getRoot()->print(stream);
 }
 
 }} // namespace SNL // namespace naja
