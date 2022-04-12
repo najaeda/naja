@@ -6,6 +6,9 @@ using ::testing::ElementsAre;
 #include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
 #include "SNLBusTermBit.h"
+#include "SNLScalarNet.h"
+#include "SNLBusNet.h"
+#include "SNLBusNetBit.h"
 #include "SNLException.h"
 using namespace naja::SNL;
 
@@ -58,6 +61,95 @@ TEST_F(SNLTermTest, testCreation) {
   EXPECT_FALSE(term0->getBit(0));
 
   EXPECT_THROW(term0->getBit(-4)->destroy(), SNLException);
+}
+
+TEST_F(SNLTermTest, testSetNet0) {
+  //SetNet for TermBus size > 1
+  SNLLibrary* library = db_->getLibrary(SNLName("MYLIB"));
+  ASSERT_NE(library, nullptr);
+  EXPECT_EQ(0, library->getDesigns().size());
+  EXPECT_TRUE(library->getDesigns().empty());
+  SNLDesign* design = SNLDesign::create(library, SNLName("design"));
+
+  SNLBusTerm* term0 = SNLBusTerm::create(design, SNLTerm::Direction::InOut, -1, -4, SNLName("term0"));
+
+  //same MSB, LSB
+  SNLBusNet* net = SNLBusNet::create(design, -1, -4, SNLName("n0"));
+  term0->setNet(net);
+  for (auto i=-1; i>=-4; i--) {
+    ASSERT_EQ(term0->getBit(i)->getNet(), net->getBit(i));
+  }
+
+  //destroy net and assert that term bits are NULL
+  net->destroy();
+  for (auto i=-1; i>=-4; i--) {
+    ASSERT_EQ(term0->getBit(i)->getNet(), nullptr);
+  }
+  
+  //Same size: inversed MSB, LSB
+  net = SNLBusNet::create(design, -4, -1, SNLName("n0"));
+  term0->setNet(net);
+  for (auto i=-1; i>=-4; i--) {
+    ASSERT_EQ(term0->getBit(i)->getNet(), net->getBit(-5-i));
+  }
+  net->destroy();
+  for (auto i=-1; i>=-4; i--) {
+    ASSERT_EQ(term0->getBit(i)->getNet(), nullptr);
+  }
+
+  //Same size but not same MSB LSB
+  net = SNLBusNet::create(design, 1, 4, SNLName("n0"));
+  term0->setNet(net);
+  for (auto i=-1; i>=-4; i--) {
+    ASSERT_EQ(term0->getBit(i)->getNet(), net->getBit(-i));
+  }
+  net->destroy();
+  for (auto i=-1; i>=-4; i--) {
+    ASSERT_EQ(term0->getBit(i)->getNet(), nullptr);
+  } 
+
+  //Same as before but inversed
+  net = SNLBusNet::create(design, 4, 1, SNLName("n0"));
+  term0->setNet(net);
+  for (auto i=-1; i>=-4; i--) {
+    ASSERT_EQ(term0->getBit(i)->getNet(), net->getBit(5+i));
+  }
+  net->destroy();
+  for (auto i=-1; i>=-4; i--) {
+    ASSERT_EQ(term0->getBit(i)->getNet(), nullptr);
+  }
+}
+
+TEST_F(SNLTermTest, testSetNet1) {
+  //SetNet for TermBus size == 1
+  SNLLibrary* library = db_->getLibrary(SNLName("MYLIB"));
+  ASSERT_NE(library, nullptr);
+  EXPECT_EQ(0, library->getDesigns().size());
+  EXPECT_TRUE(library->getDesigns().empty());
+  SNLDesign* design = SNLDesign::create(library, SNLName("design"));
+
+  SNLBusTerm* term0 = SNLBusTerm::create(design, SNLTerm::Direction::InOut, -1, -1, SNLName("term0"));
+
+  //SNLScalarNet case
+  SNLNet* net = SNLScalarNet::create(design, SNLName("n0"));
+  term0->setNet(net);
+  ASSERT_EQ(term0->getBit(-1)->getNet(), net);
+  net->destroy();
+  ASSERT_EQ(term0->getBit(-1)->getNet(), nullptr);
+
+  //1 bit bus SNLBusNet case
+  net = SNLBusNet::create(design, -1, -1, SNLName("n0"));
+  term0->setNet(net);
+  ASSERT_EQ(term0->getBit(-1)->getNet(), static_cast<SNLBusNet*>(net)->getBit(-1));
+  net->destroy();
+  ASSERT_EQ(term0->getBit(-1)->getNet(), nullptr);
+
+  //1 bit bus SNLBusNet case
+  net = SNLBusNet::create(design, 5, 5, SNLName("n0"));
+  term0->setNet(net);
+  ASSERT_EQ(term0->getBit(-1)->getNet(), static_cast<SNLBusNet*>(net)->getBit(5));
+  net->destroy();
+  ASSERT_EQ(term0->getBit(-1)->getNet(), nullptr);
 }
 
 TEST_F(SNLTermTest, testErrors) {

@@ -19,6 +19,8 @@
 #include "SNLException.h"
 #include "SNLDesign.h"
 #include "SNLBusTermBit.h"
+#include "SNLBusNet.h"
+#include "SNLBusNetBit.h"
 
 namespace naja { namespace SNL {
 
@@ -87,6 +89,29 @@ void SNLBusTerm::destroyFromDesign() {
 void SNLBusTerm::preDestroy() {
   getDesign()->removeTerm(this);
   commonPreDestroy();
+}
+
+void SNLBusTerm::setNet(SNLNet* net) {
+  if (net->getSize() not_eq getSize()) {
+    throw SNLException("setNet only supported when term and bit have same size");
+  }
+  if (auto bitNet = dynamic_cast<SNLBitNet*>(net)) {
+    getBit(getMSB())->setNet(bitNet);
+  } else {
+    auto busNet = static_cast<SNLBusNet*>(net);
+    auto termIt = getMSB();
+    auto netIt = busNet->getMSB();
+    auto termStop = getMSB()>getLSB()?-1:1;
+    auto netStop = busNet->getMSB()>busNet->getLSB()?-1:1;
+    while (termIt != getLSB()+termStop and netIt != busNet->getLSB()+netStop) {
+      auto bit = getBit(termIt);
+      if (bit) {
+        bit->setNet(busNet->getBit(netIt));
+      }
+      getMSB()>getLSB()?--termIt:++termIt;
+      busNet->getMSB()>busNet->getLSB()?--netIt:++netIt;
+    }
+  }
 }
 
 size_t SNLBusTerm::getSize() const {
