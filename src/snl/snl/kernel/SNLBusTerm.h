@@ -25,6 +25,7 @@
 
 namespace naja { namespace SNL {
 
+class SNLNet;
 class SNLBusTermBit;
 
 class SNLBusTerm final: public SNLTerm {
@@ -39,9 +40,11 @@ class SNLBusTerm final: public SNLTerm {
         SNLID::Bit lsb,
         const SNLName& name=SNLName());
 
-    SNLDesign* getDesign() const override { return design_; }
-    ///\return MSB (Most Significant Bit) or left hand side of the bus range.
+    void setNet(SNLNet* net);
 
+    SNLDesign* getDesign() const override { return design_; }
+    
+    ///\return MSB (Most Significant Bit) or left hand side of the bus range.
     SNLID::Bit getMSB() const { return msb_; }
     ///\return LSB (Most Significant Bit) or right hand side of the bus range.
     SNLID::Bit getLSB() const { return lsb_; }

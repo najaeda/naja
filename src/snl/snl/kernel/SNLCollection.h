@@ -139,12 +139,12 @@ class SNLVectorCollection: public SNLBaseCollection<Type> {
         using VectorIterator = typename Vector::const_iterator;
 
         SNLVectorCollectionIterator(SNLVectorCollectionIterator&) = default;
-        SNLVectorCollectionIterator(const Vector* bits, bool beginOrEnd=true): bits_(bits) {
-          if (bits_) {
+        SNLVectorCollectionIterator(const Vector* vector, bool beginOrEnd=true): vector_(vector) {
+          if (vector_) {
             if (beginOrEnd) {
-              it_ = bits->begin();
+              it_ = vector_->begin();
             } else {
-              it_ = bits->end();
+              it_ = vector_->end();
             }
           }
         }
@@ -162,42 +162,42 @@ class SNLVectorCollection: public SNLBaseCollection<Type> {
           return false;
         }
         bool isValid() const override {
-          return bits_ and it_ != bits_->end();
+          return vector_ and it_ != vector_->end();
         }
       private:
-        const Vector*   bits_ {nullptr};
-        VectorIterator  it_   {};
+        const Vector*   vector_ {nullptr};
+        VectorIterator  it_     {};
     };
 
     SNLVectorCollection() = delete;
     SNLVectorCollection(const SNLVectorCollection&) = delete;
     SNLVectorCollection(SNLVectorCollection&&) = delete;
-    SNLVectorCollection(const Vector* bits): super(), bits_(bits) {}
+    SNLVectorCollection(const Vector* vector): super(), vector_(vector) {}
     SNLBaseCollection<Type>* clone() const override {
-      return new SNLVectorCollection(bits_);
+      return new SNLVectorCollection(vector_);
     }
     SNLBaseIterator<Type>* begin() const override {
-      return new SNLVectorCollectionIterator(bits_, true);
+      return new SNLVectorCollectionIterator(vector_, true);
     }
     SNLBaseIterator<Type>* end() const override {
-      return new SNLVectorCollectionIterator(bits_, false);
+      return new SNLVectorCollectionIterator(vector_, false);
     }
 
     size_t size() const override {
-      if (bits_) {
-        return bits_->size();
+      if (vector_) {
+        return vector_->size();
       }
       return 0;
     }
 
     bool empty() const override {
-      if (bits_) {
-        return bits_->empty();
+      if (vector_) {
+        return vector_->empty();
       }
       return true;
     }
   private:
-    const Vector* bits_ {nullptr};
+    const Vector* vector_ {nullptr};
 };
 
 template<class Type, class SubType> class SNLSubTypeCollection: public SNLBaseCollection<SubType> {
