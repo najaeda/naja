@@ -152,6 +152,27 @@ TEST_F(SNLTermTest, testSetNet1) {
   ASSERT_EQ(term0->getBit(-1)->getNet(), nullptr);
 }
 
+TEST_F(SNLTermTest, testSetNetErrors) {
+   //SetNet for TermBus size == 1
+  SNLLibrary* library = db_->getLibrary(SNLName("MYLIB"));
+  ASSERT_NE(library, nullptr);
+  EXPECT_EQ(0, library->getDesigns().size());
+  EXPECT_TRUE(library->getDesigns().empty());
+  SNLDesign* design = SNLDesign::create(library, SNLName("design"));
+
+  SNLBusTerm* term0 = SNLBusTerm::create(design, SNLTerm::Direction::InOut, -2, 2, SNLName("term0"));
+
+  //With scalar net
+  SNLNet* net = SNLScalarNet::create(design, SNLName("n0"));
+  ASSERT_THROW(term0->setNet(net), SNLException);
+  net->destroy();
+ 
+  //different size SNLBusNet case
+  net = SNLBusNet::create(design, 0, 2, SNLName("n0"));
+  ASSERT_THROW(term0->setNet(net), SNLException);
+  net->destroy();
+}
+
 TEST_F(SNLTermTest, testErrors) {
   EXPECT_THROW(SNLScalarTerm::create(nullptr, SNLTerm::Direction::Input), SNLException);
   EXPECT_THROW(SNLBusTerm::create(nullptr, SNLTerm::Direction::Input, 31, 0), SNLException);
