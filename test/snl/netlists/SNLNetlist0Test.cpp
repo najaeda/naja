@@ -6,6 +6,9 @@
 #include "SNLNetlist0.h"
 
 #include "SNLUniverse.h"
+#include "SNLBusTerm.h"
+#include "SNLBusTermBit.h"
+#include "SNLBusNetBit.h"
 
 using namespace naja::SNL;
 
@@ -29,4 +32,27 @@ TEST_F(SNLNetlistTest0, test) {
   ASSERT_NE(nullptr, SNLNetlist0::getTop());
   ASSERT_NE(nullptr, SNLNetlist0::getTopIns0());
   ASSERT_NE(nullptr, SNLNetlist0::getTopIns1());
+
+  auto iTerm = SNLNetlist0::getTopITerm();
+  ASSERT_NE(nullptr, iTerm);
+  auto iNet = SNLNetlist0::getTopINet();
+  ASSERT_NE(nullptr, iNet);
+  for (auto termBit: iTerm->getBits()) {
+    auto netBit = termBit->getNet();
+    ASSERT_NE(nullptr, netBit);
+    auto busNetBit = dynamic_cast<SNLBusNetBit*>(netBit);
+    ASSERT_NE(nullptr, busNetBit);
+    EXPECT_EQ(termBit->getBit(), busNetBit->getBit());
+  }
+  auto oTerm = SNLNetlist0::getTopITerm();
+  ASSERT_NE(nullptr, oTerm);
+  auto oNet = SNLNetlist0::getTopONet();
+  ASSERT_NE(nullptr, oNet);
+  for (auto termBit: oTerm->getBits()) {
+    auto netBit = termBit->getNet();
+    ASSERT_NE(nullptr, netBit);
+    auto busNetBit = dynamic_cast<SNLBusNetBit*>(netBit);
+    ASSERT_NE(nullptr, busNetBit);
+    EXPECT_EQ(termBit->getBit(), busNetBit->getBit());
+  }
 }
