@@ -27,6 +27,7 @@ class SNLFlattenerNetTreeNode;
 
 class SNLFlattenerNetTree {
   public:
+    friend class SNLFlattenerNetForest;
     SNLFlattenerNetTree() = delete;
     SNLFlattenerNetTree(const SNLFlattenerNetTree&) = delete;
     SNLFlattenerNetTree(SNLFlattenerNetTree&&) = delete;
@@ -39,6 +40,7 @@ class SNLFlattenerNetTree {
   private:
     SNLFlattenerNetTree(SNLFlattenerNetForest* forest, const SNLBitNet* net);
     ~SNLFlattenerNetTree();
+    void destroyFromForest();
 
     SNLFlattenerNetForest*    forest_ {nullptr};
     SNLFlattenerNetTreeNode*  root_   {nullptr};

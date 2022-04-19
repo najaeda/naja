@@ -55,12 +55,12 @@ TEST_F(SNLFlattenerTest0, test0) {
   ASSERT_NE(nullptr, forest);
 
   std::filesystem::path dumpsPath(FLATTENER_DUMP_PATHS);
-  std::filesystem::path instanceTreePath = dumpsPath/"SNFlattenerTest0Test0InstanceTree.debug";
+  std::filesystem::path instanceTreePath = dumpsPath/"SNLFlattenerTest0Test0InstanceTree.debug";
   std::ofstream instanceTreeFile;
   instanceTreeFile.open(instanceTreePath, std::ios::out);
   tree->print(instanceTreeFile);
 
-  std::filesystem::path netForestPath = dumpsPath/"SNFlattenerTest0Test0NetForest.debug";
+  std::filesystem::path netForestPath = dumpsPath/"SNLFlattenerTest0Test0NetForest.debug";
   std::ofstream netForestFile;
   netForestFile.open(netForestPath, std::ios::out);
   forest->print(netForestFile);

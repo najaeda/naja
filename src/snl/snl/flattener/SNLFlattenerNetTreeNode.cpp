@@ -32,13 +32,17 @@ SNLFlattenerNetTreeNode::SNLFlattenerNetTreeNode(SNLFlattenerNetTreeNode* parent
   parent_(parent),
   type_(Type::InstTerm),
   object_(instTerm)
-{}
+{
+  parent->addChild(this); 
+}
 
 SNLFlattenerNetTreeNode::SNLFlattenerNetTreeNode(SNLFlattenerNetTreeNode* parent, const SNLBitTerm* term):
   parent_(parent),
   type_(Type::Term),
   object_(term)
-{}
+{
+  parent->addChild(this);
+}
 
 SNLFlattenerNetTreeNode* SNLFlattenerNetTreeNode::create(SNLFlattenerNetTree* tree, const SNLBitNet* rootNet) {
   auto node = new SNLFlattenerNetTreeNode(tree, rootNet);

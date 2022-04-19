@@ -20,14 +20,16 @@
 #include <ostream>
 #include <set>
 
-namespace naja { namespace SNL {
+#include "SNLFlattenerNetTree.h"
 
-class SNLFlattenerNetTree;
+namespace naja { namespace SNL {
 
 class SNLFlattenerNetForest {
   public:
     friend class SNLFlattener;
-    using Trees = std::set<SNLFlattenerNetTree*>;
+    friend class SNLFlattenerNetTree;
+    using Trees = std::set<SNLFlattenerNetTree*, SNLFlattenerNetTree::Less>;
+
     SNLFlattenerNetForest(const SNLFlattenerNetForest&) = delete;
     SNLFlattenerNetForest(const SNLFlattenerNetForest&&) = delete;
 

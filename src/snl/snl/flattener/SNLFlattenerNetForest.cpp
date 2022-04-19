@@ -19,12 +19,22 @@
 
 namespace naja { namespace SNL {
 
-SNLFlattenerNetForest::~SNLFlattenerNetForest() {}
+SNLFlattenerNetForest::~SNLFlattenerNetForest() {
+  std::for_each(trees_.begin(), trees_.end(),
+    [](SNLFlattenerNetTree* tree) {
+      tree->destroyFromForest();
+    }
+  );
+}
+
+void SNLFlattenerNetForest::addTree(SNLFlattenerNetTree* tree) {
+  
+}
 
 void SNLFlattenerNetForest::print(std::ostream& stream) const {
-    for (auto tree: trees_) {
-        tree->print(stream);
-    }
+  for (auto tree: trees_) {
+    tree->print(stream);
+  }
 }
 
 }} // namespace SNL // namespace naja

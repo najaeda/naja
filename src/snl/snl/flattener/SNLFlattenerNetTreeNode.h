@@ -17,6 +17,7 @@
 #ifndef __SNL_FLATTENER_NET_TREE_NODE_H_
 #define __SNL_FLATTENER_NET_TREE_NODE_H_
 
+#include <vector>
 #include <ostream>
 
 namespace naja { namespace SNL {
@@ -44,6 +45,8 @@ class SNLFlattenerNetTreeNode {
         TypeEnum typeEnum_;
     };
 
+    using Children = std::vector<SNLFlattenerNetTreeNode*>;
+
     SNLFlattenerNetTreeNode() = delete;
     SNLFlattenerNetTreeNode(const SNLFlattenerNetTreeNode&) = delete;
     SNLFlattenerNetTreeNode(SNLFlattenerNetTreeNode&&) = delete;
@@ -65,9 +68,12 @@ class SNLFlattenerNetTreeNode {
     SNLFlattenerNetTreeNode(SNLFlattenerNetTreeNode* parent, const SNLBitTerm* term);
     ~SNLFlattenerNetTreeNode();
 
-    void*       parent_ {nullptr};
-    Type        type_   {Type::Root};
-    const void* object_ {nullptr};
+    void addChild(SNLFlattenerNetTreeNode* child);
+
+    void*       parent_   {nullptr};
+    Type        type_     {Type::Root};
+    const void* object_   {nullptr};
+    Children    children_ {};
 };
 
 }} // namespace SNL // namespace naja
