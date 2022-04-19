@@ -5,7 +5,8 @@
 #include "SNLDesign.h"
 #include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
-#include "SNLScalarNet.h" 
+#include "SNLScalarNet.h"
+#include "SNLBusNet.h"
 #include "SNLInstTerm.h" 
 
 using namespace naja::SNL;
@@ -45,8 +46,12 @@ SNLDesign* SNLNetlist0::create(SNLDB* db) {
 
   auto top = SNLDesign::create(designsLib, SNLName(TopName));
   {
-    auto i = SNLBusTerm::create(top, SNLTerm::Direction::Input, 0, 1, SNLName("i"));
-    auto o = SNLBusTerm::create(top, SNLTerm::Direction::InOut, 0, 1, SNLName("o"));
+    auto i = SNLBusTerm::create(top, SNLTerm::Direction::Input, 0, 1, SNLName(TopIName));
+    auto iNet = SNLBusNet::create(top, 0, 1, SNLName(TopIName));
+    i->setNet(iNet);
+    auto o = SNLBusTerm::create(top, SNLTerm::Direction::InOut, 0, 1, SNLName(TopOName));
+    auto oNet = SNLBusNet::create(top, 0, 1, SNLName(TopOName));
+    o->setNet(oNet);
     auto module0Ins0 = SNLInstance::create(top, module0, SNLName(TopIns0Name));
     auto module0Ins1 = SNLInstance::create(top, module0, SNLName(TopIns1Name));
   }
@@ -90,6 +95,38 @@ SNLInstance* SNLNetlist0::getTopIns1() {
   auto top = getTop();
   if (top) {
     return top->getInstance(SNLName(TopIns1Name));
+  }
+  return nullptr;
+}
+
+SNLBusTerm* SNLNetlist0::getTopOTerm() {
+  auto top = getTop();
+  if (top) {
+    return top->getBusTerm(SNLName(TopOName));
+  }
+  return nullptr;
+}
+
+SNLBusTerm* SNLNetlist0::getTopITerm() {
+  auto top = getTop();
+  if (top) {
+    return top->getBusTerm(SNLName(TopIName));
+  }
+  return nullptr;
+}
+
+SNLBusNet* SNLNetlist0::getTopONet() {
+  auto top = getTop();
+  if (top) {
+    return top->getBusNet(SNLName(TopOName));
+  }
+  return nullptr;
+}
+
+SNLBusNet* SNLNetlist0::getTopINet() {
+  auto top = getTop();
+  if (top) {
+    return top->getBusNet(SNLName(TopIName));
   }
   return nullptr;
 }
