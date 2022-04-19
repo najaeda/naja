@@ -43,7 +43,10 @@ class SNLTerm: public SNLNetComponent {
 
     virtual SNLID::DesignObjectID getID() const = 0;
     virtual size_t getPosition() const = 0;
+    ///\return term SNLName
     virtual SNLName getName() const = 0;
+    ///\return term size, 1 for SNLScalarTerm and SNLBusNetBit
+    virtual size_t getSize() const = 0;
     virtual Direction getDirection() const = 0;
 
   protected:

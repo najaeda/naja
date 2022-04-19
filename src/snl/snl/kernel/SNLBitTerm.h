@@ -25,6 +25,7 @@ class SNLBitTerm: public SNLTerm {
   public:
     using super = SNLTerm;
 
+    size_t getSize() const override { return 1; }
     virtual SNLID::Bit getBit() const = 0;
   protected:
     SNLBitTerm() = default;

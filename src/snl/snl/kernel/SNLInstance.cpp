@@ -25,6 +25,8 @@
 #include "SNLBusTerm.h"
 #include "SNLBusTermBit.h"
 #include "SNLScalarTerm.h"
+#include "SNLBusNet.h"
+#include "SNLBusNetBit.h"
 #include "SNLInstTerm.h"
 
 namespace naja { namespace SNL {
@@ -102,6 +104,35 @@ void SNLInstance::removeInstTerm(SNLBitTerm* term) {
     instTerm->destroyFromInstance();
   }
   instTerms_[term->getPosition()] = nullptr;
+}
+
+void SNLInstance::setTermNet(SNLTerm* term, SNLNet* net) {
+  if (term->getSize() not_eq net->getSize()) {
+    throw SNLException("setTermNet only supported when term and net share same size");
+  }
+  using Terms = std::vector<SNLBitTerm*>;
+  Terms terms;
+  using Nets = std::vector<SNLBitNet*>;
+  Nets nets;
+  if (auto busTerm = dynamic_cast<SNLBusTerm*>(term)) {
+    terms = Terms(busTerm->getBits().begin(), busTerm->getBits().end());
+  } else {
+    auto bitTerm = static_cast<SNLBitTerm*>(term);
+    terms.push_back(bitTerm);
+  }
+  if (auto busNet = dynamic_cast<SNLBusNet*>(net)) {
+    nets = Nets(busNet->getBits().begin(), busNet->getBits().end());
+  } else {
+    auto bitNet = static_cast<SNLBitNet*>(net);
+    nets.push_back(bitNet);
+  }
+
+  assert(terms.size() == nets.size());
+  for (size_t i=0; i<terms.size(); ++i) {
+    SNLBitTerm* bitTerm = terms[i];
+    SNLInstTerm* instTerm = getInstTerm(bitTerm);
+    instTerm->setNet(nets[i]);
+  }
 }
 
 void SNLInstance::commonPreDestroy() {
