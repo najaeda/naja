@@ -87,6 +87,7 @@ void SNLFlattener::processTopNets(const SNLDesign* top) {
 }
 
 void SNLFlattener::processTop(const SNLDesign* top) {
+  processTopNets(top);
   auto root = tree_->getRoot();
   for (auto instance: top->getInstances()) {
     TermNodesMap termNodesMap;
