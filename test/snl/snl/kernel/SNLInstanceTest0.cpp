@@ -14,7 +14,7 @@ using ::testing::ElementsAre;
 #include "SNLException.h"
 using namespace naja::SNL;
 
-class SNLInstanceTest: public ::testing::Test {
+class SNLInstanceTest0: public ::testing::Test {
   protected:
     void SetUp() override {
       auto universe = SNLUniverse::create();
@@ -26,7 +26,7 @@ class SNLInstanceTest: public ::testing::Test {
     SNLDB*  db_;
 };
 
-TEST_F(SNLInstanceTest, testCreation) {
+TEST_F(SNLInstanceTest0, testCreation) {
   SNLLibrary* library = SNLLibrary::create(db_, SNLName("MYLIB"));
   SNLDesign* design = SNLDesign::create(library, SNLName("design"));
   SNLDesign* model = SNLDesign::create(library, SNLName("model"));
@@ -342,7 +342,6 @@ TEST_F(SNLInstanceTest, testCreation) {
     EXPECT_EQ(instTermsVector[13], instance2->getInstTerm(dynamic_cast<SNLBusTerm*>(termsVector[5])->getBit(3)));
   }
 
-
   //destroy some terminals and verify instance terminals
   term4->destroy();
   EXPECT_EQ(5, model->getTerms().size());
@@ -368,7 +367,7 @@ TEST_F(SNLInstanceTest, testCreation) {
   EXPECT_EQ(design->getInstance(SNLName("instance2")), nullptr);
 }
 
-TEST_F(SNLInstanceTest, testInstTerm) {
+TEST_F(SNLInstanceTest0, testInstTerm) {
   SNLLibrary* library = SNLLibrary::create(db_, SNLName("MYLIB"));
   SNLDesign* design = SNLDesign::create(library, SNLName("design"));
   SNLDesign* model0 = SNLDesign::create(library, SNLName("model0"));
@@ -392,7 +391,7 @@ TEST_F(SNLInstanceTest, testInstTerm) {
   EXPECT_THROW(instance->getInstTerm(model0Term)->destroy(), SNLException);
 }
 
-TEST_F(SNLInstanceTest, testModelDestroy) {
+TEST_F(SNLInstanceTest0, testModelDestroy) {
   SNLLibrary* library = SNLLibrary::create(db_, SNLName("MYLIB"));
   SNLDesign* design = SNLDesign::create(library, SNLName("design"));
   SNLDesign* model0 = SNLDesign::create(library, SNLName("model0"));
@@ -428,7 +427,7 @@ TEST_F(SNLInstanceTest, testModelDestroy) {
   EXPECT_TRUE(design->getInstances().empty());
 }
 
-TEST_F(SNLInstanceTest, testErrors) {
+TEST_F(SNLInstanceTest0, testErrors) {
   SNLLibrary* library = SNLLibrary::create(db_, SNLName("MYLIB"));
   SNLDesign* design = SNLDesign::create(library, SNLName("design"));
   SNLDesign* model = SNLDesign::create(library, SNLName("model"));
