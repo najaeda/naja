@@ -41,7 +41,6 @@ class SNLFlattenerNetTreeNode {
         Type(const TypeEnum& typeEnum);
         Type(const Type&) = default;
         Type& operator=(const Type&) = default;
-
         operator const TypeEnum&() const {return typeEnum_;}
         std::string getString() const;
       private:
@@ -66,12 +65,20 @@ class SNLFlattenerNetTreeNode {
     static SNLFlattenerNetTreeNode* create(SNLFlattenerNetTreeNode* parent, const SNLInstTerm* instTerm);
     static SNLFlattenerNetTreeNode* create(SNLFlattenerNetTreeNode* parent, const SNLBitTerm* term);
 
+    const SNLBitNet* getNet() const;
+    const SNLBitTerm* getTerm() const;
+    const SNLInstTerm* getInstTerm() const;
+
     SNLFlattenerNetTreeNode* getParent() const;
     SNLFlattenerNetTree* getTree() const;
     SNLFlattenerNetForest* getForest() const;
+    Type getType() const { return type_; }
     ID getID() const { return id_; }
+    std::string getObjectString() const;
 
     bool isRoot() const { return type_ == Type::Root; }
+    bool isTerm() const { return type_ == Type::Term; }
+    bool isInstTerm() const { return type_ == Type::InstTerm; }
 
     void print(std::ostream& stream, unsigned indent=0) const;
     std::string getString() const;

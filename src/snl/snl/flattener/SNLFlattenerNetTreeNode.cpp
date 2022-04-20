@@ -16,15 +16,29 @@
 
 #include "SNLFlattenerNetTreeNode.h"
 
-#include <iostream>
+#include <sstream>
 
 #include "SNLFlattenerNetTree.h"
+#include "SNLBitNet.h"
+#include "SNLBitTerm.h"
+#include "SNLInstTerm.h"
 
 namespace naja { namespace SNL {
 
 SNLFlattenerNetTreeNode::Type::Type(const TypeEnum& typeEnum):
   typeEnum_(typeEnum) 
 {}
+
+//LCOV_EXCL_START
+std::string SNLFlattenerNetTreeNode::Type::getString() const {
+  switch (typeEnum_) {
+    case Type::Root:      return "Root";
+    case Type::InstTerm:  return "InstTerm";
+    case Type::Term:      return "Term";
+  }
+  return "Unknown";
+}
+//LCOV_EXCL_STOP
 
 SNLFlattenerNetTreeNode::SNLFlattenerNetTreeNode(SNLFlattenerNetTree* tree, const SNLBitNet* rootNet):
   parent_(tree),
@@ -80,21 +94,69 @@ SNLFlattenerNetForest* SNLFlattenerNetTreeNode::getForest() const {
 
 SNLFlattenerNetTreeNode* SNLFlattenerNetTreeNode::getParent() const {
   if (not isRoot()) {
-   return static_cast<SNLFlattenerNetTreeNode*>(parent_);
+    return static_cast<SNLFlattenerNetTreeNode*>(parent_);
+  }
+  return nullptr;
+}
+
+const SNLBitNet* SNLFlattenerNetTreeNode::getNet() const {
+  if (isRoot()) {
+    return static_cast<const SNLBitNet*>(object_);
+  }
+  return nullptr;
+}
+
+const SNLBitTerm* SNLFlattenerNetTreeNode::getTerm() const {
+  if (isTerm()) {
+    return static_cast<const SNLBitTerm*>(object_);
+  }
+  return nullptr;
+}
+
+const SNLInstTerm* SNLFlattenerNetTreeNode::getInstTerm() const {
+  if (isInstTerm()) {
+    return static_cast<const SNLInstTerm*>(object_);
   }
   return nullptr;
 }
 
 //LCOV_EXCL_START
+std::string SNLFlattenerNetTreeNode::getObjectString() const {
+  switch (getType()) {
+    case Type::Root: {
+      auto net = getNet();
+      return net->getString();
+    }
+    case Type::Term: {
+      auto term = getTerm();
+      return term->getString();
+    }
+    case Type::InstTerm: {
+      auto instTerm = getInstTerm();
+      return instTerm->getString();
+    }
+  }
+  return "Unknown";
+}
+//LCOV_EXCL_STOP
+
+//LCOV_EXCL_START
 void SNLFlattenerNetTreeNode::print(std::ostream& stream, unsigned indent) const {
   stream << std::string(indent, ' ') << getString() << std::endl;
   indent += 2;
+  for (auto child: children_) {
+    child->print(stream, indent);
+  }
 }
 //LCOV_EXCL_STOP
 
 //LCOV_EXCL_START
 std::string SNLFlattenerNetTreeNode::getString() const {
-  return std::string();
+  std::ostringstream stream;
+  stream << getType().getString();
+  stream << ":" << getID();
+  stream << ":" << getObjectString();
+  return stream.str();
 }
 //LCOV_EXCL_STOP
 
