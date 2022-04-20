@@ -28,22 +28,33 @@ class SNLFlattenerNetTreeNode;
 class SNLFlattenerNetTree {
   public:
     friend class SNLFlattenerNetForest;
+    using ID = unsigned int;
+
+    struct Less {
+      bool operator() (const SNLFlattenerNetTree* leftTree, const SNLFlattenerNetTree* rightTree) const {
+        return leftTree->getID() < rightTree->getID();
+      }
+    };
+
     SNLFlattenerNetTree() = delete;
     SNLFlattenerNetTree(const SNLFlattenerNetTree&) = delete;
     SNLFlattenerNetTree(SNLFlattenerNetTree&&) = delete;
     static SNLFlattenerNetTree* create(SNLFlattenerNetForest* forest, const SNLBitNet* net);
     void destroy();
 
+    ID getID() const { return id_; }
     SNLFlattenerNetTreeNode* getRoot() const { return root_; }
+    SNLFlattenerNetForest* getForest() const { return forest_; }
 
     void print(std::ostream& stream) const;
   private:
     SNLFlattenerNetTree(SNLFlattenerNetForest* forest, const SNLBitNet* net);
-    ~SNLFlattenerNetTree();
+    ~SNLFlattenerNetTree() = default;
     void destroyFromForest();
 
     SNLFlattenerNetForest*    forest_ {nullptr};
     SNLFlattenerNetTreeNode*  root_   {nullptr};
+    ID                        id_     {0};
 };
 
 }} // namespace SNL // namespace naja

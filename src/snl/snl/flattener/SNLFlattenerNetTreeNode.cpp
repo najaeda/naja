@@ -16,6 +16,10 @@
 
 #include "SNLFlattenerNetTreeNode.h"
 
+#include <iostream>
+
+#include "SNLFlattenerNetTree.h"
+
 namespace naja { namespace SNL {
 
 SNLFlattenerNetTreeNode::Type::Type(const TypeEnum& typeEnum):
@@ -44,6 +48,10 @@ SNLFlattenerNetTreeNode::SNLFlattenerNetTreeNode(SNLFlattenerNetTreeNode* parent
   parent->addChild(this);
 }
 
+void SNLFlattenerNetTreeNode::addChild(SNLFlattenerNetTreeNode* child) {
+  children_.insert(child);
+}
+
 SNLFlattenerNetTreeNode* SNLFlattenerNetTreeNode::create(SNLFlattenerNetTree* tree, const SNLBitNet* rootNet) {
   auto node = new SNLFlattenerNetTreeNode(tree, rootNet);
   return node;
@@ -64,6 +72,10 @@ SNLFlattenerNetTree* SNLFlattenerNetTreeNode::getTree() const {
     return static_cast<SNLFlattenerNetTree*>(parent_);
   }
   return getParent()->getTree();
+}
+
+SNLFlattenerNetForest* SNLFlattenerNetTreeNode::getForest() const {
+  return getTree()->getForest();
 }
 
 SNLFlattenerNetTreeNode* SNLFlattenerNetTreeNode::getParent() const {

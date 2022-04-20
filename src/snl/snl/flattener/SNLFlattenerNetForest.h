@@ -39,8 +39,10 @@ class SNLFlattenerNetForest {
     ~SNLFlattenerNetForest();
 
     void addTree(SNLFlattenerNetTree* tree);
+    void removeTree(SNLFlattenerNetTree* tree);
 
-    Trees trees_  {};
+    Trees                   trees_      {};
+    SNLFlattenerNetTree::ID nextTreeID_ {0};
 };
 
 }} // namespace SNL // namespace naja

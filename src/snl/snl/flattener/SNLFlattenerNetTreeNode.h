@@ -17,18 +17,21 @@
 #ifndef __SNL_FLATTENER_NET_TREE_NODE_H_
 #define __SNL_FLATTENER_NET_TREE_NODE_H_
 
-#include <vector>
-#include <ostream>
+#include <set>
+#include "SNLFlattenerInstanceTreeNode.h"
 
 namespace naja { namespace SNL {
 
-class SNLFlattenerNetTree;
 class SNLBitNet;
 class SNLBitTerm;
 class SNLInstTerm;
 
+class SNLFlattenerNetTree;
+class SNLFlattenerNetForest;
+
 class SNLFlattenerNetTreeNode {
   public:
+    using ID = unsigned int;
     class Type {
       public:
         enum TypeEnum {
@@ -45,7 +48,15 @@ class SNLFlattenerNetTreeNode {
         TypeEnum typeEnum_;
     };
 
-    using Children = std::vector<SNLFlattenerNetTreeNode*>;
+    struct Less {
+      bool operator() (
+        const SNLFlattenerNetTreeNode* leftNode,
+        const SNLFlattenerNetTreeNode* rightNode) const {
+        return leftNode->getID() < rightNode->getID();
+      }
+    };
+
+    using Children = std::set<SNLFlattenerNetTreeNode*, SNLFlattenerNetTreeNode::Less>;
 
     SNLFlattenerNetTreeNode() = delete;
     SNLFlattenerNetTreeNode(const SNLFlattenerNetTreeNode&) = delete;
@@ -57,6 +68,8 @@ class SNLFlattenerNetTreeNode {
 
     SNLFlattenerNetTreeNode* getParent() const;
     SNLFlattenerNetTree* getTree() const;
+    SNLFlattenerNetForest* getForest() const;
+    ID getID() const { return id_; }
 
     bool isRoot() const { return type_ == Type::Root; }
 
@@ -70,6 +83,7 @@ class SNLFlattenerNetTreeNode {
 
     void addChild(SNLFlattenerNetTreeNode* child);
 
+    ID          id_       {0};
     void*       parent_   {nullptr};
     Type        type_     {Type::Root};
     const void* object_   {nullptr};
