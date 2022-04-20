@@ -126,14 +126,14 @@ TEST_F(SNLInstanceTest0, testCreation) {
       )
     );
 
-    EXPECT_EQ(0, termsVector[0]->getPosition());
-    EXPECT_EQ(1, termsVector[1]->getPosition());
-    EXPECT_EQ(1, dynamic_cast<SNLBusTerm*>(termsVector[1])->getBit(0)->getPosition());
-    EXPECT_EQ(2, dynamic_cast<SNLBusTerm*>(termsVector[1])->getBit(1)->getPosition());
-    EXPECT_EQ(3, dynamic_cast<SNLBusTerm*>(termsVector[1])->getBit(2)->getPosition());
-    EXPECT_EQ(4, dynamic_cast<SNLBusTerm*>(termsVector[1])->getBit(3)->getPosition());
-    EXPECT_EQ(5, termsVector[2]->getPosition());
-    EXPECT_EQ(6, termsVector[3]->getPosition());
+    EXPECT_EQ(0, termsVector[0]->getPositionInDesign());
+    EXPECT_EQ(1, termsVector[1]->getPositionInDesign());
+    EXPECT_EQ(1, dynamic_cast<SNLBusTerm*>(termsVector[1])->getBit(0)->getPositionInDesign());
+    EXPECT_EQ(2, dynamic_cast<SNLBusTerm*>(termsVector[1])->getBit(1)->getPositionInDesign());
+    EXPECT_EQ(3, dynamic_cast<SNLBusTerm*>(termsVector[1])->getBit(2)->getPositionInDesign());
+    EXPECT_EQ(4, dynamic_cast<SNLBusTerm*>(termsVector[1])->getBit(3)->getPositionInDesign());
+    EXPECT_EQ(5, termsVector[2]->getPositionInDesign());
+    EXPECT_EQ(6, termsVector[3]->getPositionInDesign());
 
     //i0
     EXPECT_EQ(SNLID(SNLID::Type::InstTerm, 1, 0, 0, 0, 0, 0), instTermsVector[0]->getSNLID());
@@ -288,21 +288,21 @@ TEST_F(SNLInstanceTest0, testCreation) {
     EXPECT_FALSE(instTermsVector[12]->isAnonymous());
     EXPECT_FALSE(instTermsVector[13]->isAnonymous());
 
-    EXPECT_EQ(0,  termsVector[0]->getPosition());
-    EXPECT_EQ(1,  termsVector[1]->getPosition());
-    EXPECT_EQ(1,  dynamic_cast<SNLBusTerm*>(termsVector[1])->getBit(0)->getPosition());
-    EXPECT_EQ(2,  dynamic_cast<SNLBusTerm*>(termsVector[1])->getBit(1)->getPosition());
-    EXPECT_EQ(3,  dynamic_cast<SNLBusTerm*>(termsVector[1])->getBit(2)->getPosition());
-    EXPECT_EQ(4,  dynamic_cast<SNLBusTerm*>(termsVector[1])->getBit(3)->getPosition());
-    EXPECT_EQ(5,  termsVector[2]->getPosition());
-    EXPECT_EQ(6,  termsVector[3]->getPosition());
-    EXPECT_EQ(7,  termsVector[4]->getPosition());
-    EXPECT_EQ(8,  dynamic_cast<SNLBusTerm*>(termsVector[5])->getBit(-2)->getPosition());
-    EXPECT_EQ(9,  dynamic_cast<SNLBusTerm*>(termsVector[5])->getBit(-1)->getPosition());
-    EXPECT_EQ(10, dynamic_cast<SNLBusTerm*>(termsVector[5])->getBit(0)->getPosition());
-    EXPECT_EQ(11, dynamic_cast<SNLBusTerm*>(termsVector[5])->getBit(1)->getPosition());
-    EXPECT_EQ(12, dynamic_cast<SNLBusTerm*>(termsVector[5])->getBit(2)->getPosition());
-    EXPECT_EQ(13, dynamic_cast<SNLBusTerm*>(termsVector[5])->getBit(3)->getPosition());
+    EXPECT_EQ(0,  termsVector[0]->getPositionInDesign());
+    EXPECT_EQ(1,  termsVector[1]->getPositionInDesign());
+    EXPECT_EQ(1,  dynamic_cast<SNLBusTerm*>(termsVector[1])->getBit(0)->getPositionInDesign());
+    EXPECT_EQ(2,  dynamic_cast<SNLBusTerm*>(termsVector[1])->getBit(1)->getPositionInDesign());
+    EXPECT_EQ(3,  dynamic_cast<SNLBusTerm*>(termsVector[1])->getBit(2)->getPositionInDesign());
+    EXPECT_EQ(4,  dynamic_cast<SNLBusTerm*>(termsVector[1])->getBit(3)->getPositionInDesign());
+    EXPECT_EQ(5,  termsVector[2]->getPositionInDesign());
+    EXPECT_EQ(6,  termsVector[3]->getPositionInDesign());
+    EXPECT_EQ(7,  termsVector[4]->getPositionInDesign());
+    EXPECT_EQ(8,  dynamic_cast<SNLBusTerm*>(termsVector[5])->getBit(-2)->getPositionInDesign());
+    EXPECT_EQ(9,  dynamic_cast<SNLBusTerm*>(termsVector[5])->getBit(-1)->getPositionInDesign());
+    EXPECT_EQ(10, dynamic_cast<SNLBusTerm*>(termsVector[5])->getBit(0)->getPositionInDesign());
+    EXPECT_EQ(11, dynamic_cast<SNLBusTerm*>(termsVector[5])->getBit(1)->getPositionInDesign());
+    EXPECT_EQ(12, dynamic_cast<SNLBusTerm*>(termsVector[5])->getBit(2)->getPositionInDesign());
+    EXPECT_EQ(13, dynamic_cast<SNLBusTerm*>(termsVector[5])->getBit(3)->getPositionInDesign());
 
     //i0
     EXPECT_EQ(SNLID(SNLID::Type::InstTerm, 1, 0, 0, 0, 1, 0), instTermsVector[0]->getSNLID());

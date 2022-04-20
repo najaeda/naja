@@ -67,8 +67,12 @@ SNLID SNLBusTermBit::getSNLID() const {
   return SNLDesignObject::getSNLID(SNLID::Type::TermBit, getID(), 0, getBit());
 }
 
-size_t SNLBusTermBit::getPosition() const {
-  return getBus()->getPosition() + size_t(std::abs(getBit() - getBus()->getMSB()));
+size_t SNLBusTermBit::getPositionInDesign() const {
+  return getBus()->getPositionInDesign() + getPositionInBus();
+}
+
+size_t SNLBusTermBit::getPositionInBus() const {
+  return size_t(std::abs(getBit() - getBus()->getMSB())); 
 }
 
 SNLDesign* SNLBusTermBit::getDesign() const {

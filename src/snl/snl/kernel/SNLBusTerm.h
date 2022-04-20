@@ -50,11 +50,12 @@ class SNLBusTerm final: public SNLTerm {
     SNLID::Bit getLSB() const { return lsb_; }
     size_t getSize() const override;
     SNLBusTermBit* getBit(SNLID::Bit bit) const;
+    SNLBusTermBit* getBitAtPosition(size_t position) const;
     SNLCollection<SNLBusTermBit*> getBits() const;
 
     SNLID::DesignObjectID getID() const override { return id_; }
     SNLID getSNLID() const override;
-    size_t getPosition() const override { return position_; }
+    size_t getPositionInDesign() const override { return position_; }
     SNLName getName() const override { return name_; }
     bool isAnonymous() const override { return name_.empty(); }
     const char* getTypeName() const override;
@@ -76,7 +77,7 @@ class SNLBusTerm final: public SNLTerm {
     void preDestroy() override;
 
     void setID(SNLID::DesignObjectID id) override { id_ = id; }
-    void setPosition(size_t position) override { position_ = position; }
+    void setPositionInDesign(size_t position) override { position_ = position; }
 
     using Bits = std::vector<SNLBusTermBit*>;
 

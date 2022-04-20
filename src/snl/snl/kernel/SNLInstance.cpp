@@ -96,14 +96,14 @@ void SNLInstance::createInstTerm(SNLBitTerm* term) {
 }
 
 void SNLInstance::removeInstTerm(SNLBitTerm* term) {
-  if (term->getPosition() > instTerms_.size()) {
+  if (term->getPositionInDesign() > instTerms_.size()) {
     throw SNLException("");
   }
-  auto instTerm = instTerms_[term->getPosition()];
+  auto instTerm = instTerms_[term->getPositionInDesign()];
   if (instTerm) {
     instTerm->destroyFromInstance();
   }
-  instTerms_[term->getPosition()] = nullptr;
+  instTerms_[term->getPositionInDesign()] = nullptr;
 }
 
 void SNLInstance::setTermNet(SNLTerm* term, SNLNet* net) {
@@ -187,11 +187,11 @@ SNLInstTerm* SNLInstance::getInstTerm(const SNLBitTerm* term) {
       + " should be the same";
     throw SNLException(reason);
   }
-  if (term->getPosition() > instTerms_.size()) {
+  if (term->getPositionInDesign() > instTerms_.size()) {
     std::string reason = "SNLInstance::getInsTerm error: size issue";
     throw SNLException(reason);
   }
-  return instTerms_[term->getPosition()];
+  return instTerms_[term->getPositionInDesign()];
 }
 
 SNLCollection<SNLInstTerm*> SNLInstance::getInstTerms() const {

@@ -42,11 +42,26 @@ class SNLTerm: public SNLNetComponent {
     };
 
     virtual SNLID::DesignObjectID getID() const = 0;
-    virtual size_t getPosition() const = 0;
-    ///\return term SNLName
+    /**
+     * \return this SNLTerm flat position in the containing SNLDesign flat SNLBitTerms.
+     * \n
+     * For instance, with three Terms created in following order:
+     *   - SNLScalarTerm term1
+     *   - SNLBusTerm term2[1:0]
+     *   - SNLScalarTerm term3
+     * 
+     * Positions will be the following:
+     * |0      | 1        | 2        | 3     |
+     * |-------|----------|----------|-------|
+     * |term0  | term2    |          | term3 |
+     * |       | term2[1] | term2[0] |       |  
+     **/
+    virtual size_t getPositionInDesign() const = 0;
+    ///\return term SNLName.
     virtual SNLName getName() const = 0;
-    ///\return term size, 1 for SNLScalarTerm and SNLBusNetBit
+    ///\return term size, 1 for SNLScalarTerm and SNLBusNetBit.
     virtual size_t getSize() const = 0;
+    ///\return this SNLTerm Direction.
     virtual Direction getDirection() const = 0;
 
   protected:
@@ -59,7 +74,7 @@ class SNLTerm: public SNLNetComponent {
   private:
     //following used in BusTerm and ScalarTerm
     virtual void setID(SNLID::DesignObjectID id) = 0;
-    virtual void setPosition(size_t position) = 0;
+    virtual void setPositionInDesign(size_t position) = 0;
     boost::intrusive::set_member_hook<> designTermsHook_  {};
     virtual void destroyFromDesign() = 0;
 };
