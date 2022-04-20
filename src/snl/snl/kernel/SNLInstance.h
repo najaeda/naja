@@ -29,6 +29,7 @@
 namespace naja { namespace SNL {
 
 class SNLTerm;
+class SNLNet;
 class SNLBitTerm;
 class SNLInstTerm;
 class SNLSharedPath;
@@ -67,6 +68,9 @@ class SNLInstance final: public SNLDesignObject {
     SNLCollection<SNLInstTerm*> getInstTerms() const;
     SNLCollection<SNLInstTerm*> getInstScalarTerms() const;
     SNLCollection<SNLInstTerm*> getInstBusTermBits() const;
+
+    void setTermNet(SNLTerm* term, SNLNet* net);
+
   private:
     static void preCreate(SNLDesign* design, const SNLDesign* model, const SNLName& name);
     void postCreate();

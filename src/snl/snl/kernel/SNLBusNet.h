@@ -45,6 +45,7 @@ class SNLBusNet final: public SNLNet {
     SNLID::Bit getLSB() const { return lsb_; }
     size_t getSize() const override;
     SNLBusNetBit* getBit(SNLID::Bit bit) const;
+    SNLBusNetBit* getBitAtPosition(size_t position) const;
     SNLCollection<SNLBusNetBit*> getBits() const;
 
     SNLID::DesignObjectID getID() const override { return id_; }

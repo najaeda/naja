@@ -92,7 +92,14 @@ SNLID SNLBusNet::getSNLID() const {
 SNLBusNetBit* SNLBusNet::getBit(SNLID::Bit bit) const {
   if (SNLDesign::isBetween(bit, getMSB(), getLSB())) {
     size_t pos = static_cast<size_t>(std::abs(getMSB()-bit));
-    return bits_[pos];
+    return getBitAtPosition(pos);
+  }
+  return nullptr;
+}
+
+SNLBusNetBit* SNLBusNet::getBitAtPosition(size_t position) const {
+  if (position < bits_.size()) {
+    return bits_[position];
   }
   return nullptr;
 }

@@ -143,7 +143,14 @@ std::string SNLBusTerm::getDescription() const {
 SNLBusTermBit* SNLBusTerm::getBit(SNLID::Bit bit) const {
   if (SNLDesign::isBetween(bit, getMSB(), getLSB())) {
     size_t pos = static_cast<size_t>(std::abs(getMSB()-bit));
-    return bits_[pos];
+    return getBitAtPosition(pos);
+  }
+  return nullptr;
+}
+
+SNLBusTermBit* SNLBusTerm::getBitAtPosition(size_t position) const {
+  if (position < bits_.size()) {
+    return bits_[position];
   }
   return nullptr;
 }

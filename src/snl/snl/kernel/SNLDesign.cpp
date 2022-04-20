@@ -155,13 +155,13 @@ void SNLDesign::addTerm(SNLTerm* term) {
     SNLID::DesignObjectID termID = lastTerm->getID()+1;
     size_t position = 0;
     if (SNLScalarTerm* scalarTerm = dynamic_cast<SNLScalarTerm*>(lastTerm)) {
-      position = scalarTerm->getPosition() + 1;
+      position = scalarTerm->getPositionInDesign() + 1;
     } else {
       SNLBusTerm* busTerm = static_cast<SNLBusTerm*>(lastTerm);
       position = busTerm->position_ + busTerm->getSize();
     }
     term->setID(termID);
-    term->setPosition(position);
+    term->setPositionInDesign(position);
   }
   terms_.insert(*term);
   if (not term->getName().empty()) {

@@ -14,7 +14,7 @@ using ::testing::ElementsAre;
 #include "SNLException.h"
 using namespace naja::SNL;
 
-class SNLInstanceTest: public ::testing::Test {
+class SNLInstanceTest0: public ::testing::Test {
   protected:
     void SetUp() override {
       auto universe = SNLUniverse::create();
@@ -26,7 +26,7 @@ class SNLInstanceTest: public ::testing::Test {
     SNLDB*  db_;
 };
 
-TEST_F(SNLInstanceTest, testCreation) {
+TEST_F(SNLInstanceTest0, testCreation) {
   SNLLibrary* library = SNLLibrary::create(db_, SNLName("MYLIB"));
   SNLDesign* design = SNLDesign::create(library, SNLName("design"));
   SNLDesign* model = SNLDesign::create(library, SNLName("model"));
@@ -126,14 +126,14 @@ TEST_F(SNLInstanceTest, testCreation) {
       )
     );
 
-    EXPECT_EQ(0, termsVector[0]->getPosition());
-    EXPECT_EQ(1, termsVector[1]->getPosition());
-    EXPECT_EQ(1, dynamic_cast<SNLBusTerm*>(termsVector[1])->getBit(0)->getPosition());
-    EXPECT_EQ(2, dynamic_cast<SNLBusTerm*>(termsVector[1])->getBit(1)->getPosition());
-    EXPECT_EQ(3, dynamic_cast<SNLBusTerm*>(termsVector[1])->getBit(2)->getPosition());
-    EXPECT_EQ(4, dynamic_cast<SNLBusTerm*>(termsVector[1])->getBit(3)->getPosition());
-    EXPECT_EQ(5, termsVector[2]->getPosition());
-    EXPECT_EQ(6, termsVector[3]->getPosition());
+    EXPECT_EQ(0, termsVector[0]->getPositionInDesign());
+    EXPECT_EQ(1, termsVector[1]->getPositionInDesign());
+    EXPECT_EQ(1, dynamic_cast<SNLBusTerm*>(termsVector[1])->getBit(0)->getPositionInDesign());
+    EXPECT_EQ(2, dynamic_cast<SNLBusTerm*>(termsVector[1])->getBit(1)->getPositionInDesign());
+    EXPECT_EQ(3, dynamic_cast<SNLBusTerm*>(termsVector[1])->getBit(2)->getPositionInDesign());
+    EXPECT_EQ(4, dynamic_cast<SNLBusTerm*>(termsVector[1])->getBit(3)->getPositionInDesign());
+    EXPECT_EQ(5, termsVector[2]->getPositionInDesign());
+    EXPECT_EQ(6, termsVector[3]->getPositionInDesign());
 
     //i0
     EXPECT_EQ(SNLID(SNLID::Type::InstTerm, 1, 0, 0, 0, 0, 0), instTermsVector[0]->getSNLID());
@@ -288,21 +288,21 @@ TEST_F(SNLInstanceTest, testCreation) {
     EXPECT_FALSE(instTermsVector[12]->isAnonymous());
     EXPECT_FALSE(instTermsVector[13]->isAnonymous());
 
-    EXPECT_EQ(0,  termsVector[0]->getPosition());
-    EXPECT_EQ(1,  termsVector[1]->getPosition());
-    EXPECT_EQ(1,  dynamic_cast<SNLBusTerm*>(termsVector[1])->getBit(0)->getPosition());
-    EXPECT_EQ(2,  dynamic_cast<SNLBusTerm*>(termsVector[1])->getBit(1)->getPosition());
-    EXPECT_EQ(3,  dynamic_cast<SNLBusTerm*>(termsVector[1])->getBit(2)->getPosition());
-    EXPECT_EQ(4,  dynamic_cast<SNLBusTerm*>(termsVector[1])->getBit(3)->getPosition());
-    EXPECT_EQ(5,  termsVector[2]->getPosition());
-    EXPECT_EQ(6,  termsVector[3]->getPosition());
-    EXPECT_EQ(7,  termsVector[4]->getPosition());
-    EXPECT_EQ(8,  dynamic_cast<SNLBusTerm*>(termsVector[5])->getBit(-2)->getPosition());
-    EXPECT_EQ(9,  dynamic_cast<SNLBusTerm*>(termsVector[5])->getBit(-1)->getPosition());
-    EXPECT_EQ(10, dynamic_cast<SNLBusTerm*>(termsVector[5])->getBit(0)->getPosition());
-    EXPECT_EQ(11, dynamic_cast<SNLBusTerm*>(termsVector[5])->getBit(1)->getPosition());
-    EXPECT_EQ(12, dynamic_cast<SNLBusTerm*>(termsVector[5])->getBit(2)->getPosition());
-    EXPECT_EQ(13, dynamic_cast<SNLBusTerm*>(termsVector[5])->getBit(3)->getPosition());
+    EXPECT_EQ(0,  termsVector[0]->getPositionInDesign());
+    EXPECT_EQ(1,  termsVector[1]->getPositionInDesign());
+    EXPECT_EQ(1,  dynamic_cast<SNLBusTerm*>(termsVector[1])->getBit(0)->getPositionInDesign());
+    EXPECT_EQ(2,  dynamic_cast<SNLBusTerm*>(termsVector[1])->getBit(1)->getPositionInDesign());
+    EXPECT_EQ(3,  dynamic_cast<SNLBusTerm*>(termsVector[1])->getBit(2)->getPositionInDesign());
+    EXPECT_EQ(4,  dynamic_cast<SNLBusTerm*>(termsVector[1])->getBit(3)->getPositionInDesign());
+    EXPECT_EQ(5,  termsVector[2]->getPositionInDesign());
+    EXPECT_EQ(6,  termsVector[3]->getPositionInDesign());
+    EXPECT_EQ(7,  termsVector[4]->getPositionInDesign());
+    EXPECT_EQ(8,  dynamic_cast<SNLBusTerm*>(termsVector[5])->getBit(-2)->getPositionInDesign());
+    EXPECT_EQ(9,  dynamic_cast<SNLBusTerm*>(termsVector[5])->getBit(-1)->getPositionInDesign());
+    EXPECT_EQ(10, dynamic_cast<SNLBusTerm*>(termsVector[5])->getBit(0)->getPositionInDesign());
+    EXPECT_EQ(11, dynamic_cast<SNLBusTerm*>(termsVector[5])->getBit(1)->getPositionInDesign());
+    EXPECT_EQ(12, dynamic_cast<SNLBusTerm*>(termsVector[5])->getBit(2)->getPositionInDesign());
+    EXPECT_EQ(13, dynamic_cast<SNLBusTerm*>(termsVector[5])->getBit(3)->getPositionInDesign());
 
     //i0
     EXPECT_EQ(SNLID(SNLID::Type::InstTerm, 1, 0, 0, 0, 1, 0), instTermsVector[0]->getSNLID());
@@ -342,7 +342,6 @@ TEST_F(SNLInstanceTest, testCreation) {
     EXPECT_EQ(instTermsVector[13], instance2->getInstTerm(dynamic_cast<SNLBusTerm*>(termsVector[5])->getBit(3)));
   }
 
-
   //destroy some terminals and verify instance terminals
   term4->destroy();
   EXPECT_EQ(5, model->getTerms().size());
@@ -368,7 +367,7 @@ TEST_F(SNLInstanceTest, testCreation) {
   EXPECT_EQ(design->getInstance(SNLName("instance2")), nullptr);
 }
 
-TEST_F(SNLInstanceTest, testInstTerm) {
+TEST_F(SNLInstanceTest0, testInstTerm) {
   SNLLibrary* library = SNLLibrary::create(db_, SNLName("MYLIB"));
   SNLDesign* design = SNLDesign::create(library, SNLName("design"));
   SNLDesign* model0 = SNLDesign::create(library, SNLName("model0"));
@@ -392,7 +391,7 @@ TEST_F(SNLInstanceTest, testInstTerm) {
   EXPECT_THROW(instance->getInstTerm(model0Term)->destroy(), SNLException);
 }
 
-TEST_F(SNLInstanceTest, testModelDestroy) {
+TEST_F(SNLInstanceTest0, testModelDestroy) {
   SNLLibrary* library = SNLLibrary::create(db_, SNLName("MYLIB"));
   SNLDesign* design = SNLDesign::create(library, SNLName("design"));
   SNLDesign* model0 = SNLDesign::create(library, SNLName("model0"));
@@ -428,7 +427,7 @@ TEST_F(SNLInstanceTest, testModelDestroy) {
   EXPECT_TRUE(design->getInstances().empty());
 }
 
-TEST_F(SNLInstanceTest, testErrors) {
+TEST_F(SNLInstanceTest0, testErrors) {
   SNLLibrary* library = SNLLibrary::create(db_, SNLName("MYLIB"));
   SNLDesign* design = SNLDesign::create(library, SNLName("design"));
   SNLDesign* model = SNLDesign::create(library, SNLName("model"));

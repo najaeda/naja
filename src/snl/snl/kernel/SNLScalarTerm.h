@@ -34,7 +34,7 @@ class SNLScalarTerm final: public SNLBitTerm {
     SNLID getSNLID() const override;
     SNLID::DesignObjectID getID() const override { return id_; }
     SNLID::Bit getBit() const override { return 0; }
-    size_t getPosition() const override { return position_; } 
+    size_t getPositionInDesign() const override { return position_; } 
     SNLName getName() const override { return name_; }
     bool isAnonymous() const override { return name_.empty(); }
     SNLTerm::Direction getDirection() const override { return direction_; }
@@ -50,7 +50,7 @@ class SNLScalarTerm final: public SNLBitTerm {
     void preDestroy() override;
 
     void setID(SNLID::DesignObjectID id) override { id_ = id; }
-    void setPosition(size_t position) override {position_ = position; }
+    void setPositionInDesign(size_t position) override {position_ = position; }
 
     SNLDesign*            design_;
     SNLID::DesignObjectID id_         {};
