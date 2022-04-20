@@ -56,6 +56,15 @@ TEST_F(SNLTermTest, testCreation) {
   EXPECT_EQ(SNLID(SNLID::Type::TermBit, 1, 0, 0, 0, 0, -2), term0->getBit(-2)->getSNLID());
   EXPECT_EQ(SNLID(SNLID::Type::TermBit, 1, 0, 0, 0, 0, -3), term0->getBit(-3)->getSNLID());
   EXPECT_EQ(SNLID(SNLID::Type::TermBit, 1, 0, 0, 0, 0, -4), term0->getBit(-4)->getSNLID());
+  EXPECT_EQ(0, term0->getPositionInDesign());
+  EXPECT_EQ(0, term0->getBit(-1)->getPositionInDesign());
+  EXPECT_EQ(1, term0->getBit(-2)->getPositionInDesign());
+  EXPECT_EQ(2, term0->getBit(-3)->getPositionInDesign());
+  EXPECT_EQ(3, term0->getBit(-4)->getPositionInDesign());
+  EXPECT_EQ(0, term0->getBit(-1)->getPositionInBus());
+  EXPECT_EQ(1, term0->getBit(-2)->getPositionInBus());
+  EXPECT_EQ(2, term0->getBit(-3)->getPositionInBus());
+  EXPECT_EQ(3, term0->getBit(-4)->getPositionInBus());
 
   EXPECT_FALSE(term0->getBit(-5));
   EXPECT_FALSE(term0->getBit(0));

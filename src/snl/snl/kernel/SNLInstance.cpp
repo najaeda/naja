@@ -25,6 +25,8 @@
 #include "SNLBusTerm.h"
 #include "SNLBusTermBit.h"
 #include "SNLScalarTerm.h"
+#include "SNLBusNet.h"
+#include "SNLBusNetBit.h"
 #include "SNLInstTerm.h"
 
 namespace naja { namespace SNL {
@@ -94,14 +96,43 @@ void SNLInstance::createInstTerm(SNLBitTerm* term) {
 }
 
 void SNLInstance::removeInstTerm(SNLBitTerm* term) {
-  if (term->getPosition() > instTerms_.size()) {
+  if (term->getPositionInDesign() > instTerms_.size()) {
     throw SNLException("");
   }
-  auto instTerm = instTerms_[term->getPosition()];
+  auto instTerm = instTerms_[term->getPositionInDesign()];
   if (instTerm) {
     instTerm->destroyFromInstance();
   }
-  instTerms_[term->getPosition()] = nullptr;
+  instTerms_[term->getPositionInDesign()] = nullptr;
+}
+
+void SNLInstance::setTermNet(SNLTerm* term, SNLNet* net) {
+  if (term->getSize() not_eq net->getSize()) {
+    throw SNLException("setTermNet only supported when term and net share same size");
+  }
+  using Terms = std::vector<SNLBitTerm*>;
+  Terms terms;
+  using Nets = std::vector<SNLBitNet*>;
+  Nets nets;
+  if (auto busTerm = dynamic_cast<SNLBusTerm*>(term)) {
+    terms = Terms(busTerm->getBits().begin(), busTerm->getBits().end());
+  } else {
+    auto bitTerm = static_cast<SNLBitTerm*>(term);
+    terms.push_back(bitTerm);
+  }
+  if (auto busNet = dynamic_cast<SNLBusNet*>(net)) {
+    nets = Nets(busNet->getBits().begin(), busNet->getBits().end());
+  } else {
+    auto bitNet = static_cast<SNLBitNet*>(net);
+    nets.push_back(bitNet);
+  }
+
+  assert(terms.size() == nets.size());
+  for (size_t i=0; i<terms.size(); ++i) {
+    SNLBitTerm* bitTerm = terms[i];
+    SNLInstTerm* instTerm = getInstTerm(bitTerm);
+    instTerm->setNet(nets[i]);
+  }
 }
 
 void SNLInstance::commonPreDestroy() {
@@ -156,11 +187,11 @@ SNLInstTerm* SNLInstance::getInstTerm(const SNLBitTerm* term) {
       + " should be the same";
     throw SNLException(reason);
   }
-  if (term->getPosition() > instTerms_.size()) {
+  if (term->getPositionInDesign() > instTerms_.size()) {
     std::string reason = "SNLInstance::getInsTerm error: size issue";
     throw SNLException(reason);
   }
-  return instTerms_[term->getPosition()];
+  return instTerms_[term->getPositionInDesign()];
 }
 
 SNLCollection<SNLInstTerm*> SNLInstance::getInstTerms() const {
