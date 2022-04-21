@@ -44,12 +44,12 @@ class SNLInstance final: public SNLDesignObject {
     using SNLSharedPaths = std::map<const SNLSharedPath*, SNLSharedPath*>;
 
     /**
-     * @brief SNLInstance creator 
+     * @brief SNLInstance creator.
      * 
      * @param design owner SNLDesign
      * @param model instanciated SNLDesign
      * @param name optional name
-     * @return SNLInstance* 
+     * @return created SNLInstance. 
      */
     static SNLInstance* create(SNLDesign* design, SNLDesign* model, const SNLName& name=SNLName());
 
@@ -64,11 +64,25 @@ class SNLInstance final: public SNLDesignObject {
     std::string getString() const override;
     std::string getDescription() const override;
 
+    ///\return SNLInstTerm corresponding to the SNLBitTerm representative in this instance. 
     SNLInstTerm* getInstTerm(const SNLBitTerm* term);
+    ///\return the SNLCollection of all SNLInstTerm of this SNLInstance.
     SNLCollection<SNLInstTerm*> getInstTerms() const;
+    /**
+     * \return the SNLCollection subset of connected SNLInstTerm of this SNLInstance.
+     * \remark A SNLInstTerm is connected if instTerm->getNet() is not NULL.
+     **/
+    SNLCollection<SNLInstTerm*> getConnectedInstTerms() const;
+    ///\return the SNLCollection subset of SNLInstTerm (only SNLScalarTerm type) of this SNLInstance.
     SNLCollection<SNLInstTerm*> getInstScalarTerms() const;
+    ///\return the SNLCollection subset of SNLInstTerm (only SNLBusTermBit type) of this SNLInstance.
     SNLCollection<SNLInstTerm*> getInstBusTermBits() const;
 
+    /**
+     * Helper function allowing to connect a SNLTerm representative (set of SNLInstTerm) to the
+     * corresponding SNLNet bits.
+     * \remark term and net must have the same size.
+     **/
     void setTermNet(SNLTerm* term, SNLNet* net);
 
   private:

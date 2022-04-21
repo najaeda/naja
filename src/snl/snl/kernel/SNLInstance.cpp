@@ -195,19 +195,26 @@ SNLInstTerm* SNLInstance::getInstTerm(const SNLBitTerm* term) {
 }
 
 SNLCollection<SNLInstTerm*> SNLInstance::getInstTerms() const {
-  auto filter = [](const SNLInstTerm* it) {return it != nullptr; };
+  auto filter = [](const SNLInstTerm* it) { return it != nullptr; };
   return SNLCollection<SNLInstTerm*>(
     new SNLVectorCollection<SNLInstTerm*>(&instTerms_)).getSubCollection(filter);
 }
 
+SNLCollection<SNLInstTerm*> SNLInstance::getConnectedInstTerms() const {
+  auto filter = [](const SNLInstTerm* it) {return it and it->getNet() != nullptr; };
+  return SNLCollection<SNLInstTerm*>(
+    new SNLVectorCollection<SNLInstTerm*>(&instTerms_)).getSubCollection(filter);
+
+}
+
 SNLCollection<SNLInstTerm*> SNLInstance::getInstScalarTerms() const {
-  auto filter = [](const SNLInstTerm* it) {return it and dynamic_cast<SNLScalarTerm*>(it->getTerm()); };
+  auto filter = [](const SNLInstTerm* it) { return it and dynamic_cast<SNLScalarTerm*>(it->getTerm()); };
   return SNLCollection<SNLInstTerm*>(
     new SNLVectorCollection<SNLInstTerm*>(&instTerms_)).getSubCollection(filter);
 }
 
 SNLCollection<SNLInstTerm*> SNLInstance::getInstBusTermBits() const {
-  auto filter = [](const SNLInstTerm* it) {return it and dynamic_cast<SNLBusTermBit*>(it->getTerm()); };
+  auto filter = [](const SNLInstTerm* it) { return it and dynamic_cast<SNLBusTermBit*>(it->getTerm()); };
   return SNLCollection<SNLInstTerm*>(
     new SNLVectorCollection<SNLInstTerm*>(&instTerms_)).getSubCollection(filter);
 }
