@@ -182,11 +182,13 @@ TEST_F(SNLNetTest, testCreation) {
     EXPECT_EQ(SNLNet::Type::Supply1, bit->getType());
     EXPECT_TRUE(bit->getType().isSupply());
     EXPECT_TRUE(bit->getType().isDriving());
+    EXPECT_TRUE(bit->isConstant1());
   }
   net0->setType(SNLBitNet::Type::Assign0);
   for (auto bit: net0->getBits()) {
     EXPECT_EQ(SNLNet::Type::Assign0, bit->getType());
     EXPECT_TRUE(bit->getType().isDriving());
+    EXPECT_TRUE(bit->isConstant0());
   }
 
   net0->destroy();
