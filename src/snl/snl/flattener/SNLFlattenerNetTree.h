@@ -30,6 +30,21 @@ class SNLFlattenerNetTree {
     friend class SNLFlattenerNetForest;
     using ID = unsigned int;
 
+    class Type {
+      public:
+        enum TypeEnum {
+          Standard, Constant0, Constant1
+        };
+        Type() = delete;
+        Type(const TypeEnum& typeEnum);
+        Type(const Type&) = default;
+        Type& operator=(const Type&) = default;
+        operator const TypeEnum&() const {return typeEnum_;}
+        std::string getString() const;
+      private:
+        TypeEnum typeEnum_;
+    };
+
     struct Less {
       bool operator() (const SNLFlattenerNetTree* leftTree, const SNLFlattenerNetTree* rightTree) const {
         return leftTree->getID() < rightTree->getID();
@@ -55,6 +70,7 @@ class SNLFlattenerNetTree {
     SNLFlattenerNetForest*    forest_ {nullptr};
     SNLFlattenerNetTreeNode*  root_   {nullptr};
     ID                        id_     {0};
+    Type                      type_   {Type::Standard};
 };
 
 }} // namespace SNL // namespace naja

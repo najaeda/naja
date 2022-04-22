@@ -21,6 +21,21 @@
 
 namespace naja { namespace SNL {
 
+SNLFlattenerNetTree::Type::Type(const TypeEnum& typeEnum):
+  typeEnum_(typeEnum) 
+{}
+
+//LCOV_EXCL_START
+std::string SNLFlattenerNetTree::Type::getString() const {
+  switch (typeEnum_) {
+    case Type::Standard:  return "Standard";
+    case Type::Constant0: return "Constant0";
+    case Type::Constant1: return "Constant1";
+  }
+  return "Unknown";
+}
+//LCOV_EXCL_STOP
+
 SNLFlattenerNetTree::SNLFlattenerNetTree(SNLFlattenerNetForest* forest, const SNLBitNet* net):
   forest_(forest) {
   root_ = SNLFlattenerNetTreeNode::create(this, net);
