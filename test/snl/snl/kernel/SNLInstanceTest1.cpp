@@ -57,24 +57,38 @@ TEST_F(SNLInstanceTest1, setTermNetTest) {
   ASSERT_NE(nullptr, outScalar_);
   ASSERT_NE(nullptr, leftInstance_);
   ASSERT_NE(nullptr, rightInstance_);
+  EXPECT_FALSE(leftInstance_->getInstTerms().empty());
+  EXPECT_FALSE(rightInstance_->getInstTerms().empty());
+  EXPECT_EQ(13, leftInstance_->getInstTerms().size());
+  EXPECT_EQ(13, rightInstance_->getInstTerms().size());
+  EXPECT_TRUE(leftInstance_->getConnectedInstTerms().empty());
+  EXPECT_TRUE(rightInstance_->getConnectedInstTerms().empty());
 
   //create 2 bus nets of inBus0, outBus0 size
   auto busNet0 = SNLBusNet::create(leftInstance_->getDesign(), inBus0_->getMSB(), inBus0_->getLSB());
   auto busNet1 = SNLBusNet::create(leftInstance_->getDesign(), inBus0_->getLSB(), inBus0_->getMSB());
   leftInstance_->setTermNet(outBus0_, busNet0);
+  EXPECT_EQ(5, leftInstance_->getConnectedInstTerms().size());
   rightInstance_->setTermNet(inBus0_, busNet0);
+  EXPECT_EQ(5, rightInstance_->getConnectedInstTerms().size());
   rightInstance_->setTermNet(outBus0_, busNet1);
+  EXPECT_EQ(10, rightInstance_->getConnectedInstTerms().size());
   leftInstance_->setTermNet(inBus0_, busNet1);
+  EXPECT_EQ(10, leftInstance_->getConnectedInstTerms().size());
 
   //connect left out scalar with right inBus1 (size 1) with scalar net
   auto scalarNet0 = SNLScalarNet::create(leftInstance_->getDesign());
   leftInstance_->setTermNet(outScalar_, scalarNet0);
   rightInstance_->setTermNet(inBus1_, scalarNet0);
+  EXPECT_EQ(11, rightInstance_->getConnectedInstTerms().size());
+  EXPECT_EQ(11, leftInstance_->getConnectedInstTerms().size());
 
   //connect right out scalar with left inBus1 (size 1) with bus net size 1
   auto busNet3 = SNLBusNet::create(leftInstance_->getDesign(), inBus1_->getMSB(), inBus1_->getLSB());
   rightInstance_->setTermNet(outScalar_, busNet3);
   leftInstance_->setTermNet(inBus1_, busNet3);
+  EXPECT_EQ(12, rightInstance_->getConnectedInstTerms().size());
+  EXPECT_EQ(12, leftInstance_->getConnectedInstTerms().size());
 
   for (auto outBus0Bit: outBus0_->getBits()) {
     ASSERT_NE(nullptr, outBus0Bit);

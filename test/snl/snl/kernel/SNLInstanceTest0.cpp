@@ -70,8 +70,10 @@ TEST_F(SNLInstanceTest0, testCreation) {
   EXPECT_EQ(design, instance1->getDesign());
   EXPECT_EQ(model, instance1->getModel());
   EXPECT_FALSE(instance1->getInstTerms().empty());
+  EXPECT_TRUE(instance1->getConnectedInstTerms().empty());
   EXPECT_FALSE(instance1->getInstScalarTerms().empty());
   EXPECT_EQ(7, instance1->getInstTerms().size());
+  EXPECT_EQ(0, instance1->getConnectedInstTerms().size());
   EXPECT_EQ(3, instance1->getInstScalarTerms().size());
   EXPECT_EQ(4, instance1->getInstBusTermBits().size());
   EXPECT_EQ(0, instance1->getID());
@@ -236,6 +238,8 @@ TEST_F(SNLInstanceTest0, testCreation) {
   EXPECT_FALSE(termsVector[4]->isAnonymous());
   EXPECT_EQ(8, instance1->getInstTerms().size());
   EXPECT_EQ(8, instance2->getInstTerms().size());
+  EXPECT_EQ(0, instance1->getConnectedInstTerms().size());
+  EXPECT_EQ(0, instance2->getConnectedInstTerms().size());
 
   auto term5 = SNLBusTerm::create(model, SNLTerm::Direction::Input, -2, 3, SNLName("o"));
   EXPECT_EQ(6, model->getTerms().size());
@@ -247,6 +251,8 @@ TEST_F(SNLInstanceTest0, testCreation) {
   EXPECT_FALSE(termsVector[5]->isAnonymous());
   EXPECT_EQ(14, instance1->getInstTerms().size());
   EXPECT_EQ(14, instance2->getInstTerms().size());
+  EXPECT_EQ(0, instance1->getConnectedInstTerms().size());
+  EXPECT_EQ(0, instance2->getConnectedInstTerms().size());
 
   {
     InstTermsVector instTermsVector(instance2->getInstTerms().begin(), instance2->getInstTerms().end());
