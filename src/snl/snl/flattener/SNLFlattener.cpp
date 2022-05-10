@@ -73,24 +73,41 @@ void SNLFlattener::processInstance(
 
 void SNLFlattener::processTopNets(const SNLDesign* top) {
   for (auto net: top->getBitNets()) {
+    SNLFlattenerNetTree* tree = SNLFlattenerNetTree::create(getNetForest(), net);
+    SNLFlattenerNetTreeNode* root = tree->getRoot();
     for (auto component: net->getComponents()) {
-      SNLFlattenerNetTree* tree = SNLFlattenerNetTree::create(getNetForest(), net);
-      SNLFlattenerNetTreeNode* root = tree->getRoot();
       if (auto instTerm = dynamic_cast<SNLInstTerm*>(component)) {
         SNLFlattenerNetTreeNode::create(root, instTerm);
       } else {
-        auto term = dynamic_cast<SNLBitTerm*>(component);
+        auto term = static_cast<SNLBitTerm*>(component);
         SNLFlattenerNetTreeNode::create(root, term);
       }
     }
   }
 }
 
+#if 0
+void SNLFlattener::processNets(const SNLDesign* design) {
+  for (auto net: design->getBitNets()) {
+    for (auto component: net->getComponents()) {
+      if (auto instTerm = dynamic_cast<SNLInstTerm*>(component)) {
+      } else {
+        auto term = static_cast<SNLBitTerm*>(component);
+      }
+    }
+
+  }    
+}
+#endif
+
 void SNLFlattener::processTop(const SNLDesign* top) {
   processTopNets(top);
   auto root = tree_->getRoot();
   for (auto instance: top->getInstances()) {
     TermNodesMap termNodesMap;
+    //for (auto instTerm: instance->getConnectedInstTerms()) {
+     // 
+    //}
     processInstance(root, instance, termNodesMap);
   }
 }
