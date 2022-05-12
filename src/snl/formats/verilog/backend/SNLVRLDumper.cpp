@@ -310,7 +310,7 @@ void SNLVRLDumper::dumpTermAssigns(const SNLDesign* design, std::ostream& o) {
         } else {
           auto busNetBit = static_cast<SNLBusNetBit*>(net);
           auto bus = busNetBit->getBus();
-          if (scalarTerm->getName() == busNetBit->getName()) {
+          if (scalarTerm->getName() == bus->getName()) {
             //throw error
           } else {
             //need assign
@@ -318,7 +318,7 @@ void SNLVRLDumper::dumpTermAssigns(const SNLDesign* design, std::ostream& o) {
             dumpTermNetAssign(
               scalarTerm->getDirection(),
               scalarTerm->getName().getString(),
-              scalarNet->getName().getString(),
+              busNetBit->getName().getString(),
               o);
           }
         }
