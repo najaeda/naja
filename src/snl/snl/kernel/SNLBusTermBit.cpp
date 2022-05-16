@@ -95,6 +95,12 @@ const char* SNLBusTermBit::getTypeName() const {
 
 //LCOV_EXCL_START
 std::string SNLBusTermBit::getString() const {
+  return getBus()->getName().getString() + "[" + std::to_string(getBit()) + "]";
+}
+//LCOV_EXCL_STOP
+
+//LCOV_EXCL_START
+std::string SNLBusTermBit::getDescription() const {
   std::ostringstream str;
   if (not getBus()->isAnonymous()) {
     str << getBus()->getName().getString();
@@ -102,12 +108,6 @@ std::string SNLBusTermBit::getString() const {
   str << "(" << getBus()->getID() << ")";
   str << "[" << getBit() << "]";
   return str.str();
-}
-//LCOV_EXCL_STOP
-
-//LCOV_EXCL_START
-std::string SNLBusTermBit::getDescription() const {
-  return "";
 }
 //LCOV_EXCL_STOP
 

@@ -10,6 +10,7 @@
 #include "SNLDB.h"
 #include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
+#include "SNLBusTermBit.h"
 #include "SNLScalarNet.h"
 #include "SNLBusNet.h"
 #include "SNLBusNetBit.h"
@@ -94,3 +95,84 @@ TEST_F(SNLVRLDumperTestTermNets, testFeedthru1) {
   std::string command = "diff " + outPath.string() + " " + referencePath.string();
   EXPECT_FALSE(std::system(command.c_str()));
 }
+ 
+TEST_F(SNLVRLDumperTestTermNets, testFeedthru2) {
+  ASSERT_TRUE(top_);
+  auto inBus = SNLBusTerm::create(top_, SNLTerm::Direction::Input, -4, -4, SNLName("in"));
+  auto outBus = SNLBusTerm::create(top_, SNLTerm::Direction::Output, 6, 6, SNLName("out"));
+
+  auto feedthru = SNLScalarNet::create(top_, SNLName("feedtru"));
+  auto inBusBit = inBus->getBit(-4);
+  ASSERT_TRUE(inBusBit);
+  auto outBusBit = outBus->getBit(6);
+  ASSERT_TRUE(outBusBit);
+  inBusBit->setNet(feedthru);
+  outBusBit->setNet(feedthru);
+
+  std::filesystem::path outPath(SNL_VRL_DUMPER_TEST_PATH);
+  outPath = outPath / "testFeedthru2";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+  SNLVRLDumper dumper;
+  dumper.setTopFileName(top_->getName().getString());
+  dumper.setSingleFile(true);
+  dumper.dumpDesign(top_, outPath);
+
+  std::filesystem::path referencePath(SNL_VRL_DUMPER_REFERENCES_PATH);
+  referencePath = referencePath / "testFeedthru2" / "top.v";
+  ASSERT_TRUE(std::filesystem::exists(referencePath));
+  std::string command = "diff " + outPath.string() + " " + referencePath.string();
+  EXPECT_FALSE(std::system(command.c_str()));
+}
+
+TEST_F(SNLVRLDumperTestTermNets, testError1) {
+  ASSERT_TRUE(top_);
+  auto inScalar = SNLScalarTerm::create(top_, SNLTerm::Direction::Input, SNLName("in"));
+  auto outScalar = SNLScalarTerm::create(top_, SNLTerm::Direction::Output, SNLName("out"));
+
+  //bus sharing same name than scalar input "in"
+  auto feedthru = SNLBusNet::create(top_, 5, 5, SNLName("in"));
+  auto bit = feedthru->getBit(5);
+  ASSERT_TRUE(bit);
+  inScalar->setNet(bit);
+  outScalar->setNet(bit);
+
+  std::filesystem::path outPath(SNL_VRL_DUMPER_TEST_PATH);
+  outPath = outPath / "testError1";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+  SNLVRLDumper dumper;
+  dumper.setTopFileName(top_->getName().getString());
+  dumper.setSingleFile(true);
+  EXPECT_THROW(dumper.dumpDesign(top_, outPath), SNLVRLDumperException);
+}
+
+TEST_F(SNLVRLDumperTestTermNets, testError2) {
+  ASSERT_TRUE(top_);
+  auto inBus = SNLBusTerm::create(top_, SNLTerm::Direction::Input, -4, -4, SNLName("in"));
+  auto outBus = SNLBusTerm::create(top_, SNLTerm::Direction::Output, 6, 6, SNLName("out"));
+
+  //bus term and scalar net sharing same name
+  auto feedthru = SNLScalarNet::create(top_, SNLName("in"));
+  auto inBusBit = inBus->getBit(-4);
+  ASSERT_TRUE(inBusBit);
+  auto outBusBit = outBus->getBit(6);
+  ASSERT_TRUE(outBusBit);
+  inBusBit->setNet(feedthru);
+  outBusBit->setNet(feedthru);
+
+  std::filesystem::path outPath(SNL_VRL_DUMPER_TEST_PATH);
+  outPath = outPath / "testError2";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+  SNLVRLDumper dumper;
+  dumper.setTopFileName(top_->getName().getString());
+  dumper.setSingleFile(true);
+  EXPECT_THROW(dumper.dumpDesign(top_, outPath), SNLVRLDumperException);
+} 
