@@ -83,12 +83,7 @@ const char* SNLScalarTerm::getTypeName() const {
  
 //LCOV_EXCL_START
 std::string SNLScalarTerm::getString() const {
-  std::ostringstream str;
-  if (not isAnonymous()) {
-    str << getName().getString();
-  }
-  str << "(" << getID() << ")";
-  return str.str();
+  return getName().getString();
 }
 //LCOV_EXCL_STOP
 

@@ -149,10 +149,14 @@ void SNLVRLDumper::dumpNet(const SNLNet* net, std::ostream& o, DesignInsideAnony
 }
 
 void SNLVRLDumper::dumpNets(const SNLDesign* design, std::ostream& o, DesignInsideAnonymousNaming& naming) {
+  bool atLeastOne = false;
   for (auto net: design->getNets()) {
     dumpNet(net, o, naming);
+    atLeastOne = true;
   }
-  o << std::endl;
+  if (atLeastOne) {
+    o << std::endl;
+  }
 }
 
 void SNLVRLDumper::dumpRange(const ContiguousNetBits& bits, std::ostream& o) {
@@ -269,6 +273,103 @@ void SNLVRLDumper::dumpInstances(const SNLDesign* design, std::ostream& o, Desig
   }
 }
 
+void SNLVRLDumper::dumpTermNetAssign(
+  const SNLTerm::Direction& direction,
+  const std::string& termNetName,
+  const std::string& netName,
+  std::ostream& o) {
+  switch (direction) {
+    case SNLTerm::Direction::Input:
+      o << "assign " << netName << " = " << termNetName << ";" << std::endl;
+      break;
+    case SNLTerm::Direction::Output:
+      o << "assign " << termNetName << " = " << netName << ";" << std::endl;
+      break;
+    default:
+      throw SNLVRLDumperException("");
+  }
+}
+
+void SNLVRLDumper::dumpTermAssigns(const SNLDesign* design, std::ostream& o) {
+  bool atLeastOne = false;
+  for (auto term: design->getBitTerms()) {
+    auto net = term->getNet();
+    if (net) {
+      if (auto scalarTerm = dynamic_cast<SNLScalarTerm*>(term)) {
+        if (auto scalarNet = dynamic_cast<SNLScalarNet*>(net)) {
+          //same name ?
+          if (scalarTerm->getName() != scalarNet->getName()) {
+            //need assign
+            atLeastOne = true;
+            dumpTermNetAssign(
+              scalarTerm->getDirection(),
+              scalarTerm->getName().getString(),
+              scalarNet->getName().getString(),
+              o);
+          }
+          //else: same name so already connected
+        } else {
+          auto busNetBit = static_cast<SNLBusNetBit*>(net);
+          auto bus = busNetBit->getBus();
+          if (scalarTerm->getName() == bus->getName()) {
+            std::ostringstream reason;
+            reason << "Error while writing verilog: scalar terminal ";
+            reason << scalarTerm->getString();
+            reason << " and bus net ";
+            reason << bus->getString();
+            reason << " should not have the same name.";
+            throw SNLVRLDumperException(reason.str());
+          } else {
+            //need assign
+            atLeastOne = true;
+            dumpTermNetAssign(
+              scalarTerm->getDirection(), scalarTerm->getString(), busNetBit->getString(), o);
+          }
+        }
+      } else {
+        auto busTermBit = static_cast<SNLBusTermBit*>(term);
+        auto busTerm = busTermBit->getBus();
+        if (auto scalarNet = dynamic_cast<SNLScalarNet*>(net)) {
+          if (busTerm->getName() == scalarNet->getName()) {
+            std::ostringstream reason;
+            reason << "Error while writing verilog: bus terminal ";
+            reason << busTerm->getString();
+            reason << " and scalar net ";
+            reason << scalarNet->getString();
+            reason << " should not have the same name.";
+            throw SNLVRLDumperException(reason.str());
+          } else {
+            atLeastOne = true;
+            dumpTermNetAssign(
+              busTerm->getDirection(), busTermBit->getString(), scalarNet->getString(), o);
+          }
+        } else {
+          auto busNetBit = static_cast<SNLBusNetBit*>(net);
+          auto busNet = busNetBit->getBus();
+          if (busTerm->getName() == busNet->getName()) {
+            if (busTermBit->getBit() != busNetBit->getBit()) {
+              std::ostringstream reason;
+              reason << "Error while writing verilog: bus terminal bit";
+              reason << busTermBit->getString();
+              reason << " and scalar net bit ";
+              reason << busNetBit->getString();
+              reason << " should have the same bit value.";
+              throw SNLVRLDumperException(reason.str());
+            }
+          } else {
+            atLeastOne = true;
+            dumpTermNetAssign(
+              busTerm->getDirection(), busTermBit->getString(), busNetBit->getString(), o);
+          }
+        }
+      }
+    }
+  }
+  if (atLeastOne) {
+    o << std::endl;
+  }
+}
+
 void SNLVRLDumper::dumpOneDesign(const SNLDesign* design, std::ostream& o) {
   DesignInsideAnonymousNaming naming;
   for (auto term: design->getTerms()) {
@@ -291,6 +392,7 @@ void SNLVRLDumper::dumpOneDesign(const SNLDesign* design, std::ostream& o) {
   o << std::endl;
 
   dumpNets(design, o, naming);
+  dumpTermAssigns(design, o);
 
   dumpInstances(design, o, naming);
 
