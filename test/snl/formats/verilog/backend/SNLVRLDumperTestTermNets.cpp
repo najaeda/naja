@@ -127,6 +127,40 @@ TEST_F(SNLVRLDumperTestTermNets, testFeedthru2) {
   EXPECT_FALSE(std::system(command.c_str()));
 }
 
+TEST_F(SNLVRLDumperTestTermNets, testFeedthru3) {
+  ASSERT_TRUE(top_);
+  auto inBus = SNLBusTerm::create(top_, SNLTerm::Direction::Input, -4, -4, SNLName("in"));
+  auto outBus = SNLBusTerm::create(top_, SNLTerm::Direction::Output, 6, 6, SNLName("out"));
+
+  auto feedthru = SNLBusNet::create(top_, 5, 5, SNLName("feedtru"));
+  auto bitNet = feedthru->getBit(5);
+  ASSERT_TRUE(bitNet);
+
+  auto inBusBit = inBus->getBit(-4);
+  ASSERT_TRUE(inBusBit);
+  auto outBusBit = outBus->getBit(6);
+  ASSERT_TRUE(outBusBit);
+  inBusBit->setNet(bitNet);
+  outBusBit->setNet(bitNet);
+
+  std::filesystem::path outPath(SNL_VRL_DUMPER_TEST_PATH);
+  outPath = outPath / "testFeedthru3";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+  SNLVRLDumper dumper;
+  dumper.setTopFileName(top_->getName().getString());
+  dumper.setSingleFile(true);
+  dumper.dumpDesign(top_, outPath);
+
+  std::filesystem::path referencePath(SNL_VRL_DUMPER_REFERENCES_PATH);
+  referencePath = referencePath / "testFeedthru3" / "top.v";
+  ASSERT_TRUE(std::filesystem::exists(referencePath));
+  std::string command = "diff " + outPath.string() + " " + referencePath.string();
+  EXPECT_FALSE(std::system(command.c_str()));
+}
+
 TEST_F(SNLVRLDumperTestTermNets, testError1) {
   ASSERT_TRUE(top_);
   auto inScalar = SNLScalarTerm::create(top_, SNLTerm::Direction::Input, SNLName("in"));
@@ -167,6 +201,35 @@ TEST_F(SNLVRLDumperTestTermNets, testError2) {
 
   std::filesystem::path outPath(SNL_VRL_DUMPER_TEST_PATH);
   outPath = outPath / "testError2";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+  SNLVRLDumper dumper;
+  dumper.setTopFileName(top_->getName().getString());
+  dumper.setSingleFile(true);
+  EXPECT_THROW(dumper.dumpDesign(top_, outPath), SNLVRLDumperException);
+} 
+
+TEST_F(SNLVRLDumperTestTermNets, testError3) {
+  ASSERT_TRUE(top_);
+  auto inBus = SNLBusTerm::create(top_, SNLTerm::Direction::Input, -4, -4, SNLName("in"));
+  auto outBus = SNLBusTerm::create(top_, SNLTerm::Direction::Output, 6, 6, SNLName("out"));
+
+  //same name but not same bit
+  auto feedthru = SNLBusNet::create(top_, 5, 5, SNLName("in"));
+  auto bitNet = feedthru->getBit(5);
+  ASSERT_TRUE(bitNet);
+
+  auto inBusBit = inBus->getBit(-4);
+  ASSERT_TRUE(inBusBit);
+  auto outBusBit = outBus->getBit(6);
+  ASSERT_TRUE(outBusBit);
+  inBusBit->setNet(bitNet);
+  outBusBit->setNet(bitNet);
+
+  std::filesystem::path outPath(SNL_VRL_DUMPER_TEST_PATH);
+  outPath = outPath / "testError3";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
