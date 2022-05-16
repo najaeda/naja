@@ -38,6 +38,9 @@ class SNLName {
     friend bool operator== (const SNLName& lname, const SNLName& rname) {
       return lname.getString() == rname.getString();
     }
+    friend bool operator!= (const SNLName& lname, const SNLName& rname) {
+      return lname.getString() != rname.getString();
+    }
   private:
     std::string string_;
 };

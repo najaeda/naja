@@ -76,12 +76,7 @@ const char* SNLScalarNet::getTypeName() const {
 
 //LCOV_EXCL_START
 std::string SNLScalarNet::getString() const {
-  std::ostringstream str;
-  if (not isAnonymous()) {
-    str << getName().getString();
-  }
-  str << "(" << getID() << ")";
-  return str.str();
+  return getName().getString();
 }
 //LCOV_EXCL_STOP
 

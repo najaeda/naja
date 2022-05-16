@@ -22,8 +22,7 @@
 #include <map>
 #include <set>
 
-#include "SNLName.h"
-#include "SNLID.h"
+#include "SNLTerm.h"
 
 namespace naja { namespace SNL {
 
@@ -127,6 +126,16 @@ class SNLVRLDumper {
     void dumpInstanceInterface(const SNLInstance* instance, std::ostream& o, const DesignInsideAnonymousNaming& naming);
     void dumpNets(const SNLDesign* design, std::ostream& o, DesignInsideAnonymousNaming& naming);
     void dumpNet(const SNLNet* net, std::ostream& o, DesignInsideAnonymousNaming& naming);
+
+    void dumpTermNetAssign(
+      const SNLTerm::Direction& direction,
+      const std::string& termNetName,
+      const std::string& netName,
+      std::ostream& o);
+    /**
+     * Special method to dump assign representations of nets connected to terms
+     */
+    void dumpTermAssigns(const SNLDesign* design, std::ostream& o);
     void dumpInterface(const SNLDesign* design, std::ostream& o, DesignInsideAnonymousNaming& naming);
     using BitNetVector = std::vector<SNLBitNet*>;
     void dumpInsTermConnectivity(

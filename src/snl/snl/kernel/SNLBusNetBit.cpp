@@ -83,7 +83,7 @@ SNLName SNLBusNetBit::getName() const {
 
 //LCOV_EXCL_START
 std::string SNLBusNetBit::getString() const {
-  return std::string();
+  return getBus()->getName().getString() + "[" + std::to_string(getBit()) + "]";
 }
 //LCOV_EXCL_STOP
 
