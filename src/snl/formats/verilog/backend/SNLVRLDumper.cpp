@@ -159,8 +159,26 @@ void SNLVRLDumper::dumpNets(const SNLDesign* design, std::ostream& o, DesignInsi
   }
 }
 
-void SNLVRLDumper::dumpRange(const ContiguousNetBits& bits, std::ostream& o) {
-
+void SNLVRLDumper::dumpRange(ContiguousNetBits& bits, std::ostream& o) {
+  if (not bits.empty()) {
+    SNLBusNetBit* rangeMSBBit = bits[0];
+    SNLID::Bit rangeMSB = rangeMSBBit->getBit();
+    SNLBusNetBit* rangeLSBBit = bits[bits.size()-1];
+    SNLID::Bit rangeLSB = rangeLSBBit->getBit();
+    SNLBusNet* bus = rangeMSBBit->getBus();
+    SNLID::Bit busMSB = bus->getMSB();
+    SNLID::Bit busLSB = bus->getLSB();
+    if (rangeMSB == busMSB and rangeLSB == busLSB) {
+      o << bus->getName().getString();
+    } else {
+      o << bus->getName().getString() << "[";
+      o << rangeMSB;
+      o << ":";
+      o << rangeLSB;
+      o << "]";
+    }
+  }
+  bits.clear();
 }
 
 void SNLVRLDumper::dumpInsTermConnectivity(
@@ -189,11 +207,16 @@ void SNLVRLDumper::dumpInsTermConnectivity(
             or (previousBit->getBit() == busNetBit->getBit()-1))) {
               contiguousBits.push_back(busNetBit);
             } else {
-
+              dumpRange(contiguousBits, o);
             }
+          } else {
+            contiguousBits.push_back(busNetBit);
           }
         }
       }
+    }
+    if (not contiguousBits.empty()) {
+      dumpRange(contiguousBits, o);
     }
     o << ")";
   } else {
