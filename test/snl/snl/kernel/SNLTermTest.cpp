@@ -49,6 +49,7 @@ TEST_F(SNLTermTest, testCreation) {
     EXPECT_EQ(SNLTerm::Direction::InOut, bit->getDirection());
     EXPECT_EQ(term0, bit->getBus());
     EXPECT_FALSE(bit->isAnonymous());
+    EXPECT_EQ(bit->getName(), bit->getBus()->getName());
   }
   EXPECT_THAT(std::vector(term0->getBits().begin(), term0->getBits().end()),
     ElementsAre(term0->getBit(-1), term0->getBit(-2), term0->getBit(-3), term0->getBit(-4)));

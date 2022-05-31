@@ -22,6 +22,7 @@
 #include "SNLLibrary.h"
 #include "SNLDesign.h"
 #include "SNLBusNetBit.h"
+#include "SNLException.h"
 
 namespace naja { namespace SNL {
 
@@ -50,7 +51,14 @@ SNLBusNet* SNLBusNet::create(
 
 void SNLBusNet::preCreate(const SNLDesign* design, const SNLName& name) {
   super::preCreate();
-  //verify that there is not an instance of name in this design
+  if (not design) {
+    throw SNLException("malformed SNLBusNet creator with NULL design argument");
+  }
+  if (not name.empty() and design->getNet(name)) {
+    std::string reason = "cannot create SNLBusNet with name " + name.getString();
+    reason += "A terminal with this name already exists.";
+    throw SNLException(reason);
+  }
 }
 
 void SNLBusNet::postCreate() {

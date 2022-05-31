@@ -2,6 +2,7 @@
 #include "gmock/gmock.h"
 using ::testing::ElementsAre;
 
+#include "SNLException.h"
 #include "SNLUniverse.h"
 #include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
@@ -175,6 +176,7 @@ TEST_F(SNLNetTest, testCreation) {
     EXPECT_EQ(design_, bit->getDesign());
     EXPECT_FALSE(bit->getType().isDriving());
     EXPECT_FALSE(bit->isAnonymous());
+    EXPECT_EQ(bit->getName(), bit->getBus()->getName());
     EXPECT_EQ(SNLID(SNLID::Type::NetBit, 1, 1, 0, 2, 0, bitNumber--), bit->getSNLID());
   }
   net0->setType(SNLBitNet::Type::Supply1);
@@ -209,4 +211,24 @@ TEST_F(SNLNetTest, testNetType) {
   EXPECT_TRUE(SNLNet::Type(SNLNet::Type::Supply0).isDriving());
   EXPECT_TRUE(SNLNet::Type(SNLNet::Type::Supply1).isDriving());
   EXPECT_FALSE(SNLNet::Type(SNLNet::Type::Standard).isDriving());
+}
+
+TEST_F(SNLNetTest, testErrors) {
+  EXPECT_THROW(SNLScalarNet::create(nullptr), SNLException);
+  EXPECT_THROW(SNLBusNet::create(nullptr, 31, 0), SNLException);
+
+  SNLDB* db = design_->getDB();
+  ASSERT_NE(db, nullptr);
+  SNLLibrary* library = db->getLibrary(SNLName("LIB"));
+  ASSERT_NE(library, nullptr);
+  SNLDesign* design = SNLDesign::create(library, SNLName("design"));
+  ASSERT_NE(design, nullptr);
+
+  SNLScalarNet* net0 = SNLScalarNet::create(design, SNLName("net0"));
+  ASSERT_NE(nullptr, net0);
+  SNLBusNet* net1 = SNLBusNet::create(design, 31, 0, SNLName("net1"));
+  ASSERT_NE(nullptr, net1);
+  EXPECT_THROW(SNLBusNet::create(design, 31, 0, SNLName("net0")), SNLException);
+  EXPECT_THROW(SNLScalarNet::create(design, SNLName("net1")), SNLException);
+  EXPECT_THROW(net1->getBit(3)->destroy(), SNLException);
 }
