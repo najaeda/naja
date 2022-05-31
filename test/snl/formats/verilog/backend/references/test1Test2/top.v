@@ -7,7 +7,7 @@ wire [-2:2] bus1;
 wire [2:-2] bus2;
 wire [-2:2] bus3;
 
-model instance1(.i0(), .i1(), .o0(bus0), .o1(bus1));
+model instance1(.i0(), .i1(), .o0({bus0[2:0], bus2[-1:-2]}), .o1());
 
-model instance2(.i0(bus0), .i1(bus1), .o0(), .o1());
+model instance2(.i0({bus0[2:0], bus2[-1:-2]}), .i1(), .o0(), .o1());
 endmodule //top

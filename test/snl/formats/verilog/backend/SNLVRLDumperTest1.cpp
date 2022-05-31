@@ -34,7 +34,7 @@ class SNLVRLDumperTest1: public ::testing::Test {
       auto bus0 = SNLBusNet::create(top, 2, -2, SNLName("bus0"));
       auto bus1 = SNLBusNet::create(top, -2, 2, SNLName("bus1"));
       auto bus2 = SNLBusNet::create(top, 2, -2, SNLName("bus2"));
-      auto bus3 = SNLBusNet::create(top, -2, 3, SNLName("bus3"));
+      auto bus3 = SNLBusNet::create(top, -2, 2, SNLName("bus3"));
 
       SNLDesign* model = SNLDesign::create(library, SNLName("model"));
       SNLBusTerm::create(model, SNLTerm::Direction::Input, 2, -2, SNLName("i0"));
@@ -92,6 +92,88 @@ TEST_F(SNLVRLDumperTest1, test0) {
 
   std::filesystem::path referencePath(SNL_VRL_DUMPER_REFERENCES_PATH);
   referencePath = referencePath / "test1Test0" / "top.v";
+  ASSERT_TRUE(std::filesystem::exists(referencePath));
+  std::string command = "diff " + outPath.string() + " " + referencePath.string();
+  EXPECT_FALSE(std::system(command.c_str()));
+}
+
+TEST_F(SNLVRLDumperTest1, test1) {
+  auto lib = db_->getLibrary(SNLName("MYLIB"));  
+  ASSERT_TRUE(lib);
+  auto top = lib->getDesign(SNLName("top"));
+  ASSERT_TRUE(top);
+
+  SNLInstance* instance1 = top->getInstance(SNLName("instance1"));
+  ASSERT_TRUE(instance1);
+  SNLInstance* instance2 = top->getInstance(SNLName("instance2"));
+  ASSERT_TRUE(instance2);
+  SNLNet* bus0 = top->getNet(SNLName("bus0"));
+  ASSERT_TRUE(bus0);
+  SNLNet* bus1 = top->getNet(SNLName("bus1"));
+  ASSERT_TRUE(bus1);
+
+  //connect instance1.o0 to instance2.i0 with bus0
+  instance1->setTermNet(instance1->getModel()->getTerm(SNLName("o1")), bus0);
+  instance2->setTermNet(instance2->getModel()->getTerm(SNLName("i1")), bus0);
+
+  //connect instance1.o1 to instance2.i1 with bus1
+  instance1->setTermNet(instance1->getModel()->getTerm(SNLName("o0")), bus1);
+  instance2->setTermNet(instance2->getModel()->getTerm(SNLName("i0")), bus1);
+
+  std::filesystem::path outPath(SNL_VRL_DUMPER_TEST_PATH);
+  outPath = outPath / "test1Test1";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+  SNLVRLDumper dumper;
+  dumper.setTopFileName(top->getName().getString());
+  dumper.setSingleFile(true);
+  dumper.dumpDesign(top, outPath);
+
+  std::filesystem::path referencePath(SNL_VRL_DUMPER_REFERENCES_PATH);
+  referencePath = referencePath / "test1Test1" / "top.v";
+  ASSERT_TRUE(std::filesystem::exists(referencePath));
+  std::string command = "diff " + outPath.string() + " " + referencePath.string();
+  EXPECT_FALSE(std::system(command.c_str()));
+}
+
+//split busses in 2
+TEST_F(SNLVRLDumperTest1, test2) {
+  auto lib = db_->getLibrary(SNLName("MYLIB"));  
+  ASSERT_TRUE(lib);
+  auto top = lib->getDesign(SNLName("top"));
+  ASSERT_TRUE(top);
+
+  SNLInstance* instance1 = top->getInstance(SNLName("instance1"));
+  ASSERT_TRUE(instance1);
+  SNLInstance* instance2 = top->getInstance(SNLName("instance2"));
+  ASSERT_TRUE(instance2);
+  SNLNet* bus0 = top->getNet(SNLName("bus0"));
+  ASSERT_TRUE(bus0);
+  SNLNet* bus2 = top->getNet(SNLName("bus2"));
+  ASSERT_TRUE(bus2);
+
+  //connect instance1.o0 to instance2.i0 with bus0
+  //instance1->getInstTerm(instance1->getModel()->getBusTerm());
+  instance1->setTermNet(instance1->getModel()->getTerm(SNLName("o0")), bus0, 2, 0, 2, 0);
+  instance1->setTermNet(instance1->getModel()->getTerm(SNLName("o0")), bus2, -1, -2, -1, -2);
+  instance2->setTermNet(instance2->getModel()->getTerm(SNLName("i0")), bus0, 2, 0, 2, 0);
+  instance2->setTermNet(instance2->getModel()->getTerm(SNLName("i0")), bus2, -1, -2, -1, -2);
+
+  std::filesystem::path outPath(SNL_VRL_DUMPER_TEST_PATH);
+  outPath = outPath / "test1Test2";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+  SNLVRLDumper dumper;
+  dumper.setTopFileName(top->getName().getString());
+  dumper.setSingleFile(true);
+  dumper.dumpDesign(top, outPath);
+
+  std::filesystem::path referencePath(SNL_VRL_DUMPER_REFERENCES_PATH);
+  referencePath = referencePath / "test1Test2" / "top.v";
   ASSERT_TRUE(std::filesystem::exists(referencePath));
   std::string command = "diff " + outPath.string() + " " + referencePath.string();
   EXPECT_FALSE(std::system(command.c_str()));

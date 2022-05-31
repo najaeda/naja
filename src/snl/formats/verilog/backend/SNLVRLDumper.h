@@ -142,8 +142,6 @@ class SNLVRLDumper {
       BitNetVector& termNets,
       std::ostream& o,
       const DesignInsideAnonymousNaming& naming);
-    using ContiguousNetBits = std::vector<SNLBusNetBit*>;
-    void dumpRange(ContiguousNetBits& bits, std::ostream& o);
 
     Configuration           configuration_          {};
     DesignsAnonynousNaming  designsAnonymousNaming_ {};

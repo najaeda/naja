@@ -48,6 +48,35 @@ void dumpDirection(const naja::SNL::SNLTerm* term, std::ostream& o) {
   }
 }
 
+using ContiguousNetBits = std::vector<naja::SNL::SNLBusNetBit*>;
+void dumpRange(ContiguousNetBits& bits, bool& firstElement, bool& concatenation, std::string& o) {
+  if (not bits.empty()) {
+    if (not firstElement) {
+      o += ", ";
+      concatenation = true;
+    } else {
+      firstElement = false;
+    }
+    naja::SNL::SNLBusNetBit* rangeMSBBit = bits[0];
+    naja::SNL::SNLID::Bit rangeMSB = rangeMSBBit->getBit();
+    naja::SNL::SNLBusNetBit* rangeLSBBit = bits[bits.size()-1];
+    naja::SNL::SNLID::Bit rangeLSB = rangeLSBBit->getBit();
+    naja::SNL::SNLBusNet* bus = rangeMSBBit->getBus();
+    naja::SNL::SNLID::Bit busMSB = bus->getMSB();
+    naja::SNL::SNLID::Bit busLSB = bus->getLSB();
+    if (rangeMSB == busMSB and rangeLSB == busLSB) {
+      o += bus->getName().getString();
+    } else {
+      o += bus->getName().getString() + "[";
+      o += std::to_string(rangeMSB);
+      o += ":";
+      o += std::to_string(rangeLSB);
+      o += "]";
+    }
+  }
+  bits.clear();
+}
+
 }
 
 namespace naja { namespace SNL {
@@ -159,44 +188,25 @@ void SNLVRLDumper::dumpNets(const SNLDesign* design, std::ostream& o, DesignInsi
   }
 }
 
-void SNLVRLDumper::dumpRange(ContiguousNetBits& bits, std::ostream& o) {
-  if (not bits.empty()) {
-    SNLBusNetBit* rangeMSBBit = bits[0];
-    SNLID::Bit rangeMSB = rangeMSBBit->getBit();
-    SNLBusNetBit* rangeLSBBit = bits[bits.size()-1];
-    SNLID::Bit rangeLSB = rangeLSBBit->getBit();
-    SNLBusNet* bus = rangeMSBBit->getBus();
-    SNLID::Bit busMSB = bus->getMSB();
-    SNLID::Bit busLSB = bus->getLSB();
-    if (rangeMSB == busMSB and rangeLSB == busLSB) {
-      o << bus->getName().getString();
-    } else {
-      o << bus->getName().getString() << "[";
-      o << rangeMSB;
-      o << ":";
-      o << rangeLSB;
-      o << "]";
-    }
-  }
-  bits.clear();
-}
+
 
 void SNLVRLDumper::dumpInsTermConnectivity(
   const SNLTerm* term,
   BitNetVector& termNets,
   std::ostream& o,
   const DesignInsideAnonymousNaming& naming) {
-  if (std::all_of(termNets.begin(), termNets.end(), [](const SNLBitNet* n){ return n != nullptr; })) {
+  if (std::any_of(termNets.begin(), termNets.end(), [](const SNLBitNet* n){ return n != nullptr; })) {
     assert(not termNets.empty());
-    o << "." << term->getName().getString() << "(";
+    bool concatenation = false;
+    bool firstElement = true;
+    std::string connectionStr;
     ContiguousNetBits contiguousBits;
     for (auto net: termNets) {
       if (net) {
         if (dynamic_cast<SNLScalarNet*>(net)) {
-          dumpRange(contiguousBits, o);
-          contiguousBits.clear();
+          dumpRange(contiguousBits, firstElement, concatenation, connectionStr);
           SNLName netName = getNetName(net, naming);
-          o << netName.getString();
+          connectionStr += netName.getString();
         } else {
           auto busNetBit = static_cast<SNLBusNetBit*>(net);
           auto busNet = busNetBit->getBus();
@@ -207,16 +217,35 @@ void SNLVRLDumper::dumpInsTermConnectivity(
             or (previousBit->getBit() == busNetBit->getBit()-1))) {
               contiguousBits.push_back(busNetBit);
             } else {
-              dumpRange(contiguousBits, o);
+              dumpRange(contiguousBits, firstElement, concatenation, connectionStr);
+              contiguousBits = { busNetBit };
             }
           } else {
             contiguousBits.push_back(busNetBit);
           }
         }
+      } else {
+        dumpRange(contiguousBits, firstElement, concatenation, connectionStr);
+        //dump dummy bit
+        if (not firstElement) {
+          connectionStr += ", ";
+          concatenation = true;
+        } else {
+          firstElement = false;
+        }
+        connectionStr += "DUMMY";
       }
     }
     if (not contiguousBits.empty()) {
-      dumpRange(contiguousBits, o);
+      dumpRange(contiguousBits, firstElement, concatenation, connectionStr);
+    }
+    o << "." + term->getName().getString() + "(";
+    if (concatenation) {
+      o << "{";
+    }
+    o << connectionStr;
+    if (concatenation) {
+      o << "}";
     }
     o << ")";
   } else {
