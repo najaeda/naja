@@ -19,6 +19,7 @@
 #include <sstream>
 
 #include "SNLDB.h"
+#include "SNLException.h"
 #include "SNLLibrary.h"
 #include "SNLDesign.h"
 
@@ -39,8 +40,12 @@ SNLScalarNet* SNLScalarNet::create(SNLDesign* design, const SNLName& name) {
 
 void SNLScalarNet::preCreate(const SNLDesign* design, const SNLName& name) {
   super::preCreate();
-  //verify that there is not an instance of name in this design
-  if (not name.empty()) {
+  if (not design) {
+    throw SNLException("malformed SNLScalarNet creator with NULL design argument");
+  }
+  if (not name.empty() and design->getNet(name)) {
+    std::string reason = "SNLDesign " + design->getString() + " contains already a SNLScalarNet named: " + name.getString();
+    throw SNLException(reason);
   }
 }
 
