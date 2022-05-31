@@ -26,8 +26,13 @@ TEST_F(SNLLibraryTest, test0) {
   EXPECT_FALSE(lib1);
   lib1 = SNLLibrary::create(db, SNLName("LIB1"));
   ASSERT_TRUE(lib1);
+  EXPECT_EQ(0, lib1->getID());
   SNLLibrary* testLib1 = db->getLibrary(SNLName("LIB1"));
   ASSERT_TRUE(testLib1);
+  EXPECT_EQ(db->getLibrary(0), lib1);
+  EXPECT_EQ(db->getLibrary(1), nullptr);
+  EXPECT_EQ(db->getLibrary(2), nullptr);
+
   EXPECT_EQ(testLib1, lib1);
   EXPECT_EQ("LIB1", lib1->getName().getString());
 
