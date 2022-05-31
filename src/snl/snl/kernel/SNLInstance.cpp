@@ -106,6 +106,46 @@ void SNLInstance::removeInstTerm(SNLBitTerm* term) {
   instTerms_[term->getPositionInDesign()] = nullptr;
 }
 
+void SNLInstance::setTermNet(
+  SNLTerm* term, SNLNet* net,
+  SNLID::Bit termMSB, SNLID::Bit termLSB,
+  SNLID::Bit netMSB, SNLID::Bit netLSB) {
+  using Terms = std::vector<SNLBitTerm*>;
+  Terms terms;
+  using Nets = std::vector<SNLBitNet*>;
+  Nets nets;
+  if (auto busTerm = dynamic_cast<SNLBusTerm*>(term)) {
+    assert(SNLDesign::isBetween(termMSB, busTerm->getMSB(), busTerm->getLSB()));
+    assert(SNLDesign::isBetween(termLSB, busTerm->getMSB(), busTerm->getLSB()));
+    SNLID::Bit incr = (termMSB<termLSB)?+1:-1;
+    for (SNLID::Bit bit=termMSB; (termMSB<termLSB)?bit<=termLSB:bit>=termLSB; bit+=incr) {
+      terms.push_back(busTerm->getBit(bit));
+    }
+  } else {
+    assert(termMSB == termLSB);
+    auto bitTerm = static_cast<SNLBitTerm*>(term);
+    terms.push_back(bitTerm);
+  }
+  if (auto busNet = dynamic_cast<SNLBusNet*>(net)) {
+    assert(SNLDesign::isBetween(netMSB, busNet->getMSB(), busNet->getLSB()));
+    assert(SNLDesign::isBetween(netLSB, busNet->getMSB(), busNet->getLSB()));
+    SNLID::Bit incr = (netMSB<netLSB)?+1:-1;
+    for (SNLID::Bit bit=netMSB; (netMSB<netLSB)?bit<=netLSB:bit>=netLSB; bit+=incr) {
+      nets.push_back(busNet->getBit(bit));
+    }
+  } else {
+    assert(netMSB == netLSB);
+    auto bitNet = static_cast<SNLBitNet*>(net);
+    nets.push_back(bitNet);
+  }
+  assert(terms.size() == nets.size());
+  for (size_t i=0; i<terms.size(); ++i) {
+    SNLBitTerm* bitTerm = terms[i];
+    SNLInstTerm* instTerm = getInstTerm(bitTerm);
+    instTerm->setNet(nets[i]);
+  }
+}
+
 void SNLInstance::setTermNet(SNLTerm* term, SNLNet* net) {
   if (term->getSize() not_eq net->getSize()) {
     throw SNLException("setTermNet only supported when term and net share same size");

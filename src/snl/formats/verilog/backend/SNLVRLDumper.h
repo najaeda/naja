@@ -98,7 +98,6 @@ class SNLVRLDumper {
     void dumpDesign(const SNLDesign* design, std::ostream& o);
   
   private:
-    
     std::string getTopFileName(const SNLDesign* top) const;
     struct DesignAnonymousNaming {
       using TermNames = std::map<SNLID::DesignObjectID, std::string>;
@@ -143,8 +142,6 @@ class SNLVRLDumper {
       BitNetVector& termNets,
       std::ostream& o,
       const DesignInsideAnonymousNaming& naming);
-    using ContiguousNetBits = std::vector<SNLBusNetBit*>;
-    void dumpRange(const ContiguousNetBits& bits, std::ostream& o);
 
     Configuration           configuration_          {};
     DesignsAnonynousNaming  designsAnonymousNaming_ {};

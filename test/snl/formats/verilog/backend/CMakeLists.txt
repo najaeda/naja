@@ -2,6 +2,7 @@ include(GoogleTest)
 
 set(snl_vrl_tests
     SNLVRLDumperTest0.cpp
+    SNLVRLDumperTest1.cpp
     SNLVRLDumperTestTermNets.cpp)
 
 add_executable(snlVRLTests ${snl_vrl_tests})

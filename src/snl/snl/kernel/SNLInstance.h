@@ -79,11 +79,19 @@ class SNLInstance final: public SNLDesignObject {
     SNLCollection<SNLInstTerm*> getInstBusTermBits() const;
 
     /**
-     * Helper function allowing to connect a SNLTerm representative (set of SNLInstTerm) to the
+     * Helper function allowing to connect a SNLTerm representative in current instance to the
      * corresponding SNLNet bits.
      * \remark term and net must have the same size.
      **/
     void setTermNet(SNLTerm* term, SNLNet* net);
+    /**
+     * Helper function allowing to connect a SNLTerm representative in current instance to the
+     * corresponding SNLNet bits. This version allows to connect a subpart of bits.
+     **/
+    void setTermNet(
+      SNLTerm* term, SNLNet* net,
+      SNLID::Bit termMSB, SNLID::Bit termLSB,
+      SNLID::Bit netMSB, SNLID::Bit netLSB);
 
   private:
     static void preCreate(SNLDesign* design, const SNLDesign* model, const SNLName& name);
