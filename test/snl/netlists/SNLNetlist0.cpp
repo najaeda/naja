@@ -7,6 +7,7 @@
 #include "SNLBusTerm.h"
 #include "SNLScalarNet.h"
 #include "SNLBusNet.h"
+#include "SNLBusNetBit.h"
 #include "SNLInstTerm.h" 
 
 using namespace naja::SNL;
@@ -49,11 +50,18 @@ SNLDesign* SNLNetlist0::create(SNLDB* db) {
     auto i = SNLBusTerm::create(top, SNLTerm::Direction::Input, 0, 1, SNLName(TopIName));
     auto iNet = SNLBusNet::create(top, 0, 1, SNLName(TopIName));
     i->setNet(iNet);
-    auto o = SNLBusTerm::create(top, SNLTerm::Direction::InOut, 0, 1, SNLName(TopOName));
-    auto oNet = SNLBusNet::create(top, 0, 1, SNLName(TopOName));
+    auto o = SNLScalarTerm::create(top, SNLTerm::Direction::InOut, SNLName(TopOName));
+    auto oNet = SNLScalarNet::create(top, SNLName(TopOName));
     o->setNet(oNet);
+    auto net = SNLScalarNet::create(top, SNLName(TopNetName));
     auto module0Ins0 = SNLInstance::create(top, module0, SNLName(TopIns0Name));
+    module0Ins0->setTermNet(module0->getScalarTerm(SNLName(ModuleI0Name)), iNet->getBit(0));
+    module0Ins0->setTermNet(module0->getScalarTerm(SNLName(ModuleI1Name)), iNet->getBit(1));
+    module0Ins0->setTermNet(module0->getScalarTerm(SNLName(ModuleOName)), net);
     auto module0Ins1 = SNLInstance::create(top, module0, SNLName(TopIns1Name));
+    module0Ins1->setTermNet(module0->getScalarTerm(SNLName(ModuleI0Name)), net);
+    module0Ins1->setTermNet(module0->getScalarTerm(SNLName(ModuleI1Name)), net);
+    module0Ins1->setTermNet(module0->getScalarTerm(SNLName(ModuleOName)), oNet);
   }
   
   return top;
@@ -115,10 +123,10 @@ SNLBusTerm* SNLNetlist0::getTopITerm() {
   return nullptr;
 }
 
-SNLBusNet* SNLNetlist0::getTopONet() {
+SNLScalarNet* SNLNetlist0::getTopONet() {
   auto top = getTop();
   if (top) {
-    return top->getBusNet(SNLName(TopOName));
+    return top->getScalarNet(SNLName(TopOName));
   }
   return nullptr;
 }

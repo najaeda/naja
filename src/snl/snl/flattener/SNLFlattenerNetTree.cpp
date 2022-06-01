@@ -36,9 +36,12 @@ std::string SNLFlattenerNetTree::Type::getString() const {
 }
 //LCOV_EXCL_STOP
 
-SNLFlattenerNetTree::SNLFlattenerNetTree(SNLFlattenerNetForest* forest, const SNLBitNet* net):
+SNLFlattenerNetTree::SNLFlattenerNetTree(
+  SNLFlattenerNetForest* forest,
+  SNLFlattenerInstanceTreeNode* instanceTreeNode,
+  const SNLBitNet* net):
   forest_(forest) {
-  root_ = SNLFlattenerNetTreeNode::create(this, net);
+  root_ = SNLFlattenerNetTreeNode::create(this, instanceTreeNode, net);
   forest_->addTree(this);
 }
 
@@ -51,8 +54,11 @@ void SNLFlattenerNetTree::destroy() {
   delete this;  
 }
 
-SNLFlattenerNetTree* SNLFlattenerNetTree::create(SNLFlattenerNetForest* forest, const SNLBitNet* net) {
-  SNLFlattenerNetTree* tree = new SNLFlattenerNetTree(forest, net);
+SNLFlattenerNetTree* SNLFlattenerNetTree::create(
+  SNLFlattenerNetForest* forest,
+  SNLFlattenerInstanceTreeNode* instanceTreeNode,
+  const SNLBitNet* net) {
+  SNLFlattenerNetTree* tree = new SNLFlattenerNetTree(forest, instanceTreeNode, net);
   return tree;
 }
 

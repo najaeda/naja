@@ -37,9 +37,22 @@ TEST_F(SNLFlattenerTest0, test0) {
   ASSERT_NE(nullptr, top_);
   SNLFlattener flattener;
   flattener.process(top_);
+
   SNLFlattenerInstanceTree* tree = flattener.getInstanceTree();
-  tree->print(std::cerr);
   ASSERT_NE(nullptr, tree);
+  std::filesystem::path dumpsPath(FLATTENER_DUMP_PATHS);
+  std::filesystem::path instanceTreePath = dumpsPath/"SNLFlattenerTest0Test0InstanceTree.debug";
+  std::ofstream instanceTreeFile;
+  instanceTreeFile.open(instanceTreePath, std::ios::out);
+  tree->print(instanceTreeFile);
+
+  SNLFlattenerNetForest* forest = flattener.getNetForest();
+  ASSERT_NE(nullptr, forest);
+  std::filesystem::path netForestPath = dumpsPath/"SNLFlattenerTest0Test0NetForest.debug";
+  std::ofstream netForestFile;
+  netForestFile.open(netForestPath, std::ios::out);
+  forest->print(netForestFile);
+
   auto root = tree->getRoot();
   ASSERT_NE(nullptr, root);
   auto ins0Node = root->getChildNode(SNLNetlist0::getTopIns0());
@@ -50,18 +63,4 @@ TEST_F(SNLFlattenerTest0, test0) {
   EXPECT_EQ(root, ins1Node->getParent());
   EXPECT_EQ(tree, ins0Node->getTree());
   EXPECT_EQ(tree, ins1Node->getTree());
-
-  SNLFlattenerNetForest* forest = flattener.getNetForest();
-  ASSERT_NE(nullptr, forest);
-
-  std::filesystem::path dumpsPath(FLATTENER_DUMP_PATHS);
-  std::filesystem::path instanceTreePath = dumpsPath/"SNLFlattenerTest0Test0InstanceTree.debug";
-  std::ofstream instanceTreeFile;
-  instanceTreeFile.open(instanceTreePath, std::ios::out);
-  tree->print(instanceTreeFile);
-
-  std::filesystem::path netForestPath = dumpsPath/"SNLFlattenerTest0Test0NetForest.debug";
-  std::ofstream netForestFile;
-  netForestFile.open(netForestPath, std::ios::out);
-  forest->print(netForestFile);
 }

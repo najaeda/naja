@@ -40,18 +40,26 @@ std::string SNLFlattenerNetTreeNode::Type::getString() const {
 }
 //LCOV_EXCL_STOP
 
-SNLFlattenerNetTreeNode::SNLFlattenerNetTreeNode(SNLFlattenerNetTree* tree, const SNLBitNet* rootNet):
+SNLFlattenerNetTreeNode::SNLFlattenerNetTreeNode(
+  SNLFlattenerNetTree* tree,
+  SNLFlattenerInstanceTreeNode* instanceTreeNode,
+  const SNLBitNet* rootNet):
   parent_(tree),
+  instanceTreeNode_(instanceTreeNode),
   type_(Type::Root),
   object_(rootNet)
 {}
 
-SNLFlattenerNetTreeNode::SNLFlattenerNetTreeNode(SNLFlattenerNetTreeNode* parent, const SNLInstTerm* instTerm):
+SNLFlattenerNetTreeNode::SNLFlattenerNetTreeNode(
+  SNLFlattenerNetTreeNode* parent,
+  SNLFlattenerInstanceTreeNode* instanceTreeNode,
+  const SNLInstTerm* instTerm):
   parent_(parent),
+  instanceTreeNode_(instanceTreeNode),
   type_(Type::InstTerm),
   object_(instTerm)
 {
-  parent->addChild(this); 
+  parent->addChild(this, object_); 
 }
 
 SNLFlattenerNetTreeNode::SNLFlattenerNetTreeNode(SNLFlattenerNetTreeNode* parent, const SNLBitTerm* term):
@@ -59,24 +67,34 @@ SNLFlattenerNetTreeNode::SNLFlattenerNetTreeNode(SNLFlattenerNetTreeNode* parent
   type_(Type::Term),
   object_(term)
 {
-  parent->addChild(this);
+  parent->addChild(this, object_);
 }
 
-void SNLFlattenerNetTreeNode::addChild(SNLFlattenerNetTreeNode* child) {
-  children_.insert(child);
+void SNLFlattenerNetTreeNode::addChild(
+  SNLFlattenerNetTreeNode* child,
+  const SNLDesignObject* object) {
+  children_[object] = child;
 }
 
-SNLFlattenerNetTreeNode* SNLFlattenerNetTreeNode::create(SNLFlattenerNetTree* tree, const SNLBitNet* rootNet) {
-  auto node = new SNLFlattenerNetTreeNode(tree, rootNet);
+SNLFlattenerNetTreeNode* SNLFlattenerNetTreeNode::create(
+  SNLFlattenerNetTree* tree,
+  SNLFlattenerInstanceTreeNode* instanceTreeNode,
+  const SNLBitNet* rootNet) {
+  auto node = new SNLFlattenerNetTreeNode(tree, instanceTreeNode, rootNet);
   return node;
 }
 
-SNLFlattenerNetTreeNode* SNLFlattenerNetTreeNode::create(SNLFlattenerNetTreeNode* parent, const SNLInstTerm* instTerm) {
-  auto node = new SNLFlattenerNetTreeNode(parent, instTerm);
+SNLFlattenerNetTreeNode* SNLFlattenerNetTreeNode::create(
+  SNLFlattenerNetTreeNode* parent,
+  SNLFlattenerInstanceTreeNode* instanceTreeNode,
+  const SNLInstTerm* instTerm) {
+  auto node = new SNLFlattenerNetTreeNode(parent, instanceTreeNode, instTerm);
   return node;
 }
 
-SNLFlattenerNetTreeNode* SNLFlattenerNetTreeNode::create(SNLFlattenerNetTreeNode* parent, const SNLBitTerm* term) {
+SNLFlattenerNetTreeNode* SNLFlattenerNetTreeNode::create(
+  SNLFlattenerNetTreeNode* parent,
+  const SNLBitTerm* term) {
   auto node = new SNLFlattenerNetTreeNode(parent, term);
   return node;
 }
@@ -144,7 +162,7 @@ std::string SNLFlattenerNetTreeNode::getObjectString() const {
 void SNLFlattenerNetTreeNode::print(std::ostream& stream, unsigned indent) const {
   stream << std::string(indent, ' ') << getString() << std::endl;
   indent += 2;
-  for (auto child: children_) {
+  for (const auto& [object, child]: children_) {
     child->print(stream, indent);
   }
 }
@@ -154,7 +172,6 @@ void SNLFlattenerNetTreeNode::print(std::ostream& stream, unsigned indent) const
 std::string SNLFlattenerNetTreeNode::getString() const {
   std::ostringstream stream;
   stream << getType().getString();
-  stream << ":" << getID();
   stream << ":" << getObjectString();
   return stream.str();
 }

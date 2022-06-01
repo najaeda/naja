@@ -24,6 +24,7 @@ namespace naja { namespace SNL {
 class SNLBitNet;
 class SNLFlattenerNetForest;
 class SNLFlattenerNetTreeNode;
+class SNLFlattenerInstanceTreeNode;
 
 class SNLFlattenerNetTree {
   public:
@@ -54,7 +55,10 @@ class SNLFlattenerNetTree {
     SNLFlattenerNetTree() = delete;
     SNLFlattenerNetTree(const SNLFlattenerNetTree&) = delete;
     SNLFlattenerNetTree(SNLFlattenerNetTree&&) = delete;
-    static SNLFlattenerNetTree* create(SNLFlattenerNetForest* forest, const SNLBitNet* net);
+    static SNLFlattenerNetTree* create(
+      SNLFlattenerNetForest* forest,
+      SNLFlattenerInstanceTreeNode* instanceTreeNode,
+      const SNLBitNet* net);
     void destroy();
 
     ID getID() const { return id_; }
@@ -63,7 +67,10 @@ class SNLFlattenerNetTree {
 
     void print(std::ostream& stream) const;
   private:
-    SNLFlattenerNetTree(SNLFlattenerNetForest* forest, const SNLBitNet* net);
+    SNLFlattenerNetTree(
+      SNLFlattenerNetForest* forest,
+      SNLFlattenerInstanceTreeNode* instanceTreeNode,
+      const SNLBitNet* net);
     ~SNLFlattenerNetTree() = default;
     void destroyFromForest();
 
