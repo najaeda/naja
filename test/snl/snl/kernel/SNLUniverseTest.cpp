@@ -20,6 +20,11 @@ TEST_F(SNLUniverseTest, test) {
 }
 
 TEST_F(SNLUniverseTest, testDB0) {
+  EXPECT_EQ(nullptr, SNLUniverse::getAssign());
+  EXPECT_EQ(nullptr, SNLUniverse::getAssignInput());
+  EXPECT_EQ(nullptr, SNLUniverse::getAssignOutput());
+  EXPECT_FALSE(SNLUniverse::isDB0(nullptr));
+
   SNLUniverse::create();
   ASSERT_NE(nullptr, SNLUniverse::get());
 
