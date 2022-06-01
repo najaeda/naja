@@ -163,10 +163,25 @@ TEST_F(SNLNetTest, testCreation) {
       net0->getBit(11), net0->getBit(10), net0->getBit(9),  net0->getBit(8),
       net0->getBit(7),  net0->getBit(6),  net0->getBit(5),  net0->getBit(4),
       net0->getBit(3) , net0->getBit(2),  net0->getBit(1),  net0->getBit(0)));
-  
+
+  EXPECT_THAT(std::vector(design_->getBitNets().begin(), design_->getBitNets().end()),
+    ElementsAre(i0Net, i1Net,
+      net0->getBitAtPosition(0), net0->getBitAtPosition(1), net0->getBitAtPosition(2),
+      net0->getBitAtPosition(3), net0->getBitAtPosition(4), net0->getBitAtPosition(5),
+      net0->getBitAtPosition(6), net0->getBitAtPosition(7), net0->getBitAtPosition(8),
+      net0->getBitAtPosition(9), net0->getBitAtPosition(10), net0->getBitAtPosition(11),
+      net0->getBitAtPosition(12), net0->getBitAtPosition(13), net0->getBitAtPosition(14),
+      net0->getBitAtPosition(15), net0->getBitAtPosition(16), net0->getBitAtPosition(17),
+      net0->getBitAtPosition(18), net0->getBitAtPosition(19), net0->getBitAtPosition(20),
+      net0->getBitAtPosition(21), net0->getBitAtPosition(22), net0->getBitAtPosition(23),
+      net0->getBitAtPosition(24), net0->getBitAtPosition(25), net0->getBitAtPosition(26),
+      net0->getBitAtPosition(27), net0->getBitAtPosition(28), net0->getBitAtPosition(29),
+      net0->getBitAtPosition(30), net0->getBitAtPosition(31)));
 
   EXPECT_EQ(nullptr, net0->getBit(32));
   EXPECT_EQ(nullptr, net0->getBit(-1));
+  EXPECT_EQ(nullptr, net0->getBitAtPosition(32));
+  EXPECT_EQ(nullptr, net0->getBitAtPosition(33));
 
   SNLID::Bit bitNumber = 31;
   for (auto bit: net0->getBits()) {
