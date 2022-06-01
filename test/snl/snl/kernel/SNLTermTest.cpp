@@ -53,6 +53,11 @@ TEST_F(SNLTermTest, testCreation) {
   }
   EXPECT_THAT(std::vector(term0->getBits().begin(), term0->getBits().end()),
     ElementsAre(term0->getBit(-1), term0->getBit(-2), term0->getBit(-3), term0->getBit(-4)));
+  EXPECT_THAT(std::vector(term0->getBits().begin(), term0->getBits().end()),
+    ElementsAre(
+      term0->getBitAtPosition(0), term0->getBitAtPosition(1),
+      term0->getBitAtPosition(2), term0->getBitAtPosition(3)));
+  EXPECT_EQ(nullptr, term0->getBitAtPosition(4));
   EXPECT_EQ(SNLID(SNLID::Type::TermBit, 1, 0, 0, 0, 0, -1), term0->getBit(-1)->getSNLID());
   EXPECT_EQ(SNLID(SNLID::Type::TermBit, 1, 0, 0, 0, 0, -2), term0->getBit(-2)->getSNLID());
   EXPECT_EQ(SNLID(SNLID::Type::TermBit, 1, 0, 0, 0, 0, -3), term0->getBit(-3)->getSNLID());
