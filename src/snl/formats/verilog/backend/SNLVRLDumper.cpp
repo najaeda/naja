@@ -23,6 +23,7 @@
 
 #include "SNLLibrary.h"
 #include "SNLDesign.h"
+#include "SNLParameter.h"
 #include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
 #include "SNLBusTermBit.h"
@@ -187,8 +188,6 @@ void SNLVRLDumper::dumpNets(const SNLDesign* design, std::ostream& o, DesignInsi
     o << std::endl;
   }
 }
-
-
 
 void SNLVRLDumper::dumpInsTermConnectivity(
   const SNLTerm* term,
@@ -422,6 +421,21 @@ void SNLVRLDumper::dumpTermAssigns(const SNLDesign* design, std::ostream& o) {
   }
 }
 
+void SNLVRLDumper::dumpParameter(const SNLParameter* parameter, std::ostream& o) {
+  o << "parameter " << parameter->getName().getString() << " = " << parameter->getValue() << " ;" << std::endl;
+}
+
+void SNLVRLDumper::dumpParameters(const SNLDesign* design, std::ostream& o) {
+  bool atLeastOne = false;
+  for (auto parameter: design->getParameters()) {
+    atLeastOne = true;
+    dumpParameter(parameter, o);
+  }
+  if (atLeastOne) {
+    o << std::endl;
+  }
+}
+
 void SNLVRLDumper::dumpOneDesign(const SNLDesign* design, std::ostream& o) {
   DesignInsideAnonymousNaming naming;
   for (auto term: design->getTerms()) {
@@ -440,9 +454,9 @@ void SNLVRLDumper::dumpOneDesign(const SNLDesign* design, std::ostream& o) {
   o << "module " << design->getName().getString();
 
   dumpInterface(design, o, naming);
-
   o << std::endl;
 
+  dumpParameters(design, o);
   dumpNets(design, o, naming);
   dumpTermAssigns(design, o);
 

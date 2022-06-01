@@ -27,6 +27,7 @@
 namespace naja { namespace SNL {
 
 class SNLDesign;
+class SNLParameter;
 class SNLInstance;
 class SNLTerm;
 class SNLNet;
@@ -120,6 +121,8 @@ class SNLVRLDumper {
     static SNLName createNetName(const SNLNet* net, DesignInsideAnonymousNaming& naming);
     static SNLName getNetName(const SNLNet* net, const DesignInsideAnonymousNaming& naming);
     void dumpOneDesign(const SNLDesign* design, std::ostream& o);
+    void dumpParameter(const SNLParameter* parameter, std::ostream& o);
+    void dumpParameters(const SNLDesign* design, std::ostream& o);
     void dumpInstances(const SNLDesign* design, std::ostream& o, DesignInsideAnonymousNaming& naming);
     void dumpInstance(const SNLInstance* instance, std::ostream& o, DesignInsideAnonymousNaming& naming);
     void dumpInstanceInterface(const SNLInstance* instance, std::ostream& o, const DesignInsideAnonymousNaming& naming);
