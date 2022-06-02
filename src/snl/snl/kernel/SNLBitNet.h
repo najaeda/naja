@@ -35,8 +35,8 @@ class SNLBitNet: public SNLNet {
     Type getType() const { return type_; }
     size_t getSize() const override { return 1; }
 
-    bool isConstant0() { return type_.isConst0(); }
-    bool isConstant1() { return type_.isConst1(); }
+    bool isConstant0() const { return type_.isConst0(); }
+    bool isConstant1() const { return type_.isConst1(); }
 
     ///\return the collection of SNLComponent ot this SNLBitNet
     SNLCollection<SNLNetComponent*> getComponents() const;

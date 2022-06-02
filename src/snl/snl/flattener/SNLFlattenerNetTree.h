@@ -59,6 +59,7 @@ class SNLFlattenerNetTree {
       SNLFlattenerNetForest* forest,
       SNLFlattenerInstanceTreeNode* instanceTreeNode,
       const SNLBitNet* net);
+    void setType(const Type& type) { type_ = type; }
     void destroy();
 
     ID getID() const { return id_; }

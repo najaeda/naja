@@ -41,10 +41,10 @@ class SNLFlattener {
     SNLFlattenerNetForest* getNetForest() const { return forest_; }
 
   private:
-    using TermNodesMap = std::map<SNLBitTerm*, SNLFlattenerNetTreeNode*>;
     void processTopNets(SNLFlattenerInstanceTreeNode* root, const SNLDesign* top);
     void createInstanceTree(SNLFlattenerInstanceTreeNode* parent, const SNLDesign* design);
     void createNetForest(const SNLDesign* design);
+    void createNetForest(SNLFlattenerInstanceTreeNode* instanceNode);
 
     SNLFlattenerInstanceTree* tree_   { nullptr };
     SNLFlattenerNetForest*    forest_ { nullptr };

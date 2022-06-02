@@ -45,6 +45,14 @@ SNLFlattenerInstanceTreeNode* SNLFlattenerInstanceTreeNode::addChild(const SNLIn
   return child;
 }
 
+void SNLFlattenerInstanceTreeNode::addNetNode(SNLFlattenerNetTreeNode* node, const SNLBitNet* net) {
+  netNodes_[net] = node;
+}
+
+void SNLFlattenerInstanceTreeNode::addTermNode(SNLFlattenerNetTreeNode* node, const SNLBitTerm* term) {
+  termNodes_[term] = node;
+}
+
 SNLFlattenerInstanceTreeNode::~SNLFlattenerInstanceTreeNode() {
   std::for_each(children_.begin(), children_.end(), [](const auto& pair){ delete pair.second; });
 }
@@ -70,6 +78,30 @@ SNLFlattenerInstanceTreeNode::getChildNode(const SNLInstance* instance) const {
   }
   auto it = children_.find(instance);
   if (it != children_.end()) {
+    return it->second;
+  }
+  return nullptr;
+}
+
+SNLFlattenerNetTreeNode*
+SNLFlattenerInstanceTreeNode::getNetNode(const SNLBitNet* net) const {
+  if (not net) {
+    return nullptr;
+  }
+  auto it = netNodes_.find(net);
+  if (it != netNodes_.end()) {
+    return it->second;
+  }
+  return nullptr;
+}
+
+SNLFlattenerNetTreeNode*
+SNLFlattenerInstanceTreeNode::getTermNode(const SNLBitTerm* term) const {
+  if (not term) {
+    return nullptr;
+  }
+  auto it = termNodes_.find(term);
+  if (it != termNodes_.end()) {
     return it->second;
   }
   return nullptr;
