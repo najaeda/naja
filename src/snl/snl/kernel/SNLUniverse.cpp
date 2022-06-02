@@ -85,6 +85,13 @@ bool SNLUniverse::isDB0(const SNLDB* db) {
   return false;
 }
 
+bool SNLUniverse::isDB0Primitive(const SNLDesign* design) {
+  if (design) {
+    return SNLUniverse::isDB0(design->getDB());
+  }
+  return false;
+}
+
 SNLDesign* SNLUniverse::getAssign() {
   auto universe = get();
   if (universe) {

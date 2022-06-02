@@ -44,7 +44,9 @@ class SNLUniverse final: public SNLObject {
     SNLDB* getDB(SNLID::DBID id);
 
     //DB0 methods
+    //simply move this to DB0 ??
     static bool isDB0(const SNLDB* db);
+    static bool isDB0Primitive(const SNLDesign* design);
     static SNLDesign* getAssign(); 
     static bool isAssign(const SNLDesign* design);
     static SNLScalarTerm* getAssignInput();
