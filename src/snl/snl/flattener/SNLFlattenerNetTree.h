@@ -29,6 +29,7 @@ class SNLFlattenerInstanceTreeNode;
 class SNLFlattenerNetTree {
   public:
     friend class SNLFlattenerNetForest;
+    friend class SNLFlattenerNetTreeNode;
     using ID = unsigned int;
 
     class Type {
@@ -54,11 +55,11 @@ class SNLFlattenerNetTree {
 
     SNLFlattenerNetTree() = delete;
     SNLFlattenerNetTree(const SNLFlattenerNetTree&) = delete;
-    SNLFlattenerNetTree(SNLFlattenerNetTree&&) = delete;
-    static SNLFlattenerNetTree* create(
+    SNLFlattenerNetTree(
       SNLFlattenerNetForest* forest,
       SNLFlattenerInstanceTreeNode* instanceTreeNode,
       const SNLBitNet* net);
+    ~SNLFlattenerNetTree();
     void setType(const Type& type) { type_ = type; }
     void destroy();
 
@@ -68,12 +69,6 @@ class SNLFlattenerNetTree {
 
     void print(std::ostream& stream) const;
   private:
-    SNLFlattenerNetTree(
-      SNLFlattenerNetForest* forest,
-      SNLFlattenerInstanceTreeNode* instanceTreeNode,
-      const SNLBitNet* net);
-    ~SNLFlattenerNetTree() = default;
-    void destroyFromForest();
 
     SNLFlattenerNetForest*    forest_ {nullptr};
     SNLFlattenerNetTreeNode*  root_   {nullptr};

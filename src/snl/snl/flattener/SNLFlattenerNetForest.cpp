@@ -23,7 +23,8 @@ namespace naja { namespace SNL {
 SNLFlattenerNetForest::~SNLFlattenerNetForest() {
   std::for_each(trees_.begin(), trees_.end(),
     [](SNLFlattenerNetTree* tree) {
-      tree->destroyFromForest();
+      tree->forest_ = nullptr;
+      delete tree;
     }
   );
 }

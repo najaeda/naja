@@ -41,25 +41,18 @@ SNLFlattenerNetTree::SNLFlattenerNetTree(
   SNLFlattenerInstanceTreeNode* instanceTreeNode,
   const SNLBitNet* net):
   forest_(forest) {
-  root_ = SNLFlattenerNetTreeNode::create(this, instanceTreeNode, net);
+  root_ = new SNLFlattenerNetTreeNode(this, instanceTreeNode, net);
   forest_->addTree(this);
 }
 
-void SNLFlattenerNetTree::destroyFromForest() {
-  delete this;
-}
-
-void SNLFlattenerNetTree::destroy() {
-  forest_->removeTree(this);
-  delete this;  
-}
-
-SNLFlattenerNetTree* SNLFlattenerNetTree::create(
-  SNLFlattenerNetForest* forest,
-  SNLFlattenerInstanceTreeNode* instanceTreeNode,
-  const SNLBitNet* net) {
-  SNLFlattenerNetTree* tree = new SNLFlattenerNetTree(forest, instanceTreeNode, net);
-  return tree;
+SNLFlattenerNetTree::~SNLFlattenerNetTree() {
+  if (forest_) {
+    forest_->removeTree(this);
+  }
+  if (root_) {
+    root_->parent_ = nullptr;
+    delete root_;
+  }
 }
 
 void SNLFlattenerNetTree::print(std::ostream& stream) const {

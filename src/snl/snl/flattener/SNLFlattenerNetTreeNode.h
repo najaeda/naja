@@ -30,6 +30,7 @@ class SNLFlattenerNetTree;
 class SNLFlattenerNetForest;
 
 class SNLFlattenerNetTreeNode {
+  friend class SNLFlattenerNetTree;
   public:
     class Type {
       public:
@@ -52,15 +53,17 @@ class SNLFlattenerNetTreeNode {
     SNLFlattenerNetTreeNode(const SNLFlattenerNetTreeNode&) = delete;
     SNLFlattenerNetTreeNode(SNLFlattenerNetTreeNode&&) = delete;
 
-    static SNLFlattenerNetTreeNode* create(
+    SNLFlattenerNetTreeNode(
       SNLFlattenerNetTree* tree,
       SNLFlattenerInstanceTreeNode* instanceTreeNode,
       const SNLBitNet* rootNet);
-    static SNLFlattenerNetTreeNode* create(
+    SNLFlattenerNetTreeNode(
       SNLFlattenerNetTreeNode* parent,
       SNLFlattenerInstanceTreeNode* instanceTreeNode,
       const SNLInstTerm* instTerm);
-    static SNLFlattenerNetTreeNode* create(SNLFlattenerNetTreeNode* parent, const SNLBitTerm* term);
+    SNLFlattenerNetTreeNode(SNLFlattenerNetTreeNode* parent, const SNLBitTerm* term);
+
+    ~SNLFlattenerNetTreeNode();
 
     const SNLBitNet* getNet() const;
     const SNLBitTerm* getTerm() const;
@@ -79,18 +82,8 @@ class SNLFlattenerNetTreeNode {
     void print(std::ostream& stream, unsigned indent=0) const;
     std::string getString() const;
   private:
-    SNLFlattenerNetTreeNode(
-      SNLFlattenerNetTree* tree,
-      SNLFlattenerInstanceTreeNode* instanceTreeNode,
-      const SNLBitNet* rootNet);
-    SNLFlattenerNetTreeNode(
-      SNLFlattenerNetTreeNode* parent,
-      SNLFlattenerInstanceTreeNode* instanceTreeNode,
-      const SNLInstTerm* instTerm);
-    SNLFlattenerNetTreeNode(SNLFlattenerNetTreeNode* parent, const SNLBitTerm* term);
-    ~SNLFlattenerNetTreeNode();
-
     void addChild(SNLFlattenerNetTreeNode* child, const SNLDesignObject* object);
+    void removeChild(SNLFlattenerNetTreeNode* child);
 
     void*                         parent_           {nullptr};
     SNLFlattenerInstanceTreeNode* instanceTreeNode_ {nullptr};

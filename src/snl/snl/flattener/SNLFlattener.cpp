@@ -52,7 +52,7 @@ SNLFlattener::~SNLFlattener() {
 
 void SNLFlattener::processTopNets(SNLFlattenerInstanceTreeNode* instanceTreeRoot, const SNLDesign* top) {
   for (auto net: top->getBitNets()) {
-    SNLFlattenerNetTree* netTree = SNLFlattenerNetTree::create(getNetForest(), instanceTreeRoot, net);
+    SNLFlattenerNetTree* netTree = new SNLFlattenerNetTree(getNetForest(), instanceTreeRoot, net);
     SNLFlattenerNetTreeNode* netTreeRoot = netTree->getRoot();
     setTreeType(netTree, net);
     for (auto component: net->getComponents()) {
@@ -60,10 +60,10 @@ void SNLFlattener::processTopNets(SNLFlattenerInstanceTreeNode* instanceTreeRoot
         auto instance = instTerm->getInstance();
         auto instanceTreeNode = instanceTreeRoot->getChildNode(instance);
         assert(instanceTreeNode);
-        SNLFlattenerNetTreeNode::create(netTreeRoot, instanceTreeNode, instTerm);
+        new SNLFlattenerNetTreeNode(netTreeRoot, instanceTreeNode, instTerm);
       } else {
         auto term = static_cast<SNLBitTerm*>(component);
-        SNLFlattenerNetTreeNode::create(netTreeRoot, term);
+        new SNLFlattenerNetTreeNode(netTreeRoot, term);
       }
     }
   }
@@ -89,7 +89,7 @@ void SNLFlattener::createNetForest(SNLFlattenerInstanceTreeNode* instanceNode) {
       SNLFlattenerNetTreeNode* parentNode = nullptr;
       if (termNodes.empty()) {
         //new net tree
-        auto netTree = SNLFlattenerNetTree::create(getNetForest(), instanceNode, bitNet);
+        auto netTree = new SNLFlattenerNetTree(getNetForest(), instanceNode, bitNet);
         parentNode = netTree->getRoot();
       } else {
         //manage feedthrus....
@@ -100,7 +100,7 @@ void SNLFlattener::createNetForest(SNLFlattenerInstanceTreeNode* instanceNode) {
         auto instance = instTerm->getInstance();
         auto instanceChildNode = instanceNode->getChildNode(instance);
         assert(instanceChildNode);
-        SNLFlattenerNetTreeNode::create(parentNode, instanceChildNode, instTerm);
+        new SNLFlattenerNetTreeNode(parentNode, instanceChildNode, instTerm);
       }
     }
   }

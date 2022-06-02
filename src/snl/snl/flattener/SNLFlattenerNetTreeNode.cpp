@@ -73,33 +73,34 @@ SNLFlattenerNetTreeNode::SNLFlattenerNetTreeNode(SNLFlattenerNetTreeNode* parent
   parent->addChild(this, object_);
 }
 
+SNLFlattenerNetTreeNode::~SNLFlattenerNetTreeNode() {
+  if (parent_) {
+    if (isRoot()) {
+      //this tree needs to be deleted
+      auto tree = getTree();
+      tree->root_ = nullptr;
+      delete tree;
+    } else {
+      auto parent = getParent();
+      parent->removeChild(this);
+    }
+  }
+  for (const auto& [object, child]: children_) {
+    child->parent_ = nullptr;
+    delete child;
+  }
+}
+
 void SNLFlattenerNetTreeNode::addChild(
   SNLFlattenerNetTreeNode* child,
   const SNLDesignObject* object) {
   children_[object] = child;
 }
 
-SNLFlattenerNetTreeNode* SNLFlattenerNetTreeNode::create(
-  SNLFlattenerNetTree* tree,
-  SNLFlattenerInstanceTreeNode* instanceTreeNode,
-  const SNLBitNet* rootNet) {
-  auto node = new SNLFlattenerNetTreeNode(tree, instanceTreeNode, rootNet);
-  return node;
-}
-
-SNLFlattenerNetTreeNode* SNLFlattenerNetTreeNode::create(
-  SNLFlattenerNetTreeNode* parent,
-  SNLFlattenerInstanceTreeNode* instanceTreeNode,
-  const SNLInstTerm* instTerm) {
-  auto node = new SNLFlattenerNetTreeNode(parent, instanceTreeNode, instTerm);
-  return node;
-}
-
-SNLFlattenerNetTreeNode* SNLFlattenerNetTreeNode::create(
-  SNLFlattenerNetTreeNode* parent,
-  const SNLBitTerm* term) {
-  auto node = new SNLFlattenerNetTreeNode(parent, term);
-  return node;
+void SNLFlattenerNetTreeNode::removeChild(SNLFlattenerNetTreeNode* child) {
+  auto it = children_.find(child->object_);
+  assert(it != children_.end());
+  children_.erase(it);
 }
 
 SNLFlattenerNetTree* SNLFlattenerNetTreeNode::getTree() const {
