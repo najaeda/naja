@@ -41,19 +41,19 @@ class SNLFlattenerTest1: public ::testing::Test {
       auto o0 = SNLScalarTerm::create(model, SNLTerm::Direction::Output, SNLName("o0"));
       auto o0Net = SNLScalarNet::create(model, SNLName("o0"));
       o0->setNet(o0Net);
-      //ins2->setTermNet(SNLDB0::getANDOutput(and3), o0Net);
+      ins2->setTermNet(SNLDB0::getANDOutput(and3), o0Net);
 
-      //auto o1 = SNLScalarTerm::create(model, SNLTerm::Direction::Output, SNLName("o1"));
-      //auto o1Net = SNLScalarNet::create(model, SNLName("o1"));
-      //o1->setNet(o1Net);
-      //o1Net->setType(SNLNet::Type::Assign0);
+      auto o1 = SNLScalarTerm::create(model, SNLTerm::Direction::Output, SNLName("o1"));
+      auto o1Net = SNLScalarNet::create(model, SNLName("o1"));
+      o1->setNet(o1Net);
+      o1Net->setType(SNLNet::Type::Assign0);
 
-      //auto i = SNLBusTerm::create(model, SNLTerm::Direction::Input, 1, 0, SNLName("i"));
-      //auto iNet = SNLBusNet::create(model, 1, 0, SNLName("i"));
-      //i->setNet(iNet);
+      auto i = SNLBusTerm::create(model, SNLTerm::Direction::Input, 1, 0, SNLName("i"));
+      auto iNet = SNLBusNet::create(model, 1, 0, SNLName("i"));
+      i->setNet(iNet);
 
-      //ins0->getInstTerm(SNLDB0::getANDInputs(and3)->getBit(0));
-      //ins0->setTermNet(SNLDB0::getANDInputs(and3), 2, 1, iNet, 1, 0);
+      ins0->getInstTerm(SNLDB0::getANDInputs(and3)->getBit(0));
+      ins0->setTermNet(SNLDB0::getANDInputs(and3), 2, 1, iNet, 1, 0);
 
       //top_ = SNLNetlist0::create(db_);
     }

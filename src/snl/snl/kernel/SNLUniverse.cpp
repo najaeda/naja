@@ -51,6 +51,10 @@ void SNLUniverse::preDestroy() {
       db->destroyFromUniverse();
     }
   };
+  //Make sure that the last destroyed DB is DB0 
+  if (dbs_.size()>1) {
+    dbs_.erase_and_dispose(++dbs_.begin(), dbs_.end(), destroyDBFromUniverse());
+  }
   dbs_.clear_and_dispose(destroyDBFromUniverse());
   universe_ = nullptr;
   super::preDestroy();
