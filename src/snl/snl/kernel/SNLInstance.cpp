@@ -106,21 +106,32 @@ void SNLInstance::removeInstTerm(SNLBitTerm* term) {
   instTerms_[term->getPositionInDesign()] = nullptr;
 }
 
+void SNLInstance::setTermsNets(const Terms& terms, const Nets& nets) {
+  if (terms.size() not_eq nets.size()) {
+    throw SNLException("setTermsNets error incompatible size between terms and nets");
+  }
+  for (size_t i=0; i<terms.size(); ++i) {
+    SNLBitTerm* bitTerm = terms[i];
+    assert(bitTerm);
+    if (getModel() not_eq bitTerm->getDesign()) {
+      throw SNLException("setTermsNets error with incompatible instance and terminal");
+    }
+    auto bitNet = nets[i];
+    if (bitNet and bitNet->getDesign() not_eq getDesign()) {
+      throw SNLException("setTermsNets error with incompatible instance and net");
+    }
+    SNLInstTerm* instTerm = getInstTerm(bitTerm);
+    instTerm->setNet(bitNet);
+  }
+}
+
 void SNLInstance::setTermNet(
   SNLTerm* term,
   SNLID::Bit termMSB, SNLID::Bit termLSB,
   SNLNet* net,
   SNLID::Bit netMSB, SNLID::Bit netLSB) {
-  using Terms = std::vector<SNLBitTerm*>;
   Terms terms;
-  using Nets = std::vector<SNLBitNet*>;
   Nets nets;
-  if (getModel() not_eq term->getDesign()) {
-    throw SNLException("setTermNet error with incompatible instance and terminal");
-  }
-  if (getDesign() not_eq net->getDesign()) {
-    throw SNLException("setTermNet error with incompatible instance and net");
-  }
   if (auto busTerm = dynamic_cast<SNLBusTerm*>(term)) {
     assert(SNLDesign::isBetween(termMSB, busTerm->getMSB(), busTerm->getLSB()));
     assert(SNLDesign::isBetween(termLSB, busTerm->getMSB(), busTerm->getLSB()));
@@ -145,28 +156,15 @@ void SNLInstance::setTermNet(
     auto bitNet = static_cast<SNLBitNet*>(net);
     nets.push_back(bitNet);
   }
-  assert(terms.size() == nets.size());
-  for (size_t i=0; i<terms.size(); ++i) {
-    SNLBitTerm* bitTerm = terms[i];
-    SNLInstTerm* instTerm = getInstTerm(bitTerm);
-    instTerm->setNet(nets[i]);
-  }
+  setTermsNets(terms, nets);
 }
 
 void SNLInstance::setTermNet(SNLTerm* term, SNLNet* net) {
   if (term->getSize() not_eq net->getSize()) {
     throw SNLException("setTermNet only supported when term and net share same size");
   }
-  using Terms = std::vector<SNLBitTerm*>;
   Terms terms;
-  using Nets = std::vector<SNLBitNet*>;
   Nets nets;
-  if (getModel() not_eq term->getDesign()) {
-    throw SNLException("setTermNet error with incompatible instance and terminal");
-  }
-  if (getDesign() not_eq net->getDesign()) {
-    throw SNLException("setTermNet error with incompatible instance and net");
-  }
   if (auto busTerm = dynamic_cast<SNLBusTerm*>(term)) {
     terms = Terms(busTerm->getBits().begin(), busTerm->getBits().end());
   } else {
@@ -179,13 +177,7 @@ void SNLInstance::setTermNet(SNLTerm* term, SNLNet* net) {
     auto bitNet = static_cast<SNLBitNet*>(net);
     nets.push_back(bitNet);
   }
-
-  assert(terms.size() == nets.size());
-  for (size_t i=0; i<terms.size(); ++i) {
-    SNLBitTerm* bitTerm = terms[i];
-    SNLInstTerm* instTerm = getInstTerm(bitTerm);
-    instTerm->setNet(nets[i]);
-  }
+  setTermsNets(terms, nets);
 }
 
 void SNLInstance::commonPreDestroy() {
@@ -249,27 +241,23 @@ SNLInstTerm* SNLInstance::getInstTerm(const SNLBitTerm* term) {
 
 SNLCollection<SNLInstTerm*> SNLInstance::getInstTerms() const {
   auto filter = [](const SNLInstTerm* it) { return it != nullptr; };
-  return SNLCollection<SNLInstTerm*>(
-    new SNLVectorCollection<SNLInstTerm*>(&instTerms_)).getSubCollection(filter);
+  return SNLCollection(new SNLSTLCollection(&instTerms_)).getSubCollection(filter);
 }
 
 SNLCollection<SNLInstTerm*> SNLInstance::getConnectedInstTerms() const {
   auto filter = [](const SNLInstTerm* it) {return it and it->getNet() != nullptr; };
-  return SNLCollection<SNLInstTerm*>(
-    new SNLVectorCollection<SNLInstTerm*>(&instTerms_)).getSubCollection(filter);
+  return SNLCollection(new SNLSTLCollection(&instTerms_)).getSubCollection(filter);
 
 }
 
 SNLCollection<SNLInstTerm*> SNLInstance::getInstScalarTerms() const {
   auto filter = [](const SNLInstTerm* it) { return it and dynamic_cast<SNLScalarTerm*>(it->getTerm()); };
-  return SNLCollection<SNLInstTerm*>(
-    new SNLVectorCollection<SNLInstTerm*>(&instTerms_)).getSubCollection(filter);
+  return SNLCollection(new SNLSTLCollection(&instTerms_)).getSubCollection(filter);
 }
 
 SNLCollection<SNLInstTerm*> SNLInstance::getInstBusTermBits() const {
   auto filter = [](const SNLInstTerm* it) { return it and dynamic_cast<SNLBusTermBit*>(it->getTerm()); };
-  return SNLCollection<SNLInstTerm*>(
-    new SNLVectorCollection<SNLInstTerm*>(&instTerms_)).getSubCollection(filter);
+  return SNLCollection(new SNLSTLCollection(&instTerms_)).getSubCollection(filter);
 }
 
 //LCOV_EXCL_START

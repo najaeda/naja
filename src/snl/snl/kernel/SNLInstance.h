@@ -31,6 +31,7 @@ namespace naja { namespace SNL {
 class SNLTerm;
 class SNLNet;
 class SNLBitTerm;
+class SNLBitNet;
 class SNLInstTerm;
 class SNLSharedPath;
 
@@ -78,6 +79,15 @@ class SNLInstance final: public SNLDesignObject {
     ///\return the SNLCollection subset of SNLInstTerm (only SNLBusTermBit type) of this SNLInstance.
     SNLCollection<SNLInstTerm*> getInstBusTermBits() const;
 
+    using Terms = std::vector<SNLBitTerm*>;
+    using Nets = std::vector<SNLBitNet*>;
+    /**
+     * Helper function allowing to connect a vector of SNLTerm representatives (SNLInstTerm)
+     * in current instance to the corresponding vector of SNLNet bits.
+     * \remark terms and nets must have the same size.
+     * \remark nets accepts nullptr elements. This method can be used to disconnect SNLInstance terminals (SNLInstTerm).
+     **/
+    void setTermsNets(const Terms& terms, const Nets& nets);
     /**
      * Helper function allowing to connect a SNLTerm representative in current instance to the
      * corresponding SNLNet bits.

@@ -128,76 +128,75 @@ class SNLIntrusiveSetCollection: public SNLBaseCollection<Type*> {
     const Set*  set_  {nullptr};
 };
 
-template<class Type>
-class SNLVectorCollection: public SNLBaseCollection<Type> {
+template<class STLType>
+class SNLSTLCollection: public SNLBaseCollection<typename STLType::value_type> {
   public:
-    using super = SNLBaseCollection<Type>;
-    using Vector = std::vector<Type>;
+    using super = SNLBaseCollection<typename STLType::value_type>;
 
-    class SNLVectorCollectionIterator: public SNLBaseIterator<Type> {
+    class SNLSTLCollectionIterator: public SNLBaseIterator<typename STLType::value_type> {
       public:
-        using VectorIterator = typename Vector::const_iterator;
+        using STLTypeIterator = typename STLType::const_iterator;
 
-        SNLVectorCollectionIterator(SNLVectorCollectionIterator&) = default;
-        SNLVectorCollectionIterator(const Vector* vector, bool beginOrEnd=true): vector_(vector) {
-          if (vector_) {
+        SNLSTLCollectionIterator(SNLSTLCollectionIterator&) = default;
+        SNLSTLCollectionIterator(const STLType* container, bool beginOrEnd=true): container_(container) {
+          if (container_) {
             if (beginOrEnd) {
-              it_ = vector_->begin();
+              it_ = container_->begin();
             } else {
-              it_ = vector_->end();
+              it_ = container_->end();
             }
           }
         }
 
-        SNLBaseIterator<Type>* clone() override {
-          return new SNLVectorCollectionIterator(*this);
+        SNLBaseIterator<typename STLType::value_type>* clone() override {
+          return new SNLSTLCollectionIterator(*this);
         }
 
-        Type getElement() const override { return *it_; } 
+        typename STLType::value_type getElement() const override { return *it_; } 
         void progress() override { ++it_; }
-        bool isEqual(const SNLBaseIterator<Type>* r) override {
-          if (auto rit = dynamic_cast<const SNLVectorCollectionIterator*>(r)) {
+        bool isEqual(const SNLBaseIterator<typename STLType::value_type>* r) override {
+          if (auto rit = dynamic_cast<const SNLSTLCollectionIterator*>(r)) {
             return it_ == rit->it_;
           }
           return false;
         }
         bool isValid() const override {
-          return vector_ and it_ != vector_->end();
+          return container_ and it_ != container_->end();
         }
       private:
-        const Vector*   vector_ {nullptr};
-        VectorIterator  it_     {};
+        const STLType*  container_  {nullptr};
+        STLTypeIterator it_         {};
     };
 
-    SNLVectorCollection() = delete;
-    SNLVectorCollection(const SNLVectorCollection&) = delete;
-    SNLVectorCollection(SNLVectorCollection&&) = delete;
-    SNLVectorCollection(const Vector* vector): super(), vector_(vector) {}
-    SNLBaseCollection<Type>* clone() const override {
-      return new SNLVectorCollection(vector_);
+    SNLSTLCollection() = delete;
+    SNLSTLCollection(const SNLSTLCollection&) = delete;
+    SNLSTLCollection(SNLSTLCollection&&) = delete;
+    SNLSTLCollection(const STLType* container): super(), container_(container) {}
+    SNLBaseCollection<typename STLType::value_type>* clone() const override {
+      return new SNLSTLCollection(container_);
     }
-    SNLBaseIterator<Type>* begin() const override {
-      return new SNLVectorCollectionIterator(vector_, true);
+    SNLBaseIterator<typename STLType::value_type>* begin() const override {
+      return new SNLSTLCollectionIterator(container_, true);
     }
-    SNLBaseIterator<Type>* end() const override {
-      return new SNLVectorCollectionIterator(vector_, false);
+    SNLBaseIterator<typename STLType::value_type>* end() const override {
+      return new SNLSTLCollectionIterator(container_, false);
     }
 
     size_t size() const override {
-      if (vector_) {
-        return vector_->size();
+      if (container_) {
+        return container_->size();
       }
       return 0;
     }
 
     bool empty() const override {
-      if (vector_) {
-        return vector_->empty();
+      if (container_) {
+        return container_->empty();
       }
       return true;
     }
   private:
-    const Vector* vector_ {nullptr};
+    const STLType* container_ {nullptr};
 };
 
 template<class Type, class SubType> class SNLSubTypeCollection: public SNLBaseCollection<SubType> {

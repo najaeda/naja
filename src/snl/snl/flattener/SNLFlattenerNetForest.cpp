@@ -42,6 +42,10 @@ void SNLFlattenerNetForest::removeTree(SNLFlattenerNetTree* tree) {
   trees_.erase(it);
 }
 
+SNLCollection<SNLFlattenerNetTree*> SNLFlattenerNetForest::getTrees() const {
+  return SNLCollection(new SNLSTLCollection(&trees_));
+}
+
 void SNLFlattenerNetForest::print(std::ostream& stream) const {
   for (auto tree: trees_) {
     tree->print(stream);

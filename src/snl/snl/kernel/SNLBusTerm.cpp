@@ -159,7 +159,7 @@ SNLBusTermBit* SNLBusTerm::getBitAtPosition(size_t position) const {
 }
 
 SNLCollection<SNLBusTermBit*> SNLBusTerm::getBits() const {
-  return SNLCollection<SNLBusTermBit*>(new SNLVectorCollection<SNLBusTermBit*>(&bits_));
+  return SNLCollection(new SNLSTLCollection(&bits_));
 }
 
 }} // namespace SNL // namespace naja

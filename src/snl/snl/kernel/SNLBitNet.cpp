@@ -41,7 +41,7 @@ void SNLBitNet::preDestroy() {
 }
 
 SNLCollection<SNLNetComponent*> SNLBitNet::getComponents() const {
-  return SNLCollection<SNLNetComponent*>(new SNLIntrusiveSetCollection<SNLNetComponent, SNLBitNetComponentsHook>(&components_));
+  return SNLCollection(new SNLIntrusiveSetCollection(&components_));
 }
 
 SNLCollection<SNLInstTerm*> SNLBitNet::getInstTerms() const {
