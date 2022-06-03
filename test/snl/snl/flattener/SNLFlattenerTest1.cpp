@@ -12,6 +12,7 @@
 #include "SNLBusTerm.h"
 #include "SNLBusTermBit.h"
 #include "SNLBusNet.h"
+#include "SNLInstTerm.h"
 
 #include "SNLFlattener.h"
 #include "SNLFlattenerInstanceTree.h"
@@ -41,7 +42,6 @@ class SNLFlattenerTest1: public ::testing::Test {
       auto o0 = SNLScalarTerm::create(model, SNLTerm::Direction::Output, SNLName("o0"));
       auto o0Net = SNLScalarNet::create(model, SNLName("o0"));
       o0->setNet(o0Net);
-      ins2->setTermNet(SNLDB0::getANDOutput(and3), o0Net);
 
       auto o1 = SNLScalarTerm::create(model, SNLTerm::Direction::Output, SNLName("o1"));
       auto o1Net = SNLScalarNet::create(model, SNLName("o1"));
@@ -52,10 +52,31 @@ class SNLFlattenerTest1: public ::testing::Test {
       auto iNet = SNLBusNet::create(model, 1, 0, SNLName("i"));
       i->setNet(iNet);
 
-      ins0->getInstTerm(SNLDB0::getANDInputs(and3)->getBit(0));
+      auto ins0i0Net = SNLScalarNet::create(model);
+      ins0i0Net->setType(SNLNet::Type::Supply0);
+      ins0->getInstTerm(SNLDB0::getANDInputs(and3)->getBit(0))->setNet(ins0i0Net);
       ins0->setTermNet(SNLDB0::getANDInputs(and3), 2, 1, iNet, 1, 0);
 
-      //top_ = SNLNetlist0::create(db_);
+      auto ins1i0Net = SNLScalarNet::create(model);
+      ins1i0Net->setType(SNLNet::Type::Supply1);
+      ins1->getInstTerm(SNLDB0::getANDInputs(and3)->getBit(0))->setNet(ins1i0Net);
+      ins1->setTermNet(SNLDB0::getANDInputs(and3), 2, 1, iNet, 1, 0);
+
+      auto net = SNLBusNet::create(model, 2, 0);
+      //bit0 floating
+      ins0->setTermNet(SNLDB0::getANDOutput(and3), 1, 1, net, 1, 1);
+      ins0->setTermNet(SNLDB0::getANDOutput(and3), 2, 2, net, 2, 2);
+      ins2->setTermNet(SNLDB0::getANDInputs(and3), net);
+
+      auto model1 = SNLDesign::create(modelLib, SNLName("model1"));
+      SNLInstance::create(model1, model, SNLName("ins0"));
+      SNLInstance::create(model1, model, SNLName("ins1"));
+
+      auto designsLib = SNLLibrary::create(db_, SNLName("Designs"));
+      top_ = SNLDesign::create(designsLib, SNLName("TOP"));
+
+      SNLInstance::create(top_, model1, SNLName("topins0"));
+      SNLInstance::create(top_, model1, SNLName("topins1"));
     }
     void TearDown() override {
       SNLUniverse::get()->destroy();
@@ -66,7 +87,6 @@ class SNLFlattenerTest1: public ::testing::Test {
 };
 
 TEST_F(SNLFlattenerTest1, test0) {
-#if 0
   ASSERT_NE(nullptr, top_);
   SNLFlattener flattener;
   flattener.process(top_);
@@ -74,18 +94,19 @@ TEST_F(SNLFlattenerTest1, test0) {
   SNLFlattenerInstanceTree* tree = flattener.getInstanceTree();
   ASSERT_NE(nullptr, tree);
   std::filesystem::path dumpsPath(FLATTENER_DUMP_PATHS);
-  std::filesystem::path instanceTreePath = dumpsPath/"SNLFlattenerTest0Test0InstanceTree.debug";
+  std::filesystem::path instanceTreePath = dumpsPath/"SNLFlattenerTest1Test0InstanceTree.debug";
   std::ofstream instanceTreeFile;
   instanceTreeFile.open(instanceTreePath, std::ios::out);
   tree->print(instanceTreeFile);
 
   SNLFlattenerNetForest* forest = flattener.getNetForest();
   ASSERT_NE(nullptr, forest);
-  std::filesystem::path netForestPath = dumpsPath/"SNLFlattenerTest0Test0NetForest.debug";
+  std::filesystem::path netForestPath = dumpsPath/"SNLFlattenerTest1Test0NetForest.debug";
   std::ofstream netForestFile;
   netForestFile.open(netForestPath, std::ios::out);
   forest->print(netForestFile);
 
+#if 0
   auto root = tree->getRoot();
   ASSERT_NE(nullptr, root);
   auto ins0Node = root->getChildNode(SNLNetlist0::getTopIns0());
