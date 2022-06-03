@@ -107,13 +107,20 @@ void SNLInstance::removeInstTerm(SNLBitTerm* term) {
 }
 
 void SNLInstance::setTermNet(
-  SNLTerm* term, SNLNet* net,
+  SNLTerm* term,
   SNLID::Bit termMSB, SNLID::Bit termLSB,
+  SNLNet* net,
   SNLID::Bit netMSB, SNLID::Bit netLSB) {
   using Terms = std::vector<SNLBitTerm*>;
   Terms terms;
   using Nets = std::vector<SNLBitNet*>;
   Nets nets;
+  if (getModel() not_eq term->getDesign()) {
+    throw SNLException("setTermNet error with incompatible instance and terminal");
+  }
+  if (getDesign() not_eq net->getDesign()) {
+    throw SNLException("setTermNet error with incompatible instance and net");
+  }
   if (auto busTerm = dynamic_cast<SNLBusTerm*>(term)) {
     assert(SNLDesign::isBetween(termMSB, busTerm->getMSB(), busTerm->getLSB()));
     assert(SNLDesign::isBetween(termLSB, busTerm->getMSB(), busTerm->getLSB()));
@@ -154,6 +161,12 @@ void SNLInstance::setTermNet(SNLTerm* term, SNLNet* net) {
   Terms terms;
   using Nets = std::vector<SNLBitNet*>;
   Nets nets;
+  if (getModel() not_eq term->getDesign()) {
+    throw SNLException("setTermNet error with incompatible instance and terminal");
+  }
+  if (getDesign() not_eq net->getDesign()) {
+    throw SNLException("setTermNet error with incompatible instance and net");
+  }
   if (auto busTerm = dynamic_cast<SNLBusTerm*>(term)) {
     terms = Terms(busTerm->getBits().begin(), busTerm->getBits().end());
   } else {

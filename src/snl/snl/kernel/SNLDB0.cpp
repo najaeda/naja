@@ -67,23 +67,40 @@ SNLLibrary* SNLDB0::getANDLibrary() {
   return nullptr;
 }
 
-SNLDesign* SNLDB0::getAND(size_t size) {
-  assert(size>0);
+SNLDesign* SNLDB0::getAND(size_t nbInputs) {
+  assert(nbInputs>0);
   auto primitives = getPrimitivesLibrary();
   if (primitives) {
     auto andLibrary = primitives->getLibrary(SNLName(ANDName));
     if (not andLibrary) {
       andLibrary = SNLLibrary::create(primitives, SNLLibrary::Type::Primitives, SNLName(ANDName));
     }
-    std::string andGateName(std::string(ANDName) + "_" + std::to_string(size));
+    std::string andGateName(std::string(ANDName) + "_" + std::to_string(nbInputs));
     auto andGate = andLibrary->getDesign(SNLName(andGateName));
     if (not andGate) {
       andGate = SNLDesign::create(andLibrary, SNLDesign::Type::Primitive, SNLName(andGateName));
       SNLScalarTerm::create(andGate, SNLTerm::Direction::Output);
-      SNLBusTerm::create(andGate, SNLTerm::Direction::Input, SNLID::Bit(size-1), 0);
-      SNLBusTerm::create(andGate, SNLTerm::Direction::Input, SNLID::Bit(size-1), 0);
+      SNLBusTerm::create(andGate, SNLTerm::Direction::Input, SNLID::Bit(nbInputs-1), 0);
     }
     return andGate;
+  }
+  return nullptr;
+}
+
+bool SNLDB0::isAND(const SNLDesign* design) {
+  return design->getLibrary() == getANDLibrary();
+}
+
+SNLScalarTerm* SNLDB0::getANDOutput(const SNLDesign* gate) {
+  if (isAND(gate)) {
+    return gate->getScalarTerm(SNLID::DesignObjectID(0));
+  }
+  return nullptr;
+}
+
+SNLBusTerm* SNLDB0::getANDInputs(const SNLDesign* gate) {
+  if (isAND(gate)) {
+    return gate->getBusTerm(SNLID::DesignObjectID(1));
   }
   return nullptr;
 }

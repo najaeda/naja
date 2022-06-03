@@ -25,6 +25,8 @@ class SNLUniverse;
 class SNLDB;
 class SNLLibrary;
 class SNLDesign;
+class SNLScalarTerm;
+class SNLBusTerm;
 
 /**
  * \brief SNLDB0 is a SNLDB automatically managed by SNLUniverse.
@@ -39,7 +41,10 @@ class SNLDesign;
 class SNLDB0 {
   friend class SNLUniverse;
   public:
-    static SNLDesign* getAND(size_t size);
+    static SNLDesign* getAND(size_t nbInputs);
+    static bool isAND(const SNLDesign* design);
+    static SNLScalarTerm* getANDOutput(const SNLDesign* gate);
+    static SNLBusTerm* getANDInputs(const SNLDesign* gate);
   private:
     static SNLDB* create(SNLUniverse* universe);
     static constexpr char PrimitivesLibraryName[] { "PRIMITIVES" };

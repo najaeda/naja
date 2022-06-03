@@ -156,10 +156,10 @@ TEST_F(SNLVRLDumperTest1, test2) {
 
   //connect instance1.o0 to instance2.i0 with bus0
   //instance1->getInstTerm(instance1->getModel()->getBusTerm());
-  instance1->setTermNet(instance1->getModel()->getTerm(SNLName("o0")), bus0, 2, 0, 2, 0);
-  instance1->setTermNet(instance1->getModel()->getTerm(SNLName("o0")), bus2, -1, -2, -1, -2);
-  instance2->setTermNet(instance2->getModel()->getTerm(SNLName("i0")), bus0, 2, 0, 2, 0);
-  instance2->setTermNet(instance2->getModel()->getTerm(SNLName("i0")), bus2, -1, -2, -1, -2);
+  instance1->setTermNet(instance1->getModel()->getTerm(SNLName("o0")), 2, 0, bus0, 2, 0);
+  instance1->setTermNet(instance1->getModel()->getTerm(SNLName("o0")), -1, -2, bus2, -1, -2);
+  instance2->setTermNet(instance2->getModel()->getTerm(SNLName("i0")), 2, 0, bus0, 2, 0);
+  instance2->setTermNet(instance2->getModel()->getTerm(SNLName("i0")), -1, -2, bus2, -1, -2);
 
   std::filesystem::path outPath(SNL_VRL_DUMPER_TEST_PATH);
   outPath = outPath / "test1Test2";

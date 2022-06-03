@@ -89,8 +89,9 @@ class SNLInstance final: public SNLDesignObject {
      * corresponding SNLNet bits. This version allows to connect a subpart of bits.
      **/
     void setTermNet(
-      SNLTerm* term, SNLNet* net,
+      SNLTerm* term,
       SNLID::Bit termMSB, SNLID::Bit termLSB,
+      SNLNet* net,
       SNLID::Bit netMSB, SNLID::Bit netLSB);
 
   private:
