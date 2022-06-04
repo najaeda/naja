@@ -199,6 +199,77 @@ class SNLSTLCollection: public SNLBaseCollection<typename STLType::value_type> {
     const STLType* container_ {nullptr};
 };
 
+template<class STLMapType>
+class SNLSTLMapCollection: public SNLBaseCollection<typename STLMapType::mapped_type> {
+  public:
+    using super = SNLBaseCollection<typename STLMapType::mapped_type>;
+
+    class SNLSTLMapCollectionIterator: public SNLBaseIterator<typename STLMapType::mapped_type> {
+      public:
+        using STLMapTypeIterator = typename STLMapType::const_iterator;
+
+        SNLSTLMapCollectionIterator(SNLSTLMapCollectionIterator&) = default;
+        SNLSTLMapCollectionIterator(const STLMapType* container, bool beginOrEnd=true): container_(container) {
+          if (container_) {
+            if (beginOrEnd) {
+              it_ = container_->begin();
+            } else {
+              it_ = container_->end();
+            }
+          }
+        }
+
+        SNLBaseIterator<typename STLMapType::mapped_type>* clone() override {
+          return new SNLSTLMapCollectionIterator(*this);
+        }
+
+        typename STLMapType::mapped_type getElement() const override { return it_->second; } 
+        void progress() override { ++it_; }
+        bool isEqual(const SNLBaseIterator<typename STLMapType::mapped_type>* r) override {
+          if (auto rit = dynamic_cast<const SNLSTLMapCollectionIterator*>(r)) {
+            return it_ == rit->it_;
+          }
+          return false;
+        }
+        bool isValid() const override {
+          return container_ and it_ != container_->end();
+        }
+      private:
+        const STLMapType*   container_  {nullptr};
+        STLMapTypeIterator  it_         {};
+    };
+
+    SNLSTLMapCollection() = delete;
+    SNLSTLMapCollection(const SNLSTLMapCollection&) = delete;
+    SNLSTLMapCollection(SNLSTLMapCollection&&) = delete;
+    SNLSTLMapCollection(const STLMapType* container): super(), container_(container) {}
+    SNLBaseCollection<typename STLMapType::mapped_type>* clone() const override {
+      return new SNLSTLMapCollection(container_);
+    }
+    SNLBaseIterator<typename STLMapType::mapped_type>* begin() const override {
+      return new SNLSTLMapCollectionIterator(container_, true);
+    }
+    SNLBaseIterator<typename STLMapType::mapped_type>* end() const override {
+      return new SNLSTLMapCollectionIterator(container_, false);
+    }
+
+    size_t size() const override {
+      if (container_) {
+        return container_->size();
+      }
+      return 0;
+    }
+
+    bool empty() const override {
+      if (container_) {
+        return container_->empty();
+      }
+      return true;
+    }
+  private:
+    const STLMapType* container_  {nullptr};
+};
+
 template<class Type, class SubType> class SNLSubTypeCollection: public SNLBaseCollection<SubType> {
   public:
     using super = SNLBaseCollection<SubType>;

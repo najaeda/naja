@@ -55,6 +55,9 @@ class SNLFlattenerInstanceTreeNode {
     const SNLDesign* getDesign() const;
     const SNLInstance* getInstance() const;
 
+    ///\return the collection of direct children
+    SNLCollection<SNLFlattenerInstanceTreeNode*> getChildren() const;
+
     void print(std::ostream& stream, unsigned indent=0) const;
     std::string getString() const;
   private:

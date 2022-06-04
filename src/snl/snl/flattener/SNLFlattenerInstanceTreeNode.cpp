@@ -121,6 +121,10 @@ const SNLInstance* SNLFlattenerInstanceTreeNode::getInstance() const {
   return nullptr;
 }
 
+SNLCollection<SNLFlattenerInstanceTreeNode*> SNLFlattenerInstanceTreeNode::getChildren() const {
+  return SNLCollection(new SNLSTLMapCollection(&children_));
+}
+
 void SNLFlattenerInstanceTreeNode::print(std::ostream& stream, unsigned indent) const {
   stream << std::string(indent, ' ') << getString() << std::endl;
   indent += 2;
