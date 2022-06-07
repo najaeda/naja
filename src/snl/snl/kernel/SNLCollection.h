@@ -31,7 +31,7 @@ class SNLBaseIterator {
     virtual ~SNLBaseIterator() {}
     virtual Type getElement() const = 0;
     virtual void progress() = 0;
-    virtual bool isEqual(const SNLBaseIterator<Type>* r) = 0;
+    virtual bool isEqual(const SNLBaseIterator<Type>* r) const = 0;
     virtual bool isValid() const = 0;
     virtual SNLBaseIterator<Type>* clone() = 0;
   protected:
@@ -78,7 +78,7 @@ class SNLIntrusiveSetCollection: public SNLBaseCollection<Type*> {
         }
         Type* getElement() const override { return const_cast<Type*>(&*it_); }
         void progress() override { ++it_; }
-        bool isEqual(const SNLBaseIterator<Type*>* r) override {
+        bool isEqual(const SNLBaseIterator<Type*>* r) const override {
           if (const SNLIntrusiveSetCollectionIterator* rit = dynamic_cast<const SNLIntrusiveSetCollectionIterator*>(r)) {
             return it_ == rit->it_;
           }
@@ -155,7 +155,7 @@ class SNLVectorCollection: public SNLBaseCollection<Type> {
 
         Type getElement() const override { return *it_; } 
         void progress() override { ++it_; }
-        bool isEqual(const SNLBaseIterator<Type>* r) override {
+        bool isEqual(const SNLBaseIterator<Type>* r) const override {
           if (auto rit = dynamic_cast<const SNLVectorCollectionIterator*>(r)) {
             return it_ == rit->it_;
           }
@@ -246,7 +246,7 @@ template<class Type, class SubType> class SNLSubTypeCollection: public SNLBaseCo
             } while (isValid() and not dynamic_cast<SubType>(it_->getElement()));
           }
         }
-        bool isEqual(const SNLBaseIterator<SubType>* r) override {
+        bool isEqual(const SNLBaseIterator<SubType>* r) const override {
           if (it_) {
             if (auto rit = dynamic_cast<const SNLSubTypeCollectionIterator*>(r)) {
               return it_->isEqual(rit->it_);
@@ -352,7 +352,7 @@ template<class Type, typename Filter> class SNLFilteredCollection: public SNLBas
             } while (isValid() and not filter_(it_->getElement()));
           }
         }
-        bool isEqual(const SNLBaseIterator<Type>* r) override {
+        bool isEqual(const SNLBaseIterator<Type>* r) const override {
           if (it_) {
             if (auto rit = dynamic_cast<const SNLFilteredCollectionIterator*>(r)) {
               return it_->isEqual(rit->it_);
@@ -500,7 +500,7 @@ class SNLFlatCollection: public SNLBaseCollection<ReturnType> {
             }
           }
         }
-        bool isEqual(const SNLBaseIterator<ReturnType>* r) override {
+        bool isEqual(const SNLBaseIterator<ReturnType>* r) const override {
           if (it_) {
             if (auto rit = dynamic_cast<const SNLFlatCollectionIterator*>(r)) {
               if (it_->isEqual(rit->it_)) {
