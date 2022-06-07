@@ -60,6 +60,7 @@ TEST_F(SNLFlattenerTest0, test0) {
   ASSERT_NE(nullptr, root);
   EXPECT_TRUE(root->isRoot());
   EXPECT_FALSE(root->isLeaf());
+  EXPECT_EQ(nullptr, root->getParent());
   EXPECT_EQ(nullptr, root->getInstance());
   auto top = root->getDesign();
   ASSERT_NE(nullptr, top);
@@ -74,6 +75,10 @@ TEST_F(SNLFlattenerTest0, test0) {
   EXPECT_EQ(root, ins1Node->getParent());
   EXPECT_EQ(instanceTree, ins0Node->getTree());
   EXPECT_EQ(instanceTree, ins1Node->getTree());
+  EXPECT_FALSE(ins0Node->isRoot());
+  EXPECT_FALSE(ins1Node->isRoot());
+  EXPECT_FALSE(ins0Node->isLeaf());
+  EXPECT_FALSE(ins1Node->isLeaf());
 
   EXPECT_FALSE(root->getChildren().empty());
   EXPECT_EQ(2, root->getChildren().size());
@@ -104,4 +109,26 @@ TEST_F(SNLFlattenerTest0, test0) {
   EXPECT_EQ(SNLID::DesignObjectID(0), netTree0RootNet->getID());
   auto netTree0RootBusNetBit = dynamic_cast<const SNLBusNetBit*>(netTree0RootNet);
   EXPECT_TRUE(netTree0RootBusNetBit);
+
+  EXPECT_FALSE(netTree0Root->getChildren().empty());
+  //one child is term node, other is inst term
+  EXPECT_EQ(2, netTree0Root->getChildren().size());
+  using NetTreeNodes = std::vector<SNLFlattenerNetTreeNode*>;
+  NetTreeNodes netTreeNodes(netTree0Root->getChildren().begin(), netTree0Root->getChildren().end());
+  EXPECT_EQ(2, netTreeNodes.size());
+  auto termNode = netTreeNodes[0];
+  EXPECT_TRUE(termNode->isTerm());
+  EXPECT_FALSE(termNode->isInstTerm());
+  EXPECT_FALSE(termNode->isRoot());
+  EXPECT_TRUE(termNode->isLeaf());
+  EXPECT_EQ(netTree0Root, termNode->getParent());
+
+  auto instTermNode = netTreeNodes[1];
+  EXPECT_FALSE(instTermNode->isTerm());
+  EXPECT_TRUE(instTermNode->isInstTerm());
+  EXPECT_FALSE(instTermNode->isRoot());
+  EXPECT_FALSE(instTermNode->isLeaf());
+  EXPECT_EQ(netTree0Root, instTermNode->getParent());
+
+  EXPECT_EQ(2, netTree0Root->getLeaves().size());
 }
