@@ -32,7 +32,7 @@ class SNLBaseIterator {
     virtual ~SNLBaseIterator() {}
     virtual Type getElement() const = 0;
     virtual void progress() = 0;
-    virtual bool isEqual(const SNLBaseIterator<Type>* r) = 0;
+    virtual bool isEqual(const SNLBaseIterator<Type>* r) const = 0;
     virtual bool isValid() const = 0;
     virtual SNLBaseIterator<Type>* clone() = 0;
   protected:
@@ -145,7 +145,7 @@ class SNLIntrusiveSetCollection: public SNLBaseCollection<Type*> {
         }
         Type* getElement() const override { return const_cast<Type*>(&*it_); }
         void progress() override { ++it_; }
-        bool isEqual(const SNLBaseIterator<Type*>* r) override {
+        bool isEqual(const SNLBaseIterator<Type*>* r) const override {
           if (const SNLIntrusiveSetCollectionIterator* rit = dynamic_cast<const SNLIntrusiveSetCollectionIterator*>(r)) {
             return it_ == rit->it_;
           }
@@ -221,7 +221,7 @@ class SNLSTLCollection: public SNLBaseCollection<typename STLType::value_type> {
 
         typename STLType::value_type getElement() const override { return *it_; } 
         void progress() override { ++it_; }
-        bool isEqual(const SNLBaseIterator<typename STLType::value_type>* r) override {
+        bool isEqual(const SNLBaseIterator<typename STLType::value_type>* r) const override {
           if (auto rit = dynamic_cast<const SNLSTLCollectionIterator*>(r)) {
             return it_ == rit->it_;
           }
@@ -292,7 +292,7 @@ class SNLSTLMapCollection: public SNLBaseCollection<typename STLMapType::mapped_
 
         typename STLMapType::mapped_type getElement() const override { return it_->second; } 
         void progress() override { ++it_; }
-        bool isEqual(const SNLBaseIterator<typename STLMapType::mapped_type>* r) override {
+        bool isEqual(const SNLBaseIterator<typename STLMapType::mapped_type>* r) const override {
           if (auto rit = dynamic_cast<const SNLSTLMapCollectionIterator*>(r)) {
             return it_ == rit->it_;
           }
@@ -383,7 +383,7 @@ template<class Type, class SubType> class SNLSubTypeCollection: public SNLBaseCo
             } while (isValid() and not dynamic_cast<SubType>(it_->getElement()));
           }
         }
-        bool isEqual(const SNLBaseIterator<SubType>* r) override {
+        bool isEqual(const SNLBaseIterator<SubType>* r) const override {
           if (it_) {
             if (auto rit = dynamic_cast<const SNLSubTypeCollectionIterator*>(r)) {
               return it_->isEqual(rit->it_);
@@ -489,7 +489,7 @@ template<class Type, typename Filter> class SNLFilteredCollection: public SNLBas
             } while (isValid() and not filter_(it_->getElement()));
           }
         }
-        bool isEqual(const SNLBaseIterator<Type>* r) override {
+        bool isEqual(const SNLBaseIterator<Type>* r) const override {
           if (it_) {
             if (auto rit = dynamic_cast<const SNLFilteredCollectionIterator*>(r)) {
               return it_->isEqual(rit->it_);
@@ -637,7 +637,7 @@ class SNLFlatCollection: public SNLBaseCollection<ReturnType> {
             }
           }
         }
-        bool isEqual(const SNLBaseIterator<ReturnType>* r) override {
+        bool isEqual(const SNLBaseIterator<ReturnType>* r) const override {
           if (it_) {
             if (auto rit = dynamic_cast<const SNLFlatCollectionIterator*>(r)) {
               if (it_->isEqual(rit->it_)) {
@@ -744,13 +744,18 @@ class SNLTreeLeavesCollection: public SNLBaseCollection<Type> {
         }
         bool isEqual(const SNLBaseIterator<Type>* r) const override {
           if (auto rit = dynamic_cast<const SNLTreeLeavesCollectionIterator*>(r)) {
-            return *this == *rit;
+            return root_ == rit->root_
+              and element_ == rit->element_ 
+              and childrenGetter_ == rit->childrenGetter_
+              and leafCriterion_ == rit->leafCriterion_
+              and stack_ == rit->stack_;
           }
           return false;
         }
         bool isValid() const override {
           return element_ != nullptr;
-        }
+        } 
+        bool operator==(const SNLTreeLeavesCollectionIterator&) const = default;
       private:
         void findNextElement() {
           while (not stack_.empty()) {
