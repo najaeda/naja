@@ -18,6 +18,7 @@
 #define __SNL_COLLECTION_H_
 
 #include <vector>
+#include <stack>
 #include <memory>
 
 #include <boost/intrusive/set.hpp>
@@ -703,6 +704,116 @@ class SNLFlatCollection: public SNLBaseCollection<ReturnType> {
   private:
     const SNLBaseCollection<Type>* collection_;
     Flattener                      flattener_;
+};
+
+template<class Type, typename ChildrenGetter, typename LeafCriterion>
+class SNLTreeLeavesCollection: public SNLBaseCollection<Type> {
+  public:
+    using super = SNLBaseCollection<Type>;
+    class SNLTreeLeavesCollectionIterator: public SNLBaseIterator<Type> {
+      public:
+        using super = SNLBaseIterator<Type>;
+        SNLTreeLeavesCollectionIterator(
+          const Type& root,
+          const ChildrenGetter& childrenGetter,
+          const LeafCriterion& leafCriterion,
+          bool beginOrEnd=true):
+          super(),
+          root_(root),
+          childrenGetter_(childrenGetter),
+          leafCriterion_(leafCriterion),
+          stack_() {
+          if (beginOrEnd) {
+            if (root) {
+              stack_.push(root);
+              findNextElement(); 
+            }
+          }
+        }
+        SNLTreeLeavesCollectionIterator(const SNLTreeLeavesCollectionIterator& it) = default;
+        ~SNLTreeLeavesCollectionIterator() {}
+        SNLBaseIterator<Type>* clone() override {
+          return new SNLTreeLeavesCollectionIterator(*this);
+        }
+        Type getElement() const override { return element_; } 
+        void progress() override {
+          if (isValid()) {
+            element_ = nullptr;
+            findNextElement();
+          }
+        }
+        bool isEqual(const SNLBaseIterator<Type>* r) const override {
+          if (auto rit = dynamic_cast<const SNLTreeLeavesCollectionIterator*>(r)) {
+            return *this == *rit;
+          }
+          return false;
+        }
+        bool isValid() const override {
+          return element_ != nullptr;
+        }
+      private:
+        void findNextElement() {
+          while (not stack_.empty()) {
+            auto object = stack_.top();
+            stack_.pop();
+            if (leafCriterion_(object)) {
+              element_ = object;
+              return;
+            } else {
+              for (auto child: childrenGetter_(object)) {
+                stack_.push(child);
+              }
+            }
+          }
+        }
+        using Stack = std::stack<Type>;
+        Type            root_           {nullptr};
+        ChildrenGetter  childrenGetter_ {};
+        LeafCriterion   leafCriterion_  {};
+        Stack           stack_          {};
+        Type            element_        {nullptr};
+    };
+
+    SNLTreeLeavesCollection(const SNLTreeLeavesCollection&) = delete;
+    SNLTreeLeavesCollection& operator=(const SNLTreeLeavesCollection&) = delete;
+    SNLTreeLeavesCollection(const SNLTreeLeavesCollection&&) = delete;
+    SNLTreeLeavesCollection(Type root, const ChildrenGetter& childrenGetter, const LeafCriterion& leafCriterion):
+      super(), root_(root), childrenGetter_(childrenGetter), leafCriterion_(leafCriterion)
+    {}
+    ~SNLTreeLeavesCollection() {}
+    SNLTreeLeavesCollection* clone() const override {
+      return new SNLTreeLeavesCollection(root_, childrenGetter_, leafCriterion_);
+    }
+
+    SNLBaseIterator<Type>* begin() const override {
+      return new SNLTreeLeavesCollectionIterator(root_, childrenGetter_, leafCriterion_, true);
+    }
+    SNLBaseIterator<Type>* end() const override {
+      return new SNLTreeLeavesCollectionIterator(root_, childrenGetter_, leafCriterion_, false);
+    }
+    size_t size() const override {
+      size_t size = 0;
+      if (root_) {
+        auto it = std::make_unique<SNLTreeLeavesCollectionIterator>(root_, childrenGetter_, leafCriterion_, true);
+        auto endIt = std::make_unique<SNLTreeLeavesCollectionIterator>(root_, childrenGetter_, leafCriterion_, false);
+        while (not it->isEqual(endIt.get())) {
+          ++size;
+          it->progress();
+        }
+      }
+      return size;
+    }
+    bool empty() const override {
+      if (root_) {
+        auto it = std::make_unique<SNLTreeLeavesCollectionIterator>(root_, childrenGetter_, leafCriterion_, true);
+        return not it->isValid();
+      }
+      return true;
+    }
+  private:
+    Type  root_     {nullptr};
+    ChildrenGetter  childrenGetter_ {};
+    LeafCriterion   leafCriterion_  {};
 };
 
 template<class Type> class SNLCollection {

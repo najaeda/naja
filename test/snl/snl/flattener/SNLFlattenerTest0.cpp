@@ -70,10 +70,8 @@ TEST_F(SNLFlattenerTest0, test0) {
   EXPECT_THAT(std::vector(root->getChildren().begin(), root->getChildren().end()),
     ElementsAre(ins0Node, ins1Node));
 
-#if 0
   auto leaves = root->getLeaves();
   for (auto leaf: leaves) {
     std::cerr << leaf->getString() << std::endl;
   }
-#endif
 }

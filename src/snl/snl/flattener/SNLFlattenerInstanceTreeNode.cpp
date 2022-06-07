@@ -126,26 +126,13 @@ SNLCollection<SNLFlattenerInstanceTreeNode*> SNLFlattenerInstanceTreeNode::getCh
 }
 
 SNLCollection<SNLFlattenerInstanceTreeNode*> SNLFlattenerInstanceTreeNode::getLeaves() const {
-#if 0
-  auto flattener = [](SNLFlattenerInstanceTreeNode* n) {
-    //if (n->isLeaf()) {
-      return SNLCollection(new SNLSingletonCollection(n));
-    //} else {
-      //return n->getChildren();
-    //}
-  };
-  return getChildren().getFlatCollection<
-    const SNLFlattenerInstanceTreeNode*,
-    const SNLFlattenerInstanceTreeNode*,
-    SNLFlattenerInstanceTreeNode*>(flattener);
-#endif
-  auto children = getChildren();
-  if (not children.empty()) {
-    auto child = *(children.begin());
-    return SNLCollection(new SNLSingletonCollection(child));
-  } else {
-    return SNLCollection<SNLFlattenerInstanceTreeNode*>();
-  }
+  auto childrenGetter = [](SNLFlattenerInstanceTreeNode* n) { return n->getChildren(); };
+  auto leafCritetion = [](SNLFlattenerInstanceTreeNode* n) { return n->isLeaf(); };
+  return SNLCollection(
+      new SNLTreeLeavesCollection(
+        const_cast<SNLFlattenerInstanceTreeNode*>(this),
+        childrenGetter,
+        leafCritetion));
 }
 
 void SNLFlattenerInstanceTreeNode::print(std::ostream& stream, unsigned indent) const {
