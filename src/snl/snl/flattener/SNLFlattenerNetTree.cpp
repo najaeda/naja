@@ -55,8 +55,10 @@ SNLFlattenerNetTree::~SNLFlattenerNetTree() {
   }
 }
 
+//LCOV_EXCL_START
 void SNLFlattenerNetTree::print(std::ostream& stream) const {
   getRoot()->print(stream);
 }
+//LCOV_EXCL_STOP
 
 }} // namespace SNL // namespace naja

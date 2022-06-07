@@ -17,7 +17,7 @@
 #ifndef __SNL_FLATTENER_NET_TREE_H_
 #define __SNL_FLATTENER_NET_TREE_H_
 
-#include <ostream>
+#include "SNLCollection.h"
 
 namespace naja { namespace SNL {
 
@@ -66,6 +66,9 @@ class SNLFlattenerNetTree {
     ID getID() const { return id_; }
     SNLFlattenerNetTreeNode* getRoot() const { return root_; }
     SNLFlattenerNetForest* getForest() const { return forest_; }
+    ///\return the collection of all Leaf nodes.
+    SNLCollection<SNLFlattenerNetTreeNode*> getLeaves() const;
+
 
     void print(std::ostream& stream) const;
   private:

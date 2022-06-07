@@ -142,6 +142,24 @@ const SNLInstTerm* SNLFlattenerNetTreeNode::getInstTerm() const {
   return nullptr;
 }
 
+SNLFlattenerInstanceTreeNode* SNLFlattenerNetTreeNode::getInstanceTreeNode() const {
+  return instanceTreeNode_;
+}
+
+SNLCollection<SNLFlattenerNetTreeNode*> SNLFlattenerNetTreeNode::getChildren() const {
+  return SNLCollection(new SNLSTLMapCollection(&children_));
+}
+
+SNLCollection<SNLFlattenerNetTreeNode*> SNLFlattenerNetTreeNode::getLeaves() const {
+  auto childrenGetter = [](SNLFlattenerNetTreeNode* n) { return n->getChildren(); };
+  auto leafCritetion = [](SNLFlattenerNetTreeNode* n) { return n->isLeaf(); };
+  return SNLCollection(
+      new SNLTreeLeavesCollection(
+        const_cast<SNLFlattenerNetTreeNode*>(this),
+        childrenGetter,
+        leafCritetion));
+}
+
 //LCOV_EXCL_START
 std::string SNLFlattenerNetTreeNode::getObjectString() const {
   switch (getType()) {

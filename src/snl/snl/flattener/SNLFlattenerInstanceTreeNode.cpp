@@ -135,6 +135,7 @@ SNLCollection<SNLFlattenerInstanceTreeNode*> SNLFlattenerInstanceTreeNode::getLe
         leafCritetion));
 }
 
+//LCOV_EXCL_START
 void SNLFlattenerInstanceTreeNode::print(std::ostream& stream, unsigned indent) const {
   stream << std::string(indent, ' ') << getString() << std::endl;
   indent += 2;
@@ -142,7 +143,9 @@ void SNLFlattenerInstanceTreeNode::print(std::ostream& stream, unsigned indent) 
     child->print(stream, indent);
   }
 }
+//LCOV_EXCL_STOP
 
+//LCOV_EXCL_START
 std::string SNLFlattenerInstanceTreeNode::getString() const {
   std::string str;
   if (isRoot()) {
@@ -160,5 +163,6 @@ std::string SNLFlattenerInstanceTreeNode::getString() const {
   }
   return str;
 }
+//LCOV_EXCL_STOP
 
 }} // namespace SNL // namespace naja

@@ -69,6 +69,8 @@ class SNLFlattenerNetTreeNode {
     const SNLBitTerm* getTerm() const;
     const SNLInstTerm* getInstTerm() const;
 
+    SNLFlattenerInstanceTreeNode* getInstanceTreeNode() const;
+
     SNLFlattenerNetTreeNode* getParent() const;
     SNLFlattenerNetTree* getTree() const;
     SNLFlattenerNetForest* getForest() const;
@@ -76,11 +78,17 @@ class SNLFlattenerNetTreeNode {
     std::string getObjectString() const;
 
     bool isRoot() const { return type_ == Type::Root; }
+    bool isLeaf() const { return children_.empty(); }
     bool isTerm() const { return type_ == Type::Term; }
     bool isInstTerm() const { return type_ == Type::InstTerm; }
 
     void print(std::ostream& stream, unsigned indent=0) const;
     std::string getString() const;
+
+    ///\return the collection of direct children
+    SNLCollection<SNLFlattenerNetTreeNode*> getChildren() const;
+    ///\return the collection of leaf nodes
+    SNLCollection<SNLFlattenerNetTreeNode*> getLeaves() const;
   private:
     void addChild(SNLFlattenerNetTreeNode* child, const SNLDesignObject* object);
     void removeChild(SNLFlattenerNetTreeNode* child);
