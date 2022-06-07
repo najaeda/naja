@@ -7,6 +7,6 @@ set(snl_flattener_tests
 add_executable(snlFlattenerTests ${snl_flattener_tests})
 
 target_compile_definitions(snlFlattenerTests PRIVATE FLATTENER_DUMP_PATHS="${CMAKE_CURRENT_BINARY_DIR}")
-target_link_libraries(snlFlattenerTests snl_netlists gtest gtest_main)
+target_link_libraries(snlFlattenerTests snl_netlists gmock gtest gtest_main)
 
 GTEST_DISCOVER_TESTS(snlFlattenerTests)

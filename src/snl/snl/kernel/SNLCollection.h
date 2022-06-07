@@ -57,6 +57,72 @@ class SNLBaseCollection {
     SNLBaseCollection(const SNLBaseCollection&) = default;
 };
 
+template<class Type>
+class SNLSingletonCollection: public SNLBaseCollection<Type*> {
+  public:
+    using super = SNLBaseCollection<Type*>;
+
+    class SNLSingletonCollectionIterator: public SNLBaseIterator<Type*> {
+      public:
+        SNLSingletonCollectionIterator(const SNLSingletonCollectionIterator&) = default;
+        SNLSingletonCollectionIterator(Type* object, bool beginOrEnd=true): object_(object) {
+          if (object_) {
+            if (beginOrEnd) {
+              begin_ = true;
+            } else {
+              begin_ = false;
+            }
+          }
+        }
+        Type* getElement() const override { return object_; }
+        void progress() override { begin_ = false; }
+        bool isEqual(const SNLBaseIterator<Type*>* r) override {
+          if (const SNLSingletonCollectionIterator* rit = dynamic_cast<const SNLSingletonCollectionIterator*>(r)) {
+            return object_ == rit->object_ and begin_ == rit->begin_;
+          }
+          return false;
+        }
+        bool isValid() const override {
+          return object_ and begin_;
+        }
+        SNLBaseIterator<Type*>* clone() override {
+          return new SNLSingletonCollectionIterator(*this);
+        }
+      private:
+        Type* object_ {nullptr};
+        bool  begin_  {false};
+    };
+
+    SNLBaseIterator<Type*>* begin() const override {
+      return new SNLSingletonCollectionIterator(object_, true);
+    }
+
+    SNLBaseIterator<Type*>* end() const override {
+      return new SNLSingletonCollectionIterator(object_, false);
+    }
+
+    SNLSingletonCollection() = delete;
+    SNLSingletonCollection(const SNLSingletonCollection&) = delete;
+    SNLSingletonCollection(SNLSingletonCollection&&) = delete;
+    SNLSingletonCollection(Type* object): super(), object_(object) {}
+
+    SNLBaseCollection<Type*>* clone() const override {
+      return new SNLSingletonCollection(object_);
+    }
+    size_t size() const override {
+      if (object_) {
+        return 1;
+      }
+      return 0;
+    }
+    bool empty() const override {
+      return not object_;
+    }
+
+  private:
+    Type* object_ {nullptr};
+};
+
 template<class Type, class HookType>
 class SNLIntrusiveSetCollection: public SNLBaseCollection<Type*> {
   public:

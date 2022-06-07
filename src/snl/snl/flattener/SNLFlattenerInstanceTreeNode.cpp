@@ -125,6 +125,29 @@ SNLCollection<SNLFlattenerInstanceTreeNode*> SNLFlattenerInstanceTreeNode::getCh
   return SNLCollection(new SNLSTLMapCollection(&children_));
 }
 
+SNLCollection<SNLFlattenerInstanceTreeNode*> SNLFlattenerInstanceTreeNode::getLeaves() const {
+#if 0
+  auto flattener = [](SNLFlattenerInstanceTreeNode* n) {
+    //if (n->isLeaf()) {
+      return SNLCollection(new SNLSingletonCollection(n));
+    //} else {
+      //return n->getChildren();
+    //}
+  };
+  return getChildren().getFlatCollection<
+    const SNLFlattenerInstanceTreeNode*,
+    const SNLFlattenerInstanceTreeNode*,
+    SNLFlattenerInstanceTreeNode*>(flattener);
+#endif
+  auto children = getChildren();
+  if (not children.empty()) {
+    auto child = *(children.begin());
+    return SNLCollection(new SNLSingletonCollection(child));
+  } else {
+    return SNLCollection<SNLFlattenerInstanceTreeNode*>();
+  }
+}
+
 void SNLFlattenerInstanceTreeNode::print(std::ostream& stream, unsigned indent) const {
   stream << std::string(indent, ' ') << getString() << std::endl;
   indent += 2;

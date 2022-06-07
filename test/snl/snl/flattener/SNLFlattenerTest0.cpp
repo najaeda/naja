@@ -1,4 +1,6 @@
 #include "gtest/gtest.h"
+#include "gmock/gmock.h"
+using ::testing::ElementsAre;
 
 #include <filesystem>
 #include <fstream>
@@ -6,7 +8,6 @@
 #include "SNLNetlist0.h"
 
 #include "SNLUniverse.h"
-
 #include "SNLFlattener.h"
 #include "SNLFlattenerInstanceTree.h"
 #include "SNLFlattenerInstanceTreeNode.h"
@@ -63,4 +64,16 @@ TEST_F(SNLFlattenerTest0, test0) {
   EXPECT_EQ(root, ins1Node->getParent());
   EXPECT_EQ(tree, ins0Node->getTree());
   EXPECT_EQ(tree, ins1Node->getTree());
+
+  EXPECT_FALSE(root->getChildren().empty());
+  EXPECT_EQ(2, root->getChildren().size());
+  EXPECT_THAT(std::vector(root->getChildren().begin(), root->getChildren().end()),
+    ElementsAre(ins0Node, ins1Node));
+
+#if 0
+  auto leaves = root->getLeaves();
+  for (auto leaf: leaves) {
+    std::cerr << leaf->getString() << std::endl;
+  }
+#endif
 }

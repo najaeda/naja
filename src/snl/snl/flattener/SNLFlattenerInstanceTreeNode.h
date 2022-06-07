@@ -47,6 +47,7 @@ class SNLFlattenerInstanceTreeNode {
     SNLFlattenerInstanceTree* getTree() const;
 
     bool isRoot() const { return isRoot_; }
+    bool isLeaf() const { return children_.empty(); }
     
     SNLFlattenerInstanceTreeNode* getChildNode(const SNLInstance* instance) const;
     SNLFlattenerNetTreeNode* getNetNode(const SNLBitNet* net) const;
@@ -57,6 +58,8 @@ class SNLFlattenerInstanceTreeNode {
 
     ///\return the collection of direct children
     SNLCollection<SNLFlattenerInstanceTreeNode*> getChildren() const;
+    ///\return the collection of leaf nodes
+    SNLCollection<SNLFlattenerInstanceTreeNode*> getLeaves() const;
 
     void print(std::ostream& stream, unsigned indent=0) const;
     std::string getString() const;
