@@ -755,7 +755,6 @@ class SNLTreeLeavesCollection: public SNLBaseCollection<Type> {
         bool isValid() const override {
           return element_ != nullptr;
         } 
-        bool operator==(const SNLTreeLeavesCollectionIterator&) const = default;
       private:
         void findNextElement() {
           while (not stack_.empty()) {
