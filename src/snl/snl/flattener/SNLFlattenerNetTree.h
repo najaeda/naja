@@ -60,6 +60,7 @@ class SNLFlattenerNetTree {
       SNLFlattenerInstanceTreeNode* instanceTreeNode,
       const SNLBitNet* net);
     ~SNLFlattenerNetTree();
+
     void setType(const Type& type) { type_ = type; }
     void destroy();
 

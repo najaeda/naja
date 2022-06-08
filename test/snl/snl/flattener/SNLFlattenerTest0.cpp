@@ -113,6 +113,7 @@ TEST_F(SNLFlattenerTest0, test0) {
   EXPECT_EQ(SNLID::DesignObjectID(0), netTree0RootNet->getID());
   auto netTree0RootBusNetBit = dynamic_cast<const SNLBusNetBit*>(netTree0RootNet);
   EXPECT_TRUE(netTree0RootBusNetBit);
+  EXPECT_EQ(netTree0Root, root->getNetNode(netTree0RootBusNetBit));
 
   EXPECT_FALSE(netTree0Root->getChildren().empty());
   //one child is term node, other is inst term
@@ -141,7 +142,9 @@ TEST_F(SNLFlattenerTest0, test0) {
   EXPECT_NE(nullptr, instTermNode->getInstTerm());
   EXPECT_EQ(ins0Node, instTermNode->getInstanceTreeNode());
   EXPECT_EQ(instTermNode, ins0Node->getInstTermNode(instTermNode->getInstTerm()->getTerm()));
+  EXPECT_EQ(nullptr, root->getInstTermNode(instTermNode->getInstTerm()->getTerm()));
   EXPECT_EQ(nullptr, ins0Node->getInstTermNode(nullptr));
+  EXPECT_EQ(nullptr, ins0Node->getNetNode(netTree0RootBusNetBit));
 
   EXPECT_EQ(2, netTree0Root->getLeaves().size());
 }

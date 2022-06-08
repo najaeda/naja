@@ -226,7 +226,7 @@ SNLID SNLInstance::getSNLID() const {
   return SNLDesignObject::getSNLID(SNLID::Type::Instance, 0, id_, 0);
 }
 
-SNLInstTerm* SNLInstance::getInstTerm(const SNLBitTerm* term) {
+SNLInstTerm* SNLInstance::getInstTerm(const SNLBitTerm* term) const {
   if (term->getDesign() != getModel()) {
     std::string reason = "SNLInstance::getInsTerm incoherency: "
       + getName().getString() + " model: " + getModel()->getName().getString()

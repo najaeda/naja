@@ -19,6 +19,18 @@
 #include "SNLFlattenerNetForest.h"
 #include "SNLFlattenerNetTreeNode.h"
 
+namespace {
+
+void setTreeType(naja::SNL::SNLFlattenerNetTree* tree, const naja::SNL::SNLBitNet* net) {
+  if (net->isConstant0()) {
+    tree->setType(naja::SNL::SNLFlattenerNetTree::Type::Constant0);
+  } else if (net->isConstant1()) {
+    tree->setType(naja::SNL::SNLFlattenerNetTree::Type::Constant1);
+  }
+}
+
+}
+
 namespace naja { namespace SNL {
 
 SNLFlattenerNetTree::Type::Type(const TypeEnum& typeEnum):
@@ -42,6 +54,7 @@ SNLFlattenerNetTree::SNLFlattenerNetTree(
   const SNLBitNet* net):
   forest_(forest) {
   root_ = new SNLFlattenerNetTreeNode(this, instanceTreeNode, net);
+  setTreeType(this, net);
   forest_->addTree(this);
 }
 

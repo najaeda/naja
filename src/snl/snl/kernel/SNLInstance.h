@@ -66,7 +66,7 @@ class SNLInstance final: public SNLDesignObject {
     std::string getDescription() const override;
 
     ///\return SNLInstTerm corresponding to the SNLBitTerm representative in this instance. 
-    SNLInstTerm* getInstTerm(const SNLBitTerm* term);
+    SNLInstTerm* getInstTerm(const SNLBitTerm* term) const;
     ///\return the SNLCollection of all SNLInstTerm of this SNLInstance.
     SNLCollection<SNLInstTerm*> getInstTerms() const;
     /**

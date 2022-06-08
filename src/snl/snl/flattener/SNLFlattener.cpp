@@ -30,18 +30,6 @@
 #include "SNLFlattenerNetTreeNode.h"
 #include "SNLFlattenerInstanceTreeNode.h"
 
-namespace {
-
-void setTreeType(naja::SNL::SNLFlattenerNetTree* tree, const naja::SNL::SNLBitNet* net) {
-if (net->isConstant0()) {
-  tree->setType(naja::SNL::SNLFlattenerNetTree::Type::Constant0);
-} else if (net->isConstant1()) {
-  tree->setType(naja::SNL::SNLFlattenerNetTree::Type::Constant1);
-}
-
-}
-
-}
 namespace naja { namespace SNL {
 
 SNLFlattener::~SNLFlattener() {
@@ -49,12 +37,10 @@ SNLFlattener::~SNLFlattener() {
   delete forest_;
 }
 
-
 void SNLFlattener::processTopNets(SNLFlattenerInstanceTreeNode* instanceTreeRoot, const SNLDesign* top) {
   for (auto net: top->getBitNets()) {
     SNLFlattenerNetTree* netTree = new SNLFlattenerNetTree(getNetForest(), instanceTreeRoot, net);
     SNLFlattenerNetTreeNode* netTreeRoot = netTree->getRoot();
-    setTreeType(netTree, net);
     for (auto component: net->getComponents()) {
       if (auto instTerm = dynamic_cast<SNLInstTerm*>(component)) {
         auto instance = instTerm->getInstance();
@@ -82,9 +68,12 @@ void SNLFlattener::createNetForest(SNLFlattenerInstanceTreeNode* instanceNode) {
         instTerms.push_back(instTerm);
       } else {
         auto bitTerm = static_cast<SNLBitTerm*>(component);
-        auto termNode = instanceNode->getInstTermNode(bitTerm);
-        assert(termNode);
-        termNodes.push_back(termNode);
+        auto upperInstTerm = instance->getInstTerm(bitTerm);
+        if (upperInstTerm->getNet()) {
+          auto termNode = instanceNode->getInstTermNode(bitTerm);
+          assert(termNode);
+          termNodes.push_back(termNode);
+        }
       }
       SNLFlattenerNetTreeNode* parentNode = nullptr;
       if (termNodes.empty()) {
@@ -103,6 +92,9 @@ void SNLFlattener::createNetForest(SNLFlattenerInstanceTreeNode* instanceNode) {
         new SNLFlattenerNetTreeNode(parentNode, instanceChildNode, instTerm);
       }
     }
+  }
+  for (auto child: instanceNode->getChildren()) {
+    createNetForest(child);
   }
 }
 
