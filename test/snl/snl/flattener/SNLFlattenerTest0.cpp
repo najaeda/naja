@@ -9,6 +9,7 @@ using ::testing::ElementsAre;
 
 #include "SNLUniverse.h"
 #include "SNLBusNetBit.h"
+#include "SNLInstTerm.h"
 #include "SNLFlattener.h"
 #include "SNLFlattenerInstanceTree.h"
 #include "SNLFlattenerInstanceTreeNode.h"
@@ -71,6 +72,7 @@ TEST_F(SNLFlattenerTest0, test0) {
   ASSERT_NE(nullptr, ins0Node);
   auto ins1Node = root->getChildNode(SNLNetlist0::getTopIns1());
   ASSERT_NE(nullptr, ins1Node);
+  EXPECT_EQ(nullptr, root->getChildNode(nullptr));
   EXPECT_EQ(root, ins0Node->getParent());
   EXPECT_EQ(root, ins1Node->getParent());
   EXPECT_EQ(instanceTree, ins0Node->getTree());
@@ -79,6 +81,8 @@ TEST_F(SNLFlattenerTest0, test0) {
   EXPECT_FALSE(ins1Node->isRoot());
   EXPECT_FALSE(ins0Node->isLeaf());
   EXPECT_FALSE(ins1Node->isLeaf());
+  EXPECT_EQ(nullptr, ins0Node->getDesign());
+  EXPECT_EQ(nullptr, ins1Node->getDesign());
 
   EXPECT_FALSE(root->getChildren().empty());
   EXPECT_EQ(2, root->getChildren().size());
@@ -135,6 +139,9 @@ TEST_F(SNLFlattenerTest0, test0) {
   EXPECT_EQ(netTree0, instTermNode->getTree());
   EXPECT_EQ(nullptr, instTermNode->getTerm());
   EXPECT_NE(nullptr, instTermNode->getInstTerm());
+  EXPECT_EQ(ins0Node, instTermNode->getInstanceTreeNode());
+  EXPECT_EQ(instTermNode, ins0Node->getInstTermNode(instTermNode->getInstTerm()->getTerm()));
+  EXPECT_EQ(nullptr, ins0Node->getInstTermNode(nullptr));
 
   EXPECT_EQ(2, netTree0Root->getLeaves().size());
 }

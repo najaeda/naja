@@ -82,7 +82,7 @@ void SNLFlattener::createNetForest(SNLFlattenerInstanceTreeNode* instanceNode) {
         instTerms.push_back(instTerm);
       } else {
         auto bitTerm = static_cast<SNLBitTerm*>(component);
-        auto termNode = instanceNode->getTermNode(bitTerm);
+        auto termNode = instanceNode->getInstTermNode(bitTerm);
         assert(termNode);
         termNodes.push_back(termNode);
       }

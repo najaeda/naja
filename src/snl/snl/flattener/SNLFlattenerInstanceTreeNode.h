@@ -51,7 +51,7 @@ class SNLFlattenerInstanceTreeNode {
     
     SNLFlattenerInstanceTreeNode* getChildNode(const SNLInstance* instance) const;
     SNLFlattenerNetTreeNode* getNetNode(const SNLBitNet* net) const;
-    SNLFlattenerNetTreeNode* getTermNode(const SNLBitTerm* term) const;
+    SNLFlattenerNetTreeNode* getInstTermNode(const SNLBitTerm* term) const;
 
     const SNLDesign* getDesign() const;
     const SNLInstance* getInstance() const;

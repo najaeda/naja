@@ -16,7 +16,6 @@
 
 #include "SNLFlattenerNetForest.h"
 #include "SNLFlattenerNetTree.h"
-#include "SNLFlattenerException.h"
 
 namespace naja { namespace SNL {
 
@@ -36,9 +35,7 @@ void SNLFlattenerNetForest::addTree(SNLFlattenerNetTree* tree) {
 
 void SNLFlattenerNetForest::removeTree(SNLFlattenerNetTree* tree) {
   auto it = trees_.find(tree);
-  if (it == trees_.end()) {
-    throw SNLFlattenerException("Error while removing tree");
-  }
+  assert(it != trees_.end());
   trees_.erase(it);
 }
 

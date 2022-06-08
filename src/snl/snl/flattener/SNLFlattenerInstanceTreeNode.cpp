@@ -131,7 +131,7 @@ SNLFlattenerInstanceTreeNode::getNetNode(const SNLBitNet* net) const {
 }
 
 SNLFlattenerNetTreeNode*
-SNLFlattenerInstanceTreeNode::getTermNode(const SNLBitTerm* term) const {
+SNLFlattenerInstanceTreeNode::getInstTermNode(const SNLBitTerm* term) const {
   if (not term) {
     return nullptr;
   }
