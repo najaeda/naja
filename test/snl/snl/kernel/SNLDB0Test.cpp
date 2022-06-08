@@ -9,15 +9,14 @@ using namespace naja::SNL;
 class SNLDB0Test: public ::testing::Test {
   protected:
     void TearDown() override {
-      SNLUniverse::get()->destroy();
+      if (SNLUniverse::get()) {
+        SNLUniverse::get()->destroy();
+      }
     }
 };
 
 TEST_F(SNLDB0Test, testAssign) {
-  EXPECT_EQ(nullptr, SNLUniverse::getAssign());
-  EXPECT_EQ(nullptr, SNLUniverse::getAssignInput());
-  EXPECT_EQ(nullptr, SNLUniverse::getAssignOutput());
-  EXPECT_FALSE(SNLUniverse::isDB0(nullptr));
+ 
 
   SNLUniverse::create();
   ASSERT_NE(nullptr, SNLUniverse::get());
@@ -26,14 +25,14 @@ TEST_F(SNLDB0Test, testAssign) {
   ASSERT_NE(nullptr, db0);
   EXPECT_TRUE(SNLUniverse::isDB0(db0));
 
-  auto assign = SNLUniverse::getAssign();
+  auto assign = SNLDB0::getAssign();
   ASSERT_NE(nullptr, assign);
-  EXPECT_TRUE(SNLUniverse::isDB0Primitive(assign));
+  EXPECT_TRUE(SNLDB0::isDB0Primitive(assign));
   EXPECT_EQ(0, assign->getID());
-  auto assignInput = SNLUniverse::getAssignInput();
+  auto assignInput = SNLDB0::getAssignInput();
   ASSERT_NE(nullptr, assignInput);
   EXPECT_EQ(0, assignInput->getID());
-  auto assignOutput = SNLUniverse::getAssignOutput();
+  auto assignOutput = SNLDB0::getAssignOutput();
   ASSERT_NE(nullptr, assignOutput);
   EXPECT_EQ(1, assignOutput->getID());
   SNLBitNet* assignFT = assignInput->getNet();
@@ -45,9 +44,6 @@ TEST_F(SNLDB0Test, testAssign) {
 }
 
 TEST_F(SNLDB0Test, testAND) {
-  EXPECT_EQ(nullptr, SNLUniverse::get());
-  EXPECT_EQ(nullptr, SNLDB0::getAND(2));
-
   SNLUniverse::create();
   ASSERT_NE(nullptr, SNLUniverse::get());
 
@@ -77,4 +73,14 @@ TEST_F(SNLDB0Test, testAND) {
   EXPECT_EQ(SNLID::DesignObjectID(1), and48Inputs->getID());
   EXPECT_EQ(SNLTerm::Direction::Input, and48Inputs->getDirection());
   EXPECT_EQ(48, and48Inputs->getSize());
+}
+
+TEST_F(SNLDB0Test, testNULLUniverse) {
+  EXPECT_EQ(nullptr, SNLUniverse::get());
+  EXPECT_FALSE(SNLUniverse::isDB0(nullptr));
+  EXPECT_EQ(nullptr, SNLDB0::getAssign());
+  EXPECT_EQ(nullptr, SNLDB0::getAssignInput());
+  EXPECT_EQ(nullptr, SNLDB0::getAssignOutput());
+  EXPECT_FALSE(SNLDB0::getANDLibrary());
+  EXPECT_EQ(nullptr, SNLDB0::getAND(2));
 }
