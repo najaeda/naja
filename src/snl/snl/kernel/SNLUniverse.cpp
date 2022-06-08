@@ -89,37 +89,6 @@ bool SNLUniverse::isDB0(const SNLDB* db) {
   return false;
 }
 
-bool SNLUniverse::isDB0Primitive(const SNLDesign* design) {
-  if (design) {
-    return SNLUniverse::isDB0(design->getDB());
-  }
-  return false;
-}
-
-SNLDesign* SNLUniverse::getAssign() {
-  auto universe = get();
-  if (universe) {
-    return universe->assign_;
-  }
-  return nullptr;
-}
-
-SNLScalarTerm* SNLUniverse::getAssignInput() {
-  auto universe = get();
-  if (universe) {
-    return universe->assignInput_;
-  }
-  return nullptr;
-}
-
-SNLScalarTerm* SNLUniverse::getAssignOutput() {
-  auto universe = get();
-  if (universe) {
-    return universe->assignOutput_;
-  }
-  return nullptr;
-}
-
 SNLDB* SNLUniverse::getDB(SNLID::DBID id) {
   auto it = dbs_.find(SNLID(id), SNLIDComp<SNLDB>());
   if (it != dbs_.end()) {

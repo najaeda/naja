@@ -31,6 +31,7 @@ class SNLFlattenerNetForest;
 
 class SNLFlattenerNetTreeNode {
   friend class SNLFlattenerNetTree;
+  friend class SNLFlattenerInstanceTreeNode;
   public:
     class Type {
       public:

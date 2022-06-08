@@ -36,7 +36,7 @@ class SNLFlattenerInstanceTreeNode {
       std::map<const SNLInstance*, SNLFlattenerInstanceTreeNode*, SNLDesignObject::PointerLess>;
     using NetNodes =
       std::map<const SNLBitNet*, SNLFlattenerNetTreeNode*, SNLDesignObject::PointerLess>;
-    using TermNodes =
+    using InstTermNodes =
       std::map<const SNLBitTerm*, SNLFlattenerNetTreeNode*, SNLDesignObject::PointerLess>;
 
     SNLFlattenerInstanceTreeNode(const SNLFlattenerInstanceTreeNode&) = delete;
@@ -69,14 +69,14 @@ class SNLFlattenerInstanceTreeNode {
     SNLFlattenerInstanceTreeNode* addChild(const SNLInstance* instance);
     void removeChild(const SNLInstance* instance);
     void addNetNode(SNLFlattenerNetTreeNode* node, const SNLBitNet* net);
-    void addTermNode(SNLFlattenerNetTreeNode* node, const SNLBitTerm* term);
+    void addInstTermNode(SNLFlattenerNetTreeNode* node, const SNLBitTerm* term);
 
-    bool        isRoot_     { false };
-    void*       parent_     { nullptr };
-    const void* object_     { nullptr };
-    Children    children_   {};
-    NetNodes    netNodes_   {};
-    TermNodes   termNodes_  {};
+    bool          isRoot_         { false };
+    void*         parent_         { nullptr };
+    const void*   object_         { nullptr };
+    Children      children_       {};
+    NetNodes      netNodes_       {};
+    InstTermNodes instTermNodes_  {};
 };
 
 }} // namespace SNL // namespace naja

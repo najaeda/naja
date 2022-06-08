@@ -30,14 +30,13 @@ SNLDB* SNLDB0::create(SNLUniverse* universe) {
   auto primitivesLibrary =
     SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName(PrimitivesLibraryName));
 
-  universe->assign_ = SNLDesign::create(primitivesLibrary, SNLDesign::Type::Primitive);
-  universe->assignInput_ = SNLScalarTerm::create(universe->assign_, SNLTerm::Direction::Input);
-  universe->assignOutput_ = SNLScalarTerm::create(universe->assign_, SNLTerm::Direction::Output);
+  auto assign = SNLDesign::create(primitivesLibrary, SNLDesign::Type::Primitive);
+  auto assignInput = SNLScalarTerm::create(assign, SNLTerm::Direction::Input);
+  auto assignOutput = SNLScalarTerm::create(assign, SNLTerm::Direction::Output);
 
-  SNLScalarNet* assignFT = SNLScalarNet::create(universe->assign_);
-  universe->assignInput_->setNet(assignFT);
-  universe->assignOutput_->setNet(assignFT);
-
+  SNLScalarNet* assignFT = SNLScalarNet::create(assign);
+  assignInput->setNet(assignFT);
+  assignOutput->setNet(assignFT);
   return db;
 }
 
@@ -55,6 +54,33 @@ SNLLibrary* SNLDB0::getPrimitivesLibrary() {
   auto db0 = SNLDB0::getSNLDB0();
   if (db0) {
     return db0->getLibrary(SNLName(PrimitivesLibraryName));
+  }
+  return nullptr;
+}
+bool SNLDB0::isDB0Primitive(const SNLDesign* design) {
+  return design and design->getLibrary() == getPrimitivesLibrary();
+}
+
+SNLDesign* SNLDB0::getAssign() {
+  auto primitives = getPrimitivesLibrary();
+  if (primitives) {
+    return primitives->getDesign(SNLID::DesignID(0));
+  }
+  return nullptr;
+}
+
+SNLScalarTerm* SNLDB0::getAssignInput() {
+  auto assign = getAssign();
+  if (assign) {
+    return assign->getScalarTerm(SNLID::DesignObjectID(0));
+  }
+  return nullptr;
+}
+
+SNLScalarTerm* SNLDB0::getAssignOutput() {
+  auto assign = getAssign();
+  if (assign) {
+    return assign->getScalarTerm(SNLID::DesignObjectID(1));
   }
   return nullptr;
 }

@@ -22,6 +22,7 @@
 #include "SNLDesign.h"
 
 #include "SNLFlattenerInstanceTree.h"
+#include "SNLFlattenerNetTreeNode.h"
 
 namespace naja { namespace SNL {
 
@@ -58,16 +59,23 @@ void SNLFlattenerInstanceTreeNode::addNetNode(SNLFlattenerNetTreeNode* node, con
   netNodes_[net] = node;
 }
 
-void SNLFlattenerInstanceTreeNode::addTermNode(SNLFlattenerNetTreeNode* node, const SNLBitTerm* term) {
-  termNodes_[term] = node;
+void SNLFlattenerInstanceTreeNode::addInstTermNode(SNLFlattenerNetTreeNode* node, const SNLBitTerm* term) {
+  instTermNodes_[term] = node;
 }
 
 SNLFlattenerInstanceTreeNode::~SNLFlattenerInstanceTreeNode() {
-  std::for_each(children_.begin(), children_.end(), [](const auto& pair){
-    auto child = pair.second;
-    child->parent_ = nullptr;
-    delete child;
+  std::for_each(netNodes_.begin(), netNodes_.end(), [](const auto& pair){
+    auto node = pair.second;
+    node->instanceTreeNode_ = nullptr;
+    delete node;
   });
+  netNodes_.clear();
+  std::for_each(instTermNodes_.begin(), instTermNodes_.end(), [](const auto& pair){
+    auto node = pair.second;
+    node->instanceTreeNode_ = nullptr;
+    delete node;
+  });
+  instTermNodes_.clear();
   if (parent_) {
     if (isRoot()) {
       getTree()->root_ = nullptr;
@@ -120,8 +128,8 @@ SNLFlattenerInstanceTreeNode::getTermNode(const SNLBitTerm* term) const {
   if (not term) {
     return nullptr;
   }
-  auto it = termNodes_.find(term);
-  if (it != termNodes_.end()) {
+  auto it = instTermNodes_.find(term);
+  if (it != instTermNodes_.end()) {
     return it->second;
   }
   return nullptr;

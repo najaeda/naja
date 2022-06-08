@@ -62,7 +62,7 @@ SNLFlattenerNetTreeNode::SNLFlattenerNetTreeNode(
   object_(instTerm)
 {
   parent->addChild(this, object_); 
-  instanceTreeNode_->addTermNode(this, instTerm->getTerm());
+  instanceTreeNode_->addInstTermNode(this, instTerm->getTerm());
 }
 
 SNLFlattenerNetTreeNode::SNLFlattenerNetTreeNode(SNLFlattenerNetTreeNode* parent, const SNLBitTerm* term):
