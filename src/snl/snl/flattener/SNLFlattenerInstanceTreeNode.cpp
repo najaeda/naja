@@ -64,6 +64,12 @@ void SNLFlattenerInstanceTreeNode::addInstTermNode(SNLFlattenerNetTreeNode* node
 }
 
 SNLFlattenerInstanceTreeNode::~SNLFlattenerInstanceTreeNode() {
+  std::for_each(children_.begin(), children_.end(), [](const auto& pair){
+    auto child = pair.second;
+    child->parent_ = nullptr;
+    delete child;
+  });
+  children_.clear();
   std::for_each(netNodes_.begin(), netNodes_.end(), [](const auto& pair){
     auto node = pair.second;
     node->instanceTreeNode_ = nullptr;
@@ -76,6 +82,7 @@ SNLFlattenerInstanceTreeNode::~SNLFlattenerInstanceTreeNode() {
     delete node;
   });
   instTermNodes_.clear();
+  
   if (parent_) {
     if (isRoot()) {
       getTree()->root_ = nullptr;
