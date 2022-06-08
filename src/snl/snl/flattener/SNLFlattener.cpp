@@ -17,6 +17,7 @@
 #include "SNLFlattener.h"
 
 #include <iostream>
+#include <list>
 
 #include "SNLDesign.h"
 #include "SNLBitNet.h"
@@ -25,8 +26,9 @@
 
 #include "SNLFlattenerInstanceTree.h"
 #include "SNLFlattenerNetForest.h"
+#include "SNLFlattenerNetTree.h"
+#include "SNLFlattenerNetTreeNode.h"
 #include "SNLFlattenerInstanceTreeNode.h"
-
 
 namespace naja { namespace SNL {
 
@@ -35,53 +37,90 @@ SNLFlattener::~SNLFlattener() {
   delete forest_;
 }
 
-void SNLFlattener::processDesign(
-  SNLFlattenerInstanceTreeNode* parent,
-  const SNLDesign* design,
-  const TermNodesMap& termNodesMap) {
-  for (auto net: design->getBitNets()) {
-    if (net->getType().isConst0()) {
-
-    } else if (net->getType().isConst1()) {
-
-    } else {
-      for (auto component: net->getComponents()) {
-        if (auto term = dynamic_cast<SNLBitTerm*>(component)) {
-          std::cerr << term->getString() << std::endl;
-        } else {
-          auto instTerm = static_cast<SNLInstTerm*>(component);
-          std::cerr << instTerm->getString() << std::endl;
-        }
+void SNLFlattener::processTopNets(SNLFlattenerInstanceTreeNode* instanceTreeRoot, const SNLDesign* top) {
+  for (auto net: top->getBitNets()) {
+    SNLFlattenerNetTree* netTree = new SNLFlattenerNetTree(getNetForest(), instanceTreeRoot, net);
+    SNLFlattenerNetTreeNode* netTreeRoot = netTree->getRoot();
+    for (auto component: net->getComponents()) {
+      if (auto instTerm = dynamic_cast<SNLInstTerm*>(component)) {
+        auto instance = instTerm->getInstance();
+        auto instanceTreeNode = instanceTreeRoot->getChildNode(instance);
+        assert(instanceTreeNode);
+        new SNLFlattenerNetTreeNode(netTreeRoot, instanceTreeNode, instTerm);
+      } else {
+        auto term = static_cast<SNLBitTerm*>(component);
+        new SNLFlattenerNetTreeNode(netTreeRoot, term);
       }
     }
   }
-  for (auto instance: design->getInstances()) {
-    TermNodesMap termNodesMap;
-    processInstance(parent, instance, termNodesMap);
+}
+
+void SNLFlattener::createNetForest(SNLFlattenerInstanceTreeNode* instanceNode) {
+  auto instance = instanceNode->getInstance();
+  auto model = instance->getModel();
+  for (auto bitNet: model->getBitNets()) {
+    using InstTerms = std::list<SNLInstTerm*>;
+    InstTerms instTerms;
+    using TermNodes = std::list<SNLFlattenerNetTreeNode*>;
+    TermNodes termNodes;
+    for (auto component: bitNet->getComponents()) {
+      if (auto instTerm = dynamic_cast<SNLInstTerm*>(component)) {
+        instTerms.push_back(instTerm);
+      } else {
+        auto bitTerm = static_cast<SNLBitTerm*>(component);
+        auto upperInstTerm = instance->getInstTerm(bitTerm);
+        if (upperInstTerm->getNet()) {
+          auto termNode = instanceNode->getInstTermNode(bitTerm);
+          assert(termNode);
+          termNodes.push_back(termNode);
+        }
+      }
+      SNLFlattenerNetTreeNode* parentNode = nullptr;
+      if (termNodes.empty()) {
+        //new net tree
+        auto netTree = new SNLFlattenerNetTree(getNetForest(), instanceNode, bitNet);
+        parentNode = netTree->getRoot();
+      } else {
+        //manage feedthrus....
+        assert(termNodes.size() == 1);
+        parentNode = termNodes.front();
+      }
+      for (auto instTerm: instTerms) {
+        auto instance = instTerm->getInstance();
+        auto instanceChildNode = instanceNode->getChildNode(instance);
+        assert(instanceChildNode);
+        new SNLFlattenerNetTreeNode(parentNode, instanceChildNode, instTerm);
+      }
+    }
+  }
+  for (auto child: instanceNode->getChildren()) {
+    createNetForest(child);
   }
 }
 
-void SNLFlattener::processInstance(
-  SNLFlattenerInstanceTreeNode* parent,
-  const SNLInstance* instance,
-  const TermNodesMap& termNodesMap) {
-  auto node = parent->addChild(instance);
-  SNLDesign* model = instance->getModel();
-  processDesign(node, model, termNodesMap);
+void SNLFlattener::createNetForest(const SNLDesign* top) {
+  forest_ = new SNLFlattenerNetForest;
+  auto tree = getInstanceTree();
+  auto root = tree->getRoot();
+  processTopNets(root, top);
+  for (auto instance: top->getInstances()) {
+    auto instanceNode = root->getChildNode(instance);
+    assert(instanceNode);
+    createNetForest(instanceNode);
+  }
 }
 
-void SNLFlattener::processTop(const SNLDesign* top) {
-  auto root = tree_->getRoot();
-  for (auto instance: top->getInstances()) {
-    TermNodesMap termNodesMap;
-    processInstance(root, instance, termNodesMap);
+void SNLFlattener::createInstanceTree(SNLFlattenerInstanceTreeNode* parent, const SNLDesign* design) {
+  for (auto instance: design->getInstances()) {
+    auto node = parent->addChild(instance);
+    createInstanceTree(node, instance->getModel());
   }
 }
 
 void SNLFlattener::process(const SNLDesign* top) {
   tree_ = new SNLFlattenerInstanceTree(top);
-  forest_ = new SNLFlattenerNetForest();
-  processTop(top);
+  createInstanceTree(tree_->getRoot(), top);
+  createNetForest(top);
 }
 
 }} // namespace SNL // namespace naja

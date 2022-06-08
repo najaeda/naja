@@ -18,18 +18,26 @@
 #define __SNL_FLATTENER_INSTANCE_TREE_NODE_H_
 
 #include "SNLInstance.h"
+#include "SNLBitNet.h"
+#include "SNLBitTerm.h"
 
 namespace naja { namespace SNL {
 
 class SNLFlattenerInstanceTree;
+class SNLFlattenerNetTreeNode;
 
 class SNLFlattenerInstanceTreeNode {
   public:
     friend class SNLFlattener;
     friend class SNLFlattenerInstanceTree;
+    friend class SNLFlattenerNetTreeNode;
     
     using Children =
       std::map<const SNLInstance*, SNLFlattenerInstanceTreeNode*, SNLDesignObject::PointerLess>;
+    using NetNodes =
+      std::map<const SNLBitNet*, SNLFlattenerNetTreeNode*, SNLDesignObject::PointerLess>;
+    using InstTermNodes =
+      std::map<const SNLBitTerm*, SNLFlattenerNetTreeNode*, SNLDesignObject::PointerLess>;
 
     SNLFlattenerInstanceTreeNode(const SNLFlattenerInstanceTreeNode&) = delete;
     SNLFlattenerInstanceTreeNode(SNLFlattenerInstanceTreeNode&&) = delete;
@@ -39,12 +47,19 @@ class SNLFlattenerInstanceTreeNode {
     SNLFlattenerInstanceTree* getTree() const;
 
     bool isRoot() const { return isRoot_; }
-
+    bool isLeaf() const { return children_.empty(); }
     
     SNLFlattenerInstanceTreeNode* getChildNode(const SNLInstance* instance) const;
+    SNLFlattenerNetTreeNode* getNetNode(const SNLBitNet* net) const;
+    SNLFlattenerNetTreeNode* getInstTermNode(const SNLBitTerm* term) const;
 
     const SNLDesign* getDesign() const;
     const SNLInstance* getInstance() const;
+
+    ///\return the collection of direct children
+    SNLCollection<SNLFlattenerInstanceTreeNode*> getChildren() const;
+    ///\return the collection of leaf nodes
+    SNLCollection<SNLFlattenerInstanceTreeNode*> getLeaves() const;
 
     void print(std::ostream& stream, unsigned indent=0) const;
     std::string getString() const;
@@ -52,11 +67,16 @@ class SNLFlattenerInstanceTreeNode {
     SNLFlattenerInstanceTreeNode(SNLFlattenerInstanceTree* tree, const SNLDesign* top);
     SNLFlattenerInstanceTreeNode(SNLFlattenerInstanceTreeNode* parent, const SNLInstance* instance);
     SNLFlattenerInstanceTreeNode* addChild(const SNLInstance* instance);
+    void removeChild(const SNLInstance* instance);
+    void addNetNode(SNLFlattenerNetTreeNode* node, const SNLBitNet* net);
+    void addInstTermNode(SNLFlattenerNetTreeNode* node, const SNLBitTerm* term);
 
-    bool        isRoot_   { false };
-    void*       parent_   { nullptr };
-    const void* object_   { nullptr };
-    Children    children_ {};
+    bool          isRoot_         { false };
+    void*         parent_         { nullptr };
+    const void*   object_         { nullptr };
+    Children      children_       {};
+    NetNodes      netNodes_       {};
+    InstTermNodes instTermNodes_  {};
 };
 
 }} // namespace SNL // namespace naja

@@ -43,13 +43,8 @@ class SNLUniverse final: public SNLObject {
     ///\return the SNLDB with SNLID::DBID:id or null if it does not exist
     SNLDB* getDB(SNLID::DBID id);
 
-    //DB0 methods
     static bool isDB0(const SNLDB* db);
-    static SNLDesign* getAssign(); 
-    static bool isAssign(const SNLDesign* design);
-    static SNLScalarTerm* getAssignInput();
-    static SNLScalarTerm* getAssignOutput();
-
+    
     const char* getTypeName() const override;
     std::string getString() const override;
     std::string getDescription() const override;
@@ -69,9 +64,6 @@ class SNLUniverse final: public SNLObject {
     static SNLUniverse* universe_;
     SNLUniverseDBs      dbs_          {};
     SNLDB*              db0_          {nullptr};
-    SNLDesign*          assign_       {nullptr};
-    SNLScalarTerm*      assignInput_  {nullptr};
-    SNLScalarTerm*      assignOutput_ {nullptr};
 };
 
 }} // namespace SNL // namespace naja

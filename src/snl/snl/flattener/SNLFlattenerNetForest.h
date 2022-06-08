@@ -18,19 +18,35 @@
 #define __SNL_FLATTENER_NET_FOREST_H_
 
 #include <ostream>
+#include <set>
+
+#include "SNLCollection.h"
+#include "SNLFlattenerNetTree.h"
 
 namespace naja { namespace SNL {
 
 class SNLFlattenerNetForest {
   public:
     friend class SNLFlattener;
+    friend class SNLFlattenerNetTree;
+    using Trees = std::set<SNLFlattenerNetTree*, SNLFlattenerNetTree::Less>;
+
     SNLFlattenerNetForest(const SNLFlattenerNetForest&) = delete;
     SNLFlattenerNetForest(const SNLFlattenerNetForest&&) = delete;
+
+    ///\return the collection of all Trees of this Forest.
+    SNLCollection<SNLFlattenerNetTree*> getTrees() const;
 
     void print(std::ostream& stream) const;
   private:
     SNLFlattenerNetForest() = default;
     ~SNLFlattenerNetForest();
+
+    void addTree(SNLFlattenerNetTree* tree);
+    void removeTree(SNLFlattenerNetTree* tree);
+
+    Trees                   trees_      {};
+    SNLFlattenerNetTree::ID nextTreeID_ {0};
 };
 
 }} // namespace SNL // namespace naja

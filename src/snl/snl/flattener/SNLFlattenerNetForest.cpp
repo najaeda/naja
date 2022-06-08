@@ -15,9 +15,38 @@
  */
 
 #include "SNLFlattenerNetForest.h"
+#include "SNLFlattenerNetTree.h"
 
 namespace naja { namespace SNL {
 
-SNLFlattenerNetForest::~SNLFlattenerNetForest() {}
+SNLFlattenerNetForest::~SNLFlattenerNetForest() {
+  std::for_each(trees_.begin(), trees_.end(),
+    [](SNLFlattenerNetTree* tree) {
+      tree->forest_ = nullptr;
+      delete tree;
+    }
+  );
+}
+
+void SNLFlattenerNetForest::addTree(SNLFlattenerNetTree* tree) {
+  tree->id_ = nextTreeID_++;
+  trees_.insert(tree);
+}
+
+void SNLFlattenerNetForest::removeTree(SNLFlattenerNetTree* tree) {
+  auto it = trees_.find(tree);
+  assert(it != trees_.end());
+  trees_.erase(it);
+}
+
+SNLCollection<SNLFlattenerNetTree*> SNLFlattenerNetForest::getTrees() const {
+  return SNLCollection(new SNLSTLCollection(&trees_));
+}
+
+void SNLFlattenerNetForest::print(std::ostream& stream) const {
+  for (auto tree: trees_) {
+    tree->print(stream);
+  }
+}
 
 }} // namespace SNL // namespace naja

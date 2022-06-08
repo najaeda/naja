@@ -17,10 +17,16 @@
 #ifndef __SNL_DB0_H_
 #define __SNL_DB0_H_
 
+#include <cstdio>
+
 namespace naja { namespace SNL {
 
 class SNLUniverse;
 class SNLDB;
+class SNLLibrary;
+class SNLDesign;
+class SNLScalarTerm;
+class SNLBusTerm;
 
 /**
  * \brief SNLDB0 is a SNLDB automatically managed by SNLUniverse.
@@ -34,8 +40,25 @@ class SNLDB;
  */
 class SNLDB0 {
   friend class SNLUniverse;
+  public:
+    static SNLDB* getSNLDB0();
+    static SNLLibrary* getPrimitivesLibrary();
+    static bool isDB0Primitive(const SNLDesign* design);
+
+    static SNLDesign* getAssign(); 
+    static bool isAssign(const SNLDesign* design);
+    static SNLScalarTerm* getAssignInput();
+    static SNLScalarTerm* getAssignOutput();
+
+    static SNLLibrary* getANDLibrary();
+    static SNLDesign* getAND(size_t nbInputs);
+    static bool isAND(const SNLDesign* design);
+    static SNLScalarTerm* getANDOutput(const SNLDesign* gate);
+    static SNLBusTerm* getANDInputs(const SNLDesign* gate);
   private:
     static SNLDB* create(SNLUniverse* universe);
+    static constexpr char PrimitivesLibraryName[] { "PRIMITIVES" };
+    static constexpr char ANDName[]               { "AND" };
 };
 
 }} // namespace SNL // namespace naja

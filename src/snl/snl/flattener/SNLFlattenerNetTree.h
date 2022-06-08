@@ -17,28 +17,67 @@
 #ifndef __SNL_FLATTENER_NET_TREE_H_
 #define __SNL_FLATTENER_NET_TREE_H_
 
-#include <ostream>
+#include "SNLCollection.h"
 
 namespace naja { namespace SNL {
 
 class SNLBitNet;
+class SNLFlattenerNetForest;
 class SNLFlattenerNetTreeNode;
+class SNLFlattenerInstanceTreeNode;
 
 class SNLFlattenerNetTree {
   public:
+    friend class SNLFlattenerNetForest;
+    friend class SNLFlattenerNetTreeNode;
+    using ID = unsigned int;
+
+    class Type {
+      public:
+        enum TypeEnum {
+          Standard, Constant0, Constant1
+        };
+        Type() = delete;
+        Type(const TypeEnum& typeEnum);
+        Type(const Type&) = default;
+        Type& operator=(const Type&) = default;
+        operator const TypeEnum&() const {return typeEnum_;}
+        std::string getString() const;
+      private:
+        TypeEnum typeEnum_;
+    };
+
+    struct Less {
+      bool operator() (const SNLFlattenerNetTree* leftTree, const SNLFlattenerNetTree* rightTree) const {
+        return leftTree->getID() < rightTree->getID();
+      }
+    };
+
+    SNLFlattenerNetTree() = delete;
     SNLFlattenerNetTree(const SNLFlattenerNetTree&) = delete;
-    SNLFlattenerNetTree(const SNLFlattenerNetTree&&) = delete;
-    static SNLFlattenerNetTree* create(const SNLBitNet* root);
+    SNLFlattenerNetTree(
+      SNLFlattenerNetForest* forest,
+      SNLFlattenerInstanceTreeNode* instanceTreeNode,
+      const SNLBitNet* net);
+    ~SNLFlattenerNetTree();
+
+    void setType(const Type& type) { type_ = type; }
     void destroy();
 
+    ID getID() const { return id_; }
     SNLFlattenerNetTreeNode* getRoot() const { return root_; }
+    SNLFlattenerNetForest* getForest() const { return forest_; }
+    ///\return the collection of all Leaf nodes.
+    SNLCollection<SNLFlattenerNetTreeNode*> getLeaves() const;
+
 
     void print(std::ostream& stream) const;
   private:
-    SNLFlattenerNetTree() = default;
-    ~SNLFlattenerNetTree();
 
-    SNLFlattenerNetTreeNode* root_;
+    SNLFlattenerNetForest*    forest_ {nullptr};
+    SNLFlattenerNetTreeNode*  root_   {nullptr};
+    ID                        id_     {0};
+    Type                      type_   {Type::Standard};
 };
 
 }} // namespace SNL // namespace naja

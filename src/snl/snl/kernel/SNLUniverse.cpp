@@ -51,6 +51,10 @@ void SNLUniverse::preDestroy() {
       db->destroyFromUniverse();
     }
   };
+  //Make sure that the last destroyed DB is DB0 
+  if (dbs_.size()>1) {
+    dbs_.erase_and_dispose(++dbs_.begin(), dbs_.end(), destroyDBFromUniverse());
+  }
   dbs_.clear_and_dispose(destroyDBFromUniverse());
   universe_ = nullptr;
   super::preDestroy();
@@ -83,30 +87,6 @@ bool SNLUniverse::isDB0(const SNLDB* db) {
     return db == universe->db0_;
   }
   return false;
-}
-
-SNLDesign* SNLUniverse::getAssign() {
-  auto universe = get();
-  if (universe) {
-    return universe->assign_;
-  }
-  return nullptr;
-}
-
-SNLScalarTerm* SNLUniverse::getAssignInput() {
-  auto universe = get();
-  if (universe) {
-    return universe->assignInput_;
-  }
-  return nullptr;
-}
-
-SNLScalarTerm* SNLUniverse::getAssignOutput() {
-  auto universe = get();
-  if (universe) {
-    return universe->assignOutput_;
-  }
-  return nullptr;
 }
 
 SNLDB* SNLUniverse::getDB(SNLID::DBID id) {

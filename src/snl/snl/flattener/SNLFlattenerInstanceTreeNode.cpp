@@ -21,6 +21,9 @@
 
 #include "SNLDesign.h"
 
+#include "SNLFlattenerInstanceTree.h"
+#include "SNLFlattenerNetTreeNode.h"
+
 namespace naja { namespace SNL {
 
 SNLFlattenerInstanceTreeNode::SNLFlattenerInstanceTreeNode(
@@ -45,8 +48,48 @@ SNLFlattenerInstanceTreeNode* SNLFlattenerInstanceTreeNode::addChild(const SNLIn
   return child;
 }
 
+void SNLFlattenerInstanceTreeNode::removeChild(const SNLInstance* instance) {
+  auto it = children_.find(instance);
+  if (it!=children_.end()) {
+    children_.erase(it);
+  }
+}
+
+void SNLFlattenerInstanceTreeNode::addNetNode(SNLFlattenerNetTreeNode* node, const SNLBitNet* net) {
+  netNodes_[net] = node;
+}
+
+void SNLFlattenerInstanceTreeNode::addInstTermNode(SNLFlattenerNetTreeNode* node, const SNLBitTerm* term) {
+  instTermNodes_[term] = node;
+}
+
 SNLFlattenerInstanceTreeNode::~SNLFlattenerInstanceTreeNode() {
-  std::for_each(children_.begin(), children_.end(), [](const auto& pair){ delete pair.second; });
+  std::for_each(children_.begin(), children_.end(), [](const auto& pair){
+    auto child = pair.second;
+    child->parent_ = nullptr;
+    delete child;
+  });
+  children_.clear();
+  std::for_each(netNodes_.begin(), netNodes_.end(), [](const auto& pair){
+    auto node = pair.second;
+    node->instanceTreeNode_ = nullptr;
+    delete node;
+  });
+  netNodes_.clear();
+  std::for_each(instTermNodes_.begin(), instTermNodes_.end(), [](const auto& pair){
+    auto node = pair.second;
+    node->instanceTreeNode_ = nullptr;
+    delete node;
+  });
+  instTermNodes_.clear();
+  
+  if (parent_) {
+    if (isRoot()) {
+      getTree()->root_ = nullptr;
+    } else {
+      getParent()->removeChild(getInstance());
+    }
+  }
 }
 
 SNLFlattenerInstanceTreeNode* SNLFlattenerInstanceTreeNode::getParent() const {
@@ -75,6 +118,30 @@ SNLFlattenerInstanceTreeNode::getChildNode(const SNLInstance* instance) const {
   return nullptr;
 }
 
+SNLFlattenerNetTreeNode*
+SNLFlattenerInstanceTreeNode::getNetNode(const SNLBitNet* net) const {
+  if (not net) {
+    return nullptr;
+  }
+  auto it = netNodes_.find(net);
+  if (it != netNodes_.end()) {
+    return it->second;
+  }
+  return nullptr;
+}
+
+SNLFlattenerNetTreeNode*
+SNLFlattenerInstanceTreeNode::getInstTermNode(const SNLBitTerm* term) const {
+  if (not term) {
+    return nullptr;
+  }
+  auto it = instTermNodes_.find(term);
+  if (it != instTermNodes_.end()) {
+    return it->second;
+  }
+  return nullptr;
+}
+
 const SNLDesign* SNLFlattenerInstanceTreeNode::getDesign() const {
   if (isRoot()) {
     return static_cast<const SNLDesign*>(object_);
@@ -89,6 +156,21 @@ const SNLInstance* SNLFlattenerInstanceTreeNode::getInstance() const {
   return nullptr;
 }
 
+SNLCollection<SNLFlattenerInstanceTreeNode*> SNLFlattenerInstanceTreeNode::getChildren() const {
+  return SNLCollection(new SNLSTLMapCollection(&children_));
+}
+
+SNLCollection<SNLFlattenerInstanceTreeNode*> SNLFlattenerInstanceTreeNode::getLeaves() const {
+  auto childrenGetter = [](SNLFlattenerInstanceTreeNode* n) { return n->getChildren(); };
+  auto leafCritetion = [](SNLFlattenerInstanceTreeNode* n) { return n->isLeaf(); };
+  return SNLCollection(
+      new SNLTreeLeavesCollection(
+        const_cast<SNLFlattenerInstanceTreeNode*>(this),
+        childrenGetter,
+        leafCritetion));
+}
+
+//LCOV_EXCL_START
 void SNLFlattenerInstanceTreeNode::print(std::ostream& stream, unsigned indent) const {
   stream << std::string(indent, ' ') << getString() << std::endl;
   indent += 2;
@@ -96,7 +178,9 @@ void SNLFlattenerInstanceTreeNode::print(std::ostream& stream, unsigned indent) 
     child->print(stream, indent);
   }
 }
+//LCOV_EXCL_STOP
 
+//LCOV_EXCL_START
 std::string SNLFlattenerInstanceTreeNode::getString() const {
   std::string str;
   if (isRoot()) {
@@ -114,5 +198,6 @@ std::string SNLFlattenerInstanceTreeNode::getString() const {
   }
   return str;
 }
+//LCOV_EXCL_STOP
 
 }} // namespace SNL // namespace naja

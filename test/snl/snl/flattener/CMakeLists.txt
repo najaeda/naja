@@ -1,9 +1,13 @@
-INCLUDE(GoogleTest)
+include(GoogleTest)
 
-SET(snl_flattener_tests SNLFlattenerTest0.cpp)
+set(snl_flattener_tests
+    SNLFlattenerTest0.cpp SNLFlattenerTest1.cpp
+    SNLFlattenerTestDelete.cpp
+)
 
-ADD_EXECUTABLE(snlFlattenerTests ${snl_flattener_tests})
+add_executable(snlFlattenerTests ${snl_flattener_tests})
 
-TARGET_LINK_LIBRARIES(snlFlattenerTests snl_netlists gtest gtest_main)
+target_compile_definitions(snlFlattenerTests PRIVATE FLATTENER_DUMP_PATHS="${CMAKE_CURRENT_BINARY_DIR}")
+target_link_libraries(snlFlattenerTests snl_netlists gmock gtest gtest_main)
 
 GTEST_DISCOVER_TESTS(snlFlattenerTests)

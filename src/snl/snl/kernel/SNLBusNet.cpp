@@ -113,7 +113,7 @@ SNLBusNetBit* SNLBusNet::getBitAtPosition(size_t position) const {
 }
 
 SNLCollection<SNLBusNetBit*> SNLBusNet::getBits() const {
-  return SNLCollection<SNLBusNetBit*>(new SNLVectorCollection<SNLBusNetBit*>(&bits_));
+  return SNLCollection(new SNLSTLCollection(&bits_));
 }
 
 void SNLBusNet::setType(const Type& type) {

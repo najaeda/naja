@@ -39,11 +39,11 @@ class SNLNet: public SNLDesignObject {
         Type& operator=(const Type&) = default;
 
         operator const TypeEnum&() const {return typeEnum_;}
-        constexpr bool isAssign() { return typeEnum_ == Assign0 or typeEnum_ == Assign1; }
-        constexpr bool isSupply() { return typeEnum_ == Supply0 or typeEnum_ == Supply1; }
-        constexpr bool isConst0() { return typeEnum_ == Assign0 or typeEnum_ == Supply0; }
-        constexpr bool isConst1() { return typeEnum_ == Assign1 or typeEnum_ == Supply1; }
-        constexpr bool isDriving() { return isAssign() or isSupply(); }
+        constexpr bool isAssign() const { return typeEnum_ == Assign0 or typeEnum_ == Assign1; }
+        constexpr bool isSupply() const { return typeEnum_ == Supply0 or typeEnum_ == Supply1; }
+        constexpr bool isConst0() const { return typeEnum_ == Assign0 or typeEnum_ == Supply0; }
+        constexpr bool isConst1() const { return typeEnum_ == Assign1 or typeEnum_ == Supply1; }
+        constexpr bool isDriving() const { return isAssign() or isSupply(); }
         std::string getString() const;
       private:
         TypeEnum typeEnum_;

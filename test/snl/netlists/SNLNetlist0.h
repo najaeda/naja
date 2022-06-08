@@ -9,10 +9,22 @@ namespace naja::SNL {
   class SNLDesign;
   class SNLInstance;
   class SNLBusTerm;
+  class SNLScalarNet;
   class SNLBusNet;
 }
 
 class SNLNetlist0 {
+  //
+  //      |    _________________________        _________________________   |
+  //      |   |                        |       |                        |   |
+  //      |   |   ________     _____   |       |   ________     _____   |   |
+  //  i[0]--i0|--|i0      |   |i:INV|  |   |-i0|--|i0      |   |i:INV|  |   |
+  //      |   |  |a:AND2 o|---|i   o|--|---|   |  |a:AND2  |---|i   o|--|---- o
+  //  i[1]--i1|--|i1______|   |_____|  |   |-i1|--|i1______|   |_____|  |   |
+  //      |   |                        |       |                        |   |
+  //      |   |________________________|       |________________________|   |
+  //      |                                                                 |
+  //
   public:
     static constexpr char DesignsLibName[]  { "DESIGNS" };
     static constexpr char TopName[]         { "Top" };
@@ -20,6 +32,10 @@ class SNLNetlist0 {
     static constexpr char TopIns1Name[]     { "ins1" };
     static constexpr char TopOName[]        { "o" };
     static constexpr char TopIName[]        { "i" };
+    static constexpr char TopNetName[]      { "n" };
+    static constexpr char ModuleI0Name[]    { "i0" };
+    static constexpr char ModuleI1Name[]    { "i1" };
+    static constexpr char ModuleOName[]     { "o" };
     
     static naja::SNL::SNLDesign* create(naja::SNL::SNLDB* db);
     static naja::SNL::SNLDB* getDB();
@@ -30,7 +46,7 @@ class SNLNetlist0 {
     static naja::SNL::SNLBusTerm* getTopITerm();
     static naja::SNL::SNLBusTerm* getTopOTerm();
     static naja::SNL::SNLBusNet* getTopINet();
-    static naja::SNL::SNLBusNet* getTopONet();
+    static naja::SNL::SNLScalarNet* getTopONet();
 };
 
 #endif // __SNL_NETLIST0_H_

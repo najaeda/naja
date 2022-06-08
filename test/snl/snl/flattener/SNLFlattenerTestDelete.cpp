@@ -9,7 +9,6 @@ using ::testing::ElementsAre;
 
 #include "SNLUniverse.h"
 #include "SNLBusNetBit.h"
-#include "SNLInstTerm.h"
 #include "SNLFlattener.h"
 #include "SNLFlattenerInstanceTree.h"
 #include "SNLFlattenerInstanceTreeNode.h"
@@ -22,7 +21,7 @@ using namespace naja::SNL;
 #define FLATTENER_DUMP_PATHS "Undefined"
 #endif
 
-class SNLFlattenerTest0: public ::testing::Test {
+class SNLFlattenerTestDestroy: public ::testing::Test {
   protected:
     void SetUp() override {
       SNLUniverse* universe = SNLUniverse::create();
@@ -37,63 +36,44 @@ class SNLFlattenerTest0: public ::testing::Test {
     SNLDesign*  top_;
 };
 
-TEST_F(SNLFlattenerTest0, test0) {
+TEST_F(SNLFlattenerTestDestroy, test0) {
   ASSERT_NE(nullptr, top_);
   SNLFlattener flattener;
   flattener.process(top_);
 
   SNLFlattenerInstanceTree* instanceTree = flattener.getInstanceTree();
   ASSERT_NE(nullptr, instanceTree);
+  SNLFlattenerNetForest* forest = flattener.getNetForest();
+  ASSERT_NE(nullptr, forest);
+
+#if 0
   std::filesystem::path dumpsPath(FLATTENER_DUMP_PATHS);
   std::filesystem::path instanceTreePath = dumpsPath/"SNLFlattenerTest0Test0InstanceTree.debug";
   std::ofstream instanceTreeFile;
   instanceTreeFile.open(instanceTreePath, std::ios::out);
   instanceTree->print(instanceTreeFile);
 
-  SNLFlattenerNetForest* forest = flattener.getNetForest();
-  ASSERT_NE(nullptr, forest);
   std::filesystem::path netForestPath = dumpsPath/"SNLFlattenerTest0Test0NetForest.debug";
   std::ofstream netForestFile;
   netForestFile.open(netForestPath, std::ios::out);
   forest->print(netForestFile);
+#endif
 
   auto root = instanceTree->getRoot();
   ASSERT_NE(nullptr, root);
-  EXPECT_TRUE(root->isRoot());
-  EXPECT_FALSE(root->isLeaf());
-  EXPECT_EQ(nullptr, root->getParent());
-  EXPECT_EQ(nullptr, root->getInstance());
-  auto top = root->getDesign();
-  ASSERT_NE(nullptr, top);
-  EXPECT_EQ(top_, top);
+  EXPECT_EQ(2, root->getChildren().size());
+  EXPECT_EQ(4, root->getLeaves().size());
+  EXPECT_EQ(4, forest->getTrees().size());
 
-  EXPECT_EQ(instanceTree, root->getTree());
   auto ins0Node = root->getChildNode(SNLNetlist0::getTopIns0());
   ASSERT_NE(nullptr, ins0Node);
-  auto ins1Node = root->getChildNode(SNLNetlist0::getTopIns1());
-  ASSERT_NE(nullptr, ins1Node);
-  EXPECT_EQ(nullptr, root->getChildNode(nullptr));
-  EXPECT_EQ(root, ins0Node->getParent());
-  EXPECT_EQ(root, ins1Node->getParent());
-  EXPECT_EQ(instanceTree, ins0Node->getTree());
-  EXPECT_EQ(instanceTree, ins1Node->getTree());
-  EXPECT_FALSE(ins0Node->isRoot());
-  EXPECT_FALSE(ins1Node->isRoot());
-  EXPECT_FALSE(ins0Node->isLeaf());
-  EXPECT_FALSE(ins1Node->isLeaf());
-  EXPECT_EQ(nullptr, ins0Node->getDesign());
-  EXPECT_EQ(nullptr, ins1Node->getDesign());
+  delete ins0Node;
+  EXPECT_EQ(1, root->getChildren().size());
+  EXPECT_EQ(2, root->getLeaves().size());
+  ins0Node = root->getChildNode(SNLNetlist0::getTopIns0());
+  EXPECT_EQ(nullptr, ins0Node);
 
-  EXPECT_FALSE(root->getChildren().empty());
-  EXPECT_EQ(2, root->getChildren().size());
-  EXPECT_THAT(std::vector(root->getChildren().begin(), root->getChildren().end()),
-    ElementsAre(ins0Node, ins1Node));
-
-  EXPECT_FALSE(root->getLeaves().empty());
-  EXPECT_EQ(4, root->getLeaves().size());
-
-  EXPECT_FALSE(forest->getTrees().empty());
-  EXPECT_EQ(4, forest->getTrees().size());
+#if 0
   using NetTrees = std::vector<SNLFlattenerNetTree*>;
   NetTrees netTrees(forest->getTrees().begin(), forest->getTrees().end());
   EXPECT_EQ(4, netTrees.size());
@@ -113,7 +93,6 @@ TEST_F(SNLFlattenerTest0, test0) {
   EXPECT_EQ(SNLID::DesignObjectID(0), netTree0RootNet->getID());
   auto netTree0RootBusNetBit = dynamic_cast<const SNLBusNetBit*>(netTree0RootNet);
   EXPECT_TRUE(netTree0RootBusNetBit);
-  EXPECT_EQ(netTree0Root, root->getNetNode(netTree0RootBusNetBit));
 
   EXPECT_FALSE(netTree0Root->getChildren().empty());
   //one child is term node, other is inst term
@@ -140,11 +119,7 @@ TEST_F(SNLFlattenerTest0, test0) {
   EXPECT_EQ(netTree0, instTermNode->getTree());
   EXPECT_EQ(nullptr, instTermNode->getTerm());
   EXPECT_NE(nullptr, instTermNode->getInstTerm());
-  EXPECT_EQ(ins0Node, instTermNode->getInstanceTreeNode());
-  EXPECT_EQ(instTermNode, ins0Node->getInstTermNode(instTermNode->getInstTerm()->getTerm()));
-  EXPECT_EQ(nullptr, root->getInstTermNode(instTermNode->getInstTerm()->getTerm()));
-  EXPECT_EQ(nullptr, ins0Node->getInstTermNode(nullptr));
-  EXPECT_EQ(nullptr, ins0Node->getNetNode(netTree0RootBusNetBit));
 
   EXPECT_EQ(2, netTree0Root->getLeaves().size());
+#endif
 }

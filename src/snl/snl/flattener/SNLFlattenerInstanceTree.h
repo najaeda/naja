@@ -19,6 +19,8 @@
 
 #include <ostream>
 
+#include "SNLCollection.h"
+
 namespace naja { namespace SNL {
 
 class SNLDesign;
@@ -27,11 +29,15 @@ class SNLFlattenerInstanceTreeNode;
 class SNLFlattenerInstanceTree {
   public:
     friend class SNLFlattener;
+    friend class SNLFlattenerInstanceTreeNode;
     SNLFlattenerInstanceTree() = delete;
     SNLFlattenerInstanceTree(const SNLFlattenerInstanceTree&) = delete;
     SNLFlattenerInstanceTree(const SNLFlattenerInstanceTree&&) = delete;
 
     SNLFlattenerInstanceTreeNode* getRoot() const { return root_; }
+
+    ///\return the collection of all Leaf nodes.
+    SNLCollection<SNLFlattenerInstanceTreeNode*> getLeaves() const;
 
     void print(std::ostream& stream) const;
   private:

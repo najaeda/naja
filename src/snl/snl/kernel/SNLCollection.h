@@ -18,6 +18,7 @@
 #define __SNL_COLLECTION_H_
 
 #include <vector>
+#include <stack>
 #include <memory>
 
 #include <boost/intrusive/set.hpp>
@@ -55,6 +56,72 @@ class SNLBaseCollection {
   protected:
     SNLBaseCollection() = default;
     SNLBaseCollection(const SNLBaseCollection&) = default;
+};
+
+template<class Type>
+class SNLSingletonCollection: public SNLBaseCollection<Type*> {
+  public:
+    using super = SNLBaseCollection<Type*>;
+
+    class SNLSingletonCollectionIterator: public SNLBaseIterator<Type*> {
+      public:
+        SNLSingletonCollectionIterator(const SNLSingletonCollectionIterator&) = default;
+        SNLSingletonCollectionIterator(Type* object, bool beginOrEnd=true): object_(object) {
+          if (object_) {
+            if (beginOrEnd) {
+              begin_ = true;
+            } else {
+              begin_ = false;
+            }
+          }
+        }
+        Type* getElement() const override { return object_; }
+        void progress() override { begin_ = false; }
+        bool isEqual(const SNLBaseIterator<Type*>* r) override {
+          if (const SNLSingletonCollectionIterator* rit = dynamic_cast<const SNLSingletonCollectionIterator*>(r)) {
+            return object_ == rit->object_ and begin_ == rit->begin_;
+          }
+          return false;
+        }
+        bool isValid() const override {
+          return object_ and begin_;
+        }
+        SNLBaseIterator<Type*>* clone() override {
+          return new SNLSingletonCollectionIterator(*this);
+        }
+      private:
+        Type* object_ {nullptr};
+        bool  begin_  {false};
+    };
+
+    SNLBaseIterator<Type*>* begin() const override {
+      return new SNLSingletonCollectionIterator(object_, true);
+    }
+
+    SNLBaseIterator<Type*>* end() const override {
+      return new SNLSingletonCollectionIterator(object_, false);
+    }
+
+    SNLSingletonCollection() = delete;
+    SNLSingletonCollection(const SNLSingletonCollection&) = delete;
+    SNLSingletonCollection(SNLSingletonCollection&&) = delete;
+    SNLSingletonCollection(Type* object): super(), object_(object) {}
+
+    SNLBaseCollection<Type*>* clone() const override {
+      return new SNLSingletonCollection(object_);
+    }
+    size_t size() const override {
+      if (object_) {
+        return 1;
+      }
+      return 0;
+    }
+    bool empty() const override {
+      return not object_;
+    }
+
+  private:
+    Type* object_ {nullptr};
 };
 
 template<class Type, class HookType>
@@ -128,76 +195,146 @@ class SNLIntrusiveSetCollection: public SNLBaseCollection<Type*> {
     const Set*  set_  {nullptr};
 };
 
-template<class Type>
-class SNLVectorCollection: public SNLBaseCollection<Type> {
+template<class STLType>
+class SNLSTLCollection: public SNLBaseCollection<typename STLType::value_type> {
   public:
-    using super = SNLBaseCollection<Type>;
-    using Vector = std::vector<Type>;
+    using super = SNLBaseCollection<typename STLType::value_type>;
 
-    class SNLVectorCollectionIterator: public SNLBaseIterator<Type> {
+    class SNLSTLCollectionIterator: public SNLBaseIterator<typename STLType::value_type> {
       public:
-        using VectorIterator = typename Vector::const_iterator;
+        using STLTypeIterator = typename STLType::const_iterator;
 
-        SNLVectorCollectionIterator(SNLVectorCollectionIterator&) = default;
-        SNLVectorCollectionIterator(const Vector* vector, bool beginOrEnd=true): vector_(vector) {
-          if (vector_) {
+        SNLSTLCollectionIterator(SNLSTLCollectionIterator&) = default;
+        SNLSTLCollectionIterator(const STLType* container, bool beginOrEnd=true): container_(container) {
+          if (container_) {
             if (beginOrEnd) {
-              it_ = vector_->begin();
+              it_ = container_->begin();
             } else {
-              it_ = vector_->end();
+              it_ = container_->end();
             }
           }
         }
 
-        SNLBaseIterator<Type>* clone() override {
-          return new SNLVectorCollectionIterator(*this);
+        SNLBaseIterator<typename STLType::value_type>* clone() override {
+          return new SNLSTLCollectionIterator(*this);
         }
 
-        Type getElement() const override { return *it_; } 
+        typename STLType::value_type getElement() const override { return *it_; } 
         void progress() override { ++it_; }
-        bool isEqual(const SNLBaseIterator<Type>* r) const override {
-          if (auto rit = dynamic_cast<const SNLVectorCollectionIterator*>(r)) {
+        bool isEqual(const SNLBaseIterator<typename STLType::value_type>* r) const override {
+          if (auto rit = dynamic_cast<const SNLSTLCollectionIterator*>(r)) {
             return it_ == rit->it_;
           }
           return false;
         }
         bool isValid() const override {
-          return vector_ and it_ != vector_->end();
+          return container_ and it_ != container_->end();
         }
       private:
-        const Vector*   vector_ {nullptr};
-        VectorIterator  it_     {};
+        const STLType*  container_  {nullptr};
+        STLTypeIterator it_         {};
     };
 
-    SNLVectorCollection() = delete;
-    SNLVectorCollection(const SNLVectorCollection&) = delete;
-    SNLVectorCollection(SNLVectorCollection&&) = delete;
-    SNLVectorCollection(const Vector* vector): super(), vector_(vector) {}
-    SNLBaseCollection<Type>* clone() const override {
-      return new SNLVectorCollection(vector_);
+    SNLSTLCollection() = delete;
+    SNLSTLCollection(const SNLSTLCollection&) = delete;
+    SNLSTLCollection(SNLSTLCollection&&) = delete;
+    SNLSTLCollection(const STLType* container): super(), container_(container) {}
+    SNLBaseCollection<typename STLType::value_type>* clone() const override {
+      return new SNLSTLCollection(container_);
     }
-    SNLBaseIterator<Type>* begin() const override {
-      return new SNLVectorCollectionIterator(vector_, true);
+    SNLBaseIterator<typename STLType::value_type>* begin() const override {
+      return new SNLSTLCollectionIterator(container_, true);
     }
-    SNLBaseIterator<Type>* end() const override {
-      return new SNLVectorCollectionIterator(vector_, false);
+    SNLBaseIterator<typename STLType::value_type>* end() const override {
+      return new SNLSTLCollectionIterator(container_, false);
     }
 
     size_t size() const override {
-      if (vector_) {
-        return vector_->size();
+      if (container_) {
+        return container_->size();
       }
       return 0;
     }
 
     bool empty() const override {
-      if (vector_) {
-        return vector_->empty();
+      if (container_) {
+        return container_->empty();
       }
       return true;
     }
   private:
-    const Vector* vector_ {nullptr};
+    const STLType* container_ {nullptr};
+};
+
+template<class STLMapType>
+class SNLSTLMapCollection: public SNLBaseCollection<typename STLMapType::mapped_type> {
+  public:
+    using super = SNLBaseCollection<typename STLMapType::mapped_type>;
+
+    class SNLSTLMapCollectionIterator: public SNLBaseIterator<typename STLMapType::mapped_type> {
+      public:
+        using STLMapTypeIterator = typename STLMapType::const_iterator;
+
+        SNLSTLMapCollectionIterator(SNLSTLMapCollectionIterator&) = default;
+        SNLSTLMapCollectionIterator(const STLMapType* container, bool beginOrEnd=true): container_(container) {
+          if (container_) {
+            if (beginOrEnd) {
+              it_ = container_->begin();
+            } else {
+              it_ = container_->end();
+            }
+          }
+        }
+
+        SNLBaseIterator<typename STLMapType::mapped_type>* clone() override {
+          return new SNLSTLMapCollectionIterator(*this);
+        }
+
+        typename STLMapType::mapped_type getElement() const override { return it_->second; } 
+        void progress() override { ++it_; }
+        bool isEqual(const SNLBaseIterator<typename STLMapType::mapped_type>* r) const override {
+          if (auto rit = dynamic_cast<const SNLSTLMapCollectionIterator*>(r)) {
+            return it_ == rit->it_;
+          }
+          return false;
+        }
+        bool isValid() const override {
+          return container_ and it_ != container_->end();
+        }
+      private:
+        const STLMapType*   container_  {nullptr};
+        STLMapTypeIterator  it_         {};
+    };
+
+    SNLSTLMapCollection() = delete;
+    SNLSTLMapCollection(const SNLSTLMapCollection&) = delete;
+    SNLSTLMapCollection(SNLSTLMapCollection&&) = delete;
+    SNLSTLMapCollection(const STLMapType* container): super(), container_(container) {}
+    SNLBaseCollection<typename STLMapType::mapped_type>* clone() const override {
+      return new SNLSTLMapCollection(container_);
+    }
+    SNLBaseIterator<typename STLMapType::mapped_type>* begin() const override {
+      return new SNLSTLMapCollectionIterator(container_, true);
+    }
+    SNLBaseIterator<typename STLMapType::mapped_type>* end() const override {
+      return new SNLSTLMapCollectionIterator(container_, false);
+    }
+
+    size_t size() const override {
+      if (container_) {
+        return container_->size();
+      }
+      return 0;
+    }
+
+    bool empty() const override {
+      if (container_) {
+        return container_->empty();
+      }
+      return true;
+    }
+  private:
+    const STLMapType* container_  {nullptr};
 };
 
 template<class Type, class SubType> class SNLSubTypeCollection: public SNLBaseCollection<SubType> {
@@ -567,6 +704,120 @@ class SNLFlatCollection: public SNLBaseCollection<ReturnType> {
   private:
     const SNLBaseCollection<Type>* collection_;
     Flattener                      flattener_;
+};
+
+template<class Type, typename ChildrenGetter, typename LeafCriterion>
+class SNLTreeLeavesCollection: public SNLBaseCollection<Type> {
+  public:
+    using super = SNLBaseCollection<Type>;
+    class SNLTreeLeavesCollectionIterator: public SNLBaseIterator<Type> {
+      public:
+        using super = SNLBaseIterator<Type>;
+        SNLTreeLeavesCollectionIterator(
+          const Type& root,
+          const ChildrenGetter& childrenGetter,
+          const LeafCriterion& leafCriterion,
+          bool beginOrEnd=true):
+          super(),
+          root_(root),
+          childrenGetter_(childrenGetter),
+          leafCriterion_(leafCriterion),
+          stack_() {
+          if (beginOrEnd) {
+            if (root) {
+              stack_.push(root);
+              findNextElement(); 
+            }
+          }
+        }
+        SNLTreeLeavesCollectionIterator(const SNLTreeLeavesCollectionIterator& it) = default;
+        ~SNLTreeLeavesCollectionIterator() {}
+        SNLBaseIterator<Type>* clone() override {
+          return new SNLTreeLeavesCollectionIterator(*this);
+        }
+        Type getElement() const override { return element_; } 
+        void progress() override {
+          if (isValid()) {
+            element_ = nullptr;
+            findNextElement();
+          }
+        }
+        bool isEqual(const SNLBaseIterator<Type>* r) const override {
+          if (auto rit = dynamic_cast<const SNLTreeLeavesCollectionIterator*>(r)) {
+            return root_ == rit->root_
+              and element_ == rit->element_ 
+              and childrenGetter_ == rit->childrenGetter_
+              and leafCriterion_ == rit->leafCriterion_
+              and stack_ == rit->stack_;
+          }
+          return false;
+        }
+        bool isValid() const override {
+          return element_ != nullptr;
+        } 
+      private:
+        void findNextElement() {
+          while (not stack_.empty()) {
+            auto object = stack_.top();
+            stack_.pop();
+            if (leafCriterion_(object)) {
+              element_ = object;
+              return;
+            } else {
+              for (auto child: childrenGetter_(object)) {
+                stack_.push(child);
+              }
+            }
+          }
+        }
+        using Stack = std::stack<Type>;
+        Type            root_           {nullptr};
+        ChildrenGetter  childrenGetter_ {};
+        LeafCriterion   leafCriterion_  {};
+        Stack           stack_          {};
+        Type            element_        {nullptr};
+    };
+
+    SNLTreeLeavesCollection(const SNLTreeLeavesCollection&) = delete;
+    SNLTreeLeavesCollection& operator=(const SNLTreeLeavesCollection&) = delete;
+    SNLTreeLeavesCollection(const SNLTreeLeavesCollection&&) = delete;
+    SNLTreeLeavesCollection(Type root, const ChildrenGetter& childrenGetter, const LeafCriterion& leafCriterion):
+      super(), root_(root), childrenGetter_(childrenGetter), leafCriterion_(leafCriterion)
+    {}
+    ~SNLTreeLeavesCollection() {}
+    SNLTreeLeavesCollection* clone() const override {
+      return new SNLTreeLeavesCollection(root_, childrenGetter_, leafCriterion_);
+    }
+
+    SNLBaseIterator<Type>* begin() const override {
+      return new SNLTreeLeavesCollectionIterator(root_, childrenGetter_, leafCriterion_, true);
+    }
+    SNLBaseIterator<Type>* end() const override {
+      return new SNLTreeLeavesCollectionIterator(root_, childrenGetter_, leafCriterion_, false);
+    }
+    size_t size() const override {
+      size_t size = 0;
+      if (root_) {
+        auto it = std::make_unique<SNLTreeLeavesCollectionIterator>(root_, childrenGetter_, leafCriterion_, true);
+        auto endIt = std::make_unique<SNLTreeLeavesCollectionIterator>(root_, childrenGetter_, leafCriterion_, false);
+        while (not it->isEqual(endIt.get())) {
+          ++size;
+          it->progress();
+        }
+      }
+      return size;
+    }
+    bool empty() const override {
+      if (root_) {
+        auto it = std::make_unique<SNLTreeLeavesCollectionIterator>(root_, childrenGetter_, leafCriterion_, true);
+        return not it->isValid();
+      }
+      return true;
+    }
+  private:
+    Type  root_     {nullptr};
+    ChildrenGetter  childrenGetter_ {};
+    LeafCriterion   leafCriterion_  {};
 };
 
 template<class Type> class SNLCollection {

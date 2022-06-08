@@ -8,6 +8,7 @@ SET(snl_tests
     SNLNetTest.cpp #SNLLargeDBTest.cpp
     #SNLPathTest.cpp
     SNLParameterTest.cpp
+    SNLDB0Test.cpp
 )
 
 ADD_EXECUTABLE(snlTests ${snl_tests})

@@ -31,6 +31,7 @@ namespace naja { namespace SNL {
 class SNLTerm;
 class SNLNet;
 class SNLBitTerm;
+class SNLBitNet;
 class SNLInstTerm;
 class SNLSharedPath;
 
@@ -65,7 +66,7 @@ class SNLInstance final: public SNLDesignObject {
     std::string getDescription() const override;
 
     ///\return SNLInstTerm corresponding to the SNLBitTerm representative in this instance. 
-    SNLInstTerm* getInstTerm(const SNLBitTerm* term);
+    SNLInstTerm* getInstTerm(const SNLBitTerm* term) const;
     ///\return the SNLCollection of all SNLInstTerm of this SNLInstance.
     SNLCollection<SNLInstTerm*> getInstTerms() const;
     /**
@@ -78,6 +79,15 @@ class SNLInstance final: public SNLDesignObject {
     ///\return the SNLCollection subset of SNLInstTerm (only SNLBusTermBit type) of this SNLInstance.
     SNLCollection<SNLInstTerm*> getInstBusTermBits() const;
 
+    using Terms = std::vector<SNLBitTerm*>;
+    using Nets = std::vector<SNLBitNet*>;
+    /**
+     * Helper function allowing to connect a vector of SNLTerm representatives (SNLInstTerm)
+     * in current instance to the corresponding vector of SNLNet bits.
+     * \remark terms and nets must have the same size.
+     * \remark nets accepts nullptr elements. This method can be used to disconnect SNLInstance terminals (SNLInstTerm).
+     **/
+    void setTermsNets(const Terms& terms, const Nets& nets);
     /**
      * Helper function allowing to connect a SNLTerm representative in current instance to the
      * corresponding SNLNet bits.
@@ -89,8 +99,9 @@ class SNLInstance final: public SNLDesignObject {
      * corresponding SNLNet bits. This version allows to connect a subpart of bits.
      **/
     void setTermNet(
-      SNLTerm* term, SNLNet* net,
+      SNLTerm* term,
       SNLID::Bit termMSB, SNLID::Bit termLSB,
+      SNLNet* net,
       SNLID::Bit netMSB, SNLID::Bit netLSB);
 
   private:
@@ -105,8 +116,8 @@ class SNLInstance final: public SNLDesignObject {
 
     SNLInstance(SNLDesign* design, SNLDesign* model, const SNLName& name);
 
-    SNLSharedPath* getSharedPath(const SNLSharedPath* tailSharedPath) const;
-    void addSharedPath(const SNLSharedPath* tailSharedPath);
+    //SNLSharedPath* getSharedPath(const SNLSharedPath* tailSharedPath) const;
+    //void addSharedPath(const SNLSharedPath* tailSharedPath);
 
     SNLDesign*                          design_                   {nullptr};
     SNLDesign*                          model_                    {nullptr};

@@ -25,11 +25,17 @@ SNLFlattenerInstanceTree::SNLFlattenerInstanceTree(const SNLDesign* top) {
 }
 
 SNLFlattenerInstanceTree::~SNLFlattenerInstanceTree() {
-  delete root_;
+  if (root_) {
+    delete root_;
+  }
 }
 
 void SNLFlattenerInstanceTree::print(std::ostream& stream) const {
   getRoot()->print(stream);
 }
-  
+
+SNLCollection<SNLFlattenerInstanceTreeNode*> SNLFlattenerInstanceTree::getLeaves() const {
+  return root_->getLeaves();
+}
+
 }} // namespace SNL // namespace naja
