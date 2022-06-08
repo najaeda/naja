@@ -25,7 +25,9 @@ SNLFlattenerInstanceTree::SNLFlattenerInstanceTree(const SNLDesign* top) {
 }
 
 SNLFlattenerInstanceTree::~SNLFlattenerInstanceTree() {
-  delete root_;
+  if (root_) {
+    delete root_;
+  }
 }
 
 void SNLFlattenerInstanceTree::print(std::ostream& stream) const {

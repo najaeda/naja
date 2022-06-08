@@ -29,6 +29,7 @@ class SNLFlattenerInstanceTreeNode;
 class SNLFlattenerInstanceTree {
   public:
     friend class SNLFlattener;
+    friend class SNLFlattenerInstanceTreeNode;
     SNLFlattenerInstanceTree() = delete;
     SNLFlattenerInstanceTree(const SNLFlattenerInstanceTree&) = delete;
     SNLFlattenerInstanceTree(const SNLFlattenerInstanceTree&&) = delete;

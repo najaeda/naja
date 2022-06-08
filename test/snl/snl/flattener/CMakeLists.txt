@@ -2,6 +2,7 @@ include(GoogleTest)
 
 set(snl_flattener_tests
     SNLFlattenerTest0.cpp SNLFlattenerTest1.cpp
+    SNLFlattenerTestDelete.cpp
 )
 
 add_executable(snlFlattenerTests ${snl_flattener_tests})

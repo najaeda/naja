@@ -21,6 +21,8 @@
 
 #include "SNLDesign.h"
 
+#include "SNLFlattenerInstanceTree.h"
+
 namespace naja { namespace SNL {
 
 SNLFlattenerInstanceTreeNode::SNLFlattenerInstanceTreeNode(
@@ -45,6 +47,13 @@ SNLFlattenerInstanceTreeNode* SNLFlattenerInstanceTreeNode::addChild(const SNLIn
   return child;
 }
 
+void SNLFlattenerInstanceTreeNode::removeChild(const SNLInstance* instance) {
+  auto it = children_.find(instance);
+  if (it!=children_.end()) {
+    children_.erase(it);
+  }
+}
+
 void SNLFlattenerInstanceTreeNode::addNetNode(SNLFlattenerNetTreeNode* node, const SNLBitNet* net) {
   netNodes_[net] = node;
 }
@@ -54,7 +63,18 @@ void SNLFlattenerInstanceTreeNode::addTermNode(SNLFlattenerNetTreeNode* node, co
 }
 
 SNLFlattenerInstanceTreeNode::~SNLFlattenerInstanceTreeNode() {
-  std::for_each(children_.begin(), children_.end(), [](const auto& pair){ delete pair.second; });
+  std::for_each(children_.begin(), children_.end(), [](const auto& pair){
+    auto child = pair.second;
+    child->parent_ = nullptr;
+    delete child;
+  });
+  if (parent_) {
+    if (isRoot()) {
+      getTree()->root_ = nullptr;
+    } else {
+      getParent()->removeChild(getInstance());
+    }
+  }
 }
 
 SNLFlattenerInstanceTreeNode* SNLFlattenerInstanceTreeNode::getParent() const {

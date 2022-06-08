@@ -67,6 +67,7 @@ class SNLFlattenerInstanceTreeNode {
     SNLFlattenerInstanceTreeNode(SNLFlattenerInstanceTree* tree, const SNLDesign* top);
     SNLFlattenerInstanceTreeNode(SNLFlattenerInstanceTreeNode* parent, const SNLInstance* instance);
     SNLFlattenerInstanceTreeNode* addChild(const SNLInstance* instance);
+    void removeChild(const SNLInstance* instance);
     void addNetNode(SNLFlattenerNetTreeNode* node, const SNLBitNet* net);
     void addTermNode(SNLFlattenerNetTreeNode* node, const SNLBitTerm* term);
 
