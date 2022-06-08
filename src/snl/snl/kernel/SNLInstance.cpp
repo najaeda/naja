@@ -45,6 +45,7 @@ SNLInstance* SNLInstance::create(SNLDesign* design, SNLDesign* model, const SNLN
   return instance;
 }
 
+#if 0
 SNLSharedPath* SNLInstance::getSharedPath(const SNLSharedPath* tailSharedPath) const {
   auto it = sharedPaths_.find(tailSharedPath);
   if (it != sharedPaths_.end()) {
@@ -55,6 +56,7 @@ SNLSharedPath* SNLInstance::getSharedPath(const SNLSharedPath* tailSharedPath) c
 
 void SNLInstance::addSharedPath(const SNLSharedPath* tailSharedPath) {
 }
+#endif
 
 void SNLInstance::preCreate(SNLDesign* design, const SNLDesign* model, const SNLName& name) {
   super::preCreate();

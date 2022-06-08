@@ -116,8 +116,8 @@ class SNLInstance final: public SNLDesignObject {
 
     SNLInstance(SNLDesign* design, SNLDesign* model, const SNLName& name);
 
-    SNLSharedPath* getSharedPath(const SNLSharedPath* tailSharedPath) const;
-    void addSharedPath(const SNLSharedPath* tailSharedPath);
+    //SNLSharedPath* getSharedPath(const SNLSharedPath* tailSharedPath) const;
+    //void addSharedPath(const SNLSharedPath* tailSharedPath);
 
     SNLDesign*                          design_                   {nullptr};
     SNLDesign*                          model_                    {nullptr};
