@@ -16,8 +16,6 @@ class SNLDB0Test: public ::testing::Test {
 };
 
 TEST_F(SNLDB0Test, testAssign) {
- 
-
   SNLUniverse::create();
   ASSERT_NE(nullptr, SNLUniverse::get());
 
@@ -41,6 +39,9 @@ TEST_F(SNLDB0Test, testAssign) {
 
   auto db1 = SNLDB::create(SNLUniverse::get());
   EXPECT_FALSE(SNLUniverse::isDB0(db1));
+
+  EXPECT_EQ(nullptr, SNLDB0::getANDOutput(assign));
+  EXPECT_EQ(nullptr, SNLDB0::getANDInputs(assign));
 }
 
 TEST_F(SNLDB0Test, testAND) {

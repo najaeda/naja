@@ -154,4 +154,9 @@ TEST_F(SNLInstanceTest1, setTermNetTestErrors) {
   EXPECT_NE(busNet0->getSize(), inBus0_->getSize());
   EXPECT_THROW(leftInstance_->setTermNet(inBus0_, busNet0), SNLException);
   EXPECT_THROW(leftInstance_->setTermNet(outBus0_, busNet0), SNLException);
+  
+  // testing different terms/nets size
+  SNLInstance::Terms terms {nullptr, nullptr};
+  SNLInstance::Nets nets {nullptr};
+  EXPECT_THROW(leftInstance_->setTermsNets(terms, nets), SNLException);
 }

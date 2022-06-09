@@ -186,6 +186,11 @@ TEST_F(SNLTermTest, testSetNetErrors) {
   net = SNLBusNet::create(design, 0, 2, SNLName("n0"));
   ASSERT_THROW(term0->setNet(net), SNLException);
   net->destroy();
+
+  //other design
+  auto other = SNLDesign::create(library, SNLName("other"));
+  SNLNet* otherNet = SNLScalarNet::create(other, SNLName("n0"));
+  ASSERT_THROW(term0->setNet(otherNet), SNLException);
 }
 
 TEST_F(SNLTermTest, testErrors) {

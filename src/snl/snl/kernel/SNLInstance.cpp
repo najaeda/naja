@@ -98,9 +98,9 @@ void SNLInstance::createInstTerm(SNLBitTerm* term) {
 }
 
 void SNLInstance::removeInstTerm(SNLBitTerm* term) {
-  if (term->getPositionInDesign() > instTerms_.size()) {
-    throw SNLException("");
-  }
+  //removeInstTerm is private so following are internal errors
+  assert(term->getDesign() == getModel());
+  assert(term->getPositionInDesign() < instTerms_.size());
   auto instTerm = instTerms_[term->getPositionInDesign()];
   if (instTerm) {
     instTerm->destroyFromInstance();
