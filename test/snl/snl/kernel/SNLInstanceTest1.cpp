@@ -47,7 +47,7 @@ class SNLInstanceTest1: public ::testing::Test {
     SNLInstance*    rightInstance_;
 };
 
-TEST_F(SNLInstanceTest1, setTermNetTest) {
+TEST_F(SNLInstanceTest1, setTermNetTest0) {
   ASSERT_NE(nullptr, inBus0_);
   ASSERT_NE(nullptr, outBus0_);
   ASSERT_EQ(inBus0_->getSize(), outBus0_->getSize());
@@ -147,6 +147,13 @@ TEST_F(SNLInstanceTest1, setTermNetTest) {
   }
 }
 
+TEST_F(SNLInstanceTest1, setTermNetTest1) {
+  //connect left out scalar with with scalar net through array method
+  SNLInstance::Terms terms({outScalar_});
+  SNLInstance::Nets nets({SNLScalarNet::create(leftInstance_->getDesign())});
+  leftInstance_->setTermsNets(terms, nets);
+  EXPECT_EQ(1, leftInstance_->getConnectedInstTerms().size());
+}
 
 TEST_F(SNLInstanceTest1, setTermNetTestErrors) {
   auto busNet0 = SNLBusNet::create(leftInstance_->getDesign(), 2, 0);
