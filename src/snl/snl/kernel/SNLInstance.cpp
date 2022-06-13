@@ -234,10 +234,7 @@ SNLInstTerm* SNLInstance::getInstTerm(const SNLBitTerm* term) const {
       + " should be the same";
     throw SNLException(reason);
   }
-  if (term->getPositionInDesign() > instTerms_.size()) {
-    std::string reason = "SNLInstance::getInsTerm error: size issue";
-    throw SNLException(reason);
-  }
+  assert(term->getPositionInDesign() < instTerms_.size());
   return instTerms_[term->getPositionInDesign()];
 }
 

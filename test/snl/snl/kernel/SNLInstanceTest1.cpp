@@ -148,7 +148,15 @@ TEST_F(SNLInstanceTest1, setTermNetTest0) {
 }
 
 TEST_F(SNLInstanceTest1, setTermNetTest1) {
-  //connect left out scalar with with scalar net through array method
+  //connect left out scalar with with scalar net
+  SNLInstance::Terms terms({outScalar_});
+  SNLInstance::Nets nets({SNLScalarNet::create(leftInstance_->getDesign())});
+  leftInstance_->setTermNet(outScalar_, 0, 0, SNLScalarNet::create(leftInstance_->getDesign()), 0, 0);
+  EXPECT_EQ(1, leftInstance_->getConnectedInstTerms().size());
+}
+
+TEST_F(SNLInstanceTest1, setTermNetTest2) {
+  //connect left out scalar with with scalar net directly through array method
   SNLInstance::Terms terms({outScalar_});
   SNLInstance::Nets nets({SNLScalarNet::create(leftInstance_->getDesign())});
   leftInstance_->setTermsNets(terms, nets);
@@ -162,8 +170,19 @@ TEST_F(SNLInstanceTest1, setTermNetTestErrors) {
   EXPECT_THROW(leftInstance_->setTermNet(inBus0_, busNet0), SNLException);
   EXPECT_THROW(leftInstance_->setTermNet(outBus0_, busNet0), SNLException);
   
-  // testing different terms/nets size
+  // different terms/nets size
   SNLInstance::Terms terms {nullptr, nullptr};
   SNLInstance::Nets nets {nullptr};
   EXPECT_THROW(leftInstance_->setTermsNets(terms, nets), SNLException);
+
+  // Incompatible instance/term
+  //create a design to have a terminal 
+  auto model1 = SNLDesign::create(leftInstance_->getLibrary());
+  auto model1Term = SNLScalarTerm::create(model1, SNLTerm::Direction::Input);
+  EXPECT_THROW(leftInstance_->setTermNet(model1Term, SNLScalarNet::create(leftInstance_->getDesign())), SNLException);
+
+  // Incompatible design/net
+  //create a design to have a terminal 
+  auto design1 = SNLDesign::create(leftInstance_->getLibrary());
+  EXPECT_THROW(leftInstance_->setTermNet(inScalar_, SNLScalarNet::create(design1)), SNLException);
 }
