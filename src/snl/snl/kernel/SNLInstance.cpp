@@ -110,7 +110,10 @@ void SNLInstance::removeInstTerm(SNLBitTerm* term) {
 
 void SNLInstance::setTermsNets(const Terms& terms, const Nets& nets) {
   if (terms.size() not_eq nets.size()) {
-    throw SNLException("setTermsNets error incompatible size between terms and nets");
+    std::ostringstream reason;
+    reason << "setTermsNets only supported when terms (size: " << terms.size() << ")"
+      << " and nets share same size (size: " << nets.size() << ")";
+    throw SNLException(reason.str());
   }
   for (size_t i=0; i<terms.size(); ++i) {
     SNLBitTerm* bitTerm = terms[i];
@@ -163,7 +166,10 @@ void SNLInstance::setTermNet(
 
 void SNLInstance::setTermNet(SNLTerm* term, SNLNet* net) {
   if (term->getSize() not_eq net->getSize()) {
-    throw SNLException("setTermNet only supported when term and net share same size");
+    std::ostringstream reason;
+    reason << "setTermNet only supported when term (size: " << term->getSize() << ")"
+      << " and net share same size (size: " << net->getSize() << ")";
+    throw SNLException(reason.str());
   }
   Terms terms;
   Nets nets;

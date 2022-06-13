@@ -205,6 +205,12 @@ void SNLVRLDumper::dumpInsTermConnectivity(
         if (dynamic_cast<SNLScalarNet*>(net)) {
           dumpRange(contiguousBits, firstElement, concatenation, connectionStr);
           SNLName netName = getNetName(net, naming);
+          if (not firstElement) {
+            connectionStr += ", ";
+            concatenation = true;
+          } else {
+            firstElement = false;
+          }
           connectionStr += netName.getString();
         } else {
           auto busNetBit = static_cast<SNLBusNetBit*>(net);

@@ -9,8 +9,10 @@
 #include "SNLDB.h"
 #include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
+#include "SNLBusTermBit.h"
 #include "SNLScalarNet.h"
 #include "SNLBusNet.h"
+#include "SNLBusNetBit.h"
 #include "SNLInstTerm.h"
 
 using namespace naja::SNL;
@@ -174,6 +176,94 @@ TEST_F(SNLVRLDumperTest1, test2) {
 
   std::filesystem::path referencePath(SNL_VRL_DUMPER_REFERENCES_PATH);
   referencePath = referencePath / "test1Test2" / "top.v";
+  ASSERT_TRUE(std::filesystem::exists(referencePath));
+  std::string command = "diff " + outPath.string() + " " + referencePath.string();
+  EXPECT_FALSE(std::system(command.c_str()));
+}
+
+//connect with scalars concatenation
+TEST_F(SNLVRLDumperTest1, test3) {
+  auto lib = db_->getLibrary(SNLName("MYLIB"));  
+  ASSERT_TRUE(lib);
+  auto top = lib->getDesign(SNLName("top"));
+  ASSERT_TRUE(top);
+
+  SNLInstance* instance1 = top->getInstance(SNLName("instance1"));
+  ASSERT_TRUE(instance1);
+  SNLInstance* instance2 = top->getInstance(SNLName("instance2"));
+  ASSERT_NE(nullptr, instance2);
+  using Nets = std::vector<SNLBitNet*>;
+  Nets nets;
+  for (int i=0; i<5; ++i) {
+    std::string netName = "net_" + std::to_string(i);
+    nets.push_back(SNLScalarNet::create(top, SNLName(netName)));
+  }
+  using Terms = std::vector<SNLBitTerm*>;
+  auto model = instance1->getModel();
+  auto o0BusTerm = model->getBusTerm(SNLName("o0"));
+  ASSERT_NE(nullptr, o0BusTerm);
+  Terms terms(o0BusTerm->getBits().begin(), o0BusTerm->getBits().end());
+  instance1->setTermsNets(terms, nets);
+
+  std::filesystem::path outPath(SNL_VRL_DUMPER_TEST_PATH);
+  outPath = outPath / "test1Test3";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+  SNLVRLDumper dumper;
+  dumper.setTopFileName(top->getName().getString());
+  dumper.setSingleFile(true);
+  dumper.dumpDesign(top, outPath);
+
+  std::filesystem::path referencePath(SNL_VRL_DUMPER_REFERENCES_PATH);
+  referencePath = referencePath / "test1Test3" / "top.v";
+  ASSERT_TRUE(std::filesystem::exists(referencePath));
+  std::string command = "diff " + outPath.string() + " " + referencePath.string();
+  EXPECT_FALSE(std::system(command.c_str()));
+}
+
+//mix scalars with bus subrange
+TEST_F(SNLVRLDumperTest1, test4) {
+  auto lib = db_->getLibrary(SNLName("MYLIB"));  
+  ASSERT_TRUE(lib);
+  auto top = lib->getDesign(SNLName("top"));
+  ASSERT_TRUE(top);
+  SNLBusNet* bus0 = top->getBusNet(SNLName("bus0"));
+  ASSERT_TRUE(bus0);
+
+  SNLInstance* instance1 = top->getInstance(SNLName("instance1"));
+  ASSERT_TRUE(instance1);
+  SNLInstance* instance2 = top->getInstance(SNLName("instance2"));
+  ASSERT_NE(nullptr, instance2);
+  using Nets = std::vector<SNLBitNet*>;
+  Nets nets;
+  nets.push_back(SNLScalarNet::create(top, SNLName("net_0")));
+  nets.push_back(bus0->getBit(-2));
+  nets.push_back(SNLScalarNet::create(top, SNLName("net_2")));
+  nets.push_back(bus0->getBit(-1));
+  nets.push_back(bus0->getBit(0));
+
+  using Terms = std::vector<SNLBitTerm*>;
+  auto model = instance1->getModel();
+  auto o0BusTerm = model->getBusTerm(SNLName("o0"));
+  ASSERT_NE(nullptr, o0BusTerm);
+  Terms terms(o0BusTerm->getBits().begin(), o0BusTerm->getBits().end());
+  instance1->setTermsNets(terms, nets);
+
+  std::filesystem::path outPath(SNL_VRL_DUMPER_TEST_PATH);
+  outPath = outPath / "test1Test4";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+  SNLVRLDumper dumper;
+  dumper.setTopFileName(top->getName().getString());
+  dumper.setSingleFile(true);
+  dumper.dumpDesign(top, outPath);
+
+  std::filesystem::path referencePath(SNL_VRL_DUMPER_REFERENCES_PATH);
+  referencePath = referencePath / "test1Test4" / "top.v";
   ASSERT_TRUE(std::filesystem::exists(referencePath));
   std::string command = "diff " + outPath.string() + " " + referencePath.string();
   EXPECT_FALSE(std::system(command.c_str()));
