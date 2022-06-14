@@ -268,3 +268,41 @@ TEST_F(SNLVRLDumperTest1, test4) {
   std::string command = "diff " + outPath.string() + " " + referencePath.string();
   EXPECT_FALSE(std::system(command.c_str()));
 }
+
+//mix scalars with bus subrange and holes
+TEST_F(SNLVRLDumperTest1, test5) {
+  auto lib = db_->getLibrary(SNLName("MYLIB"));  
+  ASSERT_TRUE(lib);
+  auto top = lib->getDesign(SNLName("top"));
+  ASSERT_TRUE(top);
+  SNLBusNet* bus0 = top->getBusNet(SNLName("bus0"));
+  ASSERT_TRUE(bus0);
+
+  SNLInstance* instance1 = top->getInstance(SNLName("instance1"));
+  ASSERT_TRUE(instance1);
+  SNLInstance* instance2 = top->getInstance(SNLName("instance2"));
+  ASSERT_NE(nullptr, instance2);
+
+  auto model = instance1->getModel();
+  auto o0BusTerm = model->getBusTerm(SNLName("o0"));
+  ASSERT_NE(nullptr, o0BusTerm);
+  instance1->setTermNet(o0BusTerm, -2, -2, SNLScalarNet::create(top, SNLName("net_0")), 0, 0);
+  instance1->setTermNet(o0BusTerm, 1, 2, bus0, -1, 0);
+
+  std::filesystem::path outPath(SNL_VRL_DUMPER_TEST_PATH);
+  outPath = outPath / "test1Test5";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+  SNLVRLDumper dumper;
+  dumper.setTopFileName(top->getName().getString());
+  dumper.setSingleFile(true);
+  dumper.dumpDesign(top, outPath);
+
+  std::filesystem::path referencePath(SNL_VRL_DUMPER_REFERENCES_PATH);
+  referencePath = referencePath / "test1Test5" / "top.v";
+  ASSERT_TRUE(std::filesystem::exists(referencePath));
+  std::string command = "diff " + outPath.string() + " " + referencePath.string();
+  EXPECT_FALSE(std::system(command.c_str()));
+}
