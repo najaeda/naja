@@ -54,7 +54,7 @@ jobs:
       
     - name: CopySnippetApp
       working-directory: ${{github.workspace}}/snlapp
-      run: cp -R ${{github.workspace}}/src/snl/snippet/app .
+      run: cp -R ${{github.workspace}}/src/snl/snippets/app .
 
     - name: ConfigureSnippetApp
       working-directory: ${{github.workspace}}/snlapp/app
