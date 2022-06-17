@@ -31,6 +31,7 @@ def main() -> int:
   print('Instance:', i0, ' in design:', i0.getDesign())
   print('Instance:', i1, ' in design:', i1.getDesign())
 
+  return 0
 
 if __name__ == '__main__':
   sys.exit(main())

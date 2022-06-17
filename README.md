@@ -53,13 +53,13 @@ make DESTDIR=$NAJA_INSTALL install
 Documentation will be installed in $NAJA_INSTALL/doc directory. Starting file to open in browser is: $NAJA_INSTALL/doc/html/index.html.
 ## Snippets
 ### c++
-https://github.com/xtofalex/naja/blob/main/src/snl/snippet/app/src/SNLSnippet.cpp
+https://github.com/xtofalex/naja/blob/main/src/snl/snippets/app/src/SNLSnippet.cpp
 ### Python
-https://github.com/xtofalex/naja/blob/main/src/snl/snippet/python/snl_snippet.py
+https://github.com/xtofalex/naja/blob/main/src/snl/snippets/python/snl_snippet.py
 ### Application snippet
 An application snippet can be found at:
 
-https://github.com/xtofalex/naja/blob/main/src/snl/snippet/app
+https://github.com/xtofalex/naja/blob/main/src/snl/snippets/app
 
 This "app" directory and its contents can be copied to start a new application.
 
