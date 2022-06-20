@@ -25,6 +25,11 @@ TEST_F(SNLDBTest, test) {
   EXPECT_EQ(2, db2->getID());
   EXPECT_EQ(universe->getDB(2), db2);
 
+  EXPECT_FALSE(universe->getDBs().empty());
+  EXPECT_EQ(3, universe->getDBs().size());
+  EXPECT_FALSE(universe->getUserDBs().empty());
+  EXPECT_EQ(2, universe->getUserDBs().size());
+
   EXPECT_TRUE(db1->getLibraries().empty());
   EXPECT_EQ(0, db1->getLibraries().size());
   EXPECT_TRUE(db2->getLibraries().empty());

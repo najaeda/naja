@@ -97,6 +97,16 @@ SNLDB* SNLUniverse::getDB(SNLID::DBID id) {
   return nullptr;
 }
 
+SNLCollection<SNLDB*> SNLUniverse::getDBs() const {
+  return SNLCollection(new SNLIntrusiveSetCollection(&dbs_));
+}
+
+SNLCollection<SNLDB*> SNLUniverse::getUserDBs() const {
+  auto filter = [](const SNLDB* db) {return not SNLUniverse::isDB0(db); };
+  return getDBs().getSubCollection(filter);
+
+}
+
 //LCOV_EXCL_START
 const char* SNLUniverse::getTypeName() const {
   return "SNLUniverse";

@@ -16,4 +16,9 @@ TEST_F(SNLUniverseTest, test) {
   ASSERT_NE(nullptr, SNLUniverse::get());
   auto universe = SNLUniverse::get();
   ASSERT_TRUE(universe);
+
+  EXPECT_FALSE(universe->getDBs().empty());
+  EXPECT_EQ(1, universe->getDBs().size());
+  EXPECT_TRUE(universe->getUserDBs().empty());
+  EXPECT_EQ(0, universe->getUserDBs().size());
 }
