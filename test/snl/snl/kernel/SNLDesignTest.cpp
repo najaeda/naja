@@ -219,7 +219,10 @@ TEST_F(SNLDesignTest, testPrimitives) {
   EXPECT_TRUE(prims->isPrimitives());
   auto prim = SNLDesign::create(prims, SNLDesign::Type::Primitive, SNLName("Primitive"));
   EXPECT_NE(nullptr, prim);
+  EXPECT_FALSE(prim->isStandard());
+  EXPECT_FALSE(prim->isBlackBox());
   EXPECT_TRUE(prim->isPrimitive());
+  EXPECT_TRUE(prim->isLeaf());
 
 
   EXPECT_THROW(

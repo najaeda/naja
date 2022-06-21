@@ -39,6 +39,7 @@ TEST_F(SNLNetTest, testCreation) {
   auto primitive = SNLDesign::create(primitives, SNLDesign::Type::Primitive);
   ASSERT_TRUE(primitive);
   EXPECT_TRUE(primitive->isPrimitive());
+  EXPECT_TRUE(primitive->isLeaf());
   SNLScalarTerm::create(primitive, SNLTerm::Direction::Input, SNLName("i0"));
   SNLScalarTerm::create(primitive, SNLTerm::Direction::Input, SNLName("i1"));
   SNLScalarTerm::create(primitive, SNLTerm::Direction::Output, SNLName("o"));
@@ -117,6 +118,10 @@ TEST_F(SNLNetTest, testCreation) {
   auto instance0 = SNLInstance::create(design_, primitive, SNLName("instance0"));
   auto instance1 = SNLInstance::create(design_, primitive, SNLName("instance1"));
   auto instance2 = SNLInstance::create(design_, primitive, SNLName("instance2"));
+
+  EXPECT_FALSE(instance0->isBlackBox());
+  EXPECT_TRUE(instance0->isPrimitive());
+  EXPECT_TRUE(instance0->isLeaf());
 
   SNLBusNet* net0 = SNLBusNet::create(design_, 31, 0, SNLName("net0"));
   ASSERT_TRUE(net0);

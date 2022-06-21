@@ -148,9 +148,12 @@ class SNLDesign final: public SNLObject {
     
     Type getType() const { return type_; }
     bool isStandard() const { return type_ == Type::Standard; }
+    ///\return true if this SNLDesign is a blackbox.
     bool isBlackBox() const { return type_ == Type::Blackbox; }
     ///\return true if this SNLDesign is a primitive.
     bool isPrimitive() const { return type_ == Type::Primitive; }
+    ///\return true if this SNLDesign is a hierarchy leaf (blackbox or primitive).
+    bool isLeaf() const { return isBlackBox() or isPrimitive(); }
 
     const char* getTypeName() const override;
     std::string getString() const override;

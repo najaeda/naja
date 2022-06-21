@@ -60,7 +60,15 @@ class SNLInstance final: public SNLDesignObject {
     SNLID::DesignObjectID getID() const { return id_; }
     SNLID getSNLID() const override;
     SNLName getName() const { return name_; }
+
     bool isAnonymous() const override { return name_.empty(); }
+    ///\return true if this SNLInstance is a blackbox.
+    bool isBlackBox() const;
+    ///\return true if this SNLInstance is a primitive.
+    bool isPrimitive() const;
+    ///\return true if this SNLInstance is a hierarchy leaf (blackbox or primitive).
+    bool isLeaf() const;
+
     const char* getTypeName() const override;
     std::string getString() const override;
     std::string getDescription() const override;

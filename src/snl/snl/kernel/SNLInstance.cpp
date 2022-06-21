@@ -232,6 +232,18 @@ SNLID SNLInstance::getSNLID() const {
   return SNLDesignObject::getSNLID(SNLID::Type::Instance, 0, id_, 0);
 }
 
+bool SNLInstance::isBlackBox() const {
+  return getModel()->isBlackBox();
+}
+
+bool SNLInstance::isPrimitive() const {
+  return getModel()->isPrimitive();
+}
+
+bool SNLInstance::isLeaf() const {
+  return getModel()->isLeaf();
+}
+
 SNLInstTerm* SNLInstance::getInstTerm(const SNLBitTerm* term) const {
   if (term->getDesign() != getModel()) {
     std::string reason = "SNLInstance::getInsTerm incoherency: "
