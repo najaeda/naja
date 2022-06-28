@@ -18,11 +18,11 @@
 #define __SNL_INSTANCE_H_
 
 #include <vector>
-#include <map>
 #include <boost/intrusive/set.hpp>
 
 #include "SNLDesignObject.h"
 #include "SNLID.h"
+#include "SNLSharedPath.h"
 #include "SNLName.h"
 #include "SNLCollection.h"
 
@@ -33,7 +33,6 @@ class SNLNet;
 class SNLBitTerm;
 class SNLBitNet;
 class SNLInstTerm;
-class SNLSharedPath;
 
 class SNLInstance final: public SNLDesignObject {
   public:
@@ -41,8 +40,10 @@ class SNLInstance final: public SNLDesignObject {
     friend class SNLSharedPath;
     friend class SNLPath;
     using super = SNLDesignObject;
-    using SNLInstanceInstTerms = std::vector<SNLInstTerm*>; 
-    using SNLSharedPaths = std::map<const SNLSharedPath*, SNLSharedPath*>;
+    using SNLInstanceInstTerms = std::vector<SNLInstTerm*>;
+    using SNLInstanceSharedPathsHook =
+      boost::intrusive::member_hook<SNLSharedPath, boost::intrusive::set_member_hook<>, &SNLSharedPath::instanceSharedPathsHook_>;
+    using SNLInstanceSharedPaths = boost::intrusive::set<SNLSharedPath, SNLInstanceSharedPathsHook>;
 
     /**
      * @brief SNLInstance creator.
@@ -124,17 +125,17 @@ class SNLInstance final: public SNLDesignObject {
 
     SNLInstance(SNLDesign* design, SNLDesign* model, const SNLName& name);
 
-    //SNLSharedPath* getSharedPath(const SNLSharedPath* tailSharedPath) const;
-    //void addSharedPath(const SNLSharedPath* tailSharedPath);
+    SNLSharedPath* getSharedPath(const SNLSharedPath* sharedPath) const;
+    void addSharedPath(const SNLSharedPath* sharedPath);
 
     SNLDesign*                          design_                   {nullptr};
     SNLDesign*                          model_                    {nullptr};
     SNLID::InstanceID                   id_;
     SNLName                             name_                     {};
     SNLInstanceInstTerms                instTerms_                {};
+    SNLInstanceSharedPaths              sharedPaths_              {};
     boost::intrusive::set_member_hook<> designInstancesHook_      {};
     boost::intrusive::set_member_hook<> designSlaveInstancesHook_ {};
-    SNLSharedPaths                      sharedPaths_              {};
 };
 
 }} // namespace SNL // namespace naja

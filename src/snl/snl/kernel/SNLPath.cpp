@@ -36,6 +36,7 @@ SNLPath::SNLPath(SNLInstance* instance): SNLPath() {
 }
 
 SNLPath::SNLPath(SNLInstance* headInstance, const SNLPath& tailPath): SNLPath() {
+#if 0
   if (not headInstance) {
     throw SNLException("cannot create SNLPath with null head instance");
   }
@@ -55,9 +56,11 @@ SNLPath::SNLPath(SNLInstance* headInstance, const SNLPath& tailPath): SNLPath() 
       }
     }
   }
+#endif
 }
 
 SNLPath::SNLPath(const SNLPath& headPath, SNLInstance* tailInstance): SNLPath() {
+#if 0
   if (not tailInstance) {
     throw SNLException("Cant't create SNLPath: null tail instance");
   }
@@ -75,6 +78,7 @@ SNLPath::SNLPath(const SNLPath& headPath, SNLInstance* tailInstance): SNLPath() 
       sharedPath_ = new SNLSharedPath(headInstance, tailSharedPath);
     }
   }
+#endif
 }
 
 

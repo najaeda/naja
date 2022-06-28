@@ -17,6 +17,8 @@
 #ifndef __SNL_SHARED_PATH_H_
 #define __SNL_SHARED_PATH_H_
 
+#include <boost/intrusive/set.hpp>
+
 namespace naja { namespace SNL {
 
 class SNLInstance;
@@ -30,22 +32,25 @@ class SNLDesign;
  */
 class SNLSharedPath {
   public:
+    friend class SNLInstance;
     friend class SNLPath;
     SNLSharedPath() = delete;
     SNLSharedPath(const SNLSharedPath&) = delete;
 
-    SNLInstance* getHeadInstance() const { return headInstance_; }
-    SNLSharedPath* getTailSharedPath() const { return tailSharedPath_; }
-    SNLSharedPath* getHeadSharedPath() const;
-    SNLInstance* getTailInstance() const;
+    SNLSharedPath* getHeadSharedPath() const { return headSharedPath_; }
+    SNLInstance* getTailInstance() const { return tailInstance_; }
+    SNLInstance* getHeadInstance() const;
+    SNLSharedPath* getTailSharedPath() const;
     SNLDesign* getDesign() const;
     SNLDesign* getModel() const;
 
   private:
-    SNLSharedPath(SNLInstance* headInstance, SNLSharedPath* tailSharedPath=nullptr); 
+    SNLSharedPath(SNLInstance* tailInstance);
+    SNLSharedPath(SNLSharedPath* headSharedPath, SNLInstance* tailInstance);
 
-    SNLInstance*                        headInstance_             {nullptr};
-    SNLSharedPath*                      tailSharedPath_           {nullptr};
+    boost::intrusive::set_member_hook<> instanceSharedPathsHook_  {};
+    SNLSharedPath*                      headSharedPath_           {nullptr};
+    SNLInstance*                        tailInstance_             {nullptr};
 };
 
 }} // namespace SNL // namespace naja
