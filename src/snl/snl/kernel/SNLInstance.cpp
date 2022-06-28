@@ -45,19 +45,6 @@ SNLInstance* SNLInstance::create(SNLDesign* design, SNLDesign* model, const SNLN
   return instance;
 }
 
-#if 0
-SNLSharedPath* SNLInstance::getSharedPath(const SNLSharedPath* tailSharedPath) const {
-  auto it = sharedPaths_.find(tailSharedPath);
-  if (it != sharedPaths_.end()) {
-    return it->second;
-  }
-  return nullptr;
-}
-
-void SNLInstance::addSharedPath(const SNLSharedPath* tailSharedPath) {
-}
-#endif
-
 void SNLInstance::preCreate(SNLDesign* design, const SNLDesign* model, const SNLName& name) {
   super::preCreate();
   if (not design) {
@@ -275,6 +262,25 @@ SNLCollection<SNLInstTerm*> SNLInstance::getInstScalarTerms() const {
 SNLCollection<SNLInstTerm*> SNLInstance::getInstBusTermBits() const {
   auto filter = [](const SNLInstTerm* it) { return it and dynamic_cast<SNLBusTermBit*>(it->getTerm()); };
   return SNLCollection(new SNLSTLCollection(&instTerms_)).getSubCollection(filter);
+}
+
+SNLSharedPath* SNLInstance::getSharedPath(const SNLSharedPath* sharedPath) const {
+  //SharedPath: [HeadPath*, TailInstance*]
+  //SharedPaths are stored in TailInstance with key HeadPath->getHeadInstance()->getSNLID()
+  //Single instance shared path: [Null, TailInstance*] is stored with key max SNLID 
+  auto key = SNLID::getMax();
+  if (sharedPath) {
+    key = sharedPath->getSNLID();
+  }
+  auto it = sharedPaths_.find(key, SNLIDComp<SNLSharedPath>());
+  if (it != sharedPaths_.end()) {
+    return const_cast<SNLSharedPath*>(&*it);
+  }
+  return nullptr;
+}
+
+void SNLInstance::addSharedPath(SNLSharedPath* sharedPath) {
+  sharedPaths_.insert(*sharedPath);
 }
 
 //LCOV_EXCL_START

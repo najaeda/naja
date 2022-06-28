@@ -18,6 +18,7 @@
 #define __SNL_SHARED_PATH_H_
 
 #include <boost/intrusive/set.hpp>
+#include "SNLID.h"
 
 namespace naja { namespace SNL {
 
@@ -43,12 +44,18 @@ class SNLSharedPath {
     SNLSharedPath* getTailSharedPath() const;
     SNLDesign* getDesign() const;
     SNLDesign* getModel() const;
+    ///returns this SNLSharedPath key
+    SNLID getSNLID() const { return key_; }
+
+    friend bool operator<(const SNLSharedPath& lp, const SNLSharedPath& rp) {
+      return lp.getSNLID() < rp.getSNLID();
+    }
 
   private:
-    SNLSharedPath(SNLInstance* tailInstance);
-    SNLSharedPath(SNLSharedPath* headSharedPath, SNLInstance* tailInstance);
+    SNLSharedPath(SNLInstance* tailInstance, SNLSharedPath* headSharedPath=nullptr);
 
     boost::intrusive::set_member_hook<> instanceSharedPathsHook_  {};
+    SNLID                               key_                      { SNLID::getMax() };
     SNLSharedPath*                      headSharedPath_           {nullptr};
     SNLInstance*                        tailInstance_             {nullptr};
 };

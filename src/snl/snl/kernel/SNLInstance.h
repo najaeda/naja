@@ -114,6 +114,7 @@ class SNLInstance final: public SNLDesignObject {
       SNLID::Bit netMSB, SNLID::Bit netLSB);
 
   private:
+    SNLInstance(SNLDesign* design, SNLDesign* model, const SNLName& name);
     static void preCreate(SNLDesign* design, const SNLDesign* model, const SNLName& name);
     void postCreate();
     void commonPreDestroy();
@@ -123,10 +124,9 @@ class SNLInstance final: public SNLDesignObject {
     void createInstTerm(SNLBitTerm* term);
     void removeInstTerm(SNLBitTerm* term);
 
-    SNLInstance(SNLDesign* design, SNLDesign* model, const SNLName& name);
-
+    //SharedPath manipulators
     SNLSharedPath* getSharedPath(const SNLSharedPath* sharedPath) const;
-    void addSharedPath(const SNLSharedPath* sharedPath);
+    void addSharedPath(SNLSharedPath* sharedPath);
 
     SNLDesign*                          design_                   {nullptr};
     SNLDesign*                          model_                    {nullptr};

@@ -79,7 +79,7 @@ struct SNLID final {
   {}
 
   ///Special constructor for SNLDesignObject
-  SNLID(Type type, DBID dbID, LibraryID libraryID, DesignID designID, DesignObjectID id, DesignObjectID instanceID, Bit bit):
+  constexpr SNLID(Type type, DBID dbID, LibraryID libraryID, DesignID designID, DesignObjectID id, DesignObjectID instanceID, Bit bit):
     type_(type),
     dbID_(dbID),
     libraryID_(libraryID),
@@ -97,6 +97,17 @@ struct SNLID final {
   friend bool operator== (const SNLID &lid, const SNLID &rid) {
     return std::tie(lid.type_, lid.dbID_, lid.libraryID_, lid.designID_, lid.designObjectID_, lid.instanceID_, lid.bit_)
             == std::tie(rid.type_, rid.dbID_, rid.libraryID_, rid.designID_, rid.designObjectID_, rid.instanceID_, rid.bit_);
+  }
+
+  static constexpr SNLID getMax() {
+    return SNLID(
+      std::numeric_limits<Type>::max(),
+      std::numeric_limits<DBID>::max(),
+      std::numeric_limits<LibraryID>::max(),
+      std::numeric_limits<DesignID>::max(),
+      std::numeric_limits<DesignObjectID>::max(),
+      std::numeric_limits<DesignObjectID>::max(),
+      std::numeric_limits<Bit>::max());
   }
 
   std::string getString() const;

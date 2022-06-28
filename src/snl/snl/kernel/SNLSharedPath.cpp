@@ -17,35 +17,28 @@
 #include "SNLSharedPath.h"
 
 #include "SNLInstance.h"
+#include "SNLException.h"
 
 namespace naja { namespace SNL {
 
-#if 0
-
-SNLSharedPath::SNLSharedPath(SNLInstance* tailInstance):
-  headSharedPath_(nullptr),
+SNLSharedPath::SNLSharedPath(SNLInstance* tailInstance, SNLSharedPath* headSharedPath):
+  headSharedPath_(headSharedPath),
   tailInstance_(tailInstance) {
+  if (not tailInstance_) {
+    throw SNLException("");
+  }
+  if (headSharedPath_ and
+    (headSharedPath_->getModel() not_eq tailInstance_->getDesign())) {
+    throw SNLException("");
+  }
+  if (headSharedPath_) {
+    key_ = headSharedPath_->getHeadInstance()->getSNLID();
+  }
   tailInstance_->addSharedPath(this);
 }
 
-SNLSharedPath::SNLSharedPath(SNLSharedPath* headSharedPath, SNLInstance* tailInstance):
-  headSharedPath_(headSharedPath) {
-#if 0
-  tailInstance_(tailInstance),
-  if (headSharedPath_ and
-      (headSharedPath_->getDesign() not_eq headInstance_->getModel())) {
-    //FIXME
-  }
-  headInstance_->addSharedPath(this);
-#endif
-}
-
-SNLInstance* SNLSharedPath::getTailInstance() const {
-  return tailSharedPath_?tailSharedPath_->getTailInstance():headInstance_;
-}
-
-SNLSharedPath* SNLSharedPath::getHeadSharedPath() const {
-  return headSharedPath_;
+SNLInstance* SNLSharedPath::getHeadInstance() const {
+  return headSharedPath_?headSharedPath_->getHeadInstance():tailInstance_;
 }
 
 SNLSharedPath* SNLSharedPath::getTailSharedPath() const {
@@ -53,30 +46,27 @@ SNLSharedPath* SNLSharedPath::getTailSharedPath() const {
     return nullptr;
   }
 
-  SNLSharedPath* headSharedPath = headSharedPath_->getHeadSharedPath();
+  SNLSharedPath* headSharedPath = headSharedPath_->getTailSharedPath();
   SNLSharedPath* tailSharedPath = tailInstance_->getSharedPath(headSharedPath);
 
-
-  fdfdlkfjdsklsjf
-
-  if (not headSharedPath) headSharedPath = new SNLSharedPath(headInstance_, tailSharedPath);
-  return headSharedPath;
+  if (not tailSharedPath) {
+    tailSharedPath = new SNLSharedPath(tailInstance_, headSharedPath);
+  }
+  return tailSharedPath;
 }
 
 SNLDesign* SNLSharedPath::getDesign() const {
-  return headInstance_->getDesign();
+  SNLDesign* design = nullptr;
+  SNLSharedPath* sharedPath = const_cast<SNLSharedPath*>(this);
+  while (sharedPath) {
+    design = sharedPath->getTailInstance()->getDesign();
+    sharedPath = sharedPath->getHeadSharedPath();
+  }
+  return design;
 }
 
 SNLDesign* SNLSharedPath::getModel() const {
-  SNLDesign* model = nullptr;
-  SNLSharedPath* sharedPath = const_cast<SNLSharedPath*>(this);
-  while (sharedPath) {
-    model = sharedPath->getHeadInstance()->getModel();
-    sharedPath = sharedPath->getTailSharedPath();
-  }
-  return model;
+  return tailInstance_->getModel();
 }
-
-#endif
 
 }} // namespace SNL // namespace naja
