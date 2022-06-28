@@ -179,16 +179,10 @@ class SNLIntrusiveSetCollection: public SNLBaseCollection<Type*> {
       return new SNLIntrusiveSetCollection(set_);
     }
     size_t size() const override {
-      if (set_) {
-        return set_->size();
-      }
-      return 0;
+      return set_->size();
     }
     bool empty() const override {
-      if (set_) {
-        return set_->empty();
-      }
-      return true;
+      return set_->empty();
     }
 
   private:
@@ -250,17 +244,11 @@ class SNLSTLCollection: public SNLBaseCollection<typename STLType::value_type> {
     }
 
     size_t size() const override {
-      if (container_) {
-        return container_->size();
-      }
-      return 0;
+      return container_->size();
     }
 
     bool empty() const override {
-      if (container_) {
-        return container_->empty();
-      }
-      return true;
+      return container_->empty();
     }
   private:
     const STLType* container_ {nullptr};
@@ -321,17 +309,11 @@ class SNLSTLMapCollection: public SNLBaseCollection<typename STLMapType::mapped_
     }
 
     size_t size() const override {
-      if (container_) {
-        return container_->size();
-      }
-      return 0;
+      return container_->size();
     }
 
     bool empty() const override {
-      if (container_) {
-        return container_->empty();
-      }
-      return true;
+      return container_->empty();
     }
   private:
     const STLMapType* container_  {nullptr};
@@ -431,11 +413,8 @@ template<class Type, class SubType> class SNLSubTypeCollection: public SNLBaseCo
       return size;
     }
     bool empty() const override {
-      if (collection_) {
-        auto it = std::make_unique<SNLSubTypeCollectionIterator>(collection_, true);
-        return not it->isValid();
-      }
-      return true;
+      auto it = std::make_unique<SNLSubTypeCollectionIterator>(collection_, true);
+      return not it->isValid();
     }
 
   private:
@@ -537,11 +516,8 @@ template<class Type, typename Filter> class SNLFilteredCollection: public SNLBas
       return size;
     }
     bool empty() const override {
-      if (collection_) {
-        auto it = std::make_unique<SNLFilteredCollectionIterator>(collection_, filter_,true);
-        return not it->isValid();
-      }
-      return true;
+      auto it = std::make_unique<SNLFilteredCollectionIterator>(collection_, filter_,true);
+      return not it->isValid();
     }
 
   private:
@@ -694,11 +670,8 @@ class SNLFlatCollection: public SNLBaseCollection<ReturnType> {
       return size;
     }
     bool empty() const override {
-      if (collection_) {
-        auto it = std::make_unique<SNLFlatCollectionIterator>(collection_, flattener_, true);
-        return not it->isValid();
-      }
-      return true;
+      auto it = std::make_unique<SNLFlatCollectionIterator>(collection_, flattener_, true);
+      return not it->isValid();
     }
 
   private:
