@@ -39,7 +39,7 @@ namespace naja { namespace SNL {
  */
 
 struct SNLID final {
-  enum class Type: unsigned char {DB, Library, Design, Term, TermBit, Net, NetBit, Instance, InstTerm};
+  enum class Type: unsigned char {DB=1, Library, Design, Term, TermBit, Net, NetBit, Instance, InstTerm};
   using DBID = unsigned char;
   using LibraryID = unsigned short;
   using DesignID = unsigned int;
@@ -47,7 +47,7 @@ struct SNLID final {
   using DesignObjectID =  unsigned int;
   using Bit = int; 
 
-  Type            type_;
+  Type            type_           {0};
   DBID            dbID_           {0};
   LibraryID       libraryID_      {0};
   DesignID        designID_       {0};
@@ -55,7 +55,7 @@ struct SNLID final {
   DesignObjectID  instanceID_     {0};
   Bit             bit_            {0};           
 
-  SNLID() = delete;
+  SNLID() = default;
   
   ///Special constructor for SNLDB
   SNLID(DBID dbID):
@@ -97,17 +97,6 @@ struct SNLID final {
   friend bool operator== (const SNLID &lid, const SNLID &rid) {
     return std::tie(lid.type_, lid.dbID_, lid.libraryID_, lid.designID_, lid.designObjectID_, lid.instanceID_, lid.bit_)
             == std::tie(rid.type_, rid.dbID_, rid.libraryID_, rid.designID_, rid.designObjectID_, rid.instanceID_, rid.bit_);
-  }
-
-  static constexpr SNLID getMax() {
-    return SNLID(
-      std::numeric_limits<Type>::max(),
-      std::numeric_limits<DBID>::max(),
-      std::numeric_limits<LibraryID>::max(),
-      std::numeric_limits<DesignID>::max(),
-      std::numeric_limits<DesignObjectID>::max(),
-      std::numeric_limits<DesignObjectID>::max(),
-      std::numeric_limits<Bit>::max());
   }
 
   std::string getString() const;

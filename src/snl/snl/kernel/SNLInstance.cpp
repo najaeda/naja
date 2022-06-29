@@ -268,7 +268,7 @@ SNLSharedPath* SNLInstance::getSharedPath(const SNLSharedPath* sharedPath) const
   //SharedPath: [HeadPath*, TailInstance*]
   //SharedPaths are stored in TailInstance with key HeadPath->getHeadInstance()->getSNLID()
   //Single instance shared path: [Null, TailInstance*] is stored with key max SNLID 
-  auto key = SNLID::getMax();
+  auto key = getSNLID();
   if (sharedPath) {
     key = sharedPath->getSNLID();
   }

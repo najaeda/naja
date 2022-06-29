@@ -55,7 +55,7 @@ class SNLSharedPath {
     SNLSharedPath(SNLInstance* tailInstance, SNLSharedPath* headSharedPath=nullptr);
 
     boost::intrusive::set_member_hook<> instanceSharedPathsHook_  {};
-    SNLID                               key_                      { SNLID::getMax() };
+    SNLID                               key_                      ;
     SNLSharedPath*                      headSharedPath_           {nullptr};
     SNLInstance*                        tailInstance_             {nullptr};
 };

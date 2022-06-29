@@ -33,6 +33,8 @@ SNLSharedPath::SNLSharedPath(SNLInstance* tailInstance, SNLSharedPath* headShare
   }
   if (headSharedPath_) {
     key_ = headSharedPath_->getHeadInstance()->getSNLID();
+  } else {
+    key_ = tailInstance_->getSNLID();
   }
   tailInstance_->addSharedPath(this);
 }
