@@ -24,12 +24,9 @@ namespace naja { namespace SNL {
 SNLSharedPath::SNLSharedPath(SNLInstance* tailInstance, SNLSharedPath* headSharedPath):
   headSharedPath_(headSharedPath),
   tailInstance_(tailInstance) {
-  if (not tailInstance_) {
-    throw SNLException("");
-  }
   if (headSharedPath_ and
     (headSharedPath_->getModel() not_eq tailInstance_->getDesign())) {
-    throw SNLException("");
+    throw SNLException("Cannot construct Path with incomaptible headPath and tailInstance");
   }
   if (headSharedPath_) {
     key_ = headSharedPath_->getHeadInstance()->getSNLID();

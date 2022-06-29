@@ -185,4 +185,24 @@ TEST_F(SNLPathTest, testErrors) {
   SNLPath emptyPath;
   EXPECT_THROW(SNLPath(instance, emptyPath), SNLException);
   EXPECT_THROW(SNLPath(emptyPath, instance), SNLException);
+  //incompatible paths
+  ASSERT_NE(h0Instance_, nullptr);
+  ASSERT_NE(primInstance_, nullptr);
+  EXPECT_THROW(SNLPath(SNLPath(h0Instance_), primInstance_), SNLException);
+  EXPECT_THROW(SNLPath(h0Instance_, SNLPath(primInstance_)), SNLException);
+}
+
+TEST_F(SNLPathTest, testInstanceDestroy) {
+  {
+    auto path = SNLPath(SNLPath(SNLPath(SNLPath(h0Instance_), h1Instance_), h2Instance_), primInstance_);
+    EXPECT_FALSE(path.empty());
+  }
+  EXPECT_EQ(1, h1Instance_->getModel()->getInstances().size());
+  h2Instance_->destroy();
+  h2Instance_ = nullptr;
+  EXPECT_TRUE(h1Instance_->getModel()->getInstances().empty());
+  {
+    auto path = SNLPath(SNLPath(SNLPath(SNLPath(h0Instance_), h1Instance_)));
+    EXPECT_FALSE(path.empty());
+  }
 }
