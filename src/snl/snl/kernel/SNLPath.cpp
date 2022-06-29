@@ -26,6 +26,10 @@ SNLPath::SNLPath(SNLSharedPath* sharedPath):
   sharedPath_(sharedPath)
 {}
 
+SNLPath::SNLPath(const SNLPath& path):
+  sharedPath_(path.sharedPath_)
+{}
+
 SNLPath::SNLPath(SNLInstance* instance): SNLPath() {
   if (instance) {
     sharedPath_ = instance->getSharedPath(nullptr);

@@ -179,6 +179,12 @@ void SNLInstance::commonPreDestroy() {
 #ifdef SNL_DESTROY_DEBUG
   std::cerr << "commonPreDestroy " << getDescription() << std::endl; 
 #endif
+  struct destroySharedPathFromInstance {
+    void operator()(SNLSharedPath* path) {
+      path->destroyFromInstance();
+    }
+  };
+  sharedPaths_.clear_and_dispose(destroySharedPathFromInstance());
   for (auto instTerm: instTerms_) {
     if (instTerm) {
       instTerm->destroyFromInstance();
@@ -281,6 +287,10 @@ SNLSharedPath* SNLInstance::getSharedPath(const SNLSharedPath* sharedPath) const
 
 void SNLInstance::addSharedPath(SNLSharedPath* sharedPath) {
   sharedPaths_.insert(*sharedPath);
+}
+
+void SNLInstance::removeSharedPath(SNLSharedPath* sharedPath) {
+  sharedPaths_.erase(*sharedPath);
 }
 
 //LCOV_EXCL_START

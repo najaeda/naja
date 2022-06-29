@@ -16,7 +16,7 @@
 
 #include "SNLSharedPath.h"
 
-#include "SNLInstance.h"
+#include "SNLDesign.h"
 #include "SNLException.h"
 
 namespace naja { namespace SNL {
@@ -55,6 +55,28 @@ SNLSharedPath* SNLSharedPath::getTailSharedPath() const {
     tailSharedPath = new SNLSharedPath(tailInstance_, headSharedPath);
   }
   return tailSharedPath;
+}
+
+void SNLSharedPath::commonDestroy() {
+  SNLDesign* design = tailInstance_->getDesign();
+  for (auto instance: design->getInstances()) {
+    auto sharedPath = instance->getSharedPath(this);
+    if (sharedPath) {
+      sharedPath->destroy();
+    }
+  }
+}
+
+void SNLSharedPath::destroy() {
+  tailInstance_->removeSharedPath(this);
+  commonDestroy();
+  delete this;
+}
+
+void SNLSharedPath::destroyFromInstance() {
+  //No need to remove from instance as owner instance is deleted
+  commonDestroy();
+  delete this;
 }
 
 SNLDesign* SNLSharedPath::getDesign() const {

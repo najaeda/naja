@@ -53,6 +53,11 @@ class SNLSharedPath {
 
   private:
     SNLSharedPath(SNLInstance* tailInstance, SNLSharedPath* headSharedPath=nullptr);
+    ~SNLSharedPath() = default;
+
+    void commonDestroy();
+    void destroy();
+    void destroyFromInstance();
 
     boost::intrusive::set_member_hook<> instanceSharedPathsHook_  {};
     SNLID                               key_                      ;
