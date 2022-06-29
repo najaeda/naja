@@ -165,6 +165,10 @@ TEST_F(SNLPathTest, testBottomUp1) {
   EXPECT_EQ(h0Instance_->getDesign(), h0Path.getDesign());
   EXPECT_EQ(SNLPath(h0Instance_, SNLPath(h1Instance_, SNLPath(h2Instance_))), h0Path.getHeadPath());
   EXPECT_EQ(h1Path, h0Path.getTailPath());
+  EXPECT_NE(h1Path, h0Path);
+  SNLPath copyH1Path(h1Path);
+  EXPECT_EQ(h1Path, copyH1Path);
+  EXPECT_NE(h0Path, copyH1Path);
 }
 
 TEST_F(SNLPathTest, comparePaths) {
