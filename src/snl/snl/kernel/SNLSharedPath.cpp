@@ -59,7 +59,7 @@ SNLSharedPath* SNLSharedPath::getTailSharedPath() const {
 
 void SNLSharedPath::commonDestroy() {
   SNLDesign* design = tailInstance_->getDesign();
-  for (auto instance: design->getInstances()) {
+  for (auto instance: design->getSlaveInstances()) {
     auto sharedPath = instance->getSharedPath(this);
     if (sharedPath) {
       sharedPath->destroy();
