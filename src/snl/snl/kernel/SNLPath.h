@@ -26,11 +26,11 @@ class SNLSharedPath;
 class SNLPath {
   public:
     SNLPath() = default;
-    SNLPath(const SNLPath&) = default;
+    SNLPath(const SNLPath&);
     SNLPath(SNLSharedPath* sharedPath);
     SNLPath(SNLInstance* instance);
-    SNLPath(SNLInstance* headInstance, const SNLPath& tailPath);
     SNLPath(const SNLPath& headPath, SNLInstance* tailInstance);
+    SNLPath(SNLInstance* headInstance, const SNLPath& tailPath);
 
     SNLInstance* getHeadInstance() const;
     SNLPath getTailPath() const;

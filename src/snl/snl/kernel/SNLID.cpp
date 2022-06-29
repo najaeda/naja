@@ -20,6 +20,19 @@
 
 namespace naja { namespace SNL {
 
+#if 0
+SNLID SNLID::getMax() {
+  return SNLID(
+    std::numeric_limits<Type>::max(),
+    std::numeric_limits<DBID>::max(),
+    std::numeric_limits<LibraryID>::max(),
+    std::numeric_limits<DesignID>::max(),
+    std::numeric_limits<DesignObjectID>::max(),
+    std::numeric_limits<DesignObjectID>::max(),
+    std::numeric_limits<Bit>::max());
+}
+#endif
+
 //LCOV_EXCL_START
 std::string SNLID::getString() const {
   std::ostringstream stream;

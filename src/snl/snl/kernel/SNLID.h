@@ -39,7 +39,7 @@ namespace naja { namespace SNL {
  */
 
 struct SNLID final {
-  enum class Type: unsigned char {DB, Library, Design, Term, TermBit, Net, NetBit, Instance, InstTerm};
+  enum class Type: unsigned char {DB=1, Library, Design, Term, TermBit, Net, NetBit, Instance, InstTerm};
   using DBID = unsigned char;
   using LibraryID = unsigned short;
   using DesignID = unsigned int;
@@ -47,7 +47,7 @@ struct SNLID final {
   using DesignObjectID =  unsigned int;
   using Bit = int; 
 
-  Type            type_;
+  Type            type_           {0};
   DBID            dbID_           {0};
   LibraryID       libraryID_      {0};
   DesignID        designID_       {0};
@@ -55,7 +55,7 @@ struct SNLID final {
   DesignObjectID  instanceID_     {0};
   Bit             bit_            {0};           
 
-  SNLID() = delete;
+  SNLID() = default;
   
   ///Special constructor for SNLDB
   SNLID(DBID dbID):
@@ -79,7 +79,7 @@ struct SNLID final {
   {}
 
   ///Special constructor for SNLDesignObject
-  SNLID(Type type, DBID dbID, LibraryID libraryID, DesignID designID, DesignObjectID id, DesignObjectID instanceID, Bit bit):
+  constexpr SNLID(Type type, DBID dbID, LibraryID libraryID, DesignID designID, DesignObjectID id, DesignObjectID instanceID, Bit bit):
     type_(type),
     dbID_(dbID),
     libraryID_(libraryID),

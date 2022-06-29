@@ -177,7 +177,7 @@ class SNLDesign final: public SNLObject {
     void removeParameter(SNLParameter* parameter);
     static bool isBetween(int n, int MSB, int LSB);
 
-    friend bool operator< (const SNLDesign &ld, const SNLDesign &rd) {
+    friend bool operator< (const SNLDesign& ld, const SNLDesign& rd) {
       return ld.getSNLID() < rd.getSNLID();
     }
 
