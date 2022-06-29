@@ -2,6 +2,7 @@
 
 #include "SNLUniverse.h"
 #include "SNLPath.h"
+#include "SNLException.h"
 using namespace naja::SNL;
 
 class SNLPathTest: public ::testing::Test {
@@ -49,7 +50,22 @@ TEST_F(SNLPathTest, testEmptyPath) {
   EXPECT_EQ(nullptr, emptyPath.getModel());
 }
 
-TEST_F(SNLPathTest, testTopDownConstruction) {
+TEST_F(SNLPathTest, testTopDown0) {
+  ASSERT_NE(h0Instance_, nullptr);
+  auto h0Path = SNLPath(h0Instance_, SNLPath());
+  EXPECT_FALSE(h0Path.empty());
+  EXPECT_EQ(h0Instance_, h0Path.getHeadInstance());
+  EXPECT_EQ(h0Instance_, h0Path.getTailInstance());
+  EXPECT_EQ(h0Instance_->getModel(), h0Path.getModel());
+  EXPECT_EQ(h0Instance_->getDesign(), h0Path.getDesign());
+  EXPECT_EQ(SNLPath(), h0Path.getHeadPath());
+  EXPECT_EQ(SNLPath(), h0Path.getTailPath());
+
+  EXPECT_EQ(SNLPath(h0Instance_), h0Path);
+  EXPECT_EQ(SNLPath(SNLPath(), h0Instance_), h0Path);
+}
+
+TEST_F(SNLPathTest, testTopDown1) {
   ASSERT_NE(h0Instance_, nullptr);
   auto h0Path = SNLPath(h0Instance_);
   EXPECT_FALSE(h0Path.empty());
@@ -94,7 +110,22 @@ TEST_F(SNLPathTest, testTopDownConstruction) {
   EXPECT_EQ(SNLPath(SNLPath(SNLPath(h1Instance_), h2Instance_), primInstance_), primPath.getTailPath());
 }
 
-TEST_F(SNLPathTest, testBottomUpConstruction) {
+TEST_F(SNLPathTest, testBottomUp0) {
+  ASSERT_NE(primInstance_, nullptr);
+  auto primPath = SNLPath(SNLPath(), primInstance_);
+  EXPECT_FALSE(primPath.empty());
+  EXPECT_EQ(primInstance_, primPath.getHeadInstance());
+  EXPECT_EQ(primInstance_, primPath.getTailInstance());
+  EXPECT_EQ(primInstance_->getModel(), primPath.getModel());
+  EXPECT_EQ(primInstance_->getDesign(), primPath.getDesign());
+  EXPECT_EQ(SNLPath(), primPath.getHeadPath());
+  EXPECT_EQ(SNLPath(), primPath.getTailPath());
+
+  EXPECT_EQ(SNLPath(primInstance_), primPath);
+  EXPECT_EQ(SNLPath(primInstance_, SNLPath()), primPath);
+}
+
+TEST_F(SNLPathTest, testBottomUp1) {
   ASSERT_NE(primInstance_, nullptr);
   auto primPath = SNLPath(primInstance_);
   EXPECT_FALSE(primPath.empty());
@@ -112,6 +143,46 @@ TEST_F(SNLPathTest, testBottomUpConstruction) {
   EXPECT_EQ(primInstance_, h2Path.getTailInstance());
   EXPECT_EQ(primInstance_->getModel(), h2Path.getModel());
   EXPECT_EQ(h2Instance_->getDesign(), h2Path.getDesign());
-  EXPECT_EQ(SNLPath(), h2Path.getHeadPath());
+  EXPECT_EQ(SNLPath(h2Instance_), h2Path.getHeadPath());
   EXPECT_EQ(primPath, h2Path.getTailPath());
+
+  ASSERT_NE(h1Instance_, nullptr);
+  auto h1Path = SNLPath(h1Instance_, h2Path);
+  EXPECT_FALSE(h1Path.empty());
+  EXPECT_EQ(h1Instance_, h1Path.getHeadInstance());
+  EXPECT_EQ(primInstance_, h1Path.getTailInstance());
+  EXPECT_EQ(primInstance_->getModel(), h1Path.getModel());
+  EXPECT_EQ(h1Instance_->getDesign(), h1Path.getDesign());
+  EXPECT_EQ(SNLPath(h1Instance_, SNLPath(h2Instance_)), h1Path.getHeadPath());
+  EXPECT_EQ(h2Path, h1Path.getTailPath());
+
+  ASSERT_NE(h0Instance_, nullptr);
+  auto h0Path = SNLPath(h0Instance_, h1Path);
+  EXPECT_FALSE(h0Path.empty());
+  EXPECT_EQ(h0Instance_, h0Path.getHeadInstance());
+  EXPECT_EQ(primInstance_, h0Path.getTailInstance());
+  EXPECT_EQ(primInstance_->getModel(), h0Path.getModel());
+  EXPECT_EQ(h0Instance_->getDesign(), h0Path.getDesign());
+  EXPECT_EQ(SNLPath(h0Instance_, SNLPath(h1Instance_, SNLPath(h2Instance_))), h0Path.getHeadPath());
+  EXPECT_EQ(h1Path, h0Path.getTailPath());
+}
+
+TEST_F(SNLPathTest, comparePaths) {
+  EXPECT_EQ(SNLPath(SNLPath(), primInstance_), SNLPath(primInstance_, SNLPath()));
+  EXPECT_EQ(
+    SNLPath(SNLPath(h2Instance_), primInstance_),
+    SNLPath(h2Instance_, SNLPath(primInstance_)));
+  EXPECT_EQ(
+    SNLPath(SNLPath(SNLPath(h1Instance_), h2Instance_), primInstance_),
+    SNLPath(h1Instance_, SNLPath(h2Instance_, SNLPath(primInstance_))));
+  EXPECT_EQ(
+    SNLPath(SNLPath(SNLPath(SNLPath(h0Instance_), h1Instance_), h2Instance_), primInstance_),
+    SNLPath(h0Instance_, SNLPath(h1Instance_, SNLPath(h2Instance_, SNLPath(primInstance_)))));
+}
+
+TEST_F(SNLPathTest, testErrors) {
+  SNLInstance* instance = nullptr;
+  SNLPath emptyPath;
+  EXPECT_THROW(SNLPath(instance, emptyPath), SNLException);
+  EXPECT_THROW(SNLPath(emptyPath, instance), SNLException);
 }

@@ -36,7 +36,6 @@ SNLPath::SNLPath(SNLInstance* instance): SNLPath() {
 }
 
 SNLPath::SNLPath(SNLInstance* headInstance, const SNLPath& tailPath): SNLPath() {
-#if 0
   if (not headInstance) {
     throw SNLException("cannot create SNLPath with null head instance");
   }
@@ -45,18 +44,15 @@ SNLPath::SNLPath(SNLInstance* headInstance, const SNLPath& tailPath): SNLPath() 
     sharedPath_ = headInstance->getSharedPath(nullptr);
     if (not sharedPath_) {
       sharedPath_ = new SNLSharedPath(headInstance);
-    } else {
-      SNLSharedPath* tailSharedPath = tailPath.sharedPath_;
-      if (tailSharedPath->getDesign() not_eq headInstance->getModel()) {
-        throw SNLException("cannot create SNLPath: incompatible tail path");
-      }
-      sharedPath_ = headInstance->getSharedPath(tailSharedPath);
-      if (not sharedPath_) {
-        sharedPath_ = new SNLSharedPath(headInstance, tailSharedPath);
-      }
+    }
+  } else {
+    SNLInstance* tailInstance = tailPath.getTailInstance();
+    SNLSharedPath* headSharedPath = SNLPath(headInstance, tailPath.getHeadPath()).sharedPath_;
+    sharedPath_ = tailInstance->getSharedPath(headSharedPath);
+    if (not sharedPath_) {
+      sharedPath_ = new SNLSharedPath(tailInstance, headSharedPath);
     }
   }
-#endif
 }
 
 SNLPath::SNLPath(const SNLPath& headPath, SNLInstance* tailInstance): SNLPath() {
