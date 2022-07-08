@@ -1,8 +1,9 @@
 # Naja
-***
+
 ![build](https://github.com/xtofalex/naja/actions/workflows/build.yml/badge.svg)
 [![Codacy Badge](https://api.codacy.com/project/badge/Grade/b224740790e24c80a381a6eede28cad8)](https://app.codacy.com/gh/xtofalex/naja?utm_source=github.com&utm_medium=referral&utm_content=xtofalex/naja&utm_campaign=Badge_Grade_Settings)
 [![codecov](https://codecov.io/gh/xtofalex/naja/branch/main/graph/badge.svg?token=59ZKZ74HFP)](https://codecov.io/gh/xtofalex/naja)
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 ***
 ## Introduction
 Naja is an umbrella repository containing mainly (for the moment) the SNL netlist data structure.
