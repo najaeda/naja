@@ -55,7 +55,3 @@ jobs:
     - name: TestSNLVRLDumper
       working-directory: ${{github.workspace}}/build/test/snl/formats/verilog/backend
       run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./snlVRLTests
-
-    - name: TestSNLYosysJSONParserTests
-      working-directory: ${{github.workspace}}/build/test/snl/formats/yosys-json/frontend
-      run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./snlYosysJSONParserTests
