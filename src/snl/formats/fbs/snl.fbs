@@ -1,24 +1,43 @@
-namespace snl;
+namespace SNL.FBS;
+
+enum TermDirection:byte { Input=0, Output, InOut }
+
+table ScalarTerm {
+  id:uint = 0;
+  name:string;
+  direction:TermDirection = Input;
+}
+
+table BusTerm {
+  id:uint = 0;
+  name:string;
+  direction:TermDirection = Input;
+}
+
+union Term { ScalarTerm, BusTerm }
 
 enum DesignType:byte { Standard=0, Blackbox, Primitive }
 
 table Design {
   id:uint = 0;
-  name:string = "";
+  name:string;
   type:DesignType = Standard;
+  terms:[Term];
 }
 
 enum LibraryType:byte { Standard=0, Primitives }
 
 table Library {
-  id:ushort = 0;
-  name:string = "";
+  id:ushort = 0; 
+  name:string;
   type:LibraryType = Standard;
   libraries:[Library];
   designs:[Design];
 }
 
 table DB {
-  id:uchar=1;
+  id:byte = 1;
   libraries:[Library];
 }
+
+root_type DB;
