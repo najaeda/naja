@@ -67,13 +67,13 @@ class SNLDB final: public SNLObject {
     void addLibrary(SNLLibrary* library);
     void removeLibrary(SNLLibrary* library);
 
-    SNLUniverse*      universe_;
-    SNLID::DBID       id_;
-    boost::intrusive::set_member_hook<> universeDBsHook_  {};
-    SNLID::LibraryID  nextLibraryID_                      {0};
-    SNLDBLibraries    libraries_                          {};
+    SNLUniverse*                        universe_;
+    SNLID::DBID                         id_;
+    boost::intrusive::set_member_hook<> universeDBsHook_          {};
+    SNLID::LibraryID                    nextLibraryID_            {0};
+    SNLDBLibraries                      libraries_                {};
     using LibraryNameIDMap = std::map<SNLName, SNLID::LibraryID>;
-    LibraryNameIDMap  libraryNameIDMap_                   {};
+    LibraryNameIDMap                    libraryNameIDMap_         {};
 };
 
 }} // namespace SNL // namespace naja
