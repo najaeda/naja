@@ -1,0 +1,24 @@
+namespace snl;
+
+enum DesignType:byte { Standard=0, Blackbox, Primitive }
+
+table Design {
+  id:uint = 0;
+  name:string = "";
+  type:DesignType = Standard;
+}
+
+enum LibraryType:byte { Standard=0, Primitives }
+
+table Library {
+  id:ushort = 0;
+  name:string = "";
+  type:LibraryType = Standard;
+  libraries:[Library];
+  designs:[Design];
+}
+
+table DB {
+  id:uchar=1;
+  libraries:[Library];
+}
