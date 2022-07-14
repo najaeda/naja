@@ -26,7 +26,7 @@ namespace naja { namespace SNL {
 
 SNLBusTerm::SNLBusTerm(
     SNLDesign* design,
-    const Direction& direction,
+    Direction direction,
     SNLID::Bit msb,
     SNLID::Bit lsb,
     const SNLName& name):
@@ -40,7 +40,7 @@ SNLBusTerm::SNLBusTerm(
 
 SNLBusTerm* SNLBusTerm::create(
     SNLDesign* design,
-    const Direction& direction,
+    Direction direction,
     SNLID::Bit msb,
     SNLID::Bit lsb,
     const SNLName& name) {

@@ -24,14 +24,14 @@
 
 namespace naja { namespace SNL {
 
-SNLScalarTerm::SNLScalarTerm(SNLDesign* design, const Direction& direction, const SNLName& name):
+SNLScalarTerm::SNLScalarTerm(SNLDesign* design, Direction direction, const SNLName& name):
   super(),
   design_(design),
   name_(name),
   direction_(direction)
 {}
 
-SNLScalarTerm* SNLScalarTerm::create(SNLDesign* design, const Direction& direction, const SNLName& name) {
+SNLScalarTerm* SNLScalarTerm::create(SNLDesign* design, Direction direction, const SNLName& name) {
   preCreate(design, name);
   SNLScalarTerm* net = new SNLScalarTerm(design, direction, name);
   net->postCreate();

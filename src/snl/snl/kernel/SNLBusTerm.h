@@ -35,7 +35,7 @@ class SNLBusTerm final: public SNLTerm {
 
     static SNLBusTerm* create(
         SNLDesign* design,
-        const Direction& direction,
+        Direction direction,
         SNLID::Bit msb,
         SNLID::Bit lsb,
         const SNLName& name=SNLName());
@@ -66,7 +66,7 @@ class SNLBusTerm final: public SNLTerm {
   private:
     SNLBusTerm(
         SNLDesign* design,
-        const Direction& direction,
+        Direction direction,
         SNLID::Bit msb,
         SNLID::Bit lsb,
         const SNLName& name);

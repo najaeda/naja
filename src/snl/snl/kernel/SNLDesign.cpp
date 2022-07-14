@@ -53,21 +53,21 @@ SNLDesign* SNLDesign::create(SNLLibrary* library, const SNLName& name) {
   return design;
 }
 
-SNLDesign* SNLDesign::create(SNLLibrary* library, const Type& type, const SNLName& name) {
+SNLDesign* SNLDesign::create(SNLLibrary* library, Type type, const SNLName& name) {
   preCreate(library, type, name);
   SNLDesign* design = new SNLDesign(library, type, name);
   design->postCreate();
   return design;
 }
 
-SNLDesign::SNLDesign(SNLLibrary* library, const Type& type, const SNLName& name):
+SNLDesign::SNLDesign(SNLLibrary* library, Type type, const SNLName& name):
   super(),
   name_(name),
   type_(type),
   library_(library)
 {}
 
-void SNLDesign::preCreate(const SNLLibrary* library, const Type& type, const SNLName& name) {
+void SNLDesign::preCreate(const SNLLibrary* library, Type type, const SNLName& name) {
   super::preCreate();
   if (not library) {
     throw SNLException("malformed design creator with null library");

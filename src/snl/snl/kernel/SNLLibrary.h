@@ -48,10 +48,10 @@ class SNLLibrary final: public SNLObject {
     SNLLibrary(const SNLLibrary& library) = delete;
 
     static SNLLibrary* create(SNLDB* db, const SNLName& name = SNLName());
-    static SNLLibrary* create(SNLDB* db, const Type& type, const SNLName& name = SNLName());
-    static SNLLibrary* create(SNLDB* db, SNLID::LibraryID id, const Type& type, const SNLName& name = SNLName());
+    static SNLLibrary* create(SNLDB* db, Type type, const SNLName& name = SNLName());
+    static SNLLibrary* create(SNLDB* db, SNLID::LibraryID id, Type type, const SNLName& name = SNLName());
     static SNLLibrary* create(SNLLibrary* parent, const SNLName& name = SNLName());
-    static SNLLibrary* create(SNLLibrary* parent, const Type& type, const SNLName& name = SNLName());
+    static SNLLibrary* create(SNLLibrary* parent, Type type, const SNLName& name = SNLName());
 
     bool isRootLibrary() const { return isRootLibrary_; }
 
@@ -89,17 +89,17 @@ class SNLLibrary final: public SNLObject {
       return ll.getSNLID() < rl.getSNLID();
     }
   private:
-    static void preCreate(SNLDB* db, const Type& type, const SNLName& name);
+    static void preCreate(SNLDB* db, Type type, const SNLName& name);
     static void preCreate(SNLDB* db, SNLID::LibraryID id, const Type& type, const SNLName& name);
-    static void preCreate(SNLLibrary* parent, const Type& type, const SNLName& name);
+    static void preCreate(SNLLibrary* parent, Type type, const SNLName& name);
     void destroyFromParent();
     void postCreate();
     void commonPreDestroy();
     void preDestroy() override;
 
     SNLLibrary(SNLDB* db, Type type, const SNLName& name);
-    SNLLibrary(SNLDB* db, SNLID::LibraryID libraryID, Type& type, const SNLName& name);
-    SNLLibrary(SNLLibrary* parent, const Type& type, const SNLName& name);
+    SNLLibrary(SNLDB* db, SNLID::LibraryID libraryID, Type type, const SNLName& name);
+    SNLLibrary(SNLLibrary* parent, Type type, const SNLName& name);
 
     void addLibrary(SNLLibrary* library);
     void removeLibrary(SNLLibrary* library);
