@@ -18,7 +18,7 @@
 
 #include <fstream>
 
-#include "snl_generated.h"
+#include "snl_interface_generated.h"
 using namespace SNL::FBS;
 
 #include "SNLUniverse.h"
@@ -143,12 +143,12 @@ naja::SNL::SNLLibrary::Type FBStoSNLLibraryType(LibraryType type) {
   return naja::SNL::SNLLibrary::Type::Standard;
 }
 
-flatbuffers::Offset<SNL::FBS::Library> dumpLibrary(
+flatbuffers::Offset<SNL::FBS::LibraryInterface> dumpLibraryInterface(
   flatbuffers::FlatBufferBuilder& builder,
   const naja::SNL::SNLLibrary* library) {
-  std::vector<flatbuffers::Offset<Library>> librariesVector;
+  std::vector<flatbuffers::Offset<LibraryInterface>> librariesVector;
   for (auto lib: library->getLibraries()) {
-    librariesVector.push_back(dumpLibrary(builder, lib));
+    librariesVector.push_back(dumpLibraryInterface(builder, lib));
   }
   auto libraries = builder.CreateVector(librariesVector);
 
@@ -161,13 +161,13 @@ flatbuffers::Offset<SNL::FBS::Library> dumpLibrary(
   if (not library->isAnonymous()) {
     name = builder.CreateString(library->getName().getString());
   }
-  LibraryBuilder libBuilder(builder);
+  LibraryInterfaceBuilder libBuilder(builder);
   libBuilder.add_id(library->getID());
   if (not library->isAnonymous()) {
     libBuilder.add_name(name);
   }
   libBuilder.add_type(SNLtoFBSLibraryType(library->getType()));
-  libBuilder.add_libraries(libraries);
+  libBuilder.add_library_interfaces(libraries);
   libBuilder.add_design_interfaces(designInterfaces);
   
   //libBuilder.add_type();
@@ -175,7 +175,7 @@ flatbuffers::Offset<SNL::FBS::Library> dumpLibrary(
   return fbLib;
 }
 
-void loadLibrary(naja::SNL::SNLDB* db, const SNL::FBS::Library* library) {
+void loadLibraryInterface(naja::SNL::SNLDB* db, const SNL::FBS::LibraryInterface* library) {
   auto libraryID = library->id();
   auto libraryName = library->name();
   auto libraryType = library->type();
@@ -186,7 +186,8 @@ void loadLibrary(naja::SNL::SNLDB* db, const SNL::FBS::Library* library) {
   } else {
     snlLibrary =
       naja::SNL::SNLLibrary::create(db, libraryID, FBStoSNLLibraryType(libraryType));
-  } 
+  }
+
 
 }
 
@@ -194,32 +195,37 @@ void loadLibrary(naja::SNL::SNLDB* db, const SNL::FBS::Library* library) {
 
 namespace naja { namespace SNL {
 
-
-void SNLFBS::dump(const SNLDB* db, const std::filesystem::path& path) {
+void SNLFBS::dumpInterface(const SNLDB* db, const std::filesystem::path& interfacePath) {
   flatbuffers::FlatBufferBuilder builder(1024);
 
-  std::vector<flatbuffers::Offset<Library>> librariesVector;
+  std::vector<flatbuffers::Offset<LibraryInterface>> librariesVector;
   for (auto lib: db->getLibraries()) {
-    dumpLibrary(builder, lib);
-    librariesVector.push_back(dumpLibrary(builder, lib));
+    dumpLibraryInterface(builder, lib);
+    librariesVector.push_back(dumpLibraryInterface(builder, lib));
   }
   auto libraries = builder.CreateVector(librariesVector);
 
-  DBBuilder dbBuilder(builder);
+  DBInterfaceBuilder dbBuilder(builder);
   dbBuilder.add_id(db->getID());
-  dbBuilder.add_libraries(libraries);
+  dbBuilder.add_library_interfaces(libraries);
 
   auto fdb = dbBuilder.Finish();
   builder.Finish(fdb);
 
   uint8_t* buf = builder.GetBufferPointer();
-  std::ofstream wf(path, std::ios::out | std::ios::binary);
+  std::ofstream wf(interfacePath, std::ios::out | std::ios::binary);
   wf.write((char*)buf, builder.GetSize());
   wf.close();
 }
 
-SNLDB* SNLFBS::load(const std::filesystem::path& path) {
-  std::ifstream rf(path, std::ios::in | std::ios::binary);
+void SNLFBS::dump(const SNLDB* db, const std::filesystem::path& path) {
+  std::filesystem::create_directory(path);
+  dumpInterface(db, path/InterfaceName);
+}
+
+SNLDB* SNLFBS::loadInterface(const std::filesystem::path& interfacePath) {
+  //FIXME: verify if file can be opened
+  std::ifstream rf(interfacePath, std::ios::in | std::ios::binary);
   rf.seekg(0, std::ios::end);
   int length = rf.tellg();
   rf.seekg(0, std::ios::beg);
@@ -227,21 +233,26 @@ SNLDB* SNLFBS::load(const std::filesystem::path& path) {
 	rf.read(data, length);
 	rf.close();
 
-  auto db = GetDB(data);
+  auto db = GetDBInterface(data);
   auto dbID = db->id();
   auto universe = SNLUniverse::get();
   if (not universe) {
     universe = SNLUniverse::create();
   }
   auto snldb = SNLDB::create(universe, dbID);
-  auto libraries = db->libraries();
+  auto libraries = db->library_interfaces();
   if (libraries) {
     for (auto i=0; i<libraries->size(); ++i) {
       auto library = libraries->Get(i);
-      loadLibrary(snldb, library);
+      loadLibraryInterface(snldb, library);
     }
   }
   return snldb;
+}
+
+SNLDB* SNLFBS::load(const std::filesystem::path& path) {
+  SNLDB* db = loadInterface(path/InterfaceName);
+  return db;
 }
 
 }} // namespace SNL // namespace naja

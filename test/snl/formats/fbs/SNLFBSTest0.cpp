@@ -61,7 +61,11 @@ TEST_F(SNLFBSTest0, test0) {
   ASSERT_TRUE(top);
 
   std::filesystem::path outPath(SNL_FBS_TEST_PATH);
-  outPath = outPath / "test0.snl";
+  outPath /= "test0.snl";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+
   SNLFBS::dump(db_, outPath);
   db_->destroy();  
   db_ = nullptr;

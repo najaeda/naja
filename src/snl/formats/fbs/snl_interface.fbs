@@ -18,43 +18,34 @@ table BusTerm {
 
 union Term { ScalarTerm, BusTerm }
 
-struct DesignID {
-  db_id:byte;
-  library_id:ushort;
-  design_id:uint;
-}
-
-table Instance {
-  model:DesignID;
-}
-
 enum DesignType:byte { Standard=0, Blackbox, Primitive }
+
+table Parameter {
+  name:string;
+  value:string;
+}
 
 table DesignInterface {
   id:uint = 0;
   name:string;
   type:DesignType = Standard;
+  parameters:[Parameter];
   terms:[Term];
-}
-
-table DesignImplementation {
-  instances:[Instance];
 }
 
 enum LibraryType:byte { Standard=0, Primitives }
 
-table Library {
+table LibraryInterface {
   id:ushort = 0; 
   name:string;
   type:LibraryType = Standard;
-  libraries:[Library];
+  library_interfaces:[LibraryInterface];
   design_interfaces:[DesignInterface];
-  design_implementations:[DesignImplementation];
 }
 
-table DB {
+table DBInterface {
   id:byte = 1;
-  libraries:[Library];
+  library_interfaces:[LibraryInterface];
 }
 
-root_type DB;
+root_type DBInterface;
