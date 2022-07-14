@@ -27,7 +27,7 @@ class SNLScalarTerm final: public SNLBitTerm {
     friend class SNLDesign;
     using super = SNLBitTerm;
 
-    static SNLScalarTerm* create(SNLDesign* design, const Direction& direction, const SNLName& name=SNLName());
+    static SNLScalarTerm* create(SNLDesign* design, Direction direction, const SNLName& name=SNLName());
 
     SNLDesign* getDesign() const override { return design_; }
 
@@ -42,7 +42,7 @@ class SNLScalarTerm final: public SNLBitTerm {
     std::string getString() const override;
     std::string getDescription() const override;
   private:
-    SNLScalarTerm(SNLDesign* design, const Direction& direction, const SNLName& name);
+    SNLScalarTerm(SNLDesign* design, Direction direction, const SNLName& name);
     static void preCreate(SNLDesign* design, const SNLName& name);
     void postCreate();
     void destroyFromDesign() override;

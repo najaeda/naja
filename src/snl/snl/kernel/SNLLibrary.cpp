@@ -39,7 +39,7 @@ std::string SNLLibrary::Type::getString() const {
 }
 //LCOV_EXCL_STOP
 
-SNLLibrary::SNLLibrary(SNLDB* parent, const Type& type, const SNLName& name):
+SNLLibrary::SNLLibrary(SNLDB* parent, Type type, const SNLName& name):
   super(),
   name_(name),
   type_(type),
@@ -47,7 +47,7 @@ SNLLibrary::SNLLibrary(SNLDB* parent, const Type& type, const SNLName& name):
   isRootLibrary_(true)
 {}
 
-SNLLibrary::SNLLibrary(SNLLibrary* parent, const Type& type, const SNLName& name):
+SNLLibrary::SNLLibrary(SNLLibrary* parent, Type type, const SNLName& name):
   super(),
   name_(name),
   type_(type),
@@ -62,7 +62,7 @@ SNLLibrary* SNLLibrary::create(SNLDB* db, const SNLName& name) {
   return library;
 }
 
-SNLLibrary* SNLLibrary::create(SNLDB* db, const Type& type, const SNLName& name) {
+SNLLibrary* SNLLibrary::create(SNLDB* db, Type type, const SNLName& name) {
   preCreate(db, type, name);
   SNLLibrary* library = new SNLLibrary(db, type, name);
   library->postCreate();
@@ -76,14 +76,14 @@ SNLLibrary* SNLLibrary::create(SNLLibrary* parent, const SNLName& name) {
   return library;
 }
 
-SNLLibrary* SNLLibrary::create(SNLLibrary* parent, const Type& type, const SNLName& name) {
+SNLLibrary* SNLLibrary::create(SNLLibrary* parent, Type type, const SNLName& name) {
   preCreate(parent, type, name);
   SNLLibrary* library = new SNLLibrary(parent, type, name);
   library->postCreate();
   return library;
 }
 
-void SNLLibrary::preCreate(SNLDB* db, const Type& type, const SNLName& name) {
+void SNLLibrary::preCreate(SNLDB* db, Type type, const SNLName& name) {
   super::preCreate();
   if (not db) {
     throw SNLException("malformed SNLLibrary creator with NULL db argument");
@@ -94,7 +94,7 @@ void SNLLibrary::preCreate(SNLDB* db, const Type& type, const SNLName& name) {
   }
 }
 
-void SNLLibrary::preCreate(SNLLibrary* parentLibrary, const Type& type, const SNLName& name) {
+void SNLLibrary::preCreate(SNLLibrary* parentLibrary, Type type, const SNLName& name) {
   super::preCreate();
   if (not parentLibrary) {
     throw SNLException("malformed SNLLibrary creator with NULL parent library argument");
