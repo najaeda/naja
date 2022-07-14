@@ -21,6 +21,7 @@
 #include "snl_generated.h"
 using namespace SNL::FBS;
 
+#include "SNLUniverse.h"
 #include "SNLDB.h"
 #include "SNLDesign.h"
 #include "SNLScalarTerm.h"
@@ -44,10 +45,15 @@ flatbuffers::Offset<void> dumpScalarTerm(
   flatbuffers::FlatBufferBuilder& builder,
   const naja::SNL::SNLScalarTerm* scalarTerm) {
 
-  auto name = builder.CreateSharedString(scalarTerm->getName().getString());
+  flatbuffers::Offset<flatbuffers::String> name; 
+  if (not scalarTerm->isAnonymous()) {
+    name = builder.CreateSharedString(scalarTerm->getName().getString());
+  }
 
   ScalarTermBuilder termBuilder(builder);
-  termBuilder.add_name(name);
+  if (not scalarTerm->isAnonymous()) {
+    termBuilder.add_name(name);
+  }
   termBuilder.add_direction(SNLtoFBSDirection(scalarTerm->getDirection()));
   auto fbTerm = termBuilder.Finish();
   return fbTerm.Union();
@@ -57,16 +63,35 @@ flatbuffers::Offset<void> dumpBusTerm(
   flatbuffers::FlatBufferBuilder& builder,
   const naja::SNL::SNLBusTerm* busTerm) {
 
-  auto name = builder.CreateSharedString(busTerm->getName().getString());
+  flatbuffers::Offset<flatbuffers::String> name; 
+  if (not busTerm->isAnonymous()) {
+    name = builder.CreateSharedString(busTerm->getName().getString());
+  }
 
   BusTermBuilder termBuilder(builder);
-  termBuilder.add_name(name);
+  if (not busTerm->isAnonymous()) {
+    termBuilder.add_name(name);
+  }
   termBuilder.add_direction(SNLtoFBSDirection(busTerm->getDirection()));
+  termBuilder.add_msb(busTerm->getMSB());
+  termBuilder.add_lsb(busTerm->getLSB());
   auto fbTerm = termBuilder.Finish();
   return fbTerm.Union();
 }
 
-flatbuffers::Offset<SNL::FBS::Design> dumpDesign(
+DesignType SNLtoFBSDesignType(naja::SNL::SNLDesign::Type type) {
+  switch (type) {
+    case naja::SNL::SNLDesign::Type::Standard:
+      return DesignType_Standard;
+    case naja::SNL::SNLDesign::Type::Primitive:
+      return DesignType_Primitive;
+    case naja::SNL::SNLDesign::Type::Blackbox:
+      return DesignType_Blackbox;
+  }
+  return DesignType_Standard;
+}
+
+flatbuffers::Offset<SNL::FBS::DesignInterface> dumpDesignInterface(
   flatbuffers::FlatBufferBuilder& builder,
   const naja::SNL::SNLDesign* design) {
   std::vector<flatbuffers::Offset<void>> termsVector;
@@ -80,12 +105,42 @@ flatbuffers::Offset<SNL::FBS::Design> dumpDesign(
   }
   auto terms = builder.CreateVector(termsVector);
   
-  auto name = builder.CreateSharedString(design->getName().getString());
-  DesignBuilder designBuilder(builder);
-  designBuilder.add_id(design->getID());
-  designBuilder.add_name(name);
-  auto fbDesign = designBuilder.Finish();
+  flatbuffers::Offset<flatbuffers::String> name; 
+  if (not design->isAnonymous()) {
+    name = builder.CreateSharedString(design->getName().getString());
+  }
+  DesignInterfaceBuilder designInterfaceBuilder(builder);
+  designInterfaceBuilder.add_id(design->getID());
+  if (not design->isAnonymous()) {
+    
+    designInterfaceBuilder.add_name(name);
+  }
+  designInterfaceBuilder.add_type(SNLtoFBSDesignType(design->getType()));
+  auto fbDesign = designInterfaceBuilder.Finish();
   return fbDesign;
+}
+
+LibraryType SNLtoFBSLibraryType(naja::SNL::SNLLibrary::Type type) {
+  switch (type) {
+    case naja::SNL::SNLLibrary::Type::Standard:
+      return LibraryType_Standard;
+    case naja::SNL::SNLLibrary::Type::Primitives:
+      return LibraryType_Primitives;
+    case naja::SNL::SNLLibrary::Type::InDB0:
+      //FIXME: ERROR
+      return LibraryType_Standard;
+  }
+  return LibraryType_Standard;
+}
+
+naja::SNL::SNLLibrary::Type FBStoSNLLibraryType(LibraryType type) {
+  switch (type) {
+    case LibraryType_Standard:
+      return naja::SNL::SNLLibrary::Type::Standard;
+    case LibraryType_Primitives:
+      return  naja::SNL::SNLLibrary::Type::Primitives;
+  }
+  return naja::SNL::SNLLibrary::Type::Standard;
 }
 
 flatbuffers::Offset<SNL::FBS::Library> dumpLibrary(
@@ -97,22 +152,42 @@ flatbuffers::Offset<SNL::FBS::Library> dumpLibrary(
   }
   auto libraries = builder.CreateVector(librariesVector);
 
-  std::vector<flatbuffers::Offset<Design>> designsVector;
+  std::vector<flatbuffers::Offset<DesignInterface>> designInterfacesVector;
   for (auto design: library->getDesigns()) {
-    designsVector.push_back(dumpDesign(builder, design));
+    designInterfacesVector.push_back(dumpDesignInterface(builder, design));
   }
-  auto designs = builder.CreateVector(designsVector);
-  auto name = builder.CreateString(library->getName().getString());
-
+  auto designInterfaces = builder.CreateVector(designInterfacesVector);
+  flatbuffers::Offset<flatbuffers::String> name; 
+  if (not library->isAnonymous()) {
+    name = builder.CreateString(library->getName().getString());
+  }
   LibraryBuilder libBuilder(builder);
   libBuilder.add_id(library->getID());
-  libBuilder.add_name(name);
+  if (not library->isAnonymous()) {
+    libBuilder.add_name(name);
+  }
+  libBuilder.add_type(SNLtoFBSLibraryType(library->getType()));
   libBuilder.add_libraries(libraries);
-  libBuilder.add_designs(designs);
+  libBuilder.add_design_interfaces(designInterfaces);
   
   //libBuilder.add_type();
   auto fbLib = libBuilder.Finish();
   return fbLib;
+}
+
+void loadLibrary(naja::SNL::SNLDB* db, const SNL::FBS::Library* library) {
+  auto libraryID = library->id();
+  auto libraryName = library->name();
+  auto libraryType = library->type();
+  naja::SNL::SNLLibrary* snlLibrary = nullptr;
+  if (libraryName) {
+    snlLibrary =
+      naja::SNL::SNLLibrary::create(db, libraryID, FBStoSNLLibraryType(libraryType), naja::SNL::SNLName(libraryName->c_str()));
+  } else {
+    snlLibrary =
+      naja::SNL::SNLLibrary::create(db, libraryID, FBStoSNLLibraryType(libraryType));
+  } 
+
 }
 
 }
@@ -120,7 +195,7 @@ flatbuffers::Offset<SNL::FBS::Library> dumpLibrary(
 namespace naja { namespace SNL {
 
 
-void SNLFBS::dump(const SNLDB* db) {
+void SNLFBS::dump(const SNLDB* db, const std::filesystem::path& path) {
   flatbuffers::FlatBufferBuilder builder(1024);
 
   std::vector<flatbuffers::Offset<Library>> librariesVector;
@@ -138,9 +213,35 @@ void SNLFBS::dump(const SNLDB* db) {
   builder.Finish(fdb);
 
   uint8_t* buf = builder.GetBufferPointer();
-  std::ofstream wf("snl.fbs", std::ios::out | std::ios::binary);
+  std::ofstream wf(path, std::ios::out | std::ios::binary);
   wf.write((char*)buf, builder.GetSize());
   wf.close();
+}
+
+SNLDB* SNLFBS::load(const std::filesystem::path& path) {
+  std::ifstream rf(path, std::ios::in | std::ios::binary);
+  rf.seekg(0, std::ios::end);
+  int length = rf.tellg();
+  rf.seekg(0, std::ios::beg);
+  char* data = new char[length];
+	rf.read(data, length);
+	rf.close();
+
+  auto db = GetDB(data);
+  auto dbID = db->id();
+  auto universe = SNLUniverse::get();
+  if (not universe) {
+    universe = SNLUniverse::create();
+  }
+  auto snldb = SNLDB::create(universe, dbID);
+  auto libraries = db->libraries();
+  if (libraries) {
+    for (auto i=0; i<libraries->size(); ++i) {
+      auto library = libraries->Get(i);
+      loadLibrary(snldb, library);
+    }
+  }
+  return snldb;
 }
 
 }} // namespace SNL // namespace naja

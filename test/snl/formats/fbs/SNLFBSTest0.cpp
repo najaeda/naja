@@ -46,7 +46,9 @@ class SNLFBSTest0: public ::testing::Test {
       instance2->getInstTerm(model->getScalarTerm(SNLName("i")))->setNet(design->getScalarNet(SNLName("n1")));
     }
     void TearDown() override {
-      SNLUniverse::get()->destroy();
+      if (SNLUniverse::get()) {
+        SNLUniverse::get()->destroy();
+      }
     }
   protected:
     SNLDB*      db_;
@@ -58,5 +60,11 @@ TEST_F(SNLFBSTest0, test0) {
   auto top = lib->getDesign(SNLName("design"));
   ASSERT_TRUE(top);
 
-  SNLFBS::dump(db_);
+  std::filesystem::path outPath(SNL_FBS_TEST_PATH);
+  outPath = outPath / "test0.snl";
+  SNLFBS::dump(db_, outPath);
+  db_->destroy();  
+  db_ = nullptr;
+  db_ = SNLFBS::load(outPath);
+  ASSERT_TRUE(db_);
 }

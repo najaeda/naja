@@ -20,11 +20,17 @@
 #include <iostream>
 
 #include "SNLUniverse.h"
+#include "SNLException.h"
 
 namespace naja { namespace SNL {
 
 SNLDB::SNLDB(SNLUniverse* universe):
   universe_(universe)
+{}
+
+SNLDB::SNLDB(SNLUniverse* universe, SNLID::DBID id):
+  universe_(universe),
+  id_(id)
 {}
 
 SNLDB* SNLDB::create(SNLUniverse* universe) {
@@ -34,11 +40,33 @@ SNLDB* SNLDB::create(SNLUniverse* universe) {
   return db;
 }
 
+SNLDB* SNLDB::create(SNLUniverse* universe, SNLID::DBID id) {
+  preCreate(id);
+  SNLDB* db = new SNLDB(universe, id);
+  db->postCreate();
+  return db;
+}
+
 void SNLDB::preCreate() {
   super::preCreate();
+  if (not SNLUniverse::get()) {
+    throw SNLException("DB creation: NULL Universe");
+  }
+}
+
+void SNLDB::preCreate(SNLID::DBID id) {
+  SNLDB::preCreate();
+  if (SNLUniverse::get()->getDB(id)) {
+    throw SNLException("DB collision");
+  }
 }
 
 void SNLDB::postCreate() {
+  super::postCreate();
+  universe_->addDBAndSetID(this);
+}
+
+void SNLDB::postCreate(SNLID::DBID id) {
   super::postCreate();
   universe_->addDB(this);
 }

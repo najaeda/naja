@@ -64,7 +64,7 @@ SNLUniverse* SNLUniverse::get() {
   return universe_;
 }
 
-void SNLUniverse::addDB(SNLDB* db) {
+void SNLUniverse::addDBAndSetID(SNLDB* db) {
   if (dbs_.empty()) {
     db->id_ = 0;
   } else {
@@ -74,6 +74,12 @@ void SNLUniverse::addDB(SNLDB* db) {
     ++dbID;
     db->id_ = dbID;
   }
+  dbs_.insert(*db);
+}
+
+void SNLUniverse::addDB(SNLDB* db) {
+  //FIXME ?? are dbs sorted by id and if yes if we create a new one will
+  //it be inserted at correct position ?
   dbs_.insert(*db);
 }
 

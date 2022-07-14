@@ -87,12 +87,12 @@ void SNLInstance::createInstTerm(SNLBitTerm* term) {
 void SNLInstance::removeInstTerm(SNLBitTerm* term) {
   //removeInstTerm is private so following are internal errors
   assert(term->getDesign() == getModel());
-  assert(term->getPositionInDesign() < instTerms_.size());
-  auto instTerm = instTerms_[term->getPositionInDesign()];
+  assert(term->getFlatID() < instTerms_.size());
+  auto instTerm = instTerms_[term->getFlatID()];
   if (instTerm) {
     instTerm->destroyFromInstance();
   }
-  instTerms_[term->getPositionInDesign()] = nullptr;
+  instTerms_[term->getFlatID()] = nullptr;
 }
 
 void SNLInstance::setTermsNets(const Terms& terms, const Nets& nets) {
@@ -245,8 +245,8 @@ SNLInstTerm* SNLInstance::getInstTerm(const SNLBitTerm* term) const {
       + " should be the same";
     throw SNLException(reason);
   }
-  assert(term->getPositionInDesign() < instTerms_.size());
-  return instTerms_[term->getPositionInDesign()];
+  assert(term->getFlatID() < instTerms_.size());
+  return instTerms_[term->getFlatID()];
 }
 
 SNLCollection<SNLInstTerm*> SNLInstance::getInstTerms() const {

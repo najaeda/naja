@@ -47,6 +47,15 @@ SNLLibrary::SNLLibrary(SNLDB* parent, const Type& type, const SNLName& name):
   isRootLibrary_(true)
 {}
 
+SNLLibrary::SNLLibrary(SNLDB* parent, SNLID::LibraryID id, Type& type, const SNLName& name):
+  super(),
+  id_(id),
+  name_(name),
+  type_(type),
+  parent_(parent),
+  isRootLibrary_(true)
+{}
+
 SNLLibrary::SNLLibrary(SNLLibrary* parent, const Type& type, const SNLName& name):
   super(),
   name_(name),
@@ -69,6 +78,13 @@ SNLLibrary* SNLLibrary::create(SNLDB* db, const Type& type, const SNLName& name)
   return library;
 }
 
+SNLLibrary* SNLLibrary::create(SNLDB* db, SNLID::LibraryID libraryID, const Type& type, const SNLName& name) {
+  preCreate(db, libraryID, type, name);
+  SNLLibrary* library = new SNLLibrary(db, libraryID, type, name);
+  library->postCreate();
+  return library;
+}
+
 SNLLibrary* SNLLibrary::create(SNLLibrary* parent, const SNLName& name) {
   preCreate(parent, Type::Standard, name);
   SNLLibrary* library = new SNLLibrary(parent, Type::Standard, name);
@@ -87,6 +103,21 @@ void SNLLibrary::preCreate(SNLDB* db, const Type& type, const SNLName& name) {
   super::preCreate();
   if (not db) {
     throw SNLException("malformed SNLLibrary creator with NULL db argument");
+  }
+  if (not name.empty() and db->getLibrary(name)) {
+    std::string reason = "SNLDB " + db->getString() + " contains already a SNLLibrary named: " + name.getString();
+    throw SNLException(reason);
+  }
+}
+
+void SNLLibrary::preCreate(SNLDB* db, SNLID::LibraryID libraryID, Type& type, const SNLName& name) {
+  super::preCreate();
+  if (not db) {
+    throw SNLException("malformed SNLLibrary creator with NULL db argument");
+  }
+  if (db->getLibrary(libraryID)) {
+    std::string reason = "SNLDB " + db->getString() + " contains already a SNLLibrary with ID: " + std::to_string(libraryID);
+    throw SNLException(reason);
   }
   if (not name.empty() and db->getLibrary(name)) {
     std::string reason = "SNLDB " + db->getString() + " contains already a SNLLibrary named: " + name.getString();

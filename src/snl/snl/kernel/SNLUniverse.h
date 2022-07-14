@@ -58,6 +58,7 @@ class SNLUniverse final: public SNLObject {
     void postCreate();
     void preDestroy() override;
 
+    void addDBAndSetID(SNLDB* db);
     void addDB(SNLDB* db);
     void removeDB(SNLDB* db);
     

@@ -15,8 +15,16 @@ struct ScalarTermBuilder;
 struct BusTerm;
 struct BusTermBuilder;
 
-struct Design;
-struct DesignBuilder;
+struct DesignID;
+
+struct Instance;
+struct InstanceBuilder;
+
+struct DesignInterface;
+struct DesignInterfaceBuilder;
+
+struct DesignImplementation;
+struct DesignImplementationBuilder;
 
 struct Library;
 struct LibraryBuilder;
@@ -168,6 +176,40 @@ inline const char *EnumNameLibraryType(LibraryType e) {
   return EnumNamesLibraryType()[index];
 }
 
+FLATBUFFERS_MANUALLY_ALIGNED_STRUCT(4) DesignID FLATBUFFERS_FINAL_CLASS {
+ private:
+  int8_t db_id_;
+  int8_t padding0__;
+  uint16_t library_id_;
+  uint32_t design_id_;
+
+ public:
+  DesignID()
+      : db_id_(0),
+        padding0__(0),
+        library_id_(0),
+        design_id_(0) {
+    (void)padding0__;
+  }
+  DesignID(int8_t _db_id, uint16_t _library_id, uint32_t _design_id)
+      : db_id_(flatbuffers::EndianScalar(_db_id)),
+        padding0__(0),
+        library_id_(flatbuffers::EndianScalar(_library_id)),
+        design_id_(flatbuffers::EndianScalar(_design_id)) {
+    (void)padding0__;
+  }
+  int8_t db_id() const {
+    return flatbuffers::EndianScalar(db_id_);
+  }
+  uint16_t library_id() const {
+    return flatbuffers::EndianScalar(library_id_);
+  }
+  uint32_t design_id() const {
+    return flatbuffers::EndianScalar(design_id_);
+  }
+};
+FLATBUFFERS_STRUCT_END(DesignID, 8);
+
 struct ScalarTerm FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef ScalarTermBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
@@ -248,7 +290,9 @@ struct BusTerm FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_ID = 4,
     VT_NAME = 6,
-    VT_DIRECTION = 8
+    VT_DIRECTION = 8,
+    VT_MSB = 10,
+    VT_LSB = 12
   };
   uint32_t id() const {
     return GetField<uint32_t>(VT_ID, 0);
@@ -259,12 +303,20 @@ struct BusTerm FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   SNL::FBS::TermDirection direction() const {
     return static_cast<SNL::FBS::TermDirection>(GetField<int8_t>(VT_DIRECTION, 0));
   }
+  int32_t msb() const {
+    return GetField<int32_t>(VT_MSB, 0);
+  }
+  int32_t lsb() const {
+    return GetField<int32_t>(VT_LSB, 0);
+  }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<uint32_t>(verifier, VT_ID, 4) &&
            VerifyOffset(verifier, VT_NAME) &&
            verifier.VerifyString(name()) &&
            VerifyField<int8_t>(verifier, VT_DIRECTION, 1) &&
+           VerifyField<int32_t>(verifier, VT_MSB, 4) &&
+           VerifyField<int32_t>(verifier, VT_LSB, 4) &&
            verifier.EndTable();
   }
 };
@@ -282,6 +334,12 @@ struct BusTermBuilder {
   void add_direction(SNL::FBS::TermDirection direction) {
     fbb_.AddElement<int8_t>(BusTerm::VT_DIRECTION, static_cast<int8_t>(direction), 0);
   }
+  void add_msb(int32_t msb) {
+    fbb_.AddElement<int32_t>(BusTerm::VT_MSB, msb, 0);
+  }
+  void add_lsb(int32_t lsb) {
+    fbb_.AddElement<int32_t>(BusTerm::VT_LSB, lsb, 0);
+  }
   explicit BusTermBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -297,8 +355,12 @@ inline flatbuffers::Offset<BusTerm> CreateBusTerm(
     flatbuffers::FlatBufferBuilder &_fbb,
     uint32_t id = 0,
     flatbuffers::Offset<flatbuffers::String> name = 0,
-    SNL::FBS::TermDirection direction = SNL::FBS::TermDirection_Input) {
+    SNL::FBS::TermDirection direction = SNL::FBS::TermDirection_Input,
+    int32_t msb = 0,
+    int32_t lsb = 0) {
   BusTermBuilder builder_(_fbb);
+  builder_.add_lsb(lsb);
+  builder_.add_msb(msb);
   builder_.add_name(name);
   builder_.add_id(id);
   builder_.add_direction(direction);
@@ -309,17 +371,62 @@ inline flatbuffers::Offset<BusTerm> CreateBusTermDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
     uint32_t id = 0,
     const char *name = nullptr,
-    SNL::FBS::TermDirection direction = SNL::FBS::TermDirection_Input) {
+    SNL::FBS::TermDirection direction = SNL::FBS::TermDirection_Input,
+    int32_t msb = 0,
+    int32_t lsb = 0) {
   auto name__ = name ? _fbb.CreateString(name) : 0;
   return SNL::FBS::CreateBusTerm(
       _fbb,
       id,
       name__,
-      direction);
+      direction,
+      msb,
+      lsb);
 }
 
-struct Design FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
-  typedef DesignBuilder Builder;
+struct Instance FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef InstanceBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_MODEL = 4
+  };
+  const SNL::FBS::DesignID *model() const {
+    return GetStruct<const SNL::FBS::DesignID *>(VT_MODEL);
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<SNL::FBS::DesignID>(verifier, VT_MODEL, 4) &&
+           verifier.EndTable();
+  }
+};
+
+struct InstanceBuilder {
+  typedef Instance Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_model(const SNL::FBS::DesignID *model) {
+    fbb_.AddStruct(Instance::VT_MODEL, model);
+  }
+  explicit InstanceBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  flatbuffers::Offset<Instance> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<Instance>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<Instance> CreateInstance(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    const SNL::FBS::DesignID *model = nullptr) {
+  InstanceBuilder builder_(_fbb);
+  builder_.add_model(model);
+  return builder_.Finish();
+}
+
+struct DesignInterface FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef DesignInterfaceBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_ID = 4,
     VT_NAME = 6,
@@ -357,44 +464,44 @@ struct Design FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   }
 };
 
-struct DesignBuilder {
-  typedef Design Table;
+struct DesignInterfaceBuilder {
+  typedef DesignInterface Table;
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
   void add_id(uint32_t id) {
-    fbb_.AddElement<uint32_t>(Design::VT_ID, id, 0);
+    fbb_.AddElement<uint32_t>(DesignInterface::VT_ID, id, 0);
   }
   void add_name(flatbuffers::Offset<flatbuffers::String> name) {
-    fbb_.AddOffset(Design::VT_NAME, name);
+    fbb_.AddOffset(DesignInterface::VT_NAME, name);
   }
   void add_type(SNL::FBS::DesignType type) {
-    fbb_.AddElement<int8_t>(Design::VT_TYPE, static_cast<int8_t>(type), 0);
+    fbb_.AddElement<int8_t>(DesignInterface::VT_TYPE, static_cast<int8_t>(type), 0);
   }
   void add_terms_type(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> terms_type) {
-    fbb_.AddOffset(Design::VT_TERMS_TYPE, terms_type);
+    fbb_.AddOffset(DesignInterface::VT_TERMS_TYPE, terms_type);
   }
   void add_terms(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<void>>> terms) {
-    fbb_.AddOffset(Design::VT_TERMS, terms);
+    fbb_.AddOffset(DesignInterface::VT_TERMS, terms);
   }
-  explicit DesignBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+  explicit DesignInterfaceBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  flatbuffers::Offset<Design> Finish() {
+  flatbuffers::Offset<DesignInterface> Finish() {
     const auto end = fbb_.EndTable(start_);
-    auto o = flatbuffers::Offset<Design>(end);
+    auto o = flatbuffers::Offset<DesignInterface>(end);
     return o;
   }
 };
 
-inline flatbuffers::Offset<Design> CreateDesign(
+inline flatbuffers::Offset<DesignInterface> CreateDesignInterface(
     flatbuffers::FlatBufferBuilder &_fbb,
     uint32_t id = 0,
     flatbuffers::Offset<flatbuffers::String> name = 0,
     SNL::FBS::DesignType type = SNL::FBS::DesignType_Standard,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> terms_type = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<void>>> terms = 0) {
-  DesignBuilder builder_(_fbb);
+  DesignInterfaceBuilder builder_(_fbb);
   builder_.add_terms(terms);
   builder_.add_terms_type(terms_type);
   builder_.add_name(name);
@@ -403,7 +510,7 @@ inline flatbuffers::Offset<Design> CreateDesign(
   return builder_.Finish();
 }
 
-inline flatbuffers::Offset<Design> CreateDesignDirect(
+inline flatbuffers::Offset<DesignInterface> CreateDesignInterfaceDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
     uint32_t id = 0,
     const char *name = nullptr,
@@ -413,13 +520,65 @@ inline flatbuffers::Offset<Design> CreateDesignDirect(
   auto name__ = name ? _fbb.CreateString(name) : 0;
   auto terms_type__ = terms_type ? _fbb.CreateVector<uint8_t>(*terms_type) : 0;
   auto terms__ = terms ? _fbb.CreateVector<flatbuffers::Offset<void>>(*terms) : 0;
-  return SNL::FBS::CreateDesign(
+  return SNL::FBS::CreateDesignInterface(
       _fbb,
       id,
       name__,
       type,
       terms_type__,
       terms__);
+}
+
+struct DesignImplementation FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef DesignImplementationBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_INSTANCES = 4
+  };
+  const flatbuffers::Vector<flatbuffers::Offset<SNL::FBS::Instance>> *instances() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<SNL::FBS::Instance>> *>(VT_INSTANCES);
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyOffset(verifier, VT_INSTANCES) &&
+           verifier.VerifyVector(instances()) &&
+           verifier.VerifyVectorOfTables(instances()) &&
+           verifier.EndTable();
+  }
+};
+
+struct DesignImplementationBuilder {
+  typedef DesignImplementation Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_instances(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<SNL::FBS::Instance>>> instances) {
+    fbb_.AddOffset(DesignImplementation::VT_INSTANCES, instances);
+  }
+  explicit DesignImplementationBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  flatbuffers::Offset<DesignImplementation> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<DesignImplementation>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<DesignImplementation> CreateDesignImplementation(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<SNL::FBS::Instance>>> instances = 0) {
+  DesignImplementationBuilder builder_(_fbb);
+  builder_.add_instances(instances);
+  return builder_.Finish();
+}
+
+inline flatbuffers::Offset<DesignImplementation> CreateDesignImplementationDirect(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    const std::vector<flatbuffers::Offset<SNL::FBS::Instance>> *instances = nullptr) {
+  auto instances__ = instances ? _fbb.CreateVector<flatbuffers::Offset<SNL::FBS::Instance>>(*instances) : 0;
+  return SNL::FBS::CreateDesignImplementation(
+      _fbb,
+      instances__);
 }
 
 struct Library FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
@@ -429,7 +588,8 @@ struct Library FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_NAME = 6,
     VT_TYPE = 8,
     VT_LIBRARIES = 10,
-    VT_DESIGNS = 12
+    VT_DESIGN_INTERFACES = 12,
+    VT_DESIGN_IMPLEMENTATIONS = 14
   };
   uint16_t id() const {
     return GetField<uint16_t>(VT_ID, 0);
@@ -443,8 +603,11 @@ struct Library FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   const flatbuffers::Vector<flatbuffers::Offset<SNL::FBS::Library>> *libraries() const {
     return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<SNL::FBS::Library>> *>(VT_LIBRARIES);
   }
-  const flatbuffers::Vector<flatbuffers::Offset<SNL::FBS::Design>> *designs() const {
-    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<SNL::FBS::Design>> *>(VT_DESIGNS);
+  const flatbuffers::Vector<flatbuffers::Offset<SNL::FBS::DesignInterface>> *design_interfaces() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<SNL::FBS::DesignInterface>> *>(VT_DESIGN_INTERFACES);
+  }
+  const flatbuffers::Vector<flatbuffers::Offset<SNL::FBS::DesignImplementation>> *design_implementations() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<SNL::FBS::DesignImplementation>> *>(VT_DESIGN_IMPLEMENTATIONS);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -455,9 +618,12 @@ struct Library FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyOffset(verifier, VT_LIBRARIES) &&
            verifier.VerifyVector(libraries()) &&
            verifier.VerifyVectorOfTables(libraries()) &&
-           VerifyOffset(verifier, VT_DESIGNS) &&
-           verifier.VerifyVector(designs()) &&
-           verifier.VerifyVectorOfTables(designs()) &&
+           VerifyOffset(verifier, VT_DESIGN_INTERFACES) &&
+           verifier.VerifyVector(design_interfaces()) &&
+           verifier.VerifyVectorOfTables(design_interfaces()) &&
+           VerifyOffset(verifier, VT_DESIGN_IMPLEMENTATIONS) &&
+           verifier.VerifyVector(design_implementations()) &&
+           verifier.VerifyVectorOfTables(design_implementations()) &&
            verifier.EndTable();
   }
 };
@@ -478,8 +644,11 @@ struct LibraryBuilder {
   void add_libraries(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<SNL::FBS::Library>>> libraries) {
     fbb_.AddOffset(Library::VT_LIBRARIES, libraries);
   }
-  void add_designs(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<SNL::FBS::Design>>> designs) {
-    fbb_.AddOffset(Library::VT_DESIGNS, designs);
+  void add_design_interfaces(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<SNL::FBS::DesignInterface>>> design_interfaces) {
+    fbb_.AddOffset(Library::VT_DESIGN_INTERFACES, design_interfaces);
+  }
+  void add_design_implementations(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<SNL::FBS::DesignImplementation>>> design_implementations) {
+    fbb_.AddOffset(Library::VT_DESIGN_IMPLEMENTATIONS, design_implementations);
   }
   explicit LibraryBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
@@ -498,9 +667,11 @@ inline flatbuffers::Offset<Library> CreateLibrary(
     flatbuffers::Offset<flatbuffers::String> name = 0,
     SNL::FBS::LibraryType type = SNL::FBS::LibraryType_Standard,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<SNL::FBS::Library>>> libraries = 0,
-    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<SNL::FBS::Design>>> designs = 0) {
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<SNL::FBS::DesignInterface>>> design_interfaces = 0,
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<SNL::FBS::DesignImplementation>>> design_implementations = 0) {
   LibraryBuilder builder_(_fbb);
-  builder_.add_designs(designs);
+  builder_.add_design_implementations(design_implementations);
+  builder_.add_design_interfaces(design_interfaces);
   builder_.add_libraries(libraries);
   builder_.add_name(name);
   builder_.add_id(id);
@@ -514,17 +685,20 @@ inline flatbuffers::Offset<Library> CreateLibraryDirect(
     const char *name = nullptr,
     SNL::FBS::LibraryType type = SNL::FBS::LibraryType_Standard,
     const std::vector<flatbuffers::Offset<SNL::FBS::Library>> *libraries = nullptr,
-    const std::vector<flatbuffers::Offset<SNL::FBS::Design>> *designs = nullptr) {
+    const std::vector<flatbuffers::Offset<SNL::FBS::DesignInterface>> *design_interfaces = nullptr,
+    const std::vector<flatbuffers::Offset<SNL::FBS::DesignImplementation>> *design_implementations = nullptr) {
   auto name__ = name ? _fbb.CreateString(name) : 0;
   auto libraries__ = libraries ? _fbb.CreateVector<flatbuffers::Offset<SNL::FBS::Library>>(*libraries) : 0;
-  auto designs__ = designs ? _fbb.CreateVector<flatbuffers::Offset<SNL::FBS::Design>>(*designs) : 0;
+  auto design_interfaces__ = design_interfaces ? _fbb.CreateVector<flatbuffers::Offset<SNL::FBS::DesignInterface>>(*design_interfaces) : 0;
+  auto design_implementations__ = design_implementations ? _fbb.CreateVector<flatbuffers::Offset<SNL::FBS::DesignImplementation>>(*design_implementations) : 0;
   return SNL::FBS::CreateLibrary(
       _fbb,
       id,
       name__,
       type,
       libraries__,
-      designs__);
+      design_interfaces__,
+      design_implementations__);
 }
 
 struct DB FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {

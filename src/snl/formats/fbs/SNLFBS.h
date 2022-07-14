@@ -17,13 +17,16 @@
 #ifndef __SNL_FBS_H_
 #define __SNL_FBS_H_
 
+#include <filesystem>
+
 namespace naja { namespace SNL {
 
 class SNLDB;
 
 class SNLFBS {
   public:
-    static void dump(const SNLDB* db);
+    static void dump(const SNLDB* db, const std::filesystem::path& dumpPath);
+    static SNLDB* load(const std::filesystem::path& dumpPath);
 };
 
 }} // namespace SNL // namespace naja
