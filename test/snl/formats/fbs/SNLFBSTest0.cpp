@@ -67,4 +67,10 @@ TEST_F(SNLFBSTest0, test0) {
   db_ = nullptr;
   db_ = SNLFBS::load(outPath);
   ASSERT_TRUE(db_);
+  EXPECT_EQ(SNLID::DBID(1), db_->getID());
+  EXPECT_EQ(1, db_->getLibraries().size());
+  auto library = *(db_->getLibraries().begin());
+  ASSERT_TRUE(library);
+  EXPECT_EQ(SNLID::LibraryID(0), library->getID());
+  EXPECT_EQ(SNLName("MYLIB"), library->getName());
 }

@@ -36,7 +36,7 @@ SNLDB::SNLDB(SNLUniverse* universe, SNLID::DBID id):
 SNLDB* SNLDB::create(SNLUniverse* universe) {
   preCreate();
   SNLDB* db = new SNLDB(universe);
-  db->postCreate();
+  db->postCreateAndSetID();
   return db;
 }
 
@@ -61,12 +61,12 @@ void SNLDB::preCreate(SNLID::DBID id) {
   }
 }
 
-void SNLDB::postCreate() {
+void SNLDB::postCreateAndSetID() {
   super::postCreate();
   universe_->addDBAndSetID(this);
 }
 
-void SNLDB::postCreate(SNLID::DBID id) {
+void SNLDB::postCreate() {
   super::postCreate();
   universe_->addDB(this);
 }
@@ -110,8 +110,13 @@ void SNLDB::destroyFromUniverse() {
   delete this;
 }
 
-void SNLDB::addLibrary(SNLLibrary* library) {
+void SNLDB::addLibraryAndSetID(SNLLibrary* library) {
   library->id_ = nextLibraryID_++;
+  libraries_.insert(*library);
+  libraryNameIDMap_[library->getName()] = library->id_;
+}
+
+void SNLDB::addLibrary(SNLLibrary* library) {
   libraries_.insert(*library);
   libraryNameIDMap_[library->getName()] = library->id_;
 }

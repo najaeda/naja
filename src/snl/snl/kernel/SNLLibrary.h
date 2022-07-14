@@ -90,10 +90,11 @@ class SNLLibrary final: public SNLObject {
     }
   private:
     static void preCreate(SNLDB* db, Type type, const SNLName& name);
-    static void preCreate(SNLDB* db, SNLID::LibraryID id, const Type& type, const SNLName& name);
+    static void preCreate(SNLDB* db, SNLID::LibraryID id, const Type type, const SNLName& name);
     static void preCreate(SNLLibrary* parent, Type type, const SNLName& name);
     void destroyFromParent();
     void postCreate();
+    void postCreateAndSetID();
     void commonPreDestroy();
     void preDestroy() override;
 
@@ -101,6 +102,7 @@ class SNLLibrary final: public SNLObject {
     SNLLibrary(SNLDB* db, SNLID::LibraryID libraryID, Type type, const SNLName& name);
     SNLLibrary(SNLLibrary* parent, Type type, const SNLName& name);
 
+    void addLibraryAndSetID(SNLLibrary* library);
     void addLibrary(SNLLibrary* library);
     void removeLibrary(SNLLibrary* library);
     void addDesign(SNLDesign* design);

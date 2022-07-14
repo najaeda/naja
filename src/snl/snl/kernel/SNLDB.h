@@ -62,13 +62,14 @@ class SNLDB final: public SNLObject {
     SNLDB(SNLUniverse* universe, SNLID::DBID id);
     static void preCreate();
     static void preCreate(SNLID::DBID id);
+    void postCreateAndSetID();
     void postCreate();
-    void postCreate(SNLID::DBID id);
     void commonPreDrestroy();
     void preDestroy() override;
     void destroyFromUniverse();
 
     void addLibrary(SNLLibrary* library);
+    void addLibraryAndSetID(SNLLibrary* library);
     void removeLibrary(SNLLibrary* library);
 
     SNLUniverse*                        universe_;
