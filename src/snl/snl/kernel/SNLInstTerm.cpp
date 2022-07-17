@@ -69,6 +69,10 @@ SNLID SNLInstTerm::getSNLID() const {
   return SNLDesignObject::getSNLID(SNLID::Type::InstTerm, getTerm()->getID(), getInstance()->getID(), getTerm()->getBit());
 }
 
+SNLTerm::Direction SNLInstTerm::getDirection() const {
+  return getTerm()->getDirection();
+}
+
 bool SNLInstTerm::isAnonymous() const {
   return getTerm()->isAnonymous();
 }

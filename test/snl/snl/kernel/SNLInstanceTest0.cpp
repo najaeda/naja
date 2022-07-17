@@ -37,9 +37,9 @@ TEST_F(SNLInstanceTest0, testCreation) {
   EXPECT_EQ(SNLID(SNLID::Type::Design, 1, 0, 0, 0, 0, 0), design->getSNLID());
   EXPECT_EQ(SNLID(SNLID::Type::Design, 1, 0, 1, 0, 0, 0), model->getSNLID());
   auto term0 = SNLScalarTerm::create(model, SNLTerm::Direction::Input, SNLName("i0"));
-  auto term1 = SNLBusTerm::create(model, SNLTerm::Direction::Input, 0, 3);
+  auto term1 = SNLBusTerm::create(model, SNLTerm::Direction::Output, 0, 3);
   auto term2 = SNLScalarTerm::create(model, SNLTerm::Direction::Input, SNLName("i1"));
-  auto term3 = SNLScalarTerm::create(model, SNLTerm::Direction::Input, SNLName("i2"));
+  auto term3 = SNLScalarTerm::create(model, SNLTerm::Direction::InOut, SNLName("i2"));
   EXPECT_FALSE(model->getTerms().empty());
   EXPECT_EQ(4, model->getTerms().size());
   EXPECT_THAT(std::vector(model->getTerms().begin(), model->getTerms().end()),
@@ -241,7 +241,7 @@ TEST_F(SNLInstanceTest0, testCreation) {
   EXPECT_EQ(0, instance1->getConnectedInstTerms().size());
   EXPECT_EQ(0, instance2->getConnectedInstTerms().size());
 
-  auto term5 = SNLBusTerm::create(model, SNLTerm::Direction::Input, -2, 3, SNLName("o"));
+  auto term5 = SNLBusTerm::create(model, SNLTerm::Direction::Output, -2, 3, SNLName("o"));
   EXPECT_EQ(6, model->getTerms().size());
   EXPECT_THAT(std::vector(model->getTerms().begin(), model->getTerms().end()),
     ElementsAre(term0, term1, term2, term3, term4, term5));
@@ -346,6 +346,22 @@ TEST_F(SNLInstanceTest0, testCreation) {
     EXPECT_EQ(instTermsVector[11], instance2->getInstTerm(dynamic_cast<SNLBusTerm*>(termsVector[5])->getBit(1)));
     EXPECT_EQ(instTermsVector[12], instance2->getInstTerm(dynamic_cast<SNLBusTerm*>(termsVector[5])->getBit(2)));
     EXPECT_EQ(instTermsVector[13], instance2->getInstTerm(dynamic_cast<SNLBusTerm*>(termsVector[5])->getBit(3)));
+
+     //Verify getDirection
+    EXPECT_EQ(SNLTerm::Direction::Input, instTermsVector[0]->getDirection());
+    EXPECT_EQ(SNLTerm::Direction::Output, instTermsVector[1]->getDirection());
+    EXPECT_EQ(SNLTerm::Direction::Output, instTermsVector[2]->getDirection());
+    EXPECT_EQ(SNLTerm::Direction::Output, instTermsVector[3]->getDirection());
+    EXPECT_EQ(SNLTerm::Direction::Output, instTermsVector[4]->getDirection());
+    EXPECT_EQ(SNLTerm::Direction::Input, instTermsVector[5]->getDirection());
+    EXPECT_EQ(SNLTerm::Direction::InOut, instTermsVector[6]->getDirection());
+    EXPECT_EQ(SNLTerm::Direction::Input, instTermsVector[7]->getDirection());
+    EXPECT_EQ(SNLTerm::Direction::Output, instTermsVector[8]->getDirection());
+    EXPECT_EQ(SNLTerm::Direction::Output, instTermsVector[9]->getDirection());
+    EXPECT_EQ(SNLTerm::Direction::Output, instTermsVector[10]->getDirection());
+    EXPECT_EQ(SNLTerm::Direction::Output, instTermsVector[11]->getDirection());
+    EXPECT_EQ(SNLTerm::Direction::Output, instTermsVector[12]->getDirection());
+    EXPECT_EQ(SNLTerm::Direction::Output, instTermsVector[13]->getDirection());
   }
 
   //destroy some terminals and verify instance terminals
