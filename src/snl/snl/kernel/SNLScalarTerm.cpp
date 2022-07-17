@@ -31,9 +31,24 @@ SNLScalarTerm::SNLScalarTerm(SNLDesign* design, Direction direction, const SNLNa
   direction_(direction)
 {}
 
+SNLScalarTerm::SNLScalarTerm(SNLDesign* design, SNLID::DesignObjectID id, Direction direction, const SNLName& name):
+  super(),
+  design_(design),
+  id_(id),
+  name_(name),
+  direction_(direction)
+{}
+
 SNLScalarTerm* SNLScalarTerm::create(SNLDesign* design, Direction direction, const SNLName& name) {
   preCreate(design, name);
   SNLScalarTerm* net = new SNLScalarTerm(design, direction, name);
+  net->postCreateAndSetID();
+  return net;
+}
+
+SNLScalarTerm* SNLScalarTerm::create(SNLDesign* design, SNLID::DesignObjectID id, Direction direction, const SNLName& name) {
+  preCreate(design, id, name);
+  SNLScalarTerm* net = new SNLScalarTerm(design, id, direction, name);
   net->postCreate();
   return net;
 }
@@ -47,6 +62,19 @@ void SNLScalarTerm::preCreate(SNLDesign* design, const SNLName& name) {
     std::string reason = "SNLDesign " + design->getString() + " contains already a SNLScalarTerm named: " + name.getString();
     throw SNLException(reason);
   }
+}
+
+void SNLScalarTerm::preCreate(SNLDesign* design, SNLID::DesignObjectID id, const SNLName& name) {
+  preCreate(design, name);
+  if (design->getTerm(SNLID::DesignObjectID(id))) {
+    std::string reason = "SNLDesign " + design->getString() + " contains already a SNLScalarTerm with ID: " + std::to_string(id);
+    throw SNLException(reason);
+  }
+}
+
+void SNLScalarTerm::postCreateAndSetID() {
+  super::postCreate();
+  getDesign()->addTermAndSetID(this);
 }
 
 void SNLScalarTerm::postCreate() {

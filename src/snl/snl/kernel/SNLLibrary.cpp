@@ -269,7 +269,7 @@ void SNLLibrary::removeLibrary(SNLLibrary* library) {
   libraries_.erase(*library);
 }
 
-void SNLLibrary::addDesign(SNLDesign* design) {
+void SNLLibrary::addDesignAndSetID(SNLDesign* design) {
   if (designs_.empty()) {
     design->id_ = 0;
   } else {
@@ -278,6 +278,10 @@ void SNLLibrary::addDesign(SNLDesign* design) {
     SNLID::DesignID designID = lastDesign->id_+1;
     design->id_ = designID;
   }
+  addDesign(design);
+}
+
+void SNLLibrary::addDesign(SNLDesign* design) {
   designs_.insert(*design);
   if (not design->isAnonymous()) {
     designNameIDMap_[design->getName()] = design->id_;

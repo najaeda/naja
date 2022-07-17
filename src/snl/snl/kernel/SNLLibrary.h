@@ -105,6 +105,7 @@ class SNLLibrary final: public SNLObject {
     void addLibraryAndSetID(SNLLibrary* library);
     void addLibrary(SNLLibrary* library);
     void removeLibrary(SNLLibrary* library);
+    void addDesignAndSetID(SNLDesign* design);
     void addDesign(SNLDesign* design);
     void removeDesign(SNLDesign* design);
 

@@ -112,8 +112,7 @@ void SNLDB::destroyFromUniverse() {
 
 void SNLDB::addLibraryAndSetID(SNLLibrary* library) {
   library->id_ = nextLibraryID_++;
-  libraries_.insert(*library);
-  libraryNameIDMap_[library->getName()] = library->id_;
+  addLibrary(library);
 }
 
 void SNLDB::addLibrary(SNLLibrary* library) {

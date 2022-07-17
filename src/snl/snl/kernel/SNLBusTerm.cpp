@@ -38,6 +38,22 @@ SNLBusTerm::SNLBusTerm(
   lsb_(lsb)
 {}
 
+SNLBusTerm::SNLBusTerm(
+    SNLDesign* design,
+    SNLID::DesignObjectID id,
+    Direction direction,
+    SNLID::Bit msb,
+    SNLID::Bit lsb,
+    const SNLName& name):
+  super(),
+  design_(design),
+  id_(id),
+  name_(name),
+  direction_(direction),
+  msb_(msb),
+  lsb_(lsb)
+{}
+
 SNLBusTerm* SNLBusTerm::create(
     SNLDesign* design,
     Direction direction,
@@ -46,6 +62,19 @@ SNLBusTerm* SNLBusTerm::create(
     const SNLName& name) {
   preCreate(design, name);
   SNLBusTerm* term = new SNLBusTerm(design, direction, msb, lsb, name);
+  term->postCreateAndSetID();
+  return term;
+}
+
+SNLBusTerm* SNLBusTerm::create(
+    SNLDesign* design,
+    SNLID::DesignObjectID id,
+    Direction direction,
+    SNLID::Bit msb,
+    SNLID::Bit lsb,
+    const SNLName& name) {
+  preCreate(design, name);
+  SNLBusTerm* term = new SNLBusTerm(design, id, direction, msb, lsb, name);
   term->postCreate();
   return term;
 }
@@ -63,14 +92,32 @@ void SNLBusTerm::preCreate(const SNLDesign* design, const SNLName& name) {
   }
 }
 
-void SNLBusTerm::postCreate() {
-  super::postCreate();
-  //create bits
+void SNLBusTerm::preCreate(const SNLDesign* design, SNLID::DesignObjectID id, SNLName& name) {
+  preCreate(design, name);
+  if (design->getTerm(id)) {
+    std::string reason = "cannot create SNLBusTerm with id " + std::to_string(id);
+    reason += "A terminal with this id already exists.";
+    throw SNLException(reason);
+  }
+}
+
+void SNLBusTerm::createBits() {
   bits_.resize(getSize(), nullptr);
   for (size_t i=0; i<getSize(); i++) {
     SNLID::Bit bit = (getMSB()>getLSB())?getMSB()-int(i):getMSB()+int(i);
     bits_[i] = SNLBusTermBit::create(this, bit);
   }
+}
+
+void SNLBusTerm::postCreateAndSetID() {
+  super::postCreate();
+  createBits();
+  getDesign()->addTermAndSetID(this);
+}
+
+void SNLBusTerm::postCreate() {
+  super::postCreate();
+  createBits();
   getDesign()->addTerm(this);
 }
 

@@ -49,19 +49,34 @@ std::string SNLDesign::Type::getString() const {
 SNLDesign* SNLDesign::create(SNLLibrary* library, const SNLName& name) {
   preCreate(library, Type::Standard, name);
   SNLDesign* design = new SNLDesign(library, Type::Standard, name);
-  design->postCreate();
+  design->postCreateAndSetID();
   return design;
 }
 
 SNLDesign* SNLDesign::create(SNLLibrary* library, Type type, const SNLName& name) {
   preCreate(library, type, name);
   SNLDesign* design = new SNLDesign(library, type, name);
+  design->postCreateAndSetID();
+  return design;
+}
+
+SNLDesign* SNLDesign::create(SNLLibrary* library, SNLID::DesignID id, Type type, const SNLName& name) {
+  preCreate(library, id, type, name);
+  SNLDesign* design = new SNLDesign(library, id, type, name);
   design->postCreate();
   return design;
 }
 
 SNLDesign::SNLDesign(SNLLibrary* library, Type type, const SNLName& name):
   super(),
+  name_(name),
+  type_(type),
+  library_(library)
+{}
+
+SNLDesign::SNLDesign(SNLLibrary* library, SNLID::DesignID id, Type type, const SNLName& name):
+  super(),
+  id_(id),
   name_(name),
   type_(type),
   library_(library)
@@ -82,9 +97,23 @@ void SNLDesign::preCreate(const SNLLibrary* library, Type type, const SNLName& n
   }
 }
 
+void SNLDesign::preCreate(const SNLLibrary* library, SNLID::DesignID id, Type type, const SNLName& name) {
+  SNLDesign::preCreate(library, type, name);
+  //test if design with same id exists in library
+  if (library->getDesign(id)) {
+    std::string reason = "SNLLibrary " + library->getString() + " contains already a SNLDesign with ID: " + std::to_string(id);
+    throw SNLException(reason);
+  }
+}
+
 void SNLDesign::postCreate() {
   super::postCreate();
   library_->addDesign(this);
+}
+
+void SNLDesign::postCreateAndSetID() {
+  super::postCreate();
+  library_->addDesignAndSetID(this);
 }
 
 void SNLDesign::commonPreDestroy() {
@@ -144,15 +173,26 @@ void SNLDesign::preDestroy() {
   commonPreDestroy();
 }
 
-void SNLDesign::addTerm(SNLTerm* term) {
-  assert(dynamic_cast<SNLScalarTerm*>(term) or dynamic_cast<SNLBusTerm*>(term));
-
-  if (terms_.empty()) {
+void SNLDesign::addTermAndSetID(SNLTerm* term) {
+ if (terms_.empty()) {
     term->setID(0);
   } else {
     auto it = terms_.rbegin();
     SNLTerm* lastTerm = &(*it);
     SNLID::DesignObjectID termID = lastTerm->getID()+1;
+    term->setID(termID);
+  }
+  addTerm(term);
+}
+
+void SNLDesign::addTerm(SNLTerm* term) {
+  assert(dynamic_cast<SNLScalarTerm*>(term) or dynamic_cast<SNLBusTerm*>(term));
+
+  if (terms_.empty()) {
+    term->setFlatID(0);
+  } else {
+    auto it = terms_.rbegin();
+    SNLTerm* lastTerm = &(*it);
     size_t flatID = 0;
     if (SNLScalarTerm* scalarTerm = dynamic_cast<SNLScalarTerm*>(lastTerm)) {
       flatID = scalarTerm->getFlatID() + 1;
@@ -160,7 +200,6 @@ void SNLDesign::addTerm(SNLTerm* term) {
       SNLBusTerm* busTerm = static_cast<SNLBusTerm*>(lastTerm);
       flatID = busTerm->flatID_ + busTerm->getSize();
     }
-    term->setID(termID);
     term->setFlatID(flatID);
   }
   terms_.insert(*term);
@@ -180,6 +219,8 @@ void SNLDesign::addTerm(SNLTerm* term) {
     }
   }
 }
+
+
 
 void SNLDesign::removeTerm(SNLTerm* term) {
   //Remove corresponding instance terminals in slave instances

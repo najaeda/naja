@@ -77,4 +77,31 @@ TEST_F(SNLFBSTest0, test0) {
   ASSERT_TRUE(library);
   EXPECT_EQ(SNLID::LibraryID(0), library->getID());
   EXPECT_EQ(SNLName("MYLIB"), library->getName());
+  EXPECT_EQ(SNLLibrary::Type::Standard, library->getType());
+  EXPECT_EQ(2, library->getDesigns().size());
+  using Designs = std::vector<SNLDesign*>;
+  Designs designs(library->getDesigns().begin(), library->getDesigns().end());
+  EXPECT_EQ(2, designs.size());
+  auto design0 = designs[0];
+  EXPECT_EQ(SNLID::DesignID(0), design0->getID());
+  EXPECT_EQ(SNLName("design"), design0->getName());
+  EXPECT_EQ(SNLDesign::Type::Standard, design0->getType());
+  EXPECT_EQ(3, design0->getTerms().size());
+  using Terms = std::vector<SNLTerm*>;
+  {
+    Terms terms(design0->getTerms().begin(), design0->getTerms().end());
+    EXPECT_EQ(3, terms.size());
+    auto term0 = terms[0];
+    EXPECT_NE(nullptr, term0);
+    auto scalarTerm0 = dynamic_cast<SNLScalarTerm*>(term0);
+    EXPECT_NE(nullptr, scalarTerm0);
+    EXPECT_EQ(SNLID::DesignObjectID(0), scalarTerm0->getID());
+    EXPECT_EQ(SNLName("i0"), scalarTerm0->getName());
+    EXPECT_EQ(SNLTerm::Direction::Input, scalarTerm0->getDirection());
+  }
+
+  auto design1 = designs[1];
+  EXPECT_EQ(SNLID::DesignID(1), design1->getID());
+  EXPECT_EQ(SNLName("model"), design1->getName());
+  EXPECT_EQ(SNLDesign::Type::Standard, design1->getType());
 }

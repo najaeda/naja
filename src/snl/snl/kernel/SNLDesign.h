@@ -64,6 +64,7 @@ class SNLDesign final: public SNLObject {
 
     static SNLDesign* create(SNLLibrary* library, const SNLName& name=SNLName());
     static SNLDesign* create(SNLLibrary* library, Type type, const SNLName& name=SNLName());
+    static SNLDesign* create(SNLLibrary* library, SNLID::DesignID id, Type type, const SNLName& name=SNLName());
 
     ///\return owning SNLDB
     SNLDB* getDB() const;
@@ -160,12 +161,16 @@ class SNLDesign final: public SNLObject {
     std::string getDescription() const override;
   private:
     SNLDesign(SNLLibrary* library, Type type, const SNLName& name);
+    SNLDesign(SNLLibrary* library, SNLID::DesignID id, Type type, const SNLName& name);
     static void preCreate(const SNLLibrary* library, Type type, const SNLName& name);
+    static void preCreate(const SNLLibrary* library, SNLID::DesignID id, Type type, const SNLName& name);
     void destroyFromLibrary();
+    void postCreateAndSetID();
     void postCreate();
     void commonPreDestroy();
     void preDestroy() override;
     void addTerm(SNLTerm* term);
+    void addTermAndSetID(SNLTerm* term);
     void removeTerm(SNLTerm* term);
     void addInstance(SNLInstance* instance);
     void removeInstance(SNLInstance* instance);

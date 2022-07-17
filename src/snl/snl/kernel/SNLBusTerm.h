@@ -39,6 +39,13 @@ class SNLBusTerm final: public SNLTerm {
         SNLID::Bit msb,
         SNLID::Bit lsb,
         const SNLName& name=SNLName());
+    static SNLBusTerm* create(
+        SNLDesign* design,
+        SNLID::DesignObjectID id,
+        Direction direction,
+        SNLID::Bit msb,
+        SNLID::Bit lsb,
+        const SNLName& name=SNLName());
 
     void setNet(SNLNet* net);
 
@@ -70,8 +77,18 @@ class SNLBusTerm final: public SNLTerm {
         SNLID::Bit msb,
         SNLID::Bit lsb,
         const SNLName& name);
+    SNLBusTerm(
+        SNLDesign* design,
+        SNLID::DesignObjectID id,
+        Direction direction,
+        SNLID::Bit msb,
+        SNLID::Bit lsb,
+        const SNLName& name);
     static void preCreate(const SNLDesign* design, const SNLName& name);
+    static void preCreate(const SNLDesign* design, SNLID::DesignObjectID id, SNLName& name);
+    void createBits();
     void postCreate();
+    void postCreateAndSetID();
     void destroyFromDesign() override;
     void commonPreDestroy();
     void preDestroy() override;
