@@ -27,25 +27,25 @@ namespace naja { namespace SNL {
  * 
  * The following table details the different fields and their characteristics.
  * 
- * Field       | Type           | Size (bytes) | Max value |
- * ------------|----------------|--------------|-----------|
- * Object type | unsigned char  | 1            | 0-255     |
- * DB          | unsigned char  | 1            | 0-255     |
- * Library     | unsigned short | 2            | 0 - 65535 |
- * Design      | unsigned int   | 4            | 0 - 4,294,967,295 |
- * Instance    | unsigned int   | 4            | 0 - 4,294,967,295 |
- * Net object  | unsigned int   | 4            | 0 - 4,294,967,295 |
- * Bit         | unsigned int   | 4            | 0 - 4,294,967,295 |
+ * Field       | Type      | Size (bytes) | Max value |
+ * ------------|-----------|--------------|-----------|
+ * Object type | uint8_t   | 1            | 0-255     |
+ * DB          | uint8_t   | 1            | 0-255     |
+ * Library     | uint16_t  | 2            | 0 - 65535 |
+ * Design      | uint32_t  | 4            | 0 - 4,294,967,295 |
+ * Instance    | uint32_t  | 4            | 0 - 4,294,967,295 |
+ * Net object  | uint32_t  | 4            | 0 - 4,294,967,295 |
+ * Bit         | uint32_t  | 4            | 0 - 4,294,967,295 |
  */
 
 struct SNLID final {
-  enum class Type: unsigned char {DB=1, Library, Design, Term, TermBit, Net, NetBit, Instance, InstTerm};
-  using DBID = unsigned char;
-  using LibraryID = unsigned short;
-  using DesignID = unsigned int;
-  using InstanceID = unsigned int;
-  using DesignObjectID =  unsigned int;
-  using Bit = int; 
+  enum class Type:        uint8_t {DB=1, Library, Design, Term, TermBit, Net, NetBit, Instance, InstTerm};
+  using DBID            = uint8_t;
+  using LibraryID       = uint16_t;
+  using DesignID        = uint32_t;
+  using InstanceID      = uint32_t;
+  using DesignObjectID  = uint32_t;
+  using Bit             = int32_t; 
 
   Type            type_           {0};
   DBID            dbID_           {0};
