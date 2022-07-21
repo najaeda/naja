@@ -95,10 +95,21 @@ bool SNLUniverse::isDB0(const SNLDB* db) {
   return false;
 }
 
-SNLDB* SNLUniverse::getDB(SNLID::DBID id) {
+SNLDB* SNLUniverse::getDB(SNLID::DBID id) const {
   auto it = dbs_.find(SNLID(id), SNLIDComp<SNLDB>());
   if (it != dbs_.end()) {
-    return &*it;
+    return const_cast<SNLDB*>(&*it);
+  }
+  return nullptr;
+}
+
+SNLDesign* SNLUniverse::getDesign(const SNLID::DesignReference& designReference) const {
+  auto db = getDB(designReference.dbID_);
+  if (db) {
+    auto library = db->getLibrary(designReference.libraryID_);
+    if (library) {
+      return library->getDesign(designReference.designID_);
+    }
   }
   return nullptr;
 }

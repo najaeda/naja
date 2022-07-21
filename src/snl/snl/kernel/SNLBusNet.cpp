@@ -45,7 +45,7 @@ SNLBusNet* SNLBusNet::create(
     const SNLName& name) {
   preCreate(design, name);
   SNLBusNet* net = new SNLBusNet(design, msb, lsb, name);
-  net->postCreate();
+  net->postCreateAndSetID();
   return net;
 }
 
@@ -61,9 +61,9 @@ void SNLBusNet::preCreate(const SNLDesign* design, const SNLName& name) {
   }
 }
 
-void SNLBusNet::postCreate() {
+void SNLBusNet::postCreateAndSetID() {
   super::postCreate();
-  getDesign()->addNet(this);
+  getDesign()->addNetAndSetID(this);
   //create bits
   bits_.resize(getSize(), nullptr);
   for (size_t i=0; i<getSize(); i++) {

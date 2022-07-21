@@ -47,6 +47,8 @@ class SNLCapNpTest0: public ::testing::Test {
       SNLScalarTerm::create(model, SNLTerm::Direction::Output, SNLName("o"));
       SNLInstance* instance1 = SNLInstance::create(design, model, SNLName("instance1"));
       SNLInstance* instance2 = SNLInstance::create(design, model, SNLName("instance2"));
+      SNLParameter::create(model, SNLName("Test1"), "Value1");
+      SNLParameter::create(model, SNLName("Test2"), "Value2");
 
       //connections between instances
       instance1->getInstTerm(model->getScalarTerm(SNLName("o")))->setNet(design->getScalarNet(SNLName("n1")));
@@ -93,7 +95,10 @@ TEST_F(SNLCapNpTest0, test0) {
   EXPECT_EQ(SNLID::DesignID(0), design0->getID());
   EXPECT_EQ(SNLName("design"), design0->getName());
   EXPECT_EQ(SNLDesign::Type::Standard, design0->getType());
+  EXPECT_TRUE(design0->getParameters().empty());
   EXPECT_EQ(3, design0->getTerms().size());
+  EXPECT_EQ(3, design0->getNets().size());
+  EXPECT_EQ(2, design0->getInstances().size());
   using Terms = std::vector<SNLTerm*>;
   {
     Terms terms(design0->getTerms().begin(), design0->getTerms().end());
@@ -125,4 +130,15 @@ TEST_F(SNLCapNpTest0, test0) {
   EXPECT_EQ(SNLName("model"), design1->getName());
   EXPECT_EQ(SNLDesign::Type::Standard, design1->getType());
   EXPECT_EQ(2, design1->getTerms().size());
+  {
+    EXPECT_EQ(2, design1->getParameters().size());
+    using Parameters = std::vector<SNLParameter*>;
+    Parameters parameters(design1->getParameters().begin(), design1->getParameters().end());
+    EXPECT_EQ(2, parameters.size());
+    EXPECT_EQ("Test1", parameters[0]->getName().getString());
+    EXPECT_EQ("Value1", parameters[0]->getValue());
+    EXPECT_EQ("Test2", parameters[1]->getName().getString());
+    EXPECT_EQ("Value2", parameters[1]->getValue());
+  }
+
 }

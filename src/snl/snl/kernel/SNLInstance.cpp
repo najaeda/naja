@@ -38,9 +38,24 @@ SNLInstance::SNLInstance(SNLDesign* design, SNLDesign* model, const SNLName& nam
   name_(name)
 {}
 
+SNLInstance::SNLInstance(SNLDesign* design, SNLDesign* model, SNLID::DesignObjectID id, const SNLName& name):
+  super(),
+  design_(design),
+  model_(model),
+  id_(id),
+  name_(name)
+{}
+
 SNLInstance* SNLInstance::create(SNLDesign* design, SNLDesign* model, const SNLName& name) {
   preCreate(design, model, name);
   SNLInstance* instance = new SNLInstance(design, model, name);
+  instance->postCreateAndSetID();
+  return instance;
+}
+
+SNLInstance* SNLInstance::create(SNLDesign* design, SNLDesign* model, SNLID::DesignObjectID id, const SNLName& name) {
+  preCreate(design, model, id, name);
+  SNLInstance* instance = new SNLInstance(design, model, id, name);
   instance->postCreate();
   return instance;
 }
@@ -59,9 +74,15 @@ void SNLInstance::preCreate(SNLDesign* design, const SNLDesign* model, const SNL
   }
 }
 
-void SNLInstance::postCreate() {
-  super::postCreate();
-  getDesign()->addInstance(this);
+void SNLInstance::preCreate(SNLDesign* design, const SNLDesign* model, SNLID::DesignObjectID id, const SNLName& name) {
+  preCreate(design, model, name);
+  if (design->getInstance(id)) {
+    std::string reason = "SNLDesign " + design->getString() + " contains already a SNLInstance with id: " + std::to_string(id);
+    throw SNLException(reason);
+  }
+}
+
+void SNLInstance::commonPostCreate() {
   if (not getModel()->isPrimitive()) {
     //Always execute addSlaveInstance after addInstance.
     //addInstance determines the instance ID.
@@ -78,6 +99,19 @@ void SNLInstance::postCreate() {
       createInstTerm(scalar);
     }
   }
+}
+
+void SNLInstance::postCreateAndSetID() {
+  super::postCreate();
+  getDesign()->addInstanceAndSetID(this);
+  commonPostCreate();
+
+}
+
+void SNLInstance::postCreate() {
+  super::postCreate();
+  getDesign()->addInstance(this);
+  commonPostCreate();
 }
 
 void SNLInstance::createInstTerm(SNLBitTerm* term) {

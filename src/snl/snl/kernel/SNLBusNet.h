@@ -65,7 +65,7 @@ class SNLBusNet final: public SNLNet {
         SNLID::Bit lsb,
         const SNLName& name);
     static void preCreate(const SNLDesign* design, const SNLName& name);
-    void postCreate();
+    void postCreateAndSetID();
     void destroyFromDesign() override;
     void commonPreDestroy();
     void preDestroy() override;

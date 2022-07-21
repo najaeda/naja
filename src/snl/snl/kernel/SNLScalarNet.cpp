@@ -31,9 +31,23 @@ SNLScalarNet::SNLScalarNet(SNLDesign* design, const SNLName& name):
   name_(name)
 {}
 
+SNLScalarNet::SNLScalarNet(SNLDesign* design, SNLID::DesignObjectID id, const SNLName& name):
+  super(),
+  design_(design),
+  id_(id),
+  name_(name)
+{}
+
 SNLScalarNet* SNLScalarNet::create(SNLDesign* design, const SNLName& name) {
   preCreate(design, name);
   SNLScalarNet* net = new SNLScalarNet(design, name);
+  net->postCreateAndSetID();
+  return net;
+}
+
+SNLScalarNet* SNLScalarNet::create(SNLDesign* design, SNLID::DesignObjectID id, const SNLName& name) {
+  preCreate(design, id, name);
+  SNLScalarNet* net = new SNLScalarNet(design, id, name);
   net->postCreate();
   return net;
 }
@@ -47,6 +61,19 @@ void SNLScalarNet::preCreate(const SNLDesign* design, const SNLName& name) {
     std::string reason = "SNLDesign " + design->getString() + " contains already a SNLScalarNet named: " + name.getString();
     throw SNLException(reason);
   }
+}
+
+void SNLScalarNet::preCreate(const SNLDesign* design, SNLID::DesignObjectID id, const SNLName& name) {
+  preCreate(design, name);
+  if (design->getNet(id)) {
+    std::string reason = "SNLDesign " + design->getString() + " contains already a SNLScalarNet with id: " + std::to_string(id);
+    throw SNLException(reason);
+  }
+}
+
+void SNLScalarNet::postCreateAndSetID() {
+  super::postCreate();
+  getDesign()->addNetAndSetID(this);
 }
 
 void SNLScalarNet::postCreate() {

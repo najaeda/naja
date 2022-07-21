@@ -1,6 +1,10 @@
 capnp_generate_cpp(snlInterfaceSources snlInterfaceHeaders snl_interface.capnp)
+capnp_generate_cpp(snlImplementationSources snlImplementationHeaders snl_implementation.capnp)
 
-add_library(naja_snl_capnp ${snlInterfaceSources} SNLCapnP.cpp)
+add_library(naja_snl_capnp
+    ${snlInterfaceSources} ${snlImplementationSources}
+    SNLCapnP.cpp
+    SNLCapnPInterface.cpp SNLCapnPImplementation.cpp)
 
 target_link_libraries(naja_snl_capnp PRIVATE CapnProto::capnp )
 target_link_libraries(naja_snl_capnp PUBLIC naja_snl)

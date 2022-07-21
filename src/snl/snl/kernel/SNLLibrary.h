@@ -60,9 +60,9 @@ class SNLLibrary final: public SNLObject {
     ///\return parent SNLLibrary
     SNLLibrary* getParentLibrary() const;
     ///\return child SNLLibrary with SNLID::LibraryID id
-    SNLLibrary* getLibrary(SNLID::LibraryID id);
+    SNLLibrary* getLibrary(SNLID::LibraryID id) const;
     ///\return child SNLLibrary named name
-    SNLLibrary* getLibrary(const SNLName& name);
+    SNLLibrary* getLibrary(const SNLName& name) const;
     ///\return the collection of sub SNLLibrary
     SNLCollection<SNLLibrary*> getLibraries() const;
     ///\return SNLDesign with SNLID::DesignID id

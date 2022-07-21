@@ -294,7 +294,7 @@ SNLCollection<SNLBitTerm*> SNLDesign::getBitTerms() const {
   return getTerms().getFlatCollection<SNLBusTerm*, SNLBusTermBit*, SNLBitTerm*>(flattener);
 }
 
-void SNLDesign::addInstance(SNLInstance* instance) {
+void SNLDesign::addInstanceAndSetID(SNLInstance* instance) {
   if (instances_.empty()) {
     instance->id_ = 0;
   } else {
@@ -303,6 +303,10 @@ void SNLDesign::addInstance(SNLInstance* instance) {
     SNLID::InstanceID instanceID = lastInstance->id_+1;
     instance->id_ = instanceID;
   }
+  addInstance(instance);
+}
+
+void SNLDesign::addInstance(SNLInstance* instance) {
   instances_.insert(*instance);
   if (not instance->getName().empty()) {
     instanceNameIDMap_[instance->getName()] = instance->id_;
@@ -352,9 +356,7 @@ void SNLDesign::removeSlaveInstance(SNLInstance* instance) {
   slaveInstances_.erase(*instance);
 }
 
-void SNLDesign::addNet(SNLNet* net) {
-  assert(dynamic_cast<SNLScalarNet*>(net) or dynamic_cast<SNLBusNet*>(net));
-
+void SNLDesign::addNetAndSetID(SNLNet* net) {
   if (nets_.empty()) {
     net->setID(0);
   } else {
@@ -363,6 +365,10 @@ void SNLDesign::addNet(SNLNet* net) {
     SNLID::DesignObjectID netID = lastNet->getID()+1;
     net->setID(netID);
   }
+  addNet(net);
+}
+
+void SNLDesign::addNet(SNLNet* net) {
   nets_.insert(*net);
   if (not net->getName().empty()) {
     netNameIDMap_[net->getName()] = net->getID();
@@ -456,6 +462,10 @@ SNLCollection<SNLParameter*> SNLDesign::getParameters() const {
 
 SNLID SNLDesign::getSNLID() const {
   return SNLID(getDB()->getID(), library_->getID(), getID());
+}
+
+SNLID::DesignReference SNLDesign::getReference() const {
+  return SNLID::DesignReference(getDB()->getID(), library_->getID(), getID());
 }
 
 bool SNLDesign::isBetween(int n, int MSB, int LSB) {

@@ -26,13 +26,13 @@ class SNLDB;
 class SNLCapnP {
   public:
     static constexpr std::string_view InterfaceName = "db_interface.snl";
-    //static constexpr std::string_view ImplementationName = "db_implementation.snl";
+    static constexpr std::string_view ImplementationName = "db_implementation.snl";
     static void dump(const SNLDB* db, const std::filesystem::path& dumpPath);
     static SNLDB* load(const std::filesystem::path& dumpPath);
     static void dumpInterface(const SNLDB* snlDB, const std::filesystem::path& interfacePath);
     static SNLDB* loadInterface(const std::filesystem::path& interfacePath);
-    //static void dumpImplementation(const SNLDB* db, const std::filesystem::path& implementationPath);
-    //static SNLDB* loadImplementation(const std::filesystem::path& implementationPath);
+    static void dumpImplementation(const SNLDB* db, const std::filesystem::path& implementationPath);
+    static SNLDB* loadImplementation(const std::filesystem::path& implementationPath);
 };
 
 }} // namespace SNL // namespace naja

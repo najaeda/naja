@@ -143,6 +143,7 @@ class SNLDesign final: public SNLObject {
 
     SNLID::DesignID getID() const { return id_; }
     SNLID getSNLID() const;
+    SNLID::DesignReference getReference() const;
 
     SNLName getName() const { return name_; }
     bool isAnonymous() const { return name_.empty(); }
@@ -173,10 +174,12 @@ class SNLDesign final: public SNLObject {
     void addTermAndSetID(SNLTerm* term);
     void removeTerm(SNLTerm* term);
     void addInstance(SNLInstance* instance);
+    void addInstanceAndSetID(SNLInstance* instance);
     void removeInstance(SNLInstance* instance);
     void addSlaveInstance(SNLInstance* instance);
     void removeSlaveInstance(SNLInstance* instance);
     void addNet(SNLNet* net);
+    void addNetAndSetID(SNLNet* net);
     void removeNet(SNLNet* net);
     void addParameter(SNLParameter* parameter);
     void removeParameter(SNLParameter* parameter);

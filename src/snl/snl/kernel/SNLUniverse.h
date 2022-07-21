@@ -44,8 +44,11 @@ class SNLUniverse final: public SNLObject {
     ///\return the collection of user SNLDB
     SNLCollection<SNLDB*> getUserDBs() const;
 
-    ///\return the SNLDB with SNLID::DBID:id or null if it does not exist
-    SNLDB* getDB(SNLID::DBID id);
+    ///\return the SNLDB with SNLID::DBID id or null if it does not exist
+    SNLDB* getDB(SNLID::DBID id) const;
+
+    ///\return the SNLDesign with SNLID::DesignReference reference or null if it does not exist
+    SNLDesign* getDesign(const SNLID::DesignReference& designReference) const;
 
     static bool isDB0(const SNLDB* db);
     

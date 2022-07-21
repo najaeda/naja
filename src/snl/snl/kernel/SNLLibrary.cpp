@@ -205,15 +205,15 @@ SNLLibrary* SNLLibrary::getParentLibrary() const {
   return nullptr;
 }
 
-SNLLibrary* SNLLibrary::getLibrary(SNLID::LibraryID id) {
+SNLLibrary* SNLLibrary::getLibrary(SNLID::LibraryID id) const {
   auto it = libraries_.find(SNLID(getDB()->getID(), id), SNLIDComp<SNLLibrary>());
   if (it != libraries_.end()) {
-    return &*it;
+    return const_cast<SNLLibrary*>(&*it);
   }
   return nullptr;
 }
 
-SNLLibrary* SNLLibrary::getLibrary(const SNLName& name) {
+SNLLibrary* SNLLibrary::getLibrary(const SNLName& name) const {
   auto lit = libraryNameIDMap_.find(name);
   if (lit != libraryNameIDMap_.end()) {
     SNLID::LibraryID id = lit->second;
