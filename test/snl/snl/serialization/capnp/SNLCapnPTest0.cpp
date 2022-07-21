@@ -97,7 +97,7 @@ TEST_F(SNLCapNpTest0, test0) {
   EXPECT_EQ(SNLDesign::Type::Standard, design0->getType());
   EXPECT_TRUE(design0->getParameters().empty());
   EXPECT_EQ(3, design0->getTerms().size());
-  EXPECT_EQ(3, design0->getNets().size());
+  EXPECT_EQ(4, design0->getNets().size());
   EXPECT_EQ(2, design0->getInstances().size());
   using Terms = std::vector<SNLTerm*>;
   {
@@ -123,6 +123,38 @@ TEST_F(SNLCapNpTest0, test0) {
     EXPECT_EQ(SNLID::DesignObjectID(2), scalarTerm1->getID());
     EXPECT_EQ(SNLName("o2"), scalarTerm1->getName());
     EXPECT_EQ(SNLTerm::Direction::InOut, scalarTerm1->getDirection());
+  }
+  
+  using Nets = std::vector<SNLNet*>;
+  {
+    Nets nets(design0->getNets().begin(), design0->getNets().end());
+    EXPECT_EQ(4, nets.size());
+    EXPECT_NE(nullptr, nets[0]);
+    auto scalarNet0 = dynamic_cast<SNLScalarNet*>(nets[0]);
+    EXPECT_NE(nullptr, scalarNet0);
+    EXPECT_EQ(SNLID::DesignObjectID(0), scalarNet0->getID());
+    EXPECT_TRUE(scalarNet0->isAnonymous());
+
+    EXPECT_NE(nullptr, nets[1]);
+    auto busNet1 = dynamic_cast<SNLBusNet*>(nets[1]);
+    EXPECT_NE(nullptr, busNet1);
+    EXPECT_EQ(SNLID::DesignObjectID(1), busNet1->getID());
+    EXPECT_TRUE(busNet1->isAnonymous());
+    EXPECT_EQ(31, busNet1->getMSB());
+    EXPECT_EQ(0, busNet1->getLSB());
+
+    EXPECT_NE(nullptr, nets[2]);
+    auto scalarNet2 = dynamic_cast<SNLScalarNet*>(nets[2]);
+    EXPECT_NE(nullptr, scalarNet2);
+    EXPECT_EQ(SNLID::DesignObjectID(2), scalarNet2->getID());
+    EXPECT_TRUE(scalarNet2->isAnonymous());
+
+    EXPECT_NE(nullptr, nets[3]);
+    auto scalarNet3 = dynamic_cast<SNLScalarNet*>(nets[3]);
+    EXPECT_NE(nullptr, scalarNet3);
+    EXPECT_EQ(SNLID::DesignObjectID(3), scalarNet3->getID());
+    EXPECT_FALSE(scalarNet3->isAnonymous());
+    EXPECT_EQ(SNLName("n1"), scalarNet3->getName());
   }
 
   auto design1 = designs[1];

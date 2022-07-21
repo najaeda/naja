@@ -131,15 +131,24 @@ void loadInstance(
   SNLInstance::create(design, model, SNLID::DesignObjectID(instanceID), snlName);
 }
 
-void loadScalarNet(
+void loadBusNet(
   SNLDesign* design,
-  const DBImplementation::LibraryImplementation::DesignImplementation::ScalarNet::Reader& net) {
-  auto netID = net.getId();
+  const DBImplementation::LibraryImplementation::DesignImplementation::BusNet::Reader& net) {
   SNLName snlName;
   if (net.hasName()) {
     snlName = SNLName(net.getName());
   }
-  SNLScalarNet::create(design, SNLID::DesignObjectID(netID), snlName);
+  SNLBusNet::create(design, SNLID::DesignObjectID(net.getId()), net.getMsb(), net.getLsb(), snlName);
+}
+
+void loadScalarNet(
+  SNLDesign* design,
+  const DBImplementation::LibraryImplementation::DesignImplementation::ScalarNet::Reader& net) {
+  SNLName snlName;
+  if (net.hasName()) {
+    snlName = SNLName(net.getName());
+  }
+  SNLScalarNet::create(design, SNLID::DesignObjectID(net.getId()), snlName);
 }
 
 void loadDesignImplementation(
@@ -162,7 +171,7 @@ void loadDesignImplementation(
         loadScalarNet(snlDesign, scalarNet);
       } else if (net.isBusNet()) {
         auto busNet = net.getBusNet();
-        //loadBusNet(snlDesign, busNet);
+        loadBusNet(snlDesign, busNet);
       }
     }
   }
