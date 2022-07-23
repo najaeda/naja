@@ -49,8 +49,9 @@ struct DBImplementation {
       }
 
       struct ScalarNet {
-        id        @0 : UInt32 = 0;
-        name      @1 : Text;
+        id          @0 : UInt32 = 0;
+        name        @1 : Text;
+        components  @2 : List(NetComponentReference);
       }
 
       struct BusNet {
@@ -58,6 +59,30 @@ struct DBImplementation {
         name      @1 : Text;
         msb       @2 : Int32; 
         lsb       @3 : Int32;
+        bits      @4 : List(BusNetBit);
+      }
+
+      struct BusNetBit {
+        bit         @0 : UInt32;    
+        components  @1 : List(NetComponentReference);
+      }
+
+      struct NetComponentReference {
+        union {
+          termReference     @0 : TermReference;
+          instTermReference @1 : InstTermReference;
+        }
+      }
+
+      struct TermReference {
+        termID  @0 : UInt32;
+        bit     @1 : UInt32;    
+      }
+
+      struct InstTermReference {
+        instanceID  @0 : UInt32;
+        termID      @1 : UInt32;
+        bit         @2 : UInt32;    
       }
     }
   }

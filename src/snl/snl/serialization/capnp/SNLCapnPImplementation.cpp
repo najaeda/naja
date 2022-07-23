@@ -26,6 +26,11 @@
 #include "SNLUniverse.h"
 #include "SNLScalarNet.h"
 #include "SNLBusNet.h"
+#include "SNLBusNetBit.h"
+#include "SNLScalarTerm.h"
+#include "SNLBusTerm.h"
+#include "SNLBusTermBit.h"
+#include "SNLInstTerm.h"
 
 namespace {
 
@@ -47,6 +52,39 @@ void dumpInstance(
   instance.setModelReference(modelReferenceBuilder);
 }
 
+void dumpBitTermReference(
+  DBImplementation::LibraryImplementation::DesignImplementation::NetComponentReference::Builder& componentReference,
+  const SNLBitTerm* term) {
+  auto termRefenceBuilder = componentReference.initTermReference();
+  termRefenceBuilder.setTermID(term->getID());
+  if (auto busTermBit = dynamic_cast<const SNLBusTermBit*>(term)) {
+    termRefenceBuilder.setBit(busTermBit->getBit());
+  }
+}
+
+void dumpInstTermReference(
+  DBImplementation::LibraryImplementation::DesignImplementation::NetComponentReference::Builder& componentReference,
+  const SNLInstTerm* instTerm) {
+  auto instTermRefenceBuilder = componentReference.initInstTermReference();
+  instTermRefenceBuilder.setInstanceID(instTerm->getInstance()->getID());
+  auto term = instTerm->getTerm();
+  instTermRefenceBuilder.setTermID(term->getID());
+  if (auto busTermBit = dynamic_cast<const SNLBusTermBit*>(term)) {
+    instTermRefenceBuilder.setBit(busTermBit->getBit());
+  }
+}
+
+void dumpNetComponentReference(
+  DBImplementation::LibraryImplementation::DesignImplementation::NetComponentReference::Builder& componentReference,
+  const SNLNetComponent* component) {
+  if (auto instTerm = dynamic_cast<const SNLInstTerm*>(component)) {
+    dumpInstTermReference(componentReference, instTerm);
+  } else {
+    auto term = dynamic_cast<const SNLBitTerm*>(component);
+    dumpBitTermReference(componentReference, term);
+  }
+}
+
 void dumpScalarNet(
   DBImplementation::LibraryImplementation::DesignImplementation::Net::Builder& net,
   const SNLScalarNet* scalarNet) {
@@ -54,6 +92,30 @@ void dumpScalarNet(
   scalarNetBuilder.setId(scalarNet->getID());
   if (not scalarNet->isAnonymous()) {
     scalarNetBuilder.setName(scalarNet->getName().getString());
+  }
+  size_t componentsSize = scalarNet->getComponents().size();
+  if (componentsSize > 0) {
+    auto components = scalarNetBuilder.initComponents(componentsSize);
+    size_t id = 0;
+    for (auto component: scalarNet->getComponents()) {
+      auto componentRefBuilder = components[id++];
+      dumpNetComponentReference(componentRefBuilder, component);
+    }
+  }
+}
+
+void dumpBusNetBit(
+  DBImplementation::LibraryImplementation::DesignImplementation::BusNetBit::Builder& bit,
+  const SNLBusNetBit* busNetBit) {
+  bit.setBit(busNetBit->getBit());
+  size_t componentsSize = busNetBit->getComponents().size();
+  if (componentsSize > 0) {
+    auto components = bit.initComponents(componentsSize);
+    size_t id = 0;
+    for (auto component: busNetBit->getComponents()) {
+      auto componentRefBuilder = components[id++];
+      dumpNetComponentReference(componentRefBuilder, component);
+    }
   }
 }
 
@@ -67,6 +129,12 @@ void dumpBusNet(
   }
   busNetBuilder.setMsb(busNet->getMSB());
   busNetBuilder.setLsb(busNet->getLSB());
+  auto bits = busNetBuilder.initBits(busNet->getBits().size());
+  size_t id = 0;
+  for (auto bit: busNet->getBits()) {
+    auto bitBuilder = bits[id++];
+    dumpBusNetBit(bitBuilder, bit);
+  }
 }
 
 void dumpDesignImplementation(
@@ -131,6 +199,62 @@ void loadInstance(
   SNLInstance::create(design, model, SNLID::DesignObjectID(instanceID), snlName);
 }
 
+void loadTermReference(
+  SNLBitNet* net,
+  const DBImplementation::LibraryImplementation::DesignImplementation::TermReference::Reader& termReference) {
+  auto design = net->getDesign();
+  auto term = design->getTerm(SNLID::DesignObjectID(termReference.getTermID()));
+  if (not term) {
+    //throw error
+  }
+  if (auto scalarTerm = dynamic_cast<SNLScalarTerm*>(term)) {
+    scalarTerm->setNet(net);
+  } else {
+    auto busTerm = static_cast<SNLBusTerm*>(term);
+    if (not busTerm) {
+      //throw error
+    }
+    auto busTermBit = busTerm->getBit(termReference.getBit());
+    if (not busTermBit) {
+      //throw error
+    }
+    busTermBit->setNet(net);
+  }
+}
+
+void loadInstTermReference(
+  SNLBitNet* net,
+  const DBImplementation::LibraryImplementation::DesignImplementation::InstTermReference::Reader& instTermReference) {
+  auto instanceID = instTermReference.getInstanceID();
+  auto design = net->getDesign();
+  auto instance = design->getInstance(SNLID::InstanceID(instanceID));
+  if (not instance) {
+    //throw error
+  }
+  auto model = instance->getModel();
+  auto termID = instTermReference.getTermID();
+  auto term = model->getTerm(SNLID::DesignObjectID(termID));
+  if (not term) {
+    //throw error
+  }
+  SNLBitTerm* bitTerm = dynamic_cast<SNLScalarTerm*>(term);
+  if (not bitTerm) {
+    auto busTerm = static_cast<SNLBusTerm*>(term);
+    if (not busTerm) {
+      //throw error
+    }
+    bitTerm = busTerm->getBit(instTermReference.getBit());
+    if (not bitTerm) {
+      //throw error
+    }
+  }
+  auto instTerm = instance->getInstTerm(bitTerm);
+  if (not instTerm) {
+    //throw error
+  }
+  instTerm->setNet(net);
+}
+
 void loadBusNet(
   SNLDesign* design,
   const DBImplementation::LibraryImplementation::DesignImplementation::BusNet::Reader& net) {
@@ -138,7 +262,27 @@ void loadBusNet(
   if (net.hasName()) {
     snlName = SNLName(net.getName());
   }
-  SNLBusNet::create(design, SNLID::DesignObjectID(net.getId()), net.getMsb(), net.getLsb(), snlName);
+  auto busNet = SNLBusNet::create(design, SNLID::DesignObjectID(net.getId()), net.getMsb(), net.getLsb(), snlName);
+  if (net.hasBits()) {
+    for (auto bitNet: net.getBits()) {
+      if (bitNet.hasComponents()) {
+        auto bit = bitNet.getBit();
+        auto busNetBit = busNet->getBit(bit);
+        if (not busNetBit) {
+          //throw error
+        }
+        for (auto componentReference: bitNet.getComponents()) {
+          if (componentReference.isInstTermReference()) {
+            loadInstTermReference(busNetBit, componentReference.getInstTermReference());
+          } else if (componentReference.isTermReference()) {
+            loadTermReference(busNetBit, componentReference.getTermReference());
+          } else {
+            //throw error
+          }
+        }
+      }
+    }
+  }
 }
 
 void loadScalarNet(
@@ -148,7 +292,18 @@ void loadScalarNet(
   if (net.hasName()) {
     snlName = SNLName(net.getName());
   }
-  SNLScalarNet::create(design, SNLID::DesignObjectID(net.getId()), snlName);
+  auto scalarNet = SNLScalarNet::create(design, SNLID::DesignObjectID(net.getId()), snlName);
+  if (net.hasComponents()) {
+    for (auto componentReference: net.getComponents()) {
+      if (componentReference.isInstTermReference()) {
+        loadInstTermReference(scalarNet, componentReference.getInstTermReference());
+      } else if (componentReference.isTermReference()) {
+        loadTermReference(scalarNet, componentReference.getTermReference());
+      } else {
+        //throw error
+      }
+    }
+  }
 }
 
 void loadDesignImplementation(
@@ -172,6 +327,8 @@ void loadDesignImplementation(
       } else if (net.isBusNet()) {
         auto busNet = net.getBusNet();
         loadBusNet(snlDesign, busNet);
+      } else {
+        //throw error
       }
     }
   }

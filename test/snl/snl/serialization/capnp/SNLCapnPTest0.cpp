@@ -7,8 +7,10 @@
 #include "SNLDB.h"
 #include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
+#include "SNLBusTermBit.h"
 #include "SNLScalarNet.h"
 #include "SNLBusNet.h"
+#include "SNLBusNetBit.h"
 #include "SNLInstTerm.h"
 
 #include "SNLCapnP.h"
@@ -99,33 +101,8 @@ TEST_F(SNLCapNpTest0, test0) {
   EXPECT_EQ(3, design0->getTerms().size());
   EXPECT_EQ(4, design0->getNets().size());
   EXPECT_EQ(2, design0->getInstances().size());
-  using Terms = std::vector<SNLTerm*>;
-  {
-    Terms terms(design0->getTerms().begin(), design0->getTerms().end());
-    EXPECT_EQ(3, terms.size());
-    EXPECT_NE(nullptr, terms[0]);
-    auto scalarTerm0 = dynamic_cast<SNLScalarTerm*>(terms[0]);
-    EXPECT_NE(nullptr, scalarTerm0);
-    EXPECT_EQ(SNLID::DesignObjectID(0), scalarTerm0->getID());
-    EXPECT_EQ(SNLName("i"), scalarTerm0->getName());
-    EXPECT_EQ(SNLTerm::Direction::Input, scalarTerm0->getDirection());
-
-    EXPECT_NE(nullptr, terms[1]);
-    auto busTerm1 = dynamic_cast<SNLBusTerm*>(terms[1]);
-    EXPECT_NE(nullptr, busTerm1);
-    EXPECT_EQ(SNLID::DesignObjectID(1), busTerm1->getID());
-    EXPECT_EQ(SNLName("o1"), busTerm1->getName());
-    EXPECT_EQ(SNLTerm::Direction::Output, busTerm1->getDirection());
-
-    EXPECT_NE(nullptr, terms[2]);
-    auto scalarTerm1 = dynamic_cast<SNLScalarTerm*>(terms[2]);
-    EXPECT_NE(nullptr, scalarTerm1);
-    EXPECT_EQ(SNLID::DesignObjectID(2), scalarTerm1->getID());
-    EXPECT_EQ(SNLName("o2"), scalarTerm1->getName());
-    EXPECT_EQ(SNLTerm::Direction::InOut, scalarTerm1->getDirection());
-  }
-  
   using Nets = std::vector<SNLNet*>;
+  using Terms = std::vector<SNLTerm*>;
   {
     Nets nets(design0->getNets().begin(), design0->getNets().end());
     EXPECT_EQ(4, nets.size());
@@ -155,6 +132,36 @@ TEST_F(SNLCapNpTest0, test0) {
     EXPECT_EQ(SNLID::DesignObjectID(3), scalarNet3->getID());
     EXPECT_FALSE(scalarNet3->isAnonymous());
     EXPECT_EQ(SNLName("n1"), scalarNet3->getName());
+
+    Terms terms(design0->getTerms().begin(), design0->getTerms().end());
+    EXPECT_EQ(3, terms.size());
+    EXPECT_NE(nullptr, terms[0]);
+    auto scalarTerm0 = dynamic_cast<SNLScalarTerm*>(terms[0]);
+    EXPECT_NE(nullptr, scalarTerm0);
+    EXPECT_EQ(SNLID::DesignObjectID(0), scalarTerm0->getID());
+    EXPECT_EQ(SNLName("i"), scalarTerm0->getName());
+    EXPECT_EQ(SNLTerm::Direction::Input, scalarTerm0->getDirection());
+    EXPECT_NE(nullptr, scalarTerm0->getNet());
+    EXPECT_EQ(scalarNet0, scalarTerm0->getNet());
+
+    EXPECT_NE(nullptr, terms[1]);
+    auto busTerm1 = dynamic_cast<SNLBusTerm*>(terms[1]);
+    EXPECT_NE(nullptr, busTerm1);
+    EXPECT_EQ(SNLID::DesignObjectID(1), busTerm1->getID());
+    EXPECT_EQ(SNLName("o1"), busTerm1->getName());
+    EXPECT_EQ(SNLTerm::Direction::Output, busTerm1->getDirection());
+    EXPECT_EQ(31, busTerm1->getMSB());
+    EXPECT_EQ(0, busTerm1->getLSB());
+    for (size_t bit=0; bit<32; bit++) {
+      EXPECT_EQ(busNet1->getBit(bit), busTerm1->getBit(bit)->getNet());
+    }
+
+    EXPECT_NE(nullptr, terms[2]);
+    auto scalarTerm1 = dynamic_cast<SNLScalarTerm*>(terms[2]);
+    EXPECT_NE(nullptr, scalarTerm1);
+    EXPECT_EQ(SNLID::DesignObjectID(2), scalarTerm1->getID());
+    EXPECT_EQ(SNLName("o2"), scalarTerm1->getName());
+    EXPECT_EQ(SNLTerm::Direction::InOut, scalarTerm1->getDirection());
   }
 
   auto design1 = designs[1];
