@@ -35,7 +35,7 @@ namespace naja { namespace SNL {
  * Design      | uint32_t  | 4            | 0 - 4,294,967,295 |
  * Instance    | uint32_t  | 4            | 0 - 4,294,967,295 |
  * Net object  | uint32_t  | 4            | 0 - 4,294,967,295 |
- * Bit         | uint32_t  | 4            | 0 - 4,294,967,295 |
+ * Bit         | int32_t   | 4            | 0 - 4,294,967,295 |
  */
 
 struct SNLID final {
