@@ -42,8 +42,8 @@ jobs:
       run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./snlTests
 
     - name: TestSNLDump
-      working-directory: ${{github.workspace}}/build/test/snl/snl/dump
-      run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./snlDumpTests
+      working-directory: ${{github.workspace}}/build/test/snl/snl/serialization/capnp
+      run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./snlCapnPTests
 
     - name: TestSNLNetlists
       working-directory: ${{github.workspace}}/build/test/snl/netlists
