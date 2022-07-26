@@ -18,6 +18,9 @@
 
 #include <fcntl.h>
 
+#include <cassert>
+#include <sstream>
+
 #include <capnp/message.h>
 #include <capnp/serialize-packed.h>
 
@@ -31,6 +34,7 @@
 #include "SNLBusTerm.h"
 #include "SNLBusTermBit.h"
 #include "SNLInstTerm.h"
+#include "SNLException.h"
 
 namespace {
 
@@ -193,7 +197,9 @@ void loadInstance(
     SNLID::DesignReference(modelReference.getDbID(), modelReference.getLibraryID(), modelReference.getDesignID());
   auto model = SNLUniverse::get()->getDesign(snlModelReference);
   if (not model) {
-    //throw error
+    std::ostringstream reason;
+    reason << "cannot deserialize instance: no model found with provided reference";
+    throw SNLException(reason.str());
   }
   SNLInstance::create(design, model, SNLID::DesignObjectID(instanceID), snlName);
 }
@@ -204,18 +210,20 @@ void loadTermReference(
   auto design = net->getDesign();
   auto term = design->getTerm(SNLID::DesignObjectID(termReference.getTermID()));
   if (not term) {
-    //throw error
+    std::ostringstream reason;
+    reason << "cannot deserialize term reference: no term found with provided reference";
+    throw SNLException(reason.str());
   }
   if (auto scalarTerm = dynamic_cast<SNLScalarTerm*>(term)) {
     scalarTerm->setNet(net);
   } else {
     auto busTerm = static_cast<SNLBusTerm*>(term);
-    if (not busTerm) {
-      //throw error
-    }
+    assert(busTerm);
     auto busTermBit = busTerm->getBit(termReference.getBit());
     if (not busTermBit) {
-      //throw error
+      std::ostringstream reason;
+      reason << "cannot deserialize term reference: no bus term bit found with provided reference";
+      throw SNLException(reason.str());
     }
     busTermBit->setNet(net);
   }
@@ -228,29 +236,31 @@ void loadInstTermReference(
   auto design = net->getDesign();
   auto instance = design->getInstance(SNLID::InstanceID(instanceID));
   if (not instance) {
-    //throw error
+    std::ostringstream reason;
+    reason << "cannot deserialize instance term reference: no instance found with provided reference";
+    throw SNLException(reason.str());
   }
   auto model = instance->getModel();
   auto termID = instTermReference.getTermID();
   auto term = model->getTerm(SNLID::DesignObjectID(termID));
   if (not term) {
-    //throw error
+    std::ostringstream reason;
+    reason << "cannot deserialize instance term reference: no instance found with provided reference";
+    throw SNLException(reason.str());
   }
   SNLBitTerm* bitTerm = dynamic_cast<SNLScalarTerm*>(term);
   if (not bitTerm) {
     auto busTerm = static_cast<SNLBusTerm*>(term);
-    if (not busTerm) {
-      //throw error
-    }
+    assert(busTerm);
     bitTerm = busTerm->getBit(instTermReference.getBit());
     if (not bitTerm) {
-      //throw error
+      std::ostringstream reason;
+      reason << "cannot deserialize instance term reference: no bit found in bus term with provided reference";
+      throw SNLException(reason.str());
     }
   }
   auto instTerm = instance->getInstTerm(bitTerm);
-  if (not instTerm) {
-    //throw error
-  }
+  assert(instTerm);
   instTerm->setNet(net);
 }
 
@@ -268,15 +278,15 @@ void loadBusNet(
         auto bit = bitNet.getBit();
         auto busNetBit = busNet->getBit(bit);
         if (not busNetBit) {
-          //throw error
+          std::ostringstream reason;
+          reason << "cannot deserialize bus net bit: no bit found in bus term with provided reference";
+          throw SNLException(reason.str());
         }
         for (auto componentReference: bitNet.getComponents()) {
           if (componentReference.isInstTermReference()) {
             loadInstTermReference(busNetBit, componentReference.getInstTermReference());
           } else if (componentReference.isTermReference()) {
             loadTermReference(busNetBit, componentReference.getTermReference());
-          } else {
-            //throw error
           }
         }
       }
@@ -298,8 +308,6 @@ void loadScalarNet(
         loadInstTermReference(scalarNet, componentReference.getInstTermReference());
       } else if (componentReference.isTermReference()) {
         loadTermReference(scalarNet, componentReference.getTermReference());
-      } else {
-        //throw error
       }
     }
   }
@@ -311,7 +319,9 @@ void loadDesignImplementation(
   auto designID = designImplementation.getId();
   SNLDesign* snlDesign = library->getDesign(SNLID::DesignID(designID));
   if (not snlDesign) {
-    //throw error
+    std::ostringstream reason;
+    reason << "cannot deserialize design: no bit found in bus term with provided reference";
+    throw SNLException(reason.str());
   }
   if (designImplementation.hasInstances()) {
     for (auto instance: designImplementation.getInstances()) {
@@ -326,9 +336,7 @@ void loadDesignImplementation(
       } else if (net.isBusNet()) {
         auto busNet = net.getBusNet();
         loadBusNet(snlDesign, busNet);
-      } else {
-        //throw error
-      }
+      } 
     }
   }
 }
@@ -337,7 +345,9 @@ void loadLibraryImplementation(SNLDB* db, const DBImplementation::LibraryImpleme
   auto libraryID = libraryImplementation.getId();
   SNLLibrary* snlLibrary = db->getLibrary(SNLID::LibraryID(libraryID));
   if (not snlLibrary) {
-    //throw error
+    std::ostringstream reason;
+    reason << "cannot deserialize library: no library found in db with provided reference";
+    throw SNLException(reason.str());
   }
   if (libraryImplementation.hasDesignImplementations()) {
     for (auto designImplementation: libraryImplementation.getDesignImplementations()) {
@@ -380,7 +390,9 @@ SNLDB* SNLCapnP::loadImplementation(const std::filesystem::path& implementationP
   auto dbID = dbImplementation.getId();
   auto universe = SNLUniverse::get();
   if (not universe) {
-    //throw error
+    std::ostringstream reason;
+    reason << "cannot deserialize DB implementation: no existing universe";
+    throw SNLException(reason.str());
   }
   auto snldb = universe->getDB(dbID);
   if (dbImplementation.hasLibraryImplementations()) {
