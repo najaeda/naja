@@ -23,9 +23,10 @@ jobs:
       with:
         fetch-depth: 0
         submodules: true
-    # install dependencies
-    - name: boost
-      run: sudo apt-get update && sudo apt-get install -yq libboost-dev && sudo apt-get install -yq valgrind
+
+    - name: Install boost & capnproto & valgrind
+      # install dependencies
+      run: sudo apt-get update && sudo apt-get install -yq libboost-dev capnproto libcapnp-dev valgrind
       
     - name: Configure CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
