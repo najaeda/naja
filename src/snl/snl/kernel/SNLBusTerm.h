@@ -85,7 +85,7 @@ class SNLBusTerm final: public SNLTerm {
         SNLID::Bit lsb,
         const SNLName& name);
     static void preCreate(const SNLDesign* design, const SNLName& name);
-    static void preCreate(const SNLDesign* design, SNLID::DesignObjectID id, SNLName& name);
+    static void preCreate(const SNLDesign* design, SNLID::DesignObjectID id, const SNLName& name);
     void createBits();
     void postCreate();
     void postCreateAndSetID();

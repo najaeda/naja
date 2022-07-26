@@ -73,7 +73,7 @@ SNLBusTerm* SNLBusTerm::create(
     SNLID::Bit msb,
     SNLID::Bit lsb,
     const SNLName& name) {
-  preCreate(design, name);
+  preCreate(design, id, name);
   SNLBusTerm* term = new SNLBusTerm(design, id, direction, msb, lsb, name);
   term->postCreate();
   return term;
@@ -92,7 +92,7 @@ void SNLBusTerm::preCreate(const SNLDesign* design, const SNLName& name) {
   }
 }
 
-void SNLBusTerm::preCreate(const SNLDesign* design, SNLID::DesignObjectID id, SNLName& name) {
+void SNLBusTerm::preCreate(const SNLDesign* design, SNLID::DesignObjectID id, const SNLName& name) {
   preCreate(design, name);
   if (design->getTerm(id)) {
     std::string reason = "cannot create SNLBusTerm with id " + std::to_string(id);

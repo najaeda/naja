@@ -179,18 +179,18 @@ TEST_F(SNLTermTest, testSetNetErrors) {
 
   //With scalar net
   SNLNet* net = SNLScalarNet::create(design, SNLName("n0"));
-  ASSERT_THROW(term0->setNet(net), SNLException);
+  EXPECT_THROW(term0->setNet(net), SNLException);
   net->destroy();
  
   //different size SNLBusNet case
   net = SNLBusNet::create(design, 0, 2, SNLName("n0"));
-  ASSERT_THROW(term0->setNet(net), SNLException);
+  EXPECT_THROW(term0->setNet(net), SNLException);
   net->destroy();
 
   //other design
   auto other = SNLDesign::create(library, SNLName("other"));
   SNLNet* otherNet = SNLScalarNet::create(other, SNLName("n0"));
-  ASSERT_THROW(term0->setNet(otherNet), SNLException);
+  EXPECT_THROW(term0->setNet(otherNet), SNLException);
 }
 
 TEST_F(SNLTermTest, testErrors) {
@@ -208,4 +208,6 @@ TEST_F(SNLTermTest, testErrors) {
   ASSERT_NE(nullptr, term1);
   EXPECT_THROW(SNLBusTerm::create(design, SNLTerm::Direction::Input, 31, 0, SNLName("term0")), SNLException);
   EXPECT_THROW(SNLScalarTerm::create(design, SNLTerm::Direction::Input, SNLName("term1")), SNLException);
+  EXPECT_THROW(SNLBusTerm::create(design, SNLID::DesignObjectID(0), SNLTerm::Direction::Input, 31, 0), SNLException);
+  EXPECT_THROW(SNLScalarTerm::create(design, SNLID::DesignObjectID(1), SNLTerm::Direction::Input), SNLException);
 }

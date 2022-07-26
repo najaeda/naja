@@ -93,18 +93,58 @@ TEST_F(SNLCapNpTest0, test0) {
   using Designs = std::vector<SNLDesign*>;
   Designs designs(library->getDesigns().begin(), library->getDesigns().end());
   EXPECT_EQ(2, designs.size());
-  auto design0 = designs[0];
-  EXPECT_EQ(SNLID::DesignID(0), design0->getID());
-  EXPECT_EQ(SNLName("design"), design0->getName());
-  EXPECT_EQ(SNLDesign::Type::Standard, design0->getType());
-  EXPECT_TRUE(design0->getParameters().empty());
-  EXPECT_EQ(3, design0->getTerms().size());
-  EXPECT_EQ(4, design0->getNets().size());
-  EXPECT_EQ(2, design0->getInstances().size());
+  
+  auto design = designs[0];
+  EXPECT_EQ(SNLID::DesignID(0), design->getID());
+  EXPECT_EQ(SNLName("design"), design->getName());
+  EXPECT_EQ(SNLDesign::Type::Standard, design->getType());
+  EXPECT_TRUE(design->getParameters().empty());
+  EXPECT_EQ(3, design->getTerms().size());
+  EXPECT_EQ(4, design->getNets().size());
+  EXPECT_EQ(2, design->getInstances().size());
+
+  auto model = designs[1];
+  EXPECT_EQ(SNLID::DesignID(1), model->getID());
+  EXPECT_EQ(SNLName("model"), model->getName());
+  EXPECT_EQ(SNLDesign::Type::Standard, model->getType());
+  EXPECT_EQ(2, model->getTerms().size());
+  EXPECT_EQ(2, model->getScalarTerms().size());
+  using ScalarTerms = std::vector<SNLScalarTerm*>;
+  ScalarTerms scalarTerms(model->getScalarTerms().begin(), model->getScalarTerms().end());
+  EXPECT_EQ(2, scalarTerms.size());
+  auto scalarTerm0 = scalarTerms[0];
+  EXPECT_EQ(SNLID::DesignObjectID(0), scalarTerm0->getID());
+  EXPECT_EQ(SNLName("i"), scalarTerm0->getName());
+  auto scalarTerm1 = scalarTerms[1];
+  EXPECT_EQ(SNLName("o"), scalarTerm1->getName());
+  EXPECT_EQ(SNLID::DesignObjectID(1), scalarTerm1->getID());
+  EXPECT_TRUE(model->getBusTerms().empty());
+  EXPECT_EQ(2, model->getParameters().size());
+  using Parameters = std::vector<SNLParameter*>;
+  Parameters parameters(model->getParameters().begin(), model->getParameters().end());
+  EXPECT_EQ(2, parameters.size());
+  EXPECT_EQ("Test1", parameters[0]->getName().getString());
+  EXPECT_EQ("Value1", parameters[0]->getValue());
+  EXPECT_EQ("Test2", parameters[1]->getName().getString());
+  EXPECT_EQ("Value2", parameters[1]->getValue());
+
+  using Instances = std::vector<SNLInstance*>;
+  Instances instances(design->getInstances().begin(), design->getInstances().end());
+  EXPECT_EQ(2, instances.size());
+  auto instance1 = instances[0];
+  EXPECT_EQ(SNLName("instance1"), instance1->getName());
+  EXPECT_EQ(SNLID::InstanceID(0), instance1->getID());
+  EXPECT_EQ(design, instance1->getDesign());
+  EXPECT_EQ(model, instance1->getModel());
+  auto instance2 = instances[1];
+  EXPECT_EQ(SNLName("instance2"), instance2->getName());
+  EXPECT_EQ(SNLID::InstanceID(1), instance2->getID());
+  EXPECT_EQ(design, instance2->getDesign());
+  EXPECT_EQ(model, instance2->getModel());
   using Nets = std::vector<SNLNet*>;
   using Terms = std::vector<SNLTerm*>;
   {
-    Nets nets(design0->getNets().begin(), design0->getNets().end());
+    Nets nets(design->getNets().begin(), design->getNets().end());
     EXPECT_EQ(4, nets.size());
     EXPECT_NE(nullptr, nets[0]);
     auto scalarNet0 = dynamic_cast<SNLScalarNet*>(nets[0]);
@@ -132,8 +172,24 @@ TEST_F(SNLCapNpTest0, test0) {
     EXPECT_EQ(SNLID::DesignObjectID(3), scalarNet3->getID());
     EXPECT_FALSE(scalarNet3->isAnonymous());
     EXPECT_EQ(SNLName("n1"), scalarNet3->getName());
+    EXPECT_EQ(2, scalarNet3->getComponents().size());
+    EXPECT_TRUE(scalarNet3->getBitTerms().empty());
+    EXPECT_EQ(2, scalarNet3->getInstTerms().size());
+    using InstTerms = std::vector<SNLInstTerm*>;
+    InstTerms instTerms(scalarNet3->getInstTerms().begin(), scalarNet3->getInstTerms().end());
+    EXPECT_EQ(2, instTerms.size());
+    auto instTerm1 = instTerms[0];
+    EXPECT_EQ(SNLID(SNLID::Type::InstTerm, 1, 0, 0, 0, 1, 0), instTerm1->getSNLID());
+    EXPECT_EQ(instance2, instTerm1->getInstance());
+    EXPECT_EQ(instance2->getModel()->getScalarTerm(SNLName("i")), instTerm1->getTerm());
 
-    Terms terms(design0->getTerms().begin(), design0->getTerms().end());
+    auto instTerm2 = instTerms[1];
+    EXPECT_EQ(SNLID(SNLID::Type::InstTerm, 1, 0, 0, 1, 0, 0), instTerm2->getSNLID());
+    EXPECT_EQ(instance1, instTerm2->getInstance());
+    EXPECT_EQ(instance1->getModel(), instTerm2->getTerm()->getDesign());
+    EXPECT_EQ(instance1->getModel()->getScalarTerm(SNLName("o")), instTerm2->getTerm());
+
+    Terms terms(design->getTerms().begin(), design->getTerms().end());
     EXPECT_EQ(3, terms.size());
     EXPECT_NE(nullptr, terms[0]);
     auto scalarTerm0 = dynamic_cast<SNLScalarTerm*>(terms[0]);
@@ -162,22 +218,6 @@ TEST_F(SNLCapNpTest0, test0) {
     EXPECT_EQ(SNLID::DesignObjectID(2), scalarTerm1->getID());
     EXPECT_EQ(SNLName("o2"), scalarTerm1->getName());
     EXPECT_EQ(SNLTerm::Direction::InOut, scalarTerm1->getDirection());
+    EXPECT_EQ(scalarNet2, scalarTerm1->getNet());
   }
-
-  auto design1 = designs[1];
-  EXPECT_EQ(SNLID::DesignID(1), design1->getID());
-  EXPECT_EQ(SNLName("model"), design1->getName());
-  EXPECT_EQ(SNLDesign::Type::Standard, design1->getType());
-  EXPECT_EQ(2, design1->getTerms().size());
-  {
-    EXPECT_EQ(2, design1->getParameters().size());
-    using Parameters = std::vector<SNLParameter*>;
-    Parameters parameters(design1->getParameters().begin(), design1->getParameters().end());
-    EXPECT_EQ(2, parameters.size());
-    EXPECT_EQ("Test1", parameters[0]->getName().getString());
-    EXPECT_EQ("Value1", parameters[0]->getValue());
-    EXPECT_EQ("Test2", parameters[1]->getName().getString());
-    EXPECT_EQ("Value2", parameters[1]->getValue());
-  }
-
 }

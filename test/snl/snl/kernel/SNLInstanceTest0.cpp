@@ -459,4 +459,5 @@ TEST_F(SNLInstanceTest0, testErrors) {
 
   SNLInstance::create(design, model, SNLName("name"));
   EXPECT_THROW(SNLInstance::create(design, model, SNLName("name")), SNLException);
+  EXPECT_THROW(SNLInstance::create(design, model, SNLID::InstanceID(0)), SNLException);
 }

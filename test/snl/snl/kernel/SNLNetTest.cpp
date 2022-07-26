@@ -246,9 +246,13 @@ TEST_F(SNLNetTest, testErrors) {
 
   SNLScalarNet* net0 = SNLScalarNet::create(design, SNLName("net0"));
   ASSERT_NE(nullptr, net0);
+  EXPECT_EQ(SNLID::DesignObjectID(0), net0->getID());
   SNLBusNet* net1 = SNLBusNet::create(design, 31, 0, SNLName("net1"));
   ASSERT_NE(nullptr, net1);
+  EXPECT_EQ(SNLID::DesignObjectID(1), net1->getID());
   EXPECT_THROW(SNLBusNet::create(design, 31, 0, SNLName("net0")), SNLException);
   EXPECT_THROW(SNLScalarNet::create(design, SNLName("net1")), SNLException);
+  EXPECT_THROW(SNLBusNet::create(design, SNLID::DesignObjectID(0), 31, 0), SNLException);
+  EXPECT_THROW(SNLScalarNet::create(design, SNLID::DesignObjectID(1)), SNLException);
   EXPECT_THROW(net1->getBit(3)->destroy(), SNLException);
 }

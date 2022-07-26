@@ -36,9 +36,9 @@ struct DBImplementation {
       }
 
       struct ModelReference {
-        dbID      @0 : UInt8 = 1;
-        libraryID @1 : UInt16 = 0;
-        designID  @2 : UInt32 = 0;
+        dbID      @0 : UInt8;
+        libraryID @1 : UInt16;
+        designID  @2 : UInt32;
       }
 
       struct Net {

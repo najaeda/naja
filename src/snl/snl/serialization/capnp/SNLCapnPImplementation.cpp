@@ -49,7 +49,6 @@ void dumpInstance(
   modelReferenceBuilder.setDbID(modelReference.dbID_);
   modelReferenceBuilder.setLibraryID(modelReference.libraryID_);
   modelReferenceBuilder.setDesignID(modelReference.designID_);
-  instance.setModelReference(modelReferenceBuilder);
 }
 
 void dumpBitTermReference(
