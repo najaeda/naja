@@ -15,11 +15,13 @@
  */
 
 #include "SNLCapnP.h"
+#include "SNLDumpManifest.h"
 
 namespace naja { namespace SNL {
 
 void SNLCapnP::dump(const SNLDB* db, const std::filesystem::path& path) {
   std::filesystem::create_directory(path);
+  SNLDumpManifest::dump(path);
   dumpInterface(db, path/InterfaceName);
   dumpImplementation(db, path/ImplementationName);
 }

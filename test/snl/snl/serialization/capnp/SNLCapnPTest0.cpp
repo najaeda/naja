@@ -72,7 +72,7 @@ TEST_F(SNLCapNpTest0, test0) {
   ASSERT_TRUE(top);
 
   std::filesystem::path outPath(SNL_CAPNP_TEST_PATH);
-  outPath /= "test0.snl";
+  outPath /= "SNLCapNpTest0_test0.snl";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }

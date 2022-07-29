@@ -3,6 +3,7 @@ include(GoogleTest)
 set(snl_capnp_tests
     SNLDumpManifestTest.cpp
     SNLCapnPTest0.cpp
+    SNLCapnPTest1.cpp
 )
 
 add_executable(snlCapnPTests ${snl_capnp_tests})

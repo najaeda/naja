@@ -64,6 +64,15 @@ SNLLibrary::SNLLibrary(SNLLibrary* parent, Type type, const SNLName& name):
   isRootLibrary_(false)
 {}
 
+SNLLibrary::SNLLibrary(SNLLibrary* parent, SNLID::LibraryID id, Type type, const SNLName& name):
+  super(),
+  id_(id),
+  name_(name),
+  type_(type),
+  parent_(parent),
+  isRootLibrary_(false)
+{}
+
 SNLLibrary* SNLLibrary::create(SNLDB* db, const SNLName& name) {
   preCreate(db, Type::Standard, name);
   SNLLibrary* library = new SNLLibrary(db, Type::Standard, name);
@@ -96,6 +105,13 @@ SNLLibrary* SNLLibrary::create(SNLLibrary* parent, Type type, const SNLName& nam
   preCreate(parent, type, name);
   SNLLibrary* library = new SNLLibrary(parent, type, name);
   library->postCreateAndSetID();
+  return library;
+}
+
+SNLLibrary* SNLLibrary::create(SNLLibrary* parent, SNLID::LibraryID id, Type type, const SNLName& name) {
+  preCreate(parent, id, type, name);
+  SNLLibrary* library = new SNLLibrary(parent, id, type, name);
+  library->postCreate();
   return library;
 }
 
@@ -132,6 +148,24 @@ void SNLLibrary::preCreate(SNLLibrary* parentLibrary, Type type, const SNLName& 
   }
   if (type not_eq parentLibrary->getType()) {
     throw SNLException("non compatible types in library constructor");
+  }
+  if (not name.empty() and parentLibrary->getLibrary(name)) {
+    std::string reason = "SNLLibrary " + parentLibrary->getString() + " contains already a SNLLibrary named: " + name.getString();
+    throw SNLException(reason);
+  }
+}
+
+void SNLLibrary::preCreate(SNLLibrary* parentLibrary, SNLID::LibraryID id, Type type, const SNLName& name) {
+  super::preCreate();
+  if (not parentLibrary) {
+    throw SNLException("malformed SNLLibrary creator with NULL parent library argument");
+  }
+  if (type not_eq parentLibrary->getType()) {
+    throw SNLException("non compatible types in library constructor");
+  }
+  if (parentLibrary->getLibrary(id)) {
+    std::string reason = "SNLLibrary " + parentLibrary->getString() + " contains already a SNLLibrary with ID: " + std::to_string(id);
+    throw SNLException(reason);
   }
   if (not name.empty() and parentLibrary->getLibrary(name)) {
     std::string reason = "SNLLibrary " + parentLibrary->getString() + " contains already a SNLLibrary named: " + name.getString();

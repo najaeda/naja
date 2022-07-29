@@ -249,19 +249,33 @@ void loadDesignInterface(
   }
 }
 
-void loadLibraryInterface(SNLDB* db, const DBInterface::LibraryInterface::Reader& libraryInterface) {
+void loadLibraryInterface(SNLObject* parent, const DBInterface::LibraryInterface::Reader& libraryInterface) {
+  SNLLibrary* parentLibrary = nullptr;
+  SNLDB* parentDB = dynamic_cast<SNLDB*>(parent);
+  if (not parentDB) {
+    parentLibrary = static_cast<SNLLibrary*>(parent);
+  }
   auto libraryID = libraryInterface.getId();
   auto libraryType = libraryInterface.getType();
   SNLName snlName;
   if (libraryInterface.hasName()) {
     snlName = SNLName(libraryInterface.getName());
   }
-  SNLLibrary* snlLibrary =
-    SNLLibrary::create(db, SNLID::LibraryID(libraryID), CapnPtoSNLLibraryType(libraryType), snlName);
+  SNLLibrary* snlLibrary = nullptr;
+  if (parentDB) {
+    snlLibrary = SNLLibrary::create(parentDB, SNLID::LibraryID(libraryID), CapnPtoSNLLibraryType(libraryType), snlName);
+  } else {
+    snlLibrary = SNLLibrary::create(parentLibrary, SNLID::LibraryID(libraryID), CapnPtoSNLLibraryType(libraryType), snlName);
+  }
   if (libraryInterface.hasDesignInterfaces()) {
     for (auto designInterface: libraryInterface.getDesignInterfaces()) {
       loadDesignInterface(snlLibrary, designInterface);
     } 
+  }
+  if (libraryInterface.hasLibraryInterfaces()) {
+    for (auto subLibraryInterface: libraryInterface.getLibraryInterfaces()) {
+      loadLibraryInterface(snlLibrary, subLibraryInterface);
+    }
   }
 }
 
