@@ -251,4 +251,11 @@ TEST_F(SNLNetTest, testErrors) {
   EXPECT_THROW(SNLBusNet::create(design, 31, 0, SNLName("net0")), SNLException);
   EXPECT_THROW(SNLScalarNet::create(design, SNLName("net1")), SNLException);
   EXPECT_THROW(net1->getBit(3)->destroy(), SNLException);
+
+  //create a design
+  auto design1 = SNLDesign::create(library, SNLName("design1"));
+  //create scalar term
+  auto scalarTerm1 = SNLScalarTerm::create(design1, SNLTerm::Direction::Input, SNLName("term1"));
+  //incompatible nets
+  EXPECT_THROW(scalarTerm1->setNet(net0), SNLException);
 }
