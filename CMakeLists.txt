@@ -24,7 +24,6 @@ IF(CODE_COVERAGE)
 ENDIF(CODE_COVERAGE)
 
 find_package(Boost REQUIRED)
-find_package(LibXml2 REQUIRED)
 find_package(Python3 COMPONENTS Development)
 
 add_subdirectory(thirdparty)
