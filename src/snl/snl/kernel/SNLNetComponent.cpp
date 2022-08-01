@@ -17,6 +17,8 @@
 #include "SNLNetComponent.h"
 
 #include "SNLBitNet.h"
+#include "SNLDesign.h"
+#include "SNLException.h"
 
 namespace naja { namespace SNL {
 
@@ -34,6 +36,12 @@ void SNLNetComponent::preDestroy() {
 }
 
 void SNLNetComponent::setNet(SNLBitNet* net) {
+  if (net and net->getDesign() not_eq getDesign()) {
+    std::string reason = "Impossible setNet call with incompatible designs: ";
+    reason += getString() + " is in " + getDesign()->getString() + " while ";
+    reason += net->getString() + " is in " + net->getDesign()->getString();
+    throw SNLException(reason);
+  }
   if (net_ not_eq net) {
     if (net_) {
       net_->removeComponent(this);
