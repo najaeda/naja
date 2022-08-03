@@ -20,7 +20,6 @@ git submodule update
 ### Dependencies
 Mandatory dependencies:
 1. Boost
-2. libxml2 
 3. cmake: at least 3.22 version
 
 Optional dependencies:
