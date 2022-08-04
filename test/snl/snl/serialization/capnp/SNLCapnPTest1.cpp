@@ -28,11 +28,15 @@ class SNLCapNpTest1: public ::testing::Test {
       //
       SNLUniverse* universe = SNLUniverse::create();
       db_ = SNLDB::create(universe);
-      SNLLibrary* root = SNLLibrary::create(db_, SNLName("ROOT"));
-      SNLLibrary* lib1 = SNLLibrary::create(root, SNLName("lib1")); 
-      SNLLibrary* lib2 = SNLLibrary::create(root);
+      SNLLibrary* root1 = SNLLibrary::create(db_, SNLName("ROOT"));
+      SNLLibrary* lib1 = SNLLibrary::create(root1, SNLName("lib1")); 
+      SNLLibrary* lib2 = SNLLibrary::create(root1);
       SNLLibrary* lib3 = SNLLibrary::create(lib2, SNLName("lib3"));
       SNLLibrary* lib4 = SNLLibrary::create(lib2);
+      SNLLibrary* primitives = SNLLibrary::create(db_, SNLLibrary::Type::Primitives, SNLName("PRIMITIVES"));
+      SNLLibrary* prims1 = SNLLibrary::create(primitives, SNLLibrary::Type::Primitives);
+      SNLLibrary* prims2 = SNLLibrary::create(primitives, SNLLibrary::Type::Primitives, SNLName("prims2"));
+      SNLLibrary* prims3 = SNLLibrary::create(prims1, SNLLibrary::Type::Primitives, SNLName("prims3"));
     }
     void TearDown() override {
       if (SNLUniverse::get()) {
@@ -56,20 +60,25 @@ TEST_F(SNLCapNpTest1, test0) {
   db_ = SNLCapnP::load(outPath);
   ASSERT_TRUE(db_);
   EXPECT_EQ(SNLID::DBID(1), db_->getID());
-  EXPECT_EQ(1, db_->getLibraries().size());
-  auto library = *(db_->getLibraries().begin());
+  EXPECT_EQ(2, db_->getLibraries().size());
+  using Libraries = std::vector<SNLLibrary*>;
+  Libraries libraries(db_->getLibraries().begin(), db_->getLibraries().end());
+  ASSERT_EQ(2, libraries.size());
+  auto library = libraries[0];
   ASSERT_TRUE(library);
   EXPECT_EQ(SNLID::LibraryID(0), library->getID());
   EXPECT_EQ(SNLName("ROOT"), library->getName());
+  EXPECT_TRUE(library->isRoot());
   EXPECT_EQ(SNLLibrary::Type::Standard, library->getType());
+  EXPECT_TRUE(library->isStandard());
   EXPECT_TRUE(library->getDesigns().empty());
   EXPECT_EQ(2, library->getLibraries().size());
-  using Libraries = std::vector<SNLLibrary*>;
-  Libraries libraries(library->getLibraries().begin(), library->getLibraries().end());
+  libraries = Libraries(library->getLibraries().begin(), library->getLibraries().end());
   ASSERT_EQ(2, libraries.size());
   auto lib1 = libraries[0];
   EXPECT_NE(nullptr, lib1);
   EXPECT_EQ(SNLName("lib1"), lib1->getName());
+  EXPECT_TRUE(library->isRoot());
   EXPECT_TRUE(lib1->getLibraries().empty());
   EXPECT_EQ(library, lib1->getParentLibrary());
   auto lib2 = libraries[1];
@@ -87,4 +96,12 @@ TEST_F(SNLCapNpTest1, test0) {
   EXPECT_NE(nullptr, lib4);
   EXPECT_TRUE(lib4->isAnonymous());
   EXPECT_TRUE(lib4->getLibraries().empty());
+
+  libraries = Libraries(db_->getLibraries().begin(), db_->getLibraries().end());
+  auto primitives = libraries[1];
+  EXPECT_EQ(SNLName("PRIMITIVES"), primitives->getName());
+  EXPECT_TRUE(primitives->isRoot());
+  EXPECT_TRUE(primitives->isPrimitives());
+  EXPECT_FALSE(primitives->isStandard());
+  EXPECT_FALSE(primitives->isInDB0());
 }

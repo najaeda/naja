@@ -54,7 +54,7 @@ class SNLLibrary final: public SNLObject {
     static SNLLibrary* create(SNLLibrary* parent, Type type, const SNLName& name = SNLName());
     static SNLLibrary* create(SNLLibrary* parent, SNLID::LibraryID id, Type type, const SNLName& name = SNLName());
 
-    bool isRootLibrary() const { return isRootLibrary_; }
+    bool isRoot() const { return isRoot_; }
 
     SNLDB* getDB() const;
 
@@ -122,7 +122,7 @@ class SNLLibrary final: public SNLObject {
     SNLName                             name_             {};
     Type                                type_             { Type::Standard };
     void*                               parent_           { nullptr };
-    bool                                isRootLibrary_    { false };
+    bool                                isRoot_           { false };
     boost::intrusive::set_member_hook<> librariesHook_    {};
     using SNLLibraryLibrariesHook =
       boost::intrusive::member_hook<SNLLibrary, boost::intrusive::set_member_hook<>, &SNLLibrary::librariesHook_>;

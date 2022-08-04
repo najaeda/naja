@@ -28,6 +28,7 @@
 #include "SNLDesign.h"
 #include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
+#include "SNLException.h"
 
 namespace {
 
@@ -42,7 +43,7 @@ DBInterface::LibraryInterface::DesignInterface::Direction SNLtoCapnPDirection(SN
     case SNLTerm::Direction::InOut:
       return DBInterface::LibraryInterface::DesignInterface::Direction::INOUT;
   }
-  return DBInterface::LibraryInterface::DesignInterface::Direction::INPUT;
+  return DBInterface::LibraryInterface::DesignInterface::Direction::INPUT; //LCOV_EXCL_LINE
 }
 
 void dumpScalarTerm(
@@ -85,7 +86,7 @@ DBInterface::LibraryInterface::DesignType SNLtoCapNpDesignType(SNLDesign::Type t
     case SNLDesign::Type::Blackbox:
       return DBInterface::LibraryInterface::DesignType::BLACKBOX;
   }
-  return DBInterface::LibraryInterface::DesignType::STANDARD;
+  return DBInterface::LibraryInterface::DesignType::STANDARD; //LCOV_EXCL_LINE
 }
 
 void dumpDesignInterface(
@@ -124,10 +125,9 @@ DBInterface::LibraryType SNLtoCapnPLibraryType(SNLLibrary::Type type) {
     case SNLLibrary::Type::Primitives:
       return DBInterface::LibraryType::PRIMITIVES;
     case SNLLibrary::Type::InDB0:
-      //FIXME: ERROR
-      return DBInterface::LibraryType::STANDARD;
+      throw SNLException("Unexpected InDB0 Library type while loading Library"); //LCOV_EXCL_LINE
   }
-  return DBInterface::LibraryType::STANDARD;
+  return DBInterface::LibraryType::STANDARD; //LCOV_EXCL_LINE
 }
 
 SNLLibrary::Type CapnPtoSNLLibraryType(DBInterface::LibraryType type) {
@@ -137,7 +137,7 @@ SNLLibrary::Type CapnPtoSNLLibraryType(DBInterface::LibraryType type) {
     case DBInterface::LibraryType::PRIMITIVES:
       return  SNLLibrary::Type::Primitives;
   }
-  return SNLLibrary::Type::Standard;
+  return SNLLibrary::Type::Standard; //LCOV_EXCL_LINE
 }
 
 void dumpLibraryInterface(
@@ -172,7 +172,7 @@ SNLDesign::Type CapnPtoSNLDesignType(DBInterface::LibraryInterface::DesignType t
     case DBInterface::LibraryInterface::DesignType::PRIMITIVE: 
       return SNLDesign::Type::Primitive;
   }
-  return SNLDesign::Type::Standard;
+  return SNLDesign::Type::Standard; //LCOV_EXCL_LINE
 }
 
 SNLTerm::Direction CapnPtoSNLDirection(DBInterface::LibraryInterface::DesignInterface::Direction direction) {
@@ -184,7 +184,7 @@ SNLTerm::Direction CapnPtoSNLDirection(DBInterface::LibraryInterface::DesignInte
     case DBInterface::LibraryInterface::DesignInterface::Direction::INOUT:
       return SNLTerm::Direction::InOut;
   }
-  return SNLTerm::Direction::Input;
+  return SNLTerm::Direction::Input; //LCOV_EXCL_LINE
 }
 
 void loadScalarTerm(

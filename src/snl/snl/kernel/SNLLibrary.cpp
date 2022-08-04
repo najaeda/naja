@@ -44,7 +44,7 @@ SNLLibrary::SNLLibrary(SNLDB* parent, Type type, const SNLName& name):
   name_(name),
   type_(type),
   parent_(parent),
-  isRootLibrary_(true)
+  isRoot_(true)
 {}
 
 SNLLibrary::SNLLibrary(SNLDB* parent, SNLID::LibraryID id, Type type, const SNLName& name):
@@ -53,7 +53,7 @@ SNLLibrary::SNLLibrary(SNLDB* parent, SNLID::LibraryID id, Type type, const SNLN
   name_(name),
   type_(type),
   parent_(parent),
-  isRootLibrary_(true)
+  isRoot_(true)
 {}
 
 SNLLibrary::SNLLibrary(SNLLibrary* parent, Type type, const SNLName& name):
@@ -61,7 +61,7 @@ SNLLibrary::SNLLibrary(SNLLibrary* parent, Type type, const SNLName& name):
   name_(name),
   type_(type),
   parent_(parent),
-  isRootLibrary_(false)
+  isRoot_(false)
 {}
 
 SNLLibrary::SNLLibrary(SNLLibrary* parent, SNLID::LibraryID id, Type type, const SNLName& name):
@@ -70,7 +70,7 @@ SNLLibrary::SNLLibrary(SNLLibrary* parent, SNLID::LibraryID id, Type type, const
   name_(name),
   type_(type),
   parent_(parent),
-  isRootLibrary_(false)
+  isRoot_(false)
 {}
 
 SNLLibrary* SNLLibrary::create(SNLDB* db, const SNLName& name) {
@@ -175,7 +175,7 @@ void SNLLibrary::preCreate(SNLLibrary* parentLibrary, SNLID::LibraryID id, Type 
 
 void SNLLibrary::postCreateAndSetID() {
   super::postCreate();
-  if (isRootLibrary()) {
+  if (isRoot()) {
     static_cast<SNLDB*>(parent_)->addLibraryAndSetID(this);
   } else {
     static_cast<SNLLibrary*>(parent_)->addLibraryAndSetID(this);
@@ -184,7 +184,7 @@ void SNLLibrary::postCreateAndSetID() {
 
 void SNLLibrary::postCreate() {
   super::postCreate();
-  if (isRootLibrary()) {
+  if (isRoot()) {
     static_cast<SNLDB*>(parent_)->addLibrary(this);
   } else {
     static_cast<SNLLibrary*>(parent_)->addLibrary(this);
@@ -216,7 +216,7 @@ void SNLLibrary::destroyFromParent() {
 }
 
 void SNLLibrary::preDestroy() {
-  if (isRootLibrary()) {
+  if (isRoot()) {
     static_cast<SNLDB*>(parent_)->removeLibrary(this);
   } else {
     static_cast<SNLLibrary*>(parent_)->removeLibrary(this);
@@ -225,7 +225,7 @@ void SNLLibrary::preDestroy() {
 }
 
 SNLDB* SNLLibrary::getDB() const {
-  if (isRootLibrary()) {
+  if (isRoot()) {
     return static_cast<SNLDB*>(parent_);
   } else {
     return getParentLibrary()->getDB();
@@ -233,7 +233,7 @@ SNLDB* SNLLibrary::getDB() const {
 }
 
 SNLLibrary* SNLLibrary::getParentLibrary() const {
-  if (not isRootLibrary()) {
+  if (not isRoot()) {
     return static_cast<SNLLibrary*>(parent_);
   }
   return nullptr;
