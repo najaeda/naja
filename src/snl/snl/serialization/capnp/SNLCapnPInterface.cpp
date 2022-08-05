@@ -124,8 +124,10 @@ DBInterface::LibraryType SNLtoCapnPLibraryType(SNLLibrary::Type type) {
       return DBInterface::LibraryType::STANDARD;
     case SNLLibrary::Type::Primitives:
       return DBInterface::LibraryType::PRIMITIVES;
+    //LCOV_EXCL_START
     case SNLLibrary::Type::InDB0:
-      throw SNLException("Unexpected InDB0 Library type while loading Library"); //LCOV_EXCL_LINE
+      throw SNLException("Unexpected InDB0 Library type while loading Library");
+    ////LCOV_EXCL_STOP
   }
   return DBInterface::LibraryType::STANDARD; //LCOV_EXCL_LINE
 }
