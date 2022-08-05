@@ -210,9 +210,11 @@ void loadTermReference(
   auto design = net->getDesign();
   auto term = design->getTerm(SNLID::DesignObjectID(termReference.getTermID()));
   if (not term) {
+    //LCOV_EXCL_START
     std::ostringstream reason;
     reason << "cannot deserialize term reference: no term found with provided reference";
     throw SNLException(reason.str());
+    //LCOV_EXCL_STOP
   }
   if (auto scalarTerm = dynamic_cast<SNLScalarTerm*>(term)) {
     scalarTerm->setNet(net);
@@ -221,9 +223,11 @@ void loadTermReference(
     assert(busTerm);
     auto busTermBit = busTerm->getBit(termReference.getBit());
     if (not busTermBit) {
+      //LCOV_EXCL_START
       std::ostringstream reason;
       reason << "cannot deserialize term reference: no bus term bit found with provided reference";
       throw SNLException(reason.str());
+      //LCOV_EXCL_STOP
     }
     busTermBit->setNet(net);
   }
@@ -236,17 +240,21 @@ void loadInstTermReference(
   auto design = net->getDesign();
   auto instance = design->getInstance(SNLID::InstanceID(instanceID));
   if (not instance) {
+    //LCOV_EXCL_START
     std::ostringstream reason;
     reason << "cannot deserialize instance term reference: no instance found with provided reference";
     throw SNLException(reason.str());
+    //LCOV_EXCL_STOP
   }
   auto model = instance->getModel();
   auto termID = instTermReference.getTermID();
   auto term = model->getTerm(SNLID::DesignObjectID(termID));
   if (not term) {
+    //LCOV_EXCL_START
     std::ostringstream reason;
     reason << "cannot deserialize instance term reference: no instance found with provided reference";
     throw SNLException(reason.str());
+    //LCOV_EXCL_STOP
   }
   SNLBitTerm* bitTerm = dynamic_cast<SNLScalarTerm*>(term);
   if (not bitTerm) {
@@ -254,9 +262,11 @@ void loadInstTermReference(
     assert(busTerm);
     bitTerm = busTerm->getBit(instTermReference.getBit());
     if (not bitTerm) {
+      //LCOV_EXCL_START
       std::ostringstream reason;
       reason << "cannot deserialize instance term reference: no bit found in bus term with provided reference";
       throw SNLException(reason.str());
+      //LCOV_EXCL_STOP
     }
   }
   auto instTerm = instance->getInstTerm(bitTerm);
@@ -278,9 +288,11 @@ void loadBusNet(
         auto bit = bitNet.getBit();
         auto busNetBit = busNet->getBit(bit);
         if (not busNetBit) {
+          //LCOV_EXCL_START
           std::ostringstream reason;
           reason << "cannot deserialize bus net bit: no bit found in bus term with provided reference";
           throw SNLException(reason.str());
+          //LCOV_EXCL_STOP
         }
         for (auto componentReference: bitNet.getComponents()) {
           if (componentReference.isInstTermReference()) {

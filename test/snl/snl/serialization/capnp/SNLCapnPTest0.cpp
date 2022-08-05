@@ -43,18 +43,27 @@ class SNLCapNpTest0: public ::testing::Test {
       o2Term->setNet(o2Net);
 
       SNLScalarNet::create(design, SNLName("n1"));
+      SNLBusNet::create(design, 31, 0, SNLName("n2"));
 
-      SNLDesign* model = SNLDesign::create(library, SNLName("model"));
-      SNLScalarTerm::create(model, SNLTerm::Direction::Input, SNLName("i"));
-      SNLScalarTerm::create(model, SNLTerm::Direction::Output, SNLName("o"));
-      SNLInstance* instance1 = SNLInstance::create(design, model, SNLName("instance1"));
-      SNLInstance* instance2 = SNLInstance::create(design, model, SNLName("instance2"));
-      SNLParameter::create(model, SNLName("Test1"), "Value1");
-      SNLParameter::create(model, SNLName("Test2"), "Value2");
+      SNLDesign* model0 = SNLDesign::create(library, SNLName("model0"));
+      SNLScalarTerm::create(model0, SNLTerm::Direction::Input, SNLName("i"));
+      SNLScalarTerm::create(model0, SNLTerm::Direction::Output, SNLName("o"));
+      auto instance1 = SNLInstance::create(design, model0, SNLName("instance1"));
+      auto instance2 = SNLInstance::create(design, model0, SNLName("instance2"));
+      SNLParameter::create(model0, SNLName("Test1"), "Value1");
+      SNLParameter::create(model0, SNLName("Test2"), "Value2");
 
       //connections between instances
-      instance1->getInstTerm(model->getScalarTerm(SNLName("o")))->setNet(design->getScalarNet(SNLName("n1")));
-      instance2->getInstTerm(model->getScalarTerm(SNLName("i")))->setNet(design->getScalarNet(SNLName("n1")));
+      instance1->getInstTerm(model0->getScalarTerm(SNLName("o")))->setNet(design->getScalarNet(SNLName("n1")));
+      instance2->getInstTerm(model0->getScalarTerm(SNLName("i")))->setNet(design->getScalarNet(SNLName("n1")));
+
+      SNLDesign* model1 = SNLDesign::create(library, SNLName("model1"));
+      SNLBusTerm::create(model1, SNLTerm::Direction::Input, 31, 0, SNLName("i"));
+      SNLBusTerm::create(model1, SNLTerm::Direction::Output, 31, 0, SNLName("o"));
+      auto instance3 = SNLInstance::create(design, model1, SNLName("instance3"));
+      auto instance4 = SNLInstance::create(design, model1, SNLName("instance4"));
+      instance3->setTermNet(model1->getTerm(SNLName("i")), design->getNet(SNLName("n2")));
+      instance4->setTermNet(model1->getTerm(SNLName("o")), design->getNet(SNLName("n2")));
     }
     void TearDown() override {
       if (SNLUniverse::get()) {
@@ -89,10 +98,10 @@ TEST_F(SNLCapNpTest0, test0) {
   EXPECT_EQ(SNLID::LibraryID(0), library->getID());
   EXPECT_EQ(SNLName("MYLIB"), library->getName());
   EXPECT_EQ(SNLLibrary::Type::Standard, library->getType());
-  EXPECT_EQ(2, library->getDesigns().size());
+  EXPECT_EQ(3, library->getDesigns().size());
   using Designs = std::vector<SNLDesign*>;
   Designs designs(library->getDesigns().begin(), library->getDesigns().end());
-  EXPECT_EQ(2, designs.size());
+  EXPECT_EQ(3, designs.size());
   
   auto design = designs[0];
   EXPECT_EQ(SNLID::DesignID(0), design->getID());
@@ -100,12 +109,12 @@ TEST_F(SNLCapNpTest0, test0) {
   EXPECT_EQ(SNLDesign::Type::Standard, design->getType());
   EXPECT_TRUE(design->getParameters().empty());
   EXPECT_EQ(3, design->getTerms().size());
-  EXPECT_EQ(4, design->getNets().size());
-  EXPECT_EQ(2, design->getInstances().size());
+  EXPECT_EQ(5, design->getNets().size());
+  EXPECT_EQ(4, design->getInstances().size());
 
   auto model = designs[1];
   EXPECT_EQ(SNLID::DesignID(1), model->getID());
-  EXPECT_EQ(SNLName("model"), model->getName());
+  EXPECT_EQ(SNLName("model0"), model->getName());
   EXPECT_EQ(SNLDesign::Type::Standard, model->getType());
   EXPECT_EQ(2, model->getTerms().size());
   EXPECT_EQ(2, model->getScalarTerms().size());
@@ -130,7 +139,7 @@ TEST_F(SNLCapNpTest0, test0) {
 
   using Instances = std::vector<SNLInstance*>;
   Instances instances(design->getInstances().begin(), design->getInstances().end());
-  EXPECT_EQ(2, instances.size());
+  EXPECT_EQ(4, instances.size());
   auto instance1 = instances[0];
   EXPECT_EQ(SNLName("instance1"), instance1->getName());
   EXPECT_EQ(SNLID::InstanceID(0), instance1->getID());
@@ -145,7 +154,7 @@ TEST_F(SNLCapNpTest0, test0) {
   using Terms = std::vector<SNLTerm*>;
   {
     Nets nets(design->getNets().begin(), design->getNets().end());
-    EXPECT_EQ(4, nets.size());
+    EXPECT_EQ(5, nets.size());
     EXPECT_NE(nullptr, nets[0]);
     auto scalarNet0 = dynamic_cast<SNLScalarNet*>(nets[0]);
     EXPECT_NE(nullptr, scalarNet0);
@@ -182,6 +191,18 @@ TEST_F(SNLCapNpTest0, test0) {
     EXPECT_EQ(SNLID(SNLID::Type::InstTerm, 1, 0, 0, 0, 1, 0), instTerm1->getSNLID());
     EXPECT_EQ(instance2, instTerm1->getInstance());
     EXPECT_EQ(instance2->getModel()->getScalarTerm(SNLName("i")), instTerm1->getTerm());
+
+    EXPECT_NE(nullptr, nets[4]);
+    auto busNet4 = dynamic_cast<SNLBusNet*>(nets[4]);
+    EXPECT_NE(nullptr, busNet4);
+    EXPECT_EQ(SNLID::DesignObjectID(4), busNet4->getID());
+    EXPECT_FALSE(busNet4->isAnonymous());
+    EXPECT_EQ(SNLName("n2"), busNet4->getName());
+    for (auto bit: busNet4->getBits()) {
+      EXPECT_EQ(2, bit->getComponents().size());
+      EXPECT_TRUE(bit->getBitTerms().empty());
+      EXPECT_EQ(2, bit->getInstTerms().size());
+    }
 
     auto instTerm2 = instTerms[1];
     EXPECT_EQ(SNLID(SNLID::Type::InstTerm, 1, 0, 0, 1, 0, 0), instTerm2->getSNLID());
