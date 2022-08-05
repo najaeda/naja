@@ -33,10 +33,13 @@ class SNLCapNpTest1: public ::testing::Test {
       SNLLibrary* lib2 = SNLLibrary::create(root1);
       SNLLibrary* lib3 = SNLLibrary::create(lib2, SNLName("lib3"));
       SNLLibrary* lib4 = SNLLibrary::create(lib2);
+      SNLDesign* design0 = SNLDesign::create(lib2, SNLName("design0"));
+      SNLDesign* design1 = SNLDesign::create(lib2, SNLDesign::Type::Blackbox);
       SNLLibrary* primitives = SNLLibrary::create(db_, SNLLibrary::Type::Primitives, SNLName("PRIMITIVES"));
       SNLLibrary* prims1 = SNLLibrary::create(primitives, SNLLibrary::Type::Primitives);
       SNLLibrary* prims2 = SNLLibrary::create(primitives, SNLLibrary::Type::Primitives, SNLName("prims2"));
       SNLLibrary* prims3 = SNLLibrary::create(prims1, SNLLibrary::Type::Primitives, SNLName("prims3"));
+      SNLDesign* prim = SNLDesign::create(prims2, SNLDesign::Type::Primitive, SNLName("prim"));
     }
     void TearDown() override {
       if (SNLUniverse::get()) {
@@ -55,7 +58,7 @@ TEST_F(SNLCapNpTest1, test0) {
   }
 
   SNLCapnP::dump(db_, outPath);
-  db_->destroy();  
+  SNLUniverse::get()->destroy();  
   db_ = nullptr;
   db_ = SNLCapnP::load(outPath);
   ASSERT_TRUE(db_);
@@ -104,4 +107,28 @@ TEST_F(SNLCapNpTest1, test0) {
   EXPECT_TRUE(primitives->isPrimitives());
   EXPECT_FALSE(primitives->isStandard());
   EXPECT_FALSE(primitives->isInDB0());
+  libraries = Libraries(primitives->getLibraries().begin(), primitives->getLibraries().end());
+  EXPECT_EQ(2, libraries.size());
+  auto prims1 = libraries[0];
+  EXPECT_NE(nullptr, prims1);
+  EXPECT_TRUE(prims1->isAnonymous());
+  EXPECT_TRUE(prims1->isPrimitives());
+  EXPECT_TRUE(prims1->getDesigns().empty());
+  EXPECT_EQ(1, prims1->getLibraries().size());
+  auto prims2 = libraries[1];
+  EXPECT_NE(nullptr, prims2);
+  EXPECT_FALSE(prims2->isAnonymous());
+  EXPECT_TRUE(prims2->isPrimitives());
+  EXPECT_EQ(1, prims2->getDesigns().size());
+  auto prim = *(prims2->getDesigns().begin());
+  EXPECT_NE(nullptr, prim);
+  EXPECT_TRUE(prim->isPrimitive());
+  EXPECT_FALSE(prim->isAnonymous());
+
+  libraries = Libraries(prims1->getLibraries().begin(), prims1->getLibraries().end());
+  EXPECT_EQ(1, libraries.size());
+  auto prims3 = libraries[0];
+  EXPECT_NE(nullptr, prims3);
+  EXPECT_FALSE(prims3->isAnonymous());
+  EXPECT_EQ(SNLName("prims3"), prims3->getName());
 }
