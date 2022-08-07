@@ -1,3 +1,2 @@
 add_subdirectory(kernel)
 add_subdirectory(serialization)
-add_subdirectory(flattener)
