@@ -6,7 +6,9 @@ using namespace naja::SNL;
 class SNLUniverseTest: public ::testing::Test {
   protected:
     void TearDown() override {
-      SNLUniverse::get()->destroy();
+      if (SNLUniverse::get()) {
+        SNLUniverse::get()->destroy();
+      }
     }
 };
 

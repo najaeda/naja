@@ -34,28 +34,28 @@ SNLDB::SNLDB(SNLUniverse* universe, SNLID::DBID id):
 {}
 
 SNLDB* SNLDB::create(SNLUniverse* universe) {
-  preCreate();
+  preCreate(universe);
   SNLDB* db = new SNLDB(universe);
   db->postCreateAndSetID();
   return db;
 }
 
 SNLDB* SNLDB::create(SNLUniverse* universe, SNLID::DBID id) {
-  preCreate(id);
+  preCreate(universe, id);
   SNLDB* db = new SNLDB(universe, id);
   db->postCreate();
   return db;
 }
 
-void SNLDB::preCreate() {
+void SNLDB::preCreate(SNLUniverse* universe) {
   super::preCreate();
-  if (not SNLUniverse::get()) {
+  if (not universe) {
     throw SNLException("DB creation: NULL Universe");
   }
 }
 
-void SNLDB::preCreate(SNLID::DBID id) {
-  SNLDB::preCreate();
+void SNLDB::preCreate(SNLUniverse* universe, SNLID::DBID id) {
+  preCreate(universe);
   if (SNLUniverse::get()->getDB(id)) {
     throw SNLException("DB collision");
   }

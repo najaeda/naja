@@ -60,8 +60,8 @@ class SNLDB final: public SNLObject {
   private:
     SNLDB(SNLUniverse* universe);
     SNLDB(SNLUniverse* universe, SNLID::DBID id);
-    static void preCreate();
-    static void preCreate(SNLID::DBID id);
+    static void preCreate(SNLUniverse* universe);
+    static void preCreate(SNLUniverse* universe, SNLID::DBID id);
     void postCreateAndSetID();
     void postCreate();
     void commonPreDrestroy();

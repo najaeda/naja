@@ -127,16 +127,9 @@ void SNLLibrary::preCreate(SNLDB* db, Type type, const SNLName& name) {
 }
 
 void SNLLibrary::preCreate(SNLDB* db, SNLID::LibraryID libraryID, Type type, const SNLName& name) {
-  super::preCreate();
-  if (not db) {
-    throw SNLException("malformed SNLLibrary creator with NULL db argument");
-  }
+  preCreate(db, type, name);
   if (db->getLibrary(libraryID)) {
     std::string reason = "SNLDB " + db->getString() + " contains already a SNLLibrary with ID: " + std::to_string(libraryID);
-    throw SNLException(reason);
-  }
-  if (not name.empty() and db->getLibrary(name)) {
-    std::string reason = "SNLDB " + db->getString() + " contains already a SNLLibrary named: " + name.getString();
     throw SNLException(reason);
   }
 }
@@ -156,19 +149,9 @@ void SNLLibrary::preCreate(SNLLibrary* parentLibrary, Type type, const SNLName& 
 }
 
 void SNLLibrary::preCreate(SNLLibrary* parentLibrary, SNLID::LibraryID id, Type type, const SNLName& name) {
-  super::preCreate();
-  if (not parentLibrary) {
-    throw SNLException("malformed SNLLibrary creator with NULL parent library argument");
-  }
-  if (type not_eq parentLibrary->getType()) {
-    throw SNLException("non compatible types in library constructor");
-  }
+  preCreate(parentLibrary, type, name);
   if (parentLibrary->getLibrary(id)) {
     std::string reason = "SNLLibrary " + parentLibrary->getString() + " contains already a SNLLibrary with ID: " + std::to_string(id);
-    throw SNLException(reason);
-  }
-  if (not name.empty() and parentLibrary->getLibrary(name)) {
-    std::string reason = "SNLLibrary " + parentLibrary->getString() + " contains already a SNLLibrary named: " + name.getString();
     throw SNLException(reason);
   }
 }

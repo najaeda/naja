@@ -332,7 +332,7 @@ void loadDesignImplementation(
   SNLDesign* snlDesign = library->getDesign(SNLID::DesignID(designID));
   if (not snlDesign) {
     std::ostringstream reason;
-    reason << "cannot deserialize design: no bit found in bus term with provided reference";
+    reason << "cannot deserialize design: no design found in library with provided id";
     throw SNLException(reason.str());
   }
   if (designImplementation.hasInstances()) {

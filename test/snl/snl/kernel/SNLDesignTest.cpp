@@ -215,6 +215,12 @@ TEST_F(SNLDesignTest, testPrimitives) {
     SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("ERROR")),
     SNLException);
 
+  auto design = SNLDesign::create(library);
+  EXPECT_EQ(SNLID::DesignID(0), design->getID());
+  EXPECT_THROW(
+    SNLDesign::create(library, SNLID::DesignID(0), SNLDesign::Type::Standard),
+    SNLException);
+
   auto prims = SNLLibrary::create(db_, SNLLibrary::Type::Primitives, SNLName("Primitives"));
   EXPECT_TRUE(prims->isPrimitives());
   auto prim = SNLDesign::create(prims, SNLDesign::Type::Primitive, SNLName("Primitive"));
