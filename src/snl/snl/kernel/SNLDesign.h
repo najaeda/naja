@@ -64,6 +64,7 @@ class SNLDesign final: public SNLObject {
 
     static SNLDesign* create(SNLLibrary* library, const SNLName& name=SNLName());
     static SNLDesign* create(SNLLibrary* library, Type type, const SNLName& name=SNLName());
+    static SNLDesign* create(SNLLibrary* library, SNLID::DesignID id, Type type, const SNLName& name=SNLName());
 
     ///\return owning SNLDB
     SNLDB* getDB() const;
@@ -142,6 +143,7 @@ class SNLDesign final: public SNLObject {
 
     SNLID::DesignID getID() const { return id_; }
     SNLID getSNLID() const;
+    SNLID::DesignReference getReference() const;
 
     SNLName getName() const { return name_; }
     bool isAnonymous() const { return name_.empty(); }
@@ -160,18 +162,24 @@ class SNLDesign final: public SNLObject {
     std::string getDescription() const override;
   private:
     SNLDesign(SNLLibrary* library, Type type, const SNLName& name);
+    SNLDesign(SNLLibrary* library, SNLID::DesignID id, Type type, const SNLName& name);
     static void preCreate(const SNLLibrary* library, Type type, const SNLName& name);
+    static void preCreate(const SNLLibrary* library, SNLID::DesignID id, Type type, const SNLName& name);
     void destroyFromLibrary();
+    void postCreateAndSetID();
     void postCreate();
     void commonPreDestroy();
     void preDestroy() override;
     void addTerm(SNLTerm* term);
+    void addTermAndSetID(SNLTerm* term);
     void removeTerm(SNLTerm* term);
     void addInstance(SNLInstance* instance);
+    void addInstanceAndSetID(SNLInstance* instance);
     void removeInstance(SNLInstance* instance);
     void addSlaveInstance(SNLInstance* instance);
     void removeSlaveInstance(SNLInstance* instance);
     void addNet(SNLNet* net);
+    void addNetAndSetID(SNLNet* net);
     void removeNet(SNLNet* net);
     void addParameter(SNLParameter* parameter);
     void removeParameter(SNLParameter* parameter);

@@ -44,7 +44,16 @@ SNLLibrary::SNLLibrary(SNLDB* parent, Type type, const SNLName& name):
   name_(name),
   type_(type),
   parent_(parent),
-  isRootLibrary_(true)
+  isRoot_(true)
+{}
+
+SNLLibrary::SNLLibrary(SNLDB* parent, SNLID::LibraryID id, Type type, const SNLName& name):
+  super(),
+  id_(id),
+  name_(name),
+  type_(type),
+  parent_(parent),
+  isRoot_(true)
 {}
 
 SNLLibrary::SNLLibrary(SNLLibrary* parent, Type type, const SNLName& name):
@@ -52,19 +61,35 @@ SNLLibrary::SNLLibrary(SNLLibrary* parent, Type type, const SNLName& name):
   name_(name),
   type_(type),
   parent_(parent),
-  isRootLibrary_(false)
+  isRoot_(false)
+{}
+
+SNLLibrary::SNLLibrary(SNLLibrary* parent, SNLID::LibraryID id, Type type, const SNLName& name):
+  super(),
+  id_(id),
+  name_(name),
+  type_(type),
+  parent_(parent),
+  isRoot_(false)
 {}
 
 SNLLibrary* SNLLibrary::create(SNLDB* db, const SNLName& name) {
   preCreate(db, Type::Standard, name);
   SNLLibrary* library = new SNLLibrary(db, Type::Standard, name);
-  library->postCreate();
+  library->postCreateAndSetID();
   return library;
 }
 
 SNLLibrary* SNLLibrary::create(SNLDB* db, Type type, const SNLName& name) {
   preCreate(db, type, name);
   SNLLibrary* library = new SNLLibrary(db, type, name);
+  library->postCreateAndSetID();
+  return library;
+}
+
+SNLLibrary* SNLLibrary::create(SNLDB* db, SNLID::LibraryID libraryID, const Type type, const SNLName& name) {
+  preCreate(db, libraryID, type, name);
+  SNLLibrary* library = new SNLLibrary(db, libraryID, type, name);
   library->postCreate();
   return library;
 }
@@ -72,13 +97,20 @@ SNLLibrary* SNLLibrary::create(SNLDB* db, Type type, const SNLName& name) {
 SNLLibrary* SNLLibrary::create(SNLLibrary* parent, const SNLName& name) {
   preCreate(parent, Type::Standard, name);
   SNLLibrary* library = new SNLLibrary(parent, Type::Standard, name);
-  library->postCreate();
+  library->postCreateAndSetID();
   return library;
 }
 
 SNLLibrary* SNLLibrary::create(SNLLibrary* parent, Type type, const SNLName& name) {
   preCreate(parent, type, name);
   SNLLibrary* library = new SNLLibrary(parent, type, name);
+  library->postCreateAndSetID();
+  return library;
+}
+
+SNLLibrary* SNLLibrary::create(SNLLibrary* parent, SNLID::LibraryID id, Type type, const SNLName& name) {
+  preCreate(parent, id, type, name);
+  SNLLibrary* library = new SNLLibrary(parent, id, type, name);
   library->postCreate();
   return library;
 }
@@ -90,6 +122,14 @@ void SNLLibrary::preCreate(SNLDB* db, Type type, const SNLName& name) {
   }
   if (not name.empty() and db->getLibrary(name)) {
     std::string reason = "SNLDB " + db->getString() + " contains already a SNLLibrary named: " + name.getString();
+    throw SNLException(reason);
+  }
+}
+
+void SNLLibrary::preCreate(SNLDB* db, SNLID::LibraryID libraryID, Type type, const SNLName& name) {
+  preCreate(db, type, name);
+  if (db->getLibrary(libraryID)) {
+    std::string reason = "SNLDB " + db->getString() + " contains already a SNLLibrary with ID: " + std::to_string(libraryID);
     throw SNLException(reason);
   }
 }
@@ -108,9 +148,26 @@ void SNLLibrary::preCreate(SNLLibrary* parentLibrary, Type type, const SNLName& 
   }
 }
 
+void SNLLibrary::preCreate(SNLLibrary* parentLibrary, SNLID::LibraryID id, Type type, const SNLName& name) {
+  preCreate(parentLibrary, type, name);
+  if (parentLibrary->getLibrary(id)) {
+    std::string reason = "SNLLibrary " + parentLibrary->getString() + " contains already a SNLLibrary with ID: " + std::to_string(id);
+    throw SNLException(reason);
+  }
+}
+
+void SNLLibrary::postCreateAndSetID() {
+  super::postCreate();
+  if (isRoot()) {
+    static_cast<SNLDB*>(parent_)->addLibraryAndSetID(this);
+  } else {
+    static_cast<SNLLibrary*>(parent_)->addLibraryAndSetID(this);
+  }
+}
+
 void SNLLibrary::postCreate() {
   super::postCreate();
-  if (isRootLibrary()) {
+  if (isRoot()) {
     static_cast<SNLDB*>(parent_)->addLibrary(this);
   } else {
     static_cast<SNLLibrary*>(parent_)->addLibrary(this);
@@ -142,7 +199,7 @@ void SNLLibrary::destroyFromParent() {
 }
 
 void SNLLibrary::preDestroy() {
-  if (isRootLibrary()) {
+  if (isRoot()) {
     static_cast<SNLDB*>(parent_)->removeLibrary(this);
   } else {
     static_cast<SNLLibrary*>(parent_)->removeLibrary(this);
@@ -151,7 +208,7 @@ void SNLLibrary::preDestroy() {
 }
 
 SNLDB* SNLLibrary::getDB() const {
-  if (isRootLibrary()) {
+  if (isRoot()) {
     return static_cast<SNLDB*>(parent_);
   } else {
     return getParentLibrary()->getDB();
@@ -159,21 +216,21 @@ SNLDB* SNLLibrary::getDB() const {
 }
 
 SNLLibrary* SNLLibrary::getParentLibrary() const {
-  if (not isRootLibrary()) {
+  if (not isRoot()) {
     return static_cast<SNLLibrary*>(parent_);
   }
   return nullptr;
 }
 
-SNLLibrary* SNLLibrary::getLibrary(SNLID::LibraryID id) {
+SNLLibrary* SNLLibrary::getLibrary(SNLID::LibraryID id) const {
   auto it = libraries_.find(SNLID(getDB()->getID(), id), SNLIDComp<SNLLibrary>());
   if (it != libraries_.end()) {
-    return &*it;
+    return const_cast<SNLLibrary*>(&*it);
   }
   return nullptr;
 }
 
-SNLLibrary* SNLLibrary::getLibrary(const SNLName& name) {
+SNLLibrary* SNLLibrary::getLibrary(const SNLName& name) const {
   auto lit = libraryNameIDMap_.find(name);
   if (lit != libraryNameIDMap_.end()) {
     SNLID::LibraryID id = lit->second;
@@ -207,8 +264,15 @@ SNLCollection<SNLDesign*> SNLLibrary::getDesigns() const {
   return SNLCollection(new SNLIntrusiveSetCollection(&designs_));
 }
 
-void SNLLibrary::addLibrary(SNLLibrary* library) {
+void SNLLibrary::addLibraryAndSetID(SNLLibrary* library) {
   library->id_ = getDB()->nextLibraryID_++;
+  libraries_.insert(*library);
+  if (not library->isAnonymous()) {
+    libraryNameIDMap_[library->getName()] = library->id_;
+  }
+}
+
+void SNLLibrary::addLibrary(SNLLibrary* library) {
   libraries_.insert(*library);
   if (not library->isAnonymous()) {
     libraryNameIDMap_[library->getName()] = library->id_;
@@ -222,7 +286,7 @@ void SNLLibrary::removeLibrary(SNLLibrary* library) {
   libraries_.erase(*library);
 }
 
-void SNLLibrary::addDesign(SNLDesign* design) {
+void SNLLibrary::addDesignAndSetID(SNLDesign* design) {
   if (designs_.empty()) {
     design->id_ = 0;
   } else {
@@ -231,6 +295,10 @@ void SNLLibrary::addDesign(SNLDesign* design) {
     SNLID::DesignID designID = lastDesign->id_+1;
     design->id_ = designID;
   }
+  addDesign(design);
+}
+
+void SNLLibrary::addDesign(SNLDesign* design) {
   designs_.insert(*design);
   if (not design->isAnonymous()) {
     designNameIDMap_[design->getName()] = design->id_;

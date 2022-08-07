@@ -37,6 +37,13 @@ class SNLBusNet final: public SNLNet {
         SNLID::Bit msb,
         SNLID::Bit lsb,
         const SNLName& name=SNLName());
+    
+    static SNLBusNet* create(
+        SNLDesign* design,
+        SNLID::DesignObjectID id,
+        SNLID::Bit msb,
+        SNLID::Bit lsb,
+        const SNLName& name=SNLName());
 
     SNLDesign* getDesign() const override { return design_; }
     ///\return MSB (Most Significant Bit) or left hand side of the bus range.
@@ -64,7 +71,16 @@ class SNLBusNet final: public SNLNet {
         SNLID::Bit msb,
         SNLID::Bit lsb,
         const SNLName& name);
+    SNLBusNet(
+        SNLDesign* design,
+        SNLID::DesignObjectID id,
+        SNLID::Bit msb,
+        SNLID::Bit lsb,
+        const SNLName& name);
     static void preCreate(const SNLDesign* design, const SNLName& name);
+    static void preCreate(const SNLDesign* design, SNLID::DesignObjectID id, const SNLName& name);
+    void createBits();
+    void postCreateAndSetID();
     void postCreate();
     void destroyFromDesign() override;
     void commonPreDestroy();

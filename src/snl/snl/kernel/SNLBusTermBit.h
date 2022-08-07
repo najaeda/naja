@@ -36,7 +36,7 @@ class SNLBusTermBit final: public SNLBitTerm {
     ///\return this SNLBusTermBit owner SNLBusTerm.
     SNLBusTerm* getBus() const { return bus_; }
     SNLID::Bit getBit() const override { return bit_; }
-    size_t getPositionInDesign() const override;
+    size_t getFlatID() const override;
     ///\return the position of this SNLBusTermBit in SNLBusTerm bits vector.
     size_t getPositionInBus() const;
 
@@ -52,7 +52,7 @@ class SNLBusTermBit final: public SNLBitTerm {
     static SNLBusTermBit* create(SNLBusTerm* bus, SNLID::Bit bit);
 
     void setID(SNLID::DesignObjectID id) override {} //LCOV_EXCL_LINE
-    void setPositionInDesign(size_t position) override {} //LCOV_EXCL_LINE
+    void setFlatID(size_t position) override {} //LCOV_EXCL_LINE
 
     SNLBusTermBit(SNLBusTerm* bus, SNLID::Bit bit);
     static void preCreate(const SNLBusTerm* bus, SNLID::Bit bit);

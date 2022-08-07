@@ -25,6 +25,7 @@ ENDIF(CODE_COVERAGE)
 
 find_package(Boost REQUIRED)
 find_package(Python3 COMPONENTS Development)
+find_package(CapnProto CONFIG REQUIRED)
 
 add_subdirectory(thirdparty)
 add_subdirectory(src)

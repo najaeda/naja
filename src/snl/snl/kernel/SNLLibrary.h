@@ -49,19 +49,21 @@ class SNLLibrary final: public SNLObject {
 
     static SNLLibrary* create(SNLDB* db, const SNLName& name = SNLName());
     static SNLLibrary* create(SNLDB* db, Type type, const SNLName& name = SNLName());
+    static SNLLibrary* create(SNLDB* db, SNLID::LibraryID id, Type type, const SNLName& name = SNLName());
     static SNLLibrary* create(SNLLibrary* parent, const SNLName& name = SNLName());
     static SNLLibrary* create(SNLLibrary* parent, Type type, const SNLName& name = SNLName());
+    static SNLLibrary* create(SNLLibrary* parent, SNLID::LibraryID id, Type type, const SNLName& name = SNLName());
 
-    bool isRootLibrary() const { return isRootLibrary_; }
+    bool isRoot() const { return isRoot_; }
 
     SNLDB* getDB() const;
 
     ///\return parent SNLLibrary
     SNLLibrary* getParentLibrary() const;
     ///\return child SNLLibrary with SNLID::LibraryID id
-    SNLLibrary* getLibrary(SNLID::LibraryID id);
+    SNLLibrary* getLibrary(SNLID::LibraryID id) const;
     ///\return child SNLLibrary named name
-    SNLLibrary* getLibrary(const SNLName& name);
+    SNLLibrary* getLibrary(const SNLName& name) const;
     ///\return the collection of sub SNLLibrary
     SNLCollection<SNLLibrary*> getLibraries() const;
     ///\return SNLDesign with SNLID::DesignID id
@@ -89,17 +91,24 @@ class SNLLibrary final: public SNLObject {
     }
   private:
     static void preCreate(SNLDB* db, Type type, const SNLName& name);
+    static void preCreate(SNLDB* db, SNLID::LibraryID id, const Type type, const SNLName& name);
     static void preCreate(SNLLibrary* parent, Type type, const SNLName& name);
+    static void preCreate(SNLLibrary* parent, SNLID::LibraryID id, Type type, const SNLName& name);
     void destroyFromParent();
     void postCreate();
+    void postCreateAndSetID();
     void commonPreDestroy();
     void preDestroy() override;
 
     SNLLibrary(SNLDB* db, Type type, const SNLName& name);
+    SNLLibrary(SNLDB* db, SNLID::LibraryID libraryID, Type type, const SNLName& name);
     SNLLibrary(SNLLibrary* parent, Type type, const SNLName& name);
+    SNLLibrary(SNLLibrary* parent, SNLID::LibraryID libraryID, Type type, const SNLName& name);
 
+    void addLibraryAndSetID(SNLLibrary* library);
     void addLibrary(SNLLibrary* library);
     void removeLibrary(SNLLibrary* library);
+    void addDesignAndSetID(SNLDesign* design);
     void addDesign(SNLDesign* design);
     void removeDesign(SNLDesign* design);
 
@@ -113,7 +122,7 @@ class SNLLibrary final: public SNLObject {
     SNLName                             name_             {};
     Type                                type_             { Type::Standard };
     void*                               parent_           { nullptr };
-    bool                                isRootLibrary_    { false };
+    bool                                isRoot_           { false };
     boost::intrusive::set_member_hook<> librariesHook_    {};
     using SNLLibraryLibrariesHook =
       boost::intrusive::member_hook<SNLLibrary, boost::intrusive::set_member_hook<>, &SNLLibrary::librariesHook_>;

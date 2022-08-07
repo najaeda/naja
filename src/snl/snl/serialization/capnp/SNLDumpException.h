@@ -14,19 +14,22 @@
  * limitations under the License.
  */
 
-#include "SNLDump.h"
-#include "SNLDumpManifest.h"
+#ifndef __SNL_DUMP_EXCEPTION_H_
+#define __SNL_DUMP_EXCEPTION_H_
+
+#include "SNLException.h"
 
 namespace naja { namespace SNL {
 
-void SNLDump::load(const std::filesystem::path& path) {
-  if (not std::filesystem::exists(path)) {
-    //create error
-    return;
-  }
-  //load manifest
-  SNLDumpManifest::load(path);
-}
+struct SNLDumpException: public SNLException {
+  public:
+    SNLDumpException() = delete;
+    SNLDumpException(const SNLDumpException&) = default;
 
+    SNLDumpException(const std::string& reason): SNLException(reason)
+    {}
+};
 
 }} // namespace SNL // namespace naja
+
+#endif // __SNL_DUMP_EXCEPTION_H_

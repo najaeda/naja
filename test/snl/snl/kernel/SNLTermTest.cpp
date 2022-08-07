@@ -62,11 +62,11 @@ TEST_F(SNLTermTest, testCreation) {
   EXPECT_EQ(SNLID(SNLID::Type::TermBit, 1, 0, 0, 0, 0, -2), term0->getBit(-2)->getSNLID());
   EXPECT_EQ(SNLID(SNLID::Type::TermBit, 1, 0, 0, 0, 0, -3), term0->getBit(-3)->getSNLID());
   EXPECT_EQ(SNLID(SNLID::Type::TermBit, 1, 0, 0, 0, 0, -4), term0->getBit(-4)->getSNLID());
-  EXPECT_EQ(0, term0->getPositionInDesign());
-  EXPECT_EQ(0, term0->getBit(-1)->getPositionInDesign());
-  EXPECT_EQ(1, term0->getBit(-2)->getPositionInDesign());
-  EXPECT_EQ(2, term0->getBit(-3)->getPositionInDesign());
-  EXPECT_EQ(3, term0->getBit(-4)->getPositionInDesign());
+  EXPECT_EQ(0, term0->getFlatID());
+  EXPECT_EQ(0, term0->getBit(-1)->getFlatID());
+  EXPECT_EQ(1, term0->getBit(-2)->getFlatID());
+  EXPECT_EQ(2, term0->getBit(-3)->getFlatID());
+  EXPECT_EQ(3, term0->getBit(-4)->getFlatID());
   EXPECT_EQ(0, term0->getBit(-1)->getPositionInBus());
   EXPECT_EQ(1, term0->getBit(-2)->getPositionInBus());
   EXPECT_EQ(2, term0->getBit(-3)->getPositionInBus());
@@ -179,18 +179,18 @@ TEST_F(SNLTermTest, testSetNetErrors) {
 
   //With scalar net
   SNLNet* net = SNLScalarNet::create(design, SNLName("n0"));
-  ASSERT_THROW(term0->setNet(net), SNLException);
+  EXPECT_THROW(term0->setNet(net), SNLException);
   net->destroy();
  
   //different size SNLBusNet case
   net = SNLBusNet::create(design, 0, 2, SNLName("n0"));
-  ASSERT_THROW(term0->setNet(net), SNLException);
+  EXPECT_THROW(term0->setNet(net), SNLException);
   net->destroy();
 
   //other design
   auto other = SNLDesign::create(library, SNLName("other"));
   SNLNet* otherNet = SNLScalarNet::create(other, SNLName("n0"));
-  ASSERT_THROW(term0->setNet(otherNet), SNLException);
+  EXPECT_THROW(term0->setNet(otherNet), SNLException);
 }
 
 TEST_F(SNLTermTest, testErrors) {
@@ -208,4 +208,6 @@ TEST_F(SNLTermTest, testErrors) {
   ASSERT_NE(nullptr, term1);
   EXPECT_THROW(SNLBusTerm::create(design, SNLTerm::Direction::Input, 31, 0, SNLName("term0")), SNLException);
   EXPECT_THROW(SNLScalarTerm::create(design, SNLTerm::Direction::Input, SNLName("term1")), SNLException);
+  EXPECT_THROW(SNLBusTerm::create(design, SNLID::DesignObjectID(0), SNLTerm::Direction::Input, 31, 0), SNLException);
+  EXPECT_THROW(SNLScalarTerm::create(design, SNLID::DesignObjectID(1), SNLTerm::Direction::Input), SNLException);
 }

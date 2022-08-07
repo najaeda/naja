@@ -17,7 +17,6 @@
 #ifndef __SNL_DUMP_H_
 #define __SNL_DUMP_H_
 
-#include <filesystem>
 #include <string>
 
 namespace naja { namespace SNL {
@@ -28,9 +27,16 @@ class SNLDump {
   public:
     struct Version {
       Version() = delete;
+      Version(const Version&) = default;
       Version(unsigned major, unsigned minor, unsigned revision):
         major_(major), minor_(minor), revision_(revision)
       {}
+      bool operator==(const Version& version) const {
+        return major_ == version.major_
+          and minor_ == version.minor_
+          and revision_ == version.revision_;
+      }
+
       unsigned major_;
       unsigned minor_;
       unsigned revision_;
@@ -42,19 +48,7 @@ class SNLDump {
 
     static const Version  version_;
     static Version getVersion() { return version_; }
-
-    class Tag {
-      public:
-        static constexpr char Design      { 'D' };
-        static constexpr char ScalarTerm  { 'T' };
-        static constexpr char BusTerm     { 'B' };
-        static constexpr char Net         { 'N' };
-        static constexpr char Instance    { 'I' };
-        static constexpr char Parameter   { 'P' };
-    };
-
-    static void dump(const SNLDesign* top, const std::filesystem::path& path);
-    static void load(const std::filesystem::path& path);
+    //static constexpr std::string_view DesignDBName = "design.db";
 };
 
 }} // namespace SNL // namespace naja

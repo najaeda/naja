@@ -38,9 +38,24 @@ SNLInstance::SNLInstance(SNLDesign* design, SNLDesign* model, const SNLName& nam
   name_(name)
 {}
 
+SNLInstance::SNLInstance(SNLDesign* design, SNLDesign* model, SNLID::DesignObjectID id, const SNLName& name):
+  super(),
+  design_(design),
+  model_(model),
+  id_(id),
+  name_(name)
+{}
+
 SNLInstance* SNLInstance::create(SNLDesign* design, SNLDesign* model, const SNLName& name) {
   preCreate(design, model, name);
   SNLInstance* instance = new SNLInstance(design, model, name);
+  instance->postCreateAndSetID();
+  return instance;
+}
+
+SNLInstance* SNLInstance::create(SNLDesign* design, SNLDesign* model, SNLID::DesignObjectID id, const SNLName& name) {
+  preCreate(design, model, id, name);
+  SNLInstance* instance = new SNLInstance(design, model, id, name);
   instance->postCreate();
   return instance;
 }
@@ -59,9 +74,15 @@ void SNLInstance::preCreate(SNLDesign* design, const SNLDesign* model, const SNL
   }
 }
 
-void SNLInstance::postCreate() {
-  super::postCreate();
-  getDesign()->addInstance(this);
+void SNLInstance::preCreate(SNLDesign* design, const SNLDesign* model, SNLID::DesignObjectID id, const SNLName& name) {
+  preCreate(design, model, name);
+  if (design->getInstance(id)) {
+    std::string reason = "SNLDesign " + design->getString() + " contains already a SNLInstance with id: " + std::to_string(id);
+    throw SNLException(reason);
+  }
+}
+
+void SNLInstance::commonPostCreate() {
   if (not getModel()->isPrimitive()) {
     //Always execute addSlaveInstance after addInstance.
     //addInstance determines the instance ID.
@@ -80,6 +101,19 @@ void SNLInstance::postCreate() {
   }
 }
 
+void SNLInstance::postCreateAndSetID() {
+  super::postCreate();
+  getDesign()->addInstanceAndSetID(this);
+  commonPostCreate();
+
+}
+
+void SNLInstance::postCreate() {
+  super::postCreate();
+  getDesign()->addInstance(this);
+  commonPostCreate();
+}
+
 void SNLInstance::createInstTerm(SNLBitTerm* term) {
   instTerms_.push_back(SNLInstTerm::create(this, term));
 }
@@ -87,12 +121,12 @@ void SNLInstance::createInstTerm(SNLBitTerm* term) {
 void SNLInstance::removeInstTerm(SNLBitTerm* term) {
   //removeInstTerm is private so following are internal errors
   assert(term->getDesign() == getModel());
-  assert(term->getPositionInDesign() < instTerms_.size());
-  auto instTerm = instTerms_[term->getPositionInDesign()];
+  assert(term->getFlatID() < instTerms_.size());
+  auto instTerm = instTerms_[term->getFlatID()];
   if (instTerm) {
     instTerm->destroyFromInstance();
   }
-  instTerms_[term->getPositionInDesign()] = nullptr;
+  instTerms_[term->getFlatID()] = nullptr;
 }
 
 void SNLInstance::setTermsNets(const Terms& terms, const Nets& nets) {
@@ -245,8 +279,8 @@ SNLInstTerm* SNLInstance::getInstTerm(const SNLBitTerm* term) const {
       + " should be the same";
     throw SNLException(reason);
   }
-  assert(term->getPositionInDesign() < instTerms_.size());
-  return instTerms_[term->getPositionInDesign()];
+  assert(term->getFlatID() < instTerms_.size());
+  return instTerms_[term->getFlatID()];
 }
 
 SNLCollection<SNLInstTerm*> SNLInstance::getInstTerms() const {

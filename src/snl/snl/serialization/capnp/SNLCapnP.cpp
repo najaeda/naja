@@ -14,12 +14,22 @@
  * limitations under the License.
  */
 
+#include "SNLCapnP.h"
+#include "SNLDumpManifest.h"
+
 namespace naja { namespace SNL {
 
-std::string SNLDump::Version::getString() {
-  return std::to_string(getMajor())
-    + "." + std::to_string(getMinor())
-    + "." + std::to_string(getRevision());
+void SNLCapnP::dump(const SNLDB* db, const std::filesystem::path& path) {
+  std::filesystem::create_directory(path);
+  SNLDumpManifest::dump(path);
+  dumpInterface(db, path/InterfaceName);
+  dumpImplementation(db, path/ImplementationName);
+}
+
+SNLDB* SNLCapnP::load(const std::filesystem::path& path) {
+  loadInterface(path/InterfaceName);
+  SNLDB* db = loadImplementation(path/ImplementationName);
+  return db;
 }
 
 }} // namespace SNL // namespace naja

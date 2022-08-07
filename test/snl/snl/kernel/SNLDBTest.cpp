@@ -1,12 +1,15 @@
 #include "gtest/gtest.h"
 
 #include "SNLUniverse.h"
+#include "SNLException.h"
 using namespace naja::SNL;
 
 class SNLDBTest: public ::testing::Test {
   protected:
     void TearDown() override {
-      SNLUniverse::get()->destroy();
+      if (SNLUniverse::get()) {
+        SNLUniverse::get()->destroy();
+      }
     }
 };
 
@@ -37,4 +40,12 @@ TEST_F(SNLDBTest, test) {
     
   db1->destroy();
   EXPECT_EQ(universe->getDB(1), nullptr);
+}
+
+TEST_F(SNLDBTest, testErrors) {
+  EXPECT_THROW(SNLDB::create(nullptr), SNLException);
+  SNLUniverse::create();
+  auto db = SNLDB::create(SNLUniverse::get());
+  EXPECT_EQ(1, db->getID());
+  EXPECT_THROW(SNLDB::create(SNLUniverse::get(), SNLID::DBID(1)), SNLException);
 }

@@ -28,6 +28,7 @@ class SNLScalarNet final: public SNLBitNet {
     using super = SNLBitNet;
 
     static SNLScalarNet* create(SNLDesign* design, const SNLName& name=SNLName());
+    static SNLScalarNet* create(SNLDesign* design, SNLID::DesignObjectID id, const SNLName& name=SNLName());
 
     SNLDesign* getDesign() const override { return design_; }
 
@@ -42,8 +43,11 @@ class SNLScalarNet final: public SNLBitNet {
     std::string getDescription() const override;
   private:
     SNLScalarNet(SNLDesign* design, const SNLName& name);
+    SNLScalarNet(SNLDesign* design, SNLID::DesignObjectID id, const SNLName& name);
     static void preCreate(const SNLDesign* design, const SNLName& name);
+    static void preCreate(const SNLDesign* design, SNLID::DesignObjectID id, const SNLName& name);
     void postCreate();
+    void postCreateAndSetID();
     void destroyFromDesign() override;
     void commonPreDestroy();
     void preDestroy() override;

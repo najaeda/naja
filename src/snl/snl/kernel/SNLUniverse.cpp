@@ -64,7 +64,7 @@ SNLUniverse* SNLUniverse::get() {
   return universe_;
 }
 
-void SNLUniverse::addDB(SNLDB* db) {
+void SNLUniverse::addDBAndSetID(SNLDB* db) {
   if (dbs_.empty()) {
     db->id_ = 0;
   } else {
@@ -74,6 +74,12 @@ void SNLUniverse::addDB(SNLDB* db) {
     ++dbID;
     db->id_ = dbID;
   }
+  addDB(db);
+}
+
+void SNLUniverse::addDB(SNLDB* db) {
+  //FIXME ?? are dbs sorted by id and if yes if we create a new one will
+  //it be inserted at correct position ?
   dbs_.insert(*db);
 }
 
@@ -89,10 +95,21 @@ bool SNLUniverse::isDB0(const SNLDB* db) {
   return false;
 }
 
-SNLDB* SNLUniverse::getDB(SNLID::DBID id) {
+SNLDB* SNLUniverse::getDB(SNLID::DBID id) const {
   auto it = dbs_.find(SNLID(id), SNLIDComp<SNLDB>());
   if (it != dbs_.end()) {
-    return &*it;
+    return const_cast<SNLDB*>(&*it);
+  }
+  return nullptr;
+}
+
+SNLDesign* SNLUniverse::getDesign(const SNLID::DesignReference& designReference) const {
+  auto db = getDB(designReference.dbID_);
+  if (db) {
+    auto library = db->getLibrary(designReference.libraryID_);
+    if (library) {
+      return library->getDesign(designReference.designID_);
+    }
   }
   return nullptr;
 }

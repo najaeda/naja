@@ -45,7 +45,21 @@ struct SNLID final {
   using DesignID        = uint32_t;
   using InstanceID      = uint32_t;
   using DesignObjectID  = uint32_t;
-  using Bit             = int32_t; 
+  using Bit             = int32_t;
+
+  struct DesignReference {
+    DBID        dbID_       {0};
+    LibraryID   libraryID_  {0};
+    DesignID    designID_   {0};
+
+    DesignReference() = delete;
+    DesignReference(const DesignReference&) = default;
+    DesignReference(DBID dbID, LibraryID libraryID, DesignID designID):
+      dbID_(dbID),
+      libraryID_(libraryID),
+      designID_(designID)
+    {}
+  };
 
   Type            type_           {0};
   DBID            dbID_           {0};

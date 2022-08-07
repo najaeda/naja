@@ -38,6 +38,20 @@ SNLBusNet::SNLBusNet(
   lsb_(lsb)
 {}
 
+SNLBusNet::SNLBusNet(
+    SNLDesign* design,
+    SNLID::DesignObjectID id,
+    SNLID::Bit msb,
+    SNLID::Bit lsb,
+    const SNLName& name):
+  super(),
+  design_(design),
+  id_(id),
+  name_(name),
+  msb_(msb),
+  lsb_(lsb)
+{}
+
 SNLBusNet* SNLBusNet::create(
     SNLDesign* design,
     SNLID::Bit msb,
@@ -45,6 +59,18 @@ SNLBusNet* SNLBusNet::create(
     const SNLName& name) {
   preCreate(design, name);
   SNLBusNet* net = new SNLBusNet(design, msb, lsb, name);
+  net->postCreateAndSetID();
+  return net;
+}
+
+SNLBusNet* SNLBusNet::create(
+    SNLDesign* design,
+    SNLID::DesignID id,
+    SNLID::Bit msb,
+    SNLID::Bit lsb,
+    const SNLName& name) {
+  preCreate(design, id, name);
+  SNLBusNet* net = new SNLBusNet(design, id, msb, lsb, name);
   net->postCreate();
   return net;
 }
@@ -61,15 +87,34 @@ void SNLBusNet::preCreate(const SNLDesign* design, const SNLName& name) {
   }
 }
 
-void SNLBusNet::postCreate() {
-  super::postCreate();
-  getDesign()->addNet(this);
+void SNLBusNet::preCreate(const SNLDesign* design, SNLID::DesignObjectID id, const SNLName& name) {
+  preCreate(design, name);
+  if (design->getNet(id)) {
+    std::string reason = "cannot create SNLBusNet with id " + std::to_string(id);
+    reason += "A terminal with same id already exists.";
+    throw SNLException(reason);
+  }
+}
+
+void SNLBusNet::createBits() {
   //create bits
   bits_.resize(getSize(), nullptr);
   for (size_t i=0; i<getSize(); i++) {
     SNLID::Bit bit = (getMSB()>getLSB())?getMSB()-int(i):getMSB()+int(i);
     bits_[i] = SNLBusNetBit::create(this, bit);
   }
+}
+
+void SNLBusNet::postCreateAndSetID() {
+  super::postCreate();
+  getDesign()->addNetAndSetID(this);
+  createBits();
+}
+
+void SNLBusNet::postCreate() {
+  super::postCreate();
+  getDesign()->addNet(this);
+  createBits();
 }
 
 void SNLBusNet::commonPreDestroy() {

@@ -55,6 +55,8 @@ class SNLInstance final: public SNLDesignObject {
      */
     static SNLInstance* create(SNLDesign* design, SNLDesign* model, const SNLName& name=SNLName());
 
+    static SNLInstance* create(SNLDesign* design, SNLDesign* model, SNLID::DesignObjectID, const SNLName& name=SNLName());
+
     SNLDesign* getDesign() const override { return design_; }
     SNLDesign* getModel() const { return model_; }
 
@@ -115,7 +117,11 @@ class SNLInstance final: public SNLDesignObject {
 
   private:
     SNLInstance(SNLDesign* design, SNLDesign* model, const SNLName& name);
+    SNLInstance(SNLDesign* design, SNLDesign* model, SNLID::DesignObjectID id, const SNLName& name);
     static void preCreate(SNLDesign* design, const SNLDesign* model, const SNLName& name);
+    static void preCreate(SNLDesign* design, const SNLDesign* model, SNLID::DesignObjectID id, const SNLName& name);
+    void commonPostCreate();
+    void postCreateAndSetID();
     void postCreate();
     void commonPreDestroy();
     void destroyFromDesign();

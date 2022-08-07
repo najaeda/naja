@@ -23,6 +23,7 @@
 
 #include "NajaUtils.h"
 #include "SNLDump.h"
+#include "SNLDumpException.h"
 
 namespace {
 
@@ -38,9 +39,16 @@ Tokens extractTokens(const std::string& s) {
 
 namespace naja { namespace SNL {
 
-void SNLDumpManifestDumper::dump(const SNLDesign* top, const std::filesystem::path& snlDir) {
-  std::filesystem::path manifestPath(snlDir/"snl.mf");
-  std::ofstream stream(manifestPath);
+void SNLDumpManifest::dump(const std::filesystem::path& snlDir) {
+  std::filesystem::path manifestPath(snlDir/ManifestFileName);
+  std::ofstream stream;
+  stream.open(manifestPath, std::ofstream::out);
+
+  if (not stream.is_open()) {
+    std::ostringstream reason;
+    reason << "Cannot dump manifest as " << manifestPath.string() << " is not open";
+    throw SNLDumpException(reason.str());
+  }
   core::NajaUtils::createBanner(stream, "SNL manifest", "#");
   stream << "V"
     << " " << SNLDump::getVersion().getMajor()
@@ -52,7 +60,9 @@ void SNLDumpManifestDumper::dump(const SNLDesign* top, const std::filesystem::pa
 SNLDumpManifest SNLDumpManifest::load(const std::filesystem::path& snlDir) {
   std::filesystem::path manifestPath(snlDir/"snl.mf");
   if (not std::filesystem::is_regular_file(manifestPath)) {
-    //Error
+    std::ostringstream reason;
+    reason << "Cannot load manifest as " << manifestPath.string() << " is not a regular file";
+    throw SNLDumpException(reason.str());
   }
   std::ifstream stream(manifestPath);
   std::string line;
@@ -67,7 +77,7 @@ SNLDumpManifest SNLDumpManifest::load(const std::filesystem::path& snlDir) {
         } else if (command == "V") {
           //extract version
           if (tokens.size() != 4) {
-            //error
+            throw SNLDumpException("Wrong formatting of version"); //LCOV_EXCL_LINE
           }
           manifest.version_.major_ = static_cast<unsigned>(std::stoi(tokens[1]));
           manifest.version_.minor_ = static_cast<unsigned>(std::stoi(tokens[2]));

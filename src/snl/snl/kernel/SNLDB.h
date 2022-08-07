@@ -38,6 +38,7 @@ class SNLDB final: public SNLObject {
     SNLDB(const SNLDB&) = delete;
 
     static SNLDB* create(SNLUniverse* universe);
+    static SNLDB* create(SNLUniverse* universe, SNLID::DBID id);
 
     SNLID::DBID getID() const { return id_; }
     SNLID getSNLID() const;
@@ -58,13 +59,17 @@ class SNLDB final: public SNLObject {
     }
   private:
     SNLDB(SNLUniverse* universe);
-    static void preCreate();
+    SNLDB(SNLUniverse* universe, SNLID::DBID id);
+    static void preCreate(SNLUniverse* universe);
+    static void preCreate(SNLUniverse* universe, SNLID::DBID id);
+    void postCreateAndSetID();
     void postCreate();
     void commonPreDrestroy();
     void preDestroy() override;
     void destroyFromUniverse();
 
     void addLibrary(SNLLibrary* library);
+    void addLibraryAndSetID(SNLLibrary* library);
     void removeLibrary(SNLLibrary* library);
 
     SNLUniverse*                        universe_;
