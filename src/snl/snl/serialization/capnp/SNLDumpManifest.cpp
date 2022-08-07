@@ -77,7 +77,7 @@ SNLDumpManifest SNLDumpManifest::load(const std::filesystem::path& snlDir) {
         } else if (command == "V") {
           //extract version
           if (tokens.size() != 4) {
-            throw SNLDumpException("Wrong formatting of version");
+            throw SNLDumpException("Wrong formatting of version"); //LCOV_EXCL_LINE
           }
           manifest.version_.major_ = static_cast<unsigned>(std::stoi(tokens[1]));
           manifest.version_.minor_ = static_cast<unsigned>(std::stoi(tokens[2]));

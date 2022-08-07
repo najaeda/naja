@@ -2,6 +2,7 @@
 #include <filesystem>
 
 #include "SNLDumpManifest.h"
+#include "SNLException.h"
 using namespace naja::SNL;
 
 #ifndef SNL_CAPNP_TEST_PATH
@@ -51,4 +52,10 @@ TEST_F(SNLDumpManifestTest, test0) {
   EXPECT_EQ(SNLDump::getVersion().getMinor(), manifest.getVersion().getMinor());
   EXPECT_EQ(SNLDump::getVersion().getRevision(), manifest.getVersion().getRevision());
   EXPECT_EQ(SNLDump::getVersion(), manifest.getVersion());
+}
+
+TEST_F(SNLDumpManifestTest, testErrors) {
+  std::filesystem::path errorPath("/error");
+  EXPECT_THROW(SNLDumpManifest::dump(errorPath), SNLException);
+  EXPECT_THROW(SNLDumpManifest::load(errorPath), SNLException);
 }
