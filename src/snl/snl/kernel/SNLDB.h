@@ -48,6 +48,10 @@ class SNLDB final: public SNLObject {
     ///\return the SNLLibrary in this SNLDB with SNLName:name 
     SNLLibrary* getLibrary(const SNLName& name);
 
+    bool isTopDB() const;
+    SNLDesign* getTopDesign() const;
+    void setTopDesign(SNLDesign* design);
+
     SNLCollection<SNLLibrary*> getLibraries() const;
 
     const char* getTypeName() const override;
@@ -79,6 +83,7 @@ class SNLDB final: public SNLObject {
     SNLDBLibraries                      libraries_                {};
     using LibraryNameIDMap = std::map<SNLName, SNLID::LibraryID>;
     LibraryNameIDMap                    libraryNameIDMap_         {};
+    SNLDesign*                          topDesign_                {nullptr};
 };
 
 }} // namespace SNL // namespace naja

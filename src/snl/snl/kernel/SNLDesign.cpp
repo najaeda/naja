@@ -460,6 +460,10 @@ SNLCollection<SNLParameter*> SNLDesign::getParameters() const {
   return SNLCollection(new SNLIntrusiveSetCollection(&parameters_));
 }
 
+bool SNLDesign::isTopDesign() const {
+  return getDB()->getTopDesign() == this; 
+}
+
 SNLID SNLDesign::getSNLID() const {
   return SNLID(getDB()->getID(), library_->getID(), getID());
 }

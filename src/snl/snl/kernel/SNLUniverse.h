@@ -50,6 +50,11 @@ class SNLUniverse final: public SNLObject {
     ///\return the SNLDesign with SNLID::DesignReference reference or null if it does not exist
     SNLDesign* getDesign(const SNLID::DesignReference& designReference) const;
 
+    SNLDB* getTopDB() const;
+    SNLDesign* getTopDesign() const;
+    void setTopDB(SNLDB* db);
+    void setTopDesign(SNLDesign* design);
+
     static bool isDB0(const SNLDB* db);
     
     const char* getTypeName() const override;
@@ -72,6 +77,7 @@ class SNLUniverse final: public SNLObject {
     static SNLUniverse* universe_;
     SNLUniverseDBs      dbs_          {};
     SNLDB*              db0_          {nullptr};
+    SNLDB*              topDB_        {nullptr};
 };
 
 }} // namespace SNL // namespace naja

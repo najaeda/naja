@@ -18,8 +18,10 @@
 
 #include <list>
 #include <iostream>
+#include <sstream>
 
 #include "SNLUniverse.h"
+#include "SNLDB0.h"
 #include "SNLException.h"
 
 namespace naja { namespace SNL {
@@ -148,6 +150,25 @@ SNLCollection<SNLLibrary*> SNLDB::getLibraries() const {
 
 SNLID SNLDB::getSNLID() const {
   return SNLID(id_);
+}
+
+bool SNLDB::isTopDB() const {
+  return SNLUniverse::get()->getTopDB() == this;
+}
+
+SNLDesign* SNLDB::getTopDesign() const {
+  return topDesign_;
+}
+
+void SNLDB::setTopDesign(SNLDesign* design) {
+  if (design and design->getDB() not_eq this) {
+    std::ostringstream reason;
+    reason << "Impossible setTopDesign call with ";
+    reason << design->getString() << " and ";
+    reason << getString();
+    throw SNLException(reason.str());
+  }
+  topDesign_ = design;
 }
 
 //LCOV_EXCL_START

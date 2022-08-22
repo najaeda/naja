@@ -18,6 +18,7 @@
 
 #include <iostream>
 #include "SNLDB0.h"
+#include "SNLException.h"
 
 namespace naja { namespace SNL {
 
@@ -122,6 +123,24 @@ SNLCollection<SNLDB*> SNLUniverse::getUserDBs() const {
   auto filter = [](const SNLDB* db) {return not SNLUniverse::isDB0(db); };
   return getDBs().getSubCollection(filter);
 
+}
+
+SNLDB* SNLUniverse::getTopDB() const {
+  return topDB_;
+}
+
+void SNLUniverse::setTopDB(SNLDB* db) {
+  if (SNLDB0::isDB0(db)) {
+    throw SNLException("Cannot set DB0 as top DB");
+  }
+  topDB_ = db;
+}
+
+SNLDesign* SNLUniverse::getTopDesign() const {
+  if (topDB_) {
+    return topDB_->getTopDesign();
+  }
+  return nullptr;
 }
 
 //LCOV_EXCL_START

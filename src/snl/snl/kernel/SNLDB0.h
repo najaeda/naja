@@ -41,7 +41,8 @@ class SNLBusTerm;
 class SNLDB0 {
   friend class SNLUniverse;
   public:
-    static SNLDB* getSNLDB0();
+    static SNLDB* getDB0();
+    static bool isDB0(const SNLDB* db);
     static SNLLibrary* getPrimitivesLibrary();
     static bool isDB0Primitive(const SNLDesign* design);
 

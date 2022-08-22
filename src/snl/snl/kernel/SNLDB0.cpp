@@ -40,7 +40,7 @@ SNLDB* SNLDB0::create(SNLUniverse* universe) {
   return db;
 }
 
-SNLDB* SNLDB0::getSNLDB0() {
+SNLDB* SNLDB0::getDB0() {
   auto universe = SNLUniverse::get();
   if (universe) {
     auto db0 = universe->getDB(0);
@@ -50,8 +50,12 @@ SNLDB* SNLDB0::getSNLDB0() {
   return nullptr;
 }
 
+bool SNLDB0::isDB0(const SNLDB* db) {
+  return db and db == getDB0();
+}
+
 SNLLibrary* SNLDB0::getPrimitivesLibrary() {
-  auto db0 = SNLDB0::getSNLDB0();
+  auto db0 = SNLDB0::getDB0();
   if (db0) {
     return db0->getLibrary(SNLName(PrimitivesLibraryName));
   }
