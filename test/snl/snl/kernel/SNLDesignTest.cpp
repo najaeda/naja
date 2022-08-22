@@ -235,3 +235,28 @@ TEST_F(SNLDesignTest, testPrimitives) {
     SNLDesign::create(prims, SNLDesign::Type::Primitive, SNLName("Primitive")),
     SNLException);
 }
+
+TEST_F(SNLDesignTest, testSetTop) {
+  SNLLibrary* library = db_->getLibrary(SNLName("MYLIB"));
+  ASSERT_NE(library, nullptr);
+  SNLDesign* design = SNLDesign::create(library, SNLName("design"));
+  ASSERT_NE(design, nullptr);
+
+  EXPECT_EQ(nullptr, SNLUniverse::get()->getTopDesign());
+  EXPECT_EQ(nullptr, SNLUniverse::get()->getTopDB());
+  EXPECT_FALSE(design->isTopDesign());
+  design->getDB()->setTopDesign(design);
+  EXPECT_TRUE(design->isTopDesign());
+  EXPECT_EQ(design, design->getDB()->getTopDesign());
+  EXPECT_FALSE(SNLUniverse::get()->getTopDesign());
+  EXPECT_FALSE(SNLUniverse::get()->getTopDB());
+  SNLUniverse::get()->setTopDB(design->getDB());
+  EXPECT_TRUE(design->getDB()->isTopDB());
+  EXPECT_EQ(SNLUniverse::get()->getTopDB(), design->getDB());
+  EXPECT_EQ(SNLUniverse::get()->getTopDesign(), design);
+
+  auto altDB = SNLDB::create(SNLUniverse::get());
+  auto altLibrary = SNLLibrary::create(altDB);
+  auto altDesign = SNLDesign::create(altLibrary);
+  EXPECT_THROW(design->getDB()->setTopDesign(altDesign), SNLException);
+}

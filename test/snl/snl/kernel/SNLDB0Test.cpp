@@ -4,6 +4,7 @@
 #include "SNLDB0.h"
 #include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
+#include "SNLException.h"
 using namespace naja::SNL;
 
 class SNLDB0Test: public ::testing::Test {
@@ -22,6 +23,7 @@ TEST_F(SNLDB0Test, testAssign) {
   auto db0 = SNLUniverse::get()->getDB(0);
   ASSERT_NE(nullptr, db0);
   EXPECT_TRUE(SNLUniverse::isDB0(db0));
+  EXPECT_EQ(SNLDB0::getDB0(), db0);
 
   auto assign = SNLDB0::getAssign();
   ASSERT_NE(nullptr, assign);
@@ -42,6 +44,9 @@ TEST_F(SNLDB0Test, testAssign) {
 
   EXPECT_EQ(nullptr, SNLDB0::getANDOutput(assign));
   EXPECT_EQ(nullptr, SNLDB0::getANDInputs(assign));
+
+  EXPECT_FALSE(SNLDB0::getDB0()->isTopDB());
+  EXPECT_THROW(SNLUniverse::get()->setTopDB(db0), SNLException);
 }
 
 TEST_F(SNLDB0Test, testAND) {
