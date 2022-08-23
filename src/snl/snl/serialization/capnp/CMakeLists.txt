@@ -1,8 +1,9 @@
+capnp_generate_cpp(snlCommonSources snlCommonHeaders snl_common.capnp)
 capnp_generate_cpp(snlInterfaceSources snlInterfaceHeaders snl_interface.capnp)
 capnp_generate_cpp(snlImplementationSources snlImplementationHeaders snl_implementation.capnp)
 
 add_library(naja_snl_dump
-    ${snlInterfaceSources} ${snlImplementationSources}
+    ${snlCommonSources} ${snlInterfaceSources} ${snlImplementationSources}
     SNLDump.cpp SNLDumpManifest.cpp
     SNLCapnP.cpp
     SNLCapnPInterface.cpp SNLCapnPImplementation.cpp)

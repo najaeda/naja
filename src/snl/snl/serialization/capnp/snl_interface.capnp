@@ -15,9 +15,12 @@
 
 @0xc1f73089d4df5f68;
 
+using SNLCommon = import "snl_common.capnp";
+
 struct DBInterface {
-  id                @0 : UInt8 = 1;
-  libraryInterfaces @1 : List(LibraryInterface);
+  id                  @0 : UInt8 = 1;
+  libraryInterfaces   @1 : List(LibraryInterface);
+  topDesignReference  @2 : SNLCommon.DesignReference;
 
   enum LibraryType {
     standard    @0;

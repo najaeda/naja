@@ -15,6 +15,8 @@
 
 @0xd0ba693613b57951;
 
+using SNLCommon = import "snl_common.capnp";
+
 struct DBImplementation {
   id                      @0 : UInt8 = 1;
   libraryImplementations  @1 : List(LibraryImplementation);
@@ -32,13 +34,7 @@ struct DBImplementation {
       struct Instance {
         id              @0 : UInt32;
         name            @1 : Text;
-        modelReference  @2 : ModelReference;
-      }
-
-      struct ModelReference {
-        dbID      @0 : UInt8;
-        libraryID @1 : UInt16;
-        designID  @2 : UInt32;
+        modelReference  @2 : SNLCommon.DesignReference;
       }
 
       struct Net {

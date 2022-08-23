@@ -29,6 +29,8 @@ class SNLCapNpTest0: public ::testing::Test {
       SNLLibrary* library = SNLLibrary::create(db_, SNLName("MYLIB"));
       SNLDesign* design = SNLDesign::create(library, SNLName("design"));
 
+      db_->setTopDesign(design);
+
       auto iTerm = SNLScalarTerm::create(design, SNLTerm::Direction::Input, SNLName("i"));
       auto o1Term = SNLBusTerm::create(design, SNLTerm::Direction::Output, 31, 0, SNLName("o1"));
       auto o2Term = SNLScalarTerm::create(design, SNLTerm::Direction::InOut, SNLName("o2"));
@@ -111,6 +113,7 @@ TEST_F(SNLCapNpTest0, test0) {
   EXPECT_EQ(3, design->getTerms().size());
   EXPECT_EQ(5, design->getNets().size());
   EXPECT_EQ(4, design->getInstances().size());
+  EXPECT_EQ(design, db_->getTopDesign());
 
   auto model = designs[1];
   EXPECT_EQ(SNLID::DesignID(1), model->getID());

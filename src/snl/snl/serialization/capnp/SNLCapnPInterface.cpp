@@ -17,6 +17,7 @@
 #include "SNLCapnP.h"
 
 #include <fcntl.h>
+#include <sstream>
 
 #include <capnp/message.h>
 #include <capnp/serialize-packed.h>
@@ -298,6 +299,14 @@ void SNLCapnP::dumpInterface(const SNLDB* snlDB, const std::filesystem::path& in
     dumpLibraryInterface(libraryInterfaceBuilder, snlLibrary);
   }
 
+  if (auto topDesign = snlDB->getTopDesign()) {
+    auto designReference = topDesign->getReference();
+    auto designReferenceBuilder = db.initTopDesignReference();
+    designReferenceBuilder.setDbID(designReference.dbID_);
+    designReferenceBuilder.setLibraryID(designReference.libraryID_);
+    designReferenceBuilder.setDesignID(designReference.designID_);
+  }
+
   int fd = open(
     interfacePath.c_str(),
     O_CREAT | O_WRONLY,
@@ -322,6 +331,18 @@ SNLDB* SNLCapnP::loadInterface(const std::filesystem::path& interfacePath) {
     for (auto libraryInterface: dbInterface.getLibraryInterfaces()) {
       loadLibraryInterface(snldb, libraryInterface);
     }
+  }
+  if (dbInterface.hasTopDesignReference()) {
+    auto designReference = dbInterface.getTopDesignReference();
+    auto snlDesignReference =
+      SNLID::DesignReference(designReference.getDbID(), designReference.getLibraryID(), designReference.getDesignID());
+    auto topDesign = SNLUniverse::get()->getDesign(snlDesignReference);
+    if (not topDesign) {
+      std::ostringstream reason;
+      reason << "cannot deserialize top design: no design found with provided reference";
+      throw SNLException(reason.str());
+    }
+    snldb->setTopDesign(topDesign);
   }
   return snldb;
 }

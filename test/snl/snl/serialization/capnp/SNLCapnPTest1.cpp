@@ -62,6 +62,7 @@ TEST_F(SNLCapNpTest1, test0) {
   db_ = nullptr;
   db_ = SNLCapnP::load(outPath);
   ASSERT_TRUE(db_);
+  EXPECT_EQ(nullptr, db_->getTopDesign());
   EXPECT_EQ(SNLID::DBID(1), db_->getID());
   EXPECT_EQ(2, db_->getLibraries().size());
   using Libraries = std::vector<SNLLibrary*>;
