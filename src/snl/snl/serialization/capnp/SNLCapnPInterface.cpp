@@ -338,9 +338,11 @@ SNLDB* SNLCapnP::loadInterface(const std::filesystem::path& interfacePath) {
       SNLID::DesignReference(designReference.getDbID(), designReference.getLibraryID(), designReference.getDesignID());
     auto topDesign = SNLUniverse::get()->getDesign(snlDesignReference);
     if (not topDesign) {
+      //LCOV_EXCL_START
       std::ostringstream reason;
       reason << "cannot deserialize top design: no design found with provided reference";
       throw SNLException(reason.str());
+      //LCOV_EXCL_STOP
     }
     snldb->setTopDesign(topDesign);
   }
