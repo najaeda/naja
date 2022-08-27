@@ -118,8 +118,8 @@ void SNLDB::addLibraryAndSetID(SNLLibrary* library) {
   } else {
     auto it = libraries_.rbegin();
     SNLLibrary* lastLibrary = &(*it);
-    SNLID::LibraryID libraryID = lastLibrary->id_ + (SNLID::LibraryID)1;
-    library->id_ = libraryID;
+    library->id_ = lastLibrary->id_;
+    ++library->id_;
   }
   addLibrary(library);
 }
