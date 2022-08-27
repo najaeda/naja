@@ -265,11 +265,15 @@ SNLCollection<SNLDesign*> SNLLibrary::getDesigns() const {
 }
 
 void SNLLibrary::addLibraryAndSetID(SNLLibrary* library) {
-  library->id_ = getDB()->nextLibraryID_++;
-  libraries_.insert(*library);
-  if (not library->isAnonymous()) {
-    libraryNameIDMap_[library->getName()] = library->id_;
+  if (libraries_.empty()) {
+    library->id_ = 0;
+  } else {
+    auto it = libraries_.rbegin();
+    SNLLibrary* lastLibrary = &(*it);
+    SNLID::LibraryID libraryID = lastLibrary->id_+1;
+    library->id_ = libraryID;
   }
+  addLibrary(library);
 }
 
 void SNLLibrary::addLibrary(SNLLibrary* library) {

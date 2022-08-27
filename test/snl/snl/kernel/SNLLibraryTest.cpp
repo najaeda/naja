@@ -143,16 +143,16 @@ TEST_F(SNLLibraryTest, test1) {
   SNLLibrary* primitives0 = SNLLibrary::create(root, SNLLibrary::Type::Primitives, SNLName("Primitives0"));
   EXPECT_FALSE(primitives0->isAnonymous());
   EXPECT_EQ(SNLName("Primitives0"), primitives0->getName());
-  EXPECT_EQ(1, primitives0->getID());
+  EXPECT_EQ(0, primitives0->getID());
 
   SNLLibrary* primitives1 = SNLLibrary::create(root, SNLLibrary::Type::Primitives);
   EXPECT_TRUE(primitives1->isAnonymous());
-  EXPECT_EQ(2, primitives1->getID());
+  EXPECT_EQ(1, primitives1->getID());
 
   EXPECT_EQ(primitives0, root->getLibrary(SNLName("Primitives0")));
-  EXPECT_EQ(primitives0, root->getLibrary(1));
+  EXPECT_EQ(primitives0, root->getLibrary(0));
 
-  EXPECT_EQ(primitives1, root->getLibrary(2));
+  EXPECT_EQ(primitives1, root->getLibrary(1));
 
   EXPECT_FALSE(root->getLibrary(3));
   EXPECT_FALSE(root->getLibrary(SNLName("UNKNOWN")));
@@ -200,10 +200,10 @@ TEST_F(SNLLibraryTest, testErrors) {
   //ID collision
   EXPECT_THROW(SNLLibrary::create(db, SNLID::LibraryID(0), SNLLibrary::Type::Standard), SNLException);
 
-  EXPECT_EQ(SNLID::LibraryID(2), subPrims->getID());
+  EXPECT_EQ(SNLID::LibraryID(0), subPrims->getID());
   EXPECT_EQ(prims, subPrims->getParentLibrary());
-  EXPECT_TRUE(prims->getLibrary(SNLID::LibraryID(2)));
-  EXPECT_EQ(subPrims, prims->getLibrary(SNLID::LibraryID(2)));
+  EXPECT_TRUE(prims->getLibrary(SNLID::LibraryID(0)));
+  EXPECT_EQ(subPrims, prims->getLibrary(SNLID::LibraryID(0)));
   //ID collision
-  EXPECT_THROW(SNLLibrary::create(prims, SNLID::LibraryID(2), SNLLibrary::Type::Primitives), SNLException);
+  EXPECT_THROW(SNLLibrary::create(prims, SNLID::LibraryID(0), SNLLibrary::Type::Primitives), SNLException);
 }
