@@ -113,7 +113,14 @@ void SNLDB::destroyFromUniverse() {
 }
 
 void SNLDB::addLibraryAndSetID(SNLLibrary* library) {
-  library->id_ = nextLibraryID_++;
+  if (libraries_.empty()) {
+    library->id_ = 0;
+  } else {
+    auto it = libraries_.rbegin();
+    SNLLibrary* lastLibrary = &(*it);
+    SNLID::LibraryID libraryID = lastLibrary->id_+1;
+    library->id_ = libraryID;
+  }
   addLibrary(library);
 }
 

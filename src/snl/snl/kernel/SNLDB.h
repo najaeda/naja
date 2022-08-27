@@ -79,7 +79,6 @@ class SNLDB final: public SNLObject {
     SNLUniverse*                        universe_;
     SNLID::DBID                         id_;
     boost::intrusive::set_member_hook<> universeDBsHook_          {};
-    SNLID::LibraryID                    nextLibraryID_            {0};
     SNLDBLibraries                      libraries_                {};
     using LibraryNameIDMap = std::map<SNLName, SNLID::LibraryID>;
     LibraryNameIDMap                    libraryNameIDMap_         {};
