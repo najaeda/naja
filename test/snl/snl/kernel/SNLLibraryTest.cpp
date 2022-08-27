@@ -184,12 +184,26 @@ TEST_F(SNLLibraryTest, testErrors) {
   EXPECT_THROW(SNLLibrary::create(nullLibrary), SNLException);
 
   SNLLibrary* prims = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("PRIMS"));
+  //library and parent library must share same type
   EXPECT_THROW(SNLLibrary::create(prims, SNLName("SUB_PRIMS")), SNLException);
 
+  //name collision error
   EXPECT_THROW(SNLLibrary::create(db, SNLName("PRIMS")), SNLException);
 
   auto subPrims = SNLLibrary::create(prims, SNLLibrary::Type::Primitives, SNLName("SUB_PRIMS"));
   ASSERT_NE(nullptr, subPrims);
+  //name collision
   EXPECT_THROW(SNLLibrary::create(prims, SNLLibrary::Type::Primitives, SNLName("SUB_PRIMS")), SNLException);
   EXPECT_EQ(prims, subPrims->getParentLibrary());
+
+  EXPECT_EQ(SNLID::LibraryID(0), root->getID());
+  //ID collision
+  EXPECT_THROW(SNLLibrary::create(db, SNLID::LibraryID(0), SNLLibrary::Type::Standard), SNLException);
+
+  EXPECT_EQ(SNLID::LibraryID(2), subPrims->getID());
+  EXPECT_EQ(prims, subPrims->getParentLibrary());
+  EXPECT_TRUE(prims->getLibrary(SNLID::LibraryID(2)));
+  EXPECT_EQ(subPrims, prims->getLibrary(SNLID::LibraryID(2)));
+  //ID collision
+  EXPECT_THROW(SNLLibrary::create(prims, SNLID::LibraryID(2), SNLLibrary::Type::Primitives), SNLException);
 }
