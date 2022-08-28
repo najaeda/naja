@@ -51,8 +51,8 @@ void dumpInstance(
   auto modelReference = model->getReference();
   auto modelReferenceBuilder = instance.initModelReference();
   modelReferenceBuilder.setDbID(modelReference.dbID_);
-  modelReferenceBuilder.setLibraryID(modelReference.libraryID_);
-  modelReferenceBuilder.setDesignID(modelReference.designID_);
+  modelReferenceBuilder.setLibraryID(modelReference.getDBDesignReference().libraryID_);
+  modelReferenceBuilder.setDesignID(modelReference.getDBDesignReference().designID_);
 }
 
 void dumpBitTermReference(
@@ -194,7 +194,10 @@ void loadInstance(
   }
   auto modelReference = instance.getModelReference();
   auto snlModelReference =
-    SNLID::DesignReference(modelReference.getDbID(), modelReference.getLibraryID(), modelReference.getDesignID());
+    SNLID::UniverseDesignReference(
+      modelReference.getDbID(),
+      modelReference.getLibraryID(),
+      modelReference.getDesignID());
   auto model = SNLUniverse::get()->getDesign(snlModelReference);
   if (not model) {
     std::ostringstream reason;

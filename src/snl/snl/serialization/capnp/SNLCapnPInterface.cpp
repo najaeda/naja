@@ -303,8 +303,8 @@ void SNLCapnP::dumpInterface(const SNLDB* snlDB, const std::filesystem::path& in
     auto designReference = topDesign->getReference();
     auto designReferenceBuilder = db.initTopDesignReference();
     designReferenceBuilder.setDbID(designReference.dbID_);
-    designReferenceBuilder.setLibraryID(designReference.libraryID_);
-    designReferenceBuilder.setDesignID(designReference.designID_);
+    designReferenceBuilder.setLibraryID(designReference.getDBDesignReference().libraryID_);
+    designReferenceBuilder.setDesignID(designReference.getDBDesignReference().designID_);
   }
 
   int fd = open(
@@ -335,7 +335,10 @@ SNLDB* SNLCapnP::loadInterface(const std::filesystem::path& interfacePath) {
   if (dbInterface.hasTopDesignReference()) {
     auto designReference = dbInterface.getTopDesignReference();
     auto snlDesignReference =
-      SNLID::DesignReference(designReference.getDbID(), designReference.getLibraryID(), designReference.getDesignID());
+      SNLID::UniverseDesignReference(
+        designReference.getDbID(),
+        designReference.getLibraryID(),
+        designReference.getDesignID());
     auto topDesign = SNLUniverse::get()->getDesign(snlDesignReference);
     if (not topDesign) {
       //LCOV_EXCL_START

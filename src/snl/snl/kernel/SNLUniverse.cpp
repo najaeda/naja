@@ -104,13 +104,10 @@ SNLDB* SNLUniverse::getDB(SNLID::DBID id) const {
   return nullptr;
 }
 
-SNLDesign* SNLUniverse::getDesign(const SNLID::DesignReference& designReference) const {
+SNLDesign* SNLUniverse::getDesign(const SNLID::UniverseDesignReference& designReference) const {
   auto db = getDB(designReference.dbID_);
   if (db) {
-    auto library = db->getLibrary(designReference.libraryID_);
-    if (library) {
-      return library->getDesign(designReference.designID_);
-    }
+    return db->getDesign(designReference.getDBDesignReference());
   }
   return nullptr;
 }

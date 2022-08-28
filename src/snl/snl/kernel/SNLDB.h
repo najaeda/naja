@@ -44,9 +44,12 @@ class SNLDB final: public SNLObject {
     SNLID getSNLID() const;
 
     ///\return the SNLLibrary in this SNLDB with SNLID::LibraryID:id 
-    SNLLibrary* getLibrary(SNLID::LibraryID id);
+    SNLLibrary* getLibrary(SNLID::LibraryID id) const;
     ///\return the SNLLibrary in this SNLDB with SNLName:name 
-    SNLLibrary* getLibrary(const SNLName& name);
+    SNLLibrary* getLibrary(const SNLName& name) const;
+
+    ///\return the SNLDesign with SNLID::DBDesignReference reference or null if it does not exist
+    SNLDesign* getDesign(const SNLID::DBDesignReference& designReference) const;
 
     bool isTopDB() const;
     SNLDesign* getTopDesign() const;

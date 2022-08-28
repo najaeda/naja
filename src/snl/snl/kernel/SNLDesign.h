@@ -143,7 +143,7 @@ class SNLDesign final: public SNLObject {
 
     SNLID::DesignID getID() const { return id_; }
     SNLID getSNLID() const;
-    SNLID::DesignReference getReference() const;
+    SNLID::UniverseDesignReference getReference() const;
 
     SNLName getName() const { return name_; }
     bool isAnonymous() const { return name_.empty(); }

@@ -134,19 +134,27 @@ void SNLDB::removeLibrary(SNLLibrary* library) {
   libraryNameIDMap_.erase(library->getName());
 }
 
-SNLLibrary* SNLDB::getLibrary(SNLID::LibraryID id) {
+SNLLibrary* SNLDB::getLibrary(SNLID::LibraryID id) const {
   auto it = libraries_.find(SNLID(getID(), id), SNLIDComp<SNLLibrary>());
   if (it != libraries_.end()) {
-    return &*it;
+    return const_cast<SNLLibrary*>(&*it);
   }
   return nullptr;
 }
 
-SNLLibrary* SNLDB::getLibrary(const SNLName& name) {
+SNLLibrary* SNLDB::getLibrary(const SNLName& name) const {
   auto it = libraryNameIDMap_.find(name);
   if (it != libraryNameIDMap_.end()) {
     SNLID::LibraryID id = it->second;
     return getLibrary(id);
+  }
+  return nullptr;
+}
+
+SNLDesign* SNLDB::getDesign(const SNLID::DBDesignReference& designReference) const {
+  auto library = getLibrary(designReference.libraryID_);
+  if (library) {
+    return library->getDesign(designReference.designID_);
   }
   return nullptr;
 }
