@@ -47,6 +47,10 @@ TEST_F(SNLDesignTest, testCreation0) {
   EXPECT_TRUE(design->getScalarTerms().empty());
   EXPECT_TRUE(design->getBusTerms().empty());
   EXPECT_TRUE(design->getBitTerms().empty());
+  auto designReference = SNLID::UniverseDesignReference(1, 0, 0);
+  EXPECT_EQ(design, SNLUniverse::get()->getDesign(designReference));
+  designReference = SNLID::UniverseDesignReference(1, 1, 0);
+  EXPECT_EQ(nullptr, SNLUniverse::get()->getDesign(designReference)); 
 
   SNLScalarTerm* term0 = SNLScalarTerm::create(design, SNLTerm::Direction::Input, SNLName("term0"));
   ASSERT_NE(term0, nullptr);
