@@ -19,8 +19,9 @@
 
 #include <map>
 #include <string>
+#include "NajaCollection.h"
 
-namespace naja { namespace core {
+namespace naja {
 
 class NajaProperty;
 
@@ -36,7 +37,10 @@ class NajaObject {
     ///\return a string extensively describing the object. Useful for debug.
     virtual std::string getDescription() const = 0;
 
+    ///\return NajaProperty with std::string name or nullptr if it does not exist
     NajaProperty* getProperty(const std::string& name) const;
+    ///\return the collection of SNLParameter of this SNLDesign
+    NajaCollection<NajaProperty*> getProperties() const;
   protected:
     NajaObject() = default;
 
@@ -44,6 +48,6 @@ class NajaObject {
     Properties  properties_;
 };
 
-}} // namespace core // namespace naja
+} // namespace naja
 
 #endif // __NAJA_OBJECT_H_

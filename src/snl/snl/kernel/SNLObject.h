@@ -23,7 +23,7 @@ class CardItem;
 
 namespace naja { namespace SNL {
 
-class SNLObject: public naja::core::NajaObject {
+class SNLObject: public naja::NajaObject {
   public:
     ///destroy this SNLObject and remove it cleanly from SNL.
     virtual void destroy();

@@ -16,7 +16,7 @@
 
 #include "NajaObject.h"
 
-namespace naja { namespace core {
+namespace naja {
 
 NajaProperty* NajaObject::getProperty(const std::string& name) const {
   auto it = properties_.find(name);
@@ -26,5 +26,8 @@ NajaProperty* NajaObject::getProperty(const std::string& name) const {
   return nullptr;
 }
 
+NajaCollection<NajaProperty*> NajaObject::getProperties() const {
+  return NajaCollection(new NajaSTLMapCollection(&properties_));
+}
 
-}} // namespace core // namespace naja
+} // namespace naja
