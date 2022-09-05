@@ -28,7 +28,6 @@ class NajaProperty;
 class NajaObject {
   public:
     using Properties = std::map<std::string, NajaProperty*>;
-    virtual ~NajaObject() = default;
 
     ///\return a string describing the object type
     virtual const char* getTypeName() const = 0;
@@ -43,8 +42,16 @@ class NajaObject {
     NajaCollection<NajaProperty*> getProperties() const;
   protected:
     NajaObject() = default;
+    virtual ~NajaObject() = default;
+
+    static void preCreate() {}
+    void postCreate() {}
+    virtual void preDestroy();
 
   private:
+    void addProperty(NajaProperty* property);
+    void removeProperty(NajaProperty* property);
+
     Properties  properties_;
 };
 

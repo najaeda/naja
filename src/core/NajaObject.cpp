@@ -16,6 +16,8 @@
 
 #include "NajaObject.h"
 
+#include "NajaProperty.h"
+
 namespace naja {
 
 NajaProperty* NajaObject::getProperty(const std::string& name) const {
@@ -28,6 +30,13 @@ NajaProperty* NajaObject::getProperty(const std::string& name) const {
 
 NajaCollection<NajaProperty*> NajaObject::getProperties() const {
   return NajaCollection(new NajaSTLMapCollection(&properties_));
+}
+
+void NajaObject::preDestroy() {
+  for (const auto& propertiesPair: properties_) {
+    propertiesPair.second->onReleasedBy(this);
+  }
+  properties_.clear();
 }
 
 } // namespace naja

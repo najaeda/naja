@@ -19,18 +19,18 @@
 
 #include "NajaObject.h"
 
-class CardItem;
-
 namespace naja { namespace SNL {
 
 class SNLObject: public naja::NajaObject {
   public:
+    using super = naja::NajaObject;
+
     ///destroy this SNLObject and remove it cleanly from SNL.
     virtual void destroy();
   protected:
     SNLObject() = default;
 
-    static void preCreate() {}
+    static void preCreate();
     void postCreate();
     virtual void preDestroy();
 };

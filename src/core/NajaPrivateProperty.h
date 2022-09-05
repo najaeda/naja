@@ -22,7 +22,12 @@
 namespace naja {
 
 class NajaPrivateProperty: public NajaProperty {
-
+  public:
+    using super = NajaProperty;
+    NajaPrivateProperty* create(const std::string& name);
+  protected:
+    void postCreate() override;
+    void preDestroy() override;
 };
 
 } // namespace naja

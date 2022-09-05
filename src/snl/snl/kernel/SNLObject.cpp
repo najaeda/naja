@@ -23,10 +23,16 @@ void SNLObject::destroy() {
   delete this;
 }
 
+void SNLObject::preCreate() {
+  super::preCreate();
+}
+
 void SNLObject::postCreate() {
+  super::postCreate();
 }
 
 void SNLObject::preDestroy() {
+  super::preDestroy();
 }
 
 }} // namespace SNL // namespace naja

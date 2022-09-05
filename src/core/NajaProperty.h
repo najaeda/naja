@@ -17,14 +17,24 @@
 #ifndef __NAJA_PROPERTY_H_
 #define __NAJA_PROPERTY_H_
 
+#include <string>
+
 namespace naja {
+
+class NajaObject;
 
 class NajaProperty {
   public:
-    //void onCapturedBy(const NajaObject* object) =0;
-    //void 
-      
+    friend class NajaObject;
+    virtual std::string getString() const =0;
+  protected:
+    NajaProperty() = default;
+    virtual ~NajaProperty() = default;
+    virtual void postCreate() {}
+    virtual void preDestroy();
 
+    virtual void onCapturedBy(const NajaObject* object) =0;
+    virtual void onReleasedBy(const NajaObject* object) =0;
 };
 
 } // namespace naja

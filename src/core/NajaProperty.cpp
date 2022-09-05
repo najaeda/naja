@@ -18,4 +18,8 @@
 
 namespace naja {
 
+void NajaProperty::preDestroy() {
+
+}
+
 } // namespace naja

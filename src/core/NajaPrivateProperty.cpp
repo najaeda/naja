@@ -18,4 +18,12 @@
 
 namespace naja {
 
+void NajaPrivateProperty::postCreate() {
+  super::postCreate();
+}
+
+void NajaPrivateProperty::preDestroy() {
+  super::preDestroy();
+}
+
 } // namespace naja
