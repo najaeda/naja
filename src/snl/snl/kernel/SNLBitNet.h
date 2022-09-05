@@ -19,7 +19,7 @@
 
 #include "SNLNet.h"
 #include "SNLNetComponent.h"
-#include "SNLCollection.h"
+#include "NajaCollection.h"
 
 namespace naja { namespace SNL {
 
@@ -39,11 +39,11 @@ class SNLBitNet: public SNLNet {
     bool isConstant1() const { return type_.isConst1(); }
 
     ///\return the collection of SNLComponent ot this SNLBitNet
-    SNLCollection<SNLNetComponent*> getComponents() const;
+    NajaCollection<SNLNetComponent*> getComponents() const;
     ///\return the collection of SNLInstTerm of this SNLDesign (SNLInstTerm subset of getComponents())
-    SNLCollection<SNLInstTerm*> getInstTerms() const;
+    NajaCollection<SNLInstTerm*> getInstTerms() const;
     ///\return the collection of SNLBitTerm of this SNLDesign (SNLBitTerm subset of getComponents())
-    SNLCollection<SNLBitTerm*> getBitTerms() const;
+    NajaCollection<SNLBitTerm*> getBitTerms() const;
 
   protected:
     SNLBitNet() = default;

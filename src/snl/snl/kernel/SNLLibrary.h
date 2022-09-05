@@ -18,7 +18,7 @@
 #define __SNL_LIBRARY_H_
 
 #include <map>
-#include "SNLCollection.h"
+#include "NajaCollection.h"
 #include "SNLDesign.h"
 
 namespace naja { namespace SNL {
@@ -65,13 +65,13 @@ class SNLLibrary final: public SNLObject {
     ///\return child SNLLibrary named name
     SNLLibrary* getLibrary(const SNLName& name) const;
     ///\return the collection of sub SNLLibrary
-    SNLCollection<SNLLibrary*> getLibraries() const;
+    NajaCollection<SNLLibrary*> getLibraries() const;
     ///\return SNLDesign with SNLID::DesignID id
     SNLDesign* getDesign(SNLID::DesignID id) const;
     ///\return SNLDesign named name
     SNLDesign* getDesign(const SNLName& name) const;
     ///\return the collection of SNLDesign contained in this SNLLibrary
-    SNLCollection<SNLDesign*> getDesigns() const;
+    NajaCollection<SNLDesign*> getDesigns() const;
 
     SNLID::LibraryID getID() const { return id_; }
     SNLID getSNLID() const;

@@ -21,7 +21,7 @@
 
 #include "SNLNet.h"
 #include "SNLName.h"
-#include "SNLCollection.h"
+#include "NajaCollection.h"
 
 namespace naja { namespace SNL {
 
@@ -53,7 +53,7 @@ class SNLBusNet final: public SNLNet {
     size_t getSize() const override;
     SNLBusNetBit* getBit(SNLID::Bit bit) const;
     SNLBusNetBit* getBitAtPosition(size_t position) const;
-    SNLCollection<SNLBusNetBit*> getBits() const;
+    NajaCollection<SNLBusNetBit*> getBits() const;
 
     SNLID::DesignObjectID getID() const override { return id_; }
     SNLID getSNLID() const override;

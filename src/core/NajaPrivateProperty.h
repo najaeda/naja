@@ -14,22 +14,17 @@
  * limitations under the License.
  */
 
-#ifndef __NAJA_LOG_H_
-#define __NAJA_LOG_H_
+#ifndef __NAJA_PRIVATE_PROPERTY_H_
+#define __NAJA_PRIVATE_PROPERTY_H_
 
-#include <string>
+#include "NajaProperty.h"
 
 namespace naja {
 
-//Just initiating a placeholder class
-//This needs heavy refinemenent in the future
-class NajaLog {
-  public:
-    static void echo(const std::string_view& tag, const std::string_view& message);
-    static void error(const std::string_view& tag, const std::string_view& message);
-};
+class NajaPrivateProperty: public NajaProperty {
 
+};
 
 } // namespace naja
 
-#endif //__NAJA_LOG_H_
+#endif /* __NAJA_PRIVATE_PROPERTY_H_ */

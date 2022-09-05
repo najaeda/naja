@@ -39,10 +39,10 @@ class SNLUniverse final: public SNLObject {
     static SNLUniverse* get();
 
     ///\return the collection of all SNLDB
-    SNLCollection<SNLDB*> getDBs() const;
+    NajaCollection<SNLDB*> getDBs() const;
 
     ///\return the collection of user SNLDB
-    SNLCollection<SNLDB*> getUserDBs() const;
+    NajaCollection<SNLDB*> getUserDBs() const;
 
     ///\return the SNLDB with SNLID::DBID id or null if it does not exist
     SNLDB* getDB(SNLID::DBID id) const;

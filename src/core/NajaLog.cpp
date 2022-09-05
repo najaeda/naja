@@ -19,7 +19,7 @@
 #include <iostream>
 #include <iomanip>
 
-namespace naja { namespace core {
+namespace naja {
 
 void NajaLog::echo(const std::string_view& tag, const std::string_view& message) {
   std::cout << std::setw(10) << tag << ':';
@@ -31,5 +31,4 @@ void NajaLog::error(const std::string_view& tag, const std::string_view& message
   std::cerr << message << std::endl;
 }
 
-
-}} // namespace core // namespace naja
+} // namespace naja

@@ -239,8 +239,8 @@ SNLLibrary* SNLLibrary::getLibrary(const SNLName& name) const {
   return nullptr;
 }
 
-SNLCollection<SNLLibrary*> SNLLibrary::getLibraries() const {
-  return SNLCollection(new SNLIntrusiveSetCollection(&libraries_));
+NajaCollection<SNLLibrary*> SNLLibrary::getLibraries() const {
+  return NajaCollection(new NajaIntrusiveSetCollection(&libraries_));
 }
 
 SNLDesign* SNLLibrary::getDesign(SNLID::DesignID id) const {
@@ -260,8 +260,8 @@ SNLDesign* SNLLibrary::getDesign(const SNLName& name) const {
   return nullptr;
 }
 
-SNLCollection<SNLDesign*> SNLLibrary::getDesigns() const {
-  return SNLCollection(new SNLIntrusiveSetCollection(&designs_));
+NajaCollection<SNLDesign*> SNLLibrary::getDesigns() const {
+  return NajaCollection(new NajaIntrusiveSetCollection(&designs_));
 }
 
 void SNLLibrary::addLibraryAndSetID(SNLLibrary* library) {

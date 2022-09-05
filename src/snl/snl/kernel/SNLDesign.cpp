@@ -277,19 +277,19 @@ SNLBusTerm* SNLDesign::getBusTerm(const SNLName& name) const {
   return dynamic_cast<SNLBusTerm*>(getTerm(name));
 }
 
-SNLCollection<SNLTerm*> SNLDesign::getTerms() const {
-  return SNLCollection(new SNLIntrusiveSetCollection(&terms_));
+NajaCollection<SNLTerm*> SNLDesign::getTerms() const {
+  return NajaCollection(new NajaIntrusiveSetCollection(&terms_));
 }
 
-SNLCollection<SNLBusTerm*> SNLDesign::getBusTerms() const {
+NajaCollection<SNLBusTerm*> SNLDesign::getBusTerms() const {
   return getTerms().getSubCollection<SNLBusTerm*>();
 }
 
-SNLCollection<SNLScalarTerm*> SNLDesign::getScalarTerms() const {
+NajaCollection<SNLScalarTerm*> SNLDesign::getScalarTerms() const {
   return getTerms().getSubCollection<SNLScalarTerm*>();
 }
 
-SNLCollection<SNLBitTerm*> SNLDesign::getBitTerms() const {
+NajaCollection<SNLBitTerm*> SNLDesign::getBitTerms() const {
   auto flattener = [](const SNLBusTerm* b) { return b->getBits(); };
   return getTerms().getFlatCollection<SNLBusTerm*, SNLBusTermBit*, SNLBitTerm*>(flattener);
 }
@@ -320,12 +320,12 @@ void SNLDesign::removeInstance(SNLInstance* instance) {
   instances_.erase(*instance);
 }
 
-SNLCollection<SNLInstance*> SNLDesign::getInstances() const {
-  return SNLCollection(new SNLIntrusiveSetCollection(&instances_));
+NajaCollection<SNLInstance*> SNLDesign::getInstances() const {
+  return NajaCollection(new NajaIntrusiveSetCollection(&instances_));
 }
 
-SNLCollection<SNLInstance*> SNLDesign::getSlaveInstances() const {
-  return SNLCollection(new SNLIntrusiveSetCollection(&slaveInstances_));
+NajaCollection<SNLInstance*> SNLDesign::getSlaveInstances() const {
+  return NajaCollection(new NajaIntrusiveSetCollection(&slaveInstances_));
 }
 
 SNLInstance* SNLDesign::getInstance(SNLID::DesignObjectID id) const {
@@ -419,19 +419,19 @@ SNLBusNet* SNLDesign::getBusNet(const SNLName& name) const {
   return dynamic_cast<SNLBusNet*>(getNet(name));
 }
 
-SNLCollection<SNLNet*> SNLDesign::getNets() const {
-  return SNLCollection(new SNLIntrusiveSetCollection(&nets_));
+NajaCollection<SNLNet*> SNLDesign::getNets() const {
+  return NajaCollection(new NajaIntrusiveSetCollection(&nets_));
 }
 
-SNLCollection<SNLBusNet*> SNLDesign::getBusNets() const {
+NajaCollection<SNLBusNet*> SNLDesign::getBusNets() const {
   return getNets().getSubCollection<SNLBusNet*>();
 }
 
-SNLCollection<SNLScalarNet*> SNLDesign::getScalarNets() const {
+NajaCollection<SNLScalarNet*> SNLDesign::getScalarNets() const {
   return getNets().getSubCollection<SNLScalarNet*>();
 }
 
-SNLCollection<SNLBitNet*> SNLDesign::getBitNets() const {
+NajaCollection<SNLBitNet*> SNLDesign::getBitNets() const {
   auto flattener = [](const SNLBusNet* b) { return b->getBits(); };
   return getNets().getFlatCollection<SNLBusNet*, SNLBusNetBit*, SNLBitNet*>(flattener);
 }
@@ -456,8 +456,8 @@ SNLParameter* SNLDesign::getParameter(const SNLName& name) const {
   return nullptr;
 }
 
-SNLCollection<SNLParameter*> SNLDesign::getParameters() const {
-  return SNLCollection(new SNLIntrusiveSetCollection(&parameters_));
+NajaCollection<SNLParameter*> SNLDesign::getParameters() const {
+  return NajaCollection(new NajaIntrusiveSetCollection(&parameters_));
 }
 
 bool SNLDesign::isTopDesign() const {

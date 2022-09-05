@@ -19,7 +19,7 @@
 
 #include <map>
 
-#include "SNLCollection.h"
+#include "NajaCollection.h"
 #include "SNLTerm.h"
 #include "SNLNet.h"
 #include "SNLInstance.h"
@@ -84,28 +84,28 @@ class SNLDesign final: public SNLObject {
     ///\return SNLBusTerm with SNLName termName or nullptr if it does not exist
     SNLBusTerm* getBusTerm(const SNLName& termName) const;
     ///\return the collection of SNLTerm of this SNLDesign
-    SNLCollection<SNLTerm*> getTerms() const;
+    NajaCollection<SNLTerm*> getTerms() const;
     ///\return the collection of SNLBusTerm of this SNLDesign (SNLBusTerm subset of getTerms())
     ///\see getTerms()
     ///\see getScalarTerms()
-    SNLCollection<SNLBusTerm*> getBusTerms() const;
+    NajaCollection<SNLBusTerm*> getBusTerms() const;
     ///\return the collection of SNLScalarTerm of this SNLDesign (SNLScalarTerm subset of getTerms())
     ///\see getTerms()
     ///\see getBusTerms()
-    SNLCollection<SNLScalarTerm*> getScalarTerms() const;
+    NajaCollection<SNLScalarTerm*> getScalarTerms() const;
     ///\return the collection of SNLBitTerm of this SNLDesign (SNLScalarTerm and flattened SNLBusTerm to SNLBusTermBit)
-    SNLCollection<SNLBitTerm*> getBitTerms() const;
+    NajaCollection<SNLBitTerm*> getBitTerms() const;
 
     ///\return SNLInstance with SNLID::DesignObjectID id or nullptr if it does not exist
     SNLInstance* getInstance(SNLID::DesignObjectID id) const;
     ///\return SNLInstance with SNLName name if it does not exist
     SNLInstance* getInstance(const SNLName& instanceName) const;
     ///\return the collection of SNLInstance instantiated IN this SNLDesign (instance/master relationship) 
-    SNLCollection<SNLInstance*> getInstances() const;
+    NajaCollection<SNLInstance*> getInstances() const;
     ///\return the collection of SNLInstance instantiated BY this SNLDesign (instance/model relationship)
     ///\remark SNLInstance/SNLDesign model relationship is not constructed for Primitives.
     ///\sa isPrimitive
-    SNLCollection<SNLInstance*> getSlaveInstances() const;
+    NajaCollection<SNLInstance*> getSlaveInstances() const;
 
     ///\return SNLNet with SNLID::DesignObjectID id or nullptr if it does not exist
     SNLNet* getNet(SNLID::DesignObjectID id) const;
@@ -120,26 +120,26 @@ class SNLDesign final: public SNLObject {
     ///\return SNLBusNet with SNLName name or nullptr if it does not exist
     SNLBusNet* getBusNet(const SNLName& netName) const;
     ///\return the collection of SNLNet of this SNLDesign
-    SNLCollection<SNLNet*> getNets() const;
+    NajaCollection<SNLNet*> getNets() const;
     /*
      * \return the collection of SNLBusNet of this SNLDesign (SNLBusNet subset of getNets())
      * \see getNets()
      * \see getScalarNets()
      */
-    SNLCollection<SNLBusNet*> getBusNets() const;
+    NajaCollection<SNLBusNet*> getBusNets() const;
     /*
      * \return the collection of SNLScalarNet of this SNLDesign (SNLScalarNet subset of getNets())
      * \see getNets()
      * \see getBusNets()
      */
-    SNLCollection<SNLScalarNet*> getScalarNets() const;
+    NajaCollection<SNLScalarNet*> getScalarNets() const;
     ///\return the collection of SNLBitNet of this SNLDesign (SNLScalarNet and flattened SNLBusNet to SNLBusNetBit)
-    SNLCollection<SNLBitNet*> getBitNets() const;
+    NajaCollection<SNLBitNet*> getBitNets() const;
 
     ///\return SNLParameter with SNLName name or nullptr if it does not exist
     SNLParameter* getParameter(const SNLName& name) const;
     ///\return the collection of SNLParameter of this SNLDesign
-    SNLCollection<SNLParameter*> getParameters() const;
+    NajaCollection<SNLParameter*> getParameters() const;
 
     SNLID::DesignID getID() const { return id_; }
     SNLID getSNLID() const;

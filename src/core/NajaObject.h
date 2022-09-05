@@ -22,11 +22,11 @@
 
 namespace naja { namespace core {
 
-class Property;
+class NajaProperty;
 
 class NajaObject {
   public:
-    using Properties = std::map<std::string, Property*>;
+    using Properties = std::map<std::string, NajaProperty*>;
     virtual ~NajaObject() = default;
 
     ///\return a string describing the object type
@@ -35,6 +35,8 @@ class NajaObject {
     virtual std::string getString() const = 0;
     ///\return a string extensively describing the object. Useful for debug.
     virtual std::string getDescription() const = 0;
+
+    NajaProperty* getProperty(const std::string& name) const;
   protected:
     NajaObject() = default;
 

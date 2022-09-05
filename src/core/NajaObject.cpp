@@ -18,5 +18,13 @@
 
 namespace naja { namespace core {
 
+NajaProperty* NajaObject::getProperty(const std::string& name) const {
+  auto it = properties_.find(name);
+  if (it != properties_.end()) {
+    return it->second;
+  }
+  return nullptr;
+}
+
 
 }} // namespace core // namespace naja

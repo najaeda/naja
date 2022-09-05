@@ -55,7 +55,7 @@ class SNLDB final: public SNLObject {
     SNLDesign* getTopDesign() const;
     void setTopDesign(SNLDesign* design);
 
-    SNLCollection<SNLLibrary*> getLibraries() const;
+    NajaCollection<SNLLibrary*> getLibraries() const;
 
     const char* getTypeName() const override;
     std::string getString() const override;

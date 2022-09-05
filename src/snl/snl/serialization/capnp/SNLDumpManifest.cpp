@@ -49,7 +49,7 @@ void SNLDumpManifest::dump(const std::filesystem::path& snlDir) {
     reason << "Cannot dump manifest as " << manifestPath.string() << " is not open";
     throw SNLDumpException(reason.str());
   }
-  core::NajaUtils::createBanner(stream, "SNL manifest", "#");
+  NajaUtils::createBanner(stream, "SNL manifest", "#");
   stream << "V"
     << " " << SNLDump::getVersion().getMajor()
     << " " << SNLDump::getVersion().getMinor()

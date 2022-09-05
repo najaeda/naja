@@ -19,13 +19,13 @@
 
 #include <ostream>
 
-namespace naja { namespace core {
+namespace naja {
 
 class NajaUtils {
   public:
     static void createBanner(std::ostream& stream, const std::string& title, const std::string& commentChar);
 };
 
-}} // namespace core // namespace naja
+} // namespace naja
 
 #endif // __NAJA_UTILS_H_

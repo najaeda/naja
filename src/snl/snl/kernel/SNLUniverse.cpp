@@ -112,14 +112,13 @@ SNLDesign* SNLUniverse::getDesign(const SNLID::UniverseDesignReference& designRe
   return nullptr;
 }
 
-SNLCollection<SNLDB*> SNLUniverse::getDBs() const {
-  return SNLCollection(new SNLIntrusiveSetCollection(&dbs_));
+NajaCollection<SNLDB*> SNLUniverse::getDBs() const {
+  return NajaCollection(new NajaIntrusiveSetCollection(&dbs_));
 }
 
-SNLCollection<SNLDB*> SNLUniverse::getUserDBs() const {
+NajaCollection<SNLDB*> SNLUniverse::getUserDBs() const {
   auto filter = [](const SNLDB* db) {return not SNLUniverse::isDB0(db); };
   return getDBs().getSubCollection(filter);
-
 }
 
 SNLDB* SNLUniverse::getTopDB() const {
