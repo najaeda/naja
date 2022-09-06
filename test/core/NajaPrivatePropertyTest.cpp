@@ -1,6 +1,7 @@
 #include "gtest/gtest.h"
 
 #include "NajaObject.h"
+#include "NajaPrivateProperty.h"
 using namespace naja;
 
 namespace {
@@ -8,14 +9,14 @@ namespace {
 class TestObject: public NajaObject {
   public:
     using super = NajaObject;
-    TestObject* create() {
+    static TestObject* create() {
       preCreate();
       TestObject* object = new TestObject();
       object->postCreate();
       return object;
     }
 
-    std::string getTypeName() const override {
+    const char* getTypeName() const override {
       return "TestObject";
     }
 
@@ -36,19 +37,31 @@ class TestObject: public NajaObject {
     }
 };
 
+class TestPrivateProperty: public NajaPrivateProperty {
+  public:
+    NajaPrivateProperty* create(const std::string& name) {
+      return nullptr;
+    }
+};
+
 }
 
 
 class NajaPrivatePropertyTest: public ::testing::Test {
   protected:
     void SetUp() override {
-      TestObject* testObject = TestObject::create();
+      testObject_ = TestObject::create();
     }
     void TearDown() override {
-      testObject_->destroy();
+      if (testObject_) {
+        testObject_->destroy();
+        testObject_ = nullptr;
+      }
+
     }
     TestObject* testObject_;
 };
 
 TEST_F(NajaPrivatePropertyTest, test) {
+
 }

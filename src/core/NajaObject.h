@@ -40,6 +40,9 @@ class NajaObject {
     NajaProperty* getProperty(const std::string& name) const;
     ///\return the collection of SNLParameter of this SNLDesign
     NajaCollection<NajaProperty*> getProperties() const;
+
+    ///destroy this object
+    virtual void destroy();
   protected:
     NajaObject() = default;
     virtual ~NajaObject() = default;

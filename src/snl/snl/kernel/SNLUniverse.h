@@ -26,11 +26,11 @@ namespace naja { namespace SNL {
  *
  * Several SNLDB can live and share inside SNLUniverse.
  */
-class SNLUniverse final: public SNLObject {
+class SNLUniverse final: public NajaObject {
   public:
     friend class SNLDB;
     friend class SNLDB0;
-    using super = SNLObject;
+    using super = NajaObject;
     SNLUniverse(const SNLUniverse&) = delete;
 
     ///\return a created singleton SNLUniverse or an error if it exists already

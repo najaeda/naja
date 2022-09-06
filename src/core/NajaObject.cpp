@@ -20,6 +20,11 @@
 
 namespace naja {
 
+void NajaObject::destroy() {
+  preDestroy();
+  delete this;
+}
+
 NajaProperty* NajaObject::getProperty(const std::string& name) const {
   auto it = properties_.find(name);
   if (it != properties_.end()) {

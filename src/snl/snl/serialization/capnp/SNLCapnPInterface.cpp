@@ -33,6 +33,7 @@
 
 namespace {
 
+using namespace naja;
 using namespace naja::SNL;
 
 DBInterface::LibraryInterface::DesignInterface::Direction SNLtoCapnPDirection(SNLTerm::Direction direction) {
@@ -252,7 +253,7 @@ void loadDesignInterface(
   }
 }
 
-void loadLibraryInterface(SNLObject* parent, const DBInterface::LibraryInterface::Reader& libraryInterface) {
+void loadLibraryInterface(NajaObject* parent, const DBInterface::LibraryInterface::Reader& libraryInterface) {
   SNLLibrary* parentLibrary = nullptr;
   SNLDB* parentDB = dynamic_cast<SNLDB*>(parent);
   if (not parentDB) {
