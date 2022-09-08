@@ -10,6 +10,8 @@ set(SOURCES
 
 set(NAJA_CORE_HEADERS
   NajaObject.h
+  NajaCollection.h
+  NajaProperty.h NajaPrivateProperty.h
 )
 
 add_library(naja_core SHARED ${SOURCES})
