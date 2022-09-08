@@ -27,6 +27,7 @@ class NajaProperty;
 
 class NajaObject {
   public:
+    friend class NajaPrivateProperty;
     using Properties = std::map<std::string, NajaProperty*>;
 
     ///\return a string describing the object type
@@ -38,6 +39,10 @@ class NajaObject {
 
     ///\return NajaProperty with std::string name or nullptr if it does not exist
     NajaProperty* getProperty(const std::string& name) const;
+    ///\return true if this NajaObject has a NajaProperty named name, false otherwise
+    bool hasProperty(const std::string& name) const {
+      return getProperty(name) != nullptr;
+    }
     ///\return the collection of SNLParameter of this SNLDesign
     NajaCollection<NajaProperty*> getProperties() const;
 

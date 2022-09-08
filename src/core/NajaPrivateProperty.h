@@ -24,9 +24,17 @@ namespace naja {
 class NajaPrivateProperty: public NajaProperty {
   public:
     using super = NajaProperty;
+
+    NajaObject* getOwner() const { return owner_; }
   protected:
-    void postCreate() override;
+    NajaPrivateProperty() = default;
+    static void preCreate(const NajaObject* object, const std::string& name);
+    void postCreate(NajaObject* owner);
     void preDestroy() override;
+    void onCapturedBy(NajaObject* object) override;
+    void onReleasedBy(const NajaObject* object) override;
+  private:
+    NajaObject* owner_  {nullptr};
 };
 
 } // namespace naja

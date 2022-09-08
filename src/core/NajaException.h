@@ -14,32 +14,35 @@
  * limitations under the License.
  */
 
-#ifndef __NAJA_PROPERTY_H_
-#define __NAJA_PROPERTY_H_
-
-#include <string>
+#ifndef __NAJA_EXCEPTION_H_
+#define __NAJA_EXCEPTION_H_
 
 namespace naja {
 
-class NajaObject;
-
-class NajaProperty {
+struct NajaException: public std::exception {
   public:
-    friend class NajaObject;
-    virtual std::string getName() const =0;
-    virtual std::string getString() const =0;
-    void destroy();
-  protected:
-    NajaProperty() = default;
-    virtual ~NajaProperty() = default;
-    static void preCreate() {}
-    void postCreate() {}
-    virtual void preDestroy();
+    NajaException() = delete;
+    NajaException(const NajaException&) = default;
 
-    virtual void onCapturedBy(NajaObject* object) =0;
-    virtual void onReleasedBy(const NajaObject* object) =0;
+    NajaException(const std::string& reason):
+      std::exception(),
+      reason_(reason)
+    {}
+
+    std::string getReason() const {
+      return reason_;
+    }
+
+    //LCOV_EXCL_START
+    const char* what() const noexcept override {
+      return reason_.c_str();
+    }
+    //LCOV_EXCL_STOP
+
+  private:
+    const std::string reason_;
 };
 
 } // namespace naja
 
-#endif /* __NAJA_PROPERTY_H_ */
+#endif // __NAJA_EXCEPTION_H_

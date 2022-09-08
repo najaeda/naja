@@ -15,15 +15,34 @@
  */
 
 #include "NajaPrivateProperty.h"
+#include "NajaObject.h"
+#include "NajaException.h"
 
 namespace naja {
 
-void NajaPrivateProperty::postCreate() {
+void NajaPrivateProperty::preCreate(const NajaObject* object, const std::string& name) {
+  if (object->hasProperty(name)) {
+    throw NajaException("");
+  }
+}
+
+void NajaPrivateProperty::postCreate(NajaObject* owner) {
   super::postCreate();
+  owner->addProperty(this);
 }
 
 void NajaPrivateProperty::preDestroy() {
   super::preDestroy();
 }
+
+void NajaPrivateProperty::onCapturedBy(NajaObject* object) {
+  owner_ = object;
+}
+
+void NajaPrivateProperty::onReleasedBy(const NajaObject* object) {
+  if (owner_ == object) {
+    destroy();
+  }
+} 
 
 } // namespace naja

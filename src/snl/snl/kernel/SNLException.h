@@ -17,30 +17,18 @@
 #ifndef __SNL_EXCEPTION_H_
 #define __SNL_EXCEPTION_H_
 
+#include "NajaException.h"
+
 namespace naja { namespace SNL {
 
-struct SNLException: public std::exception {
+struct SNLException: public NajaException {
   public:
     SNLException() = delete;
     SNLException(const SNLException&) = default;
 
     SNLException(const std::string& reason):
-      std::exception(),
-      reason_(reason)
+      NajaException(reason)
     {}
-
-    std::string getReason() const {
-      return reason_;
-    }
-
-    //LCOV_EXCL_START
-    const char* what() const noexcept override {
-      return reason_.c_str();
-    }
-    //LCOV_EXCL_STOP
-
-  private:
-    const std::string reason_;
 };
 
 }} // namespace SNL // namespace naja
