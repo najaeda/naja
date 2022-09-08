@@ -18,6 +18,7 @@
 
 #include <fcntl.h>
 #include <sstream>
+#include <list>
 
 #include <capnp/message.h>
 #include <capnp/serialize-packed.h>
@@ -142,6 +143,25 @@ SNLLibrary::Type CapnPtoSNLLibraryType(DBInterface::LibraryType type) {
       return  SNLLibrary::Type::Primitives;
   }
   return SNLLibrary::Type::Standard; //LCOV_EXCL_LINE
+}
+
+void dumpProperty(
+  Property::Builder& property,
+  const NajaProperty* najaProperty) {
+
+}
+
+void dumpProperties(
+  DBInterface::Builder& dbInterface,
+  const NajaObject* object) {
+  using NajaProperties = std::list<NajaProperty*>;
+  NajaProperties najaProperties(object->getDumpableProperties().begin(), object->getDumpableProperties().end());
+  auto properties = dbInterface.initProperties(najaProperties.size());
+  size_t id = 0;
+  for (auto najaProperty: najaProperties) {
+    auto propertyBuilder = properties[id++];
+    dumpProperty(propertyBuilder, najaProperty);
+  }
 }
 
 void dumpLibraryInterface(
@@ -286,6 +306,7 @@ void loadLibraryInterface(NajaObject* parent, const DBInterface::LibraryInterfac
 }
 
 namespace naja { namespace SNL {
+
 
 void SNLCapnP::dumpInterface(const SNLDB* snlDB, const std::filesystem::path& interfacePath) {
   ::capnp::MallocMessageBuilder message;

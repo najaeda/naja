@@ -28,6 +28,10 @@ class NajaProperty {
     friend class NajaObject;
     virtual std::string getName() const =0;
     virtual std::string getString() const =0;
+
+    virtual bool isDumpable() const {
+      return false;
+    }
     void destroy();
   protected:
     NajaProperty() = default;

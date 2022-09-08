@@ -43,8 +43,10 @@ class NajaObject {
     bool hasProperty(const std::string& name) const {
       return getProperty(name) != nullptr;
     }
-    ///\return the collection of SNLParameter of this SNLDesign
+    ///\return the collection of NajaProperties of this NajaObject
     NajaCollection<NajaProperty*> getProperties() const;
+    ///\return the collection of dumpable NajaProperties of this NajaObject
+    NajaCollection<NajaProperty*> getDumpableProperties() const;
 
     ///destroy this object
     virtual void destroy();

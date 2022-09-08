@@ -49,6 +49,11 @@ NajaCollection<NajaProperty*> NajaObject::getProperties() const {
   return NajaCollection(new NajaSTLMapCollection(&properties_));
 }
 
+NajaCollection<NajaProperty*> NajaObject::getDumpableProperties() const {
+  auto filter = [](const NajaProperty* p) { return p->isDumpable(); };
+  return getProperties().getSubCollection(filter);
+}
+
 void NajaObject::preDestroy() {
   for (const auto& propertiesPair: properties_) {
     propertiesPair.second->onReleasedBy(this);
