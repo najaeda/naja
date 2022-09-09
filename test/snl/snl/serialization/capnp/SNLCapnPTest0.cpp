@@ -3,6 +3,8 @@
 #include <filesystem>
 #include <fstream>
 
+#include "NajaDumpableProperty.h"
+
 #include "SNLUniverse.h"
 #include "SNLDB.h"
 #include "SNLScalarTerm.h"
@@ -15,6 +17,7 @@
 
 #include "SNLCapnP.h"
 
+using namespace naja;
 using namespace naja::SNL;
 
 #ifndef SNL_CAPNP_TEST_PATH
@@ -30,6 +33,7 @@ class SNLCapNpTest0: public ::testing::Test {
       SNLDesign* design = SNLDesign::create(library, SNLName("design"));
 
       db_->setTopDesign(design);
+      NajaDumpableProperty::create(db_, "TEST_PROPERTY");
 
       auto iTerm = SNLScalarTerm::create(design, SNLTerm::Direction::Input, SNLName("i"));
       auto o1Term = SNLBusTerm::create(design, SNLTerm::Direction::Output, 31, 0, SNLName("o1"));
@@ -94,6 +98,7 @@ TEST_F(SNLCapNpTest0, test0) {
   db_ = SNLCapnP::load(outPath);
   ASSERT_TRUE(db_);
   EXPECT_EQ(SNLID::DBID(1), db_->getID());
+  EXPECT_EQ(1, db_->getProperties().size());
   EXPECT_EQ(1, db_->getLibraries().size());
   auto library = *(db_->getLibraries().begin());
   ASSERT_TRUE(library);

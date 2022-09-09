@@ -25,6 +25,7 @@
 
 #include "snl_interface.capnp.h"
 
+#include "NajaDumpableProperty.h"
 #include "SNLUniverse.h"
 #include "SNLDB.h"
 #include "SNLDesign.h"
@@ -148,15 +149,16 @@ SNLLibrary::Type CapnPtoSNLLibraryType(DBInterface::LibraryType type) {
 void dumpProperty(
   Property::Builder& property,
   const NajaProperty* najaProperty) {
-
+    property.setName(najaProperty->getName());
 }
 
-void dumpProperties(
-  DBInterface::Builder& dbInterface,
-  const NajaObject* object) {
+template<typename T> void dumpProperties(
+  T& dumpObjectInterface,
+  const NajaObject* object,
+  auto& initProperties) {
   using NajaProperties = std::list<NajaProperty*>;
   NajaProperties najaProperties(object->getDumpableProperties().begin(), object->getDumpableProperties().end());
-  auto properties = dbInterface.initProperties(najaProperties.size());
+  auto properties = initProperties(dumpObjectInterface, najaProperties.size());
   size_t id = 0;
   for (auto najaProperty: najaProperties) {
     auto propertyBuilder = properties[id++];
@@ -168,6 +170,11 @@ void dumpLibraryInterface(
   DBInterface::LibraryInterface::Builder& libraryInterface,
   const SNLLibrary* snlLibrary) {
   libraryInterface.setId(snlLibrary->getID());
+  auto lambda = [](DBInterface::LibraryInterface::Builder& builder, size_t nbProperties) {
+    return builder.initProperties(nbProperties);
+  };
+  dumpProperties(libraryInterface, snlLibrary, lambda);
+
   if (not snlLibrary->isAnonymous()) {
     libraryInterface.setName(snlLibrary->getName().getString());
   }
@@ -209,6 +216,15 @@ SNLTerm::Direction CapnPtoSNLDirection(DBInterface::LibraryInterface::DesignInte
       return SNLTerm::Direction::InOut;
   }
   return SNLTerm::Direction::Input; //LCOV_EXCL_LINE
+}
+
+template<typename T> void loadProperties(
+  const T& dumpObjectReader,
+  NajaObject* object,
+  auto& propertiesGetter) {
+  for (auto property: propertiesGetter(dumpObjectReader)) {
+    NajaDumpableProperty::create(object, property.getName());
+  }
 }
 
 void loadScalarTerm(
@@ -307,14 +323,17 @@ void loadLibraryInterface(NajaObject* parent, const DBInterface::LibraryInterfac
 
 namespace naja { namespace SNL {
 
-
 void SNLCapnP::dumpInterface(const SNLDB* snlDB, const std::filesystem::path& interfacePath) {
   ::capnp::MallocMessageBuilder message;
 
   DBInterface::Builder db = message.initRoot<DBInterface>();
   db.setId(snlDB->getID());
+  auto lambda = [](DBInterface::Builder& builder, size_t nbProperties) {
+    return builder.initProperties(nbProperties);
+  };
+  dumpProperties(db, snlDB, lambda);
+
   auto libraries = db.initLibraryInterfaces(snlDB->getLibraries().size());
-  
   size_t id = 0;
   for (auto snlLibrary: snlDB->getLibraries()) {
     auto libraryInterfaceBuilder = libraries[id++];
@@ -349,6 +368,13 @@ SNLDB* SNLCapnP::loadInterface(const std::filesystem::path& interfacePath) {
     universe = SNLUniverse::create();
   }
   auto snldb = SNLDB::create(universe, dbID);
+  if (dbInterface.hasProperties()) {
+    auto lambda = [](const DBInterface::Reader& reader) {
+      return reader.getProperties();
+    };
+    loadProperties(dbInterface, snldb, lambda);
+  }
+  
   if (dbInterface.hasLibraryInterfaces()) {
     for (auto libraryInterface: dbInterface.getLibraryInterfaces()) {
       loadLibraryInterface(snldb, libraryInterface);

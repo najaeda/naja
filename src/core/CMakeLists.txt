@@ -4,6 +4,7 @@ set(SOURCES
   NajaUtils.cpp
   NajaProperty.cpp
   NajaPrivateProperty.cpp
+  NajaDumpableProperty.cpp
   MemoryUsage.cpp
   PerfTracker.cpp
 )
