@@ -33,6 +33,9 @@ void NajaPrivateProperty::postCreate(NajaObject* owner) {
 
 void NajaPrivateProperty::preDestroy() {
   super::preDestroy();
+  if (owner_) {
+    owner_->removeProperty(this);
+  }
 }
 
 void NajaPrivateProperty::onCapturedBy(NajaObject* object) {

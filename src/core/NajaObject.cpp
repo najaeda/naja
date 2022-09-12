@@ -45,6 +45,12 @@ void NajaObject::addProperty(NajaProperty* property) {
   }
 }
 
+void NajaObject::removeProperty(NajaProperty* property) {
+  auto it = properties_.find(property->getName());
+  assert(it != properties_.end());
+  properties_.erase(it);
+}
+
 NajaCollection<NajaProperty*> NajaObject::getProperties() const {
   return NajaCollection(new NajaSTLMapCollection(&properties_));
 }
@@ -55,10 +61,11 @@ NajaCollection<NajaProperty*> NajaObject::getDumpableProperties() const {
 }
 
 void NajaObject::preDestroy() {
-  for (const auto& propertiesPair: properties_) {
-    propertiesPair.second->onReleasedBy(this);
+  for (auto it=properties_.begin(); it!=properties_.end();) {
+    NajaProperty* property = it->second;
+    ++it;
+    property->onReleasedBy(this);
   }
-  properties_.clear();
 }
 
 } // namespace naja
