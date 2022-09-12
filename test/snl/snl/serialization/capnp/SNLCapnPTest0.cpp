@@ -99,6 +99,17 @@ TEST_F(SNLCapNpTest0, test0) {
   ASSERT_TRUE(db_);
   EXPECT_EQ(SNLID::DBID(1), db_->getID());
   EXPECT_EQ(1, db_->getProperties().size());
+  EXPECT_TRUE(db_->hasProperty("TEST_PROPERTY"));
+  NajaDumpableProperty* testProperty =
+    dynamic_cast<NajaDumpableProperty*>(db_->getProperty("TEST_PROPERTY"));
+  ASSERT_NE(nullptr, testProperty);
+  EXPECT_EQ("TEST_PROPERTY", testProperty->getName());
+  EXPECT_EQ(db_, testProperty->getOwner());
+  //testProperty->destroy();
+  //testProperty = nullptr;
+  //EXPECT_TRUE(db_->getProperties().empty());
+  //EXPECT_FALSE(db_->hasProperty("TEST_PROPERTY"));
+
   EXPECT_EQ(1, db_->getLibraries().size());
   auto library = *(db_->getLibraries().begin());
   ASSERT_TRUE(library);

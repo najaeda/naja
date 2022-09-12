@@ -42,6 +42,8 @@ class NajaProperty {
 
     virtual void onCapturedBy(NajaObject* object) =0;
     virtual void onReleasedBy(const NajaObject* object) =0;
+    
+
 };
 
 } // namespace naja
