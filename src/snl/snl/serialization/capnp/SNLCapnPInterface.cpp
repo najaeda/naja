@@ -307,6 +307,12 @@ void loadLibraryInterface(NajaObject* parent, const DBInterface::LibraryInterfac
   } else {
     snlLibrary = SNLLibrary::create(parentLibrary, SNLID::LibraryID(libraryID), CapnPtoSNLLibraryType(libraryType), snlName);
   }
+  if (libraryInterface.hasProperties()) {
+    auto lambda = [](const DBInterface::LibraryInterface::Reader& reader) {
+      return reader.getProperties();
+    };
+    loadProperties(libraryInterface, snlLibrary, lambda);
+  }
   if (libraryInterface.hasDesignInterfaces()) {
     for (auto designInterface: libraryInterface.getDesignInterfaces()) {
       loadDesignInterface(snlLibrary, designInterface);

@@ -30,6 +30,7 @@ class SNLCapNpTest0: public ::testing::Test {
       SNLUniverse* universe = SNLUniverse::create();
       db_ = SNLDB::create(universe);
       SNLLibrary* library = SNLLibrary::create(db_, SNLName("MYLIB"));
+      NajaDumpableProperty::create(library, "LIB_PROPERTY");
       SNLDesign* design = SNLDesign::create(library, SNLName("design"));
 
       db_->setTopDesign(design);
@@ -83,6 +84,7 @@ class SNLCapNpTest0: public ::testing::Test {
 TEST_F(SNLCapNpTest0, test0) {
   auto lib = db_->getLibrary(SNLName("MYLIB"));
   ASSERT_TRUE(lib);
+  EXPECT_EQ(1, lib->getProperties().size());
   auto top = lib->getDesign(SNLName("design"));
   ASSERT_TRUE(top);
 
@@ -100,7 +102,7 @@ TEST_F(SNLCapNpTest0, test0) {
   EXPECT_EQ(SNLID::DBID(1), db_->getID());
   EXPECT_EQ(1, db_->getProperties().size());
   EXPECT_TRUE(db_->hasProperty("TEST_PROPERTY"));
-  NajaDumpableProperty* testProperty =
+  auto testProperty =
     dynamic_cast<NajaDumpableProperty*>(db_->getProperty("TEST_PROPERTY"));
   ASSERT_NE(nullptr, testProperty);
   EXPECT_EQ("TEST_PROPERTY", testProperty->getName());
@@ -116,6 +118,19 @@ TEST_F(SNLCapNpTest0, test0) {
   EXPECT_EQ(SNLID::LibraryID(0), library->getID());
   EXPECT_EQ(SNLName("MYLIB"), library->getName());
   EXPECT_EQ(SNLLibrary::Type::Standard, library->getType());
+
+  EXPECT_EQ(1, library->getProperties().size());
+  EXPECT_TRUE(library->hasProperty("LIB_PROPERTY"));
+  auto libProperty =
+    dynamic_cast<NajaDumpableProperty*>(library->getProperty("LIB_PROPERTY"));
+  ASSERT_NE(nullptr, libProperty);
+  EXPECT_EQ("LIB_PROPERTY", libProperty->getName());
+  EXPECT_EQ(library, libProperty->getOwner());
+  libProperty->destroy();
+  libProperty = nullptr;
+  EXPECT_TRUE(library->getProperties().empty());
+  EXPECT_FALSE(library->hasProperty("LIB_PROPERTY"));
+
   EXPECT_EQ(3, library->getDesigns().size());
   using Designs = std::vector<SNLDesign*>;
   Designs designs(library->getDesigns().begin(), library->getDesigns().end());
