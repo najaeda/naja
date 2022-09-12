@@ -38,6 +38,26 @@ namespace {
 using namespace naja;
 using namespace naja::SNL;
 
+void dumpProperty(
+  Property::Builder& property,
+  const NajaProperty* najaProperty) {
+    property.setName(najaProperty->getName());
+}
+
+template<typename T> void dumpProperties(
+  T& dumpObjectInterface,
+  const NajaObject* object,
+  auto& initProperties) {
+  using NajaProperties = std::list<NajaProperty*>;
+  NajaProperties najaProperties(object->getDumpableProperties().begin(), object->getDumpableProperties().end());
+  auto properties = initProperties(dumpObjectInterface, najaProperties.size());
+  size_t id = 0;
+  for (auto najaProperty: najaProperties) {
+    auto propertyBuilder = properties[id++];
+    dumpProperty(propertyBuilder, najaProperty);
+  }
+}
+
 DBInterface::LibraryInterface::DesignInterface::Direction SNLtoCapnPDirection(SNLTerm::Direction direction) {
   switch (direction) {
     case SNLTerm::Direction::Input:
@@ -101,6 +121,10 @@ void dumpDesignInterface(
     designInterface.setName(snlDesign->getName().getString());
   }
   designInterface.setType(SNLtoCapNpDesignType(snlDesign->getType()));
+  auto lambda = [](DBInterface::LibraryInterface::DesignInterface::Builder& builder, size_t nbProperties) {
+    return builder.initProperties(nbProperties);
+  };
+  dumpProperties(designInterface, snlDesign, lambda);
 
   size_t id = 0;
   auto parameters = designInterface.initParameters(snlDesign->getParameters().size());
@@ -144,26 +168,6 @@ SNLLibrary::Type CapnPtoSNLLibraryType(DBInterface::LibraryType type) {
       return  SNLLibrary::Type::Primitives;
   }
   return SNLLibrary::Type::Standard; //LCOV_EXCL_LINE
-}
-
-void dumpProperty(
-  Property::Builder& property,
-  const NajaProperty* najaProperty) {
-    property.setName(najaProperty->getName());
-}
-
-template<typename T> void dumpProperties(
-  T& dumpObjectInterface,
-  const NajaObject* object,
-  auto& initProperties) {
-  using NajaProperties = std::list<NajaProperty*>;
-  NajaProperties najaProperties(object->getDumpableProperties().begin(), object->getDumpableProperties().end());
-  auto properties = initProperties(dumpObjectInterface, najaProperties.size());
-  size_t id = 0;
-  for (auto najaProperty: najaProperties) {
-    auto propertyBuilder = properties[id++];
-    dumpProperty(propertyBuilder, najaProperty);
-  }
 }
 
 void dumpLibraryInterface(
@@ -271,6 +275,12 @@ void loadDesignInterface(
     snlName = SNLName(designInterface.getName());
   }
   SNLDesign* snlDesign = SNLDesign::create(library, SNLID::DesignID(designID), CapnPtoSNLDesignType(designType), snlName);
+   if (designInterface.hasProperties()) {
+    auto lambda = [](const DBInterface::LibraryInterface::DesignInterface::Reader& reader) {
+      return reader.getProperties();
+    };
+    loadProperties(designInterface, snlDesign, lambda);
+  }
   if (designInterface.hasParameters()) {
     for (auto parameter: designInterface.getParameters()) {
       loadDesignParameter(snlDesign, parameter);
