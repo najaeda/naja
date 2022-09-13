@@ -17,8 +17,8 @@ on:
   pull_request:
     # The branches below must be a subset of the branches above
     branches: [ "main" ]
-  schedule:
-    - cron: '23 14 * * 6'
+  #schedule:
+  #  - cron: '23 14 * * 6'
 
 jobs:
   analyze:
@@ -39,6 +39,10 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v3
+
+    # install dependencies
+    - name: Install boost & capnproto
+      run: sudo apt-get update && sudo apt-get install -yq libboost-dev capnproto libcapnp-dev
 
     # Initializes the CodeQL tools for scanning.
     - name: Initialize CodeQL
