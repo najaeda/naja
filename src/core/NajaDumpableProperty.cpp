@@ -32,4 +32,10 @@ NajaDumpableProperty* NajaDumpableProperty::create(NajaObject* owner, const std:
   return property;
 }
 
+//LCOV_EXCL_START
+std::string NajaDumpableProperty::getString() const {
+  return std::string();
+}
+//LCOV_EXCL_STOP
+
 } // namespace naja

@@ -2,6 +2,7 @@
 
 #include "NajaObject.h"
 #include "NajaPrivateProperty.h"
+#include "NajaException.h"
 using namespace naja;
 
 namespace {
@@ -91,4 +92,6 @@ TEST_F(NajaPrivatePropertyTest, test) {
   EXPECT_TRUE(testObject_->hasProperty(TestPrivateProperty::Name));
   EXPECT_EQ(property, testObject_->getProperty(TestPrivateProperty::Name));
   EXPECT_EQ(1, testObject_->getProperties().size());
+  EXPECT_FALSE(property->isDumpable());
+  EXPECT_THROW(TestPrivateProperty::create(testObject_), NajaException);
 }

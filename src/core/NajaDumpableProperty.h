@@ -29,7 +29,7 @@ class NajaDumpableProperty: public NajaPrivateProperty {
     static NajaDumpableProperty* create(NajaObject* owner, const std::string& name);
 
     std::string getName() const override { return name_; }
-    std::string getString() const override { return std::string(); }
+    std::string getString() const override;
 
     bool isDumpable() const override { return true; }
 
