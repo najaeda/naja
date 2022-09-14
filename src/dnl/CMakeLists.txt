@@ -6,7 +6,7 @@ set(SOURCES
 )
 
 add_library(naja_dnl SHARED ${SOURCES})
-target_link_libraries(naja_dnl coverage_config)
+target_link_libraries(naja_dnl naja_core)
 
 target_compile_options(naja_dnl PRIVATE ${NAJA_CXX_WARNINGS}) 
 

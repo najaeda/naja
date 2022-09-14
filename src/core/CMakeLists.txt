@@ -16,6 +16,7 @@ set(NAJA_CORE_HEADERS
 )
 
 add_library(naja_core SHARED ${SOURCES})
+target_link_libraries(naja_core PUBLIC coverage_config sanitizers_config)
 
 target_compile_options(naja_core PRIVATE ${NAJA_CXX_WARNINGS}) 
 

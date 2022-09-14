@@ -37,8 +37,7 @@ set(SNL_KERNEL_HEADERS
 
 add_library(naja_snl SHARED ${SNL_KERNEL_SOURCES})
 
-target_link_libraries(naja_snl PUBLIC naja_core coverage_config)
-
+target_link_libraries(naja_snl PUBLIC naja_core)
 target_compile_options(naja_snl PRIVATE ${NAJA_CXX_WARNINGS}) 
 #target_compile_definitions(naja_snl PRIVATE SNL_DESTROY_DEBUG)
 
