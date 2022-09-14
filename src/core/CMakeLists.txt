@@ -2,8 +2,8 @@ set(SOURCES
   NajaObject.cpp
   NajaLog.cpp
   NajaUtils.cpp
-  MemoryUsage.cpp
-  PerfTracker.cpp
+  #MemoryUsage.cpp
+  #PerfTracker.cpp
 )
 
 set(NAJA_CORE_HEADERS
