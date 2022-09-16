@@ -16,6 +16,7 @@
 
 #include "NajaObject.h"
 
+#include "NajaException.h"
 #include "NajaProperty.h"
 
 namespace naja {
@@ -34,15 +35,11 @@ NajaProperty* NajaObject::getProperty(const std::string& name) const {
 }
 
 void NajaObject::addProperty(NajaProperty* property) {
-  NajaProperty* previousProperty = getProperty(property->getName());
-  if (property not_eq previousProperty) {
-    if (previousProperty) {
-      properties_.erase(previousProperty->getName());
-      previousProperty->onReleasedBy(this);
-    }
-    properties_[property->getName()] = property;
-    property->onCapturedBy(this);
+  if (getProperty(property->getName())) {
+    throw NajaException("");
   }
+  properties_[property->getName()] = property;
+  property->onCapturedBy(this);
 }
 
 void NajaObject::removeProperty(NajaProperty* property) {
