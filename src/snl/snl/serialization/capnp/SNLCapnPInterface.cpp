@@ -18,6 +18,7 @@
 
 #include <fcntl.h>
 #include <sstream>
+#include <boost/asio.hpp>
 
 #include <capnp/message.h>
 #include <capnp/serialize-packed.h>
@@ -30,6 +31,8 @@
 #include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
 #include "SNLException.h"
+
+using boost::asio::ip::tcp;
 
 namespace {
 
@@ -286,7 +289,7 @@ void loadLibraryInterface(SNLObject* parent, const DBInterface::LibraryInterface
 
 namespace naja { namespace SNL {
 
-void SNLCapnP::dumpInterface(const SNLDB* snlDB, const std::filesystem::path& interfacePath) {
+void SNLCapnP::dumpInterface(const SNLDB* snlDB, int fileDescriptor) {
   ::capnp::MallocMessageBuilder message;
 
   DBInterface::Builder db = message.initRoot<DBInterface>();
@@ -307,18 +310,32 @@ void SNLCapnP::dumpInterface(const SNLDB* snlDB, const std::filesystem::path& in
     designReferenceBuilder.setDesignID(designReference.getDBDesignReference().designID_);
   }
 
+  writePackedMessageToFd(fileDescriptor, message);
+}
+
+void SNLCapnP::dumpInterface(const SNLDB* snlDB, const std::filesystem::path& interfacePath) {
   int fd = open(
     interfacePath.c_str(),
     O_CREAT | O_WRONLY,
     S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
-  writePackedMessageToFd(fd, message);
+  
+  dumpInterface(snlDB, fd);
   close(fd);
 }
 
-SNLDB* SNLCapnP::loadInterface(const std::filesystem::path& interfacePath) {
-  //FIXME: verify if file can be opened
-  int fd = open(interfacePath.c_str(), O_RDONLY);
-  ::capnp::PackedFdMessageReader message(fd);
+void SNLCapnP::sendInterface(
+  const SNLDB* snlDB,
+  const std::string& ipAddress,
+  uint16_t port) {
+  boost::asio::io_service io_service;
+  //socket creation
+  tcp::socket socket(io_service);
+  socket.connect(tcp::endpoint( boost::asio::ip::address::from_string(ipAddress), port));
+  dumpInterface(snlDB, socket.native_handle());
+}
+
+SNLDB* SNLCapnP::loadInterface(int fileDescriptor) {
+  ::capnp::PackedFdMessageReader message(fileDescriptor);
 
   DBInterface::Reader dbInterface = message.getRoot<DBInterface>();
   auto dbID = dbInterface.getId();
@@ -350,6 +367,24 @@ SNLDB* SNLCapnP::loadInterface(const std::filesystem::path& interfacePath) {
     snldb->setTopDesign(topDesign);
   }
   return snldb;
+}
+
+SNLDB* SNLCapnP::loadInterface(const std::filesystem::path& interfacePath) {
+  //FIXME: verify if file can be opened
+  int fd = open(interfacePath.c_str(), O_RDONLY);
+  return loadInterface(fd);
+}
+
+SNLDB* SNLCapnP::receiveInterface(uint16_t port) {
+  boost::asio::io_service io_service;
+  //listen for new connection
+  tcp::acceptor acceptor_(io_service, tcp::endpoint(tcp::v4(), port));
+  //socket creation 
+  tcp::socket socket(io_service);
+  //waiting for connection
+  acceptor_.accept(socket);
+  SNLDB* db = loadInterface(socket.native_handle());
+  return db;
 }
 
 }} // namespace SNL // namespace naja

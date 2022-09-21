@@ -29,8 +29,12 @@ class SNLCapnP {
     static constexpr std::string_view ImplementationName = "db_implementation.snl";
     static void dump(const SNLDB* db, const std::filesystem::path& dumpPath);
     static SNLDB* load(const std::filesystem::path& dumpPath);
+    static void dumpInterface(const SNLDB* snlDB, int fileDescriptor);
     static void dumpInterface(const SNLDB* snlDB, const std::filesystem::path& interfacePath);
+    static void sendInterface(const SNLDB* snlDB, const std::string& ipAddress, uint16_t port);
+    static SNLDB* loadInterface(int fileDescriptor);
     static SNLDB* loadInterface(const std::filesystem::path& interfacePath);
+    static SNLDB* receiveInterface(uint16_t port);
     static void dumpImplementation(const SNLDB* db, const std::filesystem::path& implementationPath);
     static SNLDB* loadImplementation(const std::filesystem::path& implementationPath);
 };
