@@ -323,15 +323,19 @@ void SNLCapnP::dumpInterface(const SNLDB* snlDB, const std::filesystem::path& in
   close(fd);
 }
 
+void SNLCapnP::sendInterface(const SNLDB* db, tcp::socket& socket) {
+  dumpInterface(db, socket.native_handle());
+}
+
 void SNLCapnP::sendInterface(
-  const SNLDB* snlDB,
+  const SNLDB* db,
   const std::string& ipAddress,
   uint16_t port) {
   boost::asio::io_service io_service;
   //socket creation
   tcp::socket socket(io_service);
   socket.connect(tcp::endpoint( boost::asio::ip::address::from_string(ipAddress), port));
-  dumpInterface(snlDB, socket.native_handle());
+  sendInterface(db, socket);
 }
 
 SNLDB* SNLCapnP::loadInterface(int fileDescriptor) {
@@ -375,6 +379,10 @@ SNLDB* SNLCapnP::loadInterface(const std::filesystem::path& interfacePath) {
   return loadInterface(fd);
 }
 
+SNLDB* SNLCapnP::receiveInterface(tcp::socket& socket) {
+  return loadInterface(socket.native_handle());
+}
+
 SNLDB* SNLCapnP::receiveInterface(uint16_t port) {
   boost::asio::io_service io_service;
   //listen for new connection
@@ -383,7 +391,7 @@ SNLDB* SNLCapnP::receiveInterface(uint16_t port) {
   tcp::socket socket(io_service);
   //waiting for connection
   acceptor_.accept(socket);
-  SNLDB* db = loadInterface(socket.native_handle());
+  SNLDB* db = receiveInterface(socket);
   return db;
 }
 

@@ -2,6 +2,7 @@
 
 #include "SNLUniverse.h"
 #include "SNLCapnP.h"
+#include "SNLUniverseSnippet.h"
 
 using namespace naja::SNL;
 
@@ -12,13 +13,14 @@ int main(int argc, char* argv[]) {
   std::string ipAddress = argv[1];
   int port = std::stoi(argv[2]);
 
-  SNLUniverse::create();
-  auto db = SNLDB::create(SNLUniverse::get());
-  auto primLib = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("primitives"));
-  auto prim0 = SNLDesign::create(primLib, SNLDesign::Type::Primitive);
-  auto prim1 = SNLDesign::create(primLib, SNLDesign::Type::Primitive);
+  SNLUniverseSnippet::create();
+  auto universe = SNLUniverse::get();
+  assert(universe);
+  auto db = universe->getDB(1);
+  assert(db);
 
-  SNLCapnP::sendInterface(db, ipAddress, port);
+  std::cout << "Sending " << db->getString() << std::endl;
+  SNLCapnP::send(db, ipAddress, port);
   return 0;
 /*
   auto topIns1 = top->getInstance(SNLName("ins1"));

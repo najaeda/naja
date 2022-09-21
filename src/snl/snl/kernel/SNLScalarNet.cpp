@@ -114,7 +114,18 @@ std::string SNLScalarNet::getString() const {
 
 //LCOV_EXCL_START
 std::string SNLScalarNet::getDescription() const {
-  return "<" + std::string(typeid(this).name()) + " " + name_.getString() + " " + design_->getName().getString() + ">";  
+  std::ostringstream stream;
+  stream << "<" << std::string(getTypeName());
+  if (not isAnonymous()) {
+    stream << " " + getName().getString();
+  }
+  stream << " " << getID();
+  if (not getDesign()->isAnonymous()) {
+    stream << " " + getDesign()->getName().getString();
+  }
+  stream << " " << getDesign()->getID();
+  stream << ">";
+  return stream.str(); 
 }
 //LCOV_EXCL_STOP
 

@@ -17,9 +17,11 @@
 #include "SNLCapnP.h"
 
 #include <fcntl.h>
+#include <iostream>
+#include <sstream>
+#include <boost/asio.hpp>
 
 #include <cassert>
-#include <sstream>
 
 #include <capnp/message.h>
 #include <capnp/serialize-packed.h>
@@ -35,6 +37,8 @@
 #include "SNLBusTermBit.h"
 #include "SNLInstTerm.h"
 #include "SNLException.h"
+
+using boost::asio::ip::tcp;
 
 namespace {
 
@@ -375,7 +379,7 @@ void loadLibraryImplementation(SNLDB* db, const DBImplementation::LibraryImpleme
 
 namespace naja { namespace SNL {
 
-void SNLCapnP::dumpImplementation(const SNLDB* snlDB, const std::filesystem::path& implementationPath) {
+void SNLCapnP::dumpImplementation(const SNLDB* snlDB, int fileDescriptor) {
   ::capnp::MallocMessageBuilder message;
 
   DBImplementation::Builder db = message.initRoot<DBImplementation>();
@@ -387,19 +391,35 @@ void SNLCapnP::dumpImplementation(const SNLDB* snlDB, const std::filesystem::pat
     auto libraryImplementationBuilder = libraries[id++];
     dumpLibraryImplementation(libraryImplementationBuilder, snlLibrary);
   }
+  writePackedMessageToFd(fileDescriptor, message);
+}
 
+void SNLCapnP::dumpImplementation(const SNLDB* snlDB, const std::filesystem::path& implementationPath) {
   int fd = open(
     implementationPath.c_str(),
     O_CREAT | O_WRONLY,
     S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
-  writePackedMessageToFd(fd, message);
+  dumpImplementation(snlDB, fd);
   close(fd);
 }
 
-SNLDB* SNLCapnP::loadImplementation(const std::filesystem::path& implementationPath) {
-  //FIXME: verify if file can be opened
-  int fd = open(implementationPath.c_str(), O_RDONLY);
-  ::capnp::PackedFdMessageReader message(fd);
+void SNLCapnP::sendImplementation(const SNLDB* db, tcp::socket& socket) {
+  dumpImplementation(db, socket.native_handle());
+}
+
+void SNLCapnP::sendImplementation(
+  const SNLDB* db,
+  const std::string& ipAddress,
+  uint16_t port) {
+  boost::asio::io_service io_service;
+  //socket creation
+  tcp::socket socket(io_service);
+  socket.connect(tcp::endpoint(boost::asio::ip::address::from_string(ipAddress), port));
+  sendImplementation(db, socket);
+}
+
+SNLDB* SNLCapnP::loadImplementation(int fileDescriptor) {
+  ::capnp::PackedFdMessageReader message(fileDescriptor);
 
   DBImplementation::Reader dbImplementation = message.getRoot<DBImplementation>();
   auto dbID = dbImplementation.getId();
@@ -416,6 +436,28 @@ SNLDB* SNLCapnP::loadImplementation(const std::filesystem::path& implementationP
     }
   }
   return snldb;
+}
+
+SNLDB* SNLCapnP::loadImplementation(const std::filesystem::path& implementationPath) {
+  //FIXME: verify if file can be opened
+  int fd = open(implementationPath.c_str(), O_RDONLY);
+  return loadImplementation(fd);
+}
+
+SNLDB* SNLCapnP::receiveImplementation(tcp::socket& socket) {
+  return loadImplementation(socket.native_handle());
+}
+
+SNLDB* SNLCapnP::receiveImplementation(uint16_t port) {
+  boost::asio::io_service io_service;
+  //listen for new connection
+  tcp::acceptor acceptor_(io_service, tcp::endpoint(tcp::v4(), port));
+  //socket creation 
+  tcp::socket socket(io_service);
+  //waiting for connection
+  acceptor_.accept(socket);
+  SNLDB* db = receiveImplementation(socket);
+  return db;
 }
 
 }} // namespace SNL // namespace naja

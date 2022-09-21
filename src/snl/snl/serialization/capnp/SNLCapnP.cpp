@@ -17,6 +17,8 @@
 #include "SNLCapnP.h"
 #include "SNLDumpManifest.h"
 
+using boost::asio::ip::tcp;
+
 namespace naja { namespace SNL {
 
 void SNLCapnP::dump(const SNLDB* db, const std::filesystem::path& path) {
@@ -26,9 +28,31 @@ void SNLCapnP::dump(const SNLDB* db, const std::filesystem::path& path) {
   dumpImplementation(db, path/ImplementationName);
 }
 
+void SNLCapnP::send(const SNLDB* db, const std::string& ipAddress, uint16_t port) {
+  boost::asio::io_service io_service;
+  //socket creation
+  tcp::socket socket(io_service);
+  socket.connect(tcp::endpoint( boost::asio::ip::address::from_string(ipAddress), port));
+  sendInterface(db, socket);
+  sendImplementation(db, socket);
+}
+
 SNLDB* SNLCapnP::load(const std::filesystem::path& path) {
   loadInterface(path/InterfaceName);
   SNLDB* db = loadImplementation(path/ImplementationName);
+  return db;
+}
+
+SNLDB* SNLCapnP::receive(uint16_t port) {
+  boost::asio::io_service io_service;
+  //listen for new connection
+  tcp::acceptor acceptor_(io_service, tcp::endpoint(tcp::v4(), port));
+  //socket creation 
+  tcp::socket socket(io_service);
+  //waiting for connection
+  acceptor_.accept(socket);
+  receiveInterface(socket);
+  SNLDB* db = receiveImplementation(socket);
   return db;
 }
 

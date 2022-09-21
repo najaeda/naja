@@ -194,7 +194,7 @@ const char* SNLDB::getTypeName() const {
 
 //LCOV_EXCL_START
 std::string SNLDB::getString() const {
-  return std::string();
+  return "<" + std::string(getTypeName()) + " " + std::to_string(getID()) + ">";  
 }
 //LCOV_EXCL_STOP
 
