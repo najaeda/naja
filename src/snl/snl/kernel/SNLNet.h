@@ -38,7 +38,7 @@ class SNLNet: public SNLDesignObject {
         Type(const Type&) = default;
         Type& operator=(const Type&) = default;
 
-        operator const TypeEnum&() const {return typeEnum_;}
+        operator const TypeEnum&() const { return typeEnum_; }
         constexpr bool isAssign() const { return typeEnum_ == Assign0 or typeEnum_ == Assign1; }
         constexpr bool isSupply() const { return typeEnum_ == Supply0 or typeEnum_ == Supply1; }
         constexpr bool isConst0() const { return typeEnum_ == Assign0 or typeEnum_ == Supply0; }

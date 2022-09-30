@@ -133,6 +133,12 @@ void SNLUniverse::setTopDB(SNLDB* db) {
   topDB_ = db;
 }
 
+void SNLUniverse::setTopDesign(SNLDesign* design) {
+  auto db = design->getDB();
+  db->setTopDesign(design);
+  setTopDB(db);
+}
+
 SNLDesign* SNLUniverse::getTopDesign() const {
   if (topDB_) {
     return topDB_->getTopDesign();
