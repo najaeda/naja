@@ -220,8 +220,6 @@ void SNLDesign::addTerm(SNLTerm* term) {
   }
 }
 
-
-
 void SNLDesign::removeTerm(SNLTerm* term) {
   //Remove corresponding instance terminals in slave instances
   for (auto instance: getSlaveInstances()) {

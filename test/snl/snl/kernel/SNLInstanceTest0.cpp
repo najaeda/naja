@@ -78,6 +78,8 @@ TEST_F(SNLInstanceTest0, testCreation) {
   EXPECT_EQ(4, instance1->getInstBusTermBits().size());
   EXPECT_EQ(0, instance1->getID());
   EXPECT_EQ(SNLID(SNLID::Type::Instance, 1, 0, 0, 0, instance1->getID(), 0), instance1->getSNLID());
+  EXPECT_EQ(SNLID::UniverseInstanceReference(1, 0, 0, 0), instance1->getReference());
+  EXPECT_NE(SNLID::UniverseInstanceReference(1, 0, 0, 1), instance1->getReference());
 
   using InstTermsVector = std::vector<SNLInstTerm*>;
   {

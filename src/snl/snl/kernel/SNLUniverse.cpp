@@ -112,6 +112,14 @@ SNLDesign* SNLUniverse::getDesign(const SNLID::UniverseDesignReference& designRe
   return nullptr;
 }
 
+SNLInstance* SNLUniverse::getInstance(const SNLID::UniverseInstanceReference& instanceReference) const {
+  auto design = getDesign(instanceReference.getUniverseDesignReference());
+  if (design) {
+    return design->getInstance(instanceReference.instanceID_);
+  }
+  return nullptr;
+}
+
 SNLCollection<SNLDB*> SNLUniverse::getDBs() const {
   return SNLCollection(new SNLIntrusiveSetCollection(&dbs_));
 }

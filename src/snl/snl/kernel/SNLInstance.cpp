@@ -259,6 +259,10 @@ SNLID SNLInstance::getSNLID() const {
   return SNLDesignObject::getSNLID(SNLID::Type::Instance, 0, id_, 0);
 }
 
+SNLID::UniverseInstanceReference SNLInstance::getReference() const {
+  return SNLID::UniverseInstanceReference(getDesign()->getReference(), getID());
+}
+
 bool SNLInstance::isBlackBox() const {
   return getModel()->isBlackBox();
 }

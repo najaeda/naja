@@ -50,6 +50,9 @@ class SNLUniverse final: public SNLObject {
     ///\return the SNLDesign with SNLID::UniverseDesignReference reference or null if it does not exist
     SNLDesign* getDesign(const SNLID::UniverseDesignReference& designReference) const;
 
+    ///\return the SNLInstance with SNLID::UniverseInstanceReference reference or null if it does not exist
+    SNLInstance* getInstance(const SNLID::UniverseInstanceReference& instanceReference) const;
+
     SNLDB* getTopDB() const;
     SNLDesign* getTopDesign() const;
     void setTopDB(SNLDB* db);
