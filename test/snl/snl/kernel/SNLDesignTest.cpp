@@ -47,13 +47,13 @@ TEST_F(SNLDesignTest, testCreation0) {
   EXPECT_TRUE(design->getScalarTerms().empty());
   EXPECT_TRUE(design->getBusTerms().empty());
   EXPECT_TRUE(design->getBitTerms().empty());
-  auto designReference = SNLID::UniverseDesignReference(1, 0, 0);
+  auto designReference = SNLID::DesignReference(1, 0, 0);
   EXPECT_EQ(designReference, design->getReference());
   EXPECT_EQ(design, SNLUniverse::get()->getDesign(designReference));
-  designReference = SNLID::UniverseDesignReference(1, 1, 0);
+  designReference = SNLID::DesignReference(1, 1, 0);
   EXPECT_EQ(nullptr, SNLUniverse::get()->getDesign(designReference)); 
   EXPECT_NE(designReference, design->getReference());
-  designReference = SNLID::UniverseDesignReference(1, 0, 1);
+  designReference = SNLID::DesignReference(1, 0, 1);
   EXPECT_EQ(nullptr, SNLUniverse::get()->getDesign(designReference)); 
   EXPECT_NE(designReference, design->getReference());
 

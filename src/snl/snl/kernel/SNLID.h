@@ -65,23 +65,23 @@ struct SNLID final {
     }
   };
 
-  struct UniverseDesignReference {
+  struct DesignReference {
     DBID              dbID_;
     DBDesignReference dbDesignReference_;
 
-    UniverseDesignReference() = delete;
-    UniverseDesignReference(const UniverseDesignReference&) = default;
-    UniverseDesignReference(DBID dbID, LibraryID libraryID, DesignID designID):
+    DesignReference() = delete;
+    DesignReference(const DesignReference&) = default;
+    DesignReference(DBID dbID, LibraryID libraryID, DesignID designID):
       dbID_(dbID),
       dbDesignReference_(libraryID, designID)
     {}
     DBDesignReference getDBDesignReference() const {
       return dbDesignReference_;
     }
-    friend bool operator==(const UniverseDesignReference& lid, const UniverseDesignReference& rid) {
+    friend bool operator==(const DesignReference& lid, const DesignReference& rid) {
       return std::tie(lid.dbID_, lid.dbDesignReference_) == std::tie(rid.dbID_, rid.dbDesignReference_);
     }
-    friend bool operator!=(const UniverseDesignReference& lid, const UniverseDesignReference& rid) {
+    friend bool operator!=(const DesignReference& lid, const DesignReference& rid) {
       return not (lid == rid);
     }
   };
@@ -103,27 +103,27 @@ struct SNLID final {
     }
   };
 
-  struct UniverseInstanceReference {
-    UniverseDesignReference universeDesignReference_;
-    InstanceID              instanceID_;
+  struct InstanceReference {
+    DesignReference designReference_;
+    InstanceID      instanceID_;
 
-    UniverseInstanceReference() = delete;
-    UniverseInstanceReference(const UniverseInstanceReference&) = default;
-    UniverseInstanceReference(const UniverseDesignReference& universeDesignReference, InstanceID instanceID):
-      universeDesignReference_(universeDesignReference),
+    InstanceReference() = delete;
+    InstanceReference(const InstanceReference&) = default;
+    InstanceReference(const DesignReference& designReference, InstanceID instanceID):
+      designReference_(designReference),
       instanceID_(instanceID)
     {}
-    UniverseInstanceReference(DBID dbID, LibraryID libraryID, DesignID designID, InstanceID instanceID):
-      universeDesignReference_(dbID, libraryID, designID),
+    InstanceReference(DBID dbID, LibraryID libraryID, DesignID designID, InstanceID instanceID):
+      designReference_(dbID, libraryID, designID),
       instanceID_(instanceID)
     {}
-    UniverseDesignReference getUniverseDesignReference() const {
-      return universeDesignReference_;
+    DesignReference getDesignReference() const {
+      return designReference_;
     }
-    friend bool operator==(const UniverseInstanceReference& lid, const UniverseInstanceReference& rid) {
-      return std::tie(lid.universeDesignReference_, lid.instanceID_) == std::tie(rid.universeDesignReference_, rid.instanceID_);
+    friend bool operator==(const InstanceReference& lid, const InstanceReference& rid) {
+      return std::tie(lid.designReference_, lid.instanceID_) == std::tie(rid.designReference_, rid.instanceID_);
     }
-    friend bool operator!=(const UniverseInstanceReference& lid, const UniverseInstanceReference& rid) {
+    friend bool operator!=(const InstanceReference& lid, const InstanceReference& rid) {
       return not (lid == rid);
     }
   };

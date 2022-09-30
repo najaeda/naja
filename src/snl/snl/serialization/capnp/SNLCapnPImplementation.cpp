@@ -194,7 +194,7 @@ void loadInstance(
   }
   auto modelReference = instance.getModelReference();
   auto snlModelReference =
-    SNLID::UniverseDesignReference(
+    SNLID::DesignReference(
       modelReference.getDbID(),
       modelReference.getLibraryID(),
       modelReference.getDesignID());

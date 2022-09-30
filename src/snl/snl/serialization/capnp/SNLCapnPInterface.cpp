@@ -335,7 +335,7 @@ SNLDB* SNLCapnP::loadInterface(const std::filesystem::path& interfacePath) {
   if (dbInterface.hasTopDesignReference()) {
     auto designReference = dbInterface.getTopDesignReference();
     auto snlDesignReference =
-      SNLID::UniverseDesignReference(
+      SNLID::DesignReference(
         designReference.getDbID(),
         designReference.getLibraryID(),
         designReference.getDesignID());

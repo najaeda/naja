@@ -62,7 +62,7 @@ class SNLInstance final: public SNLDesignObject {
 
     SNLID::DesignObjectID getID() const { return id_; }
     SNLID getSNLID() const override;
-    SNLID::UniverseInstanceReference getReference() const;
+    SNLID::InstanceReference getReference() const;
 
     SNLName getName() const { return name_; }
 

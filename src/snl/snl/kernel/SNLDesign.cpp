@@ -466,8 +466,8 @@ SNLID SNLDesign::getSNLID() const {
   return SNLID(getDB()->getID(), library_->getID(), getID());
 }
 
-SNLID::UniverseDesignReference SNLDesign::getReference() const {
-  return SNLID::UniverseDesignReference(getDB()->getID(), library_->getID(), getID());
+SNLID::DesignReference SNLDesign::getReference() const {
+  return SNLID::DesignReference(getDB()->getID(), library_->getID(), getID());
 }
 
 bool SNLDesign::isBetween(int n, int MSB, int LSB) {
