@@ -57,8 +57,11 @@ struct SNLID final {
       designID_(designID)
     {}
 
-    friend bool operator== (const DBDesignReference& lid, const DBDesignReference& rid) {
+    friend bool operator==(const DBDesignReference& lid, const DBDesignReference& rid) {
       return std::tie(lid.libraryID_, lid.designID_) == std::tie(rid.libraryID_, rid.designID_);
+    }
+    friend bool operator!=(const DBDesignReference& lid, const DBDesignReference& rid) {
+      return not (lid == rid);
     }
   };
 
@@ -75,8 +78,11 @@ struct SNLID final {
     DBDesignReference getDBDesignReference() const {
       return dbDesignReference_;
     }
-    friend bool operator== (const UniverseDesignReference& lid, const UniverseDesignReference& rid) {
+    friend bool operator==(const UniverseDesignReference& lid, const UniverseDesignReference& rid) {
       return std::tie(lid.dbID_, lid.dbDesignReference_) == std::tie(rid.dbID_, rid.dbDesignReference_);
+    }
+    friend bool operator!=(const UniverseDesignReference& lid, const UniverseDesignReference& rid) {
+      return not (lid == rid);
     }
   };
 
@@ -91,6 +97,9 @@ struct SNLID final {
     {}
     friend bool operator== (const DBInstanceReference& lid, const DBInstanceReference& rid) {
       return std::tie(lid.dbDesignReference_, lid.instanceID_) == std::tie(rid.dbDesignReference_, rid.instanceID_);
+    }
+    friend bool operator!=(const DBInstanceReference& lid, const DBInstanceReference& rid) {
+      return not (lid == rid);
     }
   };
 
@@ -111,8 +120,11 @@ struct SNLID final {
     UniverseDesignReference getUniverseDesignReference() const {
       return universeDesignReference_;
     }
-    friend bool operator== (const UniverseInstanceReference& lid, const UniverseInstanceReference& rid) {
+    friend bool operator==(const UniverseInstanceReference& lid, const UniverseInstanceReference& rid) {
       return std::tie(lid.universeDesignReference_, lid.instanceID_) == std::tie(rid.universeDesignReference_, rid.instanceID_);
+    }
+    friend bool operator!=(const UniverseInstanceReference& lid, const UniverseInstanceReference& rid) {
+      return not (lid == rid);
     }
   };
 
@@ -158,12 +170,12 @@ struct SNLID final {
     bit_(bit)
   {}
 
-  friend bool operator< (const SNLID &lid, const SNLID &rid) {
+  friend bool operator<(const SNLID& lid, const SNLID& rid) {
     return std::tie(lid.type_, lid.dbID_, lid.libraryID_, lid.designID_, lid.designObjectID_, lid.instanceID_, lid.bit_)
             < std::tie(rid.type_, rid.dbID_, rid.libraryID_, rid.designID_, rid.designObjectID_, rid.instanceID_, rid.bit_);
   }
 
-  friend bool operator== (const SNLID &lid, const SNLID &rid) {
+  friend bool operator==(const SNLID& lid, const SNLID& rid) {
     return std::tie(lid.type_, lid.dbID_, lid.libraryID_, lid.designID_, lid.designObjectID_, lid.instanceID_, lid.bit_)
             == std::tie(rid.type_, rid.dbID_, rid.libraryID_, rid.designID_, rid.designObjectID_, rid.instanceID_, rid.bit_);
   }
