@@ -194,7 +194,7 @@ void loadInstance(
   }
   auto modelReference = instance.getModelReference();
   auto snlModelReference =
-    SNLID::UniverseDesignReference(
+    SNLID::DesignReference(
       modelReference.getDbID(),
       modelReference.getLibraryID(),
       modelReference.getDesignID());
@@ -243,7 +243,7 @@ void loadInstTermReference(
   const DBImplementation::LibraryImplementation::DesignImplementation::InstTermReference::Reader& instTermReference) {
   auto instanceID = instTermReference.getInstanceID();
   auto design = net->getDesign();
-  auto instance = design->getInstance(SNLID::InstanceID(instanceID));
+  auto instance = design->getInstance(SNLID::DesignObjectID(instanceID));
   if (not instance) {
     //LCOV_EXCL_START
     std::ostringstream reason;

@@ -62,6 +62,8 @@ class SNLInstance final: public SNLDesignObject {
 
     SNLID::DesignObjectID getID() const { return id_; }
     SNLID getSNLID() const override;
+    SNLID::DesignObjectReference getReference() const;
+
     SNLName getName() const { return name_; }
 
     bool isAnonymous() const override { return name_.empty(); }
@@ -137,7 +139,7 @@ class SNLInstance final: public SNLDesignObject {
 
     SNLDesign*                          design_                   {nullptr};
     SNLDesign*                          model_                    {nullptr};
-    SNLID::InstanceID                   id_;
+    SNLID::DesignObjectID               id_;
     SNLName                             name_                     {};
     SNLInstanceInstTerms                instTerms_                {};
     SNLInstanceSharedPaths              sharedPaths_              {};

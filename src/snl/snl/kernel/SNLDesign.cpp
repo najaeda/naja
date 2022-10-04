@@ -220,8 +220,6 @@ void SNLDesign::addTerm(SNLTerm* term) {
   }
 }
 
-
-
 void SNLDesign::removeTerm(SNLTerm* term) {
   //Remove corresponding instance terminals in slave instances
   for (auto instance: getSlaveInstances()) {
@@ -300,7 +298,7 @@ void SNLDesign::addInstanceAndSetID(SNLInstance* instance) {
   } else {
     auto it = instances_.rbegin();
     SNLInstance* lastInstance = &(*it);
-    SNLID::InstanceID instanceID = lastInstance->id_+1;
+    SNLID::DesignObjectID instanceID = lastInstance->id_+1;
     instance->id_ = instanceID;
   }
   addInstance(instance);
@@ -341,7 +339,7 @@ SNLInstance* SNLDesign::getInstance(SNLID::DesignObjectID id) const {
 SNLInstance* SNLDesign::getInstance(const SNLName& name) const {
   auto it = instanceNameIDMap_.find(name);
   if (it != instanceNameIDMap_.end()) {
-    SNLID::InstanceID id = it->second;
+    SNLID::DesignObjectID id = it->second;
     return getInstance(id);
   }
   return nullptr;
@@ -468,8 +466,8 @@ SNLID SNLDesign::getSNLID() const {
   return SNLID(getDB()->getID(), library_->getID(), getID());
 }
 
-SNLID::UniverseDesignReference SNLDesign::getReference() const {
-  return SNLID::UniverseDesignReference(getDB()->getID(), library_->getID(), getID());
+SNLID::DesignReference SNLDesign::getReference() const {
+  return SNLID::DesignReference(getDB()->getID(), library_->getID(), getID());
 }
 
 bool SNLDesign::isBetween(int n, int MSB, int LSB) {

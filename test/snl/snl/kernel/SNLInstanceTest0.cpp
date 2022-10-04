@@ -36,6 +36,10 @@ TEST_F(SNLInstanceTest0, testCreation) {
   EXPECT_EQ(1, model->getID());
   EXPECT_EQ(SNLID(SNLID::Type::Design, 1, 0, 0, 0, 0, 0), design->getSNLID());
   EXPECT_EQ(SNLID(SNLID::Type::Design, 1, 0, 1, 0, 0, 0), model->getSNLID());
+  EXPECT_EQ(SNLID::DesignReference(1, 0, 0), design->getReference());
+  EXPECT_EQ(design, SNLUniverse::get()->getDesign(SNLID::DesignReference(1, 0, 0)));
+  EXPECT_EQ(SNLID::DesignReference(1, 0, 1), model->getReference());
+  EXPECT_EQ(model, SNLUniverse::get()->getDesign(SNLID::DesignReference(1, 0, 1)));
   auto term0 = SNLScalarTerm::create(model, SNLTerm::Direction::Input, SNLName("i0"));
   auto term1 = SNLBusTerm::create(model, SNLTerm::Direction::Output, 0, 3);
   auto term2 = SNLScalarTerm::create(model, SNLTerm::Direction::Input, SNLName("i1"));
@@ -78,6 +82,10 @@ TEST_F(SNLInstanceTest0, testCreation) {
   EXPECT_EQ(4, instance1->getInstBusTermBits().size());
   EXPECT_EQ(0, instance1->getID());
   EXPECT_EQ(SNLID(SNLID::Type::Instance, 1, 0, 0, 0, instance1->getID(), 0), instance1->getSNLID());
+  EXPECT_EQ(SNLID::DesignObjectReference(1, 0, 0, 0), instance1->getReference());
+  EXPECT_EQ(instance1, SNLUniverse::get()->getInstance(SNLID::DesignObjectReference(1, 0, 0, 0)));
+  EXPECT_EQ(SNLID::DesignReference(1, 0, 0), instance1->getReference().getDesignReference());
+  EXPECT_NE(SNLID::DesignObjectReference(1, 0, 0, 1), instance1->getReference());
 
   using InstTermsVector = std::vector<SNLInstTerm*>;
   {
@@ -459,5 +467,5 @@ TEST_F(SNLInstanceTest0, testErrors) {
 
   SNLInstance::create(design, model, SNLName("name"));
   EXPECT_THROW(SNLInstance::create(design, model, SNLName("name")), SNLException);
-  EXPECT_THROW(SNLInstance::create(design, model, SNLID::InstanceID(0)), SNLException);
+  EXPECT_THROW(SNLInstance::create(design, model, SNLID::DesignObjectID(0)), SNLException);
 }

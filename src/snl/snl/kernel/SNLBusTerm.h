@@ -20,8 +20,7 @@
 #include <vector>
 
 #include "SNLTerm.h"
-#include "SNLName.h"
-#include "NajaCollection.h"
+#include "SNLCollection.h"
 
 namespace naja { namespace SNL {
 

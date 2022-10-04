@@ -176,12 +176,12 @@ TEST_F(SNLCapNpTest0, test0) {
   EXPECT_EQ(4, instances.size());
   auto instance1 = instances[0];
   EXPECT_EQ(SNLName("instance1"), instance1->getName());
-  EXPECT_EQ(SNLID::InstanceID(0), instance1->getID());
+  EXPECT_EQ(SNLID::DesignObjectID(0), instance1->getID());
   EXPECT_EQ(design, instance1->getDesign());
   EXPECT_EQ(model, instance1->getModel());
   auto instance2 = instances[1];
   EXPECT_EQ(SNLName("instance2"), instance2->getName());
-  EXPECT_EQ(SNLID::InstanceID(1), instance2->getID());
+  EXPECT_EQ(SNLID::DesignObjectID(1), instance2->getID());
   EXPECT_EQ(design, instance2->getDesign());
   EXPECT_EQ(model, instance2->getModel());
   using Nets = std::vector<SNLNet*>;

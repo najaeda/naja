@@ -143,7 +143,7 @@ class SNLDesign final: public NajaObject {
 
     SNLID::DesignID getID() const { return id_; }
     SNLID getSNLID() const;
-    SNLID::UniverseDesignReference getReference() const;
+    SNLID::DesignReference getReference() const;
 
     SNLName getName() const { return name_; }
     bool isAnonymous() const { return name_.empty(); }
@@ -201,7 +201,7 @@ class SNLDesign final: public NajaObject {
     using SNLDesignSlaveInstancesHook =
       boost::intrusive::member_hook<SNLInstance, boost::intrusive::set_member_hook<>, &SNLInstance::designSlaveInstancesHook_>;
     using SNLDesignSlaveInstances = boost::intrusive::set<SNLInstance, SNLDesignSlaveInstancesHook>;
-    using SNLInstanceNameIDMap = std::map<SNLName, SNLID::InstanceID>;
+    using SNLInstanceNameIDMap = std::map<SNLName, SNLID::DesignObjectID>;
     using SNLDesignNetsHook =
       boost::intrusive::member_hook<SNLNet, boost::intrusive::set_member_hook<>, &SNLNet::designNetsHook_>;
     using SNLDesignNets = boost::intrusive::set<SNLNet, SNLDesignNetsHook>;
