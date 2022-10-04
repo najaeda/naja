@@ -298,7 +298,7 @@ void SNLDesign::addInstanceAndSetID(SNLInstance* instance) {
   } else {
     auto it = instances_.rbegin();
     SNLInstance* lastInstance = &(*it);
-    SNLID::InstanceID instanceID = lastInstance->id_+1;
+    SNLID::DesignObjectID instanceID = lastInstance->id_+1;
     instance->id_ = instanceID;
   }
   addInstance(instance);
@@ -339,7 +339,7 @@ SNLInstance* SNLDesign::getInstance(SNLID::DesignObjectID id) const {
 SNLInstance* SNLDesign::getInstance(const SNLName& name) const {
   auto it = instanceNameIDMap_.find(name);
   if (it != instanceNameIDMap_.end()) {
-    SNLID::InstanceID id = it->second;
+    SNLID::DesignObjectID id = it->second;
     return getInstance(id);
   }
   return nullptr;

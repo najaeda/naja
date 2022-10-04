@@ -36,6 +36,7 @@ class SNLBusTermBit final: public SNLBitTerm {
     ///\return this SNLBusTermBit owner SNLBusTerm.
     SNLBusTerm* getBus() const { return bus_; }
     SNLID::Bit getBit() const override { return bit_; }
+    SNLID::DesignObjectReference getReference() const override;
     size_t getFlatID() const override;
     ///\return the position of this SNLBusTermBit in SNLBusTerm bits vector.
     size_t getPositionInBus() const;

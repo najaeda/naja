@@ -20,7 +20,6 @@
 #include <vector>
 
 #include "SNLTerm.h"
-#include "SNLName.h"
 #include "SNLCollection.h"
 
 namespace naja { namespace SNL {
@@ -62,6 +61,7 @@ class SNLBusTerm final: public SNLTerm {
 
     SNLID::DesignObjectID getID() const override { return id_; }
     SNLID getSNLID() const override;
+    SNLID::DesignObjectReference getReference() const override;
     size_t getFlatID() const override { return flatID_; }
     SNLName getName() const override { return name_; }
     bool isAnonymous() const override { return name_.empty(); }

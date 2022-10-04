@@ -36,6 +36,7 @@ class SNLScalarTerm final: public SNLBitTerm {
     SNLID::DesignObjectID getID() const override { return id_; }
     SNLID::Bit getBit() const override { return 0; }
     size_t getFlatID() const override { return flatID_; } 
+    SNLID::DesignObjectReference getReference() const override;
     SNLName getName() const override { return name_; }
     bool isAnonymous() const override { return name_.empty(); }
     SNLTerm::Direction getDirection() const override { return direction_; }

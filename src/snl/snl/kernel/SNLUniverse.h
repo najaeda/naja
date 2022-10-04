@@ -48,10 +48,16 @@ class SNLUniverse final: public SNLObject {
     SNLDB* getDB(SNLID::DBID id) const;
 
     ///\return the SNLDesign with SNLID::DesignReference reference or null if it does not exist
-    SNLDesign* getDesign(const SNLID::DesignReference& designReference) const;
+    SNLDesign* getDesign(const SNLID::DesignReference& reference) const;
 
-    ///\return the SNLInstance with SNLID::InstanceReference reference or null if it does not exist
-    SNLInstance* getInstance(const SNLID::InstanceReference& instanceReference) const;
+    ///\return the SNLTerm with SNLID::DesignObjectReference reference or null if it does not exist
+    SNLTerm* getTerm(const SNLID::DesignObjectReference& reference) const;
+
+    ///\return the SNLNet with SNLID::DesignObjectReference reference or null if it does not exist
+    SNLNet* getNet(const SNLID::DesignObjectReference& reference) const;
+
+    ///\return the SNLInstance with SNLID::DesignObjectReference reference or null if it does not exist
+    SNLInstance* getInstance(const SNLID::DesignObjectReference& reference) const;
 
     SNLDB* getTopDB() const;
     SNLDesign* getTopDesign() const;

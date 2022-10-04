@@ -43,7 +43,6 @@ struct SNLID final {
   using DBID            = uint8_t;
   using LibraryID       = uint16_t;
   using DesignID        = uint32_t;
-  using InstanceID      = uint32_t;
   using DesignObjectID  = uint32_t;
   using Bit             = int32_t;
 
@@ -67,63 +66,69 @@ struct SNLID final {
 
   struct DesignReference {
     DBID              dbID_;
-    DBDesignReference dbDesignReference_;
+    LibraryID         libraryID_;
+    DesignID          designID_;
 
     DesignReference() = delete;
     DesignReference(const DesignReference&) = default;
     DesignReference(DBID dbID, LibraryID libraryID, DesignID designID):
       dbID_(dbID),
-      dbDesignReference_(libraryID, designID)
+      libraryID_(libraryID),
+      designID_(designID)
     {}
     DBDesignReference getDBDesignReference() const {
-      return dbDesignReference_;
+      return DBDesignReference(libraryID_, designID_);
+    }
+    std::string getString() const {
+      return "[db:" + std::to_string(dbID_)
+        + " lib:" + std::to_string(libraryID_)
+        + " design:" + std::to_string(designID_)
+        + "]";
     }
     friend bool operator==(const DesignReference& lid, const DesignReference& rid) {
-      return std::tie(lid.dbID_, lid.dbDesignReference_) == std::tie(rid.dbID_, rid.dbDesignReference_);
+      return std::tie(lid.dbID_, lid.libraryID_, lid.designID_) ==
+        std::tie(rid.dbID_, rid.libraryID_, rid.designID_);
     }
     friend bool operator!=(const DesignReference& lid, const DesignReference& rid) {
       return not (lid == rid);
     }
   };
 
-  struct DBInstanceReference {
-    DBDesignReference dbDesignReference_;
-    InstanceID        instanceID_;
-    DBInstanceReference() = delete;
-    DBInstanceReference(const DBInstanceReference&) = default;
-    DBInstanceReference(LibraryID libraryID, DesignID designID, InstanceID instanceID):
-      dbDesignReference_(libraryID, designID),
-      instanceID_(instanceID)
-    {}
-    friend bool operator== (const DBInstanceReference& lid, const DBInstanceReference& rid) {
-      return std::tie(lid.dbDesignReference_, lid.instanceID_) == std::tie(rid.dbDesignReference_, rid.instanceID_);
-    }
-    friend bool operator!=(const DBInstanceReference& lid, const DBInstanceReference& rid) {
-      return not (lid == rid);
-    }
-  };
+  struct DesignObjectReference {
+    DBID              dbID_;
+    LibraryID         libraryID_;
+    DesignID          designID_;
+    DesignObjectID    designObjectID_;
 
-  struct InstanceReference {
-    DesignReference designReference_;
-    InstanceID      instanceID_;
-
-    InstanceReference() = delete;
-    InstanceReference(const InstanceReference&) = default;
-    InstanceReference(const DesignReference& designReference, InstanceID instanceID):
-      designReference_(designReference),
-      instanceID_(instanceID)
+    DesignObjectReference() = delete;
+    DesignObjectReference(const DesignObjectReference&) = default;
+    DesignObjectReference(const DesignReference& designReference, DesignObjectID designObjectID):
+      dbID_(designReference.dbID_),
+      libraryID_(designReference.libraryID_),
+      designID_(designReference.designID_),
+      designObjectID_(designObjectID)
     {}
-    InstanceReference(DBID dbID, LibraryID libraryID, DesignID designID, InstanceID instanceID):
-      designReference_(dbID, libraryID, designID),
-      instanceID_(instanceID)
+    DesignObjectReference(DBID dbID, LibraryID libraryID, DesignID designID, DesignObjectID designObjectID):
+      dbID_(dbID),
+      libraryID_(libraryID),
+      designID_(designID),
+      designObjectID_(designObjectID)
     {}
     DesignReference getDesignReference() const {
-      return designReference_;
+      return DesignReference(dbID_, libraryID_, designID_);
     }
-    friend bool operator==(const InstanceReference& lid, const InstanceReference& rid) {
-      return std::tie(lid.designReference_, lid.instanceID_) == std::tie(rid.designReference_, rid.instanceID_);
+    std::string getString() const {
+      return "[db:" + std::to_string(dbID_)
+        + " lib:" + std::to_string(libraryID_)
+        + " design:" + std::to_string(designID_)
+        + " object:" + std::to_string(designObjectID_)
+        + "]";
     }
-    friend bool operator!=(const InstanceReference& lid, const InstanceReference& rid) {
+    friend bool operator==(const DesignObjectReference& lid, const DesignObjectReference& rid) {
+      return std::tie(lid.dbID_, lid.libraryID_, lid.designID_, lid.designObjectID_) ==
+        std::tie(rid.dbID_, rid.libraryID_, rid.designID_, rid.designObjectID_);
+    }
+    friend bool operator!=(const DesignObjectReference& lid, const DesignObjectReference& rid) {
       return not (lid == rid);
     }
   };

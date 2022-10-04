@@ -104,18 +104,34 @@ SNLDB* SNLUniverse::getDB(SNLID::DBID id) const {
   return nullptr;
 }
 
-SNLDesign* SNLUniverse::getDesign(const SNLID::DesignReference& designReference) const {
-  auto db = getDB(designReference.dbID_);
+SNLDesign* SNLUniverse::getDesign(const SNLID::DesignReference& reference) const {
+  auto db = getDB(reference.dbID_);
   if (db) {
-    return db->getDesign(designReference.getDBDesignReference());
+    return db->getDesign(reference.getDBDesignReference());
   }
   return nullptr;
 }
 
-SNLInstance* SNLUniverse::getInstance(const SNLID::InstanceReference& instanceReference) const {
-  auto design = getDesign(instanceReference.getDesignReference());
+SNLTerm* SNLUniverse::getTerm(const SNLID::DesignObjectReference& reference) const {
+  auto design = getDesign(reference.getDesignReference());
   if (design) {
-    return design->getInstance(instanceReference.instanceID_);
+    return design->getTerm(reference.designObjectID_);
+  }
+  return nullptr;
+}
+
+SNLNet* SNLUniverse::getNet(const SNLID::DesignObjectReference& reference) const {
+  auto design = getDesign(reference.getDesignReference());
+  if (design) {
+    return design->getNet(reference.designObjectID_);
+  }
+  return nullptr;
+}
+
+SNLInstance* SNLUniverse::getInstance(const SNLID::DesignObjectReference& reference) const {
+  auto design = getDesign(reference.getDesignReference());
+  if (design) {
+    return design->getInstance(reference.designObjectID_);
   }
   return nullptr;
 }
