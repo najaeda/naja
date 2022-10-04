@@ -41,7 +41,7 @@ class SNLTerm: public SNLNetComponent {
           DirectionEnum dirEnum_;
     };
     
-    virtual SNLID::DesignObjectReference getReference() const = 0;
+    SNLID::DesignObjectReference getReference() const;
     virtual SNLID::DesignObjectID getID() const = 0;
     /**
      * \return this SNLTerm flat id in the containing SNLDesign flat SNLBitTerms.

@@ -75,10 +75,6 @@ size_t SNLBusTermBit::getPositionInBus() const {
   return size_t(std::abs(getBit() - getBus()->getMSB())); 
 }
 
-SNLID::DesignObjectReference SNLBusTermBit::getReference() const {
-  return getBus()->getReference();
-}
-
 SNLDesign* SNLBusTermBit::getDesign() const {
   return getBus()->getDesign();
 }

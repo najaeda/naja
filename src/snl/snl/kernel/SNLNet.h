@@ -49,6 +49,7 @@ class SNLNet: public SNLDesignObject {
         TypeEnum typeEnum_;
     };
 
+    SNLID::DesignObjectReference getReference() const;
     virtual SNLID::DesignObjectID getID() const = 0;
     ///\return net SNLName
     virtual SNLName getName() const = 0;

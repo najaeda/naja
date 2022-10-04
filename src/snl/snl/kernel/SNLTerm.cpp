@@ -16,6 +16,8 @@
 
 #include "SNLTerm.h"
 
+#include "SNLDesign.h"
+
 namespace naja { namespace SNL {
 
 SNLTerm::Direction::Direction(const DirectionEnum& dirEnum):
@@ -43,6 +45,10 @@ void SNLTerm::postCreate() {
 
 void SNLTerm::preDestroy() {
   super::preDestroy();
+}
+
+SNLID::DesignObjectReference SNLTerm::getReference() const {
+  return SNLID::DesignObjectReference(getDesign()->getReference(), getID());
 }
 
 }} // namespace SNL // namespace naja

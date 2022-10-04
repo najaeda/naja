@@ -172,10 +172,6 @@ SNLID SNLBusTerm::getSNLID() const {
   return SNLDesignObject::getSNLID(SNLID::Type::Term, id_, 0, 0);
 }
 
-SNLID::DesignObjectReference SNLBusTerm::getReference() const {
-  return SNLID::DesignObjectReference(getDesign()->getReference(), getID());
-}
-
 //LCOV_EXCL_START
 const char* SNLBusTerm::getTypeName() const {
   return "SNLBusTerm";

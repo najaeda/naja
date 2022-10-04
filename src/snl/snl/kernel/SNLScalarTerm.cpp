@@ -103,9 +103,6 @@ SNLID SNLScalarTerm::getSNLID() const {
   return SNLDesignObject::getSNLID(SNLID::Type::Term, id_, 0, 0);
 }
 
-SNLID::DesignObjectReference SNLScalarTerm::getReference() const {
-  return SNLID::DesignObjectReference(getDesign()->getReference(), getID());
-}
 
 //LCOV_EXCL_START
 const char* SNLScalarTerm::getTypeName() const {
