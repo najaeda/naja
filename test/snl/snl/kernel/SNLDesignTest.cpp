@@ -248,24 +248,32 @@ TEST_F(SNLDesignTest, testPrimitives) {
 TEST_F(SNLDesignTest, testSetTop) {
   SNLLibrary* library = db_->getLibrary(SNLName("MYLIB"));
   ASSERT_NE(library, nullptr);
-  SNLDesign* design = SNLDesign::create(library, SNLName("design"));
-  ASSERT_NE(design, nullptr);
+  SNLDesign* design0 = SNLDesign::create(library, SNLName("design0"));
+  SNLDesign* design1 = SNLDesign::create(library, SNLName("design1"));
+  ASSERT_NE(design0, nullptr);
+  ASSERT_NE(design1, nullptr);
 
   EXPECT_EQ(nullptr, SNLUniverse::get()->getTopDesign());
   EXPECT_EQ(nullptr, SNLUniverse::get()->getTopDB());
-  EXPECT_FALSE(design->isTopDesign());
-  design->getDB()->setTopDesign(design);
-  EXPECT_TRUE(design->isTopDesign());
-  EXPECT_EQ(design, design->getDB()->getTopDesign());
+  EXPECT_FALSE(design0->isTopDesign());
+  EXPECT_FALSE(design1->isTopDesign());
+  design0->getDB()->setTopDesign(design0);
+  EXPECT_TRUE(design0->isTopDesign());
+  EXPECT_FALSE(design1->isTopDesign());
+  EXPECT_EQ(design0, design0->getDB()->getTopDesign());
   EXPECT_FALSE(SNLUniverse::get()->getTopDesign());
   EXPECT_FALSE(SNLUniverse::get()->getTopDB());
-  SNLUniverse::get()->setTopDB(design->getDB());
-  EXPECT_TRUE(design->getDB()->isTopDB());
-  EXPECT_EQ(SNLUniverse::get()->getTopDB(), design->getDB());
-  EXPECT_EQ(SNLUniverse::get()->getTopDesign(), design);
+  SNLUniverse::get()->setTopDB(design0->getDB());
+  EXPECT_TRUE(design0->getDB()->isTopDB());
+  EXPECT_EQ(SNLUniverse::get()->getTopDB(), design0->getDB());
+  EXPECT_EQ(SNLUniverse::get()->getTopDesign(), design0);
+  SNLUniverse::get()->setTopDesign(design1);
+  EXPECT_FALSE(design0->isTopDesign());
+  EXPECT_TRUE(design1->isTopDesign());
+  EXPECT_TRUE(design0->getDB()->isTopDB());
 
   auto altDB = SNLDB::create(SNLUniverse::get());
   auto altLibrary = SNLLibrary::create(altDB);
   auto altDesign = SNLDesign::create(altLibrary);
-  EXPECT_THROW(design->getDB()->setTopDesign(altDesign), SNLException);
+  EXPECT_THROW(design0->getDB()->setTopDesign(altDesign), SNLException);
 }
