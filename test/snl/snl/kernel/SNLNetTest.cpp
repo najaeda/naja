@@ -65,6 +65,8 @@ TEST_F(SNLNetTest, testCreation) {
   auto i0Net = SNLScalarNet::create(design_);
   EXPECT_EQ(0, i0Net->getID());
   EXPECT_EQ(SNLID(SNLID::Type::Net, 1, 1, 0, 0, 0, 0), i0Net->getSNLID());
+  EXPECT_EQ(SNLID::DesignObjectReference(1, 1, 0, 0), i0Net->getReference());
+  EXPECT_EQ(i0Net, SNLUniverse::get()->getNet(SNLID::DesignObjectReference(1, 1, 0, 0)));
   EXPECT_FALSE(design_->getNets().empty());
   EXPECT_FALSE(design_->getScalarNets().empty());
   EXPECT_FALSE(design_->getBitNets().empty());
@@ -91,6 +93,8 @@ TEST_F(SNLNetTest, testCreation) {
   auto i1Net = SNLScalarNet::create(design_);
   EXPECT_EQ(1, i1Net->getID());
   EXPECT_EQ(SNLID(SNLID::Type::Net, 1, 1, 0, 1, 0, 0), i1Net->getSNLID());
+  EXPECT_EQ(SNLID::DesignObjectReference(1, 1, 0, 1), i1Net->getReference());
+  EXPECT_EQ(i1Net, SNLUniverse::get()->getNet(SNLID::DesignObjectReference(1, 1, 0, 1)));
   EXPECT_FALSE(design_->getNets().empty());
   EXPECT_FALSE(design_->getScalarNets().empty());
   EXPECT_FALSE(design_->getBitNets().empty());
@@ -126,7 +130,6 @@ TEST_F(SNLNetTest, testCreation) {
   SNLBusNet* net0 = SNLBusNet::create(design_, 31, 0, SNLName("net0"));
   ASSERT_TRUE(net0);
   EXPECT_EQ(SNLName("net0"), net0->getName());
-  EXPECT_EQ(SNLID(SNLID::Type::Net, 1, 1, 0, 2, 0, 0), net0->getSNLID());
   EXPECT_EQ(2, net0->getID());
   EXPECT_EQ(31, net0->getMSB());
   EXPECT_EQ(0, net0->getLSB());
@@ -138,6 +141,8 @@ TEST_F(SNLNetTest, testCreation) {
   EXPECT_EQ(net0, design_->getBusNet(SNLName("net0")));
   EXPECT_EQ(nullptr, design_->getScalarNet(SNLName("net0")));
   EXPECT_EQ(SNLID(SNLID::Type::Net, 1, 1, 0, 2, 0, 0), net0->getSNLID());
+  EXPECT_EQ(SNLID::DesignObjectReference(1, 1, 0, 2), net0->getReference());
+  EXPECT_EQ(net0, SNLUniverse::get()->getNet(SNLID::DesignObjectReference(1, 1, 0, 2)));
   EXPECT_EQ(net0, design_->getNet(2));
   EXPECT_EQ(net0, design_->getBusNet(2));
   EXPECT_EQ(nullptr, design_->getScalarNet(2)); 
