@@ -14,18 +14,38 @@
  * limitations under the License.
  */
 
-#ifndef __NAJA_UTILS_H_
-#define __NAJA_UTILS_H_
+#ifndef __NAJA_PROPERTY_H_
+#define __NAJA_PROPERTY_H_
 
-#include <ostream>
+#include <string>
 
 namespace naja {
 
-class NajaUtils {
+class NajaObject;
+
+class NajaProperty {
   public:
-    static void createBanner(std::ostream& stream, const std::string& title, const std::string& commentChar);
+    friend class NajaObject;
+    virtual std::string getName() const =0;
+    virtual std::string getString() const =0;
+
+    virtual bool isDumpable() const {
+      return false;
+    }
+    void destroy();
+  protected:
+    NajaProperty() = default;
+    virtual ~NajaProperty() = default;
+    static void preCreate() {}
+    void postCreate() {}
+    virtual void preDestroy();
+
+    virtual void onCapturedBy(NajaObject* object) =0;
+    virtual void onReleasedBy(const NajaObject* object) =0;
+    
+
 };
 
 } // namespace naja
 
-#endif // __NAJA_UTILS_H_
+#endif /* __NAJA_PROPERTY_H_ */

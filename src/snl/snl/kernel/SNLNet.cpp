@@ -16,6 +16,8 @@
 
 #include "SNLNet.h"
 
+#include "SNLDesign.h"
+
 namespace naja { namespace SNL {
 
 SNLNet::Type::Type(const TypeEnum& typeEnum):
@@ -46,5 +48,9 @@ std::string SNLNet::Type::getString() const {
   return "Unknown";
 }
 //LCOV_EXCL_STOP
+
+SNLID::DesignObjectReference SNLNet::getReference() const {
+  return SNLID::DesignObjectReference(getDesign()->getReference(), getID());
+}
 
 }} // namespace SNL // namespace naja

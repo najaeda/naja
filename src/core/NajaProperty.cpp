@@ -14,27 +14,16 @@
  * limitations under the License.
  */
 
-#ifndef __SNL_OBJECT_H_
-#define __SNL_OBJECT_H_
+#include "NajaProperty.h"
 
-#include "NajaObject.h"
+namespace naja {
 
-class CardItem;
+void NajaProperty::destroy() {
+    preDestroy();
+    delete this;
+}
 
-namespace naja { namespace SNL {
+void NajaProperty::preDestroy() {
+}
 
-class SNLObject: public naja::core::NajaObject {
-  public:
-    ///destroy this SNLObject and remove it cleanly from SNL.
-    virtual void destroy();
-  protected:
-    SNLObject() = default;
-
-    static void preCreate() {}
-    void postCreate();
-    virtual void preDestroy();
-};
-
-}} // namespace SNL // namespace naja
-
-#endif // __SNL_OBJECT_H_
+} // namespace naja

@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef __SNL_COLLECTION_H_
-#define __SNL_COLLECTION_H_
+#ifndef __NAJA_COLLECTION_H_
+#define __NAJA_COLLECTION_H_
 
 #include <vector>
 #include <stack>
@@ -23,50 +23,50 @@
 
 #include <boost/intrusive/set.hpp>
 
-namespace naja { namespace SNL {
+namespace naja {
 
 template<class Type>
-class SNLBaseIterator {
+class NajaBaseIterator {
   public:
-    SNLBaseIterator(SNLBaseIterator&&) = delete;
-    virtual ~SNLBaseIterator() {}
+    NajaBaseIterator(NajaBaseIterator&&) = delete;
+    virtual ~NajaBaseIterator() {}
     virtual Type getElement() const = 0;
     virtual void progress() = 0;
-    virtual bool isEqual(const SNLBaseIterator<Type>* r) const = 0;
+    virtual bool isEqual(const NajaBaseIterator<Type>* r) const = 0;
     virtual bool isValid() const = 0;
-    virtual SNLBaseIterator<Type>* clone() = 0;
+    virtual NajaBaseIterator<Type>* clone() = 0;
   protected:
-    SNLBaseIterator() = default;
-    SNLBaseIterator(const SNLBaseIterator&) = default;
+    NajaBaseIterator() = default;
+    NajaBaseIterator(const NajaBaseIterator&) = default;
 };
 
 template<class Type>
-class SNLBaseCollection {
+class NajaBaseCollection {
   public:
-    SNLBaseCollection(SNLBaseCollection&&) = delete;
-    virtual ~SNLBaseCollection() = default;
+    NajaBaseCollection(NajaBaseCollection&&) = delete;
+    virtual ~NajaBaseCollection() = default;
 
-    virtual SNLBaseCollection<Type>* clone() const = 0;
+    virtual NajaBaseCollection<Type>* clone() const = 0;
 
-    virtual SNLBaseIterator<Type>* begin() const = 0;
-    virtual SNLBaseIterator<Type>* end() const = 0;
+    virtual NajaBaseIterator<Type>* begin() const = 0;
+    virtual NajaBaseIterator<Type>* end() const = 0;
 
     virtual size_t size() const = 0;
     virtual bool empty() const = 0;
   protected:
-    SNLBaseCollection() = default;
-    SNLBaseCollection(const SNLBaseCollection&) = default;
+    NajaBaseCollection() = default;
+    NajaBaseCollection(const NajaBaseCollection&) = default;
 };
 
 template<class Type>
-class SNLSingletonCollection: public SNLBaseCollection<Type*> {
+class NajaSingletonCollection: public NajaBaseCollection<Type*> {
   public:
-    using super = SNLBaseCollection<Type*>;
+    using super = NajaBaseCollection<Type*>;
 
-    class SNLSingletonCollectionIterator: public SNLBaseIterator<Type*> {
+    class NajaSingletonCollectionIterator: public NajaBaseIterator<Type*> {
       public:
-        SNLSingletonCollectionIterator(const SNLSingletonCollectionIterator&) = default;
-        SNLSingletonCollectionIterator(Type* object, bool beginOrEnd=true): object_(object) {
+        NajaSingletonCollectionIterator(const NajaSingletonCollectionIterator&) = default;
+        NajaSingletonCollectionIterator(Type* object, bool beginOrEnd=true): object_(object) {
           if (object_) {
             if (beginOrEnd) {
               begin_ = true;
@@ -77,8 +77,8 @@ class SNLSingletonCollection: public SNLBaseCollection<Type*> {
         }
         Type* getElement() const override { return object_; }
         void progress() override { begin_ = false; }
-        bool isEqual(const SNLBaseIterator<Type*>* r) override {
-          if (const SNLSingletonCollectionIterator* rit = dynamic_cast<const SNLSingletonCollectionIterator*>(r)) {
+        bool isEqual(const NajaBaseIterator<Type*>* r) override {
+          if (const NajaSingletonCollectionIterator* rit = dynamic_cast<const NajaSingletonCollectionIterator*>(r)) {
             return object_ == rit->object_ and begin_ == rit->begin_;
           }
           return false;
@@ -86,29 +86,29 @@ class SNLSingletonCollection: public SNLBaseCollection<Type*> {
         bool isValid() const override {
           return object_ and begin_;
         }
-        SNLBaseIterator<Type*>* clone() override {
-          return new SNLSingletonCollectionIterator(*this);
+        NajaBaseIterator<Type*>* clone() override {
+          return new NajaSingletonCollectionIterator(*this);
         }
       private:
         Type* object_ {nullptr};
         bool  begin_  {false};
     };
 
-    SNLBaseIterator<Type*>* begin() const override {
-      return new SNLSingletonCollectionIterator(object_, true);
+    NajaBaseIterator<Type*>* begin() const override {
+      return new NajaSingletonCollectionIterator(object_, true);
     }
 
-    SNLBaseIterator<Type*>* end() const override {
-      return new SNLSingletonCollectionIterator(object_, false);
+    NajaBaseIterator<Type*>* end() const override {
+      return new NajaSingletonCollectionIterator(object_, false);
     }
 
-    SNLSingletonCollection() = delete;
-    SNLSingletonCollection(const SNLSingletonCollection&) = delete;
-    SNLSingletonCollection(SNLSingletonCollection&&) = delete;
-    SNLSingletonCollection(Type* object): super(), object_(object) {}
+    NajaSingletonCollection() = delete;
+    NajaSingletonCollection(const NajaSingletonCollection&) = delete;
+    NajaSingletonCollection(NajaSingletonCollection&&) = delete;
+    NajaSingletonCollection(Type* object): super(), object_(object) {}
 
-    SNLBaseCollection<Type*>* clone() const override {
-      return new SNLSingletonCollection(object_);
+    NajaBaseCollection<Type*>* clone() const override {
+      return new NajaSingletonCollection(object_);
     }
     size_t size() const override {
       if (object_) {
@@ -125,16 +125,16 @@ class SNLSingletonCollection: public SNLBaseCollection<Type*> {
 };
 
 template<class Type, class HookType>
-class SNLIntrusiveSetCollection: public SNLBaseCollection<Type*> {
+class NajaIntrusiveSetCollection: public NajaBaseCollection<Type*> {
   public:
-    using super = SNLBaseCollection<Type*>;
+    using super = NajaBaseCollection<Type*>;
     using Set = boost::intrusive::set<Type, HookType>;
 
-    class SNLIntrusiveSetCollectionIterator: public SNLBaseIterator<Type*> {
+    class NajaIntrusiveSetCollectionIterator: public NajaBaseIterator<Type*> {
       public:
         using SetIterator = typename Set::const_iterator;
-        SNLIntrusiveSetCollectionIterator(const SNLIntrusiveSetCollectionIterator&) = default;
-        SNLIntrusiveSetCollectionIterator(const Set* set, bool beginOrEnd=true): set_(set) {
+        NajaIntrusiveSetCollectionIterator(const NajaIntrusiveSetCollectionIterator&) = default;
+        NajaIntrusiveSetCollectionIterator(const Set* set, bool beginOrEnd=true): set_(set) {
           if (set_) {
             if (beginOrEnd) {
               it_ = set->begin();
@@ -145,8 +145,8 @@ class SNLIntrusiveSetCollection: public SNLBaseCollection<Type*> {
         }
         Type* getElement() const override { return const_cast<Type*>(&*it_); }
         void progress() override { ++it_; }
-        bool isEqual(const SNLBaseIterator<Type*>* r) const override {
-          if (const SNLIntrusiveSetCollectionIterator* rit = dynamic_cast<const SNLIntrusiveSetCollectionIterator*>(r)) {
+        bool isEqual(const NajaBaseIterator<Type*>* r) const override {
+          if (const NajaIntrusiveSetCollectionIterator* rit = dynamic_cast<const NajaIntrusiveSetCollectionIterator*>(r)) {
             return it_ == rit->it_;
           }
           return false;
@@ -154,29 +154,29 @@ class SNLIntrusiveSetCollection: public SNLBaseCollection<Type*> {
         bool isValid() const override {
           return set_ and it_ != set_->end();
         }
-        SNLBaseIterator<Type*>* clone() override {
-          return new SNLIntrusiveSetCollectionIterator(*this);
+        NajaBaseIterator<Type*>* clone() override {
+          return new NajaIntrusiveSetCollectionIterator(*this);
         }
       private:
         const Set*  set_  {nullptr};
         SetIterator it_   {};
     };
 
-    SNLBaseIterator<Type*>* begin() const override {
-      return new SNLIntrusiveSetCollectionIterator(set_, true);
+    NajaBaseIterator<Type*>* begin() const override {
+      return new NajaIntrusiveSetCollectionIterator(set_, true);
     }
 
-    SNLBaseIterator<Type*>* end() const override {
-      return new SNLIntrusiveSetCollectionIterator(set_, false);
+    NajaBaseIterator<Type*>* end() const override {
+      return new NajaIntrusiveSetCollectionIterator(set_, false);
     }
 
-    SNLIntrusiveSetCollection() = delete;
-    SNLIntrusiveSetCollection(const SNLIntrusiveSetCollection&) = delete;
-    SNLIntrusiveSetCollection(SNLIntrusiveSetCollection&&) = delete;
-    SNLIntrusiveSetCollection(const Set* set): super(), set_(set) {}
+    NajaIntrusiveSetCollection() = delete;
+    NajaIntrusiveSetCollection(const NajaIntrusiveSetCollection&) = delete;
+    NajaIntrusiveSetCollection(NajaIntrusiveSetCollection&&) = delete;
+    NajaIntrusiveSetCollection(const Set* set): super(), set_(set) {}
 
-    SNLBaseCollection<Type*>* clone() const override {
-      return new SNLIntrusiveSetCollection(set_);
+    NajaBaseCollection<Type*>* clone() const override {
+      return new NajaIntrusiveSetCollection(set_);
     }
     size_t size() const override {
       return set_->size();
@@ -190,16 +190,16 @@ class SNLIntrusiveSetCollection: public SNLBaseCollection<Type*> {
 };
 
 template<class STLType>
-class SNLSTLCollection: public SNLBaseCollection<typename STLType::value_type> {
+class NajaSTLCollection: public NajaBaseCollection<typename STLType::value_type> {
   public:
-    using super = SNLBaseCollection<typename STLType::value_type>;
+    using super = NajaBaseCollection<typename STLType::value_type>;
 
-    class SNLSTLCollectionIterator: public SNLBaseIterator<typename STLType::value_type> {
+    class NajaSTLCollectionIterator: public NajaBaseIterator<typename STLType::value_type> {
       public:
         using STLTypeIterator = typename STLType::const_iterator;
 
-        SNLSTLCollectionIterator(SNLSTLCollectionIterator&) = default;
-        SNLSTLCollectionIterator(const STLType* container, bool beginOrEnd=true): container_(container) {
+        NajaSTLCollectionIterator(NajaSTLCollectionIterator&) = default;
+        NajaSTLCollectionIterator(const STLType* container, bool beginOrEnd=true): container_(container) {
           if (container_) {
             if (beginOrEnd) {
               it_ = container_->begin();
@@ -209,14 +209,14 @@ class SNLSTLCollection: public SNLBaseCollection<typename STLType::value_type> {
           }
         }
 
-        SNLBaseIterator<typename STLType::value_type>* clone() override {
-          return new SNLSTLCollectionIterator(*this);
+        NajaBaseIterator<typename STLType::value_type>* clone() override {
+          return new NajaSTLCollectionIterator(*this);
         }
 
         typename STLType::value_type getElement() const override { return *it_; } 
         void progress() override { ++it_; }
-        bool isEqual(const SNLBaseIterator<typename STLType::value_type>* r) const override {
-          if (auto rit = dynamic_cast<const SNLSTLCollectionIterator*>(r)) {
+        bool isEqual(const NajaBaseIterator<typename STLType::value_type>* r) const override {
+          if (auto rit = dynamic_cast<const NajaSTLCollectionIterator*>(r)) {
             return it_ == rit->it_;
           }
           return false;
@@ -229,18 +229,18 @@ class SNLSTLCollection: public SNLBaseCollection<typename STLType::value_type> {
         STLTypeIterator it_         {};
     };
 
-    SNLSTLCollection() = delete;
-    SNLSTLCollection(const SNLSTLCollection&) = delete;
-    SNLSTLCollection(SNLSTLCollection&&) = delete;
-    SNLSTLCollection(const STLType* container): super(), container_(container) {}
-    SNLBaseCollection<typename STLType::value_type>* clone() const override {
-      return new SNLSTLCollection(container_);
+    NajaSTLCollection() = delete;
+    NajaSTLCollection(const NajaSTLCollection&) = delete;
+    NajaSTLCollection(NajaSTLCollection&&) = delete;
+    NajaSTLCollection(const STLType* container): super(), container_(container) {}
+    NajaBaseCollection<typename STLType::value_type>* clone() const override {
+      return new NajaSTLCollection(container_);
     }
-    SNLBaseIterator<typename STLType::value_type>* begin() const override {
-      return new SNLSTLCollectionIterator(container_, true);
+    NajaBaseIterator<typename STLType::value_type>* begin() const override {
+      return new NajaSTLCollectionIterator(container_, true);
     }
-    SNLBaseIterator<typename STLType::value_type>* end() const override {
-      return new SNLSTLCollectionIterator(container_, false);
+    NajaBaseIterator<typename STLType::value_type>* end() const override {
+      return new NajaSTLCollectionIterator(container_, false);
     }
 
     size_t size() const override {
@@ -255,16 +255,16 @@ class SNLSTLCollection: public SNLBaseCollection<typename STLType::value_type> {
 };
 
 template<class STLMapType>
-class SNLSTLMapCollection: public SNLBaseCollection<typename STLMapType::mapped_type> {
+class NajaSTLMapCollection: public NajaBaseCollection<typename STLMapType::mapped_type> {
   public:
-    using super = SNLBaseCollection<typename STLMapType::mapped_type>;
+    using super = NajaBaseCollection<typename STLMapType::mapped_type>;
 
-    class SNLSTLMapCollectionIterator: public SNLBaseIterator<typename STLMapType::mapped_type> {
+    class NajaSTLMapCollectionIterator: public NajaBaseIterator<typename STLMapType::mapped_type> {
       public:
         using STLMapTypeIterator = typename STLMapType::const_iterator;
 
-        SNLSTLMapCollectionIterator(SNLSTLMapCollectionIterator&) = default;
-        SNLSTLMapCollectionIterator(const STLMapType* container, bool beginOrEnd=true): container_(container) {
+        NajaSTLMapCollectionIterator(NajaSTLMapCollectionIterator&) = default;
+        NajaSTLMapCollectionIterator(const STLMapType* container, bool beginOrEnd=true): container_(container) {
           if (container_) {
             if (beginOrEnd) {
               it_ = container_->begin();
@@ -274,14 +274,14 @@ class SNLSTLMapCollection: public SNLBaseCollection<typename STLMapType::mapped_
           }
         }
 
-        SNLBaseIterator<typename STLMapType::mapped_type>* clone() override {
-          return new SNLSTLMapCollectionIterator(*this);
+        NajaBaseIterator<typename STLMapType::mapped_type>* clone() override {
+          return new NajaSTLMapCollectionIterator(*this);
         }
 
         typename STLMapType::mapped_type getElement() const override { return it_->second; } 
         void progress() override { ++it_; }
-        bool isEqual(const SNLBaseIterator<typename STLMapType::mapped_type>* r) const override {
-          if (auto rit = dynamic_cast<const SNLSTLMapCollectionIterator*>(r)) {
+        bool isEqual(const NajaBaseIterator<typename STLMapType::mapped_type>* r) const override {
+          if (auto rit = dynamic_cast<const NajaSTLMapCollectionIterator*>(r)) {
             return it_ == rit->it_;
           }
           return false;
@@ -294,18 +294,18 @@ class SNLSTLMapCollection: public SNLBaseCollection<typename STLMapType::mapped_
         STLMapTypeIterator  it_         {};
     };
 
-    SNLSTLMapCollection() = delete;
-    SNLSTLMapCollection(const SNLSTLMapCollection&) = delete;
-    SNLSTLMapCollection(SNLSTLMapCollection&&) = delete;
-    SNLSTLMapCollection(const STLMapType* container): super(), container_(container) {}
-    SNLBaseCollection<typename STLMapType::mapped_type>* clone() const override {
-      return new SNLSTLMapCollection(container_);
+    NajaSTLMapCollection() = delete;
+    NajaSTLMapCollection(const NajaSTLMapCollection&) = delete;
+    NajaSTLMapCollection(NajaSTLMapCollection&&) = delete;
+    NajaSTLMapCollection(const STLMapType* container): super(), container_(container) {}
+    NajaBaseCollection<typename STLMapType::mapped_type>* clone() const override {
+      return new NajaSTLMapCollection(container_);
     }
-    SNLBaseIterator<typename STLMapType::mapped_type>* begin() const override {
-      return new SNLSTLMapCollectionIterator(container_, true);
+    NajaBaseIterator<typename STLMapType::mapped_type>* begin() const override {
+      return new NajaSTLMapCollectionIterator(container_, true);
     }
-    SNLBaseIterator<typename STLMapType::mapped_type>* end() const override {
-      return new SNLSTLMapCollectionIterator(container_, false);
+    NajaBaseIterator<typename STLMapType::mapped_type>* end() const override {
+      return new NajaSTLMapCollectionIterator(container_, false);
     }
 
     size_t size() const override {
@@ -319,14 +319,14 @@ class SNLSTLMapCollection: public SNLBaseCollection<typename STLMapType::mapped_
     const STLMapType* container_  {nullptr};
 };
 
-template<class Type, class SubType> class SNLSubTypeCollection: public SNLBaseCollection<SubType> {
+template<class Type, class SubType> class NajaSubTypeCollection: public NajaBaseCollection<SubType> {
   public:
-    using super = SNLBaseCollection<SubType>;
+    using super = NajaBaseCollection<SubType>;
 
-    class SNLSubTypeCollectionIterator: public SNLBaseIterator<SubType> {
+    class NajaSubTypeCollectionIterator: public NajaBaseIterator<SubType> {
       public:
-        using super = SNLBaseIterator<SubType>;
-        SNLSubTypeCollectionIterator(const SNLBaseCollection<Type>* collection, bool beginOrEnd=true):
+        using super = NajaBaseIterator<SubType>;
+        NajaSubTypeCollectionIterator(const NajaBaseCollection<Type>* collection, bool beginOrEnd=true):
           super() {
           if (collection) {
             endIt_ = collection->end();
@@ -340,7 +340,7 @@ template<class Type, class SubType> class SNLSubTypeCollection: public SNLBaseCo
             }
           }
         }
-        SNLSubTypeCollectionIterator(const SNLSubTypeCollectionIterator& it) {
+        NajaSubTypeCollectionIterator(const NajaSubTypeCollectionIterator& it) {
           endIt_ = it.endIt_->clone();
           if (it.it_ not_eq it.endIt_) {
             it_ = it.it_->clone();
@@ -348,14 +348,14 @@ template<class Type, class SubType> class SNLSubTypeCollection: public SNLBaseCo
             it_ = endIt_;
           }
         }
-        ~SNLSubTypeCollectionIterator() {
+        ~NajaSubTypeCollectionIterator() {
           if (it_ not_eq endIt_) {
             delete it_;
           }
           delete endIt_;
         }
-        SNLBaseIterator<SubType>* clone() override {
-          return new SNLSubTypeCollectionIterator(*this);
+        NajaBaseIterator<SubType>* clone() override {
+          return new NajaSubTypeCollectionIterator(*this);
         }
         SubType getElement() const override { return static_cast<SubType>(it_->getElement()); } 
         void progress() override {
@@ -365,9 +365,9 @@ template<class Type, class SubType> class SNLSubTypeCollection: public SNLBaseCo
             } while (isValid() and not dynamic_cast<SubType>(it_->getElement()));
           }
         }
-        bool isEqual(const SNLBaseIterator<SubType>* r) const override {
+        bool isEqual(const NajaBaseIterator<SubType>* r) const override {
           if (it_) {
-            if (auto rit = dynamic_cast<const SNLSubTypeCollectionIterator*>(r)) {
+            if (auto rit = dynamic_cast<const NajaSubTypeCollectionIterator*>(r)) {
               return it_->isEqual(rit->it_);
             }
           }
@@ -378,33 +378,33 @@ template<class Type, class SubType> class SNLSubTypeCollection: public SNLBaseCo
         }
       private:
 
-        SNLBaseIterator<Type>*  it_     {nullptr};
-        SNLBaseIterator<Type>*  endIt_  {nullptr};
+        NajaBaseIterator<Type>*  it_     {nullptr};
+        NajaBaseIterator<Type>*  endIt_  {nullptr};
     };
 
-    SNLSubTypeCollection(const SNLSubTypeCollection&) = delete;
-    SNLSubTypeCollection& operator=(const SNLSubTypeCollection&) = delete;
-    SNLSubTypeCollection(const SNLSubTypeCollection&&) = delete;
-    SNLSubTypeCollection(const SNLBaseCollection<Type>* collection):
+    NajaSubTypeCollection(const NajaSubTypeCollection&) = delete;
+    NajaSubTypeCollection& operator=(const NajaSubTypeCollection&) = delete;
+    NajaSubTypeCollection(const NajaSubTypeCollection&&) = delete;
+    NajaSubTypeCollection(const NajaBaseCollection<Type>* collection):
       super(), collection_(collection)
     {}
-    ~SNLSubTypeCollection() {
+    ~NajaSubTypeCollection() {
       delete collection_;
     }
-    SNLBaseCollection<SubType>* clone() const override {
-      return new SNLSubTypeCollection(collection_);
+    NajaBaseCollection<SubType>* clone() const override {
+      return new NajaSubTypeCollection(collection_);
     }
-    SNLBaseIterator<SubType>* begin() const override {
-      return new SNLSubTypeCollectionIterator(collection_, true);
+    NajaBaseIterator<SubType>* begin() const override {
+      return new NajaSubTypeCollectionIterator(collection_, true);
     }
-    SNLBaseIterator<SubType>* end() const override {
-      return new SNLSubTypeCollectionIterator(collection_, false);
+    NajaBaseIterator<SubType>* end() const override {
+      return new NajaSubTypeCollectionIterator(collection_, false);
     }
     size_t size() const override {
       size_t size = 0;
       if (collection_) {
-        auto it = std::make_unique<SNLSubTypeCollectionIterator>(collection_, true);
-        auto endIt = std::make_unique<SNLSubTypeCollectionIterator>(collection_, false);
+        auto it = std::make_unique<NajaSubTypeCollectionIterator>(collection_, true);
+        auto endIt = std::make_unique<NajaSubTypeCollectionIterator>(collection_, false);
         while (not it->isEqual(endIt.get())) {
           ++size;
           it->progress();
@@ -413,22 +413,22 @@ template<class Type, class SubType> class SNLSubTypeCollection: public SNLBaseCo
       return size;
     }
     bool empty() const override {
-      auto it = std::make_unique<SNLSubTypeCollectionIterator>(collection_, true);
+      auto it = std::make_unique<NajaSubTypeCollectionIterator>(collection_, true);
       return not it->isValid();
     }
 
   private:
-    const SNLBaseCollection<Type>* collection_;
+    const NajaBaseCollection<Type>* collection_;
 };
 
-template<class Type, typename Filter> class SNLFilteredCollection: public SNLBaseCollection<Type> {
+template<class Type, typename Filter> class NajaFilteredCollection: public NajaBaseCollection<Type> {
   public:
-    using super = SNLBaseCollection<Type>;
+    using super = NajaBaseCollection<Type>;
 
-    class SNLFilteredCollectionIterator: public SNLBaseIterator<Type> {
+    class NajaFilteredCollectionIterator: public NajaBaseIterator<Type> {
       public:
-        using super = SNLBaseIterator<Type>;
-        SNLFilteredCollectionIterator(const SNLBaseCollection<Type>* collection, const Filter& filter, bool beginOrEnd=true):
+        using super = NajaBaseIterator<Type>;
+        NajaFilteredCollectionIterator(const NajaBaseCollection<Type>* collection, const Filter& filter, bool beginOrEnd=true):
           super(),
           filter_(filter) {
           if (collection) {
@@ -443,7 +443,7 @@ template<class Type, typename Filter> class SNLFilteredCollection: public SNLBas
             }
           }
         }
-        SNLFilteredCollectionIterator(const SNLFilteredCollectionIterator& it): filter_(it.filter_) {
+        NajaFilteredCollectionIterator(const NajaFilteredCollectionIterator& it): filter_(it.filter_) {
           endIt_ = it.endIt_->clone();
           if (it.it_ not_eq it.endIt_) {
             it_ = it.it_->clone();
@@ -451,14 +451,14 @@ template<class Type, typename Filter> class SNLFilteredCollection: public SNLBas
             it_ = endIt_;
           }
         }
-        ~SNLFilteredCollectionIterator() {
+        ~NajaFilteredCollectionIterator() {
           if (it_ not_eq endIt_) {
             delete it_;
           }
           delete endIt_;
         }
-        SNLBaseIterator<Type>* clone() override {
-          return new SNLFilteredCollectionIterator(*this);
+        NajaBaseIterator<Type>* clone() override {
+          return new NajaFilteredCollectionIterator(*this);
         }
         Type getElement() const override { return static_cast<Type>(it_->getElement()); } 
         void progress() override {
@@ -468,9 +468,9 @@ template<class Type, typename Filter> class SNLFilteredCollection: public SNLBas
             } while (isValid() and not filter_(it_->getElement()));
           }
         }
-        bool isEqual(const SNLBaseIterator<Type>* r) const override {
+        bool isEqual(const NajaBaseIterator<Type>* r) const override {
           if (it_) {
-            if (auto rit = dynamic_cast<const SNLFilteredCollectionIterator*>(r)) {
+            if (auto rit = dynamic_cast<const NajaFilteredCollectionIterator*>(r)) {
               return it_->isEqual(rit->it_);
             }
           }
@@ -480,34 +480,34 @@ template<class Type, typename Filter> class SNLFilteredCollection: public SNLBas
           return it_ and endIt_ and not it_->isEqual(endIt_);
         }
       private:
-        SNLBaseIterator<Type>*  it_     {nullptr};
-        SNLBaseIterator<Type>*  endIt_  {nullptr};
+        NajaBaseIterator<Type>*  it_     {nullptr};
+        NajaBaseIterator<Type>*  endIt_  {nullptr};
         Filter                  filter_;
     };
 
-    SNLFilteredCollection(const SNLFilteredCollection&) = delete;
-    SNLFilteredCollection& operator=(const SNLFilteredCollection&) = delete;
-    SNLFilteredCollection(const SNLFilteredCollection&&) = delete;
-    SNLFilteredCollection(const SNLBaseCollection<Type>* collection, const Filter& filter):
+    NajaFilteredCollection(const NajaFilteredCollection&) = delete;
+    NajaFilteredCollection& operator=(const NajaFilteredCollection&) = delete;
+    NajaFilteredCollection(const NajaFilteredCollection&&) = delete;
+    NajaFilteredCollection(const NajaBaseCollection<Type>* collection, const Filter& filter):
       super(), collection_(collection), filter_(filter) 
     {}
-    ~SNLFilteredCollection() {
+    ~NajaFilteredCollection() {
       delete collection_;
     }
-    SNLBaseCollection<Type>* clone() const override {
-      return new SNLFilteredCollection(collection_, filter_);
+    NajaBaseCollection<Type>* clone() const override {
+      return new NajaFilteredCollection(collection_, filter_);
     }
-    SNLBaseIterator<Type>* begin() const override {
-      return new SNLFilteredCollectionIterator(collection_, filter_, true);
+    NajaBaseIterator<Type>* begin() const override {
+      return new NajaFilteredCollectionIterator(collection_, filter_, true);
     }
-    SNLBaseIterator<Type>* end() const override {
-      return new SNLFilteredCollectionIterator(collection_, filter_, false);
+    NajaBaseIterator<Type>* end() const override {
+      return new NajaFilteredCollectionIterator(collection_, filter_, false);
     }
     size_t size() const override {
       size_t size = 0;
       if (collection_) {
-        auto it = std::make_unique<SNLFilteredCollectionIterator>(collection_, filter_, true);
-        auto endIt = std::make_unique<SNLFilteredCollectionIterator>(collection_, filter_,false);
+        auto it = std::make_unique<NajaFilteredCollectionIterator>(collection_, filter_, true);
+        auto endIt = std::make_unique<NajaFilteredCollectionIterator>(collection_, filter_,false);
         while (not it->isEqual(endIt.get())) {
           ++size;
           it->progress();
@@ -516,24 +516,24 @@ template<class Type, typename Filter> class SNLFilteredCollection: public SNLBas
       return size;
     }
     bool empty() const override {
-      auto it = std::make_unique<SNLFilteredCollectionIterator>(collection_, filter_,true);
+      auto it = std::make_unique<NajaFilteredCollectionIterator>(collection_, filter_,true);
       return not it->isValid();
     }
 
   private:
-    const SNLBaseCollection<Type>*  collection_;
+    const NajaBaseCollection<Type>*  collection_;
     Filter                          filter_;
 };
 
 template<class Type, class MasterType, class FlatType, class ReturnType, typename Flattener>
-class SNLFlatCollection: public SNLBaseCollection<ReturnType> {
+class NajaFlatCollection: public NajaBaseCollection<ReturnType> {
   public:
-    using super = SNLBaseCollection<ReturnType>;
+    using super = NajaBaseCollection<ReturnType>;
 
-    class SNLFlatCollectionIterator: public SNLBaseIterator<ReturnType> {
+    class NajaFlatCollectionIterator: public NajaBaseIterator<ReturnType> {
       public:
-        using super = SNLBaseIterator<ReturnType>;
-        SNLFlatCollectionIterator(const SNLBaseCollection<Type>* collection, const Flattener& flattener, bool beginOrEnd=true):
+        using super = NajaBaseIterator<ReturnType>;
+        NajaFlatCollectionIterator(const NajaBaseCollection<Type>* collection, const Flattener& flattener, bool beginOrEnd=true):
           super(),
           flattener_(flattener) {
           if (collection) {
@@ -558,7 +558,7 @@ class SNLFlatCollection: public SNLBaseCollection<ReturnType> {
             }
           }
         }
-        SNLFlatCollectionIterator(const SNLFlatCollectionIterator& it): element_(it.element_), flattener_(it.flattener_) {
+        NajaFlatCollectionIterator(const NajaFlatCollectionIterator& it): element_(it.element_), flattener_(it.flattener_) {
           endIt_ = it.endIt_->clone();
           if (it.it_ not_eq it.endIt_) {
             it_ = it.it_->clone();
@@ -569,15 +569,15 @@ class SNLFlatCollection: public SNLBaseCollection<ReturnType> {
             flattenIt_ = it.flattenIt_->clone();
           }
         }
-        ~SNLFlatCollectionIterator() {
+        ~NajaFlatCollectionIterator() {
           if (it_ not_eq endIt_) {
             delete it_;
           }
           delete endIt_;
           delete flattenIt_;
         }
-        SNLBaseIterator<ReturnType>* clone() override {
-          return new SNLFlatCollectionIterator(*this);
+        NajaBaseIterator<ReturnType>* clone() override {
+          return new NajaFlatCollectionIterator(*this);
         }
         ReturnType getElement() const override { return element_; } 
         void progress() override {
@@ -613,9 +613,9 @@ class SNLFlatCollection: public SNLBaseCollection<ReturnType> {
             }
           }
         }
-        bool isEqual(const SNLBaseIterator<ReturnType>* r) const override {
+        bool isEqual(const NajaBaseIterator<ReturnType>* r) const override {
           if (it_) {
-            if (auto rit = dynamic_cast<const SNLFlatCollectionIterator*>(r)) {
+            if (auto rit = dynamic_cast<const NajaFlatCollectionIterator*>(r)) {
               if (it_->isEqual(rit->it_)) {
                 if (flattenIt_) {
                   return flattenIt_->isEqual(rit->flattenIt_);
@@ -632,36 +632,36 @@ class SNLFlatCollection: public SNLBaseCollection<ReturnType> {
         }
       private:
 
-        SNLBaseIterator<Type>*      it_         {nullptr};
-        SNLBaseIterator<Type>*      endIt_      {nullptr};
-        SNLBaseIterator<FlatType>*  flattenIt_  {nullptr};
+        NajaBaseIterator<Type>*      it_         {nullptr};
+        NajaBaseIterator<Type>*      endIt_      {nullptr};
+        NajaBaseIterator<FlatType>*  flattenIt_  {nullptr};
         ReturnType                  element_    {nullptr};
         Flattener                   flattener_;
     };
 
-    SNLFlatCollection(const SNLFlatCollection&) = delete;
-    SNLFlatCollection& operator=(const SNLFlatCollection&) = delete;
-    SNLFlatCollection(const SNLFlatCollection&&) = delete;
-    SNLFlatCollection(const SNLBaseCollection<Type>* collection, const Flattener& flattener):
+    NajaFlatCollection(const NajaFlatCollection&) = delete;
+    NajaFlatCollection& operator=(const NajaFlatCollection&) = delete;
+    NajaFlatCollection(const NajaFlatCollection&&) = delete;
+    NajaFlatCollection(const NajaBaseCollection<Type>* collection, const Flattener& flattener):
       super(), collection_(collection), flattener_(flattener)
     {}
-    ~SNLFlatCollection() {
+    ~NajaFlatCollection() {
       delete collection_;
     }
-    SNLBaseCollection<ReturnType>* clone() const override {
-      return new SNLFlatCollection(collection_, flattener_);
+    NajaBaseCollection<ReturnType>* clone() const override {
+      return new NajaFlatCollection(collection_, flattener_);
     }
-    SNLBaseIterator<ReturnType>* begin() const override {
-      return new SNLFlatCollectionIterator(collection_, flattener_, true);
+    NajaBaseIterator<ReturnType>* begin() const override {
+      return new NajaFlatCollectionIterator(collection_, flattener_, true);
     }
-    SNLBaseIterator<ReturnType>* end() const override {
-      return new SNLFlatCollectionIterator(collection_, flattener_, false);
+    NajaBaseIterator<ReturnType>* end() const override {
+      return new NajaFlatCollectionIterator(collection_, flattener_, false);
     }
     size_t size() const override {
       size_t size = 0;
       if (collection_) {
-        auto it = std::make_unique<SNLFlatCollectionIterator>(collection_, flattener_, true);
-        auto endIt = std::make_unique<SNLFlatCollectionIterator>(collection_, flattener_, false);
+        auto it = std::make_unique<NajaFlatCollectionIterator>(collection_, flattener_, true);
+        auto endIt = std::make_unique<NajaFlatCollectionIterator>(collection_, flattener_, false);
         while (not it->isEqual(endIt.get())) {
           ++size;
           it->progress();
@@ -670,23 +670,23 @@ class SNLFlatCollection: public SNLBaseCollection<ReturnType> {
       return size;
     }
     bool empty() const override {
-      auto it = std::make_unique<SNLFlatCollectionIterator>(collection_, flattener_, true);
+      auto it = std::make_unique<NajaFlatCollectionIterator>(collection_, flattener_, true);
       return not it->isValid();
     }
 
   private:
-    const SNLBaseCollection<Type>* collection_;
+    const NajaBaseCollection<Type>* collection_;
     Flattener                      flattener_;
 };
 
 template<class Type, typename ChildrenGetter, typename LeafCriterion>
-class SNLTreeLeavesCollection: public SNLBaseCollection<Type> {
+class NajaTreeLeavesCollection: public NajaBaseCollection<Type> {
   public:
-    using super = SNLBaseCollection<Type>;
-    class SNLTreeLeavesCollectionIterator: public SNLBaseIterator<Type> {
+    using super = NajaBaseCollection<Type>;
+    class NajaTreeLeavesCollectionIterator: public NajaBaseIterator<Type> {
       public:
-        using super = SNLBaseIterator<Type>;
-        SNLTreeLeavesCollectionIterator(
+        using super = NajaBaseIterator<Type>;
+        NajaTreeLeavesCollectionIterator(
           const Type& root,
           const ChildrenGetter& childrenGetter,
           const LeafCriterion& leafCriterion,
@@ -703,10 +703,10 @@ class SNLTreeLeavesCollection: public SNLBaseCollection<Type> {
             }
           }
         }
-        SNLTreeLeavesCollectionIterator(const SNLTreeLeavesCollectionIterator& it) = default;
-        ~SNLTreeLeavesCollectionIterator() {}
-        SNLBaseIterator<Type>* clone() override {
-          return new SNLTreeLeavesCollectionIterator(*this);
+        NajaTreeLeavesCollectionIterator(const NajaTreeLeavesCollectionIterator& it) = default;
+        ~NajaTreeLeavesCollectionIterator() {}
+        NajaBaseIterator<Type>* clone() override {
+          return new NajaTreeLeavesCollectionIterator(*this);
         }
         Type getElement() const override { return element_; } 
         void progress() override {
@@ -715,8 +715,8 @@ class SNLTreeLeavesCollection: public SNLBaseCollection<Type> {
             findNextElement();
           }
         }
-        bool isEqual(const SNLBaseIterator<Type>* r) const override {
-          if (auto rit = dynamic_cast<const SNLTreeLeavesCollectionIterator*>(r)) {
+        bool isEqual(const NajaBaseIterator<Type>* r) const override {
+          if (auto rit = dynamic_cast<const NajaTreeLeavesCollectionIterator*>(r)) {
             return root_ == rit->root_
               and element_ == rit->element_ 
               and childrenGetter_ == rit->childrenGetter_
@@ -751,28 +751,28 @@ class SNLTreeLeavesCollection: public SNLBaseCollection<Type> {
         Type            element_        {nullptr};
     };
 
-    SNLTreeLeavesCollection(const SNLTreeLeavesCollection&) = delete;
-    SNLTreeLeavesCollection& operator=(const SNLTreeLeavesCollection&) = delete;
-    SNLTreeLeavesCollection(const SNLTreeLeavesCollection&&) = delete;
-    SNLTreeLeavesCollection(Type root, const ChildrenGetter& childrenGetter, const LeafCriterion& leafCriterion):
+    NajaTreeLeavesCollection(const NajaTreeLeavesCollection&) = delete;
+    NajaTreeLeavesCollection& operator=(const NajaTreeLeavesCollection&) = delete;
+    NajaTreeLeavesCollection(const NajaTreeLeavesCollection&&) = delete;
+    NajaTreeLeavesCollection(Type root, const ChildrenGetter& childrenGetter, const LeafCriterion& leafCriterion):
       super(), root_(root), childrenGetter_(childrenGetter), leafCriterion_(leafCriterion)
     {}
-    ~SNLTreeLeavesCollection() {}
-    SNLTreeLeavesCollection* clone() const override {
-      return new SNLTreeLeavesCollection(root_, childrenGetter_, leafCriterion_);
+    ~NajaTreeLeavesCollection() {}
+    NajaTreeLeavesCollection* clone() const override {
+      return new NajaTreeLeavesCollection(root_, childrenGetter_, leafCriterion_);
     }
 
-    SNLBaseIterator<Type>* begin() const override {
-      return new SNLTreeLeavesCollectionIterator(root_, childrenGetter_, leafCriterion_, true);
+    NajaBaseIterator<Type>* begin() const override {
+      return new NajaTreeLeavesCollectionIterator(root_, childrenGetter_, leafCriterion_, true);
     }
-    SNLBaseIterator<Type>* end() const override {
-      return new SNLTreeLeavesCollectionIterator(root_, childrenGetter_, leafCriterion_, false);
+    NajaBaseIterator<Type>* end() const override {
+      return new NajaTreeLeavesCollectionIterator(root_, childrenGetter_, leafCriterion_, false);
     }
     size_t size() const override {
       size_t size = 0;
       if (root_) {
-        auto it = std::make_unique<SNLTreeLeavesCollectionIterator>(root_, childrenGetter_, leafCriterion_, true);
-        auto endIt = std::make_unique<SNLTreeLeavesCollectionIterator>(root_, childrenGetter_, leafCriterion_, false);
+        auto it = std::make_unique<NajaTreeLeavesCollectionIterator>(root_, childrenGetter_, leafCriterion_, true);
+        auto endIt = std::make_unique<NajaTreeLeavesCollectionIterator>(root_, childrenGetter_, leafCriterion_, false);
         while (not it->isEqual(endIt.get())) {
           ++size;
           it->progress();
@@ -782,7 +782,7 @@ class SNLTreeLeavesCollection: public SNLBaseCollection<Type> {
     }
     bool empty() const override {
       if (root_) {
-        auto it = std::make_unique<SNLTreeLeavesCollectionIterator>(root_, childrenGetter_, leafCriterion_, true);
+        auto it = std::make_unique<NajaTreeLeavesCollectionIterator>(root_, childrenGetter_, leafCriterion_, true);
         return not it->isValid();
       }
       return true;
@@ -793,7 +793,7 @@ class SNLTreeLeavesCollection: public SNLBaseCollection<Type> {
     LeafCriterion   leafCriterion_  {};
 };
 
-template<class Type> class SNLCollection {
+template<class Type> class NajaCollection {
   public:
     class Iterator {
       public:
@@ -809,7 +809,7 @@ template<class Type> class SNLCollection {
             baseIt_ = it.baseIt_->clone();
           }
         }
-        Iterator(SNLBaseIterator<Type>* iterator): baseIt_(iterator) {}
+        Iterator(NajaBaseIterator<Type>* iterator): baseIt_(iterator) {}
         ~Iterator() { if (baseIt_) { delete baseIt_; } }
 
         Iterator& operator++() { baseIt_->progress(); return *this; }
@@ -819,47 +819,47 @@ template<class Type> class SNLCollection {
         bool operator==(const Iterator& r) const { return baseIt_->isEqual(r.baseIt_); }
         bool operator!=(const Iterator& r) const { return not baseIt_->isEqual(r.baseIt_); }
       private:
-        SNLBaseIterator<Type>* baseIt_ {nullptr};
+        NajaBaseIterator<Type>* baseIt_ {nullptr};
     };
 
-    SNLCollection() = default;
-    SNLCollection(SNLCollection&&) = delete;
-    SNLCollection(const SNLBaseCollection<Type>* collection): collection_(collection) {}
-    ~SNLCollection() { delete collection_; }
+    NajaCollection() = default;
+    NajaCollection(NajaCollection&&) = delete;
+    NajaCollection(const NajaBaseCollection<Type>* collection): collection_(collection) {}
+    ~NajaCollection() { delete collection_; }
 
-    template<class SubType> SNLCollection<SubType> getSubCollection() const {
+    template<class SubType> NajaCollection<SubType> getSubCollection() const {
       if (collection_) {
-        return SNLCollection<SubType>(new SNLSubTypeCollection<Type, SubType>(collection_->clone()));
+        return NajaCollection<SubType>(new NajaSubTypeCollection<Type, SubType>(collection_->clone()));
       }
-      return SNLCollection<SubType>();
+      return NajaCollection<SubType>();
     }
 
-    template<typename Filter> SNLCollection<Type> getSubCollection(const Filter& filter) const {
+    template<typename Filter> NajaCollection<Type> getSubCollection(const Filter& filter) const {
       if (collection_) {
-        return SNLCollection<Type>(new SNLFilteredCollection<Type, Filter>(collection_->clone(), filter));
+        return NajaCollection<Type>(new NajaFilteredCollection<Type, Filter>(collection_->clone(), filter));
       }
-      return SNLCollection<Type>();
+      return NajaCollection<Type>();
     }
 
     template<class MasterType, class FlatType, class ReturnType, typename Flattener>
-      SNLCollection<ReturnType> getFlatCollection(const Flattener& flattener) const {
+      NajaCollection<ReturnType> getFlatCollection(const Flattener& flattener) const {
       if (collection_) {
-        return SNLCollection<ReturnType>(new SNLFlatCollection<Type, MasterType, FlatType, ReturnType, Flattener>(collection_->clone(), flattener));
+        return NajaCollection<ReturnType>(new NajaFlatCollection<Type, MasterType, FlatType, ReturnType, Flattener>(collection_->clone(), flattener));
       }
-      return SNLCollection<ReturnType>();
+      return NajaCollection<ReturnType>();
     }
 
-    SNLBaseIterator<Type>* begin_() { return collection_->begin(); }
-    SNLBaseIterator<Type>* end_() { return collection_->end(); }
+    NajaBaseIterator<Type>* begin_() { return collection_->begin(); }
+    NajaBaseIterator<Type>* end_() { return collection_->end(); }
     Iterator begin() { return Iterator(begin_()); }
     Iterator end() { return Iterator(end_()); }
 
     size_t size() const { if (collection_) { return collection_->size(); } return 0; }
     bool empty() const { if (collection_) { return collection_->empty(); } return true; }
   private:
-    const SNLBaseCollection<Type>*  collection_ {nullptr};
+    const NajaBaseCollection<Type>*  collection_ {nullptr};
 };
 
-}} // namespace SNL // namespace naja
+} // namespace naja
 
-#endif // __SNL_COLLECTION_H_
+#endif // __NAJA_COLLECTION_H_

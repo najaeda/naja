@@ -26,11 +26,11 @@ namespace naja { namespace SNL {
  *
  * Several SNLDB can live and share inside SNLUniverse.
  */
-class SNLUniverse final: public SNLObject {
+class SNLUniverse final: public NajaObject {
   public:
     friend class SNLDB;
     friend class SNLDB0;
-    using super = SNLObject;
+    using super = NajaObject;
     SNLUniverse(const SNLUniverse&) = delete;
 
     ///\return a created singleton SNLUniverse or an error if it exists already
@@ -39,16 +39,25 @@ class SNLUniverse final: public SNLObject {
     static SNLUniverse* get();
 
     ///\return the collection of all SNLDB
-    SNLCollection<SNLDB*> getDBs() const;
+    NajaCollection<SNLDB*> getDBs() const;
 
     ///\return the collection of user SNLDB
-    SNLCollection<SNLDB*> getUserDBs() const;
+    NajaCollection<SNLDB*> getUserDBs() const;
 
     ///\return the SNLDB with SNLID::DBID id or null if it does not exist
     SNLDB* getDB(SNLID::DBID id) const;
 
-    ///\return the SNLDesign with SNLID::UniverseDesignReference reference or null if it does not exist
-    SNLDesign* getDesign(const SNLID::UniverseDesignReference& designReference) const;
+    ///\return the SNLDesign with SNLID::DesignReference reference or null if it does not exist
+    SNLDesign* getDesign(const SNLID::DesignReference& reference) const;
+
+    ///\return the SNLTerm with SNLID::DesignObjectReference reference or null if it does not exist
+    SNLTerm* getTerm(const SNLID::DesignObjectReference& reference) const;
+
+    ///\return the SNLNet with SNLID::DesignObjectReference reference or null if it does not exist
+    SNLNet* getNet(const SNLID::DesignObjectReference& reference) const;
+
+    ///\return the SNLInstance with SNLID::DesignObjectReference reference or null if it does not exist
+    SNLInstance* getInstance(const SNLID::DesignObjectReference& reference) const;
 
     SNLDB* getTopDB() const;
     SNLDesign* getTopDesign() const;

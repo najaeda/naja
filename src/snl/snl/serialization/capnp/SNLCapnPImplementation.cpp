@@ -198,15 +198,17 @@ void loadInstance(
   }
   auto modelReference = instance.getModelReference();
   auto snlModelReference =
-    SNLID::UniverseDesignReference(
+    SNLID::DesignReference(
       modelReference.getDbID(),
       modelReference.getLibraryID(),
       modelReference.getDesignID());
   auto model = SNLUniverse::get()->getDesign(snlModelReference);
   if (not model) {
+    //LCOV_EXCL_START
     std::ostringstream reason;
     reason << "cannot deserialize instance: no model found with provided reference";
     throw SNLException(reason.str());
+    //LCOV_EXCL_STOP
   }
   SNLInstance::create(design, model, SNLID::DesignObjectID(instanceID), snlName);
 }
@@ -245,7 +247,7 @@ void loadInstTermReference(
   const DBImplementation::LibraryImplementation::DesignImplementation::InstTermReference::Reader& instTermReference) {
   auto instanceID = instTermReference.getInstanceID();
   auto design = net->getDesign();
-  auto instance = design->getInstance(SNLID::InstanceID(instanceID));
+  auto instance = design->getInstance(SNLID::DesignObjectID(instanceID));
   if (not instance) {
     //LCOV_EXCL_START
     std::ostringstream reason;
@@ -338,9 +340,11 @@ void loadDesignImplementation(
   auto designID = designImplementation.getId();
   SNLDesign* snlDesign = library->getDesign(SNLID::DesignID(designID));
   if (not snlDesign) {
+    //LCOV_EXCL_START
     std::ostringstream reason;
     reason << "cannot deserialize design: no design found in library with provided id";
     throw SNLException(reason.str());
+    //LCOV_EXCL_STOP
   }
   if (designImplementation.hasInstances()) {
     for (auto instance: designImplementation.getInstances()) {
@@ -364,9 +368,11 @@ void loadLibraryImplementation(SNLDB* db, const DBImplementation::LibraryImpleme
   auto libraryID = libraryImplementation.getId();
   SNLLibrary* snlLibrary = db->getLibrary(SNLID::LibraryID(libraryID));
   if (not snlLibrary) {
+    //LCOV_EXCL_START
     std::ostringstream reason;
     reason << "cannot deserialize library: no library found in db with provided reference";
     throw SNLException(reason.str());
+    //LCOV_EXCL_STOP
   }
   if (libraryImplementation.hasDesignImplementations()) {
     for (auto designImplementation: libraryImplementation.getDesignImplementations()) {
@@ -425,9 +431,11 @@ SNLDB* SNLCapnP::loadImplementation(int fileDescriptor) {
   auto dbID = dbImplementation.getId();
   auto universe = SNLUniverse::get();
   if (not universe) {
+    //LCOV_EXCL_START
     std::ostringstream reason;
     reason << "cannot deserialize DB implementation: no existing universe";
     throw SNLException(reason.str());
+    //LCOV_EXCL_STOP
   }
   auto snldb = universe->getDB(dbID);
   if (dbImplementation.hasLibraryImplementations()) {

@@ -19,8 +19,9 @@ using SNLCommon = import "snl_common.capnp";
 
 struct DBInterface {
   id                  @0 : UInt8 = 1;
-  libraryInterfaces   @1 : List(LibraryInterface);
-  topDesignReference  @2 : SNLCommon.DesignReference;
+  properties          @1 : List(SNLCommon.Property);
+  libraryInterfaces   @2 : List(LibraryInterface);
+  topDesignReference  @3 : SNLCommon.DesignReference;
 
   enum LibraryType {
     standard    @0;
@@ -30,9 +31,10 @@ struct DBInterface {
   struct LibraryInterface {
     id                @0 : UInt16 = 0;
     name              @1 : Text;
-    type              @2 : LibraryType; # = Direction::Standard;
-    libraryInterfaces @3 : List(LibraryInterface);
-    designInterfaces  @4 : List(DesignInterface);
+    properties        @2 : List(SNLCommon.Property);
+    type              @3 : LibraryType;
+    libraryInterfaces @4 : List(LibraryInterface);
+    designInterfaces  @5 : List(DesignInterface);
 
     enum DesignType {
       standard  @0;
@@ -43,9 +45,10 @@ struct DBInterface {
     struct DesignInterface {
       id          @0 : UInt32 = 0;
       name        @1 : Text;
-      type        @2 : DesignType; # = Standard
-      parameters  @3 : List(Parameter);
-      terms       @4 : List(Term);
+      properties  @2 : List(SNLCommon.Property);
+      type        @3 : DesignType; # = Standard
+      parameters  @4 : List(Parameter);
+      terms       @5 : List(Term);
 
       struct Parameter {
         name  @0 : Text;

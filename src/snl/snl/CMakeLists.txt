@@ -1,7 +1,7 @@
 add_subdirectory(serialization)
 
 set(SNL_KERNEL_SOURCES
-  kernel/SNLObject.cpp kernel/SNLID.cpp
+  kernel/SNLID.cpp
   kernel/SNLUniverse.cpp kernel/SNLDB.cpp kernel/SNLDB0.cpp
   kernel/SNLLibrary.cpp
   kernel/SNLDesignObject.cpp
@@ -20,8 +20,7 @@ set(SNL_KERNEL_SOURCES
 
 set(SNL_KERNEL_HEADERS
   kernel/SNLName.h
-  kernel/SNLCollection.h
-  kernel/SNLObject.h kernel/SNLID.h
+  kernel/SNLID.h
   kernel/SNLUniverse.h kernel/SNLDB.h
   kernel/SNLLibrary.h kernel/SNLDesign.h
   kernel/SNLDesignObject.h
@@ -41,6 +40,7 @@ add_library(naja_snl SHARED ${SNL_KERNEL_SOURCES})
 target_link_libraries(naja_snl PUBLIC naja_core)
 target_compile_options(naja_snl PRIVATE ${NAJA_CXX_WARNINGS}) 
 #target_compile_definitions(naja_snl PRIVATE SNL_DESTROY_DEBUG)
+
 target_include_directories(naja_snl SYSTEM BEFORE PUBLIC ${Boost_INCLUDE_DIR})
 target_include_directories(naja_snl PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/kernel

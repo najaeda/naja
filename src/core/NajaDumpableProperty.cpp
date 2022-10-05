@@ -14,22 +14,28 @@
  * limitations under the License.
  */
 
-#include "NajaLog.h"
+#include "NajaDumpableProperty.h"
+#include "NajaObject.h"
+#include "NajaException.h"
 
-#include <iostream>
-#include <iomanip>
+namespace naja {
 
-namespace naja { namespace core {
+NajaDumpableProperty::NajaDumpableProperty(const std::string& name):
+  super(),
+  name_(name)
+{}
 
-void NajaLog::echo(const std::string_view& tag, const std::string_view& message) {
-  std::cout << std::setw(10) << tag << ':';
-  std::cout << message << std::endl;
+NajaDumpableProperty* NajaDumpableProperty::create(NajaObject* owner, const std::string& name) {
+  super::preCreate(owner, name);
+  NajaDumpableProperty* property = new NajaDumpableProperty(name);
+  property->postCreate(owner);
+  return property;
 }
 
-void NajaLog::error(const std::string_view& tag, const std::string_view& message) {
-  std::cerr << std::setw(10) << tag << ':';
-  std::cerr << message << std::endl;
+//LCOV_EXCL_START
+std::string NajaDumpableProperty::getString() const {
+  return std::string();
 }
+//LCOV_EXCL_STOP
 
-
-}} // namespace core // namespace naja
+} // namespace naja

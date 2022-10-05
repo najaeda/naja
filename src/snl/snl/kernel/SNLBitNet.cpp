@@ -40,15 +40,15 @@ void SNLBitNet::preDestroy() {
   super::preDestroy();
 }
 
-SNLCollection<SNLNetComponent*> SNLBitNet::getComponents() const {
-  return SNLCollection(new SNLIntrusiveSetCollection(&components_));
+NajaCollection<SNLNetComponent*> SNLBitNet::getComponents() const {
+  return NajaCollection(new NajaIntrusiveSetCollection(&components_));
 }
 
-SNLCollection<SNLInstTerm*> SNLBitNet::getInstTerms() const {
+NajaCollection<SNLInstTerm*> SNLBitNet::getInstTerms() const {
   return getComponents().getSubCollection<SNLInstTerm*>();
 }
 
-SNLCollection<SNLBitTerm*> SNLBitNet::getBitTerms() const {
+NajaCollection<SNLBitTerm*> SNLBitNet::getBitTerms() const {
   return getComponents().getSubCollection<SNLBitTerm*>();
 }
 

@@ -17,7 +17,7 @@
 #ifndef __SNL_DESIGN_OBJECT_H_
 #define __SNL_DESIGN_OBJECT_H_
 
-#include "SNLObject.h"
+#include "NajaObject.h"
 #include "SNLID.h"
 
 namespace naja { namespace SNL {
@@ -26,9 +26,9 @@ class SNLDB;
 class SNLLibrary;
 class SNLDesign;
 
-class SNLDesignObject: public SNLObject {
+class SNLDesignObject: public NajaObject {
   public:
-    using super = SNLObject;
+    using super = NajaObject;
     SNLDesignObject(const SNLDesignObject&) = delete;
     SNLDesignObject(const SNLDesignObject&&) = delete;
 

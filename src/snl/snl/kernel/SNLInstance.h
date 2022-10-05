@@ -24,7 +24,7 @@
 #include "SNLID.h"
 #include "SNLSharedPath.h"
 #include "SNLName.h"
-#include "SNLCollection.h"
+#include "NajaCollection.h"
 
 namespace naja { namespace SNL {
 
@@ -62,6 +62,8 @@ class SNLInstance final: public SNLDesignObject {
 
     SNLID::DesignObjectID getID() const { return id_; }
     SNLID getSNLID() const override;
+    SNLID::DesignObjectReference getReference() const;
+
     SNLName getName() const { return name_; }
 
     bool isAnonymous() const override { return name_.empty(); }
@@ -78,17 +80,17 @@ class SNLInstance final: public SNLDesignObject {
 
     ///\return SNLInstTerm corresponding to the SNLBitTerm representative in this instance. 
     SNLInstTerm* getInstTerm(const SNLBitTerm* term) const;
-    ///\return the SNLCollection of all SNLInstTerm of this SNLInstance.
-    SNLCollection<SNLInstTerm*> getInstTerms() const;
+    ///\return the NajaCollection of all SNLInstTerm of this SNLInstance.
+    NajaCollection<SNLInstTerm*> getInstTerms() const;
     /**
-     * \return the SNLCollection subset of connected SNLInstTerm of this SNLInstance.
+     * \return the NajaCollection subset of connected SNLInstTerm of this SNLInstance.
      * \remark A SNLInstTerm is connected if instTerm->getNet() is not NULL.
      **/
-    SNLCollection<SNLInstTerm*> getConnectedInstTerms() const;
-    ///\return the SNLCollection subset of SNLInstTerm (only SNLScalarTerm type) of this SNLInstance.
-    SNLCollection<SNLInstTerm*> getInstScalarTerms() const;
-    ///\return the SNLCollection subset of SNLInstTerm (only SNLBusTermBit type) of this SNLInstance.
-    SNLCollection<SNLInstTerm*> getInstBusTermBits() const;
+    NajaCollection<SNLInstTerm*> getConnectedInstTerms() const;
+    ///\return the NajaCollection subset of SNLInstTerm (only SNLScalarTerm type) of this SNLInstance.
+    NajaCollection<SNLInstTerm*> getInstScalarTerms() const;
+    ///\return the NajaCollection subset of SNLInstTerm (only SNLBusTermBit type) of this SNLInstance.
+    NajaCollection<SNLInstTerm*> getInstBusTermBits() const;
 
     using Terms = std::vector<SNLBitTerm*>;
     using Nets = std::vector<SNLBitNet*>;
@@ -137,7 +139,7 @@ class SNLInstance final: public SNLDesignObject {
 
     SNLDesign*                          design_                   {nullptr};
     SNLDesign*                          model_                    {nullptr};
-    SNLID::InstanceID                   id_;
+    SNLID::DesignObjectID               id_;
     SNLName                             name_                     {};
     SNLInstanceInstTerms                instTerms_                {};
     SNLInstanceSharedPaths              sharedPaths_              {};

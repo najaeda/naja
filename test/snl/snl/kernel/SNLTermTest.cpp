@@ -38,6 +38,8 @@ TEST_F(SNLTermTest, testCreation) {
   ASSERT_FALSE(term0->isAnonymous());
   EXPECT_EQ(0, term0->getID());
   EXPECT_EQ(SNLID(SNLID::Type::Term, 1, 0, 0, 0, 0, 0), term0->getSNLID());
+  EXPECT_EQ(SNLID::DesignObjectReference(1, 0, 0, 0), term0->getReference());
+  EXPECT_EQ(term0, SNLUniverse::get()->getTerm(SNLID::DesignObjectReference(1, 0, 0, 0)));
   EXPECT_EQ(SNLTerm::Direction::InOut, term0->getDirection());
   EXPECT_EQ(design, term0->getDesign()); 
   EXPECT_EQ(-1, term0->getMSB());

@@ -14,22 +14,35 @@
  * limitations under the License.
  */
 
-#ifndef __NAJA_LOG_H_
-#define __NAJA_LOG_H_
+#ifndef __NAJA_EXCEPTION_H_
+#define __NAJA_EXCEPTION_H_
 
-#include <string>
+namespace naja {
 
-namespace naja { namespace core {
-
-//Just initiating a placeholder class
-//This needs heavy refinemenent in the future
-class NajaLog {
+struct NajaException: public std::exception {
   public:
-    static void echo(const std::string_view& tag, const std::string_view& message);
-    static void error(const std::string_view& tag, const std::string_view& message);
+    NajaException() = delete;
+    NajaException(const NajaException&) = default;
+
+    NajaException(const std::string& reason):
+      std::exception(),
+      reason_(reason)
+    {}
+
+    std::string getReason() const {
+      return reason_;
+    }
+
+    //LCOV_EXCL_START
+    const char* what() const noexcept override {
+      return reason_.c_str();
+    }
+    //LCOV_EXCL_STOP
+
+  private:
+    const std::string reason_;
 };
 
+} // namespace naja
 
-}} // namespace core // namespace naja
-
-#endif //__NAJA_LOG_H_
+#endif // __NAJA_EXCEPTION_H_

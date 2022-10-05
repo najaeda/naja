@@ -259,6 +259,11 @@ SNLID SNLInstance::getSNLID() const {
   return SNLDesignObject::getSNLID(SNLID::Type::Instance, 0, id_, 0);
 }
 
+SNLID::DesignObjectReference SNLInstance::getReference() const {
+  return SNLID::DesignObjectReference(getDesign()->getReference(), getID());
+}
+
+
 bool SNLInstance::isBlackBox() const {
   return getModel()->isBlackBox();
 }
@@ -283,25 +288,25 @@ SNLInstTerm* SNLInstance::getInstTerm(const SNLBitTerm* term) const {
   return instTerms_[term->getFlatID()];
 }
 
-SNLCollection<SNLInstTerm*> SNLInstance::getInstTerms() const {
+NajaCollection<SNLInstTerm*> SNLInstance::getInstTerms() const {
   auto filter = [](const SNLInstTerm* it) { return it != nullptr; };
-  return SNLCollection(new SNLSTLCollection(&instTerms_)).getSubCollection(filter);
+  return NajaCollection(new NajaSTLCollection(&instTerms_)).getSubCollection(filter);
 }
 
-SNLCollection<SNLInstTerm*> SNLInstance::getConnectedInstTerms() const {
+NajaCollection<SNLInstTerm*> SNLInstance::getConnectedInstTerms() const {
   auto filter = [](const SNLInstTerm* it) {return it and it->getNet() != nullptr; };
-  return SNLCollection(new SNLSTLCollection(&instTerms_)).getSubCollection(filter);
+  return NajaCollection(new NajaSTLCollection(&instTerms_)).getSubCollection(filter);
 
 }
 
-SNLCollection<SNLInstTerm*> SNLInstance::getInstScalarTerms() const {
+NajaCollection<SNLInstTerm*> SNLInstance::getInstScalarTerms() const {
   auto filter = [](const SNLInstTerm* it) { return it and dynamic_cast<SNLScalarTerm*>(it->getTerm()); };
-  return SNLCollection(new SNLSTLCollection(&instTerms_)).getSubCollection(filter);
+  return NajaCollection(new NajaSTLCollection(&instTerms_)).getSubCollection(filter);
 }
 
-SNLCollection<SNLInstTerm*> SNLInstance::getInstBusTermBits() const {
+NajaCollection<SNLInstTerm*> SNLInstance::getInstBusTermBits() const {
   auto filter = [](const SNLInstTerm* it) { return it and dynamic_cast<SNLBusTermBit*>(it->getTerm()); };
-  return SNLCollection(new SNLSTLCollection(&instTerms_)).getSubCollection(filter);
+  return NajaCollection(new NajaSTLCollection(&instTerms_)).getSubCollection(filter);
 }
 
 SNLSharedPath* SNLInstance::getSharedPath(const SNLSharedPath* sharedPath) const {
