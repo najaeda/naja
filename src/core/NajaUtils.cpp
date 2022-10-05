@@ -12,7 +12,7 @@ std::string currentDate() {
 
 }
 
-namespace naja { namespace core {
+namespace naja {
 
 void NajaUtils::createBanner(
   std::ostream& stream,
@@ -22,4 +22,4 @@ void NajaUtils::createBanner(
   stream << commentChar << " " << title << std::endl;
 }
 
-}} // namespace core // namespace naja
+} // namespace naja

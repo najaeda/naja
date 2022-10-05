@@ -159,8 +159,8 @@ SNLDesign* SNLDB::getDesign(const SNLID::DBDesignReference& designReference) con
   return nullptr;
 }
 
-SNLCollection<SNLLibrary*> SNLDB::getLibraries() const {
-  return SNLCollection(new SNLIntrusiveSetCollection(&libraries_));
+NajaCollection<SNLLibrary*> SNLDB::getLibraries() const {
+  return NajaCollection(new NajaIntrusiveSetCollection(&libraries_));
 }
 
 SNLID SNLDB::getSNLID() const {

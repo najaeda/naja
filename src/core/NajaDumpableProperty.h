@@ -14,18 +14,32 @@
  * limitations under the License.
  */
 
-#ifndef __NAJA_UTILS_H_
-#define __NAJA_UTILS_H_
+#ifndef __NAJA_DUMPABLE_PROPERTY_H_
+#define __NAJA_DUMPABLE_PROPERTY_H_
 
-#include <ostream>
+#include "NajaPrivateProperty.h"
 
 namespace naja {
 
-class NajaUtils {
+class NajaDumpableProperty: public NajaPrivateProperty {
   public:
-    static void createBanner(std::ostream& stream, const std::string& title, const std::string& commentChar);
+    using super = NajaPrivateProperty;
+
+    NajaDumpableProperty() = delete;
+    static NajaDumpableProperty* create(NajaObject* owner, const std::string& name);
+
+    std::string getName() const override { return name_; }
+    std::string getString() const override;
+
+    bool isDumpable() const override { return true; }
+
+  protected:
+    NajaDumpableProperty(const std::string& name);
+
+  private:
+    std::string name_ {};
 };
 
 } // namespace naja
 
-#endif // __NAJA_UTILS_H_
+#endif /* __NAJA_DUMPABLE_PROPERTY_H_ */

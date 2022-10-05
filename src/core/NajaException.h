@@ -14,19 +14,35 @@
  * limitations under the License.
  */
 
-#include "SNLObject.h"
+#ifndef __NAJA_EXCEPTION_H_
+#define __NAJA_EXCEPTION_H_
 
-namespace naja { namespace SNL {
+namespace naja {
 
-void SNLObject::destroy() {
-  preDestroy();
-  delete this;
-}
+struct NajaException: public std::exception {
+  public:
+    NajaException() = delete;
+    NajaException(const NajaException&) = default;
 
-void SNLObject::postCreate() {
-}
+    NajaException(const std::string& reason):
+      std::exception(),
+      reason_(reason)
+    {}
 
-void SNLObject::preDestroy() {
-}
+    std::string getReason() const {
+      return reason_;
+    }
 
-}} // namespace SNL // namespace naja
+    //LCOV_EXCL_START
+    const char* what() const noexcept override {
+      return reason_.c_str();
+    }
+    //LCOV_EXCL_STOP
+
+  private:
+    const std::string reason_;
+};
+
+} // namespace naja
+
+#endif // __NAJA_EXCEPTION_H_

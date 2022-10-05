@@ -17,18 +17,18 @@
 #ifndef __SNL_DB_H_
 #define __SNL_DB_H_
 
-#include "SNLObject.h"
+#include "NajaObject.h"
 #include "SNLLibrary.h"
 
 namespace naja { namespace SNL {
 
 class SNLUniverse;
 
-class SNLDB final: public SNLObject {
+class SNLDB final: public NajaObject {
   public:
     friend class SNLUniverse;
     friend class SNLLibrary;
-    using super = SNLObject;
+    using super = NajaObject;
 
     using SNLDBLibrariesHook =
       boost::intrusive::member_hook<SNLLibrary, boost::intrusive::set_member_hook<>, &SNLLibrary::librariesHook_>;
@@ -55,7 +55,7 @@ class SNLDB final: public SNLObject {
     SNLDesign* getTopDesign() const;
     void setTopDesign(SNLDesign* design);
 
-    SNLCollection<SNLLibrary*> getLibraries() const;
+    NajaCollection<SNLLibrary*> getLibraries() const;
 
     const char* getTypeName() const override;
     std::string getString() const override;

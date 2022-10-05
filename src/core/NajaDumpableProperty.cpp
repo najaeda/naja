@@ -14,23 +14,28 @@
  * limitations under the License.
  */
 
-#ifndef __SNL_EXCEPTION_H_
-#define __SNL_EXCEPTION_H_
-
+#include "NajaDumpableProperty.h"
+#include "NajaObject.h"
 #include "NajaException.h"
 
-namespace naja { namespace SNL {
+namespace naja {
 
-struct SNLException: public NajaException {
-  public:
-    SNLException() = delete;
-    SNLException(const SNLException&) = default;
+NajaDumpableProperty::NajaDumpableProperty(const std::string& name):
+  super(),
+  name_(name)
+{}
 
-    SNLException(const std::string& reason):
-      NajaException(reason)
-    {}
-};
+NajaDumpableProperty* NajaDumpableProperty::create(NajaObject* owner, const std::string& name) {
+  super::preCreate(owner, name);
+  NajaDumpableProperty* property = new NajaDumpableProperty(name);
+  property->postCreate(owner);
+  return property;
+}
 
-}} // namespace SNL // namespace naja
+//LCOV_EXCL_START
+std::string NajaDumpableProperty::getString() const {
+  return std::string();
+}
+//LCOV_EXCL_STOP
 
-#endif // __SNL_EXCEPTION_H_
+} // namespace naja

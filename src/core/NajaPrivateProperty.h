@@ -14,18 +14,29 @@
  * limitations under the License.
  */
 
-#ifndef __NAJA_UTILS_H_
-#define __NAJA_UTILS_H_
+#ifndef __NAJA_PRIVATE_PROPERTY_H_
+#define __NAJA_PRIVATE_PROPERTY_H_
 
-#include <ostream>
+#include "NajaProperty.h"
 
 namespace naja {
 
-class NajaUtils {
+class NajaPrivateProperty: public NajaProperty {
   public:
-    static void createBanner(std::ostream& stream, const std::string& title, const std::string& commentChar);
+    using super = NajaProperty;
+
+    NajaObject* getOwner() const { return owner_; }
+  protected:
+    NajaPrivateProperty() = default;
+    static void preCreate(const NajaObject* object, const std::string& name);
+    void postCreate(NajaObject* owner);
+    void preDestroy() override;
+    void onCapturedBy(NajaObject* object) override;
+    void onReleasedBy(const NajaObject* object) override;
+  private:
+    NajaObject* owner_  {nullptr};
 };
 
 } // namespace naja
 
-#endif // __NAJA_UTILS_H_
+#endif /* __NAJA_PRIVATE_PROPERTY_H_ */

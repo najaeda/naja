@@ -20,10 +20,12 @@ namespace naja { namespace SNL {
 
 const SNLDump::Version SNLDump::version_ = SNLDump::Version(0, 1, 0);
 
+//LCOV_EXCL_START
 std::string SNLDump::Version::getString() {
   return std::to_string(getMajor())
     + "." + std::to_string(getMinor())
     + "." + std::to_string(getRevision());
 }
+//LCOV_EXCL_STOP
 
 }} // namespace SNL // namespace naja

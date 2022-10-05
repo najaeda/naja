@@ -20,7 +20,7 @@
 #include <vector>
 
 #include "SNLTerm.h"
-#include "SNLCollection.h"
+#include "NajaCollection.h"
 
 namespace naja { namespace SNL {
 
@@ -57,7 +57,7 @@ class SNLBusTerm final: public SNLTerm {
     size_t getSize() const override;
     SNLBusTermBit* getBit(SNLID::Bit bit) const;
     SNLBusTermBit* getBitAtPosition(size_t position) const;
-    SNLCollection<SNLBusTermBit*> getBits() const;
+    NajaCollection<SNLBusTermBit*> getBits() const;
 
     SNLID::DesignObjectID getID() const override { return id_; }
     SNLID getSNLID() const override;
