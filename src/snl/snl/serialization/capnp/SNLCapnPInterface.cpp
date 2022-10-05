@@ -18,6 +18,7 @@
 
 #include <fcntl.h>
 #include <sstream>
+#include <list>
 #include <boost/asio.hpp>
 
 #include <capnp/message.h>
