@@ -32,7 +32,7 @@ void SNLCapnP::send(const SNLDB* db, const std::string& ipAddress, uint16_t port
   boost::asio::io_service io_service;
   //socket creation
   tcp::socket socket(io_service);
-  socket.connect(tcp::endpoint( boost::asio::ip::address::from_string(ipAddress), port));
+  socket.connect(tcp::endpoint(boost::asio::ip::address::from_string(ipAddress), port));
   sendInterface(db, socket);
   sendImplementation(db, socket);
 }
@@ -43,17 +43,26 @@ SNLDB* SNLCapnP::load(const std::filesystem::path& path) {
   return db;
 }
 
-SNLDB* SNLCapnP::receive(uint16_t port) {
+boost::asio::ip::tcp::socket SNLCapnP::getSocket(uint16_t port) {
   boost::asio::io_service io_service;
   //listen for new connection
-  tcp::acceptor acceptor_(io_service, tcp::endpoint(tcp::v4(), port));
+  tcp::acceptor acceptor(io_service, tcp::endpoint(tcp::v4(), port));
   //socket creation 
   tcp::socket socket(io_service);
   //waiting for connection
-  acceptor_.accept(socket);
+  acceptor.accept(socket);
+  return std::move(socket);
+}
+
+SNLDB* SNLCapnP::receive(boost::asio::ip::tcp::socket& socket) {
   receiveInterface(socket);
   SNLDB* db = receiveImplementation(socket);
   return db;
+}
+
+SNLDB* SNLCapnP::receive(uint16_t port) {
+  auto socket = getSocket(port);
+  return receive(socket);
 }
 
 }} // namespace SNL // namespace naja

@@ -26,11 +26,13 @@ class SNLDB;
 
 class SNLCapnP {
   public:
+    static boost::asio::ip::tcp::socket getSocket(uint16_t port=0); 
     static constexpr std::string_view InterfaceName = "db_interface.snl";
     static constexpr std::string_view ImplementationName = "db_implementation.snl";
     static void dump(const SNLDB* db, const std::filesystem::path& dumpPath);
     static void send(const SNLDB* db, const std::string& ipAddress, uint16_t port);
     static SNLDB* load(const std::filesystem::path& dumpPath);
+    static SNLDB* receive(boost::asio::ip::tcp::socket& socket);
     static SNLDB* receive(uint16_t port);
 
     static void dumpInterface(const SNLDB* db, int fileDescriptor);
