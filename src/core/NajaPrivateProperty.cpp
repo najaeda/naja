@@ -22,7 +22,9 @@ namespace naja {
 
 void NajaPrivateProperty::preCreate(const NajaObject* object, const std::string& name) {
   if (object->hasProperty(name)) {
-    throw NajaException("");
+    std::string reason = "cannot create NajaPrivateProperty with name " + name;
+    reason += "A property with this name already exists.";
+    throw NajaException(reason);
   }
 }
 

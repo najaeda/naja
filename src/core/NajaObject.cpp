@@ -35,9 +35,8 @@ NajaProperty* NajaObject::getProperty(const std::string& name) const {
 }
 
 void NajaObject::addProperty(NajaProperty* property) {
-  if (getProperty(property->getName())) {
-    throw NajaException("");
-  }
+  //No collision verification as only Private properties are implemented
+  //This might need to be refined in the future
   properties_[property->getName()] = property;
   property->onCapturedBy(this);
 }
