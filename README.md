@@ -12,6 +12,8 @@ In most EDA flows, data exchange is done by using standard netlist formats (Veri
 
 Naja also emphasizes EDA applications parallelization (targeting in particular cloud computing) by providing a robust object identification mechanism allowing to partition and merge data across the network.
 
+Naja contains mainly the SNL (Structured Netlist) API.
+
 ## Compilation
 ### Getting sources
 ```bash
@@ -33,6 +35,9 @@ Optional dependencies:
 Embedded dependencies:
 
 For convenience, google test (https://github.com/google/googletest) is provided through git submodule.
+
+### SNL Interchange Format
+SNL relies on [Cap'n Proto](https://github.com/capnproto/capnproto) for data serialization and streaming. Schema files and C++ implementation can be found [here](https://github.com/xtofalex/naja/tree/main/src/snl/snl/serialization/capnp).
 
 ### Building
 ```bash
