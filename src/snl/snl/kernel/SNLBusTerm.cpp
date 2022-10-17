@@ -186,7 +186,12 @@ std::string SNLBusTerm::getString() const {
 
 //LCOV_EXCL_START
 std::string SNLBusTerm::getDescription() const {
-  return "<" + std::string(getTypeName()) + " " + name_.getString() + " " + design_->getName().getString() + ">";  
+  return "<"
+    + std::string(getTypeName())
+    + " " + name_.getString()
+    + " [" + std::to_string(getMSB()) + ":" + std::to_string(getLSB()) + "]"
+    + " " + direction_.getString()
+    + " " + design_->getName().getString() + ">";  
 }
 //LCOV_EXCL_STOP
 
