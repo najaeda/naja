@@ -1,14 +1,14 @@
 INCLUDE(GoogleTest)
 
 SET(snl_tests
-    SNLIDTest.cpp
-    SNLUniverseTest.cpp SNLDBTest.cpp SNLLibraryTest.cpp
-    SNLDesignTest.cpp SNLTermTest.cpp
-    SNLInstanceTest0.cpp SNLInstanceTest1.cpp
-    SNLNetTest.cpp #SNLLargeDBTest.cpp
-    SNLPathTest.cpp
-    SNLParameterTest.cpp
-    SNLDB0Test.cpp
+  SNLIDTest.cpp
+  SNLUniverseTest.cpp SNLDBTest.cpp SNLLibraryTest.cpp
+  SNLDesignTest.cpp SNLTermTest.cpp
+  SNLInstanceTest0.cpp SNLInstanceTest1.cpp
+  SNLNetTest.cpp #SNLLargeDBTest.cpp
+  SNLPathTest.cpp
+  SNLParameterTest.cpp
+  SNLDB0Test.cpp
 )
 
 ADD_EXECUTABLE(snlTests ${snl_tests})

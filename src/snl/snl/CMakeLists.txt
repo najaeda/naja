@@ -25,7 +25,7 @@ set(SNL_KERNEL_HEADERS
   kernel/SNLLibrary.h kernel/SNLDesign.h
   kernel/SNLDesignObject.h
   kernel/SNLNet.h kernel/SNLBusNet.h
-  kernel/SNLBitNet.h kernel/SNLScalarNet.h kernel/SNLBusNetBit.cpp
+  kernel/SNLBitNet.h kernel/SNLScalarNet.h kernel/SNLBusNetBit.h
   kernel/SNLNetComponent.h
   kernel/SNLTerm.h kernel/SNLBitTerm.h 
   kernel/SNLBusTerm.h kernel/SNLScalarTerm.h
