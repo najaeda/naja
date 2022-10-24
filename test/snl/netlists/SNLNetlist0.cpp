@@ -49,7 +49,7 @@ SNLDesign* SNLNetlist0::create(SNLDB* db) {
   {
     auto i = SNLBusTerm::create(top, SNLTerm::Direction::Input, 0, 1, SNLName(TopIName));
     auto iNet = SNLBusNet::create(top, 0, 1, SNLName(TopIName));
-    i->setNet(iNet);
+    i->setBusNet(iNet);
     auto o = SNLScalarTerm::create(top, SNLTerm::Direction::InOut, SNLName(TopOName));
     auto oNet = SNLScalarNet::create(top, SNLName(TopOName));
     o->setNet(oNet);

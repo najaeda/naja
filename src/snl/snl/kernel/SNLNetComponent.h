@@ -30,8 +30,8 @@ class SNLNetComponent: public SNLDesignObject {
     friend class SNLBitNet;
     using super = SNLDesignObject;
 
-    SNLBitNet* getNet() const { return net_; }
-    void setNet(SNLBitNet* net);
+    virtual SNLBitNet* getNet() const =0;
+    virtual void setNet(SNLBitNet* net) =0;
 
   protected:
     SNLNetComponent() = default;
@@ -41,7 +41,6 @@ class SNLNetComponent: public SNLDesignObject {
     void preDestroy() override;
 
   private:
-    SNLBitNet*  net_                                        { nullptr };
     boost::intrusive::set_member_hook<> netComponentsHook_  {};
 };
 

@@ -28,7 +28,8 @@ class SNLBitTerm;
 
 class SNLBitNet: public SNLNet {
   public:
-    friend class SNLNetComponent;
+    friend class SNLInstTerm;
+    friend class SNLBitTerm;
     using super = SNLNet;
     
     void setType(const Type& type) override { type_ = type; }

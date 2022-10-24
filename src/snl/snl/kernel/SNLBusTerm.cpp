@@ -138,7 +138,11 @@ void SNLBusTerm::preDestroy() {
   commonPreDestroy();
 }
 
-void SNLBusTerm::setNet(SNLNet* net) {
+void SNLBusTerm::setNet(SNLBitNet* net) {
+  throw SNLException("setNet error: impossible on BusTerm");
+}
+
+void SNLBusTerm::setBusNet(SNLNet* net) {
   if (getDesign() not_eq net->getDesign()) {
     throw SNLException("setNet error: incompatible term and net");
   }
