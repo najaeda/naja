@@ -39,7 +39,7 @@ For convenience, google test (https://github.com/google/googletest) is provided 
 ### SNL Interchange Format
 SNL relies on [Cap'n Proto](https://github.com/capnproto/capnproto) for data serialization and streaming. Schema files and C++ implementation can be found [here](https://github.com/xtofalex/naja/tree/main/src/snl/snl/serialization/capnp).
 
-### Building
+### Building and Installing
 ```bash
 #First define an env variable that points to the directory where you want naja to be installed:
 export NAJA_INSTALL=<path_to_installation_dir>
@@ -52,7 +52,7 @@ make
 make test
 make DESTDIR=$NAJA_INSTALL install
 ```
-### Building documentation
+### Building and Installing Documentation
 ```bash
 #make sure that doxygen was available when launching the cmake command
 cd build
