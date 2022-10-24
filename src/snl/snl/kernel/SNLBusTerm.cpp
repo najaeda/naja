@@ -122,10 +122,10 @@ void SNLBusTerm::postCreate() {
 }
 
 void SNLBusTerm::commonPreDestroy() {
+  super::preDestroy();
   for (SNLBusTermBit* bit: bits_) {
     bit->destroyFromBus();
   }
-  super::preDestroy();
 }
 
 void SNLBusTerm::destroyFromDesign() {
