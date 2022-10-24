@@ -23,6 +23,7 @@
 
 namespace naja { namespace SNL {
 
+class SNLNet;
 class SNLBitNet;
 
 class SNLNetComponent: public SNLDesignObject {
@@ -31,7 +32,7 @@ class SNLNetComponent: public SNLDesignObject {
     using super = SNLDesignObject;
 
     virtual SNLBitNet* getNet() const =0;
-    virtual void setNet(SNLBitNet* net) =0;
+    virtual void setNet(SNLNet* net) =0;
 
   protected:
     SNLNetComponent() = default;

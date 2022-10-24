@@ -43,7 +43,7 @@ class SNLInstTerm final: public SNLNetComponent {
     SNLBitTerm* getTerm() const { return term_; }
 
     SNLBitNet* getNet() const override { return net_; }
-    void setNet(SNLBitNet* net) override;
+    void setNet(SNLNet* net) override;
 
     void destroy() override;
   private:

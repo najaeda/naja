@@ -44,7 +44,7 @@ class SNLCapNpTest0: public ::testing::Test {
       iTerm->setNet(iNet);
 
       auto o1Net = SNLBusNet::create(design, 31, 0);
-      o1Term->setBusNet(o1Net);
+      o1Term->setNet(o1Net);
 
       auto o2Net = SNLScalarNet::create(design);
       o2Term->setNet(o2Net);

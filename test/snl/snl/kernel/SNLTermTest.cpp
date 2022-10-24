@@ -92,7 +92,7 @@ TEST_F(SNLTermTest, testSetNet0) {
 
   //same MSB, LSB
   SNLBusNet* net = SNLBusNet::create(design, -1, -4, SNLName("n0"));
-  term0->setBusNet(net);
+  term0->setNet(net);
   for (auto i=-1; i>=-4; i--) {
     ASSERT_EQ(term0->getBit(i)->getNet(), net->getBit(i));
   }
@@ -105,7 +105,7 @@ TEST_F(SNLTermTest, testSetNet0) {
   
   //Same size: inversed MSB, LSB
   net = SNLBusNet::create(design, -4, -1, SNLName("n0"));
-  term0->setBusNet(net);
+  term0->setNet(net);
   for (auto i=-1; i>=-4; i--) {
     ASSERT_EQ(term0->getBit(i)->getNet(), net->getBit(-5-i));
   }
@@ -116,7 +116,7 @@ TEST_F(SNLTermTest, testSetNet0) {
 
   //Same size but not same MSB LSB
   net = SNLBusNet::create(design, 1, 4, SNLName("n0"));
-  term0->setBusNet(net);
+  term0->setNet(net);
   for (auto i=-1; i>=-4; i--) {
     ASSERT_EQ(term0->getBit(i)->getNet(), net->getBit(-i));
   }
@@ -127,7 +127,7 @@ TEST_F(SNLTermTest, testSetNet0) {
 
   //Same as before but inversed
   net = SNLBusNet::create(design, 4, 1, SNLName("n0"));
-  term0->setBusNet(net);
+  term0->setNet(net);
   for (auto i=-1; i>=-4; i--) {
     ASSERT_EQ(term0->getBit(i)->getNet(), net->getBit(5+i));
   }
@@ -149,21 +149,21 @@ TEST_F(SNLTermTest, testSetNet1) {
 
   //SNLScalarNet case
   SNLNet* net = SNLScalarNet::create(design, SNLName("n0"));
-  term0->setBusNet(net);
+  term0->setNet(net);
   ASSERT_EQ(term0->getBit(-1)->getNet(), net);
   net->destroy();
   ASSERT_EQ(term0->getBit(-1)->getNet(), nullptr);
 
   //1 bit bus SNLBusNet case
   net = SNLBusNet::create(design, -1, -1, SNLName("n0"));
-  term0->setBusNet(net);
+  term0->setNet(net);
   ASSERT_EQ(term0->getBit(-1)->getNet(), static_cast<SNLBusNet*>(net)->getBit(-1));
   net->destroy();
   ASSERT_EQ(term0->getBit(-1)->getNet(), nullptr);
 
   //1 bit bus SNLBusNet case
   net = SNLBusNet::create(design, 5, 5, SNLName("n0"));
-  term0->setBusNet(net);
+  term0->setNet(net);
   ASSERT_EQ(term0->getBit(-1)->getNet(), static_cast<SNLBusNet*>(net)->getBit(5));
   net->destroy();
   ASSERT_EQ(term0->getBit(-1)->getNet(), nullptr);
@@ -181,18 +181,18 @@ TEST_F(SNLTermTest, testSetNetErrors) {
 
   //With scalar net
   SNLNet* net = SNLScalarNet::create(design, SNLName("n0"));
-  EXPECT_THROW(term0->setBusNet(net), SNLException);
+  EXPECT_THROW(term0->setNet(net), SNLException);
   net->destroy();
  
   //different size SNLBusNet case
   net = SNLBusNet::create(design, 0, 2, SNLName("n0"));
-  EXPECT_THROW(term0->setBusNet(net), SNLException);
+  EXPECT_THROW(term0->setNet(net), SNLException);
   net->destroy();
 
   //other design
   auto other = SNLDesign::create(library, SNLName("other"));
   SNLNet* otherNet = SNLScalarNet::create(other, SNLName("n0"));
-  EXPECT_THROW(term0->setBusNet(otherNet), SNLException);
+  EXPECT_THROW(term0->setNet(otherNet), SNLException);
 }
 
 TEST_F(SNLTermTest, testErrors) {

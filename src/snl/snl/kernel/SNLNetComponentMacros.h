@@ -18,20 +18,28 @@
 #define __SNL_NET_COMPONENT_MACROS_H_
 
 #define NET_COMPONENT_SET_NET(TYPE) \
-void TYPE::setNet(SNLBitNet* net) { \
+void TYPE::setNet(SNLNet* net) { \
   if (net and net->getDesign() not_eq getDesign()) { \
     std::string reason = "Impossible setNet call with incompatible designs: "; \
     reason += getString() + " is in " + getDesign()->getString() + " while "; \
     reason += net->getString() + " is in " + net->getDesign()->getString(); \
     throw SNLException(reason); \
   } \
-  if (net_ not_eq net) { \
+  SNLBitNet* bitNet = nullptr; \
+  if (net) { \
+    bitNet = dynamic_cast<SNLBitNet*>(net); \
+    if (not bitNet) { \
+      std::string reason = "Impossible setNet call with incompatible nets size: "; \
+      throw SNLException(reason); \
+    } \
+  } \
+  if (net_ not_eq bitNet) { \
     if (net_) { \
       net_->removeComponent(this); \
     } \
-    net_ = net; \
+    net_ = bitNet; \
     if (net_) { \
-      net->addComponent(this); \
+      net_->addComponent(this); \
     } \
   } \
 }

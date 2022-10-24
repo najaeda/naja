@@ -47,8 +47,7 @@ class SNLBusTerm final: public SNLTerm {
         const SNLName& name=SNLName());
 
     SNLBitNet* getNet() const override { return nullptr; }
-    void setNet(SNLBitNet* net) override;
-    void setBusNet(SNLNet* net);
+    void setNet(SNLNet* net) override;
 
     SNLDesign* getDesign() const override { return design_; }
     
