@@ -34,6 +34,6 @@ void SNLBitTerm::preDestroy() {
   super::preDestroy();
 }
 
-NET_COMPONENT_SET_NET(SNLBitTerm);
+NET_COMPONENT_SET_NET(SNLBitTerm)
 
 }} // namespace SNL // namespace naja

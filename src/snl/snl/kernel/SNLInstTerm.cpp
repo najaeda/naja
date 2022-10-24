@@ -75,8 +75,7 @@ SNLTerm::Direction SNLInstTerm::getDirection() const {
   return getTerm()->getDirection();
 }
 
-
-NET_COMPONENT_SET_NET(SNLInstTerm);
+NET_COMPONENT_SET_NET(SNLInstTerm)
 
 bool SNLInstTerm::isAnonymous() const {
   return getTerm()->isAnonymous();
