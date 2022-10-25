@@ -20,21 +20,6 @@
 
 namespace naja { namespace SNL {
 
-SNLTerm::Direction::Direction(const DirectionEnum& dirEnum):
-  dirEnum_(dirEnum) 
-{}
-
-//LCOV_EXCL_START
-std::string SNLTerm::Direction::getString() const {
-  switch (dirEnum_) {
-    case Direction::Input: return "Input";
-    case Direction::Output: return "Output";
-    case Direction::InOut: return "InOut";
-  }
-  return "Unknown";
-}
-//LCOV_EXCL_STOP
-
 void SNLTerm::preCreate() {
   super::preCreate();
 }

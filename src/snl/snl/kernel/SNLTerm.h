@@ -28,18 +28,7 @@ class SNLTerm: public SNLNetComponent {
   public:
     friend class SNLDesign;
     using super = SNLNetComponent;
-    class Direction {
-      public:
-        enum DirectionEnum {
-          Input, Output, InOut
-        };
-        Direction(const DirectionEnum& dirEnum);
-        Direction(const Direction& direction) = default;
-        operator const DirectionEnum&() const {return dirEnum_;}
-        std::string getString() const;
-        private:
-          DirectionEnum dirEnum_;
-    };
+
     
     SNLID::DesignObjectReference getReference() const;
     virtual SNLID::DesignObjectID getID() const = 0;
@@ -62,8 +51,6 @@ class SNLTerm: public SNLNetComponent {
     virtual SNLName getName() const = 0;
     ///\return term size, 1 for SNLScalarTerm and SNLBusNetBit.
     virtual size_t getSize() const = 0;
-    ///\return this SNLTerm Direction.
-    virtual Direction getDirection() const = 0;
 
   protected:
     SNLTerm() = default;

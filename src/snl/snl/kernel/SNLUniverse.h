@@ -56,6 +56,9 @@ class SNLUniverse final: public NajaObject {
     ///\return the SNLNet with SNLID::DesignObjectReference reference or null if it does not exist
     SNLNet* getNet(const SNLID::DesignObjectReference& reference) const;
 
+    ///\return the SNLBitNet with SNLID::BitNetReference reference or null if it does not exist
+    SNLBitNet* getBitNet(const SNLID::BitNetReference& reference) const;
+
     ///\return the SNLInstance with SNLID::DesignObjectReference reference or null if it does not exist
     SNLInstance* getInstance(const SNLID::DesignObjectReference& reference) const;
 

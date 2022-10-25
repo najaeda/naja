@@ -30,6 +30,22 @@ class SNLNetComponent: public SNLDesignObject {
   public:
     friend class SNLBitNet;
     using super = SNLDesignObject;
+ 
+    class Direction {
+      public:
+        enum DirectionEnum {
+          Input, Output, InOut
+        };
+        Direction(const DirectionEnum& dirEnum);
+        Direction(const Direction& direction) = default;
+        operator const DirectionEnum&() const {return dirEnum_;}
+        std::string getString() const;
+        private:
+          DirectionEnum dirEnum_;
+    };
+
+    ///\return this SNLTerm Direction.
+    virtual Direction getDirection() const = 0;
 
     virtual SNLBitNet* getNet() const =0;
     virtual void setNet(SNLNet* net) =0;

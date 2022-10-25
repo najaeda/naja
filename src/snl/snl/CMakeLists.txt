@@ -1,7 +1,6 @@
 add_subdirectory(serialization)
 
 set(SNL_KERNEL_SOURCES
-  kernel/SNLID.cpp
   kernel/SNLUniverse.cpp kernel/SNLDB.cpp kernel/SNLDB0.cpp
   kernel/SNLLibrary.cpp
   kernel/SNLDesignObject.cpp

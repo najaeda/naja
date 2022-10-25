@@ -18,6 +18,8 @@
 
 #include <iostream>
 #include "SNLDB0.h"
+#include "SNLScalarNet.h"
+#include "SNLBusNetBit.h"
 #include "SNLException.h"
 
 namespace naja { namespace SNL {
@@ -124,6 +126,18 @@ SNLNet* SNLUniverse::getNet(const SNLID::DesignObjectReference& reference) const
   auto design = getDesign(reference.getDesignReference());
   if (design) {
     return design->getNet(reference.designObjectID_);
+  }
+  return nullptr;
+}
+
+SNLBitNet* SNLUniverse::getBitNet(const SNLID::BitNetReference& reference) const {
+  auto design = getDesign(reference.getDesignReference());
+  if (design) {
+    if (reference.isBusBit_) {
+      return design->getBusNetBit(reference.designObjectID_, reference.bit_);
+    } else {
+      return design->getScalarNet(reference.designObjectID_);
+    }
   }
   return nullptr;
 }

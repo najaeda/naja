@@ -18,6 +18,7 @@
 #define __SNL_ID_H_
 
 #include <tuple>
+#include <sstream>
 #include <string>
 
 namespace naja { namespace SNL {
@@ -102,17 +103,18 @@ struct SNLID final {
 
     DesignObjectReference() = delete;
     DesignObjectReference(const DesignObjectReference&) = default;
-    DesignObjectReference(const DesignReference& designReference, DesignObjectID designObjectID):
-      dbID_(designReference.dbID_),
-      libraryID_(designReference.libraryID_),
-      designID_(designReference.designID_),
-      designObjectID_(designObjectID)
-    {}
     DesignObjectReference(DBID dbID, LibraryID libraryID, DesignID designID, DesignObjectID designObjectID):
       dbID_(dbID),
       libraryID_(libraryID),
       designID_(designID),
       designObjectID_(designObjectID)
+    {}
+    DesignObjectReference(const DesignReference& designReference, DesignObjectID designObjectID):
+      DesignObjectReference(
+        designReference.dbID_,
+        designReference.libraryID_,
+        designReference.designID_,
+        designObjectID)
     {}
     DesignReference getDesignReference() const {
       return DesignReference(dbID_, libraryID_, designID_);
@@ -132,6 +134,73 @@ struct SNLID final {
       return not (lid == rid);
     }
   };
+
+  struct BitNetReference {
+    bool              isBusBit_ {false};
+    DBID              dbID_;
+    LibraryID         libraryID_;
+    DesignID          designID_;
+    DesignObjectID    designObjectID_;
+    Bit               bit_      {0};
+
+    BitNetReference() = delete;
+    BitNetReference(const BitNetReference&) = default;
+    //ScalarNet
+    BitNetReference(const DesignReference& designReference, DesignObjectID designObjectID):
+      dbID_(designReference.dbID_),
+      libraryID_(designReference.libraryID_),
+      designID_(designReference.designID_),
+      designObjectID_(designObjectID)
+    {}
+    //ScalarNet
+    BitNetReference(DBID dbID, LibraryID libraryID, DesignID designID, DesignObjectID designObjectID):
+      dbID_(dbID),
+      libraryID_(libraryID),
+      designID_(designID),
+      designObjectID_(designObjectID)
+    {}
+    //BusNetBit
+    BitNetReference(DBID dbID, LibraryID libraryID, DesignID designID, DesignObjectID designObjectID, Bit(bit)):
+      isBusBit_(true),
+      dbID_(dbID),
+      libraryID_(libraryID),
+      designID_(designID),
+      designObjectID_(designObjectID),
+      bit_(bit)
+    {}
+    //BusNetBit
+    BitNetReference(const DesignReference& designReference, DesignObjectID designObjectID, Bit bit):
+      BitNetReference(
+        designReference.dbID_,
+        designReference.libraryID_,
+        designReference.designID_,
+        designObjectID,
+        bit)
+    {}
+
+    DesignReference getDesignReference() const {
+      return DesignReference(dbID_, libraryID_, designID_);
+    }
+    std::string getString() const {
+      std::string str("[db:" + std::to_string(dbID_));
+      str += " lib:" + std::to_string(libraryID_);
+      str += " design:" + std::to_string(designID_);
+      str += " object:" + std::to_string(designObjectID_);
+      if (isBusBit_) {
+        str += " bit: " + std::to_string(bit_); 
+      }
+      str += "]";
+      return str;
+    }
+    friend bool operator==(const BitNetReference& lid, const BitNetReference& rid) {
+      return std::tie(lid.isBusBit_, lid.dbID_, lid.libraryID_, lid.designID_, lid.designObjectID_, lid.bit_) ==
+        std::tie(rid.isBusBit_, rid.dbID_, rid.libraryID_, rid.designID_, rid.designObjectID_, lid.bit_);
+    }
+    friend bool operator!=(const BitNetReference& lid, const BitNetReference& rid) {
+      return not (lid == rid);
+    }
+  };
+  
 
   Type            type_           {0};
   DBID            dbID_           {0};
@@ -185,7 +254,31 @@ struct SNLID final {
             == std::tie(rid.type_, rid.dbID_, rid.libraryID_, rid.designID_, rid.designObjectID_, rid.instanceID_, rid.bit_);
   }
 
-  std::string getString() const;
+//LCOV_EXCL_START
+  std::string getString() const {
+    std::ostringstream stream;
+    stream << "Type:";
+    switch (type_) {
+      case Type::DB: stream << "DB"; break;
+      case Type::Library: stream << "Library"; break;
+      case Type::Design: stream << "Design"; break;
+      case Type::Term: stream << "Term"; break;
+      case Type::TermBit: stream << "TermBit"; break;
+      case Type::Net: stream << "Net"; break;
+      case Type::NetBit: stream << "NetBit"; break;
+      case Type::Instance: stream << "Instance"; break;
+      case Type::InstTerm: stream << "InstTerm"; break;
+    }
+    stream << " ";
+    stream << "DBID:" << dbID_ << " ";
+    stream << "LibraryID:" << libraryID_ << " ";
+    stream << "DesignID:" << designID_ << " ";
+    stream << "DesignObjectID:" << designObjectID_ << " "; 
+    stream << "InstanceID:" << instanceID_ << " ";
+    stream << "Bit:" << bit_ << " ";
+    return stream.str();
+  }
+  //LCOV_EXCL_STOP
 };
 
 template<typename T>
