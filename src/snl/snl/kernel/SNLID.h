@@ -18,7 +18,6 @@
 #define __SNL_ID_H_
 
 #include <tuple>
-#include <sstream>
 #include <string>
 
 namespace naja { namespace SNL {
@@ -256,27 +255,26 @@ struct SNLID final {
 
 //LCOV_EXCL_START
   std::string getString() const {
-    std::ostringstream stream;
-    stream << "Type:";
+    std::string str("[Type: "); 
     switch (type_) {
-      case Type::DB: stream << "DB"; break;
-      case Type::Library: stream << "Library"; break;
-      case Type::Design: stream << "Design"; break;
-      case Type::Term: stream << "Term"; break;
-      case Type::TermBit: stream << "TermBit"; break;
-      case Type::Net: stream << "Net"; break;
-      case Type::NetBit: stream << "NetBit"; break;
-      case Type::Instance: stream << "Instance"; break;
-      case Type::InstTerm: stream << "InstTerm"; break;
+      case Type::DB: str += "DB"; break;
+      case Type::Library: str += "Library"; break;
+      case Type::Design: str += "Design"; break;
+      case Type::Term: str += "Term"; break;
+      case Type::TermBit: str += "TermBit"; break;
+      case Type::Net: str += "Net"; break;
+      case Type::NetBit: str += "NetBit"; break;
+      case Type::Instance: str += "Instance"; break;
+      case Type::InstTerm: str += "InstTerm"; break;
     }
-    stream << " ";
-    stream << "DBID:" << dbID_ << " ";
-    stream << "LibraryID:" << libraryID_ << " ";
-    stream << "DesignID:" << designID_ << " ";
-    stream << "DesignObjectID:" << designObjectID_ << " "; 
-    stream << "InstanceID:" << instanceID_ << " ";
-    stream << "Bit:" << bit_ << " ";
-    return stream.str();
+    str += " db:" + std::to_string(dbID_);
+    str += " lib:" + std::to_string(libraryID_);
+    str += " design:" + std::to_string(designID_);
+    str += " object:" + std::to_string(designObjectID_);
+    str += " instance:" + std::to_string(instanceID_);
+    str += " bit:" + std::to_string(bit_);
+    str += "]";
+    return str;
   }
   //LCOV_EXCL_STOP
 };

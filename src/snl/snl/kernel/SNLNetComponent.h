@@ -44,7 +44,7 @@ class SNLNetComponent: public SNLDesignObject {
           DirectionEnum dirEnum_;
     };
 
-    ///\return this SNLTerm Direction.
+    ///\return this SNLNetComponent Direction.
     virtual Direction getDirection() const = 0;
 
     virtual SNLBitNet* getNet() const =0;

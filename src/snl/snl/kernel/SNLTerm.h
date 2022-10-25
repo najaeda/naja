@@ -28,7 +28,6 @@ class SNLTerm: public SNLNetComponent {
   public:
     friend class SNLDesign;
     using super = SNLNetComponent;
-
     
     SNLID::DesignObjectReference getReference() const;
     virtual SNLID::DesignObjectID getID() const = 0;
