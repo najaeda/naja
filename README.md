@@ -50,14 +50,20 @@ cmake <path_to_naja_sources_dir>
 #For instance: cmake ~/srcs/naja
 make
 make test
-make DESTDIR=$NAJA_INSTALL install
+```
+The default install directory is /usr/local. To install in $NAJA_INSTALL directory, use:
+```bash
+cmake .. -DCMAKE_INSTALL_PREFIX=$NAJA_INSTALL
 ```
 ### Building and Installing Documentation
 ```bash
 #make sure that doxygen was available when launching the cmake command
 cd build
 make docs
-make DESTDIR=$NAJA_INSTALL install
+```
+Same as previously, to install documentation in $NAJA_INSTALL, use:
+```bash
+cmake .. -DCMAKE_INSTALL_PREFIX=$NAJA_INSTALL
 ```
 Documentation will be installed in $NAJA_INSTALL/doc directory. Starting file to open in browser is: $NAJA_INSTALL/doc/html/index.html.
 ## Snippets
