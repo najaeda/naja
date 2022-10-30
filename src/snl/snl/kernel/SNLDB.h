@@ -17,18 +17,18 @@
 #ifndef __SNL_DB_H_
 #define __SNL_DB_H_
 
-#include "NajaObject.h"
+#include "SNLObject.h"
 #include "SNLLibrary.h"
 
 namespace naja { namespace SNL {
 
 class SNLUniverse;
 
-class SNLDB final: public NajaObject {
+class SNLDB final: public SNLObject {
   public:
     friend class SNLUniverse;
     friend class SNLLibrary;
-    using super = NajaObject;
+    using super = SNLObject;
 
     using SNLDBLibrariesHook =
       boost::intrusive::member_hook<SNLLibrary, boost::intrusive::set_member_hook<>, &SNLLibrary::librariesHook_>;

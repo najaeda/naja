@@ -25,11 +25,11 @@ namespace naja { namespace SNL {
 
 class SNLDB;
 
-class SNLLibrary final: public NajaObject {
+class SNLLibrary final: public SNLObject {
   public:
     friend class SNLDB;
     friend class SNLDesign;
-    using super = NajaObject;
+    using super = SNLObject;
 
     class Type {
       public:

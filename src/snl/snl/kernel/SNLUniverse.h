@@ -21,16 +21,18 @@
 
 namespace naja { namespace SNL {
 
+class SNLBusTermBit;
+
 /**
  * \brief SNLUniverse is a singleton class holding all SNL managed objects.
  *
  * Several SNLDB can live and share inside SNLUniverse.
  */
-class SNLUniverse final: public NajaObject {
+class SNLUniverse final: public SNLObject {
   public:
     friend class SNLDB;
     friend class SNLDB0;
-    using super = NajaObject;
+    using super = SNLObject;
     SNLUniverse(const SNLUniverse&) = delete;
 
     ///\return a created singleton SNLUniverse or an error if it exists already
@@ -47,6 +49,9 @@ class SNLUniverse final: public NajaObject {
     ///\return the SNLDB with SNLID::DBID id or null if it does not exist
     SNLDB* getDB(SNLID::DBID id) const;
 
+    ///\return the SNLLibrary with SNLID::DBID dbID and SNLID::LibraryID or null if it does not exist
+    SNLLibrary* getLibrary(SNLID::DBID dbID, SNLID::LibraryID libraryID) const;
+
     ///\return the SNLDesign with SNLID::DesignReference reference or null if it does not exist
     SNLDesign* getDesign(const SNLID::DesignReference& reference) const;
 
@@ -62,6 +67,17 @@ class SNLUniverse final: public NajaObject {
     ///\return the SNLInstance with SNLID::DesignObjectReference reference or null if it does not exist
     SNLInstance* getInstance(const SNLID::DesignObjectReference& reference) const;
 
+    ///\return the SNLInstTerm with SNLID id or null if it does not exist
+    SNLInstTerm* getInstTerm(const SNLID& id) const;
+
+    ///\return the SNLBusTermBit with SNLID id or null if it does not exist
+    SNLBusTermBit* getBusTermBit(const SNLID& id) const;
+
+    ///\return the SNLBusNetBit with SNLID id or null if it does not exist
+    SNLBusNetBit* getBusNetBit(const SNLID& id) const;
+
+    SNLObject* getObject(const SNLID& id);
+    
     SNLDB* getTopDB() const;
     SNLDesign* getTopDesign() const;
     void setTopDB(SNLDB* db);

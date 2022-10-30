@@ -36,7 +36,7 @@ class SNLBitTerm;
 class SNLScalarTerm;
 class SNLBusTerm;
 
-class SNLDesign final: public NajaObject {
+class SNLDesign final: public SNLObject {
   public:
     friend class SNLLibrary;
     friend class SNLScalarTerm;
@@ -45,7 +45,7 @@ class SNLDesign final: public NajaObject {
     friend class SNLScalarNet;
     friend class SNLBusNet;
     friend class SNLParameter;
-    using super = NajaObject;
+    using super = SNLObject;
 
     class Type {
       public:
