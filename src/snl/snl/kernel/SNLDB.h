@@ -31,10 +31,9 @@ class SNLDB final: public SNLObject {
     using super = SNLObject;
 
     using SNLDBLibrariesHook =
-      boost::intrusive::member_hook<SNLLibrary, boost::intrusive::set_member_hook<>, &SNLLibrary::librariesHook_>;
+      boost::intrusive::member_hook<SNLLibrary, boost::intrusive::set_member_hook<>, &SNLLibrary::dbLibrariesHook_>;
     using SNLDBLibraries = boost::intrusive::set<SNLLibrary, SNLDBLibrariesHook>;
 
-    SNLDB() = delete;
     SNLDB(const SNLDB&) = delete;
 
     static SNLDB* create(SNLUniverse* universe);
@@ -65,12 +64,12 @@ class SNLDB final: public SNLObject {
       return ldb.getSNLID() < rdb.getSNLID();
     }
   private:
-    SNLDB(SNLUniverse* universe);
-    SNLDB(SNLUniverse* universe, SNLID::DBID id);
+    SNLDB() = default;
+    SNLDB(SNLID::DBID id);
     static void preCreate(SNLUniverse* universe);
     static void preCreate(SNLUniverse* universe, SNLID::DBID id);
-    void postCreateAndSetID();
-    void postCreate();
+    void postCreateAndSetID(SNLUniverse* universe);
+    void postCreate(SNLUniverse* universe);
     void commonPreDrestroy();
     void preDestroy() override;
     void destroyFromUniverse();
@@ -79,7 +78,6 @@ class SNLDB final: public SNLObject {
     void addLibraryAndSetID(SNLLibrary* library);
     void removeLibrary(SNLLibrary* library);
 
-    SNLUniverse*                        universe_;
     SNLID::DBID                         id_;
     boost::intrusive::set_member_hook<> universeDBsHook_          {};
     SNLDBLibraries                      libraries_                {};

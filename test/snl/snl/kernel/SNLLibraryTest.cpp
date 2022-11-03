@@ -48,7 +48,9 @@ TEST_F(SNLLibraryTest, test0) {
   EXPECT_EQ(nullptr, lib1->getLibrary(3));
 
   SNLLibrary* lib2 = SNLLibrary::create(db, SNLName("LIB2"));
+  EXPECT_LT(lib1->getSNLID(), lib2->getSNLID());
   ASSERT_TRUE(lib2);
+  EXPECT_EQ(1, lib2->getID());
   SNLLibrary* testLib2 = db->getLibrary(SNLName("LIB2"));
   ASSERT_TRUE(testLib2);
   EXPECT_EQ(testLib2, lib2);
@@ -69,6 +71,8 @@ TEST_F(SNLLibraryTest, test0) {
 
   SNLLibrary* lib3 = SNLLibrary::create(lib2, SNLName("LIB1"));
   ASSERT_TRUE(lib3);
+  EXPECT_EQ(2, lib3->getID());
+  EXPECT_LT(lib2->getSNLID(), lib3->getSNLID());
   SNLLibrary* testLib3 = lib2->getLibrary(SNLName("LIB1"));
   ASSERT_TRUE(testLib3);
   EXPECT_EQ(testLib3, lib3);
@@ -143,19 +147,22 @@ TEST_F(SNLLibraryTest, test1) {
   SNLLibrary* primitives0 = SNLLibrary::create(root, SNLLibrary::Type::Primitives, SNLName("Primitives0"));
   EXPECT_FALSE(primitives0->isAnonymous());
   EXPECT_EQ(SNLName("Primitives0"), primitives0->getName());
-  EXPECT_EQ(0, primitives0->getID());
+  EXPECT_EQ(1, primitives0->getID());
 
   SNLLibrary* primitives1 = SNLLibrary::create(root, SNLLibrary::Type::Primitives);
   EXPECT_TRUE(primitives1->isAnonymous());
-  EXPECT_EQ(1, primitives1->getID());
+  EXPECT_EQ(2, primitives1->getID());
 
   EXPECT_EQ(primitives0, root->getLibrary(SNLName("Primitives0")));
-  EXPECT_EQ(primitives0, root->getLibrary(0));
-
-  EXPECT_EQ(primitives1, root->getLibrary(1));
+  EXPECT_EQ(primitives0, root->getLibrary(1));
+  EXPECT_EQ(primitives1, root->getLibrary(2));
 
   EXPECT_FALSE(root->getLibrary(3));
   EXPECT_FALSE(root->getLibrary(SNLName("UNKNOWN")));
+
+  EXPECT_EQ(primitives0, universe_->getLibrary(1, 1));
+  EXPECT_EQ(primitives1, universe_->getLibrary(1, 2));
+  EXPECT_EQ(nullptr, universe_->getLibrary(1, 5));
 }
 
 TEST_F(SNLLibraryTest, testDesignSearch) {

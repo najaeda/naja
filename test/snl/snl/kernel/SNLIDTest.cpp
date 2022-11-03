@@ -12,3 +12,22 @@ TEST(SNLIDTest, testSize) {
   EXPECT_EQ(4, sizeof(SNLID::Bit)); 
   EXPECT_EQ(1+1+2+4+4+4+4 /*20*/, sizeof(SNLID));
 }
+
+TEST(SNLIDTest, testDesignReference) {
+  SNLID::DesignReference designReference(1, 1, 3);
+  EXPECT_EQ(1, designReference.dbID_);
+  EXPECT_EQ(1, designReference.libraryID_);
+  EXPECT_EQ(3, designReference.designID_);
+  EXPECT_EQ(SNLID::DBDesignReference(1, 3), designReference.getDBDesignReference());
+}
+
+TEST(SNLIDTest, testBitNetReference) {
+  SNLID::BitNetReference scalarNetReference(2, 2, 3, 4);
+  EXPECT_FALSE(scalarNetReference.isBusBit_);
+  EXPECT_EQ(2, scalarNetReference.dbID_);
+  EXPECT_EQ(2, scalarNetReference.libraryID_);
+  EXPECT_EQ(3, scalarNetReference.designID_);
+  EXPECT_EQ(4, scalarNetReference.designObjectID_);
+  EXPECT_EQ(0, scalarNetReference.bit_);
+  EXPECT_EQ(SNLID::DesignReference(2, 2, 3), scalarNetReference.getDesignReference());
+}

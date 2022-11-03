@@ -139,6 +139,7 @@ void SNLLibrary::preCreate(SNLLibrary* parentLibrary, Type type, const SNLName& 
   if (not parentLibrary) {
     throw SNLException("malformed SNLLibrary creator with NULL parent library argument");
   }
+  preCreate(parentLibrary->getDB(), type, name);
   if (type not_eq parentLibrary->getType()) {
     throw SNLException("non compatible types in library constructor");
   }
@@ -158,18 +159,16 @@ void SNLLibrary::preCreate(SNLLibrary* parentLibrary, SNLID::LibraryID id, Type 
 
 void SNLLibrary::postCreateAndSetID() {
   super::postCreate();
-  if (isRoot()) {
-    static_cast<SNLDB*>(parent_)->addLibraryAndSetID(this);
-  } else {
-    static_cast<SNLLibrary*>(parent_)->addLibraryAndSetID(this);
+  getDB()->addLibraryAndSetID(this);
+  if (not isRoot()) {
+    static_cast<SNLLibrary*>(parent_)->addLibrary(this);
   }
 }
 
 void SNLLibrary::postCreate() {
   super::postCreate();
-  if (isRoot()) {
-    static_cast<SNLDB*>(parent_)->addLibrary(this);
-  } else {
+  getDB()->addLibrary(this);
+  if (not isRoot()) {
     static_cast<SNLLibrary*>(parent_)->addLibrary(this);
   }
 }
@@ -186,22 +185,27 @@ void SNLLibrary::commonPreDestroy() {
   designs_.clear_and_dispose(destroyDesignFromLibrary());
   struct destroyLibraryFromLibrary {
     void operator()(SNLLibrary* library) {
-      library->destroyFromParent();
+      library->destroyFromParentLibrary();
     }
   };
   libraries_.clear_and_dispose(destroyLibraryFromLibrary());
   super::preDestroy();
 }
 
-void SNLLibrary::destroyFromParent() {
+void SNLLibrary::destroyFromDB() {
+  commonPreDestroy();
+  delete this;
+}
+
+void SNLLibrary::destroyFromParentLibrary() {
+  getDB()->removeLibrary(this);
   commonPreDestroy();
   delete this;
 }
 
 void SNLLibrary::preDestroy() {
-  if (isRoot()) {
-    static_cast<SNLDB*>(parent_)->removeLibrary(this);
-  } else {
+  getDB()->removeLibrary(this);
+  if (not isRoot()) {
     static_cast<SNLLibrary*>(parent_)->removeLibrary(this);
   }
   commonPreDestroy();
@@ -262,18 +266,6 @@ SNLDesign* SNLLibrary::getDesign(const SNLName& name) const {
 
 NajaCollection<SNLDesign*> SNLLibrary::getDesigns() const {
   return NajaCollection(new NajaIntrusiveSetCollection(&designs_));
-}
-
-void SNLLibrary::addLibraryAndSetID(SNLLibrary* library) {
-  if (libraries_.empty()) {
-    library->id_ = 0;
-  } else {
-    auto it = libraries_.rbegin();
-    SNLLibrary* lastLibrary = &(*it);
-    library->id_ = lastLibrary->id_ ;
-    ++library->id_;
-  }
-  addLibrary(library);
 }
 
 void SNLLibrary::addLibrary(SNLLibrary* library) {

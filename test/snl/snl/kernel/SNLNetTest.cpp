@@ -142,6 +142,10 @@ TEST_F(SNLNetTest, testCreation) {
   EXPECT_EQ(nullptr, design_->getScalarNet(SNLName("net0")));
   EXPECT_EQ(SNLID(SNLID::Type::Net, 1, 1, 0, 2, 0, 0), net0->getSNLID());
   EXPECT_EQ(SNLID::DesignObjectReference(1, 1, 0, 2), net0->getReference());
+  EXPECT_EQ(net0->getBit(1), design_->getBusNetBit(2, 1));
+  EXPECT_EQ(net0->getBit(31), design_->getBusNetBit(2, 31));
+  EXPECT_EQ(nullptr, design_->getBusNetBit(2, 32));
+  EXPECT_EQ(nullptr, design_->getBusNetBit(0, 32));
   EXPECT_EQ(net0, SNLUniverse::get()->getNet(SNLID::DesignObjectReference(1, 1, 0, 2)));
   EXPECT_EQ(net0, design_->getNet(2));
   EXPECT_EQ(net0, design_->getBusNet(2));

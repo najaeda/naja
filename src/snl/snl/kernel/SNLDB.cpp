@@ -26,26 +26,21 @@
 
 namespace naja { namespace SNL {
 
-SNLDB::SNLDB(SNLUniverse* universe):
-  universe_(universe)
-{}
-
-SNLDB::SNLDB(SNLUniverse* universe, SNLID::DBID id):
-  universe_(universe),
+SNLDB::SNLDB(SNLID::DBID id):
   id_(id)
 {}
 
 SNLDB* SNLDB::create(SNLUniverse* universe) {
   preCreate(universe);
-  SNLDB* db = new SNLDB(universe);
-  db->postCreateAndSetID();
+  SNLDB* db = new SNLDB();
+  db->postCreateAndSetID(universe);
   return db;
 }
 
 SNLDB* SNLDB::create(SNLUniverse* universe, SNLID::DBID id) {
   preCreate(universe, id);
-  SNLDB* db = new SNLDB(universe, id);
-  db->postCreate();
+  SNLDB* db = new SNLDB(id);
+  db->postCreate(universe);
   return db;
 }
 
@@ -63,14 +58,14 @@ void SNLDB::preCreate(SNLUniverse* universe, SNLID::DBID id) {
   }
 }
 
-void SNLDB::postCreateAndSetID() {
+void SNLDB::postCreateAndSetID(SNLUniverse* universe) {
   super::postCreate();
-  universe_->addDBAndSetID(this);
+  universe->addDBAndSetID(this);
 }
 
-void SNLDB::postCreate() {
+void SNLDB::postCreate(SNLUniverse* universe) {
   super::postCreate();
-  universe_->addDB(this);
+  universe->addDB(this);
 }
 
 void SNLDB::commonPreDrestroy() {
@@ -79,7 +74,7 @@ void SNLDB::commonPreDrestroy() {
 #endif
   struct destroyLibraryFromDB {
     void operator()(SNL::SNLLibrary* library) {
-      library->destroyFromParent();
+      library->destroyFromDB();
     }
   };
   //First delete standard primitives
