@@ -211,6 +211,7 @@ SNLObject* SNLUniverse::getObject(const SNLID& id) {
     case SNLID::Type::InstTerm:
       return getInstTerm(id);
   }
+  return nullptr;
 }
 
 NajaCollection<SNLDB*> SNLUniverse::getDBs() const {
