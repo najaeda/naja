@@ -135,14 +135,14 @@ struct SNLID final {
   };
 
   struct BitNetReference {
-    bool              isBusBit_ {false};
-    DBID              dbID_;
-    LibraryID         libraryID_;
-    DesignID          designID_;
-    DesignObjectID    designObjectID_;
-    Bit               bit_      {0};
+    bool              isBusBit_         {false};
+    DBID              dbID_             {0};
+    LibraryID         libraryID_        {0};
+    DesignID          designID_         {0};
+    DesignObjectID    designObjectID_   {0};
+    Bit               bit_              {0};
 
-    BitNetReference() = delete;
+    BitNetReference() = default;
     BitNetReference(const BitNetReference&) = default;
     //ScalarNet
     BitNetReference(const DesignReference& designReference, DesignObjectID designObjectID):

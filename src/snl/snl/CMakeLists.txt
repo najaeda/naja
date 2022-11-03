@@ -21,6 +21,7 @@ set(SNL_KERNEL_SOURCES
 set(SNL_KERNEL_HEADERS
   kernel/SNLName.h
   kernel/SNLID.h
+  kernel/SNLObject.h
   kernel/SNLUniverse.h kernel/SNLDB.h
   kernel/SNLLibrary.h kernel/SNLDesign.h
   kernel/SNLDesignObject.h

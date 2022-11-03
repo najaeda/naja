@@ -76,6 +76,7 @@ class SNLUniverse final: public SNLObject {
     ///\return the SNLBusNetBit with SNLID id or null if it does not exist
     SNLBusNetBit* getBusNetBit(const SNLID& id) const;
 
+    ///\return the SNLObject with SNLID id or null if it does not exist
     SNLObject* getObject(const SNLID& id);
     
     SNLDB* getTopDB() const;
