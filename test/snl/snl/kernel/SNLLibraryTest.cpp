@@ -27,11 +27,16 @@ TEST_F(SNLLibraryTest, test0) {
   lib1 = SNLLibrary::create(db, SNLName("LIB1"));
   ASSERT_TRUE(lib1);
   EXPECT_EQ(0, lib1->getID());
+  EXPECT_EQ(SNLID(1, 0), lib1->getSNLID());
   SNLLibrary* testLib1 = db->getLibrary(SNLName("LIB1"));
   ASSERT_TRUE(testLib1);
   EXPECT_EQ(db->getLibrary(0), lib1);
-  EXPECT_EQ(db->getLibrary(1), nullptr);
-  EXPECT_EQ(db->getLibrary(2), nullptr);
+  EXPECT_EQ(lib1, SNLUniverse::get()->getLibrary(1, 0));
+  EXPECT_EQ(lib1, SNLUniverse::get()->getObject(SNLID(1, 0)));
+  EXPECT_EQ(nullptr, db->getLibrary(1));
+  EXPECT_EQ(nullptr, SNLUniverse::get()->getLibrary(1, 1));
+  EXPECT_EQ(nullptr, SNLUniverse::get()->getObject(SNLID(1, 1)));
+  EXPECT_EQ(nullptr, db->getLibrary(2));
 
   EXPECT_EQ(testLib1, lib1);
   EXPECT_EQ("LIB1", lib1->getName().getString());
@@ -48,6 +53,7 @@ TEST_F(SNLLibraryTest, test0) {
   EXPECT_EQ(nullptr, lib1->getLibrary(3));
 
   SNLLibrary* lib2 = SNLLibrary::create(db, SNLName("LIB2"));
+  EXPECT_EQ(SNLID(1, 1), lib2->getSNLID());
   EXPECT_LT(lib1->getSNLID(), lib2->getSNLID());
   ASSERT_TRUE(lib2);
   EXPECT_EQ(1, lib2->getID());
@@ -55,6 +61,8 @@ TEST_F(SNLLibraryTest, test0) {
   ASSERT_TRUE(testLib2);
   EXPECT_EQ(testLib2, lib2);
   EXPECT_EQ("LIB2", lib2->getName().getString());
+  EXPECT_EQ(lib2, SNLUniverse::get()->getLibrary(1, 1));
+  EXPECT_EQ(lib2, SNLUniverse::get()->getObject(SNLID(1, 1)));
 
   EXPECT_EQ(2, db->getLibraries().size());
   EXPECT_FALSE(db->getLibraries().empty());
