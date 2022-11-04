@@ -79,15 +79,22 @@ void SNLDB::commonPreDrestroy() {
   };
   //First delete standard primitives
   //collect standard libraries
-  using StandardLibraries = std::list<SNLLibrary*>;
-  StandardLibraries standardLibraries;
+  using Libraries = std::list<SNLLibrary*>;
+  Libraries nonRootLibraries;
+  Libraries standardRootLibraries;
   for (auto it = libraries_.begin(); it!=libraries_.end(); ++it) {
     SNLLibrary* library = &*it;
-    if (library->isStandard()) {
-      standardLibraries.push_back(library);
-    }
+    //destroy first root and standard library 
+    if (not library->isRoot()) {
+      nonRootLibraries.push_back(library);
+    } else {
+      standardRootLibraries.push_back(library);
+    } 
   }
-  for (auto library: standardLibraries) {
+  for (auto library: nonRootLibraries) {
+    libraries_.erase(*library);
+  }
+  for (auto library: standardRootLibraries) {
     libraries_.erase_and_dispose(*library, destroyLibraryFromDB());
   }
 
@@ -154,8 +161,13 @@ SNLDesign* SNLDB::getDesign(const SNLID::DBDesignReference& designReference) con
   return nullptr;
 }
 
-NajaCollection<SNLLibrary*> SNLDB::getLibraries() const {
+NajaCollection<SNLLibrary*> SNLDB::getGlobalLibraries() const {
   return NajaCollection(new NajaIntrusiveSetCollection(&libraries_));
+}
+
+NajaCollection<SNLLibrary*> SNLDB::getLibraries() const {
+  auto filter = [](const SNLLibrary* l) { return l->isRoot(); };
+  return getGlobalLibraries().getSubCollection(filter);
 }
 
 SNLID SNLDB::getSNLID() const {

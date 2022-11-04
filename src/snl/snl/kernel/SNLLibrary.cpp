@@ -139,7 +139,6 @@ void SNLLibrary::preCreate(SNLLibrary* parentLibrary, Type type, const SNLName& 
   if (not parentLibrary) {
     throw SNLException("malformed SNLLibrary creator with NULL parent library argument");
   }
-  preCreate(parentLibrary->getDB(), type, name);
   if (type not_eq parentLibrary->getType()) {
     throw SNLException("non compatible types in library constructor");
   }
