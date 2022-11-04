@@ -87,7 +87,7 @@ void SNLDB::commonPreDrestroy() {
     //destroy first root and standard library 
     if (not library->isRoot()) {
       nonRootLibraries.push_back(library);
-    } else {
+    } else if (library->isStandard()) {
       standardRootLibraries.push_back(library);
     } 
   }
