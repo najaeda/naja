@@ -23,7 +23,8 @@
 namespace naja { namespace SNL {
 
 /**
- * \brief The SNLID structure allows global comparison between the various SNL objects and allows to uniquely identify any object. 
+ * \brief The SNLID structure allows global comparison between the various SNL objects
+ * and allows to uniquely identify any object. 
  * 
  * The following table details the different fields and their characteristics.
  * 
@@ -64,6 +65,7 @@ struct SNLID final {
     }
   };
 
+  ///DesignReference is a structure allowing to reference uniquely a SNLDesign. 
   struct DesignReference {
     DBID              dbID_;
     LibraryID         libraryID_;
@@ -135,14 +137,14 @@ struct SNLID final {
   };
 
   struct BitNetReference {
-    bool              isBusBit_         {false};
-    DBID              dbID_             {0};
-    LibraryID         libraryID_        {0};
-    DesignID          designID_         {0};
-    DesignObjectID    designObjectID_   {0};
-    Bit               bit_              {0};
+    bool              isBusBit_ {false};
+    DBID              dbID_;
+    LibraryID         libraryID_;
+    DesignID          designID_;
+    DesignObjectID    designObjectID_;
+    Bit               bit_      {0};
 
-    BitNetReference() = default;
+    BitNetReference() = delete;
     BitNetReference(const BitNetReference&) = default;
     //ScalarNet
     BitNetReference(const DesignReference& designReference, DesignObjectID designObjectID):
@@ -159,7 +161,7 @@ struct SNLID final {
       designObjectID_(designObjectID)
     {}
     //BusNetBit
-    BitNetReference(DBID dbID, LibraryID libraryID, DesignID designID, DesignObjectID designObjectID, Bit(bit)):
+    BitNetReference(DBID dbID, LibraryID libraryID, DesignID designID, DesignObjectID designObjectID, Bit bit):
       isBusBit_(true),
       dbID_(dbID),
       libraryID_(libraryID),
@@ -167,7 +169,16 @@ struct SNLID final {
       designObjectID_(designObjectID),
       bit_(bit)
     {}
-    //BusNetBit
+    ///General constructor
+    BitNetReference(bool isBusBit, DBID dbID, LibraryID libraryID, DesignID designID, DesignObjectID designObjectID, Bit bit):
+      isBusBit_(isBusBit),
+      dbID_(dbID),
+      libraryID_(libraryID),
+      designID_(designID),
+      designObjectID_(designObjectID),
+      bit_(bit)
+    {}
+    ///BusNetBit reference
     BitNetReference(const DesignReference& designReference, DesignObjectID designObjectID, Bit bit):
       BitNetReference(
         designReference.dbID_,
