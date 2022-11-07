@@ -220,8 +220,8 @@ TEST_F(SNLLibraryTest, testErrors) {
 
   EXPECT_EQ(SNLID::LibraryID(2), subPrims->getID());
   EXPECT_EQ(prims, subPrims->getParentLibrary());
-  EXPECT_TRUE(prims->getLibrary(SNLID::LibraryID(2)));
   EXPECT_EQ(subPrims, prims->getLibrary(SNLID::LibraryID(2)));
+  EXPECT_EQ(nullptr, prims->getLibrary(SNLID::LibraryID(3)));
   //ID collision
   EXPECT_THROW(SNLLibrary::create(prims, SNLID::LibraryID(2), SNLLibrary::Type::Primitives), SNLException);
 }

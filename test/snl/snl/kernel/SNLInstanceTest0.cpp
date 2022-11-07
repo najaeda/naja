@@ -221,6 +221,7 @@ TEST_F(SNLInstanceTest0, testCreation) {
       EXPECT_EQ(instTerm, SNLUniverse::get()->getInstTerm(instTerm->getSNLID()));
       EXPECT_EQ(instTerm, SNLUniverse::get()->getObject(instTerm->getSNLID()));
     }
+    EXPECT_EQ(nullptr, SNLUniverse::get()->getObject(SNLID(SNLID::Type::InstTerm, 1, 0, 0, 4, 1, 0)));
   }
 
   SNLInstance* instance1Test = design->getInstance(SNLName("instance1"));
