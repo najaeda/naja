@@ -19,6 +19,7 @@
 #include <iostream>
 #include "SNLDB0.h"
 #include "SNLScalarNet.h"
+#include "SNLBusNet.h"
 #include "SNLBusNetBit.h"
 #include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
@@ -183,10 +184,22 @@ SNLInstTerm* SNLUniverse::getInstTerm(const SNLID& id) const {
 }
 
 SNLBusNetBit* SNLUniverse::getBusNetBit(const SNLID& id) const {
+  SNLNet* net = getNet(SNLID::DesignObjectReference(id.dbID_, id.libraryID_, id.designID_, id.designObjectID_));
+  if (net) {
+    if (auto busNet = dynamic_cast<SNLBusNet*>(net)) {
+      return busNet->getBit(id.bit_);
+    }
+  }
   return nullptr;
 }
 
 SNLBusTermBit* SNLUniverse::getBusTermBit(const SNLID& id) const {
+  SNLTerm* term = getTerm(SNLID::DesignObjectReference(id.dbID_, id.libraryID_, id.designID_, id.designObjectID_));
+  if (term) {
+    if (auto busTerm = dynamic_cast<SNLBusTerm*>(term)) {
+      return busTerm->getBit(id.bit_);
+    }
+  }
   return nullptr;
 }
 

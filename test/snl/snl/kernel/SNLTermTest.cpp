@@ -62,11 +62,17 @@ TEST_F(SNLTermTest, testCreation) {
       term0->getBitAtPosition(2), term0->getBitAtPosition(3)));
   EXPECT_EQ(nullptr, term0->getBitAtPosition(4));
   EXPECT_EQ(SNLID(SNLID::Type::TermBit, 1, 0, 0, 0, 0, -1), term0->getBit(-1)->getSNLID());
-  //EXPECT_EQ(term0->getBit(-1), SNLUniverse::get()->getBusTermBit(term0->getSNLID()));
-  //EXPECT_EQ(term0->getBit(-1), SNLUniverse::get()->getObject(term0->getSNLID()));
+  EXPECT_EQ(term0->getBit(-1), SNLUniverse::get()->getBusTermBit(term0->getBit(-1)->getSNLID()));
+  EXPECT_EQ(term0->getBit(-1), SNLUniverse::get()->getObject(term0->getBit(-1)->getSNLID()));
   EXPECT_EQ(SNLID(SNLID::Type::TermBit, 1, 0, 0, 0, 0, -2), term0->getBit(-2)->getSNLID());
+  EXPECT_EQ(term0->getBit(-2), SNLUniverse::get()->getBusTermBit(term0->getBit(-2)->getSNLID()));
+  EXPECT_EQ(term0->getBit(-2), SNLUniverse::get()->getObject(term0->getBit(-2)->getSNLID()));
   EXPECT_EQ(SNLID(SNLID::Type::TermBit, 1, 0, 0, 0, 0, -3), term0->getBit(-3)->getSNLID());
+  EXPECT_EQ(term0->getBit(-3), SNLUniverse::get()->getBusTermBit(term0->getBit(-3)->getSNLID()));
+  EXPECT_EQ(term0->getBit(-3), SNLUniverse::get()->getObject(term0->getBit(-3)->getSNLID()));
   EXPECT_EQ(SNLID(SNLID::Type::TermBit, 1, 0, 0, 0, 0, -4), term0->getBit(-4)->getSNLID());
+  EXPECT_EQ(term0->getBit(-4), SNLUniverse::get()->getBusTermBit(term0->getBit(-4)->getSNLID()));
+  EXPECT_EQ(term0->getBit(-4), SNLUniverse::get()->getObject(term0->getBit(-4)->getSNLID()));
   EXPECT_EQ(0, term0->getFlatID());
   EXPECT_EQ(0, term0->getBit(-1)->getFlatID());
   EXPECT_EQ(1, term0->getBit(-2)->getFlatID());
@@ -77,8 +83,10 @@ TEST_F(SNLTermTest, testCreation) {
   EXPECT_EQ(2, term0->getBit(-3)->getPositionInBus());
   EXPECT_EQ(3, term0->getBit(-4)->getPositionInBus());
 
-  EXPECT_FALSE(term0->getBit(-5));
-  EXPECT_FALSE(term0->getBit(0));
+  EXPECT_EQ(nullptr, term0->getBit(-5));
+  EXPECT_EQ(nullptr, term0->getBit(0));
+  EXPECT_EQ(nullptr, SNLUniverse::get()->getBusTermBit(SNLID(SNLID::Type::TermBit, 1, 0, 0, 0, 0, -5)));
+  EXPECT_EQ(nullptr, SNLUniverse::get()->getObject(SNLID(SNLID::Type::TermBit, 1, 0, 0, 0, 0, -5)));
 
   EXPECT_THROW(term0->getBit(-4)->destroy(), SNLException);
 }
