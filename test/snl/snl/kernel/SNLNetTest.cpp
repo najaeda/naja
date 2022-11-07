@@ -67,6 +67,7 @@ TEST_F(SNLNetTest, testCreation) {
   EXPECT_EQ(SNLID(SNLID::Type::Net, 1, 1, 0, 0, 0, 0), i0Net->getSNLID());
   EXPECT_EQ(SNLID::DesignObjectReference(1, 1, 0, 0), i0Net->getReference());
   EXPECT_EQ(i0Net, SNLUniverse::get()->getNet(SNLID::DesignObjectReference(1, 1, 0, 0)));
+  EXPECT_EQ(i0Net, SNLUniverse::get()->getObject(i0Net->getSNLID()));
   EXPECT_FALSE(design_->getNets().empty());
   EXPECT_FALSE(design_->getScalarNets().empty());
   EXPECT_FALSE(design_->getBitNets().empty());
@@ -95,6 +96,7 @@ TEST_F(SNLNetTest, testCreation) {
   EXPECT_EQ(SNLID(SNLID::Type::Net, 1, 1, 0, 1, 0, 0), i1Net->getSNLID());
   EXPECT_EQ(SNLID::DesignObjectReference(1, 1, 0, 1), i1Net->getReference());
   EXPECT_EQ(i1Net, SNLUniverse::get()->getNet(SNLID::DesignObjectReference(1, 1, 0, 1)));
+  EXPECT_EQ(i1Net, SNLUniverse::get()->getObject(i1Net->getSNLID()));
   EXPECT_FALSE(design_->getNets().empty());
   EXPECT_FALSE(design_->getScalarNets().empty());
   EXPECT_FALSE(design_->getBitNets().empty());
@@ -207,6 +209,8 @@ TEST_F(SNLNetTest, testCreation) {
     EXPECT_FALSE(bit->isAnonymous());
     EXPECT_EQ(bit->getName(), bit->getBus()->getName());
     EXPECT_EQ(SNLID(SNLID::Type::NetBit, 1, 1, 0, 2, 0, bitNumber--), bit->getSNLID());
+    EXPECT_EQ(bit, SNLUniverse::get()->getBusNetBit(bit->getSNLID()));
+    EXPECT_EQ(bit, SNLUniverse::get()->getObject(bit->getSNLID()));
   }
   net0->setType(SNLBitNet::Type::Supply1);
   for (auto bit: net0->getBits()) {
