@@ -105,11 +105,11 @@ std::string SNLInstTerm::getDescription() const {
   std::ostringstream str;
   str << "<" << getTypeName();
   if (not getInstance()->isAnonymous()) {
-    str << getInstance()->getName().getString();
+    str << " " << getInstance()->getName().getString();
   }
   str << " " << getInstance()->getID();
   if (not getTerm()->isAnonymous()) {
-    str << " " << getTerm()->getName().getString();
+    str << " " << getTerm()->getString();
   }
   str << " " << getTerm()->getID();
   str << ">";

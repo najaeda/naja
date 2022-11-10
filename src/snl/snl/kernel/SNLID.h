@@ -73,6 +73,12 @@ struct SNLID final {
 
     DesignReference() = delete;
     DesignReference(const DesignReference&) = default;
+    DesignReference(const SNLID& id):
+      dbID_(id.dbID_),
+      libraryID_(id.libraryID_),
+      designID_(id.designID_)
+    {}
+      
     DesignReference(DBID dbID, LibraryID libraryID, DesignID designID):
       dbID_(dbID),
       libraryID_(libraryID),
@@ -104,6 +110,12 @@ struct SNLID final {
 
     DesignObjectReference() = delete;
     DesignObjectReference(const DesignObjectReference&) = default;
+    DesignObjectReference(const SNLID& id):
+      dbID_(id.dbID_),
+      libraryID_(id.libraryID_),
+      designID_(id.designID_),
+      designObjectID_(id.designObjectID_)
+    {}
     DesignObjectReference(DBID dbID, LibraryID libraryID, DesignID designID, DesignObjectID designObjectID):
       dbID_(dbID),
       libraryID_(libraryID),

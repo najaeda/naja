@@ -36,6 +36,8 @@ TEST_F(SNLLibraryTest, test0) {
   EXPECT_EQ(nullptr, db->getLibrary(1));
   EXPECT_EQ(nullptr, SNLUniverse::get()->getLibrary(1, 1));
   EXPECT_EQ(nullptr, SNLUniverse::get()->getObject(SNLID(1, 1)));
+  EXPECT_EQ(nullptr, SNLUniverse::get()->getLibrary(5, 1));
+  EXPECT_EQ(nullptr, SNLUniverse::get()->getObject(SNLID(5, 1)));
   EXPECT_EQ(nullptr, db->getLibrary(2));
 
   EXPECT_EQ(testLib1, lib1);

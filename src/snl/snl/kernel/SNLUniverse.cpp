@@ -226,7 +226,7 @@ SNLObject* SNLUniverse::getObject(const SNLID& id) {
     case SNLID::Type::InstTerm:
       return getInstTerm(id);
   }
-  return nullptr;
+  return nullptr; //LCOV_EXCL_LINE
 }
 
 NajaCollection<SNLDB*> SNLUniverse::getDBs() const {
