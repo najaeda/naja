@@ -13,6 +13,11 @@ In most EDA flows, data exchange is done by using standard netlist formats (Veri
 Naja also emphasizes EDA applications parallelization (targeting in particular cloud computing) by providing a robust object identification mechanism allowing to partition and merge data across the network.
 
 Naja contains mainly the SNL (Structured Netlist) API.
+### Acknowledgement
+[<img src="https://nlnet.nl/logo/banner.png" width=100>](https://nlnet.nl/project/Naja)
+[<img src="https://nlnet.nl/image/logos/NGI0Entrust_tag.svg" width=100>](https://nlnet.nl/project/Naja)
+
+This project is supported and funded by NLNet through the [NGI0 Entrust](https://nlnet.nl/entrust) Fund.
 
 ## Compilation
 ### Getting sources
