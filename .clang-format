@@ -1,0 +1,10 @@
+Language:                     Cpp
+BasedOnStyle:                 Google
+CompactNamespaces:            true
+IndentWidth:                  2
+SpaceBeforeInheritanceColon:  false
+SpacesInParentheses:          false
+SpacesInSquareBrackets:       false
+Standard:                     Latest
+TabWidth:                     2
+UseTab:                       Never
