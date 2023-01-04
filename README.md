@@ -31,7 +31,8 @@ git submodule update
 ### Dependencies
 Mandatory dependencies:
 1. Boost
-3. cmake: at least 3.22 version
+2. cmake: at least 3.22 version
+3. naja-verilog: https://github.com/xtofalex/naja-verilog
 
 Optional dependencies:
 1. Python3: for building the Python3 interface
@@ -41,8 +42,6 @@ Embedded dependencies:
 
 For convenience, google test (https://github.com/google/googletest) is provided through git submodule.
 
-### SNL Interchange Format
-SNL relies on [Cap'n Proto](https://github.com/capnproto/capnproto) for data serialization and streaming. Schema files and C++ implementation can be found [here](https://github.com/xtofalex/naja/tree/main/src/snl/snl/serialization/capnp).
 
 ### Building and Installing
 ```bash
@@ -65,6 +64,16 @@ make docs
 make install
 ```
 Documentation will be installed in $NAJA_INSTALL/doc directory. Starting file to open in browser is: $NAJA_INSTALL/doc/html/index.html.
+
+## Inputs/Outputs
+### SNL Interchange Format
+SNL relies on [Cap'n Proto](https://github.com/capnproto/capnproto) for data serialization and streaming. Schema files and C++ implementation can be found [here](https://github.com/xtofalex/naja/tree/main/src/snl/snl/serialization/capnp).
+
+### Verilog
+For Verilog parsing, Naja relies on naja-verilog submodule (https://github.com/xtofalex/naja-verilog).
+
+A Verilog dumper is part of SNL inside SNL API.
+
 ## Snippets
 ### c++
 https://github.com/xtofalex/naja/blob/main/src/snl/snippets/app/src/SNLSnippet.cpp
