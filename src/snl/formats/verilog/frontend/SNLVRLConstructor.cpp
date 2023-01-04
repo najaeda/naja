@@ -89,9 +89,19 @@ void SNLVRLConstructor::addNet(naja::verilog::Net&& net) {
   }
 }
 
-void SNLVRLConstructor::addInstance(std::string&& name) {
+void SNLVRLConstructor::startInstantiation(std::string&& modelName) {
+  if (not inFirstPass()) {
+    currentModelName_ = modelName;
+  }
+}
 
-  
+void SNLVRLConstructor::addInstance(std::string&& name) {
+  if (not inFirstPass()) {
+    assert(not currentModelName_.empty());
+    SNLDesign* model = library_->getDesign(SNLName(currentModelName_));
+    assert(model);
+    SNLInstance::create(currentModule_, model, SNLName(name));
+  }
 }
 
 }} // namespace SNL // namespace naja

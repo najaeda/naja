@@ -35,11 +35,13 @@ class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
     void startModule(std::string&& name) override;
     void moduleInterfaceCompletePort(naja::verilog::Port&& port) override;
     void addNet(naja::verilog::Net&& net) override;
+    void startInstantiation(std::string&& modelName) override;
     void addInstance(std::string&& name) override;
   private:
-    bool        firstPass_      {true};
-    SNLLibrary* library_        {nullptr};
-    SNLDesign*  currentModule_  {nullptr};
+    bool        firstPass_        {true};
+    SNLLibrary* library_          {nullptr};
+    SNLDesign*  currentModule_    {nullptr};
+    std::string currentModelName_ {};
 };
 
 }} // namespace SNL // namespace naja

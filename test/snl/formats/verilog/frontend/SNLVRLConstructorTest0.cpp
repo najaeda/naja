@@ -41,5 +41,32 @@ TEST_F(SNLVRLConstructorTest0, test) {
   EXPECT_TRUE(test->getNets().empty());
   EXPECT_TRUE(mod0->getInstances().empty());
   EXPECT_TRUE(test->getInstances().empty());
+
   EXPECT_EQ(2, mod0->getTerms().size());
+  {
+    auto i0 = mod0->getTerm(SNLName("i0"));
+    ASSERT_NE(i0, nullptr);
+    EXPECT_EQ(i0->getDirection(), SNLTerm::Direction::Input);
+    auto o0 = mod0->getTerm(SNLName("o0"));
+    EXPECT_NE(o0, nullptr);
+    EXPECT_EQ(o0->getDirection(), SNLTerm::Direction::Output);
+  }
+  
+  EXPECT_EQ(3, test->getTerms().size());
+    {
+    auto i = test->getTerm(SNLName("i"));
+    ASSERT_NE(i, nullptr);
+    EXPECT_EQ(i->getDirection(), SNLTerm::Direction::Input);
+    auto o = test->getTerm(SNLName("o"));
+    EXPECT_NE(o, nullptr);
+    EXPECT_EQ(o->getDirection(), SNLTerm::Direction::Output);
+    auto io = test->getTerm(SNLName("io"));
+    EXPECT_NE(io, nullptr);
+    EXPECT_EQ(io->getDirection(), SNLTerm::Direction::InOut);
+  }
+  
+  constructor.setFirstPass(false);
+  constructor.parse(benchmarksPath/"test0.v");
+  EXPECT_EQ(7, test->getNets().size());
+  EXPECT_EQ(1, test->getInstances().size());
 }
