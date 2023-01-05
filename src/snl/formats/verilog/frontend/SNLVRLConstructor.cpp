@@ -35,7 +35,20 @@ naja::SNL::SNLTerm::Direction VRLDirectionToSNLDirection(const naja::verilog::Po
       return naja::SNL::SNLTerm::Direction::Output;
     case naja::verilog::Port::Direction::InOut:
       return naja::SNL::SNLTerm::Direction::InOut;
-    default:
+    case naja::verilog::Port::Direction::Unknown:
+      std::exit(-43);
+  }
+}
+
+naja::SNL::SNLNet::Type VRLTypeToSNLType(const naja::verilog::Net::Type& type) {
+  switch(type) {
+    case naja::verilog::Net::Type::Wire:
+      return naja::SNL::SNLNet::Type::Standard;
+    case naja::verilog::Net::Type::Supply0:
+      return naja::SNL::SNLNet::Type::Supply0;
+    case naja::verilog::Net::Type::Supply1:
+      return naja::SNL::SNLNet::Type::Supply1;
+    case naja::verilog::Net::Type::Unknown:
       std::exit(-43);
   }
 }
@@ -81,10 +94,14 @@ void SNLVRLConstructor::moduleInterfaceCompletePort(naja::verilog::Port&& port) 
 void SNLVRLConstructor::addNet(naja::verilog::Net&& net) {
   if (not inFirstPass()) {
     std::cerr << "Add net: " << net.getString() << std::endl;
+    SNLNet* snlNet = nullptr;
     if (net.isBus()) {
-      SNLBusNet::create(currentModule_, net.range_.msb_, net.range_.lsb_, SNLName(net.name_));
+      snlNet = SNLBusNet::create(currentModule_, net.range_.msb_, net.range_.lsb_, SNLName(net.name_));
     } else {
-      SNLScalarNet::create(currentModule_, SNLName(net.name_));
+      snlNet = SNLScalarNet::create(currentModule_, SNLName(net.name_));
+    }
+    if (net.type_ != naja::verilog::Net::Type::Wire) {
+      snlNet->setType(VRLTypeToSNLType(net.type_));
     }
   }
 }

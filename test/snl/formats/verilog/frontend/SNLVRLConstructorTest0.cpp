@@ -6,6 +6,9 @@
 #include "SNLVRLConstructor.h"
 
 #include "SNLUniverse.h"
+#include "SNLScalarNet.h"
+#include "SNLBusNet.h"
+#include "SNLBusNetBit.h"
 
 using namespace naja::SNL;
 
@@ -68,5 +71,43 @@ TEST_F(SNLVRLConstructorTest0, test) {
   constructor.setFirstPass(false);
   constructor.parse(benchmarksPath/"test0.v");
   EXPECT_EQ(7, test->getNets().size());
+  using Nets = std::vector<SNLNet*>;
+  Nets nets(test->getNets().begin(), test->getNets().end());
+  ASSERT_EQ(7, nets.size());
+  for (auto net: nets) {
+    EXPECT_FALSE(net->isAnonymous());
+  }
+  EXPECT_EQ("net0", nets[0]->getName().getString());
+  ASSERT_TRUE(dynamic_cast<SNLScalarNet*>(nets[0]));
+  EXPECT_EQ(SNLNet::Type::Standard, dynamic_cast<SNLScalarNet*>(nets[0])->getType());
+
+  EXPECT_EQ("net1", nets[1]->getName().getString());
+  ASSERT_TRUE(dynamic_cast<SNLScalarNet*>(nets[1]));
+  EXPECT_EQ(SNLNet::Type::Standard, dynamic_cast<SNLScalarNet*>(nets[1])->getType());
+
+  EXPECT_EQ("net2", nets[2]->getName().getString());
+  ASSERT_TRUE(dynamic_cast<SNLScalarNet*>(nets[2]));
+  EXPECT_EQ(SNLNet::Type::Standard, dynamic_cast<SNLScalarNet*>(nets[2])->getType());
+
+  EXPECT_EQ("net3", nets[3]->getName().getString());
+  ASSERT_TRUE(dynamic_cast<SNLScalarNet*>(nets[3]));
+  EXPECT_EQ(SNLNet::Type::Standard, dynamic_cast<SNLScalarNet*>(nets[3])->getType());
+
+  EXPECT_EQ("net4", nets[4]->getName().getString());
+  ASSERT_TRUE(dynamic_cast<SNLBusNet*>(nets[4]));
+  EXPECT_EQ(31, dynamic_cast<SNLBusNet*>(nets[4])->getMSB());
+  EXPECT_EQ(0, dynamic_cast<SNLBusNet*>(nets[4])->getLSB());
+  for (auto bit: dynamic_cast<SNLBusNet*>(nets[4])->getBits()) {
+    EXPECT_EQ(SNLNet::Type::Standard, bit->getType());
+  }
+
+  EXPECT_EQ("constant0", nets[5]->getName().getString());
+  ASSERT_TRUE(dynamic_cast<SNLScalarNet*>(nets[5]));
+  EXPECT_EQ(SNLNet::Type::Supply0, dynamic_cast<SNLScalarNet*>(nets[5])->getType());
+
+  EXPECT_EQ("constant1", nets[6]->getName().getString());
+  ASSERT_TRUE(dynamic_cast<SNLScalarNet*>(nets[6]));
+  EXPECT_EQ(SNLNet::Type::Supply1, dynamic_cast<SNLScalarNet*>(nets[6])->getType());
+
   EXPECT_EQ(1, test->getInstances().size());
 }
