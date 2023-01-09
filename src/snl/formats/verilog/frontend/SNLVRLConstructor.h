@@ -23,6 +23,7 @@ namespace naja { namespace SNL {
 
 class SNLLibrary;
 class SNLDesign;
+class SNLInstance;
 
 class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
   public:
@@ -30,18 +31,26 @@ class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
     SNLVRLConstructor(const SNLVRLConstructor&) = delete;
     SNLVRLConstructor(SNLLibrary* library);
 
+    void construct(const std::filesystem::path& filePath);
+
     bool inFirstPass() const { return firstPass_; }
     void setFirstPass(bool mode) { firstPass_ = mode; }
     void startModule(std::string&& name) override;
-    void moduleInterfaceCompletePort(naja::verilog::Port&& port) override;
+    void moduleInterfaceCompletePort(const naja::verilog::Port& port) override;
     void addNet(naja::verilog::Net&& net) override;
     void startInstantiation(std::string&& modelName) override;
     void addInstance(std::string&& name) override;
+    void endInstantiation() override;
+    void addInstanceConnection(
+      std::string&& portName,
+      naja::verilog::Expression&& expression) override;
   private:
-    bool        firstPass_        {true};
-    SNLLibrary* library_          {nullptr};
-    SNLDesign*  currentModule_    {nullptr};
-    std::string currentModelName_ {};
+    bool          verbose_          {true};
+    bool          firstPass_        {true};
+    SNLLibrary*   library_          {nullptr};
+    SNLDesign*    currentModule_    {nullptr};
+    std::string   currentModelName_ {};
+    SNLInstance*  currentInstance_  {nullptr};
 };
 
 }} // namespace SNL // namespace naja
