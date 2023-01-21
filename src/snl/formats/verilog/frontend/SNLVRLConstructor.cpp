@@ -68,7 +68,7 @@ void SNLVRLConstructor::construct(const std::filesystem::path& filePath) {
   parse(filePath);
 }
 
-void SNLVRLConstructor::startModule(std::string&& name) {
+void SNLVRLConstructor::startModule(const std::string& name) {
   if (inFirstPass()) {
     currentModule_ = SNLDesign::create(library_, SNLName(name));
     if (verbose_) {
@@ -100,7 +100,7 @@ void SNLVRLConstructor::moduleInterfaceCompletePort(const naja::verilog::Port& p
   }
 }
 
-void SNLVRLConstructor::addNet(naja::verilog::Net&& net) {
+void SNLVRLConstructor::addNet(const naja::verilog::Net& net) {
   if (not inFirstPass()) {
     std::cerr << "Add net: " << net.getString() << std::endl;
     SNLNet* snlNet = nullptr;
@@ -115,7 +115,7 @@ void SNLVRLConstructor::addNet(naja::verilog::Net&& net) {
   }
 }
 
-void SNLVRLConstructor::startInstantiation(std::string&& modelName) {
+void SNLVRLConstructor::startInstantiation(const std::string& modelName) {
   if (not inFirstPass()) {
     currentModelName_ = modelName;
     if (verbose_) {
@@ -124,7 +124,7 @@ void SNLVRLConstructor::startInstantiation(std::string&& modelName) {
   }
 }
 
-void SNLVRLConstructor::addInstance(std::string&& name) {
+void SNLVRLConstructor::addInstance(const std::string& name) {
   if (not inFirstPass()) {
     assert(not currentModelName_.empty());
     SNLDesign* model = library_->getDesign(SNLName(currentModelName_));
@@ -144,8 +144,8 @@ void SNLVRLConstructor::endInstantiation() {
 }
 
 void SNLVRLConstructor::addInstanceConnection(
-std::string&& portName,
-naja::verilog::Expression&& expression) {
+  const std::string& portName,
+  const naja::verilog::Expression& expression) {
   if (not inFirstPass()) {
     assert(currentInstance_);
     SNLDesign* model = currentInstance_->getModel();

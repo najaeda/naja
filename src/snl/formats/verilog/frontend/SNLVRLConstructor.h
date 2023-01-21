@@ -35,15 +35,15 @@ class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
 
     bool inFirstPass() const { return firstPass_; }
     void setFirstPass(bool mode) { firstPass_ = mode; }
-    void startModule(std::string&& name) override;
+    void startModule(const std::string& name) override;
     void moduleInterfaceCompletePort(const naja::verilog::Port& port) override;
-    void addNet(naja::verilog::Net&& net) override;
-    void startInstantiation(std::string&& modelName) override;
-    void addInstance(std::string&& name) override;
+    void addNet(const naja::verilog::Net& net) override;
+    void startInstantiation(const std::string& modelName) override;
+    void addInstance(const std::string& name) override;
     void endInstantiation() override;
     void addInstanceConnection(
-      std::string&& portName,
-      naja::verilog::Expression&& expression) override;
+      const std::string& portName,
+      const naja::verilog::Expression& expression) override;
   private:
     bool          verbose_          {true};
     bool          firstPass_        {true};
