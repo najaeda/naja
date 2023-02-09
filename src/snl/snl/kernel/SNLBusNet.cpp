@@ -173,7 +173,7 @@ const char* SNLBusNet::getTypeName() const {
 
 //LCOV_EXCL_START
 std::string SNLBusNet::getString() const {
-  return std::string();
+  return getName().getString() + "[" + std::to_string(getMSB()) + ":" + std::to_string(getLSB()) + "]";
 }
 //LCOV_EXCL_STOP
 

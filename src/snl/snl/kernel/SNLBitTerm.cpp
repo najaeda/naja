@@ -15,6 +15,10 @@
  */
 
 #include "SNLBitTerm.h"
+#include "SNLDesign.h"
+#include "SNLBitNet.h"
+#include "SNLException.h"
+#include "SNLNetComponentMacros.h"
 
 namespace naja { namespace SNL {
 
@@ -29,5 +33,7 @@ void SNLBitTerm::postCreate() {
 void SNLBitTerm::preDestroy() {
   super::preDestroy();
 }
+
+NET_COMPONENT_SET_NET(SNLBitTerm)
 
 }} // namespace SNL // namespace naja

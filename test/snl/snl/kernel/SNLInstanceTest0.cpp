@@ -165,6 +165,11 @@ TEST_F(SNLInstanceTest0, testCreation) {
     EXPECT_EQ(instTermsVector[4], instance1->getInstTerm(dynamic_cast<SNLBusTerm*>(termsVector[1])->getBit(3)));
     EXPECT_EQ(instTermsVector[5], instance1->getInstTerm(dynamic_cast<SNLScalarTerm*>(termsVector[2])));
     EXPECT_EQ(instTermsVector[6], instance1->getInstTerm(dynamic_cast<SNLScalarTerm*>(termsVector[3])));
+
+    for (auto instTerm: instTermsVector) {
+      EXPECT_EQ(instTerm, SNLUniverse::get()->getInstTerm(instTerm->getSNLID()));
+      EXPECT_EQ(instTerm, SNLUniverse::get()->getObject(instTerm->getSNLID()));
+    }
   }
 
   SNLInstance* instance2 = SNLInstance::create(design, model, SNLName("instance2"));
@@ -211,6 +216,12 @@ TEST_F(SNLInstanceTest0, testCreation) {
     EXPECT_EQ(instTermsVector[4], instance2->getInstTerm(dynamic_cast<SNLBusTerm*>(termsVector[1])->getBit(3)));
     EXPECT_EQ(instTermsVector[5], instance2->getInstTerm(dynamic_cast<SNLScalarTerm*>(termsVector[2])));
     EXPECT_EQ(instTermsVector[6], instance2->getInstTerm(dynamic_cast<SNLScalarTerm*>(termsVector[3])));
+
+    for (auto instTerm: instTermsVector) {
+      EXPECT_EQ(instTerm, SNLUniverse::get()->getInstTerm(instTerm->getSNLID()));
+      EXPECT_EQ(instTerm, SNLUniverse::get()->getObject(instTerm->getSNLID()));
+    }
+    EXPECT_EQ(nullptr, SNLUniverse::get()->getObject(SNLID(SNLID::Type::InstTerm, 1, 0, 0, 4, 1, 0)));
   }
 
   SNLInstance* instance1Test = design->getInstance(SNLName("instance1"));
@@ -370,6 +381,11 @@ TEST_F(SNLInstanceTest0, testCreation) {
     EXPECT_EQ(SNLTerm::Direction::Output, instTermsVector[11]->getDirection());
     EXPECT_EQ(SNLTerm::Direction::Output, instTermsVector[12]->getDirection());
     EXPECT_EQ(SNLTerm::Direction::Output, instTermsVector[13]->getDirection());
+
+    for (auto instTerm: instTermsVector) {
+      EXPECT_EQ(instTerm, SNLUniverse::get()->getInstTerm(instTerm->getSNLID()));
+      EXPECT_EQ(instTerm, SNLUniverse::get()->getObject(instTerm->getSNLID()));
+    }
   }
 
   //destroy some terminals and verify instance terminals

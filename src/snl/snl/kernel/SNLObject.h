@@ -14,11 +14,23 @@
  * limitations under the License.
  */
 
-#include "DNLSNLConstructor.h"
+#ifndef __SNL_OBJECT_H_
+#define __SNL_OBJECT_H_
 
-#include "DNLDB.h"
+#include "NajaObject.h"
 
-DNL::DNLDB* DNLSNLConstructor::construct(SNL::SNLDesign* top) {
-    DNL::DNLDB* db = DNL::DNLDB::create();
-    return db;
-}
+namespace naja { namespace SNL {
+
+class SNLObject: public NajaObject {
+  public:
+    using super = NajaObject;
+
+  protected:
+    static void preCreate();
+    void postCreate();
+    void preDestroy() override;
+};
+
+}} // namespace SNL // namespace naja
+
+#endif // __NAJA_OBJECT_H_

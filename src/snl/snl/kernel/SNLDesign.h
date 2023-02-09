@@ -31,11 +31,12 @@ class SNLLibrary;
 class SNLBitNet;
 class SNLScalarNet;
 class SNLBusNet;
+class SNLBusNetBit;
 class SNLBitTerm;
 class SNLScalarTerm;
 class SNLBusTerm;
 
-class SNLDesign final: public NajaObject {
+class SNLDesign final: public SNLObject {
   public:
     friend class SNLLibrary;
     friend class SNLScalarTerm;
@@ -44,7 +45,7 @@ class SNLDesign final: public NajaObject {
     friend class SNLScalarNet;
     friend class SNLBusNet;
     friend class SNLParameter;
-    using super = NajaObject;
+    using super = SNLObject;
 
     class Type {
       public:
@@ -113,6 +114,8 @@ class SNLDesign final: public NajaObject {
     SNLNet* getNet(const SNLName& netName) const;
     ///\return SNLScalarNet with SNLID::DesignObjectID id or nullptr if it does not exist
     SNLScalarNet* getScalarNet(SNLID::DesignObjectID id) const;
+    ///\return SNLBusNetBit with SNLID::DesignObjectID id and SNLID::Bit bit or nullptr if it does not exist
+    SNLBusNetBit* getBusNetBit(SNLID::DesignObjectID id, SNLID::Bit bit) const;
     ///\return SNLScalarNet with SNLName name or nullptr if it does not exist
     SNLScalarNet* getScalarNet(const SNLName& netName) const;
     ///\return SNLBusNet with SNLIS::DesignObjectID id or nullptr if it does not exist

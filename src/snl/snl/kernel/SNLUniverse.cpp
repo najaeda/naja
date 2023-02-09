@@ -18,6 +18,13 @@
 
 #include <iostream>
 #include "SNLDB0.h"
+#include "SNLScalarNet.h"
+#include "SNLBusNet.h"
+#include "SNLBusNetBit.h"
+#include "SNLScalarTerm.h"
+#include "SNLBusTerm.h"
+#include "SNLBusTermBit.h"
+#include "SNLInstTerm.h"
 #include "SNLException.h"
 
 namespace naja { namespace SNL {
@@ -104,6 +111,14 @@ SNLDB* SNLUniverse::getDB(SNLID::DBID id) const {
   return nullptr;
 }
 
+SNLLibrary* SNLUniverse::getLibrary(SNLID::DBID dbid, SNLID::LibraryID libraryID) const {
+  auto db = getDB(dbid);
+  if (db) {
+    return db->getLibrary(libraryID);
+  }
+  return nullptr;
+}
+
 SNLDesign* SNLUniverse::getDesign(const SNLID::DesignReference& reference) const {
   auto db = getDB(reference.dbID_);
   if (db) {
@@ -128,12 +143,90 @@ SNLNet* SNLUniverse::getNet(const SNLID::DesignObjectReference& reference) const
   return nullptr;
 }
 
+SNLBitNet* SNLUniverse::getBitNet(const SNLID::BitNetReference& reference) const {
+  auto design = getDesign(reference.getDesignReference());
+  if (design) {
+    if (reference.isBusBit_) {
+      return design->getBusNetBit(reference.designObjectID_, reference.bit_);
+    } else {
+      return design->getScalarNet(reference.designObjectID_);
+    }
+  }
+  return nullptr;
+}
+
 SNLInstance* SNLUniverse::getInstance(const SNLID::DesignObjectReference& reference) const {
   auto design = getDesign(reference.getDesignReference());
   if (design) {
     return design->getInstance(reference.designObjectID_);
   }
   return nullptr;
+}
+
+SNLInstTerm* SNLUniverse::getInstTerm(const SNLID& id) const {
+  auto instance = getInstance(SNLID::DesignObjectReference(id.dbID_, id.libraryID_, id.designID_, id.instanceID_));
+  if (instance) {
+    auto model = instance->getModel();
+    if (model) {
+      auto term = model->getTerm(id.designObjectID_);
+      if (term) {
+        if (auto scalarTerm = dynamic_cast<SNLScalarTerm*>(term)) {
+          return instance->getInstTerm(scalarTerm);
+        } else {
+          auto busTerm = static_cast<SNLBusTerm*>(term);
+          auto busTermBit = busTerm->getBit(id.bit_);
+          if (busTermBit) {
+            return instance->getInstTerm(busTermBit);
+          }
+        }
+      }
+    }
+  }
+  return nullptr;
+}
+
+SNLBusNetBit* SNLUniverse::getBusNetBit(const SNLID& id) const {
+  SNLNet* net = getNet(SNLID::DesignObjectReference(id.dbID_, id.libraryID_, id.designID_, id.designObjectID_));
+  if (net) {
+    if (auto busNet = dynamic_cast<SNLBusNet*>(net)) {
+      return busNet->getBit(id.bit_);
+    }
+  }
+  return nullptr;
+}
+
+SNLBusTermBit* SNLUniverse::getBusTermBit(const SNLID& id) const {
+  SNLTerm* term = getTerm(SNLID::DesignObjectReference(id.dbID_, id.libraryID_, id.designID_, id.designObjectID_));
+  if (term) {
+    if (auto busTerm = dynamic_cast<SNLBusTerm*>(term)) {
+      return busTerm->getBit(id.bit_);
+    }
+  }
+  return nullptr;
+}
+
+SNLObject* SNLUniverse::getObject(const SNLID& id) {
+  switch (id.type_) {
+    case SNLID::Type::DB:
+      return getDB(id.dbID_);
+    case SNLID::Type::Library:
+      return getLibrary(id.dbID_, id.libraryID_);
+    case SNLID::Type::Design:
+      return getDesign(SNLID::DesignReference(id.dbID_, id.libraryID_, id.designID_));
+    case SNLID::Type::Instance:
+      return getInstance(SNLID::DesignObjectReference(id.dbID_, id.libraryID_, id.designID_, id.instanceID_));
+    case SNLID::Type::Term:
+      return getTerm(SNLID::DesignObjectReference(id.dbID_, id.libraryID_, id.designID_, id.designObjectID_));
+    case SNLID::Type::TermBit:
+      return getBusTermBit(id);
+    case SNLID::Type::Net:
+      return getNet(SNLID::DesignObjectReference(id.dbID_, id.libraryID_, id.designID_, id.designObjectID_));
+    case SNLID::Type::NetBit:
+      return getBusNetBit(id);
+    case SNLID::Type::InstTerm:
+      return getInstTerm(id);
+  }
+  return nullptr; //LCOV_EXCL_LINE
 }
 
 NajaCollection<SNLDB*> SNLUniverse::getDBs() const {

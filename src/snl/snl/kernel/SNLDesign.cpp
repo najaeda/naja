@@ -417,6 +417,14 @@ SNLBusNet* SNLDesign::getBusNet(const SNLName& name) const {
   return dynamic_cast<SNLBusNet*>(getNet(name));
 }
 
+SNLBusNetBit* SNLDesign::getBusNetBit(SNLID::DesignObjectID id, SNLID::Bit bit) const {
+  auto bus = getBusNet(id);
+  if (bus) {
+    return bus->getBit(bit);
+  }
+  return nullptr;
+}
+
 NajaCollection<SNLNet*> SNLDesign::getNets() const {
   return NajaCollection(new NajaIntrusiveSetCollection(&nets_));
 }

@@ -40,6 +40,7 @@ TEST_F(SNLTermTest, testCreation) {
   EXPECT_EQ(SNLID(SNLID::Type::Term, 1, 0, 0, 0, 0, 0), term0->getSNLID());
   EXPECT_EQ(SNLID::DesignObjectReference(1, 0, 0, 0), term0->getReference());
   EXPECT_EQ(term0, SNLUniverse::get()->getTerm(SNLID::DesignObjectReference(1, 0, 0, 0)));
+  EXPECT_EQ(term0, SNLUniverse::get()->getObject(term0->getSNLID()));
   EXPECT_EQ(SNLTerm::Direction::InOut, term0->getDirection());
   EXPECT_EQ(design, term0->getDesign()); 
   EXPECT_EQ(-1, term0->getMSB());
@@ -61,9 +62,17 @@ TEST_F(SNLTermTest, testCreation) {
       term0->getBitAtPosition(2), term0->getBitAtPosition(3)));
   EXPECT_EQ(nullptr, term0->getBitAtPosition(4));
   EXPECT_EQ(SNLID(SNLID::Type::TermBit, 1, 0, 0, 0, 0, -1), term0->getBit(-1)->getSNLID());
+  EXPECT_EQ(term0->getBit(-1), SNLUniverse::get()->getBusTermBit(term0->getBit(-1)->getSNLID()));
+  EXPECT_EQ(term0->getBit(-1), SNLUniverse::get()->getObject(term0->getBit(-1)->getSNLID()));
   EXPECT_EQ(SNLID(SNLID::Type::TermBit, 1, 0, 0, 0, 0, -2), term0->getBit(-2)->getSNLID());
+  EXPECT_EQ(term0->getBit(-2), SNLUniverse::get()->getBusTermBit(term0->getBit(-2)->getSNLID()));
+  EXPECT_EQ(term0->getBit(-2), SNLUniverse::get()->getObject(term0->getBit(-2)->getSNLID()));
   EXPECT_EQ(SNLID(SNLID::Type::TermBit, 1, 0, 0, 0, 0, -3), term0->getBit(-3)->getSNLID());
+  EXPECT_EQ(term0->getBit(-3), SNLUniverse::get()->getBusTermBit(term0->getBit(-3)->getSNLID()));
+  EXPECT_EQ(term0->getBit(-3), SNLUniverse::get()->getObject(term0->getBit(-3)->getSNLID()));
   EXPECT_EQ(SNLID(SNLID::Type::TermBit, 1, 0, 0, 0, 0, -4), term0->getBit(-4)->getSNLID());
+  EXPECT_EQ(term0->getBit(-4), SNLUniverse::get()->getBusTermBit(term0->getBit(-4)->getSNLID()));
+  EXPECT_EQ(term0->getBit(-4), SNLUniverse::get()->getObject(term0->getBit(-4)->getSNLID()));
   EXPECT_EQ(0, term0->getFlatID());
   EXPECT_EQ(0, term0->getBit(-1)->getFlatID());
   EXPECT_EQ(1, term0->getBit(-2)->getFlatID());
@@ -74,8 +83,10 @@ TEST_F(SNLTermTest, testCreation) {
   EXPECT_EQ(2, term0->getBit(-3)->getPositionInBus());
   EXPECT_EQ(3, term0->getBit(-4)->getPositionInBus());
 
-  EXPECT_FALSE(term0->getBit(-5));
-  EXPECT_FALSE(term0->getBit(0));
+  EXPECT_EQ(nullptr, term0->getBit(-5));
+  EXPECT_EQ(nullptr, term0->getBit(0));
+  EXPECT_EQ(nullptr, SNLUniverse::get()->getBusTermBit(SNLID(SNLID::Type::TermBit, 1, 0, 0, 0, 0, -5)));
+  EXPECT_EQ(nullptr, SNLUniverse::get()->getObject(SNLID(SNLID::Type::TermBit, 1, 0, 0, 0, 0, -5)));
 
   EXPECT_THROW(term0->getBit(-4)->destroy(), SNLException);
 }
@@ -164,6 +175,7 @@ TEST_F(SNLTermTest, testSetNet1) {
   //1 bit bus SNLBusNet case
   net = SNLBusNet::create(design, 5, 5, SNLName("n0"));
   term0->setNet(net);
+  EXPECT_EQ(nullptr, term0->getNet());
   ASSERT_EQ(term0->getBit(-1)->getNet(), static_cast<SNLBusNet*>(net)->getBit(5));
   net->destroy();
   ASSERT_EQ(term0->getBit(-1)->getNet(), nullptr);

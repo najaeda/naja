@@ -122,10 +122,10 @@ void SNLBusTerm::postCreate() {
 }
 
 void SNLBusTerm::commonPreDestroy() {
+  super::preDestroy();
   for (SNLBusTermBit* bit: bits_) {
     bit->destroyFromBus();
   }
-  super::preDestroy();
 }
 
 void SNLBusTerm::destroyFromDesign() {
@@ -139,6 +139,13 @@ void SNLBusTerm::preDestroy() {
 }
 
 void SNLBusTerm::setNet(SNLNet* net) {
+  if (not net) {
+    //disconnect all
+    for (SNLBusTermBit* bit: bits_) {
+      bit->setNet(nullptr);
+    }
+    return;
+  }
   if (getDesign() not_eq net->getDesign()) {
     throw SNLException("setNet error: incompatible term and net");
   }
@@ -186,7 +193,12 @@ std::string SNLBusTerm::getString() const {
 
 //LCOV_EXCL_START
 std::string SNLBusTerm::getDescription() const {
-  return "<" + std::string(getTypeName()) + " " + name_.getString() + " " + design_->getName().getString() + ">";  
+  return "<"
+    + std::string(getTypeName())
+    + " " + name_.getString()
+    + " [" + std::to_string(getMSB()) + ":" + std::to_string(getLSB()) + "]"
+    + " " + direction_.getString()
+    + " " + design_->getName().getString() + ">";  
 }
 //LCOV_EXCL_STOP
 

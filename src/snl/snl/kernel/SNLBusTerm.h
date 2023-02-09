@@ -46,7 +46,8 @@ class SNLBusTerm final: public SNLTerm {
         SNLID::Bit lsb,
         const SNLName& name=SNLName());
 
-    void setNet(SNLNet* net);
+    SNLBitNet* getNet() const override { return nullptr; }
+    void setNet(SNLNet* net) override;
 
     SNLDesign* getDesign() const override { return design_; }
     

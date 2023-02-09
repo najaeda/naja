@@ -25,11 +25,11 @@ namespace naja { namespace SNL {
 
 class SNLDB;
 
-class SNLLibrary final: public NajaObject {
+class SNLLibrary final: public SNLObject {
   public:
     friend class SNLDB;
     friend class SNLDesign;
-    using super = NajaObject;
+    using super = SNLObject;
 
     class Type {
       public:
@@ -94,7 +94,8 @@ class SNLLibrary final: public NajaObject {
     static void preCreate(SNLDB* db, SNLID::LibraryID id, const Type type, const SNLName& name);
     static void preCreate(SNLLibrary* parent, Type type, const SNLName& name);
     static void preCreate(SNLLibrary* parent, SNLID::LibraryID id, Type type, const SNLName& name);
-    void destroyFromParent();
+    void destroyFromDB();
+    void destroyFromParentLibrary();
     void postCreate();
     void postCreateAndSetID();
     void commonPreDestroy();
@@ -105,7 +106,6 @@ class SNLLibrary final: public NajaObject {
     SNLLibrary(SNLLibrary* parent, Type type, const SNLName& name);
     SNLLibrary(SNLLibrary* parent, SNLID::LibraryID libraryID, Type type, const SNLName& name);
 
-    void addLibraryAndSetID(SNLLibrary* library);
     void addLibrary(SNLLibrary* library);
     void removeLibrary(SNLLibrary* library);
     void addDesignAndSetID(SNLDesign* design);
@@ -119,18 +119,19 @@ class SNLLibrary final: public NajaObject {
     using SNLDesignNameIDMap = std::map<SNLName, SNLID::DesignID>;
 
     SNLID::LibraryID                    id_;
-    SNLName                             name_             {};
-    Type                                type_             { Type::Standard };
-    void*                               parent_           { nullptr };
-    bool                                isRoot_           { false };
-    boost::intrusive::set_member_hook<> librariesHook_    {};
+    SNLName                             name_                 {};
+    Type                                type_                 { Type::Standard };
+    void*                               parent_               { nullptr };
+    bool                                isRoot_               { false };
+    boost::intrusive::set_member_hook<> dbLibrariesHook_      {};
+    boost::intrusive::set_member_hook<> libraryLibrariesHook_ {};
     using SNLLibraryLibrariesHook =
-      boost::intrusive::member_hook<SNLLibrary, boost::intrusive::set_member_hook<>, &SNLLibrary::librariesHook_>;
+      boost::intrusive::member_hook<SNLLibrary, boost::intrusive::set_member_hook<>, &SNLLibrary::libraryLibrariesHook_>;
     using SNLLibraryLibraries = boost::intrusive::set<SNLLibrary, SNLLibraryLibrariesHook>;
-    SNLLibraryLibraries                 libraries_        {}; 
-    SNLLibraryNameIDMap                 libraryNameIDMap_ {};
-    SNLLibraryDesigns                   designs_          {};
-    SNLDesignNameIDMap                  designNameIDMap_  {};
+    SNLLibraryLibraries                 libraries_            {}; 
+    SNLLibraryNameIDMap                 libraryNameIDMap_     {};
+    SNLLibraryDesigns                   designs_              {};
+    SNLDesignNameIDMap                  designNameIDMap_      {};
 };
 
 }} // namespace SNL // namespace naja

@@ -6,7 +6,18 @@
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 ***
 ## Introduction
-Naja is an umbrella repository containing mainly (for the moment) the SNL netlist data structure.
+Naja is an EDA (Electronic Design Automation) project aiming at offering open source data structures and APIs for the development of post logic synthesis EDA algorithms such as: netlist simplification (constant and dead logic propagation), logic replication, netlist partitioning, ASIC and FPGA place and route, …
+
+In most EDA flows, data exchange is done by using standard netlist formats (Verilog, LEF/DEF, EDIF, …) which were not designed to represent data structures content with high fidelity. To address this problem, Naja relies on [Cap'n Proto](https://github.com/capnproto/capnproto) open source interchange format.
+
+Naja also emphasizes EDA applications parallelization (targeting in particular cloud computing) by providing a robust object identification mechanism allowing to partition and merge data across the network.
+
+Naja contains mainly the SNL (Structured Netlist) API.
+### Acknowledgement
+[<img src="https://nlnet.nl/logo/banner.png" width=100>](https://nlnet.nl/project/Naja)
+[<img src="https://nlnet.nl/image/logos/NGI0Entrust_tag.svg" width=100>](https://nlnet.nl/project/Naja)
+
+This project is supported and funded by NLNet through the [NGI0 Entrust](https://nlnet.nl/entrust) Fund.
 
 ## Compilation
 ### Getting sources
@@ -30,25 +41,28 @@ Embedded dependencies:
 
 For convenience, google test (https://github.com/google/googletest) is provided through git submodule.
 
-### Building
+### SNL Interchange Format
+SNL relies on [Cap'n Proto](https://github.com/capnproto/capnproto) for data serialization and streaming. Schema files and C++ implementation can be found [here](https://github.com/xtofalex/naja/tree/main/src/snl/snl/serialization/capnp).
+
+### Building and Installing
 ```bash
 #First define an env variable that points to the directory where you want naja to be installed:
 export NAJA_INSTALL=<path_to_installation_dir>
 # Create a build dir and go inside it
 mkdir build
 cd build
-cmake <path_to_naja_sources_dir>
-#For instance: cmake ~/srcs/naja
+cmake <path_to_naja_sources_dir> -DCMAKE_INSTALL_PREFIX=$NAJA_INSTALL
+#For instance: cmake ~/srcs/naja -DCMAKE_INSTALL_PREFIX=$NAJA_INSTALL
 make
 make test
-make DESTDIR=$NAJA_INSTALL install
+make install
 ```
-### Building documentation
+### Building and Installing Documentation
 ```bash
 #make sure that doxygen was available when launching the cmake command
 cd build
 make docs
-make DESTDIR=$NAJA_INSTALL install
+make install
 ```
 Documentation will be installed in $NAJA_INSTALL/doc directory. Starting file to open in browser is: $NAJA_INSTALL/doc/html/index.html.
 ## Snippets
@@ -62,5 +76,3 @@ An application snippet can be found at:
 https://github.com/xtofalex/naja/blob/main/src/snl/snippets/app
 
 This "app" directory and its contents can be copied to start a new application.
-
-

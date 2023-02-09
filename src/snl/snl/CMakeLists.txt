@@ -1,7 +1,7 @@
 add_subdirectory(serialization)
 
 set(SNL_KERNEL_SOURCES
-  kernel/SNLID.cpp
+  kernel/SNLObject.cpp
   kernel/SNLUniverse.cpp kernel/SNLDB.cpp kernel/SNLDB0.cpp
   kernel/SNLLibrary.cpp
   kernel/SNLDesignObject.cpp
@@ -21,11 +21,12 @@ set(SNL_KERNEL_SOURCES
 set(SNL_KERNEL_HEADERS
   kernel/SNLName.h
   kernel/SNLID.h
+  kernel/SNLObject.h
   kernel/SNLUniverse.h kernel/SNLDB.h
   kernel/SNLLibrary.h kernel/SNLDesign.h
   kernel/SNLDesignObject.h
   kernel/SNLNet.h kernel/SNLBusNet.h
-  kernel/SNLBitNet.h kernel/SNLScalarNet.h kernel/SNLBusNetBit.cpp
+  kernel/SNLBitNet.h kernel/SNLScalarNet.h kernel/SNLBusNetBit.h
   kernel/SNLNetComponent.h
   kernel/SNLTerm.h kernel/SNLBitTerm.h 
   kernel/SNLBusTerm.h kernel/SNLScalarTerm.h

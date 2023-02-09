@@ -17,24 +17,23 @@
 #ifndef __SNL_DB_H_
 #define __SNL_DB_H_
 
-#include "NajaObject.h"
+#include "SNLObject.h"
 #include "SNLLibrary.h"
 
 namespace naja { namespace SNL {
 
 class SNLUniverse;
 
-class SNLDB final: public NajaObject {
+class SNLDB final: public SNLObject {
   public:
     friend class SNLUniverse;
     friend class SNLLibrary;
-    using super = NajaObject;
+    using super = SNLObject;
 
     using SNLDBLibrariesHook =
-      boost::intrusive::member_hook<SNLLibrary, boost::intrusive::set_member_hook<>, &SNLLibrary::librariesHook_>;
+      boost::intrusive::member_hook<SNLLibrary, boost::intrusive::set_member_hook<>, &SNLLibrary::dbLibrariesHook_>;
     using SNLDBLibraries = boost::intrusive::set<SNLLibrary, SNLDBLibrariesHook>;
 
-    SNLDB() = delete;
     SNLDB(const SNLDB&) = delete;
 
     static SNLDB* create(SNLUniverse* universe);
@@ -55,7 +54,10 @@ class SNLDB final: public NajaObject {
     SNLDesign* getTopDesign() const;
     void setTopDesign(SNLDesign* design);
 
+    ///\return the Libraries owned by this SNLDB
     NajaCollection<SNLLibrary*> getLibraries() const;
+    ///\return the all the Libraries owned (directly or indirectly) by this SNLDB
+    NajaCollection<SNLLibrary*> getGlobalLibraries() const;
 
     const char* getTypeName() const override;
     std::string getString() const override;
@@ -65,12 +67,12 @@ class SNLDB final: public NajaObject {
       return ldb.getSNLID() < rdb.getSNLID();
     }
   private:
-    SNLDB(SNLUniverse* universe);
-    SNLDB(SNLUniverse* universe, SNLID::DBID id);
+    SNLDB() = default;
+    SNLDB(SNLID::DBID id);
     static void preCreate(SNLUniverse* universe);
     static void preCreate(SNLUniverse* universe, SNLID::DBID id);
-    void postCreateAndSetID();
-    void postCreate();
+    void postCreateAndSetID(SNLUniverse* universe);
+    void postCreate(SNLUniverse* universe);
     void commonPreDrestroy();
     void preDestroy() override;
     void destroyFromUniverse();
@@ -79,7 +81,6 @@ class SNLDB final: public NajaObject {
     void addLibraryAndSetID(SNLLibrary* library);
     void removeLibrary(SNLLibrary* library);
 
-    SNLUniverse*                        universe_;
     SNLID::DBID                         id_;
     boost::intrusive::set_member_hook<> universeDBsHook_          {};
     SNLDBLibraries                      libraries_                {};

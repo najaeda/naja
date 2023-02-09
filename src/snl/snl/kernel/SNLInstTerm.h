@@ -35,12 +35,15 @@ class SNLInstTerm final: public SNLNetComponent {
     SNLID getSNLID() const override;
 
     bool isAnonymous() const override;
-    SNLTerm::Direction getDirection() const;
+    SNLTerm::Direction getDirection() const override;
     const char* getTypeName() const override;
     std::string getString() const override;
     std::string getDescription() const override;
     SNLInstance* getInstance() const { return instance_; }
     SNLBitTerm* getTerm() const { return term_; }
+
+    SNLBitNet* getNet() const override { return net_; }
+    void setNet(SNLNet* net) override;
 
     void destroy() override;
   private:
@@ -53,6 +56,7 @@ class SNLInstTerm final: public SNLNetComponent {
 
     SNLInstance*  instance_;
     SNLBitTerm*   term_;
+    SNLBitNet*    net_  { nullptr};
 };
 
 }} // namespace SNL // namespace naja

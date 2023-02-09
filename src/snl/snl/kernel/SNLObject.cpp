@@ -14,20 +14,20 @@
  * limitations under the License.
  */
 
-#ifndef __DNL_SNL_CONSTRUCTOR_H_
-#define __DNL_SNL_CONSTRUCTOR_H_
+#include "SNLObject.h"
 
-namespace DNL {
-    class DNLDB;
+namespace naja { namespace SNL {
+
+void SNLObject::preCreate() {
+  super::preCreate();
 }
 
-namespace SNL {
-    class SNLDesign;
+void SNLObject::postCreate() {
+  super::postCreate();
 }
 
-class DNLSNLConstructor {
-  public:
-    static DNL::DNLDB* construct(SNL::SNLDesign* top);
-};
+void SNLObject::preDestroy() {
+  super::preDestroy();
+}
 
-#endif /* __DNL_SNL_CONSTRUCTOR_H_ */
+}} // namespace SNL // namespace naja

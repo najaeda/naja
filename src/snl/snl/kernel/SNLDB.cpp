@@ -26,26 +26,21 @@
 
 namespace naja { namespace SNL {
 
-SNLDB::SNLDB(SNLUniverse* universe):
-  universe_(universe)
-{}
-
-SNLDB::SNLDB(SNLUniverse* universe, SNLID::DBID id):
-  universe_(universe),
+SNLDB::SNLDB(SNLID::DBID id):
   id_(id)
 {}
 
 SNLDB* SNLDB::create(SNLUniverse* universe) {
   preCreate(universe);
-  SNLDB* db = new SNLDB(universe);
-  db->postCreateAndSetID();
+  SNLDB* db = new SNLDB();
+  db->postCreateAndSetID(universe);
   return db;
 }
 
 SNLDB* SNLDB::create(SNLUniverse* universe, SNLID::DBID id) {
   preCreate(universe, id);
-  SNLDB* db = new SNLDB(universe, id);
-  db->postCreate();
+  SNLDB* db = new SNLDB(id);
+  db->postCreate(universe);
   return db;
 }
 
@@ -63,14 +58,14 @@ void SNLDB::preCreate(SNLUniverse* universe, SNLID::DBID id) {
   }
 }
 
-void SNLDB::postCreateAndSetID() {
+void SNLDB::postCreateAndSetID(SNLUniverse* universe) {
   super::postCreate();
-  universe_->addDBAndSetID(this);
+  universe->addDBAndSetID(this);
 }
 
-void SNLDB::postCreate() {
+void SNLDB::postCreate(SNLUniverse* universe) {
   super::postCreate();
-  universe_->addDB(this);
+  universe->addDB(this);
 }
 
 void SNLDB::commonPreDrestroy() {
@@ -79,20 +74,27 @@ void SNLDB::commonPreDrestroy() {
 #endif
   struct destroyLibraryFromDB {
     void operator()(SNL::SNLLibrary* library) {
-      library->destroyFromParent();
+      library->destroyFromDB();
     }
   };
   //First delete standard primitives
   //collect standard libraries
-  using StandardLibraries = std::list<SNLLibrary*>;
-  StandardLibraries standardLibraries;
+  using Libraries = std::list<SNLLibrary*>;
+  Libraries nonRootLibraries;
+  Libraries standardRootLibraries;
   for (auto it = libraries_.begin(); it!=libraries_.end(); ++it) {
     SNLLibrary* library = &*it;
-    if (library->isStandard()) {
-      standardLibraries.push_back(library);
-    }
+    //destroy first root and standard library 
+    if (not library->isRoot()) {
+      nonRootLibraries.push_back(library);
+    } else if (library->isStandard()) {
+      standardRootLibraries.push_back(library);
+    } 
   }
-  for (auto library: standardLibraries) {
+  for (auto library: nonRootLibraries) {
+    libraries_.erase(*library);
+  }
+  for (auto library: standardRootLibraries) {
     libraries_.erase_and_dispose(*library, destroyLibraryFromDB());
   }
 
@@ -159,8 +161,13 @@ SNLDesign* SNLDB::getDesign(const SNLID::DBDesignReference& designReference) con
   return nullptr;
 }
 
-NajaCollection<SNLLibrary*> SNLDB::getLibraries() const {
+NajaCollection<SNLLibrary*> SNLDB::getGlobalLibraries() const {
   return NajaCollection(new NajaIntrusiveSetCollection(&libraries_));
+}
+
+NajaCollection<SNLLibrary*> SNLDB::getLibraries() const {
+  auto filter = [](const SNLLibrary* l) { return l->isRoot(); };
+  return getGlobalLibraries().getSubCollection(filter);
 }
 
 SNLID SNLDB::getSNLID() const {

@@ -22,6 +22,21 @@
 
 namespace naja { namespace SNL {
 
+SNLNetComponent::Direction::Direction(const DirectionEnum& dirEnum):
+  dirEnum_(dirEnum) 
+{}
+
+//LCOV_EXCL_START
+std::string SNLNetComponent::Direction::getString() const {
+  switch (dirEnum_) {
+    case Direction::Input: return "Input";
+    case Direction::Output: return "Output";
+    case Direction::InOut: return "InOut";
+  }
+  return "Unknown";
+}
+//LCOV_EXCL_STOP
+
 void SNLNetComponent::preCreate() {
   super::preCreate();
 }
@@ -33,24 +48,6 @@ void SNLNetComponent::postCreate() {
 void SNLNetComponent::preDestroy() {
   setNet(nullptr);
   super::preDestroy();
-}
-
-void SNLNetComponent::setNet(SNLBitNet* net) {
-  if (net and net->getDesign() not_eq getDesign()) {
-    std::string reason = "Impossible setNet call with incompatible designs: ";
-    reason += getString() + " is in " + getDesign()->getString() + " while ";
-    reason += net->getString() + " is in " + net->getDesign()->getString();
-    throw SNLException(reason);
-  }
-  if (net_ not_eq net) {
-    if (net_) {
-      net_->removeComponent(this);
-    }
-    net_ = net;
-    if (net_) {
-      net->addComponent(this);
-    }
-  }
 }
 
 }} // namespace SNL // namespace naja

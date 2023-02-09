@@ -23,15 +23,32 @@
 
 namespace naja { namespace SNL {
 
+class SNLNet;
 class SNLBitNet;
 
 class SNLNetComponent: public SNLDesignObject {
   public:
     friend class SNLBitNet;
     using super = SNLDesignObject;
+ 
+    class Direction {
+      public:
+        enum DirectionEnum {
+          Input, Output, InOut
+        };
+        Direction(const DirectionEnum& dirEnum);
+        Direction(const Direction& direction) = default;
+        operator const DirectionEnum&() const {return dirEnum_;}
+        std::string getString() const;
+        private:
+          DirectionEnum dirEnum_;
+    };
 
-    SNLBitNet* getNet() const { return net_; }
-    void setNet(SNLBitNet* net);
+    ///\return this SNLNetComponent Direction.
+    virtual Direction getDirection() const = 0;
+
+    virtual SNLBitNet* getNet() const =0;
+    virtual void setNet(SNLNet* net) =0;
 
   protected:
     SNLNetComponent() = default;
@@ -41,7 +58,6 @@ class SNLNetComponent: public SNLDesignObject {
     void preDestroy() override;
 
   private:
-    SNLBitNet*  net_                                        { nullptr };
     boost::intrusive::set_member_hook<> netComponentsHook_  {};
 };
 

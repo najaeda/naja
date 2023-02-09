@@ -22,6 +22,8 @@
 #include "SNLException.h"
 #include "SNLDesign.h"
 #include "SNLBitTerm.h"
+#include "SNLBitNet.h"
+#include "SNLNetComponentMacros.h"
 
 namespace naja { namespace SNL {
 
@@ -73,6 +75,8 @@ SNLTerm::Direction SNLInstTerm::getDirection() const {
   return getTerm()->getDirection();
 }
 
+NET_COMPONENT_SET_NET(SNLInstTerm)
+
 bool SNLInstTerm::isAnonymous() const {
   return getTerm()->isAnonymous();
 }
@@ -101,11 +105,11 @@ std::string SNLInstTerm::getDescription() const {
   std::ostringstream str;
   str << "<" << getTypeName();
   if (not getInstance()->isAnonymous()) {
-    str << getInstance()->getName().getString();
+    str << " " << getInstance()->getName().getString();
   }
   str << " " << getInstance()->getID();
   if (not getTerm()->isAnonymous()) {
-    str << " " << getTerm()->getName().getString();
+    str << " " << getTerm()->getString();
   }
   str << " " << getTerm()->getID();
   str << ">";
