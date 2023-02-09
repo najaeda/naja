@@ -155,22 +155,23 @@ void SNLVRLConstructor::addInstanceConnection(
       if (not expression.supported_) {
         //error
       }
-      switch (expression.type_) {
+      switch (expression.value_.index()) {
         case naja::verilog::Expression::Type::IDENTIFIER: {
-          std::string name = expression.identifier_.name_;
+          auto identifier = std::get<naja::verilog::Identifier>(expression.value_);
+          std::string name = identifier.name_;
           SNLNet* net = currentInstance_->getDesign()->getNet(SNLName(name));
           if (not net) {
             //error
           }
-          if (expression.identifier_.range_.valid_) {
+          if (identifier.range_.valid_) {
             SNLBusNet* busNet = dynamic_cast<SNLBusNet*>(net);
             if (not busNet) {
               //error
             }
-            int msb = expression.identifier_.range_.msb_;
+            int msb = identifier.range_.msb_;
             int lsb = msb;
-            if (not expression.identifier_.range_.singleValue_) {
-              lsb = expression.identifier_.range_.lsb_;
+            if (not identifier.range_.singleValue_) {
+              lsb = identifier.range_.lsb_;
             }
             currentInstance_->setTermNet(term, lsb, msb, net, lsb, msb);
           }
