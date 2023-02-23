@@ -38,7 +38,7 @@ if(ENABLE_SANITIZERS)
 endif(ENABLE_SANITIZERS)
 
 find_package(Boost REQUIRED)
-find_package(Python3 COMPONENTS Development)
+find_package(Python3 COMPONENTS Development Interpreter)
 find_package(CapnProto CONFIG REQUIRED)
 
 add_subdirectory(thirdparty)
