@@ -33,6 +33,7 @@ if(ENABLE_SANITIZERS)
   )
   target_link_options(sanitizers_config INTERFACE
     -fsanitize=address
+    -shared-libasan
     #-fsanitize=thread
   )
 endif(ENABLE_SANITIZERS)
