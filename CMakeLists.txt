@@ -33,13 +33,15 @@ if(ENABLE_SANITIZERS)
   )
   target_link_options(sanitizers_config INTERFACE
     -fsanitize=address
-    -shared-libasan
     #-fsanitize=thread
   )
 endif(ENABLE_SANITIZERS)
 
 find_package(Boost REQUIRED)
-find_package(Python3 COMPONENTS Development Interpreter)
+option(PYTHON_INTERFACE "Build with Python Interface" ON)
+if(PYTHON_INTERFACE)
+  find_package(Python3 COMPONENTS Development Interpreter)
+endif(PYTHON_INTERFACE)
 find_package(CapnProto CONFIG REQUIRED)
 
 add_subdirectory(thirdparty)
