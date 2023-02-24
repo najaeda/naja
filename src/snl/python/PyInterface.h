@@ -145,6 +145,15 @@ static void setError(const std::string& reason) {
     return (PyObject*)pyObject;                                                \
   }
 
+#define GetNameMethod(SELF_TYPE, SELF) \
+  static PyObject* PySNLLibrary_getName(Py##SELF_TYPE* self) { \
+    METHOD_HEAD("SELF_TYPE.getName()") \
+    SNLTRY \
+    return PyUnicode_FromString(SELF->getName().getString().c_str()); \
+    SNLCATCH \
+    return nullptr; \
+  }
+
 #define PyTypeObjectLinkPyType(SELF_TYPE) \
   PyTypeObjectLinkPyTypeWithClass(SELF_TYPE,SELF_TYPE)
 

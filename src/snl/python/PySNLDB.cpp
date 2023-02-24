@@ -45,8 +45,8 @@ static PyObject* PySNLDB_create(PyObject*, PyObject* args) {
   return PySNLDB_Link(db);
 }
 
-static PyObject* PySNLDB_getLibrary(PySNLLibrary* self, PyObject* arg) {
-  METHOD_HEAD("SNLLibrary.getLibrary()")
+static PyObject* PySNLDB_getLibrary(PySNLDB* self, PyObject* arg) {
+  METHOD_HEAD("SNLDB.getLibrary()")
   SNLLibrary* subLibrary = NULL;
 
   if (PyUnicode_Check(arg)) {

@@ -24,6 +24,8 @@ namespace PYSNL {
 
 using namespace naja::SNL;
 
+#define METHOD_HEAD(function) GENERIC_METHOD_HEAD(SNLLibrary, library, function)
+
 static PyObject* PySNLLibrary_create(PyObject*, PyObject* args) {
   PyObject* arg0 = nullptr;
   const char* arg1 = nullptr;
@@ -50,9 +52,13 @@ static PyObject* PySNLLibrary_create(PyObject*, PyObject* args) {
   return PySNLLibrary_Link(lib);
 }
 
+GetNameMethod(SNLLibrary, library)
+
 PyMethodDef PySNLLibrary_Methods[] = {
   { "create", (PyCFunction)PySNLLibrary_create, METH_VARARGS|METH_STATIC,
     "SNLLibrary creator"},
+  { "getName", (PyCFunction)PySNLLibrary_getName, METH_NOARGS,
+    "get SNLLibrary name"},
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 
