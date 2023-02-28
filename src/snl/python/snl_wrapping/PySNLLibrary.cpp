@@ -30,7 +30,7 @@ static PyObject* PySNLLibrary_create(PyObject*, PyObject* args) {
   PyObject* arg0 = nullptr;
   const char* arg1 = nullptr;
   if (not PyArg_ParseTuple(args, "O|s:SNLLibrary.create", &arg0, &arg1)) {
-    setError("malformed SNLDB create");
+    setError("malformed SNLLibrary create");
     return nullptr;
   }
   SNLName name;
