@@ -33,7 +33,8 @@ using namespace naja::SNL;
 static PyObject* PySNLScalarTerm_create(PyObject*, PyObject* args) {
   PyObject* arg0 = nullptr;
   const char* arg1 = nullptr;
-  if (not PyArg_ParseTuple(args, "O|s:SNLDB.create", &arg0, &arg1)) {
+  int intDir = 0;
+  if (not PyArg_ParseTuple(args, "Oi|s:SNLDB.create", &arg0, &intDir, &arg1)) {
     setError("malformed SNLScalarTerm create method");
     return nullptr;
   }
@@ -42,16 +43,18 @@ static PyObject* PySNLScalarTerm_create(PyObject*, PyObject* args) {
     name = SNLName(arg1);
   }
 
-  SNLScalarTerm* design = nullptr;
+  SNLTerm::Direction direction = SNLNetComponent::Direction::DirectionEnum(intDir);
+
+  SNLScalarTerm* term = nullptr;
   SNLTRY
   if (IsPySNLDesign(arg0)) {
-    design = SNLScalarTerm::create(PYSNLDesign_O(arg0), SNLTerm::Direction::Input, name);
+    term = SNLScalarTerm::create(PYSNLDesign_O(arg0), direction, name);
   } else {
     setError("SNLScalarTerm create accepts SNLDesign as first argument");
     return nullptr;
   }
   SNLCATCH
-  return PySNLScalarTerm_Link(design);
+  return PySNLScalarTerm_Link(term);
 }
 
 PyMethodDef PySNLScalarTerm_Methods[] = {

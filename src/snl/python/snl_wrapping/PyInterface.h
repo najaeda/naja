@@ -128,7 +128,7 @@ static void setError(const std::string& reason) {
   DirectHashMethod(Py##PY_SELF_TYPE##_Hash, Py##SELF_TYPE)                        \
   extern void  Py##PY_SELF_TYPE##_LinkPyType() {                                  \
     PyType##PY_SELF_TYPE.tp_dealloc = (destructor) Py##PY_SELF_TYPE##_DeAlloc;    \
-    /*PyType##PY_SELF_TYPE.tp_compare = (cmpfunc)    Py##PY_SELF_TYPE##_Cmp;*/    \
+    PyType##PY_SELF_TYPE.tp_richcompare = (richcmpfunc) Py##PY_SELF_TYPE##_Cmp;   \
     PyType##PY_SELF_TYPE.tp_repr    = (reprfunc)   Py##PY_SELF_TYPE##_Repr;       \
     PyType##PY_SELF_TYPE.tp_str     = (reprfunc)   Py##PY_SELF_TYPE##_Str;        \
     PyType##PY_SELF_TYPE.tp_hash    = (hashfunc)   Py##PY_SELF_TYPE##_Hash;       \
@@ -156,6 +156,11 @@ static void setError(const std::string& reason) {
 
 #define PyTypeObjectLinkPyType(SELF_TYPE) \
   PyTypeObjectLinkPyTypeWithClass(SELF_TYPE,SELF_TYPE)
+
+#define LoadObjectConstant(DICTIONARY, CONSTANT_VALUE, CONSTANT_NAME)  \
+ constant = PyLong_FromLong((long)CONSTANT_VALUE);                  \
+ PyDict_SetItemString(DICTIONARY, CONSTANT_NAME, constant);         \
+ Py_DECREF(constant);
 
 #define PYTYPE_READY(TYPE)                                        \
   if (PyType_Ready(&PyType##TYPE) < 0) {                          \

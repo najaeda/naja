@@ -21,6 +21,7 @@
 #include "PySNLBusNet.h"
 #include "PySNLScalarNet.h"
 #include "PySNLBusNetBit.h"
+#include "PySNLTermDirection.h"
 #include "PySNLScalarTerm.h"
 #include "PySNLBusTermBit.h"
 #include "PySNLBusTerm.h"
@@ -53,6 +54,7 @@ PyMODINIT_FUNC PyInit_snl(void) {
   PySNLBusNetBit_LinkPyType();
   PySNLNetComponent_LinkPyType ();
   PySNLTerm_LinkPyType();
+  PySNLTermDirection_LinkPyType();
   PySNLBusTerm_LinkPyType();
   PySNLBitTerm_LinkPyType();
   PySNLScalarTerm_LinkPyType();
@@ -64,6 +66,7 @@ PyMODINIT_FUNC PyInit_snl(void) {
   PYTYPE_READY(SNLLibrary);
   PYTYPE_READY(SNLDesign);
   PYTYPE_READY(SNLDesignObject);
+  PYTYPE_READY(SNLTermDirection);
   PYTYPE_READY_SUB(SNLNet, SNLDesignObject);
   PYTYPE_READY_SUB(SNLBusNet, SNLNet);
   PYTYPE_READY_SUB(SNLBitNet, SNLNet);

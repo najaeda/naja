@@ -14,32 +14,41 @@
  * limitations under the License.
  */
 
-#include "PySNLTerm.h"
-
 #include "PySNLTermDirection.h"
-#include "PySNLDesign.h"
-
-namespace {
-
-#if 0
-naja::SNL::SNLTerm::Direction PyInt_AsDirection(PyObject* object) {
-  switch(PyAny_AsLong(object)) {
-    case naja::SNL::SNLTerm::Direction::Input: return naja:: Net::Direction::UNDEFINED      : return ( Net::Direction(Net::Direction::UNDEFINED) );
-      //case Net::Direction::IN             : return ( Net::Direction(Net::Direction::IN) );
-      //case Net::Direction::OUT            : return ( Net::Direction(Net::Direction::OUT) );
-      //case Net::Direction::INOUT          : return ( Net::Direction(Net::Direction::INOUT) );
-      //case Net::Direction::TRISTATE       : return ( Net::Direction(Net::Direction::TRISTATE) );
-  }
-
-    return ( Net::Direction(Net::Direction::UNDEFINED) );
-  }
-}
-#endif
-}
 
 namespace PYSNL {
 
 using namespace naja::SNL;
+
+PyMethodDef PySNLTermDirection_Methods[] = {
+  {NULL, NULL, 0, NULL}           /* sentinel */
+};
+
+PyTypeObjectDefinitions(SNLTermDirection)
+
+extern void PySNLTermDirection_postModuleInit() {
+  PyObject* constant;
+  LoadObjectConstant(PyTypeSNLTermDirection.tp_dict, SNLTerm::Direction::Input,   "Input");
+  LoadObjectConstant(PyTypeSNLTermDirection.tp_dict, SNLTerm::Direction::Output,  "Output");
+  LoadObjectConstant(PyTypeSNLTermDirection.tp_dict, SNLTerm::Direction::InOut,   "InOut");
+}
+
+//PyTypeObjectLinkPyType(SNLTermDirection)
+
+#if 0
+extern void PySNLTermDirection_LinkPyType() {
+  PyTypeSNLTermDirection.tp_dealloc     = (destructor) PyNetDirection_DeAlloc;
+  PyTypeSNLTermDirection.tp_richcompare = (richcmpfunc)PyNetDirection_Cmp;
+  PyTypeSNLTermDirection.tp_repr        = (reprfunc)   PyNetDirection_Repr;
+  PyTypeSNLTermDirection.tp_str         = (reprfunc)   PyNetDirection_Str;
+  PyTypeSNLTermDirection.tp_hash        = (hashfunc)   PyNetDirection_Hash;
+  PyTypeSNLTermDirection.tp_methods     = PyNetDirection_Methods;
+}
+#endif
+
+
+
+#if 0
 
 #undef   ACCESS_OBJECT
 #undef   ACCESS_CLASS
@@ -58,9 +67,6 @@ DBoLinkCreateMethod(SNLTerm)
 PyTypeObjectLinkPyType(SNLTerm)
 PyTypeInheritedObjectDefinitions(SNLTerm, SNLNetComponent)
 
-extern void PySNLTerm_postModuleInit() {
-  PySNLTermDirection_postModuleInit();
-  PyDict_SetItemString(PyTypeSNLTerm.tp_dict, "Direction", (PyObject*)&PyTypeSNLTermDirection);
-}
+#endif
 
 }
