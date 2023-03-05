@@ -34,20 +34,22 @@ static PyObject* PySNLBusTerm_create(PyObject*, PyObject* args) {
   PyObject* arg0 = nullptr;
   int arg1 = 0;
   int arg2 = 0;
-  const char* arg3 = nullptr;
-  if (not PyArg_ParseTuple(args, "Oii|s:SNLDB.create", &arg0, &arg1, &arg2, &arg3)) {
+  int arg3 = 0;
+  const char* arg4 = nullptr;
+  if (not PyArg_ParseTuple(args, "Oiii|s:SNLDB.create", &arg0, &arg1, &arg2, &arg3, &arg4)) {
     setError("malformed SNLBusTerm create method");
     return nullptr;
   }
+  SNLTerm::Direction direction = SNLNetComponent::Direction::DirectionEnum(arg1);
   SNLName name;
-  if (arg3) {
-    name = SNLName(arg3);
+  if (arg4) {
+    name = SNLName(arg4);
   }
 
   SNLBusTerm* term = nullptr;
   SNLTRY
   if (IsPySNLDesign(arg0)) {
-    term = SNLBusTerm::create(PYSNLDesign_O(arg0), SNLTerm::Direction::Input, arg1, arg2, name);
+    term = SNLBusTerm::create(PYSNLDesign_O(arg0), direction, arg2, arg3, name);
   } else {
     setError("SNLBusTerm create accepts SNLDesign as first argument");
     return nullptr;
@@ -58,6 +60,7 @@ static PyObject* PySNLBusTerm_create(PyObject*, PyObject* args) {
 
 DirectGetIntMethod(PySNLBusTerm_getMSB, getMSB, PySNLBusTerm, SNLBusTerm)
 DirectGetIntMethod(PySNLBusTerm_getLSB, getLSB, PySNLBusTerm, SNLBusTerm)
+DirectGetIntMethod(PySNLBusTerm_getSize, getSize, PySNLBusTerm, SNLBusTerm)
 
 PyMethodDef PySNLBusTerm_Methods[] = {
   { "create", (PyCFunction)PySNLBusTerm_create, METH_VARARGS|METH_STATIC,
@@ -66,6 +69,8 @@ PyMethodDef PySNLBusTerm_Methods[] = {
     "get SNLBusTerm MSB value"},
   { "getLSB", (PyCFunction)PySNLBusTerm_getLSB, METH_NOARGS,
     "get SNLBusTerm LSB value"},
+  { "getSize", (PyCFunction)PySNLBusTerm_getSize, METH_NOARGS,
+    "get SNLBusTerm Size"},
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 
