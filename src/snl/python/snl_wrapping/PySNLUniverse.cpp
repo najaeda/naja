@@ -50,7 +50,7 @@ PyMethodDef PySNLUniverse_Methods[] = {
 DBoDeallocMethod(SNLUniverse)
 
 DBoLinkCreateMethod(SNLUniverse)
-PyTypeObjectLinkPyType(SNLUniverse)
+PyTypeSNLObjectWithoutSNLIDLinkPyType(SNLUniverse)
 PyTypeObjectDefinitions(SNLUniverse)
 
 }

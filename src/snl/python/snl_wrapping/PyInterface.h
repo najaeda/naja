@@ -32,6 +32,17 @@ static void setError(const std::string& reason) {
   PyErr_SetString(PyExc_RuntimeError, reason.c_str());
 }
 
+template <typename T>
+PyObject* richCompare(T left, T right, int op) {
+  if ((op == Py_LT) and (left <  right)) Py_RETURN_TRUE;
+  if ((op == Py_LE) and (left <= right)) Py_RETURN_TRUE;
+  if ((op == Py_EQ) and (left == right)) Py_RETURN_TRUE;
+  if ((op == Py_NE) and (left != right)) Py_RETURN_TRUE;
+  if ((op == Py_GT) and (left >  right)) Py_RETURN_TRUE;
+  if ((op == Py_GE) and (left >= right)) Py_RETURN_TRUE;
+  Py_RETURN_FALSE; 
+}
+
 }
 
 // This macro must be redefined in derived classes.
@@ -82,17 +93,24 @@ static void setError(const std::string& reason) {
     return PyUnicode_FromString(object->getString().c_str() );                    \
   }
 
-#define DirectCmpMethod(PY_FUNC_NAME,IS_PY_OBJECT,PY_SELF_TYPE)               \
-  static int PY_FUNC_NAME(PY_SELF_TYPE *self, PyObject* other) {              \
-    if (!IS_PY_OBJECT(other)) { return -1; }                                  \
-                                                                              \
-    PY_SELF_TYPE* otherPyObject = (PY_SELF_TYPE*)other;                       \
-    if (self->ACCESS_OBJECT == otherPyObject->ACCESS_OBJECT) return 0;        \
-    if (self->ACCESS_OBJECT < otherPyObject->ACCESS_OBJECT) return -1;        \
-                                                                              \
-    return 1;                                                                 \
+#define DirectCmpBySNLIDMethod(PY_FUNC_NAME, IS_PY_OBJECT, PY_SELF_TYPE) \
+  static PyObject* PY_FUNC_NAME(PY_SELF_TYPE* self, PyObject* other, int op) { \
+    if (not IS_PY_OBJECT(other)) Py_RETURN_FALSE; \
+    PY_SELF_TYPE* otherPyObject = (PY_SELF_TYPE*)other; \
+    auto id = self->ACCESS_OBJECT->getSNLID(); \
+    auto otherID = otherPyObject->ACCESS_OBJECT->getSNLID(); \
+    return richCompare(id, otherID, op); \
   }
 
+#define DirectCmpByPtrMethod(PY_FUNC_NAME, IS_PY_OBJECT, PY_SELF_TYPE) \
+  static PyObject* PY_FUNC_NAME(PY_SELF_TYPE* self, PyObject* other, int op) { \
+    if (not IS_PY_OBJECT(other)) Py_RETURN_FALSE; \
+    PY_SELF_TYPE* otherPyObject = (PY_SELF_TYPE*)other; \
+    auto selfObject = self->ACCESS_OBJECT; \
+    auto otherObject = otherPyObject->ACCESS_OBJECT; \
+    return richCompare(selfObject, otherObject, op); \
+  }
+     
 #define DirectHashMethod(PY_FUNC_NAME,PY_SELF_TYPE)                          \
   static int PY_FUNC_NAME(PY_SELF_TYPE *self) {                              \
     return (long)self->ACCESS_OBJECT;                                        \
@@ -120,18 +138,32 @@ static void setError(const std::string& reason) {
     PyObject_DEL(self);                                                  \
   }
 
-#define PyTypeObjectLinkPyTypeWithClass(PY_SELF_TYPE,SELF_TYPE)                   \
-  DirectReprMethod(Py##PY_SELF_TYPE##_Repr, Py##PY_SELF_TYPE,   SELF_TYPE)        \
-  DirectStrMethod (Py##PY_SELF_TYPE##_Str,  Py##PY_SELF_TYPE,   SELF_TYPE)        \
-  DirectCmpMethod (Py##PY_SELF_TYPE##_Cmp,  IsPy##PY_SELF_TYPE, Py##PY_SELF_TYPE) \
-  DirectHashMethod(Py##PY_SELF_TYPE##_Hash, Py##SELF_TYPE)                        \
-  extern void  Py##PY_SELF_TYPE##_LinkPyType() {                                  \
-    PyType##PY_SELF_TYPE.tp_dealloc = (destructor) Py##PY_SELF_TYPE##_DeAlloc;    \
-    PyType##PY_SELF_TYPE.tp_richcompare = (richcmpfunc) Py##PY_SELF_TYPE##_Cmp;   \
-    PyType##PY_SELF_TYPE.tp_repr    = (reprfunc)   Py##PY_SELF_TYPE##_Repr;       \
-    PyType##PY_SELF_TYPE.tp_str     = (reprfunc)   Py##PY_SELF_TYPE##_Str;        \
-    PyType##PY_SELF_TYPE.tp_hash    = (hashfunc)   Py##PY_SELF_TYPE##_Hash;       \
-    PyType##PY_SELF_TYPE.tp_methods = Py##PY_SELF_TYPE##_Methods;                 \
+#define PyTypeSNLObjectWithSNLIDLinkPyType(SELF_TYPE) \
+  DirectReprMethod(Py##SELF_TYPE##_Repr, Py##SELF_TYPE,   SELF_TYPE)        \
+  DirectStrMethod (Py##SELF_TYPE##_Str,  Py##SELF_TYPE,   SELF_TYPE)        \
+  DirectCmpBySNLIDMethod (Py##SELF_TYPE##_Cmp,  IsPy##SELF_TYPE, Py##SELF_TYPE) \
+  DirectHashMethod(Py##SELF_TYPE##_Hash, Py##SELF_TYPE)                        \
+  extern void  Py##SELF_TYPE##_LinkPyType() {                                  \
+    PyType##SELF_TYPE.tp_dealloc = (destructor) Py##SELF_TYPE##_DeAlloc;    \
+    PyType##SELF_TYPE.tp_richcompare = (richcmpfunc) Py##SELF_TYPE##_Cmp;   \
+    PyType##SELF_TYPE.tp_repr    = (reprfunc)   Py##SELF_TYPE##_Repr;       \
+    PyType##SELF_TYPE.tp_str     = (reprfunc)   Py##SELF_TYPE##_Str;        \
+    PyType##SELF_TYPE.tp_hash    = (hashfunc)   Py##SELF_TYPE##_Hash;       \
+    PyType##SELF_TYPE.tp_methods = Py##SELF_TYPE##_Methods;                 \
+  }
+
+#define PyTypeSNLObjectWithoutSNLIDLinkPyType(SELF_TYPE) \
+  DirectReprMethod(Py##SELF_TYPE##_Repr, Py##SELF_TYPE,   SELF_TYPE)        \
+  DirectStrMethod (Py##SELF_TYPE##_Str,  Py##SELF_TYPE,   SELF_TYPE)        \
+  DirectCmpByPtrMethod (Py##SELF_TYPE##_Cmp,  IsPy##SELF_TYPE, Py##SELF_TYPE) \
+  DirectHashMethod(Py##SELF_TYPE##_Hash, Py##SELF_TYPE)                        \
+  extern void  Py##SELF_TYPE##_LinkPyType() {                                  \
+    PyType##SELF_TYPE.tp_dealloc = (destructor) Py##SELF_TYPE##_DeAlloc;    \
+    PyType##SELF_TYPE.tp_richcompare = (richcmpfunc) Py##SELF_TYPE##_Cmp;   \
+    PyType##SELF_TYPE.tp_repr    = (reprfunc)   Py##SELF_TYPE##_Repr;       \
+    PyType##SELF_TYPE.tp_str     = (reprfunc)   Py##SELF_TYPE##_Str;        \
+    PyType##SELF_TYPE.tp_hash    = (hashfunc)   Py##SELF_TYPE##_Hash;       \
+    PyType##SELF_TYPE.tp_methods = Py##SELF_TYPE##_Methods;                 \
   }
 
 #define DBoLinkCreateMethod(SELF_TYPE)                                         \
@@ -152,9 +184,6 @@ static void setError(const std::string& reason) {
     SNLCATCH \
     return nullptr; \
   }
-
-#define PyTypeObjectLinkPyType(SELF_TYPE) \
-  PyTypeObjectLinkPyTypeWithClass(SELF_TYPE,SELF_TYPE)
 
 #define LoadObjectConstant(DICTIONARY, CONSTANT_VALUE, CONSTANT_NAME)  \
  constant = PyLong_FromLong((long)CONSTANT_VALUE);                  \

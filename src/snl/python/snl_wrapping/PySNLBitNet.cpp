@@ -34,7 +34,7 @@ DBoDestroyAttribute(PySNLBitNet_destroy, PySNLBitNet)
 DBoDeallocMethod(SNLBitNet)
 
 DBoLinkCreateMethod(SNLBitNet)
-PyTypeObjectLinkPyType(SNLBitNet)
+PyTypeSNLObjectWithSNLIDLinkPyType(SNLBitNet)
 PyTypeInheritedObjectDefinitions(SNLBitNet, SNLNet)
 
 }

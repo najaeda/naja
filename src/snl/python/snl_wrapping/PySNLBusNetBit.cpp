@@ -38,7 +38,7 @@ DBoDestroyAttribute(PySNLBusNetBit_destroy, PySNLBusNetBit)
 DBoDeallocMethod(SNLBusNetBit)
 
 DBoLinkCreateMethod(SNLBusNetBit)
-PyTypeObjectLinkPyType(SNLBusNetBit)
+PyTypeSNLObjectWithSNLIDLinkPyType(SNLBusNetBit)
 PyTypeObjectDefinitions(SNLBusNetBit)
 
 }

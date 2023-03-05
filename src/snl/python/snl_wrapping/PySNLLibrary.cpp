@@ -66,7 +66,7 @@ DBoDestroyAttribute(PySNLLibrary_destroy, PySNLLibrary)
 DBoDeallocMethod(SNLLibrary)
 
 DBoLinkCreateMethod(SNLLibrary)
-PyTypeObjectLinkPyType(SNLLibrary)
+PyTypeSNLObjectWithSNLIDLinkPyType(SNLLibrary)
 PyTypeObjectDefinitions(SNLLibrary)
 
 }

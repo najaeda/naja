@@ -73,7 +73,7 @@ DBoDestroyAttribute(PySNLBusTerm_destroy, PySNLBusTerm)
 DBoDeallocMethod(SNLBusTerm)
 
 DBoLinkCreateMethod(SNLBusTerm)
-PyTypeObjectLinkPyType(SNLBusTerm)
+PyTypeSNLObjectWithSNLIDLinkPyType(SNLBusTerm)
 PyTypeObjectDefinitions(SNLBusTerm)
 
 }

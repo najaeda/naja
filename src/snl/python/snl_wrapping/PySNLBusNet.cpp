@@ -73,7 +73,7 @@ DBoDestroyAttribute(PySNLBusNet_destroy, PySNLBusNet)
 DBoDeallocMethod(SNLBusNet)
 
 DBoLinkCreateMethod(SNLBusNet)
-PyTypeObjectLinkPyType(SNLBusNet)
+PyTypeSNLObjectWithSNLIDLinkPyType(SNLBusNet)
 PyTypeObjectDefinitions(SNLBusNet)
 
 }

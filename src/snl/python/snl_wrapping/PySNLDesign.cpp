@@ -71,7 +71,7 @@ DBoDestroyAttribute(PySNLDesign_destroy, PySNLDesign)
 DBoDeallocMethod(SNLDesign)
 
 DBoLinkCreateMethod(SNLDesign)
-PyTypeObjectLinkPyType(SNLDesign)
+PyTypeSNLObjectWithSNLIDLinkPyType(SNLDesign)
 PyTypeObjectDefinitions(SNLDesign)
 
 }

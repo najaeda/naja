@@ -37,7 +37,7 @@ DBoDestroyAttribute(PySNLTerm_destroy, PySNLTerm)
 DBoDeallocMethod(SNLTerm)
 
 DBoLinkCreateMethod(SNLTerm)
-PyTypeObjectLinkPyType(SNLTerm)
+PyTypeSNLObjectWithSNLIDLinkPyType(SNLTerm)
 PyTypeInheritedObjectDefinitions(SNLTerm, SNLNetComponent)
 
 void PySNLTerm_postModuleInit() {

@@ -64,7 +64,7 @@ DBoDestroyAttribute(PySNLScalarNet_destroy, PySNLScalarNet)
 DBoDeallocMethod(SNLScalarNet)
 
 DBoLinkCreateMethod(SNLScalarNet)
-PyTypeObjectLinkPyType(SNLScalarNet)
+PyTypeSNLObjectWithSNLIDLinkPyType(SNLScalarNet)
 PyTypeObjectDefinitions(SNLScalarNet)
 
 }
