@@ -24,7 +24,8 @@ class SNLNetTest(unittest.TestCase):
     self.assertIsNotNone(i0Net)
     self.assertEqual(self.design, i0Net.getDesign())
     i0.setNet(i0Net)
-    #self.assertEqual(i0Net, i0.getNet())
+    self.assertEqual(i0.getNet(), i0.getNet())
+    self.assertEqual(i0Net, i0.getNet())
 
 if __name__ == '__main__':
   unittest.main()

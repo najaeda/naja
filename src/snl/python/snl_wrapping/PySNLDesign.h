@@ -31,7 +31,6 @@ typedef struct {
 } PySNLDesign;
 
 extern PyTypeObject PyTypeSNLDesign;
-extern PyMethodDef  PySNLDesign_Methods[];
 
 extern PyObject*    PySNLDesign_Link(naja::SNL::SNLDesign* u);
 extern void         PySNLDesign_LinkPyType();

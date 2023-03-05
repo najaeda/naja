@@ -30,7 +30,6 @@ typedef struct {
 } PySNLInstance;
 
 extern PyTypeObject PyTypeSNLInstance;
-extern PyMethodDef  PySNLInstance_Methods[];
 
 extern PyObject*    PySNLInstance_Link(naja::SNL::SNLInstance* u);
 extern void         PySNLInstance_LinkPyType();

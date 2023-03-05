@@ -27,7 +27,6 @@ typedef struct {
 } PySNLBitNet;
 
 extern PyTypeObject PyTypeSNLBitNet;
-extern PyMethodDef  PySNLBitNet_Methods[];
 
 extern PyObject*    PySNLBitNet_Link(naja::SNL::SNLBitNet*);
 extern void         PySNLBitNet_LinkPyType();

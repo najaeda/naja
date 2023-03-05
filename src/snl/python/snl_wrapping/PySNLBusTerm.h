@@ -28,7 +28,6 @@ typedef struct {
 } PySNLBusTerm;
 
 extern PyTypeObject PyTypeSNLBusTerm;
-extern PyMethodDef  PySNLBusTerm_Methods[];
 
 extern PyObject*    PySNLBusTerm_Link(naja::SNL::SNLBusTerm* t);
 extern void         PySNLBusTerm_LinkPyType();

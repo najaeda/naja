@@ -27,7 +27,6 @@ typedef struct {
 } PySNLBusNetBit;
 
 extern PyTypeObject PyTypeSNLBusNetBit;
-extern PyMethodDef  PySNLBusNetBit_Methods[];
 
 extern PyObject*    PySNLBusNetBit_Link(naja::SNL::SNLBusNetBit* n);
 extern void         PySNLBusNetBit_LinkPyType();

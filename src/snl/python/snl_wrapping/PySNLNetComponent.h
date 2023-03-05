@@ -27,7 +27,6 @@ typedef struct {
 } PySNLNetComponent;
 
 extern PyTypeObject PyTypeSNLNetComponent;
-extern PyMethodDef  PySNLNetComponent_Methods[];
 
 extern PyObject*    PySNLNetComponent_Link(naja::SNL::SNLNetComponent* u);
 extern void         PySNLNetComponent_LinkPyType();

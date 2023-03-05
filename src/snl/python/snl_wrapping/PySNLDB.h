@@ -28,7 +28,6 @@ typedef struct {
 } PySNLDB;
 
 extern PyTypeObject PyTypeSNLDB;
-extern PyMethodDef  PySNLDB_Methods[];
 
 extern PyObject*    PySNLDB_Link(naja::SNL::SNLDB* u);
 extern void         PySNLDB_LinkPyType();

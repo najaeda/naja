@@ -27,7 +27,6 @@ typedef struct {
 } PySNLScalarTerm;
 
 extern PyTypeObject PyTypeSNLScalarTerm;
-extern PyMethodDef  PySNLScalarTerm_Methods[];
 
 extern PyObject*    PySNLScalarTerm_Link(naja::SNL::SNLScalarTerm* t);
 extern void         PySNLScalarTerm_LinkPyType();

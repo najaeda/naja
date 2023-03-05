@@ -27,7 +27,6 @@ typedef struct {
 } PySNLScalarNet;
 
 extern PyTypeObject PyTypeSNLScalarNet;
-extern PyMethodDef  PySNLScalarNet_Methods[];
 
 extern PyObject*    PySNLScalarNet_Link(naja::SNL::SNLScalarNet* n);
 extern void         PySNLScalarNet_LinkPyType();

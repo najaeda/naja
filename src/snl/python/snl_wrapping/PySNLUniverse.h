@@ -28,7 +28,6 @@ typedef struct {
 } PySNLUniverse;
 
 extern PyTypeObject PyTypeSNLUniverse;
-extern PyMethodDef  PySNLUniverse_Methods[];
 
 extern PyObject*    PySNLUniverse_Link(naja::SNL::SNLUniverse* u);
 extern void         PySNLUniverse_LinkPyType();

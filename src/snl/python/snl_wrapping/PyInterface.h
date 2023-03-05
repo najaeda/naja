@@ -93,18 +93,18 @@ PyObject* richCompare(T left, T right, int op) {
     return PyUnicode_FromString(object->getString().c_str() );                    \
   }
 
-#define DirectCmpBySNLIDMethod(PY_FUNC_NAME, IS_PY_OBJECT, PY_SELF_TYPE) \
+#define DirectCmpBySNLIDMethod(PY_FUNC_NAME, PY_SELF_TYPE) \
   static PyObject* PY_FUNC_NAME(PY_SELF_TYPE* self, PyObject* other, int op) { \
-    if (not IS_PY_OBJECT(other)) Py_RETURN_FALSE; \
+    if (not (PyObject_TypeCheck(self, Py_TYPE(other)) or PyObject_TypeCheck(other, Py_TYPE(self)))) Py_RETURN_FALSE; \
     PY_SELF_TYPE* otherPyObject = (PY_SELF_TYPE*)other; \
     auto id = self->ACCESS_OBJECT->getSNLID(); \
     auto otherID = otherPyObject->ACCESS_OBJECT->getSNLID(); \
     return richCompare(id, otherID, op); \
   }
 
-#define DirectCmpByPtrMethod(PY_FUNC_NAME, IS_PY_OBJECT, PY_SELF_TYPE) \
+#define DirectCmpByPtrMethod(PY_FUNC_NAME, PY_SELF_TYPE) \
   static PyObject* PY_FUNC_NAME(PY_SELF_TYPE* self, PyObject* other, int op) { \
-    if (not IS_PY_OBJECT(other)) Py_RETURN_FALSE; \
+    if (not (PyObject_TypeCheck(self, Py_TYPE(other)) or PyObject_TypeCheck(other, Py_TYPE(self)))) Py_RETURN_FALSE; \
     PY_SELF_TYPE* otherPyObject = (PY_SELF_TYPE*)other; \
     auto selfObject = self->ACCESS_OBJECT; \
     auto otherObject = otherPyObject->ACCESS_OBJECT; \
@@ -139,31 +139,31 @@ PyObject* richCompare(T left, T right, int op) {
   }
 
 #define PyTypeSNLObjectWithSNLIDLinkPyType(SELF_TYPE) \
-  DirectReprMethod(Py##SELF_TYPE##_Repr, Py##SELF_TYPE,   SELF_TYPE)        \
-  DirectStrMethod (Py##SELF_TYPE##_Str,  Py##SELF_TYPE,   SELF_TYPE)        \
-  DirectCmpBySNLIDMethod (Py##SELF_TYPE##_Cmp,  IsPy##SELF_TYPE, Py##SELF_TYPE) \
+  DirectReprMethod(Py##SELF_TYPE##_Repr, Py##SELF_TYPE, SELF_TYPE) \
+  DirectStrMethod(Py##SELF_TYPE##_Str, Py##SELF_TYPE, SELF_TYPE) \
+  DirectCmpBySNLIDMethod(Py##SELF_TYPE##_Cmp, Py##SELF_TYPE) \
   DirectHashMethod(Py##SELF_TYPE##_Hash, Py##SELF_TYPE)                        \
-  extern void  Py##SELF_TYPE##_LinkPyType() {                                  \
-    PyType##SELF_TYPE.tp_dealloc = (destructor) Py##SELF_TYPE##_DeAlloc;    \
-    PyType##SELF_TYPE.tp_richcompare = (richcmpfunc) Py##SELF_TYPE##_Cmp;   \
-    PyType##SELF_TYPE.tp_repr    = (reprfunc)   Py##SELF_TYPE##_Repr;       \
-    PyType##SELF_TYPE.tp_str     = (reprfunc)   Py##SELF_TYPE##_Str;        \
-    PyType##SELF_TYPE.tp_hash    = (hashfunc)   Py##SELF_TYPE##_Hash;       \
-    PyType##SELF_TYPE.tp_methods = Py##SELF_TYPE##_Methods;                 \
+  extern void Py##SELF_TYPE##_LinkPyType() {                                  \
+    PyType##SELF_TYPE.tp_dealloc = (destructor)Py##SELF_TYPE##_DeAlloc;    \
+    PyType##SELF_TYPE.tp_richcompare = (richcmpfunc)Py##SELF_TYPE##_Cmp;   \
+    PyType##SELF_TYPE.tp_repr = (reprfunc)Py##SELF_TYPE##_Repr; \
+    PyType##SELF_TYPE.tp_str = (reprfunc)Py##SELF_TYPE##_Str; \
+    PyType##SELF_TYPE.tp_hash = (hashfunc)Py##SELF_TYPE##_Hash; \
+    PyType##SELF_TYPE.tp_methods = Py##SELF_TYPE##_Methods; \
   }
 
 #define PyTypeSNLObjectWithoutSNLIDLinkPyType(SELF_TYPE) \
-  DirectReprMethod(Py##SELF_TYPE##_Repr, Py##SELF_TYPE,   SELF_TYPE)        \
-  DirectStrMethod (Py##SELF_TYPE##_Str,  Py##SELF_TYPE,   SELF_TYPE)        \
-  DirectCmpByPtrMethod (Py##SELF_TYPE##_Cmp,  IsPy##SELF_TYPE, Py##SELF_TYPE) \
-  DirectHashMethod(Py##SELF_TYPE##_Hash, Py##SELF_TYPE)                        \
-  extern void  Py##SELF_TYPE##_LinkPyType() {                                  \
-    PyType##SELF_TYPE.tp_dealloc = (destructor) Py##SELF_TYPE##_DeAlloc;    \
-    PyType##SELF_TYPE.tp_richcompare = (richcmpfunc) Py##SELF_TYPE##_Cmp;   \
-    PyType##SELF_TYPE.tp_repr    = (reprfunc)   Py##SELF_TYPE##_Repr;       \
-    PyType##SELF_TYPE.tp_str     = (reprfunc)   Py##SELF_TYPE##_Str;        \
-    PyType##SELF_TYPE.tp_hash    = (hashfunc)   Py##SELF_TYPE##_Hash;       \
-    PyType##SELF_TYPE.tp_methods = Py##SELF_TYPE##_Methods;                 \
+  DirectReprMethod(Py##SELF_TYPE##_Repr, Py##SELF_TYPE, SELF_TYPE) \
+  DirectStrMethod (Py##SELF_TYPE##_Str, Py##SELF_TYPE, SELF_TYPE) \
+  DirectCmpByPtrMethod (Py##SELF_TYPE##_Cmp,  Py##SELF_TYPE) \
+  DirectHashMethod(Py##SELF_TYPE##_Hash, Py##SELF_TYPE) \
+  extern void  Py##SELF_TYPE##_LinkPyType() { \
+    PyType##SELF_TYPE.tp_dealloc = (destructor) Py##SELF_TYPE##_DeAlloc; \
+    PyType##SELF_TYPE.tp_richcompare = (richcmpfunc) Py##SELF_TYPE##_Cmp; \
+    PyType##SELF_TYPE.tp_repr = (reprfunc)Py##SELF_TYPE##_Repr; \
+    PyType##SELF_TYPE.tp_str = (reprfunc)Py##SELF_TYPE##_Str; \
+    PyType##SELF_TYPE.tp_hash = (hashfunc)Py##SELF_TYPE##_Hash; \
+    PyType##SELF_TYPE.tp_methods = Py##SELF_TYPE##_Methods; \
   }
 
 #define DBoLinkCreateMethod(SELF_TYPE)                                         \

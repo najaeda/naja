@@ -28,7 +28,6 @@ typedef struct {
 } PySNLTermDirection;
 
 extern PyTypeObject PyTypeSNLTermDirection;
-extern PyMethodDef  PySNLTermDirection_Methods[];
 
 extern PyObject*    PySNLTermDirection_Link(naja::SNL::SNLTerm::Direction*);
 extern void         PySNLTermDirection_LinkPyType();
