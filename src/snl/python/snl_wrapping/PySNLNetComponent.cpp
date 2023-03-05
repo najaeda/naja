@@ -36,10 +36,12 @@ static PyObject* PySNLNetComponent_getNet(PySNLNetComponent* self) {
 
 static PyObject* PySNLNetComponent_setNet(PySNLNetComponent* self, PyObject* arg) {
   METHOD_HEAD("SNLNetComponent.setNet()")
-  if (IsPySNLBitNet(arg)) {
-    netComponent->setNet(PYSNLBitNet_O(arg));
+  if (IsPySNLNet(arg)) {
+    SNLTRY
+    netComponent->setNet(PYSNLNet_O(arg));
+    SNLCATCH
   } else {
-    setError("SNLNetComponent getNet takes SNLBitNet argument");
+    setError("SNLNetComponent setNet takes SNLNet argument");
     return nullptr;
   }
   Py_RETURN_NONE;
@@ -49,7 +51,7 @@ PyMethodDef PySNLNetComponent_Methods[] = {
   { "getNet", (PyCFunction)PySNLNetComponent_getNet, METH_NOARGS,
     "get SNLNetComponent SNLBitNet"},
   { "setNet", (PyCFunction)PySNLNetComponent_setNet, METH_O,
-    "get SNLNetComponent SNLBitNet"},
+    "set SNLNetComponent SNLNet"},
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 

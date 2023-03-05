@@ -16,7 +16,7 @@ class SNLNetTest(unittest.TestCase):
     self.assertIsNotNone(self.design)
 
     i0 = snl.SNLScalarTerm.create(self.design, snl.SNLTerm.Direction.Input, "I0")
-    i1 = snl.SNLScalarTerm.create(self.design, snl.SNLTerm.Direction.Input, "I1")
+    i1 = snl.SNLBusTerm.create(self.design, snl.SNLTerm.Direction.Input, 4, 0, "I1")
     o = snl.SNLScalarTerm.create(self.design, snl.SNLTerm.Direction.Output, "O")
 
     self.assertIsNone(i0.getNet())
@@ -24,8 +24,18 @@ class SNLNetTest(unittest.TestCase):
     self.assertIsNotNone(i0Net)
     self.assertEqual(self.design, i0Net.getDesign())
     i0.setNet(i0Net)
-    self.assertEqual(i0.getNet(), i0.getNet())
+    self.assertEqual(i0.getNet(), i0Net)
     self.assertEqual(i0Net, i0.getNet())
 
+    i1Net = snl.SNLBusNet.create(self.design, 4, 0, "I1")
+    self.assertIsNotNone(i1Net)
+    self.assertEqual(4, i1.getMSB())
+    self.assertEqual(0, i1.getLSB())
+    self.assertEqual(5, i1.getSize())
+    self.assertEqual(4, i1Net.getMSB())
+    self.assertEqual(0, i1Net.getLSB())
+    self.assertEqual(5, i1Net.getSize())
+    i1.setNet(i1Net)
+    
 if __name__ == '__main__':
   unittest.main()
