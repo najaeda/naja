@@ -63,15 +63,18 @@ static PyObject* PySNLDB_getLibrary(PySNLDB* self, PyObject* arg) {
   return PySNLLibrary_Link(subLibrary);
 }
 
+DBoDestroyAttribute(PySNLDB_destroy, PySNLDB)
+
 PyMethodDef PySNLDB_Methods[] = {
   { "create", (PyCFunction)PySNLDB_create, METH_VARARGS|METH_STATIC,
-    "create a SNL DB"},
+    "create a SNLDB."},
   { "getLibrary", (PyCFunction)PySNLDB_getLibrary, METH_O,
-    "retrieve a SNL Library"},
+    "retrieve a SNL Library."},
+  {"destroy", (PyCFunction)PySNLDB_destroy, METH_NOARGS,
+    "destroy this SNLDB."},
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 
-DBoDestroyAttribute(PySNLDB_destroy, PySNLDB)
 DBoDeallocMethod(SNLDB)
 
 DBoLinkCreateMethod(SNLDB)

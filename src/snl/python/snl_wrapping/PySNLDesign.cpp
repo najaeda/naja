@@ -57,6 +57,8 @@ static PyObject* PySNLDesign_getLibrary(PySNLDesign* self) {
 
 GetNameMethod(SNLDesign, design)
 
+DBoDestroyAttribute(PySNLDesign_destroy, PySNLDesign)
+
 PyMethodDef PySNLDesign_Methods[] = {
   { "create", (PyCFunction)PySNLDesign_create, METH_VARARGS|METH_STATIC,
     "SNLDesign creator"},
@@ -64,10 +66,11 @@ PyMethodDef PySNLDesign_Methods[] = {
     "get SNLDesign name"},
   {"getLibrary", (PyCFunction)PySNLDesign_getLibrary, METH_NOARGS,
     "Returns the SNLDesign owner SNLLibrary."},
+  {"destroy", (PyCFunction)PySNLDesign_destroy, METH_NOARGS,
+    "destroy this SNLDesign."},
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 
-DBoDestroyAttribute(PySNLDesign_destroy, PySNLDesign)
 DBoDeallocMethod(SNLDesign)
 
 DBoLinkCreateMethod(SNLDesign)

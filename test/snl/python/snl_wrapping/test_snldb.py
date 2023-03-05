@@ -15,5 +15,12 @@ class SNLDBTest(unittest.TestCase):
     db = snl.SNLDB.create(u) 
     self.assertIsNotNone(db)
 
+  def testDestroy(self):
+    u = snl.SNLUniverse.get()
+    db = snl.SNLDB.create(u) 
+    self.assertIsNotNone(db)
+    db.destroy();
+
+
 if __name__ == '__main__':
   unittest.main()
