@@ -26,9 +26,13 @@ using namespace naja::SNL;
 #undef   ACCESS_CLASS
 #define  ACCESS_OBJECT            parent_.object_
 #define  ACCESS_CLASS(_pyObject)  &(_pyObject->parent_)
-#define  METHOD_HEAD(function)    GENERIC_METHOD_HEAD(Net, net, function)
+#define  METHOD_HEAD(function)    GENERIC_METHOD_HEAD(SNLNet, net, function)
+
+GetNameMethod(SNLNet, net)
 
 PyMethodDef PySNLNet_Methods[] = {
+  { "getName", (PyCFunction)PySNLNet_getName, METH_NOARGS,
+    "get SNLDesign name"},
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 

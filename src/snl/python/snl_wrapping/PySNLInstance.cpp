@@ -63,9 +63,13 @@ static PyObject* PySNLInstance_getModel(PySNLInstance* self) {
   return PySNLDesign_Link(instance->getModel());
 }
 
+GetNameMethod(SNLInstance, instance)
+
 PyMethodDef PySNLInstance_Methods[] = {
   { "create", (PyCFunction)PySNLInstance_create, METH_VARARGS|METH_STATIC,
     "SNLInstance creator"},
+  { "getName", (PyCFunction)PySNLInstance_getName, METH_NOARGS,
+    "get SNLInstance name"},
   {"getModel", (PyCFunction)PySNLInstance_getModel, METH_NOARGS,
     "Returns the SNLInstance model SNLDesign."},
   {NULL, NULL, 0, NULL}           /* sentinel */
