@@ -43,7 +43,7 @@ void SNLPrimitivesLoader::load(
   PyObject* primitivesModule = PyImport_ImportModule(moduleName.c_str());
   if (not primitivesModule) {
     std::ostringstream reason;
-    reason << "Cannot load Python module: " << primitivesPath.string();
+    reason << "Cannot load Python module " << primitivesPath.string();
     throw SNLException(reason.str());
   }
   //PyObject* primivitesConstructionFunction =
@@ -53,12 +53,8 @@ void SNLPrimitivesLoader::load(
   PyObject* res =
     PyObject_CallMethodOneArg(primitivesModule, PyUnicode_FromString("constructPrimitives"), pyLib);
   if (not res) {
-    PyObject *ptype, *pvalue, *ptraceback;
-    PyErr_Fetch(&ptype, &pvalue, &ptraceback);
-    const char *pStrErrorMessage = PyUnicode_AsUTF8(pvalue);
-
     std::ostringstream reason;
-    reason << "Error while calling constructPrimitives: " << pStrErrorMessage;
+    reason << "Error while calling constructPrimitives";
     throw SNLException(reason.str());
   }
 

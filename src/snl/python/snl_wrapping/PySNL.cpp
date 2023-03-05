@@ -124,6 +124,8 @@ PyMODINIT_FUNC PyInit_snl(void) {
   PyModule_AddObject(mod, "SNLBusTermBit", (PyObject*)&PyTypeSNLBusTermBit);
   PyModule_AddObject(mod, "SNLInstance", (PyObject*)&PyTypeSNLInstance);
 
+  PySNLTerm_postModuleInit();
+
   return mod;
 }
 

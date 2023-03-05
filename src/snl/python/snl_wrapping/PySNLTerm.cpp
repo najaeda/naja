@@ -19,24 +19,6 @@
 #include "PySNLTermDirection.h"
 #include "PySNLDesign.h"
 
-namespace {
-
-#if 0
-naja::SNL::SNLTerm::Direction PyInt_AsDirection(PyObject* object) {
-  switch(PyAny_AsLong(object)) {
-    case naja::SNL::SNLTerm::Direction::Input: return naja:: Net::Direction::UNDEFINED      : return ( Net::Direction(Net::Direction::UNDEFINED) );
-      //case Net::Direction::IN             : return ( Net::Direction(Net::Direction::IN) );
-      //case Net::Direction::OUT            : return ( Net::Direction(Net::Direction::OUT) );
-      //case Net::Direction::INOUT          : return ( Net::Direction(Net::Direction::INOUT) );
-      //case Net::Direction::TRISTATE       : return ( Net::Direction(Net::Direction::TRISTATE) );
-  }
-
-    return ( Net::Direction(Net::Direction::UNDEFINED) );
-  }
-}
-#endif
-}
-
 namespace PYSNL {
 
 using namespace naja::SNL;
@@ -58,7 +40,7 @@ DBoLinkCreateMethod(SNLTerm)
 PyTypeObjectLinkPyType(SNLTerm)
 PyTypeInheritedObjectDefinitions(SNLTerm, SNLNetComponent)
 
-extern void PySNLTerm_postModuleInit() {
+void PySNLTerm_postModuleInit() {
   PySNLTermDirection_postModuleInit();
   PyDict_SetItemString(PyTypeSNLTerm.tp_dict, "Direction", (PyObject*)&PyTypeSNLTermDirection);
 }

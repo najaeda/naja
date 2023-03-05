@@ -1,21 +1,12 @@
 import snl
 
-def constructLUT2(lib):
-  lut2 = snl.SNLDesign.create(lib) #, "LUT2")
+def constructLUT4(lib):
+  lut4 = snl.SNLDesign.create(lib, "LUT4")
+  i0 = snl.SNLScalarTerm.create(lut4, snl.SNLTerm.Direction.Input, "I0")
+  i1 = snl.SNLScalarTerm.create(lut4, snl.SNLTerm.Direction.Input, "I1")
+  i2 = snl.SNLScalarTerm.create(lut4, snl.SNLTerm.Direction.Input, "I2")
+  i3 = snl.SNLScalarTerm.create(lut4, snl.SNLTerm.Direction.Input, "I3")
+  o = snl.SNLScalarTerm.create(lut4, snl.SNLTerm.Direction.Output, "O")
 
 def constructPrimitives(lib):
-  f = open('debug.txt', 'w')
-  f.write("DEBUG\n")
-  f.write("DEBUG\n")
-  f.write("DEBUG\n")
-  f.write("DEBUG\n")
-  f.write("DEBUG\n")
-  if (lib is None):
-    f.write("lib is None")
-  else:
-    f.write("lib is not None")
-  f.write(lib)
-  f.close()
-
-  #raise Exception(str(lib))
-  constructLUT2(lib)
+  constructLUT4(lib)

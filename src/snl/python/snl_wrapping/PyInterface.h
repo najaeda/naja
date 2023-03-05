@@ -93,16 +93,15 @@ static void setError(const std::string& reason) {
     return 1;                                                                 \
   }
 
-#define DirectHashMethod(PY_FUNC_NAME,PY_SELF_TYPE)                           \
-  static int PY_FUNC_NAME (PY_SELF_TYPE *self) {                              \
-    return (long)self->ACCESS_OBJECT;                                         \
+#define DirectHashMethod(PY_FUNC_NAME,PY_SELF_TYPE)                          \
+  static int PY_FUNC_NAME(PY_SELF_TYPE *self) {                              \
+    return (long)self->ACCESS_OBJECT;                                        \
   }
 
-
-#define DirectGetIntMethod(PY_FUNC_NAME,FUNC_NAME,PY_SELF_TYPE,SELF_TYPE) \
-  static PyObject* PY_FUNC_NAME(PY_SELF_TYPE* self, PyObject *args ) {    \
-    GENERIC_METHOD_HEAD(SELF_TYPE,cobject,#FUNC_NAME"()")                 \
-    return Py_BuildValue("i", cobject->FUNC_NAME());                      \
+#define DirectGetIntMethod(PY_FUNC_NAME,FUNC_NAME,PY_SELF_TYPE,SELF_TYPE)\
+  static PyObject* PY_FUNC_NAME(PY_SELF_TYPE* self, PyObject *args) {    \
+    GENERIC_METHOD_HEAD(SELF_TYPE,cobject,#FUNC_NAME"()")                \
+    return Py_BuildValue("i", cobject->FUNC_NAME());                     \
   }
 
 #define DBoDestroyAttribute(PY_FUNC_NAME, PY_SELF_TYPE)                                    \
@@ -146,7 +145,7 @@ static void setError(const std::string& reason) {
   }
 
 #define GetNameMethod(SELF_TYPE, SELF) \
-  static PyObject* PySNLLibrary_getName(Py##SELF_TYPE* self) { \
+  static PyObject* Py##SELF_TYPE##_getName(Py##SELF_TYPE* self) { \
     METHOD_HEAD("SELF_TYPE.getName()") \
     SNLTRY \
     return PyUnicode_FromString(SELF->getName().getString().c_str()); \

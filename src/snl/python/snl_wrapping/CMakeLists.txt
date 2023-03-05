@@ -4,7 +4,8 @@ set(SOURCES
   PySNLDesignObject.cpp
   PySNLNet.cpp PySNLBusNet.cpp PySNLBitNet.cpp PySNLScalarNet.cpp PySNLBusNetBit.cpp
   PySNLNetComponent.cpp
-  PySNLTerm.cpp PySNLTermDirection.cpp 
+  PySNLTerm.cpp
+  PySNLTermDirection.cpp 
   PySNLBusTerm.cpp PySNLBitTerm.cpp PySNLScalarTerm.cpp PySNLBusTermBit.cpp
   PySNLInstance.cpp
 )

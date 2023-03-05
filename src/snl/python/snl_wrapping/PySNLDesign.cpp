@@ -55,9 +55,13 @@ static PyObject* PySNLDesign_getLibrary(PySNLDesign* self) {
   return PySNLLibrary_Link(design->getLibrary());
 }
 
+GetNameMethod(SNLDesign, design)
+
 PyMethodDef PySNLDesign_Methods[] = {
   { "create", (PyCFunction)PySNLDesign_create, METH_VARARGS|METH_STATIC,
     "SNLDesign creator"},
+  { "getName", (PyCFunction)PySNLDesign_getName, METH_NOARGS,
+    "get SNLDesign name"},
   {"getLibrary", (PyCFunction)PySNLDesign_getLibrary, METH_NOARGS,
     "Returns the SNLDesign owner SNLLibrary."},
   {NULL, NULL, 0, NULL}           /* sentinel */
