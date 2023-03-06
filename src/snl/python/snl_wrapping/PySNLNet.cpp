@@ -32,7 +32,7 @@ GetNameMethod(SNLNet)
 
 PyMethodDef PySNLNet_Methods[] = {
   { "getName", (PyCFunction)PySNLNet_getName, METH_NOARGS,
-    "get SNLDesign name"},
+    "get SNLNet name"},
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 

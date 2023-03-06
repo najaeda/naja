@@ -27,6 +27,9 @@ class SNLNetTest(unittest.TestCase):
     i0.setNet(i0Net)
     self.assertEqual(i0.getNet(), i0Net)
     self.assertEqual(i0Net, i0.getNet())
+    self.assertEqual(i0Net, self.design.getNet("I0"))
+    self.assertEqual(i0Net, self.design.getScalarNet("I0"))
+    self.assertIsNone(self.design.getBusNet("I0"))
 
     i1Net = snl.SNLBusNet.create(self.design, 4, 0, "I1")
     self.assertIsNotNone(i1Net)
@@ -37,6 +40,9 @@ class SNLNetTest(unittest.TestCase):
     self.assertEqual(4, i1Net.getMSB())
     self.assertEqual(0, i1Net.getLSB())
     self.assertEqual(5, i1Net.getSize())
+    self.assertEqual(i1Net, self.design.getNet("I1"))
+    self.assertEqual(i1Net, self.design.getBusNet("I1"))
+    self.assertIsNone(self.design.getScalarNet("I1"))
     i1.setNet(i1Net)
     
 if __name__ == '__main__':

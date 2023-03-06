@@ -17,6 +17,11 @@
 #include "PySNLDesign.h"
 
 #include "PySNLLibrary.h"
+#include "PySNLScalarTerm.h"
+#include "PySNLBusTerm.h"
+#include "PySNLScalarNet.h"
+#include "PySNLBusNet.h"
+#include "PySNLInstance.h"
 
 #include "SNLDesign.h"
 
@@ -79,6 +84,14 @@ static PyObject* PySNLDesign_getLibrary(PySNLDesign* self) {
   return PySNLLibrary_Link(selfObject->getLibrary());
 }
 
+
+GetObjectByName(Design, Instance)
+GetObjectByName(Design, Term)
+GetObjectByName(Design, ScalarTerm)
+GetObjectByName(Design, BusTerm)
+GetObjectByName(Design, Net)
+GetObjectByName(Design, ScalarNet)
+GetObjectByName(Design, BusNet)
 GetNameMethod(SNLDesign)
 
 DBoDestroyAttribute(PySNLDesign_destroy, PySNLDesign)
@@ -92,6 +105,20 @@ PyMethodDef PySNLDesign_Methods[] = {
     "get SNLDesign name"},
   {"getLibrary", (PyCFunction)PySNLDesign_getLibrary, METH_NOARGS,
     "Returns the SNLDesign owner SNLLibrary."},
+  { "getTerm", (PyCFunction)PySNLDesign_getTerm, METH_VARARGS,
+    "retrieve a SNLTerm."},
+  { "getScalarTerm", (PyCFunction)PySNLDesign_getScalarTerm, METH_VARARGS,
+    "retrieve a SNLScalarTerm."},
+  { "getBusTerm", (PyCFunction)PySNLDesign_getBusTerm, METH_VARARGS,
+    "retrieve a SNLBusTerm."},
+  { "getNet", (PyCFunction)PySNLDesign_getNet, METH_VARARGS,
+    "retrieve a SNLNet."},
+  { "getScalarNet", (PyCFunction)PySNLDesign_getScalarNet, METH_VARARGS,
+    "retrieve a SNLScalarNet."},
+  { "getBusNet", (PyCFunction)PySNLDesign_getBusNet, METH_VARARGS,
+    "retrieve a SNLBusNet."},
+  { "getInstance", (PyCFunction)PySNLDesign_getInstance, METH_VARARGS,
+    "retrieve a SNLInstance."},
   {"destroy", (PyCFunction)PySNLDesign_destroy, METH_NOARGS,
     "destroy this SNLDesign."},
   {NULL, NULL, 0, NULL}           /* sentinel */
