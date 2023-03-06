@@ -1,4 +1,4 @@
-name: snl_app_build
+name: snl_python_app
 
 on:
   push:
