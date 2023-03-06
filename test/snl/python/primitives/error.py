@@ -1,4 +1,4 @@
-import wrong_snl
+import snl
 
-def constructPrimitives(lib):
+def constructPrimitives(lib, error):
   pass
