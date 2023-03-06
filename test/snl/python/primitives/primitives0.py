@@ -1,7 +1,7 @@
 import snl
 
 def constructLUT4(lib):
-  lut4 = snl.SNLDesign.create(lib, "LUT4")
+  lut4 = snl.SNLDesign.createPrimitive(lib, "LUT4")
   i0 = snl.SNLScalarTerm.create(lut4, snl.SNLTerm.Direction.Input, "I0")
   i1 = snl.SNLScalarTerm.create(lut4, snl.SNLTerm.Direction.Input, "I1")
   i2 = snl.SNLScalarTerm.create(lut4, snl.SNLTerm.Direction.Input, "I2")

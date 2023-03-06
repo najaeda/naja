@@ -34,7 +34,7 @@ extern void         PySNLTermDirection_LinkPyType();
 extern void         PySNLTermDirection_postModuleInit();
 
 
-#define IsPySNLTermDirection(v) (PyObject_TypeCheck(v, &PyTypeSNLTerm))
+#define IsPySNLTermDirection(v) (PyObject_TypeCheck(v, &PyTypeSNLTermDirection))
 #define PYSNLTermDirection(v)   (static_cast<PySNLTermDirection*>(v))
 #define PYSNLTermDirection_O(v) (static_cast<naja::SNL::SNLTerm::Direction*>(PYSNLTermDirection(v)->object_))
 

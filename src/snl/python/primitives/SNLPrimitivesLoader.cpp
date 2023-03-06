@@ -30,13 +30,20 @@ namespace naja { namespace SNL {
 void SNLPrimitivesLoader::load(
     SNLLibrary* library,
     const std::filesystem::path& primitivesPath) {
+  if (not library->isPrimitives()) {
+    std::ostringstream reason;
+    reason << "Cannot construct primitives in non primitives library: "
+      << library->getString();
+    throw SNLException(reason.str());
+  }
+  if (not std::filesystem::exists(primitivesPath)) {
+    std::ostringstream reason;
+    reason << primitivesPath << " does not exist";
+    throw SNLException(reason.str());
+  }
   auto moduleName = primitivesPath.filename();
   auto modulePath = primitivesPath.parent_path();
-  //if (not std::filesystem::exists(primitivesPath)) {
-  //  std::ostringstream reason;
-  //  reason << primitivesPath << " does not exist";
-  //  throw SNLException(reason.str());
-  //}
+  moduleName.replace_extension();
   Py_Initialize();
   PyObject* sysPath = PySys_GetObject("path");
   PyList_Append(sysPath, PyUnicode_FromString(modulePath.c_str()));
@@ -55,22 +62,20 @@ void SNLPrimitivesLoader::load(
   if (not res) {
     std::ostringstream reason;
     reason << "Error while calling constructPrimitives";
+    PyObject *ptype, *pvalue, *ptraceback;
+    PyErr_Fetch(&ptype, &pvalue, &ptraceback);
+    if (pvalue) {
+      PyObject *pstr = PyObject_Str(pvalue);
+      if (pstr) {
+        const char* err_msg = PyUnicode_AsUTF8(pstr);
+        if (err_msg) {
+          reason << ": " << err_msg;
+        }
+      }
+      PyErr_Restore(ptype, pvalue, ptraceback);
+    }
     throw SNLException(reason.str());
   }
-
-
-
-
-  //auto primitivesFile = std::fopen(primitivesPath.c_str(), "r");
-  //if (not primitivesFile) {
-  //  throw SNLException("");
-  //}
-
-  //int ret = PyRun_SimpleFile(primitivesFile, primitivesPath.c_str());
-  //if (ret != 0) {
-  //  throw SNLException("");
-  //}
-
   Py_Finalize();
 }
 

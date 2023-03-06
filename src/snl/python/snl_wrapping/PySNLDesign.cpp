@@ -50,6 +50,30 @@ static PyObject* PySNLDesign_create(PyObject*, PyObject* args) {
   return PySNLDesign_Link(design);
 }
 
+static PyObject* PySNLDesign_createPrimitive(PyObject*, PyObject* args) {
+  PyObject* arg0 = nullptr;
+  const char* arg1 = nullptr;
+  if (not PyArg_ParseTuple(args, "O|s:SNLDB.create", &arg0, &arg1)) {
+    setError("malformed Primitive SNLDesign create method");
+    return nullptr;
+  }
+  SNLName name;
+  if (arg1) {
+    name = SNLName(arg1);
+  }
+
+  SNLDesign* design = nullptr;
+  SNLTRY
+  if (IsPySNLLibrary(arg0)) {
+    design = SNLDesign::create(PYSNLLibrary_O(arg0), SNLDesign::Type::Primitive, name);
+  } else {
+    setError("SNLDesign create accepts SNLLibrary as first argument");
+    return nullptr;
+  }
+  SNLCATCH
+  return PySNLDesign_Link(design);
+}
+
 static PyObject* PySNLDesign_getLibrary(PySNLDesign* self) {
   METHOD_HEAD("SNLDesign.getLibrary()")
   return PySNLLibrary_Link(design->getLibrary());
@@ -62,6 +86,8 @@ DBoDestroyAttribute(PySNLDesign_destroy, PySNLDesign)
 PyMethodDef PySNLDesign_Methods[] = {
   { "create", (PyCFunction)PySNLDesign_create, METH_VARARGS|METH_STATIC,
     "SNLDesign creator"},
+  { "createPrimitive", (PyCFunction)PySNLDesign_createPrimitive, METH_VARARGS|METH_STATIC,
+    "SNLDesign Primitive creator"},
   { "getName", (PyCFunction)PySNLDesign_getName, METH_NOARGS,
     "get SNLDesign name"},
   {"getLibrary", (PyCFunction)PySNLDesign_getLibrary, METH_NOARGS,

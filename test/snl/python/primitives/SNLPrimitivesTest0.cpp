@@ -23,12 +23,13 @@ class SNLPrimitivesTest0: public ::testing::Test {
 
 TEST_F(SNLPrimitivesTest0, test) {
   auto db = SNLDB::create(SNLUniverse::get());
-  auto library = SNLLibrary::create(db, SNLName("PRIMS"));
+  auto library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("PRIMS"));
   auto primitives0Path = std::filesystem::path(SNL_PRIMITIVES_TEST_PATH);
-  primitives0Path /= "primitives0";
+  primitives0Path /= "primitives0.py";
   SNLPrimitivesLoader::load(library, primitives0Path);
   ASSERT_EQ(1, library->getDesigns().size());
   auto lut4 = library->getDesign(SNLName("LUT4")); 
+  EXPECT_TRUE(lut4->isPrimitive());
   ASSERT_NE(nullptr, lut4);
   ASSERT_EQ(5, lut4->getScalarTerms().size());
   using Terms = std::vector<SNLScalarTerm*>;
@@ -44,5 +45,4 @@ TEST_F(SNLPrimitivesTest0, test) {
   EXPECT_EQ(SNLTerm::Direction::Input, terms[2]->getDirection());
   EXPECT_EQ(SNLTerm::Direction::Input, terms[3]->getDirection());
   EXPECT_EQ(SNLTerm::Direction::Output,  terms[4]->getDirection());
-  
 }
