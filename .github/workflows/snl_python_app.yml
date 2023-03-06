@@ -53,7 +53,6 @@ jobs:
       working-directory: ${{github.workspace}}/snlpythonapp
       run: | 
            cp ${{github.workspace}}/src/snl/snippets/python/snl_snippet.py .
-           chmod +x ./snl_snippet.py 
 
     - name: Install
       working-directory: ${{github.workspace}}/build
@@ -64,4 +63,4 @@ jobs:
       env:
         LD_LIBRARY_PATH: ${{env.LD_LIBRARY_PATH}}:${{env.NAJA_INSTALL}}/lib
         PYTHONPATH: ${{env.PYTHONPATH}}:${{env.NAJA_INSTALL}}/lib/python
-      run: ./snl_snippet.py
+      run: python3 snl_snippet.py
