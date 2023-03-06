@@ -17,3 +17,5 @@ target_include_directories(naja_snl_python PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 Python3_add_library(snl MODULE PySNL.cpp)
 
 target_link_libraries(snl PRIVATE naja_snl_python)
+
+install(TARGETS naja_snl_python snl LIBRARY DESTINATION lib/python) 

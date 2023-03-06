@@ -53,8 +53,6 @@ void SNLPrimitivesLoader::load(
     reason << "Cannot load Python module " << primitivesPath.string();
     throw SNLException(reason.str());
   }
-  //PyObject* primivitesConstructionFunction =
-  //  PyObject_GetAttrString(primitivesModule, "constructPrimitives");
 
   PyObject* pyLib = PYSNL::PySNLLibrary_Link(library);
   PyObject* res =
