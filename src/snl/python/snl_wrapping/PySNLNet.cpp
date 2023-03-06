@@ -22,13 +22,13 @@ namespace PYSNL {
 
 using namespace naja::SNL;
 
-#undef   ACCESS_OBJECT
-#undef   ACCESS_CLASS
-#define  ACCESS_OBJECT            parent_.object_
-#define  ACCESS_CLASS(_pyObject)  &(_pyObject->parent_)
-#define  METHOD_HEAD(function)    GENERIC_METHOD_HEAD(SNLNet, net, function)
+#undef ACCESS_OBJECT
+#undef ACCESS_CLASS
+#define ACCESS_OBJECT            parent_.object_
+#define ACCESS_CLASS(_pyObject)  &(_pyObject->parent_)
+#define METHOD_HEAD(function) GENERIC_METHOD_HEAD(SNLNet, function)
 
-GetNameMethod(SNLNet, net)
+GetNameMethod(SNLNet)
 
 PyMethodDef PySNLNet_Methods[] = {
   { "getName", (PyCFunction)PySNLNet_getName, METH_NOARGS,

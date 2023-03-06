@@ -22,15 +22,15 @@ namespace PYSNL {
 
 using namespace naja::SNL;
 
-#undef   ACCESS_OBJECT
-#undef   ACCESS_CLASS
-#define  ACCESS_OBJECT           parent_.object_
-#define  ACCESS_CLASS(_pyObject)  &(_pyObject->parent_)
-#define  METHOD_HEAD(function)   GENERIC_METHOD_HEAD(SNLNetComponent, netComponent, function)
+#undef ACCESS_OBJECT
+#undef ACCESS_CLASS
+#define ACCESS_OBJECT           parent_.object_
+#define ACCESS_CLASS(_pyObject)  &(_pyObject->parent_)
+#define METHOD_HEAD(function) GENERIC_METHOD_HEAD(SNLNetComponent, function)
 
 static PyObject* PySNLNetComponent_getNet(PySNLNetComponent* self) {
   METHOD_HEAD("SNLNetComponent.getNet()")
-  SNLBitNet* net = netComponent->getNet();
+  SNLBitNet* net = selfObject->getNet();
   return PySNLBitNet_Link(net);
 }
 
@@ -38,7 +38,7 @@ static PyObject* PySNLNetComponent_setNet(PySNLNetComponent* self, PyObject* arg
   METHOD_HEAD("SNLNetComponent.setNet()")
   if (IsPySNLNet(arg)) {
     SNLTRY
-    netComponent->setNet(PYSNLNet_O(arg));
+    selfObject->setNet(PYSNLNet_O(arg));
     SNLCATCH
   } else {
     setError("SNLNetComponent setNet takes SNLNet argument");

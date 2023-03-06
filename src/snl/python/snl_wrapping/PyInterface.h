@@ -116,10 +116,10 @@ PyObject* richCompare(T left, T right, int op) {
     return (long)self->ACCESS_OBJECT;                                        \
   }
 
-#define DirectGetIntMethod(PY_FUNC_NAME,FUNC_NAME,PY_SELF_TYPE,SELF_TYPE)\
-  static PyObject* PY_FUNC_NAME(PY_SELF_TYPE* self, PyObject *args) {    \
-    GENERIC_METHOD_HEAD(SELF_TYPE,cobject,#FUNC_NAME"()")                \
-    return Py_BuildValue("i", cobject->FUNC_NAME());                     \
+#define DirectGetIntMethod(PY_FUNC_NAME,FUNC_NAME,PY_SELF_TYPE,SELF_TYPE) \
+  static PyObject* PY_FUNC_NAME(PY_SELF_TYPE* self, PyObject *args) { \
+    GENERIC_METHOD_HEAD(SELF_TYPE, #FUNC_NAME"()") \
+    return Py_BuildValue("i", selfObject->FUNC_NAME()); \
   }
 
 #define DBoDestroyAttribute(PY_FUNC_NAME, PY_SELF_TYPE)                                    \
@@ -176,11 +176,27 @@ PyObject* richCompare(T left, T right, int op) {
     return (PyObject*)pyObject;                                                \
   }
 
-#define GetNameMethod(SELF_TYPE, SELF) \
+#define GetObjectByName(SELF_TYPE, OBJECT_TYPE) \
+  static PyObject* PySNL##SELF_TYPE##_get##OBJECT_TYPE(PySNL##SELF_TYPE* self, PyObject* args) { \
+    SNL##OBJECT_TYPE* obj = nullptr; \
+    METHOD_HEAD("SNL##SELF_TYPE.get##OBJECT_TYPE()") \
+    char* name = NULL; \
+    if (PyArg_ParseTuple(args, "s:SNL##SELF_TYPE.get##OBJECT_TYPE", &name)) { \
+      SNLTRY \
+      obj = selfObject->get##OBJECT_TYPE(SNLName(name)); \
+      SNLCATCH \
+    } else { \
+      setError("invalid number of parameters for get##OBJECT_TYPE."); \
+      return nullptr; \
+    } \
+    return PySNL##OBJECT_TYPE##_Link(obj); \
+  }
+
+#define GetNameMethod(SELF_TYPE) \
   static PyObject* Py##SELF_TYPE##_getName(Py##SELF_TYPE* self) { \
     METHOD_HEAD("SELF_TYPE.getName()") \
     SNLTRY \
-    return PyUnicode_FromString(SELF->getName().getString().c_str()); \
+    return PyUnicode_FromString(selfObject->getName().getString().c_str()); \
     SNLCATCH \
     return nullptr; \
   }
@@ -289,13 +305,13 @@ PyObject* richCompare(T left, T right, int op) {
     PyType_GenericNew /* tp_new */                                  \
 };
 
-#define GENERIC_METHOD_HEAD(SELF_TYPE,SELF_OBJECT,function)                                 \
+#define GENERIC_METHOD_HEAD(SELF_TYPE, function) \
   if (not self->ACCESS_OBJECT) {                                                            \
     setError("Attempt to call " function " on an unbound object");                          \
     return nullptr;                                                                         \
   }                                                                                         \
-  SELF_TYPE* SELF_OBJECT = dynamic_cast<SELF_TYPE*>(self->ACCESS_OBJECT);                   \
-  if (not SELF_OBJECT) {                                                                    \
+  SELF_TYPE* selfObject = dynamic_cast<SELF_TYPE*>(self->ACCESS_OBJECT); \
+  if (not selfObject) { \
     setError("Invalid dynamic_cast<> while calling " function "");                          \
     return nullptr;                                                                         \
   }

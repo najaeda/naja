@@ -17,6 +17,7 @@
 #include "PySNLLibrary.h"
 
 #include "PySNLDB.h"
+#include "PySNLDesign.h"
 
 #include "SNLLibrary.h"
 
@@ -24,7 +25,7 @@ namespace PYSNL {
 
 using namespace naja::SNL;
 
-#define METHOD_HEAD(function) GENERIC_METHOD_HEAD(SNLLibrary, library, function)
+#define METHOD_HEAD(function) GENERIC_METHOD_HEAD(SNLLibrary, function)
 
 static PyObject* PySNLLibrary_create(PyObject*, PyObject* args) {
   PyObject* arg0 = nullptr;
@@ -52,13 +53,16 @@ static PyObject* PySNLLibrary_create(PyObject*, PyObject* args) {
   return PySNLLibrary_Link(lib);
 }
 
-GetNameMethod(SNLLibrary, library)
+GetObjectByName(Library, Design)
+GetNameMethod(SNLLibrary)
 
 PyMethodDef PySNLLibrary_Methods[] = {
   { "create", (PyCFunction)PySNLLibrary_create, METH_VARARGS|METH_STATIC,
     "SNLLibrary creator"},
   { "getName", (PyCFunction)PySNLLibrary_getName, METH_NOARGS,
     "get SNLLibrary name"},
+  { "getDesign", (PyCFunction)PySNLLibrary_getDesign, METH_VARARGS,
+    "retrieve a SNLDesign."},
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 

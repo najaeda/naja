@@ -28,7 +28,7 @@ using namespace naja::SNL;
 #undef   ACCESS_CLASS
 #define  ACCESS_OBJECT           parent_.object_
 #define  ACCESS_CLASS(_pyObject)  &(_pyObject->parent_)
-#define  METHOD_HEAD(function)   GENERIC_METHOD_HEAD(SNLInstance, instance, function)
+#define  METHOD_HEAD(function) GENERIC_METHOD_HEAD(SNLInstance, function)
 
 static PyObject* PySNLInstance_create(PyObject*, PyObject* args) {
   PyObject* arg0 = nullptr;
@@ -60,10 +60,10 @@ static PyObject* PySNLInstance_create(PyObject*, PyObject* args) {
 
 static PyObject* PySNLInstance_getModel(PySNLInstance* self) {
   METHOD_HEAD("SNLInstance.getModel()")
-  return PySNLDesign_Link(instance->getModel());
+  return PySNLDesign_Link(selfObject->getModel());
 }
 
-GetNameMethod(SNLInstance, instance)
+GetNameMethod(SNLInstance)
 
 PyMethodDef PySNLInstance_Methods[] = {
   { "create", (PyCFunction)PySNLInstance_create, METH_VARARGS|METH_STATIC,

@@ -23,6 +23,7 @@ class SNLLibraryTest(unittest.TestCase):
     self.assertIsNotNone(lib1)
     #self.assertEquals(0, lib1.getID())
     self.assertEqual("LIB1", lib1.getName())
+    self.assertEqual(lib1, db.getLibrary("LIB1"))
 
 
 if __name__ == '__main__':

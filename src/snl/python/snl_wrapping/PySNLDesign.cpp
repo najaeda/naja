@@ -24,7 +24,7 @@ namespace PYSNL {
 
 using namespace naja::SNL;
 
-#define METHOD_HEAD(function) GENERIC_METHOD_HEAD(SNLDesign, design, function)
+#define METHOD_HEAD(function) GENERIC_METHOD_HEAD(SNLDesign, function)
 
 static PyObject* PySNLDesign_create(PyObject*, PyObject* args) {
   PyObject* arg0 = nullptr;
@@ -76,10 +76,10 @@ static PyObject* PySNLDesign_createPrimitive(PyObject*, PyObject* args) {
 
 static PyObject* PySNLDesign_getLibrary(PySNLDesign* self) {
   METHOD_HEAD("SNLDesign.getLibrary()")
-  return PySNLLibrary_Link(design->getLibrary());
+  return PySNLLibrary_Link(selfObject->getLibrary());
 }
 
-GetNameMethod(SNLDesign, design)
+GetNameMethod(SNLDesign)
 
 DBoDestroyAttribute(PySNLDesign_destroy, PySNLDesign)
 

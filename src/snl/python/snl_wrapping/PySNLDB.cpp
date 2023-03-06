@@ -25,7 +25,7 @@ namespace PYSNL {
 
 using namespace naja::SNL;
 
-#define METHOD_HEAD(function) GENERIC_METHOD_HEAD(SNLDB,db,function)
+#define METHOD_HEAD(function) GENERIC_METHOD_HEAD(SNLDB, function)
 
 static PyObject* PySNLDB_create(PyObject*, PyObject* args) {
   PyObject* arg = nullptr;
@@ -45,31 +45,15 @@ static PyObject* PySNLDB_create(PyObject*, PyObject* args) {
   return PySNLDB_Link(db);
 }
 
-static PyObject* PySNLDB_getLibrary(PySNLDB* self, PyObject* arg) {
-  METHOD_HEAD("SNLDB.getLibrary()")
-  SNLLibrary* subLibrary = NULL;
-
-  if (PyUnicode_Check(arg)) {
-    Py_ssize_t size;
-    const char* str = PyUnicode_AsUTF8AndSize(arg, &size);
-    if (not str) {
-      return nullptr;
-    }
-    subLibrary = db->getLibrary(SNLName(str));
-  } else {
-    setError("getLibrary takes a string argument");
-    return nullptr;
-  }
-  return PySNLLibrary_Link(subLibrary);
-}
+GetObjectByName(DB, Library)
 
 DBoDestroyAttribute(PySNLDB_destroy, PySNLDB)
 
 PyMethodDef PySNLDB_Methods[] = {
   { "create", (PyCFunction)PySNLDB_create, METH_VARARGS|METH_STATIC,
     "create a SNLDB."},
-  { "getLibrary", (PyCFunction)PySNLDB_getLibrary, METH_O,
-    "retrieve a SNL Library."},
+  { "getLibrary", (PyCFunction)PySNLDB_getLibrary, METH_VARARGS,
+    "retrieve a SNLLibrary."},
   {"destroy", (PyCFunction)PySNLDB_destroy, METH_NOARGS,
     "destroy this SNLDB."},
   {NULL, NULL, 0, NULL}           /* sentinel */

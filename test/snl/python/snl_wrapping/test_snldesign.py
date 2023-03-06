@@ -17,6 +17,8 @@ class SNLDesignTest(unittest.TestCase):
     self.assertIsNotNone(design)
     self.assertEqual("DESIGN", design.getName())
     self.assertEqual(self.lib, design.getLibrary())
+    self.assertIsNotNone(self.lib.getDesign("DESIGN"))
+    self.assertEqual(design, self.lib.getDesign("DESIGN"))
 
     i0 = snl.SNLScalarTerm.create(design, snl.SNLTerm.Direction.Input, "I0")
     self.assertEqual(design, i0.getDesign())

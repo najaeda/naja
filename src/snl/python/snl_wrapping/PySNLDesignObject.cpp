@@ -22,11 +22,11 @@ namespace PYSNL {
 
 using namespace naja::SNL;
 
-#define METHOD_HEAD(function) GENERIC_METHOD_HEAD(SNLDesignObject, designObject, function)
+#define METHOD_HEAD(function) GENERIC_METHOD_HEAD(SNLDesignObject, function)
 
 static PyObject* PySNLDesignObject_getDesign(PySNLDesignObject* self) {
   METHOD_HEAD("SNLDesignObject.getDesign()")
-  return PySNLDesign_Link(designObject->getDesign());
+  return PySNLDesign_Link(selfObject->getDesign());
 }
 
 PyMethodDef PySNLDesignObject_Methods[] = {
