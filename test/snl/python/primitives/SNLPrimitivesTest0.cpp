@@ -3,6 +3,7 @@
 #include "SNLUniverse.h"
 #include "SNLScalarTerm.h"
 #include "SNLPrimitivesLoader.h"
+#include "SNLException.h"
 using namespace naja::SNL;
 
 #ifndef SNL_PRIMITIVES_TEST_PATH
@@ -45,4 +46,23 @@ TEST_F(SNLPrimitivesTest0, test) {
   EXPECT_EQ(SNLTerm::Direction::Input, terms[2]->getDirection());
   EXPECT_EQ(SNLTerm::Direction::Input, terms[3]->getDirection());
   EXPECT_EQ(SNLTerm::Direction::Output,  terms[4]->getDirection());
+}
+
+TEST_F(SNLPrimitivesTest0, testExceptions) {
+  auto db = SNLDB::create(SNLUniverse::get());
+  auto library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("PRIMS"));
+  auto primitives0Path = std::filesystem::path(SNL_PRIMITIVES_TEST_PATH);
+  primitives0Path /= "wrong_path.py";
+  //Wrong path
+  EXPECT_THROW(SNLPrimitivesLoader::load(library, primitives0Path), SNLException);
+  
+  library->destroy();
+  //non Primitives library
+  library = SNLLibrary::create(db, SNLName("PRIMS"));
+  EXPECT_THROW(SNLPrimitivesLoader::load(library, primitives0Path), SNLException);
+
+  //faulty python script
+  primitives0Path = std::filesystem::path(SNL_PRIMITIVES_TEST_PATH);
+  primitives0Path /= "error.py";
+  EXPECT_THROW(SNLPrimitivesLoader::load(library, primitives0Path), SNLException);
 }
