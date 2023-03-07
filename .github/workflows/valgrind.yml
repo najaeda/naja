@@ -63,4 +63,7 @@ jobs:
 
     - name: TestSNLPrimitives
       working-directory: ${{github.workspace}}/build/test/snl/python/primitives
+      env:
+        PYTHONPATH: ${{env.PYTHONPATH}}:${{github.workspace}}/build/src/snl/python/snl_wrapping
       run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./snlPrimitivesTests
+
