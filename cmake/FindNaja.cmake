@@ -32,17 +32,21 @@ The following cache variables may also be set:
 find_path(NAJA_INCLUDE_DIR NAMES SNLUniverse.h
    HINTS
    $ENV{NAJA_INSTALL}/include
-   )
+)
 
 find_library(NAJA_SNL_LIBRARY NAMES naja_snl
    HINTS
    $ENV{NAJA_INSTALL}/lib
-   )
+)
+find_library(NAJA_SNL_VERILOG_LIBRARY NAMES libnaja_snl_verilog
+   HINTS
+   $ENV{NAJA_INSTALL}/lib
+)
 
 set(NAJA_INCLUDE_DIRS ${NAJA_INCLUDE_DIR})
 list(APPEND NAJA_INCLUDE_DIRS "${NAJA_INCLUDE_DIR}")
 
-set(NAJA_LIBRARIES ${NAJA_SNL_LIBRARY})
+set(NAJA_LIBRARIES ${NAJA_SNL_LIBRARY} ${NAJA_SNL_VERILOG_LIBRARY})
 
 include(FindPackageHandleStandardArgs)
 FIND_PACKAGE_HANDLE_STANDARD_ARGS(Naja

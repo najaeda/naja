@@ -45,7 +45,6 @@ target_compile_options(naja_snl PRIVATE ${NAJA_CXX_WARNINGS})
 target_include_directories(naja_snl SYSTEM BEFORE PUBLIC ${Boost_INCLUDE_DIR})
 target_include_directories(naja_snl PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/kernel
-  ${PROJECT_SOURCE_DIR}/thirdparty
 )
 
 set_target_properties(naja_snl PROPERTIES PUBLIC_HEADER "${SNL_KERNEL_HEADERS}")
