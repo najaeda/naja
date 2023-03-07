@@ -41,8 +41,10 @@ void SNLPrimitivesLoader::load(
     reason << primitivesPath << " does not exist";
     throw SNLException(reason.str());
   }
-  auto moduleName = primitivesPath.filename();
-  auto modulePath = primitivesPath.parent_path();
+  
+  auto primitivesAbsolutePath = std::filesystem::canonical(primitivesPath);
+  auto moduleName = primitivesAbsolutePath.filename();
+  auto modulePath = primitivesAbsolutePath.parent_path();
   moduleName.replace_extension();
   Py_Initialize();
   PyObject* sysPath = PySys_GetObject("path");
@@ -50,7 +52,7 @@ void SNLPrimitivesLoader::load(
   PyObject* primitivesModule = PyImport_ImportModule(moduleName.c_str());
   if (not primitivesModule) {
     std::ostringstream reason;
-    reason << "Cannot load Python module " << primitivesPath.string();
+    reason << "Cannot load Python module " << primitivesAbsolutePath.string();
     throw SNLException(reason.str());
   }
 

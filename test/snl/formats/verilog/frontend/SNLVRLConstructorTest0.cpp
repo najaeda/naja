@@ -3,12 +3,12 @@
 #include <filesystem>
 #include <fstream>
 
-#include "SNLVRLConstructor.h"
-
 #include "SNLUniverse.h"
 #include "SNLScalarNet.h"
 #include "SNLBusNet.h"
 #include "SNLBusNetBit.h"
+
+#include "SNLVRLConstructor.h"
 
 using namespace naja::SNL;
 

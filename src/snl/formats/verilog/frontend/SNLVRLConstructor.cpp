@@ -17,13 +17,16 @@
 #include "SNLVRLConstructor.h"
 
 #include <iostream>
+#include <sstream>
 
+#include "SNLUniverse.h"
 #include "SNLLibrary.h"
 #include "SNLDesign.h"
 #include "SNLBusTerm.h"
 #include "SNLScalarTerm.h"
 #include "SNLBusNet.h"
 #include "SNLScalarNet.h"
+#include "SNLVRLConstructorException.h"
 
 namespace {
 
@@ -127,8 +130,24 @@ void SNLVRLConstructor::startInstantiation(const std::string& modelName) {
 void SNLVRLConstructor::addInstance(const std::string& name) {
   if (not inFirstPass()) {
     assert(not currentModelName_.empty());
-    SNLDesign* model = library_->getDesign(SNLName(currentModelName_));
-    assert(model);
+    SNLName modelName(currentModelName_);
+    SNLDesign* model = library_->getDesign(modelName);
+    if (not model) {
+      model = library_->getDB()->getDesign(modelName);
+    }
+    if (not model) {
+      model = SNLUniverse::get()->getDesign(modelName);
+    }
+    if (not model) {
+      std::ostringstream reason;
+      reason << currentModelName_
+        << " cannot be found in SNL while constructing instance "
+        << name;
+      throw SNLVRLConstructorException(reason.str());
+    }
+    //FIXME
+    //might be a good idea to create a cache <Name, SNLDesign*> here
+    //in particular for primitives
     currentInstance_ = SNLInstance::create(currentModule_, model, SNLName(name));
   }
 }
