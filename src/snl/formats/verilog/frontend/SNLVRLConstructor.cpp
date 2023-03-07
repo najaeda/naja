@@ -38,9 +38,13 @@ naja::SNL::SNLTerm::Direction VRLDirectionToSNLDirection(const naja::verilog::Po
       return naja::SNL::SNLTerm::Direction::Output;
     case naja::verilog::Port::Direction::InOut:
       return naja::SNL::SNLTerm::Direction::InOut;
-    case naja::verilog::Port::Direction::Unknown:
-      std::exit(-43);
+    case naja::verilog::Port::Direction::Unknown: {
+      std::ostringstream reason;
+      reason << "Unsupported verilog direction";
+      throw naja::SNL::SNLVRLConstructorException(reason.str());
+    }
   }
+  return naja::SNL::SNLTerm::Direction::Input;
 }
 
 naja::SNL::SNLNet::Type VRLTypeToSNLType(const naja::verilog::Net::Type& type) {
@@ -51,9 +55,13 @@ naja::SNL::SNLNet::Type VRLTypeToSNLType(const naja::verilog::Net::Type& type) {
       return naja::SNL::SNLNet::Type::Supply0;
     case naja::verilog::Net::Type::Supply1:
       return naja::SNL::SNLNet::Type::Supply1;
-    case naja::verilog::Net::Type::Unknown:
-      std::exit(-43);
+    case naja::verilog::Net::Type::Unknown: {
+      std::ostringstream reason;
+      reason << "Unsupported verilog net type";
+      throw naja::SNL::SNLVRLConstructorException(reason.str());
+    }
   }
+  return naja::SNL::SNLNet::Type::Standard;
 }
 
 }
