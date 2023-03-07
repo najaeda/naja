@@ -11,8 +11,6 @@
 #include "SNLPrimitivesLoader.h"
 #include "SNLVRLConstructor.h"
 
-
-
 using namespace naja::SNL;
 
 #ifndef SNL_VRL_BENCHMARKS_PATH
