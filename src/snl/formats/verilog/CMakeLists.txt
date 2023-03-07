@@ -9,3 +9,4 @@ target_link_libraries(naja_snl_verilog naja_verilog naja_snl)
 target_include_directories(naja_snl_verilog PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/frontend
   ${CMAKE_CURRENT_SOURCE_DIR}/backend)
+set_property(TARGET naja_snl_verilog PROPERTY POSITION_INDEPENDENT_CODE ON)
