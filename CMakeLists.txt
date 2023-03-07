@@ -38,10 +38,7 @@ if(ENABLE_SANITIZERS)
 endif(ENABLE_SANITIZERS)
 
 find_package(Boost REQUIRED)
-option(PYTHON_INTERFACE "Build with Python Interface" ON)
-if(PYTHON_INTERFACE)
-  find_package(Python3 COMPONENTS Development Interpreter)
-endif(PYTHON_INTERFACE)
+find_package(Python3 COMPONENTS Development Interpreter REQUIRED)
 find_package(CapnProto CONFIG REQUIRED)
 
 add_subdirectory(thirdparty)
