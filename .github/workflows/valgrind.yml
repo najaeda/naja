@@ -53,6 +53,14 @@ jobs:
       working-directory: ${{github.workspace}}/build/test/snl/netlists
       run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./snlNetlistTests
 
+    - name: TestSNLVRLConstructor
+      working-directory: ${{github.workspace}}/build/test/snl/formats/verilog/frontend
+      run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./snlVRLConstructorTests
+
     - name: TestSNLVRLDumper
       working-directory: ${{github.workspace}}/build/test/snl/formats/verilog/backend
-      run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./snlVRLTests
+      run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./snlVRLDumperTests
+
+    - name: TestSNLPrimitives
+      working-directory: ${{github.workspace}}/build/test/snl/python/primitives
+      run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./snlPrimitivesTests
