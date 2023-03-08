@@ -25,8 +25,10 @@ The following cache variables may also be set:
 
 ``NAJA_INCLUDE_DIR``
   the directory containing Naja headers
-``NAJA_LIBRARY``
+``NAJA_SNL_LIBRARY``
   path to the Naja library
+``NAJA_SNL_VERILOG_LIBRARY``
+  path to the Naja verilog library
 #]=======================================================================]
 
 find_path(NAJA_INCLUDE_DIR NAMES SNLUniverse.h
@@ -38,6 +40,7 @@ find_library(NAJA_SNL_LIBRARY NAMES naja_snl
    HINTS
    $ENV{NAJA_INSTALL}/lib
 )
+
 find_library(NAJA_SNL_VERILOG_LIBRARY NAMES naja_snl_verilog
    HINTS
    $ENV{NAJA_INSTALL}/lib
@@ -50,9 +53,9 @@ set(NAJA_LIBRARIES ${NAJA_SNL_LIBRARY} ${NAJA_SNL_VERILOG_LIBRARY})
 
 include(FindPackageHandleStandardArgs)
 FIND_PACKAGE_HANDLE_STANDARD_ARGS(Naja
-                                  REQUIRED_VARS NAJA_SNL_LIBRARY NAJA_INCLUDE_DIR)
+  REQUIRED_VARS NAJA_INCLUDE_DIR NAJA_SNL_LIBRARY NAJA_SNL_VERILOG_LIBRARY)
 
-mark_as_advanced(NAJA_INCLUDE_DIR NAJA_SNL_LIBRARY)
+mark_as_advanced(NAJA_INCLUDE_DIR NAJA_SNL_LIBRARY NAJA_SNL_VERILOG_LIBRARY)
 
 if(Naja_FOUND AND NOT TARGET Naja::Naja)
   add_library(Naja::Naja UNKNOWN IMPORTED)
