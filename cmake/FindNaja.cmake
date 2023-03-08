@@ -38,7 +38,7 @@ find_library(NAJA_SNL_LIBRARY NAMES naja_snl
    HINTS
    $ENV{NAJA_INSTALL}/lib
 )
-find_library(NAJA_SNL_VERILOG_LIBRARY NAMES libnaja_snl_verilog
+find_library(NAJA_SNL_VERILOG_LIBRARY NAMES naja_snl_verilog
    HINTS
    $ENV{NAJA_INSTALL}/lib
 )
