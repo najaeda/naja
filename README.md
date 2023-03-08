@@ -31,16 +31,15 @@ git submodule update
 ### Dependencies
 Mandatory dependencies:
 1. Boost
-2. cmake: at least 3.22 version
-3. naja-verilog: https://github.com/xtofalex/naja-verilog
+2. cmake: at least 3.22 version.
+4. Python3: for building the SNL Python3 interface used to load primitive cells. 
 
 Optional dependencies:
-1. Python3: for building the Python3 interface
-2. Doxygen: for the documentation
+1. Doxygen: for the documentation
 
-Embedded dependencies:
-
-For convenience, google test (https://github.com/google/googletest) is provided through git submodule.
+Embedded dependencies, through git sub modules:
+1. naja-verilog (https://github.com/xtofalex/naja-verilog): for verilog parsing.
+2. google test (https://github.com/google/googletest) for unit testing.
 
 
 ### Building and Installing
