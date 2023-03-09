@@ -4,8 +4,8 @@ FindNaja
 
 Find the naja libraries.
 
-``Naja::Naja``
-  Naja libraries
+``Naja::SNL``
+  Naja SNL library
 
 ^^^^^^^^^^^^^^^^
 
@@ -54,9 +54,15 @@ FIND_PACKAGE_HANDLE_STANDARD_ARGS(Naja
 
 mark_as_advanced(NAJA_INCLUDE_DIR NAJA_SNL_LIBRARY NAJA_SNL_VERILOG_LIBRARY)
 
-if(Naja_FOUND AND NOT TARGET Naja::Naja)
-  add_library(Naja::Naja UNKNOWN IMPORTED)
-  set_target_properties(Naja::Naja PROPERTIES
-    IMPORTED_LOCATION "${NAJA_SNL_LIBRARY}"
-    INTERFACE_INCLUDE_DIRECTORIES "${NAJA_INCLUDE_DIRS}")
+if(Naja_FOUND AND NOT TARGET Naja::SNL)
+  add_library(Naja::SNL UNKNOWN IMPORTED)
+  set_target_properties(Naja::SNL PROPERTIES
+    IMPORTED_LOCATION ${NAJA_SNL_LIBRARY}
+    INTERFACE_INCLUDE_DIRECTORIES ${NAJA_INCLUDE_DIRS})
+
+  add_library(Naja::SNLVerilog UNKNOWN IMPORTED)
+  set_target_properties(Naja::SNLVerilog PROPERTIES
+    IMPORTED_LOCATION ${NAJA_SNL_VERILOG_LIBRARY}
+    INTERFACE_INCLUDE_DIRECTORIES ${NAJA_INCLUDE_DIRS}
+    IMPORTED_LINK_INTERFACE_LIBRARIES Naja::SNL)
 endif()

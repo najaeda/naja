@@ -58,7 +58,7 @@ void SNLPrimitivesLoader::load(
 
   PyObject* pyLib = PYSNL::PySNLLibrary_Link(library);
   PyObject* res =
-    PyObject_CallMethodOneArg(primitivesModule, PyUnicode_FromString("constructPrimitives"), pyLib);
+    PyObject_CallMethodObjArgs(primitivesModule, PyUnicode_FromString("constructPrimitives"), pyLib, NULL);
   if (not res) {
     std::ostringstream reason;
     reason << "Error while calling constructPrimitives";
