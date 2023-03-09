@@ -48,7 +48,8 @@ void SNLPrimitivesLoader::load(
   moduleName.replace_extension();
   Py_Initialize();
   PyObject* sysPath = PySys_GetObject("path");
-  PyList_Append(sysPath, PyUnicode_FromString(modulePath.c_str()));
+  PyObject* modulePathString = PyUnicode_FromString(modulePath.c_str());
+  PyList_Append(sysPath, modulePathString);
   PyObject* primitivesModule = PyImport_ImportModule(moduleName.c_str());
   if (not primitivesModule) {
     std::ostringstream reason;
@@ -57,8 +58,9 @@ void SNLPrimitivesLoader::load(
   }
 
   PyObject* pyLib = PYSNL::PySNLLibrary_Link(library);
+  PyObject* constructPrimitivesString = PyUnicode_FromString("constructPrimitives");
   PyObject* res =
-    PyObject_CallMethodObjArgs(primitivesModule, PyUnicode_FromString("constructPrimitives"), pyLib, NULL);
+    PyObject_CallMethodObjArgs(primitivesModule, constructPrimitivesString, pyLib, NULL);
   if (not res) {
     std::ostringstream reason;
     reason << "Error while calling constructPrimitives";
@@ -76,7 +78,11 @@ void SNLPrimitivesLoader::load(
     }
     throw SNLException(reason.str());
   }
-  PyObject_DEL(pyLib);
+  //Cleaning
+  Py_DECREF(modulePathString);
+  Py_DECREF(primitivesModule);
+  Py_DECREF(pyLib);
+  Py_DECREF(constructPrimitivesString);
   Py_Finalize();
 }
 
