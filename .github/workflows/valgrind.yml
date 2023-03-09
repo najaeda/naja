@@ -55,6 +55,9 @@ jobs:
 
     - name: TestSNLVRLConstructor
       working-directory: ${{github.workspace}}/build/test/snl/formats/verilog/frontend
+      env:
+        PYTHONPATH: ${{env.PYTHONPATH}}:${{github.workspace}}/build/src/snl/python/snl_wrapping
+        PYTHONMALLOC: malloc
       run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./snlVRLConstructorTests
 
     - name: TestSNLVRLDumper
@@ -65,5 +68,5 @@ jobs:
       working-directory: ${{github.workspace}}/build/test/snl/python/primitives
       env:
         PYTHONPATH: ${{env.PYTHONPATH}}:${{github.workspace}}/build/src/snl/python/snl_wrapping
+        PYTHONMALLOC: malloc
       run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./snlPrimitivesTests
-
