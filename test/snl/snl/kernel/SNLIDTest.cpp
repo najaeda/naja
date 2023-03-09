@@ -15,6 +15,7 @@ TEST(SNLIDTest, testSize) {
 
 TEST(SNLIDTest, testComparisons) {
   EXPECT_LT(SNLID(0), SNLID(1));
+  EXPECT_NE(SNLID(0), SNLID(1));
   EXPECT_LE(SNLID(0), SNLID(1));
   EXPECT_EQ(SNLID(0), SNLID(SNLID::Type::DB, 0, 0, 0, 0, 0, 0));
   EXPECT_GT(SNLID(1), SNLID(SNLID::Type::DB, 0, 0, 0, 0, 0, 0));
