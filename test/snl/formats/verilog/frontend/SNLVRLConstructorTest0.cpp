@@ -35,8 +35,9 @@ TEST_F(SNLVRLConstructorTest0, test) {
   SNLVRLConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_VRL_BENCHMARKS_PATH);
   constructor.parse(benchmarksPath/"test0.v");
-  ASSERT_EQ(2, library_->getDesigns().size());
+  ASSERT_EQ(3, library_->getDesigns().size());
   auto mod0 = library_->getDesign(SNLName("mod0"));
+  auto mod1 = library_->getDesign(SNLName("mod1"));
   auto test = library_->getDesign(SNLName("test")); 
   ASSERT_TRUE(mod0);
   ASSERT_TRUE(test);
@@ -109,5 +110,5 @@ TEST_F(SNLVRLConstructorTest0, test) {
   ASSERT_TRUE(dynamic_cast<SNLScalarNet*>(nets[6]));
   EXPECT_EQ(SNLNet::Type::Supply1, dynamic_cast<SNLScalarNet*>(nets[6])->getType());
 
-  EXPECT_EQ(1, test->getInstances().size());
+  EXPECT_EQ(2, test->getInstances().size());
 }
