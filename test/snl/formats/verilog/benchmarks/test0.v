@@ -1,4 +1,9 @@
+/*
+  Simple verilog file testing basic structures
+*/
+
 module mod0(input i0, output o0);
+  //Might be a blackbox in the future...
 endmodule
 
 module test(input i, output o, inout io);

@@ -1,3 +1,7 @@
+/*
+  Testing loading with initial primitives loading 
+*/
+
 module model();
   wire net0;
 

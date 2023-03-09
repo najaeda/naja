@@ -1,6 +1,7 @@
 set(snl_vrl_constructor_tests
     SNLVRLConstructorTest0.cpp
     SNLVRLConstructorTest1.cpp
+    SNLVRLConstructorTestError0.cpp
 )
 
 add_executable(snlVRLConstructorTests ${snl_vrl_constructor_tests})
