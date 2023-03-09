@@ -41,7 +41,15 @@ Embedded dependencies, through git sub modules:
 1. naja-verilog (https://github.com/xtofalex/naja-verilog): for verilog parsing.
 2. google test (https://github.com/google/googletest) for unit testing.
 
-
+On Ubuntu:
+```bash
+sudo apt-get install python3-dev
+sudo apt-get install libcapnp-dev
+sudo apt-get install pkg-config
+sudo apt-get install bison
+sudo apt-get install flex
+sudo apt-get install doxygen
+```
 ### Building and Installing
 ```bash
 #First define an env variable that points to the directory where you want naja to be installed:
