@@ -76,6 +76,7 @@ void SNLPrimitivesLoader::load(
       }
       PyErr_Restore(ptype, pvalue, ptraceback);
     }
+    Py_DECREF(pyLib);
     throw SNLException(reason.str());
   }
   //Cleaning
