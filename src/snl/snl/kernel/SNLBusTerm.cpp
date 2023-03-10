@@ -150,7 +150,7 @@ void SNLBusTerm::setNet(SNLNet* net) {
     throw SNLException("setNet error: incompatible term and net");
   }
   if (getSize() not_eq net->getSize()) {
-    throw SNLException("setNet only supported when term and bit have same size");
+    throw SNLException("setNet only supported when term and net have same size");
   }
   if (auto bitNet = dynamic_cast<SNLBitNet*>(net)) {
     getBit(getMSB())->setNet(bitNet);

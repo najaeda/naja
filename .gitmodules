@@ -1,3 +1,6 @@
 [submodule "test/googletest"]
 	path = thirdparty/googletest
 	url = https://github.com/google/googletest
+[submodule "thirdparty/naja-verilog"]
+	path = thirdparty/naja-verilog
+	url = https://github.com/xtofalex/naja-verilog

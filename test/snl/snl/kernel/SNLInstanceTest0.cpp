@@ -84,6 +84,7 @@ TEST_F(SNLInstanceTest0, testCreation) {
   EXPECT_EQ(SNLID(SNLID::Type::Instance, 1, 0, 0, 0, instance1->getID(), 0), instance1->getSNLID());
   EXPECT_EQ(SNLID::DesignObjectReference(1, 0, 0, 0), instance1->getReference());
   EXPECT_EQ(instance1, SNLUniverse::get()->getInstance(SNLID::DesignObjectReference(1, 0, 0, 0)));
+  EXPECT_EQ(instance1, SNLUniverse::get()->getObject(SNLID(SNLID::Type::Instance, 1, 0, 0, 0, 0, 0)));
   EXPECT_EQ(SNLID::DesignReference(1, 0, 0), instance1->getReference().getDesignReference());
   EXPECT_NE(SNLID::DesignObjectReference(1, 0, 0, 1), instance1->getReference());
 

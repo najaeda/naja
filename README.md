@@ -31,19 +31,25 @@ git submodule update
 ### Dependencies
 Mandatory dependencies:
 1. Boost
-3. cmake: at least 3.22 version
+2. cmake: at least 3.22 version.
+4. Python3: for building the SNL Python3 interface used to load primitive cells. 
 
 Optional dependencies:
-1. Python3: for building the Python3 interface
-2. Doxygen: for the documentation
+1. Doxygen: for the documentation
 
-Embedded dependencies:
+Embedded dependencies, through git sub modules:
+1. naja-verilog (https://github.com/xtofalex/naja-verilog): for verilog parsing.
+2. google test (https://github.com/google/googletest) for unit testing.
 
-For convenience, google test (https://github.com/google/googletest) is provided through git submodule.
-
-### SNL Interchange Format
-SNL relies on [Cap'n Proto](https://github.com/capnproto/capnproto) for data serialization and streaming. Schema files and C++ implementation can be found [here](https://github.com/xtofalex/naja/tree/main/src/snl/snl/serialization/capnp).
-
+On Ubuntu:
+```bash
+sudo apt-get install python3-dev
+sudo apt-get install libcapnp-dev
+sudo apt-get install pkg-config
+sudo apt-get install bison
+sudo apt-get install flex
+sudo apt-get install doxygen
+```
 ### Building and Installing
 ```bash
 #First define an env variable that points to the directory where you want naja to be installed:
@@ -65,6 +71,16 @@ make docs
 make install
 ```
 Documentation will be installed in $NAJA_INSTALL/doc directory. Starting file to open in browser is: $NAJA_INSTALL/doc/html/index.html.
+
+## Inputs/Outputs
+### SNL Interchange Format
+SNL relies on [Cap'n Proto](https://github.com/capnproto/capnproto) for data serialization and streaming. Schema files and C++ implementation can be found [here](https://github.com/xtofalex/naja/tree/main/src/snl/snl/serialization/capnp).
+
+### Verilog
+For Verilog parsing, Naja relies on naja-verilog submodule (https://github.com/xtofalex/naja-verilog).
+
+A Verilog dumper is part of SNL inside SNL API.
+
 ## Snippets
 ### c++
 https://github.com/xtofalex/naja/blob/main/src/snl/snippets/app/src/SNLSnippet.cpp
