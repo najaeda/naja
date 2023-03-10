@@ -26,7 +26,7 @@ jobs:
 
     - name: Install boost & capnproto & valgrind
       # install dependencies
-      run: sudo apt-get update && sudo apt-get install -yq libboost-dev capnproto libcapnp-dev valgrind
+      run: sudo apt-get update && sudo apt-get install -yq libboost-dev libfl-dev capnproto libcapnp-dev valgrind
       
     - name: Configure CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
@@ -53,8 +53,20 @@ jobs:
       working-directory: ${{github.workspace}}/build/test/snl/netlists
       run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./snlNetlistTests
 
-    - name: TestSNLVRLDumper
-      working-directory: ${{github.workspace}}/build/test/snl/formats/verilog/backend
+    - name: TestSNLVRLConstructor
+      working-directory: ${{github.workspace}}/build/test/snl/formats/verilog/frontend
       env:
         PYTHONPATH: ${{env.PYTHONPATH}}:${{github.workspace}}/build/src/snl/python/snl_wrapping
-      run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./snlVRLTests
+        PYTHONMALLOC: malloc
+      run: valgrind --error-exitcode=1 --show-leak-kinds=definite --leak-check=full --errors-for-leak-kinds=definite ./snlVRLConstructorTests
+
+    - name: TestSNLVRLDumper
+      working-directory: ${{github.workspace}}/build/test/snl/formats/verilog/backend
+      run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./snlVRLDumperTests
+
+    - name: TestSNLPrimitives
+      working-directory: ${{github.workspace}}/build/test/snl/python/primitives
+      env:
+        PYTHONPATH: ${{env.PYTHONPATH}}:${{github.workspace}}/build/src/snl/python/snl_wrapping
+        PYTHONMALLOC: malloc
+      run: valgrind --error-exitcode=1 --show-leak-kinds=definite --leak-check=full --errors-for-leak-kinds=definite ./snlPrimitivesTests --gtest_filter=-"*testFaultyPythonScript*" 

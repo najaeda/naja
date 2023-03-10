@@ -50,6 +50,10 @@ class SNLDB final: public SNLObject {
     ///\return the SNLDesign with SNLID::DBDesignReference reference or null if it does not exist
     SNLDesign* getDesign(const SNLID::DBDesignReference& designReference) const;
 
+    ///\return the SNLDesign named name or null if it does not exist
+    ///Libraries are browsed in their index ordering
+    SNLDesign* getDesign(const SNLName& name) const;
+
     bool isTopDB() const;
     SNLDesign* getTopDesign() const;
     void setTopDesign(SNLDesign* design);

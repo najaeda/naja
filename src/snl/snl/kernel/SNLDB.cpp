@@ -161,6 +161,16 @@ SNLDesign* SNLDB::getDesign(const SNLID::DBDesignReference& designReference) con
   return nullptr;
 }
 
+SNLDesign* SNLDB::getDesign(const SNLName& name) const {
+  for (auto library: getLibraries()) {
+    auto design = library->getDesign(name);
+    if (design) {
+      return design;
+    }
+  }
+  return nullptr;
+}
+
 NajaCollection<SNLLibrary*> SNLDB::getGlobalLibraries() const {
   return NajaCollection(new NajaIntrusiveSetCollection(&libraries_));
 }
