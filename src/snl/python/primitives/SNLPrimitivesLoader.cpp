@@ -76,7 +76,12 @@ void SNLPrimitivesLoader::load(
       }
       PyErr_Restore(ptype, pvalue, ptraceback);
     }
+    //Cleaning
+    Py_DECREF(modulePathString);
+    Py_DECREF(primitivesModule);
     Py_DECREF(pyLib);
+    Py_DECREF(constructPrimitivesString);
+    Py_Finalize();
     throw SNLException(reason.str());
   }
   //Cleaning
