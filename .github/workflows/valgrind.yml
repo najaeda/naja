@@ -69,4 +69,4 @@ jobs:
       env:
         PYTHONPATH: ${{env.PYTHONPATH}}:${{github.workspace}}/build/src/snl/python/snl_wrapping
         PYTHONMALLOC: malloc
-      run: valgrind --error-exitcode=1 --show-leak-kinds=definite --leak-check=full --errors-for-leak-kinds=definite --gtest_filter=-"*testFaultyPythonScript*" ./snlPrimitivesTests
+      run: valgrind --error-exitcode=1 --show-leak-kinds=definite --leak-check=full --errors-for-leak-kinds=definite ./snlPrimitivesTests --gtest_filter=-"*testFaultyPythonScript*" 
