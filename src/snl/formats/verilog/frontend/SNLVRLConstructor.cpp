@@ -44,7 +44,7 @@ naja::SNL::SNLTerm::Direction VRLDirectionToSNLDirection(const naja::verilog::Po
       throw naja::SNL::SNLVRLConstructorException(reason.str());
     }
   }
-  return naja::SNL::SNLTerm::Direction::Input;
+  return naja::SNL::SNLTerm::Direction::Input; //LCOV_EXCL_LINE
 }
 
 naja::SNL::SNLNet::Type VRLTypeToSNLType(const naja::verilog::Net::Type& type) {
@@ -61,7 +61,7 @@ naja::SNL::SNLNet::Type VRLTypeToSNLType(const naja::verilog::Net::Type& type) {
       throw naja::SNL::SNLVRLConstructorException(reason.str());
     }
   }
-  return naja::SNL::SNLNet::Type::Standard;
+  return naja::SNL::SNLNet::Type::Standard; //LCOV_EXCL_LINE
 }
 
 }
@@ -120,9 +120,7 @@ void SNLVRLConstructor::addNet(const naja::verilog::Net& net) {
     } else {
       snlNet = SNLScalarNet::create(currentModule_, SNLName(net.name_));
     }
-    if (net.type_ != naja::verilog::Net::Type::Wire) {
-      snlNet->setType(VRLTypeToSNLType(net.type_));
-    }
+    snlNet->setType(VRLTypeToSNLType(net.type_));
   }
 }
 
