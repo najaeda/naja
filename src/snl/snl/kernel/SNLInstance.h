@@ -116,6 +116,14 @@ class SNLInstance final: public SNLDesignObject {
       SNLID::Bit termMSB, SNLID::Bit termLSB,
       SNLNet* net,
       SNLID::Bit netMSB, SNLID::Bit netLSB);
+    /**
+     * Helper function allowing to connect a SNLTerm representative in current instance to the
+     * corresponding SNLNet bits. This version allows to connect a subpart of net bits.
+     **/
+    void setTermNet(
+      SNLTerm* term,
+      SNLNet* net,
+      SNLID::Bit netMSB, SNLID::Bit netLSB);
 
   private:
     SNLInstance(SNLDesign* design, SNLDesign* model, const SNLName& name);

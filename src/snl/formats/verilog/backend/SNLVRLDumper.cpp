@@ -67,6 +67,10 @@ void dumpRange(ContiguousNetBits& bits, bool& firstElement, bool& concatenation,
     naja::SNL::SNLID::Bit busLSB = bus->getLSB();
     if (rangeMSB == busMSB and rangeLSB == busLSB) {
       o += bus->getName().getString();
+    } else if (rangeMSB == rangeLSB) {
+      o += bus->getName().getString() + "[";
+      o += std::to_string(rangeMSB);
+      o += "]";
     } else {
       o += bus->getName().getString() + "[";
       o += std::to_string(rangeMSB);
@@ -302,7 +306,10 @@ void SNLVRLDumper::dumpInstanceInterface(
   o << ")";
 }
 
-void SNLVRLDumper::dumpInstance(const SNLInstance* instance, std::ostream& o, DesignInsideAnonymousNaming& naming) {
+void SNLVRLDumper::dumpInstance(
+  const SNLInstance* instance,
+  std::ostream& o,
+  DesignInsideAnonymousNaming& naming) {
   std::string instanceName;
   if (instance->isAnonymous()) {
     instanceName = createInstanceName(instance, naming);
@@ -479,11 +486,13 @@ void SNLVRLDumper::dumpDesign(const SNLDesign* design, std::ostream& o) {
     bool first = true;
     for (auto designLevel: designs) {
       const SNLDesign* design = designLevel.first;
-      if (not first) {
-        o << std::endl;
+      if (not design->isPrimitive()) {
+        if (not first) {
+          o << std::endl;
+        }
+        first = false;
+        dumpOneDesign(design, o);
       }
-      first = false;
-      dumpOneDesign(design, o);
     }
   } else {
     dumpOneDesign(design, o);

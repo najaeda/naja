@@ -18,6 +18,7 @@
 #define __SNL_VRL_CONSTRUCTOR_H_
 
 #include "VerilogConstructor.h"
+#include <set>
 
 namespace naja { namespace SNL {
 
@@ -36,6 +37,8 @@ class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
     bool inFirstPass() const { return firstPass_; }
     void setFirstPass(bool mode) { firstPass_ = mode; }
     void startModule(const std::string& name) override;
+    void moduleInterfaceSimplePort(const std::string& name) override;
+    void moduleImplementationPort(const naja::verilog::Port& port) override;
     void moduleInterfaceCompletePort(const naja::verilog::Port& port) override;
     void addNet(const naja::verilog::Net& net) override;
     void startInstantiation(const std::string& modelName) override;
@@ -44,13 +47,16 @@ class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
     void addInstanceConnection(
       const std::string& portName,
       const naja::verilog::Expression& expression) override;
+    void endModule() override;
   private:
-    bool          verbose_          {true};
-    bool          firstPass_        {true};
-    SNLLibrary*   library_          {nullptr};
-    SNLDesign*    currentModule_    {nullptr};
-    std::string   currentModelName_ {};
-    SNLInstance*  currentInstance_  {nullptr};
+    bool          verbose_                      {true};
+    bool          firstPass_                    {true};
+    SNLLibrary*   library_                      {nullptr};
+    SNLDesign*    currentModule_                {nullptr};
+    std::string   currentModelName_             {};
+    SNLInstance*  currentInstance_              {nullptr};
+    using NameSet = std::set<std::string>;
+    NameSet       currentModuleInterfacePorts_  {};
 };
 
 }} // namespace SNL // namespace naja

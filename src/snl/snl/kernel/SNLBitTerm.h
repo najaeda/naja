@@ -25,7 +25,7 @@ class SNLBitTerm: public SNLTerm {
   public:
     using super = SNLTerm;
 
-    size_t getSize() const override { return 1; }
+    SNLID::Bit getSize() const override { return 1; }
     virtual SNLID::Bit getBit() const = 0;
     SNLBitNet* getNet() const override { return net_; }
     void setNet(SNLNet* net) override;

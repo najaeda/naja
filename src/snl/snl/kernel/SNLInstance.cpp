@@ -28,6 +28,7 @@
 #include "SNLBusNet.h"
 #include "SNLBusNetBit.h"
 #include "SNLInstTerm.h"
+#include "SNLUtils.h"
 
 namespace naja { namespace SNL {
 
@@ -159,8 +160,12 @@ void SNLInstance::setTermNet(
   Terms terms;
   Nets nets;
   if (auto busTerm = dynamic_cast<SNLBusTerm*>(term)) {
-    assert(SNLDesign::isBetween(termMSB, busTerm->getMSB(), busTerm->getLSB()));
-    assert(SNLDesign::isBetween(termLSB, busTerm->getMSB(), busTerm->getLSB()));
+    if (not SNLDesign::isBetween(termMSB, busTerm->getMSB(), busTerm->getLSB())) {
+
+    }
+    if (not SNLDesign::isBetween(termLSB, busTerm->getMSB(), busTerm->getLSB())) {
+      
+    }
     SNLID::Bit incr = (termMSB<termLSB)?+1:-1;
     for (SNLID::Bit bit=termMSB; (termMSB<termLSB)?bit<=termLSB:bit>=termLSB; bit+=incr) {
       terms.push_back(busTerm->getBit(bit));
@@ -183,6 +188,20 @@ void SNLInstance::setTermNet(
     nets.push_back(bitNet);
   }
   setTermsNets(terms, nets);
+}
+
+void SNLInstance::setTermNet(
+  SNLTerm* term,
+  SNLNet* net,
+  SNLID::Bit netMSB, SNLID::Bit netLSB) {
+  SNLID::Bit size = SNLUtils::getSize(netMSB, netLSB);
+  if (auto busTerm = dynamic_cast<SNLBusTerm*>(term)) {
+    SNLID::Bit termMSB = busTerm->getMSB();
+    SNLID::Bit termLSB = (termMSB<busTerm->getLSB())?termMSB+size-1:termMSB-size+1;
+    setTermNet(term, termMSB, termLSB, net, netMSB, netLSB);
+  } else {
+    setTermNet(term, 0, 0, net, netMSB, netLSB);
+  }
 }
 
 void SNLInstance::setTermNet(SNLTerm* term, SNLNet* net) {
