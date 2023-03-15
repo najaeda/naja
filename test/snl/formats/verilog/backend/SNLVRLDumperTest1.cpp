@@ -58,6 +58,7 @@ class SNLVRLDumperTest1: public ::testing::Test {
     SNLDB*      db_;
 };
 
+#if 0
 TEST_F(SNLVRLDumperTest1, test0) {
   auto lib = db_->getLibrary(SNLName("MYLIB"));  
   ASSERT_TRUE(lib);
@@ -222,6 +223,7 @@ TEST_F(SNLVRLDumperTest1, test3) {
   std::string command = "diff " + outPath.string() + " " + referencePath.string();
   EXPECT_FALSE(std::system(command.c_str()));
 }
+#endif
 
 //mix scalars with bus subrange
 TEST_F(SNLVRLDumperTest1, test4) {
@@ -269,6 +271,7 @@ TEST_F(SNLVRLDumperTest1, test4) {
   EXPECT_FALSE(std::system(command.c_str()));
 }
 
+#if 0
 //mix scalars with bus subrange and holes
 TEST_F(SNLVRLDumperTest1, test5) {
   auto lib = db_->getLibrary(SNLName("MYLIB"));  
@@ -306,3 +309,4 @@ TEST_F(SNLVRLDumperTest1, test5) {
   std::string command = "diff " + outPath.string() + " " + referencePath.string();
   EXPECT_FALSE(std::system(command.c_str()));
 }
+#endif

@@ -9,7 +9,7 @@ wire [-2:2] bus3;
 wire net_0;
 wire net_2;
 
-model instance1(.i0(), .i1(), .o0({net_0, bus0[-2:-2], net_2, bus0[-1:0]}), .o1());
+model instance1(.i0(), .i1(), .o0({net_0, bus0[-2], net_2, bus0[-1:0]}), .o1());
 
 model instance2(.i0(), .i1(), .o0(), .o1());
 endmodule //top
