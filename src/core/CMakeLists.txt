@@ -13,7 +13,7 @@ set(NAJA_CORE_HEADERS
   NajaCollection.h
   NajaProperty.h NajaPrivateProperty.h
   NajaDumpableProperty.h
-  NajaDumpException.h
+  NajaException.h
 )
 
 add_library(naja_core SHARED ${SOURCES})

@@ -124,7 +124,8 @@ void SNLVRLConstructor::moduleImplementationPort(const naja::verilog::Port& port
     if (verbose_) {
       std::cerr << "Add implementation port: " << port.getString() << std::endl;
     }
-    if (auto it = currentModuleInterfacePorts_.find(port.name_) == currentModuleInterfacePorts_.end()) {
+    if (auto it = currentModuleInterfacePorts_.find(port.name_);
+      it == currentModuleInterfacePorts_.end()) {
       //error
     }
     createPort(currentModule_, port);
