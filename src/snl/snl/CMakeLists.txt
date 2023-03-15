@@ -34,6 +34,7 @@ set(SNL_KERNEL_HEADERS
   kernel/SNLInstance.h kernel/SNLInstTerm.h
   kernel/SNLSharedPath.h kernel/SNLPath.h
   kernel/SNLParameter.h
+  kernel/SNLException.h
 )
 
 add_library(naja_snl SHARED ${SNL_KERNEL_SOURCES})
