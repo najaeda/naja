@@ -49,5 +49,4 @@ target_include_directories(naja_snl PUBLIC
 )
 
 set_target_properties(naja_snl PROPERTIES PUBLIC_HEADER "${SNL_KERNEL_HEADERS}")
-
 install(TARGETS naja_snl LIBRARY DESTINATION lib PUBLIC_HEADER DESTINATION include) 
