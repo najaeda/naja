@@ -71,13 +71,16 @@ TEST_F(SNLVRLConstructorTest0, test) {
   
   constructor.setFirstPass(false);
   constructor.parse(benchmarksPath/"test0.v");
-  EXPECT_EQ(7, test->getNets().size());
+  //7 standard nets + 2 constant nets
+  EXPECT_EQ(9, test->getNets().size());
   using Nets = std::vector<SNLNet*>;
   Nets nets(test->getNets().begin(), test->getNets().end());
-  ASSERT_EQ(7, nets.size());
-  for (auto net: nets) {
-    EXPECT_FALSE(net->isAnonymous());
+  ASSERT_EQ(9, nets.size());
+  for (size_t i=0; i<7; ++i) {
+    EXPECT_FALSE(nets[i]->isAnonymous());
   }
+  EXPECT_TRUE(nets[7]->isAnonymous());
+  EXPECT_TRUE(nets[8]->isAnonymous());
   EXPECT_EQ("net0", nets[0]->getName().getString());
   ASSERT_TRUE(dynamic_cast<SNLScalarNet*>(nets[0]));
   EXPECT_EQ(SNLNet::Type::Standard, dynamic_cast<SNLScalarNet*>(nets[0])->getType());
@@ -96,8 +99,8 @@ TEST_F(SNLVRLConstructorTest0, test) {
 
   EXPECT_EQ("net4", nets[4]->getName().getString());
   ASSERT_TRUE(dynamic_cast<SNLBusNet*>(nets[4]));
-  EXPECT_EQ(31, dynamic_cast<SNLBusNet*>(nets[4])->getMSB());
-  EXPECT_EQ(0, dynamic_cast<SNLBusNet*>(nets[4])->getLSB());
+  EXPECT_EQ(3, dynamic_cast<SNLBusNet*>(nets[4])->getMSB());
+  EXPECT_EQ(-1, dynamic_cast<SNLBusNet*>(nets[4])->getLSB());
   for (auto bit: dynamic_cast<SNLBusNet*>(nets[4])->getBits()) {
     EXPECT_EQ(SNLNet::Type::Standard, bit->getType());
   }
@@ -110,5 +113,10 @@ TEST_F(SNLVRLConstructorTest0, test) {
   ASSERT_TRUE(dynamic_cast<SNLScalarNet*>(nets[6]));
   EXPECT_EQ(SNLNet::Type::Supply1, dynamic_cast<SNLScalarNet*>(nets[6])->getType());
 
-  EXPECT_EQ(2, test->getInstances().size());
+  ASSERT_TRUE(dynamic_cast<SNLScalarNet*>(nets[7]));
+  EXPECT_EQ(SNLNet::Type::Assign1, dynamic_cast<SNLScalarNet*>(nets[7])->getType());
+  ASSERT_TRUE(dynamic_cast<SNLScalarNet*>(nets[8]));
+  EXPECT_EQ(SNLNet::Type::Assign0, dynamic_cast<SNLScalarNet*>(nets[8])->getType());
+
+  ASSERT_EQ(3, test->getInstances().size());
 }
