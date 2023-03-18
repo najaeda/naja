@@ -57,6 +57,8 @@ class SNLNet: public SNLDesignObject {
     virtual SNLID::Bit getSize() const = 0;
 
     virtual void setType(const Type& type) = 0;
+    ///\return true if all bits of this net are assigned to 1'b0 or 1'b1
+    virtual bool isAssignConstant() const = 0;
 
   protected:
     SNLNet() = default;

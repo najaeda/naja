@@ -38,6 +38,7 @@ class SNLBitNet: public SNLNet {
 
     bool isConstant0() const { return type_.isConst0(); }
     bool isConstant1() const { return type_.isConst1(); }
+    bool isAssignConstant() const override { return type_.isAssign(); } 
 
     ///\return the collection of SNLComponent ot this SNLBitNet
     NajaCollection<SNLNetComponent*> getComponents() const;

@@ -262,6 +262,14 @@ void SNLVRLConstructor::addInstance(const std::string& name) {
   }
 }
 
+void SNLVRLConstructor::addParameterAssignment(
+  const std::string& parameterName,
+  const naja::verilog::Expression& expression) {
+  if (not inFirstPass()) {
+    //auto model = currentInstance_->getModel();
+  }
+}
+
 void SNLVRLConstructor::endInstantiation() {
   if (not inFirstPass()) {
     assert(currentInstance_);
@@ -384,14 +392,13 @@ void SNLVRLConstructor::addInstanceConnection(
                 std::ostringstream reason;
                 reason << expression.getString() << " type is not supported";
                 throw SNLVRLConstructorException(reason.str());
-                break;
               }
             }
           }
           using BitTerms = std::vector<SNLBitTerm*>;
           BitTerms bitTerms(busTerm->getBits().begin(), busTerm->getBits().end());
           assert(bitTerms.size() == bitNets.size());
-          //currentInstance_->setTermsNets(bitTerms, bitNets);
+          currentInstance_->setTermsNets(bitTerms, bitNets);
           break;
         }
       }

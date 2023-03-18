@@ -49,8 +49,8 @@ void dumpDirection(const naja::SNL::SNLTerm* term, std::ostream& o) {
   }
 }
 
-using ContiguousNetBits = std::vector<naja::SNL::SNLBusNetBit*>;
-void dumpRange(ContiguousNetBits& bits, bool& firstElement, bool& concatenation, std::string& o) {
+using ContiguousNetBits = std::vector<naja::SNL::SNLBitNet*>;
+void dumpConstantRange(ContiguousNetBits& bits, bool& firstElement, bool& concatenation, std::string& o) {
   if (not bits.empty()) {
     if (not firstElement) {
       o += ", ";
@@ -58,28 +58,55 @@ void dumpRange(ContiguousNetBits& bits, bool& firstElement, bool& concatenation,
     } else {
       firstElement = false;
     }
-    naja::SNL::SNLBusNetBit* rangeMSBBit = bits[0];
-    naja::SNL::SNLID::Bit rangeMSB = rangeMSBBit->getBit();
-    naja::SNL::SNLBusNetBit* rangeLSBBit = bits[bits.size()-1];
-    naja::SNL::SNLID::Bit rangeLSB = rangeLSBBit->getBit();
-    naja::SNL::SNLBusNet* bus = rangeMSBBit->getBus();
-    naja::SNL::SNLID::Bit busMSB = bus->getMSB();
-    naja::SNL::SNLID::Bit busLSB = bus->getLSB();
-    if (rangeMSB == busMSB and rangeLSB == busLSB) {
-      o += bus->getName().getString();
-    } else if (rangeMSB == rangeLSB) {
-      o += bus->getName().getString() + "[";
-      o += std::to_string(rangeMSB);
-      o += "]";
-    } else {
-      o += bus->getName().getString() + "[";
-      o += std::to_string(rangeMSB);
-      o += ":";
-      o += std::to_string(rangeLSB);
-      o += "]";
+    o += std::to_string(bits.size()) + "'b";
+    //binary
+    for (auto bit: bits) {
+      if (bit->getType() == naja::SNL::SNLNet::Type::Assign0) {
+        o += "0";
+      } else if (bit->getType() == naja::SNL::SNLNet::Type::Assign1) {
+        o += "1";
+      } else {
+        throw naja::SNL::SNLVRLDumperException("ERROR");
+      }
     }
   }
   bits.clear();
+}
+
+void dumpRange(ContiguousNetBits& bits, bool& firstElement, bool& concatenation, std::string& o) {
+  if (not bits.empty()) {
+    if (bits[0]->isAssignConstant()) {
+      dumpConstantRange(bits, firstElement, concatenation, o);
+    } else {
+      if (not firstElement) {
+        o += ", ";
+        concatenation = true;
+      } else {
+        firstElement = false;
+      }
+      naja::SNL::SNLBusNetBit* rangeMSBBit = static_cast<naja::SNL::SNLBusNetBit*>(bits[0]);
+      naja::SNL::SNLID::Bit rangeMSB = rangeMSBBit->getBit();
+      naja::SNL::SNLBusNetBit* rangeLSBBit =static_cast<naja::SNL::SNLBusNetBit*>(bits[bits.size()-1]);
+      naja::SNL::SNLID::Bit rangeLSB = rangeLSBBit->getBit();
+      naja::SNL::SNLBusNet* bus = rangeMSBBit->getBus();
+      naja::SNL::SNLID::Bit busMSB = bus->getMSB();
+      naja::SNL::SNLID::Bit busLSB = bus->getLSB();
+      if (rangeMSB == busMSB and rangeLSB == busLSB) {
+        o += bus->getName().getString();
+      } else if (rangeMSB == rangeLSB) {
+        o += bus->getName().getString() + "[";
+        o += std::to_string(rangeMSB);
+        o += "]";
+      } else {
+        o += bus->getName().getString() + "[";
+        o += std::to_string(rangeMSB);
+        o += ":";
+        o += std::to_string(rangeLSB);
+        o += "]";
+      }
+      bits.clear();
+    }
+  }
 }
 
 }
@@ -168,6 +195,9 @@ void SNLVRLDumper::dumpInterface(const SNLDesign* design, std::ostream& o, Desig
 }
 
 void SNLVRLDumper::dumpNet(const SNLNet* net, std::ostream& o, DesignInsideAnonymousNaming& naming) {
+  if (net->isAssignConstant()) {
+    return;
+  }
   SNLName netName;
   if (net->isAnonymous()) {
     netName = createNetName(net, naming);
@@ -206,7 +236,19 @@ void SNLVRLDumper::dumpInsTermConnectivity(
     ContiguousNetBits contiguousBits;
     for (auto net: termNets) {
       if (net) {
-        if (dynamic_cast<SNLScalarNet*>(net)) {
+        if (net->isAssignConstant()) {
+          if (not contiguousBits.empty()) {
+            SNLBitNet* previousBit = contiguousBits.back();
+            if (not previousBit->isAssignConstant()) {
+              dumpRange(contiguousBits, firstElement, concatenation, connectionStr);
+              contiguousBits = { net };
+            } else {
+              contiguousBits.push_back(net);
+            }
+          } else {
+            contiguousBits.push_back(net);
+          }
+        } else if (dynamic_cast<SNLScalarNet*>(net)) {
           dumpRange(contiguousBits, firstElement, concatenation, connectionStr);
           SNLName netName = getNetName(net, naming);
           if (not firstElement) {
@@ -220,14 +262,20 @@ void SNLVRLDumper::dumpInsTermConnectivity(
           auto busNetBit = static_cast<SNLBusNetBit*>(net);
           auto busNet = busNetBit->getBus();
           if (not contiguousBits.empty()) {
-            SNLBusNetBit* previousBit = contiguousBits.back();
-            if (busNet == previousBit->getBus()
-            and ((previousBit->getBit() == busNetBit->getBit()+1)
-            or (previousBit->getBit() == busNetBit->getBit()-1))) {
-              contiguousBits.push_back(busNetBit);
-            } else {
+            SNLBitNet* previousBit = contiguousBits.back();
+            if (previousBit->isAssignConstant()) {
               dumpRange(contiguousBits, firstElement, concatenation, connectionStr);
               contiguousBits = { busNetBit };
+            } else {
+              SNLBusNetBit* previousBusBit = static_cast<SNLBusNetBit*>(previousBit);
+              if (busNet == previousBusBit->getBus()
+                and ((previousBusBit->getBit() == busNetBit->getBit()+1)
+                or (previousBusBit->getBit() == busNetBit->getBit()-1))) {
+                contiguousBits.push_back(busNetBit);
+              } else {
+                dumpRange(contiguousBits, firstElement, concatenation, connectionStr);
+                contiguousBits = { busNetBit };
+              }
             }
           } else {
             contiguousBits.push_back(busNetBit);
@@ -350,7 +398,7 @@ void SNLVRLDumper::dumpTermNetAssign(
       o << "assign " << termNetName << " = " << netName << ";" << std::endl;
       break;
     default:
-      throw SNLVRLDumperException("");
+      throw SNLVRLDumperException("wrong direction in assign");
   }
 }
 

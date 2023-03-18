@@ -167,6 +167,10 @@ void SNLBusNet::setType(const Type& type) {
   std::for_each(bits_.begin(), bits_.end(), [type](SNLBusNetBit* b){ if (b) b->setType(type); });
 }
 
+bool SNLBusNet::isAssignConstant() const {
+  return std::all_of(bits_.begin(), bits_.end(), [](const SNLBusNetBit* b){ return b->getType().isAssign(); });
+}
+
 //LCOV_EXCL_START
 const char* SNLBusNet::getTypeName() const {
   return "SNLBusNet";

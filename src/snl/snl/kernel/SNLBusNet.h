@@ -61,6 +61,7 @@ class SNLBusNet final: public SNLNet {
     bool isAnonymous() const override { return name_.empty(); }
 
     void setType(const Type& type) override;
+    bool isAssignConstant() const override;
 
     const char* getTypeName() const override;
     std::string getString() const override;
