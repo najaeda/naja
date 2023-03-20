@@ -34,7 +34,7 @@ using namespace naja::SNL;
 static PyObject* PySNLDesign_create(PyObject*, PyObject* args) {
   PyObject* arg0 = nullptr;
   const char* arg1 = nullptr;
-  if (not PyArg_ParseTuple(args, "O|s:SNLDB.create", &arg0, &arg1)) {
+  if (not PyArg_ParseTuple(args, "O|s:SNLDesign.create", &arg0, &arg1)) {
     setError("malformed SNLDesign create method");
     return nullptr;
   }

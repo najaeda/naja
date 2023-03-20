@@ -37,6 +37,10 @@ class SNLParameter {
     SNLName getName() const { return name_; }
     std::string getValue() const { return value_; }
 
+    const char* getTypeName() const;
+    std::string getString() const;
+    std::string getDescription() const;
+
     friend bool operator< (const SNLParameter& lp, const SNLParameter& rp) {
       return lp.getName() < rp.getName();
     }

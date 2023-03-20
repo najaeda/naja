@@ -114,8 +114,36 @@ std::string hexStrToBinStr(const std::string& hexStr) {
   return binStr;
 }
 
-void createConstantNets(
-  naja::SNL::SNLDesign* design,
+}
+
+namespace naja { namespace SNL {
+
+SNLScalarNet* SNLVRLConstructor::getOrCreateCurrentModelAssignNet(naja::SNL::SNLNet::Type type) {
+  auto model = currentInstance_->getDesign();
+  switch (type) {
+    case naja::SNL::SNLNet::Type::Assign0:
+      if (not currentModelAssign0_) {
+        currentModelAssign0_ =
+          naja::SNL::SNLScalarNet::create(model);
+        currentModelAssign0_->setType(naja::SNL::SNLNet::Type::Assign0);
+      }
+      return currentModelAssign0_;
+      break;
+    case naja::SNL::SNLNet::Type::Assign1:
+      if (not currentModelAssign1_) {
+        currentModelAssign1_ =
+          naja::SNL::SNLScalarNet::create(model);
+        currentModelAssign1_->setType(naja::SNL::SNLNet::Type::Assign1);
+      }
+      return currentModelAssign1_;
+      break;
+    default:
+      throw SNLVRLConstructorException("ASSIGN issue");
+  }
+  return nullptr;
+}
+
+void SNLVRLConstructor::createConstantNets(
   const naja::verilog::Number& number,
   naja::SNL::SNLInstance::Nets& nets) {
   if (number.value_.index() != naja::verilog::Number::BASED) {
@@ -125,8 +153,13 @@ void createConstantNets(
   }
   auto basedNumber = std::get<naja::verilog::Number::BASED>(number.value_);
 
-  if (basedNumber.base_ != naja::verilog::BasedNumber::HEX) {
-    throw naja::SNL::SNLVRLConstructorException("format");
+  switch (basedNumber.base_) {
+    case naja::verilog::BasedNumber::HEX:
+      break;
+    case naja::verilog::BasedNumber::DECIMAL:
+      break;
+    default:
+      throw naja::SNL::SNLVRLConstructorException("format");
   }
   auto bitString = hexStrToBinStr(basedNumber.digits_);
   if (bitString.size() < basedNumber.size_) {
@@ -138,11 +171,11 @@ void createConstantNets(
   // start from 4 - 2
   for (int i=bitString.size()-numberSize; i<bitString.size(); i++) {
     auto bit = bitString[i];
-    auto assignNet = naja::SNL::SNLScalarNet::create(design);
+    SNLScalarNet* assignNet = nullptr;
     if (bit == '0') {
-      assignNet->setType(naja::SNL::SNLNet::Type::Assign0);
+      assignNet = getOrCreateCurrentModelAssignNet(naja::SNL::SNLNet::Type::Assign0);
     } else if (bit == '1') {
-      assignNet->setType(naja::SNL::SNLNet::Type::Assign1);
+      assignNet = getOrCreateCurrentModelAssignNet(naja::SNL::SNLNet::Type::Assign1);
     } else {
       assert(false);
       throw naja::SNL::SNLVRLConstructorException("format");
@@ -150,10 +183,6 @@ void createConstantNets(
     nets.push_back(assignNet);
   }
 }
-
-}
-
-namespace naja { namespace SNL {
 
 SNLVRLConstructor::SNLVRLConstructor(SNLLibrary* library):
   library_(library)
@@ -295,10 +324,6 @@ void SNLVRLConstructor::addInstanceConnection(
         << " model";
       throw SNLVRLConstructorException(reason.str());
     }
-    auto busTerm = dynamic_cast<SNLBusTerm*>(term);
-    if (not busTerm) {
-      //error
-    }
     if (expression.valid_) {
       if (not expression.supported_) {
         std::ostringstream reason;
@@ -306,6 +331,21 @@ void SNLVRLConstructor::addInstanceConnection(
         throw SNLVRLConstructorException(reason.str());
       }
       switch (expression.value_.index()) {
+        case naja::verilog::Expression::NUMBER: {
+          auto number =
+            std::get<naja::verilog::Expression::Type::NUMBER>(expression.value_);
+          SNLInstance::Terms bitTerms;
+          SNLInstance::Nets bitNets;
+          if (auto scalarTerm = dynamic_cast<SNLScalarTerm*>(term)) {
+            bitTerms.push_back(scalarTerm);
+          } else {
+            auto busTerm = static_cast<SNLBusTerm*>(term);
+            bitTerms = SNLInstance::Terms(busTerm->getBits().begin(), busTerm->getBits().end());
+          }
+          createConstantNets(number, bitNets);
+          currentInstance_->setTermsNets(bitTerms, bitNets);
+          break;
+        }
         case naja::verilog::Expression::Type::IDENTIFIER: {
           auto identifier = std::get<naja::verilog::Identifier>(expression.value_);
           std::string name = identifier.name_;
@@ -320,7 +360,7 @@ void SNLVRLConstructor::addInstanceConnection(
           if (identifier.range_.valid_) {
             SNLBusNet* busNet = dynamic_cast<SNLBusNet*>(net);
             if (not busNet) {
-              //error
+              throw SNLVRLConstructorException("NOT BUSTERM");
             }
             int netMSB = identifier.range_.msb_;
             int netLSB = netMSB;
@@ -346,7 +386,7 @@ void SNLVRLConstructor::addInstanceConnection(
               case naja::verilog::Expression::NUMBER: {
                 auto number =
                   std::get<naja::verilog::Expression::Type::NUMBER>(expression.value_);
-                createConstantNets(currentInstance_->getDesign(), number, bitNets);
+                createConstantNets(number, bitNets);
                 break;
               }
               case naja::verilog::Expression::IDENTIFIER: {
@@ -396,10 +436,19 @@ void SNLVRLConstructor::addInstanceConnection(
             }
           }
           using BitTerms = std::vector<SNLBitTerm*>;
+          auto busTerm = dynamic_cast<SNLBusTerm*>(term);
+          if (not busTerm) {
+            throw SNLVRLConstructorException("NOT BUSTERM");
+          }
           BitTerms bitTerms(busTerm->getBits().begin(), busTerm->getBits().end());
           assert(bitTerms.size() == bitNets.size());
           currentInstance_->setTermsNets(bitTerms, bitNets);
           break;
+        }
+        default: {
+          std::ostringstream reason;
+          reason << expression.getString() << " type is not supported in instance connection";
+          throw SNLVRLConstructorException(reason.str());
         }
       }
     }

@@ -18,6 +18,6 @@ module test(input i, output o, inout io);
   supply1 constant1;
 
   mod0 inst0(.i0(net1), .o0(net4[3]));
-  mod1 inst1(.i(net4), .o());
+  mod1 inst1(.i(5'h1A), .o(net4));
   mod1 inst2(.i({ net1, net4[1:0], 2'h2 }), .o());
 endmodule

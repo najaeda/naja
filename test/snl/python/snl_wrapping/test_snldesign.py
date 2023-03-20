@@ -63,5 +63,14 @@ class SNLDesignTest(unittest.TestCase):
     o = snl.SNLScalarTerm.create(design, snl.SNLTerm.Direction.Output, "O")
     self.assertEqual(design, o.getDesign())
 
+  def testParameters(self):
+    self.assertIsNotNone(self.lib)
+    design = snl.SNLDesign.create(self.lib, "DESIGN")
+    self.assertIsNotNone(design)
+
+    p = snl.SNLParameter.create(design, "INIT", "0000")
+    self.assertIsNotNone(p)
+    self.assertEqual("INIT", p.getName())
+
 if __name__ == '__main__':
   unittest.main()

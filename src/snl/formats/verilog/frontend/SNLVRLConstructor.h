@@ -18,13 +18,17 @@
 #define __SNL_VRL_CONSTRUCTOR_H_
 
 #include "VerilogConstructor.h"
+
 #include <set>
+
+#include "SNLInstance.h"
+#include "SNLNet.h"
 
 namespace naja { namespace SNL {
 
 class SNLLibrary;
 class SNLDesign;
-class SNLInstance;
+class SNLScalarNet;
 
 class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
   public:
@@ -52,12 +56,19 @@ class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
       const naja::verilog::Expression& expression) override;
     void endModule() override;
   private:
+    SNLScalarNet* getOrCreateCurrentModelAssignNet(naja::SNL::SNLNet::Type type);
+    void createConstantNets(
+      const naja::verilog::Number& number,
+      SNLInstance::Nets& nets);
+
     bool          verbose_                      {true};
     bool          firstPass_                    {true};
     SNLLibrary*   library_                      {nullptr};
     SNLDesign*    currentModule_                {nullptr};
     std::string   currentModelName_             {};
     SNLInstance*  currentInstance_              {nullptr};
+    SNLScalarNet* currentModelAssign0_          {nullptr};
+    SNLScalarNet* currentModelAssign1_          {nullptr};
     using NameSet = std::set<std::string>;
     NameSet       currentModuleInterfacePorts_  {};
 };
