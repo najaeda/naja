@@ -19,6 +19,8 @@
 #include <iostream>
 #include <sstream>
 
+#include <boost/dynamic_bitset.hpp>
+
 #include "SNLUniverse.h"
 #include "SNLLibrary.h"
 #include "SNLDesign.h"
@@ -81,37 +83,62 @@ void createPort(naja::SNL::SNLDesign* design, const naja::verilog::Port& port) {
   }
 }
 
-const char* hexToBin(char c) {
-    // TODO handle default / error
-    switch(toupper(c)) {
-      case '0': return "0000";
-      case '1': return "0001";
-      case '2': return "0010";
-      case '3': return "0011";
-      case '4': return "0100";
-      case '5': return "0101";
-      case '6': return "0110";
-      case '7': return "0111";
-      case '8': return "1000";
-      case '9': return "1001";
-      case 'A': return "1010";
-      case 'B': return "1011";
-      case 'C': return "1100";
-      case 'D': return "1101";
-      case 'E': return "1110";
-      case 'F': return "1111";
-      default: {
-        throw naja::SNL::SNLVRLConstructorException("conversion");
-      }
-    }
+void setBit(boost::dynamic_bitset<>& bits, size_t i) {
+  if (i<bits.size()) {
+    bits.set(i);
+  }
 }
 
-std::string hexStrToBinStr(const std::string& hexStr) {
-  std::string binStr;
-  for (const char& c: hexStr) {
-    binStr += hexToBin(c);
+void reverse(boost::dynamic_bitset<> &bs) {
+  for (size_t begin = 0, end = bs.size() - 1; begin < end; begin++, end--) {
+    bool b = bs[end];
+    bs[end] = bs[begin];
+    bs[begin] = b;
   }
-  return binStr;
+}
+
+
+boost::dynamic_bitset<> numberToBits(const naja::verilog::BasedNumber& number) {
+  switch (number.base_) {
+    case naja::verilog::BasedNumber::DECIMAL: {
+      unsigned long value = std::stoul(number.digits_);
+      auto bits = boost::dynamic_bitset<>(number.size_, value);
+      ::reverse(bits);
+      return bits;
+    }
+    case naja::verilog::BasedNumber::HEX: {
+      boost::dynamic_bitset<> bits(number.size_, 0ul);
+      size_t i = bits.size()-1; 
+      for (int j = number.digits_.size()-1; j>=0; j--) {
+        const char& c = number.digits_[j];
+        switch (toupper(c)) {
+          case '0': break;
+          case '1': setBit(bits, i); break;
+          case '2': setBit(bits, i-1); break;
+          case '3': setBit(bits, i); setBit(bits, i-1); break;
+          case '4': setBit(bits, i-2); break;
+          case '5': setBit(bits, i-2); setBit(bits, i); break;
+          case '6': setBit(bits, i-2); setBit(bits, i-1); break;
+          case '7': setBit(bits, i-2); setBit(bits, i-1); setBit(bits, i); break;
+          case '8': setBit(bits, i-3); break;
+          case '9': setBit(bits, i-3); setBit(bits, i); break;
+          case 'A': setBit(bits, i-3); setBit(bits, i-1); break;
+          case 'B': setBit(bits, i-3); setBit(bits, i-1); setBit(bits, i); break;
+          case 'C': setBit(bits, i-3); setBit(bits, i-2); break;
+          case 'D': setBit(bits, i-3); setBit(bits, i-2); setBit(bits, i); break;
+          case 'E': setBit(bits, i-3); setBit(bits, i-2); setBit(bits, i-1); break;
+          case 'F': setBit(bits, i-3); setBit(bits, i-2); setBit(bits, i-1); setBit(bits, i); break;
+        }
+        if (i>0) {
+          i -= 4;
+        }
+      }
+      return bits;
+    }
+    default:
+      throw naja::SNL::SNLVRLConstructorException("Error");
+  }
+  return boost::dynamic_bitset<>();
 }
 
 }
@@ -119,12 +146,12 @@ std::string hexStrToBinStr(const std::string& hexStr) {
 namespace naja { namespace SNL {
 
 SNLScalarNet* SNLVRLConstructor::getOrCreateCurrentModelAssignNet(naja::SNL::SNLNet::Type type) {
-  auto model = currentInstance_->getDesign();
+  auto design = currentInstance_->getDesign();
   switch (type) {
     case naja::SNL::SNLNet::Type::Assign0:
       if (not currentModelAssign0_) {
         currentModelAssign0_ =
-          naja::SNL::SNLScalarNet::create(model);
+          naja::SNL::SNLScalarNet::create(design);
         currentModelAssign0_->setType(naja::SNL::SNLNet::Type::Assign0);
       }
       return currentModelAssign0_;
@@ -132,7 +159,7 @@ SNLScalarNet* SNLVRLConstructor::getOrCreateCurrentModelAssignNet(naja::SNL::SNL
     case naja::SNL::SNLNet::Type::Assign1:
       if (not currentModelAssign1_) {
         currentModelAssign1_ =
-          naja::SNL::SNLScalarNet::create(model);
+          naja::SNL::SNLScalarNet::create(design);
         currentModelAssign1_->setType(naja::SNL::SNLNet::Type::Assign1);
       }
       return currentModelAssign1_;
@@ -152,33 +179,16 @@ void SNLVRLConstructor::createConstantNets(
     throw naja::SNL::SNLVRLConstructorException(reason.str());
   }
   auto basedNumber = std::get<naja::verilog::Number::BASED>(number.value_);
-
-  switch (basedNumber.base_) {
-    case naja::verilog::BasedNumber::HEX:
-      break;
-    case naja::verilog::BasedNumber::DECIMAL:
-      break;
-    default:
-      throw naja::SNL::SNLVRLConstructorException("format");
-  }
-  auto bitString = hexStrToBinStr(basedNumber.digits_);
-  if (bitString.size() < basedNumber.size_) {
+  auto bits = numberToBits(basedNumber);
+  if (bits.size() != basedNumber.size_) {
     throw naja::SNL::SNLVRLConstructorException("Size");
   }
-  size_t numberSize = std::min(bitString.size(), basedNumber.size_);
-  // [ 0 0 1 0 ] bitString.size() == 4
-  // numberSize = 2
-  // start from 4 - 2
-  for (int i=bitString.size()-numberSize; i<bitString.size(); i++) {
-    auto bit = bitString[i];
+  for (int i=0; i<bits.size(); i++) {
     SNLScalarNet* assignNet = nullptr;
-    if (bit == '0') {
-      assignNet = getOrCreateCurrentModelAssignNet(naja::SNL::SNLNet::Type::Assign0);
-    } else if (bit == '1') {
+    if (bits[i]) {
       assignNet = getOrCreateCurrentModelAssignNet(naja::SNL::SNLNet::Type::Assign1);
     } else {
-      assert(false);
-      throw naja::SNL::SNLVRLConstructorException("format");
+      assignNet = getOrCreateCurrentModelAssignNet(naja::SNL::SNLNet::Type::Assign0);
     }
     nets.push_back(assignNet);
   }
@@ -335,13 +345,13 @@ void SNLVRLConstructor::addInstanceConnection(
           auto number =
             std::get<naja::verilog::Expression::Type::NUMBER>(expression.value_);
           SNLInstance::Terms bitTerms;
-          SNLInstance::Nets bitNets;
           if (auto scalarTerm = dynamic_cast<SNLScalarTerm*>(term)) {
             bitTerms.push_back(scalarTerm);
           } else {
             auto busTerm = static_cast<SNLBusTerm*>(term);
             bitTerms = SNLInstance::Terms(busTerm->getBits().begin(), busTerm->getBits().end());
           }
+          SNLInstance::Nets bitNets;
           createConstantNets(number, bitNets);
           currentInstance_->setTermsNets(bitTerms, bitNets);
           break;
@@ -467,6 +477,8 @@ void SNLVRLConstructor::endModule() {
   }
   currentModule_ = nullptr;
   currentModuleInterfacePorts_.clear();
+  currentModelAssign0_ = nullptr;
+  currentModelAssign1_ = nullptr;
 }
 
 }} // namespace SNL // namespace naja

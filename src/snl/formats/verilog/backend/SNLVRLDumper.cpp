@@ -49,6 +49,37 @@ void dumpDirection(const naja::SNL::SNLTerm* term, std::ostream& o) {
   }
 }
 
+std::string binStrToHexStr(std::string binStr) {
+  size_t missingZeros = binStr.size()%4;
+  for (size_t i=0; i<missingZeros; i++) {
+    binStr = '0' + binStr;
+  }
+  std::string hexStr;
+  size_t it = 0;
+  while (it < binStr.size()) {
+    std::string hex = binStr.substr(it, 4);
+    if      (hex == "0000") { hexStr += "0"; }
+    else if (hex == "0001") { hexStr += "1"; }
+    else if (hex == "0010") { hexStr += "2"; }
+    else if (hex == "0011") { hexStr += "3"; }
+    else if (hex == "0100") { hexStr += "4"; }
+    else if (hex == "0101") { hexStr += "5"; }
+    else if (hex == "0110") { hexStr += "6"; }
+    else if (hex == "0111") { hexStr += "7"; }
+    else if (hex == "1000") { hexStr += "8"; }
+    else if (hex == "1001") { hexStr += "9"; }
+    else if (hex == "1010") { hexStr += "A"; }
+    else if (hex == "1011") { hexStr += "B"; }
+    else if (hex == "1100") { hexStr += "C"; }
+    else if (hex == "1101") { hexStr += "D"; }
+    else if (hex == "1110") { hexStr += "E"; }
+    else if (hex == "1111") { hexStr += "F"; }
+    else { throw naja::SNL::SNLVRLDumperException("ERROR"); }
+    it += 4;
+  }
+  return hexStr;
+}
+
 using ContiguousNetBits = std::vector<naja::SNL::SNLBitNet*>;
 void dumpConstantRange(ContiguousNetBits& bits, bool& firstElement, bool& concatenation, std::string& o) {
   if (not bits.empty()) {
@@ -58,16 +89,25 @@ void dumpConstantRange(ContiguousNetBits& bits, bool& firstElement, bool& concat
     } else {
       firstElement = false;
     }
-    o += std::to_string(bits.size()) + "'b";
-    //binary
+    std::string constantStr;
     for (auto bit: bits) {
       if (bit->getType() == naja::SNL::SNLNet::Type::Assign0) {
-        o += "0";
+        constantStr += "0";
       } else if (bit->getType() == naja::SNL::SNLNet::Type::Assign1) {
-        o += "1";
+        constantStr += "1";
       } else {
         throw naja::SNL::SNLVRLDumperException("ERROR");
       }
+    }
+    if (constantStr.size() < 4) {
+      //binary
+      o += std::to_string(bits.size()) + "'b";
+      o += constantStr;
+    } else {
+      //hexa
+      o += std::to_string(bits.size()) + "'h";
+      constantStr = binStrToHexStr(constantStr);
+      o += constantStr;
     }
   }
   bits.clear();
