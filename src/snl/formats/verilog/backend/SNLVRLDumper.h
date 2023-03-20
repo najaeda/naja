@@ -97,7 +97,8 @@ class SNLVRLDumper {
     void dumpDesign(const SNLDesign* design, const std::filesystem::path& path);
     //dump design in stream o
     void dumpDesign(const SNLDesign* design, std::ostream& o);
-  
+
+    static std::string binStrToHexStr(std::string binStr);
   private:
     std::string getTopFileName(const SNLDesign* top) const;
     struct DesignAnonymousNaming {
