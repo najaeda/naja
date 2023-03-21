@@ -351,6 +351,16 @@ void SNLInstance::removeSharedPath(SNLSharedPath* sharedPath) {
   sharedPaths_.erase(*sharedPath);
 }
 
+void SNLInstance::addParameterValue(const SNLName& name, const std::string& value) {
+  if (not getModel()->getParameter(name)) {
+    std::string reason = "SNLInstance::addParameterValue error: parameter "
+      + name.getString() + " does not exist in "
+      + getName().getString() + " model: " + getModel()->getName().getString();
+    throw SNLException(reason);
+  }
+  parameterValues_[name] = value;
+}
+
 //LCOV_EXCL_START
 const char* SNLInstance::getTypeName() const {
   return "SNLInstance";

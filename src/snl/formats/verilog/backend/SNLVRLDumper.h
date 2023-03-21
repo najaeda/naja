@@ -126,9 +126,10 @@ class SNLVRLDumper {
     void dumpParameters(const SNLDesign* design, std::ostream& o);
     void dumpInstances(const SNLDesign* design, std::ostream& o, DesignInsideAnonymousNaming& naming);
     void dumpInstance(const SNLInstance* instance, std::ostream& o, DesignInsideAnonymousNaming& naming);
+    void dumpInstanceParameterValues(const SNLInstance* instance, std::ostream& o);
     void dumpInstanceInterface(const SNLInstance* instance, std::ostream& o, const DesignInsideAnonymousNaming& naming);
     void dumpNets(const SNLDesign* design, std::ostream& o, DesignInsideAnonymousNaming& naming);
-    void dumpNet(const SNLNet* net, std::ostream& o, DesignInsideAnonymousNaming& naming);
+    bool dumpNet(const SNLNet* net, std::ostream& o, DesignInsideAnonymousNaming& naming);
 
     void dumpTermNetAssign(
       const SNLTerm::Direction& direction,

@@ -41,6 +41,7 @@ class SNLInstance final: public SNLDesignObject {
     friend class SNLPath;
     using super = SNLDesignObject;
     using SNLInstanceInstTerms = std::vector<SNLInstTerm*>;
+    using SNLInstanceParameterValues = std::map<SNLName, std::string>;
     using SNLInstanceSharedPathsHook =
       boost::intrusive::member_hook<SNLSharedPath, boost::intrusive::set_member_hook<>, &SNLSharedPath::instanceSharedPathsHook_>;
     using SNLInstanceSharedPaths = boost::intrusive::set<SNLSharedPath, SNLInstanceSharedPathsHook>;
@@ -77,6 +78,9 @@ class SNLInstance final: public SNLDesignObject {
     const char* getTypeName() const override;
     std::string getString() const override;
     std::string getDescription() const override;
+
+    void addParameterValue(const SNLName& name, const std::string& value);
+    SNLInstanceParameterValues getParameterValues() const { return parameterValues_; }
 
     ///\return SNLInstTerm corresponding to the SNLBitTerm representative in this instance. 
     SNLInstTerm* getInstTerm(const SNLBitTerm* term) const;
@@ -151,6 +155,7 @@ class SNLInstance final: public SNLDesignObject {
     SNLName                             name_                     {};
     SNLInstanceInstTerms                instTerms_                {};
     SNLInstanceSharedPaths              sharedPaths_              {};
+    SNLInstanceParameterValues          parameterValues_          {};
     boost::intrusive::set_member_hook<> designInstancesHook_      {};
     boost::intrusive::set_member_hook<> designSlaveInstancesHook_ {};
 };
