@@ -61,16 +61,18 @@ class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
       const naja::verilog::Number& number,
       SNLInstance::Nets& nets);
 
-    bool          verbose_                      {true};
-    bool          firstPass_                    {true};
-    SNLLibrary*   library_                      {nullptr};
-    SNLDesign*    currentModule_                {nullptr};
-    std::string   currentModelName_             {};
-    SNLInstance*  currentInstance_              {nullptr};
-    SNLScalarNet* currentModelAssign0_          {nullptr};
-    SNLScalarNet* currentModelAssign1_          {nullptr};
+    bool            verbose_                        {true};
+    bool            firstPass_                      {true};
+    SNLLibrary*     library_                        {nullptr};
+    SNLDesign*      currentModule_                  {nullptr};
+    std::string     currentModelName_               {};
+    SNLInstance*    currentInstance_                {nullptr};
+    using ParameterValues = std::map<std::string, std::string>;
+    ParameterValues currentInstanceParameterValues_ {};
+    SNLScalarNet*   currentModelAssign0_            {nullptr};
+    SNLScalarNet*   currentModelAssign1_            {nullptr};
     using NameSet = std::set<std::string>;
-    NameSet       currentModuleInterfacePorts_  {};
+    NameSet         currentModuleInterfacePorts_    {};
 };
 
 }} // namespace SNL // namespace naja

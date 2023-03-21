@@ -97,7 +97,6 @@ void reverse(boost::dynamic_bitset<> &bs) {
   }
 }
 
-
 boost::dynamic_bitset<> numberToBits(const naja::verilog::BasedNumber& number) {
   switch (number.base_) {
     case naja::verilog::BasedNumber::DECIMAL: {
@@ -305,7 +304,7 @@ void SNLVRLConstructor::addParameterAssignment(
   const std::string& parameterName,
   const naja::verilog::Expression& expression) {
   if (not inFirstPass()) {
-    //auto model = currentInstance_->getModel();
+    currentInstanceParameterValues_[parameterName] = expression.getString();
   }
 }
 
@@ -315,6 +314,11 @@ void SNLVRLConstructor::endInstantiation() {
     if (verbose_) {
       std::cerr << "End " << currentInstance_->getString() << " instantiation" << std::endl;
     }
+    //Save current Parameter assignments
+    for (auto parameterValue: currentInstanceParameterValues_) {
+      currentInstance_->addParameterValue(SNLName(parameterValue.first), parameterValue.second);
+    }
+    currentInstanceParameterValues_.clear();
     currentInstance_ = nullptr;
     currentModelName_ = std::string();
   }
