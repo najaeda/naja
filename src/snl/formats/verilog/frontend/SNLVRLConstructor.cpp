@@ -266,6 +266,12 @@ void SNLVRLConstructor::addNet(const naja::verilog::Net& net) {
   }
 }
 
+void SNLVRLConstructor::addAssign(
+  const naja::verilog::Identifiers& identifiers,
+  const naja::verilog::Expression& expression) {
+
+}
+
 void SNLVRLConstructor::startInstantiation(const std::string& modelName) {
   if (not inFirstPass()) {
     currentModelName_ = modelName;

@@ -45,6 +45,9 @@ class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
     void moduleImplementationPort(const naja::verilog::Port& port) override;
     void moduleInterfaceCompletePort(const naja::verilog::Port& port) override;
     void addNet(const naja::verilog::Net& net) override;
+    void addAssign(
+      const naja::verilog::Identifiers& identifiers,
+      const naja::verilog::Expression& expression) override;
     void startInstantiation(const std::string& modelName) override;
     void addParameterAssignment(
       const std::string& parameterName,
