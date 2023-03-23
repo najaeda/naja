@@ -7,7 +7,7 @@
 #include "SNLScalarNet.h"
 #include "SNLBusNet.h"
 #include "SNLBusNetBit.h"
-
+#include "SNLUtils.h"
 #include "SNLVRLConstructor.h"
 
 using namespace naja::SNL;
@@ -71,6 +71,8 @@ TEST_F(SNLVRLConstructorTest0, test) {
   
   constructor.setFirstPass(false);
   constructor.parse(benchmarksPath/"test0.v");
+  auto top = SNLUtils::findTop(library_);
+  EXPECT_EQ(top, test);
   //7 standard nets + 2 constant nets
   EXPECT_EQ(9, test->getNets().size());
   using Nets = std::vector<SNLNet*>;

@@ -7,6 +7,7 @@
 #include "SNLScalarNet.h"
 #include "SNLBusNet.h"
 #include "SNLBusNetBit.h"
+#include "SNLUtils.h"
 
 #include "SNLPrimitivesLoader.h"
 #include "SNLVRLConstructor.h"
@@ -50,6 +51,8 @@ TEST_F(SNLVRLConstructorTest1, test) {
 
   constructor.setFirstPass(false);
   constructor.parse(benchmarksPath/"test1.v");
+  auto top = SNLUtils::findTop(library_);
+  EXPECT_EQ(top, test);
   ASSERT_EQ(1, model->getInstances().size());
   auto lut = model->getInstance(SNLName("lut"));
   ASSERT_NE(lut, nullptr);

@@ -269,7 +269,6 @@ TEST_F(SNLVRLDumperTest1, test4) {
   EXPECT_FALSE(std::system(command.c_str()));
 }
 
-#if 0
 //mix scalars with bus subrange and holes
 TEST_F(SNLVRLDumperTest1, test5) {
   auto lib = db_->getLibrary(SNLName("MYLIB"));  
@@ -307,4 +306,3 @@ TEST_F(SNLVRLDumperTest1, test5) {
   std::string command = "diff " + outPath.string() + " " + referencePath.string();
   EXPECT_FALSE(std::system(command.c_str()));
 }
-#endif

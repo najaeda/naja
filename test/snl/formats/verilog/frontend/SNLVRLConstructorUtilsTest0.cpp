@@ -1,6 +1,7 @@
 #include "gtest/gtest.h"
 
 #include "SNLVRLConstructorUtils.h"
+#include "SNLVRLConstructorException.h"
 
 using namespace naja::SNL;
 
@@ -62,4 +63,10 @@ TEST(SNLVRLConstructorUtilsTest0, testHexadecimal) {
   EXPECT_TRUE(bits[2]);
   EXPECT_FALSE(bits[1]);
   EXPECT_TRUE(bits[0]);
+}
+
+TEST(SNLVRLConstructorUtilsTest0, testErrors) {
+  //Octal not supported for the moment
+  auto num = naja::verilog::BasedNumber("3", "o", "7");
+  EXPECT_THROW(SNLVRLConstructorUtils::numberToBits(num), SNLVRLConstructorException);
 }
