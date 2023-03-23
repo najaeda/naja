@@ -289,6 +289,29 @@ TEST_F(SNLVRLDumperTest1, test5) {
   instance1->setTermNet(o0BusTerm, -2, -2, SNLScalarNet::create(top, SNLName("net_0")), 0, 0);
   instance1->setTermNet(o0BusTerm, 1, 2, bus0, -1, 0);
 
+  auto i0BusTerm = model->getBusTerm(SNLName("i0"));
+  ASSERT_NE(nullptr, i0BusTerm);
+  auto assign0Bus = SNLBusNet::create(top, 4, 0);
+  assign0Bus->setType(naja::SNL::SNLNet::Type::Assign0);
+  instance1->setTermNet(i0BusTerm, assign0Bus);
+
+  SNLInstance::Nets nets;
+  {
+    auto n0 = SNLScalarNet::create(top);
+    n0->setType(naja::SNL::SNLNet::Type::Assign1);
+    auto n1 = SNLScalarNet::create(top);
+    n1->setType(naja::SNL::SNLNet::Type::Assign0);
+    auto n2 = SNLScalarNet::create(top);
+    n2->setType(naja::SNL::SNLNet::Type::Assign0);
+    auto n3 = SNLScalarNet::create(top);
+    n3->setType(naja::SNL::SNLNet::Type::Assign1);
+    auto n4 = SNLScalarNet::create(top);
+    n4->setType(naja::SNL::SNLNet::Type::Assign1);
+    nets = {n0, n1, n2, n3, n4};
+  }
+  SNLInstance::Terms terms(i0BusTerm->getBits().begin(), i0BusTerm->getBits().end()); 
+  instance2->setTermsNets(terms, nets);
+
   std::filesystem::path outPath(SNL_VRL_DUMPER_TEST_PATH);
   outPath = outPath / "test1Test5";
   if (std::filesystem::exists(outPath)) {

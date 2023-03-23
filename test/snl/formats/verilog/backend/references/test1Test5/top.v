@@ -9,14 +9,14 @@ wire [-2:2] bus3;
 wire net_0;
 
 model instance1(
-  .i0(),
+  .i0(5'h00),
   .i1(),
   .o0({bus0[0:-1], DUMMY, DUMMY, net_0}),
   .o1()
 );
 
 model instance2(
-  .i0(),
+  .i0(5'h13),
   .i1(),
   .o0(),
   .o1()
