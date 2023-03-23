@@ -19,8 +19,6 @@
 #include <iostream>
 #include <sstream>
 
-#include <boost/dynamic_bitset.hpp>
-
 #include "SNLUniverse.h"
 #include "SNLLibrary.h"
 #include "SNLDesign.h"
@@ -30,6 +28,8 @@
 #include "SNLBusNet.h"
 #include "SNLBusNetBit.h"
 #include "SNLScalarNet.h"
+
+#include "SNLVRLConstructorUtils.h"
 #include "SNLVRLConstructorException.h"
 
 namespace {
@@ -83,63 +83,6 @@ void createPort(naja::SNL::SNLDesign* design, const naja::verilog::Port& port) {
   }
 }
 
-void setBit(boost::dynamic_bitset<>& bits, size_t i) {
-  if (i<bits.size()) {
-    bits.set(i);
-  }
-}
-
-void reverse(boost::dynamic_bitset<> &bs) {
-  for (size_t begin = 0, end = bs.size() - 1; begin < end; begin++, end--) {
-    bool b = bs[end];
-    bs[end] = bs[begin];
-    bs[begin] = b;
-  }
-}
-
-boost::dynamic_bitset<> numberToBits(const naja::verilog::BasedNumber& number) {
-  switch (number.base_) {
-    case naja::verilog::BasedNumber::DECIMAL: {
-      unsigned long value = std::stoul(number.digits_);
-      auto bits = boost::dynamic_bitset<>(number.size_, value);
-      ::reverse(bits);
-      return bits;
-    }
-    case naja::verilog::BasedNumber::HEX: {
-      boost::dynamic_bitset<> bits(number.size_, 0ul);
-      size_t i = bits.size()-1; 
-      for (int j = number.digits_.size()-1; j>=0; j--) {
-        const char& c = number.digits_[j];
-        switch (toupper(c)) {
-          case '0': break;
-          case '1': setBit(bits, i); break;
-          case '2': setBit(bits, i-1); break;
-          case '3': setBit(bits, i); setBit(bits, i-1); break;
-          case '4': setBit(bits, i-2); break;
-          case '5': setBit(bits, i-2); setBit(bits, i); break;
-          case '6': setBit(bits, i-2); setBit(bits, i-1); break;
-          case '7': setBit(bits, i-2); setBit(bits, i-1); setBit(bits, i); break;
-          case '8': setBit(bits, i-3); break;
-          case '9': setBit(bits, i-3); setBit(bits, i); break;
-          case 'A': setBit(bits, i-3); setBit(bits, i-1); break;
-          case 'B': setBit(bits, i-3); setBit(bits, i-1); setBit(bits, i); break;
-          case 'C': setBit(bits, i-3); setBit(bits, i-2); break;
-          case 'D': setBit(bits, i-3); setBit(bits, i-2); setBit(bits, i); break;
-          case 'E': setBit(bits, i-3); setBit(bits, i-2); setBit(bits, i-1); break;
-          case 'F': setBit(bits, i-3); setBit(bits, i-2); setBit(bits, i-1); setBit(bits, i); break;
-        }
-        if (i>0) {
-          i -= 4;
-        }
-      }
-      return bits;
-    }
-    default:
-      throw naja::SNL::SNLVRLConstructorException("Error");
-  }
-  return boost::dynamic_bitset<>();
-}
-
 }
 
 namespace naja { namespace SNL {
@@ -178,11 +121,11 @@ void SNLVRLConstructor::createConstantNets(
     throw naja::SNL::SNLVRLConstructorException(reason.str());
   }
   auto basedNumber = std::get<naja::verilog::Number::BASED>(number.value_);
-  auto bits = numberToBits(basedNumber);
+  auto bits = SNLVRLConstructorUtils::numberToBits(basedNumber);
   if (bits.size() != basedNumber.size_) {
     throw naja::SNL::SNLVRLConstructorException("Size");
   }
-  for (int i=0; i<bits.size(); i++) {
+  for (int i=bits.size()-1; i>=0; i--) {
     SNLScalarNet* assignNet = nullptr;
     if (bits[i]) {
       assignNet = getOrCreateCurrentModelAssignNet(naja::SNL::SNLNet::Type::Assign1);

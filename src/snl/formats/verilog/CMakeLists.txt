@@ -1,8 +1,10 @@
 set(SOURCES
   frontend/SNLVRLConstructor.cpp
+  frontend/SNLVRLConstructorUtils.cpp
   backend/SNLVRLDumper.cpp
 )
 
+#In the future provide a header exposing only simple parsing interface
 SET(HEADERS
   frontend/SNLVRLConstructor.h
   backend/SNLVRLDumper.h
