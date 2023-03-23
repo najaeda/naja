@@ -15,6 +15,8 @@
  */
 
 #include "SNLVRLConstructorUtils.h"
+
+#include <sstream>
 #include "SNLVRLConstructorException.h"
 
 namespace naja { namespace SNL {
@@ -29,7 +31,6 @@ boost::dynamic_bitset<> SNLVRLConstructorUtils::numberToBits(const naja::verilog
   //Transform constant number to bitset 
   // Verilog MSB:LSB
   // dynamic_bitset: bit 0 is LSB
-
   switch (number.base_) {
     case naja::verilog::BasedNumber::DECIMAL: {
       unsigned long value = std::stoul(number.digits_);
@@ -67,8 +68,12 @@ boost::dynamic_bitset<> SNLVRLConstructorUtils::numberToBits(const naja::verilog
       }
       return bits;
     }
-    default:
-      throw naja::SNL::SNLVRLConstructorException("Error");
+    default: {
+      std::stringstream stream;
+      stream << "In SNLVRLConstructorUtils::numberToBits, unsupported format: "
+        << naja::verilog::BasedNumber::getBaseString(number.base_);
+      throw naja::SNL::SNLVRLConstructorException(stream.str());
+    }
   }
   return boost::dynamic_bitset<>();
 }

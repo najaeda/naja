@@ -30,7 +30,7 @@ TEST(SNLVRLConstructorUtilsTest0, testDecimal) {
 }
 
 TEST(SNLVRLConstructorUtilsTest0, testHexadecimal) {
-  for (size_t i=0; i<15; i++) {
+  for (size_t i=0; i<=15; i++) {
     std::stringstream stream;
     stream << std::hex << i;
     std::string hexStr = stream.str();
