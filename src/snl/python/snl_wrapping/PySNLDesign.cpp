@@ -79,7 +79,7 @@ static PyObject* PySNLDesign_createPrimitive(PyObject*, PyObject* args) {
   return PySNLDesign_Link(design);
 }
 
-GetObject(Design, Library)
+GetObjectMethod(Design, Library)
 GetObjectByName(Design, Instance)
 GetObjectByName(Design, Term)
 GetObjectByName(Design, ScalarTerm)

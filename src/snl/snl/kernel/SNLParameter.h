@@ -36,6 +36,7 @@ class SNLParameter {
     void destroy();
     SNLName getName() const { return name_; }
     std::string getValue() const { return value_; }
+    SNLDesign* getDesign() const { return design_; }
 
     const char* getTypeName() const;
     std::string getString() const;

@@ -54,7 +54,7 @@ static PyObject* PySNLLibrary_create(PyObject*, PyObject* args) {
 }
 
 
-GetObject(Library, DB)
+GetObjectMethod(Library, DB)
 GetObjectByName(Library, Design)
 GetObjectByName(Library, Library)
 

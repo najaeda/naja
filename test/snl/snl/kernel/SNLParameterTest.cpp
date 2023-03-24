@@ -32,6 +32,7 @@ TEST_F(SNLParameterTest, test) {
   ASSERT_NE(nullptr, param1);
   EXPECT_EQ(SNLName("PARAM1"), param1->getName());
   EXPECT_EQ("45", param1->getValue());
+  EXPECT_EQ(design_, param1->getDesign());
 
   EXPECT_FALSE(design_->getParameters().empty());
   EXPECT_EQ(1, design_->getParameters().size());
@@ -43,6 +44,7 @@ TEST_F(SNLParameterTest, test) {
   ASSERT_NE(nullptr, param2);
   EXPECT_EQ(SNLName("PARAM2"), param2->getName());
   EXPECT_EQ("56", param2->getValue());
+  EXPECT_EQ(design_, param2->getDesign());
 
   EXPECT_FALSE(design_->getParameters().empty());
   EXPECT_EQ(2, design_->getParameters().size());

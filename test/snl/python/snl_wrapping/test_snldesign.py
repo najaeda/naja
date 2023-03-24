@@ -71,6 +71,7 @@ class SNLDesignTest(unittest.TestCase):
     p = snl.SNLParameter.create(design, "INIT", "0000")
     self.assertIsNotNone(p)
     self.assertEqual("INIT", p.getName())
+    self.assertEqual(design, p.getDesign())
 
 if __name__ == '__main__':
   unittest.main()

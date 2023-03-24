@@ -145,6 +145,7 @@ class SNLInstance final: public SNLDesignObject {
     void postCreate();
     void commonPreDestroy();
     void addInstParameter(SNLInstParameter* instParameter);
+    void removeInstParameter(SNLInstParameter* instParameter);
     void destroyFromDesign();
     void destroyFromModel();
     void preDestroy() override;

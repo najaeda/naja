@@ -232,6 +232,7 @@ void SNLInstance::commonPreDestroy() {
 #ifdef SNL_DESTROY_DEBUG
   std::cerr << "commonPreDestroy " << getDescription() << std::endl; 
 #endif
+
   struct destroySharedPathFromInstance {
     void operator()(SNLSharedPath* path) {
       path->destroyFromInstance();
@@ -243,6 +244,12 @@ void SNLInstance::commonPreDestroy() {
       instTerm->destroyFromInstance();
     }
   }
+  struct destroyInstParameterFromInstance {
+    void operator()(SNLInstParameter* instParameter) {
+      instParameter->destroyFromInstance();
+    }
+  };
+  instParameters_.clear_and_dispose(destroyInstParameterFromInstance());
   super::preDestroy();
 }
 
@@ -353,6 +360,10 @@ void SNLInstance::removeSharedPath(SNLSharedPath* sharedPath) {
 
 void SNLInstance::addInstParameter(SNLInstParameter* instParameter) {
   instParameters_.insert(*instParameter);
+}
+
+void SNLInstance::removeInstParameter(SNLInstParameter* instParameter) {
+  instParameters_.erase(*instParameter);
 }
 
 NajaCollection<SNLInstParameter*> SNLInstance::getInstParameters() const {

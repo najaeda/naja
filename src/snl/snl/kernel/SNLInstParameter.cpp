@@ -19,7 +19,9 @@
 #include <sstream>
 
 #include "SNLInstance.h"
+#include "SNLDesign.h"
 #include "SNLParameter.h"
+#include "SNLException.h"
 
 namespace naja { namespace SNL {
 
@@ -39,24 +41,25 @@ void SNLInstParameter::postCreate() {
 }
 
 void SNLInstParameter::preCreate(SNLInstance* instance, SNLParameter* parameter) {
-  #if 0
-  if (design->getParameter(name)) {
-    std::string reason = "SNLDesign " + design->getString() + " contains already a SNLParameter named: " + name.getString();
-    throw SNLException(reason);
+  if (parameter->getDesign() != instance->getModel()) {
+    std::ostringstream reason;
+    reason << "In SNLInstance " + instance->getDescription();
+    reason << ", cannot add SNLInstParameter for SNLParameter ";
+    reason << parameter->getDescription();
+    reason << ", contradictory designs: " << parameter->getDesign()->getDescription();
+    reason << " and " << instance->getModel()->getDescription();
+    throw SNLException(reason.str());
   }
-  #endif
 }
 
-#if 0
-void SNLParameter::destroy() {
-  design_->removeParameter(this);
+void SNLInstParameter::destroy() {
+  instance_->removeInstParameter(this);
   delete this;
 }
 
-void SNLParameter::destroyFromDesign() {
+void SNLInstParameter::destroyFromInstance() {
   delete this;
 }
-#endif
 
 SNLName SNLInstParameter::getName() const {
   return parameter_->getName(); 

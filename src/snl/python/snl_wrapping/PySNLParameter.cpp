@@ -49,14 +49,17 @@ static PyObject* PySNLParameter_create(PyObject*, PyObject* args) {
 }
 
 GetNameMethod(SNLParameter)
+GetObjectMethod(Parameter, Design)
 
 DBoDestroyAttribute(PySNLParameter_destroy, PySNLParameter)
 
 PyMethodDef PySNLParameter_Methods[] = {
   { "create", (PyCFunction)PySNLParameter_create, METH_VARARGS|METH_STATIC,
-    "SNLDesign creator"},
+    "SNLParameter creator"},
   { "getName", (PyCFunction)PySNLParameter_getName, METH_NOARGS,
-    "get SNLDesign name"},
+    "get SNLParameter name"},
+  { "getDesign", (PyCFunction)PySNLParameter_getDesign, METH_NOARGS,
+    "get SNLParameter owner design"},
   {"destroy", (PyCFunction)PySNLParameter_destroy, METH_NOARGS,
     "destroy this SNLDesign."},
   {NULL, NULL, 0, NULL}           /* sentinel */

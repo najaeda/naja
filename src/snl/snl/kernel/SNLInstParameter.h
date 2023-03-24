@@ -57,7 +57,7 @@ class SNLInstParameter {
     SNLInstParameter(SNLInstance* instance, SNLParameter* parameter, const std::string& value);
     static void preCreate(SNLInstance* instance, SNLParameter* parameter);
     void postCreate();
-    void destroyFromDesign();
+    void destroyFromInstance();
 
     SNLInstance*                        instance_           {nullptr};
     SNLParameter*                       parameter_          {nullptr};
