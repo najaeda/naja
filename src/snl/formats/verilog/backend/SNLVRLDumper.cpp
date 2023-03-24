@@ -379,8 +379,13 @@ void SNLVRLDumper::dumpInstanceParameterValues(
   const SNLInstance* instance,
   std::ostream& o) {
   if (not instance->getParameterValues().empty()) {
+    bool first = true;
     o << "#(";
     for (auto parameterValues: instance->getParameterValues()) {
+      if (not first) {
+        o << ", ";
+      }
+      first = false;
       o << "." << parameterValues.first.getString();
       o << "(" << parameterValues.second;
       o << ")";

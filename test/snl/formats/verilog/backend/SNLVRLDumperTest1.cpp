@@ -43,6 +43,8 @@ class SNLVRLDumperTest1: public ::testing::Test {
       SNLBusTerm::create(model, SNLTerm::Direction::Input, -2, 2, SNLName("i1"));
       SNLBusTerm::create(model, SNLTerm::Direction::Output, 2, -2, SNLName("o0"));
       SNLBusTerm::create(model, SNLTerm::Direction::Output, -2, 2, SNLName("o1"));
+      SNLParameter::create(model, SNLName("PARAM1"), "0000");
+      SNLParameter::create(model, SNLName("PARAM2"), "10");
 
       SNLInstance* instance1 = SNLInstance::create(top, model, SNLName("instance1"));
       SNLInstance* instance2 = SNLInstance::create(top, model, SNLName("instance2"));
@@ -294,6 +296,9 @@ TEST_F(SNLVRLDumperTest1, test5) {
   auto assign0Bus = SNLBusNet::create(top, 4, 0);
   assign0Bus->setType(naja::SNL::SNLNet::Type::Assign0);
   instance1->setTermNet(i0BusTerm, assign0Bus);
+
+  instance1->addParameterValue(SNLName("PARAM1"), "1111");
+  instance1->addParameterValue(SNLName("PARAM2"), "0101");
 
   SNLInstance::Nets nets;
   {

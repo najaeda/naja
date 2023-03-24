@@ -1,4 +1,7 @@
 module model(input [2:-2] i0, input [-2:2] i1, output [2:-2] o0, output [-2:2] o1);
+parameter PARAM1 = 0000 ;
+parameter PARAM2 = 10 ;
+
 endmodule //model
 
 module top();
@@ -11,7 +14,7 @@ wire n2;
 wire n3;
 wire n4;
 
-model instance1(
+model #(.PARAM1(1111), .PARAM2(0101)) instance1(
   .i0(5'h00),
   .i1(),
   .o0({bus0[0:-1], DUMMY, DUMMY, net_0}),

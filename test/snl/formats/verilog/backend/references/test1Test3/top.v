@@ -1,4 +1,7 @@
 module model(input [2:-2] i0, input [-2:2] i1, output [2:-2] o0, output [-2:2] o1);
+parameter PARAM1 = 0000 ;
+parameter PARAM2 = 10 ;
+
 endmodule //model
 
 module top();
