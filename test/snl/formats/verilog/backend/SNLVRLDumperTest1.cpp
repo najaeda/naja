@@ -312,6 +312,23 @@ TEST_F(SNLVRLDumperTest1, test5) {
   SNLInstance::Terms terms(i0BusTerm->getBits().begin(), i0BusTerm->getBits().end()); 
   instance2->setTermsNets(terms, nets);
 
+  terms.clear();
+  nets.clear();
+  auto i1BusTerm = model->getBusTerm(SNLName("i1"));
+  ASSERT_NE(nullptr, i1BusTerm);
+  terms = SNLInstance::Terms(i1BusTerm->getBits().begin(), i1BusTerm->getBits().end());
+  {
+    auto n0 = SNLScalarNet::create(top);
+    n0->setType(naja::SNL::SNLNet::Type::Assign0);
+    auto n1 = SNLScalarNet::create(top);
+    n1->setType(naja::SNL::SNLNet::Type::Assign1);
+    auto n2 = SNLScalarNet::create(top, SNLName("n2"));
+    auto n3 = SNLScalarNet::create(top, SNLName("n3"));
+    auto n4 = SNLScalarNet::create(top, SNLName("n4"));
+    nets = {n0, n1, n2, n3, n4};
+  }
+  instance2->setTermsNets(terms, nets);
+
   std::filesystem::path outPath(SNL_VRL_DUMPER_TEST_PATH);
   outPath = outPath / "test1Test5";
   if (std::filesystem::exists(outPath)) {

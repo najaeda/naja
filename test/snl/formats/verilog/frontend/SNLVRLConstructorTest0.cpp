@@ -73,52 +73,65 @@ TEST_F(SNLVRLConstructorTest0, test) {
   constructor.parse(benchmarksPath/"test0.v");
   auto top = SNLUtils::findTop(library_);
   EXPECT_EQ(top, test);
-  //7 standard nets + 2 constant nets
-  EXPECT_EQ(9, test->getNets().size());
+  //10 (3 terms) standard nets + 2 constant nets
+  EXPECT_EQ(12, test->getNets().size());
   using Nets = std::vector<SNLNet*>;
   Nets nets(test->getNets().begin(), test->getNets().end());
-  ASSERT_EQ(9, nets.size());
-  for (size_t i=0; i<7; ++i) {
+  ASSERT_EQ(12, nets.size());
+  for (size_t i=0; i<10; ++i) {
     EXPECT_FALSE(nets[i]->isAnonymous());
   }
-  EXPECT_TRUE(nets[7]->isAnonymous());
-  EXPECT_TRUE(nets[8]->isAnonymous());
-  EXPECT_EQ("net0", nets[0]->getName().getString());
+  EXPECT_TRUE(nets[10]->isAnonymous());
+  EXPECT_TRUE(nets[11]->isAnonymous());
+
+  EXPECT_EQ("i", nets[0]->getName().getString());
   ASSERT_TRUE(dynamic_cast<SNLScalarNet*>(nets[0]));
   EXPECT_EQ(SNLNet::Type::Standard, dynamic_cast<SNLScalarNet*>(nets[0])->getType());
 
-  EXPECT_EQ("net1", nets[1]->getName().getString());
+  EXPECT_EQ("o", nets[1]->getName().getString());
   ASSERT_TRUE(dynamic_cast<SNLScalarNet*>(nets[1]));
   EXPECT_EQ(SNLNet::Type::Standard, dynamic_cast<SNLScalarNet*>(nets[1])->getType());
 
-  EXPECT_EQ("net2", nets[2]->getName().getString());
+  EXPECT_EQ("io", nets[2]->getName().getString());
   ASSERT_TRUE(dynamic_cast<SNLScalarNet*>(nets[2]));
   EXPECT_EQ(SNLNet::Type::Standard, dynamic_cast<SNLScalarNet*>(nets[2])->getType());
 
-  EXPECT_EQ("net3", nets[3]->getName().getString());
+  EXPECT_EQ("net0", nets[3]->getName().getString());
   ASSERT_TRUE(dynamic_cast<SNLScalarNet*>(nets[3]));
   EXPECT_EQ(SNLNet::Type::Standard, dynamic_cast<SNLScalarNet*>(nets[3])->getType());
 
-  EXPECT_EQ("net4", nets[4]->getName().getString());
-  ASSERT_TRUE(dynamic_cast<SNLBusNet*>(nets[4]));
-  EXPECT_EQ(3, dynamic_cast<SNLBusNet*>(nets[4])->getMSB());
-  EXPECT_EQ(-1, dynamic_cast<SNLBusNet*>(nets[4])->getLSB());
-  for (auto bit: dynamic_cast<SNLBusNet*>(nets[4])->getBits()) {
+  EXPECT_EQ("net1", nets[4]->getName().getString());
+  ASSERT_TRUE(dynamic_cast<SNLScalarNet*>(nets[4]));
+  EXPECT_EQ(SNLNet::Type::Standard, dynamic_cast<SNLScalarNet*>(nets[4])->getType());
+
+  EXPECT_EQ("net2", nets[5]->getName().getString());
+  ASSERT_TRUE(dynamic_cast<SNLScalarNet*>(nets[5]));
+  EXPECT_EQ(SNLNet::Type::Standard, dynamic_cast<SNLScalarNet*>(nets[5])->getType());
+
+  EXPECT_EQ("net3", nets[6]->getName().getString());
+  ASSERT_TRUE(dynamic_cast<SNLScalarNet*>(nets[6]));
+  EXPECT_EQ(SNLNet::Type::Standard, dynamic_cast<SNLScalarNet*>(nets[6])->getType());
+
+  EXPECT_EQ("net4", nets[7]->getName().getString());
+  ASSERT_TRUE(dynamic_cast<SNLBusNet*>(nets[7]));
+  EXPECT_EQ(3, dynamic_cast<SNLBusNet*>(nets[7])->getMSB());
+  EXPECT_EQ(-1, dynamic_cast<SNLBusNet*>(nets[7])->getLSB());
+  for (auto bit: dynamic_cast<SNLBusNet*>(nets[7])->getBits()) {
     EXPECT_EQ(SNLNet::Type::Standard, bit->getType());
   }
 
-  EXPECT_EQ("constant0", nets[5]->getName().getString());
-  ASSERT_TRUE(dynamic_cast<SNLScalarNet*>(nets[5]));
-  EXPECT_EQ(SNLNet::Type::Supply0, dynamic_cast<SNLScalarNet*>(nets[5])->getType());
-
-  EXPECT_EQ("constant1", nets[6]->getName().getString());
-  ASSERT_TRUE(dynamic_cast<SNLScalarNet*>(nets[6]));
-  EXPECT_EQ(SNLNet::Type::Supply1, dynamic_cast<SNLScalarNet*>(nets[6])->getType());
-
-  ASSERT_TRUE(dynamic_cast<SNLScalarNet*>(nets[7]));
-  EXPECT_EQ(SNLNet::Type::Assign1, dynamic_cast<SNLScalarNet*>(nets[7])->getType());
+  EXPECT_EQ("constant0", nets[8]->getName().getString());
   ASSERT_TRUE(dynamic_cast<SNLScalarNet*>(nets[8]));
-  EXPECT_EQ(SNLNet::Type::Assign0, dynamic_cast<SNLScalarNet*>(nets[8])->getType());
+  EXPECT_EQ(SNLNet::Type::Supply0, dynamic_cast<SNLScalarNet*>(nets[8])->getType());
+
+  EXPECT_EQ("constant1", nets[9]->getName().getString());
+  ASSERT_TRUE(dynamic_cast<SNLScalarNet*>(nets[9]));
+  EXPECT_EQ(SNLNet::Type::Supply1, dynamic_cast<SNLScalarNet*>(nets[9])->getType());
+
+  ASSERT_TRUE(dynamic_cast<SNLScalarNet*>(nets[10]));
+  EXPECT_EQ(SNLNet::Type::Assign1, dynamic_cast<SNLScalarNet*>(nets[10])->getType());
+  ASSERT_TRUE(dynamic_cast<SNLScalarNet*>(nets[11]));
+  EXPECT_EQ(SNLNet::Type::Assign0, dynamic_cast<SNLScalarNet*>(nets[11])->getType());
 
   ASSERT_EQ(3, test->getInstances().size());
 }

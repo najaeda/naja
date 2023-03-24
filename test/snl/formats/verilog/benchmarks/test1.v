@@ -2,10 +2,12 @@
   Testing loading with initial primitives loading 
 */
 
-module model();
-  wire net0;
+module model(i, o, io);
+  input i;
+  output o;
+  inout io;
 
-  LUT4 lut(.I0(net0));
+  LUT4 lut(.I0(i), .Q(o));
 endmodule
 
 module test(input i, output o, inout io);

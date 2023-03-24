@@ -46,6 +46,7 @@ TEST_F(SNLVRLConstructorTest1, test) {
   ASSERT_EQ(2, library_->getDesigns().size());
   auto model = library_->getDesign(SNLName("model"));
   ASSERT_NE(model, nullptr);
+  ASSERT_EQ(3, model->getTerms().size());
   auto test = library_->getDesign(SNLName("test"));
   ASSERT_NE(test, nullptr);
 

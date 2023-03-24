@@ -652,7 +652,12 @@ std::string SNLVRLDumper::binStrToHexStr(std::string binStr) {
     else if (hex == "1101") { hexStr += "D"; }
     else if (hex == "1110") { hexStr += "E"; }
     else if (hex == "1111") { hexStr += "F"; }
-    else { throw naja::SNL::SNLVRLDumperException("ERROR"); }
+    else { 
+      std::ostringstream reason;
+      reason << "Error in binary to hexadecimal conversion: ";
+      reason << hex << " is not a convertible binary.";
+      throw naja::SNL::SNLVRLDumperException(reason.str());
+    }
     it += 4;
   }
   return hexStr;

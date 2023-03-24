@@ -16,4 +16,5 @@ TEST(SNLVRLDumperTestUtils, testbinStrToHexStr) {
   EXPECT_EQ("0A", SNLVRLDumper::binStrToHexStr("001010"));
   EXPECT_EQ("08A", SNLVRLDumper::binStrToHexStr("010001010"));
   EXPECT_EQ("0FF1", SNLVRLDumper::binStrToHexStr("00111111110001"));
+  EXPECT_THROW(SNLVRLDumper::binStrToHexStr("ERROR"), SNLVRLDumperException);
 }

@@ -7,6 +7,9 @@ wire [-2:2] bus1;
 wire [2:-2] bus2;
 wire [-2:2] bus3;
 wire net_0;
+wire n2;
+wire n3;
+wire n4;
 
 model instance1(
   .i0(5'h00),
@@ -17,7 +20,7 @@ model instance1(
 
 model instance2(
   .i0(5'h13),
-  .i1(),
+  .i1({2'b01, n2, n3, n4}),
   .o0(),
   .o1()
 );

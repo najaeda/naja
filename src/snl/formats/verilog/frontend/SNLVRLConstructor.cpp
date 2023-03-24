@@ -83,6 +83,25 @@ void createPort(naja::SNL::SNLDesign* design, const naja::verilog::Port& port) {
   }
 }
 
+void createPortNet(naja::SNL::SNLDesign* design, const naja::verilog::Port& port) {
+  if (port.isBus()) {
+    auto term = design->getBusTerm(naja::SNL::SNLName(port.name_));
+    auto net = naja::SNL::SNLBusNet::create(
+      design,
+      port.range_.msb_,
+      port.range_.lsb_,
+      naja::SNL::SNLName(port.name_));
+    term->setNet(net);
+  } else {
+    auto term = design->getScalarTerm(naja::SNL::SNLName(port.name_));
+    assert(term);
+    auto net = naja::SNL::SNLScalarNet::create(design,
+      naja::SNL::SNLName(port.name_));
+    term->setNet(net);
+  }
+}
+
+
 }
 
 namespace naja { namespace SNL {
@@ -156,8 +175,11 @@ void SNLVRLConstructor::startModule(const std::string& name) {
   } else {
     currentModule_ = library_->getDesign(SNLName(name));
     if (not currentModule_) {
-      std::cerr << "Cannot find Module: " << name << std::endl;
-      exit(5);
+      std::ostringstream reason;
+      reason << "In SNLVRLConstructor second pass, ";
+      reason << name << " module cannot be found in library: ";
+      reason << library_->getDescription();
+      throw SNLVRLConstructorException(reason.str());
     }
   } 
 }
@@ -167,7 +189,9 @@ void SNLVRLConstructor::moduleInterfaceSimplePort(const std::string& name) {
     if (verbose_) {
       std::cerr << "Add port: " << name << std::endl;
     }
-    //FIXME test port name collision
+    if (currentModuleInterfacePorts_.find(name) != currentModuleInterfacePorts_.end()) {
+
+    }
     currentModuleInterfacePorts_.insert(name);
   }
 }
@@ -179,9 +203,14 @@ void SNLVRLConstructor::moduleImplementationPort(const naja::verilog::Port& port
     }
     if (auto it = currentModuleInterfacePorts_.find(port.name_);
       it == currentModuleInterfacePorts_.end()) {
-      //error
+        std::ostringstream reason;
+        reason << "Port collision in module " << currentModule_->getName().getString();
+        reason << ", " << port.getString() << " has already been declared.";
+        throw SNLVRLConstructorException(reason.str());
     }
     createPort(currentModule_, port);
+  } else {
+    createPortNet(currentModule_, port);
   }
 }
 
@@ -191,6 +220,8 @@ void SNLVRLConstructor::moduleInterfaceCompletePort(const naja::verilog::Port& p
       std::cerr << "Add port: " << port.getString() << std::endl;
     }
     createPort(currentModule_, port);
+  } else {
+    createPortNet(currentModule_, port);
   }
 }
 
