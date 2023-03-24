@@ -296,9 +296,13 @@ TEST_F(SNLVRLDumperTest1, test5) {
   auto assign0Bus = SNLBusNet::create(top, 4, 0);
   assign0Bus->setType(naja::SNL::SNLNet::Type::Assign0);
   instance1->setTermNet(i0BusTerm, assign0Bus);
-
-  instance1->addParameterValue(SNLName("PARAM1"), "1111");
-  instance1->addParameterValue(SNLName("PARAM2"), "0101");
+  
+  auto param1 = instance1->getModel()->getParameter(SNLName("PARAM1"));
+  auto param2 = instance1->getModel()->getParameter(SNLName("PARAM2"));
+  ASSERT_NE(param1, nullptr);
+  ASSERT_NE(param2, nullptr);
+  SNLInstParameter::create(instance1, param1, "1111");
+  SNLInstParameter::create(instance1, param2, "0101");
 
   SNLInstance::Nets nets;
   {

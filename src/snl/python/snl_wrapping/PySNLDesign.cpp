@@ -79,12 +79,7 @@ static PyObject* PySNLDesign_createPrimitive(PyObject*, PyObject* args) {
   return PySNLDesign_Link(design);
 }
 
-static PyObject* PySNLDesign_getLibrary(PySNLDesign* self) {
-  METHOD_HEAD("SNLDesign.getLibrary()")
-  return PySNLLibrary_Link(selfObject->getLibrary());
-}
-
-
+GetObject(Design, Library)
 GetObjectByName(Design, Instance)
 GetObjectByName(Design, Term)
 GetObjectByName(Design, ScalarTerm)

@@ -28,6 +28,7 @@
 #include "SNLBusNet.h"
 #include "SNLBusNetBit.h"
 #include "SNLScalarNet.h"
+#include "SNLInstParameter.h"
 
 #include "SNLVRLConstructorUtils.h"
 #include "SNLVRLConstructorException.h"
@@ -296,7 +297,10 @@ void SNLVRLConstructor::endInstantiation() {
     }
     //Save current Parameter assignments
     for (auto parameterValue: currentInstanceParameterValues_) {
-      currentInstance_->addParameterValue(SNLName(parameterValue.first), parameterValue.second);
+      auto parameterName = SNLName(parameterValue.first);
+      auto parameter = currentInstance_->getModel()->getParameter(parameterName);
+      assert(parameter);
+      SNLInstParameter::create(currentInstance_, parameter, parameterValue.second);
     }
     currentInstanceParameterValues_.clear();
     currentInstance_ = nullptr;

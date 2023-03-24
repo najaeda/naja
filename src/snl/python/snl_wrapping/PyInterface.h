@@ -176,6 +176,12 @@ PyObject* richCompare(T left, T right, int op) {
     return (PyObject*)pyObject;                                                \
   }
 
+#define GetObject(SELF_TYPE, OBJECT_TYPE) \
+  static PyObject* PySNL##SELF_TYPE##_get##OBJECT_TYPE(PySNL##SELF_TYPE* self) { \
+    METHOD_HEAD("SNL##SELF_TYPE.get##OBJECT_TYPE()") \
+    return PySNL##OBJECT_TYPE##_Link(selfObject->get##OBJECT_TYPE()); \
+  }
+
 #define GetObjectByName(SELF_TYPE, OBJECT_TYPE) \
   static PyObject* PySNL##SELF_TYPE##_get##OBJECT_TYPE(PySNL##SELF_TYPE* self, PyObject* args) { \
     SNL##OBJECT_TYPE* obj = nullptr; \

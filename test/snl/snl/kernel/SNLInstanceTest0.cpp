@@ -482,7 +482,10 @@ TEST_F(SNLInstanceTest0, testErrors) {
   EXPECT_THROW(SNLInstance::create(nullptr, model), SNLException);
   EXPECT_THROW(SNLInstance::create(design, nullptr), SNLException);
 
-  SNLInstance::create(design, model, SNLName("name"));
+  auto ins = SNLInstance::create(design, model, SNLName("name"));
   EXPECT_THROW(SNLInstance::create(design, model, SNLName("name")), SNLException);
   EXPECT_THROW(SNLInstance::create(design, model, SNLID::DesignObjectID(0)), SNLException);
+
+  //Add non existing Param on instance
+  //EXPECT_THROW(ins->addParameterValue(SNLName("ERROR"), "ERROR"), SNLException);
 }

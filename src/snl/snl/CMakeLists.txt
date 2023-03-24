@@ -14,7 +14,7 @@ set(SNL_KERNEL_SOURCES
   kernel/SNLInstance.cpp kernel/SNLInstTerm.cpp
   kernel/SNLDesign.cpp
   kernel/SNLSharedPath.cpp kernel/SNLPath.cpp
-  kernel/SNLParameter.cpp
+  kernel/SNLParameter.cpp kernel/SNLInstParameter.cpp
   kernel/SNLUtils.cpp
 )
 
@@ -33,7 +33,7 @@ set(SNL_KERNEL_HEADERS
   kernel/SNLBusTermBit.h
   kernel/SNLInstance.h kernel/SNLInstTerm.h
   kernel/SNLSharedPath.h kernel/SNLPath.h
-  kernel/SNLParameter.h
+  kernel/SNLParameter.h kernel/SNLInstParameter.h
   kernel/SNLException.h
   kernel/SNLUtils.h
 )

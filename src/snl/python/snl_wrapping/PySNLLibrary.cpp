@@ -53,7 +53,11 @@ static PyObject* PySNLLibrary_create(PyObject*, PyObject* args) {
   return PySNLLibrary_Link(lib);
 }
 
+
+GetObject(Library, DB)
 GetObjectByName(Library, Design)
+GetObjectByName(Library, Library)
+
 GetNameMethod(SNLLibrary)
 
 PyMethodDef PySNLLibrary_Methods[] = {
@@ -61,6 +65,10 @@ PyMethodDef PySNLLibrary_Methods[] = {
     "SNLLibrary creator"},
   { "getName", (PyCFunction)PySNLLibrary_getName, METH_NOARGS,
     "get SNLLibrary name"},
+  { "getDB", (PyCFunction)PySNLLibrary_getDB, METH_VARARGS,
+    "get Parent DB."},
+  { "getLibrary", (PyCFunction)PySNLLibrary_getLibrary, METH_VARARGS,
+    "retrieve a SNLLibrary."},
   { "getDesign", (PyCFunction)PySNLLibrary_getDesign, METH_VARARGS,
     "retrieve a SNLDesign."},
   {NULL, NULL, 0, NULL}           /* sentinel */

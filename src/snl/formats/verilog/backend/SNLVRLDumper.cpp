@@ -375,19 +375,19 @@ void SNLVRLDumper::dumpInstanceInterface(
   o <<  std::endl << ")";
 }
 
-void SNLVRLDumper::dumpInstanceParameterValues(
+void SNLVRLDumper::dumpInstParameters(
   const SNLInstance* instance,
   std::ostream& o) {
-  if (not instance->getParameterValues().empty()) {
+  if (not instance->getInstParameters().empty()) {
     bool first = true;
     o << "#(";
-    for (auto parameterValues: instance->getParameterValues()) {
+    for (auto instParameter: instance->getInstParameters()) {
       if (not first) {
         o << ", ";
       }
       first = false;
-      o << "." << parameterValues.first.getString();
-      o << "(" << parameterValues.second;
+      o << "." << instParameter->getName().getString();
+      o << "(" << instParameter->getValue();
       o << ")";
     }
     o << ") ";
@@ -408,7 +408,7 @@ void SNLVRLDumper::dumpInstance(
   if (not model->isAnonymous()) { //FIXME !!
     o << model->getName().getString() << " ";
   }
-  dumpInstanceParameterValues(instance, o);
+  dumpInstParameters(instance, o);
   o << instanceName;
   dumpInstanceInterface(instance, o, naming);
   o << ";" << std::endl;

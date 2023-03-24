@@ -61,4 +61,7 @@ TEST_F(SNLVRLConstructorTest1, test) {
   auto lutModel = lut->getModel();
   ASSERT_NE(lutModel, nullptr);
   EXPECT_EQ("LUT4", lutModel->getName().getString());
+  ASSERT_EQ(1, lut->getInstParameters().size());
+  auto initParam = *(lut->getInstParameters().begin());
+  EXPECT_EQ("INIT", initParam->getName().getString());
 }

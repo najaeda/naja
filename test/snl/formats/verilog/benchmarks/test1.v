@@ -7,7 +7,7 @@ module model(i, o, io);
   output o;
   inout io;
 
-  LUT4 lut(.I0(i), .Q(o));
+  LUT4 #(.INIT(16'h1000)) lut(.I0(i), .Q(o));
 endmodule
 
 module test(input i, output o, inout io);
