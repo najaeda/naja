@@ -18,7 +18,7 @@ using namespace naja::SNL;
 #define SNL_VRL_BENCHMARKS_PATH "Undefined"
 #endif
 
-class SNLVRLConstructorTestError0: public ::testing::Test {
+class SNLVRLConstructorTestErrors: public ::testing::Test {
   protected:
     void SetUp() override {
       SNLUniverse* universe = SNLUniverse::create();
@@ -33,10 +33,18 @@ class SNLVRLConstructorTestError0: public ::testing::Test {
     SNLLibrary*      library_;
 };
 
-TEST_F(SNLVRLConstructorTestError0, test) {
+TEST_F(SNLVRLConstructorTestErrors, test0) {
   SNLVRLConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_VRL_BENCHMARKS_PATH);
-  constructor.parse(benchmarksPath/"error.v");
+  constructor.parse(benchmarksPath/"error0.v");
   constructor.setFirstPass(false);
-  EXPECT_THROW(constructor.parse(benchmarksPath/"error.v"), SNLVRLConstructorException);
+  EXPECT_THROW(constructor.parse(benchmarksPath/"error0.v"), SNLVRLConstructorException);
+}
+
+TEST_F(SNLVRLConstructorTestErrors, test1) {
+  SNLVRLConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_VRL_BENCHMARKS_PATH);
+  EXPECT_THROW(
+    constructor.construct(benchmarksPath/"error1.v"),
+    SNLVRLConstructorException);
 }

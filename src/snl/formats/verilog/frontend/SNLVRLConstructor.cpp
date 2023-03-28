@@ -137,13 +137,17 @@ void SNLVRLConstructor::createConstantNets(
   naja::SNL::SNLInstance::Nets& nets) {
   if (number.value_.index() != naja::verilog::Number::BASED) {
     std::ostringstream reason;
-    reason << "Only base numbers are supported"; 
+    reason << getLocationString();
+    reason << ": Only base numbers are supported"; 
     throw naja::SNL::SNLVRLConstructorException(reason.str());
   }
   auto basedNumber = std::get<naja::verilog::Number::BASED>(number.value_);
   auto bits = SNLVRLConstructorUtils::numberToBits(basedNumber);
   if (bits.size() != basedNumber.size_) {
-    throw naja::SNL::SNLVRLConstructorException("Size");
+    std::ostringstream reason;
+    reason << getLocationString();
+    reason << ": " << "Size";
+    throw naja::SNL::SNLVRLConstructorException(reason.str());
   }
   for (int i=bits.size()-1; i>=0; i--) {
     SNLScalarNet* assignNet = nullptr;
@@ -154,6 +158,16 @@ void SNLVRLConstructor::createConstantNets(
     }
     nets.push_back(assignNet);
   }
+}
+
+std::string SNLVRLConstructor::getLocationString() const {
+  std::ostringstream stream;
+  auto location = getCurrentLocation();
+  stream << "In "
+    << location.currentPath_.string()
+    << " at line " << location.line_
+    << " ,column " << location.column_;
+  return stream.str();
 }
 
 SNLVRLConstructor::SNLVRLConstructor(SNLLibrary* library):
@@ -205,7 +219,8 @@ void SNLVRLConstructor::moduleImplementationPort(const naja::verilog::Port& port
     if (auto it = currentModuleInterfacePorts_.find(port.name_);
       it == currentModuleInterfacePorts_.end()) {
         std::ostringstream reason;
-        reason << "Port collision in module " << currentModule_->getName().getString();
+        reason << getLocationString();
+        reason << ": Port collision in module " << currentModule_->getName().getString();
         reason << ", " << port.getString() << " has already been declared.";
         throw SNLVRLConstructorException(reason.str());
     }
@@ -269,7 +284,8 @@ void SNLVRLConstructor::addInstance(const std::string& name) {
     }
     if (not model) {
       std::ostringstream reason;
-      reason << currentModelName_
+      reason << getLocationString();
+      reason << ": " << currentModelName_
         << " cannot be found in SNL while constructing instance "
         << name;
       throw SNLVRLConstructorException(reason.str());
@@ -317,7 +333,8 @@ void SNLVRLConstructor::addInstanceConnection(
     SNLTerm* term = model->getTerm(SNLName(portName));
     if (not term) {
       std::ostringstream reason;
-      reason << portName
+      reason << getLocationString();
+      reason << ": " << portName
         << " port cannot be found in " << model->getName().getString()
         << " model";
       throw SNLVRLConstructorException(reason.str());
@@ -325,7 +342,8 @@ void SNLVRLConstructor::addInstanceConnection(
     if (expression.valid_) {
       if (not expression.supported_) {
         std::ostringstream reason;
-        reason << expression.getString() << " is not currently supported";
+        reason << getLocationString();
+        reason << ": " << expression.getString() << " is not currently supported";
         throw SNLVRLConstructorException(reason.str());
       }
       switch (expression.value_.index()) {
@@ -350,7 +368,8 @@ void SNLVRLConstructor::addInstanceConnection(
           SNLNet* net = currentInstance_->getDesign()->getNet(SNLName(name));
           if (not net) {
             std::ostringstream reason;
-            reason << name
+            reason << getLocationString();
+            reason << ": " << name
               << " net cannot be found in " << model->getName().getString()
               << " model";
             throw SNLVRLConstructorException(reason.str());
@@ -358,7 +377,9 @@ void SNLVRLConstructor::addInstanceConnection(
           if (identifier.range_.valid_) {
             SNLBusNet* busNet = dynamic_cast<SNLBusNet*>(net);
             if (not busNet) {
-              throw SNLVRLConstructorException("NOT BUSTERM");
+              std::ostringstream reason;
+              reason << getLocationString() << " NOT BUSTERM"; 
+              throw SNLVRLConstructorException(reason.str());
             }
             int netMSB = identifier.range_.msb_;
             int netLSB = netMSB;
@@ -377,7 +398,8 @@ void SNLVRLConstructor::addInstanceConnection(
           for (auto expression: concatenation.expressions_) {
             if (not expression.supported_ or not expression.valid_) {
               std::ostringstream reason;
-              reason << expression.getString() << " is not supported";
+              reason << getLocationString();
+              reason << ": " << expression.getString() << " is not supported";
               throw SNLVRLConstructorException(reason.str());
             }
             switch (expression.value_.index()) {
@@ -436,7 +458,9 @@ void SNLVRLConstructor::addInstanceConnection(
           using BitTerms = std::vector<SNLBitTerm*>;
           auto busTerm = dynamic_cast<SNLBusTerm*>(term);
           if (not busTerm) {
-            throw SNLVRLConstructorException("NOT BUSTERM");
+            std::ostringstream reason;
+            reason << getLocationString() << ": NOT BUSTERM";
+            throw SNLVRLConstructorException(reason.str());
           }
           BitTerms bitTerms(busTerm->getBits().begin(), busTerm->getBits().end());
           assert(bitTerms.size() == bitNets.size());

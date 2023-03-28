@@ -63,6 +63,7 @@ class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
     void createConstantNets(
       const naja::verilog::Number& number,
       SNLInstance::Nets& nets);
+    std::string getLocationString() const;
 
     bool            verbose_                        {true};
     bool            firstPass_                      {true};
