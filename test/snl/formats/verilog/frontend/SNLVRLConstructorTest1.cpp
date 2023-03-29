@@ -171,6 +171,29 @@ TEST_F(SNLVRLConstructorTest1, test) {
   EXPECT_EQ(nets[1], instances[2]->getInstTerm(mod1i->getBit(4))->getNet());
 }
 
+TEST_F(SNLVRLConstructorTest1, testMultipleFirstPassError) {
+  SNLVRLConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_VRL_BENCHMARKS_PATH);
+  constructor.parse(benchmarksPath/"test0.v");
+  //Will throw SNLException for library already containing module
+  EXPECT_THROW(
+    constructor.parse(benchmarksPath/"test0.v"),
+    SNLException
+  );
+}
+
+TEST_F(SNLVRLConstructorTest1, testMultipleSecondPassError) {
+  SNLVRLConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_VRL_BENCHMARKS_PATH);
+  constructor.parse(benchmarksPath/"test0.v");
+  constructor.setFirstPass(false);
+  constructor.parse(benchmarksPath/"test0.v");
+  EXPECT_THROW(
+    constructor.parse(benchmarksPath/"test0.v"),
+    SNLVRLConstructorException
+  );
+}
+
 TEST_F(SNLVRLConstructorTest1, testDirectSecondPassError) {
   SNLVRLConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_VRL_BENCHMARKS_PATH);
