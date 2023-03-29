@@ -109,37 +109,12 @@ SNLVRLConstructor::VRLTypeToSNLType(const naja::verilog::Net::Type& type) {
   return naja::SNL::SNLNet::Type::Standard; //LCOV_EXCL_LINE
 }
 
-SNLScalarNet* SNLVRLConstructor::getOrCreateCurrentModelAssignNet(naja::SNL::SNLNet::Type type) {
-  auto design = currentInstance_->getDesign();
-  switch (type) {
-    case naja::SNL::SNLNet::Type::Assign0:
-      if (not currentModelAssign0_) {
-        currentModelAssign0_ =
-          naja::SNL::SNLScalarNet::create(design);
-        currentModelAssign0_->setType(naja::SNL::SNLNet::Type::Assign0);
-      }
-      return currentModelAssign0_;
-      break;
-    case naja::SNL::SNLNet::Type::Assign1:
-      if (not currentModelAssign1_) {
-        currentModelAssign1_ =
-          naja::SNL::SNLScalarNet::create(design);
-        currentModelAssign1_->setType(naja::SNL::SNLNet::Type::Assign1);
-      }
-      return currentModelAssign1_;
-      break;
-    //LCOV_EXCL_START
-    default: {
-      std::ostringstream reason;
-      reason << getLocationString();
-      reason << ": internal error in SNLVRLConstructor::getOrCreateCurrentModelAssignNet, ";
-      reason << " only assigns are expected.";
-      throw naja::SNL::SNLVRLConstructorException(reason.str());
-    }
-    //LCOV_EXCL_STOP
-  }
-  return nullptr;
-}
+void SNLVRLConstructor::createAssignNets(naja::SNL::SNLDesign* design) {
+  currentModelAssign0_ = naja::SNL::SNLScalarNet::create(design);
+  currentModelAssign0_->setType(naja::SNL::SNLNet::Type::Assign0);
+  currentModelAssign1_ = naja::SNL::SNLScalarNet::create(design);
+  currentModelAssign1_->setType(naja::SNL::SNLNet::Type::Assign1);
+} 
 
 void SNLVRLConstructor::createConstantNets(
   const naja::verilog::Number& number,
@@ -161,11 +136,10 @@ void SNLVRLConstructor::createConstantNets(
   for (int i=bits.size()-1; i>=0; i--) {
     SNLScalarNet* assignNet = nullptr;
     if (bits[i]) {
-      assignNet = getOrCreateCurrentModelAssignNet(naja::SNL::SNLNet::Type::Assign1);
+      nets.push_back(currentModelAssign1_);
     } else {
-      assignNet = getOrCreateCurrentModelAssignNet(naja::SNL::SNLNet::Type::Assign0);
+      nets.push_back(currentModelAssign0_);
     }
-    nets.push_back(assignNet);
   }
 }
 
@@ -205,6 +179,13 @@ void SNLVRLConstructor::startModule(const std::string& name) {
       reason << library_->getDescription();
       throw SNLVRLConstructorException(reason.str());
     }
+    if (not currentModule_->getNets().empty()) {
+      std::ostringstream reason;
+      reason << "In SNLVRLConstructor second pass, ";
+      reason << name << " module should no contain any net";
+      throw SNLVRLConstructorException(reason.str());
+    }
+    createAssignNets(currentModule_);
   } 
 }
 

@@ -37,6 +37,22 @@ boost::dynamic_bitset<> SNLVRLConstructorUtils::numberToBits(const naja::verilog
       auto bits = boost::dynamic_bitset<>(number.size_, value);
       return bits;
     }
+    case naja::verilog::BasedNumber::BINARY: {
+      boost::dynamic_bitset<> bits(number.size_, 0ul);
+      for (int i = number.digits_.size()-1; i>=0; i--) {
+        const char& c = number.digits_[i];
+        switch (c) {
+          case '0': break;
+          case '1': setBit(bits, i); break;
+          default: {
+            std::stringstream stream;
+            stream << "In SNLVRLConstructorUtils::numberToBits, unrecognized binary character: " << c;
+            throw naja::SNL::SNLVRLConstructorException(stream.str());
+          }
+        }
+      }
+      return bits;
+    }
     case naja::verilog::BasedNumber::HEX: {
       boost::dynamic_bitset<> bits(number.size_, 0ul);
       //visit from LSB to MSB, collect slices of 4 bits
@@ -60,6 +76,11 @@ boost::dynamic_bitset<> SNLVRLConstructorUtils::numberToBits(const naja::verilog
           case 'D': setBit(bits, i+3); setBit(bits, i+2); setBit(bits, i); break;
           case 'E': setBit(bits, i+3); setBit(bits, i+2); setBit(bits, i+1); break;
           case 'F': setBit(bits, i+3); setBit(bits, i+2); setBit(bits, i+1); setBit(bits, i); break;
+          default: {
+            std::stringstream stream;
+            stream << "In SNLVRLConstructorUtils::numberToBits, unrecognized Hexadecimal character: " << c;
+            throw naja::SNL::SNLVRLConstructorException(stream.str());
+          }
         }
         i+=4;
         if (i>number.size_) {

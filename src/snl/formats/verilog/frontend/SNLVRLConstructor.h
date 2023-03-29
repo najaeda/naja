@@ -63,7 +63,7 @@ class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
       const naja::verilog::Expression& expression) override;
     void endModule() override;
   private:
-    SNLScalarNet* getOrCreateCurrentModelAssignNet(naja::SNL::SNLNet::Type type);
+    void createAssignNets(naja::SNL::SNLDesign* design);
     void createConstantNets(
       const naja::verilog::Number& number,
       SNLInstance::Nets& nets);
