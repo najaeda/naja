@@ -14,6 +14,7 @@
 #include "SNLUtils.h"
 
 #include "SNLVRLConstructor.h"
+#include "SNLVRLConstructorException.h"
 
 using namespace naja::SNL;
 
@@ -168,4 +169,14 @@ TEST_F(SNLVRLConstructorTest1, test) {
   EXPECT_EQ(nets[0], instances[2]->getInstTerm(mod1i->getBit(2))->getNet());
   EXPECT_EQ(nets[1], instances[2]->getInstTerm(mod1i->getBit(3))->getNet());
   EXPECT_EQ(nets[1], instances[2]->getInstTerm(mod1i->getBit(4))->getNet());
+}
+
+TEST_F(SNLVRLConstructorTest1, testDirectSecondPassError) {
+  SNLVRLConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_VRL_BENCHMARKS_PATH);
+  constructor.setFirstPass(false);
+  EXPECT_THROW(
+    constructor.parse(benchmarksPath/"test0.v"),
+    SNLVRLConstructorException
+  );
 }
