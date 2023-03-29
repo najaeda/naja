@@ -128,6 +128,7 @@ SNLScalarNet* SNLVRLConstructor::getOrCreateCurrentModelAssignNet(naja::SNL::SNL
       }
       return currentModelAssign1_;
       break;
+    //LCOV_EXCL_START
     default: {
       std::ostringstream reason;
       reason << getLocationString();
@@ -135,6 +136,7 @@ SNLScalarNet* SNLVRLConstructor::getOrCreateCurrentModelAssignNet(naja::SNL::SNL
       reason << " only assigns are expected.";
       throw naja::SNL::SNLVRLConstructorException(reason.str());
     }
+    //LCOV_EXCL_STOP
   }
   return nullptr;
 }
