@@ -212,7 +212,11 @@ void SNLVRLConstructor::moduleInterfaceSimplePort(const std::string& name) {
       std::cerr << "Add port: " << name << std::endl;
     }
     if (currentModuleInterfacePorts_.find(name) != currentModuleInterfacePorts_.end()) {
-
+      std::ostringstream reason;
+      reason << getLocationString();
+      reason << ": port collision in module " << currentModule_->getName().getString();
+      reason << ", " << name << " has already been declared.";
+      throw SNLVRLConstructorException(reason.str());
     }
     currentModuleInterfacePorts_.insert(name);
   }
@@ -227,8 +231,8 @@ void SNLVRLConstructor::moduleImplementationPort(const naja::verilog::Port& port
       it == currentModuleInterfacePorts_.end()) {
         std::ostringstream reason;
         reason << getLocationString();
-        reason << ": Port collision in module " << currentModule_->getName().getString();
-        reason << ", " << port.getString() << " has already been declared.";
+        reason << ": undeclared port in module " << currentModule_->getName().getString();
+        reason << ", " << port.getString() << " is unknown in module interface.";
         throw SNLVRLConstructorException(reason.str());
     }
     createPort(currentModule_, port);
