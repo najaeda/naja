@@ -78,7 +78,8 @@ void createPort(naja::SNL::SNLDesign* design, const naja::verilog::Port& port) {
       port.range_.lsb_,
       naja::SNL::SNLName(port.name_));
   } else {
-    naja::SNL::SNLScalarTerm::create(design,
+    naja::SNL::SNLScalarTerm::create(
+      design,
       VRLDirectionToSNLDirection(port.direction_),
       naja::SNL::SNLName(port.name_));
   }
@@ -101,7 +102,6 @@ void createPortNet(naja::SNL::SNLDesign* design, const naja::verilog::Port& port
     term->setNet(net);
   }
 }
-
 
 }
 
@@ -126,8 +126,13 @@ SNLScalarNet* SNLVRLConstructor::getOrCreateCurrentModelAssignNet(naja::SNL::SNL
       }
       return currentModelAssign1_;
       break;
-    default:
-      throw SNLVRLConstructorException("ASSIGN issue");
+    default: {
+      std::ostringstream reason;
+      reason << getLocationString();
+      reason << ": internal error in SNLVRLConstructor::getOrCreateCurrentModelAssignNet, ";
+      reason << " only assigns are expected.";
+      throw naja::SNL::SNLVRLConstructorException(reason.str());
+    }
   }
   return nullptr;
 }
