@@ -36,6 +36,8 @@ class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
     SNLVRLConstructor(const SNLVRLConstructor&) = delete;
     SNLVRLConstructor(SNLLibrary* library);
 
+    static SNLNet::Type VRLTypeToSNLType(const naja::verilog::Net::Type& type);
+
     void construct(const std::filesystem::path& filePath);
 
     bool inFirstPass() const { return firstPass_; }

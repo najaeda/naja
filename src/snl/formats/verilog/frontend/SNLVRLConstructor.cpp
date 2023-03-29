@@ -52,22 +52,7 @@ naja::SNL::SNLTerm::Direction VRLDirectionToSNLDirection(const naja::verilog::Po
   return naja::SNL::SNLTerm::Direction::Input; //LCOV_EXCL_LINE
 }
 
-naja::SNL::SNLNet::Type VRLTypeToSNLType(const naja::verilog::Net::Type& type) {
-  switch(type) {
-    case naja::verilog::Net::Type::Wire:
-      return naja::SNL::SNLNet::Type::Standard;
-    case naja::verilog::Net::Type::Supply0:
-      return naja::SNL::SNLNet::Type::Supply0;
-    case naja::verilog::Net::Type::Supply1:
-      return naja::SNL::SNLNet::Type::Supply1;
-    case naja::verilog::Net::Type::Unknown: {
-      std::ostringstream reason;
-      reason << "Unsupported verilog net type";
-      throw naja::SNL::SNLVRLConstructorException(reason.str());
-    }
-  }
-  return naja::SNL::SNLNet::Type::Standard; //LCOV_EXCL_LINE
-}
+
 
 void createPort(naja::SNL::SNLDesign* design, const naja::verilog::Port& port) {
   if (port.isBus()) {
@@ -106,6 +91,24 @@ void createPortNet(naja::SNL::SNLDesign* design, const naja::verilog::Port& port
 }
 
 namespace naja { namespace SNL {
+
+SNLNet::Type
+SNLVRLConstructor::VRLTypeToSNLType(const naja::verilog::Net::Type& type) {
+  switch(type) {
+    case naja::verilog::Net::Type::Wire:
+      return naja::SNL::SNLNet::Type::Standard;
+    case naja::verilog::Net::Type::Supply0:
+      return naja::SNL::SNLNet::Type::Supply0;
+    case naja::verilog::Net::Type::Supply1:
+      return naja::SNL::SNLNet::Type::Supply1;
+    case naja::verilog::Net::Type::Unknown: {
+      std::ostringstream reason;
+      reason << "Unsupported verilog net type";
+      throw naja::SNL::SNLVRLConstructorException(reason.str());
+    }
+  }
+  return naja::SNL::SNLNet::Type::Standard; //LCOV_EXCL_LINE
+}
 
 SNLScalarNet* SNLVRLConstructor::getOrCreateCurrentModelAssignNet(naja::SNL::SNLNet::Type type) {
   auto design = currentInstance_->getDesign();
