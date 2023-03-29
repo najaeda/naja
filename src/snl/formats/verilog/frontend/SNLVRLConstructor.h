@@ -23,6 +23,7 @@
 
 #include "SNLInstance.h"
 #include "SNLNet.h"
+#include "SNLTerm.h"
 
 namespace naja { namespace SNL {
 
@@ -37,6 +38,7 @@ class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
     SNLVRLConstructor(SNLLibrary* library);
 
     static SNLNet::Type VRLTypeToSNLType(const naja::verilog::Net::Type& type);
+    static SNLTerm::Direction VRLDirectionToSNLDirection(const naja::verilog::Port::Direction& direction);
 
     void construct(const std::filesystem::path& filePath);
 

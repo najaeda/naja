@@ -35,37 +35,18 @@
 
 namespace {
 
-naja::SNL::SNLTerm::Direction VRLDirectionToSNLDirection(const naja::verilog::Port::Direction& direction) {
-  switch (direction) {
-    case naja::verilog::Port::Direction::Input:
-      return naja::SNL::SNLTerm::Direction::Input;
-    case naja::verilog::Port::Direction::Output:
-      return naja::SNL::SNLTerm::Direction::Output;
-    case naja::verilog::Port::Direction::InOut:
-      return naja::SNL::SNLTerm::Direction::InOut;
-    case naja::verilog::Port::Direction::Unknown: {
-      std::ostringstream reason;
-      reason << "Unsupported verilog direction";
-      throw naja::SNL::SNLVRLConstructorException(reason.str());
-    }
-  }
-  return naja::SNL::SNLTerm::Direction::Input; //LCOV_EXCL_LINE
-}
-
-
-
 void createPort(naja::SNL::SNLDesign* design, const naja::verilog::Port& port) {
   if (port.isBus()) {
     naja::SNL::SNLBusTerm::create(
       design,
-      VRLDirectionToSNLDirection(port.direction_),
+      naja::SNL::SNLVRLConstructor::VRLDirectionToSNLDirection(port.direction_),
       port.range_.msb_,
       port.range_.lsb_,
       naja::SNL::SNLName(port.name_));
   } else {
     naja::SNL::SNLScalarTerm::create(
       design,
-      VRLDirectionToSNLDirection(port.direction_),
+      naja::SNL::SNLVRLConstructor::VRLDirectionToSNLDirection(port.direction_),
       naja::SNL::SNLName(port.name_));
   }
 }
@@ -91,6 +72,24 @@ void createPortNet(naja::SNL::SNLDesign* design, const naja::verilog::Port& port
 }
 
 namespace naja { namespace SNL {
+
+SNLTerm::Direction
+SNLVRLConstructor::VRLDirectionToSNLDirection(const naja::verilog::Port::Direction& direction) {
+  switch (direction) {
+    case naja::verilog::Port::Direction::Input:
+      return naja::SNL::SNLTerm::Direction::Input;
+    case naja::verilog::Port::Direction::Output:
+      return naja::SNL::SNLTerm::Direction::Output;
+    case naja::verilog::Port::Direction::InOut:
+      return naja::SNL::SNLTerm::Direction::InOut;
+    case naja::verilog::Port::Direction::Unknown: {
+      std::ostringstream reason;
+      reason << "Unsupported verilog direction";
+      throw naja::SNL::SNLVRLConstructorException(reason.str());
+    }
+  }
+  return naja::SNL::SNLTerm::Direction::Input; //LCOV_EXCL_LINE
+}
 
 SNLNet::Type
 SNLVRLConstructor::VRLTypeToSNLType(const naja::verilog::Net::Type& type) {
