@@ -1,5 +1,6 @@
 /*
-  Testing loading with initial primitives loading 
+  Testing loading with initial primitives loading
+  Testing assigns
 */
 
 module model(i, o, io);
