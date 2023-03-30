@@ -55,6 +55,22 @@ TEST_F(SNLParameterTest, test) {
   EXPECT_EQ(param1, designParam1);
   EXPECT_EQ(param2, designParam2);
 
+  //Instance Parameters
+  auto top = SNLDesign::create(design_->getLibrary());
+  auto instance = SNLInstance::create(top, design_);
+  EXPECT_TRUE(instance->getInstParameters().empty());
+  auto instParam1 = SNLInstParameter::create(instance, param1, "73");
+  auto instParam2 = SNLInstParameter::create(instance, param2, "87");
+  EXPECT_EQ(2, instance->getInstParameters().size());
+  EXPECT_EQ("PARAM1", instParam1->getName().getString());
+  EXPECT_EQ("PARAM2", instParam2->getName().getString());
+  EXPECT_EQ("73", instParam1->getValue());
+  EXPECT_EQ("87", instParam2->getValue());
+  //InstParam destruction
+  instParam1->destroy();
+  EXPECT_EQ(1, instance->getInstParameters().size());
+
+
   using ParamsVector = std::vector<SNLParameter*>;
   ParamsVector paramsVector(design_->getParameters().begin(), design_->getParameters().end());
   ASSERT_EQ(2, paramsVector.size());

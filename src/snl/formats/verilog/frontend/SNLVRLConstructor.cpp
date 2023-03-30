@@ -134,7 +134,6 @@ void SNLVRLConstructor::createConstantNets(
     throw naja::SNL::SNLVRLConstructorException(reason.str());
   }
   for (int i=bits.size()-1; i>=0; i--) {
-    SNLScalarNet* assignNet = nullptr;
     if (bits[i]) {
       nets.push_back(currentModelAssign1_);
     } else {
