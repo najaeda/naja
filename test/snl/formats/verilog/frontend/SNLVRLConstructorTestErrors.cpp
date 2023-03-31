@@ -80,3 +80,11 @@ TEST_F(SNLVRLConstructorTestErrors, test5) {
     constructor.construct(benchmarksPath/"errors"/"error5.v"),
     SNLVRLConstructorException);
 }
+
+TEST_F(SNLVRLConstructorTestErrors, test6) {
+  SNLVRLConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_VRL_BENCHMARKS_PATH);
+  //EXPECT_THROW(
+    constructor.construct(benchmarksPath/"errors"/"error6.v"); //,
+    //SNLVRLConstructorException);
+}

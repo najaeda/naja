@@ -362,8 +362,8 @@ void SNLVRLConstructor::addInstanceConnection(
           if (not net) {
             std::ostringstream reason;
             reason << getLocationString();
-            reason << ": " << name
-              << " net cannot be found in "
+            reason << ": net \"" <<  name
+              << "\" cannot be found in "
               << currentInstance_->getDesign()->getName().getString();
             throw SNLVRLConstructorException(reason.str());
           }
@@ -409,9 +409,11 @@ void SNLVRLConstructor::addInstanceConnection(
                 SNLNet* net = currentInstance_->getDesign()->getNet(SNLName(name));
                 if (not net) {
                   std::ostringstream reason;
-                  reason << name
-                    << " net cannot be found in " << model->getName().getString()
-                    << " model";
+                  reason << getLocationString();
+                  reason << ": net \"" <<  name
+                    << "\" cannot be found in \""
+                    << currentInstance_->getDesign()->getName().getString()
+                    << "\"";
                   throw SNLVRLConstructorException(reason.str());
                 }
                 if (auto scalarNet = dynamic_cast<SNLScalarNet*>(net)) {
