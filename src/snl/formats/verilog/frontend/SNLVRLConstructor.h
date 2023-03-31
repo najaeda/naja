@@ -19,11 +19,17 @@
 
 #include "VerilogConstructor.h"
 
+#include <set>
+
+#include "SNLInstance.h"
+#include "SNLNet.h"
+#include "SNLTerm.h"
+
 namespace naja { namespace SNL {
 
 class SNLLibrary;
 class SNLDesign;
-class SNLInstance;
+class SNLScalarNet;
 
 class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
   public:
@@ -31,26 +37,50 @@ class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
     SNLVRLConstructor(const SNLVRLConstructor&) = delete;
     SNLVRLConstructor(SNLLibrary* library);
 
+    static SNLNet::Type VRLTypeToSNLType(const naja::verilog::Net::Type& type);
+    static SNLTerm::Direction VRLDirectionToSNLDirection(const naja::verilog::Port::Direction& direction);
+
     void construct(const std::filesystem::path& filePath);
 
     bool inFirstPass() const { return firstPass_; }
     void setFirstPass(bool mode) { firstPass_ = mode; }
     void startModule(const std::string& name) override;
+    void moduleInterfaceSimplePort(const std::string& name) override;
+    void moduleImplementationPort(const naja::verilog::Port& port) override;
     void moduleInterfaceCompletePort(const naja::verilog::Port& port) override;
     void addNet(const naja::verilog::Net& net) override;
+    void addAssign(
+      const naja::verilog::Identifiers& identifiers,
+      const naja::verilog::Expression& expression) override;
     void startInstantiation(const std::string& modelName) override;
+    void addParameterAssignment(
+      const std::string& parameterName,
+      const naja::verilog::Expression& expression) override;
     void addInstance(const std::string& name) override;
     void endInstantiation() override;
     void addInstanceConnection(
       const std::string& portName,
       const naja::verilog::Expression& expression) override;
+    void endModule() override;
   private:
-    bool          verbose_          {true};
-    bool          firstPass_        {true};
-    SNLLibrary*   library_          {nullptr};
-    SNLDesign*    currentModule_    {nullptr};
-    std::string   currentModelName_ {};
-    SNLInstance*  currentInstance_  {nullptr};
+    void createAssignNets(naja::SNL::SNLDesign* design);
+    void createConstantNets(
+      const naja::verilog::Number& number,
+      SNLInstance::Nets& nets);
+    std::string getLocationString() const;
+
+    bool            verbose_                        {true};
+    bool            firstPass_                      {true};
+    SNLLibrary*     library_                        {nullptr};
+    SNLDesign*      currentModule_                  {nullptr};
+    std::string     currentModelName_               {};
+    SNLInstance*    currentInstance_                {nullptr};
+    using ParameterValues = std::map<std::string, std::string>;
+    ParameterValues currentInstanceParameterValues_ {};
+    SNLScalarNet*   currentModelAssign0_            {nullptr};
+    SNLScalarNet*   currentModelAssign1_            {nullptr};
+    using NameSet = std::set<std::string>;
+    NameSet         currentModuleInterfacePorts_    {};
 };
 
 }} // namespace SNL // namespace naja

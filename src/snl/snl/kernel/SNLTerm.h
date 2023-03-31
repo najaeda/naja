@@ -49,7 +49,7 @@ class SNLTerm: public SNLNetComponent {
     ///\return term SNLName.
     virtual SNLName getName() const = 0;
     ///\return term size, 1 for SNLScalarTerm and SNLBusNetBit.
-    virtual size_t getSize() const = 0;
+    virtual SNLID::Bit getSize() const = 0;
 
   protected:
     SNLTerm() = default;

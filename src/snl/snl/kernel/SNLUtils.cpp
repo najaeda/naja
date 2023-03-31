@@ -1,7 +1,9 @@
 #include "SNLUtils.h"
 
 #include <algorithm>
+#include <list>
 
+#include "SNLLibrary.h"
 #include "SNLDesign.h"
 
 namespace naja { namespace SNL {
@@ -40,6 +42,26 @@ void SNLUtils::getDesignsSortedByHierarchicalLevel(const SNLDesign* top, SortedD
       return ldl.second < rdl.second;
     }
   );
+}
+
+SNLID::Bit SNLUtils::getSize(SNLID::Bit msb, SNLID::Bit lsb) {
+  return std::abs(lsb - msb) + 1;
+}
+
+SNLDesign* SNLUtils::findTop(const SNLLibrary* library) {
+  using Tops = std::list<SNLDesign*>;
+  Tops tops;
+  for (auto design: library->getDesigns()) {
+    if (not design->isBlackBox()
+      && not design->isPrimitive()
+      && design->getSlaveInstances().empty()) {
+        tops.push_back(design);
+    }
+  }
+  if (tops.size() == 1) {
+    return tops.front();
+  }
+  return nullptr;
 }
 
 }} // namespace SNL // namespace naja

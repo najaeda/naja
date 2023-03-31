@@ -49,8 +49,8 @@ void dumpDirection(const naja::SNL::SNLTerm* term, std::ostream& o) {
   }
 }
 
-using ContiguousNetBits = std::vector<naja::SNL::SNLBusNetBit*>;
-void dumpRange(ContiguousNetBits& bits, bool& firstElement, bool& concatenation, std::string& o) {
+using ContiguousNetBits = std::vector<naja::SNL::SNLBitNet*>;
+void dumpConstantRange(ContiguousNetBits& bits, bool& firstElement, bool& concatenation, std::string& o) {
   if (not bits.empty()) {
     if (not firstElement) {
       o += ", ";
@@ -58,24 +58,64 @@ void dumpRange(ContiguousNetBits& bits, bool& firstElement, bool& concatenation,
     } else {
       firstElement = false;
     }
-    naja::SNL::SNLBusNetBit* rangeMSBBit = bits[0];
-    naja::SNL::SNLID::Bit rangeMSB = rangeMSBBit->getBit();
-    naja::SNL::SNLBusNetBit* rangeLSBBit = bits[bits.size()-1];
-    naja::SNL::SNLID::Bit rangeLSB = rangeLSBBit->getBit();
-    naja::SNL::SNLBusNet* bus = rangeMSBBit->getBus();
-    naja::SNL::SNLID::Bit busMSB = bus->getMSB();
-    naja::SNL::SNLID::Bit busLSB = bus->getLSB();
-    if (rangeMSB == busMSB and rangeLSB == busLSB) {
-      o += bus->getName().getString();
+    std::string constantStr;
+    for (auto bit: bits) {
+      if (bit->getType() == naja::SNL::SNLNet::Type::Assign0) {
+        constantStr += "0";
+      } else if (bit->getType() == naja::SNL::SNLNet::Type::Assign1) {
+        constantStr += "1";
+      } else {
+        throw naja::SNL::SNLVRLDumperException("ERROR");
+      }
+    }
+    if (constantStr.size() < 4) {
+      //binary
+      o += std::to_string(bits.size()) + "'b";
+      o += constantStr;
     } else {
-      o += bus->getName().getString() + "[";
-      o += std::to_string(rangeMSB);
-      o += ":";
-      o += std::to_string(rangeLSB);
-      o += "]";
+      //hexa
+      o += std::to_string(bits.size()) + "'h";
+      constantStr = naja::SNL::SNLVRLDumper::binStrToHexStr(constantStr);
+      o += constantStr;
     }
   }
   bits.clear();
+}
+
+void dumpRange(ContiguousNetBits& bits, bool& firstElement, bool& concatenation, std::string& o) {
+  if (not bits.empty()) {
+    if (bits[0]->isAssignConstant()) {
+      dumpConstantRange(bits, firstElement, concatenation, o);
+    } else {
+      if (not firstElement) {
+        o += ", ";
+        concatenation = true;
+      } else {
+        firstElement = false;
+      }
+      naja::SNL::SNLBusNetBit* rangeMSBBit = static_cast<naja::SNL::SNLBusNetBit*>(bits[0]);
+      naja::SNL::SNLID::Bit rangeMSB = rangeMSBBit->getBit();
+      naja::SNL::SNLBusNetBit* rangeLSBBit =static_cast<naja::SNL::SNLBusNetBit*>(bits[bits.size()-1]);
+      naja::SNL::SNLID::Bit rangeLSB = rangeLSBBit->getBit();
+      naja::SNL::SNLBusNet* bus = rangeMSBBit->getBus();
+      naja::SNL::SNLID::Bit busMSB = bus->getMSB();
+      naja::SNL::SNLID::Bit busLSB = bus->getLSB();
+      if (rangeMSB == busMSB and rangeLSB == busLSB) {
+        o += bus->getName().getString();
+      } else if (rangeMSB == rangeLSB) {
+        o += bus->getName().getString() + "[";
+        o += std::to_string(rangeMSB);
+        o += "]";
+      } else {
+        o += bus->getName().getString() + "[";
+        o += std::to_string(rangeMSB);
+        o += ":";
+        o += std::to_string(rangeLSB);
+        o += "]";
+      }
+      bits.clear();
+    }
+  }
 }
 
 }
@@ -163,7 +203,10 @@ void SNLVRLDumper::dumpInterface(const SNLDesign* design, std::ostream& o, Desig
   o << ");";
 }
 
-void SNLVRLDumper::dumpNet(const SNLNet* net, std::ostream& o, DesignInsideAnonymousNaming& naming) {
+bool SNLVRLDumper::dumpNet(const SNLNet* net, std::ostream& o, DesignInsideAnonymousNaming& naming) {
+  if (net->isAssignConstant()) {
+    return false;
+  }
   SNLName netName;
   if (net->isAnonymous()) {
     netName = createNetName(net, naming);
@@ -176,13 +219,23 @@ void SNLVRLDumper::dumpNet(const SNLNet* net, std::ostream& o, DesignInsideAnony
   }
   o << netName.getString();
   o << ";" << std::endl;
+  return true;
 }
 
 void SNLVRLDumper::dumpNets(const SNLDesign* design, std::ostream& o, DesignInsideAnonymousNaming& naming) {
   bool atLeastOne = false;
   for (auto net: design->getNets()) {
-    dumpNet(net, o, naming);
-    atLeastOne = true;
+    if (not net->isAnonymous()) {
+      auto name = net->getName();
+      if (design->getTerm(name)) {
+        //already dumped
+        continue;
+      }
+    }
+    bool dumped = dumpNet(net, o, naming);
+    if (dumped) {
+      atLeastOne = true;
+    }
   }
   if (atLeastOne) {
     o << std::endl;
@@ -202,7 +255,19 @@ void SNLVRLDumper::dumpInsTermConnectivity(
     ContiguousNetBits contiguousBits;
     for (auto net: termNets) {
       if (net) {
-        if (dynamic_cast<SNLScalarNet*>(net)) {
+        if (net->isAssignConstant()) {
+          if (not contiguousBits.empty()) {
+            SNLBitNet* previousBit = contiguousBits.back();
+            if (not previousBit->isAssignConstant()) {
+              dumpRange(contiguousBits, firstElement, concatenation, connectionStr);
+              contiguousBits = { net };
+            } else {
+              contiguousBits.push_back(net);
+            }
+          } else {
+            contiguousBits.push_back(net);
+          }
+        } else if (dynamic_cast<SNLScalarNet*>(net)) {
           dumpRange(contiguousBits, firstElement, concatenation, connectionStr);
           SNLName netName = getNetName(net, naming);
           if (not firstElement) {
@@ -216,14 +281,20 @@ void SNLVRLDumper::dumpInsTermConnectivity(
           auto busNetBit = static_cast<SNLBusNetBit*>(net);
           auto busNet = busNetBit->getBus();
           if (not contiguousBits.empty()) {
-            SNLBusNetBit* previousBit = contiguousBits.back();
-            if (busNet == previousBit->getBus()
-            and ((previousBit->getBit() == busNetBit->getBit()+1)
-            or (previousBit->getBit() == busNetBit->getBit()-1))) {
-              contiguousBits.push_back(busNetBit);
-            } else {
+            SNLBitNet* previousBit = contiguousBits.back();
+            if (previousBit->isAssignConstant()) {
               dumpRange(contiguousBits, firstElement, concatenation, connectionStr);
               contiguousBits = { busNetBit };
+            } else {
+              SNLBusNetBit* previousBusBit = static_cast<SNLBusNetBit*>(previousBit);
+              if (busNet == previousBusBit->getBus()
+                and ((previousBusBit->getBit() == busNetBit->getBit()+1)
+                or (previousBusBit->getBit() == busNetBit->getBit()-1))) {
+                contiguousBits.push_back(busNetBit);
+              } else {
+                dumpRange(contiguousBits, firstElement, concatenation, connectionStr);
+                contiguousBits = { busNetBit };
+              }
             }
           } else {
             contiguousBits.push_back(busNetBit);
@@ -244,7 +315,7 @@ void SNLVRLDumper::dumpInsTermConnectivity(
     if (not contiguousBits.empty()) {
       dumpRange(contiguousBits, firstElement, concatenation, connectionStr);
     }
-    o << "." + term->getName().getString() + "(";
+    o << "  ." + term->getName().getString() + "(";
     if (concatenation) {
       o << "{";
     }
@@ -255,7 +326,7 @@ void SNLVRLDumper::dumpInsTermConnectivity(
     o << ")";
   } else {
     //should we not dump anything for non connected inst terms ?
-    o << "." << term->getName().getString() << "()"; 
+    o << "  ." << term->getName().getString() << "()"; 
   }
 }
 
@@ -283,8 +354,9 @@ void SNLVRLDumper::dumpInstanceInterface(
         if (first) {
           first = false;
         } else {
-          o << ", ";
+          o << ",";
         }
+        o << std::endl;
         dumpInsTermConnectivity(previousTerm, termNets, o, naming);
       }
       termNets = { instTerm->getNet() };
@@ -295,14 +367,37 @@ void SNLVRLDumper::dumpInstanceInterface(
     if (first) {
       first = false;
     } else {
-      o << ", ";
+      o << ",";
     }
+    o << std::endl;
     dumpInsTermConnectivity(previousTerm, termNets, o, naming);
   }
-  o << ")";
+  o <<  std::endl << ")";
 }
 
-void SNLVRLDumper::dumpInstance(const SNLInstance* instance, std::ostream& o, DesignInsideAnonymousNaming& naming) {
+void SNLVRLDumper::dumpInstParameters(
+  const SNLInstance* instance,
+  std::ostream& o) {
+  if (not instance->getInstParameters().empty()) {
+    bool first = true;
+    o << "#(";
+    for (auto instParameter: instance->getInstParameters()) {
+      if (not first) {
+        o << ", ";
+      }
+      first = false;
+      o << "." << instParameter->getName().getString();
+      o << "(" << instParameter->getValue();
+      o << ")";
+    }
+    o << ") ";
+  }
+}
+
+void SNLVRLDumper::dumpInstance(
+  const SNLInstance* instance,
+  std::ostream& o,
+  DesignInsideAnonymousNaming& naming) {
   std::string instanceName;
   if (instance->isAnonymous()) {
     instanceName = createInstanceName(instance, naming);
@@ -310,11 +405,11 @@ void SNLVRLDumper::dumpInstance(const SNLInstance* instance, std::ostream& o, De
     instanceName = instance->getName().getString();
   }
   auto model = instance->getModel();
-  if (model->isAnonymous()) {
-    o << instanceName << std::endl;
-  } else {
-    o << model->getName().getString() << " " << instanceName;
+  if (not model->isAnonymous()) { //FIXME !!
+    o << model->getName().getString() << " ";
   }
+  dumpInstParameters(instance, o);
+  o << instanceName;
   dumpInstanceInterface(instance, o, naming);
   o << ";" << std::endl;
 }
@@ -343,7 +438,7 @@ void SNLVRLDumper::dumpTermNetAssign(
       o << "assign " << termNetName << " = " << netName << ";" << std::endl;
       break;
     default:
-      throw SNLVRLDumperException("");
+      throw SNLVRLDumperException("wrong direction in assign");
   }
 }
 
@@ -479,11 +574,13 @@ void SNLVRLDumper::dumpDesign(const SNLDesign* design, std::ostream& o) {
     bool first = true;
     for (auto designLevel: designs) {
       const SNLDesign* design = designLevel.first;
-      if (not first) {
-        o << std::endl;
+      if (not design->isPrimitive()) {
+        if (not first) {
+          o << std::endl;
+        }
+        first = false;
+        dumpOneDesign(design, o);
       }
-      first = false;
-      dumpOneDesign(design, o);
     }
   } else {
     dumpOneDesign(design, o);
@@ -533,6 +630,42 @@ void SNLVRLDumper::dumpDesign(const SNLDesign* design, const std::filesystem::pa
       streamDumper.dumpDesign(design, outFile);
     }
   }
+}
+
+std::string SNLVRLDumper::binStrToHexStr(std::string binStr) {
+  size_t missingZeros = 4-binStr.size()%4;
+  for (size_t i=0; i<missingZeros; i++) {
+    binStr = '0' + binStr;
+  }
+  std::string hexStr;
+  size_t it = 0;
+  while (it < binStr.size()) {
+    std::string hex = binStr.substr(it, 4);
+    if      (hex == "0000") { hexStr += "0"; }
+    else if (hex == "0001") { hexStr += "1"; }
+    else if (hex == "0010") { hexStr += "2"; }
+    else if (hex == "0011") { hexStr += "3"; }
+    else if (hex == "0100") { hexStr += "4"; }
+    else if (hex == "0101") { hexStr += "5"; }
+    else if (hex == "0110") { hexStr += "6"; }
+    else if (hex == "0111") { hexStr += "7"; }
+    else if (hex == "1000") { hexStr += "8"; }
+    else if (hex == "1001") { hexStr += "9"; }
+    else if (hex == "1010") { hexStr += "A"; }
+    else if (hex == "1011") { hexStr += "B"; }
+    else if (hex == "1100") { hexStr += "C"; }
+    else if (hex == "1101") { hexStr += "D"; }
+    else if (hex == "1110") { hexStr += "E"; }
+    else if (hex == "1111") { hexStr += "F"; }
+    else { 
+      std::ostringstream reason;
+      reason << "Error in binary to hexadecimal conversion: ";
+      reason << hex << " is not a convertible binary.";
+      throw naja::SNL::SNLVRLDumperException(reason.str());
+    }
+    it += 4;
+  }
+  return hexStr;
 }
 
 }} // namespace SNL // namespace naja

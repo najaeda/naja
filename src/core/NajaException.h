@@ -29,9 +29,11 @@ struct NajaException: public std::exception {
       reason_(reason)
     {}
 
+    //LCOV_EXCL_START
     std::string getReason() const {
       return reason_;
     }
+    //LCOV_EXCL_STOP
 
     //LCOV_EXCL_START
     const char* what() const noexcept override {

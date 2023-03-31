@@ -34,7 +34,7 @@ using namespace naja::SNL;
 static PyObject* PySNLDesign_create(PyObject*, PyObject* args) {
   PyObject* arg0 = nullptr;
   const char* arg1 = nullptr;
-  if (not PyArg_ParseTuple(args, "O|s:SNLDB.create", &arg0, &arg1)) {
+  if (not PyArg_ParseTuple(args, "O|s:SNLDesign.create", &arg0, &arg1)) {
     setError("malformed SNLDesign create method");
     return nullptr;
   }
@@ -79,12 +79,7 @@ static PyObject* PySNLDesign_createPrimitive(PyObject*, PyObject* args) {
   return PySNLDesign_Link(design);
 }
 
-static PyObject* PySNLDesign_getLibrary(PySNLDesign* self) {
-  METHOD_HEAD("SNLDesign.getLibrary()")
-  return PySNLLibrary_Link(selfObject->getLibrary());
-}
-
-
+GetObjectMethod(Design, Library)
 GetObjectByName(Design, Instance)
 GetObjectByName(Design, Term)
 GetObjectByName(Design, ScalarTerm)

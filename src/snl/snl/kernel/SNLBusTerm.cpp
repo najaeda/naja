@@ -21,6 +21,7 @@
 #include "SNLBusTermBit.h"
 #include "SNLBusNet.h"
 #include "SNLBusNetBit.h"
+#include "SNLUtils.h"
 
 namespace naja { namespace SNL {
 
@@ -102,8 +103,9 @@ void SNLBusTerm::preCreate(const SNLDesign* design, SNLID::DesignObjectID id, co
 }
 
 void SNLBusTerm::createBits() {
-  bits_.resize(getSize(), nullptr);
-  for (size_t i=0; i<getSize(); i++) {
+  size_t size = static_cast<size_t>(getSize());
+  bits_.resize(size, nullptr);
+  for (size_t i=0; i<size; i++) {
     SNLID::Bit bit = (getMSB()>getLSB())?getMSB()-int(i):getMSB()+int(i);
     bits_[i] = SNLBusTermBit::create(this, bit);
   }
@@ -171,8 +173,8 @@ void SNLBusTerm::setNet(SNLNet* net) {
   }
 }
 
-size_t SNLBusTerm::getSize() const {
-  return static_cast<size_t>(std::abs(getLSB() - getMSB()) + 1);
+SNLID::Bit SNLBusTerm::getSize() const {
+  return SNLUtils::getSize(getMSB(), getLSB());
 }
 
 SNLID SNLBusTerm::getSNLID() const {

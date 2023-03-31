@@ -54,9 +54,11 @@ class SNLNet: public SNLDesignObject {
     ///\return net SNLName
     virtual SNLName getName() const = 0;
     ///\return net size, 1 for SNLScalarNet and SNLBusNetBit
-    virtual size_t getSize() const = 0;
+    virtual SNLID::Bit getSize() const = 0;
 
     virtual void setType(const Type& type) = 0;
+    ///\return true if all bits of this net are assigned to 1'b0 or 1'b1
+    virtual bool isAssignConstant() const = 0;
 
   protected:
     SNLNet() = default;

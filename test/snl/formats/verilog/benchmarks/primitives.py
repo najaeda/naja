@@ -6,7 +6,8 @@ def constructLUT4(lib):
   i1 = snl.SNLScalarTerm.create(lut4, snl.SNLTerm.Direction.Input, "I1")
   i2 = snl.SNLScalarTerm.create(lut4, snl.SNLTerm.Direction.Input, "I2")
   i3 = snl.SNLScalarTerm.create(lut4, snl.SNLTerm.Direction.Input, "I3")
-  o = snl.SNLScalarTerm.create(lut4, snl.SNLTerm.Direction.Output, "O")
+  q = snl.SNLScalarTerm.create(lut4, snl.SNLTerm.Direction.Output, "Q")
+  snl.SNLParameter.create(lut4, "INIT", "16'h0000")
 
 def constructPrimitives(lib):
   constructLUT4(lib)

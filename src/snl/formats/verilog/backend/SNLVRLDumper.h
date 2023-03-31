@@ -97,7 +97,8 @@ class SNLVRLDumper {
     void dumpDesign(const SNLDesign* design, const std::filesystem::path& path);
     //dump design in stream o
     void dumpDesign(const SNLDesign* design, std::ostream& o);
-  
+
+    static std::string binStrToHexStr(std::string binStr);
   private:
     std::string getTopFileName(const SNLDesign* top) const;
     struct DesignAnonymousNaming {
@@ -125,9 +126,10 @@ class SNLVRLDumper {
     void dumpParameters(const SNLDesign* design, std::ostream& o);
     void dumpInstances(const SNLDesign* design, std::ostream& o, DesignInsideAnonymousNaming& naming);
     void dumpInstance(const SNLInstance* instance, std::ostream& o, DesignInsideAnonymousNaming& naming);
+    void dumpInstParameters(const SNLInstance* instance, std::ostream& o);
     void dumpInstanceInterface(const SNLInstance* instance, std::ostream& o, const DesignInsideAnonymousNaming& naming);
     void dumpNets(const SNLDesign* design, std::ostream& o, DesignInsideAnonymousNaming& naming);
-    void dumpNet(const SNLNet* net, std::ostream& o, DesignInsideAnonymousNaming& naming);
+    bool dumpNet(const SNLNet* net, std::ostream& o, DesignInsideAnonymousNaming& naming);
 
     void dumpTermNetAssign(
       const SNLTerm::Direction& direction,

@@ -55,7 +55,7 @@ class SNLBusTerm final: public SNLTerm {
     SNLID::Bit getMSB() const { return msb_; }
     ///\return LSB (Most Significant Bit) or right hand side of the bus range.
     SNLID::Bit getLSB() const { return lsb_; }
-    size_t getSize() const override;
+    SNLID::Bit getSize() const override;
     SNLBusTermBit* getBit(SNLID::Bit bit) const;
     SNLBusTermBit* getBitAtPosition(size_t position) const;
     NajaCollection<SNLBusTermBit*> getBits() const;

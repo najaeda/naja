@@ -201,7 +201,7 @@ void SNLDesign::addTerm(SNLTerm* term) {
       flatID = scalarTerm->getFlatID() + 1;
     } else {
       SNLBusTerm* busTerm = static_cast<SNLBusTerm*>(lastTerm);
-      flatID = busTerm->flatID_ + busTerm->getSize();
+      flatID = busTerm->flatID_ + static_cast<size_t>(busTerm->getSize());
     }
     term->setFlatID(flatID);
   }

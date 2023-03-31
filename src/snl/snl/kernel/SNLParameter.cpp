@@ -16,6 +16,8 @@
 
 #include "SNLParameter.h"
 
+#include <sstream>
+
 #include "SNLDesign.h"
 #include "SNLException.h"
 
@@ -51,5 +53,28 @@ void SNLParameter::destroy() {
 void SNLParameter::destroyFromDesign() {
   delete this;
 }
+
+//LCOV_EXCL_START
+const char* SNLParameter::getTypeName() const {
+  return "SNLParameter";
+}
+//LCOV_EXCL_STOP
+ 
+//LCOV_EXCL_START
+std::string SNLParameter::getString() const {
+  return getName().getString();
+}
+//LCOV_EXCL_STOP
+
+//LCOV_EXCL_START
+std::string SNLParameter::getDescription() const {
+  std::ostringstream stream;
+  stream << "<" << std::string(getTypeName());
+  stream << " " + getName().getString();
+  stream << " " << getValue();
+  stream << ">";
+  return stream.str(); 
+}
+//LCOV_EXCL_STOP
 
 }} // namespace SNL // namespace naja

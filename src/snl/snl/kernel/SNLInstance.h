@@ -20,11 +20,13 @@
 #include <vector>
 #include <boost/intrusive/set.hpp>
 
+#include "NajaCollection.h"
+
 #include "SNLDesignObject.h"
 #include "SNLID.h"
 #include "SNLSharedPath.h"
 #include "SNLName.h"
-#include "NajaCollection.h"
+#include "SNLInstParameter.h"
 
 namespace naja { namespace SNL {
 
@@ -37,10 +39,15 @@ class SNLInstTerm;
 class SNLInstance final: public SNLDesignObject {
   public:
     friend class SNLDesign;
+    friend class SNLInstParameter;
     friend class SNLSharedPath;
     friend class SNLPath;
     using super = SNLDesignObject;
     using SNLInstanceInstTerms = std::vector<SNLInstTerm*>;
+    using SNLInstParametersHook =
+      boost::intrusive::member_hook<SNLInstParameter, boost::intrusive::set_member_hook<>, &SNLInstParameter::instParametersHook_>;
+    using SNLInstParameters = boost::intrusive::set<SNLInstParameter, SNLInstParametersHook>;
+      
     using SNLInstanceSharedPathsHook =
       boost::intrusive::member_hook<SNLSharedPath, boost::intrusive::set_member_hook<>, &SNLSharedPath::instanceSharedPathsHook_>;
     using SNLInstanceSharedPaths = boost::intrusive::set<SNLSharedPath, SNLInstanceSharedPathsHook>;
@@ -77,6 +84,9 @@ class SNLInstance final: public SNLDesignObject {
     const char* getTypeName() const override;
     std::string getString() const override;
     std::string getDescription() const override;
+
+    void addInstanceParameter(const SNLName* , const std::string& value);
+    NajaCollection<SNLInstParameter*> getInstParameters() const;
 
     ///\return SNLInstTerm corresponding to the SNLBitTerm representative in this instance. 
     SNLInstTerm* getInstTerm(const SNLBitTerm* term) const;
@@ -116,6 +126,14 @@ class SNLInstance final: public SNLDesignObject {
       SNLID::Bit termMSB, SNLID::Bit termLSB,
       SNLNet* net,
       SNLID::Bit netMSB, SNLID::Bit netLSB);
+    /**
+     * Helper function allowing to connect a SNLTerm representative in current instance to the
+     * corresponding SNLNet bits. This version allows to connect a subpart of net bits.
+     **/
+    void setTermNet(
+      SNLTerm* term,
+      SNLNet* net,
+      SNLID::Bit netMSB, SNLID::Bit netLSB);
 
   private:
     SNLInstance(SNLDesign* design, SNLDesign* model, const SNLName& name);
@@ -126,6 +144,8 @@ class SNLInstance final: public SNLDesignObject {
     void postCreateAndSetID();
     void postCreate();
     void commonPreDestroy();
+    void addInstParameter(SNLInstParameter* instParameter);
+    void removeInstParameter(SNLInstParameter* instParameter);
     void destroyFromDesign();
     void destroyFromModel();
     void preDestroy() override;
@@ -143,6 +163,7 @@ class SNLInstance final: public SNLDesignObject {
     SNLName                             name_                     {};
     SNLInstanceInstTerms                instTerms_                {};
     SNLInstanceSharedPaths              sharedPaths_              {};
+    SNLInstParameters                   instParameters_           {};
     boost::intrusive::set_member_hook<> designInstancesHook_      {};
     boost::intrusive::set_member_hook<> designSlaveInstancesHook_ {};
 };

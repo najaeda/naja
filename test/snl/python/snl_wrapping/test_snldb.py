@@ -15,6 +15,11 @@ class SNLDBTest(unittest.TestCase):
     db = snl.SNLDB.create(u) 
     self.assertIsNotNone(db)
 
+  def testCreationError(self):
+    u = snl.SNLUniverse.get()
+    with self.assertRaises(RuntimeError) as context: snl.SNLDB.create("ERROR")
+    
+
   def testDestroy(self):
     u = snl.SNLUniverse.get()
     db = snl.SNLDB.create(u) 
