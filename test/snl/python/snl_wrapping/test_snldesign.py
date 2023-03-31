@@ -73,5 +73,15 @@ class SNLDesignTest(unittest.TestCase):
     self.assertEqual("INIT", p.getName())
     self.assertEqual(design, p.getDesign())
 
+  def testCreationError(self):
+    self.assertIsNotNone(self.lib)
+    d = snl.SNLDesign.create(self.lib, "DESIGN")
+    self.assertIsNotNone(self.lib)
+
+    with self.assertRaises(RuntimeError) as context: snl.SNLDesign.create("ERROR", "DESIGN")
+    with self.assertRaises(RuntimeError) as context: snl.SNLDesign.create(d, "DESIGN")
+   
+
+
 if __name__ == '__main__':
   unittest.main()
