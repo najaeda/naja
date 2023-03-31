@@ -160,12 +160,8 @@ void SNLInstance::setTermNet(
   Terms terms;
   Nets nets;
   if (auto busTerm = dynamic_cast<SNLBusTerm*>(term)) {
-    if (not SNLDesign::isBetween(termMSB, busTerm->getMSB(), busTerm->getLSB())) {
-
-    }
-    if (not SNLDesign::isBetween(termLSB, busTerm->getMSB(), busTerm->getLSB())) {
-      
-    }
+    assert(SNLDesign::isBetween(termMSB, busTerm->getMSB(), busTerm->getLSB()));
+    assert(SNLDesign::isBetween(termLSB, busTerm->getMSB(), busTerm->getLSB()));
     SNLID::Bit incr = (termMSB<termLSB)?+1:-1;
     for (SNLID::Bit bit=termMSB; (termMSB<termLSB)?bit<=termLSB:bit>=termLSB; bit+=incr) {
       terms.push_back(busTerm->getBit(bit));
