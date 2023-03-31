@@ -36,16 +36,16 @@ class SNLVRLConstructorTestErrors: public ::testing::Test {
 TEST_F(SNLVRLConstructorTestErrors, test0) {
   SNLVRLConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_VRL_BENCHMARKS_PATH);
-  constructor.parse(benchmarksPath/"error0.v");
+  constructor.parse(benchmarksPath/"errors"/"error0.v");
   constructor.setFirstPass(false);
-  EXPECT_THROW(constructor.parse(benchmarksPath/"error0.v"), SNLVRLConstructorException);
+  EXPECT_THROW(constructor.parse(benchmarksPath/"errors"/"error0.v"), SNLVRLConstructorException);
 }
 
 TEST_F(SNLVRLConstructorTestErrors, test1) {
   SNLVRLConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_VRL_BENCHMARKS_PATH);
   EXPECT_THROW(
-    constructor.construct(benchmarksPath/"error1.v"),
+    constructor.construct(benchmarksPath/"errors"/"error1.v"),
     SNLVRLConstructorException);
 }
 
@@ -53,7 +53,7 @@ TEST_F(SNLVRLConstructorTestErrors, test2) {
   SNLVRLConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_VRL_BENCHMARKS_PATH);
   EXPECT_THROW(
-    constructor.construct(benchmarksPath/"error2.v"),
+    constructor.construct(benchmarksPath/"errors"/"error2.v"),
     SNLVRLConstructorException);
 }
 
@@ -61,7 +61,7 @@ TEST_F(SNLVRLConstructorTestErrors, test3) {
   SNLVRLConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_VRL_BENCHMARKS_PATH);
   EXPECT_THROW(
-    constructor.construct(benchmarksPath/"error3.v"),
+    constructor.construct(benchmarksPath/"errors"/"error3.v"),
     SNLVRLConstructorException);
 }
 
@@ -69,6 +69,14 @@ TEST_F(SNLVRLConstructorTestErrors, test4) {
   SNLVRLConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_VRL_BENCHMARKS_PATH);
   EXPECT_THROW(
-    constructor.construct(benchmarksPath/"error4.v"),
+    constructor.construct(benchmarksPath/"errors"/"error4.v"),
+    SNLVRLConstructorException);
+}
+
+TEST_F(SNLVRLConstructorTestErrors, test5) {
+  SNLVRLConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_VRL_BENCHMARKS_PATH);
+  EXPECT_THROW(
+    constructor.construct(benchmarksPath/"errors"/"error5.v"),
     SNLVRLConstructorException);
 }

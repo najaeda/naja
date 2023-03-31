@@ -363,8 +363,8 @@ void SNLVRLConstructor::addInstanceConnection(
             std::ostringstream reason;
             reason << getLocationString();
             reason << ": " << name
-              << " net cannot be found in " << model->getName().getString()
-              << " model";
+              << " net cannot be found in "
+              << currentInstance_->getDesign()->getName().getString();
             throw SNLVRLConstructorException(reason.str());
           }
           if (identifier.range_.valid_) {
