@@ -13,14 +13,15 @@ class SNLParameterTest: public ::testing::Test {
     void SetUp() override {
       auto universe = SNLUniverse::create();
       auto db = SNLDB::create(universe);
-      auto designsLib = SNLLibrary::create(db);
-      design_ = SNLDesign::create(designsLib);
+      designsLib_ = SNLLibrary::create(db);
+      design_ = SNLDesign::create(designsLib_);
     }
     void TearDown() override {
       SNLUniverse::get()->destroy();
       design_ = nullptr;
     }
-   SNLDesign*   design_ {nullptr};
+    SNLLibrary*   designsLib_ {nullptr};
+    SNLDesign*    design_     {nullptr};
 };
 
 TEST_F(SNLParameterTest, test) {
@@ -70,7 +71,6 @@ TEST_F(SNLParameterTest, test) {
   instParam1->destroy();
   EXPECT_EQ(1, instance->getInstParameters().size());
 
-
   using ParamsVector = std::vector<SNLParameter*>;
   ParamsVector paramsVector(design_->getParameters().begin(), design_->getParameters().end());
   ASSERT_EQ(2, paramsVector.size());
@@ -87,4 +87,15 @@ TEST_F(SNLParameterTest, test) {
   EXPECT_EQ(1, design_->getParameters().size());
   EXPECT_THAT(std::vector(design_->getParameters().begin(), design_->getParameters().end()),
     ElementsAre(param2));
+}
+
+TEST_F(SNLParameterTest, testInstanceParameterCreationError) {
+  auto model1 = SNLDesign::create(designsLib_);
+  auto param = SNLParameter::create(model1, SNLName("PARAM"), "TEST");
+  auto model2 = SNLDesign::create(designsLib_);
+  auto top = SNLDesign::create(designsLib_);
+  auto instance = SNLInstance::create(top, model2);
+  EXPECT_THROW(
+    SNLInstParameter::create(instance, param, "ERROR"),
+    SNLException);
 }
