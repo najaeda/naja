@@ -1,6 +1,7 @@
 set(SOURCES
   PySNLUniverse.cpp
   PySNLDB.cpp PySNLLibrary.cpp PySNLDesign.cpp
+  PySNLParameter.cpp
   PySNLDesignObject.cpp
   PySNLNet.cpp PySNLBusNet.cpp PySNLBitNet.cpp PySNLScalarNet.cpp PySNLBusNetBit.cpp
   PySNLNetComponent.cpp

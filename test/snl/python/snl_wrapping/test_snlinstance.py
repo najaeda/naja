@@ -24,6 +24,7 @@ class SNLInstanceTest(unittest.TestCase):
     self.assertEqual("ins1", ins1.getName())
     self.assertEqual(self.top, ins1.getDesign())
     self.assertEqual(self.model, ins1.getModel())
+    self.assertEqual(ins1, self.top.getInstance("ins1"))
     
 if __name__ == '__main__':
   unittest.main()

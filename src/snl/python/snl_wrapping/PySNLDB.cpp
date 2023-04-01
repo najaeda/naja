@@ -34,7 +34,7 @@ static PyObject* PySNLDB_create(PyObject*, PyObject* args) {
     return nullptr;
   }
   if (not IsPySNLUniverse(arg)) {
-    setError("SNLDB create should be a SNLUniverse");
+    setError("SNLDB create argument should be a SNLUniverse");
     return nullptr;
   }
   auto universe = PYSNLUNIVERSE_O(arg);

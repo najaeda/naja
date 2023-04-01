@@ -15,4 +15,4 @@ add_executable(snl_vrl_snippet ${PROJECT_SOURCE_DIR}/src/snl/snippets/app/src/SN
 target_link_libraries(snl_snippet naja_snl)
 target_link_libraries(snl_receiver naja_snl_dump)
 target_link_libraries(snl_sender naja_snl_dump)
-target_link_libraries(snl_vrl_snippet naja_snl_verilog)
+target_link_libraries(snl_vrl_snippet naja_snl_verilog naja_snl_primitives)

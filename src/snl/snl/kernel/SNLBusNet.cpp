@@ -23,6 +23,7 @@
 #include "SNLDesign.h"
 #include "SNLBusNetBit.h"
 #include "SNLException.h"
+#include "SNLUtils.h"
 
 namespace naja { namespace SNL {
 
@@ -98,8 +99,9 @@ void SNLBusNet::preCreate(const SNLDesign* design, SNLID::DesignObjectID id, con
 
 void SNLBusNet::createBits() {
   //create bits
-  bits_.resize(getSize(), nullptr);
-  for (size_t i=0; i<getSize(); i++) {
+  size_t size = static_cast<size_t>(getSize());
+  bits_.resize(size, nullptr);
+  for (size_t i=0; i<size; i++) {
     SNLID::Bit bit = (getMSB()>getLSB())?getMSB()-int(i):getMSB()+int(i);
     bits_[i] = SNLBusNetBit::create(this, bit);
   }
@@ -134,8 +136,8 @@ void SNLBusNet::preDestroy() {
   getDesign()->removeNet(this);
 }
 
-size_t SNLBusNet::getSize() const {
-  return static_cast<size_t>(std::abs(getLSB() - getMSB()) + 1);
+SNLID::Bit SNLBusNet::getSize() const {
+  return SNLUtils::getSize(getMSB(), getLSB());
 }
 
 SNLID SNLBusNet::getSNLID() const {
@@ -163,6 +165,10 @@ NajaCollection<SNLBusNetBit*> SNLBusNet::getBits() const {
 
 void SNLBusNet::setType(const Type& type) {
   std::for_each(bits_.begin(), bits_.end(), [type](SNLBusNetBit* b){ if (b) b->setType(type); });
+}
+
+bool SNLBusNet::isAssignConstant() const {
+  return std::all_of(bits_.begin(), bits_.end(), [](const SNLBusNetBit* b){ return b->getType().isAssign(); });
 }
 
 //LCOV_EXCL_START
