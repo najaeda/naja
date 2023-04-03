@@ -159,8 +159,10 @@ class SNLDesign final: public SNLObject {
     bool isPrimitive() const { return type_ == Type::Primitive; }
     ///\return true if this SNLDesign is a hierarchy leaf (blackbox or primitive).
     bool isLeaf() const { return isBlackBox() or isPrimitive(); }
-    
+    ///\return true if this SNLDesign is a top design.
     bool isTopDesign() const;
+
+    bool deepCompare(const SNLDesign* design, std::string& reason) const;
 
     const char* getTypeName() const override;
     std::string getString() const override;

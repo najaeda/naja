@@ -57,8 +57,12 @@ class SNLCapNpTest0: public ::testing::Test {
       SNLScalarTerm::create(model0, SNLTerm::Direction::Output, SNLName("o"));
       auto instance1 = SNLInstance::create(design, model0, SNLName("instance1"));
       auto instance2 = SNLInstance::create(design, model0, SNLName("instance2"));
-      SNLParameter::create(model0, SNLName("Test1"), "Value1");
-      SNLParameter::create(model0, SNLName("Test2"), "Value2");
+      auto parameter1 = SNLParameter::create(model0, SNLName("Test1"), "Value1");
+      auto parameter2 = SNLParameter::create(model0, SNLName("Test2"), "Value2");
+      SNLInstParameter::create(instance1, parameter1, "Val1");
+      SNLInstParameter::create(instance1, parameter2, "Val2");
+      SNLInstParameter::create(instance2, parameter1, "NewValue1");
+      SNLInstParameter::create(instance2, parameter2, "NewValue2");
 
       //connections between instances
       instance1->getInstTerm(model0->getScalarTerm(SNLName("o")))->setNet(design->getScalarNet(SNLName("n1")));
@@ -95,25 +99,29 @@ TEST_F(SNLCapNpTest0, test0) {
   }
 
   SNLCapnP::dump(db_, outPath);
-  db_->destroy();  
-  db_ = nullptr;
-  db_ = SNLCapnP::load(outPath);
-  ASSERT_TRUE(db_);
-  EXPECT_EQ(SNLID::DBID(1), db_->getID());
-  EXPECT_EQ(1, db_->getProperties().size());
-  EXPECT_TRUE(db_->hasProperty("TEST_PROPERTY"));
+  db_->setID(2);
+
+  auto loadedDB = SNLCapnP::load(outPath);
+  ASSERT_TRUE(loadedDB);
+  std::string reason;
+  EXPECT_TRUE(db_->deepCompare(loadedDB, reason)) << reason;
+  EXPECT_TRUE(reason.empty());
+
+  EXPECT_EQ(SNLID::DBID(1), loadedDB->getID());
+  EXPECT_EQ(1, loadedDB->getProperties().size());
+  EXPECT_TRUE(loadedDB->hasProperty("TEST_PROPERTY"));
   auto testProperty =
-    dynamic_cast<NajaDumpableProperty*>(db_->getProperty("TEST_PROPERTY"));
+    dynamic_cast<NajaDumpableProperty*>(loadedDB->getProperty("TEST_PROPERTY"));
   ASSERT_NE(nullptr, testProperty);
   EXPECT_EQ("TEST_PROPERTY", testProperty->getName());
-  EXPECT_EQ(db_, testProperty->getOwner());
+  EXPECT_EQ(loadedDB, testProperty->getOwner());
   testProperty->destroy();
   testProperty = nullptr;
-  EXPECT_TRUE(db_->getProperties().empty());
-  EXPECT_FALSE(db_->hasProperty("TEST_PROPERTY"));
+  EXPECT_TRUE(loadedDB->getProperties().empty());
+  EXPECT_FALSE(loadedDB->hasProperty("TEST_PROPERTY"));
 
-  EXPECT_EQ(1, db_->getLibraries().size());
-  auto library = *(db_->getLibraries().begin());
+  EXPECT_EQ(1, loadedDB->getLibraries().size());
+  auto library = *(loadedDB->getLibraries().begin());
   ASSERT_TRUE(library);
   EXPECT_EQ(SNLID::LibraryID(0), library->getID());
   EXPECT_EQ(SNLName("MYLIB"), library->getName());
@@ -144,7 +152,7 @@ TEST_F(SNLCapNpTest0, test0) {
   EXPECT_EQ(3, design->getTerms().size());
   EXPECT_EQ(5, design->getNets().size());
   EXPECT_EQ(4, design->getInstances().size());
-  EXPECT_EQ(design, db_->getTopDesign());
+  EXPECT_EQ(design, loadedDB->getTopDesign());
 
   auto model = designs[1];
   EXPECT_EQ(SNLID::DesignID(1), model->getID());

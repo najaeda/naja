@@ -343,10 +343,14 @@ void loadLibraryInterface(NajaObject* parent, const DBInterface::LibraryInterfac
 namespace naja { namespace SNL {
 
 void SNLCapnP::dumpInterface(const SNLDB* snlDB, int fileDescriptor) {
+  dumpInterface(snlDB, fileDescriptor, snlDB->getID());
+}
+
+void SNLCapnP::dumpInterface(const SNLDB* snlDB, int fileDescriptor, SNLID::DBID forceDBID) {
   ::capnp::MallocMessageBuilder message;
 
   DBInterface::Builder db = message.initRoot<DBInterface>();
-  db.setId(snlDB->getID());
+  db.setId(forceDBID);
   auto lambda = [](DBInterface::Builder& builder, size_t nbProperties) {
     return builder.initProperties(nbProperties);
   };
@@ -380,8 +384,12 @@ void SNLCapnP::dumpInterface(const SNLDB* snlDB, const std::filesystem::path& in
   close(fd);
 }
 
+void SNLCapnP::sendInterface(const SNLDB* db, tcp::socket& socket, SNLID::DBID forceDBID) {
+  dumpInterface(db, socket.native_handle(), forceDBID);
+}
+
 void SNLCapnP::sendInterface(const SNLDB* db, tcp::socket& socket) {
-  dumpInterface(db, socket.native_handle());
+  sendInterface(db, socket, db->getID());
 }
 
 void SNLCapnP::sendInterface(

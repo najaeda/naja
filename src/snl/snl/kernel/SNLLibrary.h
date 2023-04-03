@@ -89,6 +89,8 @@ class SNLLibrary final: public SNLObject {
     friend bool operator< (const SNLLibrary &ll, const SNLLibrary &rl) {
       return ll.getSNLID() < rl.getSNLID();
     }
+
+    bool deepCompare(const SNLLibrary* library, std::string& reason) const;
   private:
     static void preCreate(SNLDB* db, Type type, const SNLName& name);
     static void preCreate(SNLDB* db, SNLID::LibraryID id, const Type type, const SNLName& name);

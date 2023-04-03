@@ -19,7 +19,6 @@ class SNLDBTest(unittest.TestCase):
     u = snl.SNLUniverse.get()
     with self.assertRaises(RuntimeError) as context: snl.SNLDB.create("ERROR")
     
-
   def testDestroy(self):
     u = snl.SNLUniverse.get()
     db = snl.SNLDB.create(u) 

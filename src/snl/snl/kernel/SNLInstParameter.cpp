@@ -65,6 +65,19 @@ SNLName SNLInstParameter::getName() const {
   return parameter_->getName(); 
 }
 
+bool SNLInstParameter::deepCompare(const SNLInstParameter* other, std::string& reason) const {
+  if (getName() not_eq other->getName()) {
+    reason += "In " + getInstance()->getDescription();
+    reason += ", different instance parameters: ";
+    reason += getDescription() + " and " + other->getDescription();
+    return false;
+  }
+  if (getValue() not_eq other->getValue()) {
+    return false;
+  }
+  return true;
+}
+
 //LCOV_EXCL_START
 const char* SNLInstParameter::getTypeName() const {
   return "SNLInstParameter";

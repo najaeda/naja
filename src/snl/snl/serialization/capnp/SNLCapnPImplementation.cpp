@@ -44,6 +44,13 @@ namespace {
 
 using namespace naja::SNL;
 
+void dumpInstParameter(
+  DBImplementation::LibraryImplementation::DesignImplementation::Instance::InstParameter::Builder& instParameter,
+  const SNLInstParameter* snlInstParameter) {
+  instParameter.setName(snlInstParameter->getName().getString());
+  instParameter.setValue(snlInstParameter->getValue());
+}
+
 void dumpInstance(
   DBImplementation::LibraryImplementation::DesignImplementation::Instance::Builder& instance,
   const SNLInstance* snlInstance) {
@@ -57,6 +64,12 @@ void dumpInstance(
   modelReferenceBuilder.setDbID(modelReference.dbID_);
   modelReferenceBuilder.setLibraryID(modelReference.getDBDesignReference().libraryID_);
   modelReferenceBuilder.setDesignID(modelReference.getDBDesignReference().designID_);
+  size_t id = 0;
+  auto instParameters = instance.initInstParameters(snlInstance->getInstParameters().size());
+  for (auto instParameter: snlInstance->getInstParameters()) {
+    auto instParameterBuilder = instParameters[id++];
+    dumpInstParameter(instParameterBuilder, instParameter);
+  }
 }
 
 void dumpBitTermReference(
@@ -188,6 +201,23 @@ void dumpLibraryImplementation(
   }
 }
 
+void loadInstParameter(
+  SNLInstance* instance,
+  const DBImplementation::LibraryImplementation::DesignImplementation::Instance::InstParameter::Reader& instParameter) {
+  auto name = instParameter.getName();
+  auto value = instParameter.getValue();
+  auto parameter = instance->getModel()->getParameter(SNLName(name));
+  if (not parameter) {
+    //LCOV_EXCL_START
+    std::ostringstream reason;
+    reason << "cannot deserialize instance: no parameter " << std::string(name);
+    reason << " exists in " << instance->getDescription() << " model";
+    throw SNLException(reason.str());
+    //LCOV_EXCL_STOP
+  }
+  SNLInstParameter::create(instance, parameter, value);
+}
+
 void loadInstance(
   SNLDesign* design,
   const DBImplementation::LibraryImplementation::DesignImplementation::Instance::Reader& instance) {
@@ -210,7 +240,13 @@ void loadInstance(
     throw SNLException(reason.str());
     //LCOV_EXCL_STOP
   }
-  SNLInstance::create(design, model, SNLID::DesignObjectID(instanceID), snlName);
+  auto snlInstance =
+    SNLInstance::create(design, model, SNLID::DesignObjectID(instanceID), snlName);
+  if (instance.hasInstParameters()) {
+    for (auto instParameter: instance.getInstParameters()) {
+      loadInstParameter(snlInstance, instParameter);
+    }
+  }
 }
 
 void loadTermReference(
@@ -386,10 +422,14 @@ void loadLibraryImplementation(SNLDB* db, const DBImplementation::LibraryImpleme
 namespace naja { namespace SNL {
 
 void SNLCapnP::dumpImplementation(const SNLDB* snlDB, int fileDescriptor) {
+  dumpImplementation(snlDB, fileDescriptor, snlDB->getID());
+}
+
+void SNLCapnP::dumpImplementation(const SNLDB* snlDB, int fileDescriptor, SNLID::DBID forceDBID) {
   ::capnp::MallocMessageBuilder message;
 
   DBImplementation::Builder db = message.initRoot<DBImplementation>();
-  db.setId(snlDB->getID());
+  db.setId(forceDBID);
   auto libraries = db.initLibraryImplementations(snlDB->getLibraries().size());
   
   size_t id = 0;
@@ -410,7 +450,11 @@ void SNLCapnP::dumpImplementation(const SNLDB* snlDB, const std::filesystem::pat
 }
 
 void SNLCapnP::sendImplementation(const SNLDB* db, tcp::socket& socket) {
-  dumpImplementation(db, socket.native_handle());
+  sendImplementation(db, socket, db->getID());
+}
+
+void SNLCapnP::sendImplementation(const SNLDB* db, tcp::socket& socket, SNLID::DBID forceDBID) {
+  dumpImplementation(db, socket.native_handle(), forceDBID);
 }
 
 void SNLCapnP::sendImplementation(

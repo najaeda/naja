@@ -53,6 +53,7 @@ class SNLParameter {
         return lp.getName() < rn;
       }
     };
+    bool deepCompare(const SNLParameter* other, std::string& reason) const;
   private:
     SNLParameter(SNLDesign* design, const SNLName& name, const std::string& value);
     static void preCreate(SNLDesign* design, const SNLName& name);

@@ -28,6 +28,7 @@
 #include "SNLScalarNet.h"
 #include "SNLBusNet.h"
 #include "SNLBusNetBit.h"
+#include "SNLMacros.h"
 
 namespace naja { namespace SNL {
 
@@ -471,6 +472,21 @@ NajaCollection<SNLParameter*> SNLDesign::getParameters() const {
 
 bool SNLDesign::isTopDesign() const {
   return getDB()->getTopDesign() == this; 
+}
+
+bool SNLDesign::deepCompare(const SNLDesign* other, std::string& reason) const {
+  if (getID() not_eq other->getID()) {
+    return false;
+  }
+  if (name_ not_eq other->getName()) {
+    return false;
+  }
+  if (type_ not_eq other->getType()) {
+    return false;
+  }
+  DEEP_COMPARE_MEMBER(Parameters)
+  DEEP_COMPARE_MEMBER(Instances)
+  return true;
 }
 
 SNLID SNLDesign::getSNLID() const {

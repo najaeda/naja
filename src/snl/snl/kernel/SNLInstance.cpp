@@ -29,6 +29,7 @@
 #include "SNLBusNetBit.h"
 #include "SNLInstTerm.h"
 #include "SNLUtils.h"
+#include "SNLMacros.h"
 
 namespace naja { namespace SNL {
 
@@ -113,6 +114,18 @@ void SNLInstance::postCreate() {
   super::postCreate();
   getDesign()->addInstance(this);
   commonPostCreate();
+}
+
+bool SNLInstance::deepCompare(const SNLInstance* other, std::string& reason) const {
+  if (getID() not_eq other->getID()) {
+    return false;
+  }
+  if (name_ not_eq other->getName()) {
+    return false;
+  }
+  //FIXME compare models: same library id, same id
+  DEEP_COMPARE_MEMBER(InstParameters)
+  return true;
 }
 
 void SNLInstance::createInstTerm(SNLBitTerm* term) {

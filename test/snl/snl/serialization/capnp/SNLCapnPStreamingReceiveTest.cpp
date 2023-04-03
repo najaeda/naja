@@ -22,15 +22,17 @@ class SNLCapnPStreamingReceiveTest: public ::testing::Test {
   //Test libraries
   protected:
     void SetUp() override {
+      SNLUniverse* universe = SNLUniverse::create();
+      db_ = SNLDB::create(universe);
       //
     }
     void TearDown() override {
-    //  if (SNLUniverse::get()) {
-    //    SNLUniverse::get()->destroy();
-    //  }
+      if (SNLUniverse::get()) {
+        SNLUniverse::get()->destroy();
+      }
     }
   protected:
-    //SNLDB*      db_;
+    SNLDB*      db_;
 };
 
 using path = std::filesystem::path;
@@ -46,22 +48,28 @@ SNLDB* receive(uint16_t port) {
 TEST_F(SNLCapnPStreamingReceiveTest, test0) {
   //std::future<SNLDB*> a = std::async(std::launch::async, receive, 44444);
   SNLDB* db = nullptr;
-  std::thread t([&]{ db = SNLCapnP::receive(44444); });
-  t.detach();
+  std::thread receiverThread([&]{ std::cerr << "Starting receiver" << std::endl; db = SNLCapnP::receive(44444); });
+  receiverThread.detach();
+  std::this_thread::sleep_for(std::chrono::seconds(5));
   //auto t = std::thread();
-  
-  path snlSenderPath(path(SNL_CAPNP_TEST_PATH) / path("snlSenderTest"));
-  std::string snlSenderCommand(snlSenderPath.string() + " 127.0.0.1 44444 test.txt");
-  
-  std::cerr << snlSenderCommand << std::endl;
 
-  int status = std::system(snlSenderPath.c_str());
-  std::cerr << "akecoucou1 " << status << std::endl;
-  ASSERT_NE(0, WIFEXITED(status));
-  std::this_thread::sleep_for(std::chrono::seconds(2));
+  //std::thread senderThread([&]{ SNLCapnP::send(db_, "localhost", 44444); });
+  SNLCapnP::send(db_, "192.168.1.154", 44444, 2);
+  //senderThread.detach();
 
   ASSERT_NE(nullptr, db);
-  std::cerr << "akecoucou2" << std::endl;
+  
+  //path snlSenderPath(path(SNL_CAPNP_TEST_PATH) / path("snlSenderTest"));
+  //std::string snlSenderCommand(snlSenderPath.string() + " 127.0.0.1 44444 test.txt");
+  //
+  //std::cerr << snlSenderCommand << std::endl;
+
+  //int status = std::system(snlSenderPath.c_str());
+  //std::cerr << "akecoucou1 " << status << std::endl;
+  //ASSERT_NE(0, WIFEXITED(status));
+
+  //ASSERT_NE(nullptr, db);
+  //std::cerr << "akecoucou2" << std::endl;
 
   
   #if 0

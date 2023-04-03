@@ -54,6 +54,16 @@ void SNLParameter::destroyFromDesign() {
   delete this;
 }
 
+bool SNLParameter::deepCompare(const SNLParameter* other, std::string& reason) const {
+  if (getName() != other->getName()) {
+    return false;
+  }
+  if (getValue() not_eq other->getValue()) {
+    return false;
+  }
+  return true;
+}
+
 //LCOV_EXCL_START
 const char* SNLParameter::getTypeName() const {
   return "SNLParameter";

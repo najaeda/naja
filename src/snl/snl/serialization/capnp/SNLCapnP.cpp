@@ -16,6 +16,7 @@
 
 #include "SNLCapnP.h"
 #include "SNLDumpManifest.h"
+#include "SNLDB.h"
 
 using boost::asio::ip::tcp;
 
@@ -29,12 +30,16 @@ void SNLCapnP::dump(const SNLDB* db, const std::filesystem::path& path) {
 }
 
 void SNLCapnP::send(const SNLDB* db, const std::string& ipAddress, uint16_t port) {
+  send(db, ipAddress, port, db->getID());
+}
+
+void SNLCapnP::send(const SNLDB* db, const std::string& ipAddress, uint16_t port, SNLID::DBID forceDBID) {
   boost::asio::io_service io_service;
   //socket creation
   tcp::socket socket(io_service);
   socket.connect(tcp::endpoint(boost::asio::ip::address::from_string(ipAddress), port));
-  sendInterface(db, socket);
-  sendImplementation(db, socket);
+  sendInterface(db, socket, forceDBID);
+  sendImplementation(db, socket, forceDBID);
 }
 
 SNLDB* SNLCapnP::load(const std::filesystem::path& path) {
