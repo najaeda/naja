@@ -63,6 +63,7 @@ TEST_F(SNLCapnPStreamingReceiveTest, test0) {
     std::this_thread::sleep_for(std::chrono::seconds(1));
     ++nbSecs;
   }
+  std::this_thread::sleep_for(std::chrono::seconds(1));
   ASSERT_NE(nullptr, db);
   std::string reason;
   EXPECT_TRUE(db_->deepCompare(db, reason));
