@@ -1,4 +1,4 @@
-add_executable(snl_app SNLSnippet.cpp SNLUniverseSnippet)
+add_executable(snl_app SNLSnippet.cpp SNLUniverseSnippe.cpp)
 target_include_directories(snl_app SYSTEM BEFORE PUBLIC ${Boost_INCLUDE_DIR})
 target_link_libraries(snl_app Naja::SNL)
 
