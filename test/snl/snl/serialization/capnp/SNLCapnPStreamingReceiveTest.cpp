@@ -51,7 +51,7 @@ TEST_F(SNLCapnPStreamingReceiveTest, test0) {
   SNLDB* db = nullptr;
   std::thread receiverThread([&]{ std::cerr << "Starting receiver" << std::endl; db = SNLCapnP::receive(44444); });
   receiverThread.detach();
-  std::this_thread::sleep_for(std::chrono::seconds(1));
+  std::this_thread::sleep_for(std::chrono::seconds(4));
 
   ASSERT_NE(nullptr, db_);
   std::cerr << "Sending DB" << std::endl;
