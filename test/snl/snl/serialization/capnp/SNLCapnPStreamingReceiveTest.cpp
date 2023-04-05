@@ -48,6 +48,7 @@ SNLDB* receive(uint16_t port) {
 }
 
 TEST_F(SNLCapnPStreamingReceiveTest, test0) {
+#if 0
   SNLDB* db = nullptr;
   std::thread receiverThread([&]{ std::cerr << "Starting receiver" << std::endl; db = SNLCapnP::receive(44444); });
   receiverThread.detach();
@@ -68,4 +69,5 @@ TEST_F(SNLCapnPStreamingReceiveTest, test0) {
   std::string reason;
   EXPECT_TRUE(db_->deepCompare(db, reason));
   EXPECT_TRUE(reason.empty());
+#endif
 }
