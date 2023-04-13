@@ -79,17 +79,19 @@ SNL relies on [Cap'n Proto](https://github.com/capnproto/capnproto) for data ser
 
 ### Verilog
 For Verilog parsing, Naja relies on naja-verilog submodule (https://github.com/xtofalex/naja-verilog).
+Leaf primitives are loaded through the Python primitive loader: [SNLPrimitivesLoader](https://github.com/xtofalex/naja/blob/main/src/snl/python/primitives/SNLPrimitivesLoader.h).
+A application snippet can be found [here](https://github.com/xtofalex/naja/blob/main/src/snl/snippets/app/src/SNLVRLSnippet.cpp) and an example of
+primitive library described using the Python interface can be found in unit tests
+[here](https://github.com/xtofalex/naja/blob/main/test/snl/formats/verilog/benchmarks/primitives.py).
 
 A Verilog dumper is part of SNL inside SNL API.
 
 ## Snippets
 ### c++
-https://github.com/xtofalex/naja/blob/main/src/snl/snippets/app/src/SNLSnippet.cpp
+This [snippet](https://github.com/xtofalex/naja/blob/main/src/snl/snippets/app/src/SNLSnippet.cpp) shows various SNL API netlist construction, manipulation and browsing examples.
 ### Python
-https://github.com/xtofalex/naja/blob/main/src/snl/snippets/python/snl_snippet.py
+This [snippet](https://github.com/xtofalex/naja/blob/main/src/snl/snippets/python/snl_snippet.py) shows an equivalent example using Python interface.
 ### Application snippet
-An application snippet can be found at:
-
-https://github.com/xtofalex/naja/blob/main/src/snl/snippets/app
+An application snippet can be found [here](https://github.com/xtofalex/naja/blob/main/src/snl/snippets/app).
 
 This "app" directory and its contents can be copied to start a new application.
