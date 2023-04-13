@@ -19,7 +19,7 @@ Naja contains mainly the SNL (Structured Netlist) API.
 
 This project is supported and funded by NLNet through the [NGI0 Entrust](https://nlnet.nl/entrust) Fund.
 
-## Building
+## Compilation
 ### Getting sources
 ```bash
 # First clone the repository and go inside it
@@ -31,17 +31,18 @@ git submodule update
 ### Dependencies
 Mandatory dependencies:
 1. Boost
-2. cmake: at least 3.22 version.
-3. Python3: for building the SNL Python3 interface used to load primitive cells. 
+2. [cmake](https://cmake.org): at least 3.22 version.
+3. Python3: for building the SNL Python3 interface. This interface is used to load primitive cells (associated to Verilog parsing)
+and their associated characteristics (for instance: ressource count, timing characteristics, ...).    
 
 Optional dependencies:
-1. Doxygen: for the documentation
+1. [Doxygen](https://www.doxygen.nl): for the documentation generation.
 
 Embedded dependencies, through git sub modules:
-1. [naja-verilog](https://github.com/xtofalex/naja-verilog) for verilog parsing.
+1. [naja-verilog](https://github.com/xtofalex/naja-verilog): for verilog parsing.
 2. [google test](https://github.com/google/googletest) for unit testing.
 
-On Ubuntu, following commands can be used to install dependencies:
+On Ubuntu:
 ```bash
 sudo apt-get install python3-dev
 sudo apt-get install libcapnp-dev
@@ -77,21 +78,18 @@ Documentation will be installed in $NAJA_INSTALL/doc directory. Starting file to
 SNL relies on [Cap'n Proto](https://github.com/capnproto/capnproto) for data serialization and streaming. Schema files and C++ implementation can be found [here](https://github.com/xtofalex/naja/tree/main/src/snl/snl/serialization/capnp).
 
 ### Verilog
-#### Verilog Input
 For Verilog parsing, Naja relies on naja-verilog submodule (https://github.com/xtofalex/naja-verilog).
 
-Leaf primitives are loaded through the Python primitive loader: [SNLPrimitivesLoader](https://github.com/xtofalex/naja/blob/main/src/snl/python/primitives/SNLPrimitivesLoader.h).
-A snippet can be found [here](https://github.com/xtofalex/naja/blob/main/src/snl/snippets/app/src/SNLVRLSnippet.cpp).
-
-#### Verilog Output
-A Verilog dumper is part of SNL inside SNL API. The same [snippet](https://github.com/xtofalex/naja/blob/main/src/snl/snippets/app/src/SNLVRLSnippet.cpp) showing Verilog parsing shows also an example of Verilog dumper use.
+A Verilog dumper is part of SNL inside SNL API.
 
 ## Snippets
 ### c++
-This [snippet](https://github.com/xtofalex/naja/blob/main/src/snl/snippets/app/src/SNLSnippet.cpp) shows various SNL API netlist construction, manipulation and browsing examples.
+https://github.com/xtofalex/naja/blob/main/src/snl/snippets/app/src/SNLSnippet.cpp
 ### Python
-This [snippet](https://github.com/xtofalex/naja/blob/main/src/snl/snippets/python/snl_snippet.py) shows an equivalent example using Python interface.
+https://github.com/xtofalex/naja/blob/main/src/snl/snippets/python/snl_snippet.py
 ### Application snippet
-An application snippet can be found [here](https://github.com/xtofalex/naja/blob/main/src/snl/snippets/app).
+An application snippet can be found at:
+
+https://github.com/xtofalex/naja/blob/main/src/snl/snippets/app
 
 This "app" directory and its contents can be copied to start a new application.
