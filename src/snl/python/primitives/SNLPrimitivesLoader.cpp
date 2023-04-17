@@ -42,10 +42,9 @@ std::string getPythonError() {
   if (cStrValue == NULL) {
     return std::string();
   }
-  char* errorStr = strdup(cStrValue);
   Py_DECREF(strValue);
   PyErr_Restore(type, value, traceback);
-  return std::string(errorStr);
+  return std::string(cStrValue);
 }
 
 }
