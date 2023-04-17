@@ -1,12 +1,11 @@
 cmake_policy(SET CMP0048 NEW)
+cmake_minimum_required(VERSION 3.19)
 
 project(naja
   VERSION 0.1.0
   HOMEPAGE_URL https://github.com/xtofalex/naja
   LANGUAGES CXX
 )
-
-cmake_minimum_required(VERSION 3.19)
 
 set(CMAKE_CXX_STANDARD 20)
 set(NAJA_CXX_WARNINGS -Werror -Wall -pedantic-errors -Wconversion -Wsign-conversion -Wextra -Wno-unused-parameter)

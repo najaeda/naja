@@ -25,6 +25,31 @@
 
 #include "PySNLLibrary.h"
 
+namespace {
+
+std::string getPythonError() {
+  PyObject *type, *value, *traceback;
+  PyErr_Fetch(&type, &value, &traceback);
+  PyErr_Clear();
+  if (value == nullptr) {
+    return std::string();
+  }
+  PyObject* strValue = PyObject_Str(value);
+  if (strValue == NULL) {
+    return std::string();
+  }
+  const char* cStrValue = PyUnicode_AsUTF8(strValue);
+  if (cStrValue == NULL) {
+    return std::string();
+  }
+  char* errorStr = strdup(cStrValue);
+  Py_DECREF(strValue);
+  PyErr_Restore(type, value, traceback);
+  return std::string(errorStr);
+}
+
+}
+
 namespace naja { namespace SNL {
 
 void SNLPrimitivesLoader::load(
@@ -54,6 +79,12 @@ void SNLPrimitivesLoader::load(
   if (not primitivesModule) {
     std::ostringstream reason;
     reason << "Cannot load Python module " << primitivesAbsolutePath.string();
+    std::string pythonError = getPythonError();
+    if (not pythonError.empty()) {
+      reason << ": " << getPythonError();
+    } else {
+      reason << ": empty error message";
+    }
     throw SNLException(reason.str());
   }
 
@@ -64,17 +95,11 @@ void SNLPrimitivesLoader::load(
   if (not res) {
     std::ostringstream reason;
     reason << "Error while calling constructPrimitives";
-    PyObject *ptype, *pvalue, *ptraceback;
-    PyErr_Fetch(&ptype, &pvalue, &ptraceback);
-    if (pvalue) {
-      PyObject *pstr = PyObject_Str(pvalue);
-      if (pstr) {
-        const char* err_msg = PyUnicode_AsUTF8(pstr);
-        if (err_msg) {
-          reason << ": " << err_msg;
-        }
-      }
-      PyErr_Restore(ptype, pvalue, ptraceback);
+    std::string pythonError = getPythonError();
+    if (not pythonError.empty()) {
+      reason << ": " << getPythonError();
+    } else {
+      reason << ": empty error message";
     }
     //Cleaning
     Py_DECREF(modulePathString);
