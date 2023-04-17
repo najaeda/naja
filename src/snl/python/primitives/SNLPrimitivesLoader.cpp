@@ -35,16 +35,17 @@ std::string getPythonError() {
     return std::string();
   }
   PyObject* strValue = PyObject_Str(value);
-  if (strValue == NULL) {
+  Py_DECREF(value);
+  if (strValue == nullptr) {
     return std::string();
   }
   const char* cStrValue = PyUnicode_AsUTF8(strValue);
-  if (cStrValue == NULL) {
+  if (cStrValue == nullptr) {
     return std::string();
   }
+  std::string errorStr(cStrValue);
   Py_DECREF(strValue);
-  PyErr_Restore(type, value, traceback);
-  return std::string(cStrValue);
+  return errorStr;
 }
 
 }
