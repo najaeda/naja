@@ -45,6 +45,7 @@ Embedded dependencies, through git sub modules:
 On Ubuntu:
 ```bash
 sudo apt-get install python3-dev
+sudo apt-get install capnproto
 sudo apt-get install libcapnp-dev
 sudo apt-get install pkg-config
 sudo apt-get install bison
