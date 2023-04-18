@@ -66,8 +66,8 @@ void SNLPrimitivesLoader::load(
     reason << primitivesPath << " does not exist";
     throw SNLException(reason.str());
   }
-  
   auto primitivesAbsolutePath = std::filesystem::canonical(primitivesPath);
+
   auto moduleName = primitivesAbsolutePath.filename();
   auto modulePath = primitivesAbsolutePath.parent_path();
   moduleName.replace_extension();
@@ -81,7 +81,7 @@ void SNLPrimitivesLoader::load(
     reason << "Cannot load Python module " << primitivesAbsolutePath.string();
     std::string pythonError = getPythonError();
     if (not pythonError.empty()) {
-      reason << ": " << getPythonError();
+      reason << ": " << pythonError;
     } else {
       reason << ": empty error message";
     }
@@ -97,7 +97,7 @@ void SNLPrimitivesLoader::load(
     reason << "Error while calling constructPrimitives";
     std::string pythonError = getPythonError();
     if (not pythonError.empty()) {
-      reason << ": " << getPythonError();
+      reason << ": " << pythonError;
     } else {
       reason << ": empty error message";
     }
