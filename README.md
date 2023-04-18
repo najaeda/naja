@@ -73,11 +73,19 @@ make install
 ```
 Documentation will be installed in $NAJA_INSTALL/doc directory. Starting file to open in browser is: $NAJA_INSTALL/doc/html/index.html.
 
-## Inputs/Outputs
-### SNL Interchange Format
+## Use 
+### Environment
+After building and installing, start by setting up a runtime environment.
+```bash
+export NAJA_INSTALL=<path_to_installation_dir>
+#For Naja python interface and in particular primitives loading
+export PYTHONPATH=$PYTHONPATH:$NAJA_INSTALL/lib/python
+```
+### Inputs/Outputs
+#### SNL Interchange Format
 SNL relies on [Cap'n Proto](https://github.com/capnproto/capnproto) for data serialization and streaming. Schema files and C++ implementation can be found [here](https://github.com/xtofalex/naja/tree/main/src/snl/snl/serialization/capnp).
 
-### Verilog
+#### Verilog
 For Verilog parsing, Naja relies on naja-verilog submodule (https://github.com/xtofalex/naja-verilog).
 Leaf primitives are loaded through the Python primitive loader: [SNLPrimitivesLoader](https://github.com/xtofalex/naja/blob/main/src/snl/python/primitives/SNLPrimitivesLoader.h).
 A application snippet can be found [here](https://github.com/xtofalex/naja/blob/main/src/snl/snippets/app/src/SNLVRLSnippet.cpp) and an example of
