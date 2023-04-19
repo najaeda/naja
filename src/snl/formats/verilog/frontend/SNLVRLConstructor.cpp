@@ -148,7 +148,7 @@ std::string SNLVRLConstructor::getLocationString() const {
   stream << "In "
     << location.currentPath_.string()
     << " at line " << location.line_
-    << " ,column " << location.column_;
+    << ", column " << location.column_;
   return stream.str();
 }
 
@@ -239,13 +239,34 @@ void SNLVRLConstructor::addNet(const naja::verilog::Net& net) {
     if (verbose_) {
       std::cerr << "Add net: " << net.getString() << std::endl;
     }
-    SNLNet* snlNet = nullptr;
-    if (net.isBus()) {
-      snlNet = SNLBusNet::create(currentModule_, net.range_.msb_, net.range_.lsb_, SNLName(net.name_));
-    } else {
-      snlNet = SNLScalarNet::create(currentModule_, SNLName(net.name_));
+    auto netName = SNLName(net.name_);
+    auto existingNet = currentModule_->getNet(netName);
+    if (existingNet) {
+      //net might be existing because of a port declaration
+      auto term = currentModule_->getTerm(netName);
+      if (term) {
+        return;
+      } else {
+        std::ostringstream reason;
+        reason << getLocationString();
+        reason << ": wire collision for net " << net.name_;
+        throw SNLVRLConstructorException(reason.str());
+      }
     }
-    snlNet->setType(VRLTypeToSNLType(net.type_));
+    try {
+      SNLNet* snlNet = nullptr;
+      if (net.isBus()) {
+        snlNet = SNLBusNet::create(currentModule_, net.range_.msb_, net.range_.lsb_, SNLName(net.name_));
+      } else {
+        snlNet = SNLScalarNet::create(currentModule_, SNLName(net.name_));
+      }
+      snlNet->setType(VRLTypeToSNLType(net.type_));
+    } catch (const SNLException& exception) {
+      std::ostringstream reason;
+      reason << getLocationString();
+      reason << ": " << exception.getReason();
+      throw SNLVRLConstructorException(reason.str());
+    }
   }
 }
 
@@ -308,7 +329,13 @@ void SNLVRLConstructor::endInstantiation() {
     for (auto parameterValue: currentInstanceParameterValues_) {
       auto parameterName = SNLName(parameterValue.first);
       auto parameter = currentInstance_->getModel()->getParameter(parameterName);
-      assert(parameter);
+      if (not parameter) {
+        std::ostringstream reason;
+        reason << getLocationString();
+        reason << ": " << currentModelName_
+          << " does not cotain any Parameter named " << parameterValue.first;
+        throw SNLVRLConstructorException(reason.str());
+      }
       SNLInstParameter::create(currentInstance_, parameter, parameterValue.second);
     }
     currentInstanceParameterValues_.clear();
