@@ -1,0 +1,3 @@
+read_verilog adder.v
+synth_xilinx  -top adder
+write_verilog adder_netlist.v

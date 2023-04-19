@@ -333,7 +333,7 @@ void SNLVRLConstructor::endInstantiation() {
         std::ostringstream reason;
         reason << getLocationString();
         reason << ": " << currentModelName_
-          << " does not cotain any Parameter named " << parameterValue.first;
+          << " does not contain any Parameter named " << parameterValue.first;
         throw SNLVRLConstructorException(reason.str());
       }
       SNLInstParameter::create(currentInstance_, parameter, parameterValue.second);
