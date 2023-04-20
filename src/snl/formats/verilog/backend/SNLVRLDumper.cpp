@@ -334,7 +334,7 @@ void SNLVRLDumper::dumpInstanceInterface(
   const SNLInstance* instance,
   std::ostream& o,
   const DesignInsideAnonymousNaming& naming) {
-  o << "(";
+  o << " (";
   BitNetVector termNets;
   SNLTerm* previousTerm = nullptr;
   bool first = true;
@@ -380,17 +380,17 @@ void SNLVRLDumper::dumpInstParameters(
   std::ostream& o) {
   if (not instance->getInstParameters().empty()) {
     bool first = true;
-    o << "#(";
+    o << "#(" << std::endl;
     for (auto instParameter: instance->getInstParameters()) {
       if (not first) {
-        o << ", ";
+        o << "," << std::endl;
       }
       first = false;
-      o << "." << instParameter->getName().getString();
+      o << "  ." << instParameter->getName().getString();
       o << "(" << instParameter->getValue();
       o << ")";
     }
-    o << ") ";
+    o << std::endl << ") ";
   }
 }
 

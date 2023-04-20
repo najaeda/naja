@@ -25,6 +25,10 @@ namespace naja { namespace SNL {
 class SNLVRLConstructorUtils {
   public:
     static void setBit(boost::dynamic_bitset<>& bits, size_t i);
+    /*
+     * \return a boost::dynamic_bitset version of the number
+     * \warning 'x' value is converted to 0
+     */
     static boost::dynamic_bitset<> numberToBits(const naja::verilog::BasedNumber& number);
 };
 

@@ -14,14 +14,17 @@ wire n2;
 wire n3;
 wire n4;
 
-model #(.PARAM1(1111), .PARAM2(0101)) instance1(
+model #(
+  .PARAM1(1111),
+  .PARAM2(0101)
+) instance1 (
   .i0(5'h00),
   .i1(),
   .o0({bus0[0:-1], DUMMY, DUMMY, net_0}),
   .o1()
 );
 
-model instance2(
+model instance2 (
   .i0(5'h13),
   .i1({2'b01, n2, n3, n4}),
   .o0(),
