@@ -77,7 +77,7 @@ class NajaSingletonCollection: public NajaBaseCollection<Type*> {
         }
         Type* getElement() const override { return object_; }
         void progress() override { begin_ = false; }
-        bool isEqual(const NajaBaseIterator<Type*>* r) override {
+        bool isEqual(const NajaBaseIterator<Type*>* r) const override {
           if (const NajaSingletonCollectionIterator* rit = dynamic_cast<const NajaSingletonCollectionIterator*>(r)) {
             return object_ == rit->object_ and begin_ == rit->begin_;
           }
@@ -319,6 +319,99 @@ class NajaSTLMapCollection: public NajaBaseCollection<typename STLMapType::mappe
     const STLMapType* container_  {nullptr};
 };
 
+template<class Type, class ParentType> class NajaParentTypeCollection: public NajaBaseCollection<ParentType> {
+  public:
+    using super = NajaBaseCollection<ParentType>;
+
+    class NajaParentTypeCollectionIterator: public NajaBaseIterator<ParentType> {
+      public:
+        using super = NajaBaseIterator<ParentType>;
+        NajaParentTypeCollectionIterator(const NajaBaseCollection<Type>* collection, bool beginOrEnd=true):
+          super() {
+          if (collection) {
+            endIt_ = collection->end();
+            if (not beginOrEnd) {
+              it_ = endIt_;
+            } else {
+              it_ = collection->begin();
+            }
+          }
+        }
+        NajaParentTypeCollectionIterator(const NajaParentTypeCollectionIterator& it) {
+          endIt_ = it.endIt_->clone();
+          if (it.it_ not_eq it.endIt_) {
+            it_ = it.it_->clone();
+          } else {
+            it_ = endIt_;
+          }
+        }
+        ~NajaParentTypeCollectionIterator() {
+          if (it_ not_eq endIt_) {
+            delete it_;
+          }
+          delete endIt_;
+        }
+        NajaBaseIterator<ParentType>* clone() override {
+          return new NajaParentTypeCollectionIterator(*this);
+        }
+        ParentType getElement() const override { return it_->getElement(); } 
+        void progress() override {
+          if (isValid()) {
+            it_->progress();
+          }
+        }
+        bool isEqual(const NajaBaseIterator<ParentType>* r) const override {
+          if (it_) {
+            if (auto rit = dynamic_cast<const NajaParentTypeCollectionIterator*>(r)) {
+              return it_->isEqual(rit->it_);
+            }
+          }
+          return false;
+        }
+        bool isValid() const override {
+          return it_ and endIt_ and not it_->isEqual(endIt_);
+        }
+      private:
+
+        NajaBaseIterator<Type>*  it_     {nullptr};
+        NajaBaseIterator<Type>*  endIt_  {nullptr};
+    };
+
+    NajaParentTypeCollection(const NajaParentTypeCollection&) = delete;
+    NajaParentTypeCollection& operator=(const NajaParentTypeCollection&) = delete;
+    NajaParentTypeCollection(const NajaParentTypeCollection&&) = delete;
+    NajaParentTypeCollection(const NajaBaseCollection<Type>* collection):
+      super(), collection_(collection)
+    {}
+    ~NajaParentTypeCollection() {
+      delete collection_;
+    }
+    NajaBaseCollection<ParentType>* clone() const override {
+      return new NajaParentTypeCollection(collection_);
+    }
+    NajaBaseIterator<ParentType>* begin() const override {
+      return new NajaParentTypeCollectionIterator(collection_, true);
+    }
+    NajaBaseIterator<ParentType>* end() const override {
+      return new NajaParentTypeCollectionIterator(collection_, false);
+    }
+    size_t size() const override {
+      if (collection_) {
+        return collection_->size();
+      }
+      return 0;
+    }
+    bool empty() const override {
+      if (collection_) {
+        return collection_->empty();
+      }
+      return true;
+    }
+
+  private:
+    const NajaBaseCollection<Type>* collection_;
+};
+
 template<class Type, class SubType> class NajaSubTypeCollection: public NajaBaseCollection<SubType> {
   public:
     using super = NajaBaseCollection<SubType>;
@@ -521,7 +614,7 @@ template<class Type, typename Filter> class NajaFilteredCollection: public NajaB
     }
 
   private:
-    const NajaBaseCollection<Type>*  collection_;
+    const NajaBaseCollection<Type>* collection_;
     Filter                          filter_;
 };
 
@@ -826,6 +919,13 @@ template<class Type> class NajaCollection {
     NajaCollection(NajaCollection&&) = delete;
     NajaCollection(const NajaBaseCollection<Type>* collection): collection_(collection) {}
     ~NajaCollection() { delete collection_; }
+
+    template<class ParentType> NajaCollection<ParentType> getParentTypeCollection() const {
+      if (collection_) {
+        return NajaCollection<ParentType>(new NajaParentTypeCollection<Type, ParentType>(collection_->clone()));
+      }
+      return NajaCollection<ParentType>();
+    }
 
     template<class SubType> NajaCollection<SubType> getSubCollection() const {
       if (collection_) {

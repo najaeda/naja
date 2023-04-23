@@ -20,6 +20,7 @@
 #include <sstream>
 
 #include "SNLUniverse.h"
+#include "SNLDB0.h"
 #include "SNLLibrary.h"
 #include "SNLDesign.h"
 #include "SNLBusTerm.h"
@@ -273,7 +274,85 @@ void SNLVRLConstructor::addNet(const naja::verilog::Net& net) {
 void SNLVRLConstructor::addAssign(
   const naja::verilog::Identifiers& identifiers,
   const naja::verilog::Expression& expression) {
-
+  if (inFirstPass()) {
+    return;
+  }
+  using BitNets = std::vector<SNLBitNet*>;
+  BitNets leftNets;
+  BitNets rightNets;
+  std::cerr << "Assign: " << std::endl;
+  for (auto id: identifiers) {
+    collectIdentifierNets(id, leftNets);
+    std::cerr << "ID: " << id.getString() << std::endl;
+  }
+  std::cerr << expression.getString() << std::endl;
+  if (expression.valid_) {
+    if (not expression.supported_) {
+      std::ostringstream reason;
+      reason << getLocationString();
+      reason << ": " << expression.getString() << " is not currently supported";
+      throw SNLVRLConstructorException(reason.str());
+    }
+    switch (expression.value_.index()) {
+      case naja::verilog::Expression::NUMBER: {
+        auto number =
+          std::get<naja::verilog::Expression::Type::NUMBER>(expression.value_);
+        createConstantNets(number, rightNets);
+        break;
+      }
+      case naja::verilog::Expression::Type::IDENTIFIER: {
+        auto identifier = std::get<naja::verilog::Identifier>(expression.value_);
+        std::string name = identifier.name_;
+        SNLNet* net = currentModule_->getNet(SNLName(name));
+        if (not net) {
+          std::ostringstream reason;
+          reason << getLocationString();
+          reason << ": net \"" <<  name
+            << "\" cannot be found in "
+            << currentModule_->getName().getString();
+          throw SNLVRLConstructorException(reason.str());
+        }
+        if (identifier.range_.valid_) {
+          SNLBusNet* busNet = dynamic_cast<SNLBusNet*>(net);
+          if (not busNet) {
+            std::ostringstream reason;
+            reason << getLocationString() << " NOT BUSNET"; 
+            throw SNLVRLConstructorException(reason.str());
+          }
+          int netMSB = identifier.range_.msb_;
+          int netLSB = netMSB;
+          if (not identifier.range_.singleValue_) {
+            netLSB = identifier.range_.lsb_;
+          }
+          //rightNets = 
+          //currentInstance_->setTermNet(term, net, netMSB, netLSB);
+        } else {
+          rightNets.insert(rightNets.end(),
+            net->getBits().begin(), net->getBits().end());
+        }
+        break;
+      }
+      case naja::verilog::Expression::Type::CONCATENATION: {
+        SNLInstance::Nets bitNets;
+        auto concatenation = std::get<naja::verilog::Concatenation>(expression.value_);
+        collectConcatenationBitNets(concatenation, rightNets);
+        break;
+      }
+      default: {
+        std::ostringstream reason;
+        reason << expression.getString() << " type is not supported in instance connection";
+        throw SNLVRLConstructorException(reason.str());
+      }
+    }
+  }
+  assert(leftNets.size() == rightNets.size());
+  for (size_t i=0; i<leftNets.size(); ++i) {
+    auto leftNet = leftNets[i];
+    auto rightNet = rightNets[i];
+    auto assign = SNLInstance::create(currentModule_, SNLDB0::getAssign());
+    assign->setTermNet(SNLDB0::getAssignInput(), leftNet);
+    assign->setTermNet(SNLDB0::getAssignOutput(), rightNet);
+  }
 }
 
 void SNLVRLConstructor::startInstantiation(const std::string& modelName) {
@@ -415,68 +494,7 @@ void SNLVRLConstructor::addInstanceConnection(
         case naja::verilog::Expression::Type::CONCATENATION: {
           SNLInstance::Nets bitNets;
           auto concatenation = std::get<naja::verilog::Concatenation>(expression.value_);
-          for (auto expression: concatenation.expressions_) {
-            if (not expression.supported_ or not expression.valid_) {
-              std::ostringstream reason;
-              reason << getLocationString();
-              reason << ": " << expression.getString() << " is not supported";
-              throw SNLVRLConstructorException(reason.str());
-            }
-            switch (expression.value_.index()) {
-              case naja::verilog::Expression::NUMBER: {
-                auto number =
-                  std::get<naja::verilog::Expression::Type::NUMBER>(expression.value_);
-                createConstantNets(number, bitNets);
-                break;
-              }
-              case naja::verilog::Expression::IDENTIFIER: {
-                auto identifier =
-                  std::get<naja::verilog::Expression::Type::IDENTIFIER>(expression.value_);
-                std::string name = identifier.name_;
-                SNLNet* net = currentInstance_->getDesign()->getNet(SNLName(name));
-                if (not net) {
-                  std::ostringstream reason;
-                  reason << getLocationString();
-                  reason << ": net \"" <<  name
-                    << "\" cannot be found in \""
-                    << currentInstance_->getDesign()->getName().getString()
-                    << "\"";
-                  throw SNLVRLConstructorException(reason.str());
-                }
-                if (auto scalarNet = dynamic_cast<SNLScalarNet*>(net)) {
-                  if (identifier.range_.valid_) {
-                    std::ostringstream reason;
-                    reason << expression.getString() << " is not supported (scalar-range)";
-                    throw SNLVRLConstructorException(reason.str());
-                  }
-                  bitNets.push_back(scalarNet);
-                } else {
-                  auto busNet = static_cast<SNLBusNet*>(net);
-                  if (not identifier.range_.valid_) {
-                    bitNets.insert(bitNets.end(), busNet->getBits().begin(), busNet->getBits().end());
-                  } else {
-                    int msb = identifier.range_.msb_;
-                    if (identifier.range_.singleValue_) {
-                      bitNets.push_back(busNet->getBit(msb));
-                    } else {
-                      int lsb = identifier.range_.lsb_;
-                      int incr = msb<lsb?+1:-1;
-                      for (int i=msb; i!=lsb+incr; i+=incr) {
-                        auto bit = busNet->getBit(i);
-                        bitNets.push_back(bit);
-                      }
-                    }
-                  }
-                }
-                break;
-              }
-              default: {
-                std::ostringstream reason;
-                reason << expression.getString() << " type is not supported";
-                throw SNLVRLConstructorException(reason.str());
-              }
-            }
-          }
+          collectConcatenationBitNets(concatenation, bitNets);
           using BitTerms = std::vector<SNLBitTerm*>;
           auto busTerm = dynamic_cast<SNLBusTerm*>(term);
           if (not busTerm) {
@@ -513,6 +531,106 @@ void SNLVRLConstructor::endModule() {
   currentModuleInterfacePorts_.clear();
   currentModelAssign0_ = nullptr;
   currentModelAssign1_ = nullptr;
+}
+
+void SNLVRLConstructor::collectConcatenationBitNets(
+  const naja::verilog::Concatenation& concatenation,
+  SNLInstance::Nets& bitNets) {
+  for (auto expression: concatenation.expressions_) {
+    if (not expression.supported_ or not expression.valid_) {
+      std::ostringstream reason;
+      reason << naja::SNL::SNLVRLConstructor::getLocationString();
+      reason << ": " << expression.getString() << " is not supported";
+      throw SNLVRLConstructorException(reason.str());
+    }
+    switch (expression.value_.index()) {
+      case naja::verilog::Expression::NUMBER: {
+        auto number =
+          std::get<naja::verilog::Expression::Type::NUMBER>(expression.value_);
+        createConstantNets(number, bitNets);
+        break;
+      }
+      case naja::verilog::Expression::IDENTIFIER: {
+        auto identifier =
+          std::get<naja::verilog::Expression::Type::IDENTIFIER>(expression.value_);
+        std::string name = identifier.name_;
+        SNLNet* net = currentInstance_->getDesign()->getNet(SNLName(name));
+        if (not net) {
+          std::ostringstream reason;
+          reason << getLocationString();
+          reason << ": net \"" <<  name
+            << "\" cannot be found in \""
+            << currentInstance_->getDesign()->getName().getString()
+            << "\"";
+          throw SNLVRLConstructorException(reason.str());
+        }
+        if (auto scalarNet = dynamic_cast<SNLScalarNet*>(net)) {
+          if (identifier.range_.valid_) {
+            std::ostringstream reason;
+            reason << expression.getString() << " is not supported (scalar-range)";
+            throw SNLVRLConstructorException(reason.str());
+          }
+          bitNets.push_back(scalarNet);
+        } else {
+          auto busNet = static_cast<SNLBusNet*>(net);
+          if (not identifier.range_.valid_) {
+            bitNets.insert(bitNets.end(), busNet->getBits().begin(), busNet->getBits().end());
+          } else {
+            int msb = identifier.range_.msb_;
+            if (identifier.range_.singleValue_) {
+              bitNets.push_back(busNet->getBit(msb));
+            } else {
+              int lsb = identifier.range_.lsb_;
+              int incr = msb<lsb?+1:-1;
+              for (int i=msb; i!=lsb+incr; i+=incr) {
+                auto bit = busNet->getBit(i);
+                bitNets.push_back(bit);
+              }
+            }
+          }
+        }
+        break;
+      }
+      default: {
+        std::ostringstream reason;
+        reason << expression.getString() << " type is not supported";
+        throw SNLVRLConstructorException(reason.str());
+      }
+    }
+  }
+}
+
+void SNLVRLConstructor::collectIdentifierNets(
+  const naja::verilog::Identifier& identifier,
+  SNLInstance::Nets& bitNets) {
+  std::string name = identifier.name_;
+  SNLNet* net = currentModule_->getNet(SNLName(name));
+  if (not net) {
+    std::ostringstream reason;
+    reason << getLocationString();
+    reason << ": net \"" <<  name
+      << "\" cannot be found in "
+      << currentModule_->getName().getString();
+    throw SNLVRLConstructorException(reason.str());
+  }
+  if (identifier.range_.valid_) {
+    SNLBusNet* busNet = dynamic_cast<SNLBusNet*>(net);
+    if (not busNet) {
+      std::ostringstream reason;
+      reason << getLocationString() << " NOT BUSNET"; 
+      throw SNLVRLConstructorException(reason.str());
+    }
+    int netMSB = identifier.range_.msb_;
+    int netLSB = netMSB;
+    if (not identifier.range_.singleValue_) {
+      netLSB = identifier.range_.lsb_;
+    }
+    //rightNets = 
+    //currentInstance_->setTermNet(term, net, netMSB, netLSB);
+  } else {
+    bitNets.insert(bitNets.end(),
+      net->getBits().begin(), net->getBits().end());
+  }
 }
 
 }} // namespace SNL // namespace naja

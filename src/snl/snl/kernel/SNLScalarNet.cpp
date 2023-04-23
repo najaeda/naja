@@ -99,6 +99,10 @@ SNLID SNLScalarNet::getSNLID() const {
   return SNLDesignObject::getSNLID(SNLID::Type::Net, id_, 0, 0);
 }
 
+NajaCollection<SNLBitNet*> SNLScalarNet::getBits() const {
+  return NajaCollection(new NajaSingletonCollection(const_cast<SNLScalarNet*>(this))).getParentTypeCollection<SNLBitNet*>();
+}
+
 //LCOV_EXCL_START
 const char* SNLScalarNet::getTypeName() const {
   return "SNLScalarNet";

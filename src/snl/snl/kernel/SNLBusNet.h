@@ -53,7 +53,8 @@ class SNLBusNet final: public SNLNet {
     SNLID::Bit getSize() const override;
     SNLBusNetBit* getBit(SNLID::Bit bit) const;
     SNLBusNetBit* getBitAtPosition(size_t position) const;
-    NajaCollection<SNLBusNetBit*> getBits() const;
+    NajaCollection<SNLBitNet*> getBits() const override;
+    NajaCollection<SNLBusNetBit*> getBusBits() const;
 
     SNLID::DesignObjectID getID() const override { return id_; }
     SNLID getSNLID() const override;

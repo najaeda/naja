@@ -159,8 +159,12 @@ SNLBusNetBit* SNLBusNet::getBitAtPosition(size_t position) const {
   return nullptr;
 }
 
-NajaCollection<SNLBusNetBit*> SNLBusNet::getBits() const {
+NajaCollection<SNLBusNetBit*> SNLBusNet::getBusBits() const {
   return NajaCollection(new NajaSTLCollection(&bits_));
+}
+
+NajaCollection<SNLBitNet*> SNLBusNet::getBits() const {
+  return getBusBits().getParentTypeCollection<SNLBitNet*>();
 }
 
 void SNLBusNet::setType(const Type& type) {

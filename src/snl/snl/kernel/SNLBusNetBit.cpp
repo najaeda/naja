@@ -18,6 +18,7 @@
 
 #include <iostream>
 
+#include "NajaCollection.h"
 #include "SNLBusNet.h"
 #include "SNLException.h"
 
@@ -69,6 +70,10 @@ SNLID SNLBusNetBit::getSNLID() const {
 
 SNLDesign* SNLBusNetBit::getDesign() const {
   return getBus()->getDesign();
+}
+
+NajaCollection<SNLBitNet*> SNLBusNetBit::getBits() const {
+  return NajaCollection(new NajaSingletonCollection(const_cast<SNLBusNetBit*>(this))).getParentTypeCollection<SNLBitNet*>();
 }
 
 //LCOV_EXCL_START

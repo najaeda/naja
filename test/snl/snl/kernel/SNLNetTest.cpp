@@ -201,7 +201,7 @@ TEST_F(SNLNetTest, testCreation) {
   EXPECT_EQ(nullptr, net0->getBitAtPosition(33));
 
   SNLID::Bit bitNumber = 31;
-  for (auto bit: net0->getBits()) {
+  for (auto bit: net0->getBusBits()) {
     EXPECT_EQ(SNLNet::Type::Standard, bit->getType());
     EXPECT_EQ(net0, bit->getBus());
     EXPECT_EQ(net0->getID(), bit->getID());

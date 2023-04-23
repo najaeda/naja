@@ -67,6 +67,13 @@ class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
     void createConstantNets(
       const naja::verilog::Number& number,
       SNLInstance::Nets& nets);
+    void collectConcatenationBitNets(
+      const naja::verilog::Concatenation& concatenation,
+      SNLInstance::Nets& bitNets);
+    void collectIdentifierNets(
+      const naja::verilog::Identifier& identifier,
+      SNLInstance::Nets& bitNets);
+    
     std::string getLocationString() const;
 
     bool            verbose_                        {true};
