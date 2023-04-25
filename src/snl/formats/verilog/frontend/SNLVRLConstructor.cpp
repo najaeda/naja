@@ -351,8 +351,8 @@ void SNLVRLConstructor::addAssign(
     auto leftNet = leftNets[i];
     auto rightNet = rightNets[i];
     auto assign = SNLInstance::create(currentModule_, SNLDB0::getAssign());
-    assign->setTermNet(SNLDB0::getAssignInput(), leftNet);
-    assign->setTermNet(SNLDB0::getAssignOutput(), rightNet);
+    assign->setTermNet(SNLDB0::getAssignOutput(), leftNet);
+    assign->setTermNet(SNLDB0::getAssignInput(), rightNet);
   }
 }
 

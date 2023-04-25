@@ -32,6 +32,7 @@
 #include "SNLBusNetBit.h"
 #include "SNLInstTerm.h"
 #include "SNLUtils.h"
+#include "SNLDB0.h"
 
 namespace {
 
@@ -398,6 +399,20 @@ void SNLVRLDumper::dumpInstance(
   const SNLInstance* instance,
   std::ostream& o,
   DesignInsideAnonymousNaming& naming) {
+  if (SNLDB0::isAssign(instance->getModel())) {
+    auto inputNet = instance->getInstTerm(SNLDB0::getAssignInput())->getNet();
+    auto outputNet = instance->getInstTerm(SNLDB0::getAssignOutput())->getNet();
+    std::string inputNetString;
+    if (inputNet->isConstant0()) {
+      inputNetString = "1'b0";
+    } else if (inputNet->isConstant1()) {
+      inputNetString = "1'b1";
+    } else {
+      inputNetString = inputNet->getString(); 
+    }
+    o << "assign " << outputNet->getString() << " = " << inputNetString << ";" << std::endl;
+    return;
+  }
   std::string instanceName;
   if (instance->isAnonymous()) {
     instanceName = createInstanceName(instance, naming);
