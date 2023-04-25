@@ -63,7 +63,7 @@ class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
       const naja::verilog::Expression& expression) override;
     void endModule() override;
   private:
-    void createAssignNets(naja::SNL::SNLDesign* design);
+    void createCurrentModuleAssignNets();
     void createConstantNets(
       const naja::verilog::Number& number,
       SNLInstance::Nets& nets);
@@ -84,8 +84,8 @@ class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
     SNLInstance*    currentInstance_                {nullptr};
     using ParameterValues = std::map<std::string, std::string>;
     ParameterValues currentInstanceParameterValues_ {};
-    SNLScalarNet*   currentModelAssign0_            {nullptr};
-    SNLScalarNet*   currentModelAssign1_            {nullptr};
+    SNLScalarNet*   currentModuleAssign0_           {nullptr};
+    SNLScalarNet*   currentModuleAssign1_           {nullptr};
     using NameSet = std::set<std::string>;
     NameSet         currentModuleInterfacePorts_    {};
 };

@@ -167,6 +167,21 @@ NajaCollection<SNLBitNet*> SNLBusNet::getBits() const {
   return getBusBits().getParentTypeCollection<SNLBitNet*>();
 }
 
+void SNLBusNet::insertBits(
+  std::vector<SNLBitNet*>& bitNets,
+  std::vector<SNLBitNet*>::const_iterator position,
+  SNLID::Bit msb,
+  SNLID::Bit lsb) {
+  if (not SNLDesign::isBetween(msb, getMSB(), getLSB())) {
+  }
+  if (not SNLDesign::isBetween(lsb, getMSB(), getLSB())) {
+  }
+  int msbPos = std::abs(getMSB()-msb);
+  int lsbPos = std::abs(getMSB()-lsb);
+
+  bitNets.insert(position, bits_.begin()+msbPos, bits_.begin()+lsbPos+1); 
+}
+
 void SNLBusNet::setType(const Type& type) {
   std::for_each(bits_.begin(), bits_.end(), [type](SNLBusNetBit* b){ if (b) b->setType(type); });
 }

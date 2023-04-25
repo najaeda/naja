@@ -110,11 +110,11 @@ SNLVRLConstructor::VRLTypeToSNLType(const naja::verilog::Net::Type& type) {
   return naja::SNL::SNLNet::Type::Standard; //LCOV_EXCL_LINE
 }
 
-void SNLVRLConstructor::createAssignNets(naja::SNL::SNLDesign* design) {
-  currentModelAssign0_ = naja::SNL::SNLScalarNet::create(design);
-  currentModelAssign0_->setType(naja::SNL::SNLNet::Type::Assign0);
-  currentModelAssign1_ = naja::SNL::SNLScalarNet::create(design);
-  currentModelAssign1_->setType(naja::SNL::SNLNet::Type::Assign1);
+void SNLVRLConstructor::createCurrentModuleAssignNets() {
+  currentModuleAssign0_ = naja::SNL::SNLScalarNet::create(currentModule_);
+  currentModuleAssign0_->setType(naja::SNL::SNLNet::Type::Assign0);
+  currentModuleAssign1_ = naja::SNL::SNLScalarNet::create(currentModule_);
+  currentModuleAssign1_->setType(naja::SNL::SNLNet::Type::Assign1);
 } 
 
 void SNLVRLConstructor::createConstantNets(
@@ -136,9 +136,9 @@ void SNLVRLConstructor::createConstantNets(
   }
   for (int i=bits.size()-1; i>=0; i--) {
     if (bits[i]) {
-      nets.push_back(currentModelAssign1_);
+      nets.push_back(currentModuleAssign1_);
     } else {
-      nets.push_back(currentModelAssign0_);
+      nets.push_back(currentModuleAssign0_);
     }
   }
 }
@@ -185,7 +185,7 @@ void SNLVRLConstructor::startModule(const std::string& name) {
       reason << name << " module should no contain any net";
       throw SNLVRLConstructorException(reason.str());
     }
-    createAssignNets(currentModule_);
+    createCurrentModuleAssignNets();
   } 
 }
 
@@ -324,8 +324,7 @@ void SNLVRLConstructor::addAssign(
           if (not identifier.range_.singleValue_) {
             netLSB = identifier.range_.lsb_;
           }
-          //rightNets = 
-          //currentInstance_->setTermNet(term, net, netMSB, netLSB);
+          busNet->insertBits(rightNets, rightNets.begin(), netMSB, netLSB);
         } else {
           rightNets.insert(rightNets.end(),
             net->getBits().begin(), net->getBits().end());
@@ -345,6 +344,8 @@ void SNLVRLConstructor::addAssign(
       }
     }
   }
+  std::cerr << leftNets.size();
+  std::cerr << rightNets.size();
   assert(leftNets.size() == rightNets.size());
   for (size_t i=0; i<leftNets.size(); ++i) {
     auto leftNet = leftNets[i];
@@ -529,8 +530,8 @@ void SNLVRLConstructor::endModule() {
   }
   currentModule_ = nullptr;
   currentModuleInterfacePorts_.clear();
-  currentModelAssign0_ = nullptr;
-  currentModelAssign1_ = nullptr;
+  currentModuleAssign0_ = nullptr;
+  currentModuleAssign1_ = nullptr;
 }
 
 void SNLVRLConstructor::collectConcatenationBitNets(
@@ -554,13 +555,13 @@ void SNLVRLConstructor::collectConcatenationBitNets(
         auto identifier =
           std::get<naja::verilog::Expression::Type::IDENTIFIER>(expression.value_);
         std::string name = identifier.name_;
-        SNLNet* net = currentInstance_->getDesign()->getNet(SNLName(name));
+        SNLNet* net = currentModule_->getNet(SNLName(name));
         if (not net) {
           std::ostringstream reason;
           reason << getLocationString();
           reason << ": net \"" <<  name
             << "\" cannot be found in \""
-            << currentInstance_->getDesign()->getName().getString()
+            << currentModule_->getName().getString()
             << "\"";
           throw SNLVRLConstructorException(reason.str());
         }
@@ -625,8 +626,7 @@ void SNLVRLConstructor::collectIdentifierNets(
     if (not identifier.range_.singleValue_) {
       netLSB = identifier.range_.lsb_;
     }
-    //rightNets = 
-    //currentInstance_->setTermNet(term, net, netMSB, netLSB);
+    busNet->insertBits(bitNets, bitNets.end(), netMSB, netLSB);
   } else {
     bitNets.insert(bitNets.end(),
       net->getBits().begin(), net->getBits().end());
