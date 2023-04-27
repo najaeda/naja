@@ -51,8 +51,8 @@ struct DBInterface {
       terms       @5 : List(Term);
 
       enum ParameterType {
-        int     @0;
-        hexa    @1;
+        decimal @0;
+        binary  @1;
         string  @2;
       }
 

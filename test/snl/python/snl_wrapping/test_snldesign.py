@@ -68,10 +68,18 @@ class SNLDesignTest(unittest.TestCase):
     design = snl.SNLDesign.create(self.lib, "DESIGN")
     self.assertIsNotNone(design)
 
-    p = snl.SNLParameter.create_binary(design, "INIT", 16, 0x0000)
-    self.assertIsNotNone(p)
-    self.assertEqual("INIT", p.getName())
-    self.assertEqual(design, p.getDesign())
+    p0 = snl.SNLParameter.create_decimal(design, "REG", 34)
+    p1 = snl.SNLParameter.create_binary(design, "INIT", 16, 0x0000)
+    p2 = snl.SNLParameter.create_string(design, "MODE", "DEFAULT")
+    self.assertIsNotNone(p0)
+    self.assertEqual("REG", p0.getName())
+    self.assertEqual(design, p0.getDesign())
+    self.assertIsNotNone(p1)
+    self.assertEqual("INIT", p1.getName())
+    self.assertEqual(design, p1.getDesign())
+    self.assertIsNotNone(p2)
+    self.assertEqual("MODE", p2.getName())
+    self.assertEqual(design, p2.getDesign())
 
   def testCreationError(self):
     self.assertIsNotNone(self.lib)

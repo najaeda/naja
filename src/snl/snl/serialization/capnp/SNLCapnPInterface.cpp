@@ -73,13 +73,13 @@ DBInterface::LibraryInterface::DesignInterface::Direction SNLtoCapnPDirection(SN
 DBInterface::LibraryInterface::DesignInterface::ParameterType SNLtoCapNpParameterType(SNLParameter::Type type) {
   switch (type) {
     case SNLParameter::Type::Decimal:
-      return DBInterface::LibraryInterface::DesignInterface::ParameterType::INT;
+      return DBInterface::LibraryInterface::DesignInterface::ParameterType::DECIMAL;
     case SNLParameter::Type::Binary:
-      return DBInterface::LibraryInterface::DesignInterface::ParameterType::HEXA;
+      return DBInterface::LibraryInterface::DesignInterface::ParameterType::BINARY;
     case SNLParameter::Type::String:
       return DBInterface::LibraryInterface::DesignInterface::ParameterType::STRING;
   }
-  return DBInterface::LibraryInterface::DesignInterface::ParameterType::INT; //LCOV_EXCL_LINE
+  return DBInterface::LibraryInterface::DesignInterface::ParameterType::DECIMAL; //LCOV_EXCL_LINE
 }
 
 void dumpScalarTerm(
@@ -237,9 +237,9 @@ SNLTerm::Direction CapnPtoSNLDirection(DBInterface::LibraryInterface::DesignInte
 
 SNLParameter::Type CapnPtoSNLParameterType(DBInterface::LibraryInterface::DesignInterface::ParameterType type) {
   switch (type) {
-    case DBInterface::LibraryInterface::DesignInterface::ParameterType::INT:
+    case DBInterface::LibraryInterface::DesignInterface::ParameterType::DECIMAL:
       return SNLParameter::Type::Decimal;
-    case DBInterface::LibraryInterface::DesignInterface::ParameterType::HEXA:
+    case DBInterface::LibraryInterface::DesignInterface::ParameterType::BINARY:
       return SNLParameter::Type::Binary;
     case DBInterface::LibraryInterface::DesignInterface::ParameterType::STRING:
       return SNLParameter::Type::String;

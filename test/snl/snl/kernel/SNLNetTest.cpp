@@ -181,6 +181,11 @@ TEST_F(SNLNetTest, testCreation) {
       net0->getBit(7),  net0->getBit(6),  net0->getBit(5),  net0->getBit(4),
       net0->getBit(3) , net0->getBit(2),  net0->getBit(1),  net0->getBit(0)));
 
+  EXPECT_THAT(std::vector(net0->getBit(0)->getBits().begin(), net0->getBit(0)->getBits().end()),
+    ElementsAre(net0->getBit(0)));
+  EXPECT_THAT(std::vector(net0->getBit(21)->getBits().begin(), net0->getBit(21)->getBits().end()),
+    ElementsAre(net0->getBit(21)));
+
   EXPECT_THAT(std::vector(design_->getBitNets().begin(), design_->getBitNets().end()),
     ElementsAre(i0Net, i1Net,
       net0->getBitAtPosition(0), net0->getBitAtPosition(1), net0->getBitAtPosition(2),
