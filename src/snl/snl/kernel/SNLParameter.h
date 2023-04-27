@@ -29,13 +29,29 @@ class SNLParameter {
   public:
     friend class SNLDesign;
 
+    class Type {
+      public:
+        enum TypeEnum {
+          Decimal, Binary, String
+        };
+        Type(const TypeEnum& typeEnum);
+        Type(const Type&) = default;
+        Type& operator=(const Type&) = default;
+
+        operator const TypeEnum&() const { return typeEnum_; }
+        std::string getString() const;
+      private:
+        TypeEnum typeEnum_;
+    };
+
     SNLParameter() = delete;
     SNLParameter(const SNLParameter&) = delete;
 
-    static SNLParameter* create(SNLDesign* design, const SNLName& name, const std::string& value);
+    static SNLParameter* create(SNLDesign* design, const SNLName& name, Type type, const std::string& value);
     void destroy();
     SNLName getName() const { return name_; }
     std::string getValue() const { return value_; }
+    Type getType() const { return type_; }
     SNLDesign* getDesign() const { return design_; }
 
     const char* getTypeName() const;
@@ -54,13 +70,14 @@ class SNLParameter {
       }
     };
   private:
-    SNLParameter(SNLDesign* design, const SNLName& name, const std::string& value);
+    SNLParameter(SNLDesign* design, const SNLName& name, Type type, const std::string& value);
     static void preCreate(SNLDesign* design, const SNLName& name);
     void postCreate();
     void destroyFromDesign();
 
     SNLDesign*                          design_                 {nullptr};
     SNLName                             name_                   {};
+    Type                                type_                   { Type::Decimal };
     std::string                         value_                  {};
     boost::intrusive::set_member_hook<> designParametersHook_   {};
 };

@@ -42,8 +42,8 @@ class SNLVRLDumperTestParameters: public ::testing::Test {
 
 TEST_F(SNLVRLDumperTestParameters, test0) {
   ASSERT_TRUE(top_);
-  SNLParameter::create(top_, SNLName("PARAM0"), "8");
-  SNLParameter::create(top_, SNLName("PARAM1"), "14");
+  SNLParameter::create(top_, SNLName("PARAM0"), SNLParameter::Type::Decimal, "8");
+  SNLParameter::create(top_, SNLName("PARAM1"), SNLParameter::Type::Decimal, "14");
 
   std::filesystem::path outPath(SNL_VRL_DUMPER_TEST_PATH);
   outPath = outPath / "testParameters0";

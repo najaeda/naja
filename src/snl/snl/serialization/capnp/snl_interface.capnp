@@ -50,9 +50,16 @@ struct DBInterface {
       parameters  @4 : List(Parameter);
       terms       @5 : List(Term);
 
+      enum ParameterType {
+        int     @0;
+        hexa    @1;
+        string  @2;
+      }
+
       struct Parameter {
         name  @0 : Text;
-        value @1 : Text;
+        type  @1 : ParameterType;
+        value @2 : Text;
       }
 
       struct Term {

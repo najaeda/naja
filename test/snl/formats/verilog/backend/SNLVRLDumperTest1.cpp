@@ -43,8 +43,8 @@ class SNLVRLDumperTest1: public ::testing::Test {
       SNLBusTerm::create(model, SNLTerm::Direction::Input, -2, 2, SNLName("i1"));
       SNLBusTerm::create(model, SNLTerm::Direction::Output, 2, -2, SNLName("o0"));
       SNLBusTerm::create(model, SNLTerm::Direction::Output, -2, 2, SNLName("o1"));
-      SNLParameter::create(model, SNLName("PARAM1"), "0000");
-      SNLParameter::create(model, SNLName("PARAM2"), "10");
+      SNLParameter::create(model, SNLName("PARAM1"), SNLParameter::Type::Binary, "0000");
+      SNLParameter::create(model, SNLName("PARAM2"), SNLParameter::Type::Decimal, "10");
 
       SNLInstance* instance1 = SNLInstance::create(top, model, SNLName("instance1"));
       SNLInstance* instance2 = SNLInstance::create(top, model, SNLName("instance2"));

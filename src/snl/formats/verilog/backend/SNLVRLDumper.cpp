@@ -388,7 +388,13 @@ void SNLVRLDumper::dumpInstParameters(
       }
       first = false;
       o << "  ." << instParameter->getName().getString();
-      o << "(" << instParameter->getValue();
+      o << "(";
+      auto parameter = instParameter->getParameter();
+      if (parameter->getType() == SNLParameter::Type::String) {
+        o << "\"" << instParameter->getValue() << "\"";
+      } else {
+        o << instParameter->getValue();
+      }
       o << ")";
     }
     o << std::endl << ") ";
@@ -538,7 +544,13 @@ void SNLVRLDumper::dumpTermAssigns(const SNLDesign* design, std::ostream& o) {
 }
 
 void SNLVRLDumper::dumpParameter(const SNLParameter* parameter, std::ostream& o) {
-  o << "parameter " << parameter->getName().getString() << " = " << parameter->getValue() << " ;" << std::endl;
+  o << "parameter " << parameter->getName().getString() << " = ";
+  if (parameter->getType()==SNLParameter::Type::String) {
+    o << "\"" << parameter->getValue() << "\"";
+  } else {
+    o << parameter->getValue();
+  }
+  o << " ;" << std::endl;
 }
 
 void SNLVRLDumper::dumpParameters(const SNLDesign* design, std::ostream& o) {
@@ -602,6 +614,12 @@ void SNLVRLDumper::dumpDesign(const SNLDesign* design, std::ostream& o) {
   }
 }
 
+void SNLVRLDumper::dumpLibrary(const SNLLibrary* library, std::ostream& o) {
+  for (auto design: library->getDesigns()) {
+    dumpOneDesign(design, o);
+  }
+}
+
 std::string SNLVRLDumper::getTopFileName(const SNLDesign* top) const {
   if (configuration_.hasTopFileName()) {
     return configuration_.getTopFileName() + ".v";
@@ -610,6 +628,16 @@ std::string SNLVRLDumper::getTopFileName(const SNLDesign* top) const {
     return top->getName().getString() + ".v";
   }
   return "top.v";
+} 
+
+std::string SNLVRLDumper::getLibraryFileName(const SNLLibrary* library) const {
+  if (configuration_.hasLibraryFileName()) {
+    return configuration_.getLibraryFileName() + ".v";
+  }
+  if (not library->isAnonymous()) {
+    return library->getName().getString() + ".v";
+  }
+  return "library.v";
 } 
 
 void SNLVRLDumper::dumpDesign(const SNLDesign* design, const std::filesystem::path& path) {
@@ -643,6 +671,31 @@ void SNLVRLDumper::dumpDesign(const SNLDesign* design, const std::filesystem::pa
       std::ofstream outFile;
       outFile.open(filePath);
       streamDumper.dumpDesign(design, outFile);
+    }
+  }
+}
+
+void SNLVRLDumper::dumpLibrary(const SNLLibrary* library, const std::filesystem::path& path) {
+  if (not std::filesystem::exists(path)) {
+    std::ostringstream reason;
+    if (not library->isAnonymous()) {
+      reason << library->getName().getString();
+    } else {
+      reason << library->getDescription();
+    }
+    reason << " cannot be dumped: ";
+    reason << path.string() << " " << " does not exist";
+    throw SNLVRLDumperException(reason.str());
+  }
+  if (configuration_.isSingleFile()) {
+    //create file
+    std::filesystem::path filePath = path/getLibraryFileName(library);
+    std::ofstream outFile;
+    outFile.open(filePath);
+    dumpLibrary(library, outFile);
+  } else {
+    for (auto design: library->getDesigns()) {
+      dumpDesign(design, path);
     }
   }
 }

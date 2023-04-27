@@ -57,8 +57,8 @@ class SNLCapNpTest0: public ::testing::Test {
       SNLScalarTerm::create(model0, SNLTerm::Direction::Output, SNLName("o"));
       auto instance1 = SNLInstance::create(design, model0, SNLName("instance1"));
       auto instance2 = SNLInstance::create(design, model0, SNLName("instance2"));
-      SNLParameter::create(model0, SNLName("Test1"), "Value1");
-      SNLParameter::create(model0, SNLName("Test2"), "Value2");
+      SNLParameter::create(model0, SNLName("Test1"), SNLParameter::Type::String, "Value1");
+      SNLParameter::create(model0, SNLName("Test2"), SNLParameter::Type::String, "Value2");
 
       //connections between instances
       instance1->getInstTerm(model0->getScalarTerm(SNLName("o")))->setNet(design->getScalarNet(SNLName("n1")));

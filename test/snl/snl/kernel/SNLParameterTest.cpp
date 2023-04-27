@@ -29,9 +29,10 @@ TEST_F(SNLParameterTest, test) {
   ASSERT_NE(design_, nullptr);
   EXPECT_TRUE(design_->getParameters().empty());
 
-  auto param1 = SNLParameter::create(design_, SNLName("PARAM1"), "45");
+  auto param1 = SNLParameter::create(design_, SNLName("PARAM1"), SNLParameter::Type::Decimal, "45");
   ASSERT_NE(nullptr, param1);
   EXPECT_EQ(SNLName("PARAM1"), param1->getName());
+  EXPECT_EQ(SNLParameter::Type::Decimal, param1->getType());
   EXPECT_EQ("45", param1->getValue());
   EXPECT_EQ(design_, param1->getDesign());
 
@@ -41,9 +42,10 @@ TEST_F(SNLParameterTest, test) {
   auto designParam1 = design_->getParameter(SNLName("PARAM1"));
   ASSERT_NE(designParam1, nullptr);
 
-  auto param2 = SNLParameter::create(design_, SNLName("PARAM2"), "56");
+  auto param2 = SNLParameter::create(design_, SNLName("PARAM2"), SNLParameter::Type::Binary, "56");
   ASSERT_NE(nullptr, param2);
   EXPECT_EQ(SNLName("PARAM2"), param2->getName());
+  EXPECT_EQ(SNLParameter::Type::Binary, param2->getType());
   EXPECT_EQ("56", param2->getValue());
   EXPECT_EQ(design_, param2->getDesign());
 
@@ -79,7 +81,7 @@ TEST_F(SNLParameterTest, test) {
   EXPECT_THAT(std::vector(design_->getParameters().begin(), design_->getParameters().end()),
     ElementsAre(param1, param2));
 
-  EXPECT_THROW(SNLParameter::create(design_, SNLName("PARAM1"), "56"), SNLException);
+  EXPECT_THROW(SNLParameter::create(design_, SNLName("PARAM1"), SNLParameter::Type::Decimal, "56"), SNLException);
 
   param1->destroy();
   EXPECT_EQ(nullptr, design_->getParameter(SNLName("PARAM1")));
@@ -91,7 +93,7 @@ TEST_F(SNLParameterTest, test) {
 
 TEST_F(SNLParameterTest, testInstanceParameterCreationError) {
   auto model1 = SNLDesign::create(designsLib_);
-  auto param = SNLParameter::create(model1, SNLName("PARAM"), "TEST");
+  auto param = SNLParameter::create(model1, SNLName("PARAM"), SNLParameter::Type::String, "TEST");
   auto model2 = SNLDesign::create(designsLib_);
   auto top = SNLDesign::create(designsLib_);
   auto instance = SNLInstance::create(top, model2);
