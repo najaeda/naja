@@ -32,7 +32,7 @@ class SNLParameter {
     class Type {
       public:
         enum TypeEnum {
-          Decimal, Binary, String
+          Decimal, Binary, Boolean, String
         };
         Type(const TypeEnum& typeEnum);
         Type(const Type&) = default;

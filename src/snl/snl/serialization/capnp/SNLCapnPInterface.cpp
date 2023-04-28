@@ -76,6 +76,8 @@ DBInterface::LibraryInterface::DesignInterface::ParameterType SNLtoCapNpParamete
       return DBInterface::LibraryInterface::DesignInterface::ParameterType::DECIMAL;
     case SNLParameter::Type::Binary:
       return DBInterface::LibraryInterface::DesignInterface::ParameterType::BINARY;
+    case SNLParameter::Type::Boolean:
+      return DBInterface::LibraryInterface::DesignInterface::ParameterType::BOOLEAN;
     case SNLParameter::Type::String:
       return DBInterface::LibraryInterface::DesignInterface::ParameterType::STRING;
   }
@@ -241,6 +243,8 @@ SNLParameter::Type CapnPtoSNLParameterType(DBInterface::LibraryInterface::Design
       return SNLParameter::Type::Decimal;
     case DBInterface::LibraryInterface::DesignInterface::ParameterType::BINARY:
       return SNLParameter::Type::Binary;
+    case DBInterface::LibraryInterface::DesignInterface::ParameterType::BOOLEAN:
+      return SNLParameter::Type::Boolean;
     case DBInterface::LibraryInterface::DesignInterface::ParameterType::STRING:
       return SNLParameter::Type::String;
   }

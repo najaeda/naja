@@ -96,6 +96,7 @@ int main(int argc, char* argv[]) {
     }
   } catch (const SNLException& e) {
     std::cerr << "Caught SNL error: " << e.getReason() << std::endl;
+    return 1;
   }
   return 0;
 }

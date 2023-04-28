@@ -390,7 +390,8 @@ void SNLVRLDumper::dumpInstParameters(
       o << "  ." << instParameter->getName().getString();
       o << "(";
       auto parameter = instParameter->getParameter();
-      if (parameter->getType() == SNLParameter::Type::String) {
+      if (parameter->getType() == SNLParameter::Type::String
+      or parameter->getType() == SNLParameter::Type::Boolean) {
         o << "\"" << instParameter->getValue() << "\"";
       } else {
         o << instParameter->getValue();
@@ -547,6 +548,14 @@ void SNLVRLDumper::dumpParameter(const SNLParameter* parameter, std::ostream& o)
   o << "parameter " << parameter->getName().getString() << " = ";
   if (parameter->getType()==SNLParameter::Type::String) {
     o << "\"" << parameter->getValue() << "\"";
+  } else if (parameter->getType()==SNLParameter::Type::Boolean) {
+    if (parameter->getValue()=="0") {
+      o << "\"FALSE\"";
+    } else if (parameter->getValue()=="1") {
+      o << "\"TRUE\"";
+    } else {
+      throw SNLVRLDumperException("Wrong Boolean value");
+    }
   } else {
     o << parameter->getValue();
   }

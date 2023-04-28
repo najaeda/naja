@@ -53,7 +53,8 @@ struct DBInterface {
       enum ParameterType {
         decimal @0;
         binary  @1;
-        string  @2;
+        boolean @2;
+        string  @3;
       }
 
       struct Parameter {

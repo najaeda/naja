@@ -93,6 +93,28 @@ static PyObject* PySNLParameter_createBinary(PyObject*, PyObject* args) {
   return PySNLParameter_Link(parameter);
 }
 
+static PyObject* PySNLParameter_createBoolean(PyObject*, PyObject* args) {
+  PyObject* arg0 = nullptr;
+  const char* arg1 = nullptr;
+  int value = 0;
+  if (not PyArg_ParseTuple(args, "Osp:SNLParameter.createBoolean", &arg0, &arg1, &value)) {
+    setError("malformed SNLParameter boolean value creation method");
+    return nullptr;
+  }
+  SNLName name = SNLName(arg1);
+
+  SNLParameter* parameter = nullptr;
+  SNLTRY
+  if (IsPySNLDesign(arg0)) {
+    parameter = SNLParameter::create(PYSNLDesign_O(arg0), name, SNLParameter::Type::Boolean, std::to_string(value));
+  } else {
+    setError("SNLParameter create accepts SNLDesign as first argument");
+    return nullptr;
+  }
+  SNLCATCH
+  return PySNLParameter_Link(parameter);
+}
+
 GetNameMethod(SNLParameter)
 GetObjectMethod(Parameter, Design)
 
@@ -105,6 +127,8 @@ PyMethodDef PySNLParameter_Methods[] = {
     "SNLParameter int value creator"},
   { "create_binary", (PyCFunction)PySNLParameter_createBinary, METH_VARARGS|METH_STATIC,
     "SNLParameter binary value creator"},
+  { "create_boolean", (PyCFunction)PySNLParameter_createBoolean, METH_VARARGS|METH_STATIC,
+    "SNLParameter boolean value creator"},
   { "getName", (PyCFunction)PySNLParameter_getName, METH_NOARGS,
     "get SNLParameter name"},
   { "getDesign", (PyCFunction)PySNLParameter_getDesign, METH_NOARGS,

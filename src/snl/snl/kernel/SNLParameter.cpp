@@ -32,6 +32,7 @@ std::string SNLParameter::Type::getString() const {
   switch (typeEnum_) {
     case Type::Decimal: return "Decimal";
     case Type::Binary: return "Binary";
+    case Type::Boolean: return "Boolean";
     case Type::String: return "String";
   }
   return "Unknown";

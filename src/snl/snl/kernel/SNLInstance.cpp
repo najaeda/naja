@@ -30,6 +30,27 @@
 #include "SNLInstTerm.h"
 #include "SNLUtils.h"
 
+namespace {
+
+void printTerms(const naja::SNL::SNLInstance::Terms& terms, std::ostream& stream) {
+  stream << "[";
+  bool first = true;
+  for (auto term: terms) {
+    if (not first) {
+      stream << ", ";
+    }
+    first = false;
+    if (term) {
+      stream << term->getString();
+    } else {
+      stream << "null";
+    }
+  }
+  stream << "]";
+}
+
+}
+
 namespace naja { namespace SNL {
 
 SNLInstance::SNLInstance(SNLDesign* design, SNLDesign* model, const SNLName& name):
@@ -133,8 +154,9 @@ void SNLInstance::removeInstTerm(SNLBitTerm* term) {
 void SNLInstance::setTermsNets(const Terms& terms, const Nets& nets) {
   if (terms.size() not_eq nets.size()) {
     std::ostringstream reason;
-    reason << "setTermsNets only supported when terms (size: " << terms.size() << ")"
-      << " and nets share same size (size: " << nets.size() << ")";
+    reason << "setTermsNets only supported when terms (size: " << terms.size() << " ";
+    printTerms(terms, reason);
+    reason << ") and nets share same size (size: " << nets.size() << ")";
     throw SNLException(reason.str());
   }
   for (size_t i=0; i<terms.size(); ++i) {
