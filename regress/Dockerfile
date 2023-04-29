@@ -1,4 +1,6 @@
-from ubuntu:latest as naja_builder
+#from ubuntu:latest as naja_builder
+
+from gcr.io/hdl-containers/yosys:latest
 RUN apt-get update && apt-get -y install \
     git \
     pkg-config \
@@ -9,11 +11,11 @@ RUN apt-get update && apt-get -y install \
     python3-dev \
     libfl-dev capnproto libcapnp-dev
 COPY / .
-RUN cmake . && make -j$(nproc)
+RUN mkdir install
+RUN cmake . -DCMAKE_INSTALL_PREFIX=/install && make -j$(nproc) && make install
 
-from gcr.io/hdl-containers/yosys:latest
-COPY --from=naja_builder /src/snl/snippets/cpp/snl_vrl_snippet ./
-COPY regress/ regress/
+#COPY --from=naja_builder /src/snl/snippets/cpp/snl_vrl_snippet ./
+#COPY --from=naja_builder /primitives/xilinx.py ./ 
+#COPY regress/ regress/
 WORKDIR regress
-CMD ["make", "clean"]
-CMD ["make"]
+CMD make clean; PYTHONPATH=/install/lib/python LD_LIBRARY_PATH=/install/lib make SNL_X2Y=/src/snl/snippets/cpp/snl_vrl_snippet PRIMITIVES=/primitives/xilinx.py
