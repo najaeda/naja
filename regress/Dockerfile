@@ -1,6 +1,7 @@
 from ubuntu:latest as naja_builder
 RUN apt-get update && apt-get -y install \
     git \
+    pkg-config \
     cmake make  \
     g++ \
     libboost-dev \
