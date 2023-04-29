@@ -4,6 +4,7 @@ RUN apt-get update && apt-get -y install \
     cmake make  \
     g++ \
     libboost-dev \
+    python3-dev \
     libfl-dev capnproto libcapnp-dev
 COPY / /
 RUN cmake . && make -j$(nproc)
