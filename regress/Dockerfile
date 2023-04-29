@@ -4,6 +4,7 @@ RUN apt-get update && apt-get -y install \
     g++ \
     libboost-dev \
     libfl-dev capnproto libcapnp-dev
+COPY / /
 RUN cmake . && make -j$(nproc)
 
 from gcr.io/hdl-containers/yosys:latest
