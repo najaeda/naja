@@ -27,7 +27,7 @@ jobs:
       run: sudo apt-get update && sudo apt-get install -yq libboost-dev libfl-dev capnproto libcapnp-dev yosys
 
     - name: create docker regress image
-      run: docker build -t regress regress
+      run: docker build . --file regress/Dockerfile -t regress
     
     - name: run regress
       run: docker run regress 
