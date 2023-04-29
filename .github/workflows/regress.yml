@@ -24,7 +24,7 @@ jobs:
         submodules: true
 
     - name: create docker regress image
-      run: docker build -t regress regress
+      run: docker build . --file regress/Dockerfile -t regress
     
     - name: run regress
       run: docker run regress 
