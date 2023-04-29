@@ -23,8 +23,11 @@ jobs:
       with:
         submodules: true
     # install dependencies
-    - name: Install boost & capnproto & yosys
+    - name: Install boost & capnproto
       run: sudo apt-get update && sudo apt-get install -yq libboost-dev libfl-dev capnproto libcapnp-dev yosys
+
+    - name: pull yosys docker
+      run: docker pull gcr.io/hdl-containers/yosys:latest
       
     - name: Configure CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
@@ -38,4 +41,4 @@ jobs:
     - name: Regress
       working-directory: ${{github.workspace}}/regress
       # Execute regress tests
-      run: make all
+      run: make all YOSYS="docker run gcr.io/hdl-containers/yosys"
