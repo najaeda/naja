@@ -12,4 +12,4 @@ vexriscv.demo.GenFull_snl.v primitives.v: vexriscv.demo.GenFull_netlist.v
 	${SNL_X2Y} -p ${PRIMITIVES} -i $< -o $@ -d primitives.v
 
 clean:
-	rm vexriscv.demo.GenFull_netlist.v vexriscv.demo.GenFull_snl.v
+	-rm vexriscv.demo.GenFull_netlist.v vexriscv.demo.GenFull_snl.v
