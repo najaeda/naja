@@ -43,8 +43,10 @@ class SNLVRLDumperTest1: public ::testing::Test {
       SNLBusTerm::create(model, SNLTerm::Direction::Input, -2, 2, SNLName("i1"));
       SNLBusTerm::create(model, SNLTerm::Direction::Output, 2, -2, SNLName("o0"));
       SNLBusTerm::create(model, SNLTerm::Direction::Output, -2, 2, SNLName("o1"));
-      SNLParameter::create(model, SNLName("PARAM1"), SNLParameter::Type::Binary, "0000");
-      SNLParameter::create(model, SNLName("PARAM2"), SNLParameter::Type::Decimal, "10");
+      SNLParameter::create(model, SNLName("PARAM0"), SNLParameter::Type::String, "0000");
+      SNLParameter::create(model, SNLName("PARAM1"), SNLParameter::Type::Boolean, "0");
+      SNLParameter::create(model, SNLName("PARAM2"), SNLParameter::Type::Binary, "4h'0");
+      SNLParameter::create(model, SNLName("PARAM3"), SNLParameter::Type::Decimal, "10");
 
       SNLInstance* instance1 = SNLInstance::create(top, model, SNLName("instance1"));
       SNLInstance* instance2 = SNLInstance::create(top, model, SNLName("instance2"));
@@ -297,12 +299,18 @@ TEST_F(SNLVRLDumperTest1, test5) {
   assign0Bus->setType(naja::SNL::SNLNet::Type::Assign0);
   instance1->setTermNet(i0BusTerm, assign0Bus);
   
+  auto param0 = instance1->getModel()->getParameter(SNLName("PARAM0"));
   auto param1 = instance1->getModel()->getParameter(SNLName("PARAM1"));
   auto param2 = instance1->getModel()->getParameter(SNLName("PARAM2"));
+  auto param3 = instance1->getModel()->getParameter(SNLName("PARAM3"));
+  ASSERT_NE(param0, nullptr);
   ASSERT_NE(param1, nullptr);
   ASSERT_NE(param2, nullptr);
-  SNLInstParameter::create(instance1, param1, "1111");
-  SNLInstParameter::create(instance1, param2, "0101");
+  ASSERT_NE(param3, nullptr);
+  SNLInstParameter::create(instance1, param0, "1111");
+  SNLInstParameter::create(instance1, param1, "1");
+  SNLInstParameter::create(instance1, param2, "4h'F");
+  SNLInstParameter::create(instance1, param3, "152");
 
   SNLInstance::Nets nets;
   {
