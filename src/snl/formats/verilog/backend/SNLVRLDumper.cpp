@@ -397,12 +397,17 @@ void SNLVRLDumper::dumpInstParameters(
       if (parameter->getType() == SNLParameter::Type::String) {
         o << "\"" << instParameter->getValue() << "\"";
       } else if (parameter->getType() == SNLParameter::Type::Boolean) {
-        if (instParameter->getValue()=="0") {
+        if (instParameter->getValue()=="0" or instParameter->getValue()=="FALSE") {
           o << "\"FALSE\"";
-        } else if (instParameter->getValue()=="1") {
+        } else if (instParameter->getValue()=="1" or instParameter->getValue()=="TRUE") {
           o << "\"TRUE\"";
         } else {
-          throw SNLVRLDumperException("Wrong Boolean value");
+          std::ostringstream reason;
+          reason << "Error while writing verilog: in design " << instance->getDesign()->getString();
+          reason << ", for instance " << instance->getName().getString();
+          reason << ", wrong boolean value in instance parameter " << parameter->getDescription();
+          reason << ": " << instParameter->getDescription();
+          throw SNLVRLDumperException(reason.str());
         }
       } else {
         o << instParameter->getValue();
@@ -565,7 +570,10 @@ void SNLVRLDumper::dumpParameter(const SNLParameter* parameter, std::ostream& o)
     } else if (parameter->getValue()=="1") {
       o << "\"TRUE\"";
     } else {
-      throw SNLVRLDumperException("Wrong Boolean value");
+      std::ostringstream reason;
+      reason << "Error while writing verilog: in design " << parameter->getDesign()->getString();
+      reason << ", wrong boolean value in parameter " << parameter->getDescription();
+      throw SNLVRLDumperException(reason.str());
     }
   } else {
     o << parameter->getValue();
