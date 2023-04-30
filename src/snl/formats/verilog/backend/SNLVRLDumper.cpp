@@ -127,6 +127,10 @@ void SNLVRLDumper::setSingleFile(bool mode) {
   configuration_.setSingleFile(mode);
 }
 
+void SNLVRLDumper::setLibraryFileName(const std::string& name) {
+  configuration_.setLibraryFileName(name);
+}
+
 void SNLVRLDumper::setTopFileName(const std::string& name) {
   configuration_.setTopFileName(name);
 }
@@ -638,7 +642,7 @@ void SNLVRLDumper::dumpLibrary(const SNLLibrary* library, std::ostream& o) {
 
 std::string SNLVRLDumper::getTopFileName(const SNLDesign* top) const {
   if (configuration_.hasTopFileName()) {
-    return configuration_.getTopFileName() + ".v";
+    return configuration_.getTopFileName();
   }
   if (not top->isAnonymous()) {
     return top->getName().getString() + ".v";
@@ -648,7 +652,7 @@ std::string SNLVRLDumper::getTopFileName(const SNLDesign* top) const {
 
 std::string SNLVRLDumper::getLibraryFileName(const SNLLibrary* library) const {
   if (configuration_.hasLibraryFileName()) {
-    return configuration_.getLibraryFileName() + ".v";
+    return configuration_.getLibraryFileName();
   }
   if (not library->isAnonymous()) {
     return library->getName().getString() + ".v";

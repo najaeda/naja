@@ -92,7 +92,7 @@ TEST_F(SNLVRLDumperTest1, test0) {
   }
   std::filesystem::create_directory(outPath);
   SNLVRLDumper dumper;
-  dumper.setTopFileName(top->getName().getString());
+  dumper.setTopFileName(top->getName().getString() + ".v");
   dumper.setSingleFile(true);
   dumper.dumpDesign(top, outPath);
 
@@ -133,7 +133,7 @@ TEST_F(SNLVRLDumperTest1, test1) {
   }
   std::filesystem::create_directory(outPath);
   SNLVRLDumper dumper;
-  dumper.setTopFileName(top->getName().getString());
+  dumper.setTopFileName(top->getName().getString() + ".v");
   dumper.setSingleFile(true);
   dumper.dumpDesign(top, outPath);
 
@@ -174,7 +174,7 @@ TEST_F(SNLVRLDumperTest1, test2) {
   }
   std::filesystem::create_directory(outPath);
   SNLVRLDumper dumper;
-  dumper.setTopFileName(top->getName().getString());
+  dumper.setTopFileName(top->getName().getString() + ".v");
   dumper.setSingleFile(true);
   dumper.dumpDesign(top, outPath);
 
@@ -216,7 +216,7 @@ TEST_F(SNLVRLDumperTest1, test3) {
   }
   std::filesystem::create_directory(outPath);
   SNLVRLDumper dumper;
-  dumper.setTopFileName(top->getName().getString());
+  dumper.setTopFileName(top->getName().getString() + ".v");
   dumper.setSingleFile(true);
   dumper.dumpDesign(top, outPath);
 
@@ -262,7 +262,7 @@ TEST_F(SNLVRLDumperTest1, test4) {
   }
   std::filesystem::create_directory(outPath);
   SNLVRLDumper dumper;
-  dumper.setTopFileName(top->getName().getString());
+  dumper.setTopFileName(top->getName().getString() + ".v");
   dumper.setSingleFile(true);
   dumper.dumpDesign(top, outPath);
 
@@ -353,7 +353,7 @@ TEST_F(SNLVRLDumperTest1, test5) {
   }
   std::filesystem::create_directory(outPath);
   SNLVRLDumper dumper;
-  dumper.setTopFileName(top->getName().getString());
+  dumper.setTopFileName(top->getName().getString() + ".v");
   dumper.setSingleFile(true);
   dumper.dumpDesign(top, outPath);
 

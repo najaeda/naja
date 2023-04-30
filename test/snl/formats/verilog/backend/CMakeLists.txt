@@ -7,6 +7,7 @@ set(snl_vrl_dumper_tests
     SNLVRLDumperTestTermNets.cpp
     SNLVRLDumperTestParameters.cpp
     SNLVRLDumperTestUtils.cpp
+    SNLVRLDumperTestLibraryDump.cpp
 )
 
 add_executable(snlVRLDumperTests ${snl_vrl_dumper_tests})

@@ -79,7 +79,7 @@ TEST_F(SNLVRLDumperTest2, test0) {
   }
   std::filesystem::create_directory(outPath);
   SNLVRLDumper dumper;
-  dumper.setTopFileName(top->getName().getString());
+  dumper.setTopFileName(top->getName().getString() + ".v");
   dumper.setSingleFile(true);
   dumper.dumpDesign(top, outPath);
 
