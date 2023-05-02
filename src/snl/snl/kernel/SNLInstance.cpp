@@ -32,6 +32,7 @@
 
 namespace {
 
+//LCOV_EXCL_START
 void printTerms(const naja::SNL::SNLInstance::Terms& terms, std::ostream& stream) {
   stream << "[";
   bool first = true;
@@ -48,6 +49,7 @@ void printTerms(const naja::SNL::SNLInstance::Terms& terms, std::ostream& stream
   }
   stream << "]";
 }
+//LCOV_EXCL_STOP
 
 }
 

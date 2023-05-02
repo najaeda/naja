@@ -68,3 +68,13 @@ TEST_F(SNLVRLDumperTestLibraryDump, test0) {
   std::string command = "diff " + outPath.string() + " " + referencePath.string();
   EXPECT_FALSE(std::system(command.c_str()));
 }
+
+TEST_F(SNLVRLDumperTestLibraryDump, testErrors) {
+  auto lib = db_->getLibrary(SNLName("PRIMS"));  
+  ASSERT_TRUE(lib);
+  std::filesystem::path outPath("ERROR");
+  SNLVRLDumper dumper;
+  dumper.setSingleFile(true);
+  dumper.setLibraryFileName("primitives.v");
+  EXPECT_THROW(dumper.dumpLibrary(lib, outPath), SNLVRLDumperException);
+}

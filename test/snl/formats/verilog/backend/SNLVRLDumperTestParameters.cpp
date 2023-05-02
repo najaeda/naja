@@ -66,3 +66,15 @@ TEST_F(SNLVRLDumperTestParameters, test0) {
   std::string command = "diff " + outPath.string() + " " + referencePath.string();
   EXPECT_FALSE(std::system(command.c_str()));
 }
+
+TEST_F(SNLVRLDumperTestParameters, testErrors) {
+  ASSERT_TRUE(top_);
+  SNLParameter::create(top_, SNLName("PARAM"), SNLParameter::Type::Boolean, "YY");
+  std::filesystem::path outPath(SNL_VRL_DUMPER_TEST_PATH);
+  outPath = outPath / "testParameters0";
+  std::filesystem::create_directory(outPath);
+  SNLVRLDumper dumper;
+  dumper.setTopFileName(top_->getName().getString() + ".v");
+  dumper.setSingleFile(true);
+  EXPECT_THROW(dumper.dumpDesign(top_, outPath), SNLVRLDumperException);
+}

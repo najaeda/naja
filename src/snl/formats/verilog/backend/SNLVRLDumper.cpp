@@ -711,8 +711,8 @@ void SNLVRLDumper::dumpLibrary(const SNLLibrary* library, const std::filesystem:
     } else {
       reason << library->getDescription();
     }
-    reason << " cannot be dumped: ";
-    reason << path.string() << " " << " does not exist";
+    reason << " cannot be dumped: path ";
+    reason << path.string() << " does not exist";
     throw SNLVRLDumperException(reason.str());
   }
   if (configuration_.isSingleFile()) {
