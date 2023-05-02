@@ -262,12 +262,14 @@ void SNLVRLConstructor::addNet(const naja::verilog::Net& net) {
         snlNet = SNLScalarNet::create(currentModule_, SNLName(net.name_));
       }
       snlNet->setType(VRLTypeToSNLType(net.type_));
+    //LCOV_EXCL_START
     } catch (const SNLException& exception) {
       std::ostringstream reason;
       reason << getLocationString();
       reason << ": " << exception.getReason();
       throw SNLVRLConstructorException(reason.str());
     }
+    //LCOV_EXCL_STOP
   }
 }
 
