@@ -58,6 +58,15 @@ TEST_F(SNLNetTest, testCreation) {
   EXPECT_TRUE(design_->getScalarNets().getParentTypeCollection<SNLBitNet*>().getSubCollection<SNLScalarNet*>().empty());
   EXPECT_TRUE(design_->getBusNets().empty());
   EXPECT_TRUE(design_->getBitNets().empty());
+  EXPECT_TRUE(design_->getBitNets().getParentTypeCollection<SNLDesignObject*>().empty());
+  EXPECT_TRUE(design_->getBitNets().getParentTypeCollection<SNLDesignObject*>().getSubCollection<SNLBusNetBit*>().empty());
+  EXPECT_EQ(0, design_->getNets().size());
+  EXPECT_EQ(0, design_->getScalarNets().size());
+  EXPECT_EQ(0, design_->getScalarNets().getParentTypeCollection<SNLBitNet*>().getSubCollection<SNLScalarNet*>().size());
+  EXPECT_EQ(0, design_->getBusNets().size());
+  EXPECT_EQ(0, design_->getBitNets().size());
+  EXPECT_EQ(0, design_->getBitNets().getParentTypeCollection<SNLDesignObject*>().size());
+  EXPECT_EQ(0, design_->getBitNets().getParentTypeCollection<SNLDesignObject*>().getSubCollection<SNLBusNetBit*>().size());
 
   auto i0Term = SNLScalarTerm::create(design_, SNLTerm::Direction::Input, SNLName("I0"));
   auto i1Term = SNLScalarTerm::create(design_, SNLTerm::Direction::Input, SNLName("I1"));
@@ -77,7 +86,8 @@ TEST_F(SNLNetTest, testCreation) {
   EXPECT_EQ(1, design_->getScalarNets().size());
   EXPECT_EQ(1, design_->getBitNets().size());
   EXPECT_EQ(i0Net, design_->getScalarNet(0));
-
+  EXPECT_FALSE(i0Net->getBits().empty());
+  EXPECT_EQ(1, i0Net->getBits().size());
   EXPECT_TRUE(i0Net->getComponents().empty());
   EXPECT_TRUE(i0Net->getInstTerms().empty());
   EXPECT_TRUE(i0Net->getBitTerms().empty());
@@ -99,6 +109,8 @@ TEST_F(SNLNetTest, testCreation) {
   EXPECT_EQ(i1Net, SNLUniverse::get()->getNet(SNLID::DesignObjectReference(1, 1, 0, 1)));
   EXPECT_EQ(i1Net, SNLUniverse::get()->getObject(i1Net->getSNLID()));
   EXPECT_EQ(nullptr, SNLUniverse::get()->getObject(SNLID(SNLID::Type::Net, 1, 1, 0, 2, 0, 0)));
+  EXPECT_FALSE(i1Net->getBits().empty());
+  EXPECT_EQ(1, i1Net->getBits().size());
   EXPECT_FALSE(design_->getNets().empty());
   EXPECT_FALSE(design_->getScalarNets().empty());
   EXPECT_FALSE(design_->getBitNets().empty());
@@ -153,6 +165,8 @@ TEST_F(SNLNetTest, testCreation) {
   EXPECT_EQ(net0, SNLUniverse::get()->getNet(SNLID::DesignObjectReference(1, 1, 0, 2)));
   EXPECT_EQ(net0, design_->getNet(2));
   EXPECT_EQ(net0, design_->getBusNet(2));
+  EXPECT_FALSE(net0->getBits().empty());
+  EXPECT_EQ(32, net0->getBits().size());
   EXPECT_EQ(nullptr, design_->getScalarNet(2)); 
   EXPECT_EQ(nullptr, design_->getNet(3)); 
   EXPECT_EQ(nullptr, design_->getScalarNet(3)); 
