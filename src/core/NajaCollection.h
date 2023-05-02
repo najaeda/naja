@@ -387,7 +387,7 @@ template<class Type, class ParentType> class NajaParentTypeCollection: public Na
       delete collection_;
     }
     NajaBaseCollection<ParentType>* clone() const override {
-      return new NajaParentTypeCollection(collection_);
+      return new NajaParentTypeCollection(collection_->clone());
     }
     NajaBaseIterator<ParentType>* begin() const override {
       return new NajaParentTypeCollectionIterator(collection_, true);
@@ -485,7 +485,7 @@ template<class Type, class SubType> class NajaSubTypeCollection: public NajaBase
       delete collection_;
     }
     NajaBaseCollection<SubType>* clone() const override {
-      return new NajaSubTypeCollection(collection_);
+      return new NajaSubTypeCollection(collection_->clone());
     }
     NajaBaseIterator<SubType>* begin() const override {
       return new NajaSubTypeCollectionIterator(collection_, true);
@@ -588,7 +588,7 @@ template<class Type, typename Filter> class NajaFilteredCollection: public NajaB
       delete collection_;
     }
     NajaBaseCollection<Type>* clone() const override {
-      return new NajaFilteredCollection(collection_, filter_);
+      return new NajaFilteredCollection(collection_->clone(), filter_);
     }
     NajaBaseIterator<Type>* begin() const override {
       return new NajaFilteredCollectionIterator(collection_, filter_, true);
@@ -742,7 +742,7 @@ class NajaFlatCollection: public NajaBaseCollection<ReturnType> {
       delete collection_;
     }
     NajaBaseCollection<ReturnType>* clone() const override {
-      return new NajaFlatCollection(collection_, flattener_);
+      return new NajaFlatCollection(collection_->clone(), flattener_);
     }
     NajaBaseIterator<ReturnType>* begin() const override {
       return new NajaFlatCollectionIterator(collection_, flattener_, true);

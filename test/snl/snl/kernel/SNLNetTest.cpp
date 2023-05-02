@@ -55,6 +55,7 @@ TEST_F(SNLNetTest, testCreation) {
   EXPECT_EQ(design_, design_->getLibrary()->getDesign(SNLName("Design")));
   EXPECT_TRUE(design_->getNets().empty());
   EXPECT_TRUE(design_->getScalarNets().empty());
+  EXPECT_TRUE(design_->getScalarNets().getParentTypeCollection<SNLBitNet*>().getSubCollection<SNLScalarNet*>().empty());
   EXPECT_TRUE(design_->getBusNets().empty());
   EXPECT_TRUE(design_->getBitNets().empty());
 
