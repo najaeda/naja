@@ -67,11 +67,14 @@ TEST_F(SNLVRLDumperTestParameters, test0) {
   EXPECT_FALSE(std::system(command.c_str()));
 }
 
-TEST_F(SNLVRLDumperTestParameters, testErrors) {
+TEST_F(SNLVRLDumperTestParameters, testErrors0) {
   ASSERT_TRUE(top_);
   SNLParameter::create(top_, SNLName("PARAM"), SNLParameter::Type::Boolean, "YY");
   std::filesystem::path outPath(SNL_VRL_DUMPER_TEST_PATH);
-  outPath = outPath / "testParameters0";
+  outPath = outPath / "testParametersErrors0";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
   std::filesystem::create_directory(outPath);
   SNLVRLDumper dumper;
   dumper.setTopFileName(top_->getName().getString() + ".v");
