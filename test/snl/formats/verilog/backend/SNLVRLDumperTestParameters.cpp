@@ -87,3 +87,24 @@ TEST_F(SNLVRLDumperTestParameters, testErrors0) {
   dumper.setSingleFile(true);
   EXPECT_THROW(dumper.dumpDesign(top_, outPath), SNLVRLDumperException);
 }
+
+TEST_F(SNLVRLDumperTestParameters, testErrors1) {
+  ASSERT_TRUE(top_);
+  ASSERT_TRUE(model_);
+  auto falseParam = SNLParameter::create(model_, SNLName("PARAM1"), SNLParameter::Type::Boolean, "0");
+  auto trueParam = SNLParameter::create(model_, SNLName("PARAM2"), SNLParameter::Type::Boolean, "1");
+  auto ins = SNLInstance::create(top_, model_, SNLName("ins"));
+  SNLInstParameter::create(ins, falseParam, "Y");
+  SNLInstParameter::create(ins, trueParam, "N");
+
+  std::filesystem::path outPath(SNL_VRL_DUMPER_TEST_PATH);
+  outPath = outPath / "testParametersErrors1";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+  SNLVRLDumper dumper;
+  dumper.setTopFileName(top_->getName().getString() + ".v");
+  dumper.setSingleFile(true);
+  EXPECT_THROW(dumper.dumpDesign(top_, outPath), SNLVRLDumperException);
+}
