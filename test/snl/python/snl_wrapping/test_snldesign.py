@@ -68,20 +68,42 @@ class SNLDesignTest(unittest.TestCase):
     design = snl.SNLDesign.create(self.lib, "DESIGN")
     self.assertIsNotNone(design)
 
-    p = snl.SNLParameter.create(design, "INIT", "0000")
-    self.assertIsNotNone(p)
-    self.assertEqual("INIT", p.getName())
-    self.assertEqual(design, p.getDesign())
+    p0 = snl.SNLParameter.create_decimal(design, "REG", 34)
+    p1 = snl.SNLParameter.create_binary(design, "INIT", 16, 0x0000)
+    p2 = snl.SNLParameter.create_string(design, "MODE", "DEFAULT")
+    p3 = snl.SNLParameter.create_boolean(design, "INVERTED", True)
+    self.assertIsNotNone(p0)
+    self.assertEqual("REG", p0.getName())
+    self.assertEqual(design, p0.getDesign())
+    self.assertIsNotNone(p1)
+    self.assertEqual("INIT", p1.getName())
+    self.assertEqual(design, p1.getDesign())
+    self.assertIsNotNone(p2)
+    self.assertEqual("MODE", p2.getName())
+    self.assertEqual(design, p2.getDesign())
+    self.assertIsNotNone(p3)
+    self.assertEqual("INVERTED", p3.getName())
+    self.assertEqual(design, p3.getDesign())
 
   def testCreationError(self):
     self.assertIsNotNone(self.lib)
     d = snl.SNLDesign.create(self.lib, "DESIGN")
-    self.assertIsNotNone(self.lib)
-
     with self.assertRaises(RuntimeError) as context: snl.SNLDesign.create("ERROR", "DESIGN")
     with self.assertRaises(RuntimeError) as context: snl.SNLDesign.create(d, "DESIGN")
+
+  def testParametersError(self):
+    self.assertIsNotNone(self.lib)
+    d = snl.SNLDesign.create(self.lib, "DESIGN")
+    n = snl.SNLScalarNet.create(d, "net")
+    with self.assertRaises(RuntimeError) as context: snl.SNLParameter.create_decimal(d)
+    with self.assertRaises(RuntimeError) as context: snl.SNLParameter.create_binary(d)
+    with self.assertRaises(RuntimeError) as context: snl.SNLParameter.create_string(d)
+    with self.assertRaises(RuntimeError) as context: snl.SNLParameter.create_boolean(d)
+
+    with self.assertRaises(RuntimeError) as context: snl.SNLParameter.create_decimal(n, "ERROR", 10)
+    with self.assertRaises(RuntimeError) as context: snl.SNLParameter.create_binary(n, "ERROR", 4, 0)
+    with self.assertRaises(RuntimeError) as context: snl.SNLParameter.create_string(n, "ERROR", "ERROR")
+    with self.assertRaises(RuntimeError) as context: snl.SNLParameter.create_boolean(n, "ERROR", False)
    
-
-
 if __name__ == '__main__':
   unittest.main()

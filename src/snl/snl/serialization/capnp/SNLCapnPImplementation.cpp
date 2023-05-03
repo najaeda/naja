@@ -134,7 +134,7 @@ void dumpBusNet(
   busNetBuilder.setLsb(busNet->getLSB());
   auto bits = busNetBuilder.initBits(busNet->getBits().size());
   size_t id = 0;
-  for (auto bit: busNet->getBits()) {
+  for (auto bit: busNet->getBusBits()) {
     auto bitBuilder = bits[id++];
     dumpBusNetBit(bitBuilder, bit);
   }

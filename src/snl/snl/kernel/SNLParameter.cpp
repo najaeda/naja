@@ -23,13 +23,29 @@
 
 namespace naja { namespace SNL {
 
-SNLParameter::SNLParameter(SNLDesign* design, const SNLName& name, const std::string& value):
-  design_(design), name_(name), value_(value)
+SNLParameter::Type::Type(const TypeEnum& typeEnum):
+  typeEnum_(typeEnum) 
 {}
 
-SNLParameter* SNLParameter::create(SNLDesign* design, const SNLName& name, const std::string& value) {
+//LCOV_EXCL_START
+std::string SNLParameter::Type::getString() const {
+  switch (typeEnum_) {
+    case Type::Decimal: return "Decimal";
+    case Type::Binary: return "Binary";
+    case Type::Boolean: return "Boolean";
+    case Type::String: return "String";
+  }
+  return "Unknown";
+}
+//LCOV_EXCL_STOP
+
+SNLParameter::SNLParameter(SNLDesign* design, const SNLName& name, Type type, const std::string& value):
+  design_(design), name_(name), type_(type), value_(value)
+{}
+
+SNLParameter* SNLParameter::create(SNLDesign* design, const SNLName& name, Type type, const std::string& value) {
   preCreate(design, name);
-  SNLParameter* parameter = new SNLParameter(design, name, value);
+  SNLParameter* parameter = new SNLParameter(design, name, type, value);
   parameter->postCreate();
   return parameter;
 }
@@ -70,6 +86,7 @@ std::string SNLParameter::getString() const {
 std::string SNLParameter::getDescription() const {
   std::ostringstream stream;
   stream << "<" << std::string(getTypeName());
+  stream << " " + getType().getString();
   stream << " " + getName().getString();
   stream << " " << getValue();
   stream << ">";

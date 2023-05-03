@@ -36,6 +36,8 @@ class SNLInstParameter {
     static SNLInstParameter* create(SNLInstance* instance, SNLParameter* parameter, const std::string& value);
     void destroy();
     SNLName getName() const;
+    SNLInstance* getInstance() const { return instance_; }
+    SNLParameter* getParameter() const { return parameter_; }
     std::string getValue() const { return value_; }
 
     const char* getTypeName() const;

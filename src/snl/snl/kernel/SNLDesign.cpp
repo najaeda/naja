@@ -441,7 +441,7 @@ NajaCollection<SNLScalarNet*> SNLDesign::getScalarNets() const {
 }
 
 NajaCollection<SNLBitNet*> SNLDesign::getBitNets() const {
-  auto flattener = [](const SNLBusNet* b) { return b->getBits(); };
+  auto flattener = [](const SNLBusNet* b) { return b->getBusBits(); };
   return getNets().getFlatCollection<SNLBusNet*, SNLBusNetBit*, SNLBitNet*>(flattener);
 }
 

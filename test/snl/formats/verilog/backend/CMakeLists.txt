@@ -3,9 +3,11 @@ include(GoogleTest)
 set(snl_vrl_dumper_tests
     SNLVRLDumperTest0.cpp
     SNLVRLDumperTest1.cpp
+    SNLVRLDumperTest2.cpp
     SNLVRLDumperTestTermNets.cpp
     SNLVRLDumperTestParameters.cpp
     SNLVRLDumperTestUtils.cpp
+    SNLVRLDumperTestLibraryDump.cpp
 )
 
 add_executable(snlVRLDumperTests ${snl_vrl_dumper_tests})
