@@ -41,8 +41,8 @@ boost::dynamic_bitset<> SNLVRLConstructorUtils::numberToBits(const naja::verilog
       boost::dynamic_bitset<> bits(number.size_, 0ul);
       for (int i = number.digits_.size()-1; i>=0; i--) {
         const char& c = number.digits_[i];
-        switch (c) {
-          case '0': break;
+        switch (toupper(c)) {
+          case '0': case 'X': break;
           case '1': setBit(bits, i); break;
           default: {
             std::stringstream stream;
@@ -60,7 +60,7 @@ boost::dynamic_bitset<> SNLVRLConstructorUtils::numberToBits(const naja::verilog
       for (int j = number.digits_.size()-1; j>=0; j--) {
         const char& c = number.digits_[j];
         switch (toupper(c)) {
-          case '0': break;
+          case '0': case 'X': break;
           case '1': setBit(bits, i); break;
           case '2': setBit(bits, i+1); break;
           case '3': setBit(bits, i+1); setBit(bits,i); break;

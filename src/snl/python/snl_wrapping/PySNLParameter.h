@@ -32,8 +32,9 @@ typedef struct {
 
 extern PyTypeObject PyTypeSNLParameter;
 
-extern PyObject*    PySNLParameter_Link(naja::SNL::SNLParameter* u);
-extern void         PySNLParameter_LinkPyType();
+extern PyObject* PySNLParameter_Link(naja::SNL::SNLParameter* u);
+extern void PySNLParameter_LinkPyType();
+extern void PySNLParameter_postModuleInit();
 
 #define IsPySNLParameter(v) (PyObject_TypeCheck(v, &PyTypeSNLParameter))
 #define PYSNLParameter(v)   ((PySNLParameter*)(v))

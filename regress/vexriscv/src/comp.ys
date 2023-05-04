@@ -1,0 +1,19 @@
+# gold design
+read_verilog primitives.v vexriscv.demo.GenFull_netlist.v
+prep -top vexriscv.demo.GenFull
+splitnets -ports;;
+design -stash gold
+
+#naja design
+read_verilog primitives.v vexriscv.demo.GenFull_snl.v
+prep -top vexriscv.demo.GenFull
+splitnets -ports;;
+design -stash naja
+
+# prove equivalence
+design -copy-from gold -as gold vexriscv.demo.GenFull
+design -copy-from naja -as naja vexriscv.demo.GenFull
+equiv_make gold naja equiv
+hierarchy -top equiv
+equiv_simple
+equiv_status -assert

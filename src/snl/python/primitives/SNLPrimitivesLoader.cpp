@@ -25,6 +25,31 @@
 
 #include "PySNLLibrary.h"
 
+namespace {
+
+std::string getPythonError() {
+  PyObject *type, *value, *traceback;
+  PyErr_Fetch(&type, &value, &traceback);
+  PyErr_Clear();
+  if (value == nullptr) {
+    return std::string();
+  }
+  PyObject* strValue = PyObject_Str(value);
+  Py_DECREF(value);
+  if (strValue == nullptr) {
+    return std::string();
+  }
+  const char* cStrValue = PyUnicode_AsUTF8(strValue);
+  if (cStrValue == nullptr) {
+    return std::string();
+  }
+  std::string errorStr(cStrValue);
+  Py_DECREF(strValue);
+  return errorStr;
+}
+
+}
+
 namespace naja { namespace SNL {
 
 void SNLPrimitivesLoader::load(
@@ -41,8 +66,8 @@ void SNLPrimitivesLoader::load(
     reason << primitivesPath << " does not exist";
     throw SNLException(reason.str());
   }
-  
   auto primitivesAbsolutePath = std::filesystem::canonical(primitivesPath);
+
   auto moduleName = primitivesAbsolutePath.filename();
   auto modulePath = primitivesAbsolutePath.parent_path();
   moduleName.replace_extension();
@@ -54,6 +79,12 @@ void SNLPrimitivesLoader::load(
   if (not primitivesModule) {
     std::ostringstream reason;
     reason << "Cannot load Python module " << primitivesAbsolutePath.string();
+    std::string pythonError = getPythonError();
+    if (not pythonError.empty()) {
+      reason << ": " << pythonError;
+    } else {
+      reason << ": empty error message";
+    }
     throw SNLException(reason.str());
   }
 
@@ -64,17 +95,11 @@ void SNLPrimitivesLoader::load(
   if (not res) {
     std::ostringstream reason;
     reason << "Error while calling constructPrimitives";
-    PyObject *ptype, *pvalue, *ptraceback;
-    PyErr_Fetch(&ptype, &pvalue, &ptraceback);
-    if (pvalue) {
-      PyObject *pstr = PyObject_Str(pvalue);
-      if (pstr) {
-        const char* err_msg = PyUnicode_AsUTF8(pstr);
-        if (err_msg) {
-          reason << ": " << err_msg;
-        }
-      }
-      PyErr_Restore(ptype, pvalue, ptraceback);
+    std::string pythonError = getPythonError();
+    if (not pythonError.empty()) {
+      reason << ": " << pythonError;
+    } else {
+      reason << ": empty error message";
     }
     //Cleaning
     Py_DECREF(modulePathString);

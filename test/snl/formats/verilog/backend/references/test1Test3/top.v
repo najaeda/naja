@@ -1,6 +1,8 @@
 module model(input [2:-2] i0, input [-2:2] i1, output [2:-2] o0, output [-2:2] o1);
-parameter PARAM1 = 0000 ;
-parameter PARAM2 = 10 ;
+parameter PARAM0 = "0000" ;
+parameter PARAM1 = "FALSE" ;
+parameter PARAM2 = 4h'0 ;
+parameter PARAM3 = 10 ;
 
 endmodule //model
 
@@ -15,14 +17,14 @@ wire net_2;
 wire net_3;
 wire net_4;
 
-model instance1(
+model instance1 (
   .i0(),
   .i1(),
   .o0({net_0, net_1, net_2, net_3, net_4}),
   .o1()
 );
 
-model instance2(
+model instance2 (
   .i0(),
   .i1(),
   .o0(),

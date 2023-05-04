@@ -7,11 +7,11 @@ set(snl_capnp_tests
     SNLCapnPStreamingReceiveTest.cpp
 )
 
-add_executable(snlSenderTest SNLSender.cpp)
+#add_executable(snlSenderTest SNLSender.cpp)
 add_executable(snlCapnPTests ${snl_capnp_tests})
 
 
-target_link_libraries(snlSenderTest naja_snl_dump)
+#target_link_libraries(snlSenderTest naja_snl_dump)
 
 target_compile_definitions(snlCapnPTests PRIVATE
     SNL_CAPNP_TEST_PATH="${CMAKE_CURRENT_BINARY_DIR}")

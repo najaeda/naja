@@ -73,6 +73,20 @@ DBInterface::LibraryInterface::DesignInterface::Direction SNLtoCapnPDirection(SN
   return DBInterface::LibraryInterface::DesignInterface::Direction::INPUT; //LCOV_EXCL_LINE
 }
 
+DBInterface::LibraryInterface::DesignInterface::ParameterType SNLtoCapNpParameterType(SNLParameter::Type type) {
+  switch (type) {
+    case SNLParameter::Type::Decimal:
+      return DBInterface::LibraryInterface::DesignInterface::ParameterType::DECIMAL;
+    case SNLParameter::Type::Binary:
+      return DBInterface::LibraryInterface::DesignInterface::ParameterType::BINARY;
+    case SNLParameter::Type::Boolean:
+      return DBInterface::LibraryInterface::DesignInterface::ParameterType::BOOLEAN;
+    case SNLParameter::Type::String:
+      return DBInterface::LibraryInterface::DesignInterface::ParameterType::STRING;
+  }
+  return DBInterface::LibraryInterface::DesignInterface::ParameterType::DECIMAL; //LCOV_EXCL_LINE
+}
+
 void dumpScalarTerm(
   DBInterface::LibraryInterface::DesignInterface::Term::Builder& term,
   const SNLScalarTerm* scalarTerm) {
@@ -101,6 +115,7 @@ void dumpParameter(
   DBInterface::LibraryInterface::DesignInterface::Parameter::Builder& parameter,
   const SNLParameter* snlParameter) {
   parameter.setName(snlParameter->getName().getString());
+  parameter.setType(SNLtoCapNpParameterType(snlParameter->getType()));
   parameter.setValue(snlParameter->getValue());
 }
 
@@ -225,6 +240,20 @@ SNLTerm::Direction CapnPtoSNLDirection(DBInterface::LibraryInterface::DesignInte
   return SNLTerm::Direction::Input; //LCOV_EXCL_LINE
 }
 
+SNLParameter::Type CapnPtoSNLParameterType(DBInterface::LibraryInterface::DesignInterface::ParameterType type) {
+  switch (type) {
+    case DBInterface::LibraryInterface::DesignInterface::ParameterType::DECIMAL:
+      return SNLParameter::Type::Decimal;
+    case DBInterface::LibraryInterface::DesignInterface::ParameterType::BINARY:
+      return SNLParameter::Type::Binary;
+    case DBInterface::LibraryInterface::DesignInterface::ParameterType::BOOLEAN:
+      return SNLParameter::Type::Boolean;
+    case DBInterface::LibraryInterface::DesignInterface::ParameterType::STRING:
+      return SNLParameter::Type::String;
+  }
+  return SNLParameter::Type::Decimal; //LCOV_EXCL_LINE
+}
+
 template<typename T> void loadProperties(
   const T& dumpObjectReader,
   NajaObject* object,
@@ -264,8 +293,9 @@ void loadDesignParameter(
   SNLDesign* design,
   const DBInterface::LibraryInterface::DesignInterface::Parameter::Reader& parameter) {
   auto name = parameter.getName();
+  auto type = parameter.getType();
   auto value = parameter.getValue();
-  SNLParameter::create(design, SNLName(name), value);
+  SNLParameter::create(design, SNLName(name), CapnPtoSNLParameterType(type), value);
 }
 
 void loadDesignInterface(

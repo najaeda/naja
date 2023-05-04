@@ -73,6 +73,10 @@ SNLDesign* SNLDB0::getAssign() {
   return nullptr;
 }
 
+bool SNLDB0::isAssign(const SNLDesign* design) {
+  return design and design == getAssign();
+}
+
 SNLScalarTerm* SNLDB0::getAssignInput() {
   auto assign = getAssign();
   if (assign) {

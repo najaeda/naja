@@ -43,10 +43,10 @@ TEST_F(SNLVRLConstructorTest2, test) {
   std::filesystem::path benchmarksPath(SNL_VRL_BENCHMARKS_PATH);
   constructor.parse(benchmarksPath/"test1.v");
 
-  ASSERT_EQ(2, library_->getDesigns().size());
-  auto model = library_->getDesign(SNLName("model"));
-  ASSERT_NE(model, nullptr);
-  ASSERT_EQ(3, model->getTerms().size());
+  ASSERT_EQ(3, library_->getDesigns().size());
+  auto model0 = library_->getDesign(SNLName("model0"));
+  ASSERT_NE(model0, nullptr);
+  ASSERT_EQ(3, model0->getTerms().size());
   auto test = library_->getDesign(SNLName("test"));
   ASSERT_NE(test, nullptr);
 
@@ -54,8 +54,8 @@ TEST_F(SNLVRLConstructorTest2, test) {
   constructor.parse(benchmarksPath/"test1.v");
   auto top = SNLUtils::findTop(library_);
   EXPECT_EQ(top, test);
-  ASSERT_EQ(1, model->getInstances().size());
-  auto lut = model->getInstance(SNLName("lut"));
+  ASSERT_EQ(1, model0->getInstances().size());
+  auto lut = model0->getInstance(SNLName("lut"));
   ASSERT_NE(lut, nullptr);
   EXPECT_EQ("lut", lut->getName().getString());
   auto lutModel = lut->getModel();

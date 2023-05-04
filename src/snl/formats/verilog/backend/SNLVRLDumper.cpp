@@ -32,6 +32,7 @@
 #include "SNLBusNetBit.h"
 #include "SNLInstTerm.h"
 #include "SNLUtils.h"
+#include "SNLDB0.h"
 
 namespace {
 
@@ -124,6 +125,10 @@ namespace naja { namespace SNL {
 
 void SNLVRLDumper::setSingleFile(bool mode) {
   configuration_.setSingleFile(mode);
+}
+
+void SNLVRLDumper::setLibraryFileName(const std::string& name) {
+  configuration_.setLibraryFileName(name);
 }
 
 void SNLVRLDumper::setTopFileName(const std::string& name) {
@@ -334,7 +339,7 @@ void SNLVRLDumper::dumpInstanceInterface(
   const SNLInstance* instance,
   std::ostream& o,
   const DesignInsideAnonymousNaming& naming) {
-  o << "(";
+  o << " (";
   BitNetVector termNets;
   SNLTerm* previousTerm = nullptr;
   bool first = true;
@@ -380,17 +385,36 @@ void SNLVRLDumper::dumpInstParameters(
   std::ostream& o) {
   if (not instance->getInstParameters().empty()) {
     bool first = true;
-    o << "#(";
+    o << "#(" << std::endl;
     for (auto instParameter: instance->getInstParameters()) {
       if (not first) {
-        o << ", ";
+        o << "," << std::endl;
       }
       first = false;
-      o << "." << instParameter->getName().getString();
-      o << "(" << instParameter->getValue();
+      o << "  ." << instParameter->getName().getString();
+      o << "(";
+      auto parameter = instParameter->getParameter();
+      if (parameter->getType() == SNLParameter::Type::String) {
+        o << "\"" << instParameter->getValue() << "\"";
+      } else if (parameter->getType() == SNLParameter::Type::Boolean) {
+        if (instParameter->getValue()=="0" or instParameter->getValue()=="FALSE") {
+          o << "\"FALSE\"";
+        } else if (instParameter->getValue()=="1" or instParameter->getValue()=="TRUE") {
+          o << "\"TRUE\"";
+        } else {
+          std::ostringstream reason;
+          reason << "Error while writing verilog: in design " << instance->getDesign()->getString();
+          reason << ", for instance " << instance->getName().getString();
+          reason << ", wrong boolean value in instance parameter " << parameter->getDescription();
+          reason << ": " << instParameter->getDescription();
+          throw SNLVRLDumperException(reason.str());
+        }
+      } else {
+        o << instParameter->getValue();
+      }
       o << ")";
     }
-    o << ") ";
+    o << std::endl << ") ";
   }
 }
 
@@ -398,6 +422,20 @@ void SNLVRLDumper::dumpInstance(
   const SNLInstance* instance,
   std::ostream& o,
   DesignInsideAnonymousNaming& naming) {
+  if (SNLDB0::isAssign(instance->getModel())) {
+    auto inputNet = instance->getInstTerm(SNLDB0::getAssignInput())->getNet();
+    auto outputNet = instance->getInstTerm(SNLDB0::getAssignOutput())->getNet();
+    std::string inputNetString;
+    if (inputNet->isConstant0()) {
+      inputNetString = "1'b0";
+    } else if (inputNet->isConstant1()) {
+      inputNetString = "1'b1";
+    } else {
+      inputNetString = inputNet->getString(); 
+    }
+    o << "assign " << outputNet->getString() << " = " << inputNetString << ";" << std::endl;
+    return;
+  }
   std::string instanceName;
   if (instance->isAnonymous()) {
     instanceName = createInstanceName(instance, naming);
@@ -523,7 +561,24 @@ void SNLVRLDumper::dumpTermAssigns(const SNLDesign* design, std::ostream& o) {
 }
 
 void SNLVRLDumper::dumpParameter(const SNLParameter* parameter, std::ostream& o) {
-  o << "parameter " << parameter->getName().getString() << " = " << parameter->getValue() << " ;" << std::endl;
+  o << "parameter " << parameter->getName().getString() << " = ";
+  if (parameter->getType()==SNLParameter::Type::String) {
+    o << "\"" << parameter->getValue() << "\"";
+  } else if (parameter->getType()==SNLParameter::Type::Boolean) {
+    if (parameter->getValue()=="0") {
+      o << "\"FALSE\"";
+    } else if (parameter->getValue()=="1") {
+      o << "\"TRUE\"";
+    } else {
+      std::ostringstream reason;
+      reason << "Error while writing verilog: in design " << parameter->getDesign()->getString();
+      reason << ", wrong boolean value in parameter " << parameter->getDescription();
+      throw SNLVRLDumperException(reason.str());
+    }
+  } else {
+    o << parameter->getValue();
+  }
+  o << " ;" << std::endl;
 }
 
 void SNLVRLDumper::dumpParameters(const SNLDesign* design, std::ostream& o) {
@@ -587,14 +642,30 @@ void SNLVRLDumper::dumpDesign(const SNLDesign* design, std::ostream& o) {
   }
 }
 
+void SNLVRLDumper::dumpLibrary(const SNLLibrary* library, std::ostream& o) {
+  for (auto design: library->getDesigns()) {
+    dumpOneDesign(design, o);
+  }
+}
+
 std::string SNLVRLDumper::getTopFileName(const SNLDesign* top) const {
   if (configuration_.hasTopFileName()) {
-    return configuration_.getTopFileName() + ".v";
+    return configuration_.getTopFileName();
   }
   if (not top->isAnonymous()) {
     return top->getName().getString() + ".v";
   }
   return "top.v";
+} 
+
+std::string SNLVRLDumper::getLibraryFileName(const SNLLibrary* library) const {
+  if (configuration_.hasLibraryFileName()) {
+    return configuration_.getLibraryFileName();
+  }
+  if (not library->isAnonymous()) {
+    return library->getName().getString() + ".v";
+  }
+  return "library.v";
 } 
 
 void SNLVRLDumper::dumpDesign(const SNLDesign* design, const std::filesystem::path& path) {
@@ -628,6 +699,31 @@ void SNLVRLDumper::dumpDesign(const SNLDesign* design, const std::filesystem::pa
       std::ofstream outFile;
       outFile.open(filePath);
       streamDumper.dumpDesign(design, outFile);
+    }
+  }
+}
+
+void SNLVRLDumper::dumpLibrary(const SNLLibrary* library, const std::filesystem::path& path) {
+  if (not std::filesystem::exists(path)) {
+    std::ostringstream reason;
+    if (not library->isAnonymous()) {
+      reason << library->getName().getString();
+    } else {
+      reason << library->getDescription();
+    }
+    reason << " cannot be dumped: path ";
+    reason << path.string() << " does not exist";
+    throw SNLVRLDumperException(reason.str());
+  }
+  if (configuration_.isSingleFile()) {
+    //create file
+    std::filesystem::path filePath = path/getLibraryFileName(library);
+    std::ofstream outFile;
+    outFile.open(filePath);
+    dumpLibrary(library, outFile);
+  } else {
+    for (auto design: library->getDesigns()) {
+      dumpDesign(design, path);
     }
   }
 }

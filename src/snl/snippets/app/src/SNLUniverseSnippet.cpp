@@ -25,8 +25,8 @@ void SNLUniverseSnippet::create() {
     SNLScalarTerm::create(model1, SNLTerm::Direction::Input, SNLName("i0"));
     SNLScalarTerm::create(model1, SNLTerm::Direction::Input, SNLName("i1"));
     SNLScalarTerm::create(model1, SNLTerm::Direction::Output, SNLName("o"));
-    SNLParameter::create(model1, SNLName("PARAM0"), "18");
-    SNLParameter::create(model1, SNLName("PARAM1"), "OPTION2");
+    SNLParameter::create(model1, SNLName("PARAM0"), SNLParameter::Type::Decimal, "18");
+    SNLParameter::create(model1, SNLName("PARAM1"), SNLParameter::Type::String,  "OPTION2");
     SNLInstance::create(model1, prim0); // anonymous
     SNLInstance::create(model1, prim1, SNLName("ins"));  
   }

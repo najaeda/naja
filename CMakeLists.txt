@@ -1,5 +1,5 @@
 cmake_policy(SET CMP0048 NEW)
-cmake_minimum_required(VERSION 3.19)
+cmake_minimum_required(VERSION 3.18)
 
 project(naja
   VERSION 0.1.0
@@ -8,6 +8,16 @@ project(naja
 )
 
 set(CMAKE_CXX_STANDARD 20)
+
+include(FetchContent)
+#fetch argparse v2.9
+FetchContent_Declare(
+    argparse
+    GIT_REPOSITORY https://github.com/p-ranav/argparse.git
+    GIT_TAG 997da9255618311d1fcb0135ce86022729d1f1cb
+)
+FetchContent_MakeAvailable(argparse)
+
 set(NAJA_CXX_WARNINGS -Werror -Wall -pedantic-errors -Wconversion -Wsign-conversion -Wextra -Wno-unused-parameter)
 
 add_library(coverage_config INTERFACE)

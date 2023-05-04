@@ -57,12 +57,10 @@ class SNLCapNpTest0: public ::testing::Test {
       SNLScalarTerm::create(model0, SNLTerm::Direction::Output, SNLName("o"));
       auto instance1 = SNLInstance::create(design, model0, SNLName("instance1"));
       auto instance2 = SNLInstance::create(design, model0, SNLName("instance2"));
-      auto parameter1 = SNLParameter::create(model0, SNLName("Test1"), "Value1");
-      auto parameter2 = SNLParameter::create(model0, SNLName("Test2"), "Value2");
-      SNLInstParameter::create(instance1, parameter1, "Val1");
-      SNLInstParameter::create(instance1, parameter2, "Val2");
-      SNLInstParameter::create(instance2, parameter1, "NewValue1");
-      SNLInstParameter::create(instance2, parameter2, "NewValue2");
+      SNLParameter::create(model0, SNLName("Test1"), SNLParameter::Type::Decimal, "10");
+      SNLParameter::create(model0, SNLName("Test2"), SNLParameter::Type::Binary, "4'hF");
+      SNLParameter::create(model0, SNLName("Test3"), SNLParameter::Type::String, "Value2");
+      SNLParameter::create(model0, SNLName("Test4"), SNLParameter::Type::Boolean, "0");
 
       //connections between instances
       instance1->getInstTerm(model0->getScalarTerm(SNLName("o")))->setNet(design->getScalarNet(SNLName("n1")));
@@ -170,14 +168,22 @@ TEST_F(SNLCapNpTest0, test0) {
   EXPECT_EQ(SNLName("o"), scalarTerm1->getName());
   EXPECT_EQ(SNLID::DesignObjectID(1), scalarTerm1->getID());
   EXPECT_TRUE(model->getBusTerms().empty());
-  EXPECT_EQ(2, model->getParameters().size());
+  EXPECT_EQ(4, model->getParameters().size());
   using Parameters = std::vector<SNLParameter*>;
   Parameters parameters(model->getParameters().begin(), model->getParameters().end());
-  EXPECT_EQ(2, parameters.size());
+  EXPECT_EQ(4, parameters.size());
   EXPECT_EQ("Test1", parameters[0]->getName().getString());
-  EXPECT_EQ("Value1", parameters[0]->getValue());
+  EXPECT_EQ(SNLParameter::Type::Decimal, parameters[0]->getType());
+  EXPECT_EQ("10", parameters[0]->getValue());
   EXPECT_EQ("Test2", parameters[1]->getName().getString());
-  EXPECT_EQ("Value2", parameters[1]->getValue());
+  EXPECT_EQ(SNLParameter::Type::Binary, parameters[1]->getType());
+  EXPECT_EQ("4'hF", parameters[1]->getValue());
+  EXPECT_EQ("Test3", parameters[2]->getName().getString());
+  EXPECT_EQ(SNLParameter::Type::String, parameters[2]->getType());
+  EXPECT_EQ("Value2", parameters[2]->getValue());
+  EXPECT_EQ("Test4", parameters[3]->getName().getString());
+  EXPECT_EQ(SNLParameter::Type::Boolean, parameters[3]->getType());
+  EXPECT_EQ("0", parameters[3]->getValue());
 
   using Instances = std::vector<SNLInstance*>;
   Instances instances(design->getInstances().begin(), design->getInstances().end());

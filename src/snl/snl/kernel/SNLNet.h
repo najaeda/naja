@@ -24,6 +24,8 @@
 
 namespace naja { namespace SNL {
 
+class SNLBitNet;
+
 class SNLNet: public SNLDesignObject {
   public:
     friend class SNLDesign;
@@ -55,6 +57,7 @@ class SNLNet: public SNLDesignObject {
     virtual SNLName getName() const = 0;
     ///\return net size, 1 for SNLScalarNet and SNLBusNetBit
     virtual SNLID::Bit getSize() const = 0;
+    virtual NajaCollection<SNLBitNet*> getBits() const = 0;
 
     virtual void setType(const Type& type) = 0;
     ///\return true if all bits of this net are assigned to 1'b0 or 1'b1
