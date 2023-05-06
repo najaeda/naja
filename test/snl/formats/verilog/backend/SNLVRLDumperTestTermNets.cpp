@@ -56,7 +56,7 @@ TEST_F(SNLVRLDumperTestTermNets, testFeedthru0) {
   }
   std::filesystem::create_directory(outPath);
   SNLVRLDumper dumper;
-  dumper.setTopFileName(top_->getName().getString());
+  dumper.setTopFileName(top_->getName().getString() + ".v");
   dumper.setSingleFile(true);
   dumper.dumpDesign(top_, outPath);
 
@@ -85,7 +85,7 @@ TEST_F(SNLVRLDumperTestTermNets, testFeedthru1) {
   }
   std::filesystem::create_directory(outPath);
   SNLVRLDumper dumper;
-  dumper.setTopFileName(top_->getName().getString());
+  dumper.setTopFileName(top_->getName().getString() + ".v");
   dumper.setSingleFile(true);
   dumper.dumpDesign(top_, outPath);
 
@@ -116,7 +116,7 @@ TEST_F(SNLVRLDumperTestTermNets, testFeedthru2) {
   }
   std::filesystem::create_directory(outPath);
   SNLVRLDumper dumper;
-  dumper.setTopFileName(top_->getName().getString());
+  dumper.setTopFileName(top_->getName().getString() + ".v");
   dumper.setSingleFile(true);
   dumper.dumpDesign(top_, outPath);
 
@@ -150,7 +150,7 @@ TEST_F(SNLVRLDumperTestTermNets, testFeedthru3) {
   }
   std::filesystem::create_directory(outPath);
   SNLVRLDumper dumper;
-  dumper.setTopFileName(top_->getName().getString());
+  dumper.setTopFileName(top_->getName().getString() + ".v");
   dumper.setSingleFile(true);
   dumper.dumpDesign(top_, outPath);
 
@@ -180,7 +180,7 @@ TEST_F(SNLVRLDumperTestTermNets, testError1) {
   }
   std::filesystem::create_directory(outPath);
   SNLVRLDumper dumper;
-  dumper.setTopFileName(top_->getName().getString());
+  dumper.setTopFileName(top_->getName().getString() + ".v");
   dumper.setSingleFile(true);
   EXPECT_THROW(dumper.dumpDesign(top_, outPath), SNLVRLDumperException);
 }
@@ -206,7 +206,7 @@ TEST_F(SNLVRLDumperTestTermNets, testError2) {
   }
   std::filesystem::create_directory(outPath);
   SNLVRLDumper dumper;
-  dumper.setTopFileName(top_->getName().getString());
+  dumper.setTopFileName(top_->getName().getString() + ".v");
   dumper.setSingleFile(true);
   EXPECT_THROW(dumper.dumpDesign(top_, outPath), SNLVRLDumperException);
 } 
@@ -235,7 +235,7 @@ TEST_F(SNLVRLDumperTestTermNets, testError3) {
   }
   std::filesystem::create_directory(outPath);
   SNLVRLDumper dumper;
-  dumper.setTopFileName(top_->getName().getString());
+  dumper.setTopFileName(top_->getName().getString() + ".v");
   dumper.setSingleFile(true);
   EXPECT_THROW(dumper.dumpDesign(top_, outPath), SNLVRLDumperException);
 } 

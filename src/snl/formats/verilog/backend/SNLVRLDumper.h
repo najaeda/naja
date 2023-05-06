@@ -71,12 +71,16 @@ class SNLVRLDumper {
         void setTopFileName(const std::string& name) { topFileName_ = name; }
         std::string getTopFileName() const { return topFileName_; }
         bool hasTopFileName() const { return not topFileName_.empty(); }
+        void setLibraryFileName(const std::string& name) { libraryFileName_ = name; }
+        std::string getLibraryFileName() const { return libraryFileName_; }
+        bool hasLibraryFileName() const { return not libraryFileName_.empty(); }
         void setDumpHierarchy(bool mode) { dumpHierarchy_ = mode; }
         bool isDumpHierarchy() const { return dumpHierarchy_; }
       private:
-        bool        singleFile_     {true};
-        std::string topFileName_    {};
-        bool        dumpHierarchy_  {true};
+        bool        singleFile_       {true};
+        std::string topFileName_      {};
+        std::string libraryFileName_  {};
+        bool        dumpHierarchy_    {true};
     }; 
     void setConfiguration(const Configuration& configuration) { configuration_ = configuration; }
     // controls if dumper will dump a single file or a file per module. 
@@ -87,6 +91,7 @@ class SNLVRLDumper {
      * \sa setSingleFile
      */
     void setTopFileName(const std::string& name);
+    void setLibraryFileName(const std::string& name);
     void setDumpHierarchy(bool mode);
     /**
      * \param design SNLDesign to dump.
@@ -97,9 +102,14 @@ class SNLVRLDumper {
     void dumpDesign(const SNLDesign* design, const std::filesystem::path& path);
     //dump design in stream o
     void dumpDesign(const SNLDesign* design, std::ostream& o);
-  
+
+    void dumpLibrary(const SNLLibrary*, const std::filesystem::path& path);
+    void dumpLibrary(const SNLLibrary*, std::ostream& o);
+
+    static std::string binStrToHexStr(std::string binStr);
   private:
     std::string getTopFileName(const SNLDesign* top) const;
+    std::string getLibraryFileName(const SNLLibrary* library) const;
     struct DesignAnonymousNaming {
       using TermNames = std::map<SNLID::DesignObjectID, std::string>;
       std::string name_;
@@ -125,9 +135,10 @@ class SNLVRLDumper {
     void dumpParameters(const SNLDesign* design, std::ostream& o);
     void dumpInstances(const SNLDesign* design, std::ostream& o, DesignInsideAnonymousNaming& naming);
     void dumpInstance(const SNLInstance* instance, std::ostream& o, DesignInsideAnonymousNaming& naming);
+    void dumpInstParameters(const SNLInstance* instance, std::ostream& o);
     void dumpInstanceInterface(const SNLInstance* instance, std::ostream& o, const DesignInsideAnonymousNaming& naming);
     void dumpNets(const SNLDesign* design, std::ostream& o, DesignInsideAnonymousNaming& naming);
-    void dumpNet(const SNLNet* net, std::ostream& o, DesignInsideAnonymousNaming& naming);
+    bool dumpNet(const SNLNet* net, std::ostream& o, DesignInsideAnonymousNaming& naming);
 
     void dumpTermNetAssign(
       const SNLTerm::Direction& direction,

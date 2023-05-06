@@ -35,6 +35,7 @@ class SNLBusNetBit final: public SNLBitNet {
     SNLID getSNLID() const override;
     SNLBusNet* getBus() const { return bus_; }
     SNLID::Bit getBit() const { return bit_; }
+    NajaCollection<SNLBitNet*> getBits() const override;
 
     const char* getTypeName() const override;
     SNLName getName() const override;

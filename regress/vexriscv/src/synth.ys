@@ -1,0 +1,3 @@
+read_verilog src/vexriscv.demo.GenFull.v
+synth_xilinx -top vexriscv.demo.GenFull
+write_verilog vexriscv.demo.GenFull_netlist.v

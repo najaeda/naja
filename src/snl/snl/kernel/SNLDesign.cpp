@@ -90,6 +90,9 @@ void SNLDesign::preCreate(const SNLLibrary* library, Type type, const SNLName& n
   if (type == Type::Primitive and not library->isPrimitives()) {
     throw SNLException("non compatible types in design constructor");
   }
+  if (type != Type::Primitive and library->isPrimitives()) {
+    throw SNLException("non compatible types in design constructor");
+  }
   //test if design with same name exists in library
   if (not name.empty() and library->getDesign(name)) {
     std::string reason = "SNLLibrary " + library->getString() + " contains already a SNLDesign named: " + name.getString();
@@ -198,7 +201,7 @@ void SNLDesign::addTerm(SNLTerm* term) {
       flatID = scalarTerm->getFlatID() + 1;
     } else {
       SNLBusTerm* busTerm = static_cast<SNLBusTerm*>(lastTerm);
-      flatID = busTerm->flatID_ + busTerm->getSize();
+      flatID = busTerm->flatID_ + static_cast<size_t>(busTerm->getSize());
     }
     term->setFlatID(flatID);
   }
@@ -438,7 +441,7 @@ NajaCollection<SNLScalarNet*> SNLDesign::getScalarNets() const {
 }
 
 NajaCollection<SNLBitNet*> SNLDesign::getBitNets() const {
-  auto flattener = [](const SNLBusNet* b) { return b->getBits(); };
+  auto flattener = [](const SNLBusNet* b) { return b->getBusBits(); };
   return getNets().getFlatCollection<SNLBusNet*, SNLBusNetBit*, SNLBitNet*>(flattener);
 }
 

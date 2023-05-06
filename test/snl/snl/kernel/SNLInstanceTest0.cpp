@@ -84,6 +84,7 @@ TEST_F(SNLInstanceTest0, testCreation) {
   EXPECT_EQ(SNLID(SNLID::Type::Instance, 1, 0, 0, 0, instance1->getID(), 0), instance1->getSNLID());
   EXPECT_EQ(SNLID::DesignObjectReference(1, 0, 0, 0), instance1->getReference());
   EXPECT_EQ(instance1, SNLUniverse::get()->getInstance(SNLID::DesignObjectReference(1, 0, 0, 0)));
+  EXPECT_EQ(instance1, SNLUniverse::get()->getObject(SNLID(SNLID::Type::Instance, 1, 0, 0, 0, 0, 0)));
   EXPECT_EQ(SNLID::DesignReference(1, 0, 0), instance1->getReference().getDesignReference());
   EXPECT_NE(SNLID::DesignObjectReference(1, 0, 0, 1), instance1->getReference());
 
@@ -481,7 +482,10 @@ TEST_F(SNLInstanceTest0, testErrors) {
   EXPECT_THROW(SNLInstance::create(nullptr, model), SNLException);
   EXPECT_THROW(SNLInstance::create(design, nullptr), SNLException);
 
-  SNLInstance::create(design, model, SNLName("name"));
+  auto ins = SNLInstance::create(design, model, SNLName("name"));
   EXPECT_THROW(SNLInstance::create(design, model, SNLName("name")), SNLException);
   EXPECT_THROW(SNLInstance::create(design, model, SNLID::DesignObjectID(0)), SNLException);
+
+  //Add non existing Param on instance
+  //EXPECT_THROW(ins->addParameterValue(SNLName("ERROR"), "ERROR"), SNLException);
 }

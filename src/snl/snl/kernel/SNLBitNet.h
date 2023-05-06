@@ -34,10 +34,11 @@ class SNLBitNet: public SNLNet {
     
     void setType(const Type& type) override { type_ = type; }
     Type getType() const { return type_; }
-    size_t getSize() const override { return 1; }
+    SNLID::Bit getSize() const override { return 1; }
 
     bool isConstant0() const { return type_.isConst0(); }
     bool isConstant1() const { return type_.isConst1(); }
+    bool isAssignConstant() const override { return type_.isAssign(); } 
 
     ///\return the collection of SNLComponent ot this SNLBitNet
     NajaCollection<SNLNetComponent*> getComponents() const;

@@ -28,6 +28,30 @@
 #include "SNLBusNet.h"
 #include "SNLBusNetBit.h"
 #include "SNLInstTerm.h"
+#include "SNLUtils.h"
+
+namespace {
+
+//LCOV_EXCL_START
+void printTerms(const naja::SNL::SNLInstance::Terms& terms, std::ostream& stream) {
+  stream << "[";
+  bool first = true;
+  for (auto term: terms) {
+    if (not first) {
+      stream << ", ";
+    }
+    first = false;
+    if (term) {
+      stream << term->getString();
+    } else {
+      stream << "null";
+    }
+  }
+  stream << "]";
+}
+//LCOV_EXCL_STOP
+
+}
 
 namespace naja { namespace SNL {
 
@@ -132,8 +156,9 @@ void SNLInstance::removeInstTerm(SNLBitTerm* term) {
 void SNLInstance::setTermsNets(const Terms& terms, const Nets& nets) {
   if (terms.size() not_eq nets.size()) {
     std::ostringstream reason;
-    reason << "setTermsNets only supported when terms (size: " << terms.size() << ")"
-      << " and nets share same size (size: " << nets.size() << ")";
+    reason << "setTermsNets only supported when terms (size: " << terms.size() << " ";
+    printTerms(terms, reason);
+    reason << ") and nets share same size (size: " << nets.size() << ")";
     throw SNLException(reason.str());
   }
   for (size_t i=0; i<terms.size(); ++i) {
@@ -185,6 +210,20 @@ void SNLInstance::setTermNet(
   setTermsNets(terms, nets);
 }
 
+void SNLInstance::setTermNet(
+  SNLTerm* term,
+  SNLNet* net,
+  SNLID::Bit netMSB, SNLID::Bit netLSB) {
+  SNLID::Bit size = SNLUtils::getSize(netMSB, netLSB);
+  if (auto busTerm = dynamic_cast<SNLBusTerm*>(term)) {
+    SNLID::Bit termMSB = busTerm->getMSB();
+    SNLID::Bit termLSB = (termMSB<busTerm->getLSB())?termMSB+size-1:termMSB-size+1;
+    setTermNet(term, termMSB, termLSB, net, netMSB, netLSB);
+  } else {
+    setTermNet(term, 0, 0, net, netMSB, netLSB);
+  }
+}
+
 void SNLInstance::setTermNet(SNLTerm* term, SNLNet* net) {
   if (term->getSize() not_eq net->getSize()) {
     std::ostringstream reason;
@@ -213,6 +252,7 @@ void SNLInstance::commonPreDestroy() {
 #ifdef SNL_DESTROY_DEBUG
   std::cerr << "commonPreDestroy " << getDescription() << std::endl; 
 #endif
+
   struct destroySharedPathFromInstance {
     void operator()(SNLSharedPath* path) {
       path->destroyFromInstance();
@@ -224,6 +264,12 @@ void SNLInstance::commonPreDestroy() {
       instTerm->destroyFromInstance();
     }
   }
+  struct destroyInstParameterFromInstance {
+    void operator()(SNLInstParameter* instParameter) {
+      instParameter->destroyFromInstance();
+    }
+  };
+  instParameters_.clear_and_dispose(destroyInstParameterFromInstance());
   super::preDestroy();
 }
 
@@ -330,6 +376,18 @@ void SNLInstance::addSharedPath(SNLSharedPath* sharedPath) {
 
 void SNLInstance::removeSharedPath(SNLSharedPath* sharedPath) {
   sharedPaths_.erase(*sharedPath);
+}
+
+void SNLInstance::addInstParameter(SNLInstParameter* instParameter) {
+  instParameters_.insert(*instParameter);
+}
+
+void SNLInstance::removeInstParameter(SNLInstParameter* instParameter) {
+  instParameters_.erase(*instParameter);
+}
+
+NajaCollection<SNLInstParameter*> SNLInstance::getInstParameters() const {
+  return NajaCollection(new NajaIntrusiveSetCollection(&instParameters_));
 }
 
 //LCOV_EXCL_START

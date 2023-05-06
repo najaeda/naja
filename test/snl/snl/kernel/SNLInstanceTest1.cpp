@@ -161,6 +161,16 @@ TEST_F(SNLInstanceTest1, setTermNetTest2) {
   SNLInstance::Nets nets({SNLScalarNet::create(leftInstance_->getDesign())});
   leftInstance_->setTermsNets(terms, nets);
   EXPECT_EQ(1, leftInstance_->getConnectedInstTerms().size());
+  EXPECT_EQ(leftInstance_->getInstTerm(outScalar_)->getNet(), nets[0]);
+}
+
+TEST_F(SNLInstanceTest1, setTermNetTest3) {
+  auto busNet = SNLBusNet::create(leftInstance_->getDesign(), -10, 10);
+  leftInstance_->setTermNet(outBus0_, busNet, -9, -5);
+  EXPECT_EQ(5, leftInstance_->getConnectedInstTerms().size());
+  for (int i=0; i<5; i++) {
+    EXPECT_EQ(leftInstance_->getInstTerm(outBus0_->getBit(3-i))->getNet(), busNet->getBit(i-9));
+  }
 }
 
 TEST_F(SNLInstanceTest1, setTermNetTestErrors) {

@@ -50,17 +50,22 @@ class SNLBusNet final: public SNLNet {
     SNLID::Bit getMSB() const { return msb_; }
     ///\return LSB (Most Significant Bit) or right hand side of the bus range.
     SNLID::Bit getLSB() const { return lsb_; }
-    size_t getSize() const override;
+    SNLID::Bit getSize() const override;
     SNLBusNetBit* getBit(SNLID::Bit bit) const;
     SNLBusNetBit* getBitAtPosition(size_t position) const;
-    NajaCollection<SNLBusNetBit*> getBits() const;
-
+    NajaCollection<SNLBitNet*> getBits() const override;
+    NajaCollection<SNLBusNetBit*> getBusBits() const;
+    void insertBits(
+        std::vector<SNLBitNet*>& bits,
+        std::vector<SNLBitNet*>::const_iterator position,
+        SNLID::Bit msb, SNLID::Bit lsb);
     SNLID::DesignObjectID getID() const override { return id_; }
     SNLID getSNLID() const override;
     SNLName getName() const override { return name_; }
     bool isAnonymous() const override { return name_.empty(); }
 
     void setType(const Type& type) override;
+    bool isAssignConstant() const override;
 
     const char* getTypeName() const override;
     std::string getString() const override;

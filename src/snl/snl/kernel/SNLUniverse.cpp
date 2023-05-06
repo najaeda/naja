@@ -127,6 +127,16 @@ SNLDesign* SNLUniverse::getDesign(const SNLID::DesignReference& reference) const
   return nullptr;
 }
 
+SNLDesign* SNLUniverse::getDesign(const SNLName& name) const {
+  for (auto db: getDBs()) {
+    auto design = db->getDesign(name);
+    if (design) {
+      return design;
+    }
+  }
+  return nullptr;
+}
+
 SNLTerm* SNLUniverse::getTerm(const SNLID::DesignObjectReference& reference) const {
   auto design = getDesign(reference.getDesignReference());
   if (design) {

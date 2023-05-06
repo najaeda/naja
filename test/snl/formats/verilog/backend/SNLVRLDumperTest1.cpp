@@ -43,6 +43,10 @@ class SNLVRLDumperTest1: public ::testing::Test {
       SNLBusTerm::create(model, SNLTerm::Direction::Input, -2, 2, SNLName("i1"));
       SNLBusTerm::create(model, SNLTerm::Direction::Output, 2, -2, SNLName("o0"));
       SNLBusTerm::create(model, SNLTerm::Direction::Output, -2, 2, SNLName("o1"));
+      SNLParameter::create(model, SNLName("PARAM0"), SNLParameter::Type::String, "0000");
+      SNLParameter::create(model, SNLName("PARAM1"), SNLParameter::Type::Boolean, "0");
+      SNLParameter::create(model, SNLName("PARAM2"), SNLParameter::Type::Binary, "4h'0");
+      SNLParameter::create(model, SNLName("PARAM3"), SNLParameter::Type::Decimal, "10");
 
       SNLInstance* instance1 = SNLInstance::create(top, model, SNLName("instance1"));
       SNLInstance* instance2 = SNLInstance::create(top, model, SNLName("instance2"));
@@ -88,7 +92,7 @@ TEST_F(SNLVRLDumperTest1, test0) {
   }
   std::filesystem::create_directory(outPath);
   SNLVRLDumper dumper;
-  dumper.setTopFileName(top->getName().getString());
+  dumper.setTopFileName(top->getName().getString() + ".v");
   dumper.setSingleFile(true);
   dumper.dumpDesign(top, outPath);
 
@@ -129,7 +133,7 @@ TEST_F(SNLVRLDumperTest1, test1) {
   }
   std::filesystem::create_directory(outPath);
   SNLVRLDumper dumper;
-  dumper.setTopFileName(top->getName().getString());
+  dumper.setTopFileName(top->getName().getString() + ".v");
   dumper.setSingleFile(true);
   dumper.dumpDesign(top, outPath);
 
@@ -170,7 +174,7 @@ TEST_F(SNLVRLDumperTest1, test2) {
   }
   std::filesystem::create_directory(outPath);
   SNLVRLDumper dumper;
-  dumper.setTopFileName(top->getName().getString());
+  dumper.setTopFileName(top->getName().getString() + ".v");
   dumper.setSingleFile(true);
   dumper.dumpDesign(top, outPath);
 
@@ -212,7 +216,7 @@ TEST_F(SNLVRLDumperTest1, test3) {
   }
   std::filesystem::create_directory(outPath);
   SNLVRLDumper dumper;
-  dumper.setTopFileName(top->getName().getString());
+  dumper.setTopFileName(top->getName().getString() + ".v");
   dumper.setSingleFile(true);
   dumper.dumpDesign(top, outPath);
 
@@ -258,7 +262,7 @@ TEST_F(SNLVRLDumperTest1, test4) {
   }
   std::filesystem::create_directory(outPath);
   SNLVRLDumper dumper;
-  dumper.setTopFileName(top->getName().getString());
+  dumper.setTopFileName(top->getName().getString() + ".v");
   dumper.setSingleFile(true);
   dumper.dumpDesign(top, outPath);
 
@@ -289,6 +293,59 @@ TEST_F(SNLVRLDumperTest1, test5) {
   instance1->setTermNet(o0BusTerm, -2, -2, SNLScalarNet::create(top, SNLName("net_0")), 0, 0);
   instance1->setTermNet(o0BusTerm, 1, 2, bus0, -1, 0);
 
+  auto i0BusTerm = model->getBusTerm(SNLName("i0"));
+  ASSERT_NE(nullptr, i0BusTerm);
+  auto assign0Bus = SNLBusNet::create(top, 4, 0);
+  assign0Bus->setType(naja::SNL::SNLNet::Type::Assign0);
+  instance1->setTermNet(i0BusTerm, assign0Bus);
+  
+  auto param0 = instance1->getModel()->getParameter(SNLName("PARAM0"));
+  auto param1 = instance1->getModel()->getParameter(SNLName("PARAM1"));
+  auto param2 = instance1->getModel()->getParameter(SNLName("PARAM2"));
+  auto param3 = instance1->getModel()->getParameter(SNLName("PARAM3"));
+  ASSERT_NE(param0, nullptr);
+  ASSERT_NE(param1, nullptr);
+  ASSERT_NE(param2, nullptr);
+  ASSERT_NE(param3, nullptr);
+  SNLInstParameter::create(instance1, param0, "1111");
+  SNLInstParameter::create(instance1, param1, "1");
+  SNLInstParameter::create(instance1, param2, "4h'F");
+  SNLInstParameter::create(instance1, param3, "152");
+
+  SNLInstance::Nets nets;
+  {
+    auto n0 = SNLScalarNet::create(top);
+    n0->setType(naja::SNL::SNLNet::Type::Assign1);
+    auto n1 = SNLScalarNet::create(top);
+    n1->setType(naja::SNL::SNLNet::Type::Assign0);
+    auto n2 = SNLScalarNet::create(top);
+    n2->setType(naja::SNL::SNLNet::Type::Assign0);
+    auto n3 = SNLScalarNet::create(top);
+    n3->setType(naja::SNL::SNLNet::Type::Assign1);
+    auto n4 = SNLScalarNet::create(top);
+    n4->setType(naja::SNL::SNLNet::Type::Assign1);
+    nets = {n0, n1, n2, n3, n4};
+  }
+  SNLInstance::Terms terms(i0BusTerm->getBits().begin(), i0BusTerm->getBits().end()); 
+  instance2->setTermsNets(terms, nets);
+
+  terms.clear();
+  nets.clear();
+  auto i1BusTerm = model->getBusTerm(SNLName("i1"));
+  ASSERT_NE(nullptr, i1BusTerm);
+  terms = SNLInstance::Terms(i1BusTerm->getBits().begin(), i1BusTerm->getBits().end());
+  {
+    auto n0 = SNLScalarNet::create(top);
+    n0->setType(naja::SNL::SNLNet::Type::Assign0);
+    auto n1 = SNLScalarNet::create(top);
+    n1->setType(naja::SNL::SNLNet::Type::Assign1);
+    auto n2 = SNLScalarNet::create(top, SNLName("n2"));
+    auto n3 = SNLScalarNet::create(top, SNLName("n3"));
+    auto n4 = SNLScalarNet::create(top, SNLName("n4"));
+    nets = {n0, n1, n2, n3, n4};
+  }
+  instance2->setTermsNets(terms, nets);
+
   std::filesystem::path outPath(SNL_VRL_DUMPER_TEST_PATH);
   outPath = outPath / "test1Test5";
   if (std::filesystem::exists(outPath)) {
@@ -296,7 +353,7 @@ TEST_F(SNLVRLDumperTest1, test5) {
   }
   std::filesystem::create_directory(outPath);
   SNLVRLDumper dumper;
-  dumper.setTopFileName(top->getName().getString());
+  dumper.setTopFileName(top->getName().getString() + ".v");
   dumper.setSingleFile(true);
   dumper.dumpDesign(top, outPath);
 

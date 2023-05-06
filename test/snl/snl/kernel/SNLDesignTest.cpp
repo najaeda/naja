@@ -9,6 +9,7 @@ using ::testing::ElementsAre;
 #include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
 #include "SNLBusTermBit.h"
+#include "SNLUtils.h"
 #include "SNLException.h"
 using namespace naja::SNL;
 
@@ -251,13 +252,13 @@ TEST_F(SNLDesignTest, testPrimitives) {
 
   auto prims = SNLLibrary::create(db_, SNLLibrary::Type::Primitives, SNLName("Primitives"));
   EXPECT_TRUE(prims->isPrimitives());
-  auto prim = SNLDesign::create(prims, SNLDesign::Type::Primitive, SNLName("Primitive"));
-  EXPECT_NE(nullptr, prim);
-  EXPECT_FALSE(prim->isStandard());
-  EXPECT_FALSE(prim->isBlackBox());
-  EXPECT_TRUE(prim->isPrimitive());
-  EXPECT_TRUE(prim->isLeaf());
-
+  auto prim1 = SNLDesign::create(prims, SNLDesign::Type::Primitive, SNLName("Primitive"));
+  EXPECT_NE(nullptr, prim1);
+  EXPECT_FALSE(prim1->isStandard());
+  EXPECT_FALSE(prim1->isBlackBox());
+  EXPECT_TRUE(prim1->isPrimitive());
+  EXPECT_TRUE(prim1->isLeaf());
+  EXPECT_EQ(nullptr, SNLUtils::findTop(prims));
 
   EXPECT_THROW(
     SNLDesign::create(prims, SNLDesign::Type::Primitive, SNLName("Primitive")),
@@ -268,9 +269,11 @@ TEST_F(SNLDesignTest, testSetTop) {
   SNLLibrary* library = db_->getLibrary(SNLName("MYLIB"));
   ASSERT_NE(library, nullptr);
   SNLDesign* design0 = SNLDesign::create(library, SNLName("design0"));
-  SNLDesign* design1 = SNLDesign::create(library, SNLName("design1"));
   ASSERT_NE(design0, nullptr);
+  EXPECT_EQ(design0, SNLUtils::findTop(library));
+  SNLDesign* design1 = SNLDesign::create(library, SNLName("design1"));
   ASSERT_NE(design1, nullptr);
+  EXPECT_EQ(nullptr, SNLUtils::findTop(library));
 
   EXPECT_EQ(nullptr, SNLUniverse::get()->getTopDesign());
   EXPECT_EQ(nullptr, SNLUniverse::get()->getTopDB());

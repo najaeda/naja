@@ -55,6 +55,10 @@ class SNLUniverse final: public SNLObject {
     ///\return the SNLDesign with SNLID::DesignReference reference or null if it does not exist
     SNLDesign* getDesign(const SNLID::DesignReference& reference) const;
 
+    ///\return the SNLDesign named name or null if it does not exist
+    ///DBs are browsed in their index ordering
+    SNLDesign* getDesign(const SNLName& name) const;
+
     ///\return the SNLTerm with SNLID::DesignObjectReference reference or null if it does not exist
     SNLTerm* getTerm(const SNLID::DesignObjectReference& reference) const;
 
