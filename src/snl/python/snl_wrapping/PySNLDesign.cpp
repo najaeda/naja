@@ -22,6 +22,7 @@
 #include "PySNLScalarNet.h"
 #include "PySNLBusNet.h"
 #include "PySNLInstance.h"
+#include "PySNLTerms.h"
 
 #include "SNLDesign.h"
 
@@ -88,6 +89,7 @@ GetObjectByName(Design, Net)
 GetObjectByName(Design, ScalarNet)
 GetObjectByName(Design, BusNet)
 GetNameMethod(SNLDesign)
+GetContainerMethod(Design, Term)
 
 DBoDestroyAttribute(PySNLDesign_destroy, PySNLDesign)
 
@@ -114,6 +116,8 @@ PyMethodDef PySNLDesign_Methods[] = {
     "retrieve a SNLBusNet."},
   { "getInstance", (PyCFunction)PySNLDesign_getInstance, METH_VARARGS,
     "retrieve a SNLInstance."},
+  { "getTerms", (PyCFunction)PySNLDesign_getTerms, METH_NOARGS,
+    "get a container of SNLTerms."},
   {"destroy", (PyCFunction)PySNLDesign_destroy, METH_NOARGS,
     "destroy this SNLDesign."},
   {NULL, NULL, 0, NULL}           /* sentinel */

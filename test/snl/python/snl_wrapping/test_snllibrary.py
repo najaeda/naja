@@ -24,6 +24,7 @@ class SNLLibraryTest(unittest.TestCase):
     self.assertEqual(db, lib1.getDB())
     self.assertEqual("LIB1", lib1.getName())
     self.assertEqual(lib1, db.getLibrary("LIB1"))
+    self.assertFalse(any(lib1.getDesigns()))
 
     #Create sublib
     lib2 = snl.SNLLibrary.create(lib1, "LIB2")
@@ -31,8 +32,6 @@ class SNLLibraryTest(unittest.TestCase):
     self.assertEqual(db, lib2.getDB())
     self.assertEqual("LIB2", lib2.getName())
     self.assertEqual(lib2, lib1.getLibrary("LIB2"))
-
-
 
 if __name__ == '__main__':
   unittest.main()

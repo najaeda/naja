@@ -13,32 +13,77 @@ class SNLDesignTest(unittest.TestCase):
 
   def test0(self):
     self.assertIsNotNone(self.lib)
+    self.assertFalse(any(self.lib.getDesigns()))
+    self.assertEqual(0, sum(1 for d in self.lib.getDesigns()))
     design = snl.SNLDesign.create(self.lib, "DESIGN")
     self.assertIsNotNone(design)
     self.assertEqual("DESIGN", design.getName())
     self.assertEqual(self.lib, design.getLibrary())
     self.assertIsNotNone(self.lib.getDesign("DESIGN"))
     self.assertEqual(design, self.lib.getDesign("DESIGN"))
+    self.assertTrue(any(self.lib.getDesigns()))
+    self.assertEqual(1, sum(1 for d in self.lib.getDesigns()))
+    designs = [d for d in self.lib.getDesigns()]
+    self.assertEqual(1, len(designs))
+    self.assertEqual(design, designs[0])
+    self.assertFalse(any(design.getTerms()))
+    self.assertEqual(0, sum(1 for d in design.getTerms()))
 
     i0 = snl.SNLScalarTerm.create(design, snl.SNLTerm.Direction.Input, "I0")
     self.assertEqual(design, i0.getDesign())
     self.assertEqual(i0, design.getTerm("I0"))
     self.assertEqual(i0, design.getScalarTerm("I0"))
     self.assertIsNone(design.getBusTerm("I0"))
+    self.assertTrue(any(design.getTerms()))
+    self.assertEqual(1, sum(1 for d in design.getTerms()))
+    terms = [t for t in design.getTerms()]
+    self.assertEqual(1, len(terms))
+    self.assertEqual(i0, terms[0])
+
     i1 = snl.SNLScalarTerm.create(design, snl.SNLTerm.Direction.Input, "I1")
     self.assertEqual(i1, design.getTerm("I1"))
     self.assertEqual(i1, design.getScalarTerm("I1"))
     self.assertIsNone(design.getBusTerm("I1"))
     self.assertEqual(design, i1.getDesign())
+    self.assertEqual(2, sum(1 for d in design.getTerms()))
+    terms = [t for t in design.getTerms()]
+    self.assertEqual(2, len(terms))
+    self.assertEqual(i0, terms[0])
+    self.assertEqual(i1, terms[1])
+
     i2 = snl.SNLScalarTerm.create(design, snl.SNLTerm.Direction.Input, "I2")
     self.assertEqual(i2, design.getTerm("I2"))
     self.assertEqual(i2, design.getScalarTerm("I2"))
     self.assertIsNone(design.getBusTerm("I2"))
     self.assertEqual(design, i2.getDesign())
+    self.assertEqual(3, sum(1 for d in design.getTerms()))
+    terms = [t for t in design.getTerms()]
+    self.assertEqual(3, len(terms))
+    self.assertEqual(i0, terms[0])
+    self.assertEqual(i1, terms[1])
+    self.assertEqual(i2, terms[2])
+
     i3 = snl.SNLScalarTerm.create(design, snl.SNLTerm.Direction.Input, "I3")
     self.assertEqual(design, i3.getDesign())
+    self.assertEqual(4, sum(1 for d in design.getTerms()))
+    terms = [t for t in design.getTerms()]
+    self.assertEqual(4, len(terms))
+    self.assertEqual(i0, terms[0])
+    self.assertEqual(i1, terms[1])
+    self.assertEqual(i2, terms[2])
+    self.assertEqual(i3, terms[3])
+
     o = snl.SNLScalarTerm.create(design, snl.SNLTerm.Direction.Output, "O")
     self.assertEqual(design, o.getDesign())
+    self.assertEqual(5, sum(1 for d in design.getTerms()))
+    terms = [t for t in design.getTerms()]
+    self.assertEqual(5, len(terms))
+    self.assertEqual(i0, terms[0])
+    self.assertEqual(i1, terms[1])
+    self.assertEqual(i2, terms[2])
+    self.assertEqual(i3, terms[3])
+    self.assertEqual(o, terms[4])
+    
 
   def test1(self):
     self.assertIsNotNone(self.lib)

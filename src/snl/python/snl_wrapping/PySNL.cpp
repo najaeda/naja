@@ -27,6 +27,8 @@
 #include "PySNLBusTermBit.h"
 #include "PySNLBusTerm.h"
 #include "PySNLInstance.h"
+#include "PySNLDesigns.h"
+#include "PySNLTerms.h"
 
 namespace PYSNL {
 
@@ -63,6 +65,9 @@ PyMODINIT_FUNC PyInit_snl(void) {
   PySNLBusTermBit_LinkPyType();
   PySNLInstance_LinkPyType();
 
+  PySNLDesigns_LinkPyType();
+  PySNLTerms_LinkPyType();
+
   PYTYPE_READY(SNLUniverse);
   PYTYPE_READY(SNLDB);
   PYTYPE_READY(SNLLibrary);
@@ -83,6 +88,12 @@ PyMODINIT_FUNC PyInit_snl(void) {
   PYTYPE_READY_SUB(SNLBusTermBit, SNLBitTerm);
   PYTYPE_READY_SUB(SNLInstance, SNLDesignObject);
 
+  PYTYPE_READY(SNLDesigns);
+  PYTYPE_READY(SNLDesignsIterator);
+  PYTYPE_READY(SNLTerms);
+  PYTYPE_READY(SNLTermsIterator);
+
+  //FIXME:XTOF Why those increfs ??
   Py_INCREF(&PyTypeSNLUniverse);
   Py_INCREF(&PyTypeSNLDB);
   Py_INCREF(&PyTypeSNLLibrary);
@@ -101,6 +112,8 @@ PyMODINIT_FUNC PyInit_snl(void) {
   Py_INCREF(&PyTypeSNLScalarTerm);
   Py_INCREF(&PyTypeSNLBusTermBit);
   Py_INCREF(&PyTypeSNLInstance);
+  Py_INCREF(&PyTypeSNLDesigns);
+  Py_INCREF(&PyTypeSNLTerms);
 
   PyObject* mod = PyModule_Create(&snlModule);
 

@@ -34,6 +34,15 @@ TEST_F(SNLDBTest, test) {
 
   EXPECT_FALSE(universe->getDBs().empty());
   EXPECT_EQ(3, universe->getDBs().size());
+  auto it = universe->getDBs().begin();
+  EXPECT_NE(it, universe->getDBs().end());
+  EXPECT_EQ(SNLUniverse::getDB0(), *it);
+  ++it;
+  EXPECT_EQ(db1, *it);
+  ++it;
+  EXPECT_EQ(db2, *it);
+  ++it;
+  EXPECT_EQ(it, universe->getDBs().end());
   EXPECT_FALSE(universe->getUserDBs().empty());
   EXPECT_EQ(2, universe->getUserDBs().size());
 
