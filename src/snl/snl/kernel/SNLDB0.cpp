@@ -41,13 +41,7 @@ SNLDB* SNLDB0::create(SNLUniverse* universe) {
 }
 
 SNLDB* SNLDB0::getDB0() {
-  auto universe = SNLUniverse::get();
-  if (universe) {
-    auto db0 = universe->getDB(0);
-    assert(SNLUniverse::isDB0(db0));
-    return db0;
-  }
-  return nullptr;
+  return SNLUniverse::getDB0();
 }
 
 bool SNLDB0::isDB0(const SNLDB* db) {

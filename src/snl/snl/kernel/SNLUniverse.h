@@ -89,6 +89,7 @@ class SNLUniverse final: public SNLObject {
     void setTopDesign(SNLDesign* design);
 
     static bool isDB0(const SNLDB* db);
+    static SNLDB* getDB0();
     
     const char* getTypeName() const override;
     std::string getString() const override;
