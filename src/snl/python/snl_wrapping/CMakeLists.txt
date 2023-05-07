@@ -9,7 +9,7 @@ set(SOURCES
   PySNLTermDirection.cpp 
   PySNLBusTerm.cpp PySNLBitTerm.cpp PySNLScalarTerm.cpp PySNLBusTermBit.cpp
   PySNLInstance.cpp
-  PySNLDesigns.cpp PySNLTerms.cpp
+  PySNLDesigns.cpp PySNLTerms.cpp PySNLInstances.cpp
 )
 
 Python3_add_library(naja_snl_python SHARED ${SOURCES})

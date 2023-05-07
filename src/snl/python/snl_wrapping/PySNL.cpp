@@ -29,6 +29,7 @@
 #include "PySNLInstance.h"
 #include "PySNLDesigns.h"
 #include "PySNLTerms.h"
+#include "PySNLInstances.h"
 
 namespace PYSNL {
 
@@ -67,6 +68,7 @@ PyMODINIT_FUNC PyInit_snl(void) {
 
   PySNLDesigns_LinkPyType();
   PySNLTerms_LinkPyType();
+  PySNLInstances_LinkPyType();
 
   PYTYPE_READY(SNLUniverse);
   PYTYPE_READY(SNLDB);
@@ -92,6 +94,8 @@ PyMODINIT_FUNC PyInit_snl(void) {
   PYTYPE_READY(SNLDesignsIterator);
   PYTYPE_READY(SNLTerms);
   PYTYPE_READY(SNLTermsIterator);
+  PYTYPE_READY(SNLInstances);
+  PYTYPE_READY(SNLInstancesIterator);
 
   //FIXME:XTOF Why those increfs ??
   Py_INCREF(&PyTypeSNLUniverse);
@@ -114,6 +118,7 @@ PyMODINIT_FUNC PyInit_snl(void) {
   Py_INCREF(&PyTypeSNLInstance);
   Py_INCREF(&PyTypeSNLDesigns);
   Py_INCREF(&PyTypeSNLTerms);
+  Py_INCREF(&PyTypeSNLInstances);
 
   PyObject* mod = PyModule_Create(&snlModule);
 

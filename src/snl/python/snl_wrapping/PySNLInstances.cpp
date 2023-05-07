@@ -14,16 +14,16 @@
  * limitations under the License.
  */
 
-#include "PySNLTerms.h"
-#include "PySNLTerm.h"
+#include "PySNLInstances.h"
+#include "PySNLInstance.h"
 
 namespace PYSNL {
 
 using namespace naja::SNL;
 
-PyTypeContainerObjectDefinitions(SNLTerms)
-PyTypeContainerObjectDefinitions(SNLTermsIterator)
+PyTypeContainerObjectDefinitions(SNLInstances)
+PyTypeContainerObjectDefinitions(SNLInstancesIterator)
 
-PyContainerMethods(SNLTerm, SNLTerms)
+PyContainerMethods(SNLInstance, SNLInstances)
 
 }

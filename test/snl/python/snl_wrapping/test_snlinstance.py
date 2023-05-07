@@ -19,12 +19,20 @@ class SNLInstanceTest(unittest.TestCase):
   def test0(self):
     self.assertIsNotNone(self.top)
     self.assertIsNotNone(self.model)
+    self.assertFalse(any(self.top.getInstances()))
+    self.assertFalse(any(self.model.getInstances()))
     ins1 = snl.SNLInstance.create(self.top, self.model, "ins1")
     self.assertIsNotNone(ins1)
     self.assertEqual("ins1", ins1.getName())
     self.assertEqual(self.top, ins1.getDesign())
     self.assertEqual(self.model, ins1.getModel())
     self.assertEqual(ins1, self.top.getInstance("ins1"))
+    self.assertTrue(any(self.top.getInstances()))
+    self.assertEqual(1, sum(1 for d in self.top.getInstances()))
+    instances = [i for i in self.top.getInstances()]
+    self.assertEqual(1, len(instances))
+    self.assertEqual(ins1, instances[0])
+
     
 if __name__ == '__main__':
   unittest.main()

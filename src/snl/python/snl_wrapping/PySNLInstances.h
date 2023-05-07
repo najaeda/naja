@@ -14,16 +14,35 @@
  * limitations under the License.
  */
 
-#include "PySNLTerms.h"
-#include "PySNLTerm.h"
+#ifndef __PY_SNL_INSTANCES_H_
+#define __PY_SNL_INSTANCES_H_
+
+#include "NajaCollection.h"
+
+namespace naja::SNL {
+  class SNLInstance;
+}
+
+#include "PyInterface.h"
 
 namespace PYSNL {
 
-using namespace naja::SNL;
+typedef struct {
+  PyObject_HEAD
+  naja::NajaCollection<naja::SNL::SNLInstance*>* object_;
+} PySNLInstances;
 
-PyTypeContainerObjectDefinitions(SNLTerms)
-PyTypeContainerObjectDefinitions(SNLTermsIterator)
+typedef struct {
+  PyObject_HEAD
+  naja::NajaCollection<naja::SNL::SNLInstance*>::Iterator* object_;
+  PySNLInstances* container_;
+} PySNLInstancesIterator;
 
-PyContainerMethods(SNLTerm, SNLTerms)
+extern PyTypeObject PyTypeSNLInstances;
+extern PyTypeObject PyTypeSNLInstancesIterator;
 
-}
+extern void PySNLInstances_LinkPyType();
+
+} /* PYSNL namespace */
+ 
+#endif /* __PY_SNL_INSTANCES_H_ */
