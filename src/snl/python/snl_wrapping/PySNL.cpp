@@ -29,6 +29,9 @@
 #include "PySNLInstance.h"
 #include "PySNLDesigns.h"
 #include "PySNLTerms.h"
+#include "PySNLBitTerms.h"
+#include "PySNLNets.h"
+#include "PySNLBitNets.h"
 #include "PySNLInstances.h"
 
 namespace PYSNL {
@@ -68,6 +71,9 @@ PyMODINIT_FUNC PyInit_snl(void) {
 
   PySNLDesigns_LinkPyType();
   PySNLTerms_LinkPyType();
+  PySNLBitTerms_LinkPyType();
+  PySNLNets_LinkPyType();
+  PySNLBitNets_LinkPyType();
   PySNLInstances_LinkPyType();
 
   PYTYPE_READY(SNLUniverse);
@@ -94,6 +100,12 @@ PyMODINIT_FUNC PyInit_snl(void) {
   PYTYPE_READY(SNLDesignsIterator);
   PYTYPE_READY(SNLTerms);
   PYTYPE_READY(SNLTermsIterator);
+  PYTYPE_READY(SNLBitTerms);
+  PYTYPE_READY(SNLBitTermsIterator);
+  PYTYPE_READY(SNLNets);
+  PYTYPE_READY(SNLNetsIterator);
+  PYTYPE_READY(SNLBitNets);
+  PYTYPE_READY(SNLBitNetsIterator);
   PYTYPE_READY(SNLInstances);
   PYTYPE_READY(SNLInstancesIterator);
 
@@ -118,6 +130,9 @@ PyMODINIT_FUNC PyInit_snl(void) {
   Py_INCREF(&PyTypeSNLInstance);
   Py_INCREF(&PyTypeSNLDesigns);
   Py_INCREF(&PyTypeSNLTerms);
+  Py_INCREF(&PyTypeSNLBitTerms);
+  Py_INCREF(&PyTypeSNLNets);
+  Py_INCREF(&PyTypeSNLBitNets);
   Py_INCREF(&PyTypeSNLInstances);
 
   PyObject* mod = PyModule_Create(&snlModule);

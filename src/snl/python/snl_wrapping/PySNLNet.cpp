@@ -17,6 +17,7 @@
 #include "PySNLNet.h"
 
 #include "PySNLDesign.h"
+#include "PySNLBitNets.h"
 
 namespace PYSNL {
 
@@ -29,10 +30,13 @@ using namespace naja::SNL;
 #define METHOD_HEAD(function) GENERIC_METHOD_HEAD(SNLNet, function)
 
 GetNameMethod(SNLNet)
+GetContainerMethodWithMethodName(Net, BitNet, getBits)
 
 PyMethodDef PySNLNet_Methods[] = {
   { "getName", (PyCFunction)PySNLNet_getName, METH_NOARGS,
     "get SNLNet name"},
+  { "getBits", (PyCFunction)PySNLNet_getBits, METH_NOARGS,
+    "get a container of SNLBitNets."},
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 

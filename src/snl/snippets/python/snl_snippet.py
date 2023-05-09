@@ -28,6 +28,12 @@ def main() -> int:
 
   i0 = snl.SNLInstance.create(d0, model0, 'i0')
   i1 = snl.SNLInstance.create(d0, model0)
+  print('Model ' + str(model0) + ' bit terms: ')
+  for b in model0.getBitTerms():
+    print(str(b))
+  print('Design ' + str(d0) + ' terms: ')
+  for t in d0.getTerms():
+    print(str(t))
   print('Design ' + str(d0) + ' instances: ')
   for i in d0.getInstances():
     print(str(i))
