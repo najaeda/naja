@@ -103,6 +103,14 @@ bool SNLUniverse::isDB0(const SNLDB* db) {
   return false;
 }
 
+SNLDB* SNLUniverse::getDB0() {
+  auto universe = get();
+  if (universe) {
+    return universe->db0_;
+  }
+  return nullptr;
+}
+
 SNLDB* SNLUniverse::getDB(SNLID::DBID id) const {
   auto it = dbs_.find(SNLID(id), SNLIDComp<SNLDB>());
   if (it != dbs_.end()) {

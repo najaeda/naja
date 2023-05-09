@@ -18,6 +18,7 @@
 
 #include "PySNLDB.h"
 #include "PySNLDesign.h"
+#include "PySNLDesigns.h"
 
 #include "SNLLibrary.h"
 
@@ -53,12 +54,13 @@ static PyObject* PySNLLibrary_create(PyObject*, PyObject* args) {
   return PySNLLibrary_Link(lib);
 }
 
-
 GetObjectMethod(Library, DB)
 GetObjectByName(Library, Design)
 GetObjectByName(Library, Library)
 
 GetNameMethod(SNLLibrary)
+
+GetContainerMethod(Library, Design)
 
 PyMethodDef PySNLLibrary_Methods[] = {
   { "create", (PyCFunction)PySNLLibrary_create, METH_VARARGS|METH_STATIC,
@@ -71,6 +73,8 @@ PyMethodDef PySNLLibrary_Methods[] = {
     "retrieve a SNLLibrary."},
   { "getDesign", (PyCFunction)PySNLLibrary_getDesign, METH_VARARGS,
     "retrieve a SNLDesign."},
+  { "getDesigns", (PyCFunction)PySNLLibrary_getDesigns, METH_NOARGS,
+    "get a container of SNLDesigns."},
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 

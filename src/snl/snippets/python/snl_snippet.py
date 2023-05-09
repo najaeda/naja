@@ -28,8 +28,9 @@ def main() -> int:
 
   i0 = snl.SNLInstance.create(d0, model0, 'i0')
   i1 = snl.SNLInstance.create(d0, model0)
-  print('Instance:', i0, ' in design:', i0.getDesign())
-  print('Instance:', i1, ' in design:', i1.getDesign())
+  print('Design ' + str(d0) + ' instances: ')
+  for i in d0.getInstances():
+    print(str(i))
 
   return 0
 
