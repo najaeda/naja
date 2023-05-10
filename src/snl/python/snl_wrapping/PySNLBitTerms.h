@@ -14,16 +14,15 @@
  * limitations under the License.
  */
 
-#ifndef __PY_SNL_BITTERMS_H_
-#define __PY_SNL_BITTERMS_H_
+#ifndef __PY_SNL_BIT_TERMS_H_
+#define __PY_SNL_BIT_TERMS_H_
 
+#include <Python.h>
 #include "NajaCollection.h"
 
 namespace naja::SNL {
   class SNLBitTerm;
 }
-
-#include "PyInterface.h"
 
 namespace PYSNL {
 
@@ -45,4 +44,4 @@ extern void PySNLBitTerms_LinkPyType();
 
 } /* PYSNL namespace */
  
-#endif /* __PY_SNL_BITTERMS_H_ */
+#endif /* __PY_SNL_BIT_TERMS_H_ */

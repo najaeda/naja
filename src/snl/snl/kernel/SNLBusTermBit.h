@@ -39,6 +39,7 @@ class SNLBusTermBit final: public SNLBitTerm {
     size_t getFlatID() const override;
     ///\return the position of this SNLBusTermBit in SNLBusTerm bits vector.
     size_t getPositionInBus() const;
+    NajaCollection<SNLBitTerm*> getBits() const override;
 
     const char* getTypeName() const override;
     SNLName getName() const override;

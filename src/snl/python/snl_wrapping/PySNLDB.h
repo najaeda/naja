@@ -17,7 +17,7 @@
 #ifndef __PY_SNL_DB_H_
 #define __PY_SNL_DB_H_
 
-#include "PyInterface.h"
+#include <Python.h>
 #include "SNLDB.h"
 
 namespace PYSNL {

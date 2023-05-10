@@ -219,8 +219,12 @@ SNLBusTermBit* SNLBusTerm::getBitAtPosition(size_t position) const {
   return nullptr;
 }
 
-NajaCollection<SNLBusTermBit*> SNLBusTerm::getBits() const {
+NajaCollection<SNLBusTermBit*> SNLBusTerm::getBusBits() const {
   return NajaCollection(new NajaSTLCollection(&bits_));
+}
+
+NajaCollection<SNLBitTerm*> SNLBusTerm::getBits() const {
+  return getBusBits().getParentTypeCollection<SNLBitTerm*>();
 }
 
 }} // namespace SNL // namespace naja

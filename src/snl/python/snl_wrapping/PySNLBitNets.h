@@ -17,13 +17,12 @@
 #ifndef __PY_SNL_BITNETS_H_
 #define __PY_SNL_BITNETS_H_
 
+#include <Python.h>
 #include "NajaCollection.h"
 
 namespace naja::SNL {
   class SNLBitNet;
 }
-
-#include "PyInterface.h"
 
 namespace PYSNL {
 

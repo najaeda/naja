@@ -16,6 +16,7 @@
 
 #include "PySNLBusNet.h"
 
+#include "PyInterface.h"
 #include "PySNLDesign.h"
 
 #include "SNLBusNet.h"

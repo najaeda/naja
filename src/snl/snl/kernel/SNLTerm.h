@@ -24,6 +24,8 @@
 
 namespace naja { namespace SNL {
 
+class SNLBitTerm;
+
 class SNLTerm: public SNLNetComponent {
   public:
     friend class SNLDesign;
@@ -50,6 +52,8 @@ class SNLTerm: public SNLNetComponent {
     virtual SNLName getName() const = 0;
     ///\return term size, 1 for SNLScalarTerm and SNLBusNetBit.
     virtual SNLID::Bit getSize() const = 0;
+
+    virtual NajaCollection<SNLBitTerm*> getBits() const = 0;
 
   protected:
     SNLTerm() = default;

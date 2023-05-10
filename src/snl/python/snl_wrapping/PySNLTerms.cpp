@@ -15,6 +15,8 @@
  */
 
 #include "PySNLTerms.h"
+
+#include "PyInterface.h"
 #include "PySNLTerm.h"
 
 namespace PYSNL {

@@ -15,6 +15,8 @@
  */
 
 #include "PySNLInstances.h"
+
+#include "PyInterface.h"
 #include "PySNLInstance.h"
 
 namespace PYSNL {

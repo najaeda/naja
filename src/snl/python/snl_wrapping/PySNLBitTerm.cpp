@@ -16,6 +16,7 @@
 
 #include "PySNLTerm.h"
 
+#include "PyInterface.h"
 #include "PySNLBitTerm.h"
 
 namespace PYSNL {

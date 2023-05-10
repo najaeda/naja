@@ -16,6 +16,7 @@
 
 #include "PySNLInstance.h"
 
+#include "PyInterface.h"
 #include "PySNLDesign.h"
 
 #include "SNLInstance.h"

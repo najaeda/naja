@@ -16,6 +16,7 @@
 
 #include "PySNLBusTerm.h"
 
+#include "PyInterface.h"
 #include "PySNLDesign.h"
 
 #include "SNLBusTerm.h"

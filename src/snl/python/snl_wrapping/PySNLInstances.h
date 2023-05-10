@@ -17,13 +17,12 @@
 #ifndef __PY_SNL_INSTANCES_H_
 #define __PY_SNL_INSTANCES_H_
 
+#include <Python.h>
 #include "NajaCollection.h"
 
 namespace naja::SNL {
   class SNLInstance;
 }
-
-#include "PyInterface.h"
 
 namespace PYSNL {
 

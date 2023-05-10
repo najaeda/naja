@@ -76,6 +76,10 @@ class SNLDesignTest(unittest.TestCase):
     o = snl.SNLScalarTerm.create(design, snl.SNLTerm.Direction.Output, "O")
     self.assertEqual(design, o.getDesign())
     self.assertEqual(5, sum(1 for t in design.getTerms()))
+    self.assertEqual(5, sum(1 for t in design.getBitTerms()))
+    self.assertEqual(5, sum(1 for t in design.getScalarTerms()))
+    self.assertEqual(0, sum(1 for t in design.getBusTerms()))
+    self.assertEqual(1, sum(1 for t in o.getBits()))
     terms = [t for t in design.getTerms()]
     self.assertEqual(5, len(terms))
     self.assertEqual(i0, terms[0])
@@ -84,7 +88,6 @@ class SNLDesignTest(unittest.TestCase):
     self.assertEqual(i3, terms[3])
     self.assertEqual(o, terms[4])
     
-
   def test1(self):
     self.assertIsNotNone(self.lib)
     design = snl.SNLDesign.create(self.lib, "DESIGN")
@@ -110,6 +113,7 @@ class SNLDesignTest(unittest.TestCase):
 
     self.assertEqual(3, sum(1 for t in design.getTerms()))
     self.assertEqual(1+10+1, sum(1 for b in design.getBitTerms()))
+    self.assertEqual(1+1, sum(1 for t in design.getScalarTerms()))
 
   def testParameters(self):
     self.assertIsNotNone(self.lib)

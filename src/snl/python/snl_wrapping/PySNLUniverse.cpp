@@ -16,6 +16,7 @@
 
 #include "PySNLUniverse.h"
 
+#include "PyInterface.h"
 #include "SNLUniverse.h"
 
 namespace PYSNL {

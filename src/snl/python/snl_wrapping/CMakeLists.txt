@@ -10,7 +10,7 @@ set(SOURCES
   PySNLBusTerm.cpp PySNLBitTerm.cpp PySNLScalarTerm.cpp PySNLBusTermBit.cpp
   PySNLInstance.cpp
   PySNLDesigns.cpp
-  PySNLTerms.cpp PySNLBitTerms.cpp 
+  PySNLTerms.cpp PySNLBitTerms.cpp PySNLScalarTerms.cpp PySNLBusTerms.cpp
   PySNLNets.cpp PySNLBitNets.cpp
   PySNLInstances.cpp
 )

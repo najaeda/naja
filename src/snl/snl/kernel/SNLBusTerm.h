@@ -58,7 +58,8 @@ class SNLBusTerm final: public SNLTerm {
     SNLID::Bit getSize() const override;
     SNLBusTermBit* getBit(SNLID::Bit bit) const;
     SNLBusTermBit* getBitAtPosition(size_t position) const;
-    NajaCollection<SNLBusTermBit*> getBits() const;
+    NajaCollection<SNLBitTerm*> getBits() const override;
+    NajaCollection<SNLBusTermBit*> getBusBits() const;
 
     SNLID::DesignObjectID getID() const override { return id_; }
     SNLID getSNLID() const override;

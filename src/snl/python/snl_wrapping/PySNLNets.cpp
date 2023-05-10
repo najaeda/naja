@@ -15,6 +15,8 @@
  */
 
 #include "PySNLNets.h"
+
+#include "PyInterface.h"
 #include "PySNLNet.h"
 
 namespace PYSNL {

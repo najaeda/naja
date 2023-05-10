@@ -16,6 +16,7 @@
 
 #include "PySNLScalarTerm.h"
 
+#include "PyInterface.h"
 #include "PySNLDesign.h"
 
 #include "SNLScalarTerm.h"

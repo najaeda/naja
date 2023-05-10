@@ -17,7 +17,7 @@
 #ifndef __PY_SNL_DESIGN_OBJECT_H_
 #define __PY_SNL_DESIGN_OBJECT_H_
 
-#include "PyInterface.h"
+#include "Python.h"
 #include "SNLDesignObject.h"
 
 namespace PYSNL {
