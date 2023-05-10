@@ -29,15 +29,16 @@ using namespace naja::SNL;
 #define  ACCESS_CLASS(_pyObject)  &(_pyObject->parent_)
 #define  METHOD_HEAD(function)    GENERIC_METHOD_HEAD(Instance, instance, function)
 
+
+DBoDeallocMethod(SNLBusTermBit)
+
+DBoLinkCreateMethod(SNLBusTermBit)
+PyTypeObjectDefinitions(SNLBusTermBit)
+
 PyMethodDef PySNLBusTermBit_Methods[] = {
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 
-DBoDestroyAttribute(PySNLBusTermBit_destroy, PySNLBusTermBit)
-DBoDeallocMethod(SNLBusTermBit)
-
-DBoLinkCreateMethod(SNLBusTermBit)
 PyTypeSNLObjectWithSNLIDLinkPyType(SNLBusTermBit)
-PyTypeObjectDefinitions(SNLBusTermBit)
 
 }

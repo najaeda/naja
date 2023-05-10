@@ -61,6 +61,11 @@ DirectGetIntMethod(PySNLBusNet_getMSB, getMSB, PySNLBusNet, SNLBusNet)
 DirectGetIntMethod(PySNLBusNet_getLSB, getLSB, PySNLBusNet, SNLBusNet)
 DirectGetIntMethod(PySNLBusNet_getSize, getSize, PySNLBusNet, SNLBusNet)
 
+DBoLinkCreateMethod(SNLBusNet)
+DBoDeallocMethod(SNLBusNet)
+
+PyTypeObjectDefinitions(SNLBusNet)
+
 PyMethodDef PySNLBusNet_Methods[] = {
   { "create", (PyCFunction)PySNLBusNet_create, METH_VARARGS|METH_STATIC,
     "SNLBusNet creator"},
@@ -73,11 +78,6 @@ PyMethodDef PySNLBusNet_Methods[] = {
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 
-DBoDestroyAttribute(PySNLBusNet_destroy, PySNLBusNet)
-DBoDeallocMethod(SNLBusNet)
-
-DBoLinkCreateMethod(SNLBusNet)
 PyTypeSNLObjectWithSNLIDLinkPyType(SNLBusNet)
-PyTypeObjectDefinitions(SNLBusNet)
 
 }

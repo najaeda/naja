@@ -63,6 +63,11 @@ GetNameMethod(SNLLibrary)
 
 GetContainerMethod(Library, Design)
 
+DBoDeallocMethod(SNLLibrary)
+
+DBoLinkCreateMethod(SNLLibrary)
+PyTypeObjectDefinitions(SNLLibrary)
+
 PyMethodDef PySNLLibrary_Methods[] = {
   { "create", (PyCFunction)PySNLLibrary_create, METH_VARARGS|METH_STATIC,
     "SNLLibrary creator"},
@@ -79,11 +84,6 @@ PyMethodDef PySNLLibrary_Methods[] = {
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 
-DBoDestroyAttribute(PySNLLibrary_destroy, PySNLLibrary)
-DBoDeallocMethod(SNLLibrary)
-
-DBoLinkCreateMethod(SNLLibrary)
 PyTypeSNLObjectWithSNLIDLinkPyType(SNLLibrary)
-PyTypeObjectDefinitions(SNLLibrary)
 
 }

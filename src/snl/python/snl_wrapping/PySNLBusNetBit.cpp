@@ -35,7 +35,6 @@ PyMethodDef PySNLBusNetBit_Methods[] = {
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 
-DBoDestroyAttribute(PySNLBusNetBit_destroy, PySNLBusNetBit)
 DBoDeallocMethod(SNLBusNetBit)
 
 DBoLinkCreateMethod(SNLBusNetBit)

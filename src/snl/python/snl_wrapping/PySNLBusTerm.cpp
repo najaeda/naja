@@ -63,6 +63,11 @@ DirectGetIntMethod(PySNLBusTerm_getMSB, getMSB, PySNLBusTerm, SNLBusTerm)
 DirectGetIntMethod(PySNLBusTerm_getLSB, getLSB, PySNLBusTerm, SNLBusTerm)
 DirectGetIntMethod(PySNLBusTerm_getSize, getSize, PySNLBusTerm, SNLBusTerm)
 
+
+DBoLinkCreateMethod(SNLBusTerm)
+DBoDeallocMethod(SNLBusTerm)
+PyTypeObjectDefinitions(SNLBusTerm)
+
 PyMethodDef PySNLBusTerm_Methods[] = {
   { "create", (PyCFunction)PySNLBusTerm_create, METH_VARARGS|METH_STATIC,
     "SNLBusTerm creator"},
@@ -75,11 +80,6 @@ PyMethodDef PySNLBusTerm_Methods[] = {
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 
-DBoDestroyAttribute(PySNLBusTerm_destroy, PySNLBusTerm)
-DBoDeallocMethod(SNLBusTerm)
-
-DBoLinkCreateMethod(SNLBusTerm)
 PyTypeSNLObjectWithSNLIDLinkPyType(SNLBusTerm)
-PyTypeObjectDefinitions(SNLBusTerm)
 
 }

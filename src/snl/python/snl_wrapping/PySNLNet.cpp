@@ -33,6 +33,11 @@ using namespace naja::SNL;
 GetNameMethod(SNLNet)
 GetContainerMethodWithMethodName(Net, BitNet, getBits)
 
+DBoDeallocMethod(SNLNet)
+
+DBoLinkCreateMethod(SNLNet)
+PyTypeInheritedObjectDefinitions(SNLNet, SNLDesignObject)
+
 PyMethodDef PySNLNet_Methods[] = {
   { "getName", (PyCFunction)PySNLNet_getName, METH_NOARGS,
     "get SNLNet name"},
@@ -41,11 +46,6 @@ PyMethodDef PySNLNet_Methods[] = {
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 
-DBoDestroyAttribute(PySNLNet_destroy, PySNLNet)
-DBoDeallocMethod(SNLNet)
-
-DBoLinkCreateMethod(SNLNet)
 PyTypeSNLObjectWithSNLIDLinkPyType(SNLNet)
-PyTypeInheritedObjectDefinitions(SNLNet, SNLDesignObject)
 
 }
