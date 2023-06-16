@@ -386,6 +386,14 @@ void SNLInstance::removeInstParameter(SNLInstParameter* instParameter) {
   instParameters_.erase(*instParameter);
 }
 
+SNLInstParameter* SNLInstance::getInstParameter(const SNLName& name) const {
+  auto it = instParameters_.find(name, SNLNameComp<SNLInstParameter>());
+  if (it != instParameters_.end()) {
+    return const_cast<SNLInstParameter*>(&*it);
+  }
+  return nullptr;
+}
+
 NajaCollection<SNLInstParameter*> SNLInstance::getInstParameters() const {
   return NajaCollection(new NajaIntrusiveSetCollection(&instParameters_));
 }

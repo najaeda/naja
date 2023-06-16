@@ -69,9 +69,12 @@ TEST_F(SNLParameterTest, test) {
   EXPECT_EQ("PARAM2", instParam2->getName().getString());
   EXPECT_EQ("73", instParam1->getValue());
   EXPECT_EQ("87", instParam2->getValue());
+  EXPECT_EQ(instParam1, instance->getInstParameter(SNLName("PARAM1")));
+  EXPECT_EQ(instParam2, instance->getInstParameter(SNLName("PARAM2")));
   //InstParam destruction
   instParam1->destroy();
   EXPECT_EQ(1, instance->getInstParameters().size());
+  EXPECT_EQ(nullptr, instance->getInstParameter(SNLName("PARAM1")));
 
   using ParamsVector = std::vector<SNLParameter*>;
   ParamsVector paramsVector(design_->getParameters().begin(), design_->getParameters().end());
