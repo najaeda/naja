@@ -5,8 +5,8 @@ PRIMITIVES ?= ../../primitives/xilinx.py
 
 all: adder_snl.v primitives.v verilator
 
-verilator: adder_snl.v
-	${VERILATOR} --lint-only $<
+verilator: adder_snl.v primitives.v
+	${VERILATOR} --lint-only adder_snl.v primitives.v
 
 adder_netlist.v: src/adder.v
 	${YOSYS} src/synth.ys
