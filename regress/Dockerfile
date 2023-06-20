@@ -4,6 +4,7 @@ FROM gcr.io/hdl-containers/yosys:latest
 COPY --from=verilator /usr/local/bin/* /usr/local/bin/
 RUN mkdir -p /usr/local/share/verilator/
 COPY --from=verilator /usr/local/share/verilator/* /usr/local/share/verilator/
+RUN ls -R /usr/local/share 
 RUN apt-get update && apt-get -y install \
     git \
     pkg-config \
