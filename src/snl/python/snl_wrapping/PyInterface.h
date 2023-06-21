@@ -208,7 +208,7 @@ PyObject* richCompare(T left, T right, int op) {
 
 #define GetNameMethod(SELF_TYPE) \
   static PyObject* Py##SELF_TYPE##_getName(Py##SELF_TYPE* self) { \
-    METHOD_HEAD("SELF_TYPE.getName()") \
+    METHOD_HEAD(#SELF_TYPE ".getName()") \
     SNLTRY \
     return PyUnicode_FromString(selfObject->getName().getString().c_str()); \
     SNLCATCH \
@@ -393,10 +393,23 @@ PyObject* richCompare(T left, T right, int op) {
 
 #define GetContainerMethod(TYPE, ITERATED) \
   static PyObject* PySNL##TYPE##_get##ITERATED##s(PySNL##TYPE *self) { \
-    METHOD_HEAD("SNL##TYPE.get##ITERATED##s()") \
+    METHOD_HEAD("SNL" #TYPE ".get" #ITERATED "s()") \
     PySNL##ITERATED##s* pyObjects = nullptr; \
     SNLTRY \
     auto objects = new naja::NajaCollection<SNL##ITERATED*>(selfObject->get##ITERATED##s()); \
+    pyObjects = PyObject_NEW(PySNL##ITERATED##s, &PyTypeSNL##ITERATED##s); \
+    if (not pyObjects) return nullptr; \
+    pyObjects->object_ = objects; \
+    SNLCATCH \
+    return (PyObject*)pyObjects; \
+  }
+
+#define GetContainerMethodWithMethodName(TYPE, ITERATED, METHOD) \
+  static PyObject* PySNL##TYPE##_##METHOD(PySNL##TYPE *self) { \
+    METHOD_HEAD("SNL" #TYPE "." #METHOD "()") \
+    PySNL##ITERATED##s* pyObjects = nullptr; \
+    SNLTRY \
+    auto objects = new naja::NajaCollection<SNL##ITERATED*>(selfObject->METHOD()); \
     pyObjects = PyObject_NEW(PySNL##ITERATED##s, &PyTypeSNL##ITERATED##s); \
     if (not pyObjects) return nullptr; \
     pyObjects->object_ = objects; \

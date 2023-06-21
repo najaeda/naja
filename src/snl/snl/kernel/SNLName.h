@@ -45,6 +45,16 @@ class SNLName {
     std::string string_;
 };
 
+template<typename T>
+struct SNLNameComp {
+  bool operator()(const SNL::SNLName& name, const T& obj) const {
+    return name < obj.getName();
+  }
+  bool operator()(const T& obj, const SNL::SNLName& name) const {
+    return obj.getName() < name;
+  }
+};
+
 }} // namespace SNL // namespace naja
 
 #endif // __SNL_NAME_H_

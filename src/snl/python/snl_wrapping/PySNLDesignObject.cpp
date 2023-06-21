@@ -16,6 +16,7 @@
 
 #include "PySNLDesignObject.h"
 
+#include "PyInterface.h"
 #include "PySNLDesign.h"
 
 namespace PYSNL {
@@ -29,17 +30,17 @@ static PyObject* PySNLDesignObject_getDesign(PySNLDesignObject* self) {
   return PySNLDesign_Link(selfObject->getDesign());
 }
 
+DBoDeallocMethod(SNLDesignObject)
+
+DBoLinkCreateMethod(SNLDesignObject)
+PyTypeObjectDefinitions(SNLDesignObject)
+
 PyMethodDef PySNLDesignObject_Methods[] = {
   {"getDesign", (PyCFunction)PySNLDesignObject_getDesign, METH_NOARGS,
     "Returns the SNLDesignObject owner design."},
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 
-DBoDestroyAttribute(PySNLDesignObject_destroy, PySNLDesignObject)
-DBoDeallocMethod(SNLDesignObject)
-
-DBoLinkCreateMethod(SNLDesignObject)
 PyTypeSNLObjectWithSNLIDLinkPyType(SNLDesignObject)
-PyTypeObjectDefinitions(SNLDesignObject)
 
 }

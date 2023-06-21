@@ -16,6 +16,7 @@
 
 #include "PySNLParameter.h"
 
+#include "PyInterface.h"
 #include "SNLParameter.h"
 #include "PySNLDesign.h"
 

@@ -103,6 +103,9 @@ SNLID SNLScalarTerm::getSNLID() const {
   return SNLDesignObject::getSNLID(SNLID::Type::Term, id_, 0, 0);
 }
 
+NajaCollection<SNLBitTerm*> SNLScalarTerm::getBits() const {
+  return NajaCollection(new NajaSingletonCollection(const_cast<SNLScalarTerm*>(this))).getParentTypeCollection<SNLBitTerm*>();
+}
 
 //LCOV_EXCL_START
 const char* SNLScalarTerm::getTypeName() const {

@@ -15,6 +15,8 @@
  */
 
 #include "PySNLDesigns.h"
+
+#include "PyInterface.h"
 #include "PySNLDesign.h"
 
 namespace PYSNL {

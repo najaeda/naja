@@ -75,6 +75,10 @@ size_t SNLBusTermBit::getPositionInBus() const {
   return size_t(std::abs(getBit() - getBus()->getMSB())); 
 }
 
+NajaCollection<SNLBitTerm*> SNLBusTermBit::getBits() const {
+  return NajaCollection(new NajaSingletonCollection(const_cast<SNLBusTermBit*>(this))).getParentTypeCollection<SNLBitTerm*>();
+}
+
 SNLDesign* SNLBusTermBit::getDesign() const {
   return getBus()->getDesign();
 }

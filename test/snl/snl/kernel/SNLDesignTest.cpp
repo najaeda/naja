@@ -138,7 +138,7 @@ TEST_F(SNLDesignTest, testCreation0) {
   EXPECT_EQ(5, term3->getSize());
   EXPECT_FALSE(term3->getBits().empty());
   EXPECT_EQ(5, term3->getBits().size());
-  for (auto bit: term3->getBits()) {
+  for (auto bit: term3->getBusBits()) {
     EXPECT_EQ(SNLTerm::Direction::Input, bit->getDirection());
     EXPECT_EQ(term3, bit->getBus());
   }

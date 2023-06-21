@@ -16,6 +16,7 @@
 
 #include "PySNLScalarNet.h"
 
+#include "PyInterface.h"
 #include "PySNLDesign.h"
 
 #include "SNLScalarNet.h"

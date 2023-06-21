@@ -16,6 +16,7 @@
 
 #include "PySNLDB.h"
 
+#include "PyInterface.h"
 #include "PySNLUniverse.h"
 #include "PySNLLibrary.h"
 

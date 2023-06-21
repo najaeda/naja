@@ -48,7 +48,7 @@ TEST_F(SNLTermTest, testCreation) {
   EXPECT_EQ(4, term0->getSize());
   EXPECT_FALSE(term0->getBits().empty());
   EXPECT_EQ(4, term0->getBits().size());
-  for (auto bit: term0->getBits()) {
+  for (auto bit: term0->getBusBits()) {
     EXPECT_EQ(SNLTerm::Direction::InOut, bit->getDirection());
     EXPECT_EQ(term0, bit->getBus());
     EXPECT_FALSE(bit->isAnonymous());

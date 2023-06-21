@@ -14,28 +14,34 @@
  * limitations under the License.
  */
 
-#ifndef __PY_SNL_UNIVERSE_H_
-#define __PY_SNL_UNIVERSE_H_
+#ifndef __PY_SNL_SCALAR_TERMS_H_
+#define __PY_SNL_SCALAR_TERMS_H_
 
 #include <Python.h>
-#include "SNLUniverse.h"
+#include "NajaCollection.h"
+
+namespace naja::SNL {
+  class SNLScalarTerm;
+}
 
 namespace PYSNL {
 
 typedef struct {
   PyObject_HEAD
-  naja::SNL::SNLUniverse* object_;
-} PySNLUniverse;
+  naja::NajaCollection<naja::SNL::SNLScalarTerm*>* object_;
+} PySNLScalarTerms;
 
-extern PyTypeObject PyTypeSNLUniverse;
+typedef struct {
+  PyObject_HEAD
+  naja::NajaCollection<naja::SNL::SNLScalarTerm*>::Iterator* object_;
+  PySNLScalarTerms* container_;
+} PySNLScalarTermsIterator;
 
-extern PyObject*    PySNLUniverse_Link(naja::SNL::SNLUniverse* u);
-extern void         PySNLUniverse_LinkPyType();
+extern PyTypeObject PyTypeSNLScalarTerms;
+extern PyTypeObject PyTypeSNLScalarTermsIterator;
 
-#define IsPySNLUniverse(v) (PyObject_TypeCheck(v, &PyTypeSNLUniverse))
-#define PYSNLUNIVERSE(v)   ((PySNLUniverse*)(v))
-#define PYSNLUNIVERSE_O(v) (PYSNLUNIVERSE(v)->object_)
+extern void PySNLScalarTerms_LinkPyType();
 
-} // PYSNL namespace
+} /* PYSNL namespace */
  
-#endif // __PY_SNL_UNIVERSE_H_
+#endif /* __PY_SNL_SCALAR_TERMS_H_ */

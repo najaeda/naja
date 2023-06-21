@@ -86,7 +86,7 @@ class SNLInstance final: public SNLDesignObject {
     std::string getString() const override;
     std::string getDescription() const override;
 
-    void addInstanceParameter(const SNLName* , const std::string& value);
+    SNLInstParameter* getInstParameter(const SNLName& name) const;
     NajaCollection<SNLInstParameter*> getInstParameters() const;
 
     ///\return SNLInstTerm corresponding to the SNLBitTerm representative in this instance. 

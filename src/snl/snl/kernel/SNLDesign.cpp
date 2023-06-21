@@ -292,7 +292,7 @@ NajaCollection<SNLScalarTerm*> SNLDesign::getScalarTerms() const {
 }
 
 NajaCollection<SNLBitTerm*> SNLDesign::getBitTerms() const {
-  auto flattener = [](const SNLBusTerm* b) { return b->getBits(); };
+  auto flattener = [](const SNLBusTerm* b) { return b->getBusBits(); };
   return getTerms().getFlatCollection<SNLBusTerm*, SNLBusTermBit*, SNLBitTerm*>(flattener);
 }
 

@@ -14,28 +14,34 @@
  * limitations under the License.
  */
 
-#ifndef __PY_SNL_UNIVERSE_H_
-#define __PY_SNL_UNIVERSE_H_
+#ifndef __PY_SNL_NETS_H_
+#define __PY_SNL_NETS_H_
 
 #include <Python.h>
-#include "SNLUniverse.h"
+#include "NajaCollection.h"
+
+namespace naja::SNL {
+  class SNLNet;
+}
 
 namespace PYSNL {
 
 typedef struct {
   PyObject_HEAD
-  naja::SNL::SNLUniverse* object_;
-} PySNLUniverse;
+  naja::NajaCollection<naja::SNL::SNLNet*>* object_;
+} PySNLNets;
 
-extern PyTypeObject PyTypeSNLUniverse;
+typedef struct {
+  PyObject_HEAD
+  naja::NajaCollection<naja::SNL::SNLNet*>::Iterator* object_;
+  PySNLNets* container_;
+} PySNLNetsIterator;
 
-extern PyObject*    PySNLUniverse_Link(naja::SNL::SNLUniverse* u);
-extern void         PySNLUniverse_LinkPyType();
+extern PyTypeObject PyTypeSNLNets;
+extern PyTypeObject PyTypeSNLNetsIterator;
 
-#define IsPySNLUniverse(v) (PyObject_TypeCheck(v, &PyTypeSNLUniverse))
-#define PYSNLUNIVERSE(v)   ((PySNLUniverse*)(v))
-#define PYSNLUNIVERSE_O(v) (PYSNLUNIVERSE(v)->object_)
+extern void PySNLNets_LinkPyType();
 
-} // PYSNL namespace
+} /* PYSNL namespace */
  
-#endif // __PY_SNL_UNIVERSE_H_
+#endif /* __PY_SNL_NETS_H_ */

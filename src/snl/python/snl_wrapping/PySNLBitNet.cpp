@@ -15,6 +15,7 @@
  */
 
 #include "PySNLBitNet.h"
+#include "PyInterface.h"
 
 namespace PYSNL {
 

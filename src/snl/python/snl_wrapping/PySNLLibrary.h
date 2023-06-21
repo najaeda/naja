@@ -17,7 +17,7 @@
 #ifndef __PY_SNL_LIBRARY_H_
 #define __PY_SNL_LIBRARY_H_
 
-#include "PyInterface.h"
+#include <Python.h>
 
 namespace naja::SNL {
   class SNLLibrary;

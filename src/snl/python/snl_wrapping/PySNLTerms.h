@@ -17,13 +17,12 @@
 #ifndef __PY_SNL_TERMS_H_
 #define __PY_SNL_TERMS_H_
 
+#include <Python.h>
 #include "NajaCollection.h"
 
 namespace naja::SNL {
   class SNLTerm;
 }
-
-#include "PyInterface.h"
 
 namespace PYSNL {
 

@@ -16,6 +16,7 @@
 
 #include "PySNLInstance.h"
 
+#include "PyInterface.h"
 #include "PySNLDesign.h"
 
 #include "SNLInstance.h"
@@ -65,6 +66,11 @@ static PyObject* PySNLInstance_getModel(PySNLInstance* self) {
 
 GetNameMethod(SNLInstance)
 
+DBoDeallocMethod(SNLInstance)
+
+DBoLinkCreateMethod(SNLInstance)
+PyTypeInheritedObjectDefinitions(SNLInstance, SNLDesignObject)
+
 PyMethodDef PySNLInstance_Methods[] = {
   { "create", (PyCFunction)PySNLInstance_create, METH_VARARGS|METH_STATIC,
     "SNLInstance creator"},
@@ -75,11 +81,6 @@ PyMethodDef PySNLInstance_Methods[] = {
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 
-DBoDestroyAttribute(PySNLInstance_destroy, PySNLInstance)
-DBoDeallocMethod(SNLInstance)
-
-DBoLinkCreateMethod(SNLInstance)
 PyTypeSNLObjectWithSNLIDLinkPyType(SNLInstance)
-PyTypeInheritedObjectDefinitions(SNLInstance, SNLDesignObject)
 
 }
