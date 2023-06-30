@@ -25,6 +25,8 @@ class SNLSharedPath;
 
 class SNLPath {
   public:
+    friend class SNLOccurrence;
+
     SNLPath() = default;
     SNLPath(const SNLPath&);
     SNLPath(SNLSharedPath* sharedPath);
@@ -46,6 +48,7 @@ class SNLPath {
     bool operator!=(const SNLPath& path) const;
 
   private:
+    SNLSharedPath* getSharedPath() const { return sharedPath_; }
     SNLSharedPath*  sharedPath_ {nullptr};
 };
 

@@ -14,23 +14,13 @@
  * limitations under the License.
  */
 
-#ifndef __SNL_OBJECT_H_
-#define __SNL_OBJECT_H_
-
-#include "NajaObject.h"
+#include "SNLBitNetOccurrence.h"
 
 namespace naja { namespace SNL {
 
-class SNLObject: public NajaObject {
-  public:
-    using super = NajaObject;
-
-  protected:
-    static void preCreate();
-    void postCreate();
-    void preDestroy() override;
-};
+SNLBitNetOccurrence::SNLBitNetOccurrence(const SNLPath& path, SNLBitNet* net):
+  SNLOccurrence(path),
+  net_(net)
+{}
 
 }} // namespace SNL // namespace naja
-
-#endif // __SNL_OBJECT_H_

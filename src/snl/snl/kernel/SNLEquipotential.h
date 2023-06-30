@@ -14,23 +14,24 @@
  * limitations under the License.
  */
 
-#ifndef __SNL_OBJECT_H_
-#define __SNL_OBJECT_H_
-
-#include "NajaObject.h"
+#ifndef __SNL_EQUIPOTENTIAL_H_
+#define __SNL_EQUIPOTENTIAL_H_
 
 namespace naja { namespace SNL {
 
-class SNLObject: public NajaObject {
-  public:
-    using super = NajaObject;
+class SNLNetComponent;
+class SNLNetComponentOccurrence;
 
-  protected:
-    static void preCreate();
-    void postCreate();
-    void preDestroy() override;
+class SNLEquipotential {
+  public:
+    SNLEquipotential()=delete;
+    SNLEquipotential(const SNLEquipotential&)=delete;
+
+    SNLEquipotential(SNLNetComponent* netComponent);
+    SNLEquipotential(const SNLNetComponentOccurrence& netComponentOccurrence);
+
 };
 
 }} // namespace SNL // namespace naja
 
-#endif // __SNL_OBJECT_H_
+#endif // __SNL_EQUIPOTENTIAL_H_

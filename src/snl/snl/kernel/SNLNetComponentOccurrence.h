@@ -14,23 +14,29 @@
  * limitations under the License.
  */
 
-#ifndef __SNL_OBJECT_H_
-#define __SNL_OBJECT_H_
 
-#include "NajaObject.h"
+#ifndef __SNL_NET_COMPONENT_OCCURRENCE_H_
+#define __SNL_NET_COMPONENT_OCCURRENCE_H_
+
+#include "SNLOccurrence.h"
 
 namespace naja { namespace SNL {
 
-class SNLObject: public NajaObject {
-  public:
-    using super = NajaObject;
+class SNLNetComponent;
+class SNLBitNet;
 
-  protected:
-    static void preCreate();
-    void postCreate();
-    void preDestroy() override;
+class SNLNetComponentOccurrence: public SNLOccurrence {
+  public:
+    using super = SNLOccurrence;
+
+    SNLNetComponentOccurrence()=default;
+    SNLNetComponentOccurrence(SNLNetComponent* component);
+
+    SNLBitNet* getNet() const;
+  private:
+    SNLNetComponent*  component_;
 };
 
 }} // namespace SNL // namespace naja
 
-#endif // __SNL_OBJECT_H_
+#endif // __SNL_NET_COMPONENT_OCCURRENCE_H_

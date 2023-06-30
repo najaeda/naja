@@ -14,23 +14,14 @@
  * limitations under the License.
  */
 
-#ifndef __SNL_OBJECT_H_
-#define __SNL_OBJECT_H_
+#include "SNLInstTermOccurrence.h"
 
-#include "NajaObject.h"
+#include "SNLInstTerm.h"
 
 namespace naja { namespace SNL {
 
-class SNLObject: public NajaObject {
-  public:
-    using super = NajaObject;
-
-  protected:
-    static void preCreate();
-    void postCreate();
-    void preDestroy() override;
-};
+SNLInstTermOccurrence::SNLInstTermOccurrence(SNLInstTerm* instTerm):
+  super(instTerm)
+{}
 
 }} // namespace SNL // namespace naja
-
-#endif // __SNL_OBJECT_H_

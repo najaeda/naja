@@ -14,23 +14,26 @@
  * limitations under the License.
  */
 
-#ifndef __SNL_OBJECT_H_
-#define __SNL_OBJECT_H_
 
-#include "NajaObject.h"
+#ifndef __SNL_OCCURRENCE_H_
+#define __SNL_OCCURRENCE_H_
 
 namespace naja { namespace SNL {
 
-class SNLObject: public NajaObject {
-  public:
-    using super = NajaObject;
+class SNLPath;
+class SNLSharedPath;
 
+class SNLOccurrence {
+  public:
+    SNLOccurrence()=default;
+
+    SNLPath getPath() const;
   protected:
-    static void preCreate();
-    void postCreate();
-    void preDestroy() override;
+    SNLOccurrence(const SNLPath& path);
+  private:
+    SNLSharedPath*  path_   {nullptr};
 };
 
 }} // namespace SNL // namespace naja
 
-#endif // __SNL_OBJECT_H_
+#endif // __SNL_OCCURRENCE_H_
