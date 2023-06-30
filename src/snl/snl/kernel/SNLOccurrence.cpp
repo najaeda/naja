@@ -20,8 +20,13 @@
 
 namespace naja { namespace SNL {
 
-SNLOccurrence::SNLOccurrence(const SNLPath& path):
-  path_(path.getSharedPath())
+SNLOccurrence::SNLOccurrence(SNLDesignObject* object):
+  object_(object)
+{}
+
+SNLOccurrence::SNLOccurrence(const SNLPath& path, SNLDesignObject* object):
+  path_(path.getSharedPath()),
+  object_(object)
 {}
 
 SNLPath SNLOccurrence::getPath() const {

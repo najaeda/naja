@@ -29,12 +29,11 @@ class SNLNetComponentOccurrence: public SNLOccurrence {
   public:
     using super = SNLOccurrence;
 
-    SNLNetComponentOccurrence()=default;
     SNLNetComponentOccurrence(SNLNetComponent* component);
+    SNLNetComponentOccurrence(const SNLPath& path, SNLNetComponent* component);
 
+    SNLNetComponent* getNetComponent() const;
     SNLBitNet* getNet() const;
-  private:
-    SNLNetComponent*  component_;
 };
 
 }} // namespace SNL // namespace naja

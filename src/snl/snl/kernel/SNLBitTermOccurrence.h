@@ -15,23 +15,21 @@
  */
 
 
-#ifndef __SNL_BIT_NET_OCCURRENCE_H_
-#define __SNL_BIT_NET_OCCURRENCE_H_
+#ifndef __SNL_BIT_TERM_OCCURRENCE_H_
+#define __SNL_BIT_TERM_OCCURRENCE_H_
 
-#include "SNLOccurrence.h"
+#include "SNLNetComponentOccurrence.h"
 
 namespace naja { namespace SNL {
 
-class SNLBitNet;
+class SNLBitTerm;
 
-class SNLBitNetOccurrence: public SNLOccurrence {
+class SNLBitTermOccurrence: public SNLNetComponentOccurrence {
   public:
-    using super = SNLOccurrence;
+    using super = SNLNetComponentOccurrence;
 
-    SNLBitNetOccurrence(SNLBitNet* net);
-    SNLBitNetOccurrence(const SNLPath& path, SNLBitNet* net);
-
-    SNLBitNet* getNet() const;
+    SNLBitTermOccurrence(SNLBitTerm* term);
+    SNLBitTermOccurrence(const SNLPath& path, SNLBitTerm* term);
 };
 
 }} // namespace SNL // namespace naja

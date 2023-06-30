@@ -17,15 +17,19 @@
 #ifndef __SNL_EQUIPOTENTIAL_H_
 #define __SNL_EQUIPOTENTIAL_H_
 
+#include <set>
+
 namespace naja { namespace SNL {
 
 class SNLNetComponent;
 class SNLNetComponentOccurrence;
+class SNLInstTermOccurrence;
 
 class SNLEquipotential {
   public:
     SNLEquipotential()=delete;
     SNLEquipotential(const SNLEquipotential&)=delete;
+    using InstTermOccurrences = std::set<SNLInstTermOccurrence>;
 
     SNLEquipotential(SNLNetComponent* netComponent);
     SNLEquipotential(const SNLNetComponentOccurrence& netComponentOccurrence);

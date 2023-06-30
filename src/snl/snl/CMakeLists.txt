@@ -17,7 +17,8 @@ set(SNL_KERNEL_SOURCES
   kernel/SNLParameter.cpp kernel/SNLInstParameter.cpp
   kernel/SNLUtils.cpp
   kernel/SNLOccurrence.cpp kernel/SNLBitNetOccurrence.cpp
-  kernel/SNLNetComponentOccurrence.cpp kernel/SNLInstTermOccurrence.cpp
+  kernel/SNLNetComponentOccurrence.cpp 
+  kernel/SNLBitTermOccurrence.cpp kernel/SNLInstTermOccurrence.cpp
   kernel/SNLEquipotential.cpp
 )
 
@@ -39,8 +40,11 @@ set(SNL_KERNEL_HEADERS
   kernel/SNLParameter.h kernel/SNLInstParameter.h
   kernel/SNLException.h
   kernel/SNLUtils.h
-  kernel/SNLOccurrence.h kernel/SNLBitNetOccurrence.h
-  kernel/SNLNetComponentOccurrence.h kernel/SNLInstTermOccurrence.h
+  kernel/SNLOccurrence.h
+  kernel/SNLBitNetOccurrence.h
+  kernel/SNLNetComponentOccurrence.h
+  kernel/SNLBitTermOccurrence.h
+  kernel/SNLInstTermOccurrence.h
   kernel/SNLEquipotential.h
 )
 

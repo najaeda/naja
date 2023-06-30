@@ -24,4 +24,8 @@ SNLInstTermOccurrence::SNLInstTermOccurrence(SNLInstTerm* instTerm):
   super(instTerm)
 {}
 
+SNLInstTermOccurrence::SNLInstTermOccurrence(const SNLPath& path, SNLInstTerm* instTerm):
+  super(path, instTerm)
+{}
+
 }} // namespace SNL // namespace naja

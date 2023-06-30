@@ -28,8 +28,8 @@ class SNLInstTermOccurrence: public SNLNetComponentOccurrence {
   public:
     using super = SNLNetComponentOccurrence;
     
-    SNLInstTermOccurrence()=default;
     SNLInstTermOccurrence(SNLInstTerm* instTerm);
+    SNLInstTermOccurrence(const SNLPath& path, SNLInstTerm* instTerm);
 };
 
 }} // namespace SNL // namespace naja

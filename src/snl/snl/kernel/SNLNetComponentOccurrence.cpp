@@ -21,13 +21,21 @@
 namespace naja { namespace SNL {
 
 SNLNetComponentOccurrence::SNLNetComponentOccurrence(SNLNetComponent* component):
-  super(),
-  component_(component)
+  super(component)
 {}
 
+SNLNetComponentOccurrence::SNLNetComponentOccurrence(const SNLPath& path, SNLNetComponent* component):
+  super(path, component)
+{}
+
+SNLNetComponent* SNLNetComponentOccurrence::getNetComponent() const {
+  return static_cast<SNLNetComponent*>(getObject());
+}
+
 SNLBitNet* SNLNetComponentOccurrence::getNet() const {
-  if (component_) {
-    return component_->getNet();
+  auto component = getNetComponent();
+  if (component) {
+    return component->getNet();
   }
   return nullptr;
 }

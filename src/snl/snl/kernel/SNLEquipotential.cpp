@@ -17,22 +17,63 @@
 #include "SNLEquipotential.h"
 
 #include "SNLPath.h"
+#include "SNLInstTermOccurrence.h"
+#include "SNLBitTermOccurrence.h"
 #include "SNLBitNetOccurrence.h"
-#include "SNLNetComponentOccurrence.h"
+#include "SNLBitNet.h"
+#include "SNLInstTerm.h"
+#include "SNLInstance.h"
 
 namespace {
 
-void extractFromNetComponentOccurrence(
-  const naja::SNL::SNLNetComponentOccurrence& netComponentOccurrence
-) {
-  naja::SNL::SNLPath path = netComponentOccurrence.getPath();
-  naja::SNL::SNLBitNet* net = netComponentOccurrence.getNet();
+struct SNLEquipotentialExtractor {
 
-  if (net) {
-    //explore NetOccurrence
-    naja::SNL::SNLBitNetOccurrence netOccurrence(path, net);
+  void extractFromNetOccurrence(
+    const naja::SNL::SNLBitNetOccurrence& netOccurrence
+  ) {
+    auto net = netOccurrence.getNet();
+    auto path = netOccurrence.getPath();
+    for (auto instTerm: net->getInstTerms()) {
+      auto instance = instTerm->getInstance();
+      if (instance->isLeaf()) {
+        //construct InstTerm Occurrences
+
+      } else {
+        //get inside instance by exploring from term occurrence
+        auto term = instTerm->getTerm();
+        auto instancePath = naja::SNL::SNLPath(path, instance);
+        //
+        extractFromNetComponentOccurrence(naja::SNL::SNLBitTermOccurrence(instancePath, term));
+      }
+
+    }
+    if (path.empty()) {
+    } else {
+      for (auto term: net->getBitTerms()) {
+        //go up: extract from upper instance term occurrence
+        auto parentPath = path.getHeadPath();
+        auto instance = path.getTailInstance();
+        auto instTerm = instance->getInstTerm(term);
+        //
+        extractFromNetComponentOccurrence(naja::SNL::SNLInstTermOccurrence(parentPath, instTerm));
+      }
+    }
   }
-}
+
+  void extractFromNetComponentOccurrence(
+    const naja::SNL::SNLNetComponentOccurrence& netComponentOccurrence
+  ) {
+    naja::SNL::SNLPath path = netComponentOccurrence.getPath();
+    naja::SNL::SNLBitNet* net = netComponentOccurrence.getNet();
+
+    if (net) {
+      //explore NetOccurrence
+      naja::SNL::SNLBitNetOccurrence netOccurrence(path, net);
+      extractFromNetOccurrence(netOccurrence);
+    }
+  }
+
+};
 
 }
 
@@ -43,7 +84,8 @@ SNLEquipotential::SNLEquipotential(SNLNetComponent* netComponent):
 {}
 
 SNLEquipotential::SNLEquipotential(const SNLNetComponentOccurrence& netComponentOccurrence) {
-  extractFromNetComponentOccurrence(netComponentOccurrence);
+  SNLEquipotentialExtractor extractor;
+  extractor.extractFromNetComponentOccurrence(netComponentOccurrence);
 }
 
 }} // namespace SNL // namespace naja

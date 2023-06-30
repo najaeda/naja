@@ -14,26 +14,18 @@
  * limitations under the License.
  */
 
+#include "SNLBitTermOccurrence.h"
 
-#ifndef __SNL_BIT_NET_OCCURRENCE_H_
-#define __SNL_BIT_NET_OCCURRENCE_H_
-
-#include "SNLOccurrence.h"
+#include "SNLBitTerm.h"
 
 namespace naja { namespace SNL {
 
-class SNLBitNet;
+SNLBitTermOccurrence::SNLBitTermOccurrence(SNLBitTerm* term):
+  super(term)
+{}
 
-class SNLBitNetOccurrence: public SNLOccurrence {
-  public:
-    using super = SNLOccurrence;
-
-    SNLBitNetOccurrence(SNLBitNet* net);
-    SNLBitNetOccurrence(const SNLPath& path, SNLBitNet* net);
-
-    SNLBitNet* getNet() const;
-};
+SNLBitTermOccurrence::SNLBitTermOccurrence(const SNLPath& path, SNLBitTerm* term):
+  super(path, term)
+{}
 
 }} // namespace SNL // namespace naja
-
-#endif // __SNL_OCCURRENCE_H_

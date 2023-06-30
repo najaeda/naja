@@ -16,11 +16,16 @@
 
 #include "SNLBitNetOccurrence.h"
 
+#include "SNLBitNet.h"
+
 namespace naja { namespace SNL {
 
 SNLBitNetOccurrence::SNLBitNetOccurrence(const SNLPath& path, SNLBitNet* net):
-  SNLOccurrence(path),
-  net_(net)
+  SNLOccurrence(path, net)
 {}
+
+SNLBitNet* SNLBitNetOccurrence::getNet() const {
+  return static_cast<SNLBitNet*>(getObject());
+}
 
 }} // namespace SNL // namespace naja

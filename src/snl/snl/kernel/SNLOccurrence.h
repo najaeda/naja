@@ -22,16 +22,25 @@ namespace naja { namespace SNL {
 
 class SNLPath;
 class SNLSharedPath;
+class SNLDesignObject;
 
 class SNLOccurrence {
   public:
-    SNLOccurrence()=default;
+    SNLOccurrence()=delete;
+    SNLOccurrence(const SNLOccurrence&);
+
+    SNLOccurrence(SNLDesignObject* object);
+    SNLOccurrence(const SNLPath& path, SNLDesignObject* object);
 
     SNLPath getPath() const;
+    SNLDesignObject* getObject() const { return object_; }
+
+    bool operator<(const SNLOccurrence& occurrence) const;
   protected:
     SNLOccurrence(const SNLPath& path);
   private:
-    SNLSharedPath*  path_   {nullptr};
+    SNLSharedPath*      path_   {nullptr};
+    SNLDesignObject*    object_ {nullptr};
 };
 
 }} // namespace SNL // namespace naja
