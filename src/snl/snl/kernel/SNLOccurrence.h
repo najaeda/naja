@@ -27,7 +27,7 @@ class SNLDesignObject;
 class SNLOccurrence {
   public:
     SNLOccurrence()=delete;
-    SNLOccurrence(const SNLOccurrence&);
+    SNLOccurrence(const SNLOccurrence&)=default;
 
     SNLOccurrence(SNLDesignObject* object);
     SNLOccurrence(const SNLPath& path, SNLDesignObject* object);

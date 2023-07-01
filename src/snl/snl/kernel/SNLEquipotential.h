@@ -33,7 +33,8 @@ class SNLEquipotential {
 
     SNLEquipotential(SNLNetComponent* netComponent);
     SNLEquipotential(const SNLNetComponentOccurrence& netComponentOccurrence);
-
+  private:
+    InstTermOccurrences instTermOccurrences_  {};
 };
 
 }} // namespace SNL // namespace naja

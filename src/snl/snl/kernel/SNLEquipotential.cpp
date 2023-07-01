@@ -26,7 +26,13 @@
 
 namespace {
 
+using namespace naja::SNL;
+
 struct SNLEquipotentialExtractor {
+  SNLEquipotentialExtractor(
+    SNLEquipotential::InstTermOccurrences& instTermOccurrences
+  ): instTermOccurrences_(instTermOccurrences)
+  {}
 
   void extractFromNetOccurrence(
     const naja::SNL::SNLBitNetOccurrence& netOccurrence
@@ -37,7 +43,7 @@ struct SNLEquipotentialExtractor {
       auto instance = instTerm->getInstance();
       if (instance->isLeaf()) {
         //construct InstTerm Occurrences
-
+        instTermOccurrences_.emplace(naja::SNL::SNLInstTermOccurrence(path, instTerm));
       } else {
         //get inside instance by exploring from term occurrence
         auto term = instTerm->getTerm();
@@ -73,6 +79,9 @@ struct SNLEquipotentialExtractor {
     }
   }
 
+  private:
+    SNLEquipotential::InstTermOccurrences&  instTermOccurrences_;
+
 };
 
 }
@@ -84,7 +93,7 @@ SNLEquipotential::SNLEquipotential(SNLNetComponent* netComponent):
 {}
 
 SNLEquipotential::SNLEquipotential(const SNLNetComponentOccurrence& netComponentOccurrence) {
-  SNLEquipotentialExtractor extractor;
+  SNLEquipotentialExtractor extractor(instTermOccurrences_);
   extractor.extractFromNetComponentOccurrence(netComponentOccurrence);
 }
 

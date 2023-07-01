@@ -17,6 +17,7 @@
 #include "SNLOccurrence.h"
 
 #include "SNLPath.h"
+#include "SNLDesignObject.h"
 
 namespace naja { namespace SNL {
 
@@ -28,6 +29,14 @@ SNLOccurrence::SNLOccurrence(const SNLPath& path, SNLDesignObject* object):
   path_(path.getSharedPath()),
   object_(object)
 {}
+
+bool SNLOccurrence::operator<(const SNLOccurrence& occurrence) const {
+  //First start by comparing objects (through their SNLIDs)
+  //If equal compare their path. Paths can be nullptr
+  return ((*getObject() < *occurrence.getObject()) or
+    ((*getObject() == *occurrence.getObject()) and (path_ < occurrence.path_)));
+}
+
 
 SNLPath SNLOccurrence::getPath() const {
   if (path_) {

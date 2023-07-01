@@ -60,7 +60,7 @@ class SNLSharedPath {
     void destroyFromInstance();
 
     boost::intrusive::set_member_hook<> instanceSharedPathsHook_  {};
-    SNLID                               key_                      ;
+    SNLID                               key_;
     SNLSharedPath*                      headSharedPath_           {nullptr};
     SNLInstance*                        tailInstance_             {nullptr};
 };
