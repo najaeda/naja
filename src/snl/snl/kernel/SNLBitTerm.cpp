@@ -18,7 +18,7 @@
 #include "SNLDesign.h"
 #include "SNLBitNet.h"
 #include "SNLException.h"
-#include "SNLNetComponentMacros.h"
+#include "SNLMacros.h"
 
 namespace naja { namespace SNL {
 

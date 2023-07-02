@@ -385,6 +385,23 @@ void SNLDesign::removeNet(SNLNet* net) {
   nets_.erase(*net);
 }
 
+void SNLDesign::renameNet(SNLNet* net, const SNLName& previousName) {
+  //if net was anonymous, and new one is not... just insert with new name
+  if (previousName.empty()) {
+    if (not net->isAnonymous()) {
+      //collision is already verified by net before trying insertion
+      netNameIDMap_[net->getName()] = net->getID();
+    } //else nothing to do, anonymous to anonymous
+  } else {
+    auto node = netNameIDMap_.extract(previousName);
+    assert(node);
+    if (not net->isAnonymous()) {
+      node.key() = net->getName();
+      netNameIDMap_.insert(std::move(node));
+    }
+  }
+}
+
 SNLNet* SNLDesign::getNet(SNLID::DesignObjectID id) const {
   auto it = nets_.find(
       SNLID(SNLID::Type::Net, getDB()->getID(), getLibrary()->getID(), getID(), id, 0, 0),
