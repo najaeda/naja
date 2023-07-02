@@ -29,7 +29,8 @@ class SNLDesign;
  * SNLSharedPath is a class non visible from users. Visible API is SNLPath.
  * SNLSharedPath class allows:
  * - caching SNLInstance path through a tree like structure, sharing common headPath
- * - storing Occurrence properties
+ * - storing Occurrence properties (in the future)
+ * SNLSharedPath is a data structure composed of [SNLSharedPath, SNLInstance*]
  */
 class SNLSharedPath {
   public:

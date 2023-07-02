@@ -118,4 +118,17 @@ bool SNLPath::operator!=(const SNLPath& path) const {
   return sharedPath_ != path.sharedPath_;
 }
 
+bool SNLPath::operator<(const SNLPath& path) const {
+  if (sharedPath_) {
+    if (path.sharedPath_) {
+      return *sharedPath_ < *path.sharedPath_;
+    } else {
+      return false;
+    }
+  } else {
+    return path.sharedPath_ != nullptr;
+  }
+  return false;
+}
+
 }} // namespace SNL // namespace naja

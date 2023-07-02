@@ -55,6 +55,9 @@ class SNLDesignObject: public SNLObject {
     friend bool operator<(const SNLDesignObject &ldo, const SNLDesignObject &rdo) {
       return ldo.getSNLID() < rdo.getSNLID();
     }
+    friend bool operator==(const SNLDesignObject &ldo, const SNLDesignObject &rdo) {
+      return ldo.getSNLID() == rdo.getSNLID();
+    }
   protected:
     SNLDesignObject() = default;
 

@@ -53,12 +53,12 @@ class SNLInstance final: public SNLDesignObject {
     using SNLInstanceSharedPaths = boost::intrusive::set<SNLSharedPath, SNLInstanceSharedPathsHook>;
 
     /**
-     * @brief SNLInstance creator.
+     * \brief SNLInstance creator.
      * 
-     * @param design owner SNLDesign
-     * @param model instanciated SNLDesign
-     * @param name optional name
-     * @return created SNLInstance. 
+     * \param design owner SNLDesign
+     * \param model instanciated SNLDesign (model)
+     * \param name optional name
+     * \return created SNLInstance. 
      */
     static SNLInstance* create(SNLDesign* design, SNLDesign* model, const SNLName& name=SNLName());
 

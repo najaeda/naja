@@ -34,7 +34,7 @@ bool SNLOccurrence::operator<(const SNLOccurrence& occurrence) const {
   //First start by comparing objects (through their SNLIDs)
   //If equal compare their path. Paths can be nullptr
   return ((*getObject() < *occurrence.getObject()) or
-    ((*getObject() == *occurrence.getObject()) and (path_ < occurrence.path_)));
+    ((*getObject() == *occurrence.getObject()) and (getPath() < occurrence.getPath())));
 }
 
 
