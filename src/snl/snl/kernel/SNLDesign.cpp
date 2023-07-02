@@ -394,9 +394,7 @@ void SNLDesign::renameNet(SNLNet* net, const SNLName& previousName) {
     } //else nothing to do, anonymous to anonymous
   } else {
     auto node = netNameIDMap_.extract(previousName);
-    if (not node) {
-      //error
-    }
+    assert(node);
     if (not net->isAnonymous()) {
       node.key() = net->getName();
       netNameIDMap_.insert(std::move(node));
