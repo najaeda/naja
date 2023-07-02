@@ -186,6 +186,7 @@ class SNLDesign final: public SNLObject {
     void addNet(SNLNet* net);
     void addNetAndSetID(SNLNet* net);
     void removeNet(SNLNet* net);
+    void renameNet(SNLNet* net, const SNLName& previousName);
     void addParameter(SNLParameter* parameter);
     void removeParameter(SNLParameter* parameter);
     static bool isBetween(int n, int MSB, int LSB);

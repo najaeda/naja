@@ -14,8 +14,16 @@
  * limitations under the License.
  */
 
-#ifndef __SNL_NET_COMPONENT_MACROS_H_
-#define __SNL_NET_COMPONENT_MACROS_H_
+#ifndef __SNL_MACROS_H_
+#define __SNL_MACROS_H_
+
+#include <sstream>
+
+//
+//Contains various methods used in different while similar... contexts
+//Might seem dirty to use good old macros but I prefer this than plain copy/paste...
+//Did not find a proper way to implement this with templates.
+//
 
 #define NET_COMPONENT_SET_NET(TYPE) \
 void TYPE::setNet(SNLNet* net) { \
@@ -44,5 +52,25 @@ void TYPE::setNet(SNLNet* net) { \
   } \
 }
 
+#define NET_SET_NAME(TYPE) \
+void TYPE::setName(const SNLName& name) { \
+  if (name_ == name) { \
+    return; \
+  } \
+  if (not name.empty()) { \
+    /* check collision */ \
+    if (auto collision = design_->getNet(name)) { \
+      std::ostringstream reason; \
+      reason << "In design " << design_->getString() \
+        << ", cannot rename " << getString() << " to " \
+        << name.getString() << ", another net: " << collision->getString() \
+        << " has already this name."; \
+      throw SNLException(reason.str()); \
+    } \
+  } \
+  auto previousName = getName(); \
+  name_ = name; \
+  getDesign()->renameNet(this, previousName); \
+}
 
-#endif // __SNL_NET_COMPONENT_MACROS_H_
+#endif // __SNL_MACROS_H_
