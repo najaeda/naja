@@ -82,7 +82,7 @@ void SNLScalarNet::postCreate() {
   getDesign()->addNet(this);
 }
 
-NET_SET_NAME(SNLScalarNet)
+DESIGN_OBJECT_SET_NAME(SNLScalarNet, Net, net)
 
 void SNLScalarNet::commonPreDestroy() {
   super::preDestroy();

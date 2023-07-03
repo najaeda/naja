@@ -66,6 +66,7 @@ class SNLBusTerm final: public SNLTerm {
     size_t getFlatID() const override { return flatID_; }
     SNLName getName() const override { return name_; }
     bool isAnonymous() const override { return name_.empty(); }
+    void setName(const SNLName& name);
     const char* getTypeName() const override;
     SNLTerm::Direction getDirection() const override { return direction_; }
     std::string getString() const override;

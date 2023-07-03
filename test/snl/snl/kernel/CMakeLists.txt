@@ -4,7 +4,7 @@ SET(snl_tests
   SNLIDTest.cpp
   SNLUniverseTest.cpp SNLDBTest.cpp SNLLibraryTest.cpp
   SNLDesignTest.cpp SNLTermTest.cpp
-  SNLInstanceTest0.cpp SNLInstanceTest1.cpp
+  SNLInstanceTest0.cpp SNLInstanceTest1.cpp SNLInstanceTest2.cpp
   SNLNetTest.cpp #SNLLargeDBTest.cpp
   SNLPathTest.cpp
   SNLParameterTest.cpp

@@ -29,6 +29,7 @@
 #include "SNLBusNetBit.h"
 #include "SNLInstTerm.h"
 #include "SNLUtils.h"
+#include "SNLMacros.h"
 
 namespace {
 
@@ -152,6 +153,8 @@ void SNLInstance::removeInstTerm(SNLBitTerm* term) {
   }
   instTerms_[term->getFlatID()] = nullptr;
 }
+
+DESIGN_OBJECT_SET_NAME(SNLInstance, Instance, instance)
 
 void SNLInstance::setTermsNets(const Terms& terms, const Nets& nets) {
   if (terms.size() not_eq nets.size()) {

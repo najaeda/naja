@@ -28,6 +28,7 @@
 #include "SNLScalarNet.h"
 #include "SNLBusNet.h"
 #include "SNLBusNetBit.h"
+#include "SNLMacros.h"
 
 namespace naja { namespace SNL {
 
@@ -385,22 +386,9 @@ void SNLDesign::removeNet(SNLNet* net) {
   nets_.erase(*net);
 }
 
-void SNLDesign::renameNet(SNLNet* net, const SNLName& previousName) {
-  //if net was anonymous, and new one is not... just insert with new name
-  if (previousName.empty()) {
-    if (not net->isAnonymous()) {
-      //collision is already verified by net before trying insertion
-      netNameIDMap_[net->getName()] = net->getID();
-    } //else nothing to do, anonymous to anonymous
-  } else {
-    auto node = netNameIDMap_.extract(previousName);
-    assert(node);
-    if (not net->isAnonymous()) {
-      node.key() = net->getName();
-      netNameIDMap_.insert(std::move(node));
-    }
-  }
-}
+DESIGN_RENAME(SNLTerm, Term, termNameIDMap_)
+DESIGN_RENAME(SNLNet, Net, netNameIDMap_)
+DESIGN_RENAME(SNLInstance, Instance, instanceNameIDMap_)
 
 SNLNet* SNLDesign::getNet(SNLID::DesignObjectID id) const {
   auto it = nets_.find(

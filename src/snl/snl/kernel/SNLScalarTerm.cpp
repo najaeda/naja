@@ -21,6 +21,7 @@
 
 #include "SNLException.h"
 #include "SNLDesign.h"
+#include "SNLMacros.h"
 
 namespace naja { namespace SNL {
 
@@ -98,6 +99,8 @@ void SNLScalarTerm::preDestroy() {
   commonPreDestroy();
   getDesign()->removeTerm(this);
 }
+
+DESIGN_OBJECT_SET_NAME(SNLScalarTerm, Term, term)
 
 SNLID SNLScalarTerm::getSNLID() const {
   return SNLDesignObject::getSNLID(SNLID::Type::Term, id_, 0, 0);
