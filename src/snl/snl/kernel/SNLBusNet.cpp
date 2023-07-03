@@ -24,6 +24,7 @@
 #include "SNLBusNetBit.h"
 #include "SNLException.h"
 #include "SNLUtils.h"
+#include "SNLMacros.h"
 
 namespace naja { namespace SNL {
 
@@ -185,6 +186,8 @@ void SNLBusNet::insertBits(
 void SNLBusNet::setType(const Type& type) {
   std::for_each(bits_.begin(), bits_.end(), [type](SNLBusNetBit* b){ if (b) b->setType(type); });
 }
+
+DESIGN_OBJECT_SET_NAME(SNLBusNet, Net, net)
 
 bool SNLBusNet::isAssignConstant() const {
   return std::all_of(bits_.begin(), bits_.end(), [](const SNLBusNetBit* b){ return b->getType().isAssign(); });

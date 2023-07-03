@@ -299,3 +299,31 @@ TEST_F(SNLNetTest, testErrors) {
   //incompatible nets
   EXPECT_THROW(scalarTerm1->setNet(net0), SNLException);
 }
+
+TEST_F(SNLNetTest, testRename) {
+  auto net0 = SNLScalarNet::create(design_, SNLName("net0"));
+  auto net1 = SNLBusNet::create(design_, 31, 0, SNLName("net1"));
+  auto net2 = SNLScalarNet::create(design_);
+  EXPECT_EQ(net0, design_->getNet(SNLName("net0")));
+  EXPECT_EQ(net1, design_->getNet(SNLName("net1")));
+  EXPECT_FALSE(net0->isAnonymous());
+  net0->setName(SNLName());
+  EXPECT_TRUE(net0->isAnonymous());
+  EXPECT_EQ(nullptr, design_->getNet(SNLName("net0")));
+  net0->setName(SNLName("net0"));
+  EXPECT_FALSE(net0->isAnonymous());
+  EXPECT_EQ(net0, design_->getNet(SNLName("net0")));
+  EXPECT_FALSE(net1->isAnonymous());
+  net1->setName(SNLName("net1")); //nothing should happen...
+  EXPECT_EQ(net1, design_->getNet(SNLName("net1")));
+  net1->setName(SNLName("n1"));
+  EXPECT_FALSE(net1->isAnonymous());
+  EXPECT_EQ(nullptr, design_->getNet(SNLName("net1")));
+  EXPECT_EQ(net1, design_->getNet(SNLName("n1")));
+  EXPECT_TRUE(net2->isAnonymous());
+  net2->setName(SNLName("net2"));
+  EXPECT_FALSE(net2->isAnonymous());
+  EXPECT_EQ(net2, design_->getNet(SNLName("net2")));
+  //Collision error
+  EXPECT_THROW(net1->setName(SNLName("net0")), SNLException);
+}

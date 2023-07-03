@@ -22,6 +22,7 @@
 #include "SNLException.h"
 #include "SNLLibrary.h"
 #include "SNLDesign.h"
+#include "SNLMacros.h"
 
 namespace naja { namespace SNL {
 
@@ -80,6 +81,8 @@ void SNLScalarNet::postCreate() {
   super::postCreate();
   getDesign()->addNet(this);
 }
+
+DESIGN_OBJECT_SET_NAME(SNLScalarNet, Net, net)
 
 void SNLScalarNet::commonPreDestroy() {
   super::preDestroy();

@@ -28,6 +28,7 @@
 #include "SNLScalarNet.h"
 #include "SNLBusNet.h"
 #include "SNLBusNetBit.h"
+#include "SNLMacros.h"
 
 namespace naja { namespace SNL {
 
@@ -384,6 +385,10 @@ void SNLDesign::removeNet(SNLNet* net) {
   }
   nets_.erase(*net);
 }
+
+DESIGN_RENAME(SNLTerm, Term, termNameIDMap_)
+DESIGN_RENAME(SNLNet, Net, netNameIDMap_)
+DESIGN_RENAME(SNLInstance, Instance, instanceNameIDMap_)
 
 SNLNet* SNLDesign::getNet(SNLID::DesignObjectID id) const {
   auto it = nets_.find(

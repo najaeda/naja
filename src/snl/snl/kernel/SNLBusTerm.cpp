@@ -22,6 +22,7 @@
 #include "SNLBusNet.h"
 #include "SNLBusNetBit.h"
 #include "SNLUtils.h"
+#include "SNLMacros.h"
 
 namespace naja { namespace SNL {
 
@@ -139,6 +140,8 @@ void SNLBusTerm::preDestroy() {
   getDesign()->removeTerm(this);
   commonPreDestroy();
 }
+
+DESIGN_OBJECT_SET_NAME(SNLBusTerm, Term, term)
 
 void SNLBusTerm::setNet(SNLNet* net) {
   if (not net) {

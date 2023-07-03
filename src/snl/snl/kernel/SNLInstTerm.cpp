@@ -23,7 +23,7 @@
 #include "SNLDesign.h"
 #include "SNLBitTerm.h"
 #include "SNLBitNet.h"
-#include "SNLNetComponentMacros.h"
+#include "SNLMacros.h"
 
 namespace naja { namespace SNL {
 

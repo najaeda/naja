@@ -72,6 +72,7 @@ class SNLInstance final: public SNLDesignObject {
     SNLID::DesignObjectReference getReference() const;
 
     SNLName getName() const { return name_; }
+    void setName(const SNLName& name);
 
     bool isAnonymous() const override { return name_.empty(); }
     ///\return true if this SNLInstance is a blackbox.

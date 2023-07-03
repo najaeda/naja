@@ -62,6 +62,7 @@ class SNLBusNet final: public SNLNet {
     SNLID::DesignObjectID getID() const override { return id_; }
     SNLID getSNLID() const override;
     SNLName getName() const override { return name_; }
+    void setName(const SNLName& name);
     bool isAnonymous() const override { return name_.empty(); }
 
     void setType(const Type& type) override;
