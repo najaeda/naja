@@ -225,3 +225,36 @@ TEST_F(SNLTermTest, testErrors) {
   EXPECT_THROW(SNLBusTerm::create(design, SNLID::DesignObjectID(0), SNLTerm::Direction::Input, 31, 0), SNLException);
   EXPECT_THROW(SNLScalarTerm::create(design, SNLID::DesignObjectID(1), SNLTerm::Direction::Input), SNLException);
 }
+
+TEST_F(SNLTermTest, testRename) {
+  SNLLibrary* library = db_->getLibrary(SNLName("MYLIB"));
+  ASSERT_NE(library, nullptr);
+  SNLDesign* design = SNLDesign::create(library, SNLName("design"));
+  ASSERT_NE(design, nullptr);
+
+  auto term0 = SNLScalarTerm::create(design, SNLTerm::Direction::Input, SNLName("term0"));
+  auto term1 = SNLBusTerm::create(design, SNLTerm::Direction::Output, 31, 0, SNLName("term1"));
+  auto term2 = SNLScalarTerm::create(design, SNLTerm::Direction::Input);
+  EXPECT_EQ(term0, design->getTerm(SNLName("term0")));
+  EXPECT_EQ(term1, design->getTerm(SNLName("term1")));
+  EXPECT_FALSE(term0->isAnonymous());
+  term0->setName(SNLName());
+  EXPECT_TRUE(term0->isAnonymous());
+  EXPECT_EQ(nullptr, design->getTerm(SNLName("term0")));
+  term0->setName(SNLName("term0"));
+  EXPECT_FALSE(term0->isAnonymous());
+  EXPECT_EQ(term0, design->getTerm(SNLName("term0")));
+  EXPECT_FALSE(term1->isAnonymous());
+  term1->setName(SNLName("term1")); //nothing should happen...
+  EXPECT_EQ(term1, design->getTerm(SNLName("term1")));
+  term1->setName(SNLName("t1"));
+  EXPECT_FALSE(term1->isAnonymous());
+  EXPECT_EQ(nullptr, design->getTerm(SNLName("term1")));
+  EXPECT_EQ(term1, design->getTerm(SNLName("t1")));
+  EXPECT_TRUE(term2->isAnonymous());
+  term2->setName(SNLName("term2"));
+  EXPECT_FALSE(term2->isAnonymous());
+  EXPECT_EQ(term2, design->getTerm(SNLName("term2")));
+  //Collision error
+  EXPECT_THROW(term2->setName(SNLName("term0")), SNLException);
+}

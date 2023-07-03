@@ -52,25 +52,43 @@ void TYPE::setNet(SNLNet* net) { \
   } \
 }
 
-#define NET_SET_NAME(TYPE) \
+#define DESIGN_OBJECT_SET_NAME(TYPE, METHOD_TYPE, STRING) \
 void TYPE::setName(const SNLName& name) { \
   if (name_ == name) { \
     return; \
   } \
   if (not name.empty()) { \
     /* check collision */ \
-    if (auto collision = design_->getNet(name)) { \
+    if (auto collision = design_->get##METHOD_TYPE(name)) { \
       std::ostringstream reason; \
       reason << "In design " << design_->getString() \
         << ", cannot rename " << getString() << " to " \
-        << name.getString() << ", another net: " << collision->getString() \
+        << name.getString() << ", another #STRING: " << collision->getString() \
         << " has already this name."; \
       throw SNLException(reason.str()); \
     } \
   } \
   auto previousName = getName(); \
   name_ = name; \
-  getDesign()->renameNet(this, previousName); \
+  getDesign()->rename(this, previousName); \
+}
+
+#define DESIGN_RENAME(TYPE, METHOD_TYPE, MAP) \
+void SNLDesign::rename(TYPE* object, const SNLName& previousName) { \
+  /*if object was anonymous, and new one is not... just insert with new name */ \
+  if (previousName.empty()) { \
+    if (not object->isAnonymous()) { \
+      /* collision is already verified by object before trying insertion */ \
+      MAP[object->getName()] = object->getID(); \
+    } /* else nothing to do, anonymous to anonymous */ \
+  } else { \
+    auto node = MAP.extract(previousName); \
+    assert(node); \
+    if (not object->isAnonymous()) { \
+      node.key() = object->getName(); \
+      MAP.insert(std::move(node)); \
+    } \
+  } \
 }
 
 #endif // __SNL_MACROS_H_

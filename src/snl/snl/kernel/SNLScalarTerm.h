@@ -38,6 +38,7 @@ class SNLScalarTerm final: public SNLBitTerm {
     size_t getFlatID() const override { return flatID_; } 
     SNLName getName() const override { return name_; }
     bool isAnonymous() const override { return name_.empty(); }
+    void setName(const SNLName& name);
     NajaCollection<SNLBitTerm*> getBits() const override;
 
     SNLTerm::Direction getDirection() const override { return direction_; }
