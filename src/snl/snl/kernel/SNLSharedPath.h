@@ -45,12 +45,12 @@ class SNLSharedPath {
     SNLSharedPath* getTailSharedPath() const;
     SNLDesign* getDesign() const;
     SNLDesign* getModel() const;
-    ///returns this SNLSharedPath key
-    SNLID getSNLID() const { return key_; }
+    //returns this SNLSharedPath key
+    SNLID getKey() const { return key_; }
 
-    friend bool operator<(const SNLSharedPath& lp, const SNLSharedPath& rp) {
-      return lp.getSNLID() < rp.getSNLID();
-    }
+    //friend bool operator<(const SNLSharedPath& lp, const SNLSharedPath& rp) {
+    //  return lp.getKey() < rp.getKey();
+    //}
 
   private:
     SNLSharedPath(SNLInstance* tailInstance, SNLSharedPath* headSharedPath=nullptr);

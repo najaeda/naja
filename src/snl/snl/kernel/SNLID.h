@@ -18,9 +18,9 @@
 #define __SNL_ID_H_
 
 #include <tuple>
-#include <string>
 
 namespace naja { namespace SNL {
+class SNLSharedPath;
 
 /**
  * \brief The SNLID structure allows global comparison between the various SNL objects
