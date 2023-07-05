@@ -221,7 +221,7 @@ void SNLVRLConstructor::moduleImplementationPort(const naja::verilog::Port& port
       throw SNLVRLConstructorException(reason.str());
     }
     auto index = it->second;
-    currentModuleInterfacePorts_[index] = new naja::verilog::Port(port);
+    currentModuleInterfacePorts_[index] = std::make_unique<naja::verilog::Port>(port);
   } else {
     createPortNet(currentModule_, port);
   }
@@ -553,9 +553,8 @@ void SNLVRLConstructor::endModule() {
       reason << portName << " declared in interface has no declaration in module implementation.";
       throw SNLVRLConstructorException(reason.str());
     }
-    for (auto port: currentModuleInterfacePorts_) {
+    for (auto& port: currentModuleInterfacePorts_) {
       createPort(currentModule_, *port);
-      delete port;
     }
   }
   currentModule_ = nullptr;

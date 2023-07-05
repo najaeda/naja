@@ -87,7 +87,7 @@ class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
     SNLScalarNet*     currentModuleAssign0_           {nullptr};
     SNLScalarNet*     currentModuleAssign1_           {nullptr};
     //Following is used when 
-    using InterfacePorts = std::vector<naja::verilog::Port*>;
+    using InterfacePorts = std::vector<std::unique_ptr<naja::verilog::Port>>;
     using InterfacePortsMap = std::map<std::string, size_t>;
     InterfacePorts    currentModuleInterfacePorts_    {};
     InterfacePortsMap currentModuleInterfacePortsMap_ {};
