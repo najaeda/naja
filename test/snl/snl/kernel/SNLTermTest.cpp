@@ -83,6 +83,13 @@ TEST_F(SNLTermTest, testCreation) {
   EXPECT_EQ(2, term0->getBit(-3)->getPositionInBus());
   EXPECT_EQ(3, term0->getBit(-4)->getPositionInBus());
 
+  ASSERT_EQ(1, term0->getBit(-1)->getBits().size());
+  EXPECT_EQ(*term0->getBit(-1)->getBits().begin(), term0->getBit(-1));
+  ASSERT_EQ(1, term0->getBit(-2)->getBits().size());
+  EXPECT_EQ(*term0->getBit(-2)->getBits().begin(), term0->getBit(-2));
+  ASSERT_EQ(1, term0->getBit(-3)->getBits().size());
+  EXPECT_EQ(*term0->getBit(-3)->getBits().begin(), term0->getBit(-3));
+
   EXPECT_EQ(nullptr, term0->getBit(-5));
   EXPECT_EQ(nullptr, term0->getBit(0));
   EXPECT_EQ(nullptr, SNLUniverse::get()->getBusTermBit(SNLID(SNLID::Type::TermBit, 1, 0, 0, 0, 0, -5)));
