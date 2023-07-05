@@ -19,7 +19,7 @@
 
 #include "VerilogConstructor.h"
 
-#include <set>
+#include <map>
 
 #include "SNLInstance.h"
 #include "SNLNet.h"
@@ -76,18 +76,21 @@ class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
     
     std::string getLocationString() const;
 
-    bool            verbose_                        {true};
-    bool            firstPass_                      {true};
-    SNLLibrary*     library_                        {nullptr};
-    SNLDesign*      currentModule_                  {nullptr};
-    std::string     currentModelName_               {};
-    SNLInstance*    currentInstance_                {nullptr};
+    bool              verbose_                        {true};
+    bool              firstPass_                      {true};
+    SNLLibrary*       library_                        {nullptr};
+    SNLDesign*        currentModule_                  {nullptr};
+    std::string       currentModelName_               {};
+    SNLInstance*      currentInstance_                {nullptr};
     using ParameterValues = std::map<std::string, std::string>;
-    ParameterValues currentInstanceParameterValues_ {};
-    SNLScalarNet*   currentModuleAssign0_           {nullptr};
-    SNLScalarNet*   currentModuleAssign1_           {nullptr};
-    using NameSet = std::set<std::string>;
-    NameSet         currentModuleInterfacePorts_    {};
+    ParameterValues   currentInstanceParameterValues_ {};
+    SNLScalarNet*     currentModuleAssign0_           {nullptr};
+    SNLScalarNet*     currentModuleAssign1_           {nullptr};
+    //Following is used when 
+    using InterfacePorts = std::vector<naja::verilog::Port*>;
+    using InterfacePortsMap = std::map<std::string, size_t>;
+    InterfacePorts    currentModuleInterfacePorts_    {};
+    InterfacePortsMap currentModuleInterfacePortsMap_ {};
 };
 
 }} // namespace SNL // namespace naja

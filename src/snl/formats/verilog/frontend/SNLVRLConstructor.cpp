@@ -194,14 +194,16 @@ void SNLVRLConstructor::moduleInterfaceSimplePort(const std::string& name) {
     if (verbose_) {
       std::cerr << "Add port: " << name << std::endl;
     }
-    if (currentModuleInterfacePorts_.find(name) != currentModuleInterfacePorts_.end()) {
+    if (currentModuleInterfacePortsMap_.find(name) != currentModuleInterfacePortsMap_.end()) {
       std::ostringstream reason;
       reason << getLocationString();
       reason << ": port collision in module " << currentModule_->getName().getString();
       reason << ", " << name << " has already been declared.";
       throw SNLVRLConstructorException(reason.str());
     }
-    currentModuleInterfacePorts_.insert(name);
+    auto index = currentModuleInterfacePortsMap_.size();
+    currentModuleInterfacePorts_.push_back(nullptr);
+    currentModuleInterfacePortsMap_[name] = index;
   }
 }
 
@@ -210,15 +212,16 @@ void SNLVRLConstructor::moduleImplementationPort(const naja::verilog::Port& port
     if (verbose_) {
       std::cerr << "Add implementation port: " << port.getString() << std::endl;
     }
-    if (auto it = currentModuleInterfacePorts_.find(port.name_);
-      it == currentModuleInterfacePorts_.end()) {
-        std::ostringstream reason;
-        reason << getLocationString();
-        reason << ": undeclared port in module " << currentModule_->getName().getString();
-        reason << ", " << port.getString() << " is unknown in module interface.";
-        throw SNLVRLConstructorException(reason.str());
+    auto it = currentModuleInterfacePortsMap_.find(port.name_);
+    if (it == currentModuleInterfacePortsMap_.end()) {
+      std::ostringstream reason;
+      reason << getLocationString();
+      reason << ": undeclared port in module " << currentModule_->getName().getString();
+      reason << ", " << port.getString() << " is unknown in module interface.";
+      throw SNLVRLConstructorException(reason.str());
     }
-    createPort(currentModule_, port);
+    auto index = it->second;
+    currentModuleInterfacePorts_[index] = new naja::verilog::Port(port);
   } else {
     createPortNet(currentModule_, port);
   }
@@ -530,7 +533,33 @@ void SNLVRLConstructor::endModule() {
   if (verbose_) {
     std::cerr << "End module: " << currentModule_->getString() << std::endl;
   }
+  if (inFirstPass()) {
+    //construct interface declared ports if existing
+    //verify that all ports declared interface
+    //have their declaration in implementation part: no nullptr in vector
+    auto findIt = find(currentModuleInterfacePorts_.begin(), currentModuleInterfacePorts_.end(), nullptr);
+    if (findIt != currentModuleInterfacePorts_.end()) {
+      auto position = findIt - currentModuleInterfacePorts_.begin();
+      //undeclared port
+      //search in all map for same index, very long
+      //but this is just to produce message error
+      std::string portName;
+      for (const auto& [key, value]: currentModuleInterfacePortsMap_) {
+        if (value == position) {
+          portName = key;
+        }
+      }
+      std::ostringstream reason;
+      reason << portName << " declared in interface has no declaration in module implementation.";
+      throw SNLVRLConstructorException(reason.str());
+    }
+    for (auto port: currentModuleInterfacePorts_) {
+      createPort(currentModule_, *port);
+      delete port;
+    }
+  }
   currentModule_ = nullptr;
+  currentModuleInterfacePortsMap_.clear();
   currentModuleInterfacePorts_.clear();
   currentModuleAssign0_ = nullptr;
   currentModuleAssign1_ = nullptr;
