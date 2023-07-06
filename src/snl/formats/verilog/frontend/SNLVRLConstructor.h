@@ -61,6 +61,9 @@ class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
     void addInstanceConnection(
       const std::string& portName,
       const naja::verilog::Expression& expression) override;
+    void addOrderedInstanceConnection(
+      size_t portIndex,
+      const naja::verilog::Expression& expression) override;
     void endModule() override;
   private:
     void createCurrentModuleAssignNets();
@@ -73,6 +76,9 @@ class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
     void collectIdentifierNets(
       const naja::verilog::Identifier& identifier,
       SNLInstance::Nets& bitNets);
+    void currentInstancePortConnection(
+      SNLTerm* term,
+      const naja::verilog::Expression& expression);
     
     std::string getLocationString() const;
 
