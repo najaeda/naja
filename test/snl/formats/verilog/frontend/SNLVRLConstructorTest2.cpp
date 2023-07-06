@@ -106,8 +106,7 @@ TEST_F(SNLVRLConstructorTest2, test) {
   EXPECT_THAT(instTerms[0]->getTerm(), TypedEq<SNLTerm*>(model1->getTerm(SNLName("i"))));
   EXPECT_THAT(instTerms[1]->getTerm(), TypedEq<SNLTerm*>(model1->getTerm(SNLName("o"))));
   EXPECT_THAT(instTerms[2]->getTerm(), TypedEq<SNLTerm*>(model1->getTerm(SNLName("io"))));
-  //Following not well supported
-  //EXPECT_THAT(instTerms[0]->getNet(), TypedEq<SNLNet*>(top->getNet(SNLName("n2"))));
-  //EXPECT_THAT(instTerms[1]->getNet(), TypedEq<SNLNet*>(top->getNet(SNLName("o"))));
-  //EXPECT_THAT(instTerms[2]->getNet(), TypedEq<SNLNet*>(top->getNet(SNLName("io"))));
+  EXPECT_THAT(instTerms[0]->getNet(), TypedEq<SNLNet*>(top->getNet(SNLName("n2"))));
+  EXPECT_THAT(instTerms[1]->getNet(), TypedEq<SNLNet*>(top->getNet(SNLName("i"))));
+  EXPECT_THAT(instTerms[2]->getNet(), TypedEq<SNLNet*>(top->getNet(SNLName("io"))));
 }
