@@ -19,7 +19,7 @@
 
 #include "VerilogConstructor.h"
 
-#include <set>
+#include <map>
 
 #include "SNLInstance.h"
 #include "SNLNet.h"
@@ -61,6 +61,9 @@ class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
     void addInstanceConnection(
       const std::string& portName,
       const naja::verilog::Expression& expression) override;
+    void addOrderedInstanceConnection(
+      size_t portIndex,
+      const naja::verilog::Expression& expression) override;
     void endModule() override;
   private:
     void createCurrentModuleAssignNets();
@@ -73,21 +76,27 @@ class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
     void collectIdentifierNets(
       const naja::verilog::Identifier& identifier,
       SNLInstance::Nets& bitNets);
+    void currentInstancePortConnection(
+      SNLTerm* term,
+      const naja::verilog::Expression& expression);
     
     std::string getLocationString() const;
 
-    bool            verbose_                        {true};
-    bool            firstPass_                      {true};
-    SNLLibrary*     library_                        {nullptr};
-    SNLDesign*      currentModule_                  {nullptr};
-    std::string     currentModelName_               {};
-    SNLInstance*    currentInstance_                {nullptr};
+    bool              verbose_                        {true};
+    bool              firstPass_                      {true};
+    SNLLibrary*       library_                        {nullptr};
+    SNLDesign*        currentModule_                  {nullptr};
+    std::string       currentModelName_               {};
+    SNLInstance*      currentInstance_                {nullptr};
     using ParameterValues = std::map<std::string, std::string>;
-    ParameterValues currentInstanceParameterValues_ {};
-    SNLScalarNet*   currentModuleAssign0_           {nullptr};
-    SNLScalarNet*   currentModuleAssign1_           {nullptr};
-    using NameSet = std::set<std::string>;
-    NameSet         currentModuleInterfacePorts_    {};
+    ParameterValues   currentInstanceParameterValues_ {};
+    SNLScalarNet*     currentModuleAssign0_           {nullptr};
+    SNLScalarNet*     currentModuleAssign1_           {nullptr};
+    //Following is used when 
+    using InterfacePorts = std::vector<std::unique_ptr<naja::verilog::Port>>;
+    using InterfacePortsMap = std::map<std::string, size_t>;
+    InterfacePorts    currentModuleInterfacePorts_    {};
+    InterfacePortsMap currentModuleInterfacePortsMap_ {};
 };
 
 }} // namespace SNL // namespace naja
