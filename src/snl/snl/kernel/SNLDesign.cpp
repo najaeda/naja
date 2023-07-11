@@ -510,7 +510,9 @@ void SNLDesign::mergeAssigns() {
     auto assignOutputNet = assignInstanceOutput->getNet();
     //take all components for assignOutputNet and assign them to assignInputNet
     assignOutputNet->connectAllComponentsTo(assignInputNet);
-    assignOutputNet->destroy();
+    if (dynamic_cast<SNLScalarNet*>(assignOutputNet)) {
+      assignOutputNet->destroy();
+    }
   }
   for (auto assignInstance: assignInstances) {
     assignInstance->destroy();

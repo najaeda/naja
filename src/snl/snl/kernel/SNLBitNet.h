@@ -47,7 +47,6 @@ class SNLBitNet: public SNLNet {
     ///\return the collection of SNLBitTerm of this SNLDesign (SNLBitTerm subset of getComponents())
     NajaCollection<SNLBitTerm*> getBitTerms() const;
 
-
     void connectAllComponentsTo(SNLBitNet* net);
 
   protected:
