@@ -280,6 +280,12 @@ SNLDesign* SNLUniverse::getTopDesign() const {
   return nullptr;
 }
 
+void SNLUniverse::mergeAssigns() {
+  for (auto db: getUserDBs()) {
+    db->mergeAssigns();
+  }
+}
+
 //LCOV_EXCL_START
 const char* SNLUniverse::getTypeName() const {
   return "SNLUniverse";

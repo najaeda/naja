@@ -162,6 +162,8 @@ class SNLDesign final: public SNLObject {
     
     bool isTopDesign() const;
 
+    void mergeAssigns();
+
     const char* getTypeName() const override;
     std::string getString() const override;
     std::string getDescription() const override;

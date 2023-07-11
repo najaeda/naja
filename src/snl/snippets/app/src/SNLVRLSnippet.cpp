@@ -4,7 +4,7 @@
 
 #include <argparse/argparse.hpp>
 
-#include "SNLException.h"
+#include "NajaException.h"
 #include "SNLPrimitivesLoader.h"
 #include "SNLVRLConstructor.h"
 #include "SNLVRLDumper.h"
@@ -85,8 +85,8 @@ int main(int argc, char* argv[]) {
       dumper.setSingleFile(true);
       dumper.dumpLibrary(primitivesLibrary, output);
     }
-  } catch (const SNLException& e) {
-    std::cerr << "Caught SNL error: " << e.getReason() << std::endl;
+  } catch (const naja::NajaException& e) {
+    std::cerr << "Caught Naja exception: " << e.getReason() << std::endl;
     return 1;
   }
   return 0;

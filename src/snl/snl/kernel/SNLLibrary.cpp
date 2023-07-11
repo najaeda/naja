@@ -307,6 +307,17 @@ void SNLLibrary::removeDesign(SNLDesign* design) {
   designs_.erase(*design);
 }
 
+void SNLLibrary::mergeAssigns() {
+  if (isPrimitives()) {
+    return;
+  }
+  for (auto design: getDesigns()) {
+    if (not design->isPrimitive()) {
+      design->mergeAssigns();
+    }
+  }
+}
+
 //LCOV_EXCL_START
 const char* SNLLibrary::getTypeName() const {
   return "SNLLibrary";

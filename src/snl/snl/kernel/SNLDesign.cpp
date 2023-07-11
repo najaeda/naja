@@ -25,9 +25,11 @@
 #include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
 #include "SNLBusTermBit.h"
+#include "SNLInstTerm.h"
 #include "SNLScalarNet.h"
 #include "SNLBusNet.h"
 #include "SNLBusNetBit.h"
+#include "SNLDB0.h"
 #include "SNLMacros.h"
 
 namespace naja { namespace SNL {
@@ -490,6 +492,27 @@ bool SNLDesign::isBetween(int n, int MSB, int LSB) {
   int min = std::min(MSB, LSB);
   int max = std::max(MSB, LSB);
   return n>=min and n<=max;
+}
+
+void SNLDesign::mergeAssigns() {
+  auto filter = [](const SNLInstance* it) { return not SNLDB0::isAssign(it->getModel()); };
+  auto assignInstances = getInstances().getSubCollection(filter);
+  auto assignInput = SNLDB0::getAssignInput();
+  auto assignOutput = SNLDB0::getAssignOutput(); 
+  for (auto assignInstance: assignInstances) {
+    auto assignInstanceInput = assignInstance->getInstTerm(assignInput);
+    auto assignInstanceOutput = assignInstance->getInstTerm(assignOutput);
+    auto assignInputNet = assignInstanceInput->getNet();
+    auto assignOutputNet = assignInstanceOutput->getNet();
+    //take all components for assignOutputNet and assign them to assignInputNet
+    for (auto component: assignOutputNet->getComponents()) {
+      component->setNet(assignInputNet);
+    }
+    assignOutputNet->destroy();
+  }
+  for (auto assignInstance: assignInstances) {
+    assignInstance->destroy();
+  }
 }
 
 //LCOV_EXCL_START

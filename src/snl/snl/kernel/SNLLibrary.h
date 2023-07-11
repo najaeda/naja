@@ -86,6 +86,8 @@ class SNLLibrary final: public SNLObject {
     bool isInDB0() const { return type_ == Type::InDB0; }
     bool isPrimitives() const { return type_ == Type::Primitives; }
 
+    void mergeAssigns();
+
     friend bool operator< (const SNLLibrary &ll, const SNLLibrary &rl) {
       return ll.getSNLID() < rl.getSNLID();
     }
