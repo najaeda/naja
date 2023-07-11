@@ -16,6 +16,7 @@
 
 #include "SNLDesign.h"
 
+#include <list>
 #include <iostream>
 #include <sstream>
 
@@ -495,8 +496,11 @@ bool SNLDesign::isBetween(int n, int MSB, int LSB) {
 }
 
 void SNLDesign::mergeAssigns() {
-  auto filter = [](const SNLInstance* it) { return not SNLDB0::isAssign(it->getModel()); };
-  auto assignInstances = getInstances().getSubCollection(filter);
+  using Instances = std::list<SNLInstance*>;
+  auto filter = [](const SNLInstance* it) { return SNLDB0::isAssign(it->getModel()); };
+  Instances assignInstances(
+      getInstances().getSubCollection(filter).begin(),
+      getInstances().getSubCollection(filter).end());
   auto assignInput = SNLDB0::getAssignInput();
   auto assignOutput = SNLDB0::getAssignOutput(); 
   for (auto assignInstance: assignInstances) {
@@ -505,9 +509,7 @@ void SNLDesign::mergeAssigns() {
     auto assignInputNet = assignInstanceInput->getNet();
     auto assignOutputNet = assignInstanceOutput->getNet();
     //take all components for assignOutputNet and assign them to assignInputNet
-    for (auto component: assignOutputNet->getComponents()) {
-      component->setNet(assignInputNet);
-    }
+    assignOutputNet->connectAllComponentsTo(assignInputNet);
     assignOutputNet->destroy();
   }
   for (auto assignInstance: assignInstances) {
