@@ -333,6 +333,16 @@ NajaCollection<SNLInstance*> SNLDesign::getSlaveInstances() const {
   return NajaCollection(new NajaIntrusiveSetCollection(&slaveInstances_));
 }
 
+NajaCollection<SNLInstance*> SNLDesign::getPrimitiveInstances() const {
+  auto filter = [](const SNLInstance* instance) { return instance->getModel()->isPrimitive(); };
+  return getInstances().getSubCollection(filter);
+}
+
+NajaCollection<SNLInstance*> SNLDesign::getNonPrimitiveInstances() const {
+  auto filter = [](const SNLInstance* instance) { return not instance->getModel()->isPrimitive(); };
+  return getInstances().getSubCollection(filter);
+}
+
 SNLInstance* SNLDesign::getInstance(SNLID::DesignObjectID id) const {
   auto it = instances_.find(
       SNLID(SNLID::Type::Instance, getDB()->getID(), getLibrary()->getID(), getID(), 0, id, 0),
