@@ -17,6 +17,7 @@
 #ifndef __SNL_ID_H_
 #define __SNL_ID_H_
 
+#include <string>
 #include <tuple>
 
 namespace naja { namespace SNL {

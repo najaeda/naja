@@ -42,24 +42,28 @@ TEST_F(SNLPathTest, testEmptyPath) {
   ASSERT_NE(SNLUniverse::get(), nullptr);
   auto emptyPath = SNLPath();
   EXPECT_TRUE(emptyPath.empty());
+  EXPECT_EQ(0, emptyPath.size());
   EXPECT_EQ(nullptr, emptyPath.getHeadInstance());
   EXPECT_EQ(SNLPath(), emptyPath.getTailPath());
   EXPECT_EQ(SNLPath(), emptyPath.getHeadPath());
   EXPECT_EQ(nullptr, emptyPath.getTailInstance());
   EXPECT_EQ(nullptr, emptyPath.getDesign());
   EXPECT_EQ(nullptr, emptyPath.getModel());
+  EXPECT_FALSE(emptyPath < emptyPath);
 }
 
 TEST_F(SNLPathTest, testTopDown0) {
   ASSERT_NE(h0Instance_, nullptr);
   auto h0Path = SNLPath(h0Instance_, SNLPath());
   EXPECT_FALSE(h0Path.empty());
+  EXPECT_EQ(1, h0Path.size());
   EXPECT_EQ(h0Instance_, h0Path.getHeadInstance());
   EXPECT_EQ(h0Instance_, h0Path.getTailInstance());
   EXPECT_EQ(h0Instance_->getModel(), h0Path.getModel());
   EXPECT_EQ(h0Instance_->getDesign(), h0Path.getDesign());
   EXPECT_EQ(SNLPath(), h0Path.getHeadPath());
   EXPECT_EQ(SNLPath(), h0Path.getTailPath());
+  EXPECT_LT(SNLPath(), h0Path);
 
   EXPECT_EQ(SNLPath(h0Instance_), h0Path);
   EXPECT_EQ(SNLPath(SNLPath(), h0Instance_), h0Path);
@@ -75,11 +79,16 @@ TEST_F(SNLPathTest, testTopDown1) {
   EXPECT_EQ(h0Instance_->getDesign(), h0Path.getDesign());
   EXPECT_EQ(SNLPath(), h0Path.getHeadPath());
   EXPECT_EQ(SNLPath(), h0Path.getTailPath());
+  EXPECT_EQ(1, h0Path.size());
+  EXPECT_LT(SNLPath(), h0Path);
 
   ASSERT_NE(h1Instance_, nullptr);
   EXPECT_EQ(h0Instance_->getModel(), h1Instance_->getDesign());
   auto h1Path = SNLPath(h0Path, h1Instance_);
-  EXPECT_FALSE(h0Path.empty());
+  EXPECT_FALSE(h1Path.empty());
+  EXPECT_EQ(2, h1Path.size());
+  EXPECT_LT(SNLPath(), h1Path);
+  EXPECT_LT(h0Path, h1Path);
   EXPECT_EQ(h0Instance_, h1Path.getHeadInstance());
   EXPECT_EQ(h1Instance_, h1Path.getTailInstance());
   EXPECT_EQ(h1Instance_->getModel(), h1Path.getModel());
@@ -91,6 +100,10 @@ TEST_F(SNLPathTest, testTopDown1) {
   EXPECT_EQ(h1Instance_->getModel(), h2Instance_->getDesign());
   auto h2Path = SNLPath(h1Path, h2Instance_);
   EXPECT_FALSE(h2Path.empty());
+  EXPECT_EQ(3, h2Path.size());
+  EXPECT_LT(SNLPath(), h2Path);
+  EXPECT_LT(h0Path, h2Path);
+  EXPECT_LT(h1Path, h2Path);
   EXPECT_EQ(h0Instance_, h2Path.getHeadInstance());
   EXPECT_EQ(h2Instance_, h2Path.getTailInstance());
   EXPECT_EQ(h2Instance_->getModel(), h2Path.getModel());
@@ -102,6 +115,11 @@ TEST_F(SNLPathTest, testTopDown1) {
   EXPECT_EQ(h2Instance_->getModel(), primInstance_->getDesign());
   auto primPath = SNLPath(h2Path, primInstance_);
   EXPECT_FALSE(primPath.empty());
+  EXPECT_EQ(4, primPath.size());
+  EXPECT_LT(SNLPath(), primPath);
+  EXPECT_LT(h0Path, primPath);
+  EXPECT_LT(h1Path, primPath);
+  EXPECT_LT(h2Path, primPath);
   EXPECT_EQ(h0Instance_, primPath.getHeadInstance());
   EXPECT_EQ(primInstance_, primPath.getTailInstance());
   EXPECT_EQ(primInstance_->getModel(), primPath.getModel());
@@ -129,6 +147,8 @@ TEST_F(SNLPathTest, testBottomUp1) {
   ASSERT_NE(primInstance_, nullptr);
   auto primPath = SNLPath(primInstance_);
   EXPECT_FALSE(primPath.empty());
+  EXPECT_EQ(1, primPath.size());
+  EXPECT_LT(SNLPath(), primPath);
   EXPECT_EQ(primInstance_, primPath.getHeadInstance());
   EXPECT_EQ(primInstance_, primPath.getTailInstance());
   EXPECT_EQ(primInstance_->getModel(), primPath.getModel());
@@ -139,6 +159,9 @@ TEST_F(SNLPathTest, testBottomUp1) {
   ASSERT_NE(h2Instance_, nullptr);
   auto h2Path = SNLPath(h2Instance_, primPath);
   EXPECT_FALSE(h2Path.empty());
+  EXPECT_EQ(2, h2Path.size());
+  EXPECT_LT(SNLPath(), h2Path);
+  EXPECT_LT(primPath, h2Path);
   EXPECT_EQ(h2Instance_, h2Path.getHeadInstance());
   EXPECT_EQ(primInstance_, h2Path.getTailInstance());
   EXPECT_EQ(primInstance_->getModel(), h2Path.getModel());
@@ -149,6 +172,10 @@ TEST_F(SNLPathTest, testBottomUp1) {
   ASSERT_NE(h1Instance_, nullptr);
   auto h1Path = SNLPath(h1Instance_, h2Path);
   EXPECT_FALSE(h1Path.empty());
+  EXPECT_EQ(3, h1Path.size());
+  EXPECT_LT(SNLPath(), h1Path);
+  EXPECT_LT(primPath, h1Path);
+  EXPECT_LT(h2Path, h1Path);
   EXPECT_EQ(h1Instance_, h1Path.getHeadInstance());
   EXPECT_EQ(primInstance_, h1Path.getTailInstance());
   EXPECT_EQ(primInstance_->getModel(), h1Path.getModel());
@@ -159,6 +186,11 @@ TEST_F(SNLPathTest, testBottomUp1) {
   ASSERT_NE(h0Instance_, nullptr);
   auto h0Path = SNLPath(h0Instance_, h1Path);
   EXPECT_FALSE(h0Path.empty());
+  EXPECT_EQ(4, h0Path.size());
+  EXPECT_LT(SNLPath(), h0Path);
+  EXPECT_LT(primPath, h0Path);
+  EXPECT_LT(h2Path, h0Path);
+  EXPECT_LT(h1Path, h0Path);
   EXPECT_EQ(h0Instance_, h0Path.getHeadInstance());
   EXPECT_EQ(primInstance_, h0Path.getTailInstance());
   EXPECT_EQ(primInstance_->getModel(), h0Path.getModel());

@@ -366,7 +366,7 @@ SNLSharedPath* SNLInstance::getSharedPath(const SNLSharedPath* sharedPath) const
   if (sharedPath) {
     key = sharedPath->getKey();
   }
-  auto it = sharedPaths_.find(key, SNLIDComp<SNLSharedPath>());
+  auto it = sharedPaths_.find(key, SNLSharedPath::KeyComp());
   if (it != sharedPaths_.end()) {
     return const_cast<SNLSharedPath*>(&*it);
   }

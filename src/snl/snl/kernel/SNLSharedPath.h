@@ -47,10 +47,19 @@ class SNLSharedPath {
     SNLDesign* getModel() const;
     //returns this SNLSharedPath key
     SNLID getKey() const { return key_; }
+    size_t size() const;
 
-    //friend bool operator<(const SNLSharedPath& lp, const SNLSharedPath& rp) {
-    //  return lp.getKey() < rp.getKey();
-    //}
+    struct KeyComp {
+      bool operator()(const SNLSharedPath& lp, const SNLSharedPath& rp) const {
+        return lp.getKey() < rp.getKey();
+      }
+      bool operator()(const SNLID& key, const SNLSharedPath& rsp) const {
+        return key < rsp.getKey();
+      }
+      bool operator()(const SNLSharedPath& lsp, const SNLID& key) const {
+        return lsp.getKey() < key;
+      }
+    };
 
   private:
     SNLSharedPath(SNLInstance* tailInstance, SNLSharedPath* headSharedPath=nullptr);

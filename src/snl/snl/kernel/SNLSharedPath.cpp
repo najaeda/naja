@@ -90,4 +90,11 @@ SNLDesign* SNLSharedPath::getModel() const {
   return tailInstance_->getModel();
 }
 
+size_t SNLSharedPath::size() const {
+  if (headSharedPath_) {
+    return headSharedPath_->size() + 1;
+  }
+  return 1;
+}
+
 }} // namespace SNL // namespace naja

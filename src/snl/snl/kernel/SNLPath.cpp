@@ -102,6 +102,13 @@ bool SNLPath::empty() const {
   return not sharedPath_;
 }
 
+size_t SNLPath::size() const {
+  if (sharedPath_) {
+    return sharedPath_->size();
+  }
+  return 0;
+}
+
 SNLDesign* SNLPath::getDesign() const {
   return sharedPath_?sharedPath_->getDesign():nullptr; 
 }
@@ -121,11 +128,34 @@ bool SNLPath::operator!=(const SNLPath& path) const {
 bool SNLPath::operator<(const SNLPath& path) const {
   if (sharedPath_) {
     if (path.sharedPath_) {
-      return *sharedPath_ < *path.sharedPath_;
+      //both non null
+      //start by comparing sizes
+      auto thisSize = size();
+      auto otherSize = path.size();
+      if (thisSize not_eq otherSize) {
+        return thisSize < otherSize;
+      } else {
+        //same size... compare instances one by one
+        auto thisSharedPath = sharedPath_;
+        auto otherSharedPath = path.sharedPath_;
+        while (thisSharedPath) {
+          auto thisTailInstance = thisSharedPath->getTailInstance();
+          auto otherTailInstance = otherSharedPath->getTailInstance();
+          if (thisTailInstance < otherTailInstance) {
+            return true;
+          }
+          thisSharedPath = thisSharedPath->getHeadSharedPath();
+          otherSharedPath = otherSharedPath->getHeadSharedPath();
+        }
+        return false;
+      }
     } else {
       return false;
     }
   } else {
+    //this is empty path
+    //if other path is non null => true
+    //if other path is null => false
     return path.sharedPath_ != nullptr;
   }
   return false;

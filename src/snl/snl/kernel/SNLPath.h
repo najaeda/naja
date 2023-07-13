@@ -17,6 +17,8 @@
 #ifndef __SNL_PATH_H_
 #define __SNL_PATH_H_
 
+#include <cstddef>
+
 namespace naja { namespace SNL {
 
 class SNLDesign;
@@ -45,6 +47,7 @@ class SNLPath {
     SNLDesign* getModel() const;
 
     bool empty() const;
+    size_t size() const;
 
     SNLPath& operator=(const SNLPath& path) = default;
     bool operator==(const SNLPath& path) const;

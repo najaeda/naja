@@ -50,7 +50,7 @@ class SNLInstance final: public SNLDesignObject {
       
     using SNLInstanceSharedPathsHook =
       boost::intrusive::member_hook<SNLSharedPath, boost::intrusive::set_member_hook<>, &SNLSharedPath::instanceSharedPathsHook_>;
-    using SNLInstanceSharedPaths = boost::intrusive::set<SNLSharedPath, SNLInstanceSharedPathsHook>;
+    using SNLInstanceSharedPaths = boost::intrusive::set<SNLSharedPath, SNLInstanceSharedPathsHook, boost::intrusive::compare<SNLSharedPath::KeyComp>>;
 
     /**
      * \brief SNLInstance creator.
