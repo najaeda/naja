@@ -45,6 +45,7 @@ class SNLScalarTerm final: public SNLBitTerm {
     const char* getTypeName() const override;
     std::string getString() const override;
     std::string getDescription() const override;
+    void debugDump(size_t indent, std::ostream& stream = std::cerr) const override;
   private:
     SNLScalarTerm(SNLDesign* design, Direction direction, const SNLName& name);
     SNLScalarTerm(SNLDesign* design, SNLID::DesignObjectID, Direction direction, const SNLName& name);

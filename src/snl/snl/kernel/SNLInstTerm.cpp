@@ -117,4 +117,10 @@ std::string SNLInstTerm::getDescription() const {
 }
 //LCOV_EXCL_STOP
 
+//LCOV_EXCL_START
+void SNLInstTerm::debugDump(size_t indent, std::ostream& stream) const {
+  stream << std::string(" ", indent) << getDescription() << std::endl;
+}
+//LCOV_EXCL_STOP
+
 }} // namespace SNL // namespace naja

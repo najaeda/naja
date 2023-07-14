@@ -534,4 +534,19 @@ std::string SNLDesign::getDescription() const {
 }
 //LCOV_EXCL_STOP
 
+//LCOV_EXCL_START
+void SNLDesign::debugDump(size_t indent, std::ostream& stream) const {
+  stream << std::string(" ", indent) << getDescription() << std::endl;
+  for (auto term: getTerms()) {
+    term->debugDump(indent+2, stream);
+  }
+  for (auto net: getNets()) {
+    net->debugDump(indent+2, stream);
+  }
+  for (auto instance: getInstances()) {
+    instance->debugDump(indent+2, stream);
+  }
+}
+//LCOV_EXCL_STOP
+
 }} // namespace SNL // namespace naja
