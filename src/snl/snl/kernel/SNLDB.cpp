@@ -223,7 +223,7 @@ std::string SNLDB::getDescription() const {
 
 //LCOV_EXCL_START
 void SNLDB::debugDump(size_t indent, std::ostream& stream) const {
-  stream << std::string(" ", indent) << getDescription() << std::endl;
+  stream << std::string(indent, ' ') << getDescription() << std::endl;
   for (auto lib: getLibraries()) {
     lib->debugDump(indent+2, stream);
   }

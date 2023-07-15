@@ -337,7 +337,7 @@ std::string SNLLibrary::getDescription() const {
 
 //LCOV_EXCL_START
 void SNLLibrary::debugDump(size_t indent, std::ostream& stream) const {
-  stream << std::string(" ", indent) << getDescription() << std::endl;
+  stream << std::string(indent, ' ') << getDescription() << std::endl;
   for (auto design: getDesigns()) {
     design->debugDump(indent+2, stream);
   }

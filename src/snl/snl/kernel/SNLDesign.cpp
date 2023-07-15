@@ -536,7 +536,7 @@ std::string SNLDesign::getDescription() const {
 
 //LCOV_EXCL_START
 void SNLDesign::debugDump(size_t indent, std::ostream& stream) const {
-  stream << std::string(" ", indent) << getDescription() << std::endl;
+  stream << std::string(indent, ' ') << getDescription() << std::endl;
   for (auto term: getTerms()) {
     term->debugDump(indent+2, stream);
   }

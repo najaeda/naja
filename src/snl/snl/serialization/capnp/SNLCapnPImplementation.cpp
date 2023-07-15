@@ -366,7 +366,16 @@ void loadLibraryImplementation(SNLDB* db, const DBImplementation::LibraryImpleme
   if (not snlLibrary) {
     //LCOV_EXCL_START
     std::ostringstream reason;
-    reason << "cannot deserialize library: no library found in db with provided reference";
+    reason << "cannot load library with id " << libraryID
+      << " in db " << db->getDescription();
+    if (db->getLibraries().empty()) {
+      reason << ", no libraries in this db.";
+    } else {
+      reason << ", existing libraires are: " << std::endl;
+      for (auto lib: db->getLibraries()) {
+        reason << lib->getDescription() << std::endl;
+      }
+    }
     throw SNLException(reason.str());
     //LCOV_EXCL_STOP
   }
