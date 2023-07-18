@@ -125,7 +125,7 @@ struct SNLEquipotentialExtractor {
   private:
     SNLEquipotential::InstTermOccurrences&  instTermOccurrences_;
     SNLEquipotential::Terms&                terms_;
-    using NetOccurrences = std::set<const SNLBitNetOccurrence>;
+    using NetOccurrences = std::set<SNLBitNetOccurrence>;
     NetOccurrences                          visitedNetOccurrences_  {};
 };
 
