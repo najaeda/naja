@@ -29,7 +29,7 @@ namespace {
 using namespace naja::SNL;
 
 struct SNLEquipotentialExtractor {
-  SNLEquipotentialExtractor(
+  explicit SNLEquipotentialExtractor(
     SNLEquipotential::InstTermOccurrences& instTermOccurrences
   ): instTermOccurrences_(instTermOccurrences)
   {}
@@ -51,7 +51,6 @@ struct SNLEquipotentialExtractor {
         //
         extractFromNetComponentOccurrence(naja::SNL::SNLBitTermOccurrence(instancePath, term));
       }
-
     }
     if (path.empty()) {
     } else {
