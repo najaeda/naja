@@ -28,6 +28,7 @@ class SNLBitNetOccurrence: public SNLOccurrence {
   public:
     using super = SNLOccurrence;
 
+    SNLBitNetOccurrence() = default;
     SNLBitNetOccurrence(SNLBitNet* net);
     SNLBitNetOccurrence(const SNLPath& path, SNLBitNet* net);
 

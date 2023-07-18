@@ -30,13 +30,28 @@ SNLOccurrence::SNLOccurrence(const SNLPath& path, SNLDesignObject* object):
   object_(object)
 {}
 
-bool SNLOccurrence::operator<(const SNLOccurrence& occurrence) const {
-  //First start by comparing objects (through their SNLIDs)
-  //If equal compare their path. Paths can be nullptr
-  return ((*getObject() < *occurrence.getObject()) or
-    ((*getObject() == *occurrence.getObject()) and (getPath() < occurrence.getPath())));
+bool SNLOccurrence::operator==(const SNLOccurrence& rhs) const {
+  if (getObject() == nullptr) {
+    return rhs.getObject() == nullptr;
+  }
+  if (rhs.getObject() == nullptr) {
+    return false;
+  }
+  return (*getObject() == *rhs.getObject()) and (getPath() == rhs.getPath());
 }
 
+bool SNLOccurrence::operator<(const SNLOccurrence& rhs) const {
+  //First start by comparing objects (through their SNLIDs)
+  //If equal compare their path. Paths can be nullptr
+  if (getObject() == nullptr) {
+    return rhs.getObject() not_eq nullptr;
+  }
+  if (rhs.getObject() == nullptr) {
+    return false;
+  }
+  return (*getObject() < *rhs.getObject()) or
+    ((*getObject() == *rhs.getObject()) and (getPath() < rhs.getPath()));
+}
 
 SNLPath SNLOccurrence::getPath() const {
   if (path_) {

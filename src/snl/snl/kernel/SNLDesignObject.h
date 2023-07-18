@@ -52,11 +52,11 @@ class SNLDesignObject: public SNLObject {
     ///\return true if this SNLDesignObject is anonymous, false if not.
     virtual bool isAnonymous() const = 0;
 
-    friend bool operator<(const SNLDesignObject &ldo, const SNLDesignObject &rdo) {
-      return ldo.getSNLID() < rdo.getSNLID();
+    bool operator<(const SNLDesignObject &rhs) const {
+      return getSNLID() < rhs.getSNLID();
     }
-    friend bool operator==(const SNLDesignObject &ldo, const SNLDesignObject &rdo) {
-      return ldo.getSNLID() == rdo.getSNLID();
+    bool operator==(const SNLDesignObject &rhs) const {
+      return getSNLID() == rhs.getSNLID();
     }
   protected:
     SNLDesignObject() = default;

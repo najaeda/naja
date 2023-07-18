@@ -24,6 +24,7 @@ namespace naja { namespace SNL {
 
 class SNLNetComponent;
 class SNLBitNet;
+class SNLBitNetOccurrence;
 
 class SNLNetComponentOccurrence: public SNLOccurrence {
   public:
@@ -34,6 +35,7 @@ class SNLNetComponentOccurrence: public SNLOccurrence {
 
     SNLNetComponent* getNetComponent() const;
     SNLBitNet* getNet() const;
+    SNLBitNetOccurrence getNetOccurrence() const;
 };
 
 }} // namespace SNL // namespace naja

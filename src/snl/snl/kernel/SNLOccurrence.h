@@ -18,6 +18,8 @@
 #ifndef __SNL_OCCURRENCE_H_
 #define __SNL_OCCURRENCE_H_
 
+#include <compare>
+
 namespace naja { namespace SNL {
 
 class SNLPath;
@@ -26,7 +28,8 @@ class SNLDesignObject;
 
 class SNLOccurrence {
   public:
-    SNLOccurrence()=delete;
+    SNLOccurrence()=default;
+    //needs to be revised in case of refcount on sharedpath
     SNLOccurrence(const SNLOccurrence&)=default;
 
     SNLOccurrence(SNLDesignObject* object);
@@ -34,8 +37,12 @@ class SNLOccurrence {
 
     SNLPath getPath() const;
     SNLDesignObject* getObject() const { return object_; }
+    bool isValid() const { return object_ != nullptr; }
 
+    bool operator==(const SNLOccurrence& occurrence) const;
     bool operator<(const SNLOccurrence& occurrence) const;
+    auto operator<=>(const SNLOccurrence& rhs) const = default;
+
   protected:
     SNLOccurrence(const SNLPath& path);
   private:

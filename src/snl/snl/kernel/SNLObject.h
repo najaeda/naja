@@ -24,7 +24,6 @@ namespace naja { namespace SNL {
 class SNLObject: public NajaObject {
   public:
     using super = NajaObject;
-
   protected:
     static void preCreate();
     void postCreate();

@@ -30,6 +30,8 @@ class SNLBitTermOccurrence: public SNLNetComponentOccurrence {
 
     SNLBitTermOccurrence(SNLBitTerm* term);
     SNLBitTermOccurrence(const SNLPath& path, SNLBitTerm* term);
+
+    SNLBitTerm* getTerm() const;
 };
 
 }} // namespace SNL // namespace naja

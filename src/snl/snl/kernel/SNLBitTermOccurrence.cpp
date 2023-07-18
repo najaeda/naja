@@ -28,4 +28,8 @@ SNLBitTermOccurrence::SNLBitTermOccurrence(const SNLPath& path, SNLBitTerm* term
   super(path, term)
 {}
 
+SNLBitTerm* SNLBitTermOccurrence::getTerm() const {
+  return static_cast<SNLBitTerm*>(getObject());
+}
+
 }} // namespace SNL // namespace naja

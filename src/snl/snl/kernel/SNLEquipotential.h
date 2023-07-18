@@ -18,6 +18,7 @@
 #define __SNL_EQUIPOTENTIAL_H_
 
 #include <set>
+#include "SNLBitTerm.h"
 
 namespace naja { namespace SNL {
 
@@ -30,11 +31,13 @@ class SNLEquipotential {
     SNLEquipotential()=delete;
     SNLEquipotential(const SNLEquipotential&)=delete;
     using InstTermOccurrences = std::set<SNLInstTermOccurrence>;
+    using Terms = std::set<SNLBitTerm*, SNLDesignObject::PointerLess>;
 
     SNLEquipotential(SNLNetComponent* netComponent);
     SNLEquipotential(const SNLNetComponentOccurrence& netComponentOccurrence);
   private:
     InstTermOccurrences instTermOccurrences_  {};
+    Terms               terms_                {};
 };
 
 }} // namespace SNL // namespace naja

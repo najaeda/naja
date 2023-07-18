@@ -17,6 +17,8 @@
 #include "SNLNetComponentOccurrence.h"
 
 #include "SNLNetComponent.h"
+#include "SNLPath.h"
+#include "SNLBitNetOccurrence.h"
 
 namespace naja { namespace SNL {
 
@@ -30,6 +32,14 @@ SNLNetComponentOccurrence::SNLNetComponentOccurrence(const SNLPath& path, SNLNet
 
 SNLNetComponent* SNLNetComponentOccurrence::getNetComponent() const {
   return static_cast<SNLNetComponent*>(getObject());
+}
+
+SNLBitNetOccurrence SNLNetComponentOccurrence::getNetOccurrence() const {
+  auto net = getNet();
+  if (net) {
+    return SNLBitNetOccurrence(getPath(), net);
+  }
+  return SNLBitNetOccurrence();
 }
 
 SNLBitNet* SNLNetComponentOccurrence::getNet() const {
