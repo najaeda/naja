@@ -1,3 +1,9 @@
+// Copyright The Naja Authors.
+// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
+//
+// SPDX-License-Identifier: Apache-2.0
+//
+
 module model(input [2:-2] i0, input [-2:2] i1, output [2:-2] o0, output [-2:2] o1);
 parameter PARAM0 = "0000" ;
 parameter PARAM1 = "FALSE" ;

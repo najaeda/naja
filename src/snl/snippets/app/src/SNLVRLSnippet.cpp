@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
+//
+// SPDX-License-Identifier: Apache-2.0
+
 #include <filesystem>
 #include <iostream>
 #include <fstream>
@@ -13,15 +17,6 @@
 #include "SNLUniverse.h"
 
 using namespace naja::SNL;
-
-namespace {
-
-void usage() {
-  std::cerr << "snl_vrl_app path_to_primitives.py path_to_design.v" << std::endl;
-  exit(-1);
-}
-
-}
 
 int main(int argc, char* argv[]) {
   argparse::ArgumentParser program("snl_vrl_app");
