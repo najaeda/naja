@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
+#
+# SPDX-License-Identifier: Apache-2.0
+
 set(SOURCES
   PySNLUniverse.cpp
   PySNLDB.cpp PySNLLibrary.cpp PySNLDesign.cpp

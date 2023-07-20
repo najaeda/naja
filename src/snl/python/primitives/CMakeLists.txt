@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
+#
+# SPDX-License-Identifier: Apache-2.0
+
 add_library(naja_snl_primitives SHARED SNLPrimitivesLoader.cpp)
 
 target_link_libraries(naja_snl_primitives PUBLIC naja_snl PRIVATE naja_snl_python Python3::Python)
