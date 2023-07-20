@@ -30,7 +30,7 @@ SNLNetComponentOccurrence::SNLNetComponentOccurrence(const SNLPath& path, SNLNet
   super(path, component)
 {}
 
-SNLNetComponent* SNLNetComponentOccurrence::getNetComponent() const {
+SNLNetComponent* SNLNetComponentOccurrence::getComponent() const {
   return static_cast<SNLNetComponent*>(getObject());
 }
 
@@ -43,7 +43,7 @@ SNLBitNetOccurrence SNLNetComponentOccurrence::getNetOccurrence() const {
 }
 
 SNLBitNet* SNLNetComponentOccurrence::getNet() const {
-  auto component = getNetComponent();
+  auto component = getComponent();
   if (component) {
     return component->getNet();
   }

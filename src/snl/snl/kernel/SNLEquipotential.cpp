@@ -37,8 +37,10 @@ struct SNLEquipotentialExtractor {
   terms_(terms)
   {}
 
-  void extractNetComponentFromNetOccurrence(
-    const naja::SNL::SNLBitNetOccurrence& netOccurrence
+  void extractNetComponentsFromNetOccurrence(
+    const naja::SNL::SNLBitNetOccurrence& netOccurrence,
+    const SNLNetComponentOccurrence& comingFromComponent,
+    bool start
   ) {
     if (visitedNetOccurrences_.find(netOccurrence) != visitedNetOccurrences_.end()) {
       //already visited... report loop ??
@@ -48,6 +50,9 @@ struct SNLEquipotentialExtractor {
     auto net = netOccurrence.getNet();
     auto path = netOccurrence.getPath();
     for (auto component: net->getComponents()) {
+      if (not start and component == comingFromComponent.getComponent()) {
+        continue;
+      }
       if (auto instTerm = dynamic_cast<SNLInstTerm*>(component)) {
         auto instance = instTerm->getInstance();
         if (instance->isLeaf()) {
@@ -58,7 +63,7 @@ struct SNLEquipotentialExtractor {
           auto term = instTerm->getTerm();
           auto instancePath = naja::SNL::SNLPath(path, instance);
           //
-          extractNetFromNetComponentOccurrence(naja::SNL::SNLBitTermOccurrence(instancePath, term));
+          extractNetFromNetComponentOccurrence(naja::SNL::SNLBitTermOccurrence(instancePath, term), false);
         }
       } else {
         auto term = static_cast<SNLBitTerm*>(component);
@@ -72,7 +77,7 @@ struct SNLEquipotentialExtractor {
             auto instance = path.getTailInstance();
             auto instTerm = instance->getInstTerm(term);
             //
-            extractNetFromNetComponentOccurrence(naja::SNL::SNLInstTermOccurrence(parentPath, instTerm));
+            extractNetFromNetComponentOccurrence(naja::SNL::SNLInstTermOccurrence(parentPath, instTerm), false);
           }
         }
       }
@@ -82,11 +87,12 @@ struct SNLEquipotentialExtractor {
   //start extraction from net component
   //construct net and start exploration
   void extractNetFromNetComponentOccurrence(
-    const naja::SNL::SNLNetComponentOccurrence& netComponentOccurrence
+    const naja::SNL::SNLNetComponentOccurrence& netComponentOccurrence,
+    bool start
   ) {
     auto netOccurrence = netComponentOccurrence.getNetOccurrence();
     if (netOccurrence.isValid()) {
-      extractNetComponentFromNetOccurrence(netOccurrence);
+      extractNetComponentsFromNetOccurrence(netOccurrence, netComponentOccurrence, start);
     }
   } 
 
@@ -139,7 +145,7 @@ SNLEquipotential::SNLEquipotential(SNLNetComponent* netComponent):
 
 SNLEquipotential::SNLEquipotential(const SNLNetComponentOccurrence& netComponentOccurrence) {
   SNLEquipotentialExtractor extractor(instTermOccurrences_, terms_);
-  extractor.extractNetFromNetComponentOccurrence(netComponentOccurrence);
+  extractor.extractNetFromNetComponentOccurrence(netComponentOccurrence, true);
 }
 
 }} // namespace SNL // namespace naja

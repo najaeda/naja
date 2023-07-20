@@ -17,7 +17,7 @@
 #ifndef __SNL_PATH_H_
 #define __SNL_PATH_H_
 
-#include <cstddef>
+#include "SNLID.h"
 
 namespace naja { namespace SNL {
 
@@ -33,11 +33,16 @@ class SNLPath {
     friend class SNLOccurrence;
 
     SNLPath() = default;
-    SNLPath(const SNLPath&);
+    SNLPath(const SNLPath&) = default;
     SNLPath(SNLSharedPath* sharedPath);
     SNLPath(SNLInstance* instance);
     SNLPath(const SNLPath& headPath, SNLInstance* tailInstance);
     SNLPath(SNLInstance* headInstance, const SNLPath& tailPath);
+
+    using PathStringDescriptor = std::vector<std::string>;
+    SNLPath(const SNLDesign* top, const PathStringDescriptor& descriptor);
+    using PathIDDescriptor = std::vector<SNLID::DesignObjectID>;
+    SNLPath(const SNLDesign* top, const PathIDDescriptor& descriptor);
 
     SNLInstance* getHeadInstance() const;
     SNLPath getTailPath() const;
@@ -54,7 +59,10 @@ class SNLPath {
     bool operator!=(const SNLPath& path) const;
     bool operator<(const SNLPath& path) const;
 
+    std::string getString(const char separator='/');
+
   private:
+    static SNLSharedPath* createInstanceSharedPath(SNLInstance* instance);
     SNLSharedPath* getSharedPath() const { return sharedPath_; }
     SNLSharedPath*  sharedPath_ {nullptr};
 };

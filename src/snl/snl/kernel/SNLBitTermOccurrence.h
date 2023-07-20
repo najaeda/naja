@@ -28,6 +28,7 @@ class SNLBitTermOccurrence: public SNLNetComponentOccurrence {
   public:
     using super = SNLNetComponentOccurrence;
 
+    SNLBitTermOccurrence() = default;
     SNLBitTermOccurrence(SNLBitTerm* term);
     SNLBitTermOccurrence(const SNLPath& path, SNLBitTerm* term);
 
@@ -36,4 +37,4 @@ class SNLBitTermOccurrence: public SNLNetComponentOccurrence {
 
 }} // namespace SNL // namespace naja
 
-#endif // __SNL_OCCURRENCE_H_
+#endif // __SNL_BIT_TERM_OCCURRENCE_H_

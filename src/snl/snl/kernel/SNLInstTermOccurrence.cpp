@@ -28,4 +28,8 @@ SNLInstTermOccurrence::SNLInstTermOccurrence(const SNLPath& path, SNLInstTerm* i
   super(path, instTerm)
 {}
 
+SNLInstTerm* SNLInstTermOccurrence::getInstTerm() const {
+  return static_cast<SNLInstTerm*>(getObject());
+}
+
 }} // namespace SNL // namespace naja

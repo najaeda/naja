@@ -16,6 +16,8 @@
 
 #include "SNLSharedPath.h"
 
+#include <sstream>
+
 #include "SNLDesign.h"
 #include "SNLException.h"
 
@@ -26,7 +28,12 @@ SNLSharedPath::SNLSharedPath(SNLInstance* tailInstance, SNLSharedPath* headShare
   tailInstance_(tailInstance) {
   if (headSharedPath_ and
     (headSharedPath_->getModel() not_eq tailInstance_->getDesign())) {
-    throw SNLException("Cannot construct Path with incomaptible headPath and tailInstance");
+    std::ostringstream stream;
+    stream << "Cannot construct Path with incompatible headPath: ";
+    stream << headSharedPath_->getString();
+    stream << " and " << tailInstance->getString();
+    stream << " with parent design: " << tailInstance->getDesign()->getString();
+    throw SNLException(stream.str());
   }
   if (headSharedPath_) {
     key_ = headSharedPath_->getHeadInstance()->getSNLID();
@@ -95,6 +102,18 @@ size_t SNLSharedPath::size() const {
     return headSharedPath_->size() + 1;
   }
   return 1;
+}
+
+std::string SNLSharedPath::getString(char separator) {
+  if (headSharedPath_) {
+    if (tailInstance_) {
+      return headSharedPath_->getString() + separator + tailInstance_->getName().getString();
+    }
+  }
+  if (tailInstance_) {
+    return tailInstance_->getName().getString();
+  }
+  return "";
 }
 
 }} // namespace SNL // namespace naja

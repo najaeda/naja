@@ -61,6 +61,8 @@ class SNLSharedPath {
       }
     };
 
+    std::string getString(char separator='/');
+
   private:
     SNLSharedPath(SNLInstance* tailInstance, SNLSharedPath* headSharedPath=nullptr);
     ~SNLSharedPath() = default;

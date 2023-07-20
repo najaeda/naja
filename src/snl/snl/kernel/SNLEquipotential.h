@@ -35,6 +35,9 @@ class SNLEquipotential {
 
     SNLEquipotential(SNLNetComponent* netComponent);
     SNLEquipotential(const SNLNetComponentOccurrence& netComponentOccurrence);
+
+    Terms getTerms() const { return terms_; }
+    InstTermOccurrences getInstTermOccurrences() const { return instTermOccurrences_; }
   private:
     InstTermOccurrences instTermOccurrences_  {};
     Terms               terms_                {};

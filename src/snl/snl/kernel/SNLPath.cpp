@@ -16,6 +16,9 @@
 
 #include "SNLPath.h"
 
+#include <sstream>
+
+#include "SNLDesign.h"
 #include "SNLSharedPath.h"
 #include "SNLInstance.h"
 #include "SNLException.h"
@@ -26,16 +29,17 @@ SNLPath::SNLPath(SNLSharedPath* sharedPath):
   sharedPath_(sharedPath)
 {}
 
-SNLPath::SNLPath(const SNLPath& path):
-  sharedPath_(path.sharedPath_)
-{}
+SNLSharedPath* SNLPath::createInstanceSharedPath(SNLInstance* instance) {
+  auto sharedPath = instance->getSharedPath(nullptr);
+  if (not sharedPath) {
+    sharedPath = new SNLSharedPath(instance);
+  }
+  return sharedPath;
+}
 
 SNLPath::SNLPath(SNLInstance* instance): SNLPath() {
   if (instance) {
-    sharedPath_ = instance->getSharedPath(nullptr);
-    if (not sharedPath_) {
-      sharedPath_ = new SNLSharedPath(instance);
-    }
+    sharedPath_ = createInstanceSharedPath(instance);
   }
 }
 
@@ -45,10 +49,7 @@ SNLPath::SNLPath(SNLInstance* headInstance, const SNLPath& tailPath): SNLPath() 
   }
 
   if (not tailPath.sharedPath_) {
-    sharedPath_ = headInstance->getSharedPath(nullptr);
-    if (not sharedPath_) {
-      sharedPath_ = new SNLSharedPath(headInstance);
-    }
+    sharedPath_ = createInstanceSharedPath(headInstance);
   } else {
     SNLInstance* tailInstance = tailPath.getTailInstance();
     SNLSharedPath* headSharedPath = SNLPath(headInstance, tailPath.getHeadPath()).sharedPath_;
@@ -65,20 +66,47 @@ SNLPath::SNLPath(const SNLPath& headPath, SNLInstance* tailInstance): SNLPath() 
   }
 
   if (not headPath.sharedPath_) {
-    sharedPath_ = tailInstance->getSharedPath(nullptr);
-    if (not sharedPath_) {
-      sharedPath_ = new SNLSharedPath(tailInstance);
-    }
+    sharedPath_ = createInstanceSharedPath(tailInstance);
   } else { 
     SNLSharedPath* headSharedPath = headPath.sharedPath_;
     if (headSharedPath->getModel() not_eq tailInstance->getDesign()) {
-      throw SNLException("Cannot create SNLPath: incompatible headPath");
+      std::ostringstream error;
+      error << "Cannot create SNLPath with incompatible headPath: ";
+      error << headSharedPath->getString() << " with model ";
+      error << headSharedPath->getModel()->getString();
+      error << " and tail instance: " << tailInstance->getDescription();
+      error << " with design: " << tailInstance->getDesign()->getString();
+      throw SNLException(error.str());
     }
 
     sharedPath_ = tailInstance->getSharedPath(headSharedPath);
     if (not sharedPath_) {
       sharedPath_ = new SNLSharedPath(tailInstance, headSharedPath);
     }
+  }
+}
+
+SNLPath::SNLPath(const SNLDesign* top, const PathStringDescriptor& descriptor): SNLPath() {
+  if (top and not descriptor.empty()) {
+    using Instances = std::vector<SNLInstance*>;
+    Instances instances;
+    auto design = top;
+    for (auto instanceName: descriptor) {
+      if (instanceName.empty()) {
+        throw SNLException("Anonymous instance in SNLPath constructor.");
+      }
+      auto instance = design->getInstance(SNLName(instanceName));
+      if (not instance) {
+        throw SNLException("Unfound instance in SNLPath constructor.");
+      }
+      instances.push_back(instance);
+      design = instance->getModel();
+    }
+    SNLPath path;
+    for (auto instance: instances) {
+      path = SNLPath(path, instance);
+    }
+    sharedPath_ = path.sharedPath_;
   }
 }
 
@@ -159,6 +187,13 @@ bool SNLPath::operator<(const SNLPath& path) const {
     return path.sharedPath_ != nullptr;
   }
   return false;
+}
+
+std::string SNLPath::getString(const char separator) {
+  if (sharedPath_) {
+    return "<" + sharedPath_->getString(separator) + ">";
+  }
+  return "<>";
 }
 
 }} // namespace SNL // namespace naja
