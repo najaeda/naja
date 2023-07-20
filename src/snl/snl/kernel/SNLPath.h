@@ -17,6 +17,7 @@
 #ifndef __SNL_PATH_H_
 #define __SNL_PATH_H_
 
+#include <vector>
 #include "SNLID.h"
 
 namespace naja { namespace SNL {
@@ -26,7 +27,7 @@ class SNLInstance;
 class SNLSharedPath;
 
 /**
- * \brief SNLPath des
+ * \brief SNLPath: SNLInstance path through hierarchy API
 */
 class SNLPath {
   public:
