@@ -17,7 +17,7 @@ class SNLObject: public NajaObject {
   public:
     using super = NajaObject;
     virtual void debugDump(size_t indent, std::ostream& stream = std::cerr) const = 0;
-
+    
   protected:
     static void preCreate();
     void postCreate();
