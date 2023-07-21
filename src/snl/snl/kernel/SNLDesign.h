@@ -154,6 +154,7 @@ class SNLDesign final: public SNLObject {
     const char* getTypeName() const override;
     std::string getString() const override;
     std::string getDescription() const override;
+    void debugDump(size_t indent, std::ostream& stream = std::cerr) const override;
   private:
     SNLDesign(SNLLibrary* library, Type type, const SNLName& name);
     SNLDesign(SNLLibrary* library, SNLID::DesignID id, Type type, const SNLName& name);

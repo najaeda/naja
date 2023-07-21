@@ -324,6 +324,15 @@ std::string SNLLibrary::getDescription() const {
 }
 //LCOV_EXCL_STOP
 
+//LCOV_EXCL_START
+void SNLLibrary::debugDump(size_t indent, std::ostream& stream) const {
+  stream << std::string(indent, ' ') << getDescription() << std::endl;
+  for (auto design: getDesigns()) {
+    design->debugDump(indent+2, stream);
+  }
+}
+//LCOV_EXCL_STOP
+
 SNLID SNLLibrary::getSNLID() const {
   return SNLID(getDB()->getID(), getID());
 }

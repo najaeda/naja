@@ -196,6 +196,12 @@ std::string SNLBusTerm::getDescription() const {
 }
 //LCOV_EXCL_STOP
 
+//LCOV_EXCL_START
+void SNLBusTerm::debugDump(size_t indent, std::ostream& stream) const {
+  stream << std::string(indent, ' ') << getDescription() << std::endl;
+}
+//LCOV_EXCL_STOP
+
 SNLBusTermBit* SNLBusTerm::getBit(SNLID::Bit bit) const {
   if (SNLDesign::isBetween(bit, getMSB(), getLSB())) {
     size_t pos = static_cast<size_t>(std::abs(getMSB()-bit));

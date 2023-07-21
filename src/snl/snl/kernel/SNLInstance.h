@@ -74,6 +74,7 @@ class SNLInstance final: public SNLDesignObject {
     const char* getTypeName() const override;
     std::string getString() const override;
     std::string getDescription() const override;
+    void debugDump(size_t indent, std::ostream& stream = std::cerr) const override;
 
     SNLInstParameter* getInstParameter(const SNLName& name) const;
     NajaCollection<SNLInstParameter*> getInstParameters() const;
