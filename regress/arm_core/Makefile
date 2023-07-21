@@ -13,7 +13,7 @@ arm_core_netlist.v: src/arm_core.v
 	${YOSYS} src/synth.ys
 
 arm_core_snl.v primitives.v: arm_core_netlist.v
-	${SNL_X2Y} -p ${PRIMITIVES} -i arm_core_netlist.v -o arm_core_snl.v -d primitives.v
+	${SNL_X2Y} -a verilog -b verilog -p ${PRIMITIVES} -i arm_core_netlist.v -o arm_core_snl.v -d primitives.v
 
 clean:
 	-rm arm_core_snl.v primitives.v arm_core_netlist.v 

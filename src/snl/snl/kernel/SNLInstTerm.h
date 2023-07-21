@@ -22,17 +22,17 @@ class SNLInstTerm final: public SNLNetComponent {
     SNLDesign* getDesign() const override;
 
     SNLID getSNLID() const override;
+    SNLInstance* getInstance() const { return instance_; }
+    SNLBitTerm* getTerm() const { return term_; }
+    SNLBitNet* getNet() const override { return net_; }
+    void setNet(SNLNet* net) override;
 
     bool isAnonymous() const override;
     SNLTerm::Direction getDirection() const override;
     const char* getTypeName() const override;
     std::string getString() const override;
     std::string getDescription() const override;
-    SNLInstance* getInstance() const { return instance_; }
-    SNLBitTerm* getTerm() const { return term_; }
-
-    SNLBitNet* getNet() const override { return net_; }
-    void setNet(SNLNet* net) override;
+    void debugDump(size_t indent, std::ostream& stream = std::cerr) const override;
 
     void destroy() override;
   private:

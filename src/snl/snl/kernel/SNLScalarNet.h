@@ -32,6 +32,7 @@ class SNLScalarNet final: public SNLBitNet {
     const char* getTypeName() const override;
     std::string getString() const override;
     std::string getDescription() const override;
+    void debugDump(size_t indent, std::ostream& stream = std::cerr) const override;
   private:
     SNLScalarNet(SNLDesign* design, const SNLName& name);
     SNLScalarNet(SNLDesign* design, SNLID::DesignObjectID id, const SNLName& name);

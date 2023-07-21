@@ -60,6 +60,7 @@ class SNLBusTerm final: public SNLTerm {
     SNLTerm::Direction getDirection() const override { return direction_; }
     std::string getString() const override;
     std::string getDescription() const override;
+    void debugDump(size_t indent, std::ostream& stream = std::cerr) const override;
 
   private:
     SNLBusTerm(

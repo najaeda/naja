@@ -6,6 +6,9 @@
 #ifndef __SNL_OBJECT_H_
 #define __SNL_OBJECT_H_
 
+#include <ostream>
+#include <iostream>
+
 #include "NajaObject.h"
 
 namespace naja { namespace SNL {
@@ -13,6 +16,8 @@ namespace naja { namespace SNL {
 class SNLObject: public NajaObject {
   public:
     using super = NajaObject;
+    virtual void debugDump(size_t indent, std::ostream& stream = std::cerr) const = 0;
+
   protected:
     static void preCreate();
     void postCreate();

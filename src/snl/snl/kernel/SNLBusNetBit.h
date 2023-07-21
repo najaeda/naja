@@ -28,9 +28,10 @@ class SNLBusNetBit final: public SNLBitNet {
 
     const char* getTypeName() const override;
     SNLName getName() const override;
+    bool isAnonymous() const override;
     std::string getString() const override;
     std::string getDescription() const override;
-    bool isAnonymous() const override;
+    void debugDump(size_t indent, std::ostream& stream = std::cerr) const override;
 
     void destroy() override;
   private:

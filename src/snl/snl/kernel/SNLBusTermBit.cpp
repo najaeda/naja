@@ -104,6 +104,11 @@ std::string SNLBusTermBit::getDescription() const {
 }
 //LCOV_EXCL_STOP
 
+//LCOV_EXCL_START
+void SNLBusTermBit::debugDump(size_t indent, std::ostream& stream) const {
+}
+//LCOV_EXCL_STOP
+
 bool SNLBusTermBit::isAnonymous() const {
   return getBus()->isAnonymous();
 }
