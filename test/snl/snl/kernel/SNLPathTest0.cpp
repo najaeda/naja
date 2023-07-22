@@ -215,6 +215,8 @@ TEST_F(SNLPathTest0, comparePaths) {
   EXPECT_EQ(
     SNLPath(SNLPath(SNLPath(SNLPath(h0Instance_), h1Instance_), h2Instance_), primInstance_),
     SNLPath(h0Instance_, SNLPath(h1Instance_, SNLPath(h2Instance_, SNLPath(primInstance_)))));
+  EXPECT_LT(SNLPath(), SNLPath(primInstance_));
+  EXPECT_GT(SNLPath(primInstance_), SNLPath());
 }
 
 TEST_F(SNLPathTest0, testErrors) {
@@ -227,9 +229,16 @@ TEST_F(SNLPathTest0, testErrors) {
   ASSERT_NE(primInstance_, nullptr);
   EXPECT_THROW(SNLPath(SNLPath(h0Instance_), primInstance_), SNLException);
   EXPECT_THROW(SNLPath(h0Instance_, SNLPath(primInstance_)), SNLException);
+
+  //Path Descriptor errors
+  SNLPath::PathStringDescriptor pathDescriptor0 = { "h0", "h1", "", "prim"};
+  EXPECT_THROW(SNLPath(h0Instance_->getDesign(), pathDescriptor0), SNLException);
+
+  SNLPath::PathStringDescriptor pathDescriptor1 = { "h0", "h1", "h3", "prim"};
+  EXPECT_THROW(SNLPath(h0Instance_->getDesign(), pathDescriptor1), SNLException);
 }
 
-TEST_F(SNLPathTest0, testInstanceDestroy) {
+TEST_F(SNLPathTest0, testInstanceDestroy0) {
   {
     auto path = SNLPath(SNLPath(SNLPath(SNLPath(h0Instance_), h1Instance_), h2Instance_), primInstance_);
     EXPECT_FALSE(path.empty());
@@ -242,4 +251,24 @@ TEST_F(SNLPathTest0, testInstanceDestroy) {
     auto path = SNLPath(SNLPath(SNLPath(SNLPath(h0Instance_), h1Instance_)));
     EXPECT_FALSE(path.empty());
   }
+}
+
+TEST_F(SNLPathTest0, testInstanceDestroy1) {
+  auto top = h0Instance_->getDesign();
+  {
+    auto path = SNLPath(SNLPath(SNLPath(SNLPath(h0Instance_), h1Instance_), h2Instance_), primInstance_);
+    EXPECT_FALSE(path.empty());
+  }
+  h0Instance_->destroy();
+  h0Instance_ = nullptr;
+  {
+    SNLPath::PathStringDescriptor pathDescriptor0 = { "h0", "h1", "h2", "prim"};
+    EXPECT_THROW(SNLPath(top, pathDescriptor0), SNLException);
+
+    SNLPath::PathStringDescriptor pathDescriptor1 = { "h1", "h2", "prim"};
+    auto path = SNLPath(h1Instance_->getDesign(), pathDescriptor1);
+    EXPECT_EQ(3, path.size());
+  }
+
+  
 }
