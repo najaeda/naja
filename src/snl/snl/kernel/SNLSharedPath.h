@@ -19,7 +19,11 @@ class SNLDesign;
  * SNLSharedPath class allows:
  * - caching SNLInstance path through a tree like structure, sharing common headPath
  * - storing Occurrence properties (in the future)
- * SNLSharedPath is a data structure composed of [SNLSharedPath, SNLInstance*]
+ * SNLSharedPath is a data structure composed of [SNLSharedPath, SNLInstance*] or [HeadSharedPath, tailInstance].
+ * 
+ * SNLSharedPath holds a key used for:
+ * - comparing two Paths. 
+ * - Inserting a new SNLSharedPath in an instance
  */
 class SNLSharedPath {
   public:
@@ -35,20 +39,8 @@ class SNLSharedPath {
     SNLDesign* getDesign() const;
     SNLDesign* getModel() const;
     //returns this SNLSharedPath key
-    SNLID getKey() const { return key_; }
     size_t size() const;
 
-    struct KeyComp {
-      bool operator()(const SNLSharedPath& lp, const SNLSharedPath& rp) const {
-        return lp.getKey() < rp.getKey();
-      }
-      bool operator()(const SNLID& key, const SNLSharedPath& rsp) const {
-        return key < rsp.getKey();
-      }
-      bool operator()(const SNLSharedPath& lsp, const SNLID& key) const {
-        return lsp.getKey() < key;
-      }
-    };
 
     std::string getString(char separator='/');
 
@@ -61,7 +53,6 @@ class SNLSharedPath {
     void destroyFromInstance();
 
     boost::intrusive::set_member_hook<> instanceSharedPathsHook_  {};
-    SNLID                               key_;
     SNLSharedPath*                      headSharedPath_           {nullptr};
     SNLInstance*                        tailInstance_             {nullptr};
 };

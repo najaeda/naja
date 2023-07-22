@@ -138,10 +138,6 @@ bool SNLPath::operator==(const SNLPath& path) const {
   return sharedPath_ == path.sharedPath_;
 }
 
-bool SNLPath::operator!=(const SNLPath& path) const {
-  return sharedPath_ != path.sharedPath_;
-}
-
 bool SNLPath::operator<(const SNLPath& path) const {
   if (sharedPath_) {
     if (path.sharedPath_) {
@@ -178,11 +174,13 @@ bool SNLPath::operator<(const SNLPath& path) const {
   return false;
 }
 
+//LCOV_EXCL_START
 std::string SNLPath::getString(const char separator) {
   if (sharedPath_) {
     return "<" + sharedPath_->getString(separator) + ">";
   }
   return "<>";
 }
+//LCOV_EXCL_STOP
 
 }} // namespace SNL // namespace naja

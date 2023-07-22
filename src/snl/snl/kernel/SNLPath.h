@@ -45,9 +45,9 @@ class SNLPath {
     size_t size() const;
 
     SNLPath& operator=(const SNLPath& path) = default;
-    bool operator==(const SNLPath& path) const;
-    bool operator!=(const SNLPath& path) const;
-    bool operator<(const SNLPath& path) const;
+    bool operator==(const SNLPath& rhs) const;
+    bool operator<(const SNLPath& rhs) const;
+    auto operator<=>(const SNLPath& rhs) const = default;
 
     std::string getString(const char separator='/');
 

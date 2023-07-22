@@ -6,7 +6,8 @@ SET(snl_tests
   SNLDesignTest.cpp SNLTermTest.cpp
   SNLInstanceTest0.cpp SNLInstanceTest1.cpp SNLInstanceTest2.cpp
   SNLNetTest.cpp #SNLLargeDBTest.cpp
-  SNLPathTest.cpp SNLOccurrenceTest.cpp
+  SNLPathTest0.cpp SNLPathTest1.cpp
+  SNLOccurrenceTest.cpp
   SNLParameterTest.cpp
   SNLDB0Test.cpp
 )

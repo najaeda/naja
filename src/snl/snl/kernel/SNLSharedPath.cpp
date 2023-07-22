@@ -24,11 +24,6 @@ SNLSharedPath::SNLSharedPath(SNLInstance* tailInstance, SNLSharedPath* headShare
     stream << " with parent design: " << tailInstance->getDesign()->getString();
     throw SNLException(stream.str());
   }
-  if (headSharedPath_) {
-    key_ = headSharedPath_->getHeadInstance()->getSNLID();
-  } else {
-    key_ = tailInstance_->getSNLID();
-  }
   tailInstance_->addSharedPath(this);
 }
 
@@ -93,6 +88,7 @@ size_t SNLSharedPath::size() const {
   return 1;
 }
 
+//LCOV_EXCL_START
 std::string SNLSharedPath::getString(char separator) {
   if (headSharedPath_) {
     if (tailInstance_) {
@@ -104,5 +100,6 @@ std::string SNLSharedPath::getString(char separator) {
   }
   return "";
 }
+//LCOV_EXCL_STOP
 
 }} // namespace SNL // namespace naja

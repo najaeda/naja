@@ -245,12 +245,9 @@ void SNLInstance::commonPreDestroy() {
   std::cerr << "commonPreDestroy " << getDescription() << std::endl; 
 #endif
 
-  struct destroySharedPathFromInstance {
-    void operator()(SNLSharedPath* path) {
-      path->destroyFromInstance();
-    }
-  };
-  sharedPaths_.clear_and_dispose(destroySharedPathFromInstance());
+  for (const auto& sharedPathsElement: sharedPaths_) {
+    sharedPathsElement.second->destroyFromInstance();
+  }
   for (auto instTerm: instTerms_) {
     if (instTerm) {
       instTerm->destroyFromInstance();
@@ -347,27 +344,24 @@ NajaCollection<SNLInstTerm*> SNLInstance::getInstBusTermBits() const {
   return NajaCollection(new NajaSTLCollection(&instTerms_)).getSubCollection(filter);
 }
 
-SNLSharedPath* SNLInstance::getSharedPath(const SNLSharedPath* sharedPath) const {
-  //SharedPath: [HeadPath*, TailInstance*]
-  //SharedPaths are stored in TailInstance with key HeadPath->getHeadInstance()->getSNLID()
-  //Single instance shared path: [Null, TailInstance*] is stored with key max SNLID 
-  auto key = getSNLID();
-  if (sharedPath) {
-    key = sharedPath->getKey();
-  }
-  auto it = sharedPaths_.find(key, SNLSharedPath::KeyComp());
+SNLSharedPath* SNLInstance::getSharedPath(const SNLSharedPath* tailSharedPath) const {
+  auto it = sharedPaths_.find(tailSharedPath);
   if (it != sharedPaths_.end()) {
-    return const_cast<SNLSharedPath*>(&*it);
+    return it->second;
   }
   return nullptr;
 }
 
 void SNLInstance::addSharedPath(SNLSharedPath* sharedPath) {
-  sharedPaths_.insert(*sharedPath);
+  //first check if not present ?
+  sharedPaths_[sharedPath->getHeadSharedPath()] = sharedPath;
 }
 
 void SNLInstance::removeSharedPath(SNLSharedPath* sharedPath) {
-  sharedPaths_.erase(*sharedPath);
+  auto it = sharedPaths_.find(sharedPath->getHeadSharedPath());
+  if (it != sharedPaths_.end()) {
+    sharedPaths_.erase(it);
+  }
 }
 
 void SNLInstance::addInstParameter(SNLInstParameter* instParameter) {

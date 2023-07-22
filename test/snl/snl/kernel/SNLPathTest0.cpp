@@ -5,7 +5,7 @@
 #include "SNLException.h"
 using namespace naja::SNL;
 
-class SNLPathTest: public ::testing::Test {
+class SNLPathTest0: public ::testing::Test {
   protected:
     void SetUp() override {
       // top
@@ -38,7 +38,7 @@ class SNLPathTest: public ::testing::Test {
     SNLInstance* h0Instance_    {nullptr};
 };
 
-TEST_F(SNLPathTest, testEmptyPath) {
+TEST_F(SNLPathTest0, testEmptyPath) {
   ASSERT_NE(SNLUniverse::get(), nullptr);
   auto emptyPath = SNLPath();
   EXPECT_TRUE(emptyPath.empty());
@@ -52,7 +52,7 @@ TEST_F(SNLPathTest, testEmptyPath) {
   EXPECT_FALSE(emptyPath < emptyPath);
 }
 
-TEST_F(SNLPathTest, testTopDown0) {
+TEST_F(SNLPathTest0, testTopDown0) {
   ASSERT_NE(h0Instance_, nullptr);
   auto h0Path = SNLPath(h0Instance_, SNLPath());
   EXPECT_FALSE(h0Path.empty());
@@ -69,7 +69,7 @@ TEST_F(SNLPathTest, testTopDown0) {
   EXPECT_EQ(SNLPath(SNLPath(), h0Instance_), h0Path);
 }
 
-TEST_F(SNLPathTest, testTopDown1) {
+TEST_F(SNLPathTest0, testTopDown1) {
   ASSERT_NE(h0Instance_, nullptr);
   auto h0Path = SNLPath(h0Instance_);
   EXPECT_FALSE(h0Path.empty());
@@ -128,7 +128,7 @@ TEST_F(SNLPathTest, testTopDown1) {
   EXPECT_EQ(SNLPath(SNLPath(SNLPath(h1Instance_), h2Instance_), primInstance_), primPath.getTailPath());
 }
 
-TEST_F(SNLPathTest, testBottomUp0) {
+TEST_F(SNLPathTest0, testBottomUp0) {
   ASSERT_NE(primInstance_, nullptr);
   auto primPath = SNLPath(SNLPath(), primInstance_);
   EXPECT_FALSE(primPath.empty());
@@ -143,7 +143,7 @@ TEST_F(SNLPathTest, testBottomUp0) {
   EXPECT_EQ(SNLPath(primInstance_, SNLPath()), primPath);
 }
 
-TEST_F(SNLPathTest, testBottomUp1) {
+TEST_F(SNLPathTest0, testBottomUp1) {
   ASSERT_NE(primInstance_, nullptr);
   auto primPath = SNLPath(primInstance_);
   EXPECT_FALSE(primPath.empty());
@@ -191,6 +191,7 @@ TEST_F(SNLPathTest, testBottomUp1) {
   EXPECT_LT(primPath, h0Path);
   EXPECT_LT(h2Path, h0Path);
   EXPECT_LT(h1Path, h0Path);
+  EXPECT_FALSE(primPath < primPath);
   EXPECT_EQ(h0Instance_, h0Path.getHeadInstance());
   EXPECT_EQ(primInstance_, h0Path.getTailInstance());
   EXPECT_EQ(primInstance_->getModel(), h0Path.getModel());
@@ -203,7 +204,7 @@ TEST_F(SNLPathTest, testBottomUp1) {
   EXPECT_NE(h0Path, copyH1Path);
 }
 
-TEST_F(SNLPathTest, comparePaths) {
+TEST_F(SNLPathTest0, comparePaths) {
   EXPECT_EQ(SNLPath(SNLPath(), primInstance_), SNLPath(primInstance_, SNLPath()));
   EXPECT_EQ(
     SNLPath(SNLPath(h2Instance_), primInstance_),
@@ -216,7 +217,7 @@ TEST_F(SNLPathTest, comparePaths) {
     SNLPath(h0Instance_, SNLPath(h1Instance_, SNLPath(h2Instance_, SNLPath(primInstance_)))));
 }
 
-TEST_F(SNLPathTest, testErrors) {
+TEST_F(SNLPathTest0, testErrors) {
   SNLInstance* instance = nullptr;
   SNLPath emptyPath;
   EXPECT_THROW(SNLPath(instance, emptyPath), SNLException);
@@ -228,7 +229,7 @@ TEST_F(SNLPathTest, testErrors) {
   EXPECT_THROW(SNLPath(h0Instance_, SNLPath(primInstance_)), SNLException);
 }
 
-TEST_F(SNLPathTest, testInstanceDestroy) {
+TEST_F(SNLPathTest0, testInstanceDestroy) {
   {
     auto path = SNLPath(SNLPath(SNLPath(SNLPath(h0Instance_), h1Instance_), h2Instance_), primInstance_);
     EXPECT_FALSE(path.empty());
