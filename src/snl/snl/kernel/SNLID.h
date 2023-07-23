@@ -222,7 +222,7 @@ struct SNLID final {
   DesignObjectID  instanceID_     {0};
   Bit             bit_            {0};           
 
-  SNLID() = default;
+  SNLID() = delete;
   
   ///Special constructor for SNLDB
   SNLID(DBID dbID):
