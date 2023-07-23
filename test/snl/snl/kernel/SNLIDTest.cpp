@@ -13,6 +13,11 @@ TEST(SNLIDTest, testSize) {
   EXPECT_EQ(1+1+2+4+4+4+4 /*20*/, sizeof(SNLID));
 }
 
+TEST(SNLIDTest, testEmpty) {
+  auto id = SNLID();
+  EXPECT_EQ(id, SNLID(SNLID::Type::DB, 0, 0, 0, 0, 0, 0));
+}
+
 TEST(SNLIDTest, testComparisons) {
   EXPECT_LT(SNLID(0), SNLID(1));
   EXPECT_NE(SNLID(0), SNLID(1));

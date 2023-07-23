@@ -129,6 +129,31 @@ TEST_F(SNLOccurrenceTest, testEquipotential0) {
   EXPECT_THAT(equipotential.getInstTermOccurrences(), ElementsAre(primiOccurrence));
 }
 
+TEST_F(SNLOccurrenceTest, testEquipotential1) {
+  ASSERT_NE(h0Instance_, nullptr);
+  auto top = h0Instance_->getDesign();
+  auto topi = top->getScalarTerm(SNLName("i"));
+  ASSERT_NE(topi, nullptr);
+  SNLPath::PathStringDescriptor h1StringPath = {"h0", "h1"};
+  SNLPath h1Path(top, h1StringPath);
+  EXPECT_EQ(2, h1Path.size());
+  auto h2i = h2Instance_->getInstTerm(h2Instance_->getModel()->getScalarTerm(SNLName("i")));
+  ASSERT_NE(nullptr, h2i);
+  auto h2iOccurrence = SNLInstTermOccurrence(h1Path, h2i);
+  SNLEquipotential equipotential(h2iOccurrence);
+  EXPECT_THAT(equipotential.getTerms(), ElementsAre(topi));
+  SNLPath::PathStringDescriptor h2StringPath = {"h0", "h1", "h2"};
+  SNLPath h2Path(top, h2StringPath);
+  EXPECT_FALSE(h2Path.empty());
+  EXPECT_EQ(3, h2Path.size());
+  auto h2 = h2Path.getModel();
+  auto primi = primInstance_->getInstTerm(primInstance_->getModel()->getScalarTerm(SNLName("i")));
+  ASSERT_NE(nullptr, primi);
+  auto primiOccurrence = SNLInstTermOccurrence(h2Path, primi);
+  ASSERT_TRUE(primiOccurrence.isValid());
+  EXPECT_THAT(equipotential.getInstTermOccurrences(), ElementsAre(primiOccurrence));
+}
+
 #if 0
 TEST_F(SNLPathTest, testTopDown1) {
   ASSERT_NE(h0Instance_, nullptr);
