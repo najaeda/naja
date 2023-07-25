@@ -56,3 +56,24 @@ TEST_F(SNLPathTest1, testCompare) {
   EXPECT_NE(path0, path1);
   EXPECT_LT(path0, path1);
 }
+
+
+TEST_F(SNLPathTest1, testDestroy0) {
+  {
+    SNLPath::PathStringDescriptor pathDescriptor0 = {"h0", "h1", "h2", "prim"};
+    SNLPath::PathStringDescriptor pathDescriptor1 = {"h0", "h1p", "h2", "prim"};
+
+    auto path0 = SNLPath(h0Instance_->getDesign(), pathDescriptor0);
+    auto path1 = SNLPath(h0Instance_->getDesign(), pathDescriptor1);
+    EXPECT_EQ(4, path0.size());
+    EXPECT_EQ(4, path1.size());
+  }
+
+  //delete h2
+  h2Instance_->destroy();
+
+  //
+  SNLPath::PathStringDescriptor pathDescriptor0 = {"h0", "h1"};
+  auto path0 = SNLPath(h0Instance_->getDesign(), pathDescriptor0);
+  EXPECT_EQ(2, path0.size());
+}
