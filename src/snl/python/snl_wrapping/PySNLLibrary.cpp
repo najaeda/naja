@@ -12,39 +12,15 @@
 
 #include "SNLLibrary.h"
 
-namespace PYSNL {
-
 using namespace naja::SNL;
+
+namespace PYSNL {
 
 #define METHOD_HEAD(function) GENERIC_METHOD_HEAD(SNLLibrary, function)
 
-static PyObject* PySNLLibrary_create(PyObject*, PyObject* args) {
-  PyObject* arg0 = nullptr;
-  const char* arg1 = nullptr;
-  if (not PyArg_ParseTuple(args, "O|s:SNLLibrary.create", &arg0, &arg1)) {
-    setError("malformed SNLLibrary create");
-    return nullptr;
-  }
-  SNLName name;
-  if (arg1) {
-    name = SNLName(arg1);
-  }
+namespace {
 
-  SNLLibrary* lib = nullptr;
-  SNLTRY
-  if (IsPySNLDB(arg0)) {
-    lib = SNLLibrary::create(PYSNLDB_O(arg0), name);
-  } else if (IsPySNLLibrary(arg0)) {
-    lib = SNLLibrary::create(PYSNLLibrary_O(arg0), name);
-  } else {
-    setError("SNLLibrary creator accepts as first argument either a SNLDB or a SNLLibrary");
-    return nullptr;
-  }
-  SNLCATCH
-  return PySNLLibrary_Link(lib);
-}
-
-static PyObject* PySNLLibrary_createPrimitives(PyObject*, PyObject* args) {
+static PyObject* createLibrary(PyObject* args, SNLLibrary::Type type) {
   PyObject* arg0 = nullptr;
   const char* arg1 = nullptr;
   if (not PyArg_ParseTuple(args, "O|s:SNLLibrary.createPrimitives", &arg0, &arg1)) {
@@ -59,15 +35,26 @@ static PyObject* PySNLLibrary_createPrimitives(PyObject*, PyObject* args) {
   SNLLibrary* lib = nullptr;
   SNLTRY
   if (IsPySNLDB(arg0)) {
-    lib = SNLLibrary::create(PYSNLDB_O(arg0), SNLLibrary::Type::Primitives, name);
+    lib = SNLLibrary::create(PYSNLDB_O(arg0), type, name);
   } else if (IsPySNLLibrary(arg0)) {
-    lib = SNLLibrary::create(PYSNLLibrary_O(arg0), SNLLibrary::Type::Primitives, name);
+    lib = SNLLibrary::create(PYSNLLibrary_O(arg0), type, name);
   } else {
     setError("SNLLibrary creator accepts as first argument either a SNLDB or a SNLLibrary");
     return nullptr;
   }
   SNLCATCH
   return PySNLLibrary_Link(lib);
+}
+
+}
+
+
+static PyObject* PySNLLibrary_create(PyObject*, PyObject* args) {
+  return createLibrary(args, SNLLibrary::Type::Standard);
+}
+
+static PyObject* PySNLLibrary_createPrimitives(PyObject*, PyObject* args) {
+  return createLibrary(args, SNLLibrary::Type::Primitives);
 }
 
 GetObjectMethod(Library, DB)
