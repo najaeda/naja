@@ -8,18 +8,27 @@ SET(snl_tests
   SNLNetTest.cpp #SNLLargeDBTest.cpp
   SNLPathTest0.cpp SNLPathTest1.cpp
   SNLOccurrenceTest.cpp
-  SNLEquipotentialTest.cpp
   SNLParameterTest.cpp
   SNLDB0Test.cpp
+)
+
+SET(snl_tests_with_pyloader
+  SNLEquipotentialTest.cpp
 )
 
 ADD_EXECUTABLE(snlTests ${snl_tests})
 target_compile_definitions(snlTests PRIVATE
   SNL_BENCHS_PATH="${CMAKE_CURRENT_SOURCE_DIR}/benchs")
 
-TARGET_LINK_LIBRARIES(snlTests naja_snl_pyloader gtest gmock gtest_main)
+ADD_EXECUTABLE(snlTestsWithPyLoader ${snl_tests_with_pyloader})
+target_compile_definitions(snlTestsWithPyLoader PRIVATE
+  SNL_BENCHS_PATH="${CMAKE_CURRENT_SOURCE_DIR}/benchs")
 
-GTEST_DISCOVER_TESTS(snlTests
+TARGET_LINK_LIBRARIES(snlTests naja_snl gtest gmock gtest_main)
+TARGET_LINK_LIBRARIES(snlTestsWithPyLoader naja_snl_pyloader gtest gmock gtest_main)
+
+GTEST_DISCOVER_TESTS(snlTests)
+GTEST_DISCOVER_TESTS(snlTestsWithPyLoader
   PROPERTIES ENVIRONMENT
   PYTHONPATH=${PROJECT_BINARY_DIR}/src/snl/python/snl_wrapping
 )

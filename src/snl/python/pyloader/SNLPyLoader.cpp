@@ -107,7 +107,6 @@ void SNLPyLoader::loadDB(
   Py_DECREF(pyDB);
   Py_DECREF(constructString);
   Py_Finalize();
-
 }
 
 void SNLPyLoader::loadPrimitives(
