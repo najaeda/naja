@@ -26,6 +26,7 @@ TEST_F(SNLPrimitivesTest0, test) {
   auto db = SNLDB::create(SNLUniverse::get());
   auto library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("PRIMS"));
   auto primitives0Path = std::filesystem::path(SNL_PRIMITIVES_TEST_PATH);
+  primitives0Path /= "scripts";
   primitives0Path /= "primitives0.py";
   SNLPyLoader::loadPrimitives(library, primitives0Path);
   ASSERT_EQ(1, library->getDesigns().size());
@@ -52,6 +53,7 @@ TEST_F(SNLPrimitivesTest0, testError0) {
   auto db = SNLDB::create(SNLUniverse::get());
   auto library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("PRIMS"));
   auto primitives0Path = std::filesystem::path(SNL_PRIMITIVES_TEST_PATH);
+  primitives0Path /= "scripts";
   primitives0Path /= "wrong_path.py";
   //Wrong path
   EXPECT_THROW(SNLPyLoader::loadPrimitives(library, primitives0Path), SNLException);
@@ -67,6 +69,7 @@ TEST_F(SNLPrimitivesTest0, testWrongSyntax) {
   auto library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("PRIMS"));
   //non python script
   auto primitives0Path = std::filesystem::path(SNL_PRIMITIVES_TEST_PATH);
+  primitives0Path /= "scripts";
   primitives0Path /= "wrong_syntax.py";
   EXPECT_THROW(SNLPyLoader::loadPrimitives(library, primitives0Path), SNLException);
 }
@@ -76,6 +79,7 @@ TEST_F(SNLPrimitivesTest0, testFaultyPythonScript) {
   auto db = SNLDB::create(SNLUniverse::get());
   auto library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("PRIMS"));
   auto primitives0Path = std::filesystem::path(SNL_PRIMITIVES_TEST_PATH);
+  primitives0Path /= "scripts";
   primitives0Path /= "faulty_script.py";
   EXPECT_THROW(SNLPyLoader::loadPrimitives(library, primitives0Path), SNLException);
 }
