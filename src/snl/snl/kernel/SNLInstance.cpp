@@ -298,7 +298,6 @@ SNLID::DesignObjectReference SNLInstance::getReference() const {
   return SNLID::DesignObjectReference(getDesign()->getReference(), getID());
 }
 
-
 bool SNLInstance::isBlackBox() const {
   return getModel()->isBlackBox();
 }
@@ -357,12 +356,14 @@ void SNLInstance::addSharedPath(SNLSharedPath* sharedPath) {
   sharedPaths_[sharedPath->getHeadSharedPath()] = sharedPath;
 }
 
+#if 0
 void SNLInstance::removeSharedPath(SNLSharedPath* sharedPath) {
   auto it = sharedPaths_.find(sharedPath->getHeadSharedPath());
   if (it != sharedPaths_.end()) {
     sharedPaths_.erase(it);
   }
 }
+#endif
 
 void SNLInstance::addInstParameter(SNLInstParameter* instParameter) {
   instParameters_.insert(*instParameter);
