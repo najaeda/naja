@@ -49,7 +49,7 @@ class SNLPath {
     bool operator<(const SNLPath& rhs) const;
     auto operator<=>(const SNLPath& rhs) const = default;
 
-    std::string getString(const char separator='/');
+    std::string getString(const char separator='/') const;
 
   private:
     static SNLSharedPath* createInstanceSharedPath(SNLInstance* instance);

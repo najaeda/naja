@@ -9,12 +9,12 @@
 
 #include <set>
 #include "SNLBitTerm.h"
+#include "SNLInstTermOccurrence.h"
 
 namespace naja { namespace SNL {
 
 class SNLNetComponent;
 class SNLNetComponentOccurrence;
-class SNLInstTermOccurrence;
 
 class SNLEquipotential {
   public:

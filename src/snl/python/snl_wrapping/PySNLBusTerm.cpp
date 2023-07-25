@@ -7,8 +7,10 @@
 
 #include "PyInterface.h"
 #include "PySNLDesign.h"
+#include "PySNLBusTermBit.h"
 
 #include "SNLBusTerm.h"
+#include "SNLBusTermBit.h"
 
 namespace PYSNL {
 
@@ -18,7 +20,7 @@ using namespace naja::SNL;
 #undef   ACCESS_CLASS
 #define  ACCESS_OBJECT           parent_.parent_.parent_.object_
 #define  ACCESS_CLASS(_pyObject)  &(_pyObject->parent_)
-#define  METHOD_HEAD(function)   GENERIC_METHOD_HEAD(BusTerm, term, function)
+#define  METHOD_HEAD(function)   GENERIC_METHOD_HEAD(SNLBusTerm, function)
 
 static PyObject* PySNLBusTerm_create(PyObject*, PyObject* args) {
   PyObject* arg0 = nullptr;
@@ -52,6 +54,7 @@ DirectGetIntMethod(PySNLBusTerm_getMSB, getMSB, PySNLBusTerm, SNLBusTerm)
 DirectGetIntMethod(PySNLBusTerm_getLSB, getLSB, PySNLBusTerm, SNLBusTerm)
 DirectGetIntMethod(PySNLBusTerm_getSize, getSize, PySNLBusTerm, SNLBusTerm)
 
+GetObjectByIndex(BusTerm, BusTermBit, Bit)
 
 DBoLinkCreateMethod(SNLBusTerm)
 DBoDeallocMethod(SNLBusTerm)
@@ -66,6 +69,8 @@ PyMethodDef PySNLBusTerm_Methods[] = {
     "get SNLBusTerm LSB value"},
   { "getSize", (PyCFunction)PySNLBusTerm_getSize, METH_NOARGS,
     "get SNLBusTerm Size"},
+  { "getBit", (PyCFunction)PySNLBusTerm_getBit, METH_VARARGS,
+    "get SNLBusTerm Bit, returns SNLBusTermBit"},
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 

@@ -2,7 +2,7 @@
 
 #include "SNLUniverse.h"
 #include "SNLScalarTerm.h"
-#include "SNLPrimitivesLoader.h"
+#include "SNLPyLoader.h"
 #include "SNLException.h"
 using namespace naja::SNL;
 
@@ -27,7 +27,7 @@ TEST_F(SNLPrimitivesTest0, test) {
   auto library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("PRIMS"));
   auto primitives0Path = std::filesystem::path(SNL_PRIMITIVES_TEST_PATH);
   primitives0Path /= "primitives0.py";
-  SNLPrimitivesLoader::load(library, primitives0Path);
+  SNLPyLoader::loadPrimitives(library, primitives0Path);
   ASSERT_EQ(1, library->getDesigns().size());
   auto lut4 = library->getDesign(SNLName("LUT4")); 
   EXPECT_TRUE(lut4->isPrimitive());
@@ -54,12 +54,12 @@ TEST_F(SNLPrimitivesTest0, testError0) {
   auto primitives0Path = std::filesystem::path(SNL_PRIMITIVES_TEST_PATH);
   primitives0Path /= "wrong_path.py";
   //Wrong path
-  EXPECT_THROW(SNLPrimitivesLoader::load(library, primitives0Path), SNLException);
+  EXPECT_THROW(SNLPyLoader::loadPrimitives(library, primitives0Path), SNLException);
   
   library->destroy();
   //non Primitives library
   library = SNLLibrary::create(db, SNLName("PRIMS"));
-  EXPECT_THROW(SNLPrimitivesLoader::load(library, primitives0Path), SNLException);
+  EXPECT_THROW(SNLPyLoader::loadPrimitives(library, primitives0Path), SNLException);
 }
 
 TEST_F(SNLPrimitivesTest0, testWrongSyntax) {
@@ -68,7 +68,7 @@ TEST_F(SNLPrimitivesTest0, testWrongSyntax) {
   //non python script
   auto primitives0Path = std::filesystem::path(SNL_PRIMITIVES_TEST_PATH);
   primitives0Path /= "wrong_syntax.py";
-  EXPECT_THROW(SNLPrimitivesLoader::load(library, primitives0Path), SNLException);
+  EXPECT_THROW(SNLPyLoader::loadPrimitives(library, primitives0Path), SNLException);
 }
 
 TEST_F(SNLPrimitivesTest0, testFaultyPythonScript) {
@@ -77,5 +77,5 @@ TEST_F(SNLPrimitivesTest0, testFaultyPythonScript) {
   auto library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("PRIMS"));
   auto primitives0Path = std::filesystem::path(SNL_PRIMITIVES_TEST_PATH);
   primitives0Path /= "faulty_script.py";
-  EXPECT_THROW(SNLPrimitivesLoader::load(library, primitives0Path), SNLException);
+  EXPECT_THROW(SNLPyLoader::loadPrimitives(library, primitives0Path), SNLException);
 }

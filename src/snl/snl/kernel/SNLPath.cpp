@@ -175,7 +175,7 @@ bool SNLPath::operator<(const SNLPath& path) const {
 }
 
 //LCOV_EXCL_START
-std::string SNLPath::getString(const char separator) {
+std::string SNLPath::getString(const char separator) const {
   if (sharedPath_) {
     return "<" + sharedPath_->getString(separator) + ">";
   }

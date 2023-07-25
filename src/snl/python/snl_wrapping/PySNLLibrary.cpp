@@ -44,6 +44,32 @@ static PyObject* PySNLLibrary_create(PyObject*, PyObject* args) {
   return PySNLLibrary_Link(lib);
 }
 
+static PyObject* PySNLLibrary_createPrimitives(PyObject*, PyObject* args) {
+  PyObject* arg0 = nullptr;
+  const char* arg1 = nullptr;
+  if (not PyArg_ParseTuple(args, "O|s:SNLLibrary.createPrimitives", &arg0, &arg1)) {
+    setError("malformed Primitives SNLLibrary create");
+    return nullptr;
+  }
+  SNLName name;
+  if (arg1) {
+    name = SNLName(arg1);
+  }
+
+  SNLLibrary* lib = nullptr;
+  SNLTRY
+  if (IsPySNLDB(arg0)) {
+    lib = SNLLibrary::create(PYSNLDB_O(arg0), SNLLibrary::Type::Primitives, name);
+  } else if (IsPySNLLibrary(arg0)) {
+    lib = SNLLibrary::create(PYSNLLibrary_O(arg0), SNLLibrary::Type::Primitives, name);
+  } else {
+    setError("SNLLibrary creator accepts as first argument either a SNLDB or a SNLLibrary");
+    return nullptr;
+  }
+  SNLCATCH
+  return PySNLLibrary_Link(lib);
+}
+
 GetObjectMethod(Library, DB)
 GetObjectByName(Library, Design)
 GetObjectByName(Library, Library)
@@ -60,6 +86,8 @@ PyTypeObjectDefinitions(SNLLibrary)
 PyMethodDef PySNLLibrary_Methods[] = {
   { "create", (PyCFunction)PySNLLibrary_create, METH_VARARGS|METH_STATIC,
     "SNLLibrary creator"},
+  { "createPrimitives", (PyCFunction)PySNLLibrary_createPrimitives, METH_VARARGS|METH_STATIC,
+    "Primitives SNLLibrary creator"},
   { "getName", (PyCFunction)PySNLLibrary_getName, METH_NOARGS,
     "get SNLLibrary name"},
   { "getDB", (PyCFunction)PySNLLibrary_getDB, METH_VARARGS,

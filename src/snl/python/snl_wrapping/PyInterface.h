@@ -195,6 +195,22 @@ PyObject* richCompare(T left, T right, int op) {
     return PySNL##OBJECT_TYPE##_Link(obj); \
   }
 
+#define GetObjectByIndex(SELF_TYPE, OBJECT_TYPE, METHOD) \
+  static PyObject* PySNL##SELF_TYPE##_get##METHOD(PySNL##SELF_TYPE* self, PyObject* args) { \
+    SNL##OBJECT_TYPE* obj = nullptr; \
+    METHOD_HEAD("SNL##SELF_TYPE.get##OBJECT_TYPE()") \
+    int index = 0; \
+    if (PyArg_ParseTuple(args, "i:SNL##SELF_TYPE.get##METHOD", &index)) { \
+      SNLTRY \
+      obj = selfObject->get##METHOD(index); \
+      SNLCATCH \
+    } else { \
+      setError("invalid number of parameters for get##METHOD."); \
+      return nullptr; \
+    } \
+    return PySNL##OBJECT_TYPE##_Link(obj); \
+  }
+
 #define GetNameMethod(SELF_TYPE) \
   static PyObject* Py##SELF_TYPE##_getName(Py##SELF_TYPE* self) { \
     METHOD_HEAD(#SELF_TYPE ".getName()") \

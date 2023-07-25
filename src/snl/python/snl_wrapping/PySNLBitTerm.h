@@ -22,7 +22,7 @@ extern void         PySNLBitTerm_LinkPyType();
 
 #define IsPySNLBitTerm(v) (PyObject_TypeCheck(v, &PyTypeSNLBitTerm))
 #define PYSNLBitTerm(v)   (static_cast<PySNLBitTerm*>(v))
-#define PYSNLBitTerm_O(v) (static_cast<naja::SNL::SNLBitTerm*>(PYSNLBitTerm(v)->parent_->parent_->parent_->object_))
+#define PYSNLBitTerm_O(v) (static_cast<naja::SNL::SNLBitTerm*>(PYSNLBitTerm(v)->parent_.parent_.parent_.object_))
 
 } /* PYSNL namespace */
  

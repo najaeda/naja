@@ -16,6 +16,7 @@
 #include "PySNLBusTermBit.h"
 #include "PySNLBusTerm.h"
 #include "PySNLInstance.h"
+#include "PySNLInstTerm.h"
 #include "PySNLDesigns.h"
 #include "PySNLTerms.h"
 #include "PySNLBitTerms.h"
@@ -59,6 +60,7 @@ PyMODINIT_FUNC PyInit_snl(void) {
   PySNLScalarTerm_LinkPyType();
   PySNLBusTermBit_LinkPyType();
   PySNLInstance_LinkPyType();
+  PySNLInstTerm_LinkPyType();
 
   PySNLDesigns_LinkPyType();
   PySNLTerms_LinkPyType();
@@ -88,6 +90,7 @@ PyMODINIT_FUNC PyInit_snl(void) {
   PYTYPE_READY_SUB(SNLScalarTerm, SNLBitTerm);
   PYTYPE_READY_SUB(SNLBusTermBit, SNLBitTerm);
   PYTYPE_READY_SUB(SNLInstance, SNLDesignObject);
+  PYTYPE_READY_SUB(SNLInstTerm, SNLNetComponent);
 
   PYTYPE_READY(SNLDesigns);
   PYTYPE_READY(SNLDesignsIterator);
@@ -125,6 +128,7 @@ PyMODINIT_FUNC PyInit_snl(void) {
   Py_INCREF(&PyTypeSNLScalarTerm);
   Py_INCREF(&PyTypeSNLBusTermBit);
   Py_INCREF(&PyTypeSNLInstance);
+  Py_INCREF(&PyTypeSNLInstTerm);
   Py_INCREF(&PyTypeSNLDesigns);
   Py_INCREF(&PyTypeSNLTerms);
   Py_INCREF(&PyTypeSNLBitTerms);
@@ -160,6 +164,7 @@ PyMODINIT_FUNC PyInit_snl(void) {
   PyModule_AddObject(mod, "SNLScalarTerm", (PyObject*)&PyTypeSNLScalarTerm);
   PyModule_AddObject(mod, "SNLBusTermBit", (PyObject*)&PyTypeSNLBusTermBit);
   PyModule_AddObject(mod, "SNLInstance", (PyObject*)&PyTypeSNLInstance);
+  PyModule_AddObject(mod, "SNLInstTerm", (PyObject*)&PyTypeSNLInstTerm);
 
   PySNLTerm_postModuleInit();
 

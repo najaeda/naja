@@ -7,6 +7,8 @@
 
 #include "PyInterface.h"
 #include "PySNLDesign.h"
+#include "PySNLInstTerm.h"
+#include "PySNLBitTerm.h"
 
 #include "SNLInstance.h"
 
@@ -60,6 +62,24 @@ DBoDeallocMethod(SNLInstance)
 DBoLinkCreateMethod(SNLInstance)
 PyTypeInheritedObjectDefinitions(SNLInstance, SNLDesignObject)
 
+static PyObject* PySNLInstance_getInstTerm(PySNLInstance* self, PyObject* args) {
+  SNLInstTerm* obj = nullptr;
+  METHOD_HEAD("SNLInstance.getInstTerm()")
+  PySNLBitTerm* pyBitTerm = nullptr;
+  if (PyArg_ParseTuple(args, "O!:SNLInstance.getInstTerm", &PyTypeSNLBitTerm, &pyBitTerm)) {
+    SNLTRY
+    auto bitTerm = PYSNLBitTerm_O(pyBitTerm);
+    if (bitTerm) {
+      obj = selfObject->getInstTerm(bitTerm);
+    }
+    SNLCATCH
+  } else {
+    setError("invalid number of parameters for getInstTerm.");
+    return nullptr;
+  }
+  return PySNLInstTerm_Link(obj);
+}
+
 PyMethodDef PySNLInstance_Methods[] = {
   { "create", (PyCFunction)PySNLInstance_create, METH_VARARGS|METH_STATIC,
     "SNLInstance creator"},
@@ -67,6 +87,8 @@ PyMethodDef PySNLInstance_Methods[] = {
     "get SNLInstance name"},
   {"getModel", (PyCFunction)PySNLInstance_getModel, METH_NOARGS,
     "Returns the SNLInstance model SNLDesign."},
+  {"getInstTerm", (PyCFunction)PySNLInstance_getInstTerm, METH_VARARGS,
+    "Returns the SNLInstTerm corresponding to a model's SNLBitTerm."},
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 

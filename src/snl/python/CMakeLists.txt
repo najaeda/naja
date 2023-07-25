@@ -3,4 +3,4 @@
 # SPDX-License-Identifier: Apache-2.0
 
 add_subdirectory(snl_wrapping)
-add_subdirectory(primitives)
+add_subdirectory(pyloader)
