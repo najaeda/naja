@@ -46,7 +46,7 @@ SNLSharedPath* SNLSharedPath::getTailSharedPath() const {
 }
 
 void SNLSharedPath::commonDestroy() {
-#if 0 need to confirm with example
+#if 0 //need to confirm with example
   SNLDesign* design = tailInstance_->getDesign();
 #ifdef SNL_DESTROY_DEBUG
   std::cerr << "SNLSharedPath::commonDestroy: " << getString() << std::endl;
