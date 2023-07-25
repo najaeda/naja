@@ -10,7 +10,6 @@
 #include <tuple>
 
 namespace naja { namespace SNL {
-class SNLSharedPath;
 
 /**
  * \brief The SNLID structure allows global comparison between the various SNL objects
@@ -256,17 +255,36 @@ struct SNLID final {
     bit_(bit)
   {}
 
-  bool operator==(const SNLID& rhs) const {
-    return std::tie(type_, dbID_, libraryID_, designID_, designObjectID_, instanceID_, bit_)
-      == std::tie(rhs.type_, rhs.dbID_, rhs.libraryID_, rhs.designID_, rhs.designObjectID_, rhs.instanceID_, rhs.bit_);
+  friend bool operator<(const SNLID& lid, const SNLID& rid) {
+    return std::tie(lid.type_, lid.dbID_, lid.libraryID_, lid.designID_, lid.designObjectID_, lid.instanceID_, lid.bit_)
+            < std::tie(rid.type_, rid.dbID_, rid.libraryID_, rid.designID_, rid.designObjectID_, rid.instanceID_, rid.bit_);
   }
 
-  bool operator<(const SNLID& rhs) const {
-    return std::tie(type_, dbID_, libraryID_, designID_, designObjectID_, instanceID_, bit_)
-      < std::tie(rhs.type_, rhs.dbID_, rhs.libraryID_, rhs.designID_, rhs.designObjectID_, rhs.instanceID_, rhs.bit_);
+  friend bool operator<=(const SNLID& lid, const SNLID& rid) {
+    return std::tie(lid.type_, lid.dbID_, lid.libraryID_, lid.designID_, lid.designObjectID_, lid.instanceID_, lid.bit_)
+            <= std::tie(rid.type_, rid.dbID_, rid.libraryID_, rid.designID_, rid.designObjectID_, rid.instanceID_, rid.bit_);
   }
 
-  auto operator<=>(const SNLID& rhs) const = default;
+  friend bool operator==(const SNLID& lid, const SNLID& rid) {
+    return std::tie(lid.type_, lid.dbID_, lid.libraryID_, lid.designID_, lid.designObjectID_, lid.instanceID_, lid.bit_)
+            == std::tie(rid.type_, rid.dbID_, rid.libraryID_, rid.designID_, rid.designObjectID_, rid.instanceID_, rid.bit_);
+  }
+
+  friend bool operator!=(const SNLID& lid, const SNLID& rid) {
+    return std::tie(lid.type_, lid.dbID_, lid.libraryID_, lid.designID_, lid.designObjectID_, lid.instanceID_, lid.bit_)
+            != std::tie(rid.type_, rid.dbID_, rid.libraryID_, rid.designID_, rid.designObjectID_, rid.instanceID_, rid.bit_);
+  }
+
+  friend bool operator>(const SNLID& lid, const SNLID& rid) {
+    return std::tie(lid.type_, lid.dbID_, lid.libraryID_, lid.designID_, lid.designObjectID_, lid.instanceID_, lid.bit_)
+            > std::tie(rid.type_, rid.dbID_, rid.libraryID_, rid.designID_, rid.designObjectID_, rid.instanceID_, rid.bit_);
+  }
+
+  friend bool operator>=(const SNLID& lid, const SNLID& rid) {
+    return std::tie(lid.type_, lid.dbID_, lid.libraryID_, lid.designID_, lid.designObjectID_, lid.instanceID_, lid.bit_)
+            >= std::tie(rid.type_, rid.dbID_, rid.libraryID_, rid.designID_, rid.designObjectID_, rid.instanceID_, rid.bit_);
+  }
+
 
 //LCOV_EXCL_START
   std::string getString() const {
