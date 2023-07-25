@@ -67,11 +67,13 @@ void SNLSharedPath::commonDestroy() {
 #endif
 }
 
+#if 0
 void SNLSharedPath::destroy() {
   tailInstance_->removeSharedPath(this);
   commonDestroy();
   delete this;
 }
+#endif
 
 void SNLSharedPath::destroyFromInstance() {
   //No need to remove from instance as owner instance is deleted
