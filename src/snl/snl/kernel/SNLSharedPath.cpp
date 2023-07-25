@@ -46,13 +46,25 @@ SNLSharedPath* SNLSharedPath::getTailSharedPath() const {
 }
 
 void SNLSharedPath::commonDestroy() {
+#if 0 need to confirm with example
   SNLDesign* design = tailInstance_->getDesign();
+#ifdef SNL_DESTROY_DEBUG
+  std::cerr << "SNLSharedPath::commonDestroy: " << getString() << std::endl;
+  std::cerr << "tailInstance design: " << design->getString() << std::endl;
+#endif
   for (auto instance: design->getSlaveInstances()) {
+#ifdef SNL_DESTROY_DEBUG
+    std::cerr << "sharedInstance: " << instance->getString() << std::endl;
+#endif
     auto sharedPath = instance->getSharedPath(this);
     if (sharedPath) {
+#ifdef SNL_DESTROY_DEBUG
+      std::cerr << "found sharedPath: " << sharedPath->getString() << std::endl;
+#endif
       sharedPath->destroy();
     }
   }
+#endif
 }
 
 void SNLSharedPath::destroy() {
