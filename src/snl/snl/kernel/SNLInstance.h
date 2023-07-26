@@ -7,6 +7,7 @@
 #define __SNL_INSTANCE_H_
 
 #include <vector>
+#include <map>
 #include <boost/intrusive/set.hpp>
 
 #include "NajaCollection.h"
@@ -37,17 +38,14 @@ class SNLInstance final: public SNLDesignObject {
       boost::intrusive::member_hook<SNLInstParameter, boost::intrusive::set_member_hook<>, &SNLInstParameter::instParametersHook_>;
     using SNLInstParameters = boost::intrusive::set<SNLInstParameter, SNLInstParametersHook>;
       
-    using SNLInstanceSharedPathsHook =
-      boost::intrusive::member_hook<SNLSharedPath, boost::intrusive::set_member_hook<>, &SNLSharedPath::instanceSharedPathsHook_>;
-    using SNLInstanceSharedPaths = boost::intrusive::set<SNLSharedPath, SNLInstanceSharedPathsHook>;
 
     /**
-     * @brief SNLInstance creator.
+     * \brief SNLInstance creator.
      * 
-     * @param design owner SNLDesign
-     * @param model instanciated SNLDesign
-     * @param name optional name
-     * @return created SNLInstance. 
+     * \param design owner SNLDesign
+     * \param model instanciated SNLDesign (model)
+     * \param name optional name
+     * \return created SNLInstance. 
      */
     static SNLInstance* create(SNLDesign* design, SNLDesign* model, const SNLName& name=SNLName());
 
@@ -148,6 +146,7 @@ class SNLInstance final: public SNLDesignObject {
     void addSharedPath(SNLSharedPath* sharedPath);
     void removeSharedPath(SNLSharedPath* sharedPath);
 
+    using SNLInstanceSharedPaths = std::map<const SNLSharedPath*, SNLSharedPath*>;
     SNLDesign*                          design_                   {nullptr};
     SNLDesign*                          model_                    {nullptr};
     SNLID::DesignObjectID               id_;

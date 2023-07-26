@@ -18,7 +18,12 @@ class SNLDesign;
  * SNLSharedPath is a class non visible from users. Visible API is SNLPath.
  * SNLSharedPath class allows:
  * - caching SNLInstance path through a tree like structure, sharing common headPath
- * - storing Occurrence properties
+ * - storing Occurrence properties (in the future)
+ * SNLSharedPath is a data structure composed of [SNLSharedPath, SNLInstance*] or [HeadSharedPath, tailInstance].
+ * 
+ * SNLSharedPath holds a key used for:
+ * - comparing two Paths. 
+ * - Inserting a new SNLSharedPath in an instance
  */
 class SNLSharedPath {
   public:
@@ -33,12 +38,11 @@ class SNLSharedPath {
     SNLSharedPath* getTailSharedPath() const;
     SNLDesign* getDesign() const;
     SNLDesign* getModel() const;
-    ///returns this SNLSharedPath key
-    SNLID getSNLID() const { return key_; }
+    //returns this SNLSharedPath key
+    size_t size() const;
 
-    friend bool operator<(const SNLSharedPath& lp, const SNLSharedPath& rp) {
-      return lp.getSNLID() < rp.getSNLID();
-    }
+
+    std::string getString(char separator='/');
 
   private:
     SNLSharedPath(SNLInstance* tailInstance, SNLSharedPath* headSharedPath=nullptr);
@@ -49,7 +53,6 @@ class SNLSharedPath {
     void destroyFromInstance();
 
     boost::intrusive::set_member_hook<> instanceSharedPathsHook_  {};
-    SNLID                               key_                      ;
     SNLSharedPath*                      headSharedPath_           {nullptr};
     SNLInstance*                        tailInstance_             {nullptr};
 };

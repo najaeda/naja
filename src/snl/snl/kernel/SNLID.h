@@ -1,4 +1,4 @@
-// Copyright 2022 The Naja Authors.
+// Copyright The Naja Authors.
 // SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
 //
 // SPDX-License-Identifier: Apache-2.0
@@ -6,8 +6,8 @@
 #ifndef __SNL_ID_H_
 #define __SNL_ID_H_
 
-#include <tuple>
 #include <string>
+#include <tuple>
 
 namespace naja { namespace SNL {
 
@@ -221,7 +221,7 @@ struct SNLID final {
   DesignObjectID  instanceID_     {0};
   Bit             bit_            {0};           
 
-  SNLID() = default;
+  SNLID() = delete;
   
   ///Special constructor for SNLDB
   SNLID(DBID dbID):

@@ -8,7 +8,9 @@
 
 #include "PySNLNet.h"
 
-#include "SNLBusNet.h"
+namespace naja::SNL {
+  class SNLBusNet;
+}
 
 namespace PYSNL {
 

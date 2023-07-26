@@ -245,12 +245,9 @@ void SNLInstance::commonPreDestroy() {
   std::cerr << "commonPreDestroy " << getDescription() << std::endl; 
 #endif
 
-  struct destroySharedPathFromInstance {
-    void operator()(SNLSharedPath* path) {
-      path->destroyFromInstance();
-    }
-  };
-  sharedPaths_.clear_and_dispose(destroySharedPathFromInstance());
+  for (const auto& sharedPathsElement: sharedPaths_) {
+    sharedPathsElement.second->destroyFromInstance();
+  }
   for (auto instTerm: instTerms_) {
     if (instTerm) {
       instTerm->destroyFromInstance();
@@ -301,7 +298,6 @@ SNLID::DesignObjectReference SNLInstance::getReference() const {
   return SNLID::DesignObjectReference(getDesign()->getReference(), getID());
 }
 
-
 bool SNLInstance::isBlackBox() const {
   return getModel()->isBlackBox();
 }
@@ -347,28 +343,27 @@ NajaCollection<SNLInstTerm*> SNLInstance::getInstBusTermBits() const {
   return NajaCollection(new NajaSTLCollection(&instTerms_)).getSubCollection(filter);
 }
 
-SNLSharedPath* SNLInstance::getSharedPath(const SNLSharedPath* sharedPath) const {
-  //SharedPath: [HeadPath*, TailInstance*]
-  //SharedPaths are stored in TailInstance with key HeadPath->getHeadInstance()->getSNLID()
-  //Single instance shared path: [Null, TailInstance*] is stored with key max SNLID 
-  auto key = getSNLID();
-  if (sharedPath) {
-    key = sharedPath->getSNLID();
-  }
-  auto it = sharedPaths_.find(key, SNLIDComp<SNLSharedPath>());
+SNLSharedPath* SNLInstance::getSharedPath(const SNLSharedPath* tailSharedPath) const {
+  auto it = sharedPaths_.find(tailSharedPath);
   if (it != sharedPaths_.end()) {
-    return const_cast<SNLSharedPath*>(&*it);
+    return it->second;
   }
   return nullptr;
 }
 
 void SNLInstance::addSharedPath(SNLSharedPath* sharedPath) {
-  sharedPaths_.insert(*sharedPath);
+  //first check if not present ?
+  sharedPaths_[sharedPath->getHeadSharedPath()] = sharedPath;
 }
 
+#if 0
 void SNLInstance::removeSharedPath(SNLSharedPath* sharedPath) {
-  sharedPaths_.erase(*sharedPath);
+  auto it = sharedPaths_.find(sharedPath->getHeadSharedPath());
+  if (it != sharedPaths_.end()) {
+    sharedPaths_.erase(it);
+  }
 }
+#endif
 
 void SNLInstance::addInstParameter(SNLInstParameter* instParameter) {
   instParameters_.insert(*instParameter);

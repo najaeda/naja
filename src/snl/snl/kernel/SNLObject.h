@@ -17,7 +17,7 @@ class SNLObject: public NajaObject {
   public:
     using super = NajaObject;
     virtual void debugDump(size_t indent, std::ostream& stream = std::cerr) const = 0;
-
+    
   protected:
     static void preCreate();
     void postCreate();
@@ -26,4 +26,4 @@ class SNLObject: public NajaObject {
 
 }} // namespace SNL // namespace naja
 
-#endif // __NAJA_OBJECT_H_
+#endif // __SNL_OBJECT_H_

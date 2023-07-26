@@ -3,8 +3,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __SNL_INSTTERM_H_
-#define __SNL_INSTTERM_H_
+#ifndef __SNL_INST_TERM_H_
+#define __SNL_INST_TERM_H_
 
 #include "SNLTerm.h"
 
@@ -50,4 +50,4 @@ class SNLInstTerm final: public SNLNetComponent {
 
 }} // namespace SNL // namespace naja
 
-#endif /* __SNL_INSTTERM_H_ */
+#endif /* __SNL_INST_TERM_H_ */

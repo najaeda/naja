@@ -7,7 +7,10 @@
 #define __PY_SNL_NET_H_
 
 #include "PySNLDesignObject.h"
-#include "SNLNet.h"
+
+namespace naja::SNL {
+  class SNLNet;
+}
 
 namespace PYSNL {
 

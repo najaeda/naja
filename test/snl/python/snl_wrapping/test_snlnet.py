@@ -53,5 +53,15 @@ class SNLNetTest(unittest.TestCase):
     self.assertEqual(2, sum(1 for n in self.design.getNets()))
     self.assertEqual(1+5, sum(1 for b in self.design.getBitNets()))
     
+    i1Bit4 = i1.getBit(4)
+    i1NetBit4 = i1Net.getBit(4)
+    self.assertIsNotNone(i1Bit4)
+    self.assertIsNotNone(i1NetBit4)
+    self.assertEqual(i1Bit4.getNet(), i1NetBit4)
+
+    self.assertIsNone(i1.getBit(5))
+    self.assertIsNone(i1Net.getBit(5))
+
+    
 if __name__ == '__main__':
   unittest.main()

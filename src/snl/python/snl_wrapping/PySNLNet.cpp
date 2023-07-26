@@ -5,6 +5,8 @@
 
 #include "PySNLNet.h"
 
+#include "SNLNet.h"
+
 #include "PyInterface.h"
 #include "PySNLDesign.h"
 #include "PySNLBitNets.h"

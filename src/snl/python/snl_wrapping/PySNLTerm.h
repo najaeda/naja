@@ -7,7 +7,10 @@
 #define __PY_SNL_TERM_H_
 
 #include "PySNLNetComponent.h"
-#include "SNLTerm.h"
+
+namespace naja::SNL {
+  class SNLTerm;
+}
 
 namespace PYSNL {
 

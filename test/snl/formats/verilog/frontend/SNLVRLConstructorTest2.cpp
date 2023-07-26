@@ -14,7 +14,7 @@ using ::testing::TypedEq;
 #include "SNLBitTerm.h"
 #include "SNLInstTerm.h"
 
-#include "SNLPrimitivesLoader.h"
+#include "SNLPyLoader.h"
 #include "SNLVRLConstructor.h"
 
 using namespace naja::SNL;
@@ -43,7 +43,7 @@ TEST_F(SNLVRLConstructorTest2, test) {
   auto prims = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("PRIMS"));
   auto primitivesPath = std::filesystem::path(SNL_VRL_BENCHMARKS_PATH);
   primitivesPath /= "primitives.py";
-  SNLPrimitivesLoader::load(prims, primitivesPath);
+  SNLPyLoader::loadPrimitives(prims, primitivesPath);
   SNLVRLConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_VRL_BENCHMARKS_PATH);
   constructor.parse(benchmarksPath/"test1.v");

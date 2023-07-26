@@ -14,7 +14,7 @@ class SNLLibraryTest(unittest.TestCase):
     self.assertIsNotNone(u)
     db = snl.SNLDB.create(u) 
     self.assertIsNotNone(db)
-    #self.assertTrue(db.getLibraries.empty())
+    self.assertTrue(all(False for _ in db.getLibraries()))
 
     self.assertIsNone(db.getLibrary("LIB1"))
 
@@ -32,6 +32,16 @@ class SNLLibraryTest(unittest.TestCase):
     self.assertEqual(db, lib2.getDB())
     self.assertEqual("LIB2", lib2.getName())
     self.assertEqual(lib2, lib1.getLibrary("LIB2"))
+
+  def testErrors(self):
+    u = snl.SNLUniverse.get()
+    self.assertIsNotNone(u)
+    db = snl.SNLDB.create(u) 
+    self.assertIsNotNone(db)
+
+    #Create library errors
+    with self.assertRaises(RuntimeError) as context: lib1 = snl.SNLLibrary.create(db, "LIB1", "ERROR")
+    with self.assertRaises(RuntimeError) as context: lib1 = snl.SNLLibrary.create(u, "LIB1")
 
 if __name__ == '__main__':
   unittest.main()

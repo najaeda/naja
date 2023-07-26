@@ -9,7 +9,7 @@
 #include <argparse/argparse.hpp>
 
 #include "SNLException.h"
-#include "SNLPrimitivesLoader.h"
+#include "SNLPyLoader.h"
 #include "SNLVRLConstructor.h"
 #include "SNLVRLDumper.h"
 #include "SNLUtils.h"
@@ -106,7 +106,7 @@ int main(int argc, char* argv[]) {
     } else if (inputFormatType == FormatType::VERILOG) {
       db = SNLDB::create(SNLUniverse::get());
       primitivesLibrary = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("PRIMS"));
-      SNLPrimitivesLoader::load(primitivesLibrary, primitivesPath);
+      SNLPyLoader::loadPrimitives(primitivesLibrary, primitivesPath);
 
       auto designLibrary = SNLLibrary::create(db, SNLName("DESIGN"));
       SNLVRLConstructor constructor(designLibrary);

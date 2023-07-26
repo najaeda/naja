@@ -8,7 +8,9 @@
 
 #include "PySNLTerm.h"
 
-#include "SNLBusTerm.h"
+namespace naja::SNL {
+  class SNLBusTerm;
+}
 
 namespace PYSNL {
 

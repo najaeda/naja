@@ -10,13 +10,21 @@
 
 namespace naja { namespace SNL {
 
+class SNLDB;
 class SNLLibrary;
 
-class SNLPrimitivesLoader {
+class SNLPyLoader {
   public:
-    static void load(
+    static void loadDB(
+      SNLDB* db,
+      const std::filesystem::path& scriptPath);
+    static void loadLibrary(
       SNLLibrary* library,
-      const std::filesystem::path& primitivesPath);
+      const std::filesystem::path& scriptPath,
+      bool loadPrimitives=false);
+    static void loadPrimitives(
+      SNLLibrary* library,
+      const std::filesystem::path& scriptPth);
 };
 
 }} // namespace SNL // namespace naja

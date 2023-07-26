@@ -7,6 +7,7 @@
 
 #include "PyInterface.h"
 #include "PySNLDesign.h"
+#include "PySNLBusNetBit.h"
 
 #include "SNLBusNet.h"
 
@@ -18,7 +19,7 @@ using namespace naja::SNL;
 #undef   ACCESS_CLASS
 #define  ACCESS_OBJECT           parent_.parent_.object_
 #define  ACCESS_CLASS(_pyObject)  &(_pyObject->parent_)
-#define  METHOD_HEAD(function)   GENERIC_METHOD_HEAD(BusNet, net, function)
+#define  METHOD_HEAD(function)   GENERIC_METHOD_HEAD(SNLBusNet, function)
 
 static PyObject* PySNLBusNet_create(PyObject*, PyObject* args) {
   PyObject* arg0 = nullptr;
@@ -50,6 +51,8 @@ DirectGetIntMethod(PySNLBusNet_getMSB, getMSB, PySNLBusNet, SNLBusNet)
 DirectGetIntMethod(PySNLBusNet_getLSB, getLSB, PySNLBusNet, SNLBusNet)
 DirectGetIntMethod(PySNLBusNet_getSize, getSize, PySNLBusNet, SNLBusNet)
 
+GetObjectByIndex(BusNet, BusNetBit, Bit)
+
 DBoLinkCreateMethod(SNLBusNet)
 DBoDeallocMethod(SNLBusNet)
 
@@ -64,6 +67,8 @@ PyMethodDef PySNLBusNet_Methods[] = {
     "get SNLBusNet LSB value"},
   { "getSize", (PyCFunction)PySNLBusNet_getSize, METH_NOARGS,
     "get SNLBusNet Size"},
+  { "getBit", (PyCFunction)PySNLBusNet_getBit, METH_VARARGS,
+    "get SNLBusNet Bit, returns SNLBusNetBit"},
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 
