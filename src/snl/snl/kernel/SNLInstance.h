@@ -1,23 +1,13 @@
-/*
- * Copyright 2022 The Naja Authors.
- * 
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// Copyright 2022 The Naja Authors.
+// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #ifndef __SNL_INSTANCE_H_
 #define __SNL_INSTANCE_H_
 
 #include <vector>
+#include <map>
 #include <boost/intrusive/set.hpp>
 
 #include "NajaCollection.h"
@@ -48,17 +38,14 @@ class SNLInstance final: public SNLDesignObject {
       boost::intrusive::member_hook<SNLInstParameter, boost::intrusive::set_member_hook<>, &SNLInstParameter::instParametersHook_>;
     using SNLInstParameters = boost::intrusive::set<SNLInstParameter, SNLInstParametersHook>;
       
-    using SNLInstanceSharedPathsHook =
-      boost::intrusive::member_hook<SNLSharedPath, boost::intrusive::set_member_hook<>, &SNLSharedPath::instanceSharedPathsHook_>;
-    using SNLInstanceSharedPaths = boost::intrusive::set<SNLSharedPath, SNLInstanceSharedPathsHook>;
 
     /**
-     * @brief SNLInstance creator.
+     * \brief SNLInstance creator.
      * 
-     * @param design owner SNLDesign
-     * @param model instanciated SNLDesign
-     * @param name optional name
-     * @return created SNLInstance. 
+     * \param design owner SNLDesign
+     * \param model instanciated SNLDesign (model)
+     * \param name optional name
+     * \return created SNLInstance. 
      */
     static SNLInstance* create(SNLDesign* design, SNLDesign* model, const SNLName& name=SNLName());
 
@@ -85,6 +72,7 @@ class SNLInstance final: public SNLDesignObject {
     const char* getTypeName() const override;
     std::string getString() const override;
     std::string getDescription() const override;
+    void debugDump(size_t indent, std::ostream& stream = std::cerr) const override;
 
     SNLInstParameter* getInstParameter(const SNLName& name) const;
     NajaCollection<SNLInstParameter*> getInstParameters() const;
@@ -158,6 +146,7 @@ class SNLInstance final: public SNLDesignObject {
     void addSharedPath(SNLSharedPath* sharedPath);
     void removeSharedPath(SNLSharedPath* sharedPath);
 
+    using SNLInstanceSharedPaths = std::map<const SNLSharedPath*, SNLSharedPath*>;
     SNLDesign*                          design_                   {nullptr};
     SNLDesign*                          model_                    {nullptr};
     SNLID::DesignObjectID               id_;

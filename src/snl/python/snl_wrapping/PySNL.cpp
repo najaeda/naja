@@ -1,18 +1,7 @@
-/*
- * Copyright 2022 The Naja Authors.
- * 
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// Copyright 2022 The Naja Authors.
+// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #include "PySNLUniverse.h"
 #include "PySNLDB.h"
@@ -27,6 +16,8 @@
 #include "PySNLBusTermBit.h"
 #include "PySNLBusTerm.h"
 #include "PySNLInstance.h"
+#include "PySNLInstTerm.h"
+#include "PySNLLibraries.h"
 #include "PySNLDesigns.h"
 #include "PySNLTerms.h"
 #include "PySNLBitTerms.h"
@@ -35,6 +26,7 @@
 #include "PySNLNets.h"
 #include "PySNLBitNets.h"
 #include "PySNLInstances.h"
+#include "PySNLInstTerms.h"
 
 namespace PYSNL {
 
@@ -70,7 +62,9 @@ PyMODINIT_FUNC PyInit_snl(void) {
   PySNLScalarTerm_LinkPyType();
   PySNLBusTermBit_LinkPyType();
   PySNLInstance_LinkPyType();
+  PySNLInstTerm_LinkPyType();
 
+  PySNLLibraries_LinkPyType();
   PySNLDesigns_LinkPyType();
   PySNLTerms_LinkPyType();
   PySNLBitTerms_LinkPyType();
@@ -79,6 +73,7 @@ PyMODINIT_FUNC PyInit_snl(void) {
   PySNLNets_LinkPyType();
   PySNLBitNets_LinkPyType();
   PySNLInstances_LinkPyType();
+  PySNLInstTerms_LinkPyType();
 
   PYTYPE_READY(SNLUniverse);
   PYTYPE_READY(SNLDB);
@@ -99,7 +94,10 @@ PyMODINIT_FUNC PyInit_snl(void) {
   PYTYPE_READY_SUB(SNLScalarTerm, SNLBitTerm);
   PYTYPE_READY_SUB(SNLBusTermBit, SNLBitTerm);
   PYTYPE_READY_SUB(SNLInstance, SNLDesignObject);
+  PYTYPE_READY_SUB(SNLInstTerm, SNLNetComponent);
 
+  PYTYPE_READY(SNLLibraries);
+  PYTYPE_READY(SNLLibrariesIterator);
   PYTYPE_READY(SNLDesigns);
   PYTYPE_READY(SNLDesignsIterator);
   PYTYPE_READY(SNLTerms);
@@ -116,6 +114,8 @@ PyMODINIT_FUNC PyInit_snl(void) {
   PYTYPE_READY(SNLBitNetsIterator);
   PYTYPE_READY(SNLInstances);
   PYTYPE_READY(SNLInstancesIterator);
+  PYTYPE_READY(SNLInstTerms);
+  PYTYPE_READY(SNLInstTermsIterator);
 
   //FIXME:XTOF Why those increfs ??
   Py_INCREF(&PyTypeSNLUniverse);
@@ -136,6 +136,8 @@ PyMODINIT_FUNC PyInit_snl(void) {
   Py_INCREF(&PyTypeSNLScalarTerm);
   Py_INCREF(&PyTypeSNLBusTermBit);
   Py_INCREF(&PyTypeSNLInstance);
+  Py_INCREF(&PyTypeSNLInstTerm);
+  Py_INCREF(&PyTypeSNLLibraries);
   Py_INCREF(&PyTypeSNLDesigns);
   Py_INCREF(&PyTypeSNLTerms);
   Py_INCREF(&PyTypeSNLBitTerms);
@@ -144,6 +146,7 @@ PyMODINIT_FUNC PyInit_snl(void) {
   Py_INCREF(&PyTypeSNLNets);
   Py_INCREF(&PyTypeSNLBitNets);
   Py_INCREF(&PyTypeSNLInstances);
+  Py_INCREF(&PyTypeSNLInstTerms);
 
   PyObject* mod = PyModule_Create(&snlModule);
 
@@ -171,6 +174,7 @@ PyMODINIT_FUNC PyInit_snl(void) {
   PyModule_AddObject(mod, "SNLScalarTerm", (PyObject*)&PyTypeSNLScalarTerm);
   PyModule_AddObject(mod, "SNLBusTermBit", (PyObject*)&PyTypeSNLBusTermBit);
   PyModule_AddObject(mod, "SNLInstance", (PyObject*)&PyTypeSNLInstance);
+  PyModule_AddObject(mod, "SNLInstTerm", (PyObject*)&PyTypeSNLInstTerm);
 
   PySNLTerm_postModuleInit();
 

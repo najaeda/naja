@@ -1,18 +1,7 @@
-/*
- * Copyright 2022 The Naja Authors.
- * 
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// Copyright 2022 The Naja Authors.
+// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #include "SNLInstance.h"
 
@@ -256,12 +245,9 @@ void SNLInstance::commonPreDestroy() {
   std::cerr << "commonPreDestroy " << getDescription() << std::endl; 
 #endif
 
-  struct destroySharedPathFromInstance {
-    void operator()(SNLSharedPath* path) {
-      path->destroyFromInstance();
-    }
-  };
-  sharedPaths_.clear_and_dispose(destroySharedPathFromInstance());
+  for (const auto& sharedPathsElement: sharedPaths_) {
+    sharedPathsElement.second->destroyFromInstance();
+  }
   for (auto instTerm: instTerms_) {
     if (instTerm) {
       instTerm->destroyFromInstance();
@@ -312,7 +298,6 @@ SNLID::DesignObjectReference SNLInstance::getReference() const {
   return SNLID::DesignObjectReference(getDesign()->getReference(), getID());
 }
 
-
 bool SNLInstance::isBlackBox() const {
   return getModel()->isBlackBox();
 }
@@ -358,28 +343,27 @@ NajaCollection<SNLInstTerm*> SNLInstance::getInstBusTermBits() const {
   return NajaCollection(new NajaSTLCollection(&instTerms_)).getSubCollection(filter);
 }
 
-SNLSharedPath* SNLInstance::getSharedPath(const SNLSharedPath* sharedPath) const {
-  //SharedPath: [HeadPath*, TailInstance*]
-  //SharedPaths are stored in TailInstance with key HeadPath->getHeadInstance()->getSNLID()
-  //Single instance shared path: [Null, TailInstance*] is stored with key max SNLID 
-  auto key = getSNLID();
-  if (sharedPath) {
-    key = sharedPath->getSNLID();
-  }
-  auto it = sharedPaths_.find(key, SNLIDComp<SNLSharedPath>());
+SNLSharedPath* SNLInstance::getSharedPath(const SNLSharedPath* tailSharedPath) const {
+  auto it = sharedPaths_.find(tailSharedPath);
   if (it != sharedPaths_.end()) {
-    return const_cast<SNLSharedPath*>(&*it);
+    return it->second;
   }
   return nullptr;
 }
 
 void SNLInstance::addSharedPath(SNLSharedPath* sharedPath) {
-  sharedPaths_.insert(*sharedPath);
+  //first check if not present ?
+  sharedPaths_[sharedPath->getHeadSharedPath()] = sharedPath;
 }
 
+#if 0
 void SNLInstance::removeSharedPath(SNLSharedPath* sharedPath) {
-  sharedPaths_.erase(*sharedPath);
+  auto it = sharedPaths_.find(sharedPath->getHeadSharedPath());
+  if (it != sharedPaths_.end()) {
+    sharedPaths_.erase(it);
+  }
 }
+#endif
 
 void SNLInstance::addInstParameter(SNLInstParameter* instParameter) {
   instParameters_.insert(*instParameter);
@@ -425,6 +409,15 @@ std::string SNLInstance::getDescription() const {
     + " " + design_->getName().getString()
     + " " + model_->getName().getString()
     + ">";  
+}
+//LCOV_EXCL_STOP
+
+//LCOV_EXCL_START
+void SNLInstance::debugDump(size_t indent, std::ostream& stream) const {
+  stream << std::string(indent, ' ') << getDescription() << std::endl;
+  for (auto instTerm: getInstTerms()) {
+    instTerm->debugDump(indent+2, stream);
+  }
 }
 //LCOV_EXCL_STOP
 

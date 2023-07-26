@@ -17,4 +17,4 @@ RUN mkdir install
 RUN cmake . -DCMAKE_INSTALL_PREFIX=/install && make -j$(nproc) && make install
 
 WORKDIR /regress
-CMD make clean; PYTHONPATH=/install/lib/python LD_LIBRARY_PATH=/install/lib make SNL_X2Y=/src/snl/snippets/cpp/snl_vrl_snippet PRIMITIVES=/primitives/xilinx.py
+CMD make clean; PYTHONPATH=/install/lib/python LD_LIBRARY_PATH=/install/lib make SNL_X2Y=/src/apps/x2y/naja_x2y PRIMITIVES=/primitives/xilinx.py

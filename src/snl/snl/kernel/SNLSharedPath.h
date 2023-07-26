@@ -1,18 +1,7 @@
-/*
- * Copyright 2022 The Naja Authors.
- * 
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// Copyright 2022 The Naja Authors.
+// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #ifndef __SNL_SHARED_PATH_H_
 #define __SNL_SHARED_PATH_H_
@@ -29,7 +18,12 @@ class SNLDesign;
  * SNLSharedPath is a class non visible from users. Visible API is SNLPath.
  * SNLSharedPath class allows:
  * - caching SNLInstance path through a tree like structure, sharing common headPath
- * - storing Occurrence properties
+ * - storing Occurrence properties (in the future)
+ * SNLSharedPath is a data structure composed of [SNLSharedPath, SNLInstance*] or [HeadSharedPath, tailInstance].
+ * 
+ * SNLSharedPath holds a key used for:
+ * - comparing two Paths. 
+ * - Inserting a new SNLSharedPath in an instance
  */
 class SNLSharedPath {
   public:
@@ -44,12 +38,11 @@ class SNLSharedPath {
     SNLSharedPath* getTailSharedPath() const;
     SNLDesign* getDesign() const;
     SNLDesign* getModel() const;
-    ///returns this SNLSharedPath key
-    SNLID getSNLID() const { return key_; }
+    //returns this SNLSharedPath key
+    size_t size() const;
 
-    friend bool operator<(const SNLSharedPath& lp, const SNLSharedPath& rp) {
-      return lp.getSNLID() < rp.getSNLID();
-    }
+
+    std::string getString(char separator='/');
 
   private:
     SNLSharedPath(SNLInstance* tailInstance, SNLSharedPath* headSharedPath=nullptr);
@@ -60,7 +53,6 @@ class SNLSharedPath {
     void destroyFromInstance();
 
     boost::intrusive::set_member_hook<> instanceSharedPathsHook_  {};
-    SNLID                               key_                      ;
     SNLSharedPath*                      headSharedPath_           {nullptr};
     SNLInstance*                        tailInstance_             {nullptr};
 };

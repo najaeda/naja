@@ -8,7 +8,7 @@
 #include "SNLBusNet.h"
 #include "SNLBusNetBit.h"
 
-#include "SNLPrimitivesLoader.h"
+#include "SNLPyLoader.h"
 #include "SNLVRLConstructor.h"
 #include "SNLVRLConstructorException.h"
 
