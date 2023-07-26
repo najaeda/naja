@@ -63,7 +63,7 @@ GetObjectByName(Library, Library)
 
 GetNameMethod(SNLLibrary)
 
-GetContainerMethod(Library, Design)
+GetContainerMethod(Library, Design, Designs)
 
 DBoDeallocMethod(SNLLibrary)
 

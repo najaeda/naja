@@ -81,6 +81,13 @@ TEST_F(SNLOccurrenceTest, testhEmptyOccurrences) {
 }
 
 TEST_F(SNLOccurrenceTest, testh0Level) {
+  auto topITerm = h0Instance_->getDesign()->getScalarTerm(SNLName("i"));
+  ASSERT_NE(topITerm, nullptr);
+  auto topITermOccurrence = SNLBitTermOccurrence(topITerm);
+  EXPECT_TRUE(topITermOccurrence.getPath().empty());
+  EXPECT_EQ(topITermOccurrence.getTerm(), topITerm);
+  EXPECT_EQ(topITermOccurrence, SNLBitTermOccurrence(topITerm));
+
   ASSERT_NE(h0Instance_, nullptr);
   auto h0Path = SNLPath(h0Instance_, SNLPath());
   auto iTerm = h0Instance_->getModel()->getScalarTerm(SNLName("i"));

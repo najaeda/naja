@@ -8,6 +8,7 @@
 #include "PyInterface.h"
 #include "PySNLUniverse.h"
 #include "PySNLLibrary.h"
+#include "PySNLLibraries.h"
 
 #include "SNLDB.h"
 
@@ -36,6 +37,7 @@ static PyObject* PySNLDB_create(PyObject*, PyObject* args) {
 }
 
 GetObjectByName(DB, Library)
+GetContainerMethod(DB, Library, Libraries)
 
 DBoDestroyAttribute(PySNLDB_destroy, PySNLDB)
 
@@ -44,6 +46,8 @@ PyMethodDef PySNLDB_Methods[] = {
     "create a SNLDB."},
   { "getLibrary", (PyCFunction)PySNLDB_getLibrary, METH_VARARGS,
     "retrieve a SNLLibrary."},
+  { "getLibraries", (PyCFunction)PySNLDB_getLibraries, METH_NOARGS,
+    "get a container of SNLLibraries."},
   {"destroy", (PyCFunction)PySNLDB_destroy, METH_NOARGS,
     "destroy this SNLDB."},
   {NULL, NULL, 0, NULL}           /* sentinel */

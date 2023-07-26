@@ -339,7 +339,7 @@ PyObject* richCompare(T left, T right, int op) {
   } \
   static PyObject* getIterator(Py##CONTAINER* pyContainer) { \
     auto pyIterator = \
-      PyObject_New(Py##TYPE##sIterator, &PyType##CONTAINER##Iterator); \
+      PyObject_New(Py##CONTAINER##Iterator, &PyType##CONTAINER##Iterator); \
     if (not pyIterator) return nullptr; \
     pyIterator->container_ = pyContainer; \
     pyIterator->object_ = new naja::NajaCollection<TYPE*>::Iterator(pyContainer->object_->begin()); \
@@ -396,13 +396,13 @@ PyObject* richCompare(T left, T right, int op) {
     return nullptr;                                                                         \
   }
 
-#define GetContainerMethod(TYPE, ITERATED) \
-  static PyObject* PySNL##TYPE##_get##ITERATED##s(PySNL##TYPE *self) { \
-    METHOD_HEAD("SNL" #TYPE ".get" #ITERATED "s()") \
-    PySNL##ITERATED##s* pyObjects = nullptr; \
+#define GetContainerMethod(TYPE, ITERATED, CONTAINER) \
+  static PyObject* PySNL##TYPE##_get##CONTAINER(PySNL##TYPE *self) { \
+    METHOD_HEAD("SNL" #TYPE ".get" #CONTAINER "()") \
+    PySNL##CONTAINER* pyObjects = nullptr; \
     SNLTRY \
-    auto objects = new naja::NajaCollection<SNL##ITERATED*>(selfObject->get##ITERATED##s()); \
-    pyObjects = PyObject_NEW(PySNL##ITERATED##s, &PyTypeSNL##ITERATED##s); \
+    auto objects = new naja::NajaCollection<SNL##ITERATED*>(selfObject->get##CONTAINER()); \
+    pyObjects = PyObject_NEW(PySNL##CONTAINER, &PyTypeSNL##CONTAINER); \
     if (not pyObjects) return nullptr; \
     pyObjects->object_ = objects; \
     SNLCATCH \

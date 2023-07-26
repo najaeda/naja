@@ -3,18 +3,18 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "PySNLNets.h"
+#include "PySNLLibraries.h"
 
 #include "PyInterface.h"
-#include "PySNLNet.h"
+#include "PySNLLibrary.h"
 
 namespace PYSNL {
 
 using namespace naja::SNL;
 
-PyTypeContainerObjectDefinitions(SNLNets)
-PyTypeContainerObjectDefinitions(SNLNetsIterator)
+PyTypeContainerObjectDefinitions(SNLLibraries)
+PyTypeContainerObjectDefinitions(SNLLibrariesIterator)
 
-PyContainerMethods(SNLNet, SNLNets)
+PyContainerMethods(SNLLibrary, SNLLibraries)
 
 }
