@@ -5,12 +5,13 @@
 
 #include "PySNLInstance.h"
 
+#include "SNLInstance.h"
+
 #include "PyInterface.h"
 #include "PySNLDesign.h"
 #include "PySNLInstTerm.h"
 #include "PySNLBitTerm.h"
-
-#include "SNLInstance.h"
+#include "PySNLInstTerms.h"
 
 namespace PYSNL {
 
@@ -80,6 +81,8 @@ static PyObject* PySNLInstance_getInstTerm(PySNLInstance* self, PyObject* args) 
   return PySNLInstTerm_Link(obj);
 }
 
+GetContainerMethod(Instance, InstTerm, InstTerms)
+
 PyMethodDef PySNLInstance_Methods[] = {
   { "create", (PyCFunction)PySNLInstance_create, METH_VARARGS|METH_STATIC,
     "SNLInstance creator"},
@@ -89,6 +92,8 @@ PyMethodDef PySNLInstance_Methods[] = {
     "Returns the SNLInstance model SNLDesign."},
   {"getInstTerm", (PyCFunction)PySNLInstance_getInstTerm, METH_VARARGS,
     "Returns the SNLInstTerm corresponding to a model's SNLBitTerm."},
+  {"getInstTerms", (PyCFunction)PySNLInstance_getInstTerms, METH_NOARGS,
+    "get a container of SNLInstTerms."},
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 

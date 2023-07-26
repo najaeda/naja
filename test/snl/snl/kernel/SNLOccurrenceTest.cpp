@@ -99,6 +99,13 @@ TEST_F(SNLOccurrenceTest, testh0Level) {
   EXPECT_EQ(SNLBitNetOccurrence(h0Path, iTerm->getNet()), h0iTermOccurrence.getNetOccurrence());
   EXPECT_LT(SNLBitTermOccurrence(), h0iTermOccurrence);
   EXPECT_LT(h0iTermOccurrence, SNLBitNetOccurrence(h0Path, iTerm->getNet()));
+
+  auto h0IInstTerm = h0Instance_->getInstTerm(iTerm);
+  ASSERT_NE(h0IInstTerm, nullptr);
+  auto h0IInstTermOccurrence = SNLInstTermOccurrence(h0IInstTerm);
+  EXPECT_EQ(h0IInstTermOccurrence, SNLInstTermOccurrence(SNLPath(), h0IInstTerm));
+  EXPECT_TRUE(h0IInstTermOccurrence.getPath().empty());
+  EXPECT_EQ(h0IInstTermOccurrence.getInstTerm(), h0IInstTerm);
 }
 
 TEST_F(SNLOccurrenceTest, testh1Level) {
