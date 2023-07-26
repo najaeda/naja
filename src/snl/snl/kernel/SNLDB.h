@@ -57,6 +57,8 @@ class SNLDB final: public SNLObject {
     std::string getDescription() const override;
     void debugDump(size_t indent, std::ostream& stream = std::cerr) const override;
 
+    void mergeAssigns();
+
     bool operator<(const SNLDB &rdb) const {
       return getSNLID() < rdb.getSNLID();
     }

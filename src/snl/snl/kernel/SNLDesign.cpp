@@ -5,6 +5,7 @@
 
 #include "SNLDesign.h"
 
+#include <list>
 #include <iostream>
 #include <sstream>
 
@@ -14,9 +15,11 @@
 #include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
 #include "SNLBusTermBit.h"
+#include "SNLInstTerm.h"
 #include "SNLScalarNet.h"
 #include "SNLBusNet.h"
 #include "SNLBusNetBit.h"
+#include "SNLDB0.h"
 #include "SNLMacros.h"
 
 namespace naja { namespace SNL {
@@ -319,6 +322,16 @@ NajaCollection<SNLInstance*> SNLDesign::getSlaveInstances() const {
   return NajaCollection(new NajaIntrusiveSetCollection(&slaveInstances_));
 }
 
+NajaCollection<SNLInstance*> SNLDesign::getPrimitiveInstances() const {
+  auto filter = [](const SNLInstance* instance) { return instance->getModel()->isPrimitive(); };
+  return getInstances().getSubCollection(filter);
+}
+
+NajaCollection<SNLInstance*> SNLDesign::getNonPrimitiveInstances() const {
+  auto filter = [](const SNLInstance* instance) { return not instance->getModel()->isPrimitive(); };
+  return getInstances().getSubCollection(filter);
+}
+
 SNLInstance* SNLDesign::getInstance(SNLID::DesignObjectID id) const {
   auto it = instances_.find(
       SNLID(SNLID::Type::Instance, getDB()->getID(), getLibrary()->getID(), getID(), 0, id, 0),
@@ -479,6 +492,30 @@ bool SNLDesign::isBetween(int n, int MSB, int LSB) {
   int min = std::min(MSB, LSB);
   int max = std::max(MSB, LSB);
   return n>=min and n<=max;
+}
+
+void SNLDesign::mergeAssigns() {
+  using Instances = std::list<SNLInstance*>;
+  auto filter = [](const SNLInstance* it) { return SNLDB0::isAssign(it->getModel()); };
+  Instances assignInstances(
+      getInstances().getSubCollection(filter).begin(),
+      getInstances().getSubCollection(filter).end());
+  auto assignInput = SNLDB0::getAssignInput();
+  auto assignOutput = SNLDB0::getAssignOutput(); 
+  for (auto assignInstance: assignInstances) {
+    auto assignInstanceInput = assignInstance->getInstTerm(assignInput);
+    auto assignInstanceOutput = assignInstance->getInstTerm(assignOutput);
+    auto assignInputNet = assignInstanceInput->getNet();
+    auto assignOutputNet = assignInstanceOutput->getNet();
+    //take all components for assignOutputNet and assign them to assignInputNet
+    assignOutputNet->connectAllComponentsTo(assignInputNet);
+    if (dynamic_cast<SNLScalarNet*>(assignOutputNet)) {
+      assignOutputNet->destroy();
+    }
+  }
+  for (auto assignInstance: assignInstances) {
+    assignInstance->destroy();
+  }
 }
 
 //LCOV_EXCL_START

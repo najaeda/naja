@@ -10,6 +10,7 @@ SET(snl_tests
   SNLOccurrenceTest.cpp
   SNLParameterTest.cpp
   SNLDB0Test.cpp
+  SNLMergeAssignsTest.cpp
 )
 
 SET(snl_tests_with_pyloader

@@ -192,6 +192,14 @@ void SNLDB::setTopDesign(SNLDesign* design) {
   topDesign_ = design;
 }
 
+void SNLDB::mergeAssigns() {
+  for (auto library: getLibraries()) {
+    if (not library->isPrimitives()) {
+      library->mergeAssigns();
+    }
+  }
+}
+
 //LCOV_EXCL_START
 const char* SNLDB::getTypeName() const {
   return "SNLDB";

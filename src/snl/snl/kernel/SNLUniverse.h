@@ -79,6 +79,8 @@ class SNLUniverse final: public SNLObject {
 
     static bool isDB0(const SNLDB* db);
     static SNLDB* getDB0();
+
+    void mergeAssigns();
     
     const char* getTypeName() const override;
     std::string getString() const override;

@@ -50,4 +50,15 @@ void SNLBitNet::removeComponent(SNLNetComponent* component) {
   components_.erase(*component);
 }
 
+void SNLBitNet::connectAllComponentsTo(SNLBitNet* net) {
+  if (net not_eq this) {
+    using Components = std::list<SNLNetComponent*>;
+    Components components(getComponents().begin(), getComponents().end());
+    for (auto component: components) {
+      component->setNet(net);
+    }
+  }
+  components_.clear();
+}
+
 }} // namespace SNL // namespace naja

@@ -90,12 +90,20 @@ class SNLDesign final: public SNLObject {
     SNLInstance* getInstance(SNLID::DesignObjectID id) const;
     ///\return SNLInstance with SNLName name if it does not exist
     SNLInstance* getInstance(const SNLName& instanceName) const;
-    ///\return the collection of SNLInstance instantiated IN this SNLDesign (instance/master relationship) 
+    ///\return the collection of SNLInstance instantiated IN this SNLDesign (instance/parent relationship) 
     NajaCollection<SNLInstance*> getInstances() const;
     ///\return the collection of SNLInstance instantiated BY this SNLDesign (instance/model relationship)
     ///\remark SNLInstance/SNLDesign model relationship is not constructed for Primitives.
     ///\sa isPrimitive
     NajaCollection<SNLInstance*> getSlaveInstances() const;
+    ///\return the collection of SNLInstance instantiated IN this SNLDesign (instance/parent relationship)
+    ///and instanciating a Primitive model 
+    ///\sa isPrimitive getInstances getNonPrimitiveInstances
+    NajaCollection<SNLInstance*> getPrimitiveInstances() const;
+    ///\return the collection of SNLInstance instantiated IN this SNLDesign (instance/parent relationship)
+    ///and instanciating a non Primitive model 
+    ///\sa isPrimitive getInstances getPrimitiveInstances
+    NajaCollection<SNLInstance*> getNonPrimitiveInstances() const;
 
     ///\return SNLNet with SNLID::DesignObjectID id or nullptr if it does not exist
     SNLNet* getNet(SNLID::DesignObjectID id) const;
@@ -150,6 +158,8 @@ class SNLDesign final: public SNLObject {
     bool isLeaf() const { return isBlackBox() or isPrimitive(); }
     
     bool isTopDesign() const;
+
+    void mergeAssigns();
 
     const char* getTypeName() const override;
     std::string getString() const override;
