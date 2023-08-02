@@ -1,10 +1,12 @@
-# Naja
+<div align="center">
+<img width="150" alt="Naja Logo" src="./docs/images/Naja-Logo.png"><h1>Naja</h1>
+</div>
 
 ![build](https://github.com/xtofalex/naja/actions/workflows/build.yml/badge.svg)
 [![Codacy Badge](https://api.codacy.com/project/badge/Grade/b224740790e24c80a381a6eede28cad8)](https://app.codacy.com/gh/xtofalex/naja?utm_source=github.com&utm_medium=referral&utm_content=xtofalex/naja&utm_campaign=Badge_Grade_Settings)
 [![codecov](https://codecov.io/gh/xtofalex/naja/branch/main/graph/badge.svg?token=59ZKZ74HFP)](https://codecov.io/gh/xtofalex/naja)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-***
+
 ## Introduction
 Naja is an Electronic Design Automation (EDA) project that provides open source data structures and APIs for the development of post logic synthesis EDA algorithms such as: netlist simplification (constant and dead logic propagation), logic replication, netlist partitioning, ASIC and FPGA place and route, …
 
@@ -15,6 +17,7 @@ In most EDA flows, data exchange is done by using standard netlist formats (Veri
 SNL also emphasizes EDA applications parallelization (targeting in particular cloud computing) by providing a robust object identification mechanism allowing to partition and merge data across the network.
 
 SNL is summarized in below's image.
+
 ![SNL](./docs/images/Naja-SNL.png)
 
 ### Acknowledgement
@@ -101,7 +104,7 @@ A application snippet can be found [here](https://github.com/xtofalex/naja/blob/
 primitive libraries described using the Python interface can be found in the
 [primitives](https://github.com/xtofalex/naja/blob/main/primitives) directory.
 
-A Verilog dumper is part of SNL inside SNL API.
+A Verilog dumper is included in SNL API.
 
 ## Snippets
 ### c++
