@@ -6,13 +6,17 @@
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 ***
 ## Introduction
-Naja is an EDA (Electronic Design Automation) project aiming at offering open source data structures and APIs for the development of post logic synthesis EDA algorithms such as: netlist simplification (constant and dead logic propagation), logic replication, netlist partitioning, ASIC and FPGA place and route, …
+Naja is an Electronic Design Automation (EDA) project that provides open source data structures and APIs for the development of post logic synthesis EDA algorithms such as: netlist simplification (constant and dead logic propagation), logic replication, netlist partitioning, ASIC and FPGA place and route, …
 
-In most EDA flows, data exchange is done by using standard netlist formats (Verilog, LEF/DEF, EDIF, …) which were not designed to represent data structures content with high fidelity. To address this problem, Naja relies on [Cap'n Proto](https://github.com/capnproto/capnproto) open source interchange format.
+Naja contains two main components SNL (Structured Netlist) API (located in this repo) and [naja-verilog](https://github.com/xtofalex/naja-verilog), a data structure independent structural verilog parser.
 
-Naja also emphasizes EDA applications parallelization (targeting in particular cloud computing) by providing a robust object identification mechanism allowing to partition and merge data across the network.
+In most EDA flows, data exchange is done by using standard netlist formats (Verilog, LEF/DEF, EDIF, …) which were not designed to represent data structures content with high fidelity. To address this problem, SNL relies on [Cap'n Proto](https://github.com/capnproto/capnproto) open source interchange format.
 
-Naja contains mainly the SNL (Structured Netlist) API.
+SNL also emphasizes EDA applications parallelization (targeting in particular cloud computing) by providing a robust object identification mechanism allowing to partition and merge data across the network.
+
+SNL is summarized in below's image.
+![SNL](./docs/images/Naja-SNL.png)
+
 ### Acknowledgement
 [<img src="https://nlnet.nl/logo/banner.png" width=100>](https://nlnet.nl/project/Naja)
 [<img src="https://nlnet.nl/image/logos/NGI0Entrust_tag.svg" width=100>](https://nlnet.nl/project/Naja)
