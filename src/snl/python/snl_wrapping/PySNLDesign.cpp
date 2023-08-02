@@ -1,18 +1,7 @@
-/*
- * Copyright 2022 The Naja Authors.
- * 
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// Copyright 2022 The Naja Authors.
+// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #include "PySNLDesign.h"
 
@@ -96,13 +85,13 @@ GetObjectByName(Design, Net)
 GetObjectByName(Design, ScalarNet)
 GetObjectByName(Design, BusNet)
 GetNameMethod(SNLDesign)
-GetContainerMethod(Design, Term)
-GetContainerMethod(Design, BitTerm)
-GetContainerMethod(Design, ScalarTerm)
-GetContainerMethod(Design, BusTerm)
-GetContainerMethod(Design, Net)
-GetContainerMethod(Design, BitNet)
-GetContainerMethod(Design, Instance)
+GetContainerMethod(Design, Term, Terms)
+GetContainerMethod(Design, BitTerm, BitTerms)
+GetContainerMethod(Design, ScalarTerm, ScalarTerms)
+GetContainerMethod(Design, BusTerm, BusTerms)
+GetContainerMethod(Design, Net, Nets)
+GetContainerMethod(Design, BitNet, BitNets)
+GetContainerMethod(Design, Instance, Instances)
 
 DBoDestroyAttribute(PySNLDesign_destroy, PySNLDesign)
 

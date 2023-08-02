@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 The Naja Authors.
+ * Copyright 2022 The Naja Authors.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,22 +14,27 @@
  * limitations under the License.
  */
 
-#ifndef __SNL_PRIMITIVES_LOADER_H_
-#define __SNL_PRIMITIVES_LOADER_H_
 
-#include <filesystem>
+#ifndef __SNL_INST_TERM_OCCURRENCE_H_
+#define __SNL_INST_TERM_OCCURRENCE_H_
+
+#include "SNLNetComponentOccurrence.h"
 
 namespace naja { namespace SNL {
 
-class SNLLibrary;
+class SNLInstTerm;
 
-class SNLPrimitivesLoader {
+class SNLInstTermOccurrence: public SNLNetComponentOccurrence {
   public:
-    static void load(
-      SNLLibrary* library,
-      const std::filesystem::path& primitivesPath);
+    using super = SNLNetComponentOccurrence;
+    
+    SNLInstTermOccurrence() = default;
+    SNLInstTermOccurrence(SNLInstTerm* instTerm);
+    SNLInstTermOccurrence(const SNLPath& path, SNLInstTerm* instTerm);
+
+    SNLInstTerm* getInstTerm() const;
 };
 
 }} // namespace SNL // namespace naja
 
-#endif // __SNL_PRIMITIVES_LOADER_H_
+#endif // __SNL_INST_TERM_OCCURRENCE_H_

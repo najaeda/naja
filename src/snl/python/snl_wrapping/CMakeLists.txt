@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
+#
+# SPDX-License-Identifier: Apache-2.0
+
 set(SOURCES
   PySNLUniverse.cpp
   PySNLDB.cpp PySNLLibrary.cpp PySNLDesign.cpp
@@ -8,11 +12,11 @@ set(SOURCES
   PySNLTerm.cpp
   PySNLTermDirection.cpp 
   PySNLBusTerm.cpp PySNLBitTerm.cpp PySNLScalarTerm.cpp PySNLBusTermBit.cpp
-  PySNLInstance.cpp
-  PySNLDesigns.cpp
+  PySNLInstance.cpp PySNLInstTerm.cpp
+  PySNLLibraries.cpp PySNLDesigns.cpp
   PySNLTerms.cpp PySNLBitTerms.cpp PySNLScalarTerms.cpp PySNLBusTerms.cpp
   PySNLNets.cpp PySNLBitNets.cpp
-  PySNLInstances.cpp
+  PySNLInstances.cpp PySNLInstTerms.cpp
 )
 
 Python3_add_library(naja_snl_python SHARED ${SOURCES})

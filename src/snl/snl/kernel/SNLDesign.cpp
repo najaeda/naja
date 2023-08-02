@@ -1,21 +1,11 @@
-/*
- * Copyright 2022 The Naja Authors.
- * 
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// Copyright 2022 The Naja Authors.
+// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #include "SNLDesign.h"
 
+#include <list>
 #include <iostream>
 #include <sstream>
 
@@ -25,9 +15,11 @@
 #include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
 #include "SNLBusTermBit.h"
+#include "SNLInstTerm.h"
 #include "SNLScalarNet.h"
 #include "SNLBusNet.h"
 #include "SNLBusNetBit.h"
+#include "SNLDB0.h"
 #include "SNLMacros.h"
 
 namespace naja { namespace SNL {
@@ -330,6 +322,16 @@ NajaCollection<SNLInstance*> SNLDesign::getSlaveInstances() const {
   return NajaCollection(new NajaIntrusiveSetCollection(&slaveInstances_));
 }
 
+NajaCollection<SNLInstance*> SNLDesign::getPrimitiveInstances() const {
+  auto filter = [](const SNLInstance* instance) { return instance->getModel()->isPrimitive(); };
+  return getInstances().getSubCollection(filter);
+}
+
+NajaCollection<SNLInstance*> SNLDesign::getNonPrimitiveInstances() const {
+  auto filter = [](const SNLInstance* instance) { return not instance->getModel()->isPrimitive(); };
+  return getInstances().getSubCollection(filter);
+}
+
 SNLInstance* SNLDesign::getInstance(SNLID::DesignObjectID id) const {
   auto it = instances_.find(
       SNLID(SNLID::Type::Instance, getDB()->getID(), getLibrary()->getID(), getID(), 0, id, 0),
@@ -385,6 +387,10 @@ void SNLDesign::removeNet(SNLNet* net) {
   }
   nets_.erase(*net);
 }
+
+DESIGN_RENAME(SNLTerm, Term, termNameIDMap_)
+DESIGN_RENAME(SNLNet, Net, netNameIDMap_)
+DESIGN_RENAME(SNLInstance, Instance, instanceNameIDMap_)
 
 SNLNet* SNLDesign::getNet(SNLID::DesignObjectID id) const {
   auto it = nets_.find(
@@ -503,6 +509,30 @@ bool SNLDesign::isBetween(int n, int MSB, int LSB) {
   return n>=min and n<=max;
 }
 
+void SNLDesign::mergeAssigns() {
+  using Instances = std::list<SNLInstance*>;
+  auto filter = [](const SNLInstance* it) { return SNLDB0::isAssign(it->getModel()); };
+  Instances assignInstances(
+      getInstances().getSubCollection(filter).begin(),
+      getInstances().getSubCollection(filter).end());
+  auto assignInput = SNLDB0::getAssignInput();
+  auto assignOutput = SNLDB0::getAssignOutput(); 
+  for (auto assignInstance: assignInstances) {
+    auto assignInstanceInput = assignInstance->getInstTerm(assignInput);
+    auto assignInstanceOutput = assignInstance->getInstTerm(assignOutput);
+    auto assignInputNet = assignInstanceInput->getNet();
+    auto assignOutputNet = assignInstanceOutput->getNet();
+    //take all components for assignOutputNet and assign them to assignInputNet
+    assignOutputNet->connectAllComponentsTo(assignInputNet);
+    if (dynamic_cast<SNLScalarNet*>(assignOutputNet)) {
+      assignOutputNet->destroy();
+    }
+  }
+  for (auto assignInstance: assignInstances) {
+    assignInstance->destroy();
+  }
+}
+
 //LCOV_EXCL_START
 const char* SNLDesign::getTypeName() const {
   return "SNLDesign";
@@ -542,6 +572,21 @@ std::string SNLDesign::getDescription() const {
   stream << " " << getLibrary()->getID();
   stream << ">";
   return stream.str();
+}
+//LCOV_EXCL_STOP
+
+//LCOV_EXCL_START
+void SNLDesign::debugDump(size_t indent, std::ostream& stream) const {
+  stream << std::string(indent, ' ') << getDescription() << std::endl;
+  for (auto term: getTerms()) {
+    term->debugDump(indent+2, stream);
+  }
+  for (auto net: getNets()) {
+    net->debugDump(indent+2, stream);
+  }
+  for (auto instance: getInstances()) {
+    instance->debugDump(indent+2, stream);
+  }
 }
 //LCOV_EXCL_STOP
 

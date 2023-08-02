@@ -1,25 +1,14 @@
-/*
- * Copyright 2022 The Naja Authors.
- * 
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// Copyright 2022 The Naja Authors.
+// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #ifndef __SNL_VRL_CONSTRUCTOR_H_
 #define __SNL_VRL_CONSTRUCTOR_H_
 
 #include "VerilogConstructor.h"
 
-#include <set>
+#include <map>
 
 #include "SNLInstance.h"
 #include "SNLNet.h"
@@ -61,6 +50,9 @@ class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
     void addInstanceConnection(
       const std::string& portName,
       const naja::verilog::Expression& expression) override;
+    void addOrderedInstanceConnection(
+      size_t portIndex,
+      const naja::verilog::Expression& expression) override;
     void endModule() override;
   private:
     void createCurrentModuleAssignNets();
@@ -73,21 +65,27 @@ class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
     void collectIdentifierNets(
       const naja::verilog::Identifier& identifier,
       SNLInstance::Nets& bitNets);
+    void currentInstancePortConnection(
+      SNLTerm* term,
+      const naja::verilog::Expression& expression);
     
     std::string getLocationString() const;
 
-    bool            verbose_                        {true};
-    bool            firstPass_                      {true};
-    SNLLibrary*     library_                        {nullptr};
-    SNLDesign*      currentModule_                  {nullptr};
-    std::string     currentModelName_               {};
-    SNLInstance*    currentInstance_                {nullptr};
+    bool              verbose_                        {true};
+    bool              firstPass_                      {true};
+    SNLLibrary*       library_                        {nullptr};
+    SNLDesign*        currentModule_                  {nullptr};
+    std::string       currentModelName_               {};
+    SNLInstance*      currentInstance_                {nullptr};
     using ParameterValues = std::map<std::string, std::string>;
-    ParameterValues currentInstanceParameterValues_ {};
-    SNLScalarNet*   currentModuleAssign0_           {nullptr};
-    SNLScalarNet*   currentModuleAssign1_           {nullptr};
-    using NameSet = std::set<std::string>;
-    NameSet         currentModuleInterfacePorts_    {};
+    ParameterValues   currentInstanceParameterValues_ {};
+    SNLScalarNet*     currentModuleAssign0_           {nullptr};
+    SNLScalarNet*     currentModuleAssign1_           {nullptr};
+    //Following is used when 
+    using InterfacePorts = std::vector<std::unique_ptr<naja::verilog::Port>>;
+    using InterfacePortsMap = std::map<std::string, size_t>;
+    InterfacePorts    currentModuleInterfacePorts_    {};
+    InterfacePortsMap currentModuleInterfacePortsMap_ {};
 };
 
 }} // namespace SNL // namespace naja

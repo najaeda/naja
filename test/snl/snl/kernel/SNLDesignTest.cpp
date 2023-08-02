@@ -261,7 +261,10 @@ TEST_F(SNLDesignTest, testPrimitives) {
   EXPECT_EQ(nullptr, SNLUtils::findTop(prims));
 
   EXPECT_THROW(
-    SNLDesign::create(prims, SNLDesign::Type::Primitive, SNLName("Primitive")),
+    SNLDesign::create(library, SNLDesign::Type::Primitive),
+    SNLException);
+  EXPECT_THROW(
+    SNLDesign::create(prims),
     SNLException);
 }
 

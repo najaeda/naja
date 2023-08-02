@@ -12,7 +12,7 @@ adder_netlist.v: src/adder.v
 	${YOSYS} src/synth.ys
 
 adder_snl.v primitives.v: adder_netlist.v
-	${SNL_X2Y} -p ${PRIMITIVES} -i $< -o adder_snl.v -d primitives.v
+	${SNL_X2Y} -a verilog -b verilog -p ${PRIMITIVES} -i $< -o adder_snl.v -d primitives.v
 
 clean:
 	-rm adder_snl.v primitives.v adder_netlist.v 

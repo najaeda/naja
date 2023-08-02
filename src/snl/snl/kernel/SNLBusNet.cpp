@@ -1,18 +1,7 @@
-/*
- * Copyright 2022 The Naja Authors.
- * 
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// Copyright 2022 The Naja Authors.
+// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #include "SNLBusNet.h"
 
@@ -24,6 +13,7 @@
 #include "SNLBusNetBit.h"
 #include "SNLException.h"
 #include "SNLUtils.h"
+#include "SNLMacros.h"
 
 namespace naja { namespace SNL {
 
@@ -186,6 +176,8 @@ void SNLBusNet::setType(const Type& type) {
   std::for_each(bits_.begin(), bits_.end(), [type](SNLBusNetBit* b){ if (b) b->setType(type); });
 }
 
+DESIGN_OBJECT_SET_NAME(SNLBusNet, Net, net)
+
 bool SNLBusNet::isAssignConstant() const {
   return std::all_of(bits_.begin(), bits_.end(), [](const SNLBusNetBit* b){ return b->getType().isAssign(); });
 }
@@ -205,6 +197,12 @@ std::string SNLBusNet::getString() const {
 //LCOV_EXCL_START
 std::string SNLBusNet::getDescription() const {
   return "<" + std::string(getTypeName()) + " " + name_.getString() + " " + design_->getName().getString() + ">";  
+}
+//LCOV_EXCL_STOP
+
+//LCOV_EXCL_START
+void SNLBusNet::debugDump(size_t indent, std::ostream& stream) const {
+  stream << std::string(indent, ' ') << getDescription() << std::endl;
 }
 //LCOV_EXCL_STOP
 

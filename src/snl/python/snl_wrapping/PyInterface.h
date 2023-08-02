@@ -1,18 +1,7 @@
-/*
- * Copyright 2022 The Naja Authors.
- * 
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// Copyright 2022 The Naja Authors.
+// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #ifndef __PY_INTERFACE_H
 #define __PY_INTERFACE_H
@@ -206,6 +195,22 @@ PyObject* richCompare(T left, T right, int op) {
     return PySNL##OBJECT_TYPE##_Link(obj); \
   }
 
+#define GetObjectByIndex(SELF_TYPE, OBJECT_TYPE, METHOD) \
+  static PyObject* PySNL##SELF_TYPE##_get##METHOD(PySNL##SELF_TYPE* self, PyObject* args) { \
+    SNL##OBJECT_TYPE* obj = nullptr; \
+    METHOD_HEAD("SNL##SELF_TYPE.get##OBJECT_TYPE()") \
+    int index = 0; \
+    if (PyArg_ParseTuple(args, "i:SNL##SELF_TYPE.get##METHOD", &index)) { \
+      SNLTRY \
+      obj = selfObject->get##METHOD(index); \
+      SNLCATCH \
+    } else { \
+      setError("invalid number of parameters for get##METHOD."); \
+      return nullptr; \
+    } \
+    return PySNL##OBJECT_TYPE##_Link(obj); \
+  }
+
 #define GetNameMethod(SELF_TYPE) \
   static PyObject* Py##SELF_TYPE##_getName(Py##SELF_TYPE* self) { \
     METHOD_HEAD(#SELF_TYPE ".getName()") \
@@ -334,7 +339,7 @@ PyObject* richCompare(T left, T right, int op) {
   } \
   static PyObject* getIterator(Py##CONTAINER* pyContainer) { \
     auto pyIterator = \
-      PyObject_New(Py##TYPE##sIterator, &PyType##CONTAINER##Iterator); \
+      PyObject_New(Py##CONTAINER##Iterator, &PyType##CONTAINER##Iterator); \
     if (not pyIterator) return nullptr; \
     pyIterator->container_ = pyContainer; \
     pyIterator->object_ = new naja::NajaCollection<TYPE*>::Iterator(pyContainer->object_->begin()); \
@@ -391,13 +396,13 @@ PyObject* richCompare(T left, T right, int op) {
     return nullptr;                                                                         \
   }
 
-#define GetContainerMethod(TYPE, ITERATED) \
-  static PyObject* PySNL##TYPE##_get##ITERATED##s(PySNL##TYPE *self) { \
-    METHOD_HEAD("SNL" #TYPE ".get" #ITERATED "s()") \
-    PySNL##ITERATED##s* pyObjects = nullptr; \
+#define GetContainerMethod(TYPE, ITERATED, CONTAINER) \
+  static PyObject* PySNL##TYPE##_get##CONTAINER(PySNL##TYPE *self) { \
+    METHOD_HEAD("SNL" #TYPE ".get" #CONTAINER "()") \
+    PySNL##CONTAINER* pyObjects = nullptr; \
     SNLTRY \
-    auto objects = new naja::NajaCollection<SNL##ITERATED*>(selfObject->get##ITERATED##s()); \
-    pyObjects = PyObject_NEW(PySNL##ITERATED##s, &PyTypeSNL##ITERATED##s); \
+    auto objects = new naja::NajaCollection<SNL##ITERATED*>(selfObject->get##CONTAINER()); \
+    pyObjects = PyObject_NEW(PySNL##CONTAINER, &PyTypeSNL##CONTAINER); \
     if (not pyObjects) return nullptr; \
     pyObjects->object_ = objects; \
     SNLCATCH \
