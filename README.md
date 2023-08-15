@@ -97,6 +97,10 @@ export PYTHONPATH=$PYTHONPATH:$NAJA_INSTALL/lib/python
 #### SNL Interchange Format
 SNL relies on [Cap'n Proto](https://github.com/capnproto/capnproto) for data serialization and streaming. Schema files and C++ implementation can be found [here](https://github.com/xtofalex/naja/tree/main/src/snl/snl/serialization/capnp).
 
+Files can be inspected through capnp tool.
+```bash
+capnp decode --packed snl_implementation.capnp DBImplementation < snl/db_implementation.snl > implementation.txt
+```
 #### Verilog
 For Verilog parsing, Naja relies on naja-verilog submodule (https://github.com/xtofalex/naja-verilog).
 Leaf primitives are loaded through the Python primitive loader: [SNLPrimitivesLoader](https://github.com/xtofalex/naja/blob/main/src/snl/python/primitives/SNLPrimitivesLoader.h).

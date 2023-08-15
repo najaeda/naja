@@ -55,9 +55,17 @@ void SNLScalarNet::preCreate(const SNLDesign* design, const SNLName& name) {
 
 void SNLScalarNet::preCreate(const SNLDesign* design, SNLID::DesignObjectID id, const SNLName& name) {
   preCreate(design, name);
-  if (design->getNet(id)) {
-    std::string reason = "SNLDesign " + design->getString() + " contains already a SNLScalarNet with id: " + std::to_string(id);
-    throw SNLException(reason);
+  if (auto conflict = design->getNet(id)) {
+    std::ostringstream reason;
+    reason << "In SNLDesign " << design->getString();
+    reason << ", error while trying to create";
+    if (name.empty()) {
+      reason << " anonymous ScalarNet";
+    } else {
+      reason << " " << name.getString() << " ScalarNet";
+    }
+    reason << ". This design contains already a SNLNet: " << conflict->getDescription() << " with conflicting ID.";
+    throw SNLException(reason.str());
   }
 }
 
@@ -126,8 +134,15 @@ std::string SNLScalarNet::getDescription() const {
 //LCOV_EXCL_STOP
 
 //LCOV_EXCL_START
-void SNLScalarNet::debugDump(size_t indent, std::ostream& stream) const {
+void SNLScalarNet::debugDump(size_t indent, bool recursive, std::ostream& stream) const {
   stream << std::string(indent, ' ') << getDescription() << std::endl;
+  if (not getComponents().empty()) {
+    stream << std::string(indent+2, ' ') << "<components>" << std::endl;
+    for (auto component: getComponents()) {
+      component->debugDump(indent+4, false, stream);
+    }
+    stream << std::string(indent+2, ' ') << "</components>" << std::endl;
+  }
 }
 //LCOV_EXCL_STOP
 

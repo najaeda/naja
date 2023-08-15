@@ -290,6 +290,7 @@ TEST_F(SNLNetTest, testErrors) {
   EXPECT_THROW(SNLScalarNet::create(design, SNLName("net1")), SNLException);
   EXPECT_THROW(SNLBusNet::create(design, SNLID::DesignObjectID(0), 31, 0), SNLException);
   EXPECT_THROW(SNLScalarNet::create(design, SNLID::DesignObjectID(1)), SNLException);
+  EXPECT_THROW(SNLScalarNet::create(design, SNLID::DesignObjectID(1), SNLName("conflict")), SNLException);
   EXPECT_THROW(net1->getBit(3)->destroy(), SNLException);
 
   //create a design
