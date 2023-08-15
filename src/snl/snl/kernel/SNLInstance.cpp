@@ -413,10 +413,14 @@ std::string SNLInstance::getDescription() const {
 //LCOV_EXCL_STOP
 
 //LCOV_EXCL_START
-void SNLInstance::debugDump(size_t indent, std::ostream& stream) const {
+void SNLInstance::debugDump(size_t indent, bool recursive, std::ostream& stream) const {
   stream << std::string(indent, ' ') << getDescription() << std::endl;
-  for (auto instTerm: getInstTerms()) {
-    instTerm->debugDump(indent+2, stream);
+  if (recursive and not getInstTerms().empty()) {
+    stream << std::string(indent+2, ' ') << "<instterms>" << std::endl;
+    for (auto instTerm: getInstTerms()) {
+      instTerm->debugDump(indent+4, recursive, stream);
+    }
+    stream << std::string(indent+2, ' ') << "</instterms>" << std::endl;
   }
 }
 //LCOV_EXCL_STOP

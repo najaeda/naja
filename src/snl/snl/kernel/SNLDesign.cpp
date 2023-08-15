@@ -561,16 +561,30 @@ std::string SNLDesign::getDescription() const {
 //LCOV_EXCL_STOP
 
 //LCOV_EXCL_START
-void SNLDesign::debugDump(size_t indent, std::ostream& stream) const {
+void SNLDesign::debugDump(size_t indent, bool recursive, std::ostream& stream) const {
   stream << std::string(indent, ' ') << getDescription() << std::endl;
-  for (auto term: getTerms()) {
-    term->debugDump(indent+2, stream);
-  }
-  for (auto net: getNets()) {
-    net->debugDump(indent+2, stream);
-  }
-  for (auto instance: getInstances()) {
-    instance->debugDump(indent+2, stream);
+  if (recursive) {
+    if (not getTerms().empty()) {
+      stream << std::string(indent+2, ' ') << "<terms>" << std::endl;
+      for (auto term: getTerms()) {
+        term->debugDump(indent+4, false, stream);
+      }
+      stream << std::string(indent+2, ' ') << "</terms>" << std::endl;
+    }
+    if (not getNets().empty()) {
+      stream << std::string(indent+2, ' ') << "<nets>" << std::endl;
+      for (auto net: getNets()) {
+        net->debugDump(indent+4, recursive, stream);
+      }
+      stream << std::string(indent+2, ' ') << "</nets>" << std::endl;
+    }
+    if (not getInstances().empty()) {
+      stream << std::string(indent+2, ' ') << "<instances>" << std::endl;
+      for (auto instance: getInstances()) {
+        instance->debugDump(indent+4, recursive, stream);
+      }
+      stream << std::string(indent+2, ' ') << "</instances>" << std::endl;
+    }
   }
 }
 //LCOV_EXCL_STOP

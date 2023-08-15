@@ -83,12 +83,20 @@ std::string SNLBusNetBit::getString() const {
 
 //LCOV_EXCL_START
 std::string SNLBusNetBit::getDescription() const {
-  return "";
+  return "<" + std::string(getTypeName()) + " " + getBus()->getName().getString() + "[" + std::to_string(getBit()) + "]>";
 }
 //LCOV_EXCL_STOP
 
 //LCOV_EXCL_START
-void SNLBusNetBit::debugDump(size_t indent, std::ostream& stream) const {
+void SNLBusNetBit::debugDump(size_t indent, bool recursive, std::ostream& stream) const {
+  stream << std::string(indent, ' ') << getDescription() << std::endl;
+  if (recursive and not getComponents().empty()) {
+    stream << std::string(indent+2, ' ') << "<components>" << std::endl;
+    for (auto component: getComponents()) {
+      component->debugDump(indent+4, false, stream);
+    }
+    stream << std::string(indent+2, ' ') << "</components>" << std::endl;
+  }
 }
 //LCOV_EXCL_STOP
 

@@ -94,18 +94,22 @@ std::string SNLBusTermBit::getString() const {
 
 //LCOV_EXCL_START
 std::string SNLBusTermBit::getDescription() const {
-  std::ostringstream str;
+  std::ostringstream stream;
+  stream << "<" << std::string(getTypeName()) << " ";
   if (not getBus()->isAnonymous()) {
-    str << getBus()->getName().getString();
+    stream << getBus()->getName().getString();
+  } else {
+    stream << "(" << getBus()->getID() << ")";
   }
-  str << "(" << getBus()->getID() << ")";
-  str << "[" << getBit() << "]";
-  return str.str();
+  stream << "[" << getBit() << "]";
+  stream << ">";
+  return stream.str();
 }
 //LCOV_EXCL_STOP
 
 //LCOV_EXCL_START
-void SNLBusTermBit::debugDump(size_t indent, std::ostream& stream) const {
+void SNLBusTermBit::debugDump(size_t indent, bool recursive, std::ostream& stream) const {
+  stream << std::string(indent, ' ') << getDescription() << std::endl;
 }
 //LCOV_EXCL_STOP
 
