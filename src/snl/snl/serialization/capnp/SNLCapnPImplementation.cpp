@@ -273,7 +273,8 @@ void loadInstTermReference(
   if (not instance) {
     //LCOV_EXCL_START
     std::ostringstream reason;
-    reason << "cannot deserialize instance term reference: no instance found with provided reference";
+    reason << "cannot deserialize instance term reference, no instance found with ID ";
+    reason << instanceID << " in design " << design->getDescription();
     throw SNLException(reason.str());
     //LCOV_EXCL_STOP
   }
@@ -283,7 +284,9 @@ void loadInstTermReference(
   if (not term) {
     //LCOV_EXCL_START
     std::ostringstream reason;
-    reason << "cannot deserialize instance term reference: no instance found with provided reference";
+    reason << "cannot deserialize instance " << instance->getDescription();
+    reason << " term reference: no term found with ID ";
+    reason << termID << " in model " << model->getDescription();
     throw SNLException(reason.str());
     //LCOV_EXCL_STOP
   }

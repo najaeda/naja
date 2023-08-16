@@ -97,8 +97,14 @@ export PYTHONPATH=$PYTHONPATH:$NAJA_INSTALL/lib/python
 #### SNL Interchange Format
 SNL relies on [Cap'n Proto](https://github.com/capnproto/capnproto) for data serialization and streaming. Schema files and C++ implementation can be found [here](https://github.com/xtofalex/naja/tree/main/src/snl/snl/serialization/capnp).
 
-Files can be inspected through capnp tool.
+Files composing the dump are created in a directory usually named "snl", composed of the following files:
+- **Manifest File (`snl.mf`):** This file encapsulates essential meta-information such as the schema version and other relevant details.
+- **Interface Definition File (`db_interface.snl`):** This file outlines the interfaces of modules: terminals and parameters.
+- **Implementation Specification File (`db_implementation.snl`):** Contained within this file are the detailed implementations of modules: instances, nets and connectivity between them.
+
+SNL files can be examined using the `capnp` tool.
 ```bash
+capnp decode --packed snl_interface.capnp DBInterface < snl/db_interface.snl > interface.txt
 capnp decode --packed snl_implementation.capnp DBImplementation < snl/db_implementation.snl > implementation.txt
 ```
 #### Verilog
