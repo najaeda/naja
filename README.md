@@ -114,7 +114,7 @@ A application snippet can be found [here](https://github.com/xtofalex/naja/blob/
 primitive libraries described using the Python interface can be found in the
 [primitives](https://github.com/xtofalex/naja/blob/main/primitives) directory.
 
-A Verilog dumper is included in SNL API.
+A Verilog dumper is included in SNL API. See [here](https://github.com/xtofalex/naja/blob/main/src/snl/formats/verilog/backend/SNLVRLDumper.h).
 
 ## Snippets
 ### c++
@@ -125,3 +125,7 @@ This [snippet](https://github.com/xtofalex/naja/blob/main/src/snl/snippets/pytho
 An application snippet can be found [here](https://github.com/xtofalex/naja/blob/main/src/snl/snippets/app).
 
 This "app" directory and its contents can be copied to start a new application.
+
+## Applications
+###  naja_x2y
+This simple [application](https://github.com/xtofalex/naja/blob/main/src/apps/x2y/NajaX2Y.cpp) allows to translate a netlist from a format to another. SNL to verilog or verilog to SNL.
