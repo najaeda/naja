@@ -7,9 +7,11 @@
 #include "SNLCapnP.h"
 
 #include <fcntl.h>
+#include <iostream>
+#include <sstream>
+#include <boost/asio.hpp>
 
 #include <cassert>
-#include <sstream>
 
 #include <capnp/message.h>
 #include <capnp/serialize-packed.h>
@@ -26,9 +28,18 @@
 #include "SNLInstTerm.h"
 #include "SNLException.h"
 
+using boost::asio::ip::tcp;
+
 namespace {
 
 using namespace naja::SNL;
+
+void dumpInstParameter(
+  DBImplementation::LibraryImplementation::DesignImplementation::Instance::InstParameter::Builder& instParameter,
+  const SNLInstParameter* snlInstParameter) {
+  instParameter.setName(snlInstParameter->getName().getString());
+  instParameter.setValue(snlInstParameter->getValue());
+}
 
 void dumpInstance(
   DBImplementation::LibraryImplementation::DesignImplementation::Instance::Builder& instance,
@@ -43,6 +54,12 @@ void dumpInstance(
   modelReferenceBuilder.setDbID(modelReference.dbID_);
   modelReferenceBuilder.setLibraryID(modelReference.getDBDesignReference().libraryID_);
   modelReferenceBuilder.setDesignID(modelReference.getDBDesignReference().designID_);
+  size_t id = 0;
+  auto instParameters = instance.initInstParameters(snlInstance->getInstParameters().size());
+  for (auto instParameter: snlInstance->getInstParameters()) {
+    auto instParameterBuilder = instParameters[id++];
+    dumpInstParameter(instParameterBuilder, instParameter);
+  }
 }
 
 void dumpBitTermReference(
@@ -174,6 +191,23 @@ void dumpLibraryImplementation(
   }
 }
 
+void loadInstParameter(
+  SNLInstance* instance,
+  const DBImplementation::LibraryImplementation::DesignImplementation::Instance::InstParameter::Reader& instParameter) {
+  auto name = instParameter.getName();
+  auto value = instParameter.getValue();
+  auto parameter = instance->getModel()->getParameter(SNLName(name));
+  if (not parameter) {
+    //LCOV_EXCL_START
+    std::ostringstream reason;
+    reason << "cannot deserialize instance: no parameter " << std::string(name);
+    reason << " exists in " << instance->getDescription() << " model";
+    throw SNLException(reason.str());
+    //LCOV_EXCL_STOP
+  }
+  SNLInstParameter::create(instance, parameter, value);
+}
+
 void loadInstance(
   SNLDesign* design,
   const DBImplementation::LibraryImplementation::DesignImplementation::Instance::Reader& instance) {
@@ -196,7 +230,13 @@ void loadInstance(
     throw SNLException(reason.str());
     //LCOV_EXCL_STOP
   }
-  SNLInstance::create(design, model, SNLID::DesignObjectID(instanceID), snlName);
+  auto snlInstance =
+    SNLInstance::create(design, model, SNLID::DesignObjectID(instanceID), snlName);
+  if (instance.hasInstParameters()) {
+    for (auto instParameter: instance.getInstParameters()) {
+      loadInstParameter(snlInstance, instParameter);
+    }
+  }
 }
 
 void loadTermReference(
@@ -380,11 +420,15 @@ void loadLibraryImplementation(SNLDB* db, const DBImplementation::LibraryImpleme
 
 namespace naja { namespace SNL {
 
-void SNLCapnP::dumpImplementation(const SNLDB* snlDB, const std::filesystem::path& implementationPath) {
+void SNLCapnP::dumpImplementation(const SNLDB* snlDB, int fileDescriptor) {
+  dumpImplementation(snlDB, fileDescriptor, snlDB->getID());
+}
+
+void SNLCapnP::dumpImplementation(const SNLDB* snlDB, int fileDescriptor, SNLID::DBID forceDBID) {
   ::capnp::MallocMessageBuilder message;
 
   DBImplementation::Builder db = message.initRoot<DBImplementation>();
-  db.setId(snlDB->getID());
+  db.setId(forceDBID);
   auto libraries = db.initLibraryImplementations(snlDB->getLibraries().size());
   
   size_t id = 0;
@@ -392,19 +436,39 @@ void SNLCapnP::dumpImplementation(const SNLDB* snlDB, const std::filesystem::pat
     auto libraryImplementationBuilder = libraries[id++];
     dumpLibraryImplementation(libraryImplementationBuilder, snlLibrary);
   }
+  writePackedMessageToFd(fileDescriptor, message);
+}
 
+void SNLCapnP::dumpImplementation(const SNLDB* snlDB, const std::filesystem::path& implementationPath) {
   int fd = open(
     implementationPath.c_str(),
     O_CREAT | O_WRONLY,
     S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
-  writePackedMessageToFd(fd, message);
+  dumpImplementation(snlDB, fd);
   close(fd);
 }
 
-SNLDB* SNLCapnP::loadImplementation(const std::filesystem::path& implementationPath) {
-  //FIXME: verify if file can be opened
-  int fd = open(implementationPath.c_str(), O_RDONLY);
-  ::capnp::PackedFdMessageReader message(fd);
+void SNLCapnP::sendImplementation(const SNLDB* db, tcp::socket& socket) {
+  sendImplementation(db, socket, db->getID());
+}
+
+void SNLCapnP::sendImplementation(const SNLDB* db, tcp::socket& socket, SNLID::DBID forceDBID) {
+  dumpImplementation(db, socket.native_handle(), forceDBID);
+}
+
+void SNLCapnP::sendImplementation(
+  const SNLDB* db,
+  const std::string& ipAddress,
+  uint16_t port) {
+  boost::asio::io_service io_service;
+  //socket creation
+  tcp::socket socket(io_service);
+  socket.connect(tcp::endpoint(boost::asio::ip::address::from_string(ipAddress), port));
+  sendImplementation(db, socket);
+}
+
+SNLDB* SNLCapnP::loadImplementation(int fileDescriptor) {
+  ::capnp::PackedFdMessageReader message(fileDescriptor);
 
   DBImplementation::Reader dbImplementation = message.getRoot<DBImplementation>();
   auto dbID = dbImplementation.getId();
@@ -423,6 +487,28 @@ SNLDB* SNLCapnP::loadImplementation(const std::filesystem::path& implementationP
     }
   }
   return snldb;
+}
+
+SNLDB* SNLCapnP::loadImplementation(const std::filesystem::path& implementationPath) {
+  //FIXME: verify if file can be opened
+  int fd = open(implementationPath.c_str(), O_RDONLY);
+  return loadImplementation(fd);
+}
+
+SNLDB* SNLCapnP::receiveImplementation(tcp::socket& socket) {
+  return loadImplementation(socket.native_handle());
+}
+
+SNLDB* SNLCapnP::receiveImplementation(uint16_t port) {
+  boost::asio::io_service io_service;
+  //listen for new connection
+  tcp::acceptor acceptor_(io_service, tcp::endpoint(tcp::v4(), port));
+  //socket creation 
+  tcp::socket socket(io_service);
+  //waiting for connection
+  acceptor_.accept(socket);
+  SNLDB* db = receiveImplementation(socket);
+  return db;
 }
 
 }} // namespace SNL // namespace naja

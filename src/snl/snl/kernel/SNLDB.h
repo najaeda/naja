@@ -31,6 +31,12 @@ class SNLDB final: public SNLObject {
     SNLID::DBID getID() const { return id_; }
     SNLID getSNLID() const;
 
+    ///\brief Change the SNLDB id. Main purpose: compare DBs after save and load.
+    ///\param id new DBID
+    ///\warning use with caution: all DB objects SNLIDs will be modified, as the DB id part of SNLID will
+    ///be modified.
+    void setID(SNLID::DBID id);
+
     ///\return the SNLLibrary in this SNLDB with SNLID::LibraryID:id 
     SNLLibrary* getLibrary(SNLID::LibraryID id) const;
     ///\return the SNLLibrary in this SNLDB with SNLName:name 
@@ -62,6 +68,9 @@ class SNLDB final: public SNLObject {
     bool operator<(const SNLDB &rdb) const {
       return getSNLID() < rdb.getSNLID();
     }
+
+    bool deepCompare(const SNLDB* db, std::string& reason) const;
+
   private:
     SNLDB() = default;
     SNLDB(SNLID::DBID id);

@@ -44,6 +44,7 @@ class SNLInstParameter {
         return lp.getName() < rn;
       }
     };
+    bool deepCompare(const SNLInstParameter* other, std::string& reason) const;
   private:
     SNLInstParameter(SNLInstance* instance, SNLParameter* parameter, const std::string& value);
     static void preCreate(SNLInstance* instance, SNLParameter* parameter);

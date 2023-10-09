@@ -10,6 +10,7 @@
 
 #include "SNLDB.h"
 #include "SNLException.h"
+#include "SNLMacros.h"
 
 namespace naja { namespace SNL {
 
@@ -294,6 +295,20 @@ void SNLLibrary::removeDesign(SNLDesign* design) {
     designNameIDMap_.erase(design->getName());
   }
   designs_.erase(*design);
+}
+
+bool SNLLibrary::deepCompare(const SNLLibrary* other, std::string& reason) const {
+  if (getID() not_eq other->getID()) {
+    return false;
+  }
+  if (name_ not_eq other->getName()) {
+    return false;
+  }
+  if (type_ not_eq other->getType()) {
+    return false;
+  }
+  DEEP_COMPARE_MEMBER(Designs)
+  return true;
 }
 
 void SNLLibrary::mergeAssigns() {

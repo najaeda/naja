@@ -23,9 +23,15 @@ struct DBImplementation {
       nets      @2 : List(Net);
 
       struct Instance {
+        struct InstParameter {
+          name  @0 : Text;
+          value @1 : Text;
+        }
+
         id              @0 : UInt32;
         name            @1 : Text;
         modelReference  @2 : SNLCommon.DesignReference;
+        instParameters  @3 : List(InstParameter);
       }
 
       struct Net {
