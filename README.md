@@ -20,14 +20,21 @@ SNL is summarized in below's image.
 
 ![SNL](./docs/images/Naja-SNL.png)
 
+:information_desk_person: If you have any questions, please [Contact Us](mailto:christophe.alex@gmail.com)
+
+:star: If you find Naja interesting, and would like to stay up-to-date, consider starring this repo to help spread the word.
+
 ### Acknowledgement
+
 [<img src="https://nlnet.nl/logo/banner.png" width=100>](https://nlnet.nl/project/Naja)
 [<img src="https://nlnet.nl/image/logos/NGI0Entrust_tag.svg" width=100>](https://nlnet.nl/project/Naja)
 
 This project is supported and funded by NLNet through the [NGI0 Entrust](https://nlnet.nl/entrust) Fund.
 
 ## Compilation
+
 ### Getting sources
+
 ```bash
 # First clone the repository and go inside it
 git clone https://github.com/xtofalex/naja.git
@@ -35,7 +42,9 @@ cd naja
 git submodule init
 git submodule update
 ```
+
 ### Dependencies
+
 Mandatory dependencies:
 1. Boost
 2. [cmake](https://cmake.org): at least 3.22 version.
@@ -98,6 +107,7 @@ export PYTHONPATH=$PYTHONPATH:$NAJA_INSTALL/lib/python
 SNL relies on [Cap'n Proto](https://github.com/capnproto/capnproto) for data serialization and streaming. Schema files and C++ implementation can be found [here](https://github.com/xtofalex/naja/tree/main/src/snl/snl/serialization/capnp).
 
 Files composing the dump are created in a directory usually named "snl", composed of the following files:
+
 - **Manifest File (`snl.mf`):** This file encapsulates essential meta-information such as the schema version and other relevant details.
 - **Interface Definition File (`db_interface.snl`):** This file outlines the interfaces of modules: terminals and parameters.
 - **Implementation Specification File (`db_implementation.snl`):** Contained within this file are the detailed implementations of modules: instances, nets and connectivity between them.
@@ -107,7 +117,9 @@ SNL files can be examined using the `capnp` tool.
 capnp decode --packed snl_interface.capnp DBInterface < snl/db_interface.snl > interface.txt
 capnp decode --packed snl_implementation.capnp DBImplementation < snl/db_implementation.snl > implementation.txt
 ```
+
 #### Verilog
+
 For Verilog parsing, Naja relies on naja-verilog submodule (https://github.com/xtofalex/naja-verilog).
 Leaf primitives are loaded through the Python primitive loader: [SNLPrimitivesLoader](https://github.com/xtofalex/naja/blob/main/src/snl/python/primitives/SNLPrimitivesLoader.h).
 A application snippet can be found [here](https://github.com/xtofalex/naja/blob/main/src/snl/snippets/app/src/SNLVRLSnippet.cpp) and examples of
@@ -129,3 +141,6 @@ This "app" directory and its contents can be copied to start a new application.
 ## Applications
 ###  naja_x2y
 This simple [application](https://github.com/xtofalex/naja/blob/main/src/apps/x2y/NajaX2Y.cpp) allows to translate a netlist from a format to another. SNL to verilog or verilog to SNL.
+
+## Issues / Bugs
+Please use [GitHub Issues](https://github.com/xtofalex/naja/issues) to create and track requests and bugs.
