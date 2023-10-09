@@ -7,6 +7,10 @@ Files: .github/workflows/*
 Copyright: 2022 The Naja Authors.
 License: Apache-2.0
 
+Files: images/*
+Copyright: 2022 The Naja Authors.
+License: Apache-2.0
+
 Files: test/snl/formats/verilog/benchmarks/*
 Copyright: 2022 The Naja Authors.
 License: Apache-2.0

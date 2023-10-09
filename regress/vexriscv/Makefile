@@ -1,6 +1,6 @@
 YOSYS ?= yosys
 VERILATOR ?= verilator
-SNL_X2Y ?= ../../build/src/snl/snippets/cpp/snl_vrl_snippet
+SNL_X2Y ?= ../../build/src/apps/x2y/naja_x2y
 PRIMITIVES ?= ../../primitives/xilinx.py 
 
 all: vexriscv.demo.GenFull_snl.v primitives.v
