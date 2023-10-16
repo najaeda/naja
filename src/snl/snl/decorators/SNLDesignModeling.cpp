@@ -3,10 +3,11 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "SNLDesignModelingDecorator.h"
+#include "SNLDesignModeling.h"
 
 #include "NajaPrivateProperty.h"
 #include "SNLDesign.h"
+#include "SNLException.h"
 
 namespace {
 
@@ -25,13 +26,10 @@ class SNLDesignModelingProperty: public naja::NajaPrivateProperty {
     std::string getString() const override {
       return Name;
     }
-    void setValue(int value) { value_ = value; }
-    int getValue() const { return value_; }
   private:
-    int value_  {};
 };
 
-SNLDesignModelingProperty* getSNLDesignModelingProperty(const naja::SNL::SNLDesign* design) {
+SNLDesignModelingProperty* getProperty(const naja::SNL::SNLDesign* design) {
   auto property = design->getProperty(SNLDesignModelingProperty::Name);
   if (property) {
     return static_cast<SNLDesignModelingProperty*>(property);
@@ -39,8 +37,8 @@ SNLDesignModelingProperty* getSNLDesignModelingProperty(const naja::SNL::SNLDesi
   return nullptr;
 }
 
-SNLDesignModelingProperty* getOrCreateSNLDesignModelingProperty(naja::SNL::SNLDesign* design) {
-  auto property = getSNLDesignModelingProperty(design);
+SNLDesignModelingProperty* getOrCreateProperty(naja::SNL::SNLDesign* design) {
+  auto property = getProperty(design);
   if (property) {
     return property;
   } 
@@ -51,6 +49,7 @@ SNLDesignModelingProperty* getOrCreateSNLDesignModelingProperty(naja::SNL::SNLDe
 
 namespace naja { namespace SNL {
 
+#if 0
 void SNLDesignModelingDecorator::setValue(SNLDesign* design, int value) {
   auto property = getOrCreateSNLDesignModelingProperty(design);
   property->setValue(value);
@@ -64,6 +63,21 @@ int SNLDesignModelingDecorator::getValue(const SNLDesign* design) {
   //best use case if property holds a pointer to something for property existence
   return 0;
 }
+
+#endif
+
+void SNLDesignModeling::addTimingArc(const SNLTerm* input, const SNLTerm* output) {
+  if (not input or not output) {
+    throw SNLException("");
+  }
+  if (input->getDesign() not_eq output->getDesign()) {
+    throw SNLException("");
+  }
+  auto design = input->getDesign();
+  auto property = getOrCreateProperty(design);
+  property->getString();
+}
+
 
 
 }} // namespace SNL // namespace naja

@@ -9,11 +9,25 @@
 namespace naja { namespace SNL {
 
 class SNLDesign;
+class SNLTerm;
+
+/**
+ * \brief SNLDesignModeling allows to add timing informations on primitives and blackboxes.
+ */
+class SNLDesignModeling {
+  public:
+    struct TimingArc {
+      SNLTerm* input;
+      SNLTerm* output;
+    };
+    static void addTimingArc(const SNLTerm* input, const SNLTerm* output);
+    static TimingArc* getTimingArc(const SNLTerm* term) { return nullptr; }
+    
+  //private:
+};
 
 class SNLDesignModelingDecorator {
   public:
-    static void setValue(SNLDesign* design, int value);
-    static int getValue(const SNLDesign* design);
 };
 
 }} // namespace SNL // namespace naja
