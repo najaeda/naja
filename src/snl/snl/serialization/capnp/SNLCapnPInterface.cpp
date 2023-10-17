@@ -144,22 +144,28 @@ void dumpDesignInterface(
   };
   dumpProperties(designInterface, snlDesign, lambda);
 
-  size_t id = 0;
-  auto parameters = designInterface.initParameters(snlDesign->getParameters().size());
-  for (auto parameter: snlDesign->getParameters()) {
-    auto parameterBuilder = parameters[id++];
-    dumpParameter(parameterBuilder, parameter);
+  size_t parametersSize = snlDesign->getParameters().size();
+  if (parametersSize > 0) {
+    size_t id = 0;
+    auto parameters = designInterface.initParameters(parametersSize);
+    for (auto parameter: snlDesign->getParameters()) {
+      auto parameterBuilder = parameters[id++];
+      dumpParameter(parameterBuilder, parameter);
+    }
   }
   
-  id = 0;
-  auto terms = designInterface.initTerms(snlDesign->getTerms().size());
-  for (auto term: snlDesign->getTerms()) {
-    auto termBuilder = terms[id++];
-    if (auto scalarTerm = dynamic_cast<const SNLScalarTerm*>(term)) {
-      dumpScalarTerm(termBuilder, scalarTerm);
-    } else {
-      auto busTerm = static_cast<SNLBusTerm*>(term);
-      dumpBusTerm(termBuilder, busTerm);
+  size_t termsSize =  snlDesign->getTerms().size();
+  if (termsSize > 0) {
+    size_t id = 0;
+    auto terms = designInterface.initTerms(termsSize);
+    for (auto term: snlDesign->getTerms()) {
+      auto termBuilder = terms[id++];
+      if (auto scalarTerm = dynamic_cast<const SNLScalarTerm*>(term)) {
+        dumpScalarTerm(termBuilder, scalarTerm);
+      } else {
+        auto busTerm = static_cast<SNLBusTerm*>(term);
+        dumpBusTerm(termBuilder, busTerm);
+      }
     }
   }
 }

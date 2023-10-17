@@ -64,11 +64,14 @@ void dumpInstance(
   modelReferenceBuilder.setDbID(modelReference.dbID_);
   modelReferenceBuilder.setLibraryID(modelReference.getDBDesignReference().libraryID_);
   modelReferenceBuilder.setDesignID(modelReference.getDBDesignReference().designID_);
-  size_t id = 0;
-  auto instParameters = instance.initInstParameters(snlInstance->getInstParameters().size());
-  for (auto instParameter: snlInstance->getInstParameters()) {
-    auto instParameterBuilder = instParameters[id++];
-    dumpInstParameter(instParameterBuilder, instParameter);
+  size_t instParametersSize = snlInstance->getInstParameters().size();
+  if (instParametersSize > 0) {
+    auto instParameters = instance.initInstParameters(instParametersSize);
+    size_t id = 0;
+    for (auto instParameter: snlInstance->getInstParameters()) {
+      auto instParameterBuilder = instParameters[id++];
+      dumpInstParameter(instParameterBuilder, instParameter);
+    }
   }
 }
 
