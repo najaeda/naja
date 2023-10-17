@@ -201,8 +201,17 @@ std::string SNLBusNet::getDescription() const {
 //LCOV_EXCL_STOP
 
 //LCOV_EXCL_START
-void SNLBusNet::debugDump(size_t indent, std::ostream& stream) const {
+void SNLBusNet::debugDump(size_t indent, bool recursive, std::ostream& stream) const {
   stream << std::string(indent, ' ') << getDescription() << std::endl;
+  if (recursive) {
+    if (not getBits().empty()) {
+      stream << std::string(indent+2, ' ') << "<bits>" << std::endl;
+      for (auto bit: getBits()) {
+        bit->debugDump(indent+4, recursive, stream);
+      }
+      stream << std::string(indent+2, ' ') << "</bits>" << std::endl;
+    }
+  }
 }
 //LCOV_EXCL_STOP
 

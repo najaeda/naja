@@ -36,7 +36,7 @@ class SNLBusTermBit final: public SNLBitTerm {
     SNLTerm::Direction getDirection() const override;
     std::string getString() const override;
     std::string getDescription() const override;
-    void debugDump(size_t indent, std::ostream& stream = std::cerr) const override;
+    void debugDump(size_t indent, bool recursive=true, std::ostream& stream=std::cerr) const override;
 
     void destroy() override;
   private:

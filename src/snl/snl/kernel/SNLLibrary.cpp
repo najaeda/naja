@@ -351,10 +351,12 @@ std::string SNLLibrary::getDescription() const {
 //LCOV_EXCL_STOP
 
 //LCOV_EXCL_START
-void SNLLibrary::debugDump(size_t indent, std::ostream& stream) const {
+void SNLLibrary::debugDump(size_t indent, bool recursive, std::ostream& stream) const {
   stream << std::string(indent, ' ') << getDescription() << std::endl;
-  for (auto design: getDesigns()) {
-    design->debugDump(indent+2, stream);
+  if (recursive) {
+    for (auto design: getDesigns()) {
+      design->debugDump(indent+2, recursive, stream);
+    }
   }
 }
 //LCOV_EXCL_STOP

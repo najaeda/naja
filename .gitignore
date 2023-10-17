@@ -11,3 +11,4 @@ __pycache__
 regress/adder/*.v
 regress/vexriscv/*.v
 regress/arm_core/*.v
+regress/*/abc.history
