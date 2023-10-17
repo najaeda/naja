@@ -1,25 +1,17 @@
-/*
- * Copyright 2022 The Naja Authors.
- * 
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// Copyright 2022 The Naja Authors.
+// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #include "PySNLInstance.h"
 
+#include "SNLInstance.h"
+
 #include "PyInterface.h"
 #include "PySNLDesign.h"
-
-#include "SNLInstance.h"
+#include "PySNLInstTerm.h"
+#include "PySNLBitTerm.h"
+#include "PySNLInstTerms.h"
 
 namespace PYSNL {
 
@@ -71,6 +63,26 @@ DBoDeallocMethod(SNLInstance)
 DBoLinkCreateMethod(SNLInstance)
 PyTypeInheritedObjectDefinitions(SNLInstance, SNLDesignObject)
 
+static PyObject* PySNLInstance_getInstTerm(PySNLInstance* self, PyObject* args) {
+  SNLInstTerm* obj = nullptr;
+  METHOD_HEAD("SNLInstance.getInstTerm()")
+  PySNLBitTerm* pyBitTerm = nullptr;
+  if (PyArg_ParseTuple(args, "O!:SNLInstance.getInstTerm", &PyTypeSNLBitTerm, &pyBitTerm)) {
+    SNLTRY
+    auto bitTerm = PYSNLBitTerm_O(pyBitTerm);
+    if (bitTerm) {
+      obj = selfObject->getInstTerm(bitTerm);
+    }
+    SNLCATCH
+  } else {
+    setError("invalid number of parameters for getInstTerm.");
+    return nullptr;
+  }
+  return PySNLInstTerm_Link(obj);
+}
+
+GetContainerMethod(Instance, InstTerm, InstTerms)
+
 PyMethodDef PySNLInstance_Methods[] = {
   { "create", (PyCFunction)PySNLInstance_create, METH_VARARGS|METH_STATIC,
     "SNLInstance creator"},
@@ -78,6 +90,10 @@ PyMethodDef PySNLInstance_Methods[] = {
     "get SNLInstance name"},
   {"getModel", (PyCFunction)PySNLInstance_getModel, METH_NOARGS,
     "Returns the SNLInstance model SNLDesign."},
+  {"getInstTerm", (PyCFunction)PySNLInstance_getInstTerm, METH_VARARGS,
+    "Returns the SNLInstTerm corresponding to a model's SNLBitTerm."},
+  {"getInstTerms", (PyCFunction)PySNLInstance_getInstTerms, METH_NOARGS,
+    "get a container of SNLInstTerms."},
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 

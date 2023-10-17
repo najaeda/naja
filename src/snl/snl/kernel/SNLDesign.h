@@ -1,18 +1,7 @@
-/*
- * Copyright 2022 The Naja Authors.
- * 
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// Copyright 2022 The Naja Authors.
+// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #ifndef __SNL_DESIGN_H_
 #define __SNL_DESIGN_H_
@@ -101,12 +90,20 @@ class SNLDesign final: public SNLObject {
     SNLInstance* getInstance(SNLID::DesignObjectID id) const;
     ///\return SNLInstance with SNLName name if it does not exist
     SNLInstance* getInstance(const SNLName& instanceName) const;
-    ///\return the collection of SNLInstance instantiated IN this SNLDesign (instance/master relationship) 
+    ///\return the collection of SNLInstance instantiated IN this SNLDesign (instance/parent relationship) 
     NajaCollection<SNLInstance*> getInstances() const;
     ///\return the collection of SNLInstance instantiated BY this SNLDesign (instance/model relationship)
     ///\remark SNLInstance/SNLDesign model relationship is not constructed for Primitives.
     ///\sa isPrimitive
     NajaCollection<SNLInstance*> getSlaveInstances() const;
+    ///\return the collection of SNLInstance instantiated IN this SNLDesign (instance/parent relationship)
+    ///and instanciating a Primitive model 
+    ///\sa isPrimitive getInstances getNonPrimitiveInstances
+    NajaCollection<SNLInstance*> getPrimitiveInstances() const;
+    ///\return the collection of SNLInstance instantiated IN this SNLDesign (instance/parent relationship)
+    ///and instanciating a non Primitive model 
+    ///\sa isPrimitive getInstances getPrimitiveInstances
+    NajaCollection<SNLInstance*> getNonPrimitiveInstances() const;
 
     ///\return SNLNet with SNLID::DesignObjectID id or nullptr if it does not exist
     SNLNet* getNet(SNLID::DesignObjectID id) const;
@@ -163,10 +160,12 @@ class SNLDesign final: public SNLObject {
     bool isTopDesign() const;
 
     bool deepCompare(const SNLDesign* design, std::string& reason) const;
+    void mergeAssigns();
 
     const char* getTypeName() const override;
     std::string getString() const override;
     std::string getDescription() const override;
+    void debugDump(size_t indent, std::ostream& stream = std::cerr) const override;
   private:
     SNLDesign(SNLLibrary* library, Type type, const SNLName& name);
     SNLDesign(SNLLibrary* library, SNLID::DesignID id, Type type, const SNLName& name);
@@ -188,6 +187,9 @@ class SNLDesign final: public SNLObject {
     void addNet(SNLNet* net);
     void addNetAndSetID(SNLNet* net);
     void removeNet(SNLNet* net);
+    void rename(SNLTerm* term, const SNLName& previousName);
+    void rename(SNLNet* net, const SNLName& previousName);
+    void rename(SNLInstance* instance, const SNLName& previousName);
     void addParameter(SNLParameter* parameter);
     void removeParameter(SNLParameter* parameter);
     static bool isBetween(int n, int MSB, int LSB);

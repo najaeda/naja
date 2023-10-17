@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
+#
+# SPDX-License-Identifier: Apache-2.0
+
 add_subdirectory(serialization)
 
 set(SNL_KERNEL_SOURCES
@@ -16,6 +20,10 @@ set(SNL_KERNEL_SOURCES
   kernel/SNLSharedPath.cpp kernel/SNLPath.cpp
   kernel/SNLParameter.cpp kernel/SNLInstParameter.cpp
   kernel/SNLUtils.cpp
+  kernel/SNLOccurrence.cpp kernel/SNLBitNetOccurrence.cpp
+  kernel/SNLNetComponentOccurrence.cpp 
+  kernel/SNLBitTermOccurrence.cpp kernel/SNLInstTermOccurrence.cpp
+  kernel/SNLEquipotential.cpp
 )
 
 set(SNL_KERNEL_HEADERS
@@ -36,6 +44,12 @@ set(SNL_KERNEL_HEADERS
   kernel/SNLParameter.h kernel/SNLInstParameter.h
   kernel/SNLException.h
   kernel/SNLUtils.h
+  kernel/SNLOccurrence.h
+  kernel/SNLBitNetOccurrence.h
+  kernel/SNLNetComponentOccurrence.h
+  kernel/SNLBitTermOccurrence.h
+  kernel/SNLInstTermOccurrence.h
+  kernel/SNLEquipotential.h
 )
 
 add_library(naja_snl SHARED ${SNL_KERNEL_SOURCES})

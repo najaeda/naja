@@ -1,24 +1,14 @@
-/*
- * Copyright 2022 The Naja Authors.
- * 
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// Copyright 2022 The Naja Authors.
+// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #include "PySNLDB.h"
 
 #include "PyInterface.h"
 #include "PySNLUniverse.h"
 #include "PySNLLibrary.h"
+#include "PySNLLibraries.h"
 
 #include "SNLDB.h"
 
@@ -47,6 +37,7 @@ static PyObject* PySNLDB_create(PyObject*, PyObject* args) {
 }
 
 GetObjectByName(DB, Library)
+GetContainerMethod(DB, Library, Libraries)
 
 DBoDestroyAttribute(PySNLDB_destroy, PySNLDB)
 
@@ -55,6 +46,8 @@ PyMethodDef PySNLDB_Methods[] = {
     "create a SNLDB."},
   { "getLibrary", (PyCFunction)PySNLDB_getLibrary, METH_VARARGS,
     "retrieve a SNLLibrary."},
+  { "getLibraries", (PyCFunction)PySNLDB_getLibraries, METH_NOARGS,
+    "get a container of SNLLibraries."},
   {"destroy", (PyCFunction)PySNLDB_destroy, METH_NOARGS,
     "destroy this SNLDB."},
   {NULL, NULL, 0, NULL}           /* sentinel */
