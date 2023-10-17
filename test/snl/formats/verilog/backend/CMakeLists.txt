@@ -4,6 +4,7 @@ set(snl_vrl_dumper_tests
     SNLVRLDumperTest0.cpp
     SNLVRLDumperTest1.cpp
     SNLVRLDumperTest2.cpp
+    SNLVRLDumperTestEscaping.cpp
     SNLVRLDumperTestTermNets.cpp
     SNLVRLDumperTestParameters.cpp
     SNLVRLDumperTestUtils.cpp
