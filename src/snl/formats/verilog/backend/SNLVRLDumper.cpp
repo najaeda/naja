@@ -108,6 +108,44 @@ void dumpRange(ContiguousNetBits& bits, bool& firstElement, bool& concatenation,
   }
 }
 
+std::string dumpName(const std::string& name) {
+  // An identifier is used to give an object a unique name so it can be referenced.
+  // An identifier is either a simple identifier or an escaped identifier (see 3.7.1).
+  // A simple identifier shall be any sequence of letters, digits, dollar signs ($),
+  // and underscore characters (_).
+  // The first character of a simple identifier shall not be a digit or $; 
+  // it can be a letter or an underscore. Identifiers shall be case sensitive.
+
+  //special first character case
+  bool escape = (name[0] == '$' or ('0' <= name[0] and name[0] <= '9'));
+  if (not escape) {
+    for (int i=0; i<name.size(); ++i) {
+      if ('0' <= name[i] && name[i] <= '9') {
+        continue;
+      }
+      if ('a' <= name[i] && name[i] <= 'z') {
+        continue;
+      }
+      if ('A' <= name[i] && name[i] <= 'Z') {
+        continue;
+      }
+      if (name[i] == '_') {
+        continue;
+      }
+      if (name[i] == '$') {
+        continue;
+      }
+      escape = true;
+      break;
+    }
+  }
+  //need to add keywords
+  if (escape) {
+    return "\\" + name + " ";
+  }
+  return name;
+}
+
 }
 
 namespace naja { namespace SNL {
@@ -433,10 +471,10 @@ void SNLVRLDumper::dumpInstance(
   }
   auto model = instance->getModel();
   if (not model->isAnonymous()) { //FIXME !!
-    o << model->getName().getString() << " ";
+    o << dumpName(model->getName().getString()) << " ";
   }
   dumpInstParameters(instance, o);
-  o << instanceName;
+  o << dumpName(instanceName);
   dumpInstanceInterface(instance, o, naming);
   o << ";" << std::endl;
 }
@@ -596,7 +634,7 @@ void SNLVRLDumper::dumpOneDesign(const SNLDesign* design, std::ostream& o) {
   if (design->isAnonymous()) {
     createDesignName(design);
   }
-  o << "module " << design->getName().getString();
+  o << "module " << dumpName(design->getName().getString());
 
   dumpInterface(design, o, naming);
   o << std::endl;
