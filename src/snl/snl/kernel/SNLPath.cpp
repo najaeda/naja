@@ -138,6 +138,10 @@ bool SNLPath::operator==(const SNLPath& path) const {
   return sharedPath_ == path.sharedPath_;
 }
 
+bool SNLPath::operator!=(const SNLPath& path) const {
+  return sharedPath_ != path.sharedPath_;
+}
+
 bool SNLPath::operator<(const SNLPath& path) const {
   if (sharedPath_) {
     if (path.sharedPath_) {

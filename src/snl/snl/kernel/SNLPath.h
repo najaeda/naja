@@ -7,6 +7,7 @@
 #define __SNL_PATH_H_
 
 #include <vector>
+
 #include "SNLID.h"
 
 namespace naja { namespace SNL {
@@ -46,8 +47,8 @@ class SNLPath {
 
     SNLPath& operator=(const SNLPath& path) = default;
     bool operator==(const SNLPath& rhs) const;
+    bool operator!=(const SNLPath& rhs) const;
     bool operator<(const SNLPath& rhs) const;
-    auto operator<=>(const SNLPath& rhs) const = default;
 
     std::string getString(const char separator='/') const;
 
