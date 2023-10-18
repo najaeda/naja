@@ -220,7 +220,6 @@ TEST_F(SNLPathTest0, comparePaths) {
     SNLPath(h0Instance_, SNLPath(h1Instance_, SNLPath(h2Instance_, SNLPath(prim0Instance_)))));
   EXPECT_LT(SNLPath(), SNLPath(prim0Instance_));
   EXPECT_FALSE(SNLPath(prim0Instance_) < SNLPath());
-  EXPECT_GT(SNLPath(prim0Instance_), SNLPath());
 }
 
 TEST_F(SNLPathTest0, testErrors) {

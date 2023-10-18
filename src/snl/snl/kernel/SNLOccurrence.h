@@ -6,8 +6,6 @@
 #ifndef __SNL_OCCURRENCE_H_
 #define __SNL_OCCURRENCE_H_
 
-#include <compare>
-
 namespace naja { namespace SNL {
 
 class SNLPath;
@@ -29,7 +27,6 @@ class SNLOccurrence {
 
     bool operator==(const SNLOccurrence& occurrence) const;
     bool operator<(const SNLOccurrence& occurrence) const;
-    auto operator<=>(const SNLOccurrence& rhs) const = default;
 
   protected:
     SNLOccurrence(const SNLPath& path);
