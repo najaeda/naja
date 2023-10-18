@@ -13,12 +13,20 @@ namespace {
 
 class SNLDesignModelingProperty: public naja::NajaPrivateProperty {
   public:
+    using Inherit = naja::NajaPrivateProperty;
     static const inline std::string Name = "SNLDesignModelingProperty";
     static SNLDesignModelingProperty* create(naja::SNL::SNLDesign* design) {
       preCreate(design, Name);
       SNLDesignModelingProperty* property = new SNLDesignModelingProperty();
+      property->modeling_ = new naja::SNL::SNLDesignModeling();
       property->postCreate(design);
       return property;
+    }
+    static void preCreate(naja::SNL::SNLDesign* design, const std::string& name) {
+      Inherit::preCreate(design, name);
+      if (not (design->isLeaf())) {
+        throw naja::SNL::SNLException("");
+      }
     }
     std::string getName() const override {
       return Name;
@@ -26,7 +34,11 @@ class SNLDesignModelingProperty: public naja::NajaPrivateProperty {
     std::string getString() const override {
       return Name;
     }
+    naja::SNL::SNLDesignModeling* getModeling() {
+      return modeling_;
+    }
   private:
+    naja::SNL::SNLDesignModeling* modeling_ {nullptr};
 };
 
 SNLDesignModelingProperty* getProperty(const naja::SNL::SNLDesign* design) {
@@ -49,6 +61,22 @@ SNLDesignModelingProperty* getOrCreateProperty(naja::SNL::SNLDesign* design) {
 
 namespace naja { namespace SNL {
 
+void SNLDesignModeling::addCombinatorialDependency_(const SNLBitTerm* input, const SNLBitTerm* output) {
+  auto iit = inputCombinatorialDependencies_.find(input);
+  if (iit == inputCombinatorialDependencies_.end()) {
+    const auto [iit, success] = inputCombinatorialDependencies_.insert({input, TermDependencies()});
+    if (not success) {
+      throw SNLException("");
+    }
+  }
+  TermDependencies& dependencies = iit->second;
+  auto oit = dependencies.find(output);
+  if (oit != dependencies.end()) {
+
+  }
+  dependencies.insert(output);
+}
+
 #if 0
 void SNLDesignModelingDecorator::setValue(SNLDesign* design, int value) {
   auto property = getOrCreateSNLDesignModelingProperty(design);
@@ -66,7 +94,7 @@ int SNLDesignModelingDecorator::getValue(const SNLDesign* design) {
 
 #endif
 
-void SNLDesignModeling::addTimingArc(const SNLTerm* input, const SNLTerm* output) {
+void SNLDesignModeling::addCombinatorialDependency(const SNLBitTerm* input, const SNLBitTerm* output) {
   if (not input or not output) {
     throw SNLException("");
   }
@@ -75,7 +103,8 @@ void SNLDesignModeling::addTimingArc(const SNLTerm* input, const SNLTerm* output
   }
   auto design = input->getDesign();
   auto property = getOrCreateProperty(design);
-  property->getString();
+  auto modeling = property->getModeling();
+  modeling->addCombinatorialDependency_(input, output);
 }
 
 

@@ -21,6 +21,7 @@
 #include "PySNLInstances.h"
 
 #include "SNLDesign.h"
+#include "SNLDesignModeling.h"
 
 namespace PYSNL {
 
@@ -76,6 +77,25 @@ static PyObject* PySNLDesign_createPrimitive(PyObject*, PyObject* args) {
   return PySNLDesign_Link(design);
 }
 
+static PyObject* PySNLDesign_addCombinatorialDependency(PySNLDesign* self, PyObject* args) {
+  PyObject* arg0 = nullptr;
+  PyObject* arg1 = nullptr;
+  if (not PyArg_ParseTuple(args, "OO:SNLDesign.addCombinatorialDependency", &arg0, &arg1)) {
+    setError("malformed SNLDesign.addCombinatorialDependency method");
+    return nullptr;
+  }
+  if (not IsPySNLBitTerm(arg0)) {
+    setError("malformed SNLDesign.addCombinatorialDependency method");
+  }
+  if (not IsPySNLBitTerm(arg1)) {
+    setError("malformed SNLDesign.addCombinatorialDependency method");
+  }
+  auto term0 = PYSNLBitTerm_O(arg0);
+  auto term1 = PYSNLBitTerm_O(arg1);
+  SNLDesignModeling::addCombinatorialDependency(term0, term1);
+  Py_RETURN_NONE;
+}
+
 GetObjectMethod(Design, Library)
 GetObjectByName(Design, Instance)
 GetObjectByName(Design, Term)
@@ -100,6 +120,8 @@ PyMethodDef PySNLDesign_Methods[] = {
     "SNLDesign creator"},
   { "createPrimitive", (PyCFunction)PySNLDesign_createPrimitive, METH_VARARGS|METH_STATIC,
     "SNLDesign Primitive creator"},
+  { "addCombinatorialDependency", (PyCFunction)PySNLDesign_addCombinatorialDependency, METH_VARARGS,
+    "add combinatorial dependency"},
   { "getName", (PyCFunction)PySNLDesign_getName, METH_NOARGS,
     "get SNLDesign name"},
   {"getLibrary", (PyCFunction)PySNLDesign_getLibrary, METH_NOARGS,

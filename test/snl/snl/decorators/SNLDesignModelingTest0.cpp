@@ -25,7 +25,7 @@ TEST_F(SNLDesignModelingTest0, test0) {
   auto luti2 = SNLScalarTerm::create(lut, SNLTerm::Direction::Input, SNLName("I2"));
   auto luti3 = SNLScalarTerm::create(lut, SNLTerm::Direction::Input, SNLName("I3"));
   auto luto = SNLScalarTerm::create(lut, SNLTerm::Direction::Output, SNLName("O"));
-  SNLDesignModeling::addTimingArc(luti0, luto);
+  SNLDesignModeling::addCombinatorialDependency(luti0, luto);
 
   auto reg = SNLDesign::create(prims, SNLDesign::Type::Primitive, SNLName("REG"));
 }

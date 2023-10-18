@@ -23,8 +23,8 @@ namespace {
 static PyObject* createLibrary(PyObject* args, SNLLibrary::Type type) {
   PyObject* arg0 = nullptr;
   const char* arg1 = nullptr;
-  if (not PyArg_ParseTuple(args, "O|s:SNLLibrary.createPrimitives", &arg0, &arg1)) {
-    setError("malformed Primitives SNLLibrary create");
+  if (not PyArg_ParseTuple(args, "O|s:SNLLibrary.createLibrary", &arg0, &arg1)) {
+    setError("malformed SNLLibrary create");
     return nullptr;
   }
   SNLName name;
@@ -47,7 +47,6 @@ static PyObject* createLibrary(PyObject* args, SNLLibrary::Type type) {
 }
 
 }
-
 
 static PyObject* PySNLLibrary_create(PyObject*, PyObject* args) {
   return createLibrary(args, SNLLibrary::Type::Standard);
