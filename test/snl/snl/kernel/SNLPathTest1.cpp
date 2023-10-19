@@ -38,7 +38,7 @@ class SNLPathTest1: public ::testing::Test {
     SNLInstance* primInstance_  {nullptr};
     SNLInstance* h2Instance_    {nullptr};
     SNLInstance* h1Instance_    {nullptr};
-    SNLInstance* h1pInstance_    {nullptr};
+    SNLInstance* h1pInstance_   {nullptr};
     SNLInstance* h0Instance_    {nullptr};
 };
 
