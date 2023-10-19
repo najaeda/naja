@@ -64,10 +64,11 @@ namespace naja { namespace SNL {
 void SNLDesignModeling::addCombinatorialDependency_(const SNLBitTerm* input, const SNLBitTerm* output) {
   auto iit = inputCombinatorialDependencies_.find(input);
   if (iit == inputCombinatorialDependencies_.end()) {
-    const auto [iit, success] = inputCombinatorialDependencies_.insert({input, TermDependencies()});
-    if (not success) {
+    auto result = inputCombinatorialDependencies_.insert({input, TermDependencies()});
+    if (not result.second) {
       throw SNLException("");
     }
+    iit = result.first;
   }
   TermDependencies& dependencies = iit->second;
   auto oit = dependencies.find(output);
