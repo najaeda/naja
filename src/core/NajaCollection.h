@@ -894,12 +894,21 @@ template<class Type> class NajaCollection {
         Iterator(NajaBaseIterator<Type>* iterator): baseIt_(iterator) {}
         ~Iterator() { if (baseIt_) { delete baseIt_; } }
 
-        Iterator& operator++() { baseIt_->progress(); return *this; }
+        Iterator& operator++() { if (baseIt_) { baseIt_->progress(); } return *this; }
 
-        Type operator*() const { return baseIt_->getElement(); }
+        Type operator*() const { if (baseIt_) { return baseIt_->getElement(); } return Type(); }
 
-        bool operator==(const Iterator& r) const { return baseIt_->isEqual(r.baseIt_); }
-        bool operator!=(const Iterator& r) const { return not baseIt_->isEqual(r.baseIt_); }
+        bool operator==(const Iterator& r) const { 
+          if (baseIt_) {
+            if (r.baseIt_) {
+              return baseIt_->isEqual(r.baseIt_);
+            } else {
+              return false;
+            }
+          }
+          return r.baseIt_ == nullptr;
+        }
+        bool operator!=(const Iterator& r) const { return !(*this == r); }
       private:
         NajaBaseIterator<Type>* baseIt_ {nullptr};
     };
@@ -938,8 +947,8 @@ template<class Type> class NajaCollection {
       return NajaCollection<ReturnType>();
     }
 
-    NajaBaseIterator<Type>* begin_() { return collection_->begin(); }
-    NajaBaseIterator<Type>* end_() { return collection_->end(); }
+    NajaBaseIterator<Type>* begin_() { if (collection_) { return collection_->begin(); } return nullptr; }
+    NajaBaseIterator<Type>* end_() { if (collection_) { return collection_->end(); } return nullptr; }
     Iterator begin() { return Iterator(begin_()); }
     Iterator end() { return Iterator(end_()); }
 
