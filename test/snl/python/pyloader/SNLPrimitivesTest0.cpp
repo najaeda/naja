@@ -58,11 +58,11 @@ TEST_F(SNLPrimitivesTest0, test) {
       SNLDesignModeling::getCombinatorialInputs(terms[4]).end()),
     ElementsAre(terms[0], terms[1], terms[2], terms[3]));
   EXPECT_TRUE(SNLDesignModeling::getCombinatorialInputs(terms[0]).empty());
-  EXPECT_EQ(1, SNLDesignModeling::getCombinatorialInputs(terms[0]).size());
+  EXPECT_EQ(1, SNLDesignModeling::getCombinatorialOutputs(terms[0]).size());
   EXPECT_THAT(
     std::vector(
-      SNLDesignModeling::getCombinatorialInputs(terms[0]).begin(),
-      SNLDesignModeling::getCombinatorialInputs(terms[0]).end()),
+      SNLDesignModeling::getCombinatorialOutputs(terms[0]).begin(),
+      SNLDesignModeling::getCombinatorialOutputs(terms[0]).end()),
     ElementsAre(terms[4]));
 }
 
