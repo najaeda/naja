@@ -28,6 +28,12 @@ class SNLDesignModelingProperty: public naja::NajaPrivateProperty {
         throw naja::SNL::SNLException("");
       }
     }
+    void preDestroy() override {
+      if (modeling_) {
+        delete modeling_;
+      }
+      Inherit::preDestroy();
+    }
     std::string getName() const override {
       return Name;
     }
