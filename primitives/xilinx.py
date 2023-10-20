@@ -4,16 +4,19 @@ def constructIBUF(lib):
   ibuf = snl.SNLDesign.createPrimitive(lib, "IBUF")
   i = snl.SNLScalarTerm.create(ibuf, snl.SNLTerm.Direction.Input, "I")
   o = snl.SNLScalarTerm.create(ibuf, snl.SNLTerm.Direction.Output, "O")
+  ibuf.setCombinatorialDependency(i, o)
 
 def constructOBUF(lib):
   obuf = snl.SNLDesign.createPrimitive(lib, "OBUF")
   i = snl.SNLScalarTerm.create(obuf, snl.SNLTerm.Direction.Input, "I")
   o = snl.SNLScalarTerm.create(obuf, snl.SNLTerm.Direction.Output, "O")
+  obuf.setCombinatorialDependency(i, o)
 
 def constructBUFG(lib):
   bufg = snl.SNLDesign.createPrimitive(lib, "BUFG")
   i = snl.SNLScalarTerm.create(bufg, snl.SNLTerm.Direction.Input, "I")
   o = snl.SNLScalarTerm.create(bufg, snl.SNLTerm.Direction.Output, "O")
+  bufg.setCombinatorialDependency(i, o)
 
 def constructDSP48E1(lib):
   dsp48e1 = snl.SNLDesign.createPrimitive(lib, "DSP48E1")
@@ -88,8 +91,9 @@ def constructDSP48E1(lib):
 
 def constructINV(lib):
   inv = snl.SNLDesign.createPrimitive(lib, "INV")
-  snl.SNLScalarTerm.create(inv, snl.SNLTerm.Direction.Input, "I")
-  snl.SNLScalarTerm.create(inv, snl.SNLTerm.Direction.Output, "O")
+  i = snl.SNLScalarTerm.create(inv, snl.SNLTerm.Direction.Input, "I")
+  o = snl.SNLScalarTerm.create(inv, snl.SNLTerm.Direction.Output, "O")
+  inv.setCombinatorialDependency(i, o)
 
 def constructCARRY4(lib):
   carry4 = snl.SNLDesign.createPrimitive(lib, "CARRY4")
@@ -102,53 +106,59 @@ def constructCARRY4(lib):
 
 def constructLUT1(lib):
   lut1 = snl.SNLDesign.createPrimitive(lib, "LUT1")
-  snl.SNLScalarTerm.create(lut1, snl.SNLTerm.Direction.Input, "I0")
-  snl.SNLScalarTerm.create(lut1, snl.SNLTerm.Direction.Output, "O")
+  i0 = snl.SNLScalarTerm.create(lut1, snl.SNLTerm.Direction.Input, "I0")
+  o = snl.SNLScalarTerm.create(lut1, snl.SNLTerm.Direction.Output, "O")
+  lut1.setCombinatorialDependency(i0, o)
   snl.SNLParameter.create_binary(lut1, "INIT", 2, 0b00)
 
 def constructLUT2(lib):
   lut2 = snl.SNLDesign.createPrimitive(lib, "LUT2")
-  snl.SNLScalarTerm.create(lut2, snl.SNLTerm.Direction.Input, "I0")
-  snl.SNLScalarTerm.create(lut2, snl.SNLTerm.Direction.Input, "I1")
-  snl.SNLScalarTerm.create(lut2, snl.SNLTerm.Direction.Output, "O")
+  i0 = snl.SNLScalarTerm.create(lut2, snl.SNLTerm.Direction.Input, "I0")
+  i1 = snl.SNLScalarTerm.create(lut2, snl.SNLTerm.Direction.Input, "I1")
+  o = snl.SNLScalarTerm.create(lut2, snl.SNLTerm.Direction.Output, "O")
+  lut2.setCombinatorialDependency([i0, i1], o)
   snl.SNLParameter.create_binary(lut2, "INIT", 4, 0x0)
 
 def constructLUT3(lib):
   lut3 = snl.SNLDesign.createPrimitive(lib, "LUT3")
-  snl.SNLScalarTerm.create(lut3, snl.SNLTerm.Direction.Input, "I0")
-  snl.SNLScalarTerm.create(lut3, snl.SNLTerm.Direction.Input, "I1")
-  snl.SNLScalarTerm.create(lut3, snl.SNLTerm.Direction.Input, "I2")
-  snl.SNLScalarTerm.create(lut3, snl.SNLTerm.Direction.Output, "O")
+  i0 = snl.SNLScalarTerm.create(lut3, snl.SNLTerm.Direction.Input, "I0")
+  i1 = snl.SNLScalarTerm.create(lut3, snl.SNLTerm.Direction.Input, "I1")
+  i2 = snl.SNLScalarTerm.create(lut3, snl.SNLTerm.Direction.Input, "I2")
+  o = snl.SNLScalarTerm.create(lut3, snl.SNLTerm.Direction.Output, "O")
+  lut3.setCombinatorialDependency([i0, i1, i2], o)
   snl.SNLParameter.create_binary(lut3, "INIT", 8, 0x00)
 
 def constructLUT4(lib):
   lut4 = snl.SNLDesign.createPrimitive(lib, "LUT4")
-  snl.SNLScalarTerm.create(lut4, snl.SNLTerm.Direction.Input, "I0")
-  snl.SNLScalarTerm.create(lut4, snl.SNLTerm.Direction.Input, "I1")
-  snl.SNLScalarTerm.create(lut4, snl.SNLTerm.Direction.Input, "I2")
-  snl.SNLScalarTerm.create(lut4, snl.SNLTerm.Direction.Input, "I3")
-  snl.SNLScalarTerm.create(lut4, snl.SNLTerm.Direction.Output, "O")
+  i0 = snl.SNLScalarTerm.create(lut4, snl.SNLTerm.Direction.Input, "I0")
+  i1 = snl.SNLScalarTerm.create(lut4, snl.SNLTerm.Direction.Input, "I1")
+  i2 = snl.SNLScalarTerm.create(lut4, snl.SNLTerm.Direction.Input, "I2")
+  i3 = snl.SNLScalarTerm.create(lut4, snl.SNLTerm.Direction.Input, "I3")
+  o = snl.SNLScalarTerm.create(lut4, snl.SNLTerm.Direction.Output, "O")
+  lut4.setCombinatorialDependency([i0, i1, i2, i3], o)
   snl.SNLParameter.create_binary(lut4, "INIT", 16, 0x0000)
 
 def constructLUT5(lib):
   lut5 = snl.SNLDesign.createPrimitive(lib, "LUT5")
-  snl.SNLScalarTerm.create(lut5, snl.SNLTerm.Direction.Input, "I0")
-  snl.SNLScalarTerm.create(lut5, snl.SNLTerm.Direction.Input, "I1")
-  snl.SNLScalarTerm.create(lut5, snl.SNLTerm.Direction.Input, "I2")
-  snl.SNLScalarTerm.create(lut5, snl.SNLTerm.Direction.Input, "I3")
-  snl.SNLScalarTerm.create(lut5, snl.SNLTerm.Direction.Input, "I4")
-  snl.SNLScalarTerm.create(lut5, snl.SNLTerm.Direction.Output, "O")
+  i0 = snl.SNLScalarTerm.create(lut5, snl.SNLTerm.Direction.Input, "I0")
+  i1 = snl.SNLScalarTerm.create(lut5, snl.SNLTerm.Direction.Input, "I1")
+  i2 = snl.SNLScalarTerm.create(lut5, snl.SNLTerm.Direction.Input, "I2")
+  i3 = snl.SNLScalarTerm.create(lut5, snl.SNLTerm.Direction.Input, "I3")
+  i4 = snl.SNLScalarTerm.create(lut5, snl.SNLTerm.Direction.Input, "I4")
+  o = snl.SNLScalarTerm.create(lut5, snl.SNLTerm.Direction.Output, "O")
+  lut5.setCombinatorialDependency([i0, i1, i2, i3, i4], o)
   snl.SNLParameter.create_binary(lut5, "INIT", 32, 0x00000000)
 
 def constructLUT6(lib):
   lut6 = snl.SNLDesign.createPrimitive(lib, "LUT6")
-  snl.SNLScalarTerm.create(lut6, snl.SNLTerm.Direction.Input, "I0")
-  snl.SNLScalarTerm.create(lut6, snl.SNLTerm.Direction.Input, "I1")
-  snl.SNLScalarTerm.create(lut6, snl.SNLTerm.Direction.Input, "I2")
-  snl.SNLScalarTerm.create(lut6, snl.SNLTerm.Direction.Input, "I3")
-  snl.SNLScalarTerm.create(lut6, snl.SNLTerm.Direction.Input, "I4")
-  snl.SNLScalarTerm.create(lut6, snl.SNLTerm.Direction.Input, "I5")
-  snl.SNLScalarTerm.create(lut6, snl.SNLTerm.Direction.Output, "O")
+  i0 = snl.SNLScalarTerm.create(lut6, snl.SNLTerm.Direction.Input, "I0")
+  i1 = snl.SNLScalarTerm.create(lut6, snl.SNLTerm.Direction.Input, "I1")
+  i2 = snl.SNLScalarTerm.create(lut6, snl.SNLTerm.Direction.Input, "I2")
+  i3 = snl.SNLScalarTerm.create(lut6, snl.SNLTerm.Direction.Input, "I3")
+  i4 = snl.SNLScalarTerm.create(lut6, snl.SNLTerm.Direction.Input, "I4")
+  i5 = snl.SNLScalarTerm.create(lut6, snl.SNLTerm.Direction.Input, "I5")
+  o = snl.SNLScalarTerm.create(lut6, snl.SNLTerm.Direction.Output, "O")
+  lut6.setCombinatorialDependency([i0, i1, i2, i3, i4, i5], o)
   snl.SNLParameter.create_binary(lut6, "INIT", 64, 0x0000000000000000)
 
 def constructMUXF7(lib):

@@ -1,7 +1,10 @@
 #include "gtest/gtest.h"
+#include "gmock/gmock.h"
+using ::testing::ElementsAre;
 
 #include "SNLUniverse.h"
 #include "SNLScalarTerm.h"
+#include "SNLDesignModeling.h"
 #include "SNLPyLoader.h"
 #include "SNLException.h"
 using namespace naja::SNL;
@@ -47,6 +50,20 @@ TEST_F(SNLPrimitivesTest0, test) {
   EXPECT_EQ(SNLTerm::Direction::Input, terms[2]->getDirection());
   EXPECT_EQ(SNLTerm::Direction::Input, terms[3]->getDirection());
   EXPECT_EQ(SNLTerm::Direction::Output,  terms[4]->getDirection());
+  EXPECT_TRUE(SNLDesignModeling::getCombinatorialOutputs(terms[4]).empty());
+  EXPECT_EQ(4, SNLDesignModeling::getCombinatorialInputs(terms[4]).size());
+  EXPECT_THAT(
+    std::vector(
+      SNLDesignModeling::getCombinatorialInputs(terms[4]).begin(),
+      SNLDesignModeling::getCombinatorialInputs(terms[4]).end()),
+    ElementsAre(terms[0], terms[1], terms[2], terms[3]));
+  EXPECT_TRUE(SNLDesignModeling::getCombinatorialInputs(terms[0]).empty());
+  EXPECT_EQ(1, SNLDesignModeling::getCombinatorialInputs(terms[0]).size());
+  EXPECT_THAT(
+    std::vector(
+      SNLDesignModeling::getCombinatorialInputs(terms[0]).begin(),
+      SNLDesignModeling::getCombinatorialInputs(terms[0]).end()),
+    ElementsAre(terms[4]));
 }
 
 TEST_F(SNLPrimitivesTest0, testError0) {
