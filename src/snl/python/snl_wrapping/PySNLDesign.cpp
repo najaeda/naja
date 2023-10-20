@@ -84,16 +84,72 @@ static PyObject* PySNLDesign_addCombinatorialDependency(PySNLDesign* self, PyObj
     setError("malformed SNLDesign.addCombinatorialDependency method");
     return nullptr;
   }
-  if (not IsPySNLBitTerm(arg0)) {
+  SNLDesignModeling::BitTerms terms0;
+  SNLDesignModeling::BitTerms terms1;
+  if (IsPySNLBitTerm(arg0)) {
+    terms0.push_back(PYSNLBitTerm_O(arg0));
+  } else if (not PyList_Check(arg0)) {
     setError("malformed SNLDesign.addCombinatorialDependency method");
+    return nullptr;
   }
-  if (not IsPySNLBitTerm(arg1)) {
+  if (IsPySNLBitTerm(arg1)) {
+    terms1.push_back(PYSNLBitTerm_O(arg1));
+  } else if (not PyList_Check(arg1)) {
     setError("malformed SNLDesign.addCombinatorialDependency method");
+    return nullptr;
   }
-  auto term0 = PYSNLBitTerm_O(arg0);
-  auto term1 = PYSNLBitTerm_O(arg1);
-  SNLDesignModeling::addCombinatorialDependency(term0, term1);
+  if (terms0.empty()) {
+    for (int i=0; i<PyList_Size(arg0); ++i) {
+      PyObject* object0 = PyList_GetItem(arg0, i);
+      if (not IsPySNLBitTerm(object0)) {
+        setError("malformed SNLDesign.addCombinatorialDependency method");
+      }
+      terms0.push_back(PYSNLBitTerm_O(object0));
+    }
+  }
+  if (terms1.empty()) {
+    for (int j=0; j<PyList_Size(arg1); ++j) {
+      PyObject* object1 = PyList_GetItem(arg1, j);
+      if (not IsPySNLBitTerm(object1)) {
+        setError("malformed SNLDesign.addCombinatorialDependency method");
+      }
+      terms1.push_back(PYSNLBitTerm_O(object1));
+    }
+  }
+  SNLTRY
+  SNLDesignModeling::addCombinatorialDependency(terms0, terms1);
+  SNLCATCH
   Py_RETURN_NONE;
+}
+
+static PyObject* PySNLDesign_getCombinatorialInputs(PySNLDesign* self, PyObject* output) {
+  if (not IsPySNLBitTerm(output)) {
+    setError("malformed SNLDesign.getCombinatorialInputs method");
+  }
+  auto outputTerm = PYSNLBitTerm_O(output);
+  PySNLBitTerms* pyObjects = nullptr;
+  SNLTRY
+  auto objects = new naja::NajaCollection<SNLBitTerm*>(SNLDesignModeling::getCombinatorialInputs(outputTerm));
+  pyObjects = PyObject_NEW(PySNLBitTerms, &PyTypeSNLBitTerms);
+  if (not pyObjects) return nullptr;
+  pyObjects->object_ = objects;
+  SNLCATCH
+  return (PyObject*)pyObjects;
+}
+
+static PyObject* PySNLDesign_getCombinatorialOutputs(PySNLDesign* self, PyObject* input) {
+  if (not IsPySNLBitTerm(input)) {
+    setError("malformed SNLDesign.getCombinatorialOutputs method");
+  }
+  auto inputTerm = PYSNLBitTerm_O(input);
+  PySNLBitTerms* pyObjects = nullptr;
+  SNLTRY
+  auto objects = new naja::NajaCollection<SNLBitTerm*>(SNLDesignModeling::getCombinatorialOutputs(inputTerm));
+  pyObjects = PyObject_NEW(PySNLBitTerms, &PyTypeSNLBitTerms);
+  if (not pyObjects) return nullptr;
+  pyObjects->object_ = objects;
+  SNLCATCH
+  return (PyObject*)pyObjects;
 }
 
 GetObjectMethod(Design, Library)
@@ -122,6 +178,10 @@ PyMethodDef PySNLDesign_Methods[] = {
     "SNLDesign Primitive creator"},
   { "addCombinatorialDependency", (PyCFunction)PySNLDesign_addCombinatorialDependency, METH_VARARGS,
     "add combinatorial dependency"},
+  { "getCombinatorialInputs", (PyCFunction)PySNLDesign_getCombinatorialInputs, METH_O,
+    "get combinatorial inputs of a term"},
+  { "getCombinatorialOutputs", (PyCFunction)PySNLDesign_getCombinatorialOutputs, METH_O,
+    "get combinatorial outputs of a term"},
   { "getName", (PyCFunction)PySNLDesign_getName, METH_NOARGS,
     "get SNLDesign name"},
   {"getLibrary", (PyCFunction)PySNLDesign_getLibrary, METH_NOARGS,

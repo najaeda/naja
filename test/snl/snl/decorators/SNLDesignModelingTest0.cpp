@@ -1,4 +1,6 @@
 #include "gtest/gtest.h"
+#include "gmock/gmock.h"
+using ::testing::ElementsAre;
 
 #include "SNLUniverse.h"
 #include "SNLDesignModeling.h"
@@ -25,7 +27,39 @@ TEST_F(SNLDesignModelingTest0, test0) {
   auto luti2 = SNLScalarTerm::create(lut, SNLTerm::Direction::Input, SNLName("I2"));
   auto luti3 = SNLScalarTerm::create(lut, SNLTerm::Direction::Input, SNLName("I3"));
   auto luto = SNLScalarTerm::create(lut, SNLTerm::Direction::Output, SNLName("O"));
-  SNLDesignModeling::addCombinatorialDependency(luti0, luto);
+  SNLDesignModeling::addCombinatorialDependency({luti0, luti1, luti2, luti3}, {luto});
+  EXPECT_TRUE(SNLDesignModeling::getCombinatorialOutputs(luto).empty());
+  ASSERT_EQ(4, SNLDesignModeling::getCombinatorialInputs(luto).size());
+  EXPECT_THAT(
+    std::vector(
+      SNLDesignModeling::getCombinatorialInputs(luto).begin(),
+      SNLDesignModeling::getCombinatorialInputs(luto).end()),
+    ElementsAre(luti0, luti1, luti2, luti3));
+  ASSERT_EQ(1, SNLDesignModeling::getCombinatorialOutputs(luti0).size());
+  EXPECT_TRUE(SNLDesignModeling::getCombinatorialInputs(luti0).empty());
+  EXPECT_THAT(
+    std::vector(
+      SNLDesignModeling::getCombinatorialOutputs(luti0).begin(),
+      SNLDesignModeling::getCombinatorialOutputs(luti0).end()),
+    ElementsAre(luto));
+  EXPECT_TRUE(SNLDesignModeling::getCombinatorialInputs(luti1).empty());
+  EXPECT_THAT(
+    std::vector(
+      SNLDesignModeling::getCombinatorialOutputs(luti1).begin(),
+      SNLDesignModeling::getCombinatorialOutputs(luti1).end()),
+    ElementsAre(luto));
+  EXPECT_TRUE(SNLDesignModeling::getCombinatorialInputs(luti2).empty());
+  EXPECT_THAT(
+    std::vector(
+      SNLDesignModeling::getCombinatorialOutputs(luti2).begin(),
+      SNLDesignModeling::getCombinatorialOutputs(luti2).end()),
+    ElementsAre(luto));
+  EXPECT_TRUE(SNLDesignModeling::getCombinatorialInputs(luti3).empty());
+  EXPECT_THAT(
+    std::vector(
+      SNLDesignModeling::getCombinatorialOutputs(luti3).begin(),
+      SNLDesignModeling::getCombinatorialOutputs(luti3).end()),
+    ElementsAre(luto));
 
-  auto reg = SNLDesign::create(prims, SNLDesign::Type::Primitive, SNLName("REG"));
+  //auto reg = SNLDesign::create(prims, SNLDesign::Type::Primitive, SNLName("REG"));
 }

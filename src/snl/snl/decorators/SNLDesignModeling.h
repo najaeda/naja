@@ -7,6 +7,7 @@
 #define __SNL_DESIGN_MODELING_H_
 
 #include <set>
+#include <list>
 #include "SNLBitTerm.h"
 
 namespace naja { namespace SNL {
@@ -16,14 +17,20 @@ namespace naja { namespace SNL {
  */
 class SNLDesignModeling {
   public:
-    using TermDependencies = std::set<const SNLBitTerm*> ; //, SNLBitTerm::InDesignLess>;
-    using Dependencies = std::map<const SNLBitTerm*, TermDependencies, SNLBitTerm::InDesignLess>;
+    using TermDependencies = std::set<SNLBitTerm*, SNLBitTerm::InDesignLess>;
+    using Dependencies = std::map<SNLBitTerm*, TermDependencies, SNLBitTerm::InDesignLess>;
+    using BitTerms = std::list<SNLBitTerm*>;
 
-    static void addCombinatorialDependency(const SNLBitTerm* input, const SNLBitTerm* output);
-    //static TimingArc* getTimingArc(const SNLTerm* term) { return nullptr; }
+    static void addCombinatorialDependency(const BitTerms& inputs, const BitTerms& outputs);
+    static NajaCollection<SNLBitTerm*> getCombinatorialOutputs(SNLBitTerm* term);
+    static NajaCollection<SNLBitTerm*> getCombinatorialInputs(SNLBitTerm* term);
+
     private:
-      void addCombinatorialDependency_(const SNLBitTerm* input, const SNLBitTerm* output);
+      void addCombinatorialDependency_(SNLBitTerm* input, SNLBitTerm* output);
+      NajaCollection<SNLBitTerm*> getCombinatorialOutputs_(SNLBitTerm* term) const;
+      NajaCollection<SNLBitTerm*> getCombinatorialInputs_(SNLBitTerm* term) const;
       Dependencies inputCombinatorialDependencies_ {};
+      Dependencies outputCombinatorialDependencies_ {};
 };
 
 }} // namespace SNL // namespace naja
