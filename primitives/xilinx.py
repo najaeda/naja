@@ -4,19 +4,19 @@ def constructIBUF(lib):
   ibuf = snl.SNLDesign.createPrimitive(lib, "IBUF")
   i = snl.SNLScalarTerm.create(ibuf, snl.SNLTerm.Direction.Input, "I")
   o = snl.SNLScalarTerm.create(ibuf, snl.SNLTerm.Direction.Output, "O")
-  ibuf.setCombinatorialDependency(i, o)
+  ibuf.addCombinatorialDependency(i, o)
 
 def constructOBUF(lib):
   obuf = snl.SNLDesign.createPrimitive(lib, "OBUF")
   i = snl.SNLScalarTerm.create(obuf, snl.SNLTerm.Direction.Input, "I")
   o = snl.SNLScalarTerm.create(obuf, snl.SNLTerm.Direction.Output, "O")
-  obuf.setCombinatorialDependency(i, o)
+  obuf.addCombinatorialDependency(i, o)
 
 def constructBUFG(lib):
   bufg = snl.SNLDesign.createPrimitive(lib, "BUFG")
   i = snl.SNLScalarTerm.create(bufg, snl.SNLTerm.Direction.Input, "I")
   o = snl.SNLScalarTerm.create(bufg, snl.SNLTerm.Direction.Output, "O")
-  bufg.setCombinatorialDependency(i, o)
+  bufg.addCombinatorialDependency(i, o)
 
 def constructDSP48E1(lib):
   dsp48e1 = snl.SNLDesign.createPrimitive(lib, "DSP48E1")
@@ -93,7 +93,7 @@ def constructINV(lib):
   inv = snl.SNLDesign.createPrimitive(lib, "INV")
   i = snl.SNLScalarTerm.create(inv, snl.SNLTerm.Direction.Input, "I")
   o = snl.SNLScalarTerm.create(inv, snl.SNLTerm.Direction.Output, "O")
-  inv.setCombinatorialDependency(i, o)
+  inv.addCombinatorialDependency(i, o)
 
 def constructCARRY4(lib):
   carry4 = snl.SNLDesign.createPrimitive(lib, "CARRY4")
@@ -108,7 +108,7 @@ def constructLUT1(lib):
   lut1 = snl.SNLDesign.createPrimitive(lib, "LUT1")
   i0 = snl.SNLScalarTerm.create(lut1, snl.SNLTerm.Direction.Input, "I0")
   o = snl.SNLScalarTerm.create(lut1, snl.SNLTerm.Direction.Output, "O")
-  lut1.setCombinatorialDependency(i0, o)
+  lut1.addCombinatorialDependency(i0, o)
   snl.SNLParameter.create_binary(lut1, "INIT", 2, 0b00)
 
 def constructLUT2(lib):
@@ -116,7 +116,7 @@ def constructLUT2(lib):
   i0 = snl.SNLScalarTerm.create(lut2, snl.SNLTerm.Direction.Input, "I0")
   i1 = snl.SNLScalarTerm.create(lut2, snl.SNLTerm.Direction.Input, "I1")
   o = snl.SNLScalarTerm.create(lut2, snl.SNLTerm.Direction.Output, "O")
-  lut2.setCombinatorialDependency([i0, i1], o)
+  lut2.addCombinatorialDependency([i0, i1], o)
   snl.SNLParameter.create_binary(lut2, "INIT", 4, 0x0)
 
 def constructLUT3(lib):
@@ -125,7 +125,7 @@ def constructLUT3(lib):
   i1 = snl.SNLScalarTerm.create(lut3, snl.SNLTerm.Direction.Input, "I1")
   i2 = snl.SNLScalarTerm.create(lut3, snl.SNLTerm.Direction.Input, "I2")
   o = snl.SNLScalarTerm.create(lut3, snl.SNLTerm.Direction.Output, "O")
-  lut3.setCombinatorialDependency([i0, i1, i2], o)
+  lut3.addCombinatorialDependency([i0, i1, i2], o)
   snl.SNLParameter.create_binary(lut3, "INIT", 8, 0x00)
 
 def constructLUT4(lib):
@@ -135,7 +135,7 @@ def constructLUT4(lib):
   i2 = snl.SNLScalarTerm.create(lut4, snl.SNLTerm.Direction.Input, "I2")
   i3 = snl.SNLScalarTerm.create(lut4, snl.SNLTerm.Direction.Input, "I3")
   o = snl.SNLScalarTerm.create(lut4, snl.SNLTerm.Direction.Output, "O")
-  lut4.setCombinatorialDependency([i0, i1, i2, i3], o)
+  lut4.addCombinatorialDependency([i0, i1, i2, i3], o)
   snl.SNLParameter.create_binary(lut4, "INIT", 16, 0x0000)
 
 def constructLUT5(lib):
@@ -146,7 +146,7 @@ def constructLUT5(lib):
   i3 = snl.SNLScalarTerm.create(lut5, snl.SNLTerm.Direction.Input, "I3")
   i4 = snl.SNLScalarTerm.create(lut5, snl.SNLTerm.Direction.Input, "I4")
   o = snl.SNLScalarTerm.create(lut5, snl.SNLTerm.Direction.Output, "O")
-  lut5.setCombinatorialDependency([i0, i1, i2, i3, i4], o)
+  lut5.addCombinatorialDependency([i0, i1, i2, i3, i4], o)
   snl.SNLParameter.create_binary(lut5, "INIT", 32, 0x00000000)
 
 def constructLUT6(lib):
@@ -158,7 +158,7 @@ def constructLUT6(lib):
   i4 = snl.SNLScalarTerm.create(lut6, snl.SNLTerm.Direction.Input, "I4")
   i5 = snl.SNLScalarTerm.create(lut6, snl.SNLTerm.Direction.Input, "I5")
   o = snl.SNLScalarTerm.create(lut6, snl.SNLTerm.Direction.Output, "O")
-  lut6.setCombinatorialDependency([i0, i1, i2, i3, i4, i5], o)
+  lut6.addCombinatorialDependency([i0, i1, i2, i3, i4, i5], o)
   snl.SNLParameter.create_binary(lut6, "INIT", 64, 0x0000000000000000)
 
 def constructMUXF7(lib):
