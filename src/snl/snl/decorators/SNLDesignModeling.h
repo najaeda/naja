@@ -12,6 +12,8 @@
 
 namespace naja { namespace SNL {
 
+class SNLInstTerm;
+
 /**
  * \brief SNLDesignModeling allows to add timing informations on primitives and blackboxes.
  */
@@ -19,6 +21,16 @@ class SNLDesignModeling {
   public:
     using TermArcs = std::set<SNLBitTerm*, SNLBitTerm::InDesignLess>;
     using Arcs = std::map<SNLBitTerm*, TermArcs, SNLBitTerm::InDesignLess>;
+    struct TimingArcs {
+      Arcs inputCombinatorialArcs_  {};
+      Arcs outputCombinatorialArcs_ {};
+      Arcs inputToClockArcs_        {};
+      Arcs outputToClockArcs_       {};
+    };
+    using Parameter = std::pair<std::string, std::string>;
+    using ParameterizedArcs = std::map<Parameter, TimingArcs>;
+    enum Type { NO_PARAMETER, PARAMETERIZED };
+    using TimingModel = std::variant<TimingArcs, ParameterizedArcs>;
     using BitTerms = std::list<SNLBitTerm*>;
 
     static void addCombinatorialArcs(const BitTerms& inputs, const BitTerms& outputs);
@@ -30,15 +42,21 @@ class SNLDesignModeling {
     static NajaCollection<SNLBitTerm*> getInputRelatedClocks(SNLBitTerm* term);
     static bool getClockRelatedOutputs(const SNLBitTerm* term);
     static bool getClockRelatedInputs(const SNLBitTerm* term);
-    private:
-      void addCombinatorialArcs_(SNLBitTerm* input, SNLBitTerm* output);
-      NajaCollection<SNLBitTerm*> getCombinatorialOutputs_(SNLBitTerm* term) const;
-      NajaCollection<SNLBitTerm*> getCombinatorialInputs_(SNLBitTerm* term) const;
-      bool isClock_(const SNLBitTerm* term) const;
-      Arcs inputCombinatorialArcs_  {};
-      Arcs outputCombinatorialArcs_ {};
-      Arcs inputToClockArcs_        {};
-      Arcs outputToClockArcs_       {};
+
+    SNLDesignModeling(Type type): type_(type) {}
+    Type getType() const { return type_; }
+  private:
+    void addCombinatorialArcs_(SNLBitTerm* input, SNLBitTerm* output);
+    void addCombinatorialArcs_(const Parameter& parameter, SNLBitTerm* input, SNLBitTerm* output);
+    const TimingArcs* getTimingArcs() const;
+    NajaCollection<SNLBitTerm*> getCombinatorialOutputs_(SNLBitTerm* term) const;
+    NajaCollection<SNLBitTerm*> getCombinatorialInputs_(SNLBitTerm* term) const;
+    NajaCollection<SNLBitTerm*> getCombinatorialOutputs_(SNLInstTerm* term) const;
+    NajaCollection<SNLBitTerm*> getCombinatorialInputs_(SNLInstTerm* term) const;
+    bool isClock_(const SNLBitTerm* term) const;
+    Type        type_             { NO_PARAMETER };
+    Parameter   defaultParameter_ { std::make_pair(std::string(), std::string()) };
+    TimingModel model_            {};
 };
 
 }} // namespace SNL // namespace naja

@@ -15,10 +15,12 @@ class SNLDesignModelingProperty: public naja::NajaPrivateProperty {
   public:
     using Inherit = naja::NajaPrivateProperty;
     static const inline std::string Name = "SNLDesignModelingProperty";
-    static SNLDesignModelingProperty* create(naja::SNL::SNLDesign* design) {
+    static SNLDesignModelingProperty* create(
+      naja::SNL::SNLDesign* design,
+      naja::SNL::SNLDesignModeling::Type type) {
       preCreate(design, Name);
       SNLDesignModelingProperty* property = new SNLDesignModelingProperty();
-      property->modeling_ = new naja::SNL::SNLDesignModeling();
+      property->modeling_ = new naja::SNL::SNLDesignModeling(type);
       property->postCreate(design);
       return property;
     }
@@ -34,13 +36,16 @@ class SNLDesignModelingProperty: public naja::NajaPrivateProperty {
       }
       Inherit::preDestroy();
     }
+    naja::SNL::SNLDesignModeling::Type getModelingType() const {
+      return getModeling()->getType();
+    }
     std::string getName() const override {
       return Name;
     }
     std::string getString() const override {
       return Name;
     }
-    naja::SNL::SNLDesignModeling* getModeling() {
+    naja::SNL::SNLDesignModeling* getModeling() const {
       return modeling_;
     }
   private:
@@ -48,19 +53,22 @@ class SNLDesignModelingProperty: public naja::NajaPrivateProperty {
 };
 
 SNLDesignModelingProperty* getProperty(const naja::SNL::SNLDesign* design) {
-  auto property = design->getProperty(SNLDesignModelingProperty::Name);
+  auto property =
+    static_cast<SNLDesignModelingProperty*>(design->getProperty(SNLDesignModelingProperty::Name));
   if (property) {
-    return static_cast<SNLDesignModelingProperty*>(property);
+    return property;
   }
   return nullptr;
 }
 
-SNLDesignModelingProperty* getOrCreateProperty(naja::SNL::SNLDesign* design) {
+SNLDesignModelingProperty* getOrCreateProperty(
+  naja::SNL::SNLDesign* design,
+  naja::SNL::SNLDesignModeling::Type type) {
   auto property = getProperty(design);
   if (property) {
     return property;
   } 
-  return SNLDesignModelingProperty::create(design);
+  return SNLDesignModelingProperty::create(design, type);
 }
 
 void insertInArcs(
@@ -88,21 +96,42 @@ void insertInArcs(
 namespace naja { namespace SNL {
 
 void SNLDesignModeling::addCombinatorialArcs_(SNLBitTerm* input, SNLBitTerm* output) {
-  insertInArcs(inputCombinatorialArcs_, input, output);
-  insertInArcs(outputCombinatorialArcs_, output, input);
+  if (type_ not_eq Type::NO_PARAMETER) {
+    throw SNLException("");
+  }
+  TimingArcs& arcs = std::get<Type::NO_PARAMETER>(model_);
+  insertInArcs(arcs.inputCombinatorialArcs_, input, output);
+  insertInArcs(arcs.outputCombinatorialArcs_, output, input);
+}
+
+const SNLDesignModeling::TimingArcs* SNLDesignModeling::getTimingArcs() const {
+  if (type_ == Type::NO_PARAMETER) {
+    return &std::get<Type::NO_PARAMETER>(model_);
+  } else {
+    const ParameterizedArcs& parameterizedArcs = std::get<Type::PARAMETERIZED>(model_);
+    auto ait = parameterizedArcs.find(defaultParameter_);
+    if (ait != parameterizedArcs.end()) {
+      return &(ait->second);
+    } else {
+      throw SNLException("");
+    }
+  }
+
 }
 
 NajaCollection<SNLBitTerm*> SNLDesignModeling::getCombinatorialOutputs_(SNLBitTerm* term) const {
-  Arcs::const_iterator it = inputCombinatorialArcs_.find(term);
-  if (it == inputCombinatorialArcs_.end()) {
+  const auto* timingArcs = getTimingArcs();
+  Arcs::const_iterator it = timingArcs->inputCombinatorialArcs_.find(term);
+  if (it == timingArcs->inputCombinatorialArcs_.end()) {
     return NajaCollection<SNLBitTerm*>();
   }
   return NajaCollection(new NajaSTLCollection(&(it->second)));
 }
 
 NajaCollection<SNLBitTerm*> SNLDesignModeling::getCombinatorialInputs_(SNLBitTerm* term) const {
-  Arcs::const_iterator it = outputCombinatorialArcs_.find(term);
-  if (it == outputCombinatorialArcs_.end()) {
+  const auto* timingArcs = getTimingArcs();
+  Arcs::const_iterator it = timingArcs->outputCombinatorialArcs_.find(term);
+  if (it == timingArcs->outputCombinatorialArcs_.end()) {
     return NajaCollection<SNLBitTerm*>();
   }
   return NajaCollection(new NajaSTLCollection(&(it->second)));
@@ -130,7 +159,7 @@ void SNLDesignModeling::addCombinatorialArcs(
       }
     }
   }
-  auto property = getOrCreateProperty(design);
+  auto property = getOrCreateProperty(design, Type::NO_PARAMETER);
   auto modeling = property->getModeling();
   for (auto input: inputs) {
     for (auto output: outputs) {
@@ -139,7 +168,7 @@ void SNLDesignModeling::addCombinatorialArcs(
   }
 }
 
-NajaCollection<SNLBitTerm*>  SNLDesignModeling::getCombinatorialOutputs(SNLBitTerm* term) {
+NajaCollection<SNLBitTerm*> SNLDesignModeling::getCombinatorialOutputs(SNLBitTerm* term) {
   auto property = getProperty(term->getDesign());
   if (property) {
     auto modeling = property->getModeling();
@@ -148,7 +177,7 @@ NajaCollection<SNLBitTerm*>  SNLDesignModeling::getCombinatorialOutputs(SNLBitTe
   return NajaCollection<SNLBitTerm*>();
 }
 
-NajaCollection<SNLBitTerm*>  SNLDesignModeling::getCombinatorialInputs(SNLBitTerm* term) {
+NajaCollection<SNLBitTerm*> SNLDesignModeling::getCombinatorialInputs(SNLBitTerm* term) {
   auto property = getProperty(term->getDesign());
   if (property) {
     auto modeling = property->getModeling();
