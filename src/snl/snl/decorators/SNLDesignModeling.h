@@ -8,6 +8,7 @@
 
 #include <set>
 #include <list>
+#include <variant>
 #include "SNLBitTerm.h"
 
 namespace naja { namespace SNL {
