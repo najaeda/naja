@@ -77,7 +77,7 @@ static PyObject* PySNLDesign_createPrimitive(PyObject*, PyObject* args) {
   return PySNLDesign_Link(design);
 }
 
-static PyObject* PySNLDesign_addCombinatorialDependency(PySNLDesign* self, PyObject* args) {
+static PyObject* PySNLDesign_addCombinatorialArcs(PySNLDesign* self, PyObject* args) {
   PyObject* arg0 = nullptr;
   PyObject* arg1 = nullptr;
   if (not PyArg_ParseTuple(args, "OO:SNLDesign.addCombinatorialDependency", &arg0, &arg1)) {
@@ -117,7 +117,7 @@ static PyObject* PySNLDesign_addCombinatorialDependency(PySNLDesign* self, PyObj
     }
   }
   SNLTRY
-  SNLDesignModeling::addCombinatorialDependency(terms0, terms1);
+  SNLDesignModeling::addCombinatorialArcs(terms0, terms1);
   SNLCATCH
   Py_RETURN_NONE;
 }
@@ -176,8 +176,8 @@ PyMethodDef PySNLDesign_Methods[] = {
     "SNLDesign creator"},
   { "createPrimitive", (PyCFunction)PySNLDesign_createPrimitive, METH_VARARGS|METH_STATIC,
     "SNLDesign Primitive creator"},
-  { "addCombinatorialDependency", (PyCFunction)PySNLDesign_addCombinatorialDependency, METH_VARARGS,
-    "add combinatorial dependency"},
+  { "addCombinatorialArcs", (PyCFunction)PySNLDesign_addCombinatorialArcs, METH_VARARGS,
+    "add combinatorial arcs"},
   { "getCombinatorialInputs", (PyCFunction)PySNLDesign_getCombinatorialInputs, METH_O,
     "get combinatorial inputs of a term"},
   { "getCombinatorialOutputs", (PyCFunction)PySNLDesign_getCombinatorialOutputs, METH_O,

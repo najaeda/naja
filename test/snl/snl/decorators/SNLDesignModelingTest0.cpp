@@ -27,7 +27,7 @@ TEST_F(SNLDesignModelingTest0, test0) {
   auto luti2 = SNLScalarTerm::create(lut, SNLTerm::Direction::Input, SNLName("I2"));
   auto luti3 = SNLScalarTerm::create(lut, SNLTerm::Direction::Input, SNLName("I3"));
   auto luto = SNLScalarTerm::create(lut, SNLTerm::Direction::Output, SNLName("O"));
-  SNLDesignModeling::addCombinatorialDependency({luti0, luti1, luti2, luti3}, {luto});
+  SNLDesignModeling::addCombinatorialArcs({luti0, luti1, luti2, luti3}, {luto});
   EXPECT_TRUE(SNLDesignModeling::getCombinatorialOutputs(luto).empty());
   ASSERT_EQ(4, SNLDesignModeling::getCombinatorialInputs(luto).size());
   EXPECT_THAT(

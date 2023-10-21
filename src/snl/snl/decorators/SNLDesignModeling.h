@@ -17,20 +17,28 @@ namespace naja { namespace SNL {
  */
 class SNLDesignModeling {
   public:
-    using TermDependencies = std::set<SNLBitTerm*, SNLBitTerm::InDesignLess>;
-    using Dependencies = std::map<SNLBitTerm*, TermDependencies, SNLBitTerm::InDesignLess>;
+    using TermArcs = std::set<SNLBitTerm*, SNLBitTerm::InDesignLess>;
+    using Arcs = std::map<SNLBitTerm*, TermArcs, SNLBitTerm::InDesignLess>;
     using BitTerms = std::list<SNLBitTerm*>;
 
-    static void addCombinatorialDependency(const BitTerms& inputs, const BitTerms& outputs);
+    static void addCombinatorialArcs(const BitTerms& inputs, const BitTerms& outputs);
+    static void addInputsToClockArcs(const BitTerms& inputs, SNLBitTerm* clock);
+    static void addClockToOutputsArcs(SNLBitTerm* clock, const BitTerms& outputs);
     static NajaCollection<SNLBitTerm*> getCombinatorialOutputs(SNLBitTerm* term);
     static NajaCollection<SNLBitTerm*> getCombinatorialInputs(SNLBitTerm* term);
-
+    static NajaCollection<SNLBitTerm*> getOutputRelatedClocks(SNLBitTerm* term);
+    static NajaCollection<SNLBitTerm*> getInputRelatedClocks(SNLBitTerm* term);
+    static bool getClockRelatedOutputs(const SNLBitTerm* term);
+    static bool getClockRelatedInputs(const SNLBitTerm* term);
     private:
-      void addCombinatorialDependency_(SNLBitTerm* input, SNLBitTerm* output);
+      void addCombinatorialArcs_(SNLBitTerm* input, SNLBitTerm* output);
       NajaCollection<SNLBitTerm*> getCombinatorialOutputs_(SNLBitTerm* term) const;
       NajaCollection<SNLBitTerm*> getCombinatorialInputs_(SNLBitTerm* term) const;
-      Dependencies inputCombinatorialDependencies_ {};
-      Dependencies outputCombinatorialDependencies_ {};
+      bool isClock_(const SNLBitTerm* term) const;
+      Arcs inputCombinatorialArcs_  {};
+      Arcs outputCombinatorialArcs_ {};
+      Arcs inputToClockArcs_        {};
+      Arcs outputToClockArcs_       {};
 };
 
 }} // namespace SNL // namespace naja

@@ -16,7 +16,7 @@ class SNLDesignModelingTest(unittest.TestCase):
     i0 = snl.SNLScalarTerm.create(design, snl.SNLTerm.Direction.Input, "I0")
     i1 = snl.SNLScalarTerm.create(design, snl.SNLTerm.Direction.Input, "I1")
     o = snl.SNLScalarTerm.create(design, snl.SNLTerm.Direction.Input, "O")
-    design.addCombinatorialDependency([i0, i1], o)
+    design.addCombinatorialArcs([i0, i1], o)
     self.assertEqual(0, sum(1 for t in design.getCombinatorialInputs(i0)))
     self.assertEqual(0, sum(1 for t in design.getCombinatorialInputs(i1)))
     self.assertEqual(2, sum(1 for t in design.getCombinatorialInputs(o)))

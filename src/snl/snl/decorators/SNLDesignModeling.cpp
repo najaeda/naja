@@ -63,52 +63,52 @@ SNLDesignModelingProperty* getOrCreateProperty(naja::SNL::SNLDesign* design) {
   return SNLDesignModelingProperty::create(design);
 }
 
-void insertInDependencies(
-  naja::SNL::SNLDesignModeling::Dependencies& combinatorialDependencies,
+void insertInArcs(
+  naja::SNL::SNLDesignModeling::Arcs& combinatorialArcs,
   naja::SNL::SNLBitTerm* term0,
   naja::SNL::SNLBitTerm* term1) {
-  auto iit = combinatorialDependencies.find(term0);
-  if (iit == combinatorialDependencies.end()) {
-    auto result = combinatorialDependencies.insert({term0, naja::SNL::SNLDesignModeling::TermDependencies()});
+  auto iit = combinatorialArcs.find(term0);
+  if (iit == combinatorialArcs.end()) {
+    auto result = combinatorialArcs.insert({term0, naja::SNL::SNLDesignModeling::TermArcs()});
     if (not result.second) {
       throw naja::SNL::SNLException("");
     }
     iit = result.first;
   }
-  naja::SNL::SNLDesignModeling::TermDependencies& dependencies = iit->second;
-  auto oit = dependencies.find(term1);
-  if (oit != dependencies.end()) {
+  naja::SNL::SNLDesignModeling::TermArcs& arcs = iit->second;
+  auto oit = arcs.find(term1);
+  if (oit != arcs.end()) {
 
   }
-  dependencies.insert(term1);
+  arcs.insert(term1);
 }
   
 }
 
 namespace naja { namespace SNL {
 
-void SNLDesignModeling::addCombinatorialDependency_(SNLBitTerm* input, SNLBitTerm* output) {
-  insertInDependencies(inputCombinatorialDependencies_, input, output);
-  insertInDependencies(outputCombinatorialDependencies_, output, input);
+void SNLDesignModeling::addCombinatorialArcs_(SNLBitTerm* input, SNLBitTerm* output) {
+  insertInArcs(inputCombinatorialArcs_, input, output);
+  insertInArcs(outputCombinatorialArcs_, output, input);
 }
 
 NajaCollection<SNLBitTerm*> SNLDesignModeling::getCombinatorialOutputs_(SNLBitTerm* term) const {
-  Dependencies::const_iterator it = inputCombinatorialDependencies_.find(term);
-  if (it == inputCombinatorialDependencies_.end()) {
+  Arcs::const_iterator it = inputCombinatorialArcs_.find(term);
+  if (it == inputCombinatorialArcs_.end()) {
     return NajaCollection<SNLBitTerm*>();
   }
   return NajaCollection(new NajaSTLCollection(&(it->second)));
 }
 
 NajaCollection<SNLBitTerm*> SNLDesignModeling::getCombinatorialInputs_(SNLBitTerm* term) const {
-  Dependencies::const_iterator it = outputCombinatorialDependencies_.find(term);
-  if (it == outputCombinatorialDependencies_.end()) {
+  Arcs::const_iterator it = outputCombinatorialArcs_.find(term);
+  if (it == outputCombinatorialArcs_.end()) {
     return NajaCollection<SNLBitTerm*>();
   }
   return NajaCollection(new NajaSTLCollection(&(it->second)));
 }
 
-void SNLDesignModeling::addCombinatorialDependency(
+void SNLDesignModeling::addCombinatorialArcs(
   const BitTerms& inputs, const BitTerms& outputs) {
   if (inputs.empty()) {
     throw SNLException("Error in addCombinatorialDependency: empty inputs");
@@ -134,7 +134,7 @@ void SNLDesignModeling::addCombinatorialDependency(
   auto modeling = property->getModeling();
   for (auto input: inputs) {
     for (auto output: outputs) {
-      modeling->addCombinatorialDependency_(input, output);
+      modeling->addCombinatorialArcs_(input, output);
     }
   }
 }
@@ -156,7 +156,5 @@ NajaCollection<SNLBitTerm*>  SNLDesignModeling::getCombinatorialInputs(SNLBitTer
   }
   return NajaCollection<SNLBitTerm*>();
 }
-
-
 
 }} // namespace SNL // namespace naja
