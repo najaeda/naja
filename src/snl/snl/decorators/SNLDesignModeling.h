@@ -57,7 +57,7 @@ class SNLDesignModeling {
     bool isClock_(const SNLBitTerm* term) const;
     Type        type_             { NO_PARAMETER };
     Parameter   defaultParameter_ { std::make_pair(std::string(), std::string()) };
-    TimingModel model_            {};
+    TimingModel model_;
 };
 
 }} // namespace SNL // namespace naja
