@@ -30,8 +30,8 @@ class SNLDesignModeling {
     };
     using Parameter = std::pair<std::string, std::string>;
     using ParameterizedArcs = std::map<Parameter, TimingArcs>;
-    enum Type { NO_PARAMETER, PARAMETERIZED };
-    using TimingModel = std::variant<TimingArcs, ParameterizedArcs>;
+    enum Type { PARAMETERIZED, NO_PARAMETER };
+    using TimingModel = std::variant<ParameterizedArcs, TimingArcs>;
     using BitTerms = std::list<SNLBitTerm*>;
 
     static void addCombinatorialArcs(const BitTerms& inputs, const BitTerms& outputs);
@@ -44,7 +44,7 @@ class SNLDesignModeling {
     static bool getClockRelatedOutputs(const SNLBitTerm* term);
     static bool getClockRelatedInputs(const SNLBitTerm* term);
 
-    SNLDesignModeling(Type type): type_(type) {}
+    SNLDesignModeling(Type type);
     Type getType() const { return type_; }
   private:
     void addCombinatorialArcs_(SNLBitTerm* input, SNLBitTerm* output);
@@ -57,7 +57,7 @@ class SNLDesignModeling {
     bool isClock_(const SNLBitTerm* term) const;
     Type        type_             { NO_PARAMETER };
     Parameter   defaultParameter_ { std::make_pair(std::string(), std::string()) };
-    TimingModel model_;
+    TimingModel model_            {};
 };
 
 }} // namespace SNL // namespace naja

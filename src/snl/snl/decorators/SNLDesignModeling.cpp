@@ -95,6 +95,14 @@ void insertInArcs(
 
 namespace naja { namespace SNL {
 
+SNLDesignModeling::SNLDesignModeling(Type type): type_(type) {
+  if (type_ == NO_PARAMETER) {
+    model_ = TimingArcs(); 
+  } else {
+    model_ = ParameterizedArcs();
+  }
+}
+
 void SNLDesignModeling::addCombinatorialArcs_(SNLBitTerm* input, SNLBitTerm* output) {
   if (type_ not_eq Type::NO_PARAMETER) {
     throw SNLException("");
