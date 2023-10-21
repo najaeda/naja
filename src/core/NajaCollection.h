@@ -714,9 +714,9 @@ class NajaFlatCollection: public NajaBaseCollection<ReturnType> {
         }
       private:
 
-        NajaBaseIterator<Type>*      it_         {nullptr};
-        NajaBaseIterator<Type>*      endIt_      {nullptr};
-        NajaBaseIterator<FlatType>*  flattenIt_  {nullptr};
+        NajaBaseIterator<Type>*     it_         {nullptr};
+        NajaBaseIterator<Type>*     endIt_      {nullptr};
+        NajaBaseIterator<FlatType>* flattenIt_  {nullptr};
         ReturnType                  element_    {nullptr};
         Flattener                   flattener_;
     };
@@ -759,6 +759,123 @@ class NajaFlatCollection: public NajaBaseCollection<ReturnType> {
   private:
     const NajaBaseCollection<Type>* collection_;
     Flattener                      flattener_;
+};
+
+template<class Type, class ReturnType, typename Transformer>
+class NajaTransformerCollection: public NajaBaseCollection<ReturnType> {
+  public:
+    using super = NajaBaseCollection<ReturnType>;
+
+    class NajaTransformerCollectionIterator: public NajaBaseIterator<ReturnType> {
+      public:
+        using super = NajaBaseIterator<ReturnType>;
+        NajaTransformerCollectionIterator(const NajaBaseCollection<Type>* collection, const Transformer& transformer, bool beginOrEnd=true):
+          super(),
+          transformer_(transformer) {
+          if (collection) {
+            endIt_ = collection->end();
+            if (not beginOrEnd) {
+              it_ = endIt_;
+              element_ = nullptr;
+            } else {
+              it_ = collection->begin();
+              if (it_->isValid()) {
+                Type e = it_->getElement();
+                element_ = transformer_(e);
+              }
+            }
+          }
+        }
+        NajaTransformerCollectionIterator(const NajaTransformerCollectionIterator& it):
+          element_(it.element_), transformer_(it.transformer_) {
+          endIt_ = it.endIt_->clone();
+          if (it.it_ not_eq it.endIt_) {
+            it_ = it.it_->clone();
+          } else {
+            it_ = endIt_;
+          }
+        }
+        ~NajaTransformerCollectionIterator() {
+          if (it_ not_eq endIt_) {
+            delete it_;
+          }
+          delete endIt_;
+        }
+        NajaBaseIterator<ReturnType>* clone() override {
+          return new NajaTransformerCollectionIterator(*this);
+        }
+        ReturnType getElement() const override { return element_; } 
+        void progress() override {
+          if (isValid()) {
+            element_ = nullptr;
+            if (it_->isValid()) {
+              it_->progress();
+            }
+            if (it_->isValid()) {
+              Type e = it_->getElement();
+              element_ = transformer_(e);
+            }
+          }
+        }
+        bool isEqual(const NajaBaseIterator<ReturnType>* r) const override {
+          if (it_) {
+            if (auto rit = dynamic_cast<const NajaTransformerCollectionIterator*>(r)) {
+              return it_ == rit->it_
+                and endIt_ == rit->endIt_ 
+                and element_ == rit->element_;
+            }
+          }
+          return false;
+        }
+        bool isValid() const override {
+          return element_ != nullptr;
+        }
+      private:
+
+        NajaBaseIterator<Type>*     it_         {nullptr};
+        NajaBaseIterator<Type>*     endIt_      {nullptr};
+        ReturnType                  element_    {nullptr};
+        Transformer                 transformer_;
+    };
+
+    NajaTransformerCollection(const NajaTransformerCollection&) = delete;
+    NajaTransformerCollection& operator=(const NajaTransformerCollection&) = delete;
+    NajaTransformerCollection(const NajaTransformerCollection&&) = delete;
+    NajaTransformerCollection(const NajaBaseCollection<Type>* collection, const Transformer& transformer):
+      super(), collection_(collection), transformer_(transformer)
+    {}
+    ~NajaTransformerCollection() {
+      delete collection_;
+    }
+    NajaBaseCollection<ReturnType>* clone() const override {
+      return new NajaTransformerCollection(collection_->clone(), transformer_);
+    }
+    NajaBaseIterator<ReturnType>* begin() const override {
+      return new NajaTransformerCollectionIterator(collection_, transformer_, true);
+    }
+    NajaBaseIterator<ReturnType>* end() const override {
+      return new NajaTransformerCollectionIterator(collection_, transformer_, false);
+    }
+    size_t size() const override {
+      size_t size = 0;
+      if (collection_) {
+        auto it = std::make_unique<NajaTransformerCollectionIterator>(collection_, transformer_, true);
+        auto endIt = std::make_unique<NajaTransformerCollectionIterator>(collection_, transformer_, false);
+        while (not it->isEqual(endIt.get())) {
+          ++size;
+          it->progress();
+        }
+      }
+      return size;
+    }
+    bool empty() const override {
+      auto it = std::make_unique<NajaTransformerCollectionIterator>(collection_, transformer_, true);
+      return not it->isValid();
+    }
+
+  private:
+    const NajaBaseCollection<Type>* collection_;
+    Transformer                     transformer_;
 };
 
 template<class Type, typename ChildrenGetter, typename LeafCriterion>
@@ -943,6 +1060,14 @@ template<class Type> class NajaCollection {
       NajaCollection<ReturnType> getFlatCollection(const Flattener& flattener) const {
       if (collection_) {
         return NajaCollection<ReturnType>(new NajaFlatCollection<Type, MasterType, FlatType, ReturnType, Flattener>(collection_->clone(), flattener));
+      }
+      return NajaCollection<ReturnType>();
+    }
+
+    template<class ReturnType, typename Transformer>
+      NajaCollection<ReturnType> getTransformerCollection(const Transformer& transformer) const {
+      if (collection_) {
+        return NajaCollection<ReturnType>(new NajaTransformerCollection<Type, ReturnType, Transformer>(collection_->clone(), transformer));
       }
       return NajaCollection<ReturnType>();
     }

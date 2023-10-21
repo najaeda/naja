@@ -12,8 +12,10 @@
 #include "PySNLScalarNet.h"
 #include "PySNLBusNet.h"
 #include "PySNLInstance.h"
+#include "PySNLInstTerm.h"
 #include "PySNLTerms.h"
 #include "PySNLBitTerms.h"
+#include "PySNLInstTerms.h"
 #include "PySNLScalarTerms.h"
 #include "PySNLBusTerms.h"
 #include "PySNLNets.h"
@@ -138,18 +140,28 @@ static PyObject* PySNLDesign_getCombinatorialInputs(PySNLDesign* self, PyObject*
 }
 
 static PyObject* PySNLDesign_getCombinatorialOutputs(PySNLDesign* self, PyObject* input) {
-  if (not IsPySNLBitTerm(input)) {
-    setError("malformed SNLDesign.getCombinatorialOutputs method");
+  if (IsPySNLBitTerm(input)) {
+    auto inputTerm = PYSNLBitTerm_O(input);
+    SNLTRY
+    auto objects = new naja::NajaCollection<SNLBitTerm*>(SNLDesignModeling::getCombinatorialOutputs(inputTerm));
+    auto pyObjects = PyObject_NEW(PySNLBitTerms, &PyTypeSNLBitTerms);
+    if (not pyObjects) return nullptr;
+    pyObjects->object_ = objects;
+    return (PyObject*)pyObjects;
+    SNLCATCH
+  } else if (IsPySNLInstTerm(input)) {
+    auto inputITerm = PYSNLInstTerm_O(input);
+    SNLTRY
+    auto objects = new naja::NajaCollection<SNLInstTerm*>(SNLDesignModeling::getCombinatorialOutputs(inputITerm));
+    auto pyObjects = PyObject_NEW(PySNLInstTerms, &PyTypeSNLInstTerms);
+    if (not pyObjects) return nullptr;
+    pyObjects->object_ = objects;
+    return (PyObject*)pyObjects;
+    SNLCATCH
+
   }
-  auto inputTerm = PYSNLBitTerm_O(input);
-  PySNLBitTerms* pyObjects = nullptr;
-  SNLTRY
-  auto objects = new naja::NajaCollection<SNLBitTerm*>(SNLDesignModeling::getCombinatorialOutputs(inputTerm));
-  pyObjects = PyObject_NEW(PySNLBitTerms, &PyTypeSNLBitTerms);
-  if (not pyObjects) return nullptr;
-  pyObjects->object_ = objects;
-  SNLCATCH
-  return (PyObject*)pyObjects;
+  setError("malformed SNLDesign.getCombinatorialOutputs method");
+  return nullptr;
 }
 
 GetObjectMethod(Design, Library)

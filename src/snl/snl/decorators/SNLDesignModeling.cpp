@@ -7,6 +7,7 @@
 
 #include "NajaPrivateProperty.h"
 #include "SNLDesign.h"
+#include "SNLInstTerm.h"
 #include "SNLException.h"
 
 namespace {
@@ -136,6 +137,22 @@ NajaCollection<SNLBitTerm*> SNLDesignModeling::getCombinatorialOutputs_(SNLBitTe
   return NajaCollection(new NajaSTLCollection(&(it->second)));
 }
 
+NajaCollection<SNLInstTerm*> SNLDesignModeling::getCombinatorialOutputs_(SNLInstTerm* iterm) const {
+  const TimingArcs* timingArcs = nullptr;
+  if (type_ == NO_PARAMETER) {
+    timingArcs =  getTimingArcs();
+  } else {
+    //FIXME get timing Arcs from parameter
+  }
+  Arcs::const_iterator it = timingArcs->inputCombinatorialArcs_.find(iterm->getTerm());
+  if (it == timingArcs->inputCombinatorialArcs_.end()) {
+    return NajaCollection<SNLInstTerm*>();
+  }
+  auto instance = iterm->getInstance();
+  auto transformer = [=](const SNLBitTerm* term) { return instance->getInstTerm(term); };
+  return NajaCollection(new NajaSTLCollection(&(it->second))).getTransformerCollection<SNLInstTerm*>(transformer);
+}
+
 NajaCollection<SNLBitTerm*> SNLDesignModeling::getCombinatorialInputs_(SNLBitTerm* term) const {
   const auto* timingArcs = getTimingArcs();
   Arcs::const_iterator it = timingArcs->outputCombinatorialArcs_.find(term);
@@ -183,6 +200,15 @@ NajaCollection<SNLBitTerm*> SNLDesignModeling::getCombinatorialOutputs(SNLBitTer
     return modeling->getCombinatorialOutputs_(term);
   }
   return NajaCollection<SNLBitTerm*>();
+}
+
+NajaCollection<SNLInstTerm*> SNLDesignModeling::getCombinatorialOutputs(SNLInstTerm* iterm) {
+  auto property = getProperty(iterm->getInstance()->getModel());
+  if (property) {
+    auto modeling = property->getModeling();
+    return modeling->getCombinatorialOutputs_(iterm);
+  }
+  return NajaCollection<SNLInstTerm*>();
 }
 
 NajaCollection<SNLBitTerm*> SNLDesignModeling::getCombinatorialInputs(SNLBitTerm* term) {

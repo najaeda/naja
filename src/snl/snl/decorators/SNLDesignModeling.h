@@ -39,6 +39,8 @@ class SNLDesignModeling {
     static void addClockToOutputsArcs(SNLBitTerm* clock, const BitTerms& outputs);
     static NajaCollection<SNLBitTerm*> getCombinatorialOutputs(SNLBitTerm* term);
     static NajaCollection<SNLBitTerm*> getCombinatorialInputs(SNLBitTerm* term);
+    static NajaCollection<SNLInstTerm*> getCombinatorialOutputs(SNLInstTerm* iterm);
+    static NajaCollection<SNLInstTerm*> getCombinatorialInputs(SNLInstTerm* iterm);
     static NajaCollection<SNLBitTerm*> getOutputRelatedClocks(SNLBitTerm* term);
     static NajaCollection<SNLBitTerm*> getInputRelatedClocks(SNLBitTerm* term);
     static bool getClockRelatedOutputs(const SNLBitTerm* term);
@@ -52,8 +54,8 @@ class SNLDesignModeling {
     const TimingArcs* getTimingArcs() const;
     NajaCollection<SNLBitTerm*> getCombinatorialOutputs_(SNLBitTerm* term) const;
     NajaCollection<SNLBitTerm*> getCombinatorialInputs_(SNLBitTerm* term) const;
-    NajaCollection<SNLBitTerm*> getCombinatorialOutputs_(SNLInstTerm* term) const;
-    NajaCollection<SNLBitTerm*> getCombinatorialInputs_(SNLInstTerm* term) const;
+    NajaCollection<SNLInstTerm*> getCombinatorialOutputs_(SNLInstTerm* term) const;
+    NajaCollection<SNLInstTerm*> getCombinatorialInputs_(SNLInstTerm* term) const;
     bool isClock_(const SNLBitTerm* term) const;
     Type        type_             { NO_PARAMETER };
     Parameter   defaultParameter_ { std::make_pair(std::string(), std::string()) };
