@@ -40,7 +40,16 @@ TEST_F(SNLDesignModelingTest0, test0) {
     ElementsAre(luti0, luti1, luti2, luti3));
   //lutIns0/luto
   EXPECT_TRUE(SNLDesignModeling::getCombinatorialOutputs(lutIns0->getInstTerm(luto)).empty());
-  //ASSERT_EQ(4, SNLDesignModeling::getCombinatorialInputs(lutIns0->getInstTerm(luto)).size());
+  ASSERT_EQ(4, SNLDesignModeling::getCombinatorialInputs(lutIns0->getInstTerm(luto)).size());
+  EXPECT_THAT(
+    std::vector(
+      SNLDesignModeling::getCombinatorialInputs(lutIns0->getInstTerm(luto)).begin(),
+      SNLDesignModeling::getCombinatorialInputs(lutIns0->getInstTerm(luto)).end()),
+    ElementsAre(
+      lutIns0->getInstTerm(luti0),
+      lutIns0->getInstTerm(luti1),
+      lutIns0->getInstTerm(luti2),
+      lutIns0->getInstTerm(luti3)));
   
   //luti0
   ASSERT_EQ(1, SNLDesignModeling::getCombinatorialOutputs(luti0).size());
@@ -52,14 +61,12 @@ TEST_F(SNLDesignModelingTest0, test0) {
     ElementsAre(luto));
   //lutIns0/luti0
   ASSERT_EQ(1, SNLDesignModeling::getCombinatorialOutputs(lutIns0->getInstTerm(luti0)).size());
-  //EXPECT_TRUE(SNLDesignModeling::getCombinatorialInputs(lutIns0->getInstTerm(luti0)).empty());
-  //EXPECT_THAT(
-  //  std::vector(
-  //    SNLDesignModeling::getCombinatorialOutputs(luti0).begin(),
-  //    SNLDesignModeling::getCombinatorialOutputs(luti0).end()),
-  //  ElementsAre(luto));
-  //
-
+  EXPECT_TRUE(SNLDesignModeling::getCombinatorialInputs(lutIns0->getInstTerm(luti0)).empty());
+  EXPECT_THAT(
+    std::vector(
+      SNLDesignModeling::getCombinatorialOutputs(lutIns0->getInstTerm(luti0)).begin(),
+      SNLDesignModeling::getCombinatorialOutputs(lutIns0->getInstTerm(luti0)).end()),
+    ElementsAre(lutIns0->getInstTerm(luto)));
 
   EXPECT_TRUE(SNLDesignModeling::getCombinatorialInputs(luti1).empty());
   EXPECT_THAT(

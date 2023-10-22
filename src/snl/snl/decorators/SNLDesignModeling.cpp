@@ -113,19 +113,38 @@ void SNLDesignModeling::addCombinatorialArcs_(SNLBitTerm* input, SNLBitTerm* out
   insertInArcs(arcs.outputCombinatorialArcs_, output, input);
 }
 
-const SNLDesignModeling::TimingArcs* SNLDesignModeling::getTimingArcs() const {
+const SNLDesignModeling::TimingArcs* SNLDesignModeling::getTimingArcs(const SNLInstance* instance) const {
   if (type_ == Type::NO_PARAMETER) {
     return &std::get<Type::NO_PARAMETER>(model_);
   } else {
     const ParameterizedArcs& parameterizedArcs = std::get<Type::PARAMETERIZED>(model_);
-    auto ait = parameterizedArcs.find(defaultParameter_);
+    //find the parameter value
+    if (instance != nullptr) {
+      // //get Arcs from parameter
+      auto parameter = parameter_.first;
+      //find parameter in instance
+      auto instParameter = instance->getInstParameter(SNLName(parameter));
+      if (instParameter) {
+        auto value = instParameter->getValue();
+        auto pit = parameterizedArcs.find(parameter);
+        if (pit == parameterizedArcs.end()) {
+          throw SNLException("");
+        }
+        return &(pit->second);
+      }
+      //if not found then switch to default parameter
+    } 
+    auto defaultParameterValue = parameter_.second;
+    if (defaultParameterValue.empty()) {
+      throw SNLException("");
+    }
+    auto ait = parameterizedArcs.find(defaultParameterValue);
     if (ait != parameterizedArcs.end()) {
       return &(ait->second);
     } else {
       throw SNLException("");
     }
   }
-
 }
 
 NajaCollection<SNLBitTerm*> SNLDesignModeling::getCombinatorialOutputs_(SNLBitTerm* term) const {
@@ -138,17 +157,12 @@ NajaCollection<SNLBitTerm*> SNLDesignModeling::getCombinatorialOutputs_(SNLBitTe
 }
 
 NajaCollection<SNLInstTerm*> SNLDesignModeling::getCombinatorialOutputs_(SNLInstTerm* iterm) const {
-  const TimingArcs* timingArcs = nullptr;
-  if (type_ == NO_PARAMETER) {
-    timingArcs =  getTimingArcs();
-  } else {
-    //FIXME get timing Arcs from parameter
-  }
+  auto instance = iterm->getInstance();
+  const TimingArcs* timingArcs = getTimingArcs(instance);
   Arcs::const_iterator it = timingArcs->inputCombinatorialArcs_.find(iterm->getTerm());
   if (it == timingArcs->inputCombinatorialArcs_.end()) {
     return NajaCollection<SNLInstTerm*>();
   }
-  auto instance = iterm->getInstance();
   auto transformer = [=](const SNLBitTerm* term) { return instance->getInstTerm(term); };
   return NajaCollection(new NajaSTLCollection(&(it->second))).getTransformerCollection<SNLInstTerm*>(transformer);
 }
@@ -160,6 +174,17 @@ NajaCollection<SNLBitTerm*> SNLDesignModeling::getCombinatorialInputs_(SNLBitTer
     return NajaCollection<SNLBitTerm*>();
   }
   return NajaCollection(new NajaSTLCollection(&(it->second)));
+}
+
+NajaCollection<SNLInstTerm*> SNLDesignModeling::getCombinatorialInputs_(SNLInstTerm* iterm) const {
+  auto instance = iterm->getInstance();
+  const TimingArcs* timingArcs = getTimingArcs(instance);
+  Arcs::const_iterator it = timingArcs->outputCombinatorialArcs_.find(iterm->getTerm());
+  if (it == timingArcs->outputCombinatorialArcs_.end()) {
+    return NajaCollection<SNLInstTerm*>();
+  }
+  auto transformer = [=](const SNLBitTerm* term) { return instance->getInstTerm(term); };
+  return NajaCollection(new NajaSTLCollection(&(it->second))).getTransformerCollection<SNLInstTerm*>(transformer);
 }
 
 void SNLDesignModeling::addCombinatorialArcs(
@@ -218,6 +243,15 @@ NajaCollection<SNLBitTerm*> SNLDesignModeling::getCombinatorialInputs(SNLBitTerm
     return modeling->getCombinatorialInputs_(term);
   }
   return NajaCollection<SNLBitTerm*>();
+}
+
+NajaCollection<SNLInstTerm*> SNLDesignModeling::getCombinatorialInputs(SNLInstTerm* iterm) {
+  auto property = getProperty(iterm->getInstance()->getModel());
+  if (property) {
+    auto modeling = property->getModeling();
+    return modeling->getCombinatorialInputs_(iterm);
+  }
+  return NajaCollection<SNLInstTerm*>();
 }
 
 }} // namespace SNL // namespace naja

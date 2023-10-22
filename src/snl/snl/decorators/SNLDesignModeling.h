@@ -13,6 +13,7 @@
 
 namespace naja { namespace SNL {
 
+class SNLInstance;
 class SNLInstTerm;
 
 /**
@@ -28,8 +29,9 @@ class SNLDesignModeling {
       Arcs inputToClockArcs_        {};
       Arcs outputToClockArcs_       {};
     };
+    //First is parameter name, second is default value
     using Parameter = std::pair<std::string, std::string>;
-    using ParameterizedArcs = std::map<Parameter, TimingArcs>;
+    using ParameterizedArcs = std::map<std::string, TimingArcs>;
     enum Type { PARAMETERIZED, NO_PARAMETER };
     using TimingModel = std::variant<ParameterizedArcs, TimingArcs>;
     using BitTerms = std::list<SNLBitTerm*>;
@@ -51,14 +53,14 @@ class SNLDesignModeling {
   private:
     void addCombinatorialArcs_(SNLBitTerm* input, SNLBitTerm* output);
     void addCombinatorialArcs_(const Parameter& parameter, SNLBitTerm* input, SNLBitTerm* output);
-    const TimingArcs* getTimingArcs() const;
+    const TimingArcs* getTimingArcs(const SNLInstance* instance=nullptr) const;
     NajaCollection<SNLBitTerm*> getCombinatorialOutputs_(SNLBitTerm* term) const;
     NajaCollection<SNLBitTerm*> getCombinatorialInputs_(SNLBitTerm* term) const;
     NajaCollection<SNLInstTerm*> getCombinatorialOutputs_(SNLInstTerm* term) const;
     NajaCollection<SNLInstTerm*> getCombinatorialInputs_(SNLInstTerm* term) const;
     bool isClock_(const SNLBitTerm* term) const;
     Type        type_             { NO_PARAMETER };
-    Parameter   defaultParameter_ { std::make_pair(std::string(), std::string()) };
+    Parameter   parameter_        {};
     TimingModel model_            {};
 };
 
