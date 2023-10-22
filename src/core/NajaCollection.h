@@ -820,9 +820,7 @@ class NajaTransformerCollection: public NajaBaseCollection<ReturnType> {
         bool isEqual(const NajaBaseIterator<ReturnType>* r) const override {
           if (it_) {
             if (auto rit = dynamic_cast<const NajaTransformerCollectionIterator*>(r)) {
-              return it_ == rit->it_
-                and endIt_ == rit->endIt_ 
-                and element_ == rit->element_;
+              return it_->isEqual(rit->it_);
             }
           }
           return false;
