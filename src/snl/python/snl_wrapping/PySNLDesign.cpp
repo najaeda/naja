@@ -82,8 +82,8 @@ static PyObject* PySNLDesign_createPrimitive(PyObject*, PyObject* args) {
 static PyObject* PySNLDesign_addCombinatorialArcs(PySNLDesign* self, PyObject* args) {
   PyObject* arg0 = nullptr;
   PyObject* arg1 = nullptr;
-  if (not PyArg_ParseTuple(args, "OO:SNLDesign.addCombinatorialDependency", &arg0, &arg1)) {
-    setError("malformed SNLDesign.addCombinatorialDependency method");
+  if (not PyArg_ParseTuple(args, "OO:SNLDesign.addCombinatorialArcs", &arg0, &arg1)) {
+    setError("malformed SNLDesign.addCombinatorialArcs method");
     return nullptr;
   }
   SNLDesignModeling::BitTerms terms0;
@@ -91,20 +91,20 @@ static PyObject* PySNLDesign_addCombinatorialArcs(PySNLDesign* self, PyObject* a
   if (IsPySNLBitTerm(arg0)) {
     terms0.push_back(PYSNLBitTerm_O(arg0));
   } else if (not PyList_Check(arg0)) {
-    setError("malformed SNLDesign.addCombinatorialDependency method");
+    setError("malformed SNLDesign.addCombinatorialArcs method");
     return nullptr;
   }
   if (IsPySNLBitTerm(arg1)) {
     terms1.push_back(PYSNLBitTerm_O(arg1));
   } else if (not PyList_Check(arg1)) {
-    setError("malformed SNLDesign.addCombinatorialDependency method");
+    setError("malformed SNLDesign.addCombinatorialArcs method");
     return nullptr;
   }
   if (terms0.empty()) {
     for (int i=0; i<PyList_Size(arg0); ++i) {
       PyObject* object0 = PyList_GetItem(arg0, i);
       if (not IsPySNLBitTerm(object0)) {
-        setError("malformed SNLDesign.addCombinatorialDependency method");
+        setError("malformed SNLDesign.addCombinatorialArcs method");
       }
       terms0.push_back(PYSNLBitTerm_O(object0));
     }
@@ -113,7 +113,7 @@ static PyObject* PySNLDesign_addCombinatorialArcs(PySNLDesign* self, PyObject* a
     for (int j=0; j<PyList_Size(arg1); ++j) {
       PyObject* object1 = PyList_GetItem(arg1, j);
       if (not IsPySNLBitTerm(object1)) {
-        setError("malformed SNLDesign.addCombinatorialDependency method");
+        setError("malformed SNLDesign.addCombinatorialArcs method");
       }
       terms1.push_back(PYSNLBitTerm_O(object1));
     }
@@ -124,22 +124,22 @@ static PyObject* PySNLDesign_addCombinatorialArcs(PySNLDesign* self, PyObject* a
   Py_RETURN_NONE;
 }
 
-static PyObject* PySNLDesign_getCombinatorialInputs(PySNLDesign* self, PyObject* output) {
-  if (not IsPySNLBitTerm(output)) {
-    setError("malformed SNLDesign.getCombinatorialInputs method");
+static PyObject* PySNLDesign_getCombinatorialInputs(PySNLDesign*, PyObject* output) {
+    if (IsPySNLBitTerm(output)) {
+    auto outputTerm = PYSNLBitTerm_O(output);
+    SNLTRY
+    auto objects = new naja::NajaCollection<SNLBitTerm*>(SNLDesignModeling::getCombinatorialInputs(outputTerm));
+    auto pyObjects = PyObject_NEW(PySNLBitTerms, &PyTypeSNLBitTerms);
+    if (not pyObjects) return nullptr;
+    pyObjects->object_ = objects;
+    return (PyObject*)pyObjects;
+    SNLCATCH
   }
-  auto outputTerm = PYSNLBitTerm_O(output);
-  PySNLBitTerms* pyObjects = nullptr;
-  SNLTRY
-  auto objects = new naja::NajaCollection<SNLBitTerm*>(SNLDesignModeling::getCombinatorialInputs(outputTerm));
-  pyObjects = PyObject_NEW(PySNLBitTerms, &PyTypeSNLBitTerms);
-  if (not pyObjects) return nullptr;
-  pyObjects->object_ = objects;
-  SNLCATCH
-  return (PyObject*)pyObjects;
+  setError("malformed SNLDesign.getCombinatorialInputs method");
+  return nullptr;
 }
 
-static PyObject* PySNLDesign_getCombinatorialOutputs(PySNLDesign* self, PyObject* input) {
+static PyObject* PySNLDesign_getCombinatorialOutputs(PySNLDesign*, PyObject* input) {
   if (IsPySNLBitTerm(input)) {
     auto inputTerm = PYSNLBitTerm_O(input);
     SNLTRY
@@ -149,16 +149,6 @@ static PyObject* PySNLDesign_getCombinatorialOutputs(PySNLDesign* self, PyObject
     pyObjects->object_ = objects;
     return (PyObject*)pyObjects;
     SNLCATCH
-  } else if (IsPySNLInstTerm(input)) {
-    auto inputITerm = PYSNLInstTerm_O(input);
-    SNLTRY
-    auto objects = new naja::NajaCollection<SNLInstTerm*>(SNLDesignModeling::getCombinatorialOutputs(inputITerm));
-    auto pyObjects = PyObject_NEW(PySNLInstTerms, &PyTypeSNLInstTerms);
-    if (not pyObjects) return nullptr;
-    pyObjects->object_ = objects;
-    return (PyObject*)pyObjects;
-    SNLCATCH
-
   }
   setError("malformed SNLDesign.getCombinatorialOutputs method");
   return nullptr;
@@ -188,11 +178,11 @@ PyMethodDef PySNLDesign_Methods[] = {
     "SNLDesign creator"},
   { "createPrimitive", (PyCFunction)PySNLDesign_createPrimitive, METH_VARARGS|METH_STATIC,
     "SNLDesign Primitive creator"},
-  { "addCombinatorialArcs", (PyCFunction)PySNLDesign_addCombinatorialArcs, METH_VARARGS,
+  { "addCombinatorialArcs", (PyCFunction)PySNLDesign_addCombinatorialArcs, METH_VARARGS|METH_STATIC,
     "add combinatorial arcs"},
-  { "getCombinatorialInputs", (PyCFunction)PySNLDesign_getCombinatorialInputs, METH_O,
+  { "getCombinatorialInputs", (PyCFunction)PySNLDesign_getCombinatorialInputs, METH_O|METH_STATIC,
     "get combinatorial inputs of a term"},
-  { "getCombinatorialOutputs", (PyCFunction)PySNLDesign_getCombinatorialOutputs, METH_O,
+  { "getCombinatorialOutputs", (PyCFunction)PySNLDesign_getCombinatorialOutputs, METH_O|METH_STATIC,
     "get combinatorial outputs of a term"},
   { "getName", (PyCFunction)PySNLDesign_getName, METH_NOARGS,
     "get SNLDesign name"},

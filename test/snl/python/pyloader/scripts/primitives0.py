@@ -7,7 +7,7 @@ def constructLUT4(lib):
   i2 = snl.SNLScalarTerm.create(lut4, snl.SNLTerm.Direction.Input, "I2")
   i3 = snl.SNLScalarTerm.create(lut4, snl.SNLTerm.Direction.Input, "I3")
   o = snl.SNLScalarTerm.create(lut4, snl.SNLTerm.Direction.Output, "O")
-  lut4.addCombinatorialArcs([i0,i1,i2,i3], o)
+  snl.SNLDesign.addCombinatorialArcs([i0,i1,i2,i3], o)
 
 def constructPrimitives(lib):
   constructLUT4(lib)

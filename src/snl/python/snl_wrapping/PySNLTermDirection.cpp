@@ -29,7 +29,6 @@ extern void PySNLTermDirection_LinkPyType() {
   //PyTypeSNLTermDirection.tp_str         = (reprfunc)   PyNetDirection_Str;
   //PyTypeSNLTermDirection.tp_hash        = (hashfunc)   PyNetDirection_Hash;
   PyTypeSNLTermDirection.tp_methods = PySNLTermDirection_Methods;
-
 }
 
 }
