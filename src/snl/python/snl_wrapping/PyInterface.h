@@ -422,4 +422,18 @@ PyObject* richCompare(T left, T right, int op) {
     return (PyObject*)pyObjects; \
   }
 
+#define GetDesignModelingRelatedObjects(TYPE, GETTER, OWNER_TYPE) \
+  if (IsPy##TYPE(object)) { \
+    auto object_o = PY##TYPE##_O(object); \
+    SNLTRY \
+    auto objects = new naja::NajaCollection<TYPE*>(SNLDesignModeling::GETTER(object_o)); \
+    auto pyObjects = PyObject_NEW(Py##TYPE##s, &PyType##TYPE##s); \
+    if (not pyObjects) return nullptr; \
+    pyObjects->object_ = objects; \
+    return (PyObject*)pyObjects; \
+    SNLCATCH \
+  } \
+  setError("malformed " #OWNER_TYPE "." #GETTER " method"); \
+  return nullptr;
+
 #endif /* __PY_INTERFACE_H */

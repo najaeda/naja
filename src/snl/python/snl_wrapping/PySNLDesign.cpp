@@ -184,7 +184,7 @@ static PyObject* PySNLDesign_addInputsToClockArcs(PySNLDesign* self, PyObject* a
   Py_RETURN_NONE;
 }
 
-static PyObject* PySNLDesign_addClockToOutputsToClockArcs(PySNLDesign* self, PyObject* args) {
+static PyObject* PySNLDesign_addClockToOutputsArcs(PySNLDesign* self, PyObject* args) {
   PyObject* arg0 = nullptr;
   PyObject* arg1 = nullptr;
   if (not PyArg_ParseTuple(args, "OO:SNLDesign.addClockToOutputsArcs", &arg0, &arg1)) {
@@ -201,6 +201,9 @@ static PyObject* PySNLDesign_addClockToOutputsToClockArcs(PySNLDesign* self, PyO
   }
   if (IsPySNLBitTerm(arg1)) {
     terms.push_back(PYSNLBitTerm_O(arg1));
+  } else if (IsPySNLBusTerm(arg1)) {
+    auto bus = PYSNLBusTerm_O(arg1);
+    terms.insert(terms.begin(), bus->getBits().begin(), bus->getBits().end());
   } else if (not PyList_Check(arg0)) {
     setError("malformed SNLDesign.addClockToOutputsArcs method");
     return nullptr;
@@ -222,34 +225,20 @@ static PyObject* PySNLDesign_addClockToOutputsToClockArcs(PySNLDesign* self, PyO
   Py_RETURN_NONE;
 }
 
-static PyObject* PySNLDesign_getCombinatorialInputs(PySNLDesign*, PyObject* output) {
-    if (IsPySNLBitTerm(output)) {
-    auto outputTerm = PYSNLBitTerm_O(output);
-    SNLTRY
-    auto objects = new naja::NajaCollection<SNLBitTerm*>(SNLDesignModeling::getCombinatorialInputs(outputTerm));
-    auto pyObjects = PyObject_NEW(PySNLBitTerms, &PyTypeSNLBitTerms);
-    if (not pyObjects) return nullptr;
-    pyObjects->object_ = objects;
-    return (PyObject*)pyObjects;
-    SNLCATCH
-  }
-  setError("malformed SNLDesign.getCombinatorialInputs method");
-  return nullptr;
+static PyObject* PySNLDesign_getCombinatorialInputs(PySNLDesign*, PyObject* object) {
+  GetDesignModelingRelatedObjects(SNLBitTerm, getCombinatorialInputs, SNLDesign)
 }
 
-static PyObject* PySNLDesign_getCombinatorialOutputs(PySNLDesign*, PyObject* input) {
-  if (IsPySNLBitTerm(input)) {
-    auto inputTerm = PYSNLBitTerm_O(input);
-    SNLTRY
-    auto objects = new naja::NajaCollection<SNLBitTerm*>(SNLDesignModeling::getCombinatorialOutputs(inputTerm));
-    auto pyObjects = PyObject_NEW(PySNLBitTerms, &PyTypeSNLBitTerms);
-    if (not pyObjects) return nullptr;
-    pyObjects->object_ = objects;
-    return (PyObject*)pyObjects;
-    SNLCATCH
-  }
-  setError("malformed SNLDesign.getCombinatorialOutputs method");
-  return nullptr;
+static PyObject* PySNLDesign_getCombinatorialOutputs(PySNLDesign*, PyObject* object) {
+  GetDesignModelingRelatedObjects(SNLBitTerm, getCombinatorialOutputs, SNLDesign)
+}
+
+static PyObject* PySNLDesign_getClockRelatedInputs(PySNLDesign*, PyObject* object) {
+  GetDesignModelingRelatedObjects(SNLBitTerm, getClockRelatedInputs, SNLDesign)
+}
+
+static PyObject* PySNLDesign_getClockRelatedOutputs(PySNLDesign*, PyObject* object) {
+  GetDesignModelingRelatedObjects(SNLBitTerm, getClockRelatedOutputs, SNLDesign)
 }
 
 GetObjectMethod(Design, Library)
@@ -280,7 +269,7 @@ PyMethodDef PySNLDesign_Methods[] = {
     "add combinatorial arcs"},
   { "addInputsToClockArcs", (PyCFunction)PySNLDesign_addInputsToClockArcs, METH_VARARGS|METH_STATIC,
     "add inputs to clock arcs"}, 
-  { "addClockToOutputsArcs", (PyCFunction)PySNLDesign_addInputsToClockArcs, METH_VARARGS|METH_STATIC,
+  { "addClockToOutputsArcs", (PyCFunction)PySNLDesign_addClockToOutputsArcs, METH_VARARGS|METH_STATIC,
     "add inputs to clock arcs"}, 
   { "addCombinatorialArcs", (PyCFunction)PySNLDesign_addCombinatorialArcs, METH_VARARGS|METH_STATIC,
     "add combinatorial arcs"},
@@ -288,6 +277,10 @@ PyMethodDef PySNLDesign_Methods[] = {
     "get combinatorial inputs of a term"},
   { "getCombinatorialOutputs", (PyCFunction)PySNLDesign_getCombinatorialOutputs, METH_O|METH_STATIC,
     "get combinatorial outputs of a term"},
+  { "getClockRelatedInputs", (PyCFunction)PySNLDesign_getClockRelatedInputs, METH_O|METH_STATIC,
+    "get inputs related to a clock"},
+  { "getClockRelatedOutputs", (PyCFunction)PySNLDesign_getClockRelatedOutputs, METH_O|METH_STATIC,
+    "get outputs related to a clock"},
   { "getName", (PyCFunction)PySNLDesign_getName, METH_NOARGS,
     "get SNLDesign name"},
   {"getLibrary", (PyCFunction)PySNLDesign_getLibrary, METH_NOARGS,

@@ -63,7 +63,15 @@ class SNLDesignModelingTest(unittest.TestCase):
     snl.SNLDesign.addClockToOutputsArcs(c, q)
     top = snl.SNLDesign.create(self.designs, "TOP")
 
-  def testCombiWithBusses(self):
+  def testCombiWithBusses0(self):
+    design = snl.SNLDesign.createPrimitive(self.primitives, "DESIGN")
+    o = snl.SNLBusTerm.create(design, snl.SNLTerm.Direction.Output, 3, 0, "O")
+    d = snl.SNLBusTerm.create(design, snl.SNLTerm.Direction.Input, 3, 0, "D")
+    snl.SNLDesign.addCombinatorialArcs(d, o)
+    self.assertEqual(4, sum(1 for t in snl.SNLDesign.getCombinatorialInputs(o.getBit(0))))
+    self.assertEqual(4, sum(1 for t in snl.SNLDesign.getCombinatorialOutputs(d.getBit(0))))
+
+  def testCombiWithBusses1(self):
     carry4 = snl.SNLDesign.createPrimitive(self.primitives, "CARRY4")
     o = snl.SNLBusTerm.create(carry4, snl.SNLTerm.Direction.Output, 3, 0, "O")
     co = snl.SNLBusTerm.create(carry4, snl.SNLTerm.Direction.Output, 3, 0, "CO")
@@ -101,6 +109,27 @@ class SNLDesignModelingTest(unittest.TestCase):
     self.assertEqual(5, sum(1 for t in snl.SNLDesign.getCombinatorialInputs(o_bits[1])))
     self.assertEqual(7, sum(1 for t in snl.SNLDesign.getCombinatorialInputs(o_bits[2])))
     self.assertEqual(9, sum(1 for t in snl.SNLDesign.getCombinatorialInputs(o_bits[3])))
+
+  def testSeqWithBusses(self):
+    reg = snl.SNLDesign.createPrimitive(self.primitives, "REG")
+    d = snl.SNLBusTerm.create(reg, snl.SNLTerm.Direction.Input, 3, 0, "D")
+    q = snl.SNLBusTerm.create(reg, snl.SNLTerm.Direction.Output, 3, 0, "Q")
+    c = snl.SNLScalarTerm.create(reg, snl.SNLTerm.Direction.Input, "C")
+    snl.SNLDesign.addInputsToClockArcs(d, c)
+    snl.SNLDesign.addClockToOutputsArcs(c, q)
+    self.assertEqual(4, sum(1 for t in snl.SNLDesign.getClockRelatedInputs(c)))
+    self.assertEqual(4, sum(1 for t in snl.SNLDesign.getClockRelatedOutputs(c)))
+
+  def testErrors(self):
+    design = snl.SNLDesign.createPrimitive(self.primitives, "design")
+    i0 = snl.SNLScalarTerm.create(design, snl.SNLTerm.Direction.Input, "I0")
+    i1 = snl.SNLScalarTerm.create(design, snl.SNLTerm.Direction.Input, "I1")
+    o = snl.SNLScalarTerm.create(design, snl.SNLTerm.Direction.Output, "O")
+    #wrong type
+    with self.assertRaises(RuntimeError) as context: snl.SNLDesign.addCombinatorialArcs(i0, i1, o)
+    with self.assertRaises(RuntimeError) as context: snl.SNLDesign.addCombinatorialArcs(design, o)
+    with self.assertRaises(RuntimeError) as context: snl.SNLDesign.addCombinatorialArcs(i0, design)
+    with self.assertRaises(RuntimeError) as context: snl.SNLDesign.addCombinatorialArcs([design, i0], [o, design])
    
 if __name__ == '__main__':
   unittest.main()
