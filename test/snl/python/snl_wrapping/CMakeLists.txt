@@ -1,5 +1,4 @@
 add_test(NAME naja-python-tests
-  #COMMAND Python3::Interpreter ${CMAKE_CURRENT_SOURCE_DIR}/snldb_test.py
   COMMAND Python3::Interpreter -m unittest discover -v ${CMAKE_CURRENT_SOURCE_DIR}
   WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
 )

@@ -91,6 +91,16 @@ class SNLDesignModelingTest(unittest.TestCase):
     snl.SNLDesign.addCombinatorialArcs(di_bits[2], o_bits[3])
     snl.SNLDesign.addCombinatorialArcs(di_bits[2], [co_bits[2], co_bits[3]])
     snl.SNLDesign.addCombinatorialArcs(di_bits[3], co_bits[3])
+    self.assertEqual(8, sum(1 for t in snl.SNLDesign.getCombinatorialOutputs(cyinit)))
+    self.assertEqual(8, sum(1 for t in snl.SNLDesign.getCombinatorialOutputs(ci)))
+    self.assertEqual(8, sum(1 for t in snl.SNLDesign.getCombinatorialOutputs(s_bits[0])))
+    self.assertEqual(6, sum(1 for t in snl.SNLDesign.getCombinatorialOutputs(s_bits[1])))
+    self.assertEqual(4, sum(1 for t in snl.SNLDesign.getCombinatorialOutputs(s_bits[2])))
+    self.assertEqual(2, sum(1 for t in snl.SNLDesign.getCombinatorialOutputs(s_bits[3])))
+    self.assertEqual(3, sum(1 for t in snl.SNLDesign.getCombinatorialInputs(o_bits[0])))
+    self.assertEqual(5, sum(1 for t in snl.SNLDesign.getCombinatorialInputs(o_bits[1])))
+    self.assertEqual(7, sum(1 for t in snl.SNLDesign.getCombinatorialInputs(o_bits[2])))
+    self.assertEqual(9, sum(1 for t in snl.SNLDesign.getCombinatorialInputs(o_bits[3])))
    
 if __name__ == '__main__':
   unittest.main()

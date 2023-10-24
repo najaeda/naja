@@ -127,7 +127,7 @@ static PyObject* PySNLDesign_addCombinatorialArcs(PySNLDesign* self, PyObject* a
         terms1.push_back(PYSNLBitTerm_O(object));
       } else if (IsPySNLBusTerm(object)) {
         auto bus = PYSNLBusTerm_O(object);
-        terms1.insert(terms0.begin(), bus->getBits().begin(), bus->getBits().end());
+        terms1.insert(terms1.begin(), bus->getBits().begin(), bus->getBits().end());
       } else {
         setError("malformed SNLDesign.addCombinatorialArcs method");
         return nullptr;
