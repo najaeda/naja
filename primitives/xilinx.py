@@ -97,7 +97,6 @@ def constructINV(lib):
 
 def constructCARRY4(lib):
   carry4 = snl.SNLDesign.createPrimitive(lib, "CARRY4")
-  carry4 = snl.SNLDesign.createPrimitive(lib, "CARRY4")
   o = snl.SNLBusTerm.create(carry4, snl.SNLTerm.Direction.Output, 3, 0, "O")
   co = snl.SNLBusTerm.create(carry4, snl.SNLTerm.Direction.Output, 3, 0, "CO")
   di = snl.SNLBusTerm.create(carry4, snl.SNLTerm.Direction.Input, 3, 0, "DI")
