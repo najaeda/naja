@@ -16,7 +16,7 @@ class SNLDesignModelingTest0: public ::testing::Test {
     }
 };
 
-TEST_F(SNLDesignModelingTest0, test0) {
+TEST_F(SNLDesignModelingTest0, testCombinatorial) {
   //Create primitives
   SNLUniverse::create();
   auto db = SNLDB::create(SNLUniverse::get());
@@ -86,6 +86,90 @@ TEST_F(SNLDesignModelingTest0, test0) {
       SNLDesignModeling::getCombinatorialOutputs(luti3).begin(),
       SNLDesignModeling::getCombinatorialOutputs(luti3).end()),
     ElementsAre(luto));
+}
 
-  //auto reg = SNLDesign::create(prims, SNLDesign::Type::Primitive, SNLName("REG"));
+TEST_F(SNLDesignModelingTest0, testSequential) {
+  //Create primitives
+  SNLUniverse::create();
+  auto db = SNLDB::create(SNLUniverse::get());
+  auto prims = SNLLibrary::create(db, SNLLibrary::Type::Primitives);
+  auto designs = SNLLibrary::create(db);
+  auto top = SNLDesign::create(designs, SNLName("top"));
+  auto reg = SNLDesign::create(prims, SNLDesign::Type::Primitive, SNLName("REG"));
+  auto regD = SNLScalarTerm::create(reg, SNLTerm::Direction::Input, SNLName("D"));
+  auto regQ = SNLScalarTerm::create(reg, SNLTerm::Direction::Input, SNLName("Q"));
+  auto regC = SNLScalarTerm::create(reg, SNLTerm::Direction::Input, SNLName("C"));
+  SNLDesignModeling::addInputsToClockArcs({regD}, regC);
+  SNLDesignModeling::addClockToOutputsArcs(regC, {regQ});
+
+  EXPECT_TRUE(SNLDesignModeling::getCombinatorialOutputs(regD).empty());
+  EXPECT_TRUE(SNLDesignModeling::getCombinatorialOutputs(regQ).empty());
+  EXPECT_TRUE(SNLDesignModeling::getCombinatorialOutputs(regC).empty());
+  EXPECT_TRUE(SNLDesignModeling::getOutputRelatedClocks(regC).empty());
+  EXPECT_TRUE(SNLDesignModeling::getOutputRelatedClocks(regD).empty());
+  EXPECT_TRUE(SNLDesignModeling::getInputRelatedClocks(regC).empty());
+  EXPECT_TRUE(SNLDesignModeling::getInputRelatedClocks(regQ).empty());
+  EXPECT_TRUE(SNLDesignModeling::getClockRelatedInputs(regQ).empty());
+  EXPECT_TRUE(SNLDesignModeling::getClockRelatedInputs(regD).empty());
+  EXPECT_TRUE(SNLDesignModeling::getClockRelatedOutputs(regQ).empty());
+  EXPECT_TRUE(SNLDesignModeling::getClockRelatedOutputs(regD).empty());
+
+  EXPECT_EQ(1, SNLDesignModeling::getClockRelatedInputs(regC).size());
+  EXPECT_THAT(
+    std::vector(
+      SNLDesignModeling::getClockRelatedInputs(regC).begin(),
+      SNLDesignModeling::getClockRelatedInputs(regC).end()),
+    ElementsAre(regD));
+  EXPECT_EQ(1, SNLDesignModeling::getClockRelatedOutputs(regC).size());
+  EXPECT_THAT(
+    std::vector(
+      SNLDesignModeling::getClockRelatedOutputs(regC).begin(),
+      SNLDesignModeling::getClockRelatedOutputs(regC).end()),
+    ElementsAre(regQ));
+  EXPECT_EQ(1, SNLDesignModeling::getInputRelatedClocks(regD).size());
+  EXPECT_THAT(
+    std::vector(
+      SNLDesignModeling::getInputRelatedClocks(regD).begin(),
+      SNLDesignModeling::getInputRelatedClocks(regD).end()),
+    ElementsAre(regC));
+  EXPECT_EQ(1, SNLDesignModeling::getOutputRelatedClocks(regQ).size());
+  EXPECT_THAT(
+    std::vector(
+      SNLDesignModeling::getOutputRelatedClocks(regQ).begin(),
+      SNLDesignModeling::getOutputRelatedClocks(regQ).end()),
+    ElementsAre(regC));
+
+  auto regIns = SNLInstance::create(top, reg, SNLName("regIns"));
+  EXPECT_TRUE(SNLDesignModeling::getCombinatorialOutputs(regIns->getInstTerm(regD)).empty());
+  EXPECT_TRUE(SNLDesignModeling::getCombinatorialOutputs(regIns->getInstTerm(regQ)).empty());
+  EXPECT_TRUE(SNLDesignModeling::getCombinatorialOutputs(regIns->getInstTerm(regC)).empty());
+  EXPECT_TRUE(SNLDesignModeling::getOutputRelatedClocks(regIns->getInstTerm(regC)).empty());
+  EXPECT_TRUE(SNLDesignModeling::getOutputRelatedClocks(regIns->getInstTerm(regD)).empty());
+  EXPECT_TRUE(SNLDesignModeling::getInputRelatedClocks(regIns->getInstTerm(regC)).empty());
+  EXPECT_TRUE(SNLDesignModeling::getInputRelatedClocks(regIns->getInstTerm(regQ)).empty());
+
+  EXPECT_EQ(1, SNLDesignModeling::getClockRelatedInputs(regIns->getInstTerm(regC)).size());
+  EXPECT_THAT(
+    std::vector(
+      SNLDesignModeling::getClockRelatedInputs(regIns->getInstTerm(regC)).begin(),
+      SNLDesignModeling::getClockRelatedInputs(regIns->getInstTerm(regC)).end()),
+    ElementsAre(regIns->getInstTerm(regD)));
+  EXPECT_EQ(1, SNLDesignModeling::getClockRelatedOutputs(regIns->getInstTerm(regC)).size());
+  EXPECT_THAT(
+    std::vector(
+      SNLDesignModeling::getClockRelatedOutputs(regIns->getInstTerm(regC)).begin(),
+      SNLDesignModeling::getClockRelatedOutputs(regIns->getInstTerm(regC)).end()),
+    ElementsAre(regIns->getInstTerm(regQ)));
+  EXPECT_EQ(1, SNLDesignModeling::getInputRelatedClocks(regIns->getInstTerm(regD)).size());
+  EXPECT_THAT(
+    std::vector(
+      SNLDesignModeling::getInputRelatedClocks(regIns->getInstTerm(regD)).begin(),
+      SNLDesignModeling::getInputRelatedClocks(regIns->getInstTerm(regD)).end()),
+    ElementsAre(regIns->getInstTerm(regC)));
+  EXPECT_EQ(1, SNLDesignModeling::getOutputRelatedClocks(regIns->getInstTerm(regQ)).size());
+  EXPECT_THAT(
+    std::vector(
+      SNLDesignModeling::getOutputRelatedClocks(regIns->getInstTerm(regQ)).begin(),
+      SNLDesignModeling::getOutputRelatedClocks(regIns->getInstTerm(regQ)).end()),
+    ElementsAre(regIns->getInstTerm(regC)));
 }

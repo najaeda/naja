@@ -73,24 +73,80 @@ SNLDesignModelingProperty* getOrCreateProperty(
 }
 
 void insertInArcs(
-  naja::SNL::SNLDesignModeling::Arcs& combinatorialArcs,
+  naja::SNL::SNLDesignModeling::Arcs& arcs,
   naja::SNL::SNLBitTerm* term0,
   naja::SNL::SNLBitTerm* term1) {
-  auto iit = combinatorialArcs.find(term0);
-  if (iit == combinatorialArcs.end()) {
-    auto result = combinatorialArcs.insert({term0, naja::SNL::SNLDesignModeling::TermArcs()});
+  auto iit = arcs.find(term0);
+  if (iit == arcs.end()) {
+    auto result = arcs.insert({term0, naja::SNL::SNLDesignModeling::TermArcs()});
     if (not result.second) {
       throw naja::SNL::SNLException("");
     }
     iit = result.first;
   }
-  naja::SNL::SNLDesignModeling::TermArcs& arcs = iit->second;
-  auto oit = arcs.find(term1);
-  if (oit != arcs.end()) {
-
+  naja::SNL::SNLDesignModeling::TermArcs& termArcs = iit->second;
+  auto oit = termArcs.find(term1);
+  if (oit != termArcs.end()) {
+    throw naja::SNL::SNLException("");
   }
-  arcs.insert(term1);
+  termArcs.insert(term1);
 }
+
+naja::SNL::SNLDesign* verifyInputs(
+  const naja::SNL::SNLDesignModeling::BitTerms& terms0,
+  const std::string& terms0Naming,
+  const naja::SNL::SNLDesignModeling::BitTerms& terms1,
+  const std::string& terms1Naming,
+  const std::string& method) {
+  if (terms0.empty()) {
+    throw naja::SNL::SNLException("Error in " + method + ": empty " + terms0Naming);
+  }
+  if (terms1.empty()) {
+    throw naja::SNL::SNLException("Error in " + method + ": empty " + terms1Naming);
+  }
+  naja::SNL::SNLDesign* design = nullptr;
+  for (auto term: terms0) {
+    if (not design) {
+      design = term->getDesign();
+    }
+    if (design not_eq term->getDesign()) {
+      throw naja::SNL::SNLException("Error in " + method + ": incompatible designs");
+    }
+    for (auto term: terms1) {
+      if (design not_eq term->getDesign()) {
+        throw naja::SNL::SNLException("Error in " + method + ": incompatible designs");
+      }
+    }
+  }
+  return design;
+}
+
+#define GET_RELATED_TERMS_IN_ARCS(ARCS) \
+  const auto* timingArcs = getTimingArcs(); \
+  auto it = timingArcs->ARCS.find(term); \
+  if (it == timingArcs->ARCS.end()) { \
+    return NajaCollection<SNLBitTerm*>(); \
+  } \
+  return NajaCollection(new NajaSTLCollection(&(it->second)));
+
+
+#define GET_RELATED_INSTTERMS_IN_ARCS(ARCS) \
+  auto instance = iterm->getInstance(); \
+  const TimingArcs* timingArcs = getTimingArcs(instance); \
+  auto it = timingArcs->ARCS.find(iterm->getTerm()); \
+  if (it == timingArcs->ARCS.end()) { \
+    return NajaCollection<SNLInstTerm*>(); \
+  } \
+  auto transformer = [=](const SNLBitTerm* term) { return instance->getInstTerm(term); }; \
+  return NajaCollection(new NajaSTLCollection(&(it->second))).getTransformerCollection<SNLInstTerm*>(transformer);
+
+#define GET_RELATED_OBJECTS(TYPE, INPUT, DESIGN_GETTER, GETTER) \
+  auto property = getProperty(INPUT->DESIGN_GETTER); \
+  if (property) { \
+    auto modeling = property->getModeling(); \
+    return modeling->GETTER(INPUT); \
+  } \
+  return NajaCollection<TYPE*>();
   
 }
 
@@ -104,13 +160,31 @@ SNLDesignModeling::SNLDesignModeling(Type type): type_(type) {
   }
 }
 
-void SNLDesignModeling::addCombinatorialArcs_(SNLBitTerm* input, SNLBitTerm* output) {
+void SNLDesignModeling::addCombinatorialArc_(SNLBitTerm* input, SNLBitTerm* output) {
   if (type_ not_eq Type::NO_PARAMETER) {
     throw SNLException("");
   }
   TimingArcs& arcs = std::get<Type::NO_PARAMETER>(model_);
   insertInArcs(arcs.inputCombinatorialArcs_, input, output);
   insertInArcs(arcs.outputCombinatorialArcs_, output, input);
+}
+
+void SNLDesignModeling::addInputToClockArc_(SNLBitTerm* input, SNLBitTerm* clock) {
+  if (type_ not_eq Type::NO_PARAMETER) {
+    throw SNLException("");
+  }
+  TimingArcs& arcs = std::get<Type::NO_PARAMETER>(model_);
+  insertInArcs(arcs.inputToClockArcs_, input, clock);
+  insertInArcs(arcs.clockToInputArcs_, clock, input);
+}
+
+void SNLDesignModeling::addClockToOutputArc_(SNLBitTerm* clock, SNLBitTerm* output) {
+  if (type_ not_eq Type::NO_PARAMETER) {
+    throw SNLException("");
+  }
+  TimingArcs& arcs = std::get<Type::NO_PARAMETER>(model_);
+  insertInArcs(arcs.outputToClockArcs_, output, clock);
+  insertInArcs(arcs.clockToOutputArcs_, clock, output);
 }
 
 const SNLDesignModeling::TimingArcs* SNLDesignModeling::getTimingArcs(const SNLInstance* instance) const {
@@ -148,110 +222,129 @@ const SNLDesignModeling::TimingArcs* SNLDesignModeling::getTimingArcs(const SNLI
 }
 
 NajaCollection<SNLBitTerm*> SNLDesignModeling::getCombinatorialOutputs_(SNLBitTerm* term) const {
-  const auto* timingArcs = getTimingArcs();
-  Arcs::const_iterator it = timingArcs->inputCombinatorialArcs_.find(term);
-  if (it == timingArcs->inputCombinatorialArcs_.end()) {
-    return NajaCollection<SNLBitTerm*>();
-  }
-  return NajaCollection(new NajaSTLCollection(&(it->second)));
+  GET_RELATED_TERMS_IN_ARCS(inputCombinatorialArcs_)
 }
 
 NajaCollection<SNLInstTerm*> SNLDesignModeling::getCombinatorialOutputs_(SNLInstTerm* iterm) const {
-  auto instance = iterm->getInstance();
-  const TimingArcs* timingArcs = getTimingArcs(instance);
-  Arcs::const_iterator it = timingArcs->inputCombinatorialArcs_.find(iterm->getTerm());
-  if (it == timingArcs->inputCombinatorialArcs_.end()) {
-    return NajaCollection<SNLInstTerm*>();
-  }
-  auto transformer = [=](const SNLBitTerm* term) { return instance->getInstTerm(term); };
-  return NajaCollection(new NajaSTLCollection(&(it->second))).getTransformerCollection<SNLInstTerm*>(transformer);
+  GET_RELATED_INSTTERMS_IN_ARCS(inputCombinatorialArcs_)
 }
 
 NajaCollection<SNLBitTerm*> SNLDesignModeling::getCombinatorialInputs_(SNLBitTerm* term) const {
-  const auto* timingArcs = getTimingArcs();
-  Arcs::const_iterator it = timingArcs->outputCombinatorialArcs_.find(term);
-  if (it == timingArcs->outputCombinatorialArcs_.end()) {
-    return NajaCollection<SNLBitTerm*>();
-  }
-  return NajaCollection(new NajaSTLCollection(&(it->second)));
+  GET_RELATED_TERMS_IN_ARCS(outputCombinatorialArcs_)
 }
 
 NajaCollection<SNLInstTerm*> SNLDesignModeling::getCombinatorialInputs_(SNLInstTerm* iterm) const {
-  auto instance = iterm->getInstance();
-  const TimingArcs* timingArcs = getTimingArcs(instance);
-  Arcs::const_iterator it = timingArcs->outputCombinatorialArcs_.find(iterm->getTerm());
-  if (it == timingArcs->outputCombinatorialArcs_.end()) {
-    return NajaCollection<SNLInstTerm*>();
-  }
-  auto transformer = [=](const SNLBitTerm* term) { return instance->getInstTerm(term); };
-  return NajaCollection(new NajaSTLCollection(&(it->second))).getTransformerCollection<SNLInstTerm*>(transformer);
+  GET_RELATED_INSTTERMS_IN_ARCS(outputCombinatorialArcs_)
+}
+
+NajaCollection<SNLBitTerm*> SNLDesignModeling::getClockRelatedInputs_(SNLBitTerm* term) const {
+  GET_RELATED_TERMS_IN_ARCS(clockToInputArcs_)
+}
+
+NajaCollection<SNLBitTerm*> SNLDesignModeling::getClockRelatedOutputs_(SNLBitTerm* term) const {
+  GET_RELATED_TERMS_IN_ARCS(clockToOutputArcs_)
+}
+
+NajaCollection<SNLBitTerm*> SNLDesignModeling::getInputRelatedClocks_(SNLBitTerm* term) const {
+  GET_RELATED_TERMS_IN_ARCS(inputToClockArcs_)
+}
+
+NajaCollection<SNLBitTerm*> SNLDesignModeling::getOutputRelatedClocks_(SNLBitTerm* term) const {
+  GET_RELATED_TERMS_IN_ARCS(outputToClockArcs_)
+}
+
+NajaCollection<SNLInstTerm*> SNLDesignModeling::getClockRelatedInputs_(SNLInstTerm* iterm) const {
+  GET_RELATED_INSTTERMS_IN_ARCS(clockToInputArcs_)
+}
+
+NajaCollection<SNLInstTerm*> SNLDesignModeling::getClockRelatedOutputs_(SNLInstTerm* iterm) const {
+  GET_RELATED_INSTTERMS_IN_ARCS(clockToOutputArcs_)
+}
+
+NajaCollection<SNLInstTerm*> SNLDesignModeling::getInputRelatedClocks_(SNLInstTerm* iterm) const {
+  GET_RELATED_INSTTERMS_IN_ARCS(inputToClockArcs_)
+}
+
+NajaCollection<SNLInstTerm*> SNLDesignModeling::getOutputRelatedClocks_(SNLInstTerm* iterm) const {
+  GET_RELATED_INSTTERMS_IN_ARCS(outputToClockArcs_)
 }
 
 void SNLDesignModeling::addCombinatorialArcs(
   const BitTerms& inputs, const BitTerms& outputs) {
-  if (inputs.empty()) {
-    throw SNLException("Error in addCombinatorialDependency: empty inputs");
-  }
-  if (outputs.empty()) {
-    throw SNLException("Error in addCombinatorialDependency: empty outputs");
-  }
-  SNLDesign* design = nullptr;
-  for (auto input: inputs) {
-    if (not design) {
-      design = input->getDesign();
-    }
-    if (design not_eq input->getDesign()) {
-      throw SNLException("Error in addCombinatorialDependency: incompatible designs");
-    }
-    for (auto output: outputs) {
-      if (design not_eq output->getDesign()) {
-        throw SNLException("Error in addCombinatorialDependency: incompatible designs");
-      }
-    }
-  }
+  auto design = verifyInputs(inputs, "inputs", outputs, "outputs", "addCombinatorialArcs");
   auto property = getOrCreateProperty(design, Type::NO_PARAMETER);
   auto modeling = property->getModeling();
   for (auto input: inputs) {
     for (auto output: outputs) {
-      modeling->addCombinatorialArcs_(input, output);
+      modeling->addCombinatorialArc_(input, output);
     }
   }
 }
 
-NajaCollection<SNLBitTerm*> SNLDesignModeling::getCombinatorialOutputs(SNLBitTerm* term) {
-  auto property = getProperty(term->getDesign());
-  if (property) {
-    auto modeling = property->getModeling();
-    return modeling->getCombinatorialOutputs_(term);
+void SNLDesignModeling::addInputsToClockArcs(const BitTerms& inputs, SNLBitTerm* clock) {
+  auto design = verifyInputs(inputs, "inputs", {clock}, "clock", "addInputsToClockArcs");
+  auto property = getOrCreateProperty(design, Type::NO_PARAMETER);
+  auto modeling = property->getModeling();
+  for (auto input: inputs) {
+    modeling->addInputToClockArc_(input, clock);
   }
-  return NajaCollection<SNLBitTerm*>();
+}
+
+void SNLDesignModeling::addClockToOutputsArcs(SNLBitTerm* clock, const BitTerms& outputs) {
+  auto design = verifyInputs({clock}, "clock", outputs, "outputs", "addClockToOutputsArcs");
+  auto property = getOrCreateProperty(design, Type::NO_PARAMETER);
+  auto modeling = property->getModeling();
+  for (auto output: outputs) {
+    modeling->addClockToOutputArc_(clock, output);
+  }
+}
+
+NajaCollection<SNLBitTerm*> SNLDesignModeling::getCombinatorialOutputs(SNLBitTerm* term) {
+  GET_RELATED_OBJECTS(SNLBitTerm, term, getDesign(), getCombinatorialOutputs_)
 }
 
 NajaCollection<SNLInstTerm*> SNLDesignModeling::getCombinatorialOutputs(SNLInstTerm* iterm) {
-  auto property = getProperty(iterm->getInstance()->getModel());
-  if (property) {
-    auto modeling = property->getModeling();
-    return modeling->getCombinatorialOutputs_(iterm);
-  }
-  return NajaCollection<SNLInstTerm*>();
+  GET_RELATED_OBJECTS(SNLInstTerm, iterm, getInstance()->getModel(), getCombinatorialOutputs_)
 }
 
 NajaCollection<SNLBitTerm*> SNLDesignModeling::getCombinatorialInputs(SNLBitTerm* term) {
-  auto property = getProperty(term->getDesign());
-  if (property) {
-    auto modeling = property->getModeling();
-    return modeling->getCombinatorialInputs_(term);
-  }
-  return NajaCollection<SNLBitTerm*>();
+  GET_RELATED_OBJECTS(SNLBitTerm, term, getDesign(), getCombinatorialInputs_)
 }
 
 NajaCollection<SNLInstTerm*> SNLDesignModeling::getCombinatorialInputs(SNLInstTerm* iterm) {
-  auto property = getProperty(iterm->getInstance()->getModel());
-  if (property) {
-    auto modeling = property->getModeling();
-    return modeling->getCombinatorialInputs_(iterm);
-  }
-  return NajaCollection<SNLInstTerm*>();
+  GET_RELATED_OBJECTS(SNLInstTerm, iterm, getInstance()->getModel(), getCombinatorialInputs_)
+}
+
+NajaCollection<SNLBitTerm*> SNLDesignModeling::getClockRelatedInputs(SNLBitTerm* clock) {
+  GET_RELATED_OBJECTS(SNLBitTerm, clock, getDesign(), getClockRelatedInputs_)
+}
+
+NajaCollection<SNLBitTerm*> SNLDesignModeling::getClockRelatedOutputs(SNLBitTerm* clock) {
+  GET_RELATED_OBJECTS(SNLBitTerm, clock, getDesign(), getClockRelatedOutputs_)
+}
+
+NajaCollection<SNLBitTerm*> SNLDesignModeling::getInputRelatedClocks(SNLBitTerm* input) {
+  GET_RELATED_OBJECTS(SNLBitTerm, input, getDesign(), getInputRelatedClocks_)
+}
+
+NajaCollection<SNLBitTerm*> SNLDesignModeling::getOutputRelatedClocks(SNLBitTerm* output) {
+  GET_RELATED_OBJECTS(SNLBitTerm, output, getDesign(), getOutputRelatedClocks_)
+}
+
+NajaCollection<SNLInstTerm*> SNLDesignModeling::getClockRelatedInputs(SNLInstTerm* clock) {
+  GET_RELATED_OBJECTS(SNLInstTerm, clock, getInstance()->getModel(), getClockRelatedInputs_)
+}
+
+NajaCollection<SNLInstTerm*> SNLDesignModeling::getClockRelatedOutputs(SNLInstTerm* clock) {
+  GET_RELATED_OBJECTS(SNLInstTerm, clock, getInstance()->getModel(), getClockRelatedOutputs_)
+}
+
+NajaCollection<SNLInstTerm*> SNLDesignModeling::getInputRelatedClocks(SNLInstTerm* input) {
+  GET_RELATED_OBJECTS(SNLInstTerm, input, getInstance()->getModel(), getInputRelatedClocks_)
+}
+
+NajaCollection<SNLInstTerm*> SNLDesignModeling::getOutputRelatedClocks(SNLInstTerm* output) {
+  GET_RELATED_OBJECTS(SNLInstTerm, output, getInstance()->getModel(), getOutputRelatedClocks_)
 }
 
 }} // namespace SNL // namespace naja

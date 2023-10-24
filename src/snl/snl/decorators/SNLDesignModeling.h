@@ -27,7 +27,9 @@ class SNLDesignModeling {
       Arcs inputCombinatorialArcs_  {};
       Arcs outputCombinatorialArcs_ {};
       Arcs inputToClockArcs_        {};
+      Arcs clockToInputArcs_        {};
       Arcs outputToClockArcs_       {};
+      Arcs clockToOutputArcs_       {};
     };
     //First is parameter name, second is default value
     using Parameter = std::pair<std::string, std::string>;
@@ -39,26 +41,40 @@ class SNLDesignModeling {
     static void addCombinatorialArcs(const BitTerms& inputs, const BitTerms& outputs);
     static void addInputsToClockArcs(const BitTerms& inputs, SNLBitTerm* clock);
     static void addClockToOutputsArcs(SNLBitTerm* clock, const BitTerms& outputs);
-    static NajaCollection<SNLBitTerm*> getCombinatorialOutputs(SNLBitTerm* term);
-    static NajaCollection<SNLBitTerm*> getCombinatorialInputs(SNLBitTerm* term);
-    static NajaCollection<SNLInstTerm*> getCombinatorialOutputs(SNLInstTerm* iterm);
-    static NajaCollection<SNLInstTerm*> getCombinatorialInputs(SNLInstTerm* iterm);
-    static NajaCollection<SNLBitTerm*> getOutputRelatedClocks(SNLBitTerm* term);
-    static NajaCollection<SNLBitTerm*> getInputRelatedClocks(SNLBitTerm* term);
-    static bool getClockRelatedOutputs(const SNLBitTerm* term);
-    static bool getClockRelatedInputs(const SNLBitTerm* term);
+    static NajaCollection<SNLBitTerm*> getCombinatorialOutputs(SNLBitTerm* input);
+    static NajaCollection<SNLBitTerm*> getCombinatorialInputs(SNLBitTerm* output);
+    static NajaCollection<SNLInstTerm*> getCombinatorialOutputs(SNLInstTerm* iinput);
+    static NajaCollection<SNLInstTerm*> getCombinatorialInputs(SNLInstTerm* ioutput);
+    static NajaCollection<SNLBitTerm*> getOutputRelatedClocks(SNLBitTerm* output);
+    static NajaCollection<SNLBitTerm*> getInputRelatedClocks(SNLBitTerm* input);
+    static NajaCollection<SNLBitTerm*> getClockRelatedOutputs(SNLBitTerm* clock);
+    static NajaCollection<SNLBitTerm*> getClockRelatedInputs(SNLBitTerm* clock);
+    static NajaCollection<SNLInstTerm*> getOutputRelatedClocks(SNLInstTerm* ioutput);
+    static NajaCollection<SNLInstTerm*> getInputRelatedClocks(SNLInstTerm* iinput);
+    static NajaCollection<SNLInstTerm*> getClockRelatedOutputs(SNLInstTerm* iclock);
+    static NajaCollection<SNLInstTerm*> getClockRelatedInputs(SNLInstTerm* iclock);
 
     SNLDesignModeling(Type type);
     Type getType() const { return type_; }
   private:
-    void addCombinatorialArcs_(SNLBitTerm* input, SNLBitTerm* output);
-    void addCombinatorialArcs_(const Parameter& parameter, SNLBitTerm* input, SNLBitTerm* output);
+    void addCombinatorialArc_(SNLBitTerm* input, SNLBitTerm* output);
+    void addCombinatorialArc_(const Parameter& parameter, SNLBitTerm* input, SNLBitTerm* output);
+    void addInputToClockArc_(SNLBitTerm* input, SNLBitTerm* clock);
+    void addClockToOutputArc_(SNLBitTerm* clock, SNLBitTerm* output);
     const TimingArcs* getTimingArcs(const SNLInstance* instance=nullptr) const;
-    NajaCollection<SNLBitTerm*> getCombinatorialOutputs_(SNLBitTerm* term) const;
-    NajaCollection<SNLBitTerm*> getCombinatorialInputs_(SNLBitTerm* term) const;
-    NajaCollection<SNLInstTerm*> getCombinatorialOutputs_(SNLInstTerm* term) const;
-    NajaCollection<SNLInstTerm*> getCombinatorialInputs_(SNLInstTerm* term) const;
-    bool isClock_(const SNLBitTerm* term) const;
+    //bool isClock_(const SNLBitTerm* term) const;
+    NajaCollection<SNLBitTerm*> getCombinatorialOutputs_(SNLBitTerm* input) const;
+    NajaCollection<SNLBitTerm*> getCombinatorialInputs_(SNLBitTerm* output) const;
+    NajaCollection<SNLInstTerm*> getCombinatorialOutputs_(SNLInstTerm* iinput) const;
+    NajaCollection<SNLInstTerm*> getCombinatorialInputs_(SNLInstTerm* ioutput) const;
+    NajaCollection<SNLBitTerm*> getClockRelatedOutputs_(SNLBitTerm* clock) const;
+    NajaCollection<SNLBitTerm*> getClockRelatedInputs_(SNLBitTerm* clock) const;
+    NajaCollection<SNLBitTerm*> getOutputRelatedClocks_(SNLBitTerm* output) const;
+    NajaCollection<SNLBitTerm*> getInputRelatedClocks_(SNLBitTerm* input) const;
+    NajaCollection<SNLInstTerm*> getClockRelatedOutputs_(SNLInstTerm* iclock) const;
+    NajaCollection<SNLInstTerm*> getClockRelatedInputs_(SNLInstTerm* iclock) const;
+    NajaCollection<SNLInstTerm*> getOutputRelatedClocks_(SNLInstTerm* ioutput) const;
+    NajaCollection<SNLInstTerm*> getInputRelatedClocks_(SNLInstTerm* iinput) const;
     Type        type_             { NO_PARAMETER };
     Parameter   parameter_        {};
     TimingModel model_            {};

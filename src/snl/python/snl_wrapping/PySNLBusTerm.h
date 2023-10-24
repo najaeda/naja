@@ -7,10 +7,7 @@
 #define __PY_SNL_BUS_TERM_H_
 
 #include "PySNLTerm.h"
-
-namespace naja::SNL {
-  class SNLBusTerm;
-}
+#include "SNLBusTerm.h"
 
 namespace PYSNL {
 
@@ -25,7 +22,7 @@ extern void         PySNLBusTerm_LinkPyType();
 
 #define IsPySNLBusTerm(v) (PyObject_TypeCheck(v, &PyTypeSNLBusTerm))
 #define PYSNLBusTerm(v)   ((PySNLBusTerm*)(v))
-#define PYSNLBusTerm_O(v) (PYSNLBusTerm(v)->object_)
+#define PYSNLBusTerm_O(v) (static_cast<naja::SNL::SNLBusTerm*>(PYSNLBusTerm(v)->parent_.parent_.parent_.object_))
 
 } // PYSNL namespace
  
