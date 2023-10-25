@@ -115,6 +115,15 @@ class SNLDesignTest(unittest.TestCase):
     self.assertEqual(1+10+1, sum(1 for b in design.getBitTerms()))
     self.assertEqual(1+1, sum(1 for t in design.getScalarTerms()))
 
+
+  def testCompare(self):
+    self.assertIsNotNone(self.lib)
+    design0 = snl.SNLDesign.create(self.lib, "DESIGN0")
+    design1 = snl.SNLDesign.create(self.lib, "DESIGN1")
+    self.assertNotEqual(design0, design1)
+    self.assertGreater(design1, design0)
+    self.assertGreaterEqual(design1, design0)
+
   def testParameters(self):
     self.assertIsNotNone(self.lib)
     design = snl.SNLDesign.create(self.lib, "DESIGN")
