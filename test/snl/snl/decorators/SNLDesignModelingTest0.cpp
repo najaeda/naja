@@ -5,6 +5,7 @@ using ::testing::ElementsAre;
 #include "SNLUniverse.h"
 #include "SNLDesignModeling.h"
 #include "SNLScalarTerm.h"
+#include "SNLException.h"
 using namespace naja::SNL;
 
 class SNLDesignModelingTest0: public ::testing::Test {
@@ -172,4 +173,38 @@ TEST_F(SNLDesignModelingTest0, testSequential) {
       SNLDesignModeling::getOutputRelatedClocks(regIns->getInstTerm(regQ)).begin(),
       SNLDesignModeling::getOutputRelatedClocks(regIns->getInstTerm(regQ)).end()),
     ElementsAre(regIns->getInstTerm(regC)));
+}
+
+TEST_F(SNLDesignModelingTest0, testErrors0) {
+  //Create primitives
+  SNLUniverse::create();
+  auto db = SNLDB::create(SNLUniverse::get());
+  auto designs = SNLLibrary::create(db);
+  //not a primitive
+  auto design = SNLDesign::create(designs, SNLName("design"));
+  auto designD = SNLScalarTerm::create(design, SNLTerm::Direction::Input, SNLName("D"));
+  auto designC = SNLScalarTerm::create(design, SNLTerm::Direction::Input, SNLName("C"));
+  EXPECT_THROW(SNLDesignModeling::addInputsToClockArcs({designD}, designC), SNLException);
+}
+
+TEST_F(SNLDesignModelingTest0, testErrors1) {
+  //Create primitives
+  SNLUniverse::create();
+  auto db = SNLDB::create(SNLUniverse::get());
+  auto prims = SNLLibrary::create(db, SNLLibrary::Type::Primitives);
+  auto design = SNLDesign::create(prims, SNLDesign::Type::Primitive, SNLName("design"));
+  auto designD = SNLScalarTerm::create(design, SNLTerm::Direction::Input, SNLName("D"));
+  auto designC = SNLScalarTerm::create(design, SNLTerm::Direction::Input, SNLName("C"));
+  auto designA = SNLScalarTerm::create(design, SNLTerm::Direction::Input, SNLName("A"));
+  auto designB = SNLScalarTerm::create(design, SNLTerm::Direction::Output, SNLName("B"));
+  EXPECT_THROW(SNLDesignModeling::addInputsToClockArcs({}, designC), SNLException);
+  EXPECT_THROW(SNLDesignModeling::addClockToOutputsArcs(designC, {}), SNLException);
+  EXPECT_THROW(SNLDesignModeling::addCombinatorialArcs({designA}, {}), SNLException);
+  EXPECT_THROW(SNLDesignModeling::addCombinatorialArcs({}, {designB}), SNLException);
+
+  auto design1 = SNLDesign::create(prims, SNLDesign::Type::Primitive, SNLName("design1"));
+  auto design1A = SNLScalarTerm::create(design1, SNLTerm::Direction::Input, SNLName("A"));
+  auto design1B = SNLScalarTerm::create(design1, SNLTerm::Direction::Output, SNLName("B"));
+  EXPECT_THROW(SNLDesignModeling::addCombinatorialArcs({designA}, {design1B}), SNLException);
+  EXPECT_THROW(SNLDesignModeling::addCombinatorialArcs({designA, design1A}, {design1B}), SNLException);
 }
