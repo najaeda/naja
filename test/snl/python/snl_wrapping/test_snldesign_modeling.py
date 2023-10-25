@@ -80,7 +80,7 @@ class SNLDesignModelingTest(unittest.TestCase):
     cyinit  = snl.SNLScalarTerm.create(carry4, snl.SNLTerm.Direction.Input, "CYINIT")
     ci = snl.SNLScalarTerm.create(carry4, snl.SNLTerm.Direction.Input, "CI")
     o_bits = [b for b in o.getBits()]
-    co_bits = [b for b in co.getBits()] 
+    co_bits = [b for b in co.getBits()]
     di_bits = [b for b in di.getBits()] 
     s_bits = [b for b in s.getBits()] 
     #cyinit and ci are in combinatorial dependency with o and co outputs 
@@ -109,6 +109,17 @@ class SNLDesignModelingTest(unittest.TestCase):
     self.assertEqual(5, sum(1 for t in snl.SNLDesign.getCombinatorialInputs(o_bits[1])))
     self.assertEqual(7, sum(1 for t in snl.SNLDesign.getCombinatorialInputs(o_bits[2])))
     self.assertEqual(9, sum(1 for t in snl.SNLDesign.getCombinatorialInputs(o_bits[3])))
+
+  def testCombiWithBusses2(self):
+    design = snl.SNLDesign.createPrimitive(self.primitives, "design")
+    o = snl.SNLBusTerm.create(design, snl.SNLTerm.Direction.Output, 3, 0, "O")
+    i = snl.SNLBusTerm.create(design, snl.SNLTerm.Direction.Input, 3, 0, "I")
+    snl.SNLDesign.addCombinatorialArcs([i], [o])
+    for o_bit in o.getBits():
+      self.assertEqual(4, sum(1 for t in snl.SNLDesign.getCombinatorialInputs(o_bit)))
+    for i_bit in i.getBits():
+      self.assertEqual(4, sum(1 for t in snl.SNLDesign.getCombinatorialOutputs(i_bit)))
+
 
   def testSeqWithBusses(self):
     reg = snl.SNLDesign.createPrimitive(self.primitives, "REG")

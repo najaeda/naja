@@ -59,7 +59,7 @@ static PyObject* PySNLDesign_createPrimitive(PyObject*, PyObject* args) {
   PyObject* arg0 = nullptr;
   const char* arg1 = nullptr;
   if (not PyArg_ParseTuple(args, "O|s:SNLDB.create", &arg0, &arg1)) {
-    setError("malformed Primitive SNLDesign create method");
+    setError("malformed SNLDesign createPrimitive method");
     return nullptr;
   }
   SNLName name;
@@ -72,7 +72,7 @@ static PyObject* PySNLDesign_createPrimitive(PyObject*, PyObject* args) {
   if (IsPySNLLibrary(arg0)) {
     design = SNLDesign::create(PYSNLLibrary_O(arg0), SNLDesign::Type::Primitive, name);
   } else {
-    setError("SNLDesign create accepts SNLLibrary as first argument");
+    setError("SNLDesign createPrimitive accepts SNLLibrary as first argument");
     return nullptr;
   }
   SNLCATCH
