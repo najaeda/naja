@@ -131,7 +131,7 @@ class SNLDesignModelingTest(unittest.TestCase):
     self.assertEqual(4, sum(1 for t in snl.SNLDesign.getClockRelatedInputs(c)))
     self.assertEqual(4, sum(1 for t in snl.SNLDesign.getClockRelatedOutputs(c)))
 
-  def testErrors(self):
+  def testCombiErrors(self):
     design = snl.SNLDesign.createPrimitive(self.primitives, "design")
     i0 = snl.SNLScalarTerm.create(design, snl.SNLTerm.Direction.Input, "I0")
     i1 = snl.SNLScalarTerm.create(design, snl.SNLTerm.Direction.Input, "I1")
@@ -141,6 +141,18 @@ class SNLDesignModelingTest(unittest.TestCase):
     with self.assertRaises(RuntimeError) as context: snl.SNLDesign.addCombinatorialArcs(design, o)
     with self.assertRaises(RuntimeError) as context: snl.SNLDesign.addCombinatorialArcs(i0, design)
     with self.assertRaises(RuntimeError) as context: snl.SNLDesign.addCombinatorialArcs([design, i0], [o, design])
+
+  def testSeqErrors(self):
+    design = snl.SNLDesign.createPrimitive(self.primitives, "design")
+    d = snl.SNLScalarTerm.create(design, snl.SNLTerm.Direction.Input, "D")
+    q = snl.SNLScalarTerm.create(design, snl.SNLTerm.Direction.Output, "Q")
+    c = snl.SNLScalarTerm.create(design, snl.SNLTerm.Direction.Input, "C")
+    #wrong type
+    snl.SNLDesign.addClockToOutputsArcs(c, q)
+    with self.assertRaises(RuntimeError) as context: snl.SNLDesign.addInputsToClockArcs(d, c, q)
+    with self.assertRaises(RuntimeError) as context: snl.SNLDesign.addClockToOutputsArcs(d, c, q)
+    with self.assertRaises(RuntimeError) as context: snl.SNLDesign.addInputsToClockArcs(d, [c, q])
+    with self.assertRaises(RuntimeError) as context: snl.SNLDesign.addClockToOutputsArcs([d, c], q)
    
 if __name__ == '__main__':
   unittest.main()

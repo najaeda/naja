@@ -62,6 +62,12 @@ class SNLNetTest(unittest.TestCase):
     self.assertIsNone(i1.getBit(5))
     self.assertIsNone(i1Net.getBit(5))
 
+  def testErrors(self):
+    self.assertIsNotNone(self.design)
+    i0 = snl.SNLScalarTerm.create(self.design, snl.SNLTerm.Direction.Input, "I0")
+    #wrong type
+    with self.assertRaises(RuntimeError) as context: i0.setNet(self.design)
+
     
 if __name__ == '__main__':
   unittest.main()

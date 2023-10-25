@@ -104,10 +104,10 @@ def constructCARRY4(lib):
   cyinit  = snl.SNLScalarTerm.create(carry4, snl.SNLTerm.Direction.Input, "CYINIT")
   ci = snl.SNLScalarTerm.create(carry4, snl.SNLTerm.Direction.Input, "CI")
   o_bits = [b for b in o.getBits()]
-  co_bits = [b for b in co.getBits()] 
-  di_bits = [b for b in di.getBits()] 
-  s_bits = [b for b in s.getBits()] 
-  #cyinit and ci are in combinatorial dependency with o and co outputs 
+  co_bits = [b for b in co.getBits()]
+  di_bits = [b for b in di.getBits()]
+  s_bits = [b for b in s.getBits()]
+  #cyinit and ci are in combinatorial dependency with o and co outputs
   snl.SNLDesign.addCombinatorialArcs([cyinit, ci], [o, co])
   snl.SNLDesign.addCombinatorialArcs(s_bits[0], [o, co])
   snl.SNLDesign.addCombinatorialArcs(s_bits[1], [o_bits[1], o_bits[2], o_bits[3]])
