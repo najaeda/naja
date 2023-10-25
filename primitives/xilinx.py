@@ -237,9 +237,9 @@ def constructFDRE(lib):
   q = snl.SNLScalarTerm.create(fdre, snl.SNLTerm.Direction.Output, "Q")
   c = snl.SNLScalarTerm.create(fdre, snl.SNLTerm.Direction.Input, "C")
   ce = snl.SNLScalarTerm.create(fdre, snl.SNLTerm.Direction.Input, "CE")
-  q = snl.SNLScalarTerm.create(fdre, snl.SNLTerm.Direction.Input, "R")
-  r = snl.SNLScalarTerm.create(fdre, snl.SNLTerm.Direction.Input, "D")
-  d = snl.SNLParameter.create_binary(fdre, "INIT", 1, 0b0)
+  r = snl.SNLScalarTerm.create(fdre, snl.SNLTerm.Direction.Input, "R")
+  d = snl.SNLScalarTerm.create(fdre, snl.SNLTerm.Direction.Input, "D")
+  snl.SNLParameter.create_binary(fdre, "INIT", 1, 0b0)
   snl.SNLDesign.addInputsToClockArcs([ce, r, d], c)
   snl.SNLDesign.addClockToOutputsArcs(c, q)
 
