@@ -144,6 +144,10 @@ class SNLDesignTest(unittest.TestCase):
     with self.assertRaises(RuntimeError) as context: snl.SNLDesign.create(d, "DESIGN")
     with self.assertRaises(RuntimeError) as context: snl.SNLDesign.createPrimitive("ERROR", "ERROR", "ERROR")
     with self.assertRaises(RuntimeError) as context: snl.SNLDesign.createPrimitive(d, "PRIMITIVE")
+    with self.assertRaises(RuntimeError) as context: snl.SNLScalarTerm.create(d)
+    with self.assertRaises(RuntimeError) as context: snl.SNLScalarTerm.create(self.lib, snl.SNLTerm.Direction.Output, "O")
+    with self.assertRaises(RuntimeError) as context: snl.SNLBusTerm.create(d)
+    with self.assertRaises(RuntimeError) as context: snl.SNLBusTerm.create(self.lib, snl.SNLTerm.Direction.Output, 3, 2, "O")
 
   def testParametersError(self):
     self.assertIsNotNone(self.lib)
