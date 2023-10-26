@@ -125,7 +125,6 @@ class SNLDesignModelingTest(unittest.TestCase):
     for i_bit in i.getBits():
       self.assertEqual(4, sum(1 for t in snl.SNLDesign.getCombinatorialOutputs(i_bit)))
 
-
   def testSeqWithBusses0(self):
     reg = snl.SNLDesign.createPrimitive(self.primitives, "REG")
     d = snl.SNLBusTerm.create(reg, snl.SNLTerm.Direction.Input, 3, 0, "D")
@@ -170,6 +169,8 @@ class SNLDesignModelingTest(unittest.TestCase):
     with self.assertRaises(RuntimeError) as context: snl.SNLDesign.addClockToOutputsArcs(d, c, q)
     with self.assertRaises(RuntimeError) as context: snl.SNLDesign.addClockToOutputsArcs([d, c], q)
     with self.assertRaises(RuntimeError) as context: snl.SNLDesign.addClockToOutputsArcs(c, design)
+    with self.assertRaises(RuntimeError) as context: design.getCombinatorialInputs(design)
+    with self.assertRaises(RuntimeError) as context: design.getCombinatorialOutputs(design)
    
 if __name__ == '__main__':
   unittest.main()
