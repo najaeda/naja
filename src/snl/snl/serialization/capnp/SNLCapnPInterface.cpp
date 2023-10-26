@@ -404,6 +404,8 @@ void SNLCapnP::dumpInterface(const SNLDB* snlDB, const std::filesystem::path& in
   close(fd);
 }
 
+//Need to find a proper way to test serialization on the wire
+//LCOV_EXCL_START
 void SNLCapnP::sendInterface(const SNLDB* db, tcp::socket& socket, SNLID::DBID forceDBID) {
   dumpInterface(db, socket.native_handle(), forceDBID);
 }
@@ -422,6 +424,7 @@ void SNLCapnP::sendInterface(
   socket.connect(tcp::endpoint( boost::asio::ip::address::from_string(ipAddress), port));
   sendInterface(db, socket);
 }
+//LCOV_EXCL_STOP
 
 SNLDB* SNLCapnP::loadInterface(int fileDescriptor) {
   ::capnp::PackedFdMessageReader message(fileDescriptor);

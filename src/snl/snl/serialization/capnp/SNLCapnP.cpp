@@ -19,6 +19,8 @@ void SNLCapnP::dump(const SNLDB* db, const std::filesystem::path& path) {
   dumpImplementation(db, path/ImplementationName);
 }
 
+//Need to find a proper way to test serialization on the wire
+//LCOV_EXCL_START
 void SNLCapnP::send(const SNLDB* db, const std::string& ipAddress, uint16_t port) {
   send(db, ipAddress, port, db->getID());
 }
@@ -31,6 +33,7 @@ void SNLCapnP::send(const SNLDB* db, const std::string& ipAddress, uint16_t port
   sendInterface(db, socket, forceDBID);
   sendImplementation(db, socket, forceDBID);
 }
+//LCOV_EXCL_STOP
 
 SNLDB* SNLCapnP::load(const std::filesystem::path& path) {
   loadInterface(path/InterfaceName);
@@ -38,6 +41,8 @@ SNLDB* SNLCapnP::load(const std::filesystem::path& path) {
   return db;
 }
 
+//Need to find a proper way to test serialization on the wire
+//LCOV_EXCL_START
 boost::asio::ip::tcp::socket SNLCapnP::getSocket(uint16_t port) {
   boost::asio::io_service io_service;
   //listen for new connection
@@ -59,5 +64,6 @@ SNLDB* SNLCapnP::receive(uint16_t port) {
   auto socket = getSocket(port);
   return receive(socket);
 }
+//LCOV_EXCL_STOP
 
 }} // namespace SNL // namespace naja
