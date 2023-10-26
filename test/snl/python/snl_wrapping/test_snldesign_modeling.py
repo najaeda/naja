@@ -121,13 +121,23 @@ class SNLDesignModelingTest(unittest.TestCase):
       self.assertEqual(4, sum(1 for t in snl.SNLDesign.getCombinatorialOutputs(i_bit)))
 
 
-  def testSeqWithBusses(self):
+  def testSeqWithBusses0(self):
     reg = snl.SNLDesign.createPrimitive(self.primitives, "REG")
     d = snl.SNLBusTerm.create(reg, snl.SNLTerm.Direction.Input, 3, 0, "D")
     q = snl.SNLBusTerm.create(reg, snl.SNLTerm.Direction.Output, 3, 0, "Q")
     c = snl.SNLScalarTerm.create(reg, snl.SNLTerm.Direction.Input, "C")
     snl.SNLDesign.addInputsToClockArcs(d, c)
     snl.SNLDesign.addClockToOutputsArcs(c, q)
+    self.assertEqual(4, sum(1 for t in snl.SNLDesign.getClockRelatedInputs(c)))
+    self.assertEqual(4, sum(1 for t in snl.SNLDesign.getClockRelatedOutputs(c)))
+
+  def testSeqWithBusses1(self):
+    reg = snl.SNLDesign.createPrimitive(self.primitives, "REG")
+    d = snl.SNLBusTerm.create(reg, snl.SNLTerm.Direction.Input, 3, 0, "D")
+    q = snl.SNLBusTerm.create(reg, snl.SNLTerm.Direction.Output, 3, 0, "Q")
+    c = snl.SNLScalarTerm.create(reg, snl.SNLTerm.Direction.Input, "C")
+    snl.SNLDesign.addInputsToClockArcs([d], c)
+    snl.SNLDesign.addClockToOutputsArcs(c, [q])
     self.assertEqual(4, sum(1 for t in snl.SNLDesign.getClockRelatedInputs(c)))
     self.assertEqual(4, sum(1 for t in snl.SNLDesign.getClockRelatedOutputs(c)))
 

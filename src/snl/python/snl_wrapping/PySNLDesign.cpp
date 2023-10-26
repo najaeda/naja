@@ -144,7 +144,9 @@ static PyObject* PySNLDesign_addInputsToClockArcs(PySNLDesign* self, PyObject* a
   PyObject* arg0 = nullptr;
   PyObject* arg1 = nullptr;
   if (not PyArg_ParseTuple(args, "OO:SNLDesign.addInputsToClockArcs", &arg0, &arg1)) {
-    setError("malformed SNLDesign.addInputsToClockArcs method");
+    setError(
+      "malformed SNLDesign.addInputsToClockArcs method, accepted args are: inputs, clock."
+    );
     return nullptr;
   }
   SNLDesignModeling::BitTerms terms;
@@ -155,7 +157,9 @@ static PyObject* PySNLDesign_addInputsToClockArcs(PySNLDesign* self, PyObject* a
     auto bus = PYSNLBusTerm_O(arg0);
     terms.insert(terms.begin(), bus->getBits().begin(), bus->getBits().end());
   } else if (not PyList_Check(arg0)) {
-    setError("malformed SNLDesign.addInputsToClockArcs method");
+    setError(
+      "malformed SNLDesign.addInputsToClockArcs method, "
+      "accepted args for first argument are a list of SNLBitTerm, SNLBusTerm");
     return nullptr;
   }
   if (IsPySNLBitTerm(arg1)) {
@@ -188,7 +192,9 @@ static PyObject* PySNLDesign_addClockToOutputsArcs(PySNLDesign* self, PyObject* 
   PyObject* arg0 = nullptr;
   PyObject* arg1 = nullptr;
   if (not PyArg_ParseTuple(args, "OO:SNLDesign.addClockToOutputsArcs", &arg0, &arg1)) {
-    setError("malformed SNLDesign.addClockToOutputsArcs method");
+    setError(
+      "malformed SNLDesign.addClockToOutputsArcs method, accepted args are: clock, outputs."
+    );
     return nullptr;
   }
   SNLBitTerm* clock = nullptr; 
@@ -196,7 +202,7 @@ static PyObject* PySNLDesign_addClockToOutputsArcs(PySNLDesign* self, PyObject* 
   if (IsPySNLBitTerm(arg0)) {
     clock = PYSNLBitTerm_O(arg0);
   } else {
-    setError("malformed SNLDesign.addClockToOutputsArcs method");
+    setError("malformed SNLDesign.addClockToOutputsArcs: accepted first arg is: clock");
     return nullptr;
   }
   if (IsPySNLBitTerm(arg1)) {
@@ -204,21 +210,26 @@ static PyObject* PySNLDesign_addClockToOutputsArcs(PySNLDesign* self, PyObject* 
   } else if (IsPySNLBusTerm(arg1)) {
     auto bus = PYSNLBusTerm_O(arg1);
     terms.insert(terms.begin(), bus->getBits().begin(), bus->getBits().end());
-  } else if (not PyList_Check(arg0)) {
-    setError("malformed SNLDesign.addClockToOutputsArcs method");
+  } else if (not PyList_Check(arg1)) {
+    setError(
+      "malformed SNLDesign.addClockToOutputsArcs method, "
+      "accepted args for second argument are a list of SNLBitTerm, SNLBusTerm");
     return nullptr;
   }
-  
   if (terms.empty()) {
     for (int i=0; i<PyList_Size(arg1); ++i) {
       PyObject* object = PyList_GetItem(arg1, i);
-      if (not IsPySNLBitTerm(object)) {
-        setError("malformed SNLDesign.addClockToOutputsArcs method");
+      if (IsPySNLBitTerm(object)) {
+        terms.push_back(PYSNLBitTerm_O(object));
+      } else if (IsPySNLBusTerm(object)) {
+        auto bus = PYSNLBusTerm_O(object);
+        terms.insert(terms.begin(), bus->getBits().begin(), bus->getBits().end());
+      } else {
+        setError("malformed SNLDesign.addInputsToClockArcs method");
         return nullptr;
       }
-      terms.push_back(PYSNLBitTerm_O(object));
     }
-  }
+  } 
   SNLTRY
   SNLDesignModeling::addClockToOutputsArcs(clock, terms);
   SNLCATCH
