@@ -56,12 +56,17 @@ class SNLDesignModelingTest(unittest.TestCase):
 
   def testSeq(self):
     reg = snl.SNLDesign.createPrimitive(self.primitives, "REG")
-    d = snl.SNLScalarTerm.create(reg, snl.SNLTerm.Direction.Input, "D")
-    q = snl.SNLScalarTerm.create(reg, snl.SNLTerm.Direction.Output, "Q")
+    d0 = snl.SNLScalarTerm.create(reg, snl.SNLTerm.Direction.Input, "D0")
+    q0 = snl.SNLScalarTerm.create(reg, snl.SNLTerm.Direction.Output, "Q0")
+    d1 = snl.SNLScalarTerm.create(reg, snl.SNLTerm.Direction.Input, "D1")
+    q1 = snl.SNLScalarTerm.create(reg, snl.SNLTerm.Direction.Output, "Q1")
     c = snl.SNLScalarTerm.create(reg, snl.SNLTerm.Direction.Input, "C")
-    snl.SNLDesign.addInputsToClockArcs(d, c)
-    snl.SNLDesign.addClockToOutputsArcs(c, q)
-    top = snl.SNLDesign.create(self.designs, "TOP")
+    snl.SNLDesign.addInputsToClockArcs(d0, c)
+    snl.SNLDesign.addClockToOutputsArcs(c, q0)
+    snl.SNLDesign.addInputsToClockArcs([d1], c)
+    snl.SNLDesign.addClockToOutputsArcs(c, [q1])
+    self.assertEqual(2, sum(1 for t in snl.SNLDesign.getClockRelatedInputs(c)))
+    self.assertEqual(2, sum(1 for t in snl.SNLDesign.getClockRelatedOutputs(c)))
 
   def testCombiWithBusses0(self):
     design = snl.SNLDesign.createPrimitive(self.primitives, "DESIGN")
@@ -160,9 +165,11 @@ class SNLDesignModelingTest(unittest.TestCase):
     #wrong type
     snl.SNLDesign.addClockToOutputsArcs(c, q)
     with self.assertRaises(RuntimeError) as context: snl.SNLDesign.addInputsToClockArcs(d, c, q)
-    with self.assertRaises(RuntimeError) as context: snl.SNLDesign.addClockToOutputsArcs(d, c, q)
     with self.assertRaises(RuntimeError) as context: snl.SNLDesign.addInputsToClockArcs(d, [c, q])
+    with self.assertRaises(RuntimeError) as context: snl.SNLDesign.addInputsToClockArcs(design, d)
+    with self.assertRaises(RuntimeError) as context: snl.SNLDesign.addClockToOutputsArcs(d, c, q)
     with self.assertRaises(RuntimeError) as context: snl.SNLDesign.addClockToOutputsArcs([d, c], q)
+    with self.assertRaises(RuntimeError) as context: snl.SNLDesign.addClockToOutputsArcs(c, design)
    
 if __name__ == '__main__':
   unittest.main()

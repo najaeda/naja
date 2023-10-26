@@ -30,7 +30,10 @@ class SNLDesignModelingProperty: public naja::NajaPrivateProperty {
     static void preCreate(naja::SNL::SNLDesign* design, const std::string& name) {
       Inherit::preCreate(design, name);
       if (not (design->isLeaf())) {
-        throw naja::SNL::SNLException("");
+        std::ostringstream reason;
+        reason << "Impossible to add Timing Modeling on a non leaf design <"
+          << design->getName().getString() << ">";
+        throw naja::SNL::SNLException(reason.str());
       }
     }
     void preDestroy() override {
@@ -83,14 +86,14 @@ void insertInArcs(
   if (iit == arcs.end()) {
     auto result = arcs.insert({term0, naja::SNL::SNLDesignModeling::TermArcs()});
     if (not result.second) {
-      throw naja::SNL::SNLException("");
+      throw naja::SNL::SNLException("Error while inserting in timing arcs");
     }
     iit = result.first;
   }
   naja::SNL::SNLDesignModeling::TermArcs& termArcs = iit->second;
   auto oit = termArcs.find(term1);
   if (oit != termArcs.end()) {
-    throw naja::SNL::SNLException("");
+    throw naja::SNL::SNLException("Error while inserting in timing arcs");
   }
   termArcs.insert(term1);
 }
@@ -176,7 +179,7 @@ void SNLDesignModeling::addCombinatorialArc_(SNLBitTerm* input, SNLBitTerm* outp
 
 void SNLDesignModeling::addInputToClockArc_(SNLBitTerm* input, SNLBitTerm* clock) {
   if (type_ not_eq Type::NO_PARAMETER) {
-    throw SNLException("");
+    throw SNLException("Wrong SNLDesignModeling type for addInputToClockArc");
   }
   TimingArcs& arcs = std::get<Type::NO_PARAMETER>(model_);
   insertInArcs(arcs.inputToClockArcs_, input, clock);
@@ -185,7 +188,7 @@ void SNLDesignModeling::addInputToClockArc_(SNLBitTerm* input, SNLBitTerm* clock
 
 void SNLDesignModeling::addClockToOutputArc_(SNLBitTerm* clock, SNLBitTerm* output) {
   if (type_ not_eq Type::NO_PARAMETER) {
-    throw SNLException("");
+    throw SNLException("Wrong SNLDesignModeling type for addClockToOutputArc");
   }
   TimingArcs& arcs = std::get<Type::NO_PARAMETER>(model_);
   insertInArcs(arcs.outputToClockArcs_, output, clock);
@@ -252,13 +255,15 @@ const SNLDesignModeling::TimingArcs* SNLDesignModeling::getTimingArcs(const SNLI
     } 
     auto defaultParameterValue = parameter_.second;
     if (defaultParameterValue.empty()) {
-      throw SNLException("");
+      throw SNLException("No Default parameter value while getting Timing Arcs");
     }
     auto ait = parameterizedArcs.find(defaultParameterValue);
     if (ait != parameterizedArcs.end()) {
       return &(ait->second);
     } else {
-      throw SNLException("");
+      std::ostringstream reason;
+      reason << "cannot find " << defaultParameterValue << " in parameterized arcs.";
+      throw SNLException(reason.str());
     }
   }
 }

@@ -174,6 +174,10 @@ class SNLDesignTest(unittest.TestCase):
     with self.assertRaises(RuntimeError) as context: snl.SNLParameter.create_binary(n, "ERROR", 4, 0)
     with self.assertRaises(RuntimeError) as context: snl.SNLParameter.create_string(n, "ERROR", "ERROR")
     with self.assertRaises(RuntimeError) as context: snl.SNLParameter.create_boolean(n, "ERROR", False)
+
+  def testDestroy(self):
+    design = snl.SNLDesign.create(self.lib, "DESIGN")
+    design.destroy()
    
 if __name__ == '__main__':
   unittest.main()
