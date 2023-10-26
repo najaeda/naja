@@ -38,7 +38,11 @@ class SNLDesignModeling {
     using TimingModel = std::variant<ParameterizedArcs, TimingArcs>;
     using BitTerms = std::list<SNLBitTerm*>;
 
+    //In case the Timing Modeling of a design depends on a parameter
+    //Following method must be called prior to others
+    static void setParameter(SNLDesign* design, const std::string& name, const std::string& defaultValue);
     static void addCombinatorialArcs(const BitTerms& inputs, const BitTerms& outputs);
+    static void addCombinatorialArcs(const std::string& parameterValue, const BitTerms& inputs, const BitTerms& outputs);
     static void addInputsToClockArcs(const BitTerms& inputs, SNLBitTerm* clock);
     static void addClockToOutputsArcs(SNLBitTerm* clock, const BitTerms& outputs);
     static NajaCollection<SNLBitTerm*> getCombinatorialOutputs(SNLBitTerm* input);
@@ -58,10 +62,11 @@ class SNLDesignModeling {
     Type getType() const { return type_; }
   private:
     void addCombinatorialArc_(SNLBitTerm* input, SNLBitTerm* output);
-    void addCombinatorialArc_(const Parameter& parameter, SNLBitTerm* input, SNLBitTerm* output);
+    void addCombinatorialArc_(SNLBitTerm* input, SNLBitTerm* output, const std::string& parameterValue);
     void addInputToClockArc_(SNLBitTerm* input, SNLBitTerm* clock);
     void addClockToOutputArc_(SNLBitTerm* clock, SNLBitTerm* output);
     const TimingArcs* getTimingArcs(const SNLInstance* instance=nullptr) const;
+    TimingArcs* getOrCreateTimingArcs(const std::string& parameterValue=std::string());
     //bool isClock_(const SNLBitTerm* term) const;
     NajaCollection<SNLBitTerm*> getCombinatorialOutputs_(SNLBitTerm* input) const;
     NajaCollection<SNLBitTerm*> getCombinatorialInputs_(SNLBitTerm* output) const;

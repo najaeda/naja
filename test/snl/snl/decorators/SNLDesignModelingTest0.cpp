@@ -175,6 +175,56 @@ TEST_F(SNLDesignModelingTest0, testSequential) {
     ElementsAre(regIns->getInstTerm(regC)));
 }
 
+TEST_F(SNLDesignModelingTest0, testCombiWithParameter) {
+  //Create primitives
+  SNLUniverse::create();
+  auto db = SNLDB::create(SNLUniverse::get());
+  auto designs = SNLLibrary::create(db);
+  auto top = SNLDesign::create(designs, SNLName("top"));
+  auto prims = SNLLibrary::create(db, SNLLibrary::Type::Primitives);
+  auto gate = SNLDesign::create(prims, SNLDesign::Type::Primitive, SNLName("LUT"));
+  auto mode = SNLParameter::create(gate, SNLName("MODE"), SNLParameter::Type::String, "NORMAL");
+  auto luti0 = SNLScalarTerm::create(gate, SNLTerm::Direction::Input, SNLName("I0"));
+  auto luti1 = SNLScalarTerm::create(gate, SNLTerm::Direction::Input, SNLName("I1"));
+  auto luto0 = SNLScalarTerm::create(gate, SNLTerm::Direction::Output, SNLName("O0"));
+  auto luto1 = SNLScalarTerm::create(gate, SNLTerm::Direction::Output, SNLName("O1"));
+  SNLDesignModeling::setParameter(gate, "MODE", "NORMAL");
+  //no parameter arg so default mode
+  SNLDesignModeling::addCombinatorialArcs({luti0}, {luto0});
+  SNLDesignModeling::addCombinatorialArcs({luti1}, {luto1});
+  SNLDesignModeling::addCombinatorialArcs("CROSS", {luti1}, {luto0});
+  SNLDesignModeling::addCombinatorialArcs("CROSS", {luti0}, {luto1});
+
+  //Default parameter
+  EXPECT_EQ(1, SNLDesignModeling::getCombinatorialOutputs(luti0).size());
+  EXPECT_EQ(1, SNLDesignModeling::getCombinatorialOutputs(luti1).size());
+  EXPECT_EQ(luto0, *SNLDesignModeling::getCombinatorialOutputs(luti0).begin());
+  EXPECT_EQ(luto1, *SNLDesignModeling::getCombinatorialOutputs(luti1).begin());
+
+  //instance with no parameter => default parameter
+  auto ins0 = SNLInstance::create(top, gate, SNLName("ins0")); 
+  EXPECT_EQ(1, SNLDesignModeling::getCombinatorialOutputs(ins0->getInstTerm(luti0)).size());
+  EXPECT_EQ(1, SNLDesignModeling::getCombinatorialOutputs(ins0->getInstTerm(luti1)).size());
+  EXPECT_EQ(ins0->getInstTerm(luto0), *SNLDesignModeling::getCombinatorialOutputs(ins0->getInstTerm(luti0)).begin());
+  EXPECT_EQ(ins0->getInstTerm(luto1), *SNLDesignModeling::getCombinatorialOutputs(ins0->getInstTerm(luti1)).begin());
+
+  //instance with default parameter value
+  auto ins1 = SNLInstance::create(top, gate, SNLName("ins1")); 
+  SNLInstParameter::create(ins1, mode, "NORMAL");
+  EXPECT_EQ(1, SNLDesignModeling::getCombinatorialOutputs(ins1->getInstTerm(luti0)).size());
+  EXPECT_EQ(1, SNLDesignModeling::getCombinatorialOutputs(ins1->getInstTerm(luti1)).size());
+  EXPECT_EQ(ins1->getInstTerm(luto0), *SNLDesignModeling::getCombinatorialOutputs(ins1->getInstTerm(luti0)).begin());
+  EXPECT_EQ(ins1->getInstTerm(luto1), *SNLDesignModeling::getCombinatorialOutputs(ins1->getInstTerm(luti1)).begin());
+
+  //instance with non default parameter value
+  auto ins2 = SNLInstance::create(top, gate, SNLName("ins2")); 
+  SNLInstParameter::create(ins2, mode, "CROSS");
+  EXPECT_EQ(1, SNLDesignModeling::getCombinatorialOutputs(ins2->getInstTerm(luti0)).size());
+  EXPECT_EQ(1, SNLDesignModeling::getCombinatorialOutputs(ins2->getInstTerm(luti1)).size());
+  EXPECT_EQ(ins2->getInstTerm(luto1), *SNLDesignModeling::getCombinatorialOutputs(ins2->getInstTerm(luti0)).begin());
+  EXPECT_EQ(ins2->getInstTerm(luto0), *SNLDesignModeling::getCombinatorialOutputs(ins2->getInstTerm(luti1)).begin());
+}
+
 TEST_F(SNLDesignModelingTest0, testErrors0) {
   //Create primitives
   SNLUniverse::create();

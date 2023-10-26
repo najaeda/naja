@@ -65,7 +65,7 @@ class SNLParameter {
     void postCreate();
     void destroyFromDesign();
 
-    SNLDesign*                          design_                 {nullptr};
+    SNLDesign*                          design_                 { nullptr };
     SNLName                             name_                   {};
     Type                                type_                   { Type::Decimal };
     std::string                         value_                  {};

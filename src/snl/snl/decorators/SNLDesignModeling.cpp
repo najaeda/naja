@@ -5,6 +5,8 @@
 
 #include "SNLDesignModeling.h"
 
+#include <sstream>
+
 #include "NajaPrivateProperty.h"
 #include "SNLDesign.h"
 #include "SNLInstTerm.h"
@@ -62,6 +64,7 @@ SNLDesignModelingProperty* getProperty(const naja::SNL::SNLDesign* design) {
   return nullptr;
 }
 
+//type will used only if the property is created
 SNLDesignModelingProperty* getOrCreateProperty(
   naja::SNL::SNLDesign* design,
   naja::SNL::SNLDesignModeling::Type type) {
@@ -108,14 +111,13 @@ naja::SNL::SNLDesign* verifyInputs(
   for (auto term: terms0) {
     if (not design) {
       design = term->getDesign();
-    }
-    if (design not_eq term->getDesign()) {
+    } else if (design not_eq term->getDesign()) {
       throw naja::SNL::SNLException("Error in " + method + ": incompatible designs");
     }
-    for (auto term: terms1) {
-      if (design not_eq term->getDesign()) {
-        throw naja::SNL::SNLException("Error in " + method + ": incompatible designs");
-      }
+  }
+  for (auto term: terms1) {
+    if (design not_eq term->getDesign()) {
+      throw naja::SNL::SNLException("Error in " + method + ": incompatible designs");
     }
   }
   return design;
@@ -123,7 +125,7 @@ naja::SNL::SNLDesign* verifyInputs(
 
 #define GET_RELATED_TERMS_IN_ARCS(ARCS) \
   const auto* timingArcs = getTimingArcs(); \
-  auto it = timingArcs->ARCS.find(term); \
+  const auto it = timingArcs->ARCS.find(term); \
   if (it == timingArcs->ARCS.end()) { \
     return NajaCollection<SNLBitTerm*>(); \
   } \
@@ -161,12 +163,15 @@ SNLDesignModeling::SNLDesignModeling(Type type): type_(type) {
 }
 
 void SNLDesignModeling::addCombinatorialArc_(SNLBitTerm* input, SNLBitTerm* output) {
-  if (type_ not_eq Type::NO_PARAMETER) {
-    throw SNLException("");
-  }
-  TimingArcs& arcs = std::get<Type::NO_PARAMETER>(model_);
-  insertInArcs(arcs.inputCombinatorialArcs_, input, output);
-  insertInArcs(arcs.outputCombinatorialArcs_, output, input);
+  TimingArcs* arcs = getOrCreateTimingArcs();
+  insertInArcs(arcs->inputCombinatorialArcs_, input, output);
+  insertInArcs(arcs->outputCombinatorialArcs_, output, input);
+}
+
+void SNLDesignModeling::addCombinatorialArc_(SNLBitTerm* input, SNLBitTerm* output, const std::string& parameterValue) {
+  TimingArcs* arcs = getOrCreateTimingArcs(parameterValue);
+  insertInArcs(arcs->inputCombinatorialArcs_, input, output);
+  insertInArcs(arcs->outputCombinatorialArcs_, output, input);
 }
 
 void SNLDesignModeling::addInputToClockArc_(SNLBitTerm* input, SNLBitTerm* clock) {
@@ -187,6 +192,31 @@ void SNLDesignModeling::addClockToOutputArc_(SNLBitTerm* clock, SNLBitTerm* outp
   insertInArcs(arcs.clockToOutputArcs_, clock, output);
 }
 
+SNLDesignModeling::TimingArcs* SNLDesignModeling::getOrCreateTimingArcs(const std::string& parameterValue) {
+  if (type_ == Type::NO_PARAMETER) {
+    if (not parameterValue.empty()) {
+      throw SNLException("Contradictory type in SNLDesignModeling");
+    }
+    return &std::get<Type::NO_PARAMETER>(model_);
+  } else {
+    std::string paramValue = parameter_.second;
+    if (not parameterValue.empty()) {
+      paramValue = parameterValue;
+    }
+    ParameterizedArcs& parameterizedArcs = std::get<Type::PARAMETERIZED>(model_);
+    auto ait = parameterizedArcs.find(paramValue);
+    if (ait == parameterizedArcs.end()) {
+      //create it
+      auto result = parameterizedArcs.insert({paramValue, TimingArcs()});
+      if (not result.second) {
+        throw naja::SNL::SNLException("Error in Timing arcs insertion");
+      }
+      ait = result.first;
+    }
+    return &(ait->second);
+  }
+}
+
 const SNLDesignModeling::TimingArcs* SNLDesignModeling::getTimingArcs(const SNLInstance* instance) const {
   if (type_ == Type::NO_PARAMETER) {
     return &std::get<Type::NO_PARAMETER>(model_);
@@ -200,9 +230,21 @@ const SNLDesignModeling::TimingArcs* SNLDesignModeling::getTimingArcs(const SNLI
       auto instParameter = instance->getInstParameter(SNLName(parameter));
       if (instParameter) {
         auto value = instParameter->getValue();
-        auto pit = parameterizedArcs.find(parameter);
+        auto pit = parameterizedArcs.find(value);
         if (pit == parameterizedArcs.end()) {
-          throw SNLException("");
+          std::ostringstream reason;
+          reason << "Parameter value <" << value << "> for Parameter <" << parameter
+            << "> cannot be found in design <" << instance->getModel()->getName().getString()
+            << "> modeling. Existing values are: ";
+          bool first = true;
+          for (auto parcs: parameterizedArcs) {
+            if (!first) {
+              reason << ", ";
+            }
+            reason << parcs.first;
+            first = false;
+          }
+          throw SNLException(reason.str());
         }
         return &(pit->second);
       }
@@ -281,6 +323,19 @@ void SNLDesignModeling::addCombinatorialArcs(
   }
 }
 
+void SNLDesignModeling::addCombinatorialArcs(
+  const std::string& parameterValue,
+  const BitTerms& inputs, const BitTerms& outputs) {
+  auto design = verifyInputs(inputs, "inputs", outputs, "outputs", "addCombinatorialArcs");
+  auto property = getOrCreateProperty(design, Type::PARAMETERIZED);
+  auto modeling = property->getModeling();
+  for (auto input: inputs) {
+    for (auto output: outputs) {
+      modeling->addCombinatorialArc_(input, output, parameterValue);
+    }
+  }
+}
+
 void SNLDesignModeling::addInputsToClockArcs(const BitTerms& inputs, SNLBitTerm* clock) {
   auto design = verifyInputs(inputs, "inputs", {clock}, "clock", "addInputsToClockArcs");
   auto property = getOrCreateProperty(design, Type::NO_PARAMETER);
@@ -297,6 +352,18 @@ void SNLDesignModeling::addClockToOutputsArcs(SNLBitTerm* clock, const BitTerms&
   for (auto output: outputs) {
     modeling->addClockToOutputArc_(clock, output);
   }
+}
+
+void SNLDesignModeling::setParameter(SNLDesign* design, const std::string& name, const std::string& defaultValue) {
+  auto parameter = design->getParameter(SNLName(name));
+  if (not parameter) {
+    std::ostringstream reason;
+    reason << "Parameter " << name << " is unknown in " << design->getName().getString();
+    throw SNLException(reason.str());
+  }
+  auto property = getOrCreateProperty(design, Type::PARAMETERIZED);
+  auto modeling = property->getModeling();
+  modeling->parameter_ = std::make_pair(name, defaultValue);
 }
 
 NajaCollection<SNLBitTerm*> SNLDesignModeling::getCombinatorialOutputs(SNLBitTerm* term) {
