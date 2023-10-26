@@ -31,3 +31,11 @@ TEST_F(SNLPyDBLoaderTest0, test) {
 
   ASSERT_EQ(2, db->getLibraries().size());
 }
+
+TEST_F(SNLPyDBLoaderTest0, testDBLoadingError) {
+  auto db = SNLDB::create(SNLUniverse::get());
+  auto dbScriptPath = std::filesystem::path(SNL_PRIMITIVES_TEST_PATH);
+  dbScriptPath /= "scripts";
+  dbScriptPath /= "db_faulty.py";
+  EXPECT_THROW(SNLPyLoader::loadDB(db, dbScriptPath), SNLException);
+}
