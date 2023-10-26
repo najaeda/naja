@@ -115,7 +115,6 @@ class SNLDesignTest(unittest.TestCase):
     self.assertEqual(1+10+1, sum(1 for b in design.getBitTerms()))
     self.assertEqual(1+1, sum(1 for t in design.getScalarTerms()))
 
-
   def testCompare(self):
     self.assertIsNotNone(self.lib)
     design0 = snl.SNLDesign.create(self.lib, "DESIGN0")
@@ -157,6 +156,10 @@ class SNLDesignTest(unittest.TestCase):
     with self.assertRaises(RuntimeError) as context: snl.SNLScalarTerm.create(self.lib, snl.SNLTerm.Direction.Output, "O")
     with self.assertRaises(RuntimeError) as context: snl.SNLBusTerm.create(d)
     with self.assertRaises(RuntimeError) as context: snl.SNLBusTerm.create(self.lib, snl.SNLTerm.Direction.Output, 3, 2, "O")
+    with self.assertRaises(RuntimeError) as context: snl.SNLScalarNet.create(self.lib)
+    with self.assertRaises(RuntimeError) as context: snl.SNLScalarNet.create(self.lib, "O")
+    with self.assertRaises(RuntimeError) as context: snl.SNLBusNet.create(self.lib)
+    with self.assertRaises(RuntimeError) as context: snl.SNLBusNet.create(self.lib, snl.SNLTerm.Direction.Output, 3, 2, "O")
 
   def testParametersError(self):
     self.assertIsNotNone(self.lib)

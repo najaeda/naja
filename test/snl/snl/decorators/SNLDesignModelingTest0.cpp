@@ -223,6 +223,11 @@ TEST_F(SNLDesignModelingTest0, testCombiWithParameter) {
   EXPECT_EQ(1, SNLDesignModeling::getCombinatorialOutputs(ins2->getInstTerm(luti1)).size());
   EXPECT_EQ(ins2->getInstTerm(luto1), *SNLDesignModeling::getCombinatorialOutputs(ins2->getInstTerm(luti0)).begin());
   EXPECT_EQ(ins2->getInstTerm(luto0), *SNLDesignModeling::getCombinatorialOutputs(ins2->getInstTerm(luti1)).begin());
+
+  //Error for non existing parameter
+  auto ins3 = SNLInstance::create(top, gate, SNLName("ins3")); 
+  SNLInstParameter::create(ins3, mode, "UNKNOWN");
+  EXPECT_THROW(SNLDesignModeling::getCombinatorialOutputs(ins3->getInstTerm(luti0)), SNLException);
 }
 
 TEST_F(SNLDesignModelingTest0, testErrors0) {
@@ -257,4 +262,13 @@ TEST_F(SNLDesignModelingTest0, testErrors1) {
   auto design1B = SNLScalarTerm::create(design1, SNLTerm::Direction::Output, SNLName("B"));
   EXPECT_THROW(SNLDesignModeling::addCombinatorialArcs({designA}, {design1B}), SNLException);
   EXPECT_THROW(SNLDesignModeling::addCombinatorialArcs({designA, design1A}, {design1B}), SNLException);
+}
+
+TEST_F(SNLDesignModelingTest0, testNonExistingParameterError) {
+  //Create primitives
+  SNLUniverse::create();
+  auto db = SNLDB::create(SNLUniverse::get());
+  auto prims = SNLLibrary::create(db, SNLLibrary::Type::Primitives);
+  auto prim = SNLDesign::create(prims, SNLDesign::Type::Primitive, SNLName("prim"));
+  EXPECT_THROW(SNLDesignModeling::setParameter(prim, "MODE", "NORMAL"), SNLException);
 }
