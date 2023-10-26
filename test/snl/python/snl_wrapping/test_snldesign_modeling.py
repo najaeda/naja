@@ -165,12 +165,20 @@ class SNLDesignModelingTest(unittest.TestCase):
     snl.SNLDesign.addClockToOutputsArcs(c, q)
     with self.assertRaises(RuntimeError) as context: snl.SNLDesign.addInputsToClockArcs(d, c, q)
     with self.assertRaises(RuntimeError) as context: snl.SNLDesign.addInputsToClockArcs(d, [c, q])
-    with self.assertRaises(RuntimeError) as context: snl.SNLDesign.addInputsToClockArcs(design, d)
+    with self.assertRaises(RuntimeError) as context: snl.SNLDesign.addInputsToClockArcs(design, c)
+    with self.assertRaises(RuntimeError) as context: snl.SNLDesign.addInputsToClockArcs([design], c)
     with self.assertRaises(RuntimeError) as context: snl.SNLDesign.addClockToOutputsArcs(d, c, q)
     with self.assertRaises(RuntimeError) as context: snl.SNLDesign.addClockToOutputsArcs([d, c], q)
     with self.assertRaises(RuntimeError) as context: snl.SNLDesign.addClockToOutputsArcs(c, design)
+    with self.assertRaises(RuntimeError) as context: snl.SNLDesign.addClockToOutputsArcs(c, [design])
     with self.assertRaises(RuntimeError) as context: design.getCombinatorialInputs(design)
     with self.assertRaises(RuntimeError) as context: design.getCombinatorialOutputs(design)
+
+    #create instance
+    top = snl.SNLDesign.create(self.designs, "TOP")
+    instance = snl.SNLInstance.create(top, design, "instance")
+    with self.assertRaises(RuntimeError) as context: instance.getCombinatorialInputs(d)
+    with self.assertRaises(RuntimeError) as context: instance.getCombinatorialOutputs(q)
    
 if __name__ == '__main__':
   unittest.main()

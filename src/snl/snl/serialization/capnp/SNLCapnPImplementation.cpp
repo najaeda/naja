@@ -197,14 +197,14 @@ void loadInstParameter(
   auto name = instParameter.getName();
   auto value = instParameter.getValue();
   auto parameter = instance->getModel()->getParameter(SNLName(name));
+  //LCOV_EXCL_START
   if (not parameter) {
-    //LCOV_EXCL_START
     std::ostringstream reason;
     reason << "cannot deserialize instance: no parameter " << std::string(name);
     reason << " exists in " << instance->getDescription() << " model";
     throw SNLException(reason.str());
-    //LCOV_EXCL_STOP
   }
+  //LCOV_EXCL_STOP
   SNLInstParameter::create(instance, parameter, value);
 }
 
@@ -223,13 +223,13 @@ void loadInstance(
       modelReference.getLibraryID(),
       modelReference.getDesignID());
   auto model = SNLUniverse::get()->getDesign(snlModelReference);
+  //LCOV_EXCL_START
   if (not model) {
-    //LCOV_EXCL_START
     std::ostringstream reason;
     reason << "cannot deserialize instance: no model found with provided reference";
     throw SNLException(reason.str());
-    //LCOV_EXCL_STOP
   }
+  //LCOV_EXCL_STOP
   auto snlInstance =
     SNLInstance::create(design, model, SNLID::DesignObjectID(instanceID), snlName);
   if (instance.hasInstParameters()) {
@@ -244,26 +244,26 @@ void loadTermReference(
   const DBImplementation::LibraryImplementation::DesignImplementation::TermReference::Reader& termReference) {
   auto design = net->getDesign();
   auto term = design->getTerm(SNLID::DesignObjectID(termReference.getTermID()));
+  //LCOV_EXCL_START
   if (not term) {
-    //LCOV_EXCL_START
     std::ostringstream reason;
     reason << "cannot deserialize term reference: no term found with provided reference";
     throw SNLException(reason.str());
-    //LCOV_EXCL_STOP
   }
+  //LCOV_EXCL_STOP
   if (auto scalarTerm = dynamic_cast<SNLScalarTerm*>(term)) {
     scalarTerm->setNet(net);
   } else {
     auto busTerm = static_cast<SNLBusTerm*>(term);
     assert(busTerm);
     auto busTermBit = busTerm->getBit(termReference.getBit());
+    //LCOV_EXCL_START
     if (not busTermBit) {
-      //LCOV_EXCL_START
       std::ostringstream reason;
       reason << "cannot deserialize term reference: no bus term bit found with provided reference";
       throw SNLException(reason.str());
-      //LCOV_EXCL_STOP
     }
+    //LCOV_EXCL_STOP
     busTermBit->setNet(net);
   }
 }
@@ -274,38 +274,38 @@ void loadInstTermReference(
   auto instanceID = instTermReference.getInstanceID();
   auto design = net->getDesign();
   auto instance = design->getInstance(SNLID::DesignObjectID(instanceID));
+  //LCOV_EXCL_START
   if (not instance) {
-    //LCOV_EXCL_START
     std::ostringstream reason;
     reason << "cannot deserialize instance term reference, no instance found with ID ";
     reason << instanceID << " in design " << design->getDescription();
     throw SNLException(reason.str());
-    //LCOV_EXCL_STOP
   }
+  //LCOV_EXCL_STOP
   auto model = instance->getModel();
   auto termID = instTermReference.getTermID();
   auto term = model->getTerm(SNLID::DesignObjectID(termID));
+  //LCOV_EXCL_START
   if (not term) {
-    //LCOV_EXCL_START
     std::ostringstream reason;
     reason << "cannot deserialize instance " << instance->getDescription();
     reason << " term reference: no term found with ID ";
     reason << termID << " in model " << model->getDescription();
     throw SNLException(reason.str());
-    //LCOV_EXCL_STOP
   }
+  //LCOV_EXCL_STOP
   SNLBitTerm* bitTerm = dynamic_cast<SNLScalarTerm*>(term);
   if (not bitTerm) {
     auto busTerm = static_cast<SNLBusTerm*>(term);
     assert(busTerm);
     bitTerm = busTerm->getBit(instTermReference.getBit());
+    //LCOV_EXCL_START
     if (not bitTerm) {
-      //LCOV_EXCL_START
       std::ostringstream reason;
       reason << "cannot deserialize instance term reference: no bit found in bus term with provided reference";
       throw SNLException(reason.str());
-      //LCOV_EXCL_STOP
     }
+    //LCOV_EXCL_STOP
   }
   auto instTerm = instance->getInstTerm(bitTerm);
   assert(instTerm);
@@ -325,13 +325,13 @@ void loadBusNet(
       if (bitNet.hasComponents()) {
         auto bit = bitNet.getBit();
         auto busNetBit = busNet->getBit(bit);
+        //LCOV_EXCL_START
         if (not busNetBit) {
-          //LCOV_EXCL_START
           std::ostringstream reason;
           reason << "cannot deserialize bus net bit: no bit found in bus term with provided reference";
           throw SNLException(reason.str());
-          //LCOV_EXCL_STOP
         }
+        //LCOV_EXCL_STOP
         for (auto componentReference: bitNet.getComponents()) {
           if (componentReference.isInstTermReference()) {
             loadInstTermReference(busNetBit, componentReference.getInstTermReference());
@@ -368,13 +368,13 @@ void loadDesignImplementation(
   const DBImplementation::LibraryImplementation::DesignImplementation::Reader& designImplementation) {
   auto designID = designImplementation.getId();
   SNLDesign* snlDesign = library->getDesign(SNLID::DesignID(designID));
+  //LCOV_EXCL_START
   if (not snlDesign) {
-    //LCOV_EXCL_START
     std::ostringstream reason;
     reason << "cannot deserialize design: no design found in library with provided id";
     throw SNLException(reason.str());
-    //LCOV_EXCL_STOP
   }
+  //LCOV_EXCL_STOP
   if (designImplementation.hasInstances()) {
     for (auto instance: designImplementation.getInstances()) {
       loadInstance(snlDesign, instance);
@@ -396,8 +396,8 @@ void loadDesignImplementation(
 void loadLibraryImplementation(SNLDB* db, const DBImplementation::LibraryImplementation::Reader& libraryImplementation) {
   auto libraryID = libraryImplementation.getId();
   SNLLibrary* snlLibrary = db->getLibrary(SNLID::LibraryID(libraryID));
+  //LCOV_EXCL_START
   if (not snlLibrary) {
-    //LCOV_EXCL_START
     std::ostringstream reason;
     reason << "cannot load library with id " << libraryID
       << " in db " << db->getDescription();
@@ -410,8 +410,8 @@ void loadLibraryImplementation(SNLDB* db, const DBImplementation::LibraryImpleme
       }
     }
     throw SNLException(reason.str());
-    //LCOV_EXCL_STOP
   }
+  //LCOV_EXCL_STOP
   if (libraryImplementation.hasDesignImplementations()) {
     for (auto designImplementation: libraryImplementation.getDesignImplementations()) {
       loadDesignImplementation(snlLibrary, designImplementation);
@@ -451,6 +451,7 @@ void SNLCapnP::dumpImplementation(const SNLDB* snlDB, const std::filesystem::pat
   close(fd);
 }
 
+//LCOV_EXCL_START
 void SNLCapnP::sendImplementation(const SNLDB* db, tcp::socket& socket) {
   sendImplementation(db, socket, db->getID());
 }
@@ -469,6 +470,7 @@ void SNLCapnP::sendImplementation(
   socket.connect(tcp::endpoint(boost::asio::ip::address::from_string(ipAddress), port));
   sendImplementation(db, socket);
 }
+//LCOV_EXCL_STOP
 
 SNLDB* SNLCapnP::loadImplementation(int fileDescriptor) {
   ::capnp::PackedFdMessageReader message(fileDescriptor);
@@ -476,13 +478,13 @@ SNLDB* SNLCapnP::loadImplementation(int fileDescriptor) {
   DBImplementation::Reader dbImplementation = message.getRoot<DBImplementation>();
   auto dbID = dbImplementation.getId();
   auto universe = SNLUniverse::get();
+  //LCOV_EXCL_START
   if (not universe) {
-    //LCOV_EXCL_START
     std::ostringstream reason;
     reason << "cannot deserialize DB implementation: no existing universe";
     throw SNLException(reason.str());
-    //LCOV_EXCL_STOP
   }
+  //LCOV_EXCL_STOP
   auto snldb = universe->getDB(dbID);
   if (dbImplementation.hasLibraryImplementations()) {
     for (auto libraryImplementation: dbImplementation.getLibraryImplementations()) {
@@ -498,6 +500,7 @@ SNLDB* SNLCapnP::loadImplementation(const std::filesystem::path& implementationP
   return loadImplementation(fd);
 }
 
+//LCOV_EXCL_START
 SNLDB* SNLCapnP::receiveImplementation(tcp::socket& socket) {
   return loadImplementation(socket.native_handle());
 }
@@ -513,5 +516,6 @@ SNLDB* SNLCapnP::receiveImplementation(uint16_t port) {
   SNLDB* db = receiveImplementation(socket);
   return db;
 }
+//LCOV_EXCL_STOP
 
 }} // namespace SNL // namespace naja
