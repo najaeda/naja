@@ -151,9 +151,11 @@ PyMODINIT_FUNC PyInit_snl(void) {
   PyObject* mod = PyModule_Create(&snlModule);
 
   if (not mod) {
+    //LCOV_EXCL_START
     std::cerr << "[ERROR]\n"
       << "  Failed to initialize SNL python module." << std::endl;
     return nullptr;
+    //LCOV_EXCL_STOP
   }
 
   PyModule_AddObject(mod, "SNLUniverse", (PyObject*)&PyTypeSNLUniverse);

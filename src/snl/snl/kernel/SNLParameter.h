@@ -58,13 +58,14 @@ class SNLParameter {
         return lp.getName() < rn;
       }
     };
+    bool deepCompare(const SNLParameter* other, std::string& reason) const;
   private:
     SNLParameter(SNLDesign* design, const SNLName& name, Type type, const std::string& value);
     static void preCreate(SNLDesign* design, const SNLName& name);
     void postCreate();
     void destroyFromDesign();
 
-    SNLDesign*                          design_                 {nullptr};
+    SNLDesign*                          design_                 { nullptr };
     SNLName                             name_                   {};
     Type                                type_                   { Type::Decimal };
     std::string                         value_                  {};

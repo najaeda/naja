@@ -5,8 +5,8 @@ class SNLNetTest(unittest.TestCase):
   def setUp(self):
     universe = snl.SNLUniverse.create()
     db = snl.SNLDB.create(universe)
-    lib = snl.SNLLibrary.create(db)
-    self.design = snl.SNLDesign.create(lib)
+    self.lib = snl.SNLLibrary.create(db)
+    self.design = snl.SNLDesign.create(self.lib)
 
   def tearDown(self):
     if snl.SNLUniverse.get():
@@ -61,6 +61,16 @@ class SNLNetTest(unittest.TestCase):
 
     self.assertIsNone(i1.getBit(5))
     self.assertIsNone(i1Net.getBit(5))
+
+  def testErrors(self):
+    self.assertIsNotNone(self.design)
+    i0 = snl.SNLScalarTerm.create(self.design, snl.SNLTerm.Direction.Input, "I0")
+    #wrong type
+    with self.assertRaises(RuntimeError) as context: i0.setNet(self.design)
+    with self.assertRaises(RuntimeError) as context: snl.SNLScalarNet.create(self.lib, "I1")
+    with self.assertRaises(RuntimeError) as context: snl.SNLBusNet.create(self.lib, 4, 0, "I1")
+    with self.assertRaises(RuntimeError) as context: snl.SNLScalarNet.create(self.design, 4, 0, "I1")
+    with self.assertRaises(RuntimeError) as context: snl.SNLBusNet.create(self.lib, "I1")
 
     
 if __name__ == '__main__':

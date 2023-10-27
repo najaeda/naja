@@ -13,6 +13,13 @@ namespace naja { namespace SNL {
 class SNLBitTerm: public SNLTerm {
   public:
     using super = SNLTerm;
+    
+    //Allows to compare SNLBitTerms in the same design.
+    struct InDesignLess {
+      bool operator()(const SNLBitTerm* lt, const SNLBitTerm* rt) const {
+        return std::make_pair(lt->getID(), lt->getBit()) < std::make_pair(rt->getID(), rt->getBit());
+      }
+    };
 
     SNLID::Bit getSize() const override { return 1; }
     virtual SNLID::Bit getBit() const = 0;
