@@ -57,6 +57,7 @@ class SNLInstance final: public SNLDesignObject {
     SNLID::DesignObjectID getID() const { return id_; }
     SNLID getSNLID() const override;
     SNLID::DesignObjectReference getReference() const;
+    bool deepCompare(const SNLInstance* other, std::string& reason) const;
 
     SNLName getName() const { return name_; }
     void setName(const SNLName& name);

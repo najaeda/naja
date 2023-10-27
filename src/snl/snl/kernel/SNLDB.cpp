@@ -12,6 +12,7 @@
 #include "SNLUniverse.h"
 #include "SNLDB0.h"
 #include "SNLException.h"
+#include "SNLMacros.h"
 
 namespace naja { namespace SNL {
 
@@ -173,6 +174,15 @@ SNLID SNLDB::getSNLID() const {
   return SNLID(id_);
 }
 
+void SNLDB::setID(SNLID::DBID id) {
+  if (SNLUniverse::get()->isDB0(this)) {
+    //error
+  }
+  SNLUniverse::get()->removeDB(this);
+  id_ = id;
+  SNLUniverse::get()->addDB(this);
+}
+
 bool SNLDB::isTopDB() const {
   return SNLUniverse::get()->getTopDB() == this;
 }
@@ -190,6 +200,12 @@ void SNLDB::setTopDesign(SNLDesign* design) {
     throw SNLException(reason.str());
   }
   topDesign_ = design;
+}
+
+bool SNLDB::deepCompare(const SNLDB* other, std::string& reason) const {
+  //don't compare SNLDB ID
+  DEEP_COMPARE_MEMBER(Libraries)
+  return true;
 }
 
 void SNLDB::mergeAssigns() {
