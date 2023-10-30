@@ -138,6 +138,10 @@ bool SNLPath::operator==(const SNLPath& path) const {
   return sharedPath_ == path.sharedPath_;
 }
 
+bool SNLPath::operator!=(const SNLPath& path) const {
+  return sharedPath_ != path.sharedPath_;
+}
+
 bool SNLPath::operator<(const SNLPath& path) const {
   if (sharedPath_) {
     if (path.sharedPath_) {
@@ -154,7 +158,7 @@ bool SNLPath::operator<(const SNLPath& path) const {
         while (thisSharedPath) {
           auto thisTailInstance = thisSharedPath->getTailInstance();
           auto otherTailInstance = otherSharedPath->getTailInstance();
-          if (thisTailInstance < otherTailInstance) {
+          if (thisTailInstance->getSNLID() < otherTailInstance->getSNLID()) {
             return true;
           }
           thisSharedPath = thisSharedPath->getHeadSharedPath();

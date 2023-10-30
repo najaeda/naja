@@ -115,6 +115,14 @@ class SNLDesignTest(unittest.TestCase):
     self.assertEqual(1+10+1, sum(1 for b in design.getBitTerms()))
     self.assertEqual(1+1, sum(1 for t in design.getScalarTerms()))
 
+  def testCompare(self):
+    self.assertIsNotNone(self.lib)
+    design0 = snl.SNLDesign.create(self.lib, "DESIGN0")
+    design1 = snl.SNLDesign.create(self.lib, "DESIGN1")
+    self.assertNotEqual(design0, design1)
+    self.assertGreater(design1, design0)
+    self.assertGreaterEqual(design1, design0)
+
   def testParameters(self):
     self.assertIsNotNone(self.lib)
     design = snl.SNLDesign.create(self.lib, "DESIGN")
@@ -136,12 +144,24 @@ class SNLDesignTest(unittest.TestCase):
     self.assertIsNotNone(p3)
     self.assertEqual("INVERTED", p3.getName())
     self.assertEqual(design, p3.getDesign())
+    p0.destroy()
+    p1.destroy()
 
   def testCreationError(self):
     self.assertIsNotNone(self.lib)
     d = snl.SNLDesign.create(self.lib, "DESIGN")
-    with self.assertRaises(RuntimeError) as context: snl.SNLDesign.create("ERROR", "DESIGN")
+    with self.assertRaises(RuntimeError) as context: snl.SNLDesign.create("ERROR", "ERROR", "ERROR")
     with self.assertRaises(RuntimeError) as context: snl.SNLDesign.create(d, "DESIGN")
+    with self.assertRaises(RuntimeError) as context: snl.SNLDesign.createPrimitive("ERROR", "ERROR", "ERROR")
+    with self.assertRaises(RuntimeError) as context: snl.SNLDesign.createPrimitive(d, "PRIMITIVE")
+    with self.assertRaises(RuntimeError) as context: snl.SNLScalarTerm.create(d)
+    with self.assertRaises(RuntimeError) as context: snl.SNLScalarTerm.create(self.lib, snl.SNLTerm.Direction.Output, "O")
+    with self.assertRaises(RuntimeError) as context: snl.SNLBusTerm.create(d)
+    with self.assertRaises(RuntimeError) as context: snl.SNLBusTerm.create(self.lib, snl.SNLTerm.Direction.Output, 3, 2, "O")
+    with self.assertRaises(RuntimeError) as context: snl.SNLScalarNet.create(self.lib)
+    with self.assertRaises(RuntimeError) as context: snl.SNLScalarNet.create(self.lib, "O")
+    with self.assertRaises(RuntimeError) as context: snl.SNLBusNet.create(self.lib)
+    with self.assertRaises(RuntimeError) as context: snl.SNLBusNet.create(self.lib, snl.SNLTerm.Direction.Output, 3, 2, "O")
 
   def testParametersError(self):
     self.assertIsNotNone(self.lib)
@@ -156,6 +176,10 @@ class SNLDesignTest(unittest.TestCase):
     with self.assertRaises(RuntimeError) as context: snl.SNLParameter.create_binary(n, "ERROR", 4, 0)
     with self.assertRaises(RuntimeError) as context: snl.SNLParameter.create_string(n, "ERROR", "ERROR")
     with self.assertRaises(RuntimeError) as context: snl.SNLParameter.create_boolean(n, "ERROR", False)
+
+  def testDestroy(self):
+    design = snl.SNLDesign.create(self.lib, "DESIGN")
+    design.destroy()
    
 if __name__ == '__main__':
   unittest.main()

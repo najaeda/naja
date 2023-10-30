@@ -25,8 +25,11 @@ set(SNL_KERNEL_SOURCES
   kernel/SNLBitTermOccurrence.cpp kernel/SNLInstTermOccurrence.cpp
   kernel/SNLEquipotential.cpp
 )
+set(SNL_DECORATOR_SOURCES
+  decorators/SNLDesignModeling.cpp
+)
 
-set(SNL_KERNEL_HEADERS
+set(SNL_HEADERS
   kernel/SNLName.h
   kernel/SNLID.h
   kernel/SNLObject.h
@@ -50,9 +53,10 @@ set(SNL_KERNEL_HEADERS
   kernel/SNLBitTermOccurrence.h
   kernel/SNLInstTermOccurrence.h
   kernel/SNLEquipotential.h
+  decorators/SNLDesignModeling.h
 )
 
-add_library(naja_snl SHARED ${SNL_KERNEL_SOURCES})
+add_library(naja_snl SHARED ${SNL_KERNEL_SOURCES} ${SNL_DECORATOR_SOURCES})
 
 target_link_libraries(naja_snl PUBLIC naja_core)
 target_compile_options(naja_snl PRIVATE ${NAJA_CXX_WARNINGS}) 
@@ -61,7 +65,8 @@ target_compile_options(naja_snl PRIVATE ${NAJA_CXX_WARNINGS})
 target_include_directories(naja_snl SYSTEM BEFORE PUBLIC ${Boost_INCLUDE_DIR})
 target_include_directories(naja_snl PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/kernel
+  ${CMAKE_CURRENT_SOURCE_DIR}/decorators
 )
 
-set_target_properties(naja_snl PROPERTIES PUBLIC_HEADER "${SNL_KERNEL_HEADERS}")
+set_target_properties(naja_snl PROPERTIES PUBLIC_HEADER "${SNL_HEADERS}")
 install(TARGETS naja_snl LIBRARY DESTINATION lib PUBLIC_HEADER DESTINATION include) 

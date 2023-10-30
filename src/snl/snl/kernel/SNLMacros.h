@@ -41,6 +41,30 @@ void TYPE::setNet(SNLNet* net) { \
   } \
 }
 
+#define DEEP_COMPARE_MEMBER(MEMBER) \
+{ \
+  auto this##MEMBER##It = get##MEMBER().begin(); \
+  auto other##MEMBER##It = other->get##MEMBER().begin(); \
+  while (this##MEMBER##It not_eq get##MEMBER().end()) { \
+    if (other##MEMBER##It == other->get##MEMBER().end()) { \
+      reason += "In " + getDescription() + ", different size of " #MEMBER + ":" ; \
+      reason += std::to_string(get##MEMBER().size()) + " vs "; \
+      reason += std::to_string(other->get##MEMBER().size()); \
+      return false; \
+    } \
+    auto this##MEMBER = *this##MEMBER##It; \
+    auto other##MEMBER = *other##MEMBER##It; \
+    if (not this##MEMBER->deepCompare(other##MEMBER, reason)) { \
+      return false; \
+    } \
+    ++this##MEMBER##It; \
+    ++other##MEMBER##It; \
+  } \
+  if (other##MEMBER##It not_eq other->get##MEMBER().end()) { \
+    return false; \
+  } \
+}
+
 #define DESIGN_OBJECT_SET_NAME(TYPE, METHOD_TYPE, STRING) \
 void TYPE::setName(const SNLName& name) { \
   if (name_ == name) { \

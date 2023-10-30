@@ -13,6 +13,8 @@
 #include "PySNLBitTerm.h"
 #include "PySNLInstTerms.h"
 
+#include "SNLDesignModeling.h"
+
 namespace PYSNL {
 
 using namespace naja::SNL;
@@ -56,6 +58,38 @@ static PyObject* PySNLInstance_getModel(PySNLInstance* self) {
   return PySNLDesign_Link(selfObject->getModel());
 }
 
+static PyObject* PySNLDesign_getCombinatorialInputs(PySNLDesign*, PyObject* output) {
+  if (IsPySNLInstTerm(output)) {
+    auto outputITerm = PYSNLInstTerm_O(output);
+    PySNLInstTerms* pyObjects = nullptr;
+    SNLTRY
+    auto objects = new naja::NajaCollection<SNLInstTerm*>(SNLDesignModeling::getCombinatorialInputs(outputITerm));
+    pyObjects = PyObject_NEW(PySNLInstTerms, &PyTypeSNLInstTerms);
+    if (not pyObjects) return nullptr;
+    pyObjects->object_ = objects;
+    SNLCATCH
+    return (PyObject*)pyObjects;
+  }
+  setError("malformed SNLInstance.getCombinatorialInputs method");
+  return nullptr;
+}
+
+static PyObject* PySNLDesign_getCombinatorialOutputs(PySNLDesign*, PyObject* input) {
+  if (IsPySNLInstTerm(input)) {
+    auto inputITerm = PYSNLInstTerm_O(input);
+    PySNLInstTerms* pyObjects = nullptr;
+    SNLTRY
+    auto objects = new naja::NajaCollection<SNLInstTerm*>(SNLDesignModeling::getCombinatorialOutputs(inputITerm));
+    pyObjects = PyObject_NEW(PySNLInstTerms, &PyTypeSNLInstTerms);
+    if (not pyObjects) return nullptr;
+    pyObjects->object_ = objects;
+    SNLCATCH
+    return (PyObject*)pyObjects;
+  }
+  setError("malformed SNLInstance.getCombinatorialOutputs method");
+  return nullptr;
+}
+
 GetNameMethod(SNLInstance)
 
 DBoDeallocMethod(SNLInstance)
@@ -94,6 +128,10 @@ PyMethodDef PySNLInstance_Methods[] = {
     "Returns the SNLInstTerm corresponding to a model's SNLBitTerm."},
   {"getInstTerms", (PyCFunction)PySNLInstance_getInstTerms, METH_NOARGS,
     "get a container of SNLInstTerms."},
+  { "getCombinatorialInputs", (PyCFunction)PySNLDesign_getCombinatorialInputs, METH_O|METH_STATIC,
+    "get combinatorial inputs of an instance term"},
+  { "getCombinatorialOutputs", (PyCFunction)PySNLDesign_getCombinatorialOutputs, METH_O|METH_STATIC,
+    "get combinatorial outputs of an instance term"},
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 
