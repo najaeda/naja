@@ -7,7 +7,7 @@ Files: .github/workflows/*
 Copyright: 2022 The Naja Authors.
 License: Apache-2.0
 
-Files: images/*
+Files: docs/images/*
 Copyright: 2022 The Naja Authors.
 License: Apache-2.0
 

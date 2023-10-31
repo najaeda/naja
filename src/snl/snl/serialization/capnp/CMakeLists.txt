@@ -1,8 +1,6 @@
-# Copyright The Naja Authors.
 # SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
 #
 # SPDX-License-Identifier: Apache-2.0
-#
 
 capnp_generate_cpp(snlCommonSources snlCommonHeaders snl_common.capnp)
 capnp_generate_cpp(snlInterfaceSources snlInterfaceHeaders snl_interface.capnp)
