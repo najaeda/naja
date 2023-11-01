@@ -71,42 +71,6 @@ void dumpConstantRange(ContiguousNetBits& bits, bool& firstElement, bool& concat
   bits.clear();
 }
 
-void dumpRange(ContiguousNetBits& bits, bool& firstElement, bool& concatenation, std::string& o) {
-  if (not bits.empty()) {
-    if (bits[0]->isAssignConstant()) {
-      dumpConstantRange(bits, firstElement, concatenation, o);
-    } else {
-      if (not firstElement) {
-        o += ", ";
-        concatenation = true;
-      } else {
-        firstElement = false;
-      }
-      naja::SNL::SNLBusNetBit* rangeMSBBit = static_cast<naja::SNL::SNLBusNetBit*>(bits[0]);
-      naja::SNL::SNLID::Bit rangeMSB = rangeMSBBit->getBit();
-      naja::SNL::SNLBusNetBit* rangeLSBBit =static_cast<naja::SNL::SNLBusNetBit*>(bits[bits.size()-1]);
-      naja::SNL::SNLID::Bit rangeLSB = rangeLSBBit->getBit();
-      naja::SNL::SNLBusNet* bus = rangeMSBBit->getBus();
-      naja::SNL::SNLID::Bit busMSB = bus->getMSB();
-      naja::SNL::SNLID::Bit busLSB = bus->getLSB();
-      if (rangeMSB == busMSB and rangeLSB == busLSB) {
-        o += bus->getName().getString();
-      } else if (rangeMSB == rangeLSB) {
-        o += bus->getName().getString() + "[";
-        o += std::to_string(rangeMSB);
-        o += "]";
-      } else {
-        o += bus->getName().getString() + "[";
-        o += std::to_string(rangeMSB);
-        o += ":";
-        o += std::to_string(rangeLSB);
-        o += "]";
-      }
-      bits.clear();
-    }
-  }
-}
-
 std::string dumpName(const std::string& name) {
   // An identifier is used to give an object a unique name so it can be referenced.
   // An identifier is either a simple identifier or an escaped identifier (see 3.7.1).
@@ -143,6 +107,42 @@ std::string dumpName(const std::string& name) {
     return "\\" + name + " ";
   }
   return name;
+}
+
+void dumpRange(ContiguousNetBits& bits, bool& firstElement, bool& concatenation, std::string& o) {
+  if (not bits.empty()) {
+    if (bits[0]->isAssignConstant()) {
+      dumpConstantRange(bits, firstElement, concatenation, o);
+    } else {
+      if (not firstElement) {
+        o += ", ";
+        concatenation = true;
+      } else {
+        firstElement = false;
+      }
+      naja::SNL::SNLBusNetBit* rangeMSBBit = static_cast<naja::SNL::SNLBusNetBit*>(bits[0]);
+      naja::SNL::SNLID::Bit rangeMSB = rangeMSBBit->getBit();
+      naja::SNL::SNLBusNetBit* rangeLSBBit =static_cast<naja::SNL::SNLBusNetBit*>(bits[bits.size()-1]);
+      naja::SNL::SNLID::Bit rangeLSB = rangeLSBBit->getBit();
+      naja::SNL::SNLBusNet* bus = rangeMSBBit->getBus();
+      naja::SNL::SNLID::Bit busMSB = bus->getMSB();
+      naja::SNL::SNLID::Bit busLSB = bus->getLSB();
+      if (rangeMSB == busMSB and rangeLSB == busLSB) {
+        o += dumpName(bus->getName().getString());
+      } else if (rangeMSB == rangeLSB) {
+        o += dumpName(bus->getName().getString()) + "[";
+        o += std::to_string(rangeMSB);
+        o += "]";
+      } else {
+        o += dumpName(bus->getName().getString()) + "[";
+        o += std::to_string(rangeMSB);
+        o += ":";
+        o += std::to_string(rangeLSB);
+        o += "]";
+      }
+      bits.clear();
+    }
+  }
 }
 
 }
@@ -229,7 +229,7 @@ void SNLVRLDumper::dumpInterface(const SNLDesign* design, std::ostream& o, Desig
     if (auto bus = dynamic_cast<SNLBusTerm*>(term)) {
       o << "[" << bus->getMSB() << ":" << bus->getLSB() << "] ";
     }
-    o << term->getName().getString();
+    o << dumpName(term->getName().getString());
   }
   o << ");";
 }
@@ -248,7 +248,7 @@ bool SNLVRLDumper::dumpNet(const SNLNet* net, std::ostream& o, DesignInsideAnony
   if (auto bus = dynamic_cast<const SNLBusNet*>(net)) {
     o << "[" << bus->getMSB() << ":" << bus->getLSB() << "] ";
   }
-  o << netName.getString();
+  o << dumpName(netName.getString());
   o << ";" << std::endl;
   return true;
 }
@@ -357,7 +357,7 @@ void SNLVRLDumper::dumpInsTermConnectivity(
     o << ")";
   } else {
     //should we not dump anything for non connected inst terms ?
-    o << "  ." << term->getName().getString() << "()"; 
+    o << "  ." << dumpName(term->getName().getString()) << "()"; 
   }
 }
 

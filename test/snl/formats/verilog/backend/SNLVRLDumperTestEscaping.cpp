@@ -39,6 +39,10 @@ class SNLVRLDumperTestEscaping: public ::testing::Test {
       db_ = SNLDB::create(universe);
       SNLLibrary* library = SNLLibrary::create(db_, SNLName("MYLIB"));
       SNLDesign* model0 = SNLDesign::create(library, SNLName("#model0"));
+      auto t0 = SNLScalarTerm::create(model0, SNLTerm::Direction::Input, SNLName("%t0"));
+      auto t1 = SNLScalarTerm::create(model0, SNLTerm::Direction::Input, SNLName("12t1@"));
+      auto t3 = SNLBusTerm::create(model0, SNLTerm::Direction::Input, 3, 0, SNLName("3 4"));
+      auto t4 = SNLBusTerm::create(model0, SNLTerm::Direction::Input, -5, 2, SNLName("##"));
       SNLDesign* top = SNLDesign::create(library, SNLName("design@"));
       universe->setTopDesign(top);
 
