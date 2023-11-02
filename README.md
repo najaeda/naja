@@ -8,6 +8,7 @@
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 ## Introduction
+
 Naja is an Electronic Design Automation (EDA) project that provides open source data structures and APIs for the development of post logic synthesis EDA algorithms such as: netlist simplification (constant and dead logic propagation), logic replication, netlist partitioning, ASIC and FPGA place and route, …
 
 Naja contains two main components SNL (Structured Netlist) API (located in this repo) and [naja-verilog](https://github.com/xtofalex/naja-verilog), a data structure independent structural verilog parser.
@@ -49,7 +50,7 @@ Mandatory dependencies:
 1. Boost
 2. [cmake](https://cmake.org): at least 3.22 version.
 3. Python3: for building the SNL Python3 interface. This interface is used to load primitive cells (associated to Verilog parsing)
-and their associated characteristics (for instance: ressource count, timing characteristics, ...).    
+and their associated characteristics (for instance: ressource count, timing characteristics, ...).
 
 Optional dependencies:
 1. [Doxygen](https://www.doxygen.nl): for the documentation generation.
@@ -59,6 +60,7 @@ Embedded dependencies, through git sub modules:
 2. [google test](https://github.com/google/googletest) for unit testing.
 
 On Ubuntu:
+
 ```bash
 sudo apt-get install python3-dev
 sudo apt-get install capnproto
@@ -68,11 +70,15 @@ sudo apt-get install bison
 sudo apt-get install flex
 sudo apt-get install doxygen
 ```
+
 Using [nix-shell](https://nixos.wiki/wiki/Development_environment_with_nix-shell):
+
 ```bash
 nix-shell -p cmake boost python3 doxygen capnproto bison flex pkg-config
 ```
+
 ### Building and Installing
+
 ```bash
 #First define an env variable that points to the directory where you want naja to be installed:
 export NAJA_INSTALL=<path_to_installation_dir>
@@ -85,25 +91,34 @@ make
 make test
 make install
 ```
+
 ### Building and Installing Documentation
+
 ```bash
 #make sure that doxygen was available when launching the cmake command
 cd build
 make docs
 make install
 ```
+
 Documentation will be installed in $NAJA_INSTALL/doc directory. Starting file to open in browser is: $NAJA_INSTALL/doc/html/index.html.
 
-## Use 
+## Use
+
 ### Environment
+
 After building and installing, start by setting up a runtime environment.
+
 ```bash
 export NAJA_INSTALL=<path_to_installation_dir>
 #For Naja python interface and in particular primitives loading
 export PYTHONPATH=$PYTHONPATH:$NAJA_INSTALL/lib/python
 ```
+
 ### Inputs/Outputs
+
 #### SNL Interchange Format
+
 SNL relies on [Cap'n Proto](https://github.com/capnproto/capnproto) for data serialization and streaming. Schema files and C++ implementation can be found [here](https://github.com/xtofalex/naja/tree/main/src/snl/snl/serialization/capnp).
 
 Files composing the dump are created in a directory usually named "snl", composed of the following files:
@@ -138,9 +153,14 @@ An application snippet can be found [here](https://github.com/xtofalex/naja/blob
 
 This "app" directory and its contents can be copied to start a new application.
 
+<div align="right">[ <a href="#Introduction">↑ Back to top ↑</a> ]</div>
+
 ## Applications
 ###  naja_x2y
 This simple [application](https://github.com/xtofalex/naja/blob/main/src/apps/x2y/NajaX2Y.cpp) allows to translate a netlist from a format to another. SNL to verilog or verilog to SNL.
 
 ## Issues / Bugs
+
 Please use [GitHub Issues](https://github.com/xtofalex/naja/issues) to create and track requests and bugs.
+
+<div align="right">[ <a href="#Introduction">↑ Back to top ↑</a> ]</div>
