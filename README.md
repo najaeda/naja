@@ -128,6 +128,7 @@ Files composing the dump are created in a directory usually named "snl", compose
 - **Implementation Specification File (`db_implementation.snl`):** Contained within this file are the detailed implementations of modules: instances, nets and connectivity between them.
 
 SNL files can be examined using the `capnp` tool.
+
 ```bash
 capnp decode --packed snl_interface.capnp DBInterface < snl/db_interface.snl > interface.txt
 capnp decode --packed snl_implementation.capnp DBImplementation < snl/db_implementation.snl > implementation.txt
@@ -135,7 +136,7 @@ capnp decode --packed snl_implementation.capnp DBImplementation < snl/db_impleme
 
 #### Verilog
 
-For Verilog parsing, Naja relies on naja-verilog submodule (https://github.com/xtofalex/naja-verilog).
+For Verilog parsing, Naja relies on naja-verilog [submodule](https://github.com/xtofalex/naja-verilog).
 Leaf primitives are loaded through the Python primitive loader: [SNLPrimitivesLoader](https://github.com/xtofalex/naja/blob/main/src/snl/python/primitives/SNLPrimitivesLoader.h).
 A application snippet can be found [here](https://github.com/xtofalex/naja/blob/main/src/snl/snippets/app/src/SNLVRLSnippet.cpp) and examples of
 primitive libraries described using the Python interface can be found in the
@@ -143,12 +144,53 @@ primitive libraries described using the Python interface can be found in the
 
 A Verilog dumper is included in SNL API. See [here](https://github.com/xtofalex/naja/blob/main/src/snl/formats/verilog/backend/SNLVRLDumper.h).
 
+## Primitives
+
+```python
+import snl
+
+# define a combinatorial AND2 Primitive with:
+# - 2 scalar inputs: I0 and I1
+# - 1 scalar output: O
+def constructAND2(lib):
+  and2 = snl.SNLDesign.createPrimitive(lib, "AND2")
+  i0 = snl.SNLScalarTerm.create(and2, snl.SNLTerm.Direction.Input, "I0")
+  i1 = snl.SNLScalarTerm.create(and2, snl.SNLTerm.Direction.Input, "I1")
+  o = snl.SNLScalarTerm.create(and2, snl.SNLTerm.Direction.Output, "O")
+  snl.SNLDesign.addCombinatorialArcs([i0, i1], o)
+
+# define a sequential FD Primitive with:
+# - 1 scalar input: D, 1 scalar clock input: C
+# - 1 scalar output: Q
+# - 1 a binary parameter "MASK" of size 1 with default value "0b0" 
+def constructFD(lib):
+  fd = snl.SNLDesign.createPrimitive(lib, "FD")
+  q = snl.SNLScalarTerm.create(fd, snl.SNLTerm.Direction.Output, "Q")
+  c = snl.SNLScalarTerm.create(fd, snl.SNLTerm.Direction.Input, "C")
+  d = snl.SNLScalarTerm.create(fd, snl.SNLTerm.Direction.Input, "D")
+  snl.SNLParameter.create_binary(fd, "MASK", 1, 0b0)
+  snl.SNLDesign.addInputsToClockArcs(d, c)
+  snl.SNLDesign.addClockToOutputsArcs(c, q)
+
+#The "primitives" script needs to define a constructPrimitives function
+# taking a primitives library to construct.
+def constructPrimitives(lib):
+  constructAND2(lib)
+  constructREG(lib)
+```
+
 ## Snippets
+
 ### c++
+
 This [snippet](https://github.com/xtofalex/naja/blob/main/src/snl/snippets/app/src/SNLSnippet.cpp) shows various SNL API netlist construction, manipulation and browsing examples.
+
 ### Python
+
 This [snippet](https://github.com/xtofalex/naja/blob/main/src/snl/snippets/python/snl_snippet.py) shows an equivalent example using Python interface.
+
 ### Application snippet
+
 An application snippet can be found [here](https://github.com/xtofalex/naja/blob/main/src/snl/snippets/app).
 
 This "app" directory and its contents can be copied to start a new application.
@@ -156,7 +198,9 @@ This "app" directory and its contents can be copied to start a new application.
 <div align="right">[ <a href="#Introduction">↑ Back to top ↑</a> ]</div>
 
 ## Applications
-###  naja_x2y
+
+### naja_x2y
+
 This simple [application](https://github.com/xtofalex/naja/blob/main/src/apps/x2y/NajaX2Y.cpp) allows to translate a netlist from a format to another. SNL to verilog or verilog to SNL.
 
 ## Issues / Bugs
