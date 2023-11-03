@@ -103,6 +103,10 @@ make install
 
 Documentation will be installed in $NAJA_INSTALL/doc directory. Starting file to open in browser is: $NAJA_INSTALL/doc/html/index.html.
 
+<div align="right">[ <a href="#Introduction">↑ Back to top ↑</a> ]</div>
+
+---
+
 ## Use
 
 ### Environment
@@ -144,6 +148,10 @@ primitive libraries described using the Python interface can be found in the
 
 A Verilog dumper is included in SNL API. See [here](https://github.com/xtofalex/naja/blob/main/src/snl/formats/verilog/backend/SNLVRLDumper.h).
 
+<div align="right">[ <a href="#Introduction">↑ Back to top ↑</a> ]</div>
+
+---
+
 ## Primitives
 
 ```python
@@ -179,6 +187,10 @@ def constructPrimitives(lib):
   constructREG(lib)
 ```
 
+<div align="right">[ <a href="#Introduction">↑ Back to top ↑</a> ]</div>
+
+---
+
 ## Snippets
 
 ### c++
@@ -196,6 +208,8 @@ An application snippet can be found [here](https://github.com/xtofalex/naja/blob
 This "app" directory and its contents can be copied to start a new application.
 
 <div align="right">[ <a href="#Introduction">↑ Back to top ↑</a> ]</div>
+
+---
 
 ## Applications
 
