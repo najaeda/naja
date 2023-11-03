@@ -1,18 +1,6 @@
-/*
- * Copyright 2022 The Naja Authors.
- * 
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #include "SNLBusTermBit.h"
 
@@ -75,6 +63,10 @@ size_t SNLBusTermBit::getPositionInBus() const {
   return size_t(std::abs(getBit() - getBus()->getMSB())); 
 }
 
+NajaCollection<SNLBitTerm*> SNLBusTermBit::getBits() const {
+  return NajaCollection(new NajaSingletonCollection(const_cast<SNLBusTermBit*>(this))).getParentTypeCollection<SNLBitTerm*>();
+}
+
 SNLDesign* SNLBusTermBit::getDesign() const {
   return getBus()->getDesign();
 }
@@ -101,13 +93,22 @@ std::string SNLBusTermBit::getString() const {
 
 //LCOV_EXCL_START
 std::string SNLBusTermBit::getDescription() const {
-  std::ostringstream str;
+  std::ostringstream stream;
+  stream << "<" << std::string(getTypeName()) << " ";
   if (not getBus()->isAnonymous()) {
-    str << getBus()->getName().getString();
+    stream << getBus()->getName().getString();
+  } else {
+    stream << "(" << getBus()->getID() << ")";
   }
-  str << "(" << getBus()->getID() << ")";
-  str << "[" << getBit() << "]";
-  return str.str();
+  stream << "[" << getBit() << "]";
+  stream << ">";
+  return stream.str();
+}
+//LCOV_EXCL_STOP
+
+//LCOV_EXCL_START
+void SNLBusTermBit::debugDump(size_t indent, bool recursive, std::ostream& stream) const {
+  stream << std::string(indent, ' ') << getDescription() << std::endl;
 }
 //LCOV_EXCL_STOP
 

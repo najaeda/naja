@@ -1,18 +1,6 @@
-/*
- * Copyright 2022 The Naja Authors.
- * 
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #ifndef __PY_INTERFACE_H
 #define __PY_INTERFACE_H
@@ -133,6 +121,14 @@ PyObject* richCompare(T left, T right, int op) {
     Py_RETURN_NONE;                                                                        \
   }
 
+#define DirectDeallocMethod(TYPE) \
+  static void Py##TYPE##_DeAlloc(Py##TYPE* self) { \
+    if (self->ACCESS_OBJECT) { \
+      delete self->ACCESS_OBJECT; \
+    } \
+    PyObject_DEL(self); \
+  }
+
 #define DBoDeallocMethod(SELF_TYPE)                                      \
   static void Py##SELF_TYPE##_DeAlloc(Py##SELF_TYPE *self) {             \
     PyObject_DEL(self);                                                  \
@@ -198,9 +194,25 @@ PyObject* richCompare(T left, T right, int op) {
     return PySNL##OBJECT_TYPE##_Link(obj); \
   }
 
+#define GetObjectByIndex(SELF_TYPE, OBJECT_TYPE, METHOD) \
+  static PyObject* PySNL##SELF_TYPE##_get##METHOD(PySNL##SELF_TYPE* self, PyObject* args) { \
+    SNL##OBJECT_TYPE* obj = nullptr; \
+    METHOD_HEAD("SNL##SELF_TYPE.get##OBJECT_TYPE()") \
+    int index = 0; \
+    if (PyArg_ParseTuple(args, "i:SNL##SELF_TYPE.get##METHOD", &index)) { \
+      SNLTRY \
+      obj = selfObject->get##METHOD(index); \
+      SNLCATCH \
+    } else { \
+      setError("invalid number of parameters for get##METHOD."); \
+      return nullptr; \
+    } \
+    return PySNL##OBJECT_TYPE##_Link(obj); \
+  }
+
 #define GetNameMethod(SELF_TYPE) \
   static PyObject* Py##SELF_TYPE##_getName(Py##SELF_TYPE* self) { \
-    METHOD_HEAD("SELF_TYPE.getName()") \
+    METHOD_HEAD(#SELF_TYPE ".getName()") \
     SNLTRY \
     return PyUnicode_FromString(selfObject->getName().getString().c_str()); \
     SNLCATCH \
@@ -227,10 +239,10 @@ PyObject* richCompare(T left, T right, int op) {
     return nullptr;                                               \
   }
 
-#define PyTypeObjectDefinitions(SELF_TYPE)                          \
-  PyTypeObject PyType##SELF_TYPE = {                                \
-    PyVarObject_HEAD_INIT(NULL, 0)                                  \
-    #SELF_TYPE, /* tp_name */                                       \
+#define PyTypeObjectDefinitions(SELF_TYPE) \
+  PyTypeObject PyType##SELF_TYPE = { \
+    PyObject_HEAD_INIT(NULL) \
+    #SELF_TYPE, /* tp_name */ \
     sizeof(Py##SELF_TYPE), /* tp_basicsize */                       \
     0, /* tp_itemsize */                                            \
     0, /* tp_dealloc */                                             \
@@ -269,9 +281,9 @@ PyObject* richCompare(T left, T right, int op) {
     PyType_GenericNew /* tp_new */                                  \
 };
 
-#define PyTypeInheritedObjectDefinitions(SELF_TYPE, SUPER_TYPE)     \
-  PyTypeObject PyType##SELF_TYPE = {                                \
-    PyVarObject_HEAD_INIT(NULL, 0)                                  \
+#define PyTypeInheritedObjectDefinitions(SELF_TYPE, SUPER_TYPE) \
+  PyTypeObject PyType##SELF_TYPE = { \
+    PyObject_HEAD_INIT(NULL) \
     #SELF_TYPE, /* tp_name */                                       \
     sizeof(Py##SELF_TYPE), /* tp_basicsize */                       \
     0, /* tp_itemsize */                                            \
@@ -311,6 +323,67 @@ PyObject* richCompare(T left, T right, int op) {
     PyType_GenericNew /* tp_new */                                  \
 };
 
+#define PyContainerMethods(TYPE, CONTAINER) \
+  DirectDeallocMethod(CONTAINER) \
+  static PyObject* Py##CONTAINER##IteratorNext(Py##CONTAINER##Iterator* pyIterator) { \
+    auto iterator = pyIterator->object_; \
+    if (iterator and pyIterator->container_ \
+      and pyIterator->container_->object_ \
+      and *iterator != pyIterator->container_->object_->end()) { \
+      auto object = **iterator; \
+      ++(*iterator); \
+      return Py##TYPE##_Link(object); \
+    } \
+    return nullptr; \
+  } \
+  static PyObject* getIterator(Py##CONTAINER* pyContainer) { \
+    auto pyIterator = \
+      PyObject_New(Py##CONTAINER##Iterator, &PyType##CONTAINER##Iterator); \
+    if (not pyIterator) return nullptr; \
+    pyIterator->container_ = pyContainer; \
+    pyIterator->object_ = new naja::NajaCollection<TYPE*>::Iterator(pyContainer->object_->begin()); \
+    Py_INCREF(pyContainer); \
+    return (PyObject*)pyIterator; \
+  } \
+  static void Py##CONTAINER##IteratorDeAlloc(Py##CONTAINER##Iterator* pyIterator) { \
+    Py_XDECREF(pyIterator->container_); \
+    if (pyIterator->object_) delete pyIterator->object_; \
+    PyObject_Del(pyIterator); \
+  } \
+  extern void Py##CONTAINER##_LinkPyType() { \
+    PyType##CONTAINER.tp_iter               = (getiterfunc)getIterator; \
+    PyType##CONTAINER.tp_dealloc            = (destructor)Py##CONTAINER##_DeAlloc; \
+    PyType##CONTAINER##Iterator.tp_dealloc  = (destructor)Py##CONTAINER##IteratorDeAlloc; \
+    PyType##CONTAINER##Iterator.tp_iter     = PyObject_SelfIter; \
+    PyType##CONTAINER##Iterator.tp_iternext = (iternextfunc)Py##CONTAINER##IteratorNext; \
+  }
+
+#define PyTypeContainerObjectDefinitions(SELF_TYPE) \
+  PyTypeObject PyType##SELF_TYPE = { \
+      PyVarObject_HEAD_INIT(NULL,0) \
+      #SELF_TYPE                      /* tp_name.          */           \
+    , sizeof(Py##SELF_TYPE)           /* tp_basicsize.     */           \
+    , 0                               /* tp_itemsize.      */           \
+    /* methods. */                                                      \
+    , 0                               /* tp_dealloc.       */           \
+    , 0                               /* tp_print.         */           \
+    , 0                               /* tp_getattr.       */           \
+    , 0                               /* tp_setattr.       */           \
+    , 0                               /* tp_compare.       */           \
+    , 0                               /* tp_repr.          */           \
+    , 0                               /* tp_as_number.     */           \
+    , 0                               /* tp_as_sequence.   */           \
+    , 0                               /* tp_as_mapping.    */           \
+    , 0                               /* tp_hash.          */           \
+    , 0                               /* tp_call.          */           \
+    , 0                               /* tp_str            */           \
+    , 0                               /* tp_getattro.      */           \
+    , 0                               /* tp_setattro.      */           \
+    , 0                               /* tp_as_buffer.     */           \
+    , Py_TPFLAGS_DEFAULT              /* tp_flags.         */           \
+    , "#SELF_TYPE objects"            /* tp_doc.           */           \
+  };
+
 #define GENERIC_METHOD_HEAD(SELF_TYPE, function) \
   if (not self->ACCESS_OBJECT) {                                                            \
     setError("Attempt to call " function " on an unbound object");                          \
@@ -321,5 +394,45 @@ PyObject* richCompare(T left, T right, int op) {
     setError("Invalid dynamic_cast<> while calling " function "");                          \
     return nullptr;                                                                         \
   }
+
+#define GetContainerMethod(TYPE, ITERATED, CONTAINER) \
+  static PyObject* PySNL##TYPE##_get##CONTAINER(PySNL##TYPE *self) { \
+    METHOD_HEAD("SNL" #TYPE ".get" #CONTAINER "()") \
+    PySNL##CONTAINER* pyObjects = nullptr; \
+    SNLTRY \
+    auto objects = new naja::NajaCollection<SNL##ITERATED*>(selfObject->get##CONTAINER()); \
+    pyObjects = PyObject_NEW(PySNL##CONTAINER, &PyTypeSNL##CONTAINER); \
+    if (not pyObjects) return nullptr; \
+    pyObjects->object_ = objects; \
+    SNLCATCH \
+    return (PyObject*)pyObjects; \
+  }
+
+#define GetContainerMethodWithMethodName(TYPE, ITERATED, METHOD) \
+  static PyObject* PySNL##TYPE##_##METHOD(PySNL##TYPE *self) { \
+    METHOD_HEAD("SNL" #TYPE "." #METHOD "()") \
+    PySNL##ITERATED##s* pyObjects = nullptr; \
+    SNLTRY \
+    auto objects = new naja::NajaCollection<SNL##ITERATED*>(selfObject->METHOD()); \
+    pyObjects = PyObject_NEW(PySNL##ITERATED##s, &PyTypeSNL##ITERATED##s); \
+    if (not pyObjects) return nullptr; \
+    pyObjects->object_ = objects; \
+    SNLCATCH \
+    return (PyObject*)pyObjects; \
+  }
+
+#define GetDesignModelingRelatedObjects(TYPE, GETTER, OWNER_TYPE) \
+  if (IsPy##TYPE(object)) { \
+    auto object_o = PY##TYPE##_O(object); \
+    SNLTRY \
+    auto objects = new naja::NajaCollection<TYPE*>(SNLDesignModeling::GETTER(object_o)); \
+    auto pyObjects = PyObject_NEW(Py##TYPE##s, &PyType##TYPE##s); \
+    if (not pyObjects) return nullptr; \
+    pyObjects->object_ = objects; \
+    return (PyObject*)pyObjects; \
+    SNLCATCH \
+  } \
+  setError("malformed " #OWNER_TYPE "." #GETTER " method"); \
+  return nullptr;
 
 #endif /* __PY_INTERFACE_H */

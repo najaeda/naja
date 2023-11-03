@@ -1,19 +1,27 @@
+
+# SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
+#
+# SPDX-License-Identifier: Apache-2.0
+
 import snl
 
 def constructIBUF(lib):
   ibuf = snl.SNLDesign.createPrimitive(lib, "IBUF")
   i = snl.SNLScalarTerm.create(ibuf, snl.SNLTerm.Direction.Input, "I")
   o = snl.SNLScalarTerm.create(ibuf, snl.SNLTerm.Direction.Output, "O")
+  ibuf.addCombinatorialArcs(i, o)
 
 def constructOBUF(lib):
   obuf = snl.SNLDesign.createPrimitive(lib, "OBUF")
   i = snl.SNLScalarTerm.create(obuf, snl.SNLTerm.Direction.Input, "I")
   o = snl.SNLScalarTerm.create(obuf, snl.SNLTerm.Direction.Output, "O")
+  obuf.addCombinatorialArcs(i, o)
 
 def constructBUFG(lib):
   bufg = snl.SNLDesign.createPrimitive(lib, "BUFG")
   i = snl.SNLScalarTerm.create(bufg, snl.SNLTerm.Direction.Input, "I")
   o = snl.SNLScalarTerm.create(bufg, snl.SNLTerm.Direction.Output, "O")
+  bufg.addCombinatorialArcs(i, o)
 
 def constructDSP48E1(lib):
   dsp48e1 = snl.SNLDesign.createPrimitive(lib, "DSP48E1")
@@ -88,82 +96,111 @@ def constructDSP48E1(lib):
 
 def constructINV(lib):
   inv = snl.SNLDesign.createPrimitive(lib, "INV")
-  snl.SNLScalarTerm.create(inv, snl.SNLTerm.Direction.Input, "I")
-  snl.SNLScalarTerm.create(inv, snl.SNLTerm.Direction.Output, "O")
+  i = snl.SNLScalarTerm.create(inv, snl.SNLTerm.Direction.Input, "I")
+  o = snl.SNLScalarTerm.create(inv, snl.SNLTerm.Direction.Output, "O")
+  snl.SNLDesign.addCombinatorialArcs(i, o)
 
 def constructCARRY4(lib):
   carry4 = snl.SNLDesign.createPrimitive(lib, "CARRY4")
-  snl.SNLBusTerm.create(carry4, snl.SNLTerm.Direction.Output, 3, 0, "O")
-  snl.SNLBusTerm.create(carry4, snl.SNLTerm.Direction.Output, 3, 0, "CO")
-  snl.SNLBusTerm.create(carry4, snl.SNLTerm.Direction.Input, 3, 0, "DI")
-  snl.SNLBusTerm.create(carry4, snl.SNLTerm.Direction.Input, 3, 0, "S")
-  snl.SNLScalarTerm.create(carry4, snl.SNLTerm.Direction.Input, "CYINIT")
-  snl.SNLScalarTerm.create(carry4, snl.SNLTerm.Direction.Input, "CI")
+  o = snl.SNLBusTerm.create(carry4, snl.SNLTerm.Direction.Output, 3, 0, "O")
+  co = snl.SNLBusTerm.create(carry4, snl.SNLTerm.Direction.Output, 3, 0, "CO")
+  di = snl.SNLBusTerm.create(carry4, snl.SNLTerm.Direction.Input, 3, 0, "DI")
+  s = snl.SNLBusTerm.create(carry4, snl.SNLTerm.Direction.Input, 3, 0, "S")
+  cyinit  = snl.SNLScalarTerm.create(carry4, snl.SNLTerm.Direction.Input, "CYINIT")
+  ci = snl.SNLScalarTerm.create(carry4, snl.SNLTerm.Direction.Input, "CI")
+  o_bits = [b for b in o.getBits()]
+  co_bits = [b for b in co.getBits()]
+  di_bits = [b for b in di.getBits()]
+  s_bits = [b for b in s.getBits()]
+  #cyinit and ci are in combinatorial dependency with o and co outputs
+  snl.SNLDesign.addCombinatorialArcs([cyinit, ci], [o, co])
+  snl.SNLDesign.addCombinatorialArcs(s_bits[0], [o, co])
+  snl.SNLDesign.addCombinatorialArcs(s_bits[1], [o_bits[1], o_bits[2], o_bits[3]])
+  snl.SNLDesign.addCombinatorialArcs(s_bits[1], [co_bits[1], co_bits[2], co_bits[3]])
+  snl.SNLDesign.addCombinatorialArcs(s_bits[2], [o_bits[2], o_bits[3]])
+  snl.SNLDesign.addCombinatorialArcs(s_bits[2], [co_bits[2], co_bits[3]])
+  snl.SNLDesign.addCombinatorialArcs(s_bits[3], o_bits[3])
+  snl.SNLDesign.addCombinatorialArcs(s_bits[3], co_bits[3])
+  snl.SNLDesign.addCombinatorialArcs(di_bits[0], [o_bits[1], o_bits[2], o_bits[3]])
+  snl.SNLDesign.addCombinatorialArcs(di_bits[0], co)
+  snl.SNLDesign.addCombinatorialArcs(di_bits[1], [o_bits[2], o_bits[3]])
+  snl.SNLDesign.addCombinatorialArcs(di_bits[1], [co_bits[1], co_bits[2], co_bits[3]])
+  snl.SNLDesign.addCombinatorialArcs(di_bits[2], o_bits[3])
+  snl.SNLDesign.addCombinatorialArcs(di_bits[2], [co_bits[2], co_bits[3]])
+  snl.SNLDesign.addCombinatorialArcs(di_bits[3], co_bits[3])
 
 def constructLUT1(lib):
   lut1 = snl.SNLDesign.createPrimitive(lib, "LUT1")
-  snl.SNLScalarTerm.create(lut1, snl.SNLTerm.Direction.Input, "I0")
-  snl.SNLScalarTerm.create(lut1, snl.SNLTerm.Direction.Output, "O")
+  i0 = snl.SNLScalarTerm.create(lut1, snl.SNLTerm.Direction.Input, "I0")
+  o = snl.SNLScalarTerm.create(lut1, snl.SNLTerm.Direction.Output, "O")
+  snl.SNLDesign.addCombinatorialArcs(i0, o)
   snl.SNLParameter.create_binary(lut1, "INIT", 2, 0b00)
 
 def constructLUT2(lib):
   lut2 = snl.SNLDesign.createPrimitive(lib, "LUT2")
-  snl.SNLScalarTerm.create(lut2, snl.SNLTerm.Direction.Input, "I0")
-  snl.SNLScalarTerm.create(lut2, snl.SNLTerm.Direction.Input, "I1")
-  snl.SNLScalarTerm.create(lut2, snl.SNLTerm.Direction.Output, "O")
+  i0 = snl.SNLScalarTerm.create(lut2, snl.SNLTerm.Direction.Input, "I0")
+  i1 = snl.SNLScalarTerm.create(lut2, snl.SNLTerm.Direction.Input, "I1")
+  o = snl.SNLScalarTerm.create(lut2, snl.SNLTerm.Direction.Output, "O")
+  snl.SNLDesign.addCombinatorialArcs([i0, i1], o)
   snl.SNLParameter.create_binary(lut2, "INIT", 4, 0x0)
 
 def constructLUT3(lib):
   lut3 = snl.SNLDesign.createPrimitive(lib, "LUT3")
-  snl.SNLScalarTerm.create(lut3, snl.SNLTerm.Direction.Input, "I0")
-  snl.SNLScalarTerm.create(lut3, snl.SNLTerm.Direction.Input, "I1")
-  snl.SNLScalarTerm.create(lut3, snl.SNLTerm.Direction.Input, "I2")
-  snl.SNLScalarTerm.create(lut3, snl.SNLTerm.Direction.Output, "O")
+  i0 = snl.SNLScalarTerm.create(lut3, snl.SNLTerm.Direction.Input, "I0")
+  i1 = snl.SNLScalarTerm.create(lut3, snl.SNLTerm.Direction.Input, "I1")
+  i2 = snl.SNLScalarTerm.create(lut3, snl.SNLTerm.Direction.Input, "I2")
+  o = snl.SNLScalarTerm.create(lut3, snl.SNLTerm.Direction.Output, "O")
+  snl.SNLDesign.addCombinatorialArcs([i0, i1, i2], o)
   snl.SNLParameter.create_binary(lut3, "INIT", 8, 0x00)
 
 def constructLUT4(lib):
   lut4 = snl.SNLDesign.createPrimitive(lib, "LUT4")
-  snl.SNLScalarTerm.create(lut4, snl.SNLTerm.Direction.Input, "I0")
-  snl.SNLScalarTerm.create(lut4, snl.SNLTerm.Direction.Input, "I1")
-  snl.SNLScalarTerm.create(lut4, snl.SNLTerm.Direction.Input, "I2")
-  snl.SNLScalarTerm.create(lut4, snl.SNLTerm.Direction.Input, "I3")
-  snl.SNLScalarTerm.create(lut4, snl.SNLTerm.Direction.Output, "O")
+  i0 = snl.SNLScalarTerm.create(lut4, snl.SNLTerm.Direction.Input, "I0")
+  i1 = snl.SNLScalarTerm.create(lut4, snl.SNLTerm.Direction.Input, "I1")
+  i2 = snl.SNLScalarTerm.create(lut4, snl.SNLTerm.Direction.Input, "I2")
+  i3 = snl.SNLScalarTerm.create(lut4, snl.SNLTerm.Direction.Input, "I3")
+  o = snl.SNLScalarTerm.create(lut4, snl.SNLTerm.Direction.Output, "O")
+  snl.SNLDesign.addCombinatorialArcs([i0, i1, i2, i3], o)
   snl.SNLParameter.create_binary(lut4, "INIT", 16, 0x0000)
 
 def constructLUT5(lib):
   lut5 = snl.SNLDesign.createPrimitive(lib, "LUT5")
-  snl.SNLScalarTerm.create(lut5, snl.SNLTerm.Direction.Input, "I0")
-  snl.SNLScalarTerm.create(lut5, snl.SNLTerm.Direction.Input, "I1")
-  snl.SNLScalarTerm.create(lut5, snl.SNLTerm.Direction.Input, "I2")
-  snl.SNLScalarTerm.create(lut5, snl.SNLTerm.Direction.Input, "I3")
-  snl.SNLScalarTerm.create(lut5, snl.SNLTerm.Direction.Input, "I4")
-  snl.SNLScalarTerm.create(lut5, snl.SNLTerm.Direction.Output, "O")
+  i0 = snl.SNLScalarTerm.create(lut5, snl.SNLTerm.Direction.Input, "I0")
+  i1 = snl.SNLScalarTerm.create(lut5, snl.SNLTerm.Direction.Input, "I1")
+  i2 = snl.SNLScalarTerm.create(lut5, snl.SNLTerm.Direction.Input, "I2")
+  i3 = snl.SNLScalarTerm.create(lut5, snl.SNLTerm.Direction.Input, "I3")
+  i4 = snl.SNLScalarTerm.create(lut5, snl.SNLTerm.Direction.Input, "I4")
+  o = snl.SNLScalarTerm.create(lut5, snl.SNLTerm.Direction.Output, "O")
+  snl.SNLDesign.addCombinatorialArcs([i0, i1, i2, i3, i4], o)
   snl.SNLParameter.create_binary(lut5, "INIT", 32, 0x00000000)
 
 def constructLUT6(lib):
   lut6 = snl.SNLDesign.createPrimitive(lib, "LUT6")
-  snl.SNLScalarTerm.create(lut6, snl.SNLTerm.Direction.Input, "I0")
-  snl.SNLScalarTerm.create(lut6, snl.SNLTerm.Direction.Input, "I1")
-  snl.SNLScalarTerm.create(lut6, snl.SNLTerm.Direction.Input, "I2")
-  snl.SNLScalarTerm.create(lut6, snl.SNLTerm.Direction.Input, "I3")
-  snl.SNLScalarTerm.create(lut6, snl.SNLTerm.Direction.Input, "I4")
-  snl.SNLScalarTerm.create(lut6, snl.SNLTerm.Direction.Input, "I5")
-  snl.SNLScalarTerm.create(lut6, snl.SNLTerm.Direction.Output, "O")
+  i0 = snl.SNLScalarTerm.create(lut6, snl.SNLTerm.Direction.Input, "I0")
+  i1 = snl.SNLScalarTerm.create(lut6, snl.SNLTerm.Direction.Input, "I1")
+  i2 = snl.SNLScalarTerm.create(lut6, snl.SNLTerm.Direction.Input, "I2")
+  i3 = snl.SNLScalarTerm.create(lut6, snl.SNLTerm.Direction.Input, "I3")
+  i4 = snl.SNLScalarTerm.create(lut6, snl.SNLTerm.Direction.Input, "I4")
+  i5 = snl.SNLScalarTerm.create(lut6, snl.SNLTerm.Direction.Input, "I5")
+  o = snl.SNLScalarTerm.create(lut6, snl.SNLTerm.Direction.Output, "O")
+  snl.SNLDesign.addCombinatorialArcs([i0, i1, i2, i3, i4, i5], o)
   snl.SNLParameter.create_binary(lut6, "INIT", 64, 0x0000000000000000)
 
 def constructMUXF7(lib):
   muxf7 = snl.SNLDesign.createPrimitive(lib, "MUXF7")
-  snl.SNLScalarTerm.create(muxf7, snl.SNLTerm.Direction.Input, "I0")
-  snl.SNLScalarTerm.create(muxf7, snl.SNLTerm.Direction.Input, "I1")
-  snl.SNLScalarTerm.create(muxf7, snl.SNLTerm.Direction.Output, "O")
-  snl.SNLScalarTerm.create(muxf7, snl.SNLTerm.Direction.Input, "S")
+  i0 = snl.SNLScalarTerm.create(muxf7, snl.SNLTerm.Direction.Input, "I0")
+  i1 = snl.SNLScalarTerm.create(muxf7, snl.SNLTerm.Direction.Input, "I1")
+  o = snl.SNLScalarTerm.create(muxf7, snl.SNLTerm.Direction.Output, "O")
+  s = snl.SNLScalarTerm.create(muxf7, snl.SNLTerm.Direction.Input, "S")
+  snl.SNLDesign.addCombinatorialArcs([i0, i1, s], o)
 
 def constructMUXF8(lib):
   muxf8 = snl.SNLDesign.createPrimitive(lib, "MUXF8")
-  snl.SNLScalarTerm.create(muxf8, snl.SNLTerm.Direction.Input, "I0")
-  snl.SNLScalarTerm.create(muxf8, snl.SNLTerm.Direction.Input, "I1")
-  snl.SNLScalarTerm.create(muxf8, snl.SNLTerm.Direction.Output, "O")
-  snl.SNLScalarTerm.create(muxf8, snl.SNLTerm.Direction.Input, "S")
+  i0 = snl.SNLScalarTerm.create(muxf8, snl.SNLTerm.Direction.Input, "I0")
+  i1 = snl.SNLScalarTerm.create(muxf8, snl.SNLTerm.Direction.Input, "I1")
+  o = snl.SNLScalarTerm.create(muxf8, snl.SNLTerm.Direction.Output, "O")
+  s = snl.SNLScalarTerm.create(muxf8, snl.SNLTerm.Direction.Input, "S")
+  snl.SNLDesign.addCombinatorialArcs([i0, i1, s], o)
 
 def constructSRL16E(lib):
   srl16e = snl.SNLDesign.createPrimitive(lib, "SRL16E")
@@ -180,39 +217,47 @@ def constructSRL16E(lib):
 
 def constructFDCE(lib):
   fdce = snl.SNLDesign.createPrimitive(lib, "FDCE")
-  snl.SNLScalarTerm.create(fdce, snl.SNLTerm.Direction.Output, "Q")
-  snl.SNLScalarTerm.create(fdce, snl.SNLTerm.Direction.Input, "C")
-  snl.SNLScalarTerm.create(fdce, snl.SNLTerm.Direction.Input, "CE")
-  snl.SNLScalarTerm.create(fdce, snl.SNLTerm.Direction.Input, "CLR")
-  snl.SNLScalarTerm.create(fdce, snl.SNLTerm.Direction.Input, "D")
+  q = snl.SNLScalarTerm.create(fdce, snl.SNLTerm.Direction.Output, "Q")
+  c = snl.SNLScalarTerm.create(fdce, snl.SNLTerm.Direction.Input, "C")
+  ce = snl.SNLScalarTerm.create(fdce, snl.SNLTerm.Direction.Input, "CE")
+  clr = snl.SNLScalarTerm.create(fdce, snl.SNLTerm.Direction.Input, "CLR")
+  d = snl.SNLScalarTerm.create(fdce, snl.SNLTerm.Direction.Input, "D")
   snl.SNLParameter.create_binary(fdce, "INIT", 1, 0b0)
+  snl.SNLDesign.addInputsToClockArcs([ce, clr, d], c)
+  snl.SNLDesign.addClockToOutputsArcs(c, q)
 
 def constructFDPE(lib):
   fdpe = snl.SNLDesign.createPrimitive(lib, "FDPE")
-  snl.SNLScalarTerm.create(fdpe, snl.SNLTerm.Direction.Output, "Q")
-  snl.SNLScalarTerm.create(fdpe, snl.SNLTerm.Direction.Input, "C")
-  snl.SNLScalarTerm.create(fdpe, snl.SNLTerm.Direction.Input, "CE")
-  snl.SNLScalarTerm.create(fdpe, snl.SNLTerm.Direction.Input, "PRE")
-  snl.SNLScalarTerm.create(fdpe, snl.SNLTerm.Direction.Input, "D")
+  q = snl.SNLScalarTerm.create(fdpe, snl.SNLTerm.Direction.Output, "Q")
+  c = snl.SNLScalarTerm.create(fdpe, snl.SNLTerm.Direction.Input, "C")
+  ce = snl.SNLScalarTerm.create(fdpe, snl.SNLTerm.Direction.Input, "CE")
+  pre = snl.SNLScalarTerm.create(fdpe, snl.SNLTerm.Direction.Input, "PRE")
+  d = snl.SNLScalarTerm.create(fdpe, snl.SNLTerm.Direction.Input, "D")
   snl.SNLParameter.create_binary(fdpe, "INIT", 1, 0b1)
+  snl.SNLDesign.addInputsToClockArcs([ce, pre, d], c)
+  snl.SNLDesign.addClockToOutputsArcs(c, q)
 
 def constructFDRE(lib):
   fdre = snl.SNLDesign.createPrimitive(lib, "FDRE")
-  snl.SNLScalarTerm.create(fdre, snl.SNLTerm.Direction.Output, "Q")
-  snl.SNLScalarTerm.create(fdre, snl.SNLTerm.Direction.Input, "C")
-  snl.SNLScalarTerm.create(fdre, snl.SNLTerm.Direction.Input, "CE")
-  snl.SNLScalarTerm.create(fdre, snl.SNLTerm.Direction.Input, "R")
-  snl.SNLScalarTerm.create(fdre, snl.SNLTerm.Direction.Input, "D")
+  q = snl.SNLScalarTerm.create(fdre, snl.SNLTerm.Direction.Output, "Q")
+  c = snl.SNLScalarTerm.create(fdre, snl.SNLTerm.Direction.Input, "C")
+  ce = snl.SNLScalarTerm.create(fdre, snl.SNLTerm.Direction.Input, "CE")
+  r = snl.SNLScalarTerm.create(fdre, snl.SNLTerm.Direction.Input, "R")
+  d = snl.SNLScalarTerm.create(fdre, snl.SNLTerm.Direction.Input, "D")
   snl.SNLParameter.create_binary(fdre, "INIT", 1, 0b0)
+  snl.SNLDesign.addInputsToClockArcs([ce, r, d], c)
+  snl.SNLDesign.addClockToOutputsArcs(c, q)
 
 def constructFDSE(lib):
   fdse = snl.SNLDesign.createPrimitive(lib, "FDSE")
-  snl.SNLScalarTerm.create(fdse, snl.SNLTerm.Direction.Output, "Q")
-  snl.SNLScalarTerm.create(fdse, snl.SNLTerm.Direction.Input, "C")
-  snl.SNLScalarTerm.create(fdse, snl.SNLTerm.Direction.Input, "CE")
-  snl.SNLScalarTerm.create(fdse, snl.SNLTerm.Direction.Input, "S")
-  snl.SNLScalarTerm.create(fdse, snl.SNLTerm.Direction.Input, "D")
+  q = snl.SNLScalarTerm.create(fdse, snl.SNLTerm.Direction.Output, "Q")
+  c = snl.SNLScalarTerm.create(fdse, snl.SNLTerm.Direction.Input, "C")
+  ce = snl.SNLScalarTerm.create(fdse, snl.SNLTerm.Direction.Input, "CE")
+  s = snl.SNLScalarTerm.create(fdse, snl.SNLTerm.Direction.Input, "S")
+  d = snl.SNLScalarTerm.create(fdse, snl.SNLTerm.Direction.Input, "D")
   snl.SNLParameter.create_binary(fdse, "INIT", 1, 0b0)
+  snl.SNLDesign.addInputsToClockArcs([ce, s, d], c)
+  snl.SNLDesign.addClockToOutputsArcs(c, q)
 
 def constructRAM32M(lib):
   ram32m = snl.SNLDesign.createPrimitive(lib, "RAM32M")

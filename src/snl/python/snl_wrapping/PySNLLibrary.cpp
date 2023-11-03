@@ -1,36 +1,28 @@
-/*
- * Copyright 2022 The Naja Authors.
- * 
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #include "PySNLLibrary.h"
 
+#include "PyInterface.h"
 #include "PySNLDB.h"
 #include "PySNLDesign.h"
+#include "PySNLDesigns.h"
 
 #include "SNLLibrary.h"
 
-namespace PYSNL {
-
 using namespace naja::SNL;
+
+namespace PYSNL {
 
 #define METHOD_HEAD(function) GENERIC_METHOD_HEAD(SNLLibrary, function)
 
-static PyObject* PySNLLibrary_create(PyObject*, PyObject* args) {
+namespace {
+
+static PyObject* createLibrary(PyObject* args, SNLLibrary::Type type) {
   PyObject* arg0 = nullptr;
   const char* arg1 = nullptr;
-  if (not PyArg_ParseTuple(args, "O|s:SNLLibrary.create", &arg0, &arg1)) {
+  if (not PyArg_ParseTuple(args, "O|s:SNLLibrary.createLibrary", &arg0, &arg1)) {
     setError("malformed SNLLibrary create");
     return nullptr;
   }
@@ -42,9 +34,9 @@ static PyObject* PySNLLibrary_create(PyObject*, PyObject* args) {
   SNLLibrary* lib = nullptr;
   SNLTRY
   if (IsPySNLDB(arg0)) {
-    lib = SNLLibrary::create(PYSNLDB_O(arg0), name);
+    lib = SNLLibrary::create(PYSNLDB_O(arg0), type, name);
   } else if (IsPySNLLibrary(arg0)) {
-    lib = SNLLibrary::create(PYSNLLibrary_O(arg0), name);
+    lib = SNLLibrary::create(PYSNLLibrary_O(arg0), type, name);
   } else {
     setError("SNLLibrary creator accepts as first argument either a SNLDB or a SNLLibrary");
     return nullptr;
@@ -53,6 +45,15 @@ static PyObject* PySNLLibrary_create(PyObject*, PyObject* args) {
   return PySNLLibrary_Link(lib);
 }
 
+}
+
+static PyObject* PySNLLibrary_create(PyObject*, PyObject* args) {
+  return createLibrary(args, SNLLibrary::Type::Standard);
+}
+
+static PyObject* PySNLLibrary_createPrimitives(PyObject*, PyObject* args) {
+  return createLibrary(args, SNLLibrary::Type::Primitives);
+}
 
 GetObjectMethod(Library, DB)
 GetObjectByName(Library, Design)
@@ -60,9 +61,18 @@ GetObjectByName(Library, Library)
 
 GetNameMethod(SNLLibrary)
 
+GetContainerMethod(Library, Design, Designs)
+
+DBoDeallocMethod(SNLLibrary)
+
+DBoLinkCreateMethod(SNLLibrary)
+PyTypeObjectDefinitions(SNLLibrary)
+
 PyMethodDef PySNLLibrary_Methods[] = {
   { "create", (PyCFunction)PySNLLibrary_create, METH_VARARGS|METH_STATIC,
     "SNLLibrary creator"},
+  { "createPrimitives", (PyCFunction)PySNLLibrary_createPrimitives, METH_VARARGS|METH_STATIC,
+    "Primitives SNLLibrary creator"},
   { "getName", (PyCFunction)PySNLLibrary_getName, METH_NOARGS,
     "get SNLLibrary name"},
   { "getDB", (PyCFunction)PySNLLibrary_getDB, METH_VARARGS,
@@ -71,14 +81,11 @@ PyMethodDef PySNLLibrary_Methods[] = {
     "retrieve a SNLLibrary."},
   { "getDesign", (PyCFunction)PySNLLibrary_getDesign, METH_VARARGS,
     "retrieve a SNLDesign."},
+  { "getDesigns", (PyCFunction)PySNLLibrary_getDesigns, METH_NOARGS,
+    "get a container of SNLDesigns."},
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 
-DBoDestroyAttribute(PySNLLibrary_destroy, PySNLLibrary)
-DBoDeallocMethod(SNLLibrary)
-
-DBoLinkCreateMethod(SNLLibrary)
 PyTypeSNLObjectWithSNLIDLinkPyType(SNLLibrary)
-PyTypeObjectDefinitions(SNLLibrary)
 
 }

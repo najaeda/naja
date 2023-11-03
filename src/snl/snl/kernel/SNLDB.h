@@ -1,18 +1,6 @@
-/*
- * Copyright 2022 The Naja Authors.
- * 
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #ifndef __SNL_DB_H_
 #define __SNL_DB_H_
@@ -42,6 +30,12 @@ class SNLDB final: public SNLObject {
     SNLID::DBID getID() const { return id_; }
     SNLID getSNLID() const;
 
+    ///\brief Change the SNLDB id. Main purpose: compare DBs after save and load.
+    ///\param id new DBID
+    ///\warning use with caution: all DB objects SNLIDs will be modified, as the DB id part of SNLID will
+    ///be modified.
+    void setID(SNLID::DBID id);
+
     ///\return the SNLLibrary in this SNLDB with SNLID::LibraryID:id 
     SNLLibrary* getLibrary(SNLID::LibraryID id) const;
     ///\return the SNLLibrary in this SNLDB with SNLName:name 
@@ -66,10 +60,16 @@ class SNLDB final: public SNLObject {
     const char* getTypeName() const override;
     std::string getString() const override;
     std::string getDescription() const override;
+    void debugDump(size_t indent, bool recursive=true, std::ostream& stream=std::cerr) const override;
 
-    friend bool operator< (const SNLDB &ldb, const SNLDB &rdb) {
-      return ldb.getSNLID() < rdb.getSNLID();
+    void mergeAssigns();
+
+    bool operator<(const SNLDB &rdb) const {
+      return getSNLID() < rdb.getSNLID();
     }
+
+    bool deepCompare(const SNLDB* db, std::string& reason) const;
+
   private:
     SNLDB() = default;
     SNLDB(SNLID::DBID id);

@@ -1,18 +1,6 @@
-/*
- * Copyright 2022 The Naja Authors.
- * 
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #include "SNLScalarNet.h"
 
@@ -22,6 +10,7 @@
 #include "SNLException.h"
 #include "SNLLibrary.h"
 #include "SNLDesign.h"
+#include "SNLMacros.h"
 
 namespace naja { namespace SNL {
 
@@ -65,9 +54,17 @@ void SNLScalarNet::preCreate(const SNLDesign* design, const SNLName& name) {
 
 void SNLScalarNet::preCreate(const SNLDesign* design, SNLID::DesignObjectID id, const SNLName& name) {
   preCreate(design, name);
-  if (design->getNet(id)) {
-    std::string reason = "SNLDesign " + design->getString() + " contains already a SNLScalarNet with id: " + std::to_string(id);
-    throw SNLException(reason);
+  if (auto conflict = design->getNet(id)) {
+    std::ostringstream reason;
+    reason << "In SNLDesign " << design->getString();
+    reason << ", error while trying to create";
+    if (name.empty()) {
+      reason << " anonymous ScalarNet";
+    } else {
+      reason << " " << name.getString() << " ScalarNet";
+    }
+    reason << ". This design contains already a SNLNet: " << conflict->getDescription() << " with conflicting ID.";
+    throw SNLException(reason.str());
   }
 }
 
@@ -80,6 +77,8 @@ void SNLScalarNet::postCreate() {
   super::postCreate();
   getDesign()->addNet(this);
 }
+
+DESIGN_OBJECT_SET_NAME(SNLScalarNet, Net, net)
 
 void SNLScalarNet::commonPreDestroy() {
   super::preDestroy();
@@ -130,6 +129,19 @@ std::string SNLScalarNet::getDescription() const {
   stream << " " << getDesign()->getID();
   stream << ">";
   return stream.str(); 
+}
+//LCOV_EXCL_STOP
+
+//LCOV_EXCL_START
+void SNLScalarNet::debugDump(size_t indent, bool recursive, std::ostream& stream) const {
+  stream << std::string(indent, ' ') << getDescription() << std::endl;
+  if (not getComponents().empty()) {
+    stream << std::string(indent+2, ' ') << "<components>" << std::endl;
+    for (auto component: getComponents()) {
+      component->debugDump(indent+4, false, stream);
+    }
+    stream << std::string(indent+2, ' ') << "</components>" << std::endl;
+  }
 }
 //LCOV_EXCL_STOP
 

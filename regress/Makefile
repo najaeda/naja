@@ -1,7 +1,7 @@
 all:
 	cd adder && make
 	cd arm_core && make
-	cd vexriscv && make
+	#cd vexriscv && make
 
 clean:
 	cd adder && make clean

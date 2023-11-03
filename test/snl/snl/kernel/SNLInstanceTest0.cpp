@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
+//
+// SPDX-License-Identifier: Apache-2.0
+
 #include "gtest/gtest.h"
 #include "gmock/gmock.h"
 using namespace std;
@@ -237,6 +241,8 @@ TEST_F(SNLInstanceTest0, testCreation) {
   EXPECT_EQ(nullptr, design->getInstance(3));
 
   EXPECT_EQ(2, design->getInstances().size());
+  EXPECT_EQ(2, design->getNonPrimitiveInstances().size());
+  EXPECT_TRUE(design->getPrimitiveInstances().empty());
   EXPECT_THAT(std::vector(design->getInstances().begin(), design->getInstances().end()),
     ElementsAre(instance1, instance2));
   EXPECT_TRUE(design->getSlaveInstances().empty());
@@ -448,6 +454,8 @@ TEST_F(SNLInstanceTest0, testModelDestroy) {
   EXPECT_EQ(3, library->getDesigns().size());
 
   EXPECT_TRUE(design->getInstances().empty());
+  EXPECT_TRUE(design->getPrimitiveInstances().empty());
+  EXPECT_TRUE(design->getNonPrimitiveInstances().empty());
   EXPECT_TRUE(model0->getSlaveInstances().empty());
   EXPECT_TRUE(model1->getSlaveInstances().empty());
 

@@ -1,5 +1,8 @@
+// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
+//
+// SPDX-License-Identifier: Apache-2.0
+
 #include "gtest/gtest.h"
-#include "gmock/gmock.h"
 using namespace std;
 
 #include "SNLUniverse.h"
@@ -90,7 +93,7 @@ TEST_F(SNLInstanceTest1, setTermNetTest0) {
   EXPECT_EQ(12, rightInstance_->getConnectedInstTerms().size());
   EXPECT_EQ(12, leftInstance_->getConnectedInstTerms().size());
 
-  for (auto outBus0Bit: outBus0_->getBits()) {
+  for (auto outBus0Bit: outBus0_->getBusBits()) {
     ASSERT_NE(nullptr, outBus0Bit);
     auto leftInstTerm = leftInstance_->getInstTerm(outBus0Bit);
     ASSERT_NE(nullptr, leftInstTerm);
@@ -108,7 +111,7 @@ TEST_F(SNLInstanceTest1, setTermNetTest0) {
     EXPECT_EQ(rightInstTerm->getNet(), bitNet);
   }
 
-  for (auto outBus0Bit: outBus0_->getBits()) {
+  for (auto outBus0Bit: outBus0_->getBusBits()) {
     ASSERT_NE(nullptr, outBus0Bit);
     auto rightInstTerm = rightInstance_->getInstTerm(outBus0Bit);
     ASSERT_NE(nullptr, rightInstTerm);

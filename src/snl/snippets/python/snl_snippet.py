@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
+#
+# SPDX-License-Identifier: Apache-2.0
+
 import sys
 import snl
 
@@ -28,8 +32,15 @@ def main() -> int:
 
   i0 = snl.SNLInstance.create(d0, model0, 'i0')
   i1 = snl.SNLInstance.create(d0, model0)
-  print('Instance:', i0, ' in design:', i0.getDesign())
-  print('Instance:', i1, ' in design:', i1.getDesign())
+  print('Model ' + str(model0) + ' bit terms: ')
+  for b in model0.getBitTerms():
+    print(str(b))
+  print('Design ' + str(d0) + ' terms: ')
+  for t in d0.getTerms():
+    print(str(t))
+  print('Design ' + str(d0) + ' instances: ')
+  for i in d0.getInstances():
+    print(str(i))
 
   return 0
 

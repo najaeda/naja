@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
+#
+# SPDX-License-Identifier: Apache-2.0
+
 add_subdirectory(serialization)
 
 set(SNL_KERNEL_SOURCES
@@ -16,9 +20,16 @@ set(SNL_KERNEL_SOURCES
   kernel/SNLSharedPath.cpp kernel/SNLPath.cpp
   kernel/SNLParameter.cpp kernel/SNLInstParameter.cpp
   kernel/SNLUtils.cpp
+  kernel/SNLOccurrence.cpp kernel/SNLBitNetOccurrence.cpp
+  kernel/SNLNetComponentOccurrence.cpp 
+  kernel/SNLBitTermOccurrence.cpp kernel/SNLInstTermOccurrence.cpp
+  kernel/SNLEquipotential.cpp
+)
+set(SNL_DECORATOR_SOURCES
+  decorators/SNLDesignModeling.cpp
 )
 
-set(SNL_KERNEL_HEADERS
+set(SNL_HEADERS
   kernel/SNLName.h
   kernel/SNLID.h
   kernel/SNLObject.h
@@ -36,9 +47,16 @@ set(SNL_KERNEL_HEADERS
   kernel/SNLParameter.h kernel/SNLInstParameter.h
   kernel/SNLException.h
   kernel/SNLUtils.h
+  kernel/SNLOccurrence.h
+  kernel/SNLBitNetOccurrence.h
+  kernel/SNLNetComponentOccurrence.h
+  kernel/SNLBitTermOccurrence.h
+  kernel/SNLInstTermOccurrence.h
+  kernel/SNLEquipotential.h
+  decorators/SNLDesignModeling.h
 )
 
-add_library(naja_snl SHARED ${SNL_KERNEL_SOURCES})
+add_library(naja_snl SHARED ${SNL_KERNEL_SOURCES} ${SNL_DECORATOR_SOURCES})
 
 target_link_libraries(naja_snl PUBLIC naja_core)
 target_compile_options(naja_snl PRIVATE ${NAJA_CXX_WARNINGS}) 
@@ -47,7 +65,8 @@ target_compile_options(naja_snl PRIVATE ${NAJA_CXX_WARNINGS})
 target_include_directories(naja_snl SYSTEM BEFORE PUBLIC ${Boost_INCLUDE_DIR})
 target_include_directories(naja_snl PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/kernel
+  ${CMAKE_CURRENT_SOURCE_DIR}/decorators
 )
 
-set_target_properties(naja_snl PROPERTIES PUBLIC_HEADER "${SNL_KERNEL_HEADERS}")
+set_target_properties(naja_snl PROPERTIES PUBLIC_HEADER "${SNL_HEADERS}")
 install(TARGETS naja_snl LIBRARY DESTINATION lib PUBLIC_HEADER DESTINATION include) 

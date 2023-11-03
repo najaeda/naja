@@ -1,18 +1,6 @@
-/*
- * Copyright 2022 The Naja Authors.
- * 
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #ifndef __SNL_LIBRARY_H_
 #define __SNL_LIBRARY_H_
@@ -80,15 +68,20 @@ class SNLLibrary final: public SNLObject {
     const char* getTypeName() const override;
     std::string getString() const override;
     std::string getDescription() const override;
+    void debugDump(size_t indent, bool recursive=true, std::ostream& stream=std::cerr) const override;
 
     Type getType() const { return type_; }
     bool isStandard() const { return type_ == Type::Standard; }
     bool isInDB0() const { return type_ == Type::InDB0; }
     bool isPrimitives() const { return type_ == Type::Primitives; }
 
+    void mergeAssigns();
+
     friend bool operator< (const SNLLibrary &ll, const SNLLibrary &rl) {
       return ll.getSNLID() < rl.getSNLID();
     }
+
+    bool deepCompare(const SNLLibrary* library, std::string& reason) const;
   private:
     static void preCreate(SNLDB* db, Type type, const SNLName& name);
     static void preCreate(SNLDB* db, SNLID::LibraryID id, const Type type, const SNLName& name);

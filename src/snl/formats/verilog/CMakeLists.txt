@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
+#
+# SPDX-License-Identifier: Apache-2.0
+
 set(SOURCES
   frontend/SNLVRLConstructor.cpp
   frontend/SNLVRLConstructorUtils.cpp
@@ -11,7 +15,7 @@ SET(HEADERS
 )
 
 add_library(naja_snl_verilog SHARED ${SOURCES})
-target_link_libraries(naja_snl_verilog naja_verilog naja_snl_primitives)
+target_link_libraries(naja_snl_verilog naja_verilog naja_snl_pyloader)
 
 target_include_directories(naja_snl_verilog PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/frontend

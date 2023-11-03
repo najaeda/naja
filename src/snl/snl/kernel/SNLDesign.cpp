@@ -1,21 +1,10 @@
-/*
- * Copyright 2022 The Naja Authors.
- * 
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #include "SNLDesign.h"
 
+#include <list>
 #include <iostream>
 #include <sstream>
 
@@ -25,9 +14,12 @@
 #include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
 #include "SNLBusTermBit.h"
+#include "SNLInstTerm.h"
 #include "SNLScalarNet.h"
 #include "SNLBusNet.h"
 #include "SNLBusNetBit.h"
+#include "SNLDB0.h"
+#include "SNLMacros.h"
 
 namespace naja { namespace SNL {
 
@@ -291,7 +283,7 @@ NajaCollection<SNLScalarTerm*> SNLDesign::getScalarTerms() const {
 }
 
 NajaCollection<SNLBitTerm*> SNLDesign::getBitTerms() const {
-  auto flattener = [](const SNLBusTerm* b) { return b->getBits(); };
+  auto flattener = [](const SNLBusTerm* b) { return b->getBusBits(); };
   return getTerms().getFlatCollection<SNLBusTerm*, SNLBusTermBit*, SNLBitTerm*>(flattener);
 }
 
@@ -327,6 +319,16 @@ NajaCollection<SNLInstance*> SNLDesign::getInstances() const {
 
 NajaCollection<SNLInstance*> SNLDesign::getSlaveInstances() const {
   return NajaCollection(new NajaIntrusiveSetCollection(&slaveInstances_));
+}
+
+NajaCollection<SNLInstance*> SNLDesign::getPrimitiveInstances() const {
+  auto filter = [](const SNLInstance* instance) { return instance->getModel()->isPrimitive(); };
+  return getInstances().getSubCollection(filter);
+}
+
+NajaCollection<SNLInstance*> SNLDesign::getNonPrimitiveInstances() const {
+  auto filter = [](const SNLInstance* instance) { return not instance->getModel()->isPrimitive(); };
+  return getInstances().getSubCollection(filter);
 }
 
 SNLInstance* SNLDesign::getInstance(SNLID::DesignObjectID id) const {
@@ -384,6 +386,10 @@ void SNLDesign::removeNet(SNLNet* net) {
   }
   nets_.erase(*net);
 }
+
+DESIGN_RENAME(SNLTerm, Term, termNameIDMap_)
+DESIGN_RENAME(SNLNet, Net, netNameIDMap_)
+DESIGN_RENAME(SNLInstance, Instance, instanceNameIDMap_)
 
 SNLNet* SNLDesign::getNet(SNLID::DesignObjectID id) const {
   auto it = nets_.find(
@@ -473,6 +479,21 @@ bool SNLDesign::isTopDesign() const {
   return getDB()->getTopDesign() == this; 
 }
 
+bool SNLDesign::deepCompare(const SNLDesign* other, std::string& reason) const {
+  if (getID() not_eq other->getID()) {
+    return false;
+  }
+  if (name_ not_eq other->getName()) {
+    return false;
+  }
+  if (type_ not_eq other->getType()) {
+    return false;
+  }
+  DEEP_COMPARE_MEMBER(Parameters)
+  DEEP_COMPARE_MEMBER(Instances)
+  return true;
+}
+
 SNLID SNLDesign::getSNLID() const {
   return SNLID(getDB()->getID(), library_->getID(), getID());
 }
@@ -485,6 +506,30 @@ bool SNLDesign::isBetween(int n, int MSB, int LSB) {
   int min = std::min(MSB, LSB);
   int max = std::max(MSB, LSB);
   return n>=min and n<=max;
+}
+
+void SNLDesign::mergeAssigns() {
+  using Instances = std::list<SNLInstance*>;
+  auto filter = [](const SNLInstance* it) { return SNLDB0::isAssign(it->getModel()); };
+  Instances assignInstances(
+      getInstances().getSubCollection(filter).begin(),
+      getInstances().getSubCollection(filter).end());
+  auto assignInput = SNLDB0::getAssignInput();
+  auto assignOutput = SNLDB0::getAssignOutput(); 
+  for (auto assignInstance: assignInstances) {
+    auto assignInstanceInput = assignInstance->getInstTerm(assignInput);
+    auto assignInstanceOutput = assignInstance->getInstTerm(assignOutput);
+    auto assignInputNet = assignInstanceInput->getNet();
+    auto assignOutputNet = assignInstanceOutput->getNet();
+    //take all components for assignOutputNet and assign them to assignInputNet
+    assignOutputNet->connectAllComponentsTo(assignInputNet);
+    if (dynamic_cast<SNLScalarNet*>(assignOutputNet)) {
+      assignOutputNet->destroy();
+    }
+  }
+  for (auto assignInstance: assignInstances) {
+    assignInstance->destroy();
+  }
 }
 
 //LCOV_EXCL_START
@@ -526,6 +571,35 @@ std::string SNLDesign::getDescription() const {
   stream << " " << getLibrary()->getID();
   stream << ">";
   return stream.str();
+}
+//LCOV_EXCL_STOP
+
+//LCOV_EXCL_START
+void SNLDesign::debugDump(size_t indent, bool recursive, std::ostream& stream) const {
+  stream << std::string(indent, ' ') << getDescription() << std::endl;
+  if (recursive) {
+    if (not getTerms().empty()) {
+      stream << std::string(indent+2, ' ') << "<terms>" << std::endl;
+      for (auto term: getTerms()) {
+        term->debugDump(indent+4, false, stream);
+      }
+      stream << std::string(indent+2, ' ') << "</terms>" << std::endl;
+    }
+    if (not getNets().empty()) {
+      stream << std::string(indent+2, ' ') << "<nets>" << std::endl;
+      for (auto net: getNets()) {
+        net->debugDump(indent+4, recursive, stream);
+      }
+      stream << std::string(indent+2, ' ') << "</nets>" << std::endl;
+    }
+    if (not getInstances().empty()) {
+      stream << std::string(indent+2, ' ') << "<instances>" << std::endl;
+      for (auto instance: getInstances()) {
+        instance->debugDump(indent+4, recursive, stream);
+      }
+      stream << std::string(indent+2, ' ') << "</instances>" << std::endl;
+    }
+  }
 }
 //LCOV_EXCL_STOP
 

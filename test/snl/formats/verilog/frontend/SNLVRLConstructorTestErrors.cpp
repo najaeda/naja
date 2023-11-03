@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
+//
+// SPDX-License-Identifier: Apache-2.0
+
 #include "gtest/gtest.h"
 
 #include <filesystem>
@@ -8,7 +12,7 @@
 #include "SNLBusNet.h"
 #include "SNLBusNetBit.h"
 
-#include "SNLPrimitivesLoader.h"
+#include "SNLPyLoader.h"
 #include "SNLVRLConstructor.h"
 #include "SNLVRLConstructorException.h"
 
@@ -118,5 +122,13 @@ TEST_F(SNLVRLConstructorTestErrors, test10) {
   std::filesystem::path benchmarksPath(SNL_VRL_BENCHMARKS_PATH);
   EXPECT_THROW(
     constructor.construct(benchmarksPath/"errors"/"error10.v"),
+    SNLVRLConstructorException);
+}
+
+TEST_F(SNLVRLConstructorTestErrors, test11) {
+  SNLVRLConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_VRL_BENCHMARKS_PATH);
+  EXPECT_THROW(
+    constructor.construct(benchmarksPath/"errors"/"error11.v"),
     SNLVRLConstructorException);
 }

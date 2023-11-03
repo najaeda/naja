@@ -1,0 +1,25 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: naja 
+Upstream-Contact: Christophe Alexandre <christophe.alex@gmail.com>
+Source: https://github.com/xtofalex/naja
+
+Files: .github/workflows/* .gitmodules
+Copyright: 2022 The Naja Authors.
+License: Apache-2.0
+
+Files: README.md AUTHORS docs/*
+Copyright: 2022 The Naja Authors.
+License: Apache-2.0
+
+Files: test/snl/formats/verilog/benchmarks/* test/snl/snl/kernel/benchs/*
+Copyright: 2022 The Naja Authors.
+License: Apache-2.0
+
+Files: regress/*
+Copyright: 2022 The Naja Authors.
+License: Apache-2.0
+Comment: these files are used for regression testing: synthesized netlists.
+
+Files: test/snl/formats/verilog/backend/references/*
+Copyright: 2022 The Naja Authors.
+License: CC0-1.0

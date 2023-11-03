@@ -1,18 +1,6 @@
-/*
- * Copyright 2022 The Naja Authors.
- * 
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #include "SNLLibrary.h"
 
@@ -21,6 +9,7 @@
 
 #include "SNLDB.h"
 #include "SNLException.h"
+#include "SNLMacros.h"
 
 namespace naja { namespace SNL {
 
@@ -307,6 +296,31 @@ void SNLLibrary::removeDesign(SNLDesign* design) {
   designs_.erase(*design);
 }
 
+bool SNLLibrary::deepCompare(const SNLLibrary* other, std::string& reason) const {
+  if (getID() not_eq other->getID()) {
+    return false;
+  }
+  if (name_ not_eq other->getName()) {
+    return false;
+  }
+  if (type_ not_eq other->getType()) {
+    return false;
+  }
+  DEEP_COMPARE_MEMBER(Designs)
+  return true;
+}
+
+void SNLLibrary::mergeAssigns() {
+  if (isPrimitives()) {
+    return;
+  }
+  for (auto design: getDesigns()) {
+    if (not design->isPrimitive()) {
+      design->mergeAssigns();
+    }
+  }
+}
+
 //LCOV_EXCL_START
 const char* SNLLibrary::getTypeName() const {
   return "SNLLibrary";
@@ -332,6 +346,17 @@ std::string SNLLibrary::getDescription() const {
   description << " " << getID();
   description << ">";  
   return description.str();
+}
+//LCOV_EXCL_STOP
+
+//LCOV_EXCL_START
+void SNLLibrary::debugDump(size_t indent, bool recursive, std::ostream& stream) const {
+  stream << std::string(indent, ' ') << getDescription() << std::endl;
+  if (recursive) {
+    for (auto design: getDesigns()) {
+      design->debugDump(indent+2, recursive, stream);
+    }
+  }
 }
 //LCOV_EXCL_STOP
 

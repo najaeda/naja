@@ -1,5 +1,9 @@
+# SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
+#
+# SPDX-License-Identifier: Apache-2.0
+
 cmake_policy(SET CMP0048 NEW)
-cmake_minimum_required(VERSION 3.18)
+cmake_minimum_required(VERSION 3.21)
 
 project(naja
   VERSION 0.1.0
@@ -54,14 +58,15 @@ add_subdirectory(thirdparty)
 add_subdirectory(src)
 add_subdirectory(cmake)
 
+if(PROJECT_IS_TOP_LEVEL)
 include(CTest)
 enable_testing()
 add_subdirectory(test)
 
 # Doxygen
-
 # look for Doxygen package
 find_package(Doxygen)
 if(DOXYGEN_FOUND)
   add_subdirectory(docs)
 endif(DOXYGEN_FOUND)
+endif(PROJECT_IS_TOP_LEVEL)

@@ -1,4 +1,10 @@
+// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
+//
+// SPDX-License-Identifier: Apache-2.0
+
 #include "gtest/gtest.h"
+#include "gmock/gmock.h"
+using ::testing::Property;
 
 #include <filesystem>
 #include <fstream>
@@ -57,10 +63,18 @@ class SNLCapNpTest0: public ::testing::Test {
       SNLScalarTerm::create(model0, SNLTerm::Direction::Output, SNLName("o"));
       auto instance1 = SNLInstance::create(design, model0, SNLName("instance1"));
       auto instance2 = SNLInstance::create(design, model0, SNLName("instance2"));
-      SNLParameter::create(model0, SNLName("Test1"), SNLParameter::Type::Decimal, "10");
-      SNLParameter::create(model0, SNLName("Test2"), SNLParameter::Type::Binary, "4'hF");
-      SNLParameter::create(model0, SNLName("Test3"), SNLParameter::Type::String, "Value2");
-      SNLParameter::create(model0, SNLName("Test4"), SNLParameter::Type::Boolean, "0");
+
+      //Design Parameters
+      auto param0 = SNLParameter::create(model0, SNLName("Test1"), SNLParameter::Type::Decimal, "10");
+      auto param1 = SNLParameter::create(model0, SNLName("Test2"), SNLParameter::Type::Binary, "4'hF");
+      auto param2 = SNLParameter::create(model0, SNLName("Test3"), SNLParameter::Type::String, "Value2");
+      auto param3 = SNLParameter::create(model0, SNLName("Test4"), SNLParameter::Type::Boolean, "0");
+
+      //Instance Parameters
+      SNLInstParameter::create(instance1, param0, "50");
+      SNLInstParameter::create(instance1, param1, "4'hD");
+      SNLInstParameter::create(instance1, param2, "HELLO");
+      SNLInstParameter::create(instance1, param3, "1");
 
       //connections between instances
       instance1->getInstTerm(model0->getScalarTerm(SNLName("o")))->setNet(design->getScalarNet(SNLName("n1")));
@@ -97,25 +111,29 @@ TEST_F(SNLCapNpTest0, test0) {
   }
 
   SNLCapnP::dump(db_, outPath);
-  db_->destroy();  
-  db_ = nullptr;
-  db_ = SNLCapnP::load(outPath);
-  ASSERT_TRUE(db_);
-  EXPECT_EQ(SNLID::DBID(1), db_->getID());
-  EXPECT_EQ(1, db_->getProperties().size());
-  EXPECT_TRUE(db_->hasProperty("TEST_PROPERTY"));
+  db_->setID(2);
+
+  auto loadedDB = SNLCapnP::load(outPath);
+  ASSERT_TRUE(loadedDB);
+  std::string reason;
+  EXPECT_TRUE(db_->deepCompare(loadedDB, reason)) << reason;
+  EXPECT_TRUE(reason.empty());
+
+  EXPECT_EQ(SNLID::DBID(1), loadedDB->getID());
+  EXPECT_EQ(1, loadedDB->getProperties().size());
+  EXPECT_TRUE(loadedDB->hasProperty("TEST_PROPERTY"));
   auto testProperty =
-    dynamic_cast<NajaDumpableProperty*>(db_->getProperty("TEST_PROPERTY"));
+    dynamic_cast<NajaDumpableProperty*>(loadedDB->getProperty("TEST_PROPERTY"));
   ASSERT_NE(nullptr, testProperty);
   EXPECT_EQ("TEST_PROPERTY", testProperty->getName());
-  EXPECT_EQ(db_, testProperty->getOwner());
+  EXPECT_EQ(loadedDB, testProperty->getOwner());
   testProperty->destroy();
   testProperty = nullptr;
-  EXPECT_TRUE(db_->getProperties().empty());
-  EXPECT_FALSE(db_->hasProperty("TEST_PROPERTY"));
+  EXPECT_TRUE(loadedDB->getProperties().empty());
+  EXPECT_FALSE(loadedDB->hasProperty("TEST_PROPERTY"));
 
-  EXPECT_EQ(1, db_->getLibraries().size());
-  auto library = *(db_->getLibraries().begin());
+  EXPECT_EQ(1, loadedDB->getLibraries().size());
+  auto library = *(loadedDB->getLibraries().begin());
   ASSERT_TRUE(library);
   EXPECT_EQ(SNLID::LibraryID(0), library->getID());
   EXPECT_EQ(SNLName("MYLIB"), library->getName());
@@ -146,7 +164,7 @@ TEST_F(SNLCapNpTest0, test0) {
   EXPECT_EQ(3, design->getTerms().size());
   EXPECT_EQ(5, design->getNets().size());
   EXPECT_EQ(4, design->getInstances().size());
-  EXPECT_EQ(design, db_->getTopDesign());
+  EXPECT_EQ(design, loadedDB->getTopDesign());
 
   auto model = designs[1];
   EXPECT_EQ(SNLID::DesignID(1), model->getID());
@@ -253,6 +271,21 @@ TEST_F(SNLCapNpTest0, test0) {
     EXPECT_EQ(instance1, instTerm2->getInstance());
     EXPECT_EQ(instance1->getModel(), instTerm2->getTerm()->getDesign());
     EXPECT_EQ(instance1->getModel()->getScalarTerm(SNLName("o")), instTerm2->getTerm());
+
+    EXPECT_EQ(4, instance1->getInstParameters().size());
+    using InstParameters = std::vector<SNLInstParameter*>;
+    Designs designs(library->getDesigns().begin(), library->getDesigns().end());
+    InstParameters instParameters(instance1->getInstParameters().begin(), instance1->getInstParameters().end());
+    EXPECT_EQ(4, instParameters.size());
+    EXPECT_THAT(instParameters, Each(Property("getInstance", &SNLInstParameter::getInstance, instance1)));
+    EXPECT_EQ(parameters[0], instParameters[0]->getParameter());
+    EXPECT_EQ(parameters[1], instParameters[1]->getParameter());
+    EXPECT_EQ(parameters[2], instParameters[2]->getParameter());
+    EXPECT_EQ(parameters[3], instParameters[3]->getParameter());
+    EXPECT_EQ("50", instParameters[0]->getValue());
+    EXPECT_EQ("4'hD", instParameters[1]->getValue());
+    EXPECT_EQ("HELLO", instParameters[2]->getValue());
+    EXPECT_EQ("1", instParameters[3]->getValue());
 
     Terms terms(design->getTerms().begin(), design->getTerms().end());
     EXPECT_EQ(3, terms.size());

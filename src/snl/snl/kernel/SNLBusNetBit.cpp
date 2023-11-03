@@ -1,18 +1,6 @@
-/*
- * Copyright 2022 The Naja Authors.
- * 
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #include "SNLBusNetBit.h"
 
@@ -94,7 +82,20 @@ std::string SNLBusNetBit::getString() const {
 
 //LCOV_EXCL_START
 std::string SNLBusNetBit::getDescription() const {
-  return "";
+  return "<" + std::string(getTypeName()) + " " + getBus()->getName().getString() + "[" + std::to_string(getBit()) + "]>";
+}
+//LCOV_EXCL_STOP
+
+//LCOV_EXCL_START
+void SNLBusNetBit::debugDump(size_t indent, bool recursive, std::ostream& stream) const {
+  stream << std::string(indent, ' ') << getDescription() << std::endl;
+  if (recursive and not getComponents().empty()) {
+    stream << std::string(indent+2, ' ') << "<components>" << std::endl;
+    for (auto component: getComponents()) {
+      component->debugDump(indent+4, false, stream);
+    }
+    stream << std::string(indent+2, ' ') << "</components>" << std::endl;
+  }
 }
 //LCOV_EXCL_STOP
 

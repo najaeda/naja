@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
+//
+// SPDX-License-Identifier: Apache-2.0
+
 #include "gtest/gtest.h"
 #include "gmock/gmock.h"
 using ::testing::ElementsAre;
@@ -138,7 +142,7 @@ TEST_F(SNLDesignTest, testCreation0) {
   EXPECT_EQ(5, term3->getSize());
   EXPECT_FALSE(term3->getBits().empty());
   EXPECT_EQ(5, term3->getBits().size());
-  for (auto bit: term3->getBits()) {
+  for (auto bit: term3->getBusBits()) {
     EXPECT_EQ(SNLTerm::Direction::Input, bit->getDirection());
     EXPECT_EQ(term3, bit->getBus());
   }
@@ -261,7 +265,10 @@ TEST_F(SNLDesignTest, testPrimitives) {
   EXPECT_EQ(nullptr, SNLUtils::findTop(prims));
 
   EXPECT_THROW(
-    SNLDesign::create(prims, SNLDesign::Type::Primitive, SNLName("Primitive")),
+    SNLDesign::create(library, SNLDesign::Type::Primitive),
+    SNLException);
+  EXPECT_THROW(
+    SNLDesign::create(prims),
     SNLException);
 }
 

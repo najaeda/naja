@@ -1,18 +1,6 @@
-/*
- * Copyright 2022 The Naja Authors.
- * 
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #ifndef __SNL_NAME_H_
 #define __SNL_NAME_H_
@@ -43,6 +31,16 @@ class SNLName {
     }
   private:
     std::string string_;
+};
+
+template<typename T>
+struct SNLNameComp {
+  bool operator()(const SNL::SNLName& name, const T& obj) const {
+    return name < obj.getName();
+  }
+  bool operator()(const T& obj, const SNL::SNLName& name) const {
+    return obj.getName() < name;
+  }
 };
 
 }} // namespace SNL // namespace naja

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
+//
+// SPDX-License-Identifier: Apache-2.0
+
 #include "gtest/gtest.h"
 #include "gmock/gmock.h"
 using ::testing::ElementsAre;
@@ -48,7 +52,7 @@ TEST_F(SNLTermTest, testCreation) {
   EXPECT_EQ(4, term0->getSize());
   EXPECT_FALSE(term0->getBits().empty());
   EXPECT_EQ(4, term0->getBits().size());
-  for (auto bit: term0->getBits()) {
+  for (auto bit: term0->getBusBits()) {
     EXPECT_EQ(SNLTerm::Direction::InOut, bit->getDirection());
     EXPECT_EQ(term0, bit->getBus());
     EXPECT_FALSE(bit->isAnonymous());
@@ -82,6 +86,13 @@ TEST_F(SNLTermTest, testCreation) {
   EXPECT_EQ(1, term0->getBit(-2)->getPositionInBus());
   EXPECT_EQ(2, term0->getBit(-3)->getPositionInBus());
   EXPECT_EQ(3, term0->getBit(-4)->getPositionInBus());
+
+  ASSERT_EQ(1, term0->getBit(-1)->getBits().size());
+  EXPECT_EQ(*term0->getBit(-1)->getBits().begin(), term0->getBit(-1));
+  ASSERT_EQ(1, term0->getBit(-2)->getBits().size());
+  EXPECT_EQ(*term0->getBit(-2)->getBits().begin(), term0->getBit(-2));
+  ASSERT_EQ(1, term0->getBit(-3)->getBits().size());
+  EXPECT_EQ(*term0->getBit(-3)->getBits().begin(), term0->getBit(-3));
 
   EXPECT_EQ(nullptr, term0->getBit(-5));
   EXPECT_EQ(nullptr, term0->getBit(0));
@@ -224,4 +235,37 @@ TEST_F(SNLTermTest, testErrors) {
   EXPECT_THROW(SNLScalarTerm::create(design, SNLTerm::Direction::Input, SNLName("term1")), SNLException);
   EXPECT_THROW(SNLBusTerm::create(design, SNLID::DesignObjectID(0), SNLTerm::Direction::Input, 31, 0), SNLException);
   EXPECT_THROW(SNLScalarTerm::create(design, SNLID::DesignObjectID(1), SNLTerm::Direction::Input), SNLException);
+}
+
+TEST_F(SNLTermTest, testRename) {
+  SNLLibrary* library = db_->getLibrary(SNLName("MYLIB"));
+  ASSERT_NE(library, nullptr);
+  SNLDesign* design = SNLDesign::create(library, SNLName("design"));
+  ASSERT_NE(design, nullptr);
+
+  auto term0 = SNLScalarTerm::create(design, SNLTerm::Direction::Input, SNLName("term0"));
+  auto term1 = SNLBusTerm::create(design, SNLTerm::Direction::Output, 31, 0, SNLName("term1"));
+  auto term2 = SNLScalarTerm::create(design, SNLTerm::Direction::Input);
+  EXPECT_EQ(term0, design->getTerm(SNLName("term0")));
+  EXPECT_EQ(term1, design->getTerm(SNLName("term1")));
+  EXPECT_FALSE(term0->isAnonymous());
+  term0->setName(SNLName());
+  EXPECT_TRUE(term0->isAnonymous());
+  EXPECT_EQ(nullptr, design->getTerm(SNLName("term0")));
+  term0->setName(SNLName("term0"));
+  EXPECT_FALSE(term0->isAnonymous());
+  EXPECT_EQ(term0, design->getTerm(SNLName("term0")));
+  EXPECT_FALSE(term1->isAnonymous());
+  term1->setName(SNLName("term1")); //nothing should happen...
+  EXPECT_EQ(term1, design->getTerm(SNLName("term1")));
+  term1->setName(SNLName("t1"));
+  EXPECT_FALSE(term1->isAnonymous());
+  EXPECT_EQ(nullptr, design->getTerm(SNLName("term1")));
+  EXPECT_EQ(term1, design->getTerm(SNLName("t1")));
+  EXPECT_TRUE(term2->isAnonymous());
+  term2->setName(SNLName("term2"));
+  EXPECT_FALSE(term2->isAnonymous());
+  EXPECT_EQ(term2, design->getTerm(SNLName("term2")));
+  //Collision error
+  EXPECT_THROW(term2->setName(SNLName("term0")), SNLException);
 }

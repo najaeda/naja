@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
+//
+// SPDX-License-Identifier: Apache-2.0
+
 #include "gtest/gtest.h"
 
 #include "SNLUniverse.h"
@@ -24,6 +28,7 @@ TEST_F(SNLDB0Test, testAssign) {
   ASSERT_NE(nullptr, db0);
   EXPECT_TRUE(SNLUniverse::isDB0(db0));
   EXPECT_EQ(SNLDB0::getDB0(), db0);
+  EXPECT_EQ(SNLUniverse::getDB0(), db0);
 
   auto assign = SNLDB0::getAssign();
   ASSERT_NE(nullptr, assign);
