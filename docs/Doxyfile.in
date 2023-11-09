@@ -873,9 +873,8 @@ WARN_LOGFILE           =
 # Note: If this tag is empty the current directory is searched.
 
 INPUT                  = @CMAKE_SOURCE_DIR@/docs/naja.md
-INPUT                  += @CMAKE_SOURCE_DIR@/src/snl
 INPUT                  += @CMAKE_SOURCE_DIR@/src/core
-INPUT                  += @CMAKE_SOURCE_DIR@/src/dnl
+INPUT                  += @CMAKE_SOURCE_DIR@/src/snl
 
 
 # This tag can be used to specify the character encoding of the source files
@@ -2090,7 +2089,7 @@ MAN_LINKS              = NO
 # captures the structure of the code including all documentation.
 # The default value is: NO.
 
-GENERATE_XML           = NO
+GENERATE_XML           = YES
 
 # The XML_OUTPUT tag is used to specify where the XML pages will be put. If a
 # relative path is entered the value of OUTPUT_DIRECTORY will be put in front of

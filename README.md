@@ -47,15 +47,18 @@ git submodule update
 ### Dependencies
 
 Mandatory dependencies:
+
 1. Boost
 2. [cmake](https://cmake.org): at least 3.22 version.
 3. Python3: for building the SNL Python3 interface. This interface is used to load primitive cells (associated to Verilog parsing)
-and their associated characteristics (for instance: ressource count, timing characteristics, ...).
+and their associated characteristics (timing characteristics, ...).
 
 Optional dependencies:
+
 1. [Doxygen](https://www.doxygen.nl): for the documentation generation.
 
 Embedded dependencies, through git sub modules:
+
 1. [naja-verilog](https://github.com/xtofalex/naja-verilog): for verilog parsing.
 2. [google test](https://github.com/google/googletest) for unit testing.
 
