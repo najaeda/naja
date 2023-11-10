@@ -11,11 +11,27 @@
 
 Naja is an Electronic Design Automation (EDA) project that provides open source data structures and APIs for the development of post logic synthesis EDA algorithms such as: netlist simplification (constant and dead logic propagation), logic replication, netlist partitioning, ASIC and FPGA place and route, …
 
-Naja contains two main components SNL (Structured Netlist) API (located in this repo) and [naja-verilog](https://github.com/xtofalex/naja-verilog), a data structure independent structural verilog parser.
+Naja contains two primary components:
+
+1. SNL (Structured Netlist) API housed in this repository.
+2. [naja-verilog](https://github.com/xtofalex/naja-verilog), a data structure independent structural verilog parser.
+
+### Acknowledgement
+
+[<img src="https://nlnet.nl/logo/banner.png" width=100>](https://nlnet.nl/project/Naja)
+[<img src="https://nlnet.nl/image/logos/NGI0Entrust_tag.svg" width=100>](https://nlnet.nl/project/Naja)
+
+This project is supported and funded by NLNet through the [NGI0 Entrust](https://nlnet.nl/entrust) Fund.
+
+## Why Naja ?
+
+### Enhanced Fidelity in Data Representation
 
 In most EDA flows, data exchange is done by using standard netlist formats (Verilog, LEF/DEF, EDIF, …) which were not designed to represent data structures content with high fidelity. To address this problem, SNL relies on [Cap'n Proto](https://github.com/capnproto/capnproto) open source interchange format.
 
-SNL also emphasizes EDA applications parallelization (targeting in particular cloud computing) by providing a robust object identification mechanism allowing to partition and merge data across the network.
+### Optimized for Parallelization and Cloud Computing
+
+SNL is engineered with a focus on parallelization, particularly for cloud computing applications. It features a robust object identification mechanism that streamlines the partitioning and merging of data across networks, facilitating efficient EDA applications.
 
 SNL is summarized in below's image.
 
@@ -24,13 +40,6 @@ SNL is summarized in below's image.
 :information_desk_person: If you have any questions, please [Contact Us](mailto:christophe.alex@gmail.com)
 
 :star: If you find Naja interesting, and would like to stay up-to-date, consider starring this repo to help spread the word.
-
-### Acknowledgement
-
-[<img src="https://nlnet.nl/logo/banner.png" width=100>](https://nlnet.nl/project/Naja)
-[<img src="https://nlnet.nl/image/logos/NGI0Entrust_tag.svg" width=100>](https://nlnet.nl/project/Naja)
-
-This project is supported and funded by NLNet through the [NGI0 Entrust](https://nlnet.nl/entrust) Fund.
 
 ## Compilation
 
