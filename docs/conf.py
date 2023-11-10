@@ -8,3 +8,6 @@ extensions = [
 html_theme = "sphinx_rtd_theme"
 
 breathe_default_project = "naja"
+
+import subprocess
+subprocess.call('doxygen', shell=True)
