@@ -14,6 +14,7 @@ import subprocess
 subprocess.call('mkdir build', shell=True)
 subprocess.call('cd build; cmake ../.. -DBUILD_ONLY_DOC=ON', shell=True)
 subprocess.call('cd build; make docs', shell=True)
+subprocess.call('cd build; pwd; ls -all', shell=True)
 
 breathe_projects = { "naja" : "./build/xml/" }
 breathe_default_project = "naja"
