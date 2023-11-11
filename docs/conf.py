@@ -12,5 +12,5 @@ breathe_default_project = "naja"
 import subprocess
 #call doxygen from cmake
 subprocess.call('mkdir build', shell=True)
-subprocess.call('cd build; cmake ../..', shell=True)
+subprocess.call('cd build; cmake ../.. -DBUILD_ONLY_DOC=ON', shell=True)
 subprocess.call('cd build; make docs', shell=True)

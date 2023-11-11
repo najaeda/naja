@@ -6,10 +6,12 @@ cmake_policy(SET CMP0048 NEW)
 cmake_minimum_required(VERSION 3.21)
 
 project(naja
-  VERSION 0.1.0
-  HOMEPAGE_URL https://github.com/xtofalex/naja
+  VERSION 1.0.0
+  HOMEPAGE_URL https ://github.com/xtofalex/naja
   LANGUAGES CXX
 )
+
+option(BUILD_ONLY_DOC "Only configure to build Doxygen documentation" OFF)
 
 set(CMAKE_CXX_STANDARD 20)
 
@@ -50,13 +52,18 @@ if(ENABLE_SANITIZERS)
   )
 endif(ENABLE_SANITIZERS)
 
+if(NOT BUILD_ONLY_DOC)
 find_package(Boost REQUIRED)
 find_package(Python3 COMPONENTS Development Interpreter REQUIRED)
 find_package(CapnProto CONFIG REQUIRED)
+endif(NOT BUILD_ONLY_DOC)
 
+if(NOT BUILD_ONLY_DOC)
 add_subdirectory(thirdparty)
-add_subdirectory(src)
 add_subdirectory(cmake)
+endif(NOT BUILD_ONLY_DOC)
+
+add_subdirectory(src)
 
 if(PROJECT_IS_TOP_LEVEL)
 include(CTest)
