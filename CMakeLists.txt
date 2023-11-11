@@ -7,13 +7,13 @@ cmake_minimum_required(VERSION 3.21)
 
 project(naja
   VERSION 1.0.0
-  HOMEPAGE_URL https ://github.com/xtofalex/naja
+  HOMEPAGE_URL https://github.com/xtofalex/naja
   LANGUAGES CXX
 )
 
-option(BUILD_ONLY_DOC "Only configure to build Doxygen documentation" OFF)
-
 set(CMAKE_CXX_STANDARD 20)
+
+option(BUILD_ONLY_DOC "Only configure to build Doxygen documentation" OFF)
 
 include(FetchContent)
 #fetch argparse v2.9
