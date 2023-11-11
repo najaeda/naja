@@ -61,9 +61,8 @@ endif(NOT BUILD_ONLY_DOC)
 if(NOT BUILD_ONLY_DOC)
 add_subdirectory(thirdparty)
 add_subdirectory(cmake)
-endif(NOT BUILD_ONLY_DOC)
-
 add_subdirectory(src)
+endif(NOT BUILD_ONLY_DOC)
 
 if(PROJECT_IS_TOP_LEVEL)
 include(CTest)
