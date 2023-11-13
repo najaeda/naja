@@ -1,16 +1,20 @@
 .. image:: images/Naja-Logo.png
    :alt: Naja
 
-Gate-level netlist data stucture
-
-Introduction
-------------
+Welcome to Naja's documentation!
+================================
 
 .. toctree::
-   :caption: Contents:
    :maxdepth: 2
+   :caption: Overview
 
-   classes/classes_index
+   overview/index
+
+.. toctree::
+   :maxdepth: 2
+   :caption: SNL (Structured Netlist)
+
+   snl/index
 
 * :ref:`genindex`
 * :ref:`search`

@@ -1,3 +1,6 @@
+SNL Top Classes
+===============
+
 .. doxygenclass:: naja::SNL::SNLUniverse
    :members:
 

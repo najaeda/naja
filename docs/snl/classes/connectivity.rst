@@ -1,3 +1,6 @@
+SNL Connectivity Classes
+========================
+
 .. doxygenclass:: naja::SNL::SNLNetComponent
    :members:
 

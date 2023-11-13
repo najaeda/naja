@@ -71,20 +71,20 @@ add_subdirectory(test)
 
 option(BUILD_SPHINX_DOCUMENTATION "Build Sphinx documentation" OFF)
 
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 # Doxygen
 # look for Doxygen package
 find_package(Doxygen)
 if(DOXYGEN_FOUND)
   add_subdirectory(docs)
 endif(DOXYGEN_FOUND)
-
-if(BUILD_SPHINX_DOCUMENTATION)
-if (NOT DOXYGEN_FOUND)
-message(SEND_ERROR "Doxygen must be available to build Sphinx documentation")
-endif(NOT DOXYGEN_FOUND)
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 #Sphinx
 #look for Sphinx package
-find_package(Sphinx REQUIRED)
+find_package(Sphinx)
+
+if(BUILD_SPHINX_DOCUMENTATION)
+if (NOT (DOXYGEN_FOUND AND SPHINX_FOUND))
+message(SEND_ERROR "Doxygen and Sphinx must be available to build Sphinx documentation")
+endif(NOT (DOXYGEN_FOUND AND SPHINX_FOUND))
 endif(BUILD_SPHINX_DOCUMENTATION)
 endif(PROJECT_IS_TOP_LEVEL)

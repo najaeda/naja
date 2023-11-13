@@ -1,3 +1,6 @@
+SNL Core Classes
+================
+
 .. doxygenclass:: naja::SNL::SNLName
    :members:
 
