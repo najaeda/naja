@@ -7,7 +7,10 @@ Introduction
 ------------
 
 .. toctree::
-   :caption: API
+   :caption: Contents:
    :maxdepth: 2
 
-   api/class_index
+   classes/classes_index
+
+* :ref:`genindex`
+* :ref:`search`

@@ -16,6 +16,9 @@ build:
     # nodejs: "19"
     # rust: "1.64"
     # golang: "1.19"
+  jobs:
+    pre_build:
+      - READ_THE_DOCS_CONTEXT=TRUE
 
 # Build documentation in the "docs/" directory with Sphinx
 sphinx:
