@@ -15,7 +15,7 @@ html_title = "Naja Documentation"
 breathe_default_project = "naja"
 
 import os
-if 'READ_THE_DOCS_CONTEXT' in os.environ:
+if 'IN_READ_THE_DOCS' in os.environ:
   import subprocess
   #call doxygen from cmake
   subprocess.call('mkdir build', shell=True)
