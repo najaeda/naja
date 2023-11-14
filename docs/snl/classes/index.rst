@@ -1,3 +1,6 @@
+SNL Classes
+===========
+
 .. toctree::
    :maxdepth: 2
 
