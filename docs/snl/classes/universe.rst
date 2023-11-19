@@ -1,13 +1,22 @@
 SNL Top Classes
 ===============
 
-SNLUniverse is the top singletong class. 
+SNL
+
+SNLUniverse
+-----------
 
 .. doxygenclass:: naja::SNL::SNLUniverse
    :members:
 
+SNLDB
+-----
+
 .. doxygenclass:: naja::SNL::SNLDB
    :members:
+
+SNLLibrary
+----------
 
 .. doxygenclass:: naja::SNL::SNLLibrary
    :members:
