@@ -35,44 +35,100 @@ class SNLLibrary final: public SNLObject {
     SNLLibrary() = delete;
     SNLLibrary(const SNLLibrary& library) = delete;
 
+    /** 
+     * \brief Create a SNLLibrary in the SNLDB db.
+     * \param db the SNLDB in which the SNLLibrary will be created.
+     * \param name optional name of the SNLLibrary to create. if name is not provided,
+     * the created SNLLibrary will be anonymous.
+     * \return the created SNLLibrary.
+     */
     static SNLLibrary* create(SNLDB* db, const SNLName& name = SNLName());
+    /**
+     * \brief Create a SNLLibrary in the SNLDB db with a specific Type.
+     * \param db the SNLDB in which the SNLLibrary will be created.
+     * \param type the Type of the SNLLibrary to create.
+     * \param name optional name of the SNLLibrary to create. if name is not provided,
+     * the created SNLLibrary will be anonymous.
+     * \return the created SNLLibrary.
+     */
     static SNLLibrary* create(SNLDB* db, Type type, const SNLName& name = SNLName());
+    /**
+     * \brief Create a SNLLibrary in the SNLDB db with a specific SNLID::LibraryID.
+     * \param db the SNLDB in which the SNLLibrary will be created.
+     * \param id the SNLID::LibraryID of the SNLLibrary to create.
+     * \param name optional name of the SNLLibrary to create. if name is not provided,
+     * the created SNLLibrary will be anonymous.
+     * \return the created SNLLibrary.
+     */
     static SNLLibrary* create(SNLDB* db, SNLID::LibraryID id, Type type, const SNLName& name = SNLName());
+    /**
+     * \brief Create a SNLLibrary in a parent SNLLibrary.
+     * \param parent the parent SNLLibrary in which the SNLLibrary will be created.
+     * \param name optional name of the SNLLibrary to create. if name is not provided,
+     * the created SNLLibrary will be anonymous.
+     * \return the created SNLLibrary.
+     */
     static SNLLibrary* create(SNLLibrary* parent, const SNLName& name = SNLName());
+    /**
+     * \brief Create a SNLLibrary in a parent SNLLibrary with a specific Type.
+     * \param parent the parent SNLLibrary in which the SNLLibrary will be created.
+     * \param type the Type of the SNLLibrary to create.
+     * \param name optional name of the SNLLibrary to create. if name is not provided,
+     * the created SNLLibrary will be anonymous.
+     * \return the created SNLLibrary.
+     */
     static SNLLibrary* create(SNLLibrary* parent, Type type, const SNLName& name = SNLName());
+    /**
+     * \brief Create a SNLLibrary in a parent SNLLibrary with a specific id and a specific Type.
+     * \param parent the parent SNLLibrary in which the SNLLibrary will be created.
+     * \param id the SNLID::LibraryID of the SNLLibrary to create.
+     * \param type the Type of the SNLLibrary to create.
+     * \param name optional name of the SNLLibrary to create. if name is not provided,
+     * the created SNLLibrary will be anonymous.
+     * \return the created SNLLibrary.
+     */
     static SNLLibrary* create(SNLLibrary* parent, SNLID::LibraryID id, Type type, const SNLName& name = SNLName());
 
+    /// \return true if this SNLLibrary is the root SNLLibrary of its SNLDB, false otherwise. 
     bool isRoot() const { return isRoot_; }
 
+    /// \return the owner SNLDB of this SNLLibrary. 
     SNLDB* getDB() const;
 
-    ///\return parent SNLLibrary
+    /// \return the parent SNLLibrary of this SNLLibrary.
     SNLLibrary* getParentLibrary() const;
-    ///\return child SNLLibrary with SNLID::LibraryID id
+    /// \return child SNLLibrary with SNLID::LibraryID id
     SNLLibrary* getLibrary(SNLID::LibraryID id) const;
-    ///\return child SNLLibrary named name
+    /// \return child SNLLibrary named name
     SNLLibrary* getLibrary(const SNLName& name) const;
-    ///\return the collection of sub SNLLibrary
+    /// \return the collection of sub SNLLibrary
     NajaCollection<SNLLibrary*> getLibraries() const;
-    ///\return SNLDesign with SNLID::DesignID id
+    /// \return SNLDesign with SNLID::DesignID id
     SNLDesign* getDesign(SNLID::DesignID id) const;
-    ///\return SNLDesign named name
+    /// \return SNLDesign named name
     SNLDesign* getDesign(const SNLName& name) const;
-    ///\return the collection of SNLDesign contained in this SNLLibrary
+    /// \return the collection of SNLDesign contained in this SNLLibrary
     NajaCollection<SNLDesign*> getDesigns() const;
 
+    /// \return the unique SNLID::LibraryID in the owning SNLDB.
     SNLID::LibraryID getID() const { return id_; }
     SNLID getSNLID() const;
+    /// \return the name of this SNLLibrary.
     SNLName getName() const { return name_; }
+    /// \return true if this SNLLibrary is anonymous, false otherwise.
     bool isAnonymous() const { return name_.empty(); }
     const char* getTypeName() const override;
     std::string getString() const override;
     std::string getDescription() const override;
     void debugDump(size_t indent, bool recursive=true, std::ostream& stream=std::cerr) const override;
 
+    /// \return the type of this SNLLibrary.
     Type getType() const { return type_; }
+    /// \return true if this SNLLibrary is a standard SNLLibrary, false otherwise.
     bool isStandard() const { return type_ == Type::Standard; }
+    /// \return true if this SNLLibrary is a SNLLibrary in the DB0, false otherwise. 
     bool isInDB0() const { return type_ == Type::InDB0; }
+    /// \return true if this SNLLibrary is a SNLLibrary of primitives, false otherwise.
     bool isPrimitives() const { return type_ == Type::Primitives; }
 
     void mergeAssigns();

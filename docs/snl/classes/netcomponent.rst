@@ -1,5 +1,5 @@
-SNL Connectivity Classes
-========================
+SNL Net Component Classes
+=========================
 
 .. doxygenclass:: naja::SNL::SNLNetComponent
    :members:

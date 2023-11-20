@@ -7,5 +7,5 @@ SNL Classes
    core
    universe
    design
-   connectivity
+   netcomponent
    nets

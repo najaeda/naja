@@ -14,9 +14,13 @@ class SNLName {
     explicit SNLName(const std::string& name = std::string()):
       string_(name)
     {}
+
+    /// \return the string representation of this SNLName.
     std::string getString() const {
       return string_;
     }
+
+    /// \return true if this SNLName is empty, false otherwise.
     bool empty() const {
       return string_.empty();
     }
