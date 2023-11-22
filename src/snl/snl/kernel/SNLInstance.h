@@ -57,14 +57,12 @@ class SNLInstance final: public SNLDesignObject {
      */
     static SNLInstance* create(SNLDesign* design, SNLDesign* model, SNLID::DesignObjectID id, const SNLName& name=SNLName());
 
-    /// \return the owning SNLDesign.
     SNLDesign* getDesign() const override { return design_; }
     /// \return the instanciated SNLDesign (model).
     SNLDesign* getModel() const { return model_; }
 
     /// \return this SNLInstance id. Positional id in parent SNLDesign.
     SNLID::DesignObjectID getID() const { return id_; }
-    /// \return this SNLInstance unique SNLID.
     SNLID getSNLID() const override;
     SNLID::DesignObjectReference getReference() const;
     bool deepCompare(const SNLInstance* other, std::string& reason) const;
@@ -77,7 +75,6 @@ class SNLInstance final: public SNLDesignObject {
      */
     void setName(const SNLName& name);
 
-    /// \return true if this SNLInstance is anonymous.
     bool isAnonymous() const override { return name_.empty(); }
     ///\return true if this SNLInstance is a blackbox.
     bool isBlackBox() const;

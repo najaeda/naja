@@ -20,12 +20,29 @@ class SNLBusNet final: public SNLNet {
     friend class SNLDesign;
     using super = SNLNet;
 
+    /**
+     * \brief Create a SNLBusNet.
+     * \param design owner SNLDesign.
+     * \param msb MSB (Most Significant Bit) or left hand side of the bus range.
+     * \param lsb LSB (Most Significant Bit) or right hand side of the bus range.
+     * \name optional name.
+     * \return created SNLBusNet. 
+     */
     static SNLBusNet* create(
         SNLDesign* design,
         SNLID::Bit msb,
         SNLID::Bit lsb,
         const SNLName& name=SNLName());
     
+    /**
+     * \brief Create a SNLBusNet with a given SNLID::DesignObjectID.
+     * \param design owner SNLDesign.
+     * \param id SNLID::DesignObjectID of the SNLBusNet.
+     * \param msb MSB (Most Significant Bit) or left hand side of the bus range.
+     * \param lsb LSB (Most Significant Bit) or right hand side of the bus range.
+     * \param name optional name.
+     * \return created SNLBusNet.
+     */
     static SNLBusNet* create(
         SNLDesign* design,
         SNLID::DesignObjectID id,
@@ -34,9 +51,9 @@ class SNLBusNet final: public SNLNet {
         const SNLName& name=SNLName());
 
     SNLDesign* getDesign() const override { return design_; }
-    ///\return MSB (Most Significant Bit) or left hand side of the bus range.
+    /// \return MSB (Most Significant Bit) or left hand side of the bus range.
     SNLID::Bit getMSB() const { return msb_; }
-    ///\return LSB (Most Significant Bit) or right hand side of the bus range.
+    /// \return LSB (Most Significant Bit) or right hand side of the bus range.
     SNLID::Bit getLSB() const { return lsb_; }
     SNLID::Bit getSize() const override;
     SNLBusNetBit* getBit(SNLID::Bit bit) const;
