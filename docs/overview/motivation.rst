@@ -23,5 +23,5 @@ SNL is tailored for high-fidelity representation of hierarchical netlists,
 while DNL offers a flattened netlist view, optimized for rapid,
 multi-threaded analysis and optimization tool development.
 
-.. image:: images/Naja-Architecture.png
+.. image:: ../images/Naja-Architecture.png
    :alt: Naja Architecture

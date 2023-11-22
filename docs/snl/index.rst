@@ -1,7 +1,7 @@
 SNL (Structured Netlist)
 ========================
 
-.. image:: images/Naja-SNL.png
+.. image:: ../images/Naja-SNL.png
    :alt: Naja SNL
 
 .. toctree::
