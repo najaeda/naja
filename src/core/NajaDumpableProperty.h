@@ -15,6 +15,13 @@ class NajaDumpableProperty: public NajaPrivateProperty {
     using super = NajaPrivateProperty;
 
     NajaDumpableProperty() = delete;
+
+    /**
+     * \brief Create a NajaDumpableProperty.
+     * \param owner the owner of this NajaDumpableProperty.
+     * \param name the name of this NajaDumpableProperty. 
+     * \return created NajaDumpableProperty.
+     */ 
     static NajaDumpableProperty* create(NajaObject* owner, const std::string& name);
 
     std::string getName() const override { return name_; }

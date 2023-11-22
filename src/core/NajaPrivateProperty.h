@@ -14,6 +14,7 @@ class NajaPrivateProperty: public NajaProperty {
   public:
     using super = NajaProperty;
 
+    /// \return the owner of this NajaPrivateProperty.
     NajaObject* getOwner() const { return owner_; }
   protected:
     NajaPrivateProperty() = default;
