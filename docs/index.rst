@@ -1,4 +1,5 @@
 .. image:: images/Naja-Logo.png
+   :width: 200
    :alt: Naja
 
 Welcome to Naja's documentation!
