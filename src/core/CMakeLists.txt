@@ -8,8 +8,6 @@ set(SOURCES
   NajaProperty.cpp
   NajaPrivateProperty.cpp
   NajaDumpableProperty.cpp
-  #MemoryUsage.cpp
-  #PerfTracker.cpp
 )
 
 set(NAJA_CORE_HEADERS
