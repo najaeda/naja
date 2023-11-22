@@ -22,9 +22,9 @@ class SNLTerm: public SNLNetComponent {
     SNLID::DesignObjectReference getReference() const;
     virtual SNLID::DesignObjectID getID() const = 0;
     /**
-     * \return this SNLTerm flat id in the containing SNLDesign flat SNLBitTerms.
-     * \n
-     * For instance, with three Terms created in following order:
+     * \brief Get the flat id of this SNLTerm in the containing SNLDesign flat SNLBitTerms.
+     * 
+     * With three Terms created in following order:
      *   - SNLScalarTerm term1
      *   - SNLBusTerm term2[1:0]
      *   - SNLScalarTerm term3
@@ -34,6 +34,7 @@ class SNLTerm: public SNLNetComponent {
      * |-------|----------|----------|-------|
      * |term0  | term2    |          | term3 |
      * |       | term2[1] | term2[0] |       |  
+     * \return this SNLTerm flat id in the containing SNLDesign flat SNLBitTerms.
      **/
     virtual size_t getFlatID() const = 0;
     ///\return term SNLName.
