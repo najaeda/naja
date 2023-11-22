@@ -32,10 +32,12 @@ class SNLNetComponent: public SNLDesignObject {
           DirectionEnum dirEnum_;
     };
 
-    ///\return this SNLNetComponent Direction.
+    /// \return this SNLNetComponent Direction.
     virtual Direction getDirection() const = 0;
 
+    /// \return this SNLNetComponent SNLNet. 
     virtual SNLBitNet* getNet() const =0;
+    /// \brief Change this SNLNetComponent SNLNet. 
     virtual void setNet(SNLNet* net) =0;
 
   protected:

@@ -34,21 +34,18 @@ class SNLScalarTerm final: public SNLBitTerm {
      */
     static SNLScalarTerm* create(SNLDesign* design, SNLID::DesignObjectID id, Direction direction, const SNLName& name=SNLName());
 
-    /// \return the owning SNLDesign.
     SNLDesign* getDesign() const override { return design_; }
-
     SNLID getSNLID() const override;
     SNLID::DesignObjectID getID() const override { return id_; }
     SNLID::Bit getBit() const override { return 0; }
     size_t getFlatID() const override { return flatID_; }
-    /// \return this SNLScalarTerm name.
     SNLName getName() const override { return name_; }
-    /// \return true if this SNLScalarTerm is anonymous.
     bool isAnonymous() const override { return name_.empty(); }
-    void setName(const SNLName& name);
-    NajaCollection<SNLBitTerm*> getBits() const override;
 
-    /// \return the direction of this SNLScalarTerm.
+    /// \brief Change the name of this SNLScalarTerm.
+    void setName(const SNLName& name);
+
+    NajaCollection<SNLBitTerm*> getBits() const override;
     SNLTerm::Direction getDirection() const override { return direction_; }
     const char* getTypeName() const override;
     std::string getString() const override;

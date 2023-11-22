@@ -20,12 +20,32 @@ class SNLBusTerm final: public SNLTerm {
     friend class SNLDesign;
     using super = SNLTerm;
 
+    /**
+     * \brief Create a SNLBusTerm.
+     * \param design owner SNLDesign.
+     * \param direction direction of the term.
+     * \param msb MSB (Most Significant Bit) or left hand side of the bus range.
+     * \param lsb LSB (Most Significant Bit) or right hand side of the bus range.
+     * \param name optional name.
+     * \return created SNLBusTerm.  
+     */
     static SNLBusTerm* create(
         SNLDesign* design,
         Direction direction,
         SNLID::Bit msb,
         SNLID::Bit lsb,
         const SNLName& name=SNLName());
+
+    /**
+     * \brief Create a SNLBusTerm with a given SNLID::DesignObjectID.
+     * \param design owner SNLDesign.
+     * \param id SNLID::DesignObjectID of the instance.
+     * \param direction direction of the term.
+     * \param msb MSB (Most Significant Bit) or left hand side of the bus range.
+     * \param lsb LSB (Most Significant Bit) or right hand side of the bus range.
+     * \param name optional name.
+     * \return created SNLBusTerm. 
+     */
     static SNLBusTerm* create(
         SNLDesign* design,
         SNLID::DesignObjectID id,
