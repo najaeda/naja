@@ -15,15 +15,32 @@ class SNLScalarNet final: public SNLBitNet {
     friend class SNLDesign;
     using super = SNLBitNet;
 
+    /**
+     * \brief Create a SNLScalarNet.
+     * \param design owner SNLDesign.
+     * \param name optional name.
+     * \return created SNLScalarNet. 
+     */
     static SNLScalarNet* create(SNLDesign* design, const SNLName& name=SNLName());
+
+    /**
+     * \brief Create a SNLScalarNet with a given SNLID::DesignObjectID.
+     * \param design owner SNLDesign.
+     * \param id SNLID::DesignObjectID of the instance.
+     * \param name optional name.
+     * \return created SNLScalarNet.
+     */
     static SNLScalarNet* create(SNLDesign* design, SNLID::DesignObjectID id, const SNLName& name=SNLName());
 
+    /// \return this SNLScalarNet owning design.
     SNLDesign* getDesign() const override { return design_; }
 
     SNLID getSNLID() const override;
     SNLID::DesignObjectID getID() const override { return id_; }
 
+    /// \return this SNLScalarNet name.
     SNLName getName() const override { return name_; }
+    /// \return true if this SNLScalarNet is anonymous.
     bool isAnonymous() const override { return name_.empty(); }
     void setName(const SNLName& name);
     NajaCollection<SNLBitNet*> getBits() const override;
