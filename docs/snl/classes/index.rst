@@ -9,3 +9,4 @@ SNL Classes
    design
    netcomponent
    nets
+   occurrences

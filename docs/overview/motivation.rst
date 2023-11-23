@@ -11,7 +11,7 @@ In most EDA flows, data exchange is done by using standard netlist formats
 (Verilog, LEF/DEF, EDIF, …) which were not designed to represent data structures
 content with high fidelity.
 
-To overcome this problem, Naja relies on `Cap'n Proto <https://capnproto.org/>`
+To overcome this problem, Naja relies on `Cap'n Proto <https://capnproto.org/>`_
 open source interchange format.
 
 Naja also emphasizes EDA applications parallelization
