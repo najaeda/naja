@@ -37,7 +37,11 @@ class SNLNetComponent: public SNLDesignObject {
 
     /// \return this SNLNetComponent SNLNet. 
     virtual SNLBitNet* getNet() const =0;
-    /// \brief Change this SNLNetComponent SNLNet. 
+    /**
+     * \brief Change this SNLNetComponent SNLNet.
+     * \remark This SNLNetComponent and net must have the same size. 
+     * \remark If net is null, this SNLNetComponent will be disconnected.
+     */
     virtual void setNet(SNLNet* net) =0;
 
   protected:

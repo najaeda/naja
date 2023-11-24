@@ -17,10 +17,22 @@ class SNLOccurrence {
     //needs to be revised in case of refcount on sharedpath
     SNLOccurrence(const SNLOccurrence&)=default;
 
+    /**
+     * \brief SNLOccurrence constructor with an empty path.
+     * \param object referenced SNLDesignObject. 
+     */
     SNLOccurrence(SNLDesignObject* object);
+
+    /**
+     * \brief SNLOccurrence constructor.
+     * \param path SNLPath to the referenced SNLDesignObject. 
+     * \param object referenced SNLDesignObject. 
+     */
     SNLOccurrence(const SNLPath& path, SNLDesignObject* object);
 
+    /// \return this SNLOccurrence path.
     SNLPath getPath() const;
+    /// \return this SNLOccurrence referenced SNLDesignObject.
     SNLDesignObject* getObject() const { return object_; }
     bool isValid() const { return object_ != nullptr; }
 

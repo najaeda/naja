@@ -8,6 +8,10 @@
 
 namespace naja { namespace SNL {
 
+SNLBitNetOccurrence::SNLBitNetOccurrence(SNLBitNet* net):
+  SNLOccurrence(net)
+{}
+
 SNLBitNetOccurrence::SNLBitNetOccurrence(const SNLPath& path, SNLBitNet* net):
   SNLOccurrence(path, net)
 {}

@@ -15,10 +15,21 @@ class SNLBitNetOccurrence: public SNLOccurrence {
   public:
     using super = SNLOccurrence;
 
+    /// \brief SNLBitNetOccurrence empty constructor.
     SNLBitNetOccurrence() = default;
+    /**
+     * \brief SNLBitNetOccurrence constructor with an empty path.
+     * \param net referenced SNLBitNet.
+     */
     SNLBitNetOccurrence(SNLBitNet* net);
+    /**
+     * \brief SNLBitNetOccurrence constructor.
+     * \param path SNLPath to the referenced SNLBitNet. 
+     * \param net referenced SNLBitNet.
+     */
     SNLBitNetOccurrence(const SNLPath& path, SNLBitNet* net);
 
+    /// \return referenced SNLBitNet. 
     SNLBitNet* getNet() const;
 };
 
