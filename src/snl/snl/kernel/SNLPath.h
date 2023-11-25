@@ -49,48 +49,55 @@ class SNLPath {
 
     /**
      * \return this SNLPath head instance.
-     * \example [A/B/C]->getHeadPath() will return A.
+     *
+     * [A/B/C]->getHeadPath() will return A.
      */
     SNLInstance* getHeadInstance() const;
 
     /**
      * \return this SNLPath tail SNLPath.
-     * \example [A/B/C]->getTailPath() will return [B/C].
+     *
+     * [A/B/C]->getTailPath() will return [B/C].
      */
     SNLPath getTailPath() const;
 
     /**
      * \return this SNLPath head SNLPath.
-     * \example [A/B/C]->getHeadPath() will return [A/B].
+     *
+     * [A/B/C]->getHeadPath() will return [A/B].
      */
     SNLPath getHeadPath() const;
 
     /**
      * \return this SNLPath tail SNLInstance.
-     * \example [A/B/C]->getTailInstance() will return C.
+     * 
+     * [A/B/C]->getTailInstance() will return C.
      */
     SNLInstance* getTailInstance() const;
 
     /**
      * \return this SNLPath head SNLInstance design.
-     * \example [A/B/C]->getDesign() will return A->getDesign()
+     *
+     * [A/B/C]->getDesign() will return A->getDesign()
      * \sa SNLInstance::getDesign()
      */
     SNLDesign* getDesign() const;
 
     /**
      * \return this SNLPath tail SNLInstance model.
-     * \example [A/B/C]->getModel() will return C->getModel()
+     *
+     * [A/B/C]->getModel() will return C->getModel()
      * \sa SNLInstance::getModel()
      */
     SNLDesign* getModel() const;
 
-    /// \return true if this SNLPath is empty, equal to SNLPath().
+    /// \return true if this SNLPath is empty, same as == SNLPath().
     bool empty() const;
     
     /**
      * \return this SNLPath size.
-     * \example [A/B/C].size() will return 3.
+     *
+     * [A/B/C].size() will return 3.
      */ 
     size_t size() const;
 
@@ -107,7 +114,8 @@ class SNLPath {
     /**
      * \return a string describing this SNLPath.
      * \param separator optional separator character with default value being '/'.
-     * \example [A/B/C].getString('#') will return "A#B#C".
+     *
+     * [A/B/C].getString('#') will return "A#B#C".
      */
     std::string getString(const char separator='/') const;
 
