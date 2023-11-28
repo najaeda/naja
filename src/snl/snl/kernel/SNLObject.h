@@ -12,9 +12,21 @@
 
 namespace naja { namespace SNL {
 
+/**
+ * \brief SNLObject is the root object of SNL database objects.
+ */
 class SNLObject: public NajaObject {
   public:
     using super = NajaObject;
+    /**
+     * \brief Debug method that dumps string describing extensively the object and
+     * its sub elements.
+     * \param indent number of characters to use for indenting.
+     * \param recursive if true, this method will be called recursively on this object elements.
+     * Optional parameter with default value: true.
+     * \param stream stream to which the debug string will be dumped.
+     * Optional parameter with default value: std:cerr.
+     */
     virtual void debugDump(size_t indent, bool recursive=true, std::ostream& stream=std::cerr) const = 0;
     
   protected:

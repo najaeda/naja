@@ -41,6 +41,10 @@ SNL is summarized in below's image.
 
 :star: If you find Naja interesting, and would like to stay up-to-date, consider starring this repo to help spread the word.
 
+## Documentation
+
+Naja's full [documentation](https://naja.readthedocs.io/en/latest/) is avaialble online.
+
 ## Compilation
 
 ### Getting sources
