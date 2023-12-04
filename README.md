@@ -43,7 +43,7 @@ SNL is summarized in below's image.
 
 ## Documentation
 
-Naja's full [documentation](https://naja.readthedocs.io/en/latest/) is avaialble online.
+Naja's full [documentation](https://naja.readthedocs.io/en/latest/) is available online.
 
 ## Compilation
 
