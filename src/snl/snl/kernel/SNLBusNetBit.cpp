@@ -103,4 +103,8 @@ bool SNLBusNetBit::isAnonymous() const {
   return getBus()->isAnonymous();
 }
 
+void SNLBusNetBit::setName(const SNLName& name) {
+  throw SNLException("Unauthorized setName of SNLBusNetBit");  
+}
+
 }} // namespace SNL // namespace naja

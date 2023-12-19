@@ -1,0 +1,1 @@
+INSTALL(FILES xilinx.py DESTINATION shared/primitives)

@@ -274,12 +274,18 @@ void SNLVRLConstructor::addAssign(
   using BitNets = std::vector<SNLBitNet*>;
   BitNets leftNets;
   BitNets rightNets;
-  std::cerr << "Assign: " << std::endl;
+  if (verbose_) {
+    std::cerr << "Assign: " << std::endl;
+  }
   for (auto id: identifiers) {
     collectIdentifierNets(id, leftNets);
-    std::cerr << "ID: " << id.getString() << std::endl;
+    if (verbose_) {
+      std::cerr << "ID: " << id.getString() << std::endl;
+    }
   }
-  std::cerr << expression.getString() << std::endl;
+  if (verbose_) {
+    std::cerr << expression.getString() << std::endl;
+  }
   if (expression.valid_) {
     if (not expression.supported_) {
       std::ostringstream reason;
@@ -338,8 +344,6 @@ void SNLVRLConstructor::addAssign(
       }
     }
   }
-  std::cerr << leftNets.size();
-  std::cerr << rightNets.size();
   assert(leftNets.size() == rightNets.size());
   for (size_t i=0; i<leftNets.size(); ++i) {
     auto leftNet = leftNets[i];

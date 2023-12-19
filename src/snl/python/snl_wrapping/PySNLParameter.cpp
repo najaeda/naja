@@ -105,7 +105,7 @@ static PyObject* PySNLParameter_createBoolean(PyObject*, PyObject* args) {
 }
 
 GetNameMethod(SNLParameter)
-GetObjectMethod(Parameter, Design)
+GetObjectMethod(Parameter, Design, getDesign)
 
 DBoDestroyAttribute(PySNLParameter_destroy, PySNLParameter)
 
