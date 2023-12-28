@@ -1,4 +1,4 @@
-include Makefile.inc
+include ../Makefile.inc
 
 all: vexriscv.demo.GenFull_snl.v primitives.v
 #	yosys src/comp.ys
