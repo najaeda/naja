@@ -66,6 +66,20 @@ class SNLNetTest(unittest.TestCase):
     self.assertIsNone(i1.getBit(5))
     self.assertIsNone(i1Net.getBit(5))
 
+  def testRenameNet(self):
+    i0Net = snl.SNLScalarNet.create(self.design, "I0")
+    i1Net = snl.SNLBusNet.create(self.design, 4, 0, "I1")
+    self.assertEqual("I0", i0Net.getName())
+    self.assertEqual("I1", i1Net.getName())
+    i0Net.setName("I2")
+    i1Net.setName("I3")
+    self.assertEqual("I2", i0Net.getName())
+    self.assertEqual("I3", i1Net.getName())
+    self.assertEqual(i0Net, self.design.getNet("I2"))
+    self.assertEqual(i1Net, self.design.getNet("I3"))
+    self.assertIsNone(self.design.getNet("I0"))
+    self.assertIsNone(self.design.getNet("I1"))
+
   def testErrors(self):
     self.assertIsNotNone(self.design)
     i0 = snl.SNLScalarTerm.create(self.design, snl.SNLTerm.Direction.Input, "I0")

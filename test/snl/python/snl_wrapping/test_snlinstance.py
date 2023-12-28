@@ -38,6 +38,14 @@ class SNLInstanceTest(unittest.TestCase):
     self.assertEqual(ins1, instances[0])
     self.assertFalse(all(False for _ in ins1.getInstTerms()))
 
+  def testRenameInstance(self):
+    ins1 = snl.SNLInstance.create(self.top, self.model, "ins1")
+    self.assertEqual("ins1", ins1.getName())
+    ins1.setName("ins2")
+    self.assertEqual("ins2", ins1.getName())
+    self.assertEqual(ins1, self.top.getInstance("ins2"))
+    self.assertIsNone(self.top.getInstance("ins1"))
+
   def testErrors(self):
     with self.assertRaises(RuntimeError) as context: snl.SNLInstance.create(self.top, self.model, "ins1", "ERROR")
     with self.assertRaises(RuntimeError) as context: snl.SNLInstance.create("ERROR", self.model, "ins1")

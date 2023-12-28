@@ -157,7 +157,7 @@ void SNLVRLConstructor::startModule(const std::string& name) {
   if (inFirstPass()) {
     currentModule_ = SNLDesign::create(library_, SNLName(name));
     if (verbose_) {
-      std::cerr << "Construct Module: " << name << std::endl;
+      std::cerr << "Construct Module: " << name << std::endl; //LCOV_EXCL_LINE
     }
   } else {
     currentModule_ = library_->getDesign(SNLName(name));
@@ -181,7 +181,7 @@ void SNLVRLConstructor::startModule(const std::string& name) {
 void SNLVRLConstructor::moduleInterfaceSimplePort(const std::string& name) {
   if (inFirstPass()) {
     if (verbose_) {
-      std::cerr << "Add port: " << name << std::endl;
+      std::cerr << "Add port: " << name << std::endl; //LCOV_EXCL_LINE
     }
     if (currentModuleInterfacePortsMap_.find(name) != currentModuleInterfacePortsMap_.end()) {
       std::ostringstream reason;
@@ -199,7 +199,8 @@ void SNLVRLConstructor::moduleInterfaceSimplePort(const std::string& name) {
 void SNLVRLConstructor::moduleImplementationPort(const naja::verilog::Port& port) {
   if (inFirstPass()) {
     if (verbose_) {
-      std::cerr << "Add implementation port: " << port.getString() << std::endl;
+      std::cerr << "Add implementation port: "
+        << port.getString() << std::endl; //LCOV_EXCL_LINE
     }
     auto it = currentModuleInterfacePortsMap_.find(port.name_);
     if (it == currentModuleInterfacePortsMap_.end()) {
@@ -219,7 +220,7 @@ void SNLVRLConstructor::moduleImplementationPort(const naja::verilog::Port& port
 void SNLVRLConstructor::moduleInterfaceCompletePort(const naja::verilog::Port& port) {
   if (inFirstPass()) {
     if (verbose_) {
-      std::cerr << "Add port: " << port.getString() << std::endl;
+      std::cerr << "Add port: " << port.getString() << std::endl; //LCOV_EXCL_LINE
     }
     createPort(currentModule_, port);
   } else {
@@ -230,7 +231,7 @@ void SNLVRLConstructor::moduleInterfaceCompletePort(const naja::verilog::Port& p
 void SNLVRLConstructor::addNet(const naja::verilog::Net& net) {
   if (not inFirstPass()) {
     if (verbose_) {
-      std::cerr << "Add net: " << net.getString() << std::endl;
+      std::cerr << "Add net: " << net.getString() << std::endl; //LCOV_EXCL_LINE
     }
     auto netName = SNLName(net.name_);
     auto existingNet = currentModule_->getNet(netName);
@@ -275,16 +276,16 @@ void SNLVRLConstructor::addAssign(
   BitNets leftNets;
   BitNets rightNets;
   if (verbose_) {
-    std::cerr << "Assign: " << std::endl;
+    std::cerr << "Assign: " << std::endl; //LCOV_EXCL_LINE
   }
   for (auto id: identifiers) {
     collectIdentifierNets(id, leftNets);
     if (verbose_) {
-      std::cerr << "ID: " << id.getString() << std::endl;
+      std::cerr << "ID: " << id.getString() << std::endl; //LCOV_EXCL_LINE
     }
   }
   if (verbose_) {
-    std::cerr << expression.getString() << std::endl;
+    std::cerr << expression.getString() << std::endl; //LCOV_EXCL_LINE
   }
   if (expression.valid_) {
     if (not expression.supported_) {
@@ -358,7 +359,7 @@ void SNLVRLConstructor::startInstantiation(const std::string& modelName) {
   if (not inFirstPass()) {
     currentModelName_ = modelName;
     if (verbose_) {
-      std::cerr << "Start Instantiation: " << modelName << std::endl;
+      std::cerr << "Start Instantiation: " << modelName << std::endl; //LCOV_EXCL_LINE
     }
   }
 }
@@ -401,7 +402,8 @@ void SNLVRLConstructor::endInstantiation() {
   if (not inFirstPass()) {
     assert(currentInstance_);
     if (verbose_) {
-      std::cerr << "End " << currentInstance_->getString() << " instantiation" << std::endl;
+      std::cerr << "End " << currentInstance_->getString() 
+        << " instantiation" << std::endl; //LCOV_EXCL_LINE
     }
     //Save current Parameter assignments
     for (auto parameterValue: currentInstanceParameterValues_) {
@@ -523,7 +525,7 @@ void SNLVRLConstructor::addInstanceConnection(
       std::cerr << "Instance connection: "
         << currentInstance_->getString()
         << " - " << term->getString() << " connection"
-        << std::endl;
+        << std::endl; //LCOV_EXCL_LINE
     }
   }
 }
@@ -540,14 +542,15 @@ void SNLVRLConstructor::addOrderedInstanceConnection(
       std::cerr << "Instance connection: "
         << currentInstance_->getString()
         << " - " << term->getString() << " connection"
-        << std::endl;
+        << std::endl; //LCOV_EXCL_LINE
     }
   }
 }
 
 void SNLVRLConstructor::endModule() {
   if (verbose_) {
-    std::cerr << "End module: " << currentModule_->getString() << std::endl;
+    std::cerr << "End module: "
+      << currentModule_->getString() << std::endl; //LCOV_EXCL_LINE
   }
   if (inFirstPass()) {
     //construct interface declared ports if existing
