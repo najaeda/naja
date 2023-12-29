@@ -199,8 +199,10 @@ void SNLVRLConstructor::moduleInterfaceSimplePort(const std::string& name) {
 void SNLVRLConstructor::moduleImplementationPort(const naja::verilog::Port& port) {
   if (inFirstPass()) {
     if (verbose_) {
+      //LCOV_EXCL_START
       std::cerr << "Add implementation port: "
-        << port.getString() << std::endl; //LCOV_EXCL_LINE
+        << port.getString() << std::endl;
+      //LCOV_EXCL_STOP
     }
     auto it = currentModuleInterfacePortsMap_.find(port.name_);
     if (it == currentModuleInterfacePortsMap_.end()) {
@@ -522,10 +524,12 @@ void SNLVRLConstructor::addInstanceConnection(
     }
     currentInstancePortConnection(term, expression);
     if (verbose_) {
+      //LCOV_EXCL_START
       std::cerr << "Instance connection: "
         << currentInstance_->getString()
         << " - " << term->getString() << " connection"
-        << std::endl; //LCOV_EXCL_LINE
+        << std::endl;
+      //LCOV_EXCL_STOP
     }
   }
 }
@@ -539,18 +543,22 @@ void SNLVRLConstructor::addOrderedInstanceConnection(
     SNLTerm* term = model->getTerm(SNLID::DesignObjectID(portIndex));
     currentInstancePortConnection(term, expression);
     if (verbose_) {
+      //LCOV_EXCL_START
       std::cerr << "Instance connection: "
         << currentInstance_->getString()
         << " - " << term->getString() << " connection"
-        << std::endl; //LCOV_EXCL_LINE
+        << std::endl;
+      //LCOV_EXCL_STOP
     }
   }
 }
 
 void SNLVRLConstructor::endModule() {
   if (verbose_) {
+    //LCOV_EXCL_START
     std::cerr << "End module: "
-      << currentModule_->getString() << std::endl; //LCOV_EXCL_LINE
+      << currentModule_->getString() << std::endl;
+    //LCOV_EXCL_STOP
   }
   if (inFirstPass()) {
     //construct interface declared ports if existing
