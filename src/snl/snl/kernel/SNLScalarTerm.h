@@ -6,7 +6,6 @@
 #define __SNL_SCALAR_TERM_H_
 
 #include "SNLBitTerm.h"
-#include "SNLName.h"
 
 namespace naja { namespace SNL {
 
@@ -43,7 +42,7 @@ class SNLScalarTerm final: public SNLBitTerm {
     bool isAnonymous() const override { return name_.empty(); }
 
     /// \brief Change the name of this SNLScalarTerm.
-    void setName(const SNLName& name);
+    void setName(const SNLName& name) override;
 
     NajaCollection<SNLBitTerm*> getBits() const override;
     SNLTerm::Direction getDirection() const override { return direction_; }

@@ -52,10 +52,7 @@ static PyObject* PySNLInstance_create(PyObject*, PyObject* args) {
   return PySNLInstance_Link(instance);
 }
 
-static PyObject* PySNLInstance_getModel(PySNLInstance* self) {
-  METHOD_HEAD("SNLInstance.getModel()")
-  return PySNLDesign_Link(selfObject->getModel());
-}
+GetObjectMethod(Instance, Design, getModel)
 
 static PyObject* PySNLDesign_getCombinatorialInputs(PySNLDesign*, PyObject* output) {
   if (IsPySNLInstTerm(output)) {
@@ -91,9 +88,9 @@ static PyObject* PySNLDesign_getCombinatorialOutputs(PySNLDesign*, PyObject* inp
 
 GetNameMethod(SNLInstance)
 
+DBoLinkCreateMethod(SNLInstance)
 DBoDeallocMethod(SNLInstance)
 
-DBoLinkCreateMethod(SNLInstance)
 PyTypeInheritedObjectDefinitions(SNLInstance, SNLDesignObject)
 
 static PyObject* PySNLInstance_getInstTerm(PySNLInstance* self, PyObject* args) {

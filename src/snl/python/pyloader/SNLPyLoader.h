@@ -2,8 +2,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __SNL_PRIMITIVES_LOADER_H_
-#define __SNL_PRIMITIVES_LOADER_H_
+#ifndef __SNL_PYLOADER_H_
+#define __SNL_PYLOADER_H_
 
 #include <filesystem>
 
@@ -23,9 +23,9 @@ class SNLPyLoader {
       bool loadPrimitives=false);
     static void loadPrimitives(
       SNLLibrary* library,
-      const std::filesystem::path& scriptPth);
+      const std::filesystem::path& scriptPath);
 };
 
 }} // namespace SNL // namespace naja
 
-#endif // __SNL_PRIMITIVES_LOADER_H_
+#endif // __SNL_PYLOADER_H_

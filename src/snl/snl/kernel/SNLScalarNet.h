@@ -6,7 +6,6 @@
 #define __SNL_SCALAR_NET_H_
 
 #include "SNLBitNet.h"
-#include "SNLName.h"
 
 namespace naja { namespace SNL {
 
@@ -42,7 +41,7 @@ class SNLScalarNet final: public SNLBitNet {
     SNLName getName() const override { return name_; }
     /// \return true if this SNLScalarNet is anonymous.
     bool isAnonymous() const override { return name_.empty(); }
-    void setName(const SNLName& name);
+    void setName(const SNLName& name) override;
     NajaCollection<SNLBitNet*> getBits() const override;
 
     const char* getTypeName() const override;

@@ -1,7 +1,4 @@
-YOSYS ?= yosys
-VERILATOR ?= verilator
-SNL_X2Y ?= ../../build/src/apps/x2y/naja_x2y
-PRIMITIVES ?= ../../primitives/xilinx.py 
+include ../Makefile.inc
 
 all: adder_snl.v primitives.v verilator
 
@@ -12,7 +9,7 @@ adder_netlist.v: src/adder.v
 	${YOSYS} src/synth.ys
 
 adder_snl.v primitives.v: adder_netlist.v
-	${SNL_X2Y} -a verilog -b verilog -p ${PRIMITIVES} -i $< -o adder_snl.v -d primitives.v
+	${NAJA_EDIT} -a verilog -b verilog -p ${PRIMITIVES} -i $< -o adder_snl.v -d primitives.v
 
 clean:
 	-rm adder_snl.v primitives.v adder_netlist.v 

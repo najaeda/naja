@@ -5,6 +5,7 @@
 #include "PySNLDesign.h"
 
 #include "PyInterface.h"
+#include "PySNLDB.h"
 #include "PySNLLibrary.h"
 #include "PySNLScalarTerm.h"
 #include "PySNLBusTerm.h"
@@ -251,7 +252,8 @@ static PyObject* PySNLDesign_getClockRelatedOutputs(PySNLDesign*, PyObject* obje
   GetDesignModelingRelatedObjects(SNLBitTerm, getClockRelatedOutputs, SNLDesign)
 }
 
-GetObjectMethod(Design, Library)
+GetObjectMethod(Design, DB, getDB)
+GetObjectMethod(Design, Library, getLibrary)
 GetObjectByName(Design, Instance)
 GetObjectByName(Design, Term)
 GetObjectByName(Design, ScalarTerm)
@@ -293,6 +295,8 @@ PyMethodDef PySNLDesign_Methods[] = {
     "get outputs related to a clock"},
   { "getName", (PyCFunction)PySNLDesign_getName, METH_NOARGS,
     "get SNLDesign name"},
+  {"getDB", (PyCFunction)PySNLDesign_getDB, METH_NOARGS,
+    "Returns the SNLDesign owner SNLDB."},
   {"getLibrary", (PyCFunction)PySNLDesign_getLibrary, METH_NOARGS,
     "Returns the SNLDesign owner SNLLibrary."},
   { "getTerm", (PyCFunction)PySNLDesign_getTerm, METH_VARARGS,

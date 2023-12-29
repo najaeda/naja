@@ -16,6 +16,12 @@ class SNLDesignModelingTest(unittest.TestCase):
     if snl.SNLUniverse.get():
       snl.SNLUniverse.get().destroy()
 
+  def testLibraries(self):
+    self.assertTrue(self.designs.isStandard())
+    self.assertFalse(self.designs.isPrimitives())
+    self.assertTrue(self.primitives.isPrimitives())
+    self.assertFalse(self.primitives.isStandard())
+
   def testCombi(self):
     design = snl.SNLDesign.createPrimitive(self.primitives, "DESIGN")
     i0 = snl.SNLScalarTerm.create(design, snl.SNLTerm.Direction.Input, "I0")

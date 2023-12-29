@@ -14,7 +14,6 @@
 #include "SNLDesignObject.h"
 #include "SNLID.h"
 #include "SNLSharedPath.h"
-#include "SNLName.h"
 #include "SNLInstParameter.h"
 
 namespace naja { namespace SNL {
@@ -73,7 +72,7 @@ class SNLInstance final: public SNLDesignObject {
      * \brief Set this SNLInstance name.
      * \param name new SNLInstance name. 
      */
-    void setName(const SNLName& name);
+    void setName(const SNLName& name) override;
 
     bool isAnonymous() const override { return name_.empty(); }
     ///\return true if this SNLInstance is a blackbox.
