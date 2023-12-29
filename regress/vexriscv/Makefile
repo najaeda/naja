@@ -1,7 +1,6 @@
 include ../Makefile.inc
 
 all: vexriscv.demo.GenFull_snl.v primitives.v
-#	yosys src/comp.ys
 
 verilator: vexriscv.demo.GenFull_snl.v primitives.v
 	${VERILATOR} --top-module vexriscv.demo.GenFull --lint-only primitives.v vexriscv.demo.GenFull_snl.v 

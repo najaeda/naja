@@ -331,4 +331,7 @@ TEST_F(SNLNetTest, testRename) {
   EXPECT_EQ(net2, design_->getNet(SNLName("net2")));
   //Collision error
   EXPECT_THROW(net1->setName(SNLName("net0")), SNLException);
+
+  //BusNetBit rename error
+  EXPECT_THROW(net1->getBit(0)->setName(SNLName("net0")), SNLException);
 }
