@@ -28,6 +28,8 @@ class SNLInstTerm final: public SNLNetComponent {
     void setNet(SNLNet* net) override;
 
     bool isAnonymous() const override;
+    void setName(const SNLName& name) override;
+    
     SNLTerm::Direction getDirection() const override;
     const char* getTypeName() const override;
     std::string getString() const override;

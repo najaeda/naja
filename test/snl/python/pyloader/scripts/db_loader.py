@@ -9,7 +9,6 @@ def construct(db):
   prim = snl.SNLDesign.createPrimitive(primitives, 'PRIM')
   i = snl.SNLScalarTerm.create(prim, snl.SNLTerm.Direction.Input, 'i')
   designs = snl.SNLLibrary.create(db)
-  pass
 
 def constructDB(db):
   construct(db)

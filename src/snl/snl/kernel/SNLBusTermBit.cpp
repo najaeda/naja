@@ -116,4 +116,8 @@ bool SNLBusTermBit::isAnonymous() const {
   return getBus()->isAnonymous();
 }
 
+void SNLBusTermBit::setName(const SNLName& name) {
+  throw SNLException("Unauthorized setName of SNLBusTermBit");  
+}
+
 }} // namespace SNL // namespace naja

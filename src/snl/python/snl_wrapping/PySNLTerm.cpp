@@ -30,7 +30,6 @@ PyMethodDef PySNLTerm_Methods[] = {
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 
-DBoDestroyAttribute(PySNLTerm_destroy, PySNLTerm)
 DBoDeallocMethod(SNLTerm)
 
 DBoLinkCreateMethod(SNLTerm)

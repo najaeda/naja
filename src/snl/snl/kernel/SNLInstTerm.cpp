@@ -69,6 +69,10 @@ bool SNLInstTerm::isAnonymous() const {
   return getTerm()->isAnonymous();
 }
 
+void SNLInstTerm::setName(const SNLName& name) {
+  throw SNLException("Unauthorized setName of SNLInstTerm");
+}
+
 //LCOV_EXCL_START
 const char* SNLInstTerm::getTypeName() const {
   return "SNLInstTerm";

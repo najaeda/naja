@@ -9,6 +9,8 @@ using namespace std;
 #include "SNLDB.h"
 #include "SNLDesign.h"
 #include "SNLInstance.h"
+#include "SNLScalarTerm.h"
+#include "SNLInstTerm.h"
 #include "SNLException.h"
 using namespace naja::SNL;
 
@@ -56,4 +58,12 @@ TEST_F(SNLInstanceTest2, testRename) {
   EXPECT_EQ(instance2, design_->getInstance(SNLName("instance2")));
   //Collision error
   EXPECT_THROW(instance2->setName(SNLName("instance0")), SNLException);
+}
+
+
+TEST_F(SNLInstanceTest2, testInstTermRenameError) {
+  auto a = SNLScalarTerm::create(model_, SNLTerm::Direction::Input, SNLName("a"));
+  auto ins = SNLInstance::create(design_, model_, SNLName("instance"));
+  auto instTerm = ins->getInstTerm(a);
+  EXPECT_THROW(instTerm->setName(SNLName("b")), SNLException);
 }

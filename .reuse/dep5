@@ -20,6 +20,15 @@ Copyright: 2022 The Naja Authors.
 License: Apache-2.0
 Comment: these files are used for regression testing: synthesized netlists.
 
+Files: src/apps/edit/examples/*
+Copyright: 2022 The Naja Authors.
+License: Apache-2.0
+
 Files: test/snl/formats/verilog/backend/references/*
 Copyright: 2022 The Naja Authors.
 License: CC0-1.0
+
+Files: thirdparty/spdlog-1.12.0/*
+Source: https://github.com/gabime/spdlog 
+Copyright: 2016 Gabi Melman.
+License: MIT
