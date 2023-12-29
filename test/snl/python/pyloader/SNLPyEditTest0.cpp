@@ -5,6 +5,7 @@
 #include "gtest/gtest.h"
 
 #include "SNLUniverse.h"
+#include "SNLException.h"
 #include "SNLPyEdit.h"
 using namespace naja::SNL;
 
@@ -46,4 +47,12 @@ TEST_F(SNLPyDBEditTest0, test) {
   EXPECT_EQ(SNLName("instance1"), instance0->getName());
   EXPECT_EQ(nullptr, top->getInstance(SNLName("instance0")));
   EXPECT_EQ(instance0, top->getInstance(SNLName("instance1")));
+}
+
+TEST_F(SNLPyDBEditTest0, testEditError) {
+  auto db = SNLDB::create(SNLUniverse::get());
+  auto scriptPath = std::filesystem::path(SNL_PYEDIT_TEST_PATH);
+  scriptPath /= "edit";
+  scriptPath /= "edit_faulty.py";
+  EXPECT_THROW(SNLPyEdit::edit(scriptPath), SNLException);
 }
