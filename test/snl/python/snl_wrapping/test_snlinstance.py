@@ -37,6 +37,12 @@ class SNLInstanceTest(unittest.TestCase):
     self.assertEqual(1, len(instances))
     self.assertEqual(ins1, instances[0])
     self.assertFalse(all(False for _ in ins1.getInstTerms()))
+  
+  def testDestroyInstance(self):
+    ins1 = snl.SNLInstance.create(self.top, self.model, "ins1")
+    self.assertEqual(ins1, self.top.getInstance("ins1"))
+    ins1.destroy()
+    self.assertIsNone(self.top.getInstance("ins1"))
 
   def testRenameInstance(self):
     ins1 = snl.SNLInstance.create(self.top, self.model, "ins1")
@@ -45,6 +51,7 @@ class SNLInstanceTest(unittest.TestCase):
     self.assertEqual("ins2", ins1.getName())
     self.assertEqual(ins1, self.top.getInstance("ins2"))
     self.assertIsNone(self.top.getInstance("ins1"))
+    self.assertRaises(RuntimeError, ins1.setName, self.top) #Wrong argument type
 
   def testErrors(self):
     with self.assertRaises(RuntimeError) as context: snl.SNLInstance.create(self.top, self.model, "ins1", "ERROR")
