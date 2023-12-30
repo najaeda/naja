@@ -168,73 +168,6 @@ A Verilog dumper is included in SNL API. See [here](https://github.com/xtofalex/
 
 ---
 
-## SNL Objects identification
-
-Each Design DB object has a unique identifier: [SNLID](https://github.com/xtofalex/naja/blob/main/src/snl/snl/kernel/SNLID.h).
-
-| Field       | Type      | Size (bytes) | Value range       |
-|-------------|-----------|--------------|-------------------|
-| Object type | uint8_t   | 1            | 0-255             |
-| DB          | uint8_t   | 1            | 0-255             |
-| Library     | uint16_t  | 2            | 0 - 65535         |
-| Design      | uint32_t  | 4            | 0 - 4,294,967,295 |
-| Instance    | uint32_t  | 4            | 0 - 4,294,967,295 |
-| Net object  | uint32_t  | 4            | 0 - 4,294,967,295 |
-| Bit         | int32_t   | 4            | 0 - 4,294,967,295 |
-
-Each object SNLID can be accessed with getSNLID() method.
-
-**SNLIDs** allow to:
-
-- compare and sort objects.
-- reference uniquely objects.
-- access objects from SNLUniverse.
-
-<div align="right">[ <a href="#Introduction">↑ Back to top ↑</a> ]</div>
-
----
-
-## Primitives
-
-New primitives library can be added 
-
-```python
-import snl
-
-# define a combinatorial AND2 Primitive with:
-# - 2 scalar inputs: I0 and I1
-# - 1 scalar output: O
-def constructAND2(lib):
-  and2 = snl.SNLDesign.createPrimitive(lib, "AND2")
-  i0 = snl.SNLScalarTerm.create(and2, snl.SNLTerm.Direction.Input, "I0")
-  i1 = snl.SNLScalarTerm.create(and2, snl.SNLTerm.Direction.Input, "I1")
-  o = snl.SNLScalarTerm.create(and2, snl.SNLTerm.Direction.Output, "O")
-  snl.SNLDesign.addCombinatorialArcs([i0, i1], o)
-
-# define a sequential FD Primitive with:
-# - 1 scalar input: D, 1 scalar clock input: C
-# - 1 scalar output: Q
-# - 1 a binary parameter "MASK" of size 1 with default value "0b0" 
-def constructFD(lib):
-  fd = snl.SNLDesign.createPrimitive(lib, "FD")
-  q = snl.SNLScalarTerm.create(fd, snl.SNLTerm.Direction.Output, "Q")
-  c = snl.SNLScalarTerm.create(fd, snl.SNLTerm.Direction.Input, "C")
-  d = snl.SNLScalarTerm.create(fd, snl.SNLTerm.Direction.Input, "D")
-  snl.SNLParameter.create_binary(fd, "MASK", 1, 0b0)
-  snl.SNLDesign.addInputsToClockArcs(d, c)
-  snl.SNLDesign.addClockToOutputsArcs(c, q)
-
-#The "primitives" script needs to define a constructPrimitives function
-# taking a primitives library to construct.
-def constructPrimitives(lib):
-  constructAND2(lib)
-  constructREG(lib)
-```
-
-<div align="right">[ <a href="#Introduction">↑ Back to top ↑</a> ]</div>
-
----
-
 ## Snippets
 
 ### c++
@@ -256,16 +189,20 @@ This "app" directory and its contents can be copied to start a new application.
 ---
 
 ## Applications
+
 ###  naja_edit
+
 `naja_edit`, accessible via the `$NAJA_INSTALL/bin` directory, is a tool designed for netlist translation and editing:
 
 - **Format Translation**: convert netlists between SNL Interchange Format and Verilog.
+
 ```bash
 #translation from verilog to SNL
 naja_edit -a verilog -b snl -i input.v -o output.snl
 ```
 
 - **Netlist Editing**: Utilize the SNL Python API for netlist editing.
+
 ```bash
 #translation from verilog to SNL with intermediate editing
 naja_edit -a verilog -b snl -i input.v -o output.snl -e script.py

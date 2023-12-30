@@ -7,4 +7,6 @@ SNL (Structured Netlist)
 .. toctree::
    :maxdepth: 1
 
+   identification.rst
+   primitives.rst
    classes/index.rst
