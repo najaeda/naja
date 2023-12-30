@@ -7,6 +7,7 @@
 
 #include "SNLObject.h"
 #include "SNLID.h"
+#include "SNLName.h"
 
 namespace naja { namespace SNL {
 
@@ -39,6 +40,11 @@ class SNLDesignObject: public SNLObject {
     SNLDB* getDB() const;
     ///\return true if this SNLDesignObject is anonymous, false if not.
     virtual bool isAnonymous() const = 0;
+    /**
+     * \brief set the SNLName of this SNLDesignObject
+     * \warning this method will throw an exception if used on SNLBusTermBit, SNLBusNetBit or SNLInstTermBit
+    */
+    virtual void setName(const SNLName& name) = 0;
 
     bool operator<(const SNLDesignObject &rhs) const {
       return getSNLID() < rhs.getSNLID();

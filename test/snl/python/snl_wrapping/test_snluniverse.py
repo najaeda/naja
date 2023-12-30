@@ -14,6 +14,7 @@ class SNLUniverseTest(unittest.TestCase):
     self.assertIsNone(snl.SNLUniverse.get())
     snl.SNLUniverse.create()
     self.assertIsNotNone(snl.SNLUniverse.get())
+    self.assertIsNone(snl.SNLUniverse.get().getTopDesign())
 
 if __name__ == '__main__':
   unittest.main()

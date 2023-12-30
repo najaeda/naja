@@ -49,7 +49,6 @@ PyMethodDef PySNLScalarNet_Methods[] = {
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 
-DBoDestroyAttribute(PySNLScalarNet_destroy, PySNLScalarNet)
 DBoDeallocMethod(SNLScalarNet)
 
 DBoLinkCreateMethod(SNLScalarNet)

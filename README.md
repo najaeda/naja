@@ -139,8 +139,22 @@ An application snippet can be found [here](https://github.com/xtofalex/naja/blob
 This "app" directory and its contents can be copied to start a new application.
 
 ## Applications
-###  naja_x2y
-This simple [application](https://github.com/xtofalex/naja/blob/main/src/apps/x2y/NajaX2Y.cpp) allows to translate a netlist from a format to another. SNL to verilog or verilog to SNL.
+###  naja_edit
+`naja_edit`, accessible via the `$NAJA_INSTALL/bin` directory, is a tool designed for netlist translation and editing:
+
+- **Format Translation**: convert netlists between SNL Interchange Format and Verilog.
+```bash
+#translation from verilog to SNL
+naja_edit -a verilog -b snl -i input.v -o output.snl
+```
+
+- **Netlist Editing**: Utilize the SNL Python API for netlist editing.
+```bash
+#translation from verilog to SNL with intermediate editing
+naja_edit -a verilog -b snl -i input.v -o output.snl -e script.py
+```
+
+`naja_edit` editing script examples are available [here](https://github.com/xtofalex/naja/blob/main/src/apps/edit/examples).
 
 ## Issues / Bugs
 Please use [GitHub Issues](https://github.com/xtofalex/naja/issues) to create and track requests and bugs.
