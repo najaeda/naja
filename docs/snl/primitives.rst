@@ -4,6 +4,7 @@ Primitives Management
 New primitives library can be added. The primitives library is a python script.
 
 .. code-block:: python
+
   import snl
 
   # define a combinatorial AND2 Primitive with:
