@@ -11,7 +11,9 @@
 
 Naja is an Electronic Design Automation (EDA) project that provides open source data structures and APIs for the development of post logic synthesis EDA algorithms such as: netlist simplification (constant and dead logic propagation), logic replication, netlist partitioning, ASIC and FPGA place and route, …
 
-Naja contains two primary components:
+Naja provides a tool: [naja-edit](#naja_edit) allowing to translate netlist from/to verilog from/to [SNL interchange format](#snl-interchange-format) and to edit netlist using [SNL python API](#python).
+
+If you are looking to build your own EDA tool, Naja contains two primary API components:
 
 1. SNL (Structured Netlist) API housed in this repository.
 2. [naja-verilog](https://github.com/xtofalex/naja-verilog), a data structure independent structural verilog parser.
@@ -43,7 +45,7 @@ SNL is summarized in below's image.
 
 ## Documentation
 
-Naja's full [documentation](https://naja.readthedocs.io/en/latest/) is available online.
+:eyeglasses: Naja's extended and API [documentation](https://naja.readthedocs.io/en/latest/) is available online.
 
 ## Compilation
 
@@ -190,7 +192,7 @@ This "app" directory and its contents can be copied to start a new application.
 
 ## Applications
 
-###  naja_edit
+### naja_edit
 
 `naja_edit`, accessible via the `$NAJA_INSTALL/bin` directory, is a tool designed for netlist translation and editing:
 
