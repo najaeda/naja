@@ -32,6 +32,22 @@ namespace {
 
 using namespace naja::SNL;
 
+DBImplementation::LibraryImplementation::DesignImplementation::NetType SNLtoCapnPNetType(SNLNet::Type type) {
+  switch (type) {
+    case SNLNet::Type::Standard:
+      return DBImplementation::LibraryImplementation::DesignImplementation::NetType::STANDARD;
+    case SNLNet::Type::Assign0:
+      return DBImplementation::LibraryImplementation::DesignImplementation::NetType::ASSIGN0;
+    case SNLNet::Type::Assign1:
+      return DBImplementation::LibraryImplementation::DesignImplementation::NetType::ASSIGN1;
+    case SNLNet::Type::Supply0:
+      return DBImplementation::LibraryImplementation::DesignImplementation::NetType::SUPPLY0;
+    case SNLNet::Type::Supply1:
+      return DBImplementation::LibraryImplementation::DesignImplementation::NetType::SUPPLY1;
+  }
+  return DBImplementation::LibraryImplementation::DesignImplementation::NetType::STANDARD; //LCOV_EXCL_LINE
+}
+
 void dumpInstParameter(
   DBImplementation::LibraryImplementation::DesignImplementation::Instance::InstParameter::Builder& instParameter,
   const SNLInstParameter* snlInstParameter) {
@@ -101,6 +117,7 @@ void dumpScalarNet(
   if (not scalarNet->isAnonymous()) {
     scalarNetBuilder.setName(scalarNet->getName().getString());
   }
+  scalarNetBuilder.setType(SNLtoCapnPNetType(scalarNet->getType()));
   size_t componentsSize = scalarNet->getComponents().size();
   if (componentsSize > 0) {
     auto components = scalarNetBuilder.initComponents(componentsSize);
@@ -116,6 +133,7 @@ void dumpBusNetBit(
   DBImplementation::LibraryImplementation::DesignImplementation::BusNetBit::Builder& bit,
   const SNLBusNetBit* busNetBit) {
   bit.setBit(busNetBit->getBit());
+  bit.setType(SNLtoCapnPNetType(busNetBit->getType()));
   size_t componentsSize = busNetBit->getComponents().size();
   if (componentsSize > 0) {
     auto components = bit.initComponents(componentsSize);
@@ -187,6 +205,22 @@ void dumpLibraryImplementation(
     auto designImplementationBuilder = designs[id++]; 
     dumpDesignImplementation(designImplementationBuilder, snlDesign);
   }
+}
+
+SNLNet::Type CapnPtoSNLNetType(DBImplementation::LibraryImplementation::DesignImplementation::NetType type) {
+  switch (type) {
+    case DBImplementation::LibraryImplementation::DesignImplementation::NetType::STANDARD:
+      return SNLNet::Type::Standard;
+    case DBImplementation::LibraryImplementation::DesignImplementation::NetType::ASSIGN0:
+      return SNLNet::Type::Assign0;
+    case DBImplementation::LibraryImplementation::DesignImplementation::NetType::ASSIGN1:
+      return SNLNet::Type::Assign1;
+    case DBImplementation::LibraryImplementation::DesignImplementation::NetType::SUPPLY0:
+      return SNLNet::Type::Supply0;
+    case DBImplementation::LibraryImplementation::DesignImplementation::NetType::SUPPLY1:
+      return SNLNet::Type::Supply1;
+  }
+  return SNLNet::Type::Standard; //LCOV_EXCL_LINE
 }
 
 void loadInstParameter(
@@ -320,16 +354,17 @@ void loadBusNet(
   auto busNet = SNLBusNet::create(design, SNLID::DesignObjectID(net.getId()), net.getMsb(), net.getLsb(), snlName);
   if (net.hasBits()) {
     for (auto bitNet: net.getBits()) {
+      auto bit = bitNet.getBit();
+      auto busNetBit = busNet->getBit(bit);
+      //LCOV_EXCL_START
+      if (not busNetBit) {
+        std::ostringstream reason;
+        reason << "cannot deserialize bus net bit: no bit found in bus term with provided reference";
+        throw SNLException(reason.str());
+      }
+      //LCOV_EXCL_STOP
+      busNetBit->setType(CapnPtoSNLNetType(bitNet.getType()));
       if (bitNet.hasComponents()) {
-        auto bit = bitNet.getBit();
-        auto busNetBit = busNet->getBit(bit);
-        //LCOV_EXCL_START
-        if (not busNetBit) {
-          std::ostringstream reason;
-          reason << "cannot deserialize bus net bit: no bit found in bus term with provided reference";
-          throw SNLException(reason.str());
-        }
-        //LCOV_EXCL_STOP
         for (auto componentReference: bitNet.getComponents()) {
           if (componentReference.isInstTermReference()) {
             loadInstTermReference(busNetBit, componentReference.getInstTermReference());
@@ -350,6 +385,7 @@ void loadScalarNet(
     snlName = SNLName(net.getName());
   }
   auto scalarNet = SNLScalarNet::create(design, SNLID::DesignObjectID(net.getId()), snlName);
+  scalarNet->setType(CapnPtoSNLNetType(net.getType()));
   if (net.hasComponents()) {
     for (auto componentReference: net.getComponents()) {
       if (componentReference.isInstTermReference()) {

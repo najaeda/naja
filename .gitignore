@@ -16,3 +16,5 @@ regress/*/abc.history
 src/apps/edit/examples/abc.history
 src/apps/edit/examples/addaccu_*.v
 src/apps/edit/examples/*.log
+src/apps/edit/examples/*.txt
+src/apps/edit/examples/*_snl

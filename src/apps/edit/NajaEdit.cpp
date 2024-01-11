@@ -170,13 +170,17 @@ int main(int argc, char* argv[]) {
       SNLPyEdit::edit(editPath);
     }
 
-    if (db->getTopDesign()) {
-      std::ofstream output(outputPath);
-      SNLVRLDumper dumper;
-      dumper.setSingleFile(true);
-      dumper.dumpDesign(db->getTopDesign(), output);
-    } else {
-      db->debugDump(0);
+    if (outputFormatType == FormatType::SNL) {
+      SNLCapnP::dump(db, outputPath);
+    } else if (outputFormatType == FormatType::VERILOG) {
+      if (db->getTopDesign()) {
+        std::ofstream output(outputPath);
+        SNLVRLDumper dumper;
+        dumper.setSingleFile(true);
+        dumper.dumpDesign(db->getTopDesign(), output);
+      } else {
+        db->debugDump(0);
+      }
     }
     
     if (program.is_used("-d") and primitivesLibrary) {
