@@ -145,6 +145,7 @@ int main(int argc, char* argv[]) {
     SNLLibrary* primitivesLibrary = nullptr;
     if (inputFormatType == FormatType::SNL) {
       db = SNLCapnP::load(inputPath);
+      SNLUniverse::get()->setTopDesign(db->getTopDesign());
     } else if (inputFormatType == FormatType::VERILOG) {
       db = SNLDB::create(SNLUniverse::get());
       primitivesLibrary = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("PRIMS"));
@@ -170,13 +171,17 @@ int main(int argc, char* argv[]) {
       SNLPyEdit::edit(editPath);
     }
 
-    if (db->getTopDesign()) {
-      std::ofstream output(outputPath);
-      SNLVRLDumper dumper;
-      dumper.setSingleFile(true);
-      dumper.dumpDesign(db->getTopDesign(), output);
-    } else {
-      db->debugDump(0);
+    if (outputFormatType == FormatType::SNL) {
+      SNLCapnP::dump(db, outputPath);
+    } else if (outputFormatType == FormatType::VERILOG) {
+      if (db->getTopDesign()) {
+        std::ofstream output(outputPath);
+        SNLVRLDumper dumper;
+        dumper.setSingleFile(true);
+        dumper.dumpDesign(db->getTopDesign(), output);
+      } else {
+        db->debugDump(0);
+      }
     }
     
     if (program.is_used("-d") and primitivesLibrary) {

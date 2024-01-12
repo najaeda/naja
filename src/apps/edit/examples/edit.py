@@ -4,9 +4,13 @@ import snl
 def edit():
   logging.basicConfig(filename='edit.log', filemode='w' ,level=logging.DEBUG)
   universe = snl.SNLUniverse.get()
+  if universe is None:
+    logging.critical('No loaded SNLUniverse')
+    return 1
   top = universe.getTopDesign()
   if top is None:
-    logging.error('SNLUniverse does not contain any top SNLDesign')
+    logging.critical('SNLUniverse does not contain any top SNLDesign')
+    return 1
   else:
     logging.info('Found top design ' + str(top))
 
