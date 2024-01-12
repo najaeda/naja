@@ -20,7 +20,10 @@ addaccu_snl: addaccu_netlist.v
 
 addaccu_snl.v: addaccu_snl
 	${PYTHON_ENV} ${NAJA_EDIT} -a snl -b verilog -i $< -o $@ 
-	#${PYTHON_ENV} ${NAJA_EDIT} -a snl -b verilog -i $< -o $@ -e edit.py
+
+addaccu_edited.v: addaccu_snl
+	${PYTHON_ENV} ${NAJA_EDIT} -a snl -b verilog -i $< -o $@ -e edit.py
 
 clean:
-	-rm -f edit.log addaccu_edited.v addaccu_snl.v
+	-rm -rf addaccu_snl
+	-rm -f edit.log addaccu_edited.v addaccu_snl.v *.txt

@@ -145,6 +145,7 @@ int main(int argc, char* argv[]) {
     SNLLibrary* primitivesLibrary = nullptr;
     if (inputFormatType == FormatType::SNL) {
       db = SNLCapnP::load(inputPath);
+      SNLUniverse::get()->setTopDesign(db->getTopDesign());
     } else if (inputFormatType == FormatType::VERILOG) {
       db = SNLDB::create(SNLUniverse::get());
       primitivesLibrary = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("PRIMS"));
