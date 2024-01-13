@@ -6,24 +6,24 @@ PYTHON_ENV ?= export PYTHONPATH=${NAJA_INSTALL}/lib/python;
 
 all: addaccu_snl.v addaccu_edited.v
 
-addaccu_snl_interface.txt: addaccu_snl/db_interface.snl
-	capnp convert packed:text ${SNL_INTERCHANGE_DIR}/snl_interface.capnp DBInterface < $< > $@
+addaccu_snl_interface.txt: addaccu_snl/snl.mf
+	capnp convert packed:text ${SNL_INTERCHANGE_DIR}/snl_interface.capnp DBInterface < addaccu_snl/db_interface.snl > $@
 
-addaccu_snl_implementation.txt: addaccu_snl/db_implementation.snl
-	capnp convert packed:text ${SNL_INTERCHANGE_DIR}/snl_implementation.capnp DBImplementation < $< > $@
+addaccu_snl_implementation.txt: addaccu_snl/snl.mf
+	capnp convert packed:text ${SNL_INTERCHANGE_DIR}/snl_implementation.capnp DBImplementation < addaccu_snl/db_implementation.snl > $@
 
 addaccu_netlist.v: addaccu.v
 	${YOSYS} synth.ys
 
-addaccu_snl: addaccu_netlist.v
-	${PYTHON_ENV} ${NAJA_EDIT} -a verilog -b snl -i $< -o $@ -p ${PRIMITIVES}
+addaccu_snl/snl.mf: addaccu_netlist.v
+	${PYTHON_ENV} ${NAJA_EDIT} -f verilog -t snl -i $< -o addaccu_snl -p ${PRIMITIVES}
 
-addaccu_snl.v: addaccu_snl
-	${PYTHON_ENV} ${NAJA_EDIT} -a snl -b verilog -i $< -o $@ 
+addaccu_snl.v: addaccu_snl/snl.mf
+	${PYTHON_ENV} ${NAJA_EDIT} -f snl -t verilog -i addaccu_snl -o $@ 
 
-addaccu_edited.v: addaccu_snl
-	${PYTHON_ENV} ${NAJA_EDIT} -a snl -b verilog -i $< -o $@ -e edit.py
+addaccu_edited.v: addaccu_snl/snl.mf
+	${PYTHON_ENV} ${NAJA_EDIT} -f snl -t verilog -i addaccu_snl -o $@ -e edit.py
 
 clean:
-	-rm -rf addaccu_snl
-	-rm -f edit.log addaccu_edited.v addaccu_snl.v *.txt
+	-rm -rf __pycache__ addaccu_snl
+	-rm -f naja_edit.log edit.log addaccu_netlist.v addaccu_edited.v addaccu_snl.v *.txt *~

@@ -41,11 +41,11 @@ FormatType argToFormatType(const std::string& inputFormat) {
 
 int main(int argc, char* argv[]) {
   argparse::ArgumentParser program("naja_edit");
-  program.add_argument("-a", "--input_format")
+  program.add_argument("-f", "--from_format")
     .required()
-    .help("input format");
-  program.add_argument("-b", "--output_format")
-    .help("output format");
+    .help("from/input format");
+  program.add_argument("-t", "--to_format")
+    .help("to/output format");
   program.add_argument("-i", "--input")
     .required()
     .help("input netlist");
@@ -88,10 +88,10 @@ int main(int argc, char* argv[]) {
 
 
   bool argError = false;
-  auto inputFormatArg = program.present("-a");
+  auto inputFormatArg = program.present("-f");
   std::string inputFormat = *inputFormatArg;
   std::string outputFormat;
-  if (auto outputFormatArg = program.present("-b")) {
+  if (auto outputFormatArg = program.present("-t")) {
     outputFormat = *outputFormatArg;
   } else {
     outputFormat = inputFormat;
