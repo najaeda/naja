@@ -55,9 +55,12 @@ static PyObject* PySNLLibrary_createPrimitives(PyObject*, PyObject* args) {
   return createLibrary(args, SNLLibrary::Type::Primitives);
 }
 
-GetObjectMethod(Library, DB)
+GetObjectMethod(Library, DB, getDB)
 GetObjectByName(Library, Design)
 GetObjectByName(Library, Library)
+
+GetBoolAttribute(Library, isStandard)
+GetBoolAttribute(Library, isPrimitives)
 
 GetNameMethod(SNLLibrary)
 
@@ -75,6 +78,10 @@ PyMethodDef PySNLLibrary_Methods[] = {
     "Primitives SNLLibrary creator"},
   { "getName", (PyCFunction)PySNLLibrary_getName, METH_NOARGS,
     "get SNLLibrary name"},
+  { "isStandard", (PyCFunction)PySNLLibrary_isStandard, METH_NOARGS,
+    "is this a standard SNLLibrary?"},
+  { "isPrimitives", (PyCFunction)PySNLLibrary_isPrimitives, METH_NOARGS,
+    "is this a primitives SNLLibrary?"},
   { "getDB", (PyCFunction)PySNLLibrary_getDB, METH_VARARGS,
     "get Parent DB."},
   { "getLibrary", (PyCFunction)PySNLLibrary_getLibrary, METH_VARARGS,

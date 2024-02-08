@@ -23,6 +23,7 @@ class SNLDesignTest(unittest.TestCase):
     self.assertIsNotNone(design)
     self.assertEqual("DESIGN", design.getName())
     self.assertEqual(self.lib, design.getLibrary())
+    self.assertEqual(self.lib.getDB(), design.getDB())
     self.assertIsNotNone(self.lib.getDesign("DESIGN"))
     self.assertEqual(design, self.lib.getDesign("DESIGN"))
     self.assertTrue(any(self.lib.getDesigns()))

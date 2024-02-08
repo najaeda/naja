@@ -44,7 +44,6 @@ PyMethodDef PySNLNetComponent_Methods[] = {
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 
-DBoDestroyAttribute(PySNLNetComponent_destroy, PySNLNetComponent)
 DBoDeallocMethod(SNLNetComponent)
 
 DBoLinkCreateMethod(SNLNetComponent)

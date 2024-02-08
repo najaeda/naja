@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "SNLPyLoader.h"
+#include "SNLPyEdit.h"
 
 #include <sstream>
 #include <cstdio>
@@ -165,6 +166,36 @@ void SNLPyLoader::loadLibrary(
   Py_DECREF(module);
   Py_DECREF(pyLib);
   Py_DECREF(constructString);
+  Py_Finalize();
+}
+
+void SNLPyEdit::edit(const std::filesystem::path& path) {
+  auto module = loadModule(path);
+
+  PyObject* editString = editString = PyUnicode_FromString("edit");
+
+  PyObject* res =
+    PyObject_CallMethodNoArgs(module, editString);
+  if (not res) {
+    std::ostringstream reason;
+    reason << "Error while calling edit";
+    std::string pythonError = getPythonError();
+    if (not pythonError.empty()) {
+      reason << ": " << pythonError;
+    } else {
+      reason << ": empty error message";
+    }
+    //Cleaning
+    //Py_DECREF(modulePathString);
+    Py_DECREF(module);
+    Py_DECREF(editString);
+    Py_Finalize();
+    throw SNLException(reason.str());
+  }
+  //Cleaning
+  //Py_DECREF(modulePathString);
+  Py_DECREF(module);
+  Py_DECREF(editString);
   Py_Finalize();
 }
 

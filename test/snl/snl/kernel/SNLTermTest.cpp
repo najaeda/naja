@@ -235,6 +235,7 @@ TEST_F(SNLTermTest, testErrors) {
   EXPECT_THROW(SNLScalarTerm::create(design, SNLTerm::Direction::Input, SNLName("term1")), SNLException);
   EXPECT_THROW(SNLBusTerm::create(design, SNLID::DesignObjectID(0), SNLTerm::Direction::Input, 31, 0), SNLException);
   EXPECT_THROW(SNLScalarTerm::create(design, SNLID::DesignObjectID(1), SNLTerm::Direction::Input), SNLException);
+  EXPECT_THROW(term1->getBit(1)->setName(SNLName("bit1")), SNLException);
 }
 
 TEST_F(SNLTermTest, testRename) {
