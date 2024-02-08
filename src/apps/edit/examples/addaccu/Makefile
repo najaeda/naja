@@ -12,10 +12,10 @@ addaccu_snl_interface.txt: addaccu_snl/snl.mf
 addaccu_snl_implementation.txt: addaccu_snl/snl.mf
 	capnp convert packed:text ${SNL_INTERCHANGE_DIR}/snl_implementation.capnp DBImplementation < addaccu_snl/db_implementation.snl > $@
 
-addaccu_netlist.v: addaccu.v
+yosys addaccu_netlist.v: addaccu.v
 	${YOSYS} synth.ys
 
-addaccu_snl/snl.mf: addaccu_netlist.v
+snl_if addaccu_snl/snl.mf: addaccu_netlist.v
 	${PYTHON_ENV} ${NAJA_EDIT} -f verilog -t snl -i $< -o addaccu_snl -p ${PRIMITIVES}
 
 addaccu_snl.v: addaccu_snl/snl.mf
