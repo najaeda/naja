@@ -424,8 +424,9 @@ bool SNLVRLDumper::dumpInstance(
       }
       o << "assign " << outputNet->getString() << " = " << inputNetString << ";" << std::endl;
       return true;
+    } else {
+      return false;
     }
-    return false;
   }
   std::string instanceName;
   if (instance->isAnonymous()) {
