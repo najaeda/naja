@@ -497,7 +497,6 @@ void DNL::process()
         if (inst->getModel()->isBlackBox() || inst->getModel()->isPrimitive() || inst->getModel()->getInstances().empty())
         {
             _leaves.push_back(_DNLInstances.back().getID());
-            // printf("leaf %lu -%s\n", _DNLInstances.back().getID(), inst->getName().getString().c_str());
         }
         for (auto term : inst->getInstTerms())
         {
@@ -507,9 +506,7 @@ void DNL::process()
         _DNLInstances.back().setTermsIndexes(termIndexes);
     }
     childrenIndexes.second = _DNLInstances.back().getID();
-    // printf("%lu %lu\n", childrenIndexes.first, childrenIndexes.second);
     getNonConstDNLInstanceFromID(parentId).setChildrenIndexes(childrenIndexes);
-    // printf("%lu %lu\n", getNonConstDNLInstanceFromID(parentId)._childrenIndexes.first, getNonConstDNLInstanceFromID(parentId)._childrenIndexes.second);
     while (!stack.empty())
     {
 #ifdef DEBUG_PRINTS
@@ -702,19 +699,22 @@ void PathExtractor::cachePaths()
             // visited[toProcess] = true;
             if (toProcess != source)
                 assert(!path.empty());
-            // printf("%s\n",  _dnl.getDNLTerminalFromID(toProcess).getSnlTerm()->getString().c_str());
-            // printf("%lu\n", toProcess);
+#ifdef DEBUG_PRINTS
+            printf("%s\n", _dnl.getDNLTerminalFromID(toProcess).getSnlTerm()->getString().c_str());
+            printf("%lu\n", toProcess);
+#endif
             if (!path.empty())
             {
-                /*printf("%s\n",  _dnl.getDNLTerminalFromID(toProcess).getSnlTerm()->getString().c_str());
+#ifdef DEBUG_PRINTS
+                printf("%s\n", _dnl.getDNLTerminalFromID(toProcess).getSnlTerm()->getString().c_str());
                 printf("%lu\n", toProcess);
                 printf("driver %lu\n", (*(_dnl.getDNLIsoDB().getIsoFromIsoIDconst(_dnl.getDNLTerminalFromID(stack.top()).getIsoID()).getDrivers().begin())));
 
-                printf("path: %lu %s\n", path.back(),  _dnl.getDNLTerminalFromID(path.back()).getSnlTerm()->getString().c_str());
-                printf("iso: %lu %lu\n", _dnl.getDNLTerminalFromID(path.back()).getIsoID()
-                    ,_dnl.getDNLTerminalFromID(stack.top()).getIsoID());
+                printf("path: %lu %s\n", path.back(), _dnl.getDNLTerminalFromID(path.back()).getSnlTerm()->getString().c_str());
+                printf("iso: %lu %lu\n", _dnl.getDNLTerminalFromID(path.back()).getIsoID(), _dnl.getDNLTerminalFromID(stack.top()).getIsoID());
                 printf("inst: %lu %lu\n", _dnl.getDNLTerminalFromID(stack.top()).getDNLInstance().getID(),
-                            _dnl.getDNLTerminalFromID(path.back()).getDNLInstance().getID());*/
+                       _dnl.getDNLTerminalFromID(path.back()).getDNLInstance().getID());
+#endif
                 assert(_dnl.getDNLTerminalFromID(stack.top()).getDNLInstance().getID() ==
                            _dnl.getDNLTerminalFromID(path.back()).getDNLInstance().getID() ||
                        (path.back() ==
@@ -734,7 +734,6 @@ void PathExtractor::cachePaths()
                     while (!path.empty() && _dnl.getDNLTerminalFromID(stack.top()).getDNLInstance().getID() !=
                                                 _dnl.getDNLTerminalFromID(path.back()).getDNLInstance().getID())
                     {
-                        // printf("path: %lu\n", path.size());
                         path.pop_back();
                         if (path.empty())
                         {
@@ -759,7 +758,6 @@ void PathExtractor::cachePaths()
                 while (!path.empty() && (path.back() !=
                                          (*(_dnl.getDNLIsoDB().getIsoFromIsoIDconst(_dnl.getDNLTerminalFromID(stack.top()).getIsoID()).getDrivers().begin()))))
                 {
-                    // printf("path: %lu\n", path.size());
                     path.pop_back();
                     if (path.empty())
                     {
@@ -802,7 +800,6 @@ void PathExtractor::cachePaths()
                     std::vector<DNLID> pathInst;
                     DNLID hops = hopsInit;
                     lastPart = DNLID_MAX;
-                    // printf("1 %lu %lu\n", hops, toCache._delay);
                     hops += toCache._delay;
                     DNLID hopTemp = 0;
 
@@ -824,15 +821,11 @@ void PathExtractor::cachePaths()
                         if (pathInst.empty() || inst_id != pathInst.back())
                         {
                             pathInst.push_back(inst_id);
-                            // printf("1 %lu(%lu-%lu) %lu %lu\n", hops - hopTemp, hops, hopTemp, _paths.size(), pathInst.size() - 1);
                             _term2paths[_dnl.getDNLTerminalFromID(term).getDNLInstance().getID()].emplace_back(
                                 PathExtractor::SubPath(hops - hopTemp, _paths.size(), pathInst.size() - 1));
                         }
                     }
-                    // pathInst.insert(pathInst.end(), (*(_paths.begin() + toCache._path)).begin() + toCache._index, (*(_paths.begin() + toCache._path)).end());
                     _paths.emplace_back(std::pair<std::vector<DNLID>, SubPath>(pathInst, toCache));
-                    // printf("%lu\n", _paths.size());
-                    // printf("pi %lu\n", pathInst.size());
                 }
                 if (stack.empty())
                 {
@@ -842,8 +835,6 @@ void PathExtractor::cachePaths()
                 {
                     continue;
                 }
-                // printf("stack: %lu\n", stack.size());
-                // printf("path: %lu\n", path.size());
                 // path.pop_back();//To remove the previous input
                 if (_dnl.getDNLTerminalFromID(stack.top()).getSnlTerm()->getDirection() ==
                     SNLTerm::Direction::DirectionEnum::Output)
@@ -854,7 +845,6 @@ void PathExtractor::cachePaths()
                     while (!path.empty() && _dnl.getDNLTerminalFromID(stack.top()).getDNLInstance().getID() !=
                                                 _dnl.getDNLTerminalFromID(path.back()).getDNLInstance().getID())
                     {
-                        // printf("path: %lu\n", path.size());
                         path.pop_back();
                         if (path.empty())
                         {
@@ -873,7 +863,6 @@ void PathExtractor::cachePaths()
                     }*/
                     assert(_dnl.getDNLTerminalFromID(stack.top()).getDNLInstance().getID() ==
                            _dnl.getDNLTerminalFromID(path.back()).getDNLInstance().getID());
-                    // printf("A\n");
                     assert(visited[toProcess]);
                     continue;
                 }
@@ -881,7 +870,6 @@ void PathExtractor::cachePaths()
                 while (!path.empty() && (path.back() !=
                                          (*(_dnl.getDNLIsoDB().getIsoFromIsoIDconst(_dnl.getDNLTerminalFromID(stack.top()).getIsoID()).getDrivers().begin()))))
                 {
-                    // printf("path: %lu\n", path.size());
                     path.pop_back();
                     if (path.empty())
                     {
@@ -893,7 +881,6 @@ void PathExtractor::cachePaths()
                         break;
                     }
                 }
-                // printf("B\n");
                 assert(visited[toProcess]);
                 assert(path.back() ==
                        (*(_dnl.getDNLIsoDB().getIsoFromIsoIDconst(_dnl.getDNLTerminalFromID(stack.top()).getIsoID()).getDrivers().begin())));
@@ -938,7 +925,9 @@ void PathExtractor::cachePaths()
             }
             if (isSink)
             {
-                // printf("is sink\n");
+#ifdef DEBUG_PRINTS
+                printf("is sink\n");
+#endif
                 std::vector<DNLID> pathInst;
                 DNLID hops = 0;
                 int lastPart = DNLID_MAX;
@@ -983,16 +972,12 @@ void PathExtractor::cachePaths()
                     if (pathInst.empty() || inst_id != pathInst.back())
                     {
                         pathInst.push_back(inst_id);
-                        // printf("2-- %lu(%lu-%lu) %lu %lu\n", hops - hopsTemp, hops, hopsTemp, _paths.size(), pathInst.size() - 1);
-
-                        // printf("%lu %lu\n", _paths.size(), pathInst.size() - 1);
                     }
                 }
 
                 _paths.emplace_back(std::pair<std::vector<DNLID>, SubPath>(pathInst, SubPath(std::numeric_limits<DNLID>::max(),
                                                                                              std::numeric_limits<DNLID>::max(), std::numeric_limits<DNLID>::max())));
-                // printf("%lu\n", _paths.size());
-                // printf("%lu\n", _paths.size());
+
                 if (stack.empty())
                 {
                     break;
@@ -1001,8 +986,6 @@ void PathExtractor::cachePaths()
                 {
                     continue;
                 }
-                // printf("stack: %lu\n", stack.size());
-                // printf("path: %lu\n", path.size());
                 path.pop_back(); // To remove the current input that was inserted
                 if (_dnl.getDNLTerminalFromID(stack.top()).getSnlTerm()->getDirection() ==
                     SNLTerm::Direction::DirectionEnum::Output)
@@ -1013,7 +996,6 @@ void PathExtractor::cachePaths()
                     while (!path.empty() && _dnl.getDNLTerminalFromID(stack.top()).getDNLInstance().getID() !=
                                                 _dnl.getDNLTerminalFromID(path.back()).getDNLInstance().getID())
                     {
-                        // printf("path: %lu\n", path.size());
                         path.pop_back();
                         if (path.empty())
                         {
@@ -1028,18 +1010,15 @@ void PathExtractor::cachePaths()
                     if (_dnl.getDNLTerminalFromID(stack.top()).getDNLInstance().getID() !=
                         _dnl.getDNLTerminalFromID(path.back()).getDNLInstance().getID())
                     {
-                        // printf("%lu %lu\n", _dnl.getDNLTerminalFromID(stack.top()).getDNLInstance().getID(),
                         //_dnl.getDNLTerminalFromID(path.back()).getDNLInstance().getID());
                     }
                     assert(_dnl.getDNLTerminalFromID(stack.top()).getDNLInstance().getID() ==
                            _dnl.getDNLTerminalFromID(path.back()).getDNLInstance().getID());
-                    // printf("C\n");
                     continue;
                 }
                 while (!path.empty() && (path.back() !=
                                          (*(_dnl.getDNLIsoDB().getIsoFromIsoIDconst(_dnl.getDNLTerminalFromID(stack.top()).getIsoID()).getDrivers().begin()))))
                 {
-                    // printf("path: %lu\n", path.size());
                     path.pop_back();
                     if (path.empty())
                     {
@@ -1051,7 +1030,6 @@ void PathExtractor::cachePaths()
                         break;
                     }
                 }
-                // printf("D\n");
                 assert(path.back() ==
                        (*(_dnl.getDNLIsoDB().getIsoFromIsoIDconst(_dnl.getDNLTerminalFromID(stack.top()).getIsoID()).getDrivers().begin())));
                 /*if (path.empty()) {
@@ -1059,9 +1037,10 @@ void PathExtractor::cachePaths()
                 }
                 path.pop_back();*/
             }
-            // printf("E\n");
         }
+#ifdef DEBUG_PRINTS
         printf("%lu\n", path.size());
+#endif
         // assert(path.size() > 0);
     }
     DNLID notVisited = 0;
@@ -1092,14 +1071,18 @@ void PathExtractor::cachePaths()
         }
         else if (!term)
         {
+#ifdef DEBUG_PRINTS
             printf("%s\n", _dnl.getDNLTerminalFromID(termI).getSnlTerm()->getString().c_str());
             printf("%s\n", _dnl.getDNLTerminalFromID(termI).getDNLInstance().getSNLInstance()->getString().c_str());
             printf("%lu\n", _dnl.getDNLTerminalFromID(termI).getDNLInstance().getID());
+#endif
             ++notVisited;
         }
         ++termI;
     }
+#ifdef DEBUG_PRINTS
     printf("not visited %lu is visited %lu nc %lu nleaf %lu stubs %lu\n", notVisited, isVisited, nc, nleaf, stubs);
+#endif
 }
 
 void PathExtractor::printHopHistogram()
@@ -1111,7 +1094,6 @@ void PathExtractor::printHopHistogram()
         DNLID hops = 0;
         for (DNLID inst : path.first)
         {
-            // printf("%lu %lu - %lu\n", inst, lastPart, _partLeaves[inst] );
             if (lastPart != DNLID_MAX)
             {
                 if (_partLeaves[inst] != lastPart)
@@ -1151,6 +1133,8 @@ void PathExtractor::printHopHistogram()
     }
     for (const auto &entry : histogram)
     {
+#ifdef DEBUG_PRINTS
         printf("%lu : %lu\n", entry.first, entry.second);
+#endif
     }
 }
