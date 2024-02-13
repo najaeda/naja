@@ -1133,8 +1133,6 @@ void PathExtractor::printHopHistogram()
     }
     for (const auto &entry : histogram)
     {
-#ifdef DEBUG_PRINTS
         printf("%lu : %lu\n", entry.first, entry.second);
-#endif
     }
 }
