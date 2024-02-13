@@ -11,177 +11,177 @@ namespace naja { namespace SNL {
     class SNLBitNet;
 }
 }
-class FlatViewer;
-class FlatTerminal;
 
-class FlatInstance {
+namespace naja {
+    namespace DNL {
+
+typedef size_t DNLID;
+#define  DNLID_MAX ((DNLID) -1)
+
+class DNL;
+class DNLTerminal;
+
+class DNLInstance {
     public:
-        FlatInstance(FlatViewer& fv);
-        FlatInstance(const SNLInstance* instance, size_t id, size_t parent,  FlatViewer& fv);
+        DNLInstance(DNL& fv);
+        DNLInstance(const SNLInstance* instance, DNLID id, DNLID parent,  DNL& fv);
         void display() const;
-        size_t getID() const;
-        size_t getParentID() const;
-        const FlatInstance& getParentInstance() const;
-        //const std::vector<const SNLInstance*>& getFullInstanceBranch() const;
+        DNLID getID() const;
+        DNLID getParentID() const;
+        const DNLInstance& getParentInstance() const;
         const SNLInstance* getSNLInstance() const;
-        void setTermsIndexes(const std::pair<size_t, size_t>& termsIndexes);
-        void setChildrenIndexes(const std::pair<size_t, size_t>& childrenIndexes);
-        const FlatInstance& getChildInstance(const SNLInstance* snlInst) const;
-        const FlatTerminal& getTerminal(const SNLInstTerm* snlTerm) const;
-        const FlatTerminal& getTerminal(const SNLBitTerm* snlTerm) const;
-        const std::pair<size_t, size_t>& getTermIndexes() const { return _termsIndexes; }
-        bool isNull() const;
+        void setTermsIndexes(const std::pair<DNLID, DNLID>& termsIndexes);
+        void setChildrenIndexes(const std::pair<DNLID, DNLID>& childrenIndexes);
+        const DNLInstance& getChildInstance(const SNLInstance* snlInst) const;
+        const DNLTerminal& getTerminal(const SNLInstTerm* snlTerm) const;
+        const DNLTerminal& getTerminal(const SNLBitTerm* snlTerm) const;
+        const std::pair<DNLID, DNLID>& getTermIndexes() const { return _termsIndexes; }
+        bool isNull() const { return _id == (DNLID) DNLID_MAX; }
         bool isTop() const { return _parent == 0; }
-        const std::pair<size_t, size_t>& getChildren() const { return _childrenIndexes; }
-        std::pair<size_t, size_t> _childrenIndexes;
+        const std::pair<DNLID, DNLID>& getChildren() const { return _childrenIndexes; }
+        std::pair<DNLID, DNLID> _childrenIndexes;
         bool isLeaf() const { return _childrenIndexes.first == _childrenIndexes.second; }
     private:
         const SNLInstance* _instance = nullptr;
-        size_t _id;
-        size_t _parent;
-        std::pair<size_t, size_t> _termsIndexes;
-        const FlatViewer& _fv;
-	    bool _isNull = true;
-
+        DNLID _id = DNLID_MAX;
+        DNLID _parent = DNLID_MAX;
+        std::pair<DNLID, DNLID> _termsIndexes;
+        const DNL& _dnl;
 }; 
 
-//FlatLeafInstance instance
-
-//FlatHierInstsance -> minimal entry for parents 
-
-class FlatTerminal {
+class DNLTerminal {
 public:
-    FlatTerminal(FlatViewer& fv, size_t id);
-    FlatTerminal(size_t flatInstID,  SNLInstTerm* terminal, size_t id,  FlatViewer& fv);
-    size_t getID() const;
+    DNLTerminal(DNL& fv, DNLID id);
+    DNLTerminal(DNLID DNLInstID,  SNLInstTerm* terminal, DNLID id,  DNL& fv);
+    DNLID getID() const;
     SNLInstTerm* getSnlTerm() const;
-    const FlatInstance& getFlatInstance() const;
-	bool isNull() const;
-    void setIsoID(size_t isoID) { printf("1\n");assert(_isoID == -1); _isoID = isoID; }
-    size_t getIsoID() const { return _isoID; }
+    const DNLInstance& getDNLInstance() const;
+	bool isNull() const { return _id == (DNLID) DNLID_MAX; }
+    void setIsoID(DNLID isoID);
+    DNLID getIsoID() const;
 
 private:
     SNLInstTerm* _terminal;
-    size_t _flatInstID;
-    size_t _id;
-    size_t _isoID = -1;
-    const FlatViewer& _fv;
-    bool _isNull = true;
+    DNLID _DNLInstID = DNLID_MAX;
+    DNLID _id = DNLID_MAX;
+    DNL& _dnl;
 };
 
-class FlatIso {
+class DNLIso {
 public:
-    //FlatIso();
-    FlatIso(size_t id, const FlatViewer& fv);
-    void addDriver(size_t driver);
-    void addReader(size_t reader);
+    DNLIso(DNLID id, const DNL& fv);
+    void addDriver(DNLID driver);
+    void addReader(DNLID reader);
     void addNet(SNLBitNet* net) { _nets.insert(net); }
     const std::set<SNLBitNet*>& getNets() const { return _nets; }
     void display(std::ostream& stream = std::cout) const;
-    size_t getIsoID() const { return _id; }
-    const std::vector<size_t, tbb::scalable_allocator<size_t> >& getDrivers() const { return _drivers; }
-    const std::vector<size_t, tbb::scalable_allocator<size_t> >& getReaders() const { return _readers; }
+    DNLID getIsoID() const { return _id; }
+    const std::vector<DNLID, tbb::scalable_allocator<DNLID> >& getDrivers() const { return _drivers; }
+    const std::vector<DNLID, tbb::scalable_allocator<DNLID> >& getReaders() const { return _readers; }
 
 private:
-    std::vector<size_t, tbb::scalable_allocator<size_t> > _drivers;
-    std::vector<size_t, tbb::scalable_allocator<size_t> > _readers;
+    std::vector<DNLID, tbb::scalable_allocator<DNLID> > _drivers;
+    std::vector<DNLID, tbb::scalable_allocator<DNLID> > _readers;
     std::set<SNLBitNet*> _nets;
-    size_t _id;
+    DNLID _id;
    bool _isNull = true;
-   const FlatViewer& _fv;
+   const DNL& _dnl;
 };
 
-class FlatIsoDB {
+class DNLIsoDB {
 public:
-    FlatIsoDB(const FlatViewer& fv);
+    DNLIsoDB(const DNL& fv);
     void display() const;
-    FlatIso& addIso();
-    FlatIso& getIsoFromIsoID(size_t isoID) { return _isos[isoID]; }
-    const FlatIso& getIsoFromIsoIDconst(size_t isoID) const { return _isos[isoID]; }
-    size_t getNumIsos() const { return _isos.size(); }
+    DNLIso& addIso();
+    DNLIso& getIsoFromIsoID(DNLID isoID) { return _isos[isoID]; }
+    const DNLIso& getIsoFromIsoIDconst(DNLID isoID) const { return _isos[isoID]; }
+    DNLID getNumIsos() const { return _isos.size(); }
 private:
-    std::vector<FlatIso, tbb::scalable_allocator<FlatIso> > _isos;
-    const FlatViewer& _fv;
+    std::vector<DNLIso, tbb::scalable_allocator<DNLIso> > _isos;
+    const DNL& _dnl;
 };
 
-class FlatIsoDBBuilder {
+class DNLIsoDBBuilder {
 public:
-    FlatIsoDBBuilder(FlatIsoDB& db, FlatViewer& fv);
+    DNLIsoDBBuilder(DNLIsoDB& db, DNL& fv);
 
     void process();
 
     
 
 private:
-    FlatIso& addIsoToDB() { return _db.addIso(); }
-    void treatDriver(const FlatTerminal& term);
-   FlatIsoDB& _db;
-	FlatViewer& _fv;
+    DNLIso& addIsoToDB() { return _db.addIso(); }
+    void treatDriver(const DNLTerminal& term);
+   DNLIsoDB& _db;
+	DNL& _dnl;
 	std::vector<bool> _visited;
-    
 };
 
-class FlatViewer {
+class DNL {
 
 public:
 
-    FlatViewer(const SNLDesign *top);
+    DNL(const SNLDesign *top);
     void process();
     void display() const;
-    const std::vector<FlatInstance, tbb::scalable_allocator<FlatInstance> >& getFlatInstances() const { return _flatInstances; }
-    const std::vector<size_t, tbb::scalable_allocator<size_t> >& getLeaves() { return _leaves; }
+    const std::vector<DNLInstance, tbb::scalable_allocator<DNLInstance> >& getDNLInstances() const { return _DNLInstances; }
+    const std::vector<DNLID, tbb::scalable_allocator<DNLID> >& getLeaves() { return _leaves; }
     //add leaf(top and leaf terms + leaf instances) vector
     //equis of only leaf
-    const std::vector<FlatTerminal, tbb::scalable_allocator<FlatTerminal> >& getFlatTerms() { return _flatTerms; }
-    const FlatTerminal& getFlatTerminalFromID(size_t id) const { return _flatTerms[id]; }
-    FlatTerminal& getFlatTerminalFromID(size_t id) { return _flatTerms[id]; }
-    const FlatInstance& getFlatInstanceFromID(size_t id) const { return _flatInstances[id-1]; }
-    FlatInstance& getNonConstFlatInstanceFromID(size_t id) { return _flatInstances[id-1/*because top is 0*/]; }
-    const FlatTerminal& getFlatNullTerminal() const { return _flatTerms.back(); }
-    size_t getNBterms() const { return _flatTerms.size(); }
-    const FlatInstance& getFlatNullInstance() const { return _flatInstances.back(); }
-    void dumpFlatDotFile(bool keepHierInfo = true) const;
+    const std::vector<DNLTerminal, tbb::scalable_allocator<DNLTerminal> >& getDNLTerms() { return _DNLTerms; }
+    const DNLTerminal& getDNLTerminalFromID(DNLID id) const { return _DNLTerms[id]; }
+    DNLTerminal& getDNLTerminalFromID(DNLID id) { return _DNLTerms[id]; }
+    const DNLInstance& getDNLInstanceFromID(DNLID id) const { return _DNLInstances[id-1]; }
+    DNLInstance& getNonConstDNLInstanceFromID(DNLID id) { return _DNLInstances[id-1/*because top is 0*/]; }
+    const DNLTerminal& getDNLNullTerminal() const { return _DNLTerms.back(); }
+    DNLID getNBterms() const { return _DNLTerms.size(); }
+    const DNLInstance& getDNLNullInstance() const { return _DNLInstances.back(); }
+    void dumpDNLDotFile(bool keepHierInfo = true) const;
     void dumpDotFile() const;
-    void dumpDotFileRec(size_t inst, std::ofstream& myfile, size_t& i) const;
-    void dumpPartitionedFlatDotFile(const std::vector<std::vector<size_t> >& partitions) const;
-    const FlatIsoDB& getFlatIsoDB() const { return _fidb; }
-    std::vector<size_t> getLeavesUnder(size_t parent) const;
-    const FlatInstance& getTop() const { return _flatInstances[0]; }
-    bool isInstanceChild(size_t parent, size_t child) const;
-    std::vector<size_t, tbb::scalable_allocator<size_t> > getLeaves() const { return _leaves; }
+    void dumpDotFileRec(DNLID inst, std::ofstream& myfile, DNLID& i) const;
+    void dumpPartitionedDNLDotFile(const std::vector<std::vector<DNLID> >& partitions) const;
+    const DNLIsoDB& getDNLIsoDB() const { return _fidb; }
+    std::vector<DNLID> getLeavesUnder(DNLID parent) const;
+    const DNLInstance& getTop() const { return _DNLInstances[0]; }
+    bool isInstanceChild(DNLID parent, DNLID child) const;
+    std::vector<DNLID, tbb::scalable_allocator<DNLID> > getLeaves() const { return _leaves; }
+    void initTermId2isoId() { _termId2isoId = std::vector<DNLID>(_DNLTerms.size()); }
+    void setIsoIdforTermId(DNLID isoId, DNLID termId) { assert(termId < _termId2isoId.size()); _termId2isoId[termId] = isoId; }
+    DNLID getIsoIdfromTermId(DNLID termId) const { assert(termId < _termId2isoId.size()); return _termId2isoId[termId]; }
 
 private:
 
-    std::vector<FlatInstance, tbb::scalable_allocator<FlatInstance> > _flatInstances;
-    std::vector<size_t, tbb::scalable_allocator<size_t> > _leaves;
+    std::vector<DNLInstance, tbb::scalable_allocator<DNLInstance> > _DNLInstances;
+    std::vector<DNLID, tbb::scalable_allocator<DNLID> > _leaves;
     //add leaf(top and leaf terms + leaf instances) vector
     //equis of only leaf
     const SNLDesign *_top;
-    std::vector<FlatTerminal, tbb::scalable_allocator<FlatTerminal> > _flatTerms;
-    FlatIsoDB _fidb;
+    std::vector<DNLTerminal, tbb::scalable_allocator<DNLTerminal> > _DNLTerms;
+    std::vector<DNLID> _termId2isoId;
+    DNLIsoDB _fidb;
 };
 
 class PathExtractor {
 public:
     typedef struct subPath {
-        subPath(size_t delay,
-            size_t path,
-            size_t index) {
+        subPath(DNLID delay,
+            DNLID path,
+            DNLID index) {
                 _delay = delay;
                 _path = path;
                 _index = index;
         }
-        size_t _delay = 0;
-        size_t _path = 0;
-        size_t _index = 0;
+        DNLID _delay = 0;
+        DNLID _path = 0;
+        DNLID _index = 0;
     } SubPath;
-    PathExtractor(const FlatViewer& fv,  std::vector<size_t>& partLeaves) : _fv(fv), _partLeaves(partLeaves),
+    PathExtractor(const DNL& fv,  std::vector<DNLID>& partLeaves) : _dnl(fv), _partLeaves(partLeaves),
         _term2paths(fv.getNBterms()) {};
     void cachePaths();
     void printPaths() const {
         for (const auto& path :_paths) {
             printf("----------------\n");
-            for (size_t inst : path.first) {
+            for (DNLID inst : path.first) {
                 printf("%lu -> ", inst);
             }
             printf("----------------\n");
@@ -189,8 +189,10 @@ public:
     }
     void printHopHistogram();
 private:
-    std::vector< std::pair<std::vector<size_t>, SubPath> > _paths;
-    std::vector<size_t>& _partLeaves;
-    const FlatViewer& _fv;
+    std::vector< std::pair<std::vector<DNLID>, SubPath> > _paths;
+    std::vector<DNLID>& _partLeaves;
+    const DNL& _dnl;
     std::vector<std::vector<SubPath> > _term2paths;
 };
+    }
+}
