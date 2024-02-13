@@ -21,8 +21,7 @@ using namespace naja::DNL;
 DNLInstance::DNLInstance(DNL &fv) : _dnl(fv)
 {
 }
-DNLInstance::DNLInstance(const SNLInstance *instance, DNLID id, DNLID parent, DNL &fv) : 
-    _instance(instance), _id(id), _parent(parent), _dnl(fv)
+DNLInstance::DNLInstance(const SNLInstance *instance, DNLID id, DNLID parent, DNL &fv) : _instance(instance), _id(id), _parent(parent), _dnl(fv)
 {
     // postProcess();
 }
@@ -104,7 +103,7 @@ const DNLTerminal &DNLInstance::getTerminal(const SNLBitTerm *snlTerm) const
 // DNLHierInstsance -> minimal entry for parents
 
 DNLTerminal::DNLTerminal(DNL &fv, DNLID id) : _dnl(fv), _id(id){};
-DNLTerminal::DNLTerminal(DNLID DNLInstID, SNLInstTerm *terminal, DNLID id, DNL &fv) : _DNLInstID(DNLInstID), _terminal(terminal), _id(id), _dnl(fv) {};
+DNLTerminal::DNLTerminal(DNLID DNLInstID, SNLInstTerm *terminal, DNLID id, DNL &fv) : _DNLInstID(DNLInstID), _terminal(terminal), _id(id), _dnl(fv){};
 DNLID DNLTerminal::getID() const { return _id; }
 SNLInstTerm *DNLTerminal::getSnlTerm() const { return _terminal; }
 const DNLInstance &DNLTerminal::getDNLInstance() const
@@ -991,7 +990,7 @@ void PathExtractor::cachePaths()
                 }
 
                 _paths.emplace_back(std::pair<std::vector<DNLID>, SubPath>(pathInst, SubPath(std::numeric_limits<DNLID>::max(),
-                                                                                              std::numeric_limits<DNLID>::max(), std::numeric_limits<DNLID>::max())));
+                                                                                             std::numeric_limits<DNLID>::max(), std::numeric_limits<DNLID>::max())));
                 // printf("%lu\n", _paths.size());
                 // printf("%lu\n", _paths.size());
                 if (stack.empty())
