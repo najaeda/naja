@@ -55,6 +55,12 @@ class SNLDesign final: public SNLObject {
     static SNLDesign* create(SNLLibrary* library, Type type, const SNLName& name=SNLName());
     static SNLDesign* create(SNLLibrary* library, SNLID::DesignID id, Type type, const SNLName& name=SNLName());
 
+    struct PointerLess {
+      bool operator()(const SNLDesign* ld, const SNLDesign* rd) const {
+        return *ld < *rd;
+      }
+    };
+
     ///\return owning SNLDB
     SNLDB* getDB() const;
     ///\return owning SNLLibrary
