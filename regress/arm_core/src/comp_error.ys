@@ -1,0 +1,19 @@
+# gold design
+read_verilog primitives.v arm_core_netlist.v
+prep -top arm_core
+splitnets -ports;;
+design -stash gold
+
+#naja design
+read_verilog primitives.v arm_core_snl_error.v
+prep -top arm_core
+splitnets -ports;;
+design -stash naja
+
+# prove equivalence
+design -copy-from gold -as gold arm_core
+design -copy-from naja -as naja arm_core
+equiv_make gold naja equiv
+hierarchy -top equiv
+equiv_simple
+equiv_status -assert

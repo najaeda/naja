@@ -8,6 +8,7 @@
 
 #include "PyInterface.h"
 #include "PySNLDesign.h"
+#include "PySNLInstParameter.h"
 #include "PySNLInstTerm.h"
 #include "PySNLBitTerm.h"
 #include "PySNLInstTerms.h"
@@ -53,6 +54,7 @@ static PyObject* PySNLInstance_create(PyObject*, PyObject* args) {
 }
 
 GetObjectMethod(Instance, Design, getModel)
+GetObjectByName(Instance, InstParameter)
 
 static PyObject* PySNLDesign_getCombinatorialInputs(PySNLDesign*, PyObject* output) {
   if (IsPySNLInstTerm(output)) {
@@ -120,6 +122,8 @@ PyMethodDef PySNLInstance_Methods[] = {
     "get SNLInstance name"},
   {"getModel", (PyCFunction)PySNLInstance_getModel, METH_NOARGS,
     "Returns the SNLInstance model SNLDesign."},
+  {"getInstParameter", (PyCFunction)PySNLInstance_getInstParameter, METH_VARARGS,
+    "Returns the SNLInstParameter by name."},
   {"getInstTerm", (PyCFunction)PySNLInstance_getInstTerm, METH_VARARGS,
     "Returns the SNLInstTerm corresponding to a model's SNLBitTerm."},
   {"getInstTerms", (PyCFunction)PySNLInstance_getInstTerms, METH_NOARGS,
