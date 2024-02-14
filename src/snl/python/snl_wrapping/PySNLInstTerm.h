@@ -8,10 +8,6 @@
 #include "PySNLNetComponent.h"
 #include "SNLInstTerm.h"
 
-namespace naja::SNL {
-  class SNLInstTerm;
-}
-
 namespace PYSNL {
 
 typedef struct {

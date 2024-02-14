@@ -19,6 +19,8 @@
 #include "PySNLInstTerm.h"
 #include "PySNLLibraries.h"
 #include "PySNLDesigns.h"
+#include "PySNLParameters.h"
+#include "PySNLInstParameters.h"
 #include "PySNLTerms.h"
 #include "PySNLBitTerms.h"
 #include "PySNLScalarTerms.h"
@@ -67,6 +69,7 @@ PyMODINIT_FUNC PyInit_snl(void) {
 
   PySNLLibraries_LinkPyType();
   PySNLDesigns_LinkPyType();
+  PySNLParameters_LinkPyType();
   PySNLTerms_LinkPyType();
   PySNLBitTerms_LinkPyType();
   PySNLScalarTerms_LinkPyType();
@@ -74,6 +77,7 @@ PyMODINIT_FUNC PyInit_snl(void) {
   PySNLNets_LinkPyType();
   PySNLBitNets_LinkPyType();
   PySNLInstances_LinkPyType();
+  PySNLInstParameters_LinkPyType();
   PySNLInstTerms_LinkPyType();
 
   PYTYPE_READY(SNLUniverse);
@@ -102,6 +106,8 @@ PyMODINIT_FUNC PyInit_snl(void) {
   PYTYPE_READY(SNLLibrariesIterator);
   PYTYPE_READY(SNLDesigns);
   PYTYPE_READY(SNLDesignsIterator);
+  PYTYPE_READY(SNLParameters);
+  PYTYPE_READY(SNLParametersIterator);
   PYTYPE_READY(SNLTerms);
   PYTYPE_READY(SNLTermsIterator);
   PYTYPE_READY(SNLBitTerms);
@@ -116,6 +122,8 @@ PyMODINIT_FUNC PyInit_snl(void) {
   PYTYPE_READY(SNLBitNetsIterator);
   PYTYPE_READY(SNLInstances);
   PYTYPE_READY(SNLInstancesIterator);
+  PYTYPE_READY(SNLInstParameters);
+  PYTYPE_READY(SNLInstParametersIterator);
   PYTYPE_READY(SNLInstTerms);
   PYTYPE_READY(SNLInstTermsIterator);
 
@@ -142,6 +150,7 @@ PyMODINIT_FUNC PyInit_snl(void) {
   Py_INCREF(&PyTypeSNLInstTerm);
   Py_INCREF(&PyTypeSNLLibraries);
   Py_INCREF(&PyTypeSNLDesigns);
+  Py_INCREF(&PyTypeSNLParameters);
   Py_INCREF(&PyTypeSNLTerms);
   Py_INCREF(&PyTypeSNLBitTerms);
   Py_INCREF(&PyTypeSNLScalarTerms);
@@ -149,6 +158,7 @@ PyMODINIT_FUNC PyInit_snl(void) {
   Py_INCREF(&PyTypeSNLNets);
   Py_INCREF(&PyTypeSNLBitNets);
   Py_INCREF(&PyTypeSNLInstances);
+  Py_INCREF(&PyTypeSNLInstParameters);
   Py_INCREF(&PyTypeSNLInstTerms);
 
   PyObject* mod = PyModule_Create(&snlModule);
