@@ -52,7 +52,11 @@ class SNLInstanceTest(unittest.TestCase):
     self.assertIsNotNone(p1)
     inst_p0 = snl.SNLInstParameter.create(ins1, p0, '58')
     self.assertIsNotNone(inst_p0)
+    self.assertEqual(p0.getName(), inst_p0.getName())
+    self.assertEqual(ins1, inst_p0.getInstance())
     inst_p1 = snl.SNLInstParameter.create(ins1, p1, '0x1234')
+    self.assertEqual(p1.getName(), inst_p1.getName())
+    self.assertEqual(ins1, inst_p1.getInstance())
     self.assertIsNotNone(inst_p1)
     self.assertEqual(2, sum(1 for ip in ins1.getInstParameters()))
     self.assertEqual(inst_p0, ins1.getInstParameter("REG"))
@@ -67,6 +71,17 @@ class SNLInstanceTest(unittest.TestCase):
     inst_p1.destroy()
     self.assertIsNone(ins1.getInstParameter("INIT"))
     self.assertFalse(any(True for _ in ins1.getInstParameters()))
+
+  def testInstParameterErrors(self):
+    ins1 = snl.SNLInstance.create(self.top, self.model, "ins1")
+    p0 = self.model.getParameter("REG")
+    self.assertIsNotNone(p0)
+    with self.assertRaises(RuntimeError) as context: snl.SNLInstParameter.create(ins1, ins1, p0, '58')
+    with self.assertRaises(RuntimeError) as context: snl.SNLInstParameter.create(p0, p0, '58')
+    with self.assertRaises(RuntimeError) as context: snl.SNLInstParameter.create(ins1, ins1, '58')
+    inst_p0 = snl.SNLInstParameter.create(ins1, p0, '58')
+    self.assertIsNotNone(inst_p0)
+    with self.assertRaises(RuntimeError) as context: inst_p0.setValue(p0)
   
   def testDestroyInstance(self):
     ins1 = snl.SNLInstance.create(self.top, self.model, "ins1")
