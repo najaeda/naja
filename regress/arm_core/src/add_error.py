@@ -14,23 +14,24 @@ def edit():
   else:
     logging.info('Found top design ' + str(top))
 
-  #find lut in top
-  lut14 = top.getInstance("_014_")
-  lut15 = top.getInstance("_015_")
-  lut16 = top.getInstance("_016_")
-  lut17 = top.getInstance("_017_")
-  if lut14 is not None:
-    logging.info('Destroy ' + str(lut14))
-    lut14.destroy()
-  if lut15 is not None:
-    logging.info('Destroy ' + str(lut15))
-    lut15.destroy()
-  if lut16 is not None:
-    logging.info('Destroy ' + str(lut16))
-    lut16.destroy()
-  if lut17 is not None:
-    logging.info('Destroy ' + str(lut17))
-    lut17.destroy()
+  #get n instances and destroy
+  n = 20
+  destroyed = 0
+  for instance in top.getInstances():
+    destroyed += 1
+    instance.destroy()
+    if destroyed > n:
+      break
+
+  #get n nets and destroy
+  n = 20
+  destroyed = 0
+  for net in top.getNets():
+    destroyed += 1
+    net.destroy()
+    if destroyed > n:
+      break
+
 
   #lut14Mask = lut14.getInstParameter('INIT')
   #if lut14Mask is None:
