@@ -10,6 +10,10 @@ verif.gold: arm_core_snl.v primitives.v
 	${YOSYS} src/comp_gold.ys
 	touch $@
 
+eqy.gold: arm_core_snl.v primitives.v 
+	${EQY} src/comp.eqy
+	touch $@
+
 verilator.gold: arm_core_snl.v primitives.v
 	${VERILATOR} --top-module arm_core --lint-only primitives.v arm_core_snl.v
 	touch $@

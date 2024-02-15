@@ -1,0 +1,16 @@
+[gold]
+read -sv src/arm_core.v 
+prep -top arm_core
+async2sync
+memory_map
+
+[gate]
+read -sv primitives.v arm_core_snl.v
+prep -top arm_core
+async2sync
+memory_map
+
+[strategy sby]
+use sby
+depth 2
+engine smtbmc bitwuzla

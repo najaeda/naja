@@ -21,3 +21,4 @@ src/apps/edit/examples/addaccu/addaccu_*.v
 src/apps/edit/examples/addaccu/*.log
 src/apps/edit/examples/addaccu/*.txt
 src/apps/edit/examples/addaccu/*_snl
+regress/arm_core/comp/*
