@@ -1,4 +1,4 @@
-#include "FlatViewer.h"
+#include "DNL.h"
 
 #include <fstream>
 #include <iostream>
@@ -19,6 +19,11 @@ using namespace naja::SNL;
 using namespace naja::DNL;
 
 #define DEBUG_PRINTS false
+namespace naja::DNL {
+
+DNL* dnl_ = nullptr;
+
+}
 
 DNLInstance::DNLInstance(DNL& fv) : _dnl(fv) {}
 DNLInstance::DNLInstance(const SNLInstance* instance,
@@ -90,16 +95,7 @@ const DNLTerminal& DNLInstance::getTerminal(const SNLInstTerm* snlTerm) const {
 }
 const DNLTerminal& DNLInstance::getTerminal(const SNLBitTerm* snlTerm) const {
   for (DNLID term = _termsIndexes.first; term < _termsIndexes.second; term++) {
-    if (_dnl.getDNLTerminalFromID(term).getSnlTerm()->getTerm() == snlTerm) {
-#ifdef DEBUG_PRINTS
-      printf("return %lu %s %s\n", term,
-             _dnl.getDNLTerminalFromID(term).getSnlTerm()->getString().c_str(),
-             _dnl.getDNLTerminalFromID(term)
-                 .getSnlTerm()
-                 ->getDirection()
-                 .getString()
-                 .c_str());
-#endif
+    if (_dnl.getDNLTerminalFromID(term).getSnlBitTerm() == snlTerm) {
       return _dnl.getDNLTerminalFromID(term);
     }
   }
@@ -116,6 +112,12 @@ DNLTerminal::DNLTerminal(DNLID DNLInstID,
                          DNLID id,
                          DNL& fv)
     : _DNLInstID(DNLInstID), _terminal(terminal), _id(id), _dnl(fv){};
+
+DNLTerminal::DNLTerminal(DNLID DNLInstID,
+                         SNLBitTerm* terminal,
+                         DNLID id,
+                         DNL& fv)
+    : _DNLInstID(DNLInstID), _bitTerminal(terminal), _id(id), _dnl(fv){};
 DNLID DNLTerminal::getID() const {
   return _id;
 }
@@ -412,7 +414,27 @@ void DNLIsoDBBuilder::treatDriver(const DNLTerminal& term) {
   }
 }
 
-DNL::DNL(const SNLDesign* top) : _top(top), _fidb(*this) {}
+DNL* DNL::create() {
+  assert(SNLUniverse::get());
+  dnl_ = new DNL(SNLUniverse::get()->getTopDesign());
+  return dnl_;
+}
+
+ DNL* DNL::get() {
+  if (!dnl_) {
+    create();
+  }
+  return dnl_;
+}
+
+void DNL::destroy() {
+  delete dnl_;
+  dnl_ = nullptr;
+}
+
+DNL::DNL(const SNLDesign* top) : _top(top), _fidb(*this) { 
+  process(); 
+} 
 
 void DNL::dumpDotFile() const {
   std::ofstream myfile;
@@ -528,14 +550,21 @@ void DNL::display() const {
 void DNL::process() {
   std::vector<DNLID> stack;
   _DNLInstances.push_back(
-      DNLInstance(nullptr, _DNLInstances.size() + 1, 0, *this));
-  assert(_DNLInstances.back().getID() == _DNLInstances.size());
+      DNLInstance(nullptr, _DNLInstances.size(), 0, *this));
+  assert(_DNLInstances.back().getID() == _DNLInstances.size() - 1);
   DNLID parentId = _DNLInstances.back().getID();
   std::pair<DNLID, DNLID> childrenIndexes;
   childrenIndexes.first = _DNLInstances.back().getID();
+  std::pair<DNLID, DNLID> termIndexes;
+  termIndexes.first = _DNLTerms.size();
+  for (SNLBitTerm* bitterm : _top->getBitTerms()) {
+    _DNLTerms.push_back(DNLTerminal(parentId, bitterm, _DNLTerms.size(), *this));
+  }
+  termIndexes.second = _DNLTerms.size();
+  _DNLInstances.back().setTermsIndexes(termIndexes);
   for (auto inst : _top->getInstances()) {
     _DNLInstances.push_back(
-        DNLInstance(inst, _DNLInstances.size() + 1, parentId, *this));
+        DNLInstance(inst, _DNLInstances.size(), parentId, *this));
     stack.push_back(_DNLInstances.back().getID());
     std::pair<DNLID, DNLID> termIndexes;
     termIndexes.first = _DNLTerms.size();
@@ -569,7 +598,7 @@ void DNL::process() {
 #endif
       // if (!inst) continue;
       _DNLInstances.push_back(
-          DNLInstance(inst, _DNLInstances.size() + 1, parentId, *this));
+          DNLInstance(inst, _DNLInstances.size(), parentId, *this));
 #ifdef DEBUG_PRINTS
       printf("-%s\n", inst->getName().getString().c_str());
 #endif

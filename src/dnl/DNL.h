@@ -15,6 +15,7 @@ class SNLBitNet;
 
 namespace naja {
 namespace DNL {
+
 typedef size_t DNLID;
 #define DNLID_MAX ((DNLID)-1)
 
@@ -22,6 +23,7 @@ class DNL;
 class DNLTerminal;
 
 class DNLInstance {
+
  public:
   DNLInstance(DNL& fv);
   DNLInstance(const SNLInstance* instance, DNLID id, DNLID parent, DNL& fv);
@@ -30,6 +32,13 @@ class DNLInstance {
   DNLID getParentID() const;
   const DNLInstance& getParentInstance() const;
   const SNLInstance* getSNLInstance() const;
+  const SNLDesign* getSNLModel() const {
+    if (_instance) {
+      return _instance->getModel();
+    } else {
+      return SNLUniverse::get()->getTopDesign();
+    }
+  }
   void setTermsIndexes(const std::pair<DNLID, DNLID>& termsIndexes);
   void setChildrenIndexes(const std::pair<DNLID, DNLID>& childrenIndexes);
   const DNLInstance& getChildInstance(const SNLInstance* snlInst) const;
@@ -57,18 +66,24 @@ class DNLInstance {
 };
 
 class DNLTerminal {
+
  public:
+
   DNLTerminal(DNL& fv, DNLID id);
   DNLTerminal(DNLID DNLInstID, SNLInstTerm* terminal, DNLID id, DNL& fv);
+  DNLTerminal(DNLID DNLInstID, SNLBitTerm* terminal, DNLID id, DNL& fv);
   DNLID getID() const;
   SNLInstTerm* getSnlTerm() const;
+  SNLBitTerm* getSnlBitTerm() const { return _bitTerminal; };
   const DNLInstance& getDNLInstance() const;
   bool isNull() const { return _id == (DNLID)DNLID_MAX; }
   void setIsoID(DNLID isoID);
   DNLID getIsoID() const;
-
+  bool isTopPort() const { return _terminal == nullptr; }
  private:
-  SNLInstTerm* _terminal;
+  bool isInstTerm = false;
+  SNLInstTerm* _terminal = nullptr;
+  SNLBitTerm* _bitTerminal = nullptr;
   DNLID _DNLInstID = DNLID_MAX;
   DNLID _id = DNLID_MAX;
   DNL& _dnl;
@@ -129,8 +144,14 @@ class DNLIsoDBBuilder {
 
 class DNL {
  public:
-  DNL(const SNLDesign* top);
-  void process();
+  
+   ///\return a created singleton DNL or an error if it exists already
+  static DNL* create();
+  ///\return the singleron DNL or null if it does not exist.
+  static DNL* get();
+
+  static void destroy();
+  
   void display() const;
   const std::vector<DNLInstance, tbb::scalable_allocator<DNLInstance>>&
   getDNLInstances() const {
@@ -183,6 +204,9 @@ class DNL {
   }
 
  private:
+
+  DNL(const SNLDesign* top);
+  void process();
   std::vector<DNLInstance, tbb::scalable_allocator<DNLInstance>> _DNLInstances;
   std::vector<DNLID, tbb::scalable_allocator<DNLID>> _leaves;
   // add leaf(top and leaf terms + leaf instances) vector
