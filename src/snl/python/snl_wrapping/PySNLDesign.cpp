@@ -12,7 +12,7 @@
 #include "PySNLScalarNet.h"
 #include "PySNLBusNet.h"
 #include "PySNLInstance.h"
-#include "PySNLInstTerm.h"
+#include "PySNLParameter.h"
 #include "PySNLTerms.h"
 #include "PySNLBitTerms.h"
 #include "PySNLInstTerms.h"
@@ -21,6 +21,7 @@
 #include "PySNLNets.h"
 #include "PySNLBitNets.h"
 #include "PySNLInstances.h"
+#include "PySNLParameters.h"
 
 #include "SNLDesign.h"
 #include "SNLDesignModeling.h"
@@ -261,6 +262,7 @@ GetObjectByName(Design, BusTerm)
 GetObjectByName(Design, Net)
 GetObjectByName(Design, ScalarNet)
 GetObjectByName(Design, BusNet)
+GetObjectByName(Design, Parameter)
 GetNameMethod(SNLDesign)
 GetContainerMethod(Design, Term, Terms)
 GetContainerMethod(Design, BitTerm, BitTerms)
@@ -269,6 +271,7 @@ GetContainerMethod(Design, BusTerm, BusTerms)
 GetContainerMethod(Design, Net, Nets)
 GetContainerMethod(Design, BitNet, BitNets)
 GetContainerMethod(Design, Instance, Instances)
+GetContainerMethod(Design, Parameter, Parameters)
 
 DBoDestroyAttribute(PySNLDesign_destroy, PySNLDesign)
 
@@ -313,6 +316,8 @@ PyMethodDef PySNLDesign_Methods[] = {
     "retrieve a SNLBusNet."},
   { "getInstance", (PyCFunction)PySNLDesign_getInstance, METH_VARARGS,
     "retrieve a SNLInstance."},
+  { "getParameter", (PyCFunction)PySNLDesign_getParameter, METH_VARARGS,
+    "retrieve a SNLParameter."},
   { "getTerms", (PyCFunction)PySNLDesign_getTerms, METH_NOARGS,
     "get a container of SNLTerms."},
   { "getBitTerms", (PyCFunction)PySNLDesign_getBitTerms, METH_NOARGS,
@@ -327,6 +332,8 @@ PyMethodDef PySNLDesign_Methods[] = {
     "get a container of SNLBitNets."},
   { "getInstances", (PyCFunction)PySNLDesign_getInstances, METH_NOARGS,
     "get a container of SNLInstances."},
+  { "getParameters", (PyCFunction)PySNLDesign_getParameters, METH_NOARGS,
+    "get a container of SNLParameters."},
   {"destroy", (PyCFunction)PySNLDesign_destroy, METH_NOARGS,
     "destroy this SNLDesign."},
   {NULL, NULL, 0, NULL}           /* sentinel */

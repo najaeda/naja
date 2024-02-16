@@ -122,8 +122,8 @@ PyMethodDef PySNLParameter_Methods[] = {
     "get SNLParameter name"},
   { "getDesign", (PyCFunction)PySNLParameter_getDesign, METH_NOARGS,
     "get SNLParameter owner design"},
-  {"destroy", (PyCFunction)PySNLParameter_destroy, METH_NOARGS,
-    "destroy this SNLDesign."},
+  { "destroy", (PyCFunction)PySNLParameter_destroy, METH_NOARGS,
+    "destroy this SNLParameter."},
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 

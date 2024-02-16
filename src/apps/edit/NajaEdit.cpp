@@ -163,7 +163,8 @@ int main(int argc, char* argv[]) {
         spdlog::error("No top design was found after parsing verilog");
       }
     } else {
-      return -1;
+      spdlog::critical("Unrecognized input format type: {}", inputFormat);
+      std::exit(EXIT_FAILURE);
     }
 
     if (program.is_used("-e")) {
@@ -193,6 +194,7 @@ int main(int argc, char* argv[]) {
     }
   } catch (const SNLException& e) {
     spdlog::critical("Caught SNL error: {}", e.getReason());
+    std::exit(EXIT_FAILURE);
   }
-  return 0;
+  std::exit(EXIT_SUCCESS);
 }

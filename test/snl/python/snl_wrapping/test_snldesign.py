@@ -149,8 +149,17 @@ class SNLDesignTest(unittest.TestCase):
     self.assertIsNotNone(p3)
     self.assertEqual("INVERTED", p3.getName())
     self.assertEqual(design, p3.getDesign())
+    self.assertEqual(4, sum(1 for t in design.getParameters()))
+    test_p0 = design.getParameter("REG")
+    self.assertEqual(p0, test_p0)
+    test_p1 = design.getParameter("INIT")
+    self.assertEqual(p1, test_p1)
     p0.destroy()
     p1.destroy()
+    test_p0 = design.getParameter("REG")
+    self.assertIsNone(test_p0)
+    test_p1 = design.getParameter("INIT")
+    self.assertIsNone(test_p1)
 
   def testCreationError(self):
     self.assertIsNotNone(self.lib)
