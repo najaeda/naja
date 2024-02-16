@@ -93,7 +93,7 @@ const DNLTerminal& DNLInstance::getTerminal(const SNLInstTerm* snlTerm) const {
 #endif
   return _dnl.getDNLNullTerminal();
 }
-const DNLTerminal& DNLInstance::getTerminal(const SNLBitTerm* snlTerm) const {
+const DNLTerminal& DNLInstance::getTerminalFromBitTerm(const SNLBitTerm* snlTerm) const {
   for (DNLID term = _termsIndexes.first; term < _termsIndexes.second; term++) {
     if (_dnl.getDNLTerminalFromID(term).getSnlBitTerm() == snlTerm) {
       return _dnl.getDNLTerminalFromID(term);
@@ -121,6 +121,8 @@ DNLTerminal::DNLTerminal(DNLID DNLInstID,
 DNLID DNLTerminal::getID() const {
   return _id;
 }
+
+SNLBitTerm* DNLTerminal::getSnlBitTerm() const { return _bitTerminal ? _bitTerminal : _terminal->getTerm(); };
 SNLInstTerm* DNLTerminal::getSnlTerm() const {
   return _terminal;
 }
@@ -393,11 +395,11 @@ void DNLIsoDBBuilder::treatDriver(const DNLTerminal& term) {
       DNLParent->display();
       DNLParent->getParentInstance().display();
       printf("--visiting bt %lu %p %s %s\n",
-             DNLParent->getTerminal(bitTerm).getID(), bitTerm,
+             DNLParent->getTerminalFromBitTerm(bitTerm).getID(), bitTerm,
              bitTerm->getString().c_str(),
              bitTerm->getDirection().getString().c_str());
 #endif
-      const DNLTerminal& ftermNew = DNLParent->getTerminal(bitTerm);
+      const DNLTerminal& ftermNew = DNLParent->getTerminalFromBitTerm(bitTerm);
 #ifdef DEBUG_PRINTS
       printf("----pushing to stuck %s %s\n",
              ftermNew.getSnlTerm()->getString().c_str(),
@@ -550,7 +552,7 @@ void DNL::display() const {
 void DNL::process() {
   std::vector<DNLID> stack;
   _DNLInstances.push_back(
-      DNLInstance(nullptr, _DNLInstances.size(), 0, *this));
+      DNLInstance(nullptr, _DNLInstances.size(), DNLID_MAX, *this));
   assert(_DNLInstances.back().getID() == _DNLInstances.size() - 1);
   DNLID parentId = _DNLInstances.back().getID();
   std::pair<DNLID, DNLID> childrenIndexes;
@@ -565,6 +567,7 @@ void DNL::process() {
   for (auto inst : _top->getInstances()) {
     _DNLInstances.push_back(
         DNLInstance(inst, _DNLInstances.size(), parentId, *this));
+    assert(_DNLInstances.back().getID() > 0);
     stack.push_back(_DNLInstances.back().getID());
     std::pair<DNLID, DNLID> termIndexes;
     termIndexes.first = _DNLTerms.size();
@@ -585,6 +588,7 @@ void DNL::process() {
 #ifdef DEBUG_PRINTS
     printf("check %p\n", _DNLInstances[0].getSNLInstance());
 #endif
+    assert(stack.back() > 0);
     const SNLInstance* parent =
         getNonConstDNLInstanceFromID((stack.back())).getSNLInstance();
     DNLID parentId = getNonConstDNLInstanceFromID((stack.back())).getID();
@@ -630,6 +634,7 @@ void DNL::process() {
   }
   _DNLTerms.push_back(DNLTerminal(*this, _DNLTerms.size()));
   _DNLInstances.push_back(DNLInstance(*this));
+  initTermId2isoId();
   DNLIsoDBBuilder fidbb(_fidb, *this);
   fidbb.process();
 }

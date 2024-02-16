@@ -43,7 +43,7 @@ class DNLInstance {
   void setChildrenIndexes(const std::pair<DNLID, DNLID>& childrenIndexes);
   const DNLInstance& getChildInstance(const SNLInstance* snlInst) const;
   const DNLTerminal& getTerminal(const SNLInstTerm* snlTerm) const;
-  const DNLTerminal& getTerminal(const SNLBitTerm* snlTerm) const;
+  const DNLTerminal& getTerminalFromBitTerm(const SNLBitTerm* snlTerm) const;
   const std::pair<DNLID, DNLID>& getTermIndexes() const {
     return _termsIndexes;
   }
@@ -74,7 +74,7 @@ class DNLTerminal {
   DNLTerminal(DNLID DNLInstID, SNLBitTerm* terminal, DNLID id, DNL& fv);
   DNLID getID() const;
   SNLInstTerm* getSnlTerm() const;
-  SNLBitTerm* getSnlBitTerm() const { return _bitTerminal; };
+  SNLBitTerm* getSnlBitTerm() const;
   const DNLInstance& getDNLInstance() const;
   bool isNull() const { return _id == (DNLID)DNLID_MAX; }
   void setIsoID(DNLID isoID);
@@ -171,10 +171,10 @@ class DNL {
   }
   DNLTerminal& getDNLTerminalFromID(DNLID id) { return _DNLTerms[id]; }
   const DNLInstance& getDNLInstanceFromID(DNLID id) const {
-    return _DNLInstances[id - 1];
+    return _DNLInstances[id];
   }
   DNLInstance& getNonConstDNLInstanceFromID(DNLID id) {
-    return _DNLInstances[id - 1 /*because top is 0*/];
+    return _DNLInstances[id /*because top is 0*/];
   }
   const DNLTerminal& getDNLNullTerminal() const { return _DNLTerms.back(); }
   DNLID getNBterms() const { return _DNLTerms.size(); }
