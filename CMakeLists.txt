@@ -11,18 +11,27 @@ project(naja
   LANGUAGES CXX
 )
 
+#RPATH settings
+#set(MACOSX_RPATH TRUE)
+# use, i.e. don't skip the full RPATH for the build tree
+set(CMAKE_SKIP_BUILD_RPATH FALSE)
+ 
+# when building, don't use the install RPATH already
+# (but later on when installing)
+set(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
+set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
+ 
+# add the automatically determined parts of the RPATH
+# which point to directories outside the build tree to the install RPATH
+set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+######
+
 set(CMAKE_CXX_STANDARD 20)
 
-include(FetchContent)
-#fetch argparse v2.9
-FetchContent_Declare(
-    argparse
-    GIT_REPOSITORY https://github.com/p-ranav/argparse.git
-    GIT_TAG 997da9255618311d1fcb0135ce86022729d1f1cb
-)
-FetchContent_MakeAvailable(argparse)
-
 set(NAJA_CXX_WARNINGS -Werror -Wall -pedantic-errors -Wconversion -Wsign-conversion -Wextra -Wno-unused-parameter)
+
+set(ARGPARSE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/argparse-3.0/include)
+set(SPDLOG_DIR ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/spdlog-1.12.0/include)
 
 add_library(coverage_config INTERFACE)
 option(CODE_COVERAGE "Enable coverage reporting" OFF)
@@ -51,12 +60,13 @@ if(ENABLE_SANITIZERS)
 endif(ENABLE_SANITIZERS)
 
 find_package(Boost REQUIRED)
-find_package(Python3 COMPONENTS Development Interpreter REQUIRED)
+find_package(Python3 3.9...<3.99 COMPONENTS Development Interpreter REQUIRED)
 find_package(CapnProto CONFIG REQUIRED)
 
 add_subdirectory(thirdparty)
 add_subdirectory(src)
 add_subdirectory(cmake)
+add_subdirectory(primitives)
 
 if(PROJECT_IS_TOP_LEVEL)
 include(CTest)
@@ -70,3 +80,4 @@ if(DOXYGEN_FOUND)
   add_subdirectory(docs)
 endif(DOXYGEN_FOUND)
 endif(PROJECT_IS_TOP_LEVEL)
+

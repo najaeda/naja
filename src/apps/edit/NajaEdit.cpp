@@ -7,9 +7,13 @@
 #include <fstream>
 
 #include <argparse/argparse.hpp>
+#include <spdlog/spdlog.h>
+#include <spdlog/sinks/basic_file_sink.h> // support for basic file logging
+#include <spdlog/sinks/stdout_color_sinks.h>
 
 #include "SNLException.h"
 #include "SNLPyLoader.h"
+#include "SNLPyEdit.h"
 #include "SNLVRLConstructor.h"
 #include "SNLVRLDumper.h"
 #include "SNLUtils.h"
@@ -36,23 +40,23 @@ FormatType argToFormatType(const std::string& inputFormat) {
 }
 
 int main(int argc, char* argv[]) {
-  argparse::ArgumentParser program("naja_x2y");
-  program.add_argument("-a", "--input_format")
+  argparse::ArgumentParser program("naja_edit");
+  program.add_argument("-f", "--from_format")
     .required()
-    .help("input format");
-  program.add_argument("-b", "--output_format")
-    .required()
-    .help("output format");
+    .help("from/input format");
+  program.add_argument("-t", "--to_format")
+    .help("to/output format");
   program.add_argument("-i", "--input")
     .required()
     .help("input netlist");
   program.add_argument("-o", "--output")
-    .required()
     .help("output netlist");
   program.add_argument("-p", "--primitives")
     .help("input primitives");
   program.add_argument("-d", "--dump_primitives")
     .help("dump primitives library in verilog");
+  program.add_argument("-e", "--edit")
+    .help("edit netlist using python script");
 
   try {
     program.parse_args(argc, argv);
@@ -61,26 +65,64 @@ int main(int argc, char* argv[]) {
     std::cerr << program;
     return 1;
   }
-  auto inputFormatArg = program.present("-a");
-  auto outputFormatArg = program.present("-b");
+
+
+  std::vector<spdlog::sink_ptr> sinks;
+  auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
+  console_sink->set_level(spdlog::level::warn);
+  console_sink->set_pattern("[naja_edit] [%^%l%$] %v");
+  sinks.push_back(console_sink);
+
+  auto file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>("naja_edit.log", true);
+  file_sink->set_level(spdlog::level::trace);
+  sinks.push_back(file_sink);
+
+  auto edit_logger = std::make_shared<spdlog::logger>("logger", begin(sinks), end(sinks));
+  edit_logger->set_level(spdlog::level::trace);
+
+  spdlog::set_default_logger(edit_logger);
+  spdlog::flush_every(std::chrono::seconds(3));
+  spdlog::info("########################################################");
+  spdlog::info("naja_edit");
+  spdlog::info("########################################################");
+
+
+  bool argError = false;
+  auto inputFormatArg = program.present("-f");
   std::string inputFormat = *inputFormatArg;
-  std::string outputFormat = *outputFormatArg;
+  std::string outputFormat;
+  if (auto outputFormatArg = program.present("-t")) {
+    outputFormat = *outputFormatArg;
+  } else {
+    outputFormat = inputFormat;
+  }
   FormatType inputFormatType = argToFormatType(inputFormat);
   FormatType outputFormatType = argToFormatType(outputFormat);
-  if (inputFormatType == FormatType::UNKNOWN or outputFormatType == FormatType::UNKNOWN) {
-    return 4;
+  if (inputFormatType == FormatType::UNKNOWN) {
+    spdlog::critical("Unrecognized input format type: {}", inputFormat);
+    argError = true;
+  }
+  if (outputFormatType == FormatType::UNKNOWN) {
+    spdlog::critical("Unrecognized output format type: {}", outputFormat);
+    argError = true;
   }
 
   std::filesystem::path primitivesPath;
   if (auto primitives = program.present("-p")) {
     if (inputFormatType == FormatType::SNL) {
-      return 4;
+      spdlog::critical("primitives option (-p) is incompatible with input format 'SNL'");
+      argError = true;
     }
     primitivesPath = std::filesystem::path(*primitives);
   } else {
     if (inputFormatType != FormatType::SNL) {
-      return 4;
+      spdlog::critical("primitives option (-p) is mandatory when the input format is not 'SNL'");
+      argError = true;
     }
+  }
+
+  if (argError) {
+    std::exit(-1);
   }
   
   std::filesystem::path inputPath;
@@ -103,6 +145,7 @@ int main(int argc, char* argv[]) {
     SNLLibrary* primitivesLibrary = nullptr;
     if (inputFormatType == FormatType::SNL) {
       db = SNLCapnP::load(inputPath);
+      SNLUniverse::get()->setTopDesign(db->getTopDesign());
     } else if (inputFormatType == FormatType::VERILOG) {
       db = SNLDB::create(SNLUniverse::get());
       primitivesLibrary = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("PRIMS"));
@@ -114,21 +157,32 @@ int main(int argc, char* argv[]) {
 
       auto top = SNLUtils::findTop(designLibrary);
       if (top) {
-        db->setTopDesign(top);
+        SNLUniverse::get()->setTopDesign(top);
+        spdlog::info("Found top design: " + top->getString());
       } else {
-        
+        spdlog::error("No top design was found after parsing verilog");
       }
     } else {
-      return -1;
+      spdlog::critical("Unrecognized input format type: {}", inputFormat);
+      std::exit(EXIT_FAILURE);
     }
 
-    if (db->getTopDesign()) {
-      std::ofstream output(outputPath);
-      SNLVRLDumper dumper;
-      dumper.setSingleFile(true);
-      dumper.dumpDesign(db->getTopDesign(), output);
-    } else {
-      db->debugDump(0);
+    if (program.is_used("-e")) {
+      auto editPath = std::filesystem::path(program.get<std::string>("-e"));
+      SNLPyEdit::edit(editPath);
+    }
+
+    if (outputFormatType == FormatType::SNL) {
+      SNLCapnP::dump(db, outputPath);
+    } else if (outputFormatType == FormatType::VERILOG) {
+      if (db->getTopDesign()) {
+        std::ofstream output(outputPath);
+        SNLVRLDumper dumper;
+        dumper.setSingleFile(true);
+        dumper.dumpDesign(db->getTopDesign(), output);
+      } else {
+        db->debugDump(0);
+      }
     }
     
     if (program.is_used("-d") and primitivesLibrary) {
@@ -139,8 +193,8 @@ int main(int argc, char* argv[]) {
       dumper.dumpLibrary(primitivesLibrary, output);
     }
   } catch (const SNLException& e) {
-    std::cerr << "Caught SNL error: " << e.getReason() << std::endl;
-    return 1;
+    spdlog::critical("Caught SNL error: {}", e.getReason());
+    std::exit(EXIT_FAILURE);
   }
-  return 0;
+  std::exit(EXIT_SUCCESS);
 }

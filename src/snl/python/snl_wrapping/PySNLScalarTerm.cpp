@@ -52,7 +52,6 @@ PyMethodDef PySNLScalarTerm_Methods[] = {
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 
-DBoDestroyAttribute(PySNLScalarTerm_destroy, PySNLScalarTerm)
 DBoDeallocMethod(SNLScalarTerm)
 
 DBoLinkCreateMethod(SNLScalarTerm)

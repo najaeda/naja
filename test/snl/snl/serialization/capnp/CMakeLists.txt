@@ -8,6 +8,7 @@ set(snl_capnp_tests
     SNLDumpManifestTest.cpp
     SNLCapnPTest0.cpp
     SNLCapnPTest1.cpp
+    SNLCapnPTest2.cpp
     SNLCapnPStreamingReceiveTest.cpp
 )
 

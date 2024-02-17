@@ -31,6 +31,9 @@ class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
 
     void construct(const std::filesystem::path& filePath);
 
+    void setVerbose(bool verbose) { verbose_ = verbose; }
+    bool getVerbose() const { return verbose_; }
+
     bool inFirstPass() const { return firstPass_; }
     void setFirstPass(bool mode) { firstPass_ = mode; }
     void startModule(const std::string& name) override;
@@ -71,7 +74,7 @@ class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
     
     std::string getLocationString() const;
 
-    bool              verbose_                        {true};
+    bool              verbose_                        {false};
     bool              firstPass_                      {true};
     SNLLibrary*       library_                        {nullptr};
     SNLDesign*        currentModule_                  {nullptr};

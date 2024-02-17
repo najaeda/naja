@@ -5,11 +5,14 @@
 #include "PySNLUniverse.h"
 
 #include "PyInterface.h"
+#include "PySNLDesign.h"
 #include "SNLUniverse.h"
 
 namespace PYSNL {
 
 using namespace naja::SNL;
+
+#define METHOD_HEAD(function) GENERIC_METHOD_HEAD(SNLUniverse, function)
 
 static PyObject* PySNLUniverse_create() {
   SNLUniverse* universe = nullptr;
@@ -24,6 +27,8 @@ static PyObject* PySNLUniverse_get() {
   return PySNLUniverse_Link(universe);
 }
 
+GetObjectMethod(Universe, Design, getTopDesign)
+
 DBoDestroyAttribute(PySNLUniverse_destroy, PySNLUniverse)
 
 PyMethodDef PySNLUniverse_Methods[] = {
@@ -33,6 +38,8 @@ PyMethodDef PySNLUniverse_Methods[] = {
     "destroy the associated SNLUniverse"},
   { "get", (PyCFunction)PySNLUniverse_get, METH_NOARGS|METH_STATIC,
     "get the SNL Universe (static object)"},
+  { "getTopDesign", (PyCFunction)PySNLUniverse_getTopDesign, METH_NOARGS,
+    "get the top SNLDesign"},
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 
