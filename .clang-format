@@ -1,10 +1,13 @@
+#SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
+#SPDX-License-Identifier: Apache-2.0
+
 Language:                     Cpp
 BasedOnStyle:                 Google
 CompactNamespaces:            true
-IndentWidth:                  2
+#IndentWidth:                  2
 SpaceBeforeInheritanceColon:  false
 SpacesInParentheses:          false
 SpacesInSquareBrackets:       false
 Standard:                     Latest
-TabWidth:                     2
+#TabWidth:                     2
 UseTab:                       Never
