@@ -19,6 +19,7 @@ using namespace naja::SNL;
 using namespace naja::DNL;
 
 #define DEBUG_PRINTS false
+
 namespace naja::DNL {
 
 DNL* dnl_ = nullptr;
@@ -33,6 +34,10 @@ DNLInstance::DNLInstance(const SNLInstance* instance,
     : _instance(instance), _id(id), _parent(parent), _dnl(fv) {}
 
 void DNLInstance::display() const {
+  if (isTop()) {
+    printf("fi %lu %s\n", getID(), "top");
+    return;
+  }
   printf("fi %lu %s\n", getID(), getSNLInstance()->getString().c_str());
   for (DNLID term = getTermIndexes().first; term < getTermIndexes().second;
        term++) {
@@ -51,6 +56,15 @@ DNLID DNLInstance::getID() const {
 DNLID DNLInstance::getParentID() const {
   return _parent;
 }
+
+const SNLDesign* DNLInstance::getSNLModel() const {
+  if (_instance) {
+    return _instance->getModel();
+  } else {
+    return SNLUniverse::get()->getTopDesign();
+  }
+}
+
 const SNLInstance* DNLInstance::getSNLInstance() const {
   return _instance;
 }
@@ -93,7 +107,8 @@ const DNLTerminal& DNLInstance::getTerminal(const SNLInstTerm* snlTerm) const {
 #endif
   return _dnl.getDNLNullTerminal();
 }
-const DNLTerminal& DNLInstance::getTerminalFromBitTerm(const SNLBitTerm* snlTerm) const {
+const DNLTerminal& DNLInstance::getTerminalFromBitTerm(
+    const SNLBitTerm* snlTerm) const {
   for (DNLID term = _termsIndexes.first; term < _termsIndexes.second; term++) {
     if (_dnl.getDNLTerminalFromID(term).getSnlBitTerm() == snlTerm) {
       return _dnl.getDNLTerminalFromID(term);
@@ -122,7 +137,9 @@ DNLID DNLTerminal::getID() const {
   return _id;
 }
 
-SNLBitTerm* DNLTerminal::getSnlBitTerm() const { return _bitTerminal ? _bitTerminal : _terminal->getTerm(); };
+SNLBitTerm* DNLTerminal::getSnlBitTerm() const {
+  return _bitTerminal ? _bitTerminal : _terminal->getTerm();
+};
 SNLInstTerm* DNLTerminal::getSnlTerm() const {
   return _terminal;
 }
@@ -201,13 +218,26 @@ void DNLIsoDBBuilder::process() {
          term < _dnl.getDNLInstanceFromID(leaf).getTermIndexes().second;
          term++) {
       if (_dnl.getDNLTerminalFromID(term).getSnlTerm()->getDirection() ==
-          SNLTerm::Direction::DirectionEnum::Output) {
+              SNLTerm::Direction::DirectionEnum::Output &&
+          _dnl.getDNLTerminalFromID(term).getSnlTerm()->getNet()) {
         DNLIso& DNLIso = addIsoToDB();
 
         DNLIso.addDriver(term);
         tasks.push_back(term);
         _dnl.getDNLTerminalFromID(term).setIsoID(DNLIso.getIsoID());
       }
+    }
+  }
+  for (DNLID term = _dnl.getTop().getTermIndexes().first;
+       term < _dnl.getTop().getTermIndexes().second; term++) {
+    if (_dnl.getDNLTerminalFromID(term).getSnlBitTerm()->getDirection() ==
+            SNLTerm::Direction::DirectionEnum::Input &&
+        _dnl.getDNLTerminalFromID(term).getSnlBitTerm()->getNet()) {
+      DNLIso& DNLIso = addIsoToDB();
+      _visited[term] = true;
+      DNLIso.addDriver(term);
+      tasks.push_back(term);
+      _dnl.getDNLTerminalFromID(term).setIsoID(DNLIso.getIsoID());
     }
   }
   if (!getenv("NON_MT_dnl")) {
@@ -244,39 +274,62 @@ void DNLIsoDB::display() const {
 }
 
 void DNLIsoDBBuilder::treatDriver(const DNLTerminal& term) {
-#ifdef DEBUG_PRINTS
-  printf("leaf -%s\n",
-         term.getSnlTerm()->getInstance()->getName().getString().c_str());
-  printf("#############################################################\n");
-  printf("treating %lu %p %s %s\n", term.getID(), term.getSnlTerm(),
-         term.getSnlTerm()->getString().c_str(),
-         term.getSnlTerm()->getDirection().getString().c_str());
-#endif
-  assert(term.getSnlTerm()->getInstance()->getModel()->getInstances().empty());
+  /*#ifdef DEBUG_PRINTS
+    printf("leaf -%s\n",
+           term.getSnlTerm()->getInstance()->getName().getString().c_str());
+    printf("#############################################################\n");
+    printf("treating %lu %p %s %s\n", term.getID(), term.getSnlTerm(),
+           term.getSnlTerm()->getString().c_str(),
+           term.getSnlTerm()->getDirection().getString().c_str());
+  #endif
+    assert(term.getSnlTerm()->getInstance()->getModel()->getInstances().empty());*/
   std::stack<DNLID> stack;
   DNLIso& DNLIso = _db.getIsoFromIsoID(term.getIsoID());
-  // do DFS on the driver
-  stack.push(term.getID());
+
+  if (term.getDNLInstance().isTop()) {
+    assert(term.getSnlBitTerm()->getDirection() ==
+           SNLTerm::Direction::DirectionEnum::Input);
+    assert(term.getSnlBitTerm()->getNet());
+    for (SNLInstTerm* reader : term.getSnlBitTerm()->getNet()->getInstTerms()) {
+      DNLID freader = term.getDNLInstance()
+                          .getChildInstance(reader->getInstance())
+                          .getTerminal(reader)
+                          .getID();
+
+      if (freader == term.getID())
+        continue;
+      _dnl.getDNLTerminalFromID(freader).setIsoID(DNLIso.getIsoID());
+      if (_dnl.getDNLTerminalFromID(freader)
+              .getDNLInstance()
+              .getSNLInstance()
+              ->getModel()
+              ->getInstances()
+              .empty()) {
+        DNLIso.addReader(freader);
+        continue;
+      }
+      stack.push(freader);
+    }
+  } else {
+    // do DFS on the driver
+    stack.push(term.getID());
+  }
+
   // Start traversing from driver
   while (!stack.empty()) {
     DNLID id = stack.top();
     stack.pop();
     const DNLTerminal& fterm = _dnl.getDNLTerminalFromID(id);
-#ifdef DEBUG_PRINTS
-    printf("---------------------------------\n");
-    printf("visiting '%lu %p %s %s\n", id, fterm.getSnlTerm()->getInstance(),
-           fterm.getSnlTerm()->getString().c_str(),
-           fterm.getSnlTerm()->getDirection().getString().c_str());
-#endif
+    assert(fterm.getID() == id);
     if (_visited[id]) {
 #ifdef DEBUG_PRINTS
       printf("--visited continue\n");
 #endif
       continue;
     }
-    if (fterm.getSnlTerm()->getDirection() ==
-            SNLTerm::Direction::DirectionEnum::Output &&
-        fterm.getDNLInstance().isTop()) {
+    if (fterm.getDNLInstance().isTop() &&
+        fterm.getSnlBitTerm()->getDirection() ==
+            SNLTerm::Direction::DirectionEnum::Output) {
 #ifdef DEBUG_PRINTS
       printf("--is top output so adding as reader\n");
 #endif
@@ -284,6 +337,13 @@ void DNLIsoDBBuilder::treatDriver(const DNLTerminal& term) {
       _dnl.getDNLTerminalFromID(fterm.getID()).setIsoID(DNLIso.getIsoID());
       continue;
     }
+    assert(fterm.getDNLInstance().isTop() == false);
+#ifdef DEBUG_PRINTS
+    printf("---------------------------------\n");
+    printf("visiting '%lu %p %s %s\n", id, fterm.getSnlTerm()->getInstance(),
+           fterm.getSnlTerm()->getString().c_str(),
+           fterm.getSnlTerm()->getDirection().getString().c_str());
+#endif
     _visited[id] = true;
     SNLBitNet* snlNet = fterm.getSnlTerm()->getNet();
     DNLIso.addNet(snlNet);
@@ -388,23 +448,27 @@ void DNLIsoDBBuilder::treatDriver(const DNLTerminal& term) {
              bitTerm->getDirection().getString().c_str());
 #endif
     }
+    // if (DNLParent->isTop()) continue;
     for (SNLBitTerm* bitTerm : snlNet->getBitTerms()) {
 #ifdef DEBUG_PRINTS
       printf("--visiting bt %p %s %s\n", bitTerm, bitTerm->getString().c_str(),
              bitTerm->getDirection().getString().c_str());
       DNLParent->display();
-      DNLParent->getParentInstance().display();
+      if (!DNLParent->isTop()) {
+        DNLParent->getParentInstance().display();
+      }
+
       printf("--visiting bt %lu %p %s %s\n",
              DNLParent->getTerminalFromBitTerm(bitTerm).getID(), bitTerm,
              bitTerm->getString().c_str(),
              bitTerm->getDirection().getString().c_str());
 #endif
       const DNLTerminal& ftermNew = DNLParent->getTerminalFromBitTerm(bitTerm);
-#ifdef DEBUG_PRINTS
-      printf("----pushing to stuck %s %s\n",
-             ftermNew.getSnlTerm()->getString().c_str(),
-             ftermNew.getSnlTerm()->getDirection().getString().c_str());
-#endif
+      /*#ifdef DEBUG_PRINTS
+            printf("----pushing to stuck %s %s\n",
+                   ftermNew.getSnlTerm()->getString().c_str(),
+                   ftermNew.getSnlTerm()->getDirection().getString().c_str());
+      #endif*/
       if (_visited[ftermNew.getID()]) {
 #ifdef DEBUG_PRINTS
         printf("--visited continue\n");
@@ -422,7 +486,7 @@ DNL* DNL::create() {
   return dnl_;
 }
 
- DNL* DNL::get() {
+DNL* DNL::get() {
   if (!dnl_) {
     create();
   }
@@ -434,9 +498,9 @@ void DNL::destroy() {
   dnl_ = nullptr;
 }
 
-DNL::DNL(const SNLDesign* top) : _top(top), _fidb(*this) { 
-  process(); 
-} 
+DNL::DNL(const SNLDesign* top) : _top(top), _fidb(*this) {
+  process();
+}
 
 void DNL::dumpDotFile() const {
   std::ofstream myfile;
@@ -560,7 +624,8 @@ void DNL::process() {
   std::pair<DNLID, DNLID> termIndexes;
   termIndexes.first = _DNLTerms.size();
   for (SNLBitTerm* bitterm : _top->getBitTerms()) {
-    _DNLTerms.push_back(DNLTerminal(parentId, bitterm, _DNLTerms.size(), *this));
+    _DNLTerms.push_back(
+        DNLTerminal(parentId, bitterm, _DNLTerms.size(), *this));
   }
   termIndexes.second = _DNLTerms.size();
   _DNLInstances.back().setTermsIndexes(termIndexes);
@@ -819,7 +884,6 @@ void PathExtractor::cachePaths() {
                     .getDrivers()
                     .begin()))));
       }
-
       stack.pop();
       if (visitedLoops[toProcess] &&
           _dnl.getDNLTerminalFromID(toProcess).getSnlTerm()->getDirection() ==
@@ -847,12 +911,6 @@ void PathExtractor::cachePaths() {
               break;
             }
           }
-          /*if (_dnl.getDNLTerminalFromID(stack.top()).getDNLInstance().getID()
-          != _dnl.getDNLTerminalFromID(path.back()).getDNLInstance().getID()) {
-              //printf("%lu %lu\n",
-          _dnl.getDNLTerminalFromID(stack.top()).getDNLInstance().getID(),
-              //_dnl.getDNLTerminalFromID(path.back()).getDNLInstance().getID());
-          }*/
           assert(
               _dnl.getDNLTerminalFromID(stack.top()).getDNLInstance().getID() ==
               _dnl.getDNLTerminalFromID(path.back()).getDNLInstance().getID());
@@ -882,7 +940,6 @@ void PathExtractor::cachePaths() {
                       .begin())));
         continue;
       }
-
       if (visited[toProcess] &&
           _dnl.getDNLTerminalFromID(toProcess).getSnlTerm()->getDirection() ==
               SNLTerm::Direction::DirectionEnum::Output) {
@@ -957,12 +1014,6 @@ void PathExtractor::cachePaths() {
               break;
             }
           }
-          /*if (_dnl.getDNLTerminalFromID(stack.top()).getDNLInstance().getID()
-          != _dnl.getDNLTerminalFromID(path.back()).getDNLInstance().getID()) {
-              //printf("%lu %lu\n",
-          _dnl.getDNLTerminalFromID(stack.top()).getDNLInstance().getID(),
-              //_dnl.getDNLTerminalFromID(path.back()).getDNLInstance().getID());
-          }*/
           assert(
               _dnl.getDNLTerminalFromID(stack.top()).getDNLInstance().getID() ==
               _dnl.getDNLTerminalFromID(path.back()).getDNLInstance().getID());
@@ -1075,12 +1126,10 @@ void PathExtractor::cachePaths() {
             pathInst.push_back(inst_id);
           }
         }
-
         _paths.emplace_back(std::pair<std::vector<DNLID>, SubPath>(
             pathInst, SubPath(std::numeric_limits<DNLID>::max(),
                               std::numeric_limits<DNLID>::max(),
                               std::numeric_limits<DNLID>::max())));
-
         if (stack.empty()) {
           break;
         }
@@ -1143,7 +1192,7 @@ void PathExtractor::cachePaths() {
                       .getDrivers()
                       .begin())));
         /*if (path.empty()) {
-            continue;
+        continue;
         }
         path.pop_back();*/
       }
@@ -1235,7 +1284,6 @@ void PathExtractor::printHopHistogram() {
       }
       pathToProcess = _paths[path.second._path];
     }
-
     histogram[hops]++;
   }
   for (const auto& entry : histogram) {
