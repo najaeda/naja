@@ -11,6 +11,7 @@ verif.gold: arm_core_snl.v primitives.v
 	touch $@
 
 eqy.gold: arm_core_snl.v primitives.v 
+	-rm -rf comp
 	${EQY} src/comp.eqy
 	touch $@
 

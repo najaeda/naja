@@ -42,6 +42,15 @@ class SNLInstanceTest(unittest.TestCase):
     self.assertEqual(ins1, instances[0])
     self.assertFalse(all(False for _ in ins1.getInstTerms()))
 
+  def testInstTerms(self):
+    self.assertEqual(3, sum(1 for t in self.model.getTerms()))
+    ins1 = snl.SNLInstance.create(self.top, self.model, "ins1")
+    self.assertEqual(7, sum(1 for it in ins1.getInstTerms()))
+    inputs = filter(lambda it: it.getDirection() == snl.SNLTerm.Direction.Input, ins1.getInstTerms())
+    outputs = filter(lambda it: it.getDirection() == snl.SNLTerm.Direction.Output, ins1.getInstTerms())
+    self.assertEqual(6, sum(1 for it in inputs))
+    self.assertEqual(1, sum(1 for it in outputs))
+
   def testInstParameters(self):
     self.assertEqual(4, sum(1 for p in self.model.getParameters()))
     ins1 = snl.SNLInstance.create(self.top, self.model, "ins1")

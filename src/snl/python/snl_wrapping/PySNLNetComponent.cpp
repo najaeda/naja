@@ -36,11 +36,18 @@ static PyObject* PySNLNetComponent_setNet(PySNLNetComponent* self, PyObject* arg
   Py_RETURN_NONE;
 }
 
+static PyObject* PySNLNetComponent_getDirection(PySNLNetComponent* self) {
+  METHOD_HEAD("Net.getDirection()")
+  return PyLong_FromLong((long)selfObject->getDirection());
+}
+
 PyMethodDef PySNLNetComponent_Methods[] = {
   { "getNet", (PyCFunction)PySNLNetComponent_getNet, METH_NOARGS,
     "get SNLNetComponent SNLBitNet"},
   { "setNet", (PyCFunction)PySNLNetComponent_setNet, METH_O,
     "set SNLNetComponent SNLNet"},
+  { "getDirection", (PyCFunction)PySNLNetComponent_getDirection, METH_NOARGS,
+    "get SNLNetComponent direction"},
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 
