@@ -105,6 +105,7 @@ class SNLDesignTest(unittest.TestCase):
     self.assertEqual(i0, design.getScalarTerm("I0"))
     self.assertIsNone(design.getBusTerm("I0"))
     self.assertEqual(design, i0.getDesign())
+    self.assertEqual(i0.getDirection(), snl.SNLTerm.Direction.Input)
     i1 = snl.SNLBusTerm.create(design, snl.SNLTerm.Direction.Input, -5, 4, "I1")
     self.assertEqual(i1, design.getTerm("I1"))
     self.assertEqual(i1, design.getBusTerm("I1"))
@@ -115,10 +116,15 @@ class SNLDesignTest(unittest.TestCase):
     self.assertEqual(10, i1.getSize())
     o = snl.SNLScalarTerm.create(design, snl.SNLTerm.Direction.Output, "O")
     self.assertEqual(design, o.getDesign())
-
+    self.assertEqual(o.getDirection(), snl.SNLTerm.Direction.Output)
+    
     self.assertEqual(3, sum(1 for t in design.getTerms()))
     self.assertEqual(1+10+1, sum(1 for b in design.getBitTerms()))
     self.assertEqual(1+1, sum(1 for t in design.getScalarTerms()))
+    inputs = filter(lambda t: t.getDirection() == snl.SNLTerm.Direction.Input, design.getTerms())
+    self.assertEqual(2, sum(1 for t in inputs))
+    outputs = filter(lambda t: t.getDirection() == snl.SNLTerm.Direction.Output, design.getTerms())
+    self.assertEqual(1, sum(1 for t in outputs))
 
   def testCompare(self):
     self.assertIsNotNone(self.lib)
