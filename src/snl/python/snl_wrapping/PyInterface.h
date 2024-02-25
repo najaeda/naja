@@ -105,7 +105,6 @@ PyObject* richCompare(T left, T right, int op) {
   }
 
 #define DirectGetIntMethod(PY_FUNC_NAME, FUNC_NAME, PY_SELF_TYPE, SELF_TYPE) \
-#define DirectGetIntMethod(PY_FUNC_NAME, FUNC_NAME, PY_SELF_TYPE, SELF_TYPE) \
   static PyObject* PY_FUNC_NAME(PY_SELF_TYPE* self, PyObject *args) { \
     GENERIC_METHOD_HEAD(SELF_TYPE, #FUNC_NAME"()") \
     return Py_BuildValue("i", selfObject->FUNC_NAME()); \
