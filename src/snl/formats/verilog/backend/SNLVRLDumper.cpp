@@ -406,23 +406,27 @@ void SNLVRLDumper::dumpInstParameters(
   }
 }
 
-void SNLVRLDumper::dumpInstance(
+bool SNLVRLDumper::dumpInstance(
   const SNLInstance* instance,
   std::ostream& o,
   DesignInsideAnonymousNaming& naming) {
   if (SNLDB0::isAssign(instance->getModel())) {
     auto inputNet = instance->getInstTerm(SNLDB0::getAssignInput())->getNet();
     auto outputNet = instance->getInstTerm(SNLDB0::getAssignOutput())->getNet();
-    std::string inputNetString;
-    if (inputNet->isConstant0()) {
-      inputNetString = "1'b0";
-    } else if (inputNet->isConstant1()) {
-      inputNetString = "1'b1";
+    if (inputNet and outputNet) {
+      std::string inputNetString;
+      if (inputNet->isConstant0()) {
+        inputNetString = "1'b0";
+      } else if (inputNet->isConstant1()) {
+        inputNetString = "1'b1";
+      } else {
+        inputNetString = inputNet->getString(); 
+      }
+      o << "assign " << outputNet->getString() << " = " << inputNetString << ";" << std::endl;
+      return true;
     } else {
-      inputNetString = inputNet->getString(); 
+      return false;
     }
-    o << "assign " << outputNet->getString() << " = " << inputNetString << ";" << std::endl;
-    return;
   }
   std::string instanceName;
   if (instance->isAnonymous()) {
@@ -438,16 +442,16 @@ void SNLVRLDumper::dumpInstance(
   o << instanceName;
   dumpInstanceInterface(instance, o, naming);
   o << ";" << std::endl;
+  return true;
 }
 
 void SNLVRLDumper::dumpInstances(const SNLDesign* design, std::ostream& o, DesignInsideAnonymousNaming& naming) {
-  bool first = true;
+  bool blankLine = false;
   for (auto instance: design->getInstances()) {
-    if (not first) {
+    if (blankLine) {
       o << std::endl;
     }
-    first = false;
-    dumpInstance(instance, o, naming);
+    blankLine = dumpInstance(instance, o, naming);
   }
 }
 

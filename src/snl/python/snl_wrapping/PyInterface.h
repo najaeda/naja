@@ -105,6 +105,7 @@ PyObject* richCompare(T left, T right, int op) {
   }
 
 #define DirectGetIntMethod(PY_FUNC_NAME, FUNC_NAME, PY_SELF_TYPE, SELF_TYPE) \
+#define DirectGetIntMethod(PY_FUNC_NAME, FUNC_NAME, PY_SELF_TYPE, SELF_TYPE) \
   static PyObject* PY_FUNC_NAME(PY_SELF_TYPE* self, PyObject *args) { \
     GENERIC_METHOD_HEAD(SELF_TYPE, #FUNC_NAME"()") \
     return Py_BuildValue("i", selfObject->FUNC_NAME()); \
@@ -215,6 +216,15 @@ PyObject* richCompare(T left, T right, int op) {
     METHOD_HEAD(#SELF_TYPE ".getName()") \
     SNLTRY \
     return PyUnicode_FromString(selfObject->getName().getString().c_str()); \
+    SNLCATCH \
+    return nullptr; \
+  }
+
+#define GetStringAttribute(SELF_TYPE, METHOD) \
+  static PyObject* PySNL##SELF_TYPE##_##METHOD(PySNL##SELF_TYPE* self) { \
+    METHOD_HEAD("SNL##SELF_TYPE.##METHOD##()") \
+    SNLTRY \
+    return PyUnicode_FromString(selfObject->METHOD().c_str()); \
     SNLCATCH \
     return nullptr; \
   }

@@ -63,7 +63,7 @@ endif(ENABLE_SANITIZERS)
 
 if(NOT BUILD_ONLY_DOC)
 find_package(Boost REQUIRED)
-find_package(Python3 COMPONENTS Development Interpreter REQUIRED)
+find_package(Python3 3.9...<3.99 COMPONENTS Development Interpreter REQUIRED)
 find_package(CapnProto CONFIG REQUIRED)
 endif(NOT BUILD_ONLY_DOC)
 

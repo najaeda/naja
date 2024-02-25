@@ -78,7 +78,13 @@ class SNLDesign final: public SNLObject {
      */
     static SNLDesign* create(SNLLibrary* library, SNLID::DesignID id, Type type, const SNLName& name=SNLName());
 
-    /// \return owning SNLDB.
+    struct PointerLess {
+      bool operator()(const SNLDesign* ld, const SNLDesign* rd) const {
+        return *ld < *rd;
+      }
+    };
+
+    ///\return owning SNLDB
     SNLDB* getDB() const;
     /// \return owning SNLLibrary.
     SNLLibrary* getLibrary() const { return library_; }

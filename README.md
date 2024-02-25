@@ -200,14 +200,14 @@ This "app" directory and its contents can be copied to start a new application.
 
 ```bash
 #translation from verilog to SNL
-naja_edit -a verilog -b snl -i input.v -o output.snl
+naja_edit -f verilog -t snl -i input.v -o output.snl
 ```
 
 - **Netlist Editing**: Utilize the SNL Python API for netlist editing.
 
 ```bash
 #translation from verilog to SNL with intermediate editing
-naja_edit -a verilog -b snl -i input.v -o output.snl -e script.py
+naja_edit -f verilog -t snl -i input.v -o output.snl -e script.py
 ```
 
 `naja_edit` editing script examples are available [here](https://github.com/xtofalex/naja/blob/main/src/apps/edit/examples).

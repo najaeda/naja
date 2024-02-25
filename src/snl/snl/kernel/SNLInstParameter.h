@@ -39,6 +39,7 @@ class SNLInstParameter {
     SNLParameter* getParameter() const { return parameter_; }
     /// \return The value of the parameter.
     std::string getValue() const { return value_; }
+    void setValue(const std::string& value) { value_ = value; }
 
     const char* getTypeName() const;
     std::string getString() const;

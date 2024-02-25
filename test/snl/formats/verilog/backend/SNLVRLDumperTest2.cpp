@@ -93,3 +93,32 @@ TEST_F(SNLVRLDumperTest2, test0) {
   std::string command = "diff " + outPath.string() + " " + referencePath.string();
   EXPECT_FALSE(std::system(command.c_str()));
 }
+
+TEST_F(SNLVRLDumperTest2, testUnconnectedAssigns) {
+  auto lib = db_->getLibrary(SNLName("MYLIB"));  
+  ASSERT_TRUE(lib);
+  auto top = lib->getDesign(SNLName("top"));
+  ASSERT_TRUE(top);
+
+  //Destroy net: scalar
+  auto scalar = top->getScalarNet(SNLName("scalar"));
+  ASSERT_TRUE(scalar);
+  scalar->destroy();
+
+  std::filesystem::path outPath(SNL_VRL_DUMPER_TEST_PATH);
+  outPath = outPath / "test2TestUnconnectedAssigns";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+  SNLVRLDumper dumper;
+  dumper.setTopFileName(top->getName().getString() + ".v");
+  dumper.setSingleFile(true);
+  dumper.dumpDesign(top, outPath);
+
+  std::filesystem::path referencePath(SNL_VRL_DUMPER_REFERENCES_PATH);
+  referencePath = referencePath / "test2TestUnconnectedAssigns" / "top.v";
+  ASSERT_TRUE(std::filesystem::exists(referencePath));
+  std::string command = "diff " + outPath.string() + " " + referencePath.string();
+  EXPECT_FALSE(std::system(command.c_str()));
+}
