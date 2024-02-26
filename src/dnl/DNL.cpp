@@ -26,12 +26,9 @@ DNL* dnl_ = nullptr;
 
 }
 
-DNLInstance::DNLInstance(DNL& fv) : _dnl(fv) {}
-DNLInstance::DNLInstance(const SNLInstance* instance,
-                         DNLID id,
-                         DNLID parent,
-                         DNL& fv)
-    : _instance(instance), _id(id), _parent(parent), _dnl(fv) {}
+DNLInstance::DNLInstance() {}
+DNLInstance::DNLInstance(const SNLInstance* instance, DNLID id, DNLID parent)
+    : _instance(instance), _id(id), _parent(parent) {}
 
 void DNLInstance::display() const {
   if (isTop()) {
@@ -42,13 +39,20 @@ void DNLInstance::display() const {
   for (DNLID term = getTermIndexes().first; term < getTermIndexes().second;
        term++) {
     printf("- ft %lu %d %s\n", term,
-           (int)_dnl.getDNLTerminalFromID(term).getSnlTerm()->getDirection(),
-           _dnl.getDNLTerminalFromID(term).getSnlTerm()->getString().c_str());
+           (int)(*DNL::get())
+               .getDNLTerminalFromID(term)
+               .getSnlTerm()
+               ->getDirection(),
+           (*DNL::get())
+               .getDNLTerminalFromID(term)
+               .getSnlTerm()
+               ->getString()
+               .c_str());
   }
 }
 
 const DNLInstance& DNLInstance::getParentInstance() const {
-  return _dnl.getDNLInstanceFromID(_parent);
+  return (*DNL::get()).getDNLInstanceFromID(_parent);
 };
 DNLID DNLInstance::getID() const {
   return _id;
@@ -85,54 +89,48 @@ const DNLInstance& DNLInstance::getChildInstance(
        child <= _childrenIndexes.second; child++) {
 #ifdef DEBUG_PRINTS
     printf("%p %p\n", snlInst,
-           _dnl.getDNLInstanceFromID(child).getSNLInstance());
+           (*DNL::get()).getDNLInstanceFromID(child).getSNLInstance());
 #endif
-    if (_dnl.getDNLInstanceFromID(child).getSNLInstance() == snlInst) {
-      return _dnl.getDNLInstanceFromID(child);
+    if ((*DNL::get()).getDNLInstanceFromID(child).getSNLInstance() == snlInst) {
+      return (*DNL::get()).getDNLInstanceFromID(child);
     }
   }
 #ifdef DEBUG_PRINTS
   printf("null inst\n");
 #endif
-  return _dnl.getDNLNullInstance();
+  return (*DNL::get()).getDNLNullInstance();
 }
 const DNLTerminal& DNLInstance::getTerminal(const SNLInstTerm* snlTerm) const {
   for (DNLID term = _termsIndexes.first; term < _termsIndexes.second; term++) {
-    if (_dnl.getDNLTerminalFromID(term).getSnlTerm() == snlTerm) {
-      return _dnl.getDNLTerminalFromID(term);
+    if ((*DNL::get()).getDNLTerminalFromID(term).getSnlTerm() == snlTerm) {
+      return (*DNL::get()).getDNLTerminalFromID(term);
     }
   }
 #ifdef DEBUG_PRINTS
   printf("null term\n");
 #endif
-  return _dnl.getDNLNullTerminal();
+  return (*DNL::get()).getDNLNullTerminal();
 }
 const DNLTerminal& DNLInstance::getTerminalFromBitTerm(
     const SNLBitTerm* snlTerm) const {
   for (DNLID term = _termsIndexes.first; term < _termsIndexes.second; term++) {
-    if (_dnl.getDNLTerminalFromID(term).getSnlBitTerm() == snlTerm) {
-      return _dnl.getDNLTerminalFromID(term);
+    if ((*DNL::get()).getDNLTerminalFromID(term).getSnlBitTerm() == snlTerm) {
+      return (*DNL::get()).getDNLTerminalFromID(term);
     }
   }
   assert(false);
 #ifdef DEBUG_PRINTS
   printf("return null terminal\n");
 #endif
-  return _dnl.getDNLNullTerminal();
+  return (*DNL::get()).getDNLNullTerminal();
 }
 
-DNLTerminal::DNLTerminal(DNL& fv, DNLID id) : _dnl(fv), _id(id){};
-DNLTerminal::DNLTerminal(DNLID DNLInstID,
-                         SNLInstTerm* terminal,
-                         DNLID id,
-                         DNL& fv)
-    : _DNLInstID(DNLInstID), _terminal(terminal), _id(id), _dnl(fv){};
+DNLTerminal::DNLTerminal(DNLID id) : _id(id){};
+DNLTerminal::DNLTerminal(DNLID DNLInstID, SNLInstTerm* terminal, DNLID id)
+    : _DNLInstID(DNLInstID), _terminal(terminal), _id(id){};
 
-DNLTerminal::DNLTerminal(DNLID DNLInstID,
-                         SNLBitTerm* terminal,
-                         DNLID id,
-                         DNL& fv)
-    : _DNLInstID(DNLInstID), _bitTerminal(terminal), _id(id), _dnl(fv){};
+DNLTerminal::DNLTerminal(DNLID DNLInstID, SNLBitTerm* terminal, DNLID id)
+    : _DNLInstID(DNLInstID), _bitTerminal(terminal), _id(id){};
 DNLID DNLTerminal::getID() const {
   return _id;
 }
@@ -144,123 +142,168 @@ SNLInstTerm* DNLTerminal::getSnlTerm() const {
   return _terminal;
 }
 const DNLInstance& DNLTerminal::getDNLInstance() const {
-  return _dnl.getDNLInstanceFromID(_DNLInstID);
+  return (*DNL::get()).getDNLInstanceFromID(_DNLInstID);
 }
 
 void DNLTerminal::setIsoID(DNLID isoID) {
-  _dnl.setIsoIdforTermId(isoID, _id);
+  (*DNL::get()).setIsoIdforTermId(isoID, _id);
 }
 DNLID DNLTerminal::getIsoID() const {
-  return _dnl.getIsoIdfromTermId(_id);
+  return (*DNL::get()).getIsoIdfromTermId(_id);
 }
 
-DNLIso::DNLIso(DNLID id, const DNL& fv) : _id(id), _dnl(fv){};
+DNLIso::DNLIso(DNLID id) : _id(id){};
+
 void DNLIso::addDriver(DNLID driver) {
-  _drivers.push_back(driver);
+  if ((*DNL::get()).getDNLTerminalFromID(driver).isTopPort() ||
+      (*DNL::get())
+          .getDNLTerminalFromID(driver)
+          .getDNLInstance()
+          .getSNLInstance()
+          ->getModel()
+          ->getInstances()
+          .empty()) {
+    _drivers.push_back(driver);
+  } else {
+    addHierTerm(driver);
+  }
 }
+
 void DNLIso::addReader(DNLID reader) {
-  _readers.push_back(reader);
+  if ((*DNL::get()).getDNLTerminalFromID(reader).isTopPort() ||
+      (*DNL::get())
+          .getDNLTerminalFromID(reader)
+          .getDNLInstance()
+          .getSNLInstance()
+          ->getModel()
+          ->getInstances()
+          .empty()) {
+    _readers.push_back(reader);
+  } else {
+    addHierTerm(reader);
+  }
 }
 void DNLIso::display(std::ostream& stream) const {
   for (auto& driver : _drivers) {
     stream << "driver instance"
-           << _dnl.getDNLTerminalFromID(driver)
+           << (*DNL::get())
+                  .getDNLTerminalFromID(driver)
                   .getSnlTerm()
                   ->getInstance()
                   ->getName()
                   .getString()
            << std::endl
-           << _dnl.getDNLTerminalFromID(driver)
+           << (*DNL::get())
+                  .getDNLTerminalFromID(driver)
                   .getSnlTerm()
                   ->getInstance()
                   ->getDescription()
            << std::endl;
     ;
+    stream
+        << "driver "
+        << (*DNL::get()).getDNLTerminalFromID(driver).getSnlTerm()->getString()
+        << std::endl;
     stream << "driver "
-           << _dnl.getDNLTerminalFromID(driver).getSnlTerm()->getString()
-           << std::endl;
-    stream << "driver "
-           << _dnl.getDNLTerminalFromID(driver).getSnlTerm()->getDescription()
+           << (*DNL::get())
+                  .getDNLTerminalFromID(driver)
+                  .getSnlTerm()
+                  ->getDescription()
            << std::endl;
   }
   for (auto& reader : _readers) {
     stream << "reader instance"
-           << _dnl.getDNLTerminalFromID(reader)
+           << (*DNL::get())
+                  .getDNLTerminalFromID(reader)
                   .getSnlTerm()
                   ->getInstance()
                   ->getName()
                   .getString()
            << std::endl;
     ;
-    stream << "reader"
-           << _dnl.getDNLTerminalFromID(reader).getSnlTerm()->getString()
-           << std::endl;
+    stream
+        << "reader"
+        << (*DNL::get()).getDNLTerminalFromID(reader).getSnlTerm()->getString()
+        << std::endl;
     ;
   }
 }
 
-DNLIsoDB::DNLIsoDB(const DNL& fv) : _dnl(fv) {}
+DNLIsoDB::DNLIsoDB() {}
 
 DNLIso& DNLIsoDB::addIso() {
-  _isos.push_back(DNLIso(_isos.size(), _dnl));
+  _isos.push_back(DNLIso(_isos.size()));
   return _isos.back();
 }
 
-DNLIsoDBBuilder::DNLIsoDBBuilder(DNLIsoDB& db, DNL& fv) : _db(db), _dnl(fv) {
-  _visited.resize(_dnl.getDNLTerms().size(), false);
+DNLIsoDBBuilder::DNLIsoDBBuilder(DNLIsoDB& db) : _db(db) {
+  _visited.resize((*DNL::get()).getDNLTerms().size(), false);
 }
 
 void DNLIsoDBBuilder::process() {
   // iterate on all leaf drivers
   std::vector<DNLID> tasks;
-  for (DNLID leaf : _dnl.getLeaves()) {
-    for (DNLID term = _dnl.getDNLInstanceFromID(leaf).getTermIndexes().first;
-         term < _dnl.getDNLInstanceFromID(leaf).getTermIndexes().second;
+  for (DNLID leaf : (*DNL::get()).getLeaves()) {
+    for (DNLID term =
+             (*DNL::get()).getDNLInstanceFromID(leaf).getTermIndexes().first;
+         term <
+         (*DNL::get()).getDNLInstanceFromID(leaf).getTermIndexes().second;
          term++) {
-      if (_dnl.getDNLTerminalFromID(term).getSnlTerm()->getDirection() ==
+      if ((*DNL::get())
+                  .getDNLTerminalFromID(term)
+                  .getSnlTerm()
+                  ->getDirection() ==
               SNLTerm::Direction::DirectionEnum::Output &&
-          _dnl.getDNLTerminalFromID(term).getSnlTerm()->getNet()) {
+          (*DNL::get()).getDNLTerminalFromID(term).getSnlTerm()->getNet()) {
         DNLIso& DNLIso = addIsoToDB();
 
         DNLIso.addDriver(term);
         tasks.push_back(term);
-        _dnl.getDNLTerminalFromID(term).setIsoID(DNLIso.getIsoID());
+        (*DNL::get()).getDNLTerminalFromID(term).setIsoID(DNLIso.getIsoID());
       }
     }
   }
-  for (DNLID term = _dnl.getTop().getTermIndexes().first;
-       term < _dnl.getTop().getTermIndexes().second; term++) {
-    if (_dnl.getDNLTerminalFromID(term).getSnlBitTerm()->getDirection() ==
-            SNLTerm::Direction::DirectionEnum::Input &&
-        _dnl.getDNLTerminalFromID(term).getSnlBitTerm()->getNet()) {
+  for (DNLID term = (*DNL::get()).getTop().getTermIndexes().first;
+       term < (*DNL::get()).getTop().getTermIndexes().second; term++) {
+    if ((*DNL::get())
+                .getDNLTerminalFromID(term)
+                .getSnlBitTerm()
+                ->getDirection() == SNLTerm::Direction::DirectionEnum::Input &&
+        (*DNL::get()).getDNLTerminalFromID(term).getSnlBitTerm()->getNet()) {
       DNLIso& DNLIso = addIsoToDB();
       _visited[term] = true;
       DNLIso.addDriver(term);
       tasks.push_back(term);
-      _dnl.getDNLTerminalFromID(term).setIsoID(DNLIso.getIsoID());
+      (*DNL::get()).getDNLTerminalFromID(term).setIsoID(DNLIso.getIsoID());
     }
   }
-  if (!getenv("NON_MT_dnl")) {
+  if (!getenv("NON_MT(*DNL::get())")) {
     printf("MT\n");
     tbb::task_scheduler_init init(
         tbb::task_scheduler_init::default_num_threads());  // Explicit number of
                                                            // threads
-    tbb::parallel_for(tbb::blocked_range<DNLID>(0, tasks.size()),
-                      [&](const tbb::blocked_range<DNLID>& r) {
-                        for (DNLID i = r.begin(); i < r.end(); ++i) {
-                          treatDriver(_dnl.getDNLTerminalFromID(tasks[i]));
-                        }
-                      });
+    tbb::parallel_for(
+        tbb::blocked_range<DNLID>(0, tasks.size()),
+        [&](const tbb::blocked_range<DNLID>& r) {
+          for (DNLID i = r.begin(); i < r.end(); ++i) {
+            treatDriver(
+                (*DNL::get()).getDNLTerminalFromID(tasks[i]),
+                _db.getIsoFromIsoID(
+                    (*DNL::get()).getDNLTerminalFromID(tasks[i]).getIsoID()));
+          }
+        });
   } else {
     printf("Non MT\n");
     for (auto task : tasks) {
-      treatDriver(_dnl.getDNLTerminalFromID(task));
+      treatDriver((*DNL::get()).getDNLTerminalFromID(task),
+                  _db.getIsoFromIsoID(
+                      (*DNL::get()).getDNLTerminalFromID(task).getIsoID()));
     }
   }
 
-  printf("num fi %lu\n", _dnl.getDNLInstances().size());
-  printf("num ft %lu\n", _dnl.getDNLTerms().size());
-  printf("num leaves %lu\n", _dnl.getLeaves().size());
+  printf("num fi %lu\n", (*DNL::get()).getDNLInstances().size());
+  printf("num ft %lu\n", (*DNL::get()).getDNLTerms().size());
+  printf("num leaves %lu\n", (*DNL::get()).getLeaves().size());
   printf("num isos %lu\n", _db.getNumIsos());
 }
 
@@ -273,7 +316,7 @@ void DNLIsoDB::display() const {
   printf("----------ISODB - END----------\n");
 }
 
-void DNLIsoDBBuilder::treatDriver(const DNLTerminal& term) {
+void DNLIsoDBBuilder::treatDriver(const DNLTerminal& term, DNLIso& DNLIso) {
   /*#ifdef DEBUG_PRINTS
     printf("leaf -%s\n",
            term.getSnlTerm()->getInstance()->getName().getString().c_str());
@@ -284,7 +327,7 @@ void DNLIsoDBBuilder::treatDriver(const DNLTerminal& term) {
   #endif
     assert(term.getSnlTerm()->getInstance()->getModel()->getInstances().empty());*/
   std::stack<DNLID> stack;
-  DNLIso& DNLIso = _db.getIsoFromIsoID(term.getIsoID());
+  // DNLIso& DNLIso = _db.getIsoFromIsoID(term.getIsoID());
 
   if (term.getDNLInstance().isTop()) {
     assert(term.getSnlBitTerm()->getDirection() ==
@@ -298,8 +341,9 @@ void DNLIsoDBBuilder::treatDriver(const DNLTerminal& term) {
 
       if (freader == term.getID())
         continue;
-      _dnl.getDNLTerminalFromID(freader).setIsoID(DNLIso.getIsoID());
-      if (_dnl.getDNLTerminalFromID(freader)
+      (*DNL::get()).getDNLTerminalFromID(freader).setIsoID(DNLIso.getIsoID());
+      if ((*DNL::get())
+              .getDNLTerminalFromID(freader)
               .getDNLInstance()
               .getSNLInstance()
               ->getModel()
@@ -319,7 +363,7 @@ void DNLIsoDBBuilder::treatDriver(const DNLTerminal& term) {
   while (!stack.empty()) {
     DNLID id = stack.top();
     stack.pop();
-    const DNLTerminal& fterm = _dnl.getDNLTerminalFromID(id);
+    const DNLTerminal& fterm = (*DNL::get()).getDNLTerminalFromID(id);
     assert(fterm.getID() == id);
     if (_visited[id]) {
 #ifdef DEBUG_PRINTS
@@ -334,7 +378,9 @@ void DNLIsoDBBuilder::treatDriver(const DNLTerminal& term) {
       printf("--is top output so adding as reader\n");
 #endif
       DNLIso.addReader(fterm.getID());
-      _dnl.getDNLTerminalFromID(fterm.getID()).setIsoID(DNLIso.getIsoID());
+      (*DNL::get())
+          .getDNLTerminalFromID(fterm.getID())
+          .setIsoID(DNLIso.getIsoID());
       continue;
     }
     assert(fterm.getDNLInstance().isTop() == false);
@@ -427,7 +473,8 @@ void DNLIsoDBBuilder::treatDriver(const DNLTerminal& term) {
           // assert(0);
         } else {
           DNLIso.addReader(ftermNew.getID());
-          _dnl.getDNLTerminalFromID(ftermNew.getID())
+          (*DNL::get())
+              .getDNLTerminalFromID(ftermNew.getID())
               .setIsoID(DNLIso.getIsoID());
 #ifdef DEBUG_PRINTS
           printf("----add reader\n\n");
@@ -483,11 +530,12 @@ void DNLIsoDBBuilder::treatDriver(const DNLTerminal& term) {
 DNL* DNL::create() {
   assert(SNLUniverse::get());
   dnl_ = new DNL(SNLUniverse::get()->getTopDesign());
+  dnl_->process();
   return dnl_;
 }
 
 DNL* DNL::get() {
-  if (!dnl_) {
+  if (dnl_ == nullptr) {
     create();
   }
   return dnl_;
@@ -498,8 +546,8 @@ void DNL::destroy() {
   dnl_ = nullptr;
 }
 
-DNL::DNL(const SNLDesign* top) : _top(top), _fidb(*this) {
-  process();
+DNL::DNL(const SNLDesign* top) : _top(top) {
+  // process();
 }
 
 void DNL::dumpDotFile() const {
@@ -616,7 +664,7 @@ void DNL::display() const {
 void DNL::process() {
   std::vector<DNLID> stack;
   _DNLInstances.push_back(
-      DNLInstance(nullptr, _DNLInstances.size(), DNLID_MAX, *this));
+      DNLInstance(nullptr, _DNLInstances.size(), DNLID_MAX));
   assert(_DNLInstances.back().getID() == _DNLInstances.size() - 1);
   DNLID parentId = _DNLInstances.back().getID();
   std::pair<DNLID, DNLID> childrenIndexes;
@@ -624,14 +672,12 @@ void DNL::process() {
   std::pair<DNLID, DNLID> termIndexes;
   termIndexes.first = _DNLTerms.size();
   for (SNLBitTerm* bitterm : _top->getBitTerms()) {
-    _DNLTerms.push_back(
-        DNLTerminal(parentId, bitterm, _DNLTerms.size(), *this));
+    _DNLTerms.push_back(DNLTerminal(parentId, bitterm, _DNLTerms.size()));
   }
   termIndexes.second = _DNLTerms.size();
   _DNLInstances.back().setTermsIndexes(termIndexes);
   for (auto inst : _top->getInstances()) {
-    _DNLInstances.push_back(
-        DNLInstance(inst, _DNLInstances.size(), parentId, *this));
+    _DNLInstances.push_back(DNLInstance(inst, _DNLInstances.size(), parentId));
     assert(_DNLInstances.back().getID() > 0);
     stack.push_back(_DNLInstances.back().getID());
     std::pair<DNLID, DNLID> termIndexes;
@@ -641,8 +687,8 @@ void DNL::process() {
       _leaves.push_back(_DNLInstances.back().getID());
     }
     for (auto term : inst->getInstTerms()) {
-      _DNLTerms.push_back(DNLTerminal(_DNLInstances.back().getID(), term,
-                                      _DNLTerms.size(), *this));
+      _DNLTerms.push_back(
+          DNLTerminal(_DNLInstances.back().getID(), term, _DNLTerms.size()));
     }
     termIndexes.second = _DNLTerms.size();
     _DNLInstances.back().setTermsIndexes(termIndexes);
@@ -667,7 +713,7 @@ void DNL::process() {
 #endif
       // if (!inst) continue;
       _DNLInstances.push_back(
-          DNLInstance(inst, _DNLInstances.size(), parentId, *this));
+          DNLInstance(inst, _DNLInstances.size(), parentId));
 #ifdef DEBUG_PRINTS
       printf("-%s\n", inst->getName().getString().c_str());
 #endif
@@ -684,8 +730,8 @@ void DNL::process() {
       std::pair<DNLID, DNLID> termIndexes;
       termIndexes.first = _DNLTerms.size();
       for (auto term : inst->getInstTerms()) {
-        _DNLTerms.push_back(DNLTerminal(_DNLInstances.back().getID(), term,
-                                        _DNLTerms.size(), *this));
+        _DNLTerms.push_back(
+            DNLTerminal(_DNLInstances.back().getID(), term, _DNLTerms.size()));
 #ifdef DEBUG_PRINTS
         printf("term %lu -%s\n", _DNLTerms.back().getID(),
                term->getString().c_str());
@@ -697,10 +743,10 @@ void DNL::process() {
     childrenIndexes.second = _DNLInstances.back().getID();
     getNonConstDNLInstanceFromID(parentId).setChildrenIndexes(childrenIndexes);
   }
-  _DNLTerms.push_back(DNLTerminal(*this, _DNLTerms.size()));
-  _DNLInstances.push_back(DNLInstance(*this));
+  //_DNLTerms.push_back(DNLTerminal(_DNLTerms.size()));
+  //_DNLInstances.push_back(DNLInstance());
   initTermId2isoId();
-  DNLIsoDBBuilder fidbb(_fidb, *this);
+  DNLIsoDBBuilder fidbb(_fidb);
   fidbb.process();
 }
 
@@ -772,521 +818,4 @@ bool DNL::isInstanceChild(DNLID parent, DNLID child) const {
     inst = getDNLInstanceFromID(child).getParentID();
   }
   return false;
-}
-
-void PathExtractor::cachePaths() {
-  std::vector<DNLID> sources;
-  const std::vector<DNLID, tbb::scalable_allocator<DNLID>>& leaves =
-      _dnl.getLeaves();
-  std::vector<bool> visited(_dnl.getNBterms(), false);
-  DNLID criticalDelay = 0;
-  printf("leaves number: %lu\n", leaves.size());
-  for (DNLID leaf : leaves) {
-    bool source = true;
-    for (DNLID term = _dnl.getDNLInstanceFromID(leaf).getTermIndexes().first;
-         term < _dnl.getDNLInstanceFromID(leaf).getTermIndexes().second;
-         term++) {
-      if (_dnl.getDNLTerminalFromID(term).getSnlTerm()->getDirection() !=
-              SNLTerm::Direction::DirectionEnum::Output &&
-          _dnl.getDNLTerminalFromID(term).getSnlTerm()->getNet() != nullptr) {
-        source = false;
-      }
-    }
-    if (source) {
-      for (DNLID term = _dnl.getDNLInstanceFromID(leaf).getTermIndexes().first;
-           term < _dnl.getDNLInstanceFromID(leaf).getTermIndexes().second;
-           term++) {
-        sources.push_back(term);
-      }
-    }
-  }
-  for (DNLID source : sources) {
-    std::stack<DNLID> stack;
-    std::vector<DNLID> path;
-    stack.push(source);
-    std::vector<bool> visitedLoops(_dnl.getNBterms(), false);
-    while (!stack.empty()) {
-      /*printf("--------------\n");
-      for (DNLID p : path) {
-          printf("---%s\n",
-      _dnl.getDNLTerminalFromID(p).getSnlTerm()->getString().c_str());
-      }
-      printf("path %lu\n", path.size());*/
-      if (_dnl.getDNLIsoDB()
-              .getIsoFromIsoIDconst(
-                  _dnl.getDNLTerminalFromID(stack.top()).getIsoID())
-              .getDrivers()
-              .size() > 1) {
-        visited[stack.top()] = true;
-        stack.pop();
-        continue;  // MD
-      }
-      if (_dnl.getDNLIsoDB()
-              .getIsoFromIsoIDconst(
-                  _dnl.getDNLTerminalFromID(stack.top()).getIsoID())
-              .getDrivers()
-              .size() == 0) {
-        visited[stack.top()] = true;
-        stack.pop();
-        continue;  // Stub
-      }
-      assert(_dnl.getDNLIsoDB()
-                 .getIsoFromIsoIDconst(
-                     _dnl.getDNLTerminalFromID(stack.top()).getIsoID())
-                 .getDrivers()
-                 .size() == 1);
-      DNLID toProcess = stack.top();
-      // visited[toProcess] = true;
-      if (toProcess != source)
-        assert(!path.empty());
-#ifdef DEBUG_PRINTS
-      printf("%s\n", _dnl.getDNLTerminalFromID(toProcess)
-                         .getSnlTerm()
-                         ->getString()
-                         .c_str());
-      printf("%lu\n", toProcess);
-#endif
-      if (!path.empty()) {
-#ifdef DEBUG_PRINTS
-        printf("%s\n", _dnl.getDNLTerminalFromID(toProcess)
-                           .getSnlTerm()
-                           ->getString()
-                           .c_str());
-        printf("%lu\n", toProcess);
-        printf("driver %lu\n",
-               (*(_dnl.getDNLIsoDB()
-                      .getIsoFromIsoIDconst(
-                          _dnl.getDNLTerminalFromID(stack.top()).getIsoID())
-                      .getDrivers()
-                      .begin())));
-
-        printf("path: %lu %s\n", path.back(),
-               _dnl.getDNLTerminalFromID(path.back())
-                   .getSnlTerm()
-                   ->getString()
-                   .c_str());
-        printf("iso: %lu %lu\n",
-               _dnl.getDNLTerminalFromID(path.back()).getIsoID(),
-               _dnl.getDNLTerminalFromID(stack.top()).getIsoID());
-        printf("inst: %lu %lu\n",
-               _dnl.getDNLTerminalFromID(stack.top()).getDNLInstance().getID(),
-               _dnl.getDNLTerminalFromID(path.back()).getDNLInstance().getID());
-#endif
-        assert(
-            _dnl.getDNLTerminalFromID(stack.top()).getDNLInstance().getID() ==
-                _dnl.getDNLTerminalFromID(path.back())
-                    .getDNLInstance()
-                    .getID() ||
-            (path.back() ==
-             (*(_dnl.getDNLIsoDB()
-                    .getIsoFromIsoIDconst(
-                        _dnl.getDNLTerminalFromID(stack.top()).getIsoID())
-                    .getDrivers()
-                    .begin()))));
-      }
-      stack.pop();
-      if (visitedLoops[toProcess] &&
-          _dnl.getDNLTerminalFromID(toProcess).getSnlTerm()->getDirection() ==
-              SNLTerm::Direction::DirectionEnum::Input) {  // Loop
-        if (_dnl.getDNLTerminalFromID(stack.top())
-                .getSnlTerm()
-                ->getDirection() == SNLTerm::Direction::DirectionEnum::Output) {
-          path.pop_back();
-          assert(_dnl.getDNLTerminalFromID(path.back())
-                     .getSnlTerm()
-                     ->getDirection() ==
-                 SNLTerm::Direction::DirectionEnum::Input);
-          while (
-              !path.empty() &&
-              _dnl.getDNLTerminalFromID(stack.top()).getDNLInstance().getID() !=
-                  _dnl.getDNLTerminalFromID(path.back())
-                      .getDNLInstance()
-                      .getID()) {
-            path.pop_back();
-            if (path.empty()) {
-              break;
-            }
-            path.pop_back();
-            if (path.empty()) {
-              break;
-            }
-          }
-          assert(
-              _dnl.getDNLTerminalFromID(stack.top()).getDNLInstance().getID() ==
-              _dnl.getDNLTerminalFromID(path.back()).getDNLInstance().getID());
-          continue;
-        }
-        while (!path.empty() &&
-               (path.back() !=
-                (*(_dnl.getDNLIsoDB()
-                       .getIsoFromIsoIDconst(
-                           _dnl.getDNLTerminalFromID(stack.top()).getIsoID())
-                       .getDrivers()
-                       .begin())))) {
-          path.pop_back();
-          if (path.empty()) {
-            break;
-          }
-          path.pop_back();
-          if (path.empty()) {
-            break;
-          }
-        }
-        assert(path.back() ==
-               (*(_dnl.getDNLIsoDB()
-                      .getIsoFromIsoIDconst(
-                          _dnl.getDNLTerminalFromID(stack.top()).getIsoID())
-                      .getDrivers()
-                      .begin())));
-        continue;
-      }
-      if (visited[toProcess] &&
-          _dnl.getDNLTerminalFromID(toProcess).getSnlTerm()->getDirection() ==
-              SNLTerm::Direction::DirectionEnum::Output) {
-        DNLID hopsInit = 0;
-        DNLID lastPart = DNLID_MAX;
-        for (DNLID term : path) {
-          DNLID inst_id =
-              _dnl.getDNLTerminalFromID(term).getDNLInstance().getID();
-          if (lastPart != DNLID_MAX) {
-            if (_partLeaves[inst_id] != lastPart) {
-              hopsInit++;
-              lastPart = _partLeaves[inst_id];
-            }
-          } else {
-            lastPart = _partLeaves[inst_id];
-          }
-        }
-        for (const PathExtractor::SubPath& toCache : _term2paths[toProcess]) {
-          std::vector<DNLID> pathInst;
-          DNLID hops = hopsInit;
-          lastPart = DNLID_MAX;
-          hops += toCache._delay;
-          DNLID hopTemp = 0;
-
-          for (DNLID term : path) {
-            DNLID inst_id =
-                _dnl.getDNLTerminalFromID(term).getDNLInstance().getID();
-            if (lastPart != DNLID_MAX) {
-              if (_partLeaves[inst_id] != lastPart) {
-                hopTemp++;
-                lastPart = _partLeaves[inst_id];
-              }
-            } else {
-              lastPart = _partLeaves[inst_id];
-            }
-            if (pathInst.empty() || inst_id != pathInst.back()) {
-              pathInst.push_back(inst_id);
-              _term2paths
-                  [_dnl.getDNLTerminalFromID(term).getDNLInstance().getID()]
-                      .emplace_back(PathExtractor::SubPath(
-                          hops - hopTemp, _paths.size(), pathInst.size() - 1));
-            }
-          }
-          _paths.emplace_back(
-              std::pair<std::vector<DNLID>, SubPath>(pathInst, toCache));
-        }
-        if (stack.empty()) {
-          break;
-        }
-        if (path.empty()) {
-          continue;
-        }
-        if (_dnl.getDNLTerminalFromID(stack.top())
-                .getSnlTerm()
-                ->getDirection() == SNLTerm::Direction::DirectionEnum::Output) {
-          assert(_dnl.getDNLTerminalFromID(path.back())
-                     .getSnlTerm()
-                     ->getDirection() ==
-                 SNLTerm::Direction::DirectionEnum::Input);
-          while (
-              !path.empty() &&
-              _dnl.getDNLTerminalFromID(stack.top()).getDNLInstance().getID() !=
-                  _dnl.getDNLTerminalFromID(path.back())
-                      .getDNLInstance()
-                      .getID()) {
-            path.pop_back();
-            if (path.empty()) {
-              break;
-            }
-            path.pop_back();
-            if (path.empty()) {
-              break;
-            }
-          }
-          assert(
-              _dnl.getDNLTerminalFromID(stack.top()).getDNLInstance().getID() ==
-              _dnl.getDNLTerminalFromID(path.back()).getDNLInstance().getID());
-          assert(visited[toProcess]);
-          continue;
-        }
-        path.pop_back();  // To remove the previous input
-        while (!path.empty() &&
-               (path.back() !=
-                (*(_dnl.getDNLIsoDB()
-                       .getIsoFromIsoIDconst(
-                           _dnl.getDNLTerminalFromID(stack.top()).getIsoID())
-                       .getDrivers()
-                       .begin())))) {
-          path.pop_back();
-          if (path.empty()) {
-            break;
-          }
-          path.pop_back();
-          if (path.empty()) {
-            break;
-          }
-        }
-        assert(visited[toProcess]);
-        assert(path.back() ==
-               (*(_dnl.getDNLIsoDB()
-                      .getIsoFromIsoIDconst(
-                          _dnl.getDNLTerminalFromID(stack.top()).getIsoID())
-                      .getDrivers()
-                      .begin())));
-        continue;
-      }
-      visited[toProcess] = true;
-      visitedLoops[toProcess] = true;
-      path.push_back(toProcess);
-      bool isSink = false;
-      if (_dnl.getDNLTerminalFromID(toProcess).getSnlTerm()->getDirection() ==
-          SNLTerm::Direction::DirectionEnum::Output) {
-        const DNLIso& iso = _dnl.getDNLIsoDB().getIsoFromIsoIDconst(
-            _dnl.getDNLTerminalFromID(toProcess).getIsoID());
-        for (DNLID reader : iso.getReaders()) {
-          isSink = false;
-          stack.push(reader);
-          assert(_dnl.getDNLTerminalFromID(reader).getIsoID() ==
-                 _dnl.getDNLTerminalFromID(toProcess).getIsoID());
-        }
-      } else {
-        isSink = true;
-        if (path.size() <= 20 || true) {
-          DNLID inst_id =
-              _dnl.getDNLTerminalFromID(toProcess).getDNLInstance().getID();
-          for (DNLID term =
-                   _dnl.getDNLInstanceFromID(inst_id).getTermIndexes().first;
-               term <
-               _dnl.getDNLInstanceFromID(inst_id).getTermIndexes().second;
-               term++) {
-            if (_dnl.getDNLTerminalFromID(term).getSnlTerm()->getDirection() ==
-                SNLTerm::Direction::DirectionEnum::Output) {
-              assert(_dnl.getDNLTerminalFromID(term).getDNLInstance().getID() ==
-                     _dnl.getDNLTerminalFromID(toProcess)
-                         .getDNLInstance()
-                         .getID());
-              if (_dnl.getDNLTerminalFromID(term).getSnlTerm()->getNet() !=
-                  nullptr) {
-                isSink = false;
-                stack.push(term);
-              }
-            }
-          }
-        }
-      }
-      if (isSink) {
-#ifdef DEBUG_PRINTS
-        printf("is sink\n");
-#endif
-        std::vector<DNLID> pathInst;
-        DNLID hops = 0;
-        int lastPart = DNLID_MAX;
-        for (DNLID term : path) {
-          DNLID inst_id =
-              _dnl.getDNLTerminalFromID(term).getDNLInstance().getID();
-          if (lastPart != DNLID_MAX) {
-            if (_partLeaves[inst_id] != lastPart) {
-              hops++;
-              lastPart = _partLeaves[inst_id];
-            }
-          } else {
-            lastPart = _partLeaves[inst_id];
-          }
-        }
-        DNLID hopsTemp = 0;
-        lastPart = DNLID_MAX;
-        for (DNLID term : path) {
-          DNLID inst_id =
-              _dnl.getDNLTerminalFromID(term).getDNLInstance().getID();
-          if (_dnl.getDNLTerminalFromID(term).getSnlTerm()->getDirection() ==
-              SNLTerm::Direction::DirectionEnum::Output) {
-            _term2paths[term].emplace_back(PathExtractor::SubPath(
-                hops - hopsTemp, _paths.size(), pathInst.size() - 1));
-          }
-          if (lastPart != DNLID_MAX) {
-            if (_partLeaves[inst_id] != lastPart) {
-              hopsTemp++;
-              lastPart = _partLeaves[inst_id];
-            }
-          } else {
-            lastPart = _partLeaves[inst_id];
-          }
-          if (pathInst.empty() || inst_id != pathInst.back()) {
-            pathInst.push_back(inst_id);
-          }
-        }
-        _paths.emplace_back(std::pair<std::vector<DNLID>, SubPath>(
-            pathInst, SubPath(std::numeric_limits<DNLID>::max(),
-                              std::numeric_limits<DNLID>::max(),
-                              std::numeric_limits<DNLID>::max())));
-        if (stack.empty()) {
-          break;
-        }
-        if (path.empty()) {
-          continue;
-        }
-        path.pop_back();  // To remove the current input that was inserted
-        if (_dnl.getDNLTerminalFromID(stack.top())
-                .getSnlTerm()
-                ->getDirection() == SNLTerm::Direction::DirectionEnum::Output) {
-          path.pop_back();  // To remove the parent ouptput
-          assert(_dnl.getDNLTerminalFromID(path.back())
-                     .getSnlTerm()
-                     ->getDirection() ==
-                 SNLTerm::Direction::DirectionEnum::Input);
-          while (
-              !path.empty() &&
-              _dnl.getDNLTerminalFromID(stack.top()).getDNLInstance().getID() !=
-                  _dnl.getDNLTerminalFromID(path.back())
-                      .getDNLInstance()
-                      .getID()) {
-            path.pop_back();
-            if (path.empty()) {
-              break;
-            }
-            path.pop_back();
-            if (path.empty()) {
-              break;
-            }
-          }
-          if (_dnl.getDNLTerminalFromID(stack.top()).getDNLInstance().getID() !=
-              _dnl.getDNLTerminalFromID(path.back()).getDNLInstance().getID()) {
-            //_dnl.getDNLTerminalFromID(path.back()).getDNLInstance().getID());
-          }
-          assert(
-              _dnl.getDNLTerminalFromID(stack.top()).getDNLInstance().getID() ==
-              _dnl.getDNLTerminalFromID(path.back()).getDNLInstance().getID());
-          continue;
-        }
-        while (!path.empty() &&
-               (path.back() !=
-                (*(_dnl.getDNLIsoDB()
-                       .getIsoFromIsoIDconst(
-                           _dnl.getDNLTerminalFromID(stack.top()).getIsoID())
-                       .getDrivers()
-                       .begin())))) {
-          path.pop_back();
-          if (path.empty()) {
-            break;
-          }
-          path.pop_back();
-          if (path.empty()) {
-            break;
-          }
-        }
-        assert(path.back() ==
-               (*(_dnl.getDNLIsoDB()
-                      .getIsoFromIsoIDconst(
-                          _dnl.getDNLTerminalFromID(stack.top()).getIsoID())
-                      .getDrivers()
-                      .begin())));
-        /*if (path.empty()) {
-        continue;
-        }
-        path.pop_back();*/
-      }
-    }
-#ifdef DEBUG_PRINTS
-    printf("%lu\n", path.size());
-#endif
-    // assert(path.size() > 0);
-  }
-  DNLID notVisited = 0;
-  DNLID isVisited = 0;
-  DNLID nc = 0;
-  DNLID termI = 0;
-  DNLID nleaf = 0;
-  DNLID stubs = 0;
-  for (bool term : visited) {
-    if (!_dnl.getDNLTerminalFromID(termI).getDNLInstance().isLeaf()) {
-      ++nleaf;
-      ++termI;
-      continue;
-    }
-    if (term)
-      ++isVisited;
-    if (_dnl.getDNLTerminalFromID(termI).getSnlTerm()->getNet() == nullptr)
-      ++nc;
-    else if (_dnl.getDNLIsoDB()
-                 .getIsoFromIsoIDconst(
-                     _dnl.getDNLTerminalFromID(termI).getIsoID())
-                 .getDrivers()
-                 .size() == 0) {
-      ++stubs;
-    } else if (_dnl.getDNLIsoDB()
-                   .getIsoFromIsoIDconst(
-                       _dnl.getDNLTerminalFromID(termI).getIsoID())
-                   .getReaders()
-                   .size() == 0) {
-      ++stubs;
-    } else if (!term) {
-#ifdef DEBUG_PRINTS
-      printf(
-          "%s\n",
-          _dnl.getDNLTerminalFromID(termI).getSnlTerm()->getString().c_str());
-      printf("%s\n", _dnl.getDNLTerminalFromID(termI)
-                         .getDNLInstance()
-                         .getSNLInstance()
-                         ->getString()
-                         .c_str());
-      printf("%lu\n",
-             _dnl.getDNLTerminalFromID(termI).getDNLInstance().getID());
-#endif
-      ++notVisited;
-    }
-    ++termI;
-  }
-#ifdef DEBUG_PRINTS
-  printf("not visited %lu is visited %lu nc %lu nleaf %lu stubs %lu\n",
-         notVisited, isVisited, nc, nleaf, stubs);
-#endif
-}
-
-void PathExtractor::printHopHistogram() {
-  std::map<DNLID, DNLID> histogram;
-  for (const auto& path : _paths) {
-    int lastPart = DNLID_MAX;
-    DNLID hops = 0;
-    for (DNLID inst : path.first) {
-      if (lastPart != DNLID_MAX) {
-        if (_partLeaves[inst] != lastPart) {
-          hops++;
-          lastPart = _partLeaves[inst];
-        }
-      } else {
-        lastPart = _partLeaves[inst];
-      }
-    }
-    auto pathToProcess = path;
-    while (pathToProcess.second._index != std::numeric_limits<DNLID>::max()) {
-      for (DNLID i = pathToProcess.second._index;
-           i < _paths[pathToProcess.second._path].first.size() - 1; ++i) {
-        DNLID inst = _paths[pathToProcess.second._path].first[i];
-        if (lastPart != DNLID_MAX) {
-          if (_partLeaves[inst] != lastPart) {
-            hops++;
-            lastPart = _partLeaves[inst];
-          }
-        } else {
-          lastPart = _partLeaves[inst];
-        }
-      }
-      pathToProcess = _paths[path.second._path];
-    }
-    histogram[hops]++;
-  }
-  for (const auto& entry : histogram) {
-    printf("%lu : %lu\n", entry.first, entry.second);
-  }
 }
