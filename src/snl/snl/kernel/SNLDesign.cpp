@@ -388,9 +388,7 @@ DESIGN_RENAME(SNLNet, Net, netNameIDMap_)
 DESIGN_RENAME(SNLInstance, Instance, instanceNameIDMap_)
 
 SNLNet* SNLDesign::getNet(SNLID::DesignObjectID id) const {
-  auto it = nets_.find(
-      SNLID(SNLID::Type::Net, getDB()->getID(), getLibrary()->getID(), getID(), id, 0, 0),
-      SNLIDComp<SNLNet>());
+  auto it = nets_.find(id, CompareByID<SNLNet>());
   if (it != nets_.end()) {
     return const_cast<SNLNet*>(&*it);
   }

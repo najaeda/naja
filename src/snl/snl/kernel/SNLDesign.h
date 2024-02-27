@@ -234,7 +234,7 @@ class SNLDesign final: public SNLObject {
     using SNLInstanceNameIDMap = std::map<SNLName, SNLID::DesignObjectID>;
     using SNLDesignNetsHook =
       boost::intrusive::member_hook<SNLNet, boost::intrusive::set_member_hook<>, &SNLNet::designNetsHook_>;
-    using SNLDesignNets = boost::intrusive::set<SNLNet, SNLDesignNetsHook>;
+    using SNLDesignNets = boost::intrusive::set<SNLNet, SNLDesignNetsHook, boost::intrusive::compare<CompareByID<SNLNet>>>;
     using SNLDesignParametersHook =
       boost::intrusive::member_hook<SNLParameter, boost::intrusive::set_member_hook<>, &SNLParameter::designParametersHook_>;
     using SNLDesignParameters = boost::intrusive::set<SNLParameter, SNLDesignParametersHook>;

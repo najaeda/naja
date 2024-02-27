@@ -118,7 +118,6 @@ void SNLInstance::postCreateAndSetID() {
   super::postCreate();
   getDesign()->addInstanceAndSetID(this);
   commonPostCreate();
-
 }
 
 void SNLInstance::postCreate() {
@@ -155,16 +154,19 @@ void SNLInstance::removeInstTerm(SNLBitTerm* term) {
 }
 
 SNLInstance* SNLInstance::clone(SNLDesign* design) const {
-  return new SNLInstance(design, model_, id_, name_);
-  //for (auto instTerm: getInstTerms()) {
-  //  if (instTerm->getNet()) {
-  //    instance->setTermNet(instTerm->getTerm(), instTerm->getNet());
-  //  }
-  //}
-  //for (auto instParameter: getInstParameters()) {
-  //  SNLInstParameter* clone = instParameter->clone(design);
-  //  instance->addInstParameter(clone);
-  //}
+  auto newInstance = new SNLInstance(design, model_, id_, name_);
+  //we can reserve instTerms_ size since we are cloning
+  newInstance->instTerms_.reserve(instTerms_.size());
+  newInstance->commonPostCreate();
+  //clone instance parameters
+  newInstance->instParameters_.clone_from(
+    instParameters_,
+    [newInstance](const SNLInstParameter& param){
+      return new SNLInstParameter(newInstance, param.parameter_, param.value_);
+    },
+    [](SNLInstParameter*){}
+  );
+  return newInstance;
 }
 
 DESIGN_OBJECT_SET_NAME(SNLInstance, Instance, instance)
