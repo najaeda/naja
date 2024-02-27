@@ -41,6 +41,7 @@ class SNLScalarTerm final: public SNLBitTerm {
     void postCreateAndSetID();
     void postCreate();
     void destroyFromDesign() override;
+    SNLTerm* clone(SNLDesign* design) const override;
     void commonPreDestroy();
     void preDestroy() override;
 

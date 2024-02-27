@@ -129,6 +129,10 @@ void SNLBusTerm::preDestroy() {
   commonPreDestroy();
 }
 
+SNLTerm* SNLBusTerm::clone(SNLDesign* design) const {
+  return new SNLBusTerm(design, id_, direction_, msb_, lsb_, name_);
+}
+
 DESIGN_OBJECT_SET_NAME(SNLBusTerm, Term, term)
 
 void SNLBusTerm::setNet(SNLNet* net) {

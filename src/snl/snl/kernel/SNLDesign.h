@@ -164,6 +164,11 @@ class SNLDesign final: public SNLObject {
     ///\return true if this SNLDesign is a top design.
     bool isTopDesign() const;
 
+    SNLDesign* uniquifyInterface(const SNLName& name=SNLName());
+    SNLDesign* uniquifyInterfaceToLibrary(SNLLibrary* library, const SNLName& name=SNLName());
+    SNLDesign* uniquify(const SNLName& name=SNLName());
+    SNLDesign* uniquifyToLibrary(SNLLibrary* library, const SNLName& name=SNLName());
+
     bool deepCompare(const SNLDesign* design, std::string& reason) const;
     void mergeAssigns();
 
@@ -203,13 +208,26 @@ class SNLDesign final: public SNLObject {
       return ld.getSNLID() < rd.getSNLID();
     }
 
-    using SNLDesignTermsHook =
+    template<typename T>
+      struct CompareByID {
+      bool operator()(const T& lt, const T& rt) const {
+        return lt.getID() < rt.getID();
+      }
+      bool operator()(SNLID::DesignObjectID id, const T& obj) const {
+        return id < obj.getID();
+      }
+      bool operator()(const T& obj, SNLID::DesignObjectID id) const {
+        return obj.getID() < id;
+      }
+    };
+
+  using SNLDesignTermsHook =
       boost::intrusive::member_hook<SNLTerm, boost::intrusive::set_member_hook<>, &SNLTerm::designTermsHook_>;
-    using SNLDesignTerms = boost::intrusive::set<SNLTerm, SNLDesignTermsHook>;
+  using SNLDesignTerms = boost::intrusive::set<SNLTerm, SNLDesignTermsHook, boost::intrusive::compare<CompareByID<SNLTerm>>>;
     using SNLDesignObjectNameIDMap = std::map<SNLName, SNLID::DesignObjectID>;
     using SNLDesignInstancesHook =
       boost::intrusive::member_hook<SNLInstance, boost::intrusive::set_member_hook<>, &SNLInstance::designInstancesHook_>;
-    using SNLDesignInstances = boost::intrusive::set<SNLInstance, SNLDesignInstancesHook>;
+    using SNLDesignInstances = boost::intrusive::set<SNLInstance, SNLDesignInstancesHook, boost::intrusive::compare<CompareByID<SNLInstance>>>;
     using SNLDesignSlaveInstancesHook =
       boost::intrusive::member_hook<SNLInstance, boost::intrusive::set_member_hook<>, &SNLInstance::designSlaveInstancesHook_>;
     using SNLDesignSlaveInstances = boost::intrusive::set<SNLInstance, SNLDesignSlaveInstancesHook>;

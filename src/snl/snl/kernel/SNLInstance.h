@@ -139,6 +139,7 @@ class SNLInstance final: public SNLDesignObject {
     void preDestroy() override;
     void createInstTerm(SNLBitTerm* term);
     void removeInstTerm(SNLBitTerm* term);
+    SNLInstance* clone(SNLDesign* design) const;
 
     //SharedPath manipulators
     SNLSharedPath* getSharedPath(const SNLSharedPath* sharedPath) const;

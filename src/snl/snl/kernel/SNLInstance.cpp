@@ -154,6 +154,19 @@ void SNLInstance::removeInstTerm(SNLBitTerm* term) {
   instTerms_[term->getFlatID()] = nullptr;
 }
 
+SNLInstance* SNLInstance::clone(SNLDesign* design) const {
+  return new SNLInstance(design, model_, id_, name_);
+  //for (auto instTerm: getInstTerms()) {
+  //  if (instTerm->getNet()) {
+  //    instance->setTermNet(instTerm->getTerm(), instTerm->getNet());
+  //  }
+  //}
+  //for (auto instParameter: getInstParameters()) {
+  //  SNLInstParameter* clone = instParameter->clone(design);
+  //  instance->addInstParameter(clone);
+  //}
+}
+
 DESIGN_OBJECT_SET_NAME(SNLInstance, Instance, instance)
 
 void SNLInstance::setTermsNets(const Terms& terms, const Nets& nets) {
