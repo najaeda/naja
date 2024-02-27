@@ -219,6 +219,15 @@ PyObject* richCompare(T left, T right, int op) {
     return nullptr; \
   }
 
+#define GetStringAttribute(SELF_TYPE, METHOD) \
+  static PyObject* PySNL##SELF_TYPE##_##METHOD(PySNL##SELF_TYPE* self) { \
+    METHOD_HEAD("SNL##SELF_TYPE.##METHOD##()") \
+    SNLTRY \
+    return PyUnicode_FromString(selfObject->METHOD().c_str()); \
+    SNLCATCH \
+    return nullptr; \
+  }
+
 #define GetBoolAttribute(SELF_TYPE, METHOD) \
   static PyObject* PySNL##SELF_TYPE##_##METHOD(PySNL##SELF_TYPE* self) { \
     METHOD_HEAD("SNL##SELF_TYPE.##METHOD##()") \

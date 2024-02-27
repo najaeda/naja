@@ -27,6 +27,7 @@ class SNLInstParameter {
     SNLInstance* getInstance() const { return instance_; }
     SNLParameter* getParameter() const { return parameter_; }
     std::string getValue() const { return value_; }
+    void setValue(const std::string& value) { value_ = value; }
 
     const char* getTypeName() const;
     std::string getString() const;

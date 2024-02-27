@@ -5,9 +5,7 @@
 #ifndef __SNL_UTILS_H_
 #define __SNL_UTILS_H_
 
-#include <map>
-#include <vector>
-#include "SNLID.h"
+#include "SNLDesign.h"
 
 namespace naja { namespace SNL {
 
@@ -16,7 +14,7 @@ class SNLDesign;
 
 class SNLUtils {
   public:
-    using DesignsLevel = std::map<const SNLDesign*, unsigned>;
+    using DesignsLevel = std::map<const SNLDesign*, unsigned, SNLDesign::PointerLess>;
     static unsigned levelize(const SNLDesign* design, DesignsLevel& designsLevel);
     using DesignLevel = std::pair<const SNLDesign*, unsigned>;
     using SortedDesigns = std::vector<DesignLevel>;
