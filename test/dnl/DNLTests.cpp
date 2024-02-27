@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2024 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
+//
+// SPDX-License-Identifier: Apache-2.0
+
 #include "../../src/dnl/DNL.h"
 #include "gtest/gtest.h"
 #include "tbb/scalable_allocator.h"
