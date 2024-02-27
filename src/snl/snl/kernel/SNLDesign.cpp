@@ -547,7 +547,6 @@ SNLDesign* SNLDesign::uniquifyInterfaceToLibrary(SNLLibrary* library, const SNLN
     },
     [](SNLParameter*){}
   );
-
   return newDesign;
 }
 
@@ -570,6 +569,14 @@ SNLDesign* SNLDesign::uniquifyToLibrary(SNLLibrary* library, const SNLName& name
     [](SNLInstance*){}
   );
   newDesign->instanceNameIDMap_ = instanceNameIDMap_;
+
+  //clone nets
+  newDesign->nets_.clone_from(
+    nets_,
+    [newDesign](const SNLNet& net){ return net.clone(newDesign); },
+    [](SNLNet*){}
+  );
+  newDesign->netNameIDMap_ = netNameIDMap_;
 
   return newDesign;
 }

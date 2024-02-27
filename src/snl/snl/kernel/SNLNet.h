@@ -60,6 +60,7 @@ class SNLNet: public SNLDesignObject {
 
   private:
     virtual void destroyFromDesign() = 0;
+    virtual SNLNet* clone(SNLDesign* design) const = 0;
 
     //following used in BusNet and ScalarNet
     virtual void setID(SNLID::DesignObjectID id) = 0;

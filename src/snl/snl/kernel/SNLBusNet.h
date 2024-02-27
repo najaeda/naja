@@ -79,6 +79,7 @@ class SNLBusNet final: public SNLNet {
     void destroyFromDesign() override;
     void commonPreDestroy();
     void preDestroy() override;
+    SNLNet* clone(SNLDesign* design) const override;
 
     void setID(SNLID::DesignObjectID id) override { id_ = id; }
 

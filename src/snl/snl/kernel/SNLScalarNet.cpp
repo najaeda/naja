@@ -94,6 +94,11 @@ void SNLScalarNet::preDestroy() {
   getDesign()->removeNet(this);
 }
 
+SNLNet* SNLScalarNet::clone(SNLDesign* design) const {
+  auto newNet = new SNLScalarNet(design, id_, name_);
+  return newNet;
+}
+
 SNLID SNLScalarNet::getSNLID() const {
   return SNLDesignObject::getSNLID(SNLID::Type::Net, id_, 0, 0);
 }
