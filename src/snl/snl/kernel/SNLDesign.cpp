@@ -571,6 +571,7 @@ SNLDesign* SNLDesign::uniquifyToLibrary(SNLLibrary* library, const SNLName& name
     [newDesign](const SNLInstance& instance){ return instance.clone(newDesign); },
     [](SNLInstance*){}
   );
+  newDesign->instanceNameIDMap_ = instanceNameIDMap_;
 
   return newDesign;
 }
