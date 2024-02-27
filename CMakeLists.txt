@@ -59,6 +59,7 @@ if(ENABLE_SANITIZERS)
   )
 endif(ENABLE_SANITIZERS)
 
+find_package(TBB REQUIRED)
 find_package(Boost REQUIRED)
 find_package(Python3 3.9...<3.99 COMPONENTS Development Interpreter REQUIRED)
 	#PATHS /usr/lib/python3.9.5)
