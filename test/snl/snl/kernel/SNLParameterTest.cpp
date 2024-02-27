@@ -75,6 +75,11 @@ TEST_F(SNLParameterTest, test) {
   EXPECT_EQ("87", instParam2->getValue());
   EXPECT_EQ(instParam1, instance->getInstParameter(SNLName("PARAM1")));
   EXPECT_EQ(instParam2, instance->getInstParameter(SNLName("PARAM2")));
+
+  //Change value
+  instParam1->setValue("99");
+  EXPECT_EQ("99", instParam1->getValue());
+
   //InstParam destruction
   instParam1->destroy();
   EXPECT_EQ(1, instance->getInstParameters().size());
