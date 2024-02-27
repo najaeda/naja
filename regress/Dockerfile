@@ -11,7 +11,7 @@ RUN apt-get update && apt-get -y install \
     flex bison \
     libboost-dev \
     python3-dev \
-    libfl-dev capnproto libcapnp-dev
+    libfl-dev capnproto libcapnp-dev libtbb-dev
 # Put your own Dockfile commands here
 RUN rm -rf /var/lib/apt/lists/* \
   && wget https://github.com/Kitware/CMake/releases/download/v3.24.1/cmake-3.24.1-Linux-x86_64.sh \
