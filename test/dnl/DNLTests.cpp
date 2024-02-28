@@ -241,6 +241,13 @@ TEST_F(DNLTests, SNLDataAccessWith3levelsOfHierarchyAndIsoDB) {
     EXPECT_EQ(isoOut.getDrivers().size(), 1);
     EXPECT_EQ(isoIn.getReaders().size(), 1);
     EXPECT_EQ(isoOut.getReaders().size(), 1);
+    EXPECT_EQ(dnl->isInstanceChild(0, 1), true);
+    EXPECT_EQ(dnl->isInstanceChild(0, 2), true);
+    EXPECT_EQ(dnl->isInstanceChild(1, 0), false);
+    EXPECT_EQ(dnl->isInstanceChild(2, 0), false);
+    EXPECT_EQ(dnl->isInstanceChild(2, 1), false);
+    //dnl->dumpDotFile();
+    dnl->dumpDNLDotFile("test");
     //Destroy the DNL
     DNL::destroy();
     //Destroy the SNL
