@@ -536,7 +536,7 @@ SNLDesign* SNLDesign::uniquifyInterfaceToLibrary(SNLLibrary* library, const SNLN
     [newDesign](const SNLTerm& term){
       return term.clone(newDesign);
     },
-    [](SNLTerm*){}
+    [](SNLTerm*){} //LCOV_EXCL_LINE
   );
   newDesign->termNameIDMap_ = termNameIDMap_;
   //clone parameters
@@ -545,7 +545,7 @@ SNLDesign* SNLDesign::uniquifyInterfaceToLibrary(SNLLibrary* library, const SNLN
     [newDesign](const SNLParameter& parameter){ 
       return new SNLParameter(newDesign, parameter.name_, parameter.type_, parameter.value_);
     },
-    [](SNLParameter*){}
+    [](SNLParameter*){} //LCOV_EXCL_LINE
   );
   return newDesign;
 }
@@ -566,7 +566,7 @@ SNLDesign* SNLDesign::uniquifyToLibrary(SNLLibrary* library, const SNLName& name
   newDesign->instances_.clone_from(
     instances_,
     [newDesign](const SNLInstance& instance){ return instance.clone(newDesign); },
-    [](SNLInstance*){}
+    [](SNLInstance*){} //LCOV_EXCL_LINE
   );
   newDesign->instanceNameIDMap_ = instanceNameIDMap_;
 
@@ -574,7 +574,7 @@ SNLDesign* SNLDesign::uniquifyToLibrary(SNLLibrary* library, const SNLName& name
   newDesign->nets_.clone_from(
     nets_,
     [newDesign](const SNLNet& net){ return net.clone(newDesign); },
-    [](SNLNet*){}
+    [](SNLNet*){} //LCOV_EXCL_LINE
   );
   newDesign->netNameIDMap_ = netNameIDMap_;
 

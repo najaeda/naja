@@ -164,7 +164,7 @@ SNLInstance* SNLInstance::clone(SNLDesign* design) const {
     [newInstance](const SNLInstParameter& param){
       return new SNLInstParameter(newInstance, param.parameter_, param.value_);
     },
-    [](SNLInstParameter*){}
+    [](SNLInstParameter*){} //LCOV_EXCL_LINE
   );
   return newInstance;
 }
