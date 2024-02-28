@@ -6,8 +6,13 @@
 
 #include <list>
 
-#include "SNLBitTerm.h"
+#include "SNLScalarTerm.h"
+#include "SNLBusTerm.h"
+#include "SNLBusTermBit.h"
 #include "SNLInstTerm.h"
+#include "SNLDB.h"
+#include "SNLDesign.h"
+#include "SNLException.h"
 
 namespace naja { namespace SNL {
 
@@ -26,6 +31,52 @@ void SNLBitNet::preDestroy() {
     component->setNet(nullptr);
   }
   super::preDestroy();
+}
+
+void SNLBitNet::cloneComponents(SNLBitNet* newNet) const {
+  newNet->components_.clone_from(
+    components_,
+    [newNet](const SNLNetComponent& component) -> SNLNetComponent* {
+      auto newDesign = newNet->getDesign();
+      if (auto scalarTerm = dynamic_cast<const SNLScalarTerm*>(&component)) {
+        auto newScalarTerm = newDesign->getScalarTerm(scalarTerm->getID());
+        if (newScalarTerm) {
+          return newScalarTerm;
+        } else {
+          throw SNLException("SNLBitNet::cloneComponents: scalarTerm not found");
+        }
+      } else if (auto busTermBit = dynamic_cast<const SNLBusTermBit*>(&component)) {
+        auto busTerm = busTermBit->getBus();
+        auto newBusTerm = newDesign->getBusTerm(busTerm->getID());
+        if (newBusTerm) {
+          auto newBusTermBit = newBusTerm->getBit(busTermBit->getBit());
+          if (newBusTermBit) {
+            return newBusTermBit;
+          } else {
+            throw SNLException("SNLBitNet::cloneComponents: busTermBit not found");
+          }
+        } else {
+          throw SNLException("SNLBitNet::cloneComponents: busTerm not found");
+        }
+      } else if (auto instTerm = dynamic_cast<const SNLInstTerm*>(&component)) {
+        auto instance = instTerm->getInstance();
+        auto newInstance = newDesign->getInstance(instance->getID());
+        if (newInstance) {
+          auto newInstTerm = newInstance->getInstTerm(instTerm->getTerm());
+          if (newInstTerm) {
+            return newInstTerm;
+          } else {
+            throw SNLException("SNLBitNet::cloneComponents: instTerm not found");
+          }
+        } else {
+          throw SNLException("SNLBitNet::cloneComponents: instance not found");
+        }
+      } else {
+        throw SNLException("SNLBitNet::cloneComponents: unknown component type");
+      }
+    },
+    [](SNLNetComponent*){}
+  );
 }
 
 NajaCollection<SNLNetComponent*> SNLBitNet::getComponents() const {

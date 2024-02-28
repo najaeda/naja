@@ -42,6 +42,7 @@ class SNLBitNet: public SNLNet {
     static void preCreate();
     void postCreate();
     void preDestroy() override;
+    void cloneComponents(SNLBitNet* newNet) const;
 
   private:
     void addComponent(SNLNetComponent* net);
