@@ -96,6 +96,7 @@ void SNLScalarNet::preDestroy() {
 
 SNLNet* SNLScalarNet::clone(SNLDesign* design) const {
   auto newNet = new SNLScalarNet(design, id_, name_);
+  cloneComponents(newNet);
   return newNet;
 }
 
