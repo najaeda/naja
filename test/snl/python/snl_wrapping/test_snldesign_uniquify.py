@@ -14,6 +14,8 @@ class SNLDesignUniquifyTest(unittest.TestCase):
     i0 = snl.SNLScalarTerm.create(self.design, snl.SNLTerm.Direction.Input, "I0")
     i1 = snl.SNLBusTerm.create(self.design, snl.SNLTerm.Direction.Input, -5, 4, "I1")
     o = snl.SNLScalarTerm.create(self.design, snl.SNLTerm.Direction.Output, "O")
+    p0 = snl.SNLParameter.create_string(self.design, "P0", "Hello")
+    p1 = snl.SNLParameter.create_decimal(self.design, "P1", 42)
 
   def tearDown(self):
     if snl.SNLUniverse.get():
@@ -29,11 +31,9 @@ class SNLDesignUniquifyTest(unittest.TestCase):
     termsSize = sum(1 for t in self.design.getTerms())
     newTermsSize = sum(1 for t in newDesign.getTerms())
     self.assertEqual(termsSize, newTermsSize)
+    parametersSize = sum(1 for p in self.design.getParameters())
+    newParametersSize = sum(1 for p in newDesign.getParameters())
+    self.assertEqual(parametersSize, newParametersSize)
 
-
-  
-
-   
-   
 if __name__ == '__main__':
   unittest.main()

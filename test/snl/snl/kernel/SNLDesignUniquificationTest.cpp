@@ -48,6 +48,16 @@ void compareParameters(const SNLDesign* design, const SNLDesign* newDesign) {
   }
 }
 
+void compareInstParameters(const SNLInstance* instance, const SNLInstance* newInstance) {
+  ASSERT_EQ(instance->getInstParameters().size(), newInstance->getInstParameters().size());
+  for (auto instParameter: instance->getInstParameters()) {
+    auto found = newInstance->getInstParameter(instParameter->getName());
+    ASSERT_NE(nullptr, found);
+    EXPECT_EQ(instParameter->getParameter(), found->getParameter());
+    EXPECT_EQ(instParameter->getValue(), found->getValue());
+  }
+}
+
 void compareInstances(const SNLDesign* design, const SNLDesign* newDesign) {
   ASSERT_EQ(design->getInstances().size(), newDesign->getInstances().size());
   for (auto instance: design->getInstances()) {
@@ -59,6 +69,7 @@ void compareInstances(const SNLDesign* design, const SNLDesign* newDesign) {
     if (not found->isAnonymous()) {
       EXPECT_EQ(found, newDesign->getInstance(found->getName()));
     }
+    compareInstParameters(instance, found);
   }
 }
 
@@ -81,6 +92,9 @@ class SNLDesignUniquificationTest: public ::testing::Test {
       auto db = SNLDB::create(universe);
       auto primitives = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("PRIMITIVES"));
       auto prim0 = SNLDesign::create(primitives, SNLDesign::Type::Primitive, SNLName("prim0"));
+      auto param0 = SNLParameter::create(prim0, SNLName("param0"), SNLParameter::Type::Binary, "0b1010");
+      auto param1 = SNLParameter::create(prim0, SNLName("param1"), SNLParameter::Type::Decimal, "42");
+      auto param2 = SNLParameter::create(prim0, SNLName("param2"), SNLParameter::Type::Boolean, "true");
       auto prim0Term0 = SNLScalarTerm::create(prim0, SNLTerm::Direction::Input, SNLName("term0"));
       auto prim0Term1 = SNLScalarTerm::create(prim0, SNLTerm::Direction::Input, SNLName("term1"));
       auto prim0Term2 = SNLBusTerm::create(prim0, SNLTerm::Direction::Output, 4, 0, SNLName("term2"));
@@ -97,7 +111,11 @@ class SNLDesignUniquificationTest: public ::testing::Test {
       parameters_.push_back(SNLParameter::create(design_, SNLName("param0"), SNLParameter::Type::Binary, "0b1010"));
       parameters_.push_back(SNLParameter::create(design_, SNLName("param1"), SNLParameter::Type::Decimal, "42"));
       parameters_.push_back(SNLParameter::create(design_, SNLName("param2"), SNLParameter::Type::Boolean, "true"));
+      
       instances_.push_back(SNLInstance::create(design_, prim0, SNLName("inst0")));
+      SNLInstParameter::create(instances_[0], param0, "0b1100");
+      SNLInstParameter::create(instances_[0], param1, "43");
+      SNLInstParameter::create(instances_[0], param2, "false");
       instances_.push_back(SNLInstance::create(design_, prim1, SNLName("inst1")));
       instances_.push_back(SNLInstance::create(design_, prim0, SNLName("inst2")));
       instances_.push_back(SNLInstance::create(design_, prim1, SNLName("inst3")));
@@ -115,7 +133,7 @@ class SNLDesignUniquificationTest: public ::testing::Test {
     using Parameters = std::vector<SNLParameter*>;
     using Instances = std::vector<SNLInstance*>;
     using Nets = std::vector<SNLNet*>;
-    SNLDesign*  design_ {nullptr};
+    SNLDesign*  design_     {nullptr};
     Terms       terms_      {};
     Parameters  parameters_ {};
     Instances   instances_  {};
