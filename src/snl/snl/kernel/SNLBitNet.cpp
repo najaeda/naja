@@ -41,6 +41,7 @@ void SNLBitNet::cloneComponents(SNLBitNet* newNet) const {
       if (auto scalarTerm = dynamic_cast<const SNLScalarTerm*>(&component)) {
         auto newScalarTerm = newDesign->getScalarTerm(scalarTerm->getID());
         if (newScalarTerm) {
+          newScalarTerm->net_ = newNet;
           return newScalarTerm;
         } else {
           throw SNLException("SNLBitNet::cloneComponents: scalarTerm not found");
@@ -51,6 +52,7 @@ void SNLBitNet::cloneComponents(SNLBitNet* newNet) const {
         if (newBusTerm) {
           auto newBusTermBit = newBusTerm->getBit(busTermBit->getBit());
           if (newBusTermBit) {
+            newBusTermBit->net_ = newNet;
             return newBusTermBit;
           } else {
             throw SNLException("SNLBitNet::cloneComponents: busTermBit not found");
@@ -64,6 +66,7 @@ void SNLBitNet::cloneComponents(SNLBitNet* newNet) const {
         if (newInstance) {
           auto newInstTerm = newInstance->getInstTerm(instTerm->getTerm());
           if (newInstTerm) {
+            newInstTerm->net_ = newNet;
             return newInstTerm;
           } else {
             throw SNLException("SNLBitNet::cloneComponents: instTerm not found");

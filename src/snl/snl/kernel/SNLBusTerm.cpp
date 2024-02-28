@@ -130,7 +130,9 @@ void SNLBusTerm::preDestroy() {
 }
 
 SNLTerm* SNLBusTerm::clone(SNLDesign* design) const {
-  return new SNLBusTerm(design, id_, direction_, msb_, lsb_, name_);
+  auto newSNLBusTerm = new SNLBusTerm(design, id_, direction_, msb_, lsb_, name_);
+  newSNLBusTerm->createBits();
+  return newSNLBusTerm;
 }
 
 DESIGN_OBJECT_SET_NAME(SNLBusTerm, Term, term)

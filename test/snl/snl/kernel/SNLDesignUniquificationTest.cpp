@@ -13,6 +13,7 @@ using ::testing::ElementsAre;
 #include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
 #include "SNLBusTermBit.h"
+#include "SNLInstTerm.h"
 #include "SNLScalarNet.h"
 #include "SNLBusNet.h"
 #include "SNLUtils.h"
@@ -103,6 +104,9 @@ class SNLDesignUniquificationTest: public ::testing::Test {
       nets_.push_back(SNLScalarNet::create(design_, SNLName("net0")));
       nets_.push_back(SNLBusNet::create(design_, -2, 4, SNLName("net1")));
       nets_.push_back(SNLScalarNet::create(design_, SNLName("net2")));
+      terms_[0]->setNet(nets_[0]);
+      ((SNLBusTerm*)terms_[3])->getBit(0)->setNet(nets_[0]);
+      instances_[0]->getInstTerm(prim0Term0)->setNet(nets_[0]);
     }
     void TearDown() override {
       SNLUniverse::get()->destroy();
