@@ -526,7 +526,7 @@ void SNLDesign::mergeAssigns() {
   }
 }
 
-SNLDesign* SNLDesign::uniquifyInterfaceToLibrary(SNLLibrary* library, const SNLName& name) {
+SNLDesign* SNLDesign::uniquifyInterfaceToLibrary(SNLLibrary* library, const SNLName& name) const {
   if (isPrimitive()) {
     throw SNLException("uniquifyToLibrary cannot be called on primitive designs");
   }
@@ -550,11 +550,11 @@ SNLDesign* SNLDesign::uniquifyInterfaceToLibrary(SNLLibrary* library, const SNLN
   return newDesign;
 }
 
-SNLDesign* SNLDesign::uniquifyInterface(const SNLName& name) {
+SNLDesign* SNLDesign::uniquifyInterface(const SNLName& name) const {
   return uniquifyInterfaceToLibrary(getLibrary(), name);
 }
 
-SNLDesign* SNLDesign::uniquifyToLibrary(SNLLibrary* library, const SNLName& name) {
+SNLDesign* SNLDesign::uniquifyToLibrary(SNLLibrary* library, const SNLName& name) const {
   if (not name.empty() and library->getDesign(getName())) {
     std::string reason = "SNLLibrary " + library->getString() + " contains already a SNLDesign named: " + getName().getString();
     throw SNLException(reason);
@@ -581,7 +581,7 @@ SNLDesign* SNLDesign::uniquifyToLibrary(SNLLibrary* library, const SNLName& name
   return newDesign;
 }
 
-SNLDesign* SNLDesign::uniquify(const SNLName& name) {
+SNLDesign* SNLDesign::uniquify(const SNLName& name) const {
   return uniquifyToLibrary(getLibrary(), name);
 }
 

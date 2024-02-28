@@ -164,10 +164,10 @@ class SNLDesign final: public SNLObject {
     ///\return true if this SNLDesign is a top design.
     bool isTopDesign() const;
 
-    SNLDesign* uniquifyInterface(const SNLName& name=SNLName());
-    SNLDesign* uniquifyInterfaceToLibrary(SNLLibrary* library, const SNLName& name=SNLName());
-    SNLDesign* uniquify(const SNLName& name=SNLName());
-    SNLDesign* uniquifyToLibrary(SNLLibrary* library, const SNLName& name=SNLName());
+    SNLDesign* uniquifyInterface(const SNLName& name=SNLName()) const;
+    SNLDesign* uniquifyInterfaceToLibrary(SNLLibrary* library, const SNLName& name=SNLName()) const;
+    SNLDesign* uniquify(const SNLName& name=SNLName()) const;
+    SNLDesign* uniquifyToLibrary(SNLLibrary* library, const SNLName& name=SNLName()) const;
 
     bool deepCompare(const SNLDesign* design, std::string& reason) const;
     void mergeAssigns();
