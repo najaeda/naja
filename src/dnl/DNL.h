@@ -177,9 +177,6 @@ class DNL {
     const DNLTerminal& getDNLNullTerminal() const { return _DNLTerms.back(); }
     DNLID getNBterms() const { return _DNLTerms.size(); }
     const DNLInstance& getDNLNullInstance() const { return _DNLInstances.back(); }
-    void dumpDNLDotFile(bool keepHierInfo = true) const;
-    void dumpDotFile() const;
-    void dumpDotFileRec(DNLID inst, std::ofstream& myfile, DNLID& i) const;
     const DNLIsoDB& getDNLIsoDB() const { return _fidb; }
     std::vector<DNLID> getLeavesUnder(DNLID parent) const;
     const DNLInstance& getTop() const { return _DNLInstances[0]; }

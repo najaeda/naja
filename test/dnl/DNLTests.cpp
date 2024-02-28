@@ -246,8 +246,6 @@ TEST_F(DNLTests, SNLDataAccessWith3levelsOfHierarchyAndIsoDB) {
     EXPECT_EQ(dnl->isInstanceChild(1, 0), false);
     EXPECT_EQ(dnl->isInstanceChild(2, 0), false);
     EXPECT_EQ(dnl->isInstanceChild(2, 1), false);
-    //dnl->dumpDotFile();
-    dnl->dumpDNLDotFile("test");
     //Destroy the DNL
     DNL::destroy();
     //Destroy the SNL
