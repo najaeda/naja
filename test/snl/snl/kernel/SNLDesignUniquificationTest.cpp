@@ -13,6 +13,8 @@ using ::testing::ElementsAre;
 #include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
 #include "SNLBusTermBit.h"
+#include "SNLScalarNet.h"
+#include "SNLBusNet.h"
 #include "SNLUtils.h"
 #include "SNLException.h"
 using namespace naja::SNL;
@@ -59,6 +61,16 @@ void compareInstances(const SNLDesign* design, const SNLDesign* newDesign) {
   }
 }
 
+void compareNets(const SNLDesign* design, const SNLDesign* newDesign) {
+  ASSERT_EQ(design->getNets().size(), newDesign->getNets().size());
+  for (auto net: design->getNets()) {
+    auto found = newDesign->getNet(net->getID());
+    ASSERT_NE(nullptr, found);
+    EXPECT_EQ(net->getID(), found->getID());
+    EXPECT_EQ(net->getName(), found->getName());
+  }
+}
+
 } // namespace
 
 class SNLDesignUniquificationTest: public ::testing::Test {
@@ -68,7 +80,12 @@ class SNLDesignUniquificationTest: public ::testing::Test {
       auto db = SNLDB::create(universe);
       auto primitives = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("PRIMITIVES"));
       auto prim0 = SNLDesign::create(primitives, SNLDesign::Type::Primitive, SNLName("prim0"));
+      auto prim0Term0 = SNLScalarTerm::create(prim0, SNLTerm::Direction::Input, SNLName("term0"));
+      auto prim0Term1 = SNLScalarTerm::create(prim0, SNLTerm::Direction::Input, SNLName("term1"));
+      auto prim0Term2 = SNLBusTerm::create(prim0, SNLTerm::Direction::Output, 4, 0, SNLName("term2"));
       auto prim1 = SNLDesign::create(primitives, SNLDesign::Type::Primitive, SNLName("prim1"));
+      auto prim1Term0 = SNLScalarTerm::create(prim1, SNLTerm::Direction::Input, SNLName("term0"));
+      auto prim1Term1 = SNLScalarTerm::create(prim1, SNLTerm::Direction::Output, SNLName("term1"));
       auto library = SNLLibrary::create(db, SNLName("MYLIB"));
       design_ = SNLDesign::create(library, SNLName("design"));
       terms_.push_back(SNLScalarTerm::create(design_, SNLTerm::Direction::Input, SNLName("term0")));
@@ -83,6 +100,9 @@ class SNLDesignUniquificationTest: public ::testing::Test {
       instances_.push_back(SNLInstance::create(design_, prim1, SNLName("inst1")));
       instances_.push_back(SNLInstance::create(design_, prim0, SNLName("inst2")));
       instances_.push_back(SNLInstance::create(design_, prim1, SNLName("inst3")));
+      nets_.push_back(SNLScalarNet::create(design_, SNLName("net0")));
+      nets_.push_back(SNLBusNet::create(design_, -2, 4, SNLName("net1")));
+      nets_.push_back(SNLScalarNet::create(design_, SNLName("net2")));
     }
     void TearDown() override {
       SNLUniverse::get()->destroy();
@@ -90,10 +110,12 @@ class SNLDesignUniquificationTest: public ::testing::Test {
     using Terms = std::vector<SNLTerm*>;
     using Parameters = std::vector<SNLParameter*>;
     using Instances = std::vector<SNLInstance*>;
+    using Nets = std::vector<SNLNet*>;
     SNLDesign*  design_ {nullptr};
     Terms       terms_      {};
     Parameters  parameters_ {};
     Instances   instances_  {};
+    Nets        nets_       {};
 };
 
 TEST_F(SNLDesignUniquificationTest, testUniquifyInterface0) {
@@ -146,5 +168,5 @@ TEST_F(SNLDesignUniquificationTest, testUniquify0) {
   compareTerms(design_, newDesign);
   compareParameters(design_, newDesign);
   compareInstances(design_, newDesign);
-  EXPECT_TRUE(newDesign->getNets().empty());
+  compareNets(design_, newDesign);
 }
