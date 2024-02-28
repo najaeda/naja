@@ -17,7 +17,8 @@
 #include "SNLInstance.h"
 #include "SNLUniverse.h"
 #include "tbb/parallel_for.h"
-#include "tbb/task_scheduler_init.h"
+//#include "tbb/task_scheduler_init.h"
+#include <tbb/task_arena.h>
 
 using namespace naja::SNL;
 using namespace naja::DNL;
@@ -255,9 +256,10 @@ void DNLIsoDBBuilder::process() {
     #ifdef DEBUG_PRINTS
     printf("MT\n");
     #endif
-    tbb::task_scheduler_init init(
-        tbb::task_scheduler_init::default_num_threads());  // Explicit number of
+    //tbb::task_scheduler_init init(
+    //tbb::task_scheduler_init::default_num_threads());  // Explicit number of
                                                            // threads
+    tbb::task_arena arena(tbb::task_arena::automatic);
     tbb::parallel_for(tbb::blocked_range<DNLID>(0, tasks.size()),
                       [&](const tbb::blocked_range<DNLID>& r) {
                         for (DNLID i = r.begin(); i < r.end(); ++i) {
