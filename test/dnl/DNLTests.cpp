@@ -33,6 +33,8 @@ class DNLTests : public ::testing::Test {
     void TearDown() override {
         // Code here will be called immediately after each test (right
         // before the destructor).
+        //Destroy the SNL
+        SNLUniverse::get()->destroy();
     }
 
 };
@@ -50,7 +52,7 @@ TEST_F(DNLTests, SNLDataAccess) {
     auto inTerm = SNLScalarTerm::create(mod, SNLTerm::Direction::Input, SNLName("in"));
     auto outTerm = SNLScalarTerm::create(mod, SNLTerm::Direction::Output, SNLName("out"));
     //Create a DNL on top of the SNL
-    DNL* dnl = DNL::create();
+    DNLFull* dnl = get();
     assert(dnl != nullptr);
     assert(dnl->getTop().getSNLModel() != nullptr);
     //Validate the access to the SNL data
@@ -61,9 +63,7 @@ TEST_F(DNLTests, SNLDataAccess) {
     EXPECT_EQ(inTermID, 0);
     EXPECT_EQ(outTermID, 1);
     //Destroy the DNL
-    DNL::destroy();
-    //Destroy the SNL
-    SNLUniverse::get()->destroy();
+    destroy();
 }
 
 TEST_F(DNLTests, SNLDataAccessWith2levelsOfHierarchy) {
@@ -81,7 +81,7 @@ TEST_F(DNLTests, SNLDataAccessWith2levelsOfHierarchy) {
     auto suboutTerm = SNLScalarTerm::create(submod, SNLTerm::Direction::Output, SNLName("subout"));
     SNLInstance* subinst = SNLInstance::create(mod, submod, SNLName("subinst"));
     //Create a DNL on top of the SNL
-    DNL* dnl = DNL::create();
+    DNLFull* dnl = get();
     ASSERT_NE(dnl, nullptr);
     ASSERT_NE(dnl->getTop().getSNLModel(), nullptr);
     //Validate the access to the SNL data
@@ -98,9 +98,7 @@ TEST_F(DNLTests, SNLDataAccessWith2levelsOfHierarchy) {
     EXPECT_EQ(subinTermID, 2);
     EXPECT_EQ(suboutTermID, 3);
     //Destroy the DNL
-    DNL::destroy();
-    //Destroy the SNL
-    SNLUniverse::get()->destroy();
+    destroy();
 }
 
 TEST_F(DNLTests, SNLDataAccessWith3levelsOfHierarchy) {
@@ -130,7 +128,7 @@ TEST_F(DNLTests, SNLDataAccessWith3levelsOfHierarchy) {
     SNLInstance* subsubinst = SNLInstance::create(submod, subsubmod, SNLName("subsubinst"));
     //Create a DNL on top of the SNL
     //Validate the access to the SNL data
-    DNL* dnl = DNL::create();
+    DNLFull* dnl = get();
      assert(dnl->getTop().getSNLModel() != nullptr);
     DNLID modID = dnl->getTop().getID();
     DNLID inTermID = dnl->getTop().getTerminalFromBitTerm(inTerm).getID();
@@ -151,9 +149,7 @@ TEST_F(DNLTests, SNLDataAccessWith3levelsOfHierarchy) {
     EXPECT_EQ(subsubinTermID, 4);
     EXPECT_EQ(subsuboutTermID, 5);
     //Destroy the DNL
-    DNL::destroy();
-    //Destroy the SNL
-    SNLUniverse::get()->destroy();
+    destroy();
 }
 
 //Based on last test, create a DNL with 3 levels of hierarchy and validate iso db
@@ -201,7 +197,7 @@ TEST_F(DNLTests, SNLDataAccessWith3levelsOfHierarchyAndIsoDB) {
     inTerm->setNet(inNet);
     subinst->getInstTerm(subinTerm)->setNet(inNet);
     //Create a DNL on top of the SNL
-    DNL* dnl = DNL::create();
+    DNLFull* dnl = get();
     assert(dnl != nullptr);
     assert(dnl->getTop().getSNLModel() != nullptr);
     //Validate the access to the SNL data
@@ -247,9 +243,7 @@ TEST_F(DNLTests, SNLDataAccessWith3levelsOfHierarchyAndIsoDB) {
     EXPECT_EQ(dnl->isInstanceChild(2, 0), false);
     EXPECT_EQ(dnl->isInstanceChild(2, 1), false);
     //Destroy the DNL
-    DNL::destroy();
-    //Destroy the SNL
-    SNLUniverse::get()->destroy();
+    destroy();
 }
 
     
