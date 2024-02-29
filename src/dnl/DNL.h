@@ -94,12 +94,12 @@ class DNLTerminalFull {
   bool isNull() const { return id_ == (DNLID)DNLID_MAX; }
   void setIsoID(DNLID isoID);
   DNLID getIsoID() const;
-  bool isTopPort() const { return _terminal == nullptr; }
+  bool isTopPort() const { return terminal_ == nullptr; }
 
  private:
-  DNLID _DNLInstID = DNLID_MAX;
-  SNLInstTerm* _terminal{nullptr};
-  SNLBitTerm* _bitTerminal{nullptr};
+  DNLID DNLInstID_ = DNLID_MAX;
+  SNLInstTerm* terminal_{nullptr};
+  SNLBitTerm* bitTerminal_{nullptr};
   DNLID id_ = DNLID_MAX;
 };
 
@@ -121,12 +121,12 @@ class DNLIso {
       const {
     return readers_;
   }
+  virtual ~DNLIso() {}
 
  private:
   std::vector<DNLID, tbb::scalable_allocator<DNLID>> drivers_;
   std::vector<DNLID, tbb::scalable_allocator<DNLID>> readers_;
-  DNLID id_;
-  bool isNull_ = true;
+  DNLID id_ = DNLID_MAX;
 };
 
 class DNLComplexIso : public DNLIso {

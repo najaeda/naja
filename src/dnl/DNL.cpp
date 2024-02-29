@@ -162,22 +162,22 @@ const DNLTerminalFull& DNLInstanceFull::getTerminalFromBitTerm(
 
 DNLTerminalFull::DNLTerminalFull(DNLID id) : id_(id){};
 DNLTerminalFull::DNLTerminalFull(DNLID DNLInstID, SNLInstTerm* terminal, DNLID id)
-    : _DNLInstID(DNLInstID), _terminal(terminal), id_(id){};
+    : DNLInstID_(DNLInstID), terminal_(terminal), id_(id){};
 
 DNLTerminalFull::DNLTerminalFull(DNLID DNLInstID, SNLBitTerm* terminal, DNLID id)
-    : _DNLInstID(DNLInstID), _bitTerminal(terminal), id_(id){};
+    : DNLInstID_(DNLInstID), bitTerminal_(terminal), id_(id){};
 DNLID DNLTerminalFull::getID() const {
   return id_;
 }
 
 SNLBitTerm* DNLTerminalFull::getSnlBitTerm() const {
-  return _bitTerminal ? _bitTerminal : _terminal->getTerm();
+  return bitTerminal_ ? bitTerminal_ : terminal_->getTerm();
 };
 SNLInstTerm* DNLTerminalFull::getSnlTerm() const {
-  return _terminal;
+  return terminal_;
 }
 const DNLInstanceFull& DNLTerminalFull::getDNLInstance() const {
-  return (*get()).getDNLInstanceFromID(_DNLInstID);
+  return (*get()).getDNLInstanceFromID(DNLInstID_);
 }
 
 void DNLTerminalFull::setIsoID(DNLID isoID) {
