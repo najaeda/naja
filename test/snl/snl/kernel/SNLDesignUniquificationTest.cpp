@@ -192,3 +192,7 @@ TEST_F(SNLDesignUniquificationTest, testUniquify0) {
   compareInstances(design_, newDesign);
   compareNets(design_, newDesign);
 }
+
+TEST_F(SNLDesignUniquificationTest, testErrors) {
+  EXPECT_THROW(design_->uniquify(design_->getName()), SNLException);
+}
