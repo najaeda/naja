@@ -22,14 +22,14 @@ namespace naja {
 namespace DNL {
 
 typedef size_t DNLID;
-#define DNLID_MAX ((DNLID)-1)
+constexpr DNLID DNLID_MAX = ((DNLID)-1);
 
 class DNL;
 class DNLTerminal;
 
 class DNLInstance {
  public:
-    DNLInstance();
+    DNLInstance() = default;
     DNLInstance(const SNLInstance* instance, DNLID id, DNLID parent);
     void display() const;
     DNLID getID() const;
@@ -43,23 +43,23 @@ class DNLInstance {
     const DNLTerminal& getTerminal(const SNLInstTerm* snlTerm) const;
     const DNLTerminal& getTerminalFromBitTerm(const SNLBitTerm* snlTerm) const;
     const std::pair<DNLID, DNLID>& getTermIndexes() const {
-        return _termsIndexes;
+        return termsIndexes_;
     }
-    bool isNull() const { return _id == (DNLID)DNLID_MAX; }
-    bool isTop() const { return _parent == (DNLID)DNLID_MAX;; }
+    bool isNull() const { return id_ == (DNLID) DNLID_MAX; }
+    bool isTop() const { return parent_ == (DNLID) DNLID_MAX; }
     const std::pair<DNLID, DNLID>& getChildren() const {
-        return _childrenIndexes;
+        return childrenIndexes_;
     }
     bool isLeaf() const {
-        return _childrenIndexes.first == _childrenIndexes.second;
+        return childrenIndexes_.first == childrenIndexes_.second;
     }
 
  private:
-    std::pair<DNLID, DNLID> _childrenIndexes;
-    const SNLInstance* _instance = nullptr;
-    DNLID _id = DNLID_MAX;
-    DNLID _parent = DNLID_MAX;
-    std::pair<DNLID, DNLID> _termsIndexes;
+    std::pair<DNLID, DNLID> childrenIndexes_;
+    const SNLInstance* instance_ { nullptr };
+    DNLID id_ = DNLID_MAX;
+    DNLID parent_ = DNLID_MAX;
+    std::pair<DNLID, DNLID> termsIndexes_;
 };
 
 class DNLTerminal {
@@ -71,16 +71,16 @@ class DNLTerminal {
     SNLInstTerm* getSnlTerm() const;
     SNLBitTerm* getSnlBitTerm() const;
     const DNLInstance& getDNLInstance() const;
-    bool isNull() const { return _id == (DNLID)DNLID_MAX; }
+    bool isNull() const { return id_ == (DNLID)DNLID_MAX; }
     void setIsoID(DNLID isoID);
     DNLID getIsoID() const;
     bool isTopPort() const { return _terminal == nullptr; }
 
  private:
-    SNLInstTerm* _terminal = nullptr;
-    SNLBitTerm* _bitTerminal = nullptr;
+    SNLInstTerm* _terminal { nullptr };
+    SNLBitTerm* _bitTerminal { nullptr };
     DNLID _DNLInstID = DNLID_MAX;
-    DNLID _id = DNLID_MAX;
+    DNLID id_ = DNLID_MAX;
     
 };
 
@@ -93,19 +93,19 @@ class DNLIso {
     virtual void addNet(SNLBitNet* net) {}
     
     virtual void display(std::ostream& stream = std::cout) const;
-    virtual DNLID getIsoID() const { return _id; }
+    virtual DNLID getIsoID() const { return id_; }
     virtual const std::vector<DNLID, tbb::scalable_allocator<DNLID>>& getDrivers() const {
-        return _drivers;
+        return drivers_;
     }
     virtual const std::vector<DNLID, tbb::scalable_allocator<DNLID>>& getReaders() const {
-        return _readers;
+        return readers_;
     }
 
  private:
-    std::vector<DNLID, tbb::scalable_allocator<DNLID>> _drivers;
-    std::vector<DNLID, tbb::scalable_allocator<DNLID>> _readers;
-    DNLID _id;
-    bool _isNull = true;
+    std::vector<DNLID, tbb::scalable_allocator<DNLID>> drivers_;
+    std::vector<DNLID, tbb::scalable_allocator<DNLID>> readers_;
+    DNLID id_;
+    bool isNull_ = true;
 };
 
 class DNLComplexIso : public DNLIso {
@@ -124,12 +124,12 @@ class DNLIsoDB {
     DNLIsoDB();
     void display() const;
     DNLIso& addIso();
-    DNLIso& getIsoFromIsoID(DNLID isoID) { return _isos[isoID]; }
-    const DNLIso& getIsoFromIsoIDconst(DNLID isoID) const { return _isos[isoID]; }
-    DNLID getNumIsos() const { return _isos.size(); }
+    DNLIso& getIsoFromIsoID(DNLID isoID) { return isos_[isoID]; }
+    const DNLIso& getIsoFromIsoIDconst(DNLID isoID) const { return isos_[isoID]; }
+    DNLID getNumIsos() const { return isos_.size(); }
     std::vector<DNLID> getFullIso(DNLID);
  private:
-    std::vector<DNLIso, tbb::scalable_allocator<DNLIso>> _isos;
+    std::vector<DNLIso, tbb::scalable_allocator<DNLIso>> isos_;
 };
 
 class DNLIsoDBBuilder {
@@ -139,11 +139,11 @@ class DNLIsoDBBuilder {
     void process();
 
  private:
-    DNLIso& addIsoToDB() { return _db.addIso(); }
+    DNLIso& addIsoToDB() { return db_.addIso(); }
     void treatDriver(const DNLTerminal& term, DNLIso& DNLIso);
-    DNLIsoDB& _db;
+    DNLIsoDB& db_;
     
-    std::vector<bool> _visited;
+    std::vector<bool> visited_;
 };
 
 class DNL {
@@ -155,56 +155,56 @@ class DNL {
     void display() const;
     const std::vector<DNLInstance, tbb::scalable_allocator<DNLInstance>>&
     getDNLInstances() const {
-        return _DNLInstances;
+        return DNLInstances_;
     }
     const std::vector<DNLID, tbb::scalable_allocator<DNLID>>& getLeaves() {
-        return _leaves;
+        return leaves_;
     }
     const std::vector<DNLTerminal, tbb::scalable_allocator<DNLTerminal>>&
     getDNLTerms() {
-        return _DNLTerms;
+        return DNLTerms_;
     }
     const DNLTerminal& getDNLTerminalFromID(DNLID id) const {
-        return _DNLTerms[id];
+        return DNLTerms_[id];
     }
-    DNLTerminal& getDNLTerminalFromID(DNLID id) { return _DNLTerms[id]; }
+    DNLTerminal& getDNLTerminalFromID(DNLID id) { return DNLTerms_[id]; }
     const DNLInstance& getDNLInstanceFromID(DNLID id) const {
-        return _DNLInstances[id];
+        return DNLInstances_[id];
     }
     DNLInstance& getNonConstDNLInstanceFromID(DNLID id) {
-        return _DNLInstances[id];
+        return DNLInstances_[id];
     }
-    const DNLTerminal& getDNLNullTerminal() const { return _DNLTerms.back(); }
-    DNLID getNBterms() const { return _DNLTerms.size(); }
-    const DNLInstance& getDNLNullInstance() const { return _DNLInstances.back(); }
-    const DNLIsoDB& getDNLIsoDB() const { return _fidb; }
+    const DNLTerminal& getDNLNullTerminal() const { return DNLTerms_.back(); }
+    DNLID getNBterms() const { return DNLTerms_.size(); }
+    const DNLInstance& getDNLNullInstance() const { return DNLInstances_.back(); }
+    const DNLIsoDB& getDNLIsoDB() const { return fidb_; }
     std::vector<DNLID> getLeavesUnder(DNLID parent) const;
-    const DNLInstance& getTop() const { return _DNLInstances[0]; }
+    const DNLInstance& getTop() const { return DNLInstances_[0]; }
     bool isInstanceChild(DNLID parent, DNLID child) const;
     std::vector<DNLID, tbb::scalable_allocator<DNLID>> getLeaves() const {
-        return _leaves;
+        return leaves_;
     }
     void initTermId2isoId() {
-        _termId2isoId = std::vector<DNLID>(_DNLTerms.size());
+        termId2isoId_ = std::vector<DNLID>(DNLTerms_.size());
     }
     void setIsoIdforTermId(DNLID isoId, DNLID termId) {
-        assert(termId < _termId2isoId.size());
-        _termId2isoId[termId] = isoId;
+        assert(termId < termId2isoId_.size());
+        termId2isoId_[termId] = isoId;
     }
     DNLID getIsoIdfromTermId(DNLID termId) const {
-        assert(termId < _termId2isoId.size());
-        return _termId2isoId[termId];
+        assert(termId < termId2isoId_.size());
+        return termId2isoId_[termId];
     }
 
  private:
     DNL(const SNLDesign* top);
     void process();
-    std::vector<DNLInstance, tbb::scalable_allocator<DNLInstance>> _DNLInstances;
-    std::vector<DNLID, tbb::scalable_allocator<DNLID>> _leaves;
-    const SNLDesign* _top;
-    std::vector<DNLTerminal, tbb::scalable_allocator<DNLTerminal>> _DNLTerms;
-    std::vector<DNLID> _termId2isoId;
-    DNLIsoDB _fidb;
+    std::vector<DNLInstance, tbb::scalable_allocator<DNLInstance>> DNLInstances_;
+    std::vector<DNLID, tbb::scalable_allocator<DNLID>> leaves_;
+    const SNLDesign* top_;
+    std::vector<DNLTerminal, tbb::scalable_allocator<DNLTerminal>> DNLTerms_;
+    std::vector<DNLID> termId2isoId_;
+    DNLIsoDB fidb_;
 };
 } 
 }

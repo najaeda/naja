@@ -2,18 +2,18 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "../../src/dnl/DNL.h"
+#include "DNL.h"
 #include "gtest/gtest.h"
 #include "tbb/scalable_allocator.h"
-#include "../../src/snl/snl/kernel/SNLUniverse.h"
-#include "../../src/snl/snl/kernel/SNLPath.h"
-#include "../../src/snl/snl/kernel/SNLScalarTerm.h"
-#include "../../src/snl/snl/kernel/SNLInstTerm.h"
-#include "../../src/snl/snl/kernel/SNLScalarNet.h"
-#include "../../src/snl/snl/kernel/SNLBitNetOccurrence.h"
-#include "../../src/snl/snl/kernel/SNLBitTermOccurrence.h"
-#include "../../src/snl/snl/kernel/SNLEquipotential.h"
-#include "../../src/snl/snl/kernel/SNLException.h"
+#include "SNLUniverse.h"
+#include "SNLPath.h"
+#include "SNLScalarTerm.h"
+#include "SNLInstTerm.h"
+#include "SNLScalarNet.h"
+#include "SNLBitNetOccurrence.h"
+#include "SNLBitTermOccurrence.h"
+#include "SNLEquipotential.h"
+#include "SNLException.h"
 
 using namespace naja::DNL;
 using namespace naja::SNL;
@@ -82,8 +82,8 @@ TEST_F(DNLTests, SNLDataAccessWith2levelsOfHierarchy) {
     SNLInstance* subinst = SNLInstance::create(mod, submod, SNLName("subinst"));
     //Create a DNL on top of the SNL
     DNL* dnl = DNL::create();
-    assert(dnl != nullptr);
-    assert(dnl->getTop().getSNLModel() != nullptr);
+    ASSERT_NE(dnl, nullptr);
+    ASSERT_NE(dnl->getTop().getSNLModel(), nullptr);
     //Validate the access to the SNL data
     DNLID modID = dnl->getTop().getID();
     DNLID inTermID = dnl->getTop().getTerminalFromBitTerm(inTerm).getID();
