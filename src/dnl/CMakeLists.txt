@@ -17,5 +17,6 @@ target_link_libraries(naja_dnl PUBLIC naja_core naja_snl tbb tbbmalloc)
 
 target_include_directories(naja_dnl SYSTEM BEFORE PUBLIC ${Boost_INCLUDE_DIR})
 target_include_directories(naja_dnl SYSTEM BEFORE PUBLIC ${TBB_INCLUDE_DIR})
+target_include_directories(naja_dnl PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 set_target_properties(naja_dnl PROPERTIES PUBLIC_HEADER "${SNL_HEADERS}")
 install(TARGETS naja_dnl LIBRARY DESTINATION lib PUBLIC_HEADER DESTINATION include) 
