@@ -555,7 +555,7 @@ SNLDesign* SNLDesign::uniquifyInterface(const SNLName& name) const {
 }
 
 SNLDesign* SNLDesign::uniquifyToLibrary(SNLLibrary* library, const SNLName& name) const {
-  if (not name.empty() and library->getDesign(getName())) {
+  if (not name.empty() and library->getDesign(name)) {
     std::string reason = "SNLLibrary " + library->getString() + " contains already a SNLDesign named: " + getName().getString();
     throw SNLException(reason);
   }
