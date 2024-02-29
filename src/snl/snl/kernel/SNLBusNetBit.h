@@ -43,6 +43,7 @@ class SNLBusNetBit final: public SNLBitNet {
     void destroyFromBus();
     void destroyFromDesign() override {} //LCOV_EXCL_LINE
     void preDestroy() override;
+    SNLNet* clone(SNLDesign* design) const override { return nullptr; } //LCOV_EXCL_LINE
     void setID(SNLID::DesignObjectID id) override {} //LCOV_EXCL_LINE
 
     SNLBusNet*  bus_;

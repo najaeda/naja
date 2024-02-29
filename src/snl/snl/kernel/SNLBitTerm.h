@@ -11,6 +11,7 @@ namespace naja { namespace SNL {
 
 class SNLBitTerm: public SNLTerm {
   public:
+    friend class SNLBitNet;
     using super = SNLTerm;
     
     //Allows to compare SNLBitTerms in the same design.

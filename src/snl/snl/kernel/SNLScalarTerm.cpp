@@ -88,6 +88,10 @@ void SNLScalarTerm::preDestroy() {
   getDesign()->removeTerm(this);
 }
 
+SNLTerm* SNLScalarTerm::clone(SNLDesign* design) const {
+  return new SNLScalarTerm(design, id_, direction_, name_);
+}
+
 DESIGN_OBJECT_SET_NAME(SNLScalarTerm, Term, term)
 
 SNLID SNLScalarTerm::getSNLID() const {

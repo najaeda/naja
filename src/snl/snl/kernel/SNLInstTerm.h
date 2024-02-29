@@ -16,6 +16,7 @@ class SNLBitTerm;
 class SNLInstTerm final: public SNLNetComponent {
   public:
     friend class SNLInstance;
+    friend class SNLBitNet;
     using super = SNLNetComponent;
     SNLInstTerm() = delete;
 

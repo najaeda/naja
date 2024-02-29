@@ -56,6 +56,7 @@ class SNLTerm: public SNLNetComponent {
     virtual void setFlatID(size_t flatID) = 0;
     boost::intrusive::set_member_hook<> designTermsHook_  {};
     virtual void destroyFromDesign() = 0;
+    virtual SNLTerm* clone(SNLDesign* design) const = 0;
 };
 
 }} // namespace SNL // namespace naja

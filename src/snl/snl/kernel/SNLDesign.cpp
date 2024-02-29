@@ -236,9 +236,7 @@ void SNLDesign::removeTerm(SNLTerm* term) {
 }
 
 SNLTerm* SNLDesign::getTerm(SNLID::DesignObjectID id) const {
-  auto it = terms_.find(
-      SNLID(SNLID::Type::Term, getDB()->getID(), getLibrary()->getID(), getID(), id, 0, 0),
-      SNLIDComp<SNLTerm>());
+  auto it = terms_.find(id, CompareByID<SNLTerm>());
   if (it != terms_.end()) {
     return const_cast<SNLTerm*>(&*it);
   }
@@ -332,9 +330,7 @@ NajaCollection<SNLInstance*> SNLDesign::getNonPrimitiveInstances() const {
 }
 
 SNLInstance* SNLDesign::getInstance(SNLID::DesignObjectID id) const {
-  auto it = instances_.find(
-      SNLID(SNLID::Type::Instance, getDB()->getID(), getLibrary()->getID(), getID(), 0, id, 0),
-      SNLIDComp<SNLInstance>());
+  auto it = instances_.find(id, CompareByID<SNLInstance>());
   if (it != instances_.end()) {
     return const_cast<SNLInstance*>(&*it);
   }
@@ -392,9 +388,7 @@ DESIGN_RENAME(SNLNet, Net, netNameIDMap_)
 DESIGN_RENAME(SNLInstance, Instance, instanceNameIDMap_)
 
 SNLNet* SNLDesign::getNet(SNLID::DesignObjectID id) const {
-  auto it = nets_.find(
-      SNLID(SNLID::Type::Net, getDB()->getID(), getLibrary()->getID(), getID(), id, 0, 0),
-      SNLIDComp<SNLNet>());
+  auto it = nets_.find(id, CompareByID<SNLNet>());
   if (it != nets_.end()) {
     return const_cast<SNLNet*>(&*it);
   }
@@ -530,6 +524,65 @@ void SNLDesign::mergeAssigns() {
   for (auto assignInstance: assignInstances) {
     assignInstance->destroy();
   }
+}
+
+SNLDesign* SNLDesign::uniquifyInterfaceToLibrary(SNLLibrary* library, const SNLName& name) const {
+  if (isPrimitive()) {
+    throw SNLException("uniquifyToLibrary cannot be called on primitive designs");
+  }
+  auto newDesign = SNLDesign::create(library, Type::Standard, name);
+  newDesign->terms_.clone_from(
+    terms_,
+    [newDesign](const SNLTerm& term){
+      return term.clone(newDesign);
+    },
+    [](SNLTerm*){} //LCOV_EXCL_LINE
+  );
+  newDesign->termNameIDMap_ = termNameIDMap_;
+  //clone parameters
+  newDesign->parameters_.clone_from(
+    parameters_,
+    [newDesign](const SNLParameter& parameter){ 
+      return new SNLParameter(newDesign, parameter.name_, parameter.type_, parameter.value_);
+    },
+    [](SNLParameter*){} //LCOV_EXCL_LINE
+  );
+  return newDesign;
+}
+
+SNLDesign* SNLDesign::uniquifyInterface(const SNLName& name) const {
+  return uniquifyInterfaceToLibrary(getLibrary(), name);
+}
+
+SNLDesign* SNLDesign::uniquifyToLibrary(SNLLibrary* library, const SNLName& name) const {
+  if (not name.empty() and library->getDesign(name)) {
+    std::string reason = "SNLLibrary " + library->getString() + " contains already a SNLDesign named: " + getName().getString();
+    throw SNLException(reason);
+  }
+
+  //start with interface uniquification
+  auto newDesign = uniquifyInterfaceToLibrary(library, name);
+  //clone instances
+  newDesign->instances_.clone_from(
+    instances_,
+    [newDesign](const SNLInstance& instance){ return instance.clone(newDesign); },
+    [](SNLInstance*){} //LCOV_EXCL_LINE
+  );
+  newDesign->instanceNameIDMap_ = instanceNameIDMap_;
+
+  //clone nets
+  newDesign->nets_.clone_from(
+    nets_,
+    [newDesign](const SNLNet& net){ return net.clone(newDesign); },
+    [](SNLNet*){} //LCOV_EXCL_LINE
+  );
+  newDesign->netNameIDMap_ = netNameIDMap_;
+
+  return newDesign;
+}
+
+SNLDesign* SNLDesign::uniquify(const SNLName& name) const {
+  return uniquifyToLibrary(getLibrary(), name);
 }
 
 //LCOV_EXCL_START

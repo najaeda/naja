@@ -125,6 +125,10 @@ void SNLBusNet::preDestroy() {
   getDesign()->removeNet(this);
 }
 
+SNLNet* SNLBusNet::clone(SNLDesign* design) const {
+  return new SNLBusNet(design, id_, msb_, lsb_, name_);
+}
+
 SNLID::Bit SNLBusNet::getSize() const {
   return SNLUtils::getSize(getMSB(), getLSB());
 }

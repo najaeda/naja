@@ -50,6 +50,7 @@ class SNLBusTermBit final: public SNLBitTerm {
     void postCreate();
     void destroyFromBus();
     void destroyFromDesign() override {} //LCOV_EXCL_LINE
+    SNLTerm* clone(SNLDesign* design) const override { return nullptr; } //LCOV_EXCL_LINE
     void preDestroy() override;
 
     SNLBusTerm* bus_;
