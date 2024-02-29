@@ -242,6 +242,10 @@ TEST_F(DNLTests, SNLDataAccessWith3levelsOfHierarchyAndIsoDB) {
     EXPECT_EQ(dnl->isInstanceChild(1, 0), false);
     EXPECT_EQ(dnl->isInstanceChild(2, 0), false);
     EXPECT_EQ(dnl->isInstanceChild(2, 1), false);
+    dnl->display();
+    dnl->getTop().getChildInstance(subinst).display();
+    EXPECT_EQ(dnl->getDNLNullInstance().isNull(), true);
+    EXPECT_EQ(dnl->getDNLNullTerminal().isNull(), true);
     //Destroy the DNL
     destroy();
 }

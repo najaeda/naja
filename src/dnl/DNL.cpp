@@ -160,7 +160,6 @@ const DNLTerminalFull& DNLInstanceFull::getTerminalFromBitTerm(
   return (*get()).getDNLNullTerminal();
 }
 
-DNLTerminalFull::DNLTerminalFull(DNLID id) : id_(id){};
 DNLTerminalFull::DNLTerminalFull(DNLID DNLInstID, SNLInstTerm* terminal, DNLID id)
     : DNLInstID_(DNLInstID), terminal_(terminal), id_(id){};
 

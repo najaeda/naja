@@ -84,6 +84,7 @@ class DNLInstanceFull {
 
 class DNLTerminalFull {
  public:
+  DNLTerminalFull() = default;
   DNLTerminalFull(DNLID id);
   DNLTerminalFull(DNLID DNLInstID, SNLInstTerm* terminal, DNLID id);
   DNLTerminalFull(DNLID DNLInstID, SNLBitTerm* terminal, DNLID id);
