@@ -34,14 +34,14 @@ DNLInstance::DNLInstance(const SNLInstance* instance, DNLID id, DNLID parent)
 
 void DNLInstance::display() const {
   if (isTop()) {
-    printf("DNLInstance ID %lu %s\n", getID(), "Is Top.");
+    printf("DNLInstance ID %zu %s\n", getID(), "Is Top.");
     return;
   }
-  printf("DNLInstance ID %lu %s\n", getID(),
+  printf("DNLInstance ID %zu %s\n", getID(),
          getSNLInstance()->getString().c_str());
   for (DNLID term = getTermIndexes().first; term < getTermIndexes().second;
        term++) {
-    printf("- DNLTerm %lu %d %s\n", term,
+    printf("- DNLTerm %zu %d %s\n", term,
            (int)(*DNL::get())
                .getDNLTerminalFromID(term)
                .getSnlTerm()
@@ -87,8 +87,8 @@ const DNLInstance& DNLInstance::getChildInstance(
 #ifdef DEBUG_PRINTS
   // LCOV_EXCL_START
   printf(
-      "DNLInstance::getChildInstance - DNLID of Instance %lu First child "
-      "index: %lu Last child index: %lu Is Top: %d\n",
+      "DNLInstance::getChildInstance - DNLID of Instance %zu First child "
+      "index: %zu Last child index: %zu Is Top: %d\n",
       id_, childrenIndexes_.first, childrenIndexes_.second, (int)isTop());
   // LCOV_EXCL_STOP
 #endif
@@ -325,10 +325,10 @@ void DNLIsoDBBuilder::process() {
   }
 #ifdef DEBUG_PRINTS
   // LCOV_EXCL_START
-  printf("num fi %lu\n", (*DNL::get()).getDNLInstances().size());
-  printf("num ft %lu\n", (*DNL::get()).getDNLTerms().size());
-  printf("num leaves %lu\n", (*DNL::get()).getLeaves().size());
-  printf("num isos %lu\n", db_.getNumIsos());
+  printf("num fi %zu\n", (*DNL::get()).getDNLInstances().size());
+  printf("num ft %zu\n", (*DNL::get()).getDNLTerms().size());
+  printf("num leaves %zu\n", (*DNL::get()).getLeaves().size());
+  printf("num isos %zu\n", db_.getNumIsos());
   // LCOV_EXCL_STOP
 #endif
 }
@@ -406,7 +406,7 @@ void DNLIsoDBBuilder::treatDriver(const DNLTerminal& term, DNLIso& DNLIso) {
 #ifdef DEBUG_PRINTS
     // LCOV_EXCL_START
     printf("---------------------------------\n");
-    printf("DNLIsoDBBuilder::treatDriver - Visiting '%lu %p %s %s\n", id, fterm.getSnlTerm()->getInstance(),
+    printf("DNLIsoDBBuilder::treatDriver - Visiting '%zu %p %s %s\n", id, fterm.getSnlTerm()->getInstance(),
            fterm.getSnlTerm()->getString().c_str(),
            fterm.getSnlTerm()->getDirection().getString().c_str());
     // LCOV_EXCL_STOP
@@ -482,10 +482,10 @@ void DNLIsoDBBuilder::treatDriver(const DNLTerminal& term, DNLIso& DNLIso) {
                                                  .getTerminal(instTerm);
 #ifdef DEBUG_PRINTS
       // LCOV_EXCL_START
-      printf("DNLIsoDBBuilder::treatDriver - Visiting snl it %lu %p %s %s\n", ftermNew.getID(), termSnlInst,
+      printf("DNLIsoDBBuilder::treatDriver - Visiting snl it %zu %p %s %s\n", ftermNew.getID(), termSnlInst,
              instTerm->getString().c_str(),
              instTerm->getDirection().getString().c_str());
-      printf("DNLIsoDBBuilder::treatDriver - Visiting DNL it %lu %p %s %s\n", ftermNew.getID(),
+      printf("DNLIsoDBBuilder::treatDriver - Visiting DNL it %zu %p %s %s\n", ftermNew.getID(),
              ftermNew.getSnlTerm(), ftermNew.getSnlTerm()->getString().c_str(),
              ftermNew.getSnlTerm()->getDirection().getString().c_str());
       // LCOV_EXCL_STOP
@@ -550,7 +550,7 @@ void DNLIsoDBBuilder::treatDriver(const DNLTerminal& term, DNLIso& DNLIso) {
         DNLParent->getParentInstance().display();
       }
 
-      printf("DNLIsoDBBuilder::treatDriver - Visiting bt %lu %p %s %s\n",
+      printf("DNLIsoDBBuilder::treatDriver - Visiting bt %zu %p %s %s\n",
              DNLParent->getTerminalFromBitTerm(bitTerm).getID(), bitTerm,
              bitTerm->getString().c_str(),
              bitTerm->getDirection().getString().c_str());
@@ -596,11 +596,11 @@ void DNL::display() const {
   for (const DNLInstance& inst : DNLInstances_) {
     if (inst.getSNLInstance() == nullptr)
       continue;  // top
-    printf("fi %lu %s\n", inst.getID(),
+    printf("fi %zu %s\n", inst.getID(),
            inst.getSNLInstance()->getString().c_str());
     for (DNLID term = inst.getTermIndexes().first;
          term < inst.getTermIndexes().second; term++) {
-      printf("- ft %lu %d %s\n", term,
+      printf("- ft %zu %d %s\n", term,
              (int)getDNLTerminalFromID(term).getSnlTerm()->getDirection(),
              getDNLTerminalFromID(term).getSnlTerm()->getString().c_str());
     }
@@ -672,7 +672,7 @@ void DNL::process() {
         leaves_.push_back(DNLInstances_.back().getID());
 #ifdef DEBUG_PRINTS
         // LCOV_EXCL_START
-        printf("DNL::process - Pushing to leaf instances with DNLID: %lu Instance name: -%s\n", DNLInstances_.back().getID(),
+        printf("DNL::process - Pushing to leaf instances with DNLID: %zu Instance name: -%s\n", DNLInstances_.back().getID(),
                inst->getName().getString().c_str());
         // LCOV_EXCL_STOP
 #endif
@@ -684,7 +684,7 @@ void DNL::process() {
             DNLTerminal(DNLInstances_.back().getID(), term, DNLTerms_.size()));
 #ifdef DEBUG_PRINTS
         // LCOV_EXCL_START
-        printf("DNL::process - DNLTerm with DNLID: %lu for SNLInstanceTerm: %s\n", DNLTerms_.back().getID(),
+        printf("DNL::process - DNLTerm with DNLID: %zu for SNLInstanceTerm: %s\n", DNLTerms_.back().getID(),
                term->getString().c_str());
         // LCOV_EXCL_STOP
 #endif
