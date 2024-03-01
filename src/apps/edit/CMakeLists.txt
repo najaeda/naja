@@ -6,5 +6,6 @@ add_executable(naja_edit NajaEdit.cpp)
 target_include_directories(naja_edit SYSTEM BEFORE PUBLIC ${Boost_INCLUDE_DIR})
 target_include_directories(naja_edit PUBLIC ${ARGPARSE_DIR} ${SPDLOG_DIR})
 target_link_libraries(naja_edit
+    naja_snl_fpga_interchange_format
     naja_snl_verilog naja_snl_pyloader naja_snl_dump)
 install(TARGETS naja_edit DESTINATION bin) 

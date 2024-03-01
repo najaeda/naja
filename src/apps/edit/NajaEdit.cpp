@@ -20,18 +20,21 @@
 
 #include "SNLUniverse.h"
 #include "SNLCapnP.h"
+#include "SNLFIFNetlist.h"
 
 using namespace naja::SNL;
 
 namespace {
 
-enum class FormatType { UNKNOWN, VERILOG, SNL };
+enum class FormatType { UNKNOWN, VERILOG, SNL, FIF };
 
 FormatType argToFormatType(const std::string& inputFormat) {
   if (inputFormat == "verilog") {
     return FormatType::VERILOG;
   } else if (inputFormat == "snl") {
     return FormatType::SNL;
+  } else if (inputFormat == "fif") {
+    return FormatType::FIF;
   } else {
     return FormatType::UNKNOWN;
   }
@@ -109,14 +112,14 @@ int main(int argc, char* argv[]) {
 
   std::filesystem::path primitivesPath;
   if (auto primitives = program.present("-p")) {
-    if (inputFormatType == FormatType::SNL) {
-      spdlog::critical("primitives option (-p) is incompatible with input format 'SNL'");
+    if (inputFormatType == FormatType::SNL or inputFormatType == FormatType::FIF) {
+      spdlog::critical("primitives option (-p) is incompatible with input format 'SNL' or 'FIF'");
       argError = true;
     }
     primitivesPath = std::filesystem::path(*primitives);
   } else {
-    if (inputFormatType != FormatType::SNL) {
-      spdlog::critical("primitives option (-p) is mandatory when the input format is not 'SNL'");
+    if (inputFormatType != FormatType::SNL and inputFormatType != FormatType::FIF) {
+      spdlog::critical("primitives option (-p) is mandatory when the input format is not 'SNL' and not 'FIF'");
       argError = true;
     }
   }
@@ -162,6 +165,9 @@ int main(int argc, char* argv[]) {
       } else {
         spdlog::error("No top design was found after parsing verilog");
       }
+    } if (inputFormatType == FormatType::FIF) {
+      db = SNLFIFNetlist::load(inputPath);
+      SNLUniverse::get()->setTopDesign(db->getTopDesign());
     } else {
       spdlog::critical("Unrecognized input format type: {}", inputFormat);
       std::exit(EXIT_FAILURE);

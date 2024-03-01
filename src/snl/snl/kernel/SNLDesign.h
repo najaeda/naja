@@ -172,6 +172,8 @@ class SNLDesign final: public SNLObject {
     bool deepCompare(const SNLDesign* design, std::string& reason) const;
     void mergeAssigns();
 
+    static bool isBetween(int n, int MSB, int LSB);
+
     const char* getTypeName() const override;
     std::string getString() const override;
     std::string getDescription() const override;
@@ -202,7 +204,6 @@ class SNLDesign final: public SNLObject {
     void rename(SNLInstance* instance, const SNLName& previousName);
     void addParameter(SNLParameter* parameter);
     void removeParameter(SNLParameter* parameter);
-    static bool isBetween(int n, int MSB, int LSB);
 
     friend bool operator< (const SNLDesign& ld, const SNLDesign& rd) {
       return ld.getSNLID() < rd.getSNLID();
