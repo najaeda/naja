@@ -32,3 +32,10 @@ Files: thirdparty/spdlog-1.13.0/*
 Source: https://github.com/gabime/spdlog 
 Copyright: 2016 Gabi Melman.
 License: MIT
+
+
+Files: thirdparty/fpga-interchange-schema/*
+Source: https://github.com/chipsalliance/fpga-interchange-schema
+Copyright: 2020-2021 Xilinx, Inc. and Google, Inc.
+
+License: Apache-2.0
