@@ -47,7 +47,7 @@ jobs:
     - name: CreateDirs
       run: |
            mkdir -p ${{env.NAJA_INSTALL}} 
-           mkdir -p ${{github.workspace}}/snlapp
+           mkdir -p ${{github.workspace}}/naja_app
 
     - name: Install
       working-directory: ${{github.workspace}}/build
