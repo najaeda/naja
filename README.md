@@ -134,7 +134,7 @@ This [snippet](https://github.com/xtofalex/naja/blob/main/src/snl/snippets/app/s
 ### Python
 This [snippet](https://github.com/xtofalex/naja/blob/main/src/snl/snippets/python/snl_snippet.py) shows an equivalent example using Python interface.
 ### Application snippet
-An application snippet can be found [here](https://github.com/xtofalex/naja/blob/main/src/snl/snippets/app).
+An application snippet can be found [here](https://github.com/xtofalex/naja/blob/main/src/app_snippet).
 
 This "app" directory and its contents can be copied to start a new application.
 
