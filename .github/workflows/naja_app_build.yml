@@ -1,4 +1,4 @@
-name: snl_app_build
+name: naja_app_build
 
 on:
   push:
@@ -54,18 +54,18 @@ jobs:
       run: make install
       
     - name: CopySnippetApp
-      working-directory: ${{github.workspace}}/snlapp
-      run: cp -R ${{github.workspace}}/src/snl/snippets/app .
+      working-directory: ${{github.workspace}}/naja_app
+      run: cp -R ${{github.workspace}}/src/app_snippet .
 
     - name: ConfigureSnippetApp
-      working-directory: ${{github.workspace}}/snlapp/app
-      run: cmake -B ${{github.workspace}}/snlapp/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
+      working-directory: ${{github.workspace}}/naja_app/app_snippet
+      run: cmake -B ${{github.workspace}}/naja_app/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
 
     - name: BuildSnippetApp
-      run: cmake --build ${{github.workspace}}/snlapp/build -j 4 --config ${{env.BUILD_TYPE}}
+      run: cmake --build ${{github.workspace}}/naja_app/build -j 4 --config ${{env.BUILD_TYPE}}
 
     - name: ExecuteSnippetApp
-      working-directory: ${{github.workspace}}/snlapp/build/src
+      working-directory: ${{github.workspace}}/naja_app/build/src
       env:
         LD_LIBRARY_PATH: ${{env.LD_LIBRARY_PATH}}:${{env.NAJA_INSTALL}}/lib
-      run: ./snl_app
+      run: ./naja_app
