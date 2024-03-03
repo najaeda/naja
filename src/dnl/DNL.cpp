@@ -29,14 +29,15 @@ namespace naja::DNL {
 DNL<DNLInstanceFull, DNLTerminalFull>* dnlFull_ = nullptr;
 DNL<DNLInstanceFull, DNLTerminalFull>* create() {
   assert(SNLUniverse::get());
-  dnlFull_ = new DNL<DNLInstanceFull, DNLTerminalFull>(SNLUniverse::get()->getTopDesign());
+  dnlFull_ = new DNL<DNLInstanceFull, DNLTerminalFull>(
+      SNLUniverse::get()->getTopDesign());
   dnlFull_->process();
   return dnlFull_;
 }
 
- DNL<DNLInstanceFull, DNLTerminalFull>* get() {
+DNL<DNLInstanceFull, DNLTerminalFull>* get() {
   if (dnlFull_ == nullptr) {
-    dnlFull_ =  create();
+    dnlFull_ = create();
   }
   return dnlFull_;
 }
@@ -45,9 +46,11 @@ void destroy() {
   delete dnlFull_;
   dnlFull_ = nullptr;
 }
-}
+}  // namespace naja::DNL
 
-DNLInstanceFull::DNLInstanceFull(const SNLInstance* instance, DNLID id, DNLID parent)
+DNLInstanceFull::DNLInstanceFull(const SNLInstance* instance,
+                                 DNLID id,
+                                 DNLID parent)
     : instance_(instance), id_(id), parent_(parent) {}
 
 void DNLInstanceFull::display() const {
@@ -59,16 +62,10 @@ void DNLInstanceFull::display() const {
          getSNLInstance()->getString().c_str());
   for (DNLID term = getTermIndexes().first; term < getTermIndexes().second;
        term++) {
-    printf("- DNLTerm %zu %d %s\n", term,
-           (int)(*get())
-               .getDNLTerminalFromID(term)
-               .getSnlTerm()
-               ->getDirection(),
-           (*get())
-               .getDNLTerminalFromID(term)
-               .getSnlTerm()
-               ->getString()
-               .c_str());
+    printf(
+        "- DNLTerm %zu %d %s\n", term,
+        (int)(*get()).getDNLTerminalFromID(term).getSnlTerm()->getDirection(),
+        (*get()).getDNLTerminalFromID(term).getSnlTerm()->getString().c_str());
   }
 }
 
@@ -93,7 +90,8 @@ const SNLDesign* DNLInstanceFull::getSNLModel() const {
 const SNLInstance* DNLInstanceFull::getSNLInstance() const {
   return instance_;
 }
-void DNLInstanceFull::setTermsIndexes(const std::pair<DNLID, DNLID>& termsIndexes) {
+void DNLInstanceFull::setTermsIndexes(
+    const std::pair<DNLID, DNLID>& termsIndexes) {
   termsIndexes_ = termsIndexes;
 }
 void DNLInstanceFull::setChildrenIndexes(
@@ -115,9 +113,16 @@ const DNLInstanceFull& DNLInstanceFull::getChildInstance(
 #ifdef DEBUG_PRINTS
     // LCOV_EXCL_START
     printf(
-        "DNLInstanceFull::getChildInstance - Searched child SNL Instance: %p Found "
-        "child SNL instance %p\n",
-        (void*) snlInst, (void*) (*get()).getDNLInstanceFromID(child).getSNLInstance());
+        "DNLInstanceFull::getChildInstance - Searched child SNL Instance: %s "
+        "Found "
+        "child SNL instance %s\n",
+        snlInst->getName().getString().c_str(),
+        (*get())
+            .getDNLInstanceFromID(child)
+            .getSNLInstance()
+            ->getName()
+            .getString()
+            .c_str());
     // LCOV_EXCL_STOP
 #endif
     if ((*get()).getDNLInstanceFromID(child).getSNLInstance() == snlInst) {
@@ -131,7 +136,8 @@ const DNLInstanceFull& DNLInstanceFull::getChildInstance(
 #endif
   return (*get()).getDNLNullInstance();
 }
-const DNLTerminalFull& DNLInstanceFull::getTerminal(const SNLInstTerm* snlTerm) const {
+const DNLTerminalFull& DNLInstanceFull::getTerminal(
+    const SNLInstTerm* snlTerm) const {
   for (DNLID term = termsIndexes_.first; term < termsIndexes_.second; term++) {
     if ((*get()).getDNLTerminalFromID(term).getSnlTerm() == snlTerm) {
       return (*get()).getDNLTerminalFromID(term);
@@ -159,10 +165,17 @@ const DNLTerminalFull& DNLInstanceFull::getTerminalFromBitTerm(
   return (*get()).getDNLNullTerminal();
 }
 
-DNLTerminalFull::DNLTerminalFull(DNLID DNLInstID, SNLInstTerm* terminal, DNLID id)
-    : DNLInstID_(DNLInstID), terminal_(terminal), bitTerminal_(terminal->getTerm()), id_(id){};
+DNLTerminalFull::DNLTerminalFull(DNLID DNLInstID,
+                                 SNLInstTerm* terminal,
+                                 DNLID id)
+    : DNLInstID_(DNLInstID),
+      terminal_(terminal),
+      bitTerminal_(terminal->getTerm()),
+      id_(id){};
 
-DNLTerminalFull::DNLTerminalFull(DNLID DNLInstID, SNLBitTerm* terminal, DNLID id)
+DNLTerminalFull::DNLTerminalFull(DNLID DNLInstID,
+                                 SNLBitTerm* terminal,
+                                 DNLID id)
     : DNLInstID_(DNLInstID), bitTerminal_(terminal), id_(id){};
 DNLID DNLTerminalFull::getID() const {
   return id_;
