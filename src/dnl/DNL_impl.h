@@ -8,7 +8,7 @@
 
 #include "DNL.h"
 
-//#define DEBUG_PRINTS
+// #define DEBUG_PRINTS
 
 DNLIso::DNLIso(DNLID id) : id_(id){};
 
@@ -222,9 +222,9 @@ template <class DNLInstance, class DNLTerminal>
 void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::treatDriver(
     const DNLTerminal& term,
     DNLIso& DNLIso) {
-  #ifdef DEBUG_PRINTS
+#ifdef DEBUG_PRINTS
   printf("------------------------treatDriver-----------------------\n");
-  #endif
+#endif
   std::stack<DNLID> stack;
   if (term.getDNLInstance().isTop()) {
     assert(term.getSnlBitTerm()->getDirection() ==
@@ -347,7 +347,7 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::treatDriver(
       //-------------------------------- Input of hierarchical instance
       //------------------------------
       //-------------------------------- Go down into the instance model and
-      //process the net ------------------------------
+      // process the net ------------------------------
       snlNet = fterm.getSnlTerm()->getTerm()->getNet();
       DNLParent = &fterm.getDNLInstance();
       goDown = true;
@@ -633,7 +633,8 @@ bool DNL<DNLInstance, DNLTerminal>::isInstanceChild(DNLID parent,
   if (parent == 0) {
     return true;
   }
-  while (getDNLInstanceFromID(inst).getParentID() != 0 &&  getDNLInstanceFromID(inst).getParentID() != DNLID_MAX) {
+  while (getDNLInstanceFromID(inst).getParentID() != 0 &&
+         getDNLInstanceFromID(inst).getParentID() != DNLID_MAX) {
     if (parent == inst) {
       return true;
     }
