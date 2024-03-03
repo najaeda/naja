@@ -106,12 +106,12 @@ class DNLTerminalFull {
 
 class DNLIso {
  public:
-  DNLIso(DNLID id);
+  DNLIso(DNLID id = DNLID_MAX);
+  void setId(DNLID id) { id_ = id; }
   virtual void addDriver(DNLID driver);
   virtual void addReader(DNLID reader);
   virtual void addHierTerm(DNLID hier) {}
   virtual void addNet(SNLBitNet* net) {}
-
   virtual void display(std::ostream& stream = std::cout) const;
   virtual DNLID getIsoID() const { return id_; }
   virtual const std::vector<DNLID, tbb::scalable_allocator<DNLID>>& getDrivers()
@@ -132,11 +132,11 @@ class DNLIso {
 
 class DNLComplexIso : public DNLIso {
  public:
-  DNLComplexIso(DNLID id) : DNLIso(id) {}
+  DNLComplexIso(DNLID id = DNLID_MAX) : DNLIso(id) {}
   void addNet(SNLBitNet* net) { _nets.insert(net); }
   const std::set<SNLBitNet*>& getNets() const { return _nets; }
   void addHierTerm(DNLID hier) { _hierTerms.push_back(hier); }
-
+  const std::vector<DNLID, tbb::scalable_allocator<DNLID>>& getHierTerms() { return _hierTerms; }
  private:
   std::set<SNLBitNet*> _nets;
   std::vector<DNLID, tbb::scalable_allocator<DNLID>> _hierTerms;
@@ -160,14 +160,12 @@ template <class DNLInstance, class DNLTerminal>
 class DNLIsoDBBuilder {
  public:
   DNLIsoDBBuilder(DNLIsoDB& db, DNL<DNLInstance, DNLTerminal>& dnl);
-
+  void treatDriver(const DNLTerminal& term, DNLIso& DNLIso);
   void process();
 
  private:
   DNLIso& addIsoToDB() { return db_.addIso(); }
-  void treatDriver(const DNLTerminal& term, DNLIso& DNLIso);
   DNLIsoDB& db_;
-
   DNL<DNLInstance, DNLTerminal> dnl_;
   std::vector<bool> visited_;
 };
@@ -178,6 +176,7 @@ class DNL {
   DNL(const SNLDesign* top);
   void process();
   void display() const;
+  void getCustomIso(DNLID dnlIsoId, DNLIso& DNLIso);
   const std::vector<DNLInstance, tbb::scalable_allocator<DNLInstance>>&
   getDNLInstances() const {
     return DNLInstances_;

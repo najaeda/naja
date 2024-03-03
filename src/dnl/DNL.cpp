@@ -117,7 +117,7 @@ const DNLInstanceFull& DNLInstanceFull::getChildInstance(
     printf(
         "DNLInstanceFull::getChildInstance - Searched child SNL Instance: %p Found "
         "child SNL instance %p\n",
-        snlInst, (*get()).getDNLInstanceFromID(child).getSNLInstance());
+        (void*) snlInst, (void*) (*get()).getDNLInstanceFromID(child).getSNLInstance());
     // LCOV_EXCL_STOP
 #endif
     if ((*get()).getDNLInstanceFromID(child).getSNLInstance() == snlInst) {
@@ -151,7 +151,6 @@ const DNLTerminalFull& DNLInstanceFull::getTerminalFromBitTerm(
       return (*get()).getDNLTerminalFromID(term);
     }
   }
-  assert(false);
 #ifdef DEBUG_PRINTS
   // LCOV_EXCL_START
   printf("DNLInstanceFull::getTerminalFromBitTerm - Return null terminal\n");
@@ -161,7 +160,7 @@ const DNLTerminalFull& DNLInstanceFull::getTerminalFromBitTerm(
 }
 
 DNLTerminalFull::DNLTerminalFull(DNLID DNLInstID, SNLInstTerm* terminal, DNLID id)
-    : DNLInstID_(DNLInstID), terminal_(terminal), id_(id){};
+    : DNLInstID_(DNLInstID), terminal_(terminal), bitTerminal_(terminal->getTerm()), id_(id){};
 
 DNLTerminalFull::DNLTerminalFull(DNLID DNLInstID, SNLBitTerm* terminal, DNLID id)
     : DNLInstID_(DNLInstID), bitTerminal_(terminal), id_(id){};
