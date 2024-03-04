@@ -76,7 +76,7 @@ add_subdirectory(test)
 # Doxygen
 # look for Doxygen package
 find_package(Doxygen)
-if(DOXYGEN_FOUND)
+if(DOXYGEN_FOUND )
   add_subdirectory(docs)
 endif(DOXYGEN_FOUND)
 endif(PROJECT_IS_TOP_LEVEL)
