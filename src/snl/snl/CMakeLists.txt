@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 add_subdirectory(serialization)
+add_subdirectory(visual)
 
 set(SNL_KERNEL_SOURCES
   kernel/SNLObject.cpp
