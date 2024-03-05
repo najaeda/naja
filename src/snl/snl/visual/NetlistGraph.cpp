@@ -2,6 +2,7 @@
 // <https://github.com/xtofalex/naja/blob/main/AUTHORS>
 //
 // SPDX-License-Identifier: Apache-2.0
+
 #include "NetlistGraph.h"
 
 using namespace naja::SNL;

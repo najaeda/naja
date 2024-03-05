@@ -3,6 +3,7 @@
 // <https://github.com/xtofalex/naja/blob/main/AUTHORS>
 //
 // SPDX-License-Identifier: Apache-2.0
+
 #ifndef NETLIST_GTAPH_IMPL_H
 #define NETLIST_GTAPH_IMPL_H
 
