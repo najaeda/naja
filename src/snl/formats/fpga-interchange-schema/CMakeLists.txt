@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
+# SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -16,6 +16,7 @@ add_library(naja_snl_fpga_interchange_format
     ${snlFIFLogicalNetlistSources}
     ${snlFIFPhysicalNetlistSources}
     SNLFIFLogicalNetlist.cpp
+    FIFPhysicalNetlist.cpp
 )
 
 target_link_libraries(naja_snl_fpga_interchange_format PRIVATE CapnProto::capnp )
