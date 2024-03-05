@@ -203,7 +203,6 @@ class NetlistGraph {
       return;
     }
     size_t net = (size_t) -1;
-    bool isBus = false;
     { net = bitNet; }
     auto it = nets.find(net);
     if (it == nets.end()) {

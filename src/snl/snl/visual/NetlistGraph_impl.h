@@ -37,7 +37,6 @@ void NetlistGraph<InstData, PortData, WireData, BusData>::dumpDotFileRec(
     InstNode<InstData>* node,
     std::fstream& myfile,
     size_t& i) {
-  size_t j = i;
   if (node != &getInst(_top) || true) {
     if (node == &getInst(_top)) {
       myfile << "subgraph cluster_" << i << " {" << std::endl;
