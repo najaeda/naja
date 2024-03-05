@@ -2,21 +2,18 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-set(NETLIST_GTAPH_SOURCES
+set(NETLIST_GRAPH_SOURCES
   NetlistGraph.cpp
 )
-set(NETLIST_GTAPH_HEADERS
+set(NETLIST_GRAPH_HEADERS
   NetlistGraph.h NetlistGraph_impl.h
 )
 
-add_library(naja_visual SHARED ${NETLIST_GTAPH_SOURCES})
+add_library(naja_snl_visual SHARED ${NETLIST_GRAPH_SOURCES})
 
-target_link_libraries(naja_visual PUBLIC naja_core naja_snl tbb tbbmalloc)
-target_compile_options(naja_visual PRIVATE ${NAJA_CXX_WARNINGS}) 
-#target_compile_definitions(naja_visual PRIVATE SNL_DESTROY_DEBUG)
+target_link_libraries(naja_snl_visual PUBLIC naja_core naja_snl)
+target_compile_options(naja_snl_visual PRIVATE ${NAJA_CXX_WARNINGS}) 
 
-target_include_directories(naja_visual SYSTEM BEFORE PUBLIC ${Boost_INCLUDE_DIR})
-target_include_directories(naja_visual SYSTEM BEFORE PUBLIC ${TBB_INCLUDE_DIR})
-target_include_directories(naja_visual PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-set_target_properties(naja_visual PROPERTIES PUBLIC_HEADER "${NETLIST_GTAPH_HEADERS}")
-install(TARGETS naja_visual LIBRARY DESTINATION lib PUBLIC_HEADER DESTINATION include) 
+target_include_directories(naja_snl_visual PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+set_target_properties(naja_snl_visual PROPERTIES PUBLIC_HEADER "${NETLIST_GRAPH_HEADERS}")
+install(TARGETS naja_snl_visual LIBRARY DESTINATION lib PUBLIC_HEADER DESTINATION include) 
