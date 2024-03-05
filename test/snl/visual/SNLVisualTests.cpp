@@ -240,12 +240,14 @@ TEST_F(SNLVisualTests, ForCoverageTest) {
   auto inTerm =
       SNLScalarTerm::create(mod, SNLTerm::Direction::Input, SNLName("in"));
   // Create a sub module snl with one input and one output
+  SNLDesign* leafmod = SNLDesign::create(library, SNLName("leafmod"));
   SNLDesign* submod = SNLDesign::create(library, SNLName("submod"));
   auto subinTerm = SNLScalarTerm::create(submod, SNLTerm::Direction::Input,
                                          SNLName("subin"));
   auto suboutTerm = SNLScalarTerm::create(submod, SNLTerm::Direction::Output,
                                           SNLName("subout"));
   SNLInstance* subinst = SNLInstance::create(mod, submod);
+  SNLInstance* leafinst = SNLInstance::create(mod, leafmod);
   // Create a sub module snl with one input and one output
   SNLDesign* subsubmod = SNLDesign::create(library);
   auto subsubinTerm = SNLScalarTerm::create(
