@@ -19,7 +19,10 @@ add_library(naja_snl_fpga_interchange_format
     FIFPhysicalNetlist.cpp
 )
 
-target_link_libraries(naja_snl_fpga_interchange_format PRIVATE CapnProto::capnp )
+target_link_libraries(naja_snl_fpga_interchange_format PRIVATE CapnProto::capnp CapnProto::kj-gzip)
 target_link_libraries(naja_snl_fpga_interchange_format PUBLIC naja_snl)
 target_include_directories(naja_snl_fpga_interchange_format PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 target_include_directories(naja_snl_fpga_interchange_format PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+
+add_executable(fif_physical_test FIFPhysicalNetlistTest.cpp)
+target_link_libraries(fif_physical_test PRIVATE naja_snl_fpga_interchange_format)

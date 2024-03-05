@@ -4,36 +4,60 @@
 
 #include "FIFPhysicalNetlist.h"
 
+#include <iostream>
 #include <fcntl.h>
-#include <capnp/message.h>
+#include <kj/compat/gzip.h>
 #include <capnp/serialize-packed.h>
-#include <zlib.h>
 
 #include "PhysicalNetlist.capnp.h"
 
 namespace naja {
 
-void loadPhysCell(const PhysicalNetlist::PhysNetlist::PhysCell::Reader& cell) {
-  // TODO
+using Strings = std::vector<std::string>;
+
+void loadPhysNet(
+  const PhysicalNetlist::PhysNetlist::PhysNet::Reader& net,
+  const Strings& strings) {
+  auto nameID = net.getName();
+  if (nameID >= strings.size()) {
+    std::cerr << "Invalid name ID: " << nameID << std::endl;
+    std::exit(1);
+  }
+  auto name = strings[nameID];
+  std::cerr << "Net: " << name << std::endl;
+  //std::cerr << net.getType() << std::endl;
 }
 
 void FIFPhysicalNetlist::load(const std::filesystem::path& path) {
-  // Open the file
+   // Open the file
   int fd = open(path.c_str(), O_RDONLY);
   if (fd == -1) {
-    // Handle error
-    //return nullptr;
+    std::cerr << "Failed to open " << path << std::endl;
+    std::exit(1);
   }
 
-  ::capnp::StreamFdMessageReader message(fd);
+  // Create a file descriptor input stream
+  kj::FdInputStream fdInputStream(fd);
+  // Wrap the input stream with gzip decompression
+  kj::GzipInputStream gzipInputStream(fdInputStream);
 
-  PhysicalNetlist::PhysNetlist::Reader netlist = message.getRoot<PhysicalNetlist::PhysNetlist>();
+  // Now, create a buffered input stream wrapper around the gzip input stream
+  kj::BufferedInputStreamWrapper bufferedInputStream(gzipInputStream);
 
-  for (auto cell: netlist.getPhysCells()) {
-    loadPhysCell(cell);
+  // Use the buffered input stream with Cap'n Proto
+  capnp::ReaderOptions options;
+  options.traversalLimitInWords = std::numeric_limits<uint64_t>::max();
+  capnp::InputStreamMessageReader messageReader(bufferedInputStream, options);
+
+  PhysicalNetlist::PhysNetlist::Reader netlist = messageReader.getRoot<PhysicalNetlist::PhysNetlist>();
+
+  Strings strings;
+  for (auto str: netlist.getStrList()) {
+    strings.push_back(str);
   }
-
-
+  for (auto net: netlist.getPhysNets()) {
+    loadPhysNet(net, strings);
+  }
 }
 
 } // namespace naja

@@ -6,8 +6,8 @@
 
 #include <fcntl.h>
 #include <capnp/message.h>
+#include <kj/compat/gzip.h>
 #include <capnp/serialize-packed.h>
-#include <zlib.h>
 
 #include "LogicalNetlist.capnp.h"
 
@@ -221,17 +221,28 @@ void loadCell(
   }
 }
 
-SNLDB* SNLFIFLogicalNetlist::load(const std::filesystem::path& dumpPath) {
+SNLDB* SNLFIFLogicalNetlist::load(const std::filesystem::path& path) {
   // Open the file
-  int fd = open(dumpPath.c_str(), O_RDONLY);
+  int fd = open(path.c_str(), O_RDONLY);
   if (fd == -1) {
-    // Handle error
+    std::cerr << "Failed to open " << path << std::endl;
     return nullptr;
   }
 
-  ::capnp::StreamFdMessageReader message(fd);
+  // Create a file descriptor input stream
+  kj::FdInputStream fdInputStream(fd);
+  // Wrap the input stream with gzip decompression
+  kj::GzipInputStream gzipInputStream(fdInputStream);
 
-  LogicalNetlist::Netlist::Reader netlist = message.getRoot<LogicalNetlist::Netlist>();
+  // Now, create a buffered input stream wrapper around the gzip input stream
+  kj::BufferedInputStreamWrapper bufferedInputStream(gzipInputStream);
+
+  // Use the buffered input stream with Cap'n Proto
+  capnp::ReaderOptions options;
+  options.traversalLimitInWords = std::numeric_limits<uint64_t>::max();
+  capnp::InputStreamMessageReader messageReader(bufferedInputStream, options);
+
+  LogicalNetlist::Netlist::Reader netlist = messageReader.getRoot<LogicalNetlist::Netlist>();
   auto universe = SNLUniverse::get();
   if (not universe) {
     universe = SNLUniverse::create();
