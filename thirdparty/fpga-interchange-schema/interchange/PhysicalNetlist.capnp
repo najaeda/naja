@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 @0xcb2ccd67aa912968;
-using Java = import "/capnp/java.capnp";
-$Java.package("com.xilinx.rapidwright.interchange");
-$Java.outerClassname("PhysicalNetlist");
+#using Java = import "/capnp/java.capnp";
+#$Java.package("com.xilinx.rapidwright.interchange");
+#$Java.outerClassname("PhysicalNetlist");
 
 using Cxx = import "/capnp/c++.capnp";
 $Cxx.namespace("PhysicalNetlist");
