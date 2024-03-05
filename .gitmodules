@@ -3,7 +3,7 @@
 	url = https://github.com/google/googletest
 [submodule "thirdparty/naja-verilog"]
 	path = thirdparty/naja-verilog
-	url = https://github.com/xtofalex/naja-verilog
+	url = https://github.com/najaeda/naja-verilog
 [submodule "thirdparty/fpga-interchange-schema"]
 	path = thirdparty/fpga-interchange-schema
 	url = https://github.com/chipsalliance/fpga-interchange-schema.git
