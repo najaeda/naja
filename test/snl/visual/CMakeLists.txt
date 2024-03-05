@@ -10,7 +10,6 @@ SET(snl_visual_tests
 
 ADD_EXECUTABLE(snl_visual_tests ${snl_visual_tests})
 
-target_include_directories(naja_dnl PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-TARGET_LINK_LIBRARIES(snl_visual_tests naja_snl naja_dnl naja_visual gtest gmock gtest_main tbb)
+TARGET_LINK_LIBRARIES(snl_visual_tests naja_dnl naja_snl_visual gtest gmock gtest_main)
 
 GTEST_DISCOVER_TESTS(snl_visual_tests)

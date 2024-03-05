@@ -10,7 +10,6 @@ SET(dnl_tests
 
 ADD_EXECUTABLE(dnlTests ${dnl_tests})
 
-target_include_directories(naja_dnl PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-TARGET_LINK_LIBRARIES(dnlTests naja_snl naja_dnl gtest gmock gtest_main tbb)
+TARGET_LINK_LIBRARIES(dnlTests naja_dnl gtest gmock gtest_main)
 
 GTEST_DISCOVER_TESTS(dnlTests)
