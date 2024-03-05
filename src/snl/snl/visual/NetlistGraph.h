@@ -153,27 +153,27 @@ class WireEdge {
 class InstData {
  public:
   InstData(){};
-  virtual std::string getName() const { return std::string(""); };
-  virtual std::string getModelName() const { return std::string(""); };
-  virtual std::string getInstName() const { return std::string(""); };
+  virtual std::string getName() const = 0;
+  virtual std::string getModelName() const = 0;
+  virtual std::string getInstName() const = 0;
 };
 
 class PortData {
  public:
   PortData(){};
-  virtual std::string getName() const { return std::string(""); };
+  virtual std::string getName() const = 0;
 };
 
 class WireData {
  public:
   WireData(){};
-  virtual std::string getName() const { return std::string(""); };
+  virtual std::string getName() const = 0;
 };
 
 class BusData {
  public:
   BusData(){};
-  virtual std::string getName() const { return std::string(""); };
+  virtual std::string getName() const = 0;
 };
 
 template <class InstData, class PortData, class WireData, class BusData>

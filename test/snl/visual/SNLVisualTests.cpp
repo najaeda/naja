@@ -59,7 +59,7 @@ class SNLVisualTests : public ::testing::Test {
 //  submodule module and
 //     the input of the first sub module to the input of the top module.
 //  6. Validate the iso db
-TEST_F(SNLVisualTests, SNLDataAccessWith3levelsOfHierarchyAndIsoDB) {
+TEST_F(SNLVisualTests, SimpleTest) {
   // Create one module snl with one input and one output
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
@@ -218,8 +218,74 @@ TEST_F(SNLVisualTests, SNLDataAccessWith3levelsOfHierarchyAndIsoDB) {
   destroy();
 }
 
+// Based on last test, create a DNL with 3 levels of hierarchy and validate iso
+// db
+//  1. Create a simple SNL netlist and then a DNL on top of it
+//  2. Create a sub module snl with one input and one output
+//  3. Create a sub module snl with one input and one output
+//  4. connect the output of the second sub module to the output of the first
+//  sub module and
+//     the output of the first sub module to the input of the top module.
+//  5. Connect the input of the second sub module to the input of the first
+//  submodule module and
+//     the input of the first sub module to the input of the top module.
+//  6. Validate the iso db
+TEST_F(SNLVisualTests, ForCoverageTest) {
+  // Create one module snl with one input and one output
+  SNLUniverse* univ = SNLUniverse::create();
+  SNLDB* db = SNLDB::create(univ);
+  SNLLibrary* library = SNLLibrary::create(db, SNLName("MYLIB"));
+  SNLDesign* mod = SNLDesign::create(library, SNLName("mod"));
+  univ->setTopDesign(mod);
+  auto inTerm =
+      SNLScalarTerm::create(mod, SNLTerm::Direction::Input, SNLName("in"));
+  // Create a sub module snl with one input and one output
+  SNLDesign* submod = SNLDesign::create(library, SNLName("submod"));
+  auto subinTerm = SNLScalarTerm::create(submod, SNLTerm::Direction::Input,
+                                         SNLName("subin"));
+  auto suboutTerm = SNLScalarTerm::create(submod, SNLTerm::Direction::Output,
+                                          SNLName("subout"));
+  SNLInstance* subinst = SNLInstance::create(mod, submod);
+  // Create a sub module snl with one input and one output
+  SNLDesign* subsubmod = SNLDesign::create(library);
+  auto subsubinTerm = SNLScalarTerm::create(
+      subsubmod, SNLTerm::Direction::Input, SNLName("subsubin"));
+  auto subsuboutTerm = SNLScalarTerm::create(
+      subsubmod, SNLTerm::Direction::Output, SNLName("subsubout"));
+  SNLInstance* subsubinst =
+      SNLInstance::create(submod, subsubmod, SNLName("subsubinst"));
+  // Connect the output of the second sub module to the output of the first sub
+  // module
+  auto subOutNet = SNLScalarNet::create(submod);//No name check
+  suboutTerm->setNet(subOutNet);
+  //subsubinst->getInstTerm(subsuboutTerm)->setNet(subOutNet);//No driver check
+  // Connect the output of the first sub module to the input of the top module
+  auto outNet = SNLScalarNet::create(mod, SNLName("modOutNet"));
+  subinst->getInstTerm(suboutTerm)->setNet(outNet);
+  // Connect the input of the second sub module to the input of the first
+  // submodule module
+  auto subsInNet = SNLScalarNet::create(submod, SNLName("subModInNet"));
+  subinTerm->setNet(subsInNet);
+  subsubinst->getInstTerm(subsubinTerm)->setNet(subsInNet);
+  // Connect the input of the first sub module to the input of the top module
+  auto inNet = SNLScalarNet::create(mod, SNLName("modInNet"));
+  inTerm->setNet(inNet);
+  subinst->getInstTerm(subinTerm)->setNet(inNet);
+  // Create a DNL on top of the SNL
+  SnlVisualiser snl(mod);
+  snl.process();
+  std::string dotFileName(
+      std::string(std::string("./testCov") + std::string(".dot")));
+  std::string svgFileName(
+      std::string(std::string("./testCov") + std::string(".svg")));
+  snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
+  system(std::string(std::string("dot -Tsvg ") + dotFileName +
+                     std::string(" -o ") + svgFileName)
+             .c_str());
+}
+
 // Same as previous test but with busterms instead of scalar terms
-TEST_F(SNLVisualTests, SNLDataAccessWith3levelsOfHierarchyAndIsoDBBusTerms) {
+TEST_F(SNLVisualTests, BusTest) {
   // Create one module snl with one input and one output
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
