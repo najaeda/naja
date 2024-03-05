@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "SNLFIFNetlist.h"
+#include "SNLFIFLogicalNetlist.h"
 
 #include <fcntl.h>
 #include <capnp/message.h>
@@ -221,7 +221,7 @@ void loadCell(
   }
 }
 
-SNLDB* SNLFIFNetlist::load(const std::filesystem::path& dumpPath) {
+SNLDB* SNLFIFLogicalNetlist::load(const std::filesystem::path& dumpPath) {
   // Open the file
   int fd = open(dumpPath.c_str(), O_RDONLY);
   if (fd == -1) {

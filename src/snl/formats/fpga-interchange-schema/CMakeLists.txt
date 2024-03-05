@@ -15,7 +15,7 @@ add_library(naja_snl_fpga_interchange_format
     ${snlFIFReferencesSources}
     ${snlFIFLogicalNetlistSources}
     ${snlFIFPhysicalNetlistSources}
-    SNLFIFNetlist.cpp
+    SNLFIFLogicalNetlist.cpp
 )
 
 target_link_libraries(naja_snl_fpga_interchange_format PRIVATE CapnProto::capnp )

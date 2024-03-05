@@ -20,7 +20,7 @@
 
 #include "SNLUniverse.h"
 #include "SNLCapnP.h"
-#include "SNLFIFNetlist.h"
+#include "SNLFIFLogicalNetlist.h"
 
 using namespace naja::SNL;
 
@@ -166,7 +166,7 @@ int main(int argc, char* argv[]) {
         spdlog::error("No top design was found after parsing verilog");
       }
     } if (inputFormatType == FormatType::FIF) {
-      db = SNLFIFNetlist::load(inputPath);
+      db = SNLFIFLogicalNetlist::load(inputPath);
       SNLUniverse::get()->setTopDesign(db->getTopDesign());
     } else {
       spdlog::critical("Unrecognized input format type: {}", inputFormat);

@@ -2,8 +2,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __SNL_FIF_NETLIST_H_
-#define __SNL_FIF_NETLIST_H_
+#ifndef __SNL_FIF_LOGICAL_NETLIST_H_
+#define __SNL_FIF_LOGICAL_NETLIST_H_
 
 #include <filesystem>
 
@@ -11,11 +11,11 @@ namespace naja { namespace SNL {
 
 class SNLDB;
 
-class SNLFIFNetlist {
+class SNLFIFLogicalNetlist {
   public:
     static SNLDB* load(const std::filesystem::path& dumpPath);
 };
 
 }} // namespace SNL // namespace naja
 
-#endif // __SNL_FIF_NETLIST_H_
+#endif // __SNL_FIF_LOGICAL_NETLIST_H_
