@@ -87,20 +87,20 @@ TEST_F(SNLVisualTests, SNLDataAccessWith3levelsOfHierarchyAndIsoDB) {
       SNLInstance::create(submod, subsubmod, SNLName("subsubinst"));
   // Connect the output of the second sub module to the output of the first sub
   // module
-  auto subOutNet = SNLScalarNet::create(submod, SNLName("submodnet"));
+  auto subOutNet = SNLScalarNet::create(submod, SNLName("subModOutNet"));
   suboutTerm->setNet(subOutNet);
   subsubinst->getInstTerm(subsuboutTerm)->setNet(subOutNet);
   // Connect the output of the first sub module to the input of the top module
-  auto outNet = SNLScalarNet::create(mod, SNLName("modnet"));
+  auto outNet = SNLScalarNet::create(mod, SNLName("modOutNet"));
   outTerm->setNet(outNet);
   subinst->getInstTerm(suboutTerm)->setNet(outNet);
   // Connect the input of the second sub module to the input of the first
   // submodule module
-  auto subsInNet = SNLScalarNet::create(submod);
+  auto subsInNet = SNLScalarNet::create(submod, SNLName("subModInNet"));
   subinTerm->setNet(subsInNet);
   subsubinst->getInstTerm(subsubinTerm)->setNet(subsInNet);
   // Connect the input of the first sub module to the input of the top module
-  auto inNet = SNLScalarNet::create(mod);
+  auto inNet = SNLScalarNet::create(mod, SNLName("modInNet"));
   inTerm->setNet(inNet);
   subinst->getInstTerm(subinTerm)->setNet(inNet);
   // Create a DNL on top of the SNL
@@ -248,20 +248,20 @@ TEST_F(SNLVisualTests, SNLDataAccessWith3levelsOfHierarchyAndIsoDBBusTerms) {
   // Connect the output of the second sub module to the output of the first sub
   // module
   auto subNetIn = SNLBusNet::create(subsubinst->getDesign(),
-                                   subsubinTerm->getMSB(), subsubinTerm->getLSB());
+                                   subsubinTerm->getMSB(), subsubinTerm->getLSB(), SNLName("subNetIn"));
   subsubinst->setTermNet(subsubinTerm, subNetIn);
   subinTerm->setNet(subNetIn);
   auto subNetOut = SNLBusNet::create(subsubinst->getDesign(),
-                                   subsuboutTerm->getMSB(), subsuboutTerm->getLSB());
-  subsubinst->setTermNet(subsuboutTerm, subNetIn);       
+                                   subsuboutTerm->getMSB(), subsuboutTerm->getLSB(), SNLName("subNetOut"));
+  subsubinst->setTermNet(subsuboutTerm, subNetOut);       
   suboutTerm->setNet(subNetOut); 
 
   auto netIn = SNLBusNet::create(subinst->getDesign(),
-                                   subinTerm->getMSB(), subinTerm->getLSB());
+                                   subinTerm->getMSB(), subinTerm->getLSB(), SNLName("netIn"));
   subinst->setTermNet(subinTerm, netIn);
   inTerm->setNet(netIn);
   auto netOut = SNLBusNet::create(subinst->getDesign(),
-                                   suboutTerm->getMSB(), suboutTerm->getLSB());
+                                   suboutTerm->getMSB(), suboutTerm->getLSB(), SNLName("netOut"));
   subinst->setTermNet(suboutTerm, netOut);       
   outTerm->setNet(netOut);                
   std::string dotFileName(

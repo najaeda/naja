@@ -594,7 +594,7 @@ class WireDataSnl : WireData {
   WireDataSnl(SNLBitNet* snlBitNet) : WireData(), _snlBitNet(snlBitNet) {}
   std::string getName() const {
     if (_snlBitNet->getName().getString() == std::string("")) {
-      return _snlBitNet->getType().getString();
+      return std::string("No Name");
     }
     return _snlBitNet->getName().getString();
   }
