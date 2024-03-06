@@ -5,7 +5,7 @@ RUN apk --no-cache add ca-certificates
 RUN apk update && apk upgrade
 RUN apk add --no-cache cmake make g++ \
         python3-dev capnproto capnproto-dev \
-        bison flex-dev boost-dev 
+        bison flex-dev boost-dev onetbb-dev
 
 # Set the working directory
 WORKDIR /naja
@@ -24,10 +24,10 @@ RUN apk add --no-cache \
 
 RUN addgroup -S naja && adduser -S naja -G naja
 USER naja
-COPY --chown=shs:shs --from=builder \
+COPY --chown=naja:naja --from=builder \
     ./naja/install/bin/naja_edit \
     ./naja/
-COPY --chown=shs:shs --from=builder \
+COPY --chown=naja:naja --from=builder \
     ./naja/install/lib \
     ./naja/lib
 ENV LD_LIBRARY_PATH /naja/lib
