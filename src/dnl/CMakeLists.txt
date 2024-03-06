@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2024 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
+# SPDX-FileCopyrightText: 2024 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -11,7 +11,7 @@ set(DNL_HEADERS
 
 add_library(naja_dnl SHARED ${DNL_SOURCES})
 
-target_link_libraries(naja_dnl PUBLIC naja_core naja_snl tbb tbbmalloc)
+target_link_libraries(naja_dnl PUBLIC naja_core naja_snl TBB::tbb TBB::tbbmalloc)
 target_compile_options(naja_dnl PRIVATE ${NAJA_CXX_WARNINGS}) 
 #target_compile_definitions(naja_dnl PRIVATE SNL_DESTROY_DEBUG)
 

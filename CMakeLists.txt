@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
+# SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -7,7 +7,7 @@ cmake_minimum_required(VERSION 3.21)
 
 project(naja
   VERSION 0.1.0
-  HOMEPAGE_URL https://github.com/xtofalex/naja
+  HOMEPAGE_URL https://github.com/najaeda/naja
   LANGUAGES CXX
 )
 
