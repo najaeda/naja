@@ -11,7 +11,7 @@ RUN apt-get update && apt-get -y install \
     flex bison \
     libboost-dev \
     python3-dev \
-    libfl-dev capnproto libcapnp-dev
+    libfl-dev capnproto libcapnp-dev libtbb-dev
 # Put your own Dockfile commands here
 RUN rm -rf /var/lib/apt/lists/* \
   && wget https://github.com/Kitware/CMake/releases/download/v3.24.1/cmake-3.24.1-Linux-x86_64.sh \
@@ -26,4 +26,4 @@ RUN mkdir install
 RUN cmake . -DCMAKE_INSTALL_PREFIX=/install && make -j$(nproc) && make install
 
 WORKDIR /regress
-CMD make clean; PYTHONPATH=/install/lib/python LD_LIBRARY_PATH=/install/lib make NAJA_EDIT=/install/bin/naja_edit PRIMITIVES=/primitives/xilinx.py
+CMD make clean; SET_PYTHONPATH=/install/lib/python LD_LIBRARY_PATH=/install/lib make NAJA_EDIT=/install/bin/naja_edit PRIMITIVES=/primitives/xilinx.py

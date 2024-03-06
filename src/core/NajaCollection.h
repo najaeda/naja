@@ -1,5 +1,5 @@
 // Copyright 2022 The Naja Authors.
-// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
+// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -113,11 +113,11 @@ class NajaSingletonCollection: public NajaBaseCollection<Type*> {
     Type* object_ {nullptr};
 };
 
-template<class Type, class HookType>
-class NajaIntrusiveSetCollection: public NajaBaseCollection<Type*> {
+template<class Set>
+class NajaIntrusiveSetCollection: public NajaBaseCollection<typename Set::value_type*> {
   public:
+    using Type = typename Set::value_type;
     using super = NajaBaseCollection<Type*>;
-    using Set = boost::intrusive::set<Type, HookType>;
 
     class NajaIntrusiveSetCollectionIterator: public NajaBaseIterator<Type*> {
       public:

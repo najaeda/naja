@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
+// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -215,6 +215,15 @@ PyObject* richCompare(T left, T right, int op) {
     METHOD_HEAD(#SELF_TYPE ".getName()") \
     SNLTRY \
     return PyUnicode_FromString(selfObject->getName().getString().c_str()); \
+    SNLCATCH \
+    return nullptr; \
+  }
+
+#define GetStringAttribute(SELF_TYPE, METHOD) \
+  static PyObject* PySNL##SELF_TYPE##_##METHOD(PySNL##SELF_TYPE* self) { \
+    METHOD_HEAD("SNL##SELF_TYPE.##METHOD##()") \
+    SNLTRY \
+    return PyUnicode_FromString(selfObject->METHOD().c_str()); \
     SNLCATCH \
     return nullptr; \
   }

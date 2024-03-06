@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
+// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -122,8 +122,8 @@ PyMethodDef PySNLParameter_Methods[] = {
     "get SNLParameter name"},
   { "getDesign", (PyCFunction)PySNLParameter_getDesign, METH_NOARGS,
     "get SNLParameter owner design"},
-  {"destroy", (PyCFunction)PySNLParameter_destroy, METH_NOARGS,
-    "destroy this SNLDesign."},
+  { "destroy", (PyCFunction)PySNLParameter_destroy, METH_NOARGS,
+    "destroy this SNLParameter."},
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 

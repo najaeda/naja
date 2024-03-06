@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
+# SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
 #
 # SPDX-License-Identifier: CC0-1.0
 
@@ -12,7 +12,13 @@ __pycache__
 regress/adder/*.v
 regress/vexriscv/*.v
 regress/arm_core/*.v
+regress/arm_core/*.log
+regress/arm_core/*.gold
+regress/arm_core/*.error
 regress/*/abc.history
 src/apps/edit/examples/abc.history
-src/apps/edit/examples/addaccu_*.v
-src/apps/edit/examples/*.log
+src/apps/edit/examples/addaccu/addaccu_*.v
+src/apps/edit/examples/addaccu/*.log
+src/apps/edit/examples/addaccu/*.txt
+src/apps/edit/examples/addaccu/*_snl
+regress/arm_core/comp/*

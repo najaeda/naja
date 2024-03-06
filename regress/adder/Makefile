@@ -9,7 +9,8 @@ adder_netlist.v: src/adder.v
 	${YOSYS} src/synth.ys
 
 adder_snl.v primitives.v: adder_netlist.v
-	${NAJA_EDIT} -a verilog -b verilog -p ${PRIMITIVES} -i $< -o adder_snl.v -d primitives.v
+	export PYTHONPATH=${SET_PYTHONPATH}; \
+	${NAJA_EDIT} -f verilog -t verilog -p ${PRIMITIVES} -i $< -o adder_snl.v -d primitives.v
 
 clean:
 	-rm adder_snl.v primitives.v adder_netlist.v 

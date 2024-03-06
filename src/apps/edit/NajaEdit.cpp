@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
+// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -41,11 +41,11 @@ FormatType argToFormatType(const std::string& inputFormat) {
 
 int main(int argc, char* argv[]) {
   argparse::ArgumentParser program("naja_edit");
-  program.add_argument("-a", "--input_format")
+  program.add_argument("-f", "--from_format")
     .required()
-    .help("input format");
-  program.add_argument("-b", "--output_format")
-    .help("output format");
+    .help("from/input format");
+  program.add_argument("-t", "--to_format")
+    .help("to/output format");
   program.add_argument("-i", "--input")
     .required()
     .help("input netlist");
@@ -88,10 +88,10 @@ int main(int argc, char* argv[]) {
 
 
   bool argError = false;
-  auto inputFormatArg = program.present("-a");
+  auto inputFormatArg = program.present("-f");
   std::string inputFormat = *inputFormatArg;
   std::string outputFormat;
-  if (auto outputFormatArg = program.present("-b")) {
+  if (auto outputFormatArg = program.present("-t")) {
     outputFormat = *outputFormatArg;
   } else {
     outputFormat = inputFormat;
@@ -145,6 +145,7 @@ int main(int argc, char* argv[]) {
     SNLLibrary* primitivesLibrary = nullptr;
     if (inputFormatType == FormatType::SNL) {
       db = SNLCapnP::load(inputPath);
+      SNLUniverse::get()->setTopDesign(db->getTopDesign());
     } else if (inputFormatType == FormatType::VERILOG) {
       db = SNLDB::create(SNLUniverse::get());
       primitivesLibrary = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("PRIMS"));
@@ -162,7 +163,8 @@ int main(int argc, char* argv[]) {
         spdlog::error("No top design was found after parsing verilog");
       }
     } else {
-      return -1;
+      spdlog::critical("Unrecognized input format type: {}", inputFormat);
+      std::exit(EXIT_FAILURE);
     }
 
     if (program.is_used("-e")) {
@@ -170,13 +172,17 @@ int main(int argc, char* argv[]) {
       SNLPyEdit::edit(editPath);
     }
 
-    if (db->getTopDesign()) {
-      std::ofstream output(outputPath);
-      SNLVRLDumper dumper;
-      dumper.setSingleFile(true);
-      dumper.dumpDesign(db->getTopDesign(), output);
-    } else {
-      db->debugDump(0);
+    if (outputFormatType == FormatType::SNL) {
+      SNLCapnP::dump(db, outputPath);
+    } else if (outputFormatType == FormatType::VERILOG) {
+      if (db->getTopDesign()) {
+        std::ofstream output(outputPath);
+        SNLVRLDumper dumper;
+        dumper.setSingleFile(true);
+        dumper.dumpDesign(db->getTopDesign(), output);
+      } else {
+        db->debugDump(0);
+      }
     }
     
     if (program.is_used("-d") and primitivesLibrary) {
@@ -188,6 +194,7 @@ int main(int argc, char* argv[]) {
     }
   } catch (const SNLException& e) {
     spdlog::critical("Caught SNL error: {}", e.getReason());
+    std::exit(EXIT_FAILURE);
   }
-  return 0;
+  std::exit(EXIT_SUCCESS);
 }

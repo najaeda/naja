@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
+// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -50,6 +50,7 @@ class SNLBusTermBit final: public SNLBitTerm {
     void postCreate();
     void destroyFromBus();
     void destroyFromDesign() override {} //LCOV_EXCL_LINE
+    SNLTerm* clone(SNLDesign* design) const override { return nullptr; } //LCOV_EXCL_LINE
     void preDestroy() override;
 
     SNLBusTerm* bus_;

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
+# SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -7,7 +7,7 @@ cmake_minimum_required(VERSION 3.21)
 
 project(naja
   VERSION 0.1.0
-  HOMEPAGE_URL https://github.com/xtofalex/naja
+  HOMEPAGE_URL https://github.com/najaeda/naja
   LANGUAGES CXX
 )
 
@@ -31,7 +31,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(NAJA_CXX_WARNINGS -Werror -Wall -pedantic-errors -Wconversion -Wsign-conversion -Wextra -Wno-unused-parameter)
 
 set(ARGPARSE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/argparse-3.0/include)
-set(SPDLOG_DIR ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/spdlog-1.12.0/include)
+set(SPDLOG_DIR ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/spdlog-1.13.0/include)
 
 add_library(coverage_config INTERFACE)
 option(CODE_COVERAGE "Enable coverage reporting" OFF)
@@ -59,8 +59,10 @@ if(ENABLE_SANITIZERS)
   )
 endif(ENABLE_SANITIZERS)
 
+find_package(TBB REQUIRED)
 find_package(Boost REQUIRED)
-find_package(Python3 COMPONENTS Development Interpreter REQUIRED)
+find_package(Python3 3.9...<3.99 COMPONENTS Development Interpreter REQUIRED)
+	#PATHS /usr/lib/python3.9.5)
 find_package(CapnProto CONFIG REQUIRED)
 
 add_subdirectory(thirdparty)

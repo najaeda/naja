@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
+// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -43,6 +43,7 @@ class SNLBusNetBit final: public SNLBitNet {
     void destroyFromBus();
     void destroyFromDesign() override {} //LCOV_EXCL_LINE
     void preDestroy() override;
+    SNLNet* clone(SNLDesign* design) const override { return nullptr; } //LCOV_EXCL_LINE
     void setID(SNLID::DesignObjectID id) override {} //LCOV_EXCL_LINE
 
     SNLBusNet*  bus_;

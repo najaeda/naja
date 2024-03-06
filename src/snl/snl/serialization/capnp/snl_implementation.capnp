@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
+# SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -39,10 +39,19 @@ struct DBImplementation {
         }
       }
 
+      enum NetType {
+        standard @0;
+        assign0  @1;
+        assign1  @2;
+        supply0  @3;
+        supply1  @4;
+      }
+
       struct ScalarNet {
         id          @0 : UInt32 = 0;
         name        @1 : Text;
-        components  @2 : List(NetComponentReference);
+        type        @2 : NetType;
+        components  @3 : List(NetComponentReference);
       }
 
       struct BusNet {
@@ -55,7 +64,8 @@ struct DBImplementation {
 
       struct BusNetBit {
         bit         @0 : UInt32;    
-        components  @1 : List(NetComponentReference);
+        type        @1 : NetType;
+        components  @2 : List(NetComponentReference);
       }
 
       struct NetComponentReference {

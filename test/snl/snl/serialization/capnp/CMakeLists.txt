@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
+# SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -8,6 +8,7 @@ set(snl_capnp_tests
     SNLDumpManifestTest.cpp
     SNLCapnPTest0.cpp
     SNLCapnPTest1.cpp
+    SNLCapnPTest2.cpp
     SNLCapnPStreamingReceiveTest.cpp
 )
 

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
+// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -139,6 +139,7 @@ class SNLInstance final: public SNLDesignObject {
     void preDestroy() override;
     void createInstTerm(SNLBitTerm* term);
     void removeInstTerm(SNLBitTerm* term);
+    SNLInstance* clone(SNLDesign* design) const;
 
     //SharedPath manipulators
     SNLSharedPath* getSharedPath(const SNLSharedPath* sharedPath) const;

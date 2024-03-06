@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
+// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -6,10 +6,7 @@
 #define __PY_SNL_INSTANCE_H_
 
 #include "PySNLDesignObject.h"
-
-namespace naja::SNL {
-  class SNLInstance;
-}
+#include "SNLInstance.h"
 
 namespace PYSNL {
 
@@ -23,8 +20,8 @@ extern PyObject*    PySNLInstance_Link(naja::SNL::SNLInstance* u);
 extern void         PySNLInstance_LinkPyType();
 
 #define IsPySNLInstance(v) (PyObject_TypeCheck(v, &PyTypeSNLInstance))
-#define PYSNLInstance(v)   (static_cast<PySNLInstance*>(v))
-#define PYSNLInstance_O(v) (static_cast<naja::SNL::SNLInstance*>(PYSNLInstance(v)->parent_->parent_->object_))
+#define PYSNLInstance(v)   ((PySNLInstance*)(v))
+#define PYSNLInstance_O(v) (static_cast<naja::SNL::SNLInstance*>(PYSNLInstance(v)->parent_.object_))
 
 } // PYSNL namespace
  
