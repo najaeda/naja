@@ -13,7 +13,12 @@ RUN apk add --no-cache cmake make g++ \
 
 # Set the working directory
 WORKDIR /naja
-COPY . .
+COPY CMakeLists.txt /naja/
+COPY src /naja/src
+COPY test /naja/test
+COPY cmake /naja/cmake
+COPY primitives /naja/primitives
+COPY thirdparty /naja/thirdparty
 
 WORKDIR /naja/build
 RUN cmake -DCMAKE_BUILD_TYPE=Release .. && \
