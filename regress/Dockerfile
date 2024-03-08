@@ -26,4 +26,4 @@ RUN mkdir install
 RUN cmake . -DCMAKE_INSTALL_PREFIX=/install && make -j$(nproc) && make install
 
 WORKDIR /regress
-CMD make clean; SET_PYTHONPATH=/install/lib/python LD_LIBRARY_PATH=/install/lib make NAJA_EDIT=/install/bin/naja_edit PRIMITIVES=/primitives/xilinx.py
+CMD ls -Rall; pwd; make clean; SET_PYTHONPATH=/install/lib/python LD_LIBRARY_PATH=/install/lib make NAJA_EDIT=/install/bin/naja_edit PRIMITIVES=/primitives/xilinx.py
