@@ -27,5 +27,5 @@ RUN rm -rf /naja/install
 WORKDIR /naja/build
 RUN cmake .. -DCMAKE_INSTALL_PREFIX=/naja/install && make -j$(nproc) && make install
 
-WORKDIR /
+WORKDIR /naja/regress
 CMD yosys -V; verilator -V; make clean; SET_PYTHONPATH=/naja/install/lib/python LD_LIBRARY_PATH=/naja/install/lib make NAJA_EDIT=/naja/install/bin/naja_edit PRIMITIVES=/naja/primitives/xilinx.py
