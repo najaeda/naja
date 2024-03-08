@@ -21,9 +21,11 @@ RUN rm -rf /var/lib/apt/lists/* \
       && /tmp/cmake-install.sh --skip-license --prefix=/opt/cmake-3.24.1 \
       && rm /tmp/cmake-install.sh \
       && ln -s /opt/cmake-3.24.1/bin/* /usr/local/bin
-COPY / .
-RUN mkdir install
-RUN cmake . -DCMAKE_INSTALL_PREFIX=/install && make -j$(nproc) && make install
+COPY / /naja
+RUN rm -rf /naja/build
+RUN rm -rf /naja/install
+WORKDIR /naja/build
+RUN cmake .. -DCMAKE_INSTALL_PREFIX=/naja/install && make -j$(nproc) && make install
 
-WORKDIR /regress
-CMD ls -Rall; pwd; make clean; SET_PYTHONPATH=/install/lib/python LD_LIBRARY_PATH=/install/lib make NAJA_EDIT=/install/bin/naja_edit PRIMITIVES=/primitives/xilinx.py
+WORKDIR /
+CMD yosys -V; verilator -V; make clean; SET_PYTHONPATH=/naja/install/lib/python LD_LIBRARY_PATH=/naja/install/lib make NAJA_EDIT=/naja/install/bin/naja_edit PRIMITIVES=/naja/primitives/xilinx.py
