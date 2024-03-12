@@ -174,6 +174,17 @@ void dumpRange(ContiguousNetBits& bits, bool& firstElement, bool& concatenation,
   }
 }
 
+std::string getBitNetString(const naja::SNL::SNLBitNet* bitNet) {
+  if (auto scalarNet = dynamic_cast<const naja::SNL::SNLScalarNet*>(bitNet)) {
+    return dumpName(scalarNet->getName().getString());
+  } else {
+    auto busNetBit = static_cast<const naja::SNL::SNLBusNetBit*>(bitNet);
+    auto bus = busNetBit->getBus();
+    auto busName = dumpName(bus->getName().getString());
+    return busName + "[" + std::to_string(busNetBit->getBit()) + "]";
+  }
+}
+
 }
 
 namespace naja { namespace SNL {
@@ -473,6 +484,8 @@ void SNLVRLDumper::dumpInstParameters(
   }
 }
 
+
+
 bool SNLVRLDumper::dumpInstance(
   const SNLInstance* instance,
   std::ostream& o,
@@ -487,9 +500,10 @@ bool SNLVRLDumper::dumpInstance(
       } else if (inputNet->isConstant1()) {
         inputNetString = "1'b1";
       } else {
-        inputNetString = inputNet->getString(); 
+        inputNetString = getBitNetString(inputNet);
       }
-      o << "assign " << outputNet->getString() << " = " << inputNetString << ";" << std::endl;
+      auto outputNetString = getBitNetString(outputNet);
+      o << "assign " << outputNetString << " = " << inputNetString << ";" << std::endl;
       return true;
     } else {
       return false;
