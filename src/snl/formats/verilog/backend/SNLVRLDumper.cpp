@@ -71,6 +71,44 @@ void dumpConstantRange(ContiguousNetBits& bits, bool& firstElement, bool& concat
   bits.clear();
 }
 
+std::string dumpName(const std::string& name) {
+  // An identifier is used to give an object a unique name so it can be referenced.
+  // An identifier is either a simple identifier or an escaped identifier (see 3.7.1).
+  // A simple identifier shall be any sequence of letters, digits, dollar signs ($),
+  // and underscore characters (_).
+  // The first character of a simple identifier shall not be a digit or $; 
+  // it can be a letter or an underscore. Identifiers shall be case sensitive.
+
+  //special first character case
+  bool escape = (name[0] == '$' or ('0' <= name[0] and name[0] <= '9'));
+  if (not escape) {
+    for (int i=0; i<name.size(); ++i) {
+      if ('0' <= name[i] && name[i] <= '9') {
+        continue;
+      }
+      if ('a' <= name[i] && name[i] <= 'z') {
+        continue;
+      }
+      if ('A' <= name[i] && name[i] <= 'Z') {
+        continue;
+      }
+      if (name[i] == '_') {
+        continue;
+      }
+      if (name[i] == '$') {
+        continue;
+      }
+      escape = true;
+      break;
+    }
+  }
+  //need to add keywords
+  if (escape) {
+    return "\\" + name + " ";
+  }
+  return name;
+}
+
 void dumpRange(ContiguousNetBits& bits, bool& firstElement, bool& concatenation, std::string& o) {
   if (not bits.empty()) {
     if (bits[0]->isAssignConstant()) {
@@ -90,13 +128,13 @@ void dumpRange(ContiguousNetBits& bits, bool& firstElement, bool& concatenation,
       naja::SNL::SNLID::Bit busMSB = bus->getMSB();
       naja::SNL::SNLID::Bit busLSB = bus->getLSB();
       if (rangeMSB == busMSB and rangeLSB == busLSB) {
-        o += bus->getName().getString();
+        o += dumpName(bus->getName().getString());
       } else if (rangeMSB == rangeLSB) {
-        o += bus->getName().getString() + "[";
+        o += dumpName(bus->getName().getString()) + "[";
         o += std::to_string(rangeMSB);
         o += "]";
       } else {
-        o += bus->getName().getString() + "[";
+        o += dumpName(bus->getName().getString()) + "[";
         o += std::to_string(rangeMSB);
         o += ":";
         o += std::to_string(rangeLSB);
@@ -191,7 +229,7 @@ void SNLVRLDumper::dumpInterface(const SNLDesign* design, std::ostream& o, Desig
     if (auto bus = dynamic_cast<SNLBusTerm*>(term)) {
       o << "[" << bus->getMSB() << ":" << bus->getLSB() << "] ";
     }
-    o << term->getName().getString();
+    o << dumpName(term->getName().getString());
   }
   o << ");";
 }
@@ -210,7 +248,7 @@ bool SNLVRLDumper::dumpNet(const SNLNet* net, std::ostream& o, DesignInsideAnony
   if (auto bus = dynamic_cast<const SNLBusNet*>(net)) {
     o << "[" << bus->getMSB() << ":" << bus->getLSB() << "] ";
   }
-  o << netName.getString();
+  o << dumpName(netName.getString());
   o << ";" << std::endl;
   return true;
 }
@@ -319,7 +357,7 @@ void SNLVRLDumper::dumpInsTermConnectivity(
     o << ")";
   } else {
     //should we not dump anything for non connected inst terms ?
-    o << "  ." << term->getName().getString() << "()"; 
+    o << "  ." << dumpName(term->getName().getString()) << "()"; 
   }
 }
 
@@ -436,10 +474,10 @@ bool SNLVRLDumper::dumpInstance(
   }
   auto model = instance->getModel();
   if (not model->isAnonymous()) { //FIXME !!
-    o << model->getName().getString() << " ";
+    o << dumpName(model->getName().getString()) << " ";
   }
   dumpInstParameters(instance, o);
-  o << instanceName;
+  o << dumpName(instanceName);
   dumpInstanceInterface(instance, o, naming);
   o << ";" << std::endl;
   return true;
@@ -599,7 +637,7 @@ void SNLVRLDumper::dumpOneDesign(const SNLDesign* design, std::ostream& o) {
   if (design->isAnonymous()) {
     createDesignName(design);
   }
-  o << "module " << design->getName().getString();
+  o << "module " << dumpName(design->getName().getString());
 
   dumpInterface(design, o, naming);
   o << std::endl;

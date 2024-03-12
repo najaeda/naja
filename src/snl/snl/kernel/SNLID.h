@@ -7,6 +7,7 @@
 
 #include <string>
 #include <tuple>
+#include <cstdint>
 
 namespace naja { namespace SNL {
 
