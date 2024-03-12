@@ -36,22 +36,22 @@ class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
 
     bool inFirstPass() const { return firstPass_; }
     void setFirstPass(bool mode) { firstPass_ = mode; }
-    void startModule(const std::string& name) override;
-    void moduleInterfaceSimplePort(const std::string& name) override;
+    void startModule(const naja::verilog::Identifier& module) override;
+    void moduleInterfaceSimplePort(const naja::verilog::Identifier& port) override;
     void moduleImplementationPort(const naja::verilog::Port& port) override;
     void moduleInterfaceCompletePort(const naja::verilog::Port& port) override;
     void addNet(const naja::verilog::Net& net) override;
     void addAssign(
-      const naja::verilog::Identifiers& identifiers,
+      const naja::verilog::RangeIdentifiers& identifiers,
       const naja::verilog::Expression& expression) override;
-    void startInstantiation(const std::string& modelName) override;
+    void startInstantiation(const naja::verilog::Identifier& model) override;
     void addParameterAssignment(
-      const std::string& parameterName,
+      const naja::verilog::Identifier& parameter,
       const naja::verilog::Expression& expression) override;
-    void addInstance(const std::string& name) override;
+    void addInstance(const naja::verilog::Identifier& instance) override;
     void endInstantiation() override;
     void addInstanceConnection(
-      const std::string& portName,
+      const naja::verilog::Identifier& port,
       const naja::verilog::Expression& expression) override;
     void addOrderedInstanceConnection(
       size_t portIndex,
@@ -66,7 +66,7 @@ class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
       const naja::verilog::Concatenation& concatenation,
       SNLInstance::Nets& bitNets);
     void collectIdentifierNets(
-      const naja::verilog::Identifier& identifier,
+      const naja::verilog::RangeIdentifier& identifier,
       SNLInstance::Nets& bitNets);
     void currentInstancePortConnection(
       SNLTerm* term,

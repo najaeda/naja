@@ -1,0 +1,51 @@
+# SPDX-FileCopyrightText: 2024 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+#
+# SPDX-License-Identifier: Apache-2.0
+
+FROM alpine:3.19.1 as builder
+
+# Install required packages
+RUN apk --no-cache add ca-certificates
+RUN apk update && apk upgrade
+RUN apk add --no-cache \
+    autoconf automake \
+    g++ python3 make \
+    flex-dev bison \
+    help2man
+
+#compile verilator
+RUN wget https://github.com/verilator/verilator/archive/refs/tags/v5.022.tar.gz
+RUN tar xvzf v5.022.tar.gz
+WORKDIR /verilator-5.022
+RUN autoconf && ./configure --prefix=/verilator-install && make -j$(nproc)
+RUN make install
+
+#compile yosys
+RUN apk add pkgconfig tcl-dev readline-dev libffi-dev git
+WORKDIR /
+RUN wget https://github.com/YosysHQ/yosys/archive/refs/tags/yosys-0.38.tar.gz
+RUN tar xvzf yosys-0.38.tar.gz
+WORKDIR /yosys-yosys-0.38
+RUN make config-gcc
+RUN make -j$(nproc)
+RUN make install PREFIX=/yosys-install
+
+#compile naja
+RUN apk add cmake \
+    capnproto capnproto-dev \
+    python3-dev \
+    boost-dev onetbb-dev
+COPY / /naja
+RUN rm -rf /naja/build
+RUN rm -rf /naja-install
+WORKDIR /naja/build
+RUN cmake .. -DCMAKE_INSTALL_PREFIX=/naja-install && make -j$(nproc) && make install
+
+WORKDIR /naja/regress
+ENV SET_PYTHONPATH=/naja-install/lib/python
+ENV LD_LIBRARY_PATH=/naja-install/lib
+ENV NAJA_EDIT=/naja-install/bin/naja_edit
+ENV PRIMITIVES=/naja-install/shared/primitives/xilinx.py
+ENV YOSYS=/yosys-install/bin/yosys
+ENV VERILATOR=/verilator-install/bin/verilator
+CMD /yosys-install/bin/yosys -V; /verilator-install/bin/verilator -V; make clean; make

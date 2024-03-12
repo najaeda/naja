@@ -19,12 +19,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         submodules: true
 
     - name: create docker regress image
-      run: docker build . --file regress/Dockerfile -t regress
+      run: docker build . --file Dockerfile.regress -t regress
     
     - name: run regress
       run: docker run regress 
