@@ -46,33 +46,48 @@ git submodule update
 ### Dependencies
 
 Mandatory dependencies:
+
 1. Boost
 2. [cmake](https://cmake.org): at least 3.22 version.
+For system-specific cmake installation options, please refer to [this link](https://cmake.org/download/).
 3. Python3: for building the SNL Python3 interface. This interface is used to load primitive cells (associated to Verilog parsing)
-and their associated characteristics (for instance: ressource count, timing characteristics, ...).    
+and their associated characteristics (for instance: ressource count, timing characteristics, ...).
 
 Optional dependencies:
+
 1. [Doxygen](https://www.doxygen.nl): for the documentation generation.
 
 Embedded dependencies, through git sub modules:
+
 1. [naja-verilog](https://github.com/najaeda/naja-verilog): for verilog parsing.
 2. [google test](https://github.com/google/googletest) for unit testing.
 
 On Ubuntu:
+
 ```bash
-sudo apt-get install python3-dev
-sudo apt-get install capnproto
-sudo apt-get install libcapnp-dev
-sudo apt-get install pkg-config
-sudo apt-get install bison
-sudo apt-get install flex
-sudo apt-get install doxygen
+sudo apt-get install g++ libboost-dev python3.9-dev capnproto libcapnp-dev libtbb-dev pkg-config bison flex doxygen
 ```
+
 Using [nix-shell](https://nixos.wiki/wiki/Development_environment_with_nix-shell):
+
 ```bash
-nix-shell -p cmake boost python3 doxygen capnproto bison flex pkg-config
+nix-shell -p cmake boost python3 doxygen capnproto bison flex pkg-config tbb_2021_8
 ```
+
+On macOS, using [Homebrew](https://brew.sh/):
+
+```bash
+brew install cmake doxygen capnp tbb bison flex
+```
+
+Ensure the versions of `bison` and `flex` installed via Homebrew take precedence over the macOS defaults by modifying your $PATH environment variable as follows:
+
+```bash
+export PATH="/opt/homebrew/opt/flex/bin:/opt/homebrew/opt/bison/bin:$PATH"
+```
+
 ### Building and Installing
+
 ```bash
 #First define an env variable that points to the directory where you want naja to be installed:
 export NAJA_INSTALL=<path_to_installation_dir>
