@@ -77,7 +77,7 @@ nix-shell -p cmake boost python3 doxygen capnproto bison flex pkg-config tbb_202
 On macOS, using [Homebrew](https://brew.sh/):
 
 ```bash
-brew install cmake doxygen capnp tbb bison flex
+brew install cmake doxygen capnp tbb bison flex boost
 ```
 
 Ensure the versions of `bison` and `flex` installed via Homebrew take precedence over the macOS defaults by modifying your $PATH environment variable as follows:
