@@ -12,7 +12,7 @@ SET(snl_pyloader_tests
 ADD_EXECUTABLE(snlPyLoaderTests ${snl_pyloader_tests})
 target_compile_definitions(snlPyLoaderTests PRIVATE
   SNL_PRIMITIVES_TEST_PATH="${CMAKE_CURRENT_SOURCE_DIR}")
-TARGET_LINK_LIBRARIES(snlPyLoaderTests naja_snl_pyloader gtest gmock gtest_main)
+TARGET_LINK_LIBRARIES(snlPyLoaderTests naja_snl_pyloader gmock gtest_main)
 
 gtest_discover_tests(
   snlPyLoaderTests
@@ -27,7 +27,7 @@ SET(snl_pyedit_tests
 ADD_EXECUTABLE(snlPyEditTests ${snl_pyedit_tests})
 target_compile_definitions(snlPyEditTests PRIVATE
   SNL_PYEDIT_TEST_PATH="${CMAKE_CURRENT_SOURCE_DIR}")
-TARGET_LINK_LIBRARIES(snlPyEditTests naja_snl_pyloader gtest gmock gtest_main)
+TARGET_LINK_LIBRARIES(snlPyEditTests naja_snl_pyloader gmock gtest_main)
 gtest_discover_tests(
   snlPyEditTests
   PROPERTIES ENVIRONMENT

@@ -10,6 +10,6 @@ SET(snl_visual_tests
 
 ADD_EXECUTABLE(snl_visual_tests ${snl_visual_tests})
 
-TARGET_LINK_LIBRARIES(snl_visual_tests naja_dnl naja_snl_visual gtest gmock gtest_main)
+TARGET_LINK_LIBRARIES(snl_visual_tests naja_dnl naja_snl_visual gmock gtest_main)
 
 GTEST_DISCOVER_TESTS(snl_visual_tests)

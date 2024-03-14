@@ -10,6 +10,6 @@ SET(core_tests
 
 ADD_EXECUTABLE(najaCoreTests ${core_tests})
 
-TARGET_LINK_LIBRARIES(najaCoreTests naja_core gtest gmock gtest_main)
+TARGET_LINK_LIBRARIES(najaCoreTests naja_core gmock gtest_main)
 
 GTEST_DISCOVER_TESTS(najaCoreTests)
