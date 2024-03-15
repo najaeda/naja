@@ -156,7 +156,7 @@ void SNLPyLoader::loadLibrary(
     //Cleaning
     //Py_DECREF(modulePathString);
     Py_DECREF(module);
-    Py_DECREF(pyLib);
+    //Py_DECREF(pyLib);
     Py_DECREF(constructString);
     Py_Finalize();
     throw SNLException(reason.str());
