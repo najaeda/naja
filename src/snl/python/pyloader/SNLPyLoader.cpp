@@ -19,7 +19,9 @@ namespace {
 
 std::string getPythonError() {
   PyObject *type, *value, *traceback;
+  
   PyErr_Fetch(&type, &value, &traceback);
+  PyErr_NormalizeException(&type, &value, &traceback);//
   PyErr_Clear();
   if (value == nullptr) {
     return std::string();
@@ -33,8 +35,26 @@ std::string getPythonError() {
   if (cStrValue == nullptr) {
     return std::string();
   }
-  std::string errorStr(cStrValue);
+  PyTracebackObject* tracebackObj = (PyTracebackObject*)traceback;
+
+  // Walk the traceback to the last frame
+  while (tracebackObj->tb_next != NULL) {
+    tracebackObj = tracebackObj->tb_next;
+  }
+
+  // Extract the line number and filename
+  int line = tracebackObj->tb_lineno;
+  PyCodeObject* code = tracebackObj->tb_frame->f_code;
+  const char* filename = PyUnicode_AsUTF8(code->co_filename);
+
+  //Create a string for a meesage with the line number and filename
+  std::ostringstream reason;
+  reason << std::endl << "Error in " << filename << ":" << std::to_string(line) << std::endl;
+  reason.str();
+
+  std::string errorStr(cStrValue + reason.str());
   Py_DECREF(strValue);
+
   return errorStr;
 }
 
