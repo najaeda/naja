@@ -14,6 +14,7 @@
 
 #include "PySNLDB.h"
 #include "PySNLLibrary.h"
+#include <frameobject.h> // Include the header for PyFrameObject
 
 namespace {
 
