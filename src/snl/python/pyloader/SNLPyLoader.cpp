@@ -36,22 +36,25 @@ std::string getPythonError() {
   if (cStrValue == nullptr) {
     return std::string();
   }
-  PyTracebackObject* tracebackObj = (PyTracebackObject*)traceback;
-
-  // Walk the traceback to the last frame
-  while (tracebackObj->tb_next != NULL) {
-    tracebackObj = tracebackObj->tb_next;
-  }
-
-  // Extract the line number and filename
-  int line = tracebackObj->tb_lineno;
-  PyCodeObject* code = tracebackObj->tb_frame->f_code;
-  const char* filename = PyUnicode_AsUTF8(code->co_filename);
-
-  //Create a string for a meesage with the line number and filename
   std::ostringstream reason;
-  reason << std::endl << "Error in " << filename << ":" << std::to_string(line) << std::endl;
-  reason.str();
+  if (traceback != nullptr) {
+    PyTracebackObject* tracebackObj = (PyTracebackObject*)traceback;
+
+    // Walk the traceback to the last frame
+    while (tracebackObj->tb_next != NULL) {
+      tracebackObj = tracebackObj->tb_next;
+    }
+
+    // Extract the line number and filename
+    int line = tracebackObj->tb_lineno;
+    PyCodeObject* code = tracebackObj->tb_frame->f_code;
+    const char* filename = PyUnicode_AsUTF8(code->co_filename);
+
+    //Create a string for a meesage with the line number and filename
+    
+    reason << std::endl << "Error in " << filename << ":" << std::to_string(line) << std::endl;
+    reason.str();
+  }
 
   std::string errorStr(cStrValue + reason.str());
   Py_DECREF(strValue);
