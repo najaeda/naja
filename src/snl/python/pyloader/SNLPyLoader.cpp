@@ -37,6 +37,7 @@ std::string getPythonError() {
     return std::string();
   }
   std::ostringstream reason;
+
   if (traceback != nullptr) {
     PyTracebackObject* tracebackObj = (PyTracebackObject*)traceback;
 
@@ -46,21 +47,27 @@ std::string getPythonError() {
     }
 
     // Extract the line number and filename
-    int line = tracebackObj->tb_lineno;
-    PyCodeObject* code = tracebackObj->tb_frame->f_code;
-    const char* filename = PyUnicode_AsUTF8(code->co_filename);
+    PyFrameObject* frame = tracebackObj->tb_frame;
+    int line = PyFrame_GetLineNumber(frame);
+    PyCodeObject* code = PyFrame_GetCode(frame);
+    if (code != NULL) {
+      PyObject* filenameObj =
+          PyObject_GetAttrString((PyObject*)code, "co_filename");
+      const char* filename = PyUnicode_AsUTF8(filenameObj);
 
-    //Create a string for a meesage with the line number and filename
-    
-    reason << std::endl << "Error in " << filename << ":" << std::to_string(line) << std::endl;
-    reason.str();
+      // Create a string for a message with the line number and filename
+      std::ostringstream reason;
+      reason << "Error in " << filename << ":" << line;
+      std::string reason_str = reason.str();
+      Py_DECREF(filenameObj);
+      Py_DECREF(code);
+    }
   }
-
   std::string errorStr(cStrValue + reason.str());
   Py_DECREF(strValue);
 
   return errorStr;
-}
+  }
 
 PyObject* loadModule(const std::filesystem::path& path) {
   if (not std::filesystem::exists(path)) {
