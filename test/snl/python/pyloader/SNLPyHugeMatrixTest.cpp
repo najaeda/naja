@@ -55,9 +55,6 @@ TEST_F(SNLPyHugeMatrixTest, test) {
     std::filesystem::remove_all(dumpPath);
   }
   SNLCapnP::dump(top->getDB(), dumpPath);
-  SNLUniverse::get()->destroy();  
-  designsLibrary_ = nullptr;
-  SNLCapnP::load(dumpPath);
 
   //dump verilog
   auto outPath = std::filesystem::path(SNL_DUMP_PATH);
@@ -65,7 +62,10 @@ TEST_F(SNLPyHugeMatrixTest, test) {
   dumper.setTopFileName(top->getName().getString() + ".v");
   dumper.setSingleFile(true);
   dumper.dumpDesign(top, outPath);
-
-
-
+  
+  SNLUniverse::get()->destroy();  
+  top = nullptr;
+  designsLibrary_ = nullptr;
+  
+  SNLCapnP::load(dumpPath);
 }
