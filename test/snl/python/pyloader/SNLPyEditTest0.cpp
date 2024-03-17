@@ -49,7 +49,7 @@ TEST_F(SNLPyDBEditTest0, test) {
   EXPECT_EQ(instance0, top->getInstance(SNLName("instance1")));
 }
 
-TEST_F(SNLPyDBEditTest0, testEditError) {
+TEST_F(SNLPyDBEditTest0, testEditDBError) {
   auto db = SNLDB::create(SNLUniverse::get());
   auto scriptPath = std::filesystem::path(SNL_PYEDIT_TEST_PATH);
   scriptPath /= "edit";

@@ -8,13 +8,14 @@
 #include <sstream>
 #include <cstdio>
 #include <Python.h>
+#include <frameobject.h> // Include the header for PyFrameObject
 
 #include "SNLUniverse.h"
 #include "SNLException.h"
 
 #include "PySNLDB.h"
 #include "PySNLLibrary.h"
-#include <frameobject.h> // Include the header for PyFrameObject
+#include "PySNLDesign.h"
 
 namespace {
 
@@ -196,6 +197,44 @@ void SNLPyLoader::loadLibrary(
   //Py_DECREF(modulePathString);
   Py_DECREF(module);
   Py_DECREF(pyLib);
+  Py_DECREF(constructString);
+  Py_Finalize();
+}
+
+void SNLPyLoader::loadDesign(
+    SNLDesign* design,
+    const std::filesystem::path& path) {
+  if (design->isPrimitive()) {
+    std::ostringstream reason;
+    reason << "Cannot construct design if it is a primitive";
+    throw SNLException(reason.str());
+  }
+  auto module = loadModule(path);
+
+  PyObject* pyDesign = PYSNL::PySNLDesign_Link(design);
+  PyObject* constructString = PyUnicode_FromString("construct");
+
+  PyObject* res =
+    PyObject_CallMethodObjArgs(module, constructString, pyDesign, NULL);
+  if (not res) {
+    std::ostringstream reason;
+    reason << "Error while calling construct";
+    std::string pythonError = getPythonError();
+    if (not pythonError.empty()) {
+      reason << ": " << pythonError;
+    } else {
+      reason << ": empty error message";
+    }
+    //Cleaning
+    Py_DECREF(module);
+    Py_DECREF(pyDesign);
+    Py_DECREF(constructString);
+    Py_Finalize();
+    throw SNLException(reason.str());
+  }
+  //Cleaning
+  Py_DECREF(module);
+  Py_DECREF(pyDesign);
   Py_DECREF(constructString);
   Py_Finalize();
 }

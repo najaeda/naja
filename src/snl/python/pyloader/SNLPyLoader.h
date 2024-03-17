@@ -11,6 +11,7 @@ namespace naja { namespace SNL {
 
 class SNLDB;
 class SNLLibrary;
+class SNLDesign;
 
 class SNLPyLoader {
   public:
@@ -21,6 +22,9 @@ class SNLPyLoader {
       SNLLibrary* library,
       const std::filesystem::path& scriptPath,
       bool loadPrimitives=false);
+    static void loadDesign(
+      SNLDesign* design,
+      const std::filesystem::path& scriptPath);
     static void loadPrimitives(
       SNLLibrary* library,
       const std::filesystem::path& scriptPath);
