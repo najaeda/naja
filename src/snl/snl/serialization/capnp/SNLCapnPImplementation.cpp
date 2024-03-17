@@ -507,7 +507,9 @@ void SNLCapnP::sendImplementation(
 //LCOV_EXCL_STOP
 
 SNLDB* SNLCapnP::loadImplementation(int fileDescriptor) {
-  ::capnp::PackedFdMessageReader message(fileDescriptor);
+  ::capnp::ReaderOptions options;
+  options.traversalLimitInWords = std::numeric_limits<uint64_t>::max();
+  ::capnp::PackedFdMessageReader message(fileDescriptor, options);
 
   DBImplementation::Reader dbImplementation = message.getRoot<DBImplementation>();
   auto dbID = dbImplementation.getId();

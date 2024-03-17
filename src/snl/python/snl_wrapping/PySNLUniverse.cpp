@@ -6,6 +6,8 @@
 
 #include "PyInterface.h"
 #include "PySNLDesign.h"
+#include "PySNLDB.h"
+
 #include "SNLUniverse.h"
 
 namespace PYSNL {
@@ -28,6 +30,7 @@ static PyObject* PySNLUniverse_get() {
 }
 
 GetObjectMethod(Universe, Design, getTopDesign)
+GetObjectByIndex(Universe, DB, DB)
 
 DBoDestroyAttribute(PySNLUniverse_destroy, PySNLUniverse)
 
@@ -40,6 +43,8 @@ PyMethodDef PySNLUniverse_Methods[] = {
     "get the SNL Universe (static object)"},
   { "getTopDesign", (PyCFunction)PySNLUniverse_getTopDesign, METH_NOARGS,
     "get the top SNLDesign"},
+  { "getDB", (PyCFunction)PySNLUniverse_getDB, METH_VARARGS,
+    "get the SNLDB with the given index"},
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 

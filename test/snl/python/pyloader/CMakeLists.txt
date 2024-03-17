@@ -22,12 +22,15 @@ gtest_discover_tests(
 
 SET(snl_pyedit_tests
   SNLPyEditTest0.cpp
+  SNLPyHugeMatrixTest.cpp
 )
 
 ADD_EXECUTABLE(snlPyEditTests ${snl_pyedit_tests})
 target_compile_definitions(snlPyEditTests PRIVATE
-  SNL_PYEDIT_TEST_PATH="${CMAKE_CURRENT_SOURCE_DIR}")
-TARGET_LINK_LIBRARIES(snlPyEditTests naja_snl_pyloader gmock gtest_main)
+  SNL_PYEDIT_TEST_PATH="${CMAKE_CURRENT_SOURCE_DIR}"
+  SNL_DUMP_PATH="${CMAKE_CURRENT_BINARY_DIR}"
+  )
+TARGET_LINK_LIBRARIES(snlPyEditTests naja_snl_pyloader naja_snl_dump naja_snl_verilog gmock gtest_main)
 gtest_discover_tests(
   snlPyEditTests
   PROPERTIES ENVIRONMENT
