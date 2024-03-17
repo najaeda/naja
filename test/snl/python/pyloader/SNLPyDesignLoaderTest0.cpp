@@ -19,8 +19,8 @@ class SNLPyDesignLoaderTest0: public ::testing::Test {
     void SetUp() override {
       auto universe = SNLUniverse::create();
       auto db = SNLDB::create(universe);
-      auto primitives = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("primitives"));
-      auto primitive = SNLDesign::create(primitives, SNLDesign::Type::Primitive, SNLName("primitive"));
+      primitives_ = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("primitives"));
+      auto primitive = SNLDesign::create(primitives_, SNLDesign::Type::Primitive, SNLName("primitive"));
       auto pi = SNLScalarTerm::create(primitive, SNLTerm::Direction::Input, SNLName("i"));
       auto po = SNLScalarTerm::create(primitive, SNLTerm::Direction::Output, SNLName("o"));
       auto designsLibrary = SNLLibrary::create(db, SNLName("designs"));
@@ -31,7 +31,8 @@ class SNLPyDesignLoaderTest0: public ::testing::Test {
         SNLUniverse::get()->destroy();
       }
     }
-    SNLDesign* design_;
+    SNLLibrary* primitives_;
+    SNLDesign*  design_;
 };
 
 TEST_F(SNLPyDesignLoaderTest0, test) {
@@ -48,4 +49,12 @@ TEST_F(SNLPyDesignLoaderTest0, testDesignLoadingError) {
   scriptPath /= "scripts";
   scriptPath /= "design_faulty.py";
   EXPECT_THROW(SNLPyLoader::loadDesign(design_, scriptPath), SNLException);
+}
+
+TEST_F(SNLPyDesignLoaderTest0, testPrimitiveLoadingError) {
+  auto design = SNLDesign::create(primitives_, SNLDesign::Type::Primitive, SNLName("top"));
+  auto scriptPath = std::filesystem::path(SNL_PRIMITIVES_TEST_PATH);
+  scriptPath /= "scripts";
+  scriptPath /= "design_loader.py";
+  EXPECT_THROW(SNLPyLoader::loadDesign(design, scriptPath), SNLException);
 }
