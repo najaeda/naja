@@ -6,6 +6,7 @@ INCLUDE(GoogleTest)
 
 SET(snl_pyloader_tests
   SNLPyDBLoaderTest0.cpp
+  SNLPyDesignLoaderTest0.cpp
   SNLPrimitivesTest0.cpp
 )
 
