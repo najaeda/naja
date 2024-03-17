@@ -14,12 +14,15 @@
 
 #include "PySNLDB.h"
 #include "PySNLLibrary.h"
+#include <frameobject.h> // Include the header for PyFrameObject
 
 namespace {
 
 std::string getPythonError() {
   PyObject *type, *value, *traceback;
+  
   PyErr_Fetch(&type, &value, &traceback);
+  PyErr_NormalizeException(&type, &value, &traceback);//
   PyErr_Clear();
   if (value == nullptr) {
     return std::string();
@@ -33,10 +36,38 @@ std::string getPythonError() {
   if (cStrValue == nullptr) {
     return std::string();
   }
-  std::string errorStr(cStrValue);
+  std::ostringstream reason;
+
+  if (traceback != nullptr) {
+    PyTracebackObject* tracebackObj = (PyTracebackObject*)traceback;
+
+    // Walk the traceback to the last frame
+    while (tracebackObj->tb_next != NULL) {
+      tracebackObj = tracebackObj->tb_next;
+    }
+
+    // Extract the line number and filename
+    PyFrameObject* frame = tracebackObj->tb_frame;
+    int line = PyFrame_GetLineNumber(frame);
+    PyCodeObject* code = PyFrame_GetCode(frame);
+    if (code != NULL) {
+      PyObject* filenameObj =
+          PyObject_GetAttrString((PyObject*)code, "co_filename");
+      const char* filename = PyUnicode_AsUTF8(filenameObj);
+
+      // Create a string for a message with the line number and filename
+      std::ostringstream reason;
+      reason << "Error in " << filename << ":" << line;
+      std::string reason_str = reason.str();
+      Py_DECREF(filenameObj);
+      Py_DECREF(code);
+    }
+  }
+  std::string errorStr(cStrValue + reason.str());
   Py_DECREF(strValue);
+
   return errorStr;
-}
+  }
 
 PyObject* loadModule(const std::filesystem::path& path) {
   if (not std::filesystem::exists(path)) {
