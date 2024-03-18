@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
+// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -61,6 +61,7 @@ class SNLTerm: public SNLNetComponent {
     virtual void setFlatID(size_t flatID) = 0;
     boost::intrusive::set_member_hook<> designTermsHook_  {};
     virtual void destroyFromDesign() = 0;
+    virtual SNLTerm* clone(SNLDesign* design) const = 0;
 };
 
 }} // namespace SNL // namespace naja

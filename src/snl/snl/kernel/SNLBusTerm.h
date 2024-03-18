@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
+// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -101,6 +101,7 @@ class SNLBusTerm final: public SNLTerm {
     void postCreate();
     void postCreateAndSetID();
     void destroyFromDesign() override;
+    SNLTerm* clone(SNLDesign* design) const override;
     void commonPreDestroy();
     void preDestroy() override;
 

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
+// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -58,6 +58,7 @@ class SNLScalarNet final: public SNLBitNet {
     void destroyFromDesign() override;
     void commonPreDestroy();
     void preDestroy() override;
+    SNLNet* clone(SNLDesign* design) const override;
 
     void setID(SNLID::DesignObjectID id) override { id_ = id; }
 

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
+// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -118,7 +118,6 @@ void SNLInstance::postCreateAndSetID() {
   super::postCreate();
   getDesign()->addInstanceAndSetID(this);
   commonPostCreate();
-
 }
 
 void SNLInstance::postCreate() {
@@ -152,6 +151,22 @@ void SNLInstance::removeInstTerm(SNLBitTerm* term) {
     instTerm->destroyFromInstance();
   }
   instTerms_[term->getFlatID()] = nullptr;
+}
+
+SNLInstance* SNLInstance::clone(SNLDesign* design) const {
+  auto newInstance = new SNLInstance(design, model_, id_, name_);
+  //we can reserve instTerms_ size since we are cloning
+  newInstance->instTerms_.reserve(instTerms_.size());
+  newInstance->commonPostCreate();
+  //clone instance parameters
+  newInstance->instParameters_.clone_from(
+    instParameters_,
+    [newInstance](const SNLInstParameter& param){
+      return new SNLInstParameter(newInstance, param.parameter_, param.value_);
+    },
+    [](SNLInstParameter*){} //LCOV_EXCL_LINE
+  );
+  return newInstance;
 }
 
 DESIGN_OBJECT_SET_NAME(SNLInstance, Instance, instance)

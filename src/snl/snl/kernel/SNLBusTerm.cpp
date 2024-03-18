@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
+// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -127,6 +127,12 @@ void SNLBusTerm::destroyFromDesign() {
 void SNLBusTerm::preDestroy() {
   getDesign()->removeTerm(this);
   commonPreDestroy();
+}
+
+SNLTerm* SNLBusTerm::clone(SNLDesign* design) const {
+  auto newSNLBusTerm = new SNLBusTerm(design, id_, direction_, msb_, lsb_, name_);
+  newSNLBusTerm->createBits();
+  return newSNLBusTerm;
 }
 
 DESIGN_OBJECT_SET_NAME(SNLBusTerm, Term, term)

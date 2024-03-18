@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
+// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -11,6 +11,7 @@ namespace naja { namespace SNL {
 
 class SNLBitTerm: public SNLTerm {
   public:
+    friend class SNLBitNet;
     using super = SNLTerm;
     
     //Allows to compare SNLBitTerms in the same design.

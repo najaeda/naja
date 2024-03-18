@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
+// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -72,6 +72,7 @@ class SNLNet: public SNLDesignObject {
 
   private:
     virtual void destroyFromDesign() = 0;
+    virtual SNLNet* clone(SNLDesign* design) const = 0;
 
     //following used in BusNet and ScalarNet
     virtual void setID(SNLID::DesignObjectID id) = 0;

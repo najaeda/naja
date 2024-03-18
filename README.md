@@ -2,9 +2,9 @@
 <img width="150" alt="Naja Logo" src="./docs/images/Naja-Logo.png"><h1>Naja</h1>
 </div>
 
-![build](https://github.com/xtofalex/naja/actions/workflows/build.yml/badge.svg)
-[![Codacy Badge](https://api.codacy.com/project/badge/Grade/b224740790e24c80a381a6eede28cad8)](https://app.codacy.com/gh/xtofalex/naja?utm_source=github.com&utm_medium=referral&utm_content=xtofalex/naja&utm_campaign=Badge_Grade_Settings)
-[![codecov](https://codecov.io/gh/xtofalex/naja/branch/main/graph/badge.svg?token=59ZKZ74HFP)](https://codecov.io/gh/xtofalex/naja)
+![build](https://github.com/najaeda/naja/actions/workflows/build.yml/badge.svg)
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/b224740790e24c80a381a6eede28cad8)](https://app.codacy.com/gh/najaeda/naja?utm_source=github.com&utm_medium=referral&utm_content=najaeda/naja&utm_campaign=Badge_Grade_Settings)
+[![codecov](https://codecov.io/gh/najaeda/naja/branch/main/graph/badge.svg?token=59ZKZ74HFP)](https://codecov.io/gh/najaeda/naja)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 ## Introduction
@@ -16,7 +16,7 @@ Naja provides a tool: [naja-edit](#naja_edit) allowing to translate netlist from
 If you are looking to build your own EDA tool, Naja contains two primary API components:
 
 1. SNL (Structured Netlist) API housed in this repository.
-2. [naja-verilog](https://github.com/xtofalex/naja-verilog), a data structure independent structural verilog parser.
+2. [naja-verilog](https://github.com/najaeda/naja-verilog), a data structure independent structural verilog parser.
 
 ### Acknowledgement
 
@@ -28,6 +28,8 @@ This project is supported and funded by NLNet through the [NGI0 Entrust](https:/
 ## Why Naja ?
 
 ### Enhanced Fidelity in Data Representation
+
+Naja contains two main components SNL (Structured Netlist) API (located in this repo) and [naja-verilog](https://github.com/najaeda/naja-verilog), a data structure independent structural verilog parser.
 
 In most EDA flows, data exchange is done by using standard netlist formats (Verilog, LEF/DEF, EDIF, …) which were not designed to represent data structures content with high fidelity. To address this problem, SNL relies on [Cap'n Proto](https://github.com/capnproto/capnproto) open source interchange format.
 
@@ -53,7 +55,7 @@ SNL is summarized in below's image.
 
 ```bash
 # First clone the repository and go inside it
-git clone https://github.com/xtofalex/naja.git
+git clone https://github.com/najaeda/naja.git
 cd naja
 git submodule init
 git submodule update
@@ -65,8 +67,9 @@ Mandatory dependencies:
 
 1. Boost
 2. [cmake](https://cmake.org): at least 3.22 version.
+For system-specific cmake installation options, please refer to [this link](https://cmake.org/download/).
 3. Python3: for building the SNL Python3 interface. This interface is used to load primitive cells (associated to Verilog parsing)
-and their associated characteristics (timing characteristics, ...).
+and their associated characteristics (for instance: ressource count, timing characteristics, ...).
 
 Optional dependencies:
 
@@ -74,25 +77,31 @@ Optional dependencies:
 
 Embedded dependencies, through git sub modules:
 
-1. [naja-verilog](https://github.com/xtofalex/naja-verilog): for verilog parsing.
+1. [naja-verilog](https://github.com/najaeda/naja-verilog): for verilog parsing.
 2. [google test](https://github.com/google/googletest) for unit testing.
 
 On Ubuntu:
 
 ```bash
-sudo apt-get install python3-dev
-sudo apt-get install capnproto
-sudo apt-get install libcapnp-dev
-sudo apt-get install pkg-config
-sudo apt-get install bison
-sudo apt-get install flex
-sudo apt-get install doxygen
+sudo apt-get install g++ libboost-dev python3.9-dev capnproto libcapnp-dev libtbb-dev pkg-config bison flex doxygen
 ```
 
 Using [nix-shell](https://nixos.wiki/wiki/Development_environment_with_nix-shell):
 
 ```bash
-nix-shell -p cmake boost python3 doxygen capnproto bison flex pkg-config
+nix-shell -p cmake boost python3 doxygen capnproto bison flex pkg-config tbb_2021_8
+```
+
+On macOS, using [Homebrew](https://brew.sh/):
+
+```bash
+brew install cmake doxygen capnp tbb bison flex boost
+```
+
+Ensure the versions of `bison` and `flex` installed via Homebrew take precedence over the macOS defaults by modifying your $PATH environment variable as follows:
+
+```bash
+export PATH="/opt/homebrew/opt/flex/bin:/opt/homebrew/opt/bison/bin:$PATH"
 ```
 
 ### Building and Installing
@@ -103,8 +112,8 @@ export NAJA_INSTALL=<path_to_installation_dir>
 # Create a build dir and go inside it
 mkdir build
 cd build
-cmake <path_to_naja_sources_dir> -DCMAKE_INSTALL_PREFIX=$NAJA_INSTALL
-#For instance: cmake ~/srcs/naja -DCMAKE_INSTALL_PREFIX=$NAJA_INSTALL
+cmake <path_to_naja_sources_dir> -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$NAJA_INSTALL
+#For instance: cmake ~/srcs/naja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$NAJA_INSTALL
 make
 make test
 make install
@@ -141,7 +150,7 @@ export PYTHONPATH=$PYTHONPATH:$NAJA_INSTALL/lib/python
 
 #### SNL Interchange Format
 
-SNL relies on [Cap'n Proto](https://github.com/capnproto/capnproto) for data serialization and streaming. Schema files and C++ implementation can be found [here](https://github.com/xtofalex/naja/tree/main/src/snl/snl/serialization/capnp).
+SNL relies on [Cap'n Proto](https://github.com/capnproto/capnproto) for data serialization and streaming. Schema files and C++ implementation can be found [here](https://github.com/najaeda/naja/tree/main/src/snl/snl/serialization/capnp).
 
 Files composing the dump are created in a directory usually named "snl", composed of the following files:
 
@@ -158,13 +167,13 @@ capnp decode --packed snl_implementation.capnp DBImplementation < snl/db_impleme
 
 #### Verilog
 
-For Verilog parsing, Naja relies on naja-verilog [submodule](https://github.com/xtofalex/naja-verilog).
-Leaf primitives are loaded through the Python primitive loader: [SNLPrimitivesLoader](https://github.com/xtofalex/naja/blob/main/src/snl/python/primitives/SNLPrimitivesLoader.h).
-A application snippet can be found [here](https://github.com/xtofalex/naja/blob/main/src/snl/snippets/app/src/SNLVRLSnippet.cpp) and examples of
+For Verilog parsing, Naja relies on naja-verilog submodule (https://github.com/najaeda/naja-verilog).
+Leaf primitives are loaded through the Python primitive loader: [SNLPrimitivesLoader](https://github.com/najaeda/naja/blob/main/src/snl/python/primitives/SNLPrimitivesLoader.h).
+An application snippet can be found [here](https://github.com/najaeda/naja/blob/main/src/snl/snippets/app/src/SNLVRLSnippet.cpp) and examples of
 primitive libraries described using the Python interface can be found in the
-[primitives](https://github.com/xtofalex/naja/blob/main/primitives) directory.
+[primitives](https://github.com/najaeda/naja/blob/main/primitives) directory.
 
-A Verilog dumper is included in SNL API. See [here](https://github.com/xtofalex/naja/blob/main/src/snl/formats/verilog/backend/SNLVRLDumper.h).
+A Verilog dumper is included in SNL API. See [here](https://github.com/najaeda/naja/blob/main/src/snl/formats/verilog/backend/SNLVRLDumper.h).
 
 <div align="right">[ <a href="#Introduction">↑ Back to top ↑</a> ]</div>
 
@@ -174,15 +183,15 @@ A Verilog dumper is included in SNL API. See [here](https://github.com/xtofalex/
 
 ### c++
 
-This [snippet](https://github.com/xtofalex/naja/blob/main/src/snl/snippets/app/src/SNLSnippet.cpp) shows various SNL API netlist construction, manipulation and browsing examples.
+This [snippet](https://github.com/najaeda/naja/blob/main/src/snl/snippets/app/src/SNLSnippet.cpp) shows various SNL API netlist construction, manipulation and browsing examples.
 
 ### Python
 
-This [snippet](https://github.com/xtofalex/naja/blob/main/src/snl/snippets/python/snl_snippet.py) shows an equivalent example using Python interface.
+This [snippet](https://github.com/najaeda/naja/blob/main/src/snl/snippets/python/snl_snippet.py) shows an equivalent example using Python interface.
 
 ### Application snippet
 
-An application snippet can be found [here](https://github.com/xtofalex/naja/blob/main/src/snl/snippets/app).
+An application snippet can be found [here](https://github.com/najaeda/naja/blob/main/src/app_snippet).
 
 This "app" directory and its contents can be copied to start a new application.
 
@@ -210,10 +219,10 @@ naja_edit -f verilog -t snl -i input.v -o output.snl
 naja_edit -f verilog -t snl -i input.v -o output.snl -e script.py
 ```
 
-`naja_edit` editing script examples are available [here](https://github.com/xtofalex/naja/blob/main/src/apps/edit/examples).
+`naja_edit` editing script examples are available [here](https://github.com/najaeda/naja/blob/main/src/apps/edit/examples).
 
 ## Issues / Bugs
 
-Please use [GitHub Issues](https://github.com/xtofalex/naja/issues) to create and track requests and bugs.
+Please use [GitHub Issues](https://github.com/najaeda/naja/issues) to create and track requests and bugs.
 
 <div align="right">[ <a href="#Introduction">↑ Back to top ↑</a> ]</div>

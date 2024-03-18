@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
+# SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -18,6 +18,6 @@ set(snl_netlists_tests
 
 add_executable(snlNetlistTests ${snl_netlists_tests})
 
-target_link_libraries(snlNetlistTests snl_netlists gtest gmock gtest_main)
+target_link_libraries(snlNetlistTests snl_netlists gmock gtest_main)
 
 GTEST_DISCOVER_TESTS(snlNetlistTests)

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
+// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -48,7 +48,8 @@ int main(int argc, char* argv[]) {
     .help("to/output format");
   program.add_argument("-i", "--input")
     .required()
-    .help("input netlist");
+    .append()
+    .help("input netlist paths");
   program.add_argument("-o", "--output")
     .help("output netlist");
   program.add_argument("-p", "--primitives")
@@ -69,7 +70,7 @@ int main(int argc, char* argv[]) {
 
   std::vector<spdlog::sink_ptr> sinks;
   auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
-  console_sink->set_level(spdlog::level::warn);
+  console_sink->set_level(spdlog::level::info);
   console_sink->set_pattern("[naja_edit] [%^%l%$] %v");
   sinks.push_back(console_sink);
 
@@ -125,17 +126,26 @@ int main(int argc, char* argv[]) {
     std::exit(-1);
   }
   
-  std::filesystem::path inputPath;
+  using StringPaths = std::vector<std::string>;
+  StringPaths inputStringPaths = program.get<StringPaths>("-i");
+
+  using Paths = std::vector<std::filesystem::path>;
+  Paths inputPaths;
+  std::transform(
+    inputStringPaths.begin(), inputStringPaths.end(),
+    std::back_inserter(inputPaths),
+    [](const std::string& sp) -> std::filesystem::path { return std::filesystem::path(sp); });
+
   std::filesystem::path outputPath;
-  if (auto input = program.present("-i")) {
-    inputPath = std::filesystem::path(*input);
-  } else {
-    //error
+  if (inputPaths.empty()) {
+    spdlog::critical("No input path was provided");
+    std::exit(EXIT_FAILURE);
   }
   if (auto output = program.present("-o")) {
     outputPath = std::filesystem::path(*output);
   } else {
-    //error
+    spdlog::critical("No output path was provided");
+    std::exit(EXIT_FAILURE);
   }
   
   try {
@@ -144,6 +154,11 @@ int main(int argc, char* argv[]) {
     SNLDB* db = nullptr;
     SNLLibrary* primitivesLibrary = nullptr;
     if (inputFormatType == FormatType::SNL) {
+      if (inputPaths.size() > 1) {
+        spdlog::critical("Multiple input paths are not supported for SNL format");
+        std::exit(EXIT_FAILURE);
+      }
+      auto inputPath = inputPaths[0];
       db = SNLCapnP::load(inputPath);
       SNLUniverse::get()->setTopDesign(db->getTopDesign());
     } else if (inputFormatType == FormatType::VERILOG) {
@@ -153,7 +168,13 @@ int main(int argc, char* argv[]) {
 
       auto designLibrary = SNLLibrary::create(db, SNLName("DESIGN"));
       SNLVRLConstructor constructor(designLibrary);
-      constructor.construct(inputPath);
+      std::ostringstream oss;
+      oss << "Parsing verilog files: ";
+      for (auto path: inputPaths) {
+        oss << path << " ";
+      }
+      spdlog::info(oss.str());
+      constructor.construct(inputPaths);
 
       auto top = SNLUtils::findTop(designLibrary);
       if (top) {

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
+// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -92,6 +92,12 @@ void SNLScalarNet::destroyFromDesign() {
 void SNLScalarNet::preDestroy() {
   commonPreDestroy();
   getDesign()->removeNet(this);
+}
+
+SNLNet* SNLScalarNet::clone(SNLDesign* design) const {
+  auto newNet = new SNLScalarNet(design, id_, name_);
+  cloneComponents(newNet);
+  return newNet;
 }
 
 SNLID SNLScalarNet::getSNLID() const {

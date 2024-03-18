@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
+// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -78,6 +78,25 @@ static PyObject* PySNLDesign_createPrimitive(PyObject*, PyObject* args) {
   }
   SNLCATCH
   return PySNLDesign_Link(design);
+}
+
+static PyObject* PySNLDesign_uniquify(PySNLDesign* self, PyObject* args) {
+  const char* arg0 = nullptr;
+  if (not PyArg_ParseTuple(args, "|s:SNLDesign.uniquify", &arg0)) {
+    setError("malformed SNLDesign.uniquify method");
+    return nullptr;
+  }
+  SNLName name;
+  if (arg0) {
+    name = SNLName(arg0);
+  }
+
+  SNLDesign* newDesign = nullptr;
+  METHOD_HEAD("SNLDesign.uniquify()")
+  SNLTRY
+  newDesign = selfObject->uniquify(name);
+  SNLCATCH
+  return PySNLDesign_Link(newDesign);
 }
 
 static PyObject* PySNLDesign_addCombinatorialArcs(PySNLDesign* self, PyObject* args) {
@@ -264,6 +283,7 @@ GetObjectByName(Design, ScalarNet)
 GetObjectByName(Design, BusNet)
 GetObjectByName(Design, Parameter)
 GetNameMethod(SNLDesign)
+GetBoolAttribute(Design, isAnonymous)
 GetContainerMethod(Design, Term, Terms)
 GetContainerMethod(Design, BitTerm, BitTerms)
 GetContainerMethod(Design, ScalarTerm, ScalarTerms)
@@ -298,6 +318,8 @@ PyMethodDef PySNLDesign_Methods[] = {
     "get outputs related to a clock"},
   { "getName", (PyCFunction)PySNLDesign_getName, METH_NOARGS,
     "get SNLDesign name"},
+  { "isAnonymous", (PyCFunction)PySNLDesign_isAnonymous, METH_NOARGS,
+    "Returns True if the SNLDesign is anonymous"},
   {"getDB", (PyCFunction)PySNLDesign_getDB, METH_NOARGS,
     "Returns the SNLDesign owner SNLDB."},
   {"getLibrary", (PyCFunction)PySNLDesign_getLibrary, METH_NOARGS,
@@ -336,6 +358,8 @@ PyMethodDef PySNLDesign_Methods[] = {
     "get a container of SNLParameters."},
   {"destroy", (PyCFunction)PySNLDesign_destroy, METH_NOARGS,
     "destroy this SNLDesign."},
+  {"uniquify", (PyCFunction)PySNLDesign_uniquify, METH_VARARGS,
+    "uniquify this SNLDesign."},
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 
