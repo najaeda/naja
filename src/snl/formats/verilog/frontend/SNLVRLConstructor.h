@@ -29,7 +29,9 @@ class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
     static SNLNet::Type VRLTypeToSNLType(const naja::verilog::Net::Type& type);
     static SNLTerm::Direction VRLDirectionToSNLDirection(const naja::verilog::Port::Direction& direction);
 
-    void construct(const std::filesystem::path& filePath);
+    using Paths = std::vector<std::filesystem::path>;
+    void construct(const Paths& paths);
+    void construct(const std::filesystem::path& path);
 
     void setVerbose(bool verbose) { verbose_ = verbose; }
     bool getVerbose() const { return verbose_; }
