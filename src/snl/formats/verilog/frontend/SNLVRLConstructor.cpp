@@ -146,11 +146,15 @@ SNLVRLConstructor::SNLVRLConstructor(SNLLibrary* library):
   library_(library)
 {}
 
-void SNLVRLConstructor::construct(const std::filesystem::path& filePath) {
+void SNLVRLConstructor::construct(const Paths& paths) {
   setFirstPass(true);
-  parse(filePath);
+  parse(paths);
   setFirstPass(false);
-  parse(filePath);
+  parse(paths);
+}
+
+void SNLVRLConstructor::construct(const std::filesystem::path& path) {
+  construct(Paths{path});
 }
 
 void SNLVRLConstructor::startModule(const naja::verilog::Identifier& module) {
