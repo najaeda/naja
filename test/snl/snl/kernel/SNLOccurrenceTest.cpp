@@ -71,7 +71,22 @@ class SNLOccurrenceTest: public ::testing::Test {
     SNLInstance* h0Instance_    {nullptr};
 };
 
-TEST_F(SNLOccurrenceTest, testhEmptyOccurrences) {
+TEST_F(SNLOccurrenceTest, testhEmptyOccurrences0) {
+  ASSERT_NE(SNLUniverse::get(), nullptr);
+  auto emptyPath = SNLPath();
+  auto emptyNetOccurrence = SNLBitNetOccurrence();
+  auto emptyInstTermOccurrence = SNLInstTermOccurrence();
+  auto emptyTermOccurrence = SNLBitTermOccurrence();
+  EXPECT_FALSE(emptyNetOccurrence.isValid());
+  EXPECT_FALSE(emptyInstTermOccurrence.isValid());
+  EXPECT_FALSE(emptyTermOccurrence.isValid());
+  EXPECT_EQ(emptyNetOccurrence, emptyInstTermOccurrence);
+  EXPECT_EQ(emptyNetOccurrence, SNLInstTermOccurrence());
+  EXPECT_FALSE(emptyNetOccurrence < emptyInstTermOccurrence);
+  EXPECT_FALSE(emptyInstTermOccurrence < emptyNetOccurrence);
+}
+
+TEST_F(SNLOccurrenceTest, testhEmptyOccurrences1) {
   ASSERT_NE(SNLUniverse::get(), nullptr);
   auto emptyPath = SNLPath();
   auto emptyNetOccurrence = SNLBitNetOccurrence(emptyPath, nullptr);
