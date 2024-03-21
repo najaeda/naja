@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+// SPDX-FileCopyrightText: 2024 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -140,8 +140,8 @@ class SNLDesignUniquificationTest: public ::testing::Test {
     Nets        nets_       {};
 };
 
-TEST_F(SNLDesignUniquificationTest, testUniquifyInterface0) {
-  auto newDesign = design_->uniquifyInterface();
+TEST_F(SNLDesignUniquificationTest, testcloneInterface0) {
+  auto newDesign = design_->cloneInterface();
   ASSERT_NE(nullptr, newDesign);
   EXPECT_TRUE(newDesign->isAnonymous());
   EXPECT_EQ(design_->getLibrary(), newDesign->getLibrary());
@@ -152,8 +152,8 @@ TEST_F(SNLDesignUniquificationTest, testUniquifyInterface0) {
   EXPECT_TRUE(newDesign->getNets().empty());
 }
 
-TEST_F(SNLDesignUniquificationTest, testUniquifyInterface1) {
-  auto newDesign = design_->uniquifyInterface(SNLName("newDesign"));
+TEST_F(SNLDesignUniquificationTest, testCloneInterface1) {
+  auto newDesign = design_->cloneInterface(SNLName("newDesign"));
   ASSERT_NE(nullptr, newDesign);
   EXPECT_FALSE(newDesign->isAnonymous());
   EXPECT_EQ(SNLName("newDesign"), newDesign->getName());
@@ -166,9 +166,9 @@ TEST_F(SNLDesignUniquificationTest, testUniquifyInterface1) {
   EXPECT_TRUE(newDesign->getNets().empty());
 }
 
-TEST_F(SNLDesignUniquificationTest, testUniquifyInterface2) {
+TEST_F(SNLDesignUniquificationTest, testCloneInterface2) {
   auto newLibrary = SNLLibrary::create(design_->getLibrary()->getDB(), SNLName("newLibrary"));
-  auto newDesign = design_->uniquifyInterfaceToLibrary(newLibrary, SNLName("newDesign"));
+  auto newDesign = design_->cloneInterfaceToLibrary(newLibrary, SNLName("newDesign"));
   ASSERT_NE(nullptr, newDesign);
   EXPECT_FALSE(newDesign->isAnonymous());
   EXPECT_EQ(SNLName("newDesign"), newDesign->getName());
@@ -181,8 +181,8 @@ TEST_F(SNLDesignUniquificationTest, testUniquifyInterface2) {
   EXPECT_TRUE(newDesign->getNets().empty());
 }
 
-TEST_F(SNLDesignUniquificationTest, testUniquify0) {
-  auto newDesign = design_->uniquify();
+TEST_F(SNLDesignUniquificationTest, testClone0) {
+  auto newDesign = design_->clone();
   ASSERT_NE(nullptr, newDesign);
   EXPECT_TRUE(newDesign->isAnonymous());
   EXPECT_EQ(design_->getLibrary(), newDesign->getLibrary());
@@ -194,5 +194,5 @@ TEST_F(SNLDesignUniquificationTest, testUniquify0) {
 }
 
 TEST_F(SNLDesignUniquificationTest, testErrors) {
-  EXPECT_THROW(design_->uniquify(design_->getName()), SNLException);
+  EXPECT_THROW(design_->clone(design_->getName()), SNLException);
 }

@@ -22,7 +22,7 @@ class SNLDesignUniquifyTest(unittest.TestCase):
       snl.SNLUniverse.get().destroy()
 
   def testUniquifyInterface0(self):
-    newDesign = self.design.uniquify()
+    newDesign = self.design.clone()
     self.assertIsNotNone(newDesign)
     self.assertNotEqual(self.design, newDesign)
     self.assertTrue(newDesign.isAnonymous())
@@ -36,14 +36,14 @@ class SNLDesignUniquifyTest(unittest.TestCase):
     self.assertEqual(parametersSize, newParametersSize)
     
   def testUniquifyInterface1(self):
-    newDesign = self.design.uniquify("uniquified")
+    newDesign = self.design.clone("cloned")
     self.assertIsNotNone(newDesign)
     self.assertNotEqual(self.design, newDesign)
     self.assertFalse(newDesign.isAnonymous())
-    self.assertEqual("uniquified", newDesign.getName())
+    self.assertEqual("cloned", newDesign.getName())
 
   def testErrors(self):
-    with self.assertRaises(RuntimeError) as context: self.design.uniquify("ERROR", "ERROR")
+    with self.assertRaises(RuntimeError) as context: self.design.clone("ERROR", "ERROR")
 
 if __name__ == '__main__':
   unittest.main()
