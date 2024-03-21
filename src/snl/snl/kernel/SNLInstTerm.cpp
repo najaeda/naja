@@ -15,14 +15,14 @@
 
 namespace naja { namespace SNL {
 
-SNLInstTerm::SNLInstTerm(SNLInstance* instance, SNLBitTerm* term):
+SNLInstTerm::SNLInstTerm(SNLInstance* instance, SNLBitTerm* bitTerm):
   instance_(instance),
-  term_(term)
+  bitTerm_(bitTerm)
 {}
 
-SNLInstTerm* SNLInstTerm::create(SNLInstance* instance, SNLBitTerm* term) {
-  preCreate(instance, term);
-  SNLInstTerm* instTerm = new SNLInstTerm(instance, term);
+SNLInstTerm* SNLInstTerm::create(SNLInstance* instance, SNLBitTerm* bitTerm) {
+  preCreate(instance, bitTerm);
+  SNLInstTerm* instTerm = new SNLInstTerm(instance, bitTerm);
   instTerm->postCreate();
   return instTerm;
 }
@@ -56,17 +56,17 @@ SNLDesign* SNLInstTerm::getDesign() const {
 }
 
 SNLID SNLInstTerm::getSNLID() const {
-  return SNLDesignObject::getSNLID(SNLID::Type::InstTerm, getTerm()->getID(), getInstance()->getID(), getTerm()->getBit());
+  return SNLDesignObject::getSNLID(SNLID::Type::InstTerm, getBitTerm()->getID(), getInstance()->getID(), getBitTerm()->getBit());
 }
 
 SNLTerm::Direction SNLInstTerm::getDirection() const {
-  return getTerm()->getDirection();
+  return getBitTerm()->getDirection();
 }
 
 NET_COMPONENT_SET_NET(SNLInstTerm)
 
 bool SNLInstTerm::isAnonymous() const {
-  return getTerm()->isAnonymous();
+  return getBitTerm()->isAnonymous();
 }
 
 void SNLInstTerm::setName(const SNLName& name) {
@@ -87,7 +87,7 @@ std::string SNLInstTerm::getString() const {
   }
   str << "(" << getInstance()->getID() << ")";
   str << ":";
-  str << getTerm()->getString();
+  str << getBitTerm()->getString();
   return str.str();
 }
 //LCOV_EXCL_STOP
@@ -100,10 +100,10 @@ std::string SNLInstTerm::getDescription() const {
     str << " " << getInstance()->getName().getString();
   }
   str << " " << getInstance()->getID();
-  if (not getTerm()->isAnonymous()) {
-    str << " " << getTerm()->getString();
+  if (not getBitTerm()->isAnonymous()) {
+    str << " " << getBitTerm()->getString();
   }
-  str << " " << getTerm()->getID();
+  str << " " << getBitTerm()->getID();
   str << ">";
   return str.str();
 }

@@ -252,7 +252,7 @@ TEST_F(SNLCapNpTest0, test0) {
     auto instTerm1 = instTerms[0];
     EXPECT_EQ(SNLID(SNLID::Type::InstTerm, 1, 0, 0, 0, 1, 0), instTerm1->getSNLID());
     EXPECT_EQ(instance2, instTerm1->getInstance());
-    EXPECT_EQ(instance2->getModel()->getScalarTerm(SNLName("i")), instTerm1->getTerm());
+    EXPECT_EQ(instance2->getModel()->getScalarTerm(SNLName("i")), instTerm1->getBitTerm());
 
     EXPECT_NE(nullptr, nets[4]);
     auto busNet4 = dynamic_cast<SNLBusNet*>(nets[4]);
@@ -269,8 +269,8 @@ TEST_F(SNLCapNpTest0, test0) {
     auto instTerm2 = instTerms[1];
     EXPECT_EQ(SNLID(SNLID::Type::InstTerm, 1, 0, 0, 1, 0, 0), instTerm2->getSNLID());
     EXPECT_EQ(instance1, instTerm2->getInstance());
-    EXPECT_EQ(instance1->getModel(), instTerm2->getTerm()->getDesign());
-    EXPECT_EQ(instance1->getModel()->getScalarTerm(SNLName("o")), instTerm2->getTerm());
+    EXPECT_EQ(instance1->getModel(), instTerm2->getBitTerm()->getDesign());
+    EXPECT_EQ(instance1->getModel()->getScalarTerm(SNLName("o")), instTerm2->getBitTerm());
 
     EXPECT_EQ(4, instance1->getInstParameters().size());
     using InstParameters = std::vector<SNLInstParameter*>;

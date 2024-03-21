@@ -411,7 +411,7 @@ void SNLVRLDumper::dumpInstanceInterface(
   bool first = true;
   for (auto instTerm: instance->getInstTerms()) {
     SNLTerm* currentTerm = nullptr;
-    auto bitTerm = instTerm->getTerm();
+    auto bitTerm = instTerm->getBitTerm();
     if (dynamic_cast<SNLScalarTerm*>(bitTerm)) {
       currentTerm = bitTerm;
     } else {

@@ -64,7 +64,7 @@ void SNLBitNet::cloneComponents(SNLBitNet* newNet) const {
         auto instance = instTerm->getInstance();
         auto newInstance = newDesign->getInstance(instance->getID());
         if (newInstance) {
-          auto newInstTerm = newInstance->getInstTerm(instTerm->getTerm());
+          auto newInstTerm = newInstance->getInstTerm(instTerm->getBitTerm());
           if (newInstTerm) {
             newInstTerm->net_ = newNet;
             return newInstTerm;

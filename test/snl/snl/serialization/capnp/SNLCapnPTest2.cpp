@@ -83,7 +83,7 @@ TEST_F(SNLCapNpTest2, test0) {
   EXPECT_EQ(SNLNet::Type::Standard, n0->getType());
   EXPECT_EQ(1, n0->getInstTerms().size());
   auto assign_ins0_output = *(n0->getInstTerms().begin());
-  EXPECT_EQ(SNLDB0::getAssignOutput(), assign_ins0_output->getTerm());
+  EXPECT_EQ(SNLDB0::getAssignOutput(), assign_ins0_output->getBitTerm());
   auto assign_ins0 = assign_ins0_output->getInstance();
   EXPECT_EQ(SNLDB0::getAssign(), assign_ins0->getModel());
   auto assign_ins0_input = assign_ins0->getInstTerm(SNLDB0::getAssignInput());
@@ -98,7 +98,7 @@ TEST_F(SNLCapNpTest2, test0) {
   EXPECT_EQ(SNLNet::Type::Standard, n1->getType());
   EXPECT_EQ(1, n1->getInstTerms().size());
   auto assign_ins1_output = *(n1->getInstTerms().begin());
-  EXPECT_EQ(SNLDB0::getAssignOutput(), assign_ins1_output->getTerm());
+  EXPECT_EQ(SNLDB0::getAssignOutput(), assign_ins1_output->getBitTerm());
   auto assign_ins1 = assign_ins1_output->getInstance();
   EXPECT_EQ(SNLDB0::getAssign(), assign_ins1->getModel());
   auto assign_ins1_input = assign_ins1->getInstTerm(SNLDB0::getAssignInput());
