@@ -71,9 +71,9 @@ void TYPE::setName(const SNLName& name) { \
   } \
   if (not name.empty()) { \
     /* check collision */ \
-    if (auto collision = design_->get##METHOD_TYPE(name)) { \
+    if (auto collision = getDesign()->get##METHOD_TYPE(name)) { \
       std::ostringstream reason; \
-      reason << "In design " << design_->getString() \
+      reason << "In design " << getDesign()->getString() \
         << ", cannot rename " << getString() << " to " \
         << name.getString() << ", another #STRING: " << collision->getString() \
         << " has already this name."; \

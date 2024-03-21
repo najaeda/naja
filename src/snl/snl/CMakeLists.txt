@@ -16,6 +16,7 @@ set(SNL_KERNEL_SOURCES
   kernel/SNLTerm.cpp kernel/SNLBitTerm.cpp 
   kernel/SNLBusTerm.cpp kernel/SNLScalarTerm.cpp
   kernel/SNLBusTermBit.cpp
+  kernel/SNLInstanceHeader.cpp
   kernel/SNLInstance.cpp kernel/SNLInstTerm.cpp
   kernel/SNLDesign.cpp
   kernel/SNLSharedPath.cpp kernel/SNLPath.cpp

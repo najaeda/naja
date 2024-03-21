@@ -44,31 +44,34 @@ void printTerms(const naja::SNL::SNLInstance::Terms& terms, std::ostream& stream
 
 namespace naja { namespace SNL {
 
-SNLInstance::SNLInstance(SNLDesign* design, SNLDesign* model, const SNLName& name):
+SNLInstance::SNLInstance(const SNLName& name):
   super(),
-  design_(design),
-  model_(model),
   name_(name)
 {}
 
-SNLInstance::SNLInstance(SNLDesign* design, SNLDesign* model, SNLID::DesignObjectID id, const SNLName& name):
+SNLInstance::SNLInstance(SNLID::DesignObjectID id, const SNLName& name):
   super(),
-  design_(design),
-  model_(model),
   id_(id),
   name_(name)
 {}
 
 SNLInstance* SNLInstance::create(SNLDesign* design, SNLDesign* model, const SNLName& name) {
   preCreate(design, model, name);
-  SNLInstance* instance = new SNLInstance(design, model, name);
+  SNLInstance* instance = new SNLInstance(name);
+  instance->postCreateAndSetID();
+  return instance;
+}
+
+SNLInstance* SNLInstance::create(SNLDesign* design, const SNLName& modelName, const SNLName& name) {
+  preCreate(design, modelName, name);
+  SNLInstance* instance = new SNLInstance(name);
   instance->postCreateAndSetID();
   return instance;
 }
 
 SNLInstance* SNLInstance::create(SNLDesign* design, SNLDesign* model, SNLID::DesignObjectID id, const SNLName& name) {
   preCreate(design, model, id, name);
-  SNLInstance* instance = new SNLInstance(design, model, id, name);
+  SNLInstance* instance = new SNLInstance(id, name);
   instance->postCreate();
   return instance;
 }
@@ -87,6 +90,20 @@ void SNLInstance::preCreate(SNLDesign* design, const SNLDesign* model, const SNL
   }
 }
 
+void SNLInstance::preCreate(SNLDesign* design, const SNLName& modelName, const SNLName& name) {
+  super::preCreate();
+  if (not design) {
+    throw SNLException("malformed SNLInstance creator with NULL design argument");
+  }
+  if (modelName.empty()) {
+    throw SNLException("malformed unbounded SNLInstance creator with empty model name");
+  }
+  if (not name.empty() and design->getInstance(name)) {
+    std::string reason = "SNLDesign " + design->getString() + " contains already a SNLInstance named: " + name.getString();
+    throw SNLException(reason);
+  }
+}
+
 void SNLInstance::preCreate(SNLDesign* design, const SNLDesign* model, SNLID::DesignObjectID id, const SNLName& name) {
   preCreate(design, model, name);
   if (design->getInstance(id)) {
@@ -96,20 +113,23 @@ void SNLInstance::preCreate(SNLDesign* design, const SNLDesign* model, SNLID::De
 }
 
 void SNLInstance::commonPostCreate() {
-  if (not getModel()->isPrimitive()) {
+  if (getModel() and not getModel()->isPrimitive()) {
     //Always execute addSlaveInstance after addInstance.
     //addInstance determines the instance ID.
     getModel()->addSlaveInstance(this);
   }
-  //create instance terminals
-  for (SNLTerm* term: getModel()->getTerms()) {
-    if (SNLBusTerm* bus = dynamic_cast<SNLBusTerm*>(term)) {
-      for (auto bit: bus->getBits()) {
-        createInstTerm(bit);
+
+  if (getModel()) {
+    //create instance terminals
+    for (SNLTerm* term: getModel()->getTerms()) {
+      if (SNLBusTerm* bus = dynamic_cast<SNLBusTerm*>(term)) {
+        for (auto bit: bus->getBits()) {
+          createInstTerm(bit);
+        }
+      } else {
+        SNLScalarTerm* scalar = static_cast<SNLScalarTerm*>(term);
+        createInstTerm(scalar);
       }
-    } else {
-      SNLScalarTerm* scalar = static_cast<SNLScalarTerm*>(term);
-      createInstTerm(scalar);
     }
   }
 }
@@ -154,7 +174,9 @@ void SNLInstance::removeInstTerm(SNLBitTerm* term) {
 }
 
 SNLInstance* SNLInstance::clone(SNLDesign* design) const {
-  auto newInstance = new SNLInstance(design, model_, id_, name_);
+  auto newInstance = new SNLInstance(id_, name_);
+  newInstance->instanceHeader_ = instanceHeader_;
+  //add instance in instance header
   //we can reserve instTerms_ size since we are cloning
   newInstance->instTerms_.reserve(instTerms_.size());
   newInstance->commonPostCreate();
@@ -301,7 +323,7 @@ void SNLInstance::destroyFromDesign() {
 #ifdef SNL_DESTROY_DEBUG
   std::cerr << "Destroying from Design " << getDescription() << std::endl; 
 #endif
-  if (not getModel()->isPrimitive()) {
+  if (getModel() and not getModel()->isPrimitive()) {
     getModel()->removeSlaveInstance(this);
   }
   commonPreDestroy();
@@ -432,8 +454,8 @@ std::string SNLInstance::getString() const {
 std::string SNLInstance::getDescription() const {
   return "<" + std::string(getTypeName())
     + " " + name_.getString()
-    + " " + design_->getName().getString()
-    + " " + model_->getName().getString()
+    + " " + getDesign()->getName().getString();
+    + " " + getModelName().getString()
     + ">";  
 }
 //LCOV_EXCL_STOP

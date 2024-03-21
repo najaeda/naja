@@ -10,6 +10,7 @@ SET(snl_tests
   SNLDesignTest.cpp SNLDesignUniquificationTest.cpp
   SNLTermTest.cpp
   SNLInstanceTest0.cpp SNLInstanceTest1.cpp SNLInstanceTest2.cpp
+  SNLUnboundInstanceTest0.cpp
   SNLNetTest.cpp
   SNLPathTest0.cpp SNLPathTest1.cpp SNLPathTest2.cpp
   SNLOccurrenceTest.cpp

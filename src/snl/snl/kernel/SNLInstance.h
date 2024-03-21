@@ -11,7 +11,7 @@
 
 #include "NajaCollection.h"
 
-#include "SNLDesignObject.h"
+#include "SNLInstanceHeader.h"
 #include "SNLID.h"
 #include "SNLSharedPath.h"
 #include "SNLInstParameter.h"
@@ -36,7 +36,6 @@ class SNLInstance final: public SNLDesignObject {
       boost::intrusive::member_hook<SNLInstParameter, boost::intrusive::set_member_hook<>, &SNLInstParameter::instParametersHook_>;
     using SNLInstParameters = boost::intrusive::set<SNLInstParameter, SNLInstParametersHook>;
       
-
     /**
      * \brief SNLInstance creator.
      * 
@@ -46,11 +45,14 @@ class SNLInstance final: public SNLDesignObject {
      * \return created SNLInstance. 
      */
     static SNLInstance* create(SNLDesign* design, SNLDesign* model, const SNLName& name=SNLName());
+    static SNLInstance* create(SNLDesign* design, const SNLName& modelName, const SNLName& name=SNLName());
 
     static SNLInstance* create(SNLDesign* design, SNLDesign* model, SNLID::DesignObjectID, const SNLName& name=SNLName());
 
-    SNLDesign* getDesign() const override { return design_; }
-    SNLDesign* getModel() const { return model_; }
+    SNLDesign* getDesign() const override { return instanceHeader_->getDesign(); }
+    SNLDesign* getModel() const { return instanceHeader_->getModel(); }
+    SNLName getModelName() const { return instanceHeader_->getModelName(); }
+    bool isBound() const { return instanceHeader_->isBound(); }
 
     SNLID::DesignObjectID getID() const { return id_; }
     SNLID getSNLID() const override;
@@ -124,9 +126,10 @@ class SNLInstance final: public SNLDesignObject {
       SNLID::Bit netMSB, SNLID::Bit netLSB);
 
   private:
-    SNLInstance(SNLDesign* design, SNLDesign* model, const SNLName& name);
-    SNLInstance(SNLDesign* design, SNLDesign* model, SNLID::DesignObjectID id, const SNLName& name);
+    SNLInstance(const SNLName& name);
+    SNLInstance(SNLID::DesignObjectID id, const SNLName& name);
     static void preCreate(SNLDesign* design, const SNLDesign* model, const SNLName& name);
+    static void preCreate(SNLDesign* design, const SNLName& modelName, const SNLName& name);
     static void preCreate(SNLDesign* design, const SNLDesign* model, SNLID::DesignObjectID id, const SNLName& name);
     void commonPostCreate();
     void postCreateAndSetID();
@@ -147,8 +150,7 @@ class SNLInstance final: public SNLDesignObject {
     void removeSharedPath(SNLSharedPath* sharedPath);
 
     using SNLInstanceSharedPaths = std::map<const SNLSharedPath*, SNLSharedPath*>;
-    SNLDesign*                          design_                   {nullptr};
-    SNLDesign*                          model_                    {nullptr};
+    SNLInstanceHeader*                  instanceHeader_           {nullptr};
     SNLID::DesignObjectID               id_;
     SNLName                             name_                     {};
     SNLInstanceInstTerms                instTerms_                {};
