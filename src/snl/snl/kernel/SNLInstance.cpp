@@ -427,6 +427,8 @@ void SNLInstance::setModel(SNLDesign* model) {
     throw SNLException("SNLInstance::setModel error: different number of terms");
   }
 
+  using BitTermMap = std::map<SNLBitTerm*, SNLBitTerm*>;
+  BitTermMap bitTermMap;
   for (size_t i=0; i<currentTerms.size(); ++i) {
     auto currentTerm = currentTerms[i];
     auto newTerm = newTerms[i];
@@ -447,66 +449,37 @@ void SNLInstance::setModel(SNLDesign* model) {
         if (currentBusTerm->getMSB() != newBusTerm->getMSB() or currentBusTerm->getLSB() != newBusTerm->getLSB()) {
           throw SNLException("SNLInstance::setModel error: different bus term bits");
         }
+        for (auto currentBit: currentBusTerm->getBits()) {
+          auto newBit = newBusTerm->getBit(currentBit->getBit());
+          bitTermMap[currentBit] = newBit;
+        }
       } else {
         throw SNLException("SNLInstance::setModel error: different term types");
       }
     } else {
       if (auto newScalarTerm = dynamic_cast<SNLScalarTerm*>(newTerm)) {
+        bitTermMap[static_cast<SNLBitTerm*>(currentTerm)] = newScalarTerm;
+      } else {
         throw SNLException("SNLInstance::setModel error: different term types");
       }
     }
   }
-#if 0
-  //all is verified
   for (auto instTerm: instTerms_) {
-    auto currentTerm = instTerm->getTerm();
-
-    auto currentTerm = currentTerms[i];
-    auto newTerm = newTerms[i];
-    if (currentTerm->isAnonymous()) {
-      continue;
-    }
-    if (currentTerm->getName() != newTerm->getName()) {
-      SNLInstTerm* instTerm = getInstTerm(static_cast<SNLBitTerm*>(currentTerm));
-      instTerm->setName(newTerm->getName());
-    }
-  }
-  for (auto : currentTerms) {
-    if (std::find(newTerms.begin(), newTerms.end(), term) == newTerms.end()) {
-      //term not found in new model
-      SNLInstTerm* instTerm = getInstTerm(static_cast<SNLBitTerm*>(term));
-      instTerm->destroyFromInstance();
-    }
-  }
-  for (auto term: getModel()->getTerms()) {
-    //find newTerm
-    if (i > newTerms.size()-1) {
+    auto currentTerm = instTerm->getBitTerm();
+    auto it = bitTermMap.find(currentTerm);
+    if (it == bitTermMap.end()) {
       throw SNLException("SNLInstance::setModel error: term not found in new model");
     }
-    if ()
-
-
-    if (std::find(newTerms.begin(), newTerms.end(), term) == newTerms.end()) {
-      //term not found in new model
-      SNLInstTerm* instTerm = getInstTerm(static_cast<SNLBitTerm*>(term));
-      instTerm->destroyFromInstance();
-    }
-  }
-
-  for (auto term: _model->getTer,) {
-
+    auto newTerm = it->second;
+    instTerm->bitTerm_ = newTerm;
   }
   //
   model_ = model;
-  //transfer instance terminals
-  for (auto instTerm: instTerms_) {
-    instTerm->setTerm(instTerm->getTerm());
-  }
+#if 0
   //transfer instance parameters
   for (auto instParameter: instParameters_) {
     instParameter->setParameter(instParameter->getParameter());
   }
-
 #endif
 
 }

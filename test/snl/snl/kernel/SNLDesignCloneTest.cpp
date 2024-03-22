@@ -85,7 +85,7 @@ void compareNets(const SNLDesign* design, const SNLDesign* newDesign) {
 
 } // namespace
 
-class SNLDesignUniquificationTest: public ::testing::Test {
+class SNLDesignCloneTest: public ::testing::Test {
   protected:
     void SetUp() override {
       auto universe = SNLUniverse::create();
@@ -140,7 +140,7 @@ class SNLDesignUniquificationTest: public ::testing::Test {
     Nets        nets_       {};
 };
 
-TEST_F(SNLDesignUniquificationTest, testcloneInterface0) {
+TEST_F(SNLDesignCloneTest, testcloneInterface0) {
   auto newDesign = design_->cloneInterface();
   ASSERT_NE(nullptr, newDesign);
   EXPECT_TRUE(newDesign->isAnonymous());
@@ -152,7 +152,7 @@ TEST_F(SNLDesignUniquificationTest, testcloneInterface0) {
   EXPECT_TRUE(newDesign->getNets().empty());
 }
 
-TEST_F(SNLDesignUniquificationTest, testCloneInterface1) {
+TEST_F(SNLDesignCloneTest, testCloneInterface1) {
   auto newDesign = design_->cloneInterface(SNLName("newDesign"));
   ASSERT_NE(nullptr, newDesign);
   EXPECT_FALSE(newDesign->isAnonymous());
@@ -166,7 +166,7 @@ TEST_F(SNLDesignUniquificationTest, testCloneInterface1) {
   EXPECT_TRUE(newDesign->getNets().empty());
 }
 
-TEST_F(SNLDesignUniquificationTest, testCloneInterface2) {
+TEST_F(SNLDesignCloneTest, testCloneInterface2) {
   auto newLibrary = SNLLibrary::create(design_->getLibrary()->getDB(), SNLName("newLibrary"));
   auto newDesign = design_->cloneInterfaceToLibrary(newLibrary, SNLName("newDesign"));
   ASSERT_NE(nullptr, newDesign);
@@ -181,7 +181,7 @@ TEST_F(SNLDesignUniquificationTest, testCloneInterface2) {
   EXPECT_TRUE(newDesign->getNets().empty());
 }
 
-TEST_F(SNLDesignUniquificationTest, testClone0) {
+TEST_F(SNLDesignCloneTest, testClone0) {
   auto newDesign = design_->clone();
   ASSERT_NE(nullptr, newDesign);
   EXPECT_TRUE(newDesign->isAnonymous());
@@ -193,6 +193,6 @@ TEST_F(SNLDesignUniquificationTest, testClone0) {
   compareNets(design_, newDesign);
 }
 
-TEST_F(SNLDesignUniquificationTest, testErrors) {
+TEST_F(SNLDesignCloneTest, testErrors) {
   EXPECT_THROW(design_->clone(design_->getName()), SNLException);
 }
