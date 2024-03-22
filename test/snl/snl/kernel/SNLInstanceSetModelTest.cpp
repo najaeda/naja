@@ -3,8 +3,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "gtest/gtest.h"
-#include "gmock/gmock.h"
-using ::testing::ElementsAre;
 
 #include "SNLUniverse.h"
 #include "SNLDB.h"
@@ -14,6 +12,8 @@ using ::testing::ElementsAre;
 #include "SNLBusTerm.h"
 #include "SNLBusTermBit.h"
 #include "SNLInstTerm.h"
+#include "SNLScalarNet.h"
+#include "SNLBusNet.h"
 using namespace naja::SNL;
 
 class SNLDInstanceSetModelTest: public ::testing::Test {
@@ -33,8 +33,21 @@ class SNLDInstanceSetModelTest: public ::testing::Test {
       //parameters_.push_back(SNLParameter::create(design_, SNLName("param2"), SNLParameter::Type::Boolean, "true"));
 
       top_ = SNLDesign::create(library, SNLName("top"));
+      //Top terms
+      auto topi0 = SNLScalarTerm::create(top_, SNLTerm::Direction::Input, SNLName("topi0"));
+      auto topi1 = SNLBusTerm::create(top_, SNLTerm::Direction::Input, 4, 0, SNLName("topi1"));
+      auto topo0 = SNLScalarTerm::create(top_, SNLTerm::Direction::Output, SNLName("topo0"));
+      
       ins0_ = SNLInstance::create(top_, model_, SNLName("ins0"));
       ins1_ = SNLInstance::create(top_, model_, SNLName("ins1"));
+
+      //nets
+      auto net0 = SNLScalarNet::create(top_, SNLName("topi0"));
+      topi0->setNet(net0);
+      auto net1 = SNLBusNet::create(top_, 4, 0, SNLName("topi1"));
+      topi1->setNet(net1);
+      ins0_->getInstTerm(model_->getScalarTerm(SNLName("term0")))->setNet(net0);
+      ins1_->getInstTerm(model_->getScalarTerm(SNLName("term0")))->setNet(net0);
     }
     void TearDown() override {
       SNLUniverse::get()->destroy();
