@@ -14,9 +14,6 @@ using ::testing::ElementsAre;
 #include "SNLBusTerm.h"
 #include "SNLBusTermBit.h"
 #include "SNLInstTerm.h"
-#include "SNLScalarNet.h"
-#include "SNLBusNet.h"
-#include "SNLException.h"
 using namespace naja::SNL;
 
 class SNLDInstanceSetModelTest: public ::testing::Test {
@@ -49,4 +46,15 @@ class SNLDInstanceSetModelTest: public ::testing::Test {
 };
 
 TEST_F(SNLDInstanceSetModelTest, test0) {
+  //clone model
+  auto newModel = model_->clone();
+  ASSERT_NE(newModel, nullptr);
+  //set model
+  ins0_->setModel(newModel);
+  EXPECT_EQ(ins0_->getModel(), newModel);
+  EXPECT_EQ(ins1_->getModel(), model_);
+  EXPECT_EQ(ins0_->getInstTerms().size(), 16);
+  for (auto iterm: ins0_->getInstTerms()) {
+    EXPECT_EQ(iterm->getBitTerm()->getDesign(), newModel);
+  }
 }
