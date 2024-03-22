@@ -104,13 +104,13 @@ TEST_F(SNLInstanceTest0, testCreation) {
     instTermsVector = InstTermsVector(instTermsBegin, instTermsEnd);
     EXPECT_EQ(7, instTermsVector.size());
 
-    EXPECT_EQ(termsVector[0], instTermsVector[0]->getTerm());
-    EXPECT_EQ(dynamic_cast<SNLBusTerm*>(termsVector[1])->getBit(0), instTermsVector[1]->getTerm());
-    EXPECT_EQ(dynamic_cast<SNLBusTerm*>(termsVector[1])->getBit(1), instTermsVector[2]->getTerm());
-    EXPECT_EQ(dynamic_cast<SNLBusTerm*>(termsVector[1])->getBit(2), instTermsVector[3]->getTerm());
-    EXPECT_EQ(dynamic_cast<SNLBusTerm*>(termsVector[1])->getBit(3), instTermsVector[4]->getTerm());
-    EXPECT_EQ(termsVector[2], instTermsVector[5]->getTerm());
-    EXPECT_EQ(termsVector[3], instTermsVector[6]->getTerm());
+    EXPECT_EQ(termsVector[0], instTermsVector[0]->getBitTerm());
+    EXPECT_EQ(dynamic_cast<SNLBusTerm*>(termsVector[1])->getBit(0), instTermsVector[1]->getBitTerm());
+    EXPECT_EQ(dynamic_cast<SNLBusTerm*>(termsVector[1])->getBit(1), instTermsVector[2]->getBitTerm());
+    EXPECT_EQ(dynamic_cast<SNLBusTerm*>(termsVector[1])->getBit(2), instTermsVector[3]->getBitTerm());
+    EXPECT_EQ(dynamic_cast<SNLBusTerm*>(termsVector[1])->getBit(3), instTermsVector[4]->getBitTerm());
+    EXPECT_EQ(termsVector[2], instTermsVector[5]->getBitTerm());
+    EXPECT_EQ(termsVector[3], instTermsVector[6]->getBitTerm());
 
     EXPECT_THAT(instTermsVector,
       ElementsAre(
@@ -193,13 +193,13 @@ TEST_F(SNLInstanceTest0, testCreation) {
     //  std::cerr << i << ":" << instTerm->getTerm()->getSNLID().getString() << std::endl;
     //}
 
-    EXPECT_EQ(termsVector[0], instTermsVector[0]->getTerm());
-    EXPECT_EQ(dynamic_cast<SNLBusTerm*>(termsVector[1])->getBit(0), instTermsVector[1]->getTerm());
-    EXPECT_EQ(dynamic_cast<SNLBusTerm*>(termsVector[1])->getBit(1), instTermsVector[2]->getTerm());
-    EXPECT_EQ(dynamic_cast<SNLBusTerm*>(termsVector[1])->getBit(2), instTermsVector[3]->getTerm());
-    EXPECT_EQ(dynamic_cast<SNLBusTerm*>(termsVector[1])->getBit(3), instTermsVector[4]->getTerm());
-    EXPECT_EQ(termsVector[2], instTermsVector[5]->getTerm());
-    EXPECT_EQ(termsVector[3], instTermsVector[6]->getTerm());
+    EXPECT_EQ(termsVector[0], instTermsVector[0]->getBitTerm());
+    EXPECT_EQ(dynamic_cast<SNLBusTerm*>(termsVector[1])->getBit(0), instTermsVector[1]->getBitTerm());
+    EXPECT_EQ(dynamic_cast<SNLBusTerm*>(termsVector[1])->getBit(1), instTermsVector[2]->getBitTerm());
+    EXPECT_EQ(dynamic_cast<SNLBusTerm*>(termsVector[1])->getBit(2), instTermsVector[3]->getBitTerm());
+    EXPECT_EQ(dynamic_cast<SNLBusTerm*>(termsVector[1])->getBit(3), instTermsVector[4]->getBitTerm());
+    EXPECT_EQ(termsVector[2], instTermsVector[5]->getBitTerm());
+    EXPECT_EQ(termsVector[3], instTermsVector[6]->getBitTerm());
 
     //i0
     EXPECT_EQ(SNLID(SNLID::Type::InstTerm, 1, 0, 0, 0, 1, 0), instTermsVector[0]->getSNLID());
@@ -290,20 +290,20 @@ TEST_F(SNLInstanceTest0, testCreation) {
     //  std::cerr << i << ":" << instTerm->getTerm()->getSNLID().getString() << std::endl;
     //}
 
-    EXPECT_EQ(termsVector[0], instTermsVector[0]->getTerm());
-    EXPECT_EQ(dynamic_cast<SNLBusTerm*>(termsVector[1])->getBit(0), instTermsVector[1]->getTerm());
-    EXPECT_EQ(dynamic_cast<SNLBusTerm*>(termsVector[1])->getBit(1), instTermsVector[2]->getTerm());
-    EXPECT_EQ(dynamic_cast<SNLBusTerm*>(termsVector[1])->getBit(2), instTermsVector[3]->getTerm());
-    EXPECT_EQ(dynamic_cast<SNLBusTerm*>(termsVector[1])->getBit(3), instTermsVector[4]->getTerm());
-    EXPECT_EQ(termsVector[2], instTermsVector[5]->getTerm());
-    EXPECT_EQ(termsVector[3], instTermsVector[6]->getTerm());
-    EXPECT_EQ(termsVector[4], instTermsVector[7]->getTerm());
-    EXPECT_EQ(dynamic_cast<SNLBusTerm*>(termsVector[5])->getBit(-2), instTermsVector[8]->getTerm());
-    EXPECT_EQ(dynamic_cast<SNLBusTerm*>(termsVector[5])->getBit(-1), instTermsVector[9]->getTerm());
-    EXPECT_EQ(dynamic_cast<SNLBusTerm*>(termsVector[5])->getBit(0), instTermsVector[10]->getTerm());
-    EXPECT_EQ(dynamic_cast<SNLBusTerm*>(termsVector[5])->getBit(1), instTermsVector[11]->getTerm());
-    EXPECT_EQ(dynamic_cast<SNLBusTerm*>(termsVector[5])->getBit(2), instTermsVector[12]->getTerm());
-    EXPECT_EQ(dynamic_cast<SNLBusTerm*>(termsVector[5])->getBit(3), instTermsVector[13]->getTerm());
+    EXPECT_EQ(termsVector[0], instTermsVector[0]->getBitTerm());
+    EXPECT_EQ(dynamic_cast<SNLBusTerm*>(termsVector[1])->getBit(0), instTermsVector[1]->getBitTerm());
+    EXPECT_EQ(dynamic_cast<SNLBusTerm*>(termsVector[1])->getBit(1), instTermsVector[2]->getBitTerm());
+    EXPECT_EQ(dynamic_cast<SNLBusTerm*>(termsVector[1])->getBit(2), instTermsVector[3]->getBitTerm());
+    EXPECT_EQ(dynamic_cast<SNLBusTerm*>(termsVector[1])->getBit(3), instTermsVector[4]->getBitTerm());
+    EXPECT_EQ(termsVector[2], instTermsVector[5]->getBitTerm());
+    EXPECT_EQ(termsVector[3], instTermsVector[6]->getBitTerm());
+    EXPECT_EQ(termsVector[4], instTermsVector[7]->getBitTerm());
+    EXPECT_EQ(dynamic_cast<SNLBusTerm*>(termsVector[5])->getBit(-2), instTermsVector[8]->getBitTerm());
+    EXPECT_EQ(dynamic_cast<SNLBusTerm*>(termsVector[5])->getBit(-1), instTermsVector[9]->getBitTerm());
+    EXPECT_EQ(dynamic_cast<SNLBusTerm*>(termsVector[5])->getBit(0), instTermsVector[10]->getBitTerm());
+    EXPECT_EQ(dynamic_cast<SNLBusTerm*>(termsVector[5])->getBit(1), instTermsVector[11]->getBitTerm());
+    EXPECT_EQ(dynamic_cast<SNLBusTerm*>(termsVector[5])->getBit(2), instTermsVector[12]->getBitTerm());
+    EXPECT_EQ(dynamic_cast<SNLBusTerm*>(termsVector[5])->getBit(3), instTermsVector[13]->getBitTerm());
 
     EXPECT_FALSE(instTermsVector[0]->isAnonymous());
     EXPECT_TRUE(instTermsVector[1]->isAnonymous());

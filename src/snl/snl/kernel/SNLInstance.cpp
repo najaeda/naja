@@ -360,12 +360,12 @@ NajaCollection<SNLInstTerm*> SNLInstance::getConnectedInstTerms() const {
 }
 
 NajaCollection<SNLInstTerm*> SNLInstance::getInstScalarTerms() const {
-  auto filter = [](const SNLInstTerm* it) { return it and dynamic_cast<SNLScalarTerm*>(it->getTerm()); };
+  auto filter = [](const SNLInstTerm* it) { return it and dynamic_cast<SNLScalarTerm*>(it->getBitTerm()); };
   return NajaCollection(new NajaSTLCollection(&instTerms_)).getSubCollection(filter);
 }
 
 NajaCollection<SNLInstTerm*> SNLInstance::getInstBusTermBits() const {
-  auto filter = [](const SNLInstTerm* it) { return it and dynamic_cast<SNLBusTermBit*>(it->getTerm()); };
+  auto filter = [](const SNLInstTerm* it) { return it and dynamic_cast<SNLBusTermBit*>(it->getBitTerm()); };
   return NajaCollection(new NajaSTLCollection(&instTerms_)).getSubCollection(filter);
 }
 

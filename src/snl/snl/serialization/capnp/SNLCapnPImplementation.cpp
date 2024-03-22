@@ -91,7 +91,7 @@ void dumpInstTermReference(
   const SNLInstTerm* instTerm) {
   auto instTermRefenceBuilder = componentReference.initInstTermReference();
   instTermRefenceBuilder.setInstanceID(instTerm->getInstance()->getID());
-  auto term = instTerm->getTerm();
+  auto term = instTerm->getBitTerm();
   instTermRefenceBuilder.setTermID(term->getID());
   if (auto busTermBit = dynamic_cast<const SNLBusTermBit*>(term)) {
     instTermRefenceBuilder.setBit(busTermBit->getBit());
