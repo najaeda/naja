@@ -348,7 +348,7 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::treatDriver(
       //------------------------------
       //-------------------------------- Go down into the instance model and
       // process the net ------------------------------
-      snlNet = fterm.getSnlTerm()->getTerm()->getNet();
+      snlNet = fterm.getSnlTerm()->getBitTerm()->getNet();
       DNLParent = &fterm.getDNLInstance();
       goDown = true;
 #ifdef DEBUG_PRINTS

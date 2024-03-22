@@ -48,7 +48,7 @@ struct SNLEquipotentialExtractor {
           instTermOccurrences_.emplace(naja::SNL::SNLInstTermOccurrence(path, instTerm));
         } else {
           //get inside instance by exploring from term occurrence
-          auto term = instTerm->getTerm();
+          auto term = instTerm->getBitTerm();
           auto instancePath = naja::SNL::SNLPath(path, instance);
           //
           extractNetFromNetComponentOccurrence(naja::SNL::SNLBitTermOccurrence(instancePath, term), false);

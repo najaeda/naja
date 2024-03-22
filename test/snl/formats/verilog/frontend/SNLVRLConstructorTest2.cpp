@@ -107,9 +107,9 @@ TEST_F(SNLVRLConstructorTest2, test) {
   using InstTerms = std::vector<SNLInstTerm*>;
   InstTerms instTerms(inst2->getInstTerms().begin(), inst2->getInstTerms().end());
   ASSERT_EQ(3, instTerms.size());
-  EXPECT_THAT(instTerms[0]->getTerm(), TypedEq<SNLTerm*>(model1->getTerm(SNLName("i"))));
-  EXPECT_THAT(instTerms[1]->getTerm(), TypedEq<SNLTerm*>(model1->getTerm(SNLName("o"))));
-  EXPECT_THAT(instTerms[2]->getTerm(), TypedEq<SNLTerm*>(model1->getTerm(SNLName("io"))));
+  EXPECT_THAT(instTerms[0]->getBitTerm(), TypedEq<SNLTerm*>(model1->getTerm(SNLName("i"))));
+  EXPECT_THAT(instTerms[1]->getBitTerm(), TypedEq<SNLTerm*>(model1->getTerm(SNLName("o"))));
+  EXPECT_THAT(instTerms[2]->getBitTerm(), TypedEq<SNLTerm*>(model1->getTerm(SNLName("io"))));
   EXPECT_THAT(instTerms[0]->getNet(), TypedEq<SNLNet*>(top->getNet(SNLName("n2"))));
   EXPECT_THAT(instTerms[1]->getNet(), TypedEq<SNLNet*>(top->getNet(SNLName("i"))));
   EXPECT_THAT(instTerms[2]->getNet(), TypedEq<SNLNet*>(top->getNet(SNLName("io"))));
