@@ -123,6 +123,8 @@ class SNLInstance final: public SNLDesignObject {
       SNLNet* net,
       SNLID::Bit netMSB, SNLID::Bit netLSB);
 
+    void setModel(SNLDesign* newModel);
+
   private:
     SNLInstance(SNLDesign* design, SNLDesign* model, const SNLName& name);
     SNLInstance(SNLDesign* design, SNLDesign* model, SNLID::DesignObjectID id, const SNLName& name);

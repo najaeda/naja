@@ -411,6 +411,106 @@ NajaCollection<SNLInstParameter*> SNLInstance::getInstParameters() const {
   return NajaCollection(new NajaIntrusiveSetCollection(&instParameters_));
 }
 
+//support only strict mode for the moment
+//previous and new interface should have same size.
+//bus terms should have same msb/lsb
+//In the future, we could support a more flexible interface
+//if we have to support unbounded instances where model interface is
+//detemine by instance context. In that case new interface should be 
+//a super set of previous interface and IDs should not be used to match terms.
+//In that case, anonymous terms will not be supported (in previous and new model);
+void SNLInstance::setModel(SNLDesign* model) {
+  using TermVector = std::vector<SNLTerm*>;
+  TermVector currentTerms(getModel()->getTerms().begin(), getModel()->getTerms().end());
+  TermVector newTerms(model->getTerms().begin(), model->getTerms().end());
+  if (currentTerms.size() != newTerms.size()) {
+    throw SNLException("SNLInstance::setModel error: different number of terms");
+  }
+
+  for (size_t i=0; i<currentTerms.size(); ++i) {
+    auto currentTerm = currentTerms[i];
+    auto newTerm = newTerms[i];
+    if (currentTerm->isAnonymous() != newTerm->isAnonymous()) {
+      throw SNLException("SNLInstance::setModel error: anonymous contradiction");
+    }
+    if (not currentTerm->isAnonymous() && currentTerm->getName() != newTerms[i]->getName()) {
+      throw SNLException("SNLInstance::setModel error: different term names");
+    }
+    if (currentTerm->getID() != newTerm->getID()) {
+      throw SNLException("SNLInstance::setModel error: different term IDs");
+    }
+    if (currentTerm->getDirection() != newTerm->getDirection()) {
+      throw SNLException("SNLInstance::setModel error: different term directions");
+    }
+    if (auto currentBusTerm = dynamic_cast<SNLBusTerm*>(currentTerm)) {
+      if (auto newBusTerm = dynamic_cast<SNLBusTerm*>(newTerm)) {
+        if (currentBusTerm->getMSB() != newBusTerm->getMSB() or currentBusTerm->getLSB() != newBusTerm->getLSB()) {
+          throw SNLException("SNLInstance::setModel error: different bus term bits");
+        }
+      } else {
+        throw SNLException("SNLInstance::setModel error: different term types");
+      }
+    } else {
+      if (auto newScalarTerm = dynamic_cast<SNLScalarTerm*>(newTerm)) {
+        throw SNLException("SNLInstance::setModel error: different term types");
+      }
+    }
+  }
+#if 0
+  //all is verified
+  for (auto instTerm: instTerms_) {
+    auto currentTerm = instTerm->getTerm();
+
+    auto currentTerm = currentTerms[i];
+    auto newTerm = newTerms[i];
+    if (currentTerm->isAnonymous()) {
+      continue;
+    }
+    if (currentTerm->getName() != newTerm->getName()) {
+      SNLInstTerm* instTerm = getInstTerm(static_cast<SNLBitTerm*>(currentTerm));
+      instTerm->setName(newTerm->getName());
+    }
+  }
+  for (auto : currentTerms) {
+    if (std::find(newTerms.begin(), newTerms.end(), term) == newTerms.end()) {
+      //term not found in new model
+      SNLInstTerm* instTerm = getInstTerm(static_cast<SNLBitTerm*>(term));
+      instTerm->destroyFromInstance();
+    }
+  }
+  for (auto term: getModel()->getTerms()) {
+    //find newTerm
+    if (i > newTerms.size()-1) {
+      throw SNLException("SNLInstance::setModel error: term not found in new model");
+    }
+    if ()
+
+
+    if (std::find(newTerms.begin(), newTerms.end(), term) == newTerms.end()) {
+      //term not found in new model
+      SNLInstTerm* instTerm = getInstTerm(static_cast<SNLBitTerm*>(term));
+      instTerm->destroyFromInstance();
+    }
+  }
+
+  for (auto term: _model->getTer,) {
+
+  }
+  //
+  model_ = model;
+  //transfer instance terminals
+  for (auto instTerm: instTerms_) {
+    instTerm->setTerm(instTerm->getTerm());
+  }
+  //transfer instance parameters
+  for (auto instParameter: instParameters_) {
+    instParameter->setParameter(instParameter->getParameter());
+  }
+
+#endif
+
+}
+
 //LCOV_EXCL_START
 const char* SNLInstance::getTypeName() const {
   return "SNLInstance";
