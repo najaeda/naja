@@ -513,7 +513,6 @@ void SNLInstance::setModel(SNLDesign* model) {
     instParameter.parameter_ = newParameter;
   }
   model_ = model;
-
 }
 
 //LCOV_EXCL_START

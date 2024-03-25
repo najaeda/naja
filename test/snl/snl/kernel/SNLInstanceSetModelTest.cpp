@@ -29,9 +29,9 @@ class SNLInstanceSetModelTest: public ::testing::Test {
       SNLScalarTerm::create(model_, SNLTerm::Direction::Output, SNLName("term2"));
       SNLBusTerm::create(model_, SNLTerm::Direction::Output, -2, 5, SNLName("term3"));
       SNLScalarTerm::create(model_, SNLTerm::Direction::InOut, SNLName("term4"));
-      //parameters_.push_back(SNLParameter::create(design_, SNLName("param0"), SNLParameter::Type::Binary, "0b1010"));
-      //parameters_.push_back(SNLParameter::create(design_, SNLName("param1"), SNLParameter::Type::Decimal, "42"));
-      //parameters_.push_back(SNLParameter::create(design_, SNLName("param2"), SNLParameter::Type::Boolean, "true"));
+      SNLParameter::create(model_, SNLName("param0"), SNLParameter::Type::Binary, "0b1010");
+      SNLParameter::create(model_, SNLName("param1"), SNLParameter::Type::Decimal, "42");
+      SNLParameter::create(model_, SNLName("param2"), SNLParameter::Type::Boolean, "true");
 
       top_ = SNLDesign::create(library, SNLName("top"));
       //Top terms
@@ -40,6 +40,8 @@ class SNLInstanceSetModelTest: public ::testing::Test {
       auto topo0 = SNLScalarTerm::create(top_, SNLTerm::Direction::Output, SNLName("topo0"));
       
       ins0_ = SNLInstance::create(top_, model_, SNLName("ins0"));
+      //instParams
+      SNLInstParameter::create(ins0_, model_->getParameter(SNLName("param0")), "0b0101");
       ins1_ = SNLInstance::create(top_, model_, SNLName("ins1"));
 
       //nets
@@ -95,7 +97,7 @@ TEST_F(SNLInstanceSetModelTest, testAnonymousContradictionError) {
   EXPECT_THROW(ins0_->setModel(newModel), SNLException);  
 }
 
-TEST_F(SNLInstanceSetModelTest, testDifferentNameError) {
+TEST_F(SNLInstanceSetModelTest, testDifferentNetNameError) {
   //clone model
   auto newModel = model_->clone();
   ASSERT_NE(newModel, nullptr);
@@ -129,5 +131,28 @@ TEST_F(SNLInstanceSetModelTest, testDifferentTermTypesError) {
   ASSERT_EQ(1, term1->getID());
   term1->destroy();
   SNLScalarTerm::create(newModel, SNLID::DesignObjectID(1), SNLTerm::Direction::Input, SNLName("term1"));
+  EXPECT_THROW(ins0_->setModel(newModel), SNLException);  
+}
+
+TEST_F(SNLInstanceSetModelTest, testDifferentParametersSizeError) {
+  //clone model
+  auto newModel = model_->clone();
+  ASSERT_NE(newModel, nullptr);
+  ASSERT_EQ(3, newModel->getParameters().size());
+  auto param0 = newModel->getParameter(SNLName("param0"));
+  ASSERT_NE(nullptr, param0);
+  param0->destroy();
+  ASSERT_EQ(2, newModel->getParameters().size());
+  EXPECT_THROW(ins0_->setModel(newModel), SNLException);  
+}
+
+TEST_F(SNLInstanceSetModelTest, testDifferentParameterNameError) {
+  //clone model
+  auto newModel = model_->clone();
+  ASSERT_NE(newModel, nullptr);
+  auto param0 = newModel->getParameter(SNLName("param0"));
+  ASSERT_NE(nullptr, param0);
+  param0->destroy();
+  SNLParameter::create(newModel, SNLName("param00"), SNLParameter::Type::Binary, "0b1010");
   EXPECT_THROW(ins0_->setModel(newModel), SNLException);  
 }
