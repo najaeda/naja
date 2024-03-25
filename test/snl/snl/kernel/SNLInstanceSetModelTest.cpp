@@ -14,9 +14,10 @@
 #include "SNLInstTerm.h"
 #include "SNLScalarNet.h"
 #include "SNLBusNet.h"
+#include "SNLException.h"
 using namespace naja::SNL;
 
-class SNLDInstanceSetModelTest: public ::testing::Test {
+class SNLInstanceSetModelTest: public ::testing::Test {
   protected:
     void SetUp() override {
       auto universe = SNLUniverse::create();
@@ -58,7 +59,7 @@ class SNLDInstanceSetModelTest: public ::testing::Test {
     SNLInstance*  ins1_   {nullptr};
 };
 
-TEST_F(SNLDInstanceSetModelTest, test0) {
+TEST_F(SNLInstanceSetModelTest, test0) {
   //clone model
   auto newModel = model_->clone();
   ASSERT_NE(newModel, nullptr);
@@ -70,4 +71,63 @@ TEST_F(SNLDInstanceSetModelTest, test0) {
   for (auto iterm: ins0_->getInstTerms()) {
     EXPECT_EQ(iterm->getBitTerm()->getDesign(), newModel);
   }
+}
+
+TEST_F(SNLInstanceSetModelTest, testDifferentTermSizeError) {
+  //clone model
+  auto newModel = model_->clone();
+  ASSERT_NE(newModel, nullptr);
+  ASSERT_EQ(5, newModel->getTerms().size());
+  auto term0 = newModel->getScalarTerm(SNLName("term0"));
+  ASSERT_NE(nullptr, term0);
+  term0->destroy();
+  EXPECT_THROW(ins0_->setModel(newModel), SNLException);  
+}
+
+TEST_F(SNLInstanceSetModelTest, testAnonymousContradictionError) {
+  //clone model
+  auto newModel = model_->clone();
+  ASSERT_NE(newModel, nullptr);
+  ASSERT_EQ(5, newModel->getTerms().size());
+  auto term0 = newModel->getScalarTerm(SNLName("term0"));
+  ASSERT_NE(nullptr, term0);
+  term0->setName(SNLName());
+  EXPECT_THROW(ins0_->setModel(newModel), SNLException);  
+}
+
+TEST_F(SNLInstanceSetModelTest, testDifferentNameError) {
+  //clone model
+  auto newModel = model_->clone();
+  ASSERT_NE(newModel, nullptr);
+  ASSERT_EQ(5, newModel->getTerms().size());
+  auto term0 = newModel->getScalarTerm(SNLName("term0"));
+  ASSERT_NE(nullptr, term0);
+  term0->setName(SNLName("term00"));
+  EXPECT_THROW(ins0_->setModel(newModel), SNLException);  
+}
+
+TEST_F(SNLInstanceSetModelTest, testDifferentSizeBusError) {
+  //clone model
+  auto newModel = model_->clone();
+  ASSERT_NE(newModel, nullptr);
+  ASSERT_EQ(5, newModel->getTerms().size());
+  auto term1 = newModel->getBusTerm(SNLName("term1"));
+  ASSERT_NE(nullptr, term1);
+  ASSERT_EQ(1, term1->getID());
+  term1->destroy();
+  SNLBusTerm::create(newModel, SNLID::DesignObjectID(1), SNLTerm::Direction::Input, 5, 0, SNLName("term1"));
+  EXPECT_THROW(ins0_->setModel(newModel), SNLException);  
+}
+
+TEST_F(SNLInstanceSetModelTest, testDifferentTermTypesError) {
+  //clone model
+  auto newModel = model_->clone();
+  ASSERT_NE(newModel, nullptr);
+  ASSERT_EQ(5, newModel->getTerms().size());
+  auto term1 = newModel->getBusTerm(SNLName("term1"));
+  ASSERT_NE(nullptr, term1);
+  ASSERT_EQ(1, term1->getID());
+  term1->destroy();
+  SNLScalarTerm::create(newModel, SNLID::DesignObjectID(1), SNLTerm::Direction::Input, SNLName("term1"));
+  EXPECT_THROW(ins0_->setModel(newModel), SNLException);  
 }
