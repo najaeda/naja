@@ -17,11 +17,7 @@ using namespace naja::SNL;
 #define ACCESS_CLASS(_pyObject)  &(_pyObject->parent_)
 #define METHOD_HEAD(function) GENERIC_METHOD_HEAD(SNLNetComponent, function)
 
-static PyObject* PySNLNetComponent_getNet(PySNLNetComponent* self) {
-  METHOD_HEAD("SNLNetComponent.getNet()")
-  SNLBitNet* net = selfObject->getNet();
-  return PySNLBitNet_Link(net);
-}
+GetObjectMethod(NetComponent, BitNet, getNet)
 
 static PyObject* PySNLNetComponent_setNet(PySNLNetComponent* self, PyObject* arg) {
   METHOD_HEAD("SNLNetComponent.setNet()")

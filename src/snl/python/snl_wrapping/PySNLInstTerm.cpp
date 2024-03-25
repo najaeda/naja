@@ -7,6 +7,8 @@
 #include "SNLInstTerm.h"
 
 #include "PyInterface.h"
+#include "PySNLBitTerm.h"
+#include "PySNLInstance.h"
 
 namespace PYSNL {
 
@@ -18,15 +20,22 @@ using namespace naja::SNL;
 #define  ACCESS_CLASS(_pyObject)  &(_pyObject->parent_)
 #define  METHOD_HEAD(function)    GENERIC_METHOD_HEAD(SNLInstTerm, function)
 
-
-PyMethodDef PySNLInstTerm_Methods[] = {
-  {NULL, NULL, 0, NULL}           /* sentinel */
-};
-
 DBoDeallocMethod(SNLInstTerm)
 
 DBoLinkCreateMethod(SNLInstTerm)
-PyTypeSNLObjectWithSNLIDLinkPyType(SNLInstTerm)
 PyTypeInheritedObjectDefinitions(SNLInstTerm, SNLNetComponent)
+
+GetObjectMethod(InstTerm, Instance, getInstance)
+GetObjectMethod(InstTerm, BitTerm, getBitTerm)
+
+PyMethodDef PySNLInstTerm_Methods[] = {
+  { "getBitTerm", (PyCFunction)PySNLInstTerm_getBitTerm, METH_NOARGS,
+    "get the SNLBitTerm represented by this SNLInstTerm."},
+  { "getInstance", (PyCFunction)PySNLInstTerm_getInstance, METH_NOARGS,
+    "get the SNLInstance containing this SNLInstTerm."},
+  {NULL, NULL, 0, NULL}           /* sentinel */
+};
+
+PyTypeSNLObjectWithSNLIDLinkPyType(SNLInstTerm)
 
 }
