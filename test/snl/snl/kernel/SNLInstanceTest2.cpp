@@ -66,3 +66,8 @@ TEST_F(SNLInstanceTest2, testInstTermRenameError) {
   auto instTerm = ins->getInstTerm(a);
   EXPECT_THROW(instTerm->setName(SNLName("b")), SNLException);
 }
+
+TEST_F(SNLInstanceTest2, testInstTermNullTerm) {
+  auto ins = SNLInstance::create(design_, model_, SNLName("instance"));
+  EXPECT_THROW(ins->getInstTerm(nullptr), SNLException);
+}

@@ -13,6 +13,7 @@ using ::testing::ElementsAre;
 #include "SNLScalarNet.h"
 #include "SNLBitNetOccurrence.h"
 #include "SNLBitTermOccurrence.h"
+#include "SNLInstTermOccurrence.h"
 #include "SNLEquipotential.h"
 #include "SNLException.h"
 using namespace naja::SNL;
@@ -25,15 +26,17 @@ class SNLOccurrenceTest: public ::testing::Test {
       //       |-> h1: i(i)
       //            |-> h2: i(i)
       //                 |-> prim: i(i)
+      //                 |-> prim: i(o) (dangling)
       // simple test design with i term and net at each level
-      // connected to upper and lower level
-      // 
+      // connected to upper and lower level.
+      // At bottom level prim:o is unconnected.
       auto universe = SNLUniverse::create();
       auto db = SNLDB::create(universe);
       auto primitivesLib = SNLLibrary::create(db, SNLLibrary::Type::Primitives);
       auto designsLib = SNLLibrary::create(db);
       auto prim = SNLDesign::create(primitivesLib, SNLDesign::Type::Primitive, SNLName("PRIM"));
       auto primi = SNLScalarTerm::create(prim, SNLTerm::Direction::Input, SNLName("i"));
+      auto primo = SNLScalarTerm::create(prim, SNLTerm::Direction::Input, SNLName("o"));
       auto primiNet = SNLScalarNet::create(prim, SNLName("i"));
       primi->setNet(primiNet);
       auto top = SNLDesign::create(designsLib, SNLName("TOP"));
@@ -140,6 +143,23 @@ TEST_F(SNLOccurrenceTest, testh1Level) {
   EXPECT_EQ(SNLBitNetOccurrence(h1Path, iTerm->getNet()), h1iTermOccurrence.getNetOccurrence());
   EXPECT_LT(SNLBitTermOccurrence(), h1iTermOccurrence);
   EXPECT_LT(h1iTermOccurrence, SNLBitNetOccurrence(h1Path, iTerm->getNet()));
+}
+
+TEST_F(SNLOccurrenceTest, testh2Level) {
+  auto h0Path = SNLPath(h0Instance_);
+  auto h1Path = SNLPath(h0Path, h1Instance_);
+  auto h2Path = SNLPath(h1Path, h2Instance_);
+  ASSERT_EQ(3, h2Path.size());
+  auto primI = primInstance_->getInstTerm(primInstance_->getModel()->getScalarTerm(SNLName("i")));
+  auto primO = primInstance_->getInstTerm(primInstance_->getModel()->getScalarTerm(SNLName("o")));
+  ASSERT_NE(nullptr, primI);
+  ASSERT_NE(nullptr, primO);
+  auto primITermOccurrence = SNLInstTermOccurrence(h2Path, primI);
+  auto primOTermOccurrence = SNLInstTermOccurrence(h2Path, primO);
+  ASSERT_TRUE(primITermOccurrence.isValid());
+  ASSERT_TRUE(primOTermOccurrence.isValid());
+  EXPECT_FALSE(primOTermOccurrence.getNetOccurrence().isValid());
+  EXPECT_EQ(nullptr, primOTermOccurrence.getNet());
 }
 
 TEST_F(SNLOccurrenceTest, testEquipotential0) {

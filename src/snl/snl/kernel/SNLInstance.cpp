@@ -336,16 +336,22 @@ bool SNLInstance::isLeaf() const {
   return getModel()->isLeaf();
 }
 
-SNLInstTerm* SNLInstance::getInstTerm(const SNLBitTerm* term) const {
-  if (term->getDesign() != getModel()) {
+SNLInstTerm* SNLInstance::getInstTerm(const SNLBitTerm* bitTerm) const {
+  if (bitTerm == nullptr) {
+    std::string reason = "SNLInstance::getInsTerm error in "
+      + getName().getString() + " model: " + getModel()->getName().getString()
+      + " bitTerm arg is null";
+    throw SNLException(reason);
+  }
+  if (bitTerm->getDesign() != getModel()) {
     std::string reason = "SNLInstance::getInsTerm incoherency: "
       + getName().getString() + " model: " + getModel()->getName().getString()
-      + " and " + term->getString() + " model: " + term->getDesign()->getName().getString()
+      + " and " + bitTerm->getString() + " model: " + bitTerm->getDesign()->getName().getString()
       + " should be the same";
     throw SNLException(reason);
   }
-  assert(term->getFlatID() < instTerms_.size());
-  return instTerms_[term->getFlatID()];
+  assert(bitTerm->getFlatID() < instTerms_.size());
+  return instTerms_[bitTerm->getFlatID()];
 }
 
 NajaCollection<SNLInstTerm*> SNLInstance::getInstTerms() const {
