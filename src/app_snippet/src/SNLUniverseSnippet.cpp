@@ -69,7 +69,7 @@ void SNLUniverseSnippet::create() {
   auto topIns1 = top->getInstance(SNLName("ins1"));
   std::cout << topIns1->getName().getString() << " instance terminals:" << std::endl;
   for (auto instTerm: topIns1->getInstTerms()) {
-    std::cout << "  - " << instTerm->getTerm()->getName().getString() << std::endl;
+    std::cout << "  - " << instTerm->getBitTerm()->getName().getString() << std::endl;
   }
 
   auto topNet1 = top->getScalarNet(0); // net1 is an anonymous net at ID 0

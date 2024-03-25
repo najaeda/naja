@@ -170,7 +170,7 @@ DNLTerminalFull::DNLTerminalFull(DNLID DNLInstID,
                                  DNLID id)
     : DNLInstID_(DNLInstID),
       terminal_(terminal),
-      bitTerminal_(terminal->getTerm()),
+      bitTerminal_(terminal->getBitTerm()),
       id_(id){};
 
 DNLTerminalFull::DNLTerminalFull(DNLID DNLInstID,
@@ -182,7 +182,7 @@ DNLID DNLTerminalFull::getID() const {
 }
 
 SNLBitTerm* DNLTerminalFull::getSnlBitTerm() const {
-  return bitTerminal_ ? bitTerminal_ : terminal_->getTerm();
+  return bitTerminal_ ? bitTerminal_ : terminal_->getBitTerm();
 };
 SNLInstTerm* DNLTerminalFull::getSnlTerm() const {
   return terminal_;

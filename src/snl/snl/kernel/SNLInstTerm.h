@@ -26,7 +26,7 @@ class SNLInstTerm final: public SNLNetComponent {
     /// \return the SNLInstance owning this SNLInstTerm.
     SNLInstance* getInstance() const { return instance_; }
     /// \return the SNLBitTerm referenced by this SNLInstTerm.
-    SNLBitTerm* getTerm() const { return term_; }
+    SNLBitTerm* getBitTerm() const { return bitTerm_; }
     SNLBitNet* getNet() const override { return net_; }
     void setNet(SNLNet* net) override;
 
@@ -49,8 +49,8 @@ class SNLInstTerm final: public SNLNetComponent {
     void destroyFromInstance();
 
     SNLInstance*  instance_;
-    SNLBitTerm*   term_;
-    SNLBitNet*    net_  { nullptr};
+    SNLBitTerm*   bitTerm_;
+    SNLBitNet*    net_      { nullptr};
 };
 
 }} // namespace SNL // namespace naja
