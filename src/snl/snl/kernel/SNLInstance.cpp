@@ -470,6 +470,28 @@ void SNLInstance::setModel(SNLDesign* model) {
       }
     }
   }
+  
+  //collect parameters
+  using ParametersVector = std::vector<SNLParameter*>;
+  ParametersVector currentParameters(getModel()->getParameters().begin(), getModel()->getParameters().end());
+  ParametersVector newParameters(model->getParameters().begin(), model->getParameters().end());
+  if (currentParameters.size() != newParameters.size()) {
+    throw SNLException("SNLInstance::setModel error: different number of parameters");
+  }
+  using ParametersMap = std::map<SNLParameter*, SNLParameter*>;
+  ParametersMap parameterMap;
+  for (size_t i=0; i<currentParameters.size(); ++i) {
+    auto currentParameter = currentParameters[i];
+    auto newParameter = newParameters[i];
+    if (currentParameter->getName() != newParameter->getName()) {
+      throw SNLException("SNLInstance::setModel error: different parameter names");
+    }
+    if (currentParameter->getType() != newParameter->getType()) {
+      throw SNLException("SNLInstance::setModel error: different parameter types");
+    }
+    parameterMap[currentParameter] = newParameter;
+  }
+
   for (auto instTerm: instTerms_) {
     auto currentTerm = instTerm->getBitTerm();
     auto it = bitTermMap.find(currentTerm);
@@ -480,13 +502,17 @@ void SNLInstance::setModel(SNLDesign* model) {
     instTerm->bitTerm_ = newTerm;
   }
   //
-  model_ = model;
-#if 0
   //transfer instance parameters
-  for (auto instParameter: instParameters_) {
-    instParameter->setParameter(instParameter->getParameter());
+  for (auto& instParameter: instParameters_) {
+    auto currentParameter = instParameter.parameter_;
+    auto it = parameterMap.find(currentParameter);
+    if (it == parameterMap.end()) {
+      throw SNLException("SNLInstance::setModel error: parameter not found in new model");
+    }
+    auto newParameter = it->second;
+    instParameter.parameter_ = newParameter;
   }
-#endif
+  model_ = model;
 
 }
 
