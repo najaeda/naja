@@ -193,6 +193,13 @@ TEST_F(SNLDesignCloneTest, testClone0) {
   compareNets(design_, newDesign);
 }
 
+TEST_F(SNLDesignCloneTest, testCloneCompare) {
+  auto newDesign = design_->clone();
+  std::string reason;
+  EXPECT_TRUE(newDesign->deepCompare(design_, reason, SNLDesign::CompareType::IgnoreIDAndName));
+  EXPECT_TRUE(reason.empty());
+}
+
 TEST_F(SNLDesignCloneTest, testErrors) {
   EXPECT_THROW(design_->clone(design_->getName()), SNLException);
 }
