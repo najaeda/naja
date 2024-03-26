@@ -164,12 +164,27 @@ class SNLDesign final: public SNLObject {
     ///\return true if this SNLDesign is a top design.
     bool isTopDesign() const;
 
-    SNLDesign* uniquifyInterface(const SNLName& name=SNLName()) const;
-    SNLDesign* uniquifyInterfaceToLibrary(SNLLibrary* library, const SNLName& name=SNLName()) const;
-    SNLDesign* uniquify(const SNLName& name=SNLName()) const;
-    SNLDesign* uniquifyToLibrary(SNLLibrary* library, const SNLName& name=SNLName()) const;
+    SNLDesign* cloneInterface(const SNLName& name=SNLName()) const;
+    SNLDesign* cloneInterfaceToLibrary(SNLLibrary* library, const SNLName& name=SNLName()) const;
+    SNLDesign* clone(const SNLName& name=SNLName()) const;
+    SNLDesign* cloneToLibrary(SNLLibrary* library, const SNLName& name=SNLName()) const;
 
-    bool deepCompare(const SNLDesign* design, std::string& reason) const;
+    class CompareType {
+      public:
+        enum CompareTypeEnum {
+          Complete, IgnoreID, IgnoreIDAndName
+        };
+        CompareType(const CompareTypeEnum& typeEnum);
+        CompareType(const CompareType& type) = default;
+        operator const CompareTypeEnum&() const {return typeEnum_;}
+        std::string getString() const;
+        private:
+          CompareTypeEnum typeEnum_;
+    };
+    bool deepCompare(
+      const SNLDesign* other,
+      std::string& reason,
+      CompareType type=CompareType::Complete) const;
     void mergeAssigns();
 
     const char* getTypeName() const override;

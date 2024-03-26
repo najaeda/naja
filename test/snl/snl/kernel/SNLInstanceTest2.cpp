@@ -60,10 +60,14 @@ TEST_F(SNLInstanceTest2, testRename) {
   EXPECT_THROW(instance2->setName(SNLName("instance0")), SNLException);
 }
 
-
 TEST_F(SNLInstanceTest2, testInstTermRenameError) {
   auto a = SNLScalarTerm::create(model_, SNLTerm::Direction::Input, SNLName("a"));
   auto ins = SNLInstance::create(design_, model_, SNLName("instance"));
   auto instTerm = ins->getInstTerm(a);
   EXPECT_THROW(instTerm->setName(SNLName("b")), SNLException);
+}
+
+TEST_F(SNLInstanceTest2, testInstTermNullTerm) {
+  auto ins = SNLInstance::create(design_, model_, SNLName("instance"));
+  EXPECT_THROW(ins->getInstTerm(nullptr), SNLException);
 }

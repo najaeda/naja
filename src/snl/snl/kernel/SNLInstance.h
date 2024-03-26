@@ -77,7 +77,7 @@ class SNLInstance final: public SNLDesignObject {
     NajaCollection<SNLInstParameter*> getInstParameters() const;
 
     ///\return SNLInstTerm corresponding to the SNLBitTerm representative in this instance. 
-    SNLInstTerm* getInstTerm(const SNLBitTerm* term) const;
+    SNLInstTerm* getInstTerm(const SNLBitTerm* bitTerm) const;
     ///\return the NajaCollection of all SNLInstTerm of this SNLInstance.
     NajaCollection<SNLInstTerm*> getInstTerms() const;
     /**
@@ -122,6 +122,8 @@ class SNLInstance final: public SNLDesignObject {
       SNLTerm* term,
       SNLNet* net,
       SNLID::Bit netMSB, SNLID::Bit netLSB);
+
+    void setModel(SNLDesign* newModel);
 
   private:
     SNLInstance(SNLDesign* design, SNLDesign* model, const SNLName& name);

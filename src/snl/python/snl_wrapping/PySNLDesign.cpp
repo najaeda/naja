@@ -80,10 +80,10 @@ static PyObject* PySNLDesign_createPrimitive(PyObject*, PyObject* args) {
   return PySNLDesign_Link(design);
 }
 
-static PyObject* PySNLDesign_uniquify(PySNLDesign* self, PyObject* args) {
+static PyObject* PySNLDesign_clone(PySNLDesign* self, PyObject* args) {
   const char* arg0 = nullptr;
-  if (not PyArg_ParseTuple(args, "|s:SNLDesign.uniquify", &arg0)) {
-    setError("malformed SNLDesign.uniquify method");
+  if (not PyArg_ParseTuple(args, "|s:SNLDesign.clone", &arg0)) {
+    setError("malformed SNLDesign.clone method");
     return nullptr;
   }
   SNLName name;
@@ -92,9 +92,9 @@ static PyObject* PySNLDesign_uniquify(PySNLDesign* self, PyObject* args) {
   }
 
   SNLDesign* newDesign = nullptr;
-  METHOD_HEAD("SNLDesign.uniquify()")
+  METHOD_HEAD("SNLDesign.clone()")
   SNLTRY
-  newDesign = selfObject->uniquify(name);
+  newDesign = selfObject->clone(name);
   SNLCATCH
   return PySNLDesign_Link(newDesign);
 }
@@ -358,8 +358,8 @@ PyMethodDef PySNLDesign_Methods[] = {
     "get a container of SNLParameters."},
   {"destroy", (PyCFunction)PySNLDesign_destroy, METH_NOARGS,
     "destroy this SNLDesign."},
-  {"uniquify", (PyCFunction)PySNLDesign_uniquify, METH_VARARGS,
-    "uniquify this SNLDesign."},
+  {"clone", (PyCFunction)PySNLDesign_clone, METH_VARARGS,
+    "clone this SNLDesign."},
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 

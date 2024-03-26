@@ -38,6 +38,21 @@ std::string SNLDesign::Type::getString() const {
 }
 //LCOV_EXCL_STOP
 
+SNLDesign::CompareType::CompareType(const CompareTypeEnum& typeEnum):
+  typeEnum_(typeEnum) 
+{}
+
+//LCOV_EXCL_START
+std::string SNLDesign::CompareType::getString() const {
+  switch (typeEnum_) {
+    case CompareType::Complete: return "Complete";
+    case CompareType::IgnoreID: return "IgnoreID";
+    case CompareType::IgnoreIDAndName: return "IgnoreIDAndName";
+  }
+  return "Unknown";
+}
+//LCOV_EXCL_STOP
+
 SNLDesign* SNLDesign::create(SNLLibrary* library, const SNLName& name) {
   preCreate(library, Type::Standard, name);
   SNLDesign* design = new SNLDesign(library, Type::Standard, name);
@@ -473,11 +488,15 @@ bool SNLDesign::isTopDesign() const {
   return getDB()->getTopDesign() == this; 
 }
 
-bool SNLDesign::deepCompare(const SNLDesign* other, std::string& reason) const {
-  if (getID() not_eq other->getID()) {
+
+bool SNLDesign::deepCompare(
+      const SNLDesign* other,
+      std::string& reason,
+      CompareType type) const {
+  if (type==CompareType::Complete and (getID() not_eq other->getID())) {
     return false;
   }
-  if (name_ not_eq other->getName()) {
+  if (type!=CompareType::IgnoreIDAndName and (name_ not_eq other->getName())) {
     return false;
   }
   if (type_ not_eq other->getType()) {
@@ -526,9 +545,9 @@ void SNLDesign::mergeAssigns() {
   }
 }
 
-SNLDesign* SNLDesign::uniquifyInterfaceToLibrary(SNLLibrary* library, const SNLName& name) const {
+SNLDesign* SNLDesign::cloneInterfaceToLibrary(SNLLibrary* library, const SNLName& name) const {
   if (isPrimitive()) {
-    throw SNLException("uniquifyToLibrary cannot be called on primitive designs");
+    throw SNLException("cloneToLibrary cannot be called on primitive designs");
   }
   auto newDesign = SNLDesign::create(library, Type::Standard, name);
   newDesign->terms_.clone_from(
@@ -550,18 +569,18 @@ SNLDesign* SNLDesign::uniquifyInterfaceToLibrary(SNLLibrary* library, const SNLN
   return newDesign;
 }
 
-SNLDesign* SNLDesign::uniquifyInterface(const SNLName& name) const {
-  return uniquifyInterfaceToLibrary(getLibrary(), name);
+SNLDesign* SNLDesign::cloneInterface(const SNLName& name) const {
+  return cloneInterfaceToLibrary(getLibrary(), name);
 }
 
-SNLDesign* SNLDesign::uniquifyToLibrary(SNLLibrary* library, const SNLName& name) const {
+SNLDesign* SNLDesign::cloneToLibrary(SNLLibrary* library, const SNLName& name) const {
   if (not name.empty() and library->getDesign(name)) {
     std::string reason = "SNLLibrary " + library->getString() + " contains already a SNLDesign named: " + getName().getString();
     throw SNLException(reason);
   }
 
   //start with interface uniquification
-  auto newDesign = uniquifyInterfaceToLibrary(library, name);
+  auto newDesign = cloneInterfaceToLibrary(library, name);
   //clone instances
   newDesign->instances_.clone_from(
     instances_,
@@ -581,8 +600,8 @@ SNLDesign* SNLDesign::uniquifyToLibrary(SNLLibrary* library, const SNLName& name
   return newDesign;
 }
 
-SNLDesign* SNLDesign::uniquify(const SNLName& name) const {
-  return uniquifyToLibrary(getLibrary(), name);
+SNLDesign* SNLDesign::clone(const SNLName& name) const {
+  return cloneToLibrary(getLibrary(), name);
 }
 
 //LCOV_EXCL_START
