@@ -44,6 +44,7 @@ class SNLDesignTest(unittest.TestCase):
     terms = [t for t in design.getTerms()]
     self.assertEqual(1, len(terms))
     self.assertEqual(i0, terms[0])
+    with self.assertRaises(RuntimeError) as context: snl.SNLScalarTerm.create(design, snl.SNLTerm.Direction.Input, "I0")
 
     i1 = snl.SNLScalarTerm.create(design, snl.SNLTerm.Direction.Input, "I1")
     self.assertEqual(i1, design.getTerm("I1"))

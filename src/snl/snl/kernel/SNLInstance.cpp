@@ -336,16 +336,22 @@ bool SNLInstance::isLeaf() const {
   return getModel()->isLeaf();
 }
 
-SNLInstTerm* SNLInstance::getInstTerm(const SNLBitTerm* term) const {
-  if (term->getDesign() != getModel()) {
+SNLInstTerm* SNLInstance::getInstTerm(const SNLBitTerm* bitTerm) const {
+  if (bitTerm == nullptr) {
+    std::string reason = "SNLInstance::getInsTerm error in "
+      + getName().getString() + " model: " + getModel()->getName().getString()
+      + " bitTerm arg is null";
+    throw SNLException(reason);
+  }
+  if (bitTerm->getDesign() != getModel()) {
     std::string reason = "SNLInstance::getInsTerm incoherency: "
       + getName().getString() + " model: " + getModel()->getName().getString()
-      + " and " + term->getString() + " model: " + term->getDesign()->getName().getString()
+      + " and " + bitTerm->getString() + " model: " + bitTerm->getDesign()->getName().getString()
       + " should be the same";
     throw SNLException(reason);
   }
-  assert(term->getFlatID() < instTerms_.size());
-  return instTerms_[term->getFlatID()];
+  assert(bitTerm->getFlatID() < instTerms_.size());
+  return instTerms_[bitTerm->getFlatID()];
 }
 
 NajaCollection<SNLInstTerm*> SNLInstance::getInstTerms() const {
@@ -409,6 +415,104 @@ SNLInstParameter* SNLInstance::getInstParameter(const SNLName& name) const {
 
 NajaCollection<SNLInstParameter*> SNLInstance::getInstParameters() const {
   return NajaCollection(new NajaIntrusiveSetCollection(&instParameters_));
+}
+
+//support only strict mode for the moment
+//previous and new interface should have same size.
+//bus terms should have same msb/lsb
+//In the future, we could support a more flexible interface
+//if we have to support unbounded instances where model interface is
+//detemine by instance context. In that case new interface should be 
+//a super set of previous interface and IDs should not be used to match terms.
+//In that case, anonymous terms will not be supported (in previous and new model);
+void SNLInstance::setModel(SNLDesign* model) {
+  using TermVector = std::vector<SNLTerm*>;
+  TermVector currentTerms(getModel()->getTerms().begin(), getModel()->getTerms().end());
+  TermVector newTerms(model->getTerms().begin(), model->getTerms().end());
+  if (currentTerms.size() != newTerms.size()) {
+    throw SNLException("SNLInstance::setModel error: different number of terms");
+  }
+
+  using BitTermMap = std::map<SNLBitTerm*, SNLBitTerm*>;
+  BitTermMap bitTermMap;
+  for (size_t i=0; i<currentTerms.size(); ++i) {
+    auto currentTerm = currentTerms[i];
+    auto newTerm = newTerms[i];
+    if (currentTerm->isAnonymous() != newTerm->isAnonymous()) {
+      throw SNLException("SNLInstance::setModel error: anonymous contradiction");
+    }
+    if (not currentTerm->isAnonymous() && currentTerm->getName() != newTerms[i]->getName()) {
+      throw SNLException("SNLInstance::setModel error: different term names");
+    }
+    if (currentTerm->getID() != newTerm->getID()) {
+      throw SNLException("SNLInstance::setModel error: different term IDs");
+    }
+    if (currentTerm->getDirection() != newTerm->getDirection()) {
+      throw SNLException("SNLInstance::setModel error: different term directions");
+    }
+    if (auto currentBusTerm = dynamic_cast<SNLBusTerm*>(currentTerm)) {
+      if (auto newBusTerm = dynamic_cast<SNLBusTerm*>(newTerm)) {
+        if (currentBusTerm->getMSB() != newBusTerm->getMSB() or currentBusTerm->getLSB() != newBusTerm->getLSB()) {
+          throw SNLException("SNLInstance::setModel error: different bus term bits");
+        }
+        for (auto currentBit: currentBusTerm->getBits()) {
+          auto newBit = newBusTerm->getBit(currentBit->getBit());
+          bitTermMap[currentBit] = newBit;
+        }
+      } else {
+        throw SNLException("SNLInstance::setModel error: different term types");
+      }
+    } else {
+      if (auto newScalarTerm = dynamic_cast<SNLScalarTerm*>(newTerm)) {
+        bitTermMap[static_cast<SNLBitTerm*>(currentTerm)] = newScalarTerm;
+      } else {
+        throw SNLException("SNLInstance::setModel error: different term types");
+      }
+    }
+  }
+  
+  //collect parameters
+  using ParametersVector = std::vector<SNLParameter*>;
+  ParametersVector currentParameters(getModel()->getParameters().begin(), getModel()->getParameters().end());
+  ParametersVector newParameters(model->getParameters().begin(), model->getParameters().end());
+  if (currentParameters.size() != newParameters.size()) {
+    throw SNLException("SNLInstance::setModel error: different number of parameters");
+  }
+  using ParametersMap = std::map<SNLParameter*, SNLParameter*>;
+  ParametersMap parameterMap;
+  for (size_t i=0; i<currentParameters.size(); ++i) {
+    auto currentParameter = currentParameters[i];
+    auto newParameter = newParameters[i];
+    if (currentParameter->getName() != newParameter->getName()) {
+      throw SNLException("SNLInstance::setModel error: different parameter names");
+    }
+    if (currentParameter->getType() != newParameter->getType()) {
+      throw SNLException("SNLInstance::setModel error: different parameter types");
+    }
+    parameterMap[currentParameter] = newParameter;
+  }
+
+  for (auto instTerm: instTerms_) {
+    auto currentTerm = instTerm->getBitTerm();
+    auto it = bitTermMap.find(currentTerm);
+    if (it == bitTermMap.end()) {
+      throw SNLException("SNLInstance::setModel error: term not found in new model");
+    }
+    auto newTerm = it->second;
+    instTerm->bitTerm_ = newTerm;
+  }
+  //
+  //transfer instance parameters
+  for (auto& instParameter: instParameters_) {
+    auto currentParameter = instParameter.parameter_;
+    auto it = parameterMap.find(currentParameter);
+    if (it == parameterMap.end()) {
+      throw SNLException("SNLInstance::setModel error: parameter not found in new model");
+    }
+    auto newParameter = it->second;
+    instParameter.parameter_ = newParameter;
+  }
+  model_ = model;
 }
 
 //LCOV_EXCL_START

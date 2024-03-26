@@ -53,6 +53,7 @@ class SNLNetTest(unittest.TestCase):
     self.assertEqual(i1Net, self.design.getBusNet("I1"))
     self.assertIsNone(self.design.getScalarNet("I1"))
     i1.setNet(i1Net)
+    with self.assertRaises(RuntimeError) as context: i1.setNet(self.design)
     self.assertEqual(5, sum(1 for b in i1Net.getBits()))
     self.assertEqual(2, sum(1 for n in self.design.getNets()))
     self.assertEqual(1+5, sum(1 for b in self.design.getBitNets()))
