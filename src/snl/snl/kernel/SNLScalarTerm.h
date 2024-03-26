@@ -29,6 +29,8 @@ class SNLScalarTerm final: public SNLBitTerm {
     NajaCollection<SNLBitTerm*> getBits() const override;
 
     SNLTerm::Direction getDirection() const override { return direction_; }
+    void setDirection(const SNLTerm::Direction& direction) { direction_ = direction; }
+
     const char* getTypeName() const override;
     std::string getString() const override;
     std::string getDescription() const override;

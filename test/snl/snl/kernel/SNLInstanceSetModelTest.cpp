@@ -97,7 +97,7 @@ TEST_F(SNLInstanceSetModelTest, testAnonymousContradictionError) {
   EXPECT_THROW(ins0_->setModel(newModel), SNLException);  
 }
 
-TEST_F(SNLInstanceSetModelTest, testDifferentNetNameError) {
+TEST_F(SNLInstanceSetModelTest, testDifferentTermNameError) {
   //clone model
   auto newModel = model_->clone();
   ASSERT_NE(newModel, nullptr);
@@ -105,6 +105,29 @@ TEST_F(SNLInstanceSetModelTest, testDifferentNetNameError) {
   auto term0 = newModel->getScalarTerm(SNLName("term0"));
   ASSERT_NE(nullptr, term0);
   term0->setName(SNLName("term00"));
+  EXPECT_THROW(ins0_->setModel(newModel), SNLException);  
+}
+
+TEST_F(SNLInstanceSetModelTest, testDifferentTermIDError) {
+  //clone model
+  auto newModel = model_->clone();
+  ASSERT_NE(newModel, nullptr);
+  ASSERT_EQ(5, newModel->getTerms().size());
+  auto term4 = newModel->getScalarTerm(SNLName("term4"));
+  ASSERT_NE(nullptr, term4);
+  term4->destroy();
+  SNLScalarTerm::create(newModel, SNLID::DesignObjectID(9), SNLTerm::Direction::InOut, SNLName("term4"));
+  EXPECT_THROW(ins0_->setModel(newModel), SNLException);  
+}
+
+TEST_F(SNLInstanceSetModelTest, testDifferentTermDirectionError) {
+  //clone model
+  auto newModel = model_->clone();
+  ASSERT_NE(newModel, nullptr);
+  ASSERT_EQ(5, newModel->getTerms().size());
+  auto term3 = newModel->getBusTerm(SNLName("term3"));
+  ASSERT_NE(nullptr, term3);
+  term3->setDirection(SNLTerm::Direction::Input);
   EXPECT_THROW(ins0_->setModel(newModel), SNLException);  
 }
 

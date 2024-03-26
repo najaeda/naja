@@ -26,6 +26,7 @@ class SNLNetComponent: public SNLDesignObject {
         };
         Direction(const DirectionEnum& dirEnum);
         Direction(const Direction& direction) = default;
+        Direction& operator=(const Direction& direction) = default;
         operator const DirectionEnum&() const {return dirEnum_;}
         std::string getString() const;
         private:
