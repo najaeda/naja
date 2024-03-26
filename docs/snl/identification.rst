@@ -1,7 +1,8 @@
 Objects identification
 ----------------------
 
-Each Design DB object has a unique identifier: [SNLID](https://github.com/xtofalex/naja/blob/main/src/snl/snl/kernel/SNLID.h).
+Each Design DB object has a unique identifier:
+`SNLID <https://github.com/xtofalex/naja/blob/main/src/snl/snl/kernel/SNLID.h>`_.
 
 +-------------+-----------+--------------+-------------------+
 | Field       | Type      | Size (bytes) | Value range       |
@@ -21,7 +22,7 @@ Each Design DB object has a unique identifier: [SNLID](https://github.com/xtofal
 | Bit         | int32_t   | 4            | 0 - 4,294,967,295 |
 +-------------+-----------+--------------+-------------------+
 
-Each object SNLID can be accessed with getSNLID() method.
+Each object SNLID can be accessed with :func:`getSNLID` method.
 
 **SNLIDs** allow to:
 

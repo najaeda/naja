@@ -1,5 +1,5 @@
-SNL (Structured Netlist)
-========================
+Naja SNL (Structured Netlist)
+=============================
 
 .. image:: ../images/Naja-SNL.png
    :alt: Naja SNL

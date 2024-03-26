@@ -1,14 +1,7 @@
-Naja core classes
-=================
+Naja Core
+=========
 
-.. doxygenclass:: naja::NajaObject
-   :members:
+.. toctree::
+   :maxdepth: 1
 
-.. doxygenclass:: naja::NajaProperty
-   :members:
-
-.. doxygenclass:: naja::NajaPrivateProperty
-   :members:
-
-.. doxygenclass:: naja::NajaDumpableProperty
-   :members:
+   classes/index.rst
