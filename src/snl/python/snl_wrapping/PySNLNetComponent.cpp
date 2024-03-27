@@ -5,6 +5,8 @@
 #include "PySNLNetComponent.h"
 
 #include "PyInterface.h"
+#include "PySNLInstTerm.h"
+#include "PySNLBitTerm.h"
 #include "PySNLBitNet.h"
 
 namespace PYSNL {
@@ -49,7 +51,18 @@ PyMethodDef PySNLNetComponent_Methods[] = {
 
 DBoDeallocMethod(SNLNetComponent)
 
-DBoLinkCreateMethod(SNLNetComponent)
+PyObject* PySNLNetComponent_Link(SNLNetComponent* object) {
+  if (not object) {
+    Py_RETURN_NONE;   
+  }
+  if (auto instTerm = dynamic_cast<SNLInstTerm*>(object)) {
+    return PySNLInstTerm_Link(instTerm);
+  } else {
+    auto bitTerm = static_cast<SNLBitTerm*>(object);
+    return PySNLBitTerm_Link(bitTerm);
+  }
+}
+
 PyTypeSNLObjectWithSNLIDLinkPyType(SNLNetComponent)
 PyTypeInheritedObjectDefinitions(SNLNetComponent, SNLDesignObject)
 

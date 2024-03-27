@@ -411,12 +411,12 @@ PyObject* richCompare(T left, T right, int op) {
     return nullptr;                                                                         \
   }
 
-#define GetContainerMethod(TYPE, ITERATED, CONTAINER) \
-  static PyObject* PySNL##TYPE##_get##CONTAINER(PySNL##TYPE *self) { \
-    METHOD_HEAD("SNL" #TYPE ".get" #CONTAINER "()") \
+#define GetContainerMethod(TYPE, ITERATED, CONTAINER, GET_OBJECTS) \
+  static PyObject* PySNL##TYPE##_get##GET_OBJECTS(PySNL##TYPE *self) { \
+    METHOD_HEAD("SNL" #TYPE ".get" #GET_OBJECTS "()") \
     PySNL##CONTAINER* pyObjects = nullptr; \
     SNLTRY \
-    auto objects = new naja::NajaCollection<SNL##ITERATED*>(selfObject->get##CONTAINER()); \
+    auto objects = new naja::NajaCollection<SNL##ITERATED*>(selfObject->get##GET_OBJECTS()); \
     pyObjects = PyObject_NEW(PySNL##CONTAINER, &PyTypeSNL##CONTAINER); \
     if (not pyObjects) return nullptr; \
     pyObjects->object_ = objects; \

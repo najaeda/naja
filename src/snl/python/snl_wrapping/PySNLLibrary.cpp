@@ -64,7 +64,7 @@ GetBoolAttribute(Library, isPrimitives)
 
 GetNameMethod(SNLLibrary)
 
-GetContainerMethod(Library, Design, Designs)
+GetContainerMethod(Library, Design, Designs, Designs)
 
 DBoDeallocMethod(SNLLibrary)
 

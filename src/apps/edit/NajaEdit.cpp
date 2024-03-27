@@ -25,10 +25,12 @@ using namespace naja::SNL;
 
 namespace {
 
-enum class FormatType { UNKNOWN, VERILOG, SNL };
+enum class FormatType { NOT_PROVIDED, UNKNOWN, VERILOG, SNL };
 
 FormatType argToFormatType(const std::string& inputFormat) {
-  if (inputFormat == "verilog") {
+  if (inputFormat.empty()) {
+    return FormatType::NOT_PROVIDED;
+  } else if (inputFormat == "verilog") {
     return FormatType::VERILOG;
   } else if (inputFormat == "snl") {
     return FormatType::SNL;
@@ -95,7 +97,11 @@ int main(int argc, char* argv[]) {
   if (auto outputFormatArg = program.present("-t")) {
     outputFormat = *outputFormatArg;
   } else {
-    outputFormat = inputFormat;
+    if (auto output = program.is_used("-o")) {
+      //in case output format is not provided and output path is provided
+      //output format is same as input format
+      outputFormat = inputFormat;
+    }
   }
   FormatType inputFormatType = argToFormatType(inputFormat);
   FormatType outputFormatType = argToFormatType(outputFormat);
@@ -144,8 +150,10 @@ int main(int argc, char* argv[]) {
   if (auto output = program.present("-o")) {
     outputPath = std::filesystem::path(*output);
   } else {
-    spdlog::critical("No output path was provided");
-    std::exit(EXIT_FAILURE);
+    if (outputFormatType != FormatType::NOT_PROVIDED) {
+      spdlog::critical("output option (-o) is mandatory when the output format provided");
+      std::exit(EXIT_FAILURE);
+    }
   }
   
   try {

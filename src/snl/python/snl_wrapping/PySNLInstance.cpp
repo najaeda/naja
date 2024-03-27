@@ -114,8 +114,8 @@ static PyObject* PySNLInstance_getInstTerm(PySNLInstance* self, PyObject* args) 
   return PySNLInstTerm_Link(obj);
 }
 
-GetContainerMethod(Instance, InstTerm, InstTerms)
-GetContainerMethod(Instance, InstParameter, InstParameters)
+GetContainerMethod(Instance, InstTerm, InstTerms, InstTerms)
+GetContainerMethod(Instance, InstParameter, InstParameters, InstParameters)
 
 PyMethodDef PySNLInstance_Methods[] = {
   { "create", (PyCFunction)PySNLInstance_create, METH_VARARGS|METH_STATIC,
