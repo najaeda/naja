@@ -18,6 +18,7 @@ class SNLDBTest(unittest.TestCase):
     self.assertIsNotNone(u)
     db = snl.SNLDB.create(u) 
     self.assertIsNotNone(db)
+    del db
 
   def testCreationError(self):
     u = snl.SNLUniverse.get()

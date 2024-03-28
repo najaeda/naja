@@ -14,6 +14,7 @@ class SNLDesignTest(unittest.TestCase):
   def tearDown(self):
     if snl.SNLUniverse.get():
       snl.SNLUniverse.get().destroy()
+      del self.lib
 
   def test0(self):
     self.assertIsNotNone(self.lib)

@@ -14,6 +14,9 @@ class SNLNetTest(unittest.TestCase):
     self.model = snl.SNLDesign.create(self.lib, "model")
 
   def tearDown(self):
+    del self.lib
+    del self.design
+    del self.model
     if snl.SNLUniverse.get():
       snl.SNLUniverse.get().destroy()
 

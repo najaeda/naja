@@ -13,6 +13,8 @@ class SNLDesignModelingTest(unittest.TestCase):
     self.primitives = snl.SNLLibrary.createPrimitives(db)
 
   def tearDown(self):
+    del self.designs
+    del self.primitives
     if snl.SNLUniverse.get():
       snl.SNLUniverse.get().destroy()
 

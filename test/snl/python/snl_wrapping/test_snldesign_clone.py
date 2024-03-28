@@ -18,6 +18,7 @@ class SNLDesignUniquifyTest(unittest.TestCase):
     p1 = snl.SNLParameter.create_decimal(self.design, "P1", 42)
 
   def tearDown(self):
+    del self.design
     if snl.SNLUniverse.get():
       snl.SNLUniverse.get().destroy()
 
