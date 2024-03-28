@@ -51,5 +51,9 @@ class SNLLibraryTest(unittest.TestCase):
     with self.assertRaises(RuntimeError) as context: lib1 = snl.SNLLibrary.create(db, "LIB1", "ERROR")
     with self.assertRaises(RuntimeError) as context: lib1 = snl.SNLLibrary.create(u, "LIB1")
 
+    lib = snl.SNLLibrary.create(db, "LIB")
+    with self.assertRaises(RuntimeError) as context: lib1 = snl.SNLLibrary.create(db, "LIB")
+    del lib
+
 if __name__ == '__main__':
   unittest.main()

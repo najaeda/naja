@@ -200,6 +200,24 @@ class SNLDesignTest(unittest.TestCase):
     with self.assertRaises(RuntimeError) as context: snl.SNLParameter.create_string(n, "ERROR", "ERROR")
     with self.assertRaises(RuntimeError) as context: snl.SNLParameter.create_boolean(n, "ERROR", False)
 
+  def testParameterClashErrors(self):
+    self.assertIsNotNone(self.lib)
+    design = snl.SNLDesign.create(self.lib, "DESIGN")
+    self.assertIsNotNone(design)
+    p0 = snl.SNLParameter.create_decimal(design, "REG", 34)
+    p1 = snl.SNLParameter.create_binary(design, "INIT", 16, 0x0000)
+    p2 = snl.SNLParameter.create_string(design, "MODE", "DEFAULT")
+    p3 = snl.SNLParameter.create_boolean(design, "INVERTED", True)
+    self.assertIsNotNone(p0)
+    self.assertIsNotNone(p1)
+    self.assertIsNotNone(p2)
+    self.assertIsNotNone(p3)
+    with self.assertRaises(RuntimeError) as context: snl.SNLParameter.create_decimal(design, "REG", 34)
+    with self.assertRaises(RuntimeError) as context: snl.SNLParameter.create_binary(design, "INIT", 16, 0x0000)
+    with self.assertRaises(RuntimeError) as context: snl.SNLParameter.create_string(design, "MODE", "DEFAULT")
+    with self.assertRaises(RuntimeError) as context: snl.SNLParameter.create_boolean(design, "INVERTED", True)
+
+
   def testDestroy(self):
     design = snl.SNLDesign.create(self.lib, "DESIGN")
     design.destroy()
