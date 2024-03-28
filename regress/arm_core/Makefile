@@ -1,6 +1,6 @@
 include ../Makefile.inc
 
-all: verif.gold verilator.gold verif.error
+all: edges.list verif.gold verilator.gold verif.error
 
 verif.error: arm_core_snl_error.v primitives.v 
 	${YOSYS} src/comp_error.ys
@@ -21,6 +21,14 @@ verilator.gold: arm_core_snl.v primitives.v
 
 arm_core_netlist.v: src/arm_core.v
 	${YOSYS} src/synth.ys
+
+arm_core_snl/snl.mf: arm_core_netlist.v
+	export PYTHONPATH=${SET_PYTHONPATH}; \
+	${PYTHON_ENV} ${NAJA_EDIT} -f verilog -t snl -i $< -o arm_core_snl -p ${PRIMITIVES}
+
+edges.list: arm_core_snl/snl.mf gen_edge_list.py
+	export PYTHONPATH=${SET_PYTHONPATH}; \
+	${NAJA_EDIT} -f snl -i arm_core_snl -e gen_edge_list.py
 
 arm_core_snl.v primitives.v: arm_core_netlist.v
 	export PYTHONPATH=${SET_PYTHONPATH}; \
