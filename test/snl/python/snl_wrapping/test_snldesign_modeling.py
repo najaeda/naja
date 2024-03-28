@@ -13,6 +13,8 @@ class SNLDesignModelingTest(unittest.TestCase):
     self.primitives = snl.SNLLibrary.createPrimitives(db)
 
   def tearDown(self):
+    del self.designs
+    del self.primitives
     if snl.SNLUniverse.get():
       snl.SNLUniverse.get().destroy()
 
@@ -154,6 +156,10 @@ class SNLDesignModelingTest(unittest.TestCase):
     snl.SNLDesign.addClockToOutputsArcs(c, [q])
     self.assertEqual(4, sum(1 for t in snl.SNLDesign.getClockRelatedInputs(c)))
     self.assertEqual(4, sum(1 for t in snl.SNLDesign.getClockRelatedOutputs(c)))
+
+  def testCreationErrors(self):
+    prim = snl.SNLDesign.createPrimitive(self.primitives, "design")
+    with self.assertRaises(RuntimeError) as context: snl.SNLDesign.createPrimitive(self.designs, "design")
 
   def testCombiErrors(self):
     design = snl.SNLDesign.createPrimitive(self.primitives, "design")

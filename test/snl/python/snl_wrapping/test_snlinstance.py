@@ -21,6 +21,11 @@ class SNLInstanceTest(unittest.TestCase):
     p3 = snl.SNLParameter.create_boolean(self.model, "INVERTED", True)
 
   def tearDown(self):
+    del self.top
+    del self.model
+    del self.i0
+    del self.i1
+    del self.o
     if snl.SNLUniverse.get():
       snl.SNLUniverse.get().destroy()
 

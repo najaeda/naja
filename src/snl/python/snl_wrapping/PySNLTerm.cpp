@@ -5,8 +5,9 @@
 #include "PySNLTerm.h"
 
 #include "PyInterface.h"
+#include "PySNLBusTerm.h"
+#include "PySNLScalarTerm.h"
 #include "PySNLTermDirection.h"
-#include "PySNLDesign.h"
 #include "PySNLBitTerms.h"
 
 namespace PYSNL {
@@ -30,10 +31,19 @@ PyMethodDef PySNLTerm_Methods[] = {
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 
-DBoDeallocMethod(SNLTerm)
+PyObject* PySNLTerm_Link(SNLTerm* object) {
+  if (not object) {
+    Py_RETURN_NONE;   
+  }
+  if (auto busTerm = dynamic_cast<SNLBusTerm*>(object)) {
+    return PySNLBusTerm_Link(busTerm);
+  } else {
+    auto scalarTerm = static_cast<SNLScalarTerm*>(object);
+    return PySNLScalarTerm_Link(scalarTerm);
+  }
+}
 
-DBoLinkCreateMethod(SNLTerm)
-PyTypeSNLObjectWithSNLIDLinkPyType(SNLTerm)
+PyTypeSNLAbstractObjectWithSNLIDLinkPyType(SNLTerm)
 PyTypeInheritedObjectDefinitions(SNLTerm, SNLNetComponent)
 
 void PySNLTerm_postModuleInit() {

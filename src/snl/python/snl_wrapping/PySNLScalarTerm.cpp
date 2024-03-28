@@ -55,7 +55,7 @@ PyMethodDef PySNLScalarTerm_Methods[] = {
 DBoDeallocMethod(SNLScalarTerm)
 
 DBoLinkCreateMethod(SNLScalarTerm)
-PyTypeSNLObjectWithSNLIDLinkPyType(SNLScalarTerm)
+PyTypeSNLFinalObjectWithSNLIDLinkPyType(SNLScalarTerm)
 PyTypeObjectDefinitions(SNLScalarTerm)
 
 }

@@ -26,7 +26,7 @@ PyMethodDef PySNLBusNetBit_Methods[] = {
 DBoDeallocMethod(SNLBusNetBit)
 
 DBoLinkCreateMethod(SNLBusNetBit)
-PyTypeSNLObjectWithSNLIDLinkPyType(SNLBusNetBit)
+PyTypeSNLFinalObjectWithSNLIDLinkPyType(SNLBusNetBit)
 PyTypeObjectDefinitions(SNLBusNetBit)
 
 }

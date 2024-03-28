@@ -75,8 +75,11 @@ class SNLBusTerm final: public SNLTerm {
     SNLName getName() const override { return name_; }
     bool isAnonymous() const override { return name_.empty(); }
     void setName(const SNLName& name) override;
-    const char* getTypeName() const override;
+   
     SNLTerm::Direction getDirection() const override { return direction_; }
+    void setDirection(const SNLTerm::Direction& direction) { direction_ = direction; }
+
+    const char* getTypeName() const override;
     std::string getString() const override;
     std::string getDescription() const override;
     void debugDump(size_t indent, bool recursive=true, std::ostream& stream=std::cerr) const override;

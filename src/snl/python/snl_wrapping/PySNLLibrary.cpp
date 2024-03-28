@@ -64,7 +64,7 @@ GetBoolAttribute(Library, isPrimitives)
 
 GetNameMethod(SNLLibrary)
 
-GetContainerMethod(Library, Design, Designs)
+GetContainerMethod(Library, Design, Designs, Designs)
 
 DBoDeallocMethod(SNLLibrary)
 
@@ -93,6 +93,6 @@ PyMethodDef PySNLLibrary_Methods[] = {
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 
-PyTypeSNLObjectWithSNLIDLinkPyType(SNLLibrary)
+PyTypeSNLFinalObjectWithSNLIDLinkPyType(SNLLibrary)
 
 }

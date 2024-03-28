@@ -2,10 +2,11 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "PySNLTerm.h"
+#include "PySNLBitTerm.h"
 
 #include "PyInterface.h"
-#include "PySNLBitTerm.h"
+#include "PySNLScalarTerm.h"
+#include "PySNLBusTermBit.h"
 
 namespace PYSNL {
 
@@ -21,10 +22,19 @@ PyMethodDef PySNLBitTerm_Methods[] = {
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 
-DBoDeallocMethod(SNLBitTerm)
+PyObject* PySNLBitTerm_Link(SNLBitTerm* object) {
+  if (not object) {
+    Py_RETURN_NONE;   
+  }
+  if (auto busTermBit = dynamic_cast<SNLBusTermBit*>(object)) {
+    return PySNLBusTermBit_Link(busTermBit);
+  } else {
+    auto scalarTerm = static_cast<SNLScalarTerm*>(object);
+    return PySNLScalarTerm_Link(scalarTerm);
+  }
+}
 
-DBoLinkCreateMethod(SNLBitTerm)
-PyTypeSNLObjectWithSNLIDLinkPyType(SNLBitTerm)
+PyTypeSNLAbstractObjectWithSNLIDLinkPyType(SNLBitTerm)
 PyTypeInheritedObjectDefinitions(SNLBitTerm, SNLTerm)
 
 }
