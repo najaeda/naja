@@ -55,7 +55,7 @@ PyMethodDef PySNLDB_Methods[] = {
 DBoDeallocMethod(SNLDB)
 
 DBoLinkCreateMethod(SNLDB)
-PyTypeSNLObjectWithSNLIDLinkPyType(SNLDB)
+PyTypeSNLFinalObjectWithSNLIDLinkPyType(SNLDB)
 PyTypeObjectDefinitions(SNLDB)
 
 }

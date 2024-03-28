@@ -38,7 +38,6 @@ PyObject* PySNLNet_Link(SNLNet* object) {
   }
 }
 
-
 PyTypeInheritedObjectDefinitions(SNLNet, SNLDesignObject)
 
 PyMethodDef PySNLNet_Methods[] = {
@@ -49,6 +48,6 @@ PyMethodDef PySNLNet_Methods[] = {
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 
-PyTypeSNLObjectWithSNLIDLinkPyType(SNLNet)
+PyTypeSNLAbstractObjectWithSNLIDLinkPyType(SNLNet)
 
 }

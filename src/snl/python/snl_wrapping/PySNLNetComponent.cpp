@@ -63,7 +63,7 @@ PyObject* PySNLNetComponent_Link(SNLNetComponent* object) {
   }
 }
 
-PyTypeSNLObjectWithSNLIDLinkPyType(SNLNetComponent)
+PyTypeSNLAbstractObjectWithSNLIDLinkPyType(SNLNetComponent)
 PyTypeInheritedObjectDefinitions(SNLNetComponent, SNLDesignObject)
 
 }

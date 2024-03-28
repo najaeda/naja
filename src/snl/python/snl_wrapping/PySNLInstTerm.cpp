@@ -36,6 +36,6 @@ PyMethodDef PySNLInstTerm_Methods[] = {
 
 DBoDeallocMethod(SNLInstTerm)
 
-PyTypeSNLObjectWithSNLIDLinkPyType(SNLInstTerm)
+PyTypeSNLFinalObjectWithSNLIDLinkPyType(SNLInstTerm)
 
 }

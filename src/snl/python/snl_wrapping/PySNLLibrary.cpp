@@ -93,6 +93,6 @@ PyMethodDef PySNLLibrary_Methods[] = {
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 
-PyTypeSNLObjectWithSNLIDLinkPyType(SNLLibrary)
+PyTypeSNLFinalObjectWithSNLIDLinkPyType(SNLLibrary)
 
 }

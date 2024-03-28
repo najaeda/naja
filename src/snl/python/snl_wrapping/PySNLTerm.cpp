@@ -43,7 +43,7 @@ PyObject* PySNLTerm_Link(SNLTerm* object) {
   }
 }
 
-PyTypeSNLObjectWithSNLIDLinkPyType(SNLTerm)
+PyTypeSNLAbstractObjectWithSNLIDLinkPyType(SNLTerm)
 PyTypeInheritedObjectDefinitions(SNLTerm, SNLNetComponent)
 
 void PySNLTerm_postModuleInit() {

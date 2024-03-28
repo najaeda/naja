@@ -28,6 +28,6 @@ PyMethodDef PySNLBusTermBit_Methods[] = {
 DBoLinkCreateMethod(SNLBusTermBit)
 DBoDeallocMethod(SNLBusTermBit)
 
-PyTypeSNLObjectWithSNLIDLinkPyType(SNLBusTermBit)
+PyTypeSNLFinalObjectWithSNLIDLinkPyType(SNLBusTermBit)
 
 }

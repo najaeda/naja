@@ -34,7 +34,7 @@ PyObject* PySNLBitTerm_Link(SNLBitTerm* object) {
   }
 }
 
-PyTypeSNLObjectWithSNLIDLinkPyType(SNLBitTerm)
+PyTypeSNLAbstractObjectWithSNLIDLinkPyType(SNLBitTerm)
 PyTypeInheritedObjectDefinitions(SNLBitTerm, SNLTerm)
 
 }

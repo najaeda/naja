@@ -48,7 +48,7 @@ PyObject* PySNLBitNet_Link(SNLBitNet* object) {
 }
 
 
-PyTypeSNLObjectWithSNLIDLinkPyType(SNLBitNet)
+PyTypeSNLAbstractObjectWithSNLIDLinkPyType(SNLBitNet)
 PyTypeInheritedObjectDefinitions(SNLBitNet, SNLNet)
 
 }

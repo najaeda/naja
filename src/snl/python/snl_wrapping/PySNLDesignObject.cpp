@@ -39,6 +39,6 @@ PyMethodDef PySNLDesignObject_Methods[] = {
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 
-PyTypeSNLObjectWithSNLIDLinkPyType(SNLDesignObject)
+PyTypeSNLAbstractObjectWithSNLIDLinkPyType(SNLDesignObject)
 
 }
