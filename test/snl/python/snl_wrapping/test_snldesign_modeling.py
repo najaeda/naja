@@ -155,6 +155,10 @@ class SNLDesignModelingTest(unittest.TestCase):
     self.assertEqual(4, sum(1 for t in snl.SNLDesign.getClockRelatedInputs(c)))
     self.assertEqual(4, sum(1 for t in snl.SNLDesign.getClockRelatedOutputs(c)))
 
+  def testCreationErrors(self):
+    prim = snl.SNLDesign.createPrimitive(self.primitives, "design")
+    with self.assertRaises(RuntimeError) as context: snl.SNLDesign.createPrimitive(self.designs, "design")
+
   def testCombiErrors(self):
     design = snl.SNLDesign.createPrimitive(self.primitives, "design")
     i0 = snl.SNLScalarTerm.create(design, snl.SNLTerm.Direction.Input, "I0")

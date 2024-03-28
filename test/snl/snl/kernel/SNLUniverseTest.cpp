@@ -5,6 +5,7 @@
 #include "gtest/gtest.h"
 
 #include "SNLUniverse.h"
+#include "SNLException.h"
 using namespace naja::SNL;
 
 class SNLUniverseTest: public ::testing::Test {
@@ -32,4 +33,11 @@ TEST_F(SNLUniverseTest, testGetSNLObjects1) {
   EXPECT_EQ(nullptr, universe->getBusTermBit(SNLID(SNLID::Type::TermBit, 1, 1, 1, 0, 1, 1)));
   EXPECT_EQ(nullptr, universe->getNet(SNLID::DesignObjectReference(2, 3, 1, 1)));
   EXPECT_EQ(nullptr, universe->getInstance(SNLID::DesignObjectReference(1, 1, 1, 1)));
+}
+
+TEST_F(SNLUniverseTest, testUniverseClashError) {
+  ASSERT_EQ(nullptr, SNLUniverse::get());
+  SNLUniverse::create();
+  ASSERT_NE(nullptr, SNLUniverse::get());
+  EXPECT_THROW(SNLUniverse::create(), SNLException);
 }

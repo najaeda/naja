@@ -173,6 +173,7 @@ class SNLDesignTest(unittest.TestCase):
     d = snl.SNLDesign.create(self.lib, "DESIGN")
     with self.assertRaises(RuntimeError) as context: snl.SNLDesign.create("ERROR", "ERROR", "ERROR")
     with self.assertRaises(RuntimeError) as context: snl.SNLDesign.create(d, "DESIGN")
+    with self.assertRaises(RuntimeError) as context: snl.SNLDesign.create(d, "DESIGN")
     with self.assertRaises(RuntimeError) as context: snl.SNLDesign.createPrimitive("ERROR", "ERROR", "ERROR")
     with self.assertRaises(RuntimeError) as context: snl.SNLDesign.createPrimitive(d, "PRIMITIVE")
     with self.assertRaises(RuntimeError) as context: snl.SNLScalarTerm.create(d)

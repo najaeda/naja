@@ -54,6 +54,7 @@ class SNLNetTest(unittest.TestCase):
     self.assertIsInstance(i1Net, snl.SNLDesignObject)
     self.assertIsNotNone(i1Net)
     self.assertEqual("I1", i1Net.getName())
+    with self.assertRaises(RuntimeError) as context: snl.SNLBusNet.create(self.design, 4, 0, "I1")
     self.assertEqual(4, i1.getMSB())
     self.assertEqual(0, i1.getLSB())
     self.assertEqual(5, i1.getSize())

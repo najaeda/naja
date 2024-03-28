@@ -44,6 +44,9 @@ class SNLDesignUniquifyTest(unittest.TestCase):
 
   def testErrors(self):
     with self.assertRaises(RuntimeError) as context: self.design.clone("ERROR", "ERROR")
+    newDesign = self.design.clone("cloned")
+    self.assertIsNotNone(newDesign)
+    with self.assertRaises(RuntimeError) as context: self.design.clone("cloned")
 
 if __name__ == '__main__':
   unittest.main()
