@@ -36,7 +36,7 @@ static PyObject* PySNLDB_create(PyObject*, PyObject* args) {
 }
 
 GetObjectByName(DB, Library)
-GetContainerMethod(DB, Library, Libraries)
+GetContainerMethod(DB, Library, Libraries, Libraries)
 
 DBoDestroyAttribute(PySNLDB_destroy, PySNLDB)
 
@@ -55,7 +55,7 @@ PyMethodDef PySNLDB_Methods[] = {
 DBoDeallocMethod(SNLDB)
 
 DBoLinkCreateMethod(SNLDB)
-PyTypeSNLObjectWithSNLIDLinkPyType(SNLDB)
+PyTypeSNLFinalObjectWithSNLIDLinkPyType(SNLDB)
 PyTypeObjectDefinitions(SNLDB)
 
 }

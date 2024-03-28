@@ -20,8 +20,6 @@ using namespace naja::SNL;
 #define  ACCESS_CLASS(_pyObject)  &(_pyObject->parent_)
 #define  METHOD_HEAD(function)    GENERIC_METHOD_HEAD(SNLInstTerm, function)
 
-DBoDeallocMethod(SNLInstTerm)
-
 DBoLinkCreateMethod(SNLInstTerm)
 PyTypeInheritedObjectDefinitions(SNLInstTerm, SNLNetComponent)
 
@@ -36,6 +34,8 @@ PyMethodDef PySNLInstTerm_Methods[] = {
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 
-PyTypeSNLObjectWithSNLIDLinkPyType(SNLInstTerm)
+DBoDeallocMethod(SNLInstTerm)
+
+PyTypeSNLFinalObjectWithSNLIDLinkPyType(SNLInstTerm)
 
 }

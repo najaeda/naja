@@ -284,14 +284,14 @@ GetObjectByName(Design, BusNet)
 GetObjectByName(Design, Parameter)
 GetNameMethod(SNLDesign)
 GetBoolAttribute(Design, isAnonymous)
-GetContainerMethod(Design, Term, Terms)
-GetContainerMethod(Design, BitTerm, BitTerms)
-GetContainerMethod(Design, ScalarTerm, ScalarTerms)
-GetContainerMethod(Design, BusTerm, BusTerms)
-GetContainerMethod(Design, Net, Nets)
-GetContainerMethod(Design, BitNet, BitNets)
-GetContainerMethod(Design, Instance, Instances)
-GetContainerMethod(Design, Parameter, Parameters)
+GetContainerMethod(Design, Term, Terms, Terms)
+GetContainerMethod(Design, BitTerm, BitTerms, BitTerms)
+GetContainerMethod(Design, ScalarTerm, ScalarTerms, ScalarTerms)
+GetContainerMethod(Design, BusTerm, BusTerms, BusTerms)
+GetContainerMethod(Design, Net, Nets, Nets)
+GetContainerMethod(Design, BitNet, BitNets, BitNets)
+GetContainerMethod(Design, Instance, Instances, Instances)
+GetContainerMethod(Design, Parameter, Parameters, Parameters)
 
 DBoDestroyAttribute(PySNLDesign_destroy, PySNLDesign)
 
@@ -366,7 +366,7 @@ PyMethodDef PySNLDesign_Methods[] = {
 DBoDeallocMethod(SNLDesign)
 
 DBoLinkCreateMethod(SNLDesign)
-PyTypeSNLObjectWithSNLIDLinkPyType(SNLDesign)
+PyTypeSNLFinalObjectWithSNLIDLinkPyType(SNLDesign)
 PyTypeObjectDefinitions(SNLDesign)
 
 }

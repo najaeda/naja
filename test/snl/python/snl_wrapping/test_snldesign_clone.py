@@ -18,6 +18,7 @@ class SNLDesignUniquifyTest(unittest.TestCase):
     p1 = snl.SNLParameter.create_decimal(self.design, "P1", 42)
 
   def tearDown(self):
+    del self.design
     if snl.SNLUniverse.get():
       snl.SNLUniverse.get().destroy()
 
@@ -44,6 +45,9 @@ class SNLDesignUniquifyTest(unittest.TestCase):
 
   def testErrors(self):
     with self.assertRaises(RuntimeError) as context: self.design.clone("ERROR", "ERROR")
+    newDesign = self.design.clone("cloned")
+    self.assertIsNotNone(newDesign)
+    with self.assertRaises(RuntimeError) as context: self.design.clone("cloned")
 
 if __name__ == '__main__':
   unittest.main()

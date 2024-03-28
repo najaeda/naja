@@ -11,8 +11,12 @@ class SNLNetTest(unittest.TestCase):
     db = snl.SNLDB.create(universe)
     self.lib = snl.SNLLibrary.create(db)
     self.design = snl.SNLDesign.create(self.lib)
+    self.model = snl.SNLDesign.create(self.lib, "model")
 
   def tearDown(self):
+    del self.lib
+    del self.design
+    del self.model
     if snl.SNLUniverse.get():
       snl.SNLUniverse.get().destroy()
 
@@ -39,10 +43,22 @@ class SNLNetTest(unittest.TestCase):
     self.assertIsNone(self.design.getBusNet("I0"))
     self.assertEqual(1, sum(1 for b in i0Net.getBits()))
     self.assertEqual(1, sum(1 for n in self.design.getNets()))
+    self.assertEqual(1, sum(1 for c in i0Net.getComponents())) 
+    self.assertEqual(1, sum(1 for b in i0Net.getBitTerms())) 
+    self.assertEqual(0, sum(1 for i in i0Net.getInstTerms()))
+    c = next(iter(i0Net.getComponents()))
+    self.assertEqual(i0, c)
+    self.assertIsInstance(c, snl.SNLNetComponent)
+    self.assertIsInstance(c, snl.SNLBitTerm)
+    self.assertIsInstance(c, snl.SNLScalarTerm)
 
     i1Net = snl.SNLBusNet.create(self.design, 4, 0, "I1")
+    self.assertIsInstance(i1Net, snl.SNLBusNet)
+    self.assertIsInstance(i1Net, snl.SNLNet)
+    self.assertIsInstance(i1Net, snl.SNLDesignObject)
     self.assertIsNotNone(i1Net)
     self.assertEqual("I1", i1Net.getName())
+    with self.assertRaises(RuntimeError) as context: snl.SNLBusNet.create(self.design, 4, 0, "I1")
     self.assertEqual(4, i1.getMSB())
     self.assertEqual(0, i1.getLSB())
     self.assertEqual(5, i1.getSize())
@@ -57,15 +73,87 @@ class SNLNetTest(unittest.TestCase):
     self.assertEqual(5, sum(1 for b in i1Net.getBits()))
     self.assertEqual(2, sum(1 for n in self.design.getNets()))
     self.assertEqual(1+5, sum(1 for b in self.design.getBitNets()))
+    i1Bit4 = i1.getBit(4)
     
     i1Bit4 = i1.getBit(4)
     i1NetBit4 = i1Net.getBit(4)
     self.assertIsNotNone(i1Bit4)
     self.assertIsNotNone(i1NetBit4)
     self.assertEqual(i1Bit4.getNet(), i1NetBit4)
+    self.assertEqual(1, sum(1 for c in i1NetBit4.getComponents()))
+    self.assertEqual(1, sum(1 for b in i1NetBit4.getBitTerms()))
+    self.assertEqual(0, sum(1 for i in i1NetBit4.getInstTerms()))
+    c = next(iter(i1NetBit4.getComponents()))
+    self.assertEqual(i1Bit4, c)
+    self.assertIsInstance(c, snl.SNLNetComponent)
+    self.assertIsInstance(c, snl.SNLBitTerm)
+    self.assertIsInstance(c, snl.SNLBusTermBit)
+
+    #create another design
+    design2 = snl.SNLDesign.create(self.lib)
+    design2Net = snl.SNLScalarNet.create(design2, "net")
+    with self.assertRaises(RuntimeError) as context: i1.setNet(design2Net)
 
     self.assertIsNone(i1.getBit(5))
     self.assertIsNone(i1Net.getBit(5))
+    del i1Bit4
+    del i1NetBit4
+
+  def testComponents(self):
+    topI0 = snl.SNLScalarTerm.create(self.design, snl.SNLTerm.Direction.Input, "I0")
+    topI1 = snl.SNLBusTerm.create(self.design, snl.SNLTerm.Direction.Input, 4, 0, "I1")
+    topO0 = snl.SNLScalarTerm.create(self.design, snl.SNLTerm.Direction.Output, "O0")
+    topO1 = snl.SNLScalarTerm.create(self.design, snl.SNLTerm.Direction.Output, "O1")
+
+    i0 = snl.SNLScalarTerm.create(self.model, snl.SNLTerm.Direction.Input, "i0")
+    i1 = snl.SNLScalarTerm.create(self.model, snl.SNLTerm.Direction.Input, "i1")
+    o = snl.SNLScalarTerm.create(self.model, snl.SNLTerm.Direction.Output, "o")
+
+    ins1 = snl.SNLInstance.create(self.design, self.model, "ins1")
+    ins2 = snl.SNLInstance.create(self.design, self.model, "ins2")
+
+    i0Net = snl.SNLScalarNet.create(self.design, "I0")
+    topI0.setNet(i0Net)
+    i1Net = snl.SNLScalarNet.create(self.design, "I1")
+    topI1.getBit(0).setNet(i1Net)
+    o0Net = snl.SNLScalarNet.create(self.design, "O0")
+    topO0.setNet(o0Net)
+    o1Net = snl.SNLScalarNet.create(self.design, "O1")
+    topO1.setNet(o1Net)
+    self.assertIsNotNone(self.model.getScalarTerm("i0"))
+    ins1I0 = ins1.getInstTerm(self.model.getScalarTerm("i0"))
+    self.assertIsNotNone(ins1I0)
+    ins1I0.setNet(i0Net)
+    del ins1I0
+    ins1.getInstTerm(self.model.getScalarTerm("i1")).setNet(i1Net)
+    ins1.getInstTerm(self.model.getScalarTerm("o")).setNet(o0Net)
+    ins2.getInstTerm(self.model.getScalarTerm("i0")).setNet(i0Net)
+    ins2.getInstTerm(self.model.getScalarTerm("i1")).setNet(i1Net)
+    ins2.getInstTerm(self.model.getScalarTerm("o")).setNet(o1Net)
+    self.assertEqual(3, sum(1 for c in i0Net.getComponents()))
+    i0NetList = list(i0Net.getComponents())
+    self.assertEqual(3, len(i0NetList))
+    self.assertEqual(topI0, i0NetList[0])
+    self.assertEqual(ins1.getInstTerm(self.model.getScalarTerm("i0")), i0NetList[1])
+    self.assertEqual(ins2.getInstTerm(self.model.getScalarTerm("i0")), i0NetList[2])
+
+    i1NetList = list(i1Net.getComponents())
+    self.assertEqual(3, len(i1NetList))
+    self.assertEqual(topI1.getBit(0), i1NetList[0])
+    self.assertEqual(ins1.getInstTerm(self.model.getScalarTerm("i1")), i1NetList[1])
+    self.assertEqual(ins2.getInstTerm(self.model.getScalarTerm("i1")), i1NetList[2])
+
+    self.assertEqual(3, sum(1 for c in i1Net.getComponents()))
+    self.assertEqual(2, sum(1 for c in o0Net.getComponents()))
+    self.assertEqual(2, sum(1 for c in o1Net.getComponents()))
+
+    #delete topI0 as a bitTerm
+    i0NetList[0].destroy()
+    self.assertEqual(2, sum(1 for c in i0Net.getComponents()))
+
+    #delete ins0
+    ins1.destroy()
+    self.assertEqual(1, sum(1 for c in i0Net.getComponents()))
 
   def testRenameNet(self):
     i0Net = snl.SNLScalarNet.create(self.design, "I0")

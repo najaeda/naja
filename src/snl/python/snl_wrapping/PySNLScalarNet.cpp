@@ -52,7 +52,7 @@ PyMethodDef PySNLScalarNet_Methods[] = {
 DBoDeallocMethod(SNLScalarNet)
 
 DBoLinkCreateMethod(SNLScalarNet)
-PyTypeSNLObjectWithSNLIDLinkPyType(SNLScalarNet)
+PyTypeSNLFinalObjectWithSNLIDLinkPyType(SNLScalarNet)
 PyTypeObjectDefinitions(SNLScalarNet)
 
 }

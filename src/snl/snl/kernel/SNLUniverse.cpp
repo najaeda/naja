@@ -28,7 +28,9 @@ SNLUniverse* SNLUniverse::create() {
 
 void SNLUniverse::preCreate() {
   super::preCreate();
-  //FIXME: verify that no other Universe exists
+  if (universe_) {
+    throw SNLException("SNLUniverse already exists");
+  }
 }
 
 void SNLUniverse::postCreate() {

@@ -134,13 +134,26 @@ PyObject* richCompare(T left, T right, int op) {
     PyObject_DEL(self);                                                  \
   }
 
-#define PyTypeSNLObjectWithSNLIDLinkPyType(SELF_TYPE) \
+#define PyTypeSNLAbstractObjectWithSNLIDLinkPyType(SELF_TYPE) \
   DirectReprMethod(Py##SELF_TYPE##_Repr, Py##SELF_TYPE, SELF_TYPE) \
   DirectStrMethod(Py##SELF_TYPE##_Str, Py##SELF_TYPE, SELF_TYPE) \
   DirectCmpBySNLIDMethod(Py##SELF_TYPE##_Cmp, Py##SELF_TYPE) \
   DirectHashMethod(Py##SELF_TYPE##_Hash, Py##SELF_TYPE) \
   extern void Py##SELF_TYPE##_LinkPyType() { \
-    PyType##SELF_TYPE.tp_dealloc = (destructor)Py##SELF_TYPE##_DeAlloc; \
+    PyType##SELF_TYPE.tp_richcompare = (richcmpfunc)Py##SELF_TYPE##_Cmp; \
+    PyType##SELF_TYPE.tp_repr = (reprfunc)Py##SELF_TYPE##_Repr; \
+    PyType##SELF_TYPE.tp_str = (reprfunc)Py##SELF_TYPE##_Str; \
+    PyType##SELF_TYPE.tp_hash = (hashfunc)Py##SELF_TYPE##_Hash; \
+    PyType##SELF_TYPE.tp_methods = Py##SELF_TYPE##_Methods; \
+  }
+
+#define PyTypeSNLFinalObjectWithSNLIDLinkPyType(SELF_TYPE) \
+  DirectReprMethod(Py##SELF_TYPE##_Repr, Py##SELF_TYPE, SELF_TYPE) \
+  DirectStrMethod(Py##SELF_TYPE##_Str, Py##SELF_TYPE, SELF_TYPE) \
+  DirectCmpBySNLIDMethod(Py##SELF_TYPE##_Cmp, Py##SELF_TYPE) \
+  DirectHashMethod(Py##SELF_TYPE##_Hash, Py##SELF_TYPE) \
+  extern void Py##SELF_TYPE##_LinkPyType() { \
+    PyType##SELF_TYPE.tp_dealloc = (destructor) Py##SELF_TYPE##_DeAlloc; \
     PyType##SELF_TYPE.tp_richcompare = (richcmpfunc)Py##SELF_TYPE##_Cmp; \
     PyType##SELF_TYPE.tp_repr = (reprfunc)Py##SELF_TYPE##_Repr; \
     PyType##SELF_TYPE.tp_str = (reprfunc)Py##SELF_TYPE##_Str; \
@@ -411,12 +424,12 @@ PyObject* richCompare(T left, T right, int op) {
     return nullptr;                                                                         \
   }
 
-#define GetContainerMethod(TYPE, ITERATED, CONTAINER) \
-  static PyObject* PySNL##TYPE##_get##CONTAINER(PySNL##TYPE *self) { \
-    METHOD_HEAD("SNL" #TYPE ".get" #CONTAINER "()") \
+#define GetContainerMethod(TYPE, ITERATED, CONTAINER, GET_OBJECTS) \
+  static PyObject* PySNL##TYPE##_get##GET_OBJECTS(PySNL##TYPE *self) { \
+    METHOD_HEAD("SNL" #TYPE ".get" #GET_OBJECTS "()") \
     PySNL##CONTAINER* pyObjects = nullptr; \
     SNLTRY \
-    auto objects = new naja::NajaCollection<SNL##ITERATED*>(selfObject->get##CONTAINER()); \
+    auto objects = new naja::NajaCollection<SNL##ITERATED*>(selfObject->get##GET_OBJECTS()); \
     pyObjects = PyObject_NEW(PySNL##CONTAINER, &PyTypeSNL##CONTAINER); \
     if (not pyObjects) return nullptr; \
     pyObjects->object_ = objects; \

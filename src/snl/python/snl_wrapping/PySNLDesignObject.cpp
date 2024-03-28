@@ -25,9 +25,6 @@ static PyObject* PySNLDesignObject_setName(PySNLDesignObject* self, PyObject* ar
 
 GetObjectMethod(DesignObject, Design, getDesign)
 
-DBoDeallocMethod(SNLDesignObject)
-
-DBoLinkCreateMethod(SNLDesignObject)
 DBoDestroyAttribute(PySNLDesignObject_destroy, PySNLDesignObject)
 
 PyTypeObjectDefinitions(SNLDesignObject)
@@ -42,6 +39,6 @@ PyMethodDef PySNLDesignObject_Methods[] = {
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 
-PyTypeSNLObjectWithSNLIDLinkPyType(SNLDesignObject)
+PyTypeSNLAbstractObjectWithSNLIDLinkPyType(SNLDesignObject)
 
 }
