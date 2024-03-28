@@ -17,7 +17,6 @@ typedef struct {
 
 extern PyTypeObject PyTypeSNLDesignObject;
 
-extern PyObject*    PySNLDesignObject_Link(naja::SNL::SNLDesignObject* u);
 extern void         PySNLDesignObject_LinkPyType();
 
 #define IsPySNLDesignObject(v) (PyObject_TypeCheck(v, &PyTypeSNLDesignObject))

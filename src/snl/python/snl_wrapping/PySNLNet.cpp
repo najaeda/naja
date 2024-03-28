@@ -8,6 +8,8 @@
 #include "SNLNet.h"
 
 #include "PyInterface.h"
+#include "PySNLScalarNet.h"
+#include "PySNLBusNet.h"
 #include "PySNLDesign.h"
 #include "PySNLBitNets.h"
 
@@ -24,9 +26,19 @@ using namespace naja::SNL;
 GetNameMethod(SNLNet)
 GetContainerMethodWithMethodName(Net, BitNet, getBits)
 
-DBoDeallocMethod(SNLNet)
+PyObject* PySNLNet_Link(SNLNet* object) {
+  if (not object) {
+    Py_RETURN_NONE;   
+  }
+  if (auto busNet = dynamic_cast<SNLBusNet*>(object)) {
+    return PySNLBusNet_Link(busNet);
+  } else {
+    auto scalarNet = static_cast<SNLScalarNet*>(object);
+    return PySNLScalarNet_Link(scalarNet);
+  }
+}
 
-DBoLinkCreateMethod(SNLNet)
+
 PyTypeInheritedObjectDefinitions(SNLNet, SNLDesignObject)
 
 PyMethodDef PySNLNet_Methods[] = {

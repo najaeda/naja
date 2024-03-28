@@ -6,10 +6,7 @@
 #define __PY_SNL_BUS_NET_H_
 
 #include "PySNLNet.h"
-
-namespace naja::SNL {
-  class SNLBusNet;
-}
+#include "SNLBusNet.h"
 
 namespace PYSNL {
 

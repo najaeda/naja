@@ -5,6 +5,8 @@
 #include "PySNLBitNet.h"
 
 #include "PyInterface.h"
+#include "PySNLScalarNet.h"
+#include "PySNLBusNetBit.h"
 #include "PySNLNetComponents.h"
 #include "PySNLInstTerms.h"
 #include "PySNLBitTerms.h"
@@ -33,9 +35,19 @@ PyMethodDef PySNLBitNet_Methods[] = {
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 
-DBoDeallocMethod(SNLBitNet)
+PyObject* PySNLBitNet_Link(SNLBitNet* object) {
+  if (not object) {
+    Py_RETURN_NONE;   
+  }
+  if (auto busNetBit = dynamic_cast<SNLBusNetBit*>(object)) {
+    return PySNLBusNetBit_Link(busNetBit);
+  } else {
+    auto scalarNet = static_cast<SNLScalarNet*>(object);
+    return PySNLScalarNet_Link(scalarNet);
+  }
+}
 
-DBoLinkCreateMethod(SNLBitNet)
+
 PyTypeSNLObjectWithSNLIDLinkPyType(SNLBitNet)
 PyTypeInheritedObjectDefinitions(SNLBitNet, SNLNet)
 

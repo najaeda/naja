@@ -22,8 +22,6 @@ PyMethodDef PySNLBitTerm_Methods[] = {
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 
-DBoDeallocMethod(SNLBitTerm)
-
 PyObject* PySNLBitTerm_Link(SNLBitTerm* object) {
   if (not object) {
     Py_RETURN_NONE;   

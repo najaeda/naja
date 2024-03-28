@@ -25,9 +25,6 @@ static PyObject* PySNLDesignObject_setName(PySNLDesignObject* self, PyObject* ar
 
 GetObjectMethod(DesignObject, Design, getDesign)
 
-DBoDeallocMethod(SNLDesignObject)
-
-DBoLinkCreateMethod(SNLDesignObject)
 DBoDestroyAttribute(PySNLDesignObject_destroy, PySNLDesignObject)
 
 PyTypeObjectDefinitions(SNLDesignObject)
