@@ -89,8 +89,15 @@ class SNLNetTest(unittest.TestCase):
     self.assertIsInstance(c, snl.SNLBitTerm)
     self.assertIsInstance(c, snl.SNLBusTermBit)
 
+    #create another design
+    design2 = snl.SNLDesign.create(self.lib)
+    design2Net = snl.SNLScalarNet.create(design2, "net")
+    with self.assertRaises(RuntimeError) as context: i1.setNet(design2Net)
+
     self.assertIsNone(i1.getBit(5))
     self.assertIsNone(i1Net.getBit(5))
+    del i1Bit4
+    del i1NetBit4
 
   def testComponents(self):
     topI0 = snl.SNLScalarTerm.create(self.design, snl.SNLTerm.Direction.Input, "I0")
@@ -114,7 +121,10 @@ class SNLNetTest(unittest.TestCase):
     o1Net = snl.SNLScalarNet.create(self.design, "O1")
     topO1.setNet(o1Net)
     self.assertIsNotNone(self.model.getScalarTerm("i0"))
-    ins1.getInstTerm(self.model.getScalarTerm("i0")).setNet(i0Net)
+    ins1I0 = ins1.getInstTerm(self.model.getScalarTerm("i0"))
+    self.assertIsNotNone(ins1I0)
+    ins1I0.setNet(i0Net)
+    del ins1I0
     ins1.getInstTerm(self.model.getScalarTerm("i1")).setNet(i1Net)
     ins1.getInstTerm(self.model.getScalarTerm("o")).setNet(o0Net)
     ins2.getInstTerm(self.model.getScalarTerm("i0")).setNet(i0Net)
