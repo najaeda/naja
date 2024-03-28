@@ -134,6 +134,14 @@ class SNLNetTest(unittest.TestCase):
     self.assertEqual(2, sum(1 for c in o0Net.getComponents()))
     self.assertEqual(2, sum(1 for c in o1Net.getComponents()))
 
+    #delete topI0 as a bitTerm
+    i0NetList[0].destroy()
+    self.assertEqual(2, sum(1 for c in i0Net.getComponents()))
+
+    #delete ins0
+    ins1.destroy()
+    self.assertEqual(1, sum(1 for c in i0Net.getComponents()))
+
   def testRenameNet(self):
     i0Net = snl.SNLScalarNet.create(self.design, "I0")
     i1Net = snl.SNLBusNet.create(self.design, 4, 0, "I1")
