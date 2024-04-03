@@ -17,9 +17,10 @@
 #include "SNLVRLConstructor.h"
 #include "SNLVRLDumper.h"
 #include "SNLUtils.h"
-
 #include "SNLUniverse.h"
 #include "SNLCapnP.h"
+
+#include "NajaEmbeddings.h"
 
 using namespace naja::SNL;
 
@@ -195,6 +196,11 @@ int main(int argc, char* argv[]) {
       spdlog::critical("Unrecognized input format type: {}", inputFormat);
       std::exit(EXIT_FAILURE);
     }
+
+    //Embeddings attempt
+    spdlog::info("Generating adjacency list");
+    naja::NajaEmbeddings::generateAdjList(db->getTopDesign());
+    //
 
     if (program.is_used("-e")) {
       auto editPath = std::filesystem::path(program.get<std::string>("-e"));

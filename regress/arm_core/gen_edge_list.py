@@ -22,7 +22,6 @@ def edit():
     edge = set()
     first = True
     for component in net.getComponents():
-      print(str(type(component)))
       if isinstance(component, snl.SNLInstTerm):
         instance = component.getInstance()
         edge.add(instance)
