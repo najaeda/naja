@@ -126,7 +126,12 @@ void SNLBusNet::preDestroy() {
 }
 
 SNLNet* SNLBusNet::clone(SNLDesign* design) const {
-  return new SNLBusNet(design, id_, msb_, lsb_, name_);
+  auto newBus = new SNLBusNet(design, id_, msb_, lsb_, name_);
+  newBus->createBits();
+  for (size_t i=0; i<bits_.size(); i++) {
+    bits_[i]->cloneComponents(getBitAtPosition(i));
+  }
+  return newBus;
 }
 
 SNLID::Bit SNLBusNet::getSize() const {
