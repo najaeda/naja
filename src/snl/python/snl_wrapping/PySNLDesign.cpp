@@ -102,13 +102,15 @@ static PyObject* PySNLDesign_clone(PySNLDesign* self, PyObject* args) {
 
 static PyObject* PySNLDesign_dumpVerilog(PySNLDesign* self, PyObject* args) {
   const char* arg0 = nullptr;
-  if (not PyArg_ParseTuple(args, "|s:SNLDesign.dumpVerilog", &arg0)) {
+  const char* arg1 = nullptr;
+  if (not PyArg_ParseTuple(args, "ss:SNLDesign.dumpVerilog", &arg0, &arg1)) {
     setError("malformed SNLDesign.dumpVerilog method");
     return nullptr;
   }
   METHOD_HEAD("SNLDesign.dumpVerilog()")
   SNLTRY
   SNLVRLDumper dumper;
+  dumper.setTopFileName(arg1);
   dumper.dumpDesign(selfObject, std::filesystem::path(arg0));
   SNLCATCH
   Py_RETURN_NONE;

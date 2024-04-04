@@ -61,7 +61,7 @@ class SNLDesignCloneTest2(unittest.TestCase):
     if os.path.exists(bench_dir):
       shutil.rmtree(bench_dir)
     os.makedirs(bench_dir)
-    newDesign.dumpVerilog(os.path.join(bench_dir, bench_dir))
+    newDesign.dumpVerilog(os.path.join(bench_dir), "cloned.v")
 
     n0 = newDesign.getNet("N0")
     self.assertIsNotNone(n0)
