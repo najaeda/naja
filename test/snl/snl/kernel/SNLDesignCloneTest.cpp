@@ -212,6 +212,15 @@ TEST_F(SNLDesignCloneTest, testCloneInterface2) {
 }
 
 TEST_F(SNLDesignCloneTest, testClone0) {
+  //before cloning
+  {
+    auto net1 = design_->getBusNet(SNLName("net1"));
+    ASSERT_NE(nullptr, net1);
+    auto net1Bit0 = net1->getBit(0);
+    ASSERT_NE(nullptr, net1Bit0);
+    ASSERT_EQ(2, net1Bit0->getComponents().size());
+  }
+
   auto newDesign = design_->clone();
   ASSERT_NE(nullptr, newDesign);
   EXPECT_TRUE(newDesign->isAnonymous());
@@ -221,6 +230,18 @@ TEST_F(SNLDesignCloneTest, testClone0) {
   compareParameters(design_, newDesign);
   compareInstances(design_, newDesign);
   compareNets(design_, newDesign);
+
+  //dive into bus connection
+  auto net1 = design_->getBusNet(SNLName("net1"));
+  ASSERT_NE(nullptr, net1);
+  auto newNet1 = newDesign->getBusNet(SNLName("net1"));
+  ASSERT_NE(nullptr, newNet1);
+  auto net1Bit0 = net1->getBit(0);
+  ASSERT_NE(nullptr, net1Bit0);
+  auto newNet1Bit0 = newNet1->getBit(0);
+  ASSERT_NE(nullptr, newNet1Bit0);
+  ASSERT_EQ(2, net1Bit0->getComponents().size());
+  ASSERT_EQ(2, newNet1Bit0->getComponents().size());
 }
 
 TEST_F(SNLDesignCloneTest, testCloneCompare) {

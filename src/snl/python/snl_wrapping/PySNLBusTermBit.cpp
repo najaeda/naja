@@ -6,6 +6,7 @@
 
 #include "PyInterface.h"
 #include "PySNLDesign.h"
+#include "PySNLBusTerm.h"
 
 namespace PYSNL {
 
@@ -15,18 +16,22 @@ using namespace naja::SNL;
 #undef   ACCESS_CLASS
 #define  ACCESS_OBJECT            parent_.parent_.parent_.parent_.object_
 #define  ACCESS_CLASS(_pyObject)  &(_pyObject->parent_)
-#define  METHOD_HEAD(function)    GENERIC_METHOD_HEAD(Instance, instance, function)
+#define  METHOD_HEAD(function) GENERIC_METHOD_HEAD(SNLBusTermBit, function)
 
-
-
-PyTypeObjectDefinitions(SNLBusTermBit)
+DirectGetIntMethod(PySNLBusTermBit_getBit, getBit, PySNLBusTermBit, SNLBusTermBit)
+GetObjectMethod(BusTermBit, BusTerm, getBus)
 
 PyMethodDef PySNLBusTermBit_Methods[] = {
+  { "getBit", (PyCFunction)PySNLBusTermBit_getBit, METH_NOARGS,
+    "get SNLBusTermBit Bit value"},
+  { "getBus", (PyCFunction)PySNLBusTermBit_getBus, METH_NOARGS,
+    "get SNLBusTermBit Bus term"},
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 
 DBoLinkCreateMethod(SNLBusTermBit)
 DBoDeallocMethod(SNLBusTermBit)
+PyTypeObjectDefinitions(SNLBusTermBit)
 
 PyTypeSNLFinalObjectWithSNLIDLinkPyType(SNLBusTermBit)
 

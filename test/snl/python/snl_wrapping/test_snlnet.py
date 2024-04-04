@@ -140,6 +140,8 @@ class SNLNetTest(unittest.TestCase):
     i1NetList = list(i1Net.getComponents())
     self.assertEqual(3, len(i1NetList))
     self.assertEqual(topI1.getBit(0), i1NetList[0])
+    self.assertEqual(topI1, topI1.getBit(0).getBus())
+    self.assertEqual(0, topI1.getBit(0).getBit())
     self.assertEqual(ins1.getInstTerm(self.model.getScalarTerm("i1")), i1NetList[1])
     self.assertEqual(ins2.getInstTerm(self.model.getScalarTerm("i1")), i1NetList[2])
 
@@ -168,6 +170,8 @@ class SNLNetTest(unittest.TestCase):
     self.assertEqual(i1Net, self.design.getNet("I3"))
     self.assertIsNone(self.design.getNet("I0"))
     self.assertIsNone(self.design.getNet("I1"))
+    self.assertEqual(i1Net, i1Net.getBit(0).getBus())
+    self.assertEqual(0, i1Net.getBit(0).getBit())
 
   def testErrors(self):
     self.assertIsNotNone(self.design)
