@@ -45,9 +45,7 @@ static PyObject* setType(PySNLNet* self, PyObject* arg) {
   if (PyLong_Check(arg)) {
     int intType = PyLong_AsUnsignedLong(arg);
     SNLNet::Type type = SNLNet::Type::TypeEnum(intType);
-    SNLTRY
     selfObject->setType(type);
-    SNLCATCH
   } else {
     setError("SNLNet setType takes SNLNet.Type argument");
     return nullptr;
