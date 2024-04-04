@@ -22,11 +22,6 @@ PyMethodDef PySNLTermDirection_Methods[] = {
 };
 
 extern void PySNLTermDirection_LinkPyType() {
-  //`PyTypeSNLTermDirection.tp_dealloc     = (destructor) PyNetDirection_DeAlloc;
-  //PyTypeSNLTermDirection.tp_richcompare = (richcmpfunc)PyNetDirection_Cmp;
-  //PyTypeSNLTermDirection.tp_repr        = (reprfunc)   PyNetDirection_Repr;
-  //PyTypeSNLTermDirection.tp_str         = (reprfunc)   PyNetDirection_Str;
-  //PyTypeSNLTermDirection.tp_hash        = (hashfunc)   PyNetDirection_Hash;
   PyTypeSNLTermDirection.tp_methods = PySNLTermDirection_Methods;
 }
 

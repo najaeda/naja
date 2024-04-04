@@ -28,3 +28,5 @@ regress/arm_core/edges.list
 regress/arm_core/arm_core_snl/*
 regress/jpeg/*.log
 regress/jpeg/jpeg_encoder_snl/*
+regress/black_parrot/*.log
+regress/black_parrot/black_parrot_snl/*

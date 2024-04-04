@@ -7,6 +7,7 @@
 #include "PySNLLibrary.h"
 #include "PySNLDesign.h"
 #include "PySNLParameter.h"
+#include "PySNLNetType.h"
 #include "PySNLBusNet.h"
 #include "PySNLScalarNet.h"
 #include "PySNLBusNetBit.h"
@@ -53,6 +54,7 @@ PyMODINIT_FUNC PyInit_snl(void) {
   PySNLParameter_LinkPyType();
   PySNLDesignObject_LinkPyType ();
   PySNLNet_LinkPyType();
+  PySNLNetType_LinkPyType();
   PySNLBusNet_LinkPyType();
   PySNLBitNet_LinkPyType();
   PySNLScalarNet_LinkPyType();
@@ -91,6 +93,7 @@ PyMODINIT_FUNC PyInit_snl(void) {
   PYTYPE_READY(SNLDesignObject);
   PYTYPE_READY(SNLTermDirection);
   PYTYPE_READY_SUB(SNLNet, SNLDesignObject);
+  PYTYPE_READY(SNLNetType);
   PYTYPE_READY_SUB(SNLBusNet, SNLNet);
   PYTYPE_READY_SUB(SNLBitNet, SNLNet);
   PYTYPE_READY_SUB(SNLScalarNet, SNLBitNet);
@@ -198,6 +201,7 @@ PyMODINIT_FUNC PyInit_snl(void) {
   PyModule_AddObject(mod, "SNLInstTerm", (PyObject*)&PyTypeSNLInstTerm);
 
   PySNLTerm_postModuleInit();
+  PySNLNet_postModuleInit();
 
   return mod;
 }
