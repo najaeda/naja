@@ -35,7 +35,7 @@ static PyObject* PySNLNetComponent_setNet(PySNLNetComponent* self, PyObject* arg
 }
 
 static PyObject* PySNLNetComponent_getDirection(PySNLNetComponent* self) {
-  METHOD_HEAD("Net.getDirection()")
+  METHOD_HEAD("NetComponent.getDirection()")
   return PyLong_FromLong((long)selfObject->getDirection());
 }
 

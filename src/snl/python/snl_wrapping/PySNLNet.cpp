@@ -8,6 +8,7 @@
 #include "SNLNet.h"
 
 #include "PyInterface.h"
+#include "PySNLNetType.h"
 #include "PySNLScalarNet.h"
 #include "PySNLBusNet.h"
 #include "PySNLDesign.h"
@@ -38,6 +39,22 @@ PyObject* PySNLNet_Link(SNLNet* object) {
   }
 }
 
+static PyObject* setType(PySNLNet* self, PyObject* arg) {
+  METHOD_HEAD("SNLNet.setType()")
+
+  if (PyLong_Check(arg)) {
+    int intType = PyLong_AsUnsignedLong(arg);
+    SNLNet::Type type = SNLNet::Type::TypeEnum(intType);
+    SNLTRY
+    selfObject->setType(type);
+    SNLCATCH
+  } else {
+    setError("SNLNet setType takes SNLNet.Type argument");
+    return nullptr;
+  }
+  Py_RETURN_NONE;
+}
+
 PyTypeInheritedObjectDefinitions(SNLNet, SNLDesignObject)
 
 PyMethodDef PySNLNet_Methods[] = {
@@ -45,9 +62,16 @@ PyMethodDef PySNLNet_Methods[] = {
     "get SNLNet name"},
   { "getBits", (PyCFunction)PySNLNet_getBits, METH_NOARGS,
     "get a container of SNLBitNets."},
+  { "setType", (PyCFunction)setType, METH_O,
+    "set the type of this Net."},
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 
 PyTypeSNLAbstractObjectWithSNLIDLinkPyType(SNLNet)
+
+void PySNLNet_postModuleInit() {
+  PySNLNetType_postModuleInit();
+  PyDict_SetItemString(PyTypeSNLNet.tp_dict, "Type", (PyObject*)&PyTypeSNLNetType);
+}
 
 }

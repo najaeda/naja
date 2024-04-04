@@ -35,6 +35,7 @@ class SNLNetTest(unittest.TestCase):
     self.assertIsNotNone(i0Net)
     self.assertEqual(self.design, i0Net.getDesign())
     self.assertEqual("I0", i0Net.getName())
+    self.assertEqual(snl.SNLNet.Type.Standard, i0Net.getType())
     i0.setNet(i0Net)
     self.assertEqual(i0.getNet(), i0Net)
     self.assertEqual(i0Net, i0.getNet())
@@ -182,7 +183,6 @@ class SNLNetTest(unittest.TestCase):
     with self.assertRaises(RuntimeError) as context: snl.SNLBusNet.create(self.lib, 4, 0, "I1")
     with self.assertRaises(RuntimeError) as context: snl.SNLScalarNet.create(self.design, 4, 0, "I1")
     with self.assertRaises(RuntimeError) as context: snl.SNLBusNet.create(self.lib, "I1")
-
     
 if __name__ == '__main__':
   unittest.main()
