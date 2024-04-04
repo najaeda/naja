@@ -82,6 +82,7 @@ void compareComponents(const SNLNet* net, const SNLNet* found) {
   if (auto scalar = dynamic_cast<const SNLScalarNet*>(net)) {
     auto foundScalar = dynamic_cast<const SNLScalarNet*>(found);
     ASSERT_NE(nullptr, foundScalar);
+    EXPECT_EQ(scalar->getType(), foundScalar->getType());
     compareBitComponents(scalar, foundScalar);
   } else {
     auto busNet = dynamic_cast<const SNLBusNet*>(net);
@@ -94,6 +95,7 @@ void compareComponents(const SNLNet* net, const SNLNet* found) {
     for (auto bit: busNet->getBusBits()) {
       auto foundBit = foundBusNet->getBit(bit->getBit());
       ASSERT_NE(nullptr, foundBit);
+      EXPECT_EQ(bit->getType(), foundBit->getType());
       compareBitComponents(bit, foundBit);
     }
   }
@@ -147,6 +149,7 @@ class SNLDesignCloneTest: public ::testing::Test {
       instances_.push_back(SNLInstance::create(design_, prim0, SNLName("inst2")));
       instances_.push_back(SNLInstance::create(design_, prim1, SNLName("inst3")));
       nets_.push_back(SNLScalarNet::create(design_, SNLName("net0")));
+      nets_[0]->setType(SNLNet::Type::Assign0);
       nets_.push_back(SNLBusNet::create(design_, 4, 0, SNLName("net1")));
       nets_.push_back(SNLScalarNet::create(design_, SNLName("net2")));
       terms_[0]->setNet(nets_[0]);

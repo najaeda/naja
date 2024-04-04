@@ -22,6 +22,7 @@ class SNLDesignCloneTest2(unittest.TestCase):
     i0.setNet(i0Net)
     i1 = snl.SNLBusTerm.create(self.design, snl.SNLTerm.Direction.Input, -5, 4, "I1")
     i1Net = snl.SNLBusNet.create(self.design, -5, 4, "I1")
+    #i1Net.setType(snl.SNLNet.Type.Assign0)
     i1.setNet(i1Net)
     o = snl.SNLScalarTerm.create(self.design, snl.SNLTerm.Direction.Output, "O")
     oNet = snl.SNLScalarNet.create(self.design, "O")
