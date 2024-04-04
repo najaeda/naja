@@ -129,7 +129,7 @@ SNLNet* SNLBusNet::clone(SNLDesign* design) const {
   auto newBus = new SNLBusNet(design, id_, msb_, lsb_, name_);
   newBus->createBits();
   for (size_t i=0; i<bits_.size(); i++) {
-    bits_[i]->cloneComponents(getBitAtPosition(i));
+    bits_[i]->cloneComponents(newBus->bits_[i]);
   }
   return newBus;
 }
