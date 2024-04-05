@@ -27,6 +27,12 @@ class SNLNet: public SNLDesignObject {
         Type(const TypeEnum& typeEnum);
         Type(const Type&) = default;
         Type& operator=(const Type&) = default;
+        bool operator==(const Type& other) const {
+          return typeEnum_ == other.typeEnum_;
+        }
+        bool operator==(const TypeEnum& otherEnum) const {
+          return typeEnum_ == otherEnum;
+        }
 
         operator const TypeEnum&() const { return typeEnum_; }
         constexpr bool isAssign() const { return typeEnum_ == Assign0 or typeEnum_ == Assign1; }

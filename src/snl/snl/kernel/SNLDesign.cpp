@@ -504,6 +504,7 @@ bool SNLDesign::deepCompare(
   }
   DEEP_COMPARE_MEMBER(Parameters)
   DEEP_COMPARE_MEMBER(Instances)
+  //FIXME Compare nets
   return true;
 }
 

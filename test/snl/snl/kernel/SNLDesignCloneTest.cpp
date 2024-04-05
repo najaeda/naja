@@ -16,6 +16,7 @@ using ::testing::ElementsAre;
 #include "SNLInstTerm.h"
 #include "SNLScalarNet.h"
 #include "SNLBusNet.h"
+#include "SNLBusNetBit.h"
 #include "SNLUtils.h"
 #include "SNLException.h"
 using namespace naja::SNL;
@@ -73,6 +74,33 @@ void compareInstances(const SNLDesign* design, const SNLDesign* newDesign) {
   }
 }
 
+void compareBitComponents(const SNLBitNet* net, const SNLBitNet* found) {
+  EXPECT_EQ(net->getComponents().size(), found->getComponents().size());
+}
+
+void compareComponents(const SNLNet* net, const SNLNet* found) {
+  if (auto scalar = dynamic_cast<const SNLScalarNet*>(net)) {
+    auto foundScalar = dynamic_cast<const SNLScalarNet*>(found);
+    ASSERT_NE(nullptr, foundScalar);
+    EXPECT_EQ(scalar->getType(), foundScalar->getType());
+    compareBitComponents(scalar, foundScalar);
+  } else {
+    auto busNet = dynamic_cast<const SNLBusNet*>(net);
+    auto foundBusNet = dynamic_cast<const SNLBusNet*>(found);
+    ASSERT_NE(nullptr, busNet);
+    ASSERT_NE(nullptr, foundBusNet);
+    EXPECT_EQ(busNet->getSize(), foundBusNet->getSize());
+    EXPECT_EQ(busNet->getMSB(), foundBusNet->getMSB());
+    EXPECT_EQ(busNet->getLSB(), foundBusNet->getLSB());
+    for (auto bit: busNet->getBusBits()) {
+      auto foundBit = foundBusNet->getBit(bit->getBit());
+      ASSERT_NE(nullptr, foundBit);
+      EXPECT_EQ(bit->getType(), foundBit->getType());
+      compareBitComponents(bit, foundBit);
+    }
+  }
+}
+
 void compareNets(const SNLDesign* design, const SNLDesign* newDesign) {
   ASSERT_EQ(design->getNets().size(), newDesign->getNets().size());
   for (auto net: design->getNets()) {
@@ -80,6 +108,7 @@ void compareNets(const SNLDesign* design, const SNLDesign* newDesign) {
     ASSERT_NE(nullptr, found);
     EXPECT_EQ(net->getID(), found->getID());
     EXPECT_EQ(net->getName(), found->getName());
+    compareComponents(net, found);
   }
 }
 
@@ -120,11 +149,15 @@ class SNLDesignCloneTest: public ::testing::Test {
       instances_.push_back(SNLInstance::create(design_, prim0, SNLName("inst2")));
       instances_.push_back(SNLInstance::create(design_, prim1, SNLName("inst3")));
       nets_.push_back(SNLScalarNet::create(design_, SNLName("net0")));
-      nets_.push_back(SNLBusNet::create(design_, -2, 4, SNLName("net1")));
+      nets_[0]->setType(SNLNet::Type::Assign0);
+      nets_.push_back(SNLBusNet::create(design_, 4, 0, SNLName("net1")));
       nets_.push_back(SNLScalarNet::create(design_, SNLName("net2")));
       terms_[0]->setNet(nets_[0]);
       ((SNLBusTerm*)terms_[3])->getBit(0)->setNet(nets_[0]);
       instances_[0]->getInstTerm(prim0Term0)->setNet(nets_[0]);
+
+      terms_[1]->setNet(nets_[1]);
+      instances_[0]->getInstTerm(prim0Term1)->setNet(((SNLBusNet*)nets_[1])->getBit(0));
     }
     void TearDown() override {
       SNLUniverse::get()->destroy();
@@ -182,6 +215,15 @@ TEST_F(SNLDesignCloneTest, testCloneInterface2) {
 }
 
 TEST_F(SNLDesignCloneTest, testClone0) {
+  //before cloning
+  {
+    auto net1 = design_->getBusNet(SNLName("net1"));
+    ASSERT_NE(nullptr, net1);
+    auto net1Bit0 = net1->getBit(0);
+    ASSERT_NE(nullptr, net1Bit0);
+    ASSERT_EQ(2, net1Bit0->getComponents().size());
+  }
+
   auto newDesign = design_->clone();
   ASSERT_NE(nullptr, newDesign);
   EXPECT_TRUE(newDesign->isAnonymous());
@@ -191,6 +233,18 @@ TEST_F(SNLDesignCloneTest, testClone0) {
   compareParameters(design_, newDesign);
   compareInstances(design_, newDesign);
   compareNets(design_, newDesign);
+
+  //dive into bus connection
+  auto net1 = design_->getBusNet(SNLName("net1"));
+  ASSERT_NE(nullptr, net1);
+  auto newNet1 = newDesign->getBusNet(SNLName("net1"));
+  ASSERT_NE(nullptr, newNet1);
+  auto net1Bit0 = net1->getBit(0);
+  ASSERT_NE(nullptr, net1Bit0);
+  auto newNet1Bit0 = newNet1->getBit(0);
+  ASSERT_NE(nullptr, newNet1Bit0);
+  ASSERT_EQ(2, net1Bit0->getComponents().size());
+  ASSERT_EQ(2, newNet1Bit0->getComponents().size());
 }
 
 TEST_F(SNLDesignCloneTest, testCloneCompare) {
