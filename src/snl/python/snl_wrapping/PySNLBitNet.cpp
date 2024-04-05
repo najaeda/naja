@@ -25,7 +25,14 @@ GetContainerMethod(BitNet, NetComponent, NetComponents, Components)
 GetContainerMethod(BitNet, InstTerm, InstTerms, InstTerms)
 GetContainerMethod(BitNet, BitTerm, BitTerms, BitTerms)
 
+static PyObject* PySNLBitNet_getType(PySNLBitNet* self) {
+  METHOD_HEAD("Net.getType()")
+  return PyLong_FromLong((long)selfObject->getType());
+}
+
 PyMethodDef PySNLBitNet_Methods[] = {
+  { "getType", (PyCFunction)PySNLBitNet_getType, METH_NOARGS,
+    "get the type of this Net."},
   { "getComponents", (PyCFunction)PySNLBitNet_getComponents, METH_NOARGS,
     "get a container of Net Components."},
   { "getInstTerms", (PyCFunction)PySNLBitNet_getInstTerms, METH_NOARGS,
@@ -46,7 +53,6 @@ PyObject* PySNLBitNet_Link(SNLBitNet* object) {
     return PySNLScalarNet_Link(scalarNet);
   }
 }
-
 
 PyTypeSNLAbstractObjectWithSNLIDLinkPyType(SNLBitNet)
 PyTypeInheritedObjectDefinitions(SNLBitNet, SNLNet)

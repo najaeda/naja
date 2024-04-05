@@ -21,6 +21,7 @@ extern PyTypeObject PyTypeSNLNet;
 
 extern PyObject*    PySNLNet_Link(naja::SNL::SNLNet*);
 extern void         PySNLNet_LinkPyType();
+extern void         PySNLNet_postModuleInit();
 
 #define IsPySNLNet(v) (PyObject_TypeCheck(v, &PyTypeSNLNet))
 #define PYSNLNet(v)   ((PySNLNet*)(v))

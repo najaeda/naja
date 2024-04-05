@@ -9,5 +9,5 @@ add_test(NAME naja-python-tests
 
 set_tests_properties(naja-python-tests
     PROPERTIES ENVIRONMENT
-    "PYTHONPATH=${PROJECT_BINARY_DIR}/src/snl/python/snl_wrapping:$ENV{PYTHONPATH}"
+    "PYTHONPATH=${PROJECT_BINARY_DIR}/src/snl/python/snl_wrapping:$ENV{PYTHONPATH};SNL_WRAPPING_TEST_PATH=${CMAKE_CURRENT_BINARY_DIR}"
 )
