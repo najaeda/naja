@@ -23,6 +23,7 @@ class SNLDesignTest(unittest.TestCase):
     design = snl.SNLDesign.create(self.lib, "DESIGN")
     self.assertIsNotNone(design)
     self.assertEqual("DESIGN", design.getName())
+    self.assertFalse(design.isPrimitive())
     self.assertEqual(self.lib, design.getLibrary())
     self.assertEqual(self.lib.getDB(), design.getDB())
     self.assertIsNotNone(self.lib.getDesign("DESIGN"))
@@ -217,6 +218,10 @@ class SNLDesignTest(unittest.TestCase):
     with self.assertRaises(RuntimeError) as context: snl.SNLParameter.create_string(design, "MODE", "DEFAULT")
     with self.assertRaises(RuntimeError) as context: snl.SNLParameter.create_boolean(design, "INVERTED", True)
 
+  def testDumpVerilogError(self):
+    self.assertIsNotNone(self.lib)
+    design = snl.SNLDesign.create(self.lib, "DESIGN")
+    with self.assertRaises(RuntimeError) as context: design.dumpVerilog("ERROR")
 
   def testDestroy(self):
     design = snl.SNLDesign.create(self.lib, "DESIGN")

@@ -25,6 +25,7 @@
 
 #include "SNLDesign.h"
 #include "SNLDesignModeling.h"
+#include "SNLVRLDumper.h"
 
 namespace PYSNL {
 
@@ -97,6 +98,22 @@ static PyObject* PySNLDesign_clone(PySNLDesign* self, PyObject* args) {
   newDesign = selfObject->clone(name);
   SNLCATCH
   return PySNLDesign_Link(newDesign);
+}
+
+static PyObject* PySNLDesign_dumpVerilog(PySNLDesign* self, PyObject* args) {
+  const char* arg0 = nullptr;
+  const char* arg1 = nullptr;
+  if (not PyArg_ParseTuple(args, "ss:SNLDesign.dumpVerilog", &arg0, &arg1)) {
+    setError("malformed SNLDesign.dumpVerilog method");
+    return nullptr;
+  }
+  METHOD_HEAD("SNLDesign.dumpVerilog()")
+  SNLTRY
+  SNLVRLDumper dumper;
+  dumper.setTopFileName(arg1);
+  dumper.dumpDesign(selfObject, std::filesystem::path(arg0));
+  SNLCATCH
+  Py_RETURN_NONE;
 }
 
 static PyObject* PySNLDesign_addCombinatorialArcs(PySNLDesign* self, PyObject* args) {
@@ -284,6 +301,7 @@ GetObjectByName(Design, BusNet)
 GetObjectByName(Design, Parameter)
 GetNameMethod(SNLDesign)
 GetBoolAttribute(Design, isAnonymous)
+GetBoolAttribute(Design, isPrimitive)
 GetContainerMethod(Design, Term, Terms, Terms)
 GetContainerMethod(Design, BitTerm, BitTerms, BitTerms)
 GetContainerMethod(Design, ScalarTerm, ScalarTerms, ScalarTerms)
@@ -320,9 +338,11 @@ PyMethodDef PySNLDesign_Methods[] = {
     "get SNLDesign name"},
   { "isAnonymous", (PyCFunction)PySNLDesign_isAnonymous, METH_NOARGS,
     "Returns True if the SNLDesign is anonymous"},
-  {"getDB", (PyCFunction)PySNLDesign_getDB, METH_NOARGS,
+  { "isPrimitive", (PyCFunction)PySNLDesign_isPrimitive, METH_NOARGS,
+    "Returns True if the SNLDesign is a Primitive"},
+  { "getDB", (PyCFunction)PySNLDesign_getDB, METH_NOARGS,
     "Returns the SNLDesign owner SNLDB."},
-  {"getLibrary", (PyCFunction)PySNLDesign_getLibrary, METH_NOARGS,
+  { "getLibrary", (PyCFunction)PySNLDesign_getLibrary, METH_NOARGS,
     "Returns the SNLDesign owner SNLLibrary."},
   { "getTerm", (PyCFunction)PySNLDesign_getTerm, METH_VARARGS,
     "retrieve a SNLTerm."},
@@ -356,10 +376,12 @@ PyMethodDef PySNLDesign_Methods[] = {
     "get a container of SNLInstances."},
   { "getParameters", (PyCFunction)PySNLDesign_getParameters, METH_NOARGS,
     "get a container of SNLParameters."},
-  {"destroy", (PyCFunction)PySNLDesign_destroy, METH_NOARGS,
+  { "destroy", (PyCFunction)PySNLDesign_destroy, METH_NOARGS,
     "destroy this SNLDesign."},
-  {"clone", (PyCFunction)PySNLDesign_clone, METH_VARARGS,
+  { "clone", (PyCFunction)PySNLDesign_clone, METH_VARARGS,
     "clone this SNLDesign."},
+  { "dumpVerilog", (PyCFunction)PySNLDesign_dumpVerilog, METH_VARARGS,
+    "dump verilog file of this SNLDesign."},
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 

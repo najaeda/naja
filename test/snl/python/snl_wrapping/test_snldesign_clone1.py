@@ -5,7 +5,7 @@
 import unittest
 import snl
 
-class SNLDesignUniquifyTest(unittest.TestCase):
+class SNLDesignCloneTest1(unittest.TestCase):
   def setUp(self):
     universe = snl.SNLUniverse.create()
     db = snl.SNLDB.create(universe)
@@ -22,7 +22,7 @@ class SNLDesignUniquifyTest(unittest.TestCase):
     if snl.SNLUniverse.get():
       snl.SNLUniverse.get().destroy()
 
-  def testUniquifyInterface0(self):
+  def testCloneInterface0(self):
     newDesign = self.design.clone()
     self.assertIsNotNone(newDesign)
     self.assertNotEqual(self.design, newDesign)
@@ -36,7 +36,7 @@ class SNLDesignUniquifyTest(unittest.TestCase):
     newParametersSize = sum(1 for p in newDesign.getParameters())
     self.assertEqual(parametersSize, newParametersSize)
     
-  def testUniquifyInterface1(self):
+  def testCloneInterface1(self):
     newDesign = self.design.clone("cloned")
     self.assertIsNotNone(newDesign)
     self.assertNotEqual(self.design, newDesign)

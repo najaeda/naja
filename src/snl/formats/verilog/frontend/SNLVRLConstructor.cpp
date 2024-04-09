@@ -498,7 +498,13 @@ void SNLVRLConstructor::currentInstancePortConnection(
           throw SNLVRLConstructorException(reason.str());
         }
         BitTerms bitTerms(busTerm->getBits().begin(), busTerm->getBits().end());
-        assert(bitTerms.size() == bitNets.size());
+        if (bitTerms.size() != bitNets.size()) {
+          std::ostringstream reason;
+          reason << getLocationString();
+          reason << ": " << term->getString() << " and " << expression.getString();
+          reason << " do not have the same number of bits";
+          throw SNLVRLConstructorException(reason.str());
+        }
         currentInstance_->setTermsNets(bitTerms, bitNets);
         break;
       }

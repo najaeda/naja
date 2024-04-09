@@ -166,9 +166,17 @@ int main(int argc, char* argv[]) {
         spdlog::critical("Multiple input paths are not supported for SNL format");
         std::exit(EXIT_FAILURE);
       }
+      const auto start{std::chrono::steady_clock::now()};
       auto inputPath = inputPaths[0];
       db = SNLCapnP::load(inputPath);
       SNLUniverse::get()->setTopDesign(db->getTopDesign());
+      const auto end{std::chrono::steady_clock::now()};
+      const std::chrono::duration<double> elapsed_seconds{end - start};
+      {
+        std::ostringstream oss;
+        oss << "Parsing done in: " << elapsed_seconds.count() << "s";
+        spdlog::info(oss.str());
+      }
     } else if (inputFormatType == FormatType::VERILOG) {
       db = SNLDB::create(SNLUniverse::get());
       primitivesLibrary = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("PRIMS"));
@@ -176,20 +184,34 @@ int main(int argc, char* argv[]) {
 
       auto designLibrary = SNLLibrary::create(db, SNLName("DESIGN"));
       SNLVRLConstructor constructor(designLibrary);
-      std::ostringstream oss;
-      oss << "Parsing verilog files: ";
-      for (auto path: inputPaths) {
-        oss << path << " ";
+      const auto start{std::chrono::steady_clock::now()};
+      {
+        std::ostringstream oss;
+        oss << "Parsing verilog files: ";
+        size_t i = 0;
+        for (auto path: inputPaths) {
+          if (i++ >= 4) {
+            oss << std::endl;
+            i = 0;
+          }
+          oss << path << " ";
+        }
+        spdlog::info(oss.str());
       }
-      spdlog::info(oss.str());
       constructor.construct(inputPaths);
-
       auto top = SNLUtils::findTop(designLibrary);
       if (top) {
         SNLUniverse::get()->setTopDesign(top);
         spdlog::info("Found top design: " + top->getString());
       } else {
         spdlog::error("No top design was found after parsing verilog");
+      }
+      const auto end{std::chrono::steady_clock::now()};
+      const std::chrono::duration<double> elapsed_seconds{end - start};
+      {
+        std::ostringstream oss;
+        oss << "Parsing done in: " << elapsed_seconds.count() << "s";
+        spdlog::info(oss.str());
       }
     } else {
       spdlog::critical("Unrecognized input format type: {}", inputFormat);

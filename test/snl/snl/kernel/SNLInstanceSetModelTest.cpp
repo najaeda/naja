@@ -62,9 +62,11 @@ class SNLInstanceSetModelTest: public ::testing::Test {
 };
 
 TEST_F(SNLInstanceSetModelTest, test0) {
+  EXPECT_EQ(2, model_->getSlaveInstances().size());
   //clone model
   auto newModel = model_->clone();
   ASSERT_NE(newModel, nullptr);
+  EXPECT_TRUE(newModel->getSlaveInstances().empty());
   //set model
   ins0_->setModel(newModel);
   EXPECT_EQ(ins0_->getModel(), newModel);
@@ -73,6 +75,15 @@ TEST_F(SNLInstanceSetModelTest, test0) {
   for (auto iterm: ins0_->getInstTerms()) {
     EXPECT_EQ(iterm->getBitTerm()->getDesign(), newModel);
   }
+  EXPECT_EQ(model_->getSlaveInstances().size(), 1);
+  EXPECT_EQ(ins1_, *(model_->getSlaveInstances().begin()));
+  EXPECT_EQ(newModel->getSlaveInstances().size(), 1);
+  EXPECT_EQ(ins0_, *(newModel->getSlaveInstances().begin()));
+}
+
+TEST_F(SNLInstanceSetModelTest, testSameModel) {
+  ins0_->setModel(model_);
+  EXPECT_EQ(ins0_->getModel(), model_);
 }
 
 TEST_F(SNLInstanceSetModelTest, testDifferentTermSizeError) {

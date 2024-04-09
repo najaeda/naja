@@ -426,6 +426,9 @@ NajaCollection<SNLInstParameter*> SNLInstance::getInstParameters() const {
 //a super set of previous interface and IDs should not be used to match terms.
 //In that case, anonymous terms will not be supported (in previous and new model);
 void SNLInstance::setModel(SNLDesign* model) {
+  if (getModel() == model) {
+    return;
+  }
   using TermVector = std::vector<SNLTerm*>;
   TermVector currentTerms(getModel()->getTerms().begin(), getModel()->getTerms().end());
   TermVector newTerms(model->getTerms().begin(), model->getTerms().end());
@@ -511,6 +514,12 @@ void SNLInstance::setModel(SNLDesign* model) {
     }
     auto newParameter = it->second;
     instParameter.parameter_ = newParameter;
+  }
+  if (not model_->isPrimitive()) {
+    model_->removeSlaveInstance(this);
+  }
+  if (not model->isPrimitive()) {
+    model->addSlaveInstance(this);
   }
   model_ = model;
 }
