@@ -30,6 +30,7 @@ class SNLDesignModelingTest(unittest.TestCase):
     i1 = snl.SNLScalarTerm.create(design, snl.SNLTerm.Direction.Input, "I1")
     o = snl.SNLScalarTerm.create(design, snl.SNLTerm.Direction.Output, "O")
     snl.SNLDesign.addCombinatorialArcs([i0, i1], o)
+    self.assertTrue(design.isPrimitive())
     self.assertEqual(0, sum(1 for t in snl.SNLDesign.getCombinatorialInputs(i0)))
     self.assertEqual(0, sum(1 for t in snl.SNLDesign.getCombinatorialInputs(i1)))
     self.assertEqual(2, sum(1 for t in snl.SNLDesign.getCombinatorialInputs(o)))
