@@ -188,7 +188,12 @@ int main(int argc, char* argv[]) {
       {
         std::ostringstream oss;
         oss << "Parsing verilog files: ";
+        size_t i = 0;
         for (auto path: inputPaths) {
+          if (i++ >= 4) {
+            oss << std::endl;
+            i = 0;
+          }
           oss << path << " ";
         }
         spdlog::info(oss.str());

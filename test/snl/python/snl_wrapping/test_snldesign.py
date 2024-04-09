@@ -23,6 +23,7 @@ class SNLDesignTest(unittest.TestCase):
     design = snl.SNLDesign.create(self.lib, "DESIGN")
     self.assertIsNotNone(design)
     self.assertEqual("DESIGN", design.getName())
+    self.assertFalse(design.isPrimitive())
     self.assertEqual(self.lib, design.getLibrary())
     self.assertEqual(self.lib.getDB(), design.getDB())
     self.assertIsNotNone(self.lib.getDesign("DESIGN"))
