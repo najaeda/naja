@@ -50,6 +50,8 @@ jobs:
            lcov --remove coverage.info --output-file coverage.info '/usr/*' '*/naja/test/*' '*/naja/thirdparty/*'
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v4
+      env:
+        CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       with:
         directory: ${{github.workspace}}/build
         #env_vars: OS,PYTHON
