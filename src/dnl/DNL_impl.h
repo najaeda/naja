@@ -3,220 +3,14 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#pragma once
+
 #ifndef DNL_IMPL_H
 #define DNL_IMPL_H
 
 #include "DNL.h"
 
-// #define DEBUG_PRINTS
-
-DNLIso::DNLIso(DNLID id) : id_(id){};
-
-void DNLIso::addDriver(DNLID driver) {
-#ifdef DEBUG_PRINTS
-  // LCOV_EXCL_START
-  printf(" - DNLIso::addDriver(DNLID driver) %zu %s %s %s\n", driver,
-         (*get())
-             .getDNLTerminalFromID(driver)
-             .getSnlBitTerm()
-             ->getString()
-             .c_str(),
-         (*get())
-             .getDNLTerminalFromID(driver)
-             .getSnlBitTerm()
-             ->getDirection()
-             .getString()
-             .c_str(),
-         (*get())
-             .getDNLTerminalFromID(driver)
-             .getSnlBitTerm()
-             ->getDesign()
-             ->getName()
-             .getString()
-             .c_str());
-  // LCOV_EXCL_STOP
-#endif
-  drivers_.push_back(driver);
-}
-
-void DNLIso::addReader(DNLID reader) {
-#ifdef DEBUG_PRINTS
-  // LCOV_EXCL_START
-  printf(" - DNLIso::addReader(DNLID driver) %zu %s %s %s\n", reader,
-         (*get())
-             .getDNLTerminalFromID(reader)
-             .getSnlBitTerm()
-             ->getString()
-             .c_str(),
-         (*get())
-             .getDNLTerminalFromID(reader)
-             .getSnlBitTerm()
-             ->getDirection()
-             .getString()
-             .c_str(),
-         (*get())
-             .getDNLTerminalFromID(reader)
-             .getSnlBitTerm()
-             ->getDesign()
-             ->getName()
-             .getString()
-             .c_str());
-  // LCOV_EXCL_STOP
-#endif
-  readers_.push_back(reader);
-}
-void DNLIso::display(std::ostream& stream) const {
-  for (auto& driver : drivers_) {
-    if ((*get()).getDNLTerminalFromID(driver).isTopPort()) {
-      stream << "driver top port "
-             << (*get())
-                    .getDNLTerminalFromID(driver)
-                    .getSnlBitTerm()
-                    ->getName()
-                    .getString();
-      continue;
-    }
-    stream << "driver instance "
-           << (*get())
-                  .getDNLTerminalFromID(driver)
-                  .getSnlTerm()
-                  ->getInstance()
-                  ->getName()
-                  .getString()
-           << std::endl
-           << (*get())
-                  .getDNLTerminalFromID(driver)
-                  .getSnlTerm()
-                  ->getInstance()
-                  ->getDescription()
-           << std::endl;
-    ;
-    stream << "driver "
-           << (*get()).getDNLTerminalFromID(driver).getSnlTerm()->getString()
-           << std::endl;
-    stream
-        << "driver "
-        << (*get()).getDNLTerminalFromID(driver).getSnlTerm()->getDescription()
-        << std::endl;
-  }
-  for (auto& reader : readers_) {
-    if ((*get()).getDNLTerminalFromID(reader).isTopPort()) {
-      stream << "reader top port "
-             << (*get())
-                    .getDNLTerminalFromID(reader)
-                    .getSnlBitTerm()
-                    ->getName()
-                    .getString();
-      continue;
-    }
-    stream << "reader instance"
-           << (*get())
-                  .getDNLTerminalFromID(reader)
-                  .getSnlTerm()
-                  ->getInstance()
-                  ->getName()
-                  .getString()
-           << std::endl;
-    ;
-    stream << "reader"
-           << (*get()).getDNLTerminalFromID(reader).getSnlTerm()->getString()
-           << std::endl;
-    ;
-  }
-}
-
-DNLIsoDB::DNLIsoDB() {}
-
-DNLIso& DNLIsoDB::addIso() {
-  isos_.push_back(DNLIso(isos_.size()));
-  return isos_.back();
-}
-
-template <class DNLInstance, class DNLTerminal>
-DNLIsoDBBuilder<DNLInstance, DNLTerminal>::DNLIsoDBBuilder(
-    DNLIsoDB& db,
-    DNL<DNLInstance, DNLTerminal>& dnl)
-    : db_(db), dnl_(dnl) {
-  visited_.resize(dnl_.getDNLTerms().size(), false);
-}
-
-template <class DNLInstance, class DNLTerminal>
-void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::process() {
-  // iterate on all leaf drivers
-  std::vector<DNLID> tasks;
-  for (DNLID leaf : dnl_.getLeaves()) {
-    for (DNLID term = dnl_.getDNLInstanceFromID(leaf).getTermIndexes().first;
-         term < dnl_.getDNLInstanceFromID(leaf).getTermIndexes().second;
-         term++) {
-      if (dnl_.getDNLTerminalFromID(term).getSnlTerm()->getDirection() ==
-              SNLTerm::Direction::DirectionEnum::Output &&
-          dnl_.getDNLTerminalFromID(term).getSnlTerm()->getNet()) {
-        DNLIso& DNLIso = addIsoToDB();
-
-        DNLIso.addDriver(term);
-        tasks.push_back(term);
-        dnl_.getDNLTerminalFromID(term).setIsoID(DNLIso.getIsoID());
-      }
-    }
-  }
-  for (DNLID term = dnl_.getTop().getTermIndexes().first;
-       term < dnl_.getTop().getTermIndexes().second; term++) {
-    if (dnl_.getDNLTerminalFromID(term).getSnlBitTerm()->getDirection() ==
-            SNLTerm::Direction::DirectionEnum::Input &&
-        dnl_.getDNLTerminalFromID(term).getSnlBitTerm()->getNet()) {
-      DNLIso& DNLIso = addIsoToDB();
-      visited_[term] = true;
-      DNLIso.addDriver(term);
-      tasks.push_back(term);
-      dnl_.getDNLTerminalFromID(term).setIsoID(DNLIso.getIsoID());
-    }
-  }
-  if (!getenv("NON_MT")) {
-#ifdef DEBUG_PRINTS
-    // LCOV_EXCL_START
-    printf("MT\n");
-    // LCOV_EXCL_STOP
-#endif
-    tbb::task_arena arena(tbb::task_arena::automatic);
-    tbb::parallel_for(
-        tbb::blocked_range<DNLID>(0, tasks.size()),
-        [&](const tbb::blocked_range<DNLID>& r) {
-          for (DNLID i = r.begin(); i < r.end(); ++i) {
-            treatDriver(dnl_.getDNLTerminalFromID(tasks[i]),
-                        db_.getIsoFromIsoID(
-                            dnl_.getDNLTerminalFromID(tasks[i]).getIsoID()));
-          }
-        });
-  } else {
-#ifdef DEBUG_PRINTS
-    // LCOV_EXCL_START
-    printf("Non MT\n");
-    // LCOV_EXCL_STOP
-#endif
-    for (auto task : tasks) {
-      treatDriver(
-          dnl_.getDNLTerminalFromID(task),
-          db_.getIsoFromIsoID(dnl_.getDNLTerminalFromID(task).getIsoID()));
-    }
-  }
-#ifdef DEBUG_PRINTS
-  // LCOV_EXCL_START
-  printf("num fi %zu\n", dnl_.getDNLInstances().size());
-  printf("num ft %zu\n", dnl_.getDNLTerms().size());
-  printf("num leaves %zu\n", dnl_.getLeaves().size());
-  printf("num isos %zu\n", db_.getNumIsos());
-  // LCOV_EXCL_STOP
-#endif
-}
-
-void DNLIsoDB::display() const {
-  printf("----------ISODB - BEGIN----------\n");
-  for (const DNLIso& iso : isos_) {
-    printf("----------new iso----------\n");
-    iso.display();
-  }
-  printf("----------ISODB - END----------\n");
-}
+//#define DEBUG_PRINTS
 
 template <class DNLInstance, class DNLTerminal>
 void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::treatDriver(
@@ -227,8 +21,8 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::treatDriver(
 #endif
   std::stack<DNLID> stack;
   if (term.getDNLInstance().isTop()) {
-    assert(term.getSnlBitTerm()->getDirection() ==
-           SNLTerm::Direction::DirectionEnum::Input);
+    assert(term.getSnlBitTerm()->getDirection() !=
+           SNLTerm::Direction::DirectionEnum::Output);
     assert(term.getSnlBitTerm()->getNet());
     for (SNLInstTerm* reader : term.getSnlBitTerm()->getNet()->getInstTerms()) {
       DNLID freader = term.getDNLInstance()
@@ -280,8 +74,8 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::treatDriver(
     //------------------------------ Top output -> add as reader and continue
     //------------------------------
     if (fterm.getDNLInstance().isTop() &&
-        fterm.getSnlBitTerm()->getDirection() ==
-            SNLTerm::Direction::DirectionEnum::Output) {
+        fterm.getSnlBitTerm()->getDirection() !=
+            SNLTerm::Direction::DirectionEnum::Input) {
 #ifdef DEBUG_PRINTS
       // LCOV_EXCL_START
       printf(
@@ -327,6 +121,8 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::treatDriver(
       // LCOV_EXCL_STOP
 #endif
       DNLIso.addHierTerm(fterm.getID());
+      dnl_.getDNLTerminalFromID(fterm.getID())
+              .setIsoID(DNLIso.getIsoID());
     }
 
 #ifdef DEBUG_PRINTS
@@ -342,8 +138,8 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::treatDriver(
              ->getModel()
              ->getInstances()
              .empty() &&
-        fterm.getSnlTerm()->getDirection() ==
-            SNLTerm::Direction::DirectionEnum::Input) {
+        fterm.getSnlTerm()->getDirection() !=
+            SNLTerm::Direction::DirectionEnum::Output) {
       //-------------------------------- Input of hierarchical instance
       //------------------------------
       //-------------------------------- Go down into the instance model and
@@ -411,8 +207,8 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::treatDriver(
       // LCOV_EXCL_STOP
 #endif
       if (termSnlInst->getModel()->getInstances().empty()) {
-        if (ftermNew.getSnlTerm()->getDirection() ==
-            SNLTerm::Direction::DirectionEnum::Output) {
+        if (ftermNew.getSnlTerm()->getDirection() !=
+            SNLTerm::Direction::DirectionEnum::Input) {
           //-------------------------------- Output of blackbox -> add as driver
           //------------------------------
           // if (ftermNew.getID() == term.getID()) continue;
@@ -619,11 +415,12 @@ void DNL<DNLInstance, DNLTerminal>::process() {
     childrenIndexes.second = DNLInstances_.back().getID();
     getNonConstDNLInstanceFromID(parentId).setChildrenIndexes(childrenIndexes);
   }
+  DNLInstances_.push_back(DNLInstance());
+  DNLTerms_.push_back(DNLTerminal());
   initTermId2isoId();
   DNLIsoDBBuilder<DNLInstance, DNLTerminal> fidbb(fidb_, *this);
   fidbb.process();
-  DNLInstances_.push_back(DNLInstance());
-  DNLTerms_.push_back(DNLTerminal());
+  fidb_.addIso().setId(DNLID_MAX);//addNullIso
 }
 
 template <class DNLInstance, class DNLTerminal>
@@ -633,11 +430,12 @@ bool DNL<DNLInstance, DNLTerminal>::isInstanceChild(DNLID parent,
   if (parent == 0) {
     return true;
   }
-  while (getDNLInstanceFromID(inst).getParentID() != 0 &&
-         getDNLInstanceFromID(inst).getParentID() != DNLID_MAX) {
+  printf("isInstanceChild\n");
+  while (inst != 0) {
     if (parent == inst) {
       return true;
     }
+    printf("isInstanceChild %lu\n", inst);
     inst = getDNLInstanceFromID(inst).getParentID();
   }
   return false;
@@ -645,12 +443,13 @@ bool DNL<DNLInstance, DNLTerminal>::isInstanceChild(DNLID parent,
 
 template <class DNLInstance, class DNLTerminal>
 void DNL<DNLInstance, DNLTerminal>::getCustomIso(DNLID dnlIsoId,
-                                                 DNLIso& DNLIso) {
+                                                 DNLIso& DNLIso) const {
   DNLIso.setId(dnlIsoId);
-  DNLIso.addDriver(fidb_.getIsoFromIsoID(dnlIsoId).getDrivers()[0]);
-  DNLIsoDBBuilder<DNLInstance, DNLTerminal> fidbb(fidb_, *this);
+  DNLIsoDB fidb;
+  DNLIso.addDriver(fidb_.getIsoFromIsoIDconst(dnlIsoId).getDrivers()[0]);
+  DNLIsoDBBuilder<DNLInstance, DNLTerminal> fidbb(fidb, *this);
   fidbb.treatDriver(
-      getDNLTerminalFromID(fidb_.getIsoFromIsoID(dnlIsoId).getDrivers()[0]),
+      getDNLTerminalFromID(fidb_.getIsoFromIsoIDconst(dnlIsoId).getDrivers()[0]),
       DNLIso);
 }
 #endif  // DNL_IMPL_H

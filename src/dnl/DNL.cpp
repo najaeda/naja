@@ -26,7 +26,11 @@ using namespace naja::DNL;
 // #define DEBUG_PRINTS
 
 namespace naja::DNL {
+
 DNL<DNLInstanceFull, DNLTerminalFull>* dnlFull_ = nullptr;
+bool isCreated() {
+  return dnlFull_ != nullptr;
+}
 DNL<DNLInstanceFull, DNLTerminalFull>* create() {
   assert(SNLUniverse::get());
   dnlFull_ = new DNL<DNLInstanceFull, DNLTerminalFull>(
@@ -48,7 +52,7 @@ void destroy() {
 }
 }  // namespace naja::DNL
 
-DNLInstanceFull::DNLInstanceFull(const SNLInstance* instance,
+DNLInstanceFull::DNLInstanceFull(SNLInstance* instance,
                                  DNLID id,
                                  DNLID parent)
     : instance_(instance), id_(id), parent_(parent) {}
@@ -87,7 +91,7 @@ const SNLDesign* DNLInstanceFull::getSNLModel() const {
   }
 }
 
-const SNLInstance* DNLInstanceFull::getSNLInstance() const {
+SNLInstance* DNLInstanceFull::getSNLInstance() const {
   return instance_;
 }
 void DNLInstanceFull::setTermsIndexes(
@@ -196,4 +200,212 @@ void DNLTerminalFull::setIsoID(DNLID isoID) {
 }
 DNLID DNLTerminalFull::getIsoID() const {
   return (*get()).getIsoIdfromTermId(id_);
+}
+
+DNLIso::DNLIso(DNLID id) : id_(id){};
+
+void DNLIso::addDriver(DNLID driver) {
+#ifdef DEBUG_PRINTS
+  // LCOV_EXCL_START
+  printf(" - DNLIso::addDriver(DNLID driver) %zu %s %s %s\n", driver,
+         (*get())
+             .getDNLTerminalFromID(driver)
+             .getSnlBitTerm()
+             ->getString()
+             .c_str(),
+         (*get())
+             .getDNLTerminalFromID(driver)
+             .getSnlBitTerm()
+             ->getDirection()
+             .getString()
+             .c_str(),
+         (*get())
+             .getDNLTerminalFromID(driver)
+             .getSnlBitTerm()
+             ->getDesign()
+             ->getName()
+             .getString()
+             .c_str());
+  // LCOV_EXCL_STOP
+#endif
+  drivers_.push_back(driver);
+}
+
+void DNLIso::addReader(DNLID reader) {
+#ifdef DEBUG_PRINTS
+  // LCOV_EXCL_START
+  printf(" - DNLIso::addReader(DNLID driver) %zu %s %s %s\n", reader,
+         (*get())
+             .getDNLTerminalFromID(reader)
+             .getSnlBitTerm()
+             ->getString()
+             .c_str(),
+         (*get())
+             .getDNLTerminalFromID(reader)
+             .getSnlBitTerm()
+             ->getDirection()
+             .getString()
+             .c_str(),
+         (*get())
+             .getDNLTerminalFromID(reader)
+             .getSnlBitTerm()
+             ->getDesign()
+             ->getName()
+             .getString()
+             .c_str());
+  // LCOV_EXCL_STOP
+#endif
+  readers_.push_back(reader);
+}
+void DNLIso::display(std::ostream& stream) const {
+  for (auto& driver : drivers_) {
+    if ((*get()).getDNLTerminalFromID(driver).isTopPort()) {
+      stream << "driver top port "
+             << (*get())
+                    .getDNLTerminalFromID(driver)
+                    .getSnlBitTerm()
+                    ->getName()
+                    .getString();
+      continue;
+    }
+    stream << "driver instance "
+           << (*get())
+                  .getDNLTerminalFromID(driver)
+                  .getSnlTerm()
+                  ->getInstance()
+                  ->getName()
+                  .getString()
+           << std::endl
+           << (*get())
+                  .getDNLTerminalFromID(driver)
+                  .getSnlTerm()
+                  ->getInstance()
+                  ->getDescription()
+           << std::endl;
+    ;
+    stream << "driver "
+           << (*get()).getDNLTerminalFromID(driver).getSnlTerm()->getString()
+           << std::endl;
+    stream
+        << "driver "
+        << (*get()).getDNLTerminalFromID(driver).getSnlTerm()->getDescription()
+        << std::endl;
+  }
+  for (auto& reader : readers_) {
+    if ((*get()).getDNLTerminalFromID(reader).isTopPort()) {
+      stream << "reader top port "
+             << (*get())
+                    .getDNLTerminalFromID(reader)
+                    .getSnlBitTerm()
+                    ->getName()
+                    .getString();
+      continue;
+    }
+    stream << "reader instance"
+           << (*get())
+                  .getDNLTerminalFromID(reader)
+                  .getSnlTerm()
+                  ->getInstance()
+                  ->getName()
+                  .getString()
+           << std::endl;
+    ;
+    stream << "reader"
+           << (*get()).getDNLTerminalFromID(reader).getSnlTerm()->getString()
+           << std::endl;
+    ;
+  }
+}
+
+DNLIsoDB::DNLIsoDB() {}
+
+DNLIso& DNLIsoDB::addIso() {
+  isos_.push_back(DNLIso(isos_.size()));
+  return isos_.back();
+}
+
+template <class DNLInstance, class DNLTerminal>
+DNLIsoDBBuilder<DNLInstance, DNLTerminal>::DNLIsoDBBuilder(
+    DNLIsoDB& db,
+    const DNL<DNLInstance, DNLTerminal>& dnl)
+    : db_(db), dnl_(dnl) {
+  visited_.resize(dnl_.getDNLTerms().size(), false);
+}
+
+template <class DNLInstance, class DNLTerminal>
+void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::process() {
+  // iterate on all leaf drivers
+  std::vector<DNLID> tasks;
+  for (DNLID leaf : dnl_.getLeaves()) {
+    for (DNLID term = dnl_.getDNLInstanceFromID(leaf).getTermIndexes().first;
+         term < dnl_.getDNLInstanceFromID(leaf).getTermIndexes().second;
+         term++) {
+      if (dnl_.getDNLTerminalFromID(term).getSnlTerm()->getDirection() !=
+              SNLTerm::Direction::DirectionEnum::Input &&
+          dnl_.getDNLTerminalFromID(term).getSnlTerm()->getNet()) {
+        DNLIso& DNLIso = addIsoToDB();
+
+        DNLIso.addDriver(term);
+        tasks.push_back(term);
+        dnl_.getDNLTerminalFromID(term).setIsoID(DNLIso.getIsoID());
+      }
+    }
+  }
+  for (DNLID term = dnl_.getTop().getTermIndexes().first;
+       term < dnl_.getTop().getTermIndexes().second; term++) {
+    if (dnl_.getDNLTerminalFromID(term).getSnlBitTerm()->getDirection() !=
+            SNLTerm::Direction::DirectionEnum::Output &&
+        dnl_.getDNLTerminalFromID(term).getSnlBitTerm()->getNet()) {
+      DNLIso& DNLIso = addIsoToDB();
+      visited_[term] = true;
+      DNLIso.addDriver(term);
+      tasks.push_back(term);
+      dnl_.getDNLTerminalFromID(term).setIsoID(DNLIso.getIsoID());
+    }
+  }
+  if (!getenv("NON_MT")) {
+#ifdef DEBUG_PRINTS
+    // LCOV_EXCL_START
+    printf("MT\n");
+    // LCOV_EXCL_STOP
+#endif
+    tbb::task_arena arena(tbb::task_arena::automatic);
+    tbb::parallel_for(
+        tbb::blocked_range<DNLID>(0, tasks.size()),
+        [&](const tbb::blocked_range<DNLID>& r) {
+          for (DNLID i = r.begin(); i < r.end(); ++i) {
+            treatDriver(dnl_.getDNLTerminalFromID(tasks[i]),
+                        db_.getIsoFromIsoID(
+                            dnl_.getDNLTerminalFromID(tasks[i]).getIsoID()));
+          }
+        });
+  } else {
+#ifdef DEBUG_PRINTS
+    // LCOV_EXCL_START
+    printf("Non MT\n");
+    // LCOV_EXCL_STOP
+#endif
+    for (auto task : tasks) {
+      treatDriver(
+          dnl_.getDNLTerminalFromID(task),
+          db_.getIsoFromIsoID(dnl_.getDNLTerminalFromID(task).getIsoID()));
+    }
+  }
+#ifdef DEBUG_PRINTS
+  // LCOV_EXCL_START
+  printf("num fi %zu\n", dnl_.getDNLInstances().size());
+  printf("num ft %zu\n", dnl_.getDNLTerms().size());
+  printf("num leaves %zu\n", dnl_.getLeaves().size());
+  printf("num isos %zu\n", db_.getNumIsos());
+  // LCOV_EXCL_STOP
+#endif
+}
+
+void DNLIsoDB::display() const {
+  printf("----------ISODB - BEGIN----------\n");
+  for (const DNLIso& iso : isos_) {
+    printf("----------new iso----------\n");
+    iso.display();
+  }
+  printf("----------ISODB - END----------\n");
 }
