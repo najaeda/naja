@@ -21,7 +21,7 @@ class LoadlessLogicRemover {
   std::set<DNLID> getIsoTrace(
       const naja::DNL::DNL<DNLInstanceFull, DNLTerminalFull>& dnl,
       DNLID iso);
-  std::set<DNLID> getTopInputIsos(
+  std::set<DNLID> getTracedIsos(
       const naja::DNL::DNL<DNLInstanceFull, DNLTerminalFull>& dnl);
   std::vector<DNLID> getUntracedIsos(
       const naja::DNL::DNL<DNLInstanceFull, DNLTerminalFull>& dnl,

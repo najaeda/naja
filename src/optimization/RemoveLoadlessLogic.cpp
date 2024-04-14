@@ -132,7 +132,7 @@ termDriver.getSnlBitTerm()->getString().c_str());
 
 // Given a DNL, use getTopOutputIsos and getIsoTrace to
 // trace back all isos from top ouput to top inputs
-std::set<DNLID> LoadlessLogicRemover::getTopInputIsos(
+std::set<DNLID> LoadlessLogicRemover::getTracedIsos(
     const naja::DNL::DNL<DNLInstanceFull, DNLTerminalFull>& dnl) {
   std::vector<DNLID> topOutputIsos = getTopOutputIsos(dnl);
   std::set<DNLID> tracedIsos;
@@ -291,7 +291,7 @@ void LoadlessLogicRemover::removeLoadlessInstances(
 void LoadlessLogicRemover::removeLoadlessLogic() {
   assert(!isCreated());
   dnl_ = DNL::get();
-  std::set<DNLID> tracedIsos = getTopInputIsos(*dnl_);
+  std::set<DNLID> tracedIsos = getTracedIsos(*dnl_);
   std::vector<DNLID> untracedIsos = getUntracedIsos(*dnl_, tracedIsos);
   std::vector<std::pair<std::vector<SNLInstance*>, DNLID>> loadlessInstances =
       getLoadlessInstances(*dnl_, tracedIsos);
