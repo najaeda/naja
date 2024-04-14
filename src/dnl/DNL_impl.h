@@ -440,6 +440,83 @@ bool DNL<DNLInstance, DNLTerminal>::isInstanceChild(DNLID parent,
 }
 
 template <class DNLInstance, class DNLTerminal>
+DNLIsoDBBuilder<DNLInstance, DNLTerminal>::DNLIsoDBBuilder(
+    DNLIsoDB& db,
+    const DNL<DNLInstance, DNLTerminal>& dnl)
+    : db_(db), dnl_(dnl) {
+  visited_.resize(dnl_.getDNLTerms().size(), false);
+}
+
+template <class DNLInstance, class DNLTerminal>
+void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::process() {
+  // iterate on all leaf drivers
+  std::vector<DNLID> tasks;
+  for (DNLID leaf : dnl_.getLeaves()) {
+    for (DNLID term = dnl_.getDNLInstanceFromID(leaf).getTermIndexes().first;
+         term < dnl_.getDNLInstanceFromID(leaf).getTermIndexes().second;
+         term++) {
+      if (dnl_.getDNLTerminalFromID(term).getSnlTerm()->getDirection() !=
+              SNLTerm::Direction::DirectionEnum::Input &&
+          dnl_.getDNLTerminalFromID(term).getSnlTerm()->getNet()) {
+        DNLIso& DNLIso = addIsoToDB();
+
+        DNLIso.addDriver(term);
+        tasks.push_back(term);
+        dnl_.getDNLTerminalFromID(term).setIsoID(DNLIso.getIsoID());
+      }
+    }
+  }
+  for (DNLID term = dnl_.getTop().getTermIndexes().first;
+       term < dnl_.getTop().getTermIndexes().second; term++) {
+    if (dnl_.getDNLTerminalFromID(term).getSnlBitTerm()->getDirection() !=
+            SNLTerm::Direction::DirectionEnum::Output &&
+        dnl_.getDNLTerminalFromID(term).getSnlBitTerm()->getNet()) {
+      DNLIso& DNLIso = addIsoToDB();
+      visited_[term] = true;
+      DNLIso.addDriver(term);
+      tasks.push_back(term);
+      dnl_.getDNLTerminalFromID(term).setIsoID(DNLIso.getIsoID());
+    }
+  }
+  if (!getenv("NON_MT")) {
+#ifdef DEBUG_PRINTS
+    // LCOV_EXCL_START
+    printf("MT\n");
+    // LCOV_EXCL_STOP
+#endif
+    tbb::task_arena arena(tbb::task_arena::automatic);
+    tbb::parallel_for(
+        tbb::blocked_range<DNLID>(0, tasks.size()),
+        [&](const tbb::blocked_range<DNLID>& r) {
+          for (DNLID i = r.begin(); i < r.end(); ++i) {
+            treatDriver(dnl_.getDNLTerminalFromID(tasks[i]),
+                        db_.getIsoFromIsoID(
+                            dnl_.getDNLTerminalFromID(tasks[i]).getIsoID()));
+          }
+        });
+  } else {
+#ifdef DEBUG_PRINTS
+    // LCOV_EXCL_START
+    printf("Non MT\n");
+    // LCOV_EXCL_STOP
+#endif
+    for (auto task : tasks) {
+      treatDriver(
+          dnl_.getDNLTerminalFromID(task),
+          db_.getIsoFromIsoID(dnl_.getDNLTerminalFromID(task).getIsoID()));
+    }
+  }
+#ifdef DEBUG_PRINTS
+  // LCOV_EXCL_START
+  printf("num fi %zu\n", dnl_.getDNLInstances().size());
+  printf("num ft %zu\n", dnl_.getDNLTerms().size());
+  printf("num leaves %zu\n", dnl_.getLeaves().size());
+  printf("num isos %zu\n", db_.getNumIsos());
+  // LCOV_EXCL_STOP
+#endif
+}
+
+template <class DNLInstance, class DNLTerminal>
 void DNL<DNLInstance, DNLTerminal>::getCustomIso(DNLID dnlIsoId,
                                                  DNLIso& DNLIso) const {
   DNLIso.setId(dnlIsoId);
@@ -450,4 +527,5 @@ void DNL<DNLInstance, DNLTerminal>::getCustomIso(DNLID dnlIsoId,
       getDNLTerminalFromID(fidb_.getIsoFromIsoIDconst(dnlIsoId).getDrivers()[0]),
       DNLIso);
 }
+
 #endif  // DNL_IMPL_H
