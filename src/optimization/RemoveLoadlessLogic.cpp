@@ -149,7 +149,7 @@ std::vector<DNLID> LoadlessLogicRemover::getUntracedIsos(
     const std::set<DNLID>& tracedIsos) {
   std::vector<DNLID> untracedIsos;
   for (DNLID iso = 0;
-       iso < dnl.getDNLIsoDB().getNumIsos() - 1 /*due to null iso*/; iso++) {
+       iso < dnl.getDNLIsoDB().getNumIsos(); iso++) {
     if (tracedIsos.find(iso) == tracedIsos.end()) {
       untracedIsos.push_back(iso);
     }
