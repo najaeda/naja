@@ -178,7 +178,6 @@ TEST_F(LoadlessRemoveLogicTests, simple_2_loadless) {
   EXPECT_EQ(tracedIsos.size(), 0);
   std::vector<DNLID> untracedIsos = remover.getUntracedIsos(*dnl, tracedIsos);
   EXPECT_EQ(untracedIsos.size(), 1);
-  LoadlessNetsRemover lnr;
   //std::set<SNLBitNet*> loadlessNets = lnr.getLoadlessNets(*dnl, tracedIsos);
   //EXPECT_EQ(loadlessNets.size(), 1);
   std::vector<std::pair<std::vector<SNLInstance*>, DNLID>> loadlessInstances =

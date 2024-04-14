@@ -177,7 +177,7 @@ class DNLIsoDB {
   DNLIso& addIso();
   DNLIso& getIsoFromIsoID(DNLID isoID) { return isos_[isoID]; }
   const DNLIso& getIsoFromIsoIDconst(DNLID isoID) const { if (isoID == DNLID_MAX) {return isos_.back();} return isos_[isoID]; }
-  DNLID getNumIsos() const { return isos_.size(); }
+  DNLID getNumIsos() const { return isos_.size() - 1/* due to null iso*/; }
   std::vector<DNLID> getFullIso(DNLID);
 
  private:
