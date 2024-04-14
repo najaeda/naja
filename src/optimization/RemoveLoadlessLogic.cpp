@@ -284,7 +284,7 @@ void LoadlessLogicRemover::removeLoadlessInstances(
   printf("Deleted %lu leaf instances out of %lu\n", loadlessInstances.size(),
          dnl_->getLeaves().size());
   // LCOV_EXCL_STOP
-//#endif
+///#endif
 }
 
 // Given a DNL, remove all loadless logic
