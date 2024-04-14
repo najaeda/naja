@@ -3,8 +3,6 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#pragma once
-
 #ifndef DNL_IMPL_H
 #define DNL_IMPL_H
 
