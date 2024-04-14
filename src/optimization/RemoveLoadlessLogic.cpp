@@ -293,45 +293,7 @@ void LoadlessLogicRemover::removeLoadlessLogic() {
   removeLoadlessInstances(SNLUniverse::get()->getTopDesign(),
                           loadlessInstances);
   DNL::destroy();
-  //LoadlessNetsRemover loadlessNetsRemover;
-  //loadlessNetsRemover.process();
 }
 
-void LoadlessNetsRemover::collectLoadlessIsos() {
-  for (DNLID iso = 0; iso < dnl_->getDNLIsoDB().getNumIsos(); iso++) {
-    bool isLoadless = dnl_->getDNLIsoDB().getIsoFromIsoIDconst(iso).getReaders().empty();
-    if (isLoadless) {
-      loadlessIsos_.push_back(iso);
-    }
-    iso++;
-  }
-}
-
-void LoadlessNetsRemover::removeLoadlessIsos() {
-  for (DNLID iso : loadlessIsos_) {
-    DNL::DNLComplexIso complexIso;
-    dnl_->getCustomIso(iso, complexIso);
-    for (SNLBitNet* net : complexIso.getNets()) {
-      if (dynamic_cast<SNLBusNetBit*>(net) != nullptr) {
-        continue;
-      }
-      for (SNLBitTerm* term : net->getBitTerms()) {
-        term->setNet(nullptr);
-      }
-      for (SNLInstTerm* term : net->getInstTerms()) {
-        term->setNet(nullptr);
-      }
-      net->destroy();
-    }
-  }
-}
-
-void LoadlessNetsRemover::process() {
-  assert(!isCreated());
-  dnl_ = DNL::get();
-  collectLoadlessIsos();
-  removeLoadlessIsos();
-  DNL::destroy();
-}
 
 }  // namespace naja::NAJA_OPT

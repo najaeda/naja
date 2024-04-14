@@ -7,18 +7,6 @@ using namespace naja::SNL;
 
 namespace naja::NAJA_OPT {
 
-class LoadlessNetsRemover {
- public:
-  LoadlessNetsRemover() {}
-  void process();
-
- private:
-  void collectLoadlessIsos();
-  void removeLoadlessIsos();
-  std::vector<DNLID> loadlessIsos_;
-  naja::DNL::DNL<DNLInstanceFull, DNLTerminalFull>* dnl_;
-};
-
 class LoadlessLogicRemover {
  public:
   LoadlessLogicRemover();
