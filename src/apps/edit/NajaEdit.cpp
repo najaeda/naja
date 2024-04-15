@@ -20,7 +20,12 @@
 
 #include "SNLUniverse.h"
 #include "SNLCapnP.h"
+#include "DNL.h"
+#include "RemoveLoadlessLogic.h"
 
+using namespace naja::DNL;
+using namespace naja::SNL;
+using namespace naja::NAJA_OPT;
 using namespace naja::SNL;
 
 namespace {
@@ -60,6 +65,8 @@ int main(int argc, char* argv[]) {
     .help("dump primitives library in verilog");
   program.add_argument("-e", "--edit")
     .help("edit netlist using python script");
+  program.add_argument("-dle", "--dead_logic_elimination")
+    .help("dead logic elimination");
 
   try {
     program.parse_args(argc, argv);
@@ -221,6 +228,12 @@ int main(int argc, char* argv[]) {
     if (program.is_used("-e")) {
       auto editPath = std::filesystem::path(program.get<std::string>("-e"));
       SNLPyEdit::edit(editPath);
+    }
+
+    if (program.is_used("-dle")) {
+      LoadlessLogicRemover remover;
+      remover.process();
+      printf("Removed loadless logic\n");
     }
 
     if (outputFormatType == FormatType::SNL) {

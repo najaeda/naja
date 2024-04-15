@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "DNL.h"
+#include "DNL_impl.h"
 #include "NetlistGraph.h"
 #include "SNLBitNet.h"
 #include "SNLBitNetOccurrence.h"
