@@ -30,12 +30,12 @@ using namespace naja::SNL;
 
 namespace {
 
-enum class FormatType {  NOT_PROVIDED, UNKNOWN, VERILOG, SNL };
+enum class FormatType { NOT_PROVIDED, UNKNOWN, VERILOG, SNL };
 
 FormatType argToFormatType(const std::string& inputFormat) {
   if (inputFormat.empty()) {
     return FormatType::NOT_PROVIDED;
-  } if (inputFormat == "verilog") {
+  } else if (inputFormat == "verilog") {
     return FormatType::VERILOG;
   } else if (inputFormat == "snl") {
     return FormatType::SNL;
