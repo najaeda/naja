@@ -136,8 +136,11 @@ TEST_F(SNLNetTest, testCreation) {
   EXPECT_EQ(SNLNet::Type::Standard ,i0Net->getType());
   i0Net->setType(SNLBitNet::Type::Assign0);
   EXPECT_EQ(SNLNet::Type::Assign0 ,i0Net->getType());
+  EXPECT_TRUE(i0Net->isConstant0());
   i0Net->setType(SNLBitNet::Type::Supply1);
   EXPECT_EQ(SNLNet::Type::Supply1 ,i0Net->getType());
+  EXPECT_FALSE(i0Net->isSupply0());
+  EXPECT_TRUE(i0Net->isSupply1());
 
   auto instance0 = SNLInstance::create(design_, primitive, SNLName("instance0"));
   auto instance1 = SNLInstance::create(design_, primitive, SNLName("instance1"));
