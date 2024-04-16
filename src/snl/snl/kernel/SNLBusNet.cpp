@@ -191,6 +191,14 @@ bool SNLBusNet::isAssignConstant() const {
   return std::all_of(bits_.begin(), bits_.end(), [](const SNLBusNetBit* b){ return b->getType().isAssign(); });
 }
 
+bool SNLBusNet::isSupply0() const {
+  return std::all_of(bits_.begin(), bits_.end(), [](const SNLBusNetBit* b){ return b->getType().isSupply0(); });
+}
+
+bool SNLBusNet::isSupply1() const {
+  return std::all_of(bits_.begin(), bits_.end(), [](const SNLBusNetBit* b){ return b->getType().isSupply1(); });
+}
+
 //LCOV_EXCL_START
 const char* SNLBusNet::getTypeName() const {
   return "SNLBusNet";
