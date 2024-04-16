@@ -33,6 +33,7 @@ static PyObject* PySNLBitNet_getType(PySNLBitNet* self) {
   return PyLong_FromLong((long)selfObject->getType());
 }
 
+//LCOV_EXCL_START
 static PyObject* PySNLBitNet_getTypeAsString(PySNLBitNet* self) {
   METHOD_HEAD("Net.getTypeAsString()")
   switch (selfObject->getType()) {
@@ -44,6 +45,7 @@ static PyObject* PySNLBitNet_getTypeAsString(PySNLBitNet* self) {
     default: return PyUnicode_FromString("Unknown");
   }
 }
+//LCOV_EXCL_STOP
 
 PyMethodDef PySNLBitNet_Methods[] = {
   { "getType", (PyCFunction)PySNLBitNet_getType, METH_NOARGS,

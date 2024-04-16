@@ -182,11 +182,18 @@ class SNLNetTest(unittest.TestCase):
     self.assertEqual(snl.SNLNet.Type.Assign0, i0Net.getType())
     i0Net.setType(snl.SNLNet.Type.Assign1)
     self.assertEqual(snl.SNLNet.Type.Assign1, i0Net.getType())
+    self.assertTrue(i0Net.isConstant1())
+    self.assertTrue(i0Net.isConstant())
     i0Net.setType(snl.SNLNet.Type.Supply0)
     self.assertEqual(snl.SNLNet.Type.Supply0, i0Net.getType())
+    self.assertTrue(i0Net.isConstant0())
+    self.assertTrue(i0Net.isConstant())
     i0Net.setType(snl.SNLNet.Type.Supply1)
     self.assertEqual(snl.SNLNet.Type.Supply1, i0Net.getType())
     i0Net.setType(snl.SNLNet.Type.Standard)
+    self.assertFalse(i0Net.isConstant0())
+    self.assertFalse(i0Net.isConstant1())
+    self.assertFalse(i0Net.isConstant())
     self.assertEqual(snl.SNLNet.Type.Standard, i0Net.getType())
 
   def testErrors(self):
