@@ -19,6 +19,7 @@ target_compile_options(naja_opt PRIVATE ${NAJA_CXX_WARNINGS})
 
 target_include_directories(naja_opt SYSTEM BEFORE PUBLIC ${Boost_INCLUDE_DIR})
 target_include_directories(naja_opt PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(naja_opt PUBLIC ${SPDLOG_DIR})
 
 set_target_properties(naja_opt PROPERTIES PUBLIC_HEADER "${naja_opt_HEADERS}")
 
