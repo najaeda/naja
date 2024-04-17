@@ -29,11 +29,13 @@ This project is supported and funded by NLNet through the [NGI0 Entrust](https:/
 
 ### naja_edit
 
-![Naja-Edit](./docs/images/Naja-Edit.png)
 
-`naja_edit`, accessible via the `$NAJA_INSTALL/bin` directory, is a tool designed for netlist translation and editing:
+`naja_edit`, accessible via the `$NAJA_INSTALL/bin` directory, is a tool designed for netlist translation, optimization and editing:
 
-- **Format Translation**: convert netlists between SNL Interchange Format and Verilog.
+- **Input/Output format support**: Structural (gate-level) Verilog and
+[SNL Interchange Format](SNL Interchange Format) are supported. It is possible
+to translate a netlist from one format to another by setting input (-f)
+and output(-t) formats.
 
 ```bash
 #translation from verilog to SNL
@@ -52,6 +54,10 @@ naja_edit -f verilog -t snl -i input.v -o output.snl -e script.py
 optimization algorithms on the netlist across hierarchy boundaries with
 minimized uniquification. Accesible with the -a option.
 One optimization type is currently available: Dead Logic Optimization (-a dle or -a all).
+
+Other layers of optmization starting with constant propagation will be added in the future.
+
+![Naja-Edit](./docs/images/Naja-Edit.png)
 
 ```bash
 # -1: Load input netlist from SNL format.
