@@ -25,15 +25,41 @@ If you are looking to build your own EDA tool, Naja contains two primary API com
 
 This project is supported and funded by NLNet through the [NGI0 Entrust](https://nlnet.nl/entrust) Fund.
 
-## Why Naja ?
+## Applications
 
-### Enhanced Fidelity in Data Representation
+### naja_edit
+
+![Lora](./docs/images/Naja-Lora.png)
+
+`naja_edit`, accessible via the `$NAJA_INSTALL/bin` directory, is a tool designed for netlist translation and editing:
+
+- **Format Translation**: convert netlists between SNL Interchange Format and Verilog.
+
+```bash
+#translation from verilog to SNL
+naja_edit -f verilog -t snl -i input.v -o output.snl
+```
+
+- **Netlist Editing**: Utilize the SNL Python API for netlist editing.
+
+```bash
+#translation from verilog to SNL with intermediate editing
+naja_edit -f verilog -t snl -i input.v -o output.snl -e script.py
+```
+
+`naja_edit` editing script examples are available [here](https://github.com/najaeda/naja/blob/main/src/apps/edit/examples).
+
+## Naja
+
+### Why Naja ?
+
+#### Enhanced Fidelity in Data Representation
 
 Naja contains two main components SNL (Structured Netlist) API (located in this repo) and [naja-verilog](https://github.com/najaeda/naja-verilog), a data structure independent structural verilog parser.
 
 In most EDA flows, data exchange is done by using standard netlist formats (Verilog, LEF/DEF, EDIF, …) which were not designed to represent data structures content with high fidelity. To address this problem, SNL relies on [Cap'n Proto](https://github.com/capnproto/capnproto) open source interchange format.
 
-### Optimized for Parallelization and Cloud Computing
+#### Optimized for Parallelization and Cloud Computing
 
 SNL is engineered with a focus on parallelization, particularly for cloud computing applications. It features a robust object identification mechanism that streamlines the partitioning and merging of data across networks, facilitating efficient EDA applications.
 
@@ -45,13 +71,13 @@ SNL is summarized in below's image.
 
 :star: If you find Naja interesting, and would like to stay up-to-date, consider starring this repo to help spread the word.
 
-## Documentation
+### Documentation
 
 :eyeglasses: Naja's extended and API [documentation](https://naja.readthedocs.io/en/latest/) is available online.
 
-## Compilation
+### Compilation
 
-### Getting sources
+#### Getting sources
 
 ```bash
 # First clone the repository and go inside it
@@ -61,7 +87,7 @@ git submodule init
 git submodule update
 ```
 
-### Dependencies
+#### Dependencies
 
 Mandatory dependencies:
 
@@ -104,7 +130,7 @@ Ensure the versions of `bison` and `flex` installed via Homebrew take precedence
 export PATH="/opt/homebrew/opt/flex/bin:/opt/homebrew/opt/bison/bin:$PATH"
 ```
 
-### Building and Installing
+#### Building and Installing
 
 ```bash
 #First define an env variable that points to the directory where you want naja to be installed:
@@ -119,7 +145,7 @@ make test
 make install
 ```
 
-### Building and Installing Documentation
+#### Building and Installing Documentation
 
 ```bash
 #make sure that doxygen was available when launching the cmake command
@@ -134,9 +160,9 @@ Documentation will be installed in $NAJA_INSTALL/doc directory. Starting file to
 
 ---
 
-## Use
+### Use
 
-### Environment
+#### Environment
 
 After building and installing, start by setting up a runtime environment.
 
@@ -146,9 +172,9 @@ export NAJA_INSTALL=<path_to_installation_dir>
 export PYTHONPATH=$PYTHONPATH:$NAJA_INSTALL/lib/python
 ```
 
-### Inputs/Outputs
+#### Inputs/Outputs
 
-#### SNL Interchange Format
+##### SNL Interchange Format
 
 SNL relies on [Cap'n Proto](https://github.com/capnproto/capnproto) for data serialization and streaming. Schema files and C++ implementation can be found [here](https://github.com/najaeda/naja/tree/main/src/snl/snl/serialization/capnp).
 
@@ -165,7 +191,7 @@ capnp decode --packed snl_interface.capnp DBInterface < snl/db_interface.snl > i
 capnp decode --packed snl_implementation.capnp DBImplementation < snl/db_implementation.snl > implementation.txt
 ```
 
-#### Verilog
+##### Verilog
 
 For Verilog parsing, Naja relies on naja-verilog submodule (https://github.com/najaeda/naja-verilog).
 Leaf primitives are loaded through the Python primitive loader: [SNLPrimitivesLoader](https://github.com/najaeda/naja/blob/main/src/snl/python/primitives/SNLPrimitivesLoader.h).
@@ -179,17 +205,17 @@ A Verilog dumper is included in SNL API. See [here](https://github.com/najaeda/n
 
 ---
 
-## Snippets
+### Snippets
 
-### c++
+#### c++
 
 This [snippet](https://github.com/najaeda/naja/blob/main/src/snl/snippets/app/src/SNLSnippet.cpp) shows various SNL API netlist construction, manipulation and browsing examples.
 
-### Python
+#### Python
 
 This [snippet](https://github.com/najaeda/naja/blob/main/src/snl/snippets/python/snl_snippet.py) shows an equivalent example using Python interface.
 
-### Application snippet
+#### Application snippet
 
 An application snippet can be found [here](https://github.com/najaeda/naja/blob/main/src/app_snippet).
 
@@ -199,29 +225,7 @@ This "app" directory and its contents can be copied to start a new application.
 
 ---
 
-## Applications
-
-### naja_edit
-
-`naja_edit`, accessible via the `$NAJA_INSTALL/bin` directory, is a tool designed for netlist translation and editing:
-
-- **Format Translation**: convert netlists between SNL Interchange Format and Verilog.
-
-```bash
-#translation from verilog to SNL
-naja_edit -f verilog -t snl -i input.v -o output.snl
-```
-
-- **Netlist Editing**: Utilize the SNL Python API for netlist editing.
-
-```bash
-#translation from verilog to SNL with intermediate editing
-naja_edit -f verilog -t snl -i input.v -o output.snl -e script.py
-```
-
-`naja_edit` editing script examples are available [here](https://github.com/najaeda/naja/blob/main/src/apps/edit/examples).
-
-## Issues / Bugs
+### Issues / Bugs
 
 Please use [GitHub Issues](https://github.com/najaeda/naja/issues) to create and track requests and bugs.
 
