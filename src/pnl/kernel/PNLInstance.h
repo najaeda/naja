@@ -1,7 +1,7 @@
 #ifndef __PNL_INSTANCE_H_
 #define __PNL_INSTANCE_H_
 
-#include "PNLPoint.h"
+#include "PNLTransform.h"
 
 namespace naja { namespace PNL {
 
@@ -16,3 +16,5 @@ class PNLInstance {
 };
 
 }} // namespace PNL // namespace naja
+
+#endif // __PNL_INSTANCE_H_
