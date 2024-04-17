@@ -29,7 +29,7 @@ This project is supported and funded by NLNet through the [NGI0 Entrust](https:/
 
 ### naja_edit
 
-![Lora](./docs/images/Naja-Lora.png)
+![Naja-Edit](./docs/images/Naja-Edit.png)
 
 `naja_edit`, accessible via the `$NAJA_INSTALL/bin` directory, is a tool designed for netlist translation and editing:
 
@@ -46,6 +46,9 @@ naja_edit -f verilog -t snl -i input.v -o output.snl
 #translation from verilog to SNL with intermediate editing
 naja_edit -f verilog -t snl -i input.v -o output.snl -e script.py
 ```
+
+- **Netlist Optimizations**: Utilize the SNL Python API for netlist editing.
+
 
 `naja_edit` editing script examples are available [here](https://github.com/najaeda/naja/blob/main/src/apps/edit/examples).
 
