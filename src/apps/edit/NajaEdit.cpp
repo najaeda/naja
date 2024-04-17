@@ -20,13 +20,17 @@
 
 #include "SNLUniverse.h"
 #include "SNLCapnP.h"
+#include "DNL.h"
+#include "RemoveLoadlessLogic.h"
 
+using namespace naja::DNL;
+using namespace naja::SNL;
+using namespace naja::NAJA_OPT;
 using namespace naja::SNL;
 
 namespace {
 
 enum class FormatType { NOT_PROVIDED, UNKNOWN, VERILOG, SNL };
-
 FormatType argToFormatType(const std::string& inputFormat) {
   if (inputFormat.empty()) {
     return FormatType::NOT_PROVIDED;
@@ -39,10 +43,24 @@ FormatType argToFormatType(const std::string& inputFormat) {
   }
 }
 
+enum class OptimizationType { NOT_PROVIDED, UNKNOWN, DLE, ALL };
+OptimizationType argToOptimizationType(const std::string& optimization) {
+  if (optimization.empty()) {
+    return OptimizationType::NOT_PROVIDED;
+  } else if (optimization == "dle") {
+    return OptimizationType::DLE;
+  } else if (optimization == "all") {
+    return OptimizationType::ALL;
+  } else {
+    return OptimizationType::UNKNOWN;
+  }
+}
+
 }
 
 int main(int argc, char* argv[]) {
   argparse::ArgumentParser program("naja_edit");
+  program.add_description("Edit gate level netlists using python script and apply optimizations");
   program.add_argument("-f", "--from_format")
     .required()
     .help("from/input format");
@@ -58,8 +76,12 @@ int main(int argc, char* argv[]) {
     .help("input primitives");
   program.add_argument("-d", "--dump_primitives")
     .help("dump primitives library in verilog");
-  program.add_argument("-e", "--edit")
-    .help("edit netlist using python script");
+  program.add_argument("-e", "--pre_edit")
+    .help("edit netlist using python script after loading netlist and before applying optimizations");
+  program.add_argument("-z", "--post_edit")
+    .help("edit netlist using python script after optimizations and before dumping netlist");
+  program.add_argument("-a", "--apply")
+    .help("apply optimization: dle (remove loadless logic), all (all optimizations)");
 
   try {
     program.parse_args(argc, argv);
@@ -68,7 +90,6 @@ int main(int argc, char* argv[]) {
     std::cerr << program;
     return 1;
   }
-
 
   std::vector<spdlog::sink_ptr> sinks;
   auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
@@ -88,7 +109,6 @@ int main(int argc, char* argv[]) {
   spdlog::info("########################################################");
   spdlog::info("naja_edit");
   spdlog::info("########################################################");
-
 
   bool argError = false;
   auto inputFormatArg = program.present("-f");
@@ -126,6 +146,14 @@ int main(int argc, char* argv[]) {
       spdlog::critical("primitives option (-p) is mandatory when the input format is not 'SNL'");
       argError = true;
     }
+  }
+
+  auto optimizationArg = program.present("-a");
+  std::string optimization = *optimizationArg;
+  OptimizationType optimizationType = argToOptimizationType(optimization);
+  if (optimizationType == OptimizationType::UNKNOWN) {
+    spdlog::critical("Unrecognized optimization type: {}", optimization);
+    argError = true;
   }
 
   if (argError) {
@@ -220,16 +248,40 @@ int main(int argc, char* argv[]) {
 
     if (program.is_used("-e")) {
       auto editPath = std::filesystem::path(program.get<std::string>("-e"));
+      spdlog::info("Post editing netlist using python script: {}", editPath.string());
+      SNLPyEdit::edit(editPath);
+    }
+
+    if (optimizationType != OptimizationType::DLE
+        or optimizationType != OptimizationType::ALL) {
+      const auto start{std::chrono::steady_clock::now()};
+      spdlog::info("Starting removal of loadless logic");
+      LoadlessLogicRemover remover;
+      remover.process();
+      const auto end{std::chrono::steady_clock::now()};
+      const std::chrono::duration<double> elapsed_seconds{end - start};
+      {
+        std::ostringstream oss;
+        oss << "Removal of loadless logic done in: " << elapsed_seconds.count() << "s";
+        spdlog::info(oss.str());
+      } 
+    }
+
+    if (program.is_used("-z")) {
+      auto editPath = std::filesystem::path(program.get<std::string>("-z"));
+      spdlog::info("Post editing netlist using python script: {}", editPath.string());
       SNLPyEdit::edit(editPath);
     }
 
     if (outputFormatType == FormatType::SNL) {
+      spdlog::info("Dumping netlist in SNL format to {}", outputPath.string());
       SNLCapnP::dump(db, outputPath);
     } else if (outputFormatType == FormatType::VERILOG) {
       if (db->getTopDesign()) {
         std::ofstream output(outputPath);
         SNLVRLDumper dumper;
         dumper.setSingleFile(true);
+        spdlog::info("Dumping netlist in verilog format to {}", outputPath.string());
         dumper.dumpDesign(db->getTopDesign(), output);
       } else {
         db->debugDump(0);
