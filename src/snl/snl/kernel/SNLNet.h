@@ -35,8 +35,12 @@ class SNLNet: public SNLDesignObject {
         }
 
         operator const TypeEnum&() const { return typeEnum_; }
-        constexpr bool isAssign() const { return typeEnum_ == Assign0 or typeEnum_ == Assign1; }
-        constexpr bool isSupply() const { return typeEnum_ == Supply0 or typeEnum_ == Supply1; }
+        constexpr bool isAssign0() const { return typeEnum_ == Assign0;  }
+        constexpr bool isAssign1() const { return typeEnum_ == Assign1;  }
+        constexpr bool isAssign() const { return isAssign0() or isAssign1(); }
+        constexpr bool isSupply0() const { return typeEnum_ == Supply0; }
+        constexpr bool isSupply1() const { return typeEnum_ == Supply1; }
+        constexpr bool isSupply() const { return isSupply0() or isSupply1(); }
         constexpr bool isConst0() const { return typeEnum_ == Assign0 or typeEnum_ == Supply0; }
         constexpr bool isConst1() const { return typeEnum_ == Assign1 or typeEnum_ == Supply1; }
         constexpr bool isDriving() const { return isAssign() or isSupply(); }
@@ -68,6 +72,10 @@ class SNLNet: public SNLDesignObject {
 
     /// \return true if all bits of this net are assigned to 1'b0 or 1'b1.
     virtual bool isAssignConstant() const = 0;
+    ///\return true if all bits of this net are of type Supply0
+    virtual bool isSupply0() const = 0;
+    ///\return true if all bits of this net are of type Supply1
+    virtual bool isSupply1() const = 0;
 
   protected:
     SNLNet() = default;

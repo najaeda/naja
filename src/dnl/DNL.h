@@ -2,6 +2,7 @@
 // <https://github.com/najaeda/naja/blob/main/AUTHORS>
 //
 // SPDX-License-Identifier: Apache-2.0
+
 #ifndef DNL_H
 #define DNL_H
 
@@ -44,17 +45,42 @@ typedef DNL<DNLInstanceFull, DNLTerminalFull> DNLFull;
 
 // DNL<DNLInstanceFull, DNLTerminalFull>* create();
 DNL<DNLInstanceFull, DNLTerminalFull>* get();
+bool isCreated();
 void destroy();
 
 class DNLInstanceFull {
  public:
   DNLInstanceFull() = default;
-  DNLInstanceFull(const SNLInstance* instance, DNLID id, DNLID parent);
+  DNLInstanceFull(SNLInstance* instance, DNLID id, DNLID parent);
   void display() const;
   DNLID getID() const;
+  std::string getFullPath() const {
+    std::vector<SNLInstance*> path;
+    DNLID instID = getID();
+    DNLInstanceFull inst = *this;
+    SNLInstance* snlInst = inst.getSNLInstance();
+    if (snlInst != nullptr) {
+      path.push_back(snlInst);
+    }
+    
+    instID = inst.getParentID();
+    while (instID != DNLID_MAX) {
+      inst = inst.getParentInstance();
+      snlInst = inst.getSNLInstance();
+      if (snlInst != nullptr) {
+        path.push_back(snlInst);
+      }
+      instID = inst.getParentID();
+    }
+    std::string fullPath;
+    for (auto it = path.rbegin(); it != path.rend(); ++it) {
+      fullPath += (*it)->getName().getString() + "/";
+    }
+    return fullPath;
+  };
   DNLID getParentID() const;
   const DNLInstanceFull& getParentInstance() const;
-  const SNLInstance* getSNLInstance() const;
+  SNLInstance* getSNLInstance() const;
   const SNLDesign* getSNLModel() const;
   void setTermsIndexes(const std::pair<DNLID, DNLID>& termsIndexes);
   void setChildrenIndexes(const std::pair<DNLID, DNLID>& childrenIndexes);
@@ -76,7 +102,7 @@ class DNLInstanceFull {
 
  private:
   std::pair<DNLID, DNLID> childrenIndexes_;
-  const SNLInstance* instance_{nullptr};
+  SNLInstance* instance_{nullptr};
   DNLID id_ = DNLID_MAX;
   DNLID parent_ = DNLID_MAX;
   std::pair<DNLID, DNLID> termsIndexes_;
@@ -148,8 +174,8 @@ class DNLIsoDB {
   void display() const;
   DNLIso& addIso();
   DNLIso& getIsoFromIsoID(DNLID isoID) { return isos_[isoID]; }
-  const DNLIso& getIsoFromIsoIDconst(DNLID isoID) const { return isos_[isoID]; }
-  DNLID getNumIsos() const { return isos_.size(); }
+  const DNLIso& getIsoFromIsoIDconst(DNLID isoID) const { if (isoID == DNLID_MAX) {return isos_.back();} return isos_[isoID]; }
+  DNLID getNumIsos() const { return isos_.size() - 1/* due to null iso*/; }
   std::vector<DNLID> getFullIso(DNLID);
 
  private:
@@ -159,7 +185,7 @@ class DNLIsoDB {
 template <class DNLInstance, class DNLTerminal>
 class DNLIsoDBBuilder {
  public:
-  DNLIsoDBBuilder(DNLIsoDB& db, DNL<DNLInstance, DNLTerminal>& dnl);
+  DNLIsoDBBuilder(DNLIsoDB& db, const DNL<DNLInstance, DNLTerminal>& dnl);
   void treatDriver(const DNLTerminal& term, DNLIso& DNLIso);
   void process();
 
@@ -176,7 +202,7 @@ class DNL {
   DNL(const SNLDesign* top);
   void process();
   void display() const;
-  void getCustomIso(DNLID dnlIsoId, DNLIso& DNLIso);
+  void getCustomIso(DNLID dnlIsoId, DNLIso& DNLIso) const;
   const std::vector<DNLInstance, tbb::scalable_allocator<DNLInstance>>&
   getDNLInstances() const {
     return DNLInstances_;
@@ -185,7 +211,7 @@ class DNL {
     return leaves_;
   }
   const std::vector<DNLTerminal, tbb::scalable_allocator<DNLTerminal>>&
-  getDNLTerms() {
+  getDNLTerms() const {
     return DNLTerms_;
   }
   const DNLTerminal& getDNLTerminalFromID(DNLID id) const {
@@ -199,7 +225,7 @@ class DNL {
     return DNLInstances_[id];
   }
   const DNLTerminal& getDNLNullTerminal() const { return DNLTerms_.back(); }
-  DNLID getNBterms() const { return DNLTerms_.size(); }
+  DNLID getNBterms() const { return DNLTerms_.size() - 1; }
   const DNLInstance& getDNLNullInstance() const { return DNLInstances_.back(); }
   const DNLIsoDB& getDNLIsoDB() const { return fidb_; }
   std::vector<DNLID> getLeavesUnder(DNLID parent) const;
@@ -209,15 +235,17 @@ class DNL {
     return leaves_;
   }
   void initTermId2isoId() {
-    termId2isoId_ = std::vector<DNLID>(DNLTerms_.size());
+    termId2isoId_ = std::vector<DNLID>(DNLTerms_.size(), DNLID_MAX);
   }
   void setIsoIdforTermId(DNLID isoId, DNLID termId) {
     assert(termId < termId2isoId_.size());
     termId2isoId_[termId] = isoId;
   }
   DNLID getIsoIdfromTermId(DNLID termId) const {
-    assert(termId < termId2isoId_.size());
-    return termId2isoId_[termId];
+    if (termId < termId2isoId_.size()) {
+      return termId2isoId_[termId];
+    }
+    return DNLID_MAX;
   }
 
  private:

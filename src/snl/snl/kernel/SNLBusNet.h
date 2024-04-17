@@ -71,6 +71,8 @@ class SNLBusNet final: public SNLNet {
 
     void setType(const Type& type) override;
     bool isAssignConstant() const override;
+    virtual bool isSupply0() const override;
+    virtual bool isSupply1() const override;
 
     const char* getTypeName() const override;
     std::string getString() const override;

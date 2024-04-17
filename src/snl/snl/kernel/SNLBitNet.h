@@ -29,7 +29,10 @@ class SNLBitNet: public SNLNet {
     bool isConstant0() const { return type_.isConst0(); }
     ///\return true if this SNLBitNet is a constant 1: Type::Assign1 or Type::Supply1.
     bool isConstant1() const { return type_.isConst1(); }
+    bool isConstant() const { return isConstant0() or isConstant1(); }
     bool isAssignConstant() const override { return type_.isAssign(); } 
+    bool isSupply0() const override { return type_.isSupply0(); } 
+    bool isSupply1() const override { return type_.isSupply1(); } 
 
     ///\return the collection of SNLComponent ot this SNLBitNet
     NajaCollection<SNLNetComponent*> getComponents() const;
