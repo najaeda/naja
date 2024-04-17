@@ -3,11 +3,14 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "RemoveLoadlessLogic.h"
 #include <vector>
+#include <spdlog/spdlog.h>
+
 #include "SNLBusNetBit.h"
 #include "SNLDB0.h"
 #include "SNLUniverse.h"
+
+#include "RemoveLoadlessLogic.h"
 #include "Utils.h"
 
 using namespace naja::DNL;
@@ -281,8 +284,9 @@ void LoadlessLogicRemover::removeLoadlessInstances(
   }
 //#ifdef DEBUG_PRINTS
   // LCOV_EXCL_START
-  printf("Deleted %lu leaf instances out of %lu\n", loadlessInstances.size(),
-         dnl_->getLeaves().size());
+  spdlog::info("Deleted {} leaf instances out of {}",
+      loadlessInstances.size(),
+      dnl_->getLeaves().size());
   // LCOV_EXCL_STOP
 ///#endif
 }
@@ -299,6 +303,5 @@ void LoadlessLogicRemover::removeLoadlessLogic() {
                           loadlessInstances);
   DNL::destroy();
 }
-
 
 }  // namespace naja::NAJA_OPT
