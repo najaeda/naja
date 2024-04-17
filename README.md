@@ -40,15 +40,27 @@ This project is supported and funded by NLNet through the [NGI0 Entrust](https:/
 naja_edit -f verilog -t snl -i input.v -o output.snl
 ```
 
-- **Netlist Editing**: Utilize the SNL Python API for netlist editing.
+- **Python Netlist Manipulation/Editing**: Use the SNL Python API for netlist manipulation: browsing, computing stats or editing. It is possible to
+apply Python script at two stages: after loading (-e) or before saving (-z) the netlist.
 
 ```bash
 #translation from verilog to SNL with intermediate editing
 naja_edit -f verilog -t snl -i input.v -o output.snl -e script.py
 ```
 
-- **Netlist Optimizations**: Utilize the SNL Python API for netlist editing.
+- **Netlist Logic optimizations across hierarchy boundaries**: Apply built-in
+optimization algorithms on the netlist across hierarchy boundaries with
+minimized uniquification. Accesible with the -a option.
+One optimization type is currently available: Dead Logic Optimization (-a dle or -a all).
 
+```bash
+# -1: Load input netlist from SNL format.
+# -2: Apply pre_edit.py script on the netlist
+# -3: Apply Dead Logic Optimization
+# -4: Apply post_edit.py on the resulting netlist
+# -5: Save netlist in SNL format to output.snl
+naja_edit -f snl -t snl -i input.snl -o output.snl -a dle -e pre_script.py -z post_edit.py
+```
 
 `naja_edit` editing script examples are available [here](https://github.com/najaeda/naja/blob/main/src/apps/edit/examples).
 
