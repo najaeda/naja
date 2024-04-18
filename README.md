@@ -79,6 +79,10 @@ for future releases.
 
 `naja_edit` editing script examples are available [here](https://github.com/najaeda/naja/blob/main/src/apps/edit/examples).
 
+<div align="right">[ <a href="#Introduction">↑ Back to top ↑</a> ]</div>
+
+---
+
 ## Naja
 
 ### Why Naja ?

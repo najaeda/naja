@@ -6,7 +6,7 @@
 # Asap7 primitives for the 7.5 tracks (v28), 6 tracks (v26), and SRAM banks (v0.0) models.
 # It contains LVT, RVT, SLVT, and SRAM type cells.
 
-import snl
+from naja import snl as snl
 
 def srambank_256x4x64_6t122(lib):
   cell = snl.SNLDesign.createPrimitive(lib, "srambank_256x4x64_6t122")
