@@ -119,6 +119,7 @@ TEST_F(SNLOccurrenceTest, testh0Level) {
   EXPECT_EQ(iTerm, h0iTermOccurrence.getTerm());
   EXPECT_EQ(iTerm->getNet(), h0iTermOccurrence.getNet());
   EXPECT_EQ(SNLBitNetOccurrence(h0Path, iTerm->getNet()), h0iTermOccurrence.getNetOccurrence());
+  EXPECT_TRUE(SNLBitNetOccurrence(iTerm->getNet()).isValid());
   EXPECT_LT(SNLBitTermOccurrence(), h0iTermOccurrence);
   EXPECT_LT(h0iTermOccurrence, SNLBitNetOccurrence(h0Path, iTerm->getNet()));
 

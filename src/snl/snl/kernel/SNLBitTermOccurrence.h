@@ -15,10 +15,21 @@ class SNLBitTermOccurrence: public SNLNetComponentOccurrence {
   public:
     using super = SNLNetComponentOccurrence;
 
+    /// \brief SNLBitTermOccurrence empty constructor.
     SNLBitTermOccurrence() = default;
+    /**
+     * \brief SNLBitTermOccurrence constructor with an empty path.
+     * \param term referenced SNLBitTerm.
+     */
     SNLBitTermOccurrence(SNLBitTerm* term);
+    /**
+     * \brief SNLBitTermOccurrence constructor.
+     * \param path SNLPath to the referenced SNLBitNet. 
+     * \param term referenced SNLBitTerm.
+     */
     SNLBitTermOccurrence(const SNLPath& path, SNLBitTerm* term);
 
+    /// \return referenced SNLBitTerm.
     SNLBitTerm* getTerm() const;
 };
 
