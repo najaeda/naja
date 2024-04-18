@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import snl
+from naja import snl as snl
 
 def constructBUF(lib, X):
   cell = snl.SNLDesign.createPrimitive(lib, "BUF_X" + str(X))
