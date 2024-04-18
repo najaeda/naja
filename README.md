@@ -11,7 +11,7 @@
 
 Naja is an Electronic Design Automation (EDA) project that provides open source data structures and APIs for the development of post logic synthesis EDA algorithms such as: netlist simplification (constant and dead logic propagation), logic replication, netlist partitioning, ASIC and FPGA place and route, …
 
-Naja provides a tool: [naja-edit](#naja_edit) allowing to translate netlist from/to verilog from/to [SNL interchange format](#snl-interchange-format) and to edit netlist using [SNL python API](#python).
+Naja best starting point is: [naja-edit](#naja_edit).
 
 If you are looking to build your own EDA tool, Naja contains two primary API components:
 
@@ -40,19 +40,17 @@ The workflow for `naja_edit` is outlined in the schema below. It's important to 
 
 #### Workflow Details
 
-- **Input/Output format**: Supports structural (gate-level) Verilog and
-[SNL Interchange Format](SNL Interchange Format).
-Convert netlists between formats by specifying  the input (`-f`)
-and output (`-t`) options.
+- **Input/Output format**: Supports structural (gate-level) Verilog and [SNL Interchange Format](#snl-interchange-format).
+Convert netlists between formats by specifying the input (`-f`) and output (`-t`) options.
 
 ```bash
 #translation from verilog to SNL
 naja_edit -f verilog -t snl -i input.v -o output.snl
 ```
 
-- **Python Netlist Manipulation/Editing**: Leverage the SNL Python API for netlist manipulations such as browsing, computing stats or direct editing.
-Scripts can be applied after loading (`-e` option) or before saving (`-z` option)
-the netlist.
+- **Python Netlist Manipulation/Editing**: Leverage the [SNL Python API](#python)
+for netlist manipulations such as browsing, computing stats or direct editing.
+Scripts can be applied after loading (`-e` option) or before saving (`-z` option) the netlist.
 
 ```bash
 #translation from verilog to SNL with intermediate editing
@@ -78,6 +76,9 @@ Additional layers of optimization, such as constant propagation, are planned
 for future releases.
 
 `naja_edit` editing script examples are available [here](https://github.com/najaeda/naja/blob/main/src/apps/edit/examples).
+
+The [Naja Regress](https://github.com/najaeda/naja-regress) repository features a collection of examples
+showcasing extensive use of `naja_edit`.
 
 <div align="right">[ <a href="#Introduction">↑ Back to top ↑</a> ]</div>
 
