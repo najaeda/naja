@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import sys
-import snl
+from naja import snl
 
 def main() -> int:
   u = snl.SNLUniverse.create()
