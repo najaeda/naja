@@ -29,35 +29,40 @@ This project is supported and funded by NLNet through the [NGI0 Entrust](https:/
 
 ### naja_edit
 
+`naja_edit`, located in the `$NAJA_INSTALL/bin` directory, is a tool designed for
+optimizing, editing and translating netlists.
 
-`naja_edit`, accessible via the `$NAJA_INSTALL/bin` directory, is a tool designed for netlist translation, optimization and editing:
+#### Workflow Overview
 
-- **Input/Output format support**: Structural (gate-level) Verilog and
-[SNL Interchange Format](SNL Interchange Format) are supported. It is possible
-to translate a netlist from one format to another by setting input (-f)
-and output(-t) formats.
+The workflow for `naja_edit` is outlined in the schema below. It's important to note that the only mandatory step in the process is the initial loading of the input netlist.
+
+![Naja-Edit](./docs/images/Naja-Edit.png)
+
+#### Workflow Details
+
+- **Input/Output format**: Supports structural (gate-level) Verilog and
+[SNL Interchange Format](SNL Interchange Format).
+Convert netlists between formats by specifying  the input (`-f`)
+and output (`-t`) options.
 
 ```bash
 #translation from verilog to SNL
 naja_edit -f verilog -t snl -i input.v -o output.snl
 ```
 
-- **Python Netlist Manipulation/Editing**: Use the SNL Python API for netlist manipulation: browsing, computing stats or editing. It is possible to
-apply Python script at two stages: after loading (-e) or before saving (-z) the netlist.
+- **Python Netlist Manipulation/Editing**: Leverage the SNL Python API for netlist manipulations such as browsing, computing stats or direct editing.
+Scripts can be applied after loading (`-e` option) or before saving (`-z` option)
+the netlist.
 
 ```bash
 #translation from verilog to SNL with intermediate editing
 naja_edit -f verilog -t snl -i input.v -o output.snl -e script.py
 ```
 
-- **Netlist Logic optimizations across hierarchy boundaries**: Apply built-in
-optimization algorithms on the netlist across hierarchy boundaries with
-minimized uniquification. Accesible with the -a option.
-One optimization type is currently available: Dead Logic Optimization (-a dle or -a all).
-
-Other layers of optmization starting with constant propagation will be added in the future.
-
-![Naja-Edit](./docs/images/Naja-Edit.png)
+- **Netlist Logic optimizations across hierarchy boundaries**: Utilize built-in
+optimization algorithms to refine the netlist acroos hierarchical boundaries
+with minimal uniquification.  Available optimizations include Dead Logic Elimination (DLE).
+Access this feature using the `-a` option: `-a dle`.
 
 ```bash
 # -1: Load input netlist from SNL format.
@@ -65,8 +70,12 @@ Other layers of optmization starting with constant propagation will be added in 
 # -3: Apply Dead Logic Optimization
 # -4: Apply post_edit.py on the resulting netlist
 # -5: Save netlist in SNL format to output.snl
-naja_edit -f snl -t snl -i input.snl -o output.snl -a dle -e pre_script.py -z post_edit.py
+naja_edit -f snl -t snl -i input.snl -o output.snl -a dle \ 
+          -e pre_script.py -z post_edit.py
 ```
+
+Additional layers of optimization, such as constant propagation, are planned
+for future releases.
 
 `naja_edit` editing script examples are available [here](https://github.com/najaeda/naja/blob/main/src/apps/edit/examples).
 
