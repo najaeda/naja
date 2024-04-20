@@ -7,6 +7,8 @@
 #include <filesystem>
 #include <fstream>
 
+#include "spdlog/spdlog.h"
+
 #include "SNLUniverse.h"
 #include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
@@ -42,6 +44,7 @@ class SNLVRLConstructorTest1: public ::testing::Test {
 };
 
 TEST_F(SNLVRLConstructorTest1, test) {
+  spdlog::set_level(spdlog::level::trace);
   SNLVRLConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_VRL_BENCHMARKS_PATH);
   constructor.parse(benchmarksPath/"test0.v");
@@ -87,6 +90,21 @@ TEST_F(SNLVRLConstructorTest1, test) {
   
   constructor.setFirstPass(false);
   constructor.parse(benchmarksPath/"test0.v");
+
+  EXPECT_TRUE(mod0->isBlackBox());
+  EXPECT_EQ(4, mod0->getNets().size());
+  {
+    auto i0Net = mod0->getNet(SNLName("i0"));
+    ASSERT_NE(i0Net, nullptr);
+    auto i0ScalarNet = dynamic_cast<SNLScalarNet*>(i0Net);
+    EXPECT_EQ(SNLNet::Type::Standard, i0ScalarNet->getType());
+    EXPECT_FALSE(i0ScalarNet->getBitTerms().empty());
+    EXPECT_EQ(1, i0ScalarNet->getBitTerms().size());
+    EXPECT_EQ(mod0i0, *(i0ScalarNet->getBitTerms().begin()));
+  }
+  EXPECT_TRUE(mod1->isBlackBox());
+  EXPECT_EQ(4, mod1->getNets().size());
+  
   auto top = SNLUtils::findTop(library_);
   EXPECT_EQ(top, test);
   //2 assign nets + 10 (3 terms) standard nets

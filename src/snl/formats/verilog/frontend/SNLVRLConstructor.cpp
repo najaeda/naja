@@ -8,6 +8,8 @@
 #include <iostream>
 #include <sstream>
 
+#include "spdlog/spdlog.h"
+
 #include "SNLUniverse.h"
 #include "SNLDB0.h"
 #include "SNLLibrary.h"
@@ -26,6 +28,7 @@
 namespace {
 
 void createPort(naja::SNL::SNLDesign* design, const naja::verilog::Port& port) {
+  spdlog::trace("Module {} create port: {}", design->getDescription(), port.getString());
   if (port.isBus()) {
     naja::SNL::SNLBusTerm::create(
       design,
@@ -42,6 +45,7 @@ void createPort(naja::SNL::SNLDesign* design, const naja::verilog::Port& port) {
 }
 
 void createPortNet(naja::SNL::SNLDesign* design, const naja::verilog::Port& port) {
+  spdlog::trace("Module {} create port net: {}", design->getDescription(), port.getString());
   if (port.isBus()) {
     auto term = design->getBusTerm(naja::SNL::SNLName(port.identifier_.name_));
     auto net = naja::SNL::SNLBusNet::create(
@@ -57,6 +61,21 @@ void createPortNet(naja::SNL::SNLDesign* design, const naja::verilog::Port& port
       naja::SNL::SNLName(port.identifier_.name_));
     term->setNet(net);
   }
+}
+
+bool allNetsArePortNets(naja::SNL::SNLDesign* design) {
+  for (auto net: design->getBitNets()) {
+    if (net->isAssignConstant()) {
+      continue;
+    }
+    if (net->getBitTerms().empty()) {
+      spdlog::info("Net {} in {} is not a port net", 
+        net->getName().getString(),
+        design->getName().getString());
+      return false;
+    }
+  }
+  return true;
 }
 
 }
@@ -225,9 +244,6 @@ void SNLVRLConstructor::moduleImplementationPort(const naja::verilog::Port& port
 
 void SNLVRLConstructor::moduleInterfaceCompletePort(const naja::verilog::Port& port) {
   if (inFirstPass()) {
-    if (verbose_) {
-      std::cerr << "Add port: " << port.getString() << std::endl; //LCOV_EXCL_LINE
-    }
     createPort(currentModule_, port);
   } else {
     createPortNet(currentModule_, port);
@@ -592,6 +608,16 @@ void SNLVRLConstructor::endModule() {
     }
     for (auto& port: currentModuleInterfacePorts_) {
       createPort(currentModule_, *port);
+    }
+  } else {
+    //Blackbox detection
+    if (blackboxDetection_ and currentModule_->getType() == SNLDesign::Type::Standard) {
+      if (currentModule_->getInstances().empty()) {
+        if (allNetsArePortNets(currentModule_)) {
+          currentModule_->setType(SNLDesign::Type::Blackbox);
+          spdlog::info("Blackbox detected: {}", currentModule_->getName().getString());
+        }
+      }
     }
   }
   currentModule_ = nullptr;

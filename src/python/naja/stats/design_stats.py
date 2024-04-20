@@ -7,13 +7,20 @@ from naja import snl
 
 class DesignStats:
   def __init__(self):
+    self.assigns = 0
+    self.flat_assigns = 0
     self.primitives = dict()
     self.flat_primitives = dict()
+    self.blackboxes = dict()
+    self.flat_blackboxes = dict()
     self.ins = dict()
     self.flat_ins = dict()
   def add_ins_stats(self, ins_stats):
+    self.flat_assigns += ins_stats.flat_assigns
     for ins, nb in ins_stats.flat_ins.items():
       self.flat_ins[ins] = self.flat_ins.get(ins, 0) + nb
+    for ins, nb in ins_stats.flat_blackboxes.items():
+      self.flat_blackboxes[ins] = self.flat_blackboxes.get(ins, 0) + nb
     for primitive, nb in ins_stats.flat_primitives.items():
       self.flat_primitives[primitive] = self.flat_primitives.get(primitive, 0) + nb
 
@@ -23,9 +30,15 @@ def compute_design_stats(design, designs_stats):
   design_stats = DesignStats()
   for ins in design.getInstances():
     model = ins.getModel()
-    if model.isPrimitive():
+    if model.isAssign():
+      design_stats.assigns += 1
+      design_stats.flat_assigns += 1
+    elif model.isPrimitive():
       design_stats.primitives[model] = design_stats.primitives.get(model, 0) + 1
       design_stats.flat_primitives[model] = design_stats.flat_primitives.get(model, 0) + 1
+    elif model.isBlackBox():
+      design_stats.blackboxes[model] = design_stats.blackboxes.get(model, 0) + 1
+      design_stats.flat_blackboxes[model] = design_stats.flat_blackboxes.get(model, 0) + 1
     else:
       if model in designs_stats:
         model_stats = designs_stats[model]
@@ -59,7 +72,7 @@ def dump_instances(stats_file, title, instances):
   stats_file.write('\n\n')
 
 def dump_stats(design, stats_file, designs_stats, dumped_models):
-  if design.isPrimitive():
+  if design.isPrimitive() or design.isBlackBox():
     return
   if design in dumped_models:
     return
@@ -71,8 +84,14 @@ def dump_stats(design, stats_file, designs_stats, dumped_models):
     raise
   dump_instances(stats_file, 'Instances:', design_stats.ins)
   dump_instances(stats_file, 'Primitives:', design_stats.primitives)
+  dump_instances(stats_file, 'Blackboxes:', design_stats.blackboxes)
+  if design_stats.assigns > 0:
+    stats_file.write('Assigns: ' + str(design_stats.assigns) + '\n')
+  dump_instances(stats_file, 'Flat Blackboxes:', design_stats.flat_blackboxes)
   dump_instances(stats_file, 'Flat Instances:', design_stats.flat_ins)
   dump_instances(stats_file, 'Flat Primitives:', design_stats.flat_primitives)
+  if design_stats.flat_assigns > 0:
+    stats_file.write('Flat Assigns: ' + str(design_stats.flat_assigns) + '\n')
   stats_file.write('\n')
   for ins in design.getInstances():
     model = ins.getModel()

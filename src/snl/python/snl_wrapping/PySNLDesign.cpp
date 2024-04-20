@@ -301,7 +301,9 @@ GetObjectByName(Design, BusNet)
 GetObjectByName(Design, Parameter)
 GetNameMethod(SNLDesign)
 GetBoolAttribute(Design, isAnonymous)
+GetBoolAttribute(Design, isBlackBox)
 GetBoolAttribute(Design, isPrimitive)
+GetBoolAttribute(Design, isAssign)
 GetContainerMethod(Design, Term, Terms, Terms)
 GetContainerMethod(Design, BitTerm, BitTerms, BitTerms)
 GetContainerMethod(Design, ScalarTerm, ScalarTerms, ScalarTerms)
@@ -338,8 +340,12 @@ PyMethodDef PySNLDesign_Methods[] = {
     "get SNLDesign name"},
   { "isAnonymous", (PyCFunction)PySNLDesign_isAnonymous, METH_NOARGS,
     "Returns True if the SNLDesign is anonymous"},
+  { "isBlackBox", (PyCFunction)PySNLDesign_isBlackBox, METH_NOARGS,
+    "Returns True if the SNLDesign is a Blackbox"},
   { "isPrimitive", (PyCFunction)PySNLDesign_isPrimitive, METH_NOARGS,
     "Returns True if the SNLDesign is a Primitive"},
+  { "isAssign", (PyCFunction)PySNLDesign_isAssign, METH_NOARGS,
+    "Returns True if the SNLDesign is an Assign"},
   { "getDB", (PyCFunction)PySNLDesign_getDB, METH_NOARGS,
     "Returns the SNLDesign owner SNLDB."},
   { "getLibrary", (PyCFunction)PySNLDesign_getLibrary, METH_NOARGS,
