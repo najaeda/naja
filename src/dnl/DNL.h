@@ -14,6 +14,7 @@
 #include <vector>
 #include "SNLUniverse.h"
 #include "tbb/scalable_allocator.h"
+#include "tbb/concurrent_vector.h"
 #include <tbb/task_arena.h>
 #include "SNLBitNet.h"
 #include "SNLBitTerm.h"
@@ -186,14 +187,13 @@ template <class DNLInstance, class DNLTerminal>
 class DNLIsoDBBuilder {
  public:
   DNLIsoDBBuilder(DNLIsoDB& db, const DNL<DNLInstance, DNLTerminal>& dnl);
-  void treatDriver(const DNLTerminal& term, DNLIso& DNLIso);
+  void treatDriver(const DNLTerminal& term, DNLIso& DNLIso, bool updateIsoID = false);
   void process();
 
  private:
   DNLIso& addIsoToDB() { return db_.addIso(); }
   DNLIsoDB& db_;
   DNL<DNLInstance, DNLTerminal> dnl_;
-  std::vector<bool> visited_;
 };
 
 template <class DNLInstance, class DNLTerminal>

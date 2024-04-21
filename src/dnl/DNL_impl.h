@@ -7,13 +7,14 @@
 #define DNL_IMPL_H
 
 #include "DNL.h"
-
 //#define DEBUG_PRINTS
 
 template <class DNLInstance, class DNLTerminal>
 void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::treatDriver(
     const DNLTerminal& term,
-    DNLIso& DNLIso) {
+    DNLIso& DNLIso, bool updateIsoID) {
+  std::vector<bool> visited;
+  visited.resize(dnl_.getDNLTerms().size(), false);
 #ifdef DEBUG_PRINTS
   printf("------------------------treatDriver-----------------------\n");
 #endif
@@ -30,7 +31,9 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::treatDriver(
 
       if (freader == term.getID())
         continue;
-      dnl_.getDNLTerminalFromID(freader).setIsoID(DNLIso.getIsoID());
+      if (updateIsoID) {
+        dnl_.getDNLTerminalFromID(freader).setIsoID(DNLIso.getIsoID());
+      }
       if (dnl_.getDNLTerminalFromID(freader)
               .getDNLInstance()
               .getSNLInstance()
@@ -58,7 +61,7 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::treatDriver(
     stack.pop();
     const DNLTerminal& fterm = dnl_.getDNLTerminalFromID(id);
     assert(fterm.getID() == id);
-    if (visited_[id]) {
+    if (visited[id]) {
 #ifdef DEBUG_PRINTS
       // LCOV_EXCL_START
       printf(
@@ -82,7 +85,9 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::treatDriver(
       // LCOV_EXCL_STOP
 #endif
       DNLIso.addReader(fterm.getID());
-      dnl_.getDNLTerminalFromID(fterm.getID()).setIsoID(DNLIso.getIsoID());
+      if (updateIsoID) {
+        dnl_.getDNLTerminalFromID(fterm.getID()).setIsoID(DNLIso.getIsoID());
+      }
       continue;
     }
 
@@ -98,7 +103,7 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::treatDriver(
         fterm.getSnlTerm()->getDirection().getString().c_str());
     // LCOV_EXCL_STOP
 #endif
-    visited_[id] = true;
+    visited[id] = true;
     SNLBitNet* snlNet = fterm.getSnlTerm()->getNet();
     DNLIso.addNet(snlNet);
     const DNLInstance* DNLParent = &fterm.getDNLInstance().getParentInstance();
@@ -119,8 +124,10 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::treatDriver(
       // LCOV_EXCL_STOP
 #endif
       DNLIso.addHierTerm(fterm.getID());
-      dnl_.getDNLTerminalFromID(fterm.getID())
+      if (updateIsoID) {
+        dnl_.getDNLTerminalFromID(fterm.getID())
               .setIsoID(DNLIso.getIsoID());
+      }
     }
 
 #ifdef DEBUG_PRINTS
@@ -211,7 +218,7 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::treatDriver(
           //------------------------------
           // if (ftermNew.getID() == term.getID()) continue;
           if (term.getID() != ftermNew.getID()) {
-            assert(false);
+            //assert(false);
             DNLIso.addDriver(ftermNew.getID());
 #ifdef DEBUG_PRINTS
             // LCOV_EXCL_START
@@ -234,8 +241,10 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::treatDriver(
           //-------------------------------- Input of blakbox -> add as reader
           //------------------------------
           DNLIso.addReader(ftermNew.getID());
-          dnl_.getDNLTerminalFromID(ftermNew.getID())
+          if (updateIsoID) {
+            dnl_.getDNLTerminalFromID(ftermNew.getID())
               .setIsoID(DNLIso.getIsoID());
+          }
 #ifdef DEBUG_PRINTS
           // LCOV_EXCL_START
           printf(
@@ -285,7 +294,7 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::treatDriver(
       // LCOV_EXCL_STOP
 #endif
       const DNLTerminal& ftermNew = DNLParent->getTerminalFromBitTerm(bitTerm);
-      if (visited_[ftermNew.getID()]) {
+      if (visited[ftermNew.getID()]) {
 #ifdef DEBUG_PRINTS
         // LCOV_EXCL_START
         printf(
@@ -444,7 +453,6 @@ DNLIsoDBBuilder<DNLInstance, DNLTerminal>::DNLIsoDBBuilder(
     DNLIsoDB& db,
     const DNL<DNLInstance, DNLTerminal>& dnl)
     : db_(db), dnl_(dnl) {
-  visited_.resize(dnl_.getDNLTerms().size(), false);
 }
 
 template <class DNLInstance, class DNLTerminal>
@@ -472,12 +480,12 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::process() {
             SNLTerm::Direction::DirectionEnum::Output &&
         dnl_.getDNLTerminalFromID(term).getSnlBitTerm()->getNet()) {
       DNLIso& DNLIso = addIsoToDB();
-      visited_[term] = true;
       DNLIso.addDriver(term);
       tasks.push_back(term);
       dnl_.getDNLTerminalFromID(term).setIsoID(DNLIso.getIsoID());
     }
   }
+  tbb::concurrent_vector<DNLID> multiDriverIsos;
   if (!getenv("NON_MT")) {
 #ifdef DEBUG_PRINTS
     // LCOV_EXCL_START
@@ -491,7 +499,14 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::process() {
           for (DNLID i = r.begin(); i < r.end(); ++i) {
             treatDriver(dnl_.getDNLTerminalFromID(tasks[i]),
                         db_.getIsoFromIsoID(
-                            dnl_.getDNLTerminalFromID(tasks[i]).getIsoID()));
+                            dnl_.getDNLTerminalFromID(tasks[i]).getIsoID()), true);
+            if (db_.getIsoFromIsoID(
+                    dnl_.getDNLTerminalFromID(tasks[i]).getIsoID())
+                    .getDrivers()
+                    .size() > 1) {
+              multiDriverIsos.push_back(
+                  dnl_.getDNLTerminalFromID(tasks[i]).getIsoID());
+            }
           }
         });
   } else {
@@ -503,8 +518,21 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::process() {
     for (auto task : tasks) {
       treatDriver(
           dnl_.getDNLTerminalFromID(task),
-          db_.getIsoFromIsoID(dnl_.getDNLTerminalFromID(task).getIsoID()));
+          db_.getIsoFromIsoID(dnl_.getDNLTerminalFromID(task).getIsoID()), true);
+      if (db_.getIsoFromIsoID(dnl_.getDNLTerminalFromID(task).getIsoID())
+              .getDrivers()
+              .size() > 1) {
+        multiDriverIsos.push_back(dnl_.getDNLTerminalFromID(task).getIsoID());
+      }
     }
+    
+  }
+  if (!multiDriverIsos.empty()) {
+    for (DNLID iso : multiDriverIsos) {
+      DNLIso& DNLIso = db_.getIsoFromIsoID(iso);
+      treatDriver(dnl_.getDNLTerminalFromID(DNLIso.getDrivers()[0]), DNLIso);
+    }
+  
   }
 #ifdef DEBUG_PRINTS
   // LCOV_EXCL_START
