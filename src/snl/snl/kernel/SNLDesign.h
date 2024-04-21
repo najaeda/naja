@@ -41,7 +41,8 @@ class SNLDesign final: public SNLObject {
           Standard, Blackbox, Primitive
         };
         Type(const TypeEnum& typeEnum);
-        Type(const Type& type) = default;
+        Type(const Type&) = default;
+        Type& operator=(const Type&) = default;
         operator const TypeEnum&() const {return typeEnum_;}
         std::string getString() const;
         private:
@@ -198,11 +199,17 @@ class SNLDesign final: public SNLObject {
     
     /// \return this SNLDesign Type.
     Type getType() const { return type_; }
+    ///Set this SNLDesign Type
+    ///\warning setType cannot be called to set a design as a primitive.
+    void setType(Type type);
+    ///\return true if this SNLDesign is a standard design.
     bool isStandard() const { return type_ == Type::Standard; }
     ///\return true if this SNLDesign is a blackbox.
     bool isBlackBox() const { return type_ == Type::Blackbox; }
     ///\return true if this SNLDesign is a primitive.
     bool isPrimitive() const { return type_ == Type::Primitive; }
+    ///\return true if this SNLDesign is the Assign primitive (in verilog: assign net1 = net0).
+    bool isAssign() const;
     ///\return true if this SNLDesign is a hierarchy leaf (blackbox or primitive).
     bool isLeaf() const { return isBlackBox() or isPrimitive(); }
     ///\return true if this SNLDesign is a top design.

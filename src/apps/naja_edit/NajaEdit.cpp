@@ -252,8 +252,8 @@ int main(int argc, char* argv[]) {
       SNLPyEdit::edit(editPath);
     }
 
-    if (optimizationType != OptimizationType::DLE
-        or optimizationType != OptimizationType::ALL) {
+    if (optimizationType == OptimizationType::DLE
+        or optimizationType == OptimizationType::ALL) {
       const auto start{std::chrono::steady_clock::now()};
       spdlog::info("Starting removal of loadless logic");
       LoadlessLogicRemover remover;

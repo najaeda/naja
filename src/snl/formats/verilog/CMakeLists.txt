@@ -20,6 +20,7 @@ target_link_libraries(naja_snl_verilog naja_verilog naja_snl)
 target_include_directories(naja_snl_verilog PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/frontend
   ${CMAKE_CURRENT_SOURCE_DIR}/backend)
+target_include_directories(naja_snl_verilog PUBLIC ${SPDLOG_DIR})
 
 set_target_properties(naja_snl_verilog PROPERTIES PUBLIC_HEADER "${HEADERS}")
 install(TARGETS naja_snl_verilog LIBRARY DESTINATION lib PUBLIC_HEADER DESTINATION include) 

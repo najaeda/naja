@@ -78,6 +78,7 @@ class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
 
     bool              verbose_                        {false};
     bool              firstPass_                      {true};
+    bool              blackboxDetection_              {true};
     SNLLibrary*       library_                        {nullptr};
     SNLDesign*        currentModule_                  {nullptr};
     std::string       currentModelName_               {};

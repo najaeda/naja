@@ -2,4 +2,4 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-INSTALL(FILES xilinx.py asap7.py nangate45.py DESTINATION shared/primitives)
+INSTALL(FILES xilinx.py asap7.py nangate45.py sg13g2.py DESTINATION shared/primitives)
