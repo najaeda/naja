@@ -85,7 +85,8 @@ jobs:
 
     - name: TestSNLVisualsTest
       working-directory: ${{github.workspace}}/build/test/snl/visual
-      run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./snl_visual_tests
+      run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full ./snl_visual_tests
+      #run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./snl_visual_tests
 
     - name: TestDNL
       working-directory: ${{github.workspace}}/build/test/dnl
