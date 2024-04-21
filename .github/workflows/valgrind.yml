@@ -46,6 +46,10 @@ jobs:
       working-directory: ${{github.workspace}}/build/test/snl/snl/kernel
       run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./snlTests
 
+    - name: TestDecoratorsTest
+      working-directory: ${{github.workspace}}/build/test/snl/snl/decorators
+      run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./snlDecoratorsTests
+
     - name: TestSNLKernelWithPyLoader
       working-directory: ${{github.workspace}}/build/test/snl/snl/kernel
       env:
@@ -78,3 +82,15 @@ jobs:
         PYTHONPATH: ${{env.PYTHONPATH}}:${{github.workspace}}/build/src/snl/python/snl_wrapping
         PYTHONMALLOC: malloc
       run: valgrind --error-exitcode=1 --show-leak-kinds=definite --leak-check=full --errors-for-leak-kinds=definite ./snlPyLoaderTests --gtest_filter=-"*testFaultyPythonScript*" 
+
+    - name: TestSNLVisualsTest
+      working-directory: ${{github.workspace}}/build/test/snl/visual
+      run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./snl_visual_tests
+
+    - name: TestDNL
+      working-directory: ${{github.workspace}}/build/test/dnl
+      run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./dnlTests
+
+    - name: TestDLE
+      working-directory: ${{github.workspace}}/build/test/logic_opt
+      run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./LoadlessLogicRemoverTests
