@@ -148,12 +148,14 @@ int main(int argc, char* argv[]) {
     }
   }
 
-  auto optimizationArg = program.present("-a");
-  std::string optimization = *optimizationArg;
-  OptimizationType optimizationType = argToOptimizationType(optimization);
-  if (optimizationType == OptimizationType::UNKNOWN) {
-    spdlog::critical("Unrecognized optimization type: {}", optimization);
-    argError = true;
+  OptimizationType optimizationType = OptimizationType::NOT_PROVIDED;
+  if (auto optimizationArg = program.present("-a")) {
+    std::string optimization = *optimizationArg;
+    optimizationType = argToOptimizationType(optimization);
+    if (optimizationType == OptimizationType::UNKNOWN) {
+      spdlog::critical("Unrecognized optimization type: {}", optimization);
+      argError = true;
+    }
   }
 
   if (argError) {
@@ -247,9 +249,17 @@ int main(int argc, char* argv[]) {
     }
 
     if (program.is_used("-e")) {
+      const auto start{std::chrono::steady_clock::now()};
       auto editPath = std::filesystem::path(program.get<std::string>("-e"));
-      spdlog::info("Post editing netlist using python script: {}", editPath.string());
+      spdlog::info("Editing netlist using python script (post netlist loading): {}", editPath.string());
       SNLPyEdit::edit(editPath);
+      const auto end{std::chrono::steady_clock::now()};
+      const std::chrono::duration<double> elapsed_seconds{end - start};
+      {
+        std::ostringstream oss;
+        oss << "Editing done in: " << elapsed_seconds.count() << "s";
+        spdlog::info(oss.str());
+      }
     }
 
     if (optimizationType == OptimizationType::DLE
@@ -268,9 +278,17 @@ int main(int argc, char* argv[]) {
     }
 
     if (program.is_used("-z")) {
+      const auto start{std::chrono::steady_clock::now()};
       auto editPath = std::filesystem::path(program.get<std::string>("-z"));
       spdlog::info("Post editing netlist using python script: {}", editPath.string());
       SNLPyEdit::edit(editPath);
+      const auto end{std::chrono::steady_clock::now()};
+      const std::chrono::duration<double> elapsed_seconds{end - start};
+      {
+        std::ostringstream oss;
+        oss << "Post editing done in: " << elapsed_seconds.count() << "s";
+        spdlog::info(oss.str());
+      }
     }
 
     if (outputFormatType == FormatType::SNL) {
