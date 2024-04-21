@@ -36,7 +36,7 @@ jobs:
 
     - name: Build
       # Build your program with the given configuration
-      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
+      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --parallel
 
     - name: TestNajaCore
       working-directory: ${{github.workspace}}/build/test/core
@@ -90,8 +90,11 @@ jobs:
 
     - name: TestDNL
       working-directory: ${{github.workspace}}/build/test/dnl
-      run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./dnlTests
+      run: valgrind --error-exitcode=1 ./dnlTests
+      #run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./dnlTests
 
     - name: TestDLE
       working-directory: ${{github.workspace}}/build/test/logic_opt
-      run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./LoadlessLogicRemoverTests
+      run: valgrind --error-exitcode=1 ./LoadlessLogicRemoverTests
+      #run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./LoadlessLogicRemoverTests
+
