@@ -15,6 +15,7 @@ class DesignStats:
     self.flat_blackboxes = dict()
     self.ins = dict()
     self.flat_ins = dict()
+    self.terms = dict()
   def add_ins_stats(self, ins_stats):
     self.flat_assigns += ins_stats.flat_assigns
     for ins, nb in ins_stats.flat_ins.items():
@@ -47,6 +48,15 @@ def compute_design_stats(design, designs_stats):
       design_stats.ins[model] = design_stats.ins.get(model, 0) + 1
       design_stats.flat_ins[model] = design_stats.flat_ins.get(model, 0) + 1
       design_stats.add_ins_stats(model_stats)
+  for term in design.getTerms():
+    if term.getDirection() == snl.SNLTerm.Direction.Input:
+      design_stats.terms["inputs"] = design_stats.terms.get("inputs", 0) + 1
+    elif term.getDirection() == snl.SNLTerm.Direction.Output:
+      design_stats.terms["outputs"] = design_stats.terms.get("outputs", 0) + 1
+    elif term.getDirection() == snl.SNLTerm.Direction.InOut:
+      design_stats.terms["inouts"] = design_stats.terms.get("inouts", 0) + 1
+    else:
+      design_stats.terms["unknowns"] = design_stats.terms.get("unknowns", 0) + 1
   designs_stats[design] = design_stats
   return design_stats
 
@@ -82,6 +92,17 @@ def dump_stats(design, stats_file, designs_stats, dumped_models):
   if design_stats is None:
     print('Cannot find ' + str(design) + ' in design_stats')
     raise
+  if len(design_stats.terms) > 0:
+    stats_file.write("Terms: ")
+    first = True
+    for terms in design_stats.terms.items():
+      if not first:
+        stats_file.write(', ')
+      else:
+        first = False
+      stats_file.write(terms[0] + ':' + str(terms[1]))
+    stats_file.write("\n")
+    
   dump_instances(stats_file, 'Instances:', design_stats.ins)
   dump_instances(stats_file, 'Primitives:', design_stats.primitives)
   dump_instances(stats_file, 'Blackboxes:', design_stats.blackboxes)
