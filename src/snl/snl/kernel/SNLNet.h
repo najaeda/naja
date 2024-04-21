@@ -35,8 +35,12 @@ class SNLNet: public SNLDesignObject {
         }
 
         operator const TypeEnum&() const { return typeEnum_; }
-        constexpr bool isAssign() const { return typeEnum_ == Assign0 or typeEnum_ == Assign1; }
-        constexpr bool isSupply() const { return typeEnum_ == Supply0 or typeEnum_ == Supply1; }
+        constexpr bool isAssign0() const { return typeEnum_ == Assign0;  }
+        constexpr bool isAssign1() const { return typeEnum_ == Assign1;  }
+        constexpr bool isAssign() const { return isAssign0() or isAssign1(); }
+        constexpr bool isSupply0() const { return typeEnum_ == Supply0; }
+        constexpr bool isSupply1() const { return typeEnum_ == Supply1; }
+        constexpr bool isSupply() const { return isSupply0() or isSupply1(); }
         constexpr bool isConst0() const { return typeEnum_ == Assign0 or typeEnum_ == Supply0; }
         constexpr bool isConst1() const { return typeEnum_ == Assign1 or typeEnum_ == Supply1; }
         constexpr bool isDriving() const { return isAssign() or isSupply(); }
@@ -46,16 +50,32 @@ class SNLNet: public SNLDesignObject {
     };
 
     SNLID::DesignObjectReference getReference() const;
+    /// \return this SNLNet unique ID in parent SNLDesign.
     virtual SNLID::DesignObjectID getID() const = 0;
-    ///\return net SNLName
+
+    /// \return net SNLName.
     virtual SNLName getName() const = 0;
-    ///\return net size, 1 for SNLScalarNet and SNLBusNetBit
+    
+    /// \return net size, 1 for SNLScalarNet and SNLBusNetBit.
     virtual SNLID::Bit getSize() const = 0;
+
+    /**
+     * \return this SNLNet SNLBitNet collection.
+     * 
+     * Will return itself for SNLScalarNet and SNLBusNetBit and a collection
+     * of SNLBusNetBit for SNLBusNet.
+     */ 
     virtual NajaCollection<SNLBitNet*> getBits() const = 0;
 
+    /// \brief Change this SNLNet type. 
     virtual void setType(const Type& type) = 0;
-    ///\return true if all bits of this net are assigned to 1'b0 or 1'b1
+
+    /// \return true if all bits of this net are assigned to 1'b0 or 1'b1.
     virtual bool isAssignConstant() const = 0;
+    ///\return true if all bits of this net are of type Supply0
+    virtual bool isSupply0() const = 0;
+    ///\return true if all bits of this net are of type Supply1
+    virtual bool isSupply1() const = 0;
 
   protected:
     SNLNet() = default;

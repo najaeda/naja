@@ -27,28 +27,38 @@ class SNLDesignObject: public SNLObject {
       }
     };
 
-    ///\return the owner SNLDesign of this SNLDesignObject
+    /// \return the owner SNLDesign of this SNLDesignObject.
     virtual SNLDesign* getDesign() const = 0;
+    /// \return the unique SNLID of this SNLDesignObject.
     virtual SNLID getSNLID() const = 0;
     SNLID getSNLID(const SNLID::Type& type,
         SNLID::DesignObjectID id,
         SNLID::DesignObjectID instanceID,
         SNLID::Bit bit) const;
-    ///\return the owner SNLLibrary of this SNLDesignObject
+    /// \return the owner SNLLibrary of this SNLDesignObject.
     SNLLibrary* getLibrary() const;
-    ///\return the owner SNLDB of this SNLDesignObject
+    /// \return the owner SNLDB of this SNLDesignObject.
     SNLDB* getDB() const;
-    ///\return true if this SNLDesignObject is anonymous, false if not.
+    /// \return true if this SNLDesignObject is anonymous, false if not.
     virtual bool isAnonymous() const = 0;
     /**
      * \brief set the SNLName of this SNLDesignObject
      * \warning this method will throw an exception if used on SNLBusTermBit, SNLBusNetBit or SNLInstTermBit
     */
     virtual void setName(const SNLName& name) = 0;
-
+    
+    /**
+     * \brief Less Compare two SNLDesignObjets by their SNLID.
+     * \param rhs Right Hand Side SNLDesignObject.
+     */
     bool operator<(const SNLDesignObject &rhs) const {
       return getSNLID() < rhs.getSNLID();
     }
+
+    /**
+     * \brief Equality Compare two SNLDesignObjets by their SNLID.
+     * \param rhs Right Hand Side SNLDesignObject.
+     */
     bool operator==(const SNLDesignObject &rhs) const {
       return getSNLID() == rhs.getSNLID();
     }

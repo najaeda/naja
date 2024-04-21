@@ -41,7 +41,8 @@ class SNLDesign final: public SNLObject {
           Standard, Blackbox, Primitive
         };
         Type(const TypeEnum& typeEnum);
-        Type(const Type& type) = default;
+        Type(const Type&) = default;
+        Type& operator=(const Type&) = default;
         operator const TypeEnum&() const {return typeEnum_;}
         std::string getString() const;
         private:
@@ -51,8 +52,31 @@ class SNLDesign final: public SNLObject {
     SNLDesign() = delete;
     SNLDesign(const SNLDesign& design) = delete;
 
+    /**
+     * \brief Create a SNLDesign.
+     * \param library owning SNLLibrary.
+     * \param name SNLName of the SNLDesign. If empty, the SNLDesign is anonymous.
+     * \return the created SNLDesign.
+     */
     static SNLDesign* create(SNLLibrary* library, const SNLName& name=SNLName());
+
+    /**
+     * \brief Create a SNLDesign with a specific Type.
+     * \param library owning SNLLibrary.
+     * \param type the Type of the SNLDesign to create.
+     * \param name SNLName of the SNLDesign. If empty, the SNLDesign is anonymous.
+     * \return the created SNLDesign.
+     */
     static SNLDesign* create(SNLLibrary* library, Type type, const SNLName& name=SNLName());
+    
+    /**
+     * \brief Create a SNLDesign with a specific SNLID::DesignID and a specific Type.
+     * \param library owning SNLLibrary.
+     * \param id the SNLID::DesignID of the SNLDesign to create.
+     * \param type the Type of the SNLDesign to create.
+     * \param name SNLName of the SNLDesign. If empty, the SNLDesign is anonymous.
+     * \return the created SNLDesign.
+     */
     static SNLDesign* create(SNLLibrary* library, SNLID::DesignID id, Type type, const SNLName& name=SNLName());
 
     struct PointerLess {
@@ -63,102 +87,129 @@ class SNLDesign final: public SNLObject {
 
     ///\return owning SNLDB
     SNLDB* getDB() const;
-    ///\return owning SNLLibrary
+    /// \return owning SNLLibrary.
     SNLLibrary* getLibrary() const { return library_; }
 
-    ///\return SNLTerm with SNLID::DesignObjectID id or nullptr if it does not exist
+    /// \return SNLTerm with SNLID::DesignObjectID id or nullptr if it does not exist.
     SNLTerm* getTerm(SNLID::DesignObjectID id) const;
-    ///\return SNLTerm with SNLName name or nullptr if it does not exist
+    /// \return SNLTerm with SNLName name or nullptr if it does not exist
     SNLTerm* getTerm(const SNLName& name) const;
-    ///\return SNLScalarTerm with SNLID::DesignObjectID id or nullptr if it does not exist
+    /// \return SNLScalarTerm with SNLID::DesignObjectID id or nullptr if it does not exist
     SNLScalarTerm* getScalarTerm(SNLID::DesignObjectID id) const;
-    ///\return SNLScalarTerm with SNLName termName or nullptr if it does not exist
+    /// \return SNLScalarTerm with SNLName termName or nullptr if it does not exist
     SNLScalarTerm* getScalarTerm(const SNLName& termName) const;
-    ///\return SNLBusTerm with SNLID::DesignObjectID id or nullptr if it does not exist
+    /// \return SNLBusTerm with SNLID::DesignObjectID id or nullptr if it does not exist
     SNLBusTerm* getBusTerm(SNLID::DesignObjectID id) const;
-    ///\return SNLBusTerm with SNLName termName or nullptr if it does not exist
+    /// \return SNLBusTerm with SNLName termName or nullptr if it does not exist
     SNLBusTerm* getBusTerm(const SNLName& termName) const;
-    ///\return the collection of SNLTerm of this SNLDesign
+    /// \return the collection of SNLTerm of this SNLDesign
     NajaCollection<SNLTerm*> getTerms() const;
-    ///\return the collection of SNLBusTerm of this SNLDesign (SNLBusTerm subset of getTerms())
-    ///\see getTerms()
-    ///\see getScalarTerms()
-    NajaCollection<SNLBusTerm*> getBusTerms() const;
-    ///\return the collection of SNLScalarTerm of this SNLDesign (SNLScalarTerm subset of getTerms())
-    ///\see getTerms()
-    ///\see getBusTerms()
-    NajaCollection<SNLScalarTerm*> getScalarTerms() const;
-    ///\return the collection of SNLBitTerm of this SNLDesign (SNLScalarTerm and flattened SNLBusTerm to SNLBusTermBit)
-    NajaCollection<SNLBitTerm*> getBitTerms() const;
 
-    ///\return SNLInstance with SNLID::DesignObjectID id or nullptr if it does not exist
+    /**
+     * \return the collection of SNLBusTerm of this SNLDesign (SNLBusTerm subset of getTerms())
+     * \sa getTerms()
+     * \sa getScalarTerms()
+     */
+    NajaCollection<SNLBusTerm*> getBusTerms() const;
+
+    /**
+     * \return the collection of SNLScalarTerm of this SNLDesign (SNLScalarTerm subset of getTerms()).
+     * \sa getTerms()
+     * \sa getBusTerms()
+     */
+    NajaCollection<SNLScalarTerm*> getScalarTerms() const;
+
+    /// \return the collection of SNLBitTerm of this SNLDesign (SNLScalarTerm and flattened SNLBusTerm to SNLBusTermBit).
+    NajaCollection<SNLBitTerm*> getBitTerms() const;
+    /// \return SNLInstance with SNLID::DesignObjectID id or nullptr if it does not exist.
     SNLInstance* getInstance(SNLID::DesignObjectID id) const;
-    ///\return SNLInstance with SNLName name if it does not exist
+    /// \return SNLInstance with SNLName name if it does not exist.
     SNLInstance* getInstance(const SNLName& instanceName) const;
-    ///\return the collection of SNLInstance instantiated IN this SNLDesign (instance/parent relationship) 
+    /// \return the collection of SNLInstance instantiated IN this SNLDesign (instance/parent relationship).
     NajaCollection<SNLInstance*> getInstances() const;
-    ///\return the collection of SNLInstance instantiated BY this SNLDesign (instance/model relationship)
-    ///\remark SNLInstance/SNLDesign model relationship is not constructed for Primitives.
-    ///\sa isPrimitive
+
+    /**
+     * \return the collection of SNLInstance instantiated BY this SNLDesign (instance/model relationship).
+     * \remark SNLInstance/SNLDesign model relationship is not constructed for Primitives.
+     * \sa isPrimitive
+     */
     NajaCollection<SNLInstance*> getSlaveInstances() const;
-    ///\return the collection of SNLInstance instantiated IN this SNLDesign (instance/parent relationship)
-    ///and instanciating a Primitive model 
-    ///\sa isPrimitive getInstances getNonPrimitiveInstances
+
+    /**
+     * \return the collection of SNLInstance instantiated IN this SNLDesign (instance/parent relationship)
+     * and instanciating a Primitive model. 
+     * \sa isPrimitive getInstances getNonPrimitiveInstances
+     */
     NajaCollection<SNLInstance*> getPrimitiveInstances() const;
-    ///\return the collection of SNLInstance instantiated IN this SNLDesign (instance/parent relationship)
-    ///and instanciating a non Primitive model 
-    ///\sa isPrimitive getInstances getPrimitiveInstances
+
+    /**
+     * \return the collection of SNLInstance instantiated IN this SNLDesign (instance/parent relationship)
+     * and instanciating a non Primitive model.
+     * \sa isPrimitive getInstances getPrimitiveInstances
+     */
     NajaCollection<SNLInstance*> getNonPrimitiveInstances() const;
 
-    ///\return SNLNet with SNLID::DesignObjectID id or nullptr if it does not exist
+    /// \return SNLNet with SNLID::DesignObjectID id or nullptr if it does not exist.
     SNLNet* getNet(SNLID::DesignObjectID id) const;
-    ///\return SNLNet with SNLName name or nullptr if it does not exist
+    /// \return SNLNet with SNLName name or nullptr if it does not exist.
     SNLNet* getNet(const SNLName& netName) const;
-    ///\return SNLScalarNet with SNLID::DesignObjectID id or nullptr if it does not exist
+    /// \return SNLScalarNet with SNLID::DesignObjectID id or nullptr if it does not exist.
     SNLScalarNet* getScalarNet(SNLID::DesignObjectID id) const;
-    ///\return SNLBusNetBit with SNLID::DesignObjectID id and SNLID::Bit bit or nullptr if it does not exist
+    /// \return SNLBusNetBit with SNLID::DesignObjectID id and SNLID::Bit bit or nullptr if it does not exist.
     SNLBusNetBit* getBusNetBit(SNLID::DesignObjectID id, SNLID::Bit bit) const;
-    ///\return SNLScalarNet with SNLName name or nullptr if it does not exist
+    /// \return SNLScalarNet with SNLName name or nullptr if it does not exist.
     SNLScalarNet* getScalarNet(const SNLName& netName) const;
-    ///\return SNLBusNet with SNLIS::DesignObjectID id or nullptr if it does not exist
+    /// \return SNLBusNet with SNLIS::DesignObjectID id or nullptr if it does not exist.
     SNLBusNet* getBusNet(SNLID::DesignObjectID id) const;
-    ///\return SNLBusNet with SNLName name or nullptr if it does not exist
+    /// \return SNLBusNet with SNLName name or nullptr if it does not exist.
     SNLBusNet* getBusNet(const SNLName& netName) const;
-    ///\return the collection of SNLNet of this SNLDesign
+    /// \return the collection of SNLNet of this SNLDesign.
     NajaCollection<SNLNet*> getNets() const;
-    /*
-     * \return the collection of SNLBusNet of this SNLDesign (SNLBusNet subset of getNets())
+
+    /**
+     * \return the collection of SNLBusNet of this SNLDesign (SNLBusNet subset of getNets()).
      * \see getNets()
      * \see getScalarNets()
      */
     NajaCollection<SNLBusNet*> getBusNets() const;
-    /*
-     * \return the collection of SNLScalarNet of this SNLDesign (SNLScalarNet subset of getNets())
+    
+    /**
+     * \return the collection of SNLScalarNet of this SNLDesign (SNLScalarNet subset of getNets()).
      * \see getNets()
      * \see getBusNets()
      */
     NajaCollection<SNLScalarNet*> getScalarNets() const;
-    ///\return the collection of SNLBitNet of this SNLDesign (SNLScalarNet and flattened SNLBusNet to SNLBusNetBit)
+    
+    /// \return the collection of SNLBitNet of this SNLDesign (SNLScalarNet and flattened SNLBusNet to SNLBusNetBit).
     NajaCollection<SNLBitNet*> getBitNets() const;
 
-    ///\return SNLParameter with SNLName name or nullptr if it does not exist
+    /// \return SNLParameter with SNLName name or nullptr if it does not exist.
     SNLParameter* getParameter(const SNLName& name) const;
-    ///\return the collection of SNLParameter of this SNLDesign
+    /// \return the collection of SNLParameter of this SNLDesign.
     NajaCollection<SNLParameter*> getParameters() const;
 
     SNLID::DesignID getID() const { return id_; }
     SNLID getSNLID() const;
     SNLID::DesignReference getReference() const;
-
+    
+    /// \return SNLName of this SNLDesign. 
     SNLName getName() const { return name_; }
+    /// \return true if this SNLDesign is anonymous.
     bool isAnonymous() const { return name_.empty(); }
     
+    /// \return this SNLDesign Type.
     Type getType() const { return type_; }
+    ///Set this SNLDesign Type
+    ///\warning setType cannot be called to set a design as a primitive.
+    void setType(Type type);
+    ///\return true if this SNLDesign is a standard design.
     bool isStandard() const { return type_ == Type::Standard; }
     ///\return true if this SNLDesign is a blackbox.
     bool isBlackBox() const { return type_ == Type::Blackbox; }
     ///\return true if this SNLDesign is a primitive.
     bool isPrimitive() const { return type_ == Type::Primitive; }
+    ///\return true if this SNLDesign is the Assign primitive (in verilog: assign net1 = net0).
+    bool isAssign() const;
     ///\return true if this SNLDesign is a hierarchy leaf (blackbox or primitive).
     bool isLeaf() const { return isBlackBox() or isPrimitive(); }
     ///\return true if this SNLDesign is a top design.

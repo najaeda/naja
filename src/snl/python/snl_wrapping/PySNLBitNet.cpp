@@ -24,15 +24,40 @@ using namespace naja::SNL;
 GetContainerMethod(BitNet, NetComponent, NetComponents, Components)
 GetContainerMethod(BitNet, InstTerm, InstTerms, InstTerms)
 GetContainerMethod(BitNet, BitTerm, BitTerms, BitTerms)
+GetBoolAttribute(BitNet, isConstant0)
+GetBoolAttribute(BitNet, isConstant1)
+GetBoolAttribute(BitNet, isConstant)
 
 static PyObject* PySNLBitNet_getType(PySNLBitNet* self) {
   METHOD_HEAD("Net.getType()")
   return PyLong_FromLong((long)selfObject->getType());
 }
 
+//LCOV_EXCL_START
+static PyObject* PySNLBitNet_getTypeAsString(PySNLBitNet* self) {
+  METHOD_HEAD("Net.getTypeAsString()")
+  switch (selfObject->getType()) {
+    case SNLNet::Type::Standard: return PyUnicode_FromString("Standard");
+    case SNLNet::Type::Assign0: return PyUnicode_FromString("Assign0");
+    case SNLNet::Type::Assign1: return PyUnicode_FromString("Assign1");
+    case SNLNet::Type::Supply0: return PyUnicode_FromString("Supply0");
+    case SNLNet::Type::Supply1: return PyUnicode_FromString("Supply1");
+    default: return PyUnicode_FromString("Unknown");
+  }
+}
+//LCOV_EXCL_STOP
+
 PyMethodDef PySNLBitNet_Methods[] = {
   { "getType", (PyCFunction)PySNLBitNet_getType, METH_NOARGS,
     "get the type of this Net."},
+  { "getTypeAsString", (PyCFunction)PySNLBitNet_getTypeAsString, METH_NOARGS,
+    "get the type of this Net as a string."},
+  { "isConstant0", (PyCFunction)PySNLBitNet_isConstant0, METH_NOARGS,
+    "Returns True if this SNLBitNet is a Constant 0."},
+  { "isConstant1", (PyCFunction)PySNLBitNet_isConstant1, METH_NOARGS,
+    "Returns True if this SNLBitNet is a Constant 1."},
+  { "isConstant", (PyCFunction)PySNLBitNet_isConstant, METH_NOARGS,
+    "Returns True if this SNLBitNet is a Constant."},
   { "getComponents", (PyCFunction)PySNLBitNet_getComponents, METH_NOARGS,
     "get a container of Net Components."},
   { "getInstTerms", (PyCFunction)PySNLBitNet_getInstTerms, METH_NOARGS,

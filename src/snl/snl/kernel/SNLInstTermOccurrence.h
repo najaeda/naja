@@ -11,14 +11,25 @@ namespace naja { namespace SNL {
 
 class SNLInstTerm;
 
+/**
+ * \brief SNLInstTermOccurrence is the specialization class of SNLOccurrence for SNLInstTerm.
+ */
 class SNLInstTermOccurrence: public SNLNetComponentOccurrence {
   public:
     using super = SNLNetComponentOccurrence;
     
+    /// \brief SNLInstTermOccurrence empty constructor.
     SNLInstTermOccurrence() = default;
+    /// \brief SNLInstTermOccurrence constructor with empty path.
     SNLInstTermOccurrence(SNLInstTerm* instTerm);
+    /**
+     * \brief SNLInstTermOccurrence constructor.
+     * \param path SNLPath to occurrence.
+     * \param instTerm referenced SNLInstTerm.
+     */
     SNLInstTermOccurrence(const SNLPath& path, SNLInstTerm* instTerm);
 
+    /// \return the referenced SNLInstTerm.
     SNLInstTerm* getInstTerm() const;
 };
 

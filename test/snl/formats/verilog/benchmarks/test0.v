@@ -3,11 +3,11 @@
 */
 
 module mod0(input i0, output o0);
-  //Might be a blackbox in the future...
+  //should be a blackbox
 endmodule
 
 module mod1(input[4:0] i, output[4:0] o);
-  //Might be a blackbox in the future...
+  //should be a blackbox
 endmodule
 
 module test(input i, output o, inout io);

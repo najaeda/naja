@@ -8,13 +8,95 @@
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 ## Introduction
+
 Naja is an Electronic Design Automation (EDA) project that provides open source data structures and APIs for the development of post logic synthesis EDA algorithms such as: netlist simplification (constant and dead logic propagation), logic replication, netlist partitioning, ASIC and FPGA place and route, …
+
+Naja best starting point is: [naja-edit](#naja_edit).
+
+If you are looking to build your own EDA tool, Naja contains two primary API components:
+
+1. SNL (Structured Netlist) API housed in this repository.
+2. [naja-verilog](https://github.com/najaeda/naja-verilog), a data structure independent structural verilog parser.
+
+### Acknowledgement
+
+[<img src="https://nlnet.nl/logo/banner.png" width=100>](https://nlnet.nl/project/Naja)
+[<img src="https://nlnet.nl/image/logos/NGI0Entrust_tag.svg" width=100>](https://nlnet.nl/project/Naja)
+
+This project is supported and funded by NLNet through the [NGI0 Entrust](https://nlnet.nl/entrust) Fund.
+
+## Applications
+
+### naja_edit
+
+`naja_edit`, located in the `$NAJA_INSTALL/bin` directory, is a tool designed for
+optimizing, editing and translating netlists.
+
+#### Workflow Overview
+
+The workflow for `naja_edit` is outlined in the schema below. It's important to note that the only mandatory step in the process is the initial loading of the input netlist.
+
+![Naja-Edit](./docs/images/Naja-Edit.png)
+
+#### Workflow Details
+
+- **Input/Output format**: Supports structural (gate-level) Verilog and [SNL Interchange Format](#snl-interchange-format).
+Convert netlists between formats by specifying the input (`-f`) and output (`-t`) options.
+
+```bash
+#translation from verilog to SNL
+naja_edit -f verilog -t snl -i input.v -o output.snl
+```
+
+- **Python Netlist Manipulation/Editing**: Leverage the [SNL Python API](#python)
+for netlist manipulations such as browsing, computing stats or direct editing.
+Scripts can be applied after loading (`-e` option) or before saving (`-z` option) the netlist.
+
+```bash
+#translation from verilog to SNL with intermediate editing
+naja_edit -f verilog -t snl -i input.v -o output.snl -e script.py
+```
+
+- **Netlist Logic optimizations across hierarchy boundaries**: Utilize built-in
+optimization algorithms to refine the netlist acroos hierarchical boundaries
+with minimal uniquification.  Available optimizations include Dead Logic Elimination (DLE).
+Access this feature using the `-a` option: `-a dle`.
+
+```bash
+# -1: Load input netlist from SNL format.
+# -2: Apply pre_edit.py script on the netlist
+# -3: Apply Dead Logic Optimization
+# -4: Apply post_edit.py on the resulting netlist
+# -5: Save netlist in SNL format to output.snl
+naja_edit -f snl -t snl -i input.snl -o output.snl -a dle \ 
+          -e pre_script.py -z post_edit.py
+```
+
+Additional layers of optimization, such as constant propagation, are planned
+for future releases.
+
+`naja_edit` editing script examples are available [here](https://github.com/najaeda/naja/blob/main/src/apps/edit/examples).
+
+The [Naja Regress](https://github.com/najaeda/naja-regress) repository features a collection of examples
+showcasing extensive use of `naja_edit`.
+
+<div align="right">[ <a href="#Introduction">↑ Back to top ↑</a> ]</div>
+
+---
+
+## Naja
+
+### Why Naja ?
+
+#### Enhanced Fidelity in Data Representation
 
 Naja contains two main components SNL (Structured Netlist) API (located in this repo) and [naja-verilog](https://github.com/najaeda/naja-verilog), a data structure independent structural verilog parser.
 
 In most EDA flows, data exchange is done by using standard netlist formats (Verilog, LEF/DEF, EDIF, …) which were not designed to represent data structures content with high fidelity. To address this problem, SNL relies on [Cap'n Proto](https://github.com/capnproto/capnproto) open source interchange format.
 
-SNL also emphasizes EDA applications parallelization (targeting in particular cloud computing) by providing a robust object identification mechanism allowing to partition and merge data across the network.
+#### Optimized for Parallelization and Cloud Computing
+
+SNL is engineered with a focus on parallelization, particularly for cloud computing applications. It features a robust object identification mechanism that streamlines the partitioning and merging of data across networks, facilitating efficient EDA applications.
 
 SNL is summarized in below's image.
 
@@ -24,16 +106,13 @@ SNL is summarized in below's image.
 
 :star: If you find Naja interesting, and would like to stay up-to-date, consider starring this repo to help spread the word.
 
-### Acknowledgement
+### Documentation
 
-[<img src="https://nlnet.nl/logo/banner.png" width=100>](https://nlnet.nl/project/Naja)
-[<img src="https://nlnet.nl/image/logos/NGI0Entrust_tag.svg" width=100>](https://nlnet.nl/project/Naja)
+:eyeglasses: Naja's extended and API [documentation](https://naja.readthedocs.io/en/latest/) is available online.
 
-This project is supported and funded by NLNet through the [NGI0 Entrust](https://nlnet.nl/entrust) Fund.
+### Compilation
 
-## Compilation
-
-### Getting sources
+#### Getting sources
 
 ```bash
 # First clone the repository and go inside it
@@ -43,7 +122,7 @@ git submodule init
 git submodule update
 ```
 
-### Dependencies
+#### Dependencies
 
 Mandatory dependencies:
 
@@ -86,7 +165,7 @@ Ensure the versions of `bison` and `flex` installed via Homebrew take precedence
 export PATH="/opt/homebrew/opt/flex/bin:/opt/homebrew/opt/bison/bin:$PATH"
 ```
 
-### Building and Installing
+#### Building and Installing
 
 ```bash
 #First define an env variable that points to the directory where you want naja to be installed:
@@ -100,25 +179,38 @@ make
 make test
 make install
 ```
-### Building and Installing Documentation
+
+#### Building and Installing Documentation
+
 ```bash
 #make sure that doxygen was available when launching the cmake command
 cd build
 make docs
 make install
 ```
+
 Documentation will be installed in $NAJA_INSTALL/doc directory. Starting file to open in browser is: $NAJA_INSTALL/doc/html/index.html.
 
-## Use 
-### Environment
+<div align="right">[ <a href="#Introduction">↑ Back to top ↑</a> ]</div>
+
+---
+
+### Use
+
+#### Environment
+
 After building and installing, start by setting up a runtime environment.
+
 ```bash
 export NAJA_INSTALL=<path_to_installation_dir>
 #For Naja python interface and in particular primitives loading
 export PYTHONPATH=$PYTHONPATH:$NAJA_INSTALL/lib/python
 ```
-### Inputs/Outputs
-#### SNL Interchange Format
+
+#### Inputs/Outputs
+
+##### SNL Interchange Format
+
 SNL relies on [Cap'n Proto](https://github.com/capnproto/capnproto) for data serialization and streaming. Schema files and C++ implementation can be found [here](https://github.com/najaeda/naja/tree/main/src/snl/snl/serialization/capnp).
 
 Files composing the dump are created in a directory usually named "snl", composed of the following files:
@@ -128,48 +220,48 @@ Files composing the dump are created in a directory usually named "snl", compose
 - **Implementation Specification File (`db_implementation.snl`):** Contained within this file are the detailed implementations of modules: instances, nets and connectivity between them.
 
 SNL files can be examined using the `capnp` tool.
+
 ```bash
 capnp decode --packed snl_interface.capnp DBInterface < snl/db_interface.snl > interface.txt
 capnp decode --packed snl_implementation.capnp DBImplementation < snl/db_implementation.snl > implementation.txt
 ```
 
-#### Verilog
+##### Verilog
 
 For Verilog parsing, Naja relies on naja-verilog submodule (https://github.com/najaeda/naja-verilog).
 Leaf primitives are loaded through the Python primitive loader: [SNLPrimitivesLoader](https://github.com/najaeda/naja/blob/main/src/snl/python/primitives/SNLPrimitivesLoader.h).
-A application snippet can be found [here](https://github.com/najaeda/naja/blob/main/src/snl/snippets/app/src/SNLVRLSnippet.cpp) and examples of
+An application snippet can be found [here](https://github.com/najaeda/naja/blob/main/src/snl/snippets/app/src/SNLVRLSnippet.cpp) and examples of
 primitive libraries described using the Python interface can be found in the
 [primitives](https://github.com/najaeda/naja/blob/main/primitives) directory.
 
 A Verilog dumper is included in SNL API. See [here](https://github.com/najaeda/naja/blob/main/src/snl/formats/verilog/backend/SNLVRLDumper.h).
 
-## Snippets
-### c++
+<div align="right">[ <a href="#Introduction">↑ Back to top ↑</a> ]</div>
+
+---
+
+### Snippets
+
+#### c++
+
 This [snippet](https://github.com/najaeda/naja/blob/main/src/snl/snippets/app/src/SNLSnippet.cpp) shows various SNL API netlist construction, manipulation and browsing examples.
-### Python
+
+#### Python
+
 This [snippet](https://github.com/najaeda/naja/blob/main/src/snl/snippets/python/snl_snippet.py) shows an equivalent example using Python interface.
-### Application snippet
+
+#### Application snippet
+
 An application snippet can be found [here](https://github.com/najaeda/naja/blob/main/src/app_snippet).
 
 This "app" directory and its contents can be copied to start a new application.
 
-## Applications
-###  naja_edit
-`naja_edit`, accessible via the `$NAJA_INSTALL/bin` directory, is a tool designed for netlist translation and editing:
+<div align="right">[ <a href="#Introduction">↑ Back to top ↑</a> ]</div>
 
-- **Format Translation**: convert netlists between SNL Interchange Format and Verilog.
-```bash
-#translation from verilog to SNL
-naja_edit -f verilog -t snl -i input.v -o output.snl
-```
+---
 
-- **Netlist Editing**: Utilize the SNL Python API for netlist editing.
-```bash
-#translation from verilog to SNL with intermediate editing
-naja_edit -f verilog -t snl -i input.v -o output.snl -e script.py
-```
+### Issues / Bugs
 
-`naja_edit` editing script examples are available [here](https://github.com/najaeda/naja/blob/main/src/apps/edit/examples).
-
-## Issues / Bugs
 Please use [GitHub Issues](https://github.com/najaeda/naja/issues) to create and track requests and bugs.
+
+<div align="right">[ <a href="#Introduction">↑ Back to top ↑</a> ]</div>

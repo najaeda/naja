@@ -5,6 +5,7 @@
 #include "gtest/gtest.h"
 
 #include "SNLUniverse.h"
+#include "SNLDB0.h"
 #include "SNLException.h"
 #include "SNLPyEdit.h"
 using namespace naja::SNL;
@@ -22,7 +23,11 @@ class SNLPyDBEditTest0: public ::testing::Test {
       auto prim0 = SNLDesign::create(primitivesLibrary, SNLDesign::Type::Primitive, SNLName("prim0"));
       auto designsLibrary = SNLLibrary::create(db, SNLName("designs"));
       auto top = SNLDesign::create(designsLibrary, SNLName("top"));
-      auto instance = SNLInstance::create(top, prim0, SNLName("instance0"));
+      auto inst0 = SNLInstance::create(top, prim0, SNLName("instance0"));
+      auto bbox = SNLDesign::create(designsLibrary, SNLName("bbox"));
+      bbox->setType(SNLDesign::Type::Blackbox);
+      auto inst1 = SNLInstance::create(top, bbox, SNLName("instance1"));
+      auto inst2 = SNLInstance::create(top, SNLDB0::getAssign(), SNLName("instance2"));
       universe->setTopDesign(top);
     }
     void TearDown() override {
@@ -40,13 +45,27 @@ TEST_F(SNLPyDBEditTest0, test) {
   auto instance0 = top->getInstance(SNLName("instance0"));
   ASSERT_TRUE(instance0);
   EXPECT_EQ(SNLName("instance0"), instance0->getName());
+  auto instance1 = top->getInstance(SNLName("instance1"));
+  ASSERT_TRUE(instance1);
+  EXPECT_EQ(SNLName("instance1"), instance1->getName());
+  auto instance2 = top->getInstance(SNLName("instance2"));
+  ASSERT_TRUE(instance2);
+  EXPECT_EQ(SNLName("instance2"), instance2->getName());
   auto scriptPath = std::filesystem::path(SNL_PYEDIT_TEST_PATH);
   scriptPath /= "edit";
   scriptPath /= "edit_test0.py";
   SNLPyEdit::edit(scriptPath);
-  EXPECT_EQ(SNLName("instance1"), instance0->getName());
+  EXPECT_EQ(SNLName("instance00"), instance0->getName());
   EXPECT_EQ(nullptr, top->getInstance(SNLName("instance0")));
-  EXPECT_EQ(instance0, top->getInstance(SNLName("instance1")));
+  EXPECT_EQ(instance0, top->getInstance(SNLName("instance00")));
+
+  EXPECT_EQ(SNLName("bbox_instance"), instance1->getName());
+  EXPECT_EQ(nullptr, top->getInstance(SNLName("instance1")));
+  EXPECT_EQ(instance1, top->getInstance(SNLName("bbox_instance")));
+
+  EXPECT_EQ(SNLName("assign_instance"), instance2->getName());
+  EXPECT_EQ(nullptr, top->getInstance(SNLName("instance2")));
+  EXPECT_EQ(instance2, top->getInstance(SNLName("assign_instance")));
 }
 
 TEST_F(SNLPyDBEditTest0, testEditDBError) {
