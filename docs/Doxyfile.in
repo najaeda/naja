@@ -144,7 +144,7 @@ ALWAYS_DETAILED_SEC    = NO
 # operators of the base classes will not be shown.
 # The default value is: NO.
 
-INLINE_INHERITED_MEMB  = NO
+INLINE_INHERITED_MEMB  = YES
 
 # If the FULL_PATH_NAMES tag is set to YES, doxygen will prepend the full path
 # before files name in the file list and in the header files. If set to NO the
@@ -873,9 +873,8 @@ WARN_LOGFILE           =
 # Note: If this tag is empty the current directory is searched.
 
 INPUT                  = @CMAKE_SOURCE_DIR@/docs/naja.md
-INPUT                  += @CMAKE_SOURCE_DIR@/src/snl
 INPUT                  += @CMAKE_SOURCE_DIR@/src/core
-INPUT                  += @CMAKE_SOURCE_DIR@/src/dnl
+INPUT                  += @CMAKE_SOURCE_DIR@/src/snl
 
 
 # This tag can be used to specify the character encoding of the source files
@@ -2090,7 +2089,7 @@ MAN_LINKS              = NO
 # captures the structure of the code including all documentation.
 # The default value is: NO.
 
-GENERATE_XML           = NO
+GENERATE_XML           = YES
 
 # The XML_OUTPUT tag is used to specify where the XML pages will be put. If a
 # relative path is entered the value of OUTPUT_DIRECTORY will be put in front of

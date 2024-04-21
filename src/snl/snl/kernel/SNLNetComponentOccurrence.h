@@ -13,6 +13,9 @@ class SNLNetComponent;
 class SNLBitNet;
 class SNLBitNetOccurrence;
 
+/**
+ * \brief SNLNetComponentOccurrence is the specialization class of SNLOccurrence for SNLNetComponent.
+*/
 class SNLNetComponentOccurrence: public SNLOccurrence {
   public:
     using super = SNLOccurrence;
@@ -22,7 +25,9 @@ class SNLNetComponentOccurrence: public SNLOccurrence {
     SNLNetComponentOccurrence(const SNLPath& path, SNLNetComponent* component);
 
     SNLNetComponent* getComponent() const;
+    /// \return the SNLBitNet connected to the referenced SNLNetComponent.
     SNLBitNet* getNet() const;
+    /// \return the SNLBitNetOccurrence of the connected SNLBitNet.
     SNLBitNetOccurrence getNetOccurrence() const;
 };
 

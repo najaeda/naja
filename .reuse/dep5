@@ -20,7 +20,7 @@ Copyright: 2022 The Naja Authors.
 License: Apache-2.0
 Comment: these files are used for regression testing: synthesized netlists.
 
-Files: src/apps/edit/examples/*
+Files: src/apps/naja_edit/examples/*
 Copyright: 2022 The Naja Authors.
 License: Apache-2.0
 

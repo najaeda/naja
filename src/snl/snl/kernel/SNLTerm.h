@@ -20,11 +20,14 @@ class SNLTerm: public SNLNetComponent {
     using super = SNLNetComponent;
     
     SNLID::DesignObjectReference getReference() const;
+    
+    /// \return the unique SNLID::DesignObjectID of this SNLTerm in the containing SNLDesign.
     virtual SNLID::DesignObjectID getID() const = 0;
+
     /**
-     * \return this SNLTerm flat id in the containing SNLDesign flat SNLBitTerms.
-     * \n
-     * For instance, with three Terms created in following order:
+     * \brief Get the flat id of this SNLTerm in the containing SNLDesign flat SNLBitTerms.
+     * 
+     * With three Terms created in following order:
      *   - SNLScalarTerm term1
      *   - SNLBusTerm term2[1:0]
      *   - SNLScalarTerm term3
@@ -34,13 +37,15 @@ class SNLTerm: public SNLNetComponent {
      * |-------|----------|----------|-------|
      * |term0  | term2    |          | term3 |
      * |       | term2[1] | term2[0] |       |  
+     * \return this SNLTerm flat id in the containing SNLDesign flat SNLBitTerms.
      **/
     virtual size_t getFlatID() const = 0;
-    ///\return term SNLName.
+    /// \return term SNLName.
     virtual SNLName getName() const = 0;
-    ///\return term size, 1 for SNLScalarTerm and SNLBusNetBit.
+    /// \return term size, 1 for SNLScalarTerm and SNLBusNetBit.
     virtual SNLID::Bit getSize() const = 0;
 
+    /// \return the Collection of SNLBitTerm composing this SNLTerm. 
     virtual NajaCollection<SNLBitTerm*> getBits() const = 0;
 
   protected:

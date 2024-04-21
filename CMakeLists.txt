@@ -6,7 +6,7 @@ cmake_policy(SET CMP0048 NEW)
 cmake_minimum_required(VERSION 3.21)
 
 project(naja
-  VERSION 0.1.0
+  VERSION 1.0.0
   HOMEPAGE_URL https://github.com/najaeda/naja
   LANGUAGES CXX
 )
@@ -27,6 +27,8 @@ set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 ######
 
 set(CMAKE_CXX_STANDARD 20)
+
+option(BUILD_ONLY_DOC "Only configure to build Doxygen documentation" OFF)
 
 set(NAJA_CXX_WARNINGS -Werror -Wall -pedantic-errors -Wconversion -Wsign-conversion -Wextra -Wno-unused-parameter)
 
@@ -59,15 +61,19 @@ if(ENABLE_SANITIZERS)
   )
 endif(ENABLE_SANITIZERS)
 
+if(NOT BUILD_ONLY_DOC)
 find_package(TBB REQUIRED)
 find_package(Boost REQUIRED)
 find_package(Python3 3.9...<3.99 COMPONENTS Development Interpreter REQUIRED)
 find_package(CapnProto CONFIG REQUIRED)
+endif(NOT BUILD_ONLY_DOC)
 
+if(NOT BUILD_ONLY_DOC)
 add_subdirectory(thirdparty)
-add_subdirectory(src)
 add_subdirectory(cmake)
+add_subdirectory(src)
 add_subdirectory(primitives)
+endif(NOT BUILD_ONLY_DOC)
 
 if(PROJECT_IS_TOP_LEVEL)
 option(LONG_TESTS "Enable long tests" OFF)
@@ -75,11 +81,22 @@ include(CTest)
 enable_testing()
 add_subdirectory(test)
 
+option(BUILD_SPHINX_DOCUMENTATION "Build Sphinx documentation" OFF)
+
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 # Doxygen
 # look for Doxygen package
 find_package(Doxygen)
 if(DOXYGEN_FOUND)
   add_subdirectory(docs)
 endif(DOXYGEN_FOUND)
-endif(PROJECT_IS_TOP_LEVEL)
+#Sphinx
+#look for Sphinx package
+find_package(Sphinx)
 
+if(BUILD_SPHINX_DOCUMENTATION)
+if (NOT (DOXYGEN_FOUND AND SPHINX_FOUND))
+message(SEND_ERROR "Doxygen and Sphinx must be available to build Sphinx documentation")
+endif(NOT (DOXYGEN_FOUND AND SPHINX_FOUND))
+endif(BUILD_SPHINX_DOCUMENTATION)
+endif(PROJECT_IS_TOP_LEVEL)

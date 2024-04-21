@@ -21,11 +21,23 @@ class SNLInstParameter {
     SNLInstParameter() = delete;
     SNLInstParameter(const SNLInstParameter&) = delete;
 
+    /**
+     * \brief Create a new instance parameter.
+     * \param instance The instance to which the parameter belongs.
+     * \param parameter The instantiated parameter.
+     * \param value The value of the parameter.
+     * \return The new instance parameter.
+     */
     static SNLInstParameter* create(SNLInstance* instance, SNLParameter* parameter, const std::string& value);
+    /// \brief Destroy this instance parameter. 
     void destroy();
+    /// \return The name of the parameter.
     SNLName getName() const;
+    /// \return The instance to which this instance parameter belongs.
     SNLInstance* getInstance() const { return instance_; }
+    /// \return The instantiated parameter.
     SNLParameter* getParameter() const { return parameter_; }
+    /// \return The value of the parameter.
     std::string getValue() const { return value_; }
     void setValue(const std::string& value) { value_ = value; }
 

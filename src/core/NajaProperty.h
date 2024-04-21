@@ -15,12 +15,17 @@ class NajaObject;
 class NajaProperty {
   public:
     friend class NajaObject;
+
+    /// \return the name of this NajaProperty.
     virtual std::string getName() const =0;
+    /// \return a string describing this NajaProperty.
     virtual std::string getString() const =0;
 
+    /// \return true if this NajaProperty is dumpable: it will be serialized in the dump file.
     virtual bool isDumpable() const {
       return false;
     }
+    /// \brief destroy this NajaProperty.
     void destroy();
   protected:
     NajaProperty() = default;
