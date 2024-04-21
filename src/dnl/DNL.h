@@ -134,6 +134,10 @@ class DNLTerminalFull {
 class DNLIso {
  public:
   DNLIso(DNLID id = DNLID_MAX);
+  void makeShadow() {
+    drivers_.clear();
+    readers_.clear();
+  }
   void setId(DNLID id) { id_ = id; }
   virtual void addDriver(DNLID driver);
   virtual void addReader(DNLID reader);
@@ -176,11 +180,13 @@ class DNLIsoDB {
   DNLIso& addIso();
   DNLIso& getIsoFromIsoID(DNLID isoID) { return isos_[isoID]; }
   const DNLIso& getIsoFromIsoIDconst(DNLID isoID) const { if (isoID == DNLID_MAX) {return isos_.back();} return isos_[isoID]; }
-  DNLID getNumIsos() const { return isos_.size() - 1/* due to null iso*/; }
+  size_t getNumIsos() const { return isos_.size() - 1/* due to null iso*/; }
+  size_t getNumNonShadowIsos() const { return isos_.size() - 1/* due to null iso*/ - shadow_/*remove shadow isos*/; }
   std::vector<DNLID> getFullIso(DNLID);
-
+  void incrementShadow() { shadow_++; }
  private:
   std::vector<DNLIso, tbb::scalable_allocator<DNLIso>> isos_;
+  size_t shadow_ = 0;
 };
 
 template <class DNLInstance, class DNLTerminal>
