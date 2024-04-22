@@ -14,6 +14,7 @@
 #include <vector>
 #include "SNLUniverse.h"
 #include "tbb/scalable_allocator.h"
+#include "tbb/concurrent_vector.h"
 #include <tbb/task_arena.h>
 #include "SNLBitNet.h"
 #include "SNLBitTerm.h"
@@ -133,6 +134,10 @@ class DNLTerminalFull {
 class DNLIso {
  public:
   DNLIso(DNLID id = DNLID_MAX);
+  void makeShadow() {
+    drivers_.clear();
+    readers_.clear();
+  }
   void setId(DNLID id) { id_ = id; }
   virtual void addDriver(DNLID driver);
   virtual void addReader(DNLID reader);
@@ -175,9 +180,9 @@ class DNLIsoDB {
   DNLIso& addIso();
   DNLIso& getIsoFromIsoID(DNLID isoID) { return isos_[isoID]; }
   const DNLIso& getIsoFromIsoIDconst(DNLID isoID) const { if (isoID == DNLID_MAX) {return isos_.back();} return isos_[isoID]; }
-  DNLID getNumIsos() const { return isos_.size() - 1/* due to null iso*/; }
+  size_t getNumIsos() const { return isos_.size() - 1/* due to null iso*/; }
   std::vector<DNLID> getFullIso(DNLID);
-
+  void emptyIsos() { isos_.clear();}
  private:
   std::vector<DNLIso, tbb::scalable_allocator<DNLIso>> isos_;
 };
@@ -186,14 +191,13 @@ template <class DNLInstance, class DNLTerminal>
 class DNLIsoDBBuilder {
  public:
   DNLIsoDBBuilder(DNLIsoDB& db, const DNL<DNLInstance, DNLTerminal>& dnl);
-  void treatDriver(const DNLTerminal& term, DNLIso& DNLIso);
+  void treatDriver(const DNLTerminal& term, DNLIso& DNLIso, bool updateIsoID = false);
   void process();
 
  private:
   DNLIso& addIsoToDB() { return db_.addIso(); }
   DNLIsoDB& db_;
   DNL<DNLInstance, DNLTerminal> dnl_;
-  std::vector<bool> visited_;
 };
 
 template <class DNLInstance, class DNLTerminal>
