@@ -29,10 +29,12 @@ std::vector<DNLID> LoadlessLogicRemover::getTopOutputIsos(
   std::vector<DNLID> topOutputIsos;
   for (DNLID term = dnl.getTop().getTermIndexes().first;
        term < dnl.getTop().getTermIndexes().second; term++) {
+    printf("Checking %s\n", dnl.getDNLTerminalFromID(term).getSnlBitTerm()->getString().c_str());
+    printf("Direction %s\n", dnl.getDNLTerminalFromID(term).getSnlBitTerm()->getDirection().getString().c_str());
     if (dnl.getDNLTerminalFromID(term).getSnlBitTerm()->getDirection() !=
-        SNLTerm::Direction::Input) {
+        SNLTerm::Direction::DirectionEnum::Input) {
       if (dnl.getIsoIdfromTermId(term) != DNLID_MAX) {
-#ifdef DEBUG_PRINTS
+//#ifdef DEBUG_PRINTS
         // LCOV_EXCL_START
         printf("Tracing %s\n", dnl.getDNLTerminalFromID(term)
                                    .getSnlBitTerm()
@@ -40,8 +42,13 @@ std::vector<DNLID> LoadlessLogicRemover::getTopOutputIsos(
                                    .c_str());
         
         // LCOV_EXCL_STOP
-#endif
+//#endif
         topOutputIsos.push_back(dnl.getIsoIdfromTermId(term));
+      } else {
+        printf("No iso %s\n", dnl.getDNLTerminalFromID(term)
+                                   .getSnlBitTerm()
+                                   ->getString()
+                                   .c_str());
       }
     }
   }

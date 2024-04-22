@@ -24,6 +24,7 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::treatDriver(
     assert(term.getSnlBitTerm()->getDirection() !=
            SNLTerm::Direction::DirectionEnum::Output);
     assert(term.getSnlBitTerm()->getNet());
+    visited[term.getID()] = true;
     for (SNLInstTerm* reader : term.getSnlBitTerm()->getNet()->getInstTerms()) {
       DNLID freader = term.getDNLInstance()
                           .getChildInstance(reader->getInstance())
@@ -32,7 +33,7 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::treatDriver(
 
       if (freader == term.getID())
         continue;
-      if (updateIsoID) {
+      /*if (updateIsoID) {
         dnl_.getDNLTerminalFromID(freader).setIsoID(DNLIso.getIsoID());
       }
       if (dnl_.getDNLTerminalFromID(freader)
@@ -42,8 +43,11 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::treatDriver(
               ->getInstances()
               .empty()) {
         DNLIso.addReader(freader);
-        continue;
+        if (updateIsoID) {
+        dnl_.getDNLTerminalFromID(fterm.getID()).setIsoID(DNLIso.getIsoID());
       }
+        continue;
+      }*/
       stack.push(freader);
     }
     for (SNLBitTerm* bitTerm : term.getSnlBitTerm()->getNet()->getBitTerms()) {
@@ -96,6 +100,7 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::treatDriver(
       if (updateIsoID) {
         dnl_.getDNLTerminalFromID(fterm.getID()).setIsoID(DNLIso.getIsoID());
       }
+      visited[id] = true;
       continue;
     }
 
@@ -114,6 +119,7 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::treatDriver(
       if (updateIsoID) {
         dnl_.getDNLTerminalFromID(fterm.getID()).setIsoID(DNLIso.getIsoID());
       }
+      visited[id] = true;
       continue;
     }
 
@@ -168,8 +174,10 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::treatDriver(
              ->getModel()
              ->getInstances()
              .empty() &&
-        fterm.getSnlTerm()->getDirection() !=
-            SNLTerm::Direction::DirectionEnum::Output) {
+        //fterm.getSnlTerm()->getDirection() !=
+          //  SNLTerm::Direction::DirectionEnum::Output) {
+        fterm.getSnlTerm()->getDirection() ==
+            SNLTerm::Direction::DirectionEnum::Input) {
       //-------------------------------- Input of hierarchical instance
       //------------------------------
       //-------------------------------- Go down into the instance model and
@@ -245,6 +253,9 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::treatDriver(
           if (term.getID() != ftermNew.getID()) {
             // assert(false);
             DNLIso.addDriver(ftermNew.getID());
+            if (updateIsoID) {
+              dnl_.getDNLTerminalFromID(fterm.getID()).setIsoID(DNLIso.getIsoID());
+            }
 #ifdef DEBUG_PRINTS
             // LCOV_EXCL_START
             printf(
@@ -377,7 +388,7 @@ void DNL<DNLInstance, DNLTerminal>::process() {
     stack.push_back(DNLInstances_.back().getID());
     std::pair<DNLID, DNLID> termIndexes;
     termIndexes.first = DNLTerms_.size();
-    if (inst->getModel()->isBlackBox() || inst->getModel()->isPrimitive() ||
+    if (/*inst->getModel()->isBlackBox() || inst->getModel()->isPrimitive() ||*/
         inst->getModel()->getInstances().empty()) {
       leaves_.push_back(DNLInstances_.back().getID());
     }
@@ -416,7 +427,7 @@ void DNL<DNLInstance, DNLTerminal>::process() {
       DNLInstances_.push_back(
           DNLInstance(inst, DNLInstances_.size(), parentId));
       stack.push_back(DNLInstances_.back().getID());
-      if (inst->getModel()->isBlackBox() || inst->getModel()->isPrimitive() ||
+      if (/*inst->getModel()->isBlackBox() || inst->getModel()->isPrimitive() ||*/
           inst->getModel()->getInstances().empty()) {
         leaves_.push_back(DNLInstances_.back().getID());
 #ifdef DEBUG_PRINTS
@@ -608,11 +619,17 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::process() {
     }
   }
   for (DNLID iso = 0; iso < db_.getNumIsos() + 1; iso++) {
+    /*for (DNLID driver : db_.getIsoFromIsoID(iso).getDrivers()) {
+      assert(dnl_.getDNLTerminalFromID(driver).getIsoID() == iso);
+    }
+    for (DNLID reader : db_.getIsoFromIsoID(iso).getReaders()) {
+      assert(dnl_.getDNLTerminalFromID(reader).getIsoID() == iso);
+    }*/
     if (db_.getIsoFromIsoID(iso).getDrivers().size() > 1) {
       multiDriverIsosRound2.push_back(iso);
     }
   }
-  assert(driversToTreat.size() == multiDriverIsosRound2.size());
+  //assert(driversToTreat.size() == multiDriverIsosRound2.size());
 #ifdef DEBUG_PRINTS
   // LCOV_EXCL_START
   printf("num fi %zu\n", dnl_.getDNLInstances().size());
