@@ -47,7 +47,8 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::treatDriver(
       stack.push(freader);
     }
     for (SNLBitTerm* bitTerm : term.getSnlBitTerm()->getNet()->getBitTerms()) {
-      DNLID fbitTerm = term.getDNLInstance().getTerminalFromBitTerm(bitTerm).getID();
+      DNLID fbitTerm =
+          term.getDNLInstance().getTerminalFromBitTerm(bitTerm).getID();
       if (fbitTerm == term.getID())
         continue;
       stack.push(fbitTerm);
@@ -100,8 +101,8 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::treatDriver(
 
     if (fterm.getDNLInstance().isTop() &&
         fterm.getSnlBitTerm()->getDirection() !=
-            SNLTerm::Direction::DirectionEnum::Output
-        && fterm.getID() != term.getID()) {
+            SNLTerm::Direction::DirectionEnum::Output &&
+        fterm.getID() != term.getID()) {
 #ifdef DEBUG_PRINTS
       // LCOV_EXCL_START
       printf(
@@ -508,7 +509,7 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::process() {
       dnl_.getDNLTerminalFromID(term).setIsoID(DNLIso.getIsoID());
     }
   }
-  tbb::concurrent_vector<DNLID> multiDriverIsos;
+  std::vector<DNLID> multiDriverIsos;
   if (!getenv("NON_MT")) {
 #ifdef DEBUG_PRINTS
     // LCOV_EXCL_START
@@ -523,14 +524,7 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::process() {
             treatDriver(dnl_.getDNLTerminalFromID(tasks[i]),
                         db_.getIsoFromIsoID(
                             dnl_.getDNLTerminalFromID(tasks[i]).getIsoID()),
-                        true);
-            if (db_.getIsoFromIsoID(
-                       dnl_.getDNLTerminalFromID(tasks[i]).getIsoID())
-                    .getDrivers()
-                    .size() > 1) {
-              multiDriverIsos.push_back(
-                  dnl_.getDNLTerminalFromID(tasks[i]).getIsoID());
-            }
+                        false);
           }
         });
   } else {
@@ -543,12 +537,15 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::process() {
       treatDriver(
           dnl_.getDNLTerminalFromID(task),
           db_.getIsoFromIsoID(dnl_.getDNLTerminalFromID(task).getIsoID()),
-          true);
-      if (db_.getIsoFromIsoID(dnl_.getDNLTerminalFromID(task).getIsoID())
-              .getDrivers()
-              .size() > 1) {
-        multiDriverIsos.push_back(dnl_.getDNLTerminalFromID(task).getIsoID());
-      }
+          false);
+    }
+  }
+  std::vector<DNLID> uniqueDriverIsos;
+  for (DNLID iso = 0; iso < db_.getNumIsos() + 1; iso++) {
+    if (db_.getIsoFromIsoID(iso).getDrivers().size() > 1) {
+      multiDriverIsos.push_back(iso);
+    } else {
+      uniqueDriverIsos.push_back(iso);
     }
   }
   std::set<DNLID> driversToTreat;
@@ -559,16 +556,25 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::process() {
         drivers.insert(driver);
       }
       driversToTreat.insert(*drivers.begin());
-      db_.getIsoFromIsoID(iso).makeShadow();
-      db_.incrementShadow();
     }
   }
   tasks.clear();  // reuse tasks for new round
-  multiDriverIsos.clear(); // reuse multiDriverIsos for new round
+  std::vector<DNLID>
+      multiDriverIsosRound2;  // reuse multiDriverIsos for new round
   for (DNLID driver : driversToTreat) {
+    // DNLIso& DNLIso = addIsoToDB();
+    // DNLIso.addDriver(driver);
+    tasks.push_back(driver);
+    // dnl_.getDNLTerminalFromID(driver).setIsoID(DNLIso.getIsoID());
+  }
+  for (DNLID iso : uniqueDriverIsos) {
+    // DNLIso& DNLIso = db_.getIsoFromIsoID(iso);
+    tasks.push_back(db_.getIsoFromIsoIDconst(iso).getDrivers()[0]);
+  }
+  db_.emptyIsos();
+  for (DNLID driver : tasks) {
     DNLIso& DNLIso = addIsoToDB();
     DNLIso.addDriver(driver);
-    tasks.push_back(driver);
     dnl_.getDNLTerminalFromID(driver).setIsoID(DNLIso.getIsoID());
   }
   if (!getenv("NON_MT")) {
@@ -586,13 +592,6 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::process() {
                         db_.getIsoFromIsoID(
                             dnl_.getDNLTerminalFromID(tasks[i]).getIsoID()),
                         true);
-            if (db_.getIsoFromIsoID(
-                       dnl_.getDNLTerminalFromID(tasks[i]).getIsoID())
-                    .getDrivers()
-                    .size() > 1) {
-              multiDriverIsos.push_back(
-                  dnl_.getDNLTerminalFromID(tasks[i]).getIsoID());
-            }
           }
         });
   } else {
@@ -606,14 +605,14 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::process() {
           dnl_.getDNLTerminalFromID(task),
           db_.getIsoFromIsoID(dnl_.getDNLTerminalFromID(task).getIsoID()),
           true);
-      if (db_.getIsoFromIsoID(dnl_.getDNLTerminalFromID(task).getIsoID())
-              .getDrivers()
-              .size() > 1) {
-        multiDriverIsos.push_back(dnl_.getDNLTerminalFromID(task).getIsoID());
-      }
     }
   }
-  assert(multiDriverIsos.size() == tasks.size());
+  for (DNLID iso = 0; iso < db_.getNumIsos() + 1; iso++) {
+    if (db_.getIsoFromIsoID(iso).getDrivers().size() > 1) {
+      multiDriverIsosRound2.push_back(iso);
+    }
+  }
+  assert(driversToTreat.size() == multiDriverIsosRound2.size());
 #ifdef DEBUG_PRINTS
   // LCOV_EXCL_START
   printf("num fi %zu\n", dnl_.getDNLInstances().size());

@@ -265,7 +265,7 @@ void DNLIso::display(std::ostream& stream) const {
                     .getDNLTerminalFromID(driver)
                     .getSnlBitTerm()
                     ->getName()
-                    .getString();
+                    .getString() << std::endl;
       continue;
     }
     stream << "driver instance "
@@ -298,7 +298,7 @@ void DNLIso::display(std::ostream& stream) const {
                     .getDNLTerminalFromID(reader)
                     .getSnlBitTerm()
                     ->getName()
-                    .getString();
+                    .getString() << std::endl;
       continue;
     }
     stream << "reader instance"

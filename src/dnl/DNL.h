@@ -181,12 +181,10 @@ class DNLIsoDB {
   DNLIso& getIsoFromIsoID(DNLID isoID) { return isos_[isoID]; }
   const DNLIso& getIsoFromIsoIDconst(DNLID isoID) const { if (isoID == DNLID_MAX) {return isos_.back();} return isos_[isoID]; }
   size_t getNumIsos() const { return isos_.size() - 1/* due to null iso*/; }
-  size_t getNumNonShadowIsos() const { return isos_.size() - 1/* due to null iso*/ - shadow_/*remove shadow isos*/; }
   std::vector<DNLID> getFullIso(DNLID);
-  void incrementShadow() { shadow_++; }
+  void emptyIsos() { isos_.clear();}
  private:
   std::vector<DNLIso, tbb::scalable_allocator<DNLIso>> isos_;
-  size_t shadow_ = 0;
 };
 
 template <class DNLInstance, class DNLTerminal>

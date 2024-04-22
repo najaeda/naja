@@ -430,7 +430,7 @@ TEST_F(DNLTests, SNLDataAccessWith3levelsOfHierarchyAndIsoDBWithMultiDriverMT) {
     DNLID subsubinTermID = dnl->getTop().getChildInstance(subinst).getChildInstance(subsubinst).getTerminalFromBitTerm(subsubinTerm).getID();
     DNLID subsuboutTermID = dnl->getTop().getChildInstance(subinst).getChildInstance(subsubinst).getTerminalFromBitTerm(subsuboutTerm).getID();;
     //Validate the iso db
-    EXPECT_EQ(dnl->getDNLIsoDB().getNumNonShadowIsos(), 2);
+    EXPECT_EQ(dnl->getDNLIsoDB().getNumIsos(), 2);
     DNLID inIsoID = dnl->getTop().getTerminalFromBitTerm(inTerm).getIsoID();
     DNLID subinIsoID = dnl->getTop().getChildInstance(subinst).getTerminalFromBitTerm(subinTerm).getIsoID();
     DNLID subsubInIsoID = dnl->getTop().getChildInstance(subinst).getChildInstance(subsubinst).getTerminalFromBitTerm(subsubinTerm).getIsoID();
@@ -443,6 +443,7 @@ TEST_F(DNLTests, SNLDataAccessWith3levelsOfHierarchyAndIsoDBWithMultiDriverMT) {
     EXPECT_EQ(suboutIsoID, subsubOutIsoID);
     const DNLIso& isoIn = dnl->getDNLIsoDB().getIsoFromIsoIDconst(inIsoID);
     const DNLIso& isoOut = dnl->getDNLIsoDB().getIsoFromIsoIDconst(outIsoID);
+    dnl->getDNLIsoDB().display();
     EXPECT_EQ(isoIn.getDrivers().size(), 2);
     EXPECT_EQ(isoOut.getDrivers().size(), 2);
     EXPECT_EQ(isoIn.getReaders().size(), 1);
@@ -514,6 +515,7 @@ TEST_F(DNLTests, SNLDataAccessWith3levelsOfHierarchyAndIsoDBWithMultiDriverNonMT
     subinst->getInstTerm(subinTerm)->setNet(inNet);
     //Create a DNL on top of the SNL
     DNLFull* dnl = get();
+    dnl->getDNLIsoDB().display();
     assert(dnl != nullptr);
     assert(dnl->getTop().getSNLModel() != nullptr);
     //Validate the access to the SNL data
@@ -527,7 +529,7 @@ TEST_F(DNLTests, SNLDataAccessWith3levelsOfHierarchyAndIsoDBWithMultiDriverNonMT
     DNLID subsubinTermID = dnl->getTop().getChildInstance(subinst).getChildInstance(subsubinst).getTerminalFromBitTerm(subsubinTerm).getID();
     DNLID subsuboutTermID = dnl->getTop().getChildInstance(subinst).getChildInstance(subsubinst).getTerminalFromBitTerm(subsuboutTerm).getID();;
     //Validate the iso db
-    EXPECT_EQ(dnl->getDNLIsoDB().getNumNonShadowIsos(), 2);
+    EXPECT_EQ(dnl->getDNLIsoDB().getNumIsos(), 2);
     DNLID inIsoID = dnl->getTop().getTerminalFromBitTerm(inTerm).getIsoID();
     DNLID subinIsoID = dnl->getTop().getChildInstance(subinst).getTerminalFromBitTerm(subinTerm).getIsoID();
     DNLID subsubInIsoID = dnl->getTop().getChildInstance(subinst).getChildInstance(subsubinst).getTerminalFromBitTerm(subsubinTerm).getIsoID();
