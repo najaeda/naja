@@ -22,6 +22,7 @@
 #include "SNLInstance.h"
 #include "SNLUniverse.h"
 #include "tbb/parallel_for.h"
+#include "tbb/enumerable_thread_specific.h"
 
 using namespace naja::SNL;
 
@@ -44,6 +45,12 @@ class DNLInstanceFull;
 
 typedef DNL<DNLInstanceFull, DNLTerminalFull> DNLFull;
 
+struct visited {
+    std::vector<bool> visited;
+    std::vector<bool> toVisitAsInstTerm;
+    std::vector<bool> toVisitAsBitTerm;
+};
+
 // DNL<DNLInstanceFull, DNLTerminalFull>* create();
 DNL<DNLInstanceFull, DNLTerminalFull>* get();
 bool isCreated();
@@ -55,30 +62,7 @@ class DNLInstanceFull {
   DNLInstanceFull(SNLInstance* instance, DNLID id, DNLID parent);
   void display() const;
   DNLID getID() const;
-  std::string getFullPath() const {
-    std::vector<SNLInstance*> path;
-    DNLID instID = getID();
-    DNLInstanceFull inst = *this;
-    SNLInstance* snlInst = inst.getSNLInstance();
-    if (snlInst != nullptr) {
-      path.push_back(snlInst);
-    }
-    
-    instID = inst.getParentID();
-    while (instID != DNLID_MAX) {
-      inst = inst.getParentInstance();
-      snlInst = inst.getSNLInstance();
-      if (snlInst != nullptr) {
-        path.push_back(snlInst);
-      }
-      instID = inst.getParentID();
-    }
-    std::string fullPath;
-    for (auto it = path.rbegin(); it != path.rend(); ++it) {
-      fullPath += (*it)->getName().getString() + "/";
-    }
-    return fullPath;
-  };
+  std::string getFullPath() const;
   DNLID getParentID() const;
   const DNLInstanceFull& getParentInstance() const;
   SNLInstance* getSNLInstance() const;
@@ -191,7 +175,7 @@ template <class DNLInstance, class DNLTerminal>
 class DNLIsoDBBuilder {
  public:
   DNLIsoDBBuilder(DNLIsoDB& db, const DNL<DNLInstance, DNLTerminal>& dnl);
-  void treatDriver(const DNLTerminal& term, DNLIso& DNLIso, bool updateIsoID = false);
+  void treatDriver(const DNLTerminal& term, DNLIso& DNLIso, visited& visitedDB, bool updateIsoID = false);
   void process();
 
  private:
