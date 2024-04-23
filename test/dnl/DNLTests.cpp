@@ -496,6 +496,7 @@ TEST_F(DNLTests, SNLDataAccessWith3levelsOfHierarchyAndIsoDBWithMultiDriverNonMT
     auto subsubinTerm = SNLScalarTerm::create(subsubmod, SNLTerm::Direction::Input, SNLName("subsubin"));
     auto subsuboutTerm = SNLScalarTerm::create(subsubmod, SNLTerm::Direction::Output, SNLName("subsubout"));
     SNLInstance* subsubinst = SNLInstance::create(submod, subsubmod, SNLName("subsubinst"));
+    SNLInstance* subsubinst2 = SNLInstance::create(submod, subsubmod, SNLName("subsubinst2"));
     //Connect the output of the second sub module to the output of the first sub module
     auto subOutNet = SNLScalarNet::create(submod, SNLName("submodnet"));
     suboutTerm->setNet(subOutNet);
@@ -508,6 +509,7 @@ TEST_F(DNLTests, SNLDataAccessWith3levelsOfHierarchyAndIsoDBWithMultiDriverNonMT
     auto subsInNet = SNLScalarNet::create(submod);
     subinTerm->setNet(subsInNet);
     subsubinst->getInstTerm(subsubinTerm)->setNet(subsInNet);
+    subsubinst2->getInstTerm(subsubinTerm)->setNet(subsInNet);
     //Connect the input of the first sub module to the input of the top module
     auto inNet = SNLScalarNet::create(mod);
     inTerm->setNet(inNet);
@@ -545,7 +547,7 @@ TEST_F(DNLTests, SNLDataAccessWith3levelsOfHierarchyAndIsoDBWithMultiDriverNonMT
     const DNLIso& isoOut = dnl->getDNLIsoDB().getIsoFromIsoIDconst(outIsoID);
     EXPECT_EQ(isoIn.getDrivers().size(), 2);
     EXPECT_EQ(isoOut.getDrivers().size(), 1);
-    EXPECT_EQ(isoIn.getReaders().size(), 1);
+    EXPECT_EQ(isoIn.getReaders().size(), 2);
     EXPECT_EQ(isoOut.getReaders().size(), 1);
     EXPECT_EQ(dnl->isInstanceChild(0, 1), true);
     EXPECT_EQ(dnl->isInstanceChild(0, 2), true);
@@ -555,7 +557,7 @@ TEST_F(DNLTests, SNLDataAccessWith3levelsOfHierarchyAndIsoDBWithMultiDriverNonMT
     DNLComplexIso complexIso0;
     dnl->getCustomIso(inIsoID, complexIso0);
     EXPECT_EQ(complexIso0.getDrivers().size(), 2);
-    EXPECT_EQ(complexIso0.getReaders().size(), 1);
+    EXPECT_EQ(complexIso0.getReaders().size(), 2);
     EXPECT_EQ(complexIso0.getHierTerms().size(), 1);
     DNLComplexIso complexIso1;
     dnl->getCustomIso(outIsoID, complexIso1);
