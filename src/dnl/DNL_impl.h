@@ -82,9 +82,9 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::treatDriver(
         if (toVisitAsInstTerm[finstTermId]) {
           continue;
         }
-        if (finstTermId == fid) {
+        /*if (finstTermId == fid) {
           continue;
-        }
+        }*/
         if (visited[finstTermId]) {
           continue;
         }
@@ -132,9 +132,9 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::treatDriver(
         if (toVisitAsBitTerm[fbitTermId]) {
           continue;
         }
-        if (fbitTermId == fid) {
+        /*if (fbitTermId == fid) {
           continue;
-        }
+        }*/
         if (visited[fbitTermId]) {
           continue;
         }
