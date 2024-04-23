@@ -302,9 +302,7 @@ void DNLIso::display(std::ostream& stream) const {
            << std::endl
            << (*get())
                   .getDNLTerminalFromID(driver)
-                  .getSnlTerm()
-                  ->getInstance()
-                  ->getDescription()
+                  .getDNLInstance().getFullPath()
            << std::endl;
     ;
     stream << "driver "
@@ -328,10 +326,7 @@ void DNLIso::display(std::ostream& stream) const {
     stream << "reader instance"
            << (*get())
                   .getDNLTerminalFromID(reader)
-                  .getSnlTerm()
-                  ->getInstance()
-                  ->getName()
-                  .getString()
+                  .getDNLInstance().getFullPath()
            << std::endl;
     ;
     stream << "reader"
