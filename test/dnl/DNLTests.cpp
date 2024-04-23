@@ -489,6 +489,7 @@ TEST_F(DNLTests, SNLDataAccessWith3levelsOfHierarchyAndIsoDBWithMultiDriverNonMT
     //Create a sub module snl with one input and one output
     SNLDesign* submod = SNLDesign::create(library, SNLName("submod"));
     auto subinTerm = SNLScalarTerm::create(submod, SNLTerm::Direction::Input, SNLName("subin"));
+    auto subinTerm2 = SNLScalarTerm::create(submod, SNLTerm::Direction::Input, SNLName("subin2"));
     auto suboutTerm = SNLScalarTerm::create(submod, SNLTerm::Direction::Output, SNLName("subout"));
     SNLInstance* subinst = SNLInstance::create(mod, submod, SNLName("subinst"));
     //Create a sub module snl with one input and one output
@@ -508,6 +509,7 @@ TEST_F(DNLTests, SNLDataAccessWith3levelsOfHierarchyAndIsoDBWithMultiDriverNonMT
     //Connect the input of the second sub module to the input of the first submodule module
     auto subsInNet = SNLScalarNet::create(submod);
     subinTerm->setNet(subsInNet);
+    subinTerm2->setNet(subsInNet);
     subsubinst->getInstTerm(subsubinTerm)->setNet(subsInNet);
     subsubinst2->getInstTerm(subsubinTerm)->setNet(subsInNet);
     //Connect the input of the first sub module to the input of the top module
@@ -558,7 +560,7 @@ TEST_F(DNLTests, SNLDataAccessWith3levelsOfHierarchyAndIsoDBWithMultiDriverNonMT
     dnl->getCustomIso(inIsoID, complexIso0);
     EXPECT_EQ(complexIso0.getDrivers().size(), 2);
     EXPECT_EQ(complexIso0.getReaders().size(), 2);
-    EXPECT_EQ(complexIso0.getHierTerms().size(), 1);
+    EXPECT_EQ(complexIso0.getHierTerms().size(), 2);
     DNLComplexIso complexIso1;
     dnl->getCustomIso(outIsoID, complexIso1);
     EXPECT_EQ(complexIso1.getDrivers().size(), 1);
