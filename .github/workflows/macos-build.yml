@@ -27,8 +27,9 @@ jobs:
       run: brew install cmake doxygen capnp tbb bison flex boost
     
     - name: set env variable
-      run: echo "/usr/local/opt/flex/bin" >> $GITHUB_PATH; echo "/usr/local/opt/bison/bin" >> $GITHUB_PATH; \
-           echo "/opt/homebrew/opt/flex/bin" >> $GITHUB_PATH; echo "/opt/homebrew/opt/bison/bin" >> $GITHUB_PATH
+      run: |
+        echo "/usr/local/opt/flex/bin" >> $GITHUB_PATH; echo "/usr/local/opt/bison/bin" >> $GITHUB_PATH;
+        echo "/opt/homebrew/opt/flex/bin" >> $GITHUB_PATH; echo "/opt/homebrew/opt/bison/bin" >> $GITHUB_PATH
 
     - name: Configure CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
