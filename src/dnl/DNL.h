@@ -118,10 +118,6 @@ class DNLTerminalFull {
 class DNLIso {
  public:
   DNLIso(DNLID id = DNLID_MAX);
-  void makeShadow() {
-    drivers_.clear();
-    readers_.clear();
-  }
   void setId(DNLID id) { id_ = id; }
   virtual void addDriver(DNLID driver);
   virtual void addReader(DNLID reader);
@@ -175,7 +171,7 @@ template <class DNLInstance, class DNLTerminal>
 class DNLIsoDBBuilder {
  public:
   DNLIsoDBBuilder(DNLIsoDB& db, const DNL<DNLInstance, DNLTerminal>& dnl);
-  void treatDriver(const DNLTerminal& term, DNLIso& DNLIso, visited& visitedDB, bool updateIsoID = false);
+  void treatDriver(const DNLTerminal& term, DNLIso& DNLIso);
   void process();
 
  private:
