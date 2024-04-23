@@ -18,16 +18,9 @@ wire net_3;
 wire net_4;
 
 model instance1 (
-  .i0(),
-  .i1(),
-  .o0({net_0, net_1, net_2, net_3, net_4}),
-  .o1()
+  .o0({net_0, net_1, net_2, net_3, net_4})
 );
 
 model instance2 (
-  .i0(),
-  .i1(),
-  .o0(),
-  .o1()
 );
 endmodule //top

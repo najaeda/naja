@@ -4,10 +4,11 @@
 
 from naja import snl as snl
 
-def constructsg13g2_inv_1(lib):
-  cell = snl.SNLDesign.createPrimitive(lib, "sg13g2_inv_1")
-  a = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A")
-  y = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "Y")
+def constructsg13g2_inv(lib, strengths):
+  for strength in strengths:
+    cell = snl.SNLDesign.createPrimitive(lib, "sg13g2_inv_" + str(strength))
+    a = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A")
+    y = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "Y")
 
 def constructsg13g2_and2_1(lib):
   cell = snl.SNLDesign.createPrimitive(lib, "sg13g2_and2_1")
@@ -100,17 +101,19 @@ def constructsg13g2_mux4_1(lib):
   s1 = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "S1")
   x = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "X")
 
-def constructsg13g2_nand2_1(lib):
-  cell = snl.SNLDesign.createPrimitive(lib, "sg13g2_nand2_1")
-  a = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A")
-  b = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B")
-  y = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "Y")
+def constructsg13g2_nand2(lib, strengths):
+  for strength in strengths:
+    cell = snl.SNLDesign.createPrimitive(lib, "sg13g2_nand2_" + str(strength))
+    a = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A")
+    b = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B")
+    y = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "Y")
 
-def constructsg13g2_nand2b_1(lib):
-  cell = snl.SNLDesign.createPrimitive(lib, "sg13g2_nand2b_1")
-  a_n = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A_N")
-  b = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B")
-  y = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "Y")
+def constructsg13g2_nand2b(lib, strengths):
+  for strength in strengths:
+    cell = snl.SNLDesign.createPrimitive(lib, "sg13g2_nand2b_" + str(strength))
+    a_n = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A_N")
+    b = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B")
+    y = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "Y")
 
 def constructsg13g2_nand3_1(lib):
   cell = snl.SNLDesign.createPrimitive(lib, "sg13g2_nand3_1")
@@ -134,32 +137,36 @@ def constructsg13g2_nand4_1(lib):
   d = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "D")
   y = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "Y")
 
-def constructsg13g2_nor2_1(lib):
-  cell = snl.SNLDesign.createPrimitive(lib, "sg13g2_nor2_1")
-  a = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A")
-  b = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B")
-  y = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "Y")
+def constructsg13g2_nor2(lib, strengths):
+  for strength in strengths:
+    cell = snl.SNLDesign.createPrimitive(lib, "sg13g2_nor2_" + str(strength))
+    a = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A")
+    b = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B")
+    y = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "Y")
 
-def constructsg13g2_nor2b_1(lib):
-  cell = snl.SNLDesign.createPrimitive(lib, "sg13g2_nor2b_1")
-  a = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A")
-  b_n = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B_N")
-  y = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "Y")
+def constructsg13g2_nor2b(lib, strengths):
+  for strength in strengths:
+    cell = snl.SNLDesign.createPrimitive(lib, "sg13g2_nor2b_" + str(strength))
+    a = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A")
+    b_n = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B_N")
+    y = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "Y")
 
-def constructsg13g2_nor3_1(lib):
-  cell = snl.SNLDesign.createPrimitive(lib, "sg13g2_nor3_1")
-  a = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A")
-  b = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B")
-  c = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "C")
-  y = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "Y")
+def constructsg13g2_nor3(lib, strengths):
+  for strength in strengths:
+    cell = snl.SNLDesign.createPrimitive(lib, "sg13g2_nor3_" + str(strength))
+    a = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A")
+    b = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B")
+    c = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "C")
+    y = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "Y")
 
-def constructsg13g2_nor4_1(lib):
-  cell = snl.SNLDesign.createPrimitive(lib, "sg13g2_nor4_1")
-  a = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A")
-  b = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B")
-  c = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "C")
-  d = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "D")
-  y = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "Y")
+def constructsg13g2_nor4(lib, strengths):
+  for strength in strengths:
+    cell = snl.SNLDesign.createPrimitive(lib, "sg13g2_nor4_" + str(strength))
+    a = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A")
+    b = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B")
+    c = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "C")
+    d = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "D")
+    y = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "Y")
 
 def constructsg13g2_o21ai_1(lib):
   cell = snl.SNLDesign.createPrimitive(lib, "sg13g2_o21ai_1")
@@ -217,29 +224,29 @@ def constructsg13g2_xnor2_1(lib):
   y = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "Y")
 
 def constructPrimitives(lib):
-  constructsg13g2_inv_1(lib)
+  constructsg13g2_inv(lib, [1, 2])
   constructsg13g2_and2_1(lib)
   constructsg13g2_and3_1(lib)
   constructsg13g2_and4_1(lib)
   constructsg13g2_a21o_1(lib)
   constructsg13g2_a21oi(lib, [1, 2])
   constructsg13g2_a221oi_1(lib)
-  constructsg13g2_buf(lib, [1, 2])
+  constructsg13g2_buf(lib, [1, 2, 4, 8])
   constructsg13g2_dfrbp_1(lib)
   constructsg13g2_dlygate4sd2_1(lib)
   constructsg13g2_dlygate4sd3_1(lib)
   constructsg13g2_fill(lib, [1, 2, 4, 8])
   constructsg13g2_mux2(lib, [1, 2])
   constructsg13g2_mux4_1(lib)
-  constructsg13g2_nand2_1(lib)
+  constructsg13g2_nand2(lib, [1, 2])
   constructsg13g2_nand3_1(lib)
   constructsg13g2_nand4_1(lib)
-  constructsg13g2_nand2b_1(lib)
+  constructsg13g2_nand2b(lib, [1, 2])
   constructsg13g2_nand3b_1(lib)
-  constructsg13g2_nor2_1(lib)
-  constructsg13g2_nor3_1(lib)
-  constructsg13g2_nor2b_1(lib)
-  constructsg13g2_nor4_1(lib)
+  constructsg13g2_nor2(lib, [1, 2])
+  constructsg13g2_nor3(lib, [1, 2])
+  constructsg13g2_nor2b(lib, [1, 2])
+  constructsg13g2_nor4(lib, [1, 2])
   constructsg13g2_or2_1(lib)
   constructsg13g2_or3_1(lib)
   constructsg13g2_or4_1(lib)

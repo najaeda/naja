@@ -41,13 +41,20 @@ class SNLVRLDumperTestEscaping: public ::testing::Test {
       SNLDesign* model0 = SNLDesign::create(library, SNLName("#model0"));
       auto t0 = SNLScalarTerm::create(model0, SNLTerm::Direction::Input, SNLName("%t0"));
       auto t1 = SNLScalarTerm::create(model0, SNLTerm::Direction::Input, SNLName("12t1@"));
-      auto t3 = SNLBusTerm::create(model0, SNLTerm::Direction::Input, 3, 0, SNLName("3 4"));
-      auto t4 = SNLBusTerm::create(model0, SNLTerm::Direction::Input, -5, 2, SNLName("##"));
+      auto t2 = SNLBusTerm::create(model0, SNLTerm::Direction::Input, 3, 0, SNLName("3 4"));
+      auto t3 = SNLBusTerm::create(model0, SNLTerm::Direction::Input, -5, 2, SNLName("##"));
       SNLDesign* top = SNLDesign::create(library, SNLName("design@"));
       universe->setTopDesign(top);
 
-      SNLInstance::create(top, model0, SNLName("0ins"));
-
+      auto ins = SNLInstance::create(top, model0, SNLName("0ins"));
+      auto n0 = SNLScalarNet::create(top, SNLName("^n0^"));
+      auto n1 = SNLScalarNet::create(top, SNLName("[n1]"));
+      auto n2 = SNLBusNet::create(top, 3, 0, SNLName("3 4"));
+      auto n3 = SNLBusNet::create(top, -5, 2, SNLName("##"));
+      ins->setTermNet(t0, n0);
+      ins->setTermNet(t1, n1);
+      ins->setTermNet(t2, n2);
+      ins->setTermNet(t3, n3);
     }
     void TearDown() override {
       SNLUniverse::get()->destroy();
