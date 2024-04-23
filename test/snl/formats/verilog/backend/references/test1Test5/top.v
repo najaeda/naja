@@ -23,15 +23,11 @@ model #(
   .PARAM3(152)
 ) instance1 (
   .i0(5'h00),
-  .i1(),
-  .o0({bus0[0:-1], DUMMY, DUMMY, net_0}),
-  .o1()
+  .o0({bus0[0:-1], DUMMY, DUMMY, net_0})
 );
 
 model instance2 (
   .i0(5'h13),
-  .i1({2'b01, n2, n3, n4}),
-  .o0(),
-  .o1()
+  .i1({2'b01, n2, n3, n4})
 );
 endmodule //top

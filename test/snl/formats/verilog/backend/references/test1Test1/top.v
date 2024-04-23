@@ -13,16 +13,12 @@ wire [2:-2] bus2;
 wire [-2:2] bus3;
 
 model instance1 (
-  .i0(),
-  .i1(),
   .o0(bus1),
   .o1(bus0)
 );
 
 model instance2 (
   .i0(bus1),
-  .i1(bus0),
-  .o0(),
-  .o1()
+  .i1(bus0)
 );
 endmodule //top
