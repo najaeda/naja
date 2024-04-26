@@ -3,8 +3,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include <vector>
 #include <spdlog/spdlog.h>
+#include <vector>
 
 #include "SNLBusNetBit.h"
 #include "SNLDB0.h"
@@ -16,7 +16,7 @@
 using namespace naja::DNL;
 using namespace naja::SNL;
 
-//#define DEBUG_PRINTS
+// #define DEBUG_PRINTS
 
 namespace naja::NAJA_OPT {
 
@@ -29,8 +29,19 @@ std::vector<DNLID> LoadlessLogicRemover::getTopOutputIsos(
   std::vector<DNLID> topOutputIsos;
   for (DNLID term = dnl.getTop().getTermIndexes().first;
        term < dnl.getTop().getTermIndexes().second; term++) {
+#ifdef DEBUG_PRINTS
+    // LCOV_EXCL_START
+    printf("Checking %s\n",
+           dnl.getDNLTerminalFromID(term).getSnlBitTerm()->getString().c_str());
+    printf("Direction %s\n", dnl.getDNLTerminalFromID(term)
+                                 .getSnlBitTerm()
+                                 ->getDirection()
+                                 .getString()
+                                 .c_str());
+    // LCOV_EXCL_STOP
+#endif
     if (dnl.getDNLTerminalFromID(term).getSnlBitTerm()->getDirection() !=
-        SNLTerm::Direction::Input) {
+        SNLTerm::Direction::DirectionEnum::Input) {
       if (dnl.getIsoIdfromTermId(term) != DNLID_MAX) {
 #ifdef DEBUG_PRINTS
         // LCOV_EXCL_START
@@ -38,10 +49,15 @@ std::vector<DNLID> LoadlessLogicRemover::getTopOutputIsos(
                                    .getSnlBitTerm()
                                    ->getString()
                                    .c_str());
-        
+
         // LCOV_EXCL_STOP
 #endif
         topOutputIsos.push_back(dnl.getIsoIdfromTermId(term));
+      } else {
+        printf("No iso %s\n", dnl.getDNLTerminalFromID(term)
+                                  .getSnlBitTerm()
+                                  ->getString()
+                                  .c_str());
       }
     }
   }
@@ -111,20 +127,6 @@ std::set<DNLID> LoadlessLogicRemover::getIsoTrace(
             // LCOV_EXCL_STOP
 #endif
             isoQueue.push_back(term.getIsoID());
-            // const auto &currentIso =
-            // dnl.getDNLIsoDB().getIsoFromIsoIDconst(term.getIsoID());
-
-            /*for (const auto &driverID : currentIso.getDrivers())
-            {
-              const auto &termDriver = dnl.getDNLTerminalFromID(driverID);
-              #ifdef DEBUG_PRINTS
-// LCOV_EXCL_START
-printf(" - - getIsoTrace Driver %s\n",
-termDriver.getSnlBitTerm()->getString().c_str());
-// LCOV_EXCL_STOP
-#endif
-            }
-*/
           }
         }
       }
@@ -151,8 +153,7 @@ std::vector<DNLID> LoadlessLogicRemover::getUntracedIsos(
     const naja::DNL::DNL<DNLInstanceFull, DNLTerminalFull>& dnl,
     const std::set<DNLID>& tracedIsos) {
   std::vector<DNLID> untracedIsos;
-  for (DNLID iso = 0;
-       iso < dnl.getDNLIsoDB().getNumIsos(); iso++) {
+  for (DNLID iso = 0; iso < dnl.getDNLIsoDB().getNumIsos(); iso++) {
     if (tracedIsos.find(iso) == tracedIsos.end()) {
       untracedIsos.push_back(iso);
     }
@@ -277,18 +278,17 @@ void LoadlessLogicRemover::removeLoadlessInstances(
            SNLDB0::isAssign(uniquifier.getPathUniq().back()->getModel())
                ? "true"
                : "false");
-    
+
     // LCOV_EXCL_STOP
 #endif
     uniquifier.getPathUniq().back()->destroy();
   }
-//#ifdef DEBUG_PRINTS
-  // LCOV_EXCL_START
-  spdlog::info("Deleted {} leaf instances out of {}",
-      loadlessInstances.size(),
-      dnl_->getLeaves().size());
+  // #ifdef DEBUG_PRINTS
+  //  LCOV_EXCL_START
+  spdlog::info("Deleted {} leaf instances out of {}", loadlessInstances.size(),
+               dnl_->getLeaves().size());
   // LCOV_EXCL_STOP
-///#endif
+  /// #endif
 }
 
 // Given a DNL, remove all loadless logic

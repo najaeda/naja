@@ -489,13 +489,16 @@ TEST_F(DNLTests, SNLDataAccessWith3levelsOfHierarchyAndIsoDBWithMultiDriverNonMT
     //Create a sub module snl with one input and one output
     SNLDesign* submod = SNLDesign::create(library, SNLName("submod"));
     auto subinTerm = SNLScalarTerm::create(submod, SNLTerm::Direction::Input, SNLName("subin"));
+    auto subinTerm2 = SNLScalarTerm::create(submod, SNLTerm::Direction::Input, SNLName("subin2"));
     auto suboutTerm = SNLScalarTerm::create(submod, SNLTerm::Direction::Output, SNLName("subout"));
     SNLInstance* subinst = SNLInstance::create(mod, submod, SNLName("subinst"));
+    SNLInstance* subinst2 = SNLInstance::create(mod, submod, SNLName("subinst2"));
     //Create a sub module snl with one input and one output
     SNLDesign* subsubmod = SNLDesign::create(library, SNLName("subsubmod"));
     auto subsubinTerm = SNLScalarTerm::create(subsubmod, SNLTerm::Direction::Input, SNLName("subsubin"));
     auto subsuboutTerm = SNLScalarTerm::create(subsubmod, SNLTerm::Direction::Output, SNLName("subsubout"));
     SNLInstance* subsubinst = SNLInstance::create(submod, subsubmod, SNLName("subsubinst"));
+    SNLInstance* subsubinst2 = SNLInstance::create(submod, subsubmod, SNLName("subsubinst2"));
     //Connect the output of the second sub module to the output of the first sub module
     auto subOutNet = SNLScalarNet::create(submod, SNLName("submodnet"));
     suboutTerm->setNet(subOutNet);
@@ -505,14 +508,17 @@ TEST_F(DNLTests, SNLDataAccessWith3levelsOfHierarchyAndIsoDBWithMultiDriverNonMT
     outTerm->setNet(outNet);
     subinst->getInstTerm(suboutTerm)->setNet(outNet);
     //Connect the input of the second sub module to the input of the first submodule module
-    auto subsInNet = SNLScalarNet::create(submod);
-    subinTerm->setNet(subsInNet);
-    subsubinst->getInstTerm(subsubinTerm)->setNet(subsInNet);
+    //auto subsInNet = SNLScalarNet::create(submod);
+    subinTerm->setNet(subOutNet);
+    subinTerm2->setNet(subOutNet);
+    subsubinst->getInstTerm(subsubinTerm)->setNet(subOutNet);
+    subsubinst2->getInstTerm(subsubinTerm)->setNet(subOutNet);
     //Connect the input of the first sub module to the input of the top module
     auto inNet = SNLScalarNet::create(mod);
     inTerm->setNet(inNet);
     inTerm2->setNet(inNet);
     subinst->getInstTerm(subinTerm)->setNet(inNet);
+    subinst2->getInstTerm(subinTerm)->setNet(inNet);
     //Create a DNL on top of the SNL
     DNLFull* dnl = get();
     dnl->getDNLIsoDB().display();
@@ -528,8 +534,9 @@ TEST_F(DNLTests, SNLDataAccessWith3levelsOfHierarchyAndIsoDBWithMultiDriverNonMT
     DNLID subsubmodID = dnl->getTop().getChildInstance(subinst).getChildInstance(subsubinst).getID();
     DNLID subsubinTermID = dnl->getTop().getChildInstance(subinst).getChildInstance(subsubinst).getTerminalFromBitTerm(subsubinTerm).getID();
     DNLID subsuboutTermID = dnl->getTop().getChildInstance(subinst).getChildInstance(subsubinst).getTerminalFromBitTerm(subsuboutTerm).getID();;
+    printf("Full path: %s\n", dnl->getTop().getChildInstance(subinst).getChildInstance(subsubinst).getFullPath().c_str());
     //Validate the iso db
-    EXPECT_EQ(dnl->getDNLIsoDB().getNumIsos(), 2);
+    EXPECT_EQ(dnl->getDNLIsoDB().getNumIsos(), 1);
     DNLID inIsoID = dnl->getTop().getTerminalFromBitTerm(inTerm).getIsoID();
     DNLID subinIsoID = dnl->getTop().getChildInstance(subinst).getTerminalFromBitTerm(subinTerm).getIsoID();
     DNLID subsubInIsoID = dnl->getTop().getChildInstance(subinst).getChildInstance(subsubinst).getTerminalFromBitTerm(subsubinTerm).getIsoID();
@@ -542,10 +549,10 @@ TEST_F(DNLTests, SNLDataAccessWith3levelsOfHierarchyAndIsoDBWithMultiDriverNonMT
     EXPECT_EQ(suboutIsoID, subsubOutIsoID);
     const DNLIso& isoIn = dnl->getDNLIsoDB().getIsoFromIsoIDconst(inIsoID);
     const DNLIso& isoOut = dnl->getDNLIsoDB().getIsoFromIsoIDconst(outIsoID);
-    EXPECT_EQ(isoIn.getDrivers().size(), 2);
-    EXPECT_EQ(isoOut.getDrivers().size(), 1);
-    EXPECT_EQ(isoIn.getReaders().size(), 1);
-    EXPECT_EQ(isoOut.getReaders().size(), 1);
+    EXPECT_EQ(isoIn.getDrivers().size(), 4);
+    EXPECT_EQ(isoOut.getDrivers().size(), 4);
+    EXPECT_EQ(isoIn.getReaders().size(), 5);
+    EXPECT_EQ(isoOut.getReaders().size(), 5);
     EXPECT_EQ(dnl->isInstanceChild(0, 1), true);
     EXPECT_EQ(dnl->isInstanceChild(0, 2), true);
     EXPECT_EQ(dnl->isInstanceChild(1, 0), false);
@@ -553,14 +560,14 @@ TEST_F(DNLTests, SNLDataAccessWith3levelsOfHierarchyAndIsoDBWithMultiDriverNonMT
     EXPECT_EQ(dnl->isInstanceChild(2, 1), false);
     DNLComplexIso complexIso0;
     dnl->getCustomIso(inIsoID, complexIso0);
-    EXPECT_EQ(complexIso0.getDrivers().size(), 2);
-    EXPECT_EQ(complexIso0.getReaders().size(), 1);
-    EXPECT_EQ(complexIso0.getHierTerms().size(), 1);
+    EXPECT_EQ(complexIso0.getDrivers().size(), 4);
+    EXPECT_EQ(complexIso0.getReaders().size(), 5);
+    EXPECT_EQ(complexIso0.getHierTerms().size(), 6);
     DNLComplexIso complexIso1;
     dnl->getCustomIso(outIsoID, complexIso1);
-    EXPECT_EQ(complexIso1.getDrivers().size(), 1);
-    EXPECT_EQ(complexIso1.getReaders().size(), 1);
-    EXPECT_EQ(complexIso1.getHierTerms().size(), 1);
+    EXPECT_EQ(complexIso1.getDrivers().size(), 4);
+    EXPECT_EQ(complexIso1.getReaders().size(), 5);
+    EXPECT_EQ(complexIso1.getHierTerms().size(), 6);
     dnl->display();
     dnl->getTop().display();
     dnl->getTop().getChildInstance(subinst).display();
