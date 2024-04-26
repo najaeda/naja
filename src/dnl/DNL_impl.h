@@ -79,32 +79,18 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::treatDriver(
         DNLID finstTermId = finstance.getChildInstance(instTerm->getInstance())
                                 .getTerminal(instTerm)
                                 .getID();
-        if (toVisitAsInstTerm[finstTermId]) {
-          continue;
+        if (!toVisitAsInstTerm[finstTermId] && !visited[finstTermId]) {
+          stack.push(finstTermId);
+          toVisitAsInstTerm[finstTermId] = true;
         }
-        /*if (finstTermId == fid) {
-          continue;
-        }*/
-        if (visited[finstTermId]) {
-          continue;
-        }
-        stack.push(finstTermId);
-        toVisitAsInstTerm[finstTermId] = true;
       }
       for (SNLBitTerm* bitTerm :
            fterm.getSnlBitTerm()->getNet()->getBitTerms()) {
         DNLID fbitTermId = finstance.getTerminalFromBitTerm(bitTerm).getID();
-        if (toVisitAsBitTerm[fbitTermId]) {
-          continue;
+        if (!toVisitAsBitTerm[fbitTermId] && !(fbitTermId == fid) && !visited[fbitTermId]) {
+          stack.push(fbitTermId);
+          toVisitAsBitTerm[fbitTermId] = true;
         }
-        if (fbitTermId == fid) {
-          continue;
-        }
-        if (visited[fbitTermId]) {
-          continue;
-        }
-        stack.push(fbitTermId);
-        toVisitAsBitTerm[fbitTermId] = true;
       }
     }
     if (!toVisitAsInstTerm[fterm.getID()] && !fterm.getDNLInstance().isTop() &&
@@ -115,31 +101,17 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::treatDriver(
         DNLID finstTermId = fparent.getChildInstance(instTerm->getInstance())
                                 .getTerminal(instTerm)
                                 .getID();
-        if (toVisitAsInstTerm[finstTermId]) {
-          continue;
+        if (!toVisitAsInstTerm[finstTermId] && !(finstTermId == fid) && !visited[finstTermId]) {
+          stack.push(finstTermId);
+          toVisitAsInstTerm[finstTermId] = true;
         }
-        if (finstTermId == fid) {
-          continue;
-        }
-        if (visited[finstTermId]) {
-          continue;
-        }
-        stack.push(finstTermId);
-        toVisitAsInstTerm[finstTermId] = true;
       }
       for (SNLBitTerm* bitTerm : fterm.getSnlTerm()->getNet()->getBitTerms()) {
         DNLID fbitTermId = fparent.getTerminalFromBitTerm(bitTerm).getID();
-        if (toVisitAsBitTerm[fbitTermId]) {
-          continue;
+        if (!toVisitAsBitTerm[fbitTermId] && !visited[fbitTermId]) {  
+          stack.push(fbitTermId);
+          toVisitAsBitTerm[fbitTermId] = true;
         }
-        /*if (fbitTermId == fid) {
-          continue;
-        }*/
-        if (visited[fbitTermId]) {
-          continue;
-        }
-        stack.push(fbitTermId);
-        toVisitAsBitTerm[fbitTermId] = true;
       }
     }
   }
