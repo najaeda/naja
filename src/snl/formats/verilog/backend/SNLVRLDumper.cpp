@@ -359,7 +359,7 @@ void SNLVRLDumper::dumpInsTermConnectivity(
           } else {
             firstElement = false;
           }
-          connectionStr += netName.getString();
+          connectionStr += dumpName(netName.getString());
         } else {
           auto busNetBit = static_cast<SNLBusNetBit*>(net);
           auto busNet = busNetBit->getBus();
