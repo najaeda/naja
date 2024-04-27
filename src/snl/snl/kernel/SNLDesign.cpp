@@ -484,10 +484,20 @@ NajaCollection<SNLParameter*> SNLDesign::getParameters() const {
   return NajaCollection(new NajaIntrusiveSetCollection(&parameters_));
 }
 
+void SNLDesign::setType(Type type) {
+  if (type == Type::Primitive) {
+    throw SNLException("cannot change design type to Primitive");
+  }
+  type_ = type;
+}
+
 bool SNLDesign::isTopDesign() const {
   return getDB()->getTopDesign() == this; 
 }
 
+bool SNLDesign::isAssign() const {
+  return SNLDB0::isAssign(this);
+}
 
 bool SNLDesign::deepCompare(
       const SNLDesign* other,
@@ -524,7 +534,7 @@ bool SNLDesign::isBetween(int n, int MSB, int LSB) {
 
 void SNLDesign::mergeAssigns() {
   using Instances = std::list<SNLInstance*>;
-  auto filter = [](const SNLInstance* it) { return SNLDB0::isAssign(it->getModel()); };
+  auto filter = [](const SNLInstance* it) { return it->getModel()->isAssign(); };
   Instances assignInstances(
       getInstances().getSubCollection(filter).begin(),
       getInstances().getSubCollection(filter).end());

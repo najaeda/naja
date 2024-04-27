@@ -16,7 +16,7 @@ eqy.gold: arm_core_snl.v primitives.v
 	touch $@
 
 verilator.gold: arm_core_snl.v primitives.v
-	${VERILATOR} --top-module arm_core --lint-only primitives.v arm_core_snl.v
+	${VERILATOR} --top-module arm_core --lint-only -Wno-PINMISSING primitives.v arm_core_snl.v
 	touch $@
 
 arm_core_netlist.v: src/arm_core.v

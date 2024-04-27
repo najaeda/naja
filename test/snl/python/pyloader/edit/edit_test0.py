@@ -14,7 +14,13 @@ def edit():
   else:
     logging.info('Found top design ' + str(top))
 
-  #change the name of instance0 to instance1
+  #change the name of instance0 to instance00
   instance0 = top.getInstance('instance0')
   if instance0 is not None:
-    instance0.setName('instance1')
+    instance0.setName('instance00')
+  bbox_instance = top.getInstance('instance1')
+  if bbox_instance.getModel().isBlackBox():
+    bbox_instance.setName('bbox_instance')
+  assign_instance = top.getInstance('instance2')
+  if assign_instance.getModel().isAssign():
+    assign_instance.setName('assign_instance')

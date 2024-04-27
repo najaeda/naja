@@ -25,17 +25,17 @@
 
 namespace {
 
-void dumpDirection(const naja::SNL::SNLTerm* term, std::ostream& o) {
+size_t dumpDirection(const naja::SNL::SNLTerm* term, std::ostream& o) {
   switch (term->getDirection()) {
     case naja::SNL::SNLTerm::Direction::Input:
       o << "input";
-      break;
+      return std::char_traits<char>::length("input");
     case naja::SNL::SNLTerm::Direction::Output:
       o << "output";
-      break;
+      return std::char_traits<char>::length("output");
     case naja::SNL::SNLTerm::Direction::InOut:
       o << "inout";
-      break;
+      return std::char_traits<char>::length("inout");
   }
 }
 
@@ -256,20 +256,32 @@ SNLName SNLVRLDumper::getNetName(const SNLNet* net, const DesignInsideAnonymousN
 }
 
 void SNLVRLDumper::dumpInterface(const SNLDesign* design, std::ostream& o, DesignInsideAnonymousNaming& naming) {
+  size_t nbChars = std::char_traits<char>::length("module  (");
+  nbChars += design->getName().getString().size();
   o << "(";
   bool first = true;
   for (auto term: design->getTerms()) {
     if (not first) {
-      o << ", ";
+      o << ",";
+      nbChars += 1;
+      if (nbChars > 80) {
+        o << std::endl;
+        nbChars = 0;
+      }
+      nbChars += 1;
+      o << " ";
     } else {
       first = false;
     }
-    dumpDirection(term, o);
+    nbChars += dumpDirection(term, o) + 1;
     o << " ";
     if (auto bus = dynamic_cast<SNLBusTerm*>(term)) {
       o << "[" << bus->getMSB() << ":" << bus->getLSB() << "] ";
+      nbChars += 3 + std::to_string(bus->getMSB()).size() + std::to_string(bus->getLSB()).size();
     }
-    o << dumpName(term->getName().getString());
+    const auto termName = term->getName().getString();
+    nbChars += termName.size();
+    o << dumpName(termName);
   }
   o << ");";
 }
@@ -347,7 +359,7 @@ void SNLVRLDumper::dumpInsTermConnectivity(
           } else {
             firstElement = false;
           }
-          connectionStr += netName.getString();
+          connectionStr += dumpName(netName.getString());
         } else {
           auto busNetBit = static_cast<SNLBusNetBit*>(net);
           auto busNet = busNetBit->getBus();
@@ -422,26 +434,33 @@ void SNLVRLDumper::dumpInstanceInterface(
       termNets.push_back(instTerm->getNet());
     } else {
       if (previousTerm) {
-        if (first) {
-          first = false;
-        } else {
-          o << ",";
+        //dump previous term connectivity if at least one net is != nullptr
+        if (std::any_of(termNets.begin(), termNets.end(),
+          [](const SNLBitNet* n){ return n != nullptr; })) {
+          if (first) {
+            first = false;
+          } else {
+            o << ",";
+          }
+          o << std::endl;
+          dumpInsTermConnectivity(previousTerm, termNets, o, naming);
         }
-        o << std::endl;
-        dumpInsTermConnectivity(previousTerm, termNets, o, naming);
       }
       termNets = { instTerm->getNet() };
     }
     previousTerm = currentTerm;
   }
   if (previousTerm) {
-    if (first) {
-      first = false;
-    } else {
-      o << ",";
+    if (std::any_of(termNets.begin(), termNets.end(),
+      [](const SNLBitNet* n){ return n != nullptr; })) {
+      if (first) {
+        first = false;
+      } else {
+        o << ",";
+      }
+      o << std::endl;
+      dumpInsTermConnectivity(previousTerm, termNets, o, naming);
     }
-    o << std::endl;
-    dumpInsTermConnectivity(previousTerm, termNets, o, naming);
   }
   o <<  std::endl << ")";
 }

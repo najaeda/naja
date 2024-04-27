@@ -23,7 +23,9 @@ class SNLInstTerm final: public SNLNetComponent {
     SNLDesign* getDesign() const override;
 
     SNLID getSNLID() const override;
+    /// \return the SNLInstance owning this SNLInstTerm.
     SNLInstance* getInstance() const { return instance_; }
+    /// \return the SNLBitTerm referenced by this SNLInstTerm.
     SNLBitTerm* getBitTerm() const { return bitTerm_; }
     SNLBitNet* getNet() const override { return net_; }
     void setNet(SNLNet* net) override;

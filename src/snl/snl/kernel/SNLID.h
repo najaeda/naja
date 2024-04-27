@@ -54,7 +54,7 @@ struct SNLID final {
     }
   };
 
-  ///DesignReference is a structure allowing to reference uniquely a SNLDesign. 
+  /// \brief DesignReference is a structure allowing to reference uniquely a SNLDesign. 
   struct DesignReference {
     DBID              dbID_;
     LibraryID         libraryID_;

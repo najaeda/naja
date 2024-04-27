@@ -35,11 +35,23 @@ class SNLParameter {
     SNLParameter() = delete;
     SNLParameter(const SNLParameter&) = delete;
 
+    /**
+     * \brief Create a SNLParameter.
+     * \param design owner SNLDesign.
+     * \param name SNLName of the parameter.
+     * \param type SNLParameter::Type of the parameter.
+     * \param value value of the parameter.
+     * \return created SNLParameter. 
+     */
     static SNLParameter* create(SNLDesign* design, const SNLName& name, Type type, const std::string& value);
+    
+    /// \brief Destroy this SNLParameter.
     void destroy();
+    /// \return this SNLParameter name.
     SNLName getName() const { return name_; }
     std::string getValue() const { return value_; }
     Type getType() const { return type_; }
+    /// \return this SNLParameter owning SNLDesign.
     SNLDesign* getDesign() const { return design_; }
 
     const char* getTypeName() const;

@@ -21,10 +21,13 @@ class SNLBitNet: public SNLNet {
     using super = SNLNet;
     
     void setType(const Type& type) override { type_ = type; }
+    ///\return this SNLBitNet Type.
     Type getType() const { return type_; }
     SNLID::Bit getSize() const override { return 1; }
 
+    ///\return true if this SNLBitNet is a constant 0: Type::Assign0 or Type::Supply0.
     bool isConstant0() const { return type_.isConst0(); }
+    ///\return true if this SNLBitNet is a constant 1: Type::Assign1 or Type::Supply1.
     bool isConstant1() const { return type_.isConst1(); }
     bool isConstant() const { return isConstant0() or isConstant1(); }
     bool isAssignConstant() const override { return type_.isAssign(); } 

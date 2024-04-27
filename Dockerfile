@@ -22,7 +22,7 @@ COPY thirdparty /naja/thirdparty
 
 WORKDIR /naja/build
 RUN cmake -DCMAKE_BUILD_TYPE=Release .. && \
-    cmake --build .  --parallel 8 && \
+    cmake --build . --parallel 8 && \
     cmake --install . --prefix /naja/install    
 RUN ctest -j8
 

@@ -169,6 +169,30 @@ const DNLTerminalFull& DNLInstanceFull::getTerminalFromBitTerm(
   return (*get()).getDNLNullTerminal();
 }
 
+std::string DNLInstanceFull::getFullPath() const {
+    std::vector<SNLInstance*> path;
+    DNLID instID = getID();
+    DNLInstanceFull inst = *this;
+    SNLInstance* snlInst = inst.getSNLInstance();
+    if (snlInst != nullptr) {
+      path.push_back(snlInst);
+    }
+    instID = inst.getParentID();
+    while (instID != DNLID_MAX) {
+      inst = inst.getParentInstance();
+      snlInst = inst.getSNLInstance();
+      if (snlInst != nullptr) {
+        path.push_back(snlInst);
+      }
+      instID = inst.getParentID();
+    }
+    std::string fullPath;
+    for (auto it = path.rbegin(); it != path.rend(); ++it) {
+      fullPath += (*it)->getName().getString() + "/";
+    }
+    return fullPath;
+  };
+
 DNLTerminalFull::DNLTerminalFull(DNLID DNLInstID,
                                  SNLInstTerm* terminal,
                                  DNLID id)
@@ -265,7 +289,7 @@ void DNLIso::display(std::ostream& stream) const {
                     .getDNLTerminalFromID(driver)
                     .getSnlBitTerm()
                     ->getName()
-                    .getString();
+                    .getString() << std::endl;
       continue;
     }
     stream << "driver instance "
@@ -278,9 +302,7 @@ void DNLIso::display(std::ostream& stream) const {
            << std::endl
            << (*get())
                   .getDNLTerminalFromID(driver)
-                  .getSnlTerm()
-                  ->getInstance()
-                  ->getDescription()
+                  .getDNLInstance().getFullPath()
            << std::endl;
     ;
     stream << "driver "
@@ -298,16 +320,13 @@ void DNLIso::display(std::ostream& stream) const {
                     .getDNLTerminalFromID(reader)
                     .getSnlBitTerm()
                     ->getName()
-                    .getString();
+                    .getString() << std::endl;
       continue;
     }
     stream << "reader instance"
            << (*get())
                   .getDNLTerminalFromID(reader)
-                  .getSnlTerm()
-                  ->getInstance()
-                  ->getName()
-                  .getString()
+                  .getDNLInstance().getFullPath()
            << std::endl;
     ;
     stream << "reader"

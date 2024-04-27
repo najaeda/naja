@@ -19,10 +19,15 @@ class SNLNetComponent: public SNLDesignObject {
     friend class SNLBitNet;
     using super = SNLDesignObject;
  
+    /**
+     * \brief class describing Direction.
+    */
     class Direction {
       public:
         enum DirectionEnum {
-          Input, Output, InOut
+          Input,  ///< Input direction.
+          Output, ///< Output direction.
+          InOut   ///< InOut direction.
         };
         Direction(const DirectionEnum& dirEnum);
         Direction(const Direction& direction) = default;
@@ -33,10 +38,17 @@ class SNLNetComponent: public SNLDesignObject {
           DirectionEnum dirEnum_;
     };
 
-    ///\return this SNLNetComponent Direction.
+    /// \return this SNLNetComponent Direction.
     virtual Direction getDirection() const = 0;
 
+    /// \return this SNLNetComponent SNLNet. 
     virtual SNLBitNet* getNet() const =0;
+
+    /**
+     * \brief Change this SNLNetComponent SNLNet.
+     * \remark This SNLNetComponent and net must have the same size. 
+     * \remark If net is null, this SNLNetComponent will be disconnected.
+     */
     virtual void setNet(SNLNet* net) =0;
 
   protected:

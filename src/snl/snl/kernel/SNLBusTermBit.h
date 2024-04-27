@@ -18,7 +18,6 @@ class SNLBusTermBit final: public SNLBitTerm {
 
     SNLDesign* getDesign() const override;
 
-    ///\return the owner SNLBusTerm ID.
     SNLID::DesignObjectID getID() const override;
     SNLID getSNLID() const override;
     ///\return this SNLBusTermBit owner SNLBusTerm.
