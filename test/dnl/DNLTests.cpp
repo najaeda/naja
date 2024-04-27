@@ -220,7 +220,7 @@ TEST_F(DNLTests, SNLDataAccessWith3levelsOfHierarchyAndIsoDB) {
     EXPECT_EQ(subsubinTermID, 4);
     EXPECT_EQ(subsuboutTermID, 5);
     //Validate the iso db
-    EXPECT_EQ(dnl->getDNLIsoDB().getNumIsos(), 2);
+    EXPECT_EQ(dnl->getDNLIsoDB().getNumNonEmptyIsos(), 2);
     DNLID inIsoID = dnl->getTop().getTerminalFromBitTerm(inTerm).getIsoID();
     DNLID subinIsoID = dnl->getTop().getChildInstance(subinst).getTerminalFromBitTerm(subinTerm).getIsoID();
     DNLID subsubInIsoID = dnl->getTop().getChildInstance(subinst).getChildInstance(subsubinst).getTerminalFromBitTerm(subsubinTerm).getIsoID();
@@ -332,7 +332,7 @@ TEST_F(DNLTests, SNLDataAccessWith3levelsOfHierarchyAndIsoDBNonMT) {
     EXPECT_EQ(subsubinTermID, 4);
     EXPECT_EQ(subsuboutTermID, 5);
     //Validate the iso db
-    EXPECT_EQ(dnl->getDNLIsoDB().getNumIsos(), 2);
+    EXPECT_EQ(dnl->getDNLIsoDB().getNumNonEmptyIsos(), 2);
     DNLID inIsoID = dnl->getTop().getTerminalFromBitTerm(inTerm).getIsoID();
     DNLID subinIsoID = dnl->getTop().getChildInstance(subinst).getTerminalFromBitTerm(subinTerm).getIsoID();
     DNLID subsubInIsoID = dnl->getTop().getChildInstance(subinst).getChildInstance(subsubinst).getTerminalFromBitTerm(subsubinTerm).getIsoID();
@@ -430,7 +430,7 @@ TEST_F(DNLTests, SNLDataAccessWith3levelsOfHierarchyAndIsoDBWithMultiDriverMT) {
     DNLID subsubinTermID = dnl->getTop().getChildInstance(subinst).getChildInstance(subsubinst).getTerminalFromBitTerm(subsubinTerm).getID();
     DNLID subsuboutTermID = dnl->getTop().getChildInstance(subinst).getChildInstance(subsubinst).getTerminalFromBitTerm(subsuboutTerm).getID();;
     //Validate the iso db
-    EXPECT_EQ(dnl->getDNLIsoDB().getNumIsos(), 2);
+    EXPECT_EQ(dnl->getDNLIsoDB().getNumNonEmptyIsos(), 2);
     DNLID inIsoID = dnl->getTop().getTerminalFromBitTerm(inTerm).getIsoID();
     DNLID subinIsoID = dnl->getTop().getChildInstance(subinst).getTerminalFromBitTerm(subinTerm).getIsoID();
     DNLID subsubInIsoID = dnl->getTop().getChildInstance(subinst).getChildInstance(subsubinst).getTerminalFromBitTerm(subsubinTerm).getIsoID();
@@ -536,7 +536,7 @@ TEST_F(DNLTests, SNLDataAccessWith3levelsOfHierarchyAndIsoDBWithMultiDriverNonMT
     DNLID subsuboutTermID = dnl->getTop().getChildInstance(subinst).getChildInstance(subsubinst).getTerminalFromBitTerm(subsuboutTerm).getID();;
     printf("Full path: %s\n", dnl->getTop().getChildInstance(subinst).getChildInstance(subsubinst).getFullPath().c_str());
     //Validate the iso db
-    EXPECT_EQ(dnl->getDNLIsoDB().getNumIsos(), 1);
+    EXPECT_EQ(dnl->getDNLIsoDB().getNumNonEmptyIsos(), 1);
     DNLID inIsoID = dnl->getTop().getTerminalFromBitTerm(inTerm).getIsoID();
     DNLID subinIsoID = dnl->getTop().getChildInstance(subinst).getTerminalFromBitTerm(subinTerm).getIsoID();
     DNLID subsubInIsoID = dnl->getTop().getChildInstance(subinst).getChildInstance(subsubinst).getTerminalFromBitTerm(subsubinTerm).getIsoID();

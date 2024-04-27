@@ -15,17 +15,11 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::treatDriver(
     const DNLTerminal& term,
     DNLIso& DNLIso,
     visited& visitedDB,
-    bool updateIsoID) {
-  std::vector<bool>& visited = visitedDB.visited;
-  visited.resize(dnl_.getDNLTerms().size(), false);
-  visited.assign(visited.size(), false);
-  std::vector<bool>& toVisitAsInstTerm = visitedDB.toVisitAsInstTerm;
-  toVisitAsInstTerm.resize(dnl_.getDNLTerms().size(), false);
-  toVisitAsInstTerm.assign(toVisitAsInstTerm.size(), false);
-  std::vector<bool>& toVisitAsBitTerm = visitedDB.toVisitAsBitTerm;
-  toVisitAsBitTerm.resize(dnl_.getDNLTerms().size(), false);
-  toVisitAsBitTerm.assign(toVisitAsBitTerm.size(), false);
+    bool updateReadersIsoID, bool updateDriverIsoID) {
   std::stack<DNLID> stack;
+  std::vector<bool>& visited = visitedDB.visited;
+  visited.resize(dnl_.getDNLTerms().size());
+  visited.assign(visited.size(), false);
   stack.push(term.getID());
   // Collect all terms on this iso
   while (!stack.empty()) {
@@ -34,18 +28,18 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::treatDriver(
     if (visited[fid]) {
       continue;
     }
-    const DNLTerminal& fterm = dnl_.getDNLTerminalFromID(fid);
+    const DNLTerminal& fterm = dnl_.getNonConstDNLTerminalFromID(fid);
     if (fterm.getDNLInstance().isTop()) {
       if (fterm.getSnlBitTerm()->getDirection() ==
           SNLTerm::Direction::DirectionEnum::Output) {
         DNLIso.addReader(fid);
-        if (updateIsoID) {
-          dnl_.getDNLTerminalFromID(fid).setIsoID(DNLIso.getIsoID());
+        if (updateReadersIsoID) {
+          dnl_.getNonConstDNLTerminalFromID(fid).setIsoID(DNLIso.getIsoID());
         }
       } else {
         DNLIso.addDriver(fid);
-        if (updateIsoID) {
-          dnl_.getDNLTerminalFromID(fid).setIsoID(DNLIso.getIsoID());
+        if (updateDriverIsoID) {
+          dnl_.getNonConstDNLTerminalFromID(fid).setIsoID(DNLIso.getIsoID());
         }
       }
     } else if (fterm.getDNLInstance()
@@ -56,64 +50,88 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::treatDriver(
       if (fterm.getSnlTerm()->getDirection() ==
           SNLTerm::Direction::DirectionEnum::Input) {
         DNLIso.addReader(fid);
-        if (updateIsoID) {
-          dnl_.getDNLTerminalFromID(fid).setIsoID(DNLIso.getIsoID());
+        if (updateReadersIsoID) {
+          dnl_.getNonConstDNLTerminalFromID(fid).setIsoID(DNLIso.getIsoID());
         }
       } else {
         DNLIso.addDriver(fid);
-        if (updateIsoID) {
-          dnl_.getDNLTerminalFromID(fid).setIsoID(DNLIso.getIsoID());
+        if (updateDriverIsoID) {
+          dnl_.getNonConstDNLTerminalFromID(fid).setIsoID(DNLIso.getIsoID());
         }
       }
     } else {
       DNLIso.addHierTerm(fid);
-      if (updateIsoID) {
-        dnl_.getDNLTerminalFromID(fid).setIsoID(DNLIso.getIsoID());
+      if (updateReadersIsoID) {
+        dnl_.getNonConstDNLTerminalFromID(fid).setIsoID(DNLIso.getIsoID());
       }
     }
-    visited[fid] = true;
-    if (!toVisitAsBitTerm[fterm.getID()] && fterm.getSnlBitTerm()->getNet()) {
+    if (fterm.getSnlBitTerm()->getNet()) {
+      bool netAlreadyVisited = false;
       DNLInstance finstance = fterm.getDNLInstance();
       for (SNLInstTerm* instTerm :
            fterm.getSnlBitTerm()->getNet()->getInstTerms()) {
         DNLID finstTermId = finstance.getChildInstance(instTerm->getInstance())
                                 .getTerminal(instTerm)
                                 .getID();
-        if (!toVisitAsInstTerm[finstTermId] && !visited[finstTermId]) {
-          stack.push(finstTermId);
-          toVisitAsInstTerm[finstTermId] = true;
+        if (finstTermId == fid) {
+          continue;
         }
+        if (visited[finstTermId]) {
+          netAlreadyVisited = true;
+          break;//If the term was visietd, by definition the current net was handeled.
+        }
+        assert(finstTermId != DNLID_MAX);
+        stack.push(finstTermId);
       }
-      for (SNLBitTerm* bitTerm :
-           fterm.getSnlBitTerm()->getNet()->getBitTerms()) {
-        DNLID fbitTermId = finstance.getTerminalFromBitTerm(bitTerm).getID();
-        if (!toVisitAsBitTerm[fbitTermId] && !(fbitTermId == fid) && !visited[fbitTermId]) {
+      if (!netAlreadyVisited) {
+        for (SNLBitTerm* bitTerm :
+            fterm.getSnlBitTerm()->getNet()->getBitTerms()) {
+          DNLID fbitTermId = finstance.getTerminalFromBitTerm(bitTerm).getID();
+          if (fbitTermId == fid) {
+            continue;
+          }
+          if (visited[fbitTermId]) {
+            break;//If the term was visietd, by definition the current net was handeled.
+          }
+          assert(fbitTermId != DNLID_MAX);
           stack.push(fbitTermId);
-          toVisitAsBitTerm[fbitTermId] = true;
         }
       }
     }
-    if (!toVisitAsInstTerm[fterm.getID()] && !fterm.getDNLInstance().isTop() &&
+    if (!fterm.getDNLInstance().isTop() &&
         fterm.getSnlTerm()->getNet()) {
+      bool netAlreadyVisited = false;
       DNLInstance fparent = fterm.getDNLInstance().getParentInstance();
       for (SNLInstTerm* instTerm :
            fterm.getSnlTerm()->getNet()->getInstTerms()) {
         DNLID finstTermId = fparent.getChildInstance(instTerm->getInstance())
                                 .getTerminal(instTerm)
                                 .getID();
-        if (!toVisitAsInstTerm[finstTermId] && !(finstTermId == fid) && !visited[finstTermId]) {
-          stack.push(finstTermId);
-          toVisitAsInstTerm[finstTermId] = true;
+        if (visited[finstTermId]) {
+          netAlreadyVisited = true;
+          break;//If the term was visietd, by definition the current net was handeled.
         }
+        if (finstTermId == fid) {
+          continue;
+        }
+        assert(finstTermId != DNLID_MAX);
+        stack.push(finstTermId);
       }
-      for (SNLBitTerm* bitTerm : fterm.getSnlTerm()->getNet()->getBitTerms()) {
-        DNLID fbitTermId = fparent.getTerminalFromBitTerm(bitTerm).getID();
-        if (!toVisitAsBitTerm[fbitTermId] && !visited[fbitTermId]) {  
+      if (!netAlreadyVisited) {
+        for (SNLBitTerm* bitTerm : fterm.getSnlTerm()->getNet()->getBitTerms()) {
+          DNLID fbitTermId = fparent.getTerminalFromBitTerm(bitTerm).getID();
+          /*if (fbitTermId == fid) {
+            continue;
+          }*/
+          if (visited[fbitTermId]) {
+            break;//If the term was visietd, by definition the current net was handeled.
+          }
+          assert(fbitTermId != DNLID_MAX);
           stack.push(fbitTermId);
-          toVisitAsBitTerm[fbitTermId] = true;
         }
       }
     }
+    visited[fid] = true;
   }
 }
 
@@ -129,7 +147,10 @@ void DNL<DNLInstance, DNLTerminal>::display() const {
     printf("fi %zu %s\n", inst.getID(),
            inst.getSNLInstance()->getString().c_str());
     for (DNLID term = inst.getTermIndexes().first;
-         term < inst.getTermIndexes().second; term++) {
+         term <= inst.getTermIndexes().second; term++) {
+      if (DNLID_MAX == term) {
+        break;
+      }
       printf("- ft %zu %d %s\n", term,
              (int)getDNLTerminalFromID(term).getSnlTerm()->getDirection(),
              getDNLTerminalFromID(term).getSnlTerm()->getString().c_str());
@@ -141,19 +162,25 @@ void DNL<DNLInstance, DNLTerminal>::display() const {
 template <class DNLInstance, class DNLTerminal>
 void DNL<DNLInstance, DNLTerminal>::process() {
   std::vector<DNLID> stack;
+  //Creating the top
   DNLInstances_.push_back(
       DNLInstance(nullptr, DNLInstances_.size(), DNLID_MAX));
   assert(DNLInstances_.back().getID() == DNLInstances_.size() - 1);
   DNLID parentId = DNLInstances_.back().getID();
   std::pair<DNLID, DNLID> childrenIndexes;
-  childrenIndexes.first = DNLInstances_.back().getID();
   std::pair<DNLID, DNLID> termIndexes;
   termIndexes.first = DNLTerms_.size();
   for (SNLBitTerm* bitterm : top_->getBitTerms()) {
     DNLTerms_.push_back(DNLTerminal(parentId, bitterm, DNLTerms_.size()));
   }
-  termIndexes.second = DNLTerms_.size();
+  termIndexes.second = DNLTerms_.back().getID();
+  if (termIndexes.first == DNLTerms_.size()) {
+    //No terms are accoiated 
+    termIndexes.first = DNLID_MAX;
+    termIndexes.second = DNLID_MAX;
+  }
   DNLInstances_.back().setTermsIndexes(termIndexes);
+  childrenIndexes.first = DNLInstances_.size();
   for (auto inst : top_->getInstances()) {
     DNLInstances_.push_back(DNLInstance(inst, DNLInstances_.size(), parentId));
     assert(DNLInstances_.back().getID() > 0);
@@ -169,10 +196,20 @@ void DNL<DNLInstance, DNLTerminal>::process() {
       DNLTerms_.push_back(
           DNLTerminal(DNLInstances_.back().getID(), term, DNLTerms_.size()));
     }
-    termIndexes.second = DNLTerms_.size();
+    termIndexes.second = DNLTerms_.back().getID();
+    if (termIndexes.first == DNLTerms_.size()) {
+      //No terms are accoiated 
+      termIndexes.first = DNLID_MAX;
+      termIndexes.second = DNLID_MAX;
+    }
     DNLInstances_.back().setTermsIndexes(termIndexes);
   }
   childrenIndexes.second = DNLInstances_.back().getID();
+  if (childrenIndexes.first == DNLInstances_.size()) {
+    //No terms are accoiated 
+    childrenIndexes.first = DNLID_MAX;
+    childrenIndexes.second = DNLID_MAX;
+  }
   getNonConstDNLInstanceFromID(parentId).setChildrenIndexes(childrenIndexes);
 #ifdef DEBUG_PRINTS
   // LCOV_EXCL_START
@@ -187,7 +224,7 @@ void DNL<DNLInstance, DNLTerminal>::process() {
     DNLID parentId = getNonConstDNLInstanceFromID((stack.back())).getID();
     stack.pop_back();
     std::pair<DNLID, DNLID> childrenIndexes;
-    childrenIndexes.first = DNLInstances_.back().getID();
+    childrenIndexes.first = DNLInstances_.size();
     for (auto inst : parent->getModel()->getInstances()) {
 #ifdef DEBUG_PRINTS
       // LCOV_EXCL_START
@@ -228,10 +265,20 @@ void DNL<DNLInstance, DNLTerminal>::process() {
         // LCOV_EXCL_STOP
 #endif
       }
-      termIndexes.second = DNLTerms_.size();
+      termIndexes.second = DNLTerms_.back().getID();
+      if (termIndexes.first == DNLTerms_.size()) {
+        //No terms are accoiated 
+        termIndexes.first = DNLID_MAX;
+        termIndexes.second = DNLID_MAX;
+      }
       DNLInstances_.back().setTermsIndexes(termIndexes);
     }
     childrenIndexes.second = DNLInstances_.back().getID();
+    if (childrenIndexes.first == DNLInstances_.size()) {
+      //No terms are accoiated 
+      childrenIndexes.first = DNLID_MAX;
+      childrenIndexes.second = DNLID_MAX;
+    }
     getNonConstDNLInstanceFromID(parentId).setChildrenIndexes(childrenIndexes);
   }
   DNLInstances_.push_back(DNLInstance());
@@ -240,6 +287,11 @@ void DNL<DNLInstance, DNLTerminal>::process() {
   DNLIsoDBBuilder<DNLInstance, DNLTerminal> fidbb(fidb_, *this);
   fidbb.process();
   fidb_.addIso().setId(DNLID_MAX);  // addNullIso
+#ifdef DEBUG_PRINTS
+    // LCOV_EXCL_START
+  printf("DNL creation done.\n");
+  // LCOV_EXCL_STOP
+#endif
 }
 
 template <class DNLInstance, class DNLTerminal>
@@ -272,30 +324,37 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::process() {
   std::vector<DNLID> tasks;
   for (DNLID leaf : dnl_.getLeaves()) {
     for (DNLID term = dnl_.getDNLInstanceFromID(leaf).getTermIndexes().first;
-         term < dnl_.getDNLInstanceFromID(leaf).getTermIndexes().second;
+         term <= dnl_.getDNLInstanceFromID(leaf).getTermIndexes().second;
          term++) {
-      if (dnl_.getDNLTerminalFromID(term).getSnlTerm()->getDirection() !=
+      if (DNLID_MAX == term) {
+        break;
+      }
+      if (dnl_.getNonConstDNLTerminalFromID(term).getSnlTerm()->getDirection() !=
               SNLTerm::Direction::DirectionEnum::Input &&
-          dnl_.getDNLTerminalFromID(term).getSnlTerm()->getNet()) {
+          dnl_.getNonConstDNLTerminalFromID(term).getSnlTerm()->getNet()) {
         DNLIso& DNLIso = addIsoToDB();
 
         tasks.push_back(term);
-        dnl_.getDNLTerminalFromID(term).setIsoID(DNLIso.getIsoID());
+        dnl_.getNonConstDNLTerminalFromID(term).setIsoID(DNLIso.getIsoID());
       }
     }
   }
   for (DNLID term = dnl_.getTop().getTermIndexes().first;
-       term < dnl_.getTop().getTermIndexes().second; term++) {
-    if (dnl_.getDNLTerminalFromID(term).getSnlBitTerm()->getDirection() !=
+       term <= dnl_.getTop().getTermIndexes().second; term++) {
+    if (DNLID_MAX == term) {
+      break;
+    }
+    if (dnl_.getNonConstDNLTerminalFromID(term).getSnlBitTerm()->getDirection() !=
             SNLTerm::Direction::DirectionEnum::Output &&
-        dnl_.getDNLTerminalFromID(term).getSnlBitTerm()->getNet()) {
+        dnl_.getNonConstDNLTerminalFromID(term).getSnlBitTerm()->getNet()) {
       DNLIso& DNLIso = addIsoToDB();
       tasks.push_back(term);
-      dnl_.getDNLTerminalFromID(term).setIsoID(DNLIso.getIsoID());
+      dnl_.getNonConstDNLTerminalFromID(term).setIsoID(DNLIso.getIsoID());
     }
   }
   std::vector<DNLID> multiDriverIsos;
   tbb::enumerable_thread_specific<visited> visit;
+  //auto visitL = visit.local( );
   if (!getenv("NON_MT")) {
 #ifdef DEBUG_PRINTS
     // LCOV_EXCL_START
@@ -307,10 +366,10 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::process() {
         tbb::blocked_range<DNLID>(0, tasks.size()),
         [&](const tbb::blocked_range<DNLID>& r) {
           for (DNLID i = r.begin(); i < r.end(); ++i) {
-            treatDriver(dnl_.getDNLTerminalFromID(tasks[i]),
+            treatDriver(dnl_.getNonConstDNLTerminalFromID(tasks[i]),
                         db_.getIsoFromIsoID(
-                            dnl_.getDNLTerminalFromID(tasks[i]).getIsoID()),
-                        visit.local(), false);
+                            dnl_.getNonConstDNLTerminalFromID(tasks[i]).getIsoID()),
+                        visit.local(), true, false);
 #ifdef DEBUG_PRINTS
             // LCOV_EXCL_START
             printf("treatDriver %lu %lu\n",
@@ -327,17 +386,14 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::process() {
 #endif
     for (auto task : tasks) {
       treatDriver(
-          dnl_.getDNLTerminalFromID(task),
-          db_.getIsoFromIsoID(dnl_.getDNLTerminalFromID(task).getIsoID()),
-          visit.local(), false);
+          dnl_.getNonConstDNLTerminalFromID(task),
+          db_.getIsoFromIsoID(dnl_.getNonConstDNLTerminalFromID(task).getIsoID()),
+          visit.local(), true, false);
     }
   }
-  std::vector<DNLID> uniqueDriverIsos;
   for (DNLID iso = 0; iso < db_.getNumIsos() + 1; iso++) {
     if (db_.getIsoFromIsoID(iso).getDrivers().size() > 1) {
       multiDriverIsos.push_back(iso);
-    } else {
-      uniqueDriverIsos.push_back(iso);
     }
   }
   std::set<DNLID> driversToTreat;
@@ -348,6 +404,7 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::process() {
         drivers.insert(driver);
       }
       driversToTreat.insert(*drivers.begin());
+      db_.makeShadow(iso);
     }
   }
   tasks.clear();  // reuse tasks for new round
@@ -356,13 +413,9 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::process() {
   for (DNLID driver : driversToTreat) {
     tasks.push_back(driver);
   }
-  for (DNLID iso : uniqueDriverIsos) {
-    tasks.push_back(db_.getIsoFromIsoIDconst(iso).getDrivers()[0]);
-  }
-  db_.emptyIsos();
   for (DNLID driver : tasks) {
     DNLIso& DNLIso = addIsoToDB();
-    dnl_.getDNLTerminalFromID(driver).setIsoID(DNLIso.getIsoID());
+    dnl_.getNonConstDNLTerminalFromID(driver).setIsoID(DNLIso.getIsoID());
   }
   if (!getenv("NON_MT")) {
 #ifdef DEBUG_PRINTS
@@ -375,10 +428,10 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::process() {
         tbb::blocked_range<DNLID>(0, tasks.size()),
         [&](const tbb::blocked_range<DNLID>& r) {
           for (DNLID i = r.begin(); i < r.end(); ++i) {
-            treatDriver(dnl_.getDNLTerminalFromID(tasks[i]),
+            treatDriver(dnl_.getNonConstDNLTerminalFromID(tasks[i]),
                         db_.getIsoFromIsoID(
-                            dnl_.getDNLTerminalFromID(tasks[i]).getIsoID()),
-                        visit.local(), true);
+                            dnl_.getNonConstDNLTerminalFromID(tasks[i]).getIsoID()),
+                        visit.local(), true, true);
           }
         });
   } else {
@@ -389,23 +442,22 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::process() {
 #endif
     for (auto task : tasks) {
       treatDriver(
-          dnl_.getDNLTerminalFromID(task),
-          db_.getIsoFromIsoID(dnl_.getDNLTerminalFromID(task).getIsoID()),
-          visit.local(), true);
+          dnl_.getNonConstDNLTerminalFromID(task),
+          db_.getIsoFromIsoID(dnl_.getNonConstDNLTerminalFromID(task).getIsoID()),
+          visit.local(), true, true);
     }
   }
   for (DNLID iso = 0; iso < db_.getNumIsos() + 1; iso++) {
-    /*for (DNLID driver : db_.getIsoFromIsoID(iso).getDrivers()) {
-      assert(dnl_.getDNLTerminalFromID(driver).getIsoID() == iso);
-    }
-    for (DNLID reader : db_.getIsoFromIsoID(iso).getReaders()) {
-      assert(dnl_.getDNLTerminalFromID(reader).getIsoID() == iso);
-    }*/
     if (db_.getIsoFromIsoID(iso).getDrivers().size() > 1) {
       multiDriverIsosRound2.push_back(iso);
     }
   }
-  // assert(driversToTreat.size() == multiDriverIsosRound2.size());
+#ifdef DEBUG_PRINTS
+  // LCOV_EXCL_START
+  printf("md check: %lu %lu\n", driversToTreat.size(), multiDriverIsosRound2.size());
+  // LCOV_EXCL_STOP
+#endif
+  assert(driversToTreat.size() == multiDriverIsosRound2.size());
 #ifdef DEBUG_PRINTS
   // LCOV_EXCL_START
   printf("num fi %zu\n", dnl_.getDNLInstances().size());
