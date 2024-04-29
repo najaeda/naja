@@ -7,6 +7,7 @@
 
 #include "DNL.h"
 #include "tbb/concurrent_unordered_set.h"
+#include "tbb/scalable_allocator.h"
 
 using namespace naja::DNL;
 using namespace naja::SNL;
@@ -21,7 +22,7 @@ class LoadlessLogicRemover {
       const naja::DNL::DNL<DNLInstanceFull, DNLTerminalFull>& dnl);
   static void getIsoTrace(
       const naja::DNL::DNL<DNLInstanceFull, DNLTerminalFull>& dnl,
-      DNLID iso, tbb::concurrent_unordered_set<DNLID>& isoTrace);
+      DNLID iso, tbb::concurrent_unordered_set<DNLID, std::hash<DNLID>, std::equal_to<DNLID>, tbb::scalable_allocator<DNLID>>& isoTrace);
   tbb::concurrent_unordered_set<DNLID> getTracedIsos(
       const naja::DNL::DNL<DNLInstanceFull, DNLTerminalFull>& dnl);
   std::vector<DNLID> getUntracedIsos(

@@ -12,6 +12,7 @@
 
 #include "RemoveLoadlessLogic.h"
 #include "Utils.h"
+#include "tbb/enumerable_thread_specific.h"
 
 using namespace naja::DNL;
 using namespace naja::SNL;
@@ -72,7 +73,7 @@ std::vector<DNLID> LoadlessLogicRemover::getTopOutputIsos(
 // Giving a DNL and iso, get all isos traced back from this iso to top inputs
 void LoadlessLogicRemover::getIsoTrace(
       const naja::DNL::DNL<DNLInstanceFull, DNLTerminalFull>& dnl,
-      DNLID iso, tbb::concurrent_unordered_set<DNLID>& isoTrace) {
+      DNLID iso, tbb::concurrent_unordered_set<DNLID, std::hash<DNLID>, std::equal_to<DNLID>, tbb::scalable_allocator<DNLID>>& isoTrace) {
   std::vector<DNLID> isoQueue;
   isoQueue.push_back(iso);
   while (!isoQueue.empty()) {
@@ -143,21 +144,25 @@ void LoadlessLogicRemover::getIsoTrace(
 tbb::concurrent_unordered_set<DNLID> LoadlessLogicRemover::getTracedIsos(
     const naja::DNL::DNL<DNLInstanceFull, DNLTerminalFull>& dnl) {
   std::vector<DNLID> topOutputIsos = getTopOutputIsos(dnl);
-  tbb::concurrent_unordered_set<DNLID> tracedIsos;
+  tbb::concurrent_unordered_set<DNLID> result;
+  tbb::enumerable_thread_specific<tbb::concurrent_unordered_set<DNLID, std::hash<DNLID>, std::equal_to<DNLID>, tbb::scalable_allocator<DNLID>>> tracedIsos;
   if (!getenv("NON_MT")) {
     tbb::task_arena arena(tbb::task_arena::automatic);
     tbb::parallel_for(
         tbb::blocked_range<DNLID>(0, topOutputIsos.size()),
         [&](const tbb::blocked_range<DNLID>& r) {
           for (DNLID i = r.begin(); i < r.end(); ++i) {
-            getIsoTrace(dnl, topOutputIsos[i], tracedIsos);}
+            getIsoTrace(dnl, topOutputIsos[i], tracedIsos.local());}
         });
   } else {
     for (DNLID iso : topOutputIsos) {
-      getIsoTrace(dnl, iso, tracedIsos);
+      getIsoTrace(dnl, iso, tracedIsos.local());
     }
   }
-  return tracedIsos;
+  for (auto tracedIsosPartial : tracedIsos) {
+    result.insert(tracedIsosPartial.begin(), tracedIsosPartial.end());
+  }
+  return result;
 }
 
 // Get all isos that are not traced given a DNL and set of traced isos

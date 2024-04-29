@@ -100,6 +100,58 @@ TEST_F(LoadlessRemoveLogicTests, simple_0_loadless) {
   destroy();
 }
 
+TEST_F(LoadlessRemoveLogicTests, simple_0_loadlessNonMT) {
+  setenv("NON_MT", "", 1);
+  // Create a simple logic with a single input and output
+  SNLUniverse* univ = SNLUniverse::create();
+  SNLDB* db = SNLDB::create(univ);
+  SNLLibrary* library = SNLLibrary::create(db, SNLName("MYLIB"));
+  SNLDesign* mod = SNLDesign::create(library, SNLName("mod"));
+  univ->setTopDesign(mod);
+  auto inTerm =
+      SNLScalarTerm::create(mod, SNLTerm::Direction::Input, SNLName("in"));
+  auto outTerm1 =
+      SNLScalarTerm::create(mod, SNLTerm::Direction::Output, SNLName("out1"));
+  auto outTerm2 =
+      SNLScalarTerm::create(mod, SNLTerm::Direction::Output, SNLName("out2"));
+
+  SNLDesign* bb = SNLDesign::create(library, SNLName("bb"));
+  auto inTermBB =
+      SNLScalarTerm::create(bb, SNLTerm::Direction::Input, SNLName("in"));
+  auto outTermBB =
+      SNLScalarTerm::create(bb, SNLTerm::Direction::Output, SNLName("out"));
+
+  SNLInstance* inst1 = SNLInstance::create(mod, bb, SNLName("bb1"));
+  SNLInstance* inst2 = SNLInstance::create(mod, bb, SNLName("bb2"));
+  auto inNet1 = SNLScalarNet::create(mod, SNLName("inNet1"));
+  auto outNet1 = SNLScalarNet::create(mod, SNLName("outNet1"));
+  auto outNet2 = SNLScalarNet::create(mod, SNLName("outNet2"));
+  inst1->getInstTerm(inTermBB)->setNet(inNet1);
+  inst1->getInstTerm(outTermBB)->setNet(outNet1);
+  inst2->getInstTerm(inTermBB)->setNet(inNet1);
+  inst2->getInstTerm(outTermBB)->setNet(outNet2);
+  inTerm->setNet(inNet1);
+  outTerm1->setNet(outNet1);
+  outTerm2->setNet(outNet2);
+  DNLFull* dnl = get();
+  LoadlessLogicRemover remover;
+  // Verify each function of remover
+  tbb::concurrent_unordered_set<DNLID> tracedIsos = remover.getTracedIsos(*dnl);
+  EXPECT_EQ(tracedIsos.size(), 3);
+  std::vector<DNLID> untracedIsos = remover.getUntracedIsos(*dnl, tracedIsos);
+  EXPECT_EQ(untracedIsos.size(), 0);
+  //std::set<SNLBitNet*> loadlessNets = remover.getLoadlessNets(*dnl, tracedIsos);
+  //EXPECT_EQ(loadlessNets.size(), 0);
+  std::vector<std::pair<std::vector<SNLInstance*>, DNLID>> loadlessInstances =
+      remover.getLoadlessInstances(*dnl, tracedIsos);
+  EXPECT_EQ(loadlessInstances.size(), 0);
+  destroy();
+  remover.process();
+  // Check that the loadless logic is removed
+  EXPECT_EQ(mod->getInstances().size(), 2);
+  destroy();
+}
+
 TEST_F(LoadlessRemoveLogicTests, simple_1_loadless) {
   // Create a simple logic with a single input and output
   SNLUniverse* univ = SNLUniverse::create();
