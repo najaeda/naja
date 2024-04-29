@@ -118,7 +118,7 @@ class DNLTerminalFull {
 class DNLIso {
  public:
   DNLIso(DNLID id = DNLID_MAX);
-  void makeShadow() {
+  void clear() {
     drivers_.clear();
     readers_.clear();
   }
@@ -165,17 +165,21 @@ class DNLIsoDB {
   DNLIso& getIsoFromIsoID(DNLID isoID) { return isos_[isoID]; }
   const DNLIso& getIsoFromIsoIDconst(DNLID isoID) const { if (isoID == DNLID_MAX) {return isos_.back();} return isos_[isoID]; }
   size_t getNumIsos() const { return isos_.size() - 1/* due to null iso*/; }
+  size_t getNumNonEmptyIsos() const { return isos_.size() - 1/* due to null iso*/ - _shadowIsos.size(); }
   std::vector<DNLID> getFullIso(DNLID);
   void emptyIsos() { isos_.clear();}
+  void makeShadow(DNLID isoid) { getIsoFromIsoID(isoid).clear(); _shadowIsos.push_back(isoid); }
  private:
   std::vector<DNLIso, tbb::scalable_allocator<DNLIso>> isos_;
+  std::vector<DNLID> _shadowIsos;
 };
 
 template <class DNLInstance, class DNLTerminal>
 class DNLIsoDBBuilder {
  public:
   DNLIsoDBBuilder(DNLIsoDB& db, const DNL<DNLInstance, DNLTerminal>& dnl);
-  void treatDriver(const DNLTerminal& term, DNLIso& DNLIso, visited& visitedDB, bool updateIsoID = false);
+  void treatDriver(const DNLTerminal& term, DNLIso& DNLIso, visited& visitedDB, 
+    bool updateReadersIsoID = false, bool updateDriverIsoID = false);
   void process();
 
  private:
@@ -203,13 +207,27 @@ class DNL {
     return DNLTerms_;
   }
   const DNLTerminal& getDNLTerminalFromID(DNLID id) const {
+    if (id == DNLID_MAX) {
+      return DNLTerms_.back();
+    }
     return DNLTerms_[id];
   }
-  DNLTerminal& getDNLTerminalFromID(DNLID id) { return DNLTerms_[id]; }
+  DNLTerminal& getNonConstDNLTerminalFromID(DNLID id) { 
+    if (id == DNLID_MAX) {
+      return DNLTerms_.back();
+    }
+    return DNLTerms_[id]; 
+  }
   const DNLInstance& getDNLInstanceFromID(DNLID id) const {
+    if (id == DNLID_MAX) {
+      return DNLInstances_.back();
+    }
     return DNLInstances_[id];
   }
   DNLInstance& getNonConstDNLInstanceFromID(DNLID id) {
+    if (id == DNLID_MAX) {
+      return DNLInstances_.back();
+    }
     return DNLInstances_[id];
   }
   const DNLTerminal& getDNLNullTerminal() const { return DNLTerms_.back(); }

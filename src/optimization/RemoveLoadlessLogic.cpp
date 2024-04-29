@@ -16,7 +16,7 @@
 using namespace naja::DNL;
 using namespace naja::SNL;
 
-// #define DEBUG_PRINTS
+//#define DEBUG_PRINTS
 
 namespace naja::NAJA_OPT {
 
@@ -28,7 +28,8 @@ std::vector<DNLID> LoadlessLogicRemover::getTopOutputIsos(
     const naja::DNL::DNL<DNLInstanceFull, DNLTerminalFull>& dnl) {
   std::vector<DNLID> topOutputIsos;
   for (DNLID term = dnl.getTop().getTermIndexes().first;
-       term < dnl.getTop().getTermIndexes().second; term++) {
+       term <= dnl.getTop().getTermIndexes().second; term++) {
+    assert(DNLID_MAX != term);
 #ifdef DEBUG_PRINTS
     // LCOV_EXCL_START
     printf("Checking %s\n",
@@ -100,7 +101,7 @@ std::set<DNLID> LoadlessLogicRemover::getIsoTrace(
         continue;
       assert(inst.isLeaf());
       for (DNLID termId = inst.getTermIndexes().first;
-           termId < inst.getTermIndexes().second; termId++) {
+           termId <= inst.getTermIndexes().second; termId++) {
         const DNLTerminalFull& term = dnl.getDNLTerminalFromID(termId);
         assert(term.getSnlTerm() != nullptr);
         {
@@ -192,7 +193,8 @@ printf("SNL Port %s direction %d\n", instTerm->getString().c_str()
 #endif
     }*/
     for (DNLID term = instance.getTermIndexes().first;
-         term < instance.getTermIndexes().second; term++) {
+         term <= instance.getTermIndexes().second; term++) {
+      assert(DNLID_MAX != term);
 #ifdef DEBUG_PRINTS
       // LCOV_EXCL_START
       printf(

@@ -11,6 +11,7 @@
 #include <set>
 #include <stack>
 #include <vector>
+#include <iterator>
 
 #include <tbb/task_arena.h>
 #include "SNLBitNet.h"
@@ -64,7 +65,7 @@ void DNLInstanceFull::display() const {
   }
   printf("DNLInstance ID %zu %s\n", getID(),
          getSNLInstance()->getString().c_str());
-  for (DNLID term = getTermIndexes().first; term < getTermIndexes().second;
+  for (DNLID term = getTermIndexes().first; term <= getTermIndexes().second;
        term++) {
     printf(
         "- DNLTerm %zu %d %s\n", term,
@@ -96,10 +97,14 @@ SNLInstance* DNLInstanceFull::getSNLInstance() const {
 }
 void DNLInstanceFull::setTermsIndexes(
     const std::pair<DNLID, DNLID>& termsIndexes) {
+      //assert(termsIndexes.first < termsIndexes.second || 
+      //(termsIndexes.first == DNLID_MAX && termsIndexes.second == DNLID_MAX));
   termsIndexes_ = termsIndexes;
 }
 void DNLInstanceFull::setChildrenIndexes(
     const std::pair<DNLID, DNLID>& childrenIndexes) {
+      //assert(childrenIndexes.first < childrenIndexes.second || 
+      //(childrenIndexes.first == DNLID_MAX && childrenIndexes.second == DNLID_MAX));
   childrenIndexes_ = childrenIndexes;
 }
 const DNLInstanceFull& DNLInstanceFull::getChildInstance(
@@ -112,26 +117,23 @@ const DNLInstanceFull& DNLInstanceFull::getChildInstance(
       id_, childrenIndexes_.first, childrenIndexes_.second, (int)isTop());
   // LCOV_EXCL_STOP
 #endif
-  for (DNLID child = childrenIndexes_.first + 1;
-       child <= childrenIndexes_.second; child++) {
-#ifdef DEBUG_PRINTS
-    // LCOV_EXCL_START
-    printf(
-        "DNLInstanceFull::getChildInstance - Searched child SNL Instance: %s "
-        "Found "
-        "child SNL instance %s\n",
-        snlInst->getName().getString().c_str(),
-        (*get())
-            .getDNLInstanceFromID(child)
-            .getSNLInstance()
-            ->getName()
-            .getString()
-            .c_str());
-    // LCOV_EXCL_STOP
-#endif
-    if ((*get()).getDNLInstanceFromID(child).getSNLInstance() == snlInst) {
-      return (*get()).getDNLInstanceFromID(child);
-    }
+  // Find the child instance with the same SNLInstance by levrage the fact that
+  // the children are sorted by SNLInstance id(getID()) using the binary search
+  // with costum operator
+  auto first = (*get()).getDNLInstances().begin();
+  std::advance(first, childrenIndexes_.first);
+  auto last = (*get()).getDNLInstances().begin();
+  std::advance(last, childrenIndexes_.second + 1/*exclusive of this element*/);
+  naja::SNL::SNLID::DesignObjectID id = snlInst->getID();
+  auto result = std::lower_bound(
+          first,
+          last, id,
+          [](const DNLInstanceFull& inst, naja::SNL::SNLID::DesignObjectID id) {
+            return inst.getSNLInstance()->getID() < id;
+          });
+  if (result != last && (*result).getSNLInstance() == snlInst) {
+    const DNLInstanceFull& childInstance = *result;
+    return childInstance;
   }
 #ifdef DEBUG_PRINTS
   // LCOV_EXCL_START
@@ -140,9 +142,10 @@ const DNLInstanceFull& DNLInstanceFull::getChildInstance(
 #endif
   return (*get()).getDNLNullInstance();
 }
+
 const DNLTerminalFull& DNLInstanceFull::getTerminal(
     const SNLInstTerm* snlTerm) const {
-  for (DNLID term = termsIndexes_.first; term < termsIndexes_.second; term++) {
+  for (DNLID term = termsIndexes_.first; term <= termsIndexes_.second; term++) {
     if ((*get()).getDNLTerminalFromID(term).getSnlTerm() == snlTerm) {
       return (*get()).getDNLTerminalFromID(term);
     }
@@ -156,7 +159,7 @@ const DNLTerminalFull& DNLInstanceFull::getTerminal(
 }
 const DNLTerminalFull& DNLInstanceFull::getTerminalFromBitTerm(
     const SNLBitTerm* snlTerm) const {
-  for (DNLID term = termsIndexes_.first; term < termsIndexes_.second; term++) {
+  for (DNLID term = termsIndexes_.first; term <= termsIndexes_.second; term++) {
     if ((*get()).getDNLTerminalFromID(term).getSnlBitTerm() == snlTerm) {
       return (*get()).getDNLTerminalFromID(term);
     }
