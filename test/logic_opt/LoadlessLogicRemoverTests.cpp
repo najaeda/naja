@@ -84,7 +84,7 @@ TEST_F(LoadlessRemoveLogicTests, simple_0_loadless) {
   DNLFull* dnl = get();
   LoadlessLogicRemover remover;
   // Verify each function of remover
-  std::set<DNLID> tracedIsos = remover.getTracedIsos(*dnl);
+  tbb::concurrent_unordered_set<DNLID> tracedIsos = remover.getTracedIsos(*dnl);
   EXPECT_EQ(tracedIsos.size(), 3);
   std::vector<DNLID> untracedIsos = remover.getUntracedIsos(*dnl, tracedIsos);
   EXPECT_EQ(untracedIsos.size(), 0);
@@ -131,7 +131,7 @@ TEST_F(LoadlessRemoveLogicTests, simple_1_loadless) {
   DNLFull* dnl = get();
   LoadlessLogicRemover remover;
   // Verify each function of remover
-  std::set<DNLID> tracedIsos = remover.getTracedIsos(*dnl);
+  tbb::concurrent_unordered_set<DNLID> tracedIsos = remover.getTracedIsos(*dnl);
   EXPECT_EQ(tracedIsos.size(), 2);
   std::vector<DNLID> untracedIsos = remover.getUntracedIsos(*dnl, tracedIsos);
   EXPECT_EQ(untracedIsos.size(), 0);
@@ -174,7 +174,7 @@ TEST_F(LoadlessRemoveLogicTests, simple_2_loadless) {
   DNLFull* dnl = get();
   LoadlessLogicRemover remover;
   // Verify each function of remover
-  std::set<DNLID> tracedIsos = remover.getTracedIsos(*dnl);
+  tbb::concurrent_unordered_set<DNLID> tracedIsos = remover.getTracedIsos(*dnl);
   EXPECT_EQ(tracedIsos.size(), 0);
   std::vector<DNLID> untracedIsos = remover.getUntracedIsos(*dnl, tracedIsos);
   EXPECT_EQ(untracedIsos.size(), 1);

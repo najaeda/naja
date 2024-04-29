@@ -6,6 +6,7 @@
 #pragma once
 
 #include "DNL.h"
+#include "tbb/concurrent_unordered_set.h"
 
 using namespace naja::DNL;
 using namespace naja::SNL;
@@ -18,17 +19,17 @@ class LoadlessLogicRemover {
   void process() { removeLoadlessLogic(); }
   std::vector<DNLID> getTopOutputIsos(
       const naja::DNL::DNL<DNLInstanceFull, DNLTerminalFull>& dnl);
-  std::set<DNLID> getIsoTrace(
+  static void getIsoTrace(
       const naja::DNL::DNL<DNLInstanceFull, DNLTerminalFull>& dnl,
-      DNLID iso);
-  std::set<DNLID> getTracedIsos(
+      DNLID iso, tbb::concurrent_unordered_set<DNLID>& isoTrace);
+  tbb::concurrent_unordered_set<DNLID> getTracedIsos(
       const naja::DNL::DNL<DNLInstanceFull, DNLTerminalFull>& dnl);
   std::vector<DNLID> getUntracedIsos(
       const naja::DNL::DNL<DNLInstanceFull, DNLTerminalFull>& dnl,
-      const std::set<DNLID>& tracedIsos);
+      const tbb::concurrent_unordered_set<DNLID>& tracedIsos);
   std::vector<std::pair<std::vector<SNLInstance*>, DNLID>> getLoadlessInstances(
       const naja::DNL::DNL<DNLInstanceFull, DNLTerminalFull>& dnl,
-      const std::set<DNLID>& tracedIsos);
+      const tbb::concurrent_unordered_set<DNLID>& tracedIsos);
   std::vector<std::pair<std::vector<SNLInstance*>, DNLID>>
   normalizeLoadlessInstancesList(
       const std::vector<std::pair<std::vector<SNLInstance*>, DNLID>>&
