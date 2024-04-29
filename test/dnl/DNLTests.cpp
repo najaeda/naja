@@ -62,6 +62,40 @@ TEST_F(DNLTests, SNLDataAccess) {
     EXPECT_EQ(modID, 0);
     EXPECT_EQ(inTermID, 0);
     EXPECT_EQ(outTermID, 1);
+    dnl->getNonConstDNLInstanceFromID(DNLID_MAX);
+    dnl->getDNLInstanceFromID(DNLID_MAX);
+    dnl->getNonConstDNLTerminalFromID(DNLID_MAX);
+    dnl->getDNLTerminalFromID(DNLID_MAX);
+    //Destroy the DNL
+    destroy();
+}
+
+//Empty top
+TEST_F(DNLTests, EmptyTop) {
+    //Create one module snl with one input and one output
+    SNLUniverse* univ = SNLUniverse::create();
+    SNLDB* db = SNLDB::create(univ);
+    SNLLibrary* library = SNLLibrary::create(db, SNLName("MYLIB"));
+    SNLDesign* mod = SNLDesign::create(library, SNLName("mod"));
+    univ->setTopDesign(mod);
+    //Create a DNL on top of the SNL
+    DNLFull* dnl = get();
+    //Destroy the DNL
+    destroy();
+}
+
+//Empty child
+TEST_F(DNLTests, EmptyChild) {
+    //Create one module snl with one input and one output
+    SNLUniverse* univ = SNLUniverse::create();
+    SNLDB* db = SNLDB::create(univ);
+    SNLLibrary* library = SNLLibrary::create(db, SNLName("MYLIB"));
+    SNLDesign* mod = SNLDesign::create(library, SNLName("mod"));
+    SNLDesign* submod = SNLDesign::create(library, SNLName("submod"));
+    SNLInstance* subinst = SNLInstance::create(mod, submod, SNLName("subinst"));
+    univ->setTopDesign(mod);
+    //Create a DNL on top of the SNL
+    DNLFull* dnl = get();
     //Destroy the DNL
     destroy();
 }

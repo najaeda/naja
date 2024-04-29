@@ -168,11 +168,12 @@ void DNL<DNLInstance, DNLTerminal>::process() {
   for (SNLBitTerm* bitterm : top_->getBitTerms()) {
     DNLTerms_.push_back(DNLTerminal(parentId, bitterm, DNLTerms_.size()));
   }
-  termIndexes.second = DNLTerms_.back().getID();
   if (termIndexes.first == DNLTerms_.size()) {
     //No terms are accoiated 
     termIndexes.first = DNLID_MAX;
     termIndexes.second = DNLID_MAX;
+  } else {
+    termIndexes.second = DNLTerms_.back().getID();
   }
   DNLInstances_.back().setTermsIndexes(termIndexes);
   childrenIndexes.first = DNLInstances_.size();
@@ -191,19 +192,21 @@ void DNL<DNLInstance, DNLTerminal>::process() {
       DNLTerms_.push_back(
           DNLTerminal(DNLInstances_.back().getID(), term, DNLTerms_.size()));
     }
-    termIndexes.second = DNLTerms_.back().getID();
     if (termIndexes.first == DNLTerms_.size()) {
       //No terms are accoiated 
       termIndexes.first = DNLID_MAX;
       termIndexes.second = DNLID_MAX;
+    } else {
+      termIndexes.second = DNLTerms_.back().getID();
     }
     DNLInstances_.back().setTermsIndexes(termIndexes);
   }
-  childrenIndexes.second = DNLInstances_.back().getID();
   if (childrenIndexes.first == DNLInstances_.size()) {
     //No terms are accoiated 
     childrenIndexes.first = DNLID_MAX;
     childrenIndexes.second = DNLID_MAX;
+  } else {
+     childrenIndexes.second = DNLInstances_.back().getID();
   }
   getNonConstDNLInstanceFromID(parentId).setChildrenIndexes(childrenIndexes);
 #ifdef DEBUG_PRINTS
@@ -268,11 +271,12 @@ void DNL<DNLInstance, DNLTerminal>::process() {
       }
       DNLInstances_.back().setTermsIndexes(termIndexes);
     }
-    childrenIndexes.second = DNLInstances_.back().getID();
     if (childrenIndexes.first == DNLInstances_.size()) {
       //No terms are accoiated 
       childrenIndexes.first = DNLID_MAX;
       childrenIndexes.second = DNLID_MAX;
+    } else {
+      childrenIndexes.second = DNLInstances_.back().getID();
     }
     getNonConstDNLInstanceFromID(parentId).setChildrenIndexes(childrenIndexes);
   }
@@ -318,29 +322,33 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::process() {
   // iterate on all leaf drivers
   std::vector<DNLID> tasks;
   for (DNLID leaf : dnl_.getLeaves()) {
-    for (DNLID term = dnl_.getDNLInstanceFromID(leaf).getTermIndexes().first;
-         term <= dnl_.getDNLInstanceFromID(leaf).getTermIndexes().second;
-         term++) {
-      assert(DNLID_MAX != term);
-      if (dnl_.getNonConstDNLTerminalFromID(term).getSnlTerm()->getDirection() !=
-              SNLTerm::Direction::DirectionEnum::Input &&
-          dnl_.getNonConstDNLTerminalFromID(term).getSnlTerm()->getNet()) {
-        DNLIso& DNLIso = addIsoToDB();
+    if (dnl_.getDNLInstanceFromID(leaf).getTermIndexes().first != DNLID_MAX) {
+      for (DNLID term = dnl_.getDNLInstanceFromID(leaf).getTermIndexes().first;
+          term <= dnl_.getDNLInstanceFromID(leaf).getTermIndexes().second;
+          term++) {
+        assert(DNLID_MAX != term);
+        if (dnl_.getNonConstDNLTerminalFromID(term).getSnlTerm()->getDirection() !=
+                SNLTerm::Direction::DirectionEnum::Input &&
+            dnl_.getNonConstDNLTerminalFromID(term).getSnlTerm()->getNet()) {
+          DNLIso& DNLIso = addIsoToDB();
 
-        tasks.push_back(term);
-        dnl_.getNonConstDNLTerminalFromID(term).setIsoID(DNLIso.getIsoID());
+          tasks.push_back(term);
+          dnl_.getNonConstDNLTerminalFromID(term).setIsoID(DNLIso.getIsoID());
+        }
       }
     }
   }
-  for (DNLID term = dnl_.getTop().getTermIndexes().first;
+  if (dnl_.getTop().getTermIndexes().first != DNLID_MAX) {
+    for (DNLID term = dnl_.getTop().getTermIndexes().first;
        term <= dnl_.getTop().getTermIndexes().second; term++) {
-    assert(DNLID_MAX != term);
-    if (dnl_.getNonConstDNLTerminalFromID(term).getSnlBitTerm()->getDirection() !=
-            SNLTerm::Direction::DirectionEnum::Output &&
-        dnl_.getNonConstDNLTerminalFromID(term).getSnlBitTerm()->getNet()) {
-      DNLIso& DNLIso = addIsoToDB();
-      tasks.push_back(term);
-      dnl_.getNonConstDNLTerminalFromID(term).setIsoID(DNLIso.getIsoID());
+      assert(DNLID_MAX != term);
+      if (dnl_.getNonConstDNLTerminalFromID(term).getSnlBitTerm()->getDirection() !=
+              SNLTerm::Direction::DirectionEnum::Output &&
+          dnl_.getNonConstDNLTerminalFromID(term).getSnlBitTerm()->getNet()) {
+        DNLIso& DNLIso = addIsoToDB();
+        tasks.push_back(term);
+        dnl_.getNonConstDNLTerminalFromID(term).setIsoID(DNLIso.getIsoID());
+      }
     }
   }
   std::vector<DNLID> multiDriverIsos;
