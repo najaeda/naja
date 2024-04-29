@@ -29,9 +29,7 @@ std::vector<DNLID> LoadlessLogicRemover::getTopOutputIsos(
   std::vector<DNLID> topOutputIsos;
   for (DNLID term = dnl.getTop().getTermIndexes().first;
        term <= dnl.getTop().getTermIndexes().second; term++) {
-    if (DNLID_MAX == term) {
-      break;
-    }
+    assert(DNLID_MAX != term);
 #ifdef DEBUG_PRINTS
     // LCOV_EXCL_START
     printf("Checking %s\n",
@@ -196,9 +194,7 @@ printf("SNL Port %s direction %d\n", instTerm->getString().c_str()
     }*/
     for (DNLID term = instance.getTermIndexes().first;
          term <= instance.getTermIndexes().second; term++) {
-      if (DNLID_MAX == term) {
-        break;
-      }
+      assert(DNLID_MAX != term);
 #ifdef DEBUG_PRINTS
       // LCOV_EXCL_START
       printf(

@@ -73,9 +73,6 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::treatDriver(
         DNLID finstTermId = finstance.getChildInstance(instTerm->getInstance())
                                 .getTerminal(instTerm)
                                 .getID();
-        if (finstTermId == fid) {
-          continue;
-        }
         if (visited[finstTermId]) {
           netAlreadyVisited = true;
           break;//If the term was visietd, by definition the current net was handeled.
@@ -148,9 +145,7 @@ void DNL<DNLInstance, DNLTerminal>::display() const {
            inst.getSNLInstance()->getString().c_str());
     for (DNLID term = inst.getTermIndexes().first;
          term <= inst.getTermIndexes().second; term++) {
-      if (DNLID_MAX == term) {
-        break;
-      }
+      assert(DNLID_MAX != term);
       printf("- ft %zu %d %s\n", term,
              (int)getDNLTerminalFromID(term).getSnlTerm()->getDirection(),
              getDNLTerminalFromID(term).getSnlTerm()->getString().c_str());
@@ -326,9 +321,7 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::process() {
     for (DNLID term = dnl_.getDNLInstanceFromID(leaf).getTermIndexes().first;
          term <= dnl_.getDNLInstanceFromID(leaf).getTermIndexes().second;
          term++) {
-      if (DNLID_MAX == term) {
-        break;
-      }
+      assert(DNLID_MAX != term);
       if (dnl_.getNonConstDNLTerminalFromID(term).getSnlTerm()->getDirection() !=
               SNLTerm::Direction::DirectionEnum::Input &&
           dnl_.getNonConstDNLTerminalFromID(term).getSnlTerm()->getNet()) {
@@ -341,9 +334,7 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::process() {
   }
   for (DNLID term = dnl_.getTop().getTermIndexes().first;
        term <= dnl_.getTop().getTermIndexes().second; term++) {
-    if (DNLID_MAX == term) {
-      break;
-    }
+    assert(DNLID_MAX != term);
     if (dnl_.getNonConstDNLTerminalFromID(term).getSnlBitTerm()->getDirection() !=
             SNLTerm::Direction::DirectionEnum::Output &&
         dnl_.getNonConstDNLTerminalFromID(term).getSnlBitTerm()->getNet()) {
