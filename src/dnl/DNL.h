@@ -51,6 +51,24 @@ struct visited {
     std::vector<bool> toVisitAsBitTerm;
 };
 
+struct SNLBitTermCompare {
+  bool operator()(const SNLBitTerm* lhs, const SNLBitTerm* rhs) const {
+    if (lhs->getID() != rhs->getID()) {
+      return lhs->getID() < rhs->getID();
+    }
+    return lhs->getBit() < rhs->getBit();
+  }
+};
+
+struct SNLInstTermCompare {
+  bool operator()(const SNLInstTerm* lhs, const SNLInstTerm* rhs) const {
+    if (lhs->getBitTerm()->getID() != rhs->getBitTerm()->getID()) {
+      return lhs->getBitTerm()->getID() < rhs->getBitTerm()->getID();
+    }
+    return lhs->getBitTerm()->getBit() < rhs->getBitTerm()->getBit();
+  }
+};
+
 // DNL<DNLInstanceFull, DNLTerminalFull>* create();
 DNL<DNLInstanceFull, DNLTerminalFull>* get();
 bool isCreated();

@@ -165,7 +165,11 @@ void DNL<DNLInstance, DNLTerminal>::process() {
   std::pair<DNLID, DNLID> childrenIndexes;
   std::pair<DNLID, DNLID> termIndexes;
   termIndexes.first = DNLTerms_.size();
+  std::set<SNLBitTerm*, SNLBitTermCompare> sortedBitTerms;
   for (SNLBitTerm* bitterm : top_->getBitTerms()) {
+    sortedBitTerms.insert(bitterm);
+  }
+  for (SNLBitTerm* bitterm : sortedBitTerms) {
     DNLTerms_.push_back(DNLTerminal(parentId, bitterm, DNLTerms_.size()));
   }
   if (termIndexes.first == DNLTerms_.size()) {
@@ -251,7 +255,11 @@ void DNL<DNLInstance, DNLTerminal>::process() {
       }
       std::pair<DNLID, DNLID> termIndexes;
       termIndexes.first = DNLTerms_.size();
+      std::set<SNLInstTerm*, SNLInstTermCompare> sortedInstTerms;
       for (auto term : inst->getInstTerms()) {
+        sortedInstTerms.insert(term);
+      }
+      for (auto term : sortedInstTerms) {
         DNLTerms_.push_back(
             DNLTerminal(DNLInstances_.back().getID(), term, DNLTerms_.size()));
 #ifdef DEBUG_PRINTS
