@@ -11,6 +11,8 @@
 #include <spdlog/sinks/basic_file_sink.h> // support for basic file logging
 #include <spdlog/sinks/stdout_color_sinks.h>
 
+#include "NajaVersion.h"
+
 #include "SNLException.h"
 #include "SNLPyLoader.h"
 #include "SNLPyEdit.h"
@@ -108,6 +110,8 @@ int main(int argc, char* argv[]) {
   spdlog::flush_every(std::chrono::seconds(3));
   spdlog::info("########################################################");
   spdlog::info("naja_edit");
+  spdlog::info("Version: {}", naja::NAJA_VERSION);
+  spdlog::info("Git hash: {}", naja::NAJA_GIT_HASH);
   spdlog::info("########################################################");
 
   bool argError = false;
