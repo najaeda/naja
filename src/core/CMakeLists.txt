@@ -41,9 +41,7 @@ set(NAJA_CORE_HEADERS
   NajaException.h
 )
 
-set(NAJA_VERSION_HEADER
-  ${CMAKE_CURRENT_BINARY_DIR}/NajaVersion.h
-)
+list(APPEND NAJA_CORE_HEADERS ${CMAKE_CURRENT_BINARY_DIR}/NajaVersion.h)
 
 add_library(naja_core SHARED ${SOURCES})
 target_link_libraries(naja_core PUBLIC coverage_config sanitizers_config)
@@ -56,6 +54,6 @@ target_include_directories(naja_core PUBLIC
   ${CMAKE_CURRENT_BINARY_DIR}
 )
 
-set_target_properties(naja_core PROPERTIES PUBLIC_HEADER "${NAJA_CORE_HEADERS} ${NAJA_VERSION_HEADER}")
+set_target_properties(naja_core PROPERTIES PUBLIC_HEADER "${NAJA_CORE_HEADERS}")
 
 install(TARGETS naja_core LIBRARY DESTINATION lib PUBLIC_HEADER DESTINATION include) 
