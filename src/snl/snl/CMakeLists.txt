@@ -26,6 +26,11 @@ set(SNL_KERNEL_SOURCES
   kernel/SNLBitTermOccurrence.cpp kernel/SNLInstTermOccurrence.cpp
   kernel/SNLEquipotential.cpp
 )
+
+set(PNL_KERNEL_SOURCES
+  kernel/PNLDesign.cpp
+)
+
 set(SNL_DECORATOR_SOURCES
   decorators/SNLDesignModeling.cpp
 )
@@ -57,7 +62,10 @@ set(SNL_HEADERS
   decorators/SNLDesignModeling.h
 )
 
-add_library(naja_snl SHARED ${SNL_KERNEL_SOURCES} ${SNL_DECORATOR_SOURCES})
+add_library(naja_snl SHARED
+  ${SNL_KERNEL_SOURCES} ${SNL_DECORATOR_SOURCES}
+  ${PNL_KERNEL_SOURCES}
+)
 
 target_link_libraries(naja_snl PUBLIC naja_core)
 target_compile_options(naja_snl PRIVATE ${NAJA_CXX_WARNINGS}) 
