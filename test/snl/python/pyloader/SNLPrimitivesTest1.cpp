@@ -17,7 +17,7 @@ using namespace naja::SNL;
 #define SNL_PRIMITIVES_TEST_PATH "Undefined"
 #endif
 
-class SNLPrimitivesTest0: public ::testing::Test {
+class SNLPrimitivesTest1: public ::testing::Test {
   protected:
     void SetUp() override {
       SNLUniverse::create();
@@ -29,17 +29,41 @@ class SNLPrimitivesTest0: public ::testing::Test {
     }
 };
 
-TEST_F(SNLPrimitivesTest0, test) {
+TEST_F(SNLPrimitivesTest1, test) {
   auto db = SNLDB::create(SNLUniverse::get());
   auto library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("PRIMS"));
   auto primitives0Path = std::filesystem::path(SNL_PRIMITIVES_TEST_PATH);
   primitives0Path /= "scripts";
-  primitives0Path /= "primitives0.py";
+  primitives0Path /= "primitives1.py";
   SNLPyLoader::loadPrimitives(library, primitives0Path);
-  ASSERT_EQ(1, library->getDesigns().size());
-  auto lut4 = library->getDesign(SNLName("LUT4")); 
-  ASSERT_NE(nullptr, lut4);
+  ASSERT_EQ(3, library->getDesigns().size());
+  auto logic0 = library->getDesign(SNLName("LOGIC0"));
+  EXPECT_NE(nullptr, logic0);
+  EXPECT_TRUE(logic0->isPrimitive());
+  auto logic0TruthTable = SNLDesignModeling::getTruthTable(logic0);
+  EXPECT_TRUE(logic0TruthTable.isInitialized());
+  EXPECT_EQ(0, logic0TruthTable.size());
+  EXPECT_TRUE(logic0TruthTable.is0());
+
+  auto logic1 = library->getDesign(SNLName("LOGIC1"));
+  EXPECT_NE(nullptr, logic1);
+  EXPECT_TRUE(logic1->isPrimitive());
+  auto logic1TruthTable = SNLDesignModeling::getTruthTable(logic1);
+  EXPECT_TRUE(logic1TruthTable.isInitialized());
+  EXPECT_EQ(0, logic1TruthTable.size());
+  EXPECT_TRUE(logic1TruthTable.is1());
+
+  auto and2 = library->getDesign(SNLName("AND2"));
+  EXPECT_NE(nullptr, and2);
+  EXPECT_TRUE(and2->isPrimitive());
+  auto and2TruthTable = SNLDesignModeling::getTruthTable(and2);
+  EXPECT_TRUE(and2TruthTable.isInitialized());
+  EXPECT_EQ(2, and2TruthTable.size());
+  EXPECT_EQ(SNLTruthTable(2, 0x8), and2TruthTable);
+
+#if 0 
   EXPECT_TRUE(lut4->isPrimitive());
+  ASSERT_NE(nullptr, lut4);
   ASSERT_EQ(5, lut4->getScalarTerms().size());
   using Terms = std::vector<SNLScalarTerm*>;
   Terms terms(lut4->getScalarTerms().begin(), lut4->getScalarTerms().end()); 
@@ -68,49 +92,6 @@ TEST_F(SNLPrimitivesTest0, test) {
       SNLDesignModeling::getCombinatorialOutputs(terms[0]).begin(),
       SNLDesignModeling::getCombinatorialOutputs(terms[0]).end()),
     ElementsAre(terms[4]));
+#endif
 }
 
-TEST_F(SNLPrimitivesTest0, testError0) {
-  auto db = SNLDB::create(SNLUniverse::get());
-  auto library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("PRIMS"));
-  auto primitives0Path = std::filesystem::path(SNL_PRIMITIVES_TEST_PATH);
-  primitives0Path /= "scripts";
-  primitives0Path /= "wrong_path.py";
-  //Wrong path
-  EXPECT_THROW(SNLPyLoader::loadPrimitives(library, primitives0Path), SNLException);
-  
-  library->destroy();
-  //non Primitives library
-  library = SNLLibrary::create(db, SNLName("PRIMS"));
-  EXPECT_THROW(SNLPyLoader::loadPrimitives(library, primitives0Path), SNLException);
-}
-
-TEST_F(SNLPrimitivesTest0, testNonPrimitivesError) {
-  auto db = SNLDB::create(SNLUniverse::get());
-  auto library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("PRIMS"));
-  //non python script
-  auto primitives0Path = std::filesystem::path(SNL_PRIMITIVES_TEST_PATH);
-  primitives0Path /= "scripts";
-  primitives0Path /= "primitives0.py";
-  EXPECT_THROW(SNLPyLoader::loadLibrary(library, primitives0Path, false), SNLException);
-}
-
-TEST_F(SNLPrimitivesTest0, testWrongSyntax) {
-  auto db = SNLDB::create(SNLUniverse::get());
-  auto library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("PRIMS"));
-  //non python script
-  auto primitives0Path = std::filesystem::path(SNL_PRIMITIVES_TEST_PATH);
-  primitives0Path /= "scripts";
-  primitives0Path /= "wrong_syntax.py";
-  EXPECT_THROW(SNLPyLoader::loadPrimitives(library, primitives0Path), SNLException);
-}
-
-TEST_F(SNLPrimitivesTest0, testFaultyPythonScript) {
-  //faulty python script
-  auto db = SNLDB::create(SNLUniverse::get());
-  auto library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("PRIMS"));
-  auto primitives0Path = std::filesystem::path(SNL_PRIMITIVES_TEST_PATH);
-  primitives0Path /= "scripts";
-  primitives0Path /= "faulty_script.py";
-  EXPECT_THROW(SNLPyLoader::loadPrimitives(library, primitives0Path), SNLException);
-}

@@ -8,6 +8,7 @@ SET(snl_pyloader_tests
   SNLPyDBLoaderTest0.cpp
   SNLPyDesignLoaderTest0.cpp
   SNLPrimitivesTest0.cpp
+  SNLPrimitivesTest1.cpp
 )
 
 ADD_EXECUTABLE(snlPyLoaderTests ${snl_pyloader_tests})

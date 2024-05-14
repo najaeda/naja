@@ -6,6 +6,7 @@ INCLUDE(GoogleTest)
 
 SET(snl_decorators_tests
   SNLDesignModelingTest0.cpp
+  SNLTruthTableTest.cpp
 )
 
 ADD_EXECUTABLE(snlDecoratorsTests ${snl_decorators_tests})

@@ -273,6 +273,22 @@ static PyObject* PySNLDesign_addClockToOutputsArcs(PySNLDesign* self, PyObject* 
   Py_RETURN_NONE;
 }
 
+static PyObject* PySNLDesign_setTruthTable(PySNLDesign* self, PyObject* args) {
+  uint64_t tt = 0;
+  if (not PyArg_ParseTuple(args, "K:SNLDesign.setTruthTable", &tt)) {
+    setError("malformed SNLDesign.setTruthTable method");
+    return nullptr;
+  }
+  METHOD_HEAD("SNLDesign.setTruthTable()")
+  SNLTRY
+  auto filter = [](const SNLTerm* term) { return term->getDirection() == SNLTerm::Direction::Input; };
+  size_t size = selfObject->getBitTerms().getSubCollection(filter).size();
+  SNLTruthTable truthTable(size, tt);
+  SNLDesignModeling::setTruthTable(selfObject, truthTable);
+  SNLCATCH
+  Py_RETURN_NONE;
+}
+
 static PyObject* PySNLDesign_getCombinatorialInputs(PySNLDesign*, PyObject* object) {
   GetDesignModelingRelatedObjects(SNLBitTerm, getCombinatorialInputs, SNLDesign)
 }
@@ -336,6 +352,8 @@ PyMethodDef PySNLDesign_Methods[] = {
     "get inputs related to a clock"},
   { "getClockRelatedOutputs", (PyCFunction)PySNLDesign_getClockRelatedOutputs, METH_O|METH_STATIC,
     "get outputs related to a clock"},
+  { "setTruthTable", (PyCFunction)PySNLDesign_setTruthTable, METH_VARARGS,
+    "set truth table of a primitive"},
   { "getName", (PyCFunction)PySNLDesign_getName, METH_NOARGS,
     "get SNLDesign name"},
   { "isAnonymous", (PyCFunction)PySNLDesign_isAnonymous, METH_NOARGS,
