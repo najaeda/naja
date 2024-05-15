@@ -174,6 +174,7 @@ def constructOR4(lib, X):
   cell.setTruthTable(0xFFFE)
 
 def constructOAI21(lib, X):
+  #function: !(A & (B1 | B2))
   cell = snl.SNLDesign.createPrimitive(lib, "OAI21_X" + str(X))
   a = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A")
   b1 = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B1")

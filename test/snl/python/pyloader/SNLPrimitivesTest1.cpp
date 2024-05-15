@@ -37,7 +37,7 @@ TEST_F(SNLPrimitivesTest1, test) {
   primitives0Path /= "scripts";
   primitives0Path /= "primitives1.py";
   SNLPyLoader::loadPrimitives(library, primitives0Path);
-  ASSERT_EQ(10, library->getDesigns().size());
+  ASSERT_EQ(11, library->getDesigns().size());
   auto logic0 = library->getDesign(SNLName("LOGIC0"));
   EXPECT_NE(nullptr, logic0);
   EXPECT_TRUE(logic0->isPrimitive());
@@ -70,17 +70,44 @@ TEST_F(SNLPrimitivesTest1, testTruthTablesMap) {
   primitives0Path /= "scripts";
   primitives0Path /= "primitives1.py";
   SNLPyLoader::loadPrimitives(library, primitives0Path);
-  ASSERT_EQ(10, library->getDesigns().size());
+  ASSERT_EQ(11, library->getDesigns().size());
   auto truthTables = SNLLibraryTruthTables::construct(library);
 
   auto logic0 = library->getDesign(SNLName("LOGIC0"));
   auto logic1 = library->getDesign(SNLName("LOGIC1"));
+
+  auto buf = library->getDesign(SNLName("BUF"));
+  ASSERT_NE(nullptr, buf);
+  auto bufTruthTable = SNLDesignModeling::getTruthTable(buf);
+  ASSERT_TRUE(bufTruthTable.isInitialized());
+  auto tt = bufTruthTable.getReducedWithConstant(0, 0);
+  auto design = SNLLibraryTruthTables::getDesignForTruthTable(truthTables, tt);
+  ASSERT_NE(nullptr, design);
+  EXPECT_EQ(design, logic0);
+  tt = bufTruthTable.getReducedWithConstant(0, 1);
+  design = SNLLibraryTruthTables::getDesignForTruthTable(truthTables, tt);
+  ASSERT_NE(nullptr, design);
+  EXPECT_EQ(design, logic1);
+
+  auto inv = library->getDesign(SNLName("INV"));
+  ASSERT_NE(nullptr, inv);
+  auto invTruthTable = SNLDesignModeling::getTruthTable(inv);
+  ASSERT_TRUE(invTruthTable.isInitialized());
+  tt = invTruthTable.getReducedWithConstant(0, 0);
+  design = SNLLibraryTruthTables::getDesignForTruthTable(truthTables, tt);
+  ASSERT_NE(nullptr, design);
+  EXPECT_EQ(design, logic1);
+  tt = invTruthTable.getReducedWithConstant(0, 1);
+  design = SNLLibraryTruthTables::getDesignForTruthTable(truthTables, tt);
+  ASSERT_NE(nullptr, design);
+  EXPECT_EQ(design, logic0);
+
   auto and2 = library->getDesign(SNLName("AND2"));
   ASSERT_NE(nullptr, and2);
   auto and2TruthTable = SNLDesignModeling::getTruthTable(and2);
   ASSERT_TRUE(and2TruthTable.isInitialized());
-  auto tt = and2TruthTable.getReducedWithConstant(0, 0);
-  auto design = SNLLibraryTruthTables::getDesignForTruthTable(truthTables, tt);
+  tt = and2TruthTable.getReducedWithConstant(0, 0);
+  design = SNLLibraryTruthTables::getDesignForTruthTable(truthTables, tt);
   ASSERT_NE(nullptr, design);
   EXPECT_EQ(design, logic0);
 
@@ -124,4 +151,14 @@ TEST_F(SNLPrimitivesTest1, testTruthTablesMap) {
   design = SNLLibraryTruthTables::getDesignForTruthTable(truthTables, tt);
   ASSERT_NE(nullptr, design);
   EXPECT_EQ(design, library->getDesign(SNLName("BUF")));
+
+  auto oai21 = library->getDesign(SNLName("OAI21"));
+  ASSERT_NE(nullptr, oai21);
+  auto oai21TruthTable = SNLDesignModeling::getTruthTable(oai21);
+  ASSERT_TRUE(oai21TruthTable.isInitialized());
+  tt = oai21TruthTable.getReducedWithConstant(2, 0);
+  std::cout << tt.getString() << std::endl;
+  design = SNLLibraryTruthTables::getDesignForTruthTable(truthTables, tt);
+  ASSERT_NE(nullptr, design);
+  EXPECT_EQ(design, logic1);
 }

@@ -71,6 +71,15 @@ def constructXNOR2(lib):
   zn = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "ZN")
   cell.setTruthTable(0x9)
 
+def constructOAI21(lib):
+  #function: "!(A & (B1 | B2))";
+  cell = snl.SNLDesign.createPrimitive(lib, "OAI21")
+  a = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A")
+  b1 = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B1")
+  b2 = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B2")
+  zn = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "ZN")
+  cell.setTruthTable(0x1F)
+
 def constructPrimitives(lib):
   constructLOGIC0(lib)
   constructLOGIC1(lib)
@@ -82,3 +91,4 @@ def constructPrimitives(lib):
   constructOR4(lib)
   constructXOR2(lib)
   constructXNOR2(lib)
+  constructOAI21(lib)
