@@ -37,7 +37,7 @@ TEST_F(SNLPrimitivesTest1, test) {
   primitives0Path /= "scripts";
   primitives0Path /= "primitives1.py";
   SNLPyLoader::loadPrimitives(library, primitives0Path);
-  ASSERT_EQ(3, library->getDesigns().size());
+  ASSERT_EQ(5, library->getDesigns().size());
   auto logic0 = library->getDesign(SNLName("LOGIC0"));
   EXPECT_NE(nullptr, logic0);
   EXPECT_TRUE(logic0->isPrimitive());
@@ -70,10 +70,11 @@ TEST_F(SNLPrimitivesTest1, testTruthTablesMap) {
   primitives0Path /= "scripts";
   primitives0Path /= "primitives1.py";
   SNLPyLoader::loadPrimitives(library, primitives0Path);
-  ASSERT_EQ(3, library->getDesigns().size());
+  ASSERT_EQ(5, library->getDesigns().size());
   auto truthTables = SNLLibraryTruthTables::construct(library);
 
   auto logic0 = library->getDesign(SNLName("LOGIC0"));
+  auto logic1 = library->getDesign(SNLName("LOGIC1"));
   auto and2 = library->getDesign(SNLName("AND2"));
   ASSERT_NE(nullptr, and2);
   auto and2TruthTable = SNLDesignModeling::getTruthTable(and2);
@@ -82,4 +83,18 @@ TEST_F(SNLPrimitivesTest1, testTruthTablesMap) {
   auto design = SNLLibraryTruthTables::getDesignForTruthTable(truthTables, tt);
   ASSERT_NE(nullptr, design);
   EXPECT_EQ(design, logic0);
+
+  auto or4 = library->getDesign(SNLName("OR4"));
+  ASSERT_NE(nullptr, or4);
+  auto or4TruthTable = SNLDesignModeling::getTruthTable(or4);
+  ASSERT_TRUE(or4TruthTable.isInitialized());
+  tt = or4TruthTable.getReducedWithConstant(0, 1);
+  design = SNLLibraryTruthTables::getDesignForTruthTable(truthTables, tt);
+  ASSERT_NE(nullptr, design);
+  EXPECT_EQ(design, logic1);
+
+  tt = or4TruthTable.getReducedWithConstant(0, 0);
+  design = SNLLibraryTruthTables::getDesignForTruthTable(truthTables, tt);
+  ASSERT_NE(nullptr, design);
+  EXPECT_EQ(design, library->getDesign(SNLName("OR3")));
 }

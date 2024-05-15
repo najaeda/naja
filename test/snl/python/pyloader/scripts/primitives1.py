@@ -21,7 +21,24 @@ def constructAND2(lib):
   zn = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, 'ZN')
   cell.setTruthTable(0x8)
 
+def constructOR2(lib):
+  cell = snl.SNLDesign.createPrimitive(lib, "OR2")
+  a1 = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A1")
+  a2 = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A2")
+  zn = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "ZN")
+  cell.setTruthTable(0xE)
+
+def constructOR3(lib):
+  cell = snl.SNLDesign.createPrimitive(lib, "OR3")
+  a1 = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A1")
+  a2 = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A2")
+  a3 = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A3")
+  zn = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "ZN")
+  cell.setTruthTable(0xFE)
+
 def constructPrimitives(lib):
   constructLOGIC0(lib)
   constructLOGIC1(lib)
   constructAND2(lib)
+  constructOR2(lib)
+  constructOR3(lib)
