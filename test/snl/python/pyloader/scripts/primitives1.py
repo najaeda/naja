@@ -14,6 +14,18 @@ def constructLOGIC1(lib):
   z = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, 'Z')
   cell.setTruthTable(0b1)
 
+def constructBUF(lib):
+  cell = snl.SNLDesign.createPrimitive(lib, "BUF")
+  a = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A")
+  z = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "Z")
+  cell.setTruthTable(0b10)
+
+def constructINV(lib):
+  cell = snl.SNLDesign.createPrimitive(lib, "INV")
+  a = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A")
+  zn = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "ZN")
+  cell.setTruthTable(0b01)
+
 def constructAND2(lib):
   cell = snl.SNLDesign.createPrimitive(lib, 'AND2')
   a1 = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, 'A1')
@@ -36,9 +48,37 @@ def constructOR3(lib):
   zn = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "ZN")
   cell.setTruthTable(0xFE)
 
+def constructOR4(lib):
+  cell = snl.SNLDesign.createPrimitive(lib, "OR4")
+  a1 = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A1")
+  a2 = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A2")
+  a3 = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A3")
+  a4 = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A4")
+  zn = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "ZN")
+  cell.setTruthTable(0xFFFE)
+
+def constructXOR2(lib):
+  cell = snl.SNLDesign.createPrimitive(lib, "XOR2")
+  a = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A")
+  b = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B")
+  z = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "Z")
+  cell.setTruthTable(0x6)
+
+def constructXNOR2(lib):
+  cell = snl.SNLDesign.createPrimitive(lib, "XNOR2")
+  a = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A")
+  b = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B")
+  zn = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "ZN")
+  cell.setTruthTable(0x9)
+
 def constructPrimitives(lib):
   constructLOGIC0(lib)
   constructLOGIC1(lib)
+  constructBUF(lib)
+  constructINV(lib)
   constructAND2(lib)
   constructOR2(lib)
   constructOR3(lib)
+  constructOR4(lib)
+  constructXOR2(lib)
+  constructXNOR2(lib)

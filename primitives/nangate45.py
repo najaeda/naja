@@ -205,7 +205,6 @@ def constructOAI221(lib, X):
   c2 = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "C2")
   zn = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "ZN")
 
-
 def constructXOR2(lib, X):
   cell = snl.SNLDesign.createPrimitive(lib, "XOR2_X" + str(X))
   a = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A")
