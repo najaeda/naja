@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <cmath>
+#include <string>
 
 class SNLTruthTable {
   public:
@@ -13,6 +14,18 @@ class SNLTruthTable {
       }
     }
     bool operator ==(const SNLTruthTable& other) const = default;
+    bool operator <(const SNLTruthTable& other) const {
+      if (size_ < other.size_) {
+        return true;
+      }
+      if (size_ > other.size_) {
+        return false;
+      }
+      return bits_ < other.bits_;
+    }
+    std::string getString() const {
+      return "<" + std::to_string(size_) + ", " + std::to_string(bits_) + ">";
+    }
 
     bool isInitialized() const {
       return size_ != 0xFF;
