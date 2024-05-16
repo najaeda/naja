@@ -290,7 +290,7 @@ PyObject* richCompare(T left, T right, int op) {
     0, /* tp_setattro */                                            \
     0, /* tp_as_buffer */                                           \
     Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /* tp_flags */        \
-    "#SELF_TYPE objects", /* tp_doc */                              \
+    #SELF_TYPE" objects", /* tp_doc */                              \
     0, /* tp_traverse */                                            \
     0, /* tp_clear */                                               \
     0, /* tp_richcompare */                                         \

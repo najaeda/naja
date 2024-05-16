@@ -114,3 +114,13 @@ TEST_F(SNLPrimitivesTest0, testFaultyPythonScript) {
   primitives0Path /= "faulty_script.py";
   EXPECT_THROW(SNLPyLoader::loadPrimitives(library, primitives0Path), SNLException);
 }
+
+TEST_F(SNLPrimitivesTest0, testEmptyPythonScript) {
+  //faulty python script
+  auto db = SNLDB::create(SNLUniverse::get());
+  auto library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("PRIMS"));
+  auto primitives0Path = std::filesystem::path(SNL_PRIMITIVES_TEST_PATH);
+  primitives0Path /= "scripts";
+  primitives0Path /= "empty_script.py";
+  EXPECT_THROW(SNLPyLoader::loadPrimitives(library, primitives0Path), SNLException);
+}
