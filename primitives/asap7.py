@@ -13776,7 +13776,9 @@ def INVxp5_ASAP7_6t_SL(lib):
   Y = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "Y")
   A = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A")
   cell.addCombinatorialArcs([A], [Y])
+  
 def constructPrimitives(lib):
+  lib.setName('asap7')
   srambank_256x4x64_6t122(lib)
   srambank_64x4x20_6t122(lib)
   CKINVDCx10_ASAP7_6t_SL(lib)

@@ -194,6 +194,15 @@ TEST_F(SNLLibraryTest, testDesignSearch) {
   EXPECT_EQ(nullptr, root->getDesign(1));
 }
 
+TEST_F(SNLLibraryTest, testRename) {
+  SNLDB* db = SNLDB::create(universe_);
+  SNLLibrary* root = SNLLibrary::create(db);
+  EXPECT_TRUE(root->isAnonymous());
+  root->setName(SNLName("ROOT"));
+  EXPECT_FALSE(root->isAnonymous());
+  EXPECT_EQ("ROOT", root->getName().getString());
+}
+
 TEST_F(SNLLibraryTest, testErrors) {
   SNLDB* db = SNLDB::create(universe_);
   ASSERT_TRUE(db);

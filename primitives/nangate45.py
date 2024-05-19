@@ -210,6 +210,7 @@ def constructfakeram(lib, addr, data):
   rd_out = snl.SNLBusTerm.create(cell, snl.SNLTerm.Direction.Output, data-1, 0, "rd_out")
 
 def constructPrimitives(lib):
+  lib.setName('nangate45')
   constructBUF(lib, 1)
   constructBUF(lib, 2)
   constructBUF(lib, 4)

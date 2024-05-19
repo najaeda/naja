@@ -199,6 +199,45 @@ void SNLLibrary::preDestroy() {
   commonPreDestroy();
 }
 
+void SNLLibrary::setName(const SNLName& name) {
+  if (name_ == name) {
+    return;
+  }
+  if (not name.empty()) {
+    if (isRoot()) {
+      //check in DB
+      auto db = getDB();
+      if (auto collision = db->getLibrary(name)) {
+        std::ostringstream reason;
+        reason << "In DB " << db->getString()
+          << ", cannot rename " << getString() << " to "
+          << name.getString() << ", another library: " << collision->getString()
+          << " has already this name.";
+        throw SNLException(reason.str());
+      }
+    } else {
+      auto parentLibrary = getParentLibrary();
+      if (auto collision = parentLibrary->getLibrary(name)) {
+        std::ostringstream reason;
+        reason << "In parent library " << parentLibrary->getString()
+          << ", cannot rename " << getString() << " to "
+          << name.getString() << ", another library: " << collision->getString()
+          << " has already this name.";
+        throw SNLException(reason.str());
+      }
+    }
+  }
+  auto previousName = getName();
+  name_ = name;
+  if (isRoot()) {
+    getDB()->rename(this, previousName);
+  } else {
+    getParentLibrary()->rename(this, previousName);
+  }
+}
+
+OWNER_RENAME(SNLLibrary, SNLLibrary, libraryNameIDMap_)
+
 SNLDB* SNLLibrary::getDB() const {
   if (isRoot()) {
     return static_cast<SNLDB*>(parent_);

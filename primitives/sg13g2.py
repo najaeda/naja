@@ -224,6 +224,7 @@ def constructsg13g2_xnor2_1(lib):
   y = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "Y")
 
 def constructPrimitives(lib):
+  lib.setName('sg13g2')
   constructsg13g2_inv(lib, [1, 2])
   constructsg13g2_and2_1(lib)
   constructsg13g2_and3_1(lib)

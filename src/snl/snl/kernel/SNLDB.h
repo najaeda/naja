@@ -97,6 +97,7 @@ class SNLDB final: public SNLObject {
 
     void addLibrary(SNLLibrary* library);
     void addLibraryAndSetID(SNLLibrary* library);
+    void rename(SNLLibrary* library, const SNLName& previousName);
     void removeLibrary(SNLLibrary* library);
 
     SNLID::DBID                         id_;

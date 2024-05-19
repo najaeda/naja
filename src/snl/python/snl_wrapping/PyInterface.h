@@ -232,6 +232,17 @@ PyObject* richCompare(T left, T right, int op) {
     return nullptr; \
   }
 
+#define SetNameMethod(SELF_TYPE) \
+  static PyObject* PySNL##SELF_TYPE##_setName(PySNL##SELF_TYPE* self, PyObject* arg) { \
+    METHOD_HEAD("SNL" #SELF_TYPE ".setName()") \
+    if (not PyUnicode_Check(arg)) { \
+      setError("SNL" #SELF_TYPE ".setName() expects a string as argument"); \
+      return nullptr; \
+    } \
+    selfObject->setName(SNLName(PyUnicode_AsUTF8(arg))); \
+    Py_RETURN_NONE; \
+  }
+
 #define GetStringAttribute(SELF_TYPE, METHOD) \
   static PyObject* PySNL##SELF_TYPE##_##METHOD(PySNL##SELF_TYPE* self) { \
     METHOD_HEAD("SNL##SELF_TYPE.##METHOD##()") \
