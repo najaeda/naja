@@ -1,29 +1,31 @@
-// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+// SPDX-FileCopyrightText: 2023 The Naja authors
+// <https://github.com/najaeda/naja/blob/main/AUTHORS>
 //
 // SPDX-License-Identifier: Apache-2.0
 
 #include <filesystem>
-#include <iostream>
 #include <fstream>
+#include <iostream>
 
-#include <argparse/argparse.hpp>
-#include <spdlog/spdlog.h>
-#include <spdlog/sinks/basic_file_sink.h> // support for basic file logging
+#include <spdlog/sinks/basic_file_sink.h>  // support for basic file logging
 #include <spdlog/sinks/stdout_color_sinks.h>
+#include <spdlog/spdlog.h>
+#include <argparse/argparse.hpp>
 
 #include "NajaVersion.h"
 
 #include "SNLException.h"
-#include "SNLPyLoader.h"
 #include "SNLPyEdit.h"
+#include "SNLPyLoader.h"
+#include "SNLUtils.h"
 #include "SNLVRLConstructor.h"
 #include "SNLVRLDumper.h"
-#include "SNLUtils.h"
 
-#include "SNLUniverse.h"
-#include "SNLCapnP.h"
+#include "ConstantPropagation.h"
 #include "DNL.h"
 #include "RemoveLoadlessLogic.h"
+#include "SNLCapnP.h"
+#include "SNLUniverse.h"
 
 using namespace naja::DNL;
 using namespace naja::SNL;
@@ -58,32 +60,36 @@ OptimizationType argToOptimizationType(const std::string& optimization) {
   }
 }
 
-}
+}  // namespace
 
 int main(int argc, char* argv[]) {
   argparse::ArgumentParser program("naja_edit");
-  program.add_description("Edit gate level netlists using python script and apply optimizations");
+  program.add_description(
+      "Edit gate level netlists using python script and apply optimizations");
   program.add_argument("-f", "--from_format")
-    .required()
-    .help("from/input format");
-  program.add_argument("-t", "--to_format")
-    .help("to/output format");
+      .required()
+      .help("from/input format");
+  program.add_argument("-t", "--to_format").help("to/output format");
   program.add_argument("-i", "--input")
-    .required()
-    .append()
-    .help("input netlist paths");
-  program.add_argument("-o", "--output")
-    .help("output netlist");
-  program.add_argument("-p", "--primitives")
-    .help("input primitives");
+      .required()
+      .append()
+      .help("input netlist paths");
+  program.add_argument("-o", "--output").help("output netlist");
+  program.add_argument("-p", "--primitives").help("input primitives");
   program.add_argument("-d", "--dump_primitives")
-    .help("dump primitives library in verilog");
+      .help("dump primitives library in verilog");
   program.add_argument("-e", "--pre_edit")
-    .help("edit netlist using python script after loading netlist and before applying optimizations");
+      .help(
+          "edit netlist using python script after loading netlist and before "
+          "applying optimizations");
   program.add_argument("-z", "--post_edit")
-    .help("edit netlist using python script after optimizations and before dumping netlist");
+      .help(
+          "edit netlist using python script after optimizations and before "
+          "dumping netlist");
   program.add_argument("-a", "--apply")
-    .help("apply optimization: dle (remove loadless logic), all (all optimizations)");
+      .help(
+          "apply optimization: dle (remove loadless logic), all (all "
+          "optimizations)");
 
   try {
     program.parse_args(argc, argv);
@@ -99,11 +105,13 @@ int main(int argc, char* argv[]) {
   console_sink->set_pattern("[naja_edit] [%^%l%$] %v");
   sinks.push_back(console_sink);
 
-  auto file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>("naja_edit.log", true);
+  auto file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(
+      "naja_edit.log", true);
   file_sink->set_level(spdlog::level::trace);
   sinks.push_back(file_sink);
 
-  auto edit_logger = std::make_shared<spdlog::logger>("logger", begin(sinks), end(sinks));
+  auto edit_logger =
+      std::make_shared<spdlog::logger>("logger", begin(sinks), end(sinks));
   edit_logger->set_level(spdlog::level::trace);
 
   spdlog::set_default_logger(edit_logger);
@@ -122,8 +130,8 @@ int main(int argc, char* argv[]) {
     outputFormat = *outputFormatArg;
   } else {
     if (auto output = program.is_used("-o")) {
-      //in case output format is not provided and output path is provided
-      //output format is same as input format
+      // in case output format is not provided and output path is provided
+      // output format is same as input format
       outputFormat = inputFormat;
     }
   }
@@ -141,13 +149,16 @@ int main(int argc, char* argv[]) {
   std::filesystem::path primitivesPath;
   if (auto primitives = program.present("-p")) {
     if (inputFormatType == FormatType::SNL) {
-      spdlog::critical("primitives option (-p) is incompatible with input format 'SNL'");
+      spdlog::critical(
+          "primitives option (-p) is incompatible with input format 'SNL'");
       argError = true;
     }
     primitivesPath = std::filesystem::path(*primitives);
   } else {
     if (inputFormatType != FormatType::SNL) {
-      spdlog::critical("primitives option (-p) is mandatory when the input format is not 'SNL'");
+      spdlog::critical(
+          "primitives option (-p) is mandatory when the input format is not "
+          "'SNL'");
       argError = true;
     }
   }
@@ -165,16 +176,17 @@ int main(int argc, char* argv[]) {
   if (argError) {
     std::exit(-1);
   }
-  
+
   using StringPaths = std::vector<std::string>;
   StringPaths inputStringPaths = program.get<StringPaths>("-i");
 
   using Paths = std::vector<std::filesystem::path>;
   Paths inputPaths;
-  std::transform(
-    inputStringPaths.begin(), inputStringPaths.end(),
-    std::back_inserter(inputPaths),
-    [](const std::string& sp) -> std::filesystem::path { return std::filesystem::path(sp); });
+  std::transform(inputStringPaths.begin(), inputStringPaths.end(),
+                 std::back_inserter(inputPaths),
+                 [](const std::string& sp) -> std::filesystem::path {
+                   return std::filesystem::path(sp);
+                 });
 
   std::filesystem::path outputPath;
   if (inputPaths.empty()) {
@@ -185,11 +197,12 @@ int main(int argc, char* argv[]) {
     outputPath = std::filesystem::path(*output);
   } else {
     if (outputFormatType != FormatType::NOT_PROVIDED) {
-      spdlog::critical("output option (-o) is mandatory when the output format provided");
+      spdlog::critical(
+          "output option (-o) is mandatory when the output format provided");
       std::exit(EXIT_FAILURE);
     }
   }
-  
+
   try {
     SNLUniverse::create();
 
@@ -197,7 +210,8 @@ int main(int argc, char* argv[]) {
     SNLLibrary* primitivesLibrary = nullptr;
     if (inputFormatType == FormatType::SNL) {
       if (inputPaths.size() > 1) {
-        spdlog::critical("Multiple input paths are not supported for SNL format");
+        spdlog::critical(
+            "Multiple input paths are not supported for SNL format");
         std::exit(EXIT_FAILURE);
       }
       const auto start{std::chrono::steady_clock::now()};
@@ -213,7 +227,8 @@ int main(int argc, char* argv[]) {
       }
     } else if (inputFormatType == FormatType::VERILOG) {
       db = SNLDB::create(SNLUniverse::get());
-      primitivesLibrary = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("PRIMS"));
+      primitivesLibrary = SNLLibrary::create(db, SNLLibrary::Type::Primitives,
+                                             SNLName("PRIMS"));
       SNLPyLoader::loadPrimitives(primitivesLibrary, primitivesPath);
 
       auto designLibrary = SNLLibrary::create(db, SNLName("DESIGN"));
@@ -223,7 +238,7 @@ int main(int argc, char* argv[]) {
         std::ostringstream oss;
         oss << "Parsing verilog files: ";
         size_t i = 0;
-        for (auto path: inputPaths) {
+        for (auto path : inputPaths) {
           if (i++ >= 4) {
             oss << std::endl;
             i = 0;
@@ -255,7 +270,9 @@ int main(int argc, char* argv[]) {
     if (program.is_used("-e")) {
       const auto start{std::chrono::steady_clock::now()};
       auto editPath = std::filesystem::path(program.get<std::string>("-e"));
-      spdlog::info("Editing netlist using python script (post netlist loading): {}", editPath.string());
+      spdlog::info(
+          "Editing netlist using python script (post netlist loading): {}",
+          editPath.string());
       SNLPyEdit::edit(editPath);
       const auto end{std::chrono::steady_clock::now()};
       const std::chrono::duration<double> elapsed_seconds{end - start};
@@ -266,8 +283,7 @@ int main(int argc, char* argv[]) {
       }
     }
 
-    if (optimizationType == OptimizationType::DLE
-        or optimizationType == OptimizationType::ALL) {
+    if (optimizationType == OptimizationType::DLE) {
       const auto start{std::chrono::steady_clock::now()};
       spdlog::info("Starting removal of loadless logic");
       LoadlessLogicRemover remover;
@@ -276,15 +292,32 @@ int main(int argc, char* argv[]) {
       const std::chrono::duration<double> elapsed_seconds{end - start};
       {
         std::ostringstream oss;
-        oss << "Removal of loadless logic done in: " << elapsed_seconds.count() << "s";
+        oss << "Removal of loadless logic done in: " << elapsed_seconds.count()
+            << "s";
         spdlog::info(oss.str());
-      } 
+      }
+    } else if (optimizationType == OptimizationType::ALL) {
+      const auto start{std::chrono::steady_clock::now()};
+      spdlog::info("Starting removal of loadless logic");
+      ConstantPropagation cp;
+      cp.run();
+      LoadlessLogicRemover remover;
+      remover.process();
+      const auto end{std::chrono::steady_clock::now()};
+      const std::chrono::duration<double> elapsed_seconds{end - start};
+      {
+        std::ostringstream oss;
+        oss << "Removal of loadless logic done in: " << elapsed_seconds.count()
+            << "s";
+        spdlog::info(oss.str());
+      }
     }
 
     if (program.is_used("-z")) {
       const auto start{std::chrono::steady_clock::now()};
       auto editPath = std::filesystem::path(program.get<std::string>("-z"));
-      spdlog::info("Post editing netlist using python script: {}", editPath.string());
+      spdlog::info("Post editing netlist using python script: {}",
+                   editPath.string());
       SNLPyEdit::edit(editPath);
       const auto end{std::chrono::steady_clock::now()};
       const std::chrono::duration<double> elapsed_seconds{end - start};
@@ -303,15 +336,17 @@ int main(int argc, char* argv[]) {
         std::ofstream output(outputPath);
         SNLVRLDumper dumper;
         dumper.setSingleFile(true);
-        spdlog::info("Dumping netlist in verilog format to {}", outputPath.string());
+        spdlog::info("Dumping netlist in verilog format to {}",
+                     outputPath.string());
         dumper.dumpDesign(db->getTopDesign(), output);
       } else {
         db->debugDump(0);
       }
     }
-    
+
     if (program.is_used("-d") and primitivesLibrary) {
-      auto outputPrimitivesPath = std::filesystem::path(program.get<std::string>("-d"));
+      auto outputPrimitivesPath =
+          std::filesystem::path(program.get<std::string>("-d"));
       std::ofstream output(outputPrimitivesPath);
       SNLVRLDumper dumper;
       dumper.setSingleFile(true);

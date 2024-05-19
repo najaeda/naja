@@ -183,13 +183,19 @@ class DNLIsoDB {
   DNLIso& getIsoFromIsoID(DNLID isoID) { return isos_[isoID]; }
   const DNLIso& getIsoFromIsoIDconst(DNLID isoID) const { if (isoID == DNLID_MAX) {return isos_.back();} return isos_[isoID]; }
   size_t getNumIsos() const { return isos_.size() - 1/* due to null iso*/; }
-  size_t getNumNonEmptyIsos() const { return isos_.size() - 1/* due to null iso*/ - _shadowIsos.size(); }
+  size_t getNumNonEmptyIsos() const { return isos_.size() - 1/* due to null iso*/ - shadowIsos_.size(); }
   std::vector<DNLID> getFullIso(DNLID);
   void emptyIsos() { isos_.clear();}
-  void makeShadow(DNLID isoid) { getIsoFromIsoID(isoid).clear(); _shadowIsos.push_back(isoid); }
+  void makeShadow(DNLID isoid) { getIsoFromIsoID(isoid).clear(); shadowIsos_.push_back(isoid); }
+  void addConstant0Iso(DNLID isoid) { constant0Isos_.insert(isoid); }
+  const std::set<DNLID>& getConstant0Isos() const { return constant0Isos_; }
+  void addConstant1Iso(DNLID isoid) { constant1Isos_.insert(isoid); }
+  const std::set<DNLID>& getConstant1Isos() const { return constant1Isos_; }
  private:
   std::vector<DNLIso, tbb::scalable_allocator<DNLIso>> isos_;
-  std::vector<DNLID> _shadowIsos;
+  std::set<DNLID> constant0Isos_;
+  std::set<DNLID> constant1Isos_;
+  std::vector<DNLID> shadowIsos_;
 };
 
 template <class DNLInstance, class DNLTerminal>
@@ -197,10 +203,11 @@ class DNLIsoDBBuilder {
  public:
   DNLIsoDBBuilder(DNLIsoDB& db, const DNL<DNLInstance, DNLTerminal>& dnl);
   void treatDriver(const DNLTerminal& term, DNLIso& DNLIso, visited& visitedDB, 
-    bool updateReadersIsoID = false, bool updateDriverIsoID = false);
+    bool updateReadersIsoID = false, bool updateDriverIsoID = false, bool updateConst = false);
   void process();
-
  private:
+  void addConstantIso0(DNLID iso) { db_.addConstant0Iso(iso); }
+  void addConstantIso1(DNLID iso) { db_.addConstant1Iso(iso); }
   DNLIso& addIsoToDB() { return db_.addIso(); }
   DNLIsoDB& db_;
   DNL<DNLInstance, DNLTerminal> dnl_;
@@ -271,6 +278,8 @@ class DNL {
     }
     return DNLID_MAX;
   }
+
+  const SNLDesign* getTopDesign() const { return top_; }
 
  private:
   std::vector<DNLInstance, tbb::scalable_allocator<DNLInstance>> DNLInstances_;
