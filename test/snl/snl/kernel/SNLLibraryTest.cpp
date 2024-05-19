@@ -222,12 +222,21 @@ TEST_F(SNLLibraryTest, testErrors) {
 
   //name collision error
   EXPECT_THROW(SNLLibrary::create(db, SNLName("PRIMS")), SNLException);
+  //rename collision
+  SNLLibrary* prims1 = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("PRIMS1"));
+  ASSERT_NE(nullptr, prims1);
+  EXPECT_THROW(prims1->setName(SNLName("PRIMS")), SNLException);
 
   auto subPrims = SNLLibrary::create(prims, SNLLibrary::Type::Primitives, SNLName("SUB_PRIMS"));
   ASSERT_NE(nullptr, subPrims);
   //name collision
   EXPECT_THROW(SNLLibrary::create(prims, SNLLibrary::Type::Primitives, SNLName("SUB_PRIMS")), SNLException);
   EXPECT_EQ(prims, subPrims->getParentLibrary());
+
+  //rename collision
+  auto subPrims1 = SNLLibrary::create(prims, SNLLibrary::Type::Primitives, SNLName("SUB_PRIMS1"));
+  ASSERT_NE(nullptr, subPrims1);
+  EXPECT_THROW(subPrims1->setName(SNLName("SUB_PRIMS")), SNLException);
 
   EXPECT_EQ(SNLID::LibraryID(0), root->getID());
   //ID collision
