@@ -298,7 +298,7 @@ int main(int argc, char* argv[]) {
       }
     } else if (optimizationType == OptimizationType::ALL) {
       const auto start{std::chrono::steady_clock::now()};
-      spdlog::info("Starting full optimization(constant propagation and removal of loadless logic");
+      spdlog::info("Starting full optimization(constant propagation and removal of loadless logic)");
       ConstantPropagation cp;
       cp.run();
       LoadlessLogicRemover remover;
