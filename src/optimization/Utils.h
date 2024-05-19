@@ -12,7 +12,6 @@ using namespace naja::SNL;
 
 namespace naja::NAJA_OPT {
 class Uniquifier {
-
  public:
   Uniquifier(std::vector<SNLInstance*>& path, DNLID id)
       : path_(path), id_(id) {}
@@ -25,5 +24,28 @@ class Uniquifier {
   std::vector<SNLInstance*>& path_;
   std::vector<SNLInstance*> pathUniq_;
   DNLID id_ = DNLID_MAX;
+};
+
+class TruthTable {
+ public:
+  TruthTable(size_t numInputs) {
+    outputValues_.resize(1 << numInputs);
+  }
+  void setOutputValueForInputVector(std::vector<unsigned> inputs, unsigned value) {
+    size_t index = 0;
+    for (size_t i = 0; i < inputs.size(); i++) {
+      index |= inputs[i] << i;
+    }
+    outputValues_[index] = value;
+  }
+  void setOutputValueForInput(size_t inputs, unsigned value) {
+    outputValues_[inputs] = value;
+  }
+  unsigned getOutputValueForInput(size_t inputs) const {
+    return outputValues_[inputs];
+  }
+
+ private:
+  std::vector<bool> outputValues_;
 };
 }  // namespace naja::NAJA_OPT

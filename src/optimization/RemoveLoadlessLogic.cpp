@@ -311,7 +311,6 @@ void LoadlessLogicRemover::removeLoadlessInstances(
 
 // Given a DNL, remove all loadless logic
 void LoadlessLogicRemover::removeLoadlessLogic() {
-  assert(!isCreated());
   dnl_ = DNL::get();
   tbb::concurrent_unordered_set<DNLID> tracedIsos = getTracedIsos(*dnl_);
   std::vector<DNLID> untracedIsos = getUntracedIsos(*dnl_, tracedIsos);

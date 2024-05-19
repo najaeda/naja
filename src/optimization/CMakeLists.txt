@@ -5,11 +5,13 @@
 set(SOURCES
   Utils.cpp
   RemoveLoadlessLogic.cpp
+  ConstantPropagation.cpp
 )
 
 set(NAJA_OPT_HEADERS
   Utils.h
   RemoveLoadlessLogic.h
+  ConstantPropagation.h
 )
 
 add_library(naja_opt SHARED ${SOURCES})
