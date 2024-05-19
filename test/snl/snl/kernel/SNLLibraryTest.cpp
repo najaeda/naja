@@ -219,16 +219,19 @@ TEST_F(SNLLibraryTest, testErrors) {
   SNLLibrary* prims = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("PRIMS"));
   //library and parent library must share same type
   EXPECT_THROW(SNLLibrary::create(prims, SNLName("SUB_PRIMS")), SNLException);
+  EXPECT_EQ(SNLID::LibraryID(1), prims->getID());
 
   //name collision error
   EXPECT_THROW(SNLLibrary::create(db, SNLName("PRIMS")), SNLException);
   //rename collision
   SNLLibrary* prims1 = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("PRIMS1"));
   ASSERT_NE(nullptr, prims1);
+  EXPECT_EQ(SNLID::LibraryID(2), prims1->getID());
   EXPECT_THROW(prims1->setName(SNLName("PRIMS")), SNLException);
 
   auto subPrims = SNLLibrary::create(prims, SNLLibrary::Type::Primitives, SNLName("SUB_PRIMS"));
   ASSERT_NE(nullptr, subPrims);
+  EXPECT_EQ(SNLID::LibraryID(3), subPrims->getID());
   //name collision
   EXPECT_THROW(SNLLibrary::create(prims, SNLLibrary::Type::Primitives, SNLName("SUB_PRIMS")), SNLException);
   EXPECT_EQ(prims, subPrims->getParentLibrary());
@@ -237,15 +240,15 @@ TEST_F(SNLLibraryTest, testErrors) {
   auto subPrims1 = SNLLibrary::create(prims, SNLLibrary::Type::Primitives, SNLName("SUB_PRIMS1"));
   ASSERT_NE(nullptr, subPrims1);
   EXPECT_THROW(subPrims1->setName(SNLName("SUB_PRIMS")), SNLException);
+  EXPECT_EQ(SNLID::LibraryID(4), subPrims1->getID());
 
-  EXPECT_EQ(SNLID::LibraryID(0), root->getID());
   //ID collision
   EXPECT_THROW(SNLLibrary::create(db, SNLID::LibraryID(0), SNLLibrary::Type::Standard), SNLException);
 
-  EXPECT_EQ(SNLID::LibraryID(2), subPrims->getID());
+  EXPECT_EQ(SNLID::LibraryID(3), subPrims->getID());
   EXPECT_EQ(prims, subPrims->getParentLibrary());
-  EXPECT_EQ(subPrims, prims->getLibrary(SNLID::LibraryID(2)));
-  EXPECT_EQ(nullptr, prims->getLibrary(SNLID::LibraryID(3)));
+  EXPECT_EQ(subPrims, prims->getLibrary(SNLID::LibraryID(3)));
+  EXPECT_EQ(nullptr, prims->getLibrary(SNLID::LibraryID(5)));
   //ID collision
   EXPECT_THROW(SNLLibrary::create(prims, SNLID::LibraryID(2), SNLLibrary::Type::Primitives), SNLException);
 }

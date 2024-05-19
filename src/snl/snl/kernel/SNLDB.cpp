@@ -135,6 +135,21 @@ SNLLibrary* SNLDB::getLibrary(SNLID::LibraryID id) const {
   return nullptr;
 }
 
+SNLLibrary* SNLDB::getGlobalLibrary(SNLID::LibraryID id) const {
+  auto library = getLibrary(id);
+  if (library) {
+    return library;
+  } else {
+    for (auto subLibrary: getLibraries()) {
+      auto globalLibrary = subLibrary->getGlobalLibrary(id);
+      if (globalLibrary) {
+        return globalLibrary;
+      }
+    }
+  }
+  return nullptr;
+}
+
 SNLLibrary* SNLDB::getLibrary(const SNLName& name) const {
   auto it = libraryNameIDMap_.find(name);
   if (it != libraryNameIDMap_.end()) {

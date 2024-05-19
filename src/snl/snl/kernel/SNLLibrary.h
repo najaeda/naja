@@ -102,6 +102,9 @@ class SNLLibrary final: public SNLObject {
     SNLLibrary* getParentLibrary() const;
     /// \return child SNLLibrary with SNLID::LibraryID id
     SNLLibrary* getLibrary(SNLID::LibraryID id) const;
+    /// \return child global SNLLibrary with SNLID::LibraryID id: located in this SNLLibrary or
+    /// one of its children.
+    SNLLibrary* getGlobalLibrary(SNLID::LibraryID id) const;
     /// \return child SNLLibrary named name
     SNLLibrary* getLibrary(const SNLName& name) const;
     /// \return the collection of sub SNLLibrary

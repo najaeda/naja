@@ -51,10 +51,13 @@ class SNLDB final: public SNLObject {
      */
     void setID(SNLID::DBID id);
 
-    /// \return the SNLLibrary in this SNLDB with SNLID::LibraryID:id 
+    /// \return the unique SNLLibrary in this SNLDB with SNLID::LibraryID id 
     SNLLibrary* getLibrary(SNLID::LibraryID id) const;
-    /// \return the SNLLibrary in this SNLDB with SNLName:name 
+    /// \return the unique SNLLibrary in this SNLDB with SNLName:name 
     SNLLibrary* getLibrary(const SNLName& name) const;
+
+    /// \return the unique SNLLibrary in this SNLDB and sub Libraries with this SNLID::LibraryID id
+    SNLLibrary* getGlobalLibrary(SNLID::LibraryID id) const;
 
     /// \return the SNLDesign with SNLID::DBDesignReference reference or null if it does not exist
     SNLDesign* getDesign(const SNLID::DBDesignReference& designReference) const;
