@@ -149,9 +149,9 @@ void ConstantPropagation::performConstantPropagationAnalysis() {
     #ifdef DEBUG_PRINTS
     // LCOV_EXCL_START
     printf("loop: %lu\n", loop);
+    loop++;
     // LCOV_EXCL_STOP
     #endif
-    loop++;
     std::set<DNLID> constantsNew;
     for (DNLID constant : constants) {
       DNLIso iso = dnl_->getDNLIsoDB().getIsoFromIsoIDconst(constant);
