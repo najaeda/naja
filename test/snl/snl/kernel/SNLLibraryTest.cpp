@@ -221,6 +221,10 @@ TEST_F(SNLLibraryTest, testErrors) {
   EXPECT_THROW(SNLLibrary::create(prims, SNLName("SUB_PRIMS")), SNLException);
   EXPECT_EQ(SNLID::LibraryID(1), prims->getID());
 
+  //no effect
+  prims->setName(SNLName("PRIMS"));
+  EXPECT_EQ(SNLName("PRIMS"), prims->getName());
+
   //name collision error
   EXPECT_THROW(SNLLibrary::create(db, SNLName("PRIMS")), SNLException);
   //rename collision
@@ -241,6 +245,15 @@ TEST_F(SNLLibraryTest, testErrors) {
   ASSERT_NE(nullptr, subPrims1);
   EXPECT_THROW(subPrims1->setName(SNLName("SUB_PRIMS")), SNLException);
   EXPECT_EQ(SNLID::LibraryID(4), subPrims1->getID());
+
+  //rename SUB_PRIMS
+  subPrims->setName(SNLName("SUB_PRIMS2"));
+  EXPECT_EQ(SNLName("SUB_PRIMS2"), subPrims->getName());
+  EXPECT_EQ(SNLID::LibraryID(3), subPrims->getID());
+  auto findSubPrims2 = db->getGlobalLibrary(SNLID::LibraryID(3));
+  EXPECT_EQ(findSubPrims2, subPrims);
+  findSubPrims2 = prims->getGlobalLibrary(SNLID::LibraryID(3));
+  EXPECT_EQ(findSubPrims2, subPrims);
 
   //ID collision
   EXPECT_THROW(SNLLibrary::create(db, SNLID::LibraryID(0), SNLLibrary::Type::Standard), SNLException);
