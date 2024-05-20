@@ -142,9 +142,9 @@ void ConstantPropagation::performConstantPropagationAnalysis() {
   #ifdef DEBUG_PRINTS
   // LCOV_EXCL_START
   printf("Constant Propagation : Number of constants before: %lu\n", constants.size());
+  size_t loop = 0;
   // LCOV_EXCL_STOP
   #endif
-  size_t loop = 0;
   while (!constants.empty()) {
     #ifdef DEBUG_PRINTS
     // LCOV_EXCL_START
