@@ -37,7 +37,7 @@ TEST_F(SNLPrimitivesTest1, test) {
   primitives0Path /= "scripts";
   primitives0Path /= "primitives1.py";
   SNLPyLoader::loadPrimitives(library, primitives0Path);
-  ASSERT_EQ(12, library->getDesigns().size());
+  ASSERT_EQ(13, library->getDesigns().size());
   auto logic0 = library->getDesign(SNLName("LOGIC0"));
   EXPECT_NE(nullptr, logic0);
   EXPECT_TRUE(logic0->isPrimitive());
@@ -70,7 +70,7 @@ TEST_F(SNLPrimitivesTest1, testTruthTablesMap) {
   primitives0Path /= "scripts";
   primitives0Path /= "primitives1.py";
   SNLPyLoader::loadPrimitives(library, primitives0Path);
-  ASSERT_EQ(12, library->getDesigns().size());
+  ASSERT_EQ(13, library->getDesigns().size());
 
   auto truthTables = SNLLibraryTruthTables::getTruthTables(library);
 
@@ -163,8 +163,16 @@ TEST_F(SNLPrimitivesTest1, testTruthTablesMap) {
   EXPECT_EQ(design, logic1);
 
   tt = oai21TruthTable.getReducedWithConstant(0, 1);
-  std::cerr << "TT: " << tt.getString() << std::endl;
   design = SNLLibraryTruthTables::getDesignForTruthTable(library, tt);
   ASSERT_NE(nullptr, design);
 
+  auto mux2 = library->getDesign(SNLName("MUX2"));
+  ASSERT_NE(nullptr, mux2);
+  //0: A, 1: B, 2: S
+  auto mux2TruthTable = SNLDesignModeling::getTruthTable(mux2);
+  ASSERT_TRUE(mux2TruthTable.isInitialized());
+  tt = mux2TruthTable.getReducedWithConstant(0, 0);
+  design = SNLLibraryTruthTables::getDesignForTruthTable(library, tt);
+  ASSERT_NE(nullptr, design);
+  EXPECT_EQ(design, and2);
 }

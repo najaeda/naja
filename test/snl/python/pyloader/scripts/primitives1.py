@@ -87,6 +87,14 @@ def constructOAI21(lib):
   zn = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "ZN")
   cell.setTruthTable(0x57)
 
+def constructMUX2(lib):
+  cell = snl.SNLDesign.createPrimitive(lib, "MUX2")
+  a = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A")
+  b = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B")
+  s = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "S")
+  z = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "Z")
+  cell.setTruthTable(0xCA)
+
 def constructPrimitives(lib):
   constructLOGIC0(lib)
   constructLOGIC1(lib)
@@ -100,3 +108,4 @@ def constructPrimitives(lib):
   constructXOR2(lib)
   constructXNOR2(lib)
   constructOAI21(lib)
+  constructMUX2(lib)

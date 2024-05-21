@@ -100,6 +100,7 @@ def constructMUX2(lib, X):
   b = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B")
   s = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "S")
   z = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "Z")
+  cell.setTruthTable(0xE4)
 
 def constructNAND2(lib, X):
   cell = snl.SNLDesign.createPrimitive(lib, "NAND2_X" + str(X))
