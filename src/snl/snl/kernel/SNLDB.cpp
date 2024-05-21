@@ -125,6 +125,8 @@ void SNLDB::removeLibrary(SNLLibrary* library) {
   libraryNameIDMap_.erase(library->getName());
 }
 
+OWNER_RENAME(SNLDB, SNLLibrary, libraryNameIDMap_) 
+
 SNLLibrary* SNLDB::getLibrary(SNLID::LibraryID id) const {
   auto it = libraries_.find(SNLID(getID(), id), SNLIDComp<SNLLibrary>());
   if (it != libraries_.end()) {

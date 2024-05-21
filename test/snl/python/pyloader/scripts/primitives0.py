@@ -14,4 +14,5 @@ def constructLUT4(lib):
   snl.SNLDesign.addCombinatorialArcs([i0,i1,i2,i3], o)
 
 def constructPrimitives(lib):
+  lib.setName('PRIMITIVES0')
   constructLUT4(lib)

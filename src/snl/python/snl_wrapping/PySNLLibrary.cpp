@@ -62,6 +62,7 @@ GetObjectByName(Library, Library)
 GetBoolAttribute(Library, isStandard)
 GetBoolAttribute(Library, isPrimitives)
 
+SetNameMethod(Library)
 GetNameMethod(SNLLibrary)
 
 GetContainerMethod(Library, Design, Designs, Designs)
@@ -74,6 +75,8 @@ PyTypeObjectDefinitions(SNLLibrary)
 PyMethodDef PySNLLibrary_Methods[] = {
   { "create", (PyCFunction)PySNLLibrary_create, METH_VARARGS|METH_STATIC,
     "SNLLibrary creator"},
+  {"setName", (PyCFunction)PySNLLibrary_setName, METH_O,
+    "Set the SNLName of this SNLLibrary."},
   { "createPrimitives", (PyCFunction)PySNLLibrary_createPrimitives, METH_VARARGS|METH_STATIC,
     "Primitives SNLLibrary creator"},
   { "getName", (PyCFunction)PySNLLibrary_getName, METH_NOARGS,

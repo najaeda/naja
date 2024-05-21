@@ -51,9 +51,9 @@ class SNLDB final: public SNLObject {
      */
     void setID(SNLID::DBID id);
 
-    /// \return the SNLLibrary in this SNLDB with SNLID::LibraryID:id 
+    /// \return the unique SNLLibrary in this SNLDB with SNLID::LibraryID id 
     SNLLibrary* getLibrary(SNLID::LibraryID id) const;
-    /// \return the SNLLibrary in this SNLDB with SNLName:name 
+    /// \return the unique SNLLibrary in this SNLDB with SNLName:name 
     SNLLibrary* getLibrary(const SNLName& name) const;
 
     /// \return the SNLDesign with SNLID::DBDesignReference reference or null if it does not exist
@@ -97,6 +97,7 @@ class SNLDB final: public SNLObject {
 
     void addLibrary(SNLLibrary* library);
     void addLibraryAndSetID(SNLLibrary* library);
+    void rename(SNLLibrary* library, const SNLName& previousName);
     void removeLibrary(SNLLibrary* library);
 
     SNLID::DBID                         id_;

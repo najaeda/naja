@@ -36,6 +36,7 @@ TEST_F(SNLPrimitivesTest0, test) {
   primitives0Path /= "scripts";
   primitives0Path /= "primitives0.py";
   SNLPyLoader::loadPrimitives(library, primitives0Path);
+  EXPECT_EQ("PRIMITIVES0", library->getName().getString());
   ASSERT_EQ(1, library->getDesigns().size());
   auto lut4 = library->getDesign(SNLName("LUT4")); 
   ASSERT_NE(nullptr, lut4);

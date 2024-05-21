@@ -85,8 +85,8 @@ void TYPE::setName(const SNLName& name) { \
   getDesign()->rename(this, previousName); \
 }
 
-#define DESIGN_RENAME(TYPE, METHOD_TYPE, MAP) \
-void SNLDesign::rename(TYPE* object, const SNLName& previousName) { \
+#define OWNER_RENAME(OWNER, TYPE, MAP) \
+void OWNER::rename(TYPE* object, const SNLName& previousName) { \
   /*if object was anonymous, and new one is not... just insert with new name */ \
   if (previousName.empty()) { \
     if (not object->isAnonymous()) { \
