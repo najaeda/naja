@@ -1,0 +1,5 @@
+[2024-05-21 14:56:35.854] [logger] [info] ########################################################
+[2024-05-21 14:56:35.855] [logger] [info] naja_edit
+[2024-05-21 14:56:35.855] [logger] [info] ########################################################
+[2024-05-21 14:56:35.855] [logger] [critical] Unrecognized input format type: fif
+[2024-05-21 14:56:35.855] [logger] [critical] primitives option (-p) is mandatory when the input format is not 'SNL'

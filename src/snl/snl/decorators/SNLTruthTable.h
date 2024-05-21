@@ -4,6 +4,8 @@
 #include <cstdint>
 #include <cmath>
 #include <string>
+#include <sstream>
+#include <iomanip>
 
 class SNLTruthTable {
   public:
@@ -43,7 +45,14 @@ class SNLTruthTable {
       int bitPos = 0;
       for (uint8_t i = 0; i < n; ++i) {
         if (((i >> index) & 1) == constant) {
-            reducedBits |= ((bits_ >> i) & 1) << bitPos;
+            uint64_t a = bits_;
+            a >>= i;
+            a &= 1;
+            a <<= bitPos;
+            reducedBits |= a;
+            //((bits_ >> i) & 1);
+            //((bits_ >> i) & 1) << bitPos;
+            //reducedBits |= ((bits_ >> i) & 1) << bitPos;
             ++bitPos;
         }
       }

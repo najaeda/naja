@@ -94,4 +94,13 @@ TEST(SNLTruthTableTest, test) {
   //need to be reduced in the future
   EXPECT_EQ(2, reducedtt.size());
   EXPECT_EQ(0x5, reducedtt.bits());
+
+  //function: "!(A & (B1 | B2))";
+  //order
+  //B2:2 B1:1 A:0
+//  SNLTruthTable ttao(3, 0xEA);
+//  reducedtt = ttao.getReducedWithConstant(0, 0);
+//  //0
+//  EXPECT_EQ(0, reducedtt.size());
+//  EXPECT_TRUE(reducedtt.is0());
 }

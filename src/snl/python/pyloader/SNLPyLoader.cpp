@@ -11,6 +11,7 @@
 #include <frameobject.h> // Include the header for PyFrameObject
 
 #include "SNLUniverse.h"
+#include "SNLLibraryTruthTables.h"
 #include "SNLException.h"
 
 #include "PySNLDB.h"
@@ -145,6 +146,7 @@ void SNLPyLoader::loadPrimitives(
     SNLLibrary* library,
     const std::filesystem::path& primitivesPath) {
   loadLibrary(library, primitivesPath, true);
+  SNLLibraryTruthTables::construct(library);
 }
 
 void SNLPyLoader::loadLibrary(
