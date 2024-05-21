@@ -250,9 +250,7 @@ TEST_F(SNLLibraryTest, testErrors) {
   subPrims->setName(SNLName("SUB_PRIMS2"));
   EXPECT_EQ(SNLName("SUB_PRIMS2"), subPrims->getName());
   EXPECT_EQ(SNLID::LibraryID(3), subPrims->getID());
-  auto findSubPrims2 = db->getGlobalLibrary(SNLID::LibraryID(3));
-  EXPECT_EQ(findSubPrims2, subPrims);
-  findSubPrims2 = prims->getGlobalLibrary(SNLID::LibraryID(3));
+  auto findSubPrims2 = db->getLibrary(SNLID::LibraryID(3));
   EXPECT_EQ(findSubPrims2, subPrims);
 
   //ID collision

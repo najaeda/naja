@@ -117,7 +117,7 @@ void SNLLibrary::preCreate(SNLDB* db, Type type, const SNLName& name) {
 
 void SNLLibrary::preCreate(SNLDB* db, SNLID::LibraryID libraryID, Type type, const SNLName& name) {
   preCreate(db, type, name);
-  if (db->getGlobalLibrary(libraryID)) {
+  if (db->getLibrary(libraryID)) {
     std::string reason = "SNLDB " + db->getString() + " contains already a SNLLibrary with ID: " + std::to_string(libraryID);
     throw SNLException(reason);
   }
@@ -140,7 +140,7 @@ void SNLLibrary::preCreate(SNLLibrary* parentLibrary, Type type, const SNLName& 
 void SNLLibrary::preCreate(SNLLibrary* parentLibrary, SNLID::LibraryID id, Type type, const SNLName& name) {
   preCreate(parentLibrary, type, name);
   auto db = parentLibrary->getDB();
-  if (db->getGlobalLibrary(id)) {
+  if (db->getLibrary(id)) {
     std::string reason = "SNLDB " + db->getString() + " contains already a SNLLibrary with ID: " + std::to_string(id);
     throw SNLException(reason);
   }
@@ -258,20 +258,6 @@ SNLLibrary* SNLLibrary::getLibrary(SNLID::LibraryID id) const {
   auto it = libraries_.find(SNLID(getDB()->getID(), id), SNLIDComp<SNLLibrary>());
   if (it != libraries_.end()) {
     return const_cast<SNLLibrary*>(&*it);
-  }
-  return nullptr;
-}
-
-SNLLibrary* SNLLibrary::getGlobalLibrary(SNLID::LibraryID id) const {
-  auto library = getLibrary(id);
-  if (library) {
-    return library;
-  }
-  for (auto subLib: getLibraries()) {
-    auto globalLibrary = subLib->getGlobalLibrary(id);
-    if (globalLibrary) {
-      return globalLibrary;
-    }
   }
   return nullptr;
 }

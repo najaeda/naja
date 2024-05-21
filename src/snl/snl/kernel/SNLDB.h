@@ -56,9 +56,6 @@ class SNLDB final: public SNLObject {
     /// \return the unique SNLLibrary in this SNLDB with SNLName:name 
     SNLLibrary* getLibrary(const SNLName& name) const;
 
-    /// \return the unique SNLLibrary in this SNLDB and sub Libraries with this SNLID::LibraryID id
-    SNLLibrary* getGlobalLibrary(SNLID::LibraryID id) const;
-
     /// \return the SNLDesign with SNLID::DBDesignReference reference or null if it does not exist
     SNLDesign* getDesign(const SNLID::DBDesignReference& designReference) const;
 
