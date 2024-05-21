@@ -36,6 +36,9 @@ jobs:
     - name: Build
       # Build your program with the given configuration
       run: cmake --build ${{github.workspace}}/build -j 4 --config ${{env.BUILD_TYPE}}
+      env:
+        CC:   clang
+        CXX:  clang++
 
     - name: Test
       working-directory: ${{github.workspace}}/build
