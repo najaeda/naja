@@ -72,12 +72,10 @@ SNLLibraryTruthTables::LibraryTruthTables SNLLibraryTruthTables::construct(SNLLi
     if (tt.isInitialized()) {
       auto it = truthTables.find(tt);
       if (it != truthTables.end()) {
-        std::ostringstream oss;
-        oss << "Duplicate truth table: " << tt.getString();
-        oss << " in designs: " << it->second->getString() << " and " << design->getString();
-        throw SNLException(oss.str());
+        it->second.push_back(design);
+      } else {
+        truthTables[tt] = {design};
       }
-      truthTables[tt] = design;
     }
   }
   SNLLibraryModelingProperty::create(library, truthTables);
@@ -101,7 +99,11 @@ SNLDesign* SNLLibraryTruthTables::getDesignForTruthTable(const SNLLibrary* libra
   if (it == truthTables.end()) {
     return nullptr;
   }
-  return it->second;
+  const auto& primitives = it->second;
+  if (primitives.empty()) {
+    return nullptr;
+  }
+  return primitives[0];
 }
 
 }} // namespace SNL // namespace naja

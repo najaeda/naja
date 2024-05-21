@@ -37,7 +37,7 @@ TEST_F(SNLPrimitivesTest1, test) {
   primitives0Path /= "scripts";
   primitives0Path /= "primitives1.py";
   SNLPyLoader::loadPrimitives(library, primitives0Path);
-  ASSERT_EQ(11, library->getDesigns().size());
+  ASSERT_EQ(12, library->getDesigns().size());
   auto logic0 = library->getDesign(SNLName("LOGIC0"));
   EXPECT_NE(nullptr, logic0);
   EXPECT_TRUE(logic0->isPrimitive());
@@ -70,7 +70,7 @@ TEST_F(SNLPrimitivesTest1, testTruthTablesMap) {
   primitives0Path /= "scripts";
   primitives0Path /= "primitives1.py";
   SNLPyLoader::loadPrimitives(library, primitives0Path);
-  ASSERT_EQ(11, library->getDesigns().size());
+  ASSERT_EQ(12, library->getDesigns().size());
 
   auto truthTables = SNLLibraryTruthTables::getTruthTables(library);
 
@@ -157,9 +157,14 @@ TEST_F(SNLPrimitivesTest1, testTruthTablesMap) {
   ASSERT_NE(nullptr, oai21);
   auto oai21TruthTable = SNLDesignModeling::getTruthTable(oai21);
   ASSERT_TRUE(oai21TruthTable.isInitialized());
-  tt = oai21TruthTable.getReducedWithConstant(2, 0);
-  std::cout << tt.getString() << std::endl;
+  tt = oai21TruthTable.getReducedWithConstant(0, 0);
   design = SNLLibraryTruthTables::getDesignForTruthTable(library, tt);
   ASSERT_NE(nullptr, design);
   EXPECT_EQ(design, logic1);
+
+  tt = oai21TruthTable.getReducedWithConstant(0, 1);
+  std::cerr << "TT: " << tt.getString() << std::endl;
+  design = SNLLibraryTruthTables::getDesignForTruthTable(library, tt);
+  ASSERT_NE(nullptr, design);
+
 }

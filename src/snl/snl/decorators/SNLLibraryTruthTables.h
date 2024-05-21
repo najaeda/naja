@@ -15,7 +15,8 @@ class SNLDesign;
 
 class SNLLibraryTruthTables {
     public:
-      using LibraryTruthTables = std::map<SNLTruthTable, SNLDesign*>;
+      using Primitives = std::vector<SNLDesign*>;
+      using LibraryTruthTables = std::map<SNLTruthTable, Primitives>;
       static LibraryTruthTables construct(SNLLibrary* library);
       static LibraryTruthTables getTruthTables(const SNLLibrary* library);
       static SNLDesign* getDesignForTruthTable(const SNLLibrary* library, const SNLTruthTable& tt);

@@ -57,6 +57,13 @@ def constructOR4(lib):
   zn = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "ZN")
   cell.setTruthTable(0xFFFE)
 
+def constructNOR2(lib):
+  cell = snl.SNLDesign.createPrimitive(lib, "NOR2")
+  a1 = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A1")
+  a2 = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A2")
+  zn = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "ZN")
+  cell.setTruthTable(0x1)
+
 def constructXOR2(lib):
   cell = snl.SNLDesign.createPrimitive(lib, "XOR2")
   a = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A")
@@ -78,7 +85,7 @@ def constructOAI21(lib):
   b1 = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B1")
   b2 = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B2")
   zn = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "ZN")
-  cell.setTruthTable(0x1F)
+  cell.setTruthTable(0x57)
 
 def constructPrimitives(lib):
   constructLOGIC0(lib)
@@ -89,6 +96,7 @@ def constructPrimitives(lib):
   constructOR2(lib)
   constructOR3(lib)
   constructOR4(lib)
+  constructNOR2(lib)
   constructXOR2(lib)
   constructXNOR2(lib)
   constructOAI21(lib)
