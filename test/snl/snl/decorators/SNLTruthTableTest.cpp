@@ -5,6 +5,7 @@
 #include "gtest/gtest.h"
 
 #include "SNLTruthTable.h"
+using namespace naja::SNL;
 
 TEST(SNLTruthTableTest, test) {
   SNLTruthTable tt0(0, 0);
@@ -74,33 +75,39 @@ TEST(SNLTruthTableTest, test) {
   EXPECT_EQ(0b01, reducedtt.bits());
 
   //function: "!(A | (B1 & B2))";
-  SNLTruthTable tt(3, 0b00010101);
+  //order 0: A 1: B1 2: B2
+  SNLTruthTable tt(3, 0x15);
+  
+  //set A to 1 => Logic0
   reducedtt = tt.getReducedWithConstant(0, 1);
   //0
   EXPECT_EQ(0, reducedtt.size());
   EXPECT_TRUE(reducedtt.is0());
 
+  //set A to 0 => !(B1 & B2)
   reducedtt = tt.getReducedWithConstant(0, 0);
   //!(B1 & B2)
   EXPECT_EQ(2, reducedtt.size());
   EXPECT_EQ(0b0111, reducedtt.bits());
 
+  //set B1 to 1
   reducedtt = tt.getReducedWithConstant(1, 1);
   //!(A | B2) nor
   EXPECT_EQ(2, reducedtt.size());
   EXPECT_EQ(0x1, reducedtt.bits());
 
+  //set B1 to 0
   reducedtt = tt.getReducedWithConstant(1, 0);
-  //need to be reduced in the future
   EXPECT_EQ(2, reducedtt.size());
   EXPECT_EQ(0x5, reducedtt.bits());
 
-  //function: "!(A & (B1 | B2))";
-  //order
-  //B2:2 B1:1 A:0
-//  SNLTruthTable ttao(3, 0xEA);
-//  reducedtt = ttao.getReducedWithConstant(0, 0);
-//  //0
-//  EXPECT_EQ(0, reducedtt.size());
-//  EXPECT_TRUE(reducedtt.is0());
+  //B2 has no influence
+  EXPECT_TRUE(reducedtt.hasNoInfluence(1));
+  EXPECT_FALSE(reducedtt.hasNoInfluence(0));
+
+  //remove B2 (index 1)
+  reducedtt = reducedtt.removeVariable(1);
+  EXPECT_EQ(1, reducedtt.size());
+  //gate is now !A
+  EXPECT_EQ(0x1, reducedtt.bits());
 }

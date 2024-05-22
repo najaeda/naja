@@ -171,8 +171,27 @@ TEST_F(SNLPrimitivesTest1, testTruthTablesMap) {
   //0: A, 1: B, 2: S
   auto mux2TruthTable = SNLDesignModeling::getTruthTable(mux2);
   ASSERT_TRUE(mux2TruthTable.isInitialized());
+  //A=0
   tt = mux2TruthTable.getReducedWithConstant(0, 0);
   design = SNLLibraryTruthTables::getDesignForTruthTable(library, tt);
   ASSERT_NE(nullptr, design);
   EXPECT_EQ(design, and2);
+
+  //A=1
+  tt = mux2TruthTable.getReducedWithConstant(0, 1);
+  EXPECT_EQ(2, tt.size());
+  EXPECT_EQ(0xB, tt.bits());
+  design = SNLLibraryTruthTables::getDesignForTruthTable(library, tt);
+  EXPECT_EQ(nullptr, design); //no design for or2 with one inversed input
+
+  //if S=0, then A, if S=1, then B
+  tt = mux2TruthTable.getReducedWithConstant(2, 0);
+  design = SNLLibraryTruthTables::getDesignForTruthTable(library, tt);
+  ASSERT_NE(nullptr, design);
+  EXPECT_EQ(design, buf);
+
+  tt = mux2TruthTable.getReducedWithConstant(2, 1);
+  design = SNLLibraryTruthTables::getDesignForTruthTable(library, tt);
+  ASSERT_NE(nullptr, design);
+  EXPECT_EQ(design, buf);
 }
