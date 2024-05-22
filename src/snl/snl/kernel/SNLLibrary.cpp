@@ -210,18 +210,23 @@ void SNLLibrary::setName(const SNLName& name) {
       auto db = getDB();
       if (auto collision = db->getLibrary(name)) {
         std::ostringstream reason;
+        //Exclude from coverage to avoid false positive
+        //LCOV_EXCL_START
         reason << "In DB " << db->getString() << ", cannot rename "
           << getString() << " to " << name.getString() << ", another library: "
           << collision->getString() << " has already this name.";
+        //LCOV_EXCL_STOP
         throw SNLException(reason.str());
       }
     } else {
       auto parentLibrary = getParentLibrary();
       if (auto collision = parentLibrary->getLibrary(name)) {
         std::ostringstream reason;
+        //LCOV_EXCL_START
         reason << "In parent library " << parentLibrary->getString()
           << ", cannot rename " << getString() << " to " << name.getString()
           << ", another library: " << collision->getString() << " has already this name.";
+        //LCOV_EXCL_STOP
         throw SNLException(reason.str());
       }
     }
