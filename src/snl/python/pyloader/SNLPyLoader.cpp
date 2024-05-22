@@ -96,6 +96,7 @@ PyObject* loadModule(const std::filesystem::path& path) {
     } else {
       reason << ": empty error message";
     }
+    Py_DECREF(modulePathString);
     throw naja::SNL::SNLException(reason.str());
   }
   Py_DECREF(modulePathString);
