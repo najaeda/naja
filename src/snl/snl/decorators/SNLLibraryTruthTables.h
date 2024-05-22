@@ -20,7 +20,8 @@ class SNLLibraryTruthTables {
       using LibraryTruthTables = std::map<SNLTruthTable, Primitives>;
       static LibraryTruthTables construct(SNLLibrary* library);
       static LibraryTruthTables getTruthTables(const SNLLibrary* library);
-      static SNLDesign* getDesignForTruthTable(const SNLLibrary* library, const SNLTruthTable& tt);
+      using Indexes = std::vector<uint32_t>;
+      static std::pair<SNLDesign*, Indexes> getDesignForTruthTable(const SNLLibrary* library, const SNLTruthTable& tt);
 };
 
 }} // namespace SNL // namespace naja

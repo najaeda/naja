@@ -90,11 +90,13 @@ SNLLibraryTruthTables::LibraryTruthTables SNLLibraryTruthTables::getTruthTables(
   return {};
 }
 
-SNLDesign* SNLLibraryTruthTables::getDesignForTruthTable(const SNLLibrary* library, const SNLTruthTable& tt) {
+std::pair<SNLDesign*, SNLLibraryTruthTables::Indexes>
+SNLLibraryTruthTables::getDesignForTruthTable(const SNLLibrary* library, const SNLTruthTable& tt) {
   SNLLibraryTruthTables::LibraryTruthTables truthTables = SNLLibraryTruthTables::getTruthTables(library);
   if (truthTables.empty()) {
-    return nullptr;
+    return std::pair(nullptr, Indexes());
   }
+  Indexes indexes;
   auto it = truthTables.find(tt);
   if (it == truthTables.end()) {
     //retry with reduced truth table
@@ -103,19 +105,20 @@ SNLDesign* SNLLibraryTruthTables::getDesignForTruthTable(const SNLLibrary* libra
         SNLTruthTable reducedTT = tt.removeVariable(i);
         it = truthTables.find(reducedTT);
         if (it != truthTables.end()) {
+          indexes.push_back(i);
           break;
         }
       }
     }
   }
   if (it == truthTables.end()) {
-    return nullptr;
+    return std::pair(nullptr, Indexes());
   }
   const auto& primitives = it->second;
   if (primitives.empty()) {
-    return nullptr;
+    return std::pair(nullptr, Indexes());
   }
-  return primitives[0];
+  return std::pair(primitives[0], Indexes());
 }
 
 }} // namespace SNL // namespace naja
