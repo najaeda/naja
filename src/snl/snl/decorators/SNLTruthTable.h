@@ -81,9 +81,9 @@ class SNLTruthTable {
         throw SNLException("Index out of range");
       }
       SNLTruthTable reducedTruthTable(size_-1, 0);
-      for (uint32_t i = 0; i < (1 << size_); ++i) {
+      for (uint32_t i = 0; i < (1u << size_); ++i) {
         if (((i >> variableIndex) & 1) == 0) {
-            uint32_t newIdx = ((i & ((1 << variableIndex) - 1)) | ((i >> 1) & (~((1 << variableIndex) - 1))));
+            uint32_t newIdx = ((i & ((1u << variableIndex) - 1u)) | ((i >> 1u) & (~((1u << variableIndex) - 1u))));
             if (((bits_ >> i) & 1) == 1) {
               reducedTruthTable.bits_ |= (1 << newIdx);
             }
