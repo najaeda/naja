@@ -219,9 +219,7 @@ static PyObject* PySNLDesign_addInputsToClockArcs(PySNLDesign* self, PyObject* a
       }
     }
   }
-  SNLTRY
   SNLDesignModeling::addInputsToClockArcs(terms, clock);
-  SNLCATCH
   Py_RETURN_NONE;
 }
 
@@ -267,9 +265,7 @@ static PyObject* PySNLDesign_addClockToOutputsArcs(PySNLDesign* self, PyObject* 
       }
     }
   } 
-  SNLTRY
   SNLDesignModeling::addClockToOutputsArcs(clock, terms);
-  SNLCATCH
   Py_RETURN_NONE;
 }
 
@@ -280,12 +276,10 @@ static PyObject* PySNLDesign_setTruthTable(PySNLDesign* self, PyObject* args) {
     return nullptr;
   }
   METHOD_HEAD("SNLDesign.setTruthTable()")
-  SNLTRY
   auto filter = [](const SNLTerm* term) { return term->getDirection() == SNLTerm::Direction::Input; };
   size_t size = selfObject->getBitTerms().getSubCollection(filter).size();
   SNLTruthTable truthTable(size, tt);
   SNLDesignModeling::setTruthTable(selfObject, truthTable);
-  SNLCATCH
   Py_RETURN_NONE;
 }
 
