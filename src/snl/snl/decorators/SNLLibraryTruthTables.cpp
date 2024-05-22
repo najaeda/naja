@@ -98,7 +98,7 @@ SNLDesign* SNLLibraryTruthTables::getDesignForTruthTable(const SNLLibrary* libra
   auto it = truthTables.find(tt);
   if (it == truthTables.end()) {
     //retry with reduced truth table
-    for (uint8_t i = 0; i < tt.size(); ++i) {
+    for (uint32_t i = 0; i < tt.size(); ++i) {
       if (tt.hasNoInfluence(i)) {
         SNLTruthTable reducedTT = tt.removeVariable(i);
         it = truthTables.find(reducedTT);
