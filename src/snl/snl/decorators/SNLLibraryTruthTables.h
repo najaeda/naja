@@ -5,6 +5,7 @@
 #ifndef __SNL_LIBRARY_TRUTH_TABLES_H_
 #define __SNL_LIBRARY_TRUTH_TABLES_H_
 
+#include <vector>
 #include <map>
 #include "SNLTruthTable.h"
 

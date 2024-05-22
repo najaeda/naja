@@ -101,7 +101,7 @@ class SNLTruthTable {
 
     bool is1() const {
       uint64_t n = 1 << size_;
-      uint64_t mask = (1 << n) - 1;
+      uint64_t mask = (1 << n) - 1ULL;
       uint64_t result = bits_ & mask;
       return result == mask;
     }
