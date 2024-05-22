@@ -47,9 +47,11 @@ class SNLDesignModelingProperty: public naja::NajaPrivateProperty {
     std::string getName() const override {
       return Name;
     }
+    //LCOV_EXCL_START
     std::string getString() const override {
       return Name;
     }
+    //LCOV_EXCL_STOP
     naja::SNL::SNLDesignModeling* getModeling() const {
       return modeling_;
     }
