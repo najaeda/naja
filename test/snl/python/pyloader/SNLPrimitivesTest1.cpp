@@ -200,14 +200,22 @@ TEST_F(SNLPrimitivesTest1, testTruthTablesMap) {
 
   //if S=0, then A, if S=1, then B
   tt = mux2TruthTable.getReducedWithConstant(2, 0);
+  EXPECT_EQ(2, tt.size());
+  EXPECT_EQ(0xA, tt.bits());
   result = SNLLibraryTruthTables::getDesignForTruthTable(library, tt);
   design = result.first;
   ASSERT_NE(nullptr, design);
   EXPECT_EQ(design, buf);
+  auto indexes = result.second;
+  EXPECT_EQ(1, indexes.size());
+  EXPECT_EQ(1, indexes[0]);
 
   tt = mux2TruthTable.getReducedWithConstant(2, 1);
   result = SNLLibraryTruthTables::getDesignForTruthTable(library, tt);
   design = result.first;
   ASSERT_NE(nullptr, design);
   EXPECT_EQ(design, buf);
+  indexes = result.second;
+  EXPECT_EQ(1, indexes.size());
+  EXPECT_EQ(0, indexes[0]);
 }
