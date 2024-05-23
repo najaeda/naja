@@ -83,6 +83,9 @@ TEST(SNLTruthTableTest, test) {
   //0
   EXPECT_EQ(0, reducedtt.size());
   EXPECT_TRUE(reducedtt.is0());
+  reducedtt = reducedtt.getReducedWithConstant(0, 0);
+  EXPECT_EQ(0, reducedtt.size());
+  EXPECT_TRUE(reducedtt.is0());
 
   //set A to 0 => !(B1 & B2)
   reducedtt = tt.getReducedWithConstant(0, 0);
@@ -110,4 +113,11 @@ TEST(SNLTruthTableTest, test) {
   EXPECT_EQ(1, reducedtt.size());
   //gate is now !A
   EXPECT_EQ(0x1, reducedtt.bits());
+}
+
+TEST(SNLTruthTable, testErrors) {
+  EXPECT_THROW(SNLTruthTable(8, 0xFFFFF), SNLException);
+  SNLTruthTable tt(4, 0xFFFF);
+  EXPECT_THROW(tt.getReducedWithConstant(5, 0), SNLException);
+  EXPECT_THROW(tt.removeVariable(5), SNLException);
 }

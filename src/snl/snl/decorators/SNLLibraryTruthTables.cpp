@@ -27,21 +27,14 @@ class SNLLibraryModelingProperty: public naja::NajaPrivateProperty {
       property->postCreate(library);
       return property;
     }
-    static void preCreate(naja::SNL::SNLLibrary* library, const std::string& name) {
-      Inherit::preCreate(library, name);
-      if (not (library->isPrimitives())) {
-        std::ostringstream reason;
-        reason << "Impossible to add Library Modeling on a non primitives library <"
-          << library->getName().getString() << ">";
-        throw naja::SNL::SNLException(reason.str());
-      }
-    }
     std::string getName() const override {
       return Name;
     }
+    //LCOV_EXCL_START
     std::string getString() const override {
       return Name;
     }
+    //LCOV_EXCL_STOP
     naja::SNL::SNLLibraryTruthTables::LibraryTruthTables getTruthTables() const {
       return truthTables_;
     }

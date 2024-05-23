@@ -43,11 +43,11 @@ class SNLTruthTable {
     }
 
     SNLTruthTable getReducedWithConstant(uint32_t index, bool constant) const {
-      if (index > 6) {
-        throw SNLException("Index out of range (max=6)");
-      }
       if (size_ == 0) {
         return *this;
+      }
+      if (index > size_-1) {
+        throw SNLException("Index out of range (max=6)");
       }
       uint32_t n = 1 << size_;
       uint64_t reducedBits = 0;
@@ -77,7 +77,7 @@ class SNLTruthTable {
 
     // Function to remove a variable from the truth table
     SNLTruthTable removeVariable(uint32_t variableIndex) const {
-      if (variableIndex > size_) {
+      if (variableIndex > size_-1) {
         throw SNLException("Index out of range");
       }
       SNLTruthTable reducedTruthTable(size_-1, 0);
