@@ -12,11 +12,12 @@
 
 #include "RemoveLoadlessLogic.h"
 #include "Utils.h"
+#include "tbb/enumerable_thread_specific.h"
 
 using namespace naja::DNL;
 using namespace naja::SNL;
 
-// #define DEBUG_PRINTS
+//#define DEBUG_PRINTS
 
 namespace naja::NAJA_OPT {
 
@@ -28,7 +29,8 @@ std::vector<DNLID> LoadlessLogicRemover::getTopOutputIsos(
     const naja::DNL::DNL<DNLInstanceFull, DNLTerminalFull>& dnl) {
   std::vector<DNLID> topOutputIsos;
   for (DNLID term = dnl.getTop().getTermIndexes().first;
-       term < dnl.getTop().getTermIndexes().second; term++) {
+       term <= dnl.getTop().getTermIndexes().second; term++) {
+    assert(DNLID_MAX != term);
 #ifdef DEBUG_PRINTS
     // LCOV_EXCL_START
     printf("Checking %s\n",
@@ -54,10 +56,14 @@ std::vector<DNLID> LoadlessLogicRemover::getTopOutputIsos(
 #endif
         topOutputIsos.push_back(dnl.getIsoIdfromTermId(term));
       } else {
+#ifdef DEBUG_PRINTS
+        // LCOV_EXCL_START
         printf("No iso %s\n", dnl.getDNLTerminalFromID(term)
                                   .getSnlBitTerm()
                                   ->getString()
                                   .c_str());
+        // LCOV_EXCL_STOP
+#endif
       }
     }
   }
@@ -65,10 +71,9 @@ std::vector<DNLID> LoadlessLogicRemover::getTopOutputIsos(
 }
 
 // Giving a DNL and iso, get all isos traced back from this iso to top inputs
-std::set<DNLID> LoadlessLogicRemover::getIsoTrace(
-    const naja::DNL::DNL<DNLInstanceFull, DNLTerminalFull>& dnl,
-    DNLID iso) {
-  std::set<DNLID> isoTrace;
+void LoadlessLogicRemover::getIsoTrace(
+      const naja::DNL::DNL<DNLInstanceFull, DNLTerminalFull>& dnl,
+      DNLID iso, tbb::concurrent_unordered_set<DNLID, std::hash<DNLID>, std::equal_to<DNLID>, tbb::scalable_allocator<DNLID>>& isoTrace) {
   std::vector<DNLID> isoQueue;
   isoQueue.push_back(iso);
   while (!isoQueue.empty()) {
@@ -100,7 +105,7 @@ std::set<DNLID> LoadlessLogicRemover::getIsoTrace(
         continue;
       assert(inst.isLeaf());
       for (DNLID termId = inst.getTermIndexes().first;
-           termId < inst.getTermIndexes().second; termId++) {
+           termId <= inst.getTermIndexes().second; termId++) {
         const DNLTerminalFull& term = dnl.getDNLTerminalFromID(termId);
         assert(term.getSnlTerm() != nullptr);
         {
@@ -132,26 +137,38 @@ std::set<DNLID> LoadlessLogicRemover::getIsoTrace(
       }
     }
   }
-  return isoTrace;
 }
 
 // Given a DNL, use getTopOutputIsos and getIsoTrace to
 // trace back all isos from top ouput to top inputs
-std::set<DNLID> LoadlessLogicRemover::getTracedIsos(
+tbb::concurrent_unordered_set<DNLID> LoadlessLogicRemover::getTracedIsos(
     const naja::DNL::DNL<DNLInstanceFull, DNLTerminalFull>& dnl) {
   std::vector<DNLID> topOutputIsos = getTopOutputIsos(dnl);
-  std::set<DNLID> tracedIsos;
-  for (DNLID iso : topOutputIsos) {
-    std::set<DNLID> isoTrace = getIsoTrace(dnl, iso);
-    tracedIsos.insert(isoTrace.begin(), isoTrace.end());
+  tbb::concurrent_unordered_set<DNLID> result;
+  tbb::enumerable_thread_specific<tbb::concurrent_unordered_set<DNLID, std::hash<DNLID>, std::equal_to<DNLID>, tbb::scalable_allocator<DNLID>>> tracedIsos;
+  if (!getenv("NON_MT")) {
+    tbb::task_arena arena(tbb::task_arena::automatic);
+    tbb::parallel_for(
+        tbb::blocked_range<DNLID>(0, topOutputIsos.size()),
+        [&](const tbb::blocked_range<DNLID>& r) {
+          for (DNLID i = r.begin(); i < r.end(); ++i) {
+            getIsoTrace(dnl, topOutputIsos[i], tracedIsos.local());}
+        });
+  } else {
+    for (DNLID iso : topOutputIsos) {
+      getIsoTrace(dnl, iso, tracedIsos.local());
+    }
   }
-  return tracedIsos;
+  for (auto tracedIsosPartial : tracedIsos) {
+    result.insert(tracedIsosPartial.begin(), tracedIsosPartial.end());
+  }
+  return result;
 }
 
 // Get all isos that are not traced given a DNL and set of traced isos
 std::vector<DNLID> LoadlessLogicRemover::getUntracedIsos(
     const naja::DNL::DNL<DNLInstanceFull, DNLTerminalFull>& dnl,
-    const std::set<DNLID>& tracedIsos) {
+    const tbb::concurrent_unordered_set<DNLID>& tracedIsos) {
   std::vector<DNLID> untracedIsos;
   for (DNLID iso = 0; iso < dnl.getDNLIsoDB().getNumIsos(); iso++) {
     if (tracedIsos.find(iso) == tracedIsos.end()) {
@@ -166,7 +183,7 @@ std::vector<DNLID> LoadlessLogicRemover::getUntracedIsos(
 std::vector<std::pair<std::vector<SNLInstance*>, DNLID>>
 LoadlessLogicRemover::getLoadlessInstances(
     const naja::DNL::DNL<DNLInstanceFull, DNLTerminalFull>& dnl,
-    const std::set<DNLID>& tracedIsos) {
+    const tbb::concurrent_unordered_set<DNLID>& tracedIsos) {
   std::vector<std::pair<std::vector<SNLInstance*>, DNLID>> loadlessInstances;
   for (const auto& leaf : dnl.getLeaves()) {
     const auto& instance = dnl.getDNLInstanceFromID(leaf);
@@ -192,7 +209,8 @@ printf("SNL Port %s direction %d\n", instTerm->getString().c_str()
 #endif
     }*/
     for (DNLID term = instance.getTermIndexes().first;
-         term < instance.getTermIndexes().second; term++) {
+         term <= instance.getTermIndexes().second; term++) {
+      assert(DNLID_MAX != term);
 #ifdef DEBUG_PRINTS
       // LCOV_EXCL_START
       printf(
@@ -295,7 +313,7 @@ void LoadlessLogicRemover::removeLoadlessInstances(
 void LoadlessLogicRemover::removeLoadlessLogic() {
   assert(!isCreated());
   dnl_ = DNL::get();
-  std::set<DNLID> tracedIsos = getTracedIsos(*dnl_);
+  tbb::concurrent_unordered_set<DNLID> tracedIsos = getTracedIsos(*dnl_);
   std::vector<DNLID> untracedIsos = getUntracedIsos(*dnl_, tracedIsos);
   std::vector<std::pair<std::vector<SNLInstance*>, DNLID>> loadlessInstances =
       getLoadlessInstances(*dnl_, tracedIsos);

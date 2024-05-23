@@ -89,6 +89,9 @@ class SNLLibrary final: public SNLObject {
      */
     static SNLLibrary* create(SNLLibrary* parent, SNLID::LibraryID id, Type type, const SNLName& name = SNLName());
 
+    /// \brief Set the name of the this SNLLibrary.
+    void setName(const SNLName& name);
+
     /// \return true if this SNLLibrary is the root SNLLibrary of its SNLDB, false otherwise. 
     bool isRoot() const { return isRoot_; }
 
@@ -157,6 +160,7 @@ class SNLLibrary final: public SNLObject {
 
     void addLibrary(SNLLibrary* library);
     void removeLibrary(SNLLibrary* library);
+    void rename(SNLLibrary* library, const SNLName& name);
     void addDesignAndSetID(SNLDesign* design);
     void addDesign(SNLDesign* design);
     void removeDesign(SNLDesign* design);

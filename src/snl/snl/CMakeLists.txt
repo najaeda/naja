@@ -33,6 +33,7 @@ set(PNL_KERNEL_SOURCES
 
 set(SNL_DECORATOR_SOURCES
   decorators/SNLDesignModeling.cpp
+  decorators/SNLLibraryTruthTables.cpp
 )
 
 set(SNL_HEADERS
@@ -60,6 +61,8 @@ set(SNL_HEADERS
   kernel/SNLInstTermOccurrence.h
   kernel/SNLEquipotential.h
   decorators/SNLDesignModeling.h
+  decorators/SNLTruthTable.h
+  decorators/SNLLibraryTruthTables.h
 )
 
 add_library(naja_snl SHARED

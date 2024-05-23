@@ -8,7 +8,9 @@
 #include <set>
 #include <list>
 #include <variant>
+
 #include "SNLBitTerm.h"
+#include "SNLTruthTable.h"
 
 namespace naja { namespace SNL {
 
@@ -57,6 +59,9 @@ class SNLDesignModeling {
     static NajaCollection<SNLInstTerm*> getClockRelatedOutputs(SNLInstTerm* iclock);
     static NajaCollection<SNLInstTerm*> getClockRelatedInputs(SNLInstTerm* iclock);
 
+    static void setTruthTable(SNLDesign* design, const SNLTruthTable& truthTable);
+    static SNLTruthTable getTruthTable(const SNLDesign* design);
+
     SNLDesignModeling(Type type);
     Type getType() const { return type_; }
   private:
@@ -79,9 +84,10 @@ class SNLDesignModeling {
     NajaCollection<SNLInstTerm*> getClockRelatedInputs_(SNLInstTerm* iclock) const;
     NajaCollection<SNLInstTerm*> getOutputRelatedClocks_(SNLInstTerm* ioutput) const;
     NajaCollection<SNLInstTerm*> getInputRelatedClocks_(SNLInstTerm* iinput) const;
-    Type        type_             { NO_PARAMETER };
-    Parameter   parameter_        {};
-    TimingModel model_            {};
+    Type          type_       { NO_PARAMETER };
+    Parameter     parameter_  {};
+    TimingModel   model_      {};
+    SNLTruthTable truthTable_ {};
 };
 
 }} // namespace SNL // namespace naja

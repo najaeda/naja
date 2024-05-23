@@ -13,15 +13,7 @@ using namespace naja::SNL;
 
 #define METHOD_HEAD(function) GENERIC_METHOD_HEAD(SNLDesignObject, function)
 
-static PyObject* PySNLDesignObject_setName(PySNLDesignObject* self, PyObject* arg) {
-  METHOD_HEAD("PySNLDesignObject.setName()")
-  if (not PyUnicode_Check(arg)) {
-    setError("SNLDesignObject.setName() expects a string as argument");
-    return nullptr;
-  }
-  selfObject->setName(SNLName(PyUnicode_AsUTF8(arg)));
-  Py_RETURN_NONE;
-}
+SetNameMethod(DesignObject)
 
 GetObjectMethod(DesignObject, Design, getDesign)
 

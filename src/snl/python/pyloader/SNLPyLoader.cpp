@@ -11,6 +11,7 @@
 #include <frameobject.h> // Include the header for PyFrameObject
 
 #include "SNLUniverse.h"
+#include "SNLLibraryTruthTables.h"
 #include "SNLException.h"
 
 #include "PySNLDB.h"
@@ -95,6 +96,7 @@ PyObject* loadModule(const std::filesystem::path& path) {
     } else {
       reason << ": empty error message";
     }
+    Py_DECREF(modulePathString);
     throw naja::SNL::SNLException(reason.str());
   }
   Py_DECREF(modulePathString);
@@ -145,6 +147,7 @@ void SNLPyLoader::loadPrimitives(
     SNLLibrary* library,
     const std::filesystem::path& primitivesPath) {
   loadLibrary(library, primitivesPath, true);
+  SNLLibraryTruthTables::construct(library);
 }
 
 void SNLPyLoader::loadLibrary(
