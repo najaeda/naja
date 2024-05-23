@@ -32,6 +32,10 @@ class SNLLibraryTest(unittest.TestCase):
     self.assertTrue(lib1.isStandard())
     self.assertFalse(lib1.isPrimitives())
 
+    lib1.setName('RENAMEDLIB1')
+    self.assertIsNone(db.getLibrary("LIB1"))
+    self.assertEqual(lib1, db.getLibrary("RENAMEDLIB1"))
+
     #Create sublib
     lib2 = snl.SNLLibrary.create(lib1, "LIB2")
     self.assertIsNotNone(lib2)
@@ -40,6 +44,10 @@ class SNLLibraryTest(unittest.TestCase):
     self.assertEqual(lib2, lib1.getLibrary("LIB2"))
     self.assertTrue(lib2.isStandard())
     self.assertFalse(lib2.isPrimitives())
+
+    #create anonymous sublib
+    anonlib = snl.SNLLibrary.create(lib1)
+    self.assertIsNotNone(anonlib)
 
   def testErrors(self):
     u = snl.SNLUniverse.get()

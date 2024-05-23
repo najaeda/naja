@@ -398,9 +398,9 @@ void SNLDesign::removeNet(SNLNet* net) {
   nets_.erase(*net);
 }
 
-DESIGN_RENAME(SNLTerm, Term, termNameIDMap_)
-DESIGN_RENAME(SNLNet, Net, netNameIDMap_)
-DESIGN_RENAME(SNLInstance, Instance, instanceNameIDMap_)
+OWNER_RENAME(SNLDesign, SNLTerm, termNameIDMap_)
+OWNER_RENAME(SNLDesign, SNLNet, netNameIDMap_)
+OWNER_RENAME(SNLDesign, SNLInstance, instanceNameIDMap_)
 
 SNLNet* SNLDesign::getNet(SNLID::DesignObjectID id) const {
   auto it = nets_.find(id, CompareByID<SNLNet>());
