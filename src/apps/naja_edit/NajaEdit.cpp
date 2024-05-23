@@ -26,6 +26,7 @@
 #include "RemoveLoadlessLogic.h"
 #include "SNLCapnP.h"
 #include "SNLUniverse.h"
+#include "Reduction.h"
 
 using namespace naja::DNL;
 using namespace naja::SNL;
@@ -301,6 +302,8 @@ int main(int argc, char* argv[]) {
       spdlog::info("Starting full optimization(constant propagation and removal of loadless logic)");
       ConstantPropagation cp;
       cp.run();
+      ReductionOptimization reductionOptimization(cp.getPartialConstantReaders());
+      reductionOptimization.run();
       LoadlessLogicRemover remover;
       remover.process();
       const auto end{std::chrono::steady_clock::now()};

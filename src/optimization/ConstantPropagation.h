@@ -12,7 +12,7 @@ using namespace naja::DNL;
 class ConstantPropagation {
  public:
 
-  enum Type { AND = 1, OR, XOR, NAND, NOR, XNOR, INV, BUF, HA, DFF };
+  enum Type { AND = 1, OR, XOR, NAND, NOR, XNOR, INV, BUF, HA, DFF, MUX, OAI };
 
   ConstantPropagation() { dnl_ = get(); }
   void collectConstants();
@@ -21,6 +21,10 @@ class ConstantPropagation {
   const std::set<DNLID>& getConstants0() const { return constants0_; }
   const std::set<DNLID>& getConstants1() const { return constants1_; }
   void initializeTypesID();
+  const std::vector<std::tuple<std::vector<SNLInstance*>, std::vector<std::pair<SNLInstTerm*, int>>, DNLID>>&
+      getPartialConstantReaders() const {
+    return partialConstantReaders_;
+  }
 
  private:
    
@@ -41,5 +45,7 @@ class ConstantPropagation {
   std::vector<SNLBitTerm*> constant0TopReaders_;
   std::vector<std::tuple<std::vector<SNLInstance*>, SNLInstTerm*, DNLID>>
       constant1Readers_;
+  std::vector<std::tuple<std::vector<SNLInstance*>, std::vector<std::pair<SNLInstTerm*, int>>, DNLID>>
+      partialConstantReaders_;
   std::vector<SNLBitTerm*> constant1TopReaders_;
 };

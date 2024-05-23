@@ -1,0 +1,148 @@
+// SPDX-FileCopyrightText: 2024 The Naja authors
+// <https://github.com/najaeda/naja/blob/main/AUTHORS>
+//
+// SPDX-License-Identifier: Apache-2.0
+
+#include "Reduction.h"
+#include "SNLDesignModeling.h"
+#include "SNLTruthTable.h"
+#include "Utils.h"
+#include<ranges>
+
+using namespace naja::DNL;
+using namespace naja::SNL;
+using namespace naja::NAJA_OPT;
+
+ReductionOptimization::ReductionOptimization(
+    const std::vector<std::tuple<std::vector<SNLInstance*>,
+                                 std::vector<std::pair<SNLInstTerm*, int>>,
+                                 DNLID>>& partialConstantReaders)
+    : partialConstantReaders_(partialConstantReaders) {}
+
+void ReductionOptimization::run() {
+  //auto library =
+  //std::get<0>(*(partialConstantReaders_.begin())).back()->getModel()->getLibrary();
+  //auto truthTables = SNLLibraryTruthTables::construct(library);
+  /*for (auto truthTable : truthTables) {
+    printf("truth table: %s\n", truthTable.first.getString().c_str());
+    assert(SNLLibraryTruthTables::getDesignForTruthTable(
+      library, truthTable) != nullptr);
+  }*/
+  for (auto& partialConstantReader : partialConstantReaders_) {
+    reducPartialConstantInstance(partialConstantReader);
+  }
+}
+
+SNLTruthTable ReductionOptimization::reduceTruthTable(
+    const SNLTruthTable& truthTable,
+    const std::vector<std::pair<SNLInstTerm*, int>>& constTerms) {
+  SNLTruthTable reducedTruthTable = truthTable;
+  assert(constTerms.size() != truthTable.size());
+  std::map<size_t, size_t> termID2index;
+  size_t index = 0;
+  for (auto term : constTerms[0].first->getInstance()->getInstTerms()) {
+    if (term->getDirection() != SNLInstTerm::Direction::Input) {
+      continue;
+    }
+    termID2index[term->getBitTerm()->getID()] = index;
+    index++;
+  }
+  /*for (auto constTerm : constTerms) {
+    reducedTruthTable = reducedTruthTable.getReducedWithConstant(
+        uint8_t(termID2index[constTerm.first->getBitTerm()->getID()]),
+        constTerm.second);
+    printf("%s -> %u\n", constTerm.first->getBitTerm()->getName().getString().c_str(),
+           constTerm.second);
+  }*/
+  for (auto& constTerm :  std::ranges::reverse_view(constTerms)) {
+    reducedTruthTable = reducedTruthTable.getReducedWithConstant(
+        uint8_t(termID2index[constTerm.first->getBitTerm()->getID()]),
+        constTerm.second);
+  }
+  return reducedTruthTable;
+}
+
+void ReductionOptimization::replaceInstance(SNLInstance* instance,
+                                            const std::pair<SNLDesign*, SNLLibraryTruthTables::Indexes>& result) {
+  SNLDesign* design = instance->getDesign();
+  SNLDesign* reducedDesign = result.first;
+  SNLInstance* reducedInstance = SNLInstance::create(
+      design, reducedDesign, SNLName(std::string(instance->getName().getString()) + "_reduced"));
+  std::vector<SNLInstTerm*> reducedInstTerms;
+  SNLInstTerm* output = nullptr;
+  SNLInstTerm* reducedOutput = nullptr;
+  for (auto index : result.second) {
+    printf("index: %d\n", index);
+  }
+  for (auto term : reducedInstance->getInstTerms()) {
+    if (term->getDirection() != SNLInstTerm::Direction::Input) {
+      reducedOutput = term;
+      continue;
+    }
+    reducedInstTerms.push_back(term);
+  }
+  size_t index = 0;
+  size_t originNonConstantIndex = 0;
+  for (auto term : instance->getInstTerms()) {
+    if (term->getDirection() != SNLInstTerm::Direction::Input) {
+      output = term;
+      break;
+    }
+  }
+  for (auto term : instance->getInstTerms()) {
+    //printf("index: %lu\n", index);
+    //printf("originNonConstantIndex: %lu\n", originNonConstantIndex);
+    SNLBitNet* bitNet = term->getNet();
+    term->setNet(nullptr);
+    if (bitNet->isConstant() || reducedInstTerms.empty()) {
+      continue;
+    }
+    originNonConstantIndex++;
+    if (std::find(result.second.begin(), result.second.end(), originNonConstantIndex) != result.second.end()){
+      continue;
+    }
+    reducedInstTerms[index]->setNet(bitNet);
+    index++;
+    if (index == reducedInstTerms.size()) {
+      break;
+    }
+  }
+  reducedOutput->setNet(output->getNet());
+  output->setNet(nullptr);
+  instance->destroy();
+}
+
+void ReductionOptimization::reducPartialConstantInstance(
+    std::tuple<std::vector<SNLInstance*>,
+               std::vector<std::pair<SNLInstTerm*, int>>,
+               DNLID>& candidate) {
+  printf("Reducing partial constant instance\n");
+  auto library = std::get<0>(candidate).back()->getModel()->getLibrary();
+  Uniquifier uniquifier(std::get<0>(candidate), std::get<2>(candidate));
+  uniquifier.process();
+  SNLInstance* unqiuifedCandidate = uniquifier.getPathUniq().back();
+  SNLTruthTable invTruthTable =
+      SNLDesignModeling::getTruthTable(unqiuifedCandidate->getModel());
+  if (!invTruthTable.isInitialized()) {
+    printf("Truth table is not initialized for design: %s\n",
+           unqiuifedCandidate->getModel()->getName().getString().c_str());
+    return;
+  }
+  SNLTruthTable reducedTruthTable =
+      reduceTruthTable(invTruthTable, std::get<1>(candidate));
+  if (reducedTruthTable.size() == 0) {
+    printf("Full constant %s\n",
+           unqiuifedCandidate->getModel()->getName().getString().c_str());
+  }
+  printf("truth table: %s\n", invTruthTable.getString().c_str());
+  printf("reduced truth table: %s\n", reducedTruthTable.getString().c_str());
+  auto result =
+      SNLLibraryTruthTables::getDesignForTruthTable(library, reducedTruthTable);
+  if (result.first) {
+    printf("design %s\n", unqiuifedCandidate->getModel()->getName().getString().c_str());
+    printf("redcued design %s\n", result.first->getName().getString().c_str());
+    replaceInstance(unqiuifedCandidate, result);
+  } else {
+    printf("No design found for the reduced truth table\n");
+  }
+}
