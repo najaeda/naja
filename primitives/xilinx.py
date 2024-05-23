@@ -403,6 +403,7 @@ def constructRAMB36E1(lib):
   snl.SNLParameter.create_string(ramb36e1, "WRITE_MODE_B", "WRITE_FIRST")
 
 def constructPrimitives(lib):
+  lib.setName('xilinx')
   constructIBUF(lib)
   constructOBUF(lib)
   constructBUFG(lib)

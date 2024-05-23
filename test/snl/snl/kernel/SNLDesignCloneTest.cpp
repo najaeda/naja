@@ -252,6 +252,24 @@ TEST_F(SNLDesignCloneTest, testCloneCompare) {
   std::string reason;
   EXPECT_TRUE(newDesign->deepCompare(design_, reason, SNLDesign::CompareType::IgnoreIDAndName));
   EXPECT_TRUE(reason.empty());
+
+  //change an instance name
+  auto instance = newDesign->getInstance(SNLName("inst0"));
+  ASSERT_NE(nullptr, instance);
+  instance->setName(SNLName("inst0new"));
+  EXPECT_FALSE(newDesign->deepCompare(design_, reason, SNLDesign::CompareType::IgnoreIDAndName));
+
+  instance->setName(SNLName("inst0"));
+  EXPECT_TRUE(newDesign->deepCompare(design_, reason, SNLDesign::CompareType::IgnoreIDAndName));
+
+  //change an instance parameter value
+  auto instParameter = instance->getInstParameter(SNLName("param0"));
+  ASSERT_NE(nullptr, instParameter);
+  instParameter->setValue("0b1111");
+  EXPECT_FALSE(newDesign->deepCompare(design_, reason, SNLDesign::CompareType::IgnoreIDAndName));
+
+  instParameter->setValue("0b1100");
+  EXPECT_TRUE(newDesign->deepCompare(design_, reason, SNLDesign::CompareType::IgnoreIDAndName));
 }
 
 TEST_F(SNLDesignCloneTest, testErrors) {

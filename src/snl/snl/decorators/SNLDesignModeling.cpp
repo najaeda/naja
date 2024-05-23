@@ -47,9 +47,11 @@ class SNLDesignModelingProperty: public naja::NajaPrivateProperty {
     std::string getName() const override {
       return Name;
     }
+    //LCOV_EXCL_START
     std::string getString() const override {
       return Name;
     }
+    //LCOV_EXCL_STOP
     naja::SNL::SNLDesignModeling* getModeling() const {
       return modeling_;
     }
@@ -416,6 +418,30 @@ NajaCollection<SNLInstTerm*> SNLDesignModeling::getInputRelatedClocks(SNLInstTer
 
 NajaCollection<SNLInstTerm*> SNLDesignModeling::getOutputRelatedClocks(SNLInstTerm* output) {
   GET_RELATED_OBJECTS(SNLInstTerm, output, getInstance()->getModel(), getOutputRelatedClocks_)
+}
+
+void SNLDesignModeling::setTruthTable(SNLDesign* design, const SNLTruthTable& truthTable) {
+  //verify that the truth table size == nb of inputs
+  auto filter = [](const SNLTerm* term) { return term->getDirection() == SNLTerm::Direction::Input; };
+  auto inputs = design->getTerms().getSubCollection(filter);
+  if (inputs.size() not_eq truthTable.size()) {
+    std::ostringstream reason;
+    reason << "Truth table size <" << truthTable.size() << "> is different from inputs size <"
+      << inputs.size() << "> in design <" << design->getName().getString() << ">";
+    throw SNLException(reason.str());
+  }
+  auto property = getOrCreateProperty(design, Type::NO_PARAMETER);
+  auto modeling = property->getModeling();
+  modeling->truthTable_ = truthTable;
+}
+
+SNLTruthTable SNLDesignModeling::getTruthTable(const SNLDesign* design) {
+  auto property = getProperty(design);
+  if (property) {
+    auto modeling = property->getModeling();
+    return modeling->truthTable_;
+  }
+  return SNLTruthTable();
 }
 
 }} // namespace SNL // namespace naja
