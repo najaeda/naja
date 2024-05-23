@@ -31,5 +31,4 @@ class ReductionOptimization {
                          std::vector<std::pair<SNLInstTerm*, int>>,
                          DNLID>>
       partialConstantReaders_;
-  DNLFull* dnl_ = nullptr;
 };
