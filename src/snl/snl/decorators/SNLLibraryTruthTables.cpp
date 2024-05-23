@@ -111,7 +111,7 @@ SNLLibraryTruthTables::getDesignForTruthTable(const SNLLibrary* library, const S
   if (primitives.empty()) {
     return std::pair(nullptr, Indexes());
   }
-  return std::pair(primitives[0], Indexes());
+  return std::pair(primitives[0], indexes);
 }
 
 }} // namespace SNL // namespace naja
