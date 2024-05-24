@@ -18,6 +18,7 @@
 #include "SNLUniverse.h"
 #include "gtest/gtest.h"
 #include "tbb/scalable_allocator.h"
+#include "Reduction.h"
 
 using namespace naja;
 using namespace naja::DNL;
@@ -2185,6 +2186,8 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialOAI) {
                        std::string(" -o ") + svgFileName)
                .c_str());
   }
+  ReductionOptimization ro(cp.getPartialConstantReaders());
+  ro.run();
 }
 
 
