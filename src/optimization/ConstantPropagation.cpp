@@ -10,9 +10,13 @@
 #include <vector>
 #include "SNLScalarNet.h"
 #include "Utils.h"
+#include "SNLTruthTable.h"
+#include "SNLDesignModeling.h"
+#include "SNLLibraryTruthTables.h"
 
 using namespace naja::DNL;
 using namespace naja::NAJA_OPT;
+using namespace naja::SNL;
 
 //#define DEBUG_PRINTS
 
@@ -781,22 +785,38 @@ unsigned ConstantPropagation::computeOutputValueForPartiallyConstantInstance(
 
 void ConstantPropagation::changeDriverToLocal0(SNLInstTerm* term, DNLID id) {
   term->setNet(nullptr);
+  std::string name = std::string("logic0_") +
+                                   term->getBitTerm()->getName().getString()  +std::to_string(term->getBitTerm()->getBit())+ std::to_string(id);
   SNLNet* assign0 =
       SNLScalarNet::create(term->getInstance()->getDesign(),
-                           SNLName(std::string("assign0_") +
-                                   term->getBitTerm()->getName().getString()  +std::to_string(term->getBitTerm()->getBit())+ std::to_string(id)));
-  assign0->setType(naja::SNL::SNLNet::Type::Assign0);
+                           SNLName(name));
+  //assign0->setType(naja::SNL::SNLNet::Type::Assign0);
   term->setNet(assign0);
+  SNLTruthTable tt(0, 0);
+    auto logic0 =
+      SNLLibraryTruthTables::getDesignForTruthTable(term->getInstance()->getModel()->getLibrary(), tt).first;
+    SNLInstance* logic0Inst = SNLInstance::create(
+      term->getDesign(), logic0,
+      SNLName(name));
+    (*logic0Inst->getInstTerms().begin())->setNet(assign0);
 }
 
 void ConstantPropagation::changeDriverToLocal1(SNLInstTerm* term, DNLID id) {
   term->setNet(nullptr);
+  std::string name = std::string("logic1_") +
+                                   term->getBitTerm()->getName().getString() +std::to_string(term->getBitTerm()->getBit()) + std::to_string(id);
   SNLNet* assign1 =
       SNLScalarNet::create(term->getInstance()->getDesign(),
-                           SNLName(std::string("assign1_") +
-                                   term->getBitTerm()->getName().getString() +std::to_string(term->getBitTerm()->getBit()) + std::to_string(id)));
-  assign1->setType(naja::SNL::SNLNet::Type::Assign1);
+                           SNLName(name));
+  //assign1->setType(naja::SNL::SNLNet::Type::Assign1);
   term->setNet(assign1);
+  SNLTruthTable tt(0, 1);
+    auto logic1 =
+      SNLLibraryTruthTables::getDesignForTruthTable(term->getInstance()->getModel()->getLibrary(), tt).first;
+    SNLInstance* logic1Inst = SNLInstance::create(
+      term->getDesign(), logic1,
+      SNLName(name));
+    (*logic1Inst->getInstTerms().begin())->setNet(assign1);
 }
 
 void ConstantPropagation::propagateConstants() {
@@ -889,8 +909,15 @@ void ConstantPropagation::propagateConstants() {
     SNLNet* assign0 = SNLScalarNet::create(
         term->getDesign(),
         SNLName(std::string("assign0_") + term->getName().getString() +std::to_string(term->getBit())));
-    assign0->setType(naja::SNL::SNLNet::Type::Assign0);
+    //assign0->setType(naja::SNL::SNLNet::Type::Assign0);
     term->setNet(assign0);
+    SNLTruthTable tt(0, 0);
+    auto logic0 =
+      SNLLibraryTruthTables::getDesignForTruthTable(term->getDesign()->getLibrary()->getDB()->getLibrary(SNLName("nand45")), tt).first;
+    SNLInstance* logic0Inst = SNLInstance::create(
+      term->getDesign(), logic0,
+      SNLName(std::string("logic0_") + term->getName().getString() +std::to_string(term->getBit())));
+    (*logic0Inst->getInstTerms().begin())->setNet(assign0);
   }
   for (auto& path : constant1Readers_) {
     Uniquifier uniquifier(std::get<0>(path), std::get<2>(path));
@@ -904,8 +931,15 @@ void ConstantPropagation::propagateConstants() {
     SNLNet* assign1 = SNLScalarNet::create(
         term->getDesign(),
         SNLName(std::string("assign1_") + term->getName().getString() +std::to_string(term->getBit())));
-    assign1->setType(naja::SNL::SNLNet::Type::Assign1);
+    //assign1->setType(naja::SNL::SNLNet::Type::Assign1);
     term->setNet(assign1);
+    SNLTruthTable tt(0, 1);
+    auto logic1 =
+      SNLLibraryTruthTables::getDesignForTruthTable(term->getDesign()->getLibrary()->getDB()->getLibrary(SNLName("nand45")), tt).first;
+    SNLInstance* logic1Inst = SNLInstance::create(
+      term->getDesign(), logic1,
+      SNLName(std::string("logic1_") + term->getName().getString() +std::to_string(term->getBit())));
+    (*logic1Inst->getInstTerms().begin())->setNet(assign1);
   }
 }
 

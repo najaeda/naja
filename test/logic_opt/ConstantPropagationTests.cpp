@@ -19,6 +19,7 @@
 #include "gtest/gtest.h"
 #include "tbb/scalable_allocator.h"
 #include "Reduction.h"
+#include "SNLDesignModeling.h"
 
 using namespace naja;
 using namespace naja::DNL;
@@ -65,28 +66,35 @@ TEST_F(ConstatPropagationTests, TestConstantPropagation) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
-  SNLLibrary* library = SNLLibrary::create(db, SNLName("MYLIB"));
+  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nand45"));
   // 2. Create a top model with one output
-  SNLDesign* top = SNLDesign::create(library, SNLName("top"));
+  SNLDesign* top = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("top"));
   univ->setTopDesign(top);
   auto topOut =
       SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out"));
   // 3. create a logic_0 model
-  SNLDesign* logic0 = SNLDesign::create(library, SNLName("LOGIC0"));
+  
+  SNLDesign* logic0 = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("LOGIC0"));
+  
   // add output to logic0
   auto logic0Out =
       SNLScalarTerm::create(logic0, SNLTerm::Direction::Output, SNLName("out"));
   // 4. create a logic_1 model
-  SNLDesign* logic1 = SNLDesign::create(library, SNLName("LOGIC1"));
+  SNLDesign* logic1 = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("LOGIC1"));
   // add output to logic0
   auto logic1Out =
       SNLScalarTerm::create(logic1, SNLTerm::Direction::Output, SNLName("out"));
+  
+  SNLDesignModeling::setTruthTable(logic0, SNLTruthTable(0,0));
+  SNLDesignModeling::setTruthTable(logic1, SNLTruthTable(0,1));
+  SNLLibraryTruthTables::construct(library);
+  
   // 5. create a logic_0 instace in top
   SNLInstance* inst1 = SNLInstance::create(top, logic0, SNLName("logic0"));
   // 6. create a logic_1 instace in top
   SNLInstance* inst2 = SNLInstance::create(top, logic1, SNLName("logic1"));
   // 7. create a and model
-  SNLDesign* andModel = SNLDesign::create(library, SNLName("AND"));
+  SNLDesign* andModel = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("AND"));
   // add 2 inputs and 1 output to and
   auto andIn1 = SNLScalarTerm::create(andModel, SNLTerm::Direction::Input,
                                       SNLName("in1"));
@@ -96,7 +104,7 @@ TEST_F(ConstatPropagationTests, TestConstantPropagation) {
                                       SNLName("out"));
   //Repeat 7 for all types in constant propagation code with paying atttention to the port names that are used in the ConstatPropagation.cpp
   // 7. create a and model for or
-  SNLDesign* orModel = SNLDesign::create(library, SNLName("OR"));
+  SNLDesign* orModel = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("OR"));
   // add 2 inputs and 1 output to and
   auto orIn1 = SNLScalarTerm::create(orModel, SNLTerm::Direction::Input,
                                       SNLName("in1"));
@@ -105,7 +113,7 @@ TEST_F(ConstatPropagationTests, TestConstantPropagation) {
   auto orOut = SNLScalarTerm::create(orModel, SNLTerm::Direction::Output,
                                       SNLName("out"));  
   // 7. create a and model for xor
-  SNLDesign* xorModel = SNLDesign::create(library, SNLName("XOR"));
+  SNLDesign* xorModel = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("XOR"));
   // add 2 inputs and 1 output to and
   auto xorIn1 = SNLScalarTerm::create(xorModel, SNLTerm::Direction::Input,
                                       SNLName("in1"));
@@ -114,7 +122,7 @@ TEST_F(ConstatPropagationTests, TestConstantPropagation) {
   auto xorOut = SNLScalarTerm::create(xorModel, SNLTerm::Direction::Output,
                                       SNLName("out"));
   // 7. create a and model for nand
-  SNLDesign* nandModel = SNLDesign::create(library, SNLName("NAND"));
+  SNLDesign* nandModel = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("NAND"));
   // add 2 inputs and 1 output to and
   auto nandIn1 = SNLScalarTerm::create(nandModel, SNLTerm::Direction::Input,
                                       SNLName("in1"));
@@ -123,7 +131,7 @@ TEST_F(ConstatPropagationTests, TestConstantPropagation) {
   auto nandOut = SNLScalarTerm::create(nandModel, SNLTerm::Direction::Output,
                                       SNLName("out"));
   // 7. create a and model for nor
-  SNLDesign* norModel = SNLDesign::create(library, SNLName("NOR"));
+  SNLDesign* norModel = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("NOR"));
   // add 2 inputs and 1 output to and
   auto norIn1 = SNLScalarTerm::create(norModel, SNLTerm::Direction::Input,
                                       SNLName("in1"));
@@ -132,7 +140,7 @@ TEST_F(ConstatPropagationTests, TestConstantPropagation) {
   auto norOut = SNLScalarTerm::create(norModel, SNLTerm::Direction::Output,
                                       SNLName("out"));
   // 7. create a and model for xnor
-  SNLDesign* xnorModel = SNLDesign::create(library, SNLName("XNOR"));
+  SNLDesign* xnorModel = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("XNOR"));
   // add 2 inputs and 1 output to and
   auto xnorIn1 = SNLScalarTerm::create(xnorModel, SNLTerm::Direction::Input,
                                       SNLName("in1"));
@@ -141,21 +149,21 @@ TEST_F(ConstatPropagationTests, TestConstantPropagation) {
   auto xnorOut = SNLScalarTerm::create(xnorModel, SNLTerm::Direction::Output,
                                       SNLName("out"));
   // 7. create a and model for inv
-  SNLDesign* invModel = SNLDesign::create(library, SNLName("INV"));
+  SNLDesign* invModel = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("INV"));
   // add 1 input and 1 output to and
   auto invIn = SNLScalarTerm::create(invModel, SNLTerm::Direction::Input,
                                       SNLName("in"));
   auto invOut = SNLScalarTerm::create(invModel, SNLTerm::Direction::Output,
                                       SNLName("out"));
   // 7. create a and model for buf
-  SNLDesign* bufModel = SNLDesign::create(library, SNLName("BUF"));
+  SNLDesign* bufModel = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("BUF"));
   // add 1 input and 1 output to and
   auto bufIn = SNLScalarTerm::create(bufModel, SNLTerm::Direction::Input,
                                       SNLName("in"));
   auto bufOut = SNLScalarTerm::create(bufModel, SNLTerm::Direction::Output,
                                       SNLName("out"));
   // 7. create a and model for ha
-  SNLDesign* haModel = SNLDesign::create(library, SNLName("HA"));
+  SNLDesign* haModel = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("HA"));
 
   // add 2 inputs and 2 outputs to and
   auto haIn1 = SNLScalarTerm::create(haModel, SNLTerm::Direction::Input,
@@ -167,7 +175,7 @@ TEST_F(ConstatPropagationTests, TestConstantPropagation) {
   auto haOut2 = SNLScalarTerm::create(haModel, SNLTerm::Direction::Output,
                                       SNLName("out2"));   
   // 7. create a and model for dff
-  SNLDesign* dffModel = SNLDesign::create(library, SNLName("DFF"));
+  SNLDesign* dffModel = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("DFF"));
   // create D, CLK, and Q ports as mentioned in const prop code
   auto dffD = SNLScalarTerm::create(dffModel, SNLTerm::Direction::Input,
                                       SNLName("D"));
@@ -176,7 +184,7 @@ TEST_F(ConstatPropagationTests, TestConstantPropagation) {
   auto dffQ = SNLScalarTerm::create(dffModel, SNLTerm::Direction::Output,
                                       SNLName("Q"));    
   // 7. create a and model for mux
-  SNLDesign* muxModel = SNLDesign::create(library, SNLName("MUX"));
+  SNLDesign* muxModel = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("MUX"));
   // create S, A, B, and Y ports as mentioned in const prop code
   auto muxS = SNLScalarTerm::create(muxModel, SNLTerm::Direction::Input,
                                       SNLName("S"));
@@ -187,7 +195,7 @@ TEST_F(ConstatPropagationTests, TestConstantPropagation) {
   auto muxY = SNLScalarTerm::create(muxModel, SNLTerm::Direction::Output,
                                       SNLName("Y"));  
   // 7. create a and model for oai  
-  SNLDesign* oaiModel = SNLDesign::create(library, SNLName("OAI"));
+  SNLDesign* oaiModel = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("OAI"));
   // create A, B1, B2, and Y ports as mentioned in const prop code
   auto oaiA = SNLScalarTerm::create(oaiModel, SNLTerm::Direction::Input,
                                       SNLName("A"));
@@ -310,30 +318,32 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationAND) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
-  SNLLibrary* library = SNLLibrary::create(db, SNLName("MYLIB"));
+  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nand45"));
   // 2. Create a top model with one output
-  SNLDesign* top = SNLDesign::create(library, SNLName("top"));
+  SNLDesign* top = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("top"));
   univ->setTopDesign(top);
   auto topOut =
       SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out"));
   // 3. create a logic_0 model
-  SNLDesign* logic0 = SNLDesign::create(library, SNLName("LOGIC0"));
+  SNLDesign* logic0 = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("LOGIC0"));
   // add output to logic0
   auto logic0Out =
       SNLScalarTerm::create(logic0, SNLTerm::Direction::Output, SNLName("out"));
   // 4. create a logic_1 model
-  SNLDesign* logic1 = SNLDesign::create(library, SNLName("LOGIC1"));
+  SNLDesign* logic1 = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("LOGIC1"));
   // add output to logic0
   auto logic1Out =
       SNLScalarTerm::create(logic1, SNLTerm::Direction::Output, SNLName("out"));
+  SNLDesignModeling::setTruthTable(logic0, SNLTruthTable(0,0));
+  SNLDesignModeling::setTruthTable(logic1, SNLTruthTable(0,1));
+  SNLLibraryTruthTables::construct(library);
   // 5. create a logic_0 instace in top
   SNLInstance* inst1 = SNLInstance::create(top, logic0, SNLName("logic0"));
   // 6. create a logic_1 instace in top
   SNLInstance* inst2 = SNLInstance::create(top, logic1, SNLName("logic1"));
   // 7. create a and model
-  SNLDesign* andModel = SNLDesign::create(library, SNLName("AND"));
-  // 8. create a and instance in top
-  SNLInstance* inst3 = SNLInstance::create(top, andModel, SNLName("and"));
+  SNLDesign* andModel = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("AND"));
+  
   // add 2 inputs and 1 output to and
   auto andIn1 = SNLScalarTerm::create(andModel, SNLTerm::Direction::Input,
                                       SNLName("in1"));
@@ -341,6 +351,8 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationAND) {
                                       SNLName("in2"));
   auto andOut = SNLScalarTerm::create(andModel, SNLTerm::Direction::
                                       Output, SNLName("out"));  
+  // 8. create a and instance in top
+  SNLInstance* inst3 = SNLInstance::create(top, andModel, SNLName("and"));
   // 9. connect all instances inputs
   SNLNet* net1 = SNLScalarNet::create(top, SNLName("logic_0_net"));
   SNLNet* net2 = SNLScalarNet::create(top, SNLName("logic_1_net"));
@@ -394,28 +406,31 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationOR) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
-  SNLLibrary* library = SNLLibrary::create(db, SNLName("MYLIB"));
+  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nand45"));
   // 2. Create a top model with one output
-  SNLDesign* top = SNLDesign::create(library, SNLName("top"));
+  SNLDesign* top = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("top"));
   univ->setTopDesign(top);
   auto topOut =
       SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out"));
   // 3. create a logic_0 model
-  SNLDesign* logic0 = SNLDesign::create(library, SNLName("LOGIC0"));
+  SNLDesign* logic0 = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("LOGIC0"));
   // add output to logic0
   auto logic0Out =
       SNLScalarTerm::create(logic0, SNLTerm::Direction::Output, SNLName("out"));
   // 4. create a logic_1 model
-  SNLDesign* logic1 = SNLDesign::create(library, SNLName("LOGIC1"));
+  SNLDesign* logic1 = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("LOGIC1"));
   // add output to logic0
   auto logic1Out =
       SNLScalarTerm::create(logic1, SNLTerm::Direction::Output, SNLName("out"));
+  SNLDesignModeling::setTruthTable(logic0, SNLTruthTable(0,0));
+  SNLDesignModeling::setTruthTable(logic1, SNLTruthTable(0,1));
+  SNLLibraryTruthTables::construct(library);
   // 5. create a logic_0 instace in top
   SNLInstance* inst1 = SNLInstance::create(top, logic0, SNLName("logic0"));
   // 6. create a logic_1 instace in top
   SNLInstance* inst2 = SNLInstance::create(top, logic1, SNLName("logic1"));
   // 7. create a or model
-  SNLDesign* orModel = SNLDesign::create(library, SNLName("OR"));
+  SNLDesign* orModel = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("OR"));
   // add 2 inputs and 1 output to or
   auto orIn1 = SNLScalarTerm::create(orModel, SNLTerm::Direction::Input,
                                       SNLName("in1"));
@@ -478,28 +493,31 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationXOR) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
-  SNLLibrary* library = SNLLibrary::create(db, SNLName("MYLIB"));
+  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nand45"));
   // 2. Create a top model with one output
-  SNLDesign* top = SNLDesign::create(library, SNLName("top"));
+  SNLDesign* top = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("top"));
   univ->setTopDesign(top);
   auto topOut =
       SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out"));
   // 3. create a logic_0 model
-  SNLDesign* logic0 = SNLDesign::create(library, SNLName("LOGIC0"));
+  SNLDesign* logic0 = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("LOGIC0"));
   // add output to logic0
   auto logic0Out =
       SNLScalarTerm::create(logic0, SNLTerm::Direction::Output, SNLName("out"));
   // 4. create a logic_1 model
-  SNLDesign* logic1 = SNLDesign::create(library, SNLName("LOGIC1"));
+  SNLDesign* logic1 = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("LOGIC1"));
   // add output to logic0
   auto logic1Out =
       SNLScalarTerm::create(logic1, SNLTerm::Direction::Output, SNLName("out"));
+  SNLDesignModeling::setTruthTable(logic0, SNLTruthTable(0,0));
+  SNLDesignModeling::setTruthTable(logic1, SNLTruthTable(0,1));
+  SNLLibraryTruthTables::construct(library);
   // 5. create a logic_0 instace in top
   SNLInstance* inst1 = SNLInstance::create(top, logic0, SNLName("logic0"));
   // 6. create a logic_1 instace in top
   SNLInstance* inst2 = SNLInstance::create(top, logic1, SNLName("logic1"));
   // 7. create a xor model
-  SNLDesign* xorModel = SNLDesign::create(library, SNLName("XOR"));
+  SNLDesign* xorModel = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("XOR"));
   // add 2 inputs and 1 output to xor
   auto xorIn1 = SNLScalarTerm::create(xorModel, SNLTerm::Direction::Input,
                                       SNLName("in1"));
@@ -562,28 +580,31 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationNAND) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
-  SNLLibrary* library = SNLLibrary::create(db, SNLName("MYLIB"));
+  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nand45"));
   // 2. Create a top model with one output
-  SNLDesign* top = SNLDesign::create(library, SNLName("top"));
+  SNLDesign* top = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("top"));
   univ->setTopDesign(top);
   auto topOut =
       SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out"));
   // 3. create a logic_0 model
-  SNLDesign* logic0 = SNLDesign::create(library, SNLName("LOGIC0"));
+  SNLDesign* logic0 = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("LOGIC0"));
   // add output to logic0
   auto logic0Out =
       SNLScalarTerm::create(logic0, SNLTerm::Direction::Output, SNLName("out"));
   // 4. create a logic_1 model
-  SNLDesign* logic1 = SNLDesign::create(library, SNLName("LOGIC1"));
+  SNLDesign* logic1 = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("LOGIC1"));
   // add output to logic0
   auto logic1Out =
       SNLScalarTerm::create(logic1, SNLTerm::Direction::Output, SNLName("out"));
+  SNLDesignModeling::setTruthTable(logic0, SNLTruthTable(0,0));
+  SNLDesignModeling::setTruthTable(logic1, SNLTruthTable(0,1));
+  SNLLibraryTruthTables::construct(library);
   // 5. create a logic_0 instace in top
   SNLInstance* inst1 = SNLInstance::create(top, logic0, SNLName("logic0"));
   // 6. create a logic_1 instace in top
   SNLInstance* inst2 = SNLInstance::create(top, logic1, SNLName("logic1"));
   // 7. create a nand model
-  SNLDesign* nandModel = SNLDesign::create(library, SNLName("NAND"));
+  SNLDesign* nandModel = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("NAND"));
   // add 2 inputs and 1 output to nand
   auto nandIn1 = SNLScalarTerm::create(nandModel, SNLTerm::Direction::Input,
                                       SNLName("in1"));
@@ -645,28 +666,31 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationNOR) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
-  SNLLibrary* library = SNLLibrary::create(db, SNLName("MYLIB"));
+  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nand45"));
   // 2. Create a top model with one output
-  SNLDesign* top = SNLDesign::create(library, SNLName("top"));
+  SNLDesign* top = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("top"));
   univ->setTopDesign(top);
   auto topOut =
       SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out"));
   // 3. create a logic_0 model
-  SNLDesign* logic0 = SNLDesign::create(library, SNLName("LOGIC0"));
+  SNLDesign* logic0 = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("LOGIC0"));
   // add output to logic0
   auto logic0Out =
       SNLScalarTerm::create(logic0, SNLTerm::Direction::Output, SNLName("out"));
   // 4. create a logic_1 model
-  SNLDesign* logic1 = SNLDesign::create(library, SNLName("LOGIC1"));
+  SNLDesign* logic1 = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("LOGIC1"));
   // add output to logic0
   auto logic1Out =
       SNLScalarTerm::create(logic1, SNLTerm::Direction::Output, SNLName("out"));
+  SNLDesignModeling::setTruthTable(logic0, SNLTruthTable(0,0));
+  SNLDesignModeling::setTruthTable(logic1, SNLTruthTable(0,1));
+  SNLLibraryTruthTables::construct(library);
   // 5. create a logic_0 instace in top
   SNLInstance* inst1 = SNLInstance::create(top, logic0, SNLName("logic0"));
   // 6. create a logic_1 instace in top
   SNLInstance* inst2 = SNLInstance::create(top, logic1, SNLName("logic1"));
   // 7. create a nor model
-  SNLDesign* norModel = SNLDesign::create(library, SNLName("NOR"));
+  SNLDesign* norModel = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("NOR"));
   // add 2 inputs and 1 output to nor
   auto norIn1 = SNLScalarTerm::create(norModel, SNLTerm::Direction::Input,
                                       SNLName("in1"));
@@ -728,28 +752,31 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationXNOR) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
-  SNLLibrary* library = SNLLibrary::create(db, SNLName("MYLIB"));
+  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nand45"));
   // 2. Create a top model with one output
-  SNLDesign* top = SNLDesign::create(library, SNLName("top"));
+  SNLDesign* top = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("top"));
   univ->setTopDesign(top);
   auto topOut =
       SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out"));
   // 3. create a logic_0 model
-  SNLDesign* logic0 = SNLDesign::create(library, SNLName("LOGIC0"));
+  SNLDesign* logic0 = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("LOGIC0"));
   // add output to logic0
   auto logic0Out =
       SNLScalarTerm::create(logic0, SNLTerm::Direction::Output, SNLName("out"));
   // 4. create a logic_1 model
-  SNLDesign* logic1 = SNLDesign::create(library, SNLName("LOGIC1"));
+  SNLDesign* logic1 = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("LOGIC1"));
   // add output to logic0
   auto logic1Out =
       SNLScalarTerm::create(logic1, SNLTerm::Direction::Output, SNLName("out"));
+  SNLDesignModeling::setTruthTable(logic0, SNLTruthTable(0,0));
+  SNLDesignModeling::setTruthTable(logic1, SNLTruthTable(0,1));
+  SNLLibraryTruthTables::construct(library);
   // 5. create a logic_0 instace in top
   SNLInstance* inst1 = SNLInstance::create(top, logic0, SNLName("logic0"));
   // 6. create a logic_1 instace in top
   SNLInstance* inst2 = SNLInstance::create(top, logic1, SNLName("logic1"));
   // 7. create a xnor model
-  SNLDesign* xnorModel = SNLDesign::create(library, SNLName("XNOR"));
+  SNLDesign* xnorModel = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("XNOR"));
   // add 2 inputs and 1 output to xnor
   auto xnorIn1 = SNLScalarTerm::create(xnorModel, SNLTerm::Direction::Input,
                                       SNLName("in1"));
@@ -811,28 +838,31 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationINV) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
-  SNLLibrary* library = SNLLibrary::create(db, SNLName("MYLIB"));
+  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nand45"));
   // 2. Create a top model with one output
-  SNLDesign* top = SNLDesign::create(library, SNLName("top"));
+  SNLDesign* top = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("top"));
   univ->setTopDesign(top);
   auto topOut =
       SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out"));
   // 3. create a logic_0 model
-  SNLDesign* logic0 = SNLDesign::create(library, SNLName("LOGIC0"));
+  SNLDesign* logic0 = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("LOGIC0"));
   // add output to logic0
   auto logic0Out =
       SNLScalarTerm::create(logic0, SNLTerm::Direction::Output, SNLName("out"));
   // 4. create a logic_1 model
-  SNLDesign* logic1 = SNLDesign::create(library, SNLName("LOGIC1"));
+  SNLDesign* logic1 = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("LOGIC1"));
   // add output to logic0
   auto logic1Out =
       SNLScalarTerm::create(logic1, SNLTerm::Direction::Output, SNLName("out"));
+  SNLDesignModeling::setTruthTable(logic0, SNLTruthTable(0,0));
+  SNLDesignModeling::setTruthTable(logic1, SNLTruthTable(0,1));
+  SNLLibraryTruthTables::construct(library);
   // 5. create a logic_0 instace in top
   SNLInstance* inst1 = SNLInstance::create(top, logic0, SNLName("logic0"));
   // 6. create a logic_1 instace in top
   SNLInstance* inst2 = SNLInstance::create(top, logic1, SNLName("logic1"));
   // 7. create a inv model
-  SNLDesign* invModel = SNLDesign::create(library, SNLName("INV"));
+  SNLDesign* invModel = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("INV"));
   // add 1 input and 1 output to inv
   auto invIn = SNLScalarTerm::create(invModel, SNLTerm::Direction::Input,
                                       SNLName("in"));
@@ -889,28 +919,31 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationBUF) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
-  SNLLibrary* library = SNLLibrary::create(db, SNLName("MYLIB"));
+  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nand45"));
   // 2. Create a top model with one output
-  SNLDesign* top = SNLDesign::create(library, SNLName("top"));
+  SNLDesign* top = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("top"));
   univ->setTopDesign(top);
   auto topOut =
       SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out"));
   // 3. create a logic_0 model
-  SNLDesign* logic0 = SNLDesign::create(library, SNLName("LOGIC0"));
+  SNLDesign* logic0 = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("LOGIC0"));
   // add output to logic0
   auto logic0Out =
       SNLScalarTerm::create(logic0, SNLTerm::Direction::Output, SNLName("out"));
   // 4. create a logic_1 model
-  SNLDesign* logic1 = SNLDesign::create(library, SNLName("LOGIC1"));
+  SNLDesign* logic1 = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("LOGIC1"));
   // add output to logic0
   auto logic1Out =
       SNLScalarTerm::create(logic1, SNLTerm::Direction::Output, SNLName("out"));
+  SNLDesignModeling::setTruthTable(logic0, SNLTruthTable(0,0));
+  SNLDesignModeling::setTruthTable(logic1, SNLTruthTable(0,1));
+  SNLLibraryTruthTables::construct(library);
   // 5. create a logic_0 instace in top
   SNLInstance* inst1 = SNLInstance::create(top, logic0, SNLName("logic0"));
   // 6. create a logic_1 instace in top
   SNLInstance* inst2 = SNLInstance::create(top, logic1, SNLName("logic1"));
   // 7. create a buf model
-  SNLDesign* bufModel = SNLDesign::create(library, SNLName("BUF"));
+  SNLDesign* bufModel = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("BUF"));
   // add 1 input and 1 output to buf
   auto bufIn = SNLScalarTerm::create(bufModel, SNLTerm::Direction::Input,
                                       SNLName("in"));
@@ -967,29 +1000,32 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationMUX) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
-  SNLLibrary* library = SNLLibrary::create(db, SNLName("MYLIB"));
+  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nand45"));
   // 2. Create a top model with one output
-  SNLDesign* top = SNLDesign::create(library, SNLName("top"));
+  SNLDesign* top = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("top"));
   univ->setTopDesign(top);
   auto topOut =
       SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out"));
   // 3. create a logic_0 model
-  SNLDesign* logic0 = SNLDesign::create(library, SNLName("LOGIC0"));
+  SNLDesign* logic0 = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("LOGIC0"));
   // add output to logic0
   auto logic0Out =
       SNLScalarTerm::create(logic0, SNLTerm::Direction::Output, SNLName("out"));
   // 4. create a logic_1 model
-  SNLDesign* logic1 = SNLDesign::create(library, SNLName("LOGIC1"));
+  SNLDesign* logic1 = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("LOGIC1"));
   // add output to logic0
   auto logic1Out =
       SNLScalarTerm::create(logic1, SNLTerm::Direction::Output, SNLName("out"));
+  SNLDesignModeling::setTruthTable(logic0, SNLTruthTable(0,0));
+  SNLDesignModeling::setTruthTable(logic1, SNLTruthTable(0,1));
+  SNLLibraryTruthTables::construct(library);
   // 5. create a logic_0 instace in top
   SNLInstance* inst1 = SNLInstance::create(top, logic0, SNLName("logic0"));
   // 6. create a logic_1 instace in top
   SNLInstance* inst2 = SNLInstance::create(top, logic1, SNLName("logic1"));
   // 7. create a buf model
    // 7. create a and model for mux
-  SNLDesign* muxModel = SNLDesign::create(library, SNLName("MUX"));
+  SNLDesign* muxModel = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("MUX"));
   // create S, A, B, and Y ports as mentioned in const prop code
   auto muxS = SNLScalarTerm::create(muxModel, SNLTerm::Direction::Input,
                                       SNLName("S"));
@@ -1054,22 +1090,25 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationDFF) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
-  SNLLibrary* library = SNLLibrary::create(db, SNLName("MYLIB"));
+  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nand45"));
   // 2. Create a top model with one output
-  SNLDesign* top = SNLDesign::create(library, SNLName("top"));
+  SNLDesign* top = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("top"));
   univ->setTopDesign(top);
   auto topOut =
       SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out"));
   // 3. create a logic_0 model
-  SNLDesign* logic0 = SNLDesign::create(library, SNLName("LOGIC0"));
+  SNLDesign* logic0 = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("LOGIC0"));
   // add output to logic0
   auto logic0Out =
       SNLScalarTerm::create(logic0, SNLTerm::Direction::Output, SNLName("out"));
   // 4. create a logic_1 model
-  SNLDesign* logic1 = SNLDesign::create(library, SNLName("LOGIC1"));
+  SNLDesign* logic1 = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("LOGIC1"));
   // add output to logic0
   auto logic1Out =
       SNLScalarTerm::create(logic1, SNLTerm::Direction::Output, SNLName("out"));
+  SNLDesignModeling::setTruthTable(logic0, SNLTruthTable(0,0));
+  SNLDesignModeling::setTruthTable(logic1, SNLTruthTable(0,1));
+  SNLLibraryTruthTables::construct(library);
   // 5. create a logic_0 instace in top
   SNLInstance* inst1 = SNLInstance::create(top, logic0, SNLName("logic0"));
   // 6. create a logic_1 instace in top
@@ -1077,7 +1116,7 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationDFF) {
   // 7. create a buf model
    // 7. create a and model for mux
   // 7. create a and model for dff
-  SNLDesign* dffModel = SNLDesign::create(library, SNLName("DFF"));
+  SNLDesign* dffModel = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("DFF"));
   // create D, CLK, and Q ports as mentioned in const prop code
   auto dffD = SNLScalarTerm::create(dffModel, SNLTerm::Direction::Input,
                                       SNLName("D"));
@@ -1140,22 +1179,25 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationOAI) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
-  SNLLibrary* library = SNLLibrary::create(db, SNLName("MYLIB"));
+  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nand45"));
   // 2. Create a top model with one output
-  SNLDesign* top = SNLDesign::create(library, SNLName("top"));
+  SNLDesign* top = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("top"));
   univ->setTopDesign(top);
   auto topOut =
       SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out"));
   // 3. create a logic_0 model
-  SNLDesign* logic0 = SNLDesign::create(library, SNLName("LOGIC0"));
+  SNLDesign* logic0 = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("LOGIC0"));
   // add output to logic0
   auto logic0Out =
       SNLScalarTerm::create(logic0, SNLTerm::Direction::Output, SNLName("out"));
   // 4. create a logic_1 model
-  SNLDesign* logic1 = SNLDesign::create(library, SNLName("LOGIC1"));
+  SNLDesign* logic1 = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("LOGIC1"));
   // add output to logic0
   auto logic1Out =
       SNLScalarTerm::create(logic1, SNLTerm::Direction::Output, SNLName("out"));
+  SNLDesignModeling::setTruthTable(logic0, SNLTruthTable(0,0));
+  SNLDesignModeling::setTruthTable(logic1, SNLTruthTable(0,1));
+  SNLLibraryTruthTables::construct(library);
   // 5. create a logic_0 instace in top
   SNLInstance* inst1 = SNLInstance::create(top, logic0, SNLName("logic0"));
   // 6. create a logic_1 instace in top
@@ -1163,7 +1205,7 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationOAI) {
   // 7. create a buf model
    // 7. create a and model for mux
   // 7. create a and model for dff
-  SNLDesign* oaiModel = SNLDesign::create(library, SNLName("OAI"));
+  SNLDesign* oaiModel = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("OAI"));
   // create A, B1, B2, and Y ports as mentioned in const prop code
   auto oaiA = SNLScalarTerm::create(oaiModel, SNLTerm::Direction::Input,
                                       SNLName("A"));
@@ -1229,32 +1271,34 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialAND) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
-  SNLLibrary* library = SNLLibrary::create(db, SNLName("MYLIB"));
+  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nand45"));
   // 2. Create a top model with one output
-  SNLDesign* top = SNLDesign::create(library, SNLName("top"));
+  SNLDesign* top = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("top"));
   univ->setTopDesign(top);
   auto topOut =
       SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out"));
   auto topIn =
       SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("in"));
   // 3. create a logic_0 model
-  SNLDesign* logic0 = SNLDesign::create(library, SNLName("LOGIC0"));
+  SNLDesign* logic0 = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("LOGIC0"));
   // add output to logic0
   auto logic0Out =
       SNLScalarTerm::create(logic0, SNLTerm::Direction::Output, SNLName("out"));
   // 4. create a logic_1 model
-  SNLDesign* logic1 = SNLDesign::create(library, SNLName("LOGIC1"));
+  SNLDesign* logic1 = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("LOGIC1"));
   // add output to logic0
   auto logic1Out =
       SNLScalarTerm::create(logic1, SNLTerm::Direction::Output, SNLName("out"));
+  SNLDesignModeling::setTruthTable(logic0, SNLTruthTable(0,0));
+  SNLDesignModeling::setTruthTable(logic1, SNLTruthTable(0,1));
+  SNLLibraryTruthTables::construct(library);
   // 5. create a logic_0 instace in top
   SNLInstance* inst1 = SNLInstance::create(top, logic0, SNLName("logic0"));
   // 6. create a logic_1 instace in top
   SNLInstance* inst2 = SNLInstance::create(top, logic1, SNLName("logic1"));
   // 7. create a and model
-  SNLDesign* andModel = SNLDesign::create(library, SNLName("AND"));
-  // 8. create a and instance in top
-  SNLInstance* inst3 = SNLInstance::create(top, andModel, SNLName("and"));
+  SNLDesign* andModel = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("AND"));
+  
   // add 2 inputs and 1 output to and
   auto andIn1 = SNLScalarTerm::create(andModel, SNLTerm::Direction::Input,
                                       SNLName("in1"));
@@ -1262,6 +1306,8 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialAND) {
                                       SNLName("in2"));
   auto andOut = SNLScalarTerm::create(andModel, SNLTerm::Direction::
                                       Output, SNLName("out"));  
+  // 8. create a and instance in top
+  SNLInstance* inst3 = SNLInstance::create(top, andModel, SNLName("and"));
   // 9. connect all instances inputs
   SNLNet* net1 = SNLScalarNet::create(top, SNLName("logic_0_net"));
   SNLNet* net2 = SNLScalarNet::create(top, SNLName("logic_1_net"));
@@ -1317,30 +1363,33 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialOR) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
-  SNLLibrary* library = SNLLibrary::create(db, SNLName("MYLIB"));
+  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nand45"));
   // 2. Create a top model with one output
-  SNLDesign* top = SNLDesign::create(library, SNLName("top"));
+  SNLDesign* top = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("top"));
   univ->setTopDesign(top);
   auto topOut =
       SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out"));
   auto topIn =
       SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("in"));
   // 3. create a logic_0 model
-  SNLDesign* logic0 = SNLDesign::create(library, SNLName("LOGIC0"));
+  SNLDesign* logic0 = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("LOGIC0"));
   // add output to logic0
   auto logic0Out =
       SNLScalarTerm::create(logic0, SNLTerm::Direction::Output, SNLName("out"));
   // 4. create a logic_1 model
-  SNLDesign* logic1 = SNLDesign::create(library, SNLName("LOGIC1"));
+  SNLDesign* logic1 = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("LOGIC1"));
   // add output to logic0
   auto logic1Out =
       SNLScalarTerm::create(logic1, SNLTerm::Direction::Output, SNLName("out"));
+  SNLDesignModeling::setTruthTable(logic0, SNLTruthTable(0,0));
+  SNLDesignModeling::setTruthTable(logic1, SNLTruthTable(0,1));
+  SNLLibraryTruthTables::construct(library);
   // 5. create a logic_0 instace in top
   SNLInstance* inst1 = SNLInstance::create(top, logic0, SNLName("logic0"));
   // 6. create a logic_1 instace in top
   SNLInstance* inst2 = SNLInstance::create(top, logic1, SNLName("logic1"));
   // 7. create a or model
-  SNLDesign* orModel = SNLDesign::create(library, SNLName("OR"));
+  SNLDesign* orModel = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("OR"));
   // add 2 inputs and 1 output to or
   auto orIn1 = SNLScalarTerm::create(orModel, SNLTerm::Direction::Input,
                                       SNLName("in1"));
@@ -1405,30 +1454,33 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialXOR) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
-  SNLLibrary* library = SNLLibrary::create(db, SNLName("MYLIB"));
+  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nand45"));
   // 2. Create a top model with one output
-  SNLDesign* top = SNLDesign::create(library, SNLName("top"));
+  SNLDesign* top = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("top"));
   univ->setTopDesign(top);
   auto topOut =
       SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out"));
   auto topIn =
       SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("in"));
   // 3. create a logic_0 model
-  SNLDesign* logic0 = SNLDesign::create(library, SNLName("LOGIC0"));
+  SNLDesign* logic0 = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("LOGIC0"));
   // add output to logic0
   auto logic0Out =
       SNLScalarTerm::create(logic0, SNLTerm::Direction::Output, SNLName("out"));
   // 4. create a logic_1 model
-  SNLDesign* logic1 = SNLDesign::create(library, SNLName("LOGIC1"));
+  SNLDesign* logic1 = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("LOGIC1"));
   // add output to logic0
   auto logic1Out =
       SNLScalarTerm::create(logic1, SNLTerm::Direction::Output, SNLName("out"));
+  SNLDesignModeling::setTruthTable(logic0, SNLTruthTable(0,0));
+  SNLDesignModeling::setTruthTable(logic1, SNLTruthTable(0,1));
+  SNLLibraryTruthTables::construct(library);
   // 5. create a logic_0 instace in top
   SNLInstance* inst1 = SNLInstance::create(top, logic0, SNLName("logic0"));
   // 6. create a logic_1 instace in top
   SNLInstance* inst2 = SNLInstance::create(top, logic1, SNLName("logic1"));
   // 7. create a xor model
-  SNLDesign* xorModel = SNLDesign::create(library, SNLName("XOR"));
+  SNLDesign* xorModel = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("XOR"));
   // add 2 inputs and 1 output to xor
   auto xorIn1 = SNLScalarTerm::create(xorModel, SNLTerm::Direction::Input,
                                       SNLName("in1"));
@@ -1493,30 +1545,33 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialNAND) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
-  SNLLibrary* library = SNLLibrary::create(db, SNLName("MYLIB"));
+  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nand45"));
   // 2. Create a top model with one output
-  SNLDesign* top = SNLDesign::create(library, SNLName("top"));
+  SNLDesign* top = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("top"));
   univ->setTopDesign(top);
   auto topOut =
       SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out"));
   auto topIn =
       SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("in"));
   // 3. create a logic_0 model
-  SNLDesign* logic0 = SNLDesign::create(library, SNLName("LOGIC0"));
+  SNLDesign* logic0 = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("LOGIC0"));
   // add output to logic0
   auto logic0Out =
       SNLScalarTerm::create(logic0, SNLTerm::Direction::Output, SNLName("out"));
   // 4. create a logic_1 model
-  SNLDesign* logic1 = SNLDesign::create(library, SNLName("LOGIC1"));
+  SNLDesign* logic1 = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("LOGIC1"));
   // add output to logic0
   auto logic1Out =
       SNLScalarTerm::create(logic1, SNLTerm::Direction::Output, SNLName("out"));
+  SNLDesignModeling::setTruthTable(logic0, SNLTruthTable(0,0));
+  SNLDesignModeling::setTruthTable(logic1, SNLTruthTable(0,1));
+  SNLLibraryTruthTables::construct(library);
   // 5. create a logic_0 instace in top
   SNLInstance* inst1 = SNLInstance::create(top, logic0, SNLName("logic0"));
   // 6. create a logic_1 instace in top
   SNLInstance* inst2 = SNLInstance::create(top, logic1, SNLName("logic1"));
   // 7. create a nand model
-  SNLDesign* nandModel = SNLDesign::create(library, SNLName("NAND"));
+  SNLDesign* nandModel = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("NAND"));
   // add 2 inputs and 1 output to nand
   auto nandIn1 = SNLScalarTerm::create(nandModel, SNLTerm::Direction::Input,
                                       SNLName("in1"));
@@ -1580,30 +1635,33 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialNOR) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
-  SNLLibrary* library = SNLLibrary::create(db, SNLName("MYLIB"));
+  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nand45"));
   // 2. Create a top model with one output
-  SNLDesign* top = SNLDesign::create(library, SNLName("top"));
+  SNLDesign* top = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("top"));
   univ->setTopDesign(top);
   auto topOut =
       SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out"));
   auto topIn =
       SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("in"));
   // 3. create a logic_0 model
-  SNLDesign* logic0 = SNLDesign::create(library, SNLName("LOGIC0"));
+  SNLDesign* logic0 = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("LOGIC0"));
   // add output to logic0
   auto logic0Out =
       SNLScalarTerm::create(logic0, SNLTerm::Direction::Output, SNLName("out"));
   // 4. create a logic_1 model
-  SNLDesign* logic1 = SNLDesign::create(library, SNLName("LOGIC1"));
+  SNLDesign* logic1 = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("LOGIC1"));
   // add output to logic0
   auto logic1Out =
       SNLScalarTerm::create(logic1, SNLTerm::Direction::Output, SNLName("out"));
+  SNLDesignModeling::setTruthTable(logic0, SNLTruthTable(0,0));
+  SNLDesignModeling::setTruthTable(logic1, SNLTruthTable(0,1));
+  SNLLibraryTruthTables::construct(library);
   // 5. create a logic_0 instace in top
   SNLInstance* inst1 = SNLInstance::create(top, logic0, SNLName("logic0"));
   // 6. create a logic_1 instace in top
   SNLInstance* inst2 = SNLInstance::create(top, logic1, SNLName("logic1"));
   // 7. create a nor model
-  SNLDesign* norModel = SNLDesign::create(library, SNLName("NOR"));
+  SNLDesign* norModel = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("NOR"));
   // add 2 inputs and 1 output to nor
   auto norIn1 = SNLScalarTerm::create(norModel, SNLTerm::Direction::Input,
                                       SNLName("in1"));
@@ -1667,30 +1725,33 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialXNOR) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
-  SNLLibrary* library = SNLLibrary::create(db, SNLName("MYLIB"));
+  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nand45"));
   // 2. Create a top model with one output
-  SNLDesign* top = SNLDesign::create(library, SNLName("top"));
+  SNLDesign* top = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("top"));
   univ->setTopDesign(top);
   auto topOut =
       SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out"));
   auto topIn =
       SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("in"));
   // 3. create a logic_0 model
-  SNLDesign* logic0 = SNLDesign::create(library, SNLName("LOGIC0"));
+  SNLDesign* logic0 = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("LOGIC0"));
   // add output to logic0
   auto logic0Out =
       SNLScalarTerm::create(logic0, SNLTerm::Direction::Output, SNLName("out"));
   // 4. create a logic_1 model
-  SNLDesign* logic1 = SNLDesign::create(library, SNLName("LOGIC1"));
+  SNLDesign* logic1 = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("LOGIC1"));
   // add output to logic0
   auto logic1Out =
       SNLScalarTerm::create(logic1, SNLTerm::Direction::Output, SNLName("out"));
+  SNLDesignModeling::setTruthTable(logic0, SNLTruthTable(0,0));
+  SNLDesignModeling::setTruthTable(logic1, SNLTruthTable(0,1));
+  SNLLibraryTruthTables::construct(library);
   // 5. create a logic_0 instace in top
   SNLInstance* inst1 = SNLInstance::create(top, logic0, SNLName("logic0"));
   // 6. create a logic_1 instace in top
   SNLInstance* inst2 = SNLInstance::create(top, logic1, SNLName("logic1"));
   // 7. create a xnor model
-  SNLDesign* xnorModel = SNLDesign::create(library, SNLName("XNOR"));
+  SNLDesign* xnorModel = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("XNOR"));
   // add 2 inputs and 1 output to xnor
   auto xnorIn1 = SNLScalarTerm::create(xnorModel, SNLTerm::Direction::Input,
                                       SNLName("in1"));
@@ -1754,30 +1815,33 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialINV) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
-  SNLLibrary* library = SNLLibrary::create(db, SNLName("MYLIB"));
+  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nand45"));
   // 2. Create a top model with one output
-  SNLDesign* top = SNLDesign::create(library, SNLName("top"));
+  SNLDesign* top = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("top"));
   univ->setTopDesign(top);
   auto topOut =
       SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out"));
   auto topIn =
       SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("in"));
   // 3. create a logic_0 model
-  SNLDesign* logic0 = SNLDesign::create(library, SNLName("LOGIC0"));
+  SNLDesign* logic0 = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("LOGIC0"));
   // add output to logic0
   auto logic0Out =
       SNLScalarTerm::create(logic0, SNLTerm::Direction::Output, SNLName("out"));
   // 4. create a logic_1 model
-  SNLDesign* logic1 = SNLDesign::create(library, SNLName("LOGIC1"));
+  SNLDesign* logic1 = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("LOGIC1"));
   // add output to logic0
   auto logic1Out =
       SNLScalarTerm::create(logic1, SNLTerm::Direction::Output, SNLName("out"));
+  SNLDesignModeling::setTruthTable(logic0, SNLTruthTable(0,0));
+  SNLDesignModeling::setTruthTable(logic1, SNLTruthTable(0,1));
+  SNLLibraryTruthTables::construct(library);
   // 5. create a logic_0 instace in top
   SNLInstance* inst1 = SNLInstance::create(top, logic0, SNLName("logic0"));
   // 6. create a logic_1 instace in top
   SNLInstance* inst2 = SNLInstance::create(top, logic1, SNLName("logic1"));
   // 7. create a inv model
-  SNLDesign* invModel = SNLDesign::create(library, SNLName("INV"));
+  SNLDesign* invModel = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("INV"));
   // add 1 input and 1 output to inv
   auto invIn = SNLScalarTerm::create(invModel, SNLTerm::Direction::Input,
                                       SNLName("in"));
@@ -1836,30 +1900,33 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialBUF) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
-  SNLLibrary* library = SNLLibrary::create(db, SNLName("MYLIB"));
+  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nand45"));
   // 2. Create a top model with one output
-  SNLDesign* top = SNLDesign::create(library, SNLName("top"));
+  SNLDesign* top = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("top"));
   univ->setTopDesign(top);
   auto topOut =
       SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out"));
   auto topIn =
       SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("in"));
   // 3. create a logic_0 model
-  SNLDesign* logic0 = SNLDesign::create(library, SNLName("LOGIC0"));
+  SNLDesign* logic0 = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("LOGIC0"));
   // add output to logic0
   auto logic0Out =
       SNLScalarTerm::create(logic0, SNLTerm::Direction::Output, SNLName("out"));
   // 4. create a logic_1 model
-  SNLDesign* logic1 = SNLDesign::create(library, SNLName("LOGIC1"));
+  SNLDesign* logic1 = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("LOGIC1"));
   // add output to logic0
   auto logic1Out =
       SNLScalarTerm::create(logic1, SNLTerm::Direction::Output, SNLName("out"));
+  SNLDesignModeling::setTruthTable(logic0, SNLTruthTable(0,0));
+  SNLDesignModeling::setTruthTable(logic1, SNLTruthTable(0,1));
+  SNLLibraryTruthTables::construct(library);
   // 5. create a logic_0 instace in top
   SNLInstance* inst1 = SNLInstance::create(top, logic0, SNLName("logic0"));
   // 6. create a logic_1 instace in top
   SNLInstance* inst2 = SNLInstance::create(top, logic1, SNLName("logic1"));
   // 7. create a buf model
-  SNLDesign* bufModel = SNLDesign::create(library, SNLName("BUF"));
+  SNLDesign* bufModel = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("BUF"));
   // add 1 input and 1 output to buf
   auto bufIn = SNLScalarTerm::create(bufModel, SNLTerm::Direction::Input,
                                       SNLName("in"));
@@ -1918,31 +1985,34 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialMUX) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
-  SNLLibrary* library = SNLLibrary::create(db, SNLName("MYLIB"));
+  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nand45"));
   // 2. Create a top model with one output
-  SNLDesign* top = SNLDesign::create(library, SNLName("top"));
+  SNLDesign* top = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("top"));
   univ->setTopDesign(top);
   auto topOut =
       SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out"));
   auto topIn =
       SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("in"));
   // 3. create a logic_0 model
-  SNLDesign* logic0 = SNLDesign::create(library, SNLName("LOGIC0"));
+  SNLDesign* logic0 = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("LOGIC0"));
   // add output to logic0
   auto logic0Out =
       SNLScalarTerm::create(logic0, SNLTerm::Direction::Output, SNLName("out"));
   // 4. create a logic_1 model
-  SNLDesign* logic1 = SNLDesign::create(library, SNLName("LOGIC1"));
+  SNLDesign* logic1 = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("LOGIC1"));
   // add output to logic0
   auto logic1Out =
       SNLScalarTerm::create(logic1, SNLTerm::Direction::Output, SNLName("out"));
+  SNLDesignModeling::setTruthTable(logic0, SNLTruthTable(0,0));
+  SNLDesignModeling::setTruthTable(logic1, SNLTruthTable(0,1));
+  SNLLibraryTruthTables::construct(library);
   // 5. create a logic_0 instace in top
   SNLInstance* inst1 = SNLInstance::create(top, logic0, SNLName("logic0"));
   // 6. create a logic_1 instace in top
   SNLInstance* inst2 = SNLInstance::create(top, logic1, SNLName("logic1"));
   // 7. create a buf model
    // 7. create a and model for mux
-  SNLDesign* muxModel = SNLDesign::create(library, SNLName("MUX"));
+  SNLDesign* muxModel = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("MUX"));
   // create S, A, B, and Y ports as mentioned in const prop code
   auto muxS = SNLScalarTerm::create(muxModel, SNLTerm::Direction::Input,
                                       SNLName("S"));
@@ -2009,24 +2079,27 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialDFF) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
-  SNLLibrary* library = SNLLibrary::create(db, SNLName("MYLIB"));
+  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nand45"));
   // 2. Create a top model with one output
-  SNLDesign* top = SNLDesign::create(library, SNLName("top"));
+  SNLDesign* top = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("top"));
   univ->setTopDesign(top);
   auto topOut =
       SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out"));
   auto topIn =
       SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("in"));
   // 3. create a logic_0 model
-  SNLDesign* logic0 = SNLDesign::create(library, SNLName("LOGIC0"));
+  SNLDesign* logic0 = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("LOGIC0"));
   // add output to logic0
   auto logic0Out =
       SNLScalarTerm::create(logic0, SNLTerm::Direction::Output, SNLName("out"));
   // 4. create a logic_1 model
-  SNLDesign* logic1 = SNLDesign::create(library, SNLName("LOGIC1"));
+  SNLDesign* logic1 = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("LOGIC1"));
   // add output to logic0
   auto logic1Out =
       SNLScalarTerm::create(logic1, SNLTerm::Direction::Output, SNLName("out"));
+  SNLDesignModeling::setTruthTable(logic0, SNLTruthTable(0,0));
+  SNLDesignModeling::setTruthTable(logic1, SNLTruthTable(0,1));
+  SNLLibraryTruthTables::construct(library);
   // 5. create a logic_0 instace in top
   SNLInstance* inst1 = SNLInstance::create(top, logic0, SNLName("logic0"));
   // 6. create a logic_1 instace in top
@@ -2034,7 +2107,7 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialDFF) {
   // 7. create a buf model
    // 7. create a and model for mux
   // 7. create a and model for dff
-  SNLDesign* dffModel = SNLDesign::create(library, SNLName("DFF"));
+  SNLDesign* dffModel = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("DFF"));
   // create D, CLK, and Q ports as mentioned in const prop code
   auto dffD = SNLScalarTerm::create(dffModel, SNLTerm::Direction::Input,
                                       SNLName("D"));
@@ -2099,24 +2172,27 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialOAI) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
-  SNLLibrary* library = SNLLibrary::create(db, SNLName("MYLIB"));
+  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nand45"));
   // 2. Create a top model with one output
-  SNLDesign* top = SNLDesign::create(library, SNLName("top"));
+  SNLDesign* top = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("top"));
   univ->setTopDesign(top);
   auto topOut =
       SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out"));
   auto topIn =
       SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("in"));
   // 3. create a logic_0 model
-  SNLDesign* logic0 = SNLDesign::create(library, SNLName("LOGIC0"));
+  SNLDesign* logic0 = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("LOGIC0"));
   // add output to logic0
   auto logic0Out =
       SNLScalarTerm::create(logic0, SNLTerm::Direction::Output, SNLName("out"));
   // 4. create a logic_1 model
-  SNLDesign* logic1 = SNLDesign::create(library, SNLName("LOGIC1"));
+  SNLDesign* logic1 = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("LOGIC1"));
   // add output to logic0
   auto logic1Out =
       SNLScalarTerm::create(logic1, SNLTerm::Direction::Output, SNLName("out"));
+  SNLDesignModeling::setTruthTable(logic0, SNLTruthTable(0,0));
+  SNLDesignModeling::setTruthTable(logic1, SNLTruthTable(0,1));
+  SNLLibraryTruthTables::construct(library);
   // 5. create a logic_0 instace in top
   SNLInstance* inst1 = SNLInstance::create(top, logic0, SNLName("logic0"));
   // 6. create a logic_1 instace in top
@@ -2124,7 +2200,7 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialOAI) {
   // 7. create a buf model
    // 7. create a and model for mux
   // 7. create a and model for dff
-  SNLDesign* oaiModel = SNLDesign::create(library, SNLName("OAI"));
+  SNLDesign* oaiModel = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("OAI"));
   // create A, B1, B2, and Y ports as mentioned in const prop code
   auto oaiA = SNLScalarTerm::create(oaiModel, SNLTerm::Direction::Input,
                                       SNLName("A"));
