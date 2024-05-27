@@ -56,7 +56,7 @@ struct SNLBitTermCompare {
     if (lhs->getID() != rhs->getID()) {
       return lhs->getID() < rhs->getID();
     }
-    return lhs->getBit() < rhs->getBit();
+    return lhs->getBit() > rhs->getBit();
   }
 };
 
@@ -65,7 +65,7 @@ struct SNLInstTermCompare {
     if (lhs->getBitTerm()->getID() != rhs->getBitTerm()->getID()) {
       return lhs->getBitTerm()->getID() < rhs->getBitTerm()->getID();
     }
-    return lhs->getBitTerm()->getBit() < rhs->getBitTerm()->getBit();
+    return lhs->getBitTerm()->getBit() > rhs->getBitTerm()->getBit();
   }
 };
 

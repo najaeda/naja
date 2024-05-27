@@ -145,11 +145,6 @@ const DNLInstanceFull& DNLInstanceFull::getChildInstance(
 
 const DNLTerminalFull& DNLInstanceFull::getTerminal(
     const SNLInstTerm* snlTerm) const {
-  for (DNLID term = termsIndexes_.first; term <= termsIndexes_.second; term++) {
-    if ((*get()).getDNLTerminalFromID(term).getSnlTerm() == snlTerm) {
-      return (*get()).getDNLTerminalFromID(term);
-    }
-  }
   auto first = (*get()).getDNLTerms().begin();
   std::advance(first, termsIndexes_.first);
   auto last = (*get()).getDNLTerms().begin();
@@ -176,11 +171,11 @@ const DNLTerminalFull& DNLInstanceFull::getTerminal(
 
 const DNLTerminalFull& DNLInstanceFull::getTerminalFromBitTerm(
     const SNLBitTerm* snlTerm) const {
-   for (DNLID term = termsIndexes_.first; term <= termsIndexes_.second; term++) {
+  /*for (DNLID term = termsIndexes_.first; term <= termsIndexes_.second; term++) {
     if ((*get()).getDNLTerminalFromID(term).getSnlBitTerm() == snlTerm) {
       return (*get()).getDNLTerminalFromID(term);
     }
-  }
+  }*/
   auto first = (*get()).getDNLTerms().begin();
   std::advance(first, termsIndexes_.first);
   auto last = (*get()).getDNLTerms().begin();
