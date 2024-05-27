@@ -2186,8 +2186,6 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialOAI) {
                        std::string(" -o ") + svgFileName)
                .c_str());
   }
-  ReductionOptimization ro(cp.getPartialConstantReaders());
-  ro.run();
 }
 
 
