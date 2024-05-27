@@ -233,7 +233,9 @@ TEST_F(ConstatPropagationTests, TestConstantPropagation) {
 
   // 9. connect all instances inputs 
   SNLNet* net1 = SNLScalarNet::create(top, SNLName("logic_0_net"));
+  net1->setType(SNLNet::Type::Assign0);
   SNLNet* net2 = SNLScalarNet::create(top, SNLName("logic_1_net"));
+  net2->setType(SNLNet::Type::Assign1);
   SNLNet* net3 = SNLScalarNet::create(top, SNLName("and_output_net"));
   // connect logic0 to and
   inst1->getInstTerm(logic0Out)->setNet(net1);
@@ -355,7 +357,9 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationAND) {
   SNLInstance* inst3 = SNLInstance::create(top, andModel, SNLName("and"));
   // 9. connect all instances inputs
   SNLNet* net1 = SNLScalarNet::create(top, SNLName("logic_0_net"));
+  net1->setType(SNLNet::Type::Assign0);
   SNLNet* net2 = SNLScalarNet::create(top, SNLName("logic_1_net"));
+  net2->setType(SNLNet::Type::Assign1);
   SNLNet* net3 = SNLScalarNet::create(top, SNLName("and_output_net"));
   // connect logic0 to and
   inst1->getInstTerm(logic0Out)->setNet(net1);
@@ -442,7 +446,9 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationOR) {
   SNLInstance* inst4 = SNLInstance::create(top, orModel, SNLName("or"));
   // 9. connect all instances inputs
   SNLNet* net1 = SNLScalarNet::create(top, SNLName("logic_0_net"));
+  net1->setType(SNLNet::Type::Assign0);
   SNLNet* net2 = SNLScalarNet::create(top, SNLName("logic_1_net"));
+  net2->setType(SNLNet::Type::Assign1);
   SNLNet* net3 = SNLScalarNet::create(top, SNLName("or_output_net"));
   // connect logic0 to or
   inst1->getInstTerm(logic0Out)->setNet(net1);
@@ -529,7 +535,9 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationXOR) {
   SNLInstance* inst5 = SNLInstance::create(top, xorModel, SNLName("xor"));
   // 9. connect all instances inputs
   SNLNet* net1 = SNLScalarNet::create(top, SNLName("logic_0_net"));
+  net1->setType(SNLNet::Type::Assign0);
   SNLNet* net2 = SNLScalarNet::create(top, SNLName("logic_1_net"));
+  net2->setType(SNLNet::Type::Assign1);
   SNLNet* net3 = SNLScalarNet::create(top, SNLName("xor_output_net"));
   // connect logic0 to xor
   inst1->getInstTerm(logic0Out)->setNet(net1);
@@ -613,7 +621,9 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationNAND) {
   auto nandOut = SNLScalarTerm::create(nandModel, SNLTerm::Direction::Output, SNLName("out"));
   // 9. connect all instances inputs
   SNLNet* net1 = SNLScalarNet::create(top, SNLName("logic_0_net"));
+  net1->setType(SNLNet::Type::Assign0);
   SNLNet* net2 = SNLScalarNet::create(top, SNLName("logic_1_net"));
+  net2->setType(SNLNet::Type::Assign1);
   SNLNet* net3 = SNLScalarNet::create(top, SNLName("nand_output_net"));
   // 8. create a nand instance in top
   SNLInstance* inst6 = SNLInstance::create(top, nandModel, SNLName("nand"));
@@ -701,7 +711,9 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationNOR) {
   SNLInstance* inst7 = SNLInstance::create(top, norModel, SNLName("nor"));
   // 9. connect all instances inputs
   SNLNet* net1 = SNLScalarNet::create(top, SNLName("logic_0_net"));
+  net1->setType(SNLNet::Type::Assign0);
   SNLNet* net2 = SNLScalarNet::create(top, SNLName("logic_1_net"));
+  net2->setType(SNLNet::Type::Assign1);
   SNLNet* net3 = SNLScalarNet::create(top, SNLName("nor_output_net"));
   // connect logic0 to nor
   inst1->getInstTerm(logic0Out)->setNet(net1);
@@ -785,7 +797,9 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationXNOR) {
   auto xnorOut = SNLScalarTerm::create(xnorModel, SNLTerm::Direction::Output, SNLName("out"));
   // 9. connect all instances inputs
   SNLNet* net1 = SNLScalarNet::create(top, SNLName("logic_0_net"));
+  net1->setType(SNLNet::Type::Assign0);
   SNLNet* net2 = SNLScalarNet::create(top, SNLName("logic_1_net"));
+  net2->setType(SNLNet::Type::Assign1);
   SNLNet* net3 = SNLScalarNet::create(top, SNLName("xnor_output_net"));
   // 8. create a xnor instance in top
   SNLInstance* inst8 = SNLInstance::create(top, xnorModel, SNLName("xnor"));
@@ -1039,7 +1053,9 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationMUX) {
   SNLInstance* inst11 = SNLInstance::create(top, muxModel, SNLName("mux"));
   // 9. connect all instances inputs
   SNLNet* net1 = SNLScalarNet::create(top, SNLName("logic_0_net"));
+  net1->setType(SNLNet::Type::Assign0);
   SNLNet* net2 = SNLScalarNet::create(top, SNLName("logic_1_net"));
+  net2->setType(SNLNet::Type::Assign1);
   SNLNet* net3 = SNLScalarNet::create(top, SNLName("mux_output_net"));
   // connect logic0 to mux
   inst1->getInstTerm(logic0Out)->setNet(net1);
@@ -1128,7 +1144,9 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationDFF) {
   SNLInstance* inst11 = SNLInstance::create(top, dffModel, SNLName("dff"));
   // 9. connect all instances inputs
   SNLNet* net1 = SNLScalarNet::create(top, SNLName("logic_0_net"));
+  net1->setType(SNLNet::Type::Assign0);
   SNLNet* net2 = SNLScalarNet::create(top, SNLName("logic_1_net"));
+  net2->setType(SNLNet::Type::Assign1);
   SNLNet* net3 = SNLScalarNet::create(top, SNLName("mux_output_net"));
   // connect logic0 to mux
   inst1->getInstTerm(logic0Out)->setNet(net1);
@@ -1219,7 +1237,9 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationOAI) {
   SNLInstance* inst11 = SNLInstance::create(top, oaiModel, SNLName("oai"));
   // 9. connect all instances inputs
   SNLNet* net1 = SNLScalarNet::create(top, SNLName("logic_0_net"));
+  net1->setType(SNLNet::Type::Assign0);
   SNLNet* net2 = SNLScalarNet::create(top, SNLName("logic_1_net"));
+  net2->setType(SNLNet::Type::Assign1);
   SNLNet* net3 = SNLScalarNet::create(top, SNLName("oai_output_net"));
   // connect logic0 to oai
   inst1->getInstTerm(logic0Out)->setNet(net1);
@@ -1310,7 +1330,9 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialAND) {
   SNLInstance* inst3 = SNLInstance::create(top, andModel, SNLName("and"));
   // 9. connect all instances inputs
   SNLNet* net1 = SNLScalarNet::create(top, SNLName("logic_0_net"));
+  net1->setType(SNLNet::Type::Assign0);
   SNLNet* net2 = SNLScalarNet::create(top, SNLName("logic_1_net"));
+  net2->setType(SNLNet::Type::Assign1);
   SNLNet* net3 = SNLScalarNet::create(top, SNLName("and_output_net"));
   SNLNet* net4 = SNLScalarNet::create(top, SNLName("input_net"));
   topIn->setNet(net4);
@@ -1401,7 +1423,9 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialOR) {
   SNLInstance* inst4 = SNLInstance::create(top, orModel, SNLName("or"));
   // 9. connect all instances inputs
   SNLNet* net1 = SNLScalarNet::create(top, SNLName("logic_0_net"));
+  net1->setType(SNLNet::Type::Assign0);
   SNLNet* net2 = SNLScalarNet::create(top, SNLName("logic_1_net"));
+  net2->setType(SNLNet::Type::Assign1);
   SNLNet* net3 = SNLScalarNet::create(top, SNLName("or_output_net"));
   SNLNet* net4 = SNLScalarNet::create(top, SNLName("input_net"));
   topIn->setNet(net4);
@@ -1492,7 +1516,9 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialXOR) {
   SNLInstance* inst5 = SNLInstance::create(top, xorModel, SNLName("xor"));
   // 9. connect all instances inputs
   SNLNet* net1 = SNLScalarNet::create(top, SNLName("logic_0_net"));
+  net1->setType(SNLNet::Type::Assign0);
   SNLNet* net2 = SNLScalarNet::create(top, SNLName("logic_1_net"));
+  net2->setType(SNLNet::Type::Assign1);
   SNLNet* net3 = SNLScalarNet::create(top, SNLName("xor_output_net"));
   SNLNet* net4 = SNLScalarNet::create(top, SNLName("input_net"));
   topIn->setNet(net4);
@@ -1580,7 +1606,9 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialNAND) {
   auto nandOut = SNLScalarTerm::create(nandModel, SNLTerm::Direction::Output, SNLName("out"));
   // 9. connect all instances inputs
   SNLNet* net1 = SNLScalarNet::create(top, SNLName("logic_0_net"));
+  net1->setType(SNLNet::Type::Assign0);
   SNLNet* net2 = SNLScalarNet::create(top, SNLName("logic_1_net"));
+  net2->setType(SNLNet::Type::Assign1);
   SNLNet* net3 = SNLScalarNet::create(top, SNLName("nand_output_net"));
   SNLNet* net4 = SNLScalarNet::create(top, SNLName("input_net"));
   topIn->setNet(net4);
@@ -1672,7 +1700,9 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialNOR) {
   SNLInstance* inst7 = SNLInstance::create(top, norModel, SNLName("nor"));
   // 9. connect all instances inputs
   SNLNet* net1 = SNLScalarNet::create(top, SNLName("logic_0_net"));
+  net1->setType(SNLNet::Type::Assign0);
   SNLNet* net2 = SNLScalarNet::create(top, SNLName("logic_1_net"));
+  net2->setType(SNLNet::Type::Assign1);
   SNLNet* net3 = SNLScalarNet::create(top, SNLName("nor_output_net"));
   SNLNet* net4 = SNLScalarNet::create(top, SNLName("input_net"));
   topIn->setNet(net4);
@@ -1760,7 +1790,9 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialXNOR) {
   auto xnorOut = SNLScalarTerm::create(xnorModel, SNLTerm::Direction::Output, SNLName("out"));
   // 9. connect all instances inputs
   SNLNet* net1 = SNLScalarNet::create(top, SNLName("logic_0_net"));
+  net1->setType(SNLNet::Type::Assign0);
   SNLNet* net2 = SNLScalarNet::create(top, SNLName("logic_1_net"));
+  net2->setType(SNLNet::Type::Assign1);
   SNLNet* net3 = SNLScalarNet::create(top, SNLName("xnor_output_net"));
   SNLNet* net4 = SNLScalarNet::create(top, SNLName("input_net"));
   topIn->setNet(net4);
@@ -2026,7 +2058,9 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialMUX) {
   SNLInstance* inst11 = SNLInstance::create(top, muxModel, SNLName("mux"));
   // 9. connect all instances inputs
   SNLNet* net1 = SNLScalarNet::create(top, SNLName("logic_0_net"));
+  net1->setType(SNLNet::Type::Assign0);
   SNLNet* net2 = SNLScalarNet::create(top, SNLName("logic_1_net"));
+  net2->setType(SNLNet::Type::Assign1);
   SNLNet* net3 = SNLScalarNet::create(top, SNLName("mux_output_net"));
   SNLNet* net4 = SNLScalarNet::create(top, SNLName("input_net"));
   topIn->setNet(net4);
@@ -2119,7 +2153,9 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialDFF) {
   SNLInstance* inst11 = SNLInstance::create(top, dffModel, SNLName("dff"));
   // 9. connect all instances inputs
   SNLNet* net1 = SNLScalarNet::create(top, SNLName("logic_0_net"));
+  net1->setType(SNLNet::Type::Assign0);
   SNLNet* net2 = SNLScalarNet::create(top, SNLName("logic_1_net"));
+  net2->setType(SNLNet::Type::Assign1);
   SNLNet* net3 = SNLScalarNet::create(top, SNLName("mux_output_net"));
   SNLNet* net4 = SNLScalarNet::create(top, SNLName("input_net"));
   topIn->setNet(net4);
@@ -2214,7 +2250,9 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialOAI) {
   SNLInstance* inst11 = SNLInstance::create(top, oaiModel, SNLName("oai"));
   // 9. connect all instances inputs
   SNLNet* net1 = SNLScalarNet::create(top, SNLName("logic_0_net"));
+  net1->setType(SNLNet::Type::Assign0);
   SNLNet* net2 = SNLScalarNet::create(top, SNLName("logic_1_net"));
+  net2->setType(SNLNet::Type::Assign1);
   SNLNet* net3 = SNLScalarNet::create(top, SNLName("oai_output_net"));
   SNLNet* net4 = SNLScalarNet::create(top, SNLName("input_net"));
   topIn->setNet(net4);
