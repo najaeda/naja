@@ -28,6 +28,14 @@ void ConstantPropagation::initializeTypesID() {
       #endif
       designObjectID2Type_[instance.getSNLInstance()->getModel()->getID()] =
           Type::NAND;
+    }  else if (name.find("XNOR") != std::string::npos) {
+      #ifdef DEBUG_PRINTS
+      // LCOV_EXCL_START
+      printf("%s -> XNOR\n", name.c_str());
+      // LCOV_EXCL_STOP
+      #endif
+      designObjectID2Type_[instance.getSNLInstance()->getModel()->getID()] =
+          Type::XNOR;
     } else if (name.find("NOR") != std::string::npos) {
       #ifdef DEBUG_PRINTS
       // LCOV_EXCL_START
@@ -36,14 +44,6 @@ void ConstantPropagation::initializeTypesID() {
       #endif
       designObjectID2Type_[instance.getSNLInstance()->getModel()->getID()] =
           Type::NOR;
-    } else if (name.find("XNOR") != std::string::npos) {
-      #ifdef DEBUG_PRINTS
-      // LCOV_EXCL_START
-      printf("%s -> XNOR\n", name.c_str());
-      // LCOV_EXCL_STOP
-      #endif
-      designObjectID2Type_[instance.getSNLInstance()->getModel()->getID()] =
-          Type::XNOR;
     } else if (name.find("XOR") != std::string::npos) {
       #ifdef DEBUG_PRINTS
       // LCOV_EXCL_START

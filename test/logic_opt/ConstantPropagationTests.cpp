@@ -2052,10 +2052,10 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialDFF) {
   topIn->setNet(net4);
   // connect logic0 to mux
   inst1->getInstTerm(logic0Out)->setNet(net1);
-  inst11->getInstTerm(dffD)->setNet(net4);
+  inst11->getInstTerm(dffCLK)->setNet(net4);
   // connect logic1 to mux
   inst2->getInstTerm(logic1Out)->setNet(net2);
-  inst11->getInstTerm(dffCLK)->setNet(net2);
+  inst11->getInstTerm(dffD)->setNet(net2);
   // connect the mux instance output to the top output
   inst11->getInstTerm(dffQ)->setNet(net3);
   topOut->setNet(net3);
