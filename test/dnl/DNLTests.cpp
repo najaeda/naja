@@ -216,18 +216,22 @@ TEST_F(DNLTests, SNLDataAccessWith3levelsOfHierarchyAndIsoDB) {
     SNLInstance* subsubinst = SNLInstance::create(submod, subsubmod, SNLName("subsubinst"));
     //Connect the output of the second sub module to the output of the first sub module
     auto subOutNet = SNLScalarNet::create(submod, SNLName("submodnet"));
+    subOutNet->setType(SNLNet::Type::Assign0);
     suboutTerm->setNet(subOutNet);
     subsubinst->getInstTerm(subsuboutTerm)->setNet(subOutNet);
     //Connect the output of the first sub module to the input of the top module
     auto outNet = SNLScalarNet::create(mod, SNLName("modnet"));
+    outNet->setType(SNLNet::Type::Assign1);
     outTerm->setNet(outNet);
     subinst->getInstTerm(suboutTerm)->setNet(outNet);
     //Connect the input of the second sub module to the input of the first submodule module
     auto subsInNet = SNLScalarNet::create(submod);
+    subsInNet->setType(SNLNet::Type::Assign0);
     subinTerm->setNet(subsInNet);
     subsubinst->getInstTerm(subsubinTerm)->setNet(subsInNet);
     //Connect the input of the first sub module to the input of the top module
     auto inNet = SNLScalarNet::create(mod);
+    inNet->setType(SNLNet::Type::Assign1);
     inTerm->setNet(inNet);
     subinst->getInstTerm(subinTerm)->setNet(inNet);
     //Create a DNL on top of the SNL
