@@ -255,10 +255,10 @@ TEST_F(ReductionOptTests, testTruthTablesMap) {
     // 8. create a mux instance in top
     SNLInstance* muxInst = SNLInstance::create(top, mux2, SNLName("mux"));
     SNLInstance* logic1Inst =
-        SNLInstance::create(top, logic1, SNLName("logic1"));
+        SNLInstance::create(top, logic0, SNLName("logic0"));
     // 9. connect all instances inputs
     // SNLNet* net1 = SNLScalarNet::create(top, SNLName("logic_0_net"));
-    SNLNet* net2 = SNLScalarNet::create(top, SNLName("constant_1_net"));
+    SNLNet* net2 = SNLScalarNet::create(top, SNLName("constant_0_net"));
     SNLNet* net3 = SNLScalarNet::create(top, SNLName("mux_output_net"));
     SNLNet* net4 = SNLScalarNet::create(top, SNLName("input_net"));
     topIn->setNet(net4);
