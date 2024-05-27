@@ -8,6 +8,7 @@ using ::testing::ElementsAre;
 
 #include "SNLUniverse.h"
 #include "SNLDesignModeling.h"
+#include "SNLDesignTruthTable.h"
 #include "SNLScalarTerm.h"
 #include "SNLException.h"
 using namespace naja::SNL;
@@ -287,5 +288,5 @@ TEST_F(SNLDesignModelingTest0, testTruthTablesError) {
   auto i1 = SNLScalarTerm::create(design, SNLTerm::Direction::Input, SNLName("I1"));
   auto o0 = SNLScalarTerm::create(design, SNLTerm::Direction::Output, SNLName("O0"));
   //size discrepancy error
-  EXPECT_THROW(SNLDesignModeling::setTruthTable(design, SNLTruthTable(3, 0x5)), SNLException);
+  EXPECT_THROW(SNLDesignTruthTable::setTruthTable(design, SNLTruthTable(3, 0x5)), SNLException);
 }

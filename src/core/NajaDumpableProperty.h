@@ -14,6 +14,22 @@ class NajaDumpableProperty: public NajaPrivateProperty {
   public:
     using super = NajaPrivateProperty;
 
+    class Type {
+      public:
+        enum TypeEnum {
+          String, UInt64
+        };
+        Type(const TypeEnum& dirEnum);
+        Type(const Type& type) = default;
+        Type& operator=(const Type& type) = default;
+        operator const TypeEnum&() const {return typeEnum_;}
+        std::string getString() const;
+        private:
+          TypeEnum  typeEnum_;
+    };
+
+    using Value = std::variant<std::string, uint64_t>;
+
     NajaDumpableProperty() = delete;
 
     /**
@@ -26,8 +42,6 @@ class NajaDumpableProperty: public NajaPrivateProperty {
 
     std::string getName() const override { return name_; }
     std::string getString() const override;
-
-    bool isDumpable() const override { return true; }
 
   protected:
     NajaDumpableProperty(const std::string& name);

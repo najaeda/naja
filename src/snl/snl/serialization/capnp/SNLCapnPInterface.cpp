@@ -31,15 +31,16 @@ using namespace naja::SNL;
 
 void dumpProperty(
   Property::Builder& property,
-  const NajaProperty* najaProperty) {
-    property.setName(najaProperty->getName());
+  const NajaDumpableProperty* najaProperty) {
+  property.setName(najaProperty->getName());
+
 }
 
 template<typename T> void dumpProperties(
   T& dumpObjectInterface,
   const NajaObject* object,
   auto& initProperties) {
-  using NajaProperties = std::list<NajaProperty*>;
+  using NajaProperties = std::list<NajaDumpableProperty*>;
   NajaProperties najaProperties(object->getDumpableProperties().begin(), object->getDumpableProperties().end());
   auto properties = initProperties(dumpObjectInterface, najaProperties.size());
   size_t id = 0;

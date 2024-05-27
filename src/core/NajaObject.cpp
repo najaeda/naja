@@ -6,7 +6,7 @@
 #include "NajaObject.h"
 
 #include "NajaException.h"
-#include "NajaProperty.h"
+#include "NajaDumpableProperty.h"
 
 namespace naja {
 
@@ -40,9 +40,8 @@ NajaCollection<NajaProperty*> NajaObject::getProperties() const {
   return NajaCollection(new NajaSTLMapCollection(&properties_));
 }
 
-NajaCollection<NajaProperty*> NajaObject::getDumpableProperties() const {
-  auto filter = [](const NajaProperty* p) { return p->isDumpable(); };
-  return getProperties().getSubCollection(filter);
+NajaCollection<NajaDumpableProperty*> NajaObject::getDumpableProperties() const {
+  return getProperties().getSubCollection<NajaDumpableProperty*>();
 }
 
 void NajaObject::preDestroy() {

@@ -25,6 +25,7 @@
 
 #include "SNLDesign.h"
 #include "SNLDesignModeling.h"
+#include "SNLDesignTruthTable.h"
 #include "SNLVRLDumper.h"
 
 namespace PYSNL {
@@ -279,7 +280,7 @@ static PyObject* PySNLDesign_setTruthTable(PySNLDesign* self, PyObject* args) {
   auto filter = [](const SNLTerm* term) { return term->getDirection() == SNLTerm::Direction::Input; };
   size_t size = selfObject->getBitTerms().getSubCollection(filter).size();
   SNLTruthTable truthTable(size, tt);
-  SNLDesignModeling::setTruthTable(selfObject, truthTable);
+  SNLDesignTruthTable::setTruthTable(selfObject, truthTable);
   Py_RETURN_NONE;
 }
 
