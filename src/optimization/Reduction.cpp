@@ -13,7 +13,7 @@ using namespace naja::DNL;
 using namespace naja::SNL;
 using namespace naja::NAJA_OPT;
 
-// #define DEBUG_PRINTS
+//#define DEBUG_PRINTS
 
 ReductionOptimization::ReductionOptimization(
     const std::vector<std::tuple<std::vector<SNLInstance*>,
@@ -108,7 +108,6 @@ void ReductionOptimization::reducPartialConstantInstance(
   printf("reducPartialConstantInstance Reducing partial constant instance\n");
   // LCOV_EXCL_STOP
 #endif
-  return;
   auto library = std::get<0>(candidate).back()->getModel()->getLibrary();
   Uniquifier uniquifier(std::get<0>(candidate), std::get<2>(candidate));
   uniquifier.process();

@@ -275,6 +275,7 @@ TEST_F(ReductionOptTests, testTruthTablesMap) {
 
     ConstantPropagation cp;
     cp.run();
+    printf("partial constant readers: %lu\n", cp.getPartialConstantReaders().size());
     ReductionOptimization reductionOpt(cp.getPartialConstantReaders());
     reductionOpt.run();
   }
