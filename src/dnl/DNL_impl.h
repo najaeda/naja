@@ -386,7 +386,7 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::process() {
             treatDriver(dnl_.getNonConstDNLTerminalFromID(tasks[i]),
                         db_.getIsoFromIsoID(
                             dnl_.getNonConstDNLTerminalFromID(tasks[i]).getIsoID()),
-                        visit.local(), true, false);
+                        visit.local(), true, false, true);
 #ifdef DEBUG_PRINTS
             // LCOV_EXCL_START
             printf("treatDriver %lu %lu\n",
@@ -405,7 +405,7 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::process() {
       treatDriver(
           dnl_.getNonConstDNLTerminalFromID(task),
           db_.getIsoFromIsoID(dnl_.getNonConstDNLTerminalFromID(task).getIsoID()),
-          visit.local(), true, false);
+          visit.local(), true, false, true);
     }
   }
   for (DNLID iso = 0; iso < db_.getNumIsos() + 1; iso++) {
@@ -448,7 +448,7 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::process() {
             treatDriver(dnl_.getNonConstDNLTerminalFromID(tasks[i]),
                         db_.getIsoFromIsoID(
                             dnl_.getNonConstDNLTerminalFromID(tasks[i]).getIsoID()),
-                        visit.local(), true, true);
+                        visit.local(), true, true, true);
           }
         });
   } else {
@@ -461,7 +461,7 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::process() {
       treatDriver(
           dnl_.getNonConstDNLTerminalFromID(task),
           db_.getIsoFromIsoID(dnl_.getNonConstDNLTerminalFromID(task).getIsoID()),
-          visit.local(), true, true);
+          visit.local(), true, true, true);
     }
   }
   for (DNLID iso = 0; iso < db_.getNumIsos() + 1; iso++) {
