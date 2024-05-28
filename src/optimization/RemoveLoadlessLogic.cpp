@@ -247,30 +247,6 @@ printf("SNL Port %s direction %d\n", instTerm->getString().c_str()
   return loadlessInstances;
 }
 
-std::vector<std::pair<std::vector<SNLInstance*>, DNLID>>
-LoadlessLogicRemover::normalizeLoadlessInstancesList(
-    const std::vector<std::pair<std::vector<SNLInstance*>, DNLID>>&
-        loadlessInstances) {
-  std::vector<std::pair<std::vector<SNLInstance*>, DNLID>> normalizedList;
-
-  for (const auto& path : loadlessInstances) {
-    bool isUnder = false;
-    for (const auto& pathToCheck : normalizedList) {
-      assert(pathToCheck.second <= path.second);
-      isUnder = dnl_->isInstanceChild(pathToCheck.second, path.second) ||
-                pathToCheck.second == path.second;
-
-      if (isUnder) {
-        break;
-      }
-    }
-    if (!isUnder) {
-      normalizedList.push_back(path);
-    }
-  }
-  return normalizedList;
-}
-
 // Given a list of loadless SNL instacnes, disconnect them and delete them from
 // SNL For each instance:
 // 1. Iterate over it's terminal and disconnect each one

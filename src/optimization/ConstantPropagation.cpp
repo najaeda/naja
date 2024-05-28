@@ -821,19 +821,22 @@ unsigned ConstantPropagation::computeOutputValueForPartiallyConstantInstance(
 
 void ConstantPropagation::changeDriverToLocal0(SNLInstTerm* term, DNLID id) {
   term->setNet(nullptr);
-  std::string nameNet =
-      std::string("logic0_") + term->getBitTerm()->getName().getString() +
-      std::to_string(term->getBitTerm()->getBit()) + std::to_string(id);
-  SNLNet* assign0 =
-      SNLScalarNet::create(term->getInstance()->getDesign(), SNLName(nameNet));
+ std::string name(std::string("logic0_naja_") +
+                   term->getDesign()->getName().getString());
+  SNLNet* assign0 = 
+        term->getDesign()->getNet(SNLName(name));
+    if (nullptr == assign0) {
+      assign0 = SNLScalarNet::create(
+        term->getDesign(),
+        SNLName(name));
+    }
   // assign0->setType(naja::SNL::SNLNet::Type::Assign0);
   term->setNet(assign0);
   SNLTruthTable tt(0, 0);
   auto logic0 = SNLLibraryTruthTables::getDesignForTruthTable(
                     term->getInstance()->getModel()->getLibrary(), tt)
                     .first;
-  std::string name(std::string("logic0_") +
-                   term->getDesign()->getName().getString());
+  
   SNLInstance* logic0Inst = term->getDesign()->getInstance(SNLName(name));
   if (nullptr == logic0Inst) {
     logic0Inst = SNLInstance::create(term->getDesign(), logic0, SNLName(name));
@@ -843,19 +846,21 @@ void ConstantPropagation::changeDriverToLocal0(SNLInstTerm* term, DNLID id) {
 
 void ConstantPropagation::changeDriverToLocal1(SNLInstTerm* term, DNLID id) {
   term->setNet(nullptr);
-  std::string nameNet =
-      std::string("logic1_") + term->getBitTerm()->getName().getString() +
-      std::to_string(term->getBitTerm()->getBit()) + std::to_string(id);
-  SNLNet* assign1 =
-      SNLScalarNet::create(term->getInstance()->getDesign(), SNLName(nameNet));
+  std::string name(std::string("logic1_naja_") +
+                     term->getDesign()->getName().getString());
+    SNLNet* assign1 = 
+        term->getDesign()->getNet(SNLName(name));
+    if (nullptr == assign1) {
+      assign1 = SNLScalarNet::create(
+        term->getDesign(),
+        SNLName(name));
+    }
   // assign1->setType(naja::SNL::SNLNet::Type::Assign1);
   term->setNet(assign1);
   SNLTruthTable tt(0, 1);
   auto logic1 = SNLLibraryTruthTables::getDesignForTruthTable(
                     term->getInstance()->getModel()->getLibrary(), tt)
                     .first;
-  std::string name(std::string("logic0_") +
-                   term->getDesign()->getName().getString());
   SNLInstance* logic1Inst = term->getDesign()->getInstance(SNLName(name));
   if (nullptr == logic1Inst) {
     logic1Inst = SNLInstance::create(term->getDesign(), logic1, SNLName(name));
@@ -953,11 +958,16 @@ void ConstantPropagation::propagateConstants() {
   }
   for (SNLBitTerm* term : constant0TopReaders_) {
     term->setNet(nullptr);
-    SNLNet* assign0 = SNLScalarNet::create(
+    std::string name(std::string("logic0_naja_") +
+                     term->getDesign()->getName().getString());
+    SNLNet* assign0 = 
+        term->getDesign()->getNet(SNLName(name));
+    if (nullptr == assign0) {
+      assign0 = SNLScalarNet::create(
         term->getDesign(),
         SNLName(std::string("assign0_") + term->getName().getString() +
                 std::to_string(term->getBit())));
-    // assign0->setType(naja::SNL::SNLNet::Type::Assign0);
+    }
     term->setNet(assign0);
     SNLTruthTable tt(0, 0);
     auto logic0 = SNLLibraryTruthTables::getDesignForTruthTable(
@@ -965,8 +975,6 @@ void ConstantPropagation::propagateConstants() {
                           SNLName("nand45")),
                       tt)
                       .first;
-    std::string name(std::string("logic0_") +
-                     term->getDesign()->getName().getString());
     SNLInstance* logic0Inst = term->getDesign()->getInstance(SNLName(name));
     if (nullptr == logic0Inst) {
       logic0Inst =
@@ -983,10 +991,16 @@ void ConstantPropagation::propagateConstants() {
   }
   for (SNLBitTerm* term : constant1TopReaders_) {
     term->setNet(nullptr);
-    SNLNet* assign1 = SNLScalarNet::create(
+    std::string name(std::string("logic1_naja_") +
+                     term->getDesign()->getName().getString());
+    SNLNet* assign1 = 
+        term->getDesign()->getNet(SNLName(name));
+    if (nullptr == assign1) {
+      assign1 = SNLScalarNet::create(
         term->getDesign(),
         SNLName(std::string("assign1_") + term->getName().getString() +
                 std::to_string(term->getBit())));
+    }
     // assign1->setType(naja::SNL::SNLNet::Type::Assign1);
     term->setNet(assign1);
     SNLTruthTable tt(0, 1);
@@ -995,8 +1009,6 @@ void ConstantPropagation::propagateConstants() {
                           SNLName("nand45")),
                       tt)
                       .first;
-    std::string name(std::string("logic1_") +
-                     term->getDesign()->getName().getString());
     SNLInstance* logic1Inst = term->getDesign()->getInstance(SNLName(name));
     if (nullptr == logic1Inst) {
       logic1Inst =

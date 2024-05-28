@@ -31,10 +31,6 @@ class LoadlessLogicRemover {
   std::vector<std::pair<std::vector<SNLInstance*>, DNLID>> getLoadlessInstances(
       const naja::DNL::DNL<DNLInstanceFull, DNLTerminalFull>& dnl,
       const tbb::concurrent_unordered_set<DNLID>& tracedIsos);
-  std::vector<std::pair<std::vector<SNLInstance*>, DNLID>>
-  normalizeLoadlessInstancesList(
-      const std::vector<std::pair<std::vector<SNLInstance*>, DNLID>>&
-          loadlessInstances);
   void removeLoadlessInstances(
       SNLDesign* top,
       std::vector<std::pair<std::vector<SNLInstance*>, DNLID>>&
