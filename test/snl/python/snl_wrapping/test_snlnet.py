@@ -44,6 +44,8 @@ class SNLNetTest(unittest.TestCase):
     self.assertIsNone(self.design.getBusNet("I0"))
     self.assertEqual(1, sum(1 for b in i0Net.getBits()))
     self.assertEqual(1, sum(1 for n in self.design.getNets()))
+    self.assertEqual(1, sum(1 for n in self.design.getScalarNets()))
+    self.assertEqual(0, sum(1 for n in self.design.getBusNets()))
     self.assertEqual(1, sum(1 for c in i0Net.getComponents())) 
     self.assertEqual(1, sum(1 for b in i0Net.getBitTerms())) 
     self.assertEqual(0, sum(1 for i in i0Net.getInstTerms()))
@@ -73,6 +75,8 @@ class SNLNetTest(unittest.TestCase):
     with self.assertRaises(RuntimeError) as context: i1.setNet(self.design)
     self.assertEqual(5, sum(1 for b in i1Net.getBits()))
     self.assertEqual(2, sum(1 for n in self.design.getNets()))
+    self.assertEqual(1, sum(1 for n in self.design.getScalarNets()))
+    self.assertEqual(1, sum(1 for n in self.design.getBusNets()))
     self.assertEqual(1+5, sum(1 for b in self.design.getBitNets()))
     i1Bit4 = i1.getBit(4)
     
