@@ -8,6 +8,7 @@
 
 #include "NajaPrivateProperty.h"
 
+#include <vector>
 #include <variant>
 
 namespace naja {
@@ -16,21 +17,10 @@ class NajaDumpableProperty: public NajaPrivateProperty {
   public:
     using super = NajaPrivateProperty;
 
-    class Type {
-      public:
-        enum TypeEnum {
-          String, UInt64
-        };
-        Type(const TypeEnum& dirEnum);
-        Type(const Type& type) = default;
-        Type& operator=(const Type& type) = default;
-        operator const TypeEnum&() const {return typeEnum_;}
-        std::string getString() const;
-        private:
-          TypeEnum  typeEnum_;
-    };
+    enum TypeEnum { String, UInt64 };
 
     using Value = std::variant<std::string, uint64_t>;
+    using Values = std::vector<Value>;
 
     NajaDumpableProperty() = delete;
 
@@ -42,26 +32,23 @@ class NajaDumpableProperty: public NajaPrivateProperty {
      */ 
     static NajaDumpableProperty* create(NajaObject* owner, const std::string& name);
 
-    Type getType() const { return type_; }
-
     std::string getName() const override { return name_; }
     std::string getString() const override;
 
-    void setStringValue(const std::string& value);
-    std::string getStringValue() const;
+    Values getValues() const { return values_; }
 
-    void setUInt64Value(uint64_t value);
-    uint64_t getUInt64Value() const;
+    void addStringValue(const std::string& value);
+    std::string getStringValue(size_t i) const;
+
+    void addUInt64Value(uint64_t value);
+    uint64_t getUInt64Value(size_t i) const;
 
   protected:
     NajaDumpableProperty(const std::string& name);
-    NajaDumpableProperty(const std::string& name, const std::string& value);
-    NajaDumpableProperty(const std::string& name, uint64_t value);
 
   private:
     std::string name_   {};
-    Type        type_   { Type::String };
-    Value       value_  {};
+    Values      values_ {};
 };
 
 } // namespace naja

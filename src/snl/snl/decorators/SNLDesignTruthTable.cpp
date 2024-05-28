@@ -34,7 +34,10 @@ class SNLDesignTruthTableProperty: public naja::NajaDumpableProperty {
       }
     }
     SNLDesignTruthTableProperty(const naja::SNL::SNLTruthTable& truthTable)
-      : Inherit(Name), truthTable_(truthTable) {}
+      : Inherit(Name)  {
+        addUInt64Value(truthTable.size());
+        addUInt64Value(truthTable.bits());
+      }
     std::string getName() const override {
       return Name;
     }
@@ -44,10 +47,8 @@ class SNLDesignTruthTableProperty: public naja::NajaDumpableProperty {
     }
     //LCOV_EXCL_STOP
     naja::SNL::SNLTruthTable getTruthTable() const {
-      return truthTable_;
+      return naja::SNL::SNLTruthTable((uint32_t)getUInt64Value(0), getUInt64Value(1));
     }
-  private:
-    naja::SNL::SNLTruthTable truthTable_ {};
 };
 
 SNLDesignTruthTableProperty* getProperty(const naja::SNL::SNLDesign* design) {
