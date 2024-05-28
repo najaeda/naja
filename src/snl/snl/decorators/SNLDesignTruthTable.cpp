@@ -11,63 +11,28 @@
 #include "SNLException.h"
 
 namespace {
+    
+static const std::string SNLDesignTruthTablePropertyName = "SNLDesignTruthTableProperty";
 
-class SNLDesignTruthTableProperty: public naja::NajaDumpableProperty {
-  public:
-    using Inherit = naja::NajaDumpableProperty;
-    static const inline std::string Name = "SNLDesignTruthTableProperty";
-    static SNLDesignTruthTableProperty* create(
-      naja::SNL::SNLDesign* design,
-      const naja::SNL::SNLTruthTable& truthTable) {
-      preCreate(design, Name);
-      SNLDesignTruthTableProperty* property = new SNLDesignTruthTableProperty(truthTable);
-      property->postCreate(design);
-      return property;
-    }
-    static void preCreate(naja::SNL::SNLDesign* design, const std::string& name) {
-      Inherit::preCreate(design, name);
-      if (not (design->isPrimitive())) {
-        std::ostringstream reason;
-        reason << "Impossible to add Truth Table on a non primitive design <"
-          << design->getName().getString() << ">";
-        throw naja::SNL::SNLException(reason.str());
-      }
-    }
-    SNLDesignTruthTableProperty(const naja::SNL::SNLTruthTable& truthTable)
-      : Inherit(Name)  {
-        addUInt64Value(truthTable.size());
-        addUInt64Value(truthTable.bits());
-      }
-    std::string getName() const override {
-      return Name;
-    }
-    //LCOV_EXCL_START
-    std::string getString() const override {
-      return Name;
-    }
-    //LCOV_EXCL_STOP
-    naja::SNL::SNLTruthTable getTruthTable() const {
-      return naja::SNL::SNLTruthTable((uint32_t)getUInt64Value(0), getUInt64Value(1));
-    }
-};
-
-SNLDesignTruthTableProperty* getProperty(const naja::SNL::SNLDesign* design) {
+naja::NajaDumpableProperty* getProperty(const naja::SNL::SNLDesign* design) {
   auto property =
-    static_cast<SNLDesignTruthTableProperty*>(design->getProperty(SNLDesignTruthTableProperty::Name));
+    static_cast<naja::NajaDumpableProperty*>(design->getProperty(SNLDesignTruthTablePropertyName));
   if (property) {
     return property;
   }
   return nullptr;
 }
 
-SNLDesignTruthTableProperty* createProperty(
+void createProperty(
   naja::SNL::SNLDesign* design,
   const naja::SNL::SNLTruthTable& truthTable) {
   auto property = getProperty(design);
   if (property) {
     throw naja::SNL::SNLException("Design already has a Truth Table");
-  } 
-  return SNLDesignTruthTableProperty::create(design, truthTable);
+  }
+  property = naja::NajaDumpableProperty::create(design, SNLDesignTruthTablePropertyName);
+  property->addUInt64Value(truthTable.size());
+  property->addUInt64Value(truthTable.bits());
 }
 
 } // namespace
@@ -88,11 +53,14 @@ void SNLDesignTruthTable::setTruthTable(SNLDesign* design, const SNLTruthTable& 
 }
 
 SNLTruthTable SNLDesignTruthTable::getTruthTable(const SNLDesign* design) {
-  auto property = getProperty(design);
+  auto property = static_cast<naja::NajaDumpableProperty*>(design->getProperty(SNLDesignTruthTablePropertyName));
   if (property) {
-    return property->getTruthTable();
+    return naja::SNL::SNLTruthTable(
+      (uint32_t)property->getUInt64Value(0),
+      property->getUInt64Value(1)
+    );
   }
-  return SNLTruthTable();
+  return naja::SNL::SNLTruthTable();
 }
 
 }} // namespace SNL // namespace naja
