@@ -53,7 +53,7 @@ void SNLDesignTruthTable::setTruthTable(SNLDesign* design, const SNLTruthTable& 
 }
 
 SNLTruthTable SNLDesignTruthTable::getTruthTable(const SNLDesign* design) {
-  auto property = static_cast<naja::NajaDumpableProperty*>(design->getProperty(SNLDesignTruthTablePropertyName));
+  auto property = getProperty(design); 
   if (property) {
     return naja::SNL::SNLTruthTable(
       (uint32_t)property->getUInt64Value(0),

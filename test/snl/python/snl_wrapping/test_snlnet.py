@@ -212,6 +212,11 @@ class SNLNetTest(unittest.TestCase):
 
     net = snl.SNLScalarNet.create(self.design, "net")
     with self.assertRaises(RuntimeError) as context: net.setType(i0)
+
+  def testNameClash(self):
+    i0Net = snl.SNLScalarNet.create(self.design, "I0")
+    with self.assertRaises(RuntimeError) as context: snl.SNLScalarNet.create(self.design, "I0")
+    with self.assertRaises(RuntimeError) as context: snl.SNLBusNet.create(self.design, 4, 0, "I0")
     
 if __name__ == '__main__':
   unittest.main()

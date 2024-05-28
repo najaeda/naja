@@ -7,6 +7,7 @@ INCLUDE(GoogleTest)
 SET(snl_decorators_tests
   SNLDesignModelingTest0.cpp
   SNLTruthTableTest.cpp
+  SNLDesignTruthTableTest.cpp
   SNLLibraryTruthTablesTest.cpp
 )
 

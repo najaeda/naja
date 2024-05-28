@@ -8,7 +8,6 @@ using ::testing::ElementsAre;
 
 #include "SNLUniverse.h"
 #include "SNLDesignModeling.h"
-#include "SNLDesignTruthTable.h"
 #include "SNLScalarTerm.h"
 #include "SNLException.h"
 using namespace naja::SNL;
@@ -276,17 +275,4 @@ TEST_F(SNLDesignModelingTest0, testNonExistingParameterError) {
   auto prims = SNLLibrary::create(db, SNLLibrary::Type::Primitives);
   auto prim = SNLDesign::create(prims, SNLDesign::Type::Primitive, SNLName("prim"));
   EXPECT_THROW(SNLDesignModeling::setParameter(prim, "MODE", "NORMAL"), SNLException);
-}
-
-TEST_F(SNLDesignModelingTest0, testTruthTablesError) {
-  //Create primitives
-  SNLUniverse::create();
-  auto db = SNLDB::create(SNLUniverse::get());
-  auto prims = SNLLibrary::create(db, SNLLibrary::Type::Primitives);
-  auto design = SNLDesign::create(prims, SNLDesign::Type::Primitive, SNLName("design"));
-  auto i0 = SNLScalarTerm::create(design, SNLTerm::Direction::Input, SNLName("I0"));
-  auto i1 = SNLScalarTerm::create(design, SNLTerm::Direction::Input, SNLName("I1"));
-  auto o0 = SNLScalarTerm::create(design, SNLTerm::Direction::Output, SNLName("O0"));
-  //size discrepancy error
-  EXPECT_THROW(SNLDesignTruthTable::setTruthTable(design, SNLTruthTable(3, 0x5)), SNLException);
 }
