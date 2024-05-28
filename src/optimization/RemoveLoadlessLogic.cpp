@@ -283,7 +283,13 @@ void LoadlessLogicRemover::removeLoadlessInstances(
     Uniquifier uniquifier(path.first, path.second);
     uniquifier.process();
     for (SNLInstTerm* term : uniquifier.getPathUniq().back()->getInstTerms()) {
+      auto net = term->getNet();
       term->setNet(nullptr);
+      if (net != nullptr) {
+        if (net->getInstTerms().size() + net->getBitTerms().size() == 0) {
+          net->destroy();
+        }
+      }
     }
 #ifdef DEBUG_PRINTS
     // LCOV_EXCL_START
