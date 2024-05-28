@@ -8,6 +8,7 @@
 
 #include "NajaPrivateProperty.h"
 
+#include <cstdint>
 #include <vector>
 #include <variant>
 
