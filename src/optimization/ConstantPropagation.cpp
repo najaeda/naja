@@ -159,20 +159,20 @@ void ConstantPropagation::performConstantPropagationAnalysis() {
   std::set<DNLID> constants;
   constants.insert(constants0_.begin(), constants0_.end());
   constants.insert(constants1_.begin(), constants1_.end());
-  // #ifdef DEBUG_PRINTS
+   #ifdef DEBUG_PRINTS
   //  LCOV_EXCL_START
   printf("Constant Propagation : Number of constants before: %lu\n",
          constants.size());
   size_t loop = 0;
   // LCOV_EXCL_STOP
-  // #endif
+  #endif
   while (!constants.empty()) {
-    // #ifdef DEBUG_PRINTS
+     #ifdef DEBUG_PRINTS
     //  LCOV_EXCL_START
     printf("loop: %lu\n", loop);
     loop++;
     // LCOV_EXCL_STOP
-    // #endif
+     #endif
     std::set<DNLID> constantsNew;
     for (DNLID constant : constants) {
       DNLIso iso = dnl_->getDNLIsoDB().getIsoFromIsoIDconst(constant);

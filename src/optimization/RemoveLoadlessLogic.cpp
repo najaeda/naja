@@ -13,6 +13,7 @@
 #include "RemoveLoadlessLogic.h"
 #include "Utils.h"
 #include "tbb/enumerable_thread_specific.h"
+#include <sstream>
 
 using namespace naja::DNL;
 using namespace naja::SNL;
@@ -296,11 +297,26 @@ void LoadlessLogicRemover::removeLoadlessLogic() {
   dnl_ = DNL::get();
   tbb::concurrent_unordered_set<DNLID> tracedIsos = getTracedIsos(*dnl_);
   std::vector<DNLID> untracedIsos = getUntracedIsos(*dnl_, tracedIsos);
-  std::vector<std::pair<std::vector<SNLInstance*>, DNLID>> loadlessInstances =
+  loadlessInstances_ =
       getLoadlessInstances(*dnl_, tracedIsos);
+  report_ = collectStatistics();
   removeLoadlessInstances(SNLUniverse::get()->getTopDesign(),
-                          loadlessInstances);
+                          loadlessInstances_);
+  spdlog::info(report_);
   DNL::destroy();
+}
+
+std::string LoadlessLogicRemover::collectStatistics()const {
+  std::stringstream ss; 
+  std::map<std::string, size_t> deletedInstances;
+  for (const auto& entry : loadlessInstances_) {
+    deletedInstances[entry.first.back()->getModel()->getName().getString()]++;
+  }
+  ss << "DLE report:" << std::endl;
+  for (const auto& entry : deletedInstances) {
+    ss << entry.first << " : " << entry.second << std::endl;
+  }
+  return ss.str();
 }
 
 }  // namespace naja::NAJA_OPT

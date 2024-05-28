@@ -3,6 +3,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#include <spdlog/spdlog.h>
 #include "Reduction.h"
 #include <ranges>
 #include "SNLDesignModeling.h"
@@ -25,6 +26,8 @@ void ReductionOptimization::run() {
   for (auto& partialConstantReader : partialConstantReaders_) {
     reducPartialConstantInstance(partialConstantReader);
   }
+  report_ = collectStatistics();
+  spdlog::info(report_);
 }
 
 SNLTruthTable ReductionOptimization::reduceTruthTable(
@@ -52,6 +55,8 @@ SNLTruthTable ReductionOptimization::reduceTruthTable(
 void ReductionOptimization::replaceInstance(
     SNLInstance* instance,
     const std::pair<SNLDesign*, SNLLibraryTruthTables::Indexes>& result) {
+  reductionStatistics_[std::pair<std::string, std::string>(instance->getModel()->getName().getString(), 
+    result.first->getName().getString())]++;
   SNLDesign* design = instance->getDesign();
   SNLDesign* reducedDesign = result.first;
   SNLInstance* reducedInstance = SNLInstance::create(
@@ -165,3 +170,14 @@ void ReductionOptimization::reducPartialConstantInstance(
 #endif
   }
 }
+
+std::string ReductionOptimization::collectStatistics() const {
+  std::stringstream ss;  
+  ss << "RO report:" << std::endl;
+  for (const auto& entry : reductionStatistics_) {
+    ss << entry.first.first  << " -> " << entry.first.second << " : " << entry.second << std::endl;
+  }
+  return ss.str();
+}
+
+

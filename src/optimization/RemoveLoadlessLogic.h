@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include <string>
 #include "DNL.h"
 #include "tbb/concurrent_unordered_set.h"
 #include "tbb/scalable_allocator.h"
@@ -36,9 +37,13 @@ class LoadlessLogicRemover {
       std::vector<std::pair<std::vector<SNLInstance*>, DNLID>>&
           loadlessInstances);
   void removeLoadlessLogic();
+  std::string collectStatistics() const;
+  std::string getReport() const { return report_; }
 
  private:
   naja::DNL::DNL<DNLInstanceFull, DNLTerminalFull>* dnl_;
+  std::vector<std::pair<std::vector<SNLInstance*>, DNLID>> loadlessInstances_;
+  std::string report_;
 };
 
 }  // namespace naja::NAJA_OPT

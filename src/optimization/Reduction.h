@@ -27,8 +27,11 @@ class ReductionOptimization {
     const SNLTruthTable& truthTable,
     const std::vector<std::pair<SNLInstTerm*, int>>& constTerms);
   void replaceInstance(SNLInstance* instance, const std::pair<SNLDesign*, SNLLibraryTruthTables::Indexes>& result);
+  std::string collectStatistics() const;
   std::vector<std::tuple<std::vector<SNLInstance*>,
                          std::vector<std::pair<SNLInstTerm*, int>>,
                          DNLID>>
       partialConstantReaders_;
+  std::map<std::pair<std::string, std::string>, size_t> reductionStatistics_;
+  std::string report_;
 };
