@@ -1297,6 +1297,8 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialAND) {
   univ->setTopDesign(top);
   auto topOut =
       SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out"));
+  auto topOut2 =
+      SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out2"));
   auto topIn =
       SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("in"));
   // 3. create a logic_0 model
@@ -1328,6 +1330,7 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialAND) {
                                       Output, SNLName("out"));  
   // 8. create a and instance in top
   SNLInstance* inst3 = SNLInstance::create(top, andModel, SNLName("and"));
+  SNLInstance* inst4 = SNLInstance::create(top, andModel, SNLName("and2"));
   // 9. connect all instances inputs
   SNLNet* net1 = SNLScalarNet::create(top, SNLName("logic_0_net"));
   net1->setType(SNLNet::Type::Assign0);
@@ -1335,16 +1338,20 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialAND) {
   net2->setType(SNLNet::Type::Assign1);
   SNLNet* net3 = SNLScalarNet::create(top, SNLName("and_output_net"));
   SNLNet* net4 = SNLScalarNet::create(top, SNLName("input_net"));
+  SNLNet* net5 = SNLScalarNet::create(top, SNLName("and_output_net2"));
   topIn->setNet(net4);
+  topOut2->setNet(net5);
   // connect logic0 to and
   inst1->getInstTerm(logic0Out)->setNet(net1);
   inst3->getInstTerm(andIn1)->setNet(net4);
+  inst4->getInstTerm(andIn1)->setNet(net4);
   // connect logic1 to and
   inst2->getInstTerm(logic1Out)->setNet(net2);
   inst3->getInstTerm(andIn2)->setNet(net2);
+  inst4->getInstTerm(andIn1)->setNet(net1);
   // connect the and instance output to the top output
   inst3->getInstTerm(andOut)->setNet(net3);
-  topOut->setNet(net3);
+  inst4->getInstTerm(andOut)->setNet(net5);
   // 11. create DNL
   get();
   // 12. create a constant propagation object
@@ -2119,6 +2126,8 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialDFF) {
   univ->setTopDesign(top);
   auto topOut =
       SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out"));
+  auto topOut2 =
+      SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out2"));
   auto topIn =
       SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("in"));
   // 3. create a logic_0 model
@@ -2150,24 +2159,29 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialDFF) {
   auto dffQ = SNLScalarTerm::create(dffModel, SNLTerm::Direction::Output,
                                       SNLName("Q"));    
   // 8. create a mux instance in top
-  SNLInstance* inst11 = SNLInstance::create(top, dffModel, SNLName("dff"));
+  SNLInstance* inst11 = SNLInstance::create(top, dffModel, SNLName("dff1"));
+  SNLInstance* inst12 = SNLInstance::create(top, dffModel, SNLName("dff2"));
   // 9. connect all instances inputs
   SNLNet* net1 = SNLScalarNet::create(top, SNLName("logic_0_net"));
   net1->setType(SNLNet::Type::Assign0);
   SNLNet* net2 = SNLScalarNet::create(top, SNLName("logic_1_net"));
   net2->setType(SNLNet::Type::Assign1);
-  SNLNet* net3 = SNLScalarNet::create(top, SNLName("mux_output_net"));
+  SNLNet* net3 = SNLScalarNet::create(top, SNLName("dff_output_net"));
+  SNLNet* net5 = SNLScalarNet::create(top, SNLName("dff2_output_net"));
   SNLNet* net4 = SNLScalarNet::create(top, SNLName("input_net"));
   topIn->setNet(net4);
   // connect logic0 to mux
   inst1->getInstTerm(logic0Out)->setNet(net1);
   inst11->getInstTerm(dffCLK)->setNet(net4);
+  inst12->getInstTerm(dffCLK)->setNet(net4);
   // connect logic1 to mux
   inst2->getInstTerm(logic1Out)->setNet(net2);
   inst11->getInstTerm(dffD)->setNet(net2);
+  inst12->getInstTerm(dffD)->setNet(net1);
   // connect the mux instance output to the top output
   inst11->getInstTerm(dffQ)->setNet(net3);
   topOut->setNet(net3);
+  topOut2->setNet(net5);
   // 11. create DNL
   get();
   // 12. create a constant propagation object
