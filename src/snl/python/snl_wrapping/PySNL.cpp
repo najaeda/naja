@@ -28,6 +28,8 @@
 #include "PySNLBusTerms.h"
 #include "PySNLNets.h"
 #include "PySNLBitNets.h"
+#include "PySNLScalarNets.h"
+#include "PySNLBusNets.h"
 #include "PySNLNetComponents.h"
 #include "PySNLInstances.h"
 #include "PySNLInstTerms.h"
@@ -79,6 +81,8 @@ PyMODINIT_FUNC PyInit_snl(void) {
   PySNLBusTerms_LinkPyType();
   PySNLNets_LinkPyType();
   PySNLBitNets_LinkPyType();
+  PySNLScalarNets_LinkPyType();
+  PySNLBusNets_LinkPyType();
   PySNLNetComponents_LinkPyType();
   PySNLInstances_LinkPyType();
   PySNLInstParameters_LinkPyType();
@@ -125,6 +129,10 @@ PyMODINIT_FUNC PyInit_snl(void) {
   PYTYPE_READY(SNLNetsIterator);
   PYTYPE_READY(SNLBitNets);
   PYTYPE_READY(SNLBitNetsIterator);
+  PYTYPE_READY(SNLScalarNets);
+  PYTYPE_READY(SNLScalarNetsIterator);
+  PYTYPE_READY(SNLBusNets);
+  PYTYPE_READY(SNLBusNetsIterator);
   PYTYPE_READY(SNLNetComponents);
   PYTYPE_READY(SNLNetComponentsIterator);
   PYTYPE_READY(SNLInstances);
@@ -164,6 +172,8 @@ PyMODINIT_FUNC PyInit_snl(void) {
   Py_INCREF(&PyTypeSNLBusTerms);
   Py_INCREF(&PyTypeSNLNets);
   Py_INCREF(&PyTypeSNLBitNets);
+  Py_INCREF(&PyTypeSNLScalarNets);
+  Py_INCREF(&PyTypeSNLBusNets);
   Py_INCREF(&PyTypeSNLNetComponents);
   Py_INCREF(&PyTypeSNLInstances);
   Py_INCREF(&PyTypeSNLInstParameters);

@@ -19,6 +19,8 @@
 #include "PySNLScalarTerms.h"
 #include "PySNLBusTerms.h"
 #include "PySNLNets.h"
+#include "PySNLScalarNets.h"
+#include "PySNLBusNets.h"
 #include "PySNLBitNets.h"
 #include "PySNLInstances.h"
 #include "PySNLParameters.h"
@@ -320,6 +322,8 @@ GetContainerMethod(Design, BitTerm, BitTerms, BitTerms)
 GetContainerMethod(Design, ScalarTerm, ScalarTerms, ScalarTerms)
 GetContainerMethod(Design, BusTerm, BusTerms, BusTerms)
 GetContainerMethod(Design, Net, Nets, Nets)
+GetContainerMethod(Design, ScalarNet, ScalarNets, ScalarNets)
+GetContainerMethod(Design, BusNet, BusNets, BusNets)
 GetContainerMethod(Design, BitNet, BitNets, BitNets)
 GetContainerMethod(Design, Instance, Instances, Instances)
 GetContainerMethod(Design, Parameter, Parameters, Parameters)
@@ -389,6 +393,8 @@ PyMethodDef PySNLDesign_Methods[] = {
     "get a container of SNLBusTerms."},
   { "getNets", (PyCFunction)PySNLDesign_getNets, METH_NOARGS,
     "get a container of SNLNets."},
+  { "getNets", (PyCFunction)PySNLDesign_getScalarNets, METH_NOARGS,
+    "get a container of SNLScalarNets."},
   { "getBitNets", (PyCFunction)PySNLDesign_getBitNets, METH_NOARGS,
     "get a container of SNLBitNets."},
   { "getInstances", (PyCFunction)PySNLDesign_getInstances, METH_NOARGS,
