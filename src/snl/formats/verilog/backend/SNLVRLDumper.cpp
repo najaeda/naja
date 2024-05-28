@@ -37,6 +37,7 @@ size_t dumpDirection(const naja::SNL::SNLTerm* term, std::ostream& o) {
       o << "inout";
       return std::char_traits<char>::length("inout");
   }
+  return 0; //LCOV_EXCL_LINE
 }
 
 using ContiguousNetBits = std::vector<naja::SNL::SNLBitNet*>;

@@ -8,6 +8,8 @@
 
 #include "NajaPrivateProperty.h"
 
+#include <variant>
+
 namespace naja {
 
 class NajaDumpableProperty: public NajaPrivateProperty {
@@ -40,14 +42,26 @@ class NajaDumpableProperty: public NajaPrivateProperty {
      */ 
     static NajaDumpableProperty* create(NajaObject* owner, const std::string& name);
 
+    Type getType() const { return type_; }
+
     std::string getName() const override { return name_; }
     std::string getString() const override;
 
+    void setStringValue(const std::string& value);
+    std::string getStringValue() const;
+
+    void setUInt64Value(uint64_t value);
+    uint64_t getUInt64Value() const;
+
   protected:
     NajaDumpableProperty(const std::string& name);
+    NajaDumpableProperty(const std::string& name, const std::string& value);
+    NajaDumpableProperty(const std::string& name, uint64_t value);
 
   private:
-    std::string name_ {};
+    std::string name_   {};
+    Type        type_   { Type::String };
+    Value       value_  {};
 };
 
 } // namespace naja

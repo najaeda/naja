@@ -20,6 +20,7 @@
 #include "SNLDesign.h"
 #include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
+#include "SNLLibraryTruthTables.h"
 #include "SNLException.h"
 
 using boost::asio::ip::tcp;
@@ -33,7 +34,14 @@ void dumpProperty(
   Property::Builder& property,
   const NajaDumpableProperty* najaProperty) {
   property.setName(najaProperty->getName());
-
+  switch (najaProperty->getType()) {
+    case NajaDumpableProperty::Type::String:
+      property.initValue().setText(najaProperty->getStringValue());
+      break;
+    case NajaDumpableProperty::Type::UInt64:
+      property.initValue().setUint64(najaProperty->getUInt64Value());
+      break;
+  }
 }
 
 template<typename T> void dumpProperties(
@@ -248,7 +256,12 @@ template<typename T> void loadProperties(
   NajaObject* object,
   auto& propertiesGetter) {
   for (auto property: propertiesGetter(dumpObjectReader)) {
-    NajaDumpableProperty::create(object, property.getName());
+    auto najaProperty = NajaDumpableProperty::create(object, property.getName());
+    if (property.getValue().isText()) {
+      najaProperty->setStringValue(property.getValue().getText());
+    } else if (property.getValue().isUint64()) {
+      najaProperty->setUInt64Value(property.getValue().getUint64());
+    }
   }
 }
 
@@ -354,6 +367,9 @@ void loadLibraryInterface(NajaObject* parent, const DBInterface::LibraryInterfac
     for (auto subLibraryInterface: libraryInterface.getLibraryInterfaces()) {
       loadLibraryInterface(snlLibrary, subLibraryInterface);
     }
+  }
+  if (snlLibrary->isPrimitives()) {
+    SNLLibraryTruthTables::construct(snlLibrary);
   }
 }
 

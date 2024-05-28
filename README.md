@@ -116,10 +116,7 @@ SNL is summarized in below's image.
 
 ```bash
 # First clone the repository and go inside it
-git clone https://github.com/najaeda/naja.git
-cd naja
-git submodule init
-git submodule update
+git clone --recurse-submodules https://github.com/najaeda/naja.git
 ```
 
 #### Dependencies

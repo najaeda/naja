@@ -19,6 +19,6 @@ struct PropertyValue {
 }
 
 struct Property {
-  name    @0 : Text;
-  values  @1 : List(PropertyValue);
+  name  @0 : Text;
+  value @1 : PropertyValue;
 }
