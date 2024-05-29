@@ -10,7 +10,7 @@
 #include "SNLDesignTruthTable.h"
 using namespace naja::SNL;
 
-class SNLDesignTruthTableTest: public ::testing::Test {
+class SNLDesignTruthTableTest0: public ::testing::Test {
   protected:
     void TearDown() override {
       if (SNLUniverse::get()) {
@@ -19,7 +19,7 @@ class SNLDesignTruthTableTest: public ::testing::Test {
     }
 };
 
-TEST_F(SNLDesignTruthTableTest, testTruthTablesError) {
+TEST_F(SNLDesignTruthTableTest0, testTruthTablesError) {
   //Create primitives
   SNLUniverse::create();
   auto db = SNLDB::create(SNLUniverse::get());
@@ -32,7 +32,7 @@ TEST_F(SNLDesignTruthTableTest, testTruthTablesError) {
   EXPECT_THROW(SNLDesignTruthTable::setTruthTable(design, SNLTruthTable(3, 0x5)), SNLException);
 }
 
-TEST_F(SNLDesignTruthTableTest, testTruthTablesConflictError) {
+TEST_F(SNLDesignTruthTableTest0, testTruthTablesConflictError) {
   //Create primitives
   SNLUniverse::create();
   auto db = SNLDB::create(SNLUniverse::get());

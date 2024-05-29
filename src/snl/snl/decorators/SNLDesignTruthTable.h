@@ -15,6 +15,10 @@ class SNLDesignTruthTable {
   public:
     static void setTruthTable(SNLDesign* design, const SNLTruthTable& truthTable);
     static SNLTruthTable getTruthTable(const SNLDesign* design);
+    static bool isConst0(const SNLDesign* design);
+    static bool isConst1(const SNLDesign* design);
+    static bool isInv(const SNLDesign* design);
+    static bool isBuf(const SNLDesign* design);
 };
 
 }} // namespace SNL // namespace naja

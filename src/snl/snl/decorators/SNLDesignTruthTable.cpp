@@ -63,4 +63,36 @@ SNLTruthTable SNLDesignTruthTable::getTruthTable(const SNLDesign* design) {
   return naja::SNL::SNLTruthTable();
 }
 
+bool SNLDesignTruthTable::isConst0(const SNLDesign* design) {
+  auto truthTable = getTruthTable(design);
+  if (truthTable.isInitialized()) {
+    return truthTable == SNLTruthTable(0, 0);
+  }
+  return false;
+}
+
+bool SNLDesignTruthTable::isConst1(const SNLDesign* design) {
+  auto truthTable = getTruthTable(design);
+  if (truthTable.isInitialized()) {
+    return truthTable == SNLTruthTable(0, 1);
+  }
+  return false;
+}
+
+bool SNLDesignTruthTable::isInv(const SNLDesign* design) {
+  auto truthTable = getTruthTable(design);
+  if (truthTable.isInitialized()) {
+    return truthTable == SNLTruthTable(1, 0b01);
+  }
+  return false;
+}
+
+bool SNLDesignTruthTable::isBuf(const SNLDesign* design) {
+  auto truthTable = getTruthTable(design);
+  if (truthTable.isInitialized()) {
+    return truthTable == SNLTruthTable(1, 0b10);
+  }
+  return false;
+}
+
 }} // namespace SNL // namespace naja
