@@ -137,6 +137,7 @@ TEST_F(SNLCapNpTest0, test0) {
   EXPECT_EQ(5678, testProperty->getUInt64Value(1));
   EXPECT_THROW(testProperty->getStringValue(3), NajaException);
   EXPECT_THROW(testProperty->getStringValue(1), NajaException);
+  EXPECT_THROW(testProperty->getUInt64Value(3), NajaException);
   EXPECT_THROW(testProperty->getUInt64Value(0), NajaException);
 
   EXPECT_EQ(loadedDB, testProperty->getOwner());
