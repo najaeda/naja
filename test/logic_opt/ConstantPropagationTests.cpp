@@ -1052,7 +1052,7 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationMUX) {
   univ->setTopDesign(top);
   auto topOut =
       SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out"));
-  auto topOut3 =
+  auto topOut2 =
       SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out2"));
   // 3. create a logic_0 model
   SNLDesign* logic0 = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("LOGIC0"));
@@ -1085,7 +1085,7 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationMUX) {
                                       SNLName("Y"));  
   // 8. create a mux instance in top
   SNLInstance* inst11 = SNLInstance::create(top, muxModel, SNLName("mux"));
-  SNLInstance* inst12 = SNLInstance::create(top, muxModel, SNLName("mux"));
+  SNLInstance* inst12 = SNLInstance::create(top, muxModel, SNLName("mux2"));
   // 9. connect all instances inputs
   SNLNet* net1 = SNLScalarNet::create(top, SNLName("logic_0_net"));
   net1->setType(SNLNet::Type::Assign0);
@@ -1107,7 +1107,7 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationMUX) {
   inst11->getInstTerm(muxY)->setNet(net3);
   topOut->setNet(net3);
   inst12->getInstTerm(muxY)->setNet(net4);
-  topOut->setNet(net4);
+  topOut2->setNet(net4);
   // 11. create DNL
   get();
   // 12. create a constant propagation object
@@ -2182,7 +2182,7 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialMUX) {
   auto topOut =
       SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out"));
   auto topOut2 =
-      SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out"));    
+      SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out2"));    
   auto topIn =
       SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("in"));
   // 3. create a logic_0 model
