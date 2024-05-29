@@ -326,6 +326,8 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationAND) {
   univ->setTopDesign(top);
   auto topOut =
       SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out"));
+  auto topOut2 =
+      SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out2"));
   // 3. create a logic_0 model
   SNLDesign* logic0 = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("LOGIC0"));
   // add output to logic0
@@ -355,21 +357,27 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationAND) {
                                       Output, SNLName("out"));  
   // 8. create a and instance in top
   SNLInstance* inst3 = SNLInstance::create(top, andModel, SNLName("and"));
+  SNLInstance* inst4 = SNLInstance::create(top, andModel, SNLName("and2"));
   // 9. connect all instances inputs
   SNLNet* net1 = SNLScalarNet::create(top, SNLName("logic_0_net"));
   net1->setType(SNLNet::Type::Assign0);
   SNLNet* net2 = SNLScalarNet::create(top, SNLName("logic_1_net"));
   net2->setType(SNLNet::Type::Assign1);
   SNLNet* net3 = SNLScalarNet::create(top, SNLName("and_output_net"));
+  SNLNet* net4 = SNLScalarNet::create(top, SNLName("and2_output_net"));
   // connect logic0 to and
   inst1->getInstTerm(logic0Out)->setNet(net1);
   inst3->getInstTerm(andIn1)->setNet(net1);
+  inst4->getInstTerm(andIn1)->setNet(net1);
   // connect logic1 to and
   inst2->getInstTerm(logic1Out)->setNet(net2);
   inst3->getInstTerm(andIn2)->setNet(net2);
+  inst4->getInstTerm(andIn2)->setNet(net1);
   // connect the and instance output to the top output
   inst3->getInstTerm(andOut)->setNet(net3);
   topOut->setNet(net3);
+  inst4->getInstTerm(andOut)->setNet(net4);
+  topOut2->setNet(net4);
   // 11. create DNL
   get();
   // 12. create a constant propagation object
@@ -416,6 +424,8 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationOR) {
   univ->setTopDesign(top);
   auto topOut =
       SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out"));
+  auto topOut2 =
+      SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out2"));
   // 3. create a logic_0 model
   SNLDesign* logic0 = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("LOGIC0"));
   // add output to logic0
@@ -444,21 +454,27 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationOR) {
                                       Output, SNLName("out"));  
   // 8. create a or instance in top
   SNLInstance* inst4 = SNLInstance::create(top, orModel, SNLName("or"));
+  SNLInstance* inst5 = SNLInstance::create(top, orModel, SNLName("or2"));
   // 9. connect all instances inputs
   SNLNet* net1 = SNLScalarNet::create(top, SNLName("logic_0_net"));
   net1->setType(SNLNet::Type::Assign0);
   SNLNet* net2 = SNLScalarNet::create(top, SNLName("logic_1_net"));
   net2->setType(SNLNet::Type::Assign1);
   SNLNet* net3 = SNLScalarNet::create(top, SNLName("or_output_net"));
+  SNLNet* net4 = SNLScalarNet::create(top, SNLName("or2_output_net"));
   // connect logic0 to or
   inst1->getInstTerm(logic0Out)->setNet(net1);
   inst4->getInstTerm(orIn1)->setNet(net1);
+  inst5->getInstTerm(orIn1)->setNet(net1);
+  inst5->getInstTerm(orIn2)->setNet(net1);
   // connect logic1 to or
   inst2->getInstTerm(logic1Out)->setNet(net2);
   inst4->getInstTerm(orIn2)->setNet(net2);
   // connect the or instance output to the top output
   inst4->getInstTerm(orOut)->setNet(net3);
   topOut->setNet(net3);
+  inst5->getInstTerm(orOut)->setNet(net4);
+  topOut2->setNet(net4);
   // 11. create DNL
   get();
   // 12. create a constant propagation object
@@ -594,6 +610,8 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationNAND) {
   univ->setTopDesign(top);
   auto topOut =
       SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out"));
+  auto topOut2 =
+      SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out2"));
   // 3. create a logic_0 model
   SNLDesign* logic0 = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("LOGIC0"));
   // add output to logic0
@@ -625,17 +643,23 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationNAND) {
   SNLNet* net2 = SNLScalarNet::create(top, SNLName("logic_1_net"));
   net2->setType(SNLNet::Type::Assign1);
   SNLNet* net3 = SNLScalarNet::create(top, SNLName("nand_output_net"));
+  SNLNet* net4 = SNLScalarNet::create(top, SNLName("nand2_output_net"));
   // 8. create a nand instance in top
   SNLInstance* inst6 = SNLInstance::create(top, nandModel, SNLName("nand"));
+  SNLInstance* inst7 = SNLInstance::create(top, nandModel, SNLName("nand2"));
   // connect logic0 to nand
   inst1->getInstTerm(logic0Out)->setNet(net1);
   inst6->getInstTerm(nandIn1)->setNet(net1);
   // connect logic1 to nand
   inst2->getInstTerm(logic1Out)->setNet(net2);
   inst6->getInstTerm(nandIn2)->setNet(net2);
+  inst7->getInstTerm(nandIn1)->setNet(net2);
+  inst7->getInstTerm(nandIn2)->setNet(net2);
   // connect the nand instance output to the top output
   inst6->getInstTerm(nandOut)->setNet(net3);
   topOut->setNet(net3);
+  inst7->getInstTerm(nandOut)->setNet(net4);
+  topOut2->setNet(net4);
   // 11. create DNL
   get();
   // 12. create a constant propagation object
@@ -682,6 +706,8 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationNOR) {
   univ->setTopDesign(top);
   auto topOut =
       SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out"));
+  auto topOut2 =
+      SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out2"));
   // 3. create a logic_0 model
   SNLDesign* logic0 = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("LOGIC0"));
   // add output to logic0
@@ -709,21 +735,27 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationNOR) {
   auto norOut = SNLScalarTerm::create(norModel, SNLTerm::Direction::Output, SNLName("out"));  
   // 8. create a nor instance in top
   SNLInstance* inst7 = SNLInstance::create(top, norModel, SNLName("nor"));
+  SNLInstance* inst8 = SNLInstance::create(top, norModel, SNLName("nor2"));
   // 9. connect all instances inputs
   SNLNet* net1 = SNLScalarNet::create(top, SNLName("logic_0_net"));
   net1->setType(SNLNet::Type::Assign0);
   SNLNet* net2 = SNLScalarNet::create(top, SNLName("logic_1_net"));
   net2->setType(SNLNet::Type::Assign1);
   SNLNet* net3 = SNLScalarNet::create(top, SNLName("nor_output_net"));
+  SNLNet* net4 = SNLScalarNet::create(top, SNLName("nor2_output_net"));
   // connect logic0 to nor
   inst1->getInstTerm(logic0Out)->setNet(net1);
   inst7->getInstTerm(norIn1)->setNet(net1);
+  inst8->getInstTerm(norIn1)->setNet(net1);
+  inst8->getInstTerm(norIn2)->setNet(net1);
   // connect logic1 to nor
   inst2->getInstTerm(logic1Out)->setNet(net2);
   inst7->getInstTerm(norIn2)->setNet(net2);
   // connect the nor instance output to the top output
   inst7->getInstTerm(norOut)->setNet(net3);
   topOut->setNet(net3);
+  inst8->getInstTerm(norOut)->setNet(net4);
+  topOut2->setNet(net4);
   // 11. create DNL
   get();
   // 12. create a constant propagation object
@@ -1286,6 +1318,99 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationOAI) {
   }
 }
 
+TEST_F(ConstatPropagationTests, TestConstantPropagationNonDeffinedModel) {
+  // 1. Create SNL
+  SNLUniverse* univ = SNLUniverse::create();
+  SNLDB* db = SNLDB::create(univ);
+  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nand45"));
+  // 2. Create a top model with one output
+  SNLDesign* top = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("top"));
+  univ->setTopDesign(top);
+  auto topOut =
+      SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out"));
+  // 3. create a logic_0 model
+  SNLDesign* logic0 = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("LOGIC0"));
+  // add output to logic0
+  auto logic0Out =
+      SNLScalarTerm::create(logic0, SNLTerm::Direction::Output, SNLName("out"));
+  // 4. create a logic_1 model
+  SNLDesign* logic1 = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("LOGIC1"));
+  // add output to logic0
+  auto logic1Out =
+      SNLScalarTerm::create(logic1, SNLTerm::Direction::Output, SNLName("out"));
+  SNLDesignModeling::setTruthTable(logic0, SNLTruthTable(0,0));
+  SNLDesignModeling::setTruthTable(logic1, SNLTruthTable(0,1));
+  SNLLibraryTruthTables::construct(library);
+  // 5. create a logic_0 instace in top
+  SNLInstance* inst1 = SNLInstance::create(top, logic0, SNLName("logic0"));
+  // 6. create a logic_1 instace in top
+  SNLInstance* inst2 = SNLInstance::create(top, logic1, SNLName("logic1"));
+  // 7. create a buf model
+   // 7. create a and model for mux
+  // 7. create a and model for dff
+  SNLDesign* oaiModel = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("NonDeff"));
+  // create A, B1, B2, and Y ports as mentioned in const prop code
+  auto oaiA = SNLScalarTerm::create(oaiModel, SNLTerm::Direction::Input,
+                                      SNLName("A"));
+  auto oaiB1 = SNLScalarTerm::create(oaiModel, SNLTerm::Direction::Input,
+                                      SNLName("B1"));   
+  auto oaiB2 = SNLScalarTerm::create(oaiModel, SNLTerm::Direction::Input,   
+                                      SNLName("B2"));   
+  auto oaiY = SNLScalarTerm::create(oaiModel, SNLTerm::Direction::Output, 
+                                      SNLName("Y"));
+  // 8. create a oai instance in top
+  SNLInstance* inst11 = SNLInstance::create(top, oaiModel, SNLName("oai"));
+  // 9. connect all instances inputs
+  SNLNet* net1 = SNLScalarNet::create(top, SNLName("logic_0_net"));
+  net1->setType(SNLNet::Type::Assign0);
+  SNLNet* net2 = SNLScalarNet::create(top, SNLName("logic_1_net"));
+  net2->setType(SNLNet::Type::Assign1);
+  SNLNet* net3 = SNLScalarNet::create(top, SNLName("oai_output_net"));
+  // connect logic0 to oai
+  inst1->getInstTerm(logic0Out)->setNet(net1);
+  inst11->getInstTerm(oaiA)->setNet(net1);
+  // connect logic1 to oai
+  inst2->getInstTerm(logic1Out)->setNet(net2);
+  inst11->getInstTerm(oaiB1)->setNet(net2);
+  inst11->getInstTerm(oaiB2)->setNet(net2);
+  // connect the oai instance output to the top output
+  inst11->getInstTerm(oaiY)->setNet(net3);
+  topOut->setNet(net3);
+  // 11. create DNL
+  get();
+  // 12. create a constant propagation object
+  {
+    std::string dotFileName(
+        std::string(std::string("./beforeCP") + std::string(".dot")));
+    std::string svgFileName(
+        std::string(std::string("./beforeCP") + std::string(".svg")));
+    SnlVisualiser snl(top);
+    snl.process();
+    snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
+    system(std::string(std::string("dot -Tsvg ") + dotFileName +
+                       std::string(" -o ") + svgFileName)
+               .c_str());
+  }
+  ConstantPropagation cp;
+  // 13. collect the constants
+  cp.collectConstants();
+  // 14. run the constant propagation
+  cp.run();
+  // 15. check the output value of the top instance
+  {
+    std::string dotFileName(
+        std::string(std::string("./afterCP") + std::string(".dot")));
+    std::string svgFileName(
+        std::string(std::string("./afterCP") + std::string(".svg")));
+    SnlVisualiser snl(top);
+    snl.process();
+    snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
+    system(std::string(std::string("dot -Tsvg ") + dotFileName +
+                       std::string(" -o ") + svgFileName)
+               .c_str());
+  }
+}
+
 // Test constat propagation for AND
 TEST_F(ConstatPropagationTests, TestConstantPropagationPartialAND) {
   // 1. Create SNL
@@ -1398,6 +1523,8 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialOR) {
   univ->setTopDesign(top);
   auto topOut =
       SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out"));
+  auto topOut2 =
+      SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out2"));
   auto topIn =
       SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("in"));
   // 3. create a logic_0 model
@@ -1428,6 +1555,7 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialOR) {
                                       Output, SNLName("out"));  
   // 8. create a or instance in top
   SNLInstance* inst4 = SNLInstance::create(top, orModel, SNLName("or"));
+  SNLInstance* inst5 = SNLInstance::create(top, orModel, SNLName("or2"));
   // 9. connect all instances inputs
   SNLNet* net1 = SNLScalarNet::create(top, SNLName("logic_0_net"));
   net1->setType(SNLNet::Type::Assign0);
@@ -1435,16 +1563,21 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialOR) {
   net2->setType(SNLNet::Type::Assign1);
   SNLNet* net3 = SNLScalarNet::create(top, SNLName("or_output_net"));
   SNLNet* net4 = SNLScalarNet::create(top, SNLName("input_net"));
+  SNLNet* net5 = SNLScalarNet::create(top, SNLName("or2_output_net"));
   topIn->setNet(net4);
   // connect logic0 to or
   inst1->getInstTerm(logic0Out)->setNet(net1);
   inst4->getInstTerm(orIn1)->setNet(net1);
   // connect logic1 to or
   inst2->getInstTerm(logic1Out)->setNet(net2);
+  inst5->getInstTerm(orIn1)->setNet(net2);
   inst4->getInstTerm(orIn2)->setNet(net4);
+  inst5->getInstTerm(orIn2)->setNet(net4);
   // connect the or instance output to the top output
   inst4->getInstTerm(orOut)->setNet(net3);
   topOut->setNet(net3);
+  inst5->getInstTerm(orOut)->setNet(net5);
+  topOut2->setNet(net5);
   // 11. create DNL
   get();
   // 12. create a constant propagation object
@@ -1584,6 +1717,8 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialNAND) {
   univ->setTopDesign(top);
   auto topOut =
       SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out"));
+  auto topOut2 =
+      SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out2"));
   auto topIn =
       SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("in"));
   // 3. create a logic_0 model
@@ -1617,19 +1752,25 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialNAND) {
   SNLNet* net2 = SNLScalarNet::create(top, SNLName("logic_1_net"));
   net2->setType(SNLNet::Type::Assign1);
   SNLNet* net3 = SNLScalarNet::create(top, SNLName("nand_output_net"));
+  SNLNet* net5 = SNLScalarNet::create(top, SNLName("nand2_output_net"));
   SNLNet* net4 = SNLScalarNet::create(top, SNLName("input_net"));
   topIn->setNet(net4);
   // 8. create a nand instance in top
   SNLInstance* inst6 = SNLInstance::create(top, nandModel, SNLName("nand"));
+  SNLInstance* inst7 = SNLInstance::create(top, nandModel, SNLName("nand2"));
   // connect logic0 to nand
   inst1->getInstTerm(logic0Out)->setNet(net1);
   inst6->getInstTerm(nandIn1)->setNet(net1);
   // connect logic1 to nand
   inst2->getInstTerm(logic1Out)->setNet(net2);
+  inst7->getInstTerm(nandIn1)->setNet(net2);
   inst6->getInstTerm(nandIn2)->setNet(net4);
+  inst7->getInstTerm(nandIn2)->setNet(net4);
   // connect the nand instance output to the top output
   inst6->getInstTerm(nandOut)->setNet(net3);
   topOut->setNet(net3);
+  inst7->getInstTerm(nandOut)->setNet(net5);
+  topOut->setNet(net5);
   // 11. create DNL
   get();
   // 12. create a constant propagation object
@@ -2180,6 +2321,7 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialDFF) {
   inst12->getInstTerm(dffD)->setNet(net1);
   // connect the mux instance output to the top output
   inst11->getInstTerm(dffQ)->setNet(net3);
+  inst12->getInstTerm(dffQ)->setNet(net5);
   topOut->setNet(net3);
   topOut2->setNet(net5);
   // 11. create DNL
@@ -2251,6 +2393,105 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialOAI) {
    // 7. create a and model for mux
   // 7. create a and model for dff
   SNLDesign* oaiModel = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("OAI"));
+  // create A, B1, B2, and Y ports as mentioned in const prop code
+  auto oaiA = SNLScalarTerm::create(oaiModel, SNLTerm::Direction::Input,
+                                      SNLName("A"));
+  auto oaiB1 = SNLScalarTerm::create(oaiModel, SNLTerm::Direction::Input,
+                                      SNLName("B1"));   
+  auto oaiB2 = SNLScalarTerm::create(oaiModel, SNLTerm::Direction::Input,   
+                                      SNLName("B2"));   
+  auto oaiY = SNLScalarTerm::create(oaiModel, SNLTerm::Direction::Output, 
+                                      SNLName("Y"));
+  // 8. create a oai instance in top
+  SNLInstance* inst11 = SNLInstance::create(top, oaiModel, SNLName("oai"));
+  // 9. connect all instances inputs
+  SNLNet* net1 = SNLScalarNet::create(top, SNLName("logic_0_net"));
+  net1->setType(SNLNet::Type::Assign0);
+  SNLNet* net2 = SNLScalarNet::create(top, SNLName("logic_1_net"));
+  net2->setType(SNLNet::Type::Assign1);
+  SNLNet* net3 = SNLScalarNet::create(top, SNLName("oai_output_net"));
+  SNLNet* net4 = SNLScalarNet::create(top, SNLName("input_net"));
+  topIn->setNet(net4);
+  // connect logic0 to oai
+  inst1->getInstTerm(logic0Out)->setNet(net1);
+  inst11->getInstTerm(oaiA)->setNet(net1);
+  // connect logic1 to oai
+  inst2->getInstTerm(logic1Out)->setNet(net2);
+  
+  inst11->getInstTerm(oaiB1)->setNet(net2);
+  inst11->getInstTerm(oaiB2)->setNet(net4);
+  // connect the oai instance output to the top output
+  inst11->getInstTerm(oaiY)->setNet(net3);
+  topOut->setNet(net3);
+  // 11. create DNL
+  get();
+  // 12. create a constant propagation object
+  {
+    std::string dotFileName(
+        std::string(std::string("./beforeCP") + std::string(".dot")));
+    std::string svgFileName(
+        std::string(std::string("./beforeCP") + std::string(".svg")));
+    SnlVisualiser snl(top);
+    snl.process();
+    snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
+    system(std::string(std::string("dot -Tsvg ") + dotFileName +
+                       std::string(" -o ") + svgFileName)
+               .c_str());
+  }
+  ConstantPropagation cp;
+  // 13. collect the constants
+  cp.collectConstants();
+  // 14. run the constant propagation
+  cp.run();
+  // 15. check the output value of the top instance
+  {
+    std::string dotFileName(
+        std::string(std::string("./afterCP") + std::string(".dot")));
+    std::string svgFileName(
+        std::string(std::string("./afterCP") + std::string(".svg")));
+    SnlVisualiser snl(top);
+    snl.process();
+    snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
+    system(std::string(std::string("dot -Tsvg ") + dotFileName +
+                       std::string(" -o ") + svgFileName)
+               .c_str());
+  }
+}
+
+// Test constat propagation for BUF
+TEST_F(ConstatPropagationTests, TestConstantPropagationPartialNonDefinedModel) {
+  // 1. Create SNL
+  SNLUniverse* univ = SNLUniverse::create();
+  SNLDB* db = SNLDB::create(univ);
+  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nand45"));
+  // 2. Create a top model with one output
+  SNLDesign* top = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("top"));
+  univ->setTopDesign(top);
+  auto topOut =
+      SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out"));
+  auto topIn =
+      SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("in"));
+  // 3. create a logic_0 model
+  SNLDesign* logic0 = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("LOGIC0"));
+  // add output to logic0
+  auto logic0Out =
+      SNLScalarTerm::create(logic0, SNLTerm::Direction::Output, SNLName("out"));
+  // 4. create a logic_1 model
+  SNLDesign* logic1 = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("LOGIC1"));
+  // add output to logic0
+  auto logic1Out =
+      SNLScalarTerm::create(logic1, SNLTerm::Direction::Output, SNLName("out"));
+  SNLDesignModeling::setTruthTable(logic0, SNLTruthTable(0,0));
+  SNLDesignModeling::setTruthTable(logic1, SNLTruthTable(0,1));
+  SNLLibraryTruthTables::construct(library);
+  // 5. create a logic_0 instace in top
+  SNLInstance* inst1 = SNLInstance::create(top, logic0, SNLName("logic0"));
+  // 6. create a logic_1 instace in top
+  SNLInstance* inst2 = SNLInstance::create(top, logic1, SNLName("logic1"));
+  // 7. create a buf model
+   // 7. create a and model for mux
+  // 7. create a and model for dff
+  SNLDesign* oaiModel = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("NON_DEFF"));
   // create A, B1, B2, and Y ports as mentioned in const prop code
   auto oaiA = SNLScalarTerm::create(oaiModel, SNLTerm::Direction::Input,
                                       SNLName("A"));
