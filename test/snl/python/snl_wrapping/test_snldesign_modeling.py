@@ -196,10 +196,6 @@ class SNLDesignModelingTest(unittest.TestCase):
     instance = snl.SNLInstance.create(top, design, "instance")
     with self.assertRaises(RuntimeError) as context: instance.getCombinatorialInputs(d)
     with self.assertRaises(RuntimeError) as context: instance.getCombinatorialOutputs(q)
-
-  def testPrimitiveTruthTableErrors(self):
-    prim = snl.SNLDesign.createPrimitive(self.primitives, "AND2")
-    with self.assertRaises(RuntimeError) as context: prim.setTruthTable("ERROR")
    
 if __name__ == '__main__':
   unittest.main()

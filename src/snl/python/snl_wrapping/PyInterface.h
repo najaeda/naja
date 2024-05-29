@@ -259,6 +259,13 @@ PyObject* richCompare(T left, T right, int op) {
     Py_RETURN_FALSE; \
   }
 
+#define GetBoolAttributeWithFunction(SELF_TYPE, METHOD, FUNCTION) \
+  static PyObject* PySNL##SELF_TYPE##_##METHOD(PySNL##SELF_TYPE* self) { \
+    METHOD_HEAD("SNL##SELF_TYPE.##METHOD##()") \
+    if (FUNCTION(selfObject)) Py_RETURN_TRUE; \
+    Py_RETURN_FALSE; \
+  }
+
 #define LoadObjectConstant(DICTIONARY, CONSTANT_VALUE, CONSTANT_NAME)  \
  constant = PyLong_FromLong((long)CONSTANT_VALUE);                  \
  PyDict_SetItemString(DICTIONARY, CONSTANT_NAME, constant);         \

@@ -20,6 +20,7 @@ using ::testing::Property;
 #include "SNLBusNet.h"
 #include "SNLBusNetBit.h"
 #include "SNLInstTerm.h"
+#include "NajaException.h"
 
 #include "SNLCapnP.h"
 
@@ -134,6 +135,10 @@ TEST_F(SNLCapNpTest0, test0) {
   EXPECT_EQ(2, testProperty->getValues().size());
   EXPECT_EQ("WORLD", testProperty->getStringValue(0));
   EXPECT_EQ(5678, testProperty->getUInt64Value(1));
+  EXPECT_THROW(testProperty->getStringValue(3), NajaException);
+  EXPECT_THROW(testProperty->getStringValue(1), NajaException);
+  EXPECT_THROW(testProperty->getUInt64Value(0), NajaException);
+
   EXPECT_EQ(loadedDB, testProperty->getOwner());
   testProperty->destroy();
   testProperty = nullptr;

@@ -317,6 +317,10 @@ GetBoolAttribute(Design, isAnonymous)
 GetBoolAttribute(Design, isBlackBox)
 GetBoolAttribute(Design, isPrimitive)
 GetBoolAttribute(Design, isAssign)
+GetBoolAttributeWithFunction(Design, isConst0, SNLDesignTruthTable::isConst0)
+GetBoolAttributeWithFunction(Design, isConst1, SNLDesignTruthTable::isConst1)
+GetBoolAttributeWithFunction(Design, isBuf, SNLDesignTruthTable::isBuf)
+GetBoolAttributeWithFunction(Design, isInv, SNLDesignTruthTable::isInv)
 GetContainerMethod(Design, Term, Terms, Terms)
 GetContainerMethod(Design, BitTerm, BitTerms, BitTerms)
 GetContainerMethod(Design, ScalarTerm, ScalarTerms, ScalarTerms)
@@ -353,6 +357,14 @@ PyMethodDef PySNLDesign_Methods[] = {
     "get outputs related to a clock"},
   { "setTruthTable", (PyCFunction)PySNLDesign_setTruthTable, METH_VARARGS,
     "set truth table of a primitive"},
+  { "isConst0", (PyCFunction)PySNLDesign_isConst0, METH_NOARGS,
+    "Returns True if this desgin is a primitive driving a constant 0"},
+  { "isConst1", (PyCFunction)PySNLDesign_isConst1, METH_NOARGS,
+    "Returns True if this design is a primitive driving a constant 1"},
+  { "isBuf", (PyCFunction)PySNLDesign_isBuf, METH_NOARGS,
+    "Returns True if this design is a buffer primitive"},
+  { "isInv", (PyCFunction)PySNLDesign_isInv, METH_NOARGS,
+    "Returns True if this design is an inverter primitive"},  
   { "getName", (PyCFunction)PySNLDesign_getName, METH_NOARGS,
     "get SNLDesign name"},
   { "isAnonymous", (PyCFunction)PySNLDesign_isAnonymous, METH_NOARGS,

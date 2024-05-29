@@ -40,13 +40,23 @@ void createProperty(
 namespace naja { namespace SNL {
 
 void SNLDesignTruthTable::setTruthTable(SNLDesign* design, const SNLTruthTable& truthTable) {
+  if (not design->isPrimitive()) {
+    throw SNLException("Cannot add truth table on non-primitive design");
+  }
   //verify that the truth table size == nb of inputs
-  auto filter = [](const SNLTerm* term) { return term->getDirection() == SNLTerm::Direction::Input; };
-  auto inputs = design->getTerms().getSubCollection(filter);
+  auto inputFilter = [](const SNLTerm* term) { return term->getDirection() == SNLTerm::Direction::Input; };
+  auto inputs = design->getTerms().getSubCollection(inputFilter);
   if (inputs.size() not_eq truthTable.size()) {
     std::ostringstream reason;
     reason << "Truth table size <" << truthTable.size() << "> is different from inputs size <"
       << inputs.size() << "> in design <" << design->getName().getString() << ">";
+    throw SNLException(reason.str());
+  }
+  auto outputFilter = [](const SNLTerm* term) { return term->getDirection() == SNLTerm::Direction::Output; };
+  auto outputs = design->getTerms().getSubCollection(outputFilter);
+  if (outputs.size() not_eq 1) {
+    std::ostringstream reason;
+    reason << "cannot add truth table on Design <" << design->getName().getString() << "> that has <" << outputs.size() << "> outputs";
     throw SNLException(reason.str());
   }
   createProperty(design, truthTable);
