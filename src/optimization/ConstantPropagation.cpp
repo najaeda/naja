@@ -135,7 +135,7 @@ void ConstantPropagation::collectConstants() {
         const DNLTerminalFull& term = dnl_->getDNLTerminalFromID(termId);
         if (term.getSnlBitTerm()->getDirection() ==
             SNLBitTerm::Direction::Output) {
-          constants0_.insert(term.getIsoID());
+          initialConstants0_.insert(term.getIsoID());
         }
       }
     } else if (name.find("LOGIC1") != std::string::npos) {
@@ -144,21 +144,21 @@ void ConstantPropagation::collectConstants() {
         const DNLTerminalFull& term = dnl_->getDNLTerminalFromID(termId);
         if (term.getSnlBitTerm()->getDirection() ==
             SNLBitTerm::Direction::Output) {
-          constants1_.insert(term.getIsoID());
+          initialConstants1_.insert(term.getIsoID());
         }
       }
     }
   }
-  constants0_.insert(dnl_->getDNLIsoDB().getConstant0Isos().begin(),
+  initialConstants0_.insert(dnl_->getDNLIsoDB().getConstant0Isos().begin(),
                      dnl_->getDNLIsoDB().getConstant0Isos().end());
-  constants1_.insert(dnl_->getDNLIsoDB().getConstant1Isos().begin(),
+  initialConstants1_.insert(dnl_->getDNLIsoDB().getConstant1Isos().begin(),
                      dnl_->getDNLIsoDB().getConstant1Isos().end());
 }
 
 void ConstantPropagation::performConstantPropagationAnalysis() {
   std::set<DNLID> constants;
-  constants.insert(constants0_.begin(), constants0_.end());
-  constants.insert(constants1_.begin(), constants1_.end());
+  constants.insert(initialConstants0_.begin(), initialConstants0_.end());
+  constants.insert(initialConstants1_.begin(), initialConstants1_.end());
    #ifdef DEBUG_PRINTS
   //  LCOV_EXCL_START
   printf("Constant Propagation : Number of constants before: %lu\n",

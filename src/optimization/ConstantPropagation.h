@@ -37,6 +37,8 @@ class ConstantPropagation {
   void changeDriverToLocal1(SNLInstTerm* term, DNLID id);
   DNLFull* dnl_ = nullptr;
   std::unordered_map<SNLID::DesignID, DNLID> designObjectID2Type_;
+  std::set<DNLID> initialConstants0_;
+  std::set<DNLID> initialConstants1_;
   std::set<DNLID> constants0_;
   std::set<DNLID> constants1_;
   std::set<DNLID> partialConstantInstances_;
