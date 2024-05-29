@@ -972,7 +972,7 @@ void ConstantPropagation::propagateConstants() {
     SNLTruthTable tt(0, 0);
     auto logic0 = SNLLibraryTruthTables::getDesignForTruthTable(
                       term->getDesign()->getLibrary()->getDB()->getLibrary(
-                          SNLName("nand45")),
+                          SNLName("nangate45")),
                       tt)
                       .first;
     SNLInstance* logic0Inst = term->getDesign()->getInstance(SNLName(name));
@@ -1006,7 +1006,7 @@ void ConstantPropagation::propagateConstants() {
     SNLTruthTable tt(0, 1);
     auto logic1 = SNLLibraryTruthTables::getDesignForTruthTable(
                       term->getDesign()->getLibrary()->getDB()->getLibrary(
-                          SNLName("nand45")),
+                          SNLName("nangate45")),
                       tt)
                       .first;
     SNLInstance* logic1Inst = term->getDesign()->getInstance(SNLName(name));

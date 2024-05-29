@@ -66,7 +66,7 @@ TEST_F(ConstatPropagationTests, TestConstantPropagation) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
-  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nand45"));
+  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nangate45"));
   // 2. Create a top model with one output
   SNLDesign* top = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("top"));
   univ->setTopDesign(top);
@@ -320,7 +320,7 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationAND) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
-  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nand45"));
+  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nangate45"));
   // 2. Create a top model with one output
   SNLDesign* top = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("top"));
   univ->setTopDesign(top);
@@ -418,7 +418,7 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationOR) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
-  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nand45"));
+  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nangate45"));
   // 2. Create a top model with one output
   SNLDesign* top = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("top"));
   univ->setTopDesign(top);
@@ -515,7 +515,7 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationXOR) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
-  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nand45"));
+  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nangate45"));
   // 2. Create a top model with one output
   SNLDesign* top = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("top"));
   univ->setTopDesign(top);
@@ -604,7 +604,7 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationNAND) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
-  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nand45"));
+  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nangate45"));
   // 2. Create a top model with one output
   SNLDesign* top = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("top"));
   univ->setTopDesign(top);
@@ -700,7 +700,7 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationNOR) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
-  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nand45"));
+  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nangate45"));
   // 2. Create a top model with one output
   SNLDesign* top = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("top"));
   univ->setTopDesign(top);
@@ -796,7 +796,7 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationXNOR) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
-  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nand45"));
+  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nangate45"));
   // 2. Create a top model with one output
   SNLDesign* top = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("top"));
   univ->setTopDesign(top);
@@ -884,7 +884,7 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationINV) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
-  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nand45"));
+  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nangate45"));
   // 2. Create a top model with one output
   SNLDesign* top = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("top"));
   univ->setTopDesign(top);
@@ -965,7 +965,7 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationBUF) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
-  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nand45"));
+  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nangate45"));
   // 2. Create a top model with one output
   SNLDesign* top = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("top"));
   univ->setTopDesign(top);
@@ -1046,12 +1046,14 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationMUX) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
-  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nand45"));
+  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nangate45"));
   // 2. Create a top model with one output
   SNLDesign* top = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("top"));
   univ->setTopDesign(top);
   auto topOut =
       SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out"));
+  auto topOut3 =
+      SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out2"));
   // 3. create a logic_0 model
   SNLDesign* logic0 = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("LOGIC0"));
   // add output to logic0
@@ -1083,21 +1085,29 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationMUX) {
                                       SNLName("Y"));  
   // 8. create a mux instance in top
   SNLInstance* inst11 = SNLInstance::create(top, muxModel, SNLName("mux"));
+  SNLInstance* inst12 = SNLInstance::create(top, muxModel, SNLName("mux"));
   // 9. connect all instances inputs
   SNLNet* net1 = SNLScalarNet::create(top, SNLName("logic_0_net"));
   net1->setType(SNLNet::Type::Assign0);
   SNLNet* net2 = SNLScalarNet::create(top, SNLName("logic_1_net"));
   net2->setType(SNLNet::Type::Assign1);
   SNLNet* net3 = SNLScalarNet::create(top, SNLName("mux_output_net"));
+  SNLNet* net4 = SNLScalarNet::create(top, SNLName("mux2_output_net"));
   // connect logic0 to mux
   inst1->getInstTerm(logic0Out)->setNet(net1);
   inst11->getInstTerm(muxA)->setNet(net1);
+  inst12->getInstTerm(muxB)->setNet(net1);
+  inst12->getInstTerm(muxS)->setNet(net1);
   // connect logic1 to mux
   inst2->getInstTerm(logic1Out)->setNet(net2);
   inst11->getInstTerm(muxB)->setNet(net2);
+  inst12->getInstTerm(muxA)->setNet(net2);
+  inst11->getInstTerm(muxS)->setNet(net2);
   // connect the mux instance output to the top output
   inst11->getInstTerm(muxY)->setNet(net3);
   topOut->setNet(net3);
+  inst12->getInstTerm(muxY)->setNet(net4);
+  topOut->setNet(net4);
   // 11. create DNL
   get();
   // 12. create a constant propagation object
@@ -1138,7 +1148,7 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationDFF) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
-  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nand45"));
+  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nangate45"));
   // 2. Create a top model with one output
   SNLDesign* top = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("top"));
   univ->setTopDesign(top);
@@ -1229,7 +1239,7 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationOAI) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
-  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nand45"));
+  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nangate45"));
   // 2. Create a top model with one output
   SNLDesign* top = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("top"));
   univ->setTopDesign(top);
@@ -1322,7 +1332,7 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationNonDeffinedModel) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
-  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nand45"));
+  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nangate45"));
   // 2. Create a top model with one output
   SNLDesign* top = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("top"));
   univ->setTopDesign(top);
@@ -1416,7 +1426,7 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialAND) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
-  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nand45"));
+  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nangate45"));
   // 2. Create a top model with one output
   SNLDesign* top = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("top"));
   univ->setTopDesign(top);
@@ -1517,7 +1527,7 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialOR) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
-  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nand45"));
+  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nangate45"));
   // 2. Create a top model with one output
   SNLDesign* top = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("top"));
   univ->setTopDesign(top);
@@ -1618,7 +1628,7 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialXOR) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
-  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nand45"));
+  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nangate45"));
   // 2. Create a top model with one output
   SNLDesign* top = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("top"));
   univ->setTopDesign(top);
@@ -1711,7 +1721,7 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialNAND) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
-  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nand45"));
+  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nangate45"));
   // 2. Create a top model with one output
   SNLDesign* top = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("top"));
   univ->setTopDesign(top);
@@ -1811,7 +1821,7 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialNOR) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
-  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nand45"));
+  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nangate45"));
   // 2. Create a top model with one output
   SNLDesign* top = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("top"));
   univ->setTopDesign(top);
@@ -1903,7 +1913,7 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialXNOR) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
-  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nand45"));
+  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nangate45"));
   // 2. Create a top model with one output
   SNLDesign* top = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("top"));
   univ->setTopDesign(top);
@@ -1995,7 +2005,7 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialINV) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
-  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nand45"));
+  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nangate45"));
   // 2. Create a top model with one output
   SNLDesign* top = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("top"));
   univ->setTopDesign(top);
@@ -2080,7 +2090,7 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialBUF) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
-  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nand45"));
+  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nangate45"));
   // 2. Create a top model with one output
   SNLDesign* top = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("top"));
   univ->setTopDesign(top);
@@ -2165,12 +2175,14 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialMUX) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
-  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nand45"));
+  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nangate45"));
   // 2. Create a top model with one output
   SNLDesign* top = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("top"));
   univ->setTopDesign(top);
   auto topOut =
       SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out"));
+  auto topOut2 =
+      SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out"));    
   auto topIn =
       SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("in"));
   // 3. create a logic_0 model
@@ -2204,23 +2216,32 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialMUX) {
                                       SNLName("Y"));  
   // 8. create a mux instance in top
   SNLInstance* inst11 = SNLInstance::create(top, muxModel, SNLName("mux"));
+  SNLInstance* inst12 = SNLInstance::create(top, muxModel, SNLName("mux2"));
   // 9. connect all instances inputs
   SNLNet* net1 = SNLScalarNet::create(top, SNLName("logic_0_net"));
   net1->setType(SNLNet::Type::Assign0);
   SNLNet* net2 = SNLScalarNet::create(top, SNLName("logic_1_net"));
   net2->setType(SNLNet::Type::Assign1);
   SNLNet* net3 = SNLScalarNet::create(top, SNLName("mux_output_net"));
+  SNLNet* net5 = SNLScalarNet::create(top, SNLName("mux2_output_net"));
   SNLNet* net4 = SNLScalarNet::create(top, SNLName("input_net"));
   topIn->setNet(net4);
   // connect logic0 to mux
   inst1->getInstTerm(logic0Out)->setNet(net1);
   inst11->getInstTerm(muxA)->setNet(net4);
+  inst12->getInstTerm(muxA)->setNet(net1);
   // connect logic1 to mux
   inst2->getInstTerm(logic1Out)->setNet(net2);
   inst11->getInstTerm(muxB)->setNet(net2);
+  inst12->getInstTerm(muxB)->setNet(net4);
+
+  inst11->getInstTerm(muxS)->setNet(net2);
+  inst11->getInstTerm(muxS)->setNet(net2);
   // connect the mux instance output to the top output
   inst11->getInstTerm(muxY)->setNet(net3);
   topOut->setNet(net3);
+  inst12->getInstTerm(muxY)->setNet(net5);
+  topOut2->setNet(net5);
   // 11. create DNL
   get();
   // 12. create a constant propagation object
@@ -2261,7 +2282,7 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialDFF) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
-  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nand45"));
+  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nangate45"));
   // 2. Create a top model with one output
   SNLDesign* top = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("top"));
   univ->setTopDesign(top);
@@ -2364,12 +2385,14 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialOAI) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
-  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nand45"));
+  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nangate45"));
   // 2. Create a top model with one output
   SNLDesign* top = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("top"));
   univ->setTopDesign(top);
   auto topOut =
       SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out"));
+  auto topOut2 =
+      SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out2"));
   auto topIn =
       SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("in"));
   // 3. create a logic_0 model
@@ -2404,25 +2427,32 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialOAI) {
                                       SNLName("Y"));
   // 8. create a oai instance in top
   SNLInstance* inst11 = SNLInstance::create(top, oaiModel, SNLName("oai"));
+  SNLInstance* inst12 = SNLInstance::create(top, oaiModel, SNLName("oai2"));
   // 9. connect all instances inputs
   SNLNet* net1 = SNLScalarNet::create(top, SNLName("logic_0_net"));
   net1->setType(SNLNet::Type::Assign0);
   SNLNet* net2 = SNLScalarNet::create(top, SNLName("logic_1_net"));
   net2->setType(SNLNet::Type::Assign1);
   SNLNet* net3 = SNLScalarNet::create(top, SNLName("oai_output_net"));
+  SNLNet* net5 = SNLScalarNet::create(top, SNLName("oai2_output_net"));
   SNLNet* net4 = SNLScalarNet::create(top, SNLName("input_net"));
   topIn->setNet(net4);
   // connect logic0 to oai
   inst1->getInstTerm(logic0Out)->setNet(net1);
   inst11->getInstTerm(oaiA)->setNet(net1);
+  inst12->getInstTerm(oaiB2)->setNet(net1);
   // connect logic1 to oai
   inst2->getInstTerm(logic1Out)->setNet(net2);
-  
+  inst11->getInstTerm(oaiA)->setNet(net2);
   inst11->getInstTerm(oaiB1)->setNet(net2);
+
   inst11->getInstTerm(oaiB2)->setNet(net4);
+  inst12->getInstTerm(oaiB1)->setNet(net4);
   // connect the oai instance output to the top output
   inst11->getInstTerm(oaiY)->setNet(net3);
   topOut->setNet(net3);
+  inst12->getInstTerm(oaiY)->setNet(net5);
+  topOut2->setNet(net5);
   // 11. create DNL
   get();
   // 12. create a constant propagation object
@@ -2463,7 +2493,7 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialNonDefinedModel) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
-  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nand45"));
+  SNLLibrary* library = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nangate45"));
   // 2. Create a top model with one output
   SNLDesign* top = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName("top"));
   univ->setTopDesign(top);
