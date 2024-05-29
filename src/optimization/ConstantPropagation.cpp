@@ -136,6 +136,7 @@ void ConstantPropagation::collectConstants() {
         if (term.getSnlBitTerm()->getDirection() ==
             SNLBitTerm::Direction::Output) {
           initialConstants0_.insert(term.getIsoID());
+          constants0_.insert(term.getIsoID());
         }
       }
     } else if (name.find("LOGIC1") != std::string::npos) {
@@ -145,6 +146,7 @@ void ConstantPropagation::collectConstants() {
         if (term.getSnlBitTerm()->getDirection() ==
             SNLBitTerm::Direction::Output) {
           initialConstants1_.insert(term.getIsoID());
+          constants1_.insert(term.getIsoID());
         }
       }
     }
@@ -153,6 +155,10 @@ void ConstantPropagation::collectConstants() {
                      dnl_->getDNLIsoDB().getConstant0Isos().end());
   initialConstants1_.insert(dnl_->getDNLIsoDB().getConstant1Isos().begin(),
                      dnl_->getDNLIsoDB().getConstant1Isos().end());
+  constants0_.insert(dnl_->getDNLIsoDB().getConstant0Isos().begin(),
+               dnl_->getDNLIsoDB().getConstant0Isos().end());
+  constants1_.insert(dnl_->getDNLIsoDB().getConstant1Isos().begin(),
+                dnl_->getDNLIsoDB().getConstant1Isos().end());
 }
 
 void ConstantPropagation::performConstantPropagationAnalysis() {
@@ -870,6 +876,9 @@ void ConstantPropagation::changeDriverToLocal1(SNLInstTerm* term, DNLID id) {
 
 void ConstantPropagation::propagateConstants() {
   for (DNLID iso : constants0_) {
+    if (initialConstants0_.find(iso) != initialConstants0_.end()) {
+      continue;
+    }
     DNLIso const0iso = dnl_->getDNLIsoDB().getIsoFromIsoIDconst(iso);
     if (const0iso.getDrivers().size() > 1) {
       continue;
@@ -894,6 +903,9 @@ void ConstantPropagation::propagateConstants() {
     }
   }
   for (DNLID iso : constants1_) {
+    if (initialConstants1_.find(iso) != initialConstants1_.end()) {
+      continue;
+    }
     DNLIso const1iso = dnl_->getDNLIsoDB().getIsoFromIsoIDconst(iso);
     if (const1iso.getDrivers().size() > 1) {
       continue;
