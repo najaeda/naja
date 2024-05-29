@@ -357,7 +357,7 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationAND) {
                                       Output, SNLName("out"));  
   // 8. create a and instance in top
   SNLInstance* inst3 = SNLInstance::create(top, andModel, SNLName("and"));
-  SNLInstance* inst4 = SNLInstance::create(top, andModel, SNLName("and"));
+  SNLInstance* inst4 = SNLInstance::create(top, andModel, SNLName("and2"));
   // 9. connect all instances inputs
   SNLNet* net1 = SNLScalarNet::create(top, SNLName("logic_0_net"));
   net1->setType(SNLNet::Type::Assign0);
