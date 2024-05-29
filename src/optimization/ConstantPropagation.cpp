@@ -977,8 +977,7 @@ void ConstantPropagation::propagateConstants() {
     if (nullptr == assign0) {
       assign0 = SNLScalarNet::create(
         term->getDesign(),
-        SNLName(std::string("assign0_") + term->getName().getString() +
-                std::to_string(term->getBit())));
+        SNLName(name));
     }
     term->setNet(assign0);
     SNLTruthTable tt(0, 0);
@@ -1010,8 +1009,7 @@ void ConstantPropagation::propagateConstants() {
     if (nullptr == assign1) {
       assign1 = SNLScalarNet::create(
         term->getDesign(),
-        SNLName(std::string("assign1_") + term->getName().getString() +
-                std::to_string(term->getBit())));
+        SNLName(name));
     }
     // assign1->setType(naja::SNL::SNLNet::Type::Assign1);
     term->setNet(assign1);
