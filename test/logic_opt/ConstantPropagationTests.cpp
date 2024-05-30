@@ -368,11 +368,11 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationAND) {
   // connect logic0 to and
   inst1->getInstTerm(logic0Out)->setNet(net1);
   
-  inst4->getInstTerm(andIn1)->setNet(net1);
-  inst4->getInstTerm(andIn2)->setNet(net1);
+  inst4->getInstTerm(andIn1)->setNet(net2);
+  inst4->getInstTerm(andIn2)->setNet(net2);
   // connect logic1 to and
   inst2->getInstTerm(logic1Out)->setNet(net2);
-  inst3->getInstTerm(andIn2)->setNet(net2);
+  inst3->getInstTerm(andIn2)->setNet(net1);
   inst3->getInstTerm(andIn1)->setNet(net4);
   // connect the and instance output to the top output
   inst3->getInstTerm(andOut)->setNet(net3);
