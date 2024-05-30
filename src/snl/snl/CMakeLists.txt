@@ -29,6 +29,7 @@ set(SNL_KERNEL_SOURCES
 set(SNL_DECORATOR_SOURCES
   decorators/SNLDesignModeling.cpp
   decorators/SNLLibraryTruthTables.cpp
+  decorators/SNLDesignTruthTable.cpp
 )
 
 set(SNL_HEADERS

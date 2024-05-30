@@ -19,12 +19,15 @@
 #include "PySNLScalarTerms.h"
 #include "PySNLBusTerms.h"
 #include "PySNLNets.h"
+#include "PySNLScalarNets.h"
+#include "PySNLBusNets.h"
 #include "PySNLBitNets.h"
 #include "PySNLInstances.h"
 #include "PySNLParameters.h"
 
 #include "SNLDesign.h"
 #include "SNLDesignModeling.h"
+#include "SNLDesignTruthTable.h"
 #include "SNLVRLDumper.h"
 
 namespace PYSNL {
@@ -279,7 +282,7 @@ static PyObject* PySNLDesign_setTruthTable(PySNLDesign* self, PyObject* args) {
   auto filter = [](const SNLTerm* term) { return term->getDirection() == SNLTerm::Direction::Input; };
   size_t size = selfObject->getBitTerms().getSubCollection(filter).size();
   SNLTruthTable truthTable(size, tt);
-  SNLDesignModeling::setTruthTable(selfObject, truthTable);
+  SNLDesignTruthTable::setTruthTable(selfObject, truthTable);
   Py_RETURN_NONE;
 }
 
@@ -314,11 +317,17 @@ GetBoolAttribute(Design, isAnonymous)
 GetBoolAttribute(Design, isBlackBox)
 GetBoolAttribute(Design, isPrimitive)
 GetBoolAttribute(Design, isAssign)
+GetBoolAttributeWithFunction(Design, isConst0, SNLDesignTruthTable::isConst0)
+GetBoolAttributeWithFunction(Design, isConst1, SNLDesignTruthTable::isConst1)
+GetBoolAttributeWithFunction(Design, isBuf, SNLDesignTruthTable::isBuf)
+GetBoolAttributeWithFunction(Design, isInv, SNLDesignTruthTable::isInv)
 GetContainerMethod(Design, Term, Terms, Terms)
 GetContainerMethod(Design, BitTerm, BitTerms, BitTerms)
 GetContainerMethod(Design, ScalarTerm, ScalarTerms, ScalarTerms)
 GetContainerMethod(Design, BusTerm, BusTerms, BusTerms)
 GetContainerMethod(Design, Net, Nets, Nets)
+GetContainerMethod(Design, ScalarNet, ScalarNets, ScalarNets)
+GetContainerMethod(Design, BusNet, BusNets, BusNets)
 GetContainerMethod(Design, BitNet, BitNets, BitNets)
 GetContainerMethod(Design, Instance, Instances, Instances)
 GetContainerMethod(Design, Parameter, Parameters, Parameters)
@@ -348,6 +357,14 @@ PyMethodDef PySNLDesign_Methods[] = {
     "get outputs related to a clock"},
   { "setTruthTable", (PyCFunction)PySNLDesign_setTruthTable, METH_VARARGS,
     "set truth table of a primitive"},
+  { "isConst0", (PyCFunction)PySNLDesign_isConst0, METH_NOARGS,
+    "Returns True if this desgin is a primitive driving a constant 0"},
+  { "isConst1", (PyCFunction)PySNLDesign_isConst1, METH_NOARGS,
+    "Returns True if this design is a primitive driving a constant 1"},
+  { "isBuf", (PyCFunction)PySNLDesign_isBuf, METH_NOARGS,
+    "Returns True if this design is a buffer primitive"},
+  { "isInv", (PyCFunction)PySNLDesign_isInv, METH_NOARGS,
+    "Returns True if this design is an inverter primitive"},  
   { "getName", (PyCFunction)PySNLDesign_getName, METH_NOARGS,
     "get SNLDesign name"},
   { "isAnonymous", (PyCFunction)PySNLDesign_isAnonymous, METH_NOARGS,
@@ -388,6 +405,10 @@ PyMethodDef PySNLDesign_Methods[] = {
     "get a container of SNLBusTerms."},
   { "getNets", (PyCFunction)PySNLDesign_getNets, METH_NOARGS,
     "get a container of SNLNets."},
+  { "getScalarNets", (PyCFunction)PySNLDesign_getScalarNets, METH_NOARGS,
+    "get a container of SNLScalarNets."},
+  { "getBusNets", (PyCFunction)PySNLDesign_getBusNets, METH_NOARGS,
+    "get a container of SNLBusNets."},
   { "getBitNets", (PyCFunction)PySNLDesign_getBitNets, METH_NOARGS,
     "get a container of SNLBitNets."},
   { "getInstances", (PyCFunction)PySNLDesign_getInstances, METH_NOARGS,

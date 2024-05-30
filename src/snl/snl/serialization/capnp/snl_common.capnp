@@ -12,8 +12,9 @@ struct DesignReference {
 
 struct PropertyValue {
   union {
-    text  @0 : Text;
-    bool  @1 : Bool;
+    text    @0 : Text;
+    bool    @1 : Bool;
+    uint64  @2 : UInt64;
   }
 }
 

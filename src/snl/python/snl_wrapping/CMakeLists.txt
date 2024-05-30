@@ -18,7 +18,7 @@ set(SOURCES
   PySNLParameters.cpp PySNLInstParameters.cpp
   PySNLNetComponents.cpp
   PySNLTerms.cpp PySNLBitTerms.cpp PySNLScalarTerms.cpp PySNLBusTerms.cpp
-  PySNLNets.cpp PySNLBitNets.cpp
+  PySNLNets.cpp PySNLBitNets.cpp PySNLScalarNets.cpp PySNLBusNets.cpp
   PySNLInstances.cpp PySNLInstTerms.cpp
 )
 

@@ -63,7 +63,6 @@ def constructDFF(lib, X):
   q = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "Q")
   qn = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "QN")
 
-
 def constructFA(lib, X):
   cell = snl.SNLDesign.createPrimitive(lib, "FA_X" + str(X))
   a = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A")
@@ -80,12 +79,13 @@ def constructHA(lib, X):
   s = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "S")
 
 def constructMUX2(lib, X):
+  #function		: "((S & B) | (A & !S))";
   cell = snl.SNLDesign.createPrimitive(lib, "MUX2_X" + str(X))
   a = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A")
   b = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B")
   s = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "S")
   z = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "Z")
-  cell.setTruthTable(0xE4)
+  cell.setTruthTable(0xCA)
 
 def constructNAND2(lib, X):
   cell = snl.SNLDesign.createPrimitive(lib, "NAND2_X" + str(X))

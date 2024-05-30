@@ -7,6 +7,9 @@
 #include <fstream>
 
 #include <argparse/argparse.hpp>
+
+// All DEBUG/TRACE statements will be removed by the pre-processor
+#define SPDLOG_ACTIVE_LEVEL SPDLOG_LEVEL_INFO
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/basic_file_sink.h> // support for basic file logging
 #include <spdlog/sinks/stdout_color_sinks.h>
@@ -95,12 +98,12 @@ int main(int argc, char* argv[]) {
 
   std::vector<spdlog::sink_ptr> sinks;
   auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
-  console_sink->set_level(spdlog::level::info);
+  //console_sink->set_level(spdlog::level::info);
   console_sink->set_pattern("[naja_edit] [%^%l%$] %v");
   sinks.push_back(console_sink);
 
   auto file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>("naja_edit.log", true);
-  file_sink->set_level(spdlog::level::trace);
+  //file_sink->set_level(spdlog::level::trace);
   sinks.push_back(file_sink);
 
   auto edit_logger = std::make_shared<spdlog::logger>("logger", begin(sinks), end(sinks));
@@ -108,11 +111,11 @@ int main(int argc, char* argv[]) {
 
   spdlog::set_default_logger(edit_logger);
   spdlog::flush_every(std::chrono::seconds(3));
-  spdlog::info("########################################################");
-  spdlog::info("naja_edit");
-  spdlog::info("Version: {}", naja::NAJA_VERSION);
-  spdlog::info("Git hash: {}", naja::NAJA_GIT_HASH);
-  spdlog::info("########################################################");
+  SPDLOG_INFO("########################################################");
+  SPDLOG_INFO("naja_edit");
+  SPDLOG_INFO("Version: {}", naja::NAJA_VERSION);
+  SPDLOG_INFO("Git hash: {}", naja::NAJA_GIT_HASH);
+  SPDLOG_INFO("########################################################");
 
   bool argError = false;
   auto inputFormatArg = program.present("-f");
@@ -130,24 +133,24 @@ int main(int argc, char* argv[]) {
   FormatType inputFormatType = argToFormatType(inputFormat);
   FormatType outputFormatType = argToFormatType(outputFormat);
   if (inputFormatType == FormatType::UNKNOWN) {
-    spdlog::critical("Unrecognized input format type: {}", inputFormat);
+    SPDLOG_CRITICAL("Unrecognized input format type: {}", inputFormat);
     argError = true;
   }
   if (outputFormatType == FormatType::UNKNOWN) {
-    spdlog::critical("Unrecognized output format type: {}", outputFormat);
+    SPDLOG_CRITICAL("Unrecognized output format type: {}", outputFormat);
     argError = true;
   }
 
   std::filesystem::path primitivesPath;
   if (auto primitives = program.present("-p")) {
     if (inputFormatType == FormatType::SNL) {
-      spdlog::critical("primitives option (-p) is incompatible with input format 'SNL'");
+      SPDLOG_CRITICAL("primitives option (-p) is incompatible with input format 'SNL'");
       argError = true;
     }
     primitivesPath = std::filesystem::path(*primitives);
   } else {
     if (inputFormatType != FormatType::SNL) {
-      spdlog::critical("primitives option (-p) is mandatory when the input format is not 'SNL'");
+      SPDLOG_CRITICAL("primitives option (-p) is mandatory when the input format is not 'SNL'");
       argError = true;
     }
   }
@@ -157,7 +160,7 @@ int main(int argc, char* argv[]) {
     std::string optimization = *optimizationArg;
     optimizationType = argToOptimizationType(optimization);
     if (optimizationType == OptimizationType::UNKNOWN) {
-      spdlog::critical("Unrecognized optimization type: {}", optimization);
+      SPDLOG_CRITICAL("Unrecognized optimization type: {}", optimization);
       argError = true;
     }
   }
@@ -178,14 +181,14 @@ int main(int argc, char* argv[]) {
 
   std::filesystem::path outputPath;
   if (inputPaths.empty()) {
-    spdlog::critical("No input path was provided");
+    SPDLOG_CRITICAL("No input path was provided");
     std::exit(EXIT_FAILURE);
   }
   if (auto output = program.present("-o")) {
     outputPath = std::filesystem::path(*output);
   } else {
     if (outputFormatType != FormatType::NOT_PROVIDED) {
-      spdlog::critical("output option (-o) is mandatory when the output format provided");
+      SPDLOG_CRITICAL("output option (-o) is mandatory when the output format provided");
       std::exit(EXIT_FAILURE);
     }
   }
@@ -197,7 +200,7 @@ int main(int argc, char* argv[]) {
     SNLLibrary* primitivesLibrary = nullptr;
     if (inputFormatType == FormatType::SNL) {
       if (inputPaths.size() > 1) {
-        spdlog::critical("Multiple input paths are not supported for SNL format");
+        SPDLOG_CRITICAL("Multiple input paths are not supported for SNL format");
         std::exit(EXIT_FAILURE);
       }
       const auto start{std::chrono::steady_clock::now()};
@@ -209,7 +212,7 @@ int main(int argc, char* argv[]) {
       {
         std::ostringstream oss;
         oss << "Parsing done in: " << elapsed_seconds.count() << "s";
-        spdlog::info(oss.str());
+        SPDLOG_INFO(oss.str());
       }
     } else if (inputFormatType == FormatType::VERILOG) {
       db = SNLDB::create(SNLUniverse::get());
@@ -230,46 +233,46 @@ int main(int argc, char* argv[]) {
           }
           oss << path << " ";
         }
-        spdlog::info(oss.str());
+        SPDLOG_INFO(oss.str());
       }
       constructor.construct(inputPaths);
       auto top = SNLUtils::findTop(designLibrary);
       if (top) {
         SNLUniverse::get()->setTopDesign(top);
-        spdlog::info("Found top design: " + top->getString());
+        SPDLOG_INFO("Found top design: " + top->getString());
       } else {
-        spdlog::error("No top design was found after parsing verilog");
+        SPDLOG_ERROR("No top design was found after parsing verilog");
       }
       const auto end{std::chrono::steady_clock::now()};
       const std::chrono::duration<double> elapsed_seconds{end - start};
       {
         std::ostringstream oss;
         oss << "Parsing done in: " << elapsed_seconds.count() << "s";
-        spdlog::info(oss.str());
+        SPDLOG_INFO(oss.str());
       }
     } else {
-      spdlog::critical("Unrecognized input format type: {}", inputFormat);
+      SPDLOG_CRITICAL("Unrecognized input format type: {}", inputFormat);
       std::exit(EXIT_FAILURE);
     }
 
     if (program.is_used("-e")) {
       const auto start{std::chrono::steady_clock::now()};
       auto editPath = std::filesystem::path(program.get<std::string>("-e"));
-      spdlog::info("Editing netlist using python script (post netlist loading): {}", editPath.string());
+      SPDLOG_INFO("Editing netlist using python script (post netlist loading): {}", editPath.string());
       SNLPyEdit::edit(editPath);
       const auto end{std::chrono::steady_clock::now()};
       const std::chrono::duration<double> elapsed_seconds{end - start};
       {
         std::ostringstream oss;
         oss << "Editing done in: " << elapsed_seconds.count() << "s";
-        spdlog::info(oss.str());
+        SPDLOG_INFO(oss.str());
       }
     }
 
     if (optimizationType == OptimizationType::DLE
         or optimizationType == OptimizationType::ALL) {
       const auto start{std::chrono::steady_clock::now()};
-      spdlog::info("Starting removal of loadless logic");
+      SPDLOG_INFO("Starting removal of loadless logic");
       LoadlessLogicRemover remover;
       remover.process();
       const auto end{std::chrono::steady_clock::now()};
@@ -277,33 +280,33 @@ int main(int argc, char* argv[]) {
       {
         std::ostringstream oss;
         oss << "Removal of loadless logic done in: " << elapsed_seconds.count() << "s";
-        spdlog::info(oss.str());
+        SPDLOG_INFO(oss.str());
       } 
     }
 
     if (program.is_used("-z")) {
       const auto start{std::chrono::steady_clock::now()};
       auto editPath = std::filesystem::path(program.get<std::string>("-z"));
-      spdlog::info("Post editing netlist using python script: {}", editPath.string());
+      SPDLOG_INFO("Post editing netlist using python script: {}", editPath.string());
       SNLPyEdit::edit(editPath);
       const auto end{std::chrono::steady_clock::now()};
       const std::chrono::duration<double> elapsed_seconds{end - start};
       {
         std::ostringstream oss;
         oss << "Post editing done in: " << elapsed_seconds.count() << "s";
-        spdlog::info(oss.str());
+        SPDLOG_INFO(oss.str());
       }
     }
 
     if (outputFormatType == FormatType::SNL) {
-      spdlog::info("Dumping netlist in SNL format to {}", outputPath.string());
+      SPDLOG_INFO("Dumping netlist in SNL format to {}", outputPath.string());
       SNLCapnP::dump(db, outputPath);
     } else if (outputFormatType == FormatType::VERILOG) {
       if (db->getTopDesign()) {
         std::ofstream output(outputPath);
         SNLVRLDumper dumper;
         dumper.setSingleFile(true);
-        spdlog::info("Dumping netlist in verilog format to {}", outputPath.string());
+        SPDLOG_INFO("Dumping netlist in verilog format to {}", outputPath.string());
         dumper.dumpDesign(db->getTopDesign(), output);
       } else {
         db->debugDump(0);
@@ -318,7 +321,7 @@ int main(int argc, char* argv[]) {
       dumper.dumpLibrary(primitivesLibrary, output);
     }
   } catch (const SNLException& e) {
-    spdlog::critical("Caught SNL error: {}", e.getReason());
+    SPDLOG_CRITICAL("Caught SNL error: {}", e.getReason());
     std::exit(EXIT_FAILURE);
   }
   std::exit(EXIT_SUCCESS);
