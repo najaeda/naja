@@ -6,7 +6,7 @@
 #include <spdlog/spdlog.h>
 #include "Reduction.h"
 #include <ranges>
-#include "SNLDesignModeling.h"
+#include "SNLDesignTruthTable.h"
 #include "SNLTruthTable.h"
 #include "Utils.h"
 
@@ -118,7 +118,7 @@ void ReductionOptimization::reducPartialConstantInstance(
   uniquifier.process();
   SNLInstance* unqiuifedCandidate = uniquifier.getPathUniq().back();
   SNLTruthTable invTruthTable =
-      SNLDesignModeling::getTruthTable(unqiuifedCandidate->getModel());
+      SNLDesignTruthTable::getTruthTable(unqiuifedCandidate->getModel());
   if (!invTruthTable.isInitialized()) {
 #ifdef DEBUG_PRINTS
     // LCOV_EXCL_START

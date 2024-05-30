@@ -8,11 +8,20 @@
 
 #include "NajaPrivateProperty.h"
 
+#include <cstdint>
+#include <vector>
+#include <variant>
+
 namespace naja {
 
 class NajaDumpableProperty: public NajaPrivateProperty {
   public:
     using super = NajaPrivateProperty;
+
+    enum TypeEnum { String, UInt64 };
+
+    using Value = std::variant<std::string, uint64_t>;
+    using Values = std::vector<Value>;
 
     NajaDumpableProperty() = delete;
 
@@ -27,13 +36,20 @@ class NajaDumpableProperty: public NajaPrivateProperty {
     std::string getName() const override { return name_; }
     std::string getString() const override;
 
-    bool isDumpable() const override { return true; }
+    Values getValues() const { return values_; }
+
+    void addStringValue(const std::string& value);
+    std::string getStringValue(size_t i) const;
+
+    void addUInt64Value(uint64_t value);
+    uint64_t getUInt64Value(size_t i) const;
 
   protected:
     NajaDumpableProperty(const std::string& name);
 
   private:
-    std::string name_ {};
+    std::string name_   {};
+    Values      values_ {};
 };
 
 } // namespace naja

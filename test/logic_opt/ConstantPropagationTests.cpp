@@ -19,19 +19,19 @@
 #include "gtest/gtest.h"
 #include "tbb/scalable_allocator.h"
 #include "Reduction.h"
-#include "SNLDesignModeling.h"
+#include "SNLDesignTruthTable.h"
 
 using namespace naja;
 using namespace naja::DNL;
 using namespace naja::SNL;
 using namespace naja::NAJA_OPT;
 
-class ConstatPropagationTests : public ::testing::Test {
+class ConstantPropagationTests : public ::testing::Test {
  protected:
-  ConstatPropagationTests() {
+  ConstantPropagationTests() {
     // You can do set-up work for each test here
   }
-  ~ConstatPropagationTests() override {
+  ~ConstantPropagationTests() override {
     // You can do clean-up work that doesn't throw exceptions here
   }
   void SetUp() override {
@@ -62,7 +62,7 @@ class ConstatPropagationTests : public ::testing::Test {
 // 13. collect the constants
 // 14. run the constant propagation
 // 15. check the output value of the top instance
-TEST_F(ConstatPropagationTests, TestConstantPropagation) {
+TEST_F(ConstantPropagationTests, TestConstantPropagation) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
@@ -85,8 +85,8 @@ TEST_F(ConstatPropagationTests, TestConstantPropagation) {
   auto logic1Out =
       SNLScalarTerm::create(logic1, SNLTerm::Direction::Output, SNLName("out"));
   
-  SNLDesignModeling::setTruthTable(logic0, SNLTruthTable(0,0));
-  SNLDesignModeling::setTruthTable(logic1, SNLTruthTable(0,1));
+  SNLDesignTruthTable::setTruthTable(logic0, SNLTruthTable(0,0));
+  SNLDesignTruthTable::setTruthTable(logic1, SNLTruthTable(0,1));
   SNLLibraryTruthTables::construct(library);
   
   // 5. create a logic_0 instace in top
@@ -316,7 +316,7 @@ TEST_F(ConstatPropagationTests, TestConstantPropagation) {
 //Seperate the test case above for tests for each type in the constant propagation code
 
 // Test constat propagation for AND
-TEST_F(ConstatPropagationTests, TestConstantPropagationAND) {
+TEST_F(ConstantPropagationTests, TestConstantPropagationAND) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
@@ -338,8 +338,8 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationAND) {
   // add output to logic0
   auto logic1Out =
       SNLScalarTerm::create(logic1, SNLTerm::Direction::Output, SNLName("out"));
-  SNLDesignModeling::setTruthTable(logic0, SNLTruthTable(0,0));
-  SNLDesignModeling::setTruthTable(logic1, SNLTruthTable(0,1));
+  SNLDesignTruthTable::setTruthTable(logic0, SNLTruthTable(0,0));
+  SNLDesignTruthTable::setTruthTable(logic1, SNLTruthTable(0,1));
   SNLLibraryTruthTables::construct(library);
   // 5. create a logic_0 instace in top
   SNLInstance* inst1 = SNLInstance::create(top, logic0, SNLName("logic0"));
@@ -415,7 +415,7 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationAND) {
 }
 
 // Test constat propagation for OR
-TEST_F(ConstatPropagationTests, TestConstantPropagationOR) {
+TEST_F(ConstantPropagationTests, TestConstantPropagationOR) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
@@ -437,8 +437,8 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationOR) {
   // add output to logic0
   auto logic1Out =
       SNLScalarTerm::create(logic1, SNLTerm::Direction::Output, SNLName("out"));
-  SNLDesignModeling::setTruthTable(logic0, SNLTruthTable(0,0));
-  SNLDesignModeling::setTruthTable(logic1, SNLTruthTable(0,1));
+  SNLDesignTruthTable::setTruthTable(logic0, SNLTruthTable(0,0));
+  SNLDesignTruthTable::setTruthTable(logic1, SNLTruthTable(0,1));
   SNLLibraryTruthTables::construct(library);
   // 5. create a logic_0 instace in top
   SNLInstance* inst1 = SNLInstance::create(top, logic0, SNLName("logic0"));
@@ -513,7 +513,7 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationOR) {
 }
 
 // Test constat propagation for XOR
-TEST_F(ConstatPropagationTests, TestConstantPropagationXOR) {
+TEST_F(ConstantPropagationTests, TestConstantPropagationXOR) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
@@ -533,8 +533,8 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationXOR) {
   // add output to logic0
   auto logic1Out =
       SNLScalarTerm::create(logic1, SNLTerm::Direction::Output, SNLName("out"));
-  SNLDesignModeling::setTruthTable(logic0, SNLTruthTable(0,0));
-  SNLDesignModeling::setTruthTable(logic1, SNLTruthTable(0,1));
+  SNLDesignTruthTable::setTruthTable(logic0, SNLTruthTable(0,0));
+  SNLDesignTruthTable::setTruthTable(logic1, SNLTruthTable(0,1));
   SNLLibraryTruthTables::construct(library);
   // 5. create a logic_0 instace in top
   SNLInstance* inst1 = SNLInstance::create(top, logic0, SNLName("logic0"));
@@ -602,7 +602,7 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationXOR) {
 }
 
 // Test constat propagation for NAND
-TEST_F(ConstatPropagationTests, TestConstantPropagationNAND) {
+TEST_F(ConstantPropagationTests, TestConstantPropagationNAND) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
@@ -624,8 +624,8 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationNAND) {
   // add output to logic0
   auto logic1Out =
       SNLScalarTerm::create(logic1, SNLTerm::Direction::Output, SNLName("out"));
-  SNLDesignModeling::setTruthTable(logic0, SNLTruthTable(0,0));
-  SNLDesignModeling::setTruthTable(logic1, SNLTruthTable(0,1));
+  SNLDesignTruthTable::setTruthTable(logic0, SNLTruthTable(0,0));
+  SNLDesignTruthTable::setTruthTable(logic1, SNLTruthTable(0,1));
   SNLLibraryTruthTables::construct(library);
   // 5. create a logic_0 instace in top
   SNLInstance* inst1 = SNLInstance::create(top, logic0, SNLName("logic0"));
@@ -698,7 +698,7 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationNAND) {
 }
 
 // Test constat propagation for NOR
-TEST_F(ConstatPropagationTests, TestConstantPropagationNOR) {
+TEST_F(ConstantPropagationTests, TestConstantPropagationNOR) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
@@ -720,8 +720,8 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationNOR) {
   // add output to logic0
   auto logic1Out =
       SNLScalarTerm::create(logic1, SNLTerm::Direction::Output, SNLName("out"));
-  SNLDesignModeling::setTruthTable(logic0, SNLTruthTable(0,0));
-  SNLDesignModeling::setTruthTable(logic1, SNLTruthTable(0,1));
+  SNLDesignTruthTable::setTruthTable(logic0, SNLTruthTable(0,0));
+  SNLDesignTruthTable::setTruthTable(logic1, SNLTruthTable(0,1));
   SNLLibraryTruthTables::construct(library);
   // 5. create a logic_0 instace in top
   SNLInstance* inst1 = SNLInstance::create(top, logic0, SNLName("logic0"));
@@ -794,7 +794,7 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationNOR) {
 }
 
 // Test constat propagation for XNOR
-TEST_F(ConstatPropagationTests, TestConstantPropagationXNOR) {
+TEST_F(ConstantPropagationTests, TestConstantPropagationXNOR) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
@@ -814,8 +814,8 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationXNOR) {
   // add output to logic0
   auto logic1Out =
       SNLScalarTerm::create(logic1, SNLTerm::Direction::Output, SNLName("out"));
-  SNLDesignModeling::setTruthTable(logic0, SNLTruthTable(0,0));
-  SNLDesignModeling::setTruthTable(logic1, SNLTruthTable(0,1));
+  SNLDesignTruthTable::setTruthTable(logic0, SNLTruthTable(0,0));
+  SNLDesignTruthTable::setTruthTable(logic1, SNLTruthTable(0,1));
   SNLLibraryTruthTables::construct(library);
   // 5. create a logic_0 instace in top
   SNLInstance* inst1 = SNLInstance::create(top, logic0, SNLName("logic0"));
@@ -882,7 +882,7 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationXNOR) {
 }
 
 // Test constat propagation for INV
-TEST_F(ConstatPropagationTests, TestConstantPropagationINV) {
+TEST_F(ConstantPropagationTests, TestConstantPropagationINV) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
@@ -902,8 +902,8 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationINV) {
   // add output to logic0
   auto logic1Out =
       SNLScalarTerm::create(logic1, SNLTerm::Direction::Output, SNLName("out"));
-  SNLDesignModeling::setTruthTable(logic0, SNLTruthTable(0,0));
-  SNLDesignModeling::setTruthTable(logic1, SNLTruthTable(0,1));
+  SNLDesignTruthTable::setTruthTable(logic0, SNLTruthTable(0,0));
+  SNLDesignTruthTable::setTruthTable(logic1, SNLTruthTable(0,1));
   SNLLibraryTruthTables::construct(library);
   // 5. create a logic_0 instace in top
   SNLInstance* inst1 = SNLInstance::create(top, logic0, SNLName("logic0"));
@@ -963,7 +963,7 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationINV) {
 }
 
 // Test constat propagation for BUF
-TEST_F(ConstatPropagationTests, TestConstantPropagationBUF) {
+TEST_F(ConstantPropagationTests, TestConstantPropagationBUF) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
@@ -983,8 +983,8 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationBUF) {
   // add output to logic0
   auto logic1Out =
       SNLScalarTerm::create(logic1, SNLTerm::Direction::Output, SNLName("out"));
-  SNLDesignModeling::setTruthTable(logic0, SNLTruthTable(0,0));
-  SNLDesignModeling::setTruthTable(logic1, SNLTruthTable(0,1));
+  SNLDesignTruthTable::setTruthTable(logic0, SNLTruthTable(0,0));
+  SNLDesignTruthTable::setTruthTable(logic1, SNLTruthTable(0,1));
   SNLLibraryTruthTables::construct(library);
   // 5. create a logic_0 instace in top
   SNLInstance* inst1 = SNLInstance::create(top, logic0, SNLName("logic0"));
@@ -1044,7 +1044,7 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationBUF) {
 }
 
 // Test constat propagation for BUF
-TEST_F(ConstatPropagationTests, TestConstantPropagationMUX) {
+TEST_F(ConstantPropagationTests, TestConstantPropagationMUX) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
@@ -1066,8 +1066,8 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationMUX) {
   // add output to logic0
   auto logic1Out =
       SNLScalarTerm::create(logic1, SNLTerm::Direction::Output, SNLName("out"));
-  SNLDesignModeling::setTruthTable(logic0, SNLTruthTable(0,0));
-  SNLDesignModeling::setTruthTable(logic1, SNLTruthTable(0,1));
+  SNLDesignTruthTable::setTruthTable(logic0, SNLTruthTable(0,0));
+  SNLDesignTruthTable::setTruthTable(logic1, SNLTruthTable(0,1));
   SNLLibraryTruthTables::construct(library);
   // 5. create a logic_0 instace in top
   SNLInstance* inst1 = SNLInstance::create(top, logic0, SNLName("logic0"));
@@ -1146,7 +1146,7 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationMUX) {
 }
 
 // Test constat propagation for BUF
-TEST_F(ConstatPropagationTests, TestConstantPropagationDFF) {
+TEST_F(ConstantPropagationTests, TestConstantPropagationDFF) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
@@ -1166,8 +1166,8 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationDFF) {
   // add output to logic0
   auto logic1Out =
       SNLScalarTerm::create(logic1, SNLTerm::Direction::Output, SNLName("out"));
-  SNLDesignModeling::setTruthTable(logic0, SNLTruthTable(0,0));
-  SNLDesignModeling::setTruthTable(logic1, SNLTruthTable(0,1));
+  SNLDesignTruthTable::setTruthTable(logic0, SNLTruthTable(0,0));
+  SNLDesignTruthTable::setTruthTable(logic1, SNLTruthTable(0,1));
   SNLLibraryTruthTables::construct(library);
   // 5. create a logic_0 instace in top
   SNLInstance* inst1 = SNLInstance::create(top, logic0, SNLName("logic0"));
@@ -1237,7 +1237,7 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationDFF) {
 }
 
 // Test constat propagation for BUF
-TEST_F(ConstatPropagationTests, TestConstantPropagationOAI) {
+TEST_F(ConstantPropagationTests, TestConstantPropagationOAI) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
@@ -1257,8 +1257,8 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationOAI) {
   // add output to logic0
   auto logic1Out =
       SNLScalarTerm::create(logic1, SNLTerm::Direction::Output, SNLName("out"));
-  SNLDesignModeling::setTruthTable(logic0, SNLTruthTable(0,0));
-  SNLDesignModeling::setTruthTable(logic1, SNLTruthTable(0,1));
+  SNLDesignTruthTable::setTruthTable(logic0, SNLTruthTable(0,0));
+  SNLDesignTruthTable::setTruthTable(logic1, SNLTruthTable(0,1));
   SNLLibraryTruthTables::construct(library);
   // 5. create a logic_0 instace in top
   SNLInstance* inst1 = SNLInstance::create(top, logic0, SNLName("logic0"));
@@ -1330,7 +1330,7 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationOAI) {
   }
 }
 
-TEST_F(ConstatPropagationTests, TestConstantPropagationNonDeffinedModel) {
+TEST_F(ConstantPropagationTests, TestConstantPropagationNonDeffinedModel) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
@@ -1350,8 +1350,8 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationNonDeffinedModel) {
   // add output to logic0
   auto logic1Out =
       SNLScalarTerm::create(logic1, SNLTerm::Direction::Output, SNLName("out"));
-  SNLDesignModeling::setTruthTable(logic0, SNLTruthTable(0,0));
-  SNLDesignModeling::setTruthTable(logic1, SNLTruthTable(0,1));
+  SNLDesignTruthTable::setTruthTable(logic0, SNLTruthTable(0,0));
+  SNLDesignTruthTable::setTruthTable(logic1, SNLTruthTable(0,1));
   SNLLibraryTruthTables::construct(library);
   // 5. create a logic_0 instace in top
   SNLInstance* inst1 = SNLInstance::create(top, logic0, SNLName("logic0"));
@@ -1424,7 +1424,7 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationNonDeffinedModel) {
 }
 
 // Test constat propagation for AND
-TEST_F(ConstatPropagationTests, TestConstantPropagationPartialAND) {
+TEST_F(ConstantPropagationTests, TestConstantPropagationPartialAND) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
@@ -1448,8 +1448,8 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialAND) {
   // add output to logic0
   auto logic1Out =
       SNLScalarTerm::create(logic1, SNLTerm::Direction::Output, SNLName("out"));
-  SNLDesignModeling::setTruthTable(logic0, SNLTruthTable(0,0));
-  SNLDesignModeling::setTruthTable(logic1, SNLTruthTable(0,1));
+  SNLDesignTruthTable::setTruthTable(logic0, SNLTruthTable(0,0));
+  SNLDesignTruthTable::setTruthTable(logic1, SNLTruthTable(0,1));
   SNLLibraryTruthTables::construct(library);
   // 5. create a logic_0 instace in top
   SNLInstance* inst1 = SNLInstance::create(top, logic0, SNLName("logic0"));
@@ -1525,7 +1525,7 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialAND) {
 }
 
 // Test constat propagation for OR
-TEST_F(ConstatPropagationTests, TestConstantPropagationPartialOR) {
+TEST_F(ConstantPropagationTests, TestConstantPropagationPartialOR) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
@@ -1549,8 +1549,8 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialOR) {
   // add output to logic0
   auto logic1Out =
       SNLScalarTerm::create(logic1, SNLTerm::Direction::Output, SNLName("out"));
-  SNLDesignModeling::setTruthTable(logic0, SNLTruthTable(0,0));
-  SNLDesignModeling::setTruthTable(logic1, SNLTruthTable(0,1));
+  SNLDesignTruthTable::setTruthTable(logic0, SNLTruthTable(0,0));
+  SNLDesignTruthTable::setTruthTable(logic1, SNLTruthTable(0,1));
   SNLLibraryTruthTables::construct(library);
   // 5. create a logic_0 instace in top
   SNLInstance* inst1 = SNLInstance::create(top, logic0, SNLName("logic0"));
@@ -1626,7 +1626,7 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialOR) {
 }
 
 // Test constat propagation for XOR
-TEST_F(ConstatPropagationTests, TestConstantPropagationPartialXOR) {
+TEST_F(ConstantPropagationTests, TestConstantPropagationPartialXOR) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
@@ -1648,8 +1648,8 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialXOR) {
   // add output to logic0
   auto logic1Out =
       SNLScalarTerm::create(logic1, SNLTerm::Direction::Output, SNLName("out"));
-  SNLDesignModeling::setTruthTable(logic0, SNLTruthTable(0,0));
-  SNLDesignModeling::setTruthTable(logic1, SNLTruthTable(0,1));
+  SNLDesignTruthTable::setTruthTable(logic0, SNLTruthTable(0,0));
+  SNLDesignTruthTable::setTruthTable(logic1, SNLTruthTable(0,1));
   SNLLibraryTruthTables::construct(library);
   // 5. create a logic_0 instace in top
   SNLInstance* inst1 = SNLInstance::create(top, logic0, SNLName("logic0"));
@@ -1719,7 +1719,7 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialXOR) {
 }
 
 // Test constat propagation for NAND
-TEST_F(ConstatPropagationTests, TestConstantPropagationPartialNAND) {
+TEST_F(ConstantPropagationTests, TestConstantPropagationPartialNAND) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
@@ -1743,8 +1743,8 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialNAND) {
   // add output to logic0
   auto logic1Out =
       SNLScalarTerm::create(logic1, SNLTerm::Direction::Output, SNLName("out"));
-  SNLDesignModeling::setTruthTable(logic0, SNLTruthTable(0,0));
-  SNLDesignModeling::setTruthTable(logic1, SNLTruthTable(0,1));
+  SNLDesignTruthTable::setTruthTable(logic0, SNLTruthTable(0,0));
+  SNLDesignTruthTable::setTruthTable(logic1, SNLTruthTable(0,1));
   SNLLibraryTruthTables::construct(library);
   // 5. create a logic_0 instace in top
   SNLInstance* inst1 = SNLInstance::create(top, logic0, SNLName("logic0"));
@@ -1819,7 +1819,7 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialNAND) {
 }
 
 // Test constat propagation for NOR
-TEST_F(ConstatPropagationTests, TestConstantPropagationPartialNOR) {
+TEST_F(ConstantPropagationTests, TestConstantPropagationPartialNOR) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
@@ -1841,8 +1841,8 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialNOR) {
   // add output to logic0
   auto logic1Out =
       SNLScalarTerm::create(logic1, SNLTerm::Direction::Output, SNLName("out"));
-  SNLDesignModeling::setTruthTable(logic0, SNLTruthTable(0,0));
-  SNLDesignModeling::setTruthTable(logic1, SNLTruthTable(0,1));
+  SNLDesignTruthTable::setTruthTable(logic0, SNLTruthTable(0,0));
+  SNLDesignTruthTable::setTruthTable(logic1, SNLTruthTable(0,1));
   SNLLibraryTruthTables::construct(library);
   // 5. create a logic_0 instace in top
   SNLInstance* inst1 = SNLInstance::create(top, logic0, SNLName("logic0"));
@@ -1911,7 +1911,7 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialNOR) {
 }
 
 // Test constat propagation for XNOR
-TEST_F(ConstatPropagationTests, TestConstantPropagationPartialXNOR) {
+TEST_F(ConstantPropagationTests, TestConstantPropagationPartialXNOR) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
@@ -1933,8 +1933,8 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialXNOR) {
   // add output to logic0
   auto logic1Out =
       SNLScalarTerm::create(logic1, SNLTerm::Direction::Output, SNLName("out"));
-  SNLDesignModeling::setTruthTable(logic0, SNLTruthTable(0,0));
-  SNLDesignModeling::setTruthTable(logic1, SNLTruthTable(0,1));
+  SNLDesignTruthTable::setTruthTable(logic0, SNLTruthTable(0,0));
+  SNLDesignTruthTable::setTruthTable(logic1, SNLTruthTable(0,1));
   SNLLibraryTruthTables::construct(library);
   // 5. create a logic_0 instace in top
   SNLInstance* inst1 = SNLInstance::create(top, logic0, SNLName("logic0"));
@@ -2003,7 +2003,7 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialXNOR) {
 }
 
 // Test constat propagation for INV
-TEST_F(ConstatPropagationTests, TestConstantPropagationPartialINV) {
+TEST_F(ConstantPropagationTests, TestConstantPropagationPartialINV) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
@@ -2025,8 +2025,8 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialINV) {
   // add output to logic0
   auto logic1Out =
       SNLScalarTerm::create(logic1, SNLTerm::Direction::Output, SNLName("out"));
-  SNLDesignModeling::setTruthTable(logic0, SNLTruthTable(0,0));
-  SNLDesignModeling::setTruthTable(logic1, SNLTruthTable(0,1));
+  SNLDesignTruthTable::setTruthTable(logic0, SNLTruthTable(0,0));
+  SNLDesignTruthTable::setTruthTable(logic1, SNLTruthTable(0,1));
   SNLLibraryTruthTables::construct(library);
   // 5. create a logic_0 instace in top
   SNLInstance* inst1 = SNLInstance::create(top, logic0, SNLName("logic0"));
@@ -2088,7 +2088,7 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialINV) {
 }
 
 // Test constat propagation for BUF
-TEST_F(ConstatPropagationTests, TestConstantPropagationPartialBUF) {
+TEST_F(ConstantPropagationTests, TestConstantPropagationPartialBUF) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
@@ -2110,8 +2110,8 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialBUF) {
   // add output to logic0
   auto logic1Out =
       SNLScalarTerm::create(logic1, SNLTerm::Direction::Output, SNLName("out"));
-  SNLDesignModeling::setTruthTable(logic0, SNLTruthTable(0,0));
-  SNLDesignModeling::setTruthTable(logic1, SNLTruthTable(0,1));
+  SNLDesignTruthTable::setTruthTable(logic0, SNLTruthTable(0,0));
+  SNLDesignTruthTable::setTruthTable(logic1, SNLTruthTable(0,1));
   SNLLibraryTruthTables::construct(library);
   // 5. create a logic_0 instace in top
   SNLInstance* inst1 = SNLInstance::create(top, logic0, SNLName("logic0"));
@@ -2173,7 +2173,7 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialBUF) {
 }
 
 // Test constat propagation for BUF
-TEST_F(ConstatPropagationTests, TestConstantPropagationPartialMUX) {
+TEST_F(ConstantPropagationTests, TestConstantPropagationPartialMUX) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
@@ -2197,8 +2197,8 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialMUX) {
   // add output to logic0
   auto logic1Out =
       SNLScalarTerm::create(logic1, SNLTerm::Direction::Output, SNLName("out"));
-  SNLDesignModeling::setTruthTable(logic0, SNLTruthTable(0,0));
-  SNLDesignModeling::setTruthTable(logic1, SNLTruthTable(0,1));
+  SNLDesignTruthTable::setTruthTable(logic0, SNLTruthTable(0,0));
+  SNLDesignTruthTable::setTruthTable(logic1, SNLTruthTable(0,1));
   SNLLibraryTruthTables::construct(library);
   // 5. create a logic_0 instace in top
   SNLInstance* inst1 = SNLInstance::create(top, logic0, SNLName("logic0"));
@@ -2280,7 +2280,7 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialMUX) {
 }
 
 // Test constat propagation for BUF
-TEST_F(ConstatPropagationTests, TestConstantPropagationPartialDFF) {
+TEST_F(ConstantPropagationTests, TestConstantPropagationPartialDFF) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
@@ -2304,8 +2304,8 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialDFF) {
   // add output to logic0
   auto logic1Out =
       SNLScalarTerm::create(logic1, SNLTerm::Direction::Output, SNLName("out"));
-  SNLDesignModeling::setTruthTable(logic0, SNLTruthTable(0,0));
-  SNLDesignModeling::setTruthTable(logic1, SNLTruthTable(0,1));
+  SNLDesignTruthTable::setTruthTable(logic0, SNLTruthTable(0,0));
+  SNLDesignTruthTable::setTruthTable(logic1, SNLTruthTable(0,1));
   SNLLibraryTruthTables::construct(library);
   // 5. create a logic_0 instace in top
   SNLInstance* inst1 = SNLInstance::create(top, logic0, SNLName("logic0"));
@@ -2383,7 +2383,7 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialDFF) {
 }
 
 // Test constat propagation for BUF
-TEST_F(ConstatPropagationTests, TestConstantPropagationPartialOAI) {
+TEST_F(ConstantPropagationTests, TestConstantPropagationPartialOAI) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
@@ -2407,8 +2407,8 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialOAI) {
   // add output to logic0
   auto logic1Out =
       SNLScalarTerm::create(logic1, SNLTerm::Direction::Output, SNLName("out"));
-  SNLDesignModeling::setTruthTable(logic0, SNLTruthTable(0,0));
-  SNLDesignModeling::setTruthTable(logic1, SNLTruthTable(0,1));
+  SNLDesignTruthTable::setTruthTable(logic0, SNLTruthTable(0,0));
+  SNLDesignTruthTable::setTruthTable(logic1, SNLTruthTable(0,1));
   SNLLibraryTruthTables::construct(library);
   // 5. create a logic_0 instace in top
   SNLInstance* inst1 = SNLInstance::create(top, logic0, SNLName("logic0"));
@@ -2491,7 +2491,7 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialOAI) {
 }
 
 // Test constat propagation for BUF
-TEST_F(ConstatPropagationTests, TestConstantPropagationPartialNonDefinedModel) {
+TEST_F(ConstantPropagationTests, TestConstantPropagationPartialNonDefinedModel) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
@@ -2513,8 +2513,8 @@ TEST_F(ConstatPropagationTests, TestConstantPropagationPartialNonDefinedModel) {
   // add output to logic0
   auto logic1Out =
       SNLScalarTerm::create(logic1, SNLTerm::Direction::Output, SNLName("out"));
-  SNLDesignModeling::setTruthTable(logic0, SNLTruthTable(0,0));
-  SNLDesignModeling::setTruthTable(logic1, SNLTruthTable(0,1));
+  SNLDesignTruthTable::setTruthTable(logic0, SNLTruthTable(0,0));
+  SNLDesignTruthTable::setTruthTable(logic1, SNLTruthTable(0,1));
   SNLLibraryTruthTables::construct(library);
   // 5. create a logic_0 instace in top
   SNLInstance* inst1 = SNLInstance::create(top, logic0, SNLName("logic0"));

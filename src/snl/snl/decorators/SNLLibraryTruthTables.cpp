@@ -9,7 +9,7 @@
 #include "NajaPrivateProperty.h"
 
 #include "SNLLibrary.h"
-#include "SNLDesignModeling.h"
+#include "SNLDesignTruthTable.h"
 #include "SNLException.h"
 
 namespace {
@@ -61,7 +61,7 @@ SNLLibraryTruthTables::LibraryTruthTables SNLLibraryTruthTables::construct(SNLLi
   }
   LibraryTruthTables truthTables;
   for (auto design : library->getDesigns()) {
-    SNLTruthTable tt = SNLDesignModeling::getTruthTable(design);
+    SNLTruthTable tt = SNLDesignTruthTable::getTruthTable(design);
     if (tt.isInitialized()) {
       auto it = truthTables.find(tt);
       if (it != truthTables.end()) {
