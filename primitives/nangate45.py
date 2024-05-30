@@ -63,7 +63,6 @@ def constructDFF(lib, X):
   q = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "Q")
   qn = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "QN")
 
-
 def constructFA(lib, X):
   cell = snl.SNLDesign.createPrimitive(lib, "FA_X" + str(X))
   a = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A")

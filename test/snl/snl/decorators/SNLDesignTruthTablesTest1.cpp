@@ -70,10 +70,22 @@ TEST_F(SNLDesignTruthTableTest1, testStandardGates) {
   EXPECT_FALSE(SNLDesignTruthTable::isConst1(prims[3]));
   EXPECT_FALSE(SNLDesignTruthTable::isInv(prims[3]));
 
+  //return false for primitive with no truth table
+  auto design = SNLDesign::create(prims_, SNLDesign::Type::Primitive, SNLName("prim"));
+  EXPECT_FALSE(SNLDesignTruthTable::isConst0(design));
+  EXPECT_FALSE(SNLDesignTruthTable::isConst1(design));
+  EXPECT_FALSE(SNLDesignTruthTable::isInv(design));
+  EXPECT_FALSE(SNLDesignTruthTable::isBuf(design));
+
+  //error when setting truth table on non-primitive
+  auto designs = SNLLibrary::create(prims_->getDB());
+  auto non_prim = SNLDesign::create(designs, SNLName("non_prim"));
+  EXPECT_THROW(SNLDesignTruthTable::setTruthTable(non_prim, SNLTruthTable(1, 0b1)), SNLException);
+
   //error with more than one output
-  auto design = SNLDesign::create(prims_, SNLDesign::Type::Primitive, SNLName("error"));
-  auto i = SNLScalarTerm::create(design, SNLTerm::Direction::Input, SNLName("I"));
-  auto o0 = SNLScalarTerm::create(design, SNLTerm::Direction::Output, SNLName("O0"));
-  auto o1 = SNLScalarTerm::create(design, SNLTerm::Direction::Output, SNLName("O1"));
-  EXPECT_THROW(SNLDesignTruthTable::setTruthTable(design, SNLTruthTable(1, 0b10)), SNLException);
+  auto error = SNLDesign::create(prims_, SNLDesign::Type::Primitive, SNLName("error"));
+  auto i = SNLScalarTerm::create(error, SNLTerm::Direction::Input, SNLName("I"));
+  auto o0 = SNLScalarTerm::create(error, SNLTerm::Direction::Output, SNLName("O0"));
+  auto o1 = SNLScalarTerm::create(error, SNLTerm::Direction::Output, SNLName("O1"));
+  EXPECT_THROW(SNLDesignTruthTable::setTruthTable(error, SNLTruthTable(1, 0b10)), SNLException);
 } 
