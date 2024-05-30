@@ -145,10 +145,21 @@ const DNLInstanceFull& DNLInstanceFull::getChildInstance(
 
 const DNLTerminalFull& DNLInstanceFull::getTerminal(
     const SNLInstTerm* snlTerm) const {
-  for (DNLID term = termsIndexes_.first; term <= termsIndexes_.second; term++) {
-    if ((*get()).getDNLTerminalFromID(term).getSnlTerm() == snlTerm) {
-      return (*get()).getDNLTerminalFromID(term);
-    }
+  auto first = (*get()).getDNLTerms().begin();
+  std::advance(first, termsIndexes_.first);
+  auto last = (*get()).getDNLTerms().begin();
+  std::advance(last, termsIndexes_.second + 1/*exclusive of this element*/);
+  auto bitTerm = snlTerm->getBitTerm();
+  auto result = std::lower_bound(
+          first,
+          last, bitTerm,
+          [](const DNLTerminalFull& term, const SNLBitTerm* bitTerm) {
+            return SNLBitTermCompare()(
+                term.getSnlBitTerm(), bitTerm);
+          });
+  if (result != last && (*result).getSnlTerm() == snlTerm) {
+    const DNLTerminalFull& term = *result;
+    return term;
   }
 #ifdef DEBUG_PRINTS
   // LCOV_EXCL_START
@@ -157,16 +168,32 @@ const DNLTerminalFull& DNLInstanceFull::getTerminal(
 #endif
   return (*get()).getDNLNullTerminal();
 }
+
 const DNLTerminalFull& DNLInstanceFull::getTerminalFromBitTerm(
     const SNLBitTerm* snlTerm) const {
-  for (DNLID term = termsIndexes_.first; term <= termsIndexes_.second; term++) {
+  /*for (DNLID term = termsIndexes_.first; term <= termsIndexes_.second; term++) {
     if ((*get()).getDNLTerminalFromID(term).getSnlBitTerm() == snlTerm) {
       return (*get()).getDNLTerminalFromID(term);
     }
+  }*/
+  auto first = (*get()).getDNLTerms().begin();
+  std::advance(first, termsIndexes_.first);
+  auto last = (*get()).getDNLTerms().begin();
+  std::advance(last, termsIndexes_.second + 1/*exclusive of this element*/);
+  auto result = std::lower_bound(
+          first,
+          last, snlTerm,
+          [](const DNLTerminalFull& term, const SNLBitTerm* bitTerm) {
+            return SNLBitTermCompare()(
+                term.getSnlBitTerm(), bitTerm);
+          });
+  if (result != last && (*result).getSnlBitTerm() == snlTerm) {
+    const DNLTerminalFull& term = *result;
+    return term;
   }
 #ifdef DEBUG_PRINTS
   // LCOV_EXCL_START
-  printf("DNLInstanceFull::getTerminalFromBitTerm - Return null terminal\n");
+  printf("DNLInstanceFull::getTerminal - Return null terminal\n");
   // LCOV_EXCL_STOP
 #endif
   return (*get()).getDNLNullTerminal();

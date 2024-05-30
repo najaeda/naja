@@ -23,7 +23,9 @@ class SNLTruthTable {
         throw SNLException("Size out of range (max=6)");
       }
     }
-    bool operator ==(const SNLTruthTable& other) const = default;
+    bool operator ==(const SNLTruthTable& other) const {
+      return size_ == other.size_ and bits_ == other.bits_;	    
+    }
     bool operator <(const SNLTruthTable& other) const {
       if (size_ < other.size_) {
         return true;
@@ -49,7 +51,7 @@ class SNLTruthTable {
       if (index > size_-1) {
         throw SNLException("Index out of range (max=6)");
       }
-      uint32_t n = 1 << size_;
+      uint32_t n = 1U << size_;
       uint64_t reducedBits = 0;
       uint32_t bitPos = 0;
       for (uint32_t i = 0; i < n; ++i) {
@@ -81,11 +83,11 @@ class SNLTruthTable {
         throw SNLException("Index out of range");
       }
       SNLTruthTable reducedTruthTable(size_-1, 0);
-      for (uint32_t i = 0; i < (1u << size_); ++i) {
+      for (uint32_t i = 0; i < (1U << size_); ++i) {
         if (((i >> variableIndex) & 1) == 0) {
-            uint32_t newIdx = ((i & ((1u << variableIndex) - 1u)) | ((i >> 1u) & (~((1u << variableIndex) - 1u))));
+            uint32_t newIdx = ((i & ((1U << variableIndex) - 1U)) | ((i >> 1U) & (~((1U << variableIndex) - 1U))));
             if (((bits_ >> i) & 1) == 1) {
-              reducedTruthTable.bits_ |= (1 << newIdx);
+              reducedTruthTable.bits_ |= (1U << newIdx);
             }
         }
       }
@@ -93,15 +95,15 @@ class SNLTruthTable {
     }
 
     bool is0() const {
-      uint64_t n = 1 << size_;
-      uint64_t mask = (1 << n) - 1ULL;
+      uint64_t n = 1ULL << size_;
+      uint64_t mask = (1ULL << n) - 1ULL;
       uint64_t result = bits_ & mask;
       return result == 0;
     }
 
     bool is1() const {
-      uint64_t n = 1 << size_;
-      uint64_t mask = (1 << n) - 1ULL;
+      uint64_t n = 1ULL << size_;
+      uint64_t mask = (1ULL << n) - 1ULL;
       uint64_t result = bits_ & mask;
       return result == mask;
     }

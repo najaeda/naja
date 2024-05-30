@@ -12,7 +12,6 @@ using namespace naja::SNL;
 
 namespace naja::NAJA_OPT {
 class Uniquifier {
-
  public:
   Uniquifier(std::vector<SNLInstance*>& path, DNLID id)
       : path_(path), id_(id) {}

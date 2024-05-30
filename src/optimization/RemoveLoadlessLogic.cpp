@@ -13,6 +13,7 @@
 #include "RemoveLoadlessLogic.h"
 #include "Utils.h"
 #include "tbb/enumerable_thread_specific.h"
+#include <sstream>
 
 using namespace naja::DNL;
 using namespace naja::SNL;
@@ -247,30 +248,6 @@ printf("SNL Port %s direction %d\n", instTerm->getString().c_str()
   return loadlessInstances;
 }
 
-std::vector<std::pair<std::vector<SNLInstance*>, DNLID>>
-LoadlessLogicRemover::normalizeLoadlessInstancesList(
-    const std::vector<std::pair<std::vector<SNLInstance*>, DNLID>>&
-        loadlessInstances) {
-  std::vector<std::pair<std::vector<SNLInstance*>, DNLID>> normalizedList;
-
-  for (const auto& path : loadlessInstances) {
-    bool isUnder = false;
-    for (const auto& pathToCheck : normalizedList) {
-      assert(pathToCheck.second <= path.second);
-      isUnder = dnl_->isInstanceChild(pathToCheck.second, path.second) ||
-                pathToCheck.second == path.second;
-
-      if (isUnder) {
-        break;
-      }
-    }
-    if (!isUnder) {
-      normalizedList.push_back(path);
-    }
-  }
-  return normalizedList;
-}
-
 // Given a list of loadless SNL instacnes, disconnect them and delete them from
 // SNL For each instance:
 // 1. Iterate over it's terminal and disconnect each one
@@ -283,7 +260,13 @@ void LoadlessLogicRemover::removeLoadlessInstances(
     Uniquifier uniquifier(path.first, path.second);
     uniquifier.process();
     for (SNLInstTerm* term : uniquifier.getPathUniq().back()->getInstTerms()) {
+      auto net = term->getNet();
       term->setNet(nullptr);
+      if (net != nullptr) {
+        if (net->getInstTerms().size() + net->getBitTerms().size() == 0) {
+          net->destroy();
+        }
+      }
     }
 #ifdef DEBUG_PRINTS
     // LCOV_EXCL_START
@@ -311,15 +294,29 @@ void LoadlessLogicRemover::removeLoadlessInstances(
 
 // Given a DNL, remove all loadless logic
 void LoadlessLogicRemover::removeLoadlessLogic() {
-  assert(!isCreated());
   dnl_ = DNL::get();
   tbb::concurrent_unordered_set<DNLID> tracedIsos = getTracedIsos(*dnl_);
   std::vector<DNLID> untracedIsos = getUntracedIsos(*dnl_, tracedIsos);
-  std::vector<std::pair<std::vector<SNLInstance*>, DNLID>> loadlessInstances =
+  loadlessInstances_ =
       getLoadlessInstances(*dnl_, tracedIsos);
+  report_ = collectStatistics();
   removeLoadlessInstances(SNLUniverse::get()->getTopDesign(),
-                          loadlessInstances);
+                          loadlessInstances_);
+  spdlog::info(report_);
   DNL::destroy();
+}
+
+std::string LoadlessLogicRemover::collectStatistics()const {
+  std::stringstream ss; 
+  std::map<std::string, size_t> deletedInstances;
+  for (const auto& entry : loadlessInstances_) {
+    deletedInstances[entry.first.back()->getModel()->getName().getString()]++;
+  }
+  ss << "DLE report:" << std::endl;
+  for (const auto& entry : deletedInstances) {
+    ss << entry.first << " : " << entry.second << std::endl;
+  }
+  return ss.str();
 }
 
 }  // namespace naja::NAJA_OPT
