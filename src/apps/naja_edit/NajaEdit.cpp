@@ -108,12 +108,12 @@ int main(int argc, char* argv[]) {
 
   std::vector<spdlog::sink_ptr> sinks;
   auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
-  //console_sink->set_level(spdlog::level::info);
+  console_sink->set_level(spdlog::level::info);
   console_sink->set_pattern("[naja_edit] [%^%l%$] %v");
   sinks.push_back(console_sink);
 
   auto file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>("naja_edit.log", true);
-  //file_sink->set_level(spdlog::level::trace);
+  file_sink->set_level(spdlog::level::trace);
   sinks.push_back(file_sink);
 
   auto edit_logger =

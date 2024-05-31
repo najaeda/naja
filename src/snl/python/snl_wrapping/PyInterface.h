@@ -288,87 +288,26 @@ PyObject* richCompare(T left, T right, int op) {
 
 #define PyTypeObjectDefinitions(SELF_TYPE) \
   PyTypeObject PyType##SELF_TYPE = { \
-    PyObject_HEAD_INIT(NULL) \
-    #SELF_TYPE, /* tp_name */ \
-    sizeof(Py##SELF_TYPE), /* tp_basicsize */                       \
-    0, /* tp_itemsize */                                            \
-    0, /* tp_dealloc */                                             \
-    0, /* tp_print */                                               \
-    0, /* tp_getattr */                                             \
-    0, /* tp_setattr */                                             \
-    0, /* tp_reserved */                                            \
-    0, /* tp_repr */                                                \
-    0, /* tp_as_number */                                           \
-    0, /* tp_as_sequence */                                         \
-    0, /* tp_as_mapping */                                          \
-    0, /* tp_hash */                                                \
-    0, /* tp_call */                                                \
-    0, /* tp_str */                                                 \
-    0, /* tp_getattro */                                            \
-    0, /* tp_setattro */                                            \
-    0, /* tp_as_buffer */                                           \
-    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /* tp_flags */        \
-    "#SELF_TYPE objects", /* tp_doc */                              \
-    0, /* tp_traverse */                                            \
-    0, /* tp_clear */                                               \
-    0, /* tp_richcompare */                                         \
-    0, /* tp_weaklistoffset */                                      \
-    0, /* tp_iter */                                                \
-    0, /* tp_iternext */                                            \
-    0, /* tp_methods */                                             \
-    0, /* tp_members */                                             \
-    0, /* tp_getset */                                              \
-    0, /* tp_base */                                                \
-    0, /* tp_dict */                                                \
-    0, /* tp_descr_get */                                           \
-    0, /* tp_descr_set */                                           \
-    0, /* tp_dictoffset */                                          \
-    0, /* tp_init */                                                \
-    0, /* tp_alloc */                                               \
-    PyType_GenericNew /* tp_new */                                  \
-};
+    .ob_base = PyVarObject_HEAD_INIT(NULL, 0) \
+    .tp_name = #SELF_TYPE, \
+    .tp_doc = PyDoc_STR("#SELF_TYPE objects"), \
+    .tp_basicsize = sizeof(Py##SELF_TYPE), \
+    .tp_itemsize = 0, \
+    .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, \
+    .tp_new = PyType_GenericNew, \
+  };
 
 #define PyTypeInheritedObjectDefinitions(SELF_TYPE, SUPER_TYPE) \
   PyTypeObject PyType##SELF_TYPE = { \
-    PyObject_HEAD_INIT(NULL) \
-    #SELF_TYPE, /* tp_name */                                       \
-    sizeof(Py##SELF_TYPE), /* tp_basicsize */                       \
-    0, /* tp_itemsize */                                            \
-    0, /* tp_dealloc */                                             \
-    0, /* tp_print */                                               \
-    0, /* tp_getattr */                                             \
-    0, /* tp_setattr */                                             \
-    0, /* tp_reserved */                                            \
-    0, /* tp_repr */                                                \
-    0, /* tp_as_number */                                           \
-    0, /* tp_as_sequence */                                         \
-    0, /* tp_as_mapping */                                          \
-    0, /* tp_hash */                                                \
-    0, /* tp_call */                                                \
-    0, /* tp_str */                                                 \
-    0, /* tp_getattro */                                            \
-    0, /* tp_setattro */                                            \
-    0, /* tp_as_buffer */                                           \
-    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /* tp_flags */        \
-    "#SELF_TYPE objects", /* tp_doc */                              \
-    0, /* tp_traverse */                                            \
-    0, /* tp_clear */                                               \
-    0, /* tp_richcompare */                                         \
-    0, /* tp_weaklistoffset */                                      \
-    0, /* tp_iter */                                                \
-    0, /* tp_iternext */                                            \
-    0, /* tp_methods */                                             \
-    0, /* tp_members */                                             \
-    0, /* tp_getset */                                              \
-    &PyType##SUPER_TYPE, /* tp_base */                              \
-    0, /* tp_dict */                                                \
-    0, /* tp_descr_get */                                           \
-    0, /* tp_descr_set */                                           \
-    0, /* tp_dictoffset */                                          \
-    0, /* tp_init */                                                \
-    0, /* tp_alloc */                                               \
-    PyType_GenericNew /* tp_new */                                  \
-};
+    .ob_base = PyVarObject_HEAD_INIT(NULL, 0) \
+    .tp_name = #SELF_TYPE, \
+    .tp_doc = PyDoc_STR("#SELF_TYPE objects"), \
+    .tp_basicsize = sizeof(Py##SELF_TYPE), \
+    .tp_base = &PyType##SUPER_TYPE, \
+    .tp_itemsize = 0, \
+    .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, \
+    .tp_new = PyType_GenericNew, \
+  };
 
 #define PyContainerMethods(TYPE, CONTAINER) \
   DirectDeallocMethod(CONTAINER) \
