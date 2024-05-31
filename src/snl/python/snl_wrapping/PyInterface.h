@@ -290,10 +290,10 @@ PyObject* richCompare(T left, T right, int op) {
   PyTypeObject PyType##SELF_TYPE = { \
     .ob_base = PyVarObject_HEAD_INIT(NULL, 0) \
     .tp_name = #SELF_TYPE, \
-    .tp_doc = PyDoc_STR("#SELF_TYPE objects"), \
     .tp_basicsize = sizeof(Py##SELF_TYPE), \
     .tp_itemsize = 0, \
     .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, \
+    .tp_doc = PyDoc_STR("#SELF_TYPE objects"), \
     .tp_new = PyType_GenericNew, \
   };
 
@@ -301,11 +301,11 @@ PyObject* richCompare(T left, T right, int op) {
   PyTypeObject PyType##SELF_TYPE = { \
     .ob_base = PyVarObject_HEAD_INIT(NULL, 0) \
     .tp_name = #SELF_TYPE, \
-    .tp_doc = PyDoc_STR("#SELF_TYPE objects"), \
     .tp_basicsize = sizeof(Py##SELF_TYPE), \
-    .tp_base = &PyType##SUPER_TYPE, \
     .tp_itemsize = 0, \
     .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, \
+    .tp_doc = PyDoc_STR("#SELF_TYPE objects"), \
+    .tp_base = &PyType##SUPER_TYPE, \
     .tp_new = PyType_GenericNew, \
   };
 
