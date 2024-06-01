@@ -494,10 +494,13 @@ SNLDB* SNLCapnP::loadInterface(const std::filesystem::path& interfacePath) {
   return loadInterface(fd);
 }
 
+//LCOV_EXCL_START
 SNLDB* SNLCapnP::receiveInterface(tcp::socket& socket) {
   return loadInterface(socket.native_handle());
 }
+//LCOV_EXCL_STOP
 
+//LCOV_EXCL_START
 SNLDB* SNLCapnP::receiveInterface(uint16_t port) {
   boost::asio::io_service io_service;
   //listen for new connection
@@ -509,5 +512,6 @@ SNLDB* SNLCapnP::receiveInterface(uint16_t port) {
   SNLDB* db = receiveInterface(socket);
   return db;
 }
+//LCOV_EXCL_STOP
 
 }} // namespace SNL // namespace naja
