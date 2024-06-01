@@ -11,8 +11,10 @@
 #include "SNLDesignModeling.h"
 #include "SNLLibraryTruthTables.h"
 #include "SNLScalarNet.h"
-#include "SNLTruthTable.h"
 #include "Utils.h"
+#include <ranges>
+#include "SNLDesignTruthTable.h"
+#include "SNLTruthTable.h"
 
 using namespace naja::DNL;
 using namespace naja::NAJA_OPT;
@@ -161,6 +163,54 @@ void ConstantPropagation::collectConstants() {
                 dnl_->getDNLIsoDB().getConstant1Isos().end());
 }
 
+SNLTruthTable ConstantPropagation::reduceTruthTable(
+    const SNLTruthTable& truthTable,
+    const std::vector<std::pair<SNLInstTerm*, int>>& constTerms) {
+  SNLTruthTable reducedTruthTable = truthTable;
+  assert(constTerms.size() != truthTable.size());
+  std::map<size_t, size_t> termID2index;
+  size_t index = 0;
+  for (auto term : constTerms[0].first->getInstance()->getInstTerms()) {
+    if (term->getDirection() != SNLInstTerm::Direction::Input) {
+      continue;
+    }
+    termID2index[term->getBitTerm()->getID()] = index;
+    index++;
+  }
+  for (auto& constTerm : std::ranges::reverse_view(constTerms)) {
+    reducedTruthTable = reducedTruthTable.getReducedWithConstant(
+        uint8_t(termID2index[constTerm.first->getBitTerm()->getID()]),
+        constTerm.second);
+  }
+  return reducedTruthTable;
+}
+
+unsigned ConstantPropagation::computeOutputValue(DNLID instanceID) {
+  DNLInstanceFull instance = dnl_->getDNLInstanceFromID(instanceID);
+  const SNLTruthTable& truthTable =
+      SNLDesignTruthTable::getTruthTable(instance.getSNLInstance()->getModel());
+  std::vector<std::pair<SNLInstTerm*, int>> constTerms;
+  for (DNLID termId = instance.getTermIndexes().first;
+       termId <= instance.getTermIndexes().second; termId++) {
+    const DNLTerminalFull& term = dnl_->getDNLTerminalFromID(termId);
+    if (term.getSnlBitTerm()->getDirection() != SNLBitTerm::Direction::Input) {
+      continue;
+    }
+    if (constants0_.find(term.getIsoID()) != constants0_.end()) {
+      constTerms.push_back({term.getSnlTerm(), 0});
+    } else if (constants1_.find(term.getIsoID()) != constants1_.end()) {
+      constTerms.push_back({term.getSnlTerm(), 1});
+    }
+  }
+  SNLTruthTable redcuedTruthTable = reduceTruthTable(truthTable, constTerms);
+  if (redcuedTruthTable.is0()) {
+    return 0;
+  } else if (redcuedTruthTable.is1()) {
+    return 1;
+  }
+  return (unsigned)-1;
+}
+
 void ConstantPropagation::performConstantPropagationAnalysis() {
   std::set<DNLID> constants;
   constants.insert(initialConstants0_.begin(), initialConstants0_.end());
@@ -233,8 +283,13 @@ void ConstantPropagation::performConstantPropagationAnalysis() {
           if (isConst) {
             partialConstantInstances_.erase(reader.getDNLInstance().getID());
             // Analyze the contants in ouptus and propagate them
-            size_t newConst = computeOutputValueForConstantInstance(
-                reader.getDNLInstance().getID());
+            unsigned newConst = (unsigned) -1;
+            if (truthTableEngine_ && q.isNull()) {
+              newConst = computeOutputValue(reader.getDNLInstance().getID());
+            } else {
+              newConst = computeOutputValueForConstantInstance(
+                  reader.getDNLInstance().getID());
+            }
             if (newConst == 1) {
               constantsNew.insert(output[0].getIsoID());
               constants1_.insert(output[0].getIsoID());
@@ -243,8 +298,13 @@ void ConstantPropagation::performConstantPropagationAnalysis() {
               constants0_.insert(output[0].getIsoID());
             }
           } else {
-            size_t newConst = computeOutputValueForPartiallyConstantInstance(
-                reader.getDNLInstance().getID());
+            unsigned newConst = (unsigned) -1;
+            if (truthTableEngine_ && q.isNull()) {
+              newConst = computeOutputValue(reader.getDNLInstance().getID());
+            } else {
+              newConst = computeOutputValueForPartiallyConstantInstance(
+                  reader.getDNLInstance().getID());
+            }
             if (newConst == 1) {
 #ifdef DEBUG_PRINTS
               // LCOV_EXCL_START

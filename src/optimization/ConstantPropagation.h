@@ -5,6 +5,7 @@
 
 #include "DNL.h"
 #include <unordered_map>
+#include "SNLTruthTable.h"
 
 using namespace naja::SNL;
 using namespace naja::DNL;
@@ -25,11 +26,18 @@ class ConstantPropagation {
       getPartialConstantReaders() const {
     return partialConstantReaders_;
   }
+  void setTruthTableEngine(bool value) {
+    truthTableEngine_ = value;
+  }
 
  private:
    
   unsigned computeOutputValueForConstantInstance(DNLID instanceID);
   unsigned computeOutputValueForPartiallyConstantInstance(DNLID instanceID);
+  SNLTruthTable reduceTruthTable(
+    const SNLTruthTable& truthTable,
+    const std::vector<std::pair<SNLInstTerm*, int>>& constTerms);
+  unsigned computeOutputValue(DNLID instanceID);
   //void computOuputValuesforHalfAdder(DNLID instanceID);
   void performConstantPropagationAnalysis();
   void propagateConstants();
@@ -50,4 +58,5 @@ class ConstantPropagation {
   std::vector<std::tuple<std::vector<SNLInstance*>, std::vector<std::pair<SNLInstTerm*, int>>, DNLID>>
       partialConstantReaders_;
   std::vector<SNLBitTerm*> constant1TopReaders_;
+  bool truthTableEngine_ = false;
 };
