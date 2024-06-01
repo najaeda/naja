@@ -33,11 +33,11 @@ std::string NajaDumpableProperty::getStringValue(size_t i) const {
 }
 
 void NajaDumpableProperty::addStringValue(const std::string& value) {
-  values_.push_back(value);
+  values_.emplace_back(value);
 }
 
 void NajaDumpableProperty::addUInt64Value(uint64_t value) {
-  values_.push_back(value);
+  values_.emplace_back(value);
 }
 
 uint64_t NajaDumpableProperty::getUInt64Value(size_t i) const {

@@ -182,7 +182,7 @@ def constructAOI21(lib, X):
   b1 = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B1")
   b2 = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B2")
   zn = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "ZN")
-  cell.setTruthTable(0xA8)
+  cell.setTruthTable(0x15)
 
 def constructAOI211(lib, X):
   #function: !(((C1 & C2) | B) | A)
@@ -192,6 +192,7 @@ def constructAOI211(lib, X):
   snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "C1")
   snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "C2")
   zn = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "ZN")
+  cell.setTruthTable(0x0111)
 
 def constructAOI22(lib, X):
   #function: !((A1 & A2) | (B1 & B2));
@@ -201,7 +202,7 @@ def constructAOI22(lib, X):
   snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B1")
   snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B2")
   snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "ZN")
-  cell.setTruthTable(0xEEE0)
+  cell.setTruthTable(0x0777)
 
 def constructAOI221(lib, X):
   #function: !(((C1 & C2) | A) | (B1 & B2))
@@ -212,6 +213,7 @@ def constructAOI221(lib, X):
   snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "C1")
   snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "C2")
   snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "ZN")
+  cell.setTruthTable(0x00151515)
 
 def constructAOI222(lib, X):
   #function: !(((A1 & A2) | (B1 & B2)) | (C1 & C2))
@@ -223,6 +225,7 @@ def constructAOI222(lib, X):
   snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "C1")
   snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "C2")
   snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "ZN")
+  cell.setTruthTable(0x0000077707770777)
 
 def constructOAI21(lib, X):
   #function: !(A & (B1 | B2))
@@ -274,6 +277,7 @@ def constructOAI222(lib, X):
   snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "C1")
   snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "C2")
   snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "ZN")
+  cell.setTruthTable(0x111F111F111FFFFF)
 
 def constructOAI33(lib, X):
   #function: !(((A1 | A2) | A3) & ((B1 | B2) | B3))
@@ -285,7 +289,7 @@ def constructOAI33(lib, X):
   snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B2")
   snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B3")
   snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "ZN")
-
+  cell.setTruthTable(0x01010101010101FF)
 
 def constructXOR2(lib, X):
   cell = snl.SNLDesign.createPrimitive(lib, "XOR2_X" + str(X))

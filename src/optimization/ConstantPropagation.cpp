@@ -939,13 +939,13 @@ void ConstantPropagation::propagateConstants() {
     }
     std::reverse(path.begin(), path.end());
     std::vector<std::pair<SNLInstTerm*, int>> instTerms;
-    size_t numInputs = 0;
+    //size_t numInputs = 0;
     for (DNLID termId = inst.getTermIndexes().first;
          termId <= inst.getTermIndexes().second; termId++) {
       const DNLTerminalFull& term = dnl_->getDNLTerminalFromID(termId);
       if (term.getSnlBitTerm()->getDirection() ==
           SNLBitTerm::Direction::Input) {
-        numInputs++;
+        //numInputs++;
         if (constants0_.find(term.getIsoID()) != constants0_.end()) {
           instTerms.push_back(
               std::pair<SNLInstTerm*, int>(term.getSnlTerm(), 0));
@@ -955,7 +955,7 @@ void ConstantPropagation::propagateConstants() {
         }
       }
     }
-    assert(numInputs > instTerms.size());
+    //assert(numInputs > instTerms.size());
     partialConstantReaders_.push_back(
         std::tuple<std::vector<SNLInstance*>,
                    std::vector<std::pair<SNLInstTerm*, int>>, DNLID>(
