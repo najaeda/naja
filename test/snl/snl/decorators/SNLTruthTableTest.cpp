@@ -115,6 +115,61 @@ TEST(SNLTruthTableTest, test) {
   EXPECT_EQ(0x1, reducedtt.bits());
 }
 
+TEST(SNLTruthTable, testMultipleConstantInputs) {
+  //mux truth table
+  //function		: "((S & B) | (A & !S))";
+  SNLTruthTable tt(3, 0xCA);
+
+  //A&B are 0
+  auto reducedtt = tt.getReducedWithConstants({{0, 0}, {1, 0}});
+  EXPECT_EQ(0, reducedtt.size());
+  EXPECT_EQ(0x0, reducedtt.bits());
+
+  //A&B are 1
+  reducedtt = tt.getReducedWithConstants({{0, 1}, {1, 1}});
+  EXPECT_EQ(0, reducedtt.size());
+  EXPECT_EQ(0x1, reducedtt.bits());
+
+  //S=0 B=0 => A
+  reducedtt = tt.getReducedWithConstants({{1, 0}, {2, 0}});
+  EXPECT_EQ(1, reducedtt.size());
+  EXPECT_EQ(0x2, reducedtt.bits());
+
+  //S=0 B=1 => A
+  reducedtt = tt.getReducedWithConstants({{1, 1}, {2, 0}});
+  EXPECT_EQ(1, reducedtt.size());
+  EXPECT_EQ(0x2, reducedtt.bits());
+
+  //S=1 B=0 => 0
+  reducedtt = tt.getReducedWithConstants({{1, 0}, {2, 1}});
+  EXPECT_EQ(0, reducedtt.size());
+  EXPECT_EQ(0x0, reducedtt.bits());
+
+  //S=1 B=1 => 1
+  reducedtt = tt.getReducedWithConstants({{1, 1}, {2, 1}});
+  EXPECT_EQ(0, reducedtt.size());
+  EXPECT_EQ(0x1, reducedtt.bits());
+
+  //S=0 A=0 => 0
+  reducedtt = tt.getReducedWithConstants({{0, 0}, {2, 0}});
+  EXPECT_EQ(0, reducedtt.size());
+  EXPECT_EQ(0x0, reducedtt.bits());
+
+  //S=0 A=1 => 1
+  reducedtt = tt.getReducedWithConstants({{0, 1}, {2, 0}});
+  EXPECT_EQ(0, reducedtt.size());
+
+  //A=0, B=1 => S
+  reducedtt = tt.getReducedWithConstants({{0, 0}, {1, 1}});
+  EXPECT_EQ(1, reducedtt.size());
+  EXPECT_EQ(0x2, reducedtt.bits());
+
+  //A=1, B=0 => !S
+  reducedtt = tt.getReducedWithConstants({{0, 1}, {1, 0}});
+  EXPECT_EQ(1, reducedtt.size());
+  EXPECT_EQ(0x1, reducedtt.bits());
+}
+
 TEST(SNLTruthTable, testErrors) {
   EXPECT_THROW(SNLTruthTable(8, 0xFFFFF), SNLException);
   SNLTruthTable tt(4, 0xFFFF);
