@@ -81,8 +81,6 @@ void ReductionOptimization::replaceInstance(
     }
   }
   for (auto term : instance->getInstTerms()) {
-    // printf("index: %lu\n", index);
-    // printf("originNonConstantIndex: %lu\n", originNonConstantIndex);
     SNLBitNet* bitNet = term->getNet();
     term->setNet(nullptr);
     if (bitNet->isConstant() || reducedInstTerms.empty()) {

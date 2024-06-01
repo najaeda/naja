@@ -896,7 +896,7 @@ void ConstantPropagation::changeDriverToLocal0(SNLInstTerm* term, DNLID id) {
         term->getDesign(),
         SNLName(name));
     }
-  // assign0->setType(naja::SNL::SNLNet::Type::Assign0);
+  assign0->setType(naja::SNL::SNLNet::Type::Supply0);
   term->setNet(assign0);
   SNLTruthTable tt(0, 0);
   auto logic0 = SNLLibraryTruthTables::getDesignForTruthTable(
@@ -921,7 +921,7 @@ void ConstantPropagation::changeDriverToLocal1(SNLInstTerm* term, DNLID id) {
         term->getDesign(),
         SNLName(name));
     }
-  // assign1->setType(naja::SNL::SNLNet::Type::Assign1);
+  assign1->setType(naja::SNL::SNLNet::Type::Supply1);
   term->setNet(assign1);
   SNLTruthTable tt(0, 1);
   auto logic1 = SNLLibraryTruthTables::getDesignForTruthTable(
@@ -1039,6 +1039,7 @@ void ConstantPropagation::propagateConstants() {
         term->getDesign(),
         SNLName(name));
     }
+    assign0->setType(naja::SNL::SNLNet::Type::Supply0);
     term->setNet(assign0);
     SNLTruthTable tt(0, 0);
     auto logic0 = SNLLibraryTruthTables::getDesignForTruthTable(
@@ -1071,7 +1072,7 @@ void ConstantPropagation::propagateConstants() {
         term->getDesign(),
         SNLName(name));
     }
-    // assign1->setType(naja::SNL::SNLNet::Type::Assign1);
+    assign1->setType(naja::SNL::SNLNet::Type::Supply1);
     term->setNet(assign1);
     SNLTruthTable tt(0, 1);
     auto logic1 = SNLLibraryTruthTables::getDesignForTruthTable(
