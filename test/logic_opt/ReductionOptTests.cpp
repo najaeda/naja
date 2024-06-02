@@ -274,6 +274,7 @@ TEST_F(ReductionOptTests, testTruthTablesMap) {
     topOut->setNet(net3);
 
     ConstantPropagation cp;
+    cp.setTruthTableEngine(true);
     cp.run();
     printf("partial constant readers: %lu\n", cp.getPartialConstantReaders().size());
     ReductionOptimization reductionOpt(cp.getPartialConstantReaders());
