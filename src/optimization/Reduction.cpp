@@ -33,10 +33,12 @@ void ReductionOptimization::run() {
 SNLTruthTable ReductionOptimization::reduceTruthTable(
     const SNLTruthTable& truthTable,
     const std::vector<std::pair<SNLInstTerm*, int>>& constTerms) {
-  SNLTruthTable reducedTruthTable = truthTable;
   assert(constTerms.size() != truthTable.size());
   std::map<size_t, size_t> termID2index;
   size_t index = 0;
+  using ConstantInput = std::pair<uint32_t, bool>;
+  using ConstantInputs = std::vector<ConstantInput>;
+  ConstantInputs constInputs;
   for (auto term : constTerms[0].first->getInstance()->getInstTerms()) {
     if (term->getDirection() != SNLInstTerm::Direction::Input) {
       continue;
@@ -44,12 +46,12 @@ SNLTruthTable ReductionOptimization::reduceTruthTable(
     termID2index[term->getBitTerm()->getID()] = index;
     index++;
   }
-  for (auto& constTerm : std::ranges::reverse_view(constTerms)) {
-    reducedTruthTable = reducedTruthTable.getReducedWithConstant(
-        uint8_t(termID2index[constTerm.first->getBitTerm()->getID()]),
-        constTerm.second);
+  for (auto& constTerm : constTerms) {
+    constInputs.push_back(
+        ConstantInput(termID2index[constTerm.first->getBitTerm()->getID()],
+                      constTerm.second));
   }
-  return reducedTruthTable;
+  return truthTable.getReducedWithConstants(constInputs);
 }
 
 void ReductionOptimization::replaceInstance(

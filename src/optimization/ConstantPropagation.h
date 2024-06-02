@@ -34,9 +34,6 @@ class ConstantPropagation {
    
   unsigned computeOutputValueForConstantInstance(DNLID instanceID);
   unsigned computeOutputValueForPartiallyConstantInstance(DNLID instanceID);
-  SNLTruthTable reduceTruthTable(
-    const SNLTruthTable& truthTable,
-    const std::vector<std::pair<SNLInstTerm*, int>>& constTerms);
   unsigned computeOutputValue(DNLID instanceID);
   //void computOuputValuesforHalfAdder(DNLID instanceID);
   void performConstantPropagationAnalysis();

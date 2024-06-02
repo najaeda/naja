@@ -15,7 +15,7 @@
 #include <ranges>
 #include "SNLDesignTruthTable.h"
 #include "SNLTruthTable.h"
-
+#include "Reduction.h"
 using namespace naja::DNL;
 using namespace naja::NAJA_OPT;
 using namespace naja::SNL;
@@ -163,28 +163,6 @@ void ConstantPropagation::collectConstants() {
                 dnl_->getDNLIsoDB().getConstant1Isos().end());
 }
 
-SNLTruthTable ConstantPropagation::reduceTruthTable(
-    const SNLTruthTable& truthTable,
-    const std::vector<std::pair<SNLInstTerm*, int>>& constTerms) {
-  SNLTruthTable reducedTruthTable = truthTable;
-  assert(constTerms.size() != truthTable.size());
-  std::map<size_t, size_t> termID2index;
-  size_t index = 0;
-  for (auto term : constTerms[0].first->getInstance()->getInstTerms()) {
-    if (term->getDirection() != SNLInstTerm::Direction::Input) {
-      continue;
-    }
-    termID2index[term->getBitTerm()->getID()] = index;
-    index++;
-  }
-  for (auto& constTerm : std::ranges::reverse_view(constTerms)) {
-    reducedTruthTable = reducedTruthTable.getReducedWithConstant(
-        uint8_t(termID2index[constTerm.first->getBitTerm()->getID()]),
-        constTerm.second);
-  }
-  return reducedTruthTable;
-}
-
 unsigned ConstantPropagation::computeOutputValue(DNLID instanceID) {
   DNLInstanceFull instance = dnl_->getDNLInstanceFromID(instanceID);
   const SNLTruthTable& truthTable =
@@ -202,7 +180,7 @@ unsigned ConstantPropagation::computeOutputValue(DNLID instanceID) {
       constTerms.push_back({term.getSnlTerm(), 1});
     }
   }
-  SNLTruthTable redcuedTruthTable = reduceTruthTable(truthTable, constTerms);
+  SNLTruthTable redcuedTruthTable = ReductionOptimization::reduceTruthTable(truthTable, constTerms);
   if (redcuedTruthTable.is0()) {
     return 0;
   } else if (redcuedTruthTable.is1()) {
