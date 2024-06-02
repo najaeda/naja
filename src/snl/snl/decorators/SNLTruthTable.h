@@ -6,6 +6,8 @@
 #define __SNL_TRUTH_TABLE_H_
 
 #include <cstdint>
+#include <vector>
+#include <algorithm>
 #include <cmath>
 #include <string>
 #include <sstream>
@@ -44,30 +46,64 @@ class SNLTruthTable {
       return size_ != 0xFF;
     }
 
-    SNLTruthTable getReducedWithConstant(uint32_t index, bool constant) const {
+    using ConstantInput = std::pair<uint32_t, bool>;
+    using ConstantInputs = std::vector<ConstantInput>;
+    SNLTruthTable getReducedWithConstants(ConstantInputs indexConstants) const {
+      // If the truth table is empty, return itself
       if (size_ == 0) {
         return *this;
       }
-      if (index > size_-1) {
-        throw SNLException("Index out of range (max=6)");
-      }
-      uint32_t n = 1U << size_;
-      uint64_t reducedBits = 0;
-      uint32_t bitPos = 0;
-      for (uint32_t i = 0; i < n; ++i) {
-        if (((i >> index) & 1) == constant) {
-            reducedBits |= ((bits_ >> i) & 1) << bitPos;
+
+      sort(indexConstants.begin(), indexConstants.end(),
+        [](const ConstantInput& l, const ConstantInput& r) {
+        return l.first > r.first;
+      });
+
+      // Create a copy of the current truth table
+      SNLTruthTable currentTT = *this;
+
+      // Iterate through each pair of index and constant
+      for (const auto& indexConstant: indexConstants) {
+        uint32_t index = indexConstant.first;
+        bool constant = indexConstant.second;
+
+        // Check if the index is out of range
+        if (index > currentTT.size_ - 1) {
+          throw SNLException("Index out of range (max=6)");
+        }
+
+        // Calculate the number of entries in the truth table
+        uint32_t n = 1U << currentTT.size_;
+        uint64_t reducedBits = 0;
+        uint32_t bitPos = 0;
+
+        // Iterate over all possible input combinations
+        for (uint32_t i = 0; i < n; ++i) {
+          // Check if the index-th bit matches the constant
+          if (((i >> index) & 1) == constant) {
+            // Copy the corresponding bit from the original truth table
+            reducedBits |= ((currentTT.bits_ >> i) & 1) << bitPos;
             ++bitPos;
+          }
+        }
+
+        // Update the current truth table with the reduced size and bits
+        currentTT = SNLTruthTable(currentTT.size_ - 1, reducedBits);
+
+        // Check if the new truth table represents a constant 0 or 1
+        if (currentTT.is0()) {
+          return SNLTruthTable(0, 0ULL);
+        }
+        if (currentTT.is1()) {
+          return SNLTruthTable(0, 1ULL);
         }
       }
-      SNLTruthTable newTT(size_-1, reducedBits);
-      if (newTT.is0()) {
-        return SNLTruthTable(0, 0ULL);
-      }
-      if (newTT.is1()) {
-        return SNLTruthTable(0, 1ULL);
-      }
-      return newTT;
+      // Return the final reduced truth table
+      return currentTT;
+    }
+
+    SNLTruthTable getReducedWithConstant(uint32_t index, bool constant) const {
+      return getReducedWithConstants({{index, constant}});
     }
 
     // Function to check if an input has no influence on the output
