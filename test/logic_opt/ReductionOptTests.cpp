@@ -53,7 +53,7 @@ class ReductionOptTests : public ::testing::Test {
 TEST_F(ReductionOptTests, test) {
   auto db = SNLDB::create(SNLUniverse::get());
   auto library =
-      SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("PRIMS"));
+      SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nangate45"));
   auto primitives0Path = std::filesystem::path(SNL_PRIMITIVES_TEST_PATH);
   primitives0Path /= "../snl/python/pyloader/scripts/";
   primitives0Path /= "primitives1.py";
@@ -87,7 +87,7 @@ TEST_F(ReductionOptTests, test) {
 TEST_F(ReductionOptTests, testTruthTablesMap) {
   auto db = SNLDB::create(SNLUniverse::get());
   auto library =
-      SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("PRIMS"));
+      SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nangate45"));
   auto primitives0Path = std::filesystem::path(SNL_PRIMITIVES_TEST_PATH);
   primitives0Path /= "../snl/python/pyloader/scripts/";
   primitives0Path /= "primitives1.py";
@@ -250,29 +250,40 @@ TEST_F(ReductionOptTests, testTruthTablesMap) {
     univ->setTopDesign(top);
     auto topOut =
         SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out"));
+    auto topOut2 =
+        SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out2"));
     auto topIn =
         SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("in"));
     // 8. create a mux instance in top
     SNLInstance* muxInst = SNLInstance::create(top, mux2, SNLName("mux"));
-    SNLInstance* logic1Inst =
+     SNLInstance* muxInst2 = SNLInstance::create(top, mux2, SNLName("mux2"));
+    SNLInstance* logic0Inst =
         SNLInstance::create(top, logic0, SNLName("logic0"));
+    SNLInstance* logic1Inst =
+        SNLInstance::create(top, logic1, SNLName("logic1"));
     // 9. connect all instances inputs
     // SNLNet* net1 = SNLScalarNet::create(top, SNLName("logic_0_net"));
     SNLNet* net2 = SNLScalarNet::create(top, SNLName("constant_0_net"));
     SNLNet* net3 = SNLScalarNet::create(top, SNLName("mux_output_net"));
     SNLNet* net4 = SNLScalarNet::create(top, SNLName("input_net"));
+    SNLNet* net5 = SNLScalarNet::create(top, SNLName("constant_1_net"));
+    SNLNet* net6 = SNLScalarNet::create(top, SNLName("mux_output_net2"));
     topIn->setNet(net4);
     // connect logic0 to mux
-    muxInst->getInstTerm(mux2->getScalarTerm(SNLName("A")))->setNet(net4);
+    muxInst->getInstTerm(mux2->getScalarTerm(SNLName("A")))->setNet(net2);
     // connect logic1 to mux
     // net2->setType(naja::SNL::SNLNet::Type::Assign1);
-    (*logic1Inst->getInstTerms().begin())->setNet(net2);
+    (*logic0Inst->getInstTerms().begin())->setNet(net2);
     muxInst->getInstTerm(mux2->getScalarTerm(SNLName("B")))->setNet(net4);
     muxInst->getInstTerm(mux2->getScalarTerm(SNLName("S")))->setNet(net2);
     // connect the mux instance output to the top output
     muxInst->getInstTerm(mux2->getScalarTerm(SNLName("Z")))->setNet(net3);
     topOut->setNet(net3);
-
+    muxInst2->getInstTerm(mux2->getScalarTerm(SNLName("A")))->setNet(net2);
+    muxInst2->getInstTerm(mux2->getScalarTerm(SNLName("B")))->setNet(net5);
+    muxInst2->getInstTerm(mux2->getScalarTerm(SNLName("S")))->setNet(net5);
+    muxInst2->getInstTerm(mux2->getScalarTerm(SNLName("Z")))->setNet(net6);
+    topOut2->setNet(net6);
     ConstantPropagation cp;
     cp.setTruthTableEngine(true);
     cp.run();

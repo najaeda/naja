@@ -33,7 +33,7 @@ void ReductionOptimization::run() {
 SNLTruthTable ReductionOptimization::reduceTruthTable(
     const SNLTruthTable& truthTable,
     const std::vector<std::pair<SNLInstTerm*, int>>& constTerms) {
-  assert(constTerms.size() != truthTable.size());
+  assert(constTerms.size() <= truthTable.size());
   std::map<size_t, size_t> termID2index;
   size_t index = 0;
   using ConstantInput = std::pair<uint32_t, bool>;
