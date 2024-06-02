@@ -79,6 +79,18 @@ def constructDFFS(lib, X):
   q = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "Q")
   qn = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "QN")
 
+def constructDLL(lib, X):
+  cell = snl.SNLDesign.createPrimitive(lib, "DLL_X" + str(X))
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "D")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "GN")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "Q")
+
+def constructDLH(lib, X):
+  cell = snl.SNLDesign.createPrimitive(lib, "DLH_X" + str(X))
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "D")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "G")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "Q")
+
 def constructFA(lib, X):
   cell = snl.SNLDesign.createPrimitive(lib, "FA_X" + str(X))
   a = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A")
@@ -330,6 +342,8 @@ def constructPrimitives(lib):
   constructDFF(lib, 2)
   constructDFFR(lib, 1)
   constructDFFS(lib, 1)
+  constructDLL(lib, 1)
+  constructDLH(lib, 1)
   constructINV(lib, 1)
   constructINV(lib, 2)
   constructINV(lib, 4)
@@ -406,6 +420,8 @@ def constructPrimitives(lib):
   constructOAI221(lib, 2)
   constructOAI221(lib, 4)
   constructOAI222(lib, 1)
+  constructOAI222(lib, 2)
+  constructOAI222(lib, 4)
   constructOAI33(lib, 1)
   constructXOR2(lib, 1)
   constructXOR2(lib, 2)
@@ -416,6 +432,7 @@ def constructPrimitives(lib):
   constructfakeram(lib, 6, 21)
   constructfakeram(lib, 6, 96)
   constructfakeram(lib, 9, 64)
+  constructfakeram(lib, 8, 16)
   constructfakeram(lib, 8, 95)
   constructfakeram(lib, 8, 34)
   constructfakeram(lib, 11, 39)
