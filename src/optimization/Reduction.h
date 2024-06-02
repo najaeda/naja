@@ -17,15 +17,15 @@ class ReductionOptimization {
   ReductionOptimization(const std::vector<std::tuple<std::vector<SNLInstance*>,
                          std::vector<std::pair<SNLInstTerm*, int>>,
                          DNLID>>& partialConstantReaders);
+  static SNLTruthTable reduceTruthTable(
+    const SNLTruthTable& truthTable,
+    const std::vector<std::pair<SNLInstTerm*, int>>& constTerms);
   void run();
 
  private:
   void reducPartialConstantInstance(std::tuple<std::vector<SNLInstance*>,
                      std::vector<std::pair<SNLInstTerm*, int>>,
                      DNLID>& candidate);
-  SNLTruthTable reduceTruthTable(
-    const SNLTruthTable& truthTable,
-    const std::vector<std::pair<SNLInstTerm*, int>>& constTerms);
   void replaceInstance(SNLInstance* instance, const std::pair<SNLDesign*, SNLLibraryTruthTables::Indexes>& result);
   std::string collectStatistics() const;
   std::vector<std::tuple<std::vector<SNLInstance*>,

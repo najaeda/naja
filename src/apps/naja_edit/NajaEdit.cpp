@@ -298,6 +298,7 @@ int main(int argc, char* argv[]) {
       const auto start{std::chrono::steady_clock::now()};
       spdlog::info("Starting full optimization(constant propagation and removal of loadless logic)");
       ConstantPropagation cp;
+      cp.setTruthTableEngine(true);
       cp.run();
       ReductionOptimization reductionOptimization(cp.getPartialConstantReaders());
       reductionOptimization.run();

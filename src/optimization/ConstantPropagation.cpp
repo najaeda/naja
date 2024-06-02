@@ -11,9 +11,11 @@
 #include "SNLDesignModeling.h"
 #include "SNLLibraryTruthTables.h"
 #include "SNLScalarNet.h"
-#include "SNLTruthTable.h"
 #include "Utils.h"
-
+#include <ranges>
+#include "SNLDesignTruthTable.h"
+#include "SNLTruthTable.h"
+#include "Reduction.h"
 using namespace naja::DNL;
 using namespace naja::NAJA_OPT;
 using namespace naja::SNL;
@@ -161,6 +163,32 @@ void ConstantPropagation::collectConstants() {
                 dnl_->getDNLIsoDB().getConstant1Isos().end());
 }
 
+unsigned ConstantPropagation::computeOutputValue(DNLID instanceID) {
+  DNLInstanceFull instance = dnl_->getDNLInstanceFromID(instanceID);
+  const SNLTruthTable& truthTable =
+      SNLDesignTruthTable::getTruthTable(instance.getSNLInstance()->getModel());
+  std::vector<std::pair<SNLInstTerm*, int>> constTerms;
+  for (DNLID termId = instance.getTermIndexes().first;
+       termId <= instance.getTermIndexes().second; termId++) {
+    const DNLTerminalFull& term = dnl_->getDNLTerminalFromID(termId);
+    if (term.getSnlBitTerm()->getDirection() != SNLBitTerm::Direction::Input) {
+      continue;
+    }
+    if (constants0_.find(term.getIsoID()) != constants0_.end()) {
+      constTerms.push_back({term.getSnlTerm(), 0});
+    } else if (constants1_.find(term.getIsoID()) != constants1_.end()) {
+      constTerms.push_back({term.getSnlTerm(), 1});
+    }
+  }
+  SNLTruthTable redcuedTruthTable = ReductionOptimization::reduceTruthTable(truthTable, constTerms);
+  if (redcuedTruthTable.is0()) {
+    return 0;
+  } else if (redcuedTruthTable.is1()) {
+    return 1;
+  }
+  return (unsigned)-1;
+}
+
 void ConstantPropagation::performConstantPropagationAnalysis() {
   std::set<DNLID> constants;
   constants.insert(initialConstants0_.begin(), initialConstants0_.end());
@@ -233,18 +261,30 @@ void ConstantPropagation::performConstantPropagationAnalysis() {
           if (isConst) {
             partialConstantInstances_.erase(reader.getDNLInstance().getID());
             // Analyze the contants in ouptus and propagate them
-            size_t newConst = computeOutputValueForConstantInstance(
-                reader.getDNLInstance().getID());
+            unsigned newConst = (unsigned) -1;
+            if (truthTableEngine_ && q.isNull()) {
+              newConst = computeOutputValue(reader.getDNLInstance().getID());
+            } else {
+              newConst = computeOutputValueForConstantInstance(
+                  reader.getDNLInstance().getID());
+            }
             if (newConst == 1) {
               constantsNew.insert(output[0].getIsoID());
               constants1_.insert(output[0].getIsoID());
+              partialConstantInstances_.erase(reader.getDNLInstance().getID());
             } else if (newConst == 0) {
               constantsNew.insert(output[0].getIsoID());
               constants0_.insert(output[0].getIsoID());
+              partialConstantInstances_.erase(reader.getDNLInstance().getID());
             }
           } else {
-            size_t newConst = computeOutputValueForPartiallyConstantInstance(
-                reader.getDNLInstance().getID());
+            unsigned newConst = (unsigned) -1;
+            if (truthTableEngine_ && q.isNull()) {
+              newConst = computeOutputValue(reader.getDNLInstance().getID());
+            } else {
+              newConst = computeOutputValueForPartiallyConstantInstance(
+                  reader.getDNLInstance().getID());
+            }
             if (newConst == 1) {
 #ifdef DEBUG_PRINTS
               // LCOV_EXCL_START
@@ -259,6 +299,7 @@ void ConstantPropagation::performConstantPropagationAnalysis() {
               }
               constantsNew.insert(iso);
               constants1_.insert(iso);
+              partialConstantInstances_.erase(reader.getDNLInstance().getID());
             } else if (newConst == 0) {
               DNLID iso = DNLID_MAX;
               if (q.isNull()) {
@@ -268,6 +309,8 @@ void ConstantPropagation::performConstantPropagationAnalysis() {
               }
               constantsNew.insert(iso);
               constants0_.insert(iso);
+              partialConstantInstances_.erase(reader.getDNLInstance().getID());
+              
             } else {
               partialConstantInstances_.insert(reader.getDNLInstance().getID());
             }
@@ -539,10 +582,9 @@ unsigned ConstantPropagation::computeOutputValueForConstantInstance(
       }
       if (s == 0) {
         return d;
-      } else if (s == 1) {
+      } else {
         return q;
       }
-      return (unsigned)-1;
     }
     case Type::OAI: {
       unsigned result = (unsigned)-1;
@@ -836,7 +878,7 @@ void ConstantPropagation::changeDriverToLocal0(SNLInstTerm* term, DNLID id) {
         term->getDesign(),
         SNLName(name));
     }
-  // assign0->setType(naja::SNL::SNLNet::Type::Assign0);
+  assign0->setType(naja::SNL::SNLNet::Type::Supply0);
   term->setNet(assign0);
   SNLTruthTable tt(0, 0);
   auto logic0 = SNLLibraryTruthTables::getDesignForTruthTable(
@@ -861,7 +903,7 @@ void ConstantPropagation::changeDriverToLocal1(SNLInstTerm* term, DNLID id) {
         term->getDesign(),
         SNLName(name));
     }
-  // assign1->setType(naja::SNL::SNLNet::Type::Assign1);
+  assign1->setType(naja::SNL::SNLNet::Type::Supply1);
   term->setNet(assign1);
   SNLTruthTable tt(0, 1);
   auto logic1 = SNLLibraryTruthTables::getDesignForTruthTable(
@@ -979,6 +1021,7 @@ void ConstantPropagation::propagateConstants() {
         term->getDesign(),
         SNLName(name));
     }
+    assign0->setType(naja::SNL::SNLNet::Type::Supply0);
     term->setNet(assign0);
     SNLTruthTable tt(0, 0);
     auto logic0 = SNLLibraryTruthTables::getDesignForTruthTable(
@@ -1011,7 +1054,7 @@ void ConstantPropagation::propagateConstants() {
         term->getDesign(),
         SNLName(name));
     }
-    // assign1->setType(naja::SNL::SNLNet::Type::Assign1);
+    assign1->setType(naja::SNL::SNLNet::Type::Supply1);
     term->setNet(assign1);
     SNLTruthTable tt(0, 1);
     auto logic1 = SNLLibraryTruthTables::getDesignForTruthTable(
