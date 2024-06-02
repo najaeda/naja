@@ -290,7 +290,7 @@ TEST_F(ReductionOptTests, testTruthTablesMap) {
     topOut2->setNet(net6);
     muxInst3->getInstTerm(mux2->getScalarTerm(SNLName("A")))->setNet(net4);
     muxInst3->getInstTerm(mux2->getScalarTerm(SNLName("B")))->setNet(net4);
-    muxInst3->getInstTerm(mux2->getScalarTerm(SNLName("S")))->setNet(net4);
+    muxInst3->getInstTerm(mux2->getScalarTerm(SNLName("S")))->setNet(net5);
     muxInst3->getInstTerm(mux2->getScalarTerm(SNLName("Z")))->setNet(net7);
     topOut3->setNet(net7);
     ConstantPropagation cp;
