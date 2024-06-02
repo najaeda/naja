@@ -52,8 +52,8 @@ class ReductionOptTests : public ::testing::Test {
 
 TEST_F(ReductionOptTests, test) {
   auto db = SNLDB::create(SNLUniverse::get());
-  auto library =
-      SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nangate45"));
+  auto library = SNLLibrary::create(db, SNLLibrary::Type::Primitives,
+                                    SNLName("nangate45"));
   auto primitives0Path = std::filesystem::path(SNL_PRIMITIVES_TEST_PATH);
   primitives0Path /= "../snl/python/pyloader/scripts/";
   primitives0Path /= "primitives1.py";
@@ -86,8 +86,8 @@ TEST_F(ReductionOptTests, test) {
 
 TEST_F(ReductionOptTests, testTruthTablesMap) {
   auto db = SNLDB::create(SNLUniverse::get());
-  auto library =
-      SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("nangate45"));
+  auto library = SNLLibrary::create(db, SNLLibrary::Type::Primitives,
+                                    SNLName("nangate45"));
   auto primitives0Path = std::filesystem::path(SNL_PRIMITIVES_TEST_PATH);
   primitives0Path /= "../snl/python/pyloader/scripts/";
   primitives0Path /= "primitives1.py";
@@ -298,18 +298,19 @@ TEST_F(ReductionOptTests, testTruthTablesMap) {
     cp.setTruthTableEngine(true);
     cp.run();
     {
-    std::string dotFileName(
-        std::string(std::string("./afterCP") + std::string(".dot")));
-    std::string svgFileName(
-        std::string(std::string("./afterCP") + std::string(".svg")));
-    SnlVisualiser snl(top);
-    snl.process();
-    snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
-    system(std::string(std::string("dot -Tsvg ") + dotFileName +
-                       std::string(" -o ") + svgFileName)
-               .c_str());
-  }
-    printf("partial constant readers: %lu\n", cp.getPartialConstantReaders().size());
+      std::string dotFileName(
+          std::string(std::string("./afterCP") + std::string(".dot")));
+      std::string svgFileName(
+          std::string(std::string("./afterCP") + std::string(".svg")));
+      SnlVisualiser snl(top);
+      snl.process();
+      snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
+      system(std::string(std::string("dot -Tsvg ") + dotFileName +
+                         std::string(" -o ") + svgFileName)
+                 .c_str());
+    }
+    printf("partial constant readers: %lu\n",
+           cp.getPartialConstantReaders().size());
     ReductionOptimization reductionOpt(cp.getPartialConstantReaders());
     reductionOpt.run();
   }

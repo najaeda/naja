@@ -582,10 +582,9 @@ unsigned ConstantPropagation::computeOutputValueForConstantInstance(
       }
       if (s == 0) {
         return d;
-      } else if (s == 1) {
+      } else {
         return q;
       }
-      return (unsigned)-1;
     }
     case Type::OAI: {
       unsigned result = (unsigned)-1;

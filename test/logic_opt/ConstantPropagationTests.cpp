@@ -1829,6 +1829,8 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationPartialNOR) {
   univ->setTopDesign(top);
   auto topOut =
       SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out"));
+  auto topOut2 =
+      SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out2"));
   auto topIn =
       SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("in"));
   // 3. create a logic_0 model
@@ -1858,6 +1860,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationPartialNOR) {
   auto norOut = SNLScalarTerm::create(norModel, SNLTerm::Direction::Output, SNLName("out"));  
   // 8. create a nor instance in top
   SNLInstance* inst7 = SNLInstance::create(top, norModel, SNLName("nor"));
+  SNLInstance* inst8 = SNLInstance::create(top, norModel, SNLName("nor2"));
   // 9. connect all instances inputs
   SNLNet* net1 = SNLScalarNet::create(top, SNLName("logic_0_net"));
   net1->setType(SNLNet::Type::Assign0);
@@ -1865,6 +1868,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationPartialNOR) {
   net2->setType(SNLNet::Type::Assign1);
   SNLNet* net3 = SNLScalarNet::create(top, SNLName("nor_output_net"));
   SNLNet* net4 = SNLScalarNet::create(top, SNLName("input_net"));
+  SNLNet* net5 = SNLScalarNet::create(top, SNLName("nor2_output_net"));
   topIn->setNet(net4);
   // connect logic0 to nor
   inst1->getInstTerm(logic0Out)->setNet(net1);
@@ -1875,6 +1879,12 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationPartialNOR) {
   // connect the nor instance output to the top output
   inst7->getInstTerm(norOut)->setNet(net3);
   topOut->setNet(net3);
+
+  inst8->getInstTerm(norIn1)->setNet(net2);
+  inst8->getInstTerm(norIn2)->setNet(net4);
+  inst8->getInstTerm(norOut)->setNet(net5);
+  topOut2->setNet(net5);
+
   // 11. create DNL
   get();
   // 12. create a constant propagation object
