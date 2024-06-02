@@ -278,6 +278,7 @@ TEST_F(ReductionOptTests, testTruthTablesMap) {
     // connect logic1 to mux
     // net2->setType(naja::SNL::SNLNet::Type::Assign1);
     (*logic0Inst->getInstTerms().begin())->setNet(net2);
+    (*logic1Inst->getInstTerms().begin())->setNet(net5);
     muxInst->getInstTerm(mux2->getScalarTerm(SNLName("B")))->setNet(net4);
     muxInst->getInstTerm(mux2->getScalarTerm(SNLName("S")))->setNet(net2);
     // connect the mux instance output to the top output
@@ -296,6 +297,18 @@ TEST_F(ReductionOptTests, testTruthTablesMap) {
     ConstantPropagation cp;
     cp.setTruthTableEngine(true);
     cp.run();
+    {
+    std::string dotFileName(
+        std::string(std::string("./afterCP") + std::string(".dot")));
+    std::string svgFileName(
+        std::string(std::string("./afterCP") + std::string(".svg")));
+    SnlVisualiser snl(top);
+    snl.process();
+    snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
+    system(std::string(std::string("dot -Tsvg ") + dotFileName +
+                       std::string(" -o ") + svgFileName)
+               .c_str());
+  }
     printf("partial constant readers: %lu\n", cp.getPartialConstantReaders().size());
     ReductionOptimization reductionOpt(cp.getPartialConstantReaders());
     reductionOpt.run();

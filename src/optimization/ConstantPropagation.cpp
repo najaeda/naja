@@ -271,9 +271,11 @@ void ConstantPropagation::performConstantPropagationAnalysis() {
             if (newConst == 1) {
               constantsNew.insert(output[0].getIsoID());
               constants1_.insert(output[0].getIsoID());
+              partialConstantInstances_.erase(reader.getDNLInstance().getID());
             } else if (newConst == 0) {
               constantsNew.insert(output[0].getIsoID());
               constants0_.insert(output[0].getIsoID());
+              partialConstantInstances_.erase(reader.getDNLInstance().getID());
             }
           } else {
             unsigned newConst = (unsigned) -1;
@@ -297,6 +299,7 @@ void ConstantPropagation::performConstantPropagationAnalysis() {
               }
               constantsNew.insert(iso);
               constants1_.insert(iso);
+              partialConstantInstances_.erase(reader.getDNLInstance().getID());
             } else if (newConst == 0) {
               DNLID iso = DNLID_MAX;
               if (q.isNull()) {
@@ -306,6 +309,8 @@ void ConstantPropagation::performConstantPropagationAnalysis() {
               }
               constantsNew.insert(iso);
               constants0_.insert(iso);
+              partialConstantInstances_.erase(reader.getDNLInstance().getID());
+              
             } else {
               partialConstantInstances_.insert(reader.getDNLInstance().getID());
             }
