@@ -252,11 +252,14 @@ TEST_F(ReductionOptTests, testTruthTablesMap) {
         SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out"));
     auto topOut2 =
         SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out2"));
+    auto topOut3 =
+        SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out3"));
     auto topIn =
         SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("in"));
     // 8. create a mux instance in top
     SNLInstance* muxInst = SNLInstance::create(top, mux2, SNLName("mux"));
-     SNLInstance* muxInst2 = SNLInstance::create(top, mux2, SNLName("mux2"));
+    SNLInstance* muxInst2 = SNLInstance::create(top, mux2, SNLName("mux2"));
+    SNLInstance* muxInst3 = SNLInstance::create(top, mux2, SNLName("mux3"));
     SNLInstance* logic0Inst =
         SNLInstance::create(top, logic0, SNLName("logic0"));
     SNLInstance* logic1Inst =
@@ -268,6 +271,7 @@ TEST_F(ReductionOptTests, testTruthTablesMap) {
     SNLNet* net4 = SNLScalarNet::create(top, SNLName("input_net"));
     SNLNet* net5 = SNLScalarNet::create(top, SNLName("constant_1_net"));
     SNLNet* net6 = SNLScalarNet::create(top, SNLName("mux_output_net2"));
+    SNLNet* net7 = SNLScalarNet::create(top, SNLName("mux_output_net3"));
     topIn->setNet(net4);
     // connect logic0 to mux
     muxInst->getInstTerm(mux2->getScalarTerm(SNLName("A")))->setNet(net2);
@@ -284,6 +288,11 @@ TEST_F(ReductionOptTests, testTruthTablesMap) {
     muxInst2->getInstTerm(mux2->getScalarTerm(SNLName("S")))->setNet(net5);
     muxInst2->getInstTerm(mux2->getScalarTerm(SNLName("Z")))->setNet(net6);
     topOut2->setNet(net6);
+    muxInst3->getInstTerm(mux2->getScalarTerm(SNLName("A")))->setNet(net4);
+    muxInst3->getInstTerm(mux2->getScalarTerm(SNLName("B")))->setNet(net4);
+    muxInst3->getInstTerm(mux2->getScalarTerm(SNLName("S")))->setNet(net4);
+    muxInst3->getInstTerm(mux2->getScalarTerm(SNLName("Z")))->setNet(net7);
+    topOut3->setNet(net7);
     ConstantPropagation cp;
     cp.setTruthTableEngine(true);
     cp.run();
