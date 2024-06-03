@@ -51,6 +51,10 @@ class SNLCapNpTest2: public ::testing::Test {
       b0->getBit(1)->setType(SNLNet::Type::Assign1);
       b0->getBit(2)->setType(SNLNet::Type::Supply0);
       b0->getBit(3)->setType(SNLNet::Type::Supply1);
+
+      auto b1 = SNLBusNet::create(top, 3, 0, SNLName("b1"));
+      b1->getBit(3)->destroy();
+      b1->getBit(2)->destroy();
     }
     void TearDown() override {
       if (SNLUniverse::get()) {
@@ -76,8 +80,8 @@ TEST_F(SNLCapNpTest2, test0) {
   EXPECT_EQ(SNLID::DBID(1), db_->getID());
   auto top = db_->getTopDesign();
   EXPECT_NE(nullptr, top);
-  //assign0, assign1, n0, n1, b0
-  ASSERT_EQ(5, top->getNets().size());
+  //assign0, assign1, n0, n1, b0, b1
+  ASSERT_EQ(6, top->getNets().size());
   auto n0 = top->getScalarNet(SNLName("n0"));
   ASSERT_NE(nullptr, n0);
   EXPECT_EQ(SNLNet::Type::Standard, n0->getType());
@@ -114,4 +118,8 @@ TEST_F(SNLCapNpTest2, test0) {
   EXPECT_EQ(SNLNet::Type::Assign1, b0->getBit(1)->getType());
   EXPECT_EQ(SNLNet::Type::Supply0, b0->getBit(2)->getType());
   EXPECT_EQ(SNLNet::Type::Supply1, b0->getBit(3)->getType());
+
+  auto b1 = top->getBusNet(SNLName("b1"));
+  ASSERT_NE(nullptr, b1);
+  EXPECT_EQ(2, b1->getBits().size());
 }

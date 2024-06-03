@@ -268,6 +268,23 @@ TEST_F(SNLNetTest, testCreation) {
   EXPECT_EQ(nullptr, design_->getNet(1));
 }
 
+TEST_F(SNLNetTest, testBusNetBitDestruction) {
+  SNLBusNet* net0 = SNLBusNet::create(design_, 31, 0, SNLName("net0"));
+  EXPECT_EQ(32, net0->getSize());
+  EXPECT_EQ(32, net0->getBits().size());
+
+  //destroy bit 3
+  auto bit3 = net0->getBit(3);
+  auto bit3Position = net0->getBitPosition(bit3->getBit());
+  EXPECT_EQ(bit3, net0->getBitAtPosition(bit3Position));
+  ASSERT_NE(nullptr, bit3);
+  bit3->destroy();
+  bit3 = net0->getBit(3);
+  EXPECT_EQ(nullptr, bit3);
+  EXPECT_EQ(31, net0->getBits().size());
+  EXPECT_EQ(nullptr, net0->getBitAtPosition(bit3Position));
+}
+
 TEST_F(SNLNetTest, testNetType) {
   EXPECT_TRUE(SNLNet::Type(SNLNet::Type::Assign0).isAssign());
   EXPECT_TRUE(SNLNet::Type(SNLNet::Type::Assign1).isAssign());
@@ -302,7 +319,6 @@ TEST_F(SNLNetTest, testErrors) {
   EXPECT_THROW(SNLBusNet::create(design, SNLID::DesignObjectID(0), 31, 0), SNLException);
   EXPECT_THROW(SNLScalarNet::create(design, SNLID::DesignObjectID(1)), SNLException);
   EXPECT_THROW(SNLScalarNet::create(design, SNLID::DesignObjectID(1), SNLName("conflict")), SNLException);
-  EXPECT_THROW(net1->getBit(3)->destroy(), SNLException);
 
   //create a design
   auto design1 = SNLDesign::create(library, SNLName("design1"));

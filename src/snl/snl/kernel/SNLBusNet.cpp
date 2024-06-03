@@ -110,7 +110,9 @@ void SNLBusNet::postCreate() {
 
 void SNLBusNet::commonPreDestroy() {
   for (auto bit: bits_) {
-    bit->destroyFromBus();
+    if (bit) {
+      bit->destroyFromBus();
+    }
   }
   super::preDestroy();
 }
@@ -174,7 +176,8 @@ SNLBusNetBit* SNLBusNet::getBitAtPosition(size_t position) const {
 }
 
 NajaCollection<SNLBusNetBit*> SNLBusNet::getBusBits() const {
-  return NajaCollection(new NajaSTLCollection(&bits_));
+  auto filter = [](const SNLBusNetBit* bit) {return bit != nullptr; };
+  return NajaCollection(new NajaSTLCollection(&bits_)).getSubCollection(filter);
 }
 
 NajaCollection<SNLBitNet*> SNLBusNet::getBits() const {
