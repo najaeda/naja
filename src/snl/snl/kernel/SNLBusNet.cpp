@@ -125,6 +125,13 @@ void SNLBusNet::preDestroy() {
   getDesign()->removeNet(this);
 }
 
+void SNLBusNet::removeBit(SNLBusNetBit* bit) {
+  auto pos = getBitPosition(bit->getBit());
+  if (pos < bits_.size()) {
+    bits_[pos] = nullptr;
+  }
+}
+
 SNLNet* SNLBusNet::clone(SNLDesign* design) const {
   auto newBus = new SNLBusNet(design, id_, msb_, lsb_, name_);
   newBus->createBits();
@@ -144,11 +151,19 @@ SNLID SNLBusNet::getSNLID() const {
 }
 
 SNLBusNetBit* SNLBusNet::getBit(SNLID::Bit bit) const {
-  if (SNLDesign::isBetween(bit, getMSB(), getLSB())) {
-    size_t pos = static_cast<size_t>(std::abs(getMSB()-bit));
-    return getBitAtPosition(pos);
+  size_t position = getBitPosition(bit);
+  if (position < bits_.size()) {
+    return bits_[position];
   }
   return nullptr;
+}
+
+size_t SNLBusNet::getBitPosition(SNLID::Bit bit) const {
+  if (SNLDesign::isBetween(bit, getMSB(), getLSB())) {
+    size_t pos = static_cast<size_t>(std::abs(getMSB()-bit));
+    return pos;
+  }
+  return std::numeric_limits<size_t>::max();
 }
 
 SNLBusNetBit* SNLBusNet::getBitAtPosition(size_t position) const {
@@ -172,8 +187,10 @@ void SNLBusNet::insertBits(
   SNLID::Bit msb,
   SNLID::Bit lsb) {
   if (not SNLDesign::isBetween(msb, getMSB(), getLSB())) {
+    //FIXME
   }
   if (not SNLDesign::isBetween(lsb, getMSB(), getLSB())) {
+    //FIXME
   }
   int msbPos = std::abs(getMSB()-msb);
   int lsbPos = std::abs(getMSB()-lsb);

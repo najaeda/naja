@@ -17,6 +17,7 @@ class SNLBusNetBit;
 class SNLBusNet final: public SNLNet {
   public:
     friend class SNLDesign;
+    friend class SNLBusNetBit;
     using super = SNLNet;
 
     /**
@@ -57,17 +58,19 @@ class SNLBusNet final: public SNLNet {
     SNLID::Bit getSize() const override;
     SNLBusNetBit* getBit(SNLID::Bit bit) const;
     SNLBusNetBit* getBitAtPosition(size_t position) const;
+    size_t getBitPosition(SNLID::Bit bit) const;
     NajaCollection<SNLBitNet*> getBits() const override;
     NajaCollection<SNLBusNetBit*> getBusBits() const;
-    void insertBits(
-        std::vector<SNLBitNet*>& bits,
-        std::vector<SNLBitNet*>::const_iterator position,
-        SNLID::Bit msb, SNLID::Bit lsb);
     SNLID::DesignObjectID getID() const override { return id_; }
     SNLID getSNLID() const override;
     SNLName getName() const override { return name_; }
     void setName(const SNLName& name) override;
     bool isAnonymous() const override { return name_.empty(); }
+
+    void insertBits(
+        std::vector<SNLBitNet*>& bits,
+        std::vector<SNLBitNet*>::const_iterator position,
+        SNLID::Bit msb, SNLID::Bit lsb);
 
     void setType(const Type& type) override;
     bool isAssignConstant() const override;
@@ -98,6 +101,7 @@ class SNLBusNet final: public SNLNet {
     void destroyFromDesign() override;
     void commonPreDestroy();
     void preDestroy() override;
+    void removeBit(SNLBusNetBit* bit);
     SNLNet* clone(SNLDesign* design) const override;
 
     void setID(SNLID::DesignObjectID id) override { id_ = id; }

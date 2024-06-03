@@ -32,8 +32,6 @@ class SNLBusNetBit final: public SNLBitNet {
     std::string getString() const override;
     std::string getDescription() const override;
     void debugDump(size_t indent, bool recursive=true, std::ostream& stream=std::cerr) const override;
-
-    void destroy() override;
   private:
     static SNLBusNetBit* create(SNLBusNet* bus, SNLID::Bit bit);
 
@@ -42,6 +40,7 @@ class SNLBusNetBit final: public SNLBitNet {
     void postCreate();
     void destroyFromBus();
     void destroyFromDesign() override {} //LCOV_EXCL_LINE
+    void commonPreDestroy();
     void preDestroy() override;
     SNLNet* clone(SNLDesign* design) const override { return nullptr; } //LCOV_EXCL_LINE
     void setID(SNLID::DesignObjectID id) override {} //LCOV_EXCL_LINE
