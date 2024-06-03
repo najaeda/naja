@@ -88,11 +88,13 @@ def constructsg13g2_dlygate4sd2_1(lib):
   cell = snl.SNLDesign.createPrimitive(lib, "sg13g2_dlygate4sd2_1")
   a = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A")
   x = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "X")
+  cell.setTruthTable(0b10)
 
 def constructsg13g2_dlygate4sd3_1(lib):
   cell = snl.SNLDesign.createPrimitive(lib, "sg13g2_dlygate4sd3_1")
   a = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A")
   x = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "X")
+  cell.setTruthTable(0b10)
 
 def constructsg13g2_fill(lib, strengths):
   for strength in strengths:
@@ -238,7 +240,6 @@ def constructsg13g2_tiehi(lib):
   cell = snl.SNLDesign.createPrimitive(lib, "sg13g2_tiehi")
   snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "L_HI")
   cell.setTruthTable(0b1)
-
 
 def constructsg13g2_tielo(lib):
   cell = snl.SNLDesign.createPrimitive(lib, "sg13g2_tielo")
