@@ -5,6 +5,7 @@
 #include "SNLBusNet.h"
 
 #include <algorithm>
+#include <limits>
 
 #include "SNLDB.h"
 #include "SNLLibrary.h"
