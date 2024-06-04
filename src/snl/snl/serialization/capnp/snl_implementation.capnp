@@ -64,8 +64,9 @@ struct DBImplementation {
 
       struct BusNetBit {
         bit         @0 : UInt32;    
-        type        @1 : NetType;
-        components  @2 : List(NetComponentReference);
+        destroyed   @1 : Bool;
+        type        @2 : NetType;
+        components  @3 : List(NetComponentReference);
       }
 
       struct NetComponentReference {
