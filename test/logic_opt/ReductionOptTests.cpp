@@ -14,7 +14,7 @@ using ::testing::ElementsAre;
 #include "SNLScalarTerm.h"
 #include "SNLUniverse.h"
 using namespace naja::SNL;
-
+#include "Utils.h"
 #include "ConstantPropagation.h"
 #include "DNL.h"
 #include "NetlistGraph.h"
@@ -314,4 +314,7 @@ TEST_F(ReductionOptTests, testTruthTablesMap) {
     ReductionOptimization reductionOpt(cp.getPartialConstantReaders());
     reductionOpt.run();
   }
+  NetlistStatistics netlistStats(*get());
+  netlistStats.process();
+  printf("Netlist statistics: %s\n", netlistStats.getReport().c_str());
 }

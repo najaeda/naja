@@ -25,4 +25,16 @@ class Uniquifier {
   std::vector<SNLInstance*> pathUniq_;
   DNLID id_ = DNLID_MAX;
 };
+
+class NetlistStatistics {
+ public:
+  NetlistStatistics(DNLFull& dnl) : dnl_(dnl) {}
+  void process();
+  const std::string& getReport() const { return report_; }
+
+ private:
+  DNLFull& dnl_;
+  std::string report_;
+};
+
 }  // namespace naja::NAJA_OPT

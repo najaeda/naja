@@ -33,6 +33,7 @@
 #include "SNLCapnP.h"
 #include "SNLUniverse.h"
 #include "Reduction.h"
+#include "Utils.h"
 
 using namespace naja::DNL;
 using namespace naja::SNL;
@@ -282,6 +283,8 @@ int main(int argc, char* argv[]) {
       }
     }
 
+
+
     if (optimizationType == OptimizationType::DLE) {
       const auto start{std::chrono::steady_clock::now()};
       SPDLOG_INFO("Starting removal of loadless logic");
@@ -294,6 +297,9 @@ int main(int argc, char* argv[]) {
         oss << "Removal of loadless logic done in: " << elapsed_seconds.count() << "s";
         SPDLOG_INFO(oss.str());
       } 
+      NetlistStatistics stats(*get());
+      stats.process();
+      spdlog::info(stats.getReport());
     } else if (optimizationType == OptimizationType::ALL) {
       const auto start{std::chrono::steady_clock::now()};
       spdlog::info("Starting full optimization(constant propagation and removal of loadless logic)");
@@ -312,7 +318,12 @@ int main(int argc, char* argv[]) {
             << "s";
         spdlog::info(oss.str());
       }
+      NetlistStatistics stats(*get());
+      stats.process();
+      spdlog::info(stats.getReport());
     }
+
+    
 
     if (program.is_used("-z")) {
       const auto start{std::chrono::steady_clock::now()};
