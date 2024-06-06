@@ -8,6 +8,7 @@
 #include "SNLBusNetBit.h"
 #include "SNLDB0.h"
 #include "SNLUniverse.h"
+#include <sstream>
 
 using namespace naja::DNL;
 using namespace naja::SNL;
@@ -70,6 +71,18 @@ std::string Uniquifier::getFullPath() {
     fullPath += inst->getName().getString() + "/";
   }
   return fullPath;
+}
+
+void NetlistStatistics::process() {
+  std::map<std::string, size_t> pritmitveCount;
+  std::stringstream ss; 
+  for (auto leaf : dnl_.getLeaves()) {
+    pritmitveCount[dnl_.getDNLInstanceFromID(leaf).getSNLModel()->getName().getString()]++;
+  }
+  for (const auto& entry : pritmitveCount) {
+    ss << entry.first << " : " << entry.second << std::endl;
+  }
+  report_ = ss.str();
 }
 
 }  // namespace naja::NAJA_OPT
