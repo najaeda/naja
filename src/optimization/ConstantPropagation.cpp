@@ -127,11 +127,19 @@ void ConstantPropagation::initializeTypesID() {
 }
 
 void ConstantPropagation::collectConstants() {
+  SNLTruthTable tt0(0, 0);
+    auto logic0 = SNLLibraryTruthTables::getDesignForTruthTable(
+                      *(dnl_->getTop().getSNLModel()->getDB()->getPrimitiveLibraries().begin()),
+                      tt0)
+                      .first;
+  SNLTruthTable tt1(0, 1);
+    auto logic1 = SNLLibraryTruthTables::getDesignForTruthTable(
+                      *(dnl_->getTop().getSNLModel()->getDB()->getPrimitiveLibraries().begin()),
+                      tt1)
+                      .first;
   for (DNLID leaf : dnl_->getLeaves()) {
     DNLInstanceFull instance = dnl_->getDNLInstanceFromID(leaf);
-    std::string name = instance.getSNLModel()->getName().getString();
-    // printf("name: %s\n", name.c_str());
-    if (name.find("LOGIC0") != std::string::npos) {
+    if (instance.getSNLModel() == logic0) {
       for (DNLID termId = instance.getTermIndexes().first;
            termId <= instance.getTermIndexes().second; termId++) {
         const DNLTerminalFull& term = dnl_->getDNLTerminalFromID(termId);
@@ -141,7 +149,7 @@ void ConstantPropagation::collectConstants() {
           constants0_.insert(term.getIsoID());
         }
       }
-    } else if (name.find("LOGIC1") != std::string::npos) {
+    } else if (instance.getSNLModel() == logic1) {
       for (DNLID termId = instance.getTermIndexes().first;
            termId <= instance.getTermIndexes().second; termId++) {
         const DNLTerminalFull& term = dnl_->getDNLTerminalFromID(termId);
