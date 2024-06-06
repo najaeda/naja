@@ -159,15 +159,18 @@ TEST_F(SNLLibraryTest, test1) {
   EXPECT_TRUE(root->isAnonymous());
   EXPECT_EQ(0, root->getID());
   EXPECT_EQ(nullptr, root->getParentLibrary());
+  EXPECT_EQ(1, db->getPrimitiveLibraries().size());
 
   SNLLibrary* primitives0 = SNLLibrary::create(root, SNLLibrary::Type::Primitives, SNLName("Primitives0"));
   EXPECT_FALSE(primitives0->isAnonymous());
   EXPECT_EQ(SNLName("Primitives0"), primitives0->getName());
   EXPECT_EQ(1, primitives0->getID());
+  EXPECT_EQ(2, db->getPrimitiveLibraries().size());
 
   SNLLibrary* primitives1 = SNLLibrary::create(root, SNLLibrary::Type::Primitives);
   EXPECT_TRUE(primitives1->isAnonymous());
   EXPECT_EQ(2, primitives1->getID());
+  EXPECT_EQ(3, db->getPrimitiveLibraries().size());
 
   EXPECT_EQ(primitives0, root->getLibrary(SNLName("Primitives0")));
   EXPECT_EQ(primitives0, root->getLibrary(1));

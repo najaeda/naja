@@ -166,6 +166,11 @@ NajaCollection<SNLLibrary*> SNLDB::getGlobalLibraries() const {
   return NajaCollection(new NajaIntrusiveSetCollection(&libraries_));
 }
 
+NajaCollection<SNLLibrary*> SNLDB::getPrimitiveLibraries() const {
+  auto filter = [](const SNLLibrary* l) { return l->isPrimitives(); };
+  return getGlobalLibraries().getSubCollection(filter);
+}
+
 NajaCollection<SNLLibrary*> SNLDB::getLibraries() const {
   auto filter = [](const SNLLibrary* l) { return l->isRoot(); };
   return getGlobalLibraries().getSubCollection(filter);
@@ -177,6 +182,7 @@ SNLID SNLDB::getSNLID() const {
 
 void SNLDB::setID(SNLID::DBID id) {
   if (SNLUniverse::get()->isDB0(this)) {
+    //FIXME
     //error
   }
   SNLUniverse::get()->removeDB(this);

@@ -66,10 +66,12 @@ class SNLDB final: public SNLObject {
     SNLDesign* getTopDesign() const;
     void setTopDesign(SNLDesign* design);
 
-    /// \return the Libraries owned by this SNLDB
+    /// \return the Libraries owned by this SNLDB.
     NajaCollection<SNLLibrary*> getLibraries() const;
-    /// \return the all the Libraries owned (directly or indirectly) by this SNLDB
+    /// \return the all the Libraries owned (directly or indirectly) by this SNLDB.
     NajaCollection<SNLLibrary*> getGlobalLibraries() const;
+    /// \return the Primitive Libraries owned (directly or indirectly) by this SNLDB.
+    NajaCollection<SNLLibrary*> getPrimitiveLibraries() const;
 
     const char* getTypeName() const override;
     std::string getString() const override;
