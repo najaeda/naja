@@ -323,6 +323,9 @@ void ConstantPropagation::performConstantPropagationAnalysis() {
               partialConstantInstances_.erase(reader.getDNLInstance().getID());
               
             } else {
+              if (reader.getDNLInstance().isTop()) {
+                continue;
+              }
               partialConstantInstances_.insert(reader.getDNLInstance().getID());
             }
           }
