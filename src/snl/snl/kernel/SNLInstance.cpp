@@ -76,10 +76,31 @@ SNLInstance* SNLInstance::create(SNLDesign* design, SNLDesign* model, SNLID::Des
 void SNLInstance::preCreate(SNLDesign* design, const SNLDesign* model, const SNLName& name) {
   super::preCreate();
   if (not design) {
-    throw SNLException("malformed SNLInstance creator with NULL design argument");
+    std::ostringstream reason;
+    reason << "malformed SNLInstance ";
+    if (name.empty()) {
+      reason << " <anonymous>";
+    } else {
+      reason << " with name: " << name.getString();
+    }
+    if (model) {
+      reason << " and model: " << model->getString();
+    } else {
+      reason << " with NULL model argument";
+    }
+    reason << " has a NULL design argument";
+    throw SNLException(reason.str());
   }
   if (not model) {
-    throw SNLException("malformed SNLInstance creator with NULL model argument");
+    std::ostringstream reason;
+    if (name.empty()) {
+      reason << " <anonymous>";
+    } else {
+      reason << " with name: " << name.getString();
+    }
+    reason << " in design: " << design->getString();
+    reason << " has a NULL model argument";
+    throw SNLException(reason.str());
   }
   if (not name.empty() and design->getInstance(name)) {
     std::string reason = "SNLDesign " + design->getString() + " contains already a SNLInstance named: " + name.getString();

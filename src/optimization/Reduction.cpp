@@ -116,9 +116,17 @@ void ReductionOptimization::reducPartialConstantInstance(
   auto library = std::get<0>(candidate).back()->getModel()->getLibrary();
   Uniquifier uniquifier(std::get<0>(candidate), std::get<2>(candidate));
   uniquifier.process();
-  SNLInstance* unqiuifedCandidate = uniquifier.getPathUniq().back();
+  SNLInstance* uniquifiedCandidate = uniquifier.getPathUniq().back();
+  if (!uniquifiedCandidate) {
+    std::ostringstream reason;
+    auto instance = std::get<0>(candidate).back();
+    reason << "Uniquified candidate is null for instance: "
+      << instance->getName().getString() << " in design: "
+      << instance->getDesign()->getName().getString();
+    throw SNLException(reason.str());
+  }
   SNLTruthTable invTruthTable =
-      SNLDesignTruthTable::getTruthTable(unqiuifedCandidate->getModel());
+      SNLDesignTruthTable::getTruthTable(uniquifiedCandidate->getModel());
   if (!invTruthTable.isInitialized()) {
 #ifdef DEBUG_PRINTS
     // LCOV_EXCL_START
@@ -159,7 +167,7 @@ void ReductionOptimization::reducPartialConstantInstance(
            result.first->getName().getString().c_str());
 // LCOV_EXCL_STOP
 #endif
-    replaceInstance(unqiuifedCandidate, result);
+    replaceInstance(uniquifiedCandidate, result);
   } else {
 #ifdef DEBUG_PRINTS
     // LCOV_EXCL_START

@@ -175,6 +175,9 @@ unsigned ConstantPropagation::computeOutputValue(DNLID instanceID) {
   DNLInstanceFull instance = dnl_->getDNLInstanceFromID(instanceID);
   const SNLTruthTable& truthTable =
       SNLDesignTruthTable::getTruthTable(instance.getSNLInstance()->getModel());
+  if (not truthTable.isInitialized()) {
+    return (unsigned)-1;
+  }
   std::vector<std::pair<SNLInstTerm*, int>> constTerms;
   for (DNLID termId = instance.getTermIndexes().first;
        termId <= instance.getTermIndexes().second; termId++) {
@@ -188,10 +191,10 @@ unsigned ConstantPropagation::computeOutputValue(DNLID instanceID) {
       constTerms.push_back({term.getSnlTerm(), 1});
     }
   }
-  SNLTruthTable redcuedTruthTable = ReductionOptimization::reduceTruthTable(truthTable, constTerms);
-  if (redcuedTruthTable.is0()) {
+  SNLTruthTable reducedTruthTable = ReductionOptimization::reduceTruthTable(truthTable, constTerms);
+  if (reducedTruthTable.is0()) {
     return 0;
-  } else if (redcuedTruthTable.is1()) {
+  } else if (reducedTruthTable.is1()) {
     return 1;
   }
   return (unsigned)-1;
@@ -889,12 +892,19 @@ void ConstantPropagation::changeDriverToLocal0(SNLInstTerm* term, DNLID id) {
   assign0->setType(naja::SNL::SNLNet::Type::Supply0);
   term->setNet(assign0);
   SNLTruthTable tt(0, 0);
-  auto logic0 = SNLLibraryTruthTables::getDesignForTruthTable(
-                    term->getInstance()->getModel()->getLibrary(), tt)
-                    .first;
+  //find primitives library
+  if (term->getDB()->getPrimitiveLibraries().size() != 1) {
+    throw SNLException("There should be only one primitive library");
+  }
+  auto primitives = *term->getDB()->getPrimitiveLibraries().begin();
+  auto logic0 =
+    SNLLibraryTruthTables::getDesignForTruthTable(primitives, tt).first;
   
   SNLInstance* logic0Inst = term->getDesign()->getInstance(SNLName(name));
   if (nullptr == logic0Inst) {
+    if (logic0 == nullptr) {
+      throw SNLException("No logic0 design found");
+    }
     logic0Inst = SNLInstance::create(term->getDesign(), logic0, SNLName(name));
   }
   (*logic0Inst->getInstTerms().begin())->setNet(assign0);
@@ -914,11 +924,19 @@ void ConstantPropagation::changeDriverToLocal1(SNLInstTerm* term, DNLID id) {
   assign1->setType(naja::SNL::SNLNet::Type::Supply1);
   term->setNet(assign1);
   SNLTruthTable tt(0, 1);
-  auto logic1 = SNLLibraryTruthTables::getDesignForTruthTable(
-                    term->getInstance()->getModel()->getLibrary(), tt)
-                    .first;
+
+  //find primitives library
+  if (term->getDB()->getPrimitiveLibraries().size() != 1) {
+    throw SNLException("There should be only one primitive library");
+  }
+  auto primitives = *term->getDB()->getPrimitiveLibraries().begin();
+  auto logic1 =
+    SNLLibraryTruthTables::getDesignForTruthTable(primitives, tt).first;
   SNLInstance* logic1Inst = term->getDesign()->getInstance(SNLName(name));
   if (nullptr == logic1Inst) {
+    if (logic1 == nullptr) {
+      throw SNLException("No logic1 design found");
+    }
     logic1Inst = SNLInstance::create(term->getDesign(), logic1, SNLName(name));
   }
   (*logic1Inst->getInstTerms().begin())->setNet(assign1);
