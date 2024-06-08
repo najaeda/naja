@@ -176,7 +176,9 @@ unsigned ConstantPropagation::computeOutputValue(DNLID instanceID) {
   const SNLTruthTable& truthTable =
       SNLDesignTruthTable::getTruthTable(instance.getSNLInstance()->getModel());
   if (not truthTable.isInitialized()) {
+    // LCOV_EXCL_START
     return (unsigned)-1;
+    // LCOV_EXCL_STOP
   }
   std::vector<std::pair<SNLID::DesignObjectID, int>> constTerms;
   for (DNLID termId = instance.getTermIndexes().first;

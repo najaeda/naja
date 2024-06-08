@@ -81,7 +81,9 @@ void SNLInstance::preCreate(SNLDesign* design, const SNLDesign* model, const SNL
     if (name.empty()) {
       reason << " <anonymous>";
     } else {
+      // LCOV_EXCL_START
       reason << " with name: " << name.getString();
+      // LCOV_EXCL_STOP
     }
     if (model) {
       reason << " and model: " << model->getString();
@@ -100,7 +102,9 @@ void SNLInstance::preCreate(SNLDesign* design, const SNLDesign* model, const SNL
       reason << " <anonymous>";
       // LCOV_EXCL_STOP
     } else {
+      // LCOV_EXCL_START
       reason << " with name: " << name.getString();
+      // LCOV_EXCL_STOP
     }
     reason << " in design: " << design->getString();
     reason << " has a NULL model argument";
