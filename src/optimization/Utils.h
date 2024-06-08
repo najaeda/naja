@@ -13,7 +13,7 @@ using namespace naja::SNL;
 namespace naja::NAJA_OPT {
 class Uniquifier {
  public:
-  Uniquifier(std::vector<SNLInstance*>& path, DNLID id)
+  Uniquifier(std::vector<SNLID::DesignObjectID>& path, DNLID id)
       : path_(path), id_(id) {}
   void process();
   SNLInstance* replaceWithClone(SNLInstance* inst);
@@ -21,7 +21,7 @@ class Uniquifier {
   std::string getFullPath();
 
  private:
-  std::vector<SNLInstance*>& path_;
+  std::vector<SNLID::DesignObjectID>& path_;
   std::vector<SNLInstance*> pathUniq_;
   DNLID id_ = DNLID_MAX;
 };

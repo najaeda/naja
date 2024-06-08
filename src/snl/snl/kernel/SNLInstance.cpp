@@ -375,6 +375,11 @@ SNLInstTerm* SNLInstance::getInstTerm(const SNLBitTerm* bitTerm) const {
   return instTerms_[bitTerm->getFlatID()];
 }
 
+SNLInstTerm* SNLInstance::getInstTerm(const SNLID::DesignObjectID termID) const {
+  assert(termID < instTerms_.size());
+  return instTerms_[termID];
+}
+
 NajaCollection<SNLInstTerm*> SNLInstance::getInstTerms() const {
   auto filter = [](const SNLInstTerm* it) { return it != nullptr; };
   return NajaCollection(new NajaSTLCollection(&instTerms_)).getSubCollection(filter);

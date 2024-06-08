@@ -92,6 +92,7 @@ class SNLInstance final: public SNLDesignObject {
 
     ///\return SNLInstTerm corresponding to the SNLBitTerm representative in this instance. 
     SNLInstTerm* getInstTerm(const SNLBitTerm* bitTerm) const;
+    SNLInstTerm* getInstTerm(const SNLID::DesignObjectID termID) const;
     ///\return the NajaCollection of all SNLInstTerm of this SNLInstance.
     NajaCollection<SNLInstTerm*> getInstTerms() const;
     /**

@@ -90,7 +90,7 @@ TEST_F(LoadlessRemoveLogicTests, simple_0_loadless) {
   EXPECT_EQ(untracedIsos.size(), 0);
   //std::set<SNLBitNet*> loadlessNets = remover.getLoadlessNets(*dnl, tracedIsos);
   //EXPECT_EQ(loadlessNets.size(), 0);
-  std::vector<std::pair<std::vector<SNLInstance*>, DNLID>> loadlessInstances =
+  auto loadlessInstances =
       remover.getLoadlessInstances(*dnl, tracedIsos);
   EXPECT_EQ(loadlessInstances.size(), 0);
   destroy();
@@ -142,7 +142,7 @@ TEST_F(LoadlessRemoveLogicTests, simple_0_loadlessNonMT) {
   EXPECT_EQ(untracedIsos.size(), 0);
   //std::set<SNLBitNet*> loadlessNets = remover.getLoadlessNets(*dnl, tracedIsos);
   //EXPECT_EQ(loadlessNets.size(), 0);
-  std::vector<std::pair<std::vector<SNLInstance*>, DNLID>> loadlessInstances =
+  auto loadlessInstances =
       remover.getLoadlessInstances(*dnl, tracedIsos);
   EXPECT_EQ(loadlessInstances.size(), 0);
   destroy();
@@ -189,7 +189,7 @@ TEST_F(LoadlessRemoveLogicTests, simple_1_loadless) {
   EXPECT_EQ(untracedIsos.size(), 0);
   //std::set<SNLBitNet*> loadlessNets = remover.getLoadlessNets(*dnl, tracedIsos);
   //EXPECT_EQ(loadlessNets.size(), 0);
-  std::vector<std::pair<std::vector<SNLInstance*>, DNLID>> loadlessInstances =
+  auto loadlessInstances =
       remover.getLoadlessInstances(*dnl, tracedIsos);
   EXPECT_EQ(loadlessInstances.size(), 1);
   destroy();
@@ -232,7 +232,7 @@ TEST_F(LoadlessRemoveLogicTests, simple_2_loadless) {
   EXPECT_EQ(untracedIsos.size(), 1);
   //std::set<SNLBitNet*> loadlessNets = lnr.getLoadlessNets(*dnl, tracedIsos);
   //EXPECT_EQ(loadlessNets.size(), 1);
-  std::vector<std::pair<std::vector<SNLInstance*>, DNLID>> loadlessInstances =
+  auto loadlessInstances =
       remover.getLoadlessInstances(*dnl, tracedIsos);
   EXPECT_EQ(loadlessInstances.size(), 2);
   destroy();
@@ -276,7 +276,7 @@ TEST_F(LoadlessRemoveLogicTests, simple_2_loadless_nonMT) {
   EXPECT_EQ(untracedIsos.size(), 1);
   //std::set<SNLBitNet*> loadlessNets = lnr.getLoadlessNets(*dnl, tracedIsos);
   //EXPECT_EQ(loadlessNets.size(), 1);
-  std::vector<std::pair<std::vector<SNLInstance*>, DNLID>> loadlessInstances =
+  auto loadlessInstances =
       remover.getLoadlessInstances(*dnl, tracedIsos);
   EXPECT_EQ(loadlessInstances.size(), 2);
   destroy();
