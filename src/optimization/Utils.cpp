@@ -25,7 +25,7 @@ void Uniquifier::process() {
   printf("Uniquifier::process() - final inst %s\n", path_.back()->getName().getString().c_str());
   // LCOV_EXCL_STOP
 #endif
-  SNLDesign* currentDesign = path_[0]->getDesign();
+  SNLDesign* currentDesign = SNLUniverse::get()->getTopDesign();;
   for (size_t i = 0; i < path_.size(); i++) {
   #ifdef DEBUG_PRINTS
         // LCOV_EXCL_START
@@ -37,7 +37,7 @@ void Uniquifier::process() {
     }
     // LCOV_EXCL_STOP
 #endif
-    SNLInstance* inst = currentDesign->getInstance(path_[i]->getID());
+    SNLInstance* inst = currentDesign->getInstance(path_[i]);
 
     if (i == path_.size() - 1) {
       // If we are at the last instance, we can keep it

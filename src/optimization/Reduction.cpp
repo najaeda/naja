@@ -17,8 +17,8 @@ using namespace naja::NAJA_OPT;
 //#define DEBUG_PRINTS
 
 ReductionOptimization::ReductionOptimization(
-    const std::vector<std::tuple<std::vector<SNLInstance*>,
-                                 std::vector<std::pair<SNLInstTerm*, int>>,
+    const std::vector<std::tuple<std::vector<SNLID::DesignObjectID>,
+                                 std::vector<std::pair<SNLID::DesignObjectID, int>>,
                                  DNLID>>& partialConstantReaders)
     : partialConstantReaders_(partialConstantReaders) {}
 
@@ -30,16 +30,16 @@ void ReductionOptimization::run() {
   spdlog::info(report_);
 }
 
-SNLTruthTable ReductionOptimization::reduceTruthTable(
+SNLTruthTable ReductionOptimization::reduceTruthTable(SNLInstance* uniquifiedCandidate,
     const SNLTruthTable& truthTable,
-    const std::vector<std::pair<SNLInstTerm*, int>>& constTerms) {
+    const std::vector<std::pair<SNLID::DesignObjectID, int>>& constTerms) {
   assert(constTerms.size() <= truthTable.size());
   std::map<size_t, size_t> termID2index;
   size_t index = 0;
   using ConstantInput = std::pair<uint32_t, bool>;
   using ConstantInputs = std::vector<ConstantInput>;
   ConstantInputs constInputs;
-  for (auto term : constTerms[0].first->getInstance()->getInstTerms()) {
+  for (auto term : uniquifiedCandidate->getInstTerms()) {
     if (term->getDirection() != SNLInstTerm::Direction::Input) {
       continue;
     }
@@ -48,7 +48,7 @@ SNLTruthTable ReductionOptimization::reduceTruthTable(
   }
   for (auto& constTerm : constTerms) {
     constInputs.push_back(
-        ConstantInput(termID2index[constTerm.first->getBitTerm()->getID()],
+        ConstantInput(termID2index[constTerm.first],
                       constTerm.second));
   }
   return truthTable.getReducedWithConstants(constInputs);
@@ -105,20 +105,28 @@ void ReductionOptimization::replaceInstance(
 }
 
 void ReductionOptimization::reducPartialConstantInstance(
-    std::tuple<std::vector<SNLInstance*>,
-               std::vector<std::pair<SNLInstTerm*, int>>,
+    std::tuple<std::vector<SNLID::DesignObjectID>,
+               std::vector<std::pair<SNLID::DesignObjectID, int>>,
                DNLID>& candidate) {
 #ifdef DEBUG_PRINTS
   // LCOV_EXCL_START
   printf("reducPartialConstantInstance Reducing partial constant instance\n");
   // LCOV_EXCL_STOP
 #endif
-  auto library = std::get<0>(candidate).back()->getModel()->getLibrary();
+  auto library = *(SNLUniverse::get()->getTopDesign()->getDB()->getPrimitiveLibraries().begin());
   Uniquifier uniquifier(std::get<0>(candidate), std::get<2>(candidate));
   uniquifier.process();
-  SNLInstance* unqiuifedCandidate = uniquifier.getPathUniq().back();
+  SNLInstance* uniquifiedCandidate = uniquifier.getPathUniq().back();
+  /*if (!uniquifiedCandidate) {uniquifier.getPathUniq().back()
+    std::ostringstream reason;
+    auto instance = std::get<0>(candidate).back();
+    reason << "Uniquified candidate is null for instance: "
+      << instance->getName().getString() << " in design: "
+      << instance->getDesign()->getName().getString();
+    throw SNLException(reason.str());
+  }*/
   SNLTruthTable invTruthTable =
-      SNLDesignTruthTable::getTruthTable(unqiuifedCandidate->getModel());
+      SNLDesignTruthTable::getTruthTable(uniquifiedCandidate->getModel());
   if (!invTruthTable.isInitialized()) {
 #ifdef DEBUG_PRINTS
     // LCOV_EXCL_START
@@ -131,7 +139,7 @@ void ReductionOptimization::reducPartialConstantInstance(
     return;
   }
   SNLTruthTable reducedTruthTable =
-      reduceTruthTable(invTruthTable, std::get<1>(candidate));
+      reduceTruthTable(uniquifiedCandidate, invTruthTable, std::get<1>(candidate));
   if (reducedTruthTable.size() == 0) {
 #ifdef DEBUG_PRINTS
     // LCOV_EXCL_START
@@ -159,7 +167,7 @@ void ReductionOptimization::reducPartialConstantInstance(
            result.first->getName().getString().c_str());
 // LCOV_EXCL_STOP
 #endif
-    replaceInstance(unqiuifedCandidate, result);
+    replaceInstance(uniquifiedCandidate, result);
   } else {
 #ifdef DEBUG_PRINTS
     // LCOV_EXCL_START

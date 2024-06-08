@@ -5,6 +5,7 @@
 #ifndef __SNL_TRUTH_TABLE_H_
 #define __SNL_TRUTH_TABLE_H_
 
+#include <iostream>
 #include <cstdint>
 #include <vector>
 #include <algorithm>
@@ -22,7 +23,11 @@ class SNLTruthTable {
     SNLTruthTable(): size_(0xFF) {}
     explicit SNLTruthTable(uint32_t size, uint64_t bits): size_(size), bits_(bits) {
       if (size > 6) {
-        throw SNLException("Size out of range (max=6)");
+        std::ostringstream oss;
+        oss << "Cannot create SNLTruthTable with bits_: " << bits;
+        oss << " and size: " << size;
+        oss << " (max=6)";
+        throw SNLException(oss.str());
       }
     }
     bool operator ==(const SNLTruthTable& other) const {

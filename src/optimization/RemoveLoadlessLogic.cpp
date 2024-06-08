@@ -181,11 +181,11 @@ std::vector<DNLID> LoadlessLogicRemover::getUntracedIsos(
 
 // Given a DNL and set of traced isos, collect all SNL instaces pointers that
 // not drive any of them
-std::vector<std::pair<std::vector<SNLInstance*>, DNLID>>
+std::vector<std::pair<std::vector<SNLID::DesignObjectID>, DNLID>>
 LoadlessLogicRemover::getLoadlessInstances(
     const naja::DNL::DNL<DNLInstanceFull, DNLTerminalFull>& dnl,
     const tbb::concurrent_unordered_set<DNLID>& tracedIsos) {
-  std::vector<std::pair<std::vector<SNLInstance*>, DNLID>> loadlessInstances;
+  std::vector<std::pair<std::vector<SNLID::DesignObjectID>, DNLID>> loadlessInstances;
   for (const auto& leaf : dnl.getLeaves()) {
     const auto& instance = dnl.getDNLInstanceFromID(leaf);
     if (instance.isTop())
@@ -229,20 +229,20 @@ printf("SNL Port %s direction %d\n", instTerm->getString().c_str()
       }
     }
     if (isLoadless) {
-      std::vector<SNLInstance*> path;
+      std::vector<SNLID::DesignObjectID> path;
       DNLInstanceFull currentInstance = instance;
       while (currentInstance.isTop() == false) {
-        path.push_back(currentInstance.getSNLInstance());
+        path.push_back(currentInstance.getSNLInstance()->getID());
         currentInstance = currentInstance.getParentInstance();
       }
       std::reverse(path.begin(), path.end());
       loadlessInstances.push_back(
-          std::pair<std::vector<SNLInstance*>, DNLID>(path, instance.getID()));
+          std::pair<std::vector<SNLID::DesignObjectID>, DNLID>(path, instance.getID()));
     }
   }
   std::sort(loadlessInstances.begin(), loadlessInstances.end(),
-            [](const std::pair<std::vector<SNLInstance*>, DNLID>& a,
-               const std::pair<std::vector<SNLInstance*>, DNLID>& b) {
+            [](const std::pair<std::vector<SNLID::DesignObjectID>, DNLID>& a,
+               const std::pair<std::vector<SNLID::DesignObjectID>, DNLID>& b) {
               return a.second < b.second;
             });
   return loadlessInstances;
@@ -254,7 +254,7 @@ printf("SNL Port %s direction %d\n", instTerm->getString().c_str()
 // 2. Delete the instance
 void LoadlessLogicRemover::removeLoadlessInstances(
     SNLDesign* top,
-    std::vector<std::pair<std::vector<SNLInstance*>, DNLID>>&
+    std::vector<std::pair<std::vector<SNLID::DesignObjectID>, DNLID>>&
         loadlessInstances) {
   for (auto& path : loadlessInstances) {
     Uniquifier uniquifier(path.first, path.second);
@@ -307,7 +307,7 @@ void LoadlessLogicRemover::removeLoadlessLogic() {
 }
 
 std::string LoadlessLogicRemover::collectStatistics()const {
-  std::stringstream ss; 
+  /*std::stringstream ss; 
   std::map<std::string, size_t> deletedInstances;
   for (const auto& entry : loadlessInstances_) {
     deletedInstances[entry.first.back()->getModel()->getName().getString()]++;
@@ -316,7 +316,8 @@ std::string LoadlessLogicRemover::collectStatistics()const {
   for (const auto& entry : deletedInstances) {
     ss << entry.first << " : " << entry.second << std::endl;
   }
-  return ss.str();
+  return ss.str();*/
+  return std::string();
 }
 
 }  // namespace naja::NAJA_OPT

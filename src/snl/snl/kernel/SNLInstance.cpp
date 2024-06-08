@@ -76,10 +76,39 @@ SNLInstance* SNLInstance::create(SNLDesign* design, SNLDesign* model, SNLID::Des
 void SNLInstance::preCreate(SNLDesign* design, const SNLDesign* model, const SNLName& name) {
   super::preCreate();
   if (not design) {
-    throw SNLException("malformed SNLInstance creator with NULL design argument");
+    std::ostringstream reason;
+    reason << "malformed SNLInstance ";
+    if (name.empty()) {
+      reason << " <anonymous>";
+    } else {
+      // LCOV_EXCL_START
+      reason << " with name: " << name.getString();
+      // LCOV_EXCL_STOP
+    }
+    if (model) {
+      reason << " and model: " << model->getString();
+    } else {
+      // LCOV_EXCL_START
+      reason << " with NULL model argument";
+      // LCOV_EXCL_STOP
+    }
+    reason << " has a NULL design argument";
+    throw SNLException(reason.str());
   }
   if (not model) {
-    throw SNLException("malformed SNLInstance creator with NULL model argument");
+    std::ostringstream reason;
+    if (name.empty()) {
+      // LCOV_EXCL_START
+      reason << " <anonymous>";
+      // LCOV_EXCL_STOP
+    } else {
+      // LCOV_EXCL_START
+      reason << " with name: " << name.getString();
+      // LCOV_EXCL_STOP
+    }
+    reason << " in design: " << design->getString();
+    reason << " has a NULL model argument";
+    throw SNLException(reason.str());
   }
   if (not name.empty() and design->getInstance(name)) {
     std::string reason = "SNLDesign " + design->getString() + " contains already a SNLInstance named: " + name.getString();
@@ -352,6 +381,11 @@ SNLInstTerm* SNLInstance::getInstTerm(const SNLBitTerm* bitTerm) const {
   }
   assert(bitTerm->getFlatID() < instTerms_.size());
   return instTerms_[bitTerm->getFlatID()];
+}
+
+SNLInstTerm* SNLInstance::getInstTerm(const SNLID::DesignObjectID termID) const {
+  assert(termID < instTerms_.size());
+  return instTerms_[termID];
 }
 
 NajaCollection<SNLInstTerm*> SNLInstance::getInstTerms() const {

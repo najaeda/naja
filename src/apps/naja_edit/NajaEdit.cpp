@@ -363,7 +363,8 @@ int main(int argc, char* argv[]) {
       dumper.dumpLibrary(primitivesLibrary, output);
     }
   } catch (const SNLException& e) {
-    SPDLOG_CRITICAL("Caught SNL error: {}", e.getReason());
+    SPDLOG_CRITICAL("Caught SNL error: {}\n{}",
+      e.what(), e.trace().to_string()); 
     std::exit(EXIT_FAILURE);
   }
   std::exit(EXIT_SUCCESS);

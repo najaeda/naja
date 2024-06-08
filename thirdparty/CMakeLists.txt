@@ -3,4 +3,5 @@
 # SPDX-License-Identifier: Apache-2.0
 
 add_subdirectory(googletest EXCLUDE_FROM_ALL)
+add_subdirectory(cpptrace)
 add_subdirectory(naja-verilog)

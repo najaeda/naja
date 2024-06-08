@@ -4,3 +4,6 @@
 [submodule "thirdparty/naja-verilog"]
 	path = thirdparty/naja-verilog
 	url = https://github.com/najaeda/naja-verilog
+[submodule "thirdparty/cpptrace"]
+	path = thirdparty/cpptrace
+	url = https://github.com/jeremy-rifkin/cpptrace
