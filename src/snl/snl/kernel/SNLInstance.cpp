@@ -86,7 +86,9 @@ void SNLInstance::preCreate(SNLDesign* design, const SNLDesign* model, const SNL
     if (model) {
       reason << " and model: " << model->getString();
     } else {
+      // LCOV_EXCL_START
       reason << " with NULL model argument";
+      // LCOV_EXCL_STOP
     }
     reason << " has a NULL design argument";
     throw SNLException(reason.str());
@@ -94,7 +96,9 @@ void SNLInstance::preCreate(SNLDesign* design, const SNLDesign* model, const SNL
   if (not model) {
     std::ostringstream reason;
     if (name.empty()) {
+      // LCOV_EXCL_START
       reason << " <anonymous>";
+      // LCOV_EXCL_STOP
     } else {
       reason << " with name: " << name.getString();
     }

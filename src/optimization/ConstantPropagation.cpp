@@ -323,10 +323,9 @@ void ConstantPropagation::performConstantPropagationAnalysis() {
               partialConstantInstances_.erase(reader.getDNLInstance().getID());
               
             } else {
-              if (reader.getDNLInstance().isTop()) {
-                continue;
+              if (!reader.getDNLInstance().isTop()) {
+                partialConstantInstances_.insert(reader.getDNLInstance().getID());
               }
-              partialConstantInstances_.insert(reader.getDNLInstance().getID());
             }
           }
         }
@@ -897,7 +896,9 @@ void ConstantPropagation::changeDriverToLocal0(SNLInstTerm* term, DNLID id) {
   SNLTruthTable tt(0, 0);
   //find primitives library
   if (term->getDB()->getPrimitiveLibraries().size() != 1) {
+    // LCOV_EXCL_START
     throw SNLException("There should be only one primitive library");
+    // LCOV_EXCL_STOP
   }
   auto primitives = *term->getDB()->getPrimitiveLibraries().begin();
   auto logic0 =
@@ -906,7 +907,9 @@ void ConstantPropagation::changeDriverToLocal0(SNLInstTerm* term, DNLID id) {
   SNLInstance* logic0Inst = term->getDesign()->getInstance(SNLName(name));
   if (nullptr == logic0Inst) {
     if (logic0 == nullptr) {
+      // LCOV_EXCL_START
       throw SNLException("No logic0 design found");
+      // LCOV_EXCL_STOP
     }
     logic0Inst = SNLInstance::create(term->getDesign(), logic0, SNLName(name));
   }
@@ -930,7 +933,9 @@ void ConstantPropagation::changeDriverToLocal1(SNLInstTerm* term, DNLID id) {
 
   //find primitives library
   if (term->getDB()->getPrimitiveLibraries().size() != 1) {
+    // LCOV_EXCL_START
     throw SNLException("There should be only one primitive library");
+    // LCOV_EXCL_STOP
   }
   auto primitives = *term->getDB()->getPrimitiveLibraries().begin();
   auto logic1 =
@@ -938,7 +943,9 @@ void ConstantPropagation::changeDriverToLocal1(SNLInstTerm* term, DNLID id) {
   SNLInstance* logic1Inst = term->getDesign()->getInstance(SNLName(name));
   if (nullptr == logic1Inst) {
     if (logic1 == nullptr) {
+      // LCOV_EXCL_START
       throw SNLException("No logic1 design found");
+      // LCOV_EXCL_STOP
     }
     logic1Inst = SNLInstance::create(term->getDesign(), logic1, SNLName(name));
   }
