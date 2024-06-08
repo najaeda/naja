@@ -145,6 +145,28 @@ void LoadlessLogicRemover::getIsoTrace(
 tbb::concurrent_unordered_set<DNLID> LoadlessLogicRemover::getTracedIsos(
     const naja::DNL::DNL<DNLInstanceFull, DNLTerminalFull>& dnl) {
   std::vector<DNLID> topOutputIsos = getTopOutputIsos(dnl);
+  for (DNLID leaf : dnl_->getLeaves()) {
+    size_t num_ouptuts = 0;
+    const auto& instance = dnl_->getDNLInstanceFromID(leaf);
+    for (DNLID term = instance.getTermIndexes().first;
+         term <= instance.getTermIndexes().second; term++) {
+      assert(DNLID_MAX != term);
+      if (dnl.getDNLTerminalFromID(term).getSnlBitTerm()->getDirection() !=
+          SNLTerm::Direction::Input) {
+        num_ouptuts++;
+      }
+    }
+    if (num_ouptuts != 0) {
+      for (DNLID term = instance.getTermIndexes().first;
+         term <= instance.getTermIndexes().second; term++) {
+      assert(DNLID_MAX != term);
+      if (dnl.getDNLTerminalFromID(term).getSnlBitTerm()->getDirection() !=
+          SNLTerm::Direction::Output) {
+        topOutputIsos.push_back(dnl.getIsoIdfromTermId(term));
+      }
+    }
+    }
+  }
   tbb::concurrent_unordered_set<DNLID> result;
   tbb::enumerable_thread_specific<tbb::concurrent_unordered_set<DNLID, std::hash<DNLID>, std::equal_to<DNLID>, tbb::scalable_allocator<DNLID>>> tracedIsos;
   if (!getenv("NON_MT")) {
