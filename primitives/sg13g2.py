@@ -49,6 +49,7 @@ def constructsg13g2_a21oi(lib, strengths):
     cell.setTruthTable(0x07)
 
 def constructsg13g2_a21o(lib, strengths):
+  # function : "((A1*A2)+B1)";
   for strength in strengths:
     cell = snl.SNLDesign.createPrimitive(lib, "sg13g2_a21o_" + str(strength))
     snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A1")
