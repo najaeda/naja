@@ -141,7 +141,7 @@ void ConstantPropagation::collectConstants() {
     DNLInstanceFull instance = dnl_->getDNLInstanceFromID(leaf);
     if (instance.getSNLModel() == logic0) {
       for (DNLID termId = instance.getTermIndexes().first;
-           termId <= instance.getTermIndexes().second; termId++) {
+           termId != DNLID_MAX and termId <= instance.getTermIndexes().second; termId++) {
         const DNLTerminalFull& term = dnl_->getDNLTerminalFromID(termId);
         if (term.getSnlBitTerm()->getDirection() ==
             SNLBitTerm::Direction::Output) {
@@ -151,7 +151,7 @@ void ConstantPropagation::collectConstants() {
       }
     } else if (instance.getSNLModel() == logic1) {
       for (DNLID termId = instance.getTermIndexes().first;
-           termId <= instance.getTermIndexes().second; termId++) {
+           termId != DNLID_MAX and termId <= instance.getTermIndexes().second; termId++) {
         const DNLTerminalFull& term = dnl_->getDNLTerminalFromID(termId);
         if (term.getSnlBitTerm()->getDirection() ==
             SNLBitTerm::Direction::Output) {
@@ -182,7 +182,7 @@ unsigned ConstantPropagation::computeOutputValue(DNLID instanceID) {
   }
   std::vector<std::pair<SNLID::DesignObjectID, int>> constTerms;
   for (DNLID termId = instance.getTermIndexes().first;
-       termId <= instance.getTermIndexes().second; termId++) {
+       termId != DNLID_MAX and termId <= instance.getTermIndexes().second; termId++) {
     const DNLTerminalFull& term = dnl_->getDNLTerminalFromID(termId);
     if (term.getSnlBitTerm()->getDirection() != SNLBitTerm::Direction::Input) {
       continue;
@@ -356,7 +356,7 @@ unsigned ConstantPropagation::computeOutputValueForConstantInstance(
       designObjectID2Type_[instance.getSNLInstance()->getModel()->getID()]) {
     case Type::AND: {
       for (DNLID termId = instance.getTermIndexes().first;
-           termId <= instance.getTermIndexes().second; termId++) {
+           termId != DNLID_MAX and termId <= instance.getTermIndexes().second; termId++) {
         const DNLTerminalFull& term = dnl_->getDNLTerminalFromID(termId);
         if (term.getSnlBitTerm()->getDirection() !=
             SNLBitTerm::Direction::Input) {
@@ -380,7 +380,7 @@ unsigned ConstantPropagation::computeOutputValueForConstantInstance(
     }
     case Type::OR: {
       for (DNLID termId = instance.getTermIndexes().first;
-           termId <= instance.getTermIndexes().second; termId++) {
+           termId != DNLID_MAX and termId <= instance.getTermIndexes().second; termId++) {
         const DNLTerminalFull& term = dnl_->getDNLTerminalFromID(termId);
         if (constants1_.find(term.getIsoID()) != constants1_.end()) {
 #ifdef DEBUG_PRINTS
@@ -401,7 +401,7 @@ unsigned ConstantPropagation::computeOutputValueForConstantInstance(
     case Type::XOR: {
       unsigned count = 0;
       for (DNLID termId = instance.getTermIndexes().first;
-           termId <= instance.getTermIndexes().second; termId++) {
+           termId != DNLID_MAX and termId <= instance.getTermIndexes().second; termId++) {
         const DNLTerminalFull& term = dnl_->getDNLTerminalFromID(termId);
         if (term.getSnlBitTerm()->getDirection() !=
             SNLBitTerm::Direction::Input) {
@@ -420,7 +420,7 @@ unsigned ConstantPropagation::computeOutputValueForConstantInstance(
     }
     case Type::NAND: {
       for (DNLID termId = instance.getTermIndexes().first;
-           termId <= instance.getTermIndexes().second; termId++) {
+           termId != DNLID_MAX and termId <= instance.getTermIndexes().second; termId++) {
         const DNLTerminalFull& term = dnl_->getDNLTerminalFromID(termId);
         if (term.getSnlBitTerm()->getDirection() !=
             SNLBitTerm::Direction::Input) {
@@ -444,7 +444,7 @@ unsigned ConstantPropagation::computeOutputValueForConstantInstance(
     }
     case Type::NOR: {
       for (DNLID termId = instance.getTermIndexes().first;
-           termId <= instance.getTermIndexes().second; termId++) {
+           termId != DNLID_MAX and termId <= instance.getTermIndexes().second; termId++) {
         const DNLTerminalFull& term = dnl_->getDNLTerminalFromID(termId);
         if (term.getSnlBitTerm()->getDirection() !=
             SNLBitTerm::Direction::Input) {
@@ -469,7 +469,7 @@ unsigned ConstantPropagation::computeOutputValueForConstantInstance(
     case Type::XNOR: {
       unsigned count = 0;
       for (DNLID termId = instance.getTermIndexes().first;
-           termId <= instance.getTermIndexes().second; termId++) {
+           termId != DNLID_MAX and termId <= instance.getTermIndexes().second; termId++) {
         const DNLTerminalFull& term = dnl_->getDNLTerminalFromID(termId);
         if (term.getSnlBitTerm()->getDirection() !=
             SNLBitTerm::Direction::Input) {
@@ -489,7 +489,7 @@ unsigned ConstantPropagation::computeOutputValueForConstantInstance(
     case Type::INV: {
       DNLID iso = DNLID_MAX;
       for (DNLID termId = instance.getTermIndexes().first;
-           termId <= instance.getTermIndexes().second; termId++) {
+           termId != DNLID_MAX and termId <= instance.getTermIndexes().second; termId++) {
         const DNLTerminalFull& term = dnl_->getDNLTerminalFromID(termId);
         if (term.getSnlBitTerm()->getDirection() !=
             SNLBitTerm::Direction::Input) {
@@ -535,7 +535,7 @@ unsigned ConstantPropagation::computeOutputValueForConstantInstance(
     case Type::DFF: {
       unsigned d = (unsigned)-1;
       for (DNLID termId = instance.getTermIndexes().first;
-           termId <= instance.getTermIndexes().second; termId++) {
+           termId != DNLID_MAX and termId <= instance.getTermIndexes().second; termId++) {
         const DNLTerminalFull& term = dnl_->getDNLTerminalFromID(termId);
         if (term.getSnlBitTerm()->getDirection() !=
             SNLBitTerm::Direction::Input) {
@@ -567,7 +567,7 @@ unsigned ConstantPropagation::computeOutputValueForConstantInstance(
       unsigned d = (unsigned)-1;
       unsigned q = (unsigned)-1;
       for (DNLID termId = instance.getTermIndexes().first;
-           termId <= instance.getTermIndexes().second; termId++) {
+           termId != DNLID_MAX and termId <= instance.getTermIndexes().second; termId++) {
         const DNLTerminalFull& term = dnl_->getDNLTerminalFromID(termId);
         if (term.getSnlBitTerm()->getDirection() !=
             SNLBitTerm::Direction::Input) {
@@ -607,7 +607,7 @@ unsigned ConstantPropagation::computeOutputValueForConstantInstance(
       unsigned b1 = (unsigned)-1;
       unsigned b2 = (unsigned)-1;
       for (DNLID termId = instance.getTermIndexes().first;
-           termId <= instance.getTermIndexes().second; termId++) {
+           termId != DNLID_MAX and termId <= instance.getTermIndexes().second; termId++) {
         const DNLTerminalFull& term = dnl_->getDNLTerminalFromID(termId);
         if (term.getSnlBitTerm()->getDirection() !=
             SNLBitTerm::Direction::Input) {
@@ -666,7 +666,7 @@ unsigned ConstantPropagation::computeOutputValueForPartiallyConstantInstance(
       designObjectID2Type_[instance.getSNLInstance()->getModel()->getID()]) {
     case Type::AND: {
       for (DNLID termId = instance.getTermIndexes().first;
-           termId <= instance.getTermIndexes().second; termId++) {
+           termId != DNLID_MAX and termId <= instance.getTermIndexes().second; termId++) {
         const DNLTerminalFull& term = dnl_->getDNLTerminalFromID(termId);
         if (term.getSnlBitTerm()->getDirection() !=
             SNLBitTerm::Direction::Input) {
@@ -690,7 +690,7 @@ unsigned ConstantPropagation::computeOutputValueForPartiallyConstantInstance(
     }
     case Type::OR: {
       for (DNLID termId = instance.getTermIndexes().first;
-           termId <= instance.getTermIndexes().second; termId++) {
+           termId != DNLID_MAX and termId <= instance.getTermIndexes().second; termId++) {
         const DNLTerminalFull& term = dnl_->getDNLTerminalFromID(termId);
         if (constants1_.find(term.getIsoID()) != constants1_.end()) {
 #ifdef DEBUG_PRINTS
@@ -710,7 +710,7 @@ unsigned ConstantPropagation::computeOutputValueForPartiallyConstantInstance(
     }
     case Type::NAND: {
       for (DNLID termId = instance.getTermIndexes().first;
-           termId <= instance.getTermIndexes().second; termId++) {
+           termId != DNLID_MAX and termId <= instance.getTermIndexes().second; termId++) {
         const DNLTerminalFull& term = dnl_->getDNLTerminalFromID(termId);
         if (term.getSnlBitTerm()->getDirection() !=
             SNLBitTerm::Direction::Input) {
@@ -738,7 +738,7 @@ unsigned ConstantPropagation::computeOutputValueForPartiallyConstantInstance(
     }
     case Type::NOR: {
       for (DNLID termId = instance.getTermIndexes().first;
-           termId <= instance.getTermIndexes().second; termId++) {
+           termId != DNLID_MAX and termId <= instance.getTermIndexes().second; termId++) {
         const DNLTerminalFull& term = dnl_->getDNLTerminalFromID(termId);
         if (term.getSnlBitTerm()->getDirection() !=
             SNLBitTerm::Direction::Input) {
@@ -763,7 +763,7 @@ unsigned ConstantPropagation::computeOutputValueForPartiallyConstantInstance(
     case Type::DFF: {
       unsigned d = (unsigned)-1;
       for (DNLID termId = instance.getTermIndexes().first;
-           termId <= instance.getTermIndexes().second; termId++) {
+           termId != DNLID_MAX and termId <= instance.getTermIndexes().second; termId++) {
         const DNLTerminalFull& term = dnl_->getDNLTerminalFromID(termId);
         if (term.getSnlBitTerm()->getDirection() !=
             SNLBitTerm::Direction::Input) {
@@ -795,7 +795,7 @@ unsigned ConstantPropagation::computeOutputValueForPartiallyConstantInstance(
       unsigned d = (unsigned)-1;
       unsigned q = (unsigned)-1;
       for (DNLID termId = instance.getTermIndexes().first;
-           termId <= instance.getTermIndexes().second; termId++) {
+           termId != DNLID_MAX and termId <= instance.getTermIndexes().second; termId++) {
         const DNLTerminalFull& term = dnl_->getDNLTerminalFromID(termId);
         if (term.getSnlBitTerm()->getDirection() !=
             SNLBitTerm::Direction::Input) {
@@ -836,7 +836,7 @@ unsigned ConstantPropagation::computeOutputValueForPartiallyConstantInstance(
       unsigned b1 = (unsigned)-1;
       unsigned b2 = (unsigned)-1;
       for (DNLID termId = instance.getTermIndexes().first;
-           termId <= instance.getTermIndexes().second; termId++) {
+           termId != DNLID_MAX and termId <= instance.getTermIndexes().second; termId++) {
         const DNLTerminalFull& term = dnl_->getDNLTerminalFromID(termId);
         if (term.getSnlBitTerm()->getDirection() !=
             SNLBitTerm::Direction::Input) {

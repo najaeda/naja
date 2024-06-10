@@ -241,7 +241,7 @@ printf("SNL Port %s direction %d\n", instTerm->getString().c_str()
 #endif
     }*/
     for (DNLID term = instance.getTermIndexes().first;
-         term <= instance.getTermIndexes().second; term++) {
+         term != DNLID_MAX and term <= instance.getTermIndexes().second; term++) {
       assert(DNLID_MAX != term);
 #ifdef DEBUG_PRINTS
       // LCOV_EXCL_START
