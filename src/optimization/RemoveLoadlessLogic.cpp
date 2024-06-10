@@ -150,24 +150,20 @@ tbb::concurrent_unordered_set<DNLID> LoadlessLogicRemover::getTracedIsos(
     const naja::DNL::DNL<DNLInstanceFull, DNLTerminalFull>& dnl) {
   std::vector<DNLID> topOutputIsos = getTopOutputIsos(dnl);
   for (DNLID leaf : dnl.getLeaves()) {
-    size_t num_ouptuts = 0;
+    size_t num_outputs = 0;
     const auto& instance = dnl.getDNLInstanceFromID(leaf);
     for (DNLID term = instance.getTermIndexes().first;
-         term <= instance.getTermIndexes().second; term++) {
-      if (DNLID_MAX == term) {
-          continue;
-      }
+        term != DNLID_MAX and term <= instance.getTermIndexes().second;
+        term++) {
       if (dnl.getDNLTerminalFromID(term).getSnlBitTerm()->getDirection() !=
           SNLTerm::Direction::Input) {
-        num_ouptuts++;
+        num_outputs++;
       }
     }
-    if (num_ouptuts == 0) {
+    if (num_outputs == 0) {
       for (DNLID term = instance.getTermIndexes().first;
-           term <= instance.getTermIndexes().second; term++) {
-        if (DNLID_MAX == term) {
-          continue;
-        }
+          term != DNLID_MAX and term <= instance.getTermIndexes().second;
+          term++) {
         if (dnl.getDNLTerminalFromID(term).getSnlBitTerm()->getDirection() !=
             SNLTerm::Direction::Output) {
           topOutputIsos.push_back(dnl.getIsoIdfromTermId(term));
