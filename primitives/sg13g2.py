@@ -49,6 +49,7 @@ def constructsg13g2_a21oi(lib, strengths):
     cell.setTruthTable(0x07)
 
 def constructsg13g2_a21o(lib, strengths):
+  # function : "((A1*A2)+B1)";
   for strength in strengths:
     cell = snl.SNLDesign.createPrimitive(lib, "sg13g2_a21o_" + str(strength))
     snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A1")
@@ -77,6 +78,7 @@ def constructsg13g2_buf(lib, strengths):
     cell.setTruthTable(0b10)
 
 def constructsg13g2_dfrbp_1(lib):
+  #function : "IQ";
   cell = snl.SNLDesign.createPrimitive(lib, "sg13g2_dfrbp_1")
   clk = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "CLK")
   reset_b = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "RESET_B")
@@ -85,12 +87,14 @@ def constructsg13g2_dfrbp_1(lib):
   q_n = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "Q_N")
 
 def constructsg13g2_dlygate4sd2_1(lib):
+  #function : "A";
   cell = snl.SNLDesign.createPrimitive(lib, "sg13g2_dlygate4sd2_1")
   a = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A")
   x = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "X")
   cell.setTruthTable(0b10)
 
 def constructsg13g2_dlygate4sd3_1(lib):
+  #function : "A";
   cell = snl.SNLDesign.createPrimitive(lib, "sg13g2_dlygate4sd3_1")
   a = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A")
   x = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "X")
@@ -101,6 +105,7 @@ def constructsg13g2_fill(lib, strengths):
     cell = snl.SNLDesign.createPrimitive(lib, "sg13g2_fill_" + str(strength))
 
 def constructsg13g2_mux2(lib, strengths):
+  # function : "(!S*A0)+(S*A1)";
   for strength in strengths:
     cell = snl.SNLDesign.createPrimitive(lib, "sg13g2_mux2_" + str(strength))
     a0 = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A0")
@@ -110,6 +115,7 @@ def constructsg13g2_mux2(lib, strengths):
     cell.setTruthTable(0xCA)
 
 def constructsg13g2_mux4_1(lib):
+  # function : "(A0*(!S0*!S1))+(A1*(S0*!S1))+(A2*(!S0*S1))+(A3*(S0*S1))";
   cell = snl.SNLDesign.createPrimitive(lib, "sg13g2_mux4_1")
   a0 = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A0")
   a1 = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A1")
@@ -196,6 +202,7 @@ def constructsg13g2_nor2b(lib, strengths):
     y = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "Y")
 
 def constructsg13g2_o21ai_1(lib):
+  # function : "!((A1+A2)*B1)";
   cell = snl.SNLDesign.createPrimitive(lib, "sg13g2_o21ai_1")
   a1 = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A1")
   a2 = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A2")
@@ -230,11 +237,12 @@ def constructsg13g2_or4(lib, strengths):
     cell.setTruthTable(0xFFFE)
 
 def constructsg13g2_slgcp_1(lib):
+  # state_function : "CLK * int_GATE";
   cell = snl.SNLDesign.createPrimitive(lib, "sg13g2_slgcp_1")
   gate = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "GATE")
   sce = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "SCE")
   clk = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "CLK")
-  gclk = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "GCLK")
+  gclk = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "GCLK")
 
 def constructsg13g2_tiehi(lib):
   cell = snl.SNLDesign.createPrimitive(lib, "sg13g2_tiehi")

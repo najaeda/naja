@@ -28,6 +28,7 @@ void ReductionOptimization::run() {
   }
   report_ = collectStatistics();
   spdlog::info(report_);
+  destroy();
 }
 
 SNLTruthTable ReductionOptimization::reduceTruthTable(SNLInstance* uniquifiedCandidate,
