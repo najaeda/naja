@@ -58,9 +58,10 @@ naja_edit -f verilog -t snl -i input.v -o output.snl -e script.py
 ```
 
 - **Netlist Logic optimizations across hierarchy boundaries**: Utilize built-in
-optimization algorithms to refine the netlist acroos hierarchical boundaries
-with minimal uniquification.  Available optimizations include Dead Logic Elimination (DLE).
-Access this feature using the `-a` option: `-a dle`.
+optimization algorithms to refine the netlist across hierarchical boundaries
+with minimal uniquification. Available optimizations include:
+    - All optimizations (option `-a all`): will apply Dead Logic Elimination (DLE), Constant Propagation and Primitives Optimization.
+    - Dead Logic Elimination only (option `-a dle`): will apply only DLE.
 
 ```bash
 # -1: Load input netlist from SNL format.
