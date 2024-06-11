@@ -240,6 +240,7 @@ printf("SNL Port %s direction %d\n", instTerm->getString().c_str()
     // LCOV_EXCL_STOP
 #endif
     }*/
+    size_t output = 0;
     for (DNLID term = instance.getTermIndexes().first;
          term != DNLID_MAX and term <= instance.getTermIndexes().second; term++) {
       assert(DNLID_MAX != term);
@@ -251,6 +252,10 @@ printf("SNL Port %s direction %d\n", instTerm->getString().c_str()
           (int)dnl.getDNLTerminalFromID(term).getSnlBitTerm()->getDirection());
       // LCOV_EXCL_STOP
 #endif
+      if (dnl.getDNLTerminalFromID(term).getSnlBitTerm()->getDirection() !=
+          SNLTerm::Direction::Input) {
+        output++;
+      }
       if (dnl.getIsoIdfromTermId(term) != DNLID_MAX &&
           tracedIsos.find(dnl.getIsoIdfromTermId(term)) != tracedIsos.end() &&
           dnl.getDNLTerminalFromID(term).getSnlBitTerm()->getDirection() !=
@@ -258,6 +263,9 @@ printf("SNL Port %s direction %d\n", instTerm->getString().c_str()
         isLoadless = false;
         break;
       }
+    }
+    if (output == 0) {
+      isLoadless = false;
     }
     if (isLoadless) {
       std::vector<SNLID::DesignObjectID> path;
