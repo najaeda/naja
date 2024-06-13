@@ -16,6 +16,7 @@
 #include "SNLBusNet.h"
 #include "SNLBusNetBit.h"
 #include "SNLInstTerm.h"
+#include "SNLDesignTruthTable.h"
 
 #include "SNLCapnP.h"
 
@@ -44,6 +45,10 @@ class SNLCapNpTest1: public ::testing::Test {
       SNLLibrary* prims2 = SNLLibrary::create(primitives, SNLLibrary::Type::Primitives, SNLName("prims2"));
       SNLLibrary* prims3 = SNLLibrary::create(prims1, SNLLibrary::Type::Primitives, SNLName("prims3"));
       SNLDesign* prim = SNLDesign::create(prims2, SNLDesign::Type::Primitive, SNLName("prim"));
+      SNLScalarTerm::create(prim, SNLTerm::Direction::Input, SNLName("A"));
+      SNLScalarTerm::create(prim, SNLTerm::Direction::Input, SNLName("B"));
+      SNLScalarTerm::create(prim, SNLTerm::Direction::Output, SNLName("Y"));
+      SNLDesignTruthTable::setTruthTable(prim, SNLTruthTable(2, 0x8));
     }
     void TearDown() override {
       if (SNLUniverse::get()) {
@@ -129,6 +134,10 @@ TEST_F(SNLCapNpTest1, test0) {
   EXPECT_NE(nullptr, prim);
   EXPECT_TRUE(prim->isPrimitive());
   EXPECT_FALSE(prim->isAnonymous());
+  EXPECT_EQ(SNLName("prim"), prim->getName());
+  auto primTT = SNLDesignTruthTable::getTruthTable(prim);
+  EXPECT_TRUE(primTT.isInitialized());
+  EXPECT_EQ(SNLTruthTable(2, 0x8), SNLDesignTruthTable::getTruthTable(prim));
 
   libraries = Libraries(prims1->getLibraries().begin(), prims1->getLibraries().end());
   EXPECT_EQ(1, libraries.size());

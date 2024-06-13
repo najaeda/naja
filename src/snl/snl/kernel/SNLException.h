@@ -15,7 +15,7 @@ struct SNLException: public NajaException {
     SNLException(const SNLException&) = default;
 
     SNLException(const std::string& reason):
-      NajaException(reason)
+      NajaException(std::move(reason))
     {}
 };
 

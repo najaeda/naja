@@ -13,6 +13,7 @@
 namespace naja {
 
 class NajaProperty;
+class NajaDumpableProperty;
 
 class NajaObject {
   public:
@@ -35,7 +36,7 @@ class NajaObject {
     ///\return the collection of NajaProperties of this NajaObject
     NajaCollection<NajaProperty*> getProperties() const;
     ///\return the collection of dumpable NajaProperties of this NajaObject
-    NajaCollection<NajaProperty*> getDumpableProperties() const;
+    NajaCollection<NajaDumpableProperty*> getDumpableProperties() const;
 
     ///destroy this object
     virtual void destroy();

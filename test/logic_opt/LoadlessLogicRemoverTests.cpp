@@ -90,7 +90,7 @@ TEST_F(LoadlessRemoveLogicTests, simple_0_loadless) {
   EXPECT_EQ(untracedIsos.size(), 0);
   //std::set<SNLBitNet*> loadlessNets = remover.getLoadlessNets(*dnl, tracedIsos);
   //EXPECT_EQ(loadlessNets.size(), 0);
-  std::vector<std::pair<std::vector<SNLInstance*>, DNLID>> loadlessInstances =
+  auto loadlessInstances =
       remover.getLoadlessInstances(*dnl, tracedIsos);
   EXPECT_EQ(loadlessInstances.size(), 0);
   destroy();
@@ -142,7 +142,7 @@ TEST_F(LoadlessRemoveLogicTests, simple_0_loadlessNonMT) {
   EXPECT_EQ(untracedIsos.size(), 0);
   //std::set<SNLBitNet*> loadlessNets = remover.getLoadlessNets(*dnl, tracedIsos);
   //EXPECT_EQ(loadlessNets.size(), 0);
-  std::vector<std::pair<std::vector<SNLInstance*>, DNLID>> loadlessInstances =
+  auto loadlessInstances =
       remover.getLoadlessInstances(*dnl, tracedIsos);
   EXPECT_EQ(loadlessInstances.size(), 0);
   destroy();
@@ -189,7 +189,7 @@ TEST_F(LoadlessRemoveLogicTests, simple_1_loadless) {
   EXPECT_EQ(untracedIsos.size(), 0);
   //std::set<SNLBitNet*> loadlessNets = remover.getLoadlessNets(*dnl, tracedIsos);
   //EXPECT_EQ(loadlessNets.size(), 0);
-  std::vector<std::pair<std::vector<SNLInstance*>, DNLID>> loadlessInstances =
+  auto loadlessInstances =
       remover.getLoadlessInstances(*dnl, tracedIsos);
   EXPECT_EQ(loadlessInstances.size(), 1);
   destroy();
@@ -232,7 +232,7 @@ TEST_F(LoadlessRemoveLogicTests, simple_2_loadless) {
   EXPECT_EQ(untracedIsos.size(), 1);
   //std::set<SNLBitNet*> loadlessNets = lnr.getLoadlessNets(*dnl, tracedIsos);
   //EXPECT_EQ(loadlessNets.size(), 1);
-  std::vector<std::pair<std::vector<SNLInstance*>, DNLID>> loadlessInstances =
+  auto loadlessInstances =
       remover.getLoadlessInstances(*dnl, tracedIsos);
   EXPECT_EQ(loadlessInstances.size(), 2);
   destroy();
@@ -261,27 +261,33 @@ TEST_F(LoadlessRemoveLogicTests, simple_2_loadless_nonMT) {
   auto outTermBB =
       SNLScalarTerm::create(bb, SNLTerm::Direction::Output, SNLName("out"));
 
+  SNLDesign* bbNoOutput = SNLDesign::create(library, SNLName("bbNoOutput"));
+  auto inTermBBno =
+      SNLScalarTerm::create(bbNoOutput, SNLTerm::Direction::Input, SNLName("in"));
+
   SNLInstance* inst1 = SNLInstance::create(mod, bb, SNLName("bb1"));
   SNLInstance* inst2 = SNLInstance::create(mod, bb, SNLName("bb2"));
+  SNLInstance* inst3 = SNLInstance::create(mod, bbNoOutput, SNLName("bbno"));
   auto inNet1 = SNLScalarNet::create(mod, SNLName("inNet1"));
   inst1->getInstTerm(inTermBB)->setNet(inNet1);
   inst2->getInstTerm(inTermBB)->setNet(inNet1);
+  inst3->getInstTerm(inTermBBno)->setNet(inNet1);
   inTerm->setNet(inNet1);
   DNLFull* dnl = get();
   LoadlessLogicRemover remover;
   // Verify each function of remover
   tbb::concurrent_unordered_set<DNLID> tracedIsos = remover.getTracedIsos(*dnl);
-  EXPECT_EQ(tracedIsos.size(), 0);
+  EXPECT_EQ(tracedIsos.size(), 1);
   std::vector<DNLID> untracedIsos = remover.getUntracedIsos(*dnl, tracedIsos);
-  EXPECT_EQ(untracedIsos.size(), 1);
+  EXPECT_EQ(untracedIsos.size(), 0);
   //std::set<SNLBitNet*> loadlessNets = lnr.getLoadlessNets(*dnl, tracedIsos);
   //EXPECT_EQ(loadlessNets.size(), 1);
-  std::vector<std::pair<std::vector<SNLInstance*>, DNLID>> loadlessInstances =
+  auto loadlessInstances =
       remover.getLoadlessInstances(*dnl, tracedIsos);
   EXPECT_EQ(loadlessInstances.size(), 2);
   destroy();
   remover.process();
   // Check that the loadless logic is removed
-  EXPECT_EQ(mod->getInstances().size(), 0);
+  EXPECT_EQ(mod->getInstances().size(), 1);
   destroy();
 }

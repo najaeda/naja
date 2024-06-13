@@ -130,18 +130,24 @@ void dumpScalarNet(
 }
 
 void dumpBusNetBit(
-  DBImplementation::LibraryImplementation::DesignImplementation::BusNetBit::Builder& bit,
+  DBImplementation::LibraryImplementation::DesignImplementation::BusNetBit::Builder& bitBuilder,
+  SNLID::Bit bit,
   const SNLBusNetBit* busNetBit) {
-  bit.setBit(busNetBit->getBit());
-  bit.setType(SNLtoCapnPNetType(busNetBit->getType()));
-  size_t componentsSize = busNetBit->getComponents().size();
-  if (componentsSize > 0) {
-    auto components = bit.initComponents(componentsSize);
-    size_t id = 0;
-    for (auto component: busNetBit->getComponents()) {
-      auto componentRefBuilder = components[id++];
-      dumpNetComponentReference(componentRefBuilder, component);
+  bitBuilder.setBit(bit);
+  if (busNetBit) {
+    bitBuilder.setDestroyed(false);
+    bitBuilder.setType(SNLtoCapnPNetType(busNetBit->getType()));
+    size_t componentsSize = busNetBit->getComponents().size();
+    if (componentsSize > 0) {
+      auto components = bitBuilder.initComponents(componentsSize);
+      size_t id = 0;
+      for (auto component: busNetBit->getComponents()) {
+        auto componentRefBuilder = components[id++];
+        dumpNetComponentReference(componentRefBuilder, component);
+      }
     }
+  } else {
+    bitBuilder.setDestroyed(true);
   }
 }
 
@@ -155,11 +161,14 @@ void dumpBusNet(
   }
   busNetBuilder.setMsb(busNet->getMSB());
   busNetBuilder.setLsb(busNet->getLSB());
-  auto bits = busNetBuilder.initBits(busNet->getBits().size());
+  auto bits = busNetBuilder.initBits(busNet->getSize());
   size_t id = 0;
-  for (auto bit: busNet->getBusBits()) {
+  for (size_t i=0; i<busNet->getSize(); i++) {
+    SNLID::Bit bit = (busNet->getMSB()>busNet->getLSB())?
+      busNet->getMSB()-int(i):busNet->getMSB()+int(i);
+    SNLBusNetBit* busNetBit = busNet->getBit(bit);
     auto bitBuilder = bits[id++];
-    dumpBusNetBit(bitBuilder, bit);
+    dumpBusNetBit(bitBuilder, bit, busNetBit);
   }
 }
 
@@ -363,6 +372,10 @@ void loadBusNet(
         throw SNLException(reason.str());
       }
       //LCOV_EXCL_STOP
+      if (bitNet.getDestroyed()) {
+        busNetBit->destroy();
+        continue;
+      }
       busNetBit->setType(CapnPtoSNLNetType(bitNet.getType()));
       if (bitNet.hasComponents()) {
         for (auto componentReference: bitNet.getComponents()) {

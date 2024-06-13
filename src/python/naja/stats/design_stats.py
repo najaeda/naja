@@ -14,7 +14,9 @@ class DesignStats:
   def __init__(self):
     self.assigns = 0
     self.flat_assigns = 0
+    self.basic_primitives = dict()
     self.primitives = dict()
+    self.flat_basic_primitives = dict()
     self.flat_primitives = dict()
     self.blackboxes = dict()
     self.flat_blackboxes = dict()
@@ -29,6 +31,11 @@ class DesignStats:
       self.flat_blackboxes[ins] = self.flat_blackboxes.get(ins, 0) + nb
     for primitive, nb in ins_stats.flat_primitives.items():
       self.flat_primitives[primitive] = self.flat_primitives.get(primitive, 0) + nb
+    for primitive, nb in ins_stats.flat_basic_primitives.items():
+      self.flat_basic_primitives[primitive] = self.flat_basic_primitives.get(primitive, 0) + nb
+
+def isBasicPrimitive(design):
+  return design.isConst0() or design.isConst1() or design.isBuf() or design.isInv()
 
 def compute_design_stats(design, designs_stats):
   if design in designs_stats.hier_designs:
@@ -40,8 +47,12 @@ def compute_design_stats(design, designs_stats):
       design_stats.assigns += 1
       design_stats.flat_assigns += 1
     elif model.isPrimitive():
-      design_stats.primitives[model] = design_stats.primitives.get(model, 0) + 1
-      design_stats.flat_primitives[model] = design_stats.flat_primitives.get(model, 0) + 1
+      if (isBasicPrimitive(model)):
+        design_stats.basic_primitives[model] = design_stats.basic_primitives.get(model, 0) + 1
+        design_stats.flat_basic_primitives[model] = design_stats.flat_basic_primitives.get(model, 0) + 1
+      else:
+        design_stats.primitives[model] = design_stats.primitives.get(model, 0) + 1
+        design_stats.flat_primitives[model] = design_stats.flat_primitives.get(model, 0) + 1
     elif model.isBlackBox():
       design_stats.blackboxes[model] = design_stats.blackboxes.get(model, 0) + 1
       design_stats.flat_blackboxes[model] = design_stats.flat_blackboxes.get(model, 0) + 1
@@ -134,13 +145,21 @@ def dump_stats(design, stats_file, designs_stats, dumped_models):
     stats_file.write("\n")
     
   dump_instances(stats_file, 'Instances:', design_stats.ins)
-  dump_instances(stats_file, 'Primitives:', design_stats.primitives)
+  nb_primitives = sum(design_stats.basic_primitives.values()) + sum(design_stats.primitives.values()) 
+  if nb_primitives > 1:
+    stats_file.write('Primitives: ' + str(nb_primitives) + '\n')
+  dump_instances(stats_file, 'Simple Primitives:', design_stats.basic_primitives)
+  dump_instances(stats_file, 'Other Primitives:', design_stats.primitives)
   dump_instances(stats_file, 'Blackboxes:', design_stats.blackboxes)
   if design_stats.assigns > 0:
     stats_file.write('Assigns: ' + str(design_stats.assigns) + '\n')
-  dump_instances(stats_file, 'Flat Blackboxes:', design_stats.flat_blackboxes)
   dump_instances(stats_file, 'Flat Instances:', design_stats.flat_ins)
-  dump_instances(stats_file, 'Flat Primitives:', design_stats.flat_primitives)
+  dump_instances(stats_file, 'Flat Blackboxes:', design_stats.flat_blackboxes)
+  nb_primitives = sum(design_stats.flat_basic_primitives.values()) + sum(design_stats.flat_primitives.values()) 
+  if nb_primitives > 1:
+    stats_file.write('Flat Primitives: ' + str(nb_primitives) + '\n')
+  dump_instances(stats_file, 'Flat Simple Primitives:', design_stats.flat_basic_primitives)
+  dump_instances(stats_file, 'Flat Other Primitives:', design_stats.flat_primitives)
   if design_stats.flat_assigns > 0:
     stats_file.write('Flat Assigns: ' + str(design_stats.flat_assigns) + '\n')
   stats_file.write('\n')

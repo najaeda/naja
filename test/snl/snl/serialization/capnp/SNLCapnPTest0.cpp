@@ -20,6 +20,7 @@ using ::testing::Property;
 #include "SNLBusNet.h"
 #include "SNLBusNetBit.h"
 #include "SNLInstTerm.h"
+#include "NajaException.h"
 
 #include "SNLCapnP.h"
 
@@ -36,11 +37,16 @@ class SNLCapNpTest0: public ::testing::Test {
       SNLUniverse* universe = SNLUniverse::create();
       db_ = SNLDB::create(universe);
       SNLLibrary* library = SNLLibrary::create(db_, SNLName("MYLIB"));
-      NajaDumpableProperty::create(library, "LIB_PROPERTY");
+      auto libProp = NajaDumpableProperty::create(library, "LIB_PROPERTY");
+      libProp->addStringValue("HELLO");
+      libProp->addUInt64Value(1234);
+
       SNLDesign* design = SNLDesign::create(library, SNLName("design"));
 
       db_->setTopDesign(design);
-      NajaDumpableProperty::create(db_, "TEST_PROPERTY");
+      auto dbProp = NajaDumpableProperty::create(db_, "TEST_PROPERTY");
+      dbProp->addStringValue("WORLD");
+      dbProp->addUInt64Value(5678);
 
       auto iTerm = SNLScalarTerm::create(design, SNLTerm::Direction::Input, SNLName("i"));
       auto o1Term = SNLBusTerm::create(design, SNLTerm::Direction::Output, 31, 0, SNLName("o1"));
@@ -126,6 +132,14 @@ TEST_F(SNLCapNpTest0, test0) {
     dynamic_cast<NajaDumpableProperty*>(loadedDB->getProperty("TEST_PROPERTY"));
   ASSERT_NE(nullptr, testProperty);
   EXPECT_EQ("TEST_PROPERTY", testProperty->getName());
+  EXPECT_EQ(2, testProperty->getValues().size());
+  EXPECT_EQ("WORLD", testProperty->getStringValue(0));
+  EXPECT_EQ(5678, testProperty->getUInt64Value(1));
+  EXPECT_THROW(testProperty->getStringValue(3), NajaException);
+  EXPECT_THROW(testProperty->getStringValue(1), NajaException);
+  EXPECT_THROW(testProperty->getUInt64Value(3), NajaException);
+  EXPECT_THROW(testProperty->getUInt64Value(0), NajaException);
+
   EXPECT_EQ(loadedDB, testProperty->getOwner());
   testProperty->destroy();
   testProperty = nullptr;
@@ -145,6 +159,9 @@ TEST_F(SNLCapNpTest0, test0) {
     dynamic_cast<NajaDumpableProperty*>(library->getProperty("LIB_PROPERTY"));
   ASSERT_NE(nullptr, libProperty);
   EXPECT_EQ("LIB_PROPERTY", libProperty->getName());
+  EXPECT_EQ(2, libProperty->getValues().size());
+  EXPECT_EQ("HELLO", libProperty->getStringValue(0));
+  EXPECT_EQ(1234, libProperty->getUInt64Value(1));
   EXPECT_EQ(library, libProperty->getOwner());
   libProperty->destroy();
   libProperty = nullptr;

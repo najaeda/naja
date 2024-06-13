@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include <string>
 #include "DNL.h"
 #include "tbb/concurrent_unordered_set.h"
 #include "tbb/scalable_allocator.h"
@@ -28,21 +29,21 @@ class LoadlessLogicRemover {
   std::vector<DNLID> getUntracedIsos(
       const naja::DNL::DNL<DNLInstanceFull, DNLTerminalFull>& dnl,
       const tbb::concurrent_unordered_set<DNLID>& tracedIsos);
-  std::vector<std::pair<std::vector<SNLInstance*>, DNLID>> getLoadlessInstances(
+  std::vector<std::pair<std::vector<SNLID::DesignObjectID>, DNLID>> getLoadlessInstances(
       const naja::DNL::DNL<DNLInstanceFull, DNLTerminalFull>& dnl,
       const tbb::concurrent_unordered_set<DNLID>& tracedIsos);
-  std::vector<std::pair<std::vector<SNLInstance*>, DNLID>>
-  normalizeLoadlessInstancesList(
-      const std::vector<std::pair<std::vector<SNLInstance*>, DNLID>>&
-          loadlessInstances);
   void removeLoadlessInstances(
       SNLDesign* top,
-      std::vector<std::pair<std::vector<SNLInstance*>, DNLID>>&
+      std::vector<std::pair<std::vector<SNLID::DesignObjectID>, DNLID>>&
           loadlessInstances);
   void removeLoadlessLogic();
+  std::string collectStatistics() const;
+  std::string getReport() const { return report_; }
 
  private:
   naja::DNL::DNL<DNLInstanceFull, DNLTerminalFull>* dnl_;
+  std::vector<std::pair<std::vector<SNLID::DesignObjectID>, DNLID>> loadlessInstances_;
+  std::string report_;
 };
 
 }  // namespace naja::NAJA_OPT

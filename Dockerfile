@@ -7,7 +7,7 @@ FROM alpine:3.19.1 as builder
 # Install required packages
 RUN apk --no-cache add ca-certificates
 RUN apk update && apk upgrade
-RUN apk add --no-cache cmake make g++ \
+RUN apk add --no-cache git cmake make g++ \
         python3-dev capnproto capnproto-dev \
         bison flex-dev boost-dev onetbb-dev
 

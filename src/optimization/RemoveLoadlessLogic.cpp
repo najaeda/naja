@@ -10,6 +10,7 @@
 #include "SNLDB0.h"
 #include "SNLUniverse.h"
 
+#include <sstream>
 #include "RemoveLoadlessLogic.h"
 #include "Utils.h"
 #include "tbb/enumerable_thread_specific.h"
@@ -17,7 +18,7 @@
 using namespace naja::DNL;
 using namespace naja::SNL;
 
-//#define DEBUG_PRINTS
+// #define DEBUG_PRINTS
 
 namespace naja::NAJA_OPT {
 
@@ -72,8 +73,12 @@ std::vector<DNLID> LoadlessLogicRemover::getTopOutputIsos(
 
 // Giving a DNL and iso, get all isos traced back from this iso to top inputs
 void LoadlessLogicRemover::getIsoTrace(
-      const naja::DNL::DNL<DNLInstanceFull, DNLTerminalFull>& dnl,
-      DNLID iso, tbb::concurrent_unordered_set<DNLID, std::hash<DNLID>, std::equal_to<DNLID>, tbb::scalable_allocator<DNLID>>& isoTrace) {
+    const naja::DNL::DNL<DNLInstanceFull, DNLTerminalFull>& dnl,
+    DNLID iso,
+    tbb::concurrent_unordered_set<DNLID,
+                                  std::hash<DNLID>,
+                                  std::equal_to<DNLID>,
+                                  tbb::scalable_allocator<DNLID>>& isoTrace) {
   std::vector<DNLID> isoQueue;
   isoQueue.push_back(iso);
   while (!isoQueue.empty()) {
@@ -144,16 +149,42 @@ void LoadlessLogicRemover::getIsoTrace(
 tbb::concurrent_unordered_set<DNLID> LoadlessLogicRemover::getTracedIsos(
     const naja::DNL::DNL<DNLInstanceFull, DNLTerminalFull>& dnl) {
   std::vector<DNLID> topOutputIsos = getTopOutputIsos(dnl);
+  for (DNLID leaf : dnl.getLeaves()) {
+    size_t num_outputs = 0;
+    const auto& instance = dnl.getDNLInstanceFromID(leaf);
+    for (DNLID term = instance.getTermIndexes().first;
+        term != DNLID_MAX and term <= instance.getTermIndexes().second;
+        term++) {
+      if (dnl.getDNLTerminalFromID(term).getSnlBitTerm()->getDirection() !=
+          SNLTerm::Direction::Input) {
+        num_outputs++;
+      }
+    }
+    if (num_outputs == 0) {
+      for (DNLID term = instance.getTermIndexes().first;
+          term != DNLID_MAX and term <= instance.getTermIndexes().second;
+          term++) {
+        if (dnl.getDNLTerminalFromID(term).getSnlBitTerm()->getDirection() !=
+            SNLTerm::Direction::Output) {
+          topOutputIsos.push_back(dnl.getIsoIdfromTermId(term));
+        }
+      }
+    }
+  }
   tbb::concurrent_unordered_set<DNLID> result;
-  tbb::enumerable_thread_specific<tbb::concurrent_unordered_set<DNLID, std::hash<DNLID>, std::equal_to<DNLID>, tbb::scalable_allocator<DNLID>>> tracedIsos;
+  tbb::enumerable_thread_specific<tbb::concurrent_unordered_set<
+      DNLID, std::hash<DNLID>, std::equal_to<DNLID>,
+      tbb::scalable_allocator<DNLID>>>
+      tracedIsos;
   if (!getenv("NON_MT")) {
     tbb::task_arena arena(tbb::task_arena::automatic);
-    tbb::parallel_for(
-        tbb::blocked_range<DNLID>(0, topOutputIsos.size()),
-        [&](const tbb::blocked_range<DNLID>& r) {
-          for (DNLID i = r.begin(); i < r.end(); ++i) {
-            getIsoTrace(dnl, topOutputIsos[i], tracedIsos.local());}
-        });
+    tbb::parallel_for(tbb::blocked_range<DNLID>(0, topOutputIsos.size()),
+                      [&](const tbb::blocked_range<DNLID>& r) {
+                        for (DNLID i = r.begin(); i < r.end(); ++i) {
+                          getIsoTrace(dnl, topOutputIsos[i],
+                                      tracedIsos.local());
+                        }
+                      });
   } else {
     for (DNLID iso : topOutputIsos) {
       getIsoTrace(dnl, iso, tracedIsos.local());
@@ -180,11 +211,12 @@ std::vector<DNLID> LoadlessLogicRemover::getUntracedIsos(
 
 // Given a DNL and set of traced isos, collect all SNL instaces pointers that
 // not drive any of them
-std::vector<std::pair<std::vector<SNLInstance*>, DNLID>>
+std::vector<std::pair<std::vector<SNLID::DesignObjectID>, DNLID>>
 LoadlessLogicRemover::getLoadlessInstances(
     const naja::DNL::DNL<DNLInstanceFull, DNLTerminalFull>& dnl,
     const tbb::concurrent_unordered_set<DNLID>& tracedIsos) {
-  std::vector<std::pair<std::vector<SNLInstance*>, DNLID>> loadlessInstances;
+  std::vector<std::pair<std::vector<SNLID::DesignObjectID>, DNLID>>
+      loadlessInstances;
   for (const auto& leaf : dnl.getLeaves()) {
     const auto& instance = dnl.getDNLInstanceFromID(leaf);
     if (instance.isTop())
@@ -208,8 +240,9 @@ printf("SNL Port %s direction %d\n", instTerm->getString().c_str()
     // LCOV_EXCL_STOP
 #endif
     }*/
+    size_t output = 0;
     for (DNLID term = instance.getTermIndexes().first;
-         term <= instance.getTermIndexes().second; term++) {
+         term != DNLID_MAX and term <= instance.getTermIndexes().second; term++) {
       assert(DNLID_MAX != term);
 #ifdef DEBUG_PRINTS
       // LCOV_EXCL_START
@@ -219,6 +252,10 @@ printf("SNL Port %s direction %d\n", instTerm->getString().c_str()
           (int)dnl.getDNLTerminalFromID(term).getSnlBitTerm()->getDirection());
       // LCOV_EXCL_STOP
 #endif
+      if (dnl.getDNLTerminalFromID(term).getSnlBitTerm()->getDirection() !=
+          SNLTerm::Direction::Input) {
+        output++;
+      }
       if (dnl.getIsoIdfromTermId(term) != DNLID_MAX &&
           tracedIsos.find(dnl.getIsoIdfromTermId(term)) != tracedIsos.end() &&
           dnl.getDNLTerminalFromID(term).getSnlBitTerm()->getDirection() !=
@@ -227,48 +264,28 @@ printf("SNL Port %s direction %d\n", instTerm->getString().c_str()
         break;
       }
     }
+    if (output == 0) {
+      isLoadless = false;
+    }
     if (isLoadless) {
-      std::vector<SNLInstance*> path;
+      std::vector<SNLID::DesignObjectID> path;
       DNLInstanceFull currentInstance = instance;
       while (currentInstance.isTop() == false) {
-        path.push_back(currentInstance.getSNLInstance());
+        path.push_back(currentInstance.getSNLInstance()->getID());
         currentInstance = currentInstance.getParentInstance();
       }
       std::reverse(path.begin(), path.end());
       loadlessInstances.push_back(
-          std::pair<std::vector<SNLInstance*>, DNLID>(path, instance.getID()));
+          std::pair<std::vector<SNLID::DesignObjectID>, DNLID>(
+              path, instance.getID()));
     }
   }
   std::sort(loadlessInstances.begin(), loadlessInstances.end(),
-            [](const std::pair<std::vector<SNLInstance*>, DNLID>& a,
-               const std::pair<std::vector<SNLInstance*>, DNLID>& b) {
+            [](const std::pair<std::vector<SNLID::DesignObjectID>, DNLID>& a,
+               const std::pair<std::vector<SNLID::DesignObjectID>, DNLID>& b) {
               return a.second < b.second;
             });
   return loadlessInstances;
-}
-
-std::vector<std::pair<std::vector<SNLInstance*>, DNLID>>
-LoadlessLogicRemover::normalizeLoadlessInstancesList(
-    const std::vector<std::pair<std::vector<SNLInstance*>, DNLID>>&
-        loadlessInstances) {
-  std::vector<std::pair<std::vector<SNLInstance*>, DNLID>> normalizedList;
-
-  for (const auto& path : loadlessInstances) {
-    bool isUnder = false;
-    for (const auto& pathToCheck : normalizedList) {
-      assert(pathToCheck.second <= path.second);
-      isUnder = dnl_->isInstanceChild(pathToCheck.second, path.second) ||
-                pathToCheck.second == path.second;
-
-      if (isUnder) {
-        break;
-      }
-    }
-    if (!isUnder) {
-      normalizedList.push_back(path);
-    }
-  }
-  return normalizedList;
 }
 
 // Given a list of loadless SNL instacnes, disconnect them and delete them from
@@ -277,13 +294,19 @@ LoadlessLogicRemover::normalizeLoadlessInstancesList(
 // 2. Delete the instance
 void LoadlessLogicRemover::removeLoadlessInstances(
     SNLDesign* top,
-    std::vector<std::pair<std::vector<SNLInstance*>, DNLID>>&
+    std::vector<std::pair<std::vector<SNLID::DesignObjectID>, DNLID>>&
         loadlessInstances) {
   for (auto& path : loadlessInstances) {
     Uniquifier uniquifier(path.first, path.second);
     uniquifier.process();
     for (SNLInstTerm* term : uniquifier.getPathUniq().back()->getInstTerms()) {
+      auto net = term->getNet();
       term->setNet(nullptr);
+      if (net != nullptr) {
+        if (net->getInstTerms().size() + net->getBitTerms().size() == 0) {
+          net->destroy();
+        }
+      }
     }
 #ifdef DEBUG_PRINTS
     // LCOV_EXCL_START
@@ -311,15 +334,29 @@ void LoadlessLogicRemover::removeLoadlessInstances(
 
 // Given a DNL, remove all loadless logic
 void LoadlessLogicRemover::removeLoadlessLogic() {
-  assert(!isCreated());
   dnl_ = DNL::get();
   tbb::concurrent_unordered_set<DNLID> tracedIsos = getTracedIsos(*dnl_);
   std::vector<DNLID> untracedIsos = getUntracedIsos(*dnl_, tracedIsos);
-  std::vector<std::pair<std::vector<SNLInstance*>, DNLID>> loadlessInstances =
-      getLoadlessInstances(*dnl_, tracedIsos);
+  loadlessInstances_ = getLoadlessInstances(*dnl_, tracedIsos);
+  report_ = collectStatistics();
   removeLoadlessInstances(SNLUniverse::get()->getTopDesign(),
-                          loadlessInstances);
+                          loadlessInstances_);
+  spdlog::info(report_);
   DNL::destroy();
+}
+
+std::string LoadlessLogicRemover::collectStatistics() const {
+  /*std::stringstream ss;
+  std::map<std::string, size_t> deletedInstances;
+  for (const auto& entry : loadlessInstances_) {
+    deletedInstances[entry.first.back()->getModel()->getName().getString()]++;
+  }
+  ss << "DLE report:" << std::endl;
+  for (const auto& entry : deletedInstances) {
+    ss << entry.first << " : " << entry.second << std::endl;
+  }
+  return ss.str();*/
+  return std::string();
 }
 
 }  // namespace naja::NAJA_OPT

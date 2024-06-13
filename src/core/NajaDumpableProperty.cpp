@@ -11,7 +11,8 @@ namespace naja {
 
 NajaDumpableProperty::NajaDumpableProperty(const std::string& name):
   super(),
-  name_(name)
+  name_(name),
+  values_()
 {}
 
 NajaDumpableProperty* NajaDumpableProperty::create(NajaObject* owner, const std::string& name) {
@@ -19,6 +20,34 @@ NajaDumpableProperty* NajaDumpableProperty::create(NajaObject* owner, const std:
   NajaDumpableProperty* property = new NajaDumpableProperty(name);
   property->postCreate(owner);
   return property;
+}
+
+std::string NajaDumpableProperty::getStringValue(size_t i) const {
+  if (i >= values_.size()) {
+    throw NajaException("NajaDumpableProperty::getStringValue: index out of range");
+  }
+  if (values_[i].index() != NajaDumpableProperty::String) {
+    throw NajaException("NajaDumpableProperty::getStringValue: type is not String");
+  }
+  return std::get<NajaDumpableProperty::String>(values_[i]);
+}
+
+void NajaDumpableProperty::addStringValue(const std::string& value) {
+  values_.emplace_back(value);
+}
+
+void NajaDumpableProperty::addUInt64Value(uint64_t value) {
+  values_.emplace_back(value);
+}
+
+uint64_t NajaDumpableProperty::getUInt64Value(size_t i) const {
+  if (i >= values_.size()) {
+    throw NajaException("NajaDumpableProperty::getUInt64Value: index out of range");
+  }
+  if (values_[i].index() != NajaDumpableProperty::UInt64) {
+    throw NajaException("NajaDumpableProperty::getUInt64Value: type is not UInt64");
+  }
+  return std::get<NajaDumpableProperty::UInt64>(values_[i]);
 }
 
 //LCOV_EXCL_START

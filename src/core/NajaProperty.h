@@ -21,10 +21,6 @@ class NajaProperty {
     /// \return a string describing this NajaProperty.
     virtual std::string getString() const =0;
 
-    /// \return true if this NajaProperty is dumpable: it will be serialized in the dump file.
-    virtual bool isDumpable() const {
-      return false;
-    }
     /// \brief destroy this NajaProperty.
     void destroy();
   protected:
@@ -36,8 +32,6 @@ class NajaProperty {
 
     virtual void onCapturedBy(NajaObject* object) =0;
     virtual void onReleasedBy(const NajaObject* object) =0;
-    
-
 };
 
 } // namespace naja

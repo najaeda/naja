@@ -35,17 +35,18 @@ void SNLBusNetBit::postCreate() {
   super::postCreate();
 }
 
+void SNLBusNetBit::commonPreDestroy() {
+  super::preDestroy();
+}
+
 void SNLBusNetBit::destroyFromBus() {
-  preDestroy();
+  commonPreDestroy();
   delete this;
 }
 
-void SNLBusNetBit::destroy() {
-  throw SNLException("Unexpected call of SNLBusNetBit::destroy()");
-}
-
 void SNLBusNetBit::preDestroy() {
-  super::preDestroy();
+  commonPreDestroy();
+  getBus()->removeBit(this);
 }
 
 SNLID::DesignObjectID SNLBusNetBit::getID() const {

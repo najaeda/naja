@@ -15,7 +15,7 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::treatDriver(
     const DNLTerminal& term,
     DNLIso& DNLIso,
     visited& visitedDB,
-    bool updateReadersIsoID, bool updateDriverIsoID) {
+    bool updateReadersIsoID, bool updateDriverIsoID, bool updateConst) {
   std::stack<DNLID> stack;
   std::vector<bool>& visited = visitedDB.visited;
   visited.resize(dnl_.getDNLTerms().size());
@@ -66,6 +66,11 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::treatDriver(
       }
     }
     if (fterm.getSnlBitTerm()->getNet()) {
+      if (updateConst && fterm.getSnlBitTerm()->getNet()->isConstant1()) {
+        addConstantIso1(DNLIso.getIsoID());
+      } else if (updateConst && fterm.getSnlBitTerm()->getNet()->isConstant0()) {
+        addConstantIso0(DNLIso.getIsoID());
+      }
       bool netAlreadyVisited = false;
       DNLInstance finstance = fterm.getDNLInstance();
       for (SNLInstTerm* instTerm :
@@ -97,6 +102,11 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::treatDriver(
     }
     if (!fterm.getDNLInstance().isTop() &&
         fterm.getSnlTerm()->getNet()) {
+      if (updateConst && fterm.getSnlTerm()->getNet()->isConstant1()) {
+        addConstantIso1(DNLIso.getIsoID());
+      } else if (updateConst && fterm.getSnlTerm()->getNet()->isConstant0()) {
+        addConstantIso0(DNLIso.getIsoID());
+      }
       bool netAlreadyVisited = false;
       DNLInstance fparent = fterm.getDNLInstance().getParentInstance();
       for (SNLInstTerm* instTerm :
@@ -165,7 +175,11 @@ void DNL<DNLInstance, DNLTerminal>::process() {
   std::pair<DNLID, DNLID> childrenIndexes;
   std::pair<DNLID, DNLID> termIndexes;
   termIndexes.first = DNLTerms_.size();
+  std::set<SNLBitTerm*, SNLBitTermCompare> sortedBitTerms;
   for (SNLBitTerm* bitterm : top_->getBitTerms()) {
+    sortedBitTerms.insert(bitterm);
+  }
+  for (SNLBitTerm* bitterm : sortedBitTerms) {
     DNLTerms_.push_back(DNLTerminal(parentId, bitterm, DNLTerms_.size()));
   }
   if (termIndexes.first == DNLTerms_.size()) {
@@ -251,7 +265,11 @@ void DNL<DNLInstance, DNLTerminal>::process() {
       }
       std::pair<DNLID, DNLID> termIndexes;
       termIndexes.first = DNLTerms_.size();
+      std::set<SNLInstTerm*, SNLInstTermCompare> sortedInstTerms;
       for (auto term : inst->getInstTerms()) {
+        sortedInstTerms.insert(term);
+      }
+      for (auto term : sortedInstTerms) {
         DNLTerms_.push_back(
             DNLTerminal(DNLInstances_.back().getID(), term, DNLTerms_.size()));
 #ifdef DEBUG_PRINTS
@@ -368,7 +386,7 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::process() {
             treatDriver(dnl_.getNonConstDNLTerminalFromID(tasks[i]),
                         db_.getIsoFromIsoID(
                             dnl_.getNonConstDNLTerminalFromID(tasks[i]).getIsoID()),
-                        visit.local(), true, false);
+                        visit.local(), true, false, true);
 #ifdef DEBUG_PRINTS
             // LCOV_EXCL_START
             printf("treatDriver %lu %lu\n",
@@ -387,7 +405,7 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::process() {
       treatDriver(
           dnl_.getNonConstDNLTerminalFromID(task),
           db_.getIsoFromIsoID(dnl_.getNonConstDNLTerminalFromID(task).getIsoID()),
-          visit.local(), true, false);
+          visit.local(), true, false, true);
     }
   }
   for (DNLID iso = 0; iso < db_.getNumIsos() + 1; iso++) {
@@ -430,7 +448,7 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::process() {
             treatDriver(dnl_.getNonConstDNLTerminalFromID(tasks[i]),
                         db_.getIsoFromIsoID(
                             dnl_.getNonConstDNLTerminalFromID(tasks[i]).getIsoID()),
-                        visit.local(), true, true);
+                        visit.local(), true, true, true);
           }
         });
   } else {
@@ -443,7 +461,7 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::process() {
       treatDriver(
           dnl_.getNonConstDNLTerminalFromID(task),
           db_.getIsoFromIsoID(dnl_.getNonConstDNLTerminalFromID(task).getIsoID()),
-          visit.local(), true, true);
+          visit.local(), true, true, true);
     }
   }
   for (DNLID iso = 0; iso < db_.getNumIsos() + 1; iso++) {
