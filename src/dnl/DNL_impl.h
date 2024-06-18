@@ -508,7 +508,7 @@ void DNL<DNLInstance, DNLTerminal>::initContinuesIDCache() {
       continue;
     }
     naja::SNL::SNLID::DesignObjectID continuesIndex = 0;
-    for (DNLID child = instance.getChildren().first; child <= instance.getChildren().second; child++) {
+    for (DNLID child = instance.getChildren().first; child != DNLID_MAX and child <= instance.getChildren().second; child++) {
        const DNLInstance& childInstance = getDNLInstanceFromID(child);
        design2cotninuesIDsMap_[instance.getSNLModel()->getID()][childInstance.getSNLInstance()->getID()] 
         = continuesIndex;

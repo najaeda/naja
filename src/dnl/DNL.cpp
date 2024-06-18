@@ -121,6 +121,9 @@ const DNLInstanceFull& DNLInstanceFull::getChildInstance(
   // the children are sorted by SNLInstance id(getID()) using the binary search
   // with costum operator
   if (!(*get()).getDesign2cotninuesIDsMap().empty()) {
+    if (getSNLModel() != snlInst->getDesign()) {
+      return (*get()).getDNLNullInstance();
+    }
     auto result = (*get()).getDNLInstances().begin();
     std::advance(result, childrenIndexes_.first +
       (*get()).getDesign2cotninuesIDsMap()[getSNLModel()->getID()][snlInst->getID()]);
