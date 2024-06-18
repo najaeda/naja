@@ -297,9 +297,9 @@ int main(int argc, char* argv[]) {
         oss << "Removal of loadless logic done in: " << elapsed_seconds.count() << "s";
         SPDLOG_INFO(oss.str());
       } 
-      NetlistStatistics stats(*get());
-      stats.process();
-      spdlog::info(stats.getReport());
+      //NetlistStatistics stats(*get());
+      //stats.process();
+      //spdlog::info(stats.getReport());
     } else if (optimizationType == OptimizationType::ALL) {
       const auto start{std::chrono::steady_clock::now()};
       spdlog::info("Starting full optimization(constant propagation and removal of loadless logic)");
@@ -318,9 +318,9 @@ int main(int argc, char* argv[]) {
             << "s";
         spdlog::info(oss.str());
       }
-      NetlistStatistics stats(*get());
-      stats.process();
-      spdlog::info(stats.getReport());
+      //NetlistStatistics stats(*get());
+      //stats.process();
+      //spdlog::info(stats.getReport());
     }
 
     
@@ -354,13 +354,20 @@ int main(int argc, char* argv[]) {
       }
     }
 
-    if (program.is_used("-d") and primitivesLibrary) {
-      auto outputPrimitivesPath =
-          std::filesystem::path(program.get<std::string>("-d"));
-      std::ofstream output(outputPrimitivesPath);
-      SNLVRLDumper dumper;
-      dumper.setSingleFile(true);
-      dumper.dumpLibrary(primitivesLibrary, output);
+    if (program.is_used("-d")) {
+      if (not primitivesLibrary and inputFormatType==FormatType::SNL) {
+        auto primitiveLibraries = db->getPrimitiveLibraries();
+        if (not primitiveLibraries.empty()) {}
+          primitivesLibrary = *(db->getPrimitiveLibraries().begin());
+      }
+      if (primitivesLibrary) {
+        auto outputPrimitivesPath =
+            std::filesystem::path(program.get<std::string>("-d"));
+        std::ofstream output(outputPrimitivesPath);
+        SNLVRLDumper dumper;
+        dumper.setSingleFile(true);
+        dumper.dumpLibrary(primitivesLibrary, output);
+      }
     }
   } catch (const SNLException& e) {
     SPDLOG_CRITICAL("Caught SNL error: {}\n{}",
