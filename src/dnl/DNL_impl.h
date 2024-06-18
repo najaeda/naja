@@ -304,6 +304,7 @@ void DNL<DNLInstance, DNLTerminal>::process() {
   DNLIsoDBBuilder<DNLInstance, DNLTerminal> fidbb(fidb_, *this);
   fidbb.process();
   fidb_.addIso().setId(DNLID_MAX);  // addNullIso
+  initContinuesIDCache();
 #ifdef DEBUG_PRINTS
     // LCOV_EXCL_START
   printf("DNL creation done.\n");
@@ -495,6 +496,25 @@ void DNL<DNLInstance, DNLTerminal>::getCustomIso(DNLID dnlIsoId,
   fidbb.treatDriver(getDNLTerminalFromID(
                         fidb_.getIsoFromIsoIDconst(dnlIsoId).getDrivers()[0]),
                     DNLIso, visitedDB);
+}
+
+template <class DNLInstance, class DNLTerminal>
+void DNL<DNLInstance, DNLTerminal>::initContinuesIDCache() {
+  for (DNLInstance& instance : DNLInstances_) {
+    if (instance.isNull()) {
+      continue;
+    }
+    if (!design2cotninuesIDsMap_[instance.getSNLModel()->getID()].empty()) {
+      continue;
+    }
+    naja::SNL::SNLID::DesignObjectID continuesIndex = 0;
+    for (DNLID child = instance.getChildren().first; child <= instance.getChildren().second; child++) {
+       const DNLInstance& childInstance = getDNLInstanceFromID(child);
+       design2cotninuesIDsMap_[instance.getSNLModel()->getID()][childInstance.getSNLInstance()->getID()] 
+        = continuesIndex;
+       continuesIndex++;
+    }
+  }
 }
 
 #endif  // DNL_IMPL_H

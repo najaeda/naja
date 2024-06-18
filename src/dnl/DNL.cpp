@@ -120,6 +120,12 @@ const DNLInstanceFull& DNLInstanceFull::getChildInstance(
   // Find the child instance with the same SNLInstance by levrage the fact that
   // the children are sorted by SNLInstance id(getID()) using the binary search
   // with costum operator
+  if (!(*get()).getDesign2cotninuesIDsMap().empty()) {
+    auto result = (*get()).getDNLInstances().begin();
+    std::advance(result, childrenIndexes_.first +
+      (*get()).getDesign2cotninuesIDsMap()[getSNLModel()->getID()][snlInst->getID()]);
+    return *result;
+  }
   auto first = (*get()).getDNLInstances().begin();
   std::advance(first, childrenIndexes_.first);
   auto last = (*get()).getDNLInstances().begin();
