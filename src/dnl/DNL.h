@@ -293,7 +293,6 @@ class DNL {
   std::vector<DNLID> termId2isoId_;
   std::vector<std::vector<naja::SNL::SNLID::DesignObjectID> > design2cotninuesIDsMap_;
   DNLIsoDB fidb_;
-  bool useDesign2continuesIDsMap_ = true;
 };
 
 #include "DNL_impl.h"

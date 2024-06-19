@@ -301,6 +301,7 @@ void DNL<DNLInstance, DNLTerminal>::process() {
   DNLInstances_.push_back(DNLInstance());
   DNLTerms_.push_back(DNLTerminal());
   initTermId2isoId();
+  initContinuesIDCache();
   DNLIsoDBBuilder<DNLInstance, DNLTerminal> fidbb(fidb_, *this);
   fidbb.process();
   fidb_.addIso().setId(DNLID_MAX);  // addNullIso
