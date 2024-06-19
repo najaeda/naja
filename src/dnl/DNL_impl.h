@@ -301,6 +301,7 @@ void DNL<DNLInstance, DNLTerminal>::process() {
   DNLInstances_.push_back(DNLInstance());
   DNLTerms_.push_back(DNLTerminal());
   initTermId2isoId();
+  initContinuesIDCache();
   DNLIsoDBBuilder<DNLInstance, DNLTerminal> fidbb(fidb_, *this);
   fidbb.process();
   fidb_.addIso().setId(DNLID_MAX);  // addNullIso
@@ -495,6 +496,34 @@ void DNL<DNLInstance, DNLTerminal>::getCustomIso(DNLID dnlIsoId,
   fidbb.treatDriver(getDNLTerminalFromID(
                         fidb_.getIsoFromIsoIDconst(dnlIsoId).getDrivers()[0]),
                     DNLIso, visitedDB);
+}
+
+template <class DNLInstance, class DNLTerminal>
+void DNL<DNLInstance, DNLTerminal>::initContinuesIDCache() {
+  for (DNLInstance& instance : DNLInstances_) {
+    if (instance.isNull()) {
+      continue;
+    }
+    if (design2cotninuesIDsMap_.size() >= instance.getSNLModel()->getID() + 1) {
+      if (!design2cotninuesIDsMap_[instance.getSNLModel()->getID()].empty()) {
+        continue;
+      }
+    }
+    naja::SNL::SNLID::DesignObjectID continuesIndex = 0;
+    for (DNLID child = instance.getChildren().first; child != DNLID_MAX and child <= instance.getChildren().second; child++) {
+       const DNLInstance& childInstance = getDNLInstanceFromID(child);
+       while (design2cotninuesIDsMap_.size() < instance.getSNLModel()->getID() + 1) {
+         design2cotninuesIDsMap_.push_back(std::vector<naja::SNL::SNLID::DesignObjectID>());
+
+       }
+       while (design2cotninuesIDsMap_[instance.getSNLModel()->getID()].size() < childInstance.getSNLInstance()->getID() + 1) {
+         design2cotninuesIDsMap_[instance.getSNLModel()->getID()].push_back((naja::SNL::SNLID::DesignObjectID) -1);
+       }
+       design2cotninuesIDsMap_[instance.getSNLModel()->getID()][childInstance.getSNLInstance()->getID()] 
+        = continuesIndex;
+       continuesIndex++;
+    }
+  }
 }
 
 #endif  // DNL_IMPL_H

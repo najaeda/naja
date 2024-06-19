@@ -120,10 +120,19 @@ const DNLInstanceFull& DNLInstanceFull::getChildInstance(
   // Find the child instance with the same SNLInstance by levrage the fact that
   // the children are sorted by SNLInstance id(getID()) using the binary search
   // with costum operator
+  //if (!(*get()).getDesign2cotninuesIDsMap().empty()) {
+    if (getSNLModel() != snlInst->getDesign()) {
+      return (*get()).getDNLNullInstance();
+    }
+    auto result = (*get()).getDNLInstances().begin();
+    std::advance(result, childrenIndexes_.first +
+      (*get()).getDesign2cotninuesIDsMap()[getSNLModel()->getID()][snlInst->getID()]);
+    return *result;
+  /*}
   auto first = (*get()).getDNLInstances().begin();
   std::advance(first, childrenIndexes_.first);
   auto last = (*get()).getDNLInstances().begin();
-  std::advance(last, childrenIndexes_.second + 1/*exclusive of this element*/);
+  std::advance(last, childrenIndexes_.second + 1);// "+ 1" <- exclusive of this element
   naja::SNL::SNLID::DesignObjectID id = snlInst->getID();
   auto result = std::lower_bound(
           first,
@@ -140,7 +149,7 @@ const DNLInstanceFull& DNLInstanceFull::getChildInstance(
   printf("DNLInstanceFull::getChildInstance - Return null instance\n");
   // LCOV_EXCL_STOP
 #endif
-  return (*get()).getDNLNullInstance();
+  return (*get()).getDNLNullInstance();*/
 }
 
 const DNLTerminalFull& DNLInstanceFull::getTerminal(
