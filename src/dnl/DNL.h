@@ -284,7 +284,6 @@ class DNL {
   std::vector<std::vector<naja::SNL::SNLID::DesignObjectID> >& getDesign2cotninuesIDsMap() {
       return design2cotninuesIDsMap_;
     }
-  void setDesign2continuesIDsMap(bool use) { useDesign2continuesIDsMap_ = use; }
  private:
   std::vector<DNLInstance, tbb::scalable_allocator<DNLInstance>> DNLInstances_;
   std::vector<DNLID, tbb::scalable_allocator<DNLID>> leaves_;
