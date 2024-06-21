@@ -281,16 +281,16 @@ class DNL {
   }
   const SNLDesign* getTopDesign() const { return top_; }
   void initContinuesIDCache();
-  std::vector<std::vector<naja::SNL::SNLID::DesignObjectID> >& getDesign2cotninuesIDsMap() {
-      return design2cotninuesIDsMap_;
-    }
+  const std::vector<std::vector<std::vector<std::vector<naja::SNL::SNLID::DesignObjectID> > > >& getDesign2cotninuesIDsMap() {
+    return design2cotninuesIDsMap_;
+  }
  private:
   std::vector<DNLInstance, tbb::scalable_allocator<DNLInstance>> DNLInstances_;
   std::vector<DNLID, tbb::scalable_allocator<DNLID>> leaves_;
   const SNLDesign* top_;
   std::vector<DNLTerminal, tbb::scalable_allocator<DNLTerminal>> DNLTerms_;
   std::vector<DNLID> termId2isoId_;
-  std::vector<std::vector<naja::SNL::SNLID::DesignObjectID> > design2cotninuesIDsMap_;
+  std::vector<std::vector<std::vector<std::vector<naja::SNL::SNLID::DesignObjectID> > > > design2cotninuesIDsMap_;
   DNLIsoDB fidb_;
 };
 
