@@ -1,3 +1,10 @@
+# SPDX-FileCopyrightText: 2024 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+#
+# SPDX-License-Identifier: Apache-2.0
+
+#new "manual" implementation of asap7 primitives
+#containing cells truth tables
+
 from naja import snl as snl
 
 def constructAND2(lib, strengths):

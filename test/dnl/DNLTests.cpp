@@ -614,8 +614,13 @@ TEST_F(DNLTests, SNLDataAccessWith3levelsOfHierarchyAndIsoDBWithMultiDriverNonMT
     dnl->getTop().getChildInstance(subinst).display();
     EXPECT_EQ(dnl->getTop().getChildInstance(subinst).getTerminal(subsubinst->getInstTerm(subsubinTerm)).isNull(), true);  
     EXPECT_EQ(dnl->getTop().getChildInstance(subsubinst).isNull(), true); 
+    EXPECT_EQ(dnl->getTop().getChildInstance(subinst).getTerminalFromBitTerm(subsubinTerm).isNull(), true); 
+    EXPECT_EQ(dnl->getTop().getChildInstance(subinst).getTerminal(subsubinst->getInstTerm(subsubinTerm)).isNull(), true); 
+    EXPECT_EQ(dnl->getTop().getChildInstance(subinst).getTerminalFromBitTerm(subinTerm).isNull(), false); 
+    EXPECT_EQ(dnl->getTop().getChildInstance(subinst).getTerminal(subinst->getInstTerm(subinTerm)).isNull(), false); 
     EXPECT_EQ(dnl->getDNLNullInstance().isNull(), true);
     EXPECT_EQ(dnl->getDNLNullTerminal().isNull(), true);
     //Destroy the DNL
+    EXPECT_EQ(isCreated(), true);
     destroy();
 }

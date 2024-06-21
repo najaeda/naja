@@ -124,9 +124,12 @@ const DNLInstanceFull& DNLInstanceFull::getChildInstance(
     if (getSNLModel() != snlInst->getDesign()) {
       return (*get()).getDNLNullInstance();
     }
+    assert((*get()).getDesign2cotninuesIDsMap().size() > getSNLModel()->getDB()->getID());
+    assert((*get()).getDesign2cotninuesIDsMap()[getSNLModel()->getDB()->getID()].size() > getSNLModel()->getLibrary()->getID());
+    assert((*get()).getDesign2cotninuesIDsMap()[getSNLModel()->getDB()->getID()][getSNLModel()->getLibrary()->getID()].size() > getSNLModel()->getID());
     auto result = (*get()).getDNLInstances().begin();
     std::advance(result, childrenIndexes_.first +
-      (*get()).getDesign2cotninuesIDsMap()[getSNLModel()->getID()][snlInst->getID()]);
+      (*get()).getDesign2cotninuesIDsMap()[getSNLModel()->getDB()->getID()][getSNLModel()->getLibrary()->getID()][getSNLModel()->getID()][snlInst->getID()]);
     return *result;
   /*}
   auto first = (*get()).getDNLInstances().begin();
