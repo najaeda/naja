@@ -34,6 +34,16 @@ class SNLBitNet;
 }  // namespace naja
 
 namespace naja {
+
+class OrderIDInitializer {
+ public:
+  OrderIDInitializer() {};
+  void process();
+
+ private:
+  SNLDB* snldb_ = nullptr;
+};
+
 namespace DNL {
 
 typedef size_t DNLID;
@@ -54,19 +64,17 @@ struct visited {
 
 struct SNLBitTermCompare {
   bool operator()(const SNLBitTerm* lhs, const SNLBitTerm* rhs) const {
-    if (lhs->getID() != rhs->getID()) {
-      return lhs->getID() < rhs->getID();
-    }
-    return lhs->getBit() > rhs->getBit();
+    return lhs->getOrderID() < rhs->getOrderID();
   }
 };
 
 struct SNLInstTermCompare {
   bool operator()(const SNLInstTerm* lhs, const SNLInstTerm* rhs) const {
-    if (lhs->getBitTerm()->getID() != rhs->getBitTerm()->getID()) {
+    return lhs->getBitTerm()->getOrderID() < rhs->getBitTerm()->getOrderID();
+    /*if (lhs->getBitTerm()->getID() != rhs->getBitTerm()->getID()) {
       return lhs->getBitTerm()->getID() < rhs->getBitTerm()->getID();
     }
-    return lhs->getBitTerm()->getBit() > rhs->getBitTerm()->getBit();
+    return lhs->getBitTerm()->getBit() > rhs->getBitTerm()->getBit();*/
   }
 };
 
@@ -280,17 +288,13 @@ class DNL {
     return DNLID_MAX;
   }
   const SNLDesign* getTopDesign() const { return top_; }
-  void initContinuesIDCache();
-  const std::vector<std::vector<std::vector<std::vector<naja::SNL::SNLID::DesignObjectID> > > >& getDesign2cotninuesIDsMap() {
-    return design2cotninuesIDsMap_;
-  }
+  
  private:
   std::vector<DNLInstance, tbb::scalable_allocator<DNLInstance>> DNLInstances_;
   std::vector<DNLID, tbb::scalable_allocator<DNLID>> leaves_;
   const SNLDesign* top_;
   std::vector<DNLTerminal, tbb::scalable_allocator<DNLTerminal>> DNLTerms_;
   std::vector<DNLID> termId2isoId_;
-  std::vector<std::vector<std::vector<std::vector<naja::SNL::SNLID::DesignObjectID> > > > design2cotninuesIDsMap_;
   DNLIsoDB fidb_;
 };
 
