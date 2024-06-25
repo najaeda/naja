@@ -386,7 +386,7 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::process() {
 #endif
     tbb::task_arena arena(tbb::task_arena::automatic);
     tbb::parallel_for(
-        tbb::blocked_range<DNLID>(0, tasks.size()),
+        tbb::blocked_range<DNLID>(0, tasks.size(), 1000),
         [&](const tbb::blocked_range<DNLID>& r) {
           for (DNLID i = r.begin(); i < r.end(); ++i) {
             treatDriver(dnl_.getNonConstDNLTerminalFromID(tasks[i]),
@@ -400,7 +400,7 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::process() {
         // LCOV_EXCL_STOP
 #endif
           }
-        });
+        }, tbb::simple_partitioner());
   } else {
 #ifdef DEBUG_PRINTS
     // LCOV_EXCL_START
@@ -448,7 +448,7 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::process() {
 #endif
     tbb::task_arena arena(tbb::task_arena::automatic);
     tbb::parallel_for(
-        tbb::blocked_range<DNLID>(0, tasks.size()),
+        tbb::blocked_range<DNLID>(0, tasks.size(), 1000),
         [&](const tbb::blocked_range<DNLID>& r) {
           for (DNLID i = r.begin(); i < r.end(); ++i) {
             treatDriver(dnl_.getNonConstDNLTerminalFromID(tasks[i]),
@@ -456,7 +456,7 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::process() {
                             dnl_.getNonConstDNLTerminalFromID(tasks[i]).getIsoID()),
                         visit.local(), true, true, true);
           }
-        });
+        }, tbb::simple_partitioner());
   } else {
 #ifdef DEBUG_PRINTS
     // LCOV_EXCL_START
