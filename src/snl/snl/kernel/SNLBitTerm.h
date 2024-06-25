@@ -25,6 +25,8 @@ class SNLBitTerm: public SNLTerm {
     virtual SNLID::Bit getBit() const = 0;
     SNLBitNet* getNet() const override { return net_; }
     void setNet(SNLNet* net) override;
+    SNLID::DesignObjectID getOrderID() const { return orederID_; }
+    void setOrderID(SNLID::DesignObjectID orderID) { orederID_ = orderID; }
   protected:
     SNLBitTerm() = default;
     static void preCreate();
@@ -32,6 +34,7 @@ class SNLBitTerm: public SNLTerm {
     void preDestroy() override;
   private:
     SNLBitNet*    net_  { nullptr};
+    SNLID::DesignObjectID orederID_ = (SNLID::DesignObjectID) -1;
 };
 
 }} // namespace SNL // namespace naja

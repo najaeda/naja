@@ -121,15 +121,13 @@ void LoadlessLogicRemover::getIsoTrace(
             printf(" - getIsoTrace Reader %s\n",
                    term.getSnlBitTerm()->getString().c_str());
             // LCOV_EXCL_STOP
-#endif
             if (term.getSnlTerm()->getNet() != nullptr) {
-#ifdef DEBUG_PRINTS
               // LCOV_EXCL_START
               printf(" - getIsoTrace Net %s\n",
                      term.getSnlTerm()->getNet()->getString().c_str());
               // LCOV_EXCL_STOP
-#endif
             }
+#endif
 // const DNLInstanceFull &inst = term.getDNLInstance();
 #ifdef DEBUG_PRINTS
             // LCOV_EXCL_START
