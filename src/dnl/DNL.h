@@ -39,9 +39,6 @@ class OrderIDInitializer {
  public:
   OrderIDInitializer() {};
   void process();
-
- private:
-  SNLDB* snldb_ = nullptr;
 };
 
 namespace DNL {
