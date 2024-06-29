@@ -13,10 +13,11 @@ Naja is an Electronic Design Automation (EDA) project that provides open source 
 
 Naja best starting point is: [naja-edit](#naja_edit).
 
-If you are looking to build your own EDA tool, Naja contains two primary API components:
+If you are looking to build your own EDA tool, Naja contains three primary API components:
 
 1. SNL (Structured Netlist) API housed in this repository.
-2. [naja-verilog](https://github.com/najaeda/naja-verilog), a data structure independent structural verilog parser.
+2. DNL (Dissolved Netlist) API associated to SNL also in this repository.
+3. [naja-verilog](https://github.com/najaeda/naja-verilog), a data structure independent structural verilog parser.
 
 ### Acknowledgement
 
@@ -73,9 +74,6 @@ naja_edit -f snl -t snl -i input.snl -o output.snl -a dle \
           -e pre_script.py -z post_edit.py
 ```
 
-Additional layers of optimization, such as constant propagation, are planned
-for future releases.
-
 `naja_edit` editing script examples are available [here](https://github.com/najaeda/naja/blob/main/src/apps/edit/examples).
 
 The [Naja Regress](https://github.com/najaeda/naja-regress) repository features a collection of examples
@@ -91,9 +89,20 @@ showcasing extensive use of `naja_edit`.
 
 #### Enhanced Fidelity in Data Representation
 
-Naja contains two main components SNL (Structured Netlist) API (located in this repo) and [naja-verilog](https://github.com/najaeda/naja-verilog), a data structure independent structural verilog parser.
+In most EDA flows, data exchange is done by using standard netlist formats (Verilog, LEF/DEF, EDIF, …)
+which were not designed to represent data structures content with high fidelity.
+To address this problem, `SNL` relies
+on [Cap'n Proto](https://github.com/capnproto/capnproto) open source interchange format.
 
-In most EDA flows, data exchange is done by using standard netlist formats (Verilog, LEF/DEF, EDIF, …) which were not designed to represent data structures content with high fidelity. To address this problem, SNL relies on [Cap'n Proto](https://github.com/capnproto/capnproto) open source interchange format.
+`DNL` provides a uniquified view of `SNL`, specifically designed for efficient multi-threaded traversal
+and analysis of netlist data.
+Key features of `DNL` include:
+- Read-only Data Structure: Ensures data integrity and stability during analysis.
+- Fast Construction: `DNL` is quickly built from `SNL`, facilitating rapid transitions between representations.
+- Index-based Minimal Details: Reduces overhead and focuses on essential connectivity information.
+- Connectivity Representation: Utilizes equipotentials between terminals to represent connections effectively.
+
+Together, `SNL` and `DNL` enhance the fidelity, performance, and efficiency of netlist data handling in EDA workflows.
 
 #### Optimized for Parallelization and Cloud Computing
 

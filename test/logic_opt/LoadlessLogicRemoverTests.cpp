@@ -264,10 +264,12 @@ TEST_F(LoadlessRemoveLogicTests, simple_2_loadless_nonMT) {
   SNLDesign* bbNoOutput = SNLDesign::create(library, SNLName("bbNoOutput"));
   auto inTermBBno =
       SNLScalarTerm::create(bbNoOutput, SNLTerm::Direction::Input, SNLName("in"));
+  SNLDesign* bbNoOutputNoInput = SNLDesign::create(library, SNLName("bbNoOutputNoInput"));
 
   SNLInstance* inst1 = SNLInstance::create(mod, bb, SNLName("bb1"));
   SNLInstance* inst2 = SNLInstance::create(mod, bb, SNLName("bb2"));
   SNLInstance* inst3 = SNLInstance::create(mod, bbNoOutput, SNLName("bbno"));
+  SNLInstance* inst4 = SNLInstance::create(mod, bbNoOutputNoInput, SNLName("bbnoni"));
   auto inNet1 = SNLScalarNet::create(mod, SNLName("inNet1"));
   inst1->getInstTerm(inTermBB)->setNet(inNet1);
   inst2->getInstTerm(inTermBB)->setNet(inNet1);
@@ -288,6 +290,6 @@ TEST_F(LoadlessRemoveLogicTests, simple_2_loadless_nonMT) {
   destroy();
   remover.process();
   // Check that the loadless logic is removed
-  EXPECT_EQ(mod->getInstances().size(), 1);
+  EXPECT_EQ(mod->getInstances().size(), 2);
   destroy();
 }

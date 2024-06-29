@@ -32,6 +32,7 @@ TEST_F(SNLUniverseTest, testGetSNLObjects1) {
   EXPECT_EQ(nullptr, universe->getTerm(SNLID::DesignObjectReference(1, 1, 2, 3)));
   EXPECT_EQ(nullptr, universe->getBusTermBit(SNLID(SNLID::Type::TermBit, 1, 1, 1, 0, 1, 1)));
   EXPECT_EQ(nullptr, universe->getNet(SNLID::DesignObjectReference(2, 3, 1, 1)));
+  EXPECT_EQ(nullptr, universe->getBitNet(SNLID::BitNetReference(1, 1, 1, 1, 1)));
   EXPECT_EQ(nullptr, universe->getInstance(SNLID::DesignObjectReference(1, 1, 1, 1)));
 }
 

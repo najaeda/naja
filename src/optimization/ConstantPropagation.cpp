@@ -886,12 +886,10 @@ void ConstantPropagation::changeDriverToLocal0(SNLInstTerm* term, DNLID id) {
   term->setNet(nullptr);
  std::string name(std::string("logic0_naja_") +
                    term->getDesign()->getName().getString());
-  SNLNet* assign0 = 
-        term->getDesign()->getNet(SNLName(name));
+  auto netName = SNLName(name + "_net");
+  SNLNet* assign0 = term->getDesign()->getNet(netName);
     if (nullptr == assign0) {
-      assign0 = SNLScalarNet::create(
-        term->getDesign(),
-        SNLName(name));
+      assign0 = SNLScalarNet::create(term->getDesign(), netName);
     }
   assign0->setType(naja::SNL::SNLNet::Type::Supply0);
   term->setNet(assign0);
@@ -922,12 +920,10 @@ void ConstantPropagation::changeDriverToLocal1(SNLInstTerm* term, DNLID id) {
   term->setNet(nullptr);
   std::string name(std::string("logic1_naja_") +
                      term->getDesign()->getName().getString());
-    SNLNet* assign1 = 
-        term->getDesign()->getNet(SNLName(name));
+  auto netName = SNLName(name + "_net"); 
+  SNLNet* assign1 = term->getDesign()->getNet(netName);
     if (nullptr == assign1) {
-      assign1 = SNLScalarNet::create(
-        term->getDesign(),
-        SNLName(name));
+      assign1 = SNLScalarNet::create(term->getDesign(), netName);
     }
   assign1->setType(naja::SNL::SNLNet::Type::Supply1);
   term->setNet(assign1);
@@ -1052,12 +1048,10 @@ void ConstantPropagation::propagateConstants() {
     term->setNet(nullptr);
     std::string name(std::string("logic0_naja_") +
                      term->getDesign()->getName().getString());
-    SNLNet* assign0 = 
-        term->getDesign()->getNet(SNLName(name));
+    auto netName = SNLName(name + "_net");
+    SNLNet* assign0 = term->getDesign()->getNet(netName);
     if (nullptr == assign0) {
-      assign0 = SNLScalarNet::create(
-        term->getDesign(),
-        SNLName(name));
+      assign0 = SNLScalarNet::create(term->getDesign(), netName);
     }
     assign0->setType(naja::SNL::SNLNet::Type::Supply0);
     term->setNet(assign0);
@@ -1084,12 +1078,10 @@ void ConstantPropagation::propagateConstants() {
     term->setNet(nullptr);
     std::string name(std::string("logic1_naja_") +
                      term->getDesign()->getName().getString());
-    SNLNet* assign1 = 
-        term->getDesign()->getNet(SNLName(name));
+    auto netName = SNLName(name + "_net");
+    SNLNet* assign1 = term->getDesign()->getNet(netName);
     if (nullptr == assign1) {
-      assign1 = SNLScalarNet::create(
-        term->getDesign(),
-        SNLName(name));
+      assign1 = SNLScalarNet::create(term->getDesign(), netName);
     }
     assign1->setType(naja::SNL::SNLNet::Type::Supply1);
     term->setNet(assign1);
