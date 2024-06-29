@@ -28,7 +28,7 @@ set(SNL_KERNEL_SOURCES
 )
 
 set(PNL_KERNEL_SOURCES
-  kernel/PNLDesign.cpp
+  pnl/PNLDesign.cpp
 )
 
 set(SNL_DECORATOR_SOURCES
@@ -79,6 +79,7 @@ target_include_directories(naja_snl SYSTEM BEFORE PUBLIC ${Boost_INCLUDE_DIR})
 target_include_directories(naja_snl PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/kernel
   ${CMAKE_CURRENT_SOURCE_DIR}/decorators
+  ${CMAKE_CURRENT_SOURCE_DIR}/pnl
 )
 
 set_target_properties(naja_snl PROPERTIES PUBLIC_HEADER "${SNL_HEADERS}")
