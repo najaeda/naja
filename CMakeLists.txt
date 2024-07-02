@@ -8,7 +8,6 @@ cmake_minimum_required(VERSION 3.21)
 project(naja
   VERSION 1.0.0
   HOMEPAGE_URL https://github.com/najaeda/naja
-  LANGUAGES CXX
 )
 
 #RPATH settings
