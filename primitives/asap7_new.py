@@ -50,6 +50,7 @@ def constructAND5(lib, strengths):
     cell.setTruthTable(0x80000000)
 
 def constructAO21(lib, strengths):
+  #function : "(A1 * A2) + (B)";
   for strength in strengths:
     name = 'AO21x' + str(strength) + '_ASAP7_75t_R'
     cell = snl.SNLDesign.createPrimitive(lib, name)
@@ -57,8 +58,10 @@ def constructAO21(lib, strengths):
     snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A2")
     snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B")
     snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "Y")
+    cell.setTruthTable(0xF8)
 
 def constructAO211(lib, strengths):
+  #function : "(A1 * A2) + (B) + (C)";
   for strength in strengths:
     name = 'AO211x' + str(strength) + '_ASAP7_75t_R' 
     cell = snl.SNLDesign.createPrimitive(lib, name)
@@ -67,9 +70,10 @@ def constructAO211(lib, strengths):
     snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B")
     snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "C")
     snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "Y")
-    #cell.setTruthTable(0x8)
+    cell.setTruthTable(0xFFF8)
 
 def constructAO22(lib, strengths):
+  #function : "(A1 * A2) + (B1 * B2)";
   for strength in strengths:
     name = 'AO22x' + str(strength) + '_ASAP7_75t_R' 
     cell = snl.SNLDesign.createPrimitive(lib, name)
@@ -78,8 +82,10 @@ def constructAO22(lib, strengths):
     snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B1")
     snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B2")
     snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "Y")
+    cell.setTruthTable(0xF888)
 
 def constructAO221(lib, strengths):
+  #function : "(A1 * A2) + (B1 * B2) + (C)";
   for strength in strengths:
     name = 'AO221x' + str(strength) + '_ASAP7_75t_R'
     cell = snl.SNLDesign.createPrimitive(lib, name)
@@ -89,8 +95,10 @@ def constructAO221(lib, strengths):
     snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B2")
     snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "C")
     snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "Y")
+    cell.setTruthTable(0xFFFFF888)
 
 def constructAO222(lib, strengths):
+  #function : "(A1 * A2) + (B1 * B2) + (C1 * C2)";
   for strength in strengths:
     name = 'AO222x' + str(strength) + '_ASAP7_75t_R'
     cell = snl.SNLDesign.createPrimitive(lib, name)
@@ -101,8 +109,10 @@ def constructAO222(lib, strengths):
     snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "C1")
     snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "C2")
     snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "Y")
+    cell.setTruthTable(0xFFFFF888F888F888)
 
 def constructAO31(lib, strengths):
+  #function : "(A1 * A2 * A3) + (B)";
   for strength in strengths:
     name = 'AO31x' + str(strength) + '_ASAP7_75t_R' 
     cell = snl.SNLDesign.createPrimitive(lib, name)
@@ -111,8 +121,10 @@ def constructAO31(lib, strengths):
     snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A3")
     snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B")
     snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "Y")
+    cell.setTruthTable(0xFF80)
 
 def constructAO32(lib, strengths):
+  #function : "(A1 * A2 * A3) + (B1 * B2)";
   for strength in strengths:
     name = 'AO32x' + str(strength) + '_ASAP7_75t_R' 
     cell = snl.SNLDesign.createPrimitive(lib, name)
@@ -122,8 +134,10 @@ def constructAO32(lib, strengths):
     snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B1")
     snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B2")
     snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "Y")
+    cell.setTruthTable(0xFF808080)
 
 def constructAO33(lib, strengths):
+  #function : "(A1 * A2 * A3) + (B1 * B2 * B3)";
   for strength in strengths:
     name = 'AO33x' + str(strength) + '_ASAP7_75t_R' 
     cell = snl.SNLDesign.createPrimitive(lib, name)
@@ -134,8 +148,10 @@ def constructAO33(lib, strengths):
     snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B2")
     snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B3")
     snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "Y")
+    cell.setTruthTable(0xff80808080808080)
 
 def constructAOI21(lib, strengths):
+  #function : "(!A1 * !B) + (!A2 * !B)";
   for strength in strengths:
     name = 'AOI21x' + str(strength) + '_ASAP7_75t_R'
     cell = snl.SNLDesign.createPrimitive(lib, name)
@@ -143,8 +159,10 @@ def constructAOI21(lib, strengths):
     snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A2")
     snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B")
     snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "Y")
+    cell.setTruthTable(0x07)
 
 def constructAOI211(lib, strengths):
+  #function : "(!A1 * !B * !C) + (!A2 * !B * !C)";
   for strength in strengths:
     name = 'AOI211x' + str(strength) + '_ASAP7_75t_R'
     cell = snl.SNLDesign.createPrimitive(lib, name)
@@ -153,8 +171,10 @@ def constructAOI211(lib, strengths):
     snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B")
     snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "C")
     snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "Y")
+    cell.setTruthTable(0x0007)
 
 def constructAOI22(lib, strengths):
+  #function : "(!A1 * !B1) + (!A1 * !B2) + (!A2 * !B1) + (!A2 * !B2)";
   for strength in strengths:
     name = 'AOI22x' + str(strength) + '_ASAP7_75t_R'
     cell = snl.SNLDesign.createPrimitive(lib, name)
@@ -163,8 +183,10 @@ def constructAOI22(lib, strengths):
     snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B1")
     snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B2")
     snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "Y")
+    cell.setTruthTable(0x0777)
 
 def constructAOI221(lib, strengths):
+  #function : "(!A1 * !B1 * !C) + (!A1 * !B2 * !C) + (!A2 * !B1 * !C) + (!A2 * !B2 * !C)";
   for strength in strengths:
     name = 'AOI221x' + str(strength) + '_ASAP7_75t_R'
     cell = snl.SNLDesign.createPrimitive(lib, name)
@@ -174,6 +196,7 @@ def constructAOI221(lib, strengths):
     snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B2")
     snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "C")
     snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "Y")
+    cell.setTruthTable(0x00000777)
 
 def constructBUF(lib, strengths):
   for strength in strengths:
@@ -225,6 +248,7 @@ def constructINV(lib, strengths):
     cell.setTruthTable(0x1)
 
 def constructMAJ(lib, strengths):
+  #function : "(A * B) + (A * C) + (B * C)";
   for strength in strengths:
     name = 'MAJx' + str(strength) + '_ASAP7_75t_R' 
     cell = snl.SNLDesign.createPrimitive(lib, name)
@@ -232,6 +256,7 @@ def constructMAJ(lib, strengths):
     snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B")
     snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "C")
     snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "Y")
+    cell.setTruthTable(0xe8)
 
 def constructNAND2(lib, strengths):
   for strength in strengths:
@@ -272,6 +297,7 @@ def constructNOR3(lib, strengths):
     cell.setTruthTable(0x01)
 
 def constructOA21(lib, strengths):
+  #function : "(A1 * B) + (A2 * B)";
   for strength in strengths:
     name = 'OA21x' + str(strength) + '_ASAP7_75t_R' 
     cell = snl.SNLDesign.createPrimitive(lib, name)
@@ -279,8 +305,10 @@ def constructOA21(lib, strengths):
     snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A2")
     snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B")
     snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "Y")
+    cell.setTruthTable(0xe0)
 
 def constructOA211(lib, strengths):
+  #function : "(A1 * B * C) + (A2 * B * C)";
   for strength in strengths:
     name = 'OA211x' + str(strength) + '_ASAP7_75t_R' 
     cell = snl.SNLDesign.createPrimitive(lib, name)
@@ -289,8 +317,10 @@ def constructOA211(lib, strengths):
     snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B")
     snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "C")
     snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "Y")
+    cell.setTruthTable(0xe000)
 
 def constructOA22(lib, strengths):
+  #function : "(A1 * B1) + (A1 * B2) + (A2 * B1) + (A2 * B2)";
   for strength in strengths:
     name = 'OA22x' + str(strength) + '_ASAP7_75t_R' 
     cell = snl.SNLDesign.createPrimitive(lib, name)
@@ -299,8 +329,10 @@ def constructOA22(lib, strengths):
     snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B1")
     snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B2")
     snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "Y")
+    cell.setTruthTable(0xeee0)
 
 def constructOA221(lib, strengths):
+  #function : "(A1 * B1 * C) + (A1 * B2 * C) + (A2 * B1 * C) + (A2 * B2 * C)";
   for strength in strengths:
     name = 'OA221x' + str(strength) + '_ASAP7_75t_R'
     cell = snl.SNLDesign.createPrimitive(lib, name)
@@ -310,8 +342,10 @@ def constructOA221(lib, strengths):
     snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B2")
     snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "C")
     snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "Y")
+    cell.setTruthTable(0xeee00000)
 
 def constructOA222(lib, strengths):
+  #function : "(A1 * B1 * C1) + (A1 * B1 * C2) + (A1 * B2 * C1) + (A1 * B2 * C2) + (A2 * B1 * C1) + (A2 * B1 * C2) + (A2 * B2 * C1) + (A2 * B2 * C2)";
   for strength in strengths:
     name = 'OA222x' + str(strength) + '_ASAP7_75t_R'
     cell = snl.SNLDesign.createPrimitive(lib, name)
@@ -322,8 +356,10 @@ def constructOA222(lib, strengths):
     snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "C1")
     snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "C2")
     snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "Y")
+    cell.setTruthTable(0xeee0eee0eee00000)
 
 def constructOA31(lib, strengths):
+  #function : "(A1 * B1) + (A2 * B1) + (A3 * B1)";
   for strength in strengths:
     name = 'OA31x' + str(strength) + '_ASAP7_75t_R'
     cell = snl.SNLDesign.createPrimitive(lib, name)
@@ -332,8 +368,10 @@ def constructOA31(lib, strengths):
     snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A3")
     snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B1")
     snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "Y")
+    cell.setTruthTable(0xf0)
 
 def constructOA33(lib, strengths):
+  #function : "(A1 * B1) + (A1 * B2) + (A1 * B3) + (A2 * B1) + (A2 * B2) + (A2 * B3) + (A3 * B1) + (A3 * B2) + (A3 * B3)";
   for strength in strengths:
     name = 'OA33x' + str(strength) + '_ASAP7_75t_R' 
     cell = snl.SNLDesign.createPrimitive(lib, name)
@@ -344,8 +382,10 @@ def constructOA33(lib, strengths):
     snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B2")
     snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B3")
     snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "Y")
+    cell.setTruthTable(0xfefefefefefefe00)
 
 def constructOAI21(lib, strengths):
+  #function : "(!A1 * !A2) + (!B)";
   for strength in strengths:
     name = 'OAI21x' + str(strength) + '_ASAP7_75t_R'
     cell = snl.SNLDesign.createPrimitive(lib, name)
@@ -353,8 +393,10 @@ def constructOAI21(lib, strengths):
     snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A2")
     snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B")
     snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "Y")
+    cell.setTruthTable(0x1f)
 
 def constructOAI22(lib, strengths):
+  #function : "(!A1 * !A2) + (!B1 * !B2)";
   for strength in strengths:
     name = 'OAI22x' + str(strength) + '_ASAP7_75t_R'
     cell = snl.SNLDesign.createPrimitive(lib, name)
@@ -363,6 +405,7 @@ def constructOAI22(lib, strengths):
     snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B1")
     snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B2")
     snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "Y")
+    cell.setTruthTable(0x111F)
 
 def constructOR2(lib, strengths):
   for strength in strengths:
