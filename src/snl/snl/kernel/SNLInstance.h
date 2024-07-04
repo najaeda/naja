@@ -140,6 +140,9 @@ class SNLInstance final: public SNLDesignObject {
 
     void setModel(SNLDesign* newModel);
 
+    SNLID::DesignObjectID getOrderID() const { return orederID_; }
+    void setOrderID(SNLID::DesignObjectID orderID) { orederID_ = orderID; }
+
   private:
     SNLInstance(SNLDesign* design, SNLDesign* model, const SNLName& name);
     SNLInstance(SNLDesign* design, SNLDesign* model, SNLID::DesignObjectID id, const SNLName& name);
@@ -173,6 +176,7 @@ class SNLInstance final: public SNLDesignObject {
     SNLInstParameters                   instParameters_           {};
     boost::intrusive::set_member_hook<> designInstancesHook_      {};
     boost::intrusive::set_member_hook<> designSlaveInstancesHook_ {};
+    SNLID::DesignObjectID orederID_ = (SNLID::DesignObjectID) -1;
 };
 
 }} // namespace SNL // namespace naja

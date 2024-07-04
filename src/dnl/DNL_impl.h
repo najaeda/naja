@@ -168,6 +168,8 @@ template <class DNLInstance, class DNLTerminal>
 void DNL<DNLInstance, DNLTerminal>::process() {
   std::vector<DNLID> stack;
   //Creating the top
+  OrderIDInitializer orderIDInitializer;
+  orderIDInitializer.process();
   DNLInstances_.push_back(
       DNLInstance(nullptr, DNLInstances_.size(), DNLID_MAX));
   assert(DNLInstances_.back().getID() == DNLInstances_.size() - 1);
@@ -305,7 +307,6 @@ void DNL<DNLInstance, DNLTerminal>::process() {
   DNLInstances_.push_back(DNLInstance());
   DNLTerms_.push_back(DNLTerminal());
   initTermId2isoId();
-  initContinuesIDCache();
   DNLIsoDBBuilder<DNLInstance, DNLTerminal> fidbb(fidb_, *this);
   fidbb.process();
   fidb_.addIso().setId(DNLID_MAX);  // addNullIso
@@ -385,7 +386,7 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::process() {
 #endif
     tbb::task_arena arena(tbb::task_arena::automatic);
     tbb::parallel_for(
-        tbb::blocked_range<DNLID>(0, tasks.size()),
+        tbb::blocked_range<DNLID>(0, tasks.size(), 1000),
         [&](const tbb::blocked_range<DNLID>& r) {
           for (DNLID i = r.begin(); i < r.end(); ++i) {
             treatDriver(dnl_.getNonConstDNLTerminalFromID(tasks[i]),
@@ -399,7 +400,7 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::process() {
         // LCOV_EXCL_STOP
 #endif
           }
-        });
+        }, tbb::simple_partitioner());
   } else {
 #ifdef DEBUG_PRINTS
     // LCOV_EXCL_START
@@ -447,7 +448,7 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::process() {
 #endif
     tbb::task_arena arena(tbb::task_arena::automatic);
     tbb::parallel_for(
-        tbb::blocked_range<DNLID>(0, tasks.size()),
+        tbb::blocked_range<DNLID>(0, tasks.size(), 1000),
         [&](const tbb::blocked_range<DNLID>& r) {
           for (DNLID i = r.begin(); i < r.end(); ++i) {
             treatDriver(dnl_.getNonConstDNLTerminalFromID(tasks[i]),
@@ -455,7 +456,7 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::process() {
                             dnl_.getNonConstDNLTerminalFromID(tasks[i]).getIsoID()),
                         visit.local(), true, true, true);
           }
-        });
+        }, tbb::simple_partitioner());
   } else {
 #ifdef DEBUG_PRINTS
     // LCOV_EXCL_START
@@ -500,41 +501,6 @@ void DNL<DNLInstance, DNLTerminal>::getCustomIso(DNLID dnlIsoId,
   fidbb.treatDriver(getDNLTerminalFromID(
                         fidb_.getIsoFromIsoIDconst(dnlIsoId).getDrivers()[0]),
                     DNLIso, visitedDB);
-}
-
-template <class DNLInstance, class DNLTerminal>
-void DNL<DNLInstance, DNLTerminal>::initContinuesIDCache() {
-  for (DNLInstance& instance : DNLInstances_) {
-    if (instance.isNull()) {
-      continue;
-    }
-     // printf("1 Design ID: %lu %s\n",  (size_t) instance.getSNLModel()->getID(), instance.getSNLModel()->getString().c_str());
-    while (design2cotninuesIDsMap_.size() < (size_t) (instance.getSNLModel()->getDB()->getID() + 1)) {
-      design2cotninuesIDsMap_.push_back(std::vector<std::vector<std::vector<naja::SNL::SNLID::DesignObjectID>>>());
-    }
-    while (design2cotninuesIDsMap_[instance.getSNLModel()->getDB()->getID()].size() < (size_t) (instance.getSNLModel()->getLibrary()->getID() + 1)) {
-      design2cotninuesIDsMap_[instance.getSNLModel()->getDB()->getID()].push_back(std::vector<std::vector<naja::SNL::SNLID::DesignObjectID>>());
-    }
-    if (design2cotninuesIDsMap_[instance.getSNLModel()->getDB()->getID()][instance.getSNLModel()->getLibrary()->getID()].size() >= instance.getSNLModel()->getID() + 1) {
-      if (!design2cotninuesIDsMap_[instance.getSNLModel()->getDB()->getID()][instance.getSNLModel()->getLibrary()->getID()][instance.getSNLModel()->getID()].empty()) {
-        continue;
-      }
-    }
-    naja::SNL::SNLID::DesignObjectID continuesIndex = 0;
-    for (DNLID child = instance.getChildren().first; child != DNLID_MAX and child <= instance.getChildren().second; child++) {
-       const DNLInstance& childInstance = getDNLInstanceFromID(child);
-       while (design2cotninuesIDsMap_[instance.getSNLModel()->getDB()->getID()][instance.getSNLModel()->getLibrary()->getID()].size() < instance.getSNLModel()->getID() + 1) {
-         design2cotninuesIDsMap_[instance.getSNLModel()->getDB()->getID()][instance.getSNLModel()->getLibrary()->getID()].push_back(std::vector<naja::SNL::SNLID::DesignObjectID>());
-
-       }
-       while (design2cotninuesIDsMap_[instance.getSNLModel()->getDB()->getID()][instance.getSNLModel()->getLibrary()->getID()][instance.getSNLModel()->getID()].size() < childInstance.getSNLInstance()->getID() + 1) {
-         design2cotninuesIDsMap_[instance.getSNLModel()->getDB()->getID()][instance.getSNLModel()->getLibrary()->getID()][instance.getSNLModel()->getID()].push_back((naja::SNL::SNLID::DesignObjectID) -1);
-       }
-       design2cotninuesIDsMap_[instance.getSNLModel()->getDB()->getID()][instance.getSNLModel()->getLibrary()->getID()][instance.getSNLModel()->getID()][childInstance.getSNLInstance()->getID()] 
-        = continuesIndex;
-       continuesIndex++;
-    }
-  }
 }
 
 #endif  // DNL_IMPL_H

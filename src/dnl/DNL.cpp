@@ -26,6 +26,35 @@ using namespace naja::DNL;
 
 // #define DEBUG_PRINTS
 
+namespace naja {
+
+void OrderIDInitializer::process() {
+  std::stack<SNLDesign*> designs;
+  designs.push(SNLUniverse::get()->getTopDesign());
+  naja::SNL::SNLID::DesignObjectID bitTermId = 0;
+  for (auto term : SNLUniverse::get()->getTopDesign()->getBitTerms()) {
+    term->setOrderID(bitTermId);
+    bitTermId++;
+  }
+  while (!designs.empty()) {
+    SNLDesign* design = designs.top();
+    designs.pop();
+    naja::SNL::SNLID::DesignObjectID id = 0;
+    for (auto inst : design->getInstances()) {
+      inst->setOrderID(id);
+      id++;
+      designs.push(inst->getModel());
+      naja::SNL::SNLID::DesignObjectID TermId = 0;
+      for (auto term : inst->getInstTerms()) {
+        term->getBitTerm()->setOrderID(TermId);
+        TermId++;
+      }
+    }
+  }
+}
+
+}  // namespace naja
+
 namespace naja::DNL {
 
 DNL<DNLInstanceFull, DNLTerminalFull>* dnlFull_ = nullptr;
@@ -117,50 +146,36 @@ const DNLInstanceFull& DNLInstanceFull::getChildInstance(
       id_, childrenIndexes_.first, childrenIndexes_.second, (int)isTop());
   // LCOV_EXCL_STOP
 #endif
-  // Find the child instance with the same SNLInstance by levrage the fact that
-  // the children are sorted by SNLInstance id(getID()) using the binary search
-  // with costum operator
-  //if (!(*get()).getDesign2cotninuesIDsMap().empty()) {
-    if (getSNLModel() != snlInst->getDesign()) {
-      return (*get()).getDNLNullInstance();
-    }
-    assert((*get()).getDesign2cotninuesIDsMap().size() > getSNLModel()->getDB()->getID());
-    assert((*get()).getDesign2cotninuesIDsMap()[getSNLModel()->getDB()->getID()].size() > getSNLModel()->getLibrary()->getID());
-    assert((*get()).getDesign2cotninuesIDsMap()[getSNLModel()->getDB()->getID()][getSNLModel()->getLibrary()->getID()].size() > getSNLModel()->getID());
-    auto result = (*get()).getDNLInstances().begin();
-    std::advance(result, childrenIndexes_.first +
-      (*get()).getDesign2cotninuesIDsMap()[getSNLModel()->getDB()->getID()][getSNLModel()->getLibrary()->getID()][getSNLModel()->getID()][snlInst->getID()]);
-    return *result;
-  /*}
-  auto first = (*get()).getDNLInstances().begin();
+  if (getSNLModel() != snlInst->getDesign()) {
+    return (*get()).getDNLNullInstance();
+  }
+  return (*get())
+      .getDNLInstances()[childrenIndexes_.first + snlInst->getOrderID()];
+  /*auto first = (*get()).getDNLInstances().begin();
   std::advance(first, childrenIndexes_.first);
   auto last = (*get()).getDNLInstances().begin();
-  std::advance(last, childrenIndexes_.second + 1);// "+ 1" <- exclusive of this element
-  naja::SNL::SNLID::DesignObjectID id = snlInst->getID();
-  auto result = std::lower_bound(
-          first,
-          last, id,
+  std::advance(last, childrenIndexes_.second + 1);// "+ 1" <- exclusive of this
+  element naja::SNL::SNLID::DesignObjectID id = snlInst->getID(); auto result =
+  std::lower_bound( first, last, id,
           [](const DNLInstanceFull& inst, naja::SNL::SNLID::DesignObjectID id) {
             return inst.getSNLInstance()->getID() < id;
           });
   if (result != last && (*result).getSNLInstance() == snlInst) {
     const DNLInstanceFull& childInstance = *result;
     return childInstance;
-  }
-#ifdef DEBUG_PRINTS
-  // LCOV_EXCL_START
-  printf("DNLInstanceFull::getChildInstance - Return null instance\n");
-  // LCOV_EXCL_STOP
-#endif
-  return (*get()).getDNLNullInstance();*/
+  }*/
 }
 
 const DNLTerminalFull& DNLInstanceFull::getTerminal(
     const SNLInstTerm* snlTerm) const {
-  auto first = (*get()).getDNLTerms().begin();
+  if (snlTerm == nullptr || snlTerm->getInstance() != instance_) {
+    return (*get()).getDNLNullTerminal();
+  }
+  return (*get()).getDNLTerms()[termsIndexes_.first + snlTerm->getBitTerm()->getOrderID()];
+  /*auto first = (*get()).getDNLTerms().begin();
   std::advance(first, termsIndexes_.first);
   auto last = (*get()).getDNLTerms().begin();
-  std::advance(last, termsIndexes_.second + 1/*exclusive of this element*/);
+  std::advance(last, termsIndexes_.second + 1);
   auto bitTerm = snlTerm->getBitTerm();
   auto result = std::lower_bound(
           first,
@@ -172,26 +187,19 @@ const DNLTerminalFull& DNLInstanceFull::getTerminal(
   if (result != last && (*result).getSnlTerm() == snlTerm) {
     const DNLTerminalFull& term = *result;
     return term;
-  }
-#ifdef DEBUG_PRINTS
-  // LCOV_EXCL_START
-  printf("DNLInstanceFull::getTerminal - Return null terminal\n");
-  // LCOV_EXCL_STOP
-#endif
-  return (*get()).getDNLNullTerminal();
+  }*/
 }
 
 const DNLTerminalFull& DNLInstanceFull::getTerminalFromBitTerm(
     const SNLBitTerm* snlTerm) const {
-  /*for (DNLID term = termsIndexes_.first; term <= termsIndexes_.second; term++) {
-    if ((*get()).getDNLTerminalFromID(term).getSnlBitTerm() == snlTerm) {
-      return (*get()).getDNLTerminalFromID(term);
-    }
-  }*/
-  auto first = (*get()).getDNLTerms().begin();
+  if (snlTerm == nullptr || snlTerm->getDesign() != getSNLModel()) {
+    return (*get()).getDNLNullTerminal();
+  }
+  return (*get()).getDNLTerms()[termsIndexes_.first + snlTerm->getOrderID()];
+  /*auto first = (*get()).getDNLTerms().begin();
   std::advance(first, termsIndexes_.first);
   auto last = (*get()).getDNLTerms().begin();
-  std::advance(last, termsIndexes_.second + 1/*exclusive of this element*/);
+  std::advance(last, termsIndexes_.second + 1);
   auto result = std::lower_bound(
           first,
           last, snlTerm,
@@ -202,13 +210,7 @@ const DNLTerminalFull& DNLInstanceFull::getTerminalFromBitTerm(
   if (result != last && (*result).getSnlBitTerm() == snlTerm) {
     const DNLTerminalFull& term = *result;
     return term;
-  }
-#ifdef DEBUG_PRINTS
-  // LCOV_EXCL_START
-  printf("DNLInstanceFull::getTerminal - Return null terminal\n");
-  // LCOV_EXCL_STOP
-#endif
-  return (*get()).getDNLNullTerminal();
+  }*/
 }
 
 std::string DNLInstanceFull::getFullPath() const {
