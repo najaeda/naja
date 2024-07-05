@@ -29,6 +29,8 @@ set(SNL_KERNEL_SOURCES
 
 set(PNL_KERNEL_SOURCES
   pnl/PNLDesign.cpp
+  pnl/PNLDesignObject.cpp
+  pnl/PNLInstance.cpp
 )
 
 set(SNL_DECORATOR_SOURCES
