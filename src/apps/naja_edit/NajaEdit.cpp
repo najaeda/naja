@@ -323,8 +323,6 @@ int main(int argc, char* argv[]) {
       //spdlog::info(stats.getReport());
     }
 
-    
-
     if (program.is_used("-z")) {
       const auto start{std::chrono::steady_clock::now()};
       auto editPath = std::filesystem::path(program.get<std::string>("-z"));

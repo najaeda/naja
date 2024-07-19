@@ -245,7 +245,7 @@ void SNLPyLoader::loadDesign(
 void SNLPyEdit::edit(const std::filesystem::path& path) {
   auto module = loadModule(path);
 
-  PyObject* editString = editString = PyUnicode_FromString("edit");
+  PyObject* editString = PyUnicode_FromString("edit");
 
   PyObject* res =
     PyObject_CallMethodNoArgs(module, editString);
