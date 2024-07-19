@@ -23,6 +23,7 @@ class DesignStats:
     self.ins = dict()
     self.flat_ins = dict()
     self.terms = dict()
+    self.bit_terms = dict()
   def add_ins_stats(self, ins_stats):
     self.flat_assigns += ins_stats.flat_assigns
     for ins, nb in ins_stats.flat_ins.items():
@@ -67,20 +68,28 @@ def compute_design_stats(design, designs_stats):
       design_stats.ins[model] = design_stats.ins.get(model, 0) + 1
       design_stats.flat_ins[model] = design_stats.flat_ins.get(model, 0) + 1
       design_stats.add_ins_stats(model_stats)
-  compute_design_terms(design, design_stats.terms)
+  compute_design_terms(design, design_stats)
   designs_stats.hier_designs[design] = design_stats
   return design_stats
 
-def compute_design_terms(design, terms_stats): 
+def compute_design_terms(design, design_stats): 
   for term in design.getTerms():
     if term.getDirection() == snl.SNLTerm.Direction.Input:
-      terms_stats["inputs"] = terms_stats.get("inputs", 0) + 1
+      design_stats.terms["inputs"] = design_stats.terms.get("inputs", 0) + 1
+      bit_terms = sum(1 for _ in term.getBits())
+      design_stats.bit_terms["inputs"] = design_stats.bit_terms.get("inputs", 0) + bit_terms
     elif term.getDirection() == snl.SNLTerm.Direction.Output:
-      terms_stats["outputs"] = terms_stats.get("outputs", 0) + 1
+      design_stats.terms["outputs"] = design_stats.terms.get("outputs", 0) + 1
+      bit_terms = sum(1 for _ in term.getBits())
+      design_stats.bit_terms["outputs"] = design_stats.bit_terms.get("outputs", 0) + bit_terms
     elif term.getDirection() == snl.SNLTerm.Direction.InOut:
-      terms_stats["inouts"] = terms_stats.get("inouts", 0) + 1
+      design_stats.terms["inouts"] = design_stats.terms.get("inouts", 0) + 1
+      bit_terms = sum(1 for _ in term.getBits())
+      design_stats.bit_terms["inouts"] = design_stats.bit_terms.get("inouts", 0) + bit_terms
     else:
-      terms_stats["unknowns"] = terms_stats.get("unknowns", 0) + 1
+      design_stats.terms["unknowns"] = design_stats.terms.get("unknowns", 0) + 1
+      bit_terms = sum(1 for _ in term.getBits())
+      design_stats.bit_terms["unknowns"] = design_stats.bit_terms.get("unknowns", 0) + bit_terms
 
 def dump_instances(stats_file, title, instances):
   if len(instances) == 0:
@@ -167,12 +176,37 @@ def dump_stats(design, stats_file, designs_stats, dumped_models):
     model = ins.getModel()
     dump_stats(model, stats_file, designs_stats, dumped_models) 
 
-def compute_and_dump_design_stats(design, stats_file):
+def dumpPandas(designs_stats):
+  import pandas as pd
+  data = []
+  for design, design_stats in designs_stats.hier_designs.items():
+    data.append([
+      design.getName(),
+      sum(design_stats.terms.values()),
+      sum(design_stats.bit_terms.values()),
+      sum(design_stats.basic_primitives.values()),
+      sum(design_stats.primitives.values()),
+      sum(design_stats.blackboxes.values()),
+      sum(design_stats.ins.values()),
+      sum(design_stats.flat_ins.values()),
+      sum(design_stats.flat_blackboxes.values()),
+      sum(design_stats.flat_basic_primitives.values()),
+      sum(design_stats.flat_primitives.values())])
+  df = pd.DataFrame(data, columns=[
+    'Design', 'Terms', 'Bit Terms',
+    'Basic Primitives', 'Primitives', 'Blackboxes', 'Instances',
+    'Flat Instances', 'Flat Blackboxes',
+    'Flat Basic Primitives', 'Flat Primitives'])
+  print(df)
+
+def compute_and_dump_design_stats(design, stats_file, pandas_dump=False):
   designs_stats = DesignsStats()
   compute_design_stats(design, designs_stats)
   dumped_models = set()
   dump_stats(design, stats_file, designs_stats, dumped_models)
   dump_blackboxes_stats(stats_file, designs_stats)
+  if pandas_dump:
+    dumpPandas(designs_stats)
 
 def dump_constants(design, analyzed_models):
   if design.isPrimitive():
