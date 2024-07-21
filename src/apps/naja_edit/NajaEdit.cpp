@@ -283,8 +283,6 @@ int main(int argc, char* argv[]) {
       }
     }
 
-
-
     if (optimizationType == OptimizationType::DLE) {
       const auto start{std::chrono::steady_clock::now()};
       SPDLOG_INFO("Starting removal of loadless logic");
