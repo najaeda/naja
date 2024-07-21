@@ -339,7 +339,7 @@ void LoadlessLogicRemover::removeLoadlessLogic() {
   report_ = collectStatistics();
   removeLoadlessInstances(SNLUniverse::get()->getTopDesign(),
                           loadlessInstances_);
-  spdlog::info(report_);
+  //spdlog::info(report_);
   DNL::destroy();
 }
 
