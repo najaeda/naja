@@ -6,9 +6,11 @@
 #define __PNL_DESIGN_H_
 
 #include "SNLObject.h"
+#include "PNLPoint.h"
 
 namespace naja { namespace SNL {
 
+class SNLDB;
 class SNLLibrary;
 
 class PNLDesign final: public SNLObject {
@@ -16,6 +18,9 @@ class PNLDesign final: public SNLObject {
     using super = SNLObject;
     static PNLDesign* create(SNLLibrary* library);
 
+    ///\return owning SNLDB
+    SNLDB* getDB() const;
+    /// \return owning SNLLibrary.
     SNLLibrary* getLibrary() const { return library_; }
 
     const char* getTypeName() const override;
@@ -29,7 +34,7 @@ class PNLDesign final: public SNLObject {
     void preDestroy() override;
 
     SNL::SNLLibrary*  library_;
-    //PNLPoint    origin_;
+    PNLPoint          origin_;
 };
 
 }} // namespace SNL // namespace naja

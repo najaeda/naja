@@ -7,7 +7,7 @@
 namespace naja { namespace SNL {
 
 PNLDesign::PNLDesign(SNLLibrary* library):
-  super(), library_(library)
+  super(), library_(library), origin_(0, 0)
 {}
 
 PNLDesign* PNLDesign::create(SNLLibrary* library) {
