@@ -4,9 +4,13 @@
 
 #include "gtest/gtest.h"
 
-#include "SNLLibertyConstructor.h"
 #include "SNLUniverse.h"
 #include "SNLScalarTerm.h"
+
+#include "SNLLibertyConstructor.h"
+
+#include "YosysLibertyException.h"
+#include "SNLLibertyConstructorException.h"
 
 using namespace naja::SNL;
 
@@ -31,11 +35,12 @@ class SNLLibertyConstructorTest0: public ::testing::Test {
 
 TEST_F(SNLLibertyConstructorTest0, test0) {
   SNLLibertyConstructor constructor(library_);
-  std::filesystem::path test0Path(
+  std::filesystem::path testPath(
       std::filesystem::path(SNL_LIBERTY_BENCHMARKS)
       / std::filesystem::path("benchmarks")
+      / std::filesystem::path("asap7_excerpt")
       / std::filesystem::path("test0.lib"));
-  constructor.construct(test0Path);
+  constructor.construct(testPath);
   EXPECT_EQ(SNLName("asap7sc7p5t_AO_LVT_FF_ccs_201020"), library_->getName());
   EXPECT_EQ(library_->getDesigns().size(), 2);
   auto design = library_->getDesign(SNLName("A2O1A1Ixp33_ASAP7_75t_L"));
@@ -57,4 +62,43 @@ TEST_F(SNLLibertyConstructorTest0, test0) {
   auto y = design->getScalarTerm(SNLName("Y"));
   ASSERT_NE(nullptr, y);
   EXPECT_EQ(SNLTerm::Direction::Output, y->getDirection());
+}
+
+TEST_F(SNLLibertyConstructorTest0, testNonExistingFile) {
+  SNLLibertyConstructor constructor(library_);
+  std::filesystem::path testPath(
+      std::filesystem::path(SNL_LIBERTY_BENCHMARKS)
+      / std::filesystem::path("benchmarks")
+      / std::filesystem::path("missing.lib"));
+  EXPECT_THROW(constructor.construct(testPath), SNLLibertyConstructorException);
+}
+
+TEST_F(SNLLibertyConstructorTest0, testWrongSyntaxFile) {
+  SNLLibertyConstructor constructor(library_);
+  std::filesystem::path testPath(
+      std::filesystem::path(SNL_LIBERTY_BENCHMARKS)
+      / std::filesystem::path("benchmarks")
+      / std::filesystem::path("errors")
+      / std::filesystem::path("syntax_error.lib"));
+  EXPECT_THROW(constructor.construct(testPath), naja::liberty::YosysLibertyException);
+}
+
+TEST_F(SNLLibertyConstructorTest0, testWrongDirection) {
+  SNLLibertyConstructor constructor(library_);
+  std::filesystem::path testPath(
+      std::filesystem::path(SNL_LIBERTY_BENCHMARKS)
+      / std::filesystem::path("benchmarks")
+      / std::filesystem::path("errors")
+      / std::filesystem::path("direction_error.lib"));
+  EXPECT_THROW(constructor.construct(testPath), SNLLibertyConstructorException);
+}
+
+TEST_F(SNLLibertyConstructorTest0, testMissingDirection) {
+  SNLLibertyConstructor constructor(library_);
+  std::filesystem::path testPath(
+      std::filesystem::path(SNL_LIBERTY_BENCHMARKS)
+      / std::filesystem::path("benchmarks")
+      / std::filesystem::path("errors")
+      / std::filesystem::path("missing_direction_error.lib"));
+  EXPECT_THROW(constructor.construct(testPath), SNLLibertyConstructorException);
 }

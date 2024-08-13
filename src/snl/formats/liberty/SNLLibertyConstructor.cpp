@@ -24,8 +24,6 @@ SNLTerm::Direction findDirection(const Yosys::LibertyAst* cell) {
         return SNLTerm::Direction::Input;
       } else if (direction == "output") {
         return SNLTerm::Direction::Output;
-      } else if (direction == "inout") {
-        return SNLTerm::Direction::InOut;
       } else {
         throw SNLLibertyConstructorException("Unknown direction");
       }

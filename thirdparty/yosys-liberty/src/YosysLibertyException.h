@@ -2,17 +2,17 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __LIBERTY_EXCEPTION_H_
-#define __LIBERTY_EXCEPTION_H_
+#ifndef __YOSYS_LIBERTY_EXCEPTION_H_
+#define __YOSYS_LIBERTY_EXCEPTION_H_
 
 namespace naja { namespace liberty {
 
-struct LibertyException: public std::exception {
+struct YosysLibertyException: public std::exception {
   public:
-    LibertyException() = delete;
-    LibertyException(const LibertyException&) = default;
+    YosysLibertyException() = delete;
+    YosysLibertyException(const YosysLibertyException&) = default;
 
-    LibertyException(const std::string& reason):
+    YosysLibertyException(const std::string& reason):
       std::exception(),
       reason_(reason)
     {}
@@ -33,4 +33,4 @@ struct LibertyException: public std::exception {
 
 }} // namespace liberty // namespace naja
 
-#endif // __LIBERTY_EXCEPTION_H_
+#endif // __YOSYS_LIBERTY_EXCEPTION_H_
