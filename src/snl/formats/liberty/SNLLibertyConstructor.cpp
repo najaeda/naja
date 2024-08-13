@@ -70,17 +70,17 @@ void SNLLibertyConstructor::construct(const std::filesystem::path& path) {
     throw SNLLibertyConstructorException(reason);
   }
   std::ifstream inFile(path);
-  //LCOV_EXCL_START
   if (not inFile.good()) {
     std::string reason(path.string() + " is not a readable file");
     throw SNLLibertyConstructorException(reason);
   }
-  //LCOV_EXCL_STOP
   auto parser = std::make_unique<Yosys::LibertyParser>(inFile);
   auto ast = parser->ast;
   if (ast == nullptr) {
+    //LCOV_EXCL_START
     std::string reason("Failed to parse the file");
     throw SNLLibertyConstructorException(reason);
+    //LCOV_EXCL_STOP
   }
   auto libraryName = ast->args[0];
   library_->setName(SNLName(libraryName));
