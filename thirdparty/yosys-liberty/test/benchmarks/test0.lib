@@ -1,0 +1,8 @@
+library (test0) {
+    delay_model             		: table_lookup;
+    define(process_corner, operating_conditions, string);
+    cell (AND2_X1) {
+
+	    drive_strength     	: 1;
+    }
+}
