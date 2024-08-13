@@ -27,8 +27,11 @@ TEST(YosysLibertyTest1, test0) {
   ASSERT_NE(nullptr, ast);
   EXPECT_EQ(ast->id, "library");
   //find cells
+  size_t cellsNb = 0;
   for (auto child: ast->children) {
     if (child->id == "cell") {
+      cellsNb++;
     }
   }
+  EXPECT_EQ(2, cellsNb);
 }
