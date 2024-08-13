@@ -1,7 +1,6 @@
 set(SOURCES
 #  LibertyTypes.cpp
 LibertyParser.cpp  
-LibertyConstructor.cpp
 )
 
 set(HEADERS

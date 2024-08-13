@@ -5,7 +5,6 @@
 include(GoogleTest)
 
 set(tests
-  LibertyConstructorTest.cpp
   YosysLibertyTest0.cpp
   YosysLibertyTest1.cpp
 )

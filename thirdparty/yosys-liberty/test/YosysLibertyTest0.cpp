@@ -7,25 +7,23 @@
 #include <filesystem>
 #include <fstream>
 
-#include "LibertyConstructor.h"
-using namespace naja::liberty;
-
 #include "LibertyParser.h"
 using namespace Yosys;
-
-#include "LibertyConstructorTest.h"
 
 #ifndef YOSYS_LIBERTY_BENCHMARKS
 #define YOSYS_LIBERTY_BENCHMARKS "Undefined"
 #endif
 
 TEST(YosysLibertyTest0, test0) {
-  LibertyConstructorTest constructor;
   std::filesystem::path test0Path(
       std::filesystem::path(YOSYS_LIBERTY_BENCHMARKS)
       / std::filesystem::path("benchmarks")
       / std::filesystem::path("test0.lib"));
-  auto ast = constructor.parse(test0Path);
+  std::ifstream inFile(test0Path);
+  ASSERT_TRUE(inFile.good());
+  auto parser = new Yosys::LibertyParser(inFile);
+  ASSERT_NE(nullptr, parser);
+  auto ast = parser->ast;
   ASSERT_NE(nullptr, ast);
   EXPECT_EQ(ast->id, "library");
   ASSERT_EQ(3, ast->children.size());
