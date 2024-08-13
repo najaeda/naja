@@ -32,3 +32,8 @@ Files: thirdparty/spdlog-1.14.1/*
 Source: https://github.com/gabime/spdlog 
 Copyright: 2016 Gabi Melman.
 License: MIT
+
+Files: thirdparty/yosys-liberty/YosysLibertyParser.cpp thirdparty/yosys-liberty/YosysLibertyParser.h
+Source: https://github.com/YosysHQ/yosys/tree/main/passes/techmap
+Copyright: 2012-2022 The Yosys Authors.
+License: ISC

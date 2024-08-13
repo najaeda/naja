@@ -7,7 +7,7 @@
 #include <filesystem>
 #include <fstream>
 
-#include "LibertyParser.h"
+#include "YosysLibertyParser.h"
 using namespace Yosys;
 
 #ifndef YOSYS_LIBERTY_BENCHMARKS

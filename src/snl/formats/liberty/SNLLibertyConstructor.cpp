@@ -6,7 +6,7 @@
 #include "SNLLibertyConstructor.h"
 
 #include <fstream>
-#include "LibertyParser.h"
+#include "YosysLibertyParser.h"
 
 #include "SNLDesign.h"
 #include "SNLScalarTerm.h"
