@@ -21,7 +21,7 @@ TEST(YosysLibertyTest0, test0) {
       / std::filesystem::path("test0.lib"));
   std::ifstream inFile(test0Path);
   ASSERT_TRUE(inFile.good());
-  auto parser = new Yosys::LibertyParser(inFile);
+  auto parser = std::make_unique<Yosys::LibertyParser>(inFile);
   ASSERT_NE(nullptr, parser);
   auto ast = parser->ast;
   ASSERT_NE(nullptr, ast);
