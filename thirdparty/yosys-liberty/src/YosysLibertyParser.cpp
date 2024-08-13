@@ -206,8 +206,10 @@ LibertyAst *LibertyParser::parse()
 			while (tok == '+' || tok == '-' || tok == '*' || tok == '/' || tok == '!') {
 				ast->value += tok;
 				tok = lexer(str);
-				if (tok != 'v')
+				if (tok != 'v') {
+					delete ast;
 					error();
+				}
 				ast->value += str;
 				tok = lexer(str);
 			}
@@ -218,8 +220,10 @@ LibertyAst *LibertyParser::parse()
 			// instead of the ';' too..
 			if ((tok == ';') || (tok == 'n'))
 				break;
-			else
+			else {
+				delete ast;
 				error();
+			}
 			continue;
 		}
 
@@ -242,6 +246,7 @@ LibertyAst *LibertyParser::parse()
 					if (tok != 'v')
 					{
 						// expected a vector array index
+						delete ast;
 						error("Expected a number.");
 					}
 					else
@@ -258,6 +263,7 @@ LibertyAst *LibertyParser::parse()
 						if (tok != 'v')
 						{
 							// expected a vector array index
+							delete ast;
 							error("Expected a number.");
 						}
 						else
@@ -269,6 +275,7 @@ LibertyAst *LibertyParser::parse()
 					// expect a closing bracket of array range
 					if (tok != ']')
 					{
+						delete ast;
 						error("Expected ']' on array range.");
 					}
 					continue;           
@@ -288,9 +295,11 @@ LibertyAst *LibertyParser::parse()
 						eReport = "Unexpected '";
 						eReport += static_cast<char>(tok);
 						eReport += "'.";
+						delete ast;
 						error(eReport);
 						break;
 					default:
+						delete ast;
 						error();
 					}
 				}
@@ -308,7 +317,7 @@ LibertyAst *LibertyParser::parse()
 			}
 			break;
 		}
-
+		delete ast;
 		error();
 	}
 
