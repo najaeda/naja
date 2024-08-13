@@ -78,7 +78,7 @@ void SNLLibertyConstructor::construct(const std::filesystem::path& path) {
     throw SNLLibertyConstructorException(reason);
   }
   //LCOV_EXCL_STOP
-  auto parser = new Yosys::LibertyParser(inFile);
+  auto parser = std::make_unique<Yosys::LibertyParser>(inFile);
   auto ast = parser->ast;
   if (ast == nullptr) {
     std::string reason("Failed to parse the file");

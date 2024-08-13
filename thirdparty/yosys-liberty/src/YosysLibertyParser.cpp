@@ -24,6 +24,21 @@
 
 namespace Yosys {
 
+LibertyAst::~LibertyAst()
+{
+  for (auto child : children)
+    delete child;
+  children.clear();
+}
+
+LibertyAst *LibertyAst::find(std::string name)
+{
+  for (auto child : children)
+    if (child->id == name)
+      return child;
+  return NULL;
+}
+
 void LibertyParser::error() {
   throw naja::liberty::LibertyException("LibertyParser error");
 }

@@ -24,6 +24,7 @@
 #include "SNLPyEdit.h"
 #include "SNLPyLoader.h"
 #include "SNLUtils.h"
+#include "SNLLibertyConstructor.h"
 #include "SNLVRLConstructor.h"
 #include "SNLVRLDumper.h"
 
@@ -230,7 +231,19 @@ int main(int argc, char* argv[]) {
       db = SNLDB::create(SNLUniverse::get());
       primitivesLibrary = SNLLibrary::create(db, SNLLibrary::Type::Primitives,
                                              SNLName("PRIMS"));
-      SNLPyLoader::loadPrimitives(primitivesLibrary, primitivesPath);
+      auto extension = primitivesPath.extension();
+      if (extension.empty()) {
+        SPDLOG_CRITICAL("Primitives path should end with an extension");
+        std::exit(EXIT_FAILURE);
+      } else if (extension == ".py") {
+        SNLPyLoader::loadPrimitives(primitivesLibrary, primitivesPath);
+      } else if (extension == ".lib") {
+        SNLLibertyConstructor constructor(primitivesLibrary);
+        constructor.construct(primitivesPath);
+      } else {
+        SPDLOG_CRITICAL("Unknow extension in Primitives path");
+        std::exit(EXIT_FAILURE);
+      }
 
       auto designLibrary = SNLLibrary::create(db, SNLName("DESIGN"));
       SNLVRLConstructor constructor(designLibrary);
