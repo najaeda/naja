@@ -35,10 +35,9 @@
 #include "Reduction.h"
 #include "Utils.h"
 
+using namespace naja::SNL;
 using namespace naja::DNL;
-using namespace naja::SNL;
 using namespace naja::NAJA_OPT;
-using namespace naja::SNL;
 
 namespace {
 

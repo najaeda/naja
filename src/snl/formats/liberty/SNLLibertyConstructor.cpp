@@ -8,7 +8,7 @@
 #include <fstream>
 #include "YosysLibertyParser.h"
 
-#include "SNLDesign.h"
+#include "SNLLibrary.h"
 #include "SNLScalarTerm.h"
 #include "SNLLibertyConstructorException.h"
 
@@ -84,6 +84,8 @@ void SNLLibertyConstructor::construct(const std::filesystem::path& path) {
     std::string reason("Failed to parse the file");
     throw SNLLibertyConstructorException(reason);
   }
+  auto libraryName = ast->args[0];
+  library_->setName(SNLName(libraryName));
   parseCells(library_, ast);
 }
 
