@@ -15,10 +15,7 @@ set(SOURCES
 add_library(naja_snl_liberty SHARED ${SOURCES})
 target_link_libraries(naja_snl_liberty naja_snl yosys_liberty)
 
-#target_include_directories(naja_snl_verilog PUBLIC
-#  ${CMAKE_CURRENT_SOURCE_DIR}/frontend
-#  ${CMAKE_CURRENT_SOURCE_DIR}/backend)
-#target_include_directories(naja_snl_verilog PUBLIC ${SPDLOG_DIR})
+target_include_directories(naja_snl_liberty PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 #set_target_properties(naja_snl_verilog PROPERTIES PUBLIC_HEADER "${HEADERS}")
 #install(TARGETS naja_snl_verilog LIBRARY DESTINATION lib PUBLIC_HEADER DESTINATION include) 

@@ -7,13 +7,53 @@
 
 #include <fstream>
 #include "LibertyParser.h"
+
+#include "SNLDesign.h"
+#include "SNLScalarTerm.h"
 #include "SNLLibertyConstructorException.h"
 
 namespace {
 
-void parseCells(Yosys::LibertyAst* ast) {
+using namespace naja::SNL;
+
+SNLTerm::Direction findDirection(const Yosys::LibertyAst* cell) {
+  for (auto child: cell->children) {
+    if (child->id == "direction") {
+      auto direction = child->value;
+      if (direction == "input") {
+        return SNLTerm::Direction::Input;
+      } else if (direction == "output") {
+        return SNLTerm::Direction::Output;
+      } else if (direction == "inout") {
+        return SNLTerm::Direction::InOut;
+      } else {
+        throw SNLLibertyConstructorException("Unknown direction");
+      }
+    }
+  }
+  throw SNLLibertyConstructorException("Direction not found");
+}
+
+void parseTerms(SNLDesign* primitive, const Yosys::LibertyAst* cell) {
+  for (auto child: cell->children) {
+    if (child->id == "pin") {
+      auto pinName = child->args[0];
+      auto direction = findDirection(child);
+      auto term = SNLScalarTerm::create(primitive, direction, SNLName(pinName));
+    }
+  }
+}
+
+void parseCell(SNLLibrary* library, const Yosys::LibertyAst* cell) {
+  auto cellName = cell->args[0];
+  auto primitive = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName(cellName));
+  parseTerms(primitive, cell);
+}
+
+void parseCells(SNLLibrary* library, const Yosys::LibertyAst* ast) {
   for (auto child: ast->children) {
     if (child->id == "cell") {
+      parseCell(library, child);
     }
   }
 }
@@ -21,6 +61,10 @@ void parseCells(Yosys::LibertyAst* ast) {
 }
 
 namespace naja { namespace SNL {
+
+SNLLibertyConstructor::SNLLibertyConstructor(SNLLibrary* library):
+  library_(library)
+{}
 
 void SNLLibertyConstructor::construct(const std::filesystem::path& path) {
   if (not std::filesystem::exists(path)) {
@@ -35,12 +79,12 @@ void SNLLibertyConstructor::construct(const std::filesystem::path& path) {
   }
   //LCOV_EXCL_STOP
   auto parser = new Yosys::LibertyParser(inFile);
-  auto ast = parser->parse();
+  auto ast = parser->ast;
   if (ast == nullptr) {
     std::string reason("Failed to parse the file");
     throw SNLLibertyConstructorException(reason);
   }
-  parseCells(ast);
+  parseCells(library_, ast);
 }
 
 }} // namespace SNL // namespace naja
