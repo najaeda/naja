@@ -71,8 +71,10 @@ void SNLLibertyConstructor::construct(const std::filesystem::path& path) {
   }
   std::ifstream inFile(path);
   if (not inFile.good()) {
+    //LCOV_EXCL_START
     std::string reason(path.string() + " is not a readable file");
     throw SNLLibertyConstructorException(reason);
+    //LCOV_EXCL_STOP
   }
   auto parser = std::make_unique<Yosys::LibertyParser>(inFile);
   auto ast = parser->ast;
