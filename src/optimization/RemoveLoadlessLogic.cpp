@@ -14,6 +14,7 @@
 #include "RemoveLoadlessLogic.h"
 #include "Utils.h"
 #include "tbb/enumerable_thread_specific.h"
+#include "bne.h"
 
 using namespace naja::DNL;
 using namespace naja::SNL;
@@ -294,8 +295,9 @@ void LoadlessLogicRemover::removeLoadlessInstances(
     SNLDesign* top,
     std::vector<std::pair<std::vector<SNLID::DesignObjectID>, DNLID>>&
         loadlessInstances) {
+  BNE bne;
   for (auto& path : loadlessInstances) {
-    Uniquifier uniquifier(path.first, path.second);
+    /*Uniquifier uniquifier(path.first, path.second);
     uniquifier.process();
     for (SNLInstTerm* term : uniquifier.getPathUniq().back()->getInstTerms()) {
       auto net = term->getNet();
@@ -320,8 +322,10 @@ void LoadlessLogicRemover::removeLoadlessInstances(
 
     // LCOV_EXCL_STOP
 #endif
-    uniquifier.getPathUniq().back()->destroy();
+    uniquifier.getPathUniq().back()->destroy();*/
+    bne.addDeleteAction(path.first);
   }
+  bne.process();
   // #ifdef DEBUG_PRINTS
   //  LCOV_EXCL_START
   spdlog::info("Deleted {} leaf instances out of {}", loadlessInstances.size(),
