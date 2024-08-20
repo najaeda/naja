@@ -12,7 +12,7 @@ jobs:
         nix_path: nixpkgs=channel:nixos-unstable
     - uses: workflow/nix-shell-action@v3
       with:
-        packages: cmake,boost,python3,doxygen,capnproto,bison,flex,pkg-config,tbb_2021_8
+        packages: cmake,boost,python3,doxygen,capnproto,bison,flex,pkg-config,tbb_2021_11
         script: |
           cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DENABLE_SANITIZERS=OFF -DLONG_TESTS=ON
           cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
