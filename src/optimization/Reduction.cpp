@@ -27,7 +27,7 @@ void ReductionOptimization::run() {
     reducPartialConstantInstance(partialConstantReader);
   }
   report_ = collectStatistics();
-  spdlog::info(report_);
+  //spdlog::info(report_);
   destroy();
 }
 
