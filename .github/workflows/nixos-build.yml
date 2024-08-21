@@ -14,6 +14,7 @@ jobs:
       with:
         packages: cmake,boost,python3,doxygen,capnproto,bison,flex,pkg-config,tbb_2021_11
         script: |
+          which cmake
           cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DENABLE_SANITIZERS=OFF -DLONG_TESTS=ON
           cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
           ctest -VV -C ${{env.BUILD_TYPE}}
