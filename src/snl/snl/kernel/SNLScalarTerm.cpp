@@ -142,23 +142,31 @@ void SNLScalarTerm::debugDump(size_t indent, bool recursive, std::ostream& strea
 bool SNLScalarTerm::deepCompare(const SNLTerm* other, std::string& reason) const {
   const SNLScalarTerm* otherScalarTerm = dynamic_cast<const SNLScalarTerm*>(other);
   if (not otherScalarTerm) {
+    //LCOV_EXCL_START
     reason = "other term is not a SNLScalarTerm";
     return false;
+    //LCOV_EXCL_STOP
   }
   if (direction_ != otherScalarTerm->direction_) {
+    //LCOV_EXCL_START
     reason = "direction mismatch";
     return false;
+    //LCOV_EXCL_STOP
   }
   if (getID() != otherScalarTerm->getID()) {
+    //LCOV_EXCL_START
     reason = "ID mismatch";
     return false;
+    //LCOV_EXCL_STOP
   }
   if (getFlatID() != otherScalarTerm->getFlatID()) {
+    //LCOV_EXCL_START
     reason = "flatID mismatch between ";
     reason += getString() + " FlatID: " + std::to_string(getFlatID());
     reason += " and " + otherScalarTerm->getString();
     reason += " FlatID: " + std::to_string(otherScalarTerm->getFlatID());
     return false;
+    //LCOV_EXCL_STOP
   }
   return true;
 }

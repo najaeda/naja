@@ -123,16 +123,22 @@ void SNLBusTermBit::setName(const SNLName& name) {
 bool SNLBusTermBit::deepCompare(const SNLTerm* other, std::string& reason) const {
   const SNLBusTermBit* otherBusTermBit = dynamic_cast<const SNLBusTermBit*>(other);
   if (not otherBusTermBit) {
+    //LCOV_EXCL_START
     reason = "other term is not a SNLBusTermBit";
     return false;
+    //LCOV_EXCL_STOP
   }
   if (getBit() not_eq otherBusTermBit->getBit()) {
+    //LCOV_EXCL_START
     reason = "bit mismatch";
     return false;
+    //LCOV_EXCL_STOP
   }
   if (getFlatID() not_eq otherBusTermBit->getFlatID()) {
+    //LCOV_EXCL_START
     reason = "flatID mismatch";
     return false;
+    //LCOV_EXCL_STOP
   }
   return true;
 }

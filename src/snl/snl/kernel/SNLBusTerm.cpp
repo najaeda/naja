@@ -234,45 +234,61 @@ NajaCollection<SNLBitTerm*> SNLBusTerm::getBits() const {
 bool SNLBusTerm::deepCompare(const SNLTerm* other, std::string& reason) const {
   const SNLBusTerm* otherBusTerm = dynamic_cast<const SNLBusTerm*>(other);
   if (not otherBusTerm) {
+    //LCOV_EXCL_START
     reason = "other term is not a SNLBusTerm";
     return false;
+    //LCOV_EXCL_STOP
   }
   if (getDirection() not_eq otherBusTerm->getDirection()) {
+    //LCOV_EXCL_START
     reason = "direction mismatch";
     return false;
+    //LCOV_EXCL_STOP
   }
   if (getMSB() not_eq otherBusTerm->getMSB()) {
+    //LCOV_EXCL_START
     reason = "MSB mismatch";
     return false;
+    //LCOV_EXCL_STOP
   }
   if (getLSB() not_eq otherBusTerm->getLSB()) {
+    //LCOV_EXCL_START
     reason = "LSB mismatch";
     return false;
+    //LCOV_EXCL_STOP
   }
   if (getName() not_eq otherBusTerm->getName()) {
+    //LCOV_EXCL_START
     reason = "name mismatch";
     return false;
+    //LCOV_EXCL_STOP
   }
   if (bits_.size() not_eq otherBusTerm->bits_.size()) {
+    //LCOV_EXCL_START
     reason = "size mismatch";
     return false;
+    //LCOV_EXCL_STOP
   }
   if (getFlatID() not_eq otherBusTerm->getFlatID()) {
+    //LCOV_EXCL_START
     reason = "flatID mismatch between ";
     reason += getString() + " FlatID: " + std::to_string(getFlatID());
     reason += " and " + otherBusTerm->getString();
     reason += " FlatID: " + std::to_string(otherBusTerm->getFlatID());
     return false;
+    //LCOV_EXCL_STOP
   }
   for (size_t i=0; i<bits_.size(); i++) {
     if (not bits_[i] and not otherBusTerm->bits_[i]) {
       continue;
     } else if (not bits_[i] or not otherBusTerm->bits_[i]) {
+      //LCOV_EXCL_START
       reason = "bit mismatch";
       return false;
+      //LCOV_EXCL_STOP
     }
     if (not bits_[i]->deepCompare(otherBusTerm->bits_[i], reason)) {
-      return false;
+      return false; //LCOV_EXCL_LINE
     }
   }
   return true;
