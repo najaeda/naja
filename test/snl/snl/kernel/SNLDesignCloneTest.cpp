@@ -272,6 +272,25 @@ TEST_F(SNLDesignCloneTest, testCloneCompare) {
   EXPECT_TRUE(newDesign->deepCompare(design_, reason, SNLDesign::CompareType::IgnoreIDAndName));
 }
 
+TEST_F(SNLDesignCloneTest, testRepeatedClone) {
+  EXPECT_EQ(0, design_->getID());
+  auto newDesign = design_->clone();
+  EXPECT_EQ(1, newDesign->getID());
+  std::string reason;
+  EXPECT_TRUE(newDesign->deepCompare(design_, reason, SNLDesign::CompareType::IgnoreIDAndName));
+  EXPECT_TRUE(reason.empty());
+  auto newDesign2 = newDesign->clone();
+  EXPECT_EQ(2, newDesign2->getID());
+  EXPECT_TRUE(newDesign2->deepCompare(design_, reason, SNLDesign::CompareType::IgnoreIDAndName));
+  EXPECT_TRUE(newDesign2->deepCompare(newDesign, reason, SNLDesign::CompareType::IgnoreIDAndName));
+  EXPECT_TRUE(reason.empty());
+  auto newDesign3 = design_->clone();
+  EXPECT_EQ(3, newDesign3->getID());
+  EXPECT_TRUE(newDesign3->deepCompare(design_, reason, SNLDesign::CompareType::IgnoreIDAndName));
+  EXPECT_TRUE(newDesign3->deepCompare(newDesign2, reason, SNLDesign::CompareType::IgnoreIDAndName));
+  EXPECT_TRUE(newDesign3->deepCompare(newDesign3, reason, SNLDesign::CompareType::IgnoreIDAndName));
+}
+
 TEST_F(SNLDesignCloneTest, testErrors) {
   EXPECT_THROW(design_->clone(design_->getName()), SNLException);
 }
