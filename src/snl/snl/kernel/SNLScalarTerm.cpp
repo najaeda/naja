@@ -89,7 +89,9 @@ void SNLScalarTerm::preDestroy() {
 }
 
 SNLTerm* SNLScalarTerm::clone(SNLDesign* design) const {
-  return new SNLScalarTerm(design, id_, direction_, name_);
+  auto newScalarTerm = new SNLScalarTerm(design, id_, direction_, name_);
+  newScalarTerm->setFlatID(getFlatID());
+  return newScalarTerm;
 }
 
 DESIGN_OBJECT_SET_NAME(SNLScalarTerm, Term, term)
@@ -136,5 +138,29 @@ void SNLScalarTerm::debugDump(size_t indent, bool recursive, std::ostream& strea
   stream << std::string(indent, ' ') << getDescription() << std::endl;
 }
 //LCOV_EXCL_STOP
+
+bool SNLScalarTerm::deepCompare(const SNLTerm* other, std::string& reason) const {
+  const SNLScalarTerm* otherScalarTerm = dynamic_cast<const SNLScalarTerm*>(other);
+  if (not otherScalarTerm) {
+    reason = "other term is not a SNLScalarTerm";
+    return false;
+  }
+  if (direction_ != otherScalarTerm->direction_) {
+    reason = "direction mismatch";
+    return false;
+  }
+  if (getID() != otherScalarTerm->getID()) {
+    reason = "ID mismatch";
+    return false;
+  }
+  if (getFlatID() != otherScalarTerm->getFlatID()) {
+    reason = "flatID mismatch between ";
+    reason += getString() + " FlatID: " + std::to_string(getFlatID());
+    reason += " and " + otherScalarTerm->getString();
+    reason += " FlatID: " + std::to_string(otherScalarTerm->getFlatID());
+    return false;
+  }
+  return true;
+}
 
 }} // namespace SNL // namespace naja

@@ -512,6 +512,7 @@ bool SNLDesign::deepCompare(
   if (type_ not_eq other->getType()) {
     return false;
   }
+  DEEP_COMPARE_MEMBER(Terms)
   DEEP_COMPARE_MEMBER(Parameters)
   DEEP_COMPARE_MEMBER(Instances)
   //FIXME Compare nets

@@ -131,6 +131,7 @@ void SNLBusTerm::preDestroy() {
 
 SNLTerm* SNLBusTerm::clone(SNLDesign* design) const {
   auto newSNLBusTerm = new SNLBusTerm(design, id_, direction_, msb_, lsb_, name_);
+  newSNLBusTerm->setFlatID(getFlatID());
   newSNLBusTerm->createBits();
   return newSNLBusTerm;
 }
@@ -228,6 +229,53 @@ NajaCollection<SNLBusTermBit*> SNLBusTerm::getBusBits() const {
 
 NajaCollection<SNLBitTerm*> SNLBusTerm::getBits() const {
   return getBusBits().getParentTypeCollection<SNLBitTerm*>();
+}
+
+bool SNLBusTerm::deepCompare(const SNLTerm* other, std::string& reason) const {
+  const SNLBusTerm* otherBusTerm = dynamic_cast<const SNLBusTerm*>(other);
+  if (not otherBusTerm) {
+    reason = "other term is not a SNLBusTerm";
+    return false;
+  }
+  if (getDirection() not_eq otherBusTerm->getDirection()) {
+    reason = "direction mismatch";
+    return false;
+  }
+  if (getMSB() not_eq otherBusTerm->getMSB()) {
+    reason = "MSB mismatch";
+    return false;
+  }
+  if (getLSB() not_eq otherBusTerm->getLSB()) {
+    reason = "LSB mismatch";
+    return false;
+  }
+  if (getName() not_eq otherBusTerm->getName()) {
+    reason = "name mismatch";
+    return false;
+  }
+  if (bits_.size() not_eq otherBusTerm->bits_.size()) {
+    reason = "size mismatch";
+    return false;
+  }
+  if (getFlatID() not_eq otherBusTerm->getFlatID()) {
+    reason = "flatID mismatch between ";
+    reason += getString() + " FlatID: " + std::to_string(getFlatID());
+    reason += " and " + otherBusTerm->getString();
+    reason += " FlatID: " + std::to_string(otherBusTerm->getFlatID());
+    return false;
+  }
+  for (size_t i=0; i<bits_.size(); i++) {
+    if (not bits_[i] and not otherBusTerm->bits_[i]) {
+      continue;
+    } else if (not bits_[i] or not otherBusTerm->bits_[i]) {
+      reason = "bit mismatch";
+      return false;
+    }
+    if (not bits_[i]->deepCompare(otherBusTerm->bits_[i], reason)) {
+      return false;
+    }
+  }
+  return true;
 }
 
 }} // namespace SNL // namespace naja

@@ -120,4 +120,21 @@ void SNLBusTermBit::setName(const SNLName& name) {
   throw SNLException("Unauthorized setName of SNLBusTermBit");  
 }
 
+bool SNLBusTermBit::deepCompare(const SNLTerm* other, std::string& reason) const {
+  const SNLBusTermBit* otherBusTermBit = dynamic_cast<const SNLBusTermBit*>(other);
+  if (not otherBusTermBit) {
+    reason = "other term is not a SNLBusTermBit";
+    return false;
+  }
+  if (getBit() not_eq otherBusTermBit->getBit()) {
+    reason = "bit mismatch";
+    return false;
+  }
+  if (getFlatID() not_eq otherBusTermBit->getFlatID()) {
+    reason = "flatID mismatch";
+    return false;
+  }
+  return true;
+}
+
 }} // namespace SNL // namespace naja
