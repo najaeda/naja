@@ -278,7 +278,7 @@ TEST_F(SNLDesignCloneTest, testRepeatedClone) {
   EXPECT_EQ(1, newDesign->getID());
   std::string reason;
   EXPECT_TRUE(newDesign->deepCompare(design_, reason, SNLDesign::CompareType::IgnoreIDAndName));
-  EXPECT_TRUE(reason.empty());
+  EXPECT_EQ("", reason);
   auto newDesign2 = newDesign->clone();
   EXPECT_EQ(2, newDesign2->getID());
   EXPECT_TRUE(newDesign2->deepCompare(design_, reason, SNLDesign::CompareType::IgnoreIDAndName));
