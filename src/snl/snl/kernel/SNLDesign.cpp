@@ -504,14 +504,15 @@ bool SNLDesign::deepCompare(
       std::string& reason,
       CompareType type) const {
   if (type==CompareType::Complete and (getID() not_eq other->getID())) {
-    return false;
+    return false; //LCOV_EXCL_LINE
   }
   if (type!=CompareType::IgnoreIDAndName and (name_ not_eq other->getName())) {
-    return false;
+    return false; //LCOV_EXCL_LINE
   }
   if (type_ not_eq other->getType()) {
-    return false;
+    return false; //LCOV_EXCL_LINE
   }
+  DEEP_COMPARE_MEMBER(Terms)
   DEEP_COMPARE_MEMBER(Parameters)
   DEEP_COMPARE_MEMBER(Instances)
   //FIXME Compare nets
