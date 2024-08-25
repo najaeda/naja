@@ -7,6 +7,7 @@ include(GoogleTest)
 set(tests
   SNLLibertyConstructorTest0.cpp
   SNLLibertyConstructorTest1.cpp
+  SNLBooleanTreeTest0.cpp
 )
 
 add_executable(snl_liberty_tests ${tests})

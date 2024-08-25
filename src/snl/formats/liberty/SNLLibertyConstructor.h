@@ -19,9 +19,11 @@ class SNLLibertyConstructor {
     SNLLibertyConstructor(SNLLibrary* library);
 
     void construct(const std::filesystem::path& path);
+
+    static void parseFunction(const std::string& function);
+
   private:
     SNLLibrary* library_;
-
 };
 
 }} // namespace SNL // namespace naja

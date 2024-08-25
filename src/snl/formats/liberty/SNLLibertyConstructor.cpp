@@ -60,31 +60,6 @@ BusType findBusType(const Yosys::LibertyAst* ast, const std::string& busType) {
   return BusType();
 }
 
-void parseFunction(SNLDesign* primitive, const std::string& function) {
-  //Transform the function to a truth table
-  //parse the string to tokens
-
-  //Tree structure
-
-  for (char c: function) {
-    if (c == '(') {
-      //parse the function
-    } else if (c == ')') {
-      //parse the function
-    } else if (c == '|') {
-      //parse the function
-    } else if (c == '&') {
-      //parse the function
-    } else if (c == '!') {
-      //parse the function
-    } else if (c == ' ') {
-      //parse the function
-    } else {
-      //parse the function
-    }
-  }
-}
-
 void parseTerms(SNLDesign* primitive, const Yosys::LibertyAst* top, const Yosys::LibertyAst* cell) {
   using TermFunctions = std::map<SNLScalarTerm*, std::string, SNLScalarTerm::PointerLess>;
   TermFunctions termFunctions;
@@ -135,7 +110,7 @@ void parseTerms(SNLDesign* primitive, const Yosys::LibertyAst* top, const Yosys:
   }
   if (termFunctions.size() == 1) {
     auto function = termFunctions.begin()->second;
-    parseFunction(primitive, function);
+    SNLLibertyConstructor::parseFunction(function);
   }
 }
 
@@ -156,6 +131,44 @@ void parseCells(SNLLibrary* library, const Yosys::LibertyAst* ast) {
 }
 
 namespace naja { namespace SNL {
+
+void SNLLibertyConstructor::parseFunction(const std::string& function) {
+  //Transform the function to a truth table
+  //parse the string to tokens
+
+  return;
+
+  size_t pos = 0;
+  while (pos < function.size()) {
+    const char& car = function[pos];
+    if (std::isspace(car) or car == '"') {
+      pos++;
+      continue;
+    }
+    switch (car) {
+      case '(':
+        break;
+      case ')':
+        break;
+      case '\'':
+        break;
+      case '!':
+        break;
+      case '^':
+        break;
+      case '*':
+        break;
+      case '+':
+        break;
+      case '|':
+        break;
+      case '&':
+        break;
+      default:
+        break;
+    }
+  }
+}
 
 SNLLibertyConstructor::SNLLibertyConstructor(SNLLibrary* library):
   library_(library)
