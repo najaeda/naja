@@ -31,12 +31,15 @@ TEST_F(SNLBooleanTreeTest0, test00) {
   SNLScalarTerm::create(and2, SNLTerm::Direction::Input, SNLName("B"));
   SNLScalarTerm::create(and2, SNLTerm::Direction::Output, SNLName("Y"));
   size_t pos = 0;
-  auto a = SNLBooleanTree::parseInput(and2, "A & B", pos);
-  EXPECT_EQ(a, and2->getScalarTerm(SNLName("A")));
+  auto tree = std::make_unique<SNLBooleanTree>();
+  auto a = tree->parseInput(and2, "A & B", pos);
+  EXPECT_NE(nullptr, a);
+  EXPECT_EQ(a->getTerm(), and2->getScalarTerm(SNLName("A")));
   EXPECT_EQ(pos, 1);
   pos = 4;
-  auto b = SNLBooleanTree::parseInput(and2, "A & B", pos);
-  EXPECT_EQ(b, and2->getScalarTerm(SNLName("B")));
+  auto b = tree->parseInput(and2, "A & B", pos);
+  EXPECT_NE(nullptr, b);
+  EXPECT_EQ(b->getTerm(), and2->getScalarTerm(SNLName("B")));
   EXPECT_EQ(pos, 5);
 }
 
@@ -53,12 +56,15 @@ TEST_F(SNLBooleanTreeTest0, test10) {
   SNLScalarTerm::create(and2, SNLTerm::Direction::Input, SNLName("A1"));
   SNLScalarTerm::create(and2, SNLTerm::Direction::Input, SNLName("A2"));
   SNLScalarTerm::create(and2, SNLTerm::Direction::Output, SNLName("Y"));
+  auto tree = std::make_unique<SNLBooleanTree>();
   size_t pos = 0;
-  auto a1 = SNLBooleanTree::parseInput(and2, "A1 & 'A2", pos);
-  EXPECT_EQ(a1, and2->getScalarTerm(SNLName("A1")));
+  auto a1 = tree->parseInput(and2, "A1 & 'A2", pos);
+  EXPECT_NE(nullptr, a1);
+  EXPECT_EQ(a1->getTerm(), and2->getScalarTerm(SNLName("A1")));
   EXPECT_EQ(pos, 2);
   pos = 6;
-  auto a2 = SNLBooleanTree::parseInput(and2, "A1 & 'A2", pos);
-  EXPECT_EQ(a2, and2->getScalarTerm(SNLName("A2")));
+  auto a2 = tree->parseInput(and2, "A1 & 'A2", pos);
+  EXPECT_NE(nullptr, a2);
+  EXPECT_EQ(a2->getTerm(), and2->getScalarTerm(SNLName("A2")));
   EXPECT_EQ(pos, 8);
 }

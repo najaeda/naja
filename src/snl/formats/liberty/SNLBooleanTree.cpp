@@ -145,7 +145,8 @@ SNLBooleanTreeInputNode* SNLBooleanTree::parseInput(
     return inputNode;
 }
 
-void SNLBooleanTree::parse(const SNLDesign* primitive, const std::string& function) {
+SNLBooleanTree* SNLBooleanTree::parse(const SNLDesign* primitive, const std::string& function) {
+  SNLBooleanTree* tree = new SNLBooleanTree();
   size_t pos = 0;
   Stack stack;
   while (pos < function.size()) {
@@ -170,7 +171,7 @@ void SNLBooleanTree::parse(const SNLDesign* primitive, const std::string& functi
         break;
       default:
         {
-          auto input = parseInput(primitive, function, pos);
+          auto input = tree->parseInput(primitive, function, pos);
           nextToken = Token('i', input);
         }
         break;
@@ -178,7 +179,7 @@ void SNLBooleanTree::parse(const SNLDesign* primitive, const std::string& functi
     while (reduce(primitive, stack, nextToken)) {}
     stack.push_back(nextToken);
   }
-
+  return tree;
 }
 
 bool SNLBooleanTreeFunctionNode::getValue() const {

@@ -7,8 +7,7 @@
 #ifndef __SNL_LIBERTY_CONSTRUCTOR_H_
 #define __SNL_LIBERTY_CONSTRUCTOR_H_
 
-#include <string>
-#include <vector>
+#include "SNLBitTerm.h"
 
 namespace naja { namespace SNL {
 
@@ -21,7 +20,6 @@ class SNLBooleanTreeNode {
     virtual bool getValue() const = 0;
   protected:
     SNLBooleanTreeNode() = default;
-
 };
 
 class SNLBooleanTreeInputNode: public SNLBooleanTreeNode {
@@ -34,6 +32,10 @@ class SNLBooleanTreeInputNode: public SNLBooleanTreeNode {
 
     bool getValue() const override {
       return value_;
+    }
+
+    const SNLBitTerm* getTerm() const {
+      return term_;
     }
 
   private:
@@ -69,7 +71,7 @@ class SNLBooleanTree {
       const SNLDesign* primitive,
       const std::string& function,
       size_t& pos);
-    static void parse(const SNLDesign* primitive, const std::string& function);
+    static SNLBooleanTree* parse(const SNLDesign* primitive, const std::string& function);
   private:
     SNLBooleanTreeInputNode* getOrCreateInputNode(const SNLBitTerm* input);
 
