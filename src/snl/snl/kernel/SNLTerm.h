@@ -48,6 +48,8 @@ class SNLTerm: public SNLNetComponent {
     /// \return the Collection of SNLBitTerm composing this SNLTerm. 
     virtual NajaCollection<SNLBitTerm*> getBits() const = 0;
 
+    virtual bool deepCompare(const SNLTerm* other, std::string& reason) const = 0;
+
   protected:
     SNLTerm() = default;
 

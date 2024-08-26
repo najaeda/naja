@@ -157,10 +157,10 @@ void SNLInstance::postCreate() {
 
 bool SNLInstance::deepCompare(const SNLInstance* other, std::string& reason) const {
   if (getID() not_eq other->getID()) {
-    return false;
+    return false; //LCOV_EXCL_LINE
   }
   if (name_ not_eq other->getName()) {
-    return false;
+    return false; //LCOV_EXCL_LINE
   }
   //FIXME compare models: same library id, same id
   DEEP_COMPARE_MEMBER(InstParameters)
