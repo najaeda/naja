@@ -9,4 +9,7 @@ target_include_directories(naja_snl_pyloader PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 set(NAJA_SNL_PY_HEADERS SNLPyLoader.h SNLPyEdit.h)
 set_target_properties(naja_snl_pyloader PROPERTIES PUBLIC_HEADER "${NAJA_SNL_PY_HEADERS}") 
-install(TARGETS naja_snl_pyloader LIBRARY DESTINATION lib PUBLIC_HEADER DESTINATION include) 
+
+install(TARGETS naja_snl_pyloader
+  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
