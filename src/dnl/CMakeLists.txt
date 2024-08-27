@@ -19,4 +19,7 @@ target_include_directories(naja_dnl SYSTEM BEFORE PUBLIC ${Boost_INCLUDE_DIR})
 target_include_directories(naja_dnl SYSTEM BEFORE PUBLIC ${TBB_INCLUDE_DIR})
 target_include_directories(naja_dnl PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 set_target_properties(naja_dnl PROPERTIES PUBLIC_HEADER "${DNL_HEADERS}")
-install(TARGETS naja_dnl LIBRARY DESTINATION lib PUBLIC_HEADER DESTINATION include) 
+
+install(TARGETS naja_dnl
+  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
