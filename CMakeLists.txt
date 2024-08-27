@@ -10,6 +10,8 @@ project(naja
   HOMEPAGE_URL https://github.com/najaeda/naja
 )
 
+include(GNUInstallDirs)
+
 #RPATH settings
 #set(MACOSX_RPATH TRUE)
 # use, i.e. don't skip the full RPATH for the build tree

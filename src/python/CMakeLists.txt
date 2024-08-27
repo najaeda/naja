@@ -2,4 +2,4 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-install(DIRECTORY naja/ DESTINATION lib/python/naja/)
+install(DIRECTORY naja/ DESTINATION ${CMAKE_INSTALL_LIBDIR}/python/naja/)

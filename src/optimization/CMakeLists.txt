@@ -27,4 +27,6 @@ target_include_directories(naja_opt PUBLIC ${SPDLOG_DIR})
 
 set_target_properties(naja_opt PROPERTIES PUBLIC_HEADER "${naja_opt_HEADERS}")
 
-install(TARGETS naja_opt LIBRARY DESTINATION lib PUBLIC_HEADER DESTINATION include) 
+install(TARGETS naja_opt
+  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
