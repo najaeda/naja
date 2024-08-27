@@ -56,6 +56,8 @@ class SNLBooleanTreeFunctionNode: public SNLBooleanTreeNode {
       inputs_.push_back(input);
     }
 
+    Type getType() const { return type_; }
+
     bool getValue() const override;
 
   private:
@@ -72,6 +74,9 @@ class SNLBooleanTree {
       const std::string& function,
       size_t& pos);
     static SNLBooleanTree* parse(const SNLDesign* primitive, const std::string& function);
+    SNLBooleanTreeFunctionNode* getRoot() const { return root_; }
+    const Inputs& getInputs() const { return inputs_; }
+    SNLBooleanTreeInputNode* getInput(const SNLBitTerm* inputTerm) const;
   private:
     SNLBooleanTreeInputNode* getOrCreateInputNode(const SNLBitTerm* input);
 

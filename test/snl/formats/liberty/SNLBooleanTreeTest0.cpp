@@ -3,6 +3,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "gtest/gtest.h"
+#include "gmock/gmock.h"
+using ::testing::ElementsAre;
+using ::testing::Key;
 
 #include "SNLUniverse.h"
 #include "SNLScalarTerm.h"
@@ -48,23 +51,132 @@ TEST_F(SNLBooleanTreeTest0, test01) {
   SNLScalarTerm::create(and2, SNLTerm::Direction::Input, SNLName("A"));
   SNLScalarTerm::create(and2, SNLTerm::Direction::Input, SNLName("B"));
   SNLScalarTerm::create(and2, SNLTerm::Direction::Output, SNLName("Y"));
-  SNLBooleanTree::parse(and2, "A & B");
+  auto tree = SNLBooleanTree::parse(and2, "A & B");
+  ASSERT_NE(nullptr, tree);
+  auto root = tree->getRoot();
+  ASSERT_NE(nullptr, root);
+  EXPECT_EQ(SNLBooleanTreeFunctionNode::Type::AND, root->getType());
+  ASSERT_EQ(2, tree->getInputs().size());
+  EXPECT_THAT(tree->getInputs(), ElementsAre(
+    Key(and2->getScalarTerm(SNLName("A"))),
+    Key(and2->getScalarTerm(SNLName("B")))
+  ));
+
+  EXPECT_FALSE(root->getValue());
+  tree->getInput(and2->getScalarTerm(SNLName("A")))->setValue(true);
+  EXPECT_FALSE(root->getValue());
+  tree->getInput(and2->getScalarTerm(SNLName("B")))->setValue(true);
+  EXPECT_TRUE(root->getValue());
 }
 
 TEST_F(SNLBooleanTreeTest0, test10) {
+  auto and3 = SNLDesign::create(library_, SNLDesign::Type::Primitive, SNLName("AND3"));
+  SNLScalarTerm::create(and3, SNLTerm::Direction::Input, SNLName("A"));
+  SNLScalarTerm::create(and3, SNLTerm::Direction::Input, SNLName("B"));
+  SNLScalarTerm::create(and3, SNLTerm::Direction::Input, SNLName("C"));
+  SNLScalarTerm::create(and3, SNLTerm::Direction::Output, SNLName("Y"));
+  auto tree = SNLBooleanTree::parse(and3, "A & B & C");
+  ASSERT_NE(nullptr, tree);
+  auto root = tree->getRoot();
+  ASSERT_NE(nullptr, root);
+  EXPECT_EQ(SNLBooleanTreeFunctionNode::Type::AND, root->getType());
+  ASSERT_EQ(3, tree->getInputs().size());
+  EXPECT_THAT(tree->getInputs(), ElementsAre(
+    Key(and3->getScalarTerm(SNLName("A"))),
+    Key(and3->getScalarTerm(SNLName("B"))),
+    Key(and3->getScalarTerm(SNLName("C")))
+  ));
+  EXPECT_FALSE(root->getValue());
+  tree->getInput(and3->getScalarTerm(SNLName("A")))->setValue(true);
+  EXPECT_FALSE(root->getValue());
+  tree->getInput(and3->getScalarTerm(SNLName("B")))->setValue(true);
+  EXPECT_FALSE(root->getValue());
+  tree->getInput(and3->getScalarTerm(SNLName("C")))->setValue(true);
+  EXPECT_TRUE(root->getValue());
+}
+
+TEST_F(SNLBooleanTreeTest0, test20) {
   auto and2 = SNLDesign::create(library_, SNLDesign::Type::Primitive, SNLName("ANDN2"));
   SNLScalarTerm::create(and2, SNLTerm::Direction::Input, SNLName("A1"));
   SNLScalarTerm::create(and2, SNLTerm::Direction::Input, SNLName("A2"));
   SNLScalarTerm::create(and2, SNLTerm::Direction::Output, SNLName("Y"));
   auto tree = std::make_unique<SNLBooleanTree>();
   size_t pos = 0;
-  auto a1 = tree->parseInput(and2, "A1 & 'A2", pos);
+  auto a1 = tree->parseInput(and2, "A1 & !A2", pos);
   EXPECT_NE(nullptr, a1);
   EXPECT_EQ(a1->getTerm(), and2->getScalarTerm(SNLName("A1")));
   EXPECT_EQ(pos, 2);
   pos = 6;
-  auto a2 = tree->parseInput(and2, "A1 & 'A2", pos);
+  auto a2 = tree->parseInput(and2, "A1 & !A2", pos);
   EXPECT_NE(nullptr, a2);
   EXPECT_EQ(a2->getTerm(), and2->getScalarTerm(SNLName("A2")));
   EXPECT_EQ(pos, 8);
+}
+
+TEST_F(SNLBooleanTreeTest0, test21) {
+  auto and2 = SNLDesign::create(library_, SNLDesign::Type::Primitive, SNLName("ANDN2"));
+  SNLScalarTerm::create(and2, SNLTerm::Direction::Input, SNLName("A1"));
+  SNLScalarTerm::create(and2, SNLTerm::Direction::Input, SNLName("A2"));
+  SNLScalarTerm::create(and2, SNLTerm::Direction::Output, SNLName("Y"));
+  auto tree = SNLBooleanTree::parse(and2, "A1 & !A2");
+  ASSERT_NE(nullptr, tree);
+  auto root = tree->getRoot();
+  ASSERT_NE(nullptr, root);
+  EXPECT_EQ(SNLBooleanTreeFunctionNode::Type::AND, root->getType());
+  ASSERT_EQ(2, tree->getInputs().size());
+  EXPECT_THAT(tree->getInputs(), ElementsAre(
+    Key(and2->getScalarTerm(SNLName("A1"))),
+    Key(and2->getScalarTerm(SNLName("A2")))
+  ));
+  EXPECT_FALSE(root->getValue());
+  tree->getInput(and2->getScalarTerm(SNLName("A1")))->setValue(true);
+  EXPECT_TRUE(root->getValue());
+  tree->getInput(and2->getScalarTerm(SNLName("A2")))->setValue(true);
+  EXPECT_FALSE(root->getValue());
+}
+
+TEST_F(SNLBooleanTreeTest0, test30) {
+  auto or2 = SNLDesign::create(library_, SNLDesign::Type::Primitive, SNLName("ANDN2"));
+  SNLScalarTerm::create(or2, SNLTerm::Direction::Input, SNLName("A1"));
+  SNLScalarTerm::create(or2, SNLTerm::Direction::Input, SNLName("A2"));
+  SNLScalarTerm::create(or2, SNLTerm::Direction::Output, SNLName("Y"));
+  auto tree = SNLBooleanTree::parse(or2, "A1 | A2");
+  ASSERT_NE(nullptr, tree);
+  auto root = tree->getRoot();
+  ASSERT_NE(nullptr, root);
+  EXPECT_EQ(SNLBooleanTreeFunctionNode::Type::OR, root->getType());
+  ASSERT_EQ(2, tree->getInputs().size());
+  EXPECT_THAT(tree->getInputs(), ElementsAre(
+    Key(or2->getScalarTerm(SNLName("A1"))),
+    Key(or2->getScalarTerm(SNLName("A2")))
+  ));
+  EXPECT_FALSE(root->getValue());
+  tree->getInput(or2->getScalarTerm(SNLName("A1")))->setValue(true);
+  EXPECT_TRUE(root->getValue());
+  tree->getInput(or2->getScalarTerm(SNLName("A2")))->setValue(true);
+  EXPECT_TRUE(root->getValue());
+}
+
+TEST_F(SNLBooleanTreeTest0, test40) {
+  auto xor2 = SNLDesign::create(library_, SNLDesign::Type::Primitive, SNLName("ANDN2"));
+  SNLScalarTerm::create(xor2, SNLTerm::Direction::Input, SNLName("A1"));
+  SNLScalarTerm::create(xor2, SNLTerm::Direction::Input, SNLName("A2"));
+  SNLScalarTerm::create(xor2, SNLTerm::Direction::Output, SNLName("Y"));
+  auto tree = SNLBooleanTree::parse(xor2, "A1 ^ A2");
+  ASSERT_NE(nullptr, tree);
+  auto root = tree->getRoot();
+  ASSERT_NE(nullptr, root);
+  EXPECT_EQ(SNLBooleanTreeFunctionNode::Type::XOR, root->getType());
+  ASSERT_EQ(2, tree->getInputs().size());
+  EXPECT_THAT(tree->getInputs(), ElementsAre(
+    Key(xor2->getScalarTerm(SNLName("A1"))),
+    Key(xor2->getScalarTerm(SNLName("A2")))
+  ));
+  EXPECT_FALSE(root->getValue());
+  tree->getInput(xor2->getScalarTerm(SNLName("A1")))->setValue(true);
+  EXPECT_TRUE(root->getValue());
+  tree->getInput(xor2->getScalarTerm(SNLName("A2")))->setValue(true);
+  EXPECT_FALSE(root->getValue());
+  tree->getInput(xor2->getScalarTerm(SNLName("A1")))->setValue(false);
+  EXPECT_TRUE(root->getValue());
 }

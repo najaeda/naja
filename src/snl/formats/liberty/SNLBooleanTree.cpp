@@ -11,6 +11,9 @@
 #include "SNLBusTermBit.h"
 
 namespace {
+  
+//Function decoding code taken from Yosys:
+//https://github.com/YosysHQ/yosys/blob/main/frontends/liberty/liberty.cc
 
 struct Token {
   char                            type_;
@@ -56,6 +59,7 @@ bool reduce(
     return true;
   }
 
+
   if (0 <= top-2 and stack[top-2].type_ == 1 and stack[top-1].type_ == '^' and stack[top].type_ == 1) {
     auto xorNode = new SNLBooleanTreeFunctionNode(SNLBooleanTreeFunctionNode::Type::XOR);
     xorNode->addInput(stack[top-2].node_);
@@ -67,8 +71,74 @@ bool reduce(
     return true;
   }
 
+  if (0 <= top && stack[top].type_ == 1) {
+    if (nextToken.type_ == '^')
+      return false;
+    stack[top].type_ = 2;
+    return true;
+  }
+
+  if (0 <= top-1 and stack[top-1].type_ == 2 and stack[top].type_ == 2) {
+    auto andNode = new SNLBooleanTreeFunctionNode(SNLBooleanTreeFunctionNode::Type::AND);
+    andNode->addInput(stack[top-1].node_);
+    andNode->addInput(stack[top].node_);
+    stack.pop_back();
+    stack.pop_back();
+    stack.push_back(Token(2, andNode));
+    return true;
+  }
+
+  if (0 <= top-2 and stack[top-2].type_ == 2
+    and (stack[top-1].type_ == '*' or stack[top-1].type_ == '&')
+    and stack[top].type_ == 2) {
+    auto andNode = new SNLBooleanTreeFunctionNode(SNLBooleanTreeFunctionNode::Type::AND);
+    andNode->addInput(stack[top-2].node_);
+    andNode->addInput(stack[top].node_);
+    stack.pop_back();
+    stack.pop_back();
+    stack.pop_back();
+    stack.push_back(Token(2, andNode));
+    return true;
+  }
+
+  if (0 <= top && stack[top].type_ == 2) {
+    if (nextToken.type_ == '*'
+      or nextToken.type_ == '&'
+      or nextToken.type_ == 0
+      or nextToken.type_ == '('
+      or nextToken.type_ == '!') {
+      return false;
+    }
+    stack[top].type_ = 3;
+    return true;
+  }
+
+  if (0 <= top-2
+    and stack[top-2].type_ == 3
+    and (stack[top-1].type_ == '+' or stack[top-1].type_ == '|') 
+    and stack[top].type_ == 3) {
+    auto orNode = new SNLBooleanTreeFunctionNode(SNLBooleanTreeFunctionNode::Type::OR);
+    orNode->addInput(stack[top-2].node_);
+    orNode->addInput(stack[top].node_);
+    stack.pop_back();
+    stack.pop_back();
+    stack.pop_back();
+    stack.push_back(Token(3, orNode));
+    return true;
+  }
 
 
+  if (0 <= top-2
+    and stack[top-2].type_ == '('
+    and stack[top-1].type_ == 3
+    and stack[top].type_ == ')') {
+    auto t = Token(0, stack[top-1].node_);
+    stack.pop_back();
+    stack.pop_back();
+    stack.pop_back();
+    stack.push_back(t);
+    return true;
+  }
 
   return false;
 }
@@ -172,14 +242,29 @@ SNLBooleanTree* SNLBooleanTree::parse(const SNLDesign* primitive, const std::str
       default:
         {
           auto input = tree->parseInput(primitive, function, pos);
-          nextToken = Token('i', input);
+          nextToken = Token(0, input);
         }
         break;
     }
     while (reduce(primitive, stack, nextToken)) {}
     stack.push_back(nextToken);
   }
+  while (reduce(primitive, stack, Token('.'))) {}
+
+  if (stack.size() != 1 || stack.back().type_ != 3) {
+    throw std::runtime_error("Parser error in function expr `" + function + "'.");  
+  }
+
+  tree->root_ = dynamic_cast<SNLBooleanTreeFunctionNode*>(stack.back().node_);
   return tree;
+}
+
+SNLBooleanTreeInputNode* SNLBooleanTree::getInput(const SNLBitTerm* inputTerm) const {
+  auto it = inputs_.find(inputTerm);
+  if (it != inputs_.end()) {
+    return it->second;
+  }
+  return nullptr;
 }
 
 bool SNLBooleanTreeFunctionNode::getValue() const {
@@ -197,7 +282,5 @@ bool SNLBooleanTreeFunctionNode::getValue() const {
       return not inputs_[0]->getValue();
   }
 }
-
-
 
 }} // namespace SNL // namespace naja
