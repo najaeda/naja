@@ -16,6 +16,8 @@
 #include "SNLDesignTruthTable.h"
 #include "SNLTruthTable.h"
 #include "Reduction.h"
+#include "bne.h"
+
 using namespace naja::DNL;
 using namespace naja::NAJA_OPT;
 using namespace naja::SNL;
@@ -1037,66 +1039,26 @@ void ConstantPropagation::propagateConstants() {
                    std::vector<std::pair<SNLID::DesignObjectID, int>>, DNLID>(
             path, instTerms, inst.getID()));
   }
+  BNE bne;
   for (auto& path : constant0Readers_) {
-    Uniquifier uniquifier(std::get<0>(path), std::get<2>(path));
-    uniquifier.process();
-    SNLInstTerm* constTerm = uniquifier.getPathUniq().back()->getInstTerm(
-        std::get<1>(path));
-    changeDriverToLocal0(constTerm, std::get<2>(path));
+    auto context = std::get<0>(path);
+    context.pop_back();
+    bne.addDriveWithConstantAction(context, std::get<0>(path).back(),
+                                   std::get<1>(path), 0);
   }
   for (SNLBitTerm* term : constant0TopReaders_) {
-    term->setNet(nullptr);
-    std::string name(std::string("logic0_naja_") +
-                     term->getDesign()->getName().getString());
-    auto netName = SNLName(name + "_net");
-    SNLNet* assign0 = term->getDesign()->getNet(netName);
-    if (nullptr == assign0) {
-      assign0 = SNLScalarNet::create(term->getDesign(), netName);
-    }
-    assign0->setType(naja::SNL::SNLNet::Type::Supply0);
-    term->setNet(assign0);
-    SNLTruthTable tt(0, 0);
-    auto logic0 = SNLLibraryTruthTables::getDesignForTruthTable(
-                      *(term->getDB()->getPrimitiveLibraries().begin()),
-                      tt)
-                      .first;
-    SNLInstance* logic0Inst = term->getDesign()->getInstance(SNLName(name));
-    if (nullptr == logic0Inst) {
-      logic0Inst =
-          SNLInstance::create(term->getDesign(), logic0, SNLName(name));
-    }
-    (*logic0Inst->getInstTerms().begin())->setNet(assign0);
+    bne.addDriveWithConstantAction(std::vector<SNLID::DesignObjectID>(), (unsigned) -1, (unsigned) -1, 0, term);
   }
   for (auto& path : constant1Readers_) {
-    Uniquifier uniquifier(std::get<0>(path), std::get<2>(path));
-    uniquifier.process();
-    SNLInstTerm* constTerm = uniquifier.getPathUniq().back()->getInstTerm(
-        std::get<1>(path));
-    changeDriverToLocal1(constTerm, std::get<2>(path));
+    auto context = std::get<0>(path);
+    context.pop_back();
+    bne.addDriveWithConstantAction(context, std::get<0>(path).back(),
+                                   std::get<1>(path), 1);
   }
   for (SNLBitTerm* term : constant1TopReaders_) {
-    term->setNet(nullptr);
-    std::string name(std::string("logic1_naja_") +
-                     term->getDesign()->getName().getString());
-    auto netName = SNLName(name + "_net");
-    SNLNet* assign1 = term->getDesign()->getNet(netName);
-    if (nullptr == assign1) {
-      assign1 = SNLScalarNet::create(term->getDesign(), netName);
-    }
-    assign1->setType(naja::SNL::SNLNet::Type::Supply1);
-    term->setNet(assign1);
-    SNLTruthTable tt(0, 1);
-    auto logic1 = SNLLibraryTruthTables::getDesignForTruthTable(
-                      *(term->getDB()->getPrimitiveLibraries().begin()),
-                      tt)
-                      .first;
-    SNLInstance* logic1Inst = term->getDesign()->getInstance(SNLName(name));
-    if (nullptr == logic1Inst) {
-      logic1Inst =
-          SNLInstance::create(term->getDesign(), logic1, SNLName(name));
-    }
-    (*logic1Inst->getInstTerms().begin())->setNet(assign1);
+    bne.addDriveWithConstantAction(std::vector<SNLID::DesignObjectID>(), (unsigned) -1, (unsigned) -1, 1, term);
   }
+  bne.process();
 }
 
 void ConstantPropagation::run() {
