@@ -8,4 +8,4 @@ target_include_directories(naja_edit PUBLIC ${ARGPARSE_DIR})
 target_link_libraries(naja_edit
     naja_snl_verilog naja_snl_pyloader naja_snl_liberty
     naja_snl_dump naja_dnl naja_opt)
-install(TARGETS naja_edit DESTINATION bin) 
+install(TARGETS naja_edit DESTINATION ${CMAKE_INSTALL_BINDIR})

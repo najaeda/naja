@@ -23,4 +23,7 @@ target_include_directories(naja_snl_verilog PUBLIC
 target_include_directories(naja_snl_verilog PUBLIC ${SPDLOG_DIR})
 
 set_target_properties(naja_snl_verilog PROPERTIES PUBLIC_HEADER "${HEADERS}")
-install(TARGETS naja_snl_verilog LIBRARY DESTINATION lib PUBLIC_HEADER DESTINATION include) 
+
+install(TARGETS naja_snl_verilog
+  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})

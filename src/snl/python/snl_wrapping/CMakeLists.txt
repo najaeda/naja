@@ -30,5 +30,5 @@ Python3_add_library(snl MODULE PySNL.cpp)
 
 target_link_libraries(snl PRIVATE naja_snl_python)
 
-install(TARGETS naja_snl_python LIBRARY DESTINATION lib) 
-install(TARGETS snl LIBRARY DESTINATION lib/python/naja/) 
+install(TARGETS naja_snl_python LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}) 
+install(TARGETS snl LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}/python/naja)
