@@ -48,10 +48,12 @@ TEST_F(SNLBooleanTreeTest0, test00) {
 
 TEST_F(SNLBooleanTreeTest0, test01) {
   auto and2 = SNLDesign::create(library_, SNLDesign::Type::Primitive, SNLName("AND2"));
-  SNLScalarTerm::create(and2, SNLTerm::Direction::Input, SNLName("A"));
-  SNLScalarTerm::create(and2, SNLTerm::Direction::Input, SNLName("B"));
+  SNLBooleanTree::Terms inputs;
+  inputs.push_back(SNLScalarTerm::create(and2, SNLTerm::Direction::Input, SNLName("A")));
+  inputs.push_back(SNLScalarTerm::create(and2, SNLTerm::Direction::Input, SNLName("B")));
   SNLScalarTerm::create(and2, SNLTerm::Direction::Output, SNLName("Y"));
-  auto tree = SNLBooleanTree::parse(and2, "A & B");
+  auto tree = std::make_unique<SNLBooleanTree>();
+  tree->parse(and2, "A & B");
   ASSERT_NE(nullptr, tree);
   auto root = tree->getRoot();
   ASSERT_NE(nullptr, root);
@@ -67,15 +69,21 @@ TEST_F(SNLBooleanTreeTest0, test01) {
   EXPECT_FALSE(root->getValue());
   tree->getInput(and2->getScalarTerm(SNLName("B")))->setValue(true);
   EXPECT_TRUE(root->getValue());
+
+  auto truthTable = tree->getTruthTable(inputs);
+  EXPECT_EQ(2, truthTable.size());
+  EXPECT_EQ(0b1000, truthTable.bits());
 }
 
 TEST_F(SNLBooleanTreeTest0, test10) {
   auto and3 = SNLDesign::create(library_, SNLDesign::Type::Primitive, SNLName("AND3"));
-  SNLScalarTerm::create(and3, SNLTerm::Direction::Input, SNLName("A"));
-  SNLScalarTerm::create(and3, SNLTerm::Direction::Input, SNLName("B"));
-  SNLScalarTerm::create(and3, SNLTerm::Direction::Input, SNLName("C"));
+  SNLBooleanTree::Terms inputs;
+  inputs.push_back(SNLScalarTerm::create(and3, SNLTerm::Direction::Input, SNLName("A")));
+  inputs.push_back(SNLScalarTerm::create(and3, SNLTerm::Direction::Input, SNLName("B")));
+  inputs.push_back(SNLScalarTerm::create(and3, SNLTerm::Direction::Input, SNLName("C")));
   SNLScalarTerm::create(and3, SNLTerm::Direction::Output, SNLName("Y"));
-  auto tree = SNLBooleanTree::parse(and3, "A & B & C");
+  auto tree = std::make_unique<SNLBooleanTree>();
+  tree->parse(and3, "A & B & C");
   ASSERT_NE(nullptr, tree);
   auto root = tree->getRoot();
   ASSERT_NE(nullptr, root);
@@ -93,6 +101,10 @@ TEST_F(SNLBooleanTreeTest0, test10) {
   EXPECT_FALSE(root->getValue());
   tree->getInput(and3->getScalarTerm(SNLName("C")))->setValue(true);
   EXPECT_TRUE(root->getValue());
+
+  auto truthTable = tree->getTruthTable(inputs);
+  EXPECT_EQ(3, truthTable.size());
+  EXPECT_EQ(0b10000000, truthTable.bits());
 }
 
 TEST_F(SNLBooleanTreeTest0, test20) {
@@ -118,7 +130,8 @@ TEST_F(SNLBooleanTreeTest0, test21) {
   SNLScalarTerm::create(and2, SNLTerm::Direction::Input, SNLName("A1"));
   SNLScalarTerm::create(and2, SNLTerm::Direction::Input, SNLName("A2"));
   SNLScalarTerm::create(and2, SNLTerm::Direction::Output, SNLName("Y"));
-  auto tree = SNLBooleanTree::parse(and2, "A1 & !A2");
+  auto tree = std::make_unique<SNLBooleanTree>();
+  tree->parse(and2, "A1 & !A2");
   ASSERT_NE(nullptr, tree);
   auto root = tree->getRoot();
   ASSERT_NE(nullptr, root);
@@ -140,7 +153,8 @@ TEST_F(SNLBooleanTreeTest0, test30) {
   SNLScalarTerm::create(or2, SNLTerm::Direction::Input, SNLName("A1"));
   SNLScalarTerm::create(or2, SNLTerm::Direction::Input, SNLName("A2"));
   SNLScalarTerm::create(or2, SNLTerm::Direction::Output, SNLName("Y"));
-  auto tree = SNLBooleanTree::parse(or2, "A1 | A2");
+  auto tree = std::make_unique<SNLBooleanTree>();
+  tree->parse(or2, "A1 | A2");
   ASSERT_NE(nullptr, tree);
   auto root = tree->getRoot();
   ASSERT_NE(nullptr, root);
@@ -162,7 +176,8 @@ TEST_F(SNLBooleanTreeTest0, test40) {
   SNLScalarTerm::create(xor2, SNLTerm::Direction::Input, SNLName("A1"));
   SNLScalarTerm::create(xor2, SNLTerm::Direction::Input, SNLName("A2"));
   SNLScalarTerm::create(xor2, SNLTerm::Direction::Output, SNLName("Y"));
-  auto tree = SNLBooleanTree::parse(xor2, "A1 ^ A2");
+  auto tree = std::make_unique<SNLBooleanTree>();
+  tree->parse(xor2, "A1 ^ A2");
   ASSERT_NE(nullptr, tree);
   auto root = tree->getRoot();
   ASSERT_NE(nullptr, root);
@@ -179,4 +194,31 @@ TEST_F(SNLBooleanTreeTest0, test40) {
   EXPECT_FALSE(root->getValue());
   tree->getInput(xor2->getScalarTerm(SNLName("A1")))->setValue(false);
   EXPECT_TRUE(root->getValue());
+}
+
+TEST_F(SNLBooleanTreeTest0, test50) {
+  auto aor3 = SNLDesign::create(library_, SNLDesign::Type::Primitive, SNLName("ANDN2"));
+  SNLScalarTerm::create(aor3, SNLTerm::Direction::Input, SNLName("A1"));
+  SNLScalarTerm::create(aor3, SNLTerm::Direction::Input, SNLName("A2"));
+  SNLScalarTerm::create(aor3, SNLTerm::Direction::Input, SNLName("A3"));
+  SNLScalarTerm::create(aor3, SNLTerm::Direction::Output, SNLName("Y"));
+  auto tree = std::make_unique<SNLBooleanTree>();
+  tree->parse(aor3, "A1 & (A2 | A3)");
+  ASSERT_NE(nullptr, tree);
+  auto root = tree->getRoot();
+  ASSERT_NE(nullptr, root);
+  EXPECT_EQ(SNLBooleanTreeFunctionNode::Type::AND, root->getType());
+  ASSERT_EQ(3, tree->getInputs().size());
+  EXPECT_THAT(tree->getInputs(), ElementsAre(
+    Key(aor3->getScalarTerm(SNLName("A1"))),
+    Key(aor3->getScalarTerm(SNLName("A2"))),
+    Key(aor3->getScalarTerm(SNLName("A3")))
+  ));
+  EXPECT_FALSE(root->getValue());
+  tree->getInput(aor3->getScalarTerm(SNLName("A1")))->setValue(true);
+  EXPECT_FALSE(root->getValue());
+  tree->getInput(aor3->getScalarTerm(SNLName("A2")))->setValue(true);
+  EXPECT_TRUE(root->getValue());
+  tree->getInput(aor3->getScalarTerm(SNLName("A1")))->setValue(false);
+  EXPECT_FALSE(root->getValue());
 }

@@ -127,7 +127,6 @@ bool reduce(
     return true;
   }
 
-
   if (0 <= top-2
     and stack[top-2].type_ == '('
     and stack[top-1].type_ == 3
@@ -146,6 +145,14 @@ bool reduce(
 } // namespace
 
 namespace naja { namespace SNL {
+
+SNLBooleanTreeFunctionNode::~SNLBooleanTreeFunctionNode() {
+  for (auto input: inputs_) {
+    if (not dynamic_cast<SNLBooleanTreeInputNode*>(input)) {
+      delete input;
+    }
+  }
+}
 
 SNLBooleanTreeInputNode* SNLBooleanTree::getOrCreateInputNode(const SNLBitTerm* input) {
   auto it = inputs_.find(input);
@@ -215,8 +222,7 @@ SNLBooleanTreeInputNode* SNLBooleanTree::parseInput(
     return inputNode;
 }
 
-SNLBooleanTree* SNLBooleanTree::parse(const SNLDesign* primitive, const std::string& function) {
-  SNLBooleanTree* tree = new SNLBooleanTree();
+void SNLBooleanTree::parse(const SNLDesign* primitive, const std::string& function) {
   size_t pos = 0;
   Stack stack;
   while (pos < function.size()) {
@@ -241,7 +247,7 @@ SNLBooleanTree* SNLBooleanTree::parse(const SNLDesign* primitive, const std::str
         break;
       default:
         {
-          auto input = tree->parseInput(primitive, function, pos);
+          auto input = parseInput(primitive, function, pos);
           nextToken = Token(0, input);
         }
         break;
@@ -255,8 +261,7 @@ SNLBooleanTree* SNLBooleanTree::parse(const SNLDesign* primitive, const std::str
     throw std::runtime_error("Parser error in function expr `" + function + "'.");  
   }
 
-  tree->root_ = dynamic_cast<SNLBooleanTreeFunctionNode*>(stack.back().node_);
-  return tree;
+  root_ = dynamic_cast<SNLBooleanTreeFunctionNode*>(stack.back().node_);
 }
 
 SNLBooleanTreeInputNode* SNLBooleanTree::getInput(const SNLBitTerm* inputTerm) const {
@@ -280,6 +285,47 @@ bool SNLBooleanTreeFunctionNode::getValue() const {
         throw std::runtime_error("NOT node must have exactly one input");
       }
       return not inputs_[0]->getValue();
+  }
+}
+
+SNLTruthTable SNLBooleanTree::getTruthTable(const Terms& terms) {
+  //translate the terms to the inputs
+  std::vector<SNLBooleanTreeInputNode*> inputs;
+  for (auto term: terms) {
+    auto input = getInput(term);
+    if (input == nullptr) {
+      std::ostringstream reason;
+      reason << "Term "
+        << term->getName().getString()
+        << "' not found in the inputs of the boolean tree for primitive: "
+        << term->getDesign()->getName().getString();
+      throw std::runtime_error(reason.str());
+    }
+    inputs.push_back(input);
+  }
+  int n = terms.size();
+  int rows = pow(2, n);
+
+  for (auto input: inputs) {
+    input->setValue(false);
+  }
+
+  uint64_t mask = 0;
+  for (int i = 0; i < rows; ++i) {
+    // Calculate the truth values for this row
+    for (int j = 0; j < n; ++j) {
+      inputs[j]->setValue((i & (1 << (n - j - 1))) != 0);
+    }
+    bool result = root_->getValue();
+    mask |= (result ? 1 : 0) << i;
+  }
+  return SNLTruthTable(n, mask);
+}
+
+SNLBooleanTree::~SNLBooleanTree() {
+  delete root_;
+  for (auto input: inputs_) {
+    delete input.second;
   }
 }
 

@@ -4,10 +4,11 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __SNL_LIBERTY_CONSTRUCTOR_H_
-#define __SNL_LIBERTY_CONSTRUCTOR_H_
+#ifndef __SNL_BOOLEAN_TREE_H_
+#define __SNL_BOOLEAN_TREE_H_
 
 #include "SNLBitTerm.h"
+#include "SNLTruthTable.h"
 
 namespace naja { namespace SNL {
 
@@ -18,6 +19,7 @@ class SNLBooleanTreeNode {
   public:
     SNLBooleanTreeNode(const SNLBooleanTreeNode&) = delete;
     virtual bool getValue() const = 0;
+    virtual ~SNLBooleanTreeNode() = default;
   protected:
     SNLBooleanTreeNode() = default;
 };
@@ -52,6 +54,8 @@ class SNLBooleanTreeFunctionNode: public SNLBooleanTreeNode {
       type_(type)
     {}
 
+    ~SNLBooleanTreeFunctionNode();
+
     void addInput(SNLBooleanTreeNode* input) {
       inputs_.push_back(input);
     }
@@ -69,21 +73,27 @@ class SNLBooleanTree {
   public:
     using Inputs = std::map<const SNLBitTerm*, SNLBooleanTreeInputNode*, SNLBitTerm::PointerLess>;
 
+    SNLBooleanTree() = default;
+    ~SNLBooleanTree();
+
     SNLBooleanTreeInputNode* parseInput(
       const SNLDesign* primitive,
       const std::string& function,
       size_t& pos);
-    static SNLBooleanTree* parse(const SNLDesign* primitive, const std::string& function);
+    void parse(const SNLDesign* primitive, const std::string& function);
     SNLBooleanTreeFunctionNode* getRoot() const { return root_; }
     const Inputs& getInputs() const { return inputs_; }
     SNLBooleanTreeInputNode* getInput(const SNLBitTerm* inputTerm) const;
+
+    using Terms = std::vector<SNLBitTerm*>;
+    SNLTruthTable getTruthTable(const Terms& terms);
   private:
     SNLBooleanTreeInputNode* getOrCreateInputNode(const SNLBitTerm* input);
 
-    Inputs                      inputs_;
-    SNLBooleanTreeFunctionNode* root_;
+    Inputs                      inputs_ {};
+    SNLBooleanTreeFunctionNode* root_   {nullptr};  
 };
 
 }} // namespace SNL // namespace naja
 
-#endif // __SNL_LIBERTY_FUNCTION_GRAPH_H_
+#endif // __SNL_BOOLEAN_TREE_H_

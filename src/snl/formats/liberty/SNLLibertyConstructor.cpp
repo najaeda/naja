@@ -13,6 +13,8 @@
 #include "SNLLibrary.h"
 #include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
+#include "SNLBooleanTree.h"
+#include "SNLDesignTruthTable.h"
 #include "SNLLibertyConstructorException.h"
 
 namespace {
@@ -110,7 +112,16 @@ void parseTerms(SNLDesign* primitive, const Yosys::LibertyAst* top, const Yosys:
   }
   if (termFunctions.size() == 1) {
     auto function = termFunctions.begin()->second;
-    SNLLibertyConstructor::parseFunction(function);
+    auto tree = std::make_unique<naja::SNL::SNLBooleanTree>();
+    tree->parse(primitive, function);
+    naja::SNL::SNLBooleanTree::Terms terms;
+    for (auto term: primitive->getBitTerms()) {
+      if (term->getDirection() == SNLTerm::Direction::Input) {
+        terms.push_back(term);
+      }
+    }
+    auto truthTable = tree->getTruthTable(terms);
+    naja::SNL::SNLDesignTruthTable::setTruthTable(primitive, truthTable);
   }
 }
 
@@ -131,44 +142,6 @@ void parseCells(SNLLibrary* library, const Yosys::LibertyAst* ast) {
 }
 
 namespace naja { namespace SNL {
-
-void SNLLibertyConstructor::parseFunction(const std::string& function) {
-  //Transform the function to a truth table
-  //parse the string to tokens
-
-  return;
-
-  size_t pos = 0;
-  while (pos < function.size()) {
-    const char& car = function[pos];
-    if (std::isspace(car) or car == '"') {
-      pos++;
-      continue;
-    }
-    switch (car) {
-      case '(':
-        break;
-      case ')':
-        break;
-      case '\'':
-        break;
-      case '!':
-        break;
-      case '^':
-        break;
-      case '*':
-        break;
-      case '+':
-        break;
-      case '|':
-        break;
-      case '&':
-        break;
-      default:
-        break;
-    }
-  }
-}
 
 SNLLibertyConstructor::SNLLibertyConstructor(SNLLibrary* library):
   library_(library)
