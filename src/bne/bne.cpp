@@ -15,6 +15,90 @@
 
 class Action; // Forward declaration of the base class
 
+ActionTreeNode *ActionTreeNode::getChild(SNLID::DesignObjectID instance)
+{
+    //printf("getChild instance %u\n", instance);
+    for (auto &child : children_)
+    {
+        if (tree_->getNode(child).getInstance() == instance)
+        {
+            //printf("found child %u\n", instance);
+            return &tree_->getNode(child);
+        }
+    }
+    return nullptr;
+}
+
+std::vector<SNLID::DesignObjectID> ActionTreeNode::getContext() const
+{
+    std::vector<SNLID::DesignObjectID> context;
+    // collect the DOID from node until root and then reverse
+    const ActionTreeNode *currentNode = this;
+    while (currentNode->getParents()[0].first != (size_t)-1)
+    {
+        context.push_back(currentNode->getInstance());
+        if (currentNode->getParents().empty())
+        {
+            break;
+        }
+        currentNode = &tree_->getNode(currentNode->getParents().front().first);
+    }
+    std::reverse(context.begin(), context.end());
+    return context;
+}
+void ActionTree::addDeleteAction(const std::vector<SNLID::DesignObjectID> &pathToDelete)
+{
+    //printf("here\n");
+    deleteActions_.push_back(DeleteAction(pathToDelete));
+    actions_.push_back({ActionType::DELETE, deleteActions_.size() - 1}); // Cast to the base class
+    if (deleteActions_.back().getContext().size() > 0)
+    {
+        addHierChild(deleteActions_.back().getContext());
+    }
+    std::vector<ActionID> actions;
+    actions.push_back(actions_.back());
+    getNodeForContext(deleteActions_.back().getContext())->addActions(actions);
+}
+
+bool ActionTreeNode::operator==(const ActionTreeNode &rhs) const
+    {
+        if (actions_.size() != rhs.actions_.size())
+        {
+            return false;
+        }
+        for (size_t i = 0; i < actions_.size(); i++)
+        {
+            switch (actions_[i].type)
+            {
+            case ActionType::DELETE:
+                if (tree_->getDeleteActions()[actions_[i].order] != tree_->getDeleteActions()[rhs.actions_[i].order])
+                {
+                    return false;
+                }
+                break;
+            case ActionType::DRIVE_WITH_CONSTANT:
+                if (tree_->getDriveWithConstantActions()[actions_[i].order] != tree_->getDriveWithConstantActions()[rhs.actions_[i].order])
+                {
+                    return false;
+                }
+                break;
+            default:
+                break;
+            }
+        }
+        if (children_.size() == rhs.getChildren().size()) {
+            for (size_t i = 0; i < children_.size(); i++) {
+                if (tree_->getNode(children_[i]) != tree_->getNode(rhs.getChildren()[i])) {
+                    return false;
+                }
+            }
+        } {
+            return false;
+        }
+        return instance_ == rhs.instance_ && snlid_ == rhs.snlid_; 
+    }
+
+
 void BNE::addDeleteAction(const std::vector<SNLID::DesignObjectID> &pathToDelete)
 {
     deleteActions_.push_back(DeleteAction(pathToDelete));
@@ -23,13 +107,13 @@ void BNE::addDeleteAction(const std::vector<SNLID::DesignObjectID> &pathToDelete
     SNLID::DesignObjectID libraryID = 0;
     SNLID::DesignObjectID designID = 0;
     SNLDesign *design = nullptr;
-    if (deleteActions_.back().getDeleteContext().empty())
+    if (deleteActions_.back().getContext().empty())
     {
         design = SNLUniverse::get()->getTopDesign();
     }
     else
     {
-        design = getInstanceForPath(deleteActions_.back().getDeleteContext())->getModel();
+        design = getInstanceForPath(deleteActions_.back().getContext())->getModel();
     }
     assert(!design->getInstances().empty());
     dbID = design->getSNLID().dbID_;
@@ -40,7 +124,7 @@ void BNE::addDeleteAction(const std::vector<SNLID::DesignObjectID> &pathToDelete
     Doid2ActionsPerPath_[std::tuple<SNLID::DesignObjectID,
                                     SNLID::DesignObjectID,
                                     SNLID::DesignObjectID>(dbID, libraryID, designID)]
-        .push_back({actions, deleteActions_.back().getDeleteContext()});
+        .push_back({actions, deleteActions_.back().getContext()});
 }
 
 void BNE::addDriveWithConstantAction(const std::vector<SNLID::DesignObjectID> &context,

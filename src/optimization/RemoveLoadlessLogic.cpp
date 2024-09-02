@@ -295,7 +295,7 @@ void LoadlessLogicRemover::removeLoadlessInstances(
     SNLDesign* top,
     std::vector<std::pair<std::vector<SNLID::DesignObjectID>, DNLID>>&
         loadlessInstances) {
-  BNE bne;
+  ActionTree bne;
   for (auto& path : loadlessInstances) {
     /*Uniquifier uniquifier(path.first, path.second);
     uniquifier.process();
