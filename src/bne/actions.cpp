@@ -24,8 +24,7 @@ using namespace naja::SNL;
 void changeDriverToLocal0(SNLInstTerm *term)
 {
   term->setNet(nullptr);
-  std::string name(std::string("logic0_naja_") +
-                   term->getDesign()->getName().getString());
+  std::string name(std::string("logic0_naja"));
   auto netName = SNLName(name + "_net");
   SNLNet *assign0 = term->getDesign()->getNet(netName);
   if (nullptr == assign0)
@@ -63,8 +62,7 @@ void changeDriverToLocal0(SNLInstTerm *term)
 void changeDriverToLocal1(SNLInstTerm *term)
 {
   term->setNet(nullptr);
-  std::string name(std::string("logic1_naja_") +
-                   term->getDesign()->getName().getString());
+  std::string name(std::string("logic1_naja"));
   auto netName = SNLName(name + "_net");
   SNLNet *assign1 = term->getDesign()->getNet(netName);
   if (nullptr == assign1)
@@ -102,8 +100,7 @@ void changeDriverToLocal1(SNLInstTerm *term)
 void changeDriverto0Top(SNLBitTerm *term)
 {
   term->setNet(nullptr);
-  std::string name(std::string("logic0_naja_") +
-                   term->getDesign()->getName().getString());
+  std::string name(std::string("logic0_naja"));
   auto netName = SNLName(name + "_net");
   SNLNet *assign0 = term->getDesign()->getNet(netName);
   if (nullptr == assign0)
@@ -129,8 +126,7 @@ void changeDriverto0Top(SNLBitTerm *term)
 void changeDriverto1Top(SNLBitTerm *term)
 {
   term->setNet(nullptr);
-  std::string name(std::string("logic1_naja_") +
-                   term->getDesign()->getName().getString());
+  std::string name(std::string("logic1_naja"));
   auto netName = SNLName(name + "_net");
   SNLNet *assign1 = term->getDesign()->getNet(netName);
   if (nullptr == assign1)
@@ -187,9 +183,9 @@ void DriveWithConstantAction::processOnContext(SNLDesign *design)
   }
 }
 
-void DeleteAction::processOnContext(SNLDesign *design2)
+void DeleteAction::processOnContext(SNLDesign *design)
 {
-  SNLDesign *top = SNLUniverse::get()->getTopDesign();
+  /*SNLDesign *top = SNLUniverse::get()->getTopDesign();
   SNLDesign *design = top;
   std::vector<SNLID::DesignObjectID> path =
       context_;
@@ -210,7 +206,7 @@ void DeleteAction::processOnContext(SNLDesign *design2)
     pathIds.push_back(inst->getID());
   }
   naja::NAJA_OPT::Uniquifier uniquifier(pathIds, id, true);
-  uniquifier.process();
+  uniquifier.process();*/
   /*for (SNLInstTerm *term : uniquifier.getPathUniq().back()->getInstTerms())
   {
     auto net = term->getNet();
@@ -223,7 +219,7 @@ void DeleteAction::processOnContext(SNLDesign *design2)
       }
     }
   }*/
-  printf("\n");
-  uniquifier.getPathUniq().back()->destroy();
-  // design->getInstance(pathToDelete_.back())->destroy();
+  /*printf("\n");
+  uniquifier.getPathUniq().back()->destroy();*/
+  design->getInstance(toDelete_)->destroy();
 }

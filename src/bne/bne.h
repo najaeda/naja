@@ -11,6 +11,7 @@
 //for find
 #include <algorithm>
 #include <queue>
+#include "Utils.h"
 
 using namespace naja::SNL;
 
@@ -250,6 +251,28 @@ public:
                 continue;
             }
             currentNode->markAsProcessed();
+            if (!currentNode->getActions().empty() && !currentNode->getContext().empty()) {
+                SNLDesign *top = SNLUniverse::get()->getTopDesign();
+                SNLDesign *design = top;
+                std::vector<SNLID::DesignObjectID> path = currentNode->getContext();
+                // path.pop_back();
+                std::string id("");
+                std::vector<SNLID::DesignObjectID> pathIds;
+                while (!path.empty())
+                {
+                    SNLID::DesignObjectID name = path.front();
+                    path.erase(path.begin());
+                    SNLInstance *inst = design->getInstance(name);
+                    assert(inst);
+                    design = inst->getModel();
+                    //printf("%s ", inst->getName().getString().c_str());
+                    id += "_" + std::to_string(design->getID()) + "_" + std::to_string(inst->getID());
+                    pathIds.push_back(inst->getID());
+                }
+                auto context = currentNode->getContext();
+                naja::NAJA_OPT::Uniquifier uniquifier(context, id, true);
+                uniquifier.process();
+            }
             for (auto &action : currentNode->getActions())
             {
                 printf("--------------------------------processing actions------------------------------------\n");
