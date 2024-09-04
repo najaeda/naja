@@ -16,4 +16,7 @@ target_compile_options(naja_snl_visual PRIVATE ${NAJA_CXX_WARNINGS})
 
 target_include_directories(naja_snl_visual PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 set_target_properties(naja_snl_visual PROPERTIES PUBLIC_HEADER "${NETLIST_GRAPH_HEADERS}")
-install(TARGETS naja_snl_visual LIBRARY DESTINATION lib PUBLIC_HEADER DESTINATION include) 
+
+install(TARGETS naja_snl_visual
+  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})

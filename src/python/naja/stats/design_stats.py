@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import logging
+import os
 from naja import snl
 
 class DesignsStats:
@@ -12,6 +13,7 @@ class DesignsStats:
 
 class DesignStats:
   def __init__(self):
+    self.name = ""
     self.assigns = 0
     self.flat_assigns = 0
     self.basic_primitives = dict()
@@ -24,6 +26,7 @@ class DesignStats:
     self.flat_ins = dict()
     self.terms = dict()
     self.bit_terms = dict()
+    self.net_stats = dict()
   def add_ins_stats(self, ins_stats):
     self.flat_assigns += ins_stats.flat_assigns
     for ins, nb in ins_stats.flat_ins.items():
@@ -42,6 +45,7 @@ def compute_design_stats(design, designs_stats):
   if design in designs_stats.hier_designs:
     return designs_stats.hier_designs.get(design)
   design_stats = DesignStats()
+  design_stats.name = design.getName()
   for ins in design.getInstances():
     model = ins.getModel()
     if model.isAssign():
@@ -69,6 +73,7 @@ def compute_design_stats(design, designs_stats):
       design_stats.flat_ins[model] = design_stats.flat_ins.get(model, 0) + 1
       design_stats.add_ins_stats(model_stats)
   compute_design_terms(design, design_stats)
+  compute_design_net_stats(design, design_stats)
   designs_stats.hier_designs[design] = design_stats
   return design_stats
 
@@ -90,6 +95,14 @@ def compute_design_terms(design, design_stats):
       design_stats.terms["unknowns"] = design_stats.terms.get("unknowns", 0) + 1
       bit_terms = sum(1 for _ in term.getBits())
       design_stats.bit_terms["unknowns"] = design_stats.bit_terms.get("unknowns", 0) + bit_terms
+
+def compute_design_net_stats(design, design_stats):
+  for net in design.getBitNets():
+    if net.isConstant():
+      pass
+    nb_components = sum(1 for c in net.getComponents())
+    design_stats.net_stats[nb_components] = design_stats.net_stats.get(nb_components, 0) + 1
+    design_stats.net_stats = dict(sorted(design_stats.net_stats.items()))
 
 def dump_instances(stats_file, title, instances):
   if len(instances) == 0:
@@ -176,8 +189,16 @@ def dump_stats(design, stats_file, designs_stats, dumped_models):
     model = ins.getModel()
     dump_stats(model, stats_file, designs_stats, dumped_models) 
 
-def dumpPandas(designs_stats):
-  import pandas as pd
+def dump_pandas(designs_stats):
+  import pandas
+  import matplotlib.pyplot as plt
+
+  #create a figures directory erase the previous one
+  if os.path.exists('figures'):
+    import shutil
+    shutil.rmtree('figures')
+  os.makedirs('figures')
+  
   data = []
   for design, design_stats in designs_stats.hier_designs.items():
     data.append([
@@ -192,21 +213,40 @@ def dumpPandas(designs_stats):
       sum(design_stats.flat_blackboxes.values()),
       sum(design_stats.flat_basic_primitives.values()),
       sum(design_stats.flat_primitives.values())])
-  df = pd.DataFrame(data, columns=[
+  df = pandas.DataFrame(data, columns=[
     'Design', 'Terms', 'Bit Terms',
     'Basic Primitives', 'Primitives', 'Blackboxes', 'Instances',
     'Flat Instances', 'Flat Blackboxes',
     'Flat Basic Primitives', 'Flat Primitives'])
-  print(df)
+  df.to_csv('figures/designs_stats.csv', index=False)
 
-def compute_and_dump_design_stats(design, stats_file, pandas_dump=False):
+  net_series = pandas.Series(design_stats.net_stats)
+  nets_plot = net_series.plot(kind='bar',
+                  title='Number of nets with a given number of components for\n' + design.getName(),
+                  xlabel='number of components', ylabel='number of nets')
+  nets_plot.set_yscale('log')
+  nets_plot.xaxis.set_major_locator(plt.MaxNLocator(100))
+  nets_figure = nets_plot.get_figure()
+  nets_figure.tight_layout()
+  nets_figure.savefig('figures/nets_' + design.getName() + '.png')
+
+  flat_primitives_series = pandas.Series(design_stats.flat_primitives)
+  primitives_plot = flat_primitives_series.plot(kind='bar',
+                  title='Number of  primitives for\n' + design.getName(),
+                  xlabel='primitive', ylabel='number of flat instances')
+  primitives_plot.set_yscale('log')
+  primitives_figure = primitives_plot.get_figure()
+  primitives_figure.tight_layout()
+  primitives_figure.savefig('figures/flat_primitives_' + design.getName() + '.png')
+
+def compute_and_dump_design_stats(design, stats_file, with_pandas=False):
   designs_stats = DesignsStats()
   compute_design_stats(design, designs_stats)
   dumped_models = set()
   dump_stats(design, stats_file, designs_stats, dumped_models)
   dump_blackboxes_stats(stats_file, designs_stats)
-  if pandas_dump:
-    dumpPandas(designs_stats)
+  if with_pandas:
+    dump_pandas(designs_stats)
 
 def dump_constants(design, analyzed_models):
   if design.isPrimitive():

@@ -10,6 +10,8 @@ project(naja
   HOMEPAGE_URL https://github.com/najaeda/naja
 )
 
+include(GNUInstallDirs)
+
 #RPATH settings
 #set(MACOSX_RPATH TRUE)
 # use, i.e. don't skip the full RPATH for the build tree
@@ -18,7 +20,7 @@ set(CMAKE_SKIP_BUILD_RPATH FALSE)
 # when building, don't use the install RPATH already
 # (but later on when installing)
 set(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
-set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
+set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_FULL_LIBDIR}")
  
 # add the automatically determined parts of the RPATH
 # which point to directories outside the build tree to the install RPATH

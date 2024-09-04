@@ -18,7 +18,8 @@ if(DOXYGEN_FOUND)
 
   # Note: do not put "ALL" - this builds docs together with application EVERY TIME!
   add_custom_target(docs DEPENDS ${DOXYGEN_INDEX_FILE})
-  install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/html DESTINATION doc OPTIONAL) 
+  install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/html
+    DESTINATION ${CMAKE_INSTALL_DOCDIR} OPTIONAL) 
 else (DOXYGEN_FOUND)
   message("Doxygen need to be installed to generate the doxygen documentation")
 endif (DOXYGEN_FOUND)

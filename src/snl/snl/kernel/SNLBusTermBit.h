@@ -36,6 +36,7 @@ class SNLBusTermBit final: public SNLBitTerm {
     std::string getString() const override;
     std::string getDescription() const override;
     void debugDump(size_t indent, bool recursive=true, std::ostream& stream=std::cerr) const override;
+    bool deepCompare(const SNLTerm* other, std::string& reason) const override;
 
     void destroy() override;
   private:
