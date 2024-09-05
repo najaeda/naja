@@ -308,17 +308,22 @@ SNLTruthTable SNLBooleanTree::getTruthTable(const Terms& terms) {
   std::vector<SNLBooleanTreeInputNode*> inputs;
   for (auto term: terms) {
     auto input = getInput(term);
-    if (input == nullptr) {
-      std::ostringstream reason;
-      reason << "Term "
-        << term->getName().getString()
-        << "' not found in the inputs of the boolean tree for primitive: "
-        << term->getDesign()->getName().getString();
-      throw std::runtime_error(reason.str());
+    //if (input == nullptr) {
+    //  std::ostringstream reason;
+    //  reason << "Term "
+    //    << term->getName().getString()
+    //    << "' not found in the inputs of the boolean tree for primitive: "
+    //    << term->getDesign()->getName().getString();
+    //  throw std::runtime_error(reason.str());
+    //}
+    if (input != nullptr) {
+      inputs.push_back(input);
     }
-    inputs.push_back(input);
   }
-  int n = terms.size();
+  if (inputs.empty()) {
+    throw std::runtime_error("No inputs found in the boolean tree");
+  }
+  int n = inputs.size();
   int rows = pow(2, n);
 
   for (auto input: inputs) {

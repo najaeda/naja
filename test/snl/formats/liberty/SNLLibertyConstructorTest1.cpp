@@ -78,3 +78,29 @@ TEST_F(SNLLibertyConstructorTest1, testBufferFunction) {
   ASSERT_NE(nullptr, z);
   EXPECT_EQ(SNLTerm::Direction::Output, z->getDirection());
 }
+
+TEST_F(SNLLibertyConstructorTest1, testBufZFunction) {
+  SNLLibertyConstructor constructor(library_);
+  std::filesystem::path testPath(
+      std::filesystem::path(SNL_LIBERTY_BENCHMARKS)
+      / std::filesystem::path("benchmarks")
+      / std::filesystem::path("tests")
+      / std::filesystem::path("bufz.lib"));
+  constructor.construct(testPath);
+  EXPECT_EQ(SNLName("bufz_test"), library_->getName());
+  EXPECT_EQ(library_->getDesigns().size(), 1);
+  auto design = library_->getDesign(SNLName("bufz"));
+  ASSERT_NE(nullptr, design);
+  EXPECT_EQ(3, design->getTerms().size());
+  EXPECT_EQ(3, design->getScalarTerms().size());
+  EXPECT_TRUE(design->getBusTerms().empty());
+  auto i = design->getScalarTerm(SNLName("I"));
+  ASSERT_NE(nullptr, i);
+  EXPECT_EQ(SNLTerm::Direction::Input, i->getDirection());
+  auto en = design->getScalarTerm(SNLName("EN"));
+  ASSERT_NE(nullptr, en);
+  EXPECT_EQ(SNLTerm::Direction::Input, en->getDirection());
+  auto z = design->getScalarTerm(SNLName("Z"));
+  ASSERT_NE(nullptr, z);
+  EXPECT_EQ(SNLTerm::Direction::Output, z->getDirection());
+}
