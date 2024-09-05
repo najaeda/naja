@@ -55,3 +55,26 @@ TEST_F(SNLLibertyConstructorTest1, testBusses) {
   EXPECT_EQ(14, rd_out->getMSB());
   EXPECT_EQ(0, rd_out->getLSB());
 }
+
+TEST_F(SNLLibertyConstructorTest1, testBufferFunction) {
+  SNLLibertyConstructor constructor(library_);
+  std::filesystem::path testPath(
+      std::filesystem::path(SNL_LIBERTY_BENCHMARKS)
+      / std::filesystem::path("benchmarks")
+      / std::filesystem::path("tests")
+      / std::filesystem::path("buffer_test.lib"));
+  constructor.construct(testPath);
+  EXPECT_EQ(SNLName("buffer_test"), library_->getName());
+  EXPECT_EQ(library_->getDesigns().size(), 1);
+  auto design = library_->getDesign(SNLName("buffer"));
+  ASSERT_NE(nullptr, design);
+  EXPECT_EQ(2, design->getTerms().size());
+  EXPECT_EQ(2, design->getScalarTerms().size());
+  EXPECT_TRUE(design->getBusTerms().empty());
+  auto i = design->getScalarTerm(SNLName("I"));
+  ASSERT_NE(nullptr, i);
+  EXPECT_EQ(SNLTerm::Direction::Input, i->getDirection());
+  auto z = design->getScalarTerm(SNLName("Z"));
+  ASSERT_NE(nullptr, z);
+  EXPECT_EQ(SNLTerm::Direction::Output, z->getDirection());
+}

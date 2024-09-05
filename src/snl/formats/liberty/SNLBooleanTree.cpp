@@ -261,7 +261,14 @@ void SNLBooleanTree::parse(const SNLDesign* primitive, const std::string& functi
     throw std::runtime_error("Parser error in function expr `" + function + "'.");  
   }
 
-  root_ = dynamic_cast<SNLBooleanTreeFunctionNode*>(stack.back().node_);
+  auto root = stack.back().node_;
+  auto inputNode = dynamic_cast<SNLBooleanTreeInputNode*>(root);
+  if (inputNode) {
+    root_ = new SNLBooleanTreeFunctionNode(SNLBooleanTreeFunctionNode::Type::BUFFER);
+    root_->addInput(inputNode);
+  } else {
+    root_ = static_cast<SNLBooleanTreeFunctionNode*>(stack.back().node_);
+  }
 }
 
 SNLBooleanTreeInputNode* SNLBooleanTree::getInput(const SNLBitTerm* inputTerm) const {
@@ -285,10 +292,18 @@ bool SNLBooleanTreeFunctionNode::getValue() const {
         throw std::runtime_error("NOT node must have exactly one input");
       }
       return not inputs_[0]->getValue();
+    case Type::BUFFER:
+      if (inputs_.size() != 1) {
+        throw std::runtime_error("BUFFER node must have exactly one input");
+      }
+      return inputs_[0]->getValue();
   }
 }
 
 SNLTruthTable SNLBooleanTree::getTruthTable(const Terms& terms) {
+  if (root_ == nullptr) {
+    throw std::runtime_error("Boolean tree not parsed");
+  }
   //translate the terms to the inputs
   std::vector<SNLBooleanTreeInputNode*> inputs;
   for (auto term: terms) {

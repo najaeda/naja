@@ -1,0 +1,12 @@
+library (buffer_test) {
+  cell (buffer) {
+    pin(I) {
+      direction : input ;  
+    }
+
+    pin(Z) {
+      direction : output ;
+      function : "I" ;
+    }
+  }
+}

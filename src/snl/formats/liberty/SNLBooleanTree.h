@@ -47,7 +47,7 @@ class SNLBooleanTreeInputNode: public SNLBooleanTreeNode {
 
 class SNLBooleanTreeFunctionNode: public SNLBooleanTreeNode {
   public:
-    enum class Type { AND, OR, XOR, NOT };
+    enum class Type { AND, OR, XOR, NOT, BUFFER };
     using Inputs = std::vector<SNLBooleanTreeNode*>;
 
     SNLBooleanTreeFunctionNode(Type type):

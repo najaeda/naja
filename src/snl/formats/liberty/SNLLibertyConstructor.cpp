@@ -113,6 +113,7 @@ void parseTerms(SNLDesign* primitive, const Yosys::LibertyAst* top, const Yosys:
   if (termFunctions.size() == 1) {
     auto function = termFunctions.begin()->second;
     auto tree = std::make_unique<naja::SNL::SNLBooleanTree>();
+    std::cerr << "Parsing function: " << function << std::endl;
     tree->parse(primitive, function);
     naja::SNL::SNLBooleanTree::Terms terms;
     for (auto term: primitive->getBitTerms()) {
@@ -128,6 +129,7 @@ void parseTerms(SNLDesign* primitive, const Yosys::LibertyAst* top, const Yosys:
 void parseCell(SNLLibrary* library, const Yosys::LibertyAst* top, const Yosys::LibertyAst* cell) {
   auto cellName = cell->args[0];
   auto primitive = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName(cellName));
+  std::cerr << "Parse cell: " << cellName << std::endl;
   parseTerms(primitive, top, cell);
 }
 
