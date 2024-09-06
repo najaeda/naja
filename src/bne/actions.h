@@ -7,6 +7,9 @@
 #include <vector>
 #include "SNLDesign.h"
 #include "SNLInstance.h"
+#include "SNLDesignTruthTable.h"
+#include "SNLTruthTable.h"
+#include "SNLLibraryTruthTables.h"
 
 using namespace naja::SNL;
 
@@ -15,6 +18,7 @@ enum ActionType
 {
     DELETE,
     DRIVE_WITH_CONSTANT,
+    REDUCTION,
     NONE
 };
 
@@ -72,5 +76,20 @@ public:
 private:
     SNLID::DesignObjectID toDelete_;
     std::vector<SNLID::DesignObjectID> context_;
+};
+
+class ReductionAction : public Action {
+public:
+    ReductionAction(const std::vector<SNLID::DesignObjectID> &context, SNLID::DesignObjectID instance,
+    const std::pair<SNLDesign*, SNLLibraryTruthTables::Indexes>& result) : Action(ActionType::REDUCTION), 
+        context_(context), instance_(instance), result_(result) {}
+    void processOnContext(SNLDesign* design) override;
+    const std::vector<SNLID::DesignObjectID>& getContext() const override { return context_; }
+    bool operator==(const ReductionAction &action) const { return instance_ == action.instance_ 
+        && result_ == action.result_; }
+private:
+    const std::vector<SNLID::DesignObjectID> context_;
+    const SNLID::DesignObjectID instance_;
+    const std::pair<SNLDesign*, SNLLibraryTruthTables::Indexes> result_;
 };
 

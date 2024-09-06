@@ -113,4 +113,30 @@ namespace naja::NAJA_OPT
     report_ = ss.str();
   }
 
+  SNLInstance *getInstanceForPath(const std::vector<SNLID::DesignObjectID> &pathToModel)
+  {
+    std::vector<SNLID::DesignObjectID> path = pathToModel;
+    SNLDesign *top = SNLUniverse::get()->getTopDesign();
+    SNLDesign *designToSet = top;
+    SNLInstance *inst = nullptr;
+#ifdef DEBUG_PRINTS
+    printf("path ");
+#endif
+    while (!path.empty())
+    {
+      SNLID::DesignObjectID name = path.front();
+      path.erase(path.begin());
+      inst = designToSet->getInstance(name);
+#ifdef DEBUG_PRINTS
+      printf("%s(%s) ", inst->getName().getString().c_str(), inst->getModel()->getName().getString().c_str());
+#endif
+      assert(inst);
+      designToSet = inst->getModel();
+    }
+#ifdef DEBUG_PRINTS
+    printf("\n");
+#endif
+    return inst;
+  }
+
 } // namespace naja::NAJA_OPT

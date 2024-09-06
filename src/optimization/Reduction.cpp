@@ -26,6 +26,7 @@ void ReductionOptimization::run() {
   for (auto& partialConstantReader : partialConstantReaders_) {
     reducPartialConstantInstance(partialConstantReader);
   }
+  bne_.process();
   report_ = collectStatistics();
   spdlog::info(report_);
   destroy();
@@ -115,9 +116,10 @@ void ReductionOptimization::reducPartialConstantInstance(
   // LCOV_EXCL_STOP
 #endif
   auto library = *(SNLUniverse::get()->getTopDesign()->getDB()->getPrimitiveLibraries().begin());
-  Uniquifier uniquifier(std::get<0>(candidate), std::get<2>(candidate));
+  /*Uniquifier uniquifier(std::get<0>(candidate), std::get<2>(candidate));
   uniquifier.process();
-  SNLInstance* uniquifiedCandidate = uniquifier.getPathUniq().back();
+  SNLInstance* uniquifiedCandidate = uniquifier.getPathUniq().back();*/
+  auto inst = getInstanceForPath(std::get<0>(candidate));
   /*if (!uniquifiedCandidate) {uniquifier.getPathUniq().back()
     std::ostringstream reason;
     auto instance = std::get<0>(candidate).back();
@@ -127,7 +129,7 @@ void ReductionOptimization::reducPartialConstantInstance(
     throw SNLException(reason.str());
   }*/
   SNLTruthTable invTruthTable =
-      SNLDesignTruthTable::getTruthTable(uniquifiedCandidate->getModel());
+      SNLDesignTruthTable::getTruthTable(inst->getModel());
   if (!invTruthTable.isInitialized()) {
 #ifdef DEBUG_PRINTS
     // LCOV_EXCL_START
@@ -140,7 +142,7 @@ void ReductionOptimization::reducPartialConstantInstance(
     return;
   }
   SNLTruthTable reducedTruthTable =
-      reduceTruthTable(uniquifiedCandidate, invTruthTable, std::get<1>(candidate));
+      reduceTruthTable(inst, invTruthTable, std::get<1>(candidate));
   if (reducedTruthTable.size() == 0) {
 #ifdef DEBUG_PRINTS
     // LCOV_EXCL_START
@@ -168,7 +170,11 @@ void ReductionOptimization::reducPartialConstantInstance(
            result.first->getName().getString().c_str());
 // LCOV_EXCL_STOP
 #endif
-    replaceInstance(uniquifiedCandidate, result);
+    auto context = std::get<0>(candidate);
+    auto instance = context.back();
+    context.pop_back(); 
+    bne_.addReductionCommand(context, instance, result);
+    //replaceInstance(uniquifiedCandidate, result);
   } else {
 #ifdef DEBUG_PRINTS
     // LCOV_EXCL_START

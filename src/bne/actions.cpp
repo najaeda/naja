@@ -223,3 +223,57 @@ void DeleteAction::processOnContext(SNLDesign *design)
   uniquifier.getPathUniq().back()->destroy();*/
   design->getInstance(toDelete_)->destroy();
 }
+
+void replaceInstance(
+    SNLInstance* instance,
+    const std::pair<SNLDesign*, SNLLibraryTruthTables::Indexes>& result) {
+  SNLDesign* design = instance->getDesign();
+  SNLDesign* reducedDesign = result.first;
+  SNLInstance* reducedInstance = SNLInstance::create(
+      design, reducedDesign,
+      SNLName(std::string(instance->getName().getString()) + "_reduced"));
+  std::vector<SNLInstTerm*> reducedInstTerms;
+  SNLInstTerm* output = nullptr;
+  SNLInstTerm* reducedOutput = nullptr;
+  for (auto term : reducedInstance->getInstTerms()) {
+    if (term->getDirection() != SNLInstTerm::Direction::Input) {
+      reducedOutput = term;
+      continue;
+    }
+    reducedInstTerms.push_back(term);
+  }
+  size_t index = 0;
+  size_t originNonConstantIndex = 0;
+  for (auto term : instance->getInstTerms()) {
+    if (term->getDirection() != SNLInstTerm::Direction::Input) {
+      output = term;
+      break;
+    }
+  }
+  for (auto term : instance->getInstTerms()) {
+    SNLBitNet* bitNet = term->getNet();
+    term->setNet(nullptr);
+    if (bitNet->isConstant() || reducedInstTerms.empty()) {
+      continue;
+    }
+    originNonConstantIndex++;
+    if (std::find(result.second.begin(), result.second.end(),
+                  originNonConstantIndex) != result.second.end()) {
+      continue;
+    }
+    reducedInstTerms[index]->setNet(bitNet);
+    index++;
+    if (index == reducedInstTerms.size()) {
+      break;
+    }
+  }
+  reducedOutput->setNet(output->getNet());
+  output->setNet(nullptr);
+  instance->destroy();
+}
+
+void ReductionAction::processOnContext(SNLDesign* design) {
+  auto instance = design->getInstance(instance_);
+  replaceInstance(instance, result_);
+}
+

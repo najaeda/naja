@@ -3,6 +3,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#pragma once
+
 #include <map>
 #include <tuple>
 #include "actions.h"
@@ -12,8 +14,13 @@
 #include <algorithm>
 #include <queue>
 #include "Utils.h"
+//truth table
+#include "SNLDesignTruthTable.h"
+#include "SNLTruthTable.h"
+#include "SNLLibraryTruthTables.h"
 
 using namespace naja::SNL;
+using namespace naja::NAJA_OPT;
 
 namespace naja::SNL
 {
@@ -97,26 +104,6 @@ public:
         }
         return &nodes_[id];
     }
-    SNLInstance *getInstanceForPath(const std::vector<SNLID::DesignObjectID> &pathToModel)
-    {
-        std::vector<SNLID::DesignObjectID> path = pathToModel;
-        SNLDesign *top = SNLUniverse::get()->getTopDesign();
-        SNLDesign *designToSet = top;
-        SNLInstance *inst = nullptr;
-        printf("path ");
-        while (!path.empty())
-        {
-            SNLID::DesignObjectID name = path.front();
-            
-            path.erase(path.begin());
-            inst = designToSet->getInstance(name);
-            printf("%s(%s) ", inst->getName().getString().c_str(), inst->getModel()->getName().getString().c_str());
-            assert(inst);
-            designToSet = inst->getModel();
-        }
-        printf("\n");
-        return inst;
-    }
     ActionTreeNode& addHierChild(const std::vector<SNLID::DesignObjectID> &context)
     {
         size_t id = nodes_[0].getID();
@@ -158,6 +145,19 @@ public:
         actions.push_back(actions_.back());
         //Add action to node
         getNodeForContext(driveWithConstantActions_.back().getContext())->addActions(actions);
+    }
+    void addReductionCommand(const std::vector<SNLID::DesignObjectID> &context, SNLID::DesignObjectID instance,
+    const std::pair<SNLDesign*, SNLLibraryTruthTables::Indexes>& result)
+    {
+        reductionActions_.push_back(ReductionAction(context, instance, result));
+        actions_.push_back({ActionType::REDUCTION, reductionActions_.size() - 1});
+        if (reductionActions_.back().getContext().size() > 0) {
+            addHierChild(reductionActions_.back().getContext());
+        }
+        std::vector<ActionID> actions;
+        actions.push_back(actions_.back());
+        //Add action to node
+        getNodeForContext(reductionActions_.back().getContext())->addActions(actions);
     }
     void normalize() {
         //Collect in dfs manner all the tree nodes into a map with key of snlid
@@ -202,6 +202,9 @@ public:
                         foundNormalization = true;
                     }
                 }
+                if (nodesToMerge.size() > 1) {
+                    printf("Merging nodes %lu nodes\n", nodesToMerge.size());
+                }
                 for (auto node : nodesToMerge) {
                     if (node == currentNode) {
                         continue;
@@ -232,7 +235,7 @@ public:
         queue.push(&nodes_[0]);
         while (!queue.empty())
         {
-            printf("--------------------------------new node------------------------------------\n");
+            //printf("--------------------------------new node------------------------------------\n");
             ActionTreeNode *currentNode = queue.front();
             queue.pop();
             bool allChildrenProcessed = true;
@@ -251,7 +254,7 @@ public:
                 continue;
             }
             currentNode->markAsProcessed();
-            if (!currentNode->getActions().empty() && !currentNode->getContext().empty()) {
+            if (/*!currentNode->getActions().empty() &&*/ !currentNode->getContext().empty()) {
                 SNLDesign *top = SNLUniverse::get()->getTopDesign();
                 SNLDesign *design = top;
                 std::vector<SNLID::DesignObjectID> path = currentNode->getContext();
@@ -275,7 +278,7 @@ public:
             }
             for (auto &action : currentNode->getActions())
             {
-                printf("--------------------------------processing actions------------------------------------\n");
+                //printf("--------------------------------processing actions------------------------------------\n");
                 switch (action.type)
                 {
                 case ActionType::DELETE:
@@ -298,6 +301,16 @@ public:
                     }
                     break;
                 }
+                case ActionType::REDUCTION:
+                {
+                    ReductionAction &reductionAction = reductionActions_[action.order];
+                    if (reductionAction.getContext().empty()) {
+                        reductionAction.processOnContext(SNLUniverse::get()->getTopDesign());
+                    } else {
+                        reductionAction.processOnContext(getInstanceForPath(reductionAction.getContext())->getModel());
+                    }
+                    break;
+                }
                 default:
                     break;
                 }
@@ -311,7 +324,7 @@ public:
             {
                 std::vector<SNLID::DesignObjectID> context = nodes_[parent.first].getContext();
                 context.push_back((unsigned) parent.second);
-                printf("--------------------------------setting parent------------------------------------\n");
+                //printf("--------------------------------setting parent------------------------------------\n");
                 getInstanceForPath(context)->setModel(getInstanceForPath(currentNode->getContext())->getModel());
             }
         }
@@ -320,57 +333,13 @@ public:
     const std::vector<DeleteAction>& getDeleteActions() const { return deleteActions_; }
     //Get drive with constant actions
     const std::vector<DriveWithConstantAction>& getDriveWithConstantActions() const { return driveWithConstantActions_; }
+    //Get reduction actions
+    const std::vector<ReductionAction>& getReductionActions() const { return reductionActions_; }
 private:
     std::vector<ActionTreeNode> nodes_;
     std::vector<ActionID> actions_;
     std::vector<DeleteAction> deleteActions_;
     std::vector<DriveWithConstantAction> driveWithConstantActions_;
+    std::vector<ReductionAction> reductionActions_;
     bool blockNormalization_ = false;
-};
-
-class BNE
-{
-public:
-    struct ActionsforPath
-    {
-        std::vector<ActionID> actions;
-        std::vector<SNLID::DesignObjectID> path;
-    };
-    struct NormalizedAction
-    {
-        std::vector<ActionID> actions;
-        std::vector<std::vector<SNLID::DesignObjectID>> paths;
-        SNLDesign *newDesign;
-    };
-    BNE() {}
-    void addDeleteAction(const std::vector<SNLID::DesignObjectID> &pathToDelete);
-    void addDriveWithConstantAction(const std::vector<SNLID::DesignObjectID> &context,
-                                    const SNLID::DesignObjectID &pathToDrive, const SNLID::DesignObjectID &termToDrive, const double &value, SNLBitTerm *topTermToDrive = nullptr);
-    // Delete copy constructor and assignment operator
-    BNE(const BNE &) = delete;
-    BNE &operator=(const BNE &) = delete;
-    void process();
-    static SNLInstance *getInstanceForPath(const std::vector<SNLID::DesignObjectID> &pathToModel);
-
-private:
-    void compressPerPath();
-    void normalizeActions();
-    void processNormalizedActions();
-    
-    bool compareActionsVectorsUnderSameContext(const std::vector<ActionID> &lhs, const std::vector<ActionID> &rhs);
-
-    std::vector<ActionID> actions_;
-    std::vector<DeleteAction> deleteActions_;
-    std::vector<DriveWithConstantAction> driveWithConstantActions_;
-    std::map<std::tuple<SNLID::DesignObjectID,
-                        SNLID::DesignObjectID,
-                        SNLID::DesignObjectID>,
-             std::vector<ActionsforPath>>
-        Doid2ActionsPerPath_;
-    std::map<std::tuple<SNLID::DesignObjectID,
-                        SNLID::DesignObjectID,
-                        SNLID::DesignObjectID>,
-             std::vector<NormalizedAction>>
-        Doid2normalizedAction_;
-    bool blockNormalization_ = true;
 };

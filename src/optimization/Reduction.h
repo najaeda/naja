@@ -8,7 +8,7 @@
 #include "DNL.h"
 #include "SNLTruthTable.h"
 #include "SNLLibraryTruthTables.h"
-
+#include "bne.h"
 using namespace naja::DNL;
 using namespace naja::SNL;
 
@@ -34,4 +34,5 @@ class ReductionOptimization {
       partialConstantReaders_;
   std::map<std::pair<std::string, std::string>, size_t> reductionStatistics_;
   std::string report_;
+  ActionTree bne_;
 };

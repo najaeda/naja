@@ -40,4 +40,6 @@ class NetlistStatistics {
   std::string report_;
 };
 
+SNLInstance *getInstanceForPath(const std::vector<SNLID::DesignObjectID> &pathToModel);
+
 }  // namespace naja::NAJA_OPT
