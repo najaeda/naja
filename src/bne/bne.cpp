@@ -110,3 +110,23 @@ bool ActionTreeNode::operator==(const ActionTreeNode &rhs) const
     }
     return instance_ == rhs.instance_ && snlid_ == rhs.snlid_;
 }
+
+void ActionTreeNode::sortActions() { //sort actions with custom comparator that compare the actuall actions by accising th tree
+        std::sort(actions_.begin(), actions_.end(), [this](const ActionID &lhs, const ActionID &rhs) {
+            if (lhs.type != rhs.type)
+            {
+                return lhs.type < rhs.type;
+            }
+            switch (lhs.type)
+            {
+            case ActionType::DELETE:
+                return tree_->getDeleteActions()[lhs.order] < tree_->getDeleteActions()[rhs.order];
+            case ActionType::DRIVE_WITH_CONSTANT:
+                return tree_->getDriveWithConstantActions()[lhs.order] < tree_->getDriveWithConstantActions()[rhs.order];
+            case ActionType::REDUCTION:
+                return tree_->getReductionActions()[lhs.order] < tree_->getReductionActions()[rhs.order];
+            default:
+                return false;
+            }
+        });
+    }

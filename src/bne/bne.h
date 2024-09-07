@@ -72,6 +72,7 @@ public:
     std::vector<SNLID::DesignObjectID> getContext() const;
     bool isProcessed() const { return processed_; }
     void markAsProcessed() { processed_ = true; }
+    void sortActions();
 private:
     std::vector<ActionID> actions_;
     SNLID::DesignObjectID instance_;
@@ -160,6 +161,13 @@ public:
         getNodeForContext(reductionActions_.back().getContext())->addActions(actions);
     }
     void normalize() {
+        //Sort actions on all nodes
+        if (!keepOrder_) {
+            for (auto &node : nodes_)
+            {
+                node.sortActions();
+            }
+        }
         //Collect in dfs manner all the tree nodes into a map with key of snlid
         std::map<SNLID, std::vector<ActionTreeNode*>> snlid2Node;
         std::vector<ActionTreeNode*> queue;
@@ -204,6 +212,16 @@ public:
                 }
                 if (nodesToMerge.size() > 1) {
                     printf("Merging nodes %lu nodes\n", nodesToMerge.size());
+                    for (auto node : nodesToMerge) {
+                        auto design = SNLUniverse::get()->getTopDesign();
+                        //Print the context names
+                        for (auto &instance : node->getContext())
+                        {
+                            printf("%s ", design->getInstance(instance)->getName().getString().c_str());
+                            design = design->getInstance(instance)->getModel();
+                        }
+                        printf("\n");
+                    }
                 }
                 for (auto node : nodesToMerge) {
                     if (node == currentNode) {
@@ -219,6 +237,29 @@ public:
                 == (getInstanceForPath(currentNode->getContext()))->getModel());
                     currentNode->addParent(node->getParents()[0]);
                     nodes_[node->getID()].eraseParent(node->getParents()[0]);
+                }
+            }
+        }
+        bool foundOrphanes = true;
+        while (foundOrphanes) {
+            //Delete all orphanes nodes and detach them from their children
+            foundOrphanes = false;
+            for (auto& node : nodes_)
+            {
+                if (node.getParents().size() == 0 && node.getChildren().size() > 0)
+                {
+                    foundOrphanes = true;
+                    for (auto child : node.getChildren())
+                    {
+                        for (auto parent : nodes_[child].getParents())
+                        {
+                            if (parent.first == node.getID())
+                            {
+                                nodes_[child].eraseParent(parent);
+                            }
+                        }
+                        node.eraseChild(child);
+                    }
                 }
             }
         }
@@ -254,8 +295,9 @@ public:
                 continue;
             }
             currentNode->markAsProcessed();
-            if (/*!currentNode->getActions().empty() &&*/ !currentNode->getContext().empty()) {
-                SNLDesign *top = SNLUniverse::get()->getTopDesign();
+            if (/*!currentNode->getActions().empty() &&*/ currentNode->getParents()[0].first != (size_t) -1
+                /*&& !nodes_[currentNode->getParents()[0].first].getContext().empty()*/) {
+                SNLDesign *top = SNLUniverse::get()->getTopDesign(); 
                 SNLDesign *design = top;
                 std::vector<SNLID::DesignObjectID> path = currentNode->getContext();
                 // path.pop_back();
@@ -342,4 +384,5 @@ private:
     std::vector<DriveWithConstantAction> driveWithConstantActions_;
     std::vector<ReductionAction> reductionActions_;
     bool blockNormalization_ = false;
+    bool keepOrder_ = false;
 };

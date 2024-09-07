@@ -54,6 +54,43 @@ public:
     //comparator
     bool operator==(const DriveWithConstantAction &action) const { return pathToDrive_ == action.pathToDrive_ && 
         termToDrive_ == action.termToDrive_; }
+    bool operator<(const DriveWithConstantAction &action) const {
+        if (topTermToDrive_ != nullptr)
+        {
+            if (topTermToDrive_ < action.topTermToDrive_)
+            {
+                return true;
+            }
+            else if (topTermToDrive_ == action.topTermToDrive_)
+            {
+                if (value_ < action.value_)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+        if (pathToDrive_ < action.pathToDrive_)
+        {
+            return true;
+        }
+        else if (pathToDrive_ == action.pathToDrive_)
+        {
+            if (termToDrive_ < action.termToDrive_)
+            {
+                return true;
+            }
+            else if (termToDrive_ == action.termToDrive_)
+            {
+                if (value_ < action.value_)
+                {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
 private:
     SNLID::DesignObjectID pathToDrive_;
     SNLID::DesignObjectID termToDrive_;
@@ -73,6 +110,7 @@ public:
     DeleteAction(const DeleteAction &action) : Action(ActionType::DELETE), toDelete_(action.toDelete_), context_(action.context_) {}
     //comparator
     bool operator==(const DeleteAction &action) const { return toDelete_ == action.toDelete_; }
+    bool operator<(const DeleteAction &action) const { return toDelete_ < action.toDelete_; }
 private:
     SNLID::DesignObjectID toDelete_;
     std::vector<SNLID::DesignObjectID> context_;
@@ -87,6 +125,21 @@ public:
     const std::vector<SNLID::DesignObjectID>& getContext() const override { return context_; }
     bool operator==(const ReductionAction &action) const { return instance_ == action.instance_ 
         && result_ == action.result_; }
+    bool operator<(const ReductionAction &action) const
+    {
+        if (instance_ < action.instance_)
+        {
+            return true;
+        }
+        else if (instance_ == action.instance_)
+        {
+            if (result_ < action.result_) {
+                return true;
+            }
+        }
+        return false;
+    }
+
 private:
     const std::vector<SNLID::DesignObjectID> context_;
     const SNLID::DesignObjectID instance_;
