@@ -34,5 +34,5 @@ class ReductionOptimization {
       partialConstantReaders_;
   std::map<std::pair<std::string, std::string>, size_t> reductionStatistics_;
   std::string report_;
-  ActionTree bne_;
+  BNE bne_;
 };

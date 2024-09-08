@@ -1039,7 +1039,7 @@ void ConstantPropagation::propagateConstants() {
                    std::vector<std::pair<SNLID::DesignObjectID, int>>, DNLID>(
             path, instTerms, inst.getID()));
   }
-  ActionTree bne;
+  BNE bne;
   for (auto& path : constant0Readers_) {
     auto context = std::get<0>(path);
     context.pop_back();
