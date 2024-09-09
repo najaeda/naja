@@ -95,6 +95,7 @@ void ActionTree::normalize() {
     }
   }
   for (auto& it : snlid2Node) {
+    printf("it.second.size() %lu\n", it.second.size());
     auto nodes = it.second;
     // If top, continue
     if (nodes[0]->getParents()[0].first == (size_t)-1) {
@@ -108,12 +109,13 @@ void ActionTree::normalize() {
       nodesToMerge.push_back(currentNode);
       nodes.pop_back();
       for (auto node : nodes) {
+        printf("comparing\n");
         if (*currentNode == *node) {
           nodesToMerge.push_back(node);
           foundNormalization = true;
         }
       }
-      if (nodesToMerge.size() > 1) {
+      /*if (nodesToMerge.size() > 1) {
         //printf("Merging nodes %lu nodes\n", nodesToMerge.size());
         for (auto node : nodesToMerge) {
           auto design = SNLUniverse::get()->getTopDesign();
@@ -126,7 +128,7 @@ void ActionTree::normalize() {
           }
           //printf("\n");
         }
-      }
+      }*/
       for (auto node : nodesToMerge) {
         if (node == currentNode) {
           continue;
@@ -163,6 +165,7 @@ void ActionTree::normalize() {
     }
   }
 }
+
 void ActionTree::process() {
   // printf("Processing actions\n");
   if (!blockNormalization_) {
@@ -310,7 +313,8 @@ bool ActionTreeNode::operator==(const ActionTreeNode& rhs) const {
   } else {
     return false;
   }
-  return instance_ == rhs.instance_ && snlid_ == rhs.snlid_;
+  //instance_ is not comapred as we are interested in the node model and actions, the actual context will always be different
+  return snlid_ == rhs.snlid_;
 }
 
 void ActionTreeNode::sortActions() {  // sort actions with custom comparator
