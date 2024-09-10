@@ -1,0 +1,17 @@
+library (gate0_test) {
+  cell (gate0) {
+    pin(A) {
+      direction : input ;  
+    }
+    pin(B1) {
+      direction : input ;  
+    }
+    pin(B2) {
+      direction : input ;  
+    }
+    pin(Z) {
+      direction : output ;
+      function : "!(A | (B1 & B2))" ;
+    }
+  }
+}

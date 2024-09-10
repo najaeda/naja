@@ -185,8 +185,16 @@ SNLBooleanTreeInputNode* SNLBooleanTree::parseInput(
       throw std::runtime_error("Expected identifier at `" + function.substr(pos) + "'.");
     }
 
- //  if (id_len == 1 && (*expr == '0' || *expr == '1'))
- //   return *(expr++) == '0' ? RTLIL::State::S0 : RTLIL::State::S1;
+    if (idLen == 1) {
+      if (function[pos] == '0') {
+        pos += idLen;
+        return new SNLBooleanTreeInputNode(SNLBooleanTreeInputNode::Type::CONSTANT0);
+      }
+      if (function[pos] == '1') {
+        pos += idLen;
+        return new SNLBooleanTreeInputNode(SNLBooleanTreeInputNode::Type::CONSTANT1);
+      }
+    }
 
     auto inputName = function.substr(pos, idLen);
     SNLBitTerm* input = nullptr;
@@ -319,9 +327,6 @@ SNLTruthTable SNLBooleanTree::getTruthTable(const Terms& terms) {
     if (input != nullptr) {
       inputs.push_back(input);
     }
-  }
-  if (inputs.empty()) {
-    throw std::runtime_error("No inputs found in the boolean tree");
   }
   int n = inputs.size();
   int rows = pow(2, n);

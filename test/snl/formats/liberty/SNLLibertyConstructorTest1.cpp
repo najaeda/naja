@@ -203,6 +203,82 @@ TEST_F(SNLLibertyConstructorTest1, testXor2Function) {
   EXPECT_EQ(0b0110, tt.bits());
 }
 
+TEST_F(SNLLibertyConstructorTest1, testGate0Function) {
+  //function: "!(A | (B1 & B2))";
+  //order 0: A 1: B1 2: B2
+  //Expected Truth Table: tt(3, 0x15);
+
+  SNLLibertyConstructor constructor(library_);
+  std::filesystem::path testPath(
+      std::filesystem::path(SNL_LIBERTY_BENCHMARKS)
+      / std::filesystem::path("benchmarks")
+      / std::filesystem::path("tests")
+      / std::filesystem::path("gate0_test.lib"));
+  constructor.construct(testPath);
+  EXPECT_EQ(SNLName("gate0_test"), library_->getName());
+  EXPECT_EQ(library_->getDesigns().size(), 1);
+  auto design = library_->getDesign(SNLName("gate0"));
+  ASSERT_NE(nullptr, design);
+  EXPECT_EQ(4, design->getTerms().size());
+  EXPECT_EQ(4, design->getScalarTerms().size());
+  EXPECT_TRUE(design->getBusTerms().empty());
+  auto a = design->getScalarTerm(SNLName("A"));
+  ASSERT_NE(nullptr, a);
+  EXPECT_EQ(SNLTerm::Direction::Input, a->getDirection());
+  auto b1 = design->getScalarTerm(SNLName("B1"));
+  ASSERT_NE(nullptr, b1);
+  EXPECT_EQ(SNLTerm::Direction::Input, b1->getDirection());
+  auto b2 = design->getScalarTerm(SNLName("B2"));
+  ASSERT_NE(nullptr, b2);
+  EXPECT_EQ(SNLTerm::Direction::Input, b2->getDirection());
+  auto z = design->getScalarTerm(SNLName("Z"));
+  ASSERT_NE(nullptr, z);
+  EXPECT_EQ(SNLTerm::Direction::Output, z->getDirection());
+  auto tt = SNLDesignTruthTable::getTruthTable(design);
+  EXPECT_TRUE(tt.isInitialized());
+  EXPECT_EQ(3, tt.size());
+  EXPECT_EQ(0x15, tt.bits());
+}
+
+TEST_F(SNLLibertyConstructorTest1, testLogic01Function) {
+  SNLLibertyConstructor constructor(library_);
+  std::filesystem::path testPath(
+      std::filesystem::path(SNL_LIBERTY_BENCHMARKS)
+      / std::filesystem::path("benchmarks")
+      / std::filesystem::path("tests")
+      / std::filesystem::path("logic01_test.lib"));
+  constructor.construct(testPath);
+  EXPECT_EQ(SNLName("logic01_test"), library_->getName());
+  EXPECT_EQ(library_->getDesigns().size(), 2);
+  auto logic0 = library_->getDesign(SNLName("logic0"));
+  ASSERT_NE(nullptr, logic0);
+  EXPECT_EQ(1, logic0->getTerms().size());
+  EXPECT_EQ(1, logic0->getScalarTerms().size());
+  EXPECT_TRUE(logic0->getBusTerms().empty());
+  auto z = logic0->getScalarTerm(SNLName("Z"));
+  ASSERT_NE(nullptr, z);
+  EXPECT_EQ(SNLTerm::Direction::Output, z->getDirection());
+  auto tt = SNLDesignTruthTable::getTruthTable(logic0);
+  EXPECT_TRUE(tt.isInitialized());
+  EXPECT_EQ(0, tt.size());
+  EXPECT_EQ(0b0, tt.bits());
+  EXPECT_TRUE(SNLDesignTruthTable::isConst0(logic0));
+
+  auto logic1 = library_->getDesign(SNLName("logic1"));
+  ASSERT_NE(nullptr, logic1);
+  EXPECT_EQ(1, logic1->getTerms().size());
+  EXPECT_EQ(1, logic1->getScalarTerms().size());
+  EXPECT_TRUE(logic1->getBusTerms().empty());
+  z = logic1->getScalarTerm(SNLName("Z"));
+  ASSERT_NE(nullptr, z);
+  EXPECT_EQ(SNLTerm::Direction::Output, z->getDirection());
+  tt = SNLDesignTruthTable::getTruthTable(logic1);
+  EXPECT_TRUE(tt.isInitialized());
+  EXPECT_EQ(0, tt.size());
+  EXPECT_EQ(0b1, tt.bits());
+  EXPECT_TRUE(SNLDesignTruthTable::isConst1(logic1));
+}
+
 TEST_F(SNLLibertyConstructorTest1, testBufZFunction) {
   SNLLibertyConstructor constructor(library_);
   std::filesystem::path testPath(

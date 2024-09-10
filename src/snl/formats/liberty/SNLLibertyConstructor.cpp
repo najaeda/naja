@@ -121,6 +121,7 @@ void parseTerms(SNLDesign* primitive, const Yosys::LibertyAst* top, const Yosys:
         terms.push_back(term);
       }
     }
+    std::reverse(terms.begin(), terms.end());
     auto truthTable = tree->getTruthTable(terms);
     naja::SNL::SNLDesignTruthTable::setTruthTable(primitive, truthTable);
   }

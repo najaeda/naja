@@ -26,14 +26,28 @@ class SNLBooleanTreeNode {
 
 class SNLBooleanTreeInputNode: public SNLBooleanTreeNode {
   public:
+    enum class Type { INPUT, CONSTANT0, CONSTANT1 };
     SNLBooleanTreeInputNode(const SNLBitTerm* input):
+      type_(Type::INPUT),
       term_(input)
+    {}
+
+    SNLBooleanTreeInputNode(Type type):
+      type_(type),
+      term_(nullptr)
     {}
 
     void setValue(bool value) { value_ = value; }
 
     bool getValue() const override {
-      return value_;
+      switch (type_) {
+        case Type::INPUT:
+          return value_;
+        case Type::CONSTANT0:
+          return false;
+        case Type::CONSTANT1:
+          return true;
+      }
     }
 
     const SNLBitTerm* getTerm() const {
@@ -41,6 +55,7 @@ class SNLBooleanTreeInputNode: public SNLBooleanTreeNode {
     }
 
   private:
+    Type              type_     {Type::INPUT};
     const SNLBitTerm* term_     {nullptr};
     bool              value_    {false};
 };
