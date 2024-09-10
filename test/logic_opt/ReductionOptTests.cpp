@@ -13,7 +13,6 @@ using ::testing::ElementsAre;
 #include "SNLPyLoader.h"
 #include "SNLScalarTerm.h"
 #include "SNLUniverse.h"
-using namespace naja::SNL;
 #include "Utils.h"
 #include "ConstantPropagation.h"
 #include "DNL.h"
@@ -254,46 +253,88 @@ TEST_F(ReductionOptTests, testTruthTablesMap) {
         SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out2"));
     auto topOut3 =
         SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out3"));
+    auto topOut4 =
+        SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out4"));
+    auto topOut5 =
+        SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out5"));
+    auto topOut6 =
+        SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out6"));
     auto topIn =
         SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("in"));
+    SNLDesign* mod = SNLDesign::create(library, SNLName("mod"));
+    auto modOut =
+        SNLScalarTerm::create(mod, SNLTerm::Direction::Output, SNLName("out"));
+    auto modOut2 =
+        SNLScalarTerm::create(mod, SNLTerm::Direction::Output, SNLName("out2"));
+    auto modOut3 =
+        SNLScalarTerm::create(mod, SNLTerm::Direction::Output, SNLName("out3"));
+    auto modIn =
+        SNLScalarTerm::create(mod, SNLTerm::Direction::Output, SNLName("in"));
     // 8. create a mux instance in top
-    SNLInstance* muxInst = SNLInstance::create(top, mux2, SNLName("mux"));
-    SNLInstance* muxInst2 = SNLInstance::create(top, mux2, SNLName("mux2"));
-    SNLInstance* muxInst3 = SNLInstance::create(top, mux2, SNLName("mux3"));
+    SNLInstance* modInst = SNLInstance::create(top, mod, SNLName("mod"));
+    SNLInstance* modInst2 = SNLInstance::create(top, mod, SNLName("mod2"));
+    SNLInstance* muxInst = SNLInstance::create(mod, mux2, SNLName("mux"));
+    SNLInstance* muxInst2 = SNLInstance::create(mod, mux2, SNLName("mux2"));
+    SNLInstance* muxInst3 = SNLInstance::create(mod, mux2, SNLName("mux3"));
     SNLInstance* logic0Inst =
-        SNLInstance::create(top, logic0, SNLName("logic0"));
+        SNLInstance::create(mod, logic0, SNLName("logic0"));
     SNLInstance* logic1Inst =
-        SNLInstance::create(top, logic1, SNLName("logic1"));
+        SNLInstance::create(mod, logic1, SNLName("logic1"));
     // 9. connect all instances inputs
     // SNLNet* net1 = SNLScalarNet::create(top, SNLName("logic_0_net"));
-    SNLNet* net2 = SNLScalarNet::create(top, SNLName("constant_0_net"));
+    //SNLNet* net2 = SNLScalarNet::create(mod, SNLName("constant_0_net"));
     SNLNet* net3 = SNLScalarNet::create(top, SNLName("mux_output_net"));
     SNLNet* net4 = SNLScalarNet::create(top, SNLName("input_net"));
     SNLNet* net5 = SNLScalarNet::create(top, SNLName("constant_1_net"));
     SNLNet* net6 = SNLScalarNet::create(top, SNLName("mux_output_net2"));
     SNLNet* net7 = SNLScalarNet::create(top, SNLName("mux_output_net3"));
+    SNLNet* net8 = SNLScalarNet::create(top, SNLName("constant_1_net4"));
+    SNLNet* net9 = SNLScalarNet::create(top, SNLName("mux_output_net5"));
+    SNLNet* net10 = SNLScalarNet::create(top, SNLName("mux_output_net6"));
+    SNLNet* net2mod = SNLScalarNet::create(mod, SNLName("constant_0_net"));
+    SNLNet* net3mod = SNLScalarNet::create(mod, SNLName("mux_output_net"));
+    SNLNet* net4mod = SNLScalarNet::create(mod, SNLName("input_net"));
+    SNLNet* net5mod = SNLScalarNet::create(mod, SNLName("constant_1_net"));
+    SNLNet* net6mod = SNLScalarNet::create(mod, SNLName("mux_output_net2"));
+    SNLNet* net7mod = SNLScalarNet::create(mod, SNLName("mux_output_net3"));
     topIn->setNet(net4);
+    modIn->setNet(net6mod);
+    modInst->getInstTerm(modIn)->setNet(net4);
+    modInst2->getInstTerm(modIn)->setNet(net4);
     // connect logic0 to mux
-    muxInst->getInstTerm(mux2->getScalarTerm(SNLName("A")))->setNet(net2);
+    muxInst->getInstTerm(mux2->getScalarTerm(SNLName("A")))->setNet(net2mod);
     // connect logic1 to mux
     // net2->setType(naja::SNL::SNLNet::Type::Assign1);
-    (*logic0Inst->getInstTerms().begin())->setNet(net2);
-    (*logic1Inst->getInstTerms().begin())->setNet(net5);
-    muxInst->getInstTerm(mux2->getScalarTerm(SNLName("B")))->setNet(net4);
-    muxInst->getInstTerm(mux2->getScalarTerm(SNLName("S")))->setNet(net2);
+    (*logic0Inst->getInstTerms().begin())->setNet(net2mod);
+    (*logic1Inst->getInstTerms().begin())->setNet(net5mod);
+    muxInst->getInstTerm(mux2->getScalarTerm(SNLName("B")))->setNet(net4mod);
+    muxInst->getInstTerm(mux2->getScalarTerm(SNLName("S")))->setNet(net2mod);
     // connect the mux instance output to the top output
-    muxInst->getInstTerm(mux2->getScalarTerm(SNLName("Z")))->setNet(net3);
+    muxInst->getInstTerm(mux2->getScalarTerm(SNLName("Z")))->setNet(net3mod);
     topOut->setNet(net3);
-    muxInst2->getInstTerm(mux2->getScalarTerm(SNLName("A")))->setNet(net2);
-    muxInst2->getInstTerm(mux2->getScalarTerm(SNLName("B")))->setNet(net5);
-    muxInst2->getInstTerm(mux2->getScalarTerm(SNLName("S")))->setNet(net5);
-    muxInst2->getInstTerm(mux2->getScalarTerm(SNLName("Z")))->setNet(net6);
+    modOut->setNet(net3mod);
+    modInst->getInstTerm(modOut)->setNet(net3);
+    topOut4->setNet(net8);
+    modInst2->getInstTerm(modOut)->setNet(net8);
+    muxInst2->getInstTerm(mux2->getScalarTerm(SNLName("A")))->setNet(net2mod);
+    muxInst2->getInstTerm(mux2->getScalarTerm(SNLName("B")))->setNet(net5mod);
+    muxInst2->getInstTerm(mux2->getScalarTerm(SNLName("S")))->setNet(net5mod);
+    muxInst2->getInstTerm(mux2->getScalarTerm(SNLName("Z")))->setNet(net6mod);
     topOut2->setNet(net6);
-    muxInst3->getInstTerm(mux2->getScalarTerm(SNLName("A")))->setNet(net4);
-    muxInst3->getInstTerm(mux2->getScalarTerm(SNLName("B")))->setNet(net4);
-    muxInst3->getInstTerm(mux2->getScalarTerm(SNLName("S")))->setNet(net5);
-    muxInst3->getInstTerm(mux2->getScalarTerm(SNLName("Z")))->setNet(net7);
+    modOut2->setNet(net6mod);
+    modInst->getInstTerm(modOut2)->setNet(net6);
+    topOut5->setNet(net9);
+    modInst2->getInstTerm(modOut2)->setNet(net9);
+    modInst2->getInstTerm(modOut)->setNet(net9);
+    muxInst3->getInstTerm(mux2->getScalarTerm(SNLName("A")))->setNet(net4mod);
+    muxInst3->getInstTerm(mux2->getScalarTerm(SNLName("B")))->setNet(net4mod);
+    muxInst3->getInstTerm(mux2->getScalarTerm(SNLName("S")))->setNet(net5mod);
+    muxInst3->getInstTerm(mux2->getScalarTerm(SNLName("Z")))->setNet(net7mod);
     topOut3->setNet(net7);
+    modOut3->setNet(net7mod);
+    modInst->getInstTerm(modOut3)->setNet(net7);
+    topOut3->setNet(net10);
+    modInst2->getInstTerm(modOut3)->setNet(net10);
     ConstantPropagation cp;
     cp.setTruthTableEngine(true);
     cp.run();

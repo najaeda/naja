@@ -327,7 +327,9 @@ TEST_F(LoadlessRemoveLogicTests, simple_2_loadless_2_levels) {
                                           SNLName("in"));
   
   SNLInstance* bb3 =
-      SNLInstance::create(hierNoOutput, bb, SNLName("bb"));
+      SNLInstance::create(hierNoOutput, bb, SNLName("bb1"));
+  SNLInstance* bb4 =
+      SNLInstance::create(hierNoOutput, bb, SNLName("bb2"));
   
   auto inNet1 = SNLScalarNet::create(mod, SNLName("inNet1"));
   bb1->getInstTerm(inTermBB)->setNet(inNet1);
@@ -335,6 +337,7 @@ TEST_F(LoadlessRemoveLogicTests, simple_2_loadless_2_levels) {
   inTerm->setNet(inNet1);
   auto inNetHier = SNLScalarNet::create(hierNoOutput, SNLName("inNetHier"));
   bb3->getInstTerm(inTermBB)->setNet(inNetHier);
+  bb4->getInstTerm(inTermBB)->setNet(inNetHier);
   inTermHIno->setNet(inNetHier);
   SNLInstance* hi1 = SNLInstance::create(mod, hierNoOutput, SNLName("hi1"));
   SNLInstance* hi2 = SNLInstance::create(mod, hierNoOutput, SNLName("hi2"));
@@ -350,7 +353,7 @@ TEST_F(LoadlessRemoveLogicTests, simple_2_loadless_2_levels) {
   // std::set<SNLBitNet*> loadlessNets = lnr.getLoadlessNets(*dnl, tracedIsos);
   // EXPECT_EQ(loadlessNets.size(), 1);
   auto loadlessInstances = remover.getLoadlessInstances(*dnl, tracedIsos);
-  EXPECT_EQ(loadlessInstances.size(), 3);
+  EXPECT_EQ(loadlessInstances.size(), 5);
   destroy();
   remover.process();
   // Check that the loadless logic is removed
