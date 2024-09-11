@@ -39,8 +39,6 @@ class ConstantPropagation {
   //void computOuputValuesforHalfAdder(DNLID instanceID);
   void performConstantPropagationAnalysis();
   void propagateConstants();
-  void changeDriverToLocal0(SNLInstTerm* term, DNLID id);
-  void changeDriverToLocal1(SNLInstTerm* term, DNLID id);
   DNLFull* dnl_ = nullptr;
   std::unordered_map<SNLID::DesignID, DNLID> designObjectID2Type_;
   std::set<DNLID> initialConstants0_;
