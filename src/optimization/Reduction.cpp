@@ -56,56 +56,6 @@ SNLTruthTable ReductionOptimization::reduceTruthTable(SNLInstance* uniquifiedCan
   return truthTable.getReducedWithConstants(constInputs);
 }
 
-void ReductionOptimization::replaceInstance(
-    SNLInstance* instance,
-    const std::pair<SNLDesign*, SNLLibraryTruthTables::Indexes>& result) {
-  reductionStatistics_[std::pair<std::string, std::string>(instance->getModel()->getName().getString(), 
-    result.first->getName().getString())]++;
-  SNLDesign* design = instance->getDesign();
-  SNLDesign* reducedDesign = result.first;
-  SNLInstance* reducedInstance = SNLInstance::create(
-      design, reducedDesign,
-      SNLName(std::string(instance->getName().getString()) + "_reduced"));
-  std::vector<SNLInstTerm*> reducedInstTerms;
-  SNLInstTerm* output = nullptr;
-  SNLInstTerm* reducedOutput = nullptr;
-  for (auto term : reducedInstance->getInstTerms()) {
-    if (term->getDirection() != SNLInstTerm::Direction::Input) {
-      reducedOutput = term;
-      continue;
-    }
-    reducedInstTerms.push_back(term);
-  }
-  size_t index = 0;
-  size_t originNonConstantIndex = 0;
-  for (auto term : instance->getInstTerms()) {
-    if (term->getDirection() != SNLInstTerm::Direction::Input) {
-      output = term;
-      break;
-    }
-  }
-  for (auto term : instance->getInstTerms()) {
-    SNLBitNet* bitNet = term->getNet();
-    term->setNet(nullptr);
-    if (bitNet->isConstant() || reducedInstTerms.empty()) {
-      continue;
-    }
-    originNonConstantIndex++;
-    if (std::find(result.second.begin(), result.second.end(),
-                  originNonConstantIndex) != result.second.end()) {
-      continue;
-    }
-    reducedInstTerms[index]->setNet(bitNet);
-    index++;
-    if (index == reducedInstTerms.size()) {
-      break;
-    }
-  }
-  reducedOutput->setNet(output->getNet());
-  output->setNet(nullptr);
-  instance->destroy();
-}
-
 void ReductionOptimization::reducPartialConstantInstance(
     std::tuple<std::vector<SNLID::DesignObjectID>,
                std::vector<std::pair<SNLID::DesignObjectID, int>>,

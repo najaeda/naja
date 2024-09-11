@@ -26,7 +26,6 @@ class ReductionOptimization {
   void reducPartialConstantInstance(std::tuple<std::vector<SNLID::DesignObjectID>,
                      std::vector<std::pair<SNLID::DesignObjectID, int>>,
                      DNLID>& candidate);
-  void replaceInstance(SNLInstance* instance, const std::pair<SNLDesign*, SNLLibraryTruthTables::Indexes>& result);
   std::string collectStatistics() const;
   std::vector<std::tuple<std::vector<SNLID::DesignObjectID>,
                          std::vector<std::pair<SNLID::DesignObjectID, int>>,
