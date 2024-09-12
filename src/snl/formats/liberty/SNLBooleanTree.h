@@ -105,8 +105,9 @@ class SNLBooleanTree {
   private:
     SNLBooleanTreeInputNode* getOrCreateInputNode(const SNLBitTerm* input);
 
-    Inputs                      inputs_ {};
-    SNLBooleanTreeFunctionNode* root_   {nullptr};  
+    std::string                 function_ {};
+    Inputs                      inputs_   {};
+    SNLBooleanTreeFunctionNode* root_     {nullptr};  
 };
 
 }} // namespace SNL // namespace naja

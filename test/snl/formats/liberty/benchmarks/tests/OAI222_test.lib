@@ -1,0 +1,26 @@
+library (OAI222_test) {
+  cell (OAI222) {
+    pin(A1) {
+      direction : input ;  
+    }
+    pin(A2) {
+      direction : input ;  
+    }
+    pin(B1) {
+      direction : input ;  
+    }
+    pin(B2) {
+      direction : input ;  
+    }
+    pin(C1) {
+      direction : input ;  
+    }
+    pin(C2) {
+      direction : input ;  
+    }
+    pin(ZN) {
+      direction : output ;
+      function    : "!(((A1 | A2) & (B1 | B2)) & (C1 | C2))";
+    }
+  }
+}

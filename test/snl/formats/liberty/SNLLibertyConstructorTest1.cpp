@@ -285,7 +285,7 @@ TEST_F(SNLLibertyConstructorTest1, testBufZFunction) {
       std::filesystem::path(SNL_LIBERTY_BENCHMARKS)
       / std::filesystem::path("benchmarks")
       / std::filesystem::path("tests")
-      / std::filesystem::path("bufz.lib"));
+      / std::filesystem::path("bufz_test.lib"));
   constructor.construct(testPath);
   EXPECT_EQ(SNLName("bufz_test"), library_->getName());
   EXPECT_EQ(library_->getDesigns().size(), 1);
@@ -303,4 +303,46 @@ TEST_F(SNLLibertyConstructorTest1, testBufZFunction) {
   auto z = design->getScalarTerm(SNLName("Z"));
   ASSERT_NE(nullptr, z);
   EXPECT_EQ(SNLTerm::Direction::Output, z->getDirection());
+}
+
+TEST_F(SNLLibertyConstructorTest1, testOAI222Function) {
+  SNLLibertyConstructor constructor(library_);
+  std::filesystem::path testPath(
+      std::filesystem::path(SNL_LIBERTY_BENCHMARKS)
+      / std::filesystem::path("benchmarks")
+      / std::filesystem::path("tests")
+      / std::filesystem::path("OAI222_test.lib"));
+  constructor.construct(testPath);
+  EXPECT_EQ(SNLName("OAI222_test"), library_->getName());
+  EXPECT_EQ(library_->getDesigns().size(), 1);
+  auto design = library_->getDesign(SNLName("OAI222"));
+  ASSERT_NE(nullptr, design);
+  EXPECT_EQ(7, design->getTerms().size());
+  EXPECT_EQ(7, design->getScalarTerms().size());
+  EXPECT_TRUE(design->getBusTerms().empty());
+  auto a1 = design->getScalarTerm(SNLName("A1"));
+  ASSERT_NE(nullptr, a1);
+  EXPECT_EQ(SNLTerm::Direction::Input, a1->getDirection());
+  auto a2 = design->getScalarTerm(SNLName("A2"));
+  ASSERT_NE(nullptr, a2);
+  EXPECT_EQ(SNLTerm::Direction::Input, a2->getDirection());
+  auto b1 = design->getScalarTerm(SNLName("B1"));
+  ASSERT_NE(nullptr, b1);
+  EXPECT_EQ(SNLTerm::Direction::Input, b1->getDirection());
+  auto b2 = design->getScalarTerm(SNLName("B2"));
+  ASSERT_NE(nullptr, b2);
+  EXPECT_EQ(SNLTerm::Direction::Input, b2->getDirection());
+  auto c1 = design->getScalarTerm(SNLName("C1"));
+  ASSERT_NE(nullptr, c1);
+  EXPECT_EQ(SNLTerm::Direction::Input, c1->getDirection());
+  auto c2 = design->getScalarTerm(SNLName("C2"));
+  ASSERT_NE(nullptr, c2);
+  EXPECT_EQ(SNLTerm::Direction::Input, c2->getDirection());
+  auto zn = design->getScalarTerm(SNLName("ZN"));
+  ASSERT_NE(nullptr, zn);
+  EXPECT_EQ(SNLTerm::Direction::Output, zn->getDirection());
+  auto tt = SNLDesignTruthTable::getTruthTable(design);
+  EXPECT_TRUE(tt.isInitialized());
+  EXPECT_EQ(6, tt.size());
+  EXPECT_EQ(0x111f111f111fffff, tt.bits());
 }

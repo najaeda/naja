@@ -62,7 +62,11 @@ BusType findBusType(const Yosys::LibertyAst* ast, const std::string& busType) {
   return BusType();
 }
 
-void parseTerms(SNLDesign* primitive, const Yosys::LibertyAst* top, const Yosys::LibertyAst* cell) {
+void parseTerms(
+  SNLDesign* primitive,
+  const Yosys::LibertyAst* top,
+  const Yosys::LibertyAst* cell,
+  bool ignoreFunction = false) {
   using TermFunctions = std::map<SNLScalarTerm*, std::string, SNLScalarTerm::PointerLess>;
   TermFunctions termFunctions;
   for (auto child: cell->children) {
@@ -76,7 +80,10 @@ void parseTerms(SNLDesign* primitive, const Yosys::LibertyAst* top, const Yosys:
             auto busTypeName = busTypeChild->value;
             busType = findBusType(top, busTypeName);
             if (busType.name.empty()) {
-              throw SNLLibertyConstructorException("Bus type not found");
+              std::string message;
+              message += "While constructing " + primitive->getName().getString() + " interface,";
+              message += " cannot find bus type: " + busTypeName;
+              throw SNLLibertyConstructorException(message);
             }
           }
         }
@@ -99,7 +106,9 @@ void parseTerms(SNLDesign* primitive, const Yosys::LibertyAst* top, const Yosys:
       } else {
         throw SNLLibertyConstructorException("Direction not found");
       }
-      if (constructedScalarTerm && constructedScalarTerm->getDirection() == SNLTerm::Direction::Output) {
+      if (not ignoreFunction
+        and constructedScalarTerm
+        and constructedScalarTerm->getDirection() == SNLTerm::Direction::Output) {
         termFunctions[constructedScalarTerm] = pinName;
         //parse function
         auto functionNode = child->find("function");
@@ -113,7 +122,7 @@ void parseTerms(SNLDesign* primitive, const Yosys::LibertyAst* top, const Yosys:
   if (termFunctions.size() == 1) {
     auto function = termFunctions.begin()->second;
     auto tree = std::make_unique<naja::SNL::SNLBooleanTree>();
-    std::cerr << "Parsing function: " << function << std::endl;
+    //std::cerr << "Parsing function: " << function << std::endl;
     tree->parse(primitive, function);
     naja::SNL::SNLBooleanTree::Terms terms;
     for (auto term: primitive->getBitTerms()) {
@@ -127,11 +136,14 @@ void parseTerms(SNLDesign* primitive, const Yosys::LibertyAst* top, const Yosys:
   }
 }
 
-void parseCell(SNLLibrary* library, const Yosys::LibertyAst* top, const Yosys::LibertyAst* cell) {
+void parseCell(SNLLibrary* library, const Yosys::LibertyAst* top, Yosys::LibertyAst* cell) {
   auto cellName = cell->args[0];
   auto primitive = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName(cellName));
-  std::cerr << "Parse cell: " << cellName << std::endl;
-  parseTerms(primitive, top, cell);
+  //std::cerr << "Parse cell: " << cellName << std::endl;
+  auto ff = cell->find("ff");
+  auto latch = cell->find("latch");
+  bool ignoreFunction = ff or latch;
+  parseTerms(primitive, top, cell, ignoreFunction);
 }
 
 void parseCells(SNLLibrary* library, const Yosys::LibertyAst* ast) {

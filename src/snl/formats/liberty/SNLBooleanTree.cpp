@@ -5,6 +5,8 @@
 
 #include "SNLBooleanTree.h"
 
+#include "spdlog/spdlog.h"
+
 #include "SNLDesign.h"
 #include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
@@ -231,6 +233,7 @@ SNLBooleanTreeInputNode* SNLBooleanTree::parseInput(
 }
 
 void SNLBooleanTree::parse(const SNLDesign* primitive, const std::string& function) {
+  function_ = function;
   size_t pos = 0;
   Stack stack;
   while (pos < function.size()) {
@@ -329,8 +332,19 @@ SNLTruthTable SNLBooleanTree::getTruthTable(const Terms& terms) {
     }
   }
   int n = inputs.size();
+  
+  if (n > 6) {
+    std::ostringstream message;
+    message << "Truth table for function: " << function_
+      << " cannot be constructed because size: " << n
+      << " is > than max supported size (6)";  
+    spdlog::warn(message.str());
+    return SNLTruthTable();
+  }
+
   int rows = pow(2, n);
 
+  //initialize the inputs
   for (auto input: inputs) {
     input->setValue(false);
   }
@@ -342,8 +356,9 @@ SNLTruthTable SNLBooleanTree::getTruthTable(const Terms& terms) {
       inputs[j]->setValue((i & (1 << (n - j - 1))) != 0);
     }
     bool result = root_->getValue();
-    mask |= (result ? 1 : 0) << i;
+    mask |= (result ? 1UL : 0UL) << i;
   }
+  
   return SNLTruthTable(n, mask);
 }
 

@@ -127,8 +127,9 @@ TEST_F(SNLBooleanTreeTest0, test20) {
 
 TEST_F(SNLBooleanTreeTest0, test21) {
   auto and2 = SNLDesign::create(library_, SNLDesign::Type::Primitive, SNLName("ANDN2"));
-  SNLScalarTerm::create(and2, SNLTerm::Direction::Input, SNLName("A1"));
-  SNLScalarTerm::create(and2, SNLTerm::Direction::Input, SNLName("A2"));
+  SNLBooleanTree::Terms inputs;
+  inputs.push_back(SNLScalarTerm::create(and2, SNLTerm::Direction::Input, SNLName("A1")));
+  inputs.push_back(SNLScalarTerm::create(and2, SNLTerm::Direction::Input, SNLName("A2")));
   SNLScalarTerm::create(and2, SNLTerm::Direction::Output, SNLName("Y"));
   auto tree = std::make_unique<SNLBooleanTree>();
   tree->parse(and2, "A1 & !A2");
@@ -146,12 +147,16 @@ TEST_F(SNLBooleanTreeTest0, test21) {
   EXPECT_TRUE(root->getValue());
   tree->getInput(and2->getScalarTerm(SNLName("A2")))->setValue(true);
   EXPECT_FALSE(root->getValue());
+  auto tt = tree->getTruthTable(inputs);
+  EXPECT_EQ(2, tt.size());
+  EXPECT_EQ(0b0100, tt.bits());
 }
 
 TEST_F(SNLBooleanTreeTest0, test30) {
   auto or2 = SNLDesign::create(library_, SNLDesign::Type::Primitive, SNLName("ANDN2"));
-  SNLScalarTerm::create(or2, SNLTerm::Direction::Input, SNLName("A1"));
-  SNLScalarTerm::create(or2, SNLTerm::Direction::Input, SNLName("A2"));
+  SNLBooleanTree::Terms inputs;
+  inputs.push_back(SNLScalarTerm::create(or2, SNLTerm::Direction::Input, SNLName("A1")));
+  inputs.push_back(SNLScalarTerm::create(or2, SNLTerm::Direction::Input, SNLName("A2")));
   SNLScalarTerm::create(or2, SNLTerm::Direction::Output, SNLName("Y"));
   auto tree = std::make_unique<SNLBooleanTree>();
   tree->parse(or2, "A1 | A2");
@@ -169,12 +174,16 @@ TEST_F(SNLBooleanTreeTest0, test30) {
   EXPECT_TRUE(root->getValue());
   tree->getInput(or2->getScalarTerm(SNLName("A2")))->setValue(true);
   EXPECT_TRUE(root->getValue());
+  auto tt = tree->getTruthTable(inputs);
+  EXPECT_EQ(2, tt.size());
+  EXPECT_EQ(0b1110, tt.bits());
 }
 
 TEST_F(SNLBooleanTreeTest0, test40) {
-  auto xor2 = SNLDesign::create(library_, SNLDesign::Type::Primitive, SNLName("ANDN2"));
-  SNLScalarTerm::create(xor2, SNLTerm::Direction::Input, SNLName("A1"));
-  SNLScalarTerm::create(xor2, SNLTerm::Direction::Input, SNLName("A2"));
+  auto xor2 = SNLDesign::create(library_, SNLDesign::Type::Primitive, SNLName("XOR2"));
+  SNLBooleanTree::Terms inputs;
+  inputs.push_back(SNLScalarTerm::create(xor2, SNLTerm::Direction::Input, SNLName("A1")));
+  inputs.push_back(SNLScalarTerm::create(xor2, SNLTerm::Direction::Input, SNLName("A2")));
   SNLScalarTerm::create(xor2, SNLTerm::Direction::Output, SNLName("Y"));
   auto tree = std::make_unique<SNLBooleanTree>();
   tree->parse(xor2, "A1 ^ A2");
@@ -194,13 +203,17 @@ TEST_F(SNLBooleanTreeTest0, test40) {
   EXPECT_FALSE(root->getValue());
   tree->getInput(xor2->getScalarTerm(SNLName("A1")))->setValue(false);
   EXPECT_TRUE(root->getValue());
+  auto tt = tree->getTruthTable(inputs);
+  EXPECT_EQ(2, tt.size());
+  EXPECT_EQ(0b0110, tt.bits());
 }
 
 TEST_F(SNLBooleanTreeTest0, test50) {
-  auto aor3 = SNLDesign::create(library_, SNLDesign::Type::Primitive, SNLName("ANDN2"));
-  SNLScalarTerm::create(aor3, SNLTerm::Direction::Input, SNLName("A1"));
-  SNLScalarTerm::create(aor3, SNLTerm::Direction::Input, SNLName("A2"));
-  SNLScalarTerm::create(aor3, SNLTerm::Direction::Input, SNLName("A3"));
+  auto aor3 = SNLDesign::create(library_, SNLDesign::Type::Primitive, SNLName("AO12"));
+  SNLBooleanTree::Terms inputs;
+  inputs.push_back(SNLScalarTerm::create(aor3, SNLTerm::Direction::Input, SNLName("A1")));
+  inputs.push_back(SNLScalarTerm::create(aor3, SNLTerm::Direction::Input, SNLName("A2")));
+  inputs.push_back(SNLScalarTerm::create(aor3, SNLTerm::Direction::Input, SNLName("A3")));
   SNLScalarTerm::create(aor3, SNLTerm::Direction::Output, SNLName("Y"));
   auto tree = std::make_unique<SNLBooleanTree>();
   tree->parse(aor3, "A1 & (A2 | A3)");
@@ -221,4 +234,45 @@ TEST_F(SNLBooleanTreeTest0, test50) {
   EXPECT_TRUE(root->getValue());
   tree->getInput(aor3->getScalarTerm(SNLName("A1")))->setValue(false);
   EXPECT_FALSE(root->getValue());
+  auto tt = tree->getTruthTable(inputs);
+  EXPECT_EQ(3, tt.size());
+  EXPECT_EQ(0xE0, tt.bits());
+}
+
+TEST_F(SNLBooleanTreeTest0, test60) {
+  auto oai222 = SNLDesign::create(library_, SNLDesign::Type::Primitive, SNLName("OAI222"));
+  SNLBooleanTree::Terms inputs;
+  inputs.push_back(SNLScalarTerm::create(oai222, SNLTerm::Direction::Input, SNLName("A1")));
+  inputs.push_back(SNLScalarTerm::create(oai222, SNLTerm::Direction::Input, SNLName("A2")));
+  inputs.push_back(SNLScalarTerm::create(oai222, SNLTerm::Direction::Input, SNLName("B1")));
+  inputs.push_back(SNLScalarTerm::create(oai222, SNLTerm::Direction::Input, SNLName("B2")));
+  inputs.push_back(SNLScalarTerm::create(oai222, SNLTerm::Direction::Input, SNLName("C1")));
+  inputs.push_back(SNLScalarTerm::create(oai222, SNLTerm::Direction::Input, SNLName("C2")));
+  SNLScalarTerm::create(oai222, SNLTerm::Direction::Output, SNLName("Y"));
+  auto tree = std::make_unique<SNLBooleanTree>();
+  tree->parse(oai222, "!(((A1 | A2) & (B1 | B2)) & (C1 | C2))");
+  ASSERT_NE(nullptr, tree);
+  auto root = tree->getRoot();
+  ASSERT_NE(nullptr, root);
+  EXPECT_EQ(SNLBooleanTreeFunctionNode::Type::NOT, root->getType());
+  ASSERT_EQ(6, tree->getInputs().size());
+  EXPECT_THAT(tree->getInputs(), ElementsAre(
+    Key(oai222->getScalarTerm(SNLName("A1"))),
+    Key(oai222->getScalarTerm(SNLName("A2"))),
+    Key(oai222->getScalarTerm(SNLName("B1"))),
+    Key(oai222->getScalarTerm(SNLName("B2"))),
+    Key(oai222->getScalarTerm(SNLName("C1"))),
+    Key(oai222->getScalarTerm(SNLName("C2")))
+  ));
+  //all 0
+  EXPECT_TRUE(root->getValue());
+  tree->getInput(oai222->getScalarTerm(SNLName("A1")))->setValue(true);
+  EXPECT_TRUE(root->getValue());
+  tree->getInput(oai222->getScalarTerm(SNLName("B1")))->setValue(true);
+  EXPECT_TRUE(root->getValue());
+  tree->getInput(oai222->getScalarTerm(SNLName("C1")))->setValue(true);
+  EXPECT_FALSE(root->getValue());
+  auto tt = tree->getTruthTable(inputs);
+  EXPECT_EQ(6, tt.size());
+  EXPECT_EQ(0x111F111F111FFFFF, tt.bits());
 }
