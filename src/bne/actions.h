@@ -142,30 +142,8 @@ class ReductionAction : public Action {
   const std::vector<SNLID::DesignObjectID>& getContext() const override {
     return context_;
   }
-  bool operator==(const Action& action) const override {
-    if (action.getType() != ActionType::REDUCTION) {
-      return false;
-    }
-    const ReductionAction& reductionAction =
-        dynamic_cast<const ReductionAction&>(action);
-    return instance_ == reductionAction.instance_ &&
-           result_ == reductionAction.result_;
-  }
-  bool operator<(const Action& action) const override {
-    if (action.getType() != ActionType::REDUCTION) {
-      return getType() < action.getType();
-    }
-    const ReductionAction& reductionAction =
-        dynamic_cast<const ReductionAction&>(action);
-    if (instance_ < reductionAction.instance_) {
-      return true;
-    } else if (instance_ == reductionAction.instance_) {
-      if (result_ < reductionAction.result_) {
-        return true;
-      }
-    }
-    return false;
-  }
+  bool operator==(const Action& action) const override;
+  bool operator<(const Action& action) const override;
  private:
   const std::vector<SNLID::DesignObjectID> context_;
   const SNLID::DesignObjectID instance_;

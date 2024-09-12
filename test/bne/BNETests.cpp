@@ -69,48 +69,77 @@ TEST_F(BNETests, ActionComperators) {
   return false;
 }*/
   std::vector<SNLID::DesignObjectID> context;
- {
-  DriveWithConstantAction action1(context, 0, 0, 0);
-  DriveWithConstantAction action2(context, 0, 0, 0);
-  Action* action2ptr = &action2;
-  Action* action1ptr = &action1;
-  bool compare = *action1ptr == *action2ptr;
-  EXPECT_EQ(compare, true);
- }
- {
-  DriveWithConstantAction action1(context, 0, 0, 0);
-  DriveWithConstantAction action2(context, 1, 0, 0);
-  Action* action2ptr = &action2;
-  Action* action1ptr = &action1;
-  bool compare = *action1ptr < *action2ptr;
-  EXPECT_EQ(compare, true);
- }
- {
-  DriveWithConstantAction action1(context, 0, 0, 0);
-  DriveWithConstantAction action2(context, 0, 1, 0);
-  Action* action2ptr = &action2;
-  Action* action1ptr = &action1;
-  bool compare = *action1ptr < *action2ptr;
-  EXPECT_EQ(compare, true);
- }
- {
-  DriveWithConstantAction action1(context, 0, 0, 0);
-  DriveWithConstantAction action2(context, 0, 0, 1);
-  Action* action2ptr = &action2;
-  Action* action1ptr = &action1;
-  bool compare = *action1ptr < *action2ptr;
-  EXPECT_EQ(compare, true);
- }
- {
+  {
+    DriveWithConstantAction action1(context, 0, 0, 0);
+    DriveWithConstantAction action2(context, 0, 0, 0);
+    Action* action2ptr = &action2;
+    Action* action1ptr = &action1;
+    bool compare = *action1ptr == *action2ptr;
+    EXPECT_EQ(compare, true);
+  }
+  {
+    DriveWithConstantAction action1(context, 0, 0, 0);
+    DriveWithConstantAction action2(context, 1, 0, 0);
+    Action* action2ptr = &action2;
+    Action* action1ptr = &action1;
+    bool compare = *action1ptr < *action2ptr;
+    EXPECT_EQ(compare, true);
+  }
+  {
+    DriveWithConstantAction action1(context, 0, 0, 0);
+    DriveWithConstantAction action2(context, 0, 1, 0);
+    Action* action2ptr = &action2;
+    Action* action1ptr = &action1;
+    bool compare = *action1ptr < *action2ptr;
+    EXPECT_EQ(compare, true);
+  }
+  {
+    DriveWithConstantAction action1(context, 0, 0, 0);
+    DriveWithConstantAction action2(context, 0, 0, 1);
+    Action* action2ptr = &action2;
+    Action* action1ptr = &action1;
+    bool compare = *action1ptr < *action2ptr;
+    EXPECT_EQ(compare, true);
+  }
+  {
+    ReductionAction action1(
+        context, 0,
+        std::pair<SNLDesign*, SNLLibraryTruthTables::Indexes>(
+            nullptr, SNLLibraryTruthTables::Indexes()));
+    ReductionAction action2(
+        context, 0,
+        std::pair<SNLDesign*, SNLLibraryTruthTables::Indexes>(
+            nullptr, SNLLibraryTruthTables::Indexes()));
+    Action* action2ptr = &action2;
+    Action* action1ptr = &action1;
+    bool compare = *action1ptr == *action2ptr;
+  }
+  {
+    ReductionAction action1(
+        context, 0,
+        std::pair<SNLDesign*, SNLLibraryTruthTables::Indexes>(
+            nullptr, SNLLibraryTruthTables::Indexes()));
+    ReductionAction action2(
+        context, 1,
+        std::pair<SNLDesign*, SNLLibraryTruthTables::Indexes>(
+            nullptr, SNLLibraryTruthTables::Indexes()));
+    Action* action2ptr = &action2;
+    Action* action1ptr = &action1;
+    bool compare = *action1ptr < *action2ptr;
+  }
+  {
     auto pathToDelete = std::vector<SNLID::DesignObjectID>();
     pathToDelete.push_back(0);
     DeleteAction action1(pathToDelete);
     DriveWithConstantAction action2(context, 0, 0, 0);
-    ReductionAction action3(context, 0, std::pair<SNLDesign*, SNLLibraryTruthTables::Indexes>(nullptr, SNLLibraryTruthTables::Indexes()));
+    ReductionAction action3(
+        context, 0,
+        std::pair<SNLDesign*, SNLLibraryTruthTables::Indexes>(
+            nullptr, SNLLibraryTruthTables::Indexes()));
     Action* action1ptr = &action1;
     Action* action2ptr = &action2;
     Action* action3ptr = &action3;
-    //Test equality comparison
+    // Test equality comparison
     bool compare = *action1ptr == *action2ptr;
     EXPECT_EQ(compare, false);
     compare = *action2ptr == *action1ptr;
@@ -123,5 +152,5 @@ TEST_F(BNETests, ActionComperators) {
     EXPECT_EQ(compare, false);
     compare = *action3ptr == *action2ptr;
     EXPECT_EQ(compare, false);
- }
+  }
 }

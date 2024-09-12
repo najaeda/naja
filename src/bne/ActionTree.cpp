@@ -23,7 +23,6 @@ ActionTreeNode* ActionTree::getNodeForContext(
     const std::vector<SNLID::DesignObjectID>& context) {
   size_t id = nodes_[0].getID();
   for (auto& instance : context) {
-    // printf("instance %u\n", instance);
     ActionTreeNode* child = nodes_[id].getChild(instance);
     if (child == nullptr) {
       return nullptr;
@@ -45,7 +44,6 @@ ActionTreeNode& ActionTree::addHierChild(
       nodes_.push_back({instance, model->getSNLID(),
                         std::pair<size_t, size_t>(nodes_[id].getID(), instance),
                         nodes_.size(), this});
-      // printf("Adding node %zu\n", nodes_.size() - 1);
       nodes_[id].addChild(nodes_.size() - 1);
       assert(nodes_[id].getChild(instance) != nullptr);
       assert(getNodeForContext(partialContextCheck) != nullptr);
@@ -113,20 +111,6 @@ void ActionTree::normalize() {
           foundNormalization = true;
         }
       }
-      /*if (nodesToMerge.size() > 1) {
-        //printf("Merging nodes %lu nodes\n", nodesToMerge.size());
-        for (auto node : nodesToMerge) {
-          auto design = SNLUniverse::get()->getTopDesign();
-          // Print the context names
-          for (auto& instance : node->getContext()) {
-            printf(
-                "%s ",
-                design->getInstance(instance)->getName().getString().c_str());
-            design = design->getInstance(instance)->getModel();
-          }
-          //printf("\n");
-        }
-      }*/
       for (auto node : nodesToMerge) {
         if (node == currentNode) {
           continue;
@@ -165,7 +149,6 @@ void ActionTree::normalize() {
 }
 
 void ActionTree::process() {
-  // printf("Processing actions\n");
   if (!blockNormalization_) {
     normalize();
   }
@@ -173,8 +156,6 @@ void ActionTree::process() {
   std::queue<ActionTreeNode*> queue;
   queue.push(&nodes_[0]);
   while (!queue.empty()) {
-    // printf("--------------------------------new
-    // node------------------------------------\n");
     ActionTreeNode* currentNode = queue.front();
     queue.pop();
     bool allChildrenProcessed = true;
@@ -207,7 +188,6 @@ void ActionTree::process() {
         SNLInstance* inst = design->getInstance(name);
         assert(inst);
         design = inst->getModel();
-        // printf("%s ", inst->getName().getString().c_str());
         id += "_" + std::to_string(design->getID()) + "_" +
               std::to_string(inst->getID());
         pathIds.push_back(inst->getID());
@@ -217,8 +197,6 @@ void ActionTree::process() {
       uniquifier.process();
     }
     for (auto& action : currentNode->getActions()) {
-      // printf("--------------------------------processing
-      // actions------------------------------------\n");
       if (actions_[action.order]->getContext().empty()) {
         actions_[action.order]->processOnContext(
             SNLUniverse::get()->getTopDesign());
@@ -236,8 +214,6 @@ void ActionTree::process() {
       std::vector<SNLID::DesignObjectID> context =
           nodes_[parent.first].getContext();
       context.push_back((unsigned)parent.second);
-      // printf("--------------------------------setting
-      // parent------------------------------------\n");
       getInstanceForPath(context)->setModel(
           getInstanceForPath(currentNode->getContext())->getModel());
     }
@@ -263,10 +239,8 @@ ActionTree::~ActionTree() {
 }
 
 ActionTreeNode* ActionTreeNode::getChild(SNLID::DesignObjectID instance) {
-  // printf("getChild instance %u\n", instance);
   for (auto& child : children_) {
     if (tree_->getNode(child).getInstance() == instance) {
-      // printf("found child %u\n", instance);
       return &tree_->getNode(child);
     }
   }
@@ -311,7 +285,8 @@ bool ActionTreeNode::operator==(const ActionTreeNode& rhs) const {
   } else {
     return false;
   }
-  //instance_ is not comapred as we are interested in the node model and actions, the actual context will always be different
+  // instance_ is not comapred as we are interested in the node model and
+  // actions, the actual context will always be different
   return snlid_ == rhs.snlid_;
 }
 

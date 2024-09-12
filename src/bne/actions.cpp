@@ -156,45 +156,45 @@ void DriveWithConstantAction::processOnContext(SNLDesign* design) {
 }
 
 bool DriveWithConstantAction::operator==(const Action& action) const {
-    if (action.getType() != ActionType::DRIVE_WITH_CONSTANT) {
-      return false;
-    }
-    const DriveWithConstantAction& driveWithConstantAction =
-        dynamic_cast<const DriveWithConstantAction&>(action);
-    return pathToDrive_ == driveWithConstantAction.pathToDrive_ &&
-           termToDrive_ == driveWithConstantAction.termToDrive_;
+  if (action.getType() != ActionType::DRIVE_WITH_CONSTANT) {
+    return false;
   }
-  bool DriveWithConstantAction::operator<(const Action& action) const {
-    if (action.getType() != ActionType::DRIVE_WITH_CONSTANT) {
-      return getType() < action.getType();
-    }
-    const DriveWithConstantAction& driveWithConstantAction =
-        dynamic_cast<const DriveWithConstantAction&>(action);
-    if (topTermToDrive_ != nullptr) {
-      if (topTermToDrive_ < driveWithConstantAction.topTermToDrive_) {
-        return true;
-      } else if (topTermToDrive_ == driveWithConstantAction.topTermToDrive_) {
-        if (value_ < driveWithConstantAction.value_) {
-          return true;
-        }
-      }
-      return false;
-    }
-    if (pathToDrive_ < driveWithConstantAction.pathToDrive_) {
+  const DriveWithConstantAction& driveWithConstantAction =
+      dynamic_cast<const DriveWithConstantAction&>(action);
+  return pathToDrive_ == driveWithConstantAction.pathToDrive_ &&
+         termToDrive_ == driveWithConstantAction.termToDrive_;
+}
+bool DriveWithConstantAction::operator<(const Action& action) const {
+  if (action.getType() != ActionType::DRIVE_WITH_CONSTANT) {
+    return getType() < action.getType();
+  }
+  const DriveWithConstantAction& driveWithConstantAction =
+      dynamic_cast<const DriveWithConstantAction&>(action);
+  if (topTermToDrive_ != nullptr) {
+    if (topTermToDrive_ < driveWithConstantAction.topTermToDrive_) {
       return true;
-    } else if (pathToDrive_ == driveWithConstantAction.pathToDrive_) {
-      // LCOV_EXCL_START
-      if (termToDrive_ < driveWithConstantAction.termToDrive_) {
+    } else if (topTermToDrive_ == driveWithConstantAction.topTermToDrive_) {
+      if (value_ < driveWithConstantAction.value_) {
         return true;
-      } else if (termToDrive_ == driveWithConstantAction.termToDrive_) {
-        if (value_ < driveWithConstantAction.value_) {
-          return true;
-        }
       }
-      // LCOV_EXCL_STOP
     }
     return false;
   }
+  if (pathToDrive_ < driveWithConstantAction.pathToDrive_) {
+    return true;
+  } else if (pathToDrive_ == driveWithConstantAction.pathToDrive_) {
+    // LCOV_EXCL_START
+    if (termToDrive_ < driveWithConstantAction.termToDrive_) {
+      return true;
+    } else if (termToDrive_ == driveWithConstantAction.termToDrive_) {
+      if (value_ < driveWithConstantAction.value_) {
+        return true;
+      }
+    }
+    // LCOV_EXCL_STOP
+  }
+  return false;
+}
 
 void DeleteAction::processOnContext(SNLDesign* design) {
   design->getInstance(toDelete_)->destroy();
@@ -251,4 +251,29 @@ void ReductionAction::replaceInstance(
 void ReductionAction::processOnContext(SNLDesign* design) {
   auto instance = design->getInstance(instance_);
   replaceInstance(instance, result_);
+}
+
+bool ReductionAction::operator==(const Action& action) const {
+  if (action.getType() != ActionType::REDUCTION) {
+    return false;
+  }
+  const ReductionAction& reductionAction =
+      dynamic_cast<const ReductionAction&>(action);
+  return instance_ == reductionAction.instance_ &&
+         result_ == reductionAction.result_;
+}
+bool ReductionAction::operator<(const Action& action) const {
+  if (action.getType() != ActionType::REDUCTION) {
+    return getType() < action.getType();
+  }
+  const ReductionAction& reductionAction =
+      dynamic_cast<const ReductionAction&>(action);
+  if (instance_ < reductionAction.instance_) {
+    return true;
+  } else if (instance_ == reductionAction.instance_) {
+    if (result_ < reductionAction.result_) {
+      return true;
+    }
+  }
+  return false;
 }
