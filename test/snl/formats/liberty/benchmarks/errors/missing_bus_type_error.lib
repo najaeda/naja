@@ -1,0 +1,12 @@
+library (bus_test) {
+    cell (ram) {
+        pin(clk)   {
+            direction : input;
+            clock : true;
+        } 
+        bus(rd_out) {
+            bus_type : ram_64x15_DATA;
+            direction : output; 
+        }
+    }
+}
