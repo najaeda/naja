@@ -73,28 +73,32 @@ TEST_F(BNETests, ActionComperators) {
   DriveWithConstantAction action1(context, 0, 0, 0);
   DriveWithConstantAction action2(context, 0, 0, 0);
   Action* action2ptr = &action2;
-  bool compare = action1 == *action2ptr;
+  Action* action1ptr = &action1;
+  bool compare = *action1ptr == *action2ptr;
   EXPECT_EQ(compare, true);
  }
  {
   DriveWithConstantAction action1(context, 0, 0, 0);
   DriveWithConstantAction action2(context, 1, 0, 0);
   Action* action2ptr = &action2;
-  bool compare = action1 < *action2ptr;
+  Action* action1ptr = &action1;
+  bool compare = *action1ptr < *action2ptr;
   EXPECT_EQ(compare, true);
  }
  {
   DriveWithConstantAction action1(context, 0, 0, 0);
   DriveWithConstantAction action2(context, 0, 1, 0);
   Action* action2ptr = &action2;
-  bool compare = action1 < *action2ptr;
+  Action* action1ptr = &action1;
+  bool compare = *action1ptr < *action2ptr;
   EXPECT_EQ(compare, true);
  }
  {
   DriveWithConstantAction action1(context, 0, 0, 0);
   DriveWithConstantAction action2(context, 0, 0, 1);
   Action* action2ptr = &action2;
-  bool compare = action1 < *action2ptr;
+  Action* action1ptr = &action1;
+  bool compare = *action1ptr < *action2ptr;
   EXPECT_EQ(compare, true);
  }
  {
@@ -107,17 +111,17 @@ TEST_F(BNETests, ActionComperators) {
     Action* action2ptr = &action2;
     Action* action3ptr = &action3;
     //Test equality comparison
-    bool compare = action1 == *action2ptr;
+    bool compare = *action1ptr == *action2ptr;
     EXPECT_EQ(compare, false);
-    compare = action2 == *action1ptr;
+    compare = *action2ptr == *action1ptr;
     EXPECT_EQ(compare, false);
-    compare = action1 == *action3ptr;
+    compare = *action1ptr == *action3ptr;
     EXPECT_EQ(compare, false);
-    compare = action3 == *action1ptr;
+    compare = *action3ptr == *action1ptr;
     EXPECT_EQ(compare, false);
-    compare = action2 == *action3ptr;
+    compare = *action2ptr == *action3ptr;
     EXPECT_EQ(compare, false);
-    compare = action3 == *action2ptr;
+    compare = *action3ptr == *action2ptr;
     EXPECT_EQ(compare, false);
  }
 }
