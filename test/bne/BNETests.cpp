@@ -71,21 +71,25 @@ TEST_F(BNETests, ActionComperators) {
  {
   DriveWithConstantAction action1(context, 0, 0, 0);
   DriveWithConstantAction action2(context, 0, 0, 0);
-  EXPECT_EQ(action1 == action2, true);
+  bool compare = action1 == action2;
+  EXPECT_EQ(compare, true);
  }
  {
   DriveWithConstantAction action1(context, 0, 0, 0);
   DriveWithConstantAction action2(context, 1, 0, 0);
-  EXPECT_EQ(action1 < action2, true);
+  bool compare = action1 < action2;
+  EXPECT_EQ(compare, true);
  }
  {
   DriveWithConstantAction action1(context, 0, 0, 0);
   DriveWithConstantAction action2(context, 0, 1, 0);
-  EXPECT_EQ(action1 < action2, true);
+  bool compare = action1 < action2;
+  EXPECT_EQ(compare, true);
  }
  {
   DriveWithConstantAction action1(context, 0, 0, 0);
   DriveWithConstantAction action2(context, 0, 0, 1);
-  EXPECT_EQ(action1 < action2, true);
+  bool compare = action1 < action2;
+  EXPECT_EQ(compare, true);
  }
 }
