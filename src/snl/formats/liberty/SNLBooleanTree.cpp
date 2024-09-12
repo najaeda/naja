@@ -166,6 +166,20 @@ SNLBooleanTreeInputNode* SNLBooleanTree::getOrCreateInputNode(const SNLBitTerm* 
   return inputNode;
 }
 
+SNLBooleanTreeInputNode* SNLBooleanTree::getOrCreateConstantInputNode(bool constant) {
+  if (constant) {
+    if (constant1_ == nullptr) {
+      constant1_ = new SNLBooleanTreeInputNode(SNLBooleanTreeInputNode::Type::CONSTANT1);
+    }
+    return constant1_;
+  } else {
+    if (constant0_ == nullptr) {
+      constant0_ = new SNLBooleanTreeInputNode(SNLBooleanTreeInputNode::Type::CONSTANT0);
+    }
+    return constant0_;
+  }
+}
+
 SNLBooleanTreeInputNode* SNLBooleanTree::parseInput(
   const SNLDesign* primitive,
   const std::string& function,
@@ -309,6 +323,7 @@ bool SNLBooleanTreeFunctionNode::getValue() const {
       }
       return inputs_[0]->getValue();
   }
+  return false;
 }
 
 SNLTruthTable SNLBooleanTree::getTruthTable(const Terms& terms) {
@@ -367,6 +382,8 @@ SNLBooleanTree::~SNLBooleanTree() {
   for (auto input: inputs_) {
     delete input.second;
   }
+  delete constant0_;
+  delete constant1_;
 }
 
 }} // namespace SNL // namespace naja

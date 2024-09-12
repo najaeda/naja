@@ -48,6 +48,7 @@ class SNLBooleanTreeInputNode: public SNLBooleanTreeNode {
         case Type::CONSTANT1:
           return true;
       }
+      return false;
     }
 
     const SNLBitTerm* getTerm() const {
@@ -104,10 +105,13 @@ class SNLBooleanTree {
     SNLTruthTable getTruthTable(const Terms& terms);
   private:
     SNLBooleanTreeInputNode* getOrCreateInputNode(const SNLBitTerm* input);
+    SNLBooleanTreeInputNode* getOrCreateConstantInputNode(bool constant);
 
-    std::string                 function_ {};
-    Inputs                      inputs_   {};
-    SNLBooleanTreeFunctionNode* root_     {nullptr};  
+    std::string                 function_   {};
+    Inputs                      inputs_     {};
+    SNLBooleanTreeInputNode*    constant0_  {nullptr};
+    SNLBooleanTreeInputNode*    constant1_  {nullptr};
+    SNLBooleanTreeFunctionNode* root_       {nullptr};  
 };
 
 }} // namespace SNL // namespace naja
