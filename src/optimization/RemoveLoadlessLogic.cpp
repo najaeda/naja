@@ -32,7 +32,7 @@ std::vector<DNLID> LoadlessLogicRemover::getTopOutputIsos(
     const naja::DNL::DNL<DNLInstanceFull, DNLTerminalFull>& dnl) {
   std::vector<DNLID> topOutputIsos;
   for (DNLID term = dnl.getTop().getTermIndexes().first;
-       term <= dnl.getTop().getTermIndexes().second; term++) {
+       term <= dnl.getTop().getTermIndexes().second && term != DNLID_MAX; term++) {
     assert(DNLID_MAX != term);
 #ifdef DEBUG_PRINTS
     // LCOV_EXCL_START

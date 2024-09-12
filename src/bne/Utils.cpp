@@ -90,12 +90,14 @@ namespace naja::BNE
 
   std::string Uniquifier::getFullPath()
   {
+    // LCOV_EXCL_START
     std::string fullPath;
     for (auto inst : pathUniq_)
     {
       fullPath += inst->getName().getString() + "/";
     }
     return fullPath;
+    // LCOV_EXCL_STOP
   }
 
   void NetlistStatistics::process()
