@@ -20,12 +20,13 @@
 #include "SNLTruthTable.h"
 
 using namespace naja::SNL;
-using namespace naja::NAJA_OPT;
 
 namespace naja::SNL {
 class SNLDesign;
 class SNLInstance;
 }  // namespace naja::SNL
+
+namespace naja::BNE {
 
 class Action;  // Forward declaration of the base class
 
@@ -113,3 +114,5 @@ class ActionTree {
   bool blockNormalization_ = false;
   bool keepOrder_ = false;
 };
+
+}  // namespace naja::BNE

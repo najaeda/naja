@@ -15,6 +15,8 @@
 
 using namespace naja::SNL;
 
+namespace naja::BNE {
+
 // enum type for actions
 enum ActionType { DELETE, DRIVE_WITH_CONSTANT, REDUCTION, NONE };
 
@@ -168,3 +170,5 @@ class ReductionAction : public Action {
   const SNLID::DesignObjectID instance_;
   const std::pair<SNLDesign*, SNLLibraryTruthTables::Indexes> result_;
 };
+
+}  // namespace naja::BNE

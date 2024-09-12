@@ -18,10 +18,11 @@
 
 using namespace naja::DNL;
 using namespace naja::SNL;
+using namespace naja::BNE;
 
 // #define DEBUG_PRINTS
 
-namespace naja::NAJA_OPT {
+using namespace naja::NAJA_OPT;
 
 // Constructor
 LoadlessLogicRemover::LoadlessLogicRemover() {}
@@ -295,7 +296,7 @@ void LoadlessLogicRemover::removeLoadlessInstances(
     SNLDesign* top,
     std::vector<std::pair<std::vector<SNLID::DesignObjectID>, DNLID>>&
         loadlessInstances) {
-  BNE bne;
+  BNE::BNE bne;
   for (auto& path : loadlessInstances) {
     /*Uniquifier uniquifier(path.first, path.second);
     uniquifier.process();
@@ -360,5 +361,3 @@ std::string LoadlessLogicRemover::collectStatistics() const {
   return ss.str();*/
   return std::string();
 }
-
-}  // namespace naja::NAJA_OPT

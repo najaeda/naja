@@ -10,7 +10,8 @@
 using namespace naja::DNL;
 using namespace naja::SNL;
 
-namespace naja::NAJA_OPT {
+namespace naja::BNE {
+
 class Uniquifier {
  public:
   Uniquifier(const std::vector<SNLID::DesignObjectID>& path, DNLID id, bool uniquifyTail = false)

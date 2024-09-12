@@ -12,7 +12,7 @@
 #include "Utils.h"
 
 using namespace naja::SNL;
-using namespace naja::NAJA_OPT;
+using namespace naja::BNE;
 
 ActionTree::ActionTree(bool keepOrder, bool blockNormalization)
     : blockNormalization_(blockNormalization), keepOrder_(keepOrder) {
@@ -95,7 +95,6 @@ void ActionTree::normalize() {
     }
   }
   for (auto& it : snlid2Node) {
-    printf("it.second.size() %lu\n", it.second.size());
     auto nodes = it.second;
     // If top, continue
     if (nodes[0]->getParents()[0].first == (size_t)-1) {
@@ -109,7 +108,6 @@ void ActionTree::normalize() {
       nodesToMerge.push_back(currentNode);
       nodes.pop_back();
       for (auto node : nodes) {
-        printf("comparing\n");
         if (*currentNode == *node) {
           nodesToMerge.push_back(node);
           foundNormalization = true;
@@ -215,7 +213,7 @@ void ActionTree::process() {
         pathIds.push_back(inst->getID());
       }
       auto context = currentNode->getContext();
-      naja::NAJA_OPT::Uniquifier uniquifier(context, id, true);
+      Uniquifier uniquifier(context, id, true);
       uniquifier.process();
     }
     for (auto& action : currentNode->getActions()) {

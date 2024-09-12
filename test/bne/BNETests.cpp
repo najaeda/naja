@@ -10,6 +10,7 @@
 
 using namespace naja::DNL;
 using namespace naja::SNL;
+using namespace naja::BNE;
 
 class BNETests : public ::testing::Test {
  protected:

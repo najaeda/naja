@@ -15,7 +15,7 @@ using namespace naja::SNL;
 
 // #define DEBUG_PRINTS
 
-namespace naja::NAJA_OPT
+namespace naja::BNE
 {
 
   void Uniquifier::process()

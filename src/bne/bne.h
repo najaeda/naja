@@ -7,6 +7,8 @@
 
 #include "ActionTree.h"
 
+namespace naja::BNE {
+
 class BNE {
  public:
   BNE(bool blockNormalization = false, bool blockOptimization = false)
@@ -26,3 +28,5 @@ class BNE {
  private:
   ActionTree tree_;
 };
+
+}  // namespace naja::BNE

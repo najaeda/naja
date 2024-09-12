@@ -13,6 +13,7 @@
 using namespace naja::DNL;
 using namespace naja::SNL;
 using namespace naja::NAJA_OPT;
+using namespace naja::BNE;
 
 //#define DEBUG_PRINTS
 
@@ -27,8 +28,8 @@ void ReductionOptimization::run() {
     reducPartialConstantInstance(partialConstantReader);
   }
   bne_.process();
-  report_ = collectStatistics();
-  spdlog::info(report_);
+  /*report_ = collectStatistics();
+  spdlog::info(report_);*/
   destroy();
 }
 

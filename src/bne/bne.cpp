@@ -5,6 +5,8 @@
 
 #include "bne.h"
 
+using namespace naja::BNE;
+
 void BNE::addDeleteAction(
     const std::vector<SNLID::DesignObjectID>& pathToDelete) {
   DeleteAction* deleteAction = new DeleteAction(pathToDelete);

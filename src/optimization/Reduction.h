@@ -3,14 +3,20 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#pragma once
+
 #include <set>
 #include <vector>
 #include "DNL.h"
 #include "SNLTruthTable.h"
 #include "SNLLibraryTruthTables.h"
 #include "bne.h"
+
 using namespace naja::DNL;
 using namespace naja::SNL;
+using namespace naja::BNE;
+
+namespace naja::NAJA_OPT {
 
 class ReductionOptimization {
  public:
@@ -33,5 +39,7 @@ class ReductionOptimization {
       partialConstantReaders_;
   std::map<std::pair<std::string, std::string>, size_t> reductionStatistics_;
   std::string report_;
-  BNE bne_;
+  BNE::BNE bne_;
 };
+
+}  // namespace naja::NAJA_OPT

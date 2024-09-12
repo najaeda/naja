@@ -21,6 +21,7 @@
 using namespace naja::DNL;
 using namespace naja::NAJA_OPT;
 using namespace naja::SNL;
+using namespace naja::BNE;
 
 // #define DEBUG_PRINTS
 
@@ -971,7 +972,7 @@ void ConstantPropagation::propagateConstants() {
                    std::vector<std::pair<SNLID::DesignObjectID, int>>, DNLID>(
             path, instTerms, inst.getID()));
   }
-  BNE bne;
+  BNE::BNE bne;
   for (auto& path : constant0Readers_) {
     auto context = std::get<0>(path);
     context.pop_back();

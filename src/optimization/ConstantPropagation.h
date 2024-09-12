@@ -10,6 +10,8 @@
 using namespace naja::SNL;
 using namespace naja::DNL;
 
+namespace naja::NAJA_OPT {
+
 class ConstantPropagation {
  public:
 
@@ -56,3 +58,5 @@ class ConstantPropagation {
   std::vector<SNLBitTerm*> constant1TopReaders_;
   bool truthTableEngine_ = false;
 };
+
+}  // namespace naja::NAJA_OPT

@@ -18,8 +18,8 @@
 #include "Utils.h"
 
 using namespace naja::DNL;
-using namespace naja::NAJA_OPT;
 using namespace naja::SNL;
+using namespace naja::BNE;
 
 void DriveWithConstantAction::changeDriverToLocal0(SNLInstTerm* term) {
   term->setNet(nullptr);
