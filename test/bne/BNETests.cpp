@@ -113,6 +113,41 @@ TEST_F(BNETests, ActionComperators) {
     Action* action2ptr = &action2;
     Action* action1ptr = &action1;
     bool compare = *action1ptr == *action2ptr;
+    EXPECT_EQ(compare, true);
+    compare = *action2ptr < *action1ptr;
+    EXPECT_EQ(compare, false);
+  }
+  {
+    ReductionAction action1(
+        context, 0,
+        std::pair<SNLDesign*, SNLLibraryTruthTables::Indexes>(
+            nullptr, SNLLibraryTruthTables::Indexes()));
+    ReductionAction action2(
+        context, 0,
+        std::pair<SNLDesign*, SNLLibraryTruthTables::Indexes>(
+            nullptr, SNLLibraryTruthTables::Indexes()));
+    Action* action2ptr = &action2;
+    Action* action1ptr = &action1;
+    bool compare = *action1ptr == *action2ptr;
+    EXPECT_EQ(compare, true);
+    compare = *action2ptr < *action1ptr;
+    EXPECT_EQ(compare, false);
+  }
+  {
+    ReductionAction action1(
+        context, 0,
+        std::pair<SNLDesign*, SNLLibraryTruthTables::Indexes>(
+            nullptr, SNLLibraryTruthTables::Indexes()));
+    SNLLibraryTruthTables::Indexes indexes;
+    indexes.push_back(0);
+    ReductionAction action2(
+        context, 0,
+        std::pair<SNLDesign*, SNLLibraryTruthTables::Indexes>(
+            nullptr, indexes));
+    Action* action2ptr = &action2;
+    Action* action1ptr = &action1;
+    bool compare = *action2ptr < *action1ptr;
+    EXPECT_EQ(compare, false);
   }
   {
     ReductionAction action1(
@@ -126,6 +161,7 @@ TEST_F(BNETests, ActionComperators) {
     Action* action2ptr = &action2;
     Action* action1ptr = &action1;
     bool compare = *action1ptr < *action2ptr;
+    EXPECT_EQ(compare, true);
   }
   {
     auto pathToDelete = std::vector<SNLID::DesignObjectID>();
