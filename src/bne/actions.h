@@ -87,6 +87,7 @@ class DeleteAction : public Action {
  public:
   DeleteAction(const std::vector<SNLID::DesignObjectID>& pathToDelete)
       : Action(ActionType::DELETE) {
+    assert(!pathToDelete.empty());
     toDelete_ = pathToDelete.back();
     context_ = pathToDelete;
     context_.pop_back();

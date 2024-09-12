@@ -27,12 +27,11 @@ class ReductionOptimization {
     const SNLTruthTable& truthTable,
     const std::vector<std::pair<SNLID::DesignObjectID, int>>& constTerms);
   void run();
-
+  std::string collectStatistics() const;
  private:
   void reducPartialConstantInstance(std::tuple<std::vector<SNLID::DesignObjectID>,
                      std::vector<std::pair<SNLID::DesignObjectID, int>>,
                      DNLID>& candidate);
-  std::string collectStatistics() const;
   std::vector<std::tuple<std::vector<SNLID::DesignObjectID>,
                          std::vector<std::pair<SNLID::DesignObjectID, int>>,
                          DNLID>>

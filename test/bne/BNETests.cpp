@@ -72,25 +72,52 @@ TEST_F(BNETests, ActionComperators) {
  {
   DriveWithConstantAction action1(context, 0, 0, 0);
   DriveWithConstantAction action2(context, 0, 0, 0);
-  bool compare = action1 == action2;
+  Action* action2ptr = &action2;
+  bool compare = action1 == *action2ptr;
   EXPECT_EQ(compare, true);
  }
  {
   DriveWithConstantAction action1(context, 0, 0, 0);
   DriveWithConstantAction action2(context, 1, 0, 0);
-  bool compare = action1 < action2;
+  Action* action2ptr = &action2;
+  bool compare = action1 < *action2ptr;
   EXPECT_EQ(compare, true);
  }
  {
   DriveWithConstantAction action1(context, 0, 0, 0);
   DriveWithConstantAction action2(context, 0, 1, 0);
-  bool compare = action1 < action2;
+  Action* action2ptr = &action2;
+  bool compare = action1 < *action2ptr;
   EXPECT_EQ(compare, true);
  }
  {
   DriveWithConstantAction action1(context, 0, 0, 0);
   DriveWithConstantAction action2(context, 0, 0, 1);
-  bool compare = action1 < action2;
+  Action* action2ptr = &action2;
+  bool compare = action1 < *action2ptr;
   EXPECT_EQ(compare, true);
+ }
+ {
+    auto pathToDelete = std::vector<SNLID::DesignObjectID>();
+    pathToDelete.push_back(0);
+    DeleteAction action1(pathToDelete);
+    DriveWithConstantAction action2(context, 0, 0, 0);
+    ReductionAction action3(context, 0, std::pair<SNLDesign*, SNLLibraryTruthTables::Indexes>(nullptr, SNLLibraryTruthTables::Indexes()));
+    Action* action1ptr = &action1;
+    Action* action2ptr = &action2;
+    Action* action3ptr = &action3;
+    //Test equality comparison
+    bool compare = action1 == *action2ptr;
+    EXPECT_EQ(compare, false);
+    compare = action2 == *action1ptr;
+    EXPECT_EQ(compare, false);
+    compare = action1 == *action3ptr;
+    EXPECT_EQ(compare, false);
+    compare = action3 == *action1ptr;
+    EXPECT_EQ(compare, false);
+    compare = action2 == *action3ptr;
+    EXPECT_EQ(compare, false);
+    compare = action3 == *action2ptr;
+    EXPECT_EQ(compare, false);
  }
 }

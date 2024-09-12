@@ -428,6 +428,7 @@ TEST_F(ReductionOptTests, testTruthTablesMap) {
            cp.getPartialConstantReaders().size());
     ReductionOptimization reductionOpt(cp.getPartialConstantReaders());
     reductionOpt.run();
+    reductionOpt.collectStatistics(); 
   }
   NetlistStatistics netlistStats(*get());
   netlistStats.process();
