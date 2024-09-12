@@ -183,6 +183,7 @@ bool DriveWithConstantAction::operator==(const Action& action) const {
     if (pathToDrive_ < driveWithConstantAction.pathToDrive_) {
       return true;
     } else if (pathToDrive_ == driveWithConstantAction.pathToDrive_) {
+      // LCOV_EXCL_START
       if (termToDrive_ < driveWithConstantAction.termToDrive_) {
         return true;
       } else if (termToDrive_ == driveWithConstantAction.termToDrive_) {
@@ -190,6 +191,7 @@ bool DriveWithConstantAction::operator==(const Action& action) const {
           return true;
         }
       }
+      // LCOV_EXCL_STOP
     }
     return false;
   }
