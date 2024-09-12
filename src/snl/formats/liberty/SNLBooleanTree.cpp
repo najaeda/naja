@@ -204,11 +204,11 @@ SNLBooleanTreeInputNode* SNLBooleanTree::parseInput(
     if (idLen == 1) {
       if (function[pos] == '0') {
         pos += idLen;
-        return new SNLBooleanTreeInputNode(SNLBooleanTreeInputNode::Type::CONSTANT0);
+        return getOrCreateConstantInputNode(false);
       }
       if (function[pos] == '1') {
         pos += idLen;
-        return new SNLBooleanTreeInputNode(SNLBooleanTreeInputNode::Type::CONSTANT1);
+        return getOrCreateConstantInputNode(true);
       }
     }
 
