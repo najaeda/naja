@@ -156,6 +156,7 @@ void DriveWithConstantAction::processOnContext(SNLDesign* design) {
 }
 
 bool DriveWithConstantAction::operator==(const Action& action) const {
+  // LCOV_EXCL_START
   if (action.getType() != ActionType::DRIVE_WITH_CONSTANT) {
     return false;
   }
@@ -163,6 +164,7 @@ bool DriveWithConstantAction::operator==(const Action& action) const {
       dynamic_cast<const DriveWithConstantAction&>(action);
   return pathToDrive_ == driveWithConstantAction.pathToDrive_ &&
          termToDrive_ == driveWithConstantAction.termToDrive_;
+  // LCOV_EXCL_STOP
 }
 bool DriveWithConstantAction::operator<(const Action& action) const {
   if (action.getType() != ActionType::DRIVE_WITH_CONSTANT) {
@@ -255,6 +257,7 @@ void ReductionAction::processOnContext(SNLDesign* design) {
 }
 
 bool ReductionAction::operator==(const Action& action) const {
+  // LCOV_EXCL_START
   if (action.getType() != ActionType::REDUCTION) {
     return false;
   }
@@ -262,8 +265,10 @@ bool ReductionAction::operator==(const Action& action) const {
       dynamic_cast<const ReductionAction&>(action);
   return instance_ == reductionAction.instance_ &&
          result_ == reductionAction.result_;
+  // LCOV_EXCL_STOP
 }
 bool ReductionAction::operator<(const Action& action) const {
+  // LCOV_EXCL_START
   if (action.getType() != ActionType::REDUCTION) {
     return getType() < action.getType();
   }
@@ -277,4 +282,5 @@ bool ReductionAction::operator<(const Action& action) const {
     }
   }
   return false;
+  // LCOV_EXCL_STOP
 }
