@@ -155,6 +155,45 @@ void DriveWithConstantAction::processOnContext(SNLDesign* design) {
   }
 }
 
+bool DriveWithConstantAction::operator==(const Action& action) const {
+    if (action.getType() != ActionType::DRIVE_WITH_CONSTANT) {
+      return false;
+    }
+    const DriveWithConstantAction& driveWithConstantAction =
+        dynamic_cast<const DriveWithConstantAction&>(action);
+    return pathToDrive_ == driveWithConstantAction.pathToDrive_ &&
+           termToDrive_ == driveWithConstantAction.termToDrive_;
+  }
+  bool DriveWithConstantAction::operator<(const Action& action) const {
+    if (action.getType() != ActionType::DRIVE_WITH_CONSTANT) {
+      return getType() < action.getType();
+    }
+    const DriveWithConstantAction& driveWithConstantAction =
+        dynamic_cast<const DriveWithConstantAction&>(action);
+    if (topTermToDrive_ != nullptr) {
+      if (topTermToDrive_ < driveWithConstantAction.topTermToDrive_) {
+        return true;
+      } else if (topTermToDrive_ == driveWithConstantAction.topTermToDrive_) {
+        if (value_ < driveWithConstantAction.value_) {
+          return true;
+        }
+      }
+      return false;
+    }
+    if (pathToDrive_ < driveWithConstantAction.pathToDrive_) {
+      return true;
+    } else if (pathToDrive_ == driveWithConstantAction.pathToDrive_) {
+      if (termToDrive_ < driveWithConstantAction.termToDrive_) {
+        return true;
+      } else if (termToDrive_ == driveWithConstantAction.termToDrive_) {
+        if (value_ < driveWithConstantAction.value_) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
 void DeleteAction::processOnContext(SNLDesign* design) {
   design->getInstance(toDelete_)->destroy();
 }

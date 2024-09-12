@@ -70,44 +70,8 @@ class DriveWithConstantAction : public Action {
         context_(action.context_),
         topTermToDrive_(action.topTermToDrive_) {}
   // comparator
-  bool operator==(const Action& action) const override {
-    if (action.getType() != ActionType::DRIVE_WITH_CONSTANT) {
-      return false;
-    }
-    const DriveWithConstantAction& driveWithConstantAction =
-        dynamic_cast<const DriveWithConstantAction&>(action);
-    return pathToDrive_ == driveWithConstantAction.pathToDrive_ &&
-           termToDrive_ == driveWithConstantAction.termToDrive_;
-  }
-  bool operator<(const Action& action) const override {
-    if (action.getType() != ActionType::DRIVE_WITH_CONSTANT) {
-      return getType() < action.getType();
-    }
-    const DriveWithConstantAction& driveWithConstantAction =
-        dynamic_cast<const DriveWithConstantAction&>(action);
-    if (topTermToDrive_ != nullptr) {
-      if (topTermToDrive_ < driveWithConstantAction.topTermToDrive_) {
-        return true;
-      } else if (topTermToDrive_ == driveWithConstantAction.topTermToDrive_) {
-        if (value_ < driveWithConstantAction.value_) {
-          return true;
-        }
-      }
-      return false;
-    }
-    if (pathToDrive_ < driveWithConstantAction.pathToDrive_) {
-      return true;
-    } else if (pathToDrive_ == driveWithConstantAction.pathToDrive_) {
-      if (termToDrive_ < driveWithConstantAction.termToDrive_) {
-        return true;
-      } else if (termToDrive_ == driveWithConstantAction.termToDrive_) {
-        if (value_ < driveWithConstantAction.value_) {
-          return true;
-        }
-      }
-    }
-    return false;
-  }
+  bool operator==(const Action& action) const override;
+  bool operator<(const Action& action) const override;
 
  private:
   SNLID::DesignObjectID pathToDrive_;
