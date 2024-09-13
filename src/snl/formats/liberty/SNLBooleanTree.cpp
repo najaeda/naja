@@ -216,29 +216,29 @@ SNLBooleanTreeInputNode* SNLBooleanTree::parseInput(
     SNLBitTerm* input = nullptr;
 
     //is it a bus ?
-    auto start = inputName.find('[');
-    if (start != std::string::npos) {
-      auto stop = inputName.find(']');
-      if (stop == std::string::npos) {
-        throw std::runtime_error("Expected `]' at `" + function.substr(pos) + "'.");
-      }
-      auto busName = inputName.substr(0, start);
-      auto busIndex = inputName.substr(start + 1, stop - start - 1);
-      auto bus = primitive->getBusTerm(SNLName(busName));
-      if (bus == nullptr) {
-        throw std::runtime_error("Bus `" + busName + "' not found.");
-      }
-      auto index = std::stoi(busIndex);
-      input = bus->getBit(index);
-      if (input == nullptr) {
-        throw std::runtime_error("Bit `" + busIndex + "' not found in bus `" + busName + "'.");
-      }
-    } else {
+    //auto start = inputName.find('[');
+    //if (start != std::string::npos) {
+    //  auto stop = inputName.find(']');
+    //  if (stop == std::string::npos) {
+    //    throw std::runtime_error("Expected `]' at `" + function.substr(pos) + "'.");
+    //  }
+    //  auto busName = inputName.substr(0, start);
+    //  auto busIndex = inputName.substr(start + 1, stop - start - 1);
+    //  auto bus = primitive->getBusTerm(SNLName(busName));
+    //  if (bus == nullptr) {
+    //    throw std::runtime_error("Bus `" + busName + "' not found.");
+    //  }
+    //  auto index = std::stoi(busIndex);
+    //  input = bus->getBit(index);
+    //  if (input == nullptr) {
+    //    throw std::runtime_error("Bit `" + busIndex + "' not found in bus `" + busName + "'.");
+    //  }
+    //} else {
       input = primitive->getScalarTerm(SNLName(inputName));
       if (input == nullptr) {
         throw std::runtime_error("Scalar `" + inputName + "' not found.");
       }
-    }
+    //}
 
     auto inputNode = getOrCreateInputNode(input);
 
