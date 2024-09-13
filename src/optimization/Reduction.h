@@ -3,14 +3,20 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#pragma once
+
 #include <set>
 #include <vector>
 #include "DNL.h"
 #include "SNLTruthTable.h"
 #include "SNLLibraryTruthTables.h"
+#include "bne.h"
 
 using namespace naja::DNL;
 using namespace naja::SNL;
+using namespace naja::BNE;
+
+namespace naja::NAJA_OPT {
 
 class ReductionOptimization {
  public:
@@ -21,17 +27,18 @@ class ReductionOptimization {
     const SNLTruthTable& truthTable,
     const std::vector<std::pair<SNLID::DesignObjectID, int>>& constTerms);
   void run();
-
+  std::string collectStatistics() const;
  private:
   void reducPartialConstantInstance(std::tuple<std::vector<SNLID::DesignObjectID>,
                      std::vector<std::pair<SNLID::DesignObjectID, int>>,
                      DNLID>& candidate);
-  void replaceInstance(SNLInstance* instance, const std::pair<SNLDesign*, SNLLibraryTruthTables::Indexes>& result);
-  std::string collectStatistics() const;
   std::vector<std::tuple<std::vector<SNLID::DesignObjectID>,
                          std::vector<std::pair<SNLID::DesignObjectID, int>>,
                          DNLID>>
       partialConstantReaders_;
   std::map<std::pair<std::string, std::string>, size_t> reductionStatistics_;
   std::string report_;
+  BNE::BNE bne_;
 };
+
+}  // namespace naja::NAJA_OPT

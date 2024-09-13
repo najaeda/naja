@@ -4,12 +4,10 @@
 
 INCLUDE(GoogleTest)
 
-SET(dnl_tests
-  DNLTests.cpp
+SET(sources
+  BNETests.cpp
 )
 
-ADD_EXECUTABLE(dnlTests ${dnl_tests})
+ADD_EXECUTABLE(BNETests ${sources})
 
-TARGET_LINK_LIBRARIES(dnlTests naja_dnl naja_opt gmock gtest_main)
-
-GTEST_DISCOVER_TESTS(dnlTests)
+TARGET_LINK_LIBRARIES(BNETests naja_dnl naja_bne gmock gtest_main)

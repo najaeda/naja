@@ -13,7 +13,6 @@ using ::testing::ElementsAre;
 #include "SNLPyLoader.h"
 #include "SNLScalarTerm.h"
 #include "SNLUniverse.h"
-using namespace naja::SNL;
 #include "Utils.h"
 #include "ConstantPropagation.h"
 #include "DNL.h"
@@ -254,46 +253,162 @@ TEST_F(ReductionOptTests, testTruthTablesMap) {
         SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out2"));
     auto topOut3 =
         SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out3"));
+    auto topOut4 =
+        SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out4"));
+    auto topOut5 =
+        SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out5"));
+    auto topOut6 =
+        SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out6"));
+    auto topOut7 =
+        SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out7"));
+    auto topOut8 =
+        SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out8"));
+    auto topOut9 =
+        SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out9"));
+    auto topOut10 =
+        SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out10"));
+    auto topOut11 =
+        SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out11"));
+    auto topOut12 =
+        SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("out12"));
     auto topIn =
         SNLScalarTerm::create(top, SNLTerm::Direction::Output, SNLName("in"));
+    SNLDesign* mod = SNLDesign::create(library, SNLName("mod"));
+    auto modOut =
+        SNLScalarTerm::create(mod, SNLTerm::Direction::Output, SNLName("out"));
+    auto modOut2 =
+        SNLScalarTerm::create(mod, SNLTerm::Direction::Output, SNLName("out2"));
+    auto modOut3 =
+        SNLScalarTerm::create(mod, SNLTerm::Direction::Output, SNLName("out3"));
+    auto modOut4 =
+        SNLScalarTerm::create(mod, SNLTerm::Direction::Output, SNLName("out4"));
+    auto modOut5 =
+        SNLScalarTerm::create(mod, SNLTerm::Direction::Output, SNLName("out5"));
+    auto modOut6 =
+        SNLScalarTerm::create(mod, SNLTerm::Direction::Output, SNLName("out6"));
+    auto modIn =
+        SNLScalarTerm::create(mod, SNLTerm::Direction::Output, SNLName("in"));
     // 8. create a mux instance in top
-    SNLInstance* muxInst = SNLInstance::create(top, mux2, SNLName("mux"));
-    SNLInstance* muxInst2 = SNLInstance::create(top, mux2, SNLName("mux2"));
-    SNLInstance* muxInst3 = SNLInstance::create(top, mux2, SNLName("mux3"));
+    SNLInstance* modInst = SNLInstance::create(top, mod, SNLName("mod"));
+    SNLInstance* modInst2 = SNLInstance::create(top, mod, SNLName("mod2"));
+    SNLInstance* muxInst = SNLInstance::create(mod, mux2, SNLName("mux"));
+    SNLInstance* muxInst2 = SNLInstance::create(mod, mux2, SNLName("mux2"));
+    SNLInstance* muxInst3 = SNLInstance::create(mod, mux2, SNLName("mux3"));
+    SNLInstance* muxInst4 = SNLInstance::create(mod, mux2, SNLName("mux4"));
+    SNLInstance* muxInst5 = SNLInstance::create(mod, mux2, SNLName("mux5"));
+    SNLInstance* muxInst6 = SNLInstance::create(mod, mux2, SNLName("mux6"));
     SNLInstance* logic0Inst =
-        SNLInstance::create(top, logic0, SNLName("logic0"));
+        SNLInstance::create(mod, logic0, SNLName("logic0"));
     SNLInstance* logic1Inst =
-        SNLInstance::create(top, logic1, SNLName("logic1"));
+        SNLInstance::create(mod, logic1, SNLName("logic1"));
     // 9. connect all instances inputs
     // SNLNet* net1 = SNLScalarNet::create(top, SNLName("logic_0_net"));
-    SNLNet* net2 = SNLScalarNet::create(top, SNLName("constant_0_net"));
+    //SNLNet* net2 = SNLScalarNet::create(mod, SNLName("constant_0_net"));
     SNLNet* net3 = SNLScalarNet::create(top, SNLName("mux_output_net"));
     SNLNet* net4 = SNLScalarNet::create(top, SNLName("input_net"));
     SNLNet* net5 = SNLScalarNet::create(top, SNLName("constant_1_net"));
     SNLNet* net6 = SNLScalarNet::create(top, SNLName("mux_output_net2"));
     SNLNet* net7 = SNLScalarNet::create(top, SNLName("mux_output_net3"));
-    topIn->setNet(net4);
+    SNLNet* net8 = SNLScalarNet::create(top, SNLName("mux_output_net4"));
+    SNLNet* net9 = SNLScalarNet::create(top, SNLName("mux_output_net5"));
+    SNLNet* net10 = SNLScalarNet::create(top, SNLName("mux_output_net6"));
+    SNLNet* net11 = SNLScalarNet::create(top, SNLName("mod2out1"));
+    SNLNet* net12 = SNLScalarNet::create(top, SNLName("mod2out2"));
+    SNLNet* net13 = SNLScalarNet::create(top, SNLName("mod2out3"));
+    SNLNet* net14 = SNLScalarNet::create(top, SNLName("mod2out4"));
+    SNLNet* net15 = SNLScalarNet::create(top, SNLName("mod2out5"));
+    SNLNet* net16 = SNLScalarNet::create(top, SNLName("mod2out6"));
+    SNLNet* net2mod = SNLScalarNet::create(mod, SNLName("constant_0_net"));
+    SNLNet* net3mod = SNLScalarNet::create(mod, SNLName("mux_output_net"));
+    SNLNet* net4mod = SNLScalarNet::create(mod, SNLName("input_net"));
+    SNLNet* net5mod = SNLScalarNet::create(mod, SNLName("constant_1_net"));
+    SNLNet* net6mod = SNLScalarNet::create(mod, SNLName("mux_output_net2"));
+    SNLNet* net7mod = SNLScalarNet::create(mod, SNLName("mux_output_net3"));
+    SNLNet* net8mod = SNLScalarNet::create(mod, SNLName("mux_output_net4"));
+    SNLNet* net9mod = SNLScalarNet::create(mod, SNLName("mux_output_net5"));
+    SNLNet* net10mod = SNLScalarNet::create(mod, SNLName("mux_output_net6"));
+
+    //Connect all instances inside mod
+    
     // connect logic0 to mux
-    muxInst->getInstTerm(mux2->getScalarTerm(SNLName("A")))->setNet(net2);
+    
     // connect logic1 to mux
     // net2->setType(naja::SNL::SNLNet::Type::Assign1);
-    (*logic0Inst->getInstTerms().begin())->setNet(net2);
-    (*logic1Inst->getInstTerms().begin())->setNet(net5);
-    muxInst->getInstTerm(mux2->getScalarTerm(SNLName("B")))->setNet(net4);
-    muxInst->getInstTerm(mux2->getScalarTerm(SNLName("S")))->setNet(net2);
+    (*logic0Inst->getInstTerms().begin())->setNet(net2mod);
+    (*logic1Inst->getInstTerms().begin())->setNet(net5mod);
+
+    modIn->setNet(net6mod);
+
+    //Twins muxes 1 and 4
+    muxInst->getInstTerm(mux2->getScalarTerm(SNLName("A")))->setNet(net2mod);
+    muxInst4->getInstTerm(mux2->getScalarTerm(SNLName("A")))->setNet(net2mod);
+    muxInst->getInstTerm(mux2->getScalarTerm(SNLName("B")))->setNet(net4mod);
+    muxInst4->getInstTerm(mux2->getScalarTerm(SNLName("B")))->setNet(net4mod);
+    muxInst->getInstTerm(mux2->getScalarTerm(SNLName("S")))->setNet(net2mod);
+    muxInst4->getInstTerm(mux2->getScalarTerm(SNLName("S")))->setNet(net2mod);
     // connect the mux instance output to the top output
-    muxInst->getInstTerm(mux2->getScalarTerm(SNLName("Z")))->setNet(net3);
+    muxInst->getInstTerm(mux2->getScalarTerm(SNLName("Z")))->setNet(net3mod);
+    modOut->setNet(net3mod);
+    muxInst4->getInstTerm(mux2->getScalarTerm(SNLName("Z")))->setNet(net7mod);
+    modOut4->setNet(net7mod);
+
+   //Twins muxes 2 and 5
+    muxInst2->getInstTerm(mux2->getScalarTerm(SNLName("A")))->setNet(net2mod);
+    muxInst5->getInstTerm(mux2->getScalarTerm(SNLName("A")))->setNet(net2mod);
+    muxInst2->getInstTerm(mux2->getScalarTerm(SNLName("B")))->setNet(net5mod);
+    muxInst5->getInstTerm(mux2->getScalarTerm(SNLName("B")))->setNet(net5mod);
+    muxInst2->getInstTerm(mux2->getScalarTerm(SNLName("S")))->setNet(net5mod);
+    muxInst5->getInstTerm(mux2->getScalarTerm(SNLName("S")))->setNet(net5mod);
+    muxInst2->getInstTerm(mux2->getScalarTerm(SNLName("Z")))->setNet(net6mod);
+    modOut2->setNet(net6mod);
+    muxInst5->getInstTerm(mux2->getScalarTerm(SNLName("Z")))->setNet(net9mod);
+    modOut5->setNet(net9mod);
+    
+    //Twins muxes 3 and 6
+    muxInst3->getInstTerm(mux2->getScalarTerm(SNLName("A")))->setNet(net4mod);
+    muxInst6->getInstTerm(mux2->getScalarTerm(SNLName("A")))->setNet(net4mod);
+    muxInst3->getInstTerm(mux2->getScalarTerm(SNLName("B")))->setNet(net4mod);
+    muxInst6->getInstTerm(mux2->getScalarTerm(SNLName("B")))->setNet(net4mod);
+    muxInst3->getInstTerm(mux2->getScalarTerm(SNLName("S")))->setNet(net5mod);
+    muxInst6->getInstTerm(mux2->getScalarTerm(SNLName("S")))->setNet(net5mod);
+    muxInst3->getInstTerm(mux2->getScalarTerm(SNLName("Z")))->setNet(net7mod);
+    muxInst6->getInstTerm(mux2->getScalarTerm(SNLName("Z")))->setNet(net10mod);
+    modOut3->setNet(net7mod);
+    modOut6->setNet(net10mod);
+
+
+    //Connect all instances under top
+    topIn->setNet(net4);
+    
+    
+    modInst->getInstTerm(modIn)->setNet(net4);
+    modInst->getInstTerm(modOut)->setNet(net3);
     topOut->setNet(net3);
-    muxInst2->getInstTerm(mux2->getScalarTerm(SNLName("A")))->setNet(net2);
-    muxInst2->getInstTerm(mux2->getScalarTerm(SNLName("B")))->setNet(net5);
-    muxInst2->getInstTerm(mux2->getScalarTerm(SNLName("S")))->setNet(net5);
-    muxInst2->getInstTerm(mux2->getScalarTerm(SNLName("Z")))->setNet(net6);
+    modInst->getInstTerm(modOut2)->setNet(net6);
     topOut2->setNet(net6);
-    muxInst3->getInstTerm(mux2->getScalarTerm(SNLName("A")))->setNet(net4);
-    muxInst3->getInstTerm(mux2->getScalarTerm(SNLName("B")))->setNet(net4);
-    muxInst3->getInstTerm(mux2->getScalarTerm(SNLName("S")))->setNet(net5);
-    muxInst3->getInstTerm(mux2->getScalarTerm(SNLName("Z")))->setNet(net7);
+    modInst->getInstTerm(modOut3)->setNet(net7);
     topOut3->setNet(net7);
+    modInst->getInstTerm(modOut4)->setNet(net8);
+    topOut4->setNet(net8);
+    modInst->getInstTerm(modOut5)->setNet(net9);
+    topOut5->setNet(net9);
+    modInst->getInstTerm(modOut6)->setNet(net10);
+    topOut6->setNet(net10);
+
+    modInst2->getInstTerm(modIn)->setNet(net4);
+    modInst2->getInstTerm(modOut)->setNet(net11);
+    topOut7->setNet(net11);
+    modInst2->getInstTerm(modOut2)->setNet(net12);
+    topOut8->setNet(net12);
+    modInst2->getInstTerm(modOut3)->setNet(net13);
+    topOut9->setNet(net13);
+    modInst2->getInstTerm(modOut4)->setNet(net14);
+    topOut10->setNet(net14);
+    modInst2->getInstTerm(modOut5)->setNet(net15);
+    topOut11->setNet(net15);
+    modInst2->getInstTerm(modOut6)->setNet(net16);
+    topOut12->setNet(net16);
+
     ConstantPropagation cp;
     cp.setTruthTableEngine(true);
     cp.run();
@@ -313,6 +428,7 @@ TEST_F(ReductionOptTests, testTruthTablesMap) {
            cp.getPartialConstantReaders().size());
     ReductionOptimization reductionOpt(cp.getPartialConstantReaders());
     reductionOpt.run();
+    reductionOpt.collectStatistics(); 
   }
   NetlistStatistics netlistStats(*get());
   netlistStats.process();

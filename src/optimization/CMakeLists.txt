@@ -3,21 +3,19 @@
 # SPDX-License-Identifier: Apache-2.0
 
 set(SOURCES
-  Utils.cpp
   RemoveLoadlessLogic.cpp
   ConstantPropagation.cpp
   Reduction.cpp
 )
 
 set(NAJA_OPT_HEADERS
-  Utils.h
   RemoveLoadlessLogic.h
   ConstantPropagation.h
   Reduction.h
 )
 
 add_library(naja_opt SHARED ${SOURCES})
-target_link_libraries(naja_opt PUBLIC naja_dnl coverage_config sanitizers_config)
+target_link_libraries(naja_opt PUBLIC naja_bne naja_dnl coverage_config sanitizers_config)
 
 target_compile_options(naja_opt PRIVATE ${NAJA_CXX_WARNINGS}) 
 
