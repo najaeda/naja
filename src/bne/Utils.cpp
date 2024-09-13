@@ -140,4 +140,4 @@ namespace naja::BNE
 #endif
     return inst;
   }
-} // namespace naja::NAJA_OPT
+} // namespace naja::BNE

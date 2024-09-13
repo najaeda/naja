@@ -10,6 +10,6 @@ SET(dnl_tests
 
 ADD_EXECUTABLE(dnlTests ${dnl_tests})
 
-TARGET_LINK_LIBRARIES(dnlTests naja_dnl naja_opt gmock gtest_main)
+TARGET_LINK_LIBRARIES(dnlTests naja_dnl naja_bne naja_opt gmock gtest_main)
 
 GTEST_DISCOVER_TESTS(dnlTests)
