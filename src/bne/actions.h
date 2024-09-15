@@ -34,6 +34,8 @@ class Action {
   // Virtual destructor
   virtual ~Action() {};
 
+  virtual void destroy() = 0;
+
  private:
   ActionType type_;
 };
@@ -74,7 +76,7 @@ class DriveWithConstantAction : public Action {
   // comparator
   bool operator==(const Action& action) const override;
   bool operator<(const Action& action) const override;
-
+  void destroy() override { delete this; }
  private:
   SNLID::DesignObjectID pathToDrive_;
   SNLID::DesignObjectID termToDrive_;
@@ -103,23 +105,9 @@ class DeleteAction : public Action {
         toDelete_(action.toDelete_),
         context_(action.context_) {}
   // comparator
-  bool operator==(const Action& action) const override {
-    if (action.getType() != ActionType::DELETE) {
-      return false;
-    }
-    const DeleteAction& deleteAction =
-        dynamic_cast<const DeleteAction&>(action);
-    return toDelete_ == deleteAction.toDelete_;
-  }
-  bool operator<(const Action& action) const override {
-    if (action.getType() != ActionType::DELETE) {
-      return getType() < action.getType();
-    }
-    const DeleteAction& deleteAction =
-        dynamic_cast<const DeleteAction&>(action);
-    return toDelete_ < deleteAction.toDelete_;
-  }
-
+  bool operator==(const Action& action) const override;
+  bool operator<(const Action& action) const override;
+  void destroy() override { delete this; }
  private:
   SNLID::DesignObjectID toDelete_;
   std::vector<SNLID::DesignObjectID> context_;
@@ -144,6 +132,7 @@ class ReductionAction : public Action {
   }
   bool operator==(const Action& action) const override;
   bool operator<(const Action& action) const override;
+  void destroy() override { delete this; }
  private:
   const std::vector<SNLID::DesignObjectID> context_;
   const SNLID::DesignObjectID instance_;
