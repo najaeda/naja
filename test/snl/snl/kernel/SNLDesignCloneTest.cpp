@@ -131,6 +131,7 @@ class SNLDesignCloneTest: public ::testing::Test {
       auto prim1Term0 = SNLScalarTerm::create(prim1, SNLTerm::Direction::Input, SNLName("term0"));
       auto prim1Term1 = SNLScalarTerm::create(prim1, SNLTerm::Direction::Output, SNLName("term1"));
       auto library = SNLLibrary::create(db, SNLName("MYLIB"));
+      top_ = SNLDesign::create(library, SNLName("top"));
       design_ = SNLDesign::create(library, SNLName("design"));
       terms_.push_back(SNLScalarTerm::create(design_, SNLTerm::Direction::Input, SNLName("term0")));
       terms_.push_back(SNLBusTerm::create(design_, SNLTerm::Direction::Input, 4, 0, SNLName("term1")));
@@ -166,6 +167,7 @@ class SNLDesignCloneTest: public ::testing::Test {
     using Parameters = std::vector<SNLParameter*>;
     using Instances = std::vector<SNLInstance*>;
     using Nets = std::vector<SNLNet*>;
+    SNLDesign*  top_        {nullptr};
     SNLDesign*  design_     {nullptr};
     Terms       terms_      {};
     Parameters  parameters_ {};
@@ -183,6 +185,15 @@ TEST_F(SNLDesignCloneTest, testcloneInterface0) {
   compareParameters(design_, newDesign);
   EXPECT_TRUE(newDesign->getInstances().empty());
   EXPECT_TRUE(newDesign->getNets().empty());
+  //instantiate in top
+  auto newInstance = SNLInstance::create(top_, newDesign, SNLName("instance"));
+  ASSERT_NE(nullptr, newInstance);
+  EXPECT_EQ(newDesign, newInstance->getModel());
+  for (auto term: newDesign->getBitTerms()) {
+    auto instTerm = newInstance->getInstTerm(term);
+    ASSERT_NE(nullptr, instTerm);
+    EXPECT_EQ(instTerm->getBitTerm(), term);
+  }
 }
 
 TEST_F(SNLDesignCloneTest, testCloneInterface1) {
@@ -270,6 +281,26 @@ TEST_F(SNLDesignCloneTest, testCloneCompare) {
 
   instParameter->setValue("0b1100");
   EXPECT_TRUE(newDesign->deepCompare(design_, reason, SNLDesign::CompareType::IgnoreIDAndName));
+}
+
+TEST_F(SNLDesignCloneTest, testRepeatedClone) {
+  EXPECT_EQ(0, top_->getID());
+  EXPECT_EQ(1, design_->getID());
+  auto newDesign = design_->clone();
+  EXPECT_EQ(2, newDesign->getID());
+  std::string reason;
+  EXPECT_TRUE(newDesign->deepCompare(design_, reason, SNLDesign::CompareType::IgnoreIDAndName));
+  EXPECT_EQ("", reason);
+  auto newDesign2 = newDesign->clone();
+  EXPECT_EQ(3, newDesign2->getID());
+  EXPECT_TRUE(newDesign2->deepCompare(design_, reason, SNLDesign::CompareType::IgnoreIDAndName));
+  EXPECT_TRUE(newDesign2->deepCompare(newDesign, reason, SNLDesign::CompareType::IgnoreIDAndName));
+  EXPECT_TRUE(reason.empty());
+  auto newDesign3 = design_->clone();
+  EXPECT_EQ(4, newDesign3->getID());
+  EXPECT_TRUE(newDesign3->deepCompare(design_, reason, SNLDesign::CompareType::IgnoreIDAndName));
+  EXPECT_TRUE(newDesign3->deepCompare(newDesign2, reason, SNLDesign::CompareType::IgnoreIDAndName));
+  EXPECT_TRUE(newDesign3->deepCompare(newDesign3, reason, SNLDesign::CompareType::IgnoreIDAndName));
 }
 
 TEST_F(SNLDesignCloneTest, testErrors) {

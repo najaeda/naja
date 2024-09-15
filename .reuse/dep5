@@ -24,11 +24,20 @@ Files: src/apps/naja_edit/examples/*
 Copyright: 2022 The Naja Authors.
 License: Apache-2.0
 
-Files: test/snl/formats/verilog/backend/references/*
+Files: test/snl/formats/verilog/backend/references/* test/snl/formats/liberty/benchmarks/errors/* thirdparty/yosys-liberty/test/benchmarks/test0.lib
 Copyright: 2022 The Naja Authors.
 License: CC0-1.0
 
-Files: thirdparty/spdlog-1.13.0/*
+Files: thirdparty/spdlog-1.14.1/*
 Source: https://github.com/gabime/spdlog 
 Copyright: 2016 Gabi Melman.
 License: MIT
+
+Files: thirdparty/yosys-liberty/src/YosysLibertyParser.cpp thirdparty/yosys-liberty/src/YosysLibertyParser.h
+Source: https://github.com/YosysHQ/yosys/tree/main/passes/techmap
+Copyright: 2012-2022 The Yosys Authors.
+License: ISC
+
+FILES: thirdparty/yosys-liberty/test/benchmarks/test1.lib test/snl/formats/liberty/benchmarks/asap7_excerpt/test0.lib
+Copyright: Copyright 2020 Lawrence T. Clark, Vinay Vashishtha, or Arizona State University
+License: BSD-3-Clause

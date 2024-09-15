@@ -14,13 +14,15 @@
 #include "RemoveLoadlessLogic.h"
 #include "Utils.h"
 #include "tbb/enumerable_thread_specific.h"
+#include "bne.h"
 
 using namespace naja::DNL;
 using namespace naja::SNL;
+using namespace naja::BNE;
 
 // #define DEBUG_PRINTS
 
-namespace naja::NAJA_OPT {
+using namespace naja::NAJA_OPT;
 
 // Constructor
 LoadlessLogicRemover::LoadlessLogicRemover() {}
@@ -30,7 +32,7 @@ std::vector<DNLID> LoadlessLogicRemover::getTopOutputIsos(
     const naja::DNL::DNL<DNLInstanceFull, DNLTerminalFull>& dnl) {
   std::vector<DNLID> topOutputIsos;
   for (DNLID term = dnl.getTop().getTermIndexes().first;
-       term <= dnl.getTop().getTermIndexes().second; term++) {
+       term <= dnl.getTop().getTermIndexes().second && term != DNLID_MAX; term++) {
     assert(DNLID_MAX != term);
 #ifdef DEBUG_PRINTS
     // LCOV_EXCL_START
@@ -294,8 +296,9 @@ void LoadlessLogicRemover::removeLoadlessInstances(
     SNLDesign* top,
     std::vector<std::pair<std::vector<SNLID::DesignObjectID>, DNLID>>&
         loadlessInstances) {
+  BNE::BNE bne;
   for (auto& path : loadlessInstances) {
-    Uniquifier uniquifier(path.first, path.second);
+    /*Uniquifier uniquifier(path.first, path.second);
     uniquifier.process();
     for (SNLInstTerm* term : uniquifier.getPathUniq().back()->getInstTerms()) {
       auto net = term->getNet();
@@ -320,8 +323,10 @@ void LoadlessLogicRemover::removeLoadlessInstances(
 
     // LCOV_EXCL_STOP
 #endif
-    uniquifier.getPathUniq().back()->destroy();
+    uniquifier.getPathUniq().back()->destroy();*/
+    bne.addDeleteAction(path.first);
   }
+  bne.process();
   // #ifdef DEBUG_PRINTS
   //  LCOV_EXCL_START
   spdlog::info("Deleted {} leaf instances out of {}", loadlessInstances.size(),
@@ -339,7 +344,7 @@ void LoadlessLogicRemover::removeLoadlessLogic() {
   report_ = collectStatistics();
   removeLoadlessInstances(SNLUniverse::get()->getTopDesign(),
                           loadlessInstances_);
-  spdlog::info(report_);
+  //spdlog::info(report_);
   DNL::destroy();
 }
 
@@ -356,5 +361,3 @@ std::string LoadlessLogicRemover::collectStatistics() const {
   return ss.str();*/
   return std::string();
 }
-
-}  // namespace naja::NAJA_OPT

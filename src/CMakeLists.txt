@@ -5,6 +5,7 @@
 add_subdirectory(core)
 add_subdirectory(snl)
 add_subdirectory(dnl)
+add_subdirectory(bne)
 add_subdirectory(optimization)
 add_subdirectory(python)
 add_subdirectory(apps)

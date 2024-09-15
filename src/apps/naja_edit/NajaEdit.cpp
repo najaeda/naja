@@ -24,6 +24,7 @@
 #include "SNLPyEdit.h"
 #include "SNLPyLoader.h"
 #include "SNLUtils.h"
+#include "SNLLibertyConstructor.h"
 #include "SNLVRLConstructor.h"
 #include "SNLVRLDumper.h"
 
@@ -35,10 +36,9 @@
 #include "Reduction.h"
 #include "Utils.h"
 
+using namespace naja::SNL;
 using namespace naja::DNL;
-using namespace naja::SNL;
 using namespace naja::NAJA_OPT;
-using namespace naja::SNL;
 
 namespace {
 
@@ -231,7 +231,19 @@ int main(int argc, char* argv[]) {
       db = SNLDB::create(SNLUniverse::get());
       primitivesLibrary = SNLLibrary::create(db, SNLLibrary::Type::Primitives,
                                              SNLName("PRIMS"));
-      SNLPyLoader::loadPrimitives(primitivesLibrary, primitivesPath);
+      auto extension = primitivesPath.extension();
+      if (extension.empty()) {
+        SPDLOG_CRITICAL("Primitives path should end with an extension");
+        std::exit(EXIT_FAILURE);
+      } else if (extension == ".py") {
+        SNLPyLoader::loadPrimitives(primitivesLibrary, primitivesPath);
+      } else if (extension == ".lib") {
+        SNLLibertyConstructor constructor(primitivesLibrary);
+        constructor.construct(primitivesPath);
+      } else {
+        SPDLOG_CRITICAL("Unknow extension in Primitives path");
+        std::exit(EXIT_FAILURE);
+      }
 
       auto designLibrary = SNLLibrary::create(db, SNLName("DESIGN"));
       SNLVRLConstructor constructor(designLibrary);
@@ -283,8 +295,6 @@ int main(int argc, char* argv[]) {
       }
     }
 
-
-
     if (optimizationType == OptimizationType::DLE) {
       const auto start{std::chrono::steady_clock::now()};
       SPDLOG_INFO("Starting removal of loadless logic");
@@ -322,8 +332,6 @@ int main(int argc, char* argv[]) {
       //stats.process();
       //spdlog::info(stats.getReport());
     }
-
-    
 
     if (program.is_used("-z")) {
       const auto start{std::chrono::steady_clock::now()};

@@ -1,0 +1,6 @@
+library (direction_error) {
+  cell (cell0) {
+    pin (A) {
+    
+  }
+}

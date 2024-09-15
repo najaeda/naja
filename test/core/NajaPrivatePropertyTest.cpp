@@ -70,9 +70,7 @@ class TestPrivateProperty: public NajaPrivateProperty {
     }
 };
 
-
 }
-
 
 class NajaPrivatePropertyTest: public ::testing::Test {
   protected:

@@ -45,7 +45,7 @@ WORKDIR /naja/regress
 ENV SET_PYTHONPATH=/naja-install/lib/python
 ENV LD_LIBRARY_PATH=/naja-install/lib
 ENV NAJA_EDIT=/naja-install/bin/naja_edit
-ENV PRIMITIVES=/naja-install/shared/primitives/xilinx.py
+ENV PRIMITIVES=/naja-install/share/naja/primitives/xilinx.py
 ENV YOSYS=/yosys-install/bin/yosys
 ENV VERILATOR=/verilator-install/bin/verilator
 CMD /yosys-install/bin/yosys -V; /verilator-install/bin/verilator -V; make clean; make
