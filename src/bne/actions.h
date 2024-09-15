@@ -105,22 +105,8 @@ class DeleteAction : public Action {
         toDelete_(action.toDelete_),
         context_(action.context_) {}
   // comparator
-  bool operator==(const Action& action) const override {
-    if (action.getType() != ActionType::DELETE) {
-      return false;
-    }
-    const DeleteAction& deleteAction =
-        dynamic_cast<const DeleteAction&>(action);
-    return toDelete_ == deleteAction.toDelete_;
-  }
-  bool operator<(const Action& action) const override {
-    if (action.getType() != ActionType::DELETE) {
-      return getType() < action.getType();
-    }
-    const DeleteAction& deleteAction =
-        dynamic_cast<const DeleteAction&>(action);
-    return toDelete_ < deleteAction.toDelete_;
-  }
+  bool operator==(const Action& action) const override;
+  bool operator<(const Action& action) const override;
   void destroy() override { delete this; }
  private:
   SNLID::DesignObjectID toDelete_;

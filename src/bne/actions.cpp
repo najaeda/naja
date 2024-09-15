@@ -186,7 +186,6 @@ bool DriveWithConstantAction::operator<(const Action& action) const {
   if (pathToDrive_ < driveWithConstantAction.pathToDrive_) {
     return true;
   } else if (pathToDrive_ == driveWithConstantAction.pathToDrive_) {
-    
     if (termToDrive_ < driveWithConstantAction.termToDrive_) {
       return true;
     } else if (termToDrive_ == driveWithConstantAction.termToDrive_) {
@@ -196,11 +195,27 @@ bool DriveWithConstantAction::operator<(const Action& action) const {
     }
   }
   return false;
-   // LCOV_EXCL_STOP
+  // LCOV_EXCL_STOP
 }
 
 void DeleteAction::processOnContext(SNLDesign* design) {
   design->getInstance(toDelete_)->destroy();
+}
+
+bool DeleteAction::operator==(const Action& action) const {
+  if (action.getType() != ActionType::DELETE) {
+    return false;
+  }
+  const DeleteAction& deleteAction = dynamic_cast<const DeleteAction&>(action);
+  return toDelete_ == deleteAction.toDelete_;
+}
+
+bool DeleteAction::operator<(const Action& action) const {
+  if (action.getType() != ActionType::DELETE) {
+    return getType() < action.getType();
+  }
+  const DeleteAction& deleteAction = dynamic_cast<const DeleteAction&>(action);
+  return toDelete_ < deleteAction.toDelete_;
 }
 
 void ReductionAction::replaceInstance(
