@@ -10,6 +10,8 @@
 using namespace naja::SNL;
 using namespace naja::DNL;
 
+namespace naja::NAJA_OPT {
+
 class ConstantPropagation {
  public:
 
@@ -39,8 +41,6 @@ class ConstantPropagation {
   //void computOuputValuesforHalfAdder(DNLID instanceID);
   void performConstantPropagationAnalysis();
   void propagateConstants();
-  void changeDriverToLocal0(SNLInstTerm* term, DNLID id);
-  void changeDriverToLocal1(SNLInstTerm* term, DNLID id);
   DNLFull* dnl_ = nullptr;
   std::unordered_map<SNLID::DesignID, DNLID> designObjectID2Type_;
   std::set<DNLID> initialConstants0_;
@@ -58,3 +58,5 @@ class ConstantPropagation {
   std::vector<SNLBitTerm*> constant1TopReaders_;
   bool truthTableEngine_ = false;
 };
+
+}  // namespace naja::NAJA_OPT

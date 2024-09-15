@@ -14,6 +14,7 @@
 #include "SNLBitTermOccurrence.h"
 #include "SNLEquipotential.h"
 #include "SNLException.h"
+#include "Utils.h"
 
 using namespace naja::DNL;
 using namespace naja::SNL;
@@ -622,5 +623,12 @@ TEST_F(DNLTests, SNLDataAccessWith3levelsOfHierarchyAndIsoDBWithMultiDriverNonMT
     EXPECT_EQ(dnl->getDNLNullTerminal().isNull(), true);
     //Destroy the DNL
     EXPECT_EQ(isCreated(), true);
+    std::vector<SNLID::DesignObjectID> path;
+    path.push_back(0);
+    path.push_back(0);
+    std::string id("");
+    naja::BNE::Uniquifier uniquifier(path, id);
+    uniquifier.process();   
+    uniquifier.getFullPath();
     destroy();
 }

@@ -13,6 +13,7 @@
 using namespace naja::DNL;
 using namespace naja::SNL;
 using namespace naja::NAJA_OPT;
+using namespace naja::BNE;
 
 //#define DEBUG_PRINTS
 
@@ -26,8 +27,9 @@ void ReductionOptimization::run() {
   for (auto& partialConstantReader : partialConstantReaders_) {
     reducPartialConstantInstance(partialConstantReader);
   }
-  report_ = collectStatistics();
-  //spdlog::info(report_);
+  bne_.process();
+  /*report_ = collectStatistics();
+  spdlog::info(report_);*/
   destroy();
 }
 
@@ -55,56 +57,6 @@ SNLTruthTable ReductionOptimization::reduceTruthTable(SNLInstance* uniquifiedCan
   return truthTable.getReducedWithConstants(constInputs);
 }
 
-void ReductionOptimization::replaceInstance(
-    SNLInstance* instance,
-    const std::pair<SNLDesign*, SNLLibraryTruthTables::Indexes>& result) {
-  reductionStatistics_[std::pair<std::string, std::string>(instance->getModel()->getName().getString(), 
-    result.first->getName().getString())]++;
-  SNLDesign* design = instance->getDesign();
-  SNLDesign* reducedDesign = result.first;
-  SNLInstance* reducedInstance = SNLInstance::create(
-      design, reducedDesign,
-      SNLName(std::string(instance->getName().getString()) + "_reduced"));
-  std::vector<SNLInstTerm*> reducedInstTerms;
-  SNLInstTerm* output = nullptr;
-  SNLInstTerm* reducedOutput = nullptr;
-  for (auto term : reducedInstance->getInstTerms()) {
-    if (term->getDirection() != SNLInstTerm::Direction::Input) {
-      reducedOutput = term;
-      continue;
-    }
-    reducedInstTerms.push_back(term);
-  }
-  size_t index = 0;
-  size_t originNonConstantIndex = 0;
-  for (auto term : instance->getInstTerms()) {
-    if (term->getDirection() != SNLInstTerm::Direction::Input) {
-      output = term;
-      break;
-    }
-  }
-  for (auto term : instance->getInstTerms()) {
-    SNLBitNet* bitNet = term->getNet();
-    term->setNet(nullptr);
-    if (bitNet->isConstant() || reducedInstTerms.empty()) {
-      continue;
-    }
-    originNonConstantIndex++;
-    if (std::find(result.second.begin(), result.second.end(),
-                  originNonConstantIndex) != result.second.end()) {
-      continue;
-    }
-    reducedInstTerms[index]->setNet(bitNet);
-    index++;
-    if (index == reducedInstTerms.size()) {
-      break;
-    }
-  }
-  reducedOutput->setNet(output->getNet());
-  output->setNet(nullptr);
-  instance->destroy();
-}
-
 void ReductionOptimization::reducPartialConstantInstance(
     std::tuple<std::vector<SNLID::DesignObjectID>,
                std::vector<std::pair<SNLID::DesignObjectID, int>>,
@@ -115,9 +67,10 @@ void ReductionOptimization::reducPartialConstantInstance(
   // LCOV_EXCL_STOP
 #endif
   auto library = *(SNLUniverse::get()->getTopDesign()->getDB()->getPrimitiveLibraries().begin());
-  Uniquifier uniquifier(std::get<0>(candidate), std::get<2>(candidate));
+  /*Uniquifier uniquifier(std::get<0>(candidate), std::get<2>(candidate));
   uniquifier.process();
-  SNLInstance* uniquifiedCandidate = uniquifier.getPathUniq().back();
+  SNLInstance* uniquifiedCandidate = uniquifier.getPathUniq().back();*/
+  auto inst = getInstanceForPath(std::get<0>(candidate));
   /*if (!uniquifiedCandidate) {uniquifier.getPathUniq().back()
     std::ostringstream reason;
     auto instance = std::get<0>(candidate).back();
@@ -127,7 +80,7 @@ void ReductionOptimization::reducPartialConstantInstance(
     throw SNLException(reason.str());
   }*/
   SNLTruthTable invTruthTable =
-      SNLDesignTruthTable::getTruthTable(uniquifiedCandidate->getModel());
+      SNLDesignTruthTable::getTruthTable(inst->getModel());
   if (!invTruthTable.isInitialized()) {
 #ifdef DEBUG_PRINTS
     // LCOV_EXCL_START
@@ -140,7 +93,7 @@ void ReductionOptimization::reducPartialConstantInstance(
     return;
   }
   SNLTruthTable reducedTruthTable =
-      reduceTruthTable(uniquifiedCandidate, invTruthTable, std::get<1>(candidate));
+      reduceTruthTable(inst, invTruthTable, std::get<1>(candidate));
   if (reducedTruthTable.size() == 0) {
 #ifdef DEBUG_PRINTS
     // LCOV_EXCL_START
@@ -168,7 +121,11 @@ void ReductionOptimization::reducPartialConstantInstance(
            result.first->getName().getString().c_str());
 // LCOV_EXCL_STOP
 #endif
-    replaceInstance(uniquifiedCandidate, result);
+    auto context = std::get<0>(candidate);
+    auto instance = context.back();
+    context.pop_back(); 
+    bne_.addReductionCommand(context, instance, result);
+    //replaceInstance(uniquifiedCandidate, result);
   } else {
 #ifdef DEBUG_PRINTS
     // LCOV_EXCL_START
