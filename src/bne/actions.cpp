@@ -198,6 +198,15 @@ bool DriveWithConstantAction::operator<(const Action& action) const {
   // LCOV_EXCL_STOP
 }
 
+DeleteAction::DeleteAction(
+    const std::vector<SNLID::DesignObjectID>& pathToDelete)
+    : Action(ActionType::DELETE) {
+  assert(!pathToDelete.empty());
+  toDelete_ = pathToDelete.back();
+  context_ = pathToDelete;
+  context_.pop_back();
+}
+
 void DeleteAction::processOnContext(SNLDesign* design) {
   design->getInstance(toDelete_)->destroy();
 }

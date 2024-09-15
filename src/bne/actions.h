@@ -87,13 +87,7 @@ class DriveWithConstantAction : public Action {
 
 class DeleteAction : public Action {
  public:
-  DeleteAction(const std::vector<SNLID::DesignObjectID>& pathToDelete)
-      : Action(ActionType::DELETE) {
-    assert(!pathToDelete.empty());
-    toDelete_ = pathToDelete.back();
-    context_ = pathToDelete;
-    context_.pop_back();
-  }
+  DeleteAction(const std::vector<SNLID::DesignObjectID>& pathToDelete);
   void processOnContext(SNLDesign* design) override;
   SNLID::DesignObjectID getToDelete() const { return toDelete_; }
   const std::vector<SNLID::DesignObjectID>& getContext() const override {
