@@ -204,7 +204,9 @@ void DeleteAction::processOnContext(SNLDesign* design) {
 
 bool DeleteAction::operator==(const Action& action) const {
   if (action.getType() != ActionType::DELETE) {
+    // LCOV_EXCL_START
     return false;
+    // LCOV_EXCL_STOP
   }
   const DeleteAction& deleteAction = dynamic_cast<const DeleteAction&>(action);
   return toDelete_ == deleteAction.toDelete_;
@@ -212,7 +214,9 @@ bool DeleteAction::operator==(const Action& action) const {
 
 bool DeleteAction::operator<(const Action& action) const {
   if (action.getType() != ActionType::DELETE) {
+    // LCOV_EXCL_START
     return getType() < action.getType();
+    // LCOV_EXCL_STOP
   }
   const DeleteAction& deleteAction = dynamic_cast<const DeleteAction&>(action);
   return toDelete_ < deleteAction.toDelete_;
