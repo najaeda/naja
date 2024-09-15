@@ -222,19 +222,7 @@ void ActionTree::process() {
 // Destructor that releases all the actions
 ActionTree::~ActionTree() {
   for (auto& action : actions_) {
-    switch (action->getType()) {
-      case ActionType::DELETE:
-        delete static_cast<DeleteAction*>(action);
-        break;
-      case ActionType::DRIVE_WITH_CONSTANT:
-        delete static_cast<DriveWithConstantAction*>(action);
-        break;
-      case ActionType::REDUCTION:
-        delete static_cast<ReductionAction*>(action);
-        break;
-      default:
-        break;
-    }
+    action->destroy();
   }
 }
 
