@@ -66,9 +66,9 @@ void NetlistGraph<InstData, PortData, WireData, BusData>::dumpDotFileRec(
     i++;
   }
 
-  for (size_t child : node->getChildren()) {
+  /*for (size_t child : node->getChildren()) {
     //printf("----%s\n", getInst(child).getData().getName().c_str());
-  }
+  }*/
 
   for (size_t child : node->getChildren()) {
     dumpDotFileRec(&getInst(child), myfile, i);
