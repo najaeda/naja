@@ -35,6 +35,7 @@
 #include "SNLUniverse.h"
 #include "Reduction.h"
 #include "Utils.h"
+#include "NetlistGraph.h"
 
 using namespace naja::SNL;
 using namespace naja::DNL;
@@ -42,7 +43,7 @@ using namespace naja::NAJA_OPT;
 
 namespace {
 
-enum class FormatType { NOT_PROVIDED, UNKNOWN, VERILOG, SNL };
+enum class FormatType { NOT_PROVIDED, UNKNOWN, VERILOG, SNL, DOT, SVG};
 FormatType argToFormatType(const std::string& inputFormat) {
   if (inputFormat.empty()) {
     return FormatType::NOT_PROVIDED;
@@ -50,6 +51,10 @@ FormatType argToFormatType(const std::string& inputFormat) {
     return FormatType::VERILOG;
   } else if (inputFormat == "snl") {
     return FormatType::SNL;
+  } else if (inputFormat == "dot") {
+    return FormatType::DOT;
+  /*} else if (inputFormat == "svg") {
+    return FormatType::SVG;*/
   } else {
     return FormatType::UNKNOWN;
   }
@@ -360,7 +365,22 @@ int main(int argc, char* argv[]) {
       } else {
         db->debugDump(0);
       }
-    }
+    } else if (outputFormatType == FormatType::DOT) {
+        std::string dotFileName(outputPath.string());
+        naja::SnlVisualiser snl(db->getTopDesign());
+        snl.process();
+        snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
+    } /*else if (outputFormatType == FormatType::SVG) {
+        std::string dotFileName(outputPath.string());
+        std::string svgFileName(
+            outputPath.string() + std::string(".svg"));
+        naja::SnlVisualiser snl(db->getTopDesign());
+        snl.process();
+        snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
+        system(std::string(std::string("dot -Tsvg ") + dotFileName +
+                          std::string(" -o ") + svgFileName)
+                  .c_str());
+    }*/
 
     if (program.is_used("-d")) {
       if (not primitivesLibrary and inputFormatType==FormatType::SNL) {
