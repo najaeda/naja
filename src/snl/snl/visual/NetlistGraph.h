@@ -471,7 +471,7 @@ class NetlistGraph {
       myfile << "leaf" << node->getInPortLeafId();
     }
     for (size_t child : node->getChildren()) {
-      printf("alignRec child\n");
+      //printf("alignRec child\n");
       alignRec(&getInst(child), myfile);
     }
     size_t count = 0;
