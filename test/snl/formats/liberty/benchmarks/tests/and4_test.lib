@@ -1,0 +1,20 @@
+library (and4_test) {
+  cell (and4) {
+    pin(I0) {
+      direction : input ;  
+    }
+    pin(I1) {
+      direction : input ;  
+    }
+    pin(I2) {
+      direction : input ;  
+    }
+    pin(I3) {
+      direction : input ;  
+    }
+    pin(Z) {
+      direction : output ;
+      function : "I0&I1&I2&I3" ;
+    }
+  }
+}

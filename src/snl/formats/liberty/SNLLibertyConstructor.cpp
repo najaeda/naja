@@ -104,7 +104,9 @@ void parseTerms(
           }
         }
       } else {
-        throw SNLLibertyConstructorException("Direction not found");
+        std::ostringstream reason;
+        reason << "Direction not found for " << child->id << " " << pinName;
+        throw SNLLibertyConstructorException(reason.str());
       }
       if (not ignoreFunction
         and constructedScalarTerm

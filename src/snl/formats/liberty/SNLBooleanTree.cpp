@@ -11,6 +11,7 @@
 #include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
 #include "SNLBusTermBit.h"
+#include "SNLLibertyConstructorException.h"
 
 namespace {
   
@@ -61,7 +62,6 @@ bool reduce(
     return true;
   }
 
-
   if (0 <= top-2 and stack[top-2].type_ == 1 and stack[top-1].type_ == '^' and stack[top].type_ == 1) {
     auto xorNode = new SNLBooleanTreeFunctionNode(SNLBooleanTreeFunctionNode::Type::XOR);
     xorNode->addInput(stack[top-2].node_);
@@ -80,7 +80,9 @@ bool reduce(
     return true;
   }
 
+#if 0
   if (0 <= top-1 and stack[top-1].type_ == 2 and stack[top].type_ == 2) {
+    //Top two stack elements are of type 2
     auto andNode = new SNLBooleanTreeFunctionNode(SNLBooleanTreeFunctionNode::Type::AND);
     andNode->addInput(stack[top-1].node_);
     andNode->addInput(stack[top].node_);
@@ -89,6 +91,7 @@ bool reduce(
     stack.push_back(Token(2, andNode));
     return true;
   }
+#endif
 
   if (0 <= top-2 and stack[top-2].type_ == 2
     and (stack[top-1].type_ == '*' or stack[top-1].type_ == '&')
@@ -140,7 +143,6 @@ bool reduce(
     stack.push_back(t);
     return true;
   }
-
   return false;
 }
 
@@ -198,7 +200,7 @@ SNLBooleanTreeInputNode* SNLBooleanTree::parseInput(
     }
 
     if (idLen == 0) {
-      throw std::runtime_error("Expected identifier at `" + function.substr(pos) + "'.");
+      throw SNLLibertyConstructorException("Expected identifier at `" + function.substr(pos) + "'.");
     }
 
     if (idLen == 1) {
@@ -236,7 +238,7 @@ SNLBooleanTreeInputNode* SNLBooleanTree::parseInput(
     //} else {
       input = primitive->getScalarTerm(SNLName(inputName));
       if (input == nullptr) {
-        throw std::runtime_error("Scalar `" + inputName + "' not found.");
+        throw SNLLibertyConstructorException("Scalar `" + inputName + "' not found.");
       }
     //}
 
@@ -283,7 +285,7 @@ void SNLBooleanTree::parse(const SNLDesign* primitive, const std::string& functi
   while (reduce(primitive, stack, Token('.'))) {}
 
   if (stack.size() != 1 || stack.back().type_ != 3) {
-    throw std::runtime_error("Parser error in function expr `" + function + "'.");  
+    throw SNLLibertyConstructorException("Parser error in function expr `" + function + "'.");  
   }
 
   auto root = stack.back().node_;
@@ -314,12 +316,12 @@ bool SNLBooleanTreeFunctionNode::getValue() const {
       return std::count_if(inputs_.begin(), inputs_.end(), [](auto input) { return input->getValue(); }) % 2;
     case Type::NOT:
       if (inputs_.size() != 1) {
-        throw std::runtime_error("NOT node must have exactly one input");
+        throw SNLLibertyConstructorException("NOT node must have exactly one input");
       }
       return not inputs_[0]->getValue();
     case Type::BUFFER:
       if (inputs_.size() != 1) {
-        throw std::runtime_error("BUFFER node must have exactly one input");
+        throw SNLLibertyConstructorException("BUFFER node must have exactly one input");
       }
       return inputs_[0]->getValue();
   }
@@ -328,7 +330,7 @@ bool SNLBooleanTreeFunctionNode::getValue() const {
 
 SNLTruthTable SNLBooleanTree::getTruthTable(const Terms& terms) {
   if (root_ == nullptr) {
-    throw std::runtime_error("Boolean tree not parsed");
+    throw SNLLibertyConstructorException("Boolean tree not parsed");
   }
   //translate the terms to the inputs
   std::vector<SNLBooleanTreeInputNode*> inputs;
