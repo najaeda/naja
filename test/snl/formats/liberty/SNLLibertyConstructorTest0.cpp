@@ -81,6 +81,25 @@ TEST_F(SNLLibertyConstructorTest0, testInOut) {
   EXPECT_EQ(SNLTerm::Direction::InOut, z->getDirection());
 }
 
+TEST_F(SNLLibertyConstructorTest0, testInternalPin) {
+  SNLLibertyConstructor constructor(library_);
+  std::filesystem::path testPath(
+      std::filesystem::path(SNL_LIBERTY_BENCHMARKS)
+      / std::filesystem::path("benchmarks")
+      / std::filesystem::path("tests")
+      / std::filesystem::path("internal_pin_test.lib"));
+  constructor.construct(testPath);
+  EXPECT_EQ(library_->getDesigns().size(), 1);
+  auto design = library_->getDesign(SNLName("internal_pin_test"));
+  ASSERT_NE(nullptr, design);
+  EXPECT_EQ(2, design->getTerms().size());
+  EXPECT_EQ(2, design->getScalarTerms().size());
+  auto i = design->getScalarTerm(SNLName("I"));
+  EXPECT_EQ(SNLTerm::Direction::Input, i->getDirection());
+  auto z = design->getScalarTerm(SNLName("Z"));
+  EXPECT_EQ(SNLTerm::Direction::Output, z->getDirection());
+}
+
 TEST_F(SNLLibertyConstructorTest0, testNonExistingFile) {
   SNLLibertyConstructor constructor(library_);
   std::filesystem::path testPath(

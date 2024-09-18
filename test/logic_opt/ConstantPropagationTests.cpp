@@ -1330,7 +1330,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationOAI) {
   }
 }
 
-TEST_F(ConstantPropagationTests, TestConstantPropagationNonDeffinedModel) {
+TEST_F(ConstantPropagationTests, TestConstantPropagationNonDefinedModel) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
@@ -2600,7 +2600,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationPartialNonDefinedModel) 
 }
 
 // Test constat propagation for AND
-TEST_F(ConstantPropagationTests, TestConstantPropagationAND_Hairachical_duplicated_nested_actions) {
+TEST_F(ConstantPropagationTests, TestConstantPropagationAND_Hierarchical_duplicated_nested_actions) {
   // 1. Create SNL
   SNLUniverse* univ = SNLUniverse::create();
   SNLDB* db = SNLDB::create(univ);
