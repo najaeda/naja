@@ -48,7 +48,7 @@ class SNLBooleanTreeInputNode: public SNLBooleanTreeNode {
         case Type::CONSTANT1:
           return true;
       }
-      return false;
+      return false; //LCOV_EXCL_LINE
     }
 
     const SNLBitTerm* getTerm() const {

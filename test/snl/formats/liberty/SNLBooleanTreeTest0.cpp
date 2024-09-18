@@ -10,6 +10,7 @@ using ::testing::Key;
 #include "SNLUniverse.h"
 #include "SNLScalarTerm.h"
 #include "SNLBooleanTree.h"
+#include "SNLLibertyConstructorException.h"
 
 using namespace naja::SNL;
 
@@ -275,4 +276,12 @@ TEST_F(SNLBooleanTreeTest0, test60) {
   auto tt = tree->getTruthTable(inputs);
   EXPECT_EQ(6, tt.size());
   EXPECT_EQ(0x111F111F111FFFFF, tt.bits());
+}
+
+TEST_F(SNLBooleanTreeTest0, testFunctionError) {
+  auto test = SNLDesign::create(library_, SNLDesign::Type::Primitive, SNLName("TEST"));
+  auto tree = std::make_unique<SNLBooleanTree>();
+  size_t pos = 0;
+  EXPECT_THROW(tree->parseInput(test, "&", pos), SNLLibertyConstructorException);
+  EXPECT_THROW(tree->parseInput(test, "A", pos), SNLLibertyConstructorException);
 }
