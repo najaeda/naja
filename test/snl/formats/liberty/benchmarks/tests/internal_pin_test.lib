@@ -1,0 +1,13 @@
+library (internal_pin_test) {
+  cell (internal_pin_test) {
+    pin(I) {
+      direction : input ;  
+    }
+    pin(INTERNAL) {
+      direction : internal ;  
+    }
+    pin(Z) {
+      direction : output ;
+    }
+  }
+}

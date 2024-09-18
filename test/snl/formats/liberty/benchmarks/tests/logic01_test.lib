@@ -1,0 +1,14 @@
+library (logic01_test) {
+  cell (logic0) {
+    pin(Z) {
+      direction : output ;
+      function : "0" ;
+    }
+  }
+  cell (logic1) {
+    pin(Z) {
+      direction : output ;
+      function : "1" ;
+    }
+  }
+}

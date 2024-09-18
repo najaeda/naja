@@ -28,7 +28,7 @@
 namespace {
 
 void createPort(naja::SNL::SNLDesign* design, const naja::verilog::Port& port) {
-  spdlog::trace("Module {} create port: {}", design->getDescription(), port.getString());
+  //spdlog::trace("Module {} create port: {}", design->getDescription(), port.getString());
   if (port.isBus()) {
     naja::SNL::SNLBusTerm::create(
       design,
@@ -45,7 +45,7 @@ void createPort(naja::SNL::SNLDesign* design, const naja::verilog::Port& port) {
 }
 
 void createPortNet(naja::SNL::SNLDesign* design, const naja::verilog::Port& port) {
-  spdlog::trace("Module {} create port net: {}", design->getDescription(), port.getString());
+  //spdlog::trace("Module {} create port net: {}", design->getDescription(), port.getString());
   if (port.isBus()) {
     auto term = design->getBusTerm(naja::SNL::SNLName(port.identifier_.name_));
     auto net = naja::SNL::SNLBusNet::create(

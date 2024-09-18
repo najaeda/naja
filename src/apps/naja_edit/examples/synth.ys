@@ -1,3 +1,0 @@
-read_verilog addaccu.v
-synth_xilinx -top addaccu
-write_verilog addaccu_netlist.v
