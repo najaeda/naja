@@ -100,13 +100,13 @@ class SNLBooleanTree {
     SNLBooleanTreeFunctionNode* getRoot() const { return root_; }
     const Inputs& getInputs() const { return inputs_; }
     SNLBooleanTreeInputNode* getInput(const SNLBitTerm* inputTerm) const;
+    SNLBooleanTreeInputNode* getOrCreateInputNode(const SNLBitTerm* input);
+    SNLBooleanTreeInputNode* getOrCreateConstantInputNode(bool constant);
+    void setRoot(SNLBooleanTreeFunctionNode* root) { root_ = root; }
 
     using Terms = std::vector<SNLBitTerm*>;
     SNLTruthTable getTruthTable(const Terms& terms);
   private:
-    SNLBooleanTreeInputNode* getOrCreateInputNode(const SNLBitTerm* input);
-    SNLBooleanTreeInputNode* getOrCreateConstantInputNode(bool constant);
-
     std::string                 function_   {};
     Inputs                      inputs_     {};
     SNLBooleanTreeInputNode*    constant0_  {nullptr};
