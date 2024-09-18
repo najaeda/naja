@@ -35,8 +35,8 @@ TEST_F(SNLBooleanTreeTest1, testError0) {
   auto bNode = tree->getOrCreateInputNode(and2->getScalarTerm(SNLName("B")));
   auto invNode = new SNLBooleanTreeFunctionNode(SNLBooleanTreeFunctionNode::Type::NOT);
   tree->setRoot(invNode);
-  invNode->addInput(new SNLBooleanTreeInputNode(SNLBooleanTreeInputNode::Type::INPUT));
-  invNode->addInput(new SNLBooleanTreeInputNode(SNLBooleanTreeInputNode::Type::INPUT));
+  invNode->addInput(aNode);
+  invNode->addInput(bNode);
   EXPECT_THROW(invNode->getValue(), SNLLibertyConstructorException);
 }
 
@@ -50,7 +50,7 @@ TEST_F(SNLBooleanTreeTest1, testError1) {
   auto bNode = tree->getOrCreateInputNode(and2->getScalarTerm(SNLName("B")));
   auto bufNode = new SNLBooleanTreeFunctionNode(SNLBooleanTreeFunctionNode::Type::BUFFER);
   tree->setRoot(bufNode);
-  bufNode->addInput(new SNLBooleanTreeInputNode(SNLBooleanTreeInputNode::Type::INPUT));
-  bufNode->addInput(new SNLBooleanTreeInputNode(SNLBooleanTreeInputNode::Type::INPUT));
+  bufNode->addInput(aNode);
+  bufNode->addInput(bNode);
   EXPECT_THROW(bufNode->getValue(), SNLLibertyConstructorException);
 }
