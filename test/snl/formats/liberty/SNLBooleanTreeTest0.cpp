@@ -285,3 +285,9 @@ TEST_F(SNLBooleanTreeTest0, testFunctionError) {
   EXPECT_THROW(tree->parseInput(test, "&", pos), SNLLibertyConstructorException);
   EXPECT_THROW(tree->parseInput(test, "A", pos), SNLLibertyConstructorException);
 }
+
+TEST_F(SNLBooleanTreeTest0, testEmptyTreeError) {
+  auto test = SNLDesign::create(library_, SNLDesign::Type::Primitive, SNLName("TEST"));
+  auto tree = std::make_unique<SNLBooleanTree>();
+  EXPECT_THROW(tree->getTruthTable(SNLBooleanTree::Terms()), SNLLibertyConstructorException);
+}
