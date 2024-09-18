@@ -67,7 +67,7 @@ SNLTruthTable SNLDesignTruthTable::getTruthTable(const SNLDesign* design) {
 bool SNLDesignTruthTable::isConst0(const SNLDesign* design) {
   auto truthTable = getTruthTable(design);
   if (truthTable.isInitialized()) {
-    return truthTable == SNLTruthTable(0, 0);
+    return truthTable == SNLTruthTable::Logic0();
   }
   return false;
 }
@@ -75,7 +75,7 @@ bool SNLDesignTruthTable::isConst0(const SNLDesign* design) {
 bool SNLDesignTruthTable::isConst1(const SNLDesign* design) {
   auto truthTable = getTruthTable(design);
   if (truthTable.isInitialized()) {
-    return truthTable == SNLTruthTable(0, 1);
+    return truthTable == SNLTruthTable::Logic1();
   }
   return false;
 }
@@ -83,7 +83,7 @@ bool SNLDesignTruthTable::isConst1(const SNLDesign* design) {
 bool SNLDesignTruthTable::isInv(const SNLDesign* design) {
   auto truthTable = getTruthTable(design);
   if (truthTable.isInitialized()) {
-    return truthTable == SNLTruthTable(1, 0b01);
+    return truthTable == SNLTruthTable::Inv();
   }
   return false;
 }
@@ -91,7 +91,7 @@ bool SNLDesignTruthTable::isInv(const SNLDesign* design) {
 bool SNLDesignTruthTable::isBuf(const SNLDesign* design) {
   auto truthTable = getTruthTable(design);
   if (truthTable.isInitialized()) {
-    return truthTable == SNLTruthTable(1, 0b10);
+    return truthTable == SNLTruthTable::Buf();
   }
   return false;
 }

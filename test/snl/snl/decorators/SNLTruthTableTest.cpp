@@ -8,21 +8,15 @@
 using namespace naja::SNL;
 
 TEST(SNLTruthTableTest, test) {
-  SNLTruthTable tt0(0, 0);
-  EXPECT_TRUE(tt0.is0());
-  EXPECT_FALSE(tt0.is1());
-  SNLTruthTable tt1(0, 1);
-  EXPECT_FALSE(tt1.is0());
-  EXPECT_TRUE(tt1.is1());
 
   SNLTruthTable ttand2(2, 0b1000);
   EXPECT_EQ(2, ttand2.size());
   EXPECT_EQ(0b1000, ttand2.bits());
-  EXPECT_FALSE(ttand2.is0());
-  EXPECT_FALSE(ttand2.is1());
+  EXPECT_FALSE(ttand2.all0());
+  EXPECT_FALSE(ttand2.all1());
   auto reducedtt = ttand2.getReducedWithConstant(0, 0);
   EXPECT_EQ(reducedtt.size(), 0);
-  EXPECT_TRUE(reducedtt.is0());
+  EXPECT_TRUE(reducedtt.all0());
   reducedtt = ttand2.getReducedWithConstant(0, 1);
   EXPECT_EQ(reducedtt.size(), 1);
   //buffer
@@ -34,12 +28,12 @@ TEST(SNLTruthTableTest, test) {
   EXPECT_EQ(0b10, reducedtt.bits());
   reducedtt = ttor2.getReducedWithConstant(0, 1);
   EXPECT_EQ(reducedtt.size(), 0);
-  EXPECT_TRUE(reducedtt.is1());
+  EXPECT_TRUE(reducedtt.all1());
 
   SNLTruthTable ttand4(4, 0b1000000000000000);
   reducedtt = ttand4.getReducedWithConstant(0, 0);
   EXPECT_EQ(reducedtt.size(), 0);
-  EXPECT_TRUE(reducedtt.is0());
+  EXPECT_TRUE(reducedtt.all0());
   reducedtt = ttand4.getReducedWithConstant(0, 1);
   EXPECT_EQ(reducedtt.size(), 3);
   //and3
@@ -48,7 +42,7 @@ TEST(SNLTruthTableTest, test) {
   
   reducedtt = ttand4.getReducedWithConstant(1, 0);
   EXPECT_EQ(reducedtt.size(), 0);
-  EXPECT_TRUE(reducedtt.is0());
+  EXPECT_TRUE(reducedtt.all0());
 
   reducedtt = ttand4.getReducedWithConstant(1, 1);
   //and3
@@ -58,7 +52,7 @@ TEST(SNLTruthTableTest, test) {
   SNLTruthTable ttor4(4, 0b1111111111111110);
   reducedtt = ttor4.getReducedWithConstant(0, 1);
   EXPECT_EQ(reducedtt.size(), 0);
-  EXPECT_TRUE(reducedtt.is1());
+  EXPECT_TRUE(reducedtt.all1());
 
   reducedtt = ttor4.getReducedWithConstant(0, 0);
   //or3
@@ -82,10 +76,10 @@ TEST(SNLTruthTableTest, test) {
   reducedtt = tt.getReducedWithConstant(0, 1);
   //0
   EXPECT_EQ(0, reducedtt.size());
-  EXPECT_TRUE(reducedtt.is0());
+  EXPECT_TRUE(reducedtt.all0());
   reducedtt = reducedtt.getReducedWithConstant(0, 0);
   EXPECT_EQ(0, reducedtt.size());
-  EXPECT_TRUE(reducedtt.is0());
+  EXPECT_TRUE(reducedtt.all0());
 
   //set A to 0 => !(B1 & B2)
   reducedtt = tt.getReducedWithConstant(0, 0);
@@ -113,6 +107,23 @@ TEST(SNLTruthTableTest, test) {
   EXPECT_EQ(1, reducedtt.size());
   //gate is now !A
   EXPECT_EQ(0x1, reducedtt.bits());
+}
+
+TEST(SNLTruthTableTest, testConstants) {
+  SNLTruthTable tt0(0, 0);
+  EXPECT_TRUE(tt0.all0());
+  EXPECT_FALSE(tt0.all1());
+  EXPECT_EQ(tt0, SNLTruthTable::Logic0());
+
+  SNLTruthTable tt1(0, 1);
+  EXPECT_FALSE(tt1.all0());
+  EXPECT_TRUE(tt1.all1());
+  EXPECT_EQ(tt1, SNLTruthTable::Logic1());
+
+  SNLTruthTable tt2(4, 0b11); //not all one
+  EXPECT_FALSE(tt2.all1());
+  EXPECT_FALSE(tt2.all0());
+  EXPECT_NE(tt2, SNLTruthTable::Logic1());
 }
 
 TEST(SNLTruthTable, testMultipleConstantInputs) {
