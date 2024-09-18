@@ -9,17 +9,15 @@
 using namespace naja::SNL;
 
 TEST(SNLBooleanTreeTest1, testError0) {
-  auto tree = std::make_unique<SNLBooleanTree>();
-  auto invNode = new SNLBooleanTreeFunctionNode(SNLBooleanTreeFunctionNode::Type::NOT);
+  auto invNode = std::make_unique<SNLBooleanTreeFunctionNode>(SNLBooleanTreeFunctionNode::Type::NOT);
   invNode->addInput(new SNLBooleanTreeInputNode(SNLBooleanTreeInputNode::Type::INPUT));
   invNode->addInput(new SNLBooleanTreeInputNode(SNLBooleanTreeInputNode::Type::INPUT));
   EXPECT_THROW(invNode->getValue(), SNLLibertyConstructorException);
 }
 
 TEST(SNLBooleanTreeTest1, testError1) {
-  auto tree = std::make_unique<SNLBooleanTree>();
-  auto invNode = new SNLBooleanTreeFunctionNode(SNLBooleanTreeFunctionNode::Type::BUFFER);
-  invNode->addInput(new SNLBooleanTreeInputNode(SNLBooleanTreeInputNode::Type::INPUT));
-  invNode->addInput(new SNLBooleanTreeInputNode(SNLBooleanTreeInputNode::Type::INPUT));
-  EXPECT_THROW(invNode->getValue(), SNLLibertyConstructorException);
+  auto bufNode = std::make_unique<SNLBooleanTreeFunctionNode>(SNLBooleanTreeFunctionNode::Type::BUFFER);
+  bufNode->addInput(new SNLBooleanTreeInputNode(SNLBooleanTreeInputNode::Type::INPUT));
+  bufNode->addInput(new SNLBooleanTreeInputNode(SNLBooleanTreeInputNode::Type::INPUT));
+  EXPECT_THROW(bufNode->getValue(), SNLLibertyConstructorException);
 }
