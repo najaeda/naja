@@ -86,9 +86,9 @@ class NajaPerf {
       auto indent = scopeStack_.size();
       scopeStack_.push(scope);
       os_ << std::string(indent, ' ');
-      const std::chrono::duration<double> elapsed{scope->startClock_ - startClock_};
+      auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(scope->startClock_ - startClock_);
       os_ << "<" << scope->phase_;
-      os_ << " total:" << elapsed.count() << "s";
+      os_ << " total:" << elapsed.count() / 1000.0 << "s";
       if (scope->startMemoryUsage_ != NajaPerf::UnknownMemoryUsage) {
         os_ << " mem: " << scope->startMemoryUsage_ << "Mb";
       } 
@@ -106,19 +106,19 @@ class NajaPerf {
       auto endMemoryUsage = NajaPerf::getMemoryUsage();
       auto endClock = std::chrono::steady_clock::now();
       os_ << std::string(indent, ' ');
-      const std::chrono::duration<double> totalElapsed{endClock - startClock_};
-      const std::chrono::duration<double> scopeElapsed{endClock - scope->startClock_};
-      os_ << "</" << scope->phase_ << " total:" << totalElapsed.count() << "s";
-      os_ << " scope:" << scopeElapsed.count() << "s";
+      auto totalElapsed = std::chrono::duration_cast<std::chrono::milliseconds>(endClock - startClock_);
+      auto scopeElapsed = std::chrono::duration_cast<std::chrono::milliseconds>(endClock - scope->startClock_);
+      os_ << "</" << scope->phase_ << " total:" << totalElapsed.count() / 1000.0 << "s";
+      os_ << " scope:" << scopeElapsed.count() / 1000.0 << "s";
       if (endMemoryUsage != NajaPerf::UnknownMemoryUsage) {
         os_ << " mem: " << endMemoryUsage << "Mb";
       } 
       os_ << ">" << std::endl;
     }
-    static NajaPerf*                singleton_;
-    const Clock                     startClock_;
-    std::ofstream                   os_;
-    ScopeStack                      scopeStack_ {};
+    static NajaPerf*    singleton_;
+    Clock               startClock_;
+    std::ofstream       os_;
+    ScopeStack          scopeStack_ {};
 };
 
 } // namespace naja

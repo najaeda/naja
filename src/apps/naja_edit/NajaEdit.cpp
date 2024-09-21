@@ -154,11 +154,11 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
-  std::ofstream statsFile;
+  std::filesystem::path statsPath("naja_stats.log");
   if (program.is_used("--stats")) {
-    std::filesystem::path statsPath = program.get<std::string>("--stats");
-    naja::NajaPerf::create(statsPath, "naja_edit");
+    statsPath = program.get<std::string>("--stats");
   }
+  naja::NajaPerf::create(statsPath, "naja_edit");
 
   std::vector<spdlog::sink_ptr> sinks;
   auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
@@ -292,7 +292,7 @@ int main(int argc, char* argv[]) {
         SPDLOG_INFO(oss.str());
       }
     } else if (inputFormatType == FormatType::VERILOG) {
-      naja::NajaPerf::Scope("Parsing verilog");
+      naja::NajaPerf::Scope scope("Parsing verilog");
       db = SNLDB::create(SNLUniverse::get());
       primitivesLibrary = SNLLibrary::create(db, SNLLibrary::Type::Primitives,
                                              SNLName("PRIMS"));
@@ -357,7 +357,7 @@ int main(int argc, char* argv[]) {
     }
 
     if (program.is_used("-e")) {
-      naja::NajaPerf::Scope("Python Pre Editing");
+      naja::NajaPerf::Scope scope("Python Pre Editing");
       const auto start{std::chrono::steady_clock::now()};
       auto editPath = std::filesystem::path(program.get<std::string>("-e"));
       SPDLOG_INFO("Editing netlist using python script (post netlist loading): {}", editPath.string());
@@ -372,7 +372,7 @@ int main(int argc, char* argv[]) {
     }
 
     if (optimizationType == OptimizationType::DLE) {
-      naja::NajaPerf::Scope("Optimization_DLE");
+      naja::NajaPerf::Scope scope("Optimization_DLE");
       const auto start{std::chrono::steady_clock::now()};
       SPDLOG_INFO("Starting removal of loadless logic");
       LoadlessLogicRemover remover;
@@ -388,7 +388,7 @@ int main(int argc, char* argv[]) {
       //stats.process();
       //spdlog::info(stats.getReport());
     } else if (optimizationType == OptimizationType::ALL) {
-      naja::NajaPerf::Scope("Optimization_ALL");
+      naja::NajaPerf::Scope scope("Optimization_ALL");
       const auto start{std::chrono::steady_clock::now()};
       spdlog::info("Starting full optimization (constant propagation and removal of loadless logic)");
       ConstantPropagation cp;
@@ -412,7 +412,7 @@ int main(int argc, char* argv[]) {
     }
 
     if (program.is_used("-z")) {
-      naja::NajaPerf::Scope("Python Post Editing");
+      naja::NajaPerf::Scope scope("Python Post Editing");
       const auto start{std::chrono::steady_clock::now()};
       auto editPath = std::filesystem::path(program.get<std::string>("-z"));
       SPDLOG_INFO("Post editing netlist using python script: {}", editPath.string());
