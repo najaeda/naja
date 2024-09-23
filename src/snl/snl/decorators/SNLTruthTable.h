@@ -20,7 +20,7 @@ namespace naja { namespace SNL {
 
 class SNLTruthTable {
   public:
-    SNLTruthTable(): size_(0xFF) {}
+    SNLTruthTable(): size_(std::numeric_limits<uint32_t>::max()) {}
     explicit SNLTruthTable(uint32_t size, uint64_t bits): size_(size), bits_(bits) {
       if (size > 6) {
         std::ostringstream oss;
@@ -65,7 +65,7 @@ class SNLTruthTable {
     }
 
     bool isInitialized() const {
-      return size_ != 0xFF;
+      return size_ != std::numeric_limits<uint32_t>::max();
     }
 
     using ConstantInput = std::pair<uint32_t, bool>;
@@ -174,7 +174,7 @@ class SNLTruthTable {
       return bits_;
     }
   private:
-    uint32_t  size_ {0};
+    uint32_t  size_ {std::numeric_limits<uint32_t>::max()};
     uint64_t  bits_ {0};
 };
 

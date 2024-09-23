@@ -19,6 +19,7 @@
 #include <argparse/argparse.hpp>
 
 #include "NajaVersion.h"
+#include "NajaPerf.h"
 
 #include "SNLException.h"
 #include "SNLPyEdit.h"
@@ -108,6 +109,7 @@ PrimitivesPathExtension checkPrimitivesPathsExtension(const Paths& paths) {
 }  // namespace
 
 int main(int argc, char* argv[]) {
+  const auto najaEditStart{std::chrono::steady_clock::now()};
   argparse::ArgumentParser program("naja_edit");
   program.add_description(
       "Edit gate level netlists using python script and apply optimizations");
@@ -116,22 +118,28 @@ int main(int argc, char* argv[]) {
   program.add_argument("-i", "--input").append().help("input netlist paths");
   program.add_argument("-o", "--output").help("output netlist");
   program.add_argument("-p", "--primitives")
-      .nargs(argparse::nargs_pattern::at_least_one)
-      .help("input primitives: list of path to primitives files (liberty format or Naja python format)");
+    .nargs(argparse::nargs_pattern::at_least_one)
+    .help("input primitives: list of path to primitives files (liberty format or Naja python format)");
   program.add_argument("-d", "--dump_primitives")
-      .help("dump primitives library in verilog");
+    .help("dump primitives library in verilog");
   program.add_argument("-e", "--pre_edit")
-      .help(
-          "edit netlist using python script after loading netlist and before "
-          "applying optimizations");
+    .help(
+      "edit netlist using python script after loading netlist and before "
+      "applying optimizations");
   program.add_argument("-z", "--post_edit")
-      .help(
-          "edit netlist using python script after optimizations and before "
-          "dumping netlist");
+    .help(
+      "edit netlist using python script after optimizations and before "
+      "dumping netlist");
   program.add_argument("-a", "--apply")
-      .help(
-          "apply optimization: dle (remove loadless logic), all (all "
-          "optimizations)");
+    .help(
+      "apply optimization: dle (remove loadless logic), all (all "
+      "optimizations)");
+  program.add_argument("-l", "--log")
+    .default_value(std::string("naja_edit.log"))
+    .help("Dump log file (default name: naja_edit.log)");
+  program.add_argument("-s", "--stats")
+    .default_value(std::string("naja_stats.log"))
+    .help("Dump stats log file named: naja_stats.log");
 
   try {
     program.parse_args(argc, argv);
@@ -141,15 +149,24 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
+  std::filesystem::path statsPath("naja_stats.log");
+  if (program.is_used("--stats")) {
+    statsPath = program.get<std::string>("--stats");
+  }
+  naja::NajaPerf::create(statsPath, "naja_edit");
+
   std::vector<spdlog::sink_ptr> sinks;
   auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
   console_sink->set_level(spdlog::level::info);
   console_sink->set_pattern("[naja_edit] [%^%l%$] %v");
   sinks.push_back(console_sink);
 
-  auto file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>("naja_edit.log", true);
-  file_sink->set_level(spdlog::level::trace);
-  sinks.push_back(file_sink);
+  if (program.is_used("--log")) {
+    auto logName = program.get<std::string>("--log");
+    auto file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(logName, true);
+    file_sink->set_level(spdlog::level::trace);
+    sinks.push_back(file_sink);
+  }
 
   auto edit_logger =
       std::make_shared<spdlog::logger>("logger", begin(sinks), end(sinks));
@@ -283,6 +300,7 @@ int main(int argc, char* argv[]) {
         SPDLOG_INFO(oss.str());
       }
     } else if (inputFormatType == FormatType::VERILOG) {
+      naja::NajaPerf::Scope scope("Parsing verilog");
       db = SNLDB::create(SNLUniverse::get());
       primitivesLibrary = SNLLibrary::create(db, SNLLibrary::Type::Primitives,
                                              SNLName("PRIMS"));
@@ -350,6 +368,7 @@ int main(int argc, char* argv[]) {
     }
 
     if (program.is_used("-e")) {
+      naja::NajaPerf::Scope scope("Python Pre Editing");
       const auto start{std::chrono::steady_clock::now()};
       auto editPath = std::filesystem::path(program.get<std::string>("-e"));
       SPDLOG_INFO("Editing netlist using python script (post netlist loading): {}", editPath.string());
@@ -364,6 +383,7 @@ int main(int argc, char* argv[]) {
     }
 
     if (optimizationType == OptimizationType::DLE) {
+      naja::NajaPerf::Scope scope("Optimization_DLE");
       const auto start{std::chrono::steady_clock::now()};
       SPDLOG_INFO("Starting removal of loadless logic");
       LoadlessLogicRemover remover;
@@ -379,6 +399,7 @@ int main(int argc, char* argv[]) {
       //stats.process();
       //spdlog::info(stats.getReport());
     } else if (optimizationType == OptimizationType::ALL) {
+      naja::NajaPerf::Scope scope("Optimization_ALL");
       const auto start{std::chrono::steady_clock::now()};
       spdlog::info("Starting full optimization (constant propagation and removal of loadless logic)");
       ConstantPropagation cp;
@@ -402,6 +423,7 @@ int main(int argc, char* argv[]) {
     }
 
     if (program.is_used("-z")) {
+      naja::NajaPerf::Scope scope("Python Post Editing");
       const auto start{std::chrono::steady_clock::now()};
       auto editPath = std::filesystem::path(program.get<std::string>("-z"));
       SPDLOG_INFO("Post editing netlist using python script: {}", editPath.string());
@@ -465,5 +487,23 @@ int main(int argc, char* argv[]) {
       e.what(), e.trace().to_string()); 
     std::exit(EXIT_FAILURE);
   }
+  const auto najaEditEnd{std::chrono::steady_clock::now()};
+  const std::chrono::duration<double> najaElapsedSeconds{najaEditEnd - najaEditStart};
+  auto memInfo = naja::NajaPerf::getMemoryUsage();
+  auto vmRSS = memInfo.first;
+  auto vmPeak = memInfo.second;
+  SPDLOG_INFO("########################################################");
+  {
+    std::ostringstream oss;
+    oss << "naja_edit done in: " << najaElapsedSeconds.count() << "s";
+    if (vmRSS != naja::NajaPerf::UnknownMemoryUsage) {
+      oss << " VM(RSS): " << vmRSS / 1024.0 << "Mb";
+    }
+    if (vmPeak != naja::NajaPerf::UnknownMemoryUsage) {
+      oss << " VM(Peak): " << vmPeak / 1024.0 << "Mb";
+    }
+    SPDLOG_INFO(oss.str());
+  }
+  SPDLOG_INFO("########################################################");
   std::exit(EXIT_SUCCESS);
 }
