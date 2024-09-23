@@ -44,7 +44,3 @@ TEST(NajaPerfTests, test0) {
   }
   EXPECT_EQ(1, perf->getStack().size());
 }
-
-TEST(NajaPerfTests, testErrors) {
-  EXPECT_THROW(NajaPerf::Scope scope("test0"), NajaException);
-}

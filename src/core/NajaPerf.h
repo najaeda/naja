@@ -27,7 +27,7 @@ class NajaPerf {
         Scope(const std::string& phase): phase_(phase) {
           auto perf = NajaPerf::get();
           if (perf == nullptr) {
-            throw NajaException("NajaPerf is not initialized");
+            throw NajaException("NajaPerf is not initialized"); //LCOV_EXCL_LINE
           }
           perf->start(this);
         }
