@@ -74,14 +74,9 @@ int main(int argc, char* argv[]) {
   argparse::ArgumentParser program("naja_edit");
   program.add_description(
       "Edit gate level netlists using python script and apply optimizations");
-  program.add_argument("-f", "--from_format")
-      .required()
-      .help("from/input format");
+  program.add_argument("-f", "--from_format").help("from/input format");
   program.add_argument("-t", "--to_format").help("to/output format");
-  program.add_argument("-i", "--input")
-      .required()
-      .append()
-      .help("input netlist paths");
+  program.add_argument("-i", "--input").append().help("input netlist paths");
   program.add_argument("-o", "--output").help("output netlist");
   program.add_argument("-p", "--primitives").help("input primitives");
   program.add_argument("-d", "--dump_primitives")
@@ -130,8 +125,24 @@ int main(int argc, char* argv[]) {
   SPDLOG_INFO("########################################################");
 
   bool argError = false;
-  auto inputFormatArg = program.present("-f");
-  std::string inputFormat = *inputFormatArg;
+
+  std::string inputFormat;
+  if (auto inputFormatArg = program.present("-f")) {
+    inputFormat = *inputFormatArg;
+  }
+  FormatType inputFormatType = argToFormatType(inputFormat);
+  if (inputFormatType == FormatType::UNKNOWN) {
+    SPDLOG_CRITICAL("Unrecognized input format type: {}", inputFormat);
+    argError = true;
+  }
+
+  if (program.present("-i")) {
+    if (inputFormatType == FormatType::NOT_PROVIDED) {
+      SPDLOG_CRITICAL("output option (-f) is mandatory when the input is provided");
+      std::exit(EXIT_FAILURE);
+    }
+  }
+
   std::string outputFormat;
   if (auto outputFormatArg = program.present("-t")) {
     outputFormat = *outputFormatArg;
@@ -139,15 +150,16 @@ int main(int argc, char* argv[]) {
     if (auto output = program.is_used("-o")) {
       // in case output format is not provided and output path is provided
       // output format is same as input format
-      outputFormat = inputFormat;
+      if (inputFormatType == FormatType::NOT_PROVIDED) {
+        SPDLOG_CRITICAL("output format option (-t) is mandatory");
+        argError = true;
+      } else {
+        outputFormat = inputFormat;
+      }
     }
   }
-  FormatType inputFormatType = argToFormatType(inputFormat);
   FormatType outputFormatType = argToFormatType(outputFormat);
-  if (inputFormatType == FormatType::UNKNOWN) {
-    SPDLOG_CRITICAL("Unrecognized input format type: {}", inputFormat);
-    argError = true;
-  }
+  
   if (outputFormatType == FormatType::UNKNOWN) {
     SPDLOG_CRITICAL("Unrecognized output format type: {}", outputFormat);
     argError = true;
@@ -161,7 +173,7 @@ int main(int argc, char* argv[]) {
     }
     primitivesPath = std::filesystem::path(*primitives);
   } else {
-    if (inputFormatType != FormatType::SNL) {
+    if (inputFormatType != FormatType::SNL and inputFormatType != FormatType::NOT_PROVIDED) {
       SPDLOG_CRITICAL("primitives option (-p) is mandatory when the input format is not 'SNL'");
       argError = true;
     }
@@ -193,10 +205,6 @@ int main(int argc, char* argv[]) {
                  });
 
   std::filesystem::path outputPath;
-  if (inputPaths.empty()) {
-    SPDLOG_CRITICAL("No input path was provided");
-    std::exit(EXIT_FAILURE);
-  }
   if (auto output = program.present("-o")) {
     outputPath = std::filesystem::path(*output);
   } else {
@@ -276,6 +284,9 @@ int main(int argc, char* argv[]) {
         oss << "Parsing done in: " << elapsed_seconds.count() << "s";
         SPDLOG_INFO(oss.str());
       }
+    } else if (inputFormatType == FormatType::NOT_PROVIDED) {
+      db = SNLDB::create(SNLUniverse::get());
+      SNLUniverse::get()->setTopDB(db);
     } else {
       SPDLOG_CRITICAL("Unrecognized input format type: {}", inputFormat);
       std::exit(EXIT_FAILURE);
