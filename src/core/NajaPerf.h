@@ -43,13 +43,13 @@ class NajaPerf {
     };
     static MemoryUsage getMemoryUsage();
     static NajaPerf* create(const std::filesystem::path& logPath, const std::string& topName) {
-        if (singleton_ == nullptr) {
-          singleton_ = new NajaPerf(logPath, topName);
-          registerDestructor(); // Register atexit cleanup
-          //start top scope
-          new Scope(topName);
-        }
-        return singleton_;
+      if (singleton_ == nullptr) {
+        singleton_ = new NajaPerf(logPath, topName);
+        registerDestructor(); // Register atexit cleanup
+        //start top scope
+        new Scope(topName);
+      }
+      return singleton_;
     }
     static NajaPerf* get() {
       return singleton_;
@@ -88,7 +88,8 @@ class NajaPerf {
       auto indent = scopeStack_.size();
       scopeStack_.push(scope);
       os_ << std::string(indent, ' ');
-      auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(scope->startClock_ - startClock_);
+      auto elapsed =
+        std::chrono::duration_cast<std::chrono::milliseconds>(scope->startClock_ - startClock_);
       os_ << "<" << scope->phase_;
       os_ << " total:"
         << static_cast<double>(elapsed.count()) / 1000.0 << "s";
@@ -102,18 +103,20 @@ class NajaPerf {
     }
     void end(Scope* scope) {
       if (scopeStack_.empty()) {
-        throw NajaException("Scope stack is empty");
+        throw NajaException("Scope stack is empty"); //LCOV_EXCL_LINE
       }
       if (scopeStack_.top() != scope) {
-        throw NajaException("Scope stack is corrupted");
+        throw NajaException("Scope stack is corrupted"); //LCOV_EXCL_LINE
       }
       scopeStack_.pop();
       auto indent = scopeStack_.size();
       auto endMemoryUsage = NajaPerf::getMemoryUsage();
       auto endClock = std::chrono::steady_clock::now();
       os_ << std::string(indent, ' ');
-      auto totalElapsed = std::chrono::duration_cast<std::chrono::milliseconds>(endClock - startClock_);
-      auto scopeElapsed = std::chrono::duration_cast<std::chrono::milliseconds>(endClock - scope->startClock_);
+      auto totalElapsed =
+        std::chrono::duration_cast<std::chrono::milliseconds>(endClock - startClock_);
+      auto scopeElapsed =
+        std::chrono::duration_cast<std::chrono::milliseconds>(endClock - scope->startClock_);
       os_ << "</" << scope->phase_ << " total:"
         << static_cast<double>(totalElapsed.count()) / 1000.0 << "s";
       os_ << " scope:"
