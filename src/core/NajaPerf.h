@@ -11,14 +11,16 @@
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
+
 #include "NajaException.h"
 
 namespace naja {
 
 class NajaPerf {
   public:
-    static const long UnknownMemoryUsage = std::numeric_limits<long>::max();
+    static const long UnknownMemoryUsage;
     using Clock = std::chrono::steady_clock::time_point;
+    using MemoryUsage = std::pair<long, long>;
     class Scope {
       friend class NajaPerf;
       public:
@@ -36,10 +38,10 @@ class NajaPerf {
         Scope(const Scope&) = delete;
       private:
         std::string phase_;
-        long        startMemoryUsage_   { NajaPerf::UnknownMemoryUsage };
+        MemoryUsage startMemoryUsage_   { NajaPerf::UnknownMemoryUsage, NajaPerf::UnknownMemoryUsage };
         Clock       startClock_;
     };
-    static long getMemoryUsage();
+    static MemoryUsage getMemoryUsage();
     static NajaPerf* create(const std::filesystem::path& logPath, const std::string& topName) {
         if (singleton_ == nullptr) {
           singleton_ = new NajaPerf(logPath, topName);
@@ -89,8 +91,9 @@ class NajaPerf {
       auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(scope->startClock_ - startClock_);
       os_ << "<" << scope->phase_;
       os_ << " total:" << elapsed.count() / 1000.0 << "s";
-      if (scope->startMemoryUsage_ != NajaPerf::UnknownMemoryUsage) {
-        os_ << " mem: " << scope->startMemoryUsage_ << "Mb";
+      if (scope->startMemoryUsage_.first != NajaPerf::UnknownMemoryUsage) {
+        os_ << " VM(RSS):" << scope->startMemoryUsage_.first / 1024.0 << "Mb";
+        os_ << " VM(Peak):" << scope->startMemoryUsage_.second / 1024.0 << "Mb";
       } 
       os_ << ">" << std::endl;
     }
@@ -110,8 +113,9 @@ class NajaPerf {
       auto scopeElapsed = std::chrono::duration_cast<std::chrono::milliseconds>(endClock - scope->startClock_);
       os_ << "</" << scope->phase_ << " total:" << totalElapsed.count() / 1000.0 << "s";
       os_ << " scope:" << scopeElapsed.count() / 1000.0 << "s";
-      if (endMemoryUsage != NajaPerf::UnknownMemoryUsage) {
-        os_ << " mem: " << endMemoryUsage << "Mb";
+      if (endMemoryUsage.first != NajaPerf::UnknownMemoryUsage) {
+        os_ << " VM(RSS):" << endMemoryUsage.first / 1024.0 << "Mb";
+        os_ << " VM(Peak):" << endMemoryUsage.second / 1024.0 << "Mb";
       } 
       os_ << ">" << std::endl;
     }

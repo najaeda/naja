@@ -478,6 +478,21 @@ int main(int argc, char* argv[]) {
   }
   const auto najaEditEnd{std::chrono::steady_clock::now()};
   const std::chrono::duration<double> najaElapsedSeconds{najaEditEnd - najaEditStart};
-  SPDLOG_INFO("naja_edit done in: {}s", najaElapsedSeconds.count());
+  auto memInfo = naja::NajaPerf::getMemoryUsage();
+  auto vmRSS = memInfo.first;
+  auto vmPeak = memInfo.second;
+  SPDLOG_INFO("########################################################");
+  {
+    std::ostringstream oss;
+    oss << "naja_edit done in: " << najaElapsedSeconds.count() << "s";
+    if (vmRSS != naja::NajaPerf::UnknownMemoryUsage) {
+      oss << " VM(RSS): " << vmRSS / 1024.0 << "Mb";
+    }
+    if (vmPeak != naja::NajaPerf::UnknownMemoryUsage) {
+      oss << " VM(Peak): " << vmPeak / 1024.0 << "Mb";
+    }
+    SPDLOG_INFO(oss.str());
+  }
+  SPDLOG_INFO("########################################################");
   std::exit(EXIT_SUCCESS);
 }
