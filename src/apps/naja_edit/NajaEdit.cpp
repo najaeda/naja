@@ -35,6 +35,7 @@
 #include "SNLUniverse.h"
 #include "Reduction.h"
 #include "Utils.h"
+#include "NetlistGraph.h"
 
 using namespace naja::SNL;
 using namespace naja::DNL;
@@ -42,7 +43,7 @@ using namespace naja::NAJA_OPT;
 
 namespace {
 
-enum class FormatType { NOT_PROVIDED, UNKNOWN, VERILOG, SNL };
+enum class FormatType { NOT_PROVIDED, UNKNOWN, VERILOG, SNL, DOT, SVG};
 FormatType argToFormatType(const std::string& inputFormat) {
   if (inputFormat.empty()) {
     return FormatType::NOT_PROVIDED;
@@ -50,6 +51,10 @@ FormatType argToFormatType(const std::string& inputFormat) {
     return FormatType::VERILOG;
   } else if (inputFormat == "snl") {
     return FormatType::SNL;
+  } else if (inputFormat == "dot") {
+    return FormatType::DOT;
+  /*} else if (inputFormat == "svg") {
+    return FormatType::SVG;*/
   } else {
     return FormatType::UNKNOWN;
   }
@@ -68,6 +73,38 @@ OptimizationType argToOptimizationType(const std::string& optimization) {
   }
 }
 
+using Paths = std::vector<std::filesystem::path>;
+enum class PrimitivesPathExtension { UNKNOWN, PY, LIB };
+// Check if all primitives paths have the same extension
+PrimitivesPathExtension checkPrimitivesPathsExtension(const Paths& paths) {
+  PrimitivesPathExtension pathExtension = PrimitivesPathExtension::UNKNOWN;
+  for (const auto& path : paths) {
+    auto extension = path.extension();
+    if (extension.empty()) {
+      SPDLOG_CRITICAL("Primitives path should end with an extension");
+      std::exit(EXIT_FAILURE);
+    } else if (extension == ".py") {
+      if (pathExtension == PrimitivesPathExtension::UNKNOWN) {
+        pathExtension = PrimitivesPathExtension::PY;
+      } else if (pathExtension != PrimitivesPathExtension::PY) {
+        SPDLOG_CRITICAL("All primitives paths should have the same extension");
+        std::exit(EXIT_FAILURE);
+      }
+    } else if (extension == ".lib") {
+      if (pathExtension == PrimitivesPathExtension::UNKNOWN) {
+        pathExtension = PrimitivesPathExtension::LIB;
+      } else if (pathExtension != PrimitivesPathExtension::LIB) {
+        SPDLOG_CRITICAL("All primitives paths should have the same extension");
+        std::exit(EXIT_FAILURE);
+      }
+    } else {
+      SPDLOG_CRITICAL("Unknow extension in Primitives path");
+      std::exit(EXIT_FAILURE);
+    }
+  }
+  return pathExtension;
+}
+
 }  // namespace
 
 int main(int argc, char* argv[]) {
@@ -78,7 +115,9 @@ int main(int argc, char* argv[]) {
   program.add_argument("-t", "--to_format").help("to/output format");
   program.add_argument("-i", "--input").append().help("input netlist paths");
   program.add_argument("-o", "--output").help("output netlist");
-  program.add_argument("-p", "--primitives").help("input primitives");
+  program.add_argument("-p", "--primitives")
+      .nargs(argparse::nargs_pattern::at_least_one)
+      .help("input primitives: list of path to primitives files (liberty format or Naja python format)");
   program.add_argument("-d", "--dump_primitives")
       .help("dump primitives library in verilog");
   program.add_argument("-e", "--pre_edit")
@@ -165,13 +204,21 @@ int main(int argc, char* argv[]) {
     argError = true;
   }
 
-  std::filesystem::path primitivesPath;
+  Paths primitivesPaths;
   if (auto primitives = program.present("-p")) {
     if (inputFormatType == FormatType::SNL) {
       SPDLOG_CRITICAL("primitives option (-p) is incompatible with input format 'SNL'");
       argError = true;
     }
-    primitivesPath = std::filesystem::path(*primitives);
+    auto primitivesPathsString = program.get<std::vector<std::string>>("-p");
+    primitivesPaths.resize(primitivesPathsString.size());
+    std::transform(primitivesPathsString.begin(),
+      primitivesPathsString.end(),
+      primitivesPaths.begin(),
+      [](const std::string& str) {
+        return std::filesystem::path(str);
+      }
+    );
   } else {
     if (inputFormatType != FormatType::SNL and inputFormatType != FormatType::NOT_PROVIDED) {
       SPDLOG_CRITICAL("primitives option (-p) is mandatory when the input format is not 'SNL'");
@@ -239,18 +286,28 @@ int main(int argc, char* argv[]) {
       db = SNLDB::create(SNLUniverse::get());
       primitivesLibrary = SNLLibrary::create(db, SNLLibrary::Type::Primitives,
                                              SNLName("PRIMS"));
-      auto extension = primitivesPath.extension();
-      if (extension.empty()) {
-        SPDLOG_CRITICAL("Primitives path should end with an extension");
-        std::exit(EXIT_FAILURE);
-      } else if (extension == ".py") {
-        SNLPyLoader::loadPrimitives(primitivesLibrary, primitivesPath);
-      } else if (extension == ".lib") {
-        SNLLibertyConstructor constructor(primitivesLibrary);
-        constructor.construct(primitivesPath);
-      } else {
-        SPDLOG_CRITICAL("Unknow extension in Primitives path");
-        std::exit(EXIT_FAILURE);
+      auto primitivesExtension = checkPrimitivesPathsExtension(primitivesPaths);
+      switch (primitivesExtension) {
+        case PrimitivesPathExtension::PY: {
+          if (primitivesPaths.size() > 1) {
+            SPDLOG_CRITICAL("Multiple primitives paths are not supported for python format");
+            std::exit(EXIT_FAILURE);
+          }
+          auto primitivesPath = primitivesPaths[0];
+          SNLPyLoader::loadPrimitives(primitivesLibrary, primitivesPath);
+          break;
+        }
+        case PrimitivesPathExtension::LIB: {
+          SNLLibertyConstructor constructor(primitivesLibrary);
+          for (const auto& path : primitivesPaths) {
+            SPDLOG_INFO("Parsing primitives file: {}", path.string());
+            constructor.construct(path);
+          }
+          break;
+        }
+        default:
+          SPDLOG_CRITICAL("Unknown extension in Primitives path");
+          std::exit(EXIT_FAILURE);
       }
 
       auto designLibrary = SNLLibrary::create(db, SNLName("DESIGN"));
@@ -258,7 +315,7 @@ int main(int argc, char* argv[]) {
       const auto start{std::chrono::steady_clock::now()};
       {
         std::ostringstream oss;
-        oss << "Parsing verilog files: ";
+        oss << "Parsing verilog file(s): ";
         size_t i = 0;
         for (auto path : inputPaths) {
           if (i++ >= 4) {
@@ -323,7 +380,7 @@ int main(int argc, char* argv[]) {
       //spdlog::info(stats.getReport());
     } else if (optimizationType == OptimizationType::ALL) {
       const auto start{std::chrono::steady_clock::now()};
-      spdlog::info("Starting full optimization(constant propagation and removal of loadless logic)");
+      spdlog::info("Starting full optimization (constant propagation and removal of loadless logic)");
       ConstantPropagation cp;
       cp.setTruthTableEngine(true);
       cp.run();
@@ -371,7 +428,22 @@ int main(int argc, char* argv[]) {
       } else {
         db->debugDump(0);
       }
-    }
+    } else if (outputFormatType == FormatType::DOT) {
+        std::string dotFileName(outputPath.string());
+        naja::SnlVisualiser snl(db->getTopDesign());
+        snl.process();
+        snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
+    } /*else if (outputFormatType == FormatType::SVG) {
+        std::string dotFileName(outputPath.string());
+        std::string svgFileName(
+            outputPath.string() + std::string(".svg"));
+        naja::SnlVisualiser snl(db->getTopDesign());
+        snl.process();
+        snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
+        system(std::string(std::string("dot -Tsvg ") + dotFileName +
+                          std::string(" -o ") + svgFileName)
+                  .c_str());
+    }*/
 
     if (program.is_used("-d")) {
       if (not primitivesLibrary and inputFormatType==FormatType::SNL) {

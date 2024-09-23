@@ -31,7 +31,6 @@ void DriveWithConstantAction::changeDriverToLocal0(SNLInstTerm* term) {
   }
   assign0->setType(naja::SNL::SNLNet::Type::Supply0);
   term->setNet(assign0);
-  SNLTruthTable tt(0, 0);
   // find primitives library
   if (term->getDB()->getPrimitiveLibraries().size() != 1) {
     // LCOV_EXCL_START
@@ -40,7 +39,7 @@ void DriveWithConstantAction::changeDriverToLocal0(SNLInstTerm* term) {
   }
   auto primitives = *term->getDB()->getPrimitiveLibraries().begin();
   auto logic0 =
-      SNLLibraryTruthTables::getDesignForTruthTable(primitives, tt).first;
+      SNLLibraryTruthTables::getDesignForTruthTable(primitives, SNLTruthTable::Logic0()).first;
 
   SNLInstance* logic0Inst = term->getDesign()->getInstance(SNLName(name));
   if (nullptr == logic0Inst) {
@@ -64,7 +63,6 @@ void DriveWithConstantAction::changeDriverToLocal1(SNLInstTerm* term) {
   }
   assign1->setType(naja::SNL::SNLNet::Type::Supply1);
   term->setNet(assign1);
-  SNLTruthTable tt(0, 1);
 
   // find primitives library
   if (term->getDB()->getPrimitiveLibraries().size() != 1) {
@@ -74,7 +72,7 @@ void DriveWithConstantAction::changeDriverToLocal1(SNLInstTerm* term) {
   }
   auto primitives = *term->getDB()->getPrimitiveLibraries().begin();
   auto logic1 =
-      SNLLibraryTruthTables::getDesignForTruthTable(primitives, tt).first;
+      SNLLibraryTruthTables::getDesignForTruthTable(primitives, SNLTruthTable::Logic1()).first;
   SNLInstance* logic1Inst = term->getDesign()->getInstance(SNLName(name));
   if (nullptr == logic1Inst) {
     if (logic1 == nullptr) {
@@ -97,9 +95,8 @@ void DriveWithConstantAction::changeDriverto0Top(SNLBitTerm* term) {
   }
   assign0->setType(naja::SNL::SNLNet::Type::Supply0);
   term->setNet(assign0);
-  SNLTruthTable tt(0, 0);
   auto logic0 = SNLLibraryTruthTables::getDesignForTruthTable(
-                    *(term->getDB()->getPrimitiveLibraries().begin()), tt)
+                    *(term->getDB()->getPrimitiveLibraries().begin()), SNLTruthTable::Logic0())
                     .first;
   SNLInstance* logic0Inst = term->getDesign()->getInstance(SNLName(name));
   if (nullptr == logic0Inst) {
@@ -118,9 +115,8 @@ void DriveWithConstantAction::changeDriverto1Top(SNLBitTerm* term) {
   }
   assign1->setType(naja::SNL::SNLNet::Type::Supply1);
   term->setNet(assign1);
-  SNLTruthTable tt(0, 1);
   auto logic1 = SNLLibraryTruthTables::getDesignForTruthTable(
-                    *(term->getDB()->getPrimitiveLibraries().begin()), tt)
+                    *(term->getDB()->getPrimitiveLibraries().begin()), SNLTruthTable::Logic1())
                     .first;
   SNLInstance* logic1Inst = term->getDesign()->getInstance(SNLName(name));
   if (nullptr == logic1Inst) {

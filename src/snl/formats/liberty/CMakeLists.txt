@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 set(SOURCES
-  SNLLibertyConstructor.cpp
+  SNLLibertyConstructor.cpp SNLBooleanTree.cpp
 )
 
 SET(HEADERS SNLLibertyConstructor.h)

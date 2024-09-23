@@ -471,7 +471,7 @@ class NetlistGraph {
       myfile << "leaf" << node->getInPortLeafId();
     }
     for (size_t child : node->getChildren()) {
-      printf("alignRec child\n");
+      //printf("alignRec child\n");
       alignRec(&getInst(child), myfile);
     }
     size_t count = 0;
@@ -524,6 +524,7 @@ class InstDataSnl : InstData {
       : InstData(), _snlInst(snlInst), _snlModel(snlInst->getModel()){};
   InstDataSnl(SNLDesign* snlDesign) : InstData(), _snlModel(snlDesign){};
   std::string getName() const {
+    // LCOV_EXCL_START
     std::string name("");
     if (_snlInst != nullptr)
       name = _snlInst->getName().getString();
@@ -533,6 +534,7 @@ class InstDataSnl : InstData {
       name = _snlInst->getSNLID().getString();
     }
     return name;
+    // LCOV_EXCL_STOP
   }
   auto getSnlInst() const { return _snlInst; }
   auto getSnlModel() const { return _snlModel; }

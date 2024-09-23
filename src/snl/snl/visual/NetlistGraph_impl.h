@@ -66,9 +66,9 @@ void NetlistGraph<InstData, PortData, WireData, BusData>::dumpDotFileRec(
     i++;
   }
 
-  for (size_t child : node->getChildren()) {
-    printf("----%s\n", getInst(child).getData().getName().c_str());
-  }
+  /*for (size_t child : node->getChildren()) {
+    //printf("----%s\n", getInst(child).getData().getName().c_str());
+  }*/
 
   for (size_t child : node->getChildren()) {
     dumpDotFileRec(&getInst(child), myfile, i);
@@ -97,7 +97,7 @@ void NetlistGraph<InstData, PortData, WireData, BusData>::dumpDotFileRec(
         port.setPortDotName(std::string("leaf") + std::to_string(i) +
                             std::string(":") + bus.getData().getName() +
                             port.getData().getName());
-        // printf("----####%s\n", port->getData().getName().c_str());
+        // //printf("----####%s\n", port->getData().getName().c_str());
         myfile << "<" << bus.getData().getName() << port.getData().getName()
                << ">" << port.getData().getName();
         if (bit != bus.getPortsCount() - 1)
@@ -111,14 +111,14 @@ void NetlistGraph<InstData, PortData, WireData, BusData>::dumpDotFileRec(
     }
     size_t k = 0;
     for (PortNodeID id : node->getInPorts()) {
-      printf("port %lu\n", id);
+      //printf("port %lu\n", id);
       PortNode<PortData>& port = getPort(id);
       port.setPortDotName(std::string("leaf") + std::to_string(i) +
                           std::string(":") + port.getData().getName());
       myfile << " "
              << "<" << port.getData().getName() << ">"
              << port.getData().getName();
-      printf("----$$$$%s\n", port.getData().getName().c_str());
+      //printf("----$$$$%s\n", port.getData().getName().c_str());
       // i++;
 
       if (k < node->getInPorts().size() - 1) {
@@ -167,14 +167,14 @@ void NetlistGraph<InstData, PortData, WireData, BusData>::dumpDotFileRec(
       myfile << " | ";
     }
     for (PortNodeID id : node->getOutPorts()) {
-      printf("port %lu\n", id);
+      //printf("port %lu\n", id);
       PortNode<PortData>& port = getPort(id);
       port.setPortDotName(std::string("leaf") + std::to_string(i) +
                           std::string(":") + port.getData().getName());
       myfile << " "
              << "<" << port.getData().getName() << ">"
              << port.getData().getName();
-      printf("----$$$$%s\n", port.getData().getName().c_str());
+      //printf("----$$$$%s\n", port.getData().getName().c_str());
       // i++;
 
       if (k < node->getOutPorts().size() - 1) {
@@ -189,20 +189,20 @@ void NetlistGraph<InstData, PortData, WireData, BusData>::dumpDotFileRec(
   myfile << "}" << std::endl;
   //}
 
-  printf("-------------------------------\n");
+  //printf("-------------------------------\n");
 }
 
 template <class InstData, class PortData, class WireData, class BusData>
 void NetlistGraph<InstData, PortData, WireData, BusData>::addConnectivity(
     std::fstream& myfile) {
   for (const WireEdge<WireData>& wire : this->getWires()) {
-    printf("wire %lu %s\n", wire.getId(), wire.getData().getName().c_str());
+    //printf("wire %lu %s\n", wire.getId(), wire.getData().getName().c_str());
     for (const auto driver : wire.getDrivers()) {
-      printf("driver %lu %s\n", driver,
-             this->getPort(driver).getData().getName().c_str());
+      //printf("driver %lu %s\n", driver,
+            // this->getPort(driver).getData().getName().c_str());
       for (const auto reader : wire.getPorts()) {
-        printf("reader %s\n",
-               this->getPort(reader).getData().getName().c_str());
+        /*printf("reader %s\n",
+               this->getPort(reader).getData().getName().c_str());*/
         myfile << this->getPort(driver).getPortDotNAme() << "->"
                << this->getPort(reader).getPortDotNAme();
         myfile << "[label =\"" << wire.getData().getName() << "\"];"
@@ -211,8 +211,8 @@ void NetlistGraph<InstData, PortData, WireData, BusData>::addConnectivity(
     }
     if (wire.getDrivers().empty()) {
       for (const auto reader : wire.getPorts()) {
-        printf("reader %s\n",
-               this->getPort(reader).getData().getName().c_str());
+        /*printf("reader %s\n",
+               this->getPort(reader).getData().getName().c_str());*/
         myfile << this->getPort(reader).getPortDotNAme() << "->"
                << this->getPort(reader).getPortDotNAme();
         myfile << "[label =\"" << wire.getData().getName() << "\"];"

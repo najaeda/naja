@@ -64,7 +64,7 @@ TEST_F(ReductionOptTests, test) {
   auto logic0TruthTable = SNLDesignTruthTable::getTruthTable(logic0);
   EXPECT_TRUE(logic0TruthTable.isInitialized());
   EXPECT_EQ(0, logic0TruthTable.size());
-  EXPECT_TRUE(logic0TruthTable.is0());
+  EXPECT_TRUE(logic0TruthTable.all0());
 
   auto logic1 = library->getDesign(SNLName("LOGIC1"));
   EXPECT_NE(nullptr, logic1);
@@ -72,7 +72,7 @@ TEST_F(ReductionOptTests, test) {
   auto logic1TruthTable = SNLDesignTruthTable::getTruthTable(logic1);
   EXPECT_TRUE(logic1TruthTable.isInitialized());
   EXPECT_EQ(0, logic1TruthTable.size());
-  EXPECT_TRUE(logic1TruthTable.is1());
+  EXPECT_TRUE(logic1TruthTable.all1());
 
   auto and2 = library->getDesign(SNLName("AND2"));
   EXPECT_NE(nullptr, and2);

@@ -130,15 +130,13 @@ void ConstantPropagation::initializeTypesID() {
 }
 
 void ConstantPropagation::collectConstants() {
-  SNLTruthTable tt0(0, 0);
     auto logic0 = SNLLibraryTruthTables::getDesignForTruthTable(
                       *(dnl_->getTop().getSNLModel()->getDB()->getPrimitiveLibraries().begin()),
-                      tt0)
+                      SNLTruthTable::Logic0())
                       .first;
-  SNLTruthTable tt1(0, 1);
     auto logic1 = SNLLibraryTruthTables::getDesignForTruthTable(
                       *(dnl_->getTop().getSNLModel()->getDB()->getPrimitiveLibraries().begin()),
-                      tt1)
+                      SNLTruthTable::Logic1())
                       .first;
   for (DNLID leaf : dnl_->getLeaves()) {
     DNLInstanceFull instance = dnl_->getDNLInstanceFromID(leaf);
@@ -197,9 +195,9 @@ unsigned ConstantPropagation::computeOutputValue(DNLID instanceID) {
     }
   }
   SNLTruthTable reducedTruthTable = ReductionOptimization::reduceTruthTable(instance.getSNLInstance(), truthTable, constTerms);
-  if (reducedTruthTable.is0()) {
+  if (reducedTruthTable.all0()) {
     return 0;
-  } else if (reducedTruthTable.is1()) {
+  } else if (reducedTruthTable.all1()) {
     return 1;
   }
   return (unsigned)-1;
