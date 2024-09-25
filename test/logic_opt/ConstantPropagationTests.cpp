@@ -2750,6 +2750,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationAND_Hierarchical_duplica
                .c_str());
   }
   ConstantPropagation cp;
+  cp.setNormalizedUniquification(true);
   // 13. collect the constants
   cp.collectConstants();
   // 14. run the constant propagation
