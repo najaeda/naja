@@ -31,6 +31,7 @@ set(SOURCES
   NajaProperty.cpp
   NajaPrivateProperty.cpp
   NajaDumpableProperty.cpp
+  NajaPerf.cpp
 )
 
 set(NAJA_CORE_HEADERS
@@ -39,6 +40,7 @@ set(NAJA_CORE_HEADERS
   NajaProperty.h NajaPrivateProperty.h
   NajaDumpableProperty.h
   NajaException.h
+  NajaPerf.h
 )
 
 list(APPEND NAJA_CORE_HEADERS ${CMAKE_CURRENT_BINARY_DIR}/NajaVersion.h)
