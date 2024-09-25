@@ -46,7 +46,7 @@ class ReductionOptimization {
   std::map<std::pair<std::string, std::string>, size_t> reductionStatistics_;
   std::string report_;
   BNE::BNE bne_;
-  bool normalizedUniquification_ = false;
+  bool normalizedUniquification_ = true;
 };
 
 }  // namespace naja::NAJA_OPT

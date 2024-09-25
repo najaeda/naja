@@ -61,7 +61,7 @@ class ConstantPropagation {
       partialConstantReaders_;
   std::vector<SNLBitTerm*> constant1TopReaders_;
   bool truthTableEngine_ = false;
-  bool normalizedUniquification_ = false;
+  bool normalizedUniquification_ = true;
 };
 
 }  // namespace naja::NAJA_OPT

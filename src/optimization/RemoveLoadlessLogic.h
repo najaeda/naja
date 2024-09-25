@@ -46,7 +46,7 @@ class LoadlessLogicRemover {
   naja::DNL::DNL<DNLInstanceFull, DNLTerminalFull>* dnl_;
   std::vector<std::pair<std::vector<SNLID::DesignObjectID>, DNLID>> loadlessInstances_;
   std::string report_;
-  bool normalizedUniquification_ = false;
+  bool normalizedUniquification_ = true;
 };
 
 }  // namespace naja::NAJA_OPT

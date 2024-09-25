@@ -103,9 +103,15 @@ void ActionTree::normalize() {
       foundNormalization = false;
       std::vector<ActionTreeNode*> nodesToMerge;
       auto currentNode = nodes.back();
+      if (!currentNode->isPartOfTree()) {
+        continue;
+      }
       nodesToMerge.push_back(currentNode);
       nodes.pop_back();
       for (auto node : nodes) {
+        if (!node->isPartOfTree()) {
+          continue;
+        }
         if (*currentNode == *node) {
           nodesToMerge.push_back(node);
           foundNormalization = true;
@@ -239,10 +245,11 @@ std::vector<SNLID::DesignObjectID> ActionTreeNode::getContext() const {
   std::vector<SNLID::DesignObjectID> context;
   // collect the DOID from node until root and then reverse
   const ActionTreeNode* currentNode = this;
+  assert(currentNode->isPartOfTree());
   while (currentNode->getParents()[0].first != (size_t)-1) {
     context.push_back(currentNode->getInstance());
     if (currentNode->getParents().empty()) {
-      break;
+      assert(false);
     }
     currentNode = &tree_->getNode(currentNode->getParents().front().first);
   }
@@ -289,4 +296,16 @@ void ActionTreeNode::sortActions() {  // sort actions with custom comparator
               return *(tree_->getAction(lhs.order)) <
                      *(tree_->getAction(rhs.order));
             });
+}
+
+bool ActionTreeNode::isPartOfTree() const {
+  //Verifying parents lead to root(parent == -1)
+  const ActionTreeNode* currentNode = this;
+  while (currentNode->getParents()[0].first != (size_t)-1) {
+    if (currentNode->getParents().empty()) {
+      return false;
+    }
+    currentNode = &tree_->getNode(currentNode->getParents().front().first);
+  }
+  return true;
 }
