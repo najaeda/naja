@@ -124,7 +124,7 @@ void ActionTree::normalize() {
         assert(getInstanceForPath(node->getContext())->getModel() ==
                (getInstanceForPath(currentNode->getContext()))->getModel());
         currentNode->addParent(node->getParents()[0]);
-        nodes_[node->getID()].eraseParent(node->getParents()[0]);
+        //FIXME xtof nodes_[node->getID()].eraseParent(node->getParents()[0]);
       }
     }
   }
@@ -239,11 +239,9 @@ std::vector<SNLID::DesignObjectID> ActionTreeNode::getContext() const {
   std::vector<SNLID::DesignObjectID> context;
   // collect the DOID from node until root and then reverse
   const ActionTreeNode* currentNode = this;
-  while (currentNode->getParents()[0].first != (size_t)-1) {
+  while (not currentNode->getParents().empty()
+    and currentNode->getParents()[0].first != (size_t)-1) {
     context.push_back(currentNode->getInstance());
-    if (currentNode->getParents().empty()) {
-      break;
-    }
     currentNode = &tree_->getNode(currentNode->getParents().front().first);
   }
   std::reverse(context.begin(), context.end());
