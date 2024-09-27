@@ -10,8 +10,10 @@ project(naja
 )
 
 cmake_policy(SET CMP0048 NEW)
-if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.30")
+if(NOT APPLE AND ${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.30")
   cmake_policy(SET CMP0167 NEW)
+else()
+  cmake_policy(SET CMP0167 OLD)
 endif()
 
 include(GNUInstallDirs)
