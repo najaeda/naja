@@ -130,7 +130,7 @@ void ActionTree::normalize() {
         assert(getInstanceForPath(node->getContext())->getModel() ==
                (getInstanceForPath(currentNode->getContext()))->getModel());
         currentNode->addParent(node->getParents()[0]);
-        nodes_[node->getID()].eraseParent(node->getParents()[0]);
+        //FIXME xtof nodes_[node->getID()].eraseParent(node->getParents()[0]);
       }
     }
   }

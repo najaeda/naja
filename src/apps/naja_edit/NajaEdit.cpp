@@ -271,89 +271,93 @@ int main(int argc, char* argv[]) {
   }
 
   try {
-    SNLUniverse::create();
-
     SNLDB* db = nullptr;
     SNLLibrary* primitivesLibrary = nullptr;
-    if (inputFormatType == FormatType::SNL) {
-      if (inputPaths.size() > 1) {
-        SPDLOG_CRITICAL("Multiple input paths are not supported for SNL format");
+    {
+      naja::NajaPerf::Scope scope("SNL Creation");
+      SNLUniverse::create();
+
+      if (inputFormatType == FormatType::SNL) {
+        naja::NajaPerf::Scope scope("Parsing SNL format");
+        if (inputPaths.size() > 1) {
+          SPDLOG_CRITICAL("Multiple input paths are not supported for SNL format");
+          std::exit(EXIT_FAILURE);
+        }
+        const auto start{std::chrono::steady_clock::now()};
+        auto inputPath = inputPaths[0];
+        db = SNLCapnP::load(inputPath);
+        SNLUniverse::get()->setTopDesign(db->getTopDesign());
+        const auto end{std::chrono::steady_clock::now()};
+        const std::chrono::duration<double> elapsed_seconds{end - start};
+        {
+          std::ostringstream oss;
+          oss << "Parsing done in: " << elapsed_seconds.count() << "s";
+          SPDLOG_INFO(oss.str());
+        }
+      } else if (inputFormatType == FormatType::VERILOG) {
+        naja::NajaPerf::Scope scope("Parsing verilog");
+        db = SNLDB::create(SNLUniverse::get());
+        primitivesLibrary = SNLLibrary::create(db, SNLLibrary::Type::Primitives,
+                                               SNLName("PRIMS"));
+        auto primitivesExtension = checkPrimitivesPathsExtension(primitivesPaths);
+        switch (primitivesExtension) {
+          case PrimitivesPathExtension::PY: {
+            if (primitivesPaths.size() > 1) {
+              SPDLOG_CRITICAL("Multiple primitives paths are not supported for python format");
+              std::exit(EXIT_FAILURE);
+            }
+            auto primitivesPath = primitivesPaths[0];
+            SNLPyLoader::loadPrimitives(primitivesLibrary, primitivesPath);
+            break;
+          }
+          case PrimitivesPathExtension::LIB: {
+            SNLLibertyConstructor constructor(primitivesLibrary);
+            for (const auto& path : primitivesPaths) {
+              SPDLOG_INFO("Parsing primitives file: {}", path.string());
+              constructor.construct(path);
+            }
+            break;
+          }
+          default:
+            SPDLOG_CRITICAL("Unknown extension in Primitives path");
+            std::exit(EXIT_FAILURE);
+        }
+
+        auto designLibrary = SNLLibrary::create(db, SNLName("DESIGN"));
+        SNLVRLConstructor constructor(designLibrary);
+        const auto start{std::chrono::steady_clock::now()};
+        {
+          std::ostringstream oss;
+          oss << "Parsing verilog file(s): ";
+          size_t i = 0;
+          for (auto path : inputPaths) {
+            if (i++ >= 4) {
+              oss << std::endl;
+              i = 0;
+            }
+            oss << path << " ";
+          }
+          SPDLOG_INFO(oss.str());
+        }
+        constructor.construct(inputPaths);
+        auto top = SNLUtils::findTop(designLibrary);
+        if (top) {
+          SNLUniverse::get()->setTopDesign(top);
+          SPDLOG_INFO("Found top design: " + top->getString());
+        } else {
+          SPDLOG_ERROR("No top design was found after parsing verilog");
+        }
+        const auto end{std::chrono::steady_clock::now()};
+        const std::chrono::duration<double> elapsed_seconds{end - start};
+        {
+          std::ostringstream oss;
+          oss << "Parsing done in: " << elapsed_seconds.count() << "s";
+          SPDLOG_INFO(oss.str());
+        }
+      } else {
+        SPDLOG_CRITICAL("Unrecognized input format type: {}", inputFormat);
         std::exit(EXIT_FAILURE);
       }
-      const auto start{std::chrono::steady_clock::now()};
-      auto inputPath = inputPaths[0];
-      db = SNLCapnP::load(inputPath);
-      SNLUniverse::get()->setTopDesign(db->getTopDesign());
-      const auto end{std::chrono::steady_clock::now()};
-      const std::chrono::duration<double> elapsed_seconds{end - start};
-      {
-        std::ostringstream oss;
-        oss << "Parsing done in: " << elapsed_seconds.count() << "s";
-        SPDLOG_INFO(oss.str());
-      }
-    } else if (inputFormatType == FormatType::VERILOG) {
-      naja::NajaPerf::Scope scope("Parsing verilog");
-      db = SNLDB::create(SNLUniverse::get());
-      primitivesLibrary = SNLLibrary::create(db, SNLLibrary::Type::Primitives,
-                                             SNLName("PRIMS"));
-      auto primitivesExtension = checkPrimitivesPathsExtension(primitivesPaths);
-      switch (primitivesExtension) {
-        case PrimitivesPathExtension::PY: {
-          if (primitivesPaths.size() > 1) {
-            SPDLOG_CRITICAL("Multiple primitives paths are not supported for python format");
-            std::exit(EXIT_FAILURE);
-          }
-          auto primitivesPath = primitivesPaths[0];
-          SNLPyLoader::loadPrimitives(primitivesLibrary, primitivesPath);
-          break;
-        }
-        case PrimitivesPathExtension::LIB: {
-          SNLLibertyConstructor constructor(primitivesLibrary);
-          for (const auto& path : primitivesPaths) {
-            SPDLOG_INFO("Parsing primitives file: {}", path.string());
-            constructor.construct(path);
-          }
-          break;
-        }
-        default:
-          SPDLOG_CRITICAL("Unknown extension in Primitives path");
-          std::exit(EXIT_FAILURE);
-      }
-
-      auto designLibrary = SNLLibrary::create(db, SNLName("DESIGN"));
-      SNLVRLConstructor constructor(designLibrary);
-      const auto start{std::chrono::steady_clock::now()};
-      {
-        std::ostringstream oss;
-        oss << "Parsing verilog file(s): ";
-        size_t i = 0;
-        for (auto path : inputPaths) {
-          if (i++ >= 4) {
-            oss << std::endl;
-            i = 0;
-          }
-          oss << path << " ";
-        }
-        SPDLOG_INFO(oss.str());
-      }
-      constructor.construct(inputPaths);
-      auto top = SNLUtils::findTop(designLibrary);
-      if (top) {
-        SNLUniverse::get()->setTopDesign(top);
-        SPDLOG_INFO("Found top design: " + top->getString());
-      } else {
-        SPDLOG_ERROR("No top design was found after parsing verilog");
-      }
-      const auto end{std::chrono::steady_clock::now()};
-      const std::chrono::duration<double> elapsed_seconds{end - start};
-      {
-        std::ostringstream oss;
-        oss << "Parsing done in: " << elapsed_seconds.count() << "s";
-        SPDLOG_INFO(oss.str());
-      }
-    } else {
-      SPDLOG_CRITICAL("Unrecognized input format type: {}", inputFormat);
-      std::exit(EXIT_FAILURE);
     }
 
     if (program.is_used("-e")) {
@@ -426,35 +430,41 @@ int main(int argc, char* argv[]) {
       }
     }
 
-    if (outputFormatType == FormatType::SNL) {
-      SPDLOG_INFO("Dumping netlist in SNL format to {}", outputPath.string());
-      SNLCapnP::dump(db, outputPath);
-    } else if (outputFormatType == FormatType::VERILOG) {
-      if (db->getTopDesign()) {
-        std::ofstream output(outputPath);
-        SNLVRLDumper dumper;
-        dumper.setSingleFile(true);
-        SPDLOG_INFO("Dumping netlist in verilog format to {}", outputPath.string());
-        dumper.dumpDesign(db->getTopDesign(), output);
-      } else {
-        db->debugDump(0);
-      }
-    } else if (outputFormatType == FormatType::DOT) {
+    {
+      naja::NajaPerf::Scope scope("Dumping Netlist");
+      if (outputFormatType == FormatType::SNL) {
+        naja::NajaPerf::Scope scope("Dumping SNL format");
+        SPDLOG_INFO("Dumping netlist in SNL format to {}", outputPath.string());
+        SNLCapnP::dump(db, outputPath);
+      } else if (outputFormatType == FormatType::VERILOG) {
+        naja::NajaPerf::Scope scope("Dumping verilog");
+        if (db->getTopDesign()) {
+          std::ofstream output(outputPath);
+          SNLVRLDumper dumper;
+          dumper.setSingleFile(true);
+          SPDLOG_INFO("Dumping netlist in verilog format to {}", outputPath.string());
+          dumper.dumpDesign(db->getTopDesign(), output);
+        } else {
+          db->debugDump(0);
+        }
+      } else if (outputFormatType == FormatType::DOT) {
+        naja::NajaPerf::Scope scope("Dumping DOT format");
         std::string dotFileName(outputPath.string());
         naja::SnlVisualiser snl(db->getTopDesign());
         snl.process();
         snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
-    } /*else if (outputFormatType == FormatType::SVG) {
-        std::string dotFileName(outputPath.string());
-        std::string svgFileName(
-            outputPath.string() + std::string(".svg"));
-        naja::SnlVisualiser snl(db->getTopDesign());
-        snl.process();
-        snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
-        system(std::string(std::string("dot -Tsvg ") + dotFileName +
-                          std::string(" -o ") + svgFileName)
-                  .c_str());
-    }*/
+      } /*else if (outputFormatType == FormatType::SVG) {
+          std::string dotFileName(outputPath.string());
+          std::string svgFileName(
+              outputPath.string() + std::string(".svg"));
+          naja::SnlVisualiser snl(db->getTopDesign());
+          snl.process();
+          snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
+          system(std::string(std::string("dot -Tsvg ") + dotFileName +
+                            std::string(" -o ") + svgFileName)
+                    .c_str());
+      }*/
+    }
 
     if (program.is_used("-d")) {
       if (not primitivesLibrary and inputFormatType==FormatType::SNL) {
