@@ -102,6 +102,7 @@ class SNLDesignTest(unittest.TestCase):
     snl.SNLUniverse.get().setTopDesign(design)
     self.assertEqual(design, snl.SNLUniverse.get().getTopDesign())
     self.assertEqual(design.getDB(), snl.SNLUniverse.get().getTopDB())
+    with self.assertRaises(RuntimeError) as context: snl.SNLUniverse.get().setTopDesign(self.lib)
     
   def test1(self):
     self.assertIsNotNone(self.lib)
