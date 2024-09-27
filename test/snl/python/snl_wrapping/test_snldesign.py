@@ -95,6 +95,13 @@ class SNLDesignTest(unittest.TestCase):
     self.assertEqual(i2, terms[2])
     self.assertEqual(i3, terms[3])
     self.assertEqual(o, terms[4])
+
+    self.assertIsNotNone(snl.SNLUniverse.get())
+    self.assertIsNone(snl.SNLUniverse.get().getTopDB())
+    self.assertIsNone(snl.SNLUniverse.get().getTopDesign())
+    snl.SNLUniverse.get().setTopDesign(design)
+    self.assertEqual(design, snl.SNLUniverse.get().getTopDesign())
+    self.assertEqual(design.getDB(), snl.SNLUniverse.get().getTopDB())
     
   def test1(self):
     self.assertIsNotNone(self.lib)
