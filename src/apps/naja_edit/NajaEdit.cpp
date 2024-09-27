@@ -19,6 +19,7 @@
 #include <argparse/argparse.hpp>
 
 #include "NajaVersion.h"
+#include "NajaPerf.h"
 
 #include "SNLException.h"
 #include "SNLPyEdit.h"
@@ -108,35 +109,37 @@ PrimitivesPathExtension checkPrimitivesPathsExtension(const Paths& paths) {
 }  // namespace
 
 int main(int argc, char* argv[]) {
+  const auto najaEditStart{std::chrono::steady_clock::now()};
   argparse::ArgumentParser program("naja_edit");
   program.add_description(
       "Edit gate level netlists using python script and apply optimizations");
-  program.add_argument("-f", "--from_format")
-      .required()
-      .help("from/input format");
+  program.add_argument("-f", "--from_format").help("from/input format");
   program.add_argument("-t", "--to_format").help("to/output format");
-  program.add_argument("-i", "--input")
-      .required()
-      .append()
-      .help("input netlist paths");
+  program.add_argument("-i", "--input").append().help("input netlist paths");
   program.add_argument("-o", "--output").help("output netlist");
   program.add_argument("-p", "--primitives")
-      .nargs(argparse::nargs_pattern::at_least_one)
-      .help("input primitives: list of path to primitives files (liberty format or Naja python format)");
+    .nargs(argparse::nargs_pattern::at_least_one)
+    .help("input primitives: list of path to primitives files (liberty format or Naja python format)");
   program.add_argument("-d", "--dump_primitives")
-      .help("dump primitives library in verilog");
+    .help("dump primitives library in verilog");
   program.add_argument("-e", "--pre_edit")
-      .help(
-          "edit netlist using python script after loading netlist and before "
-          "applying optimizations");
+    .help(
+      "edit netlist using python script after loading netlist and before "
+      "applying optimizations");
   program.add_argument("-z", "--post_edit")
-      .help(
-          "edit netlist using python script after optimizations and before "
-          "dumping netlist");
+    .help(
+      "edit netlist using python script after optimizations and before "
+      "dumping netlist");
   program.add_argument("-a", "--apply")
-      .help(
-          "apply optimization: dle (remove loadless logic), all (all "
-          "optimizations)");
+    .help(
+      "apply optimization: dle (remove loadless logic), all (all "
+      "optimizations)");
+  program.add_argument("-l", "--log")
+    .default_value(std::string("naja_edit.log"))
+    .help("Dump log file (default name: naja_edit.log)");
+  program.add_argument("-s", "--stats")
+    .default_value(std::string("naja_stats.log"))
+    .help("Dump stats log file named: naja_stats.log");
 
   try {
     program.parse_args(argc, argv);
@@ -146,15 +149,24 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
+  std::filesystem::path statsPath("naja_stats.log");
+  if (program.is_used("--stats")) {
+    statsPath = program.get<std::string>("--stats");
+  }
+  naja::NajaPerf::create(statsPath, "naja_edit");
+
   std::vector<spdlog::sink_ptr> sinks;
   auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
   console_sink->set_level(spdlog::level::info);
   console_sink->set_pattern("[naja_edit] [%^%l%$] %v");
   sinks.push_back(console_sink);
 
-  auto file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>("naja_edit.log", true);
-  file_sink->set_level(spdlog::level::trace);
-  sinks.push_back(file_sink);
+  if (program.is_used("--log")) {
+    auto logName = program.get<std::string>("--log");
+    auto file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(logName, true);
+    file_sink->set_level(spdlog::level::trace);
+    sinks.push_back(file_sink);
+  }
 
   auto edit_logger =
       std::make_shared<spdlog::logger>("logger", begin(sinks), end(sinks));
@@ -169,8 +181,24 @@ int main(int argc, char* argv[]) {
   SPDLOG_INFO("########################################################");
 
   bool argError = false;
-  auto inputFormatArg = program.present("-f");
-  std::string inputFormat = *inputFormatArg;
+
+  std::string inputFormat;
+  if (auto inputFormatArg = program.present("-f")) {
+    inputFormat = *inputFormatArg;
+  }
+  FormatType inputFormatType = argToFormatType(inputFormat);
+  if (inputFormatType == FormatType::UNKNOWN) {
+    SPDLOG_CRITICAL("Unrecognized input format type: {}", inputFormat);
+    argError = true;
+  }
+
+  if (program.present("-i")) {
+    if (inputFormatType == FormatType::NOT_PROVIDED) {
+      SPDLOG_CRITICAL("output option (-f) is mandatory when the input is provided");
+      std::exit(EXIT_FAILURE);
+    }
+  }
+
   std::string outputFormat;
   if (auto outputFormatArg = program.present("-t")) {
     outputFormat = *outputFormatArg;
@@ -178,15 +206,16 @@ int main(int argc, char* argv[]) {
     if (auto output = program.is_used("-o")) {
       // in case output format is not provided and output path is provided
       // output format is same as input format
-      outputFormat = inputFormat;
+      if (inputFormatType == FormatType::NOT_PROVIDED) {
+        SPDLOG_CRITICAL("output format option (-t) is mandatory");
+        argError = true;
+      } else {
+        outputFormat = inputFormat;
+      }
     }
   }
-  FormatType inputFormatType = argToFormatType(inputFormat);
   FormatType outputFormatType = argToFormatType(outputFormat);
-  if (inputFormatType == FormatType::UNKNOWN) {
-    SPDLOG_CRITICAL("Unrecognized input format type: {}", inputFormat);
-    argError = true;
-  }
+  
   if (outputFormatType == FormatType::UNKNOWN) {
     SPDLOG_CRITICAL("Unrecognized output format type: {}", outputFormat);
     argError = true;
@@ -208,7 +237,7 @@ int main(int argc, char* argv[]) {
       }
     );
   } else {
-    if (inputFormatType != FormatType::SNL) {
+    if (inputFormatType != FormatType::SNL and inputFormatType != FormatType::NOT_PROVIDED) {
       SPDLOG_CRITICAL("primitives option (-p) is mandatory when the input format is not 'SNL'");
       argError = true;
     }
@@ -240,10 +269,6 @@ int main(int argc, char* argv[]) {
                  });
 
   std::filesystem::path outputPath;
-  if (inputPaths.empty()) {
-    SPDLOG_CRITICAL("No input path was provided");
-    std::exit(EXIT_FAILURE);
-  }
   if (auto output = program.present("-o")) {
     outputPath = std::filesystem::path(*output);
   } else {
@@ -254,91 +279,100 @@ int main(int argc, char* argv[]) {
   }
 
   try {
-    SNLUniverse::create();
-
     SNLDB* db = nullptr;
     SNLLibrary* primitivesLibrary = nullptr;
-    if (inputFormatType == FormatType::SNL) {
-      if (inputPaths.size() > 1) {
-        SPDLOG_CRITICAL("Multiple input paths are not supported for SNL format");
+    {
+      naja::NajaPerf::Scope scope("SNL Creation");
+      SNLUniverse::create();
+
+      if (inputFormatType == FormatType::SNL) {
+        naja::NajaPerf::Scope scope("Parsing SNL format");
+        if (inputPaths.size() > 1) {
+          SPDLOG_CRITICAL("Multiple input paths are not supported for SNL format");
+          std::exit(EXIT_FAILURE);
+        }
+        const auto start{std::chrono::steady_clock::now()};
+        auto inputPath = inputPaths[0];
+        db = SNLCapnP::load(inputPath);
+        SNLUniverse::get()->setTopDesign(db->getTopDesign());
+        const auto end{std::chrono::steady_clock::now()};
+        const std::chrono::duration<double> elapsed_seconds{end - start};
+        {
+          std::ostringstream oss;
+          oss << "Parsing done in: " << elapsed_seconds.count() << "s";
+          SPDLOG_INFO(oss.str());
+        }
+      } else if (inputFormatType == FormatType::VERILOG) {
+        naja::NajaPerf::Scope scope("Parsing verilog");
+        db = SNLDB::create(SNLUniverse::get());
+        primitivesLibrary = SNLLibrary::create(db, SNLLibrary::Type::Primitives,
+                                               SNLName("PRIMS"));
+        auto primitivesExtension = checkPrimitivesPathsExtension(primitivesPaths);
+        switch (primitivesExtension) {
+          case PrimitivesPathExtension::PY: {
+            if (primitivesPaths.size() > 1) {
+              SPDLOG_CRITICAL("Multiple primitives paths are not supported for python format");
+              std::exit(EXIT_FAILURE);
+            }
+            auto primitivesPath = primitivesPaths[0];
+            SNLPyLoader::loadPrimitives(primitivesLibrary, primitivesPath);
+            break;
+          }
+          case PrimitivesPathExtension::LIB: {
+            SNLLibertyConstructor constructor(primitivesLibrary);
+            for (const auto& path : primitivesPaths) {
+              SPDLOG_INFO("Parsing primitives file: {}", path.string());
+              constructor.construct(path);
+            }
+            break;
+          }
+          default:
+            SPDLOG_CRITICAL("Unknown extension in Primitives path");
+            std::exit(EXIT_FAILURE);
+        }
+
+        auto designLibrary = SNLLibrary::create(db, SNLName("DESIGN"));
+        SNLVRLConstructor constructor(designLibrary);
+        const auto start{std::chrono::steady_clock::now()};
+        {
+          std::ostringstream oss;
+          oss << "Parsing verilog file(s): ";
+          size_t i = 0;
+          for (auto path : inputPaths) {
+            if (i++ >= 4) {
+              oss << std::endl;
+              i = 0;
+            }
+            oss << path << " ";
+          }
+          SPDLOG_INFO(oss.str());
+        }
+        constructor.construct(inputPaths);
+        auto top = SNLUtils::findTop(designLibrary);
+        if (top) {
+          SNLUniverse::get()->setTopDesign(top);
+          SPDLOG_INFO("Found top design: " + top->getString());
+        } else {
+          SPDLOG_ERROR("No top design was found after parsing verilog");
+        }
+        const auto end{std::chrono::steady_clock::now()};
+        const std::chrono::duration<double> elapsed_seconds{end - start};
+        {
+          std::ostringstream oss;
+          oss << "Parsing done in: " << elapsed_seconds.count() << "s";
+          SPDLOG_INFO(oss.str());
+        }
+    } else if (inputFormatType == FormatType::NOT_PROVIDED) {
+      db = SNLDB::create(SNLUniverse::get());
+      SNLUniverse::get()->setTopDB(db);
+      } else {
+        SPDLOG_CRITICAL("Unrecognized input format type: {}", inputFormat);
         std::exit(EXIT_FAILURE);
       }
-      const auto start{std::chrono::steady_clock::now()};
-      auto inputPath = inputPaths[0];
-      db = SNLCapnP::load(inputPath);
-      SNLUniverse::get()->setTopDesign(db->getTopDesign());
-      const auto end{std::chrono::steady_clock::now()};
-      const std::chrono::duration<double> elapsed_seconds{end - start};
-      {
-        std::ostringstream oss;
-        oss << "Parsing done in: " << elapsed_seconds.count() << "s";
-        SPDLOG_INFO(oss.str());
-      }
-    } else if (inputFormatType == FormatType::VERILOG) {
-      db = SNLDB::create(SNLUniverse::get());
-      primitivesLibrary = SNLLibrary::create(db, SNLLibrary::Type::Primitives,
-                                             SNLName("PRIMS"));
-      auto primitivesExtension = checkPrimitivesPathsExtension(primitivesPaths);
-      switch (primitivesExtension) {
-        case PrimitivesPathExtension::PY: {
-          if (primitivesPaths.size() > 1) {
-            SPDLOG_CRITICAL("Multiple primitives paths are not supported for python format");
-            std::exit(EXIT_FAILURE);
-          }
-          auto primitivesPath = primitivesPaths[0];
-          SNLPyLoader::loadPrimitives(primitivesLibrary, primitivesPath);
-          break;
-        }
-        case PrimitivesPathExtension::LIB: {
-          SNLLibertyConstructor constructor(primitivesLibrary);
-          for (const auto& path : primitivesPaths) {
-            SPDLOG_INFO("Parsing primitives file: {}", path.string());
-            constructor.construct(path);
-          }
-          break;
-        }
-        default:
-          SPDLOG_CRITICAL("Unknown extension in Primitives path");
-          std::exit(EXIT_FAILURE);
-      }
-
-      auto designLibrary = SNLLibrary::create(db, SNLName("DESIGN"));
-      SNLVRLConstructor constructor(designLibrary);
-      const auto start{std::chrono::steady_clock::now()};
-      {
-        std::ostringstream oss;
-        oss << "Parsing verilog file(s): ";
-        size_t i = 0;
-        for (auto path : inputPaths) {
-          if (i++ >= 4) {
-            oss << std::endl;
-            i = 0;
-          }
-          oss << path << " ";
-        }
-        SPDLOG_INFO(oss.str());
-      }
-      constructor.construct(inputPaths);
-      auto top = SNLUtils::findTop(designLibrary);
-      if (top) {
-        SNLUniverse::get()->setTopDesign(top);
-        SPDLOG_INFO("Found top design: " + top->getString());
-      } else {
-        SPDLOG_ERROR("No top design was found after parsing verilog");
-      }
-      const auto end{std::chrono::steady_clock::now()};
-      const std::chrono::duration<double> elapsed_seconds{end - start};
-      {
-        std::ostringstream oss;
-        oss << "Parsing done in: " << elapsed_seconds.count() << "s";
-        SPDLOG_INFO(oss.str());
-      }
-    } else {
-      SPDLOG_CRITICAL("Unrecognized input format type: {}", inputFormat);
-      std::exit(EXIT_FAILURE);
     }
 
     if (program.is_used("-e")) {
+      naja::NajaPerf::Scope scope("Python Pre Editing");
       const auto start{std::chrono::steady_clock::now()};
       auto editPath = std::filesystem::path(program.get<std::string>("-e"));
       SPDLOG_INFO("Editing netlist using python script (post netlist loading): {}", editPath.string());
@@ -353,6 +387,7 @@ int main(int argc, char* argv[]) {
     }
 
     if (optimizationType == OptimizationType::DLE) {
+      naja::NajaPerf::Scope scope("Optimization_DLE");
       const auto start{std::chrono::steady_clock::now()};
       SPDLOG_INFO("Starting removal of loadless logic");
       LoadlessLogicRemover remover;
@@ -368,6 +403,7 @@ int main(int argc, char* argv[]) {
       //stats.process();
       //spdlog::info(stats.getReport());
     } else if (optimizationType == OptimizationType::ALL) {
+      naja::NajaPerf::Scope scope("Optimization_ALL");
       const auto start{std::chrono::steady_clock::now()};
       spdlog::info("Starting full optimization (constant propagation and removal of loadless logic)");
       ConstantPropagation cp;
@@ -391,6 +427,7 @@ int main(int argc, char* argv[]) {
     }
 
     if (program.is_used("-z")) {
+      naja::NajaPerf::Scope scope("Python Post Editing");
       const auto start{std::chrono::steady_clock::now()};
       auto editPath = std::filesystem::path(program.get<std::string>("-z"));
       SPDLOG_INFO("Post editing netlist using python script: {}", editPath.string());
@@ -404,35 +441,41 @@ int main(int argc, char* argv[]) {
       }
     }
 
-    if (outputFormatType == FormatType::SNL) {
-      SPDLOG_INFO("Dumping netlist in SNL format to {}", outputPath.string());
-      SNLCapnP::dump(db, outputPath);
-    } else if (outputFormatType == FormatType::VERILOG) {
-      if (db->getTopDesign()) {
-        std::ofstream output(outputPath);
-        SNLVRLDumper dumper;
-        dumper.setSingleFile(true);
-        SPDLOG_INFO("Dumping netlist in verilog format to {}", outputPath.string());
-        dumper.dumpDesign(db->getTopDesign(), output);
-      } else {
-        db->debugDump(0);
-      }
-    } else if (outputFormatType == FormatType::DOT) {
+    {
+      naja::NajaPerf::Scope scope("Dumping Netlist");
+      if (outputFormatType == FormatType::SNL) {
+        naja::NajaPerf::Scope scope("Dumping SNL format");
+        SPDLOG_INFO("Dumping netlist in SNL format to {}", outputPath.string());
+        SNLCapnP::dump(db, outputPath);
+      } else if (outputFormatType == FormatType::VERILOG) {
+        naja::NajaPerf::Scope scope("Dumping verilog");
+        if (db->getTopDesign()) {
+          std::ofstream output(outputPath);
+          SNLVRLDumper dumper;
+          dumper.setSingleFile(true);
+          SPDLOG_INFO("Dumping netlist in verilog format to {}", outputPath.string());
+          dumper.dumpDesign(db->getTopDesign(), output);
+        } else {
+          db->debugDump(0);
+        }
+      } else if (outputFormatType == FormatType::DOT) {
+        naja::NajaPerf::Scope scope("Dumping DOT format");
         std::string dotFileName(outputPath.string());
         naja::SnlVisualiser snl(db->getTopDesign());
         snl.process();
         snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
-    } /*else if (outputFormatType == FormatType::SVG) {
-        std::string dotFileName(outputPath.string());
-        std::string svgFileName(
-            outputPath.string() + std::string(".svg"));
-        naja::SnlVisualiser snl(db->getTopDesign());
-        snl.process();
-        snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
-        system(std::string(std::string("dot -Tsvg ") + dotFileName +
-                          std::string(" -o ") + svgFileName)
-                  .c_str());
-    }*/
+      } /*else if (outputFormatType == FormatType::SVG) {
+          std::string dotFileName(outputPath.string());
+          std::string svgFileName(
+              outputPath.string() + std::string(".svg"));
+          naja::SnlVisualiser snl(db->getTopDesign());
+          snl.process();
+          snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
+          system(std::string(std::string("dot -Tsvg ") + dotFileName +
+                            std::string(" -o ") + svgFileName)
+                    .c_str());
+      }*/
+    }
 
     if (program.is_used("-d")) {
       if (not primitivesLibrary and inputFormatType==FormatType::SNL) {
@@ -454,5 +497,23 @@ int main(int argc, char* argv[]) {
       e.what(), e.trace().to_string()); 
     std::exit(EXIT_FAILURE);
   }
+  const auto najaEditEnd{std::chrono::steady_clock::now()};
+  const std::chrono::duration<double> najaElapsedSeconds{najaEditEnd - najaEditStart};
+  auto memInfo = naja::NajaPerf::getMemoryUsage();
+  auto vmRSS = memInfo.first;
+  auto vmPeak = memInfo.second;
+  SPDLOG_INFO("########################################################");
+  {
+    std::ostringstream oss;
+    oss << "naja_edit done in: " << najaElapsedSeconds.count() << "s";
+    if (vmRSS != naja::NajaPerf::UnknownMemoryUsage) {
+      oss << " VM(RSS): " << vmRSS / 1024.0 << "Mb";
+    }
+    if (vmPeak != naja::NajaPerf::UnknownMemoryUsage) {
+      oss << " VM(Peak): " << vmPeak / 1024.0 << "Mb";
+    }
+    SPDLOG_INFO(oss.str());
+  }
+  SPDLOG_INFO("########################################################");
   std::exit(EXIT_SUCCESS);
 }

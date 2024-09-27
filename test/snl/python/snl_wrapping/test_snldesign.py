@@ -95,6 +95,14 @@ class SNLDesignTest(unittest.TestCase):
     self.assertEqual(i2, terms[2])
     self.assertEqual(i3, terms[3])
     self.assertEqual(o, terms[4])
+
+    self.assertIsNotNone(snl.SNLUniverse.get())
+    self.assertIsNone(snl.SNLUniverse.get().getTopDB())
+    self.assertIsNone(snl.SNLUniverse.get().getTopDesign())
+    snl.SNLUniverse.get().setTopDesign(design)
+    self.assertEqual(design, snl.SNLUniverse.get().getTopDesign())
+    self.assertEqual(design.getDB(), snl.SNLUniverse.get().getTopDB())
+    with self.assertRaises(RuntimeError) as context: snl.SNLUniverse.get().setTopDesign(self.lib)
     
   def test1(self):
     self.assertIsNotNone(self.lib)
@@ -217,6 +225,9 @@ class SNLDesignTest(unittest.TestCase):
     with self.assertRaises(RuntimeError) as context: snl.SNLParameter.create_binary(design, "INIT", 16, 0x0000)
     with self.assertRaises(RuntimeError) as context: snl.SNLParameter.create_string(design, "MODE", "DEFAULT")
     with self.assertRaises(RuntimeError) as context: snl.SNLParameter.create_boolean(design, "INVERTED", True)
+
+  def testSetTopErrors(self):
+    with self.assertRaises(RuntimeError) as context: snl.SNLUniverse.get().setTopDesign(self.lib)
 
   def testDumpVerilogError(self):
     self.assertIsNotNone(self.lib)

@@ -2,13 +2,17 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-cmake_policy(SET CMP0048 NEW)
 cmake_minimum_required(VERSION 3.21)
 
 project(naja
   VERSION 1.0.0
   HOMEPAGE_URL https://github.com/najaeda/naja
 )
+
+cmake_policy(SET CMP0048 NEW)
+if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.30")
+  cmake_policy(SET CMP0167 OLD)
+endif()
 
 include(GNUInstallDirs)
 
