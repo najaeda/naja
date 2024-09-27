@@ -32,9 +32,7 @@ static PyObject* PySNLUniverse_get() {
 static PyObject* PySNLUniverse_setTopDesign(PySNLUniverse* self, PyObject* arg) {
   METHOD_HEAD("SNLUniverse.setTopDesign()")
   if (IsPySNLDesign(arg)) {
-    SNLTRY
     selfObject->setTopDesign(PYSNLDesign_O(arg));
-    SNLCATCH
   } else {
     setError("SNLUniverse setTopDesign takes SNLDesign argument");
     return nullptr;

@@ -226,6 +226,9 @@ class SNLDesignTest(unittest.TestCase):
     with self.assertRaises(RuntimeError) as context: snl.SNLParameter.create_string(design, "MODE", "DEFAULT")
     with self.assertRaises(RuntimeError) as context: snl.SNLParameter.create_boolean(design, "INVERTED", True)
 
+  def testSetTopErrors(self):
+    with self.assertRaises(RuntimeError) as context: snl.SNLUniverse.get().setTopDesign(self.lib)
+
   def testDumpVerilogError(self):
     self.assertIsNotNone(self.lib)
     design = snl.SNLDesign.create(self.lib, "DESIGN")
