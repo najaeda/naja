@@ -29,7 +29,19 @@ static PyObject* PySNLUniverse_get() {
   return PySNLUniverse_Link(universe);
 }
 
+static PyObject* PySNLUniverse_setTopDesign(PySNLUniverse* self, PyObject* arg) {
+  METHOD_HEAD("SNLUniverse.setTopDesign()")
+  if (IsPySNLDesign(arg)) {
+    selfObject->setTopDesign(PYSNLDesign_O(arg));
+  } else {
+    setError("SNLUniverse setTopDesign takes SNLDesign argument");
+    return nullptr;
+  }
+  Py_RETURN_NONE;
+}
+
 GetObjectMethod(Universe, Design, getTopDesign)
+GetObjectMethod(Universe, DB, getTopDB)
 GetObjectByIndex(Universe, DB, DB)
 
 DBoDestroyAttribute(PySNLUniverse_destroy, PySNLUniverse)
@@ -43,6 +55,10 @@ PyMethodDef PySNLUniverse_Methods[] = {
     "get the SNL Universe (static object)"},
   { "getTopDesign", (PyCFunction)PySNLUniverse_getTopDesign, METH_NOARGS,
     "get the top SNLDesign"},
+  { "setTopDesign", (PyCFunction)PySNLUniverse_setTopDesign, METH_O,
+    "set the top SNLDesign"},
+  { "getTopDB", (PyCFunction)PySNLUniverse_getTopDB, METH_NOARGS,
+    "get the Top SNLDB"},
   { "getDB", (PyCFunction)PySNLUniverse_getDB, METH_VARARGS,
     "get the SNLDB with the given index"},
   {NULL, NULL, 0, NULL}           /* sentinel */
