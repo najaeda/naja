@@ -58,6 +58,9 @@ class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
     void addOrderedInstanceConnection(
       size_t portIndex,
       const naja::verilog::Expression& expression) override;
+    void addDefParameterAssignment(
+      const naja::verilog::Identifiers& hierarchicalParameter,
+      const naja::verilog::Expression& expression) override;
     void endModule() override;
   private:
     void createCurrentModuleAssignNets();
