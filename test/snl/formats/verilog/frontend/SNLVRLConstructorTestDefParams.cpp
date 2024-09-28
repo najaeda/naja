@@ -16,6 +16,7 @@ using ::testing::ElementsAre;
 #include "SNLUtils.h"
 #include "SNLBitTerm.h"
 #include "SNLInstTerm.h"
+#include "SNLException.h"
 
 #include "SNLPyLoader.h"
 #include "SNLVRLConstructor.h"
@@ -83,4 +84,25 @@ TEST_F(SNLVRLConstructorTestDefParams, test) {
   param = *(ins2->getInstParameters().begin());
   EXPECT_EQ("INIT", param->getName().getString());
   EXPECT_EQ("16'h0001", param->getValue());
+}
+
+TEST_F(SNLVRLConstructorTestDefParams, testErrors0) {
+  auto db = SNLDB::create(SNLUniverse::get());
+  SNLVRLConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_VRL_BENCHMARKS_PATH);
+  EXPECT_THROW(constructor.construct(benchmarksPath/"errors"/"error_defparams_0.v"), SNLException);
+}
+
+TEST_F(SNLVRLConstructorTestDefParams, testErrors1) {
+  auto db = SNLDB::create(SNLUniverse::get());
+  SNLVRLConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_VRL_BENCHMARKS_PATH);
+  EXPECT_THROW(constructor.construct(benchmarksPath/"errors"/"error_defparams_1.v"), SNLException);
+}
+
+TEST_F(SNLVRLConstructorTestDefParams, testErrors2) {
+  auto db = SNLDB::create(SNLUniverse::get());
+  SNLVRLConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_VRL_BENCHMARKS_PATH);
+  EXPECT_THROW(constructor.construct(benchmarksPath/"errors"/"error_defparams_2.v"), SNLException);
 }
