@@ -385,12 +385,16 @@ int main(int argc, char* argv[]) {
         SPDLOG_INFO(oss.str());
       }
     }
-
+    bool useBNE = true;
+    if (std::getenv("NAJA_DISABLE_BNE")) {
+      useBNE = false;
+    }
     if (optimizationType == OptimizationType::DLE) {
       naja::NajaPerf::Scope scope("Optimization_DLE");
       const auto start{std::chrono::steady_clock::now()};
       SPDLOG_INFO("Starting removal of loadless logic");
       LoadlessLogicRemover remover;
+      remover.setNormalizedUniquification(useBNE);
       remover.process();
       const auto end{std::chrono::steady_clock::now()};
       const std::chrono::duration<double> elapsed_seconds{end - start};
@@ -408,10 +412,13 @@ int main(int argc, char* argv[]) {
       spdlog::info("Starting full optimization (constant propagation and removal of loadless logic)");
       ConstantPropagation cp;
       cp.setTruthTableEngine(true);
+      cp.setNormalizedUniquification(useBNE);
       cp.run();
       ReductionOptimization reductionOptimization(cp.getPartialConstantReaders());
+      reductionOptimization.setNormalizedUniquification(useBNE);
       reductionOptimization.run();
       LoadlessLogicRemover remover;
+      remover.setNormalizedUniquification(useBNE);
       remover.process();
       const auto end{std::chrono::steady_clock::now()};
       const std::chrono::duration<double> elapsed_seconds{end - start};
