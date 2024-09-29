@@ -616,6 +616,26 @@ SNLDesign* SNLDesign::clone(const SNLName& name) const {
   return cloneToLibrary(getLibrary(), name);
 }
 
+void SNLDesign::setName(const SNLName& name) {
+  if (name_ == name) {
+    return;
+  }
+  if (not name.empty()) {
+    /* check collision */
+    if (auto collision = getLibrary()->getDesign(name)) {
+      std::ostringstream reason;
+      reason << "In library " << getLibrary()->getString()
+        << ", cannot rename " << getString() << " to "
+        << name.getString() << ", another Design " << collision->getString()
+        << " has already this name.";
+      throw SNLException(reason.str());
+    }
+  }
+  auto previousName = getName();
+  name_ = name;
+  getLibrary()->rename(this, previousName);
+}
+
 //LCOV_EXCL_START
 const char* SNLDesign::getTypeName() const {
   return "SNLDesign";

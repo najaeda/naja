@@ -4,7 +4,8 @@
 
 #include "SNLBitTerm.h"
 #include "SNLDesign.h"
-#include "SNLBitNet.h"
+#include "SNLBusNet.h"
+#include "SNLBusNetBit.h"
 #include "SNLException.h"
 #include "SNLMacros.h"
 

@@ -10,6 +10,8 @@
 #include "SNLException.h"
 #include "SNLDesign.h"
 #include "SNLBitTerm.h"
+#include "SNLBusNet.h"
+#include "SNLBusNetBit.h"
 #include "SNLBitNet.h"
 #include "SNLMacros.h"
 

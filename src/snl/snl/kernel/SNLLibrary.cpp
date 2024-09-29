@@ -241,6 +241,7 @@ void SNLLibrary::setName(const SNLName& name) {
 }
 
 OWNER_RENAME(SNLLibrary, SNLLibrary, libraryNameIDMap_)
+OWNER_RENAME(SNLLibrary, SNLDesign, designNameIDMap_)
 
 SNLDB* SNLLibrary::getDB() const {
   if (isRoot()) {
