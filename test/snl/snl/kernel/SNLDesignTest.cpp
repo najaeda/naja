@@ -307,3 +307,27 @@ TEST_F(SNLDesignTest, testSetTop) {
   auto altDesign = SNLDesign::create(altLibrary);
   EXPECT_THROW(design0->getDB()->setTopDesign(altDesign), SNLException);
 }
+
+TEST_F(SNLDesignTest, testSetName) {
+  SNLLibrary* library = db_->getLibrary(SNLName("MYLIB"));
+  ASSERT_NE(library, nullptr);
+  SNLDesign* design0 = SNLDesign::create(library, SNLName("design0"));
+  EXPECT_EQ(SNLName("design0"), design0->getName());
+  design0->setName(SNLName("design0"));
+  EXPECT_EQ(SNLName("design0"), design0->getName());
+  EXPECT_EQ(design0, library->getDesign(SNLName("design0")));
+
+  design0->setName(SNLName("design1"));
+  EXPECT_EQ(SNLName("design1"), design0->getName());
+  EXPECT_EQ(design0, library->getDesign(SNLName("design1")));
+  EXPECT_EQ(nullptr, library->getDesign(SNLName("design0")));
+  design0->setName(SNLName("design0"));
+  EXPECT_EQ(SNLName("design0"), design0->getName());
+  EXPECT_EQ(design0, library->getDesign(SNLName("design0")));
+  EXPECT_EQ(nullptr, library->getDesign(SNLName("design1")));
+
+  auto design1 = SNLDesign::create(library, SNLName("design1"));
+  EXPECT_EQ(SNLName("design1"), design1->getName());
+  EXPECT_EQ(design1, library->getDesign(SNLName("design1")));
+  EXPECT_THROW(design1->setName(SNLName("design0")), SNLException);
+}
