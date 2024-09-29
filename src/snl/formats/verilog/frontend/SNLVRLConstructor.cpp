@@ -728,4 +728,36 @@ void SNLVRLConstructor::collectIdentifierNets(
   }
 }
 
+void SNLVRLConstructor::addDefParameterAssignment(
+  const naja::verilog::Identifiers& hierarchicalParameter,
+  const naja::verilog::Expression& expression) {
+  if (not inFirstPass()) {
+    if (hierarchicalParameter.size() != 2) {
+      std::ostringstream reason;
+      reason << getLocationString();
+      reason << ": Only Hierarchical parameter of size 2 assignment are supported";
+      throw SNLVRLConstructorException(reason.str());
+    }
+    auto instanceName = hierarchicalParameter[0];
+    auto parameterName = hierarchicalParameter[1];
+    auto instance = currentModule_->getInstance(SNLName(instanceName.name_));
+    if (not instance) {
+      std::ostringstream reason;
+      reason << getLocationString();
+      reason << ": instance " << instanceName.getString();
+      reason << " cannot be found in " << currentModule_->getName().getString();
+      throw SNLVRLConstructorException(reason.str());
+    }
+    auto parameter = instance->getModel()->getParameter(SNLName(parameterName.name_));
+    if (not parameter) {
+      std::ostringstream reason;
+      reason << getLocationString();
+      reason << ": parameter " << parameterName.getString();
+      reason << " cannot be found in " << instance->getModel()->getName().getString();
+      throw SNLVRLConstructorException(reason.str());
+    }
+    SNLInstParameter::create(instance, parameter, expression.getString());
+  }
+}
+
 }} // namespace SNL // namespace naja
