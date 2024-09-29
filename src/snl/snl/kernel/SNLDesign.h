@@ -196,6 +196,11 @@ class SNLDesign final: public SNLObject {
     SNLName getName() const { return name_; }
     /// \return true if this SNLDesign is anonymous.
     bool isAnonymous() const { return name_.empty(); }
+    /**
+     * \brief set the SNLName of this SNLDesign
+     * \warning this method will throw an exception if the name is already used in the design's library.
+    */
+    void setName(const SNLName& name);
     
     /// \return this SNLDesign Type.
     Type getType() const { return type_; }
