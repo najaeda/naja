@@ -309,4 +309,11 @@ TEST_F(SNLTermTest, testDestroy) {
   ASSERT_NE(term1->getBit(10)->getNet(), nullptr);
   net1->getBit(10)->destroy();
   ASSERT_EQ(term1->getBit(10)->getNet(), nullptr);
+  net1->getBit(6)->destroy();
+  ASSERT_EQ(term1->getBit(6)->getNet(), nullptr);
+
+  net1->destroy();
+  EXPECT_THAT(term1Bits,
+    ::testing::Each(::testing::Property(
+        &SNLBusTermBit::getNet, ::testing::IsNull())));
 }
