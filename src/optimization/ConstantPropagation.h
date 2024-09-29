@@ -32,7 +32,9 @@ class ConstantPropagation {
   void setTruthTableEngine(bool value) {
     truthTableEngine_ = value;
   }
-
+  void setNormalizedUniquification(bool value) {
+    normalizedUniquification_ = value;
+  }
  private:
    
   unsigned computeOutputValueForConstantInstance(DNLID instanceID);
@@ -41,6 +43,8 @@ class ConstantPropagation {
   //void computOuputValuesforHalfAdder(DNLID instanceID);
   void performConstantPropagationAnalysis();
   void propagateConstants();
+  void changeDriverToLocal0(SNLInstTerm* term, DNLID id);
+  void changeDriverToLocal1(SNLInstTerm* term, DNLID id);
   DNLFull* dnl_ = nullptr;
   std::unordered_map<SNLID::DesignID, DNLID> designObjectID2Type_;
   std::set<DNLID> initialConstants0_;
@@ -57,6 +61,7 @@ class ConstantPropagation {
       partialConstantReaders_;
   std::vector<SNLBitTerm*> constant1TopReaders_;
   bool truthTableEngine_ = false;
+  bool normalizedUniquification_ = true;
 };
 
 }  // namespace naja::NAJA_OPT

@@ -80,7 +80,7 @@ class ActionTreeNode {
   bool isProcessed() const { return processed_; }
   void markAsProcessed() { processed_ = true; }
   void sortActions();
-
+  bool isPartOfTree() const;
  private:
   std::vector<ActionID> actions_;
   SNLID::DesignObjectID instance_;

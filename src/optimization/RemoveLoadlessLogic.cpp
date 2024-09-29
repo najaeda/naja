@@ -298,7 +298,8 @@ void LoadlessLogicRemover::removeLoadlessInstances(
         loadlessInstances) {
   BNE::BNE bne;
   for (auto& path : loadlessInstances) {
-    /*Uniquifier uniquifier(path.first, path.second);
+    if (!normalizedUniquification_) {
+    Uniquifier uniquifier(path.first, path.second);
     uniquifier.process();
     for (SNLInstTerm* term : uniquifier.getPathUniq().back()->getInstTerms()) {
       auto net = term->getNet();
@@ -323,10 +324,14 @@ void LoadlessLogicRemover::removeLoadlessInstances(
 
     // LCOV_EXCL_STOP
 #endif
-    uniquifier.getPathUniq().back()->destroy();*/
-    bne.addDeleteAction(path.first);
+    uniquifier.getPathUniq().back()->destroy();
+    } else {
+      bne.addDeleteAction(path.first);
+    }
   }
-  bne.process();
+  if (normalizedUniquification_) {
+    bne.process();
+  }
   // #ifdef DEBUG_PRINTS
   //  LCOV_EXCL_START
   spdlog::info("Deleted {} leaf instances out of {}", loadlessInstances.size(),

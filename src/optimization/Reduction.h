@@ -28,7 +28,14 @@ class ReductionOptimization {
     const std::vector<std::pair<SNLID::DesignObjectID, int>>& constTerms);
   void run();
   std::string collectStatistics() const;
+  void setNormalizedUniquification(bool normalizedUniquification) {
+    normalizedUniquification_ = normalizedUniquification;
+  }
  private:
+  void replaceInstance(SNLInstance* instance, const std::pair<SNLDesign*, SNLLibraryTruthTables::Indexes>& result);
+  void reducPartialConstantInstanceWithNormalizedUniquification(std::tuple<std::vector<SNLID::DesignObjectID>,
+                     std::vector<std::pair<SNLID::DesignObjectID, int>>,
+                     DNLID>& candidate);
   void reducPartialConstantInstance(std::tuple<std::vector<SNLID::DesignObjectID>,
                      std::vector<std::pair<SNLID::DesignObjectID, int>>,
                      DNLID>& candidate);
@@ -39,6 +46,7 @@ class ReductionOptimization {
   std::map<std::pair<std::string, std::string>, size_t> reductionStatistics_;
   std::string report_;
   BNE::BNE bne_;
+  bool normalizedUniquification_ = true;
 };
 
 }  // namespace naja::NAJA_OPT
