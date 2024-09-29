@@ -208,16 +208,23 @@ void SNLBusNet::setType(const Type& type) {
 
 DESIGN_OBJECT_SET_NAME(SNLBusNet, Net, net)
 
+bool SNLBusNet::isAllNull() const {
+  return std::all_of(bits_.begin(), bits_.end(), [](const SNLBusNetBit* b){ return b == nullptr; });
+}
+
 bool SNLBusNet::isAssignConstant() const {
-  return std::all_of(bits_.begin(), bits_.end(), [](const SNLBusNetBit* b){ return b->getType().isAssign(); });
+  return not isAllNull()
+    and std::all_of(bits_.begin(), bits_.end(), [](const SNLBusNetBit* b){ return b == nullptr or b->getType().isAssign(); });
 }
 
 bool SNLBusNet::isSupply0() const {
-  return std::all_of(bits_.begin(), bits_.end(), [](const SNLBusNetBit* b){ return b->getType().isSupply0(); });
+  return not isAllNull()
+    and std::all_of(bits_.begin(), bits_.end(), [](const SNLBusNetBit* b){ return b == nullptr or b->getType().isSupply0(); });
 }
 
 bool SNLBusNet::isSupply1() const {
-  return std::all_of(bits_.begin(), bits_.end(), [](const SNLBusNetBit* b){ return b->getType().isSupply1(); });
+  return not isAllNull()
+    and std::all_of(bits_.begin(), bits_.end(), [](const SNLBusNetBit* b){ return b == nullptr or b->getType().isSupply1(); });
 }
 
 //LCOV_EXCL_START

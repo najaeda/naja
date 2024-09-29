@@ -126,6 +126,7 @@ TEST_F(SNLVRLDumperTest4, top_terms_erased_nets) {
   top->getTerm(SNLName("term2"))->setNet(net2);
 
   net0->destroy();
+  net1->getBit(0)->destroy();
   net1->getBit(15)->destroy();
   net1->getBit(20)->destroy();
   net1->getBit(31)->destroy();
@@ -144,6 +145,45 @@ TEST_F(SNLVRLDumperTest4, top_terms_erased_nets) {
 
   std::filesystem::path referencePath(SNL_VRL_DUMPER_REFERENCES_PATH);
   referencePath = referencePath / "test4" / "top_terms_erased_nets.v";
+  ASSERT_TRUE(std::filesystem::exists(referencePath));
+  std::string command = "diff " + outPath.string() + " " + referencePath.string();
+  EXPECT_FALSE(std::system(command.c_str()));
+}
+
+TEST_F(SNLVRLDumperTest4, top_terms_connected_and_erased_nets) {
+  auto lib = db_->getLibrary(SNLName("MYLIB"));  
+  ASSERT_TRUE(lib);
+  auto top = lib->getDesign(SNLName("top"));
+  ASSERT_TRUE(top);
+  top->setName(SNLName("top_terms_connected_and_erased_nets"));
+
+  auto net0 = SNLScalarNet::create(top, SNLName("net0"));
+  auto net1 = SNLBusNet::create(top, 31, 0, SNLName("net1"));
+  auto net2 = SNLBusNet::create(top, 0, 0, SNLName("net2"));
+  top->getTerm(SNLName("term0"))->setNet(net0);
+  top->getTerm(SNLName("term1"))->setNet(net1);
+  top->getTerm(SNLName("term2"))->setNet(net2);
+
+  net0->destroy();
+  net1->getBit(0)->destroy();
+  net1->getBit(15)->destroy();
+  net1->getBit(20)->destroy();
+  net1->getBit(31)->destroy();
+  net2->destroy();
+
+  std::filesystem::path outPath(SNL_VRL_DUMPER_TEST_PATH);
+  outPath = outPath / "test4_terms_connected_and_erased_nets";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+  SNLVRLDumper dumper;
+  dumper.setTopFileName(top->getName().getString() + ".v");
+  dumper.setSingleFile(true);
+  dumper.dumpDesign(top, outPath);
+
+  std::filesystem::path referencePath(SNL_VRL_DUMPER_REFERENCES_PATH);
+  referencePath = referencePath / "test4" / "top_terms_connected_and_erased_nets.v";
   ASSERT_TRUE(std::filesystem::exists(referencePath));
   std::string command = "diff " + outPath.string() + " " + referencePath.string();
   EXPECT_FALSE(std::system(command.c_str()));
