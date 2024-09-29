@@ -2580,6 +2580,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationPartialNonDefinedModel) 
                .c_str());
   }
   ConstantPropagation cp;
+  cp.setNormalizedUniquification(false);
   // 13. collect the constants
   cp.collectConstants();
   // 14. run the constant propagation

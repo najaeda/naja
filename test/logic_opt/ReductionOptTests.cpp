@@ -411,6 +411,7 @@ TEST_F(ReductionOptTests, testTruthTablesMap) {
 
     ConstantPropagation cp;
     cp.setTruthTableEngine(true);
+    cp.setNormalizedUniquification(false);
     cp.run();
     {
       std::string dotFileName(

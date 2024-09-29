@@ -419,6 +419,7 @@ TEST_F(LoadlessRemoveLogicTests, simple_2_loadless_3_levels) {
   SNLInstance* modInst2 = SNLInstance::create(top, mod, SNLName("modInst2"));
   DNLFull* dnl = get();
   LoadlessLogicRemover remover;
+  remover.setNormalizedUniquification(false);
   // Verify each function of remover
   tbb::concurrent_unordered_set<DNLID> tracedIsos = remover.getTracedIsos(*dnl);
   EXPECT_EQ(tracedIsos.size(), 1);
