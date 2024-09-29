@@ -428,6 +428,7 @@ TEST_F(ReductionOptTests, testTruthTablesMap) {
     printf("partial constant readers: %lu\n",
            cp.getPartialConstantReaders().size());
     ReductionOptimization reductionOpt(cp.getPartialConstantReaders());
+    reductionOpt.setNormalizedUniquification(false);
     reductionOpt.run();
     reductionOpt.collectStatistics(); 
   }
