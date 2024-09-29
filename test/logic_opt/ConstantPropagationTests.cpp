@@ -3280,7 +3280,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationAND_Hierarchical_duplica
   inst6->getInstTerm(andIn1)->setNet(net2);
   inst6->getInstTerm(andIn2)->setNet(net2);
   // connect logic1 to and
-  inst2->getInstTerm(logic1Out)->setNet(net2);
+  inst2->getInstTerm(logic0Out)->setNet(net2);
   inst3->getInstTerm(andIn2)->setNet(net1);
   inst3->getInstTerm(andIn1)->setNet(net4);
   inst6->getInstTerm(andIn2)->setNet(net1);
