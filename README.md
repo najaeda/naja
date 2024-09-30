@@ -88,6 +88,7 @@ def edit():
 ```
 
 #### Print all design content
+Following script will recursively browse the design and print instances, terminals, nets and connectivity.
 
 ```Python
 from naja import snl 
@@ -110,6 +111,38 @@ def edit():
   top = universe.getTopDesign()
 
   print_instance_tree(top)
+```
+
+#### Remove Interface buffers from a FPGA design
+Following script will remove interface buffers 'IBUF', 'OBUF' and 'BUFG' from a design synthesized targeting FPGA.
+
+```Python
+from naja import snl 
+
+def delete_io_bufs(design):
+  for ins in design.getInstances():
+    model = ins.getModel()
+    if model.isPrimitive():
+      if model.getName() in ['IBUF', 'BUFG']:
+        inputNet = ins.getInstTerm(ins.getModel().getScalarTerm('I')).getNet()
+        outputNet = ins.getInstTerm(ins.getModel().getScalarTerm('O')).getNet()
+        for component in outputNet.getComponents():
+          component.setNet(inputNet)
+        outputNet.destroy()
+        ins.destroy()
+      if model.getName() == 'OBUF':
+        inputNet = ins.getInstTerm(ins.getModel().getScalarTerm('I')).getNet()
+        outputNet = ins.getInstTerm(ins.getModel().getScalarTerm('O')).getNet()
+        for component in inputNet.getComponents():
+          component.setNet(outputNet)
+        inputNet.destroy()
+        ins.destroy()
+
+def edit():
+  universe = snl.SNLUniverse.get()
+  top = universe.getTopDesign()
+
+  delete_io_bufs(top)
 ```
 
 <div align="right">[ <a href="#Introduction">↑ Back to top ↑</a> ]</div>
