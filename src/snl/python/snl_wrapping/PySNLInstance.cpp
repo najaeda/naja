@@ -100,16 +100,16 @@ static PyObject* PySNLInstance_getInstTerm(PySNLInstance* self, PyObject* args) 
   SNLInstTerm* obj = nullptr;
   METHOD_HEAD("SNLInstance.getInstTerm()")
   PySNLBitTerm* pyBitTerm = nullptr;
-  if (PyArg_ParseTuple(args, "O!:SNLInstance.getInstTerm", &PyTypeSNLBitTerm, &pyBitTerm)) {
+  if (not PyArg_ParseTuple(args, "O!:SNLInstance.getInstTerm", &PyTypeSNLBitTerm, &pyBitTerm)) {
+    setError("malformed getInstTerm call.");
+    return nullptr;
+  } else {
     SNLTRY
     auto bitTerm = PYSNLBitTerm_O(pyBitTerm);
     if (bitTerm) {
       obj = selfObject->getInstTerm(bitTerm);
     }
     SNLCATCH
-  } else {
-    setError("invalid number of parameters for getInstTerm.");
-    return nullptr;
   }
   return PySNLInstTerm_Link(obj);
 }

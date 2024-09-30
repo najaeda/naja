@@ -504,8 +504,6 @@ void SNLVRLDumper::dumpInstParameters(
   }
 }
 
-
-
 bool SNLVRLDumper::dumpInstance(
   const SNLInstance* instance,
   std::ostream& o,

@@ -95,10 +95,26 @@ void SNLDesign::preCreate(const SNLLibrary* library, Type type, const SNLName& n
     throw SNLException("malformed design creator with null library");
   }
   if (type == Type::Primitive and not library->isPrimitives()) {
-    throw SNLException("non compatible types in design constructor");
+    std::ostringstream reason;
+    reason << "Cannot create a primitive design";
+    if (name.empty()) {
+      reason << " <anonymous>";
+    } else {
+      reason << " named: " << name.getString();
+    }
+    reason << " in a non primitives library: " << library->getString();
+    throw SNLException(reason.str());
   }
   if (type != Type::Primitive and library->isPrimitives()) {
-    throw SNLException("non compatible types in design constructor");
+    std::ostringstream reason;
+    reason << "Cannot create a non primitive design";
+    if (name.empty()) {
+      reason << " <anonymous>";
+    } else {
+      reason << " named: " << name.getString();
+    }
+    reason << " in a primitives library: " << library->getString();
+    throw SNLException(reason.str());
   }
   //test if design with same name exists in library
   if (not name.empty() and library->getDesign(name)) {
