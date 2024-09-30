@@ -271,6 +271,9 @@ TEST_F(SNLDesignTest, testPrimitives) {
   EXPECT_THROW(
     SNLDesign::create(prims),
     SNLException);
+  EXPECT_THROW(
+    SNLDesign::create(prims, SNLName("NonPrimitive")),
+    SNLException);
 }
 
 TEST_F(SNLDesignTest, testSetTop) {
