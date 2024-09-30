@@ -15,11 +15,7 @@ Naja is an Electronic Design Automation (EDA) project that provides open source 
 
 Naja best starting point is: [naja-edit](#naja_edit).
 
-If you are looking to build your own EDA tool, Naja contains three primary API components:
 
-1. SNL (Structured Netlist) API housed in this repository.
-2. DNL (Dissolved Netlist) API associated to SNL also in this repository.
-3. [naja-verilog](https://github.com/najaeda/naja-verilog), a data structure independent structural verilog parser.
 
 ### Acknowledgement
 
@@ -28,20 +24,18 @@ If you are looking to build your own EDA tool, Naja contains three primary API c
 
 This project is supported and funded by NLNet through the [NGI0 Entrust](https://nlnet.nl/entrust) Fund.
 
-## Applications
-
-### naja_edit
+## naja_edit
 
 `naja_edit`, located in the `$NAJA_INSTALL/bin` directory, is a tool designed for
 optimizing, editing and translating netlists.
 
-#### Workflow Overview
+### Workflow Overview
 
 The workflow for `naja_edit` is outlined in the schema below. It's important to note that the only mandatory step in the process is the initial loading of the input netlist.
 
 ![Naja-Edit](./docs/images/Naja-Edit.png)
 
-#### Workflow Details
+### Workflow Details
 
 - **Input/Output format**: Supports structural (gate-level) Verilog and [SNL Interchange Format](#snl-interchange-format).
 Convert netlists between formats by specifying the input (`-f`) and output (`-t`) options.
@@ -81,11 +75,54 @@ naja_edit -f snl -t snl -i input.snl -o output.snl -a dle \
 The [Naja Regress](https://github.com/najaeda/naja-regress) repository features a collection of examples
 showcasing extensive use of `naja_edit`.
 
+### Python API examples
+
+```Python
+from naja import snl 
+
+def edit():
+  universe = snl.SNLUniverse.get()
+  top = universe.getTopDesign()
+
+  #do something with top
+```
+
+#### Print all design content
+
+```Python
+from naja import snl 
+
+def print_instance_tree(design):
+  for ins in design.getInstances():
+    print(ins.getName())
+    model = ins.getModel()
+    for term in design.getTerms():
+      print(term)
+    for net in design.getNets():
+      print(net)
+      for bit in net.getBits(): 
+        for component in bit.getComponents():
+          print(component) 
+    print_instance_tree(model)
+
+def edit():
+  universe = snl.SNLUniverse.get()
+  top = universe.getTopDesign()
+
+  print_instance_tree(top)
+```
+
 <div align="right">[ <a href="#Introduction">↑ Back to top ↑</a> ]</div>
 
 ---
 
 ## Naja
+
+Naja contains three primary API components:
+
+1. SNL (Structured Netlist) API housed in this repository.
+2. DNL (Dissolved Netlist) API associated to SNL also in this repository.
+3. [naja-verilog](https://github.com/najaeda/naja-verilog), a data structure independent structural verilog parser.
 
 ### Why Naja ?
 
