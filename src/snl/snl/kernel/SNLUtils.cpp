@@ -42,7 +42,10 @@ void SNLUtils::getDesignsSortedByHierarchicalLevel(const SNLDesign* top, SortedD
   SNLUtils::levelize(top, designsLevel);
   sortedDesigns = SortedDesigns(designsLevel.begin(), designsLevel.end());
   std::sort(sortedDesigns.begin(), sortedDesigns.end(),
-    [](const DesignLevel& ldl, const DesignLevel& rdl) { 
+    [](const DesignLevel& ldl, const DesignLevel& rdl) {
+      if (ldl.second == rdl.second) {
+        return ldl.first->getSNLID() < rdl.first->getSNLID();
+      }
       return ldl.second < rdl.second;
     }
   );
