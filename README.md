@@ -75,74 +75,79 @@ naja_edit -f snl -t snl -i input.snl -o output.snl -a dle \
 The [Naja Regress](https://github.com/najaeda/naja-regress) repository features a collection of examples
 showcasing extensive use of `naja_edit`.
 
-### Python API examples
+### Python API Examples
 
-```Python
-from naja import snl 
+To use the Python API in `naja_edit`, start by creating a Python script containing an `edit` function.
+
+```python
+from naja import snl
 
 def edit():
-  universe = snl.SNLUniverse.get()
-  top = universe.getTopDesign()
+    universe = snl.SNLUniverse.get()
+    top = universe.getTopDesign()
 
-  #do something with top
+    # Do something with 'top'
 ```
 
-#### Print all design content
-Following script will recursively browse the design and print instances, terminals, nets and connectivity.
+#### Print All Design Content
 
-```Python
-from naja import snl 
+The following script recursively browses the design and prints instances, terminals, nets, and their connectivity.
+
+```python
+from naja import snl
 
 def print_instance_tree(design):
-  for ins in design.getInstances():
-    print(ins.getName())
-    model = ins.getModel()
-    for term in design.getTerms():
-      print(term)
-    for net in design.getNets():
-      print(net)
-      for bit in net.getBits(): 
-        for component in bit.getComponents():
-          print(component) 
-    print_instance_tree(model)
+    for ins in design.getInstances():
+        print(f"Instance: {ins.getName()}")
+        model = ins.getModel()
+        for term in design.getTerms():
+            print(f"  Terminal: {term}")
+        for net in design.getNets():
+            print(f"  Net: {net}")
+            for bit in net.getBits():
+                for component in bit.getComponents():
+                    print(f"    Component: {component}")
+        print_instance_tree(model)
 
 def edit():
-  universe = snl.SNLUniverse.get()
-  top = universe.getTopDesign()
+    universe = snl.SNLUniverse.get()
+    top = universe.getTopDesign()
 
-  print_instance_tree(top)
+    print_instance_tree(top)
 ```
 
-#### Remove Interface buffers from a FPGA design
-Following script will remove interface buffers 'IBUF', 'OBUF' and 'BUFG' from a design synthesized targeting FPGA.
+#### Remove Interface Buffers from an FPGA Design
 
-```Python
-from naja import snl 
+The following script removes interface buffers `'IBUF'`, `'OBUF'`, and `'BUFG'` from a design synthesized for an FPGA.
+
+```python
+from naja import snl
 
 def delete_io_bufs(design):
-  for ins in design.getInstances():
-    model = ins.getModel()
-    if model.isPrimitive():
-      if model.getName() in ['IBUF', 'BUFG']:
-        inputNet = ins.getInstTerm(ins.getModel().getScalarTerm('I')).getNet()
-        outputNet = ins.getInstTerm(ins.getModel().getScalarTerm('O')).getNet()
-        for component in outputNet.getComponents():
-          component.setNet(inputNet)
-        outputNet.destroy()
-        ins.destroy()
-      if model.getName() == 'OBUF':
-        inputNet = ins.getInstTerm(ins.getModel().getScalarTerm('I')).getNet()
-        outputNet = ins.getInstTerm(ins.getModel().getScalarTerm('O')).getNet()
-        for component in inputNet.getComponents():
-          component.setNet(outputNet)
-        inputNet.destroy()
-        ins.destroy()
+    for ins in design.getInstances():
+        model = ins.getModel()
+        if model.isPrimitive():
+            model_name = model.getName()
+            if model_name in ['IBUF', 'BUFG']:
+                input_net = ins.getInstTerm(model.getScalarTerm('I')).getNet()
+                output_net = ins.getInstTerm(model.getScalarTerm('O')).getNet()
+                for component in output_net.getComponents():
+                    component.setNet(input_net)
+                output_net.destroy()
+                ins.destroy()
+            elif model_name == 'OBUF':
+                input_net = ins.getInstTerm(model.getScalarTerm('I')).getNet()
+                output_net = ins.getInstTerm(model.getScalarTerm('O')).getNet()
+                for component in input_net.getComponents():
+                    component.setNet(output_net)
+                input_net.destroy()
+                ins.destroy()
 
 def edit():
-  universe = snl.SNLUniverse.get()
-  top = universe.getTopDesign()
+    universe = snl.SNLUniverse.get()
+    top = universe.getTopDesign()
 
-  delete_io_bufs(top)
+    delete_io_bufs(top)
 ```
 
 <div align="right">[ <a href="#Introduction">↑ Back to top ↑</a> ]</div>
