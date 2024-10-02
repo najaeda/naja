@@ -184,7 +184,7 @@ SNL is summarized in below's image.
 
 ![SNL](./docs/images/Naja-SNL.png)
 
-:information_desk_person: If you have any questions, please [Contact Us](mailto:christophe.alex@gmail.com)
+:information_desk_person: If you have any questions, please [Contact Us](mailto:contact@keplertech.io)
 
 :star: If you find Naja interesting, and would like to stay up-to-date, consider starring this repo to help spread the word.
 
