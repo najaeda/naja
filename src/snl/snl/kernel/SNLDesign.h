@@ -16,13 +16,12 @@
 namespace naja { namespace SNL {
 
 class SNLLibrary;
-class SNLBitNet;
 class SNLScalarNet;
 class SNLBusNet;
 class SNLBusNetBit;
-class SNLBitTerm;
 class SNLScalarTerm;
 class SNLBusTerm;
+class SNLBusTermBit;
 
 class SNLDesign final: public SNLObject {
   public:
@@ -96,8 +95,16 @@ class SNLDesign final: public SNLObject {
     SNLTerm* getTerm(const SNLName& name) const;
     /// \return SNLScalarTerm with SNLID::DesignObjectID id or nullptr if it does not exist
     SNLScalarTerm* getScalarTerm(SNLID::DesignObjectID id) const;
+    /// \return SNLBusTermBit with SNLID::DesignObjectID id and SNLID::Bit bit or nullptr if it does not exist.
+    SNLBusTermBit* getBusTermBit(SNLID::DesignObjectID id, SNLID::Bit bit) const;
     /// \return SNLScalarTerm with SNLName termName or nullptr if it does not exist
     SNLScalarTerm* getScalarTerm(const SNLName& termName) const;
+    /**
+     * \param id SNLID::DesignObjectID of the SNLBitTerm.
+     * \param bit SNLID::Bit of the SNLBitTerm. Relevant only if the SNLBitTerm is a SNLBusTermBit.
+     * \return SNLBitTerm with SNLID::DesignObjectID id and SNLID::Bit bit or nullptr if it does not exist.
+     */
+    SNLBitTerm* getBitTerm(SNLID::DesignObjectID id, SNLID::Bit bit) const;
     /// \return SNLBusTerm with SNLID::DesignObjectID id or nullptr if it does not exist
     SNLBusTerm* getBusTerm(SNLID::DesignObjectID id) const;
     /// \return SNLBusTerm with SNLName termName or nullptr if it does not exist
@@ -159,6 +166,12 @@ class SNLDesign final: public SNLObject {
     SNLBusNetBit* getBusNetBit(SNLID::DesignObjectID id, SNLID::Bit bit) const;
     /// \return SNLScalarNet with SNLName name or nullptr if it does not exist.
     SNLScalarNet* getScalarNet(const SNLName& netName) const;
+    /**
+     * \param id SNLID::DesignObjectID of the SNLBitNet.
+     * \param bit SNLID::Bit of the SNLBitNet. Relevant only if the SNLBitNet is a SNLBusNetBit.
+     * \return SNLBitNet with SNLID::DesignObjectID id and SNLID::Bit bit or nullptr if it does not exist.
+     */
+    SNLBitNet* getBitNet(SNLID::DesignObjectID id, SNLID::Bit bit) const;
     /// \return SNLBusNet with SNLIS::DesignObjectID id or nullptr if it does not exist.
     SNLBusNet* getBusNet(SNLID::DesignObjectID id) const;
     /// \return SNLBusNet with SNLName name or nullptr if it does not exist.

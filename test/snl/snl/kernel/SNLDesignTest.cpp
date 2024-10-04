@@ -102,8 +102,10 @@ TEST_F(SNLDesignTest, testCreation0) {
   EXPECT_EQ(2, design->getBitTerms().size());
   EXPECT_EQ(term1, design->getScalarTerm(SNLName("term1")));
   EXPECT_EQ(term1, design->getScalarTerm(1));
+  EXPECT_EQ(term1, design->getBitTerm(1, 0));
+  EXPECT_EQ(term1, design->getBitTerm(1, 11)); //bit irrelevant
   EXPECT_EQ(nullptr, design->getScalarTerm(SNLName("term2")));
-  EXPECT_EQ(nullptr, design->getScalarTerm(2));
+  EXPECT_EQ(nullptr, design->getBitTerm(2, -100)); //bit irrelevant
 
   //anonymous scalar term
   SNLScalarTerm* term2 = SNLScalarTerm::create(design, SNLTerm::Direction::InOut);
