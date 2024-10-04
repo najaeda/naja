@@ -76,7 +76,7 @@ naja_edit -f snl -t snl -i input.snl -o output.snl -a dle \
 The [Naja Regress](https://github.com/najaeda/naja-regress) repository features a collection of examples
 showcasing extensive use of `naja_edit`.
 
-[Naja Python API scripts page](README_docs/naja-edit-python-examples.md)
+[Naja Python API scripts page](README_pages/naja-edit-python-examples.md)
 
 <div align="right">[ <a href="#Introduction">↑ Back to top ↑</a> ]</div>
 
