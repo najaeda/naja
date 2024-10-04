@@ -57,8 +57,9 @@ naja_edit -f verilog -t snl -i input.v -o output.snl -e script.py
 - **Netlist Logic optimizations across hierarchy boundaries**: Utilize built-in
 optimization algorithms to refine the netlist across hierarchical boundaries
 with minimal uniquification. Available optimizations include:
-    - All optimizations (option `-a all`): will apply Dead Logic Elimination (DLE), Constant Propagation and Primitives Optimization.
-    - Dead Logic Elimination only (option `-a dle`): will apply only DLE.
+
+- All optimizations (option `-a all`): will apply Dead Logic Elimination (DLE), Constant Propagation and Primitives Optimization.
+- Dead Logic Elimination only (option `-a dle`): will apply only DLE.
 
 ```bash
 # -1: Load input netlist from SNL format.
@@ -174,6 +175,7 @@ on [Cap'n Proto](https://github.com/capnproto/capnproto) open source interchange
 `DNL` provides a uniquified view of `SNL`, specifically designed for efficient multi-threaded traversal
 and analysis of netlist data.
 Key features of `DNL` include:
+
 - Read-only Data Structure: Ensures data integrity and stability during analysis.
 - Fast Construction: `DNL` is quickly built from `SNL`, facilitating rapid transitions between representations.
 - Index-based Minimal Details: Reduces overhead and focuses on essential connectivity information.
