@@ -1,4 +1,9 @@
-# Python API Examples
+# Naja Python API Examples
+
+Naja Python API allows users to:
+
+- browse the netlist data, collect informations, ...
+- Apply ECO type transformations.
 
 To use the Python API in `naja_edit`, start by creating a Python script containing an `edit` function.
 
@@ -72,3 +77,5 @@ def edit():
 
     delete_io_bufs(top)
 ```
+
+## Browse all modules and display them based on their number of instances terms and nets
