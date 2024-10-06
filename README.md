@@ -29,6 +29,8 @@ This project is supported and funded by NLNet through the [NGI0 Entrust](https:/
 `naja_edit`, located in the `$NAJA_INSTALL/bin` directory, is a tool designed for
 optimizing, editing and translating netlists.
 
+We presented naja_edit’s latest features and results at [ORConf 2024](https://fossi-foundation.org/orconf/2024). You can watch the full presentation [here](https://www.youtube.com/watch?v=JpwZGCuWekU).
+
 ### Workflow Overview
 
 The workflow for `naja_edit` is outlined in the schema below. It's important to note that the only mandatory step in the process is the initial loading of the input netlist.
