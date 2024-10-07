@@ -15,8 +15,6 @@ Naja is an Electronic Design Automation (EDA) project that provides open source 
 
 Naja best starting point is: [naja-edit](#naja_edit).
 
-
-
 ### Acknowledgement
 
 [<img src="https://nlnet.nl/logo/banner.png" width=100>](https://nlnet.nl/project/Naja)

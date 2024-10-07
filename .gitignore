@@ -7,9 +7,11 @@
 *.DS_Store
 build
 install
+venv
 .vscode
 __pycache__
 src/apps/naja_edit/examples/**/*.log
+src/apps/naja_edit/examples/**/*.png
 src/apps/naja_edit/examples/adder/*.v
 src/apps/naja_edit/examples/vexriscv/*.v
 src/apps/naja_edit/examples/arm_core/*.v
