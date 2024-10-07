@@ -1,9 +1,10 @@
 include ../Makefile.inc
 
-all: adder_snl.v primitives.v verilator
+all: adder_snl.v primitives.v verilator.done
 
-verilator: adder_snl.v primitives.v
+verilator.done: adder_snl.v primitives.v
 	${VERILATOR} --top-module adder --lint-only primitives.v adder_snl.v
+	touch verilator.done
 
 adder_netlist.v: src/adder.v
 	${YOSYS} src/synth.ys

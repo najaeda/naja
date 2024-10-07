@@ -7,7 +7,7 @@ Files: .github/workflows/* .gitmodules
 Copyright: 2022 The Naja Authors.
 License: Apache-2.0
 
-Files: README.md AUTHORS docs/*
+Files: README.md README_pages/* AUTHORS docs/*
 Copyright: 2022 The Naja Authors.
 License: Apache-2.0
 
