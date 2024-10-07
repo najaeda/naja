@@ -27,7 +27,7 @@ This project is supported and funded by NLNet through the [NGI0 Entrust](https:/
 `naja_edit`, located in the `$NAJA_INSTALL/bin` directory, is a tool designed for
 optimizing, editing and translating netlists.
 
-We presented naja_edit’s latest features and results at [ORConf 2024](https://fossi-foundation.org/orconf/2024). You can watch the full presentation [here](https://www.youtube.com/watch?v=JpwZGCuWekU).
+:tv: We presented naja_edit’s latest features and results at [ORConf 2024](https://fossi-foundation.org/orconf/2024). You can watch the full presentation [here](https://www.youtube.com/watch?v=JpwZGCuWekU).
 
 ### Workflow Overview
 
@@ -71,12 +71,13 @@ naja_edit -f snl -t snl -i input.snl -o output.snl -a dle \
           -e pre_script.py -z post_edit.py
 ```
 
-`naja_edit` editing script examples are available [here](https://github.com/najaeda/naja/blob/main/src/apps/edit/examples).
+This [page](README_pages/naja-edit-python-examples.md) provides a collection of example Python scripts for using the naja_edit API.
+
+`naja_edit` editing script examples are also available [here](https://github.com/najaeda/naja/blob/main/src/apps/najae_edit/examples).
 
 The [Naja Regress](https://github.com/najaeda/naja-regress) repository features a collection of examples
 showcasing extensive use of `naja_edit`.
 
-[Naja Python API scripts page](README_pages/naja-edit-python-examples.md)
 
 <div align="right">[ <a href="#Introduction">↑ Back to top ↑</a> ]</div>
 
@@ -241,7 +242,7 @@ capnp decode --packed snl_implementation.capnp DBImplementation < snl/db_impleme
 
 ##### Verilog
 
-For Verilog parsing, Naja relies on naja-verilog submodule (https://github.com/najaeda/naja-verilog).
+For Verilog parsing, Naja relies on naja-verilog [submodule](https://github.com/najaeda/naja-verilog).
 Leaf primitives are loaded through the Python primitive loader: [SNLPrimitivesLoader](https://github.com/najaeda/naja/blob/main/src/snl/python/primitives/SNLPrimitivesLoader.h).
 An application snippet can be found [here](https://github.com/najaeda/naja/blob/main/src/snl/snippets/app/src/SNLVRLSnippet.cpp) and examples of
 primitive libraries described using the Python interface can be found in the
