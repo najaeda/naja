@@ -14,8 +14,6 @@
 #include <iterator>
 
 #include <tbb/task_arena.h>
-
-#include "NajaPerf.h"
 #include "SNLBitNet.h"
 #include "SNLBitTerm.h"
 #include "SNLInstTerm.h"
@@ -60,13 +58,10 @@ void OrderIDInitializer::process() {
 namespace naja::DNL {
 
 DNL<DNLInstanceFull, DNLTerminalFull>* dnlFull_ = nullptr;
-
 bool isCreated() {
   return dnlFull_ != nullptr;
 }
-
 DNL<DNLInstanceFull, DNLTerminalFull>* create() {
-  naja::NajaPerf::Scope scope("DNL_create");
   assert(SNLUniverse::get());
   dnlFull_ = new DNL<DNLInstanceFull, DNLTerminalFull>(
       SNLUniverse::get()->getTopDesign());
