@@ -52,9 +52,9 @@ TEST_F(SNLPyDBEditTest0, test) {
   ASSERT_TRUE(instance2);
   EXPECT_EQ(SNLName("instance2"), instance2->getName());
   auto scriptPath = std::filesystem::path(SNL_PYEDIT_TEST_PATH);
-  scriptPath /= "edit";
-  scriptPath /= "edit_test0.py";
-  SNLPyEdit::edit(scriptPath);
+  scriptPath /= "naja_edit";
+  scriptPath /= "naja_edit_test0.py";
+  SNLPyEdit::najaEdit(scriptPath);
   EXPECT_EQ(SNLName("instance00"), instance0->getName());
   EXPECT_EQ(nullptr, top->getInstance(SNLName("instance0")));
   EXPECT_EQ(instance0, top->getInstance(SNLName("instance00")));
@@ -71,7 +71,7 @@ TEST_F(SNLPyDBEditTest0, test) {
 TEST_F(SNLPyDBEditTest0, testEditDBError) {
   auto db = SNLDB::create(SNLUniverse::get());
   auto scriptPath = std::filesystem::path(SNL_PYEDIT_TEST_PATH);
-  scriptPath /= "edit";
-  scriptPath /= "edit_faulty.py";
-  EXPECT_THROW(SNLPyEdit::edit(scriptPath), SNLException);
+  scriptPath /= "naja_edit";
+  scriptPath /= "naja_edit_faulty.py";
+  EXPECT_THROW(SNLPyEdit::najaEdit(scriptPath), SNLException);
 }
