@@ -2,7 +2,6 @@
 // <https://github.com/najaeda/naja/blob/main/AUTHORS>
 //
 // SPDX-License-Identifier: Apache-2.0
-//
 #include "ConstantPropagation.h"
 #include <spdlog/spdlog.h>
 #include <iostream>
@@ -11,7 +10,6 @@
 #include <stack>
 #include <vector>
 #include "Reduction.h"
-#include "NajaPerf.h"
 #include "SNLDesignModeling.h"
 #include "SNLDesignTruthTable.h"
 #include "SNLLibraryTruthTables.h"
@@ -26,7 +24,6 @@ using namespace naja::BNE;
 // #define DEBUG_PRINTS
 
 void ConstantPropagation::initializeTypesID() {
-  naja::NajaPerf::Scope scope("ConstantPropagation_initializeTypesID");
   for (DNLID leaf : dnl_->getLeaves()) {
     DNLInstanceFull instance = dnl_->getDNLInstanceFromID(leaf);
     std::string name = instance.getSNLModel()->getName().getString();
@@ -131,7 +128,6 @@ void ConstantPropagation::initializeTypesID() {
 }
 
 void ConstantPropagation::collectConstants() {
-  naja::NajaPerf::Scope scope("ConstantPropagation_collectConstants");
   auto logic0 = SNLLibraryTruthTables::getDesignForTruthTable(
                     *(dnl_->getTop()
                           .getSNLModel()
@@ -218,7 +214,6 @@ unsigned ConstantPropagation::computeOutputValue(DNLID instanceID) {
 }
 
 void ConstantPropagation::performConstantPropagationAnalysis() {
-  naja::NajaPerf::Scope scope("ConstantPropagation_performConstancePropagationAnalysis");
   std::set<DNLID> constants;
   constants.insert(initialConstants0_.begin(), initialConstants0_.end());
   constants.insert(initialConstants1_.begin(), initialConstants1_.end());
@@ -985,7 +980,6 @@ void ConstantPropagation::changeDriverToLocal1(SNLInstTerm* term, DNLID id) {
 }
 
 void ConstantPropagation::propagateConstants() {
-  naja::NajaPerf::Scope scope("ConstantPropagation_propagateConstants");
   for (DNLID iso : constants0_) {
     if (initialConstants0_.find(iso) != initialConstants0_.end()) {
       continue;
