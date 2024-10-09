@@ -106,6 +106,41 @@ PrimitivesPathExtension checkPrimitivesPathsExtension(const Paths& paths) {
   return pathExtension;
 }
 
+SNLPyEdit::Args decodePythonEditArgs(const std::string& args) {
+  SNLPyEdit::Args parsedArgs;
+  std::stringstream ss(args);
+  std::string triplet;
+
+  // Split the args string by ';'
+  while (std::getline(ss, triplet, ';')) {
+    std::stringstream tripletStream(triplet);
+    std::string argName, typeStr, value;
+
+    // Split each triplet into argument name, type, and value by ':'
+    if (!std::getline(tripletStream, argName, ':') ||
+      !std::getline(tripletStream, typeStr, ':') ||
+      !std::getline(tripletStream, value)) {
+      throw std::invalid_argument("Invalid triplet format.");
+    }
+
+    // Ensure type is a single character
+    if (typeStr.length() != 1) {
+      throw std::invalid_argument("Type must be a single character.");
+    }
+
+    char type = typeStr[0];
+    // Validate type
+    if (type != 's' && type != 'b' && type != 'i') {
+      throw std::invalid_argument("Invalid type specifier. Must be 's', 'b', or 'i'.");
+    }
+
+    // Store the triplet as (argName, type, value)
+    parsedArgs.emplace_back(argName, type, value);
+  }
+
+  return parsedArgs;
+}
+
 }  // namespace
 
 int main(int argc, char* argv[]) {
@@ -126,6 +161,19 @@ int main(int argc, char* argv[]) {
     .help(
       "edit netlist using python script after loading netlist and before "
       "applying optimizations");
+  program.add_argument("--pre_args")
+    .help(
+      "arguments to transmit to pre editing script. Syntax is triplets separated by \";\".\n"
+      "A triplet is composed of: the arg name, the type and the value.\n"
+      "Types can be: 's': string, 'i':integer, 'b':boolean.\n"
+      "Example: 'type:s:test;option:b:1;strength:i:12'.");
+  program.add_argument("-z", "--post_edit")
+    .help(
+      "edit netlist using python script after optimizations and before "
+      "dumping netlist");
+  program.add_argument("--post_args")
+    .help(
+      "arguments to transmit to post editing script. Same syntax as --pre_args.");
   program.add_argument("-z", "--post_edit")
     .help(
       "edit netlist using python script after optimizations and before "
@@ -375,8 +423,14 @@ int main(int argc, char* argv[]) {
       naja::NajaPerf::Scope scope("Python Pre Editing");
       const auto start{std::chrono::steady_clock::now()};
       auto editPath = std::filesystem::path(program.get<std::string>("-e"));
+
+      SNLPyEdit::Args args;
+      if (program.is_used("--pre_args")) {
+        args = decodePythonEditArgs(program.get<std::string>("--pre_args")); 
+      }
+
       SPDLOG_INFO("Editing netlist using python script (post netlist loading): {}", editPath.string());
-      SNLPyEdit::najaEdit(editPath);
+      SNLPyEdit::najaEdit(editPath, args);
       const auto end{std::chrono::steady_clock::now()};
       const std::chrono::duration<double> elapsed_seconds{end - start};
       {
@@ -436,9 +490,15 @@ int main(int argc, char* argv[]) {
     if (program.is_used("-z")) {
       naja::NajaPerf::Scope scope("Python Post Editing");
       const auto start{std::chrono::steady_clock::now()};
+
+      SNLPyEdit::Args args;
+      if (program.is_used("--post_args")) {
+        args = decodePythonEditArgs(program.get<std::string>("--post_args")); 
+      }
+
       auto editPath = std::filesystem::path(program.get<std::string>("-z"));
       SPDLOG_INFO("Post editing netlist using python script: {}", editPath.string());
-      SNLPyEdit::najaEdit(editPath);
+      SNLPyEdit::najaEdit(editPath, args);
       const auto end{std::chrono::steady_clock::now()};
       const std::chrono::duration<double> elapsed_seconds{end - start};
       {
