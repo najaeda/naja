@@ -5,6 +5,7 @@
 #ifndef __SNL_PYEDIT_H_
 #define __SNL_PYEDIT_H_
 
+#include <vector>
 #include <filesystem>
 
 namespace naja { namespace SNL {
