@@ -5,6 +5,6 @@
 import logging
 import snl
 
-def edit():
+def naja_edit():
   logging.basicConfig(filename='edit_faulty.log', filemode='w' ,level=logging.DEBUG)
   ERROR

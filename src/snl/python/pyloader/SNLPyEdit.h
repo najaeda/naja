@@ -11,7 +11,12 @@ namespace naja { namespace SNL {
 
 class SNLPyEdit {
   public:
-    static void edit(const std::filesystem::path& scriptPath);
+    using Arg = std::tuple<std::string, char, std::string>;
+    using Args = std::vector<Arg>;
+    static void najaEdit(
+      const std::filesystem::path& scriptPath,
+      const Args& args = Args()
+    );
 };
 
 }} // namespace SNL // namespace naja
