@@ -376,7 +376,7 @@ int main(int argc, char* argv[]) {
       const auto start{std::chrono::steady_clock::now()};
       auto editPath = std::filesystem::path(program.get<std::string>("-e"));
       SPDLOG_INFO("Editing netlist using python script (post netlist loading): {}", editPath.string());
-      SNLPyEdit::najaEdit(editPath);
+      SNLPyEdit::edit(editPath);
       const auto end{std::chrono::steady_clock::now()};
       const std::chrono::duration<double> elapsed_seconds{end - start};
       {
@@ -438,7 +438,7 @@ int main(int argc, char* argv[]) {
       const auto start{std::chrono::steady_clock::now()};
       auto editPath = std::filesystem::path(program.get<std::string>("-z"));
       SPDLOG_INFO("Post editing netlist using python script: {}", editPath.string());
-      SNLPyEdit::najaEdit(editPath);
+      SNLPyEdit::edit(editPath);
       const auto end{std::chrono::steady_clock::now()};
       const std::chrono::duration<double> elapsed_seconds{end - start};
       {

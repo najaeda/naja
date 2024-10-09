@@ -103,29 +103,6 @@ PyObject* loadModule(const std::filesystem::path& path) {
   return module;
 }
 
-using PyObjectArgs = std::map<std::string, PyObject*>;
-PyObjectArgs argsToPyArgs(const naja::SNL::SNLPyEdit::Args& args) {
-  PyObjectArgs pyArgs;
-  for (const auto& arg : args) {
-    std::string argName = get<0>(arg);
-    char argType = get<1>(arg);
-    std::string argValue = get<2>(arg);
-    switch (argType) {
-      case 's':
-        pyArgs[argName] = PyUnicode_FromString(argValue.c_str());
-        break;
-      case 'b':
-        pyArgs[argName] = PyBool_FromLong(std::stoi(argValue));
-        break;
-      default:
-        std::ostringstream reason;
-        reason << "Unknown argument type: " << argType;
-        throw naja::SNL::SNLException(reason.str());
-    } 
-  }
-  return pyArgs;
-}
-
 }
 
 namespace naja { namespace SNL {
@@ -265,30 +242,14 @@ void SNLPyLoader::loadDesign(
   Py_Finalize();
 }
 
-void SNLPyEdit::najaEdit(
-  const std::filesystem::path& path,
-  const Args& args) {
-
-  Py_Initialize();
-
-  PyObjectArgs pyArgs = argsToPyArgs(args);
-
-  // Create a dictionary for keyword arguments.
-  PyObject* kwargsDict = PyDict_New();
-  for (auto& kwarg : pyArgs) {
-    PyObject* value = kwarg.second;
-    PyDict_SetItemString(kwargsDict, kwarg.first.c_str(), value);
-    Py_DECREF(value);  // PyDict_SetItemString increases reference count, so decrease it here.
-  }
-
+void SNLPyEdit::edit(const std::filesystem::path& path) {
   auto module = loadModule(path);
-  PyObject* najaEditMethod = PyObject_GetAttrString(module, "naja_edit");
-  PyObject* emptyPositionalArgs = PyTuple_New(0);
 
-  // Call the method with no positional arguments and keyword arguments.
-  PyObject* result = PyObject_Call(najaEditMethod, emptyPositionalArgs, kwargsDict);
+  PyObject* editString = PyUnicode_FromString("edit");
 
-  if (not result) {
+  PyObject* res =
+    PyObject_CallMethodNoArgs(module, editString);
+  if (not res) {
     std::ostringstream reason;
     reason << "Error while calling edit";
     std::string pythonError = getPythonError();
@@ -300,12 +261,14 @@ void SNLPyEdit::najaEdit(
     //Cleaning
     //Py_DECREF(modulePathString);
     Py_DECREF(module);
+    Py_DECREF(editString);
     Py_Finalize();
     throw SNLException(reason.str());
   }
   //Cleaning
   //Py_DECREF(modulePathString);
   Py_DECREF(module);
+  Py_DECREF(editString);
   Py_Finalize();
 }
 

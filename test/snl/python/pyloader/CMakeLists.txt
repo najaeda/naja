@@ -24,7 +24,6 @@ gtest_discover_tests(
 
 SET(snl_pyedit_tests
   SNLPyEditTest0.cpp
-  SNLPyEditTestArgs.cpp
 )
 
 SET(snl_pyedit_long_tests

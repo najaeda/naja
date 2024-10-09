@@ -5,8 +5,8 @@
 import logging
 import snl
 
-def naja_edit():
-  logging.basicConfig(filename='naja_edit_test0.log', filemode='w' ,level=logging.DEBUG)
+def edit():
+  logging.basicConfig(filename='edit_test0.log', filemode='w' ,level=logging.DEBUG)
   universe = snl.SNLUniverse.get()
   top = universe.getTopDesign()
   if top is None:
