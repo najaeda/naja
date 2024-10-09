@@ -214,6 +214,11 @@ def constructBUFf(lib, strengths):
     snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "Y")
     cell.setTruthTable(0x2)
 
+def constructCKINVDCx20(lib):
+  cell = snl.SNLDesign.createPrimitive(lib, "CKINVDCx20_ASAP7_75t_R")
+  Y = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "Y")
+  A = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A")
+
 def constructDFFHQN(lib, strengths):
   for strength in strengths:
     name = 'DFFHQNx' + str(strength) + '_ASAP7_75t_R'
@@ -501,6 +506,7 @@ def constructPrimitives(lib):
   constructAOI221(lib, [1])
   constructBUF(lib, [2, 3, 4, 5, 8])
   constructBUFf(lib, [2, 3, 4, 6, 12])
+  constructCKINVDCx20(lib)
   constructDFFHQN(lib, [1])
   constructFAx1(lib)
   constructHAxp5(lib)
