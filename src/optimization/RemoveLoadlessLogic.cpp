@@ -6,6 +6,7 @@
 #include <spdlog/spdlog.h>
 #include <vector>
 
+#include "NajaPerf.h"
 #include "SNLBusNetBit.h"
 #include "SNLDB0.h"
 #include "SNLUniverse.h"
@@ -342,13 +343,21 @@ void LoadlessLogicRemover::removeLoadlessInstances(
 
 // Given a DNL, remove all loadless logic
 void LoadlessLogicRemover::removeLoadlessLogic() {
-  dnl_ = DNL::get();
+  {
+    naja::NajaPerf::Scope scope("removeLoadlessLogic_DNL_Construction");
+    dnl_ = DNL::get();
+  }
   tbb::concurrent_unordered_set<DNLID> tracedIsos = getTracedIsos(*dnl_);
   std::vector<DNLID> untracedIsos = getUntracedIsos(*dnl_, tracedIsos);
-  loadlessInstances_ = getLoadlessInstances(*dnl_, tracedIsos);
+  {
+    naja::NajaPerf::Scope scope("removeLoadlessLogic_getLoadlessInstances");
+    loadlessInstances_ = getLoadlessInstances(*dnl_, tracedIsos);
+  }
   report_ = collectStatistics();
-  removeLoadlessInstances(SNLUniverse::get()->getTopDesign(),
-                          loadlessInstances_);
+  {
+    naja::NajaPerf::Scope scope("removeLoadlessLogic_removeLoadlessInstances");
+    removeLoadlessInstances(SNLUniverse::get()->getTopDesign(), loadlessInstances_);
+  }
   //spdlog::info(report_);
   DNL::destroy();
 }
