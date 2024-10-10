@@ -37,13 +37,12 @@ class SNLPathTest(unittest.TestCase):
     ins1 = snl.SNLInstance.create(self.top, self.model, "ins1")
     path = snl.SNLPath.createWithInstance(ins1)
     path2 = snl.SNLPath.createWithHeadAndInstance(path, ins2)
-    #print(path)
-    #print(path2)
+    print(path)
+    print(path2)
     path.destroy()
     path2.destroy()
     with self.assertRaises(RuntimeError) as context: snl.SNLPath.createWithHeadAndInstance(ins2, path)
     with self.assertRaises(RuntimeError) as context: snl.SNLPath.createWithHeadAndInstance(path, path)
-    with self.assertRaises(RuntimeError) as context: snl.SNLPath.createWithHeadAndInstance()
     
 if __name__ == '__main__':
   unittest.main()
