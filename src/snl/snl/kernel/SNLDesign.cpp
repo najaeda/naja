@@ -283,12 +283,28 @@ SNLTerm* SNLDesign::getTerm(const SNLName& name) const {
   return nullptr;
 }
 
+SNLBitTerm* SNLDesign::getBitTerm(SNLID::DesignObjectID id, SNLID::Bit bit) const {
+  SNLBitTerm* bitTerm = getScalarTerm(id);
+  if (not bitTerm) {
+    bitTerm = getBusTermBit(id, bit);
+  }
+  return bitTerm;
+}
+
 SNLScalarTerm* SNLDesign::getScalarTerm(SNLID::DesignObjectID id) const {
   return dynamic_cast<SNLScalarTerm*>(getTerm(id));
 }
 
 SNLScalarTerm* SNLDesign::getScalarTerm(const SNLName& name) const {
   return dynamic_cast<SNLScalarTerm*>(getTerm(name));
+}
+
+SNLBusTermBit* SNLDesign::getBusTermBit(SNLID::DesignObjectID id, SNLID::Bit bit) const {
+  auto bus = getBusTerm(id);
+  if (bus) {
+    return bus->getBit(bit);
+  }
+  return nullptr;
 }
 
 SNLBusTerm* SNLDesign::getBusTerm(SNLID::DesignObjectID id) const {
@@ -457,6 +473,14 @@ SNLBusNetBit* SNLDesign::getBusNetBit(SNLID::DesignObjectID id, SNLID::Bit bit) 
     return bus->getBit(bit);
   }
   return nullptr;
+}
+
+SNLBitNet* SNLDesign::getBitNet(SNLID::DesignObjectID id, SNLID::Bit bit) const {
+  SNLBitNet* bitNet = getScalarNet(id);
+  if (not bitNet) {
+    bitNet = getBusNetBit(id, bit);
+  }
+  return bitNet;
 }
 
 NajaCollection<SNLNet*> SNLDesign::getNets() const {
