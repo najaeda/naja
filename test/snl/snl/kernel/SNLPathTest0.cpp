@@ -289,6 +289,12 @@ TEST_F(SNLPathTest0, testInstanceDestroy2) {
     EXPECT_FALSE(path1.empty());
     EXPECT_EQ(4, path0.size());
     EXPECT_EQ(4, path1.size());
+    bool check = path0 <= path1;
+    EXPECT_TRUE(check);
+    bool check1 = path1 > path0;
+    EXPECT_TRUE(check1);
+    bool check2 = path1 >= path0;
+    EXPECT_TRUE(check2);
   }
   h2Instance_->destroy();
   h2Instance_ = nullptr;
