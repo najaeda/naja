@@ -43,10 +43,10 @@ class SNLPathTest(unittest.TestCase):
 
     path3 = snl.SNLPath(ins2)
     path4 = snl.SNLPath(ins1, path3)
-
+    
     with self.assertRaises(RuntimeError) as context: snl.SNLPath(path1)
     with self.assertRaises(RuntimeError) as context: snl.SNLPath(path1, path2)
-    with self.assertRaises(RuntimeError) as context: snl.SNLPath(1, 1)
+    with self.assertRaises(RuntimeError) as context: snl.SNLPath(1, 1, 1)
     
 if __name__ == '__main__':
   unittest.main()
