@@ -108,8 +108,8 @@ jobs:
 
     - name: TestReductionOpt
       working-directory: ${{github.workspace}}/build/test/logic_opt
-      run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./reductionOptSources
+      run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./reductionOptTests
 
     - name: TestBNE
       working-directory: ${{github.workspace}}/build/test/bne
-      run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./BNETests
+      run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./bneTests
