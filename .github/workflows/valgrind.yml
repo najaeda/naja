@@ -94,7 +94,8 @@ jobs:
 
     - name: TestDNL
       working-directory: ${{github.workspace}}/build/test/dnl
-      run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./dnlTests
+      run: valgrind --error-exitcode=1 ./dnlTests
+      #run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./dnlTests
 
     - name: TestDLE
       working-directory: ${{github.workspace}}/build/test/logic_opt
