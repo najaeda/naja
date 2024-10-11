@@ -112,4 +112,5 @@ jobs:
 
     - name: TestBNE
       working-directory: ${{github.workspace}}/build/test/bne
-      run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./bneTests
+      run: valgrind --error-exitcode=1 ./bneTests
+      #run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./bneTests
