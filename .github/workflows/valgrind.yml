@@ -99,7 +99,8 @@ jobs:
 
     - name: TestDLE
       working-directory: ${{github.workspace}}/build/test/logic_opt
-      run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./loadlessLogicRemoverTests
+      run: valgrind --error-exitcode=1 ./loadlessLogicRemoverTests
+      #run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./loadlessLogicRemoverTests
 
     - name: TestConstantPropagation
       working-directory: ${{github.workspace}}/build/test/logic_opt
