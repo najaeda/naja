@@ -129,9 +129,17 @@ PyObject* richCompare(T left, T right, int op) {
     PyObject_DEL(self); \
   }
 
-#define DBoDeallocMethod(SELF_TYPE)                                      \
-  static void Py##SELF_TYPE##_DeAlloc(Py##SELF_TYPE *self) {             \
-    PyObject_DEL(self);                                                  \
+#define DBoDeallocMethod(SELF_TYPE) \
+  static void Py##SELF_TYPE##_DeAlloc(Py##SELF_TYPE *self) { \
+    PyObject_DEL(self); \
+  }
+
+#define ManagedTypeDeallocMethod(SELF_TYPE) \
+  static void Py##SELF_TYPE##_DeAlloc(Py##SELF_TYPE *self) { \
+    if (self->ACCESS_OBJECT) { \
+      delete self->ACCESS_OBJECT; \
+    } \
+    PyObject_DEL(self); \
   }
 
 #define PyTypeSNLAbstractObjectWithSNLIDLinkPyType(SELF_TYPE) \
@@ -175,14 +183,29 @@ PyObject* richCompare(T left, T right, int op) {
     PyType##SELF_TYPE.tp_methods = Py##SELF_TYPE##_Methods; \
   }
 
-#define DBoLinkCreateMethod(SELF_TYPE)                                         \
-  PyObject* Py##SELF_TYPE##_Link(SELF_TYPE* object) {                          \
-    if (not object) {                                                          \
-      Py_RETURN_NONE;                                                          \
-    }                                                                          \
+#define PyTypeManagedSNLObjectWithoutSNLIDLinkPyType(SELF_TYPE) \
+  DirectReprMethod(Py##SELF_TYPE##_Repr, Py##SELF_TYPE, SELF_TYPE) \
+  DirectStrMethod (Py##SELF_TYPE##_Str, Py##SELF_TYPE, SELF_TYPE) \
+  DirectCmpByPtrMethod (Py##SELF_TYPE##_Cmp,  Py##SELF_TYPE) \
+  DirectHashMethod(Py##SELF_TYPE##_Hash, Py##SELF_TYPE) \
+  extern void  Py##SELF_TYPE##_LinkPyType() { \
+    PyType##SELF_TYPE.tp_dealloc = (destructor) Py##SELF_TYPE##_DeAlloc; \
+    PyType##SELF_TYPE.tp_richcompare = (richcmpfunc) Py##SELF_TYPE##_Cmp; \
+    PyType##SELF_TYPE.tp_repr = (reprfunc)Py##SELF_TYPE##_Repr; \
+    PyType##SELF_TYPE.tp_str = (reprfunc)Py##SELF_TYPE##_Str; \
+    PyType##SELF_TYPE.tp_hash = (hashfunc)Py##SELF_TYPE##_Hash; \
+    PyType##SELF_TYPE.tp_init = (initproc)Py##SELF_TYPE##_Init; \
+    PyType##SELF_TYPE.tp_methods = Py##SELF_TYPE##_Methods; \
+  }
+
+#define DBoLinkCreateMethod(SELF_TYPE) \
+  PyObject* Py##SELF_TYPE##_Link(SELF_TYPE* object) { \
+    if (not object) { \
+      Py_RETURN_NONE; \
+    } \
     Py##SELF_TYPE* pyObject = PyObject_NEW(Py##SELF_TYPE, &PyType##SELF_TYPE); \
-    pyObject->ACCESS_OBJECT = object;                                          \
-    return (PyObject*)pyObject;                                                \
+    pyObject->ACCESS_OBJECT = object; \
+    return (PyObject*)pyObject; \
   }
 
 #define GetObjectMethod(SELF_TYPE, OBJECT_TYPE, METHOD) \
@@ -210,7 +233,7 @@ PyObject* richCompare(T left, T right, int op) {
 #define GetObjectByIndex(SELF_TYPE, OBJECT_TYPE, METHOD) \
   static PyObject* PySNL##SELF_TYPE##_get##METHOD(PySNL##SELF_TYPE* self, PyObject* args) { \
     SNL##OBJECT_TYPE* obj = nullptr; \
-    METHOD_HEAD("SNL##SELF_TYPE.get##OBJECT_TYPE()") \
+    METHOD_HEAD("SNL"#SELF_TYPE".get"#OBJECT_TYPE"()") \
     int index = 0; \
     if (PyArg_ParseTuple(args, "i:SNL##SELF_TYPE.get##METHOD", &index)) { \
       SNLTRY \
@@ -225,7 +248,7 @@ PyObject* richCompare(T left, T right, int op) {
 
 #define GetNameMethod(SELF_TYPE) \
   static PyObject* Py##SELF_TYPE##_getName(Py##SELF_TYPE* self) { \
-    METHOD_HEAD(#SELF_TYPE ".getName()") \
+    METHOD_HEAD(#SELF_TYPE".getName()") \
     SNLTRY \
     return PyUnicode_FromString(selfObject->getName().getString().c_str()); \
     SNLCATCH \
@@ -234,9 +257,9 @@ PyObject* richCompare(T left, T right, int op) {
 
 #define SetNameMethod(SELF_TYPE) \
   static PyObject* PySNL##SELF_TYPE##_setName(PySNL##SELF_TYPE* self, PyObject* arg) { \
-    METHOD_HEAD("SNL" #SELF_TYPE ".setName()") \
+    METHOD_HEAD("SNL"#SELF_TYPE".setName()") \
     if (not PyUnicode_Check(arg)) { \
-      setError("SNL" #SELF_TYPE ".setName() expects a string as argument"); \
+      setError("SNL"#SELF_TYPE".setName() expects a string as argument"); \
       return nullptr; \
     } \
     selfObject->setName(SNLName(PyUnicode_AsUTF8(arg))); \
@@ -245,7 +268,7 @@ PyObject* richCompare(T left, T right, int op) {
 
 #define GetStringAttribute(SELF_TYPE, METHOD) \
   static PyObject* PySNL##SELF_TYPE##_##METHOD(PySNL##SELF_TYPE* self) { \
-    METHOD_HEAD("SNL##SELF_TYPE.##METHOD##()") \
+    METHOD_HEAD("SNL"#SELF_TYPE"."#METHOD"()") \
     SNLTRY \
     return PyUnicode_FromString(selfObject->METHOD().c_str()); \
     SNLCATCH \
@@ -254,14 +277,14 @@ PyObject* richCompare(T left, T right, int op) {
 
 #define GetBoolAttribute(SELF_TYPE, METHOD) \
   static PyObject* PySNL##SELF_TYPE##_##METHOD(PySNL##SELF_TYPE* self) { \
-    METHOD_HEAD("SNL##SELF_TYPE.##METHOD##()") \
+    METHOD_HEAD("SNL"#SELF_TYPE"."#METHOD"()") \
     if (selfObject->METHOD()) Py_RETURN_TRUE; \
     Py_RETURN_FALSE; \
   }
 
 #define GetBoolAttributeWithFunction(SELF_TYPE, METHOD, FUNCTION) \
   static PyObject* PySNL##SELF_TYPE##_##METHOD(PySNL##SELF_TYPE* self) { \
-    METHOD_HEAD("SNL##SELF_TYPE.##METHOD##()") \
+    METHOD_HEAD("SNL"#SELF_TYPE"."#METHOD"()") \
     if (FUNCTION(selfObject)) Py_RETURN_TRUE; \
     Py_RETURN_FALSE; \
   }

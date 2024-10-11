@@ -72,6 +72,7 @@ PyMODINIT_FUNC PyInit_snl(void) {
   PySNLInstance_LinkPyType();
   PySNLInstParameter_LinkPyType();
   PySNLInstTerm_LinkPyType();
+  PySNLPath_LinkPyType();
 
   PySNLLibraries_LinkPyType();
   PySNLDesigns_LinkPyType();
@@ -88,7 +89,6 @@ PyMODINIT_FUNC PyInit_snl(void) {
   PySNLInstances_LinkPyType();
   PySNLInstParameters_LinkPyType();
   PySNLInstTerms_LinkPyType();
-  PySNLPath_LinkPyType();
 
   PYTYPE_READY(SNLUniverse);
   PYTYPE_READY(SNLDB);
@@ -100,7 +100,6 @@ PyMODINIT_FUNC PyInit_snl(void) {
   PYTYPE_READY(SNLTermDirection);
   PYTYPE_READY_SUB(SNLNet, SNLDesignObject);
   PYTYPE_READY(SNLNetType);
-  PYTYPE_READY(SNLPath);
   PYTYPE_READY_SUB(SNLBusNet, SNLNet);
   PYTYPE_READY_SUB(SNLBitNet, SNLNet);
   PYTYPE_READY_SUB(SNLScalarNet, SNLBitNet);
@@ -113,6 +112,7 @@ PyMODINIT_FUNC PyInit_snl(void) {
   PYTYPE_READY_SUB(SNLBusTermBit, SNLBitTerm);
   PYTYPE_READY_SUB(SNLInstance, SNLDesignObject);
   PYTYPE_READY_SUB(SNLInstTerm, SNLNetComponent);
+  PYTYPE_READY(SNLPath);
 
   PYTYPE_READY(SNLLibraries);
   PYTYPE_READY(SNLLibrariesIterator);

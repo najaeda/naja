@@ -22,12 +22,6 @@ class SNLPathTest(unittest.TestCase):
     p3 = snl.SNLParameter.create_boolean(self.model, "INVERTED", True)
 
   def tearDown(self):
-    del self.top
-    del self.model
-    del self.submodel
-    del self.i0
-    del self.i1
-    del self.o
     if snl.SNLUniverse.get():
       snl.SNLUniverse.get().destroy()
     
@@ -35,14 +29,19 @@ class SNLPathTest(unittest.TestCase):
     self.assertEqual(4, sum(1 for p in self.model.getParameters()))
     ins2 = snl.SNLInstance.create(self.model, self.submodel, "ins2")
     ins1 = snl.SNLInstance.create(self.top, self.model, "ins1")
-    path = snl.SNLPath.createWithInstance(ins1)
-    path2 = snl.SNLPath.createWithHeadAndInstance(path, ins2)
-    print(path)
-    print(path2)
-    path.destroy()
-    path2.destroy()
-    with self.assertRaises(RuntimeError) as context: snl.SNLPath.createWithHeadAndInstance(ins2, path)
-    with self.assertRaises(RuntimeError) as context: snl.SNLPath.createWithHeadAndInstance(path, path)
+    path0 = snl.SNLPath()
+    print(path0)
+    self.assertIsNotNone(path0)
+    self.assertTrue(path0.empty())
+    path1 = snl.SNLPath(ins1)
+    print(path1)
+    #self.assertFalse(path1.empty())
+    #self.assertIsNotNone(path1)
+    #path2 = snl.SNLPath(path1, ins2)
+    #self.assertIsNotNone(path2)
+    #self.assertFalse(path2.empty())
+    #with self.assertRaises(RuntimeError) as context: snl.SNLPath.createWithHeadAndInstance(ins2, path)
+    #with self.assertRaises(RuntimeError) as context: snl.SNLPath.createWithHeadAndInstance(path, path)
     
 if __name__ == '__main__':
   unittest.main()

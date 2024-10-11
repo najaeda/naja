@@ -6,8 +6,10 @@
 #define __PY_SNL_PATH_H_
 
 #include <Python.h>
-#include "PySNLPath.h"
-#include "SNLPath.h"
+
+namespace naja::SNL {
+  class SNLPath;
+}
 
 namespace PYSNL {
 
@@ -18,7 +20,6 @@ typedef struct {
 
 extern PyTypeObject PyTypeSNLPath;
 
-extern PyObject*    PySNLPath_Link(naja::SNL::SNLPath* u);
 extern void         PySNLPath_LinkPyType();
 
 #define IsPySNLPath(v) (PyObject_TypeCheck(v, &PyTypeSNLPath))

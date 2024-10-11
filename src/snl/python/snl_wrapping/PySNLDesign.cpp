@@ -358,7 +358,7 @@ PyMethodDef PySNLDesign_Methods[] = {
   { "setTruthTable", (PyCFunction)PySNLDesign_setTruthTable, METH_VARARGS,
     "set truth table of a primitive"},
   { "isConst0", (PyCFunction)PySNLDesign_isConst0, METH_NOARGS,
-    "Returns True if this desgin is a primitive driving a constant 0"},
+    "Returns True if this design is a primitive driving a constant 0"},
   { "isConst1", (PyCFunction)PySNLDesign_isConst1, METH_NOARGS,
     "Returns True if this design is a primitive driving a constant 1"},
   { "isBuf", (PyCFunction)PySNLDesign_isBuf, METH_NOARGS,
