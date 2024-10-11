@@ -41,8 +41,11 @@ class SNLPathTest(unittest.TestCase):
     self.assertEqual(2, path2.size())
     self.assertEqual(path1, path2.getHeadPath())
 
-    #with self.assertRaises(RuntimeError) as context: snl.SNLPath.createWithHeadAndInstance(ins2, path)
-    #with self.assertRaises(RuntimeError) as context: snl.SNLPath.createWithHeadAndInstance(path, path)
+    path3 = snl.SNLPath(ins2)
+    path4 = snl.SNLPath(ins1, path3)
+
+    with self.assertRaises(RuntimeError) as context: snl.SNLPath(path1, path2)
+    with self.assertRaises(RuntimeError) as context: snl.SNLPath("Error", "Error")
     
 if __name__ == '__main__':
   unittest.main()
