@@ -27,16 +27,19 @@ class SNLPathTest(unittest.TestCase):
     self.assertIsNotNone(path0)
     self.assertTrue(path0.empty())
     self.assertEqual(0, path0.size())
+    self.assertEqual(snl.SNLPath(), path0.getHeadPath())
     
     path1 = snl.SNLPath(ins1)
     self.assertIsNotNone(path1)
     self.assertFalse(path1.empty())
     self.assertEqual(1, path1.size())
+    self.assertEqual(snl.SNLPath(), path1.getHeadPath())
 
     path2 = snl.SNLPath(path1, ins2)
     self.assertIsNotNone(path2)
     self.assertFalse(path2.empty())
     self.assertEqual(2, path2.size())
+    self.assertEqual(path1, path2.getHeadPath())
 
     #with self.assertRaises(RuntimeError) as context: snl.SNLPath.createWithHeadAndInstance(ins2, path)
     #with self.assertRaises(RuntimeError) as context: snl.SNLPath.createWithHeadAndInstance(path, path)

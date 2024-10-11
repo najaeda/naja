@@ -98,6 +98,15 @@ PyObject* richCompare(T left, T right, int op) {
     auto otherObject = otherPyObject->ACCESS_OBJECT; \
     return richCompare(selfObject, otherObject, op); \
   }
+
+#define DirectCmpByObjectMethod(PY_FUNC_NAME, PY_SELF_TYPE) \
+  static PyObject* PY_FUNC_NAME(PY_SELF_TYPE* self, PyObject* other, int op) { \
+    if (not (PyObject_TypeCheck(self, Py_TYPE(other)) or PyObject_TypeCheck(other, Py_TYPE(self)))) Py_RETURN_FALSE; \
+    PY_SELF_TYPE* otherPyObject = (PY_SELF_TYPE*)other; \
+    auto selfObject = self->ACCESS_OBJECT; \
+    auto otherObject = otherPyObject->ACCESS_OBJECT; \
+    return richCompare(*selfObject, *otherObject, op); \
+  }
      
 #define DirectHashMethod(PY_FUNC_NAME,PY_SELF_TYPE)                          \
   static int PY_FUNC_NAME(PY_SELF_TYPE *self) {                              \
@@ -186,7 +195,7 @@ PyObject* richCompare(T left, T right, int op) {
 #define PyTypeManagedSNLObjectWithoutSNLIDLinkPyType(SELF_TYPE) \
   DirectReprMethod(Py##SELF_TYPE##_Repr, Py##SELF_TYPE, SELF_TYPE) \
   DirectStrMethod (Py##SELF_TYPE##_Str, Py##SELF_TYPE, SELF_TYPE) \
-  DirectCmpByPtrMethod (Py##SELF_TYPE##_Cmp,  Py##SELF_TYPE) \
+  DirectCmpByObjectMethod (Py##SELF_TYPE##_Cmp,  Py##SELF_TYPE) \
   DirectHashMethod(Py##SELF_TYPE##_Hash, Py##SELF_TYPE) \
   extern void  Py##SELF_TYPE##_LinkPyType() { \
     PyType##SELF_TYPE.tp_dealloc = (destructor) Py##SELF_TYPE##_DeAlloc; \
@@ -196,6 +205,14 @@ PyObject* richCompare(T left, T right, int op) {
     PyType##SELF_TYPE.tp_hash = (hashfunc)Py##SELF_TYPE##_Hash; \
     PyType##SELF_TYPE.tp_init = (initproc)Py##SELF_TYPE##_Init; \
     PyType##SELF_TYPE.tp_methods = Py##SELF_TYPE##_Methods; \
+  }
+
+#define ManagedTypeLinkCreateMethod(SELF_TYPE) \
+  PyObject* Py##SELF_TYPE##_Link(const SELF_TYPE& object) { \
+    SELF_TYPE* newObject = new SELF_TYPE(object); \
+    Py##SELF_TYPE* pyObject = PyObject_NEW(Py##SELF_TYPE, &PyType##SELF_TYPE); \
+    pyObject->ACCESS_OBJECT = newObject; \
+    return (PyObject*)pyObject; \
   }
 
 #define DBoLinkCreateMethod(SELF_TYPE) \

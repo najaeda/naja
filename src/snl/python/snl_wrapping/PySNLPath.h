@@ -20,7 +20,8 @@ typedef struct {
 
 extern PyTypeObject PyTypeSNLPath;
 
-extern void         PySNLPath_LinkPyType();
+extern PyObject*  PySNLPath_Link(naja::SNL::SNLPath* path);
+extern void       PySNLPath_LinkPyType();
 
 #define IsPySNLPath(v) (PyObject_TypeCheck(v, &PyTypeSNLPath))
 #define PYSNLPath(v)   ((PySNLPath*)(v))

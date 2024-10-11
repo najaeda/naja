@@ -46,14 +46,18 @@ static int PySNLPath_Init(PySNLPath* self, PyObject* args, PyObject* kwargs) {
   return 0;
 }
 
+ManagedTypeLinkCreateMethod(SNLPath) 
 ManagedTypeDeallocMethod(SNLPath)
 
 GetBoolAttribute(Path, empty)
 GetSizetAttribute(Path, size)
+GetObjectMethod(Path, Path, getHeadPath)
 
 PyMethodDef PySNLPath_Methods[] = {
   { "empty", (PyCFunction)PySNLPath_empty, METH_NOARGS,
     "Returns True if this path is empty"},
+  { "getHeadPath", (PyCFunction)PySNLPath_getHeadPath, METH_NOARGS,
+    "Returns the head path of this path"},
   { "size", (PyCFunction)PySNLPath_size, METH_NOARGS,
     "Returns the size of this path"},
   {NULL, NULL, 0, NULL} /* sentinel */
