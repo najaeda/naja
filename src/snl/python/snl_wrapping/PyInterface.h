@@ -282,6 +282,12 @@ PyObject* richCompare(T left, T right, int op) {
     Py_RETURN_FALSE; \
   }
 
+#define GetSizetAttribute(SELF_TYPE, METHOD) \
+  static PyObject* PySNL##SELF_TYPE##_##METHOD(PySNL##SELF_TYPE* self) { \
+    METHOD_HEAD("SNL"#SELF_TYPE"."#METHOD"()") \
+    return Py_BuildValue("n", selfObject->METHOD()); \
+  }
+
 #define GetBoolAttributeWithFunction(SELF_TYPE, METHOD, FUNCTION) \
   static PyObject* PySNL##SELF_TYPE##_##METHOD(PySNL##SELF_TYPE* self) { \
     METHOD_HEAD("SNL"#SELF_TYPE"."#METHOD"()") \
