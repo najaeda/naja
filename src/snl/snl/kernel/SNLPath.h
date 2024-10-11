@@ -110,6 +110,12 @@ class SNLPath {
     bool operator!=(const SNLPath& rhs) const;
     /// \brief SNLPath less operator.
     bool operator<(const SNLPath& rhs) const;
+    /// \brief SNLPath less or equal operator.
+    bool operator<=(const SNLPath& rhs) const;
+    /// \brief SNLPath greater operator.
+    bool operator>(const SNLPath& rhs) const;
+    /// \brief SNLPath greater or equal operator.
+    bool operator>=(const SNLPath& rhs) const;
 
     /**
      * \return a string describing this SNLPath.

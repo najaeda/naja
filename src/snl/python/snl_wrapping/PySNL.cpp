@@ -33,6 +33,7 @@
 #include "PySNLNetComponents.h"
 #include "PySNLInstances.h"
 #include "PySNLInstTerms.h"
+#include "PySNLPath.h"
 
 namespace PYSNL {
 
@@ -71,6 +72,7 @@ PyMODINIT_FUNC PyInit_snl(void) {
   PySNLInstance_LinkPyType();
   PySNLInstParameter_LinkPyType();
   PySNLInstTerm_LinkPyType();
+  PySNLPath_LinkPyType();
 
   PySNLLibraries_LinkPyType();
   PySNLDesigns_LinkPyType();
@@ -110,6 +112,7 @@ PyMODINIT_FUNC PyInit_snl(void) {
   PYTYPE_READY_SUB(SNLBusTermBit, SNLBitTerm);
   PYTYPE_READY_SUB(SNLInstance, SNLDesignObject);
   PYTYPE_READY_SUB(SNLInstTerm, SNLNetComponent);
+  PYTYPE_READY(SNLPath);
 
   PYTYPE_READY(SNLLibraries);
   PYTYPE_READY(SNLLibrariesIterator);
@@ -162,6 +165,7 @@ PyMODINIT_FUNC PyInit_snl(void) {
   Py_INCREF(&PyTypeSNLScalarTerm);
   Py_INCREF(&PyTypeSNLBusTermBit);
   Py_INCREF(&PyTypeSNLInstance);
+  Py_INCREF(&PyTypeSNLPath);
   Py_INCREF(&PyTypeSNLInstTerm);
   Py_INCREF(&PyTypeSNLLibraries);
   Py_INCREF(&PyTypeSNLDesigns);
@@ -209,6 +213,7 @@ PyMODINIT_FUNC PyInit_snl(void) {
   PyModule_AddObject(mod, "SNLInstance", (PyObject*)&PyTypeSNLInstance);
   PyModule_AddObject(mod, "SNLInstParameter", (PyObject*)&PyTypeSNLInstParameter);
   PyModule_AddObject(mod, "SNLInstTerm", (PyObject*)&PyTypeSNLInstTerm);
+  PyModule_AddObject(mod, "SNLPath", (PyObject*)&PyTypeSNLPath);
 
   PySNLTerm_postModuleInit();
   PySNLNet_postModuleInit();
