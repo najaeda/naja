@@ -8,11 +8,11 @@ SET(sources
   LoadlessLogicRemoverTests.cpp
 )
 
-ADD_EXECUTABLE(LoadlessLogicRemoverTests ${sources})
+ADD_EXECUTABLE(loadlessLogicRemoverTests ${sources})
 
-TARGET_LINK_LIBRARIES(LoadlessLogicRemoverTests naja_dnl naja_opt gmock gtest_main)
+TARGET_LINK_LIBRARIES(loadlessLogicRemoverTests naja_dnl naja_opt gmock gtest_main)
 
-GTEST_DISCOVER_TESTS(LoadlessLogicRemoverTests)
+GTEST_DISCOVER_TESTS(loadlessLogicRemoverTests)
 
 SET(constantPropagationSources
   ConstantPropagationTests.cpp
