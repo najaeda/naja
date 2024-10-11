@@ -11,3 +11,5 @@ SET(sources
 ADD_EXECUTABLE(BNETests ${sources})
 
 TARGET_LINK_LIBRARIES(BNETests naja_dnl naja_bne gmock gtest_main)
+
+GTEST_DISCOVER_TESTS(BNETests)
