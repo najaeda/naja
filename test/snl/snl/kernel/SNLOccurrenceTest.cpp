@@ -100,6 +100,10 @@ TEST_F(SNLOccurrenceTest, testhEmptyOccurrences1) {
   EXPECT_EQ(emptyNetOccurrence, SNLInstTermOccurrence());
   EXPECT_FALSE(emptyNetOccurrence < emptyInstTermOccurrence);
   EXPECT_FALSE(emptyInstTermOccurrence < emptyNetOccurrence);
+  EXPECT_TRUE(emptyInstTermOccurrence <= emptyNetOccurrence);
+  EXPECT_TRUE(emptyInstTermOccurrence >= emptyNetOccurrence);
+  EXPECT_FALSE(emptyInstTermOccurrence > emptyNetOccurrence);
+  std::string emptyPathString = emptyTermOccurrence.getString();
 }
 
 TEST_F(SNLOccurrenceTest, testh0Level) {
@@ -126,6 +130,7 @@ TEST_F(SNLOccurrenceTest, testh0Level) {
   auto h0IInstTerm = h0Instance_->getInstTerm(iTerm);
   ASSERT_NE(h0IInstTerm, nullptr);
   auto h0IInstTermOccurrence = SNLInstTermOccurrence(h0IInstTerm);
+  std::string h0IInstTermString = h0IInstTermOccurrence.getString();
   EXPECT_EQ(h0IInstTermOccurrence, SNLInstTermOccurrence(SNLPath(), h0IInstTerm));
   EXPECT_TRUE(h0IInstTermOccurrence.getPath().empty());
   EXPECT_EQ(h0IInstTermOccurrence.getInstTerm(), h0IInstTerm);

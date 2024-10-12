@@ -19,7 +19,7 @@ set(SOURCES
   PySNLNetComponents.cpp
   PySNLTerms.cpp PySNLBitTerms.cpp PySNLScalarTerms.cpp PySNLBusTerms.cpp
   PySNLNets.cpp PySNLBitNets.cpp PySNLScalarNets.cpp PySNLBusNets.cpp
-  PySNLInstances.cpp PySNLInstTerms.cpp PySNLPath.cpp
+  PySNLInstances.cpp PySNLInstTerms.cpp PySNLPath.cpp PySNLOccurrence.cpp
 )
 
 Python3_add_library(naja_snl_python SHARED ${SOURCES})
