@@ -72,6 +72,10 @@ jobs:
         PYTHONMALLOC: malloc
       run: valgrind --error-exitcode=1 --show-leak-kinds=definite --leak-check=full --errors-for-leak-kinds=definite ./snlVRLConstructorTests
 
+    - name: TestLiberty
+      working-directory: ${{github.workspace}}/build/test/snl/formats/liberty
+      run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./snl_liberty_tests
+
     - name: TestSNLVRLDumper
       working-directory: ${{github.workspace}}/build/test/snl/formats/verilog/backend
       run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./snlVRLDumperTests
@@ -95,6 +99,22 @@ jobs:
 
     - name: TestDLE
       working-directory: ${{github.workspace}}/build/test/logic_opt
-      run: valgrind --error-exitcode=1 ./LoadlessLogicRemoverTests
-      #run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./LoadlessLogicRemoverTests
+      run: valgrind --error-exitcode=1 ./loadlessLogicRemoverTests
+      #run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./loadlessLogicRemoverTests
 
+    - name: TestConstantPropagation
+      working-directory: ${{github.workspace}}/build/test/logic_opt
+      run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./constantPropagationTests
+
+    #- name: TestReductionOpt
+    #  working-directory: ${{github.workspace}}/build/test/logic_opt
+    #  env:
+    #    PYTHONPATH: ${{env.PYTHONPATH}}:${{github.workspace}}/build/src/snl/python/snl_wrapping
+    #    PYTHONMALLOC: malloc
+    #  run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./reductionOptTests
+    #  #run: valgrind --error-exitcode=1 ./reductionOptTests
+
+    - name: TestBNE
+      working-directory: ${{github.workspace}}/build/test/bne
+      run: valgrind --error-exitcode=1 ./bneTests
+      #run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./bneTests
