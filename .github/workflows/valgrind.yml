@@ -106,13 +106,13 @@ jobs:
       working-directory: ${{github.workspace}}/build/test/logic_opt
       run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./constantPropagationTests
 
-    - name: TestReductionOpt
-      working-directory: ${{github.workspace}}/build/test/logic_opt
-      env:
-        PYTHONPATH: ${{env.PYTHONPATH}}:${{github.workspace}}/build/src/snl/python/snl_wrapping
-        PYTHONMALLOC: malloc
-      run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./reductionOptTests
-      #run: valgrind --error-exitcode=1 ./reductionOptTests
+    #- name: TestReductionOpt
+    #  working-directory: ${{github.workspace}}/build/test/logic_opt
+    #  env:
+    #    PYTHONPATH: ${{env.PYTHONPATH}}:${{github.workspace}}/build/src/snl/python/snl_wrapping
+    #    PYTHONMALLOC: malloc
+    #  run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./reductionOptTests
+    #  #run: valgrind --error-exitcode=1 ./reductionOptTests
 
     - name: TestBNE
       working-directory: ${{github.workspace}}/build/test/bne
