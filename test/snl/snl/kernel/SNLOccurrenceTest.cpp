@@ -130,6 +130,7 @@ TEST_F(SNLOccurrenceTest, testh0Level) {
   auto h0IInstTerm = h0Instance_->getInstTerm(iTerm);
   ASSERT_NE(h0IInstTerm, nullptr);
   auto h0IInstTermOccurrence = SNLInstTermOccurrence(h0IInstTerm);
+  std::string h0IInstTermString = h0IInstTermOccurrence.getString();
   EXPECT_EQ(h0IInstTermOccurrence, SNLInstTermOccurrence(SNLPath(), h0IInstTerm));
   EXPECT_TRUE(h0IInstTermOccurrence.getPath().empty());
   EXPECT_EQ(h0IInstTermOccurrence.getInstTerm(), h0IInstTerm);
