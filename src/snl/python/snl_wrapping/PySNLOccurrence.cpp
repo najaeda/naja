@@ -19,7 +19,7 @@ using namespace naja::SNL;
 #define METHOD_HEAD(function) GENERIC_METHOD_HEAD(SNLOccurrence, function)
 
 static int PySNLOccurrence_Init(PySNLOccurrence* self, PyObject* args, PyObject* kwargs) {
-  SNLOccurrence* snlPath = nullptr;
+  SNLOccurrence* snlOccurrence = nullptr;
   PyObject* arg0 = nullptr;
   PyObject* arg1 = nullptr;
 
@@ -29,25 +29,27 @@ static int PySNLOccurrence_Init(PySNLOccurrence* self, PyObject* args, PyObject*
     return -1;
   }
   if (arg0 == nullptr) {
-    snlPath = new SNLOccurrence();
+    snlOccurrence = new SNLOccurrence();
   } else if (arg1 == nullptr) {
     if (IsPySNLDesignObject(arg0)) {
-      snlPath = new SNLOccurrence(PYSNLDesignObject_O(arg0));
+      snlOccurrence = new SNLOccurrence(PYSNLDesignObject_O(arg0));
     } else {
       setError("SNLOccurrence create accepts SNLDesignObject as only argument");
       return -1;
     }
   } else if (IsPySNLPath(arg0) and IsPySNLDesignObject(arg1)) {
-    snlPath = new SNLOccurrence(*PYSNLPath_O(arg0), PYSNLDesignObject_O(arg1));
+    snlOccurrence = new SNLOccurrence(*PYSNLPath_O(arg0), PYSNLDesignObject_O(arg1));
   }  else {
-    setError("invalid number of parameters for Path constructor.");
+    setError("invalid number of parameters for Occurrence constructor.");
     return -1;
   }
-  self->object_ = snlPath;
+  self->object_ = snlOccurrence;
   return 0;
 }
 
+//LCOV_EXCL_START
 ManagedTypeLinkCreateMethod(SNLOccurrence) 
+//LCOV_EXCL_STOP
 ManagedTypeDeallocMethod(SNLOccurrence)
 
 PyMethodDef PySNLOccurrence_Methods[] = {

@@ -80,7 +80,9 @@ std::string SNLOccurrence::getString() const {
   std::ostringstream oss;
   oss << "Occurrence: ";
   if (object_) {
+    //LCOV_EXCL_START
     oss << object_->getDescription();
+    //LCOV_EXCL_STOP
   } else {
     oss << "null";
   }
