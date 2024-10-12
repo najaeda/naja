@@ -45,10 +45,12 @@ class SNLOccurrenceTest(unittest.TestCase):
     path4 = snl.SNLPath(ins1, path3)
 
     occurrence = snl.SNLOccurrence(path1, ins2)
+    occurrence2 = snl.SNLOccurrence(ins1)
+    occurrence3 = snl.SNLOccurrence()
 
-    with self.assertRaises(RuntimeError) as context: snl.SNLPath(path1)
-    with self.assertRaises(RuntimeError) as context: snl.SNLPath(path1, path2)
-    with self.assertRaises(RuntimeError) as context: snl.SNLPath(1, 1, 1)
+    with self.assertRaises(RuntimeError) as context: snl.SNLOccurrence(path1)
+    with self.assertRaises(RuntimeError) as context: snl.SNLOccurrence(-1, -1, -1)
+    with self.assertRaises(RuntimeError) as context: snl.SNLOccurrence(path1, path1)
     
 if __name__ == '__main__':
   unittest.main()
