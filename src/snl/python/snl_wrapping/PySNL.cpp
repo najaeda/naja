@@ -35,6 +35,8 @@
 #include "PySNLInstTerms.h"
 #include "PySNLPath.h"
 #include "PySNLOccurrence.h"
+#include "PySNLInstTermOccurrence.h"
+#include "PySNLNetComponentOccurrence.h"
 
 namespace PYSNL {
 
@@ -75,6 +77,8 @@ PyMODINIT_FUNC PyInit_snl(void) {
   PySNLInstTerm_LinkPyType();
   PySNLPath_LinkPyType();
   PySNLOccurrence_LinkPyType();
+  PySNLNetComponentOccurrence_LinkPyType();
+  PySNLInstTermOccurrence_LinkPyType();
 
   PySNLLibraries_LinkPyType();
   PySNLDesigns_LinkPyType();
@@ -116,7 +120,9 @@ PyMODINIT_FUNC PyInit_snl(void) {
   PYTYPE_READY_SUB(SNLInstTerm, SNLNetComponent);
 
   PYTYPE_READY(SNLPath);
-  PYTYPE_READY(SNLOccurrence)
+  PYTYPE_READY(SNLOccurrence);
+  PYTYPE_READY(SNLNetComponentOccurrence);
+  PYTYPE_READY(SNLInstTermOccurrence);
   PYTYPE_READY(SNLLibraries);
   PYTYPE_READY(SNLLibrariesIterator);
   PYTYPE_READY(SNLDesigns);
@@ -170,6 +176,8 @@ PyMODINIT_FUNC PyInit_snl(void) {
   Py_INCREF(&PyTypeSNLInstance);
   Py_INCREF(&PyTypeSNLPath);
   Py_INCREF(&PyTypeSNLOccurrence);
+  Py_INCREF(&PyTypeSNLNetComponentOccurrence);
+  Py_INCREF(&PyTypeSNLInstTermOccurrence);
   Py_INCREF(&PyTypeSNLInstTerm);
   Py_INCREF(&PyTypeSNLLibraries);
   Py_INCREF(&PyTypeSNLDesigns);
@@ -219,6 +227,8 @@ PyMODINIT_FUNC PyInit_snl(void) {
   PyModule_AddObject(mod, "SNLInstTerm", (PyObject*)&PyTypeSNLInstTerm);
   PyModule_AddObject(mod, "SNLPath", (PyObject*)&PyTypeSNLPath);
   PyModule_AddObject(mod, "SNLOccurrence", (PyObject*)&PyTypeSNLOccurrence);
+  PyModule_AddObject(mod, "SNLNetComponentOccurrence", (PyObject*)&PyTypeSNLNetComponentOccurrence);
+  PyModule_AddObject(mod, "SNLInstTermOccurrence", (PyObject*)&PyTypeSNLInstTermOccurrence);
 
   PySNLTerm_postModuleInit();
   PySNLNet_postModuleInit();
