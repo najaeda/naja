@@ -13,7 +13,10 @@ class SNLOccurrenceTest(unittest.TestCase):
     self.top = snl.SNLDesign.create(lib)
     self.model = snl.SNLDesign.create(lib)
     self.submodel = snl.SNLDesign.create(lib, "submodel")
-
+    self.i0 = snl.SNLScalarTerm.create(self.model, snl.SNLTerm.Direction.Input, "I0")
+    self.i1 = snl.SNLBusTerm.create(self.model, snl.SNLTerm.Direction.Input, 4, 0, "I1")
+    self.o = snl.SNLScalarTerm.create(self.model, snl.SNLTerm.Direction.Output, "O")
+    
   def tearDown(self):
     if snl.SNLUniverse.get():
       snl.SNLUniverse.get().destroy()
@@ -48,9 +51,25 @@ class SNLOccurrenceTest(unittest.TestCase):
     occurrence2 = snl.SNLOccurrence(ins1)
     occurrence3 = snl.SNLOccurrence()
 
+    instTerms = tuple(ins1.getInstTerms())
+
+    netcomponentoccurrence = snl.SNLNetComponentOccurrence()
+    netcomponentoccurrence1 = snl.SNLNetComponentOccurrence(path0, instTerms[0])
+    netcomponentoccurrence1 = snl.SNLNetComponentOccurrence(instTerms[0])
+
+    insttermoccurrence = snl.SNLInstTermOccurrence()
+    insttermoccurrence1 = snl.SNLInstTermOccurrence(path0, instTerms[0])
+    insttermoccurrence1 = snl.SNLInstTermOccurrence(instTerms[0])
+
     with self.assertRaises(RuntimeError) as context: snl.SNLOccurrence(path1)
     with self.assertRaises(RuntimeError) as context: snl.SNLOccurrence(-1, -1, -1)
     with self.assertRaises(RuntimeError) as context: snl.SNLOccurrence(path1, path1)
+    with self.assertRaises(RuntimeError) as context: snl.SNLNetComponentOccurrence(path1)
+    with self.assertRaises(RuntimeError) as context: snl.SNLNetComponentOccurrence(-1, -1, -1)
+    with self.assertRaises(RuntimeError) as context: snl.SNLNetComponentOccurrence(path1, path1)
+    with self.assertRaises(RuntimeError) as context: snl.SNLInstTermOccurrence(path1)
+    with self.assertRaises(RuntimeError) as context: snl.SNLInstTermOccurrence(-1, -1, -1)
+    with self.assertRaises(RuntimeError) as context: snl.SNLInstTermOccurrence(path1, path1)
     
 if __name__ == '__main__':
   unittest.main()

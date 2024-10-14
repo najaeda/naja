@@ -21,7 +21,7 @@ extern void         PySNLNetComponent_LinkPyType();
 
 #define IsPySNLNetComponent(v) (PyObject_TypeCheck(v, &PyTypeSNLNetComponent))
 #define PYSNLNetComponent(v)   ((PySNLNetComponent*)(v))
-#define PYSNLNetComponent_O(v) (static_cast<SNL::SNLNetComponent*>(PYSNLNetComponent(v)->parent_->object_))
+#define PYSNLNetComponent_O(v) (static_cast<naja::SNL::SNLNetComponent*>(PYSNLNetComponent(v)->parent_.object_))
 
 } /* PYSNL namespace */
  
