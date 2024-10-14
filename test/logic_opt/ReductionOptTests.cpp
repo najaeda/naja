@@ -434,6 +434,7 @@ TEST_F(ReductionOptTests, testTruthTablesMap) {
   }
   NetlistStatistics netlistStats(*get());
   netlistStats.process();
+  destroy();
   printf("Netlist statistics: %s\n", netlistStats.getReport().c_str());
 }
 
