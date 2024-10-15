@@ -51,13 +51,22 @@ ManagedTypeDeallocMethod(SNLPath)
 
 GetBoolAttribute(Path, empty)
 GetSizetAttribute(Path, size)
+GetObjectMethod(Path, Instance, getHeadInstance)
+GetObjectMethod(Path, Instance, getTailInstance)
 GetObjectMethod(Path, Path, getHeadPath)
+GetObjectMethod(Path, Path, getTailPath)
 
 PyMethodDef PySNLPath_Methods[] = {
   { "empty", (PyCFunction)PySNLPath_empty, METH_NOARGS,
     "Returns True if this path is empty"},
+  { "getHeadInstance", (PyCFunction)PySNLPath_getHeadInstance, METH_NOARGS,
+    "Returns the head instance of this path"},
+  { "getTailInstance", (PyCFunction)PySNLPath_getTailInstance, METH_NOARGS,
+    "Returns the tail instance of this path"},
   { "getHeadPath", (PyCFunction)PySNLPath_getHeadPath, METH_NOARGS,
     "Returns the head path of this path"},
+  { "getTailPath", (PyCFunction)PySNLPath_getTailPath, METH_NOARGS,
+    "Returns the tail path of this path"},
   { "size", (PyCFunction)PySNLPath_size, METH_NOARGS,
     "Returns the size of this path"},
   {NULL, NULL, 0, NULL} /* sentinel */
