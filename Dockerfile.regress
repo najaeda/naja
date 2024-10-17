@@ -41,7 +41,7 @@ RUN rm -rf /naja-install
 WORKDIR /naja/build
 RUN cmake .. -DCMAKE_INSTALL_PREFIX=/naja-install && make -j$(nproc) && make install
 
-WORKDIR /naja/regress
+WORKDIR /naja/src/apps/naja_edit/examples
 ENV SET_PYTHONPATH=/naja-install/lib/python
 ENV LD_LIBRARY_PATH=/naja-install/lib
 ENV NAJA_EDIT=/naja-install/bin/naja_edit
