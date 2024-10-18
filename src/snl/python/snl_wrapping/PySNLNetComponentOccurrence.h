@@ -20,7 +20,7 @@ typedef struct {
 
 extern PyTypeObject PyTypeSNLNetComponentOccurrence;
 
-extern PyObject*  PySNLNetComponentOccurrence_Link(naja::SNL::SNLNetComponentOccurrence* occurrence);
+extern PyObject*  PySNLNetComponentOccurrence_Link(const naja::SNL::SNLNetComponentOccurrence& occurrence);
 extern void       PySNLNetComponentOccurrence_LinkPyType();
 
 #define IsPySNLNetComponentOccurrence(v) (PyObject_TypeCheck(v, &PyTypeSNLNetComponentOccurrence))

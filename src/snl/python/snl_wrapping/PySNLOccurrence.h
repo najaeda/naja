@@ -29,4 +29,4 @@ extern void       PySNLOccurrence_LinkPyType();
 
 } // PYSNL namespace
  
-#endif // __PY_SNL_INSTANCE_H_
+#endif // __PY_SNL_OCCURRENCE_H_
