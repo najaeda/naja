@@ -12,6 +12,7 @@
 #include "SNLBitTerm.h"
 #include "SNLInstTerm.h"
 #include "SNLInstance.h"
+#include <sstream>  
 
 namespace {
 
@@ -134,6 +135,38 @@ SNLEquipotential::SNLEquipotential(SNLNetComponent* netComponent):
 SNLEquipotential::SNLEquipotential(const SNLNetComponentOccurrence& netComponentOccurrence) {
   SNLEquipotentialExtractor extractor(instTermOccurrences_, terms_);
   extractor.extractNetFromNetComponentOccurrence(netComponentOccurrence, true);
+}
+
+std::string SNLEquipotential::getString() const {
+  std::ostringstream stream;
+  stream << "InstTermOccurrences: [";
+  bool first = true;
+  for (const auto& instTermOccurrence: instTermOccurrences_) {
+    if (not first) {
+      stream << ", ";
+    }
+    first = false;
+    stream << instTermOccurrence.getString();
+  }
+  stream << "], Terms: [";
+  first = true;
+  for (const auto& term: terms_) {
+    if (not first) {
+      stream << ", ";
+    }
+    first = false;
+    stream << term->getString();
+  }
+  stream << "]";
+  return stream.str();
+}
+
+NajaCollection<SNLBitTerm*> SNLEquipotential::getTerms() const {
+  return NajaCollection(new NajaSTLCollection(&terms_));
+}
+
+NajaCollection<SNLInstTermOccurrence> SNLEquipotential::getInstTermOccurrences() const {
+  return NajaCollection(new NajaSTLCollection(&instTermOccurrences_));
 }
 
 }} // namespace SNL // namespace naja
