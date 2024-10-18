@@ -73,14 +73,22 @@ TEST_F(SNLEquipotentialTest, test) {
   auto cpio = SNLInstTermOccurrence(cPath, cpi);
   
   SNLEquipotential equipotentialTopI0(topi0);
-  EXPECT_THAT(equipotentialTopI0.getTerms(), ElementsAre(topi0, topi1, topout));
-  EXPECT_THAT(equipotentialTopI0.getInstTermOccurrences(), ElementsAre(aapio, bbpio, cpio));
+  std::set<SNLBitTerm*> terms;
+  terms.insert(topi0);
+  terms.insert(topi1);
+  terms.insert(topout);
+  std::set<SNLInstTermOccurrence> instTermOccurrences;
+  instTermOccurrences.insert(aapio);
+  instTermOccurrences.insert(bbpio);
+  instTermOccurrences.insert(cpio);
+  EXPECT_EQ(equipotentialTopI0.getTerms(), naja::NajaCollection(new naja::NajaSTLCollection(&terms)));
+  EXPECT_EQ(equipotentialTopI0.getInstTermOccurrences(), naja::NajaCollection(new naja::NajaSTLCollection(&instTermOccurrences)));
 
   SNLEquipotential equipotentialTopI1(topi1);
-  EXPECT_THAT(equipotentialTopI1.getTerms(), ElementsAre(topi0, topi1, topout));
-  EXPECT_THAT(equipotentialTopI1.getInstTermOccurrences(), ElementsAre(aapio, bbpio, cpio));
+  EXPECT_EQ(equipotentialTopI1.getTerms(), naja::NajaCollection(new naja::NajaSTLCollection(&terms)));
+  EXPECT_EQ(equipotentialTopI1.getInstTermOccurrences(), naja::NajaCollection(new naja::NajaSTLCollection(&instTermOccurrences)));
 
   SNLEquipotential equipotentialTopOut(topout);
-  EXPECT_THAT(equipotentialTopOut.getTerms(), ElementsAre(topi0, topi1, topout));
-  EXPECT_THAT(equipotentialTopOut.getInstTermOccurrences(), ElementsAre(aapio, bbpio, cpio));
+  EXPECT_EQ(equipotentialTopOut.getTerms(), naja::NajaCollection(new naja::NajaSTLCollection(&terms)));
+  EXPECT_EQ(equipotentialTopOut.getInstTermOccurrences(), naja::NajaCollection(new naja::NajaSTLCollection(&instTermOccurrences)));
 }

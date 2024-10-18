@@ -17,16 +17,40 @@ class SNLNetComponentOccurrence;
 
 class SNLEquipotential {
   public:
-    SNLEquipotential()=delete;
-    SNLEquipotential(const SNLEquipotential&)=delete;
+    //SNLEquipotential()=delete;
+    //SNLEquipotential(const SNLEquipotential&)=delete;
     using InstTermOccurrences = std::set<SNLInstTermOccurrence>;
     using Terms = std::set<SNLBitTerm*, SNLDesignObject::PointerLess>;
 
     SNLEquipotential(SNLNetComponent* netComponent);
     SNLEquipotential(const SNLNetComponentOccurrence& netComponentOccurrence);
 
-    Terms getTerms() const { return terms_; }
-    InstTermOccurrences getInstTermOccurrences() const { return instTermOccurrences_; }
+    //Terms getTerms() const { return terms_; }
+    //InstTermOccurrences getInstTermOccurrences() const { return instTermOccurrences_; }
+    NajaCollection<SNLBitTerm*> getTerms() const;
+    NajaCollection<SNLInstTermOccurrence> getInstTermOccurrences() const;
+    std::string getString() const;
+    //Comparators
+    bool operator==(const SNLEquipotential& other) const {
+      return instTermOccurrences_ == other.instTermOccurrences_ and terms_ == other.terms_;
+    }
+    bool operator!=(const SNLEquipotential& other) const {
+      return not operator==(other);
+    }
+    bool operator<(const SNLEquipotential& other) const {
+      return instTermOccurrences_ < other.instTermOccurrences_ or
+        (instTermOccurrences_ == other.instTermOccurrences_ and terms_ < other.terms_);
+    }
+    bool operator>(const SNLEquipotential& other) const {
+      return instTermOccurrences_ > other.instTermOccurrences_ or
+        (instTermOccurrences_ == other.instTermOccurrences_ and terms_ > other.terms_);
+    }
+    bool operator<=(const SNLEquipotential& other) const {
+      return not operator>(other);
+    }
+    bool operator>=(const SNLEquipotential& other) const {
+      return not operator<(other);
+    }
   private:
     InstTermOccurrences instTermOccurrences_  {};
     Terms               terms_                {};

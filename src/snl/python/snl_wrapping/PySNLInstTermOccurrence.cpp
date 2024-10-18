@@ -50,6 +50,7 @@ static int PySNLInstTermOccurrence_Init(PySNLInstTermOccurrence* self, PyObject*
 //LCOV_EXCL_START
 ManagedTypeLinkCreateMethod(SNLInstTermOccurrence) 
 //LCOV_EXCL_STOP
+//DBoLinkCreateMethod(SNLInstTermOccurrence)
 ManagedTypeDeallocMethod(SNLInstTermOccurrence)
 
 PyMethodDef PySNLInstTermOccurrence_Methods[] = {

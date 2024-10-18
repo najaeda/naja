@@ -37,6 +37,8 @@
 #include "PySNLOccurrence.h"
 #include "PySNLInstTermOccurrence.h"
 #include "PySNLNetComponentOccurrence.h"
+#include "PySNLEquipotential.h"
+#include "PySNLInstTermOccurrences.h"
 
 namespace PYSNL {
 
@@ -76,6 +78,7 @@ PyMODINIT_FUNC PyInit_snl(void) {
   PySNLInstParameter_LinkPyType();
   PySNLInstTerm_LinkPyType();
   PySNLPath_LinkPyType();
+  PySNLEquipotential_LinkPyType();
   PySNLOccurrence_LinkPyType();
   PySNLNetComponentOccurrence_LinkPyType();
   PySNLInstTermOccurrence_LinkPyType();
@@ -95,6 +98,7 @@ PyMODINIT_FUNC PyInit_snl(void) {
   PySNLInstances_LinkPyType();
   PySNLInstParameters_LinkPyType();
   PySNLInstTerms_LinkPyType();
+  PySNLInstTermOccurrences_LinkPyType();
 
   PYTYPE_READY(SNLUniverse);
   PYTYPE_READY(SNLDB);
@@ -120,6 +124,7 @@ PyMODINIT_FUNC PyInit_snl(void) {
   PYTYPE_READY_SUB(SNLInstTerm, SNLNetComponent);
 
   PYTYPE_READY(SNLPath);
+  PYTYPE_READY(SNLEquipotential);
   PYTYPE_READY(SNLOccurrence);
   PYTYPE_READY(SNLNetComponentOccurrence);
   PYTYPE_READY(SNLInstTermOccurrence);
@@ -153,6 +158,9 @@ PyMODINIT_FUNC PyInit_snl(void) {
   PYTYPE_READY(SNLInstParametersIterator);
   PYTYPE_READY(SNLInstTerms);
   PYTYPE_READY(SNLInstTermsIterator);
+  PYTYPE_READY(SNLInstTermOccurrences);
+  PYTYPE_READY(SNLInstTermOccurrencesIterator);
+
 
   //FIXME:XTOF Why those increfs ??
   Py_INCREF(&PyTypeSNLUniverse);
@@ -175,6 +183,7 @@ PyMODINIT_FUNC PyInit_snl(void) {
   Py_INCREF(&PyTypeSNLBusTermBit);
   Py_INCREF(&PyTypeSNLInstance);
   Py_INCREF(&PyTypeSNLPath);
+  Py_INCREF(&PyTypeSNLEquipotential);
   Py_INCREF(&PyTypeSNLOccurrence);
   Py_INCREF(&PyTypeSNLNetComponentOccurrence);
   Py_INCREF(&PyTypeSNLInstTermOccurrence);
@@ -194,6 +203,7 @@ PyMODINIT_FUNC PyInit_snl(void) {
   Py_INCREF(&PyTypeSNLInstances);
   Py_INCREF(&PyTypeSNLInstParameters);
   Py_INCREF(&PyTypeSNLInstTerms);
+  Py_INCREF(&PyTypeSNLInstTermOccurrences);
 
   PyObject* mod = PyModule_Create(&snlModule);
 
@@ -229,6 +239,7 @@ PyMODINIT_FUNC PyInit_snl(void) {
   PyModule_AddObject(mod, "SNLOccurrence", (PyObject*)&PyTypeSNLOccurrence);
   PyModule_AddObject(mod, "SNLNetComponentOccurrence", (PyObject*)&PyTypeSNLNetComponentOccurrence);
   PyModule_AddObject(mod, "SNLInstTermOccurrence", (PyObject*)&PyTypeSNLInstTermOccurrence);
+  PyModule_AddObject(mod, "SNLEquipotential", (PyObject*)&PyTypeSNLEquipotential);
 
   PySNLTerm_postModuleInit();
   PySNLNet_postModuleInit();
