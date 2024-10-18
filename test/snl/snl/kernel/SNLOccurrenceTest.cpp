@@ -174,7 +174,8 @@ TEST_F(SNLOccurrenceTest, testEquipotential0) {
   auto topi = top->getScalarTerm(SNLName("i"));
   ASSERT_NE(topi, nullptr);
   SNLEquipotential equipotential(topi);
-  EXPECT_THAT(equipotential.getTerms(), ElementsAre(topi));
+  EXPECT_EQ(equipotential.getTerms().size(), 1);
+  EXPECT_EQ(*equipotential.getTerms().begin(), topi);
   SNLPath::PathStringDescriptor h2StringPath = {"h0", "h1", "h2"};
   SNLPath h2Path(top, h2StringPath);
   EXPECT_FALSE(h2Path.empty());
@@ -184,7 +185,8 @@ TEST_F(SNLOccurrenceTest, testEquipotential0) {
   ASSERT_NE(nullptr, primi);
   auto primiOccurrence = SNLInstTermOccurrence(h2Path, primi);
   ASSERT_TRUE(primiOccurrence.isValid());
-  EXPECT_THAT(equipotential.getInstTermOccurrences(), ElementsAre(primiOccurrence));
+  EXPECT_EQ(equipotential.getInstTermOccurrences().size(), 1);
+  EXPECT_EQ(*equipotential.getInstTermOccurrences().begin(), primiOccurrence);
 }
 
 TEST_F(SNLOccurrenceTest, testEquipotential1) {
@@ -199,7 +201,8 @@ TEST_F(SNLOccurrenceTest, testEquipotential1) {
   ASSERT_NE(nullptr, h2i);
   auto h2iOccurrence = SNLInstTermOccurrence(h1Path, h2i);
   SNLEquipotential equipotential(h2iOccurrence);
-  EXPECT_THAT(equipotential.getTerms(), ElementsAre(topi));
+  EXPECT_EQ(equipotential.getTerms().size(), 1);
+  EXPECT_EQ(*equipotential.getTerms().begin(), topi);
   SNLPath::PathStringDescriptor h2StringPath = {"h0", "h1", "h2"};
   SNLPath h2Path(top, h2StringPath);
   EXPECT_FALSE(h2Path.empty());
@@ -209,7 +212,8 @@ TEST_F(SNLOccurrenceTest, testEquipotential1) {
   ASSERT_NE(nullptr, primi);
   auto primiOccurrence = SNLInstTermOccurrence(h2Path, primi);
   ASSERT_TRUE(primiOccurrence.isValid());
-  EXPECT_THAT(equipotential.getInstTermOccurrences(), ElementsAre(primiOccurrence));
+  EXPECT_EQ(equipotential.getInstTermOccurrences().size(), 1);
+  EXPECT_EQ(*equipotential.getInstTermOccurrences().begin(), primiOccurrence);
 }
 
 TEST_F(SNLOccurrenceTest, testErrors) {

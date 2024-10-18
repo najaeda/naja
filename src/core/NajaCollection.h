@@ -1070,13 +1070,30 @@ template<class Type> class NajaCollection {
       return NajaCollection<ReturnType>();
     }
 
-    NajaBaseIterator<Type>* begin_() { if (collection_) { return collection_->begin(); } return nullptr; }
-    NajaBaseIterator<Type>* end_() { if (collection_) { return collection_->end(); } return nullptr; }
-    Iterator begin() { return Iterator(begin_()); }
-    Iterator end() { return Iterator(end_()); }
+    NajaBaseIterator<Type>* begin_() const { if (collection_) { return collection_->begin(); } return nullptr; }
+    NajaBaseIterator<Type>* end_() const { if (collection_) { return collection_->end(); } return nullptr; }
+    Iterator begin() const { return Iterator(begin_()); }
+    Iterator end() const { return Iterator(end_()); }
 
     size_t size() const { if (collection_) { return collection_->size(); } return 0; }
     bool empty() const { if (collection_) { return collection_->empty(); } return true; }
+    
+    //comperator
+    bool operator==(const NajaCollection<Type>& r) const {
+       if (size() == r.size()) {
+         auto it = begin();
+         auto rit = r.begin();
+         while (it != end()) {
+           if (*it != *rit) {
+             return false;
+           }
+           ++it;
+           ++rit;
+         }
+         return true;
+       }
+        return false;
+    }
   private:
     const NajaBaseCollection<Type>*  collection_ {nullptr};
 };
