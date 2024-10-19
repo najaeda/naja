@@ -60,8 +60,9 @@ class SNLEquiTest(unittest.TestCase):
     for t in insttermoccurrences :
       print(t)
     
-    with self.assertRaises(RuntimeError) as context: snl.SNLInstTermOccurrence(path1)
-    with self.assertRaises(RuntimeError) as context: snl.SNLInstTermOccurrence(-1, -1, -1)
+    with self.assertRaises(RuntimeError) as context: snl.SNLEquipotential(path1)
+    with self.assertRaises(RuntimeError) as context: snl.SNLEquipotential(-1, -1, -1)
+    with self.assertRaises(RuntimeError) as context: snl.SNLEquipotential()
     
 if __name__ == '__main__':
   unittest.main()
