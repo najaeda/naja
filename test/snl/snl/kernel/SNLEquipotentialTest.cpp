@@ -111,4 +111,5 @@ TEST_F(SNLEquipotentialTest, test) {
   EXPECT_EQ(equipotentialTopI0 > equipotentialTopI1, false);
   EXPECT_EQ(equipotentialTopI0 > equipotentialTopOut, false);
   EXPECT_EQ(equipotentialTopI1 > equipotentialTopOut, false);
+  EXPECT_EQ(equipotentialTopI0 != equipotentialTopI1, false);
 }
