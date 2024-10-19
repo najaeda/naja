@@ -83,12 +83,32 @@ TEST_F(SNLEquipotentialTest, test) {
   instTermOccurrences.insert(cpio);
   EXPECT_EQ(equipotentialTopI0.getTerms(), naja::NajaCollection(new naja::NajaSTLCollection(&terms)));
   EXPECT_EQ(equipotentialTopI0.getInstTermOccurrences(), naja::NajaCollection(new naja::NajaSTLCollection(&instTermOccurrences)));
+  { auto print = equipotentialTopI0.getString(); }
 
   SNLEquipotential equipotentialTopI1(topi1);
   EXPECT_EQ(equipotentialTopI1.getTerms(), naja::NajaCollection(new naja::NajaSTLCollection(&terms)));
   EXPECT_EQ(equipotentialTopI1.getInstTermOccurrences(), naja::NajaCollection(new naja::NajaSTLCollection(&instTermOccurrences)));
+  { auto print = equipotentialTopI1.getString(); }
 
   SNLEquipotential equipotentialTopOut(topout);
   EXPECT_EQ(equipotentialTopOut.getTerms(), naja::NajaCollection(new naja::NajaSTLCollection(&terms)));
   EXPECT_EQ(equipotentialTopOut.getInstTermOccurrences(), naja::NajaCollection(new naja::NajaSTLCollection(&instTermOccurrences)));
+  { auto print = equipotentialTopOut.getString(); }
+
+  //Test compaerators
+  EXPECT_EQ(equipotentialTopI0 == equipotentialTopI1, true);
+  EXPECT_EQ(equipotentialTopI0 == equipotentialTopOut, true);
+  EXPECT_EQ(equipotentialTopI1 == equipotentialTopOut, true);
+  EXPECT_EQ(equipotentialTopI0 <= equipotentialTopI1, true);
+  EXPECT_EQ(equipotentialTopI0 <= equipotentialTopOut, true);
+  EXPECT_EQ(equipotentialTopI1 <= equipotentialTopOut, true);
+  EXPECT_EQ(equipotentialTopI0 >= equipotentialTopI1, true);
+  EXPECT_EQ(equipotentialTopI0 >= equipotentialTopOut, true);
+  EXPECT_EQ(equipotentialTopI1 >= equipotentialTopOut, true);
+  EXPECT_EQ(equipotentialTopI0 < equipotentialTopI1, false);
+  EXPECT_EQ(equipotentialTopI0 < equipotentialTopOut, false);
+  EXPECT_EQ(equipotentialTopI1 < equipotentialTopOut, false);
+  EXPECT_EQ(equipotentialTopI0 > equipotentialTopI1, false);
+  EXPECT_EQ(equipotentialTopI0 > equipotentialTopOut, false);
+  EXPECT_EQ(equipotentialTopI1 > equipotentialTopOut, false);
 }
