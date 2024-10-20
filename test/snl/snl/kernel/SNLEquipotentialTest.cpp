@@ -95,6 +95,19 @@ TEST_F(SNLEquipotentialTest, test) {
   EXPECT_EQ(equipotentialTopOut.getInstTermOccurrences(), naja::NajaCollection(new naja::NajaSTLCollection(&instTermOccurrences)));
   { auto print = equipotentialTopOut.getString(); }
 
+  std::set<SNLInstTermOccurrence> instTermOccurrences1;
+  instTermOccurrences.insert(aapio);
+  instTermOccurrences.insert(bbpio);
+  instTermOccurrences.insert(cpio);
+  std::set<SNLInstTermOccurrence> instTermOccurrences2;
+  instTermOccurrences.insert(aapio);
+  instTermOccurrences.insert(bbpio);
+  instTermOccurrences.insert(bbpio);
+  EXPECT_EQ(equipotentialTopOut.getInstTermOccurrences() ==  naja::NajaCollection(new naja::NajaSTLCollection(&instTermOccurrences1)), false);
+  EXPECT_EQ(equipotentialTopOut.getInstTermOccurrences() == naja::NajaCollection(new naja::NajaSTLCollection(&instTermOccurrences2)), false);
+
+
+
   //Test compaerators
   EXPECT_EQ(equipotentialTopI0 == equipotentialTopI1, true);
   EXPECT_EQ(equipotentialTopI0 == equipotentialTopOut, true);
