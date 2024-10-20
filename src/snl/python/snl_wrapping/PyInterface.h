@@ -355,6 +355,41 @@ PyObject* richCompare(T left, T right, int op) {
     .tp_new = PyType_GenericNew, \
   };
 
+#define PyContainerMethodsForNonPointers(TYPE, CONTAINER) \
+  DirectDeallocMethod(CONTAINER) \
+  static PyObject* Py##CONTAINER##IteratorNext(Py##CONTAINER##Iterator* pyIterator) { \
+    auto iterator = pyIterator->object_; \
+    if (iterator and pyIterator->container_ \
+      and pyIterator->container_->object_ \
+      and *iterator != pyIterator->container_->object_->end()) { \
+      auto object = **iterator; \
+      ++(*iterator); \
+      return Py##TYPE##_Link(object); \
+    } \
+    return nullptr; \
+  } \
+  static PyObject* getIterator(Py##CONTAINER* pyContainer) { \
+    auto pyIterator = \
+      PyObject_New(Py##CONTAINER##Iterator, &PyType##CONTAINER##Iterator); \
+    if (not pyIterator) return nullptr; \
+    pyIterator->container_ = pyContainer; \
+    pyIterator->object_ = new naja::NajaCollection<TYPE>::Iterator(pyContainer->object_->begin()); \
+    Py_INCREF(pyContainer); \
+    return (PyObject*)pyIterator; \
+  } \
+  static void Py##CONTAINER##IteratorDeAlloc(Py##CONTAINER##Iterator* pyIterator) { \
+    Py_XDECREF(pyIterator->container_); \
+    if (pyIterator->object_) delete pyIterator->object_; \
+    PyObject_Del(pyIterator); \
+  } \
+  extern void Py##CONTAINER##_LinkPyType() { \
+    PyType##CONTAINER.tp_iter               = (getiterfunc)getIterator; \
+    PyType##CONTAINER.tp_dealloc            = (destructor)Py##CONTAINER##_DeAlloc; \
+    PyType##CONTAINER##Iterator.tp_dealloc  = (destructor)Py##CONTAINER##IteratorDeAlloc; \
+    PyType##CONTAINER##Iterator.tp_iter     = PyObject_SelfIter; \
+    PyType##CONTAINER##Iterator.tp_iternext = (iternextfunc)Py##CONTAINER##IteratorNext; \
+  }
+
 #define PyContainerMethods(TYPE, CONTAINER) \
   DirectDeallocMethod(CONTAINER) \
   static PyObject* Py##CONTAINER##IteratorNext(Py##CONTAINER##Iterator* pyIterator) { \
@@ -389,6 +424,7 @@ PyObject* richCompare(T left, T right, int op) {
     PyType##CONTAINER##Iterator.tp_iter     = PyObject_SelfIter; \
     PyType##CONTAINER##Iterator.tp_iternext = (iternextfunc)Py##CONTAINER##IteratorNext; \
   }
+
 
 #define PyTypeContainerObjectDefinitions(SELF_TYPE) \
   PyTypeObject PyType##SELF_TYPE = { \
@@ -425,6 +461,19 @@ PyObject* richCompare(T left, T right, int op) {
   if (not selfObject) { \
     setError("Invalid dynamic_cast<> while calling " function "");                          \
     return nullptr;                                                                         \
+  }
+
+#define GetContainerMethodForNonPointers(TYPE, ITERATED, CONTAINER, GET_OBJECTS) \
+  static PyObject* PySNL##TYPE##_get##GET_OBJECTS(PySNL##TYPE *self) { \
+    METHOD_HEAD("SNL" #TYPE ".get" #GET_OBJECTS "()") \
+    PySNL##CONTAINER* pyObjects = nullptr; \
+    SNLTRY \
+    auto objects = new naja::NajaCollection<SNL##ITERATED>(selfObject->get##GET_OBJECTS()); \
+    pyObjects = PyObject_NEW(PySNL##CONTAINER, &PyTypeSNL##CONTAINER); \
+    if (not pyObjects) return nullptr; \
+    pyObjects->object_ = objects; \
+    SNLCATCH \
+    return (PyObject*)pyObjects; \
   }
 
 #define GetContainerMethod(TYPE, ITERATED, CONTAINER, GET_OBJECTS) \

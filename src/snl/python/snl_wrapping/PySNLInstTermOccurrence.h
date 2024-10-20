@@ -6,10 +6,7 @@
 #define __PY_SNL_INST_TREM_OCCURRENCE_H_
 
 #include <Python.h>
-
-namespace naja::SNL {
-  class SNLInstTermOccurrence;
-}
+#include "SNLInstTermOccurrence.h"
 
 namespace PYSNL {
 
@@ -20,7 +17,7 @@ typedef struct {
 
 extern PyTypeObject PyTypeSNLInstTermOccurrence;
 
-extern PyObject*  PySNLInstTermOccurrence_Link(naja::SNL::SNLInstTermOccurrence* occurrence);
+extern PyObject*  PySNLInstTermOccurrence_Link(const naja::SNL::SNLInstTermOccurrence& occurrence);
 extern void       PySNLInstTermOccurrence_LinkPyType();
 
 #define IsPySNLInstTermOccurrence(v) (PyObject_TypeCheck(v, &PyTypeSNLInstTermOccurrence))
