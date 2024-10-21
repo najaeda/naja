@@ -56,11 +56,10 @@ jobs:
       env:
         CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       with:
-        directory: ${{github.workspace}}/build
-        #env_vars: OS,PYTHON
         fail_ci_if_error: true
+        file: ${{github.workspace}}/build/coverage.info
+        disable_search: true
         files: coverage.info
         flags: unittests
         name: codecov-umbrella
-        #path_to_write_report: ./coverage/codecov_report.txt
         verbose: true
