@@ -13,7 +13,7 @@
 
 Naja is an Electronic Design Automation (EDA) project that provides open source data structures and APIs for the development of post logic synthesis EDA algorithms such as: netlist simplification (constant and dead logic propagation), logic replication, netlist partitioning, ASIC and FPGA place and route, …
 
-Naja best starting point is: [naja-edit](#naja_edit).
+Naja best starting point is netlist optimization and ECO (Engineering Change Order) tool: [naja-edit](#naja_edit) with Python scripts [gallery](README_pages/naja-edit-python-examples.md).
 
 ### Acknowledgement
 
@@ -71,13 +71,12 @@ naja_edit -f snl -t snl -i input.snl -o output.snl -a dle \
           -e pre_script.py -z post_edit.py
 ```
 
-This [page](README_pages/naja-edit-python-examples.md) provides a collection of example Python scripts for using the naja_edit API.
+👉🐍 This [page](README_pages/naja-edit-python-examples.md) provides a collection of example Python scripts for using the naja_edit API.
 
-`naja_edit` editing script examples are also available [here](https://github.com/najaeda/naja/blob/main/src/apps/najae_edit/examples).
+`naja_edit` editing script examples are also available [here](https://github.com/najaeda/naja/blob/main/src/apps/naja_edit/examples).
 
 The [Naja Regress](https://github.com/najaeda/naja-regress) repository features a collection of examples
 showcasing extensive use of `naja_edit`.
-
 
 <div align="right">[ <a href="#Introduction">↑ Back to top ↑</a> ]</div>
 
