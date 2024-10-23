@@ -75,36 +75,6 @@ OptimizationType argToOptimizationType(const std::string& optimization) {
 }
 
 using Paths = std::vector<std::filesystem::path>;
-enum class PrimitivesPathExtension { UNKNOWN, PY, LIB };
-// Check if all primitives paths have the same extension
-PrimitivesPathExtension checkPrimitivesPathsExtension(const Paths& paths) {
-  PrimitivesPathExtension pathExtension = PrimitivesPathExtension::UNKNOWN;
-  for (const auto& path : paths) {
-    auto extension = path.extension();
-    if (extension.empty()) {
-      SPDLOG_CRITICAL("Primitives path should end with an extension");
-      std::exit(EXIT_FAILURE);
-    } else if (extension == ".py") {
-      if (pathExtension == PrimitivesPathExtension::UNKNOWN) {
-        pathExtension = PrimitivesPathExtension::PY;
-      } else if (pathExtension != PrimitivesPathExtension::PY) {
-        SPDLOG_CRITICAL("All primitives paths should have the same extension");
-        std::exit(EXIT_FAILURE);
-      }
-    } else if (extension == ".lib") {
-      if (pathExtension == PrimitivesPathExtension::UNKNOWN) {
-        pathExtension = PrimitivesPathExtension::LIB;
-      } else if (pathExtension != PrimitivesPathExtension::LIB) {
-        SPDLOG_CRITICAL("All primitives paths should have the same extension");
-        std::exit(EXIT_FAILURE);
-      }
-    } else {
-      SPDLOG_CRITICAL("Unknow extension in Primitives path");
-      std::exit(EXIT_FAILURE);
-    }
-  }
-  return pathExtension;
-}
 
 SNLPyEdit::Args decodePythonEditArgs(const std::string& args) {
   SNLPyEdit::Args parsedArgs;
@@ -355,28 +325,21 @@ int main(int argc, char* argv[]) {
         db = SNLDB::create(SNLUniverse::get());
         primitivesLibrary = SNLLibrary::create(db, SNLLibrary::Type::Primitives,
                                                SNLName("PRIMS"));
-        auto primitivesExtension = checkPrimitivesPathsExtension(primitivesPaths);
-        switch (primitivesExtension) {
-          case PrimitivesPathExtension::PY: {
-            if (primitivesPaths.size() > 1) {
-              SPDLOG_CRITICAL("Multiple primitives paths are not supported for python format");
-              std::exit(EXIT_FAILURE);
-            }
-            auto primitivesPath = primitivesPaths[0];
-            SNLPyLoader::loadPrimitives(primitivesLibrary, primitivesPath);
-            break;
-          }
-          case PrimitivesPathExtension::LIB: {
-            SNLLibertyConstructor constructor(primitivesLibrary);
-            for (const auto& path : primitivesPaths) {
-              SPDLOG_INFO("Parsing primitives file: {}", path.string());
-              constructor.construct(path);
-            }
-            break;
-          }
-          default:
-            SPDLOG_CRITICAL("Unknown extension in Primitives path");
+        for (const auto& path : primitivesPaths) {
+          SPDLOG_INFO("Parsing primitives file: {}", path.string());
+          auto extension = path.extension();
+          if (extension.empty()) {
+            SPDLOG_CRITICAL("Primitives path should end with an extension");
             std::exit(EXIT_FAILURE);
+          } else if (extension == ".py") {
+            SNLPyLoader::loadPrimitives(primitivesLibrary, path);
+          } else if (extension == ".lib") {
+            SNLLibertyConstructor constructor(primitivesLibrary);
+            constructor.construct(path);
+          } else {
+            SPDLOG_CRITICAL("Unknow extension in Primitives path");
+            std::exit(EXIT_FAILURE);
+          }
         }
 
         auto designLibrary = SNLLibrary::create(db, SNLName("DESIGN"));
