@@ -492,7 +492,7 @@ def constructPrimitives(lib):
   constructAO22(lib, [1, 2])
   constructAO221(lib, [1, 2])
   constructAO222(lib, [2])
-  constructAO31(lib, [1, 2])
+  constructAO31(lib, [2])
   constructAO32(lib, [1, 2])
   constructAO33(lib, [2])
   constructAOI21(lib, [1])
