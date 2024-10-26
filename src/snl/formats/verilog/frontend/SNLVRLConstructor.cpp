@@ -21,6 +21,7 @@
 #include "SNLBusNetBit.h"
 #include "SNLScalarNet.h"
 #include "SNLInstParameter.h"
+#include "SNLAttribute.h"
 
 #include "SNLVRLConstructorUtils.h"
 #include "SNLVRLConstructorException.h"
@@ -181,6 +182,13 @@ void SNLVRLConstructor::construct(const std::filesystem::path& path) {
 void SNLVRLConstructor::startModule(const naja::verilog::Identifier& module) {
   if (inFirstPass()) {
     currentModule_ = SNLDesign::create(library_, SNLName(module.name_));
+    for (auto attribute: nextObjectAttributes_) {
+      SNLAttribute::addAttribute(
+        currentModule_,
+        SNLName(attribute.name_.getString()),
+        attribute.expression_.getString()
+      );
+    }
     if (verbose_) {
       std::cerr << "Construct Module: " << module.getString() << std::endl; //LCOV_EXCL_LINE
     }
@@ -201,6 +209,7 @@ void SNLVRLConstructor::startModule(const naja::verilog::Identifier& module) {
     }
     createCurrentModuleAssignNets();
   } 
+  nextObjectAttributes_.clear();
 }
 
 void SNLVRLConstructor::moduleInterfaceSimplePort(const naja::verilog::Identifier& port) {
@@ -581,6 +590,12 @@ void SNLVRLConstructor::addOrderedInstanceConnection(
   }
 }
 
+void SNLVRLConstructor::addAttribute(
+  const naja::verilog::Identifier& attributeName,
+  const naja::verilog::ConstantExpression& expression) {
+  nextObjectAttributes_.push_back(naja::verilog::Attribute(attributeName, expression));
+}
+
 void SNLVRLConstructor::endModule() {
   if (verbose_) {
     //LCOV_EXCL_START
@@ -730,7 +745,7 @@ void SNLVRLConstructor::collectIdentifierNets(
 
 void SNLVRLConstructor::addDefParameterAssignment(
   const naja::verilog::Identifiers& hierarchicalParameter,
-  const naja::verilog::Expression& expression) {
+  const naja::verilog::ConstantExpression& expression) {
   if (not inFirstPass()) {
     if (hierarchicalParameter.size() != 2) {
       std::ostringstream reason;

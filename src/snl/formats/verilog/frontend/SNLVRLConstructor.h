@@ -60,7 +60,10 @@ class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
       const naja::verilog::Expression& expression) override;
     void addDefParameterAssignment(
       const naja::verilog::Identifiers& hierarchicalParameter,
-      const naja::verilog::Expression& expression) override;
+      const naja::verilog::ConstantExpression& expression) override;
+    void addAttribute(
+      const naja::verilog::Identifier& attributeName,
+      const naja::verilog::ConstantExpression& expression) override;
     void endModule() override;
   private:
     void createCurrentModuleAssignNets();
@@ -83,6 +86,8 @@ class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
     bool              firstPass_                      {true};
     bool              blackboxDetection_              {true};
     SNLLibrary*       library_                        {nullptr};
+    using Attributes = std::vector<naja::verilog::Attribute>;
+    Attributes        nextObjectAttributes_           {};
     SNLDesign*        currentModule_                  {nullptr};
     std::string       currentModelName_               {};
     SNLInstance*      currentInstance_                {nullptr};
@@ -90,7 +95,6 @@ class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
     ParameterValues   currentInstanceParameterValues_ {};
     SNLScalarNet*     currentModuleAssign0_           {nullptr};
     SNLScalarNet*     currentModuleAssign1_           {nullptr};
-    //Following is used when 
     using InterfacePorts = std::vector<std::unique_ptr<naja::verilog::Port>>;
     using InterfacePortsMap = std::map<std::string, size_t>;
     InterfacePorts    currentModuleInterfacePorts_    {};
