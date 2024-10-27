@@ -13,33 +13,49 @@ namespace {
 class SNLAttributesPrivateProperty: public naja::NajaPrivateProperty {
   public:
     using Inherit = naja::NajaPrivateProperty;
-    using Attribute = std::pair<naja::SNL::SNLName, std::string>;
-    using Attributes = std::vector<Attribute>;
+    using SNLAttribute = naja::SNL::SNLAttributes::SNLAttribute;
+    using Attributes = std::vector<SNLAttribute>;
     static const inline std::string Name = "SNLDesignTruthTableProperty";
+    
     static SNLAttributesPrivateProperty* create(naja::SNL::SNLObject* object) {
       preCreate(object, Name);
       auto property = new SNLAttributesPrivateProperty();
       property->postCreate(object);
       return property;
     }
+    
     std::string getName() const override {
       return Name;
     }
+
     //LCOV_EXCL_START
     std::string getString() const override {
       return Name;
     }
     //LCOV_EXCL_STOP
+    
+    static SNLAttributesPrivateProperty* get(const naja::SNL::SNLObject* object) {
+      return static_cast<SNLAttributesPrivateProperty*>(
+        object->getProperty(SNLAttributesPrivateProperty::Name)
+      );
+    }
+
     static SNLAttributesPrivateProperty* getOrCreate(naja::SNL::SNLObject* object) {
-      auto prop = object->getProperty(SNLAttributesPrivateProperty::Name);
+      auto prop = get(object);
       if (prop == nullptr) {
         prop = SNLAttributesPrivateProperty::create(object);
       }
-      return static_cast<SNLAttributesPrivateProperty*>(prop);
+      return prop;
     }
-    void addAttribute(const naja::SNL::SNLAttributes::SNLAttribute& attribute) {
-      //attributes_
+
+    void addAttribute(const SNLAttribute& attribute) {
+      attributes_.push_back(attribute);
     }
+
+    naja::NajaCollection<SNLAttribute> getAttributes() const {
+      return naja::NajaCollection(new naja::NajaSTLCollection(&attributes_));
+    }
+
   private:
     Attributes  attributes_;
 };
@@ -57,6 +73,21 @@ SNLAttributes::SNLAttribute::SNLAttribute(
 void SNLAttributes::addAttribute(SNLDesign* design, const SNLAttribute& attribute) {
   auto prop = SNLAttributesPrivateProperty::getOrCreate(design);
   prop->addAttribute(attribute);
+}
+
+NajaCollection<SNLAttributes::SNLAttribute> SNLAttributes::getAttributes(const SNLDesign* design) {
+  auto prop = SNLAttributesPrivateProperty::get(design);
+  if (prop) {
+    return prop->getAttributes();
+  }
+  return NajaCollection<SNLAttributes::SNLAttribute>();
+}
+
+void SNLAttributes::clearAttributes(SNLObject* object) {
+  auto prop = SNLAttributesPrivateProperty::get(object);
+  if (prop) {
+    prop->destroy();
+  }
 }
 
 }} // namespace SNL // namespace naja
