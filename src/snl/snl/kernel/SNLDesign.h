@@ -23,6 +23,12 @@ class SNLScalarTerm;
 class SNLBusTerm;
 class SNLBusTermBit;
 
+/**
+ * @class SNLDesign
+ * @brief A SNLDesign has a dual role. It serves as a model for instances (SNLInstance::getModel) 
+ * and contains instances (SNLInstance::getDesign). 
+ * SNLDesign manages the terms, instances, nets, and parameters associated with an SNLDesign.
+ */
 class SNLDesign final: public SNLObject {
   public:
     friend class SNLLibrary;
