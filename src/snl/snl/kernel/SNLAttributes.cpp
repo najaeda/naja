@@ -75,8 +75,13 @@ void SNLAttributes::addAttribute(SNLDesign* design, const SNLAttribute& attribut
   prop->addAttribute(attribute);
 }
 
-NajaCollection<SNLAttributes::SNLAttribute> SNLAttributes::getAttributes(const SNLDesign* design) {
-  auto prop = SNLAttributesPrivateProperty::get(design);
+void SNLAttributes::addAttribute(SNLDesignObject* object, const SNLAttribute& attribute) {
+  auto prop = SNLAttributesPrivateProperty::getOrCreate(object);
+  prop->addAttribute(attribute);
+}
+
+NajaCollection<SNLAttributes::SNLAttribute> SNLAttributes::getAttributes(const SNLObject* object) {
+  auto prop = SNLAttributesPrivateProperty::get(object);
   if (prop) {
     return prop->getAttributes();
   }

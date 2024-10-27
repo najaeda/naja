@@ -81,6 +81,8 @@ class SNLVRLDumper {
     void setTopFileName(const std::string& name);
     void setLibraryFileName(const std::string& name);
     void setDumpHierarchy(bool mode);
+
+    void dumpAttributes(const SNLObject*, std::ostream& o);
     /**
      * \param design SNLDesign to dump.
      * \param path directory path in which the dump will be created.

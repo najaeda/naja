@@ -13,6 +13,7 @@ set(snl_vrl_dumper_tests
     SNLVRLDumperTestEscaping.cpp
     SNLVRLDumperTestTermNets.cpp
     SNLVRLDumperTestParameters.cpp
+    SNLVRLDumperTestAttributes.cpp
     SNLVRLDumperTestUtils.cpp
     SNLVRLDumperTestLibraryDump.cpp
 )

@@ -34,7 +34,7 @@ class SNLAttributes {
     static void addAttribute(SNLDesign* design, const SNLAttribute& attribute);
     static void addAttribute(SNLDesignObject* designObject, const SNLAttribute& attribute);
     static void clearAttributes(SNLObject* object);
-    static NajaCollection<SNLAttribute> getAttributes(const SNLDesign* design);
+    static NajaCollection<SNLAttribute> getAttributes(const SNLObject* object);
 };
 
 }} // namespace SNL // namespace naja
