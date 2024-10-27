@@ -7,7 +7,7 @@ add_subdirectory(visual)
 
 set(SNL_KERNEL_SOURCES
   kernel/SNLObject.cpp
-  kernel/SNLAttribute.cpp
+  kernel/SNLAttributes.cpp
   kernel/SNLUniverse.cpp kernel/SNLDB.cpp kernel/SNLDB0.cpp
   kernel/SNLLibrary.cpp
   kernel/SNLDesignObject.cpp

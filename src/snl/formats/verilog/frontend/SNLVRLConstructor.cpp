@@ -21,7 +21,7 @@
 #include "SNLBusNetBit.h"
 #include "SNLScalarNet.h"
 #include "SNLInstParameter.h"
-#include "SNLAttribute.h"
+#include "SNLAttributes.h"
 
 #include "SNLVRLConstructorUtils.h"
 #include "SNLVRLConstructorException.h"
@@ -183,10 +183,11 @@ void SNLVRLConstructor::startModule(const naja::verilog::Identifier& module) {
   if (inFirstPass()) {
     currentModule_ = SNLDesign::create(library_, SNLName(module.name_));
     for (auto attribute: nextObjectAttributes_) {
-      SNLAttribute::addAttribute(
+      SNLAttributes::addAttribute(
         currentModule_,
-        SNLName(attribute.name_.getString()),
-        attribute.expression_.getString()
+        SNLAttributes::SNLAttribute(
+          SNLName(attribute.name_.getString()),
+          attribute.expression_.getString())
       );
     }
     if (verbose_) {

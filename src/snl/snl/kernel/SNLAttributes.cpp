@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 
-#include "SNLAttribute.h"
+#include "SNLAttributes.h"
 
 #include "NajaPrivateProperty.h"
 #include "SNLDesign.h"
@@ -37,7 +37,7 @@ class SNLAttributesPrivateProperty: public naja::NajaPrivateProperty {
       }
       return static_cast<SNLAttributesPrivateProperty*>(prop);
     }
-    void addAttribute(const naja::SNL::SNLName& name, const std::string& value) {
+    void addAttribute(const naja::SNL::SNLAttributes::SNLAttribute& attribute) {
       //attributes_
     }
   private:
@@ -48,12 +48,15 @@ class SNLAttributesPrivateProperty: public naja::NajaPrivateProperty {
 
 namespace naja { namespace SNL {
 
-void SNLAttribute::addAttribute(
-    SNLDesign* design,
-    const SNLName& name,
-    const std::string& value) {
+SNLAttributes::SNLAttribute::SNLAttribute(
+  const SNLName& name,
+  const std::string& value):
+  name_(name), value_(value)
+{}
+
+void SNLAttributes::addAttribute(SNLDesign* design, const SNLAttribute& attribute) {
   auto prop = SNLAttributesPrivateProperty::getOrCreate(design);
-  prop->addAttribute(name, value);
+  prop->addAttribute(attribute);
 }
 
 }} // namespace SNL // namespace naja
