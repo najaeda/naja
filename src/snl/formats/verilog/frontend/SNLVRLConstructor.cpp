@@ -28,6 +28,36 @@
 
 namespace {
 
+void collectAttributes(
+  naja::SNL::SNLObject* object,
+  const naja::SNL::SNLVRLConstructor::Attributes& attributes) {
+  if (auto design = dynamic_cast<naja::SNL::SNLDesign*>(object)) {
+    for (const auto attribute: attributes) {
+      naja::SNL::SNLName attributeName(attribute.name_.getString());
+      std::string expression;
+      if (attribute.expression_.valid_) {
+        expression = attribute.expression_.getString();
+      }
+      naja::SNL::SNLAttributes::addAttribute(
+        design,
+        naja::SNL::SNLAttributes::SNLAttribute(attributeName, expression));
+    }
+  } else if (auto designObject = dynamic_cast<naja::SNL::SNLDesignObject*>(object)) {
+    for (const auto attribute: attributes) {
+      naja::SNL::SNLName attributeName(attribute.name_.getString());
+      std::string expression;
+      if (attribute.expression_.valid_) {
+        expression = attribute.expression_.getString();
+      }
+      naja::SNL::SNLAttributes::addAttribute(
+        designObject,
+        naja::SNL::SNLAttributes::SNLAttribute(attributeName, expression));
+    }
+  } else {
+    throw naja::SNL::SNLException("Unsupported object type for adding attributes");
+  }
+}
+
 void createPort(naja::SNL::SNLDesign* design, const naja::verilog::Port& port) {
   //spdlog::trace("Module {} create port: {}", design->getDescription(), port.getString());
   if (port.isBus()) {
@@ -183,11 +213,16 @@ void SNLVRLConstructor::startModule(const naja::verilog::Identifier& module) {
   if (inFirstPass()) {
     currentModule_ = SNLDesign::create(library_, SNLName(module.name_));
     for (auto attribute: nextObjectAttributes_) {
+      auto attributeExpression = attribute.expression_;
+      std::string attributeExpressionString;
+      if (attributeExpression.valid_) {
+        attributeExpressionString = attributeExpression.getString(); 
+      }
       SNLAttributes::addAttribute(
         currentModule_,
         SNLAttributes::SNLAttribute(
           SNLName(attribute.name_.getString()),
-          attribute.expression_.getString())
+          attributeExpressionString)
       );
     }
     if (verbose_) {
@@ -298,6 +333,7 @@ void SNLVRLConstructor::addNet(const naja::verilog::Net& net) {
     }
     //LCOV_EXCL_STOP
   }
+  nextObjectAttributes_.clear();
 }
 
 void SNLVRLConstructor::addAssign(
@@ -421,7 +457,11 @@ void SNLVRLConstructor::addInstance(const naja::verilog::Identifier& instance) {
     //might be a good idea to create a cache <Name, SNLDesign*> here
     //in particular for primitives
     currentInstance_ = SNLInstance::create(currentModule_, model, SNLName(instance.name_));
+    for (auto attribute: nextObjectAttributes_) {
+
+    }
   }
+  nextObjectAttributes_.clear();
 }
 
 void SNLVRLConstructor::addParameterAssignment(

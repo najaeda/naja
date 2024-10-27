@@ -61,6 +61,8 @@ class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
     void addDefParameterAssignment(
       const naja::verilog::Identifiers& hierarchicalParameter,
       const naja::verilog::ConstantExpression& expression) override;
+
+    using Attributes = std::vector<naja::verilog::Attribute>;
     void addAttribute(
       const naja::verilog::Identifier& attributeName,
       const naja::verilog::ConstantExpression& expression) override;
@@ -86,7 +88,6 @@ class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
     bool              firstPass_                      {true};
     bool              blackboxDetection_              {true};
     SNLLibrary*       library_                        {nullptr};
-    using Attributes = std::vector<naja::verilog::Attribute>;
     Attributes        nextObjectAttributes_           {};
     SNLDesign*        currentModule_                  {nullptr};
     std::string       currentModelName_               {};
