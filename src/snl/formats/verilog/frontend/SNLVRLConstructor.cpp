@@ -212,19 +212,7 @@ void SNLVRLConstructor::construct(const std::filesystem::path& path) {
 void SNLVRLConstructor::startModule(const naja::verilog::Identifier& module) {
   if (inFirstPass()) {
     currentModule_ = SNLDesign::create(library_, SNLName(module.name_));
-    for (auto attribute: nextObjectAttributes_) {
-      auto attributeExpression = attribute.expression_;
-      std::string attributeExpressionString;
-      if (attributeExpression.valid_) {
-        attributeExpressionString = attributeExpression.getString(); 
-      }
-      SNLAttributes::addAttribute(
-        currentModule_,
-        SNLAttributes::SNLAttribute(
-          SNLName(attribute.name_.getString()),
-          attributeExpressionString)
-      );
-    }
+    collectAttributes(currentModule_, nextObjectAttributes_);
     if (verbose_) {
       std::cerr << "Construct Module: " << module.getString() << std::endl; //LCOV_EXCL_LINE
     }
@@ -287,6 +275,7 @@ void SNLVRLConstructor::moduleImplementationPort(const naja::verilog::Port& port
   } else {
     createPortNet(currentModule_, port);
   }
+  nextObjectAttributes_.clear();
 }
 
 void SNLVRLConstructor::moduleInterfaceCompletePort(const naja::verilog::Port& port) {
@@ -295,6 +284,7 @@ void SNLVRLConstructor::moduleInterfaceCompletePort(const naja::verilog::Port& p
   } else {
     createPortNet(currentModule_, port);
   }
+  nextObjectAttributes_.clear();
 }
 
 void SNLVRLConstructor::addNet(const naja::verilog::Net& net) {
@@ -324,6 +314,7 @@ void SNLVRLConstructor::addNet(const naja::verilog::Net& net) {
         snlNet = SNLScalarNet::create(currentModule_, SNLName(net.identifier_.name_));
       }
       snlNet->setType(VRLTypeToSNLType(net.type_));
+      collectAttributes(snlNet, nextObjectAttributes_);
     //LCOV_EXCL_START
     } catch (const SNLException& exception) {
       std::ostringstream reason;
@@ -457,9 +448,7 @@ void SNLVRLConstructor::addInstance(const naja::verilog::Identifier& instance) {
     //might be a good idea to create a cache <Name, SNLDesign*> here
     //in particular for primitives
     currentInstance_ = SNLInstance::create(currentModule_, model, SNLName(instance.name_));
-    for (auto attribute: nextObjectAttributes_) {
-
-    }
+    collectAttributes(currentInstance_, nextObjectAttributes_);
   }
   nextObjectAttributes_.clear();
 }

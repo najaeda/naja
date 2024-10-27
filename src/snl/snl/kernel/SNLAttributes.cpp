@@ -5,6 +5,8 @@
 
 #include "SNLAttributes.h"
 
+#include <sstream>
+
 #include "NajaPrivateProperty.h"
 #include "SNLDesign.h"
 
@@ -69,6 +71,15 @@ SNLAttributes::SNLAttribute::SNLAttribute(
   const std::string& value):
   name_(name), value_(value)
 {}
+
+std::string SNLAttributes::SNLAttribute::getString() const {
+  std::ostringstream oss;
+  oss << name_.getString();
+  if (not value_.empty()) {
+    oss << " = " << value_;
+  }
+  return oss.str();
+}
 
 void SNLAttributes::addAttribute(SNLDesign* design, const SNLAttribute& attribute) {
   auto prop = SNLAttributesPrivateProperty::getOrCreate(design);

@@ -23,6 +23,7 @@ class SNLAttributes {
         SNLAttribute(const SNLAttribute&) = default;
         SNLName getName() const { return name_; }
         std::string getValue() const { return value_; }
+        std::string getString() const;
         bool hasValue() const { return not value_.empty(); }
         bool operator==(const SNLAttribute& ra) const {
           return name_ == ra.name_ and value_ == ra.value_;
