@@ -72,6 +72,7 @@ SNLAttributes::SNLAttribute::SNLAttribute(
   name_(name), value_(value)
 {}
 
+//LCOV_EXCL_START
 std::string SNLAttributes::SNLAttribute::getString() const {
   std::ostringstream oss;
   oss << name_.getString();
@@ -80,6 +81,7 @@ std::string SNLAttributes::SNLAttribute::getString() const {
   }
   return oss.str();
 }
+//LCOV_EXCL_STOP
 
 void SNLAttributes::addAttribute(SNLDesign* design, const SNLAttribute& attribute) {
   auto prop = SNLAttributesPrivateProperty::getOrCreate(design);

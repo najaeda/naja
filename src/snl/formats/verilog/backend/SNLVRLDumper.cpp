@@ -258,7 +258,7 @@ SNLName SNLVRLDumper::getNetName(const SNLNet* net, const DesignInsideAnonymousN
 }
 
 void SNLVRLDumper::dumpAttributes(const SNLObject* object, std::ostream& o) {
-  for (auto attribute: SNLAttributes::getAttributes(object)) {
+  for (const auto& attribute: SNLAttributes::getAttributes(object)) {
     o << "(* ";
     o << attribute.getName().getString();
     if (attribute.hasValue()) {
