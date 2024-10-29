@@ -10,6 +10,7 @@ using ::testing::ElementsAre;
 #include <fstream>
 
 #include "SNLUniverse.h"
+#include "SNLScalarTerm.h"
 #include "SNLAttributes.h"
 
 #include "SNLVRLConstructor.h"
@@ -86,6 +87,73 @@ TEST_F(SNLVRLConstructorTestAttributes, test) {
     )
   );
 
+  ASSERT_EQ(4, simple_netlist->getTerms().size());
+  ASSERT_EQ(4, simple_netlist->getScalarTerms().size());
+
+  using Terms = std::vector<SNLScalarTerm*>;
+  Terms terms(
+    simple_netlist->getScalarTerms().begin(),
+    simple_netlist->getScalarTerms().end()
+  );
+
+  EXPECT_THAT(terms,
+    ElementsAre(
+      simple_netlist->getScalarTerm(SNLName("a")),
+      simple_netlist->getScalarTerm(SNLName("b")),
+      simple_netlist->getScalarTerm(SNLName("and_out")),
+      simple_netlist->getScalarTerm(SNLName("or_out"))
+    )
+  );
+
+  auto aTerm = simple_netlist->getScalarTerm(SNLName("a"));
+  ASSERT_NE(aTerm, nullptr);
+  EXPECT_EQ(1, SNLAttributes::getAttributes(aTerm).size());
+  Attributes aTermAttributes(
+    SNLAttributes::getAttributes(aTerm).begin(),
+    SNLAttributes::getAttributes(aTerm).end());
+  EXPECT_EQ(1, aTermAttributes.size());
+  EXPECT_EQ(
+    SNLAttributes::SNLAttribute(SNLName("INPUT_ATTRIBUTE_A"), "Input signal A"),
+    aTermAttributes[0]
+  );
+
+  auto bTerm = simple_netlist->getScalarTerm(SNLName("b"));
+  ASSERT_NE(bTerm, nullptr);
+  EXPECT_EQ(1, SNLAttributes::getAttributes(bTerm).size());
+  Attributes bTermAttributes(
+    SNLAttributes::getAttributes(bTerm).begin(),
+    SNLAttributes::getAttributes(bTerm).end());
+  EXPECT_EQ(1, bTermAttributes.size());
+  EXPECT_EQ(
+    SNLAttributes::SNLAttribute(SNLName("INPUT_ATTRIBUTE_B"), "Input signal B"),
+    bTermAttributes[0]
+  );
+
+  auto andOutTerm = simple_netlist->getScalarTerm(SNLName("and_out"));
+  ASSERT_NE(andOutTerm, nullptr);
+  EXPECT_EQ(1, SNLAttributes::getAttributes(andOutTerm).size());
+    Attributes andOutTermAttributes(
+    SNLAttributes::getAttributes(andOutTerm).begin(),
+    SNLAttributes::getAttributes(andOutTerm).end());
+  EXPECT_EQ(1, andOutTermAttributes.size());
+  EXPECT_EQ(
+    SNLAttributes::SNLAttribute(SNLName("OUTPUT_ATTRIBUTE_AND"), "Output of AND gate"),
+    andOutTermAttributes[0]
+  );
+
+  auto orOutTerm = simple_netlist->getScalarTerm(SNLName("or_out"));
+  ASSERT_NE(orOutTerm, nullptr);
+  EXPECT_EQ(1, SNLAttributes::getAttributes(orOutTerm).size());
+    EXPECT_EQ(1, SNLAttributes::getAttributes(orOutTerm).size());
+    Attributes orOutTermAttributes(
+    SNLAttributes::getAttributes(orOutTerm).begin(),
+    SNLAttributes::getAttributes(orOutTerm).end());
+  EXPECT_EQ(1, orOutTermAttributes.size());
+  EXPECT_EQ(
+    SNLAttributes::SNLAttribute(SNLName("OUTPUT_ATTRIBUTE_OR"), "Output of OR gate"),
+    orOutTermAttributes[0]
+  );
+
   //2 assign nets (1'b0, 1'b1) and 6 nets
   ASSERT_EQ(8, simple_netlist->getNets().size());
   ASSERT_EQ(8, simple_netlist->getScalarNets().size());
@@ -96,10 +164,20 @@ TEST_F(SNLVRLConstructorTestAttributes, test) {
     SNLAttributes::getAttributes(andWire).begin(),
     SNLAttributes::getAttributes(andWire).end());
   EXPECT_EQ(1, andWireAttributes.size());
-  std::cerr << andWireAttributes[0].getString() << std::endl;
   EXPECT_EQ(
     SNLAttributes::SNLAttribute(SNLName("WIRE_ATTRIBUTE"), "Wire connecting AND gate output to top output"),
     andWireAttributes[0]
+  );
+
+  auto orWire = simple_netlist->getNet(SNLName("or_wire"));
+  ASSERT_NE(orWire, nullptr);
+  Attributes orWireAttributes(
+    SNLAttributes::getAttributes(orWire).begin(),
+    SNLAttributes::getAttributes(orWire).end());
+  EXPECT_EQ(1, orWireAttributes.size());
+  EXPECT_EQ(
+    SNLAttributes::SNLAttribute(SNLName("WIRE_ATTRIBUTE"), "Wire connecting OR gate output to top output"),
+    orWireAttributes[0]
   );
 
 #if 0

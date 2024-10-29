@@ -58,21 +58,26 @@ void collectAttributes(
   }
 }
 
-void createPort(naja::SNL::SNLDesign* design, const naja::verilog::Port& port) {
+void createPort(
+  naja::SNL::SNLDesign* design,
+  const naja::verilog::Port& port,
+  const naja::SNL::SNLVRLConstructor::Attributes& attributes) {
   //spdlog::trace("Module {} create port: {}", design->getDescription(), port.getString());
+  naja::SNL::SNLTerm* term = nullptr;
   if (port.isBus()) {
-    naja::SNL::SNLBusTerm::create(
+    term = naja::SNL::SNLBusTerm::create(
       design,
       naja::SNL::SNLVRLConstructor::VRLDirectionToSNLDirection(port.direction_),
       port.range_.msb_,
       port.range_.lsb_,
       naja::SNL::SNLName(port.identifier_.name_));
   } else {
-    naja::SNL::SNLScalarTerm::create(
+    term = naja::SNL::SNLScalarTerm::create(
       design,
       naja::SNL::SNLVRLConstructor::VRLDirectionToSNLDirection(port.direction_),
       naja::SNL::SNLName(port.identifier_.name_));
   }
+  collectAttributes(term, attributes);
 }
 
 void createPortNet(naja::SNL::SNLDesign* design, const naja::verilog::Port& port) {
@@ -280,7 +285,7 @@ void SNLVRLConstructor::moduleImplementationPort(const naja::verilog::Port& port
 
 void SNLVRLConstructor::moduleInterfaceCompletePort(const naja::verilog::Port& port) {
   if (inFirstPass()) {
-    createPort(currentModule_, port);
+    createPort(currentModule_, port, nextObjectAttributes_);
   } else {
     createPortNet(currentModule_, port);
   }
@@ -653,8 +658,8 @@ void SNLVRLConstructor::endModule() {
       reason << portName << " declared in interface has no declaration in module implementation.";
       throw SNLVRLConstructorException(reason.str());
     }
-    for (auto& port: currentModuleInterfacePorts_) {
-      createPort(currentModule_, *port);
+    for (const auto& port: currentModuleInterfacePorts_) {
+      createPort(currentModule_, *port, nextObjectAttributes_);
     }
   } else {
     //Blackbox detection
