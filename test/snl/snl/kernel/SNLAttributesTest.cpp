@@ -29,8 +29,14 @@ class SNLAttributesTest: public ::testing::Test {
 TEST_F(SNLAttributesTest, testCreationOnDesign) {
   auto design = SNLDesign::create(library_, SNLName("DESIGN"));
   EXPECT_TRUE(SNLAttributes::getAttributes(design).empty());
-  SNLAttributes::addAttribute(design, SNLAttributes::SNLAttribute(SNLName("PRAGMA1"), "value1"));
-  SNLAttributes::addAttribute(design, SNLAttributes::SNLAttribute(SNLName("PRAGMA2"), "value2"));
+  SNLAttributes::addAttribute(design,
+    SNLAttributes::SNLAttribute(
+      SNLName("PRAGMA1"),
+      SNLAttributes::SNLAttribute::Value("value1")));
+  SNLAttributes::addAttribute(design,
+    SNLAttributes::SNLAttribute(
+      SNLName("PRAGMA2"),
+      SNLAttributes::SNLAttribute::Value("value2")));
   SNLAttributes::addAttribute(design, SNLAttributes::SNLAttribute(SNLName("PRAGMA2")));
   EXPECT_FALSE(SNLAttributes::getAttributes(design).empty());
   EXPECT_EQ(3, SNLAttributes::getAttributes(design).size());
@@ -40,8 +46,12 @@ TEST_F(SNLAttributesTest, testCreationOnDesign) {
       SNLAttributes::getAttributes(design).begin(),
       SNLAttributes::getAttributes(design).end()),
     ElementsAre(
-      SNLAttributes::SNLAttribute(SNLName("PRAGMA1"), "value1"),
-      SNLAttributes::SNLAttribute(SNLName("PRAGMA2"), "value2"),
+      SNLAttributes::SNLAttribute(
+        SNLName("PRAGMA1"),
+        SNLAttributes::SNLAttribute::Value("value1")),
+      SNLAttributes::SNLAttribute(
+        SNLName("PRAGMA2"),
+        SNLAttributes::SNLAttribute::Value("value2")),
       SNLAttributes::SNLAttribute(SNLName("PRAGMA2")))
     );
 
@@ -54,8 +64,14 @@ TEST_F(SNLAttributesTest, testCreationOnDesignObject) {
   auto term = SNLScalarTerm::create(design, SNLTerm::Direction::Input, SNLName("term"));
   auto net = SNLScalarNet::create(design, SNLName("net"));
   EXPECT_TRUE(SNLAttributes::getAttributes(design).empty());
-  SNLAttributes::addAttribute(term, SNLAttributes::SNLAttribute(SNLName("PRAGMA1"), "value1"));
-  SNLAttributes::addAttribute(term, SNLAttributes::SNLAttribute(SNLName("PRAGMA2"), "value2"));
+  SNLAttributes::addAttribute(term,
+    SNLAttributes::SNLAttribute(
+      SNLName("PRAGMA1"),
+      SNLAttributes::SNLAttribute::Value("value1")));
+  SNLAttributes::addAttribute(term,
+    SNLAttributes::SNLAttribute(
+      SNLName("PRAGMA2"),
+      SNLAttributes::SNLAttribute::Value("value2")));
   SNLAttributes::addAttribute(term, SNLAttributes::SNLAttribute(SNLName("PRAGMA2")));
   EXPECT_FALSE(SNLAttributes::getAttributes(term).empty());
   EXPECT_EQ(3, SNLAttributes::getAttributes(term).size());
@@ -64,8 +80,12 @@ TEST_F(SNLAttributesTest, testCreationOnDesignObject) {
       SNLAttributes::getAttributes(term).begin(),
       SNLAttributes::getAttributes(term).end()),
     ElementsAre(
-      SNLAttributes::SNLAttribute(SNLName("PRAGMA1"), "value1"),
-      SNLAttributes::SNLAttribute(SNLName("PRAGMA2"), "value2"),
+      SNLAttributes::SNLAttribute(
+        SNLName("PRAGMA1"),
+        SNLAttributes::SNLAttribute::Value("value1")),
+      SNLAttributes::SNLAttribute(
+        SNLName("PRAGMA2"),
+        SNLAttributes::SNLAttribute::Value("value2")),
       SNLAttributes::SNLAttribute(SNLName("PRAGMA2")))
     );
 

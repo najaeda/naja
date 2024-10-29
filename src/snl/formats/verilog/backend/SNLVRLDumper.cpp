@@ -262,7 +262,13 @@ void SNLVRLDumper::dumpAttributes(const SNLObject* object, std::ostream& o) {
     o << "(* ";
     o << attribute.getName().getString();
     if (attribute.hasValue()) {
-      o << "=" << attribute.getValue();
+      if (attribute.getValue().isString()) {
+        o << "=\"";
+      }
+      o << "=" << attribute.getValue().getString();
+      if (attribute.getValue().isString()) {
+        o << "\"";
+      }
     }
     o << " *)" << std::endl;
   }

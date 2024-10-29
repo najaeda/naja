@@ -68,8 +68,12 @@ TEST_F(SNLVRLConstructorTestAttributes, test) {
   EXPECT_EQ(2, ins0Attributes.size());
   EXPECT_THAT(ins0Attributes,
     ElementsAre(
-      SNLAttributes::SNLAttribute(SNLName("INSTANCE_ATTRIBUTE_AND"), "and2_inst"),
-      SNLAttributes::SNLAttribute(SNLName("description"), "2-input AND gate instance")
+      SNLAttributes::SNLAttribute(
+        SNLName("INSTANCE_ATTRIBUTE_AND"),
+        SNLAttributes::SNLAttribute::Value("and2_inst")),
+      SNLAttributes::SNLAttribute(
+        SNLName("description"),
+        SNLAttributes::SNLAttribute::Value("2-input AND gate instance"))
     )
   );
 
@@ -82,8 +86,12 @@ TEST_F(SNLVRLConstructorTestAttributes, test) {
   EXPECT_EQ(2, ins1Attributes.size());
   EXPECT_THAT(ins1Attributes,
     ElementsAre(
-      SNLAttributes::SNLAttribute(SNLName("INSTANCE_ATTRIBUTE_OR"), "or2_inst"),
-      SNLAttributes::SNLAttribute(SNLName("description"), "2-input OR gate instance")
+      SNLAttributes::SNLAttribute(
+        SNLName("INSTANCE_ATTRIBUTE_OR"),
+        SNLAttributes::SNLAttribute::Value("or2_inst")),
+      SNLAttributes::SNLAttribute(
+        SNLName("description"),
+        SNLAttributes::SNLAttribute::Value("2-input OR gate instance"))
     )
   );
 
@@ -113,7 +121,9 @@ TEST_F(SNLVRLConstructorTestAttributes, test) {
     SNLAttributes::getAttributes(aTerm).end());
   EXPECT_EQ(1, aTermAttributes.size());
   EXPECT_EQ(
-    SNLAttributes::SNLAttribute(SNLName("INPUT_ATTRIBUTE_A"), "Input signal A"),
+    SNLAttributes::SNLAttribute(
+      SNLName("INPUT_ATTRIBUTE_A"),
+      SNLAttributes::SNLAttribute::Value("Input signal A")),
     aTermAttributes[0]
   );
 
@@ -125,7 +135,9 @@ TEST_F(SNLVRLConstructorTestAttributes, test) {
     SNLAttributes::getAttributes(bTerm).end());
   EXPECT_EQ(1, bTermAttributes.size());
   EXPECT_EQ(
-    SNLAttributes::SNLAttribute(SNLName("INPUT_ATTRIBUTE_B"), "Input signal B"),
+    SNLAttributes::SNLAttribute(
+      SNLName("INPUT_ATTRIBUTE_B"),
+      SNLAttributes::SNLAttribute::Value("Input signal B")),
     bTermAttributes[0]
   );
 
@@ -137,7 +149,9 @@ TEST_F(SNLVRLConstructorTestAttributes, test) {
     SNLAttributes::getAttributes(andOutTerm).end());
   EXPECT_EQ(1, andOutTermAttributes.size());
   EXPECT_EQ(
-    SNLAttributes::SNLAttribute(SNLName("OUTPUT_ATTRIBUTE_AND"), "Output of AND gate"),
+    SNLAttributes::SNLAttribute(
+      SNLName("OUTPUT_ATTRIBUTE_AND"),
+      SNLAttributes::SNLAttribute::Value("Output of AND gate")),
     andOutTermAttributes[0]
   );
 
@@ -150,7 +164,9 @@ TEST_F(SNLVRLConstructorTestAttributes, test) {
     SNLAttributes::getAttributes(orOutTerm).end());
   EXPECT_EQ(1, orOutTermAttributes.size());
   EXPECT_EQ(
-    SNLAttributes::SNLAttribute(SNLName("OUTPUT_ATTRIBUTE_OR"), "Output of OR gate"),
+    SNLAttributes::SNLAttribute(
+      SNLName("OUTPUT_ATTRIBUTE_OR"),
+      SNLAttributes::SNLAttribute::Value("Output of OR gate")),
     orOutTermAttributes[0]
   );
 
@@ -165,7 +181,9 @@ TEST_F(SNLVRLConstructorTestAttributes, test) {
     SNLAttributes::getAttributes(andWire).end());
   EXPECT_EQ(1, andWireAttributes.size());
   EXPECT_EQ(
-    SNLAttributes::SNLAttribute(SNLName("WIRE_ATTRIBUTE"), "Wire connecting AND gate output to top output"),
+    SNLAttributes::SNLAttribute(
+      SNLName("WIRE_ATTRIBUTE"),
+      SNLAttributes::SNLAttribute::Value("Wire connecting AND gate output to top output")),
     andWireAttributes[0]
   );
 
@@ -176,25 +194,10 @@ TEST_F(SNLVRLConstructorTestAttributes, test) {
     SNLAttributes::getAttributes(orWire).end());
   EXPECT_EQ(1, orWireAttributes.size());
   EXPECT_EQ(
-    SNLAttributes::SNLAttribute(SNLName("WIRE_ATTRIBUTE"), "Wire connecting OR gate output to top output"),
+    SNLAttributes::SNLAttribute(
+      SNLName("WIRE_ATTRIBUTE"),
+      SNLAttributes::SNLAttribute::Value("Wire connecting OR gate output to top output")),
     orWireAttributes[0]
   );
 
-#if 0
-  EXPECT_EQ(1, ins0->getInstParameters().size());
-  auto param = *(ins0->getInstParameters().begin());
-  EXPECT_EQ("INIT", param->getName().getString());
-  EXPECT_EQ("16'h5054", param->getValue());
-
-  auto ins1 = ins_decode->getInstance(SNLName("decodes_in_0_a2_i_o3[8]"));
-  ASSERT_NE(ins1, nullptr);
-  EXPECT_TRUE(ins1->getInstParameters().empty());
-
-  auto ins2 = ins_decode->getInstance(SNLName("decodes_RNO[6]"));
-  ASSERT_NE(ins2, nullptr);
-  EXPECT_EQ(1, ins2->getInstParameters().size());
-  param = *(ins2->getInstParameters().begin());
-  EXPECT_EQ("INIT", param->getName().getString());
-  EXPECT_EQ("16'h0001", param->getValue());
-#endif
 }

@@ -35,6 +35,15 @@ void collectAttributes(
     for (const auto attribute: attributes) {
       naja::SNL::SNLName attributeName(attribute.name_.getString());
       std::string expression;
+      naja::SNL::SNLAttributes::SNLAttribute::Value::Type valueType;
+      switch (attribute.expression_.getType()) {
+        case naja::verilog::ConstantExpression::Type::STRING:
+          valueType = naja::SNL::SNLAttributes::SNLAttribute::Value::Type::STRING;
+          break;
+        case naja::verilog::ConstantExpression::Type::NUMBER:
+          valueType = naja::SNL::SNLAttributes::SNLAttribute::Value::Type::NUMBER;
+          break;
+      }
       if (attribute.expression_.valid_) {
         expression = attribute.expression_.getString();
       }

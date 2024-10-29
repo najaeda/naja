@@ -52,23 +52,39 @@ TEST_F(SNLVRLDumperTestAttributes, test0) {
   ASSERT_TRUE(top_);
   ASSERT_TRUE(model_);
 
-  SNLAttributes::addAttribute(top_, SNLAttributes::SNLAttribute(SNLName("PRAGMA1"), "value1"));
-  SNLAttributes::addAttribute(top_, SNLAttributes::SNLAttribute(SNLName("PRAGMA2"), "value2"));
+  SNLAttributes::addAttribute(top_,
+    SNLAttributes::SNLAttribute(SNLName("PRAGMA1"), SNLAttributes::SNLAttribute::Value("value1")));
+  SNLAttributes::addAttribute(top_,
+    SNLAttributes::SNLAttribute(
+      SNLName("PRAGMA2"),
+      SNLAttributes::SNLAttribute::Value(SNLAttributes::SNLAttribute::Value::Type::NUMBER, "12")));
   SNLAttributes::addAttribute(top_, SNLAttributes::SNLAttribute(SNLName("PRAGMA2")));
 
   auto term = SNLScalarTerm::create(top_, SNLTerm::Direction::Input, SNLName("term"));
-  SNLAttributes::addAttribute(term, SNLAttributes::SNLAttribute(SNLName("TPRAGMA1"), "value1"));
-  SNLAttributes::addAttribute(term, SNLAttributes::SNLAttribute(SNLName("TPRAGMA2"), "value2"));
+  SNLAttributes::addAttribute(term,
+    SNLAttributes::SNLAttribute(SNLName("TPRAGMA1"), SNLAttributes::SNLAttribute::Value("value1")));
+  SNLAttributes::addAttribute(term,
+    SNLAttributes::SNLAttribute(
+      SNLName("TPRAGMA2"),
+      SNLAttributes::SNLAttribute::Value(SNLAttributes::SNLAttribute::Value::Type::NUMBER, "155")));
   SNLAttributes::addAttribute(term, SNLAttributes::SNLAttribute(SNLName("TPRAGMA2")));
 
   auto net = SNLScalarNet::create(top_, SNLName("net"));
-  SNLAttributes::addAttribute(net, SNLAttributes::SNLAttribute(SNLName("NPRAGMA1"), "value1"));
-  SNLAttributes::addAttribute(net, SNLAttributes::SNLAttribute(SNLName("NPRAGMA2"), "value2"));
+  SNLAttributes::addAttribute(net,
+    SNLAttributes::SNLAttribute(SNLName("NPRAGMA1"), SNLAttributes::SNLAttribute::Value("value1")));
+  SNLAttributes::addAttribute(net,
+    SNLAttributes::SNLAttribute(
+      SNLName("NPRAGMA2"),
+      SNLAttributes::SNLAttribute::Value(SNLAttributes::SNLAttribute::Value::Type::NUMBER, "88")));
   SNLAttributes::addAttribute(net, SNLAttributes::SNLAttribute(SNLName("NPRAGMA2")));
 
   auto instance = SNLInstance::create(top_, model_, SNLName("ins"));
-  SNLAttributes::addAttribute(instance, SNLAttributes::SNLAttribute(SNLName("IPRAGMA1"), "value1"));
-  SNLAttributes::addAttribute(instance, SNLAttributes::SNLAttribute(SNLName("IPRAGMA2"), "value2"));
+  SNLAttributes::addAttribute(instance,
+    SNLAttributes::SNLAttribute(SNLName("IPRAGMA1"), SNLAttributes::SNLAttribute::Value("value1")));
+  SNLAttributes::addAttribute(instance,
+    SNLAttributes::SNLAttribute(
+      SNLName("IPRAGMA2"),
+      SNLAttributes::SNLAttribute::Value(SNLAttributes::SNLAttribute::Value::Type::NUMBER, "9")));
   SNLAttributes::addAttribute(instance, SNLAttributes::SNLAttribute(SNLName("IPRAGMA2")));
 
   std::filesystem::path outPath(SNL_VRL_DUMPER_TEST_PATH);
@@ -88,41 +104,3 @@ TEST_F(SNLVRLDumperTestAttributes, test0) {
   std::string command = "diff " + outPath.string() + " " + referencePath.string();
   EXPECT_FALSE(std::system(command.c_str()));
 }
-
-#if 0
-TEST_F(SNLVRLDumperTestParameters, testErrors0) {
-  ASSERT_TRUE(top_);
-  SNLParameter::create(top_, SNLName("PARAM"), SNLParameter::Type::Boolean, "YY");
-  std::filesystem::path outPath(SNL_VRL_DUMPER_TEST_PATH);
-  outPath = outPath / "testParametersErrors0";
-  if (std::filesystem::exists(outPath)) {
-    std::filesystem::remove_all(outPath);
-  }
-  std::filesystem::create_directory(outPath);
-  SNLVRLDumper dumper;
-  dumper.setTopFileName(top_->getName().getString() + ".v");
-  dumper.setSingleFile(true);
-  EXPECT_THROW(dumper.dumpDesign(top_, outPath), SNLVRLDumperException);
-}
-
-TEST_F(SNLVRLDumperTestParameters, testErrors1) {
-  ASSERT_TRUE(top_);
-  ASSERT_TRUE(model_);
-  auto falseParam = SNLParameter::create(model_, SNLName("PARAM1"), SNLParameter::Type::Boolean, "0");
-  auto trueParam = SNLParameter::create(model_, SNLName("PARAM2"), SNLParameter::Type::Boolean, "1");
-  auto ins = SNLInstance::create(top_, model_, SNLName("ins"));
-  SNLInstParameter::create(ins, falseParam, "Y");
-  SNLInstParameter::create(ins, trueParam, "N");
-
-  std::filesystem::path outPath(SNL_VRL_DUMPER_TEST_PATH);
-  outPath = outPath / "testParametersErrors1";
-  if (std::filesystem::exists(outPath)) {
-    std::filesystem::remove_all(outPath);
-  }
-  std::filesystem::create_directory(outPath);
-  SNLVRLDumper dumper;
-  dumper.setTopFileName(top_->getName().getString() + ".v");
-  dumper.setSingleFile(true);
-  EXPECT_THROW(dumper.dumpDesign(top_, outPath), SNLVRLDumperException);
-}
-#endif

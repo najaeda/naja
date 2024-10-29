@@ -68,8 +68,13 @@ namespace naja { namespace SNL {
 
 SNLAttributes::SNLAttribute::SNLAttribute(
   const SNLName& name,
-  const std::string& value):
+  const SNLAttributes::SNLAttribute::Value& value):
   name_(name), value_(value)
+{}
+
+SNLAttributes::SNLAttribute::Value::Value():
+  type_(Type::STRING),
+  value_()
 {}
 
 //LCOV_EXCL_START
@@ -77,7 +82,14 @@ std::string SNLAttributes::SNLAttribute::getString() const {
   std::ostringstream oss;
   oss << name_.getString();
   if (not value_.empty()) {
-    oss << " = " << value_;
+    oss << " = ";
+    if (value_.isString()) {
+      oss << "\"";
+    }
+    oss << value_.getString();
+    if (value_.isString()) {
+      oss << "\"";
+    }
   }
   return oss.str();
 }

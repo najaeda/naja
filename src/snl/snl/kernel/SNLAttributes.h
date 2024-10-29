@@ -18,11 +18,29 @@ class SNLAttributes {
   public:
     class SNLAttribute {
       public:
+        //Values are either numbers or strings.
+        //but stored as strings.
+        class Value {
+          public:
+            enum class Type { NUMBER, STRING };
+            Value();
+            Value(const std::string& value): type_(Type::STRING), value_(value) {};
+            Value(Type type, const std::string& value): type_(type), value_(value) {};
+            Value(const Value&) = default;
+            std::string getString() const { return value_; }
+            bool isString() const { return type_ == Type::STRING; }
+            bool empty() const { return value_.empty(); }
+            bool operator==(const Value& rv) const = default;
+          private:
+            Type        type_   { Type::STRING };
+            std::string value_  {};
+        };
+
         SNLAttribute() = default;
-        SNLAttribute(const SNLName& name, const std::string& value=std::string());
+        SNLAttribute(const SNLName& name, const SNLAttribute::Value& value=SNLAttribute::Value());
         SNLAttribute(const SNLAttribute&) = default;
         SNLName getName() const { return name_; }
-        std::string getValue() const { return value_; }
+        Value getValue() const { return value_; }
         std::string getString() const;
         bool hasValue() const { return not value_.empty(); }
         bool operator==(const SNLAttribute& ra) const {
@@ -30,7 +48,7 @@ class SNLAttributes {
         };
       private:
         SNLName     name_   {};
-        std::string value_  {};
+        Value       value_  {};
     };
     static void addAttribute(SNLDesign* design, const SNLAttribute& attribute);
     static void addAttribute(SNLDesignObject* designObject, const SNLAttribute& attribute);
