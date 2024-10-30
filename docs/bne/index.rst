@@ -1,6 +1,8 @@
 BNE
 =========
 
+.. image:: ../images/Naja-BNE.png
+
 .. toctree::
    :maxdepth: 1
 
