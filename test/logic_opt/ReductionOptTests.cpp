@@ -19,20 +19,27 @@ using ::testing::ElementsAre;
 #include "NetlistGraph.h"
 #include "Reduction.h"
 #include "RemoveLoadlessLogic.h"
-#include "SNLBitNetOccurrence.h"
-#include "SNLBitTermOccurrence.h"
-#include "SNLEquipotential.h"
 #include "SNLException.h"
 #include "SNLInstTerm.h"
 #include "SNLPath.h"
 #include "SNLScalarNet.h"
 #include "SNLScalarTerm.h"
 #include "SNLUniverse.h"
-#include "gtest/gtest.h"
-#include "tbb/scalable_allocator.h"
+
 #ifndef SNL_PRIMITIVES_TEST_PATH
 #define SNL_PRIMITIVES_TEST_PATH
 #endif
+
+namespace {
+
+void executeCommand(const std::string& command) {
+  int result = system(command.c_str());
+  if (result != 0) {
+    std::cerr << "Command execution failed." << std::endl;
+  }
+}
+
+}
 
 using namespace naja;
 using namespace naja::DNL;
@@ -421,7 +428,7 @@ TEST_F(ReductionOptTests, testTruthTablesMap) {
       SnlVisualiser snl(top);
       snl.process();
       snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
-      (void)system(std::string(std::string("dot -Tsvg ") + dotFileName +
+      executeCommand(std::string(std::string("dot -Tsvg ") + dotFileName +
                          std::string(" -o ") + svgFileName)
                  .c_str());
     }
@@ -811,7 +818,7 @@ TEST_F(ReductionOptTests, testTruthTablesMap_bne) {
       SnlVisualiser snl(top);
       snl.process();
       snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
-      (void)system(std::string(std::string("dot -Tsvg ") + dotFileName +
+      executeCommand(std::string(std::string("dot -Tsvg ") + dotFileName +
                          std::string(" -o ") + svgFileName)
                  .c_str());
     }

@@ -3,30 +3,30 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "DNL.h"
-#include "DNL_impl.h"
-#include "NetlistGraph.h"
-#include "SNLBitNet.h"
-#include "SNLBitNetOccurrence.h"
-#include "SNLBitTerm.h"
-#include "SNLBitTermOccurrence.h"
+#include "gtest/gtest.h"
+
+#include "SNLUniverse.h"
 #include "SNLBusNet.h"
-#include "SNLBusNetBit.h"
 #include "SNLBusTerm.h"
-#include "SNLBusTermBit.h"
-#include "SNLEquipotential.h"
-#include "SNLException.h"
-#include "SNLInstTerm.h"
-#include "SNLPath.h"
 #include "SNLScalarNet.h"
 #include "SNLScalarTerm.h"
-#include "SNLUniverse.h"
-#include "gtest/gtest.h"
-#include "tbb/scalable_allocator.h"
+#include "DNL.h"
+#include "NetlistGraph.h"
 
+using namespace naja;
 using namespace naja::DNL;
 using namespace naja::SNL;
-using namespace naja;
+
+namespace {
+
+void executeCommand(const std::string& command) {
+  int result = system(command.c_str());
+  if (result != 0) {
+    std::cerr << "Command execution failed." << std::endl;
+  }
+}
+
+}
 
 class SNLVisualTests : public ::testing::Test {
  protected:
@@ -212,7 +212,7 @@ TEST_F(SNLVisualTests, SimpleTest) {
   std::string svgFileName(
       std::string(std::string("./test") + std::string(".svg")));
   snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
-  (void)system(std::string(std::string("dot -Tsvg ") + dotFileName +
+  executeCommand(std::string(std::string("dot -Tsvg ") + dotFileName +
                      std::string(" -o ") + svgFileName)
              .c_str());
   // Destroy the DNL
@@ -282,7 +282,7 @@ TEST_F(SNLVisualTests, ForCoverageTest) {
   std::string svgFileName(
       std::string(std::string("./testCov") + std::string(".svg")));
   snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
-  (void)system(std::string(std::string("dot -Tsvg ") + dotFileName +
+  executeCommand(std::string(std::string("dot -Tsvg ") + dotFileName +
                      std::string(" -o ") + svgFileName)
              .c_str());
 }
@@ -340,7 +340,7 @@ TEST_F(SNLVisualTests, BusTest) {
   SnlVisualiser snl(mod);
   snl.process();
   snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
-  (void)system(std::string(std::string("dot -Tsvg ") + dotFileName +
+  executeCommand(std::string(std::string("dot -Tsvg ") + dotFileName +
                      std::string(" -o ") + svgFileName)
              .c_str());
 }
