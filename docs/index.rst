@@ -29,5 +29,11 @@ Welcome to Naja's documentation!
 
    dnl/index
 
+.. toctree::
+   :maxdepth: 2
+   :caption: BNE (Batch Netlist Editor)
+
+   bne/index
+
 * :ref:`genindex`
 * :ref:`search`
