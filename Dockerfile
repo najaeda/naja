@@ -24,7 +24,7 @@ WORKDIR /naja/build
 RUN cmake -DCMAKE_BUILD_TYPE=Release .. && \
     cmake --build . --parallel 8 && \
     cmake --install . --prefix /naja/install    
-RUN ctest -j8
+RUN ctest -j8 --output-on-failure
 
 FROM alpine:3.19.1 as release
 RUN apk --no-cache add ca-certificates
