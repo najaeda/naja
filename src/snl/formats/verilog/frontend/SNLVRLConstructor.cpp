@@ -49,21 +49,32 @@ void collectAttributes(
       }
       naja::SNL::SNLAttributes::addAttribute(
         design,
-        naja::SNL::SNLAttributes::SNLAttribute(attributeName, expression));
+        naja::SNL::SNLAttributes::SNLAttribute(
+          attributeName,
+          naja::SNL::SNLAttributes::SNLAttribute::Value(valueType, expression)));
     }
   } else if (auto designObject = dynamic_cast<naja::SNL::SNLDesignObject*>(object)) {
     for (const auto attribute: attributes) {
       naja::SNL::SNLName attributeName(attribute.name_.getString());
       std::string expression;
+      naja::SNL::SNLAttributes::SNLAttribute::Value::Type valueType;
+      switch (attribute.expression_.getType()) {
+        case naja::verilog::ConstantExpression::Type::STRING:
+          valueType = naja::SNL::SNLAttributes::SNLAttribute::Value::Type::STRING;
+          break;
+        case naja::verilog::ConstantExpression::Type::NUMBER:
+          valueType = naja::SNL::SNLAttributes::SNLAttribute::Value::Type::NUMBER;
+          break;
+      }
       if (attribute.expression_.valid_) {
         expression = attribute.expression_.getString();
       }
       naja::SNL::SNLAttributes::addAttribute(
         designObject,
-        naja::SNL::SNLAttributes::SNLAttribute(attributeName, expression));
+        naja::SNL::SNLAttributes::SNLAttribute(
+          attributeName,
+          naja::SNL::SNLAttributes::SNLAttribute::Value(valueType, expression)));
     }
-  } else {
-    throw naja::SNL::SNLException("Unsupported object type for adding attributes");
   }
 }
 
@@ -637,7 +648,9 @@ void SNLVRLConstructor::addOrderedInstanceConnection(
 void SNLVRLConstructor::addAttribute(
   const naja::verilog::Identifier& attributeName,
   const naja::verilog::ConstantExpression& expression) {
-  nextObjectAttributes_.push_back(naja::verilog::Attribute(attributeName, expression));
+  if (getParseAttributes()) {
+    nextObjectAttributes_.push_back(naja::verilog::Attribute(attributeName, expression));
+  }
 }
 
 void SNLVRLConstructor::endModule() {

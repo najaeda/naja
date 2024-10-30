@@ -36,7 +36,7 @@ class SNLVRLConstructorTestAttributes: public ::testing::Test {
     SNLLibrary*      library_;
 };
 
-TEST_F(SNLVRLConstructorTestAttributes, test) {
+TEST_F(SNLVRLConstructorTestAttributes, test0) {
   auto db = SNLDB::create(SNLUniverse::get());
   SNLVRLConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_VRL_BENCHMARKS_PATH);
@@ -45,6 +45,29 @@ TEST_F(SNLVRLConstructorTestAttributes, test) {
   ASSERT_EQ(3, library_->getDesigns().size());
   auto simple_netlist = library_->getDesign(SNLName("simple_netlist"));
   ASSERT_NE(simple_netlist, nullptr);
+
+  ASSERT_EQ(3, SNLAttributes::getAttributes(simple_netlist).size());
+  using Attributes = std::vector<SNLAttributes::SNLAttribute>;
+  Attributes simple_netlistAttributes(
+    SNLAttributes::getAttributes(simple_netlist).begin(),
+    SNLAttributes::getAttributes(simple_netlist).end());
+  EXPECT_EQ(3, simple_netlistAttributes.size());
+  EXPECT_THAT(simple_netlistAttributes,
+    ElementsAre(
+      SNLAttributes::SNLAttribute(
+        SNLName("MODULE_ATTRIBUTE"),
+        SNLAttributes::SNLAttribute::Value("Top level simple_netlist module")),
+      SNLAttributes::SNLAttribute(
+        SNLName("MODULE_VERSION"),
+        SNLAttributes::SNLAttribute::Value("1.0")),
+      SNLAttributes::SNLAttribute(
+        SNLName("VERSION"),
+        SNLAttributes::SNLAttribute::Value(
+          SNLAttributes::SNLAttribute::Value::Type::NUMBER,
+          "3"))
+    )
+  );
+
   //2 standard instances, 2 assigns
   ASSERT_EQ(4, simple_netlist->getInstances().size());
   using Instances = std::vector<SNLInstance*>;
@@ -60,12 +83,14 @@ TEST_F(SNLVRLConstructorTestAttributes, test) {
 
   auto ins0 = simple_netlist->getInstance(SNLName("and2_inst"));
   ASSERT_NE(ins0, nullptr);
-  EXPECT_EQ(2, SNLAttributes::getAttributes(ins0).size());
-  using Attributes = std::vector<SNLAttributes::SNLAttribute>;
+  EXPECT_EQ(3, SNLAttributes::getAttributes(ins0).size());
   Attributes ins0Attributes(
     SNLAttributes::getAttributes(ins0).begin(),
     SNLAttributes::getAttributes(ins0).end());
-  EXPECT_EQ(2, ins0Attributes.size());
+  EXPECT_EQ(3, ins0Attributes.size());
+  for (const auto& attribute: ins0Attributes) {
+    std::cout << attribute.getString() << std::endl;
+  }
   EXPECT_THAT(ins0Attributes,
     ElementsAre(
       SNLAttributes::SNLAttribute(
@@ -73,7 +98,12 @@ TEST_F(SNLVRLConstructorTestAttributes, test) {
         SNLAttributes::SNLAttribute::Value("and2_inst")),
       SNLAttributes::SNLAttribute(
         SNLName("description"),
-        SNLAttributes::SNLAttribute::Value("2-input AND gate instance"))
+        SNLAttributes::SNLAttribute::Value("2-input AND gate instance")),
+      SNLAttributes::SNLAttribute(
+        SNLName("VERSION"),
+        SNLAttributes::SNLAttribute::Value(
+          SNLAttributes::SNLAttribute::Value::Type::NUMBER,
+          "3"))
     )
   );
 
@@ -199,5 +229,23 @@ TEST_F(SNLVRLConstructorTestAttributes, test) {
       SNLAttributes::SNLAttribute::Value("Wire connecting OR gate output to top output")),
     orWireAttributes[0]
   );
+}
 
+TEST_F(SNLVRLConstructorTestAttributes, testDisableAttributes) {
+  auto db = SNLDB::create(SNLUniverse::get());
+  SNLVRLConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_VRL_BENCHMARKS_PATH);
+  constructor.setParseAttributes(false); //disable attributes
+  constructor.construct(benchmarksPath/"test_attributes.v");
+
+  ASSERT_EQ(3, library_->getDesigns().size());
+  auto simple_netlist = library_->getDesign(SNLName("simple_netlist"));
+  ASSERT_NE(simple_netlist, nullptr);
+  ASSERT_TRUE(SNLAttributes::getAttributes(simple_netlist).empty());
+
+  auto ins0 = simple_netlist->getInstance(SNLName("and2_inst"));
+  ASSERT_NE(ins0, nullptr);
+  EXPECT_TRUE(SNLAttributes::getAttributes(ins0).empty());
+  auto ins1 = simple_netlist->getInstance(SNLName("or2_inst"));
+  EXPECT_TRUE(SNLAttributes::getAttributes(ins1).empty());
 }

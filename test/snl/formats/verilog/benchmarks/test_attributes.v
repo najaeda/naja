@@ -2,6 +2,7 @@
 
 // Attribute for the entire module
 (* MODULE_ATTRIBUTE = "Top level simple_netlist module", MODULE_VERSION = "1.0" *)
+(* VERSION = 3 *)
 module simple_netlist (
     (* INPUT_ATTRIBUTE_A = "Input signal A" *)
     input a,        // Input a
@@ -21,6 +22,7 @@ module simple_netlist (
 
     // Attribute for and2 gate instance
     (* INSTANCE_ATTRIBUTE_AND = "and2_inst", description = "2-input AND gate instance" *)
+    (* VERSION = 3 *)
     and2 and2_inst (
         .a(a),
         .b(b),

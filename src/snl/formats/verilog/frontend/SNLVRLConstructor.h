@@ -35,6 +35,8 @@ class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
 
     void setVerbose(bool verbose) { verbose_ = verbose; }
     bool getVerbose() const { return verbose_; }
+    void setParseAttributes(bool parseAttributes) { parseAttributes_ = parseAttributes; }
+    bool getParseAttributes() const { return parseAttributes_; }
 
     bool inFirstPass() const { return firstPass_; }
     void setFirstPass(bool mode) { firstPass_ = mode; }
@@ -87,6 +89,7 @@ class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
     bool              verbose_                        {false};
     bool              firstPass_                      {true};
     bool              blackboxDetection_              {true};
+    bool              parseAttributes_                {true};
     SNLLibrary*       library_                        {nullptr};
     Attributes        nextObjectAttributes_           {};
     SNLDesign*        currentModule_                  {nullptr};
