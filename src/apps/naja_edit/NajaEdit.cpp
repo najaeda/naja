@@ -76,11 +76,18 @@ OptimizationType argToOptimizationType(const std::string& optimization) {
 
 using Paths = std::vector<std::filesystem::path>;
 
+const std::string NAJA_EDIT_MAJOR("0");
+const std::string NAJA_EDIT_MINOR("1");
+const std::string NAJA_EDIT_REVISION("0");
+const std::string NAJA_EDIT_VERSION(
+  NAJA_EDIT_MAJOR + "." +
+  NAJA_EDIT_MINOR + "." +
+  NAJA_EDIT_REVISION);
 }  // namespace
 
 int main(int argc, char* argv[]) {
   const auto najaEditStart{std::chrono::steady_clock::now()};
-  argparse::ArgumentParser program("naja_edit");
+  argparse::ArgumentParser program("naja_edit", NAJA_EDIT_VERSION);
   program.add_description(
       "Edit gate level netlists using python script and apply optimizations");
   program.add_argument("-f", "--from_format").help("from/input format");
@@ -145,8 +152,8 @@ int main(int argc, char* argv[]) {
   spdlog::set_default_logger(edit_logger);
   spdlog::flush_every(std::chrono::seconds(3));
   SPDLOG_INFO("########################################################");
-  SPDLOG_INFO("naja_edit");
-  SPDLOG_INFO("Version: {}", naja::NAJA_VERSION);
+  SPDLOG_INFO("naja_edit {}", NAJA_EDIT_VERSION);
+  SPDLOG_INFO("naja version: {}", naja::NAJA_VERSION);
   SPDLOG_INFO("Git hash: {}", naja::NAJA_GIT_HASH);
   SPDLOG_INFO("########################################################");
 
