@@ -1078,21 +1078,21 @@ template<class Type> class NajaCollection {
     size_t size() const { if (collection_) { return collection_->size(); } return 0; }
     bool empty() const { if (collection_) { return collection_->empty(); } return true; }
     
-    //comperator
-    bool operator==(const NajaCollection<Type>& r) const {
-       if (size() == r.size()) {
-         auto it = begin();
-         auto rit = r.begin();
-         while (it != end()) {
-           if (*it != *rit) {
-             return false;
-           }
-           ++it;
-           ++rit;
-         }
-         return true;
-       }
-        return false;
+    //comparator
+    bool operator==(const NajaCollection& r) const {
+      if (size() == r.size()) {
+        auto it = begin();
+        auto rit = r.begin();
+        while (it != end()) {
+          if (*it != *rit) {
+            return false;
+          }
+          ++it;
+          ++rit;
+        }
+        return true;
+      }
+      return false;
     }
   private:
     const NajaBaseCollection<Type>*  collection_ {nullptr};
