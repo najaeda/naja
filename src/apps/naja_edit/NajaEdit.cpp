@@ -76,10 +76,10 @@ OptimizationType argToOptimizationType(const std::string& optimization) {
 
 using Paths = std::vector<std::filesystem::path>;
 
-constexpr std::string NAJA_EDIT_MAJOR("0");
-constexpr std::string NAJA_EDIT_MINOR("1");
-constexpr std::string NAJA_EDIT_REVISION("0");
-constexpr std::string NAJA_EDIT_VERSION(
+const std::string NAJA_EDIT_MAJOR("0");
+const std::string NAJA_EDIT_MINOR("1");
+const std::string NAJA_EDIT_REVISION("0");
+const std::string NAJA_EDIT_VERSION(
   NAJA_EDIT_MAJOR + "." +
   NAJA_EDIT_MINOR + "." +
   NAJA_EDIT_REVISION);
