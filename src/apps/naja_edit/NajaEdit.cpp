@@ -152,8 +152,8 @@ int main(int argc, char* argv[]) {
   spdlog::set_default_logger(edit_logger);
   spdlog::flush_every(std::chrono::seconds(3));
   SPDLOG_INFO("########################################################");
-  SPDLOG_INFO("naja_edit version: {}", NAJA_EDIT_VERSION);
-  SPDLOG_INFO("naja Version: {}", naja::NAJA_VERSION);
+  SPDLOG_INFO("naja_edit {}", NAJA_EDIT_VERSION);
+  SPDLOG_INFO("naja version: {}", naja::NAJA_VERSION);
   SPDLOG_INFO("Git hash: {}", naja::NAJA_GIT_HASH);
   SPDLOG_INFO("########################################################");
 
