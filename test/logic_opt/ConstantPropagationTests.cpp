@@ -283,7 +283,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagation) {
     SnlVisualiser snl(top);
     snl.process();
     snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
-    system(std::string(std::string("dot -Tsvg ") + dotFileName +
+    (void)system(std::string(std::string("dot -Tsvg ") + dotFileName +
                        std::string(" -o ") + svgFileName)
                .c_str());
   }
@@ -303,7 +303,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagation) {
     SnlVisualiser snl(top);
     snl.process();
     snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
-    system(std::string(std::string("dot -Tsvg ") + dotFileName +
+    (void)system(std::string(std::string("dot -Tsvg ") + dotFileName +
                        std::string(" -o ") + svgFileName)
                .c_str());
   }
@@ -534,7 +534,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationNonBNE) {
     SnlVisualiser snl(top);
     snl.process();
     snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
-    system(std::string(std::string("dot -Tsvg ") + dotFileName +
+    (void)system(std::string(std::string("dot -Tsvg ") + dotFileName +
                        std::string(" -o ") + svgFileName)
                .c_str());
   }
@@ -555,7 +555,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationNonBNE) {
     SnlVisualiser snl(top);
     snl.process();
     snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
-    system(std::string(std::string("dot -Tsvg ") + dotFileName +
+    (void)system(std::string(std::string("dot -Tsvg ") + dotFileName +
                        std::string(" -o ") + svgFileName)
                .c_str());
   }
@@ -642,7 +642,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationAND) {
     SnlVisualiser snl(top);
     snl.process();
     snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
-    system(std::string(std::string("dot -Tsvg ") + dotFileName +
+    (void)system(std::string(std::string("dot -Tsvg ") + dotFileName +
                        std::string(" -o ") + svgFileName)
                .c_str());
   }
@@ -660,7 +660,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationAND) {
     SnlVisualiser snl(top);
     snl.process();
     snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
-    system(std::string(std::string("dot -Tsvg ") + dotFileName +
+    (void)system(std::string(std::string("dot -Tsvg ") + dotFileName +
                        std::string(" -o ") + svgFileName)
                .c_str());
   }
@@ -740,7 +740,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationOR) {
     SnlVisualiser snl(top);
     snl.process();
     snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
-    system(std::string(std::string("dot -Tsvg ") + dotFileName +
+    (void)system(std::string(std::string("dot -Tsvg ") + dotFileName +
                        std::string(" -o ") + svgFileName)
                .c_str());
   }
@@ -758,7 +758,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationOR) {
     SnlVisualiser snl(top);
     snl.process();
     snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
-    system(std::string(std::string("dot -Tsvg ") + dotFileName +
+    (void)system(std::string(std::string("dot -Tsvg ") + dotFileName +
                        std::string(" -o ") + svgFileName)
                .c_str());
   }
@@ -829,7 +829,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationXOR) {
     SnlVisualiser snl(top);
     snl.process();
     snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
-    system(std::string(std::string("dot -Tsvg ") + dotFileName +
+    (void)system(std::string(std::string("dot -Tsvg ") + dotFileName +
                        std::string(" -o ") + svgFileName)
                .c_str());
   }
@@ -847,7 +847,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationXOR) {
     SnlVisualiser snl(top);
     snl.process();
     snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
-    system(std::string(std::string("dot -Tsvg ") + dotFileName +
+    (void)system(std::string(std::string("dot -Tsvg ") + dotFileName +
                        std::string(" -o ") + svgFileName)
                .c_str());
   }
@@ -925,7 +925,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationNAND) {
     SnlVisualiser snl(top);
     snl.process();
     snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
-    system(std::string(std::string("dot -Tsvg ") + dotFileName +
+    (void)system(std::string(std::string("dot -Tsvg ") + dotFileName +
                        std::string(" -o ") + svgFileName)
                .c_str());
   }
@@ -943,7 +943,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationNAND) {
     SnlVisualiser snl(top);
     snl.process();
     snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
-    system(std::string(std::string("dot -Tsvg ") + dotFileName +
+    (void)system(std::string(std::string("dot -Tsvg ") + dotFileName +
                        std::string(" -o ") + svgFileName)
                .c_str());
   }
@@ -1021,7 +1021,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationNOR) {
     SnlVisualiser snl(top);
     snl.process();
     snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
-    system(std::string(std::string("dot -Tsvg ") + dotFileName +
+    (void)system(std::string(std::string("dot -Tsvg ") + dotFileName +
                        std::string(" -o ") + svgFileName)
                .c_str());
   }
@@ -1039,7 +1039,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationNOR) {
     SnlVisualiser snl(top);
     snl.process();
     snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
-    system(std::string(std::string("dot -Tsvg ") + dotFileName +
+    (void)system(std::string(std::string("dot -Tsvg ") + dotFileName +
                        std::string(" -o ") + svgFileName)
                .c_str());
   }
@@ -1109,7 +1109,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationXNOR) {
     SnlVisualiser snl(top);
     snl.process();
     snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
-    system(std::string(std::string("dot -Tsvg ") + dotFileName +
+    (void)system(std::string(std::string("dot -Tsvg ") + dotFileName +
                        std::string(" -o ") + svgFileName)
                .c_str());
   }
@@ -1127,7 +1127,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationXNOR) {
     SnlVisualiser snl(top);
     snl.process();
     snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
-    system(std::string(std::string("dot -Tsvg ") + dotFileName +
+    (void)system(std::string(std::string("dot -Tsvg ") + dotFileName +
                        std::string(" -o ") + svgFileName)
                .c_str());
   }
@@ -1190,7 +1190,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationINV) {
     SnlVisualiser snl(top);
     snl.process();
     snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
-    system(std::string(std::string("dot -Tsvg ") + dotFileName +
+    (void)system(std::string(std::string("dot -Tsvg ") + dotFileName +
                        std::string(" -o ") + svgFileName)
                .c_str());
   }
@@ -1208,7 +1208,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationINV) {
     SnlVisualiser snl(top);
     snl.process();
     snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
-    system(std::string(std::string("dot -Tsvg ") + dotFileName +
+    (void)system(std::string(std::string("dot -Tsvg ") + dotFileName +
                        std::string(" -o ") + svgFileName)
                .c_str());
   }
@@ -1271,7 +1271,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationBUF) {
     SnlVisualiser snl(top);
     snl.process();
     snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
-    system(std::string(std::string("dot -Tsvg ") + dotFileName +
+    (void)system(std::string(std::string("dot -Tsvg ") + dotFileName +
                        std::string(" -o ") + svgFileName)
                .c_str());
   }
@@ -1289,7 +1289,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationBUF) {
     SnlVisualiser snl(top);
     snl.process();
     snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
-    system(std::string(std::string("dot -Tsvg ") + dotFileName +
+    (void)system(std::string(std::string("dot -Tsvg ") + dotFileName +
                        std::string(" -o ") + svgFileName)
                .c_str());
   }
@@ -1373,7 +1373,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationMUX) {
     SnlVisualiser snl(top);
     snl.process();
     snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
-    system(std::string(std::string("dot -Tsvg ") + dotFileName +
+    (void)system(std::string(std::string("dot -Tsvg ") + dotFileName +
                        std::string(" -o ") + svgFileName)
                .c_str());
   }
@@ -1391,7 +1391,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationMUX) {
     SnlVisualiser snl(top);
     snl.process();
     snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
-    system(std::string(std::string("dot -Tsvg ") + dotFileName +
+    (void)system(std::string(std::string("dot -Tsvg ") + dotFileName +
                        std::string(" -o ") + svgFileName)
                .c_str());
   }
@@ -1464,7 +1464,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationDFF) {
     SnlVisualiser snl(top);
     snl.process();
     snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
-    system(std::string(std::string("dot -Tsvg ") + dotFileName +
+    (void)system(std::string(std::string("dot -Tsvg ") + dotFileName +
                        std::string(" -o ") + svgFileName)
                .c_str());
   }
@@ -1482,7 +1482,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationDFF) {
     SnlVisualiser snl(top);
     snl.process();
     snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
-    system(std::string(std::string("dot -Tsvg ") + dotFileName +
+    (void)system(std::string(std::string("dot -Tsvg ") + dotFileName +
                        std::string(" -o ") + svgFileName)
                .c_str());
   }
@@ -1558,7 +1558,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationOAI) {
     SnlVisualiser snl(top);
     snl.process();
     snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
-    system(std::string(std::string("dot -Tsvg ") + dotFileName +
+    (void)system(std::string(std::string("dot -Tsvg ") + dotFileName +
                        std::string(" -o ") + svgFileName)
                .c_str());
   }
@@ -1576,7 +1576,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationOAI) {
     SnlVisualiser snl(top);
     snl.process();
     snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
-    system(std::string(std::string("dot -Tsvg ") + dotFileName +
+    (void)system(std::string(std::string("dot -Tsvg ") + dotFileName +
                        std::string(" -o ") + svgFileName)
                .c_str());
   }
@@ -1651,7 +1651,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationNonDefinedModel) {
     SnlVisualiser snl(top);
     snl.process();
     snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
-    system(std::string(std::string("dot -Tsvg ") + dotFileName +
+    (void)system(std::string(std::string("dot -Tsvg ") + dotFileName +
                        std::string(" -o ") + svgFileName)
                .c_str());
   }
@@ -1669,7 +1669,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationNonDefinedModel) {
     SnlVisualiser snl(top);
     snl.process();
     snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
-    system(std::string(std::string("dot -Tsvg ") + dotFileName +
+    (void)system(std::string(std::string("dot -Tsvg ") + dotFileName +
                        std::string(" -o ") + svgFileName)
                .c_str());
   }
@@ -1752,7 +1752,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationPartialAND) {
     SnlVisualiser snl(top);
     snl.process();
     snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
-    system(std::string(std::string("dot -Tsvg ") + dotFileName +
+    (void)system(std::string(std::string("dot -Tsvg ") + dotFileName +
                        std::string(" -o ") + svgFileName)
                .c_str());
   }
@@ -1770,7 +1770,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationPartialAND) {
     SnlVisualiser snl(top);
     snl.process();
     snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
-    system(std::string(std::string("dot -Tsvg ") + dotFileName +
+    (void)system(std::string(std::string("dot -Tsvg ") + dotFileName +
                        std::string(" -o ") + svgFileName)
                .c_str());
   }
@@ -1853,7 +1853,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationPartialOR) {
     SnlVisualiser snl(top);
     snl.process();
     snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
-    system(std::string(std::string("dot -Tsvg ") + dotFileName +
+    (void)system(std::string(std::string("dot -Tsvg ") + dotFileName +
                        std::string(" -o ") + svgFileName)
                .c_str());
   }
@@ -1871,7 +1871,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationPartialOR) {
     SnlVisualiser snl(top);
     snl.process();
     snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
-    system(std::string(std::string("dot -Tsvg ") + dotFileName +
+    (void)system(std::string(std::string("dot -Tsvg ") + dotFileName +
                        std::string(" -o ") + svgFileName)
                .c_str());
   }
@@ -1946,7 +1946,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationPartialXOR) {
     SnlVisualiser snl(top);
     snl.process();
     snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
-    system(std::string(std::string("dot -Tsvg ") + dotFileName +
+    (void)system(std::string(std::string("dot -Tsvg ") + dotFileName +
                        std::string(" -o ") + svgFileName)
                .c_str());
   }
@@ -1964,7 +1964,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationPartialXOR) {
     SnlVisualiser snl(top);
     snl.process();
     snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
-    system(std::string(std::string("dot -Tsvg ") + dotFileName +
+    (void)system(std::string(std::string("dot -Tsvg ") + dotFileName +
                        std::string(" -o ") + svgFileName)
                .c_str());
   }
@@ -2046,7 +2046,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationPartialNAND) {
     SnlVisualiser snl(top);
     snl.process();
     snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
-    system(std::string(std::string("dot -Tsvg ") + dotFileName +
+    (void)system(std::string(std::string("dot -Tsvg ") + dotFileName +
                        std::string(" -o ") + svgFileName)
                .c_str());
   }
@@ -2064,7 +2064,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationPartialNAND) {
     SnlVisualiser snl(top);
     snl.process();
     snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
-    system(std::string(std::string("dot -Tsvg ") + dotFileName +
+    (void)system(std::string(std::string("dot -Tsvg ") + dotFileName +
                        std::string(" -o ") + svgFileName)
                .c_str());
   }
@@ -2148,7 +2148,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationPartialNOR) {
     SnlVisualiser snl(top);
     snl.process();
     snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
-    system(std::string(std::string("dot -Tsvg ") + dotFileName +
+    (void)system(std::string(std::string("dot -Tsvg ") + dotFileName +
                        std::string(" -o ") + svgFileName)
                .c_str());
   }
@@ -2166,7 +2166,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationPartialNOR) {
     SnlVisualiser snl(top);
     snl.process();
     snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
-    system(std::string(std::string("dot -Tsvg ") + dotFileName +
+    (void)system(std::string(std::string("dot -Tsvg ") + dotFileName +
                        std::string(" -o ") + svgFileName)
                .c_str());
   }
@@ -2240,7 +2240,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationPartialXNOR) {
     SnlVisualiser snl(top);
     snl.process();
     snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
-    system(std::string(std::string("dot -Tsvg ") + dotFileName +
+    (void)system(std::string(std::string("dot -Tsvg ") + dotFileName +
                        std::string(" -o ") + svgFileName)
                .c_str());
   }
@@ -2258,7 +2258,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationPartialXNOR) {
     SnlVisualiser snl(top);
     snl.process();
     snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
-    system(std::string(std::string("dot -Tsvg ") + dotFileName +
+    (void)system(std::string(std::string("dot -Tsvg ") + dotFileName +
                        std::string(" -o ") + svgFileName)
                .c_str());
   }
@@ -2325,7 +2325,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationPartialINV) {
     SnlVisualiser snl(top);
     snl.process();
     snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
-    system(std::string(std::string("dot -Tsvg ") + dotFileName +
+    (void)system(std::string(std::string("dot -Tsvg ") + dotFileName +
                        std::string(" -o ") + svgFileName)
                .c_str());
   }
@@ -2343,7 +2343,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationPartialINV) {
     SnlVisualiser snl(top);
     snl.process();
     snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
-    system(std::string(std::string("dot -Tsvg ") + dotFileName +
+    (void)system(std::string(std::string("dot -Tsvg ") + dotFileName +
                        std::string(" -o ") + svgFileName)
                .c_str());
   }
@@ -2410,7 +2410,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationPartialBUF) {
     SnlVisualiser snl(top);
     snl.process();
     snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
-    system(std::string(std::string("dot -Tsvg ") + dotFileName +
+    (void)system(std::string(std::string("dot -Tsvg ") + dotFileName +
                        std::string(" -o ") + svgFileName)
                .c_str());
   }
@@ -2428,7 +2428,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationPartialBUF) {
     SnlVisualiser snl(top);
     snl.process();
     snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
-    system(std::string(std::string("dot -Tsvg ") + dotFileName +
+    (void)system(std::string(std::string("dot -Tsvg ") + dotFileName +
                        std::string(" -o ") + svgFileName)
                .c_str());
   }
@@ -2517,7 +2517,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationPartialMUX) {
     SnlVisualiser snl(top);
     snl.process();
     snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
-    system(std::string(std::string("dot -Tsvg ") + dotFileName +
+    (void)system(std::string(std::string("dot -Tsvg ") + dotFileName +
                        std::string(" -o ") + svgFileName)
                .c_str());
   }
@@ -2535,7 +2535,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationPartialMUX) {
     SnlVisualiser snl(top);
     snl.process();
     snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
-    system(std::string(std::string("dot -Tsvg ") + dotFileName +
+    (void)system(std::string(std::string("dot -Tsvg ") + dotFileName +
                        std::string(" -o ") + svgFileName)
                .c_str());
   }
@@ -2620,7 +2620,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationPartialDFF) {
     SnlVisualiser snl(top);
     snl.process();
     snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
-    system(std::string(std::string("dot -Tsvg ") + dotFileName +
+    (void)system(std::string(std::string("dot -Tsvg ") + dotFileName +
                        std::string(" -o ") + svgFileName)
                .c_str());
   }
@@ -2638,7 +2638,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationPartialDFF) {
     SnlVisualiser snl(top);
     snl.process();
     snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
-    system(std::string(std::string("dot -Tsvg ") + dotFileName +
+    (void)system(std::string(std::string("dot -Tsvg ") + dotFileName +
                        std::string(" -o ") + svgFileName)
                .c_str());
   }
@@ -2728,7 +2728,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationPartialOAI) {
     SnlVisualiser snl(top);
     snl.process();
     snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
-    system(std::string(std::string("dot -Tsvg ") + dotFileName +
+    (void)system(std::string(std::string("dot -Tsvg ") + dotFileName +
                        std::string(" -o ") + svgFileName)
                .c_str());
   }
@@ -2746,7 +2746,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationPartialOAI) {
     SnlVisualiser snl(top);
     snl.process();
     snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
-    system(std::string(std::string("dot -Tsvg ") + dotFileName +
+    (void)system(std::string(std::string("dot -Tsvg ") + dotFileName +
                        std::string(" -o ") + svgFileName)
                .c_str());
   }
@@ -2827,7 +2827,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationPartialNonDefinedModel) 
     SnlVisualiser snl(top);
     snl.process();
     snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
-    system(std::string(std::string("dot -Tsvg ") + dotFileName +
+    (void)system(std::string(std::string("dot -Tsvg ") + dotFileName +
                        std::string(" -o ") + svgFileName)
                .c_str());
   }
@@ -2846,7 +2846,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationPartialNonDefinedModel) 
     SnlVisualiser snl(top);
     snl.process();
     snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
-    system(std::string(std::string("dot -Tsvg ") + dotFileName +
+    (void)system(std::string(std::string("dot -Tsvg ") + dotFileName +
                        std::string(" -o ") + svgFileName)
                .c_str());
   }
@@ -2998,7 +2998,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationAND_Hierarchical_duplica
     SnlVisualiser snl(top);
     snl.process();
     snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
-    system(std::string(std::string("dot -Tsvg ") + dotFileName +
+    (void)system(std::string(std::string("dot -Tsvg ") + dotFileName +
                        std::string(" -o ") + svgFileName)
                .c_str());
   }
@@ -3017,7 +3017,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationAND_Hierarchical_duplica
     SnlVisualiser snl(top);
     snl.process();
     snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
-    system(std::string(std::string("dot -Tsvg ") + dotFileName +
+    (void)system(std::string(std::string("dot -Tsvg ") + dotFileName +
                        std::string(" -o ") + svgFileName)
                .c_str());
   }
@@ -3169,7 +3169,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationAND_Hierarchical_duplica
     SnlVisualiser snl(top);
     snl.process();
     snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
-    system(std::string(std::string("dot -Tsvg ") + dotFileName +
+    (void)system(std::string(std::string("dot -Tsvg ") + dotFileName +
                        std::string(" -o ") + svgFileName)
                .c_str());
   }
@@ -3188,7 +3188,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationAND_Hierarchical_duplica
     SnlVisualiser snl(top);
     snl.process();
     snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
-    system(std::string(std::string("dot -Tsvg ") + dotFileName +
+    (void)system(std::string(std::string("dot -Tsvg ") + dotFileName +
                        std::string(" -o ") + svgFileName)
                .c_str());
   }
@@ -3340,7 +3340,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationAND_Hierarchical_duplica
     SnlVisualiser snl(top);
     snl.process();
     snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
-    system(std::string(std::string("dot -Tsvg ") + dotFileName +
+    (void)system(std::string(std::string("dot -Tsvg ") + dotFileName +
                        std::string(" -o ") + svgFileName)
                .c_str());
   }
@@ -3359,19 +3359,8 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationAND_Hierarchical_duplica
     SnlVisualiser snl(top);
     snl.process();
     snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
-    system(std::string(std::string("dot -Tsvg ") + dotFileName +
+    (void)system(std::string(std::string("dot -Tsvg ") + dotFileName +
                        std::string(" -o ") + svgFileName)
                .c_str());
   }
 }
-
-
-
-
-
-
-
-
-
-
-

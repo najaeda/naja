@@ -212,7 +212,7 @@ TEST_F(SNLVisualTests, SimpleTest) {
   std::string svgFileName(
       std::string(std::string("./test") + std::string(".svg")));
   snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
-  system(std::string(std::string("dot -Tsvg ") + dotFileName +
+  (void)system(std::string(std::string("dot -Tsvg ") + dotFileName +
                      std::string(" -o ") + svgFileName)
              .c_str());
   // Destroy the DNL
@@ -282,7 +282,7 @@ TEST_F(SNLVisualTests, ForCoverageTest) {
   std::string svgFileName(
       std::string(std::string("./testCov") + std::string(".svg")));
   snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
-  system(std::string(std::string("dot -Tsvg ") + dotFileName +
+  (void)system(std::string(std::string("dot -Tsvg ") + dotFileName +
                      std::string(" -o ") + svgFileName)
              .c_str());
 }
@@ -340,7 +340,7 @@ TEST_F(SNLVisualTests, BusTest) {
   SnlVisualiser snl(mod);
   snl.process();
   snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
-  system(std::string(std::string("dot -Tsvg ") + dotFileName +
+  (void)system(std::string(std::string("dot -Tsvg ") + dotFileName +
                      std::string(" -o ") + svgFileName)
              .c_str());
 }

@@ -421,7 +421,7 @@ TEST_F(ReductionOptTests, testTruthTablesMap) {
       SnlVisualiser snl(top);
       snl.process();
       snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
-      system(std::string(std::string("dot -Tsvg ") + dotFileName +
+      (void)system(std::string(std::string("dot -Tsvg ") + dotFileName +
                          std::string(" -o ") + svgFileName)
                  .c_str());
     }
@@ -811,7 +811,7 @@ TEST_F(ReductionOptTests, testTruthTablesMap_bne) {
       SnlVisualiser snl(top);
       snl.process();
       snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
-      system(std::string(std::string("dot -Tsvg ") + dotFileName +
+      (void)system(std::string(std::string("dot -Tsvg ") + dotFileName +
                          std::string(" -o ") + svgFileName)
                  .c_str());
     }
