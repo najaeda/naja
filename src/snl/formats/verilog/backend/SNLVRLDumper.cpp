@@ -20,6 +20,7 @@
 #include "SNLBusNet.h"
 #include "SNLBusNetBit.h"
 #include "SNLInstTerm.h"
+#include "SNLAttributes.h"
 #include "SNLUtils.h"
 #include "SNLDB0.h"
 
@@ -256,6 +257,23 @@ SNLName SNLVRLDumper::getNetName(const SNLNet* net, const DesignInsideAnonymousN
   }
 }
 
+void SNLVRLDumper::dumpAttributes(const SNLObject* object, std::ostream& o) {
+  for (const auto& attribute: SNLAttributes::getAttributes(object)) {
+    o << "(* ";
+    o << attribute.getName().getString();
+    if (attribute.hasValue()) {
+      if (attribute.getValue().isString()) {
+        o << "=\"";
+      }
+      o << "=" << attribute.getValue().getString();
+      if (attribute.getValue().isString()) {
+        o << "\"";
+      }
+    }
+    o << " *)" << std::endl;
+  }
+}
+
 void SNLVRLDumper::dumpInterface(const SNLDesign* design, std::ostream& o, DesignInsideAnonymousNaming& naming) {
   size_t nbChars = std::char_traits<char>::length("module  (");
   nbChars += design->getName().getString().size();
@@ -297,6 +315,7 @@ bool SNLVRLDumper::dumpNet(const SNLNet* net, std::ostream& o, DesignInsideAnony
   } else {
     netName = net->getName();
   }
+  dumpAttributes(net, o);
   o << "wire ";
   if (auto bus = dynamic_cast<const SNLBusNet*>(net)) {
     o << "[" << bus->getMSB() << ":" << bus->getLSB() << "] ";
@@ -533,6 +552,7 @@ bool SNLVRLDumper::dumpInstance(
   } else {
     instanceName = instance->getName().getString();
   }
+  dumpAttributes(instance, o);
   auto model = instance->getModel();
   if (not model->isAnonymous()) { //FIXME !!
     o << dumpName(model->getName().getString()) << " ";
@@ -698,6 +718,7 @@ void SNLVRLDumper::dumpOneDesign(const SNLDesign* design, std::ostream& o) {
   if (design->isAnonymous()) {
     createDesignName(design);
   }
+  dumpAttributes(design, o);
   o << "module " << dumpName(design->getName().getString());
 
   dumpInterface(design, o, naming);

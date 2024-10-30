@@ -21,27 +21,83 @@
 #include "SNLBusNetBit.h"
 #include "SNLScalarNet.h"
 #include "SNLInstParameter.h"
+#include "SNLAttributes.h"
 
 #include "SNLVRLConstructorUtils.h"
 #include "SNLVRLConstructorException.h"
 
 namespace {
 
-void createPort(naja::SNL::SNLDesign* design, const naja::verilog::Port& port) {
+void collectAttributes(
+  naja::SNL::SNLObject* object,
+  const naja::SNL::SNLVRLConstructor::Attributes& attributes) {
+  if (auto design = dynamic_cast<naja::SNL::SNLDesign*>(object)) {
+    for (const auto attribute: attributes) {
+      naja::SNL::SNLName attributeName(attribute.name_.getString());
+      std::string expression;
+      naja::SNL::SNLAttributes::SNLAttribute::Value::Type valueType;
+      switch (attribute.expression_.getType()) {
+        case naja::verilog::ConstantExpression::Type::STRING:
+          valueType = naja::SNL::SNLAttributes::SNLAttribute::Value::Type::STRING;
+          break;
+        case naja::verilog::ConstantExpression::Type::NUMBER:
+          valueType = naja::SNL::SNLAttributes::SNLAttribute::Value::Type::NUMBER;
+          break;
+      }
+      if (attribute.expression_.valid_) {
+        expression = attribute.expression_.getString();
+      }
+      naja::SNL::SNLAttributes::addAttribute(
+        design,
+        naja::SNL::SNLAttributes::SNLAttribute(
+          attributeName,
+          naja::SNL::SNLAttributes::SNLAttribute::Value(valueType, expression)));
+    }
+  } else if (auto designObject = dynamic_cast<naja::SNL::SNLDesignObject*>(object)) {
+    for (const auto attribute: attributes) {
+      naja::SNL::SNLName attributeName(attribute.name_.getString());
+      std::string expression;
+      naja::SNL::SNLAttributes::SNLAttribute::Value::Type valueType;
+      switch (attribute.expression_.getType()) {
+        case naja::verilog::ConstantExpression::Type::STRING:
+          valueType = naja::SNL::SNLAttributes::SNLAttribute::Value::Type::STRING;
+          break;
+        case naja::verilog::ConstantExpression::Type::NUMBER:
+          valueType = naja::SNL::SNLAttributes::SNLAttribute::Value::Type::NUMBER;
+          break;
+      }
+      if (attribute.expression_.valid_) {
+        expression = attribute.expression_.getString();
+      }
+      naja::SNL::SNLAttributes::addAttribute(
+        designObject,
+        naja::SNL::SNLAttributes::SNLAttribute(
+          attributeName,
+          naja::SNL::SNLAttributes::SNLAttribute::Value(valueType, expression)));
+    }
+  }
+}
+
+void createPort(
+  naja::SNL::SNLDesign* design,
+  const naja::verilog::Port& port,
+  const naja::SNL::SNLVRLConstructor::Attributes& attributes) {
   //spdlog::trace("Module {} create port: {}", design->getDescription(), port.getString());
+  naja::SNL::SNLTerm* term = nullptr;
   if (port.isBus()) {
-    naja::SNL::SNLBusTerm::create(
+    term = naja::SNL::SNLBusTerm::create(
       design,
       naja::SNL::SNLVRLConstructor::VRLDirectionToSNLDirection(port.direction_),
       port.range_.msb_,
       port.range_.lsb_,
       naja::SNL::SNLName(port.identifier_.name_));
   } else {
-    naja::SNL::SNLScalarTerm::create(
+    term = naja::SNL::SNLScalarTerm::create(
       design,
       naja::SNL::SNLVRLConstructor::VRLDirectionToSNLDirection(port.direction_),
       naja::SNL::SNLName(port.identifier_.name_));
   }
+  collectAttributes(term, attributes);
 }
 
 void createPortNet(naja::SNL::SNLDesign* design, const naja::verilog::Port& port) {
@@ -181,6 +237,7 @@ void SNLVRLConstructor::construct(const std::filesystem::path& path) {
 void SNLVRLConstructor::startModule(const naja::verilog::Identifier& module) {
   if (inFirstPass()) {
     currentModule_ = SNLDesign::create(library_, SNLName(module.name_));
+    collectAttributes(currentModule_, nextObjectAttributes_);
     if (verbose_) {
       std::cerr << "Construct Module: " << module.getString() << std::endl; //LCOV_EXCL_LINE
     }
@@ -201,6 +258,7 @@ void SNLVRLConstructor::startModule(const naja::verilog::Identifier& module) {
     }
     createCurrentModuleAssignNets();
   } 
+  nextObjectAttributes_.clear();
 }
 
 void SNLVRLConstructor::moduleInterfaceSimplePort(const naja::verilog::Identifier& port) {
@@ -242,14 +300,16 @@ void SNLVRLConstructor::moduleImplementationPort(const naja::verilog::Port& port
   } else {
     createPortNet(currentModule_, port);
   }
+  nextObjectAttributes_.clear();
 }
 
 void SNLVRLConstructor::moduleInterfaceCompletePort(const naja::verilog::Port& port) {
   if (inFirstPass()) {
-    createPort(currentModule_, port);
+    createPort(currentModule_, port, nextObjectAttributes_);
   } else {
     createPortNet(currentModule_, port);
   }
+  nextObjectAttributes_.clear();
 }
 
 void SNLVRLConstructor::addNet(const naja::verilog::Net& net) {
@@ -279,6 +339,7 @@ void SNLVRLConstructor::addNet(const naja::verilog::Net& net) {
         snlNet = SNLScalarNet::create(currentModule_, SNLName(net.identifier_.name_));
       }
       snlNet->setType(VRLTypeToSNLType(net.type_));
+      collectAttributes(snlNet, nextObjectAttributes_);
     //LCOV_EXCL_START
     } catch (const SNLException& exception) {
       std::ostringstream reason;
@@ -288,6 +349,7 @@ void SNLVRLConstructor::addNet(const naja::verilog::Net& net) {
     }
     //LCOV_EXCL_STOP
   }
+  nextObjectAttributes_.clear();
 }
 
 void SNLVRLConstructor::addAssign(
@@ -411,7 +473,9 @@ void SNLVRLConstructor::addInstance(const naja::verilog::Identifier& instance) {
     //might be a good idea to create a cache <Name, SNLDesign*> here
     //in particular for primitives
     currentInstance_ = SNLInstance::create(currentModule_, model, SNLName(instance.name_));
+    collectAttributes(currentInstance_, nextObjectAttributes_);
   }
+  nextObjectAttributes_.clear();
 }
 
 void SNLVRLConstructor::addParameterAssignment(
@@ -581,6 +645,14 @@ void SNLVRLConstructor::addOrderedInstanceConnection(
   }
 }
 
+void SNLVRLConstructor::addAttribute(
+  const naja::verilog::Identifier& attributeName,
+  const naja::verilog::ConstantExpression& expression) {
+  if (getParseAttributes()) {
+    nextObjectAttributes_.push_back(naja::verilog::Attribute(attributeName, expression));
+  }
+}
+
 void SNLVRLConstructor::endModule() {
   if (verbose_) {
     //LCOV_EXCL_START
@@ -608,8 +680,8 @@ void SNLVRLConstructor::endModule() {
       reason << portName << " declared in interface has no declaration in module implementation.";
       throw SNLVRLConstructorException(reason.str());
     }
-    for (auto& port: currentModuleInterfacePorts_) {
-      createPort(currentModule_, *port);
+    for (const auto& port: currentModuleInterfacePorts_) {
+      createPort(currentModule_, *port, nextObjectAttributes_);
     }
   } else {
     //Blackbox detection
@@ -730,7 +802,7 @@ void SNLVRLConstructor::collectIdentifierNets(
 
 void SNLVRLConstructor::addDefParameterAssignment(
   const naja::verilog::Identifiers& hierarchicalParameter,
-  const naja::verilog::Expression& expression) {
+  const naja::verilog::ConstantExpression& expression) {
   if (not inFirstPass()) {
     if (hierarchicalParameter.size() != 2) {
       std::ostringstream reason;

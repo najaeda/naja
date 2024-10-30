@@ -13,8 +13,8 @@ SET(snl_tests
   SNLInstanceSetModelTest.cpp
   SNLNetTest.cpp
   SNLPathTest0.cpp SNLPathTest1.cpp SNLPathTest2.cpp
-  SNLOccurrenceTest.cpp
-  SNLParameterTest.cpp
+  SNLOccurrenceTest.cpp SNLParameterTest.cpp
+  SNLAttributesTest.cpp
   SNLDB0Test.cpp
   SNLMergeAssignsTest.cpp
   SNLUtilsTest.cpp
