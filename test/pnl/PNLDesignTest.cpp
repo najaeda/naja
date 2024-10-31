@@ -28,6 +28,8 @@ TEST_F(PNLDesignTest, testCreation0) {
   ASSERT_NE(library, nullptr);
   EXPECT_EQ(0, library->getDesigns().size());
   EXPECT_TRUE(library->getDesigns().empty());
-  SNLDesign* design = SNLDesign::create(library, SNLName("design"));
-  ASSERT_NE(design, nullptr);
+  SNLDesign* snlDesign = SNLDesign::create(library, SNLName("design"));
+  ASSERT_NE(snlDesign, nullptr);
+  PNLDesign* pnlDesign = PNLDesign::create(library);
+  ASSERT_NE(pnlDesign, nullptr);
 }  
