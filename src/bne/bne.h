@@ -13,19 +13,19 @@ class BNE {
  public:
  /**
   * \brief Create a BNE.
-  * \param blockNormalization true if the normalization is blocked.
-  * \param blockOptimization true if the optimization is blocked.
+  * \param blockNormalization True if the normalization is blocked.
+  * \param blockOptimization True if the optimization is blocked.
   */
   BNE(bool blockNormalization = false, bool blockOptimization = false)
       : tree_(blockNormalization, blockOptimization) {}
   /**
-   * \brief add a delete action to the BNE.
-   * \param pathToDelete the path to delete.
+   * \brief Add a delete action to the BNE.
+   * \param pathToDelete The path to delete.
    */
   void addDeleteAction(const std::vector<SNLID::DesignObjectID>& pathToDelete);
   /**
-   * \brief add a delete action to the BNE.
-   * \param pathToDelete the path to delete.
+   * \brief Add a delete action to the BNE.
+   * \param pathToDelete The path to delete.
    */
   void addDriveWithConstantAction(
       const std::vector<SNLID::DesignObjectID>& context,
@@ -34,16 +34,16 @@ class BNE {
       const double& value,
       SNLBitTerm* topTermToDrive = nullptr);
   /**
-   * \brief add a delete action to the BNE.
-   * \param pathToDelete the path to delete.
+   * \brief Add a delete action to the BNE.
+   * \param pathToDelete The path to delete.
    */
   void addReductionCommand(
       const std::vector<SNLID::DesignObjectID>& context,
       SNLID::DesignObjectID instance,
       const std::pair<SNLDesign*, SNLLibraryTruthTables::Indexes>& result);
   /**
-   * \brief add a delete action to the BNE.
-   * \param pathToDelete the path to delete.
+   * \brief Add a delete action to the BNE.
+   * \param pathToDelete The path to delete.
    */
   void process();
  private:

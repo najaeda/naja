@@ -172,54 +172,54 @@ class ActionTree {
  public:
   /**
    * \brief Create an ActionTree.
-   * \param blockNormalization true if the normalization is blocked.
-   * \param keepOrder true if the order is kept.
-   * \return the created ActionTree.
+   * \param blockNormalization True if the normalization is blocked.
+   * \param keepOrder True if the order is kept.
+   * \return The created ActionTree.
    */
   ActionTree(bool blockNormalization = false, bool keepOrder = false);
   /**
-   * \brief get the node for the context.
-   * \param context the context of the node.
-   * \return the node for the context.
+   * \brief Get the node for the context.
+   * \param context The context of the node.
+   * \return The node for the context.
    */
   ActionTreeNode* getNodeForContext(
       const std::vector<SNLID::DesignObjectID>& context);
   /**
-   * \brief add a node childe for the context path.
-   * \param context the context of the node.
-   * \return the node for the context.
+   * \brief Add a node childe for the context path.
+   * \param context The context of the node.
+   * \return The node for the context.
    */
   ActionTreeNode& addHierChild(
       const std::vector<SNLID::DesignObjectID>& context);
   /**
-   * \brief add a node childe for the context path.
-   * \param context the context of the node.
-   * \return the node for the context.
+   * \brief Add a node childe for the context path.
+   * \param context The context of the node.
+   * \return The node for the context.
    */
   void addAction(Action* action);
   /**
-   * \brief normalize the tree.
+   * \brief Normalize the tree.
    */
   void normalize();
   /**
-   * \brief get the root of the tree.
-   * \return the root of the tree.
+   * \brief Get the root of the tree.
+   * \return The root of the tree.
    */
   ActionTreeNode& getRoot() { return nodes_[0]; }
   /**
-   * \brief get the node of the id.
-   * \param id the id of the node.
-   * \return the node of the id.
+   * \brief Get the node of the id.
+   * \param id The id of the node.
+   * \return The node of the id.
    */
   ActionTreeNode& getNode(size_t id) { return nodes_[id]; }
   /**
-   * \brief process the tree.
+   * \brief Process the tree.
    */
   void process();
   /**
-   * \brief get the action of the id.
-   * \param id the id of the action.
-   * \return the action of the id.
+   * \brief Get the action of the id.
+   * \param id The id of the action.
+   * \return The action of the id.
    */
   Action* getAction(size_t id) { return actions_[id]; }
   // Destructor that releases all the actions
