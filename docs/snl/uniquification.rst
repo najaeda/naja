@@ -1,4 +1,4 @@
-Clone API
+Uniquification
 =========
 
 .. image:: ../images/Naja-Clone.png
