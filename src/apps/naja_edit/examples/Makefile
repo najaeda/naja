@@ -1,12 +1,11 @@
-YOSYS ?= yosys
-NAJA_EDIT ?= ${NAJA_INSTALL}/bin/naja_edit
-PRIMITIVES ?= ${NAJA_INSTALL}/shared/primitives/xilinx.py
-PYTHON_ENV ?= export PYTHONPATH=${NAJA_INSTALL}/lib/python;
+all:
+	cd adder && make
+	cd arm_core && make
+	cd test_args && make
+	#cd vexriscv && make
 
-all: addaccu_edited.v
-
-addaccu_netlist.v: addaccu.v
-	${YOSYS} synth.ys
-
-addaccu_edited.v: addaccu_netlist.v
-	${PYTHON_ENV} ${NAJA_EDIT} -a verilog -b verilog -i $< -o addaccu_naja.v -p ${PRIMITIVES} -e edit.py
+clean:
+	cd adder && make clean
+	cd arm_core && make clean
+	cd test_args && make clean
+	cd vexriscv && make clean

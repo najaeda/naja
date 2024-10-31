@@ -9,9 +9,11 @@ set(snl_vrl_dumper_tests
     SNLVRLDumperTest1.cpp
     SNLVRLDumperTest2.cpp
     SNLVRLDumperTest3.cpp
+    SNLVRLDumperTest4.cpp
     SNLVRLDumperTestEscaping.cpp
     SNLVRLDumperTestTermNets.cpp
     SNLVRLDumperTestParameters.cpp
+    SNLVRLDumperTestAttributes.cpp
     SNLVRLDumperTestUtils.cpp
     SNLVRLDumperTestLibraryDump.cpp
 )

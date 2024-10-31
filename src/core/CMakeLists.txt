@@ -31,6 +31,7 @@ set(SOURCES
   NajaProperty.cpp
   NajaPrivateProperty.cpp
   NajaDumpableProperty.cpp
+  NajaPerf.cpp
 )
 
 set(NAJA_CORE_HEADERS
@@ -39,12 +40,14 @@ set(NAJA_CORE_HEADERS
   NajaProperty.h NajaPrivateProperty.h
   NajaDumpableProperty.h
   NajaException.h
+  NajaPerf.h
 )
 
 list(APPEND NAJA_CORE_HEADERS ${CMAKE_CURRENT_BINARY_DIR}/NajaVersion.h)
 
 add_library(naja_core SHARED ${SOURCES})
-target_link_libraries(naja_core PUBLIC cpptrace::cpptrace coverage_config sanitizers_config)
+#target_link_libraries(naja_core PUBLIC cpptrace::cpptrace coverage_config sanitizers_config)
+target_link_libraries(naja_core PUBLIC coverage_config sanitizers_config)
 
 target_compile_options(naja_core PRIVATE ${NAJA_CXX_WARNINGS}) 
 

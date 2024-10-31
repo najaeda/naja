@@ -13,13 +13,7 @@
 
 Naja is an Electronic Design Automation (EDA) project that provides open source data structures and APIs for the development of post logic synthesis EDA algorithms such as: netlist simplification (constant and dead logic propagation), logic replication, netlist partitioning, ASIC and FPGA place and route, …
 
-Naja best starting point is: [naja-edit](#naja_edit).
-
-If you are looking to build your own EDA tool, Naja contains three primary API components:
-
-1. SNL (Structured Netlist) API housed in this repository.
-2. DNL (Dissolved Netlist) API associated to SNL also in this repository.
-3. [naja-verilog](https://github.com/najaeda/naja-verilog), a data structure independent structural verilog parser.
+Naja best starting point is netlist optimization and ECO (Engineering Change Order) tool: [naja-edit](#naja_edit) with Python scripts [gallery](README_pages/naja-edit-python-examples.md).
 
 ### Acknowledgement
 
@@ -28,20 +22,20 @@ If you are looking to build your own EDA tool, Naja contains three primary API c
 
 This project is supported and funded by NLNet through the [NGI0 Entrust](https://nlnet.nl/entrust) Fund.
 
-## Applications
-
-### naja_edit
+## naja_edit
 
 `naja_edit`, located in the `$NAJA_INSTALL/bin` directory, is a tool designed for
 optimizing, editing and translating netlists.
 
-#### Workflow Overview
+:tv: We presented naja_edit’s latest features and results at [ORConf 2024](https://fossi-foundation.org/orconf/2024). You can watch the full presentation [here](https://www.youtube.com/watch?v=JpwZGCuWekU).
+
+### Workflow Overview
 
 The workflow for `naja_edit` is outlined in the schema below. It's important to note that the only mandatory step in the process is the initial loading of the input netlist.
 
 ![Naja-Edit](./docs/images/Naja-Edit.png)
 
-#### Workflow Details
+### Workflow Details
 
 - **Input/Output format**: Supports structural (gate-level) Verilog and [SNL Interchange Format](#snl-interchange-format).
 Convert netlists between formats by specifying the input (`-f`) and output (`-t`) options.
@@ -63,8 +57,9 @@ naja_edit -f verilog -t snl -i input.v -o output.snl -e script.py
 - **Netlist Logic optimizations across hierarchy boundaries**: Utilize built-in
 optimization algorithms to refine the netlist across hierarchical boundaries
 with minimal uniquification. Available optimizations include:
-    - All optimizations (option `-a all`): will apply Dead Logic Elimination (DLE), Constant Propagation and Primitives Optimization.
-    - Dead Logic Elimination only (option `-a dle`): will apply only DLE.
+
+- All optimizations (option `-a all`): will apply Dead Logic Elimination (DLE), Constant Propagation and Primitives Optimization.
+- Dead Logic Elimination only (option `-a dle`): will apply only DLE.
 
 ```bash
 # -1: Load input netlist from SNL format.
@@ -76,7 +71,9 @@ naja_edit -f snl -t snl -i input.snl -o output.snl -a dle \
           -e pre_script.py -z post_edit.py
 ```
 
-`naja_edit` editing script examples are available [here](https://github.com/najaeda/naja/blob/main/src/apps/edit/examples).
+👉🐍 This [page](README_pages/naja-edit-python-examples.md) provides a collection of example Python scripts for using the naja_edit API.
+
+`naja_edit` editing script examples are also available [here](https://github.com/najaeda/naja/blob/main/src/apps/naja_edit/examples).
 
 The [Naja Regress](https://github.com/najaeda/naja-regress) repository features a collection of examples
 showcasing extensive use of `naja_edit`.
@@ -86,6 +83,12 @@ showcasing extensive use of `naja_edit`.
 ---
 
 ## Naja
+
+Naja contains three primary API components:
+
+1. SNL (Structured Netlist) API housed in this repository.
+2. DNL (Dissolved Netlist) API associated to SNL also in this repository.
+3. [naja-verilog](https://github.com/najaeda/naja-verilog), a data structure independent structural verilog parser.
 
 ### Why Naja ?
 
@@ -99,6 +102,7 @@ on [Cap'n Proto](https://github.com/capnproto/capnproto) open source interchange
 `DNL` provides a uniquified view of `SNL`, specifically designed for efficient multi-threaded traversal
 and analysis of netlist data.
 Key features of `DNL` include:
+
 - Read-only Data Structure: Ensures data integrity and stability during analysis.
 - Fast Construction: `DNL` is quickly built from `SNL`, facilitating rapid transitions between representations.
 - Index-based Minimal Details: Reduces overhead and focuses on essential connectivity information.
@@ -114,7 +118,7 @@ SNL is summarized in below's image.
 
 ![SNL](./docs/images/Naja-SNL.png)
 
-:information_desk_person: If you have any questions, please [Contact Us](mailto:christophe.alex@gmail.com)
+:information_desk_person: If you have any questions, please [Contact Us](mailto:contact@keplertech.io)
 
 :star: If you find Naja interesting, and would like to stay up-to-date, consider starring this repo to help spread the word.
 
@@ -237,7 +241,7 @@ capnp decode --packed snl_implementation.capnp DBImplementation < snl/db_impleme
 
 ##### Verilog
 
-For Verilog parsing, Naja relies on naja-verilog submodule (https://github.com/najaeda/naja-verilog).
+For Verilog parsing, Naja relies on naja-verilog [submodule](https://github.com/najaeda/naja-verilog).
 Leaf primitives are loaded through the Python primitive loader: [SNLPrimitivesLoader](https://github.com/najaeda/naja/blob/main/src/snl/python/primitives/SNLPrimitivesLoader.h).
 An application snippet can be found [here](https://github.com/najaeda/naja/blob/main/src/snl/snippets/app/src/SNLVRLSnippet.cpp) and examples of
 primitive libraries described using the Python interface can be found in the

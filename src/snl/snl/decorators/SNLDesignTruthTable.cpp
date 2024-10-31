@@ -43,15 +43,6 @@ void SNLDesignTruthTable::setTruthTable(SNLDesign* design, const SNLTruthTable& 
   if (not design->isPrimitive()) {
     throw SNLException("Cannot add truth table on non-primitive design");
   }
-  //verify that the truth table size == nb of inputs
-  auto inputFilter = [](const SNLTerm* term) { return term->getDirection() == SNLTerm::Direction::Input; };
-  auto inputs = design->getTerms().getSubCollection(inputFilter);
-  if (inputs.size() not_eq truthTable.size()) {
-    std::ostringstream reason;
-    reason << "Truth table size <" << truthTable.size() << "> is different from inputs size <"
-      << inputs.size() << "> in design <" << design->getName().getString() << ">";
-    throw SNLException(reason.str());
-  }
   auto outputFilter = [](const SNLTerm* term) { return term->getDirection() == SNLTerm::Direction::Output; };
   auto outputs = design->getTerms().getSubCollection(outputFilter);
   if (outputs.size() not_eq 1) {
@@ -76,7 +67,7 @@ SNLTruthTable SNLDesignTruthTable::getTruthTable(const SNLDesign* design) {
 bool SNLDesignTruthTable::isConst0(const SNLDesign* design) {
   auto truthTable = getTruthTable(design);
   if (truthTable.isInitialized()) {
-    return truthTable == SNLTruthTable(0, 0);
+    return truthTable == SNLTruthTable::Logic0();
   }
   return false;
 }
@@ -84,7 +75,7 @@ bool SNLDesignTruthTable::isConst0(const SNLDesign* design) {
 bool SNLDesignTruthTable::isConst1(const SNLDesign* design) {
   auto truthTable = getTruthTable(design);
   if (truthTable.isInitialized()) {
-    return truthTable == SNLTruthTable(0, 1);
+    return truthTable == SNLTruthTable::Logic1();
   }
   return false;
 }
@@ -92,7 +83,7 @@ bool SNLDesignTruthTable::isConst1(const SNLDesign* design) {
 bool SNLDesignTruthTable::isInv(const SNLDesign* design) {
   auto truthTable = getTruthTable(design);
   if (truthTable.isInitialized()) {
-    return truthTable == SNLTruthTable(1, 0b01);
+    return truthTable == SNLTruthTable::Inv();
   }
   return false;
 }
@@ -100,7 +91,7 @@ bool SNLDesignTruthTable::isInv(const SNLDesign* design) {
 bool SNLDesignTruthTable::isBuf(const SNLDesign* design) {
   auto truthTable = getTruthTable(design);
   if (truthTable.isInitialized()) {
-    return truthTable == SNLTruthTable(1, 0b10);
+    return truthTable == SNLTruthTable::Buf();
   }
   return false;
 }

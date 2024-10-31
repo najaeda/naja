@@ -103,9 +103,15 @@ void ActionTree::normalize() {
       foundNormalization = false;
       std::vector<ActionTreeNode*> nodesToMerge;
       auto currentNode = nodes.back();
+      if (!currentNode->isPartOfTree()) {
+        continue;
+      }
       nodesToMerge.push_back(currentNode);
       nodes.pop_back();
       for (auto node : nodes) {
+        if (!node->isPartOfTree()) {
+          continue;
+        }
         if (*currentNode == *node) {
           nodesToMerge.push_back(node);
           foundNormalization = true;
@@ -124,7 +130,7 @@ void ActionTree::normalize() {
         assert(getInstanceForPath(node->getContext())->getModel() ==
                (getInstanceForPath(currentNode->getContext()))->getModel());
         currentNode->addParent(node->getParents()[0]);
-        nodes_[node->getID()].eraseParent(node->getParents()[0]);
+        //FIXME xtof nodes_[node->getID()].eraseParent(node->getParents()[0]);
       }
     }
   }
@@ -222,19 +228,7 @@ void ActionTree::process() {
 // Destructor that releases all the actions
 ActionTree::~ActionTree() {
   for (auto& action : actions_) {
-    switch (action->getType()) {
-      case ActionType::DELETE:
-        delete static_cast<DeleteAction*>(action);
-        break;
-      case ActionType::DRIVE_WITH_CONSTANT:
-        delete static_cast<DriveWithConstantAction*>(action);
-        break;
-      case ActionType::REDUCTION:
-        delete static_cast<ReductionAction*>(action);
-        break;
-      default:
-        break;
-    }
+    action->destroy();
   }
 }
 
@@ -251,10 +245,11 @@ std::vector<SNLID::DesignObjectID> ActionTreeNode::getContext() const {
   std::vector<SNLID::DesignObjectID> context;
   // collect the DOID from node until root and then reverse
   const ActionTreeNode* currentNode = this;
+  assert(currentNode->isPartOfTree());
   while (currentNode->getParents()[0].first != (size_t)-1) {
     context.push_back(currentNode->getInstance());
     if (currentNode->getParents().empty()) {
-      break;
+      assert(false);
     }
     currentNode = &tree_->getNode(currentNode->getParents().front().first);
   }
@@ -301,4 +296,16 @@ void ActionTreeNode::sortActions() {  // sort actions with custom comparator
               return *(tree_->getAction(lhs.order)) <
                      *(tree_->getAction(rhs.order));
             });
+}
+
+bool ActionTreeNode::isPartOfTree() const {
+  //Verifying parents lead to root(parent == -1)
+  const ActionTreeNode* currentNode = this;
+  while (currentNode->getParents()[0].first != (size_t)-1) {
+    if (currentNode->getParents().empty()) {
+      return false;
+    }
+    currentNode = &tree_->getNode(currentNode->getParents().front().first);
+  }
+  return true;
 }

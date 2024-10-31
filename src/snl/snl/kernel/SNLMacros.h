@@ -25,8 +25,16 @@ void TYPE::setNet(SNLNet* net) { \
   if (net) { \
     bitNet = dynamic_cast<SNLBitNet*>(net); \
     if (not bitNet) { \
-      std::string reason = "Impossible setNet call with incompatible nets size: "; \
-      throw SNLException(reason); \
+      auto bus = static_cast<SNLBusNet*>(net); \
+      if (bus) { \
+        if (bus->getSize() != 1) { \
+          std::ostringstream reason; \
+          reason << "In design " << getDesign()->getString() << ", cannot set " << getString(); \
+          reason << " to " << net->getString() << ", bus size is " << bus->getSize(); \
+          throw SNLException(reason.str()); \
+        } \
+        bitNet = bus->getBit(bus->getMSB()); \
+      } \
     } \
   } \
   if (net_ not_eq bitNet) { \

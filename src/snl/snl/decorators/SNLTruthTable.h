@@ -20,7 +20,7 @@ namespace naja { namespace SNL {
 
 class SNLTruthTable {
   public:
-    SNLTruthTable(): size_(0xFF) {}
+    SNLTruthTable(): size_(std::numeric_limits<uint32_t>::max()) {}
     explicit SNLTruthTable(uint32_t size, uint64_t bits): size_(size), bits_(bits) {
       if (size > 6) {
         std::ostringstream oss;
@@ -30,6 +30,23 @@ class SNLTruthTable {
         throw SNLException(oss.str());
       }
     }
+
+    static SNLTruthTable Logic0() {
+      return SNLTruthTable(0, 0);
+    }
+
+    static SNLTruthTable Logic1() {
+      return SNLTruthTable(0, 1);
+    }
+
+    static SNLTruthTable Inv() {
+      return SNLTruthTable(1, 0b01);
+    }
+
+    static SNLTruthTable Buf() {
+      return SNLTruthTable(1, 0b10);
+    }
+
     bool operator ==(const SNLTruthTable& other) const {
       return size_ == other.size_ and bits_ == other.bits_;	    
     }
@@ -48,7 +65,7 @@ class SNLTruthTable {
     }
 
     bool isInitialized() const {
-      return size_ != 0xFF;
+      return size_ != std::numeric_limits<uint32_t>::max();
     }
 
     using ConstantInput = std::pair<uint32_t, bool>;
@@ -96,11 +113,11 @@ class SNLTruthTable {
         currentTT = SNLTruthTable(currentTT.size_ - 1, reducedBits);
 
         // Check if the new truth table represents a constant 0 or 1
-        if (currentTT.is0()) {
-          return SNLTruthTable(0, 0ULL);
+        if (currentTT.all0()) {
+          return SNLTruthTable::Logic0();
         }
-        if (currentTT.is1()) {
-          return SNLTruthTable(0, 1ULL);
+        if (currentTT.all1()) {
+          return SNLTruthTable::Logic1();
         }
       }
       // Return the final reduced truth table
@@ -135,14 +152,14 @@ class SNLTruthTable {
       return reducedTruthTable;
     }
 
-    bool is0() const {
+    bool all0() const {
       uint64_t n = 1ULL << size_;
       uint64_t mask = (1ULL << n) - 1ULL;
       uint64_t result = bits_ & mask;
       return result == 0;
     }
 
-    bool is1() const {
+    bool all1() const {
       uint64_t n = 1ULL << size_;
       uint64_t mask = (1ULL << n) - 1ULL;
       uint64_t result = bits_ & mask;
@@ -157,7 +174,7 @@ class SNLTruthTable {
       return bits_;
     }
   private:
-    uint32_t  size_ {0};
+    uint32_t  size_ {std::numeric_limits<uint32_t>::max()};
     uint64_t  bits_ {0};
 };
 

@@ -21,7 +21,6 @@ class SNLLibertyConstructor {
     void construct(const std::filesystem::path& path);
   private:
     SNLLibrary* library_;
-
 };
 
 }} // namespace SNL // namespace naja

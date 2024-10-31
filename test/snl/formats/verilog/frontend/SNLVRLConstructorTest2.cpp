@@ -46,7 +46,7 @@ TEST_F(SNLVRLConstructorTest2, test) {
   auto db = SNLDB::create(SNLUniverse::get());
   auto prims = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("PRIMS"));
   auto primitivesPath = std::filesystem::path(SNL_VRL_BENCHMARKS_PATH);
-  primitivesPath /= "primitives.py";
+  primitivesPath /= "primitives0.py";
   SNLPyLoader::loadPrimitives(prims, primitivesPath);
   SNLVRLConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_VRL_BENCHMARKS_PATH);

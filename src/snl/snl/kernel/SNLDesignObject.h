@@ -44,6 +44,7 @@ class SNLDesignObject: public SNLObject {
     /**
      * \brief set the SNLName of this SNLDesignObject
      * \warning this method will throw an exception if used on SNLBusTermBit, SNLBusNetBit or SNLInstTermBit
+     * or if the name is already used in the design.
     */
     virtual void setName(const SNLName& name) = 0;
     

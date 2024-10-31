@@ -95,10 +95,26 @@ void SNLDesign::preCreate(const SNLLibrary* library, Type type, const SNLName& n
     throw SNLException("malformed design creator with null library");
   }
   if (type == Type::Primitive and not library->isPrimitives()) {
-    throw SNLException("non compatible types in design constructor");
+    std::ostringstream reason;
+    reason << "Cannot create a primitive design";
+    if (name.empty()) {
+      reason << " <anonymous>";
+    } else {
+      reason << " named: " << name.getString();
+    }
+    reason << " in a non primitives library: " << library->getString();
+    throw SNLException(reason.str());
   }
   if (type != Type::Primitive and library->isPrimitives()) {
-    throw SNLException("non compatible types in design constructor");
+    std::ostringstream reason;
+    reason << "Cannot create a non primitive design";
+    if (name.empty()) {
+      reason << " <anonymous>";
+    } else {
+      reason << " named: " << name.getString();
+    }
+    reason << " in a primitives library: " << library->getString();
+    throw SNLException(reason.str());
   }
   //test if design with same name exists in library
   if (not name.empty() and library->getDesign(name)) {
@@ -267,12 +283,28 @@ SNLTerm* SNLDesign::getTerm(const SNLName& name) const {
   return nullptr;
 }
 
+SNLBitTerm* SNLDesign::getBitTerm(SNLID::DesignObjectID id, SNLID::Bit bit) const {
+  SNLBitTerm* bitTerm = getScalarTerm(id);
+  if (not bitTerm) {
+    bitTerm = getBusTermBit(id, bit);
+  }
+  return bitTerm;
+}
+
 SNLScalarTerm* SNLDesign::getScalarTerm(SNLID::DesignObjectID id) const {
   return dynamic_cast<SNLScalarTerm*>(getTerm(id));
 }
 
 SNLScalarTerm* SNLDesign::getScalarTerm(const SNLName& name) const {
   return dynamic_cast<SNLScalarTerm*>(getTerm(name));
+}
+
+SNLBusTermBit* SNLDesign::getBusTermBit(SNLID::DesignObjectID id, SNLID::Bit bit) const {
+  auto bus = getBusTerm(id);
+  if (bus) {
+    return bus->getBit(bit);
+  }
+  return nullptr;
 }
 
 SNLBusTerm* SNLDesign::getBusTerm(SNLID::DesignObjectID id) const {
@@ -441,6 +473,14 @@ SNLBusNetBit* SNLDesign::getBusNetBit(SNLID::DesignObjectID id, SNLID::Bit bit) 
     return bus->getBit(bit);
   }
   return nullptr;
+}
+
+SNLBitNet* SNLDesign::getBitNet(SNLID::DesignObjectID id, SNLID::Bit bit) const {
+  SNLBitNet* bitNet = getScalarNet(id);
+  if (not bitNet) {
+    bitNet = getBusNetBit(id, bit);
+  }
+  return bitNet;
 }
 
 NajaCollection<SNLNet*> SNLDesign::getNets() const {
@@ -614,6 +654,26 @@ SNLDesign* SNLDesign::cloneToLibrary(SNLLibrary* library, const SNLName& name) c
 
 SNLDesign* SNLDesign::clone(const SNLName& name) const {
   return cloneToLibrary(getLibrary(), name);
+}
+
+void SNLDesign::setName(const SNLName& name) {
+  if (name_ == name) {
+    return;
+  }
+  if (not name.empty()) {
+    /* check collision */
+    if (auto collision = getLibrary()->getDesign(name)) {
+      std::ostringstream reason;
+      reason << "In library " << getLibrary()->getString()
+        << ", cannot rename " << getString() << " to "
+        << name.getString() << ", another Design " << collision->getString()
+        << " has already this name.";
+      throw SNLException(reason.str());
+    }
+  }
+  auto previousName = getName();
+  name_ = name;
+  getLibrary()->rename(this, previousName);
 }
 
 //LCOV_EXCL_START

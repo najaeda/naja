@@ -1,0 +1,7 @@
+library (inout_test) {
+  cell (iocell) {
+    pin(Z) {
+      direction : inout ;
+    }
+  }
+}

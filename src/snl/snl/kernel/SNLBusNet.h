@@ -73,6 +73,7 @@ class SNLBusNet final: public SNLNet {
         SNLID::Bit msb, SNLID::Bit lsb);
 
     void setType(const Type& type) override;
+    bool isAllNull() const;
     bool isAssignConstant() const override;
     virtual bool isSupply0() const override;
     virtual bool isSupply1() const override;

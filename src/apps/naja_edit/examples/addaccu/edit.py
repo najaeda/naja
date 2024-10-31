@@ -1,5 +1,5 @@
 import logging
-import snl
+from naja import snl
 
 def edit():
   logging.basicConfig(filename='edit.log', filemode='w' ,level=logging.DEBUG)

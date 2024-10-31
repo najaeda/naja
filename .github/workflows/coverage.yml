@@ -16,7 +16,7 @@ jobs:
     # well on Windows or Mac.  You can convert this to a matrix build if you need
     # cross-platform coverage.
     # See: https://docs.github.com/en/free-pro-team@latest/actions/learn-github-actions/managing-complex-workflows#using-a-build-matrix
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
 
     steps:
     - uses: actions/checkout@v4
@@ -56,11 +56,10 @@ jobs:
       env:
         CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       with:
-        directory: ${{github.workspace}}/build
-        #env_vars: OS,PYTHON
         fail_ci_if_error: true
+        file: ${{github.workspace}}/build/coverage.info
+        disable_search: true
         files: coverage.info
         flags: unittests
         name: codecov-umbrella
-        #path_to_write_report: ./coverage/codecov_report.txt
         verbose: true

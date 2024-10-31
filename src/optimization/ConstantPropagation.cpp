@@ -5,19 +5,17 @@
 #include "ConstantPropagation.h"
 #include <spdlog/spdlog.h>
 #include <iostream>
+#include <ranges>
 #include <set>
 #include <stack>
 #include <vector>
+#include "Reduction.h"
 #include "SNLDesignModeling.h"
+#include "SNLDesignTruthTable.h"
 #include "SNLLibraryTruthTables.h"
 #include "SNLScalarNet.h"
-#include "Utils.h"
-#include <ranges>
-#include "SNLDesignTruthTable.h"
 #include "SNLTruthTable.h"
-#include "Reduction.h"
-#include "bne.h"
-
+#include "Utils.h"
 using namespace naja::DNL;
 using namespace naja::NAJA_OPT;
 using namespace naja::SNL;
@@ -130,21 +128,28 @@ void ConstantPropagation::initializeTypesID() {
 }
 
 void ConstantPropagation::collectConstants() {
-  SNLTruthTable tt0(0, 0);
-    auto logic0 = SNLLibraryTruthTables::getDesignForTruthTable(
-                      *(dnl_->getTop().getSNLModel()->getDB()->getPrimitiveLibraries().begin()),
-                      tt0)
-                      .first;
-  SNLTruthTable tt1(0, 1);
-    auto logic1 = SNLLibraryTruthTables::getDesignForTruthTable(
-                      *(dnl_->getTop().getSNLModel()->getDB()->getPrimitiveLibraries().begin()),
-                      tt1)
-                      .first;
+  auto logic0 = SNLLibraryTruthTables::getDesignForTruthTable(
+                    *(dnl_->getTop()
+                          .getSNLModel()
+                          ->getDB()
+                          ->getPrimitiveLibraries()
+                          .begin()),
+                    SNLTruthTable::Logic0())
+                    .first;
+  auto logic1 = SNLLibraryTruthTables::getDesignForTruthTable(
+                    *(dnl_->getTop()
+                          .getSNLModel()
+                          ->getDB()
+                          ->getPrimitiveLibraries()
+                          .begin()),
+                    SNLTruthTable::Logic1())
+                    .first;
   for (DNLID leaf : dnl_->getLeaves()) {
     DNLInstanceFull instance = dnl_->getDNLInstanceFromID(leaf);
     if (instance.getSNLModel() == logic0) {
       for (DNLID termId = instance.getTermIndexes().first;
-           termId != DNLID_MAX and termId <= instance.getTermIndexes().second; termId++) {
+           termId != DNLID_MAX and termId <= instance.getTermIndexes().second;
+           termId++) {
         const DNLTerminalFull& term = dnl_->getDNLTerminalFromID(termId);
         if (term.getSnlBitTerm()->getDirection() ==
             SNLBitTerm::Direction::Output) {
@@ -154,7 +159,8 @@ void ConstantPropagation::collectConstants() {
       }
     } else if (instance.getSNLModel() == logic1) {
       for (DNLID termId = instance.getTermIndexes().first;
-           termId != DNLID_MAX and termId <= instance.getTermIndexes().second; termId++) {
+           termId != DNLID_MAX and termId <= instance.getTermIndexes().second;
+           termId++) {
         const DNLTerminalFull& term = dnl_->getDNLTerminalFromID(termId);
         if (term.getSnlBitTerm()->getDirection() ==
             SNLBitTerm::Direction::Output) {
@@ -165,13 +171,13 @@ void ConstantPropagation::collectConstants() {
     }
   }
   initialConstants0_.insert(dnl_->getDNLIsoDB().getConstant0Isos().begin(),
-                     dnl_->getDNLIsoDB().getConstant0Isos().end());
+                            dnl_->getDNLIsoDB().getConstant0Isos().end());
   initialConstants1_.insert(dnl_->getDNLIsoDB().getConstant1Isos().begin(),
-                     dnl_->getDNLIsoDB().getConstant1Isos().end());
+                            dnl_->getDNLIsoDB().getConstant1Isos().end());
   constants0_.insert(dnl_->getDNLIsoDB().getConstant0Isos().begin(),
-               dnl_->getDNLIsoDB().getConstant0Isos().end());
+                     dnl_->getDNLIsoDB().getConstant0Isos().end());
   constants1_.insert(dnl_->getDNLIsoDB().getConstant1Isos().begin(),
-                dnl_->getDNLIsoDB().getConstant1Isos().end());
+                     dnl_->getDNLIsoDB().getConstant1Isos().end());
 }
 
 unsigned ConstantPropagation::computeOutputValue(DNLID instanceID) {
@@ -185,7 +191,8 @@ unsigned ConstantPropagation::computeOutputValue(DNLID instanceID) {
   }
   std::vector<std::pair<SNLID::DesignObjectID, int>> constTerms;
   for (DNLID termId = instance.getTermIndexes().first;
-       termId != DNLID_MAX and termId <= instance.getTermIndexes().second; termId++) {
+       termId != DNLID_MAX and termId <= instance.getTermIndexes().second;
+       termId++) {
     const DNLTerminalFull& term = dnl_->getDNLTerminalFromID(termId);
     if (term.getSnlBitTerm()->getDirection() != SNLBitTerm::Direction::Input) {
       continue;
@@ -196,10 +203,11 @@ unsigned ConstantPropagation::computeOutputValue(DNLID instanceID) {
       constTerms.push_back({term.getSnlTerm()->getBitTerm()->getID(), 1});
     }
   }
-  SNLTruthTable reducedTruthTable = ReductionOptimization::reduceTruthTable(instance.getSNLInstance(), truthTable, constTerms);
-  if (reducedTruthTable.is0()) {
+  SNLTruthTable reducedTruthTable = ReductionOptimization::reduceTruthTable(
+      instance.getSNLInstance(), truthTable, constTerms);
+  if (reducedTruthTable.all0()) {
     return 0;
-  } else if (reducedTruthTable.is1()) {
+  } else if (reducedTruthTable.all1()) {
     return 1;
   }
   return (unsigned)-1;
@@ -209,20 +217,20 @@ void ConstantPropagation::performConstantPropagationAnalysis() {
   std::set<DNLID> constants;
   constants.insert(initialConstants0_.begin(), initialConstants0_.end());
   constants.insert(initialConstants1_.begin(), initialConstants1_.end());
-   #ifdef DEBUG_PRINTS
+#ifdef DEBUG_PRINTS
   //  LCOV_EXCL_START
   printf("Constant Propagation : Number of constants before: %lu\n",
          constants.size());
   size_t loop = 0;
-  // LCOV_EXCL_STOP
-  #endif
+// LCOV_EXCL_STOP
+#endif
   while (!constants.empty()) {
-     #ifdef DEBUG_PRINTS
+#ifdef DEBUG_PRINTS
     //  LCOV_EXCL_START
     printf("loop: %lu\n", loop);
     loop++;
     // LCOV_EXCL_STOP
-     #endif
+#endif
     std::set<DNLID> constantsNew;
     for (DNLID constant : constants) {
       DNLIso iso = dnl_->getDNLIsoDB().getIsoFromIsoIDconst(constant);
@@ -277,7 +285,7 @@ void ConstantPropagation::performConstantPropagationAnalysis() {
           if (isConst) {
             partialConstantInstances_.erase(reader.getDNLInstance().getID());
             // Analyze the contants in ouptus and propagate them
-            unsigned newConst = (unsigned) -1;
+            unsigned newConst = (unsigned)-1;
             if (truthTableEngine_ && q.isNull()) {
               newConst = computeOutputValue(reader.getDNLInstance().getID());
             } else {
@@ -294,7 +302,7 @@ void ConstantPropagation::performConstantPropagationAnalysis() {
               partialConstantInstances_.erase(reader.getDNLInstance().getID());
             }
           } else {
-            unsigned newConst = (unsigned) -1;
+            unsigned newConst = (unsigned)-1;
             if (truthTableEngine_ && q.isNull()) {
               newConst = computeOutputValue(reader.getDNLInstance().getID());
             } else {
@@ -326,10 +334,11 @@ void ConstantPropagation::performConstantPropagationAnalysis() {
               constantsNew.insert(iso);
               constants0_.insert(iso);
               partialConstantInstances_.erase(reader.getDNLInstance().getID());
-              
+
             } else {
               if (!reader.getDNLInstance().isTop()) {
-                partialConstantInstances_.insert(reader.getDNLInstance().getID());
+                partialConstantInstances_.insert(
+                    reader.getDNLInstance().getID());
               }
             }
           }
@@ -359,7 +368,8 @@ unsigned ConstantPropagation::computeOutputValueForConstantInstance(
       designObjectID2Type_[instance.getSNLInstance()->getModel()->getID()]) {
     case Type::AND: {
       for (DNLID termId = instance.getTermIndexes().first;
-           termId != DNLID_MAX and termId <= instance.getTermIndexes().second; termId++) {
+           termId != DNLID_MAX and termId <= instance.getTermIndexes().second;
+           termId++) {
         const DNLTerminalFull& term = dnl_->getDNLTerminalFromID(termId);
         if (term.getSnlBitTerm()->getDirection() !=
             SNLBitTerm::Direction::Input) {
@@ -383,7 +393,8 @@ unsigned ConstantPropagation::computeOutputValueForConstantInstance(
     }
     case Type::OR: {
       for (DNLID termId = instance.getTermIndexes().first;
-           termId != DNLID_MAX and termId <= instance.getTermIndexes().second; termId++) {
+           termId != DNLID_MAX and termId <= instance.getTermIndexes().second;
+           termId++) {
         const DNLTerminalFull& term = dnl_->getDNLTerminalFromID(termId);
         if (constants1_.find(term.getIsoID()) != constants1_.end()) {
 #ifdef DEBUG_PRINTS
@@ -404,7 +415,8 @@ unsigned ConstantPropagation::computeOutputValueForConstantInstance(
     case Type::XOR: {
       unsigned count = 0;
       for (DNLID termId = instance.getTermIndexes().first;
-           termId != DNLID_MAX and termId <= instance.getTermIndexes().second; termId++) {
+           termId != DNLID_MAX and termId <= instance.getTermIndexes().second;
+           termId++) {
         const DNLTerminalFull& term = dnl_->getDNLTerminalFromID(termId);
         if (term.getSnlBitTerm()->getDirection() !=
             SNLBitTerm::Direction::Input) {
@@ -423,7 +435,8 @@ unsigned ConstantPropagation::computeOutputValueForConstantInstance(
     }
     case Type::NAND: {
       for (DNLID termId = instance.getTermIndexes().first;
-           termId != DNLID_MAX and termId <= instance.getTermIndexes().second; termId++) {
+           termId != DNLID_MAX and termId <= instance.getTermIndexes().second;
+           termId++) {
         const DNLTerminalFull& term = dnl_->getDNLTerminalFromID(termId);
         if (term.getSnlBitTerm()->getDirection() !=
             SNLBitTerm::Direction::Input) {
@@ -447,7 +460,8 @@ unsigned ConstantPropagation::computeOutputValueForConstantInstance(
     }
     case Type::NOR: {
       for (DNLID termId = instance.getTermIndexes().first;
-           termId != DNLID_MAX and termId <= instance.getTermIndexes().second; termId++) {
+           termId != DNLID_MAX and termId <= instance.getTermIndexes().second;
+           termId++) {
         const DNLTerminalFull& term = dnl_->getDNLTerminalFromID(termId);
         if (term.getSnlBitTerm()->getDirection() !=
             SNLBitTerm::Direction::Input) {
@@ -472,7 +486,8 @@ unsigned ConstantPropagation::computeOutputValueForConstantInstance(
     case Type::XNOR: {
       unsigned count = 0;
       for (DNLID termId = instance.getTermIndexes().first;
-           termId != DNLID_MAX and termId <= instance.getTermIndexes().second; termId++) {
+           termId != DNLID_MAX and termId <= instance.getTermIndexes().second;
+           termId++) {
         const DNLTerminalFull& term = dnl_->getDNLTerminalFromID(termId);
         if (term.getSnlBitTerm()->getDirection() !=
             SNLBitTerm::Direction::Input) {
@@ -492,7 +507,8 @@ unsigned ConstantPropagation::computeOutputValueForConstantInstance(
     case Type::INV: {
       DNLID iso = DNLID_MAX;
       for (DNLID termId = instance.getTermIndexes().first;
-           termId != DNLID_MAX and termId <= instance.getTermIndexes().second; termId++) {
+           termId != DNLID_MAX and termId <= instance.getTermIndexes().second;
+           termId++) {
         const DNLTerminalFull& term = dnl_->getDNLTerminalFromID(termId);
         if (term.getSnlBitTerm()->getDirection() !=
             SNLBitTerm::Direction::Input) {
@@ -538,7 +554,8 @@ unsigned ConstantPropagation::computeOutputValueForConstantInstance(
     case Type::DFF: {
       unsigned d = (unsigned)-1;
       for (DNLID termId = instance.getTermIndexes().first;
-           termId != DNLID_MAX and termId <= instance.getTermIndexes().second; termId++) {
+           termId != DNLID_MAX and termId <= instance.getTermIndexes().second;
+           termId++) {
         const DNLTerminalFull& term = dnl_->getDNLTerminalFromID(termId);
         if (term.getSnlBitTerm()->getDirection() !=
             SNLBitTerm::Direction::Input) {
@@ -570,7 +587,8 @@ unsigned ConstantPropagation::computeOutputValueForConstantInstance(
       unsigned d = (unsigned)-1;
       unsigned q = (unsigned)-1;
       for (DNLID termId = instance.getTermIndexes().first;
-           termId != DNLID_MAX and termId <= instance.getTermIndexes().second; termId++) {
+           termId != DNLID_MAX and termId <= instance.getTermIndexes().second;
+           termId++) {
         const DNLTerminalFull& term = dnl_->getDNLTerminalFromID(termId);
         if (term.getSnlBitTerm()->getDirection() !=
             SNLBitTerm::Direction::Input) {
@@ -610,7 +628,8 @@ unsigned ConstantPropagation::computeOutputValueForConstantInstance(
       unsigned b1 = (unsigned)-1;
       unsigned b2 = (unsigned)-1;
       for (DNLID termId = instance.getTermIndexes().first;
-           termId != DNLID_MAX and termId <= instance.getTermIndexes().second; termId++) {
+           termId != DNLID_MAX and termId <= instance.getTermIndexes().second;
+           termId++) {
         const DNLTerminalFull& term = dnl_->getDNLTerminalFromID(termId);
         if (term.getSnlBitTerm()->getDirection() !=
             SNLBitTerm::Direction::Input) {
@@ -669,7 +688,8 @@ unsigned ConstantPropagation::computeOutputValueForPartiallyConstantInstance(
       designObjectID2Type_[instance.getSNLInstance()->getModel()->getID()]) {
     case Type::AND: {
       for (DNLID termId = instance.getTermIndexes().first;
-           termId != DNLID_MAX and termId <= instance.getTermIndexes().second; termId++) {
+           termId != DNLID_MAX and termId <= instance.getTermIndexes().second;
+           termId++) {
         const DNLTerminalFull& term = dnl_->getDNLTerminalFromID(termId);
         if (term.getSnlBitTerm()->getDirection() !=
             SNLBitTerm::Direction::Input) {
@@ -693,7 +713,8 @@ unsigned ConstantPropagation::computeOutputValueForPartiallyConstantInstance(
     }
     case Type::OR: {
       for (DNLID termId = instance.getTermIndexes().first;
-           termId != DNLID_MAX and termId <= instance.getTermIndexes().second; termId++) {
+           termId != DNLID_MAX and termId <= instance.getTermIndexes().second;
+           termId++) {
         const DNLTerminalFull& term = dnl_->getDNLTerminalFromID(termId);
         if (constants1_.find(term.getIsoID()) != constants1_.end()) {
 #ifdef DEBUG_PRINTS
@@ -713,7 +734,8 @@ unsigned ConstantPropagation::computeOutputValueForPartiallyConstantInstance(
     }
     case Type::NAND: {
       for (DNLID termId = instance.getTermIndexes().first;
-           termId != DNLID_MAX and termId <= instance.getTermIndexes().second; termId++) {
+           termId != DNLID_MAX and termId <= instance.getTermIndexes().second;
+           termId++) {
         const DNLTerminalFull& term = dnl_->getDNLTerminalFromID(termId);
         if (term.getSnlBitTerm()->getDirection() !=
             SNLBitTerm::Direction::Input) {
@@ -741,7 +763,8 @@ unsigned ConstantPropagation::computeOutputValueForPartiallyConstantInstance(
     }
     case Type::NOR: {
       for (DNLID termId = instance.getTermIndexes().first;
-           termId != DNLID_MAX and termId <= instance.getTermIndexes().second; termId++) {
+           termId != DNLID_MAX and termId <= instance.getTermIndexes().second;
+           termId++) {
         const DNLTerminalFull& term = dnl_->getDNLTerminalFromID(termId);
         if (term.getSnlBitTerm()->getDirection() !=
             SNLBitTerm::Direction::Input) {
@@ -766,7 +789,8 @@ unsigned ConstantPropagation::computeOutputValueForPartiallyConstantInstance(
     case Type::DFF: {
       unsigned d = (unsigned)-1;
       for (DNLID termId = instance.getTermIndexes().first;
-           termId != DNLID_MAX and termId <= instance.getTermIndexes().second; termId++) {
+           termId != DNLID_MAX and termId <= instance.getTermIndexes().second;
+           termId++) {
         const DNLTerminalFull& term = dnl_->getDNLTerminalFromID(termId);
         if (term.getSnlBitTerm()->getDirection() !=
             SNLBitTerm::Direction::Input) {
@@ -798,7 +822,8 @@ unsigned ConstantPropagation::computeOutputValueForPartiallyConstantInstance(
       unsigned d = (unsigned)-1;
       unsigned q = (unsigned)-1;
       for (DNLID termId = instance.getTermIndexes().first;
-           termId != DNLID_MAX and termId <= instance.getTermIndexes().second; termId++) {
+           termId != DNLID_MAX and termId <= instance.getTermIndexes().second;
+           termId++) {
         const DNLTerminalFull& term = dnl_->getDNLTerminalFromID(termId);
         if (term.getSnlBitTerm()->getDirection() !=
             SNLBitTerm::Direction::Input) {
@@ -839,7 +864,8 @@ unsigned ConstantPropagation::computeOutputValueForPartiallyConstantInstance(
       unsigned b1 = (unsigned)-1;
       unsigned b2 = (unsigned)-1;
       for (DNLID termId = instance.getTermIndexes().first;
-           termId != DNLID_MAX and termId <= instance.getTermIndexes().second; termId++) {
+           termId != DNLID_MAX and termId <= instance.getTermIndexes().second;
+           termId++) {
         const DNLTerminalFull& term = dnl_->getDNLTerminalFromID(termId);
         if (term.getSnlBitTerm()->getDirection() !=
             SNLBitTerm::Direction::Input) {
@@ -885,6 +911,74 @@ unsigned ConstantPropagation::computeOutputValueForPartiallyConstantInstance(
   return (unsigned)-1;
 }
 
+void ConstantPropagation::changeDriverToLocal0(SNLInstTerm* term, DNLID id) {
+  term->setNet(nullptr);
+  std::string name(std::string("logic0_naja_") +
+                   term->getDesign()->getName().getString());
+  auto netName = SNLName(name + "_net");
+  SNLNet* assign0 = term->getDesign()->getNet(netName);
+  if (nullptr == assign0) {
+    assign0 = SNLScalarNet::create(term->getDesign(), netName);
+  }
+  assign0->setType(naja::SNL::SNLNet::Type::Supply0);
+  term->setNet(assign0);
+  SNLTruthTable tt(0, 0);
+  // find primitives library
+  if (term->getDB()->getPrimitiveLibraries().size() != 1) {
+    // LCOV_EXCL_START
+    throw SNLException("There should be only one primitive library");
+    // LCOV_EXCL_STOP
+  }
+  auto primitives = *term->getDB()->getPrimitiveLibraries().begin();
+  auto logic0 =
+      SNLLibraryTruthTables::getDesignForTruthTable(primitives, tt).first;
+
+  SNLInstance* logic0Inst = term->getDesign()->getInstance(SNLName(name));
+  if (nullptr == logic0Inst) {
+    if (logic0 == nullptr) {
+      // LCOV_EXCL_START
+      throw SNLException("No logic0 design found");
+      // LCOV_EXCL_STOP
+    }
+    logic0Inst = SNLInstance::create(term->getDesign(), logic0, SNLName(name));
+  }
+  (*logic0Inst->getInstTerms().begin())->setNet(assign0);
+}
+
+void ConstantPropagation::changeDriverToLocal1(SNLInstTerm* term, DNLID id) {
+  term->setNet(nullptr);
+  std::string name(std::string("logic1_naja_") +
+                   term->getDesign()->getName().getString());
+  auto netName = SNLName(name + "_net");
+  SNLNet* assign1 = term->getDesign()->getNet(netName);
+  if (nullptr == assign1) {
+    assign1 = SNLScalarNet::create(term->getDesign(), netName);
+  }
+  assign1->setType(naja::SNL::SNLNet::Type::Supply1);
+  term->setNet(assign1);
+  SNLTruthTable tt(0, 1);
+
+  // find primitives library
+  if (term->getDB()->getPrimitiveLibraries().size() != 1) {
+    // LCOV_EXCL_START
+    throw SNLException("There should be only one primitive library");
+    // LCOV_EXCL_STOP
+  }
+  auto primitives = *term->getDB()->getPrimitiveLibraries().begin();
+  auto logic1 =
+      SNLLibraryTruthTables::getDesignForTruthTable(primitives, tt).first;
+  SNLInstance* logic1Inst = term->getDesign()->getInstance(SNLName(name));
+  if (nullptr == logic1Inst) {
+    if (logic1 == nullptr) {
+      // LCOV_EXCL_START
+      throw SNLException("No logic1 design found");
+      // LCOV_EXCL_STOP
+    }
+    logic1Inst = SNLInstance::create(term->getDesign(), logic1, SNLName(name));
+  }
+  (*logic1Inst->getInstTerms().begin())->setNet(assign1);
+}
+
 void ConstantPropagation::propagateConstants() {
   for (DNLID iso : constants0_) {
     if (initialConstants0_.find(iso) != initialConstants0_.end()) {
@@ -908,9 +1002,10 @@ void ConstantPropagation::propagateConstants() {
         currentInstance = currentInstance.getParentInstance();
       }
       std::reverse(path.begin(), path.end());
-      constant0Readers_.push_back(
-          std::tuple<std::vector<SNLID::DesignObjectID>, SNLID::DesignObjectID, DNLID>(
-              path, readerTerm.getSnlTerm()->getBitTerm()->getID(), readerInst.getID()));
+      constant0Readers_.push_back(std::tuple<std::vector<SNLID::DesignObjectID>,
+                                             SNLID::DesignObjectID, DNLID>(
+          path, readerTerm.getSnlTerm()->getBitTerm()->getID(),
+          readerInst.getID()));
     }
   }
   for (DNLID iso : constants1_) {
@@ -935,9 +1030,10 @@ void ConstantPropagation::propagateConstants() {
         currentInstance = currentInstance.getParentInstance();
       }
       std::reverse(path.begin(), path.end());
-      constant1Readers_.push_back(
-          std::tuple<std::vector<SNLID::DesignObjectID>, SNLID::DesignObjectID, DNLID>(
-              path, readerTerm.getSnlTerm()->getBitTerm()->getID(), readerInst.getID()));
+      constant1Readers_.push_back(std::tuple<std::vector<SNLID::DesignObjectID>,
+                                             SNLID::DesignObjectID, DNLID>(
+          path, readerTerm.getSnlTerm()->getBitTerm()->getID(),
+          readerInst.getID()));
     }
   }
   for (DNLID instId : partialConstantInstances_) {
@@ -950,48 +1046,111 @@ void ConstantPropagation::propagateConstants() {
     }
     std::reverse(path.begin(), path.end());
     std::vector<std::pair<SNLID::DesignObjectID, int>> instTerms;
-    //size_t numInputs = 0;
+    // size_t numInputs = 0;
     for (DNLID termId = inst.getTermIndexes().first;
          termId <= inst.getTermIndexes().second; termId++) {
       const DNLTerminalFull& term = dnl_->getDNLTerminalFromID(termId);
       if (term.getSnlBitTerm()->getDirection() ==
           SNLBitTerm::Direction::Input) {
-        //numInputs++;
+        // numInputs++;
         if (constants0_.find(term.getIsoID()) != constants0_.end()) {
-          instTerms.push_back(
-              std::pair<SNLID::DesignObjectID, int>(term.getSnlTerm()->getBitTerm()->getID(), 0));
+          instTerms.push_back(std::pair<SNLID::DesignObjectID, int>(
+              term.getSnlTerm()->getBitTerm()->getID(), 0));
         } else if (constants1_.find(term.getIsoID()) != constants1_.end()) {
-          instTerms.push_back(
-              std::pair<SNLID::DesignObjectID, int>(term.getSnlTerm()->getBitTerm()->getID(), 1));
+          instTerms.push_back(std::pair<SNLID::DesignObjectID, int>(
+              term.getSnlTerm()->getBitTerm()->getID(), 1));
         }
       }
     }
-    //assert(numInputs > instTerms.size());
+    // assert(numInputs > instTerms.size());
     partialConstantReaders_.push_back(
         std::tuple<std::vector<SNLID::DesignObjectID>,
                    std::vector<std::pair<SNLID::DesignObjectID, int>>, DNLID>(
             path, instTerms, inst.getID()));
   }
-  BNE::BNE bne;
-  for (auto& path : constant0Readers_) {
-    auto context = std::get<0>(path);
-    context.pop_back();
-    bne.addDriveWithConstantAction(context, std::get<0>(path).back(),
-                                   std::get<1>(path), 0);
+  if (!normalizedUniquification_) {
+    for (auto& path : constant0Readers_) {
+      Uniquifier uniquifier(std::get<0>(path), std::get<2>(path));
+      uniquifier.process();
+      SNLInstTerm* constTerm =
+          uniquifier.getPathUniq().back()->getInstTerm(std::get<1>(path));
+      changeDriverToLocal0(constTerm, std::get<2>(path));
+    }
+    for (SNLBitTerm* term : constant0TopReaders_) {
+      term->setNet(nullptr);
+      std::string name(std::string("logic0_naja_") +
+                       term->getDesign()->getName().getString());
+      auto netName = SNLName(name + "_net");
+      SNLNet* assign0 = term->getDesign()->getNet(netName);
+      if (nullptr == assign0) {
+        assign0 = SNLScalarNet::create(term->getDesign(), netName);
+      }
+      assign0->setType(naja::SNL::SNLNet::Type::Supply0);
+      term->setNet(assign0);
+      SNLTruthTable tt(0, 0);
+      auto logic0 = SNLLibraryTruthTables::getDesignForTruthTable(
+                        *(term->getDB()->getPrimitiveLibraries().begin()), tt)
+                        .first;
+      SNLInstance* logic0Inst = term->getDesign()->getInstance(SNLName(name));
+      if (nullptr == logic0Inst) {
+        logic0Inst =
+            SNLInstance::create(term->getDesign(), logic0, SNLName(name));
+      }
+      (*logic0Inst->getInstTerms().begin())->setNet(assign0);
+    }
+    for (auto& path : constant1Readers_) {
+      Uniquifier uniquifier(std::get<0>(path), std::get<2>(path));
+      uniquifier.process();
+      SNLInstTerm* constTerm =
+          uniquifier.getPathUniq().back()->getInstTerm(std::get<1>(path));
+      changeDriverToLocal1(constTerm, std::get<2>(path));
+    }
+    for (SNLBitTerm* term : constant1TopReaders_) {
+      term->setNet(nullptr);
+      std::string name(std::string("logic1_naja_") +
+                       term->getDesign()->getName().getString());
+      auto netName = SNLName(name + "_net");
+      SNLNet* assign1 = term->getDesign()->getNet(netName);
+      if (nullptr == assign1) {
+        assign1 = SNLScalarNet::create(term->getDesign(), netName);
+      }
+      assign1->setType(naja::SNL::SNLNet::Type::Supply1);
+      term->setNet(assign1);
+      SNLTruthTable tt(0, 1);
+      auto logic1 = SNLLibraryTruthTables::getDesignForTruthTable(
+                        *(term->getDB()->getPrimitiveLibraries().begin()), tt)
+                        .first;
+      SNLInstance* logic1Inst = term->getDesign()->getInstance(SNLName(name));
+      if (nullptr == logic1Inst) {
+        logic1Inst =
+            SNLInstance::create(term->getDesign(), logic1, SNLName(name));
+      }
+      (*logic1Inst->getInstTerms().begin())->setNet(assign1);
+    }
+  } else {
+    BNE::BNE bne;
+    for (auto& path : constant0Readers_) {
+      auto context = std::get<0>(path);
+      context.pop_back();
+      bne.addDriveWithConstantAction(context, std::get<0>(path).back(),
+                                     std::get<1>(path), 0);
+    }
+    for (SNLBitTerm* term : constant0TopReaders_) {
+      bne.addDriveWithConstantAction(std::vector<SNLID::DesignObjectID>(),
+                                     (unsigned)-1, (unsigned)-1, 0, term);
+    }
+    for (auto& path : constant1Readers_) {
+      auto context = std::get<0>(path);
+      context.pop_back();
+      bne.addDriveWithConstantAction(context, std::get<0>(path).back(),
+                                     std::get<1>(path), 1);
+    }
+    for (SNLBitTerm* term : constant1TopReaders_) {
+      bne.addDriveWithConstantAction(std::vector<SNLID::DesignObjectID>(),
+                                     (unsigned)-1, (unsigned)-1, 1, term);
+    }
+    bne.process();
   }
-  for (SNLBitTerm* term : constant0TopReaders_) {
-    bne.addDriveWithConstantAction(std::vector<SNLID::DesignObjectID>(), (unsigned) -1, (unsigned) -1, 0, term);
-  }
-  for (auto& path : constant1Readers_) {
-    auto context = std::get<0>(path);
-    context.pop_back();
-    bne.addDriveWithConstantAction(context, std::get<0>(path).back(),
-                                   std::get<1>(path), 1);
-  }
-  for (SNLBitTerm* term : constant1TopReaders_) {
-    bne.addDriveWithConstantAction(std::vector<SNLID::DesignObjectID>(), (unsigned) -1, (unsigned) -1, 1, term);
-  }
-  bne.process();
 }
 
 void ConstantPropagation::run() {

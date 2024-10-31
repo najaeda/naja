@@ -87,6 +87,12 @@ TEST_F(SNLTermTest, testCreation) {
   EXPECT_EQ(2, term0->getBit(-3)->getPositionInBus());
   EXPECT_EQ(3, term0->getBit(-4)->getPositionInBus());
 
+  EXPECT_EQ(term0, design->getBusTerm(SNLName("term0")));
+  EXPECT_EQ(term0, design->getBusTerm(0));
+  EXPECT_EQ(term0, design->getTerm(0));
+  EXPECT_EQ(term0->getBit(-1), design->getBitTerm(0, -1));
+  EXPECT_EQ(term0->getBit(-4), design->getBitTerm(0, -4));
+
   ASSERT_EQ(1, term0->getBit(-1)->getBits().size());
   EXPECT_EQ(*term0->getBit(-1)->getBits().begin(), term0->getBit(-1));
   ASSERT_EQ(1, term0->getBit(-2)->getBits().size());
@@ -248,7 +254,13 @@ TEST_F(SNLTermTest, testRename) {
   auto term1 = SNLBusTerm::create(design, SNLTerm::Direction::Output, 31, 0, SNLName("term1"));
   auto term2 = SNLScalarTerm::create(design, SNLTerm::Direction::Input);
   EXPECT_EQ(term0, design->getTerm(SNLName("term0")));
+  EXPECT_EQ(term0, design->getBitTerm(0, 0));
+  EXPECT_EQ(term0, design->getBitTerm(0, -12));
+  EXPECT_EQ(term0, design->getBitTerm(0, 100));
   EXPECT_EQ(term1, design->getTerm(SNLName("term1")));
+  EXPECT_EQ(term2, design->getBitTerm(2, 0));
+  EXPECT_EQ(term2, design->getBitTerm(2, -12));
+  EXPECT_EQ(term2, design->getBitTerm(2, 100));
   EXPECT_FALSE(term0->isAnonymous());
   term0->setName(SNLName());
   EXPECT_TRUE(term0->isAnonymous());
@@ -269,4 +281,51 @@ TEST_F(SNLTermTest, testRename) {
   EXPECT_EQ(term2, design->getTerm(SNLName("term2")));
   //Collision error
   EXPECT_THROW(term2->setName(SNLName("term0")), SNLException);
+}
+
+TEST_F(SNLTermTest, testDestroy) {
+  SNLLibrary* library = db_->getLibrary(SNLName("MYLIB"));
+  ASSERT_NE(library, nullptr);
+  SNLDesign* design = SNLDesign::create(library, SNLName("design"));
+  ASSERT_NE(design, nullptr);
+
+  auto term0 = SNLScalarTerm::create(design, SNLTerm::Direction::Input, SNLName("term0"));
+  auto term1 = SNLBusTerm::create(design, SNLTerm::Direction::Output, 31, 0, SNLName("term1"));
+  auto term2 = SNLScalarTerm::create(design, SNLTerm::Direction::Input);
+
+  EXPECT_EQ(term0->getNet(), nullptr);
+  using BitTerms = std::vector<SNLBitTerm*>;
+  BitTerms term1Bits(term1->getBits().begin(), term1->getBits().end());
+  EXPECT_THAT(term1Bits,
+    ::testing::Each(::testing::Property(
+        &SNLBusTermBit::getNet, ::testing::IsNull())));
+  EXPECT_EQ(term2->getNet(), nullptr);
+
+  auto net0 = SNLScalarNet::create(design, SNLName("net0"));
+  auto net1 = SNLBusNet::create(design, 31, 0, SNLName("net1"));
+  auto net2 = SNLBusNet::create(design, 0, 0, SNLName("net2"));
+  term0->setNet(net0);
+  term1->setNet(net1);
+  term2->setNet(net2);
+  EXPECT_EQ(term0->getNet(), net0);
+  EXPECT_EQ(term2->getNet(), net2->getBit(0));
+
+  //start destroying
+  term0->getNet()->destroy();
+  ASSERT_EQ(term0->getNet(), nullptr);
+
+  net2->destroy();
+  ASSERT_EQ(term2->getNet(), nullptr);
+
+  //destroy one bit of net1
+  ASSERT_NE(term1->getBit(10)->getNet(), nullptr);
+  net1->getBit(10)->destroy();
+  ASSERT_EQ(term1->getBit(10)->getNet(), nullptr);
+  net1->getBit(6)->destroy();
+  ASSERT_EQ(term1->getBit(6)->getNet(), nullptr);
+
+  net1->destroy();
+  EXPECT_THAT(term1Bits,
+    ::testing::Each(::testing::Property(
+        &SNLBusTermBit::getNet, ::testing::IsNull())));
 }

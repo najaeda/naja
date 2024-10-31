@@ -7,7 +7,7 @@ Files: .github/workflows/* .gitmodules
 Copyright: 2022 The Naja Authors.
 License: Apache-2.0
 
-Files: README.md AUTHORS docs/*
+Files: README.md README_pages/* AUTHORS docs/*
 Copyright: 2022 The Naja Authors.
 License: Apache-2.0
 
@@ -24,7 +24,12 @@ Files: src/apps/naja_edit/examples/*
 Copyright: 2022 The Naja Authors.
 License: Apache-2.0
 
-Files: test/snl/formats/verilog/backend/references/* test/snl/formats/liberty/benchmarks/errors/* thirdparty/yosys-liberty/test/benchmarks/test0.lib
+Files: test/snl/formats/verilog/backend/references/*
+Copyright: 2022 The Naja Authors.
+License: CC0-1.0
+
+
+Files: test/snl/formats/liberty/benchmarks/errors/* test/snl/formats/liberty/benchmarks/tests/* thirdparty/yosys-liberty/test/benchmarks/test0.lib
 Copyright: 2022 The Naja Authors.
 License: CC0-1.0
 

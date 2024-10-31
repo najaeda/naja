@@ -7,6 +7,7 @@ add_subdirectory(visual)
 
 set(SNL_KERNEL_SOURCES
   kernel/SNLObject.cpp
+  kernel/SNLAttributes.cpp
   kernel/SNLUniverse.cpp kernel/SNLDB.cpp kernel/SNLDB0.cpp
   kernel/SNLLibrary.cpp
   kernel/SNLDesignObject.cpp
@@ -75,6 +76,7 @@ add_library(naja_snl SHARED
 
 target_link_libraries(naja_snl PUBLIC naja_core)
 target_compile_options(naja_snl PRIVATE ${NAJA_CXX_WARNINGS}) 
+
 #target_compile_definitions(naja_snl PRIVATE SNL_DESTROY_DEBUG)
 
 target_include_directories(naja_snl SYSTEM BEFORE PUBLIC ${Boost_INCLUDE_DIR})
@@ -83,6 +85,7 @@ target_include_directories(naja_snl PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/decorators
   ${CMAKE_CURRENT_SOURCE_DIR}/pnl
 )
+target_include_directories(naja_snl PUBLIC ${SPDLOG_DIR})
 set_target_properties(naja_snl PROPERTIES PUBLIC_HEADER "${SNL_HEADERS}")
 install(TARGETS naja_snl
   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}

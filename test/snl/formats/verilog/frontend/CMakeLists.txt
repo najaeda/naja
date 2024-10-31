@@ -7,6 +7,8 @@ set(snl_vrl_constructor_tests
     SNLVRLConstructorTest0.cpp
     SNLVRLConstructorTest1.cpp
     SNLVRLConstructorTest2.cpp
+    SNLVRLConstructorTestDefParams.cpp
+    SNLVRLConstructorTestAttributes.cpp
     SNLVRLConstructorTestErrors.cpp
 )
 

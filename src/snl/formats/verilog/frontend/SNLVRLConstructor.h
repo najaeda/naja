@@ -35,6 +35,8 @@ class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
 
     void setVerbose(bool verbose) { verbose_ = verbose; }
     bool getVerbose() const { return verbose_; }
+    void setParseAttributes(bool parseAttributes) { parseAttributes_ = parseAttributes; }
+    bool getParseAttributes() const { return parseAttributes_; }
 
     bool inFirstPass() const { return firstPass_; }
     void setFirstPass(bool mode) { firstPass_ = mode; }
@@ -58,6 +60,14 @@ class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
     void addOrderedInstanceConnection(
       size_t portIndex,
       const naja::verilog::Expression& expression) override;
+    void addDefParameterAssignment(
+      const naja::verilog::Identifiers& hierarchicalParameter,
+      const naja::verilog::ConstantExpression& expression) override;
+
+    using Attributes = std::vector<naja::verilog::Attribute>;
+    void addAttribute(
+      const naja::verilog::Identifier& attributeName,
+      const naja::verilog::ConstantExpression& expression) override;
     void endModule() override;
   private:
     void createCurrentModuleAssignNets();
@@ -79,7 +89,9 @@ class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
     bool              verbose_                        {false};
     bool              firstPass_                      {true};
     bool              blackboxDetection_              {true};
+    bool              parseAttributes_                {true};
     SNLLibrary*       library_                        {nullptr};
+    Attributes        nextObjectAttributes_           {};
     SNLDesign*        currentModule_                  {nullptr};
     std::string       currentModelName_               {};
     SNLInstance*      currentInstance_                {nullptr};
@@ -87,7 +99,6 @@ class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
     ParameterValues   currentInstanceParameterValues_ {};
     SNLScalarNet*     currentModuleAssign0_           {nullptr};
     SNLScalarNet*     currentModuleAssign1_           {nullptr};
-    //Following is used when 
     using InterfacePorts = std::vector<std::unique_ptr<naja::verilog::Port>>;
     using InterfacePortsMap = std::map<std::string, size_t>;
     InterfacePorts    currentModuleInterfacePorts_    {};

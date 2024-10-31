@@ -90,6 +90,8 @@ TEST_F(SNLNetTest, testCreation) {
   EXPECT_EQ(1, design_->getScalarNets().size());
   EXPECT_EQ(1, design_->getBitNets().size());
   EXPECT_EQ(i0Net, design_->getScalarNet(0));
+  EXPECT_EQ(i0Net, design_->getBitNet(0, 0));
+  EXPECT_EQ(i0Net, design_->getBitNet(0, 8));
   EXPECT_FALSE(i0Net->getBits().empty());
   EXPECT_EQ(1, i0Net->getBits().size());
   EXPECT_TRUE(i0Net->getComponents().empty());
@@ -167,8 +169,12 @@ TEST_F(SNLNetTest, testCreation) {
   EXPECT_EQ(SNLID::DesignObjectReference(1, 1, 0, 2), net0->getReference());
   EXPECT_EQ(net0->getBit(1), design_->getBusNetBit(2, 1));
   EXPECT_EQ(net0->getBit(31), design_->getBusNetBit(2, 31));
+  EXPECT_EQ(net0->getBit(1), design_->getBitNet(2, 1));
+  EXPECT_EQ(net0->getBit(31), design_->getBitNet(2, 31));
   EXPECT_EQ(nullptr, design_->getBusNetBit(2, 32));
-  EXPECT_EQ(nullptr, design_->getBusNetBit(0, 32));
+  EXPECT_EQ(nullptr, design_->getBusNetBit(0, 32)); //is a scalar net
+  EXPECT_EQ(nullptr, design_->getBitNet(2, 32));
+  EXPECT_EQ(i0Net, design_->getBitNet(0, 32)); //is a scalar net 32 not relevant
   EXPECT_EQ(net0, SNLUniverse::get()->getNet(SNLID::DesignObjectReference(1, 1, 0, 2)));
   EXPECT_EQ(net0, design_->getNet(2));
   EXPECT_EQ(net0, design_->getBusNet(2));
