@@ -9,6 +9,7 @@ Naja SNL (Structured Netlist)
 
    identification.rst
    classes/index.rst
+   clone.rst
    snl_cpp_api_examples.rst
    snl_python_api_examples.rst
    primitives.rst
