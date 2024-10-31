@@ -54,6 +54,7 @@ class SNLAttributes {
     static void addAttribute(SNLDesignObject* designObject, const SNLAttribute& attribute);
     static void clearAttributes(SNLObject* object);
     static void cloneAttributes(const SNLObject* from, SNLObject* to);
+    static bool compareAttributes(const SNLObject* object1, const SNLObject* object2, std::string& reason);
     static NajaCollection<SNLAttribute> getAttributes(const SNLObject* object);
 };
 

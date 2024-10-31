@@ -292,7 +292,7 @@ bool SNLBusNet::deepCompare(const SNLNet* other, std::string& reason) const {
       return false; //LCOV_EXCL_LINE
     }
   }
-  return true;
+  return SNLAttributes::compareAttributes(this, other, reason);
 }
 
 //LCOV_EXCL_START

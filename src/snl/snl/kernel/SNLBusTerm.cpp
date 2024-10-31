@@ -293,7 +293,7 @@ bool SNLBusTerm::deepCompare(const SNLTerm* other, std::string& reason) const {
       return false; //LCOV_EXCL_LINE
     }
   }
-  return true;
+  return SNLAttributes::compareAttributes(this, other, reason);
 }
 
 }} // namespace SNL // namespace naja

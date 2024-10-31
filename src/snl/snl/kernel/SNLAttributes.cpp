@@ -123,6 +123,34 @@ void SNLAttributes::cloneAttributes(const SNLObject* from, SNLObject* to) {
   }
 }
 
+bool SNLAttributes::compareAttributes(
+  const SNLObject* object1,
+  const SNLObject* object2,
+  std::string& reason) {
+  auto prop1 = SNLAttributesPrivateProperty::get(object1);
+  auto prop2 = SNLAttributesPrivateProperty::get(object2);
+  if (prop1 and prop2) {
+    using Attributes = std::vector<SNLAttribute>;
+    Attributes attributes1(
+      prop1->getAttributes().begin(),
+      prop1->getAttributes().end());
+    Attributes attributes2(
+      prop2->getAttributes().begin(),
+      prop2->getAttributes().end());
+    if (attributes1.size() not_eq attributes2.size()) {
+      reason = "attributes size mismatch";
+      return false;
+    }
+    for (size_t i=0; i<attributes1.size(); i++) {
+      if (attributes1[i] not_eq attributes2[i]) {
+        reason = "attribute mismatch";
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
 void SNLAttributes::clearAttributes(SNLObject* object) {
   auto prop = SNLAttributesPrivateProperty::get(object);
   if (prop) {

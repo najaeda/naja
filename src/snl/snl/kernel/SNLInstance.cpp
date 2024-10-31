@@ -165,7 +165,7 @@ bool SNLInstance::deepCompare(const SNLInstance* other, std::string& reason) con
   }
   //FIXME compare models: same library id, same id
   DEEP_COMPARE_MEMBER(InstParameters)
-  return true;
+  return SNLAttributes::compareAttributes(this, other, reason);
 }
 
 void SNLInstance::createInstTerm(SNLBitTerm* term) {
