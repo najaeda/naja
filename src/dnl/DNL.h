@@ -197,54 +197,54 @@ class DNLTerminalFull {
   /**
    * \brief Create a DNLTerminalFull.
    * \param DNLInstID DNL ID of the DNLInstanceFull.
-   * \param terminal the SNLInstTerm of the DNLTerminalFull.
+   * \param terminal The SNLInstTerm of the DNLTerminalFull.
    * \param id DNL ID of the DNLTerminalFull.
    */
   DNLTerminalFull(DNLID DNLInstID, SNLInstTerm* terminal, DNLID id);
   /**
    * \brief Create a DNLTerminalFull.
    * \param DNLInstID DNL ID of the DNLInstanceFull.
-   * \param terminal the SNLBitTerm of the DNLTerminalFull.
+   * \param terminal The SNLBitTerm of the DNLTerminalFull.
    * \param id DNL ID of the DNLTerminalFull.
    */
   DNLTerminalFull(DNLID DNLInstID, SNLBitTerm* terminal, DNLID id);
   /**
-   * \brief display content of the DNLTerminalFull.
+   * \brief Display content of the DNLTerminalFull.
    */
   DNLID getID() const;
   /**
-   * \brief get the SNLInstTerm of the DNLTerminalFull.
-   * \return the SNLInstTerm of the DNLTerminalFull.
+   * \brief Get the SNLInstTerm of the DNLTerminalFull.
+   * \return The SNLInstTerm of the DNLTerminalFull.
    */
   SNLInstTerm* getSnlTerm() const;
   /**
-   * \brief get the SNLBitTerm of the DNLTerminalFull.
-   * \return the SNLBitTerm of the DNLTerminalFull.
+   * \brief Get the SNLBitTerm of the DNLTerminalFull.
+   * \return The SNLBitTerm of the DNLTerminalFull.
    */
   SNLBitTerm* getSnlBitTerm() const;
   /**
-   * \brief get the DNLInstanceFull of the DNLTerminalFull.
-   * \return the DNLInstanceFull of the DNLTerminalFull.
+   * \brief Get the DNLInstanceFull of the DNLTerminalFull.
+   * \return The DNLInstanceFull of the DNLTerminalFull.
    */
   const DNLInstanceFull& getDNLInstance() const;
   /**
-   * \brief check if the DNLTerminalFull is null.
-   * \return true if the DNLTerminalFull is null.
+   * \brief Check if the DNLTerminalFull is null.
+   * \return True if the DNLTerminalFull is null.
    */
   bool isNull() const { return id_ == (DNLID)DNLID_MAX; }
   /**
-   * \brief set the DNL ID of the DNLTerminalFull.
-   * \param id the DNL ID of the DNLTerminalFull.
+   * \brief Set the DNL ID of the DNLTerminalFull.
+   * \param id The DNL ID of the DNLTerminalFull.
    */
   void setIsoID(DNLID isoID);
   /**
-   * \brief get the DNL ID of the DNLTerminalFull.
-   * \return the DNL ID of the DNLTerminalFull.
+   * \brief Get the DNL ID of the DNLTerminalFull.
+   * \return The DNL ID of the DNLTerminalFull.
    */
   DNLID getIsoID() const;
   /**
-   * \brief check if the DNLTerminalFull is top port.
-   * \return true if the DNLTerminalFull is top port.
+   * \brief Check if the DNLTerminalFull is top port.
+   * \return True if the DNLTerminalFull is top port.
    */
   bool isTopPort() const { return terminal_ == nullptr; }
 
@@ -259,57 +259,57 @@ class DNLIso {
  public:
   DNLIso(DNLID id = DNLID_MAX);
   /**
-   * \brief clear the DNLIso.
+   * \brief Clear the DNLIso.
    */
   void clear() {
     drivers_.clear();
     readers_.clear();
   }
   /**
-   * \brief set the DNL ID of the DNLIso.
-   * \param id the DNL ID of the DNLIso.
+   * \brief Set the DNL ID of the DNLIso.
+   * \param id The DNL ID of the DNLIso.
    */
   void setId(DNLID id) { id_ = id; }
   /**
-   * \brief add a driver to the DNLIso.
-   * \param driver the DNL ID of the driver.
+   * \brief Add a driver to the DNLIso.
+   * \param driver The DNL ID of the driver.
    */
   virtual void addDriver(DNLID driver);
   /**
-   * \brief add a reader to the DNLIso.
-   * \param reader the DNL ID of the reader.
+   * \brief Add a reader to the DNLIso.
+   * \param reader The DNL ID of the reader.
    */
   virtual void addReader(DNLID reader);
   /**
-   * \brief add a hier term to the DNLIso.
-   * \param hier the DNL ID of the hier term.
+   * \brief Add a hier term to the DNLIso.
+   * \param hier The DNL ID of the hier term.
    */
   virtual void addHierTerm(DNLID hier) {}
   /**
-   * \brief add a net to the DNLIso.
-   * \param net the SNLBitNet of the net.
+   * \brief Add a net to the DNLIso.
+   * \param net The SNLBitNet of the net.
    */
   virtual void addNet(SNLBitNet* net) {}
   /**
-   * \brief display content of the DNLIso.
+   * \brief Display content of the DNLIso.
    */
   virtual void display(std::ostream& stream = std::cout) const;
   /**
-   * \brief get the DNL ID of the DNLIso.
-   * \return the DNL ID of the DNLIso.
+   * \brief Get the DNL ID of the DNLIso.
+   * \return The DNL ID of the DNLIso.
    */
   virtual DNLID getIsoID() const { return id_; }
   /**
-   * \brief get the drivers of the DNLIso.
-   * \return the drivers of the DNLIso.
+   * \brief Get the drivers of the DNLIso.
+   * \return The drivers of the DNLIso.
    */
   virtual const std::vector<DNLID, tbb::scalable_allocator<DNLID>>& getDrivers()
       const {
     return drivers_;
   }
   /**
-   * \brief get the readers of the DNLIso.
-   * \return the readers of the DNLIso.
+   * \brief Get the readers of the DNLIso.
+   * \return The readers of the DNLIso.
    */
   virtual const std::vector<DNLID, tbb::scalable_allocator<DNLID>>& getReaders()
       const {
