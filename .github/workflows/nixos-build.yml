@@ -1,14 +1,18 @@
 
 name: "NixOS Build"
+
 on:
-  pull_request:
-  push:
+    push:
+      branches: [ main ]
+    pull_request:
+      branches: [ main ]
+
 jobs:
-  tests:
+  build:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
-    - uses: cachix/install-nix-action@v18
+    - uses: cachix/install-nix-action@v30
       with:
         nix_path: nixpkgs=channel:nixos-24.05
     - uses: workflow/nix-shell-action@v3
