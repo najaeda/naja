@@ -16,6 +16,7 @@
 #include "SNLBusNet.h"
 #include "SNLBusNetBit.h"
 #include "SNLInstTerm.h"
+#include "SNLAttributes.h"
 #include "SNLUtils.h"
 #include "SNLMacros.h"
 
@@ -195,6 +196,7 @@ SNLInstance* SNLInstance::clone(SNLDesign* design) const {
     },
     [](SNLInstParameter*){} //LCOV_EXCL_LINE
   );
+  SNLAttributes::cloneAttributes(this, newInstance);
   return newInstance;
 }
 

@@ -7,8 +7,9 @@
 #include <iostream>
 #include <sstream>
 
-#include "SNLException.h"
 #include "SNLDesign.h"
+#include "SNLAttributes.h"
+#include "SNLException.h"
 #include "SNLMacros.h"
 
 namespace naja { namespace SNL {
@@ -91,6 +92,7 @@ void SNLScalarTerm::preDestroy() {
 SNLTerm* SNLScalarTerm::clone(SNLDesign* design) const {
   auto newScalarTerm = new SNLScalarTerm(design, id_, direction_, name_);
   newScalarTerm->setFlatID(getFlatID());
+  SNLAttributes::cloneAttributes(this, newScalarTerm);
   return newScalarTerm;
 }
 

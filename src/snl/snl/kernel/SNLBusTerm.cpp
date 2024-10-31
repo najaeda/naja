@@ -9,6 +9,7 @@
 #include "SNLBusTermBit.h"
 #include "SNLBusNet.h"
 #include "SNLBusNetBit.h"
+#include "SNLAttributes.h"
 #include "SNLUtils.h"
 #include "SNLMacros.h"
 
@@ -133,6 +134,7 @@ SNLTerm* SNLBusTerm::clone(SNLDesign* design) const {
   auto newSNLBusTerm = new SNLBusTerm(design, id_, direction_, msb_, lsb_, name_);
   newSNLBusTerm->setFlatID(getFlatID());
   newSNLBusTerm->createBits();
+  SNLAttributes::cloneAttributes(this, newSNLBusTerm);
   return newSNLBusTerm;
 }
 

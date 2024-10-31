@@ -18,6 +18,7 @@
 #include "SNLScalarNet.h"
 #include "SNLBusNet.h"
 #include "SNLBusNetBit.h"
+#include "SNLAttributes.h"
 #include "SNLDB0.h"
 #include "SNLMacros.h"
 
@@ -553,9 +554,9 @@ bool SNLDesign::deepCompare(
     return false; //LCOV_EXCL_LINE
   }
   DEEP_COMPARE_MEMBER(Terms)
+  DEEP_COMPARE_MEMBER(Nets)
   DEEP_COMPARE_MEMBER(Parameters)
   DEEP_COMPARE_MEMBER(Instances)
-  //FIXME Compare nets
   return true;
 }
 
@@ -618,6 +619,7 @@ SNLDesign* SNLDesign::cloneInterfaceToLibrary(SNLLibrary* library, const SNLName
     },
     [](SNLParameter*){} //LCOV_EXCL_LINE
   );
+  SNLAttributes::cloneAttributes(this, newDesign);
   return newDesign;
 }
 

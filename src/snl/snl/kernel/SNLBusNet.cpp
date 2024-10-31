@@ -11,6 +11,7 @@
 #include "SNLLibrary.h"
 #include "SNLDesign.h"
 #include "SNLBusNetBit.h"
+#include "SNLAttributes.h"
 #include "SNLException.h"
 #include "SNLUtils.h"
 #include "SNLMacros.h"
@@ -137,6 +138,7 @@ void SNLBusNet::removeBit(SNLBusNetBit* bit) {
 
 SNLNet* SNLBusNet::clone(SNLDesign* design) const {
   auto newBus = new SNLBusNet(design, id_, msb_, lsb_, name_);
+  SNLAttributes::cloneAttributes(this, newBus);
   newBus->createBits();
   for (size_t i=0; i<bits_.size(); i++) {
     newBus->bits_[i]->setType(bits_[i]->getType());
@@ -244,6 +246,54 @@ std::string SNLBusNet::getDescription() const {
   return "<" + std::string(getTypeName()) + " " + name_.getString() + " " + design_->getName().getString() + ">";  
 }
 //LCOV_EXCL_STOP
+
+bool SNLBusNet::deepCompare(const SNLNet* other, std::string& reason) const {
+  const SNLBusNet* otherBusNet = dynamic_cast<const SNLBusNet*>(other);
+  if (not otherBusNet) {
+    //LCOV_EXCL_START
+    reason = "other term is not a SNLBusNet";
+    return false;
+    //LCOV_EXCL_STOP
+  }
+  if (getMSB() not_eq otherBusNet->getMSB()) {
+    //LCOV_EXCL_START
+    reason = "MSB mismatch";
+    return false;
+    //LCOV_EXCL_STOP
+  }
+  if (getLSB() not_eq otherBusNet->getLSB()) {
+    //LCOV_EXCL_START
+    reason = "LSB mismatch";
+    return false;
+    //LCOV_EXCL_STOP
+  }
+  if (getName() not_eq otherBusNet->getName()) {
+    //LCOV_EXCL_START
+    reason = "name mismatch";
+    return false;
+    //LCOV_EXCL_STOP
+  }
+  if (bits_.size() not_eq otherBusNet->bits_.size()) {
+    //LCOV_EXCL_START
+    reason = "size mismatch";
+    return false;
+    //LCOV_EXCL_STOP
+  }
+  for (size_t i=0; i<bits_.size(); i++) {
+    if (not bits_[i] and not otherBusNet->bits_[i]) {
+      continue;
+    } else if (not bits_[i] or not otherBusNet->bits_[i]) {
+      //LCOV_EXCL_START
+      reason = "bit mismatch";
+      return false;
+      //LCOV_EXCL_STOP
+    }
+    if (not bits_[i]->deepCompare(otherBusNet->bits_[i], reason)) {
+      return false; //LCOV_EXCL_LINE
+    }
+  }
+  return true;
+}
 
 //LCOV_EXCL_START
 void SNLBusNet::debugDump(size_t indent, bool recursive, std::ostream& stream) const {

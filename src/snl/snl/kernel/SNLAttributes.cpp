@@ -113,6 +113,16 @@ NajaCollection<SNLAttributes::SNLAttribute> SNLAttributes::getAttributes(const S
   return NajaCollection<SNLAttributes::SNLAttribute>();
 }
 
+void SNLAttributes::cloneAttributes(const SNLObject* from, SNLObject* to) {
+  auto propFrom = SNLAttributesPrivateProperty::get(from);
+  auto propTo = SNLAttributesPrivateProperty::getOrCreate(to);
+  if (propFrom) {
+    for (auto attribute: propFrom->getAttributes()) {
+      propTo->addAttribute(attribute);
+    }
+  }
+}
+
 void SNLAttributes::clearAttributes(SNLObject* object) {
   auto prop = SNLAttributesPrivateProperty::get(object);
   if (prop) {

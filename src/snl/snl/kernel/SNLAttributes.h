@@ -53,6 +53,7 @@ class SNLAttributes {
     static void addAttribute(SNLDesign* design, const SNLAttribute& attribute);
     static void addAttribute(SNLDesignObject* designObject, const SNLAttribute& attribute);
     static void clearAttributes(SNLObject* object);
+    static void cloneAttributes(const SNLObject* from, SNLObject* to);
     static NajaCollection<SNLAttribute> getAttributes(const SNLObject* object);
 };
 

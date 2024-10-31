@@ -17,8 +17,9 @@ using ::testing::ElementsAre;
 #include "SNLScalarNet.h"
 #include "SNLBusNet.h"
 #include "SNLBusNetBit.h"
-#include "SNLUtils.h"
+#include "SNLAttributes.h"
 #include "SNLException.h"
+#include "SNLUtils.h"
 using namespace naja::SNL;
 
 namespace {
@@ -112,6 +113,26 @@ void compareNets(const SNLDesign* design, const SNLDesign* newDesign) {
   }
 }
 
+void compareAttributes(const SNLObject* object, const SNLObject* newObject) {
+  ASSERT_EQ(
+    SNLAttributes::getAttributes(object).size(),
+    SNLAttributes::getAttributes(newObject).size());
+  using Attributes = std::vector<SNLAttributes::SNLAttribute>;
+  Attributes objectAttributes(
+    SNLAttributes::getAttributes(object).begin(),
+    SNLAttributes::getAttributes(object).end());
+  Attributes newObjectAttributes(
+    SNLAttributes::getAttributes(newObject).begin(),
+    SNLAttributes::getAttributes(newObject).end());
+  ASSERT_EQ(objectAttributes.size(), newObjectAttributes.size());
+  for (size_t i=0; i<objectAttributes.size(); ++i) {
+    auto attribute = objectAttributes[i];
+    auto newAttribute = newObjectAttributes[i];
+    EXPECT_EQ(attribute.getName(), newAttribute.getName());
+    EXPECT_EQ(attribute.getValue(), newAttribute.getValue());
+  }
+}
+
 } // namespace
 
 class SNLDesignCloneTest: public ::testing::Test {
@@ -132,6 +153,17 @@ class SNLDesignCloneTest: public ::testing::Test {
       auto prim1Term1 = SNLScalarTerm::create(prim1, SNLTerm::Direction::Output, SNLName("term1"));
       auto library = SNLLibrary::create(db, SNLName("MYLIB"));
       top_ = SNLDesign::create(library, SNLName("top"));
+
+      SNLAttributes::addAttribute(top_,
+        SNLAttributes::SNLAttribute(
+          SNLName("DPRAGMA1"),
+          SNLAttributes::SNLAttribute::Value("value1")));
+      SNLAttributes::addAttribute(top_,
+        SNLAttributes::SNLAttribute(
+          SNLName("DPRAGMA2"),
+          SNLAttributes::SNLAttribute::Value(SNLAttributes::SNLAttribute::Value::Type::NUMBER, "12")));
+      SNLAttributes::addAttribute(top_, SNLAttributes::SNLAttribute(SNLName("DPRAGMA3")));
+
       design_ = SNLDesign::create(library, SNLName("design"));
       terms_.push_back(SNLScalarTerm::create(design_, SNLTerm::Direction::Input, SNLName("term0")));
       terms_.push_back(SNLBusTerm::create(design_, SNLTerm::Direction::Input, 4, 0, SNLName("term1")));
@@ -181,6 +213,7 @@ TEST_F(SNLDesignCloneTest, testcloneInterface0) {
   EXPECT_TRUE(newDesign->isAnonymous());
   EXPECT_EQ(design_->getLibrary(), newDesign->getLibrary());
   EXPECT_EQ(newDesign, design_->getLibrary()->getDesign(newDesign->getID()));
+  compareAttributes(design_, newDesign);
   compareTerms(design_, newDesign);
   compareParameters(design_, newDesign);
   EXPECT_TRUE(newDesign->getInstances().empty());
@@ -204,6 +237,7 @@ TEST_F(SNLDesignCloneTest, testCloneInterface1) {
   EXPECT_EQ(design_->getLibrary(), newDesign->getLibrary());
   EXPECT_EQ(newDesign, design_->getLibrary()->getDesign(newDesign->getID()));
   EXPECT_EQ(newDesign, design_->getLibrary()->getDesign(newDesign->getName()));
+  compareAttributes(design_, newDesign);
   compareTerms(design_, newDesign);
   compareParameters(design_, newDesign);
   EXPECT_TRUE(newDesign->getInstances().empty());
@@ -219,6 +253,7 @@ TEST_F(SNLDesignCloneTest, testCloneInterface2) {
   EXPECT_EQ(newLibrary, newDesign->getLibrary());
   EXPECT_EQ(newDesign, newLibrary->getDesign(newDesign->getID()));
   EXPECT_EQ(newDesign, newLibrary->getDesign(newDesign->getName()));
+  compareAttributes(design_, newDesign);
   compareTerms(design_, newDesign);
   compareParameters(design_, newDesign);
   EXPECT_TRUE(newDesign->getInstances().empty());
@@ -240,6 +275,7 @@ TEST_F(SNLDesignCloneTest, testClone0) {
   EXPECT_TRUE(newDesign->isAnonymous());
   EXPECT_EQ(design_->getLibrary(), newDesign->getLibrary());
   EXPECT_EQ(newDesign, design_->getLibrary()->getDesign(newDesign->getID()));
+  compareAttributes(design_, newDesign);
   compareTerms(design_, newDesign);
   compareParameters(design_, newDesign);
   compareInstances(design_, newDesign);
