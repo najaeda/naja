@@ -119,7 +119,10 @@ TEST_F(SNLAttributesTest, testCompare) {
     SNLAttributes::SNLAttribute(
       SNLName("PRAGMA2"),
       SNLAttributes::SNLAttribute::Value("value2")));
-  SNLAttributes::addAttribute(design2,
+  reason = std::string();
+  EXPECT_FALSE(SNLAttributes::compareAttributes(design1, design2, reason));
+  EXPECT_FALSE(reason.empty());
+    SNLAttributes::addAttribute(design2,
     SNLAttributes::SNLAttribute(
       SNLName("PRAGMA2"),
       SNLAttributes::SNLAttribute::Value("value3")));
