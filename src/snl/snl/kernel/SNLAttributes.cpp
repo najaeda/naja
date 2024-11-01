@@ -113,6 +113,52 @@ NajaCollection<SNLAttributes::SNLAttribute> SNLAttributes::getAttributes(const S
   return NajaCollection<SNLAttributes::SNLAttribute>();
 }
 
+void SNLAttributes::cloneAttributes(const SNLObject* from, SNLObject* to) {
+  auto propFrom = SNLAttributesPrivateProperty::get(from);
+  if (propFrom) {
+    auto propTo = SNLAttributesPrivateProperty::getOrCreate(to);
+    for (auto attribute: propFrom->getAttributes()) {
+      propTo->addAttribute(attribute);
+    }
+  }
+}
+
+bool SNLAttributes::compareAttributes(
+  const SNLObject* object1,
+  const SNLObject* object2,
+  std::string& reason) {
+  auto prop1 = SNLAttributesPrivateProperty::get(object1);
+  auto prop2 = SNLAttributesPrivateProperty::get(object2);
+  //xor
+  if ((prop1 and not prop2) or (not prop1 and prop2)) {
+    std::ostringstream oss;
+    oss << "attributes property mismatch between ";
+    oss << object1->getDescription() << " and " << object2->getDescription();
+    reason = oss.str();
+    return false;
+  }
+  if (prop1 and prop2) {
+    using Attributes = std::vector<SNLAttribute>;
+    Attributes attributes1(
+      prop1->getAttributes().begin(),
+      prop1->getAttributes().end());
+    Attributes attributes2(
+      prop2->getAttributes().begin(),
+      prop2->getAttributes().end());
+    if (attributes1.size() not_eq attributes2.size()) {
+      reason = "attributes size mismatch";
+      return false;
+    }
+    for (size_t i=0; i<attributes1.size(); i++) {
+      if (attributes1[i] not_eq attributes2[i]) {
+        reason = "attribute mismatch";
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
 void SNLAttributes::clearAttributes(SNLObject* object) {
   auto prop = SNLAttributesPrivateProperty::get(object);
   if (prop) {

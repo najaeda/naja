@@ -7,9 +7,10 @@
 #include <sstream>
 
 #include "SNLDB.h"
-#include "SNLException.h"
 #include "SNLLibrary.h"
 #include "SNLDesign.h"
+#include "SNLAttributes.h"
+#include "SNLException.h"
 #include "SNLMacros.h"
 
 namespace naja { namespace SNL {
@@ -97,6 +98,7 @@ void SNLScalarNet::preDestroy() {
 SNLNet* SNLScalarNet::clone(SNLDesign* design) const {
   auto newNet = new SNLScalarNet(design, id_, name_);
   newNet->setType(getType());
+  SNLAttributes::cloneAttributes(this, newNet);
   cloneComponents(newNet);
   return newNet;
 }
@@ -138,6 +140,29 @@ std::string SNLScalarNet::getDescription() const {
   return stream.str(); 
 }
 //LCOV_EXCL_STOP
+
+bool SNLScalarNet::deepCompare(const SNLNet* other, std::string& reason) const {
+  const SNLScalarNet* otherScalarNet = dynamic_cast<const SNLScalarNet*>(other);
+  if (not otherScalarNet) {
+    //LCOV_EXCL_START
+    reason = "other term is not a SNLScalarNet";
+    return false;
+    //LCOV_EXCL_STOP
+  }
+  if (getType() != otherScalarNet->getType()) {
+    //LCOV_EXCL_START
+    reason = "type mismatch";
+    return false;
+    //LCOV_EXCL_STOP
+  }
+  if (getID() != otherScalarNet->getID()) {
+    //LCOV_EXCL_START
+    reason = "ID mismatch";
+    return false;
+    //LCOV_EXCL_STOP
+  }
+  return SNLAttributes::compareAttributes(this, otherScalarNet, reason);
+}
 
 //LCOV_EXCL_START
 void SNLScalarNet::debugDump(size_t indent, bool recursive, std::ostream& stream) const {

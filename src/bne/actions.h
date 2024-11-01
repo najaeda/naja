@@ -22,10 +22,27 @@ enum ActionType { DELETE, DRIVE_WITH_CONSTANT, REDUCTION, NONE };
 
 class Action {
  public:
+  /**
+   * \brief Create an Action.
+   * \param type The type of the action.
+   * \return The created Action.
+   */
   Action(ActionType type) : type_(type) {}
+  /**
+   * \brief Process the action on the context.
+   * \param design The design to process the action on.
+   */
   virtual void processOnContext(SNLDesign* design) = 0;
+  /**
+   * \brief Get the type of the action.
+   * \return The type of the action.
+   */
   ActionType getType() const { return type_; }
   // get context
+  /**
+   * \brief Get the context of the action.
+   * \return The context of the action.
+   */
   virtual const std::vector<SNLID::DesignObjectID>& getContext() const = 0;
   // comparator
   virtual bool operator==(const Action& action) const = 0;

@@ -138,6 +138,10 @@ class SNLInstance final: public SNLDesignObject {
       SNLNet* net,
       SNLID::Bit netMSB, SNLID::Bit netLSB);
 
+    /**
+     * \brief Seting new model for this instance.
+     * \param newModel new model for this instance.
+     */
     void setModel(SNLDesign* newModel);
 
     SNLID::DesignObjectID getOrderID() const { return orederID_; }

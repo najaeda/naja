@@ -87,6 +87,23 @@ std::string SNLBusNetBit::getDescription() const {
 }
 //LCOV_EXCL_STOP
 
+bool SNLBusNetBit::deepCompare(const SNLNet* other, std::string& reason) const {
+  const SNLBusNetBit* otherBusNetBit = dynamic_cast<const SNLBusNetBit*>(other);
+  if (not otherBusNetBit) {
+    //LCOV_EXCL_START
+    reason = "other term is not a SNLBusNetBit";
+    return false;
+    //LCOV_EXCL_STOP
+  }
+  if (getBit() not_eq otherBusNetBit->getBit()) {
+    //LCOV_EXCL_START
+    reason = "bit mismatch";
+    return false;
+    //LCOV_EXCL_STOP
+  }
+  return true;
+}
+
 //LCOV_EXCL_START
 void SNLBusNetBit::debugDump(size_t indent, bool recursive, std::ostream& stream) const {
   stream << std::string(indent, ' ') << getDescription() << std::endl;
