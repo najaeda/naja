@@ -13,19 +13,21 @@ class BNE {
  public:
  /**
   * \brief Create a BNE.
-  * \param blockNormalization true if the normalization is blocked.
-  * \param blockOptimization true if the optimization is blocked.
+  * \param blockNormalization True if the normalization is blocked.
+  * \param blockOptimization True if the optimization is blocked.
   */
   BNE(bool blockNormalization = false, bool blockOptimization = false)
       : tree_(blockNormalization, blockOptimization) {}
   /**
-   * \brief add a delete action to the BNE.
-   * \param pathToDelete the path to delete.
+   * \brief Add a delete action to the BNE.
+   * \param pathToDelete The path to delete.
    */
   void addDeleteAction(const std::vector<SNLID::DesignObjectID>& pathToDelete);
   /**
-   * \brief add a delete action to the BNE.
-   * \param pathToDelete the path to delete.
+   * \brief Add a drive with constant action to the BNE.
+   * \param pathToDrive The context.
+   * \param termToDrive The term to drive.
+   * \param value The value to drive.
    */
   void addDriveWithConstantAction(
       const std::vector<SNLID::DesignObjectID>& context,
@@ -34,16 +36,17 @@ class BNE {
       const double& value,
       SNLBitTerm* topTermToDrive = nullptr);
   /**
-   * \brief add a delete action to the BNE.
-   * \param pathToDelete the path to delete.
+   * \brief Add a reduction action to the BNE.
+   * \param context The context.
+   * \param instance The instance that can be reduced.
+   * \param result The interface reduction needed. 
    */
   void addReductionCommand(
       const std::vector<SNLID::DesignObjectID>& context,
       SNLID::DesignObjectID instance,
       const std::pair<SNLDesign*, SNLLibraryTruthTables::Indexes>& result);
   /**
-   * \brief add a delete action to the BNE.
-   * \param pathToDelete the path to delete.
+   * \brief Process the commands.
    */
   void process();
  private:
