@@ -92,3 +92,38 @@ TEST_F(SNLAttributesTest, testCreationOnDesignObject) {
   SNLAttributes::clearAttributes(term);
   EXPECT_TRUE(SNLAttributes::getAttributes(term).empty());
 }
+
+TEST_F(SNLAttributesTest, testCompare) {
+  auto design1 = SNLDesign::create(library_, SNLName("DESIGN1"));
+  auto design2 = SNLDesign::create(library_, SNLName("DESIGN2"));
+  std::string reason;
+  EXPECT_TRUE(SNLAttributes::compareAttributes(design1, design2, reason));
+  EXPECT_TRUE(reason.empty());
+
+  SNLAttributes::addAttribute(design1,
+    SNLAttributes::SNLAttribute(
+      SNLName("PRAGMA1"),
+      SNLAttributes::SNLAttribute::Value("value1")));
+  EXPECT_FALSE(SNLAttributes::compareAttributes(design1, design2, reason));
+  EXPECT_FALSE(reason.empty());
+
+  SNLAttributes::addAttribute(design2,
+    SNLAttributes::SNLAttribute(
+      SNLName("PRAGMA1"),
+      SNLAttributes::SNLAttribute::Value("value1")));
+  reason = std::string();
+  EXPECT_TRUE(SNLAttributes::compareAttributes(design1, design2, reason));
+  EXPECT_TRUE(reason.empty());
+
+  SNLAttributes::addAttribute(design1,
+    SNLAttributes::SNLAttribute(
+      SNLName("PRAGMA2"),
+      SNLAttributes::SNLAttribute::Value("value2")));
+  SNLAttributes::addAttribute(design2,
+    SNLAttributes::SNLAttribute(
+      SNLName("PRAGMA2"),
+      SNLAttributes::SNLAttribute::Value("value3")));
+  reason = std::string();
+  EXPECT_FALSE(SNLAttributes::compareAttributes(design1, design2, reason));
+  EXPECT_FALSE(reason.empty());
+}

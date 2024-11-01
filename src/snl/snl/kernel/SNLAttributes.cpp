@@ -129,6 +129,11 @@ bool SNLAttributes::compareAttributes(
   std::string& reason) {
   auto prop1 = SNLAttributesPrivateProperty::get(object1);
   auto prop2 = SNLAttributesPrivateProperty::get(object2);
+  //xor
+  if ((prop1 and not prop2) or (not prop1 and prop2)) {
+    reason = "attributes property mismatch";
+    return false;
+  }
   if (prop1 and prop2) {
     using Attributes = std::vector<SNLAttribute>;
     Attributes attributes1(
