@@ -115,8 +115,8 @@ NajaCollection<SNLAttributes::SNLAttribute> SNLAttributes::getAttributes(const S
 
 void SNLAttributes::cloneAttributes(const SNLObject* from, SNLObject* to) {
   auto propFrom = SNLAttributesPrivateProperty::get(from);
-  auto propTo = SNLAttributesPrivateProperty::getOrCreate(to);
   if (propFrom) {
+    auto propTo = SNLAttributesPrivateProperty::getOrCreate(to);
     for (auto attribute: propFrom->getAttributes()) {
       propTo->addAttribute(attribute);
     }
@@ -131,7 +131,10 @@ bool SNLAttributes::compareAttributes(
   auto prop2 = SNLAttributesPrivateProperty::get(object2);
   //xor
   if ((prop1 and not prop2) or (not prop1 and prop2)) {
-    reason = "attributes property mismatch";
+    std::ostringstream oss;
+    oss << "attributes property mismatch between ";
+    oss << object1->getDescription() << " and " << object2->getDescription();
+    reason = oss.str();
     return false;
   }
   if (prop1 and prop2) {
