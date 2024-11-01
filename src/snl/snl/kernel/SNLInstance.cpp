@@ -16,6 +16,7 @@
 #include "SNLBusNet.h"
 #include "SNLBusNetBit.h"
 #include "SNLInstTerm.h"
+#include "SNLAttributes.h"
 #include "SNLUtils.h"
 #include "SNLMacros.h"
 
@@ -164,7 +165,7 @@ bool SNLInstance::deepCompare(const SNLInstance* other, std::string& reason) con
   }
   //FIXME compare models: same library id, same id
   DEEP_COMPARE_MEMBER(InstParameters)
-  return true;
+  return SNLAttributes::compareAttributes(this, other, reason);
 }
 
 void SNLInstance::createInstTerm(SNLBitTerm* term) {
@@ -195,6 +196,7 @@ SNLInstance* SNLInstance::clone(SNLDesign* design) const {
     },
     [](SNLInstParameter*){} //LCOV_EXCL_LINE
   );
+  SNLAttributes::cloneAttributes(this, newInstance);
   return newInstance;
 }
 

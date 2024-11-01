@@ -77,6 +77,8 @@ class SNLNet: public SNLDesignObject {
     ///\return true if all bits of this net are of type Supply1
     virtual bool isSupply1() const = 0;
 
+    virtual bool deepCompare(const SNLNet* other, std::string& reason) const = 0;
+
   protected:
     SNLNet() = default;
 
