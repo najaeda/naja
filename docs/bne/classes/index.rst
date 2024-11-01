@@ -6,3 +6,6 @@ BNE classes
 
 .. doxygenclass:: naja::BNE::ActionTree
     :members:
+
+.. doxygenclass:: naja::BNE::Action
+    :members:
