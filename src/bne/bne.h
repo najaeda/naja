@@ -24,8 +24,10 @@ class BNE {
    */
   void addDeleteAction(const std::vector<SNLID::DesignObjectID>& pathToDelete);
   /**
-   * \brief Add a delete action to the BNE.
-   * \param pathToDelete The path to delete.
+   * \brief Add a drive with constant action to the BNE.
+   * \param pathToDrive The context.
+   * \param termToDrive The term to drive.
+   * \param value The value to drive.
    */
   void addDriveWithConstantAction(
       const std::vector<SNLID::DesignObjectID>& context,
@@ -34,16 +36,17 @@ class BNE {
       const double& value,
       SNLBitTerm* topTermToDrive = nullptr);
   /**
-   * \brief Add a delete action to the BNE.
-   * \param pathToDelete The path to delete.
+   * \brief Add a reduction action to the BNE.
+   * \param context The context.
+   * \param instance The instance that can be reduced.
+   * \param result The interface reduction needed. 
    */
   void addReductionCommand(
       const std::vector<SNLID::DesignObjectID>& context,
       SNLID::DesignObjectID instance,
       const std::pair<SNLDesign*, SNLLibraryTruthTables::Indexes>& result);
   /**
-   * \brief Add a delete action to the BNE.
-   * \param pathToDelete The path to delete.
+   * \brief Process the commands.
    */
   void process();
  private:
