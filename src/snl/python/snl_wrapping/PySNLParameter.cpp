@@ -26,7 +26,7 @@ static PyObject* PySNLParameter_createString(PyObject*, PyObject* args) {
   std::string value = arg2;
 
   SNLParameter* parameter = nullptr;
-  SNLTRY
+  TRY
   if (IsPySNLDesign(arg0)) {
     parameter = SNLParameter::create(PYSNLDesign_O(arg0), name, SNLParameter::Type::String, value);
   } else {
@@ -48,7 +48,7 @@ static PyObject* PySNLParameter_createDecimal(PyObject*, PyObject* args) {
   SNLName name = SNLName(arg1);
 
   SNLParameter* parameter = nullptr;
-  SNLTRY
+  TRY
   if (IsPySNLDesign(arg0)) {
     parameter = SNLParameter::create(PYSNLDesign_O(arg0), name, SNLParameter::Type::Decimal, std::to_string(value));
   } else {
@@ -71,7 +71,7 @@ static PyObject* PySNLParameter_createBinary(PyObject*, PyObject* args) {
   SNLName name = SNLName(arg1);
 
   SNLParameter* parameter = nullptr;
-  SNLTRY
+  TRY
   if (IsPySNLDesign(arg0)) {
     parameter = SNLParameter::create(PYSNLDesign_O(arg0), name, SNLParameter::Type::Binary, std::to_string(value));
   } else {
@@ -93,7 +93,7 @@ static PyObject* PySNLParameter_createBoolean(PyObject*, PyObject* args) {
   SNLName name = SNLName(arg1);
 
   SNLParameter* parameter = nullptr;
-  SNLTRY
+  TRY
   if (IsPySNLDesign(arg0)) {
     parameter = SNLParameter::create(PYSNLDesign_O(arg0), name, SNLParameter::Type::Boolean, std::to_string(value));
   } else {

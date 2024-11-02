@@ -40,7 +40,7 @@ static PyObject* PySNLInstance_create(PyObject*, PyObject* args) {
   }
 
   SNLInstance* instance = nullptr;
-  SNLTRY
+  TRY
   if (not IsPySNLDesign(arg0)) {
     setError("SNLInstance create needs SNLDesign as first argument");
     return nullptr;
@@ -61,7 +61,7 @@ static PyObject* PySNLDesign_getCombinatorialInputs(PySNLDesign*, PyObject* outp
   if (IsPySNLInstTerm(output)) {
     auto outputITerm = PYSNLInstTerm_O(output);
     PySNLInstTerms* pyObjects = nullptr;
-    SNLTRY
+    TRY
     auto objects = new naja::NajaCollection<SNLInstTerm*>(SNLDesignModeling::getCombinatorialInputs(outputITerm));
     pyObjects = PyObject_NEW(PySNLInstTerms, &PyTypeSNLInstTerms);
     if (not pyObjects) return nullptr;
@@ -77,7 +77,7 @@ static PyObject* PySNLDesign_getCombinatorialOutputs(PySNLDesign*, PyObject* inp
   if (IsPySNLInstTerm(input)) {
     auto inputITerm = PYSNLInstTerm_O(input);
     PySNLInstTerms* pyObjects = nullptr;
-    SNLTRY
+    TRY
     auto objects = new naja::NajaCollection<SNLInstTerm*>(SNLDesignModeling::getCombinatorialOutputs(inputITerm));
     pyObjects = PyObject_NEW(PySNLInstTerms, &PyTypeSNLInstTerms);
     if (not pyObjects) return nullptr;
@@ -101,7 +101,7 @@ static PyObject* PySNLInstance_getInstTerm(PySNLInstance* self, PyObject* args) 
   METHOD_HEAD("SNLInstance.getInstTerm()")
   PySNLBitTerm* pyBitTerm = nullptr;
   if (PyArg_ParseTuple(args, "O!:SNLInstance.getInstTerm", &PyTypeSNLBitTerm, &pyBitTerm)) {
-    SNLTRY
+    TRY
     auto bitTerm = PYSNLBitTerm_O(pyBitTerm);
     if (bitTerm) {
       obj = selfObject->getInstTerm(bitTerm);

@@ -32,7 +32,7 @@ static PyObject* createLibrary(PyObject* args, SNLLibrary::Type type) {
   }
 
   SNLLibrary* lib = nullptr;
-  SNLTRY
+  TRY
   if (IsPySNLDB(arg0)) {
     lib = SNLLibrary::create(PYSNLDB_O(arg0), type, name);
   } else if (IsPySNLLibrary(arg0)) {

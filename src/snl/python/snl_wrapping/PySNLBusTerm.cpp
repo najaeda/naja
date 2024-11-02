@@ -38,7 +38,7 @@ static PyObject* PySNLBusTerm_create(PyObject*, PyObject* args) {
   }
 
   SNLBusTerm* term = nullptr;
-  SNLTRY
+  TRY
   if (IsPySNLDesign(arg0)) {
     term = SNLBusTerm::create(PYSNLDesign_O(arg0), direction, arg2, arg3, name);
   } else {

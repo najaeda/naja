@@ -37,7 +37,7 @@ PyObject* richCompare(T left, T right, int op) {
 // Example : baseOject_.object_
 #define ACCESS_OBJECT object_
 
-#define SNLTRY try {
+#define TRY try {
 
 #define SNLCATCH                                        \
   } catch (const naja::SNL::SNLException& e) {                \
@@ -237,7 +237,7 @@ PyObject* richCompare(T left, T right, int op) {
     METHOD_HEAD("SNL##SELF_TYPE.get##OBJECT_TYPE()") \
     char* name = NULL; \
     if (PyArg_ParseTuple(args, "s:SNL##SELF_TYPE.get##OBJECT_TYPE", &name)) { \
-      SNLTRY \
+      TRY \
       obj = selfObject->get##OBJECT_TYPE(SNLName(name)); \
       SNLCATCH \
     } else { \
@@ -253,7 +253,7 @@ PyObject* richCompare(T left, T right, int op) {
     METHOD_HEAD("SNL"#SELF_TYPE".get"#OBJECT_TYPE"()") \
     int index = 0; \
     if (PyArg_ParseTuple(args, "i:SNL##SELF_TYPE.get##METHOD", &index)) { \
-      SNLTRY \
+      TRY \
       obj = selfObject->get##METHOD(index); \
       SNLCATCH \
     } else { \
@@ -266,7 +266,7 @@ PyObject* richCompare(T left, T right, int op) {
 #define GetNameMethod(SELF_TYPE) \
   static PyObject* Py##SELF_TYPE##_getName(Py##SELF_TYPE* self) { \
     METHOD_HEAD(#SELF_TYPE".getName()") \
-    SNLTRY \
+    TRY \
     return PyUnicode_FromString(selfObject->getName().getString().c_str()); \
     SNLCATCH \
     return nullptr; \
@@ -286,7 +286,7 @@ PyObject* richCompare(T left, T right, int op) {
 #define GetStringAttribute(SELF_TYPE, METHOD) \
   static PyObject* PySNL##SELF_TYPE##_##METHOD(PySNL##SELF_TYPE* self) { \
     METHOD_HEAD("SNL"#SELF_TYPE"."#METHOD"()") \
-    SNLTRY \
+    TRY \
     return PyUnicode_FromString(selfObject->METHOD().c_str()); \
     SNLCATCH \
     return nullptr; \
@@ -467,7 +467,7 @@ PyObject* richCompare(T left, T right, int op) {
   static PyObject* PySNL##TYPE##_get##GET_OBJECTS(PySNL##TYPE *self) { \
     METHOD_HEAD("SNL" #TYPE ".get" #GET_OBJECTS "()") \
     PySNL##CONTAINER* pyObjects = nullptr; \
-    SNLTRY \
+    TRY \
     auto objects = new naja::NajaCollection<SNL##ITERATED>(selfObject->get##GET_OBJECTS()); \
     pyObjects = PyObject_NEW(PySNL##CONTAINER, &PyTypeSNL##CONTAINER); \
     if (not pyObjects) return nullptr; \
@@ -480,7 +480,7 @@ PyObject* richCompare(T left, T right, int op) {
   static PyObject* PySNL##TYPE##_get##GET_OBJECTS(PySNL##TYPE *self) { \
     METHOD_HEAD("SNL" #TYPE ".get" #GET_OBJECTS "()") \
     PySNL##CONTAINER* pyObjects = nullptr; \
-    SNLTRY \
+    TRY \
     auto objects = new naja::NajaCollection<SNL##ITERATED*>(selfObject->get##GET_OBJECTS()); \
     pyObjects = PyObject_NEW(PySNL##CONTAINER, &PyTypeSNL##CONTAINER); \
     if (not pyObjects) return nullptr; \
@@ -493,7 +493,7 @@ PyObject* richCompare(T left, T right, int op) {
   static PyObject* PySNL##TYPE##_##METHOD(PySNL##TYPE *self) { \
     METHOD_HEAD("SNL" #TYPE "." #METHOD "()") \
     PySNL##ITERATED##s* pyObjects = nullptr; \
-    SNLTRY \
+    TRY \
     auto objects = new naja::NajaCollection<SNL##ITERATED*>(selfObject->METHOD()); \
     pyObjects = PyObject_NEW(PySNL##ITERATED##s, &PyTypeSNL##ITERATED##s); \
     if (not pyObjects) return nullptr; \
@@ -505,7 +505,7 @@ PyObject* richCompare(T left, T right, int op) {
 #define GetDesignModelingRelatedObjects(TYPE, GETTER, OWNER_TYPE) \
   if (IsPy##TYPE(object)) { \
     auto object_o = PY##TYPE##_O(object); \
-    SNLTRY \
+    TRY \
     auto objects = new naja::NajaCollection<TYPE*>(SNLDesignModeling::GETTER(object_o)); \
     auto pyObjects = PyObject_NEW(Py##TYPE##s, &PyType##TYPE##s); \
     if (not pyObjects) return nullptr; \

@@ -32,7 +32,7 @@ static PyObject* PySNLScalarNet_create(PyObject*, PyObject* args) {
   }
 
   SNLScalarNet* net = nullptr;
-  SNLTRY
+  TRY
   if (IsPySNLDesign(arg0)) {
     net = SNLScalarNet::create(PYSNLDesign_O(arg0), name);
   } else {

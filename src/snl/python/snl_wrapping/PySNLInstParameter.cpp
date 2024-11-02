@@ -24,7 +24,7 @@ static PyObject* PySNLInstParameter_create(PyObject*, PyObject* args) {
     return nullptr;
   }
   SNLInstParameter* instParameter = nullptr;
-  SNLTRY
+  TRY
   if (not IsPySNLInstance(arg0)) {
     setError("SNLInstParameter create needs SNLInstance as first argument");
     return nullptr;
