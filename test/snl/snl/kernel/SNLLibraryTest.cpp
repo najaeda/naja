@@ -52,8 +52,8 @@ TEST_F(SNLLibraryTest, test0) {
   EXPECT_THAT(std::vector(db->getLibraries().begin(), db->getLibraries().end()), ElementsAre(lib1));
   EXPECT_EQ(0, lib1->getLibraries().size());
   EXPECT_TRUE(lib1->getLibraries().empty());
-  EXPECT_EQ(0, lib1->getDesigns().size());
-  EXPECT_TRUE(lib1->getDesigns().empty());
+  EXPECT_EQ(0, lib1->getSNLDesigns().size());
+  EXPECT_TRUE(lib1->getSNLDesigns().empty());
   EXPECT_EQ(nullptr, lib1->getLibrary(2));
   EXPECT_EQ(nullptr, lib1->getLibrary(SNLName("UNKNOWN")));
   EXPECT_EQ(nullptr, lib1->getLibrary(3));
@@ -76,12 +76,12 @@ TEST_F(SNLLibraryTest, test0) {
     ElementsAre(lib1, lib2));
   EXPECT_EQ(0, lib1->getLibraries().size());
   EXPECT_TRUE(lib1->getLibraries().empty());
-  EXPECT_EQ(0, lib1->getDesigns().size());
-  EXPECT_TRUE(lib1->getDesigns().empty());
+  EXPECT_EQ(0, lib1->getSNLDesigns().size());
+  EXPECT_TRUE(lib1->getSNLDesigns().empty());
   EXPECT_EQ(0, lib2->getLibraries().size());
   EXPECT_TRUE(lib2->getLibraries().empty());
-  EXPECT_EQ(0, lib2->getDesigns().size());
-  EXPECT_TRUE(lib2->getDesigns().empty());
+  EXPECT_EQ(0, lib2->getSNLDesigns().size());
+  EXPECT_TRUE(lib2->getSNLDesigns().empty());
 
   SNLLibrary* lib3 = SNLLibrary::create(lib2, SNLName("LIB1"));
   ASSERT_TRUE(lib3);
@@ -103,8 +103,8 @@ TEST_F(SNLLibraryTest, test0) {
   EXPECT_THAT(std::vector(lib2->getLibraries().begin(), lib2->getLibraries().end()), ElementsAre(lib3));
   EXPECT_EQ(0, lib3->getLibraries().size());
   EXPECT_TRUE(lib3->getLibraries().empty());
-  EXPECT_EQ(0, lib3->getDesigns().size());
-  EXPECT_TRUE(lib3->getDesigns().empty());
+  EXPECT_EQ(0, lib3->getSNLDesigns().size());
+  EXPECT_TRUE(lib3->getSNLDesigns().empty());
 
   SNLLibrary* lib4 = SNLLibrary::create(lib2, SNLName("LIB2"));
   ASSERT_TRUE(lib4);
@@ -147,8 +147,8 @@ TEST_F(SNLLibraryTest, test0) {
   EXPECT_FALSE(db->getLibraries().empty());
   EXPECT_EQ(0, lib1->getLibraries().size());
   EXPECT_TRUE(lib1->getLibraries().empty());
-  EXPECT_EQ(0, lib1->getDesigns().size());
-  EXPECT_TRUE(lib1->getDesigns().empty());
+  EXPECT_EQ(0, lib1->getSNLDesigns().size());
+  EXPECT_TRUE(lib1->getSNLDesigns().empty());
 }
 
 TEST_F(SNLLibraryTest, test1) {
@@ -191,10 +191,10 @@ TEST_F(SNLLibraryTest, testDesignSearch) {
   EXPECT_NE(nullptr, root);
   SNLDesign* design = SNLDesign::create(root, SNLName("DESIGN"));
   EXPECT_NE(nullptr, design);
-  EXPECT_EQ(design, root->getDesign(SNLName("DESIGN")));
-  EXPECT_EQ(design, root->getDesign(0));
-  EXPECT_EQ(nullptr, root->getDesign(SNLName("UNKNOWN")));
-  EXPECT_EQ(nullptr, root->getDesign(1));
+  EXPECT_EQ(design, root->getSNLDesign(SNLName("DESIGN")));
+  EXPECT_EQ(design, root->getSNLDesign(0));
+  EXPECT_EQ(nullptr, root->getSNLDesign(SNLName("UNKNOWN")));
+  EXPECT_EQ(nullptr, root->getSNLDesign(1));
 }
 
 TEST_F(SNLLibraryTest, testRename) {

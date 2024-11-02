@@ -48,10 +48,10 @@ TEST_F(SNLVRLConstructorTest1, test) {
   SNLVRLConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_VRL_BENCHMARKS_PATH);
   constructor.parse(benchmarksPath/"test0.v");
-  ASSERT_EQ(3, library_->getDesigns().size());
-  auto mod0 = library_->getDesign(SNLName("mod0"));
-  auto mod1 = library_->getDesign(SNLName("mod1"));
-  auto test = library_->getDesign(SNLName("test")); 
+  ASSERT_EQ(3, library_->getSNLDesigns().size());
+  auto mod0 = library_->getSNLDesign(SNLName("mod0"));
+  auto mod1 = library_->getSNLDesign(SNLName("mod1"));
+  auto test = library_->getSNLDesign(SNLName("test")); 
   ASSERT_TRUE(mod0);
   ASSERT_TRUE(test);
   EXPECT_TRUE(mod0->getNets().empty());

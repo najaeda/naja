@@ -208,9 +208,9 @@ void dumpLibraryInterface(
     dumpLibraryInterface(subLibraryBuilder, subLib);
   }
 
-  auto designs = libraryInterface.initDesignInterfaces(snlLibrary->getDesigns().size());
+  auto designs = libraryInterface.initDesignInterfaces(snlLibrary->getSNLDesigns().size());
   id = 0;
-  for (auto snlDesign: snlLibrary->getDesigns()) {
+  for (auto snlDesign: snlLibrary->getSNLDesigns()) {
     auto designInterfaceBuilder = designs[id++]; 
     dumpDesignInterface(designInterfaceBuilder, snlDesign);
   }

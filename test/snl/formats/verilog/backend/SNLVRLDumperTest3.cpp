@@ -50,7 +50,7 @@ class SNLVRLDumperTest3: public ::testing::Test {
 TEST_F(SNLVRLDumperTest3, test) {
   auto lib = db_->getLibrary(SNLName("MYLIB"));  
   ASSERT_TRUE(lib);
-  auto top = lib->getDesign(SNLName("top"));
+  auto top = lib->getSNLDesign(SNLName("top"));
   ASSERT_TRUE(top);
   std::filesystem::path outPath(SNL_VRL_DUMPER_TEST_PATH);
   outPath = outPath / "test3";

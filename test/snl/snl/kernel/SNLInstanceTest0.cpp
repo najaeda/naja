@@ -450,8 +450,8 @@ TEST_F(SNLInstanceTest0, testModelDestroy) {
   SNLDesign* model0 = SNLDesign::create(library, SNLName("model0"));
   SNLDesign* model1 = SNLDesign::create(library, SNLName("model1"));
 
-  EXPECT_FALSE(library->getDesigns().empty());
-  EXPECT_EQ(3, library->getDesigns().size());
+  EXPECT_FALSE(library->getSNLDesigns().empty());
+  EXPECT_EQ(3, library->getSNLDesigns().size());
 
   EXPECT_TRUE(design->getInstances().empty());
   EXPECT_TRUE(design->getPrimitiveInstances().empty());
@@ -472,12 +472,12 @@ TEST_F(SNLInstanceTest0, testModelDestroy) {
   EXPECT_EQ(4, model1->getSlaveInstances().size());
 
   model0->destroy();
-  EXPECT_EQ(2, library->getDesigns().size());
+  EXPECT_EQ(2, library->getSNLDesigns().size());
   EXPECT_EQ(4, design->getInstances().size());
   EXPECT_EQ(4, model1->getSlaveInstances().size());
 
   model1->destroy();
-  EXPECT_EQ(1, library->getDesigns().size());
+  EXPECT_EQ(1, library->getSNLDesigns().size());
   EXPECT_EQ(0, design->getInstances().size());
   EXPECT_TRUE(design->getInstances().empty());
 }

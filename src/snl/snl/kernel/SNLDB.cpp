@@ -147,14 +147,14 @@ SNLLibrary* SNLDB::getLibrary(const SNLName& name) const {
 SNLDesign* SNLDB::getDesign(const SNLID::DBDesignReference& designReference) const {
   auto library = getLibrary(designReference.libraryID_);
   if (library) {
-    return library->getDesign(designReference.designID_);
+    return library->getSNLDesign(designReference.designID_);
   }
   return nullptr;
 }
 
 SNLDesign* SNLDB::getDesign(const SNLName& name) const {
   for (auto library: getLibraries()) {
-    auto design = library->getDesign(name);
+    auto design = library->getSNLDesign(name);
     if (design) {
       return design;
     }

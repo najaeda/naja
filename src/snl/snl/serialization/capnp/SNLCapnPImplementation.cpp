@@ -208,9 +208,9 @@ void dumpLibraryImplementation(
     dumpLibraryImplementation(subLibraryBuilder, subLib);
   }
 
-  auto designs = libraryImplementation.initDesignImplementations(snlLibrary->getDesigns().size());
+  auto designs = libraryImplementation.initDesignImplementations(snlLibrary->getSNLDesigns().size());
   id = 0;
-  for (auto snlDesign: snlLibrary->getDesigns()) {
+  for (auto snlDesign: snlLibrary->getSNLDesigns()) {
     auto designImplementationBuilder = designs[id++]; 
     dumpDesignImplementation(designImplementationBuilder, snlDesign);
   }
@@ -414,7 +414,7 @@ void loadDesignImplementation(
   SNLLibrary* library,
   const DBImplementation::LibraryImplementation::DesignImplementation::Reader& designImplementation) {
   auto designID = designImplementation.getId();
-  SNLDesign* snlDesign = library->getDesign(SNLID::DesignID(designID));
+  SNLDesign* snlDesign = library->getSNLDesign(SNLID::DesignID(designID));
   //LCOV_EXCL_START
   if (not snlDesign) {
     std::ostringstream reason;

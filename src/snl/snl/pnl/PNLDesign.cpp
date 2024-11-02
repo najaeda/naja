@@ -43,6 +43,10 @@ std::string PNLDesign::getDescription() const {
   return "PNLDesign";
 }
 
+bool PNLDesign::deepCompare(const PNLDesign* other, std::string& reason) const {
+  return false;
+}
+
 void PNLDesign::debugDump(size_t indent, bool recursive, std::ostream& stream) const {
 
 }

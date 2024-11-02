@@ -279,7 +279,7 @@ NajaCollection<SNLLibrary*> SNLLibrary::getLibraries() const {
   return NajaCollection(new NajaIntrusiveSetCollection(&libraries_));
 }
 
-SNLDesign* SNLLibrary::getDesign(SNLID::DesignID id) const {
+SNLDesign* SNLLibrary::getSNLDesign(SNLID::DesignID id) const {
   auto it = designs_.find(SNLID(getDB()->getID(), getID(), id), SNLIDComp<SNLDesign>());
   if (it != designs_.end()) {
     return const_cast<SNLDesign*>(&*it);
@@ -287,17 +287,21 @@ SNLDesign* SNLLibrary::getDesign(SNLID::DesignID id) const {
   return nullptr;
 }
 
-SNLDesign* SNLLibrary::getDesign(const SNLName& name) const {
+SNLDesign* SNLLibrary::getSNLDesign(const SNLName& name) const {
   auto dit = designNameIDMap_.find(name);
   if (dit != designNameIDMap_.end()) {
     SNLID::DesignID id = dit->second;
-    return getDesign(id);
+    return getSNLDesign(id);
   }
   return nullptr;
 }
 
-NajaCollection<SNLDesign*> SNLLibrary::getDesigns() const {
+NajaCollection<SNLDesign*> SNLLibrary::getSNLDesigns() const {
   return NajaCollection(new NajaIntrusiveSetCollection(&designs_));
+}
+
+NajaCollection<PNLDesign*> SNLLibrary::getPNLDesigns() const {
+  return NajaCollection(new NajaIntrusiveSetCollection(&pnlDesigns_));
 }
 
 void SNLLibrary::addLibrary(SNLLibrary* library) {
@@ -350,7 +354,8 @@ bool SNLLibrary::deepCompare(const SNLLibrary* other, std::string& reason) const
   if (type_ not_eq other->getType()) {
     return false;
   }
-  DEEP_COMPARE_MEMBER(Designs)
+  DEEP_COMPARE_MEMBER(SNLDesigns)
+  DEEP_COMPARE_MEMBER(PNLDesigns)
   return true;
 }
 
@@ -358,7 +363,7 @@ void SNLLibrary::mergeAssigns() {
   if (isPrimitives()) {
     return;
   }
-  for (auto design: getDesigns()) {
+  for (auto design: getSNLDesigns()) {
     if (not design->isPrimitive()) {
       design->mergeAssigns();
     }
@@ -397,7 +402,7 @@ std::string SNLLibrary::getDescription() const {
 void SNLLibrary::debugDump(size_t indent, bool recursive, std::ostream& stream) const {
   stream << std::string(indent, ' ') << getDescription() << std::endl;
   if (recursive) {
-    for (auto design: getDesigns()) {
+    for (auto design: getSNLDesigns()) {
       design->debugDump(indent+2, recursive, stream);
     }
   }

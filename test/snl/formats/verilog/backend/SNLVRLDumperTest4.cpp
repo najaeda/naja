@@ -50,7 +50,7 @@ class SNLVRLDumperTest4: public ::testing::Test {
 TEST_F(SNLVRLDumperTest4, top_terms_same_nets) {
   auto lib = db_->getLibrary(SNLName("MYLIB"));  
   ASSERT_TRUE(lib);
-  auto top = lib->getDesign(SNLName("top"));
+  auto top = lib->getSNLDesign(SNLName("top"));
   ASSERT_TRUE(top);
   top->setName(SNLName("top_terms_same_nets"));
 
@@ -82,7 +82,7 @@ TEST_F(SNLVRLDumperTest4, top_terms_same_nets) {
 TEST_F(SNLVRLDumperTest4, top_terms_connected_nets) {
   auto lib = db_->getLibrary(SNLName("MYLIB"));  
   ASSERT_TRUE(lib);
-  auto top = lib->getDesign(SNLName("top"));
+  auto top = lib->getSNLDesign(SNLName("top"));
   ASSERT_TRUE(top);
   top->setName(SNLName("top_terms_connected_nets"));
 
@@ -114,7 +114,7 @@ TEST_F(SNLVRLDumperTest4, top_terms_connected_nets) {
 TEST_F(SNLVRLDumperTest4, top_terms_erased_nets) {
   auto lib = db_->getLibrary(SNLName("MYLIB"));  
   ASSERT_TRUE(lib);
-  auto top = lib->getDesign(SNLName("top"));
+  auto top = lib->getSNLDesign(SNLName("top"));
   ASSERT_TRUE(top);
   top->setName(SNLName("top_terms_erased_nets"));
 
@@ -153,7 +153,7 @@ TEST_F(SNLVRLDumperTest4, top_terms_erased_nets) {
 TEST_F(SNLVRLDumperTest4, top_terms_connected_and_erased_nets) {
   auto lib = db_->getLibrary(SNLName("MYLIB"));  
   ASSERT_TRUE(lib);
-  auto top = lib->getDesign(SNLName("top"));
+  auto top = lib->getSNLDesign(SNLName("top"));
   ASSERT_TRUE(top);
   top->setName(SNLName("top_terms_connected_and_erased_nets"));
 

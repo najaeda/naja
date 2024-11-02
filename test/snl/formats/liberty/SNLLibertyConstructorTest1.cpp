@@ -41,8 +41,8 @@ TEST_F(SNLLibertyConstructorTest1, testBusses) {
       / std::filesystem::path("bus_test.lib"));
   constructor.construct(testPath);
   EXPECT_EQ(SNLName("bus_test"), library_->getName());
-  EXPECT_EQ(library_->getDesigns().size(), 1);
-  auto design = library_->getDesign(SNLName("ram"));
+  EXPECT_EQ(library_->getSNLDesigns().size(), 1);
+  auto design = library_->getSNLDesign(SNLName("ram"));
   ASSERT_NE(nullptr, design);
   EXPECT_EQ(4, design->getTerms().size());
   EXPECT_EQ(1, design->getScalarTerms().size());
@@ -66,8 +66,8 @@ TEST_F(SNLLibertyConstructorTest1, testBufferFunction) {
       / std::filesystem::path("buffer_test.lib"));
   constructor.construct(testPath);
   EXPECT_EQ(SNLName("buffer_test"), library_->getName());
-  EXPECT_EQ(library_->getDesigns().size(), 1);
-  auto design = library_->getDesign(SNLName("buffer"));
+  EXPECT_EQ(library_->getSNLDesigns().size(), 1);
+  auto design = library_->getSNLDesign(SNLName("buffer"));
   ASSERT_NE(nullptr, design);
   EXPECT_EQ(2, design->getTerms().size());
   EXPECT_EQ(2, design->getScalarTerms().size());
@@ -94,8 +94,8 @@ TEST_F(SNLLibertyConstructorTest1, testInvFunction) {
       / std::filesystem::path("inv_test.lib"));
   constructor.construct(testPath);
   EXPECT_EQ(SNLName("inv_test"), library_->getName());
-  EXPECT_EQ(library_->getDesigns().size(), 1);
-  auto design = library_->getDesign(SNLName("inv"));
+  EXPECT_EQ(library_->getSNLDesigns().size(), 1);
+  auto design = library_->getSNLDesign(SNLName("inv"));
   ASSERT_NE(nullptr, design);
   EXPECT_EQ(2, design->getTerms().size());
   EXPECT_EQ(2, design->getScalarTerms().size());
@@ -122,8 +122,8 @@ TEST_F(SNLLibertyConstructorTest1, testAnd2Function) {
       / std::filesystem::path("and2_test.lib"));
   constructor.construct(testPath);
   EXPECT_EQ(SNLName("and2_test"), library_->getName());
-  EXPECT_EQ(library_->getDesigns().size(), 1);
-  auto design = library_->getDesign(SNLName("and2"));
+  EXPECT_EQ(library_->getSNLDesigns().size(), 1);
+  auto design = library_->getSNLDesign(SNLName("and2"));
   ASSERT_NE(nullptr, design);
   EXPECT_EQ(3, design->getTerms().size());
   EXPECT_EQ(3, design->getScalarTerms().size());
@@ -152,8 +152,8 @@ TEST_F(SNLLibertyConstructorTest1, testAnd4Function) {
       / std::filesystem::path("and4_test.lib"));
   constructor.construct(testPath);
   EXPECT_EQ(SNLName("and4_test"), library_->getName());
-  EXPECT_EQ(library_->getDesigns().size(), 1);
-  auto design = library_->getDesign(SNLName("and4"));
+  EXPECT_EQ(library_->getSNLDesigns().size(), 1);
+  auto design = library_->getSNLDesign(SNLName("and4"));
   ASSERT_NE(nullptr, design);
   EXPECT_EQ(5, design->getTerms().size());
   EXPECT_EQ(5, design->getScalarTerms().size());
@@ -188,8 +188,8 @@ TEST_F(SNLLibertyConstructorTest1, testOr2Function) {
       / std::filesystem::path("or2_test.lib"));
   constructor.construct(testPath);
   EXPECT_EQ(SNLName("or2_test"), library_->getName());
-  EXPECT_EQ(library_->getDesigns().size(), 1);
-  auto design = library_->getDesign(SNLName("or2"));
+  EXPECT_EQ(library_->getSNLDesigns().size(), 1);
+  auto design = library_->getSNLDesign(SNLName("or2"));
   ASSERT_NE(nullptr, design);
   EXPECT_EQ(3, design->getTerms().size());
   EXPECT_EQ(3, design->getScalarTerms().size());
@@ -218,8 +218,8 @@ TEST_F(SNLLibertyConstructorTest1, testXor2Function) {
       / std::filesystem::path("xor2_test.lib"));
   constructor.construct(testPath);
   EXPECT_EQ(SNLName("xor2_test"), library_->getName());
-  EXPECT_EQ(library_->getDesigns().size(), 1);
-  auto design = library_->getDesign(SNLName("xor2"));
+  EXPECT_EQ(library_->getSNLDesigns().size(), 1);
+  auto design = library_->getSNLDesign(SNLName("xor2"));
   ASSERT_NE(nullptr, design);
   EXPECT_EQ(3, design->getTerms().size());
   EXPECT_EQ(3, design->getScalarTerms().size());
@@ -252,8 +252,8 @@ TEST_F(SNLLibertyConstructorTest1, testGate0Function) {
       / std::filesystem::path("gates_test.lib"));
   constructor.construct(testPath);
   EXPECT_EQ(SNLName("gates_test"), library_->getName());
-  EXPECT_EQ(library_->getDesigns().size(), 2);
-  auto gate0 = library_->getDesign(SNLName("gate0"));
+  EXPECT_EQ(library_->getSNLDesigns().size(), 2);
+  auto gate0 = library_->getSNLDesign(SNLName("gate0"));
   ASSERT_NE(nullptr, gate0);
   EXPECT_EQ(4, gate0->getTerms().size());
   EXPECT_EQ(4, gate0->getScalarTerms().size());
@@ -275,7 +275,7 @@ TEST_F(SNLLibertyConstructorTest1, testGate0Function) {
   EXPECT_EQ(3, tt.size());
   EXPECT_EQ(0x15, tt.bits());
 
-  auto gate1 = library_->getDesign(SNLName("gate0"));
+  auto gate1 = library_->getSNLDesign(SNLName("gate0"));
   ASSERT_NE(nullptr, gate1);
   EXPECT_EQ(4, gate1->getTerms().size());
   EXPECT_EQ(4, gate1->getScalarTerms().size());
@@ -307,8 +307,8 @@ TEST_F(SNLLibertyConstructorTest1, testLogic01Function) {
       / std::filesystem::path("logic01_test.lib"));
   constructor.construct(testPath);
   EXPECT_EQ(SNLName("logic01_test"), library_->getName());
-  EXPECT_EQ(library_->getDesigns().size(), 2);
-  auto logic0 = library_->getDesign(SNLName("logic0"));
+  EXPECT_EQ(library_->getSNLDesigns().size(), 2);
+  auto logic0 = library_->getSNLDesign(SNLName("logic0"));
   ASSERT_NE(nullptr, logic0);
   EXPECT_EQ(1, logic0->getTerms().size());
   EXPECT_EQ(1, logic0->getScalarTerms().size());
@@ -322,7 +322,7 @@ TEST_F(SNLLibertyConstructorTest1, testLogic01Function) {
   EXPECT_EQ(0b0, tt.bits());
   EXPECT_TRUE(SNLDesignTruthTable::isConst0(logic0));
 
-  auto logic1 = library_->getDesign(SNLName("logic1"));
+  auto logic1 = library_->getSNLDesign(SNLName("logic1"));
   ASSERT_NE(nullptr, logic1);
   EXPECT_EQ(1, logic1->getTerms().size());
   EXPECT_EQ(1, logic1->getScalarTerms().size());
@@ -346,8 +346,8 @@ TEST_F(SNLLibertyConstructorTest1, testBufZFunction) {
       / std::filesystem::path("bufz_test.lib"));
   constructor.construct(testPath);
   EXPECT_EQ(SNLName("bufz_test"), library_->getName());
-  EXPECT_EQ(library_->getDesigns().size(), 1);
-  auto design = library_->getDesign(SNLName("bufz"));
+  EXPECT_EQ(library_->getSNLDesigns().size(), 1);
+  auto design = library_->getSNLDesign(SNLName("bufz"));
   ASSERT_NE(nullptr, design);
   EXPECT_EQ(3, design->getTerms().size());
   EXPECT_EQ(3, design->getScalarTerms().size());
@@ -372,8 +372,8 @@ TEST_F(SNLLibertyConstructorTest1, testOAI222Function) {
       / std::filesystem::path("OAI222_test.lib"));
   constructor.construct(testPath);
   EXPECT_EQ(SNLName("OAI222_test"), library_->getName());
-  EXPECT_EQ(library_->getDesigns().size(), 1);
-  auto design = library_->getDesign(SNLName("OAI222"));
+  EXPECT_EQ(library_->getSNLDesigns().size(), 1);
+  auto design = library_->getSNLDesign(SNLName("OAI222"));
   ASSERT_NE(nullptr, design);
   EXPECT_EQ(7, design->getTerms().size());
   EXPECT_EQ(7, design->getScalarTerms().size());

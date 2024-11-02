@@ -32,8 +32,8 @@ class SNLTermTest: public ::testing::Test {
 TEST_F(SNLTermTest, testCreation) {
   SNLLibrary* library = db_->getLibrary(SNLName("MYLIB"));
   ASSERT_NE(library, nullptr);
-  EXPECT_EQ(0, library->getDesigns().size());
-  EXPECT_TRUE(library->getDesigns().empty());
+  EXPECT_EQ(0, library->getSNLDesigns().size());
+  EXPECT_TRUE(library->getSNLDesigns().empty());
   SNLDesign* design = SNLDesign::create(library, SNLName("design"));
 
   SNLBusTerm* term0 = SNLBusTerm::create(design, SNLTerm::Direction::InOut, -1, -4, SNLName("term0"));
@@ -112,8 +112,8 @@ TEST_F(SNLTermTest, testSetNet0) {
   //SetNet for TermBus size > 1
   SNLLibrary* library = db_->getLibrary(SNLName("MYLIB"));
   ASSERT_NE(library, nullptr);
-  EXPECT_EQ(0, library->getDesigns().size());
-  EXPECT_TRUE(library->getDesigns().empty());
+  EXPECT_EQ(0, library->getSNLDesigns().size());
+  EXPECT_TRUE(library->getSNLDesigns().empty());
   SNLDesign* design = SNLDesign::create(library, SNLName("design"));
 
   SNLBusTerm* term0 = SNLBusTerm::create(design, SNLTerm::Direction::InOut, -1, -4, SNLName("term0"));
@@ -169,8 +169,8 @@ TEST_F(SNLTermTest, testSetNet1) {
   //SetNet for TermBus size == 1
   SNLLibrary* library = db_->getLibrary(SNLName("MYLIB"));
   ASSERT_NE(library, nullptr);
-  EXPECT_EQ(0, library->getDesigns().size());
-  EXPECT_TRUE(library->getDesigns().empty());
+  EXPECT_EQ(0, library->getSNLDesigns().size());
+  EXPECT_TRUE(library->getSNLDesigns().empty());
   SNLDesign* design = SNLDesign::create(library, SNLName("design"));
 
   SNLBusTerm* term0 = SNLBusTerm::create(design, SNLTerm::Direction::InOut, -1, -1, SNLName("term0"));
@@ -202,8 +202,8 @@ TEST_F(SNLTermTest, testSetNetErrors) {
    //SetNet for TermBus size == 1
   SNLLibrary* library = db_->getLibrary(SNLName("MYLIB"));
   ASSERT_NE(library, nullptr);
-  EXPECT_EQ(0, library->getDesigns().size());
-  EXPECT_TRUE(library->getDesigns().empty());
+  EXPECT_EQ(0, library->getSNLDesigns().size());
+  EXPECT_TRUE(library->getSNLDesigns().empty());
   SNLDesign* design = SNLDesign::create(library, SNLName("design"));
 
   SNLBusTerm* term0 = SNLBusTerm::create(design, SNLTerm::Direction::InOut, -2, 2, SNLName("term0"));

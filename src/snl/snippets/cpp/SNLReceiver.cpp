@@ -26,7 +26,7 @@ void displayDesign(const SNLDesign* design) {
 
 void displayLibrary(const SNLLibrary* lib) {
   std::cout << lib->getDescription() << std::endl;
-  for (auto design: lib->getDesigns()) {
+  for (auto design: lib->getSNLDesigns()) {
     displayDesign(design);
   }
 }

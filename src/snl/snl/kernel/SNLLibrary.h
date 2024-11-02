@@ -7,7 +7,9 @@
 
 #include <map>
 #include "NajaCollection.h"
+
 #include "SNLDesign.h"
+#include "PNLDesign.h"
 
 namespace naja { namespace SNL {
 
@@ -106,12 +108,20 @@ class SNLLibrary final: public SNLObject {
     SNLLibrary* getLibrary(const SNLName& name) const;
     /// \return the collection of sub SNLLibrary
     NajaCollection<SNLLibrary*> getLibraries() const;
+
     /// \return SNLDesign with SNLID::DesignID id
-    SNLDesign* getDesign(SNLID::DesignID id) const;
+    SNLDesign* getSNLDesign(SNLID::DesignID id) const;
     /// \return SNLDesign named name
-    SNLDesign* getDesign(const SNLName& name) const;
+    SNLDesign* getSNLDesign(const SNLName& name) const;
     /// \return the collection of SNLDesign contained in this SNLLibrary
-    NajaCollection<SNLDesign*> getDesigns() const;
+    NajaCollection<SNLDesign*> getSNLDesigns() const;
+
+    /// \return PNLDesign with SNLID::DesignID id
+    PNLDesign* getPNLDesign(SNLID::DesignID id) const;
+    /// \return SNLDesign named name
+    PNLDesign* getPNLDesign(const SNLName& name) const;
+    /// \return the collection of SNLDesign contained in this SNLLibrary
+    NajaCollection<PNLDesign*> getPNLDesigns() const;
 
     /// \return the unique SNLID::LibraryID in the owning SNLDB.
     SNLID::LibraryID getID() const { return id_; }
@@ -172,6 +182,10 @@ class SNLLibrary final: public SNLObject {
     using SNLLibraryDesigns = boost::intrusive::set<SNLDesign, SNLLibraryDesignsHook>;
     using SNLDesignNameIDMap = std::map<SNLName, SNLID::DesignID>;
 
+    using SNLLibraryPNLDesignsHook =
+      boost::intrusive::member_hook<PNLDesign, boost::intrusive::set_member_hook<>, &PNLDesign::libraryDesignsHook_>;
+    using SNLLibraryPNLDesigns = boost::intrusive::set<PNLDesign, SNLLibraryPNLDesignsHook>;
+
     SNLID::LibraryID                    id_;
     SNLName                             name_                 {};
     Type                                type_                 { Type::Standard };
@@ -186,6 +200,7 @@ class SNLLibrary final: public SNLObject {
     SNLLibraryNameIDMap                 libraryNameIDMap_     {};
     SNLLibraryDesigns                   designs_              {};
     SNLDesignNameIDMap                  designNameIDMap_      {};
+    SNLLibraryPNLDesigns                pnlDesigns_           {};
 };
 
 }} // namespace SNL // namespace naja

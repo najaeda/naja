@@ -69,7 +69,7 @@ class SNLVRLDumperTest1: public ::testing::Test {
 TEST_F(SNLVRLDumperTest1, test0) {
   auto lib = db_->getLibrary(SNLName("MYLIB"));  
   ASSERT_TRUE(lib);
-  auto top = lib->getDesign(SNLName("top"));
+  auto top = lib->getSNLDesign(SNLName("top"));
   ASSERT_TRUE(top);
 
   SNLInstance* instance1 = top->getInstance(SNLName("instance1"));
@@ -110,7 +110,7 @@ TEST_F(SNLVRLDumperTest1, test0) {
 TEST_F(SNLVRLDumperTest1, test1) {
   auto lib = db_->getLibrary(SNLName("MYLIB"));  
   ASSERT_TRUE(lib);
-  auto top = lib->getDesign(SNLName("top"));
+  auto top = lib->getSNLDesign(SNLName("top"));
   ASSERT_TRUE(top);
 
   SNLInstance* instance1 = top->getInstance(SNLName("instance1"));
@@ -152,7 +152,7 @@ TEST_F(SNLVRLDumperTest1, test1) {
 TEST_F(SNLVRLDumperTest1, test2) {
   auto lib = db_->getLibrary(SNLName("MYLIB"));  
   ASSERT_TRUE(lib);
-  auto top = lib->getDesign(SNLName("top"));
+  auto top = lib->getSNLDesign(SNLName("top"));
   ASSERT_TRUE(top);
 
   SNLInstance* instance1 = top->getInstance(SNLName("instance1"));
@@ -193,7 +193,7 @@ TEST_F(SNLVRLDumperTest1, test2) {
 TEST_F(SNLVRLDumperTest1, test3) {
   auto lib = db_->getLibrary(SNLName("MYLIB"));  
   ASSERT_TRUE(lib);
-  auto top = lib->getDesign(SNLName("top"));
+  auto top = lib->getSNLDesign(SNLName("top"));
   ASSERT_TRUE(top);
 
   SNLInstance* instance1 = top->getInstance(SNLName("instance1"));
@@ -235,7 +235,7 @@ TEST_F(SNLVRLDumperTest1, test3) {
 TEST_F(SNLVRLDumperTest1, test4) {
   auto lib = db_->getLibrary(SNLName("MYLIB"));  
   ASSERT_TRUE(lib);
-  auto top = lib->getDesign(SNLName("top"));
+  auto top = lib->getSNLDesign(SNLName("top"));
   ASSERT_TRUE(top);
   SNLBusNet* bus0 = top->getBusNet(SNLName("bus0"));
   ASSERT_TRUE(bus0);
@@ -281,7 +281,7 @@ TEST_F(SNLVRLDumperTest1, test4) {
 TEST_F(SNLVRLDumperTest1, test5) {
   auto lib = db_->getLibrary(SNLName("MYLIB"));  
   ASSERT_TRUE(lib);
-  auto top = lib->getDesign(SNLName("top"));
+  auto top = lib->getSNLDesign(SNLName("top"));
   ASSERT_TRUE(top);
   SNLBusNet* bus0 = top->getBusNet(SNLName("bus0"));
   ASSERT_TRUE(bus0);

@@ -52,8 +52,8 @@ TEST_F(SNLVRLConstructorTest2, test) {
   std::filesystem::path benchmarksPath(SNL_VRL_BENCHMARKS_PATH);
   constructor.parse(benchmarksPath/"test1.v");
 
-  ASSERT_EQ(3, library_->getDesigns().size());
-  auto model0 = library_->getDesign(SNLName("model0"));
+  ASSERT_EQ(3, library_->getSNLDesigns().size());
+  auto model0 = library_->getSNLDesign(SNLName("model0"));
   ASSERT_NE(model0, nullptr);
   ASSERT_EQ(3, model0->getTerms().size());
   using Terms = std::vector<SNLTerm*>;
@@ -66,7 +66,7 @@ TEST_F(SNLVRLConstructorTest2, test) {
     )
   );
 
-  auto model1 = library_->getDesign(SNLName("model1"));
+  auto model1 = library_->getSNLDesign(SNLName("model1"));
   ASSERT_NE(model1, nullptr);
   ASSERT_EQ(3, model1->getTerms().size());
   terms = Terms(model1->getTerms().begin(), model1->getTerms().end());
@@ -78,7 +78,7 @@ TEST_F(SNLVRLConstructorTest2, test) {
     )
   );
 
-  auto test = library_->getDesign(SNLName("test"));
+  auto test = library_->getSNLDesign(SNLName("test"));
   ASSERT_NE(test, nullptr);
 
   constructor.setFirstPass(false);

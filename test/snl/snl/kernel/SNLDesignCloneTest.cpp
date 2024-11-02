@@ -239,7 +239,7 @@ TEST_F(SNLDesignCloneTest, testcloneInterface0) {
   ASSERT_NE(nullptr, newDesign);
   EXPECT_TRUE(newDesign->isAnonymous());
   EXPECT_EQ(design_->getLibrary(), newDesign->getLibrary());
-  EXPECT_EQ(newDesign, design_->getLibrary()->getDesign(newDesign->getID()));
+  EXPECT_EQ(newDesign, design_->getLibrary()->getSNLDesign(newDesign->getID()));
   compareAttributes(design_, newDesign);
   compareTerms(design_, newDesign);
   compareParameters(design_, newDesign);
@@ -262,8 +262,8 @@ TEST_F(SNLDesignCloneTest, testCloneInterface1) {
   EXPECT_FALSE(newDesign->isAnonymous());
   EXPECT_EQ(SNLName("newDesign"), newDesign->getName());
   EXPECT_EQ(design_->getLibrary(), newDesign->getLibrary());
-  EXPECT_EQ(newDesign, design_->getLibrary()->getDesign(newDesign->getID()));
-  EXPECT_EQ(newDesign, design_->getLibrary()->getDesign(newDesign->getName()));
+  EXPECT_EQ(newDesign, design_->getLibrary()->getSNLDesign(newDesign->getID()));
+  EXPECT_EQ(newDesign, design_->getLibrary()->getSNLDesign(newDesign->getName()));
   compareAttributes(design_, newDesign);
   compareTerms(design_, newDesign);
   compareParameters(design_, newDesign);
@@ -278,8 +278,8 @@ TEST_F(SNLDesignCloneTest, testCloneInterface2) {
   EXPECT_FALSE(newDesign->isAnonymous());
   EXPECT_EQ(SNLName("newDesign"), newDesign->getName());
   EXPECT_EQ(newLibrary, newDesign->getLibrary());
-  EXPECT_EQ(newDesign, newLibrary->getDesign(newDesign->getID()));
-  EXPECT_EQ(newDesign, newLibrary->getDesign(newDesign->getName()));
+  EXPECT_EQ(newDesign, newLibrary->getSNLDesign(newDesign->getID()));
+  EXPECT_EQ(newDesign, newLibrary->getSNLDesign(newDesign->getName()));
   compareAttributes(design_, newDesign);
   compareTerms(design_, newDesign);
   compareParameters(design_, newDesign);
@@ -301,7 +301,7 @@ TEST_F(SNLDesignCloneTest, testClone0) {
   ASSERT_NE(nullptr, newDesign);
   EXPECT_TRUE(newDesign->isAnonymous());
   EXPECT_EQ(design_->getLibrary(), newDesign->getLibrary());
-  EXPECT_EQ(newDesign, design_->getLibrary()->getDesign(newDesign->getID()));
+  EXPECT_EQ(newDesign, design_->getLibrary()->getSNLDesign(newDesign->getID()));
   compareAttributes(design_, newDesign);
   compareTerms(design_, newDesign);
   compareParameters(design_, newDesign);

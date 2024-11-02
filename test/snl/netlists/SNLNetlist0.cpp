@@ -90,7 +90,7 @@ SNLLibrary* SNLNetlist0::getDesignsLib() {
 SNLDesign* SNLNetlist0::getTop() {
   auto designsLib = getDesignsLib();
   if (designsLib) {
-    return designsLib->getDesign(SNLName(TopName));
+    return designsLib->getSNLDesign(SNLName(TopName));
   }
   return nullptr;
 }

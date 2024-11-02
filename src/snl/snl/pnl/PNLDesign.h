@@ -15,6 +15,7 @@ class SNLLibrary;
 
 class PNLDesign final: public SNLObject {
   public:
+    friend class SNLLibrary;
     using super = SNLObject;
     static PNLDesign* create(SNLLibrary* library);
 
@@ -26,6 +27,7 @@ class PNLDesign final: public SNLObject {
     const char* getTypeName() const override;
     std::string getString() const override;
     std::string getDescription() const override;
+     bool deepCompare(const PNLDesign* other, std::string& reason) const;
     void debugDump(size_t indent, bool recursive=true, std::ostream& stream=std::cerr) const override;
   private:
     PNLDesign(SNLLibrary* library);
@@ -33,8 +35,9 @@ class PNLDesign final: public SNLObject {
     void postCreate();
     void preDestroy() override;
 
-    SNL::SNLLibrary*  library_;
-    PNLPoint          origin_;
+    SNL::SNLLibrary*                    library_            {};
+    PNLPoint                            origin_             {0,0};
+    boost::intrusive::set_member_hook<> libraryDesignsHook_ {};
 };
 
 }} // namespace SNL // namespace naja

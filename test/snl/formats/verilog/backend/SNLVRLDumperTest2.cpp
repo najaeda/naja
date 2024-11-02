@@ -73,7 +73,7 @@ class SNLVRLDumperTest2: public ::testing::Test {
 TEST_F(SNLVRLDumperTest2, test0) {
   auto lib = db_->getLibrary(SNLName("MYLIB"));  
   ASSERT_TRUE(lib);
-  auto top = lib->getDesign(SNLName("top"));
+  auto top = lib->getSNLDesign(SNLName("top"));
   ASSERT_TRUE(top);
 
   std::filesystem::path outPath(SNL_VRL_DUMPER_TEST_PATH);
@@ -97,7 +97,7 @@ TEST_F(SNLVRLDumperTest2, test0) {
 TEST_F(SNLVRLDumperTest2, testUnconnectedAssigns) {
   auto lib = db_->getLibrary(SNLName("MYLIB"));  
   ASSERT_TRUE(lib);
-  auto top = lib->getDesign(SNLName("top"));
+  auto top = lib->getSNLDesign(SNLName("top"));
   ASSERT_TRUE(top);
 
   //Destroy net: scalar

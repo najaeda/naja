@@ -118,7 +118,7 @@ void SNLDesign::preCreate(const SNLLibrary* library, Type type, const SNLName& n
     throw SNLException(reason.str());
   }
   //test if design with same name exists in library
-  if (not name.empty() and library->getDesign(name)) {
+  if (not name.empty() and library->getSNLDesign(name)) {
     std::string reason = "SNLLibrary " + library->getString() + " contains already a SNLDesign named: " + name.getString();
     throw SNLException(reason);
   }
@@ -127,7 +127,7 @@ void SNLDesign::preCreate(const SNLLibrary* library, Type type, const SNLName& n
 void SNLDesign::preCreate(const SNLLibrary* library, SNLID::DesignID id, Type type, const SNLName& name) {
   SNLDesign::preCreate(library, type, name);
   //test if design with same id exists in library
-  if (library->getDesign(id)) {
+  if (library->getSNLDesign(id)) {
     std::string reason = "SNLLibrary " + library->getString() + " contains already a SNLDesign with ID: " + std::to_string(id);
     throw SNLException(reason);
   }
@@ -628,7 +628,7 @@ SNLDesign* SNLDesign::cloneInterface(const SNLName& name) const {
 }
 
 SNLDesign* SNLDesign::cloneToLibrary(SNLLibrary* library, const SNLName& name) const {
-  if (not name.empty() and library->getDesign(name)) {
+  if (not name.empty() and library->getSNLDesign(name)) {
     std::string reason = "SNLLibrary " + library->getString() + " contains already a SNLDesign named: " + getName().getString();
     throw SNLException(reason);
   }
@@ -664,7 +664,7 @@ void SNLDesign::setName(const SNLName& name) {
   }
   if (not name.empty()) {
     /* check collision */
-    if (auto collision = getLibrary()->getDesign(name)) {
+    if (auto collision = getLibrary()->getSNLDesign(name)) {
       std::ostringstream reason;
       reason << "In library " << getLibrary()->getString()
         << ", cannot rename " << getString() << " to "

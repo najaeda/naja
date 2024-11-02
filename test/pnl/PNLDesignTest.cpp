@@ -26,8 +26,8 @@ class PNLDesignTest: public ::testing::Test {
 TEST_F(PNLDesignTest, testCreation0) {
   SNLLibrary* library = db_->getLibrary(SNLName("MYLIB"));
   ASSERT_NE(library, nullptr);
-  EXPECT_EQ(0, library->getDesigns().size());
-  EXPECT_TRUE(library->getDesigns().empty());
+  EXPECT_EQ(0, library->getSNLDesigns().size());
+  EXPECT_TRUE(library->getSNLDesigns().empty());
   SNLDesign* snlDesign = SNLDesign::create(library, SNLName("design"));
   ASSERT_NE(snlDesign, nullptr);
   PNLDesign* pnlDesign = PNLDesign::create(library);
