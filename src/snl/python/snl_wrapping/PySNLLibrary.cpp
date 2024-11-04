@@ -32,7 +32,7 @@ static PyObject* createLibrary(PyObject* args, SNLLibrary::Type type) {
   }
 
   SNLLibrary* lib = nullptr;
-  SNLTRY
+  TRY
   if (IsPySNLDB(arg0)) {
     lib = SNLLibrary::create(PYSNLDB_O(arg0), type, name);
   } else if (IsPySNLLibrary(arg0)) {
@@ -56,8 +56,8 @@ static PyObject* PySNLLibrary_createPrimitives(PyObject*, PyObject* args) {
 }
 
 GetObjectMethod(Library, DB, getDB)
-GetObjectByName(Library, Design)
-GetObjectByName(Library, Library)
+GetObjectByName(SNLLibrary, SNLDesign, getDesign)
+GetObjectByName(SNLLibrary, SNLLibrary, getLibrary)
 
 GetBoolAttribute(Library, isStandard)
 GetBoolAttribute(Library, isPrimitives)

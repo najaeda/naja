@@ -49,7 +49,7 @@ static PyObject* PySNLDesign_create(PyObject*, PyObject* args) {
   }
 
   SNLDesign* design = nullptr;
-  SNLTRY
+  TRY
   if (IsPySNLLibrary(arg0)) {
     design = SNLDesign::create(PYSNLLibrary_O(arg0), name);
   } else {
@@ -73,7 +73,7 @@ static PyObject* PySNLDesign_createPrimitive(PyObject*, PyObject* args) {
   }
 
   SNLDesign* design = nullptr;
-  SNLTRY
+  TRY
   if (IsPySNLLibrary(arg0)) {
     design = SNLDesign::create(PYSNLLibrary_O(arg0), SNLDesign::Type::Primitive, name);
   } else {
@@ -97,7 +97,7 @@ static PyObject* PySNLDesign_clone(PySNLDesign* self, PyObject* args) {
 
   SNLDesign* newDesign = nullptr;
   METHOD_HEAD("SNLDesign.clone()")
-  SNLTRY
+  TRY
   newDesign = selfObject->clone(name);
   SNLCATCH
   return PySNLDesign_Link(newDesign);
@@ -111,7 +111,7 @@ static PyObject* PySNLDesign_dumpVerilog(PySNLDesign* self, PyObject* args) {
     return nullptr;
   }
   METHOD_HEAD("SNLDesign.dumpVerilog()")
-  SNLTRY
+  TRY
   SNLVRLDumper dumper;
   dumper.setTopFileName(arg1);
   dumper.dumpDesign(selfObject, std::filesystem::path(arg0));
@@ -174,7 +174,7 @@ static PyObject* PySNLDesign_addCombinatorialArcs(PySNLDesign* self, PyObject* a
       }
     }
   }
-  SNLTRY
+  TRY
   SNLDesignModeling::addCombinatorialArcs(terms0, terms1);
   SNLCATCH
   Py_RETURN_NONE;
@@ -304,14 +304,14 @@ static PyObject* PySNLDesign_getClockRelatedOutputs(PySNLDesign*, PyObject* obje
 
 GetObjectMethod(Design, DB, getDB)
 GetObjectMethod(Design, Library, getLibrary)
-GetObjectByName(Design, Instance)
-GetObjectByName(Design, Term)
-GetObjectByName(Design, ScalarTerm)
-GetObjectByName(Design, BusTerm)
-GetObjectByName(Design, Net)
-GetObjectByName(Design, ScalarNet)
-GetObjectByName(Design, BusNet)
-GetObjectByName(Design, Parameter)
+GetObjectByName(SNLDesign, SNLInstance, getInstance)
+GetObjectByName(SNLDesign, SNLTerm, getTerm)
+GetObjectByName(SNLDesign, SNLScalarTerm, getScalarTerm)
+GetObjectByName(SNLDesign, SNLBusTerm, getBusTerm)
+GetObjectByName(SNLDesign, SNLNet, getNet)
+GetObjectByName(SNLDesign, SNLScalarNet, getScalarNet)
+GetObjectByName(SNLDesign, SNLBusNet, getBusNet)
+GetObjectByName(SNLDesign, SNLParameter, getParameter)
 GetNameMethod(SNLDesign)
 GetBoolAttribute(Design, isAnonymous)
 GetBoolAttribute(Design, isBlackBox)

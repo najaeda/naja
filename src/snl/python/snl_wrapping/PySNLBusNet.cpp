@@ -35,7 +35,7 @@ static PyObject* PySNLBusNet_create(PyObject*, PyObject* args) {
   }
 
   SNLBusNet* net = nullptr;
-  SNLTRY
+  TRY
   if (IsPySNLDesign(arg0)) {
     net = SNLBusNet::create(PYSNLDesign_O(arg0), arg1, arg2, name);
   } else {
