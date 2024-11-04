@@ -171,7 +171,7 @@ void SNLLibrary::commonPreDestroy() {
       design->destroyFromLibrary();
     }
   };
-  designs_.clear_and_dispose(destroyDesignFromLibrary());
+  snlDesigns_.clear_and_dispose(destroyDesignFromLibrary());
   struct destroyLibraryFromLibrary {
     void operator()(SNLLibrary* library) {
       library->destroyFromParentLibrary();
@@ -280,8 +280,8 @@ NajaCollection<SNLLibrary*> SNLLibrary::getLibraries() const {
 }
 
 SNLDesign* SNLLibrary::getSNLDesign(SNLID::DesignID id) const {
-  auto it = designs_.find(SNLID(getDB()->getID(), getID(), id), SNLIDComp<SNLDesign>());
-  if (it != designs_.end()) {
+  auto it = snlDesigns_.find(SNLID(getDB()->getID(), getID(), id), SNLIDComp<SNLDesign>());
+  if (it != snlDesigns_.end()) {
     return const_cast<SNLDesign*>(&*it);
   }
   return nullptr;
@@ -297,7 +297,7 @@ SNLDesign* SNLLibrary::getSNLDesign(const SNLName& name) const {
 }
 
 NajaCollection<SNLDesign*> SNLLibrary::getSNLDesigns() const {
-  return NajaCollection(new NajaIntrusiveSetCollection(&designs_));
+  return NajaCollection(new NajaIntrusiveSetCollection(&snlDesigns_));
 }
 
 NajaCollection<PNLDesign*> SNLLibrary::getPNLDesigns() const {
@@ -318,30 +318,49 @@ void SNLLibrary::removeLibrary(SNLLibrary* library) {
   libraries_.erase(*library);
 }
 
-void SNLLibrary::addDesignAndSetID(SNLDesign* design) {
-  if (designs_.empty()) {
+void SNLLibrary::addSNLDesignAndSetID(SNLDesign* design) {
+  if (snlDesigns_.empty()) {
     design->id_ = 0;
   } else {
-    auto it = designs_.rbegin();
+    auto it = snlDesigns_.rbegin();
     SNLDesign* lastDesign = &(*it);
     SNLID::DesignID designID = lastDesign->id_+1;
     design->id_ = designID;
   }
-  addDesign(design);
+  addSNLDesign(design);
 }
 
-void SNLLibrary::addDesign(SNLDesign* design) {
-  designs_.insert(*design);
+void SNLLibrary::addSNLDesign(SNLDesign* design) {
+  snlDesigns_.insert(*design);
   if (not design->isAnonymous()) {
     designNameIDMap_[design->getName()] = design->id_;
   }
 }
 
-void SNLLibrary::removeDesign(SNLDesign* design) {
+void SNLLibrary::addPNLDesignAndSetID(PNLDesign* design) {
+  if (pnlDesigns_.empty()) {
+    design->id_ = 0;
+  } else {
+    auto it = snlDesigns_.rbegin();
+    SNLDesign* lastDesign = &(*it);
+    SNLID::DesignID designID = lastDesign->id_+1;
+    design->id_ = designID;
+  }
+  addPNLDesign(design);
+}
+
+void SNLLibrary::addPNLDesign(PNLDesign* design) {
+  pnlDesigns_.insert(*design);
+  //if (not design->isAnonymous()) {
+  //  designNameIDMap_[design->getName()] = design->id_;
+  //}
+}
+
+void SNLLibrary::removeSNLDesign(SNLDesign* design) {
   if (not design->isAnonymous()) {
     designNameIDMap_.erase(design->getName());
   }
-  designs_.erase(*design);
+  snlDesigns_.erase(*design);
 }
 
 bool SNLLibrary::deepCompare(const SNLLibrary* other, std::string& reason) const {

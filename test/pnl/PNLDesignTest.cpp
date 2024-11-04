@@ -32,4 +32,5 @@ TEST_F(PNLDesignTest, testCreation0) {
   ASSERT_NE(snlDesign, nullptr);
   PNLDesign* pnlDesign = PNLDesign::create(library);
   ASSERT_NE(pnlDesign, nullptr);
+  
 }  

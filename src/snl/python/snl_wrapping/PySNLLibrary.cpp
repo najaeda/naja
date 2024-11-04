@@ -56,7 +56,7 @@ static PyObject* PySNLLibrary_createPrimitives(PyObject*, PyObject* args) {
 }
 
 GetObjectMethod(Library, DB, getDB)
-GetObjectByName(SNLLibrary, SNLDesign, getDesign)
+GetObjectByName(SNLLibrary, SNLDesign, getSNLDesign)
 GetObjectByName(SNLLibrary, SNLLibrary, getLibrary)
 
 GetBoolAttribute(Library, isStandard)
@@ -65,7 +65,7 @@ GetBoolAttribute(Library, isPrimitives)
 SetNameMethod(Library)
 GetNameMethod(SNLLibrary)
 
-GetContainerMethod(Library, Design, Designs, Designs)
+GetContainerMethod(Library, Design, Designs, SNLDesigns)
 
 DBoDeallocMethod(SNLLibrary)
 
@@ -91,7 +91,7 @@ PyMethodDef PySNLLibrary_Methods[] = {
     "retrieve a SNLLibrary."},
   { "getSNLDesign", (PyCFunction)PySNLLibrary_getSNLDesign, METH_VARARGS,
     "retrieve a SNLDesign."},
-  { "getDesigns", (PyCFunction)PySNLLibrary_getDesigns, METH_NOARGS,
+  { "getSNLDesigns", (PyCFunction)PySNLLibrary_getSNLDesigns, METH_NOARGS,
     "get a container of SNLDesigns."},
   {NULL, NULL, 0, NULL}           /* sentinel */
 };

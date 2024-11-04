@@ -28,7 +28,7 @@ class SNLLibraryTest(unittest.TestCase):
     self.assertEqual(db, lib1.getDB())
     self.assertEqual("LIB1", lib1.getName())
     self.assertEqual(lib1, db.getLibrary("LIB1"))
-    self.assertFalse(any(lib1.getDesigns()))
+    self.assertFalse(any(lib1.getSNLDesigns()))
     self.assertTrue(lib1.isStandard())
     self.assertFalse(lib1.isPrimitives())
 

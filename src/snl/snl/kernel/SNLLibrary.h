@@ -19,6 +19,7 @@ class SNLLibrary final: public SNLObject {
   public:
     friend class SNLDB;
     friend class SNLDesign;
+    friend class PNLDesign;
     using super = SNLObject;
 
     class Type {
@@ -172,9 +173,14 @@ class SNLLibrary final: public SNLObject {
     void removeLibrary(SNLLibrary* library);
     void rename(SNLLibrary* library, const SNLName& name);
     void rename(SNLDesign* design, const SNLName& name);
-    void addDesignAndSetID(SNLDesign* design);
-    void addDesign(SNLDesign* design);
-    void removeDesign(SNLDesign* design);
+
+    void addSNLDesignAndSetID(SNLDesign* design);
+    void addSNLDesign(SNLDesign* design);
+    void removeSNLDesign(SNLDesign* design);
+
+    void addPNLDesignAndSetID(PNLDesign* design);
+    void addPNLDesign(PNLDesign* design);
+    void removePNLDesign(PNLDesign* design);
 
     using SNLLibraryNameIDMap = std::map<SNLName, SNLID::LibraryID>;
     using SNLLibraryDesignsHook =
@@ -198,7 +204,7 @@ class SNLLibrary final: public SNLObject {
     using SNLLibraryLibraries = boost::intrusive::set<SNLLibrary, SNLLibraryLibrariesHook>;
     SNLLibraryLibraries                 libraries_            {}; 
     SNLLibraryNameIDMap                 libraryNameIDMap_     {};
-    SNLLibraryDesigns                   designs_              {};
+    SNLLibraryDesigns                   snlDesigns_           {};
     SNLDesignNameIDMap                  designNameIDMap_      {};
     SNLLibraryPNLDesigns                pnlDesigns_           {};
 };

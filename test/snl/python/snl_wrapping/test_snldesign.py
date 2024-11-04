@@ -18,19 +18,19 @@ class SNLDesignTest(unittest.TestCase):
 
   def test0(self):
     self.assertIsNotNone(self.lib)
-    self.assertFalse(any(self.lib.getDesigns()))
-    self.assertEqual(0, sum(1 for d in self.lib.getDesigns()))
+    self.assertFalse(any(self.lib.getSNLDesigns()))
+    self.assertEqual(0, sum(1 for d in self.lib.getSNLDesigns()))
     design = snl.SNLDesign.create(self.lib, "DESIGN")
     self.assertIsNotNone(design)
     self.assertEqual("DESIGN", design.getName())
     self.assertFalse(design.isPrimitive())
     self.assertEqual(self.lib, design.getLibrary())
     self.assertEqual(self.lib.getDB(), design.getDB())
-    self.assertIsNotNone(self.lib.getDesign("DESIGN"))
-    self.assertEqual(design, self.lib.getDesign("DESIGN"))
-    self.assertTrue(any(self.lib.getDesigns()))
-    self.assertEqual(1, sum(1 for d in self.lib.getDesigns()))
-    designs = [d for d in self.lib.getDesigns()]
+    self.assertIsNotNone(self.lib.getSNLDesign("DESIGN"))
+    self.assertEqual(design, self.lib.getSNLDesign("DESIGN"))
+    self.assertTrue(any(self.lib.getSNLDesigns()))
+    self.assertEqual(1, sum(1 for d in self.lib.getSNLDesigns()))
+    designs = [d for d in self.lib.getSNLDesigns()]
     self.assertEqual(1, len(designs))
     self.assertEqual(design, designs[0])
     self.assertFalse(any(design.getTerms()))

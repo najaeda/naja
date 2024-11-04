@@ -4,6 +4,8 @@
 
 #include "PNLDesign.h"
 
+#include "SNLLibrary.h"
+
 namespace naja { namespace SNL {
 
 PNLDesign::PNLDesign(SNLLibrary* library):
@@ -13,7 +15,7 @@ PNLDesign::PNLDesign(SNLLibrary* library):
 PNLDesign* PNLDesign::create(SNLLibrary* library) {
   preCreate(library);
   auto design = new PNLDesign(library);
-  design->postCreate();
+  design->postCreateAndSetID();
   return design;
 }
 
@@ -21,8 +23,14 @@ void PNLDesign::preCreate(const SNLLibrary* library) {
   super::preCreate();
 }
 
+void PNLDesign::postCreateAndSetID() {
+  super::postCreate();
+  library_->addPNLDesignAndSetID(this);
+}
+
 void PNLDesign::postCreate() {
   super::postCreate();
+  library_->addPNLDesign(this);
 }
 
 void PNLDesign::preDestroy() {

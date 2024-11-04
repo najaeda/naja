@@ -135,12 +135,12 @@ void SNLDesign::preCreate(const SNLLibrary* library, SNLID::DesignID id, Type ty
 
 void SNLDesign::postCreate() {
   super::postCreate();
-  library_->addDesign(this);
+  library_->addSNLDesign(this);
 }
 
 void SNLDesign::postCreateAndSetID() {
   super::postCreate();
-  library_->addDesignAndSetID(this);
+  library_->addSNLDesignAndSetID(this);
 }
 
 void SNLDesign::commonPreDestroy() {
@@ -196,7 +196,7 @@ void SNLDesign::preDestroy() {
   if (isPrimitive()) {
     //FIXME: Error
   }
-  library_->removeDesign(this);
+  library_->removeSNLDesign(this);
   commonPreDestroy();
 }
 
