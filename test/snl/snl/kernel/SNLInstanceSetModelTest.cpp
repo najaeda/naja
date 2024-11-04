@@ -175,6 +175,7 @@ TEST_F(SNLInstanceSetModelTest, testDifferentParametersSizeError) {
   std::string reason;
   EXPECT_TRUE(model_->deepCompare(newModel, reason, SNLDesign::CompareType::IgnoreIDAndName));
   EXPECT_TRUE(reason.empty());
+  EXPECT_EQ(std::string(), reason);
   EXPECT_TRUE(newModel->isAnonymous());
   ASSERT_EQ(3, newModel->getParameters().size());
   auto param0 = newModel->getParameter(SNLName("param0"));

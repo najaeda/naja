@@ -17,8 +17,9 @@ using ::testing::ElementsAre;
 #include "SNLScalarNet.h"
 #include "SNLBusNet.h"
 #include "SNLBusNetBit.h"
-#include "SNLUtils.h"
+#include "SNLAttributes.h"
 #include "SNLException.h"
+#include "SNLUtils.h"
 using namespace naja::SNL;
 
 namespace {
@@ -112,6 +113,50 @@ void compareNets(const SNLDesign* design, const SNLDesign* newDesign) {
   }
 }
 
+void compareAttributes(const SNLObject* object, const SNLObject* newObject) {
+  ASSERT_EQ(
+    SNLAttributes::getAttributes(object).size(),
+    SNLAttributes::getAttributes(newObject).size());
+  using Attributes = std::vector<SNLAttributes::SNLAttribute>;
+  Attributes objectAttributes(
+    SNLAttributes::getAttributes(object).begin(),
+    SNLAttributes::getAttributes(object).end());
+  Attributes newObjectAttributes(
+    SNLAttributes::getAttributes(newObject).begin(),
+    SNLAttributes::getAttributes(newObject).end());
+  ASSERT_EQ(objectAttributes.size(), newObjectAttributes.size());
+  for (size_t i=0; i<objectAttributes.size(); ++i) {
+    auto attribute = objectAttributes[i];
+    auto newAttribute = newObjectAttributes[i];
+    EXPECT_EQ(attribute.getName(), newAttribute.getName());
+    EXPECT_EQ(attribute.getValue(), newAttribute.getValue());
+  }
+}
+
+void addPragma(SNLDesign* design) {
+  SNLAttributes::addAttribute(design,
+    SNLAttributes::SNLAttribute(
+      SNLName("DPRAGMA1"),
+      SNLAttributes::SNLAttribute::Value("value1")));
+  SNLAttributes::addAttribute(design,
+    SNLAttributes::SNLAttribute(
+      SNLName("DPRAGMA2"),
+      SNLAttributes::SNLAttribute::Value(SNLAttributes::SNLAttribute::Value::Type::NUMBER, "12")));
+  SNLAttributes::addAttribute(design, SNLAttributes::SNLAttribute(SNLName("DPRAGMA3")));
+}
+
+void addPragma(SNLDesignObject* designObject) {
+  SNLAttributes::addAttribute(designObject,
+    SNLAttributes::SNLAttribute(
+      SNLName("DOPRAGMA1"),
+      SNLAttributes::SNLAttribute::Value("value1")));
+  SNLAttributes::addAttribute(designObject,
+    SNLAttributes::SNLAttribute(
+      SNLName("DOPRAGMA2"),
+      SNLAttributes::SNLAttribute::Value(SNLAttributes::SNLAttribute::Value::Type::NUMBER, "155")));
+  SNLAttributes::addAttribute(designObject, SNLAttributes::SNLAttribute(SNLName("DOPRAGMA3")));
+}
+
 } // namespace
 
 class SNLDesignCloneTest: public ::testing::Test {
@@ -132,12 +177,16 @@ class SNLDesignCloneTest: public ::testing::Test {
       auto prim1Term1 = SNLScalarTerm::create(prim1, SNLTerm::Direction::Output, SNLName("term1"));
       auto library = SNLLibrary::create(db, SNLName("MYLIB"));
       top_ = SNLDesign::create(library, SNLName("top"));
+      addPragma(top_);
+
       design_ = SNLDesign::create(library, SNLName("design"));
+      addPragma(design_);
       terms_.push_back(SNLScalarTerm::create(design_, SNLTerm::Direction::Input, SNLName("term0")));
       terms_.push_back(SNLBusTerm::create(design_, SNLTerm::Direction::Input, 4, 0, SNLName("term1")));
       terms_.push_back(SNLScalarTerm::create(design_, SNLTerm::Direction::Output, SNLName("term2")));
       terms_.push_back(SNLBusTerm::create(design_, SNLTerm::Direction::Output, -2, 5, SNLName("term3")));
       terms_.push_back(SNLScalarTerm::create(design_, SNLTerm::Direction::InOut, SNLName("term4")));
+     
       parameters_.push_back(SNLParameter::create(design_, SNLName("param0"), SNLParameter::Type::Binary, "0b1010"));
       parameters_.push_back(SNLParameter::create(design_, SNLName("param1"), SNLParameter::Type::Decimal, "42"));
       parameters_.push_back(SNLParameter::create(design_, SNLName("param2"), SNLParameter::Type::Boolean, "true"));
@@ -159,6 +208,16 @@ class SNLDesignCloneTest: public ::testing::Test {
 
       terms_[1]->setNet(nets_[1]);
       instances_[0]->getInstTerm(prim0Term1)->setNet(((SNLBusNet*)nets_[1])->getBit(0));
+
+      for (auto term: terms_) {
+        addPragma(term);
+      }
+      for (auto net: nets_) {
+        addPragma(net);
+      }
+      for (auto instance: instances_) {
+        addPragma(instance);
+      }
     }
     void TearDown() override {
       SNLUniverse::get()->destroy();
@@ -181,6 +240,7 @@ TEST_F(SNLDesignCloneTest, testcloneInterface0) {
   EXPECT_TRUE(newDesign->isAnonymous());
   EXPECT_EQ(design_->getLibrary(), newDesign->getLibrary());
   EXPECT_EQ(newDesign, design_->getLibrary()->getDesign(newDesign->getID()));
+  compareAttributes(design_, newDesign);
   compareTerms(design_, newDesign);
   compareParameters(design_, newDesign);
   EXPECT_TRUE(newDesign->getInstances().empty());
@@ -204,6 +264,7 @@ TEST_F(SNLDesignCloneTest, testCloneInterface1) {
   EXPECT_EQ(design_->getLibrary(), newDesign->getLibrary());
   EXPECT_EQ(newDesign, design_->getLibrary()->getDesign(newDesign->getID()));
   EXPECT_EQ(newDesign, design_->getLibrary()->getDesign(newDesign->getName()));
+  compareAttributes(design_, newDesign);
   compareTerms(design_, newDesign);
   compareParameters(design_, newDesign);
   EXPECT_TRUE(newDesign->getInstances().empty());
@@ -219,6 +280,7 @@ TEST_F(SNLDesignCloneTest, testCloneInterface2) {
   EXPECT_EQ(newLibrary, newDesign->getLibrary());
   EXPECT_EQ(newDesign, newLibrary->getDesign(newDesign->getID()));
   EXPECT_EQ(newDesign, newLibrary->getDesign(newDesign->getName()));
+  compareAttributes(design_, newDesign);
   compareTerms(design_, newDesign);
   compareParameters(design_, newDesign);
   EXPECT_TRUE(newDesign->getInstances().empty());
@@ -240,6 +302,7 @@ TEST_F(SNLDesignCloneTest, testClone0) {
   EXPECT_TRUE(newDesign->isAnonymous());
   EXPECT_EQ(design_->getLibrary(), newDesign->getLibrary());
   EXPECT_EQ(newDesign, design_->getLibrary()->getDesign(newDesign->getID()));
+  compareAttributes(design_, newDesign);
   compareTerms(design_, newDesign);
   compareParameters(design_, newDesign);
   compareInstances(design_, newDesign);
@@ -262,6 +325,7 @@ TEST_F(SNLDesignCloneTest, testCloneCompare) {
   auto newDesign = design_->clone();
   std::string reason;
   EXPECT_TRUE(newDesign->deepCompare(design_, reason, SNLDesign::CompareType::IgnoreIDAndName));
+  EXPECT_EQ("", reason);
   EXPECT_TRUE(reason.empty());
 
   //change an instance name
@@ -272,6 +336,7 @@ TEST_F(SNLDesignCloneTest, testCloneCompare) {
 
   instance->setName(SNLName("inst0"));
   EXPECT_TRUE(newDesign->deepCompare(design_, reason, SNLDesign::CompareType::IgnoreIDAndName));
+  EXPECT_EQ("", reason);
 
   //change an instance parameter value
   auto instParameter = instance->getInstParameter(SNLName("param0"));
