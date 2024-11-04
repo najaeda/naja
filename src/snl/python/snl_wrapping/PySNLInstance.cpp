@@ -55,7 +55,7 @@ static PyObject* PySNLInstance_create(PyObject*, PyObject* args) {
 }
 
 GetObjectMethod(Instance, Design, getModel)
-GetObjectByName(Instance, InstParameter)
+GetObjectByName(SNLInstance, SNLInstParameter, getInstParameter)
 
 static PyObject* PySNLDesign_getCombinatorialInputs(PySNLDesign*, PyObject* output) {
   if (IsPySNLInstTerm(output)) {

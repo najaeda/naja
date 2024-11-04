@@ -231,20 +231,20 @@ PyObject* richCompare(T left, T right, int op) {
     return PySNL##OBJECT_TYPE##_Link(selfObject->METHOD()); \
   }
 
-#define GetObjectByName(SELF_TYPE, OBJECT_TYPE) \
-  static PyObject* PySNL##SELF_TYPE##_get##OBJECT_TYPE(PySNL##SELF_TYPE* self, PyObject* args) { \
-    SNL##OBJECT_TYPE* obj = nullptr; \
-    METHOD_HEAD("SNL##SELF_TYPE.get##OBJECT_TYPE()") \
+#define GetObjectByName(SELF_TYPE, OBJECT_TYPE, METHOD) \
+  static PyObject* Py##SELF_TYPE##_##METHOD(Py##SELF_TYPE* self, PyObject* args) { \
+    OBJECT_TYPE* obj = nullptr; \
+    METHOD_HEAD("SELF_TYPE.METHOD()") \
     char* name = NULL; \
-    if (PyArg_ParseTuple(args, "s:SNL##SELF_TYPE.get##OBJECT_TYPE", &name)) { \
+    if (PyArg_ParseTuple(args, "s:SELF_TYPE.METHOD", &name)) { \
       TRY \
-      obj = selfObject->get##OBJECT_TYPE(SNLName(name)); \
+      obj = selfObject->METHOD(SNLName(name)); \
       SNLCATCH \
     } else { \
-      setError("invalid number of parameters for get##OBJECT_TYPE."); \
+      setError("invalid number of parameters for METHOD."); \
       return nullptr; \
     } \
-    return PySNL##OBJECT_TYPE##_Link(obj); \
+    return Py##OBJECT_TYPE##_Link(obj); \
   }
 
 #define GetObjectByIndex(SELF_TYPE, OBJECT_TYPE, METHOD) \

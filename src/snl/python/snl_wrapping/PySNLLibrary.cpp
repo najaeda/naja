@@ -56,8 +56,8 @@ static PyObject* PySNLLibrary_createPrimitives(PyObject*, PyObject* args) {
 }
 
 GetObjectMethod(Library, DB, getDB)
-GetObjectByName(Library, Design)
-GetObjectByName(Library, Library)
+GetObjectByName(SNLLibrary, SNLDesign, getDesign)
+GetObjectByName(SNLLibrary, SNLLibrary, getLibrary)
 
 GetBoolAttribute(Library, isStandard)
 GetBoolAttribute(Library, isPrimitives)
