@@ -627,7 +627,7 @@ TEST_F(DNLTests, SNLDataAccessWith3levelsOfHierarchyAndIsoDBWithMultiDriverNonMT
     path.push_back(0);
     path.push_back(0);
     std::string id("");
-    naja::BNE::Uniquifier uniquifier(path, id);
+    naja::BNE::SNLUniquifier uniquifier(path, id);
     uniquifier.process();   
     uniquifier.getFullPath();
     destroy();

@@ -18,13 +18,24 @@ using namespace naja::SNL;
 namespace naja::BNE
 {
 
-  void Uniquifier::process()
+  SNLUniquifier::SNLUniquifier(const SNLPath& path, bool uniquifyTail) : uniquifyTail_(uniquifyTail)
+  {
+    //Create the path_ by retriving the SNLID::DesignObjectID from the SNLPath
+    SNLPath snlpath = path;
+    while (!snlpath.empty())
+    {
+      path_.push_back(snlpath.getHeadInstance()->getID());
+      id_ += std::string("_") + std::to_string(snlpath.getHeadInstance()->getID());
+      snlpath = snlpath.getTailPath();
+    }
+  }
+  void SNLUniquifier::process()
   {
     std::vector<SNLInstance *> instancesToDelete;
 #ifdef DEBUG_PRINTS
     // LCOV_EXCL_START
-    printf("Uniquifier::process() - dnlid %s\n", id_);
-    printf("Uniquifier::process() - final inst %s\n", path_.back()->getName().getString().c_str());
+    printf("SNLUniquifier::process() - dnlid %s\n", id_);
+    printf("SNLUniquifier::process() - final inst %s\n", path_.back()->getName().getString().c_str());
     // LCOV_EXCL_STOP
 #endif
     SNLDesign *currentDesign = SNLUniverse::get()->getTopDesign();
@@ -33,8 +44,8 @@ namespace naja::BNE
     {
 #ifdef DEBUG_PRINTS
       // LCOV_EXCL_START
-      printf("Uniquifier::process() - - looking now at inst %s\n", path_[i]->getName().getString().c_str());
-      printf("Uniquifier::process() - - looking now at design %s\n",
+      printf("SNLUniquifier::process() - - looking now at inst %s\n", path_[i]->getName().getString().c_str());
+      printf("SNLUniquifier::process() - - looking now at design %s\n",
              path_[i]->getDesign()->getName().getString().c_str());
       for (auto inst :
            currentDesign->getInstances())
@@ -77,7 +88,7 @@ namespace naja::BNE
 #endif
   }
 
-  SNLInstance *Uniquifier::replaceWithClone(SNLInstance *inst)
+  SNLInstance *SNLUniquifier::replaceWithClone(SNLInstance *inst)
   {
     SNLDesign *clone = inst->getModel()->clone(
         SNLName(std::string(inst->getModel()->getName().getString()) +
@@ -88,7 +99,7 @@ namespace naja::BNE
     return inst;
   }
 
-  std::string Uniquifier::getFullPath()
+  std::string SNLUniquifier::getFullPath() const
   {
     // LCOV_EXCL_START
     std::string fullPath;

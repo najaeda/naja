@@ -134,11 +134,11 @@ SNLDesign* SNLPath::getModel() const {
 }
 
 bool SNLPath::operator==(const SNLPath& path) const {
-  return sharedPath_ == path.sharedPath_;
+  return !(*this < path or path < *this);
 }
 
 bool SNLPath::operator!=(const SNLPath& path) const {
-  return sharedPath_ != path.sharedPath_;
+  return not (*this == path);
 }
 
 bool SNLPath::operator<(const SNLPath& path) const {
