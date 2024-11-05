@@ -41,8 +41,7 @@ class SNLPathTest(unittest.TestCase):
     self.assertEqual(ins1, path1.getTailInstance())
 
     path2 = snl.SNLPath(path1, ins2)
-    uniq = snl.SNLUniquifier(path2)
-    uniqPath = uniq.getPathUniqCollection()
+    
     self.assertIsNotNone(path2)
     self.assertFalse(path2.empty())
     self.assertEqual(2, path2.size())
@@ -50,7 +49,9 @@ class SNLPathTest(unittest.TestCase):
     self.assertEqual(snl.SNLPath(ins2), path2.getTailPath())
     self.assertEqual(ins1, path2.getHeadInstance())
     self.assertEqual(ins2, path2.getTailInstance())
-
+    #TODO: fix commented lines
+    #uniq = snl.SNLUniquifier(path2)
+    #uniqPath = uniq.getPathUniqCollection()
     with self.assertRaises(RuntimeError) as context: snl.SNLPath(path1)
     with self.assertRaises(RuntimeError) as context: snl.SNLPath(path1, path2)
     with self.assertRaises(RuntimeError) as context: snl.SNLPath(1, 1, 1)

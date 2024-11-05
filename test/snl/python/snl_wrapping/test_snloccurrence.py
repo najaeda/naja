@@ -59,7 +59,10 @@ class SNLOccurrenceTest(unittest.TestCase):
 
     insttermoccurrence = snl.SNLInstTermOccurrence()
     insttermoccurrence1 = snl.SNLInstTermOccurrence(path0, instTerms[0])
-    insttermoccurrence1 = snl.SNLInstTermOccurrence(instTerms[0])
+    insttermoccurrence2 = snl.SNLInstTermOccurrence(instTerms[0])
+    
+    uniq = snl.SNLUniquifier(insttermoccurrence1.getPath())
+    uniqPath = uniq.getPathUniqCollection()
 
     with self.assertRaises(RuntimeError) as context: snl.SNLOccurrence(path1)
     with self.assertRaises(RuntimeError) as context: snl.SNLOccurrence(-1, -1, -1)
