@@ -199,7 +199,7 @@ void ActionTree::process() {
         pathIds.push_back(inst->getID());
       }
       auto context = currentNode->getContext();
-      Uniquifier uniquifier(context, id, true);
+      SNLUniquifier uniquifier(context, id, true);
       uniquifier.process();
     }
     for (auto& action : currentNode->getActions()) {

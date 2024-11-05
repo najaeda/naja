@@ -7,6 +7,7 @@
 #include "SNLUniverse.h"
 #include "SNLPath.h"
 #include "SNLException.h"
+
 using namespace naja::SNL;
 
 class SNLPathTest2: public ::testing::Test {
