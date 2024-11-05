@@ -53,7 +53,14 @@ ManagedTypeLinkCreateMethod(SNLInstTermOccurrence)
 //DBoLinkCreateMethod(SNLInstTermOccurrence)
 ManagedTypeDeallocMethod(SNLInstTermOccurrence)
 
+GetObjectMethod(InstTermOccurrence, InstTerm, getInstTerm)
+GetObjectMethod(InstTermOccurrence, Path, getPath)
+
 PyMethodDef PySNLInstTermOccurrence_Methods[] = {
+  { "getInstTerm", (PyCFunction)PySNLInstTermOccurrence_getInstTerm, METH_NOARGS,
+    "get the SNLInstTerm of the SNLInstTermOccurrence."},
+  { "getPath", (PyCFunction)PySNLInstTermOccurrence_getPath, METH_NOARGS,
+    "get the SNLPath of the SNLInstTermOccurrence."},
   {NULL, NULL, 0, NULL} /* sentinel */
 };
 

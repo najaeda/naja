@@ -10,6 +10,8 @@
 #include <fstream>
 #include <unordered_set>
 
+#include "NajaUtils.h"
+
 #include "SNLLibrary.h"
 #include "SNLDesign.h"
 #include "SNLParameter.h"
@@ -797,6 +799,12 @@ void SNLVRLDumper::dumpDesign(const SNLDesign* design, const std::filesystem::pa
     std::filesystem::path filePath = path/getTopFileName(design);
     std::ofstream outFile;
     outFile.open(filePath);
+    NajaUtils::createBanner(
+      outFile,
+      "Verilog file for " + design->getName().getString(),
+      "//"
+    );
+    outFile << std::endl;
     dumpDesign(design, outFile);
   } else {
     SNLVRLDumper streamDumper;
@@ -810,6 +818,12 @@ void SNLVRLDumper::dumpDesign(const SNLDesign* design, const std::filesystem::pa
       std::filesystem::path filePath = path/getTopFileName(design);
       std::ofstream outFile;
       outFile.open(filePath);
+      NajaUtils::createBanner(
+        outFile,
+        "Verilog file for " + design->getName().getString(),
+        "//"
+      );
+      outFile << std::endl;
       streamDumper.dumpDesign(design, outFile);
     }
   }
@@ -832,6 +846,12 @@ void SNLVRLDumper::dumpLibrary(const SNLLibrary* library, const std::filesystem:
     std::filesystem::path filePath = path/getLibraryFileName(library);
     std::ofstream outFile;
     outFile.open(filePath);
+    NajaUtils::createBanner(
+      outFile,
+      "Verilog file for " + library->getName().getString(),
+      "//"
+    );
+    outFile << std::endl;
     dumpLibrary(library, outFile);
   } else {
     for (auto design: library->getSNLDesigns()) {

@@ -64,10 +64,12 @@ TEST_F(SNLVRLDumperTestTermNets, testFeedthru0) {
   dumper.setSingleFile(true);
   dumper.dumpDesign(top_, outPath);
 
+  outPath = outPath / "top.v";
+
   std::filesystem::path referencePath(SNL_VRL_DUMPER_REFERENCES_PATH);
   referencePath = referencePath / "testFeedthru0" / "top.v";
   ASSERT_TRUE(std::filesystem::exists(referencePath));
-  std::string command = "diff " + outPath.string() + " " + referencePath.string();
+  std::string command = std::string(NAJA_DIFF) + " " + outPath.string() + " " + referencePath.string();
   EXPECT_FALSE(std::system(command.c_str()));
 }
 
@@ -93,10 +95,12 @@ TEST_F(SNLVRLDumperTestTermNets, testFeedthru1) {
   dumper.setSingleFile(true);
   dumper.dumpDesign(top_, outPath);
 
+  outPath = outPath / "top.v";
+
   std::filesystem::path referencePath(SNL_VRL_DUMPER_REFERENCES_PATH);
   referencePath = referencePath / "testFeedthru1" / "top.v";
   ASSERT_TRUE(std::filesystem::exists(referencePath));
-  std::string command = "diff " + outPath.string() + " " + referencePath.string();
+  std::string command = std::string(NAJA_DIFF) + " " + outPath.string() + " " + referencePath.string();
   EXPECT_FALSE(std::system(command.c_str()));
 }
  
@@ -124,10 +128,12 @@ TEST_F(SNLVRLDumperTestTermNets, testFeedthru2) {
   dumper.setSingleFile(true);
   dumper.dumpDesign(top_, outPath);
 
+  outPath = outPath / "top.v";
+
   std::filesystem::path referencePath(SNL_VRL_DUMPER_REFERENCES_PATH);
   referencePath = referencePath / "testFeedthru2" / "top.v";
   ASSERT_TRUE(std::filesystem::exists(referencePath));
-  std::string command = "diff " + outPath.string() + " " + referencePath.string();
+  std::string command = std::string(NAJA_DIFF) + " " + outPath.string() + " " + referencePath.string();
   EXPECT_FALSE(std::system(command.c_str()));
 }
 
@@ -158,10 +164,12 @@ TEST_F(SNLVRLDumperTestTermNets, testFeedthru3) {
   dumper.setSingleFile(true);
   dumper.dumpDesign(top_, outPath);
 
+  outPath = outPath / "top.v";
+
   std::filesystem::path referencePath(SNL_VRL_DUMPER_REFERENCES_PATH);
   referencePath = referencePath / "testFeedthru3" / "top.v";
   ASSERT_TRUE(std::filesystem::exists(referencePath));
-  std::string command = "diff " + outPath.string() + " " + referencePath.string();
+  std::string command = std::string(NAJA_DIFF) + " " + outPath.string() + " " + referencePath.string();
   EXPECT_FALSE(std::system(command.c_str()));
 }
 

@@ -28,6 +28,9 @@ using namespace naja::SNL;
 #ifndef SNL_VRL_DUMPER_REFERENCES_PATH
 #define SNL_VRL_DUMPER_REFERENCES_PATH "Undefined"
 #endif
+#ifndef NAJA_DIFF
+#define NAJA_DIFF "Undefined"
+#endif
 
 //Test assigns
 class SNLVRLDumperTest2: public ::testing::Test {
@@ -87,10 +90,12 @@ TEST_F(SNLVRLDumperTest2, test0) {
   dumper.setSingleFile(true);
   dumper.dumpDesign(top, outPath);
 
+  outPath = outPath / (top->getName().getString() + ".v");
+
   std::filesystem::path referencePath(SNL_VRL_DUMPER_REFERENCES_PATH);
   referencePath = referencePath / "test2Test0" / "top.v";
   ASSERT_TRUE(std::filesystem::exists(referencePath));
-  std::string command = "diff " + outPath.string() + " " + referencePath.string();
+  std::string command = std::string(NAJA_DIFF) + " " + outPath.string() + " " + referencePath.string();
   EXPECT_FALSE(std::system(command.c_str()));
 }
 
@@ -116,9 +121,11 @@ TEST_F(SNLVRLDumperTest2, testUnconnectedAssigns) {
   dumper.setSingleFile(true);
   dumper.dumpDesign(top, outPath);
 
+  outPath = outPath / (top->getName().getString() + ".v");
+
   std::filesystem::path referencePath(SNL_VRL_DUMPER_REFERENCES_PATH);
   referencePath = referencePath / "test2TestUnconnectedAssigns" / "top.v";
   ASSERT_TRUE(std::filesystem::exists(referencePath));
-  std::string command = "diff " + outPath.string() + " " + referencePath.string();
+  std::string command = std::string(NAJA_DIFF) + " " + outPath.string() + " " + referencePath.string();
   EXPECT_FALSE(std::system(command.c_str()));
 }
