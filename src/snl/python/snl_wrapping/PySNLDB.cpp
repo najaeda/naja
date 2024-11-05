@@ -29,13 +29,13 @@ static PyObject* PySNLDB_create(PyObject*, PyObject* args) {
   }
   auto universe = PYSNLUNIVERSE_O(arg);
   SNLDB* db = nullptr;
-  SNLTRY
+  TRY
   db = SNLDB::create(universe);
   SNLCATCH
   return PySNLDB_Link(db);
 }
 
-GetObjectByName(DB, Library)
+GetObjectByName(SNLDB, SNLLibrary, getLibrary)
 GetContainerMethod(DB, Library, Libraries, Libraries)
 
 DBoDestroyAttribute(PySNLDB_destroy, PySNLDB)

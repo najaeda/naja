@@ -13,14 +13,6 @@
 #include "SNLAttributes.h"
 #include "SNLScalarTerm.h"
 #include "SNLScalarNet.h"
-#if 0
-#include "SNLDB.h"
-#include "SNLBusTerm.h"
-#include "SNLBusTermBit.h"
-#include "SNLBusNet.h"
-#include "SNLBusNetBit.h"
-#include "SNLInstTerm.h"
-#endif
 
 using namespace naja::SNL;
 
@@ -29,6 +21,9 @@ using namespace naja::SNL;
 #endif
 #ifndef SNL_VRL_DUMPER_REFERENCES_PATH
 #define SNL_VRL_DUMPER_REFERENCES_PATH "Undefined"
+#endif
+#ifndef NAJA_DIFF
+#define NAJA_DIFF "Undefined"
 #endif
 
 class SNLVRLDumperTestAttributes: public ::testing::Test {
@@ -98,9 +93,11 @@ TEST_F(SNLVRLDumperTestAttributes, test0) {
   dumper.setSingleFile(true);
   dumper.dumpDesign(top_, outPath);
 
+  outPath = outPath / (top_->getName().getString() + ".v");
+
   std::filesystem::path referencePath(SNL_VRL_DUMPER_REFERENCES_PATH);
   referencePath = referencePath / "testAttributes0" / "top.v";
   ASSERT_TRUE(std::filesystem::exists(referencePath));
-  std::string command = "diff " + outPath.string() + " " + referencePath.string();
+  std::string command = std::string(NAJA_DIFF) + " " + outPath.string() + " " + referencePath.string();
   EXPECT_FALSE(std::system(command.c_str()));
 }

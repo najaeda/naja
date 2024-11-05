@@ -35,7 +35,7 @@ static PyObject* PySNLScalarTerm_create(PyObject*, PyObject* args) {
   SNLTerm::Direction direction = SNLNetComponent::Direction::DirectionEnum(intDir);
 
   SNLScalarTerm* term = nullptr;
-  SNLTRY
+  TRY
   if (IsPySNLDesign(arg0)) {
     term = SNLScalarTerm::create(PYSNLDesign_O(arg0), direction, name);
   } else {

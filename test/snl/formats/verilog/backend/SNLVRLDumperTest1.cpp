@@ -27,6 +27,9 @@ using namespace naja::SNL;
 #ifndef SNL_VRL_DUMPER_REFERENCES_PATH
 #define SNL_VRL_DUMPER_REFERENCES_PATH "Undefined"
 #endif
+#ifndef NAJA_DIFF
+#define NAJA_DIFF "Undefined"
+#endif
 
 //Model with Bus terminal
 class SNLVRLDumperTest1: public ::testing::Test {
@@ -100,10 +103,12 @@ TEST_F(SNLVRLDumperTest1, test0) {
   dumper.setSingleFile(true);
   dumper.dumpDesign(top, outPath);
 
+  outPath = outPath / (top->getName().getString() + ".v");
+
   std::filesystem::path referencePath(SNL_VRL_DUMPER_REFERENCES_PATH);
   referencePath = referencePath / "test1Test0" / "top.v";
   ASSERT_TRUE(std::filesystem::exists(referencePath));
-  std::string command = "diff " + outPath.string() + " " + referencePath.string();
+  std::string command = std::string(NAJA_DIFF) + " " + outPath.string() + " " + referencePath.string();
   EXPECT_FALSE(std::system(command.c_str()));
 }
 
@@ -141,10 +146,12 @@ TEST_F(SNLVRLDumperTest1, test1) {
   dumper.setSingleFile(true);
   dumper.dumpDesign(top, outPath);
 
+  outPath = outPath / (top->getName().getString() + ".v");
+
   std::filesystem::path referencePath(SNL_VRL_DUMPER_REFERENCES_PATH);
   referencePath = referencePath / "test1Test1" / "top.v";
   ASSERT_TRUE(std::filesystem::exists(referencePath));
-  std::string command = "diff " + outPath.string() + " " + referencePath.string();
+  std::string command = std::string(NAJA_DIFF) + " " + outPath.string() + " " + referencePath.string();
   EXPECT_FALSE(std::system(command.c_str()));
 }
 
@@ -182,10 +189,12 @@ TEST_F(SNLVRLDumperTest1, test2) {
   dumper.setSingleFile(true);
   dumper.dumpDesign(top, outPath);
 
+  outPath = outPath / (top->getName().getString() + ".v");
+
   std::filesystem::path referencePath(SNL_VRL_DUMPER_REFERENCES_PATH);
   referencePath = referencePath / "test1Test2" / "top.v";
   ASSERT_TRUE(std::filesystem::exists(referencePath));
-  std::string command = "diff " + outPath.string() + " " + referencePath.string();
+  std::string command = std::string(NAJA_DIFF) + " " + outPath.string() + " " + referencePath.string();
   EXPECT_FALSE(std::system(command.c_str()));
 }
 
@@ -224,10 +233,12 @@ TEST_F(SNLVRLDumperTest1, test3) {
   dumper.setSingleFile(true);
   dumper.dumpDesign(top, outPath);
 
+  outPath = outPath / (top->getName().getString() + ".v");
+
   std::filesystem::path referencePath(SNL_VRL_DUMPER_REFERENCES_PATH);
   referencePath = referencePath / "test1Test3" / "top.v";
   ASSERT_TRUE(std::filesystem::exists(referencePath));
-  std::string command = "diff " + outPath.string() + " " + referencePath.string();
+  std::string command = std::string(NAJA_DIFF) + " " + outPath.string() + " " + referencePath.string();
   EXPECT_FALSE(std::system(command.c_str()));
 }
 
@@ -270,10 +281,12 @@ TEST_F(SNLVRLDumperTest1, test4) {
   dumper.setSingleFile(true);
   dumper.dumpDesign(top, outPath);
 
+  outPath = outPath / (top->getName().getString() + ".v");
+
   std::filesystem::path referencePath(SNL_VRL_DUMPER_REFERENCES_PATH);
   referencePath = referencePath / "test1Test4" / "top.v";
   ASSERT_TRUE(std::filesystem::exists(referencePath));
-  std::string command = "diff " + outPath.string() + " " + referencePath.string();
+  std::string command = std::string(NAJA_DIFF) + " " + outPath.string() + " " + referencePath.string();
   EXPECT_FALSE(std::system(command.c_str()));
 }
 
@@ -361,9 +374,11 @@ TEST_F(SNLVRLDumperTest1, test5) {
   dumper.setSingleFile(true);
   dumper.dumpDesign(top, outPath);
 
+  outPath = outPath / (top->getName().getString() + ".v");
+
   std::filesystem::path referencePath(SNL_VRL_DUMPER_REFERENCES_PATH);
   referencePath = referencePath / "test1Test5" / "top.v";
   ASSERT_TRUE(std::filesystem::exists(referencePath));
-  std::string command = "diff " + outPath.string() + " " + referencePath.string();
+  std::string command = std::string(NAJA_DIFF) + " " + outPath.string() + " " + referencePath.string();
   EXPECT_FALSE(std::system(command.c_str()));
 }

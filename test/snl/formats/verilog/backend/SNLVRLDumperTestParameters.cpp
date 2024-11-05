@@ -70,10 +70,12 @@ TEST_F(SNLVRLDumperTestParameters, test0) {
   dumper.setSingleFile(true);
   dumper.dumpDesign(top_, outPath);
 
+  outPath = outPath / (top_->getName().getString() + ".v");
+
   std::filesystem::path referencePath(SNL_VRL_DUMPER_REFERENCES_PATH);
   referencePath = referencePath / "testParameters0" / "top.v";
   ASSERT_TRUE(std::filesystem::exists(referencePath));
-  std::string command = "diff " + outPath.string() + " " + referencePath.string();
+  std::string command = std::string(NAJA_DIFF) + " " + outPath.string() + " " + referencePath.string();
   EXPECT_FALSE(std::system(command.c_str()));
 }
 
