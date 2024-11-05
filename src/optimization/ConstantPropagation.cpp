@@ -1070,7 +1070,7 @@ void ConstantPropagation::propagateConstants() {
   }
   if (!normalizedUniquification_) {
     for (auto& path : constant0Readers_) {
-      Uniquifier uniquifier(std::get<0>(path), std::get<2>(path));
+      SNLUniquifier uniquifier(std::get<0>(path), std::get<2>(path));
       uniquifier.process();
       SNLInstTerm* constTerm =
           uniquifier.getPathUniq().back()->getInstTerm(std::get<1>(path));
@@ -1099,7 +1099,7 @@ void ConstantPropagation::propagateConstants() {
       (*logic0Inst->getInstTerms().begin())->setNet(assign0);
     }
     for (auto& path : constant1Readers_) {
-      Uniquifier uniquifier(std::get<0>(path), std::get<2>(path));
+      SNLUniquifier uniquifier(std::get<0>(path), std::get<2>(path));
       uniquifier.process();
       SNLInstTerm* constTerm =
           uniquifier.getPathUniq().back()->getInstTerm(std::get<1>(path));

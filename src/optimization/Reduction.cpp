@@ -130,7 +130,7 @@ void ReductionOptimization::reducPartialConstantInstance(
                        ->getDB()
                        ->getPrimitiveLibraries()
                        .begin());
-  Uniquifier uniquifier(std::get<0>(candidate), std::get<2>(candidate));
+  SNLUniquifier uniquifier(std::get<0>(candidate), std::get<2>(candidate));
   uniquifier.process();
   SNLInstance* uniquifiedCandidate = uniquifier.getPathUniq().back();
   /*if (!uniquifiedCandidate) {uniquifier.getPathUniq().back()

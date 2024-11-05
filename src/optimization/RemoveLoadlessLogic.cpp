@@ -299,7 +299,7 @@ void LoadlessLogicRemover::removeLoadlessInstances(
   BNE::BNE bne;
   for (auto& path : loadlessInstances) {
     if (!normalizedUniquification_) {
-    Uniquifier uniquifier(path.first, path.second);
+    SNLUniquifier uniquifier(path.first, path.second);
     uniquifier.process();
     for (SNLInstTerm* term : uniquifier.getPathUniq().back()->getInstTerms()) {
       auto net = term->getNet();
