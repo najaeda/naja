@@ -57,7 +57,7 @@ class BNETests : public ::testing::Test {
   SNLInstance* h0Instance_    {nullptr};
 };
 
-TEST_F(BNETests, ActionComperators) {
+TEST_F(BNETests, ActionComparators) {
   // Create artificial DriveWithConstantActions and compare them
   /*const std::vector<SNLID::DesignObjectID>& context,
                         const SNLID::DesignObjectID& pathToDrive,
