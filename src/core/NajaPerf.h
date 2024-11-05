@@ -12,6 +12,7 @@
 #include <fstream>
 #include <iomanip>
 
+#include "NajaUtils.h"
 #include "NajaException.h"
 
 namespace naja {
@@ -71,6 +72,7 @@ class NajaPerf {
     NajaPerf(const std::filesystem::path& logPath, const std::string& topName):
       startClock_(std::chrono::steady_clock::now()) {
       os_.open(logPath);
+      NajaUtils::createBanner(os_, "Naja Performance Report", "#");
     }
 
     static void registerDestructor() {

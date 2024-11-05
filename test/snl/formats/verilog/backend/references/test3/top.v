@@ -1,3 +1,10 @@
+////////////////////////////////////////////////////////////////////////////////
+#IGNORE#
+#IGNORE#
+#IGNORE#
+#IGNORE#
+////////////////////////////////////////////////////////////////////////////////
+
 module top(input i0, input [31:0] i1, output o, input [31:0] i2, output o_0, output o_1,
  output o_2, output o_3, output o_4, output o_5, output o_6, output o_7, output o_8,
  output o_9, output o_10, output o_11, output o_12, output o_13, output o_14, output o_15,
