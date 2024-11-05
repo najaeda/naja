@@ -579,7 +579,7 @@ std::string SNLInstance::getString() const {
 std::string SNLInstance::getDescription() const {
   return "<" + std::string(getTypeName())
     + " " + name_.getString()
-    + " " + std::to_string(getID());
+    + " " + std::to_string(getID())
     + " " + design_->getName().getString()
     + " " + model_->getName().getString()
     + ">";  
