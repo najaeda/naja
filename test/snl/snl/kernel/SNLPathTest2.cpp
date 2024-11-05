@@ -82,6 +82,8 @@ TEST_F(SNLPathTest2, testCompare) {
   EXPECT_EQ(uniquifier0 > uniquifier1, false);
   EXPECT_EQ(uniquifier0 <= uniquifier1, true);
   EXPECT_EQ(uniquifier0 >= uniquifier1, false);
+
+  EXPECT_NE(uniquifier0.getString(), uniquifier1.getString());
 }
 
 TEST_F(SNLPathTest2, testDestroy0) {
