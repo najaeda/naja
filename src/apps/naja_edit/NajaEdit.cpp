@@ -20,6 +20,7 @@
 
 #include "NajaVersion.h"
 #include "NajaPerf.h"
+#include "NajaUtils.h"
 
 #include "SNLException.h"
 #include "SNLPyEdit.h"
@@ -140,7 +141,17 @@ int main(int argc, char* argv[]) {
 
   if (program.is_used("--log")) {
     auto logName = program.get<std::string>("--log");
-    auto file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(logName, true);
+    {
+      std::ofstream logFile(logName, std::ios::out);
+      if (logFile.is_open()) {
+        std::string bannerTitle = "naja_edit " + NAJA_EDIT_VERSION;
+        std::ostringstream bannerStream;
+        naja::NajaUtils::createBanner(logFile, bannerTitle, "#");
+        logFile << std::endl;
+        logFile.close();
+      }
+    }
+    auto file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(logName);
     file_sink->set_level(spdlog::level::trace);
     sinks.push_back(file_sink);
   }
@@ -151,11 +162,6 @@ int main(int argc, char* argv[]) {
 
   spdlog::set_default_logger(edit_logger);
   spdlog::flush_every(std::chrono::seconds(3));
-  SPDLOG_INFO("########################################################");
-  SPDLOG_INFO("naja_edit {}", NAJA_EDIT_VERSION);
-  SPDLOG_INFO("naja version: {}", naja::NAJA_VERSION);
-  SPDLOG_INFO("Git hash: {}", naja::NAJA_GIT_HASH);
-  SPDLOG_INFO("########################################################");
 
   bool argError = false;
 
