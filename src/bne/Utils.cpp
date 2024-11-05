@@ -103,9 +103,9 @@ namespace naja::BNE
   {
     // LCOV_EXCL_START
     std::string fullPath;
-    for (auto inst : pathUniq_)
+    for (auto id : path_)
     {
-      fullPath += inst->getName().getString() + "/";
+      fullPath += std::to_string(id) + "/";
     }
     return fullPath;
     // LCOV_EXCL_STOP
