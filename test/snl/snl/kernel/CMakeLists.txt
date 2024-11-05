@@ -32,7 +32,7 @@ ADD_EXECUTABLE(snlTestsWithPyLoader ${snl_tests_with_pyloader})
 target_compile_definitions(snlTestsWithPyLoader PRIVATE
   SNL_BENCHS_PATH="${CMAKE_CURRENT_SOURCE_DIR}/benchs")
 
-TARGET_LINK_LIBRARIES(snlTests naja_snl naja_bne gmock gtest_main)
+TARGET_LINK_LIBRARIES(snlTests naja_snl gmock gtest_main)
 TARGET_LINK_LIBRARIES(snlTestsWithPyLoader naja_snl_pyloader gmock gtest_main)
 
 GTEST_DISCOVER_TESTS(snlTests)
