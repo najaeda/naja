@@ -7,6 +7,9 @@
 #include "SNLUniverse.h"
 #include "SNLPath.h"
 #include "SNLException.h"
+
+#include "Utils.h"
+
 using namespace naja::SNL;
 
 class SNLPathTest2: public ::testing::Test {
@@ -62,6 +65,23 @@ TEST_F(SNLPathTest2, testCompare) {
   EXPECT_EQ(path0.getModel(), path1.getModel());
   EXPECT_NE(path0, path1);
   EXPECT_LT(path0, path1);
+
+  naja::BNE::SNLUniquifier uniquifier0(path0);
+  naja::BNE::SNLUniquifier uniquifier1(path1);
+
+  //Test Uniquifier comparators
+  EXPECT_EQ(uniquifier0 == uniquifier0, true);
+  EXPECT_EQ(uniquifier0 != uniquifier0, false);
+  EXPECT_EQ(uniquifier0 < uniquifier0, false);
+  EXPECT_EQ(uniquifier0 > uniquifier0, false);
+  EXPECT_EQ(uniquifier0 <= uniquifier0, true);
+  EXPECT_EQ(uniquifier0 >= uniquifier0, true);
+  EXPECT_EQ(uniquifier0 == uniquifier1, false);
+  EXPECT_EQ(uniquifier0 != uniquifier1, true);
+  EXPECT_EQ(uniquifier0 < uniquifier1, true);
+  EXPECT_EQ(uniquifier0 > uniquifier1, false);
+  EXPECT_EQ(uniquifier0 <= uniquifier1, true);
+  EXPECT_EQ(uniquifier0 >= uniquifier1, false);
 }
 
 TEST_F(SNLPathTest2, testDestroy0) {

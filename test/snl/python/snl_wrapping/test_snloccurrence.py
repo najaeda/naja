@@ -73,6 +73,10 @@ class SNLOccurrenceTest(unittest.TestCase):
     with self.assertRaises(RuntimeError) as context: snl.SNLInstTermOccurrence(path1)
     with self.assertRaises(RuntimeError) as context: snl.SNLInstTermOccurrence(-1, -1, -1)
     with self.assertRaises(RuntimeError) as context: snl.SNLInstTermOccurrence(path1, path1)
+
+    with self.assertRaises(RuntimeError) as context: snl.SNLUniquifier("ERROR")
+    with self.assertRaises(RuntimeError) as context: snl.SNLUniquifier()
+    with self.assertRaises(RuntimeError) as context: snl.SNLUniquifier("ERROR", "ERROR")
     
 if __name__ == '__main__':
   unittest.main()
