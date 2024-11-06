@@ -19,6 +19,7 @@ SNLSharedPath::SNLSharedPath(SNLInstance* tailInstance, SNLSharedPath* headShare
     std::ostringstream stream;
     stream << "Cannot construct Path with incompatible headPath: ";
     stream << headSharedPath_->getString();
+    stream << " with model " << headSharedPath_->getModel()->getString();
     stream << " and " << tailInstance->getString();
     stream << " with parent design: " << tailInstance->getDesign()->getString();
     throw SNLException(stream.str());

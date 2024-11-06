@@ -76,7 +76,16 @@ SNLPath SNLOccurrence::getPath() const {
   return SNLPath();
 }
 
-std::string SNLOccurrence::getString() const {
+std::string SNLOccurrence::getString(const char separator) const {
+  std::ostringstream oss;
+  oss << getPath().getString(separator);
+  if (object_) {
+    oss << separator << object_->getString();
+  }
+  return oss.str();
+}
+
+std::string SNLOccurrence::getDescription() const {
   std::ostringstream oss;
   oss << "Occurrence: ";
   if (object_) {

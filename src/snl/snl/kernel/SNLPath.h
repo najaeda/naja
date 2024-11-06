@@ -125,6 +125,8 @@ class SNLPath {
      */
     std::string getString(const char separator='/') const;
 
+    std::string getDescription(const char separator='/') const;
+
   private:
     static SNLSharedPath* createInstanceSharedPath(SNLInstance* instance);
     SNLSharedPath* getSharedPath() const { return sharedPath_; }
