@@ -39,7 +39,6 @@ namespace naja::BNE
     // LCOV_EXCL_STOP
 #endif
     SNLDesign *currentDesign = SNLUniverse::get()->getTopDesign();
-    ;
     for (size_t i = 0; i < path_.size(); i++)
     {
 #ifdef DEBUG_PRINTS
