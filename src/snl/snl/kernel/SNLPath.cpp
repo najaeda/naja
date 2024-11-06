@@ -192,6 +192,15 @@ bool SNLPath::operator>=(const SNLPath& path) const {
 //LCOV_EXCL_START
 std::string SNLPath::getString(const char separator) const {
   if (sharedPath_) {
+    return sharedPath_->getString(separator);
+  }
+  return std::string();
+}
+//LCOV_EXCL_STOP
+
+//LCOV_EXCL_START
+std::string SNLPath::getDescription(const char separator) const {
+  if (sharedPath_) {
     return "<" + sharedPath_->getString(separator) + ">";
   }
   return "<>";

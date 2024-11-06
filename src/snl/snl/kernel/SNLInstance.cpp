@@ -568,12 +568,10 @@ const char* SNLInstance::getTypeName() const {
 
 //LCOV_EXCL_START
 std::string SNLInstance::getString() const {
-  std::ostringstream str; 
   if (not isAnonymous()) {
-    str << getName().getString();
+    return getName().getString();
   }
-  str << "(" << getID() << ")";
-  return str.str();
+  return std::string();
 }
 //LCOV_EXCL_STOP
 
@@ -581,6 +579,7 @@ std::string SNLInstance::getString() const {
 std::string SNLInstance::getDescription() const {
   return "<" + std::string(getTypeName())
     + " " + name_.getString()
+    + " " + std::to_string(getID())
     + " " + design_->getName().getString()
     + " " + model_->getName().getString()
     + ">";  
