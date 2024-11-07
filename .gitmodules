@@ -7,3 +7,6 @@
 [submodule "thirdparty/cpptrace"]
 	path = thirdparty/cpptrace
 	url = https://github.com/jeremy-rifkin/cpptrace
+[submodule "thirdparty/imgui"]
+	path = thirdparty/imgui
+	url = https://github.com/ocornut/imgui.git

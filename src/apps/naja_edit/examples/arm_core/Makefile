@@ -26,6 +26,10 @@ arm_core_snl/snl.mf: arm_core_netlist.v
 	export PYTHONPATH=${SET_PYTHONPATH}; \
 	${PYTHON_ENV} ${NAJA_EDIT} -f verilog -t snl -i $< -o arm_core_snl -p ${PRIMITIVES}
 
+gui: arm_core_snl/snl.mf
+	export PYTHONPATH=${SET_PYTHONPATH}; \
+	../../../../../build/src/gui/naja_gui -f snl -i arm_core_snl
+
 edges.list: arm_core_snl/snl.mf gen_edge_list.py
 	export PYTHONPATH=${SET_PYTHONPATH}; \
 	${NAJA_EDIT} -f snl -i arm_core_snl -e gen_edge_list.py

@@ -77,6 +77,8 @@ find_package(TBB REQUIRED)
 find_package(Boost REQUIRED)
 find_package(Python3 3.9...<3.99 COMPONENTS Development Interpreter REQUIRED)
 find_package(CapnProto CONFIG REQUIRED)
+find_package(glfw3 REQUIRED)
+find_package(GLEW REQUIRED)
 endif(NOT BUILD_ONLY_DOC)
 
 if(PROJECT_IS_TOP_LEVEL)

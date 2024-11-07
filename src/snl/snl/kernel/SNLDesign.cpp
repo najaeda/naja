@@ -488,6 +488,11 @@ NajaCollection<SNLNet*> SNLDesign::getNets() const {
   return NajaCollection(new NajaIntrusiveSetCollection(&nets_));
 }
 
+NajaCollection<SNLNet*> SNLDesign::getNonAssignConstantNets() const {
+  auto filter = [](const SNLNet* net) { return not net->isAssignConstant(); };
+  return getNets().getSubCollection(filter);
+}
+
 NajaCollection<SNLBusNet*> SNLDesign::getBusNets() const {
   return getNets().getSubCollection<SNLBusNet*>();
 }

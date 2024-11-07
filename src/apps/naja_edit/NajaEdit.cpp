@@ -13,28 +13,25 @@
 #define SPDLOG_ACTIVE_LEVEL SPDLOG_LEVEL_INFO
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/basic_file_sink.h> // support for basic file logging
-
 #include <spdlog/sinks/stdout_color_sinks.h>
-#include <spdlog/spdlog.h>
-#include <argparse/argparse.hpp>
 
 #include "NajaVersion.h"
 #include "NajaPerf.h"
 #include "NajaUtils.h"
 
-#include "SNLException.h"
+#include "SNLUniverse.h"
 #include "SNLPyEdit.h"
 #include "SNLPyLoader.h"
 #include "SNLUtils.h"
 #include "SNLLibertyConstructor.h"
 #include "SNLVRLConstructor.h"
 #include "SNLVRLDumper.h"
+#include "SNLException.h"
+#include "SNLCapnP.h"
 
 #include "ConstantPropagation.h"
 #include "DNL.h"
 #include "RemoveLoadlessLogic.h"
-#include "SNLCapnP.h"
-#include "SNLUniverse.h"
 #include "Reduction.h"
 #include "Utils.h"
 #include "NetlistGraph.h"
@@ -75,8 +72,6 @@ OptimizationType argToOptimizationType(const std::string& optimization) {
   }
 }
 
-using Paths = std::vector<std::filesystem::path>;
-
 const std::string NAJA_EDIT_MAJOR("0");
 const std::string NAJA_EDIT_MINOR("1");
 const std::string NAJA_EDIT_REVISION("0");
@@ -116,8 +111,8 @@ int main(int argc, char* argv[]) {
     .default_value(std::string("naja_edit.log"))
     .help("Dump log file (default name: naja_edit.log)");
   program.add_argument("-s", "--stats")
-    .default_value(std::string("naja_stats.log"))
-    .help("Dump stats log file named: naja_stats.log");
+    .default_value(std::string("naja_edit.stats"))
+    .help("Dump stats log file named: naja_edit.stats");
 
   try {
     program.parse_args(argc, argv);
@@ -204,6 +199,9 @@ int main(int argc, char* argv[]) {
     argError = true;
   }
 
+
+  using Paths = std::vector<std::filesystem::path>;
+
   Paths primitivesPaths;
   if (auto primitives = program.present("-p")) {
     if (inputFormatType == FormatType::SNL) {
@@ -243,7 +241,6 @@ int main(int argc, char* argv[]) {
   using StringPaths = std::vector<std::string>;
   StringPaths inputStringPaths = program.get<StringPaths>("-i");
 
-  using Paths = std::vector<std::filesystem::path>;
   Paths inputPaths;
   std::transform(inputStringPaths.begin(), inputStringPaths.end(),
                  std::back_inserter(inputPaths),

@@ -182,6 +182,7 @@ class SNLDesign final: public SNLObject {
     SNLBusNet* getBusNet(SNLID::DesignObjectID id) const;
     /// \return SNLBusNet with SNLName name or nullptr if it does not exist.
     SNLBusNet* getBusNet(const SNLName& netName) const;
+
     /// \return the collection of SNLNet of this SNLDesign.
     NajaCollection<SNLNet*> getNets() const;
 
@@ -198,6 +199,8 @@ class SNLDesign final: public SNLObject {
      * \see getBusNets()
      */
     NajaCollection<SNLScalarNet*> getScalarNets() const;
+
+    NajaCollection<SNLNet*> getNonAssignConstantNets() const;
     
     /// \return the collection of SNLBitNet of this SNLDesign (SNLScalarNet and flattened SNLBusNet to SNLBusNetBit).
     NajaCollection<SNLBitNet*> getBitNets() const;
