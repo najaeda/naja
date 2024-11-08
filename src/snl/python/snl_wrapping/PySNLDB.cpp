@@ -52,41 +52,7 @@ static PyObject* PySNLDB_loadSNL(PyObject*, PyObject* args) {
   SNLDB* db = nullptr;
   const std::filesystem::path path(PyUnicode_AsUTF8(arg));
   SNLUniverse::create();
-  SNLTRY
-  db = SNLCapnP::load(path);
-  SNLUniverse::get()->setTopDesign(db->getTopDesign());  
-  SNLCATCH
-  return PySNLDB_Link(db);
-}
-
-void PySNLDB_dumpSNL(PySNLDB* self, PyObject* args) {
-  PyObject* arg = nullptr;
-  if (not PyArg_ParseTuple(args, "O:SNLDB.create", &arg)) {
-    setError("malformed SNLDB create");
-    return;
-  }
-  if (not PyUnicode_Check(arg)) {
-    setError("SNLDB loadSNL argument should be a file path");
-    return;
-  }
-  SNLCapnP::dump(self->object_, PyUnicode_AsUTF8(arg));
-  return;
-}
-
-static PyObject* PySNLDB_loadSNL(PyObject*, PyObject* args) {
-  PyObject* arg = nullptr;
-  if (not PyArg_ParseTuple(args, "O:SNLDB.create", &arg)) {
-    setError("malformed SNLDB create");
-    return nullptr;
-  }
-  if (not PyUnicode_Check(arg)) {
-    setError("SNLDB loadSNL argument should be a file path");
-    return nullptr;
-  }
-  SNLDB* db = nullptr;
-  const std::filesystem::path path(PyUnicode_AsUTF8(arg));
-  SNLUniverse::create();
-  SNLTRY
+  TRY
   db = SNLCapnP::load(path);
   SNLUniverse::get()->setTopDesign(db->getTopDesign());  
   SNLCATCH
