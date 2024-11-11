@@ -65,14 +65,11 @@ void PySNLDB_dumpSNL(PySNLDB* self, PyObject* args) {
   PyObject* arg = nullptr;
   if (not PyArg_ParseTuple(args, "O:SNLDB.dumpSNL", &arg)) {
     setError("malformed SNLDB dumpSNL");
-    return;
   }
   if (not PyUnicode_Check(arg)) {
     setError("SNLDB dumpSNL argument should be a file path");
-    return;
   }
   SNLCapnP::dump(self->object_, PyUnicode_AsUTF8(arg));
-  return;
 }
 
 GetObjectByName(SNLDB, SNLLibrary, getLibrary)
