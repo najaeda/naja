@@ -64,7 +64,6 @@ namespace PYSNL
     }
     TRY
         db = SNLCapnP::load(path);
-    // SNLUniverse::get()->setTopDesign(db->getTopDesign());
     SNLCATCH
     return PySNLDB_Link(db);
   }

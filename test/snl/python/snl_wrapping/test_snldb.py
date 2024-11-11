@@ -20,11 +20,17 @@ class SNLDBTest(unittest.TestCase):
     db = snl.SNLDB.create(u) 
     self.assertIsNotNone(db)
     db.dumpSNL("./test_snl")
+    with self.assertRaises(SystemError) as context: db.dumpSNL(u)
+    with self.assertRaises(SystemError) as context: db.dumpSNL()
     del db    
 
   def testLoad(self):
     u = snl.SNLUniverse.get()
     self.assertIsNotNone(u)
+    db1 = snl.SNLDB.loadSNL("./test_snl")
+    self.assertIsNotNone(db1)
+    del db1
+    snl.SNLUniverse.get().destroy()
     db1 = snl.SNLDB.loadSNL("./test_snl")
     self.assertIsNotNone(db1)
     del db1
@@ -44,8 +50,7 @@ class SNLDBTest(unittest.TestCase):
     u.destroy()
     with self.assertRaises(RuntimeError) as context: snl.SNLDB.create(u)
     with self.assertRaises(RuntimeError) as context: snl.SNLDB.loadSNL()
-    #with self.assertRaises(RuntimeError) as context: db.dumpSNL()
-
+    
 if __name__ == '__main__':
   faulthandler.enable()
   unittest.main()
