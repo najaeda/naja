@@ -66,6 +66,45 @@ FormatType argToFormatType(const std::string& inputFormat) {
   }
 }
 
+void drawSchematicViewer(const SNLDesign* top) {
+  ImGui::Begin("Schematic Viewer");
+
+  // Setup canvas
+  ImDrawList* drawList = ImGui::GetWindowDrawList();
+  ImVec2 canvasP0 = ImGui::GetCursorScreenPos();
+  ImVec2 canvasSz = ImGui::GetContentRegionAvail();
+  drawList->AddRectFilled(canvasP0, ImVec2(canvasP0.x + canvasSz.x, canvasP0.y + canvasSz.y), IM_COL32(50, 50, 50, 255));
+
+#if 0
+  // Adjust pan and zoom
+  ImVec2 offset = ImVec2(panOffset.x + canvasP0.x, panOffset.y + canvasP0.y);
+
+  for (const Node& node : nodes) {
+    // Apply zoom and pan transformations
+    ImVec2 nodePos = (node.position * zoomFactor) + offset;
+    drawList->AddRectFilled(nodePos, ImVec2(nodePos.x + NODE_WIDTH * zoomFactor, nodePos.y + NODE_HEIGHT * zoomFactor), IM_COL32(200, 200, 200, 255));
+        
+    for (const Pin& pin : node.inputs) {
+      ImVec2 pinPos = (pin.position * zoomFactor) + nodePos;
+      drawList->AddCircleFilled(pinPos, PIN_RADIUS * zoomFactor, IM_COL32(255, 100, 100, 255));
+    }
+    for (const Pin& pin : node.outputs) {
+      ImVec2 pinPos = (pin.position * zoomFactor) + nodePos;
+      drawList->AddCircleFilled(pinPos, PIN_RADIUS * zoomFactor, IM_COL32(100, 255, 100, 255));
+    }
+  }
+
+  // Draw connections
+  for (const Connection& connection : connections) {
+    ImVec2 p1 = getPinPosition(connection.outputNodeId, connection.outputPinId);
+    ImVec2 p2 = getPinPosition(connection.inputNodeId, connection.inputPinId);
+    drawList->AddLine((p1 * zoomFactor) + offset, (p2 * zoomFactor) + offset, IM_COL32(150, 150, 250, 255), 2.0f * zoomFactor);
+  }
+#endif
+
+  ImGui::End();
+}
+
 void showInstanceHierarchy(const naja::SNL::SNLDesign* design) {
   if (!design) return;
 
@@ -401,6 +440,7 @@ int main(int argc, char* argv[]) {
       ImGui::NewFrame();
 
       showTopHierarchy(top);
+      drawSchematicViewer(top);
 
       // Rendering
       ImGui::Render();

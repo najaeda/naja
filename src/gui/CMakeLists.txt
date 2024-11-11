@@ -2,7 +2,9 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-add_executable(naja_gui Naja.cpp
+set(SOURCES Schematic.cpp Naja.cpp)
+
+add_executable(naja_gui ${SOURCES}
   ${CMAKE_SOURCE_DIR}/thirdparty/imgui/imgui.cpp
   ${CMAKE_SOURCE_DIR}/thirdparty/imgui/imgui_draw.cpp
   ${CMAKE_SOURCE_DIR}/thirdparty/imgui/imgui_widgets.cpp
