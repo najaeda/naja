@@ -25,7 +25,7 @@ set(SOURCES
 )
 
 Python3_add_library(naja_snl_python SHARED ${SOURCES})
-target_link_libraries(naja_snl_python PUBLIC naja_snl_verilog naja_bne naja_snl_dump)
+target_link_libraries(naja_snl_python PUBLIC naja_snl_verilog naja_bne naja_snl_dump naja_snl_liberty)
 target_include_directories(naja_snl_python PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 Python3_add_library(snl MODULE PySNL.cpp)
