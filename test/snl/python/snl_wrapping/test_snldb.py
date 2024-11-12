@@ -31,6 +31,8 @@ class SNLDBTest(unittest.TestCase):
     primitives = ["../../../../../test/snl/formats/liberty/benchmarks/asap7_excerpt/test0.lib"]
     db = snl.SNLDB.loadVerilog(primitives, designs)
     db.dumpVerilog("./test_verilog")
+    with self.assertRaises(SystemError) as context: db.dumpVerilog()
+    with self.assertRaises(SystemError) as context: db.dumpVerilog(-1)
     del db  
 
   def testLoad(self):
@@ -54,9 +56,17 @@ class SNLDBTest(unittest.TestCase):
     with self.assertRaises(RuntimeError) as context: snl.SNLDB.create("ERROR")
     with self.assertRaises(RuntimeError) as context: snl.SNLDB.loadSNL(u)
     u.destroy()
+    primitives = [1]
+    designs = [2]
+    primitivesCorrect = ["../../../../../test/snl/formats/liberty/benchmarks/asap7_excerpt/test0.lib"]
     with self.assertRaises(RuntimeError) as context: snl.SNLDB.create(u)
     with self.assertRaises(RuntimeError) as context: snl.SNLDB.loadSNL()
     with self.assertRaises(RuntimeError) as context: snl.SNLDB.loadSNL("./error")
+    with self.assertRaises(RuntimeError) as context: snl.SNLDB.loadVerilog("Error", "Error", "Error")
+    with self.assertRaises(RuntimeError) as context: snl.SNLDB.loadVerilog(primitivesCorrect, "Error")
+    with self.assertRaises(RuntimeError) as context: snl.SNLDB.loadVerilog("Error", "Error")
+    with self.assertRaises(RuntimeError) as context: snl.SNLDB.loadVerilog(primitives, designs)
+    with self.assertRaises(RuntimeError) as context: snl.SNLDB.loadVerilog(primitivesCorrect, designs)
     
 if __name__ == '__main__':
   faulthandler.enable()
