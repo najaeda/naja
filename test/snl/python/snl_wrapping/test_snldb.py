@@ -27,8 +27,8 @@ class SNLDBTest(unittest.TestCase):
   def testVerilog(self):
     u = snl.SNLUniverse.get()
     self.assertIsNotNone(u)
-    designs = ["../../formats/verilog/benchmarks/test0.v"]
-    primitives = ["../../formats/liberty/benchmarks/asap7_excerpt/test0.lib"]
+    designs = ["../../../../../test/snl/formats/verilog/benchmarks/test0.v"]
+    primitives = ["../../../../../test/snl/formats/liberty/benchmarks/asap7_excerpt/test0.lib"]
     db = snl.SNLDB.loadVerilog(primitives, designs)
     db.dumpVerilog("./test_verilog")
     del db  
