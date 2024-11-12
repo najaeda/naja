@@ -23,14 +23,19 @@ class SNLDBTest(unittest.TestCase):
     with self.assertRaises(SystemError) as context: db.dumpSNL(u)
     with self.assertRaises(SystemError) as context: db.dumpSNL()
     del db    
+  
+  def testVerilog(self):
+    u = snl.SNLUniverse.get()
+    self.assertIsNotNone(u)
+    designs = ["../../formats/verilog/benchmarks/test0.v"]
+    primitives = ["../../formats/liberty/benchmarks/asap7_excerpt/test0.lib"]
+    db = snl.SNLDB.loadVerilog(primitives, designs)
+    db.dumpVerilog("./test_verilog")
+    del db  
 
   def testLoad(self):
     u = snl.SNLUniverse.get()
     self.assertIsNotNone(u)
-    db1 = snl.SNLDB.loadSNL("./test_snl")
-    self.assertIsNotNone(db1)
-    del db1
-    snl.SNLUniverse.get().destroy()
     db1 = snl.SNLDB.loadSNL("./test_snl")
     self.assertIsNotNone(db1)
     del db1
@@ -44,7 +49,7 @@ class SNLDBTest(unittest.TestCase):
 
   def testCreationError(self):
     u = snl.SNLUniverse.get()
-    #db = snl.SNLDB.create(u) 
+    db = snl.SNLDB.create(u) 
     with self.assertRaises(RuntimeError) as context: snl.SNLDB.create()
     with self.assertRaises(RuntimeError) as context: snl.SNLDB.create("ERROR")
     with self.assertRaises(RuntimeError) as context: snl.SNLDB.loadSNL(u)
