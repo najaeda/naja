@@ -101,7 +101,7 @@ static PyObject* PySNLDB_loadVerilog(PyObject*, PyObject* args) {
   for (int i = 0; i < PyList_Size(arg0); ++i) {
     PyObject* object = PyList_GetItem(arg0, i);
     if (not PyUnicode_Check(object)) {
-      setError("SNLDB loadSNL argument should be a file path");
+      setError("SNLDB loadVerilog argument should be a file path");
       return nullptr;
     }
     std::string pathStr = PyUnicode_AsUTF8(object);
@@ -109,14 +109,16 @@ static PyObject* PySNLDB_loadVerilog(PyObject*, PyObject* args) {
 
     auto extension = path.extension();
     if (extension.empty()) {
-      std::exit(EXIT_FAILURE);
-    } else if (extension == ".py") {
-      SNLPyLoader::loadPrimitives(primitivesLibrary, path);
+      setError("SNLDB loadVerilog design path has no extension");
+      return nullptr;
+    /*} else if (extension == ".py") {
+      SNLPyLoader::loadPrimitives(primitivesLibrary, path);*/
     } else if (extension == ".lib") {
       SNLLibertyConstructor constructor(primitivesLibrary);
       constructor.construct(path);
     } else {
-      std::exit(EXIT_FAILURE);
+      setError("SNLDB loadVerilog");
+      return nullptr;
     }
   }
 
@@ -146,12 +148,12 @@ static PyObject* PySNLDB_loadVerilog(PyObject*, PyObject* args) {
 
 PyObject* PySNLDB_dumpVerilog(PySNLDB* self, PyObject* args) {
   PyObject* arg = nullptr;
-  if (not PyArg_ParseTuple(args, "O:SNLDB.dumpSNL", &arg)) {
-    setError("malformed SNLDB dumpSNL");
+  if (not PyArg_ParseTuple(args, "O:SNLDB.dumpVerilog", &arg)) {
+    setError("malformed SNLDB dumpVerilog");
     Py_RETURN_FALSE;
   }
   if (not PyUnicode_Check(arg)) {
-    setError("SNLDB dumpSNL argument should be a file path");
+    setError("SNLDB dumpVerilog argument should be a file path");
     Py_RETURN_FALSE;
   }
   std::ofstream output(PyUnicode_AsUTF8(arg));
