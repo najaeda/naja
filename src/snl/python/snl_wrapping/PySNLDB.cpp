@@ -16,7 +16,6 @@
 #include <filesystem>
 #include "SNLCapnP.h"
 #include "SNLLibertyConstructor.h"
-#include "SNLPyLoader.h"
 #include "SNLUtils.h"
 #include "SNLVRLConstructor.h"
 #include "SNLVRLDumper.h"
