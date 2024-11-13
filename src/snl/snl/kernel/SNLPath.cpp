@@ -177,8 +177,29 @@ bool SNLPath::operator<(const SNLPath& path) const {
   return false;
 }
 
+bool SNLPath::operator<=(const SNLPath& path) const {
+  return *this < path or *this == path;
+}
+
+bool SNLPath::operator>(const SNLPath& path) const {
+  return not (*this <= path);
+}
+
+bool SNLPath::operator>=(const SNLPath& path) const {
+  return not (*this < path);
+}
+
 //LCOV_EXCL_START
 std::string SNLPath::getString(const char separator) const {
+  if (sharedPath_) {
+    return sharedPath_->getString(separator);
+  }
+  return std::string();
+}
+//LCOV_EXCL_STOP
+
+//LCOV_EXCL_START
+std::string SNLPath::getDescription(const char separator) const {
   if (sharedPath_) {
     return "<" + sharedPath_->getString(separator) + ">";
   }

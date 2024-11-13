@@ -30,6 +30,9 @@ using namespace naja::SNL;
 #ifndef SNL_VRL_DUMPER_REFERENCES_PATH
 #define SNL_VRL_DUMPER_REFERENCES_PATH "Undefined"
 #endif
+#ifndef NAJA_DIFF
+#define NAJA_DIFF "Undefined"
+#endif
 
 //Test assigns
 class SNLVRLDumperTestEscaping: public ::testing::Test {
@@ -43,6 +46,7 @@ class SNLVRLDumperTestEscaping: public ::testing::Test {
       auto t1 = SNLScalarTerm::create(model0, SNLTerm::Direction::Input, SNLName("12t1@"));
       auto t2 = SNLBusTerm::create(model0, SNLTerm::Direction::Input, 3, 0, SNLName("3 4"));
       auto t3 = SNLBusTerm::create(model0, SNLTerm::Direction::Input, -5, 2, SNLName("##"));
+      auto t4 = SNLScalarTerm::create(model0, SNLTerm::Direction::Input, SNLName("___$$"));
       SNLDesign* top = SNLDesign::create(library, SNLName("design@"));
       universe->setTopDesign(top);
 
@@ -51,10 +55,12 @@ class SNLVRLDumperTestEscaping: public ::testing::Test {
       auto n1 = SNLScalarNet::create(top, SNLName("[n1]"));
       auto n2 = SNLBusNet::create(top, 3, 0, SNLName("3 4"));
       auto n3 = SNLBusNet::create(top, -5, 2, SNLName("##"));
+      auto n4 = SNLScalarNet::create(top, SNLName("_$$__"));
       ins->setTermNet(t0, n0);
       ins->setTermNet(t1, n1);
       ins->setTermNet(t2, n2);
       ins->setTermNet(t3, n3);
+      ins->setTermNet(t4, n4);
     }
     void TearDown() override {
       SNLUniverse::get()->destroy();
@@ -78,10 +84,12 @@ TEST_F(SNLVRLDumperTestEscaping, test) {
   dumper.setSingleFile(true);
   dumper.dumpDesign(top, outPath);
 
+  outPath = outPath / (top->getName().getString() + ".v");
+
   auto fileName = top->getName().getString() + ".v"; 
   std::filesystem::path referencePath(SNL_VRL_DUMPER_REFERENCES_PATH);
   referencePath = referencePath / "testEscaping" / fileName;
   ASSERT_TRUE(std::filesystem::exists(referencePath));
-  std::string command = "diff " + outPath.string() + " " + referencePath.string();
+  std::string command = std::string(NAJA_DIFF) + " " + outPath.string() + " " + referencePath.string();
   EXPECT_FALSE(std::system(command.c_str()));
 }

@@ -23,6 +23,12 @@ class SNLScalarTerm;
 class SNLBusTerm;
 class SNLBusTermBit;
 
+/**
+ * @class SNLDesign
+ * @brief A SNLDesign has a dual role. It serves as a model for instances (SNLInstance::getModel) 
+ * and contains instances (SNLInstance::getDesign). 
+ * SNLDesign manages the terms, instances, nets, and parameters associated with an SNLDesign.
+ */
 class SNLDesign final: public SNLObject {
   public:
     friend class SNLLibrary;
@@ -233,9 +239,31 @@ class SNLDesign final: public SNLObject {
     ///\return true if this SNLDesign is a top design.
     bool isTopDesign() const;
 
+    /**
+     * \brief Cloning interface for SNLDesign.
+     * \param name SNLName of the the clone.
+     * \return a new SNLDesign with the same interface as this SNLDesign.
+     */
     SNLDesign* cloneInterface(const SNLName& name=SNLName()) const;
+    /**
+     * \brief Cloning interface for SNLDesign to a specific SNLLibrary.
+     * \param library SNLLibrary where the clone will be created.
+     * \param name SNLName of the the clone.
+     * \return a new SNLDesign with the same interface as this SNLDesign.
+     */
     SNLDesign* cloneInterfaceToLibrary(SNLLibrary* library, const SNLName& name=SNLName()) const;
+    /**
+     * \brief Cloning for SNLDesign.
+     * \param name SNLName of the the clone.
+     * \return a new SNLDesign with the same interface and content as this SNLDesign.
+     */
     SNLDesign* clone(const SNLName& name=SNLName()) const;
+    /**
+     * \brief Cloning for SNLDesign to a specific SNLLibrary.
+     * \param library SNLLibrary where the clone will be created.
+     * \param name SNLName of the the clone.
+     * \return a new SNLDesign with the same interface and content as this SNLDesign.
+     */
     SNLDesign* cloneToLibrary(SNLLibrary* library, const SNLName& name=SNLName()) const;
 
     class CompareType {

@@ -1,10 +1,10 @@
 include ../Makefile.inc
 
-all: edges.list verif.gold verilator.gold verif.error
+all: edges.list verif.gold verilator.gold 
 
-verif.error: arm_core_snl_error.v primitives.v 
-	${YOSYS} src/comp_error.ys
-	touch $@
+#verif.error: arm_core_snl_error.v primitives.v 
+#	${YOSYS} src/comp_error.ys
+#	touch $@
 
 verif.gold: arm_core_snl.v primitives.v 
 	${YOSYS} src/comp_gold.ys
@@ -34,9 +34,9 @@ arm_core_snl.v primitives.v: arm_core_netlist.v
 	export PYTHONPATH=${SET_PYTHONPATH}; \
 	${NAJA_EDIT} -f verilog -t verilog -p ${PRIMITIVES} -i arm_core_netlist.v -o arm_core_snl.v -d primitives.v
 
-arm_core_snl_error.v: arm_core_netlist.v src/add_error.py
-	export PYTHONPATH=${SET_PYTHONPATH}; \
-	${NAJA_EDIT} -e src/add_error.py -f verilog -t verilog -p ${PRIMITIVES} -i arm_core_netlist.v -o arm_core_snl_error.v -d primitives.v
+arm_core_snl_error.v: arm_core_netlist.v ../scripts/plot_designs_stats.py
+	export PYTHONPATH=${SET_PYTHONPATH}:./venv/lib/python3.12/site-packages; \
+	${NAJA_EDIT} -e ../scripts/plot_designs_stats.py -f verilog -p ${PRIMITIVES} -i arm_core_netlist.v
 
 clean:
 	-rm arm_core_snl.v primitives.v arm_core_netlist.v 

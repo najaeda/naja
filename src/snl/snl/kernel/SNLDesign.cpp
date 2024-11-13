@@ -18,6 +18,7 @@
 #include "SNLScalarNet.h"
 #include "SNLBusNet.h"
 #include "SNLBusNetBit.h"
+#include "SNLAttributes.h"
 #include "SNLDB0.h"
 #include "SNLMacros.h"
 
@@ -540,9 +541,9 @@ bool SNLDesign::isAssign() const {
 }
 
 bool SNLDesign::deepCompare(
-      const SNLDesign* other,
-      std::string& reason,
-      CompareType type) const {
+  const SNLDesign* other,
+  std::string& reason,
+  CompareType type) const {
   if (type==CompareType::Complete and (getID() not_eq other->getID())) {
     return false; //LCOV_EXCL_LINE
   }
@@ -553,10 +554,10 @@ bool SNLDesign::deepCompare(
     return false; //LCOV_EXCL_LINE
   }
   DEEP_COMPARE_MEMBER(Terms)
+  DEEP_COMPARE_MEMBER(Nets)
   DEEP_COMPARE_MEMBER(Parameters)
   DEEP_COMPARE_MEMBER(Instances)
-  //FIXME Compare nets
-  return true;
+  return SNLAttributes::compareAttributes(this, other, reason);
 }
 
 SNLID SNLDesign::getSNLID() const {
@@ -618,6 +619,7 @@ SNLDesign* SNLDesign::cloneInterfaceToLibrary(SNLLibrary* library, const SNLName
     },
     [](SNLParameter*){} //LCOV_EXCL_LINE
   );
+  SNLAttributes::cloneAttributes(this, newDesign);
   return newDesign;
 }
 

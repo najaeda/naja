@@ -66,10 +66,12 @@ TEST_F(SNLVRLDumperTestLibraryDump, test0) {
   dumper.setLibraryFileName("primitives.v");
   dumper.dumpLibrary(lib, outPath);
 
+  outPath = outPath / "primitives.v";
+
   std::filesystem::path referencePath(SNL_VRL_DUMPER_REFERENCES_PATH);
   referencePath = referencePath / "testLibrary" / "primitives.v";
   ASSERT_TRUE(std::filesystem::exists(referencePath));
-  std::string command = "diff " + outPath.string() + " " + referencePath.string();
+  std::string command = std::string(NAJA_DIFF) + " " + outPath.string() + " " + referencePath.string();
   EXPECT_FALSE(std::system(command.c_str()));
 }
 

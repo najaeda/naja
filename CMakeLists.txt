@@ -4,6 +4,8 @@
 
 cmake_minimum_required(VERSION 3.21)
 
+message(STATUS "CMake version: ${CMAKE_VERSION}")
+
 project(naja
   VERSION 1.0.0
   HOMEPAGE_URL https://github.com/najaeda/naja
@@ -12,6 +14,9 @@ project(naja
 cmake_policy(SET CMP0048 NEW)
 if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.30")
   cmake_policy(SET CMP0167 OLD)
+endif()
+if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.24")
+  set(CMAKE_COMPILE_WARNING_AS_ERROR ON)
 endif()
 
 include(GNUInstallDirs)
@@ -32,6 +37,7 @@ set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 ######
 
 set(CMAKE_CXX_STANDARD 20)
+
 
 option(BUILD_ONLY_DOC "Only configure to build Doxygen documentation" OFF)
 

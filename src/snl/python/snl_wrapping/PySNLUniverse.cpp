@@ -18,7 +18,7 @@ using namespace naja::SNL;
 
 static PyObject* PySNLUniverse_create() {
   SNLUniverse* universe = nullptr;
-  SNLTRY
+  TRY
   universe = SNLUniverse::create();
   SNLCATCH
   return PySNLUniverse_Link(universe);

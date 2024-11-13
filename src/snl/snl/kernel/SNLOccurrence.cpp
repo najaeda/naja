@@ -57,11 +57,47 @@ bool SNLOccurrence::operator<(const SNLOccurrence& rhs) const {
     ((*getObject() == *rhs.getObject()) and (getPath() < rhs.getPath()));
 }
 
+bool SNLOccurrence::operator<=(const SNLOccurrence& rhs) const {
+  return (*this < rhs) or (*this == rhs);
+}
+
+bool SNLOccurrence::operator>(const SNLOccurrence& rhs) const {
+  return not (*this <= rhs);
+}
+
+bool SNLOccurrence::operator>=(const SNLOccurrence& rhs) const {
+  return not (*this < rhs);
+}
+
 SNLPath SNLOccurrence::getPath() const {
   if (path_) {
     return SNLPath(path_);
   }
   return SNLPath();
+}
+
+std::string SNLOccurrence::getString(const char separator) const {
+  std::ostringstream oss;
+  oss << getPath().getString(separator);
+  if (object_) {
+    oss << separator << object_->getString();
+  }
+  return oss.str();
+}
+
+std::string SNLOccurrence::getDescription() const {
+  std::ostringstream oss;
+  oss << "Occurrence: ";
+  if (object_) {
+    //LCOV_EXCL_START
+    oss << object_->getDescription();
+    //LCOV_EXCL_STOP
+  } else {
+    oss << "null";
+  }
+  oss << " at path: ";
+  oss << getPath().getString();
+  return oss.str();
 }
 
 }} // namespace SNL // namespace naja

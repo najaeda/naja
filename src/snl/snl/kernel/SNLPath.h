@@ -110,6 +110,12 @@ class SNLPath {
     bool operator!=(const SNLPath& rhs) const;
     /// \brief SNLPath less operator.
     bool operator<(const SNLPath& rhs) const;
+    /// \brief SNLPath less or equal operator.
+    bool operator<=(const SNLPath& rhs) const;
+    /// \brief SNLPath greater operator.
+    bool operator>(const SNLPath& rhs) const;
+    /// \brief SNLPath greater or equal operator.
+    bool operator>=(const SNLPath& rhs) const;
 
     /**
      * \return a string describing this SNLPath.
@@ -118,6 +124,8 @@ class SNLPath {
      * [A/B/C].getString('#') will return "A#B#C".
      */
     std::string getString(const char separator='/') const;
+
+    std::string getDescription(const char separator='/') const;
 
   private:
     static SNLSharedPath* createInstanceSharedPath(SNLInstance* instance);

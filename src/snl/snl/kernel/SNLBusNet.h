@@ -81,6 +81,7 @@ class SNLBusNet final: public SNLNet {
     const char* getTypeName() const override;
     std::string getString() const override;
     std::string getDescription() const override;
+    bool deepCompare(const SNLNet* other, std::string& reason) const override;
     void debugDump(size_t indent, bool recursive=true, std::ostream& stream=std::cerr) const override;
   private:
     SNLBusNet(

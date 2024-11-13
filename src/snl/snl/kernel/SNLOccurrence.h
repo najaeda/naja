@@ -45,6 +45,12 @@ class SNLOccurrence {
 
     bool operator==(const SNLOccurrence& occurrence) const;
     bool operator<(const SNLOccurrence& occurrence) const;
+    bool operator<=(const SNLOccurrence& occurrence) const;
+    bool operator>(const SNLOccurrence& occurrence) const;
+    bool operator>=(const SNLOccurrence& occurrence) const;
+
+    std::string getString(const char separator='/') const;
+    std::string getDescription() const;
 
 #if 0
     // Following methods can be removed if SNLOccurrence inherits

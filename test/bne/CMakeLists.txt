@@ -8,6 +8,8 @@ SET(sources
   BNETests.cpp
 )
 
-ADD_EXECUTABLE(BNETests ${sources})
+ADD_EXECUTABLE(bneTests ${sources})
 
-TARGET_LINK_LIBRARIES(BNETests naja_dnl naja_bne gmock gtest_main)
+TARGET_LINK_LIBRARIES(bneTests naja_dnl naja_bne gmock gtest_main)
+
+GTEST_DISCOVER_TESTS(bneTests)

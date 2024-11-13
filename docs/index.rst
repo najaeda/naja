@@ -23,5 +23,17 @@ Welcome to Naja's documentation!
 
    snl/index
 
+.. toctree::
+   :maxdepth: 2
+   :caption: DNL (Dissolved Netlist)
+
+   dnl/index
+
+.. toctree::
+   :maxdepth: 2
+   :caption: BNE (Batch Netlist Editor)
+
+   bne/index
+
 * :ref:`genindex`
 * :ref:`search`
