@@ -81,46 +81,60 @@ PyObject* PySNLDB_dumpSNL(PySNLDB* self, PyObject* args) {
   Py_RETURN_TRUE;
 }
 
-static PyObject* PySNLDB_loadVerilog(PyObject*, PyObject* args) {
+
+PyObject* PySNLDB_loadLibertyPrimitives(PySNLDB* self, PyObject* args) {
   PyObject* arg0 = nullptr;
-  PyObject* arg1 = nullptr;
-  if (not PyArg_ParseTuple(args, "OO:SNLDB.loadVerilog", &arg0, &arg1)) {
-    setError("malformed SNLDB loadVerilog");
-    return nullptr;
+  if (not PyArg_ParseTuple(args, "O:SNLDB.loadLibertyPrimitives", &arg0)) {
+    setError("malformed SNLDB loadLibertyPrimitives");
+    Py_RETURN_FALSE;
   }
-  if (not PyList_Check(arg0) || not PyList_Check(arg1)) {
-    setError("malformed SNLDesign.loadVerilog method");
-    return nullptr;
+  if (not PyList_Check(arg0)) {
+    setError("malformed SNLDesign.loadLibertyPrimitives method");
+    Py_RETURN_FALSE;
   }
   SNLDB* db = nullptr;
   SNLLibrary* primitivesLibrary = nullptr;
-  db = SNLDB::create(SNLUniverse::get());
-  primitivesLibrary =
+  db = self->object_;
+  primitivesLibrary = db->getLibrary(SNLName("PRIMS"));
+  if (primitivesLibrary == nullptr) {
+    primitivesLibrary =
       SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("PRIMS"));
+  }
   for (int i = 0; i < PyList_Size(arg0); ++i) {
     PyObject* object = PyList_GetItem(arg0, i);
     if (not PyUnicode_Check(object)) {
-      setError("SNLDB loadVerilog argument should be a file path");
-      return nullptr;
+      setError("SNLDB loadLibertyPrimitives argument should be a file path");
+      Py_RETURN_FALSE;
     }
     std::string pathStr = PyUnicode_AsUTF8(object);
     const std::filesystem::path path(pathStr);
 
     auto extension = path.extension();
     if (extension.empty()) {
-      setError("SNLDB loadVerilog design path has no extension");
-      return nullptr;
-    /*} else if (extension == ".py") {
-      SNLPyLoader::loadPrimitives(primitivesLibrary, path);*/
+      setError("SNLDB loadLibertyPrimitives design path has no extension");
+      Py_RETURN_FALSE;
     } else if (extension == ".lib") {
       SNLLibertyConstructor constructor(primitivesLibrary);
       constructor.construct(path);
     } else {
-      setError("SNLDB loadVerilog");
-      return nullptr;
+      setError("SNLDB loadLibertyPrimitives");
+      Py_RETURN_FALSE;
     }
   }
+  Py_RETURN_TRUE;
+}
 
+PyObject* PySNLDB_loadVerilog(PySNLDB* self, PyObject* args) {
+  PyObject* arg1 = nullptr;
+  if (not PyArg_ParseTuple(args, "O:SNLDB.loadVerilog", &arg1)) {
+    setError("malformed SNLDB loadVerilog");
+    Py_RETURN_FALSE;
+  }
+  if (not PyList_Check(arg1)) {
+    setError("malformed SNLDesign.loadVerilog method");
+    Py_RETURN_FALSE;
+  }
+  SNLDB* db = self->object_;
   auto designLibrary = SNLLibrary::create(db, SNLName("DESIGN"));
   SNLVRLConstructor constructor(designLibrary);
   using Paths = std::vector<std::filesystem::path>;
@@ -129,7 +143,7 @@ static PyObject* PySNLDB_loadVerilog(PyObject*, PyObject* args) {
     PyObject* object = PyList_GetItem(arg1, i);
     if (not PyUnicode_Check(object)) {
       setError("SNLDB loadSNL argument should be a file path");
-      return nullptr;
+      Py_RETURN_FALSE;
     }
     std::string pathStr = PyUnicode_AsUTF8(object);
     const std::filesystem::path path(pathStr);
@@ -142,7 +156,7 @@ static PyObject* PySNLDB_loadVerilog(PyObject*, PyObject* args) {
   } else {
     setError("No top design was found after parsing verilog");
   }
-  return PySNLDB_Link(db);
+  Py_RETURN_TRUE;
 }
 
 PyObject* PySNLDB_dumpVerilog(PySNLDB* self, PyObject* args) {
@@ -174,8 +188,10 @@ DBoDestroyAttribute(PySNLDB_destroy, PySNLDB)
                  METH_VARARGS | METH_STATIC, "create a SNLDB from SNL format."},
                 {"dumpSNL", (PyCFunction)PySNLDB_dumpSNL, METH_VARARGS,
                  "dump this SNLDB to SNL format."},
+                {"loadLibertyPrimitives", (PyCFunction)PySNLDB_loadLibertyPrimitives,
+                 METH_VARARGS, "import primitives from Liberty format."},
                 {"loadVerilog", (PyCFunction)PySNLDB_loadVerilog,
-                 METH_VARARGS | METH_STATIC, "create a SNLDB from SNL format."},
+                 METH_VARARGS, "create a design from Verilog format."},
                 {"dumpVerilog", (PyCFunction)PySNLDB_dumpVerilog, METH_VARARGS,
                  "dump this SNLDB to SNL format."},
                 {"getLibrary", (PyCFunction)PySNLDB_getLibrary, METH_VARARGS,
