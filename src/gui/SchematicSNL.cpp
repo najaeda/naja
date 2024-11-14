@@ -12,7 +12,6 @@ Schematic* SchematicSNL::constructFromSNLDesign(const naja::SNL::SNLDesign* desi
     auto node = new Node(schematic);
     for (auto term: model->getTerms()) {
       auto pin = new Pin(node, Pin::Direction::Input);
-      node->addPin(pin);
     }
   }
   return schematic;

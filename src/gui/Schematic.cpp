@@ -1,5 +1,19 @@
 #include "Schematic.h"
 
+Pin::Direction::Direction(const DirectionEnum& dirEnum):
+  dirEnum_(dirEnum) 
+{}
+
+//LCOV_EXCL_START
+std::string Pin::Direction::getString() const {
+  switch (dirEnum_) {
+    case Direction::Input: return "Input";
+    case Direction::Output: return "Output";
+  }
+  return "Unknown";
+}
+//LCOV_EXCL_STOP
+
 Pin::Pin(Node* node, const Direction& direction):
   node_(node),
   direction_(direction)

@@ -8,9 +8,9 @@ class Node;
 
 struct Position {
   Position() = default;
-  Position(float x, float y): x(x), y(y) {}
-  float x {0.0f};
-  float y {0.0f};
+  Position(float x, float y): x_(x), y_(y) {}
+  float x_  {0.0f};
+  float y_  {0.0f};
 };
 
 class Pin {
@@ -37,6 +37,7 @@ class Pin {
 
     Direction getDirection() const { return direction_; }
     void setPosition(const Position& position) { position_ = position; }
+    const Position& getPosition() const { return position_; }
   private:
     //int id;
     Node*     node_;
@@ -50,6 +51,9 @@ class Node {
 
     Node(Schematic* schematic);
     ~Node();
+
+    const Position& getPosition() const { return position_; }
+
     void layout();
   private:
     void addPin(Pin* pin);
@@ -78,7 +82,9 @@ class Schematic {
   public:
     friend class Node;
     Schematic() = default;
+
     using Nodes = std::vector<Node*>;
+    const Nodes& getNodes() const { return nodes_; }
     void breakLoops();
   private:
     void addNode(Node* node);
