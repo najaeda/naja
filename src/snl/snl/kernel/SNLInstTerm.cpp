@@ -84,11 +84,8 @@ const char* SNLInstTerm::getTypeName() const {
 //LCOV_EXCL_START
 std::string SNLInstTerm::getString() const {
   std::ostringstream str;
-  if (not getInstance()->isAnonymous()) {
-    str << getInstance()->getName().getString();
-  }
-  str << "(" << getInstance()->getID() << ")";
-  str << ":";
+  str << getInstance()->getString();
+  str << "/";
   str << getBitTerm()->getString();
   return str.str();
 }
