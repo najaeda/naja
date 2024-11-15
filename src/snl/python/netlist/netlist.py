@@ -22,6 +22,13 @@ class Equipotential:
       for term in self.equi.getBitTermOccurrences():
         topTerms.append(TopTerm(term.getPath(), term.getBitTerm()))
       return topTerms
+    
+    def getAllLeafReaders(self):
+      readers = []
+      for term in self.equi.getInstTermOccurrences():
+        if term.getInstTerm().getDirection() == snl.SNLTerm.Direction.Output:
+          readers.append(InstTerm(term.getPath(), term.getInstTerm()))
+      return readers
 
 class Net:
     def __init__(self, path, net):
@@ -85,7 +92,7 @@ class InstTerm:
     return Instance(path, inst)
   
   def getFlatFanout(self):
-    return self.inst.getInstTerms().getFlatFanout()
+    return self.getEuiqpotential().getAllLeafReaders()
   
   def getEuiqpotential(self):
     return Equipotential(self)
@@ -164,6 +171,13 @@ class Instance:
   def isPrimitive(self):
     return self.inst.getModel().isPrimitive()
   
+  def getOutputInstTerms(self):
+    terms = []
+    for term in self.inst.getInstTerms():
+      if term.getDirection() == snl.SNLTerm.Direction.Output:
+        terms.append(InstTerm(self.path.getHeadPath(), term))
+    return terms
+  
 class Loader:
 
     def __init__(self):
@@ -197,7 +211,7 @@ class Loader:
       else:
           logging.info('Found top design ' + str(top))
 
-def getAllPrimitivesInstances():
+def getAllPrimitiveInstances():
   top = snl.SNLUniverse.get().getTopDesign()
   primitives = []
     
@@ -214,6 +228,3 @@ def getAllPrimitivesInstances():
                 primitives.append(Instance(pathChild, instChild))
             stack.append([instChild, pathChild])
   return primitives
-
-
-
