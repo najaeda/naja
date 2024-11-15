@@ -88,7 +88,7 @@ class InstTerm:
     return Instance(path, inst)
   
   def getFlatFanout(self):
-    return self.inst.getInstTerms().getFlatFanout()
+    return self.getEuiqpotential().getAllLeafReaders()
   
   def getEuiqpotential(self):
     return Equipotential(self)
