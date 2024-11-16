@@ -15,7 +15,7 @@ void SchematicView::draw(const Schematic* schematic) {
     // Draw nodes
     for (auto node: schematic->getNodes()) {
       const auto& position = node->getPosition();
-      ImVec2 nodePos = canvasPos + ImVec2(position.x_, position.y_); // Adjust position to fit the canvas
+      ImVec2 nodePos = ImVec2(canvasPos.x + position.x_, canvasPos.y + position.y_); // Adjust position to fit the canvas
       ImVec2 rectMin = nodePos;
       ImVec2 rectMax = ImVec2(nodePos.x + 150, nodePos.y + 50);
 
@@ -24,9 +24,9 @@ void SchematicView::draw(const Schematic* schematic) {
         drawList->AddRect(rectMin, rectMax, IM_COL32(0, 0, 0, 255)); // Border
 
         // Draw the node label
-        ImVec2 textSize = ImGui::CalcTextSize(node.label.c_str());
+        ImVec2 textSize = ImGui::CalcTextSize(node->getName().c_str());
         ImVec2 textPos = ImVec2(rectMin.x + (150 - textSize.x) * 0.5f, rectMin.y + (50 - textSize.y) * 0.5f);
-        drawList->AddText(textPos, IM_COL32(0, 0, 0, 255), node.label.c_str());
+        drawList->AddText(textPos, IM_COL32(0, 0, 0, 255), node->getName().c_str());
     }
 #if 0
     // Draw connections

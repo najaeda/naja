@@ -9,7 +9,7 @@ Schematic* SchematicSNL::constructFromSNLDesign(const naja::SNL::SNLDesign* desi
   Schematic* schematic = new Schematic();
   for (auto instance: design->getInstances()) {
     auto model = instance->getModel();
-    auto node = new Node(schematic);
+    auto node = new Node(schematic, instance->getName().getString());
     for (auto term: model->getTerms()) {
       auto pin = new Pin(node, Pin::Direction::Input);
     }

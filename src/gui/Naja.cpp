@@ -19,25 +19,15 @@
 #include "NajaPerf.h"
 
 #include "SNLUniverse.h"
-#include "SNLBusTerm.h"
-#include "SNLScalarTerm.h"
-#include "SNLBusNet.h"
-#include "SNLBusNetBit.h"
-#include "SNLScalarNet.h"
 #include "SNLCapnP.h"
 #include "SNLPyLoader.h"
 #include "SNLLibertyConstructor.h"
 #include "SNLVRLConstructor.h"
 #include "SNLUtils.h"
 #include "SNLException.h"
-
 using namespace naja::SNL;
 
-static void helloWorld() {
-  ImGui::Begin("My DearImGui Window");
-  ImGui::Text("hello, world");
-  ImGui::End();
-}
+#include "DesignTreeView.h"
 
 namespace {
 
@@ -105,84 +95,7 @@ void drawSchematicViewer(const SNLDesign* top) {
   ImGui::End();
 }
 
-void showInstanceHierarchy(const naja::SNL::SNLDesign* design) {
-  if (!design) return;
 
-  auto nbTerms = design->getTerms().size();
-  if (nbTerms > 0) {
-    if (ImGui::TreeNode("Terms")) {
-      for (const auto& term: design->getTerms()) {
-        if (auto busTerm = dynamic_cast<SNLBusTerm*>(term)) {
-          if (ImGui::TreeNode((void*)term, "%s", busTerm->getName().getString().c_str())) {
-            for (const auto& bit: busTerm->getBits()) {
-              ImGui::Text("%i", bit->getBit());
-            }
-            ImGui::TreePop();
-          }
-        } else { 
-          auto scalarTerm = static_cast<SNLScalarTerm*>(term);
-          ImGui::Text("%s", scalarTerm->getName().getString().c_str());
-        }
-      }
-      ImGui::TreePop();
-    }
-  }
-
-  auto nbNets = design->getNonAssignConstantNets().size();
-  if (nbNets > 0) {
-    if (ImGui::TreeNode("Nets")) {
-      for (const auto& net: design->getNonAssignConstantNets()) {
-        if (auto busNet = dynamic_cast<SNLBusNet*>(net)) {
-          if (ImGui::TreeNode((void*)net, "%s", busNet->getName().getString().c_str())) {
-            for (const auto& bit: busNet->getBusBits()) {
-              ImGui::Text("%i", bit->getBit());
-            }
-            ImGui::TreePop();
-          }
-        } else { 
-          auto scalarNet = static_cast<SNLScalarNet*>(net);
-          ImGui::Text("%s", scalarNet->getName().getString().c_str());
-        }
-      }
-      ImGui::TreePop();
-    }
-  }
-
-  auto nbInstances = design->getInstances().size();
-  if (nbInstances > 0) {
-    if (ImGui::TreeNode("Instances")) {
-      for (const auto& instance: design->getInstances()) {
-        // Display the instance name
-        std::string instanceName = instance->getName().getString();
-        if (instance->isAnonymous()) {
-            instanceName = std::to_string(instance->getID());
-        }
-
-        if (instance->isLeaf()) {
-          ImGui::Text("%s", instanceName.c_str());
-        } else {
-          // Check if the instance has a model (another SNLDesign)
-          const naja::SNL::SNLDesign* model = instance->getModel();
-          // Create a tree node for the instance
-          if (ImGui::TreeNode((void*)instance, "%s", instanceName.c_str())) {
-            showInstanceHierarchy(model);
-            ImGui::TreePop();
-          }
-        }
-      }
-      ImGui::TreePop();
-    }
-  }
-}
-
-void showTopHierarchy(const naja::SNL::SNLDesign* design) {
-  if (!design) return;
-
-  if (ImGui::TreeNode(design->getName().getString().c_str())) {
-    showInstanceHierarchy(design);
-    ImGui::TreePop();
-  }
-}
 
 
 }
@@ -439,7 +352,7 @@ int main(int argc, char* argv[]) {
       ImGui_ImplGlfw_NewFrame();
       ImGui::NewFrame();
 
-      showTopHierarchy(top);
+      DesignTreeView::render(top);
       drawSchematicViewer(top);
 
       // Rendering

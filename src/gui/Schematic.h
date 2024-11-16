@@ -49,10 +49,11 @@ class Node {
   public:
     using Pins = std::vector<Pin*>;
 
-    Node(Schematic* schematic);
+    Node(Schematic* schematic, const std::string& name);
     ~Node();
 
     const Position& getPosition() const { return position_; }
+    const std::string& getName() const { return name_; }
 
     void layout();
   private:
@@ -60,9 +61,10 @@ class Node {
 
     //int id_;
     //ImVec2 position;
-    Pins      inputs_    {};
-    Pins      outputs_   {};
-    Position  position_;
+    std::string name_     {};
+    Pins        inputs_   {};
+    Pins        outputs_  {};
+    Position    position_;
 };
 
 class Connection {

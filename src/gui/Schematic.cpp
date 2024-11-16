@@ -19,7 +19,8 @@ Pin::Pin(Node* node, const Direction& direction):
   direction_(direction)
 {}
 
-Node::Node(Schematic* schematic) {
+Node::Node(Schematic* schematic, const std::string& name):
+  name_(name) {
   schematic->addNode(this);
 }
 
