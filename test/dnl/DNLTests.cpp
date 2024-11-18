@@ -3,8 +3,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "DNL.h"
+
 #include "gtest/gtest.h"
 #include "tbb/scalable_allocator.h"
+
 #include "SNLUniverse.h"
 #include "SNLPath.h"
 #include "SNLScalarTerm.h"
@@ -14,7 +16,7 @@
 #include "SNLBitTermOccurrence.h"
 #include "SNLEquipotential.h"
 #include "SNLException.h"
-#include "Utils.h"
+#include "SNLUniquifier.h"
 
 using namespace naja::DNL;
 using namespace naja::SNL;
@@ -627,7 +629,7 @@ TEST_F(DNLTests, SNLDataAccessWith3levelsOfHierarchyAndIsoDBWithMultiDriverNonMT
     path.push_back(0);
     path.push_back(0);
     std::string id("");
-    naja::BNE::SNLUniquifier uniquifier(path, id);
+    SNLUniquifier uniquifier(path, id);
     uniquifier.process();   
     uniquifier.getFullPath();
     destroy();

@@ -9,7 +9,7 @@
 #include "SNLID.h"
 #include "SNLInstance.h"
 #include "SNLUniverse.h"
-#include "Utils.h"
+#include "SNLUniquifier.h"
 
 using namespace naja::SNL;
 using namespace naja::BNE;

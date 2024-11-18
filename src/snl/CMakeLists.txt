@@ -4,5 +4,7 @@
 
 add_subdirectory(snl)
 add_subdirectory(formats)
-add_subdirectory(snippets)
 add_subdirectory(python)
+if(NOT BUILD_NAJA_PYTHON)
+  add_subdirectory(snippets)
+endif(NOT BUILD_NAJA_PYTHON)

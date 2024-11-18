@@ -3,5 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 add_subdirectory(kernel)
-add_subdirectory(serialization)
 add_subdirectory(decorators)
+if(NOT BUILD_NAJA_PYTHON)
+  add_subdirectory(serialization)
+endif()
