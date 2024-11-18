@@ -1,9 +1,6 @@
-#add_custom_command(
-#  TARGET snl POST_BUILD
-#  COMMAND ${CMAKE_COMMAND} -E copy
-#          $<TARGET_FILE:snl>
-#          ${CMAKE_CURRENT_BINARY_DIR}
-#)
+# SPDX-FileCopyrightText: 2024 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+#
+# SPDX-License-Identifier: Apache-2.0
 
 add_custom_target(naja_python_package ALL
   COMMAND ${CMAKE_COMMAND} -E echo "Creating naja_python_package..."
