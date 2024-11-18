@@ -1,0 +1,40 @@
+name: Build and Publish
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build-wheels:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.9"
+
+    - name: Install build tools
+      run: |
+        pip install scikit-build setuptools wheel
+
+    - name: Build wheels
+      run: |
+        python setup.py bdist_wheel
+        if [[ $RUNNER_OS == 'Linux' ]]; then
+          pip install auditwheel
+          auditwheel repair dist/*.whl -w dist/
+        fi
+
+    - name: Upload to PyPI
+      env:
+        TWINE_USERNAME: "__token__"
+        TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
+      run: twine upload dist/*
