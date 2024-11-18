@@ -140,41 +140,29 @@ class InstTerm:
   def getString(self):
     return str(snl.SNLInstTermOccurrence(self.path, self.term))
 
+def getInstanceByPath(names):
+  path =  snl.SNLPath()
+  instance = None
+  top = snl.SNLUniverse.get().getTopDesign()
+  design = top
+  for name in names:
+    path = snl.SNLPath(path, design.getInstance(name))
+    instance = design.getInstance(name)
+    design = instance.getModel()
+  return Instance(path, instance)
   
 # Class that represents the instance and wrap some of the snl occurrence api
 class Instance:
-
-  def __init__(self):
-    self.path =  snl.SNLPath()
-    self.inst = None
-  
-  # Initialize the instance list of names
-  def __init__(self, names):
-    path =  snl.SNLPath()
-    instance = None
-    top = snl.SNLUniverse.get().getTopDesign()
-    design = top
-    for name in names:
-      path = snl.SNLPath(path, top.getInstance(name))
-      instance = design.getInstance(name)
-      design = instance.getModel()
-    self.path = path
-    self.inst = instance
-
-  # Copy Constructor
-  def __init__(self, instance):
-    self.inst = instance.inst
-    self.path = instance.path
   
   def __init__(self, path, inst):
     self.inst = inst
     self.path = path
   
+  def __eq__(self, other):
+    return self.inst == other.inst and self.path == other.path
+  
   def getChildInstance(self, name):
-    instance = Instance()
-    instance.inst = self.inst.getModel().getInstance(name)
-    instance.path = snl.SNLPath(self.path, self.inst)
-    return instance
+    return Instance(snl.SNLPath(self.path, self.inst.getModel().getInstance(name)), self.inst.getModel().getInstance(name))
   
   def getInstTerms(self):
     if self.inst is None:
