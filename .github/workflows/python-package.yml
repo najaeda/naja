@@ -23,6 +23,14 @@ jobs:
       with:
         python-version: "3.9"
 
+    - name: Install Boost (Linux)
+      if: runner.os == 'Linux'
+      run: sudo apt-get update && sudo apt-get install -y libboost-all-dev
+
+    - name: Install Boost (macOS)
+      if: runner.os == 'macOS'
+      run: brew install boost
+
     - name: Install build tools
       run: |
         pip install scikit-build setuptools wheel
