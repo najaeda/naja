@@ -1,4 +1,4 @@
-name: Build and Publish
+name: Build Python Package
 
 on:
   push:
