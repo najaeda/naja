@@ -12,23 +12,17 @@ class Equipotential:
       self.equi = snl.SNLEquipotential(ito)
     
     def getInstTerms(self):
-      instTerms = []
       for term in self.equi.getInstTermOccurrences():
-        instTerms.append(InstTerm(term.getPath(), term.getInstTerm()))
-      return instTerms
+        yield InstTerm(term.getPath(), term.getInstTerm())
     
     def getTopTerms(self):
-      topTerms = []
       for term in self.equi.getBitTermOccurrences():
-        topTerms.append(TopTerm(term.getPath(), term.getBitTerm()))
-      return topTerms
+       yield TopTerm(term.getPath(), term.getBitTerm())
     
     def getAllLeafReaders(self):
-      readers = []
       for term in self.equi.getInstTermOccurrences():
         if term.getInstTerm().getDirection() == snl.SNLTerm.Direction.Output:
-          readers.append(InstTerm(term.getPath(), term.getInstTerm()))
-      return readers
+          yield InstTerm(term.getPath(), term.getInstTerm())
 
 class Net:
     def __init__(self, path, net):
@@ -39,22 +33,40 @@ class Net:
       return self.net.getName()
     
     def getInstTerms(self):
-      instTerms = []
       for term in self.net.getInstTerms():
-        instTerms.append(InstTerm(self.path, term))
-      return instTerms
+        yield InstTerm(self.path, term)
     
     def getTopTerms(self):
-      topTerms = []
       for term in self.net.getBitTerms():
-        topTerms.append(TopTerm(self.path, term))
-      return topTerms
+        yield TopTerm(self.path, term)
       
 class TopTerm:
 
   def __init__(self, path, term):
     self.path = path
     self.term = term
+  
+  # Comperators first by path and then by term
+
+  def __eq__(self, other):
+    return self.path == other.path and self.term == other.term
+  
+  def __ne__(self, other):
+    return not self == other
+  
+  def __lt__(self, other):
+    if self.path != other.path:
+      return self.path < other.path
+    return self.term < other.term
+  
+  def __le__(self, other):
+    return self < other or self == other
+  
+  def __gt__(self, other):
+    return not self <= other
+  
+  def __ge__(self, other):
+    return not self < other
   
   def getName(self):
     return self.term.getName()
@@ -65,7 +77,7 @@ class TopTerm:
   def getNet(self):
     return Net(self.path, self.term.getNet())
   
-  def getEquipotential(self):
+  def getEuiqpotential(self):
     return Equipotential(self)
   
   def isInput(self):
@@ -80,6 +92,28 @@ class InstTerm:
     self.path = path
     self.term = term
   
+# Comperators first by path and then by term
+
+  def __eq__(self, other):
+    return self.path == other.path and self.term == other.term
+  
+  def __ne__(self, other):
+    return not self == other
+  
+  def __lt__(self, other):
+    if self.path != other.path:
+      return self.path < other.path
+    return self.term < other.term
+  
+  def __le__(self, other):
+    return self < other or self == other
+  
+  def __gt__(self, other):
+    return not self <= other
+  
+  def __ge__(self, other):
+    return not self < other
+
   def getName(self):
     return self.inst.getInstTerms().getName()
   
@@ -143,12 +177,10 @@ class Instance:
     return instance
   
   def getInstTerms(self):
-    instTerms = []
     if self.inst is None:
-      return instTerms
+      return
     for term in self.inst.getInstTerms():
-      instTerms.append(InstTerm(self.path.getHeadPath(), term))
-    return instTerms
+      yield InstTerm(self.path.getHeadPath(), term)
   
   def getInstTerm(self, name):
     if self.inst is None:
@@ -159,26 +191,22 @@ class Instance:
     return None
   
   def getTopTerms(self):
-    topTerms = []
     if self.inst is None:
       top = snl.SNLUniverse.get().getTopDesign()
       for term in top.getBitTerms():
-        topTerms.append(TopTerm(self.path, term))
-      return topTerms
-    else:
-      return topTerms
+         yield TopTerm(self.path, term)
+     
 
   def isPrimitive(self):
     return self.inst.getModel().isPrimitive()
   
   def getOutputInstTerms(self):
-    terms = []
     for term in self.inst.getInstTerms():
       if term.getDirection() == snl.SNLTerm.Direction.Output:
-        terms.append(InstTerm(self.path.getHeadPath(), term))
-    return terms
+        yield InstTerm(self.path.getHeadPath(), term)
   
 class Loader:
+
     def __init__(self):
       self.db_ = None
       self.primitivesLibrary_ = None
@@ -209,6 +237,9 @@ class Loader:
           return 1
       else:
           logging.info('Found top design ' + str(top))
+    
+    def loadLibertyPrimitives(self, files):
+      self.db_.loadLibertyPrimitives(files)
 
 def getAllPrimitiveInstances():
   top = snl.SNLUniverse.get().getTopDesign()

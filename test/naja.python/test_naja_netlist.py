@@ -22,17 +22,21 @@ from naja import netlist
 
 class NajaNetlistTest(unittest.TestCase):
   def setUp(self):
-    self.loader = netlist.Loader()
-    self.loader.init()
+    pass
 
   def tearDown(self):
     pass
-    #if snl.SNLUniverse.get():
-    #  snl.SNLUniverse.get().destroy()
 
   def testLoader(self):
-    self.assertIsNotNone(self.loader)
-    self.assertIsNotNone(self.loader.getDB())
+    desingFiles = ["../../../test/snl/formats/verilog/benchmarks/test0.v"]
+    primitives = ["../../../test/snl/formats/liberty/benchmarks/asap7_excerpt/test0.lib"]
+    loader = netlist.Loader()
+    loader.init()
+    loader.loadLibertyPrimitives(primitives)
+    loader.loadVerilog(desingFiles)
+    loader.verify()
+    db = loader.getDB()
+    del db
 
 if __name__ == '__main__':
   faulthandler.enable()
