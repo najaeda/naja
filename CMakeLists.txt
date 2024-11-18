@@ -40,6 +40,7 @@ set(CMAKE_CXX_STANDARD 20)
 
 
 option(BUILD_ONLY_DOC "Only configure to build Doxygen documentation" OFF)
+option(BUILD_NAJA_PYTHON "Build Naja Python package" OFF)
 
 set(NAJA_CXX_WARNINGS -Werror -Wall -pedantic-errors -Wconversion -Wsign-conversion -Wextra -Wno-unused-parameter)
 
@@ -73,10 +74,12 @@ if(ENABLE_SANITIZERS)
 endif(ENABLE_SANITIZERS)
 
 if(NOT BUILD_ONLY_DOC)
-find_package(TBB REQUIRED)
-find_package(Boost REQUIRED)
-find_package(Python3 3.9...<3.99 COMPONENTS Development Interpreter REQUIRED)
-find_package(CapnProto CONFIG REQUIRED)
+  if(NOT BUILD_NAJA_PYTHON)
+    find_package(TBB REQUIRED)
+  endif(NOT BUILD_NAJA_PYTHON)
+  find_package(Boost REQUIRED)
+  find_package(Python3 3.9...<3.99 COMPONENTS Development Interpreter REQUIRED)
+  find_package(CapnProto CONFIG REQUIRED)
 endif(NOT BUILD_ONLY_DOC)
 
 if(PROJECT_IS_TOP_LEVEL)
@@ -106,8 +109,8 @@ endif(BUILD_SPHINX_DOCUMENTATION)
 endif(PROJECT_IS_TOP_LEVEL)
 
 if(NOT BUILD_ONLY_DOC)
-add_subdirectory(thirdparty)
-add_subdirectory(cmake)
-add_subdirectory(src)
-add_subdirectory(primitives)
+  add_subdirectory(thirdparty)
+  add_subdirectory(cmake)
+  add_subdirectory(src)
+  add_subdirectory(primitives)
 endif(NOT BUILD_ONLY_DOC)
