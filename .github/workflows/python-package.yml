@@ -31,7 +31,7 @@ jobs:
 
     - name: Install Boost (macOS)
       if: runner.os == 'macOS'
-      run: brew install boost
+      run: brew install bison flex boost
 
     - name: Install build tools
       run: |
