@@ -13,6 +13,6 @@ setup(
     cmake_args=[
         "-DCMAKE_VERBOSE_MAKEFILE:BOOL=ON",      # Enable verbose output
         "-DCMAKE_BUILD_TYPE=Release",            # Set the build type
-        "-DNAJA_PYTHON_PACKAGE=ON",              # Enable the Python package
+        "-DBUILD_NAJA_PYTHON=ON",                # Enable the Python package
     ],
 )
