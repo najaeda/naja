@@ -3,10 +3,14 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#include "gtest/gtest.h"
+
+#include "SNLPath.h"
+#include "SNLUniquifier.h"
+
 #include "ActionTree.h"
 #include "actions.h"
 #include "bne.h"
-#include "gtest/gtest.h"
 
 using namespace naja::DNL;
 using namespace naja::SNL;
@@ -231,8 +235,8 @@ TEST_F(BNETests, testCompare) {
   EXPECT_NE(path0, path1);
   EXPECT_LT(path0, path1);
 
-  naja::BNE::SNLUniquifier uniquifier0(path0);
-  naja::BNE::SNLUniquifier uniquifier1(path1);
+  SNLUniquifier uniquifier0(path0);
+  SNLUniquifier uniquifier1(path1);
 
   //Test Uniquifier comparators
   EXPECT_EQ(uniquifier0 == uniquifier0, true);

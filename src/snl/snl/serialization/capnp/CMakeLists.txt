@@ -13,7 +13,6 @@ add_library(naja_snl_dump
     SNLCapnPInterface.cpp SNLCapnPImplementation.cpp)
 
 set_target_properties(naja_snl_dump PROPERTIES POSITION_INDEPENDENT_CODE ON)
-
     
 target_link_libraries(naja_snl_dump PRIVATE CapnProto::capnp )
 target_link_libraries(naja_snl_dump PUBLIC naja_snl)

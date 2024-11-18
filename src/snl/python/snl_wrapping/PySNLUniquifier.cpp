@@ -4,17 +4,17 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "PySNLUniquifier.h"
+
 #include "PyInterface.h"
 #include "PySNLInstances.h"
 #include "PySNLPath.h"
 #include "SNLInstTerm.h"
 #include "SNLPath.h"
-#include "Utils.h"
+#include "SNLUniquifier.h"
 
 namespace PYSNL {
 
 using namespace naja::SNL;
-using namespace naja::BNE;
 
 #define METHOD_HEAD(function) GENERIC_METHOD_HEAD(SNLUniquifier, function)
 
