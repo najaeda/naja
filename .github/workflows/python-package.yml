@@ -4,6 +4,8 @@ on:
   push:
     tags:
       - "v*"
+  pull_request:
+    branches: [ main ]
 
 jobs:
   build-wheels:
@@ -33,8 +35,8 @@ jobs:
           auditwheel repair dist/*.whl -w dist/
         fi
 
-    - name: Upload to PyPI
-      env:
-        TWINE_USERNAME: "__token__"
-        TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
-      run: twine upload dist/*
+#    - name: Upload to PyPI
+#      env:
+#        TWINE_USERNAME: "__token__"
+#        TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
+#      run: twine upload dist/*
