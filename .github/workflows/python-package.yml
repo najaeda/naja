@@ -27,7 +27,7 @@ jobs:
 
     - name: Install Boost (Linux)
       if: runner.os == 'Linux'
-      run: sudo apt-get update && sudo apt-get install -y libboost-all-dev
+      run: sudo apt-get update && sudo apt-get install -y libboost-all-dev libfl-dev
 
     - name: Install Boost (macOS)
       if: runner.os == 'macOS'
