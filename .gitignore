@@ -10,6 +10,8 @@ install
 venv
 .vscode
 __pycache__
+_skbuild
+naja.egg-info
 src/apps/naja_edit/examples/**/*.log
 src/apps/naja_edit/examples/**/*.png
 src/apps/naja_edit/examples/adder/*.v
