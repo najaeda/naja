@@ -71,7 +71,7 @@ class TopTerm:
   def getName(self) -> str:
     return self.term.getName()
 
-  def getDirection(self) -> snl.SNL.Term.Direction:
+  def getDirection(self) -> snl.SNLTerm.Direction:
     return self.term.getDirection()
 
   def getNet(self) -> Net:
@@ -92,7 +92,7 @@ class InstTerm:
     self.path = path
     self.term = term
   
-# Comperators first by path and then by term
+# Comparators first by path and then by term
 
   def __eq__(self, other) -> bool:
     return self.path == other.path and self.term == other.term
