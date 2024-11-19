@@ -38,6 +38,7 @@ jobs:
         brew install bison flex boost
         echo "/usr/local/opt/flex/bin" >> $GITHUB_PATH; echo "/usr/local/opt/bison/bin" >> $GITHUB_PATH;
         echo "/opt/homebrew/opt/flex/bin" >> $GITHUB_PATH; echo "/opt/homebrew/opt/bison/bin" >> $GITHUB_PATH
+        pip install scikit-build setuptools wheel
         python setup.py bdist_wheel
         
 #    - name: Upload to PyPI
