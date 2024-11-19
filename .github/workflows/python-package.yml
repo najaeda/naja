@@ -20,10 +20,6 @@ jobs:
       with:
         submodules: true
 
-    - name: macOS setup
-      if: runner.os == 'macOS'
-      
-
     - name: Build and Repair Wheels on Linux
       if: runner.os == 'Linux'
       run: |
