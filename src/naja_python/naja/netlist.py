@@ -71,7 +71,7 @@ class TopTerm:
   def getName(self) -> str:
     return self.term.getName()
 
-  def getDirection(self) -> snl.SNL
+  def getDirection(self) -> snl.SNL.Term.Direction:
     return self.term.getDirection()
 
   def getNet(self) -> Net:
