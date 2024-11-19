@@ -12,7 +12,7 @@ add_custom_target(naja_python_package ALL
 )
 
 install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/naja
-    DESTINATION ${CMAKE_INSTALL_LIBDIR}/python/naja
-    PATTERN "*~" EXCLUDE
-    PATTERN "__pycache__" EXCLUDE 
-  )
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/python
+  PATTERN "*~" EXCLUDE
+  PATTERN "__pycache__" EXCLUDE 
+)
