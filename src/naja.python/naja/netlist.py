@@ -29,7 +29,7 @@ class Net:
       self.path = path
       self.net = net
     
-    def getName(self):
+    def getName(self) -> str: 
       return self.net.getName()
     
     def getInstTerms(self):
@@ -48,42 +48,42 @@ class TopTerm:
   
   # Comperators first by path and then by term
 
-  def __eq__(self, other):
+  def __eq__(self, other) -> bool:
     return self.path == other.path and self.term == other.term
   
-  def __ne__(self, other):
+  def __ne__(self, other) -> bool:
     return not self == other
   
-  def __lt__(self, other):
+  def __lt__(self, other) -> bool:
     if self.path != other.path:
       return self.path < other.path
     return self.term < other.term
   
-  def __le__(self, other):
+  def __le__(self, other) -> bool:
     return self < other or self == other
   
-  def __gt__(self, other):
+  def __gt__(self, other) -> bool:
     return not self <= other
   
-  def __ge__(self, other):
+  def __ge__(self, other) -> bool:
     return not self < other
   
-  def getName(self):
+  def getName(self) -> str:
     return self.term.getName()
 
-  def getDirection(self):
+  def getDirection(self) -> snl.SNL
     return self.term.getDirection()
 
-  def getNet(self):
+  def getNet(self) -> Net:
     return Net(self.path, self.term.getNet())
   
-  def getEuiqpotential(self):
+  def getEuiqpotential(self) -> Equipotential:
     return Equipotential(self)
   
-  def isInput(self):
+  def isInput(self) -> bool:
     return self.term.getDirection() == snl.SNLTerm.Direction.Input
   
-  def isOutput(self):
+  def isOutput(self) -> bool:
     return self.term.getDirection() == snl.SNLTerm.Direction.Output
   
 class InstTerm:
@@ -94,30 +94,30 @@ class InstTerm:
   
 # Comperators first by path and then by term
 
-  def __eq__(self, other):
+  def __eq__(self, other) -> bool:
     return self.path == other.path and self.term == other.term
   
-  def __ne__(self, other):
+  def __ne__(self, other) -> bool:
     return not self == other
   
-  def __lt__(self, other):
+  def __lt__(self, other) -> bool:
     if self.path != other.path:
       return self.path < other.path
     return self.term < other.term
   
-  def __le__(self, other):
+  def __le__(self, other) -> bool:
     return self < other or self == other
   
-  def __gt__(self, other):
+  def __gt__(self, other) -> bool:
     return not self <= other
   
-  def __ge__(self, other):
+  def __ge__(self, other) -> bool:
     return not self < other
 
-  def getName(self):
+  def getName(self) -> str:
     return self.inst.getInstTerms().getName()
   
-  def getNet(self):
+  def getNet(self) -> Net:
     return Net(self.path, self.inst.getInstTerms().getNet())
   
   def getInstance(self):
@@ -125,22 +125,22 @@ class InstTerm:
     path = snl.SNLPath(self.path, inst)
     return Instance(path, inst)
   
-  def getFlatFanout(self):
+  def getFlatFanout(self) -> Equipotential:
     return self.getEuiqpotential().getAllLeafReaders()
   
-  def getEuiqpotential(self):
+  def getEuiqpotential(self) -> Equipotential:
     return Equipotential(self)
   
-  def isInput(self):
+  def isInput(self) -> bool:
     return self.term.getDirection() == snl.SNLTerm.Direction.Input
   
-  def isOutput(self):
+  def isOutput(self) -> bool:
     return self.term.getDirection() == snl.SNLTerm.Direction.Output
   
-  def getString(self):
+  def getString(self) -> str:
     return str(snl.SNLInstTermOccurrence(self.path, self.term))
 
-def getInstanceByPath(names):
+def getInstanceByPath(names: list):
   path =  snl.SNLPath()
   instance = None
   top = snl.SNLUniverse.get().getTopDesign()
@@ -158,10 +158,10 @@ class Instance:
     self.inst = inst
     self.path = path
   
-  def __eq__(self, other):
+  def __eq__(self, other) -> bool:
     return self.inst == other.inst and self.path == other.path
   
-  def getChildInstance(self, name):
+  def getChildInstance(self, name: str):
     return Instance(snl.SNLPath(self.path, self.inst.getModel().getInstance(name)), self.inst.getModel().getInstance(name))
   
   def getInstTerms(self):
@@ -170,7 +170,7 @@ class Instance:
     for term in self.inst.getInstTerms():
       yield InstTerm(self.path.getHeadPath(), term)
   
-  def getInstTerm(self, name):
+  def getInstTerm(self, name: str) -> InstTerm:
     if self.inst is None:
       return None
     for term in self.inst.getInstTerms():
@@ -183,7 +183,6 @@ class Instance:
       top = snl.SNLUniverse.get().getTopDesign()
       for term in top.getBitTerms():
          yield TopTerm(self.path, term)
-     
 
   def isPrimitive(self):
     return self.inst.getModel().isPrimitive()
@@ -192,6 +191,11 @@ class Instance:
     for term in self.inst.getInstTerms():
       if term.getDirection() == snl.SNLTerm.Direction.Output:
         yield InstTerm(self.path.getHeadPath(), term)
+  
+  def deleteInstance(self, name: str):
+    uniq = snl.SNLUniquifier(self.path)
+    uniqPath = uniq.getPathUniqCollection()
+    # Delete the last instance in uniqPath    
   
 class Loader:
 
@@ -203,15 +207,15 @@ class Loader:
       snl.SNLUniverse.create()
       self.db_ =  snl.SNLDB.create(snl.SNLUniverse.get())
 
-    def getDB(self):
+    def getDB(self) -> snl.SNLDB:
       return self.db_
 
-    def getPrimitivesLibrary(self):
+    def getPrimitivesLibrary(self) -> snl.SNLLibrary:
       if (self.primitivesLibrary_ is None):
           self.primitivesLibrary_ = snl.SNLLibrary.createPrimitives(self.db_)
       return self.primitivesLibrary_
 
-    def loadVerilog(self, files):
+    def loadVerilog(self, files: list):
       self.db_.loadVerilog(files)
 
     def verify(self):
@@ -229,7 +233,7 @@ class Loader:
     def loadLibertyPrimitives(self, files):
       self.db_.loadLibertyPrimitives(files)
 
-def getAllPrimitiveInstances():
+def getAllPrimitiveInstances() -> list:
   top = snl.SNLUniverse.get().getTopDesign()
   primitives = []
     
