@@ -23,15 +23,20 @@ jobs:
     - name: Build and Repair Wheels on Linux
       if: runner.os == 'Linux'
       run: |
-        docker run --rm -v ${{ github.workspace }}:/io quay.io/pypa/manylinux2010_x86_64 /bin/bash -c "
-          yum install -y boost-devel flex bison &&
-          curl -sS https://bootstrap.pypa.io/get-pip.py | python3 &&
-          cd /io &&
-          pip install scikit-build setuptools wheel &&
-          python setup.py bdist_wheel &&
-          pip install auditwheel &&
-          auditwheel repair dist/*.whl -w /io/dist/
-        "
+        sudo apt-get update && sudo apt-get install -yq libboost-dev libfl-dev
+        python -m pip install --upgrade pip
+        pip install scikit-build setuptools wheel
+        python setup.py bdist_wheel
+
+        #docker run --rm -v ${{ github.workspace }}:/io quay.io/pypa/manylinux2010_x86_64 /bin/bash -c "
+        #  yum install -y boost-devel flex bison &&
+        #  curl -sS https://bootstrap.pypa.io/get-pip.py | python3 &&
+        #  cd /io &&
+        #  pip install scikit-build setuptools wheel &&
+        #  python setup.py bdist_wheel &&
+        #  pip install auditwheel &&
+        #  auditwheel repair dist/*.whl -w /io/dist/
+        #"
 
     - name: Build Wheels on macOS
       if: runner.os == 'macOS'
