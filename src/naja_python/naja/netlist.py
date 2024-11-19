@@ -77,7 +77,7 @@ class TopTerm:
   def getNet(self) -> Net:
     return Net(self.path, self.term.getNet())
   
-  def getEuiqpotential(self) -> Equipotential:
+  def getEquipotential(self) -> Equipotential:
     return Equipotential(self)
   
   def isInput(self) -> bool:
@@ -126,9 +126,9 @@ class InstTerm:
     return Instance(path, inst)
   
   def getFlatFanout(self) -> Equipotential:
-    return self.getEuiqpotential().getAllLeafReaders()
+    return self.getEquipotential().getAllLeafReaders()
   
-  def getEuiqpotential(self) -> Equipotential:
+  def getEquipotential(self) -> Equipotential:
     return Equipotential(self)
   
   def isInput(self) -> bool:
