@@ -40,14 +40,22 @@ jobs:
       run: |
         pip install scikit-build setuptools wheel
 
-    - name: Build wheels
+    - name: Build and Repair Wheels on Linux
+      if: runner.os == 'Linux'
+      run: |
+        docker run --rm -v ${{ github.workspace }}:/io quay.io/pypa/manylinux2010_x86_64 /bin/bash -c "
+          yum install -y boost-devel flex bison &&
+          cd /io &&
+          pip install scikit-build setuptools wheel &&
+          python setup.py bdist_wheel &&
+          pip install auditwheel &&
+          auditwheel repair dist/*.whl -w /io/dist/
+        "
+
+    - name: Build Wheels on macOS
+      if: runner.os == 'macOS'
       run: |
         python setup.py bdist_wheel
-        if [[ $RUNNER_OS == 'Linux' ]]; then
-          pip install auditwheel
-          auditwheel repair dist/*.whl -w dist/
-        fi
-
 #    - name: Upload to PyPI
 #      env:
 #        TWINE_USERNAME: "__token__"
