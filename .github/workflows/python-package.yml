@@ -24,8 +24,8 @@ jobs:
       if: runner.os == 'Linux'
       run: |
         docker run --rm -v ${{ github.workspace }}:/io quay.io/pypa/manylinux2010_x86_64 /bin/bash -c "
-          yum install -y python3 boost-devel flex bison &&
-          curl -sS https://bootstrap.pypa.io/get-pip.py | python3 &&
+          yum install -y boost-devel flex bison &&
+          curl -sS https://bootstrap.pypa.io/get-pip.py | python &&
           cd /io &&
           pip install scikit-build setuptools wheel &&
           python setup.py bdist_wheel &&
