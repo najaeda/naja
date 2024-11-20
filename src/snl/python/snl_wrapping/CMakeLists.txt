@@ -24,7 +24,8 @@ set(SOURCES
   PySNLEquipotential.cpp PySNLUniquifier.cpp
 )
 
-Python3_add_library(naja_snl_python SHARED ${SOURCES})
+Python3_add_library(naja_snl_python STATIC ${SOURCES})
+set_property(TARGET naja_snl_python PROPERTY POSITION_INDEPENDENT_CODE ON)
 target_link_libraries(naja_snl_python PUBLIC naja_snl_verilog naja_snl_liberty)
 #disable BNE and SNL_DUMP for now
 #target_link_libraries(naja_snl_python PUBLIC naja_snl_verilog naja_bne naja_snl_dump naja_snl_liberty)
