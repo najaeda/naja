@@ -43,12 +43,12 @@ jobs:
     - name: Build and Repair Wheels on Linux
       if: runner.os == 'Linux'
       run: |
-        python setup.py bdist_wheel
+        python -m build
 
     - name: Build Wheels on macOS
       if: runner.os == 'macOS'
       run: |
-        python setup.py bdist_wheel
+        python -m build
         
 #    - name: Upload to PyPI
 #      env:
