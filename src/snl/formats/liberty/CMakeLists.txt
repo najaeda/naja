@@ -13,7 +13,9 @@ target_link_libraries(naja_snl_liberty naja_snl yosys_liberty)
 
 target_include_directories(naja_snl_liberty PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
-set_target_properties(naja_snl_liberty PROPERTIES PUBLIC_HEADER "${HEADERS}")
+if(NOT BUILD_NAJA_PYTHON)
+  set_target_properties(naja_snl_liberty PROPERTIES PUBLIC_HEADER "${HEADERS}")
+endif(NOT BUILD_NAJA_PYTHON)
 
 install(TARGETS naja_snl_liberty
   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}

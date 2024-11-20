@@ -20,23 +20,22 @@ SET(snl_tests
   SNLUtilsTest.cpp
 )
 
-SET(snl_tests_with_pyloader
-  SNLEquipotentialTest.cpp
-)
-
 ADD_EXECUTABLE(snlTests ${snl_tests})
 target_compile_definitions(snlTests PRIVATE
   SNL_BENCHS_PATH="${CMAKE_CURRENT_SOURCE_DIR}/benchs")
-
-ADD_EXECUTABLE(snlTestsWithPyLoader ${snl_tests_with_pyloader})
-target_compile_definitions(snlTestsWithPyLoader PRIVATE
-  SNL_BENCHS_PATH="${CMAKE_CURRENT_SOURCE_DIR}/benchs")
-
 TARGET_LINK_LIBRARIES(snlTests naja_snl gmock gtest_main)
-TARGET_LINK_LIBRARIES(snlTestsWithPyLoader naja_snl_pyloader gmock gtest_main)
-
 GTEST_DISCOVER_TESTS(snlTests)
-GTEST_DISCOVER_TESTS(snlTestsWithPyLoader
-  PROPERTIES ENVIRONMENT
-  PYTHONPATH=${PROJECT_BINARY_DIR}/src/snl/python/snl_wrapping
-)
+
+if(NOT BUILD_NAJA_PYTHON)
+  SET(snl_tests_with_pyloader
+    SNLEquipotentialTest.cpp
+  )
+  ADD_EXECUTABLE(snlTestsWithPyLoader ${snl_tests_with_pyloader})
+  target_compile_definitions(snlTestsWithPyLoader PRIVATE
+    SNL_BENCHS_PATH="${CMAKE_CURRENT_SOURCE_DIR}/benchs")
+  TARGET_LINK_LIBRARIES(snlTestsWithPyLoader naja_snl_pyloader gmock gtest_main)
+  GTEST_DISCOVER_TESTS(snlTestsWithPyLoader
+    PROPERTIES ENVIRONMENT
+    PYTHONPATH=${PROJECT_BINARY_DIR}/src/snl/python/snl_wrapping
+  )
+endif(NOT BUILD_NAJA_PYTHON)
