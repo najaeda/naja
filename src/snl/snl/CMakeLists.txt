@@ -65,7 +65,8 @@ set(SNL_HEADERS
   decorators/SNLLibraryTruthTables.h
 )
 
-add_library(naja_snl SHARED ${SNL_KERNEL_SOURCES} ${SNL_DECORATOR_SOURCES})
+add_library(naja_snl STATIC ${SNL_KERNEL_SOURCES} ${SNL_DECORATOR_SOURCES})
+set_property(TARGET naja_snl PROPERTY POSITION_INDEPENDENT_CODE ON)
 
 target_link_libraries(naja_snl PUBLIC naja_core)
 target_compile_options(naja_snl PRIVATE ${NAJA_CXX_WARNINGS}) 
@@ -79,11 +80,9 @@ target_include_directories(naja_snl PUBLIC
 )
 target_include_directories(naja_snl PUBLIC ${SPDLOG_DIR})
 
-if(BUILD_NAJA_PYTHON)
-  install(TARGETS naja_snl LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
-else(BUILD_NAJA_PYTHON)
+if(NOT BUILD_NAJA_PYTHON)
   set_target_properties(naja_snl PROPERTIES PUBLIC_HEADER "${SNL_HEADERS}")
   install(TARGETS naja_snl
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
-endif(BUILD_NAJA_PYTHON)
+endif(NOT BUILD_NAJA_PYTHON)
