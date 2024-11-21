@@ -3,18 +3,20 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#include "RemoveLoadlessLogic.h"
+
 #include <spdlog/spdlog.h>
 #include <vector>
+#include <sstream>
+
+#include "tbb/enumerable_thread_specific.h"
 
 #include "SNLBusNetBit.h"
 #include "SNLDB0.h"
 #include "SNLUniverse.h"
+#include "SNLUniquifier.h"
 
-#include <sstream>
-#include "RemoveLoadlessLogic.h"
-#include "Utils.h"
-#include "tbb/enumerable_thread_specific.h"
-#include "bne.h"
+#include "BNE.h"
 
 using namespace naja::DNL;
 using namespace naja::SNL;
@@ -299,32 +301,32 @@ void LoadlessLogicRemover::removeLoadlessInstances(
   BNE::BNE bne;
   for (auto& path : loadlessInstances) {
     if (!normalizedUniquification_) {
-    SNLUniquifier uniquifier(path.first, path.second);
-    uniquifier.process();
-    for (SNLInstTerm* term : uniquifier.getPathUniq().back()->getInstTerms()) {
-      auto net = term->getNet();
-      term->setNet(nullptr);
-      if (net != nullptr) {
-        if (net->getInstTerms().size() + net->getBitTerms().size() == 0) {
-          net->destroy();
+      SNLUniquifier uniquifier(path.first, path.second);
+      uniquifier.process();
+      for (SNLInstTerm* term : uniquifier.getPathUniq().back()->getInstTerms()) {
+        auto net = term->getNet();
+        term->setNet(nullptr);
+        if (net != nullptr) {
+          if (net->getInstTerms().size() + net->getBitTerms().size() == 0) {
+            net->destroy();
+          }
         }
       }
-    }
 #ifdef DEBUG_PRINTS
-    // LCOV_EXCL_START
-    printf("deleting path %s\n", uniquifier.getFullPath().c_str());
-    // LCOV_EXCL_STOP
+      // LCOV_EXCL_START
+      printf("deleting path %s\n", uniquifier.getFullPath().c_str());
+      // LCOV_EXCL_STOP
 #endif
 #ifdef DEBUG_PRINTS
-    // LCOV_EXCL_START
-    printf("deleting model %s\n",
-           SNLDB0::isAssign(uniquifier.getPathUniq().back()->getModel())
-               ? "true"
-               : "false");
+      // LCOV_EXCL_START
+      printf("deleting model %s\n",
+             SNLDB0::isAssign(uniquifier.getPathUniq().back()->getModel())
+                 ? "true"
+                 : "false");
 
     // LCOV_EXCL_STOP
 #endif
-    uniquifier.getPathUniq().back()->destroy();
+      uniquifier.getPathUniq().back()->destroy();
     } else {
       bne.addDeleteAction(path.first);
     }

@@ -3,14 +3,14 @@
 # SPDX-License-Identifier: Apache-2.0
 
 set(SOURCES
-  bne.cpp
+  BNE.cpp
   actions.cpp
   Utils.cpp
   ActionTree.cpp
 )
 
 set(NAJA_BNE_HEADERS
-  bne.h
+  BNE.h
   actions.h
   Utils.h
   ActionTree.h

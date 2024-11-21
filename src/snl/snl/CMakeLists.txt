@@ -26,6 +26,7 @@ set(SNL_KERNEL_SOURCES
   kernel/SNLNetComponentOccurrence.cpp 
   kernel/SNLBitTermOccurrence.cpp kernel/SNLInstTermOccurrence.cpp
   kernel/SNLEquipotential.cpp
+  kernel/SNLUniquifier.cpp
 )
 set(SNL_DECORATOR_SOURCES
   decorators/SNLDesignModeling.cpp

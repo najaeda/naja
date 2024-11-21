@@ -4,12 +4,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "ActionTree.h"
+#include "Utils.h"
+
+#include "SNLUniverse.h"
 #include "SNLDesign.h"
 #include "SNLDesignObject.h"
 #include "SNLID.h"
 #include "SNLInstance.h"
-#include "SNLUniverse.h"
-#include "Utils.h"
+#include "SNLUniquifier.h"
 
 using namespace naja::SNL;
 using namespace naja::BNE;
@@ -19,6 +21,7 @@ ActionTree::ActionTree(bool keepOrder, bool blockNormalization)
   nodes_.push_back({0, SNLUniverse::get()->getTopDesign()->getSNLID(),
                     std::pair<size_t, size_t>((size_t)-1, 0), 0, this});
 }
+
 ActionTreeNode* ActionTree::getNodeForContext(
     const std::vector<SNLID::DesignObjectID>& context) {
   size_t id = nodes_[0].getID();
@@ -31,6 +34,7 @@ ActionTreeNode* ActionTree::getNodeForContext(
   }
   return &nodes_[id];
 }
+
 ActionTreeNode& ActionTree::addHierChild(
     const std::vector<SNLID::DesignObjectID>& context) {
   size_t id = nodes_[0].getID();
@@ -56,6 +60,7 @@ ActionTreeNode& ActionTree::addHierChild(
   assert(getNodeForContext(context) == &nodes_[id]);
   return nodes_[id];
 }
+
 void ActionTree::addAction(Action* action) {
   actions_.push_back(action);
   std::vector<ActionID> actions;
@@ -66,6 +71,7 @@ void ActionTree::addAction(Action* action) {
   // Add action to node
   getNodeForContext(action->getContext())->addActions(actions);
 }
+
 void ActionTree::normalize() {
   // Sort actions on all nodes
   if (!keepOrder_) {
