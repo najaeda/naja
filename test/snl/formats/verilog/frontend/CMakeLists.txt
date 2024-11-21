@@ -19,6 +19,6 @@ target_compile_definitions(snlVRLConstructorTests PRIVATE
 target_link_libraries(snlVRLConstructorTests naja_snl_verilog naja_snl_pyloader gmock gtest_main)
 
 GTEST_DISCOVER_TESTS(snlVRLConstructorTests
-  PROPERTIES ENVIRONMENT
   DISCOVERY_TIMEOUT 30
+  PROPERTIES ENVIRONMENT
   PYTHONPATH=${PROJECT_BINARY_DIR}/src/snl/python/snl_wrapping)

@@ -1,0 +1,58 @@
+name: Build Python Package
+
+on:
+  push:
+    tags:
+      - "v*"
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-wheels:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: true
+
+    - name: Linux setup
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update && sudo apt-get install -yq libboost-dev libfl-dev
+        
+
+    - name: macOS setup
+      if: runner.os == 'macOS'
+      run: | 
+        brew install bison flex boost
+        echo "/usr/local/opt/flex/bin" >> $GITHUB_PATH; echo "/usr/local/opt/bison/bin" >> $GITHUB_PATH;
+        echo "/opt/homebrew/opt/flex/bin" >> $GITHUB_PATH; echo "/opt/homebrew/opt/bison/bin" >> $GITHUB_PATH
+        #pip install build
+        #pip install scikit-build
+
+    - name: Python setup
+      run: |
+        python -m pip install --upgrade pip
+        pip install build # scikit-build setuptools wheel
+        
+
+    - name: Build and Repair Wheels on Linux
+      if: runner.os == 'Linux'
+      run: |
+        python -m build
+
+    - name: Build Wheels on macOS
+      if: runner.os == 'macOS'
+      run: |
+        python -m build
+        
+#    - name: Upload to PyPI
+#      env:
+#        TWINE_USERNAME: "__token__"
+#        TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
+#      run: twine upload dist/*

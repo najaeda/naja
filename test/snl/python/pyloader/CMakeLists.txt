@@ -18,8 +18,8 @@ TARGET_LINK_LIBRARIES(snlPyLoaderTests naja_snl_pyloader gmock gtest_main)
 
 gtest_discover_tests(
   snlPyLoaderTests
-  PROPERTIES ENVIRONMENT
   DISCOVERY_TIMEOUT 30
+  PROPERTIES ENVIRONMENT
   PYTHONPATH=${PROJECT_BINARY_DIR}/src/snl/python/snl_wrapping
 )
 
