@@ -82,14 +82,14 @@ SNLInstance* SNLUniquifier::replaceWithClone(SNLInstance* inst) {
   return inst;
 }
 
+// LCOV_EXCL_START
 std::string SNLUniquifier::getFullPath() const {
-  // LCOV_EXCL_START
   std::string fullPath;
   for (auto id: path_) {
     fullPath += std::to_string(id) + "/";
   }
   return fullPath;
-  // LCOV_EXCL_STOP
 }
+// LCOV_EXCL_STOP
 
 }} // namespace SNL // namespace naja
