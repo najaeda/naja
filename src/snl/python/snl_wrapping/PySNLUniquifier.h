@@ -6,18 +6,18 @@
 #define __PY_SNL_UNIQUIFIER_H_
 
 #include <Python.h>
-#include "Utils.h"
+#include "SNLUniquifier.h"
 
 namespace PYSNL {
 
 typedef struct {
   PyObject_HEAD
-  naja::BNE::SNLUniquifier* object_;
+  naja::SNL::SNLUniquifier* object_;
 } PySNLUniquifier;
 
 extern PyTypeObject PyTypeSNLUniquifier;
 
-extern PyObject*  PySNLUniquifier_Link(const naja::BNE::SNLUniquifier& uniquifier);
+extern PyObject*  PySNLUniquifier_Link(const naja::SNL::SNLUniquifier& uniquifier);
 extern void       PySNLUniquifier_LinkPyType();
 
 #define IsPySNLUniquifier(v) (PyObject_TypeCheck(v, &PyTypeSNLUniquifier))
