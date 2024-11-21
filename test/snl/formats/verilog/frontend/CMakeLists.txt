@@ -20,4 +20,5 @@ target_link_libraries(snlVRLConstructorTests naja_snl_verilog naja_snl_pyloader 
 
 GTEST_DISCOVER_TESTS(snlVRLConstructorTests
   PROPERTIES ENVIRONMENT
+  DISCOVERY_TIMEOUT 30
   PYTHONPATH=${PROJECT_BINARY_DIR}/src/snl/python/snl_wrapping)
