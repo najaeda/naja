@@ -45,7 +45,8 @@ set(NAJA_CORE_HEADERS
 
 list(APPEND NAJA_CORE_HEADERS ${CMAKE_CURRENT_BINARY_DIR}/NajaVersion.h)
 
-add_library(naja_core SHARED ${SOURCES})
+add_library(naja_core STATIC ${SOURCES})
+set_property(TARGET naja_core PROPERTY POSITION_INDEPENDENT_CODE ON)
 #target_link_libraries(naja_core PUBLIC cpptrace::cpptrace coverage_config sanitizers_config)
 target_link_libraries(naja_core PUBLIC coverage_config sanitizers_config)
 
