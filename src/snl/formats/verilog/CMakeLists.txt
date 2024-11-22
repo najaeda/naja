@@ -14,7 +14,9 @@ SET(HEADERS
   backend/SNLVRLDumper.h
 )
 
-add_library(naja_snl_verilog SHARED ${SOURCES})
+add_library(naja_snl_verilog STATIC ${SOURCES})
+set_property(TARGET naja_snl_verilog PROPERTY POSITION_INDEPENDENT_CODE ON)
+
 target_link_libraries(naja_snl_verilog naja_verilog naja_snl)
 
 target_include_directories(naja_snl_verilog PUBLIC
