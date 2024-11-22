@@ -12,6 +12,9 @@ add_library(naja_snl_dump
     SNLCapnP.cpp
     SNLCapnPInterface.cpp SNLCapnPImplementation.cpp)
 
+set_target_properties(naja_snl_dump PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+    
 target_link_libraries(naja_snl_dump PRIVATE CapnProto::capnp )
 target_link_libraries(naja_snl_dump PUBLIC naja_snl)
 target_include_directories(naja_snl_dump PRIVATE ${CMAKE_CURRENT_BINARY_DIR})

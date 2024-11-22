@@ -1,0 +1,24 @@
+# SPDX-FileCopyrightText: 2024 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+#
+# SPDX-License-Identifier: Apache-2.0
+
+[build-system]
+requires = ["scikit-build-core", "setuptools", "wheel"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "naja"
+version = "0.1.0"
+description = "Naja Python package"
+authors = [{name = "Naja Authors", email = "contact@keplertech.io"}]
+license = {text = "Apache License 2.0"}
+#readme = "README.md"
+#keywords = ["naja", "python", "package"]
+
+#[tool.setuptools]
+#packages = ["naja"]
+#package_dir = {"" = "src/naja_python"}
+
+[tool.scikit-build.cmake.define]
+CMAKE_BUILD_TYPE="Release"
+BUILD_NAJA_PYTHON="ON"

@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 add_library(naja_snl_pyloader SHARED SNLPyLoader.cpp)
-target_link_libraries(naja_snl_pyloader PUBLIC naja_snl PRIVATE naja_snl_python Python3::Python)
+target_link_libraries(naja_snl_pyloader PUBLIC naja_snl naja_snl_python PRIVATE Python3::Python)
 
 target_include_directories(naja_snl_pyloader PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 

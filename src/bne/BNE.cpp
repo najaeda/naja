@@ -3,7 +3,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "bne.h"
+#include "BNE.h"
 
 using namespace naja::BNE;
 
