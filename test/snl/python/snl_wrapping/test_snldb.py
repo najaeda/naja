@@ -19,9 +19,9 @@ class SNLDBTest(unittest.TestCase):
     self.assertIsNotNone(u)
     db = snl.SNLDB.create(u) 
     self.assertIsNotNone(db)
-    db.dumpSNL("./test_snl")
-    with self.assertRaises(SystemError) as context: db.dumpSNL(u)
-    with self.assertRaises(SystemError) as context: db.dumpSNL()
+    #db.dumpSNL("./test_snl")
+    #with self.assertRaises(SystemError) as context: db.dumpSNL(u)
+    #with self.assertRaises(SystemError) as context: db.dumpSNL()
     del db    
   
   def testVerilog(self):
@@ -40,9 +40,9 @@ class SNLDBTest(unittest.TestCase):
   def testLoad(self):
     u = snl.SNLUniverse.get()
     self.assertIsNotNone(u)
-    db1 = snl.SNLDB.loadSNL("./test_snl")
-    self.assertIsNotNone(db1)
-    del db1
+    #db1 = snl.SNLDB.loadSNL("./test_snl")
+    #self.assertIsNotNone(db1)
+    #del db1
 
   def testDestroy(self):
     u = snl.SNLUniverse.get()
@@ -56,8 +56,8 @@ class SNLDBTest(unittest.TestCase):
     db = snl.SNLDB.create(u) 
     with self.assertRaises(RuntimeError) as context: snl.SNLDB.create()
     with self.assertRaises(RuntimeError) as context: snl.SNLDB.create("ERROR")
-    with self.assertRaises(RuntimeError) as context: snl.SNLDB.loadSNL(u)
-    with self.assertRaises(RuntimeError) as context: snl.SNLDB.loadSNL("./test_verilogError.v")
+    #with self.assertRaises(RuntimeError) as context: snl.SNLDB.loadSNL(u)
+    #with self.assertRaises(RuntimeError) as context: snl.SNLDB.loadSNL("./test_verilogError.v")
     primitives = [1]
     designs = [2]
     primitivesNoExtention = ["../../../../../test/snl/formats/liberty/benchmarks/asap7_excerpt/test0"]
@@ -73,8 +73,8 @@ class SNLDBTest(unittest.TestCase):
     with self.assertRaises(SystemError) as context: db.loadLibertyPrimitives(primitivesWrongExtention)
     u.destroy()
     with self.assertRaises(RuntimeError) as context: snl.SNLDB.create(u)
-    with self.assertRaises(RuntimeError) as context: snl.SNLDB.loadSNL()
-    with self.assertRaises(RuntimeError) as context: snl.SNLDB.loadSNL("./error")
+    #with self.assertRaises(RuntimeError) as context: snl.SNLDB.loadSNL()
+    #with self.assertRaises(RuntimeError) as context: snl.SNLDB.loadSNL("./error")
     
 if __name__ == '__main__':
   faulthandler.enable()

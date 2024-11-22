@@ -31,7 +31,7 @@ SET(snl_pyedit_long_tests
   SNLPyHugeMatrixTest.cpp
 )
 ADD_EXECUTABLE(snlPyEditLongTests ${snl_pyedit_long_tests})
-TARGET_LINK_LIBRARIES(snlPyEditLongTests naja_snl_pyloader naja_snl_verilog gmock gtest_main)
+TARGET_LINK_LIBRARIES(snlPyEditLongTests naja_snl_pyloader naja_snl_dump naja_snl_verilog gmock gtest_main)
 target_compile_definitions(snlPyEditLongTests PRIVATE
   SNL_PYEDIT_TEST_PATH="${CMAKE_CURRENT_SOURCE_DIR}"
   SNL_DUMP_PATH="${CMAKE_CURRENT_BINARY_DIR}"
