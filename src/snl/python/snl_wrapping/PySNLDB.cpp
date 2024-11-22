@@ -155,7 +155,7 @@ PyObject* PySNLDB_loadVerilog(PySNLDB* self, PyObject* args) {
   if (top) {
     SNLUniverse::get()->setTopDesign(top);
   } else {
-    setError("No top design was found after parsing verilog");
+    setError("No top design was found after parsing verilog"); //LCOV_EXCL_LINE
   }
   Py_RETURN_TRUE;
 }

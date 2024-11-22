@@ -39,6 +39,7 @@ target_compile_definitions(snlPyEditLongTests PRIVATE
 IF(LONG_TESTS)
 gtest_discover_tests(
   snlPyEditLongTests
+  DISCOVERY_TIMEOUT 30
   PROPERTIES ENVIRONMENT
   PYTHONPATH=${PROJECT_BINARY_DIR}/src/snl/python/snl_wrapping
 )
@@ -52,6 +53,7 @@ target_compile_definitions(snlPyEditTests PRIVATE
 TARGET_LINK_LIBRARIES(snlPyEditTests naja_snl_pyloader gmock gtest_main)
 gtest_discover_tests(
   snlPyEditTests
+  DISCOVERY_TIMEOUT 30
   PROPERTIES ENVIRONMENT
   PYTHONPATH=${PROJECT_BINARY_DIR}/src/snl/python/snl_wrapping
 )
