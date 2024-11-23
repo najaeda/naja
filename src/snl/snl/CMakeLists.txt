@@ -76,7 +76,9 @@ target_include_directories(naja_snl PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/decorators
 )
 target_include_directories(naja_snl PUBLIC ${SPDLOG_DIR})
-set_target_properties(naja_snl PROPERTIES PUBLIC_HEADER "${SNL_HEADERS}")
+if(NOT BUILD_NAJA_PYTHON)
+  set_target_properties(naja_snl PROPERTIES PUBLIC_HEADER "${SNL_HEADERS}")
+endif(NOT BUILD_NAJA_PYTHON)
 install(TARGETS naja_snl
   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
   PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})

@@ -9,12 +9,10 @@
 #include "PySNLPath.h"
 #include "SNLInstTerm.h"
 #include "SNLPath.h"
-#include "Utils.h"
 
 namespace PYSNL {
 
 using namespace naja::SNL;
-using namespace naja::BNE;
 
 #define METHOD_HEAD(function) GENERIC_METHOD_HEAD(SNLUniquifier, function)
 
