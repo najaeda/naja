@@ -52,4 +52,40 @@ void NajaObject::preDestroy() {
   }
 }
 
-} // namespace naja
+void NajaObject::put(NajaProperty* property) {
+  if (!property) {
+    assert(false);
+    std::string reason =
+        "NajaObject::remove(): Can't remove property : NULL property.";
+    throw NajaException(reason);
+  }
+  NajaProperty* oldProperty = getProperty(property->getName());
+  if (property != oldProperty) {
+    if (oldProperty) {
+      removeProperty(oldProperty);
+      oldProperty->onReleasedBy(this);
+    }
+    addProperty(property);
+  }
+}
+
+void NajaObject::remove(NajaProperty* property) {
+  if (!property) {
+    assert(false);
+    std::string reason =
+        "NajaObject::remove(): Can't remove property : NULL property.";
+    throw NajaException(reason);
+  }
+  if (properties_.find(property->getName()) != properties_.end()) {
+    removeProperty(property);
+    property->onReleasedBy(this);
+  }
+}
+
+void NajaObject::onDestroyed(NajaProperty* property) {
+  if (properties_.find(property->getName()) != properties_.end()) {
+    removeProperty(property);
+  }
+}
+
+}  // namespace naja
