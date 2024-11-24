@@ -77,7 +77,8 @@ if(NOT BUILD_ONLY_DOC)
     find_package(TBB REQUIRED)
     find_package(CapnProto CONFIG REQUIRED)
   endif(NOT BUILD_NAJA_PYTHON)
-find_package(Boost REQUIRED PATHS ${BOOST_ROOT})
+
+find_package(Boost REQUIRED)
 find_package(Python3 3.9...<3.99 COMPONENTS Development Interpreter REQUIRED)
 endif(NOT BUILD_ONLY_DOC)
 
