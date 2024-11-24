@@ -132,24 +132,21 @@ PyObject* richCompare(T left, T right, int op) {
     if (self->ACCESS_OBJECT == NULL) {                                                                       \
       std::ostringstream  message;                                                                           \
       message << "applying a destroy() to a Python object with no Hurricane object attached";                \
-        /*PyErr_SetString( ProxyError, message.str().c_str() );*/                                            \
+      PyErr_SetString( PyExc_RuntimeError, message.str().c_str() );                                                  \
       return NULL;                                                                                           \
     }                                                                                                        \
-            printf("DESTROY----%s\n", self->ACCESS_OBJECT->getString().c_str());                               \
     naja::SNLProxyProperty* proxy = static_cast<naja::SNLProxyProperty*>                                     \
                            ( self->ACCESS_OBJECT->getProperty( naja::SNLProxyProperty::getPropertyName() ) );\
     if (proxy == NULL) {                                                                                     \
       std::ostringstream  message;                                                                           \
-      message << "Trying to destroy() a Hurricane object of with no Proxy attached ";                     \
-      /*PyErr_SetString( ProxyError, message.str().c_str() );*/                             \
-      return NULL;                                                                         \
-    }                                                                                      \
-    /*cdebug_log(20,0) << #PY_FUNC_NAME "(" << (void*)self << ") "                           \
-                     << (void*)self->ACCESS_OBJECT << ":" << self->ACCESS_OBJECT << endl;*/  \
-    self->ACCESS_OBJECT->destroy();                                                        \
-    self->ACCESS_OBJECT = NULL;                                                            \
-    SNLCATCH                                                                                 \
-    Py_RETURN_NONE;                                                                        \
+      message << "Trying to destroy() a Hurricane object of with no Proxy attached ";                        \
+      PyErr_SetString( PyExc_RuntimeError, message.str().c_str() );                                                  \
+      return NULL;                                                                                           \
+    }                                                                                                        \
+    self->ACCESS_OBJECT->destroy();                                                                          \
+    self->ACCESS_OBJECT = NULL;                                                                              \
+    SNLCATCH                                                                                                 \
+    Py_RETURN_NONE;                                                                                          \
   }
 
 #define DirectDeallocMethod(TYPE) \
@@ -160,24 +157,20 @@ PyObject* richCompare(T left, T right, int op) {
     PyObject_DEL(self); \
   }
 
-#define DBoDeallocMethod(SELF_TYPE) \
-  static void Py##SELF_TYPE##_DeAlloc ( Py##SELF_TYPE *self )            \
-  {                                                                      \
-    /*cdebug_log(20,0) << "PyDbObject_DeAlloc(" << (void*)self << ") "     \
-                   << (void*)(self->ACCESS_OBJECT) << ":" << self->ACCESS_OBJECT << endl;*/ \
-    if ( self->ACCESS_OBJECT != NULL ) {               \
-          printf("DEALOCATE----%s\n", self->ACCESS_OBJECT->getString().c_str());\
-        naja::SNLProxyProperty* proxy = static_cast<naja::SNLProxyProperty*>               \
-                               ( self->ACCESS_OBJECT->getProperty ( naja::SNLProxyProperty::getPropertyName() ) ); \
-        if (proxy == NULL) {      \
-          printf("null property\n");                                      \
-          std::ostringstream  message;                                        \
-          message << "deleting a Python object with no Proxy attached "; \
-          PyErr_SetString ( PyExc_RuntimeError, message.str().c_str() );         \
-        }                                                                \
-        self->ACCESS_OBJECT->remove ( proxy );                           \
-    }                                                                    \
-    PyObject_DEL ( self );                                               \
+#define DBoDeallocMethod(SELF_TYPE)                                                         \
+  static void Py##SELF_TYPE##_DeAlloc ( Py##SELF_TYPE *self )                               \
+  {                                                                                         \
+    if ( self->ACCESS_OBJECT != NULL ) {                                                    \
+        naja::SNLProxyProperty* proxy = static_cast<naja::SNLProxyProperty*>                \
+        ( self->ACCESS_OBJECT->getProperty ( naja::SNLProxyProperty::getPropertyName() ) ); \
+        if (proxy == NULL) {                                                                \
+          std::ostringstream  message;                                                      \
+          message << "deleting a Python object with no Proxy attached ";                    \
+          PyErr_SetString ( PyExc_RuntimeError, message.str().c_str() );                    \
+        }                                                                                   \
+        self->ACCESS_OBJECT->remove ( proxy );                                              \
+    }                                                                                       \
+    PyObject_DEL ( self );                                                                  \
   }
 
 #define ManagedTypeDeallocMethod(SELF_TYPE) \
@@ -252,37 +245,31 @@ PyObject* richCompare(T left, T right, int op) {
     return (PyObject*)pyObject; \
   }
 
-#define DBoLinkCreateMethod(SELF_TYPE) \
-  PyObject* Py##SELF_TYPE##_Link ( SELF_TYPE* object ) {     \
-    if ( object == NULL ) {                                                    \
-      Py_RETURN_NONE;                                                          \
-    }                                                                          \
-    printf("LINK-----%s\n", object->getString().c_str());     \
-    Py##SELF_TYPE* pyObject = NULL;                                            \
-    TRY                                                                       \
-    naja::SNLProxyProperty* proxy = static_cast<naja::SNLProxyProperty*>             \
-      ( object->getProperty ( naja::SNLProxyProperty::getPropertyName() ) ); printf("1\n");  \
-    if ( proxy == NULL ) {                  printf("2\n");                                   \
-      pyObject = PyObject_NEW(Py##SELF_TYPE, &PyType##SELF_TYPE);              \
-      if (pyObject == NULL) { printf("3\n"); return NULL; }                                   \
-                                                                               \
-      proxy = naja::SNLProxyProperty::create ( (void*)pyObject );     printf("4\n");         \
-      CHECK_OFFSET ( pyObject, SELF_TYPE )                                     \
-                                                                               \
-      pyObject->ACCESS_OBJECT = object;                                        \
-      object->put ( proxy );                                                   \
-    naja::SNLProxyProperty* proxy = static_cast<naja::SNLProxyProperty*>               \
-                               ( pyObject->ACCESS_OBJECT->getProperty ( naja::SNLProxyProperty::getPropertyName() ) ); \
-    assert(proxy != nullptr); \
-    } else {                         printf("5\n");                                           \
-      pyObject = (Py##SELF_TYPE*)proxy->getShadow ();                          \
-      Py_INCREF ( ACCESS_CLASS(pyObject) );                                    \
-    }                                                                          \
-    /*cdebug_log(20,0) << "PyDbo" #SELF_TYPE "_Link(" << (void*)pyObject << ") " \
-                   << (void*)object << ":" << object << endl;*/                  \
-    SNLCATCH                                                                     \
-                                                                               \
-    return ( (PyObject*)pyObject );                                            \
+#define DBoLinkCreateMethod(SELF_TYPE)                                                      \
+  PyObject* Py##SELF_TYPE##_Link ( SELF_TYPE* object ) {                                    \
+    if ( object == NULL ) {                                                                 \
+      Py_RETURN_NONE;                                                                       \
+    }                                                                                       \
+    Py##SELF_TYPE* pyObject = NULL;                                                         \
+    TRY                                                                                     \
+    naja::SNLProxyProperty* proxy = static_cast<naja::SNLProxyProperty*>                    \
+      ( object->getProperty ( naja::SNLProxyProperty::getPropertyName() ) );                \
+    if ( proxy == NULL ) {                                                                  \
+      pyObject = PyObject_NEW(Py##SELF_TYPE, &PyType##SELF_TYPE);                           \
+      if (pyObject == NULL) { return NULL; }                                                \
+      proxy = naja::SNLProxyProperty::create ( (void*)pyObject );                           \
+      CHECK_OFFSET ( pyObject, SELF_TYPE )                                                  \
+      pyObject->ACCESS_OBJECT = object;                                                     \
+      object->put ( proxy );                                                                \
+    naja::SNLProxyProperty* proxy = static_cast<naja::SNLProxyProperty*>                    \
+    ( pyObject->ACCESS_OBJECT->getProperty ( naja::SNLProxyProperty::getPropertyName() ) ); \
+    assert(proxy != nullptr);                                                               \
+    } else {                                                                                \
+      pyObject = (Py##SELF_TYPE*)proxy->getShadow ();                                       \
+      Py_INCREF ( ACCESS_CLASS(pyObject) );                                                 \
+    }                                                                                       \
+    SNLCATCH                                                                                \
+    return ( (PyObject*)pyObject );                                                         \
   }
 
 #define GetObjectMethod(SELF_TYPE, OBJECT_TYPE, METHOD) \
