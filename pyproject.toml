@@ -19,7 +19,7 @@ CMAKE_BUILD_TYPE="Release"
 BUILD_NAJA_PYTHON="ON"
 
 [project.urls]
-Homepage = "https://github.com/artfwo/aalink"
+Homepage = "https://github.com/najaeda/naja"
 
 [tool.cibuildwheel]
 build-verbosity = 1
