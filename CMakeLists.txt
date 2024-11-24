@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 cmake_minimum_required(VERSION 3.21)
+cmake_policy(SET CMP0144 NEW)
 
 message(STATUS "CMake version: ${CMAKE_VERSION}")
 
