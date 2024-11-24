@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 [build-system]
-requires = ["scikit-build-core", "setuptools", "wheel"]
+requires = ["scikit-build-core >=0.10.7"]
 build-backend = "scikit_build_core.build"
 
 [project]
