@@ -17,6 +17,7 @@ license = {text = "Apache License 2.0"}
 [tool.scikit-build.cmake.define]
 CMAKE_BUILD_TYPE="Release"
 BUILD_NAJA_PYTHON="ON"
+BOOST_ROOT=$BOOST_ROOT
 
 [project.urls]
 Homepage = "https://github.com/najaeda/naja"

@@ -47,10 +47,9 @@ jobs:
             wget --no-check-certificate 'https://sourceforge.net/projects/boost/files/boost/1.86.0/boost_1_86_0.tar.bz2' && 
             tar xf boost_1_86_0.tar.bz2 &&
             cd {package}
-          CIBW_ENVIRONMENT_MACOS: CMAKE_PREFIX_PATH='${{ steps.install-boost.outputs.BOOST_ROOT }}'
-          CIBW_ENVIRONMENT_LINUX: CMAKE_PREFIX_PATH=/boost
-          CIBW_ENVIRONMENT_PASS_LINUX: CMAKE_PREFIX_PATH
-
+          CIBW_ENVIRONMENT_MACOS: BOOST_ROOT='${{ steps.install-boost.outputs.BOOST_ROOT }}'
+          CIBW_ENVIRONMENT_LINUX: BOOST_ROOT=/boost
+          CIBW_ENVIRONMENT_PASS_LINUX: BOOST_ROOT
 
       #- uses: actions/upload-artifact@v4
       #  with:
