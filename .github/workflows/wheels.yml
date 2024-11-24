@@ -33,7 +33,6 @@ jobs:
           CIBW_SKIP: pp* *_i686 *-win32
           CIBW_ARCHS_MACOS: x86_64 arm64
           MACOSX_DEPLOYMENT_TARGET: 11.0
-          CIBW_BEFORE_ALL_LINUX: sudo apt-get update && sudo apt-get install -y libboost-dev
       #- uses: actions/upload-artifact@v4
       #  with:
       #    name: cibw-wheels-${{ matrix.os }}-${{ strategy.job-index }}
