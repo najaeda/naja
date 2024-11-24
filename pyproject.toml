@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 [build-system]
-requires = ["scikit-build-core >=0.10.7"]
+requires = ["scikit-build-core >=0.4.3"]
 build-backend = "scikit_build_core.build"
 
 [project]
@@ -22,3 +22,6 @@ license = {text = "Apache License 2.0"}
 [tool.scikit-build.cmake.define]
 CMAKE_BUILD_TYPE="Release"
 BUILD_NAJA_PYTHON="ON"
+
+[tool.cibuildwheel]
+build-verbosity = 1
