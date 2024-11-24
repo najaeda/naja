@@ -41,6 +41,8 @@ jobs:
           CIBW_SKIP: pp* *_i686 *-win32
           CIBW_ARCHS_MACOS: x86_64 arm64
           CIBW_BEFORE_ALL_LINUX: >
+            yum -y install epel-release
+            yum repolist
             yum -y install boost-devel python38-devel 
 
       #- uses: actions/upload-artifact@v4
