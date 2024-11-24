@@ -15,7 +15,10 @@ requires-python = ">=3.8"
 license = {text = "Apache License 2.0"}
 
 [tool.cibuildwheel.linux]
-before-all = "sudo apt-get update && sudo apt-get install -y libboost-all-dev"
+before-all = '''
+yum install -y \
+ boost-devel
+'''
 
 [tool.scikit-build.cmake.define]
 CMAKE_BUILD_TYPE="Release"
