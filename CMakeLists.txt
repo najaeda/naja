@@ -18,9 +18,6 @@ endif()
 if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.24")
   set(CMAKE_COMPILE_WARNING_AS_ERROR ON)
 endif()
-cmake_policy(SET CMP0144 NEW)
-
-MESSAGE(STATUS "BOOST_ROOT: $ENV{BOOST_ROOT}")
 
 include(GNUInstallDirs)
 
@@ -80,7 +77,7 @@ if(NOT BUILD_ONLY_DOC)
     find_package(TBB REQUIRED)
     find_package(CapnProto CONFIG REQUIRED)
   endif(NOT BUILD_NAJA_PYTHON)
-find_package(Boost REQUIRED)
+find_package(Boost REQUIRED PATHS ${BOOST_ROOT})
 find_package(Python3 3.9...<3.99 COMPONENTS Development Interpreter REQUIRED)
 endif(NOT BUILD_ONLY_DOC)
 
