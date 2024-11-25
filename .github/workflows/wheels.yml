@@ -40,11 +40,9 @@ jobs:
         env:
           CIBW_SKIP: pp* *_i686 *-win32
           CIBW_ARCHS_MACOS: x86_64 arm64
+          CIBW_BUILD: "cp39-* cp310-* cp311-*"
           CIBW_BEFORE_ALL_LINUX: >
-            yum -y install epel-release
-            yum repolist
-            yum -y install boost-devel python38-devel 
-
+            yum -y install boost-devel python3-devel
       #- uses: actions/upload-artifact@v4
       #  with:
       #    name: cibw-wheels-${{ matrix.os }}-${{ strategy.job-index }}
