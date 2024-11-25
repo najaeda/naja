@@ -72,6 +72,8 @@ if(ENABLE_SANITIZERS)
   )
 endif(ENABLE_SANITIZERS)
 
+option(BUILD_NAJA_PYTHON "Build Naja Python package" OFF)
+
 if(NOT BUILD_ONLY_DOC)
   if(NOT BUILD_NAJA_PYTHON)
     find_package(TBB REQUIRED)
