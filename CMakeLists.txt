@@ -79,7 +79,7 @@ if(NOT BUILD_ONLY_DOC)
   endif(NOT BUILD_NAJA_PYTHON)
 
 find_package(Boost REQUIRED)
-find_package(Python3 3.9...<3.99 COMPONENTS Development Interpreter REQUIRED)
+find_package(Python3 3.9...<3.99 COMPONENTS Development.Embed Development.Module REQUIRED)
 endif(NOT BUILD_ONLY_DOC)
 
 if(PROJECT_IS_TOP_LEVEL)
