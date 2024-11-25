@@ -79,7 +79,11 @@ if(NOT BUILD_ONLY_DOC)
   endif(NOT BUILD_NAJA_PYTHON)
 
 find_package(Boost REQUIRED)
-find_package(Python3 3.9...<3.99 COMPONENTS Development.Embed Development.Module REQUIRED)
+if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+  find_package(Python3 3.9...<3.99 COMPONENTS Interpreter Development.Embed Development.Module REQUIRED)
+else()
+  find_package(Python3 3.9...<3.99 COMPONENTS Interpreter Development.Module REQUIRED)
+endif()
 endif(NOT BUILD_ONLY_DOC)
 
 if(PROJECT_IS_TOP_LEVEL)
