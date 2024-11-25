@@ -8,8 +8,6 @@
 #include <iostream>
 #include <sstream>
 
-#include "spdlog/spdlog.h"
-
 #include "SNLUniverse.h"
 #include "SNLDB0.h"
 #include "SNLLibrary.h"
@@ -126,7 +124,7 @@ bool allNetsArePortNets(naja::SNL::SNLDesign* design) {
     }
     if (net->getBitTerms().empty()) {
       //LCOV_EXCL_START
-      spdlog::info("Net {} in {} is not a port net", 
+      //spdlog::info("Net {} in {} is not a port net", 
         net->getName().getString(),
         design->getName().getString());
       return false;
@@ -689,7 +687,7 @@ void SNLVRLConstructor::endModule() {
       if (currentModule_->getInstances().empty()) {
         if (allNetsArePortNets(currentModule_)) {
           currentModule_->setType(SNLDesign::Type::Blackbox);
-          spdlog::info("Blackbox detected: {}", currentModule_->getName().getString());
+          //spdlog::info("Blackbox detected: {}", currentModule_->getName().getString());
         }
       }
     }
