@@ -125,8 +125,8 @@ bool allNetsArePortNets(naja::SNL::SNLDesign* design) {
     if (net->getBitTerms().empty()) {
       //LCOV_EXCL_START
       //spdlog::info("Net {} in {} is not a port net", 
-        net->getName().getString(),
-        design->getName().getString());
+        //net->getName().getString(),
+        //design->getName().getString());
       return false;
       //LCOV_EXCL_STOP
     }
