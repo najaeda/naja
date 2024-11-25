@@ -2,7 +2,9 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-add_subdirectory(serialization)
+if (NOT BUILD_NAJA_PYTHON)
+  add_subdirectory(serialization)
+endif(NOT BUILD_NAJA_PYTHON)
 add_subdirectory(visual)
 
 set(SNL_KERNEL_SOURCES
