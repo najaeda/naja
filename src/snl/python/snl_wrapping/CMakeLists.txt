@@ -26,7 +26,7 @@ set(SOURCES
 
 add_library(naja_snl_python SHARED ${SOURCES})
 target_link_libraries(naja_snl_python PUBLIC naja_snl_verilog naja_snl_liberty)
-if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin" OR NOT ${BUILD_NAJA_PYTHON})
   target_link_libraries(naja_snl_python PUBLIC Python3::Python)
 endif()
 target_include_directories(naja_snl_python
