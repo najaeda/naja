@@ -97,4 +97,5 @@ TEST_F(SNLProxyPropertyTest, test) {
   testObject_->put ( proxyNew ); 
   EXPECT_THROW(testObject_->put ( nullptr ), NajaException);
   EXPECT_THROW(testObject_->remove( nullptr ), NajaException);
+  EXPECT_THROW(naja::SNLProxyProperty::create ( nullptr ), NajaException);
 }
