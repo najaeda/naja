@@ -65,6 +65,7 @@ class SNLInstanceTest(unittest.TestCase):
   def testInstTerms(self):
     self.assertEqual(3, sum(1 for t in self.model.getTerms()))
     ins1 = snl.SNLInstance.create(self.top, self.model, "ins1")
+    ins1copy = self.top.getInstance("ins1")
     self.assertEqual(7, sum(1 for it in ins1.getInstTerms()))
     inputs = filter(lambda it: it.getDirection() == snl.SNLTerm.Direction.Input, ins1.getInstTerms())
     outputs = filter(lambda it: it.getDirection() == snl.SNLTerm.Direction.Output, ins1.getInstTerms())

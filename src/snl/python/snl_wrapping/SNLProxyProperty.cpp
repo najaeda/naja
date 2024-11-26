@@ -29,10 +29,10 @@ int SNLProxyProperty::_offset = -1;
 
 SNLProxyProperty::SNLProxyProperty(void* shadow)
     : NajaPrivateProperty(), _owner  (NULL)
-      ,
-      _shadow(shadow) {}
+      , _shadow(shadow) {}
 
 SNLProxyProperty* SNLProxyProperty::create(void* shadow) {
+  printf("SNLProxyProperty::create %p\n", shadow);
   if (not shadow)
     throw SNL::SNLException(
         "SNLProxyProperty::create(): Empty \"shadow\" argument.");
@@ -46,11 +46,14 @@ SNLProxyProperty* SNLProxyProperty::create(void* shadow) {
 }
 
 void SNLProxyProperty::preDestroy() {
+  
   if (_owner) {
     _owner->onDestroyed(this);
   }
   if (_offset > 0) {
     void** shadowMember = ((void**)((unsigned long)_shadow + _offset));
+    printf("SNLProxyProperty::preDestroy get string object %s\n", ((NajaObject*) *shadowMember)->getString().c_str());
+    printf("SNLProxyProperty::preDestroy setting to null %p\n", shadowMember);
     *shadowMember = NULL;
   }
 }
@@ -63,8 +66,11 @@ void SNLProxyProperty::onCapturedBy(NajaObject* owner) {
 }
 
 void SNLProxyProperty::onReleasedBy(const NajaObject* owner) {
-  if (_owner == owner)
+  //printf("SNLProxyProperty::onReleasedBy %p\n", owner);
+  if (_owner == owner) {
+    printf("SNLProxyProperty:: Not Owned\n");
     onNotOwned();
+  }
 }
 
 void SNLProxyProperty::onNotOwned() {

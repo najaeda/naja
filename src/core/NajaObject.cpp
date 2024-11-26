@@ -54,7 +54,6 @@ void NajaObject::preDestroy() {
 
 void NajaObject::put(NajaProperty* property) {
   if (!property) {
-    assert(false);
     std::string reason =
         "NajaObject::remove(): Can't remove property : NULL property.";
     throw NajaException(reason);
@@ -71,7 +70,6 @@ void NajaObject::put(NajaProperty* property) {
 
 void NajaObject::remove(NajaProperty* property) {
   if (!property) {
-    assert(false);
     std::string reason =
         "NajaObject::remove(): Can't remove property : NULL property.";
     throw NajaException(reason);
