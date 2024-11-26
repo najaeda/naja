@@ -164,6 +164,14 @@ class Instance:
   def getChildInstance(self, name: str):
     return Instance(snl.SNLPath(self.path, self.inst.getModel().getInstance(name)), self.inst.getModel().getInstance(name))
   
+  def getChildInstances(self):
+    for inst in self.inst.getModel().getInstances():
+      path = snl.SNLPath(self.path, inst)
+      yield Instance(path, inst)
+  
+  def getNumberOfChildInstances(self) -> int:
+    return len(tuple(self.inst.getModel().getInstances()))
+
   def getInstTerms(self):
     if self.inst is None:
       return
@@ -178,11 +186,11 @@ class Instance:
         return InstTerm(self.path.getHeadPath(), term)
     return None
   
-  def getTopTerms(self):
-    if self.inst is None:
-      top = snl.SNLUniverse.get().getTopDesign()
-      for term in top.getBitTerms():
-         yield TopTerm(self.path, term)
+  # def getTopTerms(self):
+  #   if self.inst is None:
+  #     top = snl.SNLUniverse.get().getTopDesign()
+  #     for term in top.getBitTerms():
+  #        yield TopTerm(self.path, term)
 
   def isPrimitive(self):
     return self.inst.getModel().isPrimitive()
@@ -193,9 +201,14 @@ class Instance:
         yield InstTerm(self.path.getHeadPath(), term)
   
   def deleteInstance(self, name: str):
-    uniq = snl.SNLUniquifier(self.path)
+    path = snl.SNLPath(self.path, self.inst.getModel().getInstance(name))
+    uniq = snl.SNLUniquifier(path)
     uniqPath = uniq.getPathUniqCollection()
     # Delete the last instance in uniqPath    
+    tuple(uniqPath)[len(tuple(uniqPath)) - 1].destroy()
+  
+  def getName(self) -> str:
+    return self.inst.getName()
   
 class Loader:
 

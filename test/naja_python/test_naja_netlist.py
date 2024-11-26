@@ -76,6 +76,10 @@ class NajaNetlistTest(unittest.TestCase):
     self.assertTrue(instance2.inst == instance.getChildInstance(ins2.getName()).inst)
     self.assertTrue(instance2.path == instance.getChildInstance(ins2.getName()).path)
     self.assertTrue(instance2 == instance.getChildInstance(ins2.getName()))
+
+    self.assertTrue(instance.getNumberOfChildInstances() == 1)
+    instance.deleteInstance(instance2.getName())
+    self.assertTrue(instance.getNumberOfChildInstances() == 0)
   
   def testEquipotential(self):
     universe = snl.SNLUniverse.create()
