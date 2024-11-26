@@ -39,6 +39,9 @@ class Net:
     def getTopTerms(self):
       for term in self.net.getBitTerms():
         yield TopTerm(self.path, term)
+    
+    def __eq__(self, value):
+      return self.net == value.net and self.path == value.path
       
 class TopTerm:
 
@@ -118,7 +121,7 @@ class InstTerm:
     return self.inst.getInstTerms().getName()
   
   def getNet(self) -> Net:
-    return Net(self.path, self.inst.getInstTerms().getNet())
+    return Net(self.path, self.term.getNet())
   
   def getInstance(self):
     inst = self.term.getInstance()
@@ -140,17 +143,25 @@ class InstTerm:
   def getString(self) -> str:
     return str(snl.SNLInstTermOccurrence(self.path, self.term))
 
+  def disconnect(self):
+    uniq = snl.SNLUniquifier(self.path)
+    self.term.setNet(snl.SNLNet())
+
+  def connect(self, net: Net):
+    uniq = snl.SNLUniquifier(self.path)
+    self.term.setNet(net.net)
+
 def getInstanceByPath(names: list):
-  path =  snl.SNLPath()
-  instance = None
-  top = snl.SNLUniverse.get().getTopDesign()
-  design = top
-  for name in names:
-    path = snl.SNLPath(path, design.getInstance(name))
-    instance = design.getInstance(name)
-    design = instance.getModel()
-  return Instance(path, instance)
-  
+    path =  snl.SNLPath()
+    instance = None
+    top = snl.SNLUniverse.get().getTopDesign()
+    design = top
+    for name in names:
+      path = snl.SNLPath(path, design.getInstance(name))
+      instance = design.getInstance(name)
+      design = instance.getModel()
+    return Instance(path, instance)
+
 # Class that represents the instance and wrap some of the snl occurrence api
 class Instance:
   
@@ -182,7 +193,7 @@ class Instance:
     if self.inst is None:
       return None
     for term in self.inst.getInstTerms():
-      if term.getName() == name:
+      if term.getBitTerm().getName() == name:
         return InstTerm(self.path.getHeadPath(), term)
     return None
   

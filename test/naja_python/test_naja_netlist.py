@@ -76,7 +76,7 @@ class NajaNetlistTest(unittest.TestCase):
     self.assertTrue(instance2.inst == instance.getChildInstance(ins2.getName()).inst)
     self.assertTrue(instance2.path == instance.getChildInstance(ins2.getName()).path)
     self.assertTrue(instance2 == instance.getChildInstance(ins2.getName()))
-
+    
     self.assertTrue(instance.getNumberOfChildInstances() == 1)
     instance.deleteInstance(instance2.getName())
     self.assertTrue(instance.getNumberOfChildInstances() == 0)
@@ -135,6 +135,13 @@ class NajaNetlistTest(unittest.TestCase):
       toCompareWith = snlInstTermOccurrences.pop(0)
       self.assertTrue(t.term == toCompareWith.getInstTerm())
       self.assertTrue(t.path == toCompareWith.getPath())
+    
+    instance = netlist.Instance(path1, ins1)
+    print(instance.getInstTerm("I0").getNet())
+    print(netlist.Net(path0, i0Net))
+    self.assertTrue(instance.getInstTerm("I0").getNet() == netlist.Net(path0, i0Net))
+    instance.getInstTerm("I0").disconnect()
+    self.assertIsNone(instance.getInstTerm("I0").getNet().net)
 
 if __name__ == '__main__':
   faulthandler.enable()
