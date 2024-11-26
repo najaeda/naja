@@ -89,9 +89,9 @@ jobs:
           #- os: macos-14
           #  python: 312
           #  platform_id: macosx_arm64
-          #- os: macos-14
-          #  python: 313
-          #  platform_id: macosx_arm64
+          - os: macos-14
+            python: 313
+            platform_id: macosx_arm64
           #- os: macos-14
           #  python: 313t
           #  platform_id: macosx_arm64
