@@ -53,8 +53,23 @@ jobs:
             make install && \
             cd .."
 
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cibw-wheels-${{ runner.os }} #-${{ matrix.cibw_archs }}
+          path: ./wheelhouse/*.whl
+          if-no-files-found: error
 
-      #- uses: actions/upload-artifact@v4
-      #  with:
-      #    name: cibw-wheels-${{ matrix.os }}-${{ strategy.job-index }}
-      #    path: ./wheelhouse/*.whl
+
+  #pypi-publish:
+  #  name: Upload release to PyPI
+  #  runs-on: ubuntu-latest
+  #  environment:
+  #    name: pypi
+  #    url: https://pypi.org/najaeda/naja
+  #  permissions:
+  #    id-token: write  # IMPORTANT: this permission is mandatory for trusted publishing
+  #  steps:
+  #  # retrieve your distributions here
+
+  #  - name: Publish package distributions to PyPI
+  #    uses: pypa/gh-action-pypi-publish@release/v1
