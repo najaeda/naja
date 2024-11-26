@@ -89,13 +89,16 @@ class SNLProxyPropertyTest: public ::testing::Test {
 
 TEST_F(SNLProxyPropertyTest, test) {
   ASSERT_NE(nullptr, testObject_);
+  TestObject copyOfTestObject = *testObject_;
   naja::SNLProxyProperty*  proxy = naja::SNLProxyProperty::create ( (void*)testObject_ );     
   ASSERT_NE(nullptr, proxy);
   testObject_->put ( proxy ); 
   naja::SNLProxyProperty*  proxyNew = naja::SNLProxyProperty::create ( (void*)testObject_ );     
   ASSERT_NE(nullptr, proxyNew);
   testObject_->put ( proxyNew ); 
+  EXPECT_THROW(copyOfTestObject.put ( proxyNew ), NajaException);
   EXPECT_THROW(testObject_->put ( nullptr ), NajaException);
   EXPECT_THROW(testObject_->remove( nullptr ), NajaException);
   EXPECT_THROW(naja::SNLProxyProperty::create ( nullptr ), NajaException);
+  proxyNew->getString();
 }
