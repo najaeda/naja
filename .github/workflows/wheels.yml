@@ -39,7 +39,6 @@ jobs:
         with:
           name: cibw-wheels-${{ runner.os }} #-${{ matrix.cibw_archs }}
           path: ./wheelhouse/*.whl
-          if-no-files-found: error
   
   test_upload_pypi:
     # TODO: create an sdist that can build without a custom environment
@@ -76,6 +75,7 @@ jobs:
         with:
           password: ${{ secrets.TEST_PYPI_API_TOKEN }}
           repository-url: https://test.pypi.org/legacy/
+          skip-existing: true
 
   pypi-publish:
     needs: [test_upload_pypi]
@@ -102,3 +102,4 @@ jobs:
         with:
           password: ${{ secrets.PYPI_API_TOKEN }}
           repository-url: https://pypi.org/najaeda
+          skip-existing: true
