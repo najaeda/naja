@@ -73,6 +73,6 @@ PyMethodDef PySNLBusTerm_Methods[] = {
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 
-PyTypeSNLAbstractObjectWithSNLIDLinkPyType(SNLBusTerm)
+PyTypeSNLFinalObjectWithSNLIDLinkPyType(SNLBusTerm)
 
 }
