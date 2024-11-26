@@ -38,7 +38,6 @@ Python3_add_library(snl MODULE PySNL.cpp)
 target_link_libraries(snl PRIVATE naja_snl_python)
 
 if(BUILD_NAJA_PYTHON)
-  set_target_properties(snl PROPERTIES INSTALL_RPATH ".")
   install(TARGETS snl LIBRARY DESTINATION DESTINATION ${CMAKE_INSTALL_LIBDIR})
   install(TARGETS naja_snl_python LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 else(BUILD_NAJA_PYTHON)

@@ -21,19 +21,24 @@ endif()
 
 include(GNUInstallDirs)
 
+option(BUILD_NAJA_PYTHON "Build Naja Python package" OFF)
+
 #RPATH settings
-#set(MACOSX_RPATH TRUE)
-# use, i.e. don't skip the full RPATH for the build tree
-set(CMAKE_SKIP_BUILD_RPATH FALSE)
- 
-# when building, don't use the install RPATH already
-# (but later on when installing)
-set(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
-set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_FULL_LIBDIR}")
- 
-# add the automatically determined parts of the RPATH
-# which point to directories outside the build tree to the install RPATH
-set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+#if(BUILD_NAJA_PYTHON)
+#  set(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
+#else(BUILD_NAJA_PYTHON)
+  # use, i.e. don't skip the full RPATH for the build tree
+  set(CMAKE_SKIP_BUILD_RPATH FALSE)
+  # when building, don't use the install RPATH already
+  # (but later on when installing)
+  set(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
+  set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_FULL_LIBDIR}")
+  # add the automatically determined parts of the RPATH
+  # which point to directories outside the build tree to the install RPATH
+  set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+  ######
+#endif(BUILD_NAJA_PYTHON)
+
 ######
 
 set(CMAKE_CXX_STANDARD 20)
@@ -72,7 +77,6 @@ if(ENABLE_SANITIZERS)
   )
 endif(ENABLE_SANITIZERS)
 
-option(BUILD_NAJA_PYTHON "Build Naja Python package" OFF)
 
 if(NOT BUILD_ONLY_DOC)
   if(NOT BUILD_NAJA_PYTHON)
@@ -115,8 +119,10 @@ endif(BUILD_SPHINX_DOCUMENTATION)
 endif(PROJECT_IS_TOP_LEVEL)
 
 if(NOT BUILD_ONLY_DOC)
-add_subdirectory(thirdparty)
-add_subdirectory(cmake)
-add_subdirectory(src)
-add_subdirectory(primitives)
+  add_subdirectory(thirdparty)
+  add_subdirectory(src)
+  if(NOT BUILD_NAJA_PYTHON)
+    add_subdirectory(cmake)
+    add_subdirectory(primitives)
+  endif(NOT BUILD_NAJA_PYTHON)
 endif(NOT BUILD_ONLY_DOC)
