@@ -81,6 +81,9 @@ class NajaNetlistTest(unittest.TestCase):
         instance.delete_instance(instance2.get_name())
         self.assertTrue(instance.get_number_of_child_instances() == 0)
 
+        instance.create_child_instance(self.submodel, "ins2")
+        self.assertTrue(instance.get_number_of_child_instances() == 1)
+
     def test_equipotential(self):
         universe = snl.SNLUniverse.create()
         db = snl.SNLDB.create(universe)

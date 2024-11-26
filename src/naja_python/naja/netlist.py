@@ -143,9 +143,11 @@ class InstTerm:
         return str(snl.SNLInstTermOccurrence(self.path, self.term))
 
     def disconnect(self):
+        uniq = snl.SNLUniquifier(self.path)
         self.term.setNet(snl.SNLNet())
 
     def connect(self, net: Net):
+        uniq = snl.SNLUniquifier(self.path)
         self.term.setNet(net.net)
 
 
@@ -214,6 +216,13 @@ class Instance:
 
     def get_name(self) -> str:
         return self.inst.getName()
+    
+    def create_child_instance(self, model, name):
+        uniq = snl.SNLUniquifier(self.path)
+        design = self.inst.getModel()
+        newSNLInstance = snl.SNLInstance.create(design, model, name)
+        path = snl.SNLPath(self.path, newSNLInstance)
+        return Instance(snl.SNLPath(self.path, newSNLInstance), newSNLInstance)
 
 
 class Loader:
