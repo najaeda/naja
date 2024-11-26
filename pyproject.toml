@@ -44,3 +44,8 @@ before-all = '''
   make install
   cd ..
 '''
+
+[tool.cibuildwheel.macos]
+before-all = '''
+  brew install boost flex bison
+'''
