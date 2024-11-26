@@ -40,6 +40,10 @@ class NajaObject {
 
     ///destroy this object
     virtual void destroy();
+    void put(NajaProperty* property);
+    void remove(NajaProperty* property);
+    void onDestroyed (NajaProperty* property);
+    
   protected:
     NajaObject() = default;
     virtual ~NajaObject() = default;
