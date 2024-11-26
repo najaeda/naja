@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import logging
-from naja import snl
+from najaeda import snl
 
 # Class that represents the term and wrap some of the snl occurrence api
 class Equipotential:

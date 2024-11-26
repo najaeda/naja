@@ -7,16 +7,13 @@ requires = ["scikit-build-core >=0.4.3"]
 build-backend = "scikit_build_core.build"
 
 [project]
-name = "naja"
+name = "najaeda"
 version = "0.1.0"
-description = "Naja Python package"
+description = "Naja EDA Python package"
 authors = [{name = "Naja Authors", email = "contact@keplertech.io"}]
 readme = "README.rst"
 requires-python = ">=3.8"
 license = {text = "Apache License 2.0"}
-
-#[tool.scikit-build.wheel.packages]
-#naja = "src/naja_python"
 
 [tool.scikit-build.cmake.define]
 CMAKE_BUILD_TYPE="Release"

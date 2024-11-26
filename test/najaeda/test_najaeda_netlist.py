@@ -18,8 +18,8 @@ else:
 
 import unittest
 import faulthandler 
-from naja import netlist
-from naja import snl
+from najaeda import netlist
+from najaeda import snl
 
 class NajaNetlistTest(unittest.TestCase):
   def setUp(self):

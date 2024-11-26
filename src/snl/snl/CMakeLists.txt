@@ -79,7 +79,7 @@ target_include_directories(naja_snl PUBLIC
 )
 target_include_directories(naja_snl PUBLIC ${SPDLOG_DIR})
 if(BUILD_NAJA_PYTHON)
-  install(TARGETS naja_snl LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/naja)
+  install(TARGETS naja_snl LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/najaeda)
 else(BUILD_NAJA_PYTHON)
   set_target_properties(naja_snl PROPERTIES PUBLIC_HEADER "${SNL_HEADERS}")
   install(TARGETS naja_snl

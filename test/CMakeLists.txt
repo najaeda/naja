@@ -6,7 +6,7 @@ include(GoogleTest)
 
 add_subdirectory(core)
 add_subdirectory(snl)
-add_subdirectory(naja_python)
+add_subdirectory(najaeda)
 if(NOT BUILD_NAJA_PYTHON)
   add_subdirectory(dnl)
   add_subdirectory(bne)

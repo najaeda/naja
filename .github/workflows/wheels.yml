@@ -1,5 +1,5 @@
 # Workflow to build and test wheels
-name: Naja Wheel builder
+name: najaeda Wheel builder
 
 on:
   push:
