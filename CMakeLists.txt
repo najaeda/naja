@@ -24,13 +24,13 @@ include(GNUInstallDirs)
 option(BUILD_NAJA_PYTHON "Build Naja Python package" OFF)
 
 #RPATH settings
-if(BUILD_NAJA_PYTHON)
+if(BUILD_NAJA_PYTHON AND NOT ${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
   set(CMAKE_BUILD_RPATH_USE_ORIGIN TRUE)
   set(CMAKE_SKIP_BUILD_RPATH FALSE)
   set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
   set(CMAKE_INSTALL_RPATH "$ORIGIN/lib:$ORIGIN")
   set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
-else(BUILD_NAJA_PYTHON)
+else()
   # use, i.e. don't skip the full RPATH for the build tree
   set(CMAKE_SKIP_BUILD_RPATH FALSE)
   # when building, don't use the install RPATH already
@@ -41,7 +41,7 @@ else(BUILD_NAJA_PYTHON)
   # which point to directories outside the build tree to the install RPATH
   set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
   ######
-endif(BUILD_NAJA_PYTHON)
+endif()
 
 ######
 
