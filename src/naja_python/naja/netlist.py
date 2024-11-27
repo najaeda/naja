@@ -143,16 +143,19 @@ class InstTerm:
         return str(snl.SNLInstTermOccurrence(self.path, self.term))
 
     def disconnect(self):
+        term = self.term.getTerm()
         uniq = snl.SNLUniquifier(self.path)
         uniq_path = uniq.getPathUniqCollection()
         inst = tuple(uniq_path)[len(tuple(uniq_path)) - 1]
-        if self.term.getTerm().is
+        self.term = inst.getInstTerm(term)
         self.term.setNet(snl.SNLNet())
 
     def connect(self, net: Net):
+        term = self.term.getTerm()
         uniq = snl.SNLUniquifier(self.path)
         uniq_path = uniq.getPathUniqCollection()
-        self.inst = tuple(uniq_path)[len(tuple(uniq_path)) - 1]
+        inst = tuple(uniq_path)[len(tuple(uniq_path)) - 1]
+        self.term = inst.getInstTerm(term)
         self.term.setNet(net.net)
 
 
@@ -320,6 +323,9 @@ class Top:
         for inst in self.design.getInstances():
             path = snl.SNLPath(snl.SNLPath(), inst)
             yield Instance(path, inst)
+
+def get_top():
+    return Top()
 
 class Loader:
     def __init__(self):
