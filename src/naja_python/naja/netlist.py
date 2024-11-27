@@ -144,10 +144,15 @@ class InstTerm:
 
     def disconnect(self):
         uniq = snl.SNLUniquifier(self.path)
+        uniq_path = uniq.getPathUniqCollection()
+        inst = tuple(uniq_path)[len(tuple(uniq_path)) - 1]
+        if self.term.getTerm().is
         self.term.setNet(snl.SNLNet())
 
     def connect(self, net: Net):
         uniq = snl.SNLUniquifier(self.path)
+        uniq_path = uniq.getPathUniqCollection()
+        self.inst = tuple(uniq_path)[len(tuple(uniq_path)) - 1]
         self.term.setNet(net.net)
 
 
@@ -211,6 +216,7 @@ class Instance:
         path = snl.SNLPath(self.path, self.inst.getModel().getInstance(name))
         uniq = snl.SNLUniquifier(path)
         uniq_path = uniq.getPathUniqCollection()
+        self.inst = tuple(uniq_path)[len(tuple(uniq_path)) - 1]
         # Delete the last instance in uniq_path
         tuple(uniq_path)[len(tuple(uniq_path)) - 1].destroy()
 
@@ -219,11 +225,101 @@ class Instance:
     
     def create_child_instance(self, model, name):
         uniq = snl.SNLUniquifier(self.path)
+        uniq_path = uniq.getPathUniqCollection()
+        self.inst = tuple(uniq_path)[len(tuple(uniq_path)) - 1]
         design = self.inst.getModel()
         newSNLInstance = snl.SNLInstance.create(design, model, name)
         path = snl.SNLPath(self.path, newSNLInstance)
         return Instance(snl.SNLPath(self.path, newSNLInstance), newSNLInstance)
 
+    def create_output_term(self, name: str) -> InstTerm:
+        uniq = snl.SNLUniquifier(self.path)
+        uniq_path = uniq.getPathUniqCollection()
+        self.inst = tuple(uniq_path)[len(tuple(uniq_path)) - 1]
+        design = self.inst.getModel()
+        newSNLTerm = snl.SNLScalarTerm.create(design, snl.SNLTerm.Direction.Output, name)
+        return InstTerm(self.path, newSNLTerm)
+    
+    def create_input_term(self, name: str) -> InstTerm:
+        uniq = snl.SNLUniquifier(self.path)
+        uniq_path = uniq.getPathUniqCollection()
+        self.inst = tuple(uniq_path)[len(tuple(uniq_path)) - 1]
+        design = self.inst.getModel()
+        newSNLTerm = snl.SNLScalarTerm.create(design, snl.SNLTerm.Direction.Input, name)
+        return InstTerm(self.path, newSNLTerm)
+    
+    def create_output_bus_term(self, name: str, width: int, offset: int) -> list:
+        uniq = snl.SNLUniquifier(self.path)
+        uniq_path = uniq.getPathUniqCollection()
+        self.inst = tuple(uniq_path)[len(tuple(uniq_path)) - 1]
+        design = self.inst.getModel()
+        newSNLTerm = snl.SNLBusTerm.create(design, snl.SNLTerm.Direction.Output, width, offset, name)
+        instTerms = []
+        for i in range(width):
+            instTerms.append(InstTerm(self.path, newSNLTerm.getBitTerm(i)))
+        return instTerms
+    
+    def create_input_bus_term(self, name: str, width: int, offset: int) -> list:
+        uniq = snl.SNLUniquifier(self.path)
+        uniq_path = uniq.getPathUniqCollection()
+        self.inst = tuple(uniq_path)[len(tuple(uniq_path)) - 1]
+        design = self.inst.getModel()
+        newSNLTerm = snl.SNLBusTerm.create(design, snl.SNLTerm.Direction.Input, width, offset, name)
+        instTerms = []
+        for i in range(width):
+            instTerms.append(InstTerm(self.path, newSNLTerm.getBitTerm(i)))
+        return instTerms
+
+    def create_net(self, name: str) -> Net:
+        uniq = snl.SNLUniquifier(self.path)
+        uniq_path = uniq.getPathUniqCollection()
+        self.inst = tuple(uniq_path)[len(tuple(uniq_path)) - 1]
+        design = self.inst.getModel()
+        newSNLNet = snl.SNLScalarNet.create(design, name)
+        return Net(self.path, newSNLNet)
+    
+    def create_bus_net(self, name: str, width: int, offset: int) -> list:
+        uniq = snl.SNLUniquifier(self.path)
+        uniq_path = uniq.getPathUniqCollection()
+        self.inst = tuple(uniq_path)[len(tuple(uniq_path)) - 1]
+        design = self.inst.getModel()
+        newSNLNet = snl.SNLBusNet.create(design, width, offset, name)
+        list = []
+        for i in range(width):
+            list.append(Net(self.path, newSNLNet.getBitNet(i)))
+        return list
+    
+    def get_term_list_for_bus(self, name: str) -> list:
+        list = []
+        bus = self.inst.getModel().getBusTerm(name)
+        for i in range(bus.getWidth()):
+            list.append(InstTerm(self.path.getHeadPath(), bus.getBitTerm(i)))
+        return list
+    
+    def get_net(self, name: str) -> Net:
+        for term in self.inst.getInstTerms():
+            if term.getBitTerm().getName() == name:
+                return Net(self.path.getHeadPath(), term.getNet())
+        return None
+    
+    def get_net_list_for_bus(self, name: str) -> list:
+        list = []
+        bus = self.inst.getModel().getBusNet(name)
+        for i in range(bus.getWidth()):
+            list.append(Net(self.path.getHeadPath(), bus.getBitNet(i)))
+        return list
+    
+class Top:
+    def __init__(self):
+        self.design = snl.SNLUniverse.get().getTopDesign()
+
+    def get_child_instance(self, name: str) -> Instance:
+        return Instance(snl.SNLPath(), self.design.getInstance(name))
+
+    def get_child_instances(self):
+        for inst in self.design.getInstances():
+            path = snl.SNLPath(snl.SNLPath(), inst)
+            yield Instance(path, inst)
 
 class Loader:
     def __init__(self):
