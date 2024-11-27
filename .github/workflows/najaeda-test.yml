@@ -46,27 +46,28 @@ jobs:
       continue-on-error: true
     - name: Run najaeda testing with pytest
       working-directory: ${{github.workspace}}/test/najaeda
+      env:
+        PYTHONPATH: ${{github.workspace}}/build/test/najaeda
       run: |
         python -m coverage run -m unittest && python -m coverage xml
-#    - uses: actions/upload-artifact@v3
-#      with:
-#        name: coverage
-#        path: .coverage.xml
-#
-#  report-coverage:
-#      runs-on: ubuntu-latest
-#      needs: [build]
-#      if: github.event_name == 'pull_request'
-#      steps:
-#        - name: Download tests coverage report
-#          uses: actions/download-artifact@v3
-#          with:
-#            name: coverage
-#        - name: Report Coverage and annotate PR (if exists) 
-#          uses: orgoro/coverage@v3
-#          with:
-#              coverageFile: .coverage.xml
-#              token: ${{ secrets.GITHUB_TOKEN }}
-#              thresholdAll: 0.50
-#              thresholdNew: 0.90
-#              thresholdModified: 0.0 
+    - uses: actions/upload-artifact@v3
+      with:
+        name: coverage
+        path: ${{github.workspace}}/test/najaeda/.coverage.xml
+
+  report-coverage:
+      runs-on: ubuntu-latest
+      needs: [build]
+      steps:
+        - name: Download tests coverage report
+          uses: actions/download-artifact@v3
+          with:
+            name: coverage
+        - name: Report Coverage and annotate PR (if exists) 
+          uses: orgoro/coverage@v3
+          with:
+              coverageFile: .coverage.xml
+              token: ${{ secrets.GITHUB_TOKEN }}
+              thresholdAll: 0.50
+              thresholdNew: 0.90
+              thresholdModified: 0.0 
