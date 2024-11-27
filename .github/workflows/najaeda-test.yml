@@ -27,6 +27,10 @@ jobs:
     - name: Build
       # Build your program with the given configuration
       run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
+
+    - name: Test
+      working-directory: ${{github.workspace}}/build
+      run: ctest -VV -C ${{env.BUILD_TYPE}}
     - name: Set up Python 
       uses: actions/setup-python@v3
       with:
@@ -40,9 +44,6 @@ jobs:
       working-directory: ${{github.workspace}}/src/najaeda
       run: flake8
       continue-on-error: true
-    - name: run naja eda unit tests
-      working-directory: ${{github.workspace}}/build/src/najaeda
-      run: make test
     - name: Run najaeda testing with pytest
       working-directory: ${{github.workspace}}/src/najaeda
       run: |
