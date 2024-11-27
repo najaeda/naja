@@ -5,8 +5,6 @@
 
 #include "SNLBooleanTree.h"
 
-#include "spdlog/spdlog.h"
-
 #include "SNLDesign.h"
 #include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
@@ -355,7 +353,7 @@ SNLTruthTable SNLBooleanTree::getTruthTable(const Terms& terms) {
     message << "Truth table for function: " << function_
       << " cannot be constructed because size: " << n
       << " is > than max supported size (6)";  
-    spdlog::warn(message.str());
+    std::cerr << message.str() << std::endl; 
     return SNLTruthTable();
   }
 
