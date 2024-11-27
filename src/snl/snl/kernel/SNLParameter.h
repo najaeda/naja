@@ -8,12 +8,13 @@
 #include <boost/intrusive/set.hpp>
 
 #include "SNLName.h"
+#include "NajaObject.h"
 
 namespace naja { namespace SNL {
 
 class SNLDesign;
 
-class SNLParameter {
+class SNLParameter : public NajaObject {
   public:
     friend class SNLDesign;
 

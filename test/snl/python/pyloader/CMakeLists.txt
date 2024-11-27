@@ -18,6 +18,7 @@ TARGET_LINK_LIBRARIES(snlPyLoaderTests naja_snl_pyloader gmock gtest_main)
 
 gtest_discover_tests(
   snlPyLoaderTests
+  DISCOVERY_TIMEOUT 30
   PROPERTIES ENVIRONMENT
   PYTHONPATH=${PROJECT_BINARY_DIR}/src/snl/python/snl_wrapping
 )
@@ -30,7 +31,7 @@ SET(snl_pyedit_long_tests
   SNLPyHugeMatrixTest.cpp
 )
 ADD_EXECUTABLE(snlPyEditLongTests ${snl_pyedit_long_tests})
-TARGET_LINK_LIBRARIES(snlPyEditLongTests naja_snl_pyloader naja_snl_verilog gmock gtest_main)
+TARGET_LINK_LIBRARIES(snlPyEditLongTests naja_snl_pyloader naja_snl_dump gmock gtest_main)
 target_compile_definitions(snlPyEditLongTests PRIVATE
   SNL_PYEDIT_TEST_PATH="${CMAKE_CURRENT_SOURCE_DIR}"
   SNL_DUMP_PATH="${CMAKE_CURRENT_BINARY_DIR}"
@@ -38,6 +39,7 @@ target_compile_definitions(snlPyEditLongTests PRIVATE
 IF(LONG_TESTS)
 gtest_discover_tests(
   snlPyEditLongTests
+  DISCOVERY_TIMEOUT 30
   PROPERTIES ENVIRONMENT
   PYTHONPATH=${PROJECT_BINARY_DIR}/src/snl/python/snl_wrapping
 )
@@ -51,6 +53,7 @@ target_compile_definitions(snlPyEditTests PRIVATE
 TARGET_LINK_LIBRARIES(snlPyEditTests naja_snl_pyloader gmock gtest_main)
 gtest_discover_tests(
   snlPyEditTests
+  DISCOVERY_TIMEOUT 30
   PROPERTIES ENVIRONMENT
   PYTHONPATH=${PROJECT_BINARY_DIR}/src/snl/python/snl_wrapping
 )

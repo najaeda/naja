@@ -4,16 +4,16 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "Reduction.h"
+
 #include <spdlog/spdlog.h>
-#include <ranges>
+
 #include "SNLDesignTruthTable.h"
 #include "SNLTruthTable.h"
-#include "Utils.h"
+#include "SNLUniquifier.h"
 
 using namespace naja::DNL;
 using namespace naja::SNL;
 using namespace naja::NAJA_OPT;
-using namespace naja::BNE;
 
 // #define DEBUG_PRINTS
 

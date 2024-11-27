@@ -14,7 +14,9 @@ SET(HEADERS
   backend/SNLVRLDumper.h
 )
 
-add_library(naja_snl_verilog SHARED ${SOURCES})
+add_library(naja_snl_verilog STATIC ${SOURCES})
+set_property(TARGET naja_snl_verilog PROPERTY POSITION_INDEPENDENT_CODE ON)
+
 target_link_libraries(naja_snl_verilog naja_verilog naja_snl)
 
 target_include_directories(naja_snl_verilog PUBLIC
@@ -22,8 +24,9 @@ target_include_directories(naja_snl_verilog PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/backend)
 target_include_directories(naja_snl_verilog PUBLIC ${SPDLOG_DIR})
 
-set_target_properties(naja_snl_verilog PROPERTIES PUBLIC_HEADER "${HEADERS}")
-
-install(TARGETS naja_snl_verilog
-  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-  PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+if(NOT BUILD_NAJA_PYTHON)
+  set_target_properties(naja_snl_verilog PROPERTIES PUBLIC_HEADER "${HEADERS}")
+  install(TARGETS naja_snl_verilog
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+endif(NOT BUILD_NAJA_PYTHON)

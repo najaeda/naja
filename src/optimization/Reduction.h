@@ -7,10 +7,13 @@
 
 #include <set>
 #include <vector>
-#include "DNL.h"
+
+#include "BNE.h"
+
 #include "SNLTruthTable.h"
 #include "SNLLibraryTruthTables.h"
-#include "bne.h"
+
+#include "DNL.h"
 
 using namespace naja::DNL;
 using namespace naja::SNL;

@@ -14,7 +14,7 @@
 
 #include <Python.h>
 #include <filesystem>
-#include "SNLCapnP.h"
+//#include "SNLCapnP.h"
 #include "SNLLibertyConstructor.h"
 #include "SNLUtils.h"
 #include "SNLVRLConstructor.h"
@@ -41,11 +41,16 @@ static PyObject* PySNLDB_create(PyObject*, PyObject* args) {
   }
   auto universe = PYSNLUNIVERSE_O(arg);
   SNLDB* db = nullptr;
+  if (universe == nullptr) {
+    setError("SNLDB create SNLUniverse is null");
+    return nullptr;
+  }
   TRY db = SNLDB::create(universe);
   SNLCATCH
   return PySNLDB_Link(db);
 }
 
+#if 0
 static PyObject* PySNLDB_loadSNL(PyObject*, PyObject* args) {
   PyObject* arg = nullptr;
   if (not PyArg_ParseTuple(args, "O:SNLDB.loadSNL", &arg)) {
@@ -80,7 +85,7 @@ PyObject* PySNLDB_dumpSNL(PySNLDB* self, PyObject* args) {
   // return true to python
   Py_RETURN_TRUE;
 }
-
+#endif
 
 PyObject* PySNLDB_loadLibertyPrimitives(PySNLDB* self, PyObject* args) {
   PyObject* arg0 = nullptr;
@@ -154,7 +159,7 @@ PyObject* PySNLDB_loadVerilog(PySNLDB* self, PyObject* args) {
   if (top) {
     SNLUniverse::get()->setTopDesign(top);
   } else {
-    setError("No top design was found after parsing verilog");
+    setError("No top design was found after parsing verilog"); //LCOV_EXCL_LINE
   }
   Py_RETURN_TRUE;
 }
@@ -184,10 +189,10 @@ DBoDestroyAttribute(PySNLDB_destroy, PySNLDB)
             PyMethodDef PySNLDB_Methods[] = {
                 {"create", (PyCFunction)PySNLDB_create,
                  METH_VARARGS | METH_STATIC, "create a SNLDB."},
-                {"loadSNL", (PyCFunction)PySNLDB_loadSNL,
-                 METH_VARARGS | METH_STATIC, "create a SNLDB from SNL format."},
-                {"dumpSNL", (PyCFunction)PySNLDB_dumpSNL, METH_VARARGS,
-                 "dump this SNLDB to SNL format."},
+                //{"loadSNL", (PyCFunction)PySNLDB_loadSNL,
+                // METH_VARARGS | METH_STATIC, "create a SNLDB from SNL format."},
+                //{"dumpSNL", (PyCFunction)PySNLDB_dumpSNL, METH_VARARGS,
+                // "dump this SNLDB to SNL format."},
                 {"loadLibertyPrimitives", (PyCFunction)PySNLDB_loadLibertyPrimitives,
                  METH_VARARGS, "import primitives from Liberty format."},
                 {"loadVerilog", (PyCFunction)PySNLDB_loadVerilog,
