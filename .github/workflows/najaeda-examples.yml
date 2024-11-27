@@ -31,7 +31,6 @@ jobs:
       uses: actions/setup-python@v3
       with:
         python-version: 3.13
-        working-directory: ${{github.workspace}}/src/najaeda-examples
         run: python3 run_regress.py 
 #    - name: Run the test suite
 #      run: |
