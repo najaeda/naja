@@ -39,9 +39,13 @@ jobs:
     - name: Lint with flake8
       working-directory: ${{github.workspace}}/src/najaeda
       run: flake8
-#    - name: Run the test suite
-#      run: |
-#        make test
+    - name: run naja eda unit tests
+      working-directory: ${{github.workspace}}/build/src/najaeda
+      run: make test
+    - name: Run najaeda testing with pytest
+      working-directory: ${{github.workspace}}/src/najaeda
+      run: |
+        python -m coverage xml run -m unittest
 #    - uses: actions/upload-artifact@v3
 #      with:
 #        name: coverage
