@@ -26,7 +26,8 @@ class Equipotential:
 
     def get_all_leaf_readers(self):
         for term in self.equi.getInstTermOccurrences():
-            if term.getInstTerm().getDirection() == snl.SNLTerm.Direction.Output:
+            direction = term.getInstTerm().getDirection()
+            if direction == snl.SNLTerm.Direction.Output:
                 yield InstTerm(term.getPath(), term.getInstTerm())
 
 
@@ -167,7 +168,9 @@ def get_instance_by_path(names: list):
 
 
 class Instance:
-    """Class that represents the instance and wraps some of the snl occurrence API."""
+    """Class that represents the instance and wraps some
+       of the snl occurrence API.
+    """
 
     def __init__(self, path, inst):
         self.inst = inst
@@ -177,8 +180,10 @@ class Instance:
         return self.inst == other.inst and self.path == other.path
 
     def get_child_instance(self, name: str):
-        return Instance(snl.SNLPath(self.path, self.inst.getModel().getInstance(name)),
-                        self.inst.getModel().getInstance(name))
+        return Instance(
+            snl.SNLPath(self.path, self.inst.getModel().getInstance(name)),
+            self.inst.getModel().getInstance(name)
+        )
 
     def get_child_instances(self):
         for inst in self.inst.getModel().getInstances():
@@ -219,7 +224,7 @@ class Instance:
 
     def get_name(self) -> str:
         return self.inst.getName()
-    
+
     def create_child_instance(self, model, name):
         uniq = snl.SNLUniquifier(self.path)
         design = self.inst.getModel()
@@ -242,7 +247,8 @@ class Loader:
 
     def get_primitives_library(self) -> snl.SNLLibrary:
         if self.primitives_library_ is None:
-            self.primitives_library_ = snl.SNLLibrary.createPrimitives(self.db_)
+            self.primitives_library_ = \
+                snl.SNLLibrary.createPrimitives(self.db_)
         return self.primitives_library_
 
     def load_verilog(self, files: list):
