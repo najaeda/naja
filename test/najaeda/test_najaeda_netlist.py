@@ -91,7 +91,7 @@ class NajaNetlistTest(unittest.TestCase):
         instance.create_bus_net("netI1", 4, 0)
         #connect the bus term to the bus net
         termsForBus = instance3.get_term_list_for_bus("I1")
-        self.assertTrue(len(termsForBus) == 5)a
+        self.assertTrue(len(termsForBus) == 5)
         netBitsForBus = instance.get_net_list_for_bus("netI1")
         self.assertTrue(len(netBitsForBus) == 5)
         for i in range(4):
