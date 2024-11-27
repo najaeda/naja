@@ -5,8 +5,8 @@
 import os
 import unittest
 import faulthandler
-from najaeda import netlist
-from najaeda import snl
+from naja import netlist
+from naja import snl
 
 # Get the PYTHONPATH environment variable
 pythonpath = os.environ.get('PYTHONPATH')
@@ -84,12 +84,28 @@ class NajaNetlistTest(unittest.TestCase):
         instance.create_child_instance(self.submodel, "ins2")
         self.assertTrue(instance.get_number_of_child_instances() == 1)
 
+        #Test bus term creation connection and disconnection
+        instance3 = instance.create_child_instance(self.submodel, "ins3")
+        self.assertTrue(instance.get_number_of_child_instances() == 2)
+        instance3.create_output_bus_term("I1", 4, 0)
+        instance.create_bus_net("netI1", 4, 0)
+        #connect the bus term to the bus net
+        termsForBus = instance3.get_term_list_for_bus("I1")
+        self.assertTrue(len(termsForBus) == 5)a
+        netBitsForBus = instance.get_net_list_for_bus("netI1")
+        self.assertTrue(len(netBitsForBus) == 5)
+        for i in range(4):
+            termsForBus[i].connect(netBitsForBus[i])
+
+
+
     def test_equipotential(self):
         universe = snl.SNLUniverse.create()
         db = snl.SNLDB.create(universe)
         lib = snl.SNLLibrary.create(db)
         self.primitives = snl.SNLLibrary.createPrimitives(db)
         self.top = snl.SNLDesign.create(lib)
+        universe.setTopDesign(self.top)
         self.model = snl.SNLDesign.create(lib, "model")
         self.submodel = snl.SNLDesign.createPrimitive(self.primitives, "submodel")
         self.i0 = snl.SNLScalarTerm.create(self.model, snl.SNLTerm.Direction.Input, "I0")
@@ -116,12 +132,18 @@ class NajaNetlistTest(unittest.TestCase):
         sub_inst_terms[0].setNet(i0_net_sub)
         self.i0.setNet(i0_net_sub)
         print(inst_terms[0])
+        
         path1 = snl.SNLPath(path0, ins1)
+        self.assertTrue(path1.size() == 1)
         path2 = snl.SNLPath(path1, ins2)
-        inst_term = netlist.InstTerm(path1, sub_inst_terms[0])
+        self.assertTrue(path2.size() == 2)
+        self.assertTrue(path1.getHeadInstance() == ins1)
+        self.assertTrue(path2.getHeadInstance() == ins1)
+        print(path2)
+        inst_term = netlist.InstTerm(path2, sub_inst_terms[0])
         equi = netlist.Equipotential(inst_term)
-        net_component_occurrence1 = snl.SNLNetComponentOccurrence(path1, sub_inst_terms[0])
-        snlequi = snl.SNLEquipotential(net_component_occurrence1)
+        net_component_occurrence2 = snl.SNLNetComponentOccurrence(path1, sub_inst_terms[0])
+        snlequi = snl.SNLEquipotential(net_component_occurrence2)
 
         snl_top_terms = []
         for t in snlequi.getTerms():
@@ -137,16 +159,18 @@ class NajaNetlistTest(unittest.TestCase):
         for t in equi.get_inst_terms():
             to_compare_with = snl_inst_term_occurrences.pop(0)
             self.assertTrue(t.term == to_compare_with.getInstTerm())
-            self.assertTrue(t.path == to_compare_with.getPath())
+            self.assertTrue(t.path.getHeadPath() == to_compare_with.getPath())
 
         instance = netlist.Instance(path1, ins1)
         print(instance.get_inst_term("I0").get_net())
+        self.assertIsNotNone(instance.get_inst_term("I0"))
         print(netlist.Net(path0, i0_net))
-        self.assertTrue(instance.get_inst_term("I0").get_net() == netlist.Net(path0, i0_net))
+        self.assertTrue(instance.get_inst_term("I0").get_net() == netlist.Net(path1, i0_net))
+        print(instance.get_inst_term("I0").get_string())
         instance.get_inst_term("I0").disconnect()
         self.assertIsNone(instance.get_inst_term("I0").get_net().net)
         instance.get_inst_term("I0").connect(netlist.Net(path0, i0_net))
-        self.assertTrue(instance.get_inst_term("I0").get_net() == netlist.Net(path0, i0_net))
+        self.assertTrue(instance.get_inst_term("I0").get_net() == netlist.Net(path1, i0_net))
 
 
 if __name__ == '__main__':
