@@ -31,6 +31,7 @@ if(BUILD_NAJA_PYTHON AND NOT ${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
   set(CMAKE_INSTALL_RPATH "$ORIGIN/lib:$ORIGIN")
   set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 else()
+  set(CMAKE_MACOSX_RPATH TRUE)
   # use, i.e. don't skip the full RPATH for the build tree
   set(CMAKE_SKIP_BUILD_RPATH FALSE)
   # when building, don't use the install RPATH already
