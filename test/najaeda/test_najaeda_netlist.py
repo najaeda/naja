@@ -5,8 +5,8 @@
 import os
 import unittest
 import faulthandler
-from naja import netlist
-from naja import snl
+from najaeda import netlist
+from najaeda import snl
 
 # Get the PYTHONPATH environment variable
 pythonpath = os.environ.get('PYTHONPATH')

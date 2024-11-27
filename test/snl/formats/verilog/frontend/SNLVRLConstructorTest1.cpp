@@ -7,8 +7,6 @@
 #include <filesystem>
 #include <fstream>
 
-#include "spdlog/spdlog.h"
-
 #include "SNLUniverse.h"
 #include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
@@ -44,7 +42,6 @@ class SNLVRLConstructorTest1: public ::testing::Test {
 };
 
 TEST_F(SNLVRLConstructorTest1, test) {
-  spdlog::set_level(spdlog::level::trace);
   SNLVRLConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_VRL_BENCHMARKS_PATH);
   constructor.parse(benchmarksPath/"test0.v");

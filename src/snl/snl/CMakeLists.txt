@@ -2,7 +2,9 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-add_subdirectory(serialization)
+if (NOT BUILD_NAJA_PYTHON)
+  add_subdirectory(serialization)
+endif(NOT BUILD_NAJA_PYTHON)
 add_subdirectory(visual)
 
 set(SNL_KERNEL_SOURCES
@@ -76,9 +78,11 @@ target_include_directories(naja_snl PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/decorators
 )
 target_include_directories(naja_snl PUBLIC ${SPDLOG_DIR})
-if(NOT BUILD_NAJA_PYTHON)
+if(BUILD_NAJA_PYTHON)
+  install(TARGETS naja_snl LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/najaeda)
+else(BUILD_NAJA_PYTHON)
   set_target_properties(naja_snl PROPERTIES PUBLIC_HEADER "${SNL_HEADERS}")
-endif(NOT BUILD_NAJA_PYTHON)
-install(TARGETS naja_snl
-  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-  PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+  install(TARGETS naja_snl
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+endif(BUILD_NAJA_PYTHON)

@@ -2,4 +2,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-add_subdirectory(capnp)
+if(NOT BUILD_NAJA_PYTHON)
+  add_subdirectory(capnp)
+endif(NOT BUILD_NAJA_PYTHON)

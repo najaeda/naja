@@ -3,9 +3,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
 add_library(naja_snl_pyloader SHARED SNLPyLoader.cpp)
-target_link_libraries(naja_snl_pyloader PUBLIC naja_snl naja_snl_python PRIVATE Python3::Python)
-
-target_include_directories(naja_snl_pyloader PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(naja_snl_pyloader PUBLIC naja_snl naja_snl_python)
+target_include_directories(naja_snl_pyloader
+  PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
+  PRIVATE ${Python3_INCLUDE_DIRS}
+)
 
 set(NAJA_SNL_PY_HEADERS SNLPyLoader.h SNLPyEdit.h)
 set_target_properties(naja_snl_pyloader PROPERTIES PUBLIC_HEADER "${NAJA_SNL_PY_HEADERS}") 
