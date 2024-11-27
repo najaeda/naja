@@ -1,4 +1,5 @@
-# SPDX-FileCopyrightText: 2024 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+# SPDX-FileCopyrightText: 2024 The Naja authors
+# <https://github.com/najaeda/naja/blob/main/AUTHORS>
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -7,7 +8,9 @@ from najaeda import snl
 
 
 class Equipotential:
-    """Class that represents the term and wraps some of the snl occurrence API."""
+    """Class that represents the term and wraps
+       some of the snl occurrence API.
+    """
 
     def __init__(self, inst_term):
         ito = snl.SNLNetComponentOccurrence(inst_term.path, inst_term.term)
