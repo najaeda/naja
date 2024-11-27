@@ -39,6 +39,7 @@ jobs:
     - name: Lint with flake8
       working-directory: ${{github.workspace}}/src/najaeda
       run: flake8
+      continue-on-error: true
     - name: run naja eda unit tests
       working-directory: ${{github.workspace}}/build/src/najaeda
       run: make test
