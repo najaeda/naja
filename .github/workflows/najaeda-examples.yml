@@ -27,10 +27,15 @@ jobs:
     - name: Build
       # Build your program with the given configuration
       run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
+    - name: Test
+      working-directory: ${{github.workspace}}/build
+      run: ctest -VV -C ${{env.BUILD_TYPE}}
     - name: Set up Python 
       uses: actions/setup-python@v3
       with:
         python-version: 3.13
     - name: launch najaeda examples
+      env: 
+        PYTHONPATH: ${{github.workspace}}/build/test/najaeda
       working-directory: ${{github.workspace}}/najaeda_examples
       run: python3 run_regress.py 
