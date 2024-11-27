@@ -45,7 +45,7 @@ jobs:
       run: flake8
       continue-on-error: true
     - name: Run najaeda testing with pytest
-      working-directory: ${{github.workspace}}/src/najaeda
+      working-directory: ${{github.workspace}}/test/najaeda
       run: |
         python -m coverage run -m unittest && python -m coverage xml
 #    - uses: actions/upload-artifact@v3
