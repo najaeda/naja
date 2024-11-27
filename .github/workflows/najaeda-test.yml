@@ -46,7 +46,7 @@ jobs:
     - name: Run najaeda testing with pytest
       working-directory: ${{github.workspace}}/src/najaeda
       run: |
-        python -m coverage xml run -m unittest
+        python -m coverage run -m unittest && python -m coverage xml
 #    - uses: actions/upload-artifact@v3
 #      with:
 #        name: coverage
