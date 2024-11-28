@@ -165,7 +165,7 @@ class NajaNetlistTest(unittest.TestCase):
         self.assertIsNotNone(instance.get_inst_term("I0"))
         print(netlist.Net(path0, i0_net))
         self.assertTrue(instance.get_inst_term("I0").get_net() == netlist.Net(path1, i0_net))
-        print(instance.get_inst_term("I0").get_string())
+        print(str(instance.get_inst_term("I0")))
         instance.get_inst_term("I0").disconnect()
         self.assertIsNone(instance.get_inst_term("I0").get_net().net)
         instance.get_inst_term("I0").connect(netlist.Net(path0, i0_net))
