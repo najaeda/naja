@@ -575,6 +575,7 @@ class Top:
             if term.getDirection() == snl.SNLTerm.Direction.Output:
                 yield TopTerm(term)
 
+
 def get_top_db() -> snl.SNLDB:
     if snl.SNLUniverse.get() is None:
         snl.SNLUniverse.create()
