@@ -303,7 +303,7 @@ class Instance:
     def get_output_inst_terms(self):
         for term in self.inst.getInstTerms():
             if term.getDirection() == snl.SNLTerm.Direction.Output:
-                yield InstTerm(self.path, term)    
+                yield InstTerm(self.path, term)
 
     def delete_instance(self, name: str):
         path = snl.SNLPath(self.path, self.inst.getModel().getInstance(name))
