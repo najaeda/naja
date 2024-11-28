@@ -70,7 +70,7 @@ class Net:
         if self.path != value.path:
             return self.path > value.path
         return self.net > value.net
-    
+
     def __ge__(self, value):
         if self.path != value.path:
             return self.path > value.path
