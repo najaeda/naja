@@ -82,6 +82,8 @@ class NajaNetlistTest(unittest.TestCase):
 
         instance.create_child_instance(self.submodel, "ins2")
         self.assertTrue(instance.get_number_of_child_instances() == 1)
+        self.assertIsNotNone(instance.get_child_instance("ins2"))
+        self.assertTrue(instance.get_child_instance("ins2").inst.getName() == "ins2")
 
         #Test bus term creation connection and disconnection
         instance3 = instance.create_child_instance(self.submodel, "ins3")
@@ -95,8 +97,44 @@ class NajaNetlistTest(unittest.TestCase):
         self.assertTrue(len(netBitsForBus) == 5)
         for i in range(4):
             termsForBus[i].connect(netBitsForBus[i])
+        
+        inputCount = 0
+        for input in instance.get_input_inst_terms():
+            self.assertTrue(input.is_input())
+            self.assertFalse(input.is_output())
+            inputCount += 1
+        
+        self.assertTrue(inputCount == 6)
+        
+        outputCount = 0
+        for output in instance.get_output_inst_terms():
+            self.assertTrue(output.is_output())
+            self.assertFalse(output.is_input())
+            outputCount += 1
+        
+        instance.create_input_term("I3")
+        instance.create_input_bus_term("I4", 4, -1)
+        instance.create_output_term("O2")
+        
+        inputCount = 0
+        for input in instance.get_input_inst_terms():
+            self.assertTrue(input.is_input())
+            self.assertFalse(input.is_output())
+            inputCount += 1
+        
+        self.assertTrue(inputCount == 13)
+        
+        outputCount = 0
+        for output in instance.get_output_inst_terms():
+            self.assertTrue(output.is_output())
+            self.assertFalse(output.is_input())
+            outputCount += 1
 
+        self.assertTrue(outputCount == 2)
 
+        self.assertIsNone(instance.get_net("created_net"))
+        instance.create_net("created_net")
+        self.assertIsNotNone(instance.get_net("created_net"))
 
     def test_equipotential(self):
         universe = snl.SNLUniverse.create()
