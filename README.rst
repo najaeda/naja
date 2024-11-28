@@ -25,7 +25,6 @@ Examples
 
 Print a design:
 
-.. code-block:: python
 .. literalinclude:: najaeda_examples/print_design/najaeda_print_design.py
    :language: python
 
