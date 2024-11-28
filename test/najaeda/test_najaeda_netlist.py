@@ -171,6 +171,82 @@ class NajaNetlistTest(unittest.TestCase):
         instance.get_inst_term("I0").connect(netlist.Net(path0, i0_net))
         self.assertTrue(instance.get_inst_term("I0").get_net() == netlist.Net(path1, i0_net))
 
+        netlistNet1 = netlist.Net(path1, i0_net)
+        netlistNet2 = netlist.Net(path2, i0_net_sub)
+        self.assertTrue(netlistNet1 != netlistNet2)
+        self.assertTrue(netlistNet2 == netlistNet2)
+        self.assertTrue(netlistNet1 == netlist.Net(path1, i0_net))
+        self.assertTrue(netlistNet2 == netlist.Net(path2, i0_net_sub))
+        self.assertTrue(netlistNet1 < netlistNet2)
+        self.assertTrue(netlistNet1 <= netlistNet2)
+        self.assertTrue(netlistNet2 > netlistNet1)
+        self.assertTrue(netlistNet2 >= netlistNet1)
+        print(netlistNet1)    
+
+    def testTopTerm(self):
+        universe = snl.SNLUniverse.create()
+        db = snl.SNLDB.create(universe)
+        lib = snl.SNLLibrary.create(db)
+        self.primitives = snl.SNLLibrary.createPrimitives(db)
+        self.top = snl.SNLDesign.create(lib)
+        universe.setTopDesign(self.top)
+        self.i0 = snl.SNLScalarTerm.create(self.top, snl.SNLTerm.Direction.Input, "I0")
+        self.i1 = snl.SNLScalarTerm.create(self.top, snl.SNLTerm.Direction.Input, "I1")
+
+        top_term = netlist.TopTerm(self.i0)
+        top_term2 = netlist.TopTerm(self.i1)
+
+        self.assertTrue(top_term == top_term)
+        self.assertTrue(top_term != top_term2)
+        self.assertTrue(top_term < top_term2)
+        self.assertTrue(top_term <= top_term2)
+        self.assertTrue(top_term2 > top_term)
+        self.assertTrue(top_term2 >= top_term)
+        print(top_term)
+    
+    def testInstTerm(self):
+        universe = snl.SNLUniverse.create()
+        db = snl.SNLDB.create(universe)
+        lib = snl.SNLLibrary.create(db)
+        self.primitives = snl.SNLLibrary.createPrimitives(db)
+        self.top = snl.SNLDesign.create(lib)
+        universe.setTopDesign(self.top)
+        self.model = snl.SNLDesign.create(lib, "model")
+        self.submodel = snl.SNLDesign.createPrimitive(self.primitives, "submodel")
+        self.i0 = snl.SNLScalarTerm.create(self.model, snl.SNLTerm.Direction.Input, "I0")
+        self.i1 = snl.SNLBusTerm.create(self.model, snl.SNLTerm.Direction.Input, 4, 0, "I1")
+        self.o = snl.SNLScalarTerm.create(self.model, snl.SNLTerm.Direction.Output, "O")
+        self.i0sub = snl.SNLScalarTerm.create(self.submodel, snl.SNLTerm.Direction.Input, "I0")
+        self.i1sub = snl.SNLBusTerm.create(self.submodel, snl.SNLTerm.Direction.Input, 4, 0, "I1")
+        self.osub = snl.SNLScalarTerm.create(self.submodel, snl.SNLTerm.Direction.Output, "O")
+        ins2 = snl.SNLInstance.create(self.model, self.submodel, "ins2")
+        ins1 = snl.SNLInstance.create(self.top, self.model, "ins1")
+
+        path0 = snl.SNLPath()
+        path1 = snl.SNLPath(path0, ins1)
+        path2 = snl.SNLPath(path1, ins2)
+        instance = netlist.Instance(path1, ins1)
+        instTerm0 = instance.get_inst_term("I0")
+        instTerm1 = instance.get_inst_term("I1")
+        instance2 = netlist.Instance(path2, ins2)
+        inst2Term0 = instance2.get_inst_term("I0")
+        inst2Term1 = instance2.get_inst_term("I1")
+
+        self.assertTrue(instTerm0 == instTerm0)
+        self.assertTrue(instTerm0 != instTerm1)
+        self.assertTrue(instTerm0 < instTerm1)
+        self.assertTrue(instTerm0 <= instTerm1)
+        self.assertTrue(instTerm1 > instTerm0)
+        self.assertTrue(instTerm1 >= instTerm0)
+        self.assertTrue(instTerm0.get_instance().inst == instance.inst)
+        self.assertTrue(len(instTerm1.get_flat_fanout()) == 0)
+        self.assertTrue(instTerm0.get_equipotential() == netlist.Equipotential(instTerm0))
+        self.assertTrue(instTerm0.is_input())
+        self.assertFalse(instTerm0.is_output())
+
+
+
+
 
 if __name__ == '__main__':
     faulthandler.enable()
