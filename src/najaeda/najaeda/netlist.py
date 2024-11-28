@@ -607,6 +607,7 @@ def load_verilog(files: list):
     getTopDB().loadVerilog(files)
     return getTop()
 
+
 def load_liberty(files: list):
     getTopDB().loadLibertyPrimitives(files)
 
