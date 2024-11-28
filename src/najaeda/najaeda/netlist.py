@@ -581,12 +581,9 @@ class Top:
 
 
 def getTopDB() -> snl.SNLDB:
-    print("here0")
     if snl.SNLUniverse.get() is None:
-        print("here1")
         snl.SNLUniverse.create()
     if snl.SNLUniverse.get().getTopDB() is None:
-        print("here2")
         db = snl.SNLDB.create(snl.SNLUniverse.get())
         snl.SNLUniverse.get().setTopDB(db)
     return snl.SNLUniverse.get().getTopDB()
