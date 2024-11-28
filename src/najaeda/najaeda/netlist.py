@@ -18,6 +18,9 @@ class Equipotential:
         )
         self.equi = snl.SNLEquipotential(ito)
 
+    def __eq__(self, value):
+        return self.equi == value.equi
+
     def get_inst_terms(self):
         for term in self.equi.getInstTermOccurrences():
             yield InstTerm(
@@ -50,6 +53,32 @@ class Net:
     def __eq__(self, value):
         return self.net == value.net and self.path == value.path
 
+    def __ne__(self, value):
+        return not self == value
+
+    def __lt__(self, value):
+        if self.path != value.path:
+            return self.path < value.path
+        return self.net < value.net
+
+    def __le__(self, value):
+        if self.path != value.path:
+            return self.path < value.path
+        return self.net <= value.net
+
+    def __gt__(self, value):
+        if self.path != value.path:
+            return self.path > value.path
+        return self.net > value.net
+
+    def __ge__(self, value):
+        if self.path != value.path:
+            return self.path > value.path
+        return self.net >= value.net
+
+    def __str__(self):
+        return str(self.net)
+
     def get_name(self) -> str:
         return self.net.getName()
 
@@ -67,7 +96,7 @@ class TopTerm:
         self.term = term
 
     def __eq__(self, other) -> bool:
-        return self.path == other.path and self.term == other.term
+        return self.term == other.term
 
     def __ne__(self, other) -> bool:
         return not self == other
@@ -151,11 +180,9 @@ class InstTerm:
         return Net(self.path, self.term.getNet())
 
     def get_instance(self):
-        inst = self.term.getInstance()
-        path = snl.SNLPath(self.path, inst)
-        return Instance(path, inst)
+        return Instance(self.path, self.term.getInstance())
 
-    def get_flat_fanout(self) -> Equipotential:
+    def get_flat_fanout(self):
         return self.get_equipotential().get_all_leaf_readers()
 
     def get_equipotential(self) -> Equipotential:
@@ -232,6 +259,9 @@ class Instance:
 
     def __eq__(self, other) -> bool:
         return self.inst == other.inst and self.path == other.path
+
+    def __str__(self) -> str:
+        return str(self.inst) + " " + str(self.path)
 
     def get_child_instance(self, name: str):
         return Instance(
