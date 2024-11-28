@@ -264,10 +264,11 @@ class Instance:
         return str(self.inst) + " " + str(self.path)
 
     def get_child_instance(self, name: str):
+        childInst = self.inst.getModel().getInstance(name)
+        if childInst is None:
+            return None
         return Instance(
-            snl.SNLPath(self.path, self.inst.getModel().getInstance(name)),
-            self.inst.getModel().getInstance(name)
-        )
+            snl.SNLPath(self.path, childInst), childInst)
 
     def get_child_instances(self):
         for inst in self.inst.getModel().getInstances():
@@ -294,10 +295,15 @@ class Instance:
     def is_primitive(self) -> bool:
         return self.inst.getModel().isPrimitive()
 
+    def get_input_inst_terms(self):
+        for term in self.inst.getInstTerms():
+            if term.getDirection() == snl.SNLTerm.Direction.Input:
+                yield InstTerm(self.path, term)
+
     def get_output_inst_terms(self):
         for term in self.inst.getInstTerms():
             if term.getDirection() == snl.SNLTerm.Direction.Output:
-                yield InstTerm(self.path.getHeadPath(), term)
+                yield InstTerm(self.path, term)
 
     def delete_instance(self, name: str):
         path = snl.SNLPath(self.path, self.inst.getModel().getInstance(name))
@@ -403,16 +409,16 @@ class Instance:
         uniq = snl.SNLUniquifier(self.path)
         uniq_path = uniq.getPathUniqCollection()
         self.inst = tuple(uniq_path)[len(tuple(uniq_path)) - 1]
-        design = self.inst.getModel()
-        newSNLNet = snl.SNLScalarNet.create(design, name)
+        model = self.inst.getModel()
+        newSNLNet = snl.SNLScalarNet.create(model, name)
         return Net(self.path, newSNLNet)
 
     def create_bus_net(self, name: str, width: int, offset: int) -> list:
         uniq = snl.SNLUniquifier(self.path)
         uniq_path = uniq.getPathUniqCollection()
         self.inst = tuple(uniq_path)[len(tuple(uniq_path)) - 1]
-        design = self.inst.getModel()
-        newSNLNet = snl.SNLBusNet.create(design, width, offset, name)
+        model = self.inst.getModel()
+        newSNLNet = snl.SNLBusNet.create(model, width, offset, name)
         list = []
         for i in range(width):
             list.append(Net(self.path, newSNLNet.getBit(i)))
@@ -426,9 +432,9 @@ class Instance:
         return list
 
     def get_net(self, name: str) -> Net:
-        for term in self.inst.getInstTerms():
-            if term.getBitTerm().getName() == name:
-                return Net(self.path, term.getNet())
+        net = self.inst.getModel().getNet(name)
+        if net is not None:
+            return Net(self.path, net)
         return None
 
     def get_net_list_for_bus(self, name: str) -> list:
