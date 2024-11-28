@@ -48,8 +48,8 @@ jobs:
       working-directory: ${{github.workspace}}/test/najaeda
       env:
         PYTHONPATH: ${{github.workspace}}/build/test/najaeda
-        LIBERTY_BENCHMARKS: ${{github.workspace}}/test/snl/formats/liberty/benchmarks
-        VERILOG_BENCHMARKS: ${{github.workspace}}/test/snl/formats/verilog/benchmarks        
+        LIBERTY_BENCHMARKS_PATH: ${{github.workspace}}/test/snl/formats/liberty/benchmarks
+        VERILOG_BENCHMARKS_PATH: ${{github.workspace}}/test/snl/formats/verilog/benchmarks        
       run: |
         python -m coverage run -m unittest && python -m coverage xml
     - uses: actions/upload-artifact@v3
