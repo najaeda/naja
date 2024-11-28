@@ -261,7 +261,7 @@ class Instance:
         return self.inst == other.inst and self.path == other.path
 
     def __str__(self) -> str:
-        return str(self.path) + '/' + str(self.inst)
+        return str(self.path)
 
     def __repr__(self) -> str:
         return f"Instance({self.path}, {self.inst})"
