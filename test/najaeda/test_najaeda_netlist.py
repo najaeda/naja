@@ -20,6 +20,8 @@ if pythonpath:
 else:
     print("PYTHONPATH is not set.")
 
+liberty_benchmarks = os.environ.get('LIBERTY_BENCHMARKS_PATH')
+verilog_benchmarks = os.environ.get('VERILOG_BENCHMARKS_PATH')
 
 class NajaNetlistTest(unittest.TestCase):
     def setUp(self):
@@ -30,8 +32,8 @@ class NajaNetlistTest(unittest.TestCase):
             snl.SNLUniverse.get().destroy()
 
     def test_loader(self):
-        design_files = ["../../../test/snl/formats/verilog/benchmarks/test0.v"]
-        primitives = ["../../../test/snl/formats/liberty/benchmarks/asap7_excerpt/test0.lib"]
+        design_files = os.path.join(verilog_benchmarks, "test0.v")
+        primitives = os.path.join(liberty_benchmarks, "asap7_excerpt" , "test0.lib")
         loader = netlist.Loader()
         loader.init()
         loader.load_liberty_primitives(primitives)
