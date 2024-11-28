@@ -40,6 +40,17 @@ static PyObject* PySNLUniverse_setTopDesign(PySNLUniverse* self, PyObject* arg) 
   Py_RETURN_NONE;
 }
 
+static PyObject* PySNLUniverse_setTopDB(PySNLUniverse* self, PyObject* arg) {
+  METHOD_HEAD("SNLUniverse.setTopDB()")
+  if (IsPySNLDB(arg)) {
+    selfObject->setTopDB(PYSNLDB_O(arg));
+  } else {
+    setError("SNLUniverse setTopDB takes SNLDesign argument");
+    return nullptr;
+  }
+  Py_RETURN_NONE;
+}
+
 GetObjectMethod(Universe, Design, getTopDesign)
 GetObjectMethod(Universe, DB, getTopDB)
 GetObjectByIndex(Universe, DB, DB)
@@ -57,6 +68,8 @@ PyMethodDef PySNLUniverse_Methods[] = {
     "get the top SNLDesign"},
   { "setTopDesign", (PyCFunction)PySNLUniverse_setTopDesign, METH_O,
     "set the top SNLDesign"},
+  { "setTopDB", (PyCFunction)PySNLUniverse_setTopDB, METH_O,
+    "set the top SNLDB"},
   { "getTopDB", (PyCFunction)PySNLUniverse_getTopDB, METH_NOARGS,
     "get the Top SNLDB"},
   { "getDB", (PyCFunction)PySNLUniverse_getDB, METH_VARARGS,

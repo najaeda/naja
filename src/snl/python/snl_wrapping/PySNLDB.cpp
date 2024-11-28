@@ -66,7 +66,8 @@ static PyObject* PySNLDB_loadSNL(PyObject*, PyObject* args) {
   if (SNLUniverse::get() == nullptr) {
     SNLUniverse::create();
   }
-  TRY db = SNLCapnP::load(path);
+  TRY 
+  db = SNLCapnP::load(path);
   SNLCATCH
   return PySNLDB_Link(db);
 }
@@ -119,8 +120,12 @@ PyObject* PySNLDB_loadLibertyPrimitives(PySNLDB* self, PyObject* args) {
       setError("SNLDB loadLibertyPrimitives design path has no extension");
       Py_RETURN_FALSE;
     } else if (extension == ".lib") {
+      // LCOV_EXCL_START
+      TRY
       SNLLibertyConstructor constructor(primitivesLibrary);
       constructor.construct(path);
+      SNLCATCH
+      // LCOV_EXCL_STOP
     } else {
       setError("SNLDB loadLibertyPrimitives");
       Py_RETURN_FALSE;
@@ -136,7 +141,7 @@ PyObject* PySNLDB_loadVerilog(PySNLDB* self, PyObject* args) {
     Py_RETURN_FALSE;
   }
   if (not PyList_Check(arg1)) {
-    setError("malformed SNLDesign.loadVerilog method");
+    setError("malformed SNLDB.loadVerilog method");
     Py_RETURN_FALSE;
   }
   SNLDB* db = self->object_;
