@@ -604,7 +604,7 @@ def create_top():
 
 def load_verilog(files: list):
     get_top_db().loadVerilog(files)
-    return getTop()
+    return get_top()
 
 
 def load_liberty(files: list):
