@@ -55,7 +55,7 @@ jobs:
     - uses: actions/upload-artifact@v3
       with:
         name: coverage
-        path: ${{github.workspace}}/test/najaeda/.coverage.xml
+        path: ${{github.workspace}}/test/najaeda/coverage.xml
 
   report-coverage:
       runs-on: ubuntu-latest
@@ -68,7 +68,7 @@ jobs:
         - name: Report Coverage and annotate PR (if exists) 
           uses: orgoro/coverage@v3
           with:
-              coverageFile: .coverage.xml
+              coverageFile: coverage.xml
               token: ${{ secrets.GITHUB_TOKEN }}
               thresholdAll: 0.50
               thresholdNew: 0.90
