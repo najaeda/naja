@@ -449,6 +449,9 @@ class Top:
     def __init__(self):
         self.design = snl.SNLUniverse.get().getTopDesign()
 
+    def __str__(self):
+        return str(self.design)
+
     def get_child_instance(self, name: str):
         return Instance(snl.SNLPath(), self.design.getInstance(name))
 
@@ -578,16 +581,19 @@ class Top:
 
 
 def getTopDB() -> snl.SNLDB:
+    print("here0")
     if snl.SNLUniverse.get() is None:
+        print("here1")
         snl.SNLUniverse.create()
     if snl.SNLUniverse.get().getTopDB() is None:
+        print("here2")
         db = snl.SNLDB.create(snl.SNLUniverse.get())
         snl.SNLUniverse.get().setTopDB(db)
     return snl.SNLUniverse.get().getTopDB()
 
 
 def getTop():
-    return Top(snl.SNLUniverse.get().getTopDesign())
+    return Top()
 
 
 def createTop():
