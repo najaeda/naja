@@ -455,6 +455,12 @@ class Top:
     def __init__(self):
         self.design = snl.SNLUniverse.get().getTopDesign()
 
+    def __str__(self):
+        return str(self.design)
+
+    def __eq__(self, other):
+        return self.design == other.design
+
     def get_child_instance(self, name: str):
         return Instance(snl.SNLPath(), self.design.getInstance(name))
 
@@ -464,16 +470,16 @@ class Top:
             yield Instance(path, inst)
 
     def create_child_instance(self, model, name):
-        design = getTop().design
+        design = get_top().design
         newSNLInstance = snl.SNLInstance.create(design, model, name)
         path = snl.SNLPath(self.path, newSNLInstance)
         return Instance(path, newSNLInstance)
 
     def delete_instance(self, name: str):
-        getTop().design.getInstance(name).destroy()
+        get_top().design.getInstance(name).destroy()
 
     def create_output_term(self, name: str) -> InstTerm:
-        design = getTop().design
+        design = get_top().design
         newSNLTerm = snl.SNLScalarTerm.create(
             design,
             snl.SNLTerm.Direction.Output,
@@ -482,7 +488,7 @@ class Top:
         return TopTerm(newSNLTerm)
 
     def create_input_term(self, name: str) -> InstTerm:
-        design = getTop().design
+        design = get_top().design
         newSNLTerm = snl.SNLScalarTerm.create(
             design,
             snl.SNLTerm.Direction.Input,
@@ -496,10 +502,7 @@ class Top:
         width: int,
         offset: int
     ) -> list:
-        uniq = snl.SNLUniquifier(self.path)
-        uniq_path = uniq.getPathUniqCollection()
-        self.inst = tuple(uniq_path)[len(tuple(uniq_path)) - 1]
-        design = self.inst.getModel()
+        design = get_top().design
         newSNLTerm = snl.SNLBusTerm.create(
             design,
             snl.SNLTerm.Direction.Output,
@@ -509,12 +512,7 @@ class Top:
         )
         instTerms = []
         for i in range(width):
-            instTerms.append(
-                TopTerm(
-                    self.path,
-                    self.inst.getInstTerm(newSNLTerm.getBit(i))
-                )
-            )
+            instTerms.append(TopTerm(newSNLTerm.getBit(i)))
         return instTerms
 
     def create_input_bus_term(
@@ -522,10 +520,7 @@ class Top:
         width: int,
         offset: int
     ) -> list:
-        uniq = snl.SNLUniquifier(self.path)
-        uniq_path = uniq.getPathUniqCollection()
-        self.inst = tuple(uniq_path)[len(tuple(uniq_path)) - 1]
-        design = self.inst.getModel()
+        design = get_top().design
         newSNLTerm = snl.SNLBusTerm.create(
             design,
             snl.SNLTerm.Direction.Input,
@@ -535,55 +530,53 @@ class Top:
         )
         instTerms = []
         for i in range(width):
-            instTerms.append(
-                InstTerm(
-                    self.path,
-                    self.inst.getInstTerm(newSNLTerm.getBit(i))
-                )
-            )
+            instTerms.append(TopTerm(newSNLTerm.getBit(i)))
         return instTerms
 
     def create_net(self, name: str) -> Net:
-        uniq = snl.SNLUniquifier(self.path)
-        uniq_path = uniq.getPathUniqCollection()
-        self.inst = tuple(uniq_path)[len(tuple(uniq_path)) - 1]
-        design = self.inst.getModel()
+        design = get_top().design
         newSNLNet = snl.SNLScalarNet.create(design, name)
-        return Net(self.path, newSNLNet)
+        return Net(snl.SNLPath(), newSNLNet)
 
     def create_bus_net(self, name: str, width: int, offset: int) -> list:
-        uniq = snl.SNLUniquifier(self.path)
-        uniq_path = uniq.getPathUniqCollection()
-        self.inst = tuple(uniq_path)[len(tuple(uniq_path)) - 1]
-        design = self.inst.getModel()
+        design = get_top().design
         newSNLNet = snl.SNLBusNet.create(design, width, offset, name)
         list = []
         for i in range(width):
-            list.append(Net(self.path, newSNLNet.getBit(i)))
+            list.append(Net(snl.SNLPath(), newSNLNet.getBit(i)))
         return list
 
     def get_term_list_for_bus(self, name: str) -> list:
         list = []
-        bus = self.inst.getModel().getBusTerm(name)
+        bus = self.design.getBusTerm(name)
         for bit in bus.getBits():
-            list.append(InstTerm(self.path, self.inst.getInstTerm(bit)))
+            list.append(TopTerm(bit))
         return list
 
     def get_net(self, name: str) -> Net:
-        for term in self.inst.getInstTerms():
-            if term.getBitTerm().getName() == name:
-                return Net(self.path, term.getNet())
+        if self.design.getNet(name) is not None:
+            return Net(snl.SNLPath(), self.design.getNet(name))
         return None
 
     def get_net_list_for_bus(self, name: str) -> list:
         list = []
-        bus = self.inst.getModel().getBusNet(name)
+        bus = self.design.getBusNet(name)
         for bit in bus.getBits():
-            list.append(Net(self.path, bit))
+            list.append(Net(snl.SNLPath(), bit))
         return list
 
+    def get_input_terms(self):
+        for term in self.design.getBitTerms():
+            if term.getDirection() == snl.SNLTerm.Direction.Input:
+                yield TopTerm(term)
 
-def getTopDB() -> snl.SNLDB:
+    def get_output_terms(self):
+        for term in self.design.getBitTerms():
+            if term.getDirection() == snl.SNLTerm.Direction.Output:
+                yield TopTerm(term)
+
+
+def get_top_db() -> snl.SNLDB:
     if snl.SNLUniverse.get() is None:
         snl.SNLUniverse.create()
     if snl.SNLUniverse.get().getTopDB() is None:
@@ -592,13 +585,13 @@ def getTopDB() -> snl.SNLDB:
     return snl.SNLUniverse.get().getTopDB()
 
 
-def getTop():
+def get_top():
     return Top()
 
 
-def createTop():
+def create_top():
     # init
-    db = getTopDB()
+    db = get_top_db()
     # create top design
     lib = snl.SNLLibrary.create(db)
     top = snl.SNLDesign.create(lib)
@@ -607,18 +600,18 @@ def createTop():
 
 
 def load_verilog(files: list):
-    getTopDB().loadVerilog(files)
-    return getTop()
+    get_top_db().loadVerilog(files)
+    return get_top()
 
 
 def load_liberty(files: list):
-    getTopDB().loadLibertyPrimitives(files)
+    get_top_db().loadLibertyPrimitives(files)
 
 
 def get_primitives_library() -> snl.SNLLibrary:
-    lib = getTopDB().getLibrary("PRIMS")
+    lib = get_top_db().getLibrary("PRIMS")
     if lib is None:
-        lib = snl.SNLLibrary.createPrimitives(getTopDB())
+        lib = snl.SNLLibrary.createPrimitives(get_top_db())
     return lib
 
 

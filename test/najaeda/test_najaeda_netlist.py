@@ -32,12 +32,33 @@ class NajaNetlistTest(unittest.TestCase):
             snl.SNLUniverse.get().destroy()
 
     def test_loader(self):
+        print("loader test")
         design_files = [os.path.join(verilog_benchmarks, "test0.v")]
         primitives = [os.path.join(liberty_benchmarks, "asap7_excerpt" , "test0.lib")]
         netlist.load_liberty(primitives)
         netlist.load_verilog(design_files)
+        print(netlist.get_top())
+        for inst in netlist.get_all_primitive_instances():
+            print(inst)
         if snl.SNLUniverse.get():
             snl.SNLUniverse.get().destroy()
+
+    def test_loader1(self):
+        print("loader test")
+        design_files = [os.path.join(verilog_benchmarks, "test1.v")]
+        lut4 = snl.SNLDesign.createPrimitive(netlist.get_primitives_library(), "LUT4")
+        i0 = snl.SNLScalarTerm.create(lut4, snl.SNLTerm.Direction.Input, "I0")
+        i1 = snl.SNLScalarTerm.create(lut4, snl.SNLTerm.Direction.Input, "I1")
+        i2 = snl.SNLScalarTerm.create(lut4, snl.SNLTerm.Direction.Input, "I2")
+        i3 = snl.SNLScalarTerm.create(lut4, snl.SNLTerm.Direction.Input, "I3")
+        q = snl.SNLScalarTerm.create(lut4, snl.SNLTerm.Direction.Output, "Q")
+        snl.SNLParameter.create_binary(lut4, "INIT", 16, 0x0000)
+        netlist.load_verilog(design_files)
+        for inst in netlist.get_all_primitive_instances():
+            print(inst)
+        if snl.SNLUniverse.get():
+            snl.SNLUniverse.get().destroy()
+        
 
     def test_instance(self):
         u = snl.SNLUniverse.create()
@@ -286,8 +307,28 @@ class NajaNetlistTest(unittest.TestCase):
         self.assertFalse(instTerm0.is_output())
 
 
-
-
+    def testTop(self):
+        netlist.create_top()
+        top = netlist.get_top()
+        self.assertIsNotNone(top)
+        self.assertTrue(top == netlist.get_top())
+        top.create_input_term("I0")
+        top.create_input_bus_term("I1", 4, 0)
+        top.create_output_term("O")
+        count = 0
+        for input in top.get_input_terms():
+            count += 1
+        self.assertTrue(count == 6)
+        count = 0
+        for output in top.get_output_terms():
+            count += 1
+        self.assertTrue(count == 1)
+        busList = top.get_term_list_for_bus("I1")
+        self.assertTrue(len(busList) == 5)
+        top.create_net("netI1") 
+        self.assertIsNotNone(top.get_net("netI1"))
+        top.create_bus_net("netI1bus", 4, 0)
+        self.assertIsNotNone(len(top.get_net_list_for_bus("netI1bus")) == 5)
 
 if __name__ == '__main__':
     faulthandler.enable()
