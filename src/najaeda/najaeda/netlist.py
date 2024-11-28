@@ -457,7 +457,7 @@ class Top:
 
     def __str__(self):
         return str(self.design)
-    
+
     def __eq__(self, other):
         return self.design == other.design
 
@@ -512,10 +512,7 @@ class Top:
         )
         instTerms = []
         for i in range(width):
-            instTerms.append(
-                TopTerm(newSNLTerm.getBit(i)
-                )
-            )
+            instTerms.append(TopTerm(newSNLTerm.getBit(i)))
         return instTerms
 
     def create_input_bus_term(
@@ -533,10 +530,7 @@ class Top:
         )
         instTerms = []
         for i in range(width):
-            instTerms.append(
-                TopTerm(newSNLTerm.getBit(i)
-                )
-            )
+            instTerms.append(TopTerm(newSNLTerm.getBit(i)))
         return instTerms
 
     def create_net(self, name: str) -> Net:
@@ -570,7 +564,7 @@ class Top:
         for bit in bus.getBits():
             list.append(Net(snl.SNLPath(), bit))
         return list
-    
+
     def get_input_terms(self):
         for term in self.design.getBitTerms():
             if term.getDirection() == snl.SNLTerm.Direction.Input:
@@ -580,7 +574,6 @@ class Top:
         for term in self.design.getBitTerms():
             if term.getDirection() == snl.SNLTerm.Direction.Output:
                 yield TopTerm(term)
-    
 
 def get_top_db() -> snl.SNLDB:
     if snl.SNLUniverse.get() is None:
