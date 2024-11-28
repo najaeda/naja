@@ -23,11 +23,6 @@ Install Naja EDA using pip:
 Examples
 --------
 
-Print a design:
-
-.. literalinclude:: najaeda_examples/print_design/najaeda_print_design.py
-   :language: python
-
 Documentation
 -------------
 

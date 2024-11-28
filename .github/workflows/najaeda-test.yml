@@ -43,7 +43,6 @@ jobs:
     - name: Lint with flake8
       working-directory: ${{github.workspace}}/src/najaeda
       run: flake8
-      continue-on-error: true
     - name: Run najaeda testing with pytest
       working-directory: ${{github.workspace}}/test/najaeda
       env:
