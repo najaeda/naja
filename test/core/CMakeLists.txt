@@ -15,6 +15,6 @@ target_compile_definitions(najaCoreTests PRIVATE
     NAJA_CORE_TESTS_PATH="${CMAKE_CURRENT_BINARY_DIR}"
 )
 
-TARGET_LINK_LIBRARIES(najaCoreTests naja_snl_python naja_core gmock gtest_main)
+TARGET_LINK_LIBRARIES(najaCoreTests naja_core gmock gtest_main)
 
 GTEST_DISCOVER_TESTS(najaCoreTests)

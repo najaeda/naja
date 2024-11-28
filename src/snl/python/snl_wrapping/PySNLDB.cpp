@@ -145,6 +145,7 @@ PyObject* PySNLDB_loadVerilog(PySNLDB* self, PyObject* args) {
     Py_RETURN_FALSE;
   }
   SNLDB* db = self->object_;
+  TRY
   auto designLibrary = SNLLibrary::create(db, SNLName("DESIGN"));
   SNLVRLConstructor constructor(designLibrary);
   using Paths = std::vector<std::filesystem::path>;
@@ -152,7 +153,7 @@ PyObject* PySNLDB_loadVerilog(PySNLDB* self, PyObject* args) {
   for (int i = 0; i < PyList_Size(arg1); ++i) {
     PyObject* object = PyList_GetItem(arg1, i);
     if (not PyUnicode_Check(object)) {
-      setError("SNLDB loadSNL argument should be a file path");
+      setError("SNLDB loadVerilog argument should be a file path");
       Py_RETURN_FALSE;
     }
     std::string pathStr = PyUnicode_AsUTF8(object);
@@ -166,6 +167,7 @@ PyObject* PySNLDB_loadVerilog(PySNLDB* self, PyObject* args) {
   } else {
     setError("No top design was found after parsing verilog"); //LCOV_EXCL_LINE
   }
+  SNLCATCH
   Py_RETURN_TRUE;
 }
 
