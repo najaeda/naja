@@ -239,7 +239,10 @@ class NajaNetlistTest(unittest.TestCase):
         self.assertTrue(instTerm1 > instTerm0)
         self.assertTrue(instTerm1 >= instTerm0)
         self.assertTrue(instTerm0.get_instance().inst == instance.inst)
-        self.assertTrue(len(instTerm1.get_flat_fanout()) == 0)
+        count = 0
+        for to in instTerm1.get_flat_fanout():
+            count += 1
+        self.assertTrue(count == 0)
         self.assertTrue(instTerm0.get_equipotential() == netlist.Equipotential(instTerm0))
         self.assertTrue(instTerm0.is_input())
         self.assertFalse(instTerm0.is_output())
