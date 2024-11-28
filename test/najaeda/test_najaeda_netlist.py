@@ -32,11 +32,8 @@ class NajaNetlistTest(unittest.TestCase):
     def test_loader(self):
         design_files = ["../../../test/snl/formats/verilog/benchmarks/test0.v"]
         primitives = ["../../../test/snl/formats/liberty/benchmarks/asap7_excerpt/test0.lib"]
-        loader = netlist.Loader()
-        loader.init()
-        loader.load_liberty_primitives(primitives)
-        loader.load_verilog(design_files)
-        loader.verify()
+        netlist.load_liberty_primitives(primitives)
+        netlist.load_verilog(design_files)
         if snl.SNLUniverse.get():
             snl.SNLUniverse.get().destroy()
 
