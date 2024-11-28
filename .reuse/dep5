@@ -28,7 +28,6 @@ Files: test/snl/formats/verilog/backend/references/*
 Copyright: 2022 The Naja Authors.
 License: CC0-1.0
 
-
 Files: test/snl/formats/liberty/benchmarks/errors/* test/snl/formats/liberty/benchmarks/tests/* thirdparty/yosys-liberty/test/benchmarks/test0.lib
 Copyright: 2022 The Naja Authors.
 License: CC0-1.0
@@ -46,3 +45,11 @@ License: ISC
 FILES: thirdparty/yosys-liberty/test/benchmarks/test1.lib test/snl/formats/liberty/benchmarks/asap7_excerpt/test0.lib
 Copyright: Copyright 2020 Lawrence T. Clark, Vinay Vashishtha, or Arizona State University
 License: BSD-3-Clause
+
+FILES: najaeda_examples/benchmarks/liberty/*
+Copyright: 2022 The Naja Authors.
+License: Apache-2.0
+
+FILES: najaeda_examples/benchmarks/verilog/*
+Copyright: 2022 The Naja Authors.
+License: Apache-2.0
