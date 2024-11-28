@@ -20,18 +20,14 @@ Install Naja EDA using pip:
 
     pip install najaeda
 
-Usage
------
+Examples
+--------
+
+Print a design:
 
 .. code-block:: python
-
-    from najaeda import netlist
-
-    # Load a netlist
-    nl = netlist.load("path/to/netlist.v")
-    
-
-    # Example usage
+.. literalinclude:: najaeda_examples/print_design/najaeda_print_design.py
+   :language: python
 
 Documentation
 -------------
