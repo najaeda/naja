@@ -34,10 +34,10 @@ class NajaNetlistTest(unittest.TestCase):
     def test_loader(self):
         print("loader test")
         design_files = [os.path.join(verilog_benchmarks, "test0.v")]
-        primitives = [os.path.join(liberty_benchmarks, "asap7_excerpt" , "test1.lib")]
+        primitives = [os.path.join(liberty_benchmarks, "asap7_excerpt" , "test0.lib")]
         netlist.load_liberty(primitives)
         netlist.load_verilog(design_files)
-        print(netlist.getTop())
+        print(netlist.get_top())
         for inst in netlist.get_all_primitive_instances():
             print(inst)
         if snl.SNLUniverse.get():
@@ -307,8 +307,28 @@ class NajaNetlistTest(unittest.TestCase):
         self.assertFalse(instTerm0.is_output())
 
 
-
-
+    def testTop(self):
+        netlist.create_top()
+        top = netlist.get_top()
+        self.assertIsNotNone(top)
+        self.assertTrue(top == netlist.get_top())
+        top.create_input_term("I0")
+        top.create_input_bus_term("I1", 4, 0)
+        top.create_output_term("O")
+        count = 0
+        for input in top.get_input_terms():
+            count += 1
+        self.assertTrue(count == 6)
+        count = 0
+        for output in top.get_output_terms():
+            count += 1
+        self.assertTrue(count == 1)
+        busList = top.get_term_list_for_bus("I1")
+        self.assertTrue(len(busList) == 5)
+        top.create_net("netI1") 
+        self.assertIsNotNone(top.get_net("netI1"))
+        top.create_bus_net("netI1bus", 4, 0)
+        self.assertIsNotNone(len(top.get_net_list_for_bus("netI1bus")) == 5)
 
 if __name__ == '__main__':
     faulthandler.enable()
