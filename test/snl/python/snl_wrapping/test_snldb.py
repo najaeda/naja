@@ -19,6 +19,8 @@ class SNLDBTest(unittest.TestCase):
     self.assertIsNotNone(u)
     db = snl.SNLDB.create(u) 
     self.assertIsNotNone(db)
+    snl.SNLUniverse.get().setTopDB(db)
+    self.assertEqual(snl.SNLUniverse.get().getTopDB(), db)
     del db    
   
   def testVerilog(self):
