@@ -141,7 +141,7 @@ PyObject* PySNLDB_loadVerilog(PySNLDB* self, PyObject* args) {
     Py_RETURN_FALSE;
   }
   if (not PyList_Check(arg1)) {
-    setError("malformed SNLDesign.loadVerilog method");
+    setError("malformed SNLDB.loadVerilog method");
     Py_RETURN_FALSE;
   }
   SNLDB* db = self->object_;

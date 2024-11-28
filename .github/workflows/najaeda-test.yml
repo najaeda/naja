@@ -1,0 +1,64 @@
+name: najaeda test, coverage and lint
+
+on:
+  push:
+    branches: 
+      - main
+  pull_request:
+
+env:
+  BUILD_TYPE: Release
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        submodules: true
+    # install dependencies
+    - name: Install boost & capnproto
+      run: sudo apt-get update && sudo apt-get install -yq libboost-dev libfl-dev capnproto libcapnp-dev libtbb-dev
+    - name: Configure CMake
+      # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
+      # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
+      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DENABLE_SANITIZERS=OFF -DLONG_TESTS=OFF
+    - name: Build
+      # Build your program with the given configuration
+      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
+
+    - name: Test
+      working-directory: ${{github.workspace}}/build
+      run: ctest -VV -C ${{env.BUILD_TYPE}}
+    - name: Set up Python 
+      uses: actions/setup-python@v3
+      with:
+        python-version: 3.13
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install flake8
+        pip install coverage
+    - name: Lint with flake8
+      working-directory: ${{github.workspace}}/src/najaeda
+      run: flake8
+    - name: Run najaeda testing with pytest
+      working-directory: ${{github.workspace}}/test/najaeda
+      env:
+        PYTHONPATH: ${{github.workspace}}/build/test/najaeda
+        LIBERTY_BENCHMARKS_PATH: ${{github.workspace}}/test/snl/formats/liberty/benchmarks
+        VERILOG_BENCHMARKS_PATH: ${{github.workspace}}/test/snl/formats/verilog/benchmarks        
+      run: |
+        python -m coverage run -m unittest && python -m coverage xml
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v5
+      with:
+        directory: ${{github.workspace}}/test/najaeda/
+        env_vars: OS,PYTHON
+        fail_ci_if_error: true
+        files: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+        token: ${{ secrets.CODECOV_TOKEN }}
+        verbose: true
