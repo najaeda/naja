@@ -34,10 +34,28 @@ class NajaNetlistTest(unittest.TestCase):
     def test_loader(self):
         print("loader test")
         design_files = [os.path.join(verilog_benchmarks, "test0.v")]
-        primitives = [os.path.join(liberty_benchmarks, "asap7_excerpt" , "test0.lib")]
+        primitives = [os.path.join(liberty_benchmarks, "asap7_excerpt" , "test1.lib")]
         netlist.load_liberty(primitives)
         netlist.load_verilog(design_files)
         print(netlist.getTop())
+        for inst in netlist.get_all_primitive_instances():
+            print(inst)
+        if snl.SNLUniverse.get():
+            snl.SNLUniverse.get().destroy()
+
+    def test_loader1(self):
+        print("loader test")
+        design_files = [os.path.join(verilog_benchmarks, "test1.v")]
+        lut4 = snl.SNLDesign.createPrimitive(netlist.get_primitives_library(), "LUT4")
+        i0 = snl.SNLScalarTerm.create(lut4, snl.SNLTerm.Direction.Input, "I0")
+        i1 = snl.SNLScalarTerm.create(lut4, snl.SNLTerm.Direction.Input, "I1")
+        i2 = snl.SNLScalarTerm.create(lut4, snl.SNLTerm.Direction.Input, "I2")
+        i3 = snl.SNLScalarTerm.create(lut4, snl.SNLTerm.Direction.Input, "I3")
+        q = snl.SNLScalarTerm.create(lut4, snl.SNLTerm.Direction.Output, "Q")
+        snl.SNLParameter.create_binary(lut4, "INIT", 16, 0x0000)
+        netlist.load_verilog(design_files)
+        for inst in netlist.get_all_primitive_instances():
+            print(inst)
         if snl.SNLUniverse.get():
             snl.SNLUniverse.get().destroy()
         
