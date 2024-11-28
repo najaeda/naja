@@ -261,7 +261,10 @@ class Instance:
         return self.inst == other.inst and self.path == other.path
 
     def __str__(self) -> str:
-        return str(self.inst) + " " + str(self.path)
+        return str(self.path)
+
+    def __repr__(self) -> str:
+        return f"Instance({self.path}, {self.inst})"
 
     def get_child_instance(self, name: str):
         childInst = self.inst.getModel().getInstance(name)
