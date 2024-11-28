@@ -316,6 +316,9 @@ class Instance:
     def get_name(self) -> str:
         return self.inst.getName()
 
+    def get_model_name(self) -> str:
+        return self.inst.getModel().getName()
+
     def create_child_instance(self, model, name):
         uniq = snl.SNLUniquifier(self.path)
         uniq_path = uniq.getPathUniqCollection()
@@ -605,6 +608,7 @@ def createTop():
 
 def load_verilog(files: list):
     getTopDB().loadVerilog(files)
+    return getTop()
 
 
 def load_liberty(files: list):
