@@ -90,6 +90,7 @@ class Net:
         for term in self.net.getBitTerms():
             yield Term(self.path, term)
 
+
 class Term:
     def __init__(self, path, term):
         # assert inst exists in the path
@@ -144,7 +145,7 @@ class Term:
         return Net(self.path, net)
 
     def get_instance(self):
-        return Instance(self.path, self.term.getInstance())
+        return Instance(self.path, self.term.getDesign())
 
     def get_flat_fanout(self):
         return self.get_equipotential().get_all_leaf_readers()
@@ -165,7 +166,7 @@ class Term:
             uniq_path = uniq.getPathUniqCollection()
             inst = tuple(uniq_path)[len(tuple(uniq_path)) - 1]
             self.term = inst.getInstTerm(term).getBitTerm()
-        termToConnect = inst.getInstTerm(term)    
+        termToConnect = inst.getInstTerm(term)
         termToConnect.setNet(snl.SNLNet())
 
     def connect(self, net: Net):
@@ -177,9 +178,6 @@ class Term:
             self.term = inst.getInstTerm(term).getBitTerm()
         termToConnect = inst.getInstTerm(term)
         termToConnect.setNet(net.net)
-    
-    def get_instance(self):
-        return Instance(self.path, self.term.getDesign())
 
 
 def verify_instance_path(path: snl.SNLPath, inst: snl.SNLInstance):
@@ -214,6 +212,7 @@ def get_instance_by_path(names: list):
         design = instance.getModel()
     return Instance(path, instance.getModel())
 
+
 def get_path_for_names(names: list):
     assert len(names) > 0
     path = snl.SNLPath()
@@ -226,6 +225,7 @@ def get_path_for_names(names: list):
         assert instance is not None
         design = instance.getModel()
     return path
+
 
 def refresh_path(path: snl.SNLPath):
     pathlist = []
@@ -245,6 +245,7 @@ def refresh_path(path: snl.SNLPath):
         design = instance.getModel()
     return path
 
+
 class Instance:
     """Class that represents the instance and wraps some
        of the snl occurrence API.
@@ -254,7 +255,7 @@ class Instance:
         if path.size() > 0:
             assert path.getTailInstance().getModel() == model
         else:
-            assert  snl.SNLUniverse.get().getTopDesign() == model
+            assert snl.SNLUniverse.get().getTopDesign() == model
         self.model = model
         self.path = path
 
@@ -310,11 +311,12 @@ class Instance:
                 yield Term(self.path, term)
 
     def delete_instance(self, name: str):
-        if self.path.size() > 0:
-            path = snl.SNLPath(self.path, self.model.getInstance(name))
-            uniq = snl.SNLUniquifier(path)
+        path = snl.SNLPath(self.path, self.model.getInstance(name))
+        uniq = snl.SNLUniquifier(path)
+        if self.path.size() > 1:    
             self.path = refresh_path(self.path)
-            self.model = tuple(uniq.getPathUniqCollection())[len(tuple(uniq.getPathUniqCollection())) - 2].getModel()
+            self.model = tuple(uniq.getPathUniqCollection())[len(
+                tuple(uniq.getPathUniqCollection())) - 2].getModel()
             self.path = refresh_path(self.path)
         # Delete the last instance in uniq_path
         self.model.getInstance(name).destroy()
@@ -330,7 +332,8 @@ class Instance:
             path = self.path
             uniq = snl.SNLUniquifier(path)
             self.path = refresh_path(self.path)
-            self.model = tuple(uniq.getPathUniqCollection())[len(tuple(uniq.getPathUniqCollection())) - 1].getModel()
+            self.model = tuple(uniq.getPathUniqCollection())[len(
+                tuple(uniq.getPathUniqCollection())) - 1].getModel()
             self.path = refresh_path(self.path)
         design = self.model
         newSNLInstance = snl.SNLInstance.create(design, model, name)
@@ -342,7 +345,8 @@ class Instance:
             path = self.path
             uniq = snl.SNLUniquifier(path)
             self.path = refresh_path(self.path)
-            self.model = tuple(uniq.getPathUniqCollection())[len(tuple(uniq.getPathUniqCollection())) - 1].getModel()
+            self.model = tuple(uniq.getPathUniqCollection())[len(
+                tuple(uniq.getPathUniqCollection())) - 1].getModel()
             self.path = refresh_path(self.path)
         design = self.model
         newSNLTerm = snl.SNLScalarTerm.create(
@@ -357,7 +361,8 @@ class Instance:
             path = self.path
             uniq = snl.SNLUniquifier(path)
             self.path = refresh_path(self.path)
-            self.model = tuple(uniq.getPathUniqCollection())[len(tuple(uniq.getPathUniqCollection())) - 1].getModel()
+            self.model = tuple(uniq.getPathUniqCollection())[len(
+                tuple(uniq.getPathUniqCollection())) - 1].getModel()
             self.path = refresh_path(self.path)
         design = self.model
         newSNLTerm = snl.SNLScalarTerm.create(
@@ -377,7 +382,8 @@ class Instance:
             path = self.path
             uniq = snl.SNLUniquifier(path)
             self.path = refresh_path(self.path)
-            self.model = tuple(uniq.getPathUniqCollection())[len(tuple(uniq.getPathUniqCollection())) - 1].getModel()
+            self.model = tuple(uniq.getPathUniqCollection())[len(
+                tuple(uniq.getPathUniqCollection())) - 1].getModel()
             self.path = refresh_path(self.path)
         design = self.model
         newSNLTerm = snl.SNLBusTerm.create(
@@ -405,7 +411,8 @@ class Instance:
             path = self.path
             uniq = snl.SNLUniquifier(path)
             self.path = refresh_path(self.path)
-            self.model = tuple(uniq.getPathUniqCollection())[len(tuple(uniq.getPathUniqCollection())) - 1].getModel()
+            self.model = tuple(uniq.getPathUniqCollection())[len(
+                tuple(uniq.getPathUniqCollection())) - 1].getModel()
             self.path = refresh_path(self.path)
         design = self.model
         newSNLTerm = snl.SNLBusTerm.create(
@@ -428,7 +435,8 @@ class Instance:
             path = self.path
             uniq = snl.SNLUniquifier(path)
             self.path = refresh_path(self.path)
-            self.model = tuple(uniq.getPathUniqCollection())[len(tuple(uniq.getPathUniqCollection())) - 1].getModel()
+            self.model = tuple(uniq.getPathUniqCollection())[len(
+                tuple(uniq.getPathUniqCollection())) - 1].getModel()
             self.path = refresh_path(self.path)
         model = self.model
         newSNLNet = snl.SNLScalarNet.create(model, name)
@@ -439,7 +447,8 @@ class Instance:
             path = self.path
             uniq = snl.SNLUniquifier(path)
             self.path = refresh_path(self.path)
-            self.model = tuple(uniq.getPathUniqCollection())[len(tuple(uniq.getPathUniqCollection())) - 1].getModel()
+            self.model = tuple(uniq.getPathUniqCollection())[len(
+                tuple(uniq.getPathUniqCollection())) - 1].getModel()
             self.path = refresh_path(self.path)
         model = self.model
         newSNLNet = snl.SNLBusNet.create(model, width, offset, name)
@@ -467,6 +476,7 @@ class Instance:
         for bit in bus.getBits():
             list.append(Net(self.path, bit))
         return list
+
 
 def get_top_db() -> snl.SNLDB:
     if snl.SNLUniverse.get() is None:
@@ -521,6 +531,7 @@ def get_all_primitive_instances() -> list:
             for inst_child in current_inst.getModel().getInstances():
                 path_child = snl.SNLPath(current_path, inst_child)
                 if inst_child.getModel().isPrimitive():
-                    primitives.append(Instance(path_child, inst_child.getModel()))
+                    primitives.append(Instance(path_child, 
+                                            inst_child.getModel()))
                 stack.append([inst_child, path_child])
     return primitives
