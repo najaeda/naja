@@ -313,7 +313,7 @@ class Instance:
     def delete_instance(self, name: str):
         path = snl.SNLPath(self.path, self.model.getInstance(name))
         uniq = snl.SNLUniquifier(path)
-        if self.path.size() > 1:    
+        if self.path.size() > 1:
             self.path = refresh_path(self.path)
             self.model = tuple(uniq.getPathUniqCollection())[len(
                 tuple(uniq.getPathUniqCollection())) - 2].getModel()
@@ -531,7 +531,7 @@ def get_all_primitive_instances() -> list:
             for inst_child in current_inst.getModel().getInstances():
                 path_child = snl.SNLPath(current_path, inst_child)
                 if inst_child.getModel().isPrimitive():
-                    primitives.append(Instance(path_child, 
-                                            inst_child.getModel()))
+                    primitives.append(Instance(path_child,
+                        inst_child.getModel()))
                 stack.append([inst_child, path_child])
     return primitives
