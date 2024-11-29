@@ -531,7 +531,7 @@ def get_all_primitive_instances() -> list:
             for inst_child in current_inst.getModel().getInstances():
                 path_child = snl.SNLPath(current_path, inst_child)
                 if inst_child.getModel().isPrimitive():
-                    primitives.append(Instance(path_child,
-                        inst_child.getModel()))
+                    primitives.append(Instance(
+                        path_child, inst_child.getModel()))
                 stack.append([inst_child, path_child])
     return primitives
