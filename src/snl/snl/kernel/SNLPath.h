@@ -47,6 +47,7 @@ class SNLPath {
     /// \brief SNLPath constructor taking a vector of instance IDs as instance path descriptor. 
     SNLPath(const SNLDesign* top, const PathIDDescriptor& descriptor);
 
+    PathIDDescriptor getIDDescriptor() const;
     /**
      * \return this SNLPath head instance.
      *

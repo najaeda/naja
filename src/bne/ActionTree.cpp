@@ -16,8 +16,11 @@
 using namespace naja::SNL;
 using namespace naja::BNE;
 
-ActionTree::ActionTree(bool keepOrder, bool blockNormalization)
+ActionTree::ActionTree(bool blockNormalization, bool keepOrder)
     : blockNormalization_(blockNormalization), keepOrder_(keepOrder) {
+  if (not SNLUniverse::get()->getTopDesign()) {
+    throw SNLException("cannot create ActionTree with null top design");
+  }
   nodes_.push_back({0, SNLUniverse::get()->getTopDesign()->getSNLID(),
                     std::pair<size_t, size_t>((size_t)-1, 0), 0, this});
 }

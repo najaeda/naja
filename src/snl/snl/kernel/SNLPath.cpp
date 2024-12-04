@@ -98,6 +98,18 @@ SNLPath::SNLPath(const SNLDesign* top, const PathStringDescriptor& descriptor): 
   }
 }
 
+SNLPath::PathIDDescriptor SNLPath::getIDDescriptor() const {
+  SNLPath::PathIDDescriptor descriptor;
+  if (sharedPath_) {
+    auto sharedPath = sharedPath_;
+    while (sharedPath) {
+      descriptor.push_back(sharedPath->getHeadInstance()->getID());
+      sharedPath = sharedPath->getTailSharedPath();
+    }
+  }
+  return descriptor;
+}
+
 SNLInstance* SNLPath::getHeadInstance() const {
   return sharedPath_?sharedPath_->getHeadInstance():nullptr;
 }

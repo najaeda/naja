@@ -253,3 +253,20 @@ TEST_F(BNETests, testCompare) {
 
   EXPECT_NE(uniquifier0.getString(), uniquifier1.getString());
 }
+
+TEST_F(BNETests, normalizeNodeDeletion) {
+  SNLPath::PathStringDescriptor pathDescriptor0 = { "h0", "h1", "h2", "prim"};
+  SNLPath::PathStringDescriptor pathDescriptor1 = { "h0", "h3", "h2", "prim"};
+
+  auto path0 = SNLPath(h0Instance_->getDesign(), pathDescriptor0);
+  auto path1 = SNLPath(h0Instance_->getDesign(), pathDescriptor1);
+
+  auto path0IDs = path0.getIDDescriptor();
+  auto path1IDs = path1.getIDDescriptor();
+
+  BNE bne;
+  bne.addDeleteAction(path0IDs);
+  bne.addDeleteAction(path1IDs);
+
+  bne.process();
+}
