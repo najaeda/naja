@@ -108,7 +108,9 @@ SNLPath::PathIDDescriptor SNLPath::getIDDescriptor() const {
     }
   }
   return descriptor;
+//LCOV_EXCL_START
 }
+//LCOV_EXCL_STOP
 
 SNLInstance* SNLPath::getHeadInstance() const {
   return sharedPath_?sharedPath_->getHeadInstance():nullptr;
