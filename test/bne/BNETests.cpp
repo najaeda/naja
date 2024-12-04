@@ -48,6 +48,7 @@ class BNETests : public ::testing::Test {
       h3Instance_ = SNLInstance::create(h0, h3, SNLName("h3"));
       h3h2Instance_ = SNLInstance::create(h3, h2, SNLName("h2")); 
       h0Instance_ = SNLInstance::create(top, h0, SNLName("h0"));
+      universe->setTopDesign(top);
   }
   void TearDown() override {
     SNLUniverse::get()->destroy();
@@ -258,8 +259,8 @@ TEST_F(BNETests, normalizeNodeDeletion) {
   SNLPath::PathStringDescriptor pathDescriptor0 = { "h0", "h1", "h2", "prim"};
   SNLPath::PathStringDescriptor pathDescriptor1 = { "h0", "h3", "h2", "prim"};
 
-  auto path0 = SNLPath(h0Instance_->getDesign(), pathDescriptor0);
-  auto path1 = SNLPath(h0Instance_->getDesign(), pathDescriptor1);
+  auto path0 = SNLPath(SNLUniverse::get()->getTopDesign(), pathDescriptor0);
+  auto path1 = SNLPath(SNLUniverse::get()->getTopDesign(), pathDescriptor1);
 
   auto path0IDs = path0.getIDDescriptor();
   auto path1IDs = path1.getIDDescriptor();
@@ -267,6 +268,33 @@ TEST_F(BNETests, normalizeNodeDeletion) {
   BNE bne;
   bne.addDeleteAction(path0IDs);
   bne.addDeleteAction(path1IDs);
-
+  path0IDs.pop_back();
+  path1IDs.pop_back();
+  EXPECT_EQ(getInstanceForPath(path0IDs)->getModel() == getInstanceForPath(path1IDs)->getModel(), true);
   bne.process();
+  EXPECT_EQ(getInstanceForPath(path0IDs)->getModel() == getInstanceForPath(path1IDs)->getModel(), true);
+}
+
+TEST_F(BNETests, blockedNormalizeNodeDeletion) {
+  SNLPath::PathStringDescriptor pathDescriptor0 = { "h0", "h1", "h2", "prim"};
+  SNLPath::PathStringDescriptor pathDescriptor1 = { "h0", "h3", "h2", "prim"};
+
+  auto path0 = SNLPath(SNLUniverse::get()->getTopDesign(), pathDescriptor0);
+  auto path1 = SNLPath(SNLUniverse::get()->getTopDesign(), pathDescriptor1);
+
+  auto path0IDs = path0.getIDDescriptor();
+  auto path1IDs = path1.getIDDescriptor();
+  const bool blockNormalization = true;
+  BNE bne(blockNormalization);
+  bne.addDeleteAction(path0IDs);
+  bne.addDeleteAction(path1IDs);
+  path0IDs.pop_back();
+  path1IDs.pop_back();
+  EXPECT_EQ(getInstanceForPath(path0IDs)->getModel() == getInstanceForPath(path1IDs)->getModel(), true);
+  EXPECT_EQ(getInstanceForPath(path0IDs)->getModel()->getInstances().size(), 1);
+  EXPECT_EQ(getInstanceForPath(path1IDs)->getModel()->getInstances().size(), 1);
+  bne.process();
+  EXPECT_EQ(getInstanceForPath(path0IDs)->getModel()->getInstances().size(), 0);
+  EXPECT_EQ(getInstanceForPath(path1IDs)->getModel()->getInstances().size(), 0);
+  EXPECT_EQ(getInstanceForPath(path0IDs)->getModel() == getInstanceForPath(path1IDs)->getModel(), false);
 }
