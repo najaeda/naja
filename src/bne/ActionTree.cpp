@@ -118,6 +118,9 @@ void ActionTree::normalize() {
       nodesToMerge.push_back(currentNode);
       nodes.pop_back();
       for (auto node : nodes) {
+        if (node == currentNode) {
+          continue;
+        }
         if (!node->isPartOfTree()) {
           continue;
         }
@@ -139,6 +142,8 @@ void ActionTree::normalize() {
         assert(getInstanceForPath(node->getContext())->getModel() ==
                (getInstanceForPath(currentNode->getContext()))->getModel());
         currentNode->addParent(node->getParents()[0]);
+        node->eraseParent(node->getParents()[0]);
+        assert(node->getParents().size() == 0);
         //FIXME xtof nodes_[node->getID()].eraseParent(node->getParents()[0]);
       }
     }
