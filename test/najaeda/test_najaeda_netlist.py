@@ -75,9 +75,9 @@ class NajaNetlistTest(unittest.TestCase):
         ins1 = snl.SNLInstance.create(self.top, self.model, "ins1")
         path1 = snl.SNLPath(ins1)
         path2 = snl.SNLPath(path1, ins2)
-        instance = netlist.Instance(path1, ins1.getModel())
+        instance = netlist.Instance(path1)
         self.assertEqual(instance.path, path1)
-        self.assertEqual(instance.model, ins1.getModel())
+        self.assertEqual(instance.get_model(), ins1.getModel())
         index = 0
         terms_list = []
         for term in instance.get_terms():
@@ -88,12 +88,12 @@ class NajaNetlistTest(unittest.TestCase):
         name_list = ["ins1", "ins2"]
         instance2 = netlist.get_instance_by_path(name_list)
         self.assertEqual(instance2.path, path2)
-        self.assertEqual(instance2.model, ins2.getModel())
+        self.assertEqual(instance2.get_model(), ins2.getModel())
         print(instance2.path)
-        print(instance2.model)
+        print(instance2.get_model())
         print(instance.get_child_instance(ins2.getName()).path)
-        print(instance.get_child_instance(ins2.getName()).model)
-        self.assertTrue(instance2.model == instance.get_child_instance(ins2.getName()).model)
+        print(instance.get_child_instance(ins2.getName()).get_model())
+        self.assertTrue(instance2.get_model() == instance.get_child_instance(ins2.getName()).get_model())
         self.assertTrue(instance2.path == instance.get_child_instance(ins2.getName()).path)
         self.assertTrue(instance2 == instance.get_child_instance(ins2.getName()))
 
@@ -219,7 +219,7 @@ class NajaNetlistTest(unittest.TestCase):
             self.assertTrue(t.term == to_compare_with.getInstTerm().getBitTerm())
             self.assertTrue(t.path.getHeadPath() == to_compare_with.getPath())
 
-        instance = netlist.Instance(path1, ins1.getModel())
+        instance = netlist.Instance(path1)
         print(instance.get_term("I0").get_net())
         self.assertIsNotNone(instance.get_term("I0"))
         print(netlist.Net(path0, i0_net))
@@ -284,10 +284,10 @@ class NajaNetlistTest(unittest.TestCase):
         path0 = snl.SNLPath()
         path1 = snl.SNLPath(path0, ins1)
         path2 = snl.SNLPath(path1, ins2)
-        instance = netlist.Instance(path1, ins1.getModel())
+        instance = netlist.Instance(path1)
         instTerm0 = instance.get_term("I0")
         instTerm1 = instance.get_term("I1")
-        instance2 = netlist.Instance(path2, ins2.getModel())
+        instance2 = netlist.Instance(path2)
         inst2Term0 = instance2.get_term("I0")
         inst2Term1 = instance2.get_term("I1")
 
