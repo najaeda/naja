@@ -39,78 +39,81 @@ class DesignStats:
       self.flat_basic_primitives[primitive] = self.flat_basic_primitives.get(primitive, 0) + nb
 
 def isBasicPrimitive(design):
-  return design.isConst0() or design.isConst1() or design.isBuf() or design.isInv()
+  return design.is_const0() or design.is_const1() or design.is_buf() or design.is_inv()
 
 def compute_design_stats(design, designs_stats):
-  if design in designs_stats.hier_designs:
-    return designs_stats.hier_designs.get(design)
+  if design.get_model_id() in designs_stats.hier_designs:
+    return designs_stats.hier_designs.get(design.get_model_id())
   design_stats = DesignStats()
-  design_stats.name = design.getName()
-  for ins in design.getInstances():
-    model = ins.getModel()
-    if model.isAssign():
+  design_stats.name = design.get_model_name()
+  for ins in design.get_child_instances():
+    model_name = ins.get_model_name()
+    model_id = ins.get_model_id()
+    if ins.is_assign():
       design_stats.assigns += 1
       design_stats.flat_assigns += 1
-    elif model.isPrimitive():
-      if (isBasicPrimitive(model)):
-        design_stats.basic_primitives[model] = design_stats.basic_primitives.get(model, 0) + 1
-        design_stats.flat_basic_primitives[model] = design_stats.flat_basic_primitives.get(model, 0) + 1
+    elif ins.is_primitive():
+      if (isBasicPrimitive(ins)):
+        design_stats.basic_primitives[model_id] = design_stats.basic_primitives.get(model_id, 0) + 1
+        design_stats.flat_basic_primitives[model_id] = design_stats.flat_basic_primitives.get(model_id, 0) + 1
       else:
-        design_stats.primitives[model] = design_stats.primitives.get(model, 0) + 1
-        design_stats.flat_primitives[model] = design_stats.flat_primitives.get(model, 0) + 1
-    elif model.isBlackBox():
-      design_stats.blackboxes[model] = design_stats.blackboxes.get(model, 0) + 1
-      design_stats.flat_blackboxes[model] = design_stats.flat_blackboxes.get(model, 0) + 1
-      if model not in designs_stats.blackboxes:
-        designs_stats.blackboxes[model] = dict()
-        compute_design_terms(model, designs_stats.blackboxes[model])
+        design_stats.primitives[model_id] = design_stats.primitives.get(model_id, 0) + 1
+        design_stats.flat_primitives[model_id] = design_stats.flat_primitives.get(model_id, 0) + 1
+    elif ins.is_blackbox():
+      design_stats.blackboxes[model_id] = design_stats.blackboxes.get(model_id, 0) + 1
+      design_stats.flat_blackboxes[model_id] = design_stats.flat_blackboxes.get(model_id, 0) + 1
+      if model_id not in designs_stats.blackboxes:
+        designs_stats.blackboxes[model_id] = dict()
+        compute_design_terms(model_id, designs_stats.blackboxes[model_id])
     else:
-      if model in designs_stats.hier_designs:
-        model_stats = designs_stats.hier_designs[model]
+      if model_id in designs_stats.hier_designs:
+        model_stats = designs_stats.hier_designs[model_id]
       else:
-        model_stats = compute_design_stats(model, designs_stats)
-      design_stats.ins[model] = design_stats.ins.get(model, 0) + 1
-      design_stats.flat_ins[model] = design_stats.flat_ins.get(model, 0) + 1
+        model_stats = compute_design_stats(ins, designs_stats)
+      design_stats.ins[model_id] = design_stats.ins.get(model_id, 0) + 1
+      design_stats.flat_ins[model_id] = design_stats.flat_ins.get(model_id, 0) + 1
       design_stats.add_ins_stats(model_stats)
   compute_design_terms(design, design_stats)
   compute_design_net_stats(design, design_stats)
-  designs_stats.hier_designs[design] = design_stats
+  designs_stats.hier_designs[design.get_model_id()] = design_stats
   return design_stats
 
 def compute_design_terms(design, design_stats): 
-  for term in design.getTerms():
-    if term.getDirection() == snl.SNLTerm.Direction.Input:
+  for term in design.get_terms():
+    if term.get_direction() == netlist.Term.Input:
       design_stats.terms["inputs"] = design_stats.terms.get("inputs", 0) + 1
-      bit_terms = sum(1 for _ in term.getBits())
+      bit_terms = sum(1 for _ in term.get_bits())
       design_stats.bit_terms["inputs"] = design_stats.bit_terms.get("inputs", 0) + bit_terms
-    elif term.getDirection() == snl.SNLTerm.Direction.Output:
+    elif term.get_direction() == netlist.Term.Output:
       design_stats.terms["outputs"] = design_stats.terms.get("outputs", 0) + 1
-      bit_terms = sum(1 for _ in term.getBits())
+      bit_terms = sum(1 for _ in term.get_bits())
       design_stats.bit_terms["outputs"] = design_stats.bit_terms.get("outputs", 0) + bit_terms
-    elif term.getDirection() == snl.SNLTerm.Direction.InOut:
+    elif term.get_direction() == netlist.Term.InOut:
       design_stats.terms["inouts"] = design_stats.terms.get("inouts", 0) + 1
-      bit_terms = sum(1 for _ in term.getBits())
+      bit_terms = sum(1 for _ in term.get_bits())
       design_stats.bit_terms["inouts"] = design_stats.bit_terms.get("inouts", 0) + bit_terms
     else:
       design_stats.terms["unknowns"] = design_stats.terms.get("unknowns", 0) + 1
-      bit_terms = sum(1 for _ in term.getBits())
+      bit_terms = sum(1 for _ in term.get_bits())
       design_stats.bit_terms["unknowns"] = design_stats.bit_terms.get("unknowns", 0) + bit_terms
 
 def compute_design_net_stats(design, design_stats):
-  for net in design.getBitNets():
-    if net.isConstant():
-      pass
-    nb_components = sum(1 for c in net.getComponents())
-    design_stats.net_stats[nb_components] = design_stats.net_stats.get(nb_components, 0) + 1
-    design_stats.net_stats = dict(sorted(design_stats.net_stats.items()))
+  pass
+  #for net in design.get_nets():
+  #  if net.isConstant():
+  #    pass
+  #  nb_components = sum(1 for c in net.getComponents())
+  #  design_stats.net_stats[nb_components] = design_stats.net_stats.get(nb_components, 0) + 1
+  #  design_stats.net_stats = dict(sorted(design_stats.net_stats.items()))
 
 def dump_instances(stats_file, title, instances):
   if len(instances) == 0:
     return
-  sorted_instances = sorted(instances.items(), key=lambda item: item[0].getName())
+  sorted_instances = sorted(instances.items(), key=lambda item: netlist.get_model_name(item[0]))
   stats_file.write(title + ' ' + str(sum(j for i, j in sorted_instances)) + '\n')
   line_char = 0
   for instance in sorted_instances:
+    model_name = netlist.get_model_name(instance[0])
     if line_char!=0:
       stats_file.write(",")
       line_char += 1
@@ -120,7 +123,7 @@ def dump_instances(stats_file, title, instances):
     elif line_char!=0:
       stats_file.write(" ")
       line_char += 1
-    instance_char =  instance[0].getName() + ":" + str(instance[1])
+    instance_char =  model_name + ":" + str(instance[1])
     line_char += len(instance_char)
     stats_file.write(instance_char)
   stats_file.write('\n\n')
@@ -145,13 +148,13 @@ def dump_blackboxes_stats(stats_file, design_stats):
        stats_file.write("\n")
 
 def dump_stats(design, stats_file, designs_stats, dumped_models):
-  if design.isPrimitive() or design.isBlackBox():
+  if design.is_primitive() or design.is_blackbox():
     return
   if design in dumped_models:
     return
   dumped_models.add(design)
-  stats_file.write('*** ' + design.getName() + ' ***\n')
-  design_stats = designs_stats.hier_designs.get(design)
+  stats_file.write('*** ' + design.get_name() + ' ***\n')
+  design_stats = designs_stats.hier_designs.get(design.get_model_id())
   if design_stats is None:
     print('Cannot find ' + str(design) + ' in design_stats')
     raise
@@ -185,9 +188,8 @@ def dump_stats(design, stats_file, designs_stats, dumped_models):
   if design_stats.flat_assigns > 0:
     stats_file.write('Flat Assigns: ' + str(design_stats.flat_assigns) + '\n')
   stats_file.write('\n')
-  for ins in design.getInstances():
-    model = ins.getModel()
-    dump_stats(model, stats_file, designs_stats, dumped_models) 
+  for ins in design.get_child_instances():
+    dump_stats(ins, stats_file, designs_stats, dumped_models) 
 
 def dump_pandas(designs_stats):
   import pandas

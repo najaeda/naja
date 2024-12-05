@@ -92,6 +92,10 @@ class Net:
 
 
 class Term:
+    Input = snl.SNLTerm.Direction.Input
+    Output = snl.SNLTerm.Direction.Output
+    InOut = snl.SNLTerm.Direction.InOut
+
     def __init__(self, path, term):
         # assert inst exists in the path
         if (path.size() > 0):
@@ -134,7 +138,17 @@ class Term:
     def get_name(self) -> str:
         return self.term.getName()
 
+    def get_direction(self) -> snl.SNLTerm.Direction:
+        if self.term.getDirection() == snl.SNLTerm.Direction.Input:
+            return Term.Input
+        elif self.term.getDirection() == snl.SNLTerm.Direction.Output:
+            return Term.Output
+        elif self.term.getDirection() == snl.SNLTerm.Direction.InOut:
+            return Term.InOut
+
     def get_net(self) -> Net:
+        if isinstance(self.term, snl.SNLBusTerm):
+            return None #FIXME xtof in the future
         net = None
         if self.path.size() > 0:
             instTerm = self.path.getTailInstance().getInstTerm(self.term)
@@ -158,7 +172,17 @@ class Term:
     def is_output(self) -> bool:
         return self.term.getDirection() == snl.SNLTerm.Direction.Output
 
+    def get_bits(self):
+        if isinstance(self.term, snl.SNLBusTerm):
+            for bit in self.term.getBits():
+                yield Term(self.path, bit)
+        else:
+            yield self
+
     def disconnect(self):
+        #FIXME disable if bus
+        if isinstance(self.term, snl.SNLBusTerm):
+            return
         term = self.term
         if self.path.size() > 0:
             uniq = snl.SNLUniquifier(self.path)
@@ -169,6 +193,9 @@ class Term:
         termToConnect.setNet(snl.SNLNet())
 
     def connect(self, net: Net):
+        #FIXME disable if bus
+        if isinstance(self.term, snl.SNLBusTerm):
+            return
         term = self.term
         if self.path.size() > 0:
             uniq = snl.SNLUniquifier(self.path)
@@ -262,8 +289,32 @@ class Instance:
     def __repr__(self) -> str:
         return f"Instance({self.path})"
 
+    def __hash__(self):
+        return hash(self.path)
+
     def is_top(self) -> bool:
         return self.path.size() == 0
+
+    def is_assign(self) -> bool:
+        return self.get_model().isAssign()
+
+    def is_blackbox(self) -> bool:
+        return self.get_model().isBlackBox()
+    
+    def is_const0(self) -> bool:
+        return self.get_model().isConst0()
+    
+    def is_const1(self) -> bool:
+        return self.get_model().isConst1()
+    
+    def is_const(self) -> bool:
+        return self.get_model().isConst()
+    
+    def is_buf(self) -> bool:
+        return self.get_model().isBuf()
+    
+    def is_inv(self) -> bool:
+        return self.get_model().isInv()
 
     def get_model(self):
         if self.is_top():
@@ -319,10 +370,18 @@ class Instance:
         self.get_model().getInstance(name).destroy()
 
     def get_name(self) -> str:
-        return self.path.getTailInstance().getName()
+        if self.is_top():
+            return self.get_model_name()
+        else:
+            return self.path.getTailInstance().getName()
 
     def get_model_name(self) -> str:
         return self.get_model().getName()
+
+    def get_model_id(self) -> tuple[int, int, int]:
+        return self.get_model().getDB().getID(), \
+            self.get_model().getLibrary().getID(), \
+            self.get_model().getID()
 
     def create_child_instance(self, model, name):
         if self.path.size() > 0:
@@ -365,7 +424,7 @@ class Instance:
             msb: int,
             lsb: int,
             direction: snl.SNLTerm.Direction
-        ) -> list:
+    ) -> list:
         if self.path.size() > 0:
             path = self.path
             uniq = snl.SNLUniquifier(path)
@@ -492,6 +551,13 @@ def get_primitives_library() -> snl.SNLLibrary:
     if lib is None:
         lib = snl.SNLLibrary.createPrimitives(get_top_db())
     return lib
+
+
+def get_model_name(id: tuple[int, int, int]) -> str:
+    db = snl.SNLUniverse.get().getDB(id[0])
+    lib = db.getLibrary(id[1])
+    model = lib.getDesign(id[2])
+    return model.getName()
 
 
 def get_all_primitive_instances() -> list:
