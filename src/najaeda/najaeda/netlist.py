@@ -358,42 +358,14 @@ class Instance:
 
     def create_input_term(self, name: str) -> Term:
         return self.create_term(name, snl.SNLTerm.Direction.Input)
-
-    def create_output_bus_term(
-        self,
-        name: str,
-        width: int,
-        offset: int
-    ) -> list:
-        if self.path.size() > 0:
-            path = self.path
-            uniq = snl.SNLUniquifier(path)
-            self.path = refresh_path(self.path)
-            self.model = tuple(uniq.getPathUniqCollection())[len(
-                tuple(uniq.getPathUniqCollection())) - 1].getModel()
-            self.path = refresh_path(self.path)
-        design = self.model
-        newSNLTerm = snl.SNLBusTerm.create(
-            design,
-            snl.SNLTerm.Direction.Output,
-            width,
-            offset,
-            name
-        )
-        busTerms = []
-        for i in range(width):
-            busTerms.append(
-                Term(
-                    self.path,
-                    newSNLTerm.getBit(i)))
-        return busTerms
-
-    def create_input_bus_term(
-        self,
-        name: str,
-        width: int,
-        offset: int
-    ) -> list:
+    
+    def create_bus_term(
+            self,
+            name: str,
+            msb: int,
+            lsb: int,
+            direction: snl.SNLTerm.Direction
+        ) -> list:
         if self.path.size() > 0:
             path = self.path
             uniq = snl.SNLUniquifier(path)
@@ -404,18 +376,36 @@ class Instance:
         design = self.get_model()
         newSNLTerm = snl.SNLBusTerm.create(
             design,
-            snl.SNLTerm.Direction.Input,
-            width,
-            offset,
+            direction,
+            msb,
+            lsb,
             name
         )
         busTerms = []
-        for i in range(width):
+        for i in range(msb, lsb):
             busTerms.append(
                 Term(
                     self.path,
                     newSNLTerm.getBit(i)))
         return busTerms
+
+    def create_output_bus_term(
+        self,
+        name: str,
+        msb: int,
+        lsb: int
+    ) -> list:
+        return self.create_bus_term(name, msb, lsb, snl.SNLTerm.Direction.Output)
+        
+
+    def create_input_bus_term(
+        self,
+        name: str,
+        msb: int,
+        lsb: int
+    ) -> list:
+        return self.create_bus_term(name, msb, lsb, snl.SNLTerm.Direction.Input)
+        
 
     def create_net(self, name: str) -> Net:
         if self.path.size() > 0:
@@ -429,7 +419,7 @@ class Instance:
         newSNLNet = snl.SNLScalarNet.create(model, name)
         return Net(self.path, newSNLNet)
 
-    def create_bus_net(self, name: str, width: int, offset: int) -> list:
+    def create_bus_net(self, name: str, msb: int, lsb: int) -> list:
         if self.path.size() > 0:
             path = self.path
             uniq = snl.SNLUniquifier(path)
@@ -438,9 +428,9 @@ class Instance:
                 tuple(uniq.getPathUniqCollection())) - 1].getModel()
             self.path = refresh_path(self.path)
         model = self.get_model()
-        newSNLNet = snl.SNLBusNet.create(model, width, offset, name)
+        newSNLNet = snl.SNLBusNet.create(model, msb, lsb, name)
         list = []
-        for i in range(width):
+        for i in range(msb, lsb):
             list.append(Net(self.path, newSNLNet.getBit(i)))
         return list
 
