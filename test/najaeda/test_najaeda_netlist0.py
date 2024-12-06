@@ -23,7 +23,7 @@ else:
 liberty_benchmarks = os.environ.get('LIBERTY_BENCHMARKS_PATH')
 verilog_benchmarks = os.environ.get('VERILOG_BENCHMARKS_PATH')
 
-class NajaNetlistTest(unittest.TestCase):
+class NajaNetlistTest0(unittest.TestCase):
     def setUp(self):
         pass
 
@@ -101,13 +101,14 @@ class NajaNetlistTest(unittest.TestCase):
         instance.delete_instance(instance2.get_name())
         self.assertEqual(instance.get_number_of_child_instances(), 0)
 
-        instance.create_child_instance(self.submodel, "ins2")
+        instance.create_child_instance(self.submodel.getName(), "ins2")
         self.assertEqual(instance.get_number_of_child_instances(), 1)
         self.assertIsNotNone(instance.get_child_instance("ins2"))
         self.assertEqual(instance.get_child_instance("ins2").get_name(), "ins2")
+        self.assertEqual(instance.get_child_instance("ins2").get_model_name(), self.submodel.getName())
 
         #Test bus term creation connection and disconnection
-        instance3 = instance.create_child_instance(self.submodel, "ins3")
+        instance3 = instance.create_child_instance(self.submodel.getName(), "ins3")
         self.assertTrue(instance.get_number_of_child_instances() == 2)
         instance3.create_output_bus_term("I1", 4, 0)
         instance.create_bus_net("netI1", 4, 0)
@@ -315,10 +316,11 @@ class NajaNetlistTest(unittest.TestCase):
 
 
     def testTop(self):
-        netlist.create_top()
+        netlist.create_top('Top')
         top = netlist.get_top()
         self.assertIsNotNone(top)
         self.assertEqual(top, netlist.get_top())
+        self.assertEqual(top.get_name(), "Top")
         top.create_input_term("I0")
         top.create_input_bus_term("I1", 4, 0)
         top.create_output_term("O")

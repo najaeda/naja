@@ -3,6 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import itertools
 from najaeda import snl
 
 
@@ -105,11 +106,8 @@ class Net:
             yield Term(self.path, term)
 
     def get_terms(self):
-        for term in self.net.getBitTerms():
-            yield Term(self.path, term)
-        for term in self.net.getInstTerms():
-            yield Term(self.path, term.getBitTerm())
-
+        for term in itertools.chain(self.get_inst_terms(), self.get_model_terms()):
+            yield term
 
 class Term:
     Input = snl.SNLTerm.Direction.Input
@@ -354,6 +352,17 @@ class Instance:
         if self.is_top():
             return snl.SNLUniverse.get().getTopDesign()
         return self.path.getTailInstance().getModel()
+    
+    def __find_snl_model(self, name: str) -> snl.SNLDesign:
+        u = snl.SNLUniverse.get()
+        if u is None:
+            return None
+        for db in u.getUserDBs():
+            for lib in db.getLibraries():
+                found_model = lib.getDesign(name)
+                if found_model is not None:
+                    return found_model
+        return None
 
     def get_child_instance(self, name: str):
         childInst = self.__get_snl_model().getInstance(name)
@@ -454,7 +463,7 @@ class Instance:
             model.getLibrary().getID(), \
             model.getID()
 
-    def create_child_instance(self, model, name):
+    def create_child_instance(self, model: str, name: str):
         if self.path.size() > 0:
             path = self.path
             uniq = snl.SNLUniquifier(path)
@@ -463,7 +472,8 @@ class Instance:
                 tuple(uniq.getPathUniqCollection())) - 1].getModel()
             self.path = refresh_path(self.path)
         design = self.model
-        newSNLInstance = snl.SNLInstance.create(design, model, name)
+        new_instance_model = self.__find_snl_model(model)
+        newSNLInstance = snl.SNLInstance.create(design, new_instance_model, name)
         path = snl.SNLPath(self.path, newSNLInstance)
         return Instance(path)
 
@@ -561,6 +571,7 @@ class Instance:
         if net is not None:
             return Net(self.path, net)
         return None
+    
 
 
 def get_top_db() -> snl.SNLDB:
@@ -576,12 +587,12 @@ def get_top():
     return Instance(snl.SNLPath())
 
 
-def create_top():
+def create_top(name: str) -> Instance:
     # init
     db = get_top_db()
     # create top design
     lib = snl.SNLLibrary.create(db)
-    top = snl.SNLDesign.create(lib)
+    top = snl.SNLDesign.create(lib, name)
     snl.SNLUniverse.get().setTopDesign(top)
     return Instance()
 

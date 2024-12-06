@@ -207,6 +207,8 @@ PyObject* PySNLDB_getLibrary(PySNLDB* self, PyObject* arg) {
 
 DirectGetIntMethod(PySNLDB_getID, getID, PySNLDB, SNLDB)
 GetContainerMethod(DB, Library, Libraries, Libraries)
+GetContainerMethod(DB, Library, Libraries, GlobalLibraries)
+GetContainerMethod(DB, Library, Libraries, PrimitiveLibraries)
 
 DBoDestroyAttribute(PySNLDB_destroy, PySNLDB)
 
@@ -228,7 +230,11 @@ PyMethodDef PySNLDB_Methods[] = {
   { "getLibrary", (PyCFunction)PySNLDB_getLibrary, METH_O,
     "retrieve a SNLLibrary."},
   { "getLibraries", (PyCFunction)PySNLDB_getLibraries, METH_NOARGS,
-    "get a container of SNLLibraries."},
+    "iterate on this SNLDB SNLLibraries."},
+  { "getGlobalLibraries", (PyCFunction)PySNLDB_getGlobalLibraries, METH_NOARGS,
+    "iterate on all the Libraries owned (directly or indirectly) by this SNLDB."},
+  { "getPrimitiveLibraries", (PyCFunction)PySNLDB_getPrimitiveLibraries, METH_NOARGS,
+    "iterate on all the primitive Libraries owned (directly or indirectly) by this SNLDB."},
   { "destroy", (PyCFunction)PySNLDB_destroy, METH_NOARGS,
     "destroy this SNLDB."},
   {NULL, NULL, 0, NULL} /* sentinel */
@@ -238,4 +244,5 @@ DBoDeallocMethod(SNLDB)
 
 DBoLinkCreateMethod(SNLDB) PyTypeSNLFinalObjectWithSNLIDLinkPyType(SNLDB)
 PyTypeObjectDefinitions(SNLDB)
+
 }  // namespace PYSNL
