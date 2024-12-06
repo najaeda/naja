@@ -98,14 +98,14 @@ class Term:
 
     def __init__(self, path, term):
         # assert inst exists in the path
-        if (path.size() > 0):
-            #print(term)
-            #print(path.getTailInstance())
-            #print(path.getTailInstance().getInstTerm(term))
-            assert path.getTailInstance().getInstTerm(term) is not None
-        else:
-            top = snl.SNLUniverse.get().getTopDesign()
-            assert top.getTerm(term.getName()) is not None
+        #if (path.size() > 0):
+        #    #print(term)
+        #    #print(path.getTailInstance())
+        #    #print(path.getTailInstance().getInstTerm(term))
+        #    assert path.getTailInstance().getModel().getTerm(term) is not None
+        #else:
+        #    top = snl.SNLUniverse.get().getTopDesign()
+        #    assert top.getTerm(term.getName()) is not None
         self.path = path
         self.term = term
 
@@ -161,10 +161,14 @@ class Term:
         return Instance(self.path)
 
     def get_flat_fanout(self):
-        return self.get_equipotential().get_all_leaf_readers()
+        if isinstance(self.term, snl.SNLBusTerm):
+            return self.get_equipotential().get_all_leaf_readers()
+        return None
 
     def get_equipotential(self) -> Equipotential:
-        return Equipotential(self)
+        if isinstance(self.term, snl.SNLBusTerm):
+            return Equipotential(self)
+        return None
 
     def is_input(self) -> bool:
         return self.term.getDirection() == snl.SNLTerm.Direction.Input
@@ -333,28 +337,37 @@ class Instance:
             yield Instance(path)
 
     def get_number_of_child_instances(self) -> int:
-        return len(tuple(self.get_model().getInstances()))
+        return sum(1 for _ in self.get_model().getInstances())
 
     def get_terms(self):
-        for term in self.get_model().getBitTerms():
+        for term in self.get_model().getTerms():
             yield Term(self.path, term)
 
     def get_term(self, name: str) -> Term:
-        for term in self.get_model().getBitTerms():
-            if term.getName() == name:
-                return Term(self.path, term)
+        term = self.get_model().getTerm(name)
+        if term is not None:
+            return Term(self.path, self.get_model().getTerm(name))
         return None
 
     def is_primitive(self) -> bool:
         return self.get_model().isPrimitive()
 
     def get_input_terms(self):
-        for term in self.get_model().getBitTerms():
+        for term in self.get_model().getTerms():
             if term.getDirection() == snl.SNLTerm.Direction.Input:
                 yield Term(self.path, term)
 
+    def get_input_bterms(self):
+        for term in self.get_model().getTerms():
+            if term.getDirection() == snl.SNLTerm.Direction.Input:
+                if isinstance(term, snl.SNLBusTerm):
+                    for bit in term.getBits():
+                        yield Term(self.path, bit)
+                else:
+                    yield Term(self.path, term)
+
     def get_output_terms(self):
-        for term in self.get_model().getBitTerms():
+        for term in self.get_model().getTerms():
             if term.getDirection() == snl.SNLTerm.Direction.Output:
                 yield Term(self.path, term)
 
@@ -424,7 +437,7 @@ class Instance:
             msb: int,
             lsb: int,
             direction: snl.SNLTerm.Direction
-    ) -> list:
+    ) -> Term:
         if self.path.size() > 0:
             path = self.path
             uniq = snl.SNLUniquifier(path)
@@ -440,20 +453,14 @@ class Instance:
             lsb,
             name
         )
-        busTerms = []
-        for i in range(msb, lsb):
-            busTerms.append(
-                Term(
-                    self.path,
-                    newSNLTerm.getBit(i)))
-        return busTerms
+        return Term(self.path, newSNLTerm)
 
     def create_output_bus_term(
         self,
         name: str,
         msb: int,
         lsb: int
-    ) -> list:
+    ) -> Term:
         return self.create_bus_term(name, msb, lsb, snl.SNLTerm.Direction.Output)
         
 
@@ -462,7 +469,7 @@ class Instance:
         name: str,
         msb: int,
         lsb: int
-    ) -> list:
+    ) -> Term:
         return self.create_bus_term(name, msb, lsb, snl.SNLTerm.Direction.Input)
         
 
@@ -560,9 +567,8 @@ def get_model_name(id: tuple[int, int, int]) -> str:
     return model.getName()
 
 
-def get_all_primitive_instances() -> list:
+def get_all_primitive_instances():
     top = snl.SNLUniverse.get().getTopDesign()
-    primitives = []
 
     for inst in top.getInstances():
         path = snl.SNLPath(inst)
@@ -574,6 +580,5 @@ def get_all_primitive_instances() -> list:
             for inst_child in current_inst.getModel().getInstances():
                 path_child = snl.SNLPath(current_path, inst_child)
                 if inst_child.getModel().isPrimitive():
-                    primitives.append(Instance(path_child))
+                    yield Instance(path_child)
                 stack.append([inst_child, path_child])
-    return primitives
