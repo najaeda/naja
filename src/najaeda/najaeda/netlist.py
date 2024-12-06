@@ -324,27 +324,34 @@ class Instance:
         return hash(self.path)
 
     def is_top(self) -> bool:
+        """Return True if this is the top design."""
         return self.path.size() == 0
 
     def is_assign(self) -> bool:
         return self.__get_snl_model().isAssign()
 
     def is_blackbox(self) -> bool:
+        """Return True if this is a blackbox."""
         return self.__get_snl_model().isBlackBox()
     
     def is_const0(self) -> bool:
+        """Return True if this is a constant 0 generator."""
         return self.__get_snl_model().isConst0()
     
     def is_const1(self) -> bool:
+        """Return True if this is a constant 1 generator."""
         return self.__get_snl_model().isConst1()
     
     def is_const(self) -> bool:
+        """Return True if this is a constant generator."""
         return self.__get_snl_model().isConst()
     
     def is_buf(self) -> bool:
+        """Return True if this is a buffer."""
         return self.__get_snl_model().isBuf()
     
     def is_inv(self) -> bool:
+        """Return True if this is an inverter."""
         return self.__get_snl_model().isInv()
 
     def __get_snl_model(self):
