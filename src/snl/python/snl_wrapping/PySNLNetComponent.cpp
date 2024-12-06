@@ -23,7 +23,7 @@ GetObjectMethod(NetComponent, BitNet, getNet)
 
 static PyObject* PySNLNetComponent_setNet(PySNLNetComponent* self, PyObject* arg) {
   METHOD_HEAD("SNLNetComponent.setNet()")
-  if (Py_IsNone(arg)) {
+  if (arg == Py_None) {
     selfObject->setNet(nullptr);
   } else if (IsPySNLNet(arg)) {
     TRY
