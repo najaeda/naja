@@ -9,15 +9,14 @@ from najaeda import snl
 
 class Equipotential:
     """Class that represents the term and wraps
-       some of the snl occurrence API.
+    some of the snl occurrence API.
     """
 
     def __init__(self, term):
         if isinstance(term.term, snl.SNLBusTerm):
             raise ValueError("Equipotential cannot be constructed on bus term")
         ito = snl.SNLNetComponentOccurrence(
-            term.path.getHeadPath(),
-            term.path.getTailInstance().getInstTerm(term.term)
+            term.path.getHeadPath(), term.path.getTailInstance().getInstTerm(term.term)
         )
         self.equi = snl.SNLEquipotential(ito)
 
@@ -28,7 +27,7 @@ class Equipotential:
         for term in self.equi.getInstTermOccurrences():
             yield Term(
                 snl.SNLPath(term.getPath(), term.getInstTerm().getInstance()),
-                term.getInstTerm().getBitTerm()
+                term.getInstTerm().getBitTerm(),
             )
 
     def get_top_terms(self):
@@ -40,11 +39,8 @@ class Equipotential:
             direction = term.getTerm().getDirection()
             if direction == snl.SNLTerm.Direction.Output:
                 yield Term(
-                    snl.SNLPath(
-                        term.getPath(),
-                        term.getInstTerm().getInstance()
-                    ),
-                    term.getInstTerm().getBitTerm()
+                    snl.SNLPath(term.getPath(), term.getInstTerm().getInstance()),
+                    term.getInstTerm().getBitTerm(),
                 )
 
 
@@ -87,7 +83,7 @@ class Net:
 
     def is_bus(self) -> bool:
         return isinstance(self.net, snl.SNLBusNet)
-    
+
     def is_scalar(self) -> bool:
         return not self.is_bus()
 
@@ -109,6 +105,7 @@ class Net:
         for term in itertools.chain(self.get_inst_terms(), self.get_model_terms()):
             yield term
 
+
 class Term:
     Input = snl.SNLTerm.Direction.Input
     Output = snl.SNLTerm.Direction.Output
@@ -116,12 +113,12 @@ class Term:
 
     def __init__(self, path, term):
         # assert inst exists in the path
-        #if (path.size() > 0):
+        # if (path.size() > 0):
         #    #print(term)
         #    #print(path.getTailInstance())
         #    #print(path.getTailInstance().getInstTerm(term))
         #    assert path.getTailInstance().getModel().getTerm(term) is not None
-        #else:
+        # else:
         #    top = snl.SNLUniverse.get().getTopDesign()
         #    assert top.getTerm(term.getName()) is not None
         self.path = path
@@ -159,20 +156,20 @@ class Term:
 
     def is_bus(self) -> bool:
         return isinstance(self.term, snl.SNLBusTerm)
-    
+
     def is_scalar(self) -> bool:
         return not self.is_bus()
-    
+
     def get_msb(self) -> int:
         if isinstance(self.term, snl.SNLBusTerm):
             return self.term.getMSB()
         return None
-    
+
     def get_lsb(self) -> int:
         if isinstance(self.term, snl.SNLBusTerm):
             return self.term.getLSB()
         return None
-    
+
     def get_width(self) -> int:
         return self.term.getWidth()
 
@@ -189,7 +186,7 @@ class Term:
 
     def get_net(self) -> Net:
         if isinstance(self.term, snl.SNLBusTerm):
-            return None #FIXME xtof in the future
+            return None  # FIXME xtof in the future
         net = None
         if self.path.size() > 0:
             instTerm = self.path.getTailInstance().getInstTerm(self.term)
@@ -230,12 +227,13 @@ class Term:
     def connect(self, net: Net):
         if self.get_width() != net.get_width():
             raise ValueError("Width mismatch")
-        ##should we test if net is at the correct level ??
+        # should we test if net is at the correct level ??
         self.__make_unique()
         inst = self.path.getTailInstance()
         for bterm, bnet in zip(self.term.getBits(), net.net.getBits()):
             iterm = inst.getInstTerm(bterm)
             iterm.setNet(bnet)
+
 
 def verify_instance_path(path: snl.SNLPath, inst: snl.SNLInstance):
     pathlist = []
@@ -305,7 +303,7 @@ def refresh_path(path: snl.SNLPath):
 
 class Instance:
     """Class that represents the instance and wraps some
-       of the snl occurrence API.
+    of the snl occurrence API.
     """
 
     def __init__(self, path=snl.SNLPath()):
@@ -333,23 +331,23 @@ class Instance:
     def is_blackbox(self) -> bool:
         """Return True if this is a blackbox."""
         return self.__get_snl_model().isBlackBox()
-    
+
     def is_const0(self) -> bool:
         """Return True if this is a constant 0 generator."""
         return self.__get_snl_model().isConst0()
-    
+
     def is_const1(self) -> bool:
         """Return True if this is a constant 1 generator."""
         return self.__get_snl_model().isConst1()
-    
+
     def is_const(self) -> bool:
         """Return True if this is a constant generator."""
         return self.__get_snl_model().isConst()
-    
+
     def is_buf(self) -> bool:
         """Return True if this is a buffer."""
         return self.__get_snl_model().isBuf()
-    
+
     def is_inv(self) -> bool:
         """Return True if this is an inverter."""
         return self.__get_snl_model().isInv()
@@ -359,7 +357,7 @@ class Instance:
         if self.is_top():
             return snl.SNLUniverse.get().getTopDesign()
         return self.path.getTailInstance().getModel()
-    
+
     def __find_snl_model(self, name: str) -> snl.SNLDesign:
         u = snl.SNLUniverse.get()
         if u is None:
@@ -446,7 +444,7 @@ class Instance:
 
     def delete_instance(self, name: str):
         path = snl.SNLPath(self.path, self.__get_snl_model().getInstance(name))
-        uniq = snl.SNLUniquifier(path)
+        snl.SNLUniquifier(path)
         if self.path.size() > 1:
             self.path = refresh_path(self.path)
         # Delete the last instance in uniq_path
@@ -463,14 +461,12 @@ class Instance:
 
     def get_model_id(self) -> tuple[int, int, int]:
         model = self.__get_snl_model()
-        return model.getDB().getID(), \
-            model.getLibrary().getID(), \
-            model.getID()
+        return model.getDB().getID(), model.getLibrary().getID(), model.getID()
 
     def create_child_instance(self, model: str, name: str):
         if self.path.size() > 0:
             path = self.path
-            uniq = snl.SNLUniquifier(path)
+            snl.SNLUniquifier(path)
             self.path = refresh_path(self.path)
         design = self.__get_snl_model()
         new_instance_model = self.__find_snl_model(model)
@@ -481,14 +477,10 @@ class Instance:
     def create_term(self, name: str, direction: snl.SNLTerm.Direction) -> Term:
         if self.path.size() > 0:
             path = self.path
-            uniq = snl.SNLUniquifier(path)
+            snl.SNLUniquifier(path)
             self.path = refresh_path(self.path)
         design = self.__get_snl_model()
-        newSNLTerm = snl.SNLScalarTerm.create(
-            design,
-            direction,
-            name
-        )
+        newSNLTerm = snl.SNLScalarTerm.create(design, direction, name)
         return Term(self.path, newSNLTerm)
 
     def create_output_term(self, name: str) -> Term:
@@ -496,50 +488,28 @@ class Instance:
 
     def create_input_term(self, name: str) -> Term:
         return self.create_term(name, snl.SNLTerm.Direction.Input)
-    
+
     def create_bus_term(
-            self,
-            name: str,
-            msb: int,
-            lsb: int,
-            direction: snl.SNLTerm.Direction
+        self, name: str, msb: int, lsb: int, direction: snl.SNLTerm.Direction
     ) -> Term:
         if self.path.size() > 0:
             path = self.path
-            uniq = snl.SNLUniquifier(path)
+            snl.SNLUniquifier(path)
             self.path = refresh_path(self.path)
         design = self.__get_snl_model()
-        newSNLTerm = snl.SNLBusTerm.create(
-            design,
-            direction,
-            msb,
-            lsb,
-            name
-        )
+        newSNLTerm = snl.SNLBusTerm.create(design, direction, msb, lsb, name)
         return Term(self.path, newSNLTerm)
 
-    def create_output_bus_term(
-        self,
-        name: str,
-        msb: int,
-        lsb: int
-    ) -> Term:
+    def create_output_bus_term(self, name: str, msb: int, lsb: int) -> Term:
         return self.create_bus_term(name, msb, lsb, snl.SNLTerm.Direction.Output)
-        
 
-    def create_input_bus_term(
-        self,
-        name: str,
-        msb: int,
-        lsb: int
-    ) -> Term:
+    def create_input_bus_term(self, name: str, msb: int, lsb: int) -> Term:
         return self.create_bus_term(name, msb, lsb, snl.SNLTerm.Direction.Input)
-        
 
     def create_net(self, name: str) -> Net:
         if self.path.size() > 0:
             path = self.path
-            uniq = snl.SNLUniquifier(path)
+            snl.SNLUniquifier(path)
             self.path = refresh_path(self.path)
         model = self.__get_snl_model()
         newSNLNet = snl.SNLScalarNet.create(model, name)
@@ -548,22 +518,15 @@ class Instance:
     def create_bus_net(self, name: str, msb: int, lsb: int) -> Net:
         if self.path.size() > 0:
             path = self.path
-            uniq = snl.SNLUniquifier(path)
+            snl.SNLUniquifier(path)
             self.path = refresh_path(self.path)
         model = self.__get_snl_model()
         newSNLNet = snl.SNLBusNet.create(model, msb, lsb, name)
         return Net(self.path, newSNLNet)
 
-
-    def get_net(self, name: str) -> Net:
-        net = self.__get_snl_model().getNet(name)
-        if net is not None:
-            return Net(self.path, net)
-        return None
-
     def dump_verilog(self, path: str, name: str):
         self.__get_snl_model().dumpVerilog(path, name)
-    
+
 
 def get_top_db() -> snl.SNLDB:
     if snl.SNLUniverse.get() is None:
