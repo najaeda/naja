@@ -118,11 +118,10 @@ class NajaNetlistTest(unittest.TestCase):
         self.assertEqual(i1.get_width(), 5)
         net_i1 = instance.get_net("netI1")
         self.assertEqual(net_i1.get_width(), 5)
-        for i in range(4):
-            termsForBus[i].connect(netBitsForBus[i])
+        i1.connect(net_i1)
         
         inputCount = 0
-        for bit in instance.get_input_bterms():
+        for bit in instance.get_flat_input_terms():
             print(bit)
             self.assertTrue(bit.is_input())
             self.assertFalse(bit.is_output())
@@ -141,7 +140,7 @@ class NajaNetlistTest(unittest.TestCase):
         instance.create_output_term("O2")
         
         inputCount = 0
-        for input in instance.get_input_bterms():
+        for input in instance.get_flat_input_terms():
             self.assertTrue(input.is_input())
             self.assertFalse(input.is_output())
             inputCount += 1
