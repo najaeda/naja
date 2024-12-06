@@ -23,12 +23,14 @@ GetObjectMethod(NetComponent, BitNet, getNet)
 
 static PyObject* PySNLNetComponent_setNet(PySNLNetComponent* self, PyObject* arg) {
   METHOD_HEAD("SNLNetComponent.setNet()")
-  if (IsPySNLNet(arg)) {
+  if (Py_IsNone(arg)) {
+    selfObject->setNet(nullptr);
+  } else if (IsPySNLNet(arg)) {
     TRY
     selfObject->setNet(PYSNLNet_O(arg));
     SNLCATCH
   } else {
-    setError("SNLNetComponent setNet takes SNLNet argument");
+    setError("SNLNetComponent setNet takes SNLNet or None (for disconnection) argument");
     return nullptr;
   }
   Py_RETURN_NONE;

@@ -23,6 +23,6 @@ target_compile_definitions(najaCoreTests PRIVATE
     PROXY_PROPERTY_TESTS_PATH="${CMAKE_CURRENT_BINARY_DIR}"
 )
 
-TARGET_LINK_LIBRARIES(proxyPropertyTests naja_snl_python naja_core gmock gtest_main)
+TARGET_LINK_LIBRARIES(proxyPropertyTests naja_snl_python gmock gtest_main)
 
 GTEST_DISCOVER_TESTS(proxyPropertyTests)

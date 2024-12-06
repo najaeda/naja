@@ -25,12 +25,8 @@ class SNLBitNet: public SNLNet {
     Type getType() const { return type_; }
     SNLID::Bit getWidth() const override { return 1; }
 
-    ///\return true if this SNLBitNet is a constant 0: Type::Assign0 or Type::Supply0.
-    bool isConstant0() const { return type_.isConst0(); }
-    ///\return true if this SNLBitNet is a constant 1: Type::Assign1 or Type::Supply1.
-    bool isConstant1() const { return type_.isConst1(); }
-    bool isConstant() const { return isConstant0() or isConstant1(); }
-    bool isAssignConstant() const override { return type_.isAssign(); } 
+    bool isAssign0() const override { return type_.isAssign0(); } 
+    bool isAssign1() const override { return type_.isAssign1(); } 
     bool isSupply0() const override { return type_.isSupply0(); } 
     bool isSupply1() const override { return type_.isSupply1(); } 
 

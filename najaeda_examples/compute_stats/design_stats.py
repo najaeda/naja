@@ -98,13 +98,12 @@ def compute_design_terms(design, design_stats):
       design_stats.bit_terms["unknowns"] = design_stats.bit_terms.get("unknowns", 0) + bit_terms
 
 def compute_design_net_stats(design, design_stats):
-  pass
-  #for net in design.get_nets():
-  #  if net.isConstant():
-  #    pass
-  #  nb_components = sum(1 for c in net.getComponents())
-  #  design_stats.net_stats[nb_components] = design_stats.net_stats.get(nb_components, 0) + 1
-  #  design_stats.net_stats = dict(sorted(design_stats.net_stats.items()))
+  for net in design.get_flat_nets():
+    if net.is_constant():
+      pass
+    nb_components = sum(1 for c in net.get_terms())
+    design_stats.net_stats[nb_components] = design_stats.net_stats.get(nb_components, 0) + 1
+    design_stats.net_stats = dict(sorted(design_stats.net_stats.items()))
 
 def dump_instances(stats_file, title, instances):
   if len(instances) == 0:

@@ -214,9 +214,14 @@ bool SNLBusNet::isAllNull() const {
   return std::all_of(bits_.begin(), bits_.end(), [](const SNLBusNetBit* b){ return b == nullptr; });
 }
 
-bool SNLBusNet::isAssignConstant() const {
+bool SNLBusNet::isAssign0() const {
   return not isAllNull()
-    and std::all_of(bits_.begin(), bits_.end(), [](const SNLBusNetBit* b){ return b == nullptr or b->getType().isAssign(); });
+    and std::all_of(bits_.begin(), bits_.end(), [](const SNLBusNetBit* b){ return b == nullptr or b->getType().isAssign0(); });
+}
+
+bool SNLBusNet::isAssign1() const {
+  return not isAllNull()
+    and std::all_of(bits_.begin(), bits_.end(), [](const SNLBusNetBit* b){ return b == nullptr or b->getType().isAssign1(); });
 }
 
 bool SNLBusNet::isSupply0() const {

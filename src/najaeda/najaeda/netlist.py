@@ -90,6 +90,9 @@ class Net:
     def is_scalar(self) -> bool:
         return not self.is_bus()
 
+    def is_constant(self) -> bool:
+        return self.net.isConstant()
+
     def get_width(self) -> int:
         return self.net.getWidth()
 
@@ -100,6 +103,12 @@ class Net:
     def get_model_terms(self):
         for term in self.net.getBitTerms():
             yield Term(self.path, term)
+
+    def get_terms(self):
+        for term in self.net.getBitTerms():
+            yield Term(self.path, term)
+        for term in self.net.getInstTerms():
+            yield Term(self.path, term.getBitTerm())
 
 
 class Term:
@@ -145,6 +154,10 @@ class Term:
 
     def __repr__(self) -> str:
         return f"Term({self.path}, {self.term})"
+
+    def __make_unique(self):
+        if self.path.size() > 0:
+            snl.SNLUniquifier(self.path)
 
     def is_bus(self) -> bool:
         return isinstance(self.term, snl.SNLBusTerm)
@@ -210,31 +223,21 @@ class Term:
             yield self
 
     def disconnect(self):
-        #FIXME disable if bus
-        if isinstance(self.term, snl.SNLBusTerm):
-            return
-        term = self.term
-        if self.path.size() > 0:
-            uniq = snl.SNLUniquifier(self.path)
-            uniq_path = uniq.getPathUniqCollection()
-            inst = tuple(uniq_path)[len(tuple(uniq_path)) - 1]
-            self.term = inst.getInstTerm(term).getBitTerm()
-        termToConnect = inst.getInstTerm(term)
-        termToConnect.setNet(snl.SNLNet())
+        self.__make_unique()
+        inst = self.path.getTailInstance()
+        for bit in self.term.getBits():
+            iterm = inst.getInstTerm(bit)
+            iterm.setNet(None)
 
     def connect(self, net: Net):
-        #FIXME disable if bus
-        if isinstance(self.term, snl.SNLBusTerm):
-            return
-        term = self.term
-        if self.path.size() > 0:
-            uniq = snl.SNLUniquifier(self.path)
-            uniq_path = uniq.getPathUniqCollection()
-            inst = tuple(uniq_path)[len(tuple(uniq_path)) - 1]
-            self.term = inst.getInstTerm(term).getBitTerm()
-        termToConnect = inst.getInstTerm(term)
-        termToConnect.setNet(net.net)
-
+        if self.get_width() != net.get_width():
+            raise ValueError("Width mismatch")
+        ##should we test if net is at the correct level ??
+        self.__make_unique()
+        inst = self.path.getTailInstance()
+        for bterm, bnet in zip(self.term.getBits(), net.net.getBits()):
+            iterm = inst.getInstTerm(bterm)
+            iterm.setNet(bnet)
 
 def verify_instance_path(path: snl.SNLPath, inst: snl.SNLInstance):
     pathlist = []
@@ -374,6 +377,24 @@ class Instance:
         term = self.__get_snl_model().getTerm(name)
         if term is not None:
             return Term(self.path, self.__get_snl_model().getTerm(name))
+        return None
+
+    def get_nets(self):
+        for net in self.__get_snl_model().getNets():
+            yield Net(self.path, net)
+
+    def get_flat_nets(self):
+        for net in self.__get_snl_model().getNets():
+            if isinstance(net, snl.SNLBusNet):
+                for bit in net.getBits():
+                    yield Net(self.path, bit)
+            else:
+                yield Net(self.path, net)
+
+    def get_net(self, name: str) -> Net:
+        net = self.__get_snl_model().getNet(name)
+        if net is not None:
+            return Net(self.path, net)
         return None
 
     def is_primitive(self) -> bool:
