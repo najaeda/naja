@@ -23,7 +23,7 @@ class SNLBitNet: public SNLNet {
     void setType(const Type& type) override { type_ = type; }
     ///\return this SNLBitNet Type.
     Type getType() const { return type_; }
-    SNLID::Bit getSize() const override { return 1; }
+    SNLID::Bit getWidth() const override { return 1; }
 
     ///\return true if this SNLBitNet is a constant 0: Type::Assign0 or Type::Supply0.
     bool isConstant0() const { return type_.isConst0(); }

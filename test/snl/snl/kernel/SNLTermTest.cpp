@@ -49,7 +49,7 @@ TEST_F(SNLTermTest, testCreation) {
   EXPECT_EQ(design, term0->getDesign()); 
   EXPECT_EQ(-1, term0->getMSB());
   EXPECT_EQ(-4, term0->getLSB());
-  EXPECT_EQ(4, term0->getSize());
+  EXPECT_EQ(4, term0->getWidth());
   EXPECT_FALSE(term0->getBits().empty());
   EXPECT_EQ(4, term0->getBits().size());
   for (auto bit: term0->getBusBits()) {

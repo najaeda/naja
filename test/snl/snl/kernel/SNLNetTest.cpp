@@ -158,7 +158,7 @@ TEST_F(SNLNetTest, testCreation) {
   EXPECT_EQ(2, net0->getID());
   EXPECT_EQ(31, net0->getMSB());
   EXPECT_EQ(0, net0->getLSB());
-  EXPECT_EQ(32, net0->getSize());
+  EXPECT_EQ(32, net0->getWidth());
   EXPECT_EQ(design_, net0->getDesign());
   EXPECT_FALSE(net0->isAnonymous());
   EXPECT_EQ(net0, design_->getNet(2));
@@ -276,7 +276,7 @@ TEST_F(SNLNetTest, testCreation) {
 
 TEST_F(SNLNetTest, testBusNetBitDestruction) {
   SNLBusNet* net0 = SNLBusNet::create(design_, 31, 0, SNLName("net0"));
-  EXPECT_EQ(32, net0->getSize());
+  EXPECT_EQ(32, net0->getWidth());
   EXPECT_EQ(32, net0->getBits().size());
 
   //destroy bit 3

@@ -77,7 +77,7 @@ class NajaNetlistTest(unittest.TestCase):
         path2 = snl.SNLPath(path1, ins2)
         instance = netlist.Instance(path1)
         self.assertEqual(instance.path, path1)
-        self.assertEqual(instance.get_model(), ins1.getModel())
+        self.assertEqual(instance.get_model_name(), ins1.getModel().getName())
         index = 0
         terms_list = []
         for term in instance.get_terms():
@@ -88,23 +88,23 @@ class NajaNetlistTest(unittest.TestCase):
         name_list = ["ins1", "ins2"]
         instance2 = netlist.get_instance_by_path(name_list)
         self.assertEqual(instance2.path, path2)
-        self.assertEqual(instance2.get_model(), ins2.getModel())
-        print(instance2.path)
-        print(instance2.get_model())
-        print(instance.get_child_instance(ins2.getName()).path)
-        print(instance.get_child_instance(ins2.getName()).get_model())
-        self.assertTrue(instance2.get_model() == instance.get_child_instance(ins2.getName()).get_model())
-        self.assertTrue(instance2.path == instance.get_child_instance(ins2.getName()).path)
-        self.assertTrue(instance2 == instance.get_child_instance(ins2.getName()))
+        self.assertEqual(instance2.get_model_name(), ins2.getModel().getName())
+        #print(instance2.path)
+        #print(instance2.get_model())
+        #print(instance.get_child_instance(ins2.getName()).path)
+        #print(instance.get_child_instance(ins2.getName()).get_model())
+        self.assertEqual(instance2.get_model_name(), instance.get_child_instance(ins2.getName()).get_model_name())
+        self.assertEqual(instance2.path, instance.get_child_instance(ins2.getName()).path)
+        self.assertEqual(instance2, instance.get_child_instance(ins2.getName()))
 
-        self.assertTrue(instance.get_number_of_child_instances() == 1)
+        self.assertEqual(instance.get_number_of_child_instances(), 1)
         instance.delete_instance(instance2.get_name())
-        self.assertTrue(instance.get_number_of_child_instances() == 0)
+        self.assertEqual(instance.get_number_of_child_instances(), 0)
 
         instance.create_child_instance(self.submodel, "ins2")
-        self.assertTrue(instance.get_number_of_child_instances() == 1)
+        self.assertEqual(instance.get_number_of_child_instances(), 1)
         self.assertIsNotNone(instance.get_child_instance("ins2"))
-        self.assertTrue(instance.get_child_instance("ins2").get_name() == "ins2")
+        self.assertEqual(instance.get_child_instance("ins2").get_name(), "ins2")
 
         #Test bus term creation connection and disconnection
         instance3 = instance.create_child_instance(self.submodel, "ins3")
@@ -112,10 +112,12 @@ class NajaNetlistTest(unittest.TestCase):
         instance3.create_output_bus_term("I1", 4, 0)
         instance.create_bus_net("netI1", 4, 0)
         #connect the bus term to the bus net
-        termsForBus = instance3.get_term_list_for_bus("I1")
-        self.assertEqual(len(termsForBus), 5)
-        netBitsForBus = instance.get_net_list_for_bus("netI1")
-        self.assertEqual(len(netBitsForBus), 5)
+        i1 = instance3.get_term("I1")
+        self.assertIsNotNone(i1)
+        self.assertTrue(i1.is_bus())
+        self.assertEqual(i1.get_width(), 5)
+        net_i1 = instance.get_net("netI1")
+        self.assertEqual(net_i1.get_width(), 5)
         for i in range(4):
             termsForBus[i].connect(netBitsForBus[i])
         
@@ -285,10 +287,14 @@ class NajaNetlistTest(unittest.TestCase):
         path2 = snl.SNLPath(path1, ins2)
         instance = netlist.Instance(path1)
         instTerm0 = instance.get_term("I0")
+        self.assertIsNotNone(instTerm0)
         instTerm1 = instance.get_term("I1")
+        self.assertIsNotNone(instTerm1)
         instance2 = netlist.Instance(path2)
         inst2Term0 = instance2.get_term("I0")
+        self.assertIsNotNone(inst2Term0)
         inst2Term1 = instance2.get_term("I1")
+        self.assertIsNotNone(inst2Term1)
 
         self.assertEqual(instTerm0, instTerm0)
         self.assertNotEqual(instTerm0, instTerm1)
@@ -298,13 +304,15 @@ class NajaNetlistTest(unittest.TestCase):
         #self.assertTrue(instTerm1 > instTerm0)
         #self.assertTrue(instTerm1 >= instTerm0)
         self.assertEqual(instTerm0.get_instance(), instance)
-        count = 0
-        for to in instTerm1.get_flat_fanout():
-            count += 1
-        self.assertEqual(count, 0)
-        self.assertEqualTrue(instTerm0.get_equipotential(), netlist.Equipotential(instTerm0))
+        self.assertEqual(instTerm0.get_equipotential(), netlist.Equipotential(instTerm0))
         self.assertTrue(instTerm0.is_input())
         self.assertFalse(instTerm0.is_output())
+
+        count = 0
+        for bit in instTerm1.get_bits():
+            for to in bit.get_flat_fanout():
+                count += 1
+            self.assertEqual(count, 0)
 
 
     def testTop(self):
@@ -316,19 +324,24 @@ class NajaNetlistTest(unittest.TestCase):
         top.create_input_bus_term("I1", 4, 0)
         top.create_output_term("O")
         count = 0
-        for input in top.get_input_bterms():
+        for input in top.get_flat_input_terms():
             count += 1
         self.assertEqual(count, 6)
         count = 0
-        for output in top.get_output_terms():
+        for output in top.get_flat_output_terms():
             count += 1
         self.assertEqual(count, 1)
-        busList = top.get_term_list_for_bus("I1")
-        self.assertEqual(len(busList), 5)
+        top_i1 = top.get_term("I1")
+        self.assertIsNotNone(top_i1)
+        self.assertTrue(top_i1.is_input())
+        self.assertTrue(top_i1.is_bus())
+        #self.assertEqual(len(busList), 5)
         top.create_net("netI1") 
         self.assertIsNotNone(top.get_net("netI1"))
-        top.create_bus_net("netI1bus", 4, 0)
-        self.assertEqual(len(top.get_net_list_for_bus("netI1bus")), 5)
+        netI1bus = top.create_bus_net("netI1bus", 4, 0)
+        self.assertIsNotNone(netI1bus)
+        self.assertTrue(netI1bus.is_bus())
+        #self.assertEqual(len(top.get_net_list_for_bus("netI1bus")), 5)
 
 if __name__ == '__main__':
     faulthandler.enable()

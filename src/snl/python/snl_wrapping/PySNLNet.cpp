@@ -55,9 +55,13 @@ static PyObject* setType(PySNLNet* self, PyObject* arg) {
 
 PyTypeInheritedObjectDefinitions(SNLNet, SNLDesignObject)
 
+DirectGetIntMethod(PySNLNet_getWidth, getWidth, PySNLNet, SNLNet)
+
 PyMethodDef PySNLNet_Methods[] = {
   { "getName", (PyCFunction)PySNLNet_getName, METH_NOARGS,
     "get SNLNet name"},
+  { "getWidth", (PyCFunction)PySNLNet_getWidth, METH_NOARGS,
+    "get SNLNet width"},
   { "getBits", (PyCFunction)PySNLNet_getBits, METH_NOARGS,
     "get a container of SNLBitNets."},
   { "setType", (PyCFunction)setType, METH_O,

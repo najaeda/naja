@@ -124,7 +124,7 @@ class SNLDesignTest(unittest.TestCase):
     self.assertEqual(design, i1.getDesign())
     self.assertEqual(-5, i1.getMSB())
     self.assertEqual(4, i1.getLSB())
-    self.assertEqual(10, i1.getSize())
+    self.assertEqual(10, i1.getWidth())
     o = snl.SNLScalarTerm.create(design, snl.SNLTerm.Direction.Output, "O")
     self.assertEqual(design, o.getDesign())
     self.assertEqual(o.getDirection(), snl.SNLTerm.Direction.Output)

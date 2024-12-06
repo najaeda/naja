@@ -56,8 +56,8 @@ class SNLNet: public SNLDesignObject {
     /// \return net SNLName.
     virtual SNLName getName() const = 0;
     
-    /// \return net size, 1 for SNLScalarNet and SNLBusNetBit.
-    virtual SNLID::Bit getSize() const = 0;
+    /// \return net width, 1 for SNLScalarNet and SNLBusNetBit.
+    virtual SNLID::Bit getWidth() const = 0;
 
     /**
      * \return this SNLNet SNLBitNet collection.
