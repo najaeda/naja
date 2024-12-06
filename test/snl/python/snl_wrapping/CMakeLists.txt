@@ -12,7 +12,6 @@ set_tests_properties(snl-python-tests
     "PYTHONPATH=${PROJECT_BINARY_DIR}/src/snl/python/snl_wrapping:$ENV{PYTHONPATH};SNL_WRAPPING_TEST_PATH=${CMAKE_CURRENT_BINARY_DIR}"
 )
 
-
 SET(proxy_property_tests
 SNLProxyPropertyTest.cpp
 )
