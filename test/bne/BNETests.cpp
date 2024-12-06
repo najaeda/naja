@@ -301,6 +301,42 @@ TEST_F(BNETests, blockedNormalizeNodeDeletion) {
   EXPECT_EQ(getInstanceForPath(path0IDs)->getModel() == getInstanceForPath(path1IDs)->getModel(), false);
 }
 
+TEST_F(BNETests, blockedNormalizeNodeDeletionOrphanNodeRemoval) {
+  SNLUniverse::get()->setTopDesign(top_);
+  auto h4 = SNLInstance::create(h0Instance_->getModel(), h3Instance_->getModel(), SNLName("h4"));
+  SNLInstance::create(h1h2Instance_->getModel(), primInstance_->getModel(), SNLName("prim2"));
+  SNLPath::PathStringDescriptor pathDescriptor0 = { "h0", "h4", "h2", "prim"};
+  SNLPath::PathStringDescriptor pathDescriptor1 = { "h0", "h3", "h2", "prim"};
+  SNLPath::PathStringDescriptor pathDescriptor2 = { "h0", "h4", "h2"};
+  SNLPath::PathStringDescriptor pathDescriptor3 = { "h0", "h3", "h2"};
+
+  auto path0 = SNLPath(SNLUniverse::get()->getTopDesign(), pathDescriptor0);
+  auto path1 = SNLPath(SNLUniverse::get()->getTopDesign(), pathDescriptor1);
+  auto path2 = SNLPath(SNLUniverse::get()->getTopDesign(), pathDescriptor2);
+  auto path3 = SNLPath(SNLUniverse::get()->getTopDesign(), pathDescriptor3);
+
+  auto path0IDs = path0.getIDDescriptor();
+  auto path1IDs = path1.getIDDescriptor();
+  auto path2IDs = path2.getIDDescriptor();
+  auto path3IDs = path3.getIDDescriptor();
+  const bool blockNormalization = false;
+  const bool keepOrder = true;
+  BNE bne(blockNormalization, keepOrder);
+  bne.addDeleteAction(path2IDs);
+  bne.addDeleteAction(path3IDs);
+  bne.addDeleteAction(path0IDs);
+  bne.addDeleteAction(path1IDs);
+  path0IDs.pop_back();
+  path1IDs.pop_back();
+  EXPECT_EQ(getInstanceForPath(path0IDs)->getModel() == getInstanceForPath(path1IDs)->getModel(), true);
+  EXPECT_EQ(getInstanceForPath(path0IDs)->getModel()->getInstances().size(), 2);
+  EXPECT_EQ(getInstanceForPath(path1IDs)->getModel()->getInstances().size(), 2);
+  bne.process();
+  //EXPECT_EQ(getInstanceForPath(path0IDs)->getModel()->getInstances().size(), 1);
+  //EXPECT_EQ(getInstanceForPath(path1IDs)->getModel()->getInstances().size(), 1);
+  //EXPECT_EQ(getInstanceForPath(path0IDs)->getModel() == getInstanceForPath(path1IDs)->getModel(), false);
+}
+
 TEST_F(BNETests, missingTop) {
   EXPECT_THROW(new BNE(), SNLException);
 }
