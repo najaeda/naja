@@ -131,8 +131,12 @@ class ActionTreeNode {
    * \brief erase a parent from the node.
    * \param id the id of the parent to erase.
    */
-  void eraseParent(const std::pair<size_t, size_t>& id) {
-    parents_.erase(std::find(parents_.begin(), parents_.end(), id));
+  void eraseParent(const std::pair<size_t, size_t>& parent) {
+    parents_.erase(std::find(parents_.begin(), parents_.end(), parent));
+  }
+  bool isChild(size_t nodeID) const {
+    return std::find(children_.begin(), children_.end(), nodeID) !=
+           children_.end();
   }
   /**
    * \brief get the context of the node.
@@ -162,7 +166,8 @@ class ActionTreeNode {
   SNLID::DesignObjectID instance_;
   SNLID snlid_;
   std::vector<size_t> children_;
-  std::vector<std::pair<size_t, size_t>> parents_;
+  std::vector<std::pair<size_t/*parent node id*/, 
+    size_t/*design object id of the child instance from parent view*/>> parents_;
   size_t id_ = 0;
   ActionTree* tree_ = nullptr;
   bool processed_ = false;
@@ -222,6 +227,10 @@ class ActionTree {
    * \return The action of the id.
    */
   Action* getAction(size_t id) { return actions_[id]; }
+  /**
+   * \brief Verify the tree.
+   */
+  void verifyTree() const;
   // Destructor that releases all the actions
   ~ActionTree();
 
