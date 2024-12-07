@@ -45,8 +45,9 @@ static PyObject* PySNLDB_create(PyObject*, PyObject* args) {
     setError("SNLDB create SNLUniverse is null");
     return nullptr;
   }
-  TRY db = SNLDB::create(universe);
-  SNLCATCH
+  TRY
+  db = SNLDB::create(universe);
+  SNLCATCH // LCOV_EXCL_LINE should throw if universe is null, already checked
   return PySNLDB_Link(db);
 }
 

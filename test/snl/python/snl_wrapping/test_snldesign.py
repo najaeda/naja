@@ -23,11 +23,13 @@ class SNLDesignTest(unittest.TestCase):
     design = snl.SNLDesign.create(self.lib, "DESIGN")
     self.assertIsNotNone(design)
     self.assertEqual("DESIGN", design.getName())
+    self.assertEqual(0, design.getID())
     self.assertFalse(design.isPrimitive())
     self.assertEqual(self.lib, design.getLibrary())
     self.assertEqual(self.lib.getDB(), design.getDB())
     self.assertIsNotNone(self.lib.getDesign("DESIGN"))
     self.assertEqual(design, self.lib.getDesign("DESIGN"))
+    self.assertEqual(design, self.lib.getDesign(0))
     self.assertTrue(any(self.lib.getDesigns()))
     self.assertEqual(1, sum(1 for d in self.lib.getDesigns()))
     designs = [d for d in self.lib.getDesigns()]
