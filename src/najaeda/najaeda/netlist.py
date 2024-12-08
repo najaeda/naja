@@ -579,7 +579,7 @@ def get_model_name(id: tuple[int, int, int]) -> str:
                 if model:
                     return model.getName()
     return None
-    
+
 
 def get_all_primitive_instances():
     top = snl.SNLUniverse.get().getTopDesign()
