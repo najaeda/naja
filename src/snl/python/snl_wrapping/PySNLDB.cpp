@@ -45,8 +45,9 @@ static PyObject* PySNLDB_create(PyObject*, PyObject* args) {
     setError("SNLDB create SNLUniverse is null");
     return nullptr;
   }
-  TRY db = SNLDB::create(universe);
-  SNLCATCH
+  TRY
+  db = SNLDB::create(universe);
+  SNLCATCH // LCOV_EXCL_LINE should throw if universe is null, already checked
   return PySNLDB_Link(db);
 }
 
@@ -189,34 +190,60 @@ PyObject* PySNLDB_dumpVerilog(PySNLDB* self, PyObject* args) {
   Py_RETURN_TRUE;
 }
 
-GetObjectByName(SNLDB, SNLLibrary, getLibrary)
+PyObject* PySNLDB_getLibrary(PySNLDB* self, PyObject* arg) {
+  SNLLibrary* lib = nullptr;
+  METHOD_HEAD("SNLDB.getLibrary()")
+  if (PyUnicode_Check(arg)) {
+    const char* name = PyUnicode_AsUTF8(arg);
+    lib = selfObject->getLibrary(SNLName(name));
+  } else if (PyLong_Check(arg)) {
+    int index = PyLong_AsLong(arg);
+    lib = selfObject->getLibrary(index);
+  } else {
+      setError("invalid number of parameters for getLibrary.");
+      return nullptr;
+  }
+  return PySNLLibrary_Link(lib);
+}
+
+DirectGetIntMethod(PySNLDB_getID, getID, PySNLDB, SNLDB)
 GetContainerMethod(DB, Library, Libraries, Libraries)
+GetContainerMethod(DB, Library, Libraries, GlobalLibraries)
+GetContainerMethod(DB, Library, Libraries, PrimitiveLibraries)
 
 DBoDestroyAttribute(PySNLDB_destroy, PySNLDB)
-            PyMethodDef PySNLDB_Methods[] = {
-                {"create", (PyCFunction)PySNLDB_create,
-                 METH_VARARGS | METH_STATIC, "create a SNLDB."},
-                //{"loadSNL", (PyCFunction)PySNLDB_loadSNL,
-                // METH_VARARGS | METH_STATIC, "create a SNLDB from SNL format."},
-                //{"dumpSNL", (PyCFunction)PySNLDB_dumpSNL, METH_VARARGS,
-                // "dump this SNLDB to SNL format."},
-                {"loadLibertyPrimitives", (PyCFunction)PySNLDB_loadLibertyPrimitives,
-                 METH_VARARGS, "import primitives from Liberty format."},
-                {"loadVerilog", (PyCFunction)PySNLDB_loadVerilog,
-                 METH_VARARGS, "create a design from Verilog format."},
-                {"dumpVerilog", (PyCFunction)PySNLDB_dumpVerilog, METH_VARARGS,
-                 "dump this SNLDB to SNL format."},
-                {"getLibrary", (PyCFunction)PySNLDB_getLibrary, METH_VARARGS,
-                 "retrieve a SNLLibrary."},
-                {"getLibraries", (PyCFunction)PySNLDB_getLibraries, METH_NOARGS,
-                 "get a container of SNLLibraries."},
-                {"destroy", (PyCFunction)PySNLDB_destroy, METH_NOARGS,
-                 "destroy this SNLDB."},
-                {NULL, NULL, 0, NULL} /* sentinel */
+
+PyMethodDef PySNLDB_Methods[] = {
+  { "create", (PyCFunction)PySNLDB_create, METH_VARARGS | METH_STATIC,
+    "create a SNLDB."},
+  { "getID", (PyCFunction)PySNLDB_getID, METH_NOARGS,
+    "get the SNLDB ID."},
+//{ "loadSNL", (PyCFunction)PySNLDB_loadSNL, METH_VARARGS | METH_STATIC,
+//  "create a SNLDB from SNL format."},
+//{ "dumpSNL", (PyCFunction)PySNLDB_dumpSNL, METH_VARARGS,
+//  "dump this SNLDB to SNL format."},
+  { "loadLibertyPrimitives", (PyCFunction)PySNLDB_loadLibertyPrimitives, METH_VARARGS,
+    "import primitives from Liberty format."},
+  { "loadVerilog", (PyCFunction)PySNLDB_loadVerilog, METH_VARARGS,
+    "create a design from Verilog format."},
+  { "dumpVerilog", (PyCFunction)PySNLDB_dumpVerilog, METH_VARARGS,
+    "dump this SNLDB to SNL format."},
+  { "getLibrary", (PyCFunction)PySNLDB_getLibrary, METH_O,
+    "retrieve a SNLLibrary."},
+  { "getLibraries", (PyCFunction)PySNLDB_getLibraries, METH_NOARGS,
+    "iterate on this SNLDB SNLLibraries."},
+  { "getGlobalLibraries", (PyCFunction)PySNLDB_getGlobalLibraries, METH_NOARGS,
+    "iterate on all the Libraries owned (directly or indirectly) by this SNLDB."},
+  { "getPrimitiveLibraries", (PyCFunction)PySNLDB_getPrimitiveLibraries, METH_NOARGS,
+    "iterate on all the primitive Libraries owned (directly or indirectly) by this SNLDB."},
+  { "destroy", (PyCFunction)PySNLDB_destroy, METH_NOARGS,
+    "destroy this SNLDB."},
+  {NULL, NULL, 0, NULL} /* sentinel */
 };
 
 DBoDeallocMethod(SNLDB)
 
 DBoLinkCreateMethod(SNLDB) PyTypeSNLFinalObjectWithSNLIDLinkPyType(SNLDB)
 PyTypeObjectDefinitions(SNLDB)
+
 }  // namespace PYSNL

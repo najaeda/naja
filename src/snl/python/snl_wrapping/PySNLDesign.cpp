@@ -313,6 +313,7 @@ GetObjectByName(SNLDesign, SNLScalarNet, getScalarNet)
 GetObjectByName(SNLDesign, SNLBusNet, getBusNet)
 GetObjectByName(SNLDesign, SNLParameter, getParameter)
 GetNameMethod(SNLDesign)
+DirectGetIntMethod(PySNLDesign_getID, getID, PySNLDesign, SNLDesign)
 GetBoolAttribute(Design, isAnonymous)
 GetBoolAttribute(Design, isBlackBox)
 GetBoolAttribute(Design, isPrimitive)
@@ -337,6 +338,8 @@ DBoDestroyAttribute(PySNLDesign_destroy, PySNLDesign)
 PyMethodDef PySNLDesign_Methods[] = {
   { "create", (PyCFunction)PySNLDesign_create, METH_VARARGS|METH_STATIC,
     "SNLDesign creator"},
+  { "getID", (PyCFunction)PySNLDesign_getID, METH_NOARGS,
+    "get the ID."},
   { "createPrimitive", (PyCFunction)PySNLDesign_createPrimitive, METH_VARARGS|METH_STATIC,
     "SNLDesign Primitive creator"},
   { "addCombinatorialArcs", (PyCFunction)PySNLDesign_addCombinatorialArcs, METH_VARARGS|METH_STATIC,

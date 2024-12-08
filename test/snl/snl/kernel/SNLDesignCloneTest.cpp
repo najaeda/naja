@@ -32,7 +32,7 @@ void compareTerms(const SNLDesign* design, const SNLDesign* newDesign) {
     EXPECT_EQ(term->getID(), found->getID());
     EXPECT_EQ(term->getDirection(), found->getDirection());
     EXPECT_EQ(term->getName(), found->getName());
-    EXPECT_EQ(term->getSize(), found->getSize());
+    EXPECT_EQ(term->getWidth(), found->getWidth());
     if (not found->isAnonymous()) {
       EXPECT_EQ(found, newDesign->getTerm(found->getName()));
     }
@@ -90,7 +90,7 @@ void compareComponents(const SNLNet* net, const SNLNet* found) {
     auto foundBusNet = dynamic_cast<const SNLBusNet*>(found);
     ASSERT_NE(nullptr, busNet);
     ASSERT_NE(nullptr, foundBusNet);
-    EXPECT_EQ(busNet->getSize(), foundBusNet->getSize());
+    EXPECT_EQ(busNet->getWidth(), foundBusNet->getWidth());
     EXPECT_EQ(busNet->getMSB(), foundBusNet->getMSB());
     EXPECT_EQ(busNet->getLSB(), foundBusNet->getLSB());
     for (auto bit: busNet->getBusBits()) {

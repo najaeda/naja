@@ -299,12 +299,12 @@ PyObject* richCompare(T left, T right, int op) {
     SNL##OBJECT_TYPE* obj = nullptr; \
     METHOD_HEAD("SNL"#SELF_TYPE".get"#OBJECT_TYPE"()") \
     int index = 0; \
-    if (PyArg_ParseTuple(args, "i:SNL##SELF_TYPE.get##METHOD", &index)) { \
+    if (PyArg_ParseTuple(args, "i:SNL"#SELF_TYPE".get"#METHOD, &index)) { \
       TRY \
       obj = selfObject->get##METHOD(index); \
       SNLCATCH \
     } else { \
-      setError("invalid number of parameters for get##METHOD."); \
+      setError("invalid number of parameters for get"#METHOD"."); \
       return nullptr; \
     } \
     return PySNL##OBJECT_TYPE##_Link(obj); \

@@ -51,7 +51,7 @@ void SNLUtils::getDesignsSortedByHierarchicalLevel(const SNLDesign* top, SortedD
   );
 }
 
-SNLID::Bit SNLUtils::getSize(SNLID::Bit msb, SNLID::Bit lsb) {
+SNLID::Bit SNLUtils::getWidth(SNLID::Bit msb, SNLID::Bit lsb) {
   return std::abs(lsb - msb) + 1;
 }
 

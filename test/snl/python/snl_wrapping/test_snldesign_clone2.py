@@ -70,7 +70,7 @@ class SNLDesignCloneTest2(unittest.TestCase):
     self.assertIsInstance(n0, snl.SNLBusNet)
     self.assertEqual(1, n0.getMSB())
     self.assertEqual(0, n0.getLSB())
-    self.assertEqual(2, n0.getSize())
+    self.assertEqual(2, n0.getWidth())
     self.assertEqual(2, sum(1 for b in n0.getBits()))
     n0b0 = n0.getBit(0)
     self.assertIsNotNone(n0b0)

@@ -12,7 +12,6 @@ set_tests_properties(snl-python-tests
     "PYTHONPATH=${PROJECT_BINARY_DIR}/src/snl/python/snl_wrapping:$ENV{PYTHONPATH};SNL_WRAPPING_TEST_PATH=${CMAKE_CURRENT_BINARY_DIR}"
 )
 
-
 SET(proxy_property_tests
 SNLProxyPropertyTest.cpp
 )
@@ -23,6 +22,6 @@ target_compile_definitions(najaCoreTests PRIVATE
     PROXY_PROPERTY_TESTS_PATH="${CMAKE_CURRENT_BINARY_DIR}"
 )
 
-TARGET_LINK_LIBRARIES(proxyPropertyTests naja_snl_python naja_core gmock gtest_main)
+TARGET_LINK_LIBRARIES(proxyPropertyTests naja_snl_python gmock gtest_main)
 
 GTEST_DISCOVER_TESTS(proxyPropertyTests)

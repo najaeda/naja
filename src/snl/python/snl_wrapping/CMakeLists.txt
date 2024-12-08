@@ -14,6 +14,7 @@ set(SOURCES
   PySNLTermDirection.cpp 
   PySNLBusTerm.cpp PySNLBitTerm.cpp PySNLScalarTerm.cpp PySNLBusTermBit.cpp
   PySNLInstance.cpp PySNLInstParameter.cpp PySNLInstTerm.cpp
+  PySNLDBs.cpp
   PySNLLibraries.cpp PySNLDesigns.cpp
   PySNLParameters.cpp PySNLInstParameters.cpp
   PySNLNetComponents.cpp

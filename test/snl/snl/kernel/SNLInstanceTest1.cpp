@@ -53,9 +53,9 @@ class SNLInstanceTest1: public ::testing::Test {
 TEST_F(SNLInstanceTest1, setTermNetTest0) {
   ASSERT_NE(nullptr, inBus0_);
   ASSERT_NE(nullptr, outBus0_);
-  ASSERT_EQ(inBus0_->getSize(), outBus0_->getSize());
+  ASSERT_EQ(inBus0_->getWidth(), outBus0_->getWidth());
   ASSERT_NE(nullptr, inBus1_);
-  EXPECT_EQ(1, inBus1_->getSize());
+  EXPECT_EQ(1, inBus1_->getWidth());
   ASSERT_NE(nullptr, inScalar_);
   ASSERT_NE(nullptr, outScalar_);
   ASSERT_NE(nullptr, leftInstance_);
@@ -178,8 +178,8 @@ TEST_F(SNLInstanceTest1, setTermNetTest3) {
 
 TEST_F(SNLInstanceTest1, setTermNetTestErrors) {
   auto busNet0 = SNLBusNet::create(leftInstance_->getDesign(), 2, 0);
-  EXPECT_EQ(inBus0_->getSize(), outBus0_->getSize());
-  EXPECT_NE(busNet0->getSize(), inBus0_->getSize());
+  EXPECT_EQ(inBus0_->getWidth(), outBus0_->getWidth());
+  EXPECT_NE(busNet0->getWidth(), inBus0_->getWidth());
   EXPECT_THROW(leftInstance_->setTermNet(inBus0_, busNet0), SNLException);
   EXPECT_THROW(leftInstance_->setTermNet(outBus0_, busNet0), SNLException);
   

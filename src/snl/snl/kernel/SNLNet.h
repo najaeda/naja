@@ -56,8 +56,8 @@ class SNLNet: public SNLDesignObject {
     /// \return net SNLName.
     virtual SNLName getName() const = 0;
     
-    /// \return net size, 1 for SNLScalarNet and SNLBusNetBit.
-    virtual SNLID::Bit getSize() const = 0;
+    /// \return net width, 1 for SNLScalarNet and SNLBusNetBit.
+    virtual SNLID::Bit getWidth() const = 0;
 
     /**
      * \return this SNLNet SNLBitNet collection.
@@ -70,12 +70,25 @@ class SNLNet: public SNLDesignObject {
     /// \brief Change this SNLNet type. 
     virtual void setType(const Type& type) = 0;
 
+    /// \return true if all bits of this net are assigned to 1'b0.
+    virtual bool isAssign0() const = 0;
+    /// \return true if all bits of this net are assigned to 1'b1.
+    virtual bool isAssign1() const = 0;
     /// \return true if all bits of this net are assigned to 1'b0 or 1'b1.
-    virtual bool isAssignConstant() const = 0;
-    ///\return true if all bits of this net are of type Supply0
+    bool isAssignConstant() const { return isAssign0() or isAssign1(); }
+    /// \return true if all bits of this net are of type Supply0
     virtual bool isSupply0() const = 0;
-    ///\return true if all bits of this net are of type Supply1
+    /// \return true if all bits of this net are of type Supply1
     virtual bool isSupply1() const = 0;
+    /// \return true if all bits of this net are of type Supply0 or Supply1
+    bool isSupply() const { return isSupply0() or isSupply1(); }
+    /// \return true if all bits of this net are constants 0
+    bool isConstant0() const { return isAssign0() or isSupply0(); }
+    /// \return true if all bits of this net are constants 1
+    bool isConstant1() const { return isAssign1() or isSupply1(); }
+    /// \return true if all bits of this net are constants
+    bool isConstant() const { return isConstant0() or isConstant1(); }
+
 
     virtual bool deepCompare(const SNLNet* other, std::string& reason) const = 0;
 

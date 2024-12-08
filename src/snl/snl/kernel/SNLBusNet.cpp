@@ -90,7 +90,7 @@ void SNLBusNet::preCreate(const SNLDesign* design, SNLID::DesignObjectID id, con
 
 void SNLBusNet::createBits() {
   //create bits
-  size_t size = static_cast<size_t>(getSize());
+  size_t size = static_cast<size_t>(getWidth());
   bits_.resize(size, nullptr);
   for (size_t i=0; i<size; i++) {
     SNLID::Bit bit = (getMSB()>getLSB())?getMSB()-int(i):getMSB()+int(i);
@@ -147,8 +147,8 @@ SNLNet* SNLBusNet::clone(SNLDesign* design) const {
   return newBus;
 }
 
-SNLID::Bit SNLBusNet::getSize() const {
-  return SNLUtils::getSize(getMSB(), getLSB());
+SNLID::Bit SNLBusNet::getWidth() const {
+  return SNLUtils::getWidth(getMSB(), getLSB());
 }
 
 SNLID SNLBusNet::getSNLID() const {
@@ -214,9 +214,14 @@ bool SNLBusNet::isAllNull() const {
   return std::all_of(bits_.begin(), bits_.end(), [](const SNLBusNetBit* b){ return b == nullptr; });
 }
 
-bool SNLBusNet::isAssignConstant() const {
+bool SNLBusNet::isAssign0() const {
   return not isAllNull()
-    and std::all_of(bits_.begin(), bits_.end(), [](const SNLBusNetBit* b){ return b == nullptr or b->getType().isAssign(); });
+    and std::all_of(bits_.begin(), bits_.end(), [](const SNLBusNetBit* b){ return b == nullptr or b->getType().isAssign0(); });
+}
+
+bool SNLBusNet::isAssign1() const {
+  return not isAllNull()
+    and std::all_of(bits_.begin(), bits_.end(), [](const SNLBusNetBit* b){ return b == nullptr or b->getType().isAssign1(); });
 }
 
 bool SNLBusNet::isSupply0() const {

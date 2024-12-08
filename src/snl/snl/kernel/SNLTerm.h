@@ -42,8 +42,8 @@ class SNLTerm: public SNLNetComponent {
     virtual size_t getFlatID() const = 0;
     /// \return term SNLName.
     virtual SNLName getName() const = 0;
-    /// \return term size, 1 for SNLScalarTerm and SNLBusNetBit.
-    virtual SNLID::Bit getSize() const = 0;
+    /// \return term width, 1 for SNLScalarTerm and SNLBusNetBit.
+    virtual SNLID::Bit getWidth() const = 0;
 
     /// \return the Collection of SNLBitTerm composing this SNLTerm. 
     virtual NajaCollection<SNLBitTerm*> getBits() const = 0;

@@ -22,10 +22,13 @@ using namespace naja::SNL;
 
 GetNameMethod(SNLTerm)
 GetContainerMethodWithMethodName(Term, BitTerm, getBits)
+DirectGetIntMethod(PySNLTerm_getWidth, getWidth, PySNLTerm, SNLTerm)
 
 PyMethodDef PySNLTerm_Methods[] = {
   { "getName", (PyCFunction)PySNLTerm_getName, METH_NOARGS,
     "get SNLNet name"},
+  { "getWidth", (PyCFunction)PySNLTerm_getWidth, METH_NOARGS,
+    "get SNLNet width"},
   { "getBits", (PyCFunction)PySNLTerm_getBits, METH_NOARGS,
     "get a container of SNLBitTerms."},
   {NULL, NULL, 0, NULL}           /* sentinel */
