@@ -82,6 +82,13 @@ jobs:
         with:
           submodules: recursive
 
+      - uses: actions/setup-python@v5.3.0
+        with:
+          python-version: 3.13
+      - run: python preprocessor.py --source_dir ../najaeda_examples --source_rst README.rst --dest_rst ../README.rst
+        working-directory: ${{github.workspace}}/najaeda_README
+
+
       - name: Configure macOS Environment
         if: runner.os == 'macOS'
         run: |

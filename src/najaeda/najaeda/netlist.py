@@ -568,11 +568,18 @@ def get_primitives_library() -> snl.SNLLibrary:
 
 
 def get_model_name(id: tuple[int, int, int]) -> str:
-    db = snl.SNLUniverse.get().getDB(id[0])
-    lib = db.getLibrary(id[1])
-    model = lib.getDesign(id[2])
-    return model.getName()
-
+    """Return the name of the model given its id."""
+    u = snl.SNLUniverse.get()
+    if u:
+        db = u.getDB(id[0])
+        if db:
+            lib = db.getLibrary(id[1])
+            if lib:
+                model = lib.getDesign(id[2])
+                if model:
+                    return model.getName()
+    return None
+    
 
 def get_all_primitive_instances():
     top = snl.SNLUniverse.get().getTopDesign()

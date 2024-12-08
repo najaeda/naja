@@ -58,6 +58,15 @@ class NajaNetlistTest1(unittest.TestCase):
     def tearDown(self):
         if snl.SNLUniverse.get():
             snl.SNLUniverse.get().destroy()
+
+    def test_browse(self):
+        top = netlist.get_top()
+        self.assertIsNotNone(top)
+        self.assertEqual(top.get_name(), 'Top')
+        #DB is the second one created
+        self.assertEqual((2,0,0), top.get_model_id())
+        self.assertEqual('Top', netlist.get_model_name(top.get_model_id()))
+        self.assertIsNone(netlist.get_model_name((2,0,30)))
     
     def testDump(self):
         bench_dir = os.environ.get('NAJAEDA_TEST_PATH')

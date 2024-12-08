@@ -22,16 +22,17 @@ Install Naja EDA using pip:
 
 Examples
 --------
+Following snippet shows how to load primitive cells from a liberty file and
+a netlist from a Verilog file.
+.. snippet:: load_design
+
+Next example shows how to browse all the netlist and print all its content.
+.. snippet:: print_design
 
 Documentation
 -------------
 
 Comprehensive documentation is available on the `Naja GitHub repository <https://github.com/najaeda/naja>`_.
-
-Contributing
-------------
-
-Contributions are welcome. Please refer to the `contribution guidelines <https://github.com/najaeda/naja/blob/main/CONTRIBUTING.md>`_ for more information.
 
 License
 -------

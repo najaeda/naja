@@ -183,6 +183,7 @@ class SNLDesignTest(unittest.TestCase):
   def testCreationError(self):
     self.assertIsNotNone(self.lib)
     d = snl.SNLDesign.create(self.lib, "DESIGN")
+    with self.assertRaises(RuntimeError) as context: self.lib.getDesign(self.lib)
     with self.assertRaises(RuntimeError) as context: snl.SNLDesign.create("ERROR", "ERROR", "ERROR")
     with self.assertRaises(RuntimeError) as context: snl.SNLDesign.create(d, "DESIGN")
     with self.assertRaises(RuntimeError) as context: snl.SNLDesign.create(self.lib, "DESIGN")
