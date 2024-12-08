@@ -51,7 +51,7 @@ jobs:
         VERILOG_BENCHMARKS_PATH: ${{github.workspace}}/test/snl/formats/verilog/benchmarks        
         NAJAEDA_TEST_PATH: ${{github.workspace}}/build/test/najaeda
       run: |
-        python -m coverage run -m unittest && python -m coverage xml
+        python -m coverage run --source ${{github.workspace}}/najaeda -m unittest && python -m coverage xml
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v5
       with:
