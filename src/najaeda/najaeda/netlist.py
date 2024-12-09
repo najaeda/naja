@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# import itertools
+import itertools
 from najaeda import snl
 
 
@@ -76,34 +76,69 @@ class Net:
         return self.net >= value.net
 
     def __str__(self):
-        return str(self.net)
+        if self.path.size() > 0:
+            return f"{self.path}/{self.net}"
+        return f"{self.net}"
+
+    def __repr__(self):
+        return f"Net({self.path}, {self.net})"
 
     def get_name(self) -> str:
+        """Return the name of the net."""
         return self.net.getName()
 
+    def get_msb(self) -> int:
+        """Return the most significant bit of the net if it is a bus."""
+        if isinstance(self.net, snl.SNLBusNet):
+            return self.net.getMSB()
+        return None
+
+    def get_lsb(self) -> int:
+        """Return the least significant bit of the net if it is a bus."""
+        if isinstance(self.net, snl.SNLBusNet):
+            return self.net.getLSB()
+        return None
+
     def is_bus(self) -> bool:
+        """Return True if the net is a bus."""
         return isinstance(self.net, snl.SNLBusNet)
 
     def is_scalar(self) -> bool:
+        """Return True if the net is a scalar."""
         return not self.is_bus()
 
     def is_constant(self) -> bool:
+        """Return True if the net is a constant generator."""
         return self.net.isConstant()
 
     def get_width(self) -> int:
+        """Return the width of the net."""
         return self.net.getWidth()
 
-    # def get_inst_terms(self):
-    #     for term in self.net.getInstTerms():
-    #         yield Term(self.path, term.getBitTerm())
+    def get_bits(self):
+        if isinstance(self.net, snl.SNLBusNet):
+            for bit in self.net.getBits():
+                yield Net(self.path, bit)
+        else:
+            yield self
 
-    # def get_model_terms(self):
-    #     for term in self.net.getBitTerms():
-    #         yield Term(self.path, term)
+    def get_bit(self, index: int):
+        if isinstance(self.net, snl.SNLBusNet):
+            return Net(self.path, self.net.getBit(index))
+        if index == 0:
+            return self
 
-    # def get_terms(self):
-    #     for term in itertools.chain(self.get_inst_terms(), self.get_model_terms()):
-    #         yield term
+    def get_inst_terms(self):
+        for term in self.net.getInstTerms():
+            yield Term(self.path, term.getBitTerm())
+
+    def get_model_terms(self):
+        for term in self.net.getBitTerms():
+            yield Term(self.path, term)
+
+    def get_terms(self):
+        for term in itertools.chain(self.get_inst_terms(), self.get_model_terms()):
+            yield term
 
 
 class Term:
@@ -153,30 +188,43 @@ class Term:
     def __make_unique(self):
         if self.path.size() > 0:
             snl.SNLUniquifier(self.path)
+            if self.is_bus_bit():
+                term = self.path.getTailInstance().getModel().getTerm(self.term.getName())
+                self.term = term.getBit(self.term.getBit())
+            else:
+                self.term = self.path.getTailInstance().getModel().getTerm(self.term.getName())
 
     def is_bus(self) -> bool:
         return isinstance(self.term, snl.SNLBusTerm)
+    
+    def is_bus_bit(self) -> bool:
+        return isinstance(self.term, snl.SNLBusTermBit)
 
     def is_scalar(self) -> bool:
         return not self.is_bus()
 
     def get_msb(self) -> int:
+        """Return the most significant bit of the term if it is a bus."""
         if isinstance(self.term, snl.SNLBusTerm):
             return self.term.getMSB()
         return None
 
     def get_lsb(self) -> int:
+        """Return the least significant bit of the term if it is a bus."""
         if isinstance(self.term, snl.SNLBusTerm):
             return self.term.getLSB()
         return None
 
     def get_width(self) -> int:
+        """Return the width of the term. 1 if scalar."""
         return self.term.getWidth()
 
     def get_name(self) -> str:
+        """Return the name of the term."""
         return self.term.getName()
 
     def get_direction(self) -> snl.SNLTerm.Direction:
+        """Return the direction of the term."""
         if self.term.getDirection() == snl.SNLTerm.Direction.Input:
             return Term.Input
         elif self.term.getDirection() == snl.SNLTerm.Direction.Output:
@@ -217,6 +265,12 @@ class Term:
         else:
             yield self
 
+    def get_bit(self, index: int):
+        if isinstance(self.term, snl.SNLBusTerm):
+            return Term(self.path, self.term.getBit(index))
+        if index == 0:
+            return self
+
     def disconnect(self):
         self.__make_unique()
         inst = self.path.getTailInstance()
@@ -227,12 +281,15 @@ class Term:
     def connect(self, net: Net):
         if self.get_width() != net.get_width():
             raise ValueError("Width mismatch")
-        # should we test if net is at the correct level ??
-        self.__make_unique()
-        inst = self.path.getTailInstance()
-        for bterm, bnet in zip(self.term.getBits(), net.net.getBits()):
-            iterm = inst.getInstTerm(bterm)
-            iterm.setNet(bnet)
+        if self.get_instance().is_top():
+            for bterm, bnet in zip(self.term.getBits(), net.net.getBits()):
+                bterm.setNet(bnet)
+        else:
+            self.__make_unique()
+            inst = self.path.getTailInstance()
+            for bterm, bnet in zip(self.term.getBits(), net.net.getBits()):
+                iterm = inst.getInstTerm(bterm)
+                iterm.setNet(bnet)
 
 
 def get_instance_by_path(names: list):
@@ -309,7 +366,7 @@ class Instance:
 
     def is_const(self) -> bool:
         """Return True if this is a constant generator."""
-        return self.is_const0() or self.is_const1()
+        return self.__get_snl_model().isConst()
 
     def is_buf(self) -> bool:
         """Return True if this is a buffer."""
@@ -418,12 +475,14 @@ class Instance:
         self.__get_snl_model().getInstance(name).destroy()
 
     def get_name(self) -> str:
+        """Return the name of the instance or name of the top is this is the top."""
         if self.is_top():
             return self.get_model_name()
         else:
             return self.path.getTailInstance().getName()
 
     def get_model_name(self) -> str:
+        """Return the name of the model of the instance or name of the top is this is the top."""
         return self.__get_snl_model().getName()
 
     def get_model_id(self) -> tuple[int, int, int]:
