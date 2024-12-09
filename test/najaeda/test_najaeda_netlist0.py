@@ -264,6 +264,15 @@ class NajaNetlistTest0(unittest.TestCase):
         for inputterm in instance.get_input_terms():
             print(inputterm)
         
+        # Validate is quary function in instance
+
+        self.assertFalse(instance.is_assign())
+        self.assertFalse(instance.is_blackbox())
+        self.assertFalse(instance.is_const0())
+        self.assertFalse(instance.is_const1())
+        self.assertFalse(instance.is_const())
+
+        
 
     def testTopTerm(self):
         universe = snl.SNLUniverse.create()

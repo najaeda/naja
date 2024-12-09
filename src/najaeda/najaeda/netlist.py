@@ -341,7 +341,7 @@ class Instance:
 
     def is_const(self) -> bool:
         """Return True if this is a constant generator."""
-        return self.__get_snl_model().isConst()
+        return self.is_const0() or self.is_const1()
 
     def is_buf(self) -> bool:
         """Return True if this is a buffer."""
