@@ -126,8 +126,7 @@ class Net:
     def get_bit(self, index: int):
         if isinstance(self.net, snl.SNLBusNet):
             return Net(self.path, self.net.getBit(index))
-        if index == 0:
-            return self
+        return None
 
     def get_inst_terms(self):
         for term in self.net.getInstTerms():
@@ -279,8 +278,7 @@ class Term:
     def get_bit(self, index: int):
         if isinstance(self.term, snl.SNLBusTerm):
             return Term(self.path, self.term.getBit(index))
-        if index == 0:
-            return self
+        return None
 
     def disconnect(self):
         self.__make_unique()
