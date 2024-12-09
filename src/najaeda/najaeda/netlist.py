@@ -103,7 +103,7 @@ class Net:
     def is_bus(self) -> bool:
         """Return True if the net is a bus."""
         return isinstance(self.net, snl.SNLBusNet)
-    
+
     def is_bus_bit(self) -> bool:
         """Return True if the net is a bit of a bus."""
         return isinstance(self.net, snl.SNLBusNetBit)
@@ -509,7 +509,9 @@ class Instance:
         design = self.__get_snl_model()
         new_instance_model = self.__find_snl_model(model)
         if new_instance_model is None:
-            raise ValueError(f"Cannot create instance {name} in {self}: model {model} cannot be found")
+            raise ValueError(
+                f"Cannot create instance {name} in {self}: model {model} cannot be found"
+            )
         newSNLInstance = snl.SNLInstance.create(design, new_instance_model, name)
         path = snl.SNLPath(self.path, newSNLInstance)
         return Instance(path)
