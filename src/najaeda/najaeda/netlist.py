@@ -131,14 +131,15 @@ class Net:
 
     def get_inst_terms(self):
         for term in self.net.getInstTerms():
-            yield Term(self.path, term.getBitTerm())
+            path = snl.SNLPath(self.path, term.getInstance())
+            yield Term(path, term.getBitTerm())
 
-    def get_model_terms(self):
+    def get_terms(self):
         for term in self.net.getBitTerms():
             yield Term(self.path, term)
 
-    def get_terms(self):
-        for term in itertools.chain(self.get_inst_terms(), self.get_model_terms()):
+    def get_components(self):
+        for term in itertools.chain(self.get_terms(), self.get_inst_terms()):
             yield term
 
 
@@ -190,14 +191,18 @@ class Term:
         if self.path.size() > 0:
             snl.SNLUniquifier(self.path)
             if self.is_bus_bit():
-                term = self.path.getTailInstance().getModel().getTerm(self.term.getName())
+                term = (
+                    self.path.getTailInstance().getModel().getTerm(self.term.getName())
+                )
                 self.term = term.getBit(self.term.getBit())
             else:
-                self.term = self.path.getTailInstance().getModel().getTerm(self.term.getName())
+                self.term = (
+                    self.path.getTailInstance().getModel().getTerm(self.term.getName())
+                )
 
     def is_bus(self) -> bool:
         return isinstance(self.term, snl.SNLBusTerm)
-    
+
     def is_bus_bit(self) -> bool:
         return isinstance(self.term, snl.SNLBusTermBit)
 
