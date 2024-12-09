@@ -110,16 +110,22 @@ class NajaNetlistTest0(unittest.TestCase):
         #Test bus term creation connection and disconnection
         instance3 = instance.create_child_instance(self.submodel.getName(), "ins3")
         self.assertTrue(instance.get_number_of_child_instances() == 2)
-        instance3.create_output_bus_term("I1", 4, 0)
-        instance.create_bus_net("netI1", 4, 0)
+        instance3.create_output_bus_term("O1", 4, 0)
+        instance.create_bus_net("netO1", 4, 0)
         #connect the bus term to the bus net
-        i1 = instance3.get_term("I1")
+        i1 = instance3.get_term("O1")
         self.assertIsNotNone(i1)
         self.assertTrue(i1.is_bus())
         self.assertEqual(i1.get_width(), 5)
-        net_i1 = instance.get_net("netI1")
+        net_i1 = instance.get_net("netO1")
         self.assertEqual(net_i1.get_width(), 5)
         i1.connect(net_i1)
+
+        for flat_output in instance.get_flat_output_terms():
+            self.assertEqual(flat_output.get_instance(), instance)
+        
+        for flat_net in instance.get_flat_nets():
+            self.assertEqual(flat_net.path, instance.path)
 
         # for term in net_i1.get_terms():
         #     self.assertEqual(term.get_net(), net_i1)
@@ -243,6 +249,10 @@ class NajaNetlistTest0(unittest.TestCase):
         self.assertIsNone(instance.get_term("I0").get_net().net)
         instance.get_term("I0").connect(netlist.Net(path0, i0_net))
         self.assertTrue(instance.get_term("I0").get_net() == netlist.Net(path1, i0_net))
+        flat_fanout = 0
+        for fanout in instance.get_term("I0").get_flat_fanout():
+            flat_fanout += 1
+        self.assertEqual(flat_fanout, 1)
 
         netlistNet1 = netlist.Net(path1, i0_net)
         netlistNet2 = netlist.Net(path2, i0_net_sub)
@@ -273,8 +283,7 @@ class NajaNetlistTest0(unittest.TestCase):
         self.assertFalse(instance.is_const())
         self.assertFalse(instance.is_buf())
         self.assertFalse(instance.is_inv())
-
-        
+        self.assertFalse(instance.is_primitive())
 
     def testTopTerm(self):
         universe = snl.SNLUniverse.create()

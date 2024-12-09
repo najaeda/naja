@@ -36,12 +36,13 @@ class Equipotential:
 
     def get_all_leaf_readers(self):
         for term in self.equi.getInstTermOccurrences():
-            direction = term.getTerm().getDirection()
+            direction = term.getInstTerm().getDirection()
             if direction != snl.SNLTerm.Direction.Output:
-                yield Term(
-                    snl.SNLPath(term.getPath(), term.getInstTerm().getInstance()),
-                    term.getInstTerm().getBitTerm(),
-                )
+                if term.getInstTerm().getInstance().getModel().isPrimitive():
+                    yield Term(
+                        snl.SNLPath(term.getPath(), term.getInstTerm().getInstance()),
+                        term.getInstTerm().getBitTerm(),
+                    )
 
 
 class Net:
