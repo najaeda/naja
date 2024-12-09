@@ -144,7 +144,7 @@ class NajaNetlistTest1(unittest.TestCase):
         self.assertIsNotNone(ins0)
         self.assertEqual('Ins0', ins0.get_name())
         self.assertEqual('Module0', ins0.get_model_name())
-        self.assertTrue(ins0.is_primitive())
+        self.assertFalse(ins0.is_primitive())
         ins1 = top.get_child_instance('Ins1')
         self.assertIsNotNone(ins1)
         self.assertEqual('Ins1', ins1.get_name())
