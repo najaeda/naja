@@ -197,7 +197,10 @@ class Term:
         return not self < other
 
     def __str__(self) -> str:
-        return str(self.path) + "." + self.term.getName()
+        if self.path.size() == 0:
+            return self.term.getName()
+        else:
+            return f"{self.path}/{self.term.getName()}"
 
     def __repr__(self) -> str:
         return f"Term({self.path}, {self.term})"
@@ -260,13 +263,13 @@ class Term:
         elif self.term.getDirection() == snl.SNLTerm.Direction.InOut:
             return Term.InOut
 
-    def __get_snl_bitnet(self) -> Net:
+    def __get_snl_bitnet(self, bit) -> Net:
         # single bit
         if self.path.size() > 0:
-            instTerm = self.path.getTailInstance().getInstTerm(self.term)
+            instTerm = self.path.getTailInstance().getInstTerm(bit)
             return instTerm.getNet()
         else:
-            return get_top().model.getTerm(self.term.getName()).getNet()
+            return bit.getNet()
 
     def __get_snl_busnet(self, snl_nets) -> snl.SNLBusNet:
         # iterate on all elements of the list and check if
@@ -291,7 +294,7 @@ class Term:
         if isinstance(self.term, snl.SNLBusTerm):
             snl_nets = []
             for bit in self.term.getBits():
-                snl_net = self.__get_snl_bitnet()
+                snl_net = self.__get_snl_bitnet(bit)
                 snl_nets.append(snl_net)
             snl_bus_net = self.__get_snl_busnet(snl_nets)
             if snl_bus_net is not None:
@@ -300,7 +303,7 @@ class Term:
                 if all(element is not None for element in snl_nets):
                     return Net(self.path, net_concat=snl_nets)
         else:
-            snl_net = self.__get_snl_bitnet()
+            snl_net = self.__get_snl_bitnet(self.term)
             if snl_net is not None:
                 return Net(self.path, snl_net)
         return None

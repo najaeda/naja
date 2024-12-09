@@ -32,19 +32,17 @@ class NajaNetlistTest0(unittest.TestCase):
             snl.SNLUniverse.get().destroy()
 
     def test_loader(self):
-        print("loader test")
         design_files = [os.path.join(verilog_benchmarks, "test0.v")]
         primitives = [os.path.join(liberty_benchmarks, "asap7_excerpt" , "test0.lib")]
         netlist.load_liberty(primitives)
         netlist.load_verilog(design_files)
-        print(netlist.get_top())
-        for inst in netlist.get_all_primitive_instances():
-            print(inst)
+        #print(netlist.get_top())
+        #for inst in netlist.get_all_primitive_instances():
+        #    print(inst)
         if snl.SNLUniverse.get():
             snl.SNLUniverse.get().destroy()
 
     def test_loader1(self):
-        print("loader test")
         design_files = [os.path.join(verilog_benchmarks, "test1.v")]
         lut4 = snl.SNLDesign.createPrimitive(netlist.get_primitives_library(), "LUT4")
         i0 = snl.SNLScalarTerm.create(lut4, snl.SNLTerm.Direction.Input, "I0")
@@ -54,8 +52,8 @@ class NajaNetlistTest0(unittest.TestCase):
         q = snl.SNLScalarTerm.create(lut4, snl.SNLTerm.Direction.Output, "Q")
         snl.SNLParameter.create_binary(lut4, "INIT", 16, 0x0000)
         netlist.load_verilog(design_files)
-        for inst in netlist.get_all_primitive_instances():
-            print(inst)
+        #for inst in netlist.get_all_primitive_instances():
+        #    print(inst)
         if snl.SNLUniverse.get():
             snl.SNLUniverse.get().destroy()
         
@@ -135,7 +133,7 @@ class NajaNetlistTest0(unittest.TestCase):
         
         inputCount = 0
         for bit in instance.get_flat_input_terms():
-            print(bit)
+            #print(bit)
             self.assertTrue(bit.is_input())
             self.assertFalse(bit.is_output())
             inputCount += 1
@@ -173,7 +171,7 @@ class NajaNetlistTest0(unittest.TestCase):
         instance.create_net("created_net")
         self.assertIsNotNone(instance.get_net("created_net"))
 
-        print(instance.get_name())
+        #print(instance.get_name())
 
     def test_equipotential(self):
         universe = snl.SNLUniverse.create()
@@ -194,7 +192,7 @@ class NajaNetlistTest0(unittest.TestCase):
         ins1 = snl.SNLInstance.create(self.top, self.model, "ins1")
 
         path0 = snl.SNLPath()
-        print(path0)
+        #print(path0)
         self.assertIsNotNone(path0)
         self.assertTrue(path0.empty())
         self.assertEqual(0, path0.size())
@@ -207,7 +205,7 @@ class NajaNetlistTest0(unittest.TestCase):
         sub_inst_terms = tuple(ins2.getInstTerms())
         sub_inst_terms[0].setNet(i0_net_sub)
         self.i0.setNet(i0_net_sub)
-        print(inst_terms[0])
+        #print(inst_terms[0])
         
         path1 = snl.SNLPath(path0, ins1)
         self.assertTrue(path1.size() == 1)
@@ -215,7 +213,7 @@ class NajaNetlistTest0(unittest.TestCase):
         self.assertTrue(path2.size() == 2)
         self.assertTrue(path1.getHeadInstance() == ins1)
         self.assertTrue(path2.getHeadInstance() == ins1)
-        print(path2)
+        #print(path2)
         inst_term = netlist.Term(path2, sub_inst_terms[0].getBitTerm())
         equi = netlist.Equipotential(inst_term)
         net_component_occurrence2 = snl.SNLNetComponentOccurrence(path1, sub_inst_terms[0])
@@ -238,13 +236,13 @@ class NajaNetlistTest0(unittest.TestCase):
             self.assertTrue(t.path.getHeadPath() == to_compare_with.getPath())
 
         instance = netlist.Instance(path1)
-        for child in instance.get_child_instances():
-            print(child)
-        print(instance.get_term("I0").get_net())
+        #for child in instance.get_child_instances():
+        #    print(child)
+        #print(instance.get_term("I0").get_net())
         self.assertIsNotNone(instance.get_term("I0"))
-        print(netlist.Net(path0, i0_net))
+        #print(netlist.Net(path0, i0_net))
         self.assertTrue(instance.get_term("I0").get_net() == netlist.Net(path1, i0_net))
-        print(str(instance.get_term("I0")))
+        #print(str(instance.get_term("I0")))
         instance.get_term("I0").disconnect()
         self.assertIsNone(instance.get_term("I0").get_net())
         instance.get_term("I0").connect(netlist.Net(path0, i0_net))
@@ -265,14 +263,12 @@ class NajaNetlistTest0(unittest.TestCase):
         #self.assertGreater(netlistNet2, netlistNet1)
         #self.assertGreaterEqual(netlistNet2, netlistNet1)
 
-        for net in instance.get_nets():
-            print(net)
-        
-        for flat_net in instance.get_flat_nets():
-            print(flat_net)
-        
-        for inputterm in instance.get_input_terms():
-            print(inputterm)
+        #for net in instance.get_nets():
+        #    print(net)
+        #for flat_net in instance.get_flat_nets():
+        #    print(flat_net)
+        #for inputterm in instance.get_input_terms():
+        #    print(inputterm)
         
         # Validate is quary function in instance
 
@@ -385,7 +381,7 @@ class NajaNetlistTest0(unittest.TestCase):
         self.assertTrue(netI1bus.is_bus())
         self.assertFalse(netI1bus.is_scalar())
         self.assertFalse(netI1bus.is_constant())
-        print(netI1bus.get_name())
+        #print(netI1bus.get_name())
         #self.assertEqual(len(top.get_net_list_for_bus("netI1bus")), 5)
 
 if __name__ == '__main__':

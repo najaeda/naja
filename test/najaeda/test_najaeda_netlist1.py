@@ -100,6 +100,7 @@ class NajaNetlistTest1(unittest.TestCase):
         self.assertEqual(i1.get_msb(), 1)
         self.assertEqual(i1.get_width(), 2)
         self.assertEqual(i1.get_direction(), netlist.Term.Input)
+        
         o = top.get_term('O')
         self.assertIsNotNone(o)
         self.assertTrue(o.is_output())
@@ -122,6 +123,8 @@ class NajaNetlistTest1(unittest.TestCase):
         self.assertEqual(i0Net.get_width(), 2)
         self.assertTrue(i0Net.is_bus())
         self.assertEqual(2, sum(1 for _ in i0Net.get_bits()))
+        self.assertEqual(i0Net, i0.get_net())
+
         i1Net = top.get_net('I1')
         self.assertIsNotNone(i1Net)
         self.assertEqual(i1Net.get_name(), 'I1')
@@ -136,6 +139,7 @@ class NajaNetlistTest1(unittest.TestCase):
         self.assertListEqual([i0Net.get_bit(1), i0Net.get_bit(0)], list(i0Net.get_bits()))
         self.assertEqual([i0.get_bit(0)], list(i0Net.get_bit(0).get_terms()))
         self.assertEqual([i0.get_bit(1)], list(i0Net.get_bit(1).get_terms()))
+        self.assertEqual(i1Net, i1.get_net())
         #self.assertGreater(i1Net, i0Net)
         #self.assertGreaterEqual(i1Net, i0Net)
         #self.assertLess(i0Net, i1Net)
@@ -175,8 +179,7 @@ class NajaNetlistTest1(unittest.TestCase):
         self.assertEqual(1, sum(1 for _ in oNet.get_bits()))
         self.assertEqual([oNet], list(oNet.get_bits()))
         self.assertIsNone(oNet.get_bit(0))
-        #self.assertListEqual([i1Net.get_bit(1), i1Net.get_bit(0)], list(i1Net.get_bits()))
-        #self.assert(i0Net.get_term(), i0)
+        self.assertEqual(oNet, o.get_net())
 
         self.assertIsNone(top.get_child_instance('Ins3'))
         self.assertIsNone(top.get_term('I2'))
