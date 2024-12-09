@@ -50,6 +50,7 @@ DirectGetIntMethod(PySNLBusNet_getMSB, getMSB, PySNLBusNet, SNLBusNet)
 DirectGetIntMethod(PySNLBusNet_getLSB, getLSB, PySNLBusNet, SNLBusNet)
 
 GetObjectByIndex(BusNet, BusNetBit, Bit)
+GetObjectByIndex(BusNet, BusNetBit, BitAtPosition)
 
 DBoLinkCreateMethod(SNLBusNet)
 DBoDeallocMethod(SNLBusNet)
@@ -64,7 +65,9 @@ PyMethodDef PySNLBusNet_Methods[] = {
   { "getLSB", (PyCFunction)PySNLBusNet_getLSB, METH_NOARGS,
     "get SNLBusNet LSB value"},
   { "getBit", (PyCFunction)PySNLBusNet_getBit, METH_VARARGS,
-    "get SNLBusNet Bit, returns SNLBusNetBit"},
+    "get SNLBusNetBit at bit position"},
+  { "getBitAtPosition", (PyCFunction)PySNLBusNet_getBitAtPosition, METH_VARARGS,
+    "get SNLBusNetBit at index position. Index is 0 based"},
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 

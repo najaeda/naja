@@ -260,16 +260,50 @@ class Term:
         elif self.term.getDirection() == snl.SNLTerm.Direction.InOut:
             return Term.InOut
 
-    def get_net(self) -> Net:
-        if isinstance(self.term, snl.SNLBusTerm):
-            return None  # FIXME xtof in the future
-        net = None
+    def __get_snl_bitnet(self) -> Net:
+        # single bit
         if self.path.size() > 0:
             instTerm = self.path.getTailInstance().getInstTerm(self.term)
-            net = instTerm.getNet()
+            return instTerm.getNet()
         else:
-            net = get_top().model.getTerm(self.term.getName()).getNet()
-        return Net(self.path, net)
+            return get_top().model.getTerm(self.term.getName()).getNet()
+
+    def __get_snl_busnet(self, snl_nets) -> snl.SNLBusNet:
+        # iterate on all elements of the list and check if
+        # a full SNLBusNet can be reconstructed
+        snl_bus_net = None
+        for i in range(len(snl_nets)):
+            snl_net = snl_nets[i]
+            if not isinstance(snl_net, snl.SNLBusNetBit):
+                return None
+            bit_bus = snl_net.getBus()
+            if bit_bus.getWidth() != len(snl_nets):
+                return None
+            if snl_bus_net is None:
+                snl_bus_net = bit_bus
+            if snl_bus_net != bit_bus:
+                return None
+            if snl_bus_net.getBitAtPosition(i) != snl_net:
+                return None
+        return snl_bus_net
+
+    def get_net(self) -> Net:
+        if isinstance(self.term, snl.SNLBusTerm):
+            snl_nets = []
+            for bit in self.term.getBits():
+                snl_net = self.__get_snl_bitnet()
+                snl_nets.append(snl_net)
+            snl_bus_net = self.__get_snl_busnet(snl_nets)
+            if snl_bus_net is not None:
+                return Net(self.path, snl_bus_net)
+            else:
+                if all(element is not None for element in snl_nets):
+                    return Net(self.path, net_concat=snl_nets)
+        else:
+            snl_net = self.__get_snl_bitnet()
+            if snl_net is not None:
+                return Net(self.path, snl_net)
+        return None
 
     def get_instance(self):
         return Instance(self.path)
