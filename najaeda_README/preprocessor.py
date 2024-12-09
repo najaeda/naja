@@ -34,7 +34,7 @@ class RSTSnippetInserter:
         for match in self.placeholder_pattern.finditer(content):
             snippet_name = match.group(1)
             if snippet_name in snippets:
-                code_block = f".. code-block:: python\n\n    {snippets[snippet_name].replace('\n', '\n    ')}"
+                code_block = f"\n.. code-block:: python\n\n    {snippets[snippet_name].replace('\n', '\n    ')}"
                 content = content.replace(f".. snippet:: {snippet_name}", code_block)
             else:
                 raise ValueError(f"Snippet {snippet_name} not found in source files. Available snippets: {snippets.keys()}")

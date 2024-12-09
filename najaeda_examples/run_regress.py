@@ -19,4 +19,4 @@ for dir_name in next(os.walk(root_dir))[1]:  # [1] gives the list of subdirector
             test_path = os.path.join(subdir_path, file)
             print(f"Running {test_path}...")
             # Run the test using subprocess
-            subprocess.run(["python", test_path])
+            subprocess.run(["python", file], cwd=subdir_path)
