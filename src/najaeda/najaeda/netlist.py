@@ -103,10 +103,18 @@ class Net:
     def is_bus(self) -> bool:
         """Return True if the net is a bus."""
         return isinstance(self.net, snl.SNLBusNet)
+    
+    def is_bus_bit(self) -> bool:
+        """Return True if the net is a bit of a bus."""
+        return isinstance(self.net, snl.SNLBusNetBit)
 
     def is_scalar(self) -> bool:
         """Return True if the net is a scalar."""
-        return not self.is_bus()
+        return isinstance(self.net, snl.SNLScalarNet)
+
+    def is_bit(self) -> bool:
+        """Return True if the net is a bit."""
+        return self.is_scalar() or self.is_bus_bit()
 
     def is_constant(self) -> bool:
         """Return True if the net is a constant generator."""
@@ -148,15 +156,6 @@ class Term:
     InOut = snl.SNLTerm.Direction.InOut
 
     def __init__(self, path, term):
-        # assert inst exists in the path
-        # if (path.size() > 0):
-        #    #print(term)
-        #    #print(path.getTailInstance())
-        #    #print(path.getTailInstance().getInstTerm(term))
-        #    assert path.getTailInstance().getModel().getTerm(term) is not None
-        # else:
-        #    top = snl.SNLUniverse.get().getTopDesign()
-        #    assert top.getTerm(term.getName()) is not None
         self.path = path
         self.term = term
 
@@ -209,7 +208,11 @@ class Term:
 
     def is_scalar(self) -> bool:
         """Return True if the term is a scalar."""
-        return not self.is_bus()
+        return isinstance(self.term, snl.SNLScalarTerm)
+
+    def is_bit(self) -> bool:
+        """Return True if the term is a bit."""
+        return self.is_scalar() or self.is_bus_bit()
 
     def get_msb(self) -> int:
         """Return the most significant bit of the term if it is a bus."""
@@ -505,6 +508,8 @@ class Instance:
             self.path = refresh_path(self.path)
         design = self.__get_snl_model()
         new_instance_model = self.__find_snl_model(model)
+        if new_instance_model is None:
+            raise ValueError(f"Cannot create instance {name} in {self}: model {model} cannot be found")
         newSNLInstance = snl.SNLInstance.create(design, new_instance_model, name)
         path = snl.SNLPath(self.path, newSNLInstance)
         return Instance(path)
