@@ -120,6 +120,12 @@ class NajaNetlistTest0(unittest.TestCase):
         net_i1 = instance.get_net("netI1")
         self.assertEqual(net_i1.get_width(), 5)
         i1.connect(net_i1)
+
+        # for term in net_i1.get_terms():
+        #     self.assertEqual(term.get_net(), net_i1)
+        
+        # for insterm in net_i1.get_inst_terms():
+        #     self.assertEqual(insterm.getNet(), net_i1)
         
         inputCount = 0
         for bit in instance.get_flat_input_terms():
@@ -152,6 +158,7 @@ class NajaNetlistTest0(unittest.TestCase):
         for output in instance.get_output_terms():
             self.assertTrue(output.is_output())
             self.assertFalse(output.is_input())
+            self.assertTrue(output.get_direction() == snl.SNLTerm.Direction.Output)
             outputCount += 1
 
         self.assertEqual(outputCount, 2)
@@ -159,6 +166,8 @@ class NajaNetlistTest0(unittest.TestCase):
         self.assertIsNone(instance.get_net("created_net"))
         instance.create_net("created_net")
         self.assertIsNotNone(instance.get_net("created_net"))
+
+        print(instance.get_name())
 
     def test_equipotential(self):
         universe = snl.SNLUniverse.create()
@@ -223,6 +232,8 @@ class NajaNetlistTest0(unittest.TestCase):
             self.assertTrue(t.path.getHeadPath() == to_compare_with.getPath())
 
         instance = netlist.Instance(path1)
+        for child in instance.get_child_instances():
+            print(child)
         print(instance.get_term("I0").get_net())
         self.assertIsNotNone(instance.get_term("I0"))
         print(netlist.Net(path0, i0_net))
@@ -243,6 +254,16 @@ class NajaNetlistTest0(unittest.TestCase):
         self.assertLessEqual(netlistNet1, netlistNet2)
         self.assertGreater(netlistNet2, netlistNet1)
         self.assertGreaterEqual(netlistNet2, netlistNet1)
+
+        for net in instance.get_nets():
+            print(net)
+        
+        for flat_net in instance.get_flat_nets():
+            print(flat_net)
+        
+        for inputterm in instance.get_input_terms():
+            print(inputterm)
+        
 
     def testTopTerm(self):
         universe = snl.SNLUniverse.create()

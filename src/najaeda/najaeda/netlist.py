@@ -93,18 +93,17 @@ class Net:
     def get_width(self) -> int:
         return self.net.getWidth()
 
-    def get_inst_terms(self):
-        for term in self.net.getInstTerms():
-            yield Term(self.path, term.getBitTerm())
+    # def get_inst_terms(self):
+    #     for term in self.net.getInstTerms():
+    #         yield Term(self.path, term.getBitTerm())
 
-    def get_model_terms(self):
-        for term in self.net.getBitTerms():
-            yield Term(self.path, term)
+    # def get_model_terms(self):
+    #     for term in self.net.getBitTerms():
+    #         yield Term(self.path, term)
 
-    def get_terms(self):
-        for term in itertools.chain(self.get_inst_terms(), self.get_model_terms()):
-            yield term
-
+    # def get_terms(self):
+    #     for term in itertools.chain(self.get_inst_terms(), self.get_model_terms()):
+    #         yield term
 
 class Term:
     Input = snl.SNLTerm.Direction.Input
