@@ -19,7 +19,7 @@ class SNLUtils {
     using DesignLevel = std::pair<const SNLDesign*, unsigned>;
     using SortedDesigns = std::vector<DesignLevel>;
     static void getDesignsSortedByHierarchicalLevel(const SNLDesign* top, SortedDesigns& sortedDesigns);
-    static SNLID::Bit getSize(int msb, int lsb);
+    static SNLID::Bit getWidth(int msb, int lsb);
     static SNLDesign* findTop(const SNLLibrary* library);
 };
 

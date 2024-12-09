@@ -42,13 +42,14 @@ jobs:
         pip install coverage
     - name: Lint with flake8
       working-directory: ${{github.workspace}}/src/najaeda
-      run: flake8
+      run: flake8 --max-line-length=100 --ignore=E128
     - name: Run najaeda testing with pytest
       working-directory: ${{github.workspace}}/test/najaeda
       env:
         PYTHONPATH: ${{github.workspace}}/build/test/najaeda
         LIBERTY_BENCHMARKS_PATH: ${{github.workspace}}/test/snl/formats/liberty/benchmarks
         VERILOG_BENCHMARKS_PATH: ${{github.workspace}}/test/snl/formats/verilog/benchmarks        
+        NAJAEDA_TEST_PATH: ${{github.workspace}}/build/test/najaeda
       run: |
         python -m coverage run -m unittest && python -m coverage xml
     - name: Upload coverage to Codecov

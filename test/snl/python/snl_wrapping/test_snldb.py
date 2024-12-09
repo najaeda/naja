@@ -21,6 +21,7 @@ class SNLDBTest(unittest.TestCase):
     self.assertIsNotNone(db)
     snl.SNLUniverse.get().setTopDB(db)
     self.assertEqual(snl.SNLUniverse.get().getTopDB(), db)
+    self.assertEqual(db.getID(), 1) # ID starts from 1, 0 is reserved for DB0
     with self.assertRaises(RuntimeError) as context: snl.SNLUniverse.get().setTopDB("Error")
     del db    
   

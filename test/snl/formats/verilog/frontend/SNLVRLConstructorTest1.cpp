@@ -68,7 +68,7 @@ TEST_F(SNLVRLConstructorTest1, test) {
   auto mod1i = mod1->getBusTerm(SNLName("i"));
   ASSERT_NE(mod1i, nullptr);
   EXPECT_EQ(mod1i->getDirection(), SNLTerm::Direction::Input);
-  EXPECT_EQ(5, mod1i->getSize());
+  EXPECT_EQ(5, mod1i->getWidth());
   EXPECT_EQ(4, mod1i->getMSB());
   EXPECT_EQ(0, mod1i->getLSB());
 

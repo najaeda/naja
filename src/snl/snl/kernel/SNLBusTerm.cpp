@@ -93,7 +93,7 @@ void SNLBusTerm::preCreate(const SNLDesign* design, SNLID::DesignObjectID id, co
 }
 
 void SNLBusTerm::createBits() {
-  size_t size = static_cast<size_t>(getSize());
+  size_t size = static_cast<size_t>(getWidth());
   bits_.resize(size, nullptr);
   for (size_t i=0; i<size; i++) {
     SNLID::Bit bit = (getMSB()>getLSB())?getMSB()-int(i):getMSB()+int(i);
@@ -151,8 +151,8 @@ void SNLBusTerm::setNet(SNLNet* net) {
   if (getDesign() not_eq net->getDesign()) {
     throw SNLException("setNet error: incompatible term and net");
   }
-  if (getSize() not_eq net->getSize()) {
-    throw SNLException("setNet only supported when term and net have same size");
+  if (getWidth() not_eq net->getWidth()) {
+    throw SNLException("setNet only supported when term and net have same width");
   }
   if (auto bitNet = dynamic_cast<SNLBitNet*>(net)) {
     getBit(getMSB())->setNet(bitNet);
@@ -173,8 +173,8 @@ void SNLBusTerm::setNet(SNLNet* net) {
   }
 }
 
-SNLID::Bit SNLBusTerm::getSize() const {
-  return SNLUtils::getSize(getMSB(), getLSB());
+SNLID::Bit SNLBusTerm::getWidth() const {
+  return SNLUtils::getWidth(getMSB(), getLSB());
 }
 
 SNLID SNLBusTerm::getSNLID() const {

@@ -5,13 +5,7 @@
 
 from os import path
 from najaeda import netlist
-
-# snippet-start: print_design
-def print_netlist(instance):
-    for child_instance in instance.get_child_instances():
-        print(f"{child_instance}:{child_instance.get_model_name()}")
-        print_netlist(child_instance)
-# snippet-end: print_design
+import design_stats
 
 benchmarks = path.join('..','benchmarks')
 liberty_files = ['NangateOpenCellLibrary_typical.lib', 'fakeram45_1024x32.lib', 'fakeram45_64x32.lib']
@@ -20,4 +14,5 @@ liberty_files = list(map(lambda p:path.join(benchmarks, 'liberty', p), liberty_f
 netlist.load_liberty(liberty_files)
 top = netlist.load_verilog([path.join(benchmarks, 'verilog', 'tinyrocket.v')])
 
-print_netlist(top)
+design_stats_file = open('design.stats', 'w')
+design_stats.compute_and_dump_design_stats(top, design_stats_file)

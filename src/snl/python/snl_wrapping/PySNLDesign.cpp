@@ -313,12 +313,14 @@ GetObjectByName(SNLDesign, SNLScalarNet, getScalarNet)
 GetObjectByName(SNLDesign, SNLBusNet, getBusNet)
 GetObjectByName(SNLDesign, SNLParameter, getParameter)
 GetNameMethod(SNLDesign)
+DirectGetIntMethod(PySNLDesign_getID, getID, PySNLDesign, SNLDesign)
 GetBoolAttribute(Design, isAnonymous)
 GetBoolAttribute(Design, isBlackBox)
 GetBoolAttribute(Design, isPrimitive)
 GetBoolAttribute(Design, isAssign)
 GetBoolAttributeWithFunction(Design, isConst0, SNLDesignTruthTable::isConst0)
 GetBoolAttributeWithFunction(Design, isConst1, SNLDesignTruthTable::isConst1)
+GetBoolAttributeWithFunction(Design, isConst, SNLDesignTruthTable::isConst)
 GetBoolAttributeWithFunction(Design, isBuf, SNLDesignTruthTable::isBuf)
 GetBoolAttributeWithFunction(Design, isInv, SNLDesignTruthTable::isInv)
 GetContainerMethod(Design, Term, Terms, Terms)
@@ -337,6 +339,8 @@ DBoDestroyAttribute(PySNLDesign_destroy, PySNLDesign)
 PyMethodDef PySNLDesign_Methods[] = {
   { "create", (PyCFunction)PySNLDesign_create, METH_VARARGS|METH_STATIC,
     "SNLDesign creator"},
+  { "getID", (PyCFunction)PySNLDesign_getID, METH_NOARGS,
+    "get the ID."},
   { "createPrimitive", (PyCFunction)PySNLDesign_createPrimitive, METH_VARARGS|METH_STATIC,
     "SNLDesign Primitive creator"},
   { "addCombinatorialArcs", (PyCFunction)PySNLDesign_addCombinatorialArcs, METH_VARARGS|METH_STATIC,
@@ -361,6 +365,8 @@ PyMethodDef PySNLDesign_Methods[] = {
     "Returns True if this design is a primitive driving a constant 0"},
   { "isConst1", (PyCFunction)PySNLDesign_isConst1, METH_NOARGS,
     "Returns True if this design is a primitive driving a constant 1"},
+  { "isConst", (PyCFunction)PySNLDesign_isConst, METH_NOARGS,
+    "Returns True if this design is a primitive driving a constant (1 or 0)"},
   { "isBuf", (PyCFunction)PySNLDesign_isBuf, METH_NOARGS,
     "Returns True if this design is a buffer primitive"},
   { "isInv", (PyCFunction)PySNLDesign_isInv, METH_NOARGS,

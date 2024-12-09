@@ -7,6 +7,7 @@
 #include "PyInterface.h"
 #include "PySNLDesign.h"
 #include "PySNLDB.h"
+#include "PySNLDBs.h"
 
 #include "SNLUniverse.h"
 
@@ -54,6 +55,7 @@ static PyObject* PySNLUniverse_setTopDB(PySNLUniverse* self, PyObject* arg) {
 GetObjectMethod(Universe, Design, getTopDesign)
 GetObjectMethod(Universe, DB, getTopDB)
 GetObjectByIndex(Universe, DB, DB)
+GetContainerMethod(Universe, DB, DBs, UserDBs)
 
 DBoDestroyAttribute(PySNLUniverse_destroy, PySNLUniverse)
 
@@ -74,6 +76,8 @@ PyMethodDef PySNLUniverse_Methods[] = {
     "get the Top SNLDB"},
   { "getDB", (PyCFunction)PySNLUniverse_getDB, METH_VARARGS,
     "get the SNLDB with the given index"},
+  { "getUserDBs", (PyCFunction)PySNLUniverse_getUserDBs, METH_NOARGS,
+    "iterate on User SNLDBs."},
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 

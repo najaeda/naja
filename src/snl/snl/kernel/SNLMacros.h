@@ -27,10 +27,10 @@ void TYPE::setNet(SNLNet* net) { \
     if (not bitNet) { \
       auto bus = static_cast<SNLBusNet*>(net); \
       if (bus) { \
-        if (bus->getSize() != 1) { \
+        if (bus->getWidth() != 1) { \
           std::ostringstream reason; \
           reason << "In design " << getDesign()->getString() << ", cannot set " << getString(); \
-          reason << " to " << net->getString() << ", bus size is " << bus->getSize(); \
+          reason << " to " << net->getString() << ", bus width is " << bus->getWidth(); \
           throw SNLException(reason.str()); \
         } \
         bitNet = bus->getBit(bus->getMSB()); \

@@ -161,9 +161,9 @@ void dumpBusNet(
   }
   busNetBuilder.setMsb(busNet->getMSB());
   busNetBuilder.setLsb(busNet->getLSB());
-  auto bits = busNetBuilder.initBits(busNet->getSize());
+  auto bits = busNetBuilder.initBits(busNet->getWidth());
   size_t id = 0;
-  for (size_t i=0; i<busNet->getSize(); i++) {
+  for (size_t i=0; i<busNet->getWidth(); i++) {
     SNLID::Bit bit = (busNet->getMSB()>busNet->getLSB())?
       busNet->getMSB()-int(i):busNet->getMSB()+int(i);
     SNLBusNetBit* busNetBit = busNet->getBit(bit);

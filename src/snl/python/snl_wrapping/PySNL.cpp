@@ -18,6 +18,7 @@
 #include "PySNLInstance.h"
 #include "PySNLInstParameter.h"
 #include "PySNLInstTerm.h"
+#include "PySNLDBs.h"
 #include "PySNLLibraries.h"
 #include "PySNLDesigns.h"
 #include "PySNLParameters.h"
@@ -85,6 +86,7 @@ PyMODINIT_FUNC PyInit_snl(void) {
   PySNLNetComponentOccurrence_LinkPyType();
   PySNLInstTermOccurrence_LinkPyType();
 
+  PySNLDBs_LinkPyType();
   PySNLLibraries_LinkPyType();
   PySNLDesigns_LinkPyType();
   PySNLParameters_LinkPyType();
@@ -131,6 +133,8 @@ PyMODINIT_FUNC PyInit_snl(void) {
   PYTYPE_READY(SNLOccurrence);
   PYTYPE_READY(SNLNetComponentOccurrence);
   PYTYPE_READY(SNLInstTermOccurrence);
+  PYTYPE_READY(SNLDBs);
+  PYTYPE_READY(SNLDBsIterator);
   PYTYPE_READY(SNLLibraries);
   PYTYPE_READY(SNLLibrariesIterator);
   PYTYPE_READY(SNLDesigns);
@@ -164,7 +168,6 @@ PyMODINIT_FUNC PyInit_snl(void) {
   PYTYPE_READY(SNLInstTermOccurrences);
   PYTYPE_READY(SNLInstTermOccurrencesIterator);
 
-
   //FIXME:XTOF Why those increfs ??
   Py_INCREF(&PyTypeSNLUniverse);
   Py_INCREF(&PyTypeSNLDB);
@@ -192,6 +195,7 @@ PyMODINIT_FUNC PyInit_snl(void) {
   Py_INCREF(&PyTypeSNLNetComponentOccurrence);
   Py_INCREF(&PyTypeSNLInstTermOccurrence);
   Py_INCREF(&PyTypeSNLInstTerm);
+  Py_INCREF(&PyTypeSNLDBs);
   Py_INCREF(&PyTypeSNLLibraries);
   Py_INCREF(&PyTypeSNLDesigns);
   Py_INCREF(&PyTypeSNLParameters);
