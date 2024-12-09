@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import itertools
+#import itertools
 from najaeda import snl
 
 
@@ -104,6 +104,7 @@ class Net:
     # def get_terms(self):
     #     for term in itertools.chain(self.get_inst_terms(), self.get_model_terms()):
     #         yield term
+
 
 class Term:
     Input = snl.SNLTerm.Direction.Input
