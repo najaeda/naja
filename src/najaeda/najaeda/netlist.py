@@ -412,7 +412,7 @@ class Instance:
     def delete_instance(self, name: str):
         path = snl.SNLPath(self.path, self.__get_snl_model().getInstance(name))
         snl.SNLUniquifier(path)
-        if self.path.size() > 1:
+        if self.path.size() > 0:
             self.path = refresh_path(self.path)
         # Delete the last instance in uniq_path
         self.__get_snl_model().getInstance(name).destroy()

@@ -271,6 +271,8 @@ class NajaNetlistTest0(unittest.TestCase):
         self.assertFalse(instance.is_const0())
         self.assertFalse(instance.is_const1())
         self.assertFalse(instance.is_const())
+        self.assertFalse(instance.is_buf())
+        self.assertFalse(instance.is_inv())
 
         
 
