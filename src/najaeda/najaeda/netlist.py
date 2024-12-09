@@ -46,102 +46,119 @@ class Equipotential:
 
 
 class Net:
-    def __init__(self, path, net):
+    def __init__(self, path, net=None, net_concat=None):
+        if net is not None and net_concat is not None:
+            raise ValueError("Only one of `net` or `net_concat` should be provided, not both.")
         self.path = path
-        self.net = net
+        if net is not None:
+            self.net = net
+        elif net_concat is not None:
+            self.net_concat = net_concat
 
-    def __eq__(self, value):
-        return self.net == value.net and self.path == value.path
+    def __eq__(self, other):
+        if not isinstance(other, Net):
+            return NotImplemented
+        return vars(self) == vars(other)
 
-    def __ne__(self, value):
-        return not self == value
-
-    def __lt__(self, value):
-        if self.path != value.path:
-            return self.path < value.path
-        return self.net < value.net
-
-    def __le__(self, value):
-        if self.path != value.path:
-            return self.path < value.path
-        return self.net <= value.net
-
-    def __gt__(self, value):
-        if self.path != value.path:
-            return self.path > value.path
-        return self.net > value.net
-
-    def __ge__(self, value):
-        if self.path != value.path:
-            return self.path > value.path
-        return self.net >= value.net
+    def __ne__(self, other):
+        eq_result = self.__eq__(other)
+        if eq_result is NotImplemented:
+            return NotImplemented
+        return not eq_result
 
     def __str__(self):
+        if hasattr(self, "net"):
+            net_str = str(self.net)
+        elif hasattr(self, "net_concat"):
+            net_str = '{' + ','.join(map(str, self.net_concat)) + '}'
         if self.path.size() > 0:
-            return f"{self.path}/{self.net}"
-        return f"{self.net}"
-
-    def __repr__(self):
-        return f"Net({self.path}, {self.net})"
+            return f"{self.path}/{net_str}"
+        return net_str
 
     def get_name(self) -> str:
         """Return the name of the net."""
-        return self.net.getName()
+        if hasattr(self, "net"):
+            return self.net.getName()
+        return '{' + ','.join(map(str, self.net_concat)) + '}'
 
     def get_msb(self) -> int:
         """Return the most significant bit of the net if it is a bus."""
-        if isinstance(self.net, snl.SNLBusNet):
+        if hasattr(self, "net") and isinstance(self.net, snl.SNLBusNet):
             return self.net.getMSB()
         return None
 
     def get_lsb(self) -> int:
         """Return the least significant bit of the net if it is a bus."""
-        if isinstance(self.net, snl.SNLBusNet):
+        if hasattr(self, "net") and isinstance(self.net, snl.SNLBusNet):
             return self.net.getLSB()
         return None
 
     def is_bus(self) -> bool:
         """Return True if the net is a bus."""
-        return isinstance(self.net, snl.SNLBusNet)
+        return hasattr(self, "net") and isinstance(self.net, snl.SNLBusNet)
 
     def is_bus_bit(self) -> bool:
         """Return True if the net is a bit of a bus."""
-        return isinstance(self.net, snl.SNLBusNetBit)
+        return hasattr(self, "net") and isinstance(self.net, snl.SNLBusNetBit)
 
     def is_scalar(self) -> bool:
         """Return True if the net is a scalar."""
-        return isinstance(self.net, snl.SNLScalarNet)
+        return hasattr(self, "net") and isinstance(self.net, snl.SNLScalarNet)
 
     def is_bit(self) -> bool:
         """Return True if the net is a bit."""
         return self.is_scalar() or self.is_bus_bit()
 
+    def is_concat(self) -> bool:
+        """Return True if the net is a concatenation."""
+        return hasattr(self, "net_concat")
+
     def is_constant(self) -> bool:
         """Return True if the net is a constant generator."""
-        return self.net.isConstant()
+        if hasattr(self, "net"):
+            return self.net.isConstant()
+        for net in self.net_concat:
+            if not net.is_constant():
+                return False
+        return True
 
     def get_width(self) -> int:
         """Return the width of the net."""
-        return self.net.getWidth()
+        if hasattr(self, "net"):
+            return self.net.getWidth()
+        return sum(1 for _ in self.net_concat)
 
     def get_bits(self):
-        if isinstance(self.net, snl.SNLBusNet):
-            for bit in self.net.getBits():
-                yield Net(self.path, bit)
+        if hasattr(self, "net"):
+            if isinstance(self.net, snl.SNLBusNet):
+                for bit in self.net.getBits():
+                    yield Net(self.path, bit)
+            else:
+                yield self
         else:
-            yield self
+            for net in self.net_concat:
+                yield net
 
     def get_bit(self, index: int):
-        if isinstance(self.net, snl.SNLBusNet):
-            return Net(self.path, self.net.getBit(index))
+        if hasattr(self, "net"):
+            if isinstance(self.net, snl.SNLBusNet):
+                return Net(self.path, self.net.getBit(index))
+            else:
+                return None
+        if 0 <= index < len(self.net_concat):
+            return self.net_concat[index]
         return None
 
     def get_inst_terms(self):
+        if hasattr(self, "net_concat"):
+            raise ValueError("Cannot get inst terms from a net_concat")
         for term in self.net.getInstTerms():
             path = snl.SNLPath(self.path, term.getInstance())
             yield Term(path, term.getBitTerm())
 
     def get_terms(self):
+        if hasattr(self, "net_concat"):
+            raise ValueError("Cannot get terms from a net_concat")
         for term in self.net.getBitTerms():
             yield Term(self.path, term)
 
@@ -349,7 +366,14 @@ class Instance:
         return self.path == other.path
 
     def __str__(self) -> str:
-        return str(self.path)
+        if self.is_top():
+            top = self.__get_snl_model()
+            if top is not None:
+                return top.getName()
+            else:
+                return ""
+        else:
+            return str(self.path)
 
     def __repr__(self) -> str:
         return f"Instance({self.path})"
@@ -448,6 +472,7 @@ class Instance:
         return None
 
     def is_primitive(self) -> bool:
+        """Return True if this is a primitive."""
         return self.__get_snl_model().isPrimitive()
 
     def get_input_terms(self):
