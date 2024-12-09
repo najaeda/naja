@@ -49,8 +49,11 @@ class NajaNetlistTest1(unittest.TestCase):
         or0.getInstTerm(or0.getModel().getScalarTerm('O')).setNet(oNet)
         ##create hierarchical netlist
         top = netlist.create_top('Top')
-        top.create_input_bus_term('I0', 1, 0)
+        busTerm = top.create_input_bus_term('I0', 1, 0)
         top.create_input_bus_term('I1', 1, 0)
+        self.assertEqual(busTerm.get_lsb(), 0)
+        self.assertEqual(busTerm.get_msb(), 1)
+        print(busTerm.get_name())
         top.create_output_term('O')
         ins0 = top.create_child_instance('Module0', 'Ins0')
         ins1 = top.create_child_instance('Module0', 'Ins1')

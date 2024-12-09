@@ -37,7 +37,7 @@ class Equipotential:
     def get_all_leaf_readers(self):
         for term in self.equi.getInstTermOccurrences():
             direction = term.getTerm().getDirection()
-            if direction == snl.SNLTerm.Direction.Output:
+            if direction != snl.SNLTerm.Direction.Output:
                 yield Term(
                     snl.SNLPath(term.getPath(), term.getInstTerm().getInstance()),
                     term.getInstTerm().getBitTerm(),
@@ -235,25 +235,6 @@ class Term:
             iterm.setNet(bnet)
 
 
-def verify_instance_path(path: snl.SNLPath, inst: snl.SNLInstance):
-    pathlist = []
-    pathTemp = path
-    while pathTemp.size() > 0:
-        pathlist.append(pathTemp.getHeadInstance().getName())
-        pathTemp = pathTemp.getTailPath()
-    assert len(pathlist) > 0
-    path = snl.SNLPath()
-    instance = None
-    top = snl.SNLUniverse.get().getTopDesign()
-    design = top
-    for name in pathlist:
-        path = snl.SNLPath(path, design.getInstance(name))
-        instance = design.getInstance(name)
-        assert instance is not None
-        design = instance.getModel()
-    assert inst == instance
-
-
 def get_instance_by_path(names: list):
     assert len(names) > 0
     path = snl.SNLPath()
@@ -266,20 +247,6 @@ def get_instance_by_path(names: list):
         assert instance is not None
         design = instance.getModel()
     return Instance(path)
-
-
-def get_path_for_names(names: list):
-    assert len(names) > 0
-    path = snl.SNLPath()
-    instance = None
-    top = snl.SNLUniverse.get().getTopDesign()
-    design = top
-    for name in names:
-        path = snl.SNLPath(path, design.getInstance(name))
-        instance = design.getInstance(name)
-        assert instance is not None
-        design = instance.getModel()
-    return path
 
 
 def refresh_path(path: snl.SNLPath):
