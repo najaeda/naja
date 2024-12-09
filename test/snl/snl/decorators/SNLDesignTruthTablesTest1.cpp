@@ -54,14 +54,19 @@ TEST_F(SNLDesignTruthTableTest1, testStandardGates) {
   //logic0
   EXPECT_EQ(prims[0]->getName().getString(), "logic0");
   EXPECT_TRUE(SNLDesignTruthTable::isConst0(prims[0]));
+  EXPECT_FALSE(SNLDesignTruthTable::isConst1(prims[0]));
+  EXPECT_TRUE(SNLDesignTruthTable::isConst(prims[0]));
   //logic1
   EXPECT_EQ(prims[1]->getName().getString(), "logic1");
   EXPECT_TRUE(SNLDesignTruthTable::isConst1(prims[1]));
+  EXPECT_FALSE(SNLDesignTruthTable::isConst0(prims[1]));
+  EXPECT_TRUE(SNLDesignTruthTable::isConst(prims[1]));
   //inv
   EXPECT_EQ(prims[2]->getName().getString(), "inv");
   EXPECT_TRUE(SNLDesignTruthTable::isInv(prims[2]));
   EXPECT_FALSE(SNLDesignTruthTable::isConst0(prims[2]));
   EXPECT_FALSE(SNLDesignTruthTable::isConst1(prims[2]));
+  EXPECT_FALSE(SNLDesignTruthTable::isConst(prims[2]));
   EXPECT_FALSE(SNLDesignTruthTable::isBuf(prims[2]));
   //buf
   EXPECT_EQ(prims[3]->getName().getString(), "buf");

@@ -201,12 +201,15 @@ class Term:
                 )
 
     def is_bus(self) -> bool:
+        """Return True if the term is a bus."""
         return isinstance(self.term, snl.SNLBusTerm)
 
     def is_bus_bit(self) -> bool:
+        """Return True if the term is a bit of a bus."""
         return isinstance(self.term, snl.SNLBusTermBit)
 
     def is_scalar(self) -> bool:
+        """Return True if the term is a scalar."""
         return not self.is_bus()
 
     def get_msb(self) -> int:
@@ -259,9 +262,11 @@ class Term:
         return Equipotential(self)
 
     def is_input(self) -> bool:
+        """Return True if the term is an input."""
         return self.term.getDirection() == snl.SNLTerm.Direction.Input
 
     def is_output(self) -> bool:
+        """Return True if the term is an output."""
         return self.term.getDirection() == snl.SNLTerm.Direction.Output
 
     def get_bits(self):
