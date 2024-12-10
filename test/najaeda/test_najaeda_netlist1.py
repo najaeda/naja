@@ -170,9 +170,8 @@ class NajaNetlistTest1(unittest.TestCase):
         self.assertListEqual([ins0, ins1, ins2], list(top.get_child_instances()))
         self.assertIsNone(ins0.get_term('I0').get_bit(0))
         self.assertIsNone(ins0.get_term('I0').get_bit(4))
-        print(ins0.get_term('I0').get_net())
-        print(i0Net.get_bit(0))
         self.assertEqual(ins0.get_term('I0').get_net(), i0Net.get_bit(0))
+        self.assertEqual(ins0.get_term('I1').get_net(), i1Net.get_bit(0))
 
         oNet = top.get_net('O')
         self.assertIsNotNone(oNet)

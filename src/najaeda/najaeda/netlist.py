@@ -48,7 +48,9 @@ class Equipotential:
 class Net:
     def __init__(self, path, net=None, net_concat=None):
         if net is not None and net_concat is not None:
-            raise ValueError("Only one of `net` or `net_concat` should be provided, not both.")
+            raise ValueError(
+                "Only one of `net` or `net_concat` should be provided, not both."
+            )
         self.path = path
         if net is not None:
             self.net = net
@@ -70,7 +72,7 @@ class Net:
         if hasattr(self, "net"):
             net_str = str(self.net)
         elif hasattr(self, "net_concat"):
-            net_str = '{' + ','.join(map(str, self.net_concat)) + '}'
+            net_str = "{" + ",".join(map(str, self.net_concat)) + "}"
         if self.path.size() > 0:
             return f"{self.path}/{net_str}"
         return net_str
@@ -79,7 +81,7 @@ class Net:
         """Return the name of the net."""
         if hasattr(self, "net"):
             return self.net.getName()
-        return '{' + ','.join(map(str, self.net_concat)) + '}'
+        return "{" + ",".join(map(str, self.net_concat)) + "}"
 
     def get_msb(self) -> int:
         """Return the most significant bit of the net if it is a bus."""
@@ -206,8 +208,9 @@ class Term:
         return f"Term({self.path}, {self.term})"
 
     def __make_unique(self):
-        if self.path.size() > 0:
-            snl.SNLUniquifier(self.path)
+        if self.path.size() > 1:
+            path = self.path.getHeadPath()
+            snl.SNLUniquifier(path)
             if self.is_bus_bit():
                 term = (
                     self.path.getTailInstance().getModel().getTerm(self.term.getName())
@@ -293,7 +296,7 @@ class Term:
     def get_net(self) -> Net:
         if self.path.empty():
             return None
-        #path is one level up
+        # path is one level up
         path = self.path.getHeadPath()
         if isinstance(self.term, snl.SNLBusTerm):
             snl_nets = []
