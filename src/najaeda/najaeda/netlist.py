@@ -198,7 +198,7 @@ class Term:
     def __ge__(self, other) -> bool:
         return not self < other
 
-    def __str__(self) -> str:
+    def __str__(self):
         if self.path.size() == 0:
             return self.term.getName()
         else:
@@ -409,7 +409,7 @@ class Instance:
     def __eq__(self, other) -> bool:
         return self.path == other.path
 
-    def __str__(self) -> str:
+    def __str__(self):
         if self.is_top():
             top = self.__get_snl_model()
             if top is not None:
