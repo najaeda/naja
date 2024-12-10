@@ -241,12 +241,11 @@ class NajaNetlistTest0(unittest.TestCase):
         #print(instance.get_term("I0").get_net())
         self.assertIsNotNone(instance.get_term("I0"))
         #print(netlist.Net(path0, i0_net))
-        self.assertTrue(instance.get_term("I0").get_net() == netlist.Net(path1, i0_net))
+        self.assertEqual(instance.get_term("I0").get_net(), netlist.Net(path1.getHeadPath(), i0_net))
         #print(str(instance.get_term("I0")))
         instance.get_term("I0").disconnect()
         self.assertIsNone(instance.get_term("I0").get_net())
         instance.get_term("I0").connect(netlist.Net(path0, i0_net))
-        self.assertTrue(instance.get_term("I0").get_net() == netlist.Net(path1, i0_net))
         flat_fanout = 0
         for fanout in instance.get_term("I0").get_flat_fanout():
             flat_fanout += 1

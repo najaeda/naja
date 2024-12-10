@@ -85,9 +85,12 @@ class NajaNetlistTest1(unittest.TestCase):
         self.assertEqual((2,0,0), top.get_model_id())
         self.assertEqual('Top', netlist.get_model_name(top.get_model_id()))
         self.assertIsNone(netlist.get_model_name((2,0,30)))
+
         i0 = top.get_term('I0')
         self.assertIsNotNone(i0)
         self.assertTrue(i0.is_bus())
+        self.assertTrue(i0.is_input())
+
         i1 = top.get_term('I1')
         self.assertIsNotNone(i1)
         self.assertEqual('I1', i1.get_name())
@@ -123,7 +126,7 @@ class NajaNetlistTest1(unittest.TestCase):
         self.assertEqual(i0Net.get_width(), 2)
         self.assertTrue(i0Net.is_bus())
         self.assertEqual(2, sum(1 for _ in i0Net.get_bits()))
-        self.assertEqual(i0Net, i0.get_net())
+        self.assertIsNone(i0.get_net())
 
         i1Net = top.get_net('I1')
         self.assertIsNotNone(i1Net)
@@ -139,7 +142,7 @@ class NajaNetlistTest1(unittest.TestCase):
         self.assertListEqual([i0Net.get_bit(1), i0Net.get_bit(0)], list(i0Net.get_bits()))
         self.assertEqual([i0.get_bit(0)], list(i0Net.get_bit(0).get_terms()))
         self.assertEqual([i0.get_bit(1)], list(i0Net.get_bit(1).get_terms()))
-        self.assertEqual(i1Net, i1.get_net())
+        self.assertIsNone(i1.get_net())
         #self.assertGreater(i1Net, i0Net)
         #self.assertGreaterEqual(i1Net, i0Net)
         #self.assertLess(i0Net, i1Net)
@@ -167,6 +170,9 @@ class NajaNetlistTest1(unittest.TestCase):
         self.assertListEqual([ins0, ins1, ins2], list(top.get_child_instances()))
         self.assertIsNone(ins0.get_term('I0').get_bit(0))
         self.assertIsNone(ins0.get_term('I0').get_bit(4))
+        print(ins0.get_term('I0').get_net())
+        print(i0Net.get_bit(0))
+        self.assertEqual(ins0.get_term('I0').get_net(), i0Net.get_bit(0))
 
         oNet = top.get_net('O')
         self.assertIsNotNone(oNet)
@@ -179,7 +185,7 @@ class NajaNetlistTest1(unittest.TestCase):
         self.assertEqual(1, sum(1 for _ in oNet.get_bits()))
         self.assertEqual([oNet], list(oNet.get_bits()))
         self.assertIsNone(oNet.get_bit(0))
-        self.assertEqual(oNet, o.get_net())
+        self.assertIsNone(o.get_net())
 
         self.assertIsNone(top.get_child_instance('Ins3'))
         self.assertIsNone(top.get_term('I2'))

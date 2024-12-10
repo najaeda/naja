@@ -291,6 +291,10 @@ class Term:
         return snl_bus_net
 
     def get_net(self) -> Net:
+        if self.path.empty():
+            return None
+        #path is one level up
+        path = self.path.getHeadPath()
         if isinstance(self.term, snl.SNLBusTerm):
             snl_nets = []
             for bit in self.term.getBits():
@@ -298,14 +302,14 @@ class Term:
                 snl_nets.append(snl_net)
             snl_bus_net = self.__get_snl_busnet(snl_nets)
             if snl_bus_net is not None:
-                return Net(self.path, snl_bus_net)
+                return Net(path, snl_bus_net)
             else:
                 if all(element is not None for element in snl_nets):
-                    return Net(self.path, net_concat=snl_nets)
+                    return Net(path, net_concat=snl_nets)
         else:
             snl_net = self.__get_snl_bitnet(self.term)
             if snl_net is not None:
-                return Net(self.path, snl_net)
+                return Net(path, snl_net)
         return None
 
     def get_instance(self):
