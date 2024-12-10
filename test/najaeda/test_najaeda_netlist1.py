@@ -69,8 +69,9 @@ class NajaNetlistTest1(unittest.TestCase):
         ins1.get_term('I0').connect(i0Net.get_bit(1))
         ins1.get_term('I1').connect(i1Net.get_bit(1))
         ins2 = top.create_child_instance('OR2', 'Ins2')
-        #ins2.get_term('I0').connect(ins0.get_term('O'))
-        #ins2.get_term('I1').connect(ins1.get_term('O'))
+        wire = top.create_bus_net('wire', 1, 0)
+        #ins2.get_term('I0').connect(wire.get_bit(1))
+        #ins2.get_term('I1').connect(wire.get_bit(0))
         #ins2.get_term('O').connect(o)
 
     def tearDown(self):
