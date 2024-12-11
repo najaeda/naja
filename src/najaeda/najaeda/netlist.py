@@ -4,8 +4,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import itertools
-from najaeda import snl
+import logging
 
+from najaeda import snl
 
 class Equipotential:
     """Class that represents the term and wraps
@@ -148,7 +149,7 @@ class Net:
             else:
                 return None
         if 0 <= index < len(self.net_concat):
-            return self.net_concat[index]
+            return Net(self.path, self.net_concat[index])
         return None
 
     def get_inst_terms(self):
@@ -202,7 +203,7 @@ class Term:
         if self.path.size() == 0:
             return self.term.getName()
         else:
-            return f"{self.path}/{self.term.getName()}"
+            return f"{self.path}/{self.term}"
 
     def __repr__(self) -> str:
         return f"Term({self.path}, {self.term})"
@@ -274,6 +275,9 @@ class Term:
         else:
             return bit.getNet()
 
+    def __get_snl_lower_bitnet(self, bit) -> Net:
+        return bit.getNet()
+
     def __get_snl_busnet(self, snl_nets) -> snl.SNLBusNet:
         # iterate on all elements of the list and check if
         # a full SNLBusNet can be reconstructed
@@ -293,15 +297,11 @@ class Term:
                 return None
         return snl_bus_net
 
-    def get_net(self) -> Net:
-        if self.path.empty():
-            return None
-        # path is one level up
-        path = self.path.getHeadPath()
+    def __get_net(self, path, snl_term_net_accessor) -> Net:
         if isinstance(self.term, snl.SNLBusTerm):
             snl_nets = []
             for bit in self.term.getBits():
-                snl_net = self.__get_snl_bitnet(bit)
+                snl_net = snl_term_net_accessor(bit)
                 snl_nets.append(snl_net)
             snl_bus_net = self.__get_snl_busnet(snl_nets)
             if snl_bus_net is not None:
@@ -310,12 +310,25 @@ class Term:
                 if all(element is not None for element in snl_nets):
                     return Net(path, net_concat=snl_nets)
         else:
-            snl_net = self.__get_snl_bitnet(self.term)
+            snl_net = snl_term_net_accessor(self.term)
             if snl_net is not None:
                 return Net(path, snl_net)
         return None
+        
+    def get_lower_net(self) -> Net:
+        """Return the lower net of the term."""
+        return self.__get_net(self.path, self.__get_snl_lower_bitnet)
+
+    def get_net(self) -> Net:
+        """Return the net of the term."""
+        if self.path.empty():
+            return None
+        # path is one level up
+        path = self.path.getHeadPath()
+        return self.__get_net(path, self.__get_snl_bitnet)
 
     def get_instance(self):
+        """Return the instance of the term."""
         return Instance(self.path)
 
     def get_flat_fanout(self):
@@ -356,6 +369,7 @@ class Term:
             raise ValueError("Width mismatch")
         if self.get_instance().is_top():
             for bterm, bnet in zip(self.term.getBits(), net.net.getBits()):
+                logging.debug(f"Connecting {bterm} to {bnet}")
                 bterm.setNet(bnet)
         else:
             self.__make_unique()

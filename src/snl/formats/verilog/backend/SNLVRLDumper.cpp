@@ -635,7 +635,9 @@ void SNLVRLDumper::dumpTermAssigns(const SNLDesign* design, std::ostream& o) {
         if (auto scalarNet = dynamic_cast<SNLScalarNet*>(net)) {
           if (busTerm->getName() == scalarNet->getName()) {
             std::ostringstream reason;
-            reason << "Error while writing verilog: bus terminal ";
+            reason << "Error while writing verilog in design ";
+            reason << design->getString() << ": ";
+            reason << " bus terminal ";
             reason << busTerm->getString();
             reason << " and scalar net ";
             reason << scalarNet->getString();
@@ -652,9 +654,11 @@ void SNLVRLDumper::dumpTermAssigns(const SNLDesign* design, std::ostream& o) {
           if (busTerm->getName() == busNet->getName()) {
             if (busTermBit->getBit() != busNetBit->getBit()) {
               std::ostringstream reason;
-              reason << "Error while writing verilog: bus terminal bit";
+              reason << "Error while writing verilog in design ";
+              reason << design->getString() << ":";
+              reason << " bus terminal bit ";
               reason << busTermBit->getString();
-              reason << " and scalar net bit ";
+              reason << " and bus net bit ";
               reason << busNetBit->getString();
               reason << " should have the same bit value.";
               throw SNLVRLDumperException(reason.str());

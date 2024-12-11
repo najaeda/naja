@@ -6,6 +6,7 @@ import os
 import shutil
 import unittest
 import faulthandler
+
 from najaeda import netlist
 from najaeda import snl
 
@@ -130,6 +131,8 @@ class NajaNetlistTest1(unittest.TestCase):
         self.assertTrue(i0Net.is_bus())
         self.assertEqual(2, sum(1 for _ in i0Net.get_bits()))
         self.assertIsNone(i0.get_net())
+        self.assertIsNotNone(i0.get_lower_net())
+        self.assertEqual(i0Net, i0.get_lower_net())
 
         i1Net = top.get_net('I1')
         self.assertIsNotNone(i1Net)
@@ -146,6 +149,9 @@ class NajaNetlistTest1(unittest.TestCase):
         self.assertEqual([i0.get_bit(0)], list(i0Net.get_bit(0).get_terms()))
         self.assertEqual([i0.get_bit(1)], list(i0Net.get_bit(1).get_terms()))
         self.assertIsNone(i1.get_net())
+        self.assertIsNotNone(i1.get_lower_net())
+        self.assertEqual(i1Net, i1.get_lower_net())
+
         #self.assertGreater(i1Net, i0Net)
         #self.assertGreaterEqual(i1Net, i0Net)
         #self.assertLess(i0Net, i1Net)
@@ -190,6 +196,8 @@ class NajaNetlistTest1(unittest.TestCase):
         self.assertEqual([oNet], list(oNet.get_bits()))
         self.assertIsNone(oNet.get_bit(0))
         self.assertIsNone(o.get_net())
+        self.assertIsNotNone(o.get_lower_net())
+        self.assertEqual(oNet, o.get_lower_net())
 
         self.assertIsNone(top.get_child_instance('Ins3'))
         self.assertIsNone(top.get_term('I2'))
@@ -202,7 +210,7 @@ class NajaNetlistTest1(unittest.TestCase):
             shutil.rmtree(bench_dir)
         os.makedirs(bench_dir)
         top = netlist.get_top()
-        top.dump_verilog(os.path.join(bench_dir), "cloned.v")
+        top.dump_verilog(os.path.join(bench_dir), "netlist1.v")
     
 if __name__ == '__main__':
     faulthandler.enable()
