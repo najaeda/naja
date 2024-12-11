@@ -13,6 +13,7 @@ class NajaNetlistTest1(unittest.TestCase):
     def setUp(self):
         universe = snl.SNLUniverse.create()
         db = snl.SNLDB.create(universe)
+        universe.setTopDB(db)
         primitives = snl.SNLLibrary.createPrimitives(db)
         and2 = snl.SNLDesign.createPrimitive(primitives, "AND2")
         snl.SNLScalarTerm.create(and2, snl.SNLTerm.Direction.Input, "I0")
@@ -69,10 +70,10 @@ class NajaNetlistTest1(unittest.TestCase):
         ins1.get_term('I0').connect(i0Net.get_bit(1))
         ins1.get_term('I1').connect(i1Net.get_bit(1))
         ins2 = top.create_child_instance('OR2', 'Ins2')
-        wire = top.create_bus_net('wire', 1, 0)
-        #ins2.get_term('I0').connect(wire.get_bit(1))
-        #ins2.get_term('I1').connect(wire.get_bit(0))
-        #ins2.get_term('O').connect(o)
+        wire = top.create_bus_net('net', 1, 0)
+        ins2.get_term('I0').connect(wire.get_bit(1))
+        ins2.get_term('I1').connect(wire.get_bit(0))
+        ins2.get_term('O').connect(oNet)
 
     def tearDown(self):
         if snl.SNLUniverse.get():
@@ -83,9 +84,10 @@ class NajaNetlistTest1(unittest.TestCase):
         self.assertIsNotNone(top)
         self.assertEqual(top.get_name(), 'Top')
         #DB is the second one created
-        self.assertEqual((2,0,0), top.get_model_id())
+        # Top is third created module
+        self.assertEqual((1,2,0), top.get_model_id())
         self.assertEqual('Top', netlist.get_model_name(top.get_model_id()))
-        self.assertIsNone(netlist.get_model_name((2,0,30)))
+        self.assertIsNone(netlist.get_model_name((1,0,30)))
 
         i0 = top.get_term('I0')
         self.assertIsNotNone(i0)
@@ -161,14 +163,16 @@ class NajaNetlistTest1(unittest.TestCase):
         self.assertIsNotNone(ins2)
         self.assertEqual('Ins2', ins2.get_name())
         self.assertTrue(ins2.is_primitive())
+
+        self.assertEqual(3, sum(1 for _ in top.get_child_instances()))
+        self.assertListEqual([ins0, ins1, ins2], list(top.get_child_instances()))
+
         self.assertEqual([ins0.get_term('I0')], list(i0Net.get_bit(0).get_inst_terms()))
         self.assertEqual([i0.get_bit(0), ins0.get_term('I0')], list(i0Net.get_bit(0).get_components()))
         self.assertEqual([i1.get_bit(0), ins0.get_term('I1')], list(i1Net.get_bit(0).get_components()))
         self.assertEqual([ins0.get_term('I1')], list(i1Net.get_bit(0).get_inst_terms()))
         self.assertEqual([i0.get_bit(1), ins1.get_term('I0')], list(i0Net.get_bit(1).get_components()))
         self.assertEqual([i1.get_bit(1), ins1.get_term('I1')], list(i1Net.get_bit(1).get_components()))
-        self.assertEqual(3, sum(1 for _ in top.get_child_instances()))
-        self.assertListEqual([ins0, ins1, ins2], list(top.get_child_instances()))
         self.assertIsNone(ins0.get_term('I0').get_bit(0))
         self.assertIsNone(ins0.get_term('I0').get_bit(4))
         self.assertEqual(ins0.get_term('I0').get_net(), i0Net.get_bit(0))
