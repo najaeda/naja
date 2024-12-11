@@ -8,6 +8,7 @@ import logging
 
 from najaeda import snl
 
+
 class Equipotential:
     """Class that represents the term and wraps
     some of the snl occurrence API.
@@ -314,7 +315,7 @@ class Term:
             if snl_net is not None:
                 return Net(path, snl_net)
         return None
-        
+
     def get_lower_net(self) -> Net:
         """Return the lower net of the term."""
         return self.__get_net(self.path, self.__get_snl_lower_bitnet)
