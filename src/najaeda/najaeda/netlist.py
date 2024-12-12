@@ -500,7 +500,7 @@ class Instance:
     def get_number_of_child_instances(self) -> int:
         return sum(1 for _ in self.__get_snl_model().getInstances())
 
-    #def get_flat_primitive_instances(self):
+    # def get_flat_primitive_instances(self):
     #    FIXME: concat first local path with the path of the instance
     #    model = self.__get_snl_model()
     #    for inst in model.getInstances():
@@ -723,5 +723,3 @@ def get_model_name(id: tuple[int, int, int]) -> str:
                 if model:
                     return model.getName()
     return None
-
-
