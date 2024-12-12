@@ -115,7 +115,7 @@ class NajaNetlistTest1(unittest.TestCase):
         self.assertEqual(i1.get_lsb(), 0)
         self.assertEqual(i1.get_msb(), 1)
         self.assertEqual(i1.get_width(), 2)
-        self.assertEqual(i1.get_direction(), netlist.Term.Input)
+        self.assertEqual(i1.get_direction(), netlist.Term.INPUT)
         
         o = top.get_term('O')
         self.assertIsNotNone(o)
@@ -124,7 +124,7 @@ class NajaNetlistTest1(unittest.TestCase):
         self.assertTrue(o.is_scalar())
         self.assertFalse(o.is_bus_bit())
         self.assertTrue(o.is_bit())
-        self.assertEqual(o.get_direction(), netlist.Term.Output)
+        self.assertEqual(o.get_direction(), netlist.Term.OUTPUT)
         self.assertEqual(o.get_name(), 'O')
         self.assertEqual(o.get_width(), 1)
         self.assertIsNone(o.get_lsb())

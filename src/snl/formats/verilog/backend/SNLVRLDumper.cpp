@@ -577,20 +577,28 @@ void SNLVRLDumper::dumpInstances(const SNLDesign* design, std::ostream& o, Desig
 }
 
 void SNLVRLDumper::dumpTermNetAssign(
+  const SNLDesign* design,
   const SNLTerm::Direction& direction,
   const std::string& termNetName,
   const std::string& netName,
   std::ostream& o) {
-  switch (direction) {
-    case SNLTerm::Direction::Input:
-      o << "assign " << netName << " = " << termNetName << ";" << std::endl;
-      break;
-    case SNLTerm::Direction::Output:
-      o << "assign " << termNetName << " = " << netName << ";" << std::endl;
-      break;
-    default:
-      throw SNLVRLDumperException("wrong direction in assign");
-  }
+    switch (direction) {
+      case SNLTerm::Direction::Input:
+        o << "assign " << netName << " = " << termNetName << ";" << std::endl;
+        break;
+      case SNLTerm::Direction::Output:
+        o << "assign " << termNetName << " = " << netName << ";" << std::endl;
+        break;
+      default:
+        {
+          std::ostringstream reason;
+          reason << "Error while writing verilog of design " << design->getString();
+          reason << ", wrong direction (";
+          reason << direction.getString() << ") in assign for dumping: ";
+          reason << "assign " << termNetName << " = " << netName;
+          throw SNLVRLDumperException(reason.str());
+        }
+    }
 }
 
 void SNLVRLDumper::dumpTermAssigns(const SNLDesign* design, std::ostream& o) {
@@ -605,6 +613,7 @@ void SNLVRLDumper::dumpTermAssigns(const SNLDesign* design, std::ostream& o) {
             //need assign
             atLeastOne = true;
             dumpTermNetAssign(
+              design,
               scalarTerm->getDirection(),
               scalarTerm->getName().getString(),
               scalarNet->getName().getString(),
@@ -626,7 +635,11 @@ void SNLVRLDumper::dumpTermAssigns(const SNLDesign* design, std::ostream& o) {
             //need assign
             atLeastOne = true;
             dumpTermNetAssign(
-              scalarTerm->getDirection(), scalarTerm->getString(), busNetBit->getString(), o);
+              design,
+              scalarTerm->getDirection(),
+              scalarTerm->getString(),
+              busNetBit->getString(),
+              o);
           }
         }
       } else {
@@ -646,7 +659,11 @@ void SNLVRLDumper::dumpTermAssigns(const SNLDesign* design, std::ostream& o) {
           } else {
             atLeastOne = true;
             dumpTermNetAssign(
-              busTerm->getDirection(), busTermBit->getString(), scalarNet->getString(), o);
+              design,
+              busTerm->getDirection(),
+              busTermBit->getString(),
+              scalarNet->getString(),
+              o);
           }
         } else {
           auto busNetBit = static_cast<SNLBusNetBit*>(net);
@@ -666,7 +683,12 @@ void SNLVRLDumper::dumpTermAssigns(const SNLDesign* design, std::ostream& o) {
           } else {
             atLeastOne = true;
             dumpTermNetAssign(
-              busTerm->getDirection(), busTermBit->getString(), busNetBit->getString(), o);
+              design,
+              busTerm->getDirection(),
+              busTermBit->getString(),
+              busNetBit->getString(),
+              o
+            );
           }
         }
       }

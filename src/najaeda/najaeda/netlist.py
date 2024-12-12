@@ -117,12 +117,12 @@ class Net:
         """Return True if the net is a concatenation."""
         return hasattr(self, "net_concat")
 
-    def is_constant(self) -> bool:
+    def is_const(self) -> bool:
         """Return True if the net is a constant generator."""
         if hasattr(self, "net"):
             return self.net.isConstant()
         for net in self.net_concat:
-            if not net.is_constant():
+            if not net.isConstant():
                 return False
         return True
 
@@ -172,9 +172,9 @@ class Net:
 
 
 class Term:
-    Input = snl.SNLTerm.Direction.Input
-    Output = snl.SNLTerm.Direction.Output
-    InOut = snl.SNLTerm.Direction.InOut
+    INPUT = snl.SNLTerm.Direction.Input
+    OUTPUT = snl.SNLTerm.Direction.Output
+    INOUT = snl.SNLTerm.Direction.InOut
 
     def __init__(self, path, term):
         self.path = path
@@ -262,11 +262,11 @@ class Term:
     def get_direction(self) -> snl.SNLTerm.Direction:
         """Return the direction of the term."""
         if self.term.getDirection() == snl.SNLTerm.Direction.Input:
-            return Term.Input
+            return Term.INPUT
         elif self.term.getDirection() == snl.SNLTerm.Direction.Output:
-            return Term.Output
+            return Term.OUTPUT
         elif self.term.getDirection() == snl.SNLTerm.Direction.InOut:
-            return Term.InOut
+            return Term.INOUT
 
     def __get_snl_bitnet(self, bit) -> Net:
         # single bit
@@ -633,9 +633,10 @@ class Instance:
     def create_input_term(self, name: str) -> Term:
         return self.create_term(name, snl.SNLTerm.Direction.Input)
 
-    def create_bus_term(
-        self, name: str, msb: int, lsb: int, direction: snl.SNLTerm.Direction
-    ) -> Term:
+    def create_inout_term(self, name: str) -> Term:
+        return self.create_term(name, snl.SNLTerm.Direction.InOut)
+
+    def create_bus_term(self, name: str, msb: int, lsb: int, direction) -> Term:
         if self.path.size() > 0:
             path = self.path
             snl.SNLUniquifier(path)
@@ -643,6 +644,9 @@ class Instance:
         design = self.__get_snl_model()
         newSNLTerm = snl.SNLBusTerm.create(design, direction, msb, lsb, name)
         return Term(self.path, newSNLTerm)
+
+    def create_inout_bus_term(self, name: str, msb: int, lsb: int) -> Term:
+        return self.create_bus_term(name, msb, lsb, snl.SNLTerm.Direction.InOut)
 
     def create_output_bus_term(self, name: str, msb: int, lsb: int) -> Term:
         return self.create_bus_term(name, msb, lsb, snl.SNLTerm.Direction.Output)

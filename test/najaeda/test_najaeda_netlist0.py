@@ -379,7 +379,7 @@ class NajaNetlistTest0(unittest.TestCase):
         self.assertIsNotNone(netI1bus)
         self.assertTrue(netI1bus.is_bus())
         self.assertFalse(netI1bus.is_scalar())
-        self.assertFalse(netI1bus.is_constant())
+        self.assertFalse(netI1bus.is_const())
         #print(netI1bus.get_name())
         #self.assertEqual(len(top.get_net_list_for_bus("netI1bus")), 5)
 

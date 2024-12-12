@@ -275,6 +275,10 @@ class NajaNetlistTest2(unittest.TestCase):
         self.assertFalse(modI0Net.is_bus())
         self.assertFalse(modI0Net.is_scalar())
         self.assertTrue(modI0Net.is_concat())
+        self.assertFalse(modI0Net.is_const())
+        self.assertEqual(4, sum(1 for _ in modI0Net.get_bits()))
+        self.assertIsNone(modI0Net.get_bit(4))
+
         for i in range(4):
             # modIO.get_bit(i) is the connected to I0_{3-i} scalar net
             self.assertEqual(modI0Net.get_bit(i).get_name(), top.get_net(f'I0_{3-i}').get_name())
@@ -317,6 +321,40 @@ class NajaNetlistTest2(unittest.TestCase):
         os.makedirs(bench_dir)
         top = netlist.get_top()
         top.dump_verilog(os.path.join(bench_dir), "netlist2_top2.v")
+
+    def test_top3(self):
+        def create_top():
+            top = netlist.create_top('Top')
+            i1 = top.create_input_bus_term('I1', 3, 0)
+            o = top.create_inout_bus_term('O', 1, 0)
+            mod = top.create_child_instance('Module0', 'mod')
+
+            i0Net = top.create_bus_net('I0', 3, 0)
+            for i in range(4):
+                i0Net = top.create_net(f'I0_{3-i}')
+                mod.get_term('I0').get_bit(i).connect(i0Net)
+            for i in range(4):
+                i1Net = top.create_net(f'I1_{3-i}')
+                i1.get_bit(i).connect(i1Net)
+                mod.get_term('I1').get_bit(i).connect(i1Net)
+            oNet = top.create_bus_net('O', 1, 0)
+            o.connect(oNet)
+
+        create_top()
+        top = netlist.get_top()
+        self.assertIsNotNone(top)
+        mod = top.get_child_instance('mod')
+        self.assertIsNotNone(mod)
+
+        # dump top3
+        bench_dir = os.environ.get('NAJAEDA_TEST_PATH')
+        self.assertIsNotNone(bench_dir)
+        bench_dir = os.path.join(bench_dir, "test_najaeda_netlist2_top3")
+        if os.path.exists(bench_dir):
+            shutil.rmtree(bench_dir)
+        os.makedirs(bench_dir)
+        top = netlist.get_top()
+        top.dump_verilog(os.path.join(bench_dir), "netlist2_top3.v")
 
 if __name__ == '__main__':
     faulthandler.enable()
