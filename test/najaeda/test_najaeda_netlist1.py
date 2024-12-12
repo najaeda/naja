@@ -90,6 +90,15 @@ class NajaNetlistTest1(unittest.TestCase):
         self.assertEqual('Top', netlist.get_model_name(top.get_model_id()))
         self.assertIsNone(netlist.get_model_name((1,0,30)))
 
+        self.assertEqual(3, sum(1 for _ in top.get_terms()))
+        self.assertEqual(2+2+1, sum(1 for _ in top.get_flat_terms()))
+        self.assertEqual(4, sum(1 for _ in top.get_nets()))
+        self.assertEqual(2+2+1+2, sum(1 for _ in top.get_flat_nets()))
+        self.assertEqual(2, sum(1 for _ in top.get_input_terms()))
+        self.assertEqual(2+2, sum(1 for _ in top.get_flat_input_terms()))
+        self.assertEqual(1, sum(1 for _ in top.get_output_terms()))
+        self.assertEqual(1, sum(1 for _ in top.get_flat_output_terms()))
+
         i0 = top.get_term('I0')
         self.assertIsNotNone(i0)
         self.assertTrue(i0.is_bus())

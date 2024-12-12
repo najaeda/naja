@@ -479,8 +479,6 @@ class Instance:
 
     def __find_snl_model(self, name: str) -> snl.SNLDesign:
         u = snl.SNLUniverse.get()
-        if u is None:
-            return None
         for db in u.getUserDBs():
             for lib in db.getLibraries():
                 found_model = lib.getDesign(name)
@@ -501,16 +499,6 @@ class Instance:
 
     def get_number_of_child_instances(self) -> int:
         return sum(1 for _ in self.__get_snl_model().getInstances())
-
-    def get_terms(self):
-        for term in self.__get_snl_model().getTerms():
-            yield Term(self.path, term)
-
-    def get_term(self, name: str) -> Term:
-        term = self.__get_snl_model().getTerm(name)
-        if term is not None:
-            return Term(self.path, self.__get_snl_model().getTerm(name))
-        return None
 
     def get_nets(self):
         for net in self.__get_snl_model().getNets():
@@ -533,6 +521,20 @@ class Instance:
     def is_primitive(self) -> bool:
         """Return True if this is a primitive."""
         return self.__get_snl_model().isPrimitive()
+
+    def get_terms(self):
+        for term in self.__get_snl_model().getTerms():
+            yield Term(self.path, term)
+
+    def get_flat_terms(self):
+        for term in self.__get_snl_model().getBitTerms():
+            yield Term(self.path, term)
+
+    def get_term(self, name: str) -> Term:
+        term = self.__get_snl_model().getTerm(name)
+        if term is not None:
+            return Term(self.path, self.__get_snl_model().getTerm(name))
+        return None
 
     def get_input_terms(self):
         for term in self.__get_snl_model().getTerms():
