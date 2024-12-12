@@ -78,12 +78,12 @@ class SNLNetTest(unittest.TestCase):
     self.assertEqual(1, sum(1 for n in self.design.getScalarNets()))
     self.assertEqual(1, sum(1 for n in self.design.getBusNets()))
     self.assertEqual(1+5, sum(1 for b in self.design.getBitNets()))
-    i1Bit4 = i1.getBit(4)
     
     i1Bit4 = i1.getBit(4)
     i1NetBit4 = i1Net.getBit(4)
     self.assertIsNotNone(i1Bit4)
     self.assertIsNotNone(i1NetBit4)
+    self.assertEqual(i1NetBit4, i1Net.getBitAtPosition(0))
     self.assertEqual(i1Bit4.getNet(), i1NetBit4)
     self.assertEqual(1, sum(1 for c in i1NetBit4.getComponents()))
     self.assertEqual(1, sum(1 for b in i1NetBit4.getBitTerms()))
