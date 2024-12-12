@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from os import path
+import sys
 from najaeda import netlist
 
 # snippet-start: print_design
@@ -25,3 +26,5 @@ netlist.load_liberty(liberty_files)
 top = netlist.load_verilog([path.join(benchmarks, 'verilog', 'tinyrocket.v')])
 
 print_netlist(top)
+
+sys.exit(0)

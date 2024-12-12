@@ -22,8 +22,8 @@ for dir_name in next(os.walk(root_dir))[1]:  # [1] gives the list of subdirector
             test_path = os.path.join(subdir_path, file)
             print(f"Running {test_path}...")
             # Run the test using subprocess
-            return_code = subprocess.run(["python", file], cwd=subdir_path)
-            if return_code != 0:
+            process_return = subprocess.run(["python3", file], cwd=subdir_path)
+            if process_return.returncode != 0:
                 print(f"Test {test_path} failed!")
                 failure = True
     if failure:

@@ -5,6 +5,7 @@
 
 # snippet-start: load_design
 from os import path
+import sys
 from najaeda import netlist
 
 benchmarks = path.join('..','benchmarks')
@@ -18,5 +19,7 @@ liberty_files = list(map(lambda p:path.join(benchmarks, 'liberty', p), liberty_f
 netlist.load_liberty(liberty_files)
 top = netlist.load_verilog([path.join(benchmarks, 'verilog', 'tinyrocket.v')])
 
-top.dump_verilog('tinyrocket_naja.v', 'tinyrocket_naja')
+top.dump_verilog('.', 'tinyrocket_naja.v')
 # snippet-end: load_design
+
+sys.exit(0)

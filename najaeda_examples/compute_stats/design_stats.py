@@ -4,6 +4,7 @@
 
 import logging
 import os
+import sys
 from najaeda import netlist
 
 class DesignsStats:
@@ -268,3 +269,5 @@ def dump_constants(design, analyzed_models):
   for ins in design.getInstances():
     model = ins.getModel()
     dump_constants(model, analyzed_models)
+
+sys.exit(0)
