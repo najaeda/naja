@@ -93,6 +93,10 @@ class NajaNetlistTest2(unittest.TestCase):
         #get nets from terms
         top = netlist.get_top()
         self.assertIsNotNone(top)
+
+        self.assertEqual(1, sum(1 for _ in top.get_output_terms()))
+        self.assertEqual(2, sum(1 for _ in top.get_flat_output_terms()))
+
         mod = top.get_child_instance('mod')
         self.assertIsNotNone(mod)
 

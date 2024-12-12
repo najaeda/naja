@@ -129,6 +129,8 @@ class NajaNetlistTest1(unittest.TestCase):
         self.assertEqual(o.get_width(), 1)
         self.assertIsNone(o.get_lsb())
         self.assertIsNone(o.get_msb())
+        self.assertEqual(1, sum(1 for _ in o.get_bits()))
+        self.assertEqual(o, next(o.get_bits()))
         self.assertListEqual([i0, i1, o], list(top.get_terms()))
 
         i0Net = top.get_net('I0')
@@ -210,6 +212,22 @@ class NajaNetlistTest1(unittest.TestCase):
 
         self.assertIsNone(top.get_child_instance('Ins3'))
         self.assertIsNone(top.get_term('I2'))
+
+    def testPrimitiveInstances(self):
+        top = netlist.get_top()
+        self.assertIsNotNone(top)
+        self.assertEqual(3, sum(1 for _ in top.get_child_instances()))
+        #self.assertEqual(6, sum(1 for _ in top.get_flat_primitive_instances()))
+        #self.assertListEqual(
+        #    [top.get_child_instance('Ins0').get_child_instance('and0'),
+        #     top.get_child_instance('Ins0').get_child_instance('and1'),
+        #     top.get_child_instance('Ins0').get_child_instance('or0'),
+        #     top.get_child_instance('Ins1').get_child_instance('and0'),
+        #     top.get_child_instance('Ins1').get_child_instance('and1'),
+        #     top.get_child_instance('Ins1').get_child_instance('or0'),
+        #     top.get_child_instance('Ins2')],
+        #    list(top.get_flat_primitive_instances())
+        #)
     
     def testDump(self):
         bench_dir = os.environ.get('NAJAEDA_TEST_PATH')

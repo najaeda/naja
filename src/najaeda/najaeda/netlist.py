@@ -500,6 +500,22 @@ class Instance:
     def get_number_of_child_instances(self) -> int:
         return sum(1 for _ in self.__get_snl_model().getInstances())
 
+    #def get_flat_primitive_instances(self):
+    #    FIXME: concat first local path with the path of the instance
+    #    model = self.__get_snl_model()
+    #    for inst in model.getInstances():
+    #        path = snl.SNLPath(inst)
+    #        stack = [[inst, path]]
+    #        while stack:
+    #            current = stack.pop()
+    #            current_inst = current[0]
+    #            current_path = current[1]
+    #            for inst_child in current_inst.getModel().getInstances():
+    #                path_child = snl.SNLPath(current_path, inst_child)
+    #                if inst_child.getModel().isPrimitive():
+    #                    yield Instance(path_child)
+    #                stack.append([inst_child, path_child])
+
     def get_nets(self):
         for net in self.__get_snl_model().getNets():
             yield Net(self.path, net)
@@ -709,18 +725,3 @@ def get_model_name(id: tuple[int, int, int]) -> str:
     return None
 
 
-def get_all_primitive_instances():
-    top = snl.SNLUniverse.get().getTopDesign()
-
-    for inst in top.getInstances():
-        path = snl.SNLPath(inst)
-        stack = [[inst, path]]
-        while stack:
-            current = stack.pop()
-            current_inst = current[0]
-            current_path = current[1]
-            for inst_child in current_inst.getModel().getInstances():
-                path_child = snl.SNLPath(current_path, inst_child)
-                if inst_child.getModel().isPrimitive():
-                    yield Instance(path_child)
-                stack.append([inst_child, path_child])
