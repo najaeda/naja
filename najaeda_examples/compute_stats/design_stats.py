@@ -80,15 +80,15 @@ def compute_design_stats(design, designs_stats):
 
 def compute_design_terms(design, design_stats): 
   for term in design.get_terms():
-    if term.get_direction() == netlist.Term.Input:
+    if term.get_direction() == netlist.Term.INPUT:
       design_stats.terms["inputs"] = design_stats.terms.get("inputs", 0) + 1
       bit_terms = sum(1 for _ in term.get_bits())
       design_stats.bit_terms["inputs"] = design_stats.bit_terms.get("inputs", 0) + bit_terms
-    elif term.get_direction() == netlist.Term.Output:
+    elif term.get_direction() == netlist.Term.OUTPUT:
       design_stats.terms["outputs"] = design_stats.terms.get("outputs", 0) + 1
       bit_terms = sum(1 for _ in term.get_bits())
       design_stats.bit_terms["outputs"] = design_stats.bit_terms.get("outputs", 0) + bit_terms
-    elif term.get_direction() == netlist.Term.InOut:
+    elif term.get_direction() == netlist.Term.INOUT:
       design_stats.terms["inouts"] = design_stats.terms.get("inouts", 0) + 1
       bit_terms = sum(1 for _ in term.get_bits())
       design_stats.bit_terms["inouts"] = design_stats.bit_terms.get("inouts", 0) + bit_terms
