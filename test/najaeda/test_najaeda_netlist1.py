@@ -213,6 +213,23 @@ class NajaNetlistTest1(unittest.TestCase):
         self.assertIsNone(top.get_child_instance('Ins3'))
         self.assertIsNone(top.get_term('I2'))
 
+    def testInstanceHash(self):
+        top = netlist.get_top()
+        instances = list(top.get_child_instances())
+        self.assertEqual(3, len(instances))
+        instancesDict = {}
+        for index, instance in enumerate(instances):
+            instancesDict[instance] = index
+        instancesDict[top] = 4
+        self.assertEqual(4, len(instancesDict))
+        self.assertEqual(4, instancesDict[top])
+        #FIXME xtof can we find back in a dict
+        #different but == instances ?
+        #self.assertIn(top.get_child_instance('Ins0'), instancesDict)
+        #self.assertEqual(0, instancesDict[top.get_child_instance('Ins0')])
+        #self.assertEqual(1, instancesDict[top.get_child_instance('Ins1')])
+        #self.assertEqual(2, instancesDict[top.get_child_instance('Ins2')])
+
     def testPrimitiveInstances(self):
         top = netlist.get_top()
         self.assertIsNotNone(top)

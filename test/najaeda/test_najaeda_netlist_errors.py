@@ -18,6 +18,13 @@ class NajaNetlistTestErrors(unittest.TestCase):
         top = netlist.create_top('Top')
         self.assertIsNotNone(top)
         self.assertRaises(Exception, top.create_child_instance, 'Module0', 'mod')
+
+    def test_width_mismatch(self):
+        top = netlist.create_top('Top')
+        self.assertIsNotNone(top)
+        topTerm = top.create_input_term('Top')
+        topNet = top.create_net('net')
+        self.assertRaises(Exception, topTerm.connect(topNet))
             
 if __name__ == '__main__':
     faulthandler.enable()
