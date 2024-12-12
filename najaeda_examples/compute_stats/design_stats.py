@@ -99,7 +99,7 @@ def compute_design_terms(design, design_stats):
 
 def compute_design_net_stats(design, design_stats):
   for net in design.get_flat_nets():
-    if net.is_constant():
+    if net.is_const():
       pass
     nb_components = sum(1 for c in net.get_terms())
     design_stats.net_stats[nb_components] = design_stats.net_stats.get(nb_components, 0) + 1
