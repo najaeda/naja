@@ -109,7 +109,7 @@ jobs:
           CIBW_MANYLINUX_X86_64_IMAGE: ${{ matrix.manylinux_image }}
           CIBW_MANYLINUX_I686_IMAGE: ${{ matrix.manylinux_image }}
           CIBW_TEST_REQUIRES: "pytest"
-          CIBW_TEST_COMMAND: "python -m pytest {project}/test/najaeda"
+          CIBW_TEST_COMMAND: "export VERILOG_BENCHMARKS_PATH='{project}/test/snl/formats/verilog/benchmarks' && export LIBERTY_BENCHMARKS_PATH='{project}/test/snl/formats/liberty/benchmarks' && export NAJAEDA_TEST_PATH='{project}/test/najaeda' && python -m pytest {project}/test/najaeda"
         run: python -m cibuildwheel --output-dir wheelhouse
 
       #Reminder!!: actions/upload-artifact and actions/download-artifact
