@@ -108,7 +108,7 @@ jobs:
           CIBW_ARCHS: all
           CIBW_MANYLINUX_X86_64_IMAGE: ${{ matrix.manylinux_image }}
           CIBW_MANYLINUX_I686_IMAGE: ${{ matrix.manylinux_image }}
-          CIBW_PRE_TEST_COMMAND: "python -m pip install pytest"
+          CIBW_TEST_REQUIRES: "pytest"
           CIBW_TEST_COMMAND: "python -m pytest {project}/test/najaeda"
         run: python -m cibuildwheel --output-dir wheelhouse
 
