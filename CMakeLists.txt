@@ -95,7 +95,7 @@ if(NOT BUILD_ONLY_DOC)
   endif(NOT BUILD_NAJA_PYTHON)
 
   find_package(Boost REQUIRED)
-  if (APPLE OR NOT ${BUILD_NAJA_PYTHON})
+  if (NOT ${BUILD_NAJA_PYTHON})
     find_package(Python3 3.9...<3.99 COMPONENTS Interpreter Development.Embed Development.Module REQUIRED)
   else()
     find_package(Python3 3.9...<3.99 COMPONENTS Interpreter Development.Module REQUIRED)

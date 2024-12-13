@@ -26,10 +26,20 @@ set(SOURCES
 )
 
 add_library(naja_snl_python SHARED ${SOURCES})
-target_link_libraries(naja_snl_python PUBLIC naja_snl_verilog naja_snl_liberty)
-if (APPLE OR NOT ${BUILD_NAJA_PYTHON})
-  target_link_libraries(naja_snl_python PUBLIC Python3::Python)
-endif()
+if (BUILD_NAJA_PYTHON)
+  target_link_libraries(naja_snl_python
+    PUBLIC
+    naja_snl_verilog naja_snl_liberty
+    Python3::Module
+  )
+else(BUILD_NAJA_PYTHON)
+  target_link_libraries(naja_snl_python
+    PUBLIC
+    naja_snl_verilog naja_snl_liberty
+    Python3::Python
+  )
+endif(BUILD_NAJA_PYTHON)
+
 target_include_directories(naja_snl_python
   PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
   PRIVATE ${Python3_INCLUDE_DIRS}
@@ -43,5 +53,6 @@ if(BUILD_NAJA_PYTHON)
   install(TARGETS naja_snl_python LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/najaeda)
 else(BUILD_NAJA_PYTHON)
   install(TARGETS snl LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}/python/naja)
+  install(TARGETS snl LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}/python/najaeda)
   install(TARGETS naja_snl_python LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}) 
 endif(BUILD_NAJA_PYTHON)
