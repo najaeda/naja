@@ -26,11 +26,19 @@ set(SOURCES
 )
 
 add_library(naja_snl_python SHARED ${SOURCES})
-target_link_libraries(naja_snl_python
-  PUBLIC
-  naja_snl_verilog naja_snl_liberty
-  Python3::Module
-)
+if (BUILD_NAJA_PYTHON)
+  target_link_libraries(naja_snl_python
+    PUBLIC
+    naja_snl_verilog naja_snl_liberty
+    Python3::Module
+  )
+else(BUILD_NAJA_PYTHON)
+  target_link_libraries(naja_snl_python
+    PUBLIC
+    naja_snl_verilog naja_snl_liberty
+    Python3::Python
+  )
+endif(BUILD_NAJA_PYTHON)
 
 target_include_directories(naja_snl_python
   PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
