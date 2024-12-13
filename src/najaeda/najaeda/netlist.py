@@ -4,10 +4,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import itertools
+import time
 import logging
 
 from najaeda import snl
-
 
 class Equipotential:
     """Class that represents the term and wraps
@@ -700,11 +700,16 @@ def create_top(name: str) -> Instance:
 
 
 def load_verilog(files: list):
+    start_time = time.time()
+    logging.info(f"Loading verilog: {', '.join(files)}")
     get_top_db().loadVerilog(files)
+    execution_time = time.time() - start_time
+    logging.info(f"Loading done in {execution_time:.2f} seconds")
     return get_top()
 
 
 def load_liberty(files: list):
+    logging.info(f"Loading liberty: {', '.join(files)}")
     get_top_db().loadLibertyPrimitives(files)
 
 
