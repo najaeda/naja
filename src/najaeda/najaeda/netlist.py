@@ -9,6 +9,7 @@ import logging
 
 from najaeda import snl
 
+
 class Equipotential:
     """Class that represents the term and wraps
     some of the snl occurrence API.
@@ -711,6 +712,16 @@ def load_verilog(files: list):
 def load_liberty(files: list):
     logging.info(f"Loading liberty: {', '.join(files)}")
     get_top_db().loadLibertyPrimitives(files)
+
+
+def load_primitives(name: str):
+    if name == "xilinx":
+        logging.info("Loading xilinx primitives")
+        from najaeda.primitives import xilinx
+
+        xilinx.load(get_top_db())
+    else:
+        raise ValueError(f"Unknown primitives library: {name}")
 
 
 def get_primitives_library() -> snl.SNLLibrary:
