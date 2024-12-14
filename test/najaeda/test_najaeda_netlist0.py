@@ -279,6 +279,7 @@ class NajaNetlistTest0(unittest.TestCase):
         self.assertFalse(instance.is_buf())
         self.assertFalse(instance.is_inv())
         self.assertFalse(instance.is_primitive())
+        self.assertFalse(instance.is_leaf())
 
     def testTopTerm(self):
         universe = snl.SNLUniverse.create()
