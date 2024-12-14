@@ -317,6 +317,7 @@ DirectGetIntMethod(PySNLDesign_getID, getID, PySNLDesign, SNLDesign)
 GetBoolAttribute(Design, isAnonymous)
 GetBoolAttribute(Design, isBlackBox)
 GetBoolAttribute(Design, isPrimitive)
+GetBoolAttribute(Design, isLeaf)
 GetBoolAttribute(Design, isAssign)
 GetBoolAttributeWithFunction(Design, isConst0, SNLDesignTruthTable::isConst0)
 GetBoolAttributeWithFunction(Design, isConst1, SNLDesignTruthTable::isConst1)
@@ -379,6 +380,8 @@ PyMethodDef PySNLDesign_Methods[] = {
     "Returns True if the SNLDesign is a Blackbox"},
   { "isPrimitive", (PyCFunction)PySNLDesign_isPrimitive, METH_NOARGS,
     "Returns True if the SNLDesign is a Primitive"},
+  { "isLeaf", (PyCFunction)PySNLDesign_isLeaf, METH_NOARGS,
+    "Returns True if the SNLDesign is a Leaf"},
   { "isAssign", (PyCFunction)PySNLDesign_isAssign, METH_NOARGS,
     "Returns True if the SNLDesign is an Assign"},
   { "getDB", (PyCFunction)PySNLDesign_getDB, METH_NOARGS,

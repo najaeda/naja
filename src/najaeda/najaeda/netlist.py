@@ -41,7 +41,7 @@ class Equipotential:
         for term in self.equi.getInstTermOccurrences():
             direction = term.getInstTerm().getDirection()
             if direction != snl.SNLTerm.Direction.Output:
-                if term.getInstTerm().getInstance().getModel().isPrimitive():
+                if term.getInstTerm().getInstance().getModel().isLeaf():
                     yield Term(
                         snl.SNLPath(term.getPath(), term.getInstTerm().getInstance()),
                         term.getInstTerm().getBitTerm(),
@@ -451,6 +451,10 @@ class Instance:
     def is_blackbox(self) -> bool:
         """Return True if this is a blackbox."""
         return self.__get_snl_model().isBlackBox()
+
+    def is_leaf(self) -> bool:
+        """Return True if this is a leaf."""
+        return self.__get_snl_model().isLeaf()
 
     def is_const0(self) -> bool:
         """Return True if this is a constant 0 generator."""
