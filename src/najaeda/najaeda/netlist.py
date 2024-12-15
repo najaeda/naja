@@ -35,7 +35,7 @@ class Equipotential:
 
     def get_top_terms(self):
         for term in self.equi.getTerms():
-            yield Term(snl.SNLPath(), term.getBitTerm())
+            yield Term(snl.SNLPath(), term)
 
     def get_all_leaf_readers(self):
         for term in self.equi.getInstTermOccurrences():
