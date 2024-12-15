@@ -24,10 +24,12 @@ liberty_benchmarks = os.environ.get('LIBERTY_BENCHMARKS_PATH')
 verilog_benchmarks = os.environ.get('VERILOG_BENCHMARKS_PATH')
 
 class ComputeEqui:
+
     def __init__(self, term):
         self.term = term
         self.nets = []
         self.terms = []
+
     def collect(self, termToCollect):
       #if net of term is in self.nets return
       if termToCollect.get_net() in self.nets:
@@ -50,6 +52,7 @@ class ComputeEqui:
     
     def get_terms(self):
         return self.terms
+
 
 class NajaNetlistTest0(unittest.TestCase):
     def setUp(self):
