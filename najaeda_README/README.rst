@@ -44,7 +44,13 @@ najaeda is a work in progress, and the documentation is still under development.
 
 Naja documentation is available on the `Naja GitHub repository <https://github.com/najaeda/naja>`_.
 
+Support
+-------
+Please put up issues on the Delocate issue tracker.
+If you encounter any issues or have questions, please report them on the
+`Naja issue tracker <https://github.com/najaeda/naja/issues>`_.
+
 License
 -------
-
-This project is licensed under the Apache License 2.0. See the `LICENSE <https://github.com/najaeda/naja/blob/main/LICENSE>`_ file for details.
+This project is licensed under the Apache License 2.0.
+See the `LICENSE <https://github.com/najaeda/naja/blob/main/LICENSE>`_ file for details.
