@@ -161,14 +161,14 @@ class Net:
             path = snl.SNLPath(self.path, term.getInstance())
             yield Term(path, term.getBitTerm())
 
-    def get_terms(self):
+    def get_design_terms(self):
         if hasattr(self, "net_concat"):
             raise ValueError("Cannot get terms from a net_concat")
         for term in self.net.getBitTerms():
             yield Term(self.path, term)
 
-    def get_components(self):
-        for term in itertools.chain(self.get_terms(), self.get_inst_terms()):
+    def get_terms(self):
+        for term in itertools.chain(self.get_design_terms(), self.get_inst_terms()):
             yield term
 
 
