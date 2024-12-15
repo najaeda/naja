@@ -14,7 +14,8 @@ class VisitorConfig:
         callback: Callable[[netlist.Instance], None] = lambda node: None,
     ):
         """
-        :param enter_condition: A function that determines whether to visit the children of an instance.
+        :param enter_condition: A function that determines whether to visit
+        the children of an instance.
         :param callback: The callback to be executed when an instance is visited.
         """
         self.callback = callback
