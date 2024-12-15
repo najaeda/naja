@@ -35,19 +35,11 @@ class ComputeEqui:
       #add net of term to self.nets
       self.nets.append(termToCollect.get_net())
       net = termToCollect.get_net()
-      for term in net.get_terms():
+      for term in net.get_components():
           if (term.get_instance().is_top()):
                 if not (term in self.terms):
                     self.terms.append(term)
                 continue      
-          if term.get_instance().is_leaf():
-                if not (term in self.terms):
-                    self.terms.append(term)
-                continue
-          else:
-                for lowerNetTerm in term.get_lower_net().get_terms():
-                    self.collect(lowerNetTerm)
-      for term in net.get_inst_terms():
           if term.get_instance().is_leaf():
                 if not (term in self.terms):
                     self.terms.append(term)
