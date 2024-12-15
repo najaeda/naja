@@ -23,6 +23,34 @@ else:
 liberty_benchmarks = os.environ.get('LIBERTY_BENCHMARKS_PATH')
 verilog_benchmarks = os.environ.get('VERILOG_BENCHMARKS_PATH')
 
+class ComputeEqui:
+    def __init__(self, term):
+        self.term = term
+        self.nets = []
+        self.terms = []
+    def collect(self, termToCollect):
+      #if net of term is in self.nets return
+      if termToCollect.get_net() in self.nets:
+          return
+      #add net of term to self.nets
+      self.nets.append(termToCollect.get_net())
+      net = termToCollect.get_net()
+      for term in net.get_terms():
+          if (term.get_instance().is_top()):
+                if not (term in self.terms):
+                    self.terms.append(term)
+                continue      
+          if term.get_instance().is_leaf():
+                if not (term in self.terms):
+                    self.terms.append(term)
+                continue
+          else:
+                for lowerNetTerm in term.get_lower_net().get_terms():
+                    self.collect(lowerNetTerm)
+    
+    def get_terms(self):
+        return self.terms
+
 class NajaNetlistTest0(unittest.TestCase):
     def setUp(self):
         pass
@@ -190,6 +218,7 @@ class NajaNetlistTest0(unittest.TestCase):
         self.osub = snl.SNLScalarTerm.create(self.submodel, snl.SNLTerm.Direction.Output, "O")
         ins2 = snl.SNLInstance.create(self.model, self.submodel, "ins2")
         ins1 = snl.SNLInstance.create(self.top, self.model, "ins1")
+        self.i0Top = snl.SNLScalarTerm.create(self.top, snl.SNLTerm.Direction.Input, "I0")
 
         path0 = snl.SNLPath()
         #print(path0)
@@ -201,6 +230,7 @@ class NajaNetlistTest0(unittest.TestCase):
         inst_terms = tuple(ins1.getInstTerms())
         i0_net = snl.SNLScalarNet.create(self.top, "I0")
         inst_terms[0].setNet(i0_net)
+        self.i0Top.setNet(i0_net)
         i0_net_sub = snl.SNLScalarNet.create(self.model, "I0")
         sub_inst_terms = tuple(ins2.getInstTerms())
         sub_inst_terms[0].setNet(i0_net_sub)
@@ -219,17 +249,28 @@ class NajaNetlistTest0(unittest.TestCase):
         net_component_occurrence2 = snl.SNLNetComponentOccurrence(path1, sub_inst_terms[0])
         snlequi = snl.SNLEquipotential(net_component_occurrence2)
 
+        computeEqui = ComputeEqui(inst_term)
+        computeEqui.collect(inst_term)
+        for term in computeEqui.get_terms():
+            print("--", term)
+
         snl_top_terms = []
         for t in snlequi.getTerms():
             snl_top_terms.append(t)
-
-        for t in equi.get_top_terms():
-            self.assertTrue(t.term == snl_top_terms.pop(0))
+            print("----",t)
 
         snl_inst_term_occurrences = []
         for t in snlequi.getInstTermOccurrences():
             snl_inst_term_occurrences.append(t)
+            print("----",t)
 
+        
+        
+        self.assertEqual(len(computeEqui.get_terms()), len(snl_top_terms) + len(snl_inst_term_occurrences))
+
+        for t in equi.get_top_terms():
+            self.assertTrue(t.term == snl_top_terms.pop(0)) 
+        
         for t in equi.get_inst_terms():
             to_compare_with = snl_inst_term_occurrences.pop(0)
             self.assertTrue(t.term == to_compare_with.getInstTerm().getBitTerm())
