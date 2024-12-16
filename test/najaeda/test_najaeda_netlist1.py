@@ -7,8 +7,9 @@ import shutil
 import unittest
 import faulthandler
 
-from najaeda import netlist
 from najaeda import snl
+from najaeda import netlist
+from najaeda import instance_visitor
 
 class NajaNetlistTest1(unittest.TestCase):
     def setUp(self):
@@ -255,6 +256,18 @@ class NajaNetlistTest1(unittest.TestCase):
         os.makedirs(bench_dir)
         top = netlist.get_top()
         top.dump_verilog(os.path.join(bench_dir), "netlist1.v")
+
+    def testInstanceVisitor(self):
+        top = netlist.get_top()
+        self.assertIsNotNone(top)
+        visitor = instance_visitor.Visitor(top)
+
+        # Define the callback to execute at each node
+        def callback(instance):
+            print(f"Visited instance: {instance}")
+
+        visitor_config = instance_visitor.VisitorConfig(callback=callback)
+        visitor.visit(top, visitor_config)
     
 if __name__ == '__main__':
     faulthandler.enable()
