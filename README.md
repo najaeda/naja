@@ -16,7 +16,7 @@ Naja is an Electronic Design Automation (EDA) project that provides open source 
 ### Quick Start with `najaeda`
 
 The easiest way to get started with **Naja** is through the
-[`najaeda` Python package](https://pypi.org/project/najaeda/).
+[najaeda](https://pypi.org/project/najaeda/) Python package.
 
 `najaeda` provides a powerful yet simple framework designed to help software
 and hardware developers efficiently navigate and manipulate electronic design
@@ -42,7 +42,7 @@ With `najaeda`, you can:
 
 `najaeda` empowers developers to innovate, adapt, and accelerate their EDA processes with minimal overhead. Get started today to unlock flexible, high-performance design capabilities!
 
-Another entry point for **Naja** is [`naja-edit`](https://example.com/naja-edit), a tool focused on netlist optimization with Dead Logic Elimination (DLE) or constant propagation.
+Another entry point for **Naja** is [`naja-edit`](#naja_edit), a tool focused on netlist optimization with Dead Logic Elimination (DLE) or constant propagation.
 
 For advanced use cases, EDA developers can build custom tools on top of naja C++ APIs.
 See some simple examples [here](#snippets).
