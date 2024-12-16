@@ -19,7 +19,7 @@ The easiest way to get started with **Naja** is through the
 [najaeda](https://pypi.org/project/najaeda/) Python package.
 
 `najaeda` provides a powerful yet simple framework designed to help software
-and hardware developers efficiently navigate and manipulate electronic design
+`AND` hardware developers efficiently navigate and manipulate electronic design
 automation (EDA) workflows.
 
 With `najaeda`, you can:

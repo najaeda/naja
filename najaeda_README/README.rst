@@ -43,6 +43,15 @@ This approach allows you to perform operations on each instance while
 also defining conditions for stopping or continuing exploration.
 .. snippet:: print_design_visitor
 
+Counting the Number of Leaves in a Netlist
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+The instance visitor provides a tool for collecting various types of information
+about a netlist.
+The following example demonstrates how to use the visitor’s callback
+function to transmit user-defined arguments, allowing for flexible data processing.
+This specific use case shows how to count the number of leaf instances in a netlist.
+.. snippet:: count_leaves
+
 Documentation
 -------------
 najaeda is a work in progress, and the documentation is still under development.
