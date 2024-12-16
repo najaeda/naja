@@ -11,9 +11,41 @@
 
 ## Introduction
 
-Naja is an Electronic Design Automation (EDA) project that provides open source data structures and APIs for the development of post logic synthesis EDA algorithms such as: netlist simplification (constant and dead logic propagation), logic replication, netlist partitioning, ASIC and FPGA place and route, …
+Naja is an Electronic Design Automation (EDA) project that provides open source data structures and APIs for the development of post logic synthesis EDA algorithms such as: netlist simplification (constant and dead logic propagation), logic replication, netlist partitioning, ASIC and FPGA place and route, ...
 
-Naja best starting point is netlist optimization and ECO (Engineering Change Order) tool: [naja-edit](#naja_edit) with Python scripts [gallery](README_pages/naja-edit-python-examples.md).
+### Quick Start with `najaeda`
+
+The easiest way to get started with **Naja** is through the
+[`najaeda` Python package](https://pypi.org/project/najaeda/).
+
+`najaeda` provides a powerful yet simple framework designed to help software
+and hardware developers efficiently navigate and manipulate electronic design
+automation (EDA) workflows.
+
+With `najaeda`, you can:
+
+- **Explore Netlists with Ease**:  
+  - Navigate netlist hierarchy and connectivity effortlessly.  
+  - Browse at multiple levels of detail:
+    - Bit-level or bus-level granularity.  
+    - Instance-by-instance exploration or flattened views at the primitives level.  
+    - Localized per-instance connections or comprehensive equipotential views.  
+
+- **Perform ECO (Engineering Change Order) Transformations**:  
+  - Seamlessly apply and manage changes to your designs.
+
+- **Prototype EDA Ideas Quickly**:  
+  - Use an intuitive API to experiment with new EDA concepts and workflows.
+
+- **Develop Custom EDA Tools**:  
+  - Build fast, tailored tools for solving specific challenges without relying on costly, proprietary EDA software.
+
+`najaeda` empowers developers to innovate, adapt, and accelerate their EDA processes with minimal overhead. Get started today to unlock flexible, high-performance design capabilities!
+
+Another entry point for **Naja** is [`naja-edit`](https://example.com/naja-edit), a tool focused on netlist optimization with Dead Logic Elimination (DLE) or constant propagation.
+
+For advanced use cases, EDA developers can build custom tools on top of naja C++ APIs.
+See some simple examples [here](#snippets).
 
 ### Acknowledgement
 
