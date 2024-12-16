@@ -5,14 +5,11 @@
 
 from os import path
 import sys
+import logging
 from najaeda import netlist
+from najaeda import instance_visitor
 
-# snippet-start: print_design
-def print_netlist(instance):
-    for child_instance in instance.get_child_instances():
-        print(f"{child_instance}:{child_instance.get_model_name()}")
-        print_netlist(child_instance)
-# snippet-end: print_design
+logging.basicConfig(level=logging.INFO)
 
 benchmarks = path.join('..','benchmarks')
 liberty_files = [
@@ -25,6 +22,11 @@ liberty_files = list(map(lambda p:path.join(benchmarks, 'liberty', p), liberty_f
 netlist.load_liberty(liberty_files)
 top = netlist.load_verilog([path.join(benchmarks, 'verilog', 'tinyrocket.v')])
 
-print_netlist(top)
+# snippet-start: print_design_visitor
+def print_instance(instance):
+    print(f"{instance}:{instance.get_model_name()}")
+visitor_config = instance_visitor.VisitorConfig(callback=print_instance)
+instance_visitor.Visitor(top).visit(top, visitor_config)
+# snippet-end: print_design_visitor
 
 sys.exit(0)

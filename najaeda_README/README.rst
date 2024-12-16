@@ -35,8 +35,13 @@ easily extended in the future. Don't hesitate to reach out if you need help.
 
 Print all the instances in the netlist
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Next example shows how to browse all the netlist and print all its content.
-.. snippet:: print_design
+Next example shows how to browse all the netlist and print all its content recursively.
+.. snippet:: print_design_recursive
+
+Similar to the previous example, but utilizing an instance visitor.
+This approach allows you to perform operations on each instance while
+also defining conditions for stopping or continuing exploration.
+.. snippet:: print_design_visitor
 
 Documentation
 -------------
