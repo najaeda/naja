@@ -35,8 +35,13 @@ easily extended in the future. Don't hesitate to reach out if you need help.
 
 Print all the instances in the netlist
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Next example shows how to browse all the netlist and print all its content.
-.. snippet:: print_design
+Next example shows how to browse all the netlist and print all its content recursively.
+.. snippet:: print_design_recursive
+
+Similar to the previous example, but utilizing an instance visitor.
+This approach allows you to perform operations on each instance while
+also defining conditions for stopping or continuing exploration.
+.. snippet:: print_design_visitor
 
 Documentation
 -------------
@@ -44,7 +49,13 @@ najaeda is a work in progress, and the documentation is still under development.
 
 Naja documentation is available on the `Naja GitHub repository <https://github.com/najaeda/naja>`_.
 
+Support
+-------
+Please put up issues on the Delocate issue tracker.
+If you encounter any issues or have questions, please report them on the
+`Naja issue tracker <https://github.com/najaeda/naja/issues>`_.
+
 License
 -------
-
-This project is licensed under the Apache License 2.0. See the `LICENSE <https://github.com/najaeda/naja/blob/main/LICENSE>`_ file for details.
+This project is licensed under the Apache License 2.0.
+See the `LICENSE <https://github.com/najaeda/naja/blob/main/LICENSE>`_ file for details.
