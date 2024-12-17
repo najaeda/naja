@@ -40,7 +40,7 @@ With `najaeda`, you can:
 - **Develop Custom EDA Tools**:  
   - Build fast, tailored tools for solving specific challenges without relying on costly, proprietary EDA software.
 
-`najaeda` empowers developers to innovate, adapt, and accelerate their EDA processes with minimal overhead. Get started today to unlock flexible, high-performance design capabilities!
+`najaeda` empowers developers to innovate, adapt, and accelerate their EDA processes with minimal overhead.
 
 Another entry point for **Naja** is [`naja-edit`](#naja_edit), a tool focused on netlist optimization with Dead Logic Elimination (DLE) or constant propagation.
 

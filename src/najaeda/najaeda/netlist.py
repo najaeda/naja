@@ -438,8 +438,8 @@ class Instance:
     def __repr__(self) -> str:
         return f"Instance({self.path})"
 
-    def __hash__(self):
-        return hash(self.path)
+    #def __hash__(self):
+    #    return hash(self.path)
 
     def is_top(self) -> bool:
         """Return True if this is the top design."""
