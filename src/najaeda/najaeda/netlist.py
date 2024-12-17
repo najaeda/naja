@@ -438,7 +438,7 @@ class Instance:
     def __repr__(self) -> str:
         return f"Instance({self.path})"
 
-    #def __hash__(self):
+    # def __hash__(self):
     #    return hash(self.path)
 
     def is_top(self) -> bool:
