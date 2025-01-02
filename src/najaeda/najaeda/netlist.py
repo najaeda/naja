@@ -419,7 +419,7 @@ class Term:
         return Instance(self.path)
 
     def get_flat_fanout(self):
-        return self.get_equipotential().get_all_leaf_readers()
+        return self.get_equipotential().get_leaf_readers()
 
     def get_equipotential(self) -> Equipotential:
         return Equipotential(self)

@@ -218,12 +218,12 @@ class NajaNetlistTest1(unittest.TestCase):
         top = netlist.get_top()
         instances = list(top.get_child_instances())
         self.assertEqual(3, len(instances))
-        #instancesDict = {}
-        #for index, instance in enumerate(instances):
-        #    instancesDict[instance] = index
-        #instancesDict[top] = 4
-        #self.assertEqual(4, len(instancesDict))
-        #self.assertEqual(4, instancesDict[top])
+        instancesDict = {}
+        for index, instance in enumerate(instances):
+            instancesDict[instance] = index
+        instancesDict[top] = 4
+        self.assertEqual(4, len(instancesDict))
+        self.assertEqual(4, instancesDict[top])
         #FIXME xtof can we find back in a dict
         #different but == instances ?
         self.assertIn(top.get_child_instance('Ins0'), instancesDict)
