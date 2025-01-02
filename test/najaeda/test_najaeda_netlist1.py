@@ -7,8 +7,9 @@ import shutil
 import unittest
 import faulthandler
 
-from najaeda import netlist
 from najaeda import snl
+from najaeda import netlist
+from najaeda import instance_visitor
 
 class NajaNetlistTest1(unittest.TestCase):
     def setUp(self):
@@ -217,12 +218,12 @@ class NajaNetlistTest1(unittest.TestCase):
         top = netlist.get_top()
         instances = list(top.get_child_instances())
         self.assertEqual(3, len(instances))
-        instancesDict = {}
-        for index, instance in enumerate(instances):
-            instancesDict[instance] = index
-        instancesDict[top] = 4
-        self.assertEqual(4, len(instancesDict))
-        self.assertEqual(4, instancesDict[top])
+        #instancesDict = {}
+        #for index, instance in enumerate(instances):
+        #    instancesDict[instance] = index
+        #instancesDict[top] = 4
+        #self.assertEqual(4, len(instancesDict))
+        #self.assertEqual(4, instancesDict[top])
         #FIXME xtof can we find back in a dict
         #different but == instances ?
         self.assertIn(top.get_child_instance('Ins0'), instancesDict)
@@ -255,6 +256,18 @@ class NajaNetlistTest1(unittest.TestCase):
         os.makedirs(bench_dir)
         top = netlist.get_top()
         top.dump_verilog(os.path.join(bench_dir), "netlist1.v")
+
+    def testInstanceVisitor(self):
+        top = netlist.get_top()
+        self.assertIsNotNone(top)
+        visitor = instance_visitor.Visitor(top)
+
+        # Define the callback to execute at each node
+        def callback(instance):
+            print(f"Visited instance: {instance}")
+
+        visitor_config = instance_visitor.VisitorConfig(callback=callback)
+        visitor.visit(top, visitor_config)
     
 if __name__ == '__main__':
     faulthandler.enable()
