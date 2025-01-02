@@ -7,6 +7,7 @@
 
 #include <boost/intrusive/set.hpp>
 #include "SNLID.h"
+#include <vector>
 
 namespace naja { namespace SNL {
 
