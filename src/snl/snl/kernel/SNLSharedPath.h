@@ -43,6 +43,8 @@ class SNLSharedPath {
 
     std::string getString(char separator='/');
 
+    std::vector<SNLID::DesignObjectID> getPathIDs() const;
+
   private:
     SNLSharedPath(SNLInstance* tailInstance, SNLSharedPath* headSharedPath=nullptr);
     ~SNLSharedPath() = default;

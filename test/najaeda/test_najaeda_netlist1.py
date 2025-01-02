@@ -225,10 +225,10 @@ class NajaNetlistTest1(unittest.TestCase):
         self.assertEqual(4, instancesDict[top])
         #FIXME xtof can we find back in a dict
         #different but == instances ?
-        #self.assertIn(top.get_child_instance('Ins0'), instancesDict)
-        #self.assertEqual(0, instancesDict[top.get_child_instance('Ins0')])
-        #self.assertEqual(1, instancesDict[top.get_child_instance('Ins1')])
-        #self.assertEqual(2, instancesDict[top.get_child_instance('Ins2')])
+        self.assertIn(top.get_child_instance('Ins0'), instancesDict)
+        self.assertEqual(0, instancesDict[top.get_child_instance('Ins0')])
+        self.assertEqual(1, instancesDict[top.get_child_instance('Ins1')])
+        self.assertEqual(2, instancesDict[top.get_child_instance('Ins2')])
 
     def testPrimitiveInstances(self):
         top = netlist.get_top()
