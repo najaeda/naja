@@ -10,6 +10,8 @@ import hashlib
 import json
 from najaeda import snl
 
+import hashlib
+import struct
 
 def consistent_hash(obj):
     def default_serializer(o):
@@ -26,9 +28,33 @@ def consistent_hash(obj):
         else:
             return str(o)
 
-    obj_str = json.dumps(obj, sort_keys=True, default=default_serializer)
-    return int(hashlib.sha256(obj_str.encode()).hexdigest(), 16)
+    def hash_value(value):
+        if isinstance(value, int):
+            return struct.pack('!q', value)
+        elif isinstance(value, float):
+            return struct.pack('!d', value)
+        elif isinstance(value, bool):
+            return struct.pack('!?', value)
+        elif isinstance(value, str):
+            return value.encode()
+        elif isinstance(value, bytes):
+            return value
+        else:
+            raise TypeError(f"Unsupported type: {type(value)}")
 
+    def hash_object(o):
+        if isinstance(o, (list, tuple)):
+            return b''.join(hash_object(i) for i in o)
+        elif isinstance(o, dict):
+            return b''.join(hash_object(k) + hash_object(v) for k, v in sorted(o.items()))
+        elif isinstance(o, set):
+            return b''.join(hash_object(i) for i in sorted(o))
+        else:
+            return hash_value(o)
+
+    serialized_obj = default_serializer(obj)
+    obj_bytes = hash_object(serialized_obj)
+    return int(hashlib.sha256(obj_bytes).hexdigest(), 16)
 
 class Equipotential:
     """Class that represents the term and wraps
