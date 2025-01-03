@@ -398,7 +398,6 @@ NajaCollection<SNLInstTerm*> SNLInstance::getInstTerms() const {
 NajaCollection<SNLInstTerm*> SNLInstance::getConnectedInstTerms() const {
   auto filter = [](const SNLInstTerm* it) {return it and it->getNet() != nullptr; };
   return NajaCollection(new NajaSTLCollection(&instTerms_)).getSubCollection(filter);
-
 }
 
 NajaCollection<SNLInstTerm*> SNLInstance::getInstScalarTerms() const {
@@ -568,21 +567,28 @@ const char* SNLInstance::getTypeName() const {
 
 //LCOV_EXCL_START
 std::string SNLInstance::getString() const {
-  if (not isAnonymous()) {
+  if (isAnonymous()) {
+    return "<anon:" + std::to_string(getID()) + ">";
+  } else {
     return getName().getString();
   }
-  return std::string();
 }
 //LCOV_EXCL_STOP
 
 //LCOV_EXCL_START
 std::string SNLInstance::getDescription() const {
-  return "<" + std::string(getTypeName())
-    + " " + name_.getString()
-    + " " + std::to_string(getID())
-    + " " + design_->getName().getString()
-    + " " + model_->getName().getString()
-    + ">";  
+  std::ostringstream description;
+  description << "<" << getTypeName();
+  if (isAnonymous()) {
+    description << " [anon]";
+  } else {
+    description << " " + name_.getString();
+  }
+  description << " " + std::to_string(getID());
+  description << " " + design_->getName().getString();
+  description << " " + model_->getName().getString();
+  description << ">";
+  return description.str();  
 }
 //LCOV_EXCL_STOP
 

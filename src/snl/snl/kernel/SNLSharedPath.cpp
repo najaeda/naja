@@ -106,11 +106,22 @@ size_t SNLSharedPath::size() const {
 std::string SNLSharedPath::getString(char separator) {
   if (headSharedPath_) {
     if (tailInstance_) {
-      return headSharedPath_->getString() + separator + tailInstance_->getName().getString();
+      std::ostringstream stream;
+      stream << headSharedPath_->getString(separator) << separator;
+      if (tailInstance_->isAnonymous()) {
+        stream << "<anon:" << tailInstance_->getID() << ">";
+      } else {
+        stream << tailInstance_->getName().getString();
+      }
+      return stream.str();
     }
   }
   if (tailInstance_) {
-    return tailInstance_->getName().getString();
+    if (tailInstance_->isAnonymous()) {
+      return "<anon:" + std::to_string(tailInstance_->getID()) + ">";
+    } else {
+      return tailInstance_->getName().getString();
+    }
   }
   return "";
 }
