@@ -856,7 +856,7 @@ def load_primitives(name: str):
 def get_primitives_library() -> snl.SNLLibrary:
     lib = get_top_db().getLibrary("PRIMS")
     if lib is None:
-        lib = snl.SNLLibrary.createPrimitives(get_top_db())
+        lib = snl.SNLLibrary.createPrimitives(get_top_db(), "PRIMS")
     return lib
 
 
