@@ -7,11 +7,12 @@ import itertools
 import time
 import logging
 import hashlib
-import json
+#import json
 from najaeda import snl
 
 import hashlib
 import struct
+
 
 def consistent_hash(obj):
     def default_serializer(o):
@@ -56,6 +57,7 @@ def consistent_hash(obj):
     obj_bytes = hash_object(serialized_obj)
     return int(hashlib.sha256(obj_bytes).hexdigest(), 16)
 
+
 class Equipotential:
     """Class that represents the term and wraps
     some of the snl occurrence API.
@@ -73,7 +75,8 @@ class Equipotential:
         else:
             inst_term = term
         ito = snl.SNLNetComponentOccurrence(
-            inst_term.path.getHeadPath(), inst_term.path.getTailInstance().getInstTerm(inst_term.term)
+            inst_term.path.getHeadPath(), 
+            inst_term.path.getTailInstance().getInstTerm(inst_term.term)
         )
         self.equi = snl.SNLEquipotential(ito)
 
@@ -98,7 +101,7 @@ class Equipotential:
             for term in self.equi.getInstTermOccurrences():
                 direction = term.getInstTerm().getDirection()
                 if direction != snl.SNLTerm.Direction.Output:
-                    if term.getInstTerm().getInstance().getModel().isLeaf() or term.getInstTerm().getInstance().getModel().isAssign():
+                    if term.getInstTerm().getInstance().getModel().isLeaf():
                         yield Term(
                             snl.SNLPath(term.getPath(), term.getInstTerm().getInstance()),
                             term.getInstTerm().getBitTerm(),
@@ -109,12 +112,12 @@ class Equipotential:
             for term in self.equi.getInstTermOccurrences():
                 direction = term.getInstTerm().getDirection()
                 if direction != snl.SNLTerm.Direction.Input:
-                    if term.getInstTerm().getInstance().getModel().isLeaf() or term.getInstTerm().getInstance().getModel().isAssign():
+                    if term.getInstTerm().getInstance().getModel().isLeaf():
                         yield Term(
                             snl.SNLPath(term.getPath(), term.getInstTerm().getInstance()),
                             term.getInstTerm().getBitTerm(),
                         )
-    
+
     def get_top_readers(self):
         if self.equi is not None:
             for term in self.equi.getTerms():
@@ -521,13 +524,13 @@ class Instance:
 
     def __hash__(self):
         return consistent_hash(self.path)
-    
+
     def hash(self):
         return consistent_hash(self.path)
-    
+
     def refresh(self):
         self.path = refresh_path(self.path)
-    
+
     def get_leaf_children(self):
         for inst in self.__get_snl_model().getInstances():
             if inst.getModel().isLeaf():
@@ -691,7 +694,7 @@ class Instance:
     def delete_instance(self, name: str):
         if name == "":
             raise ValueError(
-                f"Cannot delete instance with empty name. Try delete_instance_by_id instead."
+                "Cannot delete instance with empty name. Try delete_instance_by_id instead."
             )
         path = snl.SNLPath(self.path, self.__get_snl_model().getInstance(name))
         snl.SNLUniquifier(path)
@@ -699,7 +702,7 @@ class Instance:
             self.path = refresh_path(self.path)
         # Delete the last instance in uniq_path
         self.__get_snl_model().getInstance(name).destroy()
-    
+
     def delete_instance_by_id(self, id: str):
         path = snl.SNLPath(self.path, self.__get_snl_model().getInstanceByID(id))
         snl.SNLUniquifier(path)
@@ -712,7 +715,7 @@ class Instance:
         if self.path.size() == 1:
             return get_top()
         return Instance(self.path.getHeadPath())
-    
+
     def delete(self):
         snl.SNLUniquifier(self.path)
         self.get_design().delete_instance_by_id(self.path.getTailInstance().getID())
