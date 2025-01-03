@@ -27,7 +27,7 @@ void SNLCapnP::send(const SNLDB* db, const std::string& ipAddress, uint16_t port
   boost::asio::io_context ioContext;
   //socket creation
   tcp::socket socket(ioContext);
-  socket.connect(tcp::endpoint(boost::asio::ip::address::from_string(ipAddress), port));
+  socket.connect(tcp::endpoint(boost::asio::ip::make_address(ipAddress), port));
   sendInterface(db, socket, forceDBID);
   sendImplementation(db, socket, forceDBID);
 }
