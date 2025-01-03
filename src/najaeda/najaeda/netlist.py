@@ -7,10 +7,8 @@ import itertools
 import time
 import logging
 import hashlib
-#import json
+# import json
 from najaeda import snl
-
-import hashlib
 import struct
 
 
@@ -75,7 +73,7 @@ class Equipotential:
         else:
             inst_term = term
         ito = snl.SNLNetComponentOccurrence(
-            inst_term.path.getHeadPath(), 
+            inst_term.path.getHeadPath(),
             inst_term.path.getTailInstance().getInstTerm(inst_term.term)
         )
         self.equi = snl.SNLEquipotential(ito)
@@ -106,7 +104,7 @@ class Equipotential:
                             snl.SNLPath(term.getPath(), term.getInstTerm().getInstance()),
                             term.getInstTerm().getBitTerm(),
                         )
-    
+
     def get_leaf_drivers(self):
         if self.equi is not None:
             for term in self.equi.getInstTermOccurrences():
