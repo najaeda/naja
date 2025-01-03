@@ -690,7 +690,6 @@ class Instance:
                     yield Term(self.path, term)
 
     def delete_instance(self, name: str):
-        self.__refresh()
         if name == "":
             raise ValueError(
                 "Cannot delete instance with empty name. Try delete_instance_by_id instead."
@@ -716,6 +715,7 @@ class Instance:
         return Instance(self.path.getHeadPath())
 
     def delete(self):
+        self.__refresh()
         snl.SNLUniquifier(self.path)
         self.get_design().delete_instance_by_id(self.path.getTailInstance().getID())
 
