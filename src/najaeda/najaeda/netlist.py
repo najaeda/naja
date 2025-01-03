@@ -526,7 +526,7 @@ class Instance:
     def hash(self):
         return consistent_hash(self.path)
 
-    def refresh(self):
+    def __refresh(self):
         self.path = refresh_path(self.path)
 
     def get_leaf_children(self):
@@ -690,6 +690,7 @@ class Instance:
                     yield Term(self.path, term)
 
     def delete_instance(self, name: str):
+        self.__refresh()
         if name == "":
             raise ValueError(
                 "Cannot delete instance with empty name. Try delete_instance_by_id instead."

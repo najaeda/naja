@@ -40,7 +40,6 @@ if __name__ == '__main__':
             toDelete.append(leaf)
             count += 1
     for leaf in toDelete:
-        leaf.refresh()
         leaf.delete()
     top.dump_verilog("./", "result.v")
     print("deleted ",count)
