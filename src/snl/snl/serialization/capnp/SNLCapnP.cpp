@@ -24,9 +24,9 @@ void SNLCapnP::send(const SNLDB* db, const std::string& ipAddress, uint16_t port
 }
 
 void SNLCapnP::send(const SNLDB* db, const std::string& ipAddress, uint16_t port, SNLID::DBID forceDBID) {
-  boost::asio::io_service io_service;
+  boost::asio::io_context ioContext;
   //socket creation
-  tcp::socket socket(io_service);
+  tcp::socket socket(ioContext);
   socket.connect(tcp::endpoint(boost::asio::ip::address::from_string(ipAddress), port));
   sendInterface(db, socket, forceDBID);
   sendImplementation(db, socket, forceDBID);
@@ -42,11 +42,11 @@ SNLDB* SNLCapnP::load(const std::filesystem::path& path) {
 //Need to find a proper way to test serialization on the wire
 //LCOV_EXCL_START
 boost::asio::ip::tcp::socket SNLCapnP::getSocket(uint16_t port) {
-  boost::asio::io_service io_service;
+  boost::asio::io_context ioContext;
   //listen for new connection
-  tcp::acceptor acceptor(io_service, tcp::endpoint(tcp::v4(), port));
+  tcp::acceptor acceptor(ioContext, tcp::endpoint(tcp::v4(), port));
   //socket creation 
-  tcp::socket socket(io_service);
+  tcp::socket socket(ioContext);
   //waiting for connection
   acceptor.accept(socket);
   return std::move(socket);
