@@ -325,6 +325,11 @@ class NajaNetlistTest0(unittest.TestCase):
         self.assertFalse(instance.is_primitive())
         self.assertFalse(instance.is_leaf())
 
+        leaf_count = 0
+        for leaf in netlist.get_top().get_leaf_children():
+            leaf_count += 1
+        self.assertEqual(1, leaf_count)
+
     def testTopTerm(self):
         universe = snl.SNLUniverse.create()
         db = snl.SNLDB.create(universe)
