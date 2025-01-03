@@ -44,6 +44,8 @@ class NajaNetlistTestXilinx(unittest.TestCase):
         top_drivers_count = 0
         for top_driver in lut2_ins0.get_term("I0").get_equipotential().get_top_drivers():
             top_drivers_count +=1
+        
+        self.assertEqual(i.get_equipotential(), lut2_ins0.get_term("I0").get_equipotential())
 
         self.assertEqual(1, leaf_drivers_count)
         self.assertEqual(1, top_readers_count)
