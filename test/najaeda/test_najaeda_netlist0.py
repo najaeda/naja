@@ -333,7 +333,7 @@ class NajaNetlistTest0(unittest.TestCase):
         instance2 = netlist.Instance(path2)
 
         self.assertEqual(instance2.get_design(), instance)
-        
+
         instances = set()
 
         instances.add(instance)
@@ -341,6 +341,7 @@ class NajaNetlistTest0(unittest.TestCase):
         self.assertEqual(2, len(instances))
 
         instance.delete_instance_by_id(0)
+        with self.assertRaises(Exception) as context: instance.delete_instance("")
 
     def testTopTerm(self):
         universe = snl.SNLUniverse.create()
@@ -354,6 +355,18 @@ class NajaNetlistTest0(unittest.TestCase):
 
         top_term = netlist.Term(snl.SNLPath(), self.i0)
         top_term2 = netlist.Term(snl.SNLPath(), self.i1)
+
+        terms = set()
+        terms.add(top_term)
+        terms.add(top_term2)
+        self.assertEqual(2, len(terms))
+        self.assertEqual(None, top_term.get_equipotential().equi)
+
+        net = netlist.get_top().create_net("netI1") 
+
+        top_term.connect(net)
+
+        self.assertEqual(None, top_term.get_equipotential().equi)
 
         self.assertEqual(top_term, top_term)
         self.assertNotEqual(top_term, top_term2)
