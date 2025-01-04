@@ -333,14 +333,14 @@ class NajaNetlistTest0(unittest.TestCase):
         instance2 = netlist.Instance(path2)
 
         self.assertEqual(instance2.get_design(), instance)
-
-        instance.delete_instance_by_id(0)
-
+        
         instances = set()
 
         instances.add(instance)
         instances.add(instance2)
         self.assertEqual(2, len(instances))
+
+        instance.delete_instance_by_id(0)
 
     def testTopTerm(self):
         universe = snl.SNLUniverse.create()
