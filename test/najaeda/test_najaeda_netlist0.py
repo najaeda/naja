@@ -330,6 +330,18 @@ class NajaNetlistTest0(unittest.TestCase):
             leaf_count += 1
         self.assertEqual(1, leaf_count)
 
+        instance2 = netlist.Instance(path2)
+
+        self.assertEqual(instance2.get_design(), instance)
+
+        instance.delete_instance_by_id(0)
+
+        instances = set()
+
+        instances.add(instance)
+        instances.add(instance2)
+        self.assertEqual(2, len(instances))
+
     def testTopTerm(self):
         universe = snl.SNLUniverse.create()
         db = snl.SNLDB.create(universe)
