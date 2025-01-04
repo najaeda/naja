@@ -116,12 +116,15 @@ static PyObject* PySNLInstance_getInstTerm(PySNLInstance* self, PyObject* args) 
 
 GetContainerMethod(Instance, InstTerm, InstTerms, InstTerms)
 GetContainerMethod(Instance, InstParameter, InstParameters, InstParameters)
+DirectGetIntMethod(PySNLInstance_getID, getID, PySNLInstance, SNLInstance)
 
 PyMethodDef PySNLInstance_Methods[] = {
   { "create", (PyCFunction)PySNLInstance_create, METH_VARARGS|METH_STATIC,
     "SNLInstance creator"},
   { "getName", (PyCFunction)PySNLInstance_getName, METH_NOARGS,
     "get SNLInstance name"},
+  { "getID", (PyCFunction)PySNLInstance_getID, METH_NOARGS,
+    "get the ID."},
   {"getModel", (PyCFunction)PySNLInstance_getModel, METH_NOARGS,
     "Returns the SNLInstance model SNLDesign."},
   {"getInstParameter", (PyCFunction)PySNLInstance_getInstParameter, METH_VARARGS,

@@ -24,10 +24,12 @@ liberty_benchmarks = os.environ.get('LIBERTY_BENCHMARKS_PATH')
 verilog_benchmarks = os.environ.get('VERILOG_BENCHMARKS_PATH')
 
 class ComputeEqui:
+
     def __init__(self, term):
         self.term = term
         self.nets = []
         self.terms = []
+
     def collect(self, termToCollect):
       #if net of term is in self.nets return
       if termToCollect.get_net() in self.nets:
@@ -50,6 +52,7 @@ class ComputeEqui:
     
     def get_terms(self):
         return self.terms
+
 
 class NajaNetlistTest0(unittest.TestCase):
     def setUp(self):
@@ -322,6 +325,24 @@ class NajaNetlistTest0(unittest.TestCase):
         self.assertFalse(instance.is_primitive())
         self.assertFalse(instance.is_leaf())
 
+        leaf_count = 0
+        for leaf in netlist.get_top().get_leaf_children():
+            leaf_count += 1
+        self.assertEqual(1, leaf_count)
+
+        instance2 = netlist.Instance(path2)
+
+        self.assertEqual(instance2.get_design(), instance)
+
+        instances = set()
+
+        instances.add(instance)
+        instances.add(instance2)
+        self.assertEqual(2, len(instances))
+
+        instance.delete_instance_by_id(0)
+        with self.assertRaises(Exception) as context: instance.delete_instance("")
+
     def testTopTerm(self):
         universe = snl.SNLUniverse.create()
         db = snl.SNLDB.create(universe)
@@ -334,6 +355,18 @@ class NajaNetlistTest0(unittest.TestCase):
 
         top_term = netlist.Term(snl.SNLPath(), self.i0)
         top_term2 = netlist.Term(snl.SNLPath(), self.i1)
+
+        terms = set()
+        terms.add(top_term)
+        terms.add(top_term2)
+        self.assertEqual(2, len(terms))
+        self.assertEqual(None, top_term.get_equipotential().equi)
+
+        net = netlist.get_top().create_net("netI1") 
+
+        top_term.connect(net)
+
+        self.assertEqual(None, top_term.get_equipotential().equi)
 
         self.assertEqual(top_term, top_term)
         self.assertNotEqual(top_term, top_term2)

@@ -7,6 +7,7 @@
 
 #include <boost/intrusive/set.hpp>
 #include "SNLID.h"
+#include <vector>
 
 namespace naja { namespace SNL {
 
@@ -42,6 +43,8 @@ class SNLSharedPath {
 
 
     std::string getString(char separator='/');
+
+    std::vector<SNLID::DesignObjectID> getPathIDs() const;
 
   private:
     SNLSharedPath(SNLInstance* tailInstance, SNLSharedPath* headSharedPath=nullptr);
