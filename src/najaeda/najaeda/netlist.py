@@ -12,7 +12,7 @@ from najaeda import snl
 import struct
 
 
-# LCOV_EXCL_START
+# pragma: no cover
 def consistent_hash(obj):
     def default_serializer(o):
         if isinstance(o, (str, int, float, bool, type(None))):
@@ -55,7 +55,7 @@ def consistent_hash(obj):
     serialized_obj = default_serializer(obj)
     obj_bytes = hash_object(serialized_obj)
     return int(hashlib.sha256(obj_bytes).hexdigest(), 16)
-# LCOV_EXCL_STOP
+# pragma: no cover
 
 
 class Equipotential:
