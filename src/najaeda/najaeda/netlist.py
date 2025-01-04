@@ -66,9 +66,9 @@ class Equipotential:
             raise ValueError("Equipotential cannot be constructed on bus term")
         if term.path.size() == 0:
             net = term.get_lower_net()
-            if net == None:
+            if net is None:
                 self.equi = None
-                return 
+                return
             inst_term = next(net.get_inst_terms(), None)
             if inst_term is None:
                 self.equi = None
@@ -691,7 +691,9 @@ class Instance:
 
     def delete_instance(self, name: str):
         if name == "":
-            raise ValueError("Cannot delete instance with empty name. Try delete_instance_by_id instead.")
+            raise ValueError(
+                "Cannot delete instance with empty name. Try delete_instance_by_id instead."
+                )
         path = snl.SNLPath(self.path, self.__get_snl_model().getInstance(name))
         snl.SNLUniquifier(path)
         if self.path.size() > 0:
