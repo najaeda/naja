@@ -9,7 +9,7 @@ import logging
 import hashlib
 # import json
 from najaeda import snl
-import struct
+#import struct
 
 
 def consistent_hash(obj):
@@ -43,13 +43,13 @@ def consistent_hash(obj):
 
     def hash_object(o):
         if isinstance(o, (list, tuple)):
-             return b''.join(hash_object(i) for i in o)
+            return b''.join(hash_object(i) for i in o)
         # elif isinstance(o, dict):
         #     return b''.join(hash_object(k) + hash_object(v) for k, v in sorted(o.items()))
         # elif isinstance(o, set):
         #     return b''.join(hash_object(i) for i in sorted(o))
         else:
-             return hash_value(o)
+            return hash_value(o)
 
     serialized_obj = default_serializer(obj)
     obj_bytes = hash_object(serialized_obj)
