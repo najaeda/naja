@@ -9,7 +9,7 @@ import logging
 import hashlib
 # import json
 from najaeda import snl
-#import struct
+# import struct
 
 
 def consistent_hash(obj):
