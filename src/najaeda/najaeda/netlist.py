@@ -11,6 +11,7 @@ import hashlib
 from najaeda import snl
 import struct
 
+
 # LCOV_EXCL_START
 def consistent_hash(obj):
     def default_serializer(o):
@@ -55,6 +56,7 @@ def consistent_hash(obj):
     obj_bytes = hash_object(serialized_obj)
     return int(hashlib.sha256(obj_bytes).hexdigest(), 16)
 # LCOV_EXCL_STOP
+
 
 class Equipotential:
     """Class that represents the term and wraps
@@ -693,7 +695,7 @@ class Instance:
         if name == "":
             raise ValueError(
                 "Cannot delete instance with empty name. Try delete_instance_by_id instead."
-                )
+            )
         path = snl.SNLPath(self.path, self.__get_snl_model().getInstance(name))
         snl.SNLUniquifier(path)
         if self.path.size() > 0:
