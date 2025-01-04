@@ -12,44 +12,44 @@ from najaeda import snl
 import struct
 
 
-def consistent_hash(obj):  # pragma: no cover
-    def default_serializer(o):  # pragma: no cover
-        if isinstance(o, (str, int, float, bool, type(None))):
-            return o
-        elif isinstance(o, (list, tuple)):
+def consistent_hash(obj):
+    def default_serializer(o):
+        # if isinstance(o, (str, int, float, bool, type(None))):
+        #     return o
+        if isinstance(o, (list, tuple)):
             return [default_serializer(i) for i in o]
-        elif isinstance(o, dict):
-            return {default_serializer(k): default_serializer(v) for k, v in o.items()}
-        elif isinstance(o, set):
-            return sorted(default_serializer(i) for i in o)
-        elif hasattr(o, '__dict__'):
-            return default_serializer(o.__dict__)
+        # elif isinstance(o, dict):
+        #     return {default_serializer(k): default_serializer(v) for k, v in o.items()}
+        # elif isinstance(o, set):
+        #     return sorted(default_serializer(i) for i in o)
+        # elif hasattr(o, '__dict__'):
+        #     return default_serializer(o.__dict__)
         else:
             return str(o)
 
-    def hash_value(value):  # pragma: no cover
-        if isinstance(value, int):
-            return struct.pack('!q', value)
-        elif isinstance(value, float):
-            return struct.pack('!d', value)
-        elif isinstance(value, bool):
-            return struct.pack('!?', value)
-        elif isinstance(value, str):
+    def hash_value(value):
+        # if isinstance(value, int):
+        #    return struct.pack('!q', value)
+        # elif isinstance(value, float):
+        #    return struct.pack('!d', value)
+        # elif isinstance(value, bool):
+        #    return struct.pack('!?', value)
+        if isinstance(value, str):
             return value.encode()
-        elif isinstance(value, bytes):
-            return value
+        # elif isinstance(value, bytes):
+        #    return value
         else:
             raise TypeError(f"Unsupported type: {type(value)}")
 
-    def hash_object(o):  # pragma: no cover
+    def hash_object(o):
         if isinstance(o, (list, tuple)):
-            return b''.join(hash_object(i) for i in o)
-        elif isinstance(o, dict):
-            return b''.join(hash_object(k) + hash_object(v) for k, v in sorted(o.items()))
-        elif isinstance(o, set):
-            return b''.join(hash_object(i) for i in sorted(o))
+             return b''.join(hash_object(i) for i in o)
+        # elif isinstance(o, dict):
+        #     return b''.join(hash_object(k) + hash_object(v) for k, v in sorted(o.items()))
+        # elif isinstance(o, set):
+        #     return b''.join(hash_object(i) for i in sorted(o))
         else:
-            return hash_value(o)
+             return hash_value(o)
 
     serialized_obj = default_serializer(obj)
     obj_bytes = hash_object(serialized_obj)
