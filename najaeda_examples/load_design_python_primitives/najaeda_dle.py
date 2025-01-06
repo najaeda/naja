@@ -10,9 +10,10 @@ import sys
 
 from najaeda import netlist
 from najaeda import snl
+import faulthandler
 
 if __name__ == '__main__':
-    
+    faulthandler.enable()
     # Load design
     netlist.load_primitives('xilinx')
     instances = set()
