@@ -99,6 +99,7 @@ class NajaNetlistTest0(unittest.TestCase):
         self.submodel = snl.SNLDesign.create(lib, "submodel")
         self.i0 = snl.SNLScalarTerm.create(self.model, snl.SNLTerm.Direction.Input, "I0")
         self.i1 = snl.SNLBusTerm.create(self.model, snl.SNLTerm.Direction.Input, 4, 0, "I1")
+        self.assertEqual(self.i1.getBit(0).getBit(), 0)
         self.o = snl.SNLScalarTerm.create(self.model, snl.SNLTerm.Direction.Output, "O")
         ins2 = snl.SNLInstance.create(self.model, self.submodel, "ins2")
         ins1 = snl.SNLInstance.create(self.top, self.model, "ins1")
