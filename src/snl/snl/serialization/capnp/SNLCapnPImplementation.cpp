@@ -511,10 +511,10 @@ void SNLCapnP::sendImplementation(
   const SNLDB* db,
   const std::string& ipAddress,
   uint16_t port) {
-  boost::asio::io_service io_service;
+  boost::asio::io_context ioContext;
   //socket creation
-  tcp::socket socket(io_service);
-  socket.connect(tcp::endpoint(boost::asio::ip::address::from_string(ipAddress), port));
+  tcp::socket socket(ioContext);
+  socket.connect(tcp::endpoint(boost::asio::ip::make_address(ipAddress), port));
   sendImplementation(db, socket);
 }
 //LCOV_EXCL_STOP
@@ -555,11 +555,11 @@ SNLDB* SNLCapnP::receiveImplementation(tcp::socket& socket) {
 }
 
 SNLDB* SNLCapnP::receiveImplementation(uint16_t port) {
-  boost::asio::io_service io_service;
+  boost::asio::io_context ioContext;
   //listen for new connection
-  tcp::acceptor acceptor_(io_service, tcp::endpoint(tcp::v4(), port));
+  tcp::acceptor acceptor_(ioContext, tcp::endpoint(tcp::v4(), port));
   //socket creation 
-  tcp::socket socket(io_service);
+  tcp::socket socket(ioContext);
   //waiting for connection
   acceptor_.accept(socket);
   SNLDB* db = receiveImplementation(socket);
