@@ -36,5 +36,7 @@ PyObject* PySNLBitTerm_Link(SNLBitTerm* object) {
 
 PyTypeSNLAbstractObjectWithSNLIDLinkPyType(SNLBitTerm)
 PyTypeInheritedObjectDefinitions(SNLBitTerm, SNLTerm)
+DirectGetIntMethod(PySNLBitTerm_getID, getID, PySNLBitTerm, SNLBitTerm)
+DirectGetIntMethod(PySNLBitTerm_getFlatID, getFlatID, PySNLBitTerm, SNLBitTerm)
 
 }

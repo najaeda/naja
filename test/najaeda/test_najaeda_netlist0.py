@@ -105,7 +105,7 @@ class NajaNetlistTest0(unittest.TestCase):
         path1 = snl.SNLPath(ins1)
         path2 = snl.SNLPath(path1, ins2)
         instance = netlist.Instance(path1)
-        self.assertEqual(instance.path, path1)
+        self.assertEqual(netlist.get_snl_path_from_id_list(instance.pathIDs), path1)
         self.assertEqual(instance.get_model_name(), ins1.getModel().getName())
         index = 0
         terms_list = []
@@ -116,14 +116,15 @@ class NajaNetlistTest0(unittest.TestCase):
             index += 1
         name_list = ["ins1", "ins2"]
         instance2 = netlist.get_instance_by_path(name_list)
-        self.assertEqual(instance2.path, path2)
+        self.assertEqual(netlist.get_snl_path_from_id_list(instance2.pathIDs), path2)
         self.assertEqual(instance2.get_model_name(), ins2.getModel().getName())
-        #print(instance2.path)
+        #print(instance2.pathIDs)
         #print(instance2.get_model())
-        #print(instance.get_child_instance(ins2.getName()).path)
+        #print(instance.get_child_instance(ins2.getName()).pathIDs)
         #print(instance.get_child_instance(ins2.getName()).get_model())
         self.assertEqual(instance2.get_model_name(), instance.get_child_instance(ins2.getName()).get_model_name())
-        self.assertEqual(instance2.path, instance.get_child_instance(ins2.getName()).path)
+        self.assertEqual(netlist.get_snl_path_from_id_list(instance2.pathIDs), 
+                         netlist.get_snl_path_from_id_list(instance.get_child_instance(ins2.getName()).pathIDs))
         self.assertEqual(instance2, instance.get_child_instance(ins2.getName()))
 
         self.assertEqual(instance.get_number_of_child_instances(), 1)
@@ -154,7 +155,8 @@ class NajaNetlistTest0(unittest.TestCase):
             self.assertEqual(flat_output.get_instance(), instance)
         
         for flat_net in instance.get_flat_nets():
-            self.assertEqual(flat_net.path, instance.path)
+            self.assertEqual(netlist.get_snl_path_from_id_list(flat_net.pathIDs), 
+                             netlist.get_snl_path_from_id_list(instance.pathIDs))
 
         # for term in net_i1.get_terms():
         #     self.assertEqual(term.get_net(), net_i1)
@@ -272,12 +274,12 @@ class NajaNetlistTest0(unittest.TestCase):
         self.assertEqual(len(computeEqui.get_terms()), len(snl_top_terms) + len(snl_inst_term_occurrences))
 
         for t in equi.get_top_terms():
-            self.assertTrue(t.term == snl_top_terms.pop(0)) 
+            self.assertTrue(netlist.get_snl_term_for_ids(t.pathIDs, t.termIDs) == snl_top_terms.pop(0)) 
         
         for t in equi.get_inst_terms():
             to_compare_with = snl_inst_term_occurrences.pop(0)
-            self.assertTrue(t.term == to_compare_with.getInstTerm().getBitTerm())
-            self.assertTrue(t.path.getHeadPath() == to_compare_with.getPath())
+            self.assertTrue(netlist.get_snl_term_for_ids(t.pathIDs, t.termIDs) == to_compare_with.getInstTerm().getBitTerm())
+            self.assertTrue(netlist.get_snl_path_from_id_list(t.pathIDs).getHeadPath() == to_compare_with.getPath())
 
         instance = netlist.Instance(path1)
         #for child in instance.get_child_instances():
