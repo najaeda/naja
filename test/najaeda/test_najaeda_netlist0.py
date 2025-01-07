@@ -356,6 +356,7 @@ class NajaNetlistTest0(unittest.TestCase):
 
         terms.add(instance.get_term("I0"))
         terms.add(instance2.get_term("I0"))
+        terms.add(instance.get_term("I1"))
 
         self.assertLess(instance.get_term("I0"), instance2.get_term("I0"))
 
