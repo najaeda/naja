@@ -27,6 +27,7 @@ class SNLBitTerm: public SNLTerm {
     void setNet(SNLNet* net) override;
     SNLID::DesignObjectID getOrderID() const { return orderID_; }
     void setOrderID(SNLID::DesignObjectID orderID) { orderID_ = orderID; }
+    
   protected:
     SNLBitTerm() = default;
     static void preCreate();

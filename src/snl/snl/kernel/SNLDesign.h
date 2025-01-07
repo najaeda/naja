@@ -97,6 +97,7 @@ class SNLDesign final: public SNLObject {
 
     /// \return SNLTerm with SNLID::DesignObjectID id or nullptr if it does not exist.
     SNLTerm* getTerm(SNLID::DesignObjectID id) const;
+    SNLTerm* getTermByID(SNLID::DesignObjectID id) const { return getTerm(id); }
     /// \return SNLTerm with SNLName name or nullptr if it does not exist
     SNLTerm* getTerm(const SNLName& name) const;
     /// \return SNLScalarTerm with SNLID::DesignObjectID id or nullptr if it does not exist

@@ -21,11 +21,18 @@ using namespace naja::SNL;
 DirectGetIntMethod(PySNLBusTermBit_getBit, getBit, PySNLBusTermBit, SNLBusTermBit)
 GetObjectMethod(BusTermBit, BusTerm, getBus)
 
+DirectGetIntMethod(PySNLBusTermBit_getID, getID, PySNLBusTermBit, SNLBusTermBit)
+DirectGetIntMethod(PySNLBusTermBit_getFlatID, getFlatID, PySNLBusTermBit, SNLBusTermBit)
+
 PyMethodDef PySNLBusTermBit_Methods[] = {
   { "getBit", (PyCFunction)PySNLBusTermBit_getBit, METH_NOARGS,
     "get SNLBusTermBit Bit value"},
   { "getBus", (PyCFunction)PySNLBusTermBit_getBus, METH_NOARGS,
     "get SNLBusTermBit Bus term"},
+  { "getID", (PyCFunction)PySNLBusTermBit_getID, METH_NOARGS,
+    "Get the SNLID::DesignObjectID of the instance."},
+  { "getFlatID", (PyCFunction)PySNLBusTermBit_getFlatID, METH_NOARGS,
+    "Get the flat ID of the instance."},
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 

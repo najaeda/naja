@@ -51,6 +51,8 @@ static PyObject* PySNLBusTerm_create(PyObject*, PyObject* args) {
 
 DirectGetIntMethod(PySNLBusTerm_getMSB, getMSB, PySNLBusTerm, SNLBusTerm)
 DirectGetIntMethod(PySNLBusTerm_getLSB, getLSB, PySNLBusTerm, SNLBusTerm)
+DirectGetIntMethod(PySNLBusTerm_getID, getID, PySNLBusTerm, SNLBusTerm)
+DirectGetIntMethod(PySNLBusTerm_getFlatID, getFlatID, PySNLBusTerm, SNLBusTerm)
 
 GetObjectByIndex(BusTerm, BusTermBit, Bit)
 
@@ -67,6 +69,10 @@ PyMethodDef PySNLBusTerm_Methods[] = {
     "get SNLBusTerm LSB value"},
   { "getBit", (PyCFunction)PySNLBusTerm_getBit, METH_VARARGS,
     "get SNLBusTerm Bit, returns SNLBusTermBit"},
+  { "getID", (PyCFunction)PySNLBusTerm_getID, METH_NOARGS,
+    "get SNLBusTerm ID value"},
+  { "getFlatID", (PyCFunction)PySNLBusTerm_getFlatID, METH_NOARGS,
+    "get SNLBusTerm FlatID value"},
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 
