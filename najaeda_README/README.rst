@@ -86,6 +86,11 @@ function to transmit user-defined arguments, allowing for flexible data processi
 This specific use case shows how to count the number of leaf instances in a netlist.
 .. snippet:: count_leaves
 
+DLE (Dead Logic Elimination)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+This example demonstrates how to perform Dead Logic Elimination (DLE) on a netlist.
+.. snippet:: dle 
+
 Documentation
 -------------
 Naja EDA is a work in progress, and the documentation is still under development.

@@ -3,8 +3,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# snippet-start: load_design
-
 from os import path
 import sys
 
