@@ -515,18 +515,18 @@ class Term:
         if self.get_width() != net.get_width():
             raise ValueError("Width mismatch")
         if self.get_instance().is_top():
-            for bterm, bnet in zip(get_snl_term_for_ids(self.pathIDs, 
-                                                        self.termIDs).getBits(), 
-                                                        net.net.getBits()):
+            for bterm, bnet in zip(get_snl_term_for_ids(self.pathIDs,
+                                                        self.termIDs).getBits(),
+                                   net.net.getBits()):
                 logging.debug(f"Connecting {bterm} to {bnet}")
                 bterm.setNet(bnet)
         else:
             self.__make_unique()
             path = get_snl_path_from_id_list(self.pathIDs)
             inst = path.getTailInstance()
-            for bterm, bnet in zip(get_snl_term_for_ids(self.pathIDs, 
-                                                        self.termIDs).getBits(), 
-                                                        net.net.getBits()):
+            for bterm, bnet in zip(get_snl_term_for_ids(self.pathIDs,
+                                                        self.termIDs).getBits(),
+                                   net.net.getBits()):
                 iterm = inst.getInstTerm(bterm)
                 iterm.setNet(bnet)
 
