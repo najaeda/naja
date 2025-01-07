@@ -291,6 +291,7 @@ class NajaNetlistTest0(unittest.TestCase):
             self.assertTrue(netlist.get_snl_path_from_id_list(t.pathIDs).getHeadPath() == to_compare_with.getPath())
 
         instance = netlist.Instance(path1)
+        instance2 = netlist.Instance(path2)
         #for child in instance.get_child_instances():
         #    print(child)
         #print(instance.get_term("I0").get_net())
@@ -350,6 +351,13 @@ class NajaNetlistTest0(unittest.TestCase):
         instances.add(instance)
         instances.add(instance2)
         self.assertEqual(2, len(instances))
+
+        terms = set()
+
+        terms.add(instance.get_term("I0"))
+        terms.add(instance2.get_term("I0"))
+
+        self.assertLess(instance.get_term("I0"), instance2.get_term("I0"))
 
         instance.delete_instance_by_id(0)
         with self.assertRaises(Exception) as context: instance.delete_instance("")
