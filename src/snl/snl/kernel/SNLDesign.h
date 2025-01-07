@@ -97,6 +97,7 @@ class SNLDesign final: public SNLObject {
 
     /// \return SNLTerm with SNLID::DesignObjectID id or nullptr if it does not exist.
     SNLTerm* getTerm(SNLID::DesignObjectID id) const;
+    SNLTerm* getTermByID(SNLID::DesignObjectID id) const { return getTerm(id); }
     /// \return SNLTerm with SNLName name or nullptr if it does not exist
     SNLTerm* getTerm(const SNLName& name) const;
     /// \return SNLScalarTerm with SNLID::DesignObjectID id or nullptr if it does not exist
@@ -136,6 +137,7 @@ class SNLDesign final: public SNLObject {
     NajaCollection<SNLBitTerm*> getBitTerms() const;
     /// \return SNLInstance with SNLID::DesignObjectID id or nullptr if it does not exist.
     SNLInstance* getInstance(SNLID::DesignObjectID id) const;
+    SNLInstance* getInstanceByID(SNLID::DesignObjectID id) const { return getInstance(id); }
     /// \return SNLInstance with SNLName name if it does not exist.
     SNLInstance* getInstance(const SNLName& instanceName) const;
     /// \return the collection of SNLInstance instantiated IN this SNLDesign (instance/parent relationship).

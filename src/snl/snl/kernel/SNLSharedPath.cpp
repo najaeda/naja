@@ -125,6 +125,22 @@ std::string SNLSharedPath::getString(char separator) {
   }
   return "";
 }
+
+std::vector<SNLID::DesignObjectID> SNLSharedPath::getPathIDs() const {
+  std::vector<SNLID::DesignObjectID> result;
+  if (headSharedPath_) {
+    result = headSharedPath_->getPathIDs();
+    result.push_back(tailInstance_->getID());
+    return result;
+  }
+  if (tailInstance_) {
+    result.push_back(tailInstance_->getID());
+    return result;
+  }
+  return result;
+}
+
+
 //LCOV_EXCL_STOP
 
 }} // namespace SNL // namespace naja

@@ -312,6 +312,8 @@ GetObjectByName(SNLDesign, SNLNet, getNet)
 GetObjectByName(SNLDesign, SNLScalarNet, getScalarNet)
 GetObjectByName(SNLDesign, SNLBusNet, getBusNet)
 GetObjectByName(SNLDesign, SNLParameter, getParameter)
+GetObjectByIndex(Design, Instance, InstanceByID)
+GetObjectByIndex(Design, Term, TermByID)
 GetNameMethod(SNLDesign)
 DirectGetIntMethod(PySNLDesign_getID, getID, PySNLDesign, SNLDesign)
 GetBoolAttribute(Design, isAnonymous)
@@ -319,6 +321,7 @@ GetBoolAttribute(Design, isBlackBox)
 GetBoolAttribute(Design, isPrimitive)
 GetBoolAttribute(Design, isLeaf)
 GetBoolAttribute(Design, isAssign)
+GetBoolAttribute(Design, isTopDesign)
 GetBoolAttributeWithFunction(Design, isConst0, SNLDesignTruthTable::isConst0)
 GetBoolAttributeWithFunction(Design, isConst1, SNLDesignTruthTable::isConst1)
 GetBoolAttributeWithFunction(Design, isConst, SNLDesignTruthTable::isConst)
@@ -372,6 +375,8 @@ PyMethodDef PySNLDesign_Methods[] = {
     "Returns True if this design is a buffer primitive"},
   { "isInv", (PyCFunction)PySNLDesign_isInv, METH_NOARGS,
     "Returns True if this design is an inverter primitive"},  
+  { "isTopDesign", (PyCFunction)PySNLDesign_isTopDesign, METH_NOARGS,
+    "Returns True if this design is an inverter primitive"},  
   { "getName", (PyCFunction)PySNLDesign_getName, METH_NOARGS,
     "get SNLDesign name"},
   { "isAnonymous", (PyCFunction)PySNLDesign_isAnonymous, METH_NOARGS,
@@ -390,6 +395,8 @@ PyMethodDef PySNLDesign_Methods[] = {
     "Returns the SNLDesign owner SNLLibrary."},
   { "getTerm", (PyCFunction)PySNLDesign_getTerm, METH_VARARGS,
     "retrieve a SNLTerm."},
+  { "getTermByID", (PyCFunction)PySNLDesign_getTermByID, METH_VARARGS,
+    "retrieve a SNLTerm."},
   { "getScalarTerm", (PyCFunction)PySNLDesign_getScalarTerm, METH_VARARGS,
     "retrieve a SNLScalarTerm."},
   { "getBusTerm", (PyCFunction)PySNLDesign_getBusTerm, METH_VARARGS,
@@ -401,6 +408,8 @@ PyMethodDef PySNLDesign_Methods[] = {
   { "getBusNet", (PyCFunction)PySNLDesign_getBusNet, METH_VARARGS,
     "retrieve a SNLBusNet."},
   { "getInstance", (PyCFunction)PySNLDesign_getInstance, METH_VARARGS,
+    "retrieve a SNLInstance."},
+  { "getInstanceByID", (PyCFunction)PySNLDesign_getInstanceByID, METH_VARARGS,
     "retrieve a SNLInstance."},
   { "getParameter", (PyCFunction)PySNLDesign_getParameter, METH_VARARGS,
     "retrieve a SNLParameter."},

@@ -24,10 +24,12 @@ liberty_benchmarks = os.environ.get('LIBERTY_BENCHMARKS_PATH')
 verilog_benchmarks = os.environ.get('VERILOG_BENCHMARKS_PATH')
 
 class ComputeEqui:
+
     def __init__(self, term):
         self.term = term
         self.nets = []
         self.terms = []
+
     def collect(self, termToCollect):
       #if net of term is in self.nets return
       if termToCollect.get_net() in self.nets:
@@ -51,6 +53,7 @@ class ComputeEqui:
     def get_terms(self):
         return self.terms
 
+
 class NajaNetlistTest0(unittest.TestCase):
     def setUp(self):
         pass
@@ -58,6 +61,9 @@ class NajaNetlistTest0(unittest.TestCase):
     def tearDown(self):
         if snl.SNLUniverse.get():
             snl.SNLUniverse.get().destroy()
+    
+    def test_hash(self):
+        with self.assertRaises(Exception) as context: netlist.consistent_hash("error")
 
     def test_loader(self):
         design_files = [os.path.join(verilog_benchmarks, "test0.v")]
@@ -95,14 +101,18 @@ class NajaNetlistTest0(unittest.TestCase):
         self.model = snl.SNLDesign.create(lib)
         self.submodel = snl.SNLDesign.create(lib, "submodel")
         self.i0 = snl.SNLScalarTerm.create(self.model, snl.SNLTerm.Direction.Input, "I0")
+        self.assertEqual(self.i0.getFlatID(), 0)
         self.i1 = snl.SNLBusTerm.create(self.model, snl.SNLTerm.Direction.Input, 4, 0, "I1")
+        self.assertEqual(self.i1.getBit(0).getBit(), 0)
+        self.assertEqual(self.i1.getBit(0).getFlatID(), 5)
+        self.assertEqual(self.i1.getFlatID(), 1)
         self.o = snl.SNLScalarTerm.create(self.model, snl.SNLTerm.Direction.Output, "O")
         ins2 = snl.SNLInstance.create(self.model, self.submodel, "ins2")
         ins1 = snl.SNLInstance.create(self.top, self.model, "ins1")
         path1 = snl.SNLPath(ins1)
         path2 = snl.SNLPath(path1, ins2)
         instance = netlist.Instance(path1)
-        self.assertEqual(instance.path, path1)
+        self.assertEqual(netlist.get_snl_path_from_id_list(instance.pathIDs), path1)
         self.assertEqual(instance.get_model_name(), ins1.getModel().getName())
         index = 0
         terms_list = []
@@ -113,14 +123,15 @@ class NajaNetlistTest0(unittest.TestCase):
             index += 1
         name_list = ["ins1", "ins2"]
         instance2 = netlist.get_instance_by_path(name_list)
-        self.assertEqual(instance2.path, path2)
+        self.assertEqual(netlist.get_snl_path_from_id_list(instance2.pathIDs), path2)
         self.assertEqual(instance2.get_model_name(), ins2.getModel().getName())
-        #print(instance2.path)
+        #print(instance2.pathIDs)
         #print(instance2.get_model())
-        #print(instance.get_child_instance(ins2.getName()).path)
+        #print(instance.get_child_instance(ins2.getName()).pathIDs)
         #print(instance.get_child_instance(ins2.getName()).get_model())
         self.assertEqual(instance2.get_model_name(), instance.get_child_instance(ins2.getName()).get_model_name())
-        self.assertEqual(instance2.path, instance.get_child_instance(ins2.getName()).path)
+        self.assertEqual(netlist.get_snl_path_from_id_list(instance2.pathIDs), 
+                         netlist.get_snl_path_from_id_list(instance.get_child_instance(ins2.getName()).pathIDs))
         self.assertEqual(instance2, instance.get_child_instance(ins2.getName()))
 
         self.assertEqual(instance.get_number_of_child_instances(), 1)
@@ -151,7 +162,8 @@ class NajaNetlistTest0(unittest.TestCase):
             self.assertEqual(flat_output.get_instance(), instance)
         
         for flat_net in instance.get_flat_nets():
-            self.assertEqual(flat_net.path, instance.path)
+            self.assertEqual(netlist.get_snl_path_from_id_list(flat_net.pathIDs), 
+                             netlist.get_snl_path_from_id_list(instance.pathIDs))
 
         # for term in net_i1.get_terms():
         #     self.assertEqual(term.get_net(), net_i1)
@@ -211,6 +223,7 @@ class NajaNetlistTest0(unittest.TestCase):
         self.model = snl.SNLDesign.create(lib, "model")
         self.submodel = snl.SNLDesign.createPrimitive(self.primitives, "submodel")
         self.i0 = snl.SNLScalarTerm.create(self.model, snl.SNLTerm.Direction.Input, "I0")
+        self.assertEqual(self.i0.getFlatID(), 0)
         self.i1 = snl.SNLBusTerm.create(self.model, snl.SNLTerm.Direction.Input, 4, 0, "I1")
         self.o = snl.SNLScalarTerm.create(self.model, snl.SNLTerm.Direction.Output, "O")
         self.i0sub = snl.SNLScalarTerm.create(self.submodel, snl.SNLTerm.Direction.Input, "I0")
@@ -245,6 +258,7 @@ class NajaNetlistTest0(unittest.TestCase):
         self.assertTrue(path2.getHeadInstance() == ins1)
         #print(path2)
         inst_term = netlist.Term(path2, sub_inst_terms[0].getBitTerm())
+        self.assertEqual(0, sub_inst_terms[0].getBitTerm().getFlatID())
         equi = netlist.Equipotential(inst_term)
         net_component_occurrence2 = snl.SNLNetComponentOccurrence(path1, sub_inst_terms[0])
         snlequi = snl.SNLEquipotential(net_component_occurrence2)
@@ -269,14 +283,15 @@ class NajaNetlistTest0(unittest.TestCase):
         self.assertEqual(len(computeEqui.get_terms()), len(snl_top_terms) + len(snl_inst_term_occurrences))
 
         for t in equi.get_top_terms():
-            self.assertTrue(t.term == snl_top_terms.pop(0)) 
+            self.assertTrue(netlist.get_snl_term_for_ids(t.pathIDs, t.termIDs) == snl_top_terms.pop(0)) 
         
         for t in equi.get_inst_terms():
             to_compare_with = snl_inst_term_occurrences.pop(0)
-            self.assertTrue(t.term == to_compare_with.getInstTerm().getBitTerm())
-            self.assertTrue(t.path.getHeadPath() == to_compare_with.getPath())
+            self.assertTrue(netlist.get_snl_term_for_ids(t.pathIDs, t.termIDs) == to_compare_with.getInstTerm().getBitTerm())
+            self.assertTrue(netlist.get_snl_path_from_id_list(t.pathIDs).getHeadPath() == to_compare_with.getPath())
 
         instance = netlist.Instance(path1)
+        instance2 = netlist.Instance(path2)
         #for child in instance.get_child_instances():
         #    print(child)
         #print(instance.get_term("I0").get_net())
@@ -322,6 +337,31 @@ class NajaNetlistTest0(unittest.TestCase):
         self.assertFalse(instance.is_primitive())
         self.assertFalse(instance.is_leaf())
 
+        leaf_count = 0
+        for leaf in netlist.get_top().get_leaf_children():
+            leaf_count += 1
+        self.assertEqual(1, leaf_count)
+
+        instance2 = netlist.Instance(path2)
+
+        self.assertEqual(instance2.get_design(), instance)
+
+        instances = set()
+
+        instances.add(instance)
+        instances.add(instance2)
+        self.assertEqual(2, len(instances))
+
+        terms = set()
+
+        terms.add(instance.get_term("I0"))
+        terms.add(instance2.get_term("I0"))
+
+        self.assertLess(instance.get_term("I0"), instance2.get_term("I0"))
+
+        instance.delete_instance_by_id(0)
+        with self.assertRaises(Exception) as context: instance.delete_instance("")
+
     def testTopTerm(self):
         universe = snl.SNLUniverse.create()
         db = snl.SNLDB.create(universe)
@@ -334,6 +374,18 @@ class NajaNetlistTest0(unittest.TestCase):
 
         top_term = netlist.Term(snl.SNLPath(), self.i0)
         top_term2 = netlist.Term(snl.SNLPath(), self.i1)
+
+        terms = set()
+        terms.add(top_term)
+        terms.add(top_term2)
+        self.assertEqual(2, len(terms))
+        self.assertEqual(None, top_term.get_equipotential().equi)
+
+        net = netlist.get_top().create_net("netI1") 
+
+        top_term.connect(net)
+
+        self.assertEqual(None, top_term.get_equipotential().equi)
 
         self.assertEqual(top_term, top_term)
         self.assertNotEqual(top_term, top_term2)

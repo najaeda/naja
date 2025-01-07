@@ -35,6 +35,7 @@ class SNLInstanceTest(unittest.TestCase):
     self.assertFalse(any(self.top.getInstances()))
     self.assertFalse(any(self.model.getInstances()))
     ins1 = snl.SNLInstance.create(self.top, self.model, "ins1")
+    self.assertEqual(0, ins1.getID())
     self.assertIsNotNone(ins1)
     self.assertEqual("ins1", ins1.getName())
     self.assertEqual(self.top, ins1.getDesign())
