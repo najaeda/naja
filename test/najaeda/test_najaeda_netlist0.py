@@ -61,6 +61,9 @@ class NajaNetlistTest0(unittest.TestCase):
     def tearDown(self):
         if snl.SNLUniverse.get():
             snl.SNLUniverse.get().destroy()
+    
+    def test_hash(self):
+        with self.assertRaises(Exception) as context: netlist.consistent_hash("error")
 
     def test_loader(self):
         design_files = [os.path.join(verilog_benchmarks, "test0.v")]
