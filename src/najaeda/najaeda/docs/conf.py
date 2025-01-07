@@ -1,0 +1,26 @@
+#...
+#extensions = [
+#  "breathe",
+#  'sphinx_rtd_theme',
+#]
+#...
+
+project = 'najaeda'
+copyright = '2023, The Naja authors'
+author = 'The Naja authors'
+
+html_theme = "sphinx_rtd_theme"
+html_title = "najaeda Documentation"
+
+breathe_default_project = "najaeda"
+
+#import os
+#if 'IN_READ_THE_DOCS' in os.environ:
+#  import subprocess
+#  #call doxygen from cmake
+#  subprocess.call('mkdir build', shell=True)
+#  subprocess.call('cd build; cmake ../.. -DBUILD_ONLY_DOC=ON', shell=True)
+#  subprocess.call('cd build; make docs', shell=True)
+#  subprocess.call('cd build/docs; pwd; ls -all', shell=True)
+#
+#breathe_projects = { "najaeda" : "./build/docs/xml/" }
