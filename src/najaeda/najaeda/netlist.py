@@ -15,11 +15,11 @@ import struct
 def consistent_hash(obj):
     def default_serializer(o):
         if isinstance(o, (str, int, float, bool, type(None))):
-             return o
+            return o
         elif isinstance(o, (list, tuple)):
             return [default_serializer(i) for i in o]
         elif isinstance(o, dict):
-             return {default_serializer(k): default_serializer(v) for k, v in o.items()}
+            return {default_serializer(k): default_serializer(v) for k, v in o.items()}
         else:
             return str(o)
 
@@ -335,10 +335,11 @@ class Term:
 
     def __hash__(self):
         termIDs = []
-        if isinstance(get_snl_term_for_ids(self.pathIDs, self.termIDs), snl.SNLBusTerm):
-            termIDs = [get_snl_term_for_ids(self.pathIDs, self.termIDs).getID(), -1]
+        snlterm = get_snl_term_for_ids(self.pathIDs, self.termIDs)
+        if isinstance(snlterm, snl.SNLBusTerm):
+            termIDs = [snlterm.getID(), -1]
         else:
-            termIDs = [get_snl_term_for_ids(self.pathIDs, self.termIDs).getID(), get_snl_term_for_ids(self.pathIDs, self.termIDs).getBit()]
+            termIDs = [snlterm.getID(), snlterm.getBit()]
         return consistent_hash((self.pathIDs, termIDs))
 
     def __str__(self):
@@ -355,7 +356,7 @@ class Term:
     def __make_unique(self):
         path = get_snl_path_from_id_list(self.pathIDs)
         if path.size() > 1:
-            path = path.getHeadPath()            
+            path = path.getHeadPath()
             snl.SNLUniquifier(path)
 
     def is_bus(self) -> bool:
@@ -396,11 +397,12 @@ class Term:
 
     def get_direction(self) -> snl.SNLTerm.Direction:
         """Return the direction of the term."""
-        if get_snl_term_for_ids(self.pathIDs, self.termIDs).getDirection() == snl.SNLTerm.Direction.Input:
+        snlterm = get_snl_term_for_ids(self.pathIDs, self.termIDs)
+        if snlterm.getDirection() == snl.SNLTerm.Direction.Input:
             return Term.INPUT
-        elif get_snl_term_for_ids(self.pathIDs, self.termIDs).getDirection() == snl.SNLTerm.Direction.Output:
+        elif snlterm.getDirection() == snl.SNLTerm.Direction.Output:
             return Term.OUTPUT
-        elif get_snl_term_for_ids(self.pathIDs, self.termIDs).getDirection() == snl.SNLTerm.Direction.InOut:
+        elif snlterm.getDirection() == snl.SNLTerm.Direction.InOut:
             return Term.INOUT
 
     def __get_snl_bitnet(self, bit) -> Net:
@@ -479,11 +481,13 @@ class Term:
 
     def is_input(self) -> bool:
         """Return True if the term is an input."""
-        return get_snl_term_for_ids(self.pathIDs, self.termIDs).getDirection() == snl.SNLTerm.Direction.Input
+        snlterm = get_snl_term_for_ids(self.pathIDs, self.termIDs)
+        return snlterm.getDirection() == snl.SNLTerm.Direction.Input
 
     def is_output(self) -> bool:
         """Return True if the term is an output."""
-        return get_snl_term_for_ids(self.pathIDs, self.termIDs).getDirection() == snl.SNLTerm.Direction.Output
+        snlterm = get_snl_term_for_ids(self.pathIDs, self.termIDs)
+        return snlterm.getDirection() == snl.SNLTerm.Direction.Output
 
     def get_bits(self):
         path = get_snl_path_from_id_list(self.pathIDs)
@@ -511,14 +515,18 @@ class Term:
         if self.get_width() != net.get_width():
             raise ValueError("Width mismatch")
         if self.get_instance().is_top():
-            for bterm, bnet in zip(get_snl_term_for_ids(self.pathIDs, self.termIDs).getBits(), net.net.getBits()):
+            for bterm, bnet in zip(get_snl_term_for_ids(self.pathIDs, 
+                                                        self.termIDs).getBits(), 
+                                                        net.net.getBits()):
                 logging.debug(f"Connecting {bterm} to {bnet}")
                 bterm.setNet(bnet)
         else:
             self.__make_unique()
             path = get_snl_path_from_id_list(self.pathIDs)
             inst = path.getTailInstance()
-            for bterm, bnet in zip(get_snl_term_for_ids(self.pathIDs, self.termIDs).getBits(), net.net.getBits()):
+            for bterm, bnet in zip(get_snl_term_for_ids(self.pathIDs, 
+                                                        self.termIDs).getBits(), 
+                                                        net.net.getBits()):
                 iterm = inst.getInstTerm(bterm)
                 iterm.setNet(bnet)
 
@@ -767,7 +775,7 @@ class Instance:
         path = snl.SNLPath(init_path, self.__get_snl_model().getInstance(name))
         snl.SNLUniquifier(path)
         if init_path.size() > 0:
-        # Delete the last instance in uniq_path
+            # Delete the last instance in uniq_path
             self.__get_snl_model().getInstance(name).destroy()
 
     def delete_instance_by_id(self, id: str):
