@@ -18,8 +18,6 @@ def consistent_hash(obj):
             return o
         elif isinstance(o, (list, tuple)):
             return [default_serializer(i) for i in o]
-        elif isinstance(o, dict):
-            return {default_serializer(k): default_serializer(v) for k, v in o.items()}
         else:
             return str(o)
 
