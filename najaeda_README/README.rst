@@ -89,7 +89,7 @@ This specific use case shows how to count the number of leaf instances in a netl
 DLE (Dead Logic Elimination)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 This example demonstrates how to perform Dead Logic Elimination (DLE) on a netlist.
-.. snippet:: dle 
+.. snippet:: dle
 
 Documentation
 -------------
