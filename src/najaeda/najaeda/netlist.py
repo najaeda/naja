@@ -498,7 +498,8 @@ class Term:
 
     def get_bit(self, index: int):
         if isinstance(get_snl_term_for_ids(self.pathIDs, self.termIDs), snl.SNLBusTerm):
-            return Term(self.pathIDs, get_snl_term_for_ids(self.pathIDs, self.termIDs).getBit(index))
+            return Term(self.pathIDs, get_snl_term_for_ids(
+                        self.pathIDs, self.termIDs).getBit(index))
         return None
 
     def disconnect(self):
