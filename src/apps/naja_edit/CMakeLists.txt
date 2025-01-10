@@ -7,5 +7,5 @@ target_include_directories(naja_edit SYSTEM BEFORE PUBLIC ${Boost_INCLUDE_DIR})
 target_include_directories(naja_edit PUBLIC ${ARGPARSE_DIR})
 target_link_libraries(naja_edit
     naja_snl_dump naja_snl_pyloader
-    naja_dnl naja_opt naja_snl_visual)
+    naja_dnl naja_opt)
 install(TARGETS naja_edit DESTINATION ${CMAKE_INSTALL_BINDIR})

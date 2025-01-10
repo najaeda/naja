@@ -662,6 +662,12 @@ class Instance:
                     return found_model
         return None
 
+    def dump_full_dot(self, path: str):
+        self.__get_snl_model().dumpFullDotFile(path)
+
+    def dump_context_dot(self, path: str):
+        self.__get_snl_model().dumpContextDotFile(path)
+
     def get_child_instance(self, name: str):
         childInst = self.__get_snl_model().getInstance(name)
         if childInst is None:

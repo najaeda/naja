@@ -608,7 +608,7 @@ class WireDataSnl : WireData {
 
 class SnlVisualiser {
  public:
-  SnlVisualiser(SNLDesign* top) : _topSnl(top) {}
+  SnlVisualiser(SNLDesign* top, bool recursive = true) : _topSnl(top), _recursive(recursive) {}
   void process();
   void processRec(InstNodeID instId);
   auto& getNetlistGraph() { return _snlNetlistGraph; }
@@ -617,6 +617,7 @@ class SnlVisualiser {
   NetlistGraph<InstDataSnl, PortDataSnl, WireDataSnl, BusDataSnl>
       _snlNetlistGraph;
   SNLDesign* _topSnl;
+  bool _recursive = true;
 };
 #include "NetlistGraph_impl.h"
 }  // namespace naja
