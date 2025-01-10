@@ -186,6 +186,8 @@ void SnlVisualiser::processRec(InstNodeID instId) {
     }
     _snlNetlistGraph.addInst(child);
     _snlNetlistGraph.getInst(instId).addChild(child.getId());
-    processRec(child.getId());
+    if (_recursive) {
+      processRec(child.getId());
+    }
   }
 }

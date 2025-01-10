@@ -30,6 +30,8 @@
 #include "SNLDesignTruthTable.h"
 #include "SNLVRLDumper.h"
 
+#include "NetlistGraph.h"
+
 namespace PYSNL {
 
 using namespace naja::SNL;
@@ -286,6 +288,42 @@ static PyObject* PySNLDesign_setTruthTable(PySNLDesign* self, PyObject* args) {
   Py_RETURN_NONE;
 }
 
+static PyObject* PySNLDesign_dumpFullDotFile(PySNLDesign* self, PyObject* args) {
+  char* path = NULL; 
+  if (not PyArg_ParseTuple(args, "s:SELF_TYPE.METHOD", &path)) {
+    setError("dumpDotFile expact a string as argument");
+    return nullptr;
+  }
+  std::filesystem::path outputPath;
+  if (path) {
+    outputPath = std::filesystem::path(path);
+  }
+  std::string dotFileName(outputPath.string());
+  naja::SNL::SNLDesign* design = self->object_;
+  naja::SnlVisualiser snl(design);
+  snl.process();
+  snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
+  Py_RETURN_NONE;
+}
+
+static PyObject* PySNLDesign_dumpContextDotFile(PySNLDesign* self, PyObject* args) {
+  char* path = NULL; 
+  if (not PyArg_ParseTuple(args, "s:SELF_TYPE.METHOD", &path)) {
+    setError("dumpDotFile expact a string as argument");
+    return nullptr;
+  }
+  std::filesystem::path outputPath;
+  if (path) {
+    outputPath = std::filesystem::path(path);
+  }
+  std::string dotFileName(outputPath.string());
+  naja::SNL::SNLDesign* design = self->object_;
+  naja::SnlVisualiser snl(design, false);
+  snl.process();
+  snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
+  Py_RETURN_NONE;
+}
+
 static PyObject* PySNLDesign_getCombinatorialInputs(PySNLDesign*, PyObject* object) {
   GetDesignModelingRelatedObjects(SNLBitTerm, getCombinatorialInputs, SNLDesign)
 }
@@ -439,6 +477,10 @@ PyMethodDef PySNLDesign_Methods[] = {
     "clone this SNLDesign."},
   { "dumpVerilog", (PyCFunction)PySNLDesign_dumpVerilog, METH_VARARGS,
     "dump verilog file of this SNLDesign."},
+  { "dumpFullDotFile", (PyCFunction)PySNLDesign_dumpFullDotFile, METH_VARARGS,
+    "dump full dot file for this SNLDesign."},
+  { "dumpContextDotFile", (PyCFunction)PySNLDesign_dumpContextDotFile, METH_VARARGS,
+    "dump context dot file for this SNLDesign."},
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 
