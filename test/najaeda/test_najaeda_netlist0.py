@@ -234,6 +234,8 @@ class NajaNetlistTest0(unittest.TestCase):
         ins2 = snl.SNLInstance.create(self.model, self.submodel, "ins2")
         ins1 = snl.SNLInstance.create(self.top, self.model, "ins1")
         self.i0Top = snl.SNLScalarTerm.create(self.top, snl.SNLTerm.Direction.Input, "I0")
+        self.noNameTop = snl.SNLScalarTerm.create(self.top, snl.SNLTerm.Direction.Input, "")
+        self.noNameBusTop = snl.SNLBusTerm.create(self.top, snl.SNLTerm.Direction.Input, 4, 0, "")
 
         path0 = snl.SNLPath()
         #print(path0)
