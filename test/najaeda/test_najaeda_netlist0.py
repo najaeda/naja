@@ -227,7 +227,9 @@ class NajaNetlistTest0(unittest.TestCase):
         self.i1 = snl.SNLBusTerm.create(self.model, snl.SNLTerm.Direction.Input, 4, 0, "I1")
         self.o = snl.SNLScalarTerm.create(self.model, snl.SNLTerm.Direction.Output, "O")
         self.i0sub = snl.SNLScalarTerm.create(self.submodel, snl.SNLTerm.Direction.Input, "I0")
+        self.noNamesub = snl.SNLScalarTerm.create(self.submodel, snl.SNLTerm.Direction.Input, "")
         self.i1sub = snl.SNLBusTerm.create(self.submodel, snl.SNLTerm.Direction.Input, 4, 0, "I1")
+        self.noNameBussub = snl.SNLBusTerm.create(self.submodel, snl.SNLTerm.Direction.Input, 4, 0, "")
         self.osub = snl.SNLScalarTerm.create(self.submodel, snl.SNLTerm.Direction.Output, "O")
         ins2 = snl.SNLInstance.create(self.model, self.submodel, "ins2")
         ins1 = snl.SNLInstance.create(self.top, self.model, "ins1")
@@ -263,6 +265,9 @@ class NajaNetlistTest0(unittest.TestCase):
         net_component_occurrence2 = snl.SNLNetComponentOccurrence(path1, sub_inst_terms[0])
         snlequi = snl.SNLEquipotential(net_component_occurrence2)
 
+        equi.dump_dot("./test_equipotential.dot")
+        with self.assertRaises(Exception) as context: equi.dump_dot(1)
+        
         computeEqui = ComputeEqui(inst_term)
         computeEqui.collect(inst_term)
         for term in computeEqui.get_terms():
