@@ -289,7 +289,7 @@ A Verilog dumper is included in SNL API. See [here](https://github.com/najaeda/n
 
 #### c++
 
-This [snippet](https://github.com/najaeda/naja/blob/main/src/snl/snippets/app/src/SNLSnippet.cpp) shows various SNL API netlist construction, manipulation and browsing examples.
+This [snippet](https://github.com/najaeda/naja/blob/main/src/app_snippet/src/SNLUniverseSnippet.cpp) shows various SNL API netlist construction, manipulation and browsing examples.
 
 #### Python
 
