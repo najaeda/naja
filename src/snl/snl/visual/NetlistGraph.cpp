@@ -4,15 +4,45 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "NetlistGraph.h"
+#include "SNLPath.h"
 
 using namespace naja::SNL;
 using namespace naja;
 
 void SnlVisualiser::process() {
+  SNLPath path;
+  if (_equi != nullptr) {
+    for (auto oc : _equi->getInstTermOccurrences()) {
+      auto path = oc.getPath();
+      while (path.size() > 0) {
+        _equiPaths.insert(path);
+        path = path.getHeadPath();
+      }
+      _equiNets.insert(oc.getNet());
+      auto termPath = SNLPath(oc.getPath(), oc.getInstTerm()->getInstance());
+      _equiPaths.insert(termPath);
+    }
+    for (auto term : _equi->getTerms()) {
+      _equiNets.insert(term->getNet());
+    }
+  }
   InstDataSnl instChildData(_topSnl);
   InstNode<InstDataSnl> child(instChildData, 0,
                               _snlNetlistGraph.getInsts().size());
-
+  std::map<SNLBitNet*, size_t> net2wireId;
+  for (SNLBitNet* net :
+       child.getData().getSnlModel()->getBitNets()) {
+    if (_equi != nullptr) {
+      if (_equiNets.find(net) == _equiNets.end()) {
+        continue;
+      }
+    }
+    printf("net is in equi\n");
+    WireDataSnl edgeData(net);
+    WireEdge<WireDataSnl> wire(edgeData, _snlNetlistGraph.getWires().size());
+    net2wireId[net] = _snlNetlistGraph.getWires().size();
+    _snlNetlistGraph.addWire(wire);
+  }
   for (SNLBusTerm* busterm : child.getData().getSnlModel()->getBusTerms()) {
     BusDataSnl busDataSnl(busterm);
     BusNode<BusDataSnl, PortDataSnl> bus(busDataSnl,
@@ -23,8 +53,29 @@ void SnlVisualiser::process() {
                                  _snlNetlistGraph.getPorts().size());
       _snlNetlistGraph.addPort(port);
       bus.addPort(port.getId());
-      child.getPortName2PortId()[term->getName().getString() +
+      std::string name = term->getName().getString();
+      if (name == "") {
+          name = std::to_string(term->getFlatID());
+      }
+      child.getPortName2PortId()[name +
                                  std::to_string(term->getBit())] = port.getId();
+      if (term->getNet()) {
+        auto netTerm = term;
+          if (_equi != nullptr) {
+            if (_equiNets.find(netTerm->getNet()) == _equiNets.end()) {
+              continue;
+            }
+          }
+        if (term->getDirection() == SNLTerm::Direction::DirectionEnum::Input) {
+          _snlNetlistGraph
+              .getWire(net2wireId[term->getNet()])
+              .addPort(port.getId());
+        } else {
+          _snlNetlistGraph
+              .getWire(net2wireId[term->getNet()])
+              .addDriver(port.getId());
+        }
+      }
     }
     _snlNetlistGraph.addBus(bus);
     if (busterm->getDirection() == SNLTerm::Direction::DirectionEnum::Input) {
@@ -33,7 +84,7 @@ void SnlVisualiser::process() {
       child.addOutBus(bus.getId());
     }
   }
-  for (SNLTerm* term : child.getData().getSnlModel()->getTerms()) {
+  for (SNLTerm* term : child.getData().getSnlModel()->getScalarTerms()) {
     PortDataSnl portDataSnl(term);
     PortNode<PortDataSnl> port(portDataSnl, _snlNetlistGraph.getPorts().size());
     _snlNetlistGraph.addPort(port);
@@ -42,17 +93,50 @@ void SnlVisualiser::process() {
     } else {
       child.addOutPort(port.getId());
     }
-    child.getPortName2PortId()[term->getName().getString()] = port.getId();
+    std::string name = term->getName().getString();
+    if (name == "") {
+        name = std::to_string(term->getFlatID());
+    }
+    child.getPortName2PortId()[name] = port.getId();
+    if (term->getNet()) {
+      if (_equi != nullptr) {
+          if (_equiNets.find(term->getNet()) == _equiNets.end()) {
+            continue;
+          }
+        }
+      if (term->getDirection() == SNLTerm::Direction::DirectionEnum::Output) {
+        _snlNetlistGraph.getWire(net2wireId[term->getNet()])
+            .addPort(port.getId());
+      } else {
+        _snlNetlistGraph.getWire(net2wireId[term->getNet()])
+            .addDriver(port.getId());
+      }
+    }
   }
   _snlNetlistGraph.addInst(child);
   _snlNetlistGraph.setTop(child.getId());
-  processRec(child.getId());
+  processRec(child.getId(), path);
 }
 
-void SnlVisualiser::processRec(InstNodeID instId) {
+void SnlVisualiser::processRec(InstNodeID instId, const SNLPath& path) {
   std::map<SNLBitNet*, size_t> net2wireId;
+  SNLInstance* inst = _snlNetlistGraph.getInst(instId).getData().getSnlInst();
+  SNLPath localPath;
+  if (inst != nullptr) {
+    localPath =
+        SNLPath(path, _snlNetlistGraph.getInst(instId).getData().getSnlInst());
+  } else {
+    localPath = path;
+  }
+  // Nets are not conditoned by the equi
   for (SNLBitNet* net :
        _snlNetlistGraph.getInst(instId).getData().getSnlModel()->getBitNets()) {
+    if (_equi != nullptr) {
+      if (_equiNets.find(net) == _equiNets.end()) {
+        continue;
+      }
+    }
+    printf("net is in equi\n");
     WireDataSnl edgeData(net);
     WireEdge<WireDataSnl> wire(edgeData, _snlNetlistGraph.getWires().size());
     net2wireId[net] = _snlNetlistGraph.getWires().size();
@@ -66,18 +150,45 @@ void SnlVisualiser::processRec(InstNodeID instId) {
     BusNode<BusDataSnl, PortDataSnl> bus(busDataSnl,
                                          _snlNetlistGraph.getBuses().size());
     for (SNLBusTermBit* term : busterm->getBusBits()) {
+      /*if (_equi != nullptr) {
+        if (inst != nullptr) {
+          if (_equi->getInstTermOccurrencesSet().find(
+                  SNLInstTermOccurrence(path, _snlNetlistGraph.getInst(instId)
+                                                  .getData()
+                                                  .getSnlInst()
+                                                  ->getInstTerm(term))) ==
+              _equi->getInstTermOccurrencesSet().end()) {
+            continue;
+          }
+        } else {
+          if (_equi->getTermsSet().find(term) == _equi->getTermsSet().end()) {
+            continue;
+          }
+        }
+         
+      }*/
+      printf("1 term is in equi\n"); 
+      std::string name = term->getName().getString();
+      if (name == "") {
+        name = std::to_string(term->getFlatID());
+      }
       if (term->getNet()) {
+        if (_equi != nullptr) {
+          if (_equiNets.find(term->getNet()) == _equiNets.end()) {
+            continue;
+          }
+        }
         if (term->getDirection() == SNLTerm::Direction::DirectionEnum::Output) {
           _snlNetlistGraph.getWire(net2wireId[term->getNet()])
               .addPort(
                   _snlNetlistGraph.getInst(instId)
-                      .getPortName2PortId()[term->getName().getString() +
+                      .getPortName2PortId()[name +
                                             std::to_string(term->getBit())]);
         } else {
           _snlNetlistGraph.getWire(net2wireId[term->getNet()])
               .addDriver(
                   _snlNetlistGraph.getInst(instId)
-                      .getPortName2PortId()[term->getName().getString() +
+                      .getPortName2PortId()[name +
                                             std::to_string(term->getBit())]);
         }
       }
@@ -87,15 +198,41 @@ void SnlVisualiser::processRec(InstNodeID instId) {
                         .getData()
                         .getSnlModel()
                         ->getScalarTerms()) {
+     /*if (_equi != nullptr) {
+        if (inst != nullptr) {
+          if (_equi->getInstTermOccurrencesSet().find(
+                  SNLInstTermOccurrence(path, _snlNetlistGraph.getInst(instId)
+                                                  .getData()
+                                                  .getSnlInst()
+                                                  ->getInstTerm(term))) ==
+              _equi->getInstTermOccurrencesSet().end()) {
+            continue;
+          }
+        } else {
+          if (_equi->getTermsSet().find(term) == _equi->getTermsSet().end()) {
+            continue;
+          }
+        }
+      }*/
+      printf("2 term is in equi\n"); 
+    std::string name = term->getName().getString();
+    if (name == "") {
+      name = std::to_string(term->getFlatID());
+    }
     if (term->getNet()) {
+      if (_equi != nullptr) {
+          if (_equiNets.find(term->getNet()) == _equiNets.end()) {
+            continue;
+          }
+        }
       if (term->getDirection() == SNLTerm::Direction::DirectionEnum::Output) {
         _snlNetlistGraph.getWire(net2wireId[term->getNet()])
             .addPort(_snlNetlistGraph.getInst(instId)
-                         .getPortName2PortId()[term->getName().getString()]);
+                         .getPortName2PortId()[name]);
       } else {
         _snlNetlistGraph.getWire(net2wireId[term->getNet()])
             .addDriver(_snlNetlistGraph.getInst(instId)
-                           .getPortName2PortId()[term->getName().getString()]);
+                           .getPortName2PortId()[name]);
       }
     }
   }
@@ -111,6 +248,12 @@ void SnlVisualiser::processRec(InstNodeID instId) {
                                     .getData()
                                     .getSnlModel()
                                     ->getInstances()) {
+    if (_equi != nullptr) {
+      SNLPath newPath(localPath, instChild);
+      if (_equiPaths.find(newPath) == _equiPaths.end()) {
+        continue;
+      }
+    }
     InstDataSnl instChildData(instChild);
     InstNode<InstDataSnl> child(instChildData,
                                 _snlNetlistGraph.getInst(instId).getId(),
@@ -120,12 +263,30 @@ void SnlVisualiser::processRec(InstNodeID instId) {
       BusDataSnl busDataSnl(busterm);
       BusNode<BusDataSnl, PortDataSnl> bus(busDataSnl,
                                            _snlNetlistGraph.getBuses().size());
+      //bool partOfEqui = false;
       for (SNLBusTermBit* term : busterm->getBusBits()) {
         PortDataSnl portDataSnl((SNLTerm*)term);
         PortNode<PortDataSnl> port(portDataSnl,
                                    _snlNetlistGraph.getPorts().size());
+        /*if (_equi != nullptr) {
+          if (_equi->getInstTermOccurrencesSet().find(SNLInstTermOccurrence(
+                  localPath,
+                  child.getData().getSnlInst()->getInstTerm(term))) !=
+              _equi->getInstTermOccurrencesSet().end()) {
+            partOfEqui = true;
+          } else {
+            continue;
+          }
+        }
+         printf("3 term is in equi\n");*/
         _snlNetlistGraph.addPort(port);
         if (child.getData().getSnlInst()->getInstTerm(term)->getNet()) {
+          SNLInstTerm* netTerm = child.getData().getSnlInst()->getInstTerm(term);
+          if (_equi != nullptr) {
+            if (_equiNets.find(netTerm->getNet()) == _equiNets.end()) {
+              continue;
+            }
+          }
           if (term->getDirection() ==
               SNLTerm::Direction::DirectionEnum::Input) {
             _snlNetlistGraph
@@ -143,11 +304,20 @@ void SnlVisualiser::processRec(InstNodeID instId) {
                 .addDriver(port.getId());
           }
         }
-        child.getPortName2PortId()[term->getName().getString() +
+        std::string name = term->getName().getString();
+        if (name == "") {
+          name = std::to_string(term->getFlatID());
+        }
+        child.getPortName2PortId()[name +
                                    std::to_string(term->getBit())] =
             port.getId();
         bus.addPort(port.getId());
       }
+      /*if (_equi != nullptr) {
+        if (!partOfEqui) {
+          continue;
+        }
+      }*/
       _snlNetlistGraph.addBus(bus);
       if (busterm->getDirection() == SNLTerm::Direction::DirectionEnum::Input) {
         child.addInBus(bus.getId());
@@ -156,11 +326,26 @@ void SnlVisualiser::processRec(InstNodeID instId) {
       }
     }
     for (auto* term : child.getData().getSnlModel()->getScalarTerms()) {
+      /*if (_equi != nullptr) {
+        if (_equi->getInstTermOccurrencesSet().find(SNLInstTermOccurrence(
+                localPath, child.getData().getSnlInst()->getInstTerm(term))) !=
+            _equi->getInstTermOccurrencesSet().end()) {
+        } else {
+          continue;
+        }
+      }*/
+      printf("4 term is in equi %s\n", term->getName().getString().c_str()); 
       PortDataSnl portDataSnl(term);
       PortNode<PortDataSnl> port(portDataSnl,
                                  _snlNetlistGraph.getPorts().size());
       _snlNetlistGraph.addPort(port);
       if (child.getData().getSnlInst()->getInstTerm(term)->getNet()) {
+        SNLInstTerm* netTerm = child.getData().getSnlInst()->getInstTerm(term);
+          if (_equi != nullptr) {
+            if (_equiNets.find(netTerm->getNet()) == _equiNets.end()) {
+              continue;
+            }
+          }
         if (term->getDirection() == SNLTerm::Direction::DirectionEnum::Input) {
           _snlNetlistGraph
               .getWire(net2wireId[child.getData()
@@ -177,7 +362,11 @@ void SnlVisualiser::processRec(InstNodeID instId) {
               .addDriver(port.getId());
         }
       }
-      child.getPortName2PortId()[term->getName().getString()] = port.getId();
+      std::string name = term->getName().getString();
+      if (name == "") {
+        name = std::to_string(term->getFlatID());
+      }
+      child.getPortName2PortId()[name] = port.getId();
       if (term->getDirection() == SNLTerm::Direction::DirectionEnum::Input) {
         child.addInPort(port.getId());
       } else {
@@ -187,7 +376,7 @@ void SnlVisualiser::processRec(InstNodeID instId) {
     _snlNetlistGraph.addInst(child);
     _snlNetlistGraph.getInst(instId).addChild(child.getId());
     if (_recursive) {
-      processRec(child.getId());
+      processRec(child.getId(), localPath);
     }
   }
 }

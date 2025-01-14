@@ -203,18 +203,20 @@ void NetlistGraph<InstData, PortData, WireData, BusData>::addConnectivity(
       for (const auto reader : wire.getPorts()) {
         /*printf("reader %s\n",
                this->getPort(reader).getData().getName().c_str());*/
-        myfile << this->getPort(driver).getPortDotNAme() << "->"
-               << this->getPort(reader).getPortDotNAme();
+        myfile << this->getPort(driver).getPortDotName() << "->"
+               << this->getPort(reader).getPortDotName();
         myfile << "[label =\"" << wire.getData().getName() << "\"];"
                << std::endl;
       }
     }
     if (wire.getDrivers().empty()) {
       for (const auto reader : wire.getPorts()) {
-        /*printf("reader %s\n",
-               this->getPort(reader).getData().getName().c_str());*/
-        myfile << this->getPort(reader).getPortDotNAme() << "->"
-               << this->getPort(reader).getPortDotNAme();
+        printf("reader %s\n",
+               this->getPort(reader).getData().getName().c_str());
+        printf("dotname %s\n",
+               this->getPort(reader).getPortDotName().c_str());
+        myfile << this->getPort(reader).getPortDotName() << "->"
+               << this->getPort(reader).getPortDotName();
         myfile << "[label =\"" << wire.getData().getName() << "\"];"
                << std::endl;
       }
