@@ -42,6 +42,8 @@
 #include "SNLScalarNet.h"
 #include "SNLScalarTerm.h"
 #include "SNLUniverse.h"
+#include "SNLEquipotential.h"
+#include "SNLPath.h"
 
 using namespace naja::SNL;
 
@@ -106,7 +108,7 @@ class PortNode {
   void setPortDotName(const std::string& portDotName) {
     _portDotName = portDotName;
   }
-  const std::string& getPortDotNAme() const { return _portDotName; }
+  const std::string& getPortDotName() const { return _portDotName; }
 
  private:
   WireEdgeID _wireId = (WireEdgeID) -1;
@@ -608,9 +610,10 @@ class WireDataSnl : WireData {
 
 class SnlVisualiser {
  public:
-  SnlVisualiser(SNLDesign* top, bool recursive = true) : _topSnl(top), _recursive(recursive) {}
+  SnlVisualiser(SNLDesign* top, bool recursive = true, SNLEquipotential* equi = nullptr) : 
+    _topSnl(top), _recursive(recursive), _equi(equi) {}
   void process();
-  void processRec(InstNodeID instId);
+  void processRec(InstNodeID instId, const SNLPath& path);
   auto& getNetlistGraph() { return _snlNetlistGraph; }
 
  private:
@@ -618,6 +621,9 @@ class SnlVisualiser {
       _snlNetlistGraph;
   SNLDesign* _topSnl;
   bool _recursive = true;
+  SNLEquipotential* _equi = nullptr;
+  std::set<SNLPath> _equiPaths;
+  std::set<SNLBitNet*> _equiNets;
 };
 #include "NetlistGraph_impl.h"
 }  // namespace naja

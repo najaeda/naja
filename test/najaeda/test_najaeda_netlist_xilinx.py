@@ -40,6 +40,8 @@ class NajaNetlistTestXilinx(unittest.TestCase):
         top.dump_context_dot('./test_xilinx_primitives_context.dot')
         with self.assertRaises(Exception) as context: top.dump_context_dot(-1)
 
+        lut2_ins1.get_term("I0").get_equipotential().dump_dot('./test_xilinx_primitives_lut2_ins1.dot')
+
         leaf_drivers_count = 0
         for leaf_driver in lut2_ins1.get_term("I0").get_equipotential().get_leaf_drivers():
             leaf_drivers_count += 1

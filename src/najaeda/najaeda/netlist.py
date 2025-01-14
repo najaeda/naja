@@ -96,6 +96,9 @@ class Equipotential:
     def __eq__(self, value):
         return self.equi == value.equi
 
+    def dump_dot(self, path: str):
+        self.equi.dumpDotFile(path)
+
     def get_inst_terms(self):
         if self.equi is not None:
             for term in self.equi.getInstTermOccurrences():

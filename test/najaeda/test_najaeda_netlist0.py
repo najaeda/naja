@@ -226,12 +226,20 @@ class NajaNetlistTest0(unittest.TestCase):
         self.assertEqual(self.i0.getFlatID(), 0)
         self.i1 = snl.SNLBusTerm.create(self.model, snl.SNLTerm.Direction.Input, 4, 0, "I1")
         self.o = snl.SNLScalarTerm.create(self.model, snl.SNLTerm.Direction.Output, "O")
-        self.i0sub = snl.SNLScalarTerm.create(self.submodel, snl.SNLTerm.Direction.Input, "I0")
+        self.i0Model = snl.SNLScalarTerm.create(self.submodel, snl.SNLTerm.Direction.Input, "I0")
+        self.noNameModel = snl.SNLScalarTerm.create(self.model, snl.SNLTerm.Direction.Input, "")
         self.i1sub = snl.SNLBusTerm.create(self.submodel, snl.SNLTerm.Direction.Input, 4, 0, "I1")
+        self.noNameBusModel = snl.SNLBusTerm.create(self.model, snl.SNLTerm.Direction.Input, 4, 0, "")
+        self.noNameSubModel = snl.SNLScalarTerm.create(self.submodel, snl.SNLTerm.Direction.Input, "")
+        self.noNameBusSubModel = snl.SNLBusTerm.create(self.submodel, snl.SNLTerm.Direction.Input, 4, 0, "")
         self.osub = snl.SNLScalarTerm.create(self.submodel, snl.SNLTerm.Direction.Output, "O")
         ins2 = snl.SNLInstance.create(self.model, self.submodel, "ins2")
+        ins3 = snl.SNLInstance.create(self.model, self.submodel, "ins3")
         ins1 = snl.SNLInstance.create(self.top, self.model, "ins1")
+        ins0 = snl.SNLInstance.create(self.top, self.model, "ins0")
         self.i0Top = snl.SNLScalarTerm.create(self.top, snl.SNLTerm.Direction.Input, "I0")
+        self.noNameTop = snl.SNLScalarTerm.create(self.top, snl.SNLTerm.Direction.Input, "")
+        self.noNameBusTop = snl.SNLBusTerm.create(self.top, snl.SNLTerm.Direction.Input, 4, 0, "")
 
         path0 = snl.SNLPath()
         #print(path0)
@@ -239,6 +247,18 @@ class NajaNetlistTest0(unittest.TestCase):
         self.assertTrue(path0.empty())
         self.assertEqual(0, path0.size())
         self.assertEqual(snl.SNLPath(), path0.getHeadPath())
+
+        noNameModel_net = snl.SNLScalarNet.create(self.model, "noName")
+        self.noNameModel.setNet(noNameModel_net)
+        noNameModelBus_net = snl.SNLScalarNet.create(self.model, "busNoName")
+        self.noNameBusModel.getBit(0).setNet(noNameModelBus_net)
+
+        noNameTop_net = snl.SNLScalarNet.create(self.top, "noName")
+        self.noNameTop.setNet(noNameTop_net)
+        ins1.getInstTerm(self.noNameModel).setNet(noNameTop_net)
+        noNameTopBus_net = snl.SNLScalarNet.create(self.top, "busNoName")
+        self.noNameBusTop.getBit(0).setNet(noNameTopBus_net)
+        ins1.getInstTerm(self.noNameBusModel.getBit(0)).setNet(noNameTopBus_net)
 
         inst_terms = tuple(ins1.getInstTerms())
         i0_net = snl.SNLScalarNet.create(self.top, "I0")
@@ -263,6 +283,9 @@ class NajaNetlistTest0(unittest.TestCase):
         net_component_occurrence2 = snl.SNLNetComponentOccurrence(path1, sub_inst_terms[0])
         snlequi = snl.SNLEquipotential(net_component_occurrence2)
 
+        equi.dump_dot("./test_equipotential.dot")
+        with self.assertRaises(Exception) as context: equi.dump_dot(1)
+        
         computeEqui = ComputeEqui(inst_term)
         computeEqui.collect(inst_term)
         for term in computeEqui.get_terms():
@@ -340,7 +363,7 @@ class NajaNetlistTest0(unittest.TestCase):
         leaf_count = 0
         for leaf in netlist.get_top().get_leaf_children():
             leaf_count += 1
-        self.assertEqual(1, leaf_count)
+        self.assertEqual(4, leaf_count)
 
         instance2 = netlist.Instance(path2)
 
