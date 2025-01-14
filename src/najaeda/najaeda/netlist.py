@@ -95,7 +95,7 @@ class Equipotential:
 
     def __eq__(self, value):
         return self.equi == value.equi
-    
+
     def dump_dot(self, path: str):
         self.equi.dumpDotFile(path)
 
