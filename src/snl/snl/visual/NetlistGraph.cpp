@@ -30,18 +30,6 @@ void SnlVisualiser::process() {
   InstNode<InstDataSnl> child(instChildData, 0,
                               _snlNetlistGraph.getInsts().size());
   std::map<SNLBitNet*, size_t> net2wireId;
-  /*for (SNLBitNet* net :
-       child.getData().getSnlModel()->getBitNets()) {
-    if (_equi != nullptr) {
-      if (_equiNets.find(net) == _equiNets.end()) {
-        continue;
-      }
-    }
-    WireDataSnl edgeData(net);
-    WireEdge<WireDataSnl> wire(edgeData, _snlNetlistGraph.getWires().size());
-    net2wireId[net] = _snlNetlistGraph.getWires().size();
-    _snlNetlistGraph.addWire(wire);
-  }*/
   for (SNLBusTerm* busterm : child.getData().getSnlModel()->getBusTerms()) {
     BusDataSnl busDataSnl(busterm);
     BusNode<BusDataSnl, PortDataSnl> bus(busDataSnl,
@@ -58,23 +46,6 @@ void SnlVisualiser::process() {
       }
       child.getPortName2PortId()[name +
                                  std::to_string(term->getBit())] = port.getId();
-      /*if (term->getNet()) {
-        auto netTerm = term;
-          if (_equi != nullptr) {
-            if (_equiNets.find(netTerm->getNet()) == _equiNets.end()) {
-              continue;
-            }
-          }
-        if (term->getDirection() == SNLTerm::Direction::DirectionEnum::Input) {
-          _snlNetlistGraph
-              .getWire(net2wireId[term->getNet()])
-              .addPort(port.getId());
-        } else {
-          _snlNetlistGraph
-              .getWire(net2wireId[term->getNet()])
-              .addDriver(port.getId());
-        }
-      }*/
     }
     _snlNetlistGraph.addBus(bus);
     if (busterm->getDirection() == SNLTerm::Direction::DirectionEnum::Input) {
@@ -97,20 +68,6 @@ void SnlVisualiser::process() {
         name = std::to_string(term->getFlatID());
     }
     child.getPortName2PortId()[name] = port.getId();
-    /*if (term->getNet()) {
-      if (_equi != nullptr) {
-          if (_equiNets.find(term->getNet()) == _equiNets.end()) {
-            continue;
-          }
-        }
-      if (term->getDirection() == SNLTerm::Direction::DirectionEnum::Output) {
-        _snlNetlistGraph.getWire(net2wireId[term->getNet()])
-            .addPort(port.getId());
-      } else {
-        _snlNetlistGraph.getWire(net2wireId[term->getNet()])
-            .addDriver(port.getId());
-      }
-    }*/
   }
   _snlNetlistGraph.addInst(child);
   _snlNetlistGraph.setTop(child.getId());
