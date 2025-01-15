@@ -11,4 +11,6 @@ najaeda documentation
    :caption: Contents:
 
    instance
+   term
+   net
    api
