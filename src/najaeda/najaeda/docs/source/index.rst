@@ -10,4 +10,5 @@ najaeda documentation
    :maxdepth: 2
    :caption: Contents:
 
+   instance
    api
