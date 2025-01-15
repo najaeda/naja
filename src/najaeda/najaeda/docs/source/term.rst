@@ -1,5 +1,5 @@
-Instance Class
-==============
+Term Class
+==========
 
 .. automodule:: najaeda.term
     :members:

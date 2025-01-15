@@ -1,5 +1,5 @@
-Instance Class
-==============
+Net Class
+==========
 
 .. automodule:: najaeda.net
     :members:
