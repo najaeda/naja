@@ -11,7 +11,7 @@ from najaeda import netlist
 # snippet-start: load_xilinx_design
 netlist.load_primitives('xilinx')
 benchmarks = path.join('..','benchmarks')
-top = netlist.load_verilog([path.join(benchmarks, 'verilog', 'arm_core_netlist.v')])
+top = netlist.load_verilog([path.join(benchmarks, 'verilog', 'vexriscv.v')])
 # snippet-end: load_xilinx_design
 #print instances under top
 for instance in top.get_child_instances():

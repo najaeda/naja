@@ -6,14 +6,16 @@ Instance Class
     :undoc-members:
     :show-inheritance:
 
-Class Overview
---------------
+Instance Overview
+-----------------
 
-The `Instance` class is responsible for managing instances in the najaeda system.
-It provides methods for creating, updating, and deleting instances.
+In `najaeda`, an `Instance` encapsulates the concept of an instance in its hierarchical context.
 
-Class Definition
-----------------
+When an `Instance` is modified through editing methods,
+`najaeda` will automatically manage the necessary uniquification.
+
+Instance Attributes
+-------------------
 
 .. autoclass:: najaeda.netlist.Instance
     :members:

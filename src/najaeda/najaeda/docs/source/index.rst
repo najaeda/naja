@@ -13,4 +13,5 @@ najaeda documentation
    instance
    term
    net
+   equipotential
    api

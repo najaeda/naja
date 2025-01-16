@@ -6,13 +6,13 @@ Term Class
     :undoc-members:
     :show-inheritance:
 
-Class Overview
---------------
+Term Overview
+-------------
 
-The `Term` class is responsible for managing terms in the najaeda system.
+The `Term` class is responsible for managing terms in the `najaeda` system.
 
-Class Definition
-----------------
+Term Attributes
+---------------
 
 .. autoclass:: najaeda.netlist.Term
     :members:

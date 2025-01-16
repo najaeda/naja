@@ -13,7 +13,7 @@ from najaeda import instance_visitor
 
 netlist.load_primitives('xilinx')
 benchmarks = path.join('..','benchmarks')
-top = netlist.load_verilog([path.join(benchmarks, 'verilog', 'arm_core_netlist.v')])
+top = netlist.load_verilog([path.join(benchmarks, 'verilog', 'vexriscv.v')])
 
 # snippet-start: count_leaves
 leaves = {"count": 0, "assigns": 0, "constants": 0}

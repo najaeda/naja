@@ -1,18 +1,18 @@
 Net Class
-==========
+=========
 
 .. automodule:: najaeda.net
     :members:
     :undoc-members:
     :show-inheritance:
 
-Class Overview
+Net Overview
+------------
+
+The `Net` class is responsible for managing nets in the `najaeda` system.
+
+Net Attributes
 --------------
-
-The `Net` class is responsible for managing nets in the najaeda system.
-
-Class Definition
-----------------
 
 .. autoclass:: najaeda.netlist.Net
     :members:
