@@ -666,12 +666,14 @@ class Instance:
         return None
 
     def dump_full_dot(self, path: str):
+        """Dump the full dot file of this instance."""
         self.__get_snl_model().dumpFullDotFile(path)
 
     def dump_context_dot(self, path: str):
         self.__get_snl_model().dumpContextDotFile(path)
 
     def get_child_instance(self, name: str):
+        """Return the child instance with the given name."""
         childInst = self.__get_snl_model().getInstance(name)
         if childInst is None:
             return None
@@ -705,10 +707,16 @@ class Instance:
     #                stack.append([inst_child, path_child])
 
     def get_nets(self):
+        """Return the nets of the instance.
+        This will iterate over all scalar nets and bus nets.
+        """
         for net in self.__get_snl_model().getNets():
             yield Net(self.pathIDs, net)
 
     def get_flat_nets(self):
+        """Return the nets of the instance.
+        This will iterate over all scalar nets and bus net bits.
+        """
         for net in self.__get_snl_model().getNets():
             if isinstance(net, snl.SNLBusNet):
                 for bit in net.getBits():
@@ -717,6 +725,7 @@ class Instance:
                 yield Net(self.pathIDs, net)
 
     def get_net(self, name: str) -> Net:
+        """Return the net with the given name."""
         net = self.__get_snl_model().getNet(name)
         if net is not None:
             return Net(self.pathIDs, net)
@@ -727,25 +736,38 @@ class Instance:
         return self.__get_snl_model().isPrimitive()
 
     def get_terms(self):
+        """Return the terms of the instance.
+        This will iterate over all scalar terms and bus terms.
+        """
         for term in self.__get_snl_model().getTerms():
             yield Term(self.pathIDs, term)
 
     def get_flat_terms(self):
+        """Return the flat terms of the instance.
+        This will iterate over all scalar terms and bus term bits.
+        """
         for term in self.__get_snl_model().getBitTerms():
             yield Term(self.pathIDs, term)
 
     def get_term(self, name: str) -> Term:
+        """Return the term with the given name."""
         term = self.__get_snl_model().getTerm(name)
         if term is not None:
             return Term(self.pathIDs, self.__get_snl_model().getTerm(name))
         return None
 
     def get_input_terms(self):
+        """Return the input terms of the instance.
+        This will iterate over all scalar input terms and bus input terms.
+        """
         for term in self.__get_snl_model().getTerms():
             if term.getDirection() != snl.SNLTerm.Direction.Output:
                 yield Term(self.pathIDs, term)
 
     def get_flat_input_terms(self):
+        """Return the flat input terms of the instance.
+        This will iterate over all scalar input terms and bus input term bits.
+        """
         for term in self.__get_snl_model().getTerms():
             if term.getDirection() != snl.SNLTerm.Direction.Output:
                 if isinstance(term, snl.SNLBusTerm):
@@ -755,11 +777,17 @@ class Instance:
                     yield Term(self.pathIDs, term)
 
     def get_output_terms(self):
+        """Return the output terms of the instance.
+        This will iterate over all scalar output terms and bus output terms.
+        """
         for term in self.__get_snl_model().getTerms():
             if term.getDirection() != snl.SNLTerm.Direction.Input:
                 yield Term(self.pathIDs, term)
 
     def get_flat_output_terms(self):
+        """Return the flat output terms of the instance.
+        This will iterate over all scalar output terms and bus output term bits.
+        """
         for term in self.__get_snl_model().getTerms():
             if term.getDirection() != snl.SNLTerm.Direction.Input:
                 if isinstance(term, snl.SNLBusTerm):
@@ -769,11 +797,12 @@ class Instance:
                     yield Term(self.pathIDs, term)
 
     def delete_instance(self, name: str):
-        init_path = get_snl_path_from_id_list(self.pathIDs)
+        """Delete the child instance with the given name."""
         if name == "":
             raise ValueError(
                 "Cannot delete instance with empty name. Try delete_instance_by_id instead."
             )
+        init_path = get_snl_path_from_id_list(self.pathIDs)
         path = snl.SNLPath(init_path, self.__get_snl_model().getInstance(name))
         snl.SNLUniquifier(path)
         if init_path.size() > 0:
@@ -781,6 +810,7 @@ class Instance:
             self.__get_snl_model().getInstance(name).destroy()
 
     def delete_instance_by_id(self, id: str):
+        """Delete the child instance with the given ID."""
         init_path = get_snl_path_from_id_list(self.pathIDs)
         path = snl.SNLPath(init_path, self.__get_snl_model().getInstanceByID(id))
         snl.SNLUniquifier(path)
@@ -788,6 +818,7 @@ class Instance:
         self.__get_snl_model().getInstanceByID(id).destroy()
 
     def get_design(self):
+        """Return the Instance containing this instance."""
         path = self.pathIDs.copy()
         if len(self.pathIDs) == 1:
             return get_top()
@@ -795,13 +826,14 @@ class Instance:
         return Instance(path)
 
     def delete(self):
+        """Delete this instance."""
         path = get_snl_path_from_id_list(self.pathIDs)
         snl.SNLUniquifier(path)
         self.get_design().delete_instance_by_id(path.getTailInstance().getID())
 
     def get_name(self) -> str:
-        path = get_snl_path_from_id_list(self.pathIDs)
         """Return the name of the instance or name of the top is this is the top."""
+        path = get_snl_path_from_id_list(self.pathIDs)
         if self.is_top():
             return self.get_model_name()
         else:
@@ -812,10 +844,12 @@ class Instance:
         return self.__get_snl_model().getName()
 
     def get_model_id(self) -> tuple[int, int, int]:
+        """Return the ID of the model of the instance or ID of the top is this is the top."""
         model = self.__get_snl_model()
         return model.getDB().getID(), model.getLibrary().getID(), model.getID()
 
     def create_child_instance(self, model: str, name: str):
+        """Create a child instance with the given model and name."""
         path = get_snl_path_from_id_list(self.pathIDs)
         if path.size() > 0:
             snl.SNLUniquifier(path)
@@ -831,6 +865,7 @@ class Instance:
         return Instance(path)
 
     def create_term(self, name: str, direction: snl.SNLTerm.Direction) -> Term:
+        """Create a Term  in this Instance with the given name and direction."""
         path = get_snl_path_from_id_list(self.pathIDs)
         if path.size() > 0:
             snl.SNLUniquifier(path)
@@ -840,15 +875,19 @@ class Instance:
         return Term(path, newSNLTerm)
 
     def create_output_term(self, name: str) -> Term:
+        """Create an output Term in this Instance with the given name."""
         return self.create_term(name, snl.SNLTerm.Direction.Output)
 
     def create_input_term(self, name: str) -> Term:
+        """Create an input Term in this Instance with the given name."""
         return self.create_term(name, snl.SNLTerm.Direction.Input)
 
     def create_inout_term(self, name: str) -> Term:
+        """Create an inout Term in this Instance with the given name."""
         return self.create_term(name, snl.SNLTerm.Direction.InOut)
 
     def create_bus_term(self, name: str, msb: int, lsb: int, direction) -> Term:
+        """Create a bus Term in this Instance with the given name, msb, lsb and direction."""
         path = get_snl_path_from_id_list(self.pathIDs)
         if path.size() > 0:
             snl.SNLUniquifier(path)
@@ -858,15 +897,19 @@ class Instance:
         return Term(path, newSNLTerm)
 
     def create_inout_bus_term(self, name: str, msb: int, lsb: int) -> Term:
+        """Create an inout bus Term in this Instance with the given name, msb and lsb."""
         return self.create_bus_term(name, msb, lsb, snl.SNLTerm.Direction.InOut)
 
     def create_output_bus_term(self, name: str, msb: int, lsb: int) -> Term:
+        """Create an output bus Term in this Instance with the given name, msb and lsb."""
         return self.create_bus_term(name, msb, lsb, snl.SNLTerm.Direction.Output)
 
     def create_input_bus_term(self, name: str, msb: int, lsb: int) -> Term:
+        """Create an input bus Term in this Instance with the given name, msb and lsb."""
         return self.create_bus_term(name, msb, lsb, snl.SNLTerm.Direction.Input)
 
     def create_net(self, name: str) -> Net:
+        """Create a scalar Net in this Instance with the given name."""
         path = get_snl_path_from_id_list(self.pathIDs)
         if path.size() > 0:
             snl.SNLUniquifier(path)
@@ -876,6 +919,7 @@ class Instance:
         return Net(path, newSNLNet)
 
     def create_bus_net(self, name: str, msb: int, lsb: int) -> Net:
+        """Create a bus Net in this Instance with the given name, msb and lsb."""
         path = get_snl_path_from_id_list(self.pathIDs)
         if path.size() > 0:
             snl.SNLUniquifier(path)
@@ -885,6 +929,7 @@ class Instance:
         return Net(path, newSNLNet)
 
     def dump_verilog(self, path: str, name: str):
+        """Dump the verilog of this instance."""
         self.__get_snl_model().dumpVerilog(path, name)
 
 

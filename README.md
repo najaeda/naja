@@ -17,6 +17,8 @@ Naja is an Electronic Design Automation (EDA) project that provides open source 
 
 The easiest way to get started with **Naja** is through the
 [najaeda](https://pypi.org/project/najaeda/) Python package.
+Comprehensive online documentation for `najaeda` is available
+[here](https://najaeda.readthedocs.io/en/latest/index.html).
 
 `najaeda` provides a powerful yet simple framework designed to help software
 `AND` hardware developers efficiently navigate and manipulate electronic design

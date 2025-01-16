@@ -10,4 +10,8 @@ najaeda documentation
    :maxdepth: 2
    :caption: Contents:
 
+   instance
+   term
+   net
+   equipotential
    api

@@ -37,5 +37,5 @@ jobs:
     - name: launch najaeda examples
       env: 
         PYTHONPATH: ${{github.workspace}}/build/test/najaeda
-      working-directory: ${{github.workspace}}/najaeda_examples
+      working-directory: ${{github.workspace}}/src/najaeda/examples
       run: python3 run_regress.py 
