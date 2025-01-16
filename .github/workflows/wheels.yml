@@ -114,7 +114,7 @@ jobs:
             export LIBERTY_BENCHMARKS_PATH='{project}/test/snl/formats/liberty/benchmarks' &&
             export NAJAEDA_TEST_PATH='{project}/test/najaeda' &&
             python -m pytest {project}/test/najaeda &&
-            cd {project}/najaeda_examples && python run_regress.py 
+            cd {project}/src/najaeda/examples && python run_regress.py 
         run: python -m cibuildwheel --output-dir wheelhouse
 
       #Reminder!!: actions/upload-artifact and actions/download-artifact
