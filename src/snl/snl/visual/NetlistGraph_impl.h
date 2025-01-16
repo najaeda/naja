@@ -211,10 +211,6 @@ void NetlistGraph<InstData, PortData, WireData, BusData>::addConnectivity(
     }
     if (wire.getDrivers().empty()) {
       for (const auto reader : wire.getPorts()) {
-        printf("reader %s\n",
-               this->getPort(reader).getData().getName().c_str());
-        printf("dotname %s\n",
-               this->getPort(reader).getPortDotName().c_str());
         myfile << this->getPort(reader).getPortDotName() << "->"
                << this->getPort(reader).getPortDotName();
         myfile << "[label =\"" << wire.getData().getName() << "\"];"

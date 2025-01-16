@@ -542,17 +542,33 @@ class InstDataSnl : InstData {
   auto getSnlModel() const { return _snlModel; }
   std::string getModelName() const {
     std::string name = _snlModel->getName().getString();
+    //LCOV_EXCL_START
     if (name == std::string("")) {
-      return _snlModel->getDescription();
+      if (_snlModel->isAssign()) {
+        return std::string(std::string("assign_") +
+                       std::to_string(_snlModel->getID()));
+      }
+      std::string nameAnon(std::string("anonymous_") +
+                       std::to_string(_snlModel->getID()));
+      return nameAnon;
     }
+    //LCOV_EXCL_STOP
     return name;
   }
 
   std::string getInstName() const {
     std::string name = _snlInst->getName().getString();
+    //LCOV_EXCL_START
     if (name == std::string("")) {
-      return _snlInst->getDescription();
+      if (_snlModel->isAssign()) {
+        return std::string(std::string("assign_") +
+                       std::to_string(_snlInst->getID()));
+      }
+      std::string nameAnon(std::string("anonymous_") +
+                       std::to_string(_snlInst->getID()));
+      return nameAnon;
     }
+    //LCOV_EXCL_STOP
     return name;
   }
 
