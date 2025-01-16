@@ -7,18 +7,13 @@ Files: .github/workflows/* .gitmodules
 Copyright: 2022 The Naja Authors.
 License: Apache-2.0
 
-Files: README.md README.rst README_pages/* AUTHORS docs/*
+Files: README.md README.rst README_pages/* AUTHORS docs/* src/najaeda/README/*
 Copyright: 2022 The Naja Authors.
 License: Apache-2.0
 
 Files: test/snl/formats/verilog/benchmarks/* test/snl/snl/kernel/benchs/* test/najaeda/.coveragerc
 Copyright: 2022 The Naja Authors.
 License: Apache-2.0
-
-Files: regress/*
-Copyright: 2022 The Naja Authors.
-License: Apache-2.0
-Comment: these files are used for regression testing: synthesized netlists.
 
 Files: src/apps/naja_edit/examples/*
 Copyright: 2022 The Naja Authors.
@@ -54,6 +49,6 @@ FILES: src/najaeda/examples/benchmarks/liberty/*
 Copyright: 2022 The Naja Authors.
 License: Apache-2.0
 
-FILES: najaeda_examples/benchmarks/verilog/vexriscv.v
+FILES: src/najaeda/examples/benchmarks/verilog/vexriscv.v
 Copyright: 2016 Spinal HDL contributors.
 License: MIT

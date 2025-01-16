@@ -5428,11 +5428,6 @@ module DataCache(io_cpu_execute_isValid, io_cpu_execute_address, io_cpu_execute_
     .WEA(2'h0),
     .WEBWE({ 1'h0, tagsWriteCmd_valid, tagsWriteCmd_valid, tagsWriteCmd_valid })
   );
-  always @(posedge clk) begin
-    if (_132_) begin
-      $write("ERROR writeBack stuck by another plugin is not allowed\n");
-    end
-  end
   assign _159_[4:0] = { io_cpu_writeBack_isValid, _155_[2], _156_[1], io_cpu_writeBack_unalignedAccess, io_cpu_writeBack_mmuException };
   assign { _171_[4:3], _171_[1:0] } = { _zz_17_, _169_[3], io_cpu_memory_mmuBus_rsp_physicalAddress[8], stageB_mmuRsp_physicalAddress[8] };
   assign _155_[1:0] = { io_cpu_writeBack_mmuException, io_cpu_writeBack_unalignedAccess };
