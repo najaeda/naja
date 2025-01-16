@@ -44,6 +44,11 @@ Install Naja EDA using pip:
 
     pip install najaeda
 
+Documentation
+-------------
+
+Naja EDA online documentation is available `here <https://najaeda.readthedocs.io/en/latest/index.html>`_.
+
 Examples
 --------
 

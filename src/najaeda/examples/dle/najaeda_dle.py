@@ -45,7 +45,7 @@ if __name__ == '__main__':
     netlist.load_primitives('xilinx')
     instances = set()
     benchmarks = path.join('..', 'benchmarks')
-    top = netlist.load_verilog([path.join(benchmarks, 'verilog', 'arm_core_netlist.v')])
+    top = netlist.load_verilog([path.join(benchmarks, 'verilog', 'vexriscv.v')])
 
     nb_deleted = apply_dle(top)
     
