@@ -15,4 +15,5 @@ najaeda documentation
    term
    net
    equipotential
+   examples
    api

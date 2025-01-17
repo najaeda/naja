@@ -29,6 +29,8 @@ With **najaeda**, it is possible to:
 **najaeda** empowers developers to innovate, adapt, and accelerate
 their EDA processes with minimal overhead.
 
+Information about the **najaeda** PyPI package is available at https://pypi.org/project/najaeda .
+
 If you want more details about the underlying **naja** C++ library,
 please visit the **naja** GitHub repository at https://github.com/najaeda/naja .
 

@@ -1,0 +1,10 @@
+najaeda code examples
+=====================
+
+Load a design from a liberty file and a Verilog file
+----------------------------------------------------
+
+Following snippet shows how to load primitive cells from a liberty file
+and a netlist from a Verilog file.
+
+.. snippet:: load_design_liberty
