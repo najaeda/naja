@@ -46,3 +46,8 @@ Bug Reports
 -----------
 Please report any bugs to the `najaeda` issue tracker at
 https://github.com/najaeda/naja/issues .
+
+License
+-------
+This project is licensed under the Apache License 2.0.
+See the `LICENSE <https://github.com/najaeda/naja/blob/main/LICENSE>`_ file for details.

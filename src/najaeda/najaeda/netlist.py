@@ -510,6 +510,7 @@ class Term:
         return None
 
     def disconnect(self):
+        """Disconnect this term from its net."""
         path = get_snl_path_from_id_list(self.pathIDs)
         self.__make_unique()
         inst = path.getTailInstance()
