@@ -15,7 +15,7 @@ sys.path.insert(0, os.path.abspath('../../../'))
 project = 'najaeda'
 copyright = '2024, Naja authors'
 author = 'Naja authors'
-release = '0.1.8'
+release = '0.1.9'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -35,9 +35,24 @@ exclude_patterns = []
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
 html_theme = 'sphinx_rtd_theme'
-html_static_path = ['_static']
 
+# Run preprocessing step if building in a specific environment
 import os
 if 'IN_READ_THE_DOCS' in os.environ:
-  import subprocess
-  subprocess.call('python preprocessor.py --source_dir ../../../examples --source_rst examples.rst.in --dest_rst ./examples.rst', shell=True)
+    print("Running preprocessing script for Sphinx documentation...")
+    preprocessor_script = os.path.abspath('../../../preprocessor.py')
+    source_dir = os.path.abspath('../../../examples')
+    source_rst = os.path.abspath('./examples.rst.in')
+    dest_rst = os.path.abspath('./examples.rst')
+
+    try:
+        import subprocess
+        subprocess.call([
+            'python', preprocessor_script, 
+            '--source_dir', source_dir, 
+            '--source_rst', source_rst, 
+            '--dest_rst', dest_rst
+        ])
+        print("Preprocessing completed successfully.")
+    except Exception as e:
+        print(f"Error during preprocessing: {e}")
