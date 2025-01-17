@@ -34,7 +34,7 @@ please visit the **naja** GitHub repository at https://github.com/najaeda/naja .
 
 Installation
 ------------
-**najaeda** is easylly installed via pip:
+**najaeda** can be easily installed using pip:
 
 .. code-block:: bash
     
