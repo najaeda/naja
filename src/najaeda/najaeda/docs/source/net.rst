@@ -1,7 +1,7 @@
 Net Class
 =========
 
-.. automodule:: najaeda.net
+.. automodule:: najaeda.netlist.Net
     :members:
     :undoc-members:
     :show-inheritance:

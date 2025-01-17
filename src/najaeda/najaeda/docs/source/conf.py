@@ -38,21 +38,20 @@ html_theme = 'sphinx_rtd_theme'
 
 # Run preprocessing step if building in a specific environment
 import os
-if 'IN_READ_THE_DOCS' in os.environ:
-    print("Running preprocessing script for Sphinx documentation...")
-    preprocessor_script = os.path.abspath('../../../preprocessor.py')
-    source_dir = os.path.abspath('../../../examples')
-    source_rst = os.path.abspath('./examples.rst.in')
-    dest_rst = os.path.abspath('./examples.rst')
+print("Running preprocessing script for Sphinx documentation...")
+preprocessor_script = os.path.abspath('../../../preprocessor.py')
+source_dir = os.path.abspath('../../../examples')
+source_rst = os.path.abspath('./examples.rst.in')
+dest_rst = os.path.abspath('./examples.rst')
 
-    try:
-        import subprocess
-        subprocess.call([
-            'python', preprocessor_script, 
-            '--source_dir', source_dir, 
-            '--source_rst', source_rst, 
-            '--dest_rst', dest_rst
-        ])
-        print("Preprocessing completed successfully.")
-    except Exception as e:
-        print(f"Error during preprocessing: {e}")
+try:
+    import subprocess
+    subprocess.call([
+        'python', preprocessor_script, 
+        '--source_dir', source_dir, 
+        '--source_rst', source_rst, 
+        '--dest_rst', dest_rst
+    ])
+    print("Preprocessing completed successfully.")
+except Exception as e:
+    print(f"Error during preprocessing: {e}")
