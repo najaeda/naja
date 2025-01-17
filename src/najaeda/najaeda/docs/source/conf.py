@@ -39,7 +39,7 @@ html_theme = 'sphinx_rtd_theme'
 # Run preprocessing step if building in a specific environment
 import os
 print("Running preprocessing script for Sphinx documentation...")
-preprocessor_script = os.path.abspath('../../../preprocessor.py')
+preprocessor_script = os.path.abspath('./preprocessor.py')
 source_dir = os.path.abspath('../../../examples')
 source_rst = os.path.abspath('./examples.rst.in')
 dest_rst = os.path.abspath('./examples.rst')
