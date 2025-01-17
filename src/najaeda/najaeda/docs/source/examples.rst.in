@@ -10,7 +10,8 @@ and a netlist from a verilog file.
 .. snippet:: load_design_liberty
 
 Load a design with pre-existing libraries
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-----------------------------------------
+
 In FPGA design environments, Liberty files are often unavailable.
 
 To address this, the following example demonstrates how to load primitives
@@ -23,7 +24,8 @@ easily extended in the future. Don't hesitate to reach out if you need help.
 .. snippet:: load_xilinx_design
 
 Print all the instances in the netlist
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+--------------------------------------
+
 Next example shows how to browse all the netlist and print all its content recursively.
 
 .. snippet:: print_design_recursive
@@ -34,8 +36,9 @@ also defining conditions for stopping or continuing exploration.
 
 .. snippet:: print_design_visitor
 
-Counting the Number of Leaves in a Netlist
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Counting the number of leaves in a netlist
+------------------------------------------
+
 The instance visitor provides a tool for collecting various types of information
 about a netlist.
 
@@ -47,7 +50,8 @@ This specific use case shows how to count the number of leaf instances in a netl
 .. snippet:: count_leaves
 
 DLE (Dead Logic Elimination)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+----------------------------
+
 This example demonstrates how to perform Dead Logic Elimination (DLE) on a netlist.
 
 .. snippet:: dle
