@@ -97,9 +97,11 @@ class Equipotential:
         return self.equi == value.equi
 
     def dump_dot(self, path: str):
+        """Dump the dot file of this equipotential."""
         self.equi.dumpDotFile(path)
 
     def get_inst_terms(self):
+        """Iterate over the instance terminals of this equipotential."""
         if self.equi is not None:
             for term in self.equi.getInstTermOccurrences():
                 yield Term(
@@ -108,6 +110,7 @@ class Equipotential:
                 )
 
     def get_top_terms(self):
+        """Iterate over the top terminals of this equipotential."""
         if self.equi is not None:
             for term in self.equi.getTerms():
                 yield Term([], term)
@@ -242,6 +245,7 @@ class Net:
         return sum(1 for _ in self.net_concat)
 
     def get_bits(self):
+        """Return the bits of the net."""
         if hasattr(self, "net"):
             if isinstance(self.net, snl.SNLBusNet):
                 for bit in self.net.getBits():
@@ -619,6 +623,11 @@ class Instance:
         return len(self.pathIDs) == 0
 
     def is_assign(self) -> bool:
+        """Return True if this is an assign. Assigns are represented with
+        anonymous Assign instances.
+        Example: (assign a=b) will create an instance of assign connecting
+        the wire a to the output of the assign and b to the input.
+        """
         return self.__get_snl_model().isAssign()
 
     def is_blackbox(self) -> bool:
@@ -682,12 +691,16 @@ class Instance:
         return Instance(path)
 
     def get_child_instances(self):
+        """Iterate over the child instances of this instance.
+        Equivalent to go down one level in hierarchy.
+        """
         for inst in self.__get_snl_model().getInstances():
             path = self.pathIDs.copy()
             path.append(inst.getID())
             yield Instance(path)
 
     def get_number_of_child_instances(self) -> int:
+        """Return the number of child instances of this instance."""
         return sum(1 for _ in self.__get_snl_model().getInstances())
 
     # def get_flat_primitive_instances(self):
@@ -943,10 +956,12 @@ def get_top_db() -> snl.SNLDB:
 
 
 def get_top():
+    """Returns the top Instance."""
     return Instance(snl.SNLPath())
 
 
 def create_top(name: str) -> Instance:
+    """Create a top instance with the given name."""
     # init
     db = get_top_db()
     # create top design
@@ -971,6 +986,10 @@ def load_liberty(files: list):
 
 
 def load_primitives(name: str):
+    """Loads a primitive library embedded in najaeda.
+    Currently supported libraries are:
+    - xilinx
+    """
     if name == "xilinx":
         logging.info("Loading xilinx primitives")
         from najaeda.primitives import xilinx
