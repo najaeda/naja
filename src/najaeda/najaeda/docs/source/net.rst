@@ -10,6 +10,7 @@ Net Overview
 ------------
 
 In `najaeda`, a `Net` can represent various scenarios, including:
+
 1. **Simple Scalar Net**: A net that represents a single scalar signal.
 See :py:meth:`najaeda.netlist.Net.is_scalar`.
 2. **Full Bus Net**: A net that encompasses an entire bus.
