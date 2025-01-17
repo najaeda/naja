@@ -1,11 +1,6 @@
 Instance Class
 ==============
 
-.. automodule:: najaeda.instance
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 Instance Overview
 -----------------
 

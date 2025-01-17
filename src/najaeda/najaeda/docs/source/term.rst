@@ -1,11 +1,6 @@
 Term Class
 ==========
 
-.. automodule:: najaeda.term
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 Term Overview
 -------------
 

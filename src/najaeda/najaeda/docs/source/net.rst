@@ -1,11 +1,6 @@
 Net Class
 =========
 
-.. automodule:: najaeda.netlist.Net
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 Net Overview
 ------------
 
