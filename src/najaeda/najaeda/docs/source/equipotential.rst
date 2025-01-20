@@ -1,11 +1,6 @@
 Equipotential Class
 ===================
 
-.. automodule:: najaeda.equipotential
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 Equipotential Overview
 ----------------------
 

@@ -1,5 +1,5 @@
-najaeda Complete API Documentation
-==================================
+Complete najaeda API Reference
+==============================
 
 .. automodule:: najaeda.netlist
     :members:
