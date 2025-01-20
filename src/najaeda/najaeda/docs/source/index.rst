@@ -15,6 +15,5 @@ najaeda documentation
    term
    net
    equipotential
-   visitors
    examples
    api

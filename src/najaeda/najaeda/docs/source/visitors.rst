@@ -4,11 +4,9 @@ najaeda visitors
 Instance Visitor
 ----------------
 
-Instance Visitor Class
-^^^^^^^^^^^^^^^^^^^^^
+Instance Visitor Overview
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Instance Visitor Attributes
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. autoclass:: najaeda.instance_visitor.Visitor
     :members:
