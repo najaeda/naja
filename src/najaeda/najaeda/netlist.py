@@ -726,11 +726,11 @@ class Instance:
         return len(self.pathIDs) == 0
 
     def is_assign(self) -> bool:
-        """
+        """Example: (assign a=b) will create an instance of assign connecting
+        the wire a to the output of the assign and b to the input.
+
         :return: True if this is an assign. Assigns are represented with
         anonymous Assign instances.
-        Example: (assign a=b) will create an instance of assign connecting
-        the wire a to the output of the assign and b to the input.
         :rtype: bool
         """
         return self.__get_snl_model().isAssign()
@@ -820,9 +820,9 @@ class Instance:
         return Instance(path)
 
     def get_child_instances(self):
-        """
-        Iterate over the child instances of this instance.
+        """Iterate over the child instances of this instance.
         Equivalent to go down one level in hierarchy.
+        
         :return: an iterator over the child instances of this instance.
         :rtype: Iterator[Instance]
         """
@@ -855,15 +855,19 @@ class Instance:
     #                stack.append([inst_child, path_child])
 
     def get_nets(self):
-        """Return the nets of the instance.
-        This will iterate over all scalar nets and bus nets.
+        """Iterate over all scalar nets and bus nets.
+
+        :return: an iterator over the nets of this Instance.
+        :rtype: Iterator[Net]
         """
         for net in self.__get_snl_model().getNets():
             yield Net(self.pathIDs, net)
 
     def get_flat_nets(self):
-        """Return the nets of the instance.
-        This will iterate over all scalar nets and bus net bits.
+        """Iterate over all scalar nets and bus net bits.
+
+        :return: an iterator over the flat nets of this Instance.
+        :rtype: Iterator[Net]
         """
         for net in self.__get_snl_model().getNets():
             if isinstance(net, snl.SNLBusNet):
@@ -873,48 +877,69 @@ class Instance:
                 yield Net(self.pathIDs, net)
 
     def get_net(self, name: str) -> Net:
-        """Return the net with the given name."""
+        """
+        :param str name: the name of the Net to get.
+        :return: the Net with the given name or None if it does not exist.
+        :rtype: Net or None
+        """
         net = self.__get_snl_model().getNet(name)
         if net is not None:
             return Net(self.pathIDs, net)
         return None
 
     def is_primitive(self) -> bool:
-        """Return True if this is a primitive."""
+        """
+        :return: True if this is a primitive.
+        :rtype: bool
+        """
         return self.__get_snl_model().isPrimitive()
 
     def get_terms(self):
-        """Return the terms of the instance.
-        This will iterate over all scalar terms and bus terms.
+        """Iterate over all scalar terms and bus terms of this Instance.
+
+        :return: the terms of this Instance.
+        :rtype: Iterator[Term]
         """
         for term in self.__get_snl_model().getTerms():
             yield Term(self.pathIDs, term)
 
     def get_flat_terms(self):
-        """Return the flat terms of the instance.
-        This will iterate over all scalar terms and bus term bits.
+        """Iterate over all scalar terms and bus term bits.
+
+        :return: the flat terms of this Instance.
+        :rtype: Iterator[Term]
         """
         for term in self.__get_snl_model().getBitTerms():
             yield Term(self.pathIDs, term)
 
     def get_term(self, name: str) -> Term:
-        """Return the term with the given name."""
+        """
+        :param str name: the name of the Term to get.
+        :return: the Term with the given name.
+        :rtype: Term or None
+        """
         term = self.__get_snl_model().getTerm(name)
         if term is not None:
             return Term(self.pathIDs, self.__get_snl_model().getTerm(name))
         return None
 
     def get_input_terms(self):
-        """Return the input terms of the instance.
-        This will iterate over all scalar input terms and bus input terms.
+        """Iterate over all scalar input terms and bus input terms
+        of this Instance.
+
+        :return: the input terms of this Instance.
+        :rtype: Iterator[Term]
         """
         for term in self.__get_snl_model().getTerms():
             if term.getDirection() != snl.SNLTerm.Direction.Output:
                 yield Term(self.pathIDs, term)
 
     def get_flat_input_terms(self):
-        """Return the flat input terms of the instance.
-        This will iterate over all scalar input terms and bus input term bits.
+        """Iterate over all scalar input terms and bus input term bits
+        of this Instance.
+
+        :return: the flat input terms of this Instance.
+        :rtype: Iterator[Term]
         """
         for term in self.__get_snl_model().getTerms():
             if term.getDirection() != snl.SNLTerm.Direction.Output:
@@ -925,8 +950,11 @@ class Instance:
                     yield Term(self.pathIDs, term)
 
     def get_output_terms(self):
-        """Return the output terms of the instance.
-        This will iterate over all scalar output terms and bus output terms.
+        """Iterate over all scalar output terms and bus output terms
+        of this Instance.
+
+        :return: the output terms of this Instance.
+        :rtype: Iterator[Term]
         """
         for term in self.__get_snl_model().getTerms():
             if term.getDirection() != snl.SNLTerm.Direction.Input:
@@ -958,7 +986,10 @@ class Instance:
             self.__get_snl_model().getInstance(name).destroy()
 
     def delete_instance_by_id(self, id: str):
-        """Delete the child instance with the given ID."""
+        """Delete the child instance with the given ID.
+        
+        :param str id: the ID of the Instance to delete.
+        """
         init_path = get_snl_path_from_id_list(self.pathIDs)
         path = snl.SNLPath(init_path, self.__get_snl_model().getInstanceByID(id))
         snl.SNLUniquifier(path)
@@ -966,7 +997,10 @@ class Instance:
         self.__get_snl_model().getInstanceByID(id).destroy()
 
     def get_design(self):
-        """Return the Instance containing this instance."""
+        """
+        :return: the Instance containing this instance.
+        :rtype: Instance
+        """
         path = self.pathIDs.copy()
         if len(self.pathIDs) == 1:
             return get_top()
@@ -980,7 +1014,10 @@ class Instance:
         self.get_design().delete_instance_by_id(path.getTailInstance().getID())
 
     def get_name(self) -> str:
-        """Return the name of the instance or name of the top is this is the top."""
+        """
+        :return: the name of the instance or name of the top is this is the top.
+        :rtype: str
+        """
         path = get_snl_path_from_id_list(self.pathIDs)
         if self.is_top():
             return self.get_model_name()
@@ -988,11 +1025,17 @@ class Instance:
             return path.getTailInstance().getName()
 
     def get_model_name(self) -> str:
-        """Return the name of the model of the instance or name of the top is this is the top."""
+        """
+        :return: the name of the model of the instance or name of the top is this is the top.
+        :rtype: str
+        """
         return self.__get_snl_model().getName()
 
     def get_model_id(self) -> tuple[int, int, int]:
-        """Return the ID of the model of the instance or ID of the top is this is the top."""
+        """
+        :return: the ID of the model of this Instance or ID of the top
+        if this is the top.
+        """
         model = self.__get_snl_model()
         return model.getDB().getID(), model.getLibrary().getID(), model.getID()
 
@@ -1013,7 +1056,12 @@ class Instance:
         return Instance(path)
 
     def create_term(self, name: str, direction: snl.SNLTerm.Direction) -> Term:
-        """Create a Term  in this Instance with the given name and direction."""
+        """Create a Term in this Instance with the given name and direction.
+        
+        :param str name: the name of the Term to create.
+        :param snl.SNLTerm.Direction direction: the direction of the Term to create.
+        :return: the created Term.
+        """
         path = get_snl_path_from_id_list(self.pathIDs)
         if path.size() > 0:
             snl.SNLUniquifier(path)
