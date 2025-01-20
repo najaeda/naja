@@ -192,45 +192,72 @@ class Net:
         return net_str
 
     def get_name(self) -> str:
-        """Return the name of the net."""
+        """
+        :return: the name of this Net. 
+        :rtype: str
+        """
         if hasattr(self, "net"):
             return self.net.getName()
         return "{" + ",".join(map(str, self.net_concat)) + "}"
 
     def get_msb(self) -> int:
-        """Return the most significant bit of the net if it is a bus."""
+        """
+        :return: the most significant bit of the net if it is a bus.
+        :rtype: int
+        """
         if hasattr(self, "net") and isinstance(self.net, snl.SNLBusNet):
             return self.net.getMSB()
         return None
 
     def get_lsb(self) -> int:
-        """Return the least significant bit of the net if it is a bus."""
+        """
+        :return: the least significant bit of the net if it is a bus.
+        :rtype: int
+        """
         if hasattr(self, "net") and isinstance(self.net, snl.SNLBusNet):
             return self.net.getLSB()
         return None
 
     def is_bus(self) -> bool:
-        """Return True if the net is a bus."""
+        """
+        :return: True if the net is a bus.
+        :rtype: bool
+        """
         return hasattr(self, "net") and isinstance(self.net, snl.SNLBusNet)
 
     def is_bus_bit(self) -> bool:
-        """Return True if the net is a bit of a bus."""
+        """
+        :return: True if the net is a bit of a bus.
+        :rtype: bool
+        """
         return hasattr(self, "net") and isinstance(self.net, snl.SNLBusNetBit)
 
     def is_scalar(self) -> bool:
-        """Return True if the net is a scalar."""
+        """
+        :return: True if the net is a scalar.
+        :rtype: bool
+        """
         return hasattr(self, "net") and isinstance(self.net, snl.SNLScalarNet)
 
     def is_bit(self) -> bool:
-        """Return True if the net is a bit."""
+        """
+        :return: True if the net is a bit.
+        :rtype: bool
+        """
         return self.is_scalar() or self.is_bus_bit()
 
     def is_concat(self) -> bool:
-        """Return True if the net is a concatenation."""
+        """
+        :return: True if the net is a concatenation.
+        :rtype: bool
+        """
         return hasattr(self, "net_concat")
 
     def is_const(self) -> bool:
-        """Return True if the net is a constant generator."""
+        """
+        :return: True if the net is a constant generator.
+        :rtype: bool
+        """
         if hasattr(self, "net"):
             return self.net.isConstant()
         for net in self.net_concat:
@@ -239,7 +266,10 @@ class Net:
         return True
 
     def get_width(self) -> int:
-        """Return the width of the net."""
+        """
+        :return: the width of the net.
+        :rtype: int
+        """
         if hasattr(self, "net"):
             return self.net.getWidth()
         return sum(1 for _ in self.net_concat)
@@ -257,6 +287,11 @@ class Net:
                 yield net
 
     def get_bit(self, index: int):
+        """
+        :param index: the index of the bit to get.
+        :return: the Net bit at the given index or None if it does not exist.
+        :rtype: Net
+        """
         if hasattr(self, "net"):
             if isinstance(self.net, snl.SNLBusNet):
                 return Net(self.pathIDs, self.net.getBit(index))
@@ -267,6 +302,10 @@ class Net:
         return None
 
     def get_inst_terms(self):
+        """
+        :return: an iterator over the instance terminals of the net.
+        :rtype: Iterator[Term]
+        """
         if hasattr(self, "net_concat"):
             raise ValueError("Cannot get inst terms from a net_concat")
         for term in self.net.getInstTerms():
@@ -275,12 +314,20 @@ class Net:
             yield Term(path, term.getBitTerm())
 
     def get_design_terms(self):
+        """
+        :return: an iterator over the design terminals of the net.
+        :rtype: Iterator[Term]
+        """
         if hasattr(self, "net_concat"):
             raise ValueError("Cannot get terms from a net_concat")
         for term in self.net.getBitTerms():
             yield Term(self.pathIDs, term)
 
     def get_terms(self):
+        """
+        :return: an iterator over the terminals of the net.
+        :rtype: Iterator[Term]
+        """
         for term in itertools.chain(self.get_design_terms(), self.get_inst_terms()):
             yield term
 
