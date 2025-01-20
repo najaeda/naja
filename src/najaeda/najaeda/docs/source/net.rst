@@ -4,7 +4,7 @@ Net Class
 Net Overview
 ------------
 
-In **najaeda**, a **Net** can represent the following scenarios:
+In :py:module:`najaeda`, a :py:class:`najaeda.netlist.Net` can represent the following scenarios:
 
 1. **Simple Scalar Net**: A net that represents a single scalar signal. See :py:meth:`najaeda.netlist.Net.is_scalar`.
 2. **Full Bus Net**: A net that encompasses an entire bus. See :py:meth:`najaeda.netlist.Net.is_bus`.

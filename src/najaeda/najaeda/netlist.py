@@ -283,7 +283,11 @@ class Net:
         return sum(1 for _ in self.net_concat)
 
     def get_bits(self):
-        """Return the bits of the net."""
+        """Iterate over the bits of this Net.
+        The iterator will return itself if the Net is scalar.
+        :return: an iterator over the bits of this Net.
+        :rtype: Iterator[Net]
+        """
         if hasattr(self, "net"):
             if isinstance(self.net, snl.SNLBusNet):
                 for bit in self.net.getBits():
