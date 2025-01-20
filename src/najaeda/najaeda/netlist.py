@@ -101,7 +101,11 @@ class Equipotential:
         self.equi.dumpDotFile(path)
 
     def get_inst_terms(self):
-        """Iterate over the instance terminals of this equipotential."""
+        """Iterate over the instance terminals of this equipotential.
+        
+        :return: an iterator over the instance terminals of this equipotential.
+        :rtype: Iterator[Term]
+        """
         if self.equi is not None:
             for term in self.equi.getInstTermOccurrences():
                 yield Term(
@@ -110,7 +114,11 @@ class Equipotential:
                 )
 
     def get_top_terms(self):
-        """Iterate over the top terminals of this equipotential."""
+        """Iterate over the top terminals of this equipotential.
+        
+        :return: an iterator over the top terminals of this equipotential.
+        :rtype: Iterator[Term]
+        """
         if self.equi is not None:
             for term in self.equi.getTerms():
                 yield Term([], term)
@@ -1026,21 +1034,28 @@ class Instance:
 
     def get_model_name(self) -> str:
         """
-        :return: the name of the model of the instance or name of the top is this is the top.
+        :return: the name of the model of the instance
+            or name of the top is this is the top.
         :rtype: str
         """
         return self.__get_snl_model().getName()
 
     def get_model_id(self) -> tuple[int, int, int]:
         """
-        :return: the ID of the model of this Instance or ID of the top
-        if this is the top.
+        :return: the ID of the model of this Instance
+            or ID of the top if this is the top.
         """
         model = self.__get_snl_model()
         return model.getDB().getID(), model.getLibrary().getID(), model.getID()
 
     def create_child_instance(self, model: str, name: str):
-        """Create a child instance with the given model and name."""
+        """Create a child instance with the given model and name.
+        
+        :param str model: the name of the model of the instance to create.
+        :param str name: the name of the instance to create.
+        :return: the created Instance.
+        :rtype: Instance
+        """
         path = get_snl_path_from_id_list(self.pathIDs)
         if path.size() > 0:
             snl.SNLUniquifier(path)
@@ -1071,19 +1086,40 @@ class Instance:
         return Term(path, newSNLTerm)
 
     def create_output_term(self, name: str) -> Term:
-        """Create an output Term in this Instance with the given name."""
+        """Create an output Term in this Instance with the given name.
+        
+        :param str name: the name of the Term to create.
+        :return: the created Term.
+        :rtype: Term
+        """
         return self.create_term(name, snl.SNLTerm.Direction.Output)
 
     def create_input_term(self, name: str) -> Term:
-        """Create an input Term in this Instance with the given name."""
+        """Create an input Term in this Instance with the given name.
+        
+        :param str name: the name of the Term to create.
+        :return: the created Term.
+        :rtype: Term
+        """
         return self.create_term(name, snl.SNLTerm.Direction.Input)
 
     def create_inout_term(self, name: str) -> Term:
-        """Create an inout Term in this Instance with the given name."""
+        """Create an inout Term in this Instance with the given name.
+        
+        :param str name: the name of the Term to create.
+        :return: the created Term.
+        :rtype: Term
+        """
         return self.create_term(name, snl.SNLTerm.Direction.InOut)
 
     def create_bus_term(self, name: str, msb: int, lsb: int, direction) -> Term:
-        """Create a bus Term in this Instance with the given name, msb, lsb and direction."""
+        """Create a bus Term in this Instance with the given name, msb, lsb and direction.
+        :param str name: the name of the Term to create.
+        :param int msb: the most significant bit of the Term to create.
+        :param int lsb: the least significant bit of the Term to create.
+        :param snl.SNLTerm.Direction direction: the direction of the Term to create.
+        :return: the created Term.
+        """
         path = get_snl_path_from_id_list(self.pathIDs)
         if path.size() > 0:
             snl.SNLUniquifier(path)
@@ -1093,19 +1129,45 @@ class Instance:
         return Term(path, newSNLTerm)
 
     def create_inout_bus_term(self, name: str, msb: int, lsb: int) -> Term:
-        """Create an inout bus Term in this Instance with the given name, msb and lsb."""
+        """Create an inout bus Term in this Instance with the given name, msb and lsb.
+        
+        :param str name: the name of the Term to create.
+        :param int msb: the most significant bit of the Term to create.
+        :param int lsb: the least significant bit of the Term to create.
+        :return: the created Term.
+        :rtype: Term
+        """
         return self.create_bus_term(name, msb, lsb, snl.SNLTerm.Direction.InOut)
 
     def create_output_bus_term(self, name: str, msb: int, lsb: int) -> Term:
-        """Create an output bus Term in this Instance with the given name, msb and lsb."""
+        """Create an output bus Term in this Instance with the given name, msb and lsb.
+        
+        :param str name: the name of the Term to create.
+        :param int msb: the most significant bit of the Term to create.
+        :param int lsb: the least significant bit of the Term to create.
+        :return: the created Term.
+        :rtype: Term
+        """
         return self.create_bus_term(name, msb, lsb, snl.SNLTerm.Direction.Output)
 
     def create_input_bus_term(self, name: str, msb: int, lsb: int) -> Term:
-        """Create an input bus Term in this Instance with the given name, msb and lsb."""
+        """Create an input bus Term in this Instance with the given name, msb and lsb.
+        
+        :param str name: the name of the Term to create.
+        :param int msb: the most significant bit of the Term to create.
+        :param int lsb: the least significant bit of the Term to create.
+        :return: the created Term.
+        :rtype: Term
+        """
         return self.create_bus_term(name, msb, lsb, snl.SNLTerm.Direction.Input)
 
     def create_net(self, name: str) -> Net:
-        """Create a scalar Net in this Instance with the given name."""
+        """Create a scalar Net in this Instance with the given name.
+        
+        :param str name: the name of the Net to create.
+        :return: the created Net.
+        :rtype: Net
+        """
         path = get_snl_path_from_id_list(self.pathIDs)
         if path.size() > 0:
             snl.SNLUniquifier(path)
@@ -1115,7 +1177,14 @@ class Instance:
         return Net(path, newSNLNet)
 
     def create_bus_net(self, name: str, msb: int, lsb: int) -> Net:
-        """Create a bus Net in this Instance with the given name, msb and lsb."""
+        """Create a bus Net in this Instance with the given name, msb and lsb.
+        
+        :param str name: the name of the Net to create.
+        :param int msb: the most significant bit of the Net to create.
+        :param int lsb: the least significant bit of the Net to create.
+        :return: the created Net.
+        :rtype: Net
+        """
         path = get_snl_path_from_id_list(self.pathIDs)
         if path.size() > 0:
             snl.SNLUniquifier(path)
@@ -1125,7 +1194,11 @@ class Instance:
         return Net(path, newSNLNet)
 
     def dump_verilog(self, path: str, name: str):
-        """Dump the verilog of this instance."""
+        """Dump the verilog of this instance.
+        
+        :param str path: the path where to dump the verilog.
+        :param str name: the name of the verilog file.
+        """
         self.__get_snl_model().dumpVerilog(path, name)
 
 
@@ -1139,12 +1212,20 @@ def get_top_db() -> snl.SNLDB:
 
 
 def get_top():
-    """Returns the top Instance."""
+    """
+    :return: the top Instance.
+    :rtype: Instance
+    """
     return Instance(snl.SNLPath())
 
 
 def create_top(name: str) -> Instance:
-    """Create a top instance with the given name."""
+    """Create a top instance with the given name.
+    
+    :param str name: the name of the top instance to create.
+    :return: the created top Instance.
+    :rtype: Instance
+    """
     # init
     db = get_top_db()
     # create top design
