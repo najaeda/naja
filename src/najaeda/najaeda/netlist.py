@@ -595,8 +595,8 @@ class Term:
 
     def get_bits(self):
         """
-        :return: an iterator over the bits of the term. If the term is scalar,
-        it will return an iterator over itself.
+        :return: an iterator over the bits of the term.
+            If the term is scalar, it will return an iterator over itself.
         :rtype: Iterator[Term]
         """
         if isinstance(get_snl_term_for_ids(self.pathIDs, self.termIDs), snl.SNLBusTerm):
@@ -626,6 +626,10 @@ class Term:
             iterm.setNet(None)
 
     def connect(self, net: Net):
+        """Connect this term to the given Net.
+        
+        :param Net net: the Net to connect to.
+        """
         if self.get_width() != net.get_width():
             raise ValueError("Width mismatch")
         if self.get_instance().is_top():
