@@ -4,7 +4,7 @@ Term Class
 Term Overview
 -------------
 
-In :py:module:`najaeda`, a :py:class:`najaeda.netlist.Term` (also referred to as a Port in Verilog terminology)
+In **najaeda**, a :py:class:`najaeda.netlist.Term` (also referred to as a Port in Verilog terminology)
 can represent the following scenarios:
 
 1. **Single Bit Scalar Terminal**: A terminal representing a single scalar signal. See :py:meth:`najaeda.netlist.Term.is_scalar` .
