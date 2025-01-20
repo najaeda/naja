@@ -26,7 +26,7 @@ def count_leaves(instance, leaves):
         else:
             leaves["count"] += 1
 visitor_config = instance_visitor.VisitorConfig(callback=count_leaves, args=(leaves,))
-instance_visitor.Visitor(top).visit(top, visitor_config)
+instance_visitor.visit(top, visitor_config)
 print(f"{top} leaves count")
 print(f"nb_assigns={leaves['assigns']}")
 print(f"nb constants={leaves['constants']}")
