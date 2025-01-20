@@ -566,7 +566,7 @@ class Term:
 
     def get_instance(self):
         """
-        :return the instance of this Term.
+        :return: the instance of this Term.
         :rtype: Instance
         """
         return Instance(self.pathIDs)
@@ -714,6 +714,11 @@ class Instance:
         return consistent_hash(self.pathIDs)
 
     def get_leaf_children(self):
+        """Iterate over the leaf children of this Instance.
+        Equivalent to the underlying leaves of the instanciation tree.
+        :return: an iterator over the leaf children Instance of this Instance.
+        :rtype: Iterator[Instance]
+        """
         initial_path = get_snl_path_from_id_list(self.pathIDs)
         for inst in self.__get_snl_model().getInstances():
             if inst.getModel().isLeaf():
@@ -1249,7 +1254,7 @@ def load_verilog(files: list):
 
 
 def load_liberty(files: list):
-    logging.info(f"Loading liberty: {', '.join(files)}")
+    logging.info(f"Loading liberty files: {', '.join(files)}")
     get_top_db().loadLibertyPrimitives(files)
 
 
@@ -1275,7 +1280,11 @@ def get_primitives_library() -> snl.SNLLibrary:
 
 
 def get_model_name(id: tuple[int, int, int]) -> str:
-    """Return the name of the model given its id."""
+    """
+    :param tuple[int, int, int] id: the id of the model.
+    :return: the name of the model given its id or None if it does not exist.
+    :rtype: str or None
+    """
     u = snl.SNLUniverse.get()
     if u:
         db = u.getDB(id[0])
