@@ -7,9 +7,9 @@ import itertools
 import time
 import logging
 import hashlib
-# import json
-from najaeda import snl
 import struct
+
+from najaeda import snl
 
 
 def consistent_hash(obj):
@@ -23,15 +23,16 @@ def consistent_hash(obj):
 
     def hash_value(value):
         if isinstance(value, int):
-            return struct.pack('!q', value)
+            return struct.pack("!q", value)
         else:
             raise TypeError(f"Unsupported type: {type(value)}")
 
     def hash_object(o):
         if isinstance(o, (list, tuple)):
-            return b''.join(hash_object(i) for i in o)
+            return b"".join(hash_object(i) for i in o)
         else:
             return hash_value(o)
+
     serialized_obj = default_serializer(obj)
     obj_bytes = hash_object(serialized_obj)
     return int(hashlib.sha256(obj_bytes).hexdigest(), 16)
@@ -88,8 +89,7 @@ class Equipotential:
             inst_term = term
         path = get_snl_path_from_id_list(inst_term.pathIDs)
         ito = snl.SNLNetComponentOccurrence(
-            path.getHeadPath(),
-            path.getTailInstance().getInstTerm(snl_term)
+            path.getHeadPath(), path.getTailInstance().getInstTerm(snl_term)
         )
         self.equi = snl.SNLEquipotential(ito)
 
@@ -97,9 +97,15 @@ class Equipotential:
         return self.equi == value.equi
 
     def dump_dot(self, path: str):
+        """Dump the dot file of this equipotential."""
         self.equi.dumpDotFile(path)
 
     def get_inst_terms(self):
+        """Iterate over the instance terminals of this equipotential.
+
+        :return: an iterator over the instance terminals of this equipotential.
+        :rtype: Iterator[Term]
+        """
         if self.equi is not None:
             for term in self.equi.getInstTermOccurrences():
                 yield Term(
@@ -108,6 +114,11 @@ class Equipotential:
                 )
 
     def get_top_terms(self):
+        """Iterate over the top terminals of this equipotential.
+
+        :return: an iterator over the top terminals of this equipotential.
+        :rtype: Iterator[Term]
+        """
         if self.equi is not None:
             for term in self.equi.getTerms():
                 yield Term([], term)
@@ -119,7 +130,9 @@ class Equipotential:
                 if direction != snl.SNLTerm.Direction.Output:
                     if term.getInstTerm().getInstance().getModel().isLeaf():
                         yield Term(
-                            snl.SNLPath(term.getPath(), term.getInstTerm().getInstance()),
+                            snl.SNLPath(
+                                term.getPath(), term.getInstTerm().getInstance()
+                            ),
                             term.getInstTerm().getBitTerm(),
                         )
 
@@ -130,7 +143,9 @@ class Equipotential:
                 if direction != snl.SNLTerm.Direction.Input:
                     if term.getInstTerm().getInstance().getModel().isLeaf():
                         yield Term(
-                            snl.SNLPath(term.getPath(), term.getInstTerm().getInstance()),
+                            snl.SNLPath(
+                                term.getPath(), term.getInstTerm().getInstance()
+                            ),
                             term.getInstTerm().getBitTerm(),
                         )
 
@@ -189,45 +204,72 @@ class Net:
         return net_str
 
     def get_name(self) -> str:
-        """Return the name of the net."""
+        """
+        :return: the name of this Net.
+        :rtype: str
+        """
         if hasattr(self, "net"):
             return self.net.getName()
         return "{" + ",".join(map(str, self.net_concat)) + "}"
 
     def get_msb(self) -> int:
-        """Return the most significant bit of the net if it is a bus."""
+        """
+        :return: the most significant bit of the net if it is a bus.
+        :rtype: int
+        """
         if hasattr(self, "net") and isinstance(self.net, snl.SNLBusNet):
             return self.net.getMSB()
         return None
 
     def get_lsb(self) -> int:
-        """Return the least significant bit of the net if it is a bus."""
+        """
+        :return: the least significant bit of the net if it is a bus.
+        :rtype: int
+        """
         if hasattr(self, "net") and isinstance(self.net, snl.SNLBusNet):
             return self.net.getLSB()
         return None
 
     def is_bus(self) -> bool:
-        """Return True if the net is a bus."""
+        """
+        :return: True if the net is a bus.
+        :rtype: bool
+        """
         return hasattr(self, "net") and isinstance(self.net, snl.SNLBusNet)
 
     def is_bus_bit(self) -> bool:
-        """Return True if the net is a bit of a bus."""
+        """
+        :return: True if the net is a bit of a bus.
+        :rtype: bool
+        """
         return hasattr(self, "net") and isinstance(self.net, snl.SNLBusNetBit)
 
     def is_scalar(self) -> bool:
-        """Return True if the net is a scalar."""
+        """
+        :return: True if the net is a scalar.
+        :rtype: bool
+        """
         return hasattr(self, "net") and isinstance(self.net, snl.SNLScalarNet)
 
     def is_bit(self) -> bool:
-        """Return True if the net is a bit."""
+        """
+        :return: True if the net is a bit.
+        :rtype: bool
+        """
         return self.is_scalar() or self.is_bus_bit()
 
     def is_concat(self) -> bool:
-        """Return True if the net is a concatenation."""
+        """
+        :return: True if the net is a concatenation.
+        :rtype: bool
+        """
         return hasattr(self, "net_concat")
 
     def is_const(self) -> bool:
-        """Return True if the net is a constant generator."""
+        """
+        :return: True if the net is a constant generator.
+        :rtype: bool
+        """
         if hasattr(self, "net"):
             return self.net.isConstant()
         for net in self.net_concat:
@@ -236,12 +278,20 @@ class Net:
         return True
 
     def get_width(self) -> int:
-        """Return the width of the net."""
+        """
+        :return: the width of the net.
+        :rtype: int
+        """
         if hasattr(self, "net"):
             return self.net.getWidth()
         return sum(1 for _ in self.net_concat)
 
     def get_bits(self):
+        """Iterate over the bits of this Net.
+        The iterator will return itself if the Net is scalar.
+        :return: an iterator over the bits of this Net.
+        :rtype: Iterator[Net]
+        """
         if hasattr(self, "net"):
             if isinstance(self.net, snl.SNLBusNet):
                 for bit in self.net.getBits():
@@ -253,6 +303,11 @@ class Net:
                 yield net
 
     def get_bit(self, index: int):
+        """
+        :param int index: the index of the bit to get.
+        :return: the Net bit at the given index or None if it does not exist.
+        :rtype: Net
+        """
         if hasattr(self, "net"):
             if isinstance(self.net, snl.SNLBusNet):
                 return Net(self.pathIDs, self.net.getBit(index))
@@ -263,6 +318,10 @@ class Net:
         return None
 
     def get_inst_terms(self):
+        """
+        :return: an iterator over the instance terminals of the net.
+        :rtype: Iterator[Term]
+        """
         if hasattr(self, "net_concat"):
             raise ValueError("Cannot get inst terms from a net_concat")
         for term in self.net.getInstTerms():
@@ -271,12 +330,20 @@ class Net:
             yield Term(path, term.getBitTerm())
 
     def get_design_terms(self):
+        """
+        :return: an iterator over the design terminals of the net.
+        :rtype: Iterator[Term]
+        """
         if hasattr(self, "net_concat"):
             raise ValueError("Cannot get terms from a net_concat")
         for term in self.net.getBitTerms():
             yield Term(self.pathIDs, term)
 
     def get_terms(self):
+        """
+        :return: an iterator over the terminals of the net.
+        :rtype: Iterator[Term]
+        """
         for term in itertools.chain(self.get_design_terms(), self.get_inst_terms()):
             yield term
 
@@ -352,7 +419,9 @@ class Term:
         if path.size() == 0:
             return get_snl_term_for_ids(self.pathIDs, self.termIDs).getName()
         else:
-            return f"{path}/{get_snl_term_for_ids(self.pathIDs, self.termIDs).getName()}"
+            return (
+                f"{path}/{get_snl_term_for_ids(self.pathIDs, self.termIDs).getName()}"
+            )
 
     def __repr__(self) -> str:
         path = get_snl_path_from_id_list(self.pathIDs)
@@ -365,43 +434,76 @@ class Term:
             snl.SNLUniquifier(path)
 
     def is_bus(self) -> bool:
-        """Return True if the term is a bus."""
-        return isinstance(get_snl_term_for_ids(self.pathIDs, self.termIDs), snl.SNLBusTerm)
+        """
+        :return: True if the term is a bus.
+        :rtype: bool
+        """
+        return isinstance(
+            get_snl_term_for_ids(self.pathIDs, self.termIDs), snl.SNLBusTerm
+        )
 
     def is_bus_bit(self) -> bool:
-        """Return True if the term is a bit of a bus."""
-        return isinstance(get_snl_term_for_ids(self.pathIDs, self.termIDs), snl.SNLBusTermBit)
+        """
+        :return: True if the term is a bit of a bus.
+        :rtype: bool
+        """
+        return isinstance(
+            get_snl_term_for_ids(self.pathIDs, self.termIDs), snl.SNLBusTermBit
+        )
 
     def is_scalar(self) -> bool:
-        """Return True if the term is a scalar."""
-        return isinstance(get_snl_term_for_ids(self.pathIDs, self.termIDs), snl.SNLScalarTerm)
+        """
+        :return: True if the term is a scalar.
+        :rtype: bool
+        """
+        return isinstance(
+            get_snl_term_for_ids(self.pathIDs, self.termIDs), snl.SNLScalarTerm
+        )
 
     def is_bit(self) -> bool:
-        """Return True if the term is a bit."""
+        """
+        :return: True if the term is a bit.
+        :rtype: bool
+        """
         return self.is_scalar() or self.is_bus_bit()
 
     def get_msb(self) -> int:
-        """Return the most significant bit of the term if it is a bus."""
+        """
+        :return: the most significant bit of the term if it is a bus.
+        :rtype: int or None
+        """
         if isinstance(get_snl_term_for_ids(self.pathIDs, self.termIDs), snl.SNLBusTerm):
             return get_snl_term_for_ids(self.pathIDs, self.termIDs).getMSB()
         return None
 
     def get_lsb(self) -> int:
-        """Return the least significant bit of the term if it is a bus."""
+        """
+        :return: the least significant bit of the term if it is a bus.
+        :rtype: int or None
+        """
         if isinstance(get_snl_term_for_ids(self.pathIDs, self.termIDs), snl.SNLBusTerm):
             return get_snl_term_for_ids(self.pathIDs, self.termIDs).getLSB()
         return None
 
     def get_width(self) -> int:
-        """Return the width of the term. 1 if scalar."""
+        """
+        :return: the width of the term. 1 if scalar.
+        :rtype: int
+        """
         return get_snl_term_for_ids(self.pathIDs, self.termIDs).getWidth()
 
     def get_name(self) -> str:
-        """Return the name of the term."""
+        """
+        :return: the name of the term.
+        :rtype: str
+        """
         return get_snl_term_for_ids(self.pathIDs, self.termIDs).getName()
 
     def get_direction(self) -> snl.SNLTerm.Direction:
-        """Return the direction of the term."""
+        """
+        :return: the direction of the term.
+        :rtype: snl.SNLTerm.Direction
+        """
         snlterm = get_snl_term_for_ids(self.pathIDs, self.termIDs)
         if snlterm.getDirection() == snl.SNLTerm.Direction.Input:
             return Term.INPUT
@@ -454,17 +556,25 @@ class Term:
                 if all(element is not None for element in snl_nets):
                     return Net(path, net_concat=snl_nets)
         else:
-            snl_net = snl_term_net_accessor(get_snl_term_for_ids(self.pathIDs, self.termIDs))
+            snl_net = snl_term_net_accessor(
+                get_snl_term_for_ids(self.pathIDs, self.termIDs)
+            )
             if snl_net is not None:
                 return Net(path, snl_net)
         return None
 
     def get_lower_net(self) -> Net:
-        """Return the lower net of the term."""
+        """
+        :return: the lower net of the term.
+        :rtype: Net
+        """
         return self.__get_net(self.pathIDs, self.__get_snl_lower_bitnet)
 
     def get_net(self) -> Net:
-        """Return the net of the term."""
+        """
+        :return: the net of the term.
+        :rtype: Net
+        """
         head_path = self.pathIDs.copy()
         if len(head_path) == 0:
             return None
@@ -473,7 +583,10 @@ class Term:
         return self.__get_net(head_path, self.__get_snl_bitnet)
 
     def get_instance(self):
-        """Return the instance of the term."""
+        """
+        :return: the instance of this Term.
+        :rtype: Instance
+        """
         return Instance(self.pathIDs)
 
     def get_flat_fanout(self):
@@ -483,16 +596,27 @@ class Term:
         return Equipotential(self)
 
     def is_input(self) -> bool:
-        """Return True if the term is an input."""
+        """
+        :return: True if the term is an input.
+        :rtype: bool
+        """
         snlterm = get_snl_term_for_ids(self.pathIDs, self.termIDs)
         return snlterm.getDirection() == snl.SNLTerm.Direction.Input
 
     def is_output(self) -> bool:
-        """Return True if the term is an output."""
+        """
+        :return: True if the term is an output.
+        :rtype: bool
+        """
         snlterm = get_snl_term_for_ids(self.pathIDs, self.termIDs)
         return snlterm.getDirection() == snl.SNLTerm.Direction.Output
 
     def get_bits(self):
+        """
+        :return: an iterator over the bits of the term.
+            If the term is scalar, it will return an iterator over itself.
+        :rtype: Iterator[Term]
+        """
         if isinstance(get_snl_term_for_ids(self.pathIDs, self.termIDs), snl.SNLBusTerm):
             for bit in get_snl_term_for_ids(self.pathIDs, self.termIDs).getBits():
                 yield Term(self.pathIDs, bit)
@@ -500,12 +624,20 @@ class Term:
             yield self
 
     def get_bit(self, index: int):
+        """
+        :param int index: the index of the bit to get.
+        :return: the Term bit at the given index or None if it does not exist.
+        :rtype: Term or None
+        """
         if isinstance(get_snl_term_for_ids(self.pathIDs, self.termIDs), snl.SNLBusTerm):
-            return Term(self.pathIDs, get_snl_term_for_ids(
-                        self.pathIDs, self.termIDs).getBit(index))
+            return Term(
+                self.pathIDs,
+                get_snl_term_for_ids(self.pathIDs, self.termIDs).getBit(index),
+            )
         return None
 
     def disconnect(self):
+        """Disconnect this term from its net."""
         path = get_snl_path_from_id_list(self.pathIDs)
         self.__make_unique()
         inst = path.getTailInstance()
@@ -514,21 +646,27 @@ class Term:
             iterm.setNet(None)
 
     def connect(self, net: Net):
+        """Connect this term to the given Net.
+
+        :param Net net: the Net to connect to.
+        """
         if self.get_width() != net.get_width():
             raise ValueError("Width mismatch")
         if self.get_instance().is_top():
-            for bterm, bnet in zip(get_snl_term_for_ids(self.pathIDs,
-                                                        self.termIDs).getBits(),
-                                   net.net.getBits()):
+            for bterm, bnet in zip(
+                get_snl_term_for_ids(self.pathIDs, self.termIDs).getBits(),
+                net.net.getBits(),
+            ):
                 logging.debug(f"Connecting {bterm} to {bnet}")
                 bterm.setNet(bnet)
         else:
             self.__make_unique()
             path = get_snl_path_from_id_list(self.pathIDs)
             inst = path.getTailInstance()
-            for bterm, bnet in zip(get_snl_term_for_ids(self.pathIDs,
-                                                        self.termIDs).getBits(),
-                                   net.net.getBits()):
+            for bterm, bnet in zip(
+                get_snl_term_for_ids(self.pathIDs, self.termIDs).getBits(),
+                net.net.getBits(),
+            ):
                 iterm = inst.getInstTerm(bterm)
                 iterm.setNet(bnet)
 
@@ -598,6 +736,11 @@ class Instance:
         return consistent_hash(self.pathIDs)
 
     def get_leaf_children(self):
+        """Iterate over the leaf children of this Instance.
+        Equivalent to the underlying leaves of the instanciation tree.
+        :return: an iterator over the leaf children Instance of this Instance.
+        :rtype: Iterator[Instance]
+        """
         initial_path = get_snl_path_from_id_list(self.pathIDs)
         for inst in self.__get_snl_model().getInstances():
             if inst.getModel().isLeaf():
@@ -615,42 +758,72 @@ class Instance:
                     stack.append([inst_child, path_child])
 
     def is_top(self) -> bool:
-        """Return True if this is the top design."""
+        """
+        :return: True if this is the top design.
+        :rtype: bool
+        """
         return len(self.pathIDs) == 0
 
     def is_assign(self) -> bool:
+        """Example: (assign a=b) will create an instance of assign connecting
+        the wire a to the output of the assign and b to the input.
+
+        :return: True if this is an assign. Assigns are represented with
+        anonymous Assign instances.
+        :rtype: bool
+        """
         return self.__get_snl_model().isAssign()
 
     def is_blackbox(self) -> bool:
-        """Return True if this is a blackbox."""
+        """
+        :return: True if this is a blackbox.
+        :rtype: bool
+        """
         return self.__get_snl_model().isBlackBox()
 
     def is_leaf(self) -> bool:
-        """Return True if this is a leaf."""
+        """
+        :return: True if this is a leaf.
+        :rtype: bool
+        """
         return self.__get_snl_model().isLeaf()
 
     def is_const0(self) -> bool:
-        """Return True if this is a constant 0 generator."""
+        """
+        :return: True if this is a constant 0 generator.
+        :rtype: bool
+        """
         return self.__get_snl_model().isConst0()
 
     def is_const1(self) -> bool:
-        """Return True if this is a constant 1 generator."""
+        """
+        :return: True if this is a constant 1 generator.
+        :rtype: bool
+        """
         return self.__get_snl_model().isConst1()
 
     def is_const(self) -> bool:
-        """Return True if this is a constant generator."""
+        """
+        :return: True if this is a constant generator.
+        :rtype: bool
+        """
         return self.__get_snl_model().isConst()
 
     def is_buf(self) -> bool:
-        """Return True if this is a buffer."""
+        """
+        :return: True if this is a buffer.
+        :rtype: bool
+        """
         return self.__get_snl_model().isBuf()
 
     def is_inv(self) -> bool:
-        """Return True if this is an inverter."""
+        """
+        :return: True if this is an inverter.
+        :rtype: bool
+        """
         return self.__get_snl_model().isInv()
 
     def __get_snl_model(self):
-        """Return the model of the instance."""
         if self.is_top():
             return snl.SNLUniverse.get().getTopDesign()
         instance = get_snl_instance_from_id_list(self.pathIDs)
@@ -673,7 +846,11 @@ class Instance:
         self.__get_snl_model().dumpContextDotFile(path)
 
     def get_child_instance(self, name: str):
-        """Return the child instance with the given name."""
+        """
+        :param str name: the name of the child Instance to get.
+        :return: the child Instance with the given name or None if it does not exist.
+        :rtype: Instance or None
+        """
         childInst = self.__get_snl_model().getInstance(name)
         if childInst is None:
             return None
@@ -682,12 +859,22 @@ class Instance:
         return Instance(path)
 
     def get_child_instances(self):
+        """Iterate over the child instances of this instance.
+        Equivalent to go down one level in hierarchy.
+
+        :return: an iterator over the child instances of this instance.
+        :rtype: Iterator[Instance]
+        """
         for inst in self.__get_snl_model().getInstances():
             path = self.pathIDs.copy()
             path.append(inst.getID())
             yield Instance(path)
 
     def get_number_of_child_instances(self) -> int:
+        """
+        :return: the number of child instances of this instance.
+        :rtype: int
+        """
         return sum(1 for _ in self.__get_snl_model().getInstances())
 
     # def get_flat_primitive_instances(self):
@@ -707,15 +894,19 @@ class Instance:
     #                stack.append([inst_child, path_child])
 
     def get_nets(self):
-        """Return the nets of the instance.
-        This will iterate over all scalar nets and bus nets.
+        """Iterate over all scalar nets and bus nets.
+
+        :return: an iterator over the nets of this Instance.
+        :rtype: Iterator[Net]
         """
         for net in self.__get_snl_model().getNets():
             yield Net(self.pathIDs, net)
 
     def get_flat_nets(self):
-        """Return the nets of the instance.
-        This will iterate over all scalar nets and bus net bits.
+        """Iterate over all scalar nets and bus net bits.
+
+        :return: an iterator over the flat nets of this Instance.
+        :rtype: Iterator[Net]
         """
         for net in self.__get_snl_model().getNets():
             if isinstance(net, snl.SNLBusNet):
@@ -725,48 +916,69 @@ class Instance:
                 yield Net(self.pathIDs, net)
 
     def get_net(self, name: str) -> Net:
-        """Return the net with the given name."""
+        """
+        :param str name: the name of the Net to get.
+        :return: the Net with the given name or None if it does not exist.
+        :rtype: Net or None
+        """
         net = self.__get_snl_model().getNet(name)
         if net is not None:
             return Net(self.pathIDs, net)
         return None
 
     def is_primitive(self) -> bool:
-        """Return True if this is a primitive."""
+        """
+        :return: True if this is a primitive.
+        :rtype: bool
+        """
         return self.__get_snl_model().isPrimitive()
 
     def get_terms(self):
-        """Return the terms of the instance.
-        This will iterate over all scalar terms and bus terms.
+        """Iterate over all scalar terms and bus terms of this Instance.
+
+        :return: the terms of this Instance.
+        :rtype: Iterator[Term]
         """
         for term in self.__get_snl_model().getTerms():
             yield Term(self.pathIDs, term)
 
     def get_flat_terms(self):
-        """Return the flat terms of the instance.
-        This will iterate over all scalar terms and bus term bits.
+        """Iterate over all scalar terms and bus term bits.
+
+        :return: the flat terms of this Instance.
+        :rtype: Iterator[Term]
         """
         for term in self.__get_snl_model().getBitTerms():
             yield Term(self.pathIDs, term)
 
     def get_term(self, name: str) -> Term:
-        """Return the term with the given name."""
+        """
+        :param str name: the name of the Term to get.
+        :return: the Term with the given name.
+        :rtype: Term or None
+        """
         term = self.__get_snl_model().getTerm(name)
         if term is not None:
             return Term(self.pathIDs, self.__get_snl_model().getTerm(name))
         return None
 
     def get_input_terms(self):
-        """Return the input terms of the instance.
-        This will iterate over all scalar input terms and bus input terms.
+        """Iterate over all scalar input terms and bus input terms
+        of this Instance.
+
+        :return: the input terms of this Instance.
+        :rtype: Iterator[Term]
         """
         for term in self.__get_snl_model().getTerms():
             if term.getDirection() != snl.SNLTerm.Direction.Output:
                 yield Term(self.pathIDs, term)
 
     def get_flat_input_terms(self):
-        """Return the flat input terms of the instance.
-        This will iterate over all scalar input terms and bus input term bits.
+        """Iterate over all scalar input terms and bus input term bits
+        of this Instance.
+
+        :return: the flat input terms of this Instance.
+        :rtype: Iterator[Term]
         """
         for term in self.__get_snl_model().getTerms():
             if term.getDirection() != snl.SNLTerm.Direction.Output:
@@ -777,8 +989,11 @@ class Instance:
                     yield Term(self.pathIDs, term)
 
     def get_output_terms(self):
-        """Return the output terms of the instance.
-        This will iterate over all scalar output terms and bus output terms.
+        """Iterate over all scalar output terms and bus output terms
+        of this Instance.
+
+        :return: the output terms of this Instance.
+        :rtype: Iterator[Term]
         """
         for term in self.__get_snl_model().getTerms():
             if term.getDirection() != snl.SNLTerm.Direction.Input:
@@ -810,7 +1025,10 @@ class Instance:
             self.__get_snl_model().getInstance(name).destroy()
 
     def delete_instance_by_id(self, id: str):
-        """Delete the child instance with the given ID."""
+        """Delete the child instance with the given ID.
+
+        :param str id: the ID of the Instance to delete.
+        """
         init_path = get_snl_path_from_id_list(self.pathIDs)
         path = snl.SNLPath(init_path, self.__get_snl_model().getInstanceByID(id))
         snl.SNLUniquifier(path)
@@ -818,7 +1036,10 @@ class Instance:
         self.__get_snl_model().getInstanceByID(id).destroy()
 
     def get_design(self):
-        """Return the Instance containing this instance."""
+        """
+        :return: the Instance containing this instance.
+        :rtype: Instance
+        """
         path = self.pathIDs.copy()
         if len(self.pathIDs) == 1:
             return get_top()
@@ -832,7 +1053,10 @@ class Instance:
         self.get_design().delete_instance_by_id(path.getTailInstance().getID())
 
     def get_name(self) -> str:
-        """Return the name of the instance or name of the top is this is the top."""
+        """
+        :return: the name of the instance or name of the top is this is the top.
+        :rtype: str
+        """
         path = get_snl_path_from_id_list(self.pathIDs)
         if self.is_top():
             return self.get_model_name()
@@ -840,16 +1064,29 @@ class Instance:
             return path.getTailInstance().getName()
 
     def get_model_name(self) -> str:
-        """Return the name of the model of the instance or name of the top is this is the top."""
+        """
+        :return: the name of the model of the instance
+            or name of the top is this is the top.
+        :rtype: str
+        """
         return self.__get_snl_model().getName()
 
     def get_model_id(self) -> tuple[int, int, int]:
-        """Return the ID of the model of the instance or ID of the top is this is the top."""
+        """
+        :return: the ID of the model of this Instance
+            or ID of the top if this is the top.
+        """
         model = self.__get_snl_model()
         return model.getDB().getID(), model.getLibrary().getID(), model.getID()
 
     def create_child_instance(self, model: str, name: str):
-        """Create a child instance with the given model and name."""
+        """Create a child instance with the given model and name.
+
+        :param str model: the name of the model of the instance to create.
+        :param str name: the name of the instance to create.
+        :return: the created Instance.
+        :rtype: Instance
+        """
         path = get_snl_path_from_id_list(self.pathIDs)
         if path.size() > 0:
             snl.SNLUniquifier(path)
@@ -865,7 +1102,12 @@ class Instance:
         return Instance(path)
 
     def create_term(self, name: str, direction: snl.SNLTerm.Direction) -> Term:
-        """Create a Term  in this Instance with the given name and direction."""
+        """Create a Term in this Instance with the given name and direction.
+
+        :param str name: the name of the Term to create.
+        :param snl.SNLTerm.Direction direction: the direction of the Term to create.
+        :return: the created Term.
+        """
         path = get_snl_path_from_id_list(self.pathIDs)
         if path.size() > 0:
             snl.SNLUniquifier(path)
@@ -875,19 +1117,40 @@ class Instance:
         return Term(path, newSNLTerm)
 
     def create_output_term(self, name: str) -> Term:
-        """Create an output Term in this Instance with the given name."""
+        """Create an output Term in this Instance with the given name.
+
+        :param str name: the name of the Term to create.
+        :return: the created Term.
+        :rtype: Term
+        """
         return self.create_term(name, snl.SNLTerm.Direction.Output)
 
     def create_input_term(self, name: str) -> Term:
-        """Create an input Term in this Instance with the given name."""
+        """Create an input Term in this Instance with the given name.
+
+        :param str name: the name of the Term to create.
+        :return: the created Term.
+        :rtype: Term
+        """
         return self.create_term(name, snl.SNLTerm.Direction.Input)
 
     def create_inout_term(self, name: str) -> Term:
-        """Create an inout Term in this Instance with the given name."""
+        """Create an inout Term in this Instance with the given name.
+
+        :param str name: the name of the Term to create.
+        :return: the created Term.
+        :rtype: Term
+        """
         return self.create_term(name, snl.SNLTerm.Direction.InOut)
 
     def create_bus_term(self, name: str, msb: int, lsb: int, direction) -> Term:
-        """Create a bus Term in this Instance with the given name, msb, lsb and direction."""
+        """Create a bus Term in this Instance with the given name, msb, lsb and direction.
+        :param str name: the name of the Term to create.
+        :param int msb: the most significant bit of the Term to create.
+        :param int lsb: the least significant bit of the Term to create.
+        :param snl.SNLTerm.Direction direction: the direction of the Term to create.
+        :return: the created Term.
+        """
         path = get_snl_path_from_id_list(self.pathIDs)
         if path.size() > 0:
             snl.SNLUniquifier(path)
@@ -897,19 +1160,45 @@ class Instance:
         return Term(path, newSNLTerm)
 
     def create_inout_bus_term(self, name: str, msb: int, lsb: int) -> Term:
-        """Create an inout bus Term in this Instance with the given name, msb and lsb."""
+        """Create an inout bus Term in this Instance with the given name, msb and lsb.
+
+        :param str name: the name of the Term to create.
+        :param int msb: the most significant bit of the Term to create.
+        :param int lsb: the least significant bit of the Term to create.
+        :return: the created Term.
+        :rtype: Term
+        """
         return self.create_bus_term(name, msb, lsb, snl.SNLTerm.Direction.InOut)
 
     def create_output_bus_term(self, name: str, msb: int, lsb: int) -> Term:
-        """Create an output bus Term in this Instance with the given name, msb and lsb."""
+        """Create an output bus Term in this Instance with the given name, msb and lsb.
+
+        :param str name: the name of the Term to create.
+        :param int msb: the most significant bit of the Term to create.
+        :param int lsb: the least significant bit of the Term to create.
+        :return: the created Term.
+        :rtype: Term
+        """
         return self.create_bus_term(name, msb, lsb, snl.SNLTerm.Direction.Output)
 
     def create_input_bus_term(self, name: str, msb: int, lsb: int) -> Term:
-        """Create an input bus Term in this Instance with the given name, msb and lsb."""
+        """Create an input bus Term in this Instance with the given name, msb and lsb.
+
+        :param str name: the name of the Term to create.
+        :param int msb: the most significant bit of the Term to create.
+        :param int lsb: the least significant bit of the Term to create.
+        :return: the created Term.
+        :rtype: Term
+        """
         return self.create_bus_term(name, msb, lsb, snl.SNLTerm.Direction.Input)
 
     def create_net(self, name: str) -> Net:
-        """Create a scalar Net in this Instance with the given name."""
+        """Create a scalar Net in this Instance with the given name.
+
+        :param str name: the name of the Net to create.
+        :return: the created Net.
+        :rtype: Net
+        """
         path = get_snl_path_from_id_list(self.pathIDs)
         if path.size() > 0:
             snl.SNLUniquifier(path)
@@ -919,7 +1208,14 @@ class Instance:
         return Net(path, newSNLNet)
 
     def create_bus_net(self, name: str, msb: int, lsb: int) -> Net:
-        """Create a bus Net in this Instance with the given name, msb and lsb."""
+        """Create a bus Net in this Instance with the given name, msb and lsb.
+
+        :param str name: the name of the Net to create.
+        :param int msb: the most significant bit of the Net to create.
+        :param int lsb: the least significant bit of the Net to create.
+        :return: the created Net.
+        :rtype: Net
+        """
         path = get_snl_path_from_id_list(self.pathIDs)
         if path.size() > 0:
             snl.SNLUniquifier(path)
@@ -929,7 +1225,11 @@ class Instance:
         return Net(path, newSNLNet)
 
     def dump_verilog(self, path: str, name: str):
-        """Dump the verilog of this instance."""
+        """Dump the verilog of this instance.
+
+        :param str path: the path where to dump the verilog.
+        :param str name: the name of the verilog file.
+        """
         self.__get_snl_model().dumpVerilog(path, name)
 
 
@@ -943,10 +1243,20 @@ def get_top_db() -> snl.SNLDB:
 
 
 def get_top():
+    """
+    :return: the top Instance.
+    :rtype: Instance
+    """
     return Instance(snl.SNLPath())
 
 
 def create_top(name: str) -> Instance:
+    """Create a top instance with the given name.
+
+    :param str name: the name of the top instance to create.
+    :return: the created top Instance.
+    :rtype: Instance
+    """
     # init
     db = get_top_db()
     # create top design
@@ -966,11 +1276,15 @@ def load_verilog(files: list):
 
 
 def load_liberty(files: list):
-    logging.info(f"Loading liberty: {', '.join(files)}")
+    logging.info(f"Loading liberty files: {', '.join(files)}")
     get_top_db().loadLibertyPrimitives(files)
 
 
 def load_primitives(name: str):
+    """Loads a primitive library embedded in najaeda.
+    Currently supported libraries are:
+    - xilinx
+    """
     if name == "xilinx":
         logging.info("Loading xilinx primitives")
         from najaeda.primitives import xilinx
@@ -988,7 +1302,11 @@ def get_primitives_library() -> snl.SNLLibrary:
 
 
 def get_model_name(id: tuple[int, int, int]) -> str:
-    """Return the name of the model given its id."""
+    """
+    :param tuple[int, int, int] id: the id of the model.
+    :return: the name of the model given its id or None if it does not exist.
+    :rtype: str or None
+    """
     u = snl.SNLUniverse.get()
     if u:
         db = u.getDB(id[0])

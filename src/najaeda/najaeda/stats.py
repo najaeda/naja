@@ -286,7 +286,7 @@ def dump_stats(design, stats_file, designs_stats, dumped_models):
 #  primitives_figure.savefig('figures/flat_primitives_' + design.getName() + '.png')
 
 
-def compute_and_dump_design_stats(design, stats_file, with_pandas=False):
+def dump_design_stats(design, stats_file, with_pandas=False):
     designs_stats = DesignsStats()
     compute_design_stats(design, designs_stats)
     dumped_models = set()
