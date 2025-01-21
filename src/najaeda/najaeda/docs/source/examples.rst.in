@@ -52,7 +52,9 @@ This specific use case shows how to count the number of leaf instances in a netl
 Design Statistics
 -----------------
 
-This example showcases the usage of **najaeda** stats.
+This example demonstrates how to use **najaeda** stats.
+The code below generates a text report file, `design.stats`,
+containing detailed statistics for each module in the design.
 
 .. snippet:: design_stats
 
