@@ -49,6 +49,13 @@ This specific use case shows how to count the number of leaf instances in a netl
 
 .. snippet:: count_leaves
 
+Design Statistics
+-----------------
+
+This example showcases the usage of **najaeda** stats.
+
+.. snippet:: design_stats
+
 DLE (Dead Logic Elimination)
 ----------------------------
 
