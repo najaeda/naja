@@ -13,6 +13,9 @@ class DesignsStats:
 
 
 class DesignStats:
+    TEXT = 0
+    JSON = 1
+
     def __init__(self):
         self.name = ""
         self.assigns = 0
@@ -43,6 +46,122 @@ class DesignStats:
             self.flat_basic_primitives[primitive] = (
                 self.flat_basic_primitives.get(primitive, 0) + nb
             )
+
+    def __dump_instances(stats_file, title, instances):
+        if len(instances) == 0:
+            return
+        sorted_instances = sorted(
+            instances.items(), key=lambda item: netlist.get_model_name(item[0])
+        )
+        stats_file.write(title + " " + str(sum(j for i, j in sorted_instances)) + "\n")
+        line_char = 0
+        for instance in sorted_instances:
+            model_name = netlist.get_model_name(instance[0])
+            if line_char != 0:
+                stats_file.write(",")
+                line_char += 1
+            if line_char > 80:
+                stats_file.write("\n")
+                line_char = 0
+            elif line_char != 0:
+                stats_file.write(" ")
+                line_char += 1
+            instance_char = model_name + ":" + str(instance[1])
+            line_char += len(instance_char)
+            stats_file.write(instance_char)
+        stats_file.write("\n\n")
+
+    def __dump_stats(self, files, value_name, value):
+        for file in files:
+            if file[0] == DesignStats.TEXT:
+                file[1].write(f"{value_name}: {value} \n")
+            elif file[0] == DesignStats.JSON:
+                file[1].write(f"    \"{value_name}\": {value},\n")
+
+    def dump_instance_stats(self, instance, dumped_models, dumped_files):
+        if instance.is_primitive() or instance.is_blackbox():
+            return
+        # Only dump once each model
+        model_id = instance.get_model_id()
+        if model_id in dumped_models:
+            return
+        dumped_models.add(model_id)
+
+        for file in dumped_files:
+            if file[0] == DesignsStats.TEXT:
+                file[1].write("*** " + instance.get_name() + " ***\n")
+            elif file[0] == DesignStats.JSON:
+                file[1].write("{\n")
+                file[1].write(f"    {instance.get_model_name()},\n")
+        design_stats = self.hier_designs.get(model_id)
+        if design_stats is None:
+            print("Cannot find " + str(instance.get_model_name()) + " in design_stats")
+            raise
+        if len(design_stats.terms) > 0:
+            for file in dumped_files:
+                if file[0] == DesignStats.TEXT:
+                    file[1].write("Terms: ")
+                    first = True
+                    for terms in design_stats.terms.items():
+                        if not first:
+                            file[1].write(", ")
+                        else:
+                            first = False
+                        file[1].write(terms[0] + ":" + str(terms[1]))
+                    file[1].write("\n")
+                elif file[0] == DesignStats.JSON:
+                    file[1].write("    \"Terms\": {\n")
+                    first = True
+                    for terms in design_stats.terms.items():
+                        if not first:
+                            file[1].write(",\n")
+                        else:
+                            first = False
+                        file[1].write(f"        \"{terms[0]}\": {terms[1]}")
+                    file[1].write("\n    }")
+
+        #self.__dump_instances(stats_file, "Instances:", design_stats.ins)
+        nb_primitives = sum(design_stats.basic_primitives.values()) + sum(
+            design_stats.primitives.values()
+        )
+        if nb_primitives > 1:
+            self.__dump_stats(dumped_files, "Primitives", nb_primitives)
+
+        for file in dumped_files:
+            if file[0] == DesignStats.TEXT:
+                self.__dump_instances(file[1], "Simple Primitives:", design_stats.basic_primitives)
+                self.__dump_instances(file[1], "Other Primitives:", design_stats.primitives)
+                self.__dump_instances(file[1], "Blackboxes:", design_stats.blackboxes)
+        
+        if design_stats.assigns > 0:
+            self.__dump_stats(dumped_files, "Assigns", design_stats.assigns)
+
+        for file in dumped_files:
+            if file[0] == DesignStats.TEXT:
+                self.__dump_instances(file[1], "Flat Instances:", design_stats.flat_ins)
+                self.__dump_instances(file[1], "Flat Blackboxes:", design_stats.flat_blackboxes)
+
+        nb_primitives = sum(design_stats.flat_basic_primitives.values()) + sum(
+            design_stats.flat_primitives.values()
+        )
+        if nb_primitives > 1:
+            self.__dump_stats(dumped_files, "Flat Primitives", nb_primitives)
+        
+        for file in dumped_files:
+            if file[0] == DesignStats.TEXT:
+                self.__dump_instances(
+                    file[1], "Flat Simple Primitives:", design_stats.flat_basic_primitives)
+                self.__dump_instances(file[1], "Flat Other Primitives:", design_stats.flat_primitives)
+
+        if self.design_stats.flat_assigns > 0:
+            self.__dump_stats(dumped_files, "Flat Assigns", design_stats.flat_assigns)
+        
+        for file in dumped_files:
+            if file[0] == DesignStats.TEXT:
+                file[1].write("\n")
+
+        for child_instance in instance.get_child_instances():
+            self.dump_instance_stats(child_instance, dumped_models, dumped_files)
 
 
 def is_basic_primitive(design):
@@ -184,55 +303,7 @@ def dump_blackboxes_stats(stats_file, design_stats):
             stats_file.write("\n")
 
 
-def dump_stats(design, stats_file, designs_stats, dumped_models):
-    if design.is_primitive() or design.is_blackbox():
-        return
-    if design in dumped_models:
-        return
-    dumped_models.add(design)
-    stats_file.write("*** " + design.get_name() + " ***\n")
-    design_stats = designs_stats.hier_designs.get(design.get_model_id())
-    if design_stats is None:
-        print("Cannot find " + str(design) + " in design_stats")
-        raise
-    if len(design_stats.terms) > 0:
-        stats_file.write("Terms: ")
-        first = True
-        for terms in design_stats.terms.items():
-            if not first:
-                stats_file.write(", ")
-            else:
-                first = False
-            stats_file.write(terms[0] + ":" + str(terms[1]))
-        stats_file.write("\n")
 
-    dump_instances(stats_file, "Instances:", design_stats.ins)
-    nb_primitives = sum(design_stats.basic_primitives.values()) + sum(
-        design_stats.primitives.values()
-    )
-    if nb_primitives > 1:
-        stats_file.write("Primitives: " + str(nb_primitives) + "\n")
-    dump_instances(stats_file, "Simple Primitives:", design_stats.basic_primitives)
-    dump_instances(stats_file, "Other Primitives:", design_stats.primitives)
-    dump_instances(stats_file, "Blackboxes:", design_stats.blackboxes)
-    if design_stats.assigns > 0:
-        stats_file.write("Assigns: " + str(design_stats.assigns) + "\n")
-    dump_instances(stats_file, "Flat Instances:", design_stats.flat_ins)
-    dump_instances(stats_file, "Flat Blackboxes:", design_stats.flat_blackboxes)
-    nb_primitives = sum(design_stats.flat_basic_primitives.values()) + sum(
-        design_stats.flat_primitives.values()
-    )
-    if nb_primitives > 1:
-        stats_file.write("Flat Primitives: " + str(nb_primitives) + "\n")
-    dump_instances(
-        stats_file, "Flat Simple Primitives:", design_stats.flat_basic_primitives
-    )
-    dump_instances(stats_file, "Flat Other Primitives:", design_stats.flat_primitives)
-    if design_stats.flat_assigns > 0:
-        stats_file.write("Flat Assigns: " + str(design_stats.flat_assigns) + "\n")
-    stats_file.write("\n")
-    for ins in design.get_child_instances():
-        dump_stats(ins, stats_file, designs_stats, dumped_models)
 
 
 # def dump_pandas(designs_stats):
@@ -286,15 +357,20 @@ def dump_stats(design, stats_file, designs_stats, dumped_models):
 #  primitives_figure.savefig('figures/flat_primitives_' + design.getName() + '.png')
 
 
-def dump_design_stats(design, stats_file, with_pandas=False):
+def dump_design_stats(design, stats_files):
     designs_stats = DesignsStats()
     compute_design_stats(design, designs_stats)
     dumped_models = set()
-    dump_stats(design, stats_file, designs_stats, dumped_models)
-    dump_blackboxes_stats(stats_file, designs_stats)
-    # if with_pandas:
-    #   dump_pandas(designs_stats)
+    designs_stats.dump_instance_stats(design, stats_files, designs_stats, dumped_models)
+    #dump_blackboxes_stats(stats_files, designs_stats)
 
+def dump_design_stats_json(design, stats_file):
+    stats_files = [(DesignStats.JSON, stats_file)]
+    dump_design_stats(design, stats_files)
+
+def dump_design_stats_text(design, stats_file):
+    stats_files = [(DesignStats.TEXT, stats_file)]
+    dump_design_stats(design, stats_files)
 
 def dump_constants(design, analyzed_models):
     if design.isPrimitive():
