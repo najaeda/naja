@@ -828,6 +828,11 @@ class Instance:
             return snl.SNLUniverse.get().getTopDesign()
         instance = get_snl_instance_from_id_list(self.pathIDs)
         return instance.getModel()
+    
+    def __get_leaf_snl_object(self):
+        if self.is_top():
+            return snl.SNLUniverse.get().getTopDesign()
+        return get_snl_instance_from_id_list(self.pathIDs)
 
     def __find_snl_model(self, name: str) -> snl.SNLDesign:
         u = snl.SNLUniverse.get()
@@ -1010,6 +1015,11 @@ class Instance:
                         yield Term(self.pathIDs, bit)
                 else:
                     yield Term(self.pathIDs, term)
+
+    def get_attributes(self):
+        leaf_object = self.__get_leaf_snl_object()
+        for attribute in leaf_object.getAttributes():
+            yield attribute
 
     def delete_instance(self, name: str):
         """Delete the child instance with the given name."""

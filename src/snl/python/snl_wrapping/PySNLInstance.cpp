@@ -11,6 +11,7 @@
 #include "PySNLInstParameter.h"
 #include "PySNLInstTerm.h"
 #include "PySNLBitTerm.h"
+#include "PySNLAttributes.h"
 #include "PySNLInstTerms.h"
 #include "PySNLInstParameters.h"
 
@@ -114,8 +115,10 @@ static PyObject* PySNLInstance_getInstTerm(PySNLInstance* self, PyObject* args) 
   return PySNLInstTerm_Link(obj);
 }
 
-GetContainerMethod(Instance, InstTerm, InstTerms, InstTerms)
-GetContainerMethod(Instance, InstParameter, InstParameters, InstParameters)
+GetContainerMethod(Instance, InstTerm*, InstTerms, InstTerms)
+GetContainerMethod(Instance, InstParameter*, InstParameters, InstParameters)
+GetContainerMethod(Instance, Attribute, Attributes, Attributes)
+
 DirectGetIntMethod(PySNLInstance_getID, getID, PySNLInstance, SNLInstance)
 
 PyMethodDef PySNLInstance_Methods[] = {
@@ -135,6 +138,8 @@ PyMethodDef PySNLInstance_Methods[] = {
     "get a container of SNLInstTerms."},
   {"getInstParameters", (PyCFunction)PySNLInstance_getInstParameters, METH_NOARGS,
     "get a container of SNLInstParameters."},
+  {"getAttributes", (PyCFunction)PySNLInstance_getAttributes, METH_NOARGS,
+    "get a container of SNLAttributes."},
   { "getCombinatorialInputs", (PyCFunction)PySNLDesign_getCombinatorialInputs, METH_O|METH_STATIC,
     "get combinatorial inputs of an instance term"},
   { "getCombinatorialOutputs", (PyCFunction)PySNLDesign_getCombinatorialOutputs, METH_O|METH_STATIC,

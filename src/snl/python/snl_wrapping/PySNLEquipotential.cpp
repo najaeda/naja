@@ -64,8 +64,8 @@ static PyObject* PySNLEquipotential_dumpDotFile(PySNLEquipotential* self, PyObje
   Py_RETURN_NONE;
 }
 
-GetContainerMethod(Equipotential, BitTerm, BitTerms, Terms)
-GetContainerMethodForNonPointers(Equipotential, InstTermOccurrence, InstTermOccurrences, InstTermOccurrences)
+GetContainerMethod(Equipotential, BitTerm*, BitTerms, Terms)
+GetContainerMethod(Equipotential, InstTermOccurrence, InstTermOccurrences, InstTermOccurrences)
 
 //LCOV_EXCL_START
 ManagedTypeLinkCreateMethod(SNLEquipotential) 

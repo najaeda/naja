@@ -23,7 +23,7 @@ class SNLUniquifier {
     void process();
     SNLInstance* replaceWithClone(SNLInstance* inst);
     std::vector<SNLInstance*>& getPathUniq() { return pathUniq_; }
-    NajaCollection<SNLInstance*> getPathUniqCollection() { return new NajaSTLCollection(&pathUniq_); }
+    NajaCollection<SNLInstance*> getPathUniqCollection() const { return new NajaSTLCollection(&pathUniq_); }
     std::string getFullPath() const;
     std::string getString() const { return getFullPath(); }
 

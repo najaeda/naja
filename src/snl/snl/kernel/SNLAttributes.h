@@ -14,42 +14,80 @@ class SNLObject;
 class SNLDesign;
 class SNLDesignObject;
 
+class SNLAttributeValue {
+  public:
+    enum class Type { NUMBER, STRING };
+    SNLAttributeValue() = default;
+    SNLAttributeValue(const SNLAttributeValue&) = default;
+    SNLAttributeValue(const std::string& value): type_(Type::STRING), value_(value) {};
+    SNLAttributeValue(Type type, const std::string& value): type_(type), value_(value) {};
+    std::string getString() const { return value_; }
+    bool isString() const { return type_ == Type::STRING; }
+    bool empty() const { return value_.empty(); }
+    bool operator==(const SNLAttributeValue& rv) const = default;
+    bool operator<(const SNLAttributeValue& rv) const {
+      if (type_ == rv.type_) {
+        return value_ < rv.value_;
+      }
+      return type_ < rv.type_;
+    }
+    bool operator<=(const SNLAttributeValue& rv) const {
+      return *this < rv or *this == rv;
+    } 
+    bool operator>(const SNLAttributeValue& rv) const {
+      if (type_ == rv.type_) {
+        return value_ > rv.value_;
+      }
+      return type_ > rv.type_;
+    }
+    bool operator>=(const SNLAttributeValue& rv) const {
+      return *this > rv or *this == rv;
+    }
+  private:
+    Type        type_   {Type::STRING};
+    std::string value_  {};
+};
+
+class SNLAttribute {
+  public:
+    //Values are either numbers or strings.
+    //but stored as strings.
+    SNLAttribute() = default;
+    SNLAttribute(const SNLName& name, const SNLAttributeValue& value=SNLAttributeValue());
+    SNLAttribute(const SNLAttribute&) = default;
+    
+    SNLName getName() const { return name_; }
+    SNLAttributeValue getValue() const { return value_; }
+    std::string getString() const;
+    bool hasValue() const { return not value_.empty(); }
+    bool operator==(const SNLAttribute& ra) const {
+      return name_ == ra.name_ and value_ == ra.value_;
+    };
+    bool operator<(const SNLAttribute& ra) const {
+      if (name_ == ra.name_) {
+        return value_ < ra.value_;
+      }
+      return name_ < ra.name_;
+    }
+    bool operator<=(const SNLAttribute& ra) const {
+      return *this < ra or *this == ra;
+    }
+    bool operator>(const SNLAttribute& ra) const {
+      if (name_ == ra.name_) {
+        return value_ > ra.value_;
+      }
+      return name_ > ra.name_;
+    }
+    bool operator>=(const SNLAttribute& ra) const {
+      return *this > ra or *this == ra;
+    }
+  private:
+    SNLName           name_   {};
+    SNLAttributeValue value_  {};
+};
+
 class SNLAttributes {
   public:
-    class SNLAttribute {
-      public:
-        //Values are either numbers or strings.
-        //but stored as strings.
-        class Value {
-          public:
-            enum class Type { NUMBER, STRING };
-            Value();
-            Value(const std::string& value): type_(Type::STRING), value_(value) {};
-            Value(Type type, const std::string& value): type_(type), value_(value) {};
-            Value(const Value&) = default;
-            std::string getString() const { return value_; }
-            bool isString() const { return type_ == Type::STRING; }
-            bool empty() const { return value_.empty(); }
-            bool operator==(const Value& rv) const = default;
-          private:
-            Type        type_   { Type::STRING };
-            std::string value_  {};
-        };
-
-        SNLAttribute() = default;
-        SNLAttribute(const SNLName& name, const SNLAttribute::Value& value=SNLAttribute::Value());
-        SNLAttribute(const SNLAttribute&) = default;
-        SNLName getName() const { return name_; }
-        Value getValue() const { return value_; }
-        std::string getString() const;
-        bool hasValue() const { return not value_.empty(); }
-        bool operator==(const SNLAttribute& ra) const {
-          return name_ == ra.name_ and value_ == ra.value_;
-        };
-      private:
-        SNLName     name_   {};
-        Value       value_  {};
-    };
     static void addAttribute(SNLDesign* design, const SNLAttribute& attribute);
     static void addAttribute(SNLDesignObject* designObject, const SNLAttribute& attribute);
     static void clearAttributes(SNLObject* object);
