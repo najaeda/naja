@@ -8,9 +8,9 @@ import time
 import logging
 import hashlib
 import struct
+from enum import Enum
 
 from najaeda import snl
-
 
 def consistent_hash(obj):
     def default_serializer(o):
@@ -165,6 +165,13 @@ class Equipotential:
 
 
 class Net:
+    class Type(Enum):
+        STANDARD = snl.SNLNet.Type.Standard
+        ASSIGN0 = snl.SNLNet.Type.Assign0
+        ASSIGN1 = snl.SNLNet.Type.Assign1
+        SUPPLY0 = snl.SNLNet.Type.Supply0
+        SUPPLY1 = snl.SNLNet.Type.Supply1
+
     def __init__(self, path, net=None, net_concat=None):
         if net is not None and net_concat is not None:
             raise ValueError(
@@ -272,10 +279,21 @@ class Net:
         """
         if hasattr(self, "net"):
             return self.net.isConstant()
-        for net in self.net_concat:
-            if not net.isConstant():
-                return False
-        return True
+        else:
+            for net in self.net_concat:
+                if not net.isConstant():
+                    return False
+            return True
+
+    def set_type(self, net_type: Type):
+        """
+        :param Type net_type: the type of the net.
+        """
+        if hasattr(self, "net"):
+            self.net.setType(net_type.value)
+        else:
+            for net in self.net_concat:
+                net.setType(net_type.value)
 
     def get_width(self) -> int:
         """
@@ -300,7 +318,7 @@ class Net:
                 yield self
         else:
             for net in self.net_concat:
-                yield net
+                yield Net(net)
 
     def get_bit(self, index: int):
         """

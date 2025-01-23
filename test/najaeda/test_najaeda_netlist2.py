@@ -278,6 +278,8 @@ class NajaNetlistTest2(unittest.TestCase):
         self.assertFalse(modI0Net.is_const())
         self.assertEqual(4, sum(1 for _ in modI0Net.get_bits()))
         self.assertIsNone(modI0Net.get_bit(4))
+        modI0Net.set_type(netlist.Net.Type.ASSIGN0)
+        self.assertTrue(modI0Net.is_const())
 
         for i in range(4):
             # modIO.get_bit(i) is the connected to I0_{3-i} scalar net
