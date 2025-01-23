@@ -1036,7 +1036,6 @@ class Instance:
     def get_attributes(self):
         leaf_object = self.__get_leaf_snl_object()
         for attribute in leaf_object.getAttributes():
-            print(str(attribute))
             yield Attribute(attribute)
 
     def delete_instance(self, name: str):

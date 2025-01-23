@@ -40,17 +40,18 @@ class NajaEDANetlistTestAttributes(unittest.TestCase):
         and2_inst = top.get_child_instance('and2_inst')
         self.assertIsNotNone(and2_inst)
         self.assertEqual(3, sum(1 for _ in and2_inst.get_attributes()))
-        for attr in and2_inst.get_attributes():
-            print("attr: " + str(attr))
-            print("attr: " + attr.get_name())
-            print("attr: " + attr.get_value())
         and2_attributes = list(and2_inst.get_attributes())
         self.assertEqual(3, len(and2_attributes))
-        for attr in and2_attributes:
-            print(attr)
-            print(attr.get_name())
-            print(attr.get_value())
         self.assertEqual('INSTANCE_ATTRIBUTE_AND', and2_attributes[0].get_name())
+        self.assertTrue(and2_attributes[0].has_value())
+        self.assertEqual('and2_inst', and2_attributes[0].get_value())
+        self.assertEqual('description', and2_attributes[1].get_name())
+        self.assertTrue(and2_attributes[1].has_value())
+        self.assertEqual('2-input AND gate instance', and2_attributes[1].get_value())
+        self.assertEqual('VERSION', and2_attributes[2].get_name())
+        self.assertTrue(and2_attributes[2].has_value())
+        self.assertEqual('3', and2_attributes[2].get_value())
+
         #print(netlist.get_top())
         #for inst in netlist.get_all_primitive_instances():
         #    print(inst)
