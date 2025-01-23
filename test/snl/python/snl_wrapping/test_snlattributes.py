@@ -37,6 +37,10 @@ class SNLAttributesTest(unittest.TestCase):
     self.assertEqual("", pragma2.getValue())
     self.assertFalse(pragma2.hasValue())
 
+  def testAttributesErrors(self):
+    with self.assertRaises(RuntimeError) as context: snl.SNLAttribute("pragma0", "value0", "value1")
+    with self.assertRaises(RuntimeError) as context: snl.SNLAttribute(3, "value0")
+
   def test(self):
     self.assertEqual(0, sum(1 for a in self.ins0.getAttributes()))
     self.ins0.addAttribute(snl.SNLAttribute("attr0", "value0"))

@@ -34,8 +34,10 @@ static int PySNLAttribute_Init(PySNLAttribute* self, PyObject* args, PyObject* k
     // Convert PyLong to string
     PyObject* py_string = PyObject_Str(arg1);
     if (!py_string) {
+      //LCOV_EXCL_START
       setError("Failed to convert Attribute numerical value to string");
       return -1;
+      //LCOV_EXCL_STOP
     }
     // Convert Python string to UTF-8 encoded C string
     const char* c_string = PyUnicode_AsUTF8(py_string);
