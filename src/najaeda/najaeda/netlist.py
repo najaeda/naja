@@ -704,19 +704,19 @@ def get_instance_by_path(names: list):
     return Instance(path)
 
 
-def refresh_path(path: snl.SNLPath):
-    pathlist = path.getPathIDs()
-    assert len(pathlist) > 0
-    path = snl.SNLPath()
-    instance = None
-    top = snl.SNLUniverse.get().getTopDesign()
-    design = top
-    for id in pathlist:
-        path = snl.SNLPath(path, design.getInstanceByID(id))
-        instance = design.getInstanceByID(id)
-        assert instance is not None
-        design = instance.getModel()
-    return path
+#def refresh_path(path: snl.SNLPath):
+#    pathlist = path.getPathIDs()
+#    assert len(pathlist) > 0
+#    path = snl.SNLPath()
+#    instance = None
+#    top = snl.SNLUniverse.get().getTopDesign()
+#    design = top
+#    for id in pathlist:
+#        path = snl.SNLPath(path, design.getInstanceByID(id))
+#        instance = design.getInstanceByID(id)
+#        assert instance is not None
+#        design = instance.getModel()
+#    return path
 
 
 class Attribute:
