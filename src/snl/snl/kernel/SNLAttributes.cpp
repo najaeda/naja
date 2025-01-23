@@ -74,19 +74,20 @@ SNLAttribute::SNLAttribute(
 
 //LCOV_EXCL_START
 std::string SNLAttribute::getString() const {
-  std::ostringstream oss;
-  oss << name_.getString();
+  std::string str;
+  str += name_.getString();
   if (not value_.empty()) {
-    oss << " = ";
+    str += " = ";
     if (value_.isString()) {
-      oss << "\"";
+      str += "\"";
     }
-    oss << value_.getString();
+    str += value_.getString();
     if (value_.isString()) {
-      oss << "\"";
+      str += "\"";
     }
   }
-  return oss.str();
+  std::cout << str << std::endl;
+  return str;
 }
 //LCOV_EXCL_STOP
 

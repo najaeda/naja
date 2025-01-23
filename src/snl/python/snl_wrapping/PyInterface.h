@@ -407,7 +407,7 @@ PyObject* richCompare(T left, T right, int op) {
     if (iterator and pyIterator->container_ \
       and pyIterator->container_->object_ \
       and *iterator != pyIterator->container_->object_->end()) { \
-      auto object = **iterator; \
+      TYPE object = **iterator; \
       ++(*iterator); \
       return Py##TYPE##_Link(object); \
     } \

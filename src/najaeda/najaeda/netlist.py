@@ -699,6 +699,21 @@ def refresh_path(path: snl.SNLPath):
         design = instance.getModel()
     return path
 
+class Attribute:
+    def __init__(self, snlAttribute):
+        self.snlAttribute = snlAttribute
+
+    def __str__(self):
+        return "Attr: " + str(self.snlAttribute) + self.get_name() + " = " + str(self.get_value())
+
+    def get_name(self):
+        return self.snlAttribute.getName()
+    
+    #def has_value(self):
+    #    return self.snlAttribute.hasValue()
+    
+    def get_value(self):
+        return self.snlAttribute.getValue()
 
 class Instance:
     """Class that represents the instance and wraps some
@@ -1019,7 +1034,8 @@ class Instance:
     def get_attributes(self):
         leaf_object = self.__get_leaf_snl_object()
         for attribute in leaf_object.getAttributes():
-            yield attribute
+            print(str(attribute))
+            yield Attribute(attribute)
 
     def delete_instance(self, name: str):
         """Delete the child instance with the given name."""

@@ -12,9 +12,10 @@ namespace PYSNL {
 
 using namespace naja::SNL;
 
-#define METHOD_HEAD(function) GENERIC_METHOD_HEAD(SNLAttributes::SNLAttribute, function)
+#define METHOD_HEAD(function) GENERIC_METHOD_HEAD(SNLAttribute, function)
 
 static int PySNLAttribute_Init(PySNLAttribute* self, PyObject* args, PyObject* kwargs) {
+#if 0
   SNLAttribute* snlAttribute = nullptr;
   char* arg0 = nullptr;
   PyObject* arg1 = nullptr;
@@ -53,12 +54,26 @@ static int PySNLAttribute_Init(PySNLAttribute* self, PyObject* args, PyObject* k
   }
   self->object_ = snlAttribute;
   return 0;
+#endif
+  setError("no SNLAttribute constructor.");
+  return -1;
 }
 
 ManagedTypeLinkCreateMethod(SNLAttribute) 
 ManagedTypeDeallocMethod(SNLAttribute)
 
+GetNameMethod(SNLAttribute)
+
+static PyObject* PySNLAttribute_getValue(PySNLAttribute* self) {
+  METHOD_HEAD("SNLAttribute.getValue()")
+  return PyUnicode_FromString(selfObject->getValue().getString().c_str());
+}
+
 PyMethodDef PySNLAttribute_Methods[] = {
+  { "getName", (PyCFunction)PySNLAttribute_getName, METH_NOARGS,
+    "get the name of the Attribute."},
+  { "getValue", (PyCFunction)PySNLAttribute_getValue, METH_NOARGS,
+    "get the value of the Attribute."},
   {NULL, NULL, 0, NULL} /* sentinel */
 };
 
