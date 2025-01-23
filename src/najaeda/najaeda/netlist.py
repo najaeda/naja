@@ -704,7 +704,7 @@ def get_instance_by_path(names: list):
     return Instance(path)
 
 
-#def refresh_path(path: snl.SNLPath):
+# def refresh_path(path: snl.SNLPath):
 #    pathlist = path.getPathIDs()
 #    assert len(pathlist) > 0
 #    path = snl.SNLPath()
