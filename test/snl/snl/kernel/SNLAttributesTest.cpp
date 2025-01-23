@@ -117,32 +117,39 @@ TEST_F(SNLAttributesTest, testCreationOnDesignObject) {
 TEST_F(SNLAttributesTest, testAttributeCompare) {
   SNLAttribute attribute1(SNLName("PRAGMA1"), SNLAttributeValue("value1"));
   SNLAttribute attribute2(SNLName("PRAGMA1"), SNLAttributeValue("value1"));
-  EXPECT_TRUE(attribute1 == attribute2);
+  EXPECT_EQ(attribute1, attribute2);
   EXPECT_FALSE(attribute1 < attribute2);
   EXPECT_FALSE(attribute1 > attribute2);
   EXPECT_TRUE(attribute1 <= attribute2);
   EXPECT_TRUE(attribute1 >= attribute2);
 
   SNLAttribute attribute3(SNLName("PRAGMA1"), SNLAttributeValue("value2"));
-  EXPECT_FALSE(attribute1 == attribute3);
+  EXPECT_NE(attribute1, attribute3);
   EXPECT_TRUE(attribute1 < attribute3);
   EXPECT_FALSE(attribute1 > attribute3);
   EXPECT_TRUE(attribute1 <= attribute3);
   EXPECT_FALSE(attribute1 >= attribute3);
 
   SNLAttribute attribute4(SNLName("PRAGMA2"), SNLAttributeValue("value1"));
-  EXPECT_FALSE(attribute1 == attribute4);
+  EXPECT_NE(attribute1, attribute4);
   EXPECT_TRUE(attribute1 < attribute4);
   EXPECT_FALSE(attribute1 > attribute4);
   EXPECT_TRUE(attribute1 <= attribute4);
   EXPECT_FALSE(attribute1 >= attribute4);
 
   SNLAttribute attribute5(SNLName("PRAGMA2"), SNLAttributeValue("value2"));
-  EXPECT_FALSE(attribute1 == attribute5);
+  EXPECT_NE(attribute1, attribute5);
   EXPECT_TRUE(attribute1 < attribute5);
   EXPECT_FALSE(attribute1 > attribute5);
   EXPECT_TRUE(attribute1 <= attribute5);
   EXPECT_FALSE(attribute1 >= attribute5);
+
+  //compare attribute5 with attribute4
+  EXPECT_NE(attribute5, attribute4);
+  EXPECT_GT(attribute5, attribute4);
+  EXPECT_LT(attribute4, attribute5);
+  EXPECT_LE(attribute4, attribute5);
+  EXPECT_GE(attribute5, attribute4);
 }
 
 TEST_F(SNLAttributesTest, testCompare) {

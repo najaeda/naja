@@ -52,7 +52,7 @@ class SNLAttribute {
   public:
     //Values are either numbers or strings.
     //but stored as strings.
-    SNLAttribute() = default;
+    SNLAttribute() = default; //LCOV_EXCL_LINE
     SNLAttribute(const SNLName& name, const SNLAttributeValue& value=SNLAttributeValue());
     SNLAttribute(const SNLAttribute&) = default;
     

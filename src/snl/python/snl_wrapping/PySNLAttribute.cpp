@@ -19,37 +19,41 @@ static int PySNLAttribute_Init(PySNLAttribute* self, PyObject* args, PyObject* k
   char* arg0 = nullptr;
   PyObject* arg1 = nullptr;
 
-  if (not PyArg_ParseTuple(args, "s|O:SNLAttribute", &arg0, &arg1)) {
-    setError("malformed SNLAttribute constructor method");
-    return -1;
-  }
-  if (arg1 == nullptr) {
-    snlAttribute = new SNLAttribute(SNLName(arg0));
-  } else if (PyUnicode_Check(arg1)) {
-    snlAttribute = new SNLAttribute(
-      SNLName(arg0),
-      SNLAttributeValue(PyUnicode_AsUTF8(arg1))
-    );
-  } else if (PyLong_Check(arg1) or PyFloat_Check(arg1)) {
-    // Convert PyLong to string
-    PyObject* py_string = PyObject_Str(arg1);
-    if (!py_string) {
-      //LCOV_EXCL_START
-      setError("Failed to convert Attribute numerical value to string");
+  if (PyArg_ParseTuple(args, "s|O:SNLAttribute", &arg0, &arg1)) {
+    if (arg1 == nullptr) {
+      snlAttribute = new SNLAttribute(SNLName(arg0));
+    } else if (PyUnicode_Check(arg1)) {
+      snlAttribute = new SNLAttribute(
+        SNLName(arg0),
+        SNLAttributeValue(PyUnicode_AsUTF8(arg1))
+      );
+    } else if (PyLong_Check(arg1) or PyFloat_Check(arg1)) {
+      // Convert PyLong to string
+      PyObject* py_string = PyObject_Str(arg1);
+      if (!py_string) {
+        //LCOV_EXCL_START
+        setError("Failed to convert Attribute numerical value to string");
+        return -1;
+        //LCOV_EXCL_STOP
+      }
+      // Convert Python string to UTF-8 encoded C string
+      const char* c_string = PyUnicode_AsUTF8(py_string);
+      snlAttribute = new SNLAttribute(
+        SNLName(arg0),
+        SNLAttributeValue(
+          SNLAttributeValue::Type::NUMBER,
+          std::string(c_string))
+      );
+      // Decrement the reference count of py_string
+      Py_DECREF(py_string);
+    }  else {
+      std::string error;
+      error += "wrong type for second argument of SNLAttribute constructor";
+      error += ", should be string or number.";
+      setError(error);
       return -1;
-      //LCOV_EXCL_STOP
     }
-    // Convert Python string to UTF-8 encoded C string
-    const char* c_string = PyUnicode_AsUTF8(py_string);
-    snlAttribute = new SNLAttribute(
-      SNLName(arg0),
-      SNLAttributeValue(
-        SNLAttributeValue::Type::NUMBER,
-        std::string(c_string))
-    );
-    // Decrement the reference count of py_string
-    Py_DECREF(py_string);
-  }  else {
+  } else {
     setError("invalid number of parameters for SNLAttribute constructor.");
     return -1;
   }
