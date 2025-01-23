@@ -705,7 +705,7 @@ class Attribute:
         self.snlAttribute = snlAttribute
 
     def __str__(self):
-        return self.snlAttribute.getString()
+        return str(self.snlAttribute)
 
     def get_name(self):
         return self.snlAttribute.getName()

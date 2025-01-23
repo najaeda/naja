@@ -27,6 +27,11 @@ class SNLAttributesTest: public ::testing::Test {
 };
 
 TEST_F(SNLAttributesTest, testCreationOnDesign) {
+  SNLAttribute empty;
+  EXPECT_EQ(SNLName(), empty.getName());
+  EXPECT_EQ(SNLAttributeValue(), empty.getValue());
+  EXPECT_FALSE(empty.hasValue());
+
   auto design = SNLDesign::create(library_, SNLName("DESIGN"));
   EXPECT_TRUE(SNLAttributes::getAttributes(design).empty());
   SNLAttributes::addAttribute(design,
