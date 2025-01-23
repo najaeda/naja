@@ -12,6 +12,7 @@ from enum import Enum
 
 from najaeda import snl
 
+
 def consistent_hash(obj):
     def default_serializer(o):
         if isinstance(o, (str, int, float, bool, type(None))):
