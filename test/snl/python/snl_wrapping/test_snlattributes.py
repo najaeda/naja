@@ -27,10 +27,27 @@ class SNLAttributesTest(unittest.TestCase):
     pragma0 = snl.SNLAttribute("pragma0", "value0")
     self.assertEqual("pragma0", pragma0.getName())
     self.assertEqual("value0", pragma0.getValue())
+    self.assertTrue(pragma0.hasValue())
+    pragma1 = snl.SNLAttribute("pragma1", 10)
+    self.assertEqual("pragma1", pragma1.getName())
+    self.assertEqual("10", pragma1.getValue())
+    self.assertTrue(pragma1.hasValue())
+    pragma2 = snl.SNLAttribute("pragma2")
+    self.assertEqual("pragma2", pragma2.getName())
+    self.assertEqual("", pragma2.getValue())
+    self.assertFalse(pragma2.hasValue())
 
-  #def test(self):
-  #  self.assertIsNotNone(self.top)
-  #  self.ins0.addAttribute(snl.SNLAttribute("attr0", "value0"))
+  def test(self):
+    self.assertEqual(0, sum(1 for a in self.ins0.getAttributes()))
+    self.ins0.addAttribute(snl.SNLAttribute("attr0", "value0"))
+    self.assertEqual(1, sum(1 for a in self.ins0.getAttributes()))
+    self.ins0.addAttribute(snl.SNLAttribute("attr1", "value1"))
+    self.assertEqual(2, sum(1 for a in self.ins0.getAttributes()))
+    attributes = list(self.ins0.getAttributes())
+    self.assertEqual("attr0", attributes[0].getName())
+    self.assertEqual("value0", attributes[0].getValue())
+    self.assertEqual("attr1", attributes[1].getName())
+    self.assertEqual("value1", attributes[1].getValue())
   
 if __name__ == '__main__':
   unittest.main()

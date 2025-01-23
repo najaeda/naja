@@ -699,21 +699,23 @@ def refresh_path(path: snl.SNLPath):
         design = instance.getModel()
     return path
 
+
 class Attribute:
     def __init__(self, snlAttribute):
         self.snlAttribute = snlAttribute
 
     def __str__(self):
-        return "Attr: " + str(self.snlAttribute) + self.get_name() + " = " + str(self.get_value())
+        return self.snlAttribute.getString()
 
     def get_name(self):
         return self.snlAttribute.getName()
-    
-    #def has_value(self):
-    #    return self.snlAttribute.hasValue()
-    
+
+    def has_value(self):
+        return self.snlAttribute.hasValue()
+
     def get_value(self):
         return self.snlAttribute.getValue()
+
 
 class Instance:
     """Class that represents the instance and wraps some
@@ -843,7 +845,7 @@ class Instance:
             return snl.SNLUniverse.get().getTopDesign()
         instance = get_snl_instance_from_id_list(self.pathIDs)
         return instance.getModel()
-    
+
     def __get_leaf_snl_object(self):
         if self.is_top():
             return snl.SNLUniverse.get().getTopDesign()

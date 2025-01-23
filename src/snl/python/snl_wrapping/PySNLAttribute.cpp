@@ -59,6 +59,7 @@ ManagedTypeLinkCreateMethod(SNLAttribute)
 ManagedTypeDeallocMethod(SNLAttribute)
 
 GetNameMethod(SNLAttribute)
+GetBoolAttribute(Attribute, hasValue)
 
 static PyObject* PySNLAttribute_getValue(PySNLAttribute* self) {
   METHOD_HEAD("SNLAttribute.getValue()")
@@ -68,6 +69,8 @@ static PyObject* PySNLAttribute_getValue(PySNLAttribute* self) {
 PyMethodDef PySNLAttribute_Methods[] = {
   { "getName", (PyCFunction)PySNLAttribute_getName, METH_NOARGS,
     "get the name of the Attribute."},
+  { "hasValue", (PyCFunction)PySNLAttribute_hasValue, METH_NOARGS,
+    "check if the Attribute has a value."},
   { "getValue", (PyCFunction)PySNLAttribute_getValue, METH_NOARGS,
     "get the value of the Attribute."},
   {NULL, NULL, 0, NULL} /* sentinel */
