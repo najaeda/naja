@@ -48,6 +48,9 @@ class SNLAttributesTest(unittest.TestCase):
     self.assertEqual("value0", attributes[0].getValue())
     self.assertEqual("attr1", attributes[1].getName())
     self.assertEqual("value1", attributes[1].getValue())
+
+  def testErrors(self):
+    with self.assertRaises(RuntimeError) as context: self.ins0.addAttribute(3)
   
 if __name__ == '__main__':
   unittest.main()

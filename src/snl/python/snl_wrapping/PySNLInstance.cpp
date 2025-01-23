@@ -126,7 +126,7 @@ DirectGetIntMethod(PySNLInstance_getID, getID, PySNLInstance, SNLInstance)
 static PyObject* PySNLInstance_addAttribute(PySNLInstance* self, PyObject* args) {
   METHOD_HEAD("SNLInstance.addAttribute()")
   PySNLAttribute* pyAttribute = nullptr;
-  if (PyArg_ParseTuple(args, "O", &pyAttribute)) {
+  if (PyArg_ParseTuple(args, "O!", &PyTypeSNLAttribute, &pyAttribute)) {
     auto attribute = PYSNLAttribute_O(pyAttribute);
     SNLAttributes::addAttribute(selfObject, *attribute);
   } else {
