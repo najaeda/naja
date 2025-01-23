@@ -86,7 +86,6 @@ std::string SNLAttribute::getString() const {
       str += "\"";
     }
   }
-  std::cout << str << std::endl;
   return str;
 }
 //LCOV_EXCL_STOP

@@ -15,7 +15,6 @@ using namespace naja::SNL;
 #define METHOD_HEAD(function) GENERIC_METHOD_HEAD(SNLAttribute, function)
 
 static int PySNLAttribute_Init(PySNLAttribute* self, PyObject* args, PyObject* kwargs) {
-#if 0
   SNLAttribute* snlAttribute = nullptr;
   char* arg0 = nullptr;
   PyObject* arg1 = nullptr;
@@ -54,9 +53,6 @@ static int PySNLAttribute_Init(PySNLAttribute* self, PyObject* args, PyObject* k
   }
   self->object_ = snlAttribute;
   return 0;
-#endif
-  setError("no SNLAttribute constructor.");
-  return -1;
 }
 
 ManagedTypeLinkCreateMethod(SNLAttribute) 

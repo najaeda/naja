@@ -311,10 +311,7 @@ PyObject* richCompare(T left, T right, int op) {
 #define GetNameMethod(SELF_TYPE) \
   static PyObject* Py##SELF_TYPE##_getName(Py##SELF_TYPE* self) { \
     METHOD_HEAD(#SELF_TYPE".getName()") \
-    TRY \
     return PyUnicode_FromString(selfObject->getName().getString().c_str()); \
-    SNLCATCH \
-    return nullptr; \
   }
 
 #define SetNameMethod(SELF_TYPE) \

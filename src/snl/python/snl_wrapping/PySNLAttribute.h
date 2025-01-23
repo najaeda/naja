@@ -11,6 +11,7 @@
 namespace PYSNL {
 
 typedef struct {
+  PyObject_HEAD
   naja::SNL::SNLAttribute* object_;
 } PySNLAttribute;
 

@@ -175,6 +175,7 @@ PyMODINIT_FUNC PyInit_snl(void) {
   PYTYPE_READY(SNLInstTermOccurrencesIterator);
 
   //FIXME:XTOF Why those increfs ??
+  Py_INCREF(&PyTypeSNLAttribute);
   Py_INCREF(&PyTypeSNLUniverse);
   Py_INCREF(&PyTypeSNLDB);
   Py_INCREF(&PyTypeSNLLibrary);
@@ -229,6 +230,7 @@ PyMODINIT_FUNC PyInit_snl(void) {
     //LCOV_EXCL_STOP
   }
 
+  PyModule_AddObject(mod, "SNLAttribute", (PyObject*)&PyTypeSNLAttribute);
   PyModule_AddObject(mod, "SNLUniverse", (PyObject*)&PyTypeSNLUniverse);
   PyModule_AddObject(mod, "SNLDB", (PyObject*)&PyTypeSNLDB);
   PyModule_AddObject(mod, "SNLLibrary", (PyObject*)&PyTypeSNLLibrary);
