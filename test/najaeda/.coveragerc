@@ -1,4 +1,3 @@
 [report]
-exclude_lines =
-    def __repr__
-    def __str__
+omit =
+    test_najaeda_*.py
