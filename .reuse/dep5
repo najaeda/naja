@@ -7,18 +7,13 @@ Files: .github/workflows/* .gitmodules
 Copyright: 2022 The Naja Authors.
 License: Apache-2.0
 
-Files: README.md README_pages/* AUTHORS docs/*
+Files: README.md README.rst README_pages/* AUTHORS docs/* src/najaeda/README/*
 Copyright: 2022 The Naja Authors.
 License: Apache-2.0
 
-Files: test/snl/formats/verilog/benchmarks/* test/snl/snl/kernel/benchs/*
+Files: test/snl/formats/verilog/benchmarks/* test/snl/snl/kernel/benchs/* test/najaeda/.coveragerc
 Copyright: 2022 The Naja Authors.
 License: Apache-2.0
-
-Files: regress/*
-Copyright: 2022 The Naja Authors.
-License: Apache-2.0
-Comment: these files are used for regression testing: synthesized netlists.
 
 Files: src/apps/naja_edit/examples/*
 Copyright: 2022 The Naja Authors.
@@ -27,7 +22,6 @@ License: Apache-2.0
 Files: test/snl/formats/verilog/backend/references/*
 Copyright: 2022 The Naja Authors.
 License: CC0-1.0
-
 
 Files: test/snl/formats/liberty/benchmarks/errors/* test/snl/formats/liberty/benchmarks/tests/* thirdparty/yosys-liberty/test/benchmarks/test0.lib
 Copyright: 2022 The Naja Authors.
@@ -46,3 +40,15 @@ License: ISC
 FILES: thirdparty/yosys-liberty/test/benchmarks/test1.lib test/snl/formats/liberty/benchmarks/asap7_excerpt/test0.lib
 Copyright: Copyright 2020 Lawrence T. Clark, Vinay Vashishtha, or Arizona State University
 License: BSD-3-Clause
+
+FILES: src/najaeda/najaeda/docs/*
+Copyright: 2022 The Naja Authors.
+License: Apache-2.0
+
+FILES: src/najaeda/examples/benchmarks/liberty/* src/najaeda/examples/benchmarks/verilog/tinyrocket.v
+Copyright: 2022 The Naja Authors.
+License: Apache-2.0
+
+FILES: src/najaeda/examples/benchmarks/verilog/vexriscv.v
+Copyright: 2016 Spinal HDL contributors.
+License: MIT

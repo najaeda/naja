@@ -13,6 +13,7 @@
 #include "SNLNetComponentOccurrence.h"
 #include "SNLPath.h"
 #include "SNLEquipotential.h"
+#include "NetlistGraph.h"
 
 namespace PYSNL {
 
@@ -45,8 +46,26 @@ static int PySNLEquipotential_Init(PySNLEquipotential* self, PyObject* args, PyO
   return 0;
 }
 
-GetContainerMethod(Equipotential, BitTerm, BitTerms, Terms)
-GetContainerMethodForNonPointers(Equipotential, InstTermOccurrence, InstTermOccurrences, InstTermOccurrences)
+static PyObject* PySNLEquipotential_dumpDotFile(PySNLEquipotential* self, PyObject* args) {
+  char* path = NULL; 
+  if (not PyArg_ParseTuple(args, "s:SELF_TYPE.METHOD", &path)) {
+    setError("dumpDotFile expact a string as argument");
+    return nullptr;
+  }
+  std::filesystem::path outputPath;
+  if (path) {
+    outputPath = std::filesystem::path(path);
+  }
+  auto top = SNLUniverse::get()->getTopDesign();
+  std::string dotFileName(outputPath.string());
+  naja::SnlVisualiser snl(top, true, self->object_);
+  snl.process();
+  snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
+  Py_RETURN_NONE;
+}
+
+GetContainerMethod(Equipotential, BitTerm*, BitTerms, Terms)
+GetContainerMethod(Equipotential, InstTermOccurrence, InstTermOccurrences, InstTermOccurrences)
 
 //LCOV_EXCL_START
 ManagedTypeLinkCreateMethod(SNLEquipotential) 
@@ -58,6 +77,8 @@ PyMethodDef PySNLEquipotential_Methods[] = {
     "Returns the equi top terms."},
   {"getInstTermOccurrences", (PyCFunction)PySNLEquipotential_getInstTermOccurrences, METH_NOARGS,
     "Returns the equi inst terms."},
+  {"dumpDotFile", (PyCFunction)PySNLEquipotential_dumpDotFile, METH_VARARGS,
+    "Dump the dot file."},
   {NULL, NULL, 0, NULL} /* sentinel */
 };
 

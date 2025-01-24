@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "SNLID.h"
+#include "NajaCollection.h"
 
 namespace naja { namespace SNL {
 
@@ -47,6 +48,7 @@ class SNLPath {
     /// \brief SNLPath constructor taking a vector of instance IDs as instance path descriptor. 
     SNLPath(const SNLDesign* top, const PathIDDescriptor& descriptor);
 
+    PathIDDescriptor getIDDescriptor() const;
     /**
      * \return this SNLPath head instance.
      *
@@ -126,6 +128,8 @@ class SNLPath {
     std::string getString(const char separator='/') const;
 
     std::string getDescription(const char separator='/') const;
+
+    std::vector<SNLID::DesignObjectID> getPathIDs() const;
 
   private:
     static SNLSharedPath* createInstanceSharedPath(SNLInstance* instance);

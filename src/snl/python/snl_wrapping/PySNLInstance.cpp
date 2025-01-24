@@ -7,10 +7,13 @@
 #include "SNLInstance.h"
 
 #include "PyInterface.h"
+
 #include "PySNLDesign.h"
 #include "PySNLInstParameter.h"
 #include "PySNLInstTerm.h"
 #include "PySNLBitTerm.h"
+#include "PySNLAttribute.h"
+#include "PySNLAttributes.h"
 #include "PySNLInstTerms.h"
 #include "PySNLInstParameters.h"
 
@@ -114,14 +117,32 @@ static PyObject* PySNLInstance_getInstTerm(PySNLInstance* self, PyObject* args) 
   return PySNLInstTerm_Link(obj);
 }
 
-GetContainerMethod(Instance, InstTerm, InstTerms, InstTerms)
-GetContainerMethod(Instance, InstParameter, InstParameters, InstParameters)
+GetContainerMethod(Instance, InstTerm*, InstTerms, InstTerms)
+GetContainerMethod(Instance, InstParameter*, InstParameters, InstParameters)
+GetContainerMethod(Instance, Attribute, Attributes, Attributes)
+
+DirectGetIntMethod(PySNLInstance_getID, getID, PySNLInstance, SNLInstance)
+
+static PyObject* PySNLInstance_addAttribute(PySNLInstance* self, PyObject* args) {
+  METHOD_HEAD("SNLInstance.addAttribute()")
+  PySNLAttribute* pyAttribute = nullptr;
+  if (PyArg_ParseTuple(args, "O!", &PyTypeSNLAttribute, &pyAttribute)) {
+    auto attribute = PYSNLAttribute_O(pyAttribute);
+    SNLAttributes::addAttribute(selfObject, *attribute);
+  } else {
+    setError("invalid number of parameters for getInstTerm.");
+    return nullptr;
+  }
+  Py_RETURN_NONE;
+}
 
 PyMethodDef PySNLInstance_Methods[] = {
   { "create", (PyCFunction)PySNLInstance_create, METH_VARARGS|METH_STATIC,
     "SNLInstance creator"},
   { "getName", (PyCFunction)PySNLInstance_getName, METH_NOARGS,
     "get SNLInstance name"},
+  { "getID", (PyCFunction)PySNLInstance_getID, METH_NOARGS,
+    "get the ID."},
   {"getModel", (PyCFunction)PySNLInstance_getModel, METH_NOARGS,
     "Returns the SNLInstance model SNLDesign."},
   {"getInstParameter", (PyCFunction)PySNLInstance_getInstParameter, METH_VARARGS,
@@ -132,6 +153,10 @@ PyMethodDef PySNLInstance_Methods[] = {
     "get a container of SNLInstTerms."},
   {"getInstParameters", (PyCFunction)PySNLInstance_getInstParameters, METH_NOARGS,
     "get a container of SNLInstParameters."},
+  {"addAttribute", (PyCFunction)PySNLInstance_addAttribute, METH_VARARGS,
+    "add an attribute to the instance."},
+  {"getAttributes", (PyCFunction)PySNLInstance_getAttributes, METH_NOARGS,
+    "get a container of SNLAttributes."},
   { "getCombinatorialInputs", (PyCFunction)PySNLDesign_getCombinatorialInputs, METH_O|METH_STATIC,
     "get combinatorial inputs of an instance term"},
   { "getCombinatorialOutputs", (PyCFunction)PySNLDesign_getCombinatorialOutputs, METH_O|METH_STATIC,

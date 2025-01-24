@@ -1,0 +1,66 @@
+najaeda code examples
+=====================
+
+Load a design from liberty and Verilog
+--------------------------------------
+
+Following snippet shows how to load primitive cells from a liberty file
+and a netlist from a Verilog file.
+
+.. snippet:: load_design_liberty
+
+Load a design with pre-existing libraries
+-----------------------------------------
+
+In FPGA design environments, Liberty files are often unavailable.
+
+To address this, the following example demonstrates how to load primitives
+without relying on Liberty files.
+
+Naja EDA comes with pre-configured libraries to simplify this process.
+Currently, it includes support for partial Xilinx primitives, but this can be
+easily extended in the future. Don't hesitate to reach out if you need help.
+
+.. snippet:: load_xilinx_design
+
+Print all the instances in the netlist
+--------------------------------------
+
+Next example shows how to browse all the netlist and print all its content recursively.
+
+.. snippet:: print_design_recursive
+
+Similar to the previous example, but utilizing an instance visitor.
+This approach allows you to perform operations on each instance while
+also defining conditions for stopping or continuing exploration.
+
+.. snippet:: print_design_visitor
+
+Counting the number of leaves in a netlist
+------------------------------------------
+
+The instance visitor provides a tool for collecting various types of information
+about a netlist.
+
+The following example demonstrates how to use the visitor’s callback
+function to transmit user-defined arguments, allowing for flexible data processing.
+
+This specific use case shows how to count the number of leaf instances in a netlist.
+
+.. snippet:: count_leaves
+
+Design Statistics
+-----------------
+
+This example demonstrates how to use **najaeda** stats.
+The code below generates a text report file, `design.stats`,
+containing detailed statistics for each module in the design.
+
+.. snippet:: design_stats
+
+DLE (Dead Logic Elimination)
+----------------------------
+
+This example demonstrates how to perform Dead Logic Elimination (DLE) on a netlist.
+
+.. snippet:: dle

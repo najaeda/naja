@@ -15,7 +15,7 @@ namespace {
 class SNLAttributesPrivateProperty: public naja::NajaPrivateProperty {
   public:
     using Inherit = naja::NajaPrivateProperty;
-    using SNLAttribute = naja::SNL::SNLAttributes::SNLAttribute;
+    using SNLAttribute = naja::SNL::SNLAttribute;
     using Attributes = std::vector<SNLAttribute>;
     static const inline std::string Name = "SNLDesignTruthTableProperty";
     
@@ -66,32 +66,27 @@ class SNLAttributesPrivateProperty: public naja::NajaPrivateProperty {
 
 namespace naja { namespace SNL {
 
-SNLAttributes::SNLAttribute::SNLAttribute(
+SNLAttribute::SNLAttribute(
   const SNLName& name,
-  const SNLAttributes::SNLAttribute::Value& value):
+  const SNLAttributeValue& value):
   name_(name), value_(value)
 {}
 
-SNLAttributes::SNLAttribute::Value::Value():
-  type_(Type::STRING),
-  value_()
-{}
-
 //LCOV_EXCL_START
-std::string SNLAttributes::SNLAttribute::getString() const {
-  std::ostringstream oss;
-  oss << name_.getString();
+std::string SNLAttribute::getString() const {
+  std::string str;
+  str += name_.getString();
   if (not value_.empty()) {
-    oss << " = ";
+    str += " = ";
     if (value_.isString()) {
-      oss << "\"";
+      str += "\"";
     }
-    oss << value_.getString();
+    str += value_.getString();
     if (value_.isString()) {
-      oss << "\"";
+      str += "\"";
     }
   }
-  return oss.str();
+  return str;
 }
 //LCOV_EXCL_STOP
 
@@ -105,12 +100,12 @@ void SNLAttributes::addAttribute(SNLDesignObject* object, const SNLAttribute& at
   prop->addAttribute(attribute);
 }
 
-NajaCollection<SNLAttributes::SNLAttribute> SNLAttributes::getAttributes(const SNLObject* object) {
+NajaCollection<SNLAttribute> SNLAttributes::getAttributes(const SNLObject* object) {
   auto prop = SNLAttributesPrivateProperty::get(object);
   if (prop) {
     return prop->getAttributes();
   }
-  return NajaCollection<SNLAttributes::SNLAttribute>();
+  return NajaCollection<SNLAttribute>();
 }
 
 void SNLAttributes::cloneAttributes(const SNLObject* from, SNLObject* to) {

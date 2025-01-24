@@ -30,6 +30,8 @@
 #include "SNLDesignTruthTable.h"
 #include "SNLVRLDumper.h"
 
+#include "NetlistGraph.h"
+
 namespace PYSNL {
 
 using namespace naja::SNL;
@@ -286,6 +288,42 @@ static PyObject* PySNLDesign_setTruthTable(PySNLDesign* self, PyObject* args) {
   Py_RETURN_NONE;
 }
 
+static PyObject* PySNLDesign_dumpFullDotFile(PySNLDesign* self, PyObject* args) {
+  char* path = NULL; 
+  if (not PyArg_ParseTuple(args, "s:SELF_TYPE.METHOD", &path)) {
+    setError("dumpDotFile expact a string as argument");
+    return nullptr;
+  }
+  std::filesystem::path outputPath;
+  if (path) {
+    outputPath = std::filesystem::path(path);
+  }
+  std::string dotFileName(outputPath.string());
+  naja::SNL::SNLDesign* design = self->object_;
+  naja::SnlVisualiser snl(design);
+  snl.process();
+  snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
+  Py_RETURN_NONE;
+}
+
+static PyObject* PySNLDesign_dumpContextDotFile(PySNLDesign* self, PyObject* args) {
+  char* path = NULL; 
+  if (not PyArg_ParseTuple(args, "s:SELF_TYPE.METHOD", &path)) {
+    setError("dumpDotFile expact a string as argument");
+    return nullptr;
+  }
+  std::filesystem::path outputPath;
+  if (path) {
+    outputPath = std::filesystem::path(path);
+  }
+  std::string dotFileName(outputPath.string());
+  naja::SNL::SNLDesign* design = self->object_;
+  naja::SnlVisualiser snl(design, false);
+  snl.process();
+  snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
+  Py_RETURN_NONE;
+}
+
 static PyObject* PySNLDesign_getCombinatorialInputs(PySNLDesign*, PyObject* object) {
   GetDesignModelingRelatedObjects(SNLBitTerm, getCombinatorialInputs, SNLDesign)
 }
@@ -312,31 +350,39 @@ GetObjectByName(SNLDesign, SNLNet, getNet)
 GetObjectByName(SNLDesign, SNLScalarNet, getScalarNet)
 GetObjectByName(SNLDesign, SNLBusNet, getBusNet)
 GetObjectByName(SNLDesign, SNLParameter, getParameter)
+GetObjectByIndex(Design, Instance, InstanceByID)
+GetObjectByIndex(Design, Term, TermByID)
 GetNameMethod(SNLDesign)
+DirectGetIntMethod(PySNLDesign_getID, getID, PySNLDesign, SNLDesign)
 GetBoolAttribute(Design, isAnonymous)
 GetBoolAttribute(Design, isBlackBox)
 GetBoolAttribute(Design, isPrimitive)
+GetBoolAttribute(Design, isLeaf)
 GetBoolAttribute(Design, isAssign)
+GetBoolAttribute(Design, isTopDesign)
 GetBoolAttributeWithFunction(Design, isConst0, SNLDesignTruthTable::isConst0)
 GetBoolAttributeWithFunction(Design, isConst1, SNLDesignTruthTable::isConst1)
+GetBoolAttributeWithFunction(Design, isConst, SNLDesignTruthTable::isConst)
 GetBoolAttributeWithFunction(Design, isBuf, SNLDesignTruthTable::isBuf)
 GetBoolAttributeWithFunction(Design, isInv, SNLDesignTruthTable::isInv)
-GetContainerMethod(Design, Term, Terms, Terms)
-GetContainerMethod(Design, BitTerm, BitTerms, BitTerms)
-GetContainerMethod(Design, ScalarTerm, ScalarTerms, ScalarTerms)
-GetContainerMethod(Design, BusTerm, BusTerms, BusTerms)
-GetContainerMethod(Design, Net, Nets, Nets)
-GetContainerMethod(Design, ScalarNet, ScalarNets, ScalarNets)
-GetContainerMethod(Design, BusNet, BusNets, BusNets)
-GetContainerMethod(Design, BitNet, BitNets, BitNets)
-GetContainerMethod(Design, Instance, Instances, Instances)
-GetContainerMethod(Design, Parameter, Parameters, Parameters)
+GetContainerMethod(Design, Term*, Terms, Terms)
+GetContainerMethod(Design, BitTerm*, BitTerms, BitTerms)
+GetContainerMethod(Design, ScalarTerm*, ScalarTerms, ScalarTerms)
+GetContainerMethod(Design, BusTerm*, BusTerms, BusTerms)
+GetContainerMethod(Design, Net*, Nets, Nets)
+GetContainerMethod(Design, ScalarNet*, ScalarNets, ScalarNets)
+GetContainerMethod(Design, BusNet*, BusNets, BusNets)
+GetContainerMethod(Design, BitNet*, BitNets, BitNets)
+GetContainerMethod(Design, Instance*, Instances, Instances)
+GetContainerMethod(Design, Parameter*, Parameters, Parameters)
 
 DBoDestroyAttribute(PySNLDesign_destroy, PySNLDesign)
 
 PyMethodDef PySNLDesign_Methods[] = {
   { "create", (PyCFunction)PySNLDesign_create, METH_VARARGS|METH_STATIC,
     "SNLDesign creator"},
+  { "getID", (PyCFunction)PySNLDesign_getID, METH_NOARGS,
+    "get the ID."},
   { "createPrimitive", (PyCFunction)PySNLDesign_createPrimitive, METH_VARARGS|METH_STATIC,
     "SNLDesign Primitive creator"},
   { "addCombinatorialArcs", (PyCFunction)PySNLDesign_addCombinatorialArcs, METH_VARARGS|METH_STATIC,
@@ -361,9 +407,13 @@ PyMethodDef PySNLDesign_Methods[] = {
     "Returns True if this design is a primitive driving a constant 0"},
   { "isConst1", (PyCFunction)PySNLDesign_isConst1, METH_NOARGS,
     "Returns True if this design is a primitive driving a constant 1"},
+  { "isConst", (PyCFunction)PySNLDesign_isConst, METH_NOARGS,
+    "Returns True if this design is a primitive driving a constant (1 or 0)"},
   { "isBuf", (PyCFunction)PySNLDesign_isBuf, METH_NOARGS,
     "Returns True if this design is a buffer primitive"},
   { "isInv", (PyCFunction)PySNLDesign_isInv, METH_NOARGS,
+    "Returns True if this design is an inverter primitive"},  
+  { "isTopDesign", (PyCFunction)PySNLDesign_isTopDesign, METH_NOARGS,
     "Returns True if this design is an inverter primitive"},  
   { "getName", (PyCFunction)PySNLDesign_getName, METH_NOARGS,
     "get SNLDesign name"},
@@ -373,6 +423,8 @@ PyMethodDef PySNLDesign_Methods[] = {
     "Returns True if the SNLDesign is a Blackbox"},
   { "isPrimitive", (PyCFunction)PySNLDesign_isPrimitive, METH_NOARGS,
     "Returns True if the SNLDesign is a Primitive"},
+  { "isLeaf", (PyCFunction)PySNLDesign_isLeaf, METH_NOARGS,
+    "Returns True if the SNLDesign is a Leaf"},
   { "isAssign", (PyCFunction)PySNLDesign_isAssign, METH_NOARGS,
     "Returns True if the SNLDesign is an Assign"},
   { "getDB", (PyCFunction)PySNLDesign_getDB, METH_NOARGS,
@@ -380,6 +432,8 @@ PyMethodDef PySNLDesign_Methods[] = {
   { "getLibrary", (PyCFunction)PySNLDesign_getLibrary, METH_NOARGS,
     "Returns the SNLDesign owner SNLLibrary."},
   { "getTerm", (PyCFunction)PySNLDesign_getTerm, METH_VARARGS,
+    "retrieve a SNLTerm."},
+  { "getTermByID", (PyCFunction)PySNLDesign_getTermByID, METH_VARARGS,
     "retrieve a SNLTerm."},
   { "getScalarTerm", (PyCFunction)PySNLDesign_getScalarTerm, METH_VARARGS,
     "retrieve a SNLScalarTerm."},
@@ -392,6 +446,8 @@ PyMethodDef PySNLDesign_Methods[] = {
   { "getBusNet", (PyCFunction)PySNLDesign_getBusNet, METH_VARARGS,
     "retrieve a SNLBusNet."},
   { "getInstance", (PyCFunction)PySNLDesign_getInstance, METH_VARARGS,
+    "retrieve a SNLInstance."},
+  { "getInstanceByID", (PyCFunction)PySNLDesign_getInstanceByID, METH_VARARGS,
     "retrieve a SNLInstance."},
   { "getParameter", (PyCFunction)PySNLDesign_getParameter, METH_VARARGS,
     "retrieve a SNLParameter."},
@@ -421,6 +477,10 @@ PyMethodDef PySNLDesign_Methods[] = {
     "clone this SNLDesign."},
   { "dumpVerilog", (PyCFunction)PySNLDesign_dumpVerilog, METH_VARARGS,
     "dump verilog file of this SNLDesign."},
+  { "dumpFullDotFile", (PyCFunction)PySNLDesign_dumpFullDotFile, METH_VARARGS,
+    "dump full dot file for this SNLDesign."},
+  { "dumpContextDotFile", (PyCFunction)PySNLDesign_dumpContextDotFile, METH_VARARGS,
+    "dump context dot file for this SNLDesign."},
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 

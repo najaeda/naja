@@ -6,18 +6,29 @@ set(snl_vrl_constructor_tests
     SNLVRLConstructorUtilsTest0.cpp
     SNLVRLConstructorTest0.cpp
     SNLVRLConstructorTest1.cpp
-    SNLVRLConstructorTest2.cpp
-    SNLVRLConstructorTestDefParams.cpp
     SNLVRLConstructorTestAttributes.cpp
-    SNLVRLConstructorTestErrors.cpp
 )
-
 add_executable(snlVRLConstructorTests ${snl_vrl_constructor_tests})
-
 target_compile_definitions(snlVRLConstructorTests PRIVATE
   SNL_VRL_BENCHMARKS_PATH="${CMAKE_CURRENT_SOURCE_DIR}/../benchmarks")
-target_link_libraries(snlVRLConstructorTests naja_snl_verilog naja_snl_pyloader gmock gtest_main)
-
+target_link_libraries(snlVRLConstructorTests naja_snl_verilog gmock gtest_main)
 GTEST_DISCOVER_TESTS(snlVRLConstructorTests
   PROPERTIES ENVIRONMENT
   PYTHONPATH=${PROJECT_BINARY_DIR}/src/snl/python/snl_wrapping)
+
+if(NOT BUILD_NAJA_PYTHON)
+  set(snl_vrl_constructor_tests_with_pyloader
+    SNLVRLConstructorTest2.cpp
+    SNLVRLConstructorTestDefParams.cpp
+    SNLVRLConstructorTestErrors.cpp
+  )
+  add_executable(snlVRLConstructorPyLoaderTests ${snl_vrl_constructor_tests_with_pyloader})
+  target_compile_definitions(snlVRLConstructorPyLoaderTests PRIVATE
+    SNL_VRL_BENCHMARKS_PATH="${CMAKE_CURRENT_SOURCE_DIR}/../benchmarks")
+  target_link_libraries(snlVRLConstructorPyLoaderTests naja_snl_pyloader gmock gtest_main)
+  GTEST_DISCOVER_TESTS(snlVRLConstructorPyLoaderTests
+    DISCOVERY_TIMEOUT 30
+    PROPERTIES ENVIRONMENT
+    PYTHONPATH=${PROJECT_BINARY_DIR}/src/snl/python/snl_wrapping)
+endif(NOT BUILD_NAJA_PYTHON)
+  

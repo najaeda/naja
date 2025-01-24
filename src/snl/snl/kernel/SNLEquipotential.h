@@ -25,8 +25,8 @@ class SNLEquipotential {
     SNLEquipotential(SNLNetComponent* netComponent);
     SNLEquipotential(const SNLNetComponentOccurrence& netComponentOccurrence);
 
-    //Terms getTerms() const { return terms_; }
-    //InstTermOccurrences getInstTermOccurrences() const { return instTermOccurrences_; }
+    const Terms& getTermsSet() const { return terms_; }
+    const InstTermOccurrences& getInstTermOccurrencesSet() const { return instTermOccurrences_; }
     NajaCollection<SNLBitTerm*> getTerms() const;
     NajaCollection<SNLInstTermOccurrence> getInstTermOccurrences() const;
     std::string getString() const;

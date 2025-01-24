@@ -7,8 +7,6 @@
 #include <filesystem>
 #include <fstream>
 
-#include "spdlog/spdlog.h"
-
 #include "SNLUniverse.h"
 #include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
@@ -44,7 +42,6 @@ class SNLVRLConstructorTest1: public ::testing::Test {
 };
 
 TEST_F(SNLVRLConstructorTest1, test) {
-  spdlog::set_level(spdlog::level::trace);
   SNLVRLConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_VRL_BENCHMARKS_PATH);
   constructor.parse(benchmarksPath/"test0.v");
@@ -71,7 +68,7 @@ TEST_F(SNLVRLConstructorTest1, test) {
   auto mod1i = mod1->getBusTerm(SNLName("i"));
   ASSERT_NE(mod1i, nullptr);
   EXPECT_EQ(mod1i->getDirection(), SNLTerm::Direction::Input);
-  EXPECT_EQ(5, mod1i->getSize());
+  EXPECT_EQ(5, mod1i->getWidth());
   EXPECT_EQ(4, mod1i->getMSB());
   EXPECT_EQ(0, mod1i->getLSB());
 

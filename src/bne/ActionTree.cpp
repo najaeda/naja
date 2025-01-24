@@ -4,18 +4,31 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "ActionTree.h"
+#include "Utils.h"
+
 #include "SNLDesign.h"
 #include "SNLDesignObject.h"
 #include "SNLID.h"
 #include "SNLInstance.h"
+#include "SNLUniquifier.h"
 #include "SNLUniverse.h"
-#include "Utils.h"
+
+#include <algorithm>
+#include <cassert>
+#include <iostream>
+#include <map>
+#include <queue>
+#include <stack>
+#include <vector>
 
 using namespace naja::SNL;
 using namespace naja::BNE;
 
-ActionTree::ActionTree(bool keepOrder, bool blockNormalization)
+ActionTree::ActionTree(bool blockNormalization, bool keepOrder)
     : blockNormalization_(blockNormalization), keepOrder_(keepOrder) {
+  if (not SNLUniverse::get()->getTopDesign()) {
+    throw SNLException("cannot create ActionTree with null top design");
+  }
   nodes_.push_back({0, SNLUniverse::get()->getTopDesign()->getSNLID(),
                     std::pair<size_t, size_t>((size_t)-1, 0), 0, this});
 }
@@ -75,11 +88,12 @@ void ActionTree::normalize() {
   }
   // Collect in dfs manner all the tree nodes into a map with key of snlid
   std::map<SNLID, std::vector<ActionTreeNode*>> snlid2Node;
-  std::vector<ActionTreeNode*> queue;
-  queue.push_back(&nodes_[0]);
-  while (!queue.empty()) {
-    ActionTreeNode* currentNode = queue.back();
-    queue.pop_back();
+  std::vector<ActionTreeNode*> stack;
+  stack.push_back(&nodes_[0]);
+  std::vector<SNLID> snlidorder;
+  while (!stack.empty()) {
+    ActionTreeNode* currentNode = stack.back();
+    stack.pop_back();
     if (snlid2Node.find(currentNode->getSNLID()) != snlid2Node.end()) {
       assert(getInstanceForPath(
                  snlid2Node[currentNode->getSNLID()].back()->getContext())
@@ -87,34 +101,40 @@ void ActionTree::normalize() {
              (getInstanceForPath(currentNode->getContext()))->getModel());
     }
     snlid2Node[currentNode->getSNLID()].push_back(currentNode);
+    snlidorder.push_back(currentNode->getSNLID());
 
     for (auto& child : currentNode->getChildren()) {
-      queue.push_back(&nodes_[child]);
+      stack.push_back(&nodes_[child]);
     }
   }
-  for (auto& it : snlid2Node) {
-    auto nodes = it.second;
+  for (auto& snlid : snlidorder) {
+    auto nodes = snlid2Node[snlid];
     // If top, continue
     if (nodes[0]->getParents()[0].first == (size_t)-1) {
       continue;
     }
-    bool foundNormalization = true;
-    while (foundNormalization && nodes.size() > 1) {
-      foundNormalization = false;
+    // bool foundNormalization = true;
+    while (/*foundNormalization && <- not true as the currrent node have no
+              merge but this does not mean there is no merge for others*/
+           nodes.size() > 1) {
+      // foundNormalization = false;
       std::vector<ActionTreeNode*> nodesToMerge;
       auto currentNode = nodes.back();
+      nodes.pop_back();
       if (!currentNode->isPartOfTree()) {
         continue;
       }
       nodesToMerge.push_back(currentNode);
-      nodes.pop_back();
       for (auto node : nodes) {
+        if (node == currentNode) {
+          continue;
+        }
         if (!node->isPartOfTree()) {
           continue;
         }
         if (*currentNode == *node) {
           nodesToMerge.push_back(node);
-          foundNormalization = true;
+          // foundNormalization = true;
         }
       }
       for (auto node : nodesToMerge) {
@@ -123,25 +143,32 @@ void ActionTree::normalize() {
         }
         nodes.erase(std::find(nodes.begin(), nodes.end(), node));
         assert(node->getParents().size() == 1);
+        assert(nodes_[node->getParents()[0].first].isChild(node->getID()));
         nodes_[node->getParents()[0].first].eraseChild(node->getID());
+        assert(!nodes_[node->getParents()[0].first].isChild(node->getID()));
         // We should not add to parent as it will lead to replication of actions
         // as we process the tree in DFS manner
         nodes_[node->getParents()[0].first].addChild(currentNode->getID());
         assert(getInstanceForPath(node->getContext())->getModel() ==
                (getInstanceForPath(currentNode->getContext()))->getModel());
         currentNode->addParent(node->getParents()[0]);
-        //FIXME xtof nodes_[node->getID()].eraseParent(node->getParents()[0]);
+        assert(node->getParents().size() == 1);
+        node->eraseParent(node->getParents()[0]);
+        assert(node->getParents().size() == 0);
+        // FIXME xtof nodes_[node->getID()].eraseParent(node->getParents()[0]);
       }
     }
   }
   bool foundOrphanes = true;
   while (foundOrphanes) {
     // Delete all orphanes nodes and detach them from their children
+    // Why? So children will not have fake parents that can lead to isPartOfTree to fail.
     foundOrphanes = false;
     for (auto& node : nodes_) {
       if (node.getParents().size() == 0 && node.getChildren().size() > 0) {
         foundOrphanes = true;
-        for (auto child : node.getChildren()) {
+        std::vector<size_t> children = node.getChildren();
+        for (auto child : children) {
           for (auto parent : nodes_[child].getParents()) {
             if (parent.first == node.getID()) {
               nodes_[child].eraseParent(parent);
@@ -152,13 +179,28 @@ void ActionTree::normalize() {
       }
     }
   }
+  verifyTree();
+}
+
+void ActionTree::verifyTree() const {
+  // Verify in dfs manner that all nodes are part of the tree
+  std::stack<const ActionTreeNode*> stack;
+  stack.push(&nodes_[0]);
+  while (!stack.empty()) {
+    const ActionTreeNode* currentNode = stack.top();
+    stack.pop();
+    assert(currentNode->isPartOfTree());
+    for (auto& child : currentNode->getChildren()) {
+      stack.push(&nodes_[child]);
+    }
+  }
 }
 
 void ActionTree::process() {
   if (!blockNormalization_) {
     normalize();
   }
-  // process commands in the dfs manner
+  // process commands in the bfs manner
   std::queue<ActionTreeNode*> queue;
   queue.push(&nodes_[0]);
   while (!queue.empty()) {
@@ -218,7 +260,7 @@ void ActionTree::process() {
     // set all paths of parents to the new model
     for (auto& parent : currentNode->getParents()) {
       std::vector<SNLID::DesignObjectID> context =
-          nodes_[parent.first].getContext();
+          nodes_[parent.first].getContext(); // <-- the crush
       context.push_back((unsigned)parent.second);
       getInstanceForPath(context)->setModel(
           getInstanceForPath(currentNode->getContext())->getModel());
@@ -299,8 +341,12 @@ void ActionTreeNode::sortActions() {  // sort actions with custom comparator
 }
 
 bool ActionTreeNode::isPartOfTree() const {
-  //Verifying parents lead to root(parent == -1)
+  // Verifying parents lead to root(parent == -1)
   const ActionTreeNode* currentNode = this;
+  if (currentNode->getParents().empty()) {
+    // If orphan so not part of tree.
+    return false;
+  }
   while (currentNode->getParents()[0].first != (size_t)-1) {
     if (currentNode->getParents().empty()) {
       return false;

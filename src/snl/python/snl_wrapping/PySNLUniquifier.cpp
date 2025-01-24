@@ -49,7 +49,7 @@ ManagedTypeLinkCreateMethod(SNLUniquifier)
 //DBoLinkCreateMethod(SNLUniquifier)
 ManagedTypeDeallocMethod(SNLUniquifier)
 
-GetContainerMethod(Uniquifier, Instance, Instances, PathUniqCollection)
+GetContainerMethod(Uniquifier, Instance*, Instances, PathUniqCollection)
 
 PyMethodDef PySNLUniquifier_Methods[] = {
   { "getPathUniqCollection", (PyCFunction)PySNLUniquifier_getPathUniqCollection, METH_NOARGS,

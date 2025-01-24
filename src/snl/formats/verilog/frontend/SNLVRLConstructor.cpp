@@ -8,8 +8,6 @@
 #include <iostream>
 #include <sstream>
 
-#include "spdlog/spdlog.h"
-
 #include "SNLUniverse.h"
 #include "SNLDB0.h"
 #include "SNLLibrary.h"
@@ -35,13 +33,13 @@ void collectAttributes(
     for (const auto attribute: attributes) {
       naja::SNL::SNLName attributeName(attribute.name_.getString());
       std::string expression;
-      naja::SNL::SNLAttributes::SNLAttribute::Value::Type valueType;
+      naja::SNL::SNLAttributeValue::Type valueType;
       switch (attribute.expression_.getType()) {
         case naja::verilog::ConstantExpression::Type::STRING:
-          valueType = naja::SNL::SNLAttributes::SNLAttribute::Value::Type::STRING;
+          valueType = naja::SNL::SNLAttributeValue::Type::STRING;
           break;
         case naja::verilog::ConstantExpression::Type::NUMBER:
-          valueType = naja::SNL::SNLAttributes::SNLAttribute::Value::Type::NUMBER;
+          valueType = naja::SNL::SNLAttributeValue::Type::NUMBER;
           break;
       }
       if (attribute.expression_.valid_) {
@@ -49,21 +47,21 @@ void collectAttributes(
       }
       naja::SNL::SNLAttributes::addAttribute(
         design,
-        naja::SNL::SNLAttributes::SNLAttribute(
+        naja::SNL::SNLAttribute(
           attributeName,
-          naja::SNL::SNLAttributes::SNLAttribute::Value(valueType, expression)));
+          naja::SNL::SNLAttributeValue(valueType, expression)));
     }
   } else if (auto designObject = dynamic_cast<naja::SNL::SNLDesignObject*>(object)) {
     for (const auto attribute: attributes) {
       naja::SNL::SNLName attributeName(attribute.name_.getString());
       std::string expression;
-      naja::SNL::SNLAttributes::SNLAttribute::Value::Type valueType;
+      naja::SNL::SNLAttributeValue::Type valueType;
       switch (attribute.expression_.getType()) {
         case naja::verilog::ConstantExpression::Type::STRING:
-          valueType = naja::SNL::SNLAttributes::SNLAttribute::Value::Type::STRING;
+          valueType = naja::SNL::SNLAttributeValue::Type::STRING;
           break;
         case naja::verilog::ConstantExpression::Type::NUMBER:
-          valueType = naja::SNL::SNLAttributes::SNLAttribute::Value::Type::NUMBER;
+          valueType = naja::SNL::SNLAttributeValue::Type::NUMBER;
           break;
       }
       if (attribute.expression_.valid_) {
@@ -71,9 +69,9 @@ void collectAttributes(
       }
       naja::SNL::SNLAttributes::addAttribute(
         designObject,
-        naja::SNL::SNLAttributes::SNLAttribute(
+        naja::SNL::SNLAttribute(
           attributeName,
-          naja::SNL::SNLAttributes::SNLAttribute::Value(valueType, expression)));
+          naja::SNL::SNLAttributeValue(valueType, expression)));
     }
   }
 }
@@ -126,9 +124,9 @@ bool allNetsArePortNets(naja::SNL::SNLDesign* design) {
     }
     if (net->getBitTerms().empty()) {
       //LCOV_EXCL_START
-      spdlog::info("Net {} in {} is not a port net", 
-        net->getName().getString(),
-        design->getName().getString());
+      //spdlog::info("Net {} in {} is not a port net", 
+        //net->getName().getString(),
+        //design->getName().getString());
       return false;
       //LCOV_EXCL_STOP
     }
@@ -689,7 +687,7 @@ void SNLVRLConstructor::endModule() {
       if (currentModule_->getInstances().empty()) {
         if (allNetsArePortNets(currentModule_)) {
           currentModule_->setType(SNLDesign::Type::Blackbox);
-          spdlog::info("Blackbox detected: {}", currentModule_->getName().getString());
+          //spdlog::info("Blackbox detected: {}", currentModule_->getName().getString());
         }
       }
     }

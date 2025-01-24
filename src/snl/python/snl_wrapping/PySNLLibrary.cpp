@@ -55,9 +55,26 @@ static PyObject* PySNLLibrary_createPrimitives(PyObject*, PyObject* args) {
   return createLibrary(args, SNLLibrary::Type::Primitives);
 }
 
+static PyObject* PySNLLibrary_getDesign(PySNLLibrary* self, PyObject* arg) {
+  SNLDesign* design = nullptr;
+  METHOD_HEAD("SNLLibrary.getDesign()")
+  if (PyUnicode_Check(arg)) {
+    const char* name = PyUnicode_AsUTF8(arg);
+    design = selfObject->getDesign(SNLName(name));
+  } else if (PyLong_Check(arg)) {
+    int index = PyLong_AsLong(arg);
+    design = selfObject->getDesign(index);
+  } else {
+      setError("invalid number of parameters for getDesign.");
+      return nullptr;
+  }
+  return PySNLDesign_Link(design);
+}
+
 GetObjectMethod(Library, DB, getDB)
-GetObjectByName(SNLLibrary, SNLDesign, getDesign)
 GetObjectByName(SNLLibrary, SNLLibrary, getLibrary)
+
+DirectGetIntMethod(PySNLLibrary_getID, getID, PySNLLibrary, SNLLibrary)
 
 GetBoolAttribute(Library, isStandard)
 GetBoolAttribute(Library, isPrimitives)
@@ -65,7 +82,7 @@ GetBoolAttribute(Library, isPrimitives)
 SetNameMethod(Library)
 GetNameMethod(SNLLibrary)
 
-GetContainerMethod(Library, Design, Designs, Designs)
+GetContainerMethod(Library, Design*, Designs, Designs)
 
 DBoDeallocMethod(SNLLibrary)
 
@@ -85,11 +102,13 @@ PyMethodDef PySNLLibrary_Methods[] = {
     "is this a standard SNLLibrary?"},
   { "isPrimitives", (PyCFunction)PySNLLibrary_isPrimitives, METH_NOARGS,
     "is this a primitives SNLLibrary?"},
+  { "getID", (PyCFunction)PySNLLibrary_getID, METH_NOARGS,
+    "get the ID."},
   { "getDB", (PyCFunction)PySNLLibrary_getDB, METH_VARARGS,
     "get Parent DB."},
   { "getLibrary", (PyCFunction)PySNLLibrary_getLibrary, METH_VARARGS,
     "retrieve a SNLLibrary."},
-  { "getDesign", (PyCFunction)PySNLLibrary_getDesign, METH_VARARGS,
+  { "getDesign", (PyCFunction)PySNLLibrary_getDesign, METH_O,
     "retrieve a SNLDesign."},
   { "getDesigns", (PyCFunction)PySNLLibrary_getDesigns, METH_NOARGS,
     "get a container of SNLDesigns."},

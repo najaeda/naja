@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "PySNLUniverse.h"
+#include "PySNLAttribute.h"
 #include "PySNLDB.h"
 #include "PySNLLibrary.h"
 #include "PySNLDesign.h"
@@ -18,6 +19,8 @@
 #include "PySNLInstance.h"
 #include "PySNLInstParameter.h"
 #include "PySNLInstTerm.h"
+#include "PySNLAttributes.h"
+#include "PySNLDBs.h"
 #include "PySNLLibraries.h"
 #include "PySNLDesigns.h"
 #include "PySNLParameters.h"
@@ -56,6 +59,7 @@ static struct PyModuleDef snlModule = {
 };
 
 PyMODINIT_FUNC PyInit_snl(void) {
+  PySNLAttribute_LinkPyType();
   PySNLUniverse_LinkPyType();
   PySNLDB_LinkPyType();
   PySNLLibrary_LinkPyType();
@@ -85,6 +89,8 @@ PyMODINIT_FUNC PyInit_snl(void) {
   PySNLNetComponentOccurrence_LinkPyType();
   PySNLInstTermOccurrence_LinkPyType();
 
+  PySNLAttributes_LinkPyType();
+  PySNLDBs_LinkPyType();
   PySNLLibraries_LinkPyType();
   PySNLDesigns_LinkPyType();
   PySNLParameters_LinkPyType();
@@ -102,6 +108,7 @@ PyMODINIT_FUNC PyInit_snl(void) {
   PySNLInstTerms_LinkPyType();
   PySNLInstTermOccurrences_LinkPyType();
 
+  PYTYPE_READY(SNLAttribute);
   PYTYPE_READY(SNLUniverse);
   PYTYPE_READY(SNLDB);
   PYTYPE_READY(SNLLibrary);
@@ -131,6 +138,9 @@ PyMODINIT_FUNC PyInit_snl(void) {
   PYTYPE_READY(SNLOccurrence);
   PYTYPE_READY(SNLNetComponentOccurrence);
   PYTYPE_READY(SNLInstTermOccurrence);
+  PYTYPE_READY(SNLAttributes);
+  PYTYPE_READY(SNLDBs);
+  PYTYPE_READY(SNLDBsIterator);
   PYTYPE_READY(SNLLibraries);
   PYTYPE_READY(SNLLibrariesIterator);
   PYTYPE_READY(SNLDesigns);
@@ -164,8 +174,8 @@ PyMODINIT_FUNC PyInit_snl(void) {
   PYTYPE_READY(SNLInstTermOccurrences);
   PYTYPE_READY(SNLInstTermOccurrencesIterator);
 
-
   //FIXME:XTOF Why those increfs ??
+  Py_INCREF(&PyTypeSNLAttribute);
   Py_INCREF(&PyTypeSNLUniverse);
   Py_INCREF(&PyTypeSNLDB);
   Py_INCREF(&PyTypeSNLLibrary);
@@ -192,6 +202,7 @@ PyMODINIT_FUNC PyInit_snl(void) {
   Py_INCREF(&PyTypeSNLNetComponentOccurrence);
   Py_INCREF(&PyTypeSNLInstTermOccurrence);
   Py_INCREF(&PyTypeSNLInstTerm);
+  Py_INCREF(&PyTypeSNLDBs);
   Py_INCREF(&PyTypeSNLLibraries);
   Py_INCREF(&PyTypeSNLDesigns);
   Py_INCREF(&PyTypeSNLParameters);
@@ -219,6 +230,7 @@ PyMODINIT_FUNC PyInit_snl(void) {
     //LCOV_EXCL_STOP
   }
 
+  PyModule_AddObject(mod, "SNLAttribute", (PyObject*)&PyTypeSNLAttribute);
   PyModule_AddObject(mod, "SNLUniverse", (PyObject*)&PyTypeSNLUniverse);
   PyModule_AddObject(mod, "SNLDB", (PyObject*)&PyTypeSNLDB);
   PyModule_AddObject(mod, "SNLLibrary", (PyObject*)&PyTypeSNLLibrary);

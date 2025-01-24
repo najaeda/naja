@@ -251,3 +251,21 @@ TEST_F(SNLVRLDumperTestTermNets, testError3) {
   dumper.setSingleFile(true);
   EXPECT_THROW(dumper.dumpDesign(top_, outPath), SNLVRLDumperException);
 } 
+
+TEST_F(SNLVRLDumperTestTermNets, testError4) {
+  ASSERT_TRUE(top_);
+  auto term = SNLScalarTerm::create(top_, SNLTerm::Direction::InOut, SNLName("term"));
+  auto net = SNLScalarNet::create(top_, SNLName("net"));
+  term->setNet(net);
+
+  std::filesystem::path outPath(SNL_VRL_DUMPER_TEST_PATH);
+  outPath = outPath / "testError4";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+  SNLVRLDumper dumper;
+  dumper.setTopFileName(top_->getName().getString() + ".v");
+  dumper.setSingleFile(true);
+  EXPECT_THROW(dumper.dumpDesign(top_, outPath), SNLVRLDumperException);
+} 

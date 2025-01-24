@@ -19,9 +19,10 @@ class SNLDBTest(unittest.TestCase):
     self.assertIsNotNone(u)
     db = snl.SNLDB.create(u) 
     self.assertIsNotNone(db)
-    db.dumpSNL("./test_snl")
-    with self.assertRaises(SystemError) as context: db.dumpSNL(u)
-    with self.assertRaises(SystemError) as context: db.dumpSNL()
+    snl.SNLUniverse.get().setTopDB(db)
+    self.assertEqual(snl.SNLUniverse.get().getTopDB(), db)
+    self.assertEqual(db.getID(), 1) # ID starts from 1, 0 is reserved for DB0
+    with self.assertRaises(RuntimeError) as context: snl.SNLUniverse.get().setTopDB("Error")
     del db    
   
   def testVerilog(self):
@@ -35,14 +36,8 @@ class SNLDBTest(unittest.TestCase):
     db.dumpVerilog("./test_verilog")
     with self.assertRaises(SystemError) as context: db.dumpVerilog()
     with self.assertRaises(SystemError) as context: db.dumpVerilog(-1)
+    with self.assertRaises(SystemError) as context: db.loadLibertyPrimitives("./error.lib")
     del db  
-
-  def testLoad(self):
-    u = snl.SNLUniverse.get()
-    self.assertIsNotNone(u)
-    db1 = snl.SNLDB.loadSNL("./test_snl")
-    self.assertIsNotNone(db1)
-    del db1
 
   def testDestroy(self):
     u = snl.SNLUniverse.get()
