@@ -21,9 +21,9 @@ using namespace naja::SNL;
 #define  ACCESS_CLASS(_pyObject)  &(_pyObject->parent_->parent_)
 #define METHOD_HEAD(function) GENERIC_METHOD_HEAD(SNLBitNet, function)
 
-GetContainerMethod(BitNet, NetComponent, NetComponents, Components)
-GetContainerMethod(BitNet, InstTerm, InstTerms, InstTerms)
-GetContainerMethod(BitNet, BitTerm, BitTerms, BitTerms)
+GetContainerMethod(BitNet, NetComponent*, NetComponents, Components)
+GetContainerMethod(BitNet, InstTerm*, InstTerms, InstTerms)
+GetContainerMethod(BitNet, BitTerm*, BitTerms, BitTerms)
 
 static PyObject* PySNLBitNet_getType(PySNLBitNet* self) {
   METHOD_HEAD("Net.getType()")

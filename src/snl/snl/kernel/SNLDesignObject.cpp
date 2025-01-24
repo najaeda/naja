@@ -40,4 +40,8 @@ SNLID SNLDesignObject::getSNLID(
       bit);
 }
 
+NajaCollection<SNLAttribute> SNLDesignObject::getAttributes() const {
+  return SNLAttributes::getAttributes(this);
+}
+
 }} // namespace SNL // namespace naja

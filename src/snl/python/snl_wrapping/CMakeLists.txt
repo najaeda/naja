@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 set(SOURCES
+  PySNLAttribute.cpp
   PySNLUniverse.cpp
   PySNLDB.cpp PySNLLibrary.cpp PySNLDesign.cpp
   PySNLParameter.cpp
@@ -14,6 +15,7 @@ set(SOURCES
   PySNLTermDirection.cpp 
   PySNLBusTerm.cpp PySNLBitTerm.cpp PySNLScalarTerm.cpp PySNLBusTermBit.cpp
   PySNLInstance.cpp PySNLInstParameter.cpp PySNLInstTerm.cpp
+  PySNLAttributes.cpp
   PySNLDBs.cpp
   PySNLLibraries.cpp PySNLDesigns.cpp
   PySNLParameters.cpp PySNLInstParameters.cpp

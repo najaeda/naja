@@ -55,7 +55,7 @@ static PyObject* PySNLUniverse_setTopDB(PySNLUniverse* self, PyObject* arg) {
 GetObjectMethod(Universe, Design, getTopDesign)
 GetObjectMethod(Universe, DB, getTopDB)
 GetObjectByIndex(Universe, DB, DB)
-GetContainerMethod(Universe, DB, DBs, UserDBs)
+GetContainerMethod(Universe, DB*, DBs, UserDBs)
 
 DBoDestroyAttribute(PySNLUniverse_destroy, PySNLUniverse)
 

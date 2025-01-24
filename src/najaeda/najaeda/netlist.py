@@ -8,6 +8,7 @@ import time
 import logging
 import hashlib
 import struct
+from enum import Enum
 
 from najaeda import snl
 
@@ -165,6 +166,13 @@ class Equipotential:
 
 
 class Net:
+    class Type(Enum):
+        STANDARD = snl.SNLNet.Type.Standard
+        ASSIGN0 = snl.SNLNet.Type.Assign0
+        ASSIGN1 = snl.SNLNet.Type.Assign1
+        SUPPLY0 = snl.SNLNet.Type.Supply0
+        SUPPLY1 = snl.SNLNet.Type.Supply1
+
     def __init__(self, path, net=None, net_concat=None):
         if net is not None and net_concat is not None:
             raise ValueError(
@@ -272,10 +280,21 @@ class Net:
         """
         if hasattr(self, "net"):
             return self.net.isConstant()
-        for net in self.net_concat:
-            if not net.isConstant():
-                return False
-        return True
+        else:
+            for net in self.net_concat:
+                if not net.isConstant():
+                    return False
+            return True
+
+    def set_type(self, net_type: Type):
+        """
+        :param Type net_type: the type of the net.
+        """
+        if hasattr(self, "net"):
+            self.net.setType(net_type.value)
+        else:
+            for net in self.net_concat:
+                net.setType(net_type.value)
 
     def get_width(self) -> int:
         """
@@ -300,7 +319,7 @@ class Net:
                 yield self
         else:
             for net in self.net_concat:
-                yield net
+                yield Net(net)
 
     def get_bit(self, index: int):
         """
@@ -685,19 +704,36 @@ def get_instance_by_path(names: list):
     return Instance(path)
 
 
-def refresh_path(path: snl.SNLPath):
-    pathlist = path.getPathIDs()
-    assert len(pathlist) > 0
-    path = snl.SNLPath()
-    instance = None
-    top = snl.SNLUniverse.get().getTopDesign()
-    design = top
-    for id in pathlist:
-        path = snl.SNLPath(path, design.getInstanceByID(id))
-        instance = design.getInstanceByID(id)
-        assert instance is not None
-        design = instance.getModel()
-    return path
+# def refresh_path(path: snl.SNLPath):
+#    pathlist = path.getPathIDs()
+#    assert len(pathlist) > 0
+#    path = snl.SNLPath()
+#    instance = None
+#    top = snl.SNLUniverse.get().getTopDesign()
+#    design = top
+#    for id in pathlist:
+#        path = snl.SNLPath(path, design.getInstanceByID(id))
+#        instance = design.getInstanceByID(id)
+#        assert instance is not None
+#        design = instance.getModel()
+#    return path
+
+
+class Attribute:
+    def __init__(self, snlAttribute):
+        self.snlAttribute = snlAttribute
+
+    def __str__(self):
+        return str(self.snlAttribute)
+
+    def get_name(self):
+        return self.snlAttribute.getName()
+
+    def has_value(self):
+        return self.snlAttribute.hasValue()
+
+    def get_value(self):
+        return self.snlAttribute.getValue()
 
 
 class Instance:
@@ -828,6 +864,11 @@ class Instance:
             return snl.SNLUniverse.get().getTopDesign()
         instance = get_snl_instance_from_id_list(self.pathIDs)
         return instance.getModel()
+
+    def __get_leaf_snl_object(self):
+        if self.is_top():
+            return snl.SNLUniverse.get().getTopDesign()
+        return get_snl_instance_from_id_list(self.pathIDs)
 
     def __find_snl_model(self, name: str) -> snl.SNLDesign:
         u = snl.SNLUniverse.get()
@@ -1010,6 +1051,11 @@ class Instance:
                         yield Term(self.pathIDs, bit)
                 else:
                     yield Term(self.pathIDs, term)
+
+    def get_attributes(self):
+        leaf_object = self.__get_leaf_snl_object()
+        for attribute in leaf_object.getAttributes():
+            yield Attribute(attribute)
 
     def delete_instance(self, name: str):
         """Delete the child instance with the given name."""

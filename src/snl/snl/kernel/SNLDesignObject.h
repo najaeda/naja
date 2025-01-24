@@ -8,6 +8,7 @@
 #include "SNLObject.h"
 #include "SNLID.h"
 #include "SNLName.h"
+#include "SNLAttributes.h"
 
 namespace naja { namespace SNL {
 
@@ -37,6 +38,9 @@ class SNLDesignObject: public SNLObject {
         SNLID::Bit bit) const;
     /// \return the owner SNLLibrary of this SNLDesignObject.
     SNLLibrary* getLibrary() const;
+
+    NajaCollection<SNLAttribute> getAttributes() const;
+
     /// \return the owner SNLDB of this SNLDesignObject.
     SNLDB* getDB() const;
     /// \return true if this SNLDesignObject is anonymous, false if not.

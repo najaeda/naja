@@ -38,6 +38,7 @@ set(SNL_DECORATOR_SOURCES
 
 set(SNL_HEADERS
   kernel/SNLName.h
+  kernel/SNLAttributes.h
   kernel/SNLID.h
   kernel/SNLObject.h
   kernel/SNLUniverse.h kernel/SNLDB.h
