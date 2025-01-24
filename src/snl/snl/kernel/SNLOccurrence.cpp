@@ -85,13 +85,12 @@ std::string SNLOccurrence::getString(const char separator) const {
   return oss.str();
 }
 
+//LCOV_EXCL_START
 std::string SNLOccurrence::getDescription() const {
   std::ostringstream oss;
   oss << "Occurrence: ";
   if (object_) {
-    //LCOV_EXCL_START
     oss << object_->getDescription();
-    //LCOV_EXCL_STOP
   } else {
     oss << "null";
   }
@@ -99,5 +98,6 @@ std::string SNLOccurrence::getDescription() const {
   oss << getPath().getString();
   return oss.str();
 }
+//LCOV_EXCL_STOP
 
 }} // namespace SNL // namespace naja

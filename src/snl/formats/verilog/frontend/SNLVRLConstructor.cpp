@@ -33,13 +33,13 @@ void collectAttributes(
     for (const auto attribute: attributes) {
       naja::SNL::SNLName attributeName(attribute.name_.getString());
       std::string expression;
-      naja::SNL::SNLAttributes::SNLAttribute::Value::Type valueType;
+      naja::SNL::SNLAttributeValue::Type valueType;
       switch (attribute.expression_.getType()) {
         case naja::verilog::ConstantExpression::Type::STRING:
-          valueType = naja::SNL::SNLAttributes::SNLAttribute::Value::Type::STRING;
+          valueType = naja::SNL::SNLAttributeValue::Type::STRING;
           break;
         case naja::verilog::ConstantExpression::Type::NUMBER:
-          valueType = naja::SNL::SNLAttributes::SNLAttribute::Value::Type::NUMBER;
+          valueType = naja::SNL::SNLAttributeValue::Type::NUMBER;
           break;
       }
       if (attribute.expression_.valid_) {
@@ -47,21 +47,21 @@ void collectAttributes(
       }
       naja::SNL::SNLAttributes::addAttribute(
         design,
-        naja::SNL::SNLAttributes::SNLAttribute(
+        naja::SNL::SNLAttribute(
           attributeName,
-          naja::SNL::SNLAttributes::SNLAttribute::Value(valueType, expression)));
+          naja::SNL::SNLAttributeValue(valueType, expression)));
     }
   } else if (auto designObject = dynamic_cast<naja::SNL::SNLDesignObject*>(object)) {
     for (const auto attribute: attributes) {
       naja::SNL::SNLName attributeName(attribute.name_.getString());
       std::string expression;
-      naja::SNL::SNLAttributes::SNLAttribute::Value::Type valueType;
+      naja::SNL::SNLAttributeValue::Type valueType;
       switch (attribute.expression_.getType()) {
         case naja::verilog::ConstantExpression::Type::STRING:
-          valueType = naja::SNL::SNLAttributes::SNLAttribute::Value::Type::STRING;
+          valueType = naja::SNL::SNLAttributeValue::Type::STRING;
           break;
         case naja::verilog::ConstantExpression::Type::NUMBER:
-          valueType = naja::SNL::SNLAttributes::SNLAttribute::Value::Type::NUMBER;
+          valueType = naja::SNL::SNLAttributeValue::Type::NUMBER;
           break;
       }
       if (attribute.expression_.valid_) {
@@ -69,9 +69,9 @@ void collectAttributes(
       }
       naja::SNL::SNLAttributes::addAttribute(
         designObject,
-        naja::SNL::SNLAttributes::SNLAttribute(
+        naja::SNL::SNLAttribute(
           attributeName,
-          naja::SNL::SNLAttributes::SNLAttribute::Value(valueType, expression)));
+          naja::SNL::SNLAttributeValue(valueType, expression)));
     }
   }
 }

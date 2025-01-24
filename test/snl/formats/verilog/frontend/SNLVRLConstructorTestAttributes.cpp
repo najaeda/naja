@@ -47,23 +47,23 @@ TEST_F(SNLVRLConstructorTestAttributes, test0) {
   ASSERT_NE(simple_netlist, nullptr);
 
   ASSERT_EQ(3, SNLAttributes::getAttributes(simple_netlist).size());
-  using Attributes = std::vector<SNLAttributes::SNLAttribute>;
+  using Attributes = std::vector<SNLAttribute>;
   Attributes simple_netlistAttributes(
     SNLAttributes::getAttributes(simple_netlist).begin(),
     SNLAttributes::getAttributes(simple_netlist).end());
   EXPECT_EQ(3, simple_netlistAttributes.size());
   EXPECT_THAT(simple_netlistAttributes,
     ElementsAre(
-      SNLAttributes::SNLAttribute(
+      SNLAttribute(
         SNLName("MODULE_ATTRIBUTE"),
-        SNLAttributes::SNLAttribute::Value("Top level simple_netlist module")),
-      SNLAttributes::SNLAttribute(
+        SNLAttributeValue("Top level simple_netlist module")),
+      SNLAttribute(
         SNLName("MODULE_VERSION"),
-        SNLAttributes::SNLAttribute::Value("1.0")),
-      SNLAttributes::SNLAttribute(
+        SNLAttributeValue("1.0")),
+      SNLAttribute(
         SNLName("VERSION"),
-        SNLAttributes::SNLAttribute::Value(
-          SNLAttributes::SNLAttribute::Value::Type::NUMBER,
+        SNLAttributeValue(
+          SNLAttributeValue::Type::NUMBER,
           "3"))
     )
   );
@@ -93,16 +93,16 @@ TEST_F(SNLVRLConstructorTestAttributes, test0) {
   }
   EXPECT_THAT(ins0Attributes,
     ElementsAre(
-      SNLAttributes::SNLAttribute(
+      SNLAttribute(
         SNLName("INSTANCE_ATTRIBUTE_AND"),
-        SNLAttributes::SNLAttribute::Value("and2_inst")),
-      SNLAttributes::SNLAttribute(
+        SNLAttributeValue("and2_inst")),
+      SNLAttribute(
         SNLName("description"),
-        SNLAttributes::SNLAttribute::Value("2-input AND gate instance")),
-      SNLAttributes::SNLAttribute(
+        SNLAttributeValue("2-input AND gate instance")),
+      SNLAttribute(
         SNLName("VERSION"),
-        SNLAttributes::SNLAttribute::Value(
-          SNLAttributes::SNLAttribute::Value::Type::NUMBER,
+        SNLAttributeValue(
+          SNLAttributeValue::Type::NUMBER,
           "3"))
     )
   );
@@ -116,12 +116,12 @@ TEST_F(SNLVRLConstructorTestAttributes, test0) {
   EXPECT_EQ(2, ins1Attributes.size());
   EXPECT_THAT(ins1Attributes,
     ElementsAre(
-      SNLAttributes::SNLAttribute(
+      SNLAttribute(
         SNLName("INSTANCE_ATTRIBUTE_OR"),
-        SNLAttributes::SNLAttribute::Value("or2_inst")),
-      SNLAttributes::SNLAttribute(
+        SNLAttributeValue("or2_inst")),
+      SNLAttribute(
         SNLName("description"),
-        SNLAttributes::SNLAttribute::Value("2-input OR gate instance"))
+        SNLAttributeValue("2-input OR gate instance"))
     )
   );
 
@@ -151,9 +151,9 @@ TEST_F(SNLVRLConstructorTestAttributes, test0) {
     SNLAttributes::getAttributes(aTerm).end());
   EXPECT_EQ(1, aTermAttributes.size());
   EXPECT_EQ(
-    SNLAttributes::SNLAttribute(
+    SNLAttribute(
       SNLName("INPUT_ATTRIBUTE_A"),
-      SNLAttributes::SNLAttribute::Value("Input signal A")),
+      SNLAttributeValue("Input signal A")),
     aTermAttributes[0]
   );
 
@@ -165,9 +165,9 @@ TEST_F(SNLVRLConstructorTestAttributes, test0) {
     SNLAttributes::getAttributes(bTerm).end());
   EXPECT_EQ(1, bTermAttributes.size());
   EXPECT_EQ(
-    SNLAttributes::SNLAttribute(
+    SNLAttribute(
       SNLName("INPUT_ATTRIBUTE_B"),
-      SNLAttributes::SNLAttribute::Value("Input signal B")),
+      SNLAttributeValue("Input signal B")),
     bTermAttributes[0]
   );
 
@@ -179,9 +179,9 @@ TEST_F(SNLVRLConstructorTestAttributes, test0) {
     SNLAttributes::getAttributes(andOutTerm).end());
   EXPECT_EQ(1, andOutTermAttributes.size());
   EXPECT_EQ(
-    SNLAttributes::SNLAttribute(
+    SNLAttribute(
       SNLName("OUTPUT_ATTRIBUTE_AND"),
-      SNLAttributes::SNLAttribute::Value("Output of AND gate")),
+      SNLAttributeValue("Output of AND gate")),
     andOutTermAttributes[0]
   );
 
@@ -194,9 +194,9 @@ TEST_F(SNLVRLConstructorTestAttributes, test0) {
     SNLAttributes::getAttributes(orOutTerm).end());
   EXPECT_EQ(1, orOutTermAttributes.size());
   EXPECT_EQ(
-    SNLAttributes::SNLAttribute(
+    SNLAttribute(
       SNLName("OUTPUT_ATTRIBUTE_OR"),
-      SNLAttributes::SNLAttribute::Value("Output of OR gate")),
+      SNLAttributeValue("Output of OR gate")),
     orOutTermAttributes[0]
   );
 
@@ -211,9 +211,9 @@ TEST_F(SNLVRLConstructorTestAttributes, test0) {
     SNLAttributes::getAttributes(andWire).end());
   EXPECT_EQ(1, andWireAttributes.size());
   EXPECT_EQ(
-    SNLAttributes::SNLAttribute(
+    SNLAttribute(
       SNLName("WIRE_ATTRIBUTE"),
-      SNLAttributes::SNLAttribute::Value("Wire connecting AND gate output to top output")),
+      SNLAttributeValue("Wire connecting AND gate output to top output")),
     andWireAttributes[0]
   );
 
@@ -224,9 +224,9 @@ TEST_F(SNLVRLConstructorTestAttributes, test0) {
     SNLAttributes::getAttributes(orWire).end());
   EXPECT_EQ(1, orWireAttributes.size());
   EXPECT_EQ(
-    SNLAttributes::SNLAttribute(
+    SNLAttribute(
       SNLName("WIRE_ATTRIBUTE"),
-      SNLAttributes::SNLAttribute::Value("Wire connecting OR gate output to top output")),
+      SNLAttributeValue("Wire connecting OR gate output to top output")),
     orWireAttributes[0]
   );
 }

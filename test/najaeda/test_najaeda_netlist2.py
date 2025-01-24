@@ -278,6 +278,8 @@ class NajaNetlistTest2(unittest.TestCase):
         self.assertFalse(modI0Net.is_const())
         self.assertEqual(4, sum(1 for _ in modI0Net.get_bits()))
         self.assertIsNone(modI0Net.get_bit(4))
+        modI0Net.set_type(netlist.Net.Type.ASSIGN0)
+        self.assertTrue(modI0Net.is_const())
 
         for i in range(4):
             # modIO.get_bit(i) is the connected to I0_{3-i} scalar net
@@ -311,6 +313,11 @@ class NajaNetlistTest2(unittest.TestCase):
         self.assertEqual(topO.get_bit(0).get_lower_net(), topOLowerNet.get_bit(1))
         self.assertEqual(topO.get_bit(1).get_lower_net(), topOLowerNet.get_bit(0))
         self.assertEqual(top.get_net('O_net'), topOLowerNet)
+        self.assertFalse(topOLowerNet.is_concat())
+        self.assertFalse(topOLowerNet.is_const())
+        self.assertEqual(2, sum(1 for _ in topOLowerNet.get_bits()))
+        topOLowerNet.set_type(netlist.Net.Type.ASSIGN1)
+        self.assertTrue(topOLowerNet.is_const())
     
         # dump top2
         bench_dir = os.environ.get('NAJAEDA_TEST_PATH')

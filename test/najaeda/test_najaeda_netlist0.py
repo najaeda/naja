@@ -70,11 +70,14 @@ class NajaNetlistTest0(unittest.TestCase):
         primitives = [os.path.join(liberty_benchmarks, "asap7_excerpt" , "test0.lib")]
         netlist.load_liberty(primitives)
         netlist.load_verilog(design_files)
+        top = netlist.get_top()
+        self.assertIsNotNone(top)
+        inst0 = top.get_child_instance('inst0')
+        self.assertIsNotNone(inst0)
+        self.assertEqual(0, sum(1 for _ in inst0.get_attributes()))
         #print(netlist.get_top())
         #for inst in netlist.get_all_primitive_instances():
         #    print(inst)
-        if snl.SNLUniverse.get():
-            snl.SNLUniverse.get().destroy()
 
     def test_loader1(self):
         design_files = [os.path.join(verilog_benchmarks, "test1.v")]

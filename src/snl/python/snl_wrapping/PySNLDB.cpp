@@ -207,9 +207,9 @@ PyObject* PySNLDB_getLibrary(PySNLDB* self, PyObject* arg) {
 }
 
 DirectGetIntMethod(PySNLDB_getID, getID, PySNLDB, SNLDB)
-GetContainerMethod(DB, Library, Libraries, Libraries)
-GetContainerMethod(DB, Library, Libraries, GlobalLibraries)
-GetContainerMethod(DB, Library, Libraries, PrimitiveLibraries)
+GetContainerMethod(DB, Library*, Libraries, Libraries)
+GetContainerMethod(DB, Library*, Libraries, GlobalLibraries)
+GetContainerMethod(DB, Library*, Libraries, PrimitiveLibraries)
 
 DBoDestroyAttribute(PySNLDB_destroy, PySNLDB)
 
