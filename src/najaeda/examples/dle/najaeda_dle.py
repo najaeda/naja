@@ -16,8 +16,14 @@ import faulthandler
 def apply_dle(top):
     # Trace back from design outputs
     visited = set()
-    output_terms = top.get_flat_output_terms()
-    for termToTrace in output_terms:
+    traced_terms = top.get_flat_output_terms()
+    for leaf in top.get_leaf_children():
+        atrributes =  list(leaf.get_attributes())
+        for attr in atrributes:
+            if attr.get_name() == 'DONT_TOUCH' or attr.get_name() == 'KEEP' or attr.get_name() == 'preserve' or attr.get_name() == 'noprune':
+                for term in leaf.get_flat_input_terms():
+                    traced_terms.append(term)
+    for termToTrace in traced_terms:
         queue = deque([termToTrace])
         while queue:
             term = queue.popleft()
@@ -32,8 +38,8 @@ def apply_dle(top):
                 input_terms = instance.get_flat_input_terms()
                 queue.extend(input_terms)
     
-    leaf_children = top.get_leaf_children()
-    to_delete = [leaf for leaf in leaf_children if leaf not in instances]
+    
+    to_delete = [leaf for leaf in top.get_leaf_children() if leaf not in instances]
     for leaf in to_delete:
         leaf.delete()
     return to_delete
