@@ -55,7 +55,7 @@ class SNLBusNet final: public SNLNet {
     SNLID::Bit getMSB() const { return msb_; }
     /// \return LSB (Most Significant Bit) or right hand side of the bus range.
     SNLID::Bit getLSB() const { return lsb_; }
-    SNLID::Bit getSize() const override;
+    SNLID::Bit getWidth() const override;
     SNLBusNetBit* getBit(SNLID::Bit bit) const;
     SNLBusNetBit* getBitAtPosition(size_t position) const;
     size_t getBitPosition(SNLID::Bit bit) const;
@@ -74,9 +74,10 @@ class SNLBusNet final: public SNLNet {
 
     void setType(const Type& type) override;
     bool isAllNull() const;
-    bool isAssignConstant() const override;
-    virtual bool isSupply0() const override;
-    virtual bool isSupply1() const override;
+    bool isAssign0() const override;
+    bool isAssign1() const override;
+    bool isSupply0() const override;
+    bool isSupply1() const override;
 
     const char* getTypeName() const override;
     std::string getString() const override;

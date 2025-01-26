@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 set(SOURCES
+  PySNLAttribute.cpp
   PySNLUniverse.cpp
   PySNLDB.cpp PySNLLibrary.cpp PySNLDesign.cpp
   PySNLParameter.cpp
@@ -14,6 +15,8 @@ set(SOURCES
   PySNLTermDirection.cpp 
   PySNLBusTerm.cpp PySNLBitTerm.cpp PySNLScalarTerm.cpp PySNLBusTermBit.cpp
   PySNLInstance.cpp PySNLInstParameter.cpp PySNLInstTerm.cpp
+  PySNLAttributes.cpp
+  PySNLDBs.cpp
   PySNLLibraries.cpp PySNLDesigns.cpp
   PySNLParameters.cpp PySNLInstParameters.cpp
   PySNLNetComponents.cpp
@@ -21,22 +24,37 @@ set(SOURCES
   PySNLNets.cpp PySNLBitNets.cpp PySNLScalarNets.cpp PySNLBusNets.cpp
   PySNLInstances.cpp PySNLInstTerms.cpp PySNLPath.cpp PySNLOccurrence.cpp
   PySNLNetComponentOccurrence.cpp PySNLInstTermOccurrence.cpp PySNLInstTermOccurrences.cpp
-  PySNLEquipotential.cpp PySNLUniquifier.cpp
+  PySNLEquipotential.cpp PySNLUniquifier.cpp SNLProxyProperty.cpp
 )
 
-Python3_add_library(naja_snl_python SHARED ${SOURCES})
-target_link_libraries(naja_snl_python PUBLIC naja_snl_verilog naja_bne naja_snl_dump naja_snl_liberty)
-target_include_directories(naja_snl_python PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+add_library(naja_snl_python SHARED ${SOURCES})
+if (BUILD_NAJA_PYTHON)
+  target_link_libraries(naja_snl_python
+    PUBLIC
+    naja_snl_verilog naja_snl_liberty naja_snl_visual
+    Python3::Module
+  )
+else(BUILD_NAJA_PYTHON)
+  target_link_libraries(naja_snl_python
+    PUBLIC
+    naja_snl_verilog naja_snl_liberty naja_snl_visual
+    Python3::Python
+  )
+endif(BUILD_NAJA_PYTHON)
+
+target_include_directories(naja_snl_python
+  PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
+  PRIVATE ${Python3_INCLUDE_DIRS}
+)
 
 Python3_add_library(snl MODULE PySNL.cpp)
-
 target_link_libraries(snl PRIVATE naja_snl_python)
 
 if(BUILD_NAJA_PYTHON)
-  set_target_properties(snl PROPERTIES INSTALL_RPATH ".")
-  install(TARGETS snl LIBRARY DESTINATION DESTINATION naja)
-  install(TARGETS naja_snl_python LIBRARY DESTINATION naja) 
+  install(TARGETS snl LIBRARY DESTINATION DESTINATION ${CMAKE_INSTALL_PREFIX}/najaeda)
+  install(TARGETS naja_snl_python LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/najaeda)
 else(BUILD_NAJA_PYTHON)
   install(TARGETS snl LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}/python/naja)
+  install(TARGETS snl LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}/python/najaeda)
   install(TARGETS naja_snl_python LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}) 
 endif(BUILD_NAJA_PYTHON)

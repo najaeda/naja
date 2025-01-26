@@ -68,7 +68,7 @@ TEST_F(SNLDB0Test, testAND) {
   ASSERT_NE(nullptr, and2Inputs);
   EXPECT_EQ(SNLID::DesignObjectID(1), and2Inputs->getID());
   EXPECT_EQ(SNLTerm::Direction::Input, and2Inputs->getDirection());
-  EXPECT_EQ(2, and2Inputs->getSize());
+  EXPECT_EQ(2, and2Inputs->getWidth());
 
   SNLDesign* and2Test = SNLDB0::getAND(2);
   EXPECT_EQ(and2, and2Test);
@@ -83,7 +83,7 @@ TEST_F(SNLDB0Test, testAND) {
   ASSERT_NE(nullptr, and48Inputs);
   EXPECT_EQ(SNLID::DesignObjectID(1), and48Inputs->getID());
   EXPECT_EQ(SNLTerm::Direction::Input, and48Inputs->getDirection());
-  EXPECT_EQ(48, and48Inputs->getSize());
+  EXPECT_EQ(48, and48Inputs->getWidth());
 }
 
 TEST_F(SNLDB0Test, testNULLUniverse) {

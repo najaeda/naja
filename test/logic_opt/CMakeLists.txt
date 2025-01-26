@@ -33,7 +33,7 @@ ADD_EXECUTABLE(reductionOptTests ${reductionOptSources})
 target_compile_definitions(reductionOptTests PRIVATE
   SNL_PRIMITIVES_TEST_PATH="${CMAKE_CURRENT_SOURCE_DIR}")
 
-TARGET_LINK_LIBRARIES(reductionOptTests naja_opt naja_snl_visual naja_snl_pyloader gmock gtest_main)
+TARGET_LINK_LIBRARIES(reductionOptTests naja_opt naja_snl_pyloader gmock gtest_main)
 
 gtest_discover_tests(
   reductionOptTests

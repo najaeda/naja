@@ -8,6 +8,7 @@
 #include "PySNLInstance.h"
 #include "SNLInstance.h"
 #include "SNLPath.h"
+#include "SNLID.h"
 
 namespace PYSNL {
 
@@ -46,6 +47,16 @@ static int PySNLPath_Init(PySNLPath* self, PyObject* args, PyObject* kwargs) {
   return 0;
 }
 
+// Function to be called from Python
+PyObject* PySNLPath_getPathIDs(PySNLPath* self, PyObject* args) { 
+  std::vector<naja::SNL::SNLID::DesignObjectID> vec = self->object_->getPathIDs();
+  PyObject* py_list = PyList_New(vec.size()); 
+  for (size_t i = 0; i < vec.size(); ++i) { 
+    PyList_SetItem(py_list, i, PyLong_FromLong(vec[i])); 
+  } 
+  return py_list;
+}
+
 ManagedTypeLinkCreateMethod(SNLPath) 
 ManagedTypeDeallocMethod(SNLPath)
 
@@ -69,6 +80,8 @@ PyMethodDef PySNLPath_Methods[] = {
     "Returns the tail path of this path"},
   { "size", (PyCFunction)PySNLPath_size, METH_NOARGS,
     "Returns the size of this path"},
+  { "getPathIDs", (PyCFunction)PySNLPath_getPathIDs, METH_NOARGS,
+    "Returns the ids of the path"},
   {NULL, NULL, 0, NULL} /* sentinel */
 };
 

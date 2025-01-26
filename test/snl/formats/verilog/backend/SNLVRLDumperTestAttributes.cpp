@@ -48,39 +48,39 @@ TEST_F(SNLVRLDumperTestAttributes, test0) {
   ASSERT_TRUE(model_);
 
   SNLAttributes::addAttribute(top_,
-    SNLAttributes::SNLAttribute(SNLName("PRAGMA1"), SNLAttributes::SNLAttribute::Value("value1")));
+    SNLAttribute(SNLName("PRAGMA1"), SNLAttributeValue("value1")));
   SNLAttributes::addAttribute(top_,
-    SNLAttributes::SNLAttribute(
+    SNLAttribute(
       SNLName("PRAGMA2"),
-      SNLAttributes::SNLAttribute::Value(SNLAttributes::SNLAttribute::Value::Type::NUMBER, "12")));
-  SNLAttributes::addAttribute(top_, SNLAttributes::SNLAttribute(SNLName("PRAGMA2")));
+      SNLAttributeValue(SNLAttributeValue::Type::NUMBER, "12")));
+  SNLAttributes::addAttribute(top_, SNLAttribute(SNLName("PRAGMA2")));
 
   auto term = SNLScalarTerm::create(top_, SNLTerm::Direction::Input, SNLName("term"));
   SNLAttributes::addAttribute(term,
-    SNLAttributes::SNLAttribute(SNLName("TPRAGMA1"), SNLAttributes::SNLAttribute::Value("value1")));
+    SNLAttribute(SNLName("TPRAGMA1"), SNLAttributeValue("value1")));
   SNLAttributes::addAttribute(term,
-    SNLAttributes::SNLAttribute(
+    SNLAttribute(
       SNLName("TPRAGMA2"),
-      SNLAttributes::SNLAttribute::Value(SNLAttributes::SNLAttribute::Value::Type::NUMBER, "155")));
-  SNLAttributes::addAttribute(term, SNLAttributes::SNLAttribute(SNLName("TPRAGMA2")));
+      SNLAttributeValue(SNLAttributeValue::Type::NUMBER, "155")));
+  SNLAttributes::addAttribute(term, SNLAttribute(SNLName("TPRAGMA2")));
 
   auto net = SNLScalarNet::create(top_, SNLName("net"));
   SNLAttributes::addAttribute(net,
-    SNLAttributes::SNLAttribute(SNLName("NPRAGMA1"), SNLAttributes::SNLAttribute::Value("value1")));
+    SNLAttribute(SNLName("NPRAGMA1"), SNLAttributeValue("value1")));
   SNLAttributes::addAttribute(net,
-    SNLAttributes::SNLAttribute(
+    SNLAttribute(
       SNLName("NPRAGMA2"),
-      SNLAttributes::SNLAttribute::Value(SNLAttributes::SNLAttribute::Value::Type::NUMBER, "88")));
-  SNLAttributes::addAttribute(net, SNLAttributes::SNLAttribute(SNLName("NPRAGMA2")));
+      SNLAttributeValue(SNLAttributeValue::Type::NUMBER, "88")));
+  SNLAttributes::addAttribute(net, SNLAttribute(SNLName("NPRAGMA2")));
 
   auto instance = SNLInstance::create(top_, model_, SNLName("ins"));
   SNLAttributes::addAttribute(instance,
-    SNLAttributes::SNLAttribute(SNLName("IPRAGMA1"), SNLAttributes::SNLAttribute::Value("value1")));
+    SNLAttribute(SNLName("IPRAGMA1"), SNLAttributeValue("value1")));
   SNLAttributes::addAttribute(instance,
-    SNLAttributes::SNLAttribute(
+    SNLAttribute(
       SNLName("IPRAGMA2"),
-      SNLAttributes::SNLAttribute::Value(SNLAttributes::SNLAttribute::Value::Type::NUMBER, "9")));
-  SNLAttributes::addAttribute(instance, SNLAttributes::SNLAttribute(SNLName("IPRAGMA2")));
+      SNLAttributeValue(SNLAttributeValue::Type::NUMBER, "9")));
+  SNLAttributes::addAttribute(instance, SNLAttribute(SNLName("IPRAGMA2")));
 
   std::filesystem::path outPath(SNL_VRL_DUMPER_TEST_PATH);
   outPath = outPath / "testAttributes0";

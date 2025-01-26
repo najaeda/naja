@@ -14,7 +14,7 @@
 
 #include <Python.h>
 #include <filesystem>
-#include "SNLCapnP.h"
+//#include "SNLCapnP.h"
 #include "SNLLibertyConstructor.h"
 #include "SNLUtils.h"
 #include "SNLVRLConstructor.h"
@@ -41,11 +41,17 @@ static PyObject* PySNLDB_create(PyObject*, PyObject* args) {
   }
   auto universe = PYSNLUNIVERSE_O(arg);
   SNLDB* db = nullptr;
-  TRY db = SNLDB::create(universe);
-  SNLCATCH
+  if (universe == nullptr) {
+    setError("SNLDB create SNLUniverse is null");
+    return nullptr;
+  }
+  TRY
+  db = SNLDB::create(universe);
+  SNLCATCH // LCOV_EXCL_LINE should throw if universe is null, already checked
   return PySNLDB_Link(db);
 }
 
+#if 0
 static PyObject* PySNLDB_loadSNL(PyObject*, PyObject* args) {
   PyObject* arg = nullptr;
   if (not PyArg_ParseTuple(args, "O:SNLDB.loadSNL", &arg)) {
@@ -61,7 +67,8 @@ static PyObject* PySNLDB_loadSNL(PyObject*, PyObject* args) {
   if (SNLUniverse::get() == nullptr) {
     SNLUniverse::create();
   }
-  TRY db = SNLCapnP::load(path);
+  TRY 
+  db = SNLCapnP::load(path);
   SNLCATCH
   return PySNLDB_Link(db);
 }
@@ -80,7 +87,7 @@ PyObject* PySNLDB_dumpSNL(PySNLDB* self, PyObject* args) {
   // return true to python
   Py_RETURN_TRUE;
 }
-
+#endif
 
 PyObject* PySNLDB_loadLibertyPrimitives(PySNLDB* self, PyObject* args) {
   PyObject* arg0 = nullptr;
@@ -114,8 +121,12 @@ PyObject* PySNLDB_loadLibertyPrimitives(PySNLDB* self, PyObject* args) {
       setError("SNLDB loadLibertyPrimitives design path has no extension");
       Py_RETURN_FALSE;
     } else if (extension == ".lib") {
+      // LCOV_EXCL_START
+      TRY
       SNLLibertyConstructor constructor(primitivesLibrary);
       constructor.construct(path);
+      SNLCATCH
+      // LCOV_EXCL_STOP
     } else {
       setError("SNLDB loadLibertyPrimitives");
       Py_RETURN_FALSE;
@@ -131,10 +142,11 @@ PyObject* PySNLDB_loadVerilog(PySNLDB* self, PyObject* args) {
     Py_RETURN_FALSE;
   }
   if (not PyList_Check(arg1)) {
-    setError("malformed SNLDesign.loadVerilog method");
+    setError("malformed SNLDB.loadVerilog method");
     Py_RETURN_FALSE;
   }
   SNLDB* db = self->object_;
+  TRY
   auto designLibrary = SNLLibrary::create(db, SNLName("DESIGN"));
   SNLVRLConstructor constructor(designLibrary);
   using Paths = std::vector<std::filesystem::path>;
@@ -142,7 +154,7 @@ PyObject* PySNLDB_loadVerilog(PySNLDB* self, PyObject* args) {
   for (int i = 0; i < PyList_Size(arg1); ++i) {
     PyObject* object = PyList_GetItem(arg1, i);
     if (not PyUnicode_Check(object)) {
-      setError("SNLDB loadSNL argument should be a file path");
+      setError("SNLDB loadVerilog argument should be a file path");
       Py_RETURN_FALSE;
     }
     std::string pathStr = PyUnicode_AsUTF8(object);
@@ -154,8 +166,9 @@ PyObject* PySNLDB_loadVerilog(PySNLDB* self, PyObject* args) {
   if (top) {
     SNLUniverse::get()->setTopDesign(top);
   } else {
-    setError("No top design was found after parsing verilog");
+    setError("No top design was found after parsing verilog"); //LCOV_EXCL_LINE
   }
+  SNLCATCH
   Py_RETURN_TRUE;
 }
 
@@ -177,34 +190,60 @@ PyObject* PySNLDB_dumpVerilog(PySNLDB* self, PyObject* args) {
   Py_RETURN_TRUE;
 }
 
-GetObjectByName(SNLDB, SNLLibrary, getLibrary)
-GetContainerMethod(DB, Library, Libraries, Libraries)
+PyObject* PySNLDB_getLibrary(PySNLDB* self, PyObject* arg) {
+  SNLLibrary* lib = nullptr;
+  METHOD_HEAD("SNLDB.getLibrary()")
+  if (PyUnicode_Check(arg)) {
+    const char* name = PyUnicode_AsUTF8(arg);
+    lib = selfObject->getLibrary(SNLName(name));
+  } else if (PyLong_Check(arg)) {
+    int index = PyLong_AsLong(arg);
+    lib = selfObject->getLibrary(index);
+  } else {
+      setError("invalid number of parameters for getLibrary.");
+      return nullptr;
+  }
+  return PySNLLibrary_Link(lib);
+}
+
+DirectGetIntMethod(PySNLDB_getID, getID, PySNLDB, SNLDB)
+GetContainerMethod(DB, Library*, Libraries, Libraries)
+GetContainerMethod(DB, Library*, Libraries, GlobalLibraries)
+GetContainerMethod(DB, Library*, Libraries, PrimitiveLibraries)
 
 DBoDestroyAttribute(PySNLDB_destroy, PySNLDB)
-            PyMethodDef PySNLDB_Methods[] = {
-                {"create", (PyCFunction)PySNLDB_create,
-                 METH_VARARGS | METH_STATIC, "create a SNLDB."},
-                {"loadSNL", (PyCFunction)PySNLDB_loadSNL,
-                 METH_VARARGS | METH_STATIC, "create a SNLDB from SNL format."},
-                {"dumpSNL", (PyCFunction)PySNLDB_dumpSNL, METH_VARARGS,
-                 "dump this SNLDB to SNL format."},
-                {"loadLibertyPrimitives", (PyCFunction)PySNLDB_loadLibertyPrimitives,
-                 METH_VARARGS, "import primitives from Liberty format."},
-                {"loadVerilog", (PyCFunction)PySNLDB_loadVerilog,
-                 METH_VARARGS, "create a design from Verilog format."},
-                {"dumpVerilog", (PyCFunction)PySNLDB_dumpVerilog, METH_VARARGS,
-                 "dump this SNLDB to SNL format."},
-                {"getLibrary", (PyCFunction)PySNLDB_getLibrary, METH_VARARGS,
-                 "retrieve a SNLLibrary."},
-                {"getLibraries", (PyCFunction)PySNLDB_getLibraries, METH_NOARGS,
-                 "get a container of SNLLibraries."},
-                {"destroy", (PyCFunction)PySNLDB_destroy, METH_NOARGS,
-                 "destroy this SNLDB."},
-                {NULL, NULL, 0, NULL} /* sentinel */
+
+PyMethodDef PySNLDB_Methods[] = {
+  { "create", (PyCFunction)PySNLDB_create, METH_VARARGS | METH_STATIC,
+    "create a SNLDB."},
+  { "getID", (PyCFunction)PySNLDB_getID, METH_NOARGS,
+    "get the SNLDB ID."},
+//{ "loadSNL", (PyCFunction)PySNLDB_loadSNL, METH_VARARGS | METH_STATIC,
+//  "create a SNLDB from SNL format."},
+//{ "dumpSNL", (PyCFunction)PySNLDB_dumpSNL, METH_VARARGS,
+//  "dump this SNLDB to SNL format."},
+  { "loadLibertyPrimitives", (PyCFunction)PySNLDB_loadLibertyPrimitives, METH_VARARGS,
+    "import primitives from Liberty format."},
+  { "loadVerilog", (PyCFunction)PySNLDB_loadVerilog, METH_VARARGS,
+    "create a design from Verilog format."},
+  { "dumpVerilog", (PyCFunction)PySNLDB_dumpVerilog, METH_VARARGS,
+    "dump this SNLDB to SNL format."},
+  { "getLibrary", (PyCFunction)PySNLDB_getLibrary, METH_O,
+    "retrieve a SNLLibrary."},
+  { "getLibraries", (PyCFunction)PySNLDB_getLibraries, METH_NOARGS,
+    "iterate on this SNLDB SNLLibraries."},
+  { "getGlobalLibraries", (PyCFunction)PySNLDB_getGlobalLibraries, METH_NOARGS,
+    "iterate on all the Libraries owned (directly or indirectly) by this SNLDB."},
+  { "getPrimitiveLibraries", (PyCFunction)PySNLDB_getPrimitiveLibraries, METH_NOARGS,
+    "iterate on all the primitive Libraries owned (directly or indirectly) by this SNLDB."},
+  { "destroy", (PyCFunction)PySNLDB_destroy, METH_NOARGS,
+    "destroy this SNLDB."},
+  {NULL, NULL, 0, NULL} /* sentinel */
 };
 
 DBoDeallocMethod(SNLDB)
 
 DBoLinkCreateMethod(SNLDB) PyTypeSNLFinalObjectWithSNLIDLinkPyType(SNLDB)
 PyTypeObjectDefinitions(SNLDB)
+
 }  // namespace PYSNL

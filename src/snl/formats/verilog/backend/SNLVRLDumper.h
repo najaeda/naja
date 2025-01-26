@@ -131,6 +131,7 @@ class SNLVRLDumper {
     bool dumpNet(const SNLNet* net, std::ostream& o, DesignInsideAnonymousNaming& naming);
 
     void dumpTermNetAssign(
+      const SNLDesign* design,
       const SNLTerm::Direction& direction,
       const std::string& termNetName,
       const std::string& netName,

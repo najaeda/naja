@@ -32,7 +32,7 @@ void compareTerms(const SNLDesign* design, const SNLDesign* newDesign) {
     EXPECT_EQ(term->getID(), found->getID());
     EXPECT_EQ(term->getDirection(), found->getDirection());
     EXPECT_EQ(term->getName(), found->getName());
-    EXPECT_EQ(term->getSize(), found->getSize());
+    EXPECT_EQ(term->getWidth(), found->getWidth());
     if (not found->isAnonymous()) {
       EXPECT_EQ(found, newDesign->getTerm(found->getName()));
     }
@@ -90,7 +90,7 @@ void compareComponents(const SNLNet* net, const SNLNet* found) {
     auto foundBusNet = dynamic_cast<const SNLBusNet*>(found);
     ASSERT_NE(nullptr, busNet);
     ASSERT_NE(nullptr, foundBusNet);
-    EXPECT_EQ(busNet->getSize(), foundBusNet->getSize());
+    EXPECT_EQ(busNet->getWidth(), foundBusNet->getWidth());
     EXPECT_EQ(busNet->getMSB(), foundBusNet->getMSB());
     EXPECT_EQ(busNet->getLSB(), foundBusNet->getLSB());
     for (auto bit: busNet->getBusBits()) {
@@ -117,7 +117,7 @@ void compareAttributes(const SNLObject* object, const SNLObject* newObject) {
   ASSERT_EQ(
     SNLAttributes::getAttributes(object).size(),
     SNLAttributes::getAttributes(newObject).size());
-  using Attributes = std::vector<SNLAttributes::SNLAttribute>;
+  using Attributes = std::vector<SNLAttribute>;
   Attributes objectAttributes(
     SNLAttributes::getAttributes(object).begin(),
     SNLAttributes::getAttributes(object).end());
@@ -135,26 +135,26 @@ void compareAttributes(const SNLObject* object, const SNLObject* newObject) {
 
 void addPragma(SNLDesign* design) {
   SNLAttributes::addAttribute(design,
-    SNLAttributes::SNLAttribute(
+    SNLAttribute(
       SNLName("DPRAGMA1"),
-      SNLAttributes::SNLAttribute::Value("value1")));
+      SNLAttributeValue("value1")));
   SNLAttributes::addAttribute(design,
-    SNLAttributes::SNLAttribute(
+    SNLAttribute(
       SNLName("DPRAGMA2"),
-      SNLAttributes::SNLAttribute::Value(SNLAttributes::SNLAttribute::Value::Type::NUMBER, "12")));
-  SNLAttributes::addAttribute(design, SNLAttributes::SNLAttribute(SNLName("DPRAGMA3")));
+      SNLAttributeValue(SNLAttributeValue::Type::NUMBER, "12")));
+  SNLAttributes::addAttribute(design, SNLAttribute(SNLName("DPRAGMA3")));
 }
 
 void addPragma(SNLDesignObject* designObject) {
   SNLAttributes::addAttribute(designObject,
-    SNLAttributes::SNLAttribute(
+    SNLAttribute(
       SNLName("DOPRAGMA1"),
-      SNLAttributes::SNLAttribute::Value("value1")));
+      SNLAttributeValue("value1")));
   SNLAttributes::addAttribute(designObject,
-    SNLAttributes::SNLAttribute(
+    SNLAttribute(
       SNLName("DOPRAGMA2"),
-      SNLAttributes::SNLAttribute::Value(SNLAttributes::SNLAttribute::Value::Type::NUMBER, "155")));
-  SNLAttributes::addAttribute(designObject, SNLAttributes::SNLAttribute(SNLName("DOPRAGMA3")));
+      SNLAttributeValue(SNLAttributeValue::Type::NUMBER, "155")));
+  SNLAttributes::addAttribute(designObject, SNLAttribute(SNLName("DOPRAGMA3")));
 }
 
 } // namespace

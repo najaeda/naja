@@ -80,6 +80,15 @@ bool SNLDesignTruthTable::isConst1(const SNLDesign* design) {
   return false;
 }
 
+bool SNLDesignTruthTable::isConst(const SNLDesign* design) {
+  auto truthTable = getTruthTable(design);
+  if (truthTable.isInitialized()) {
+    return truthTable == SNLTruthTable::Logic0()
+      or truthTable == SNLTruthTable::Logic1();
+  }
+  return false;
+}
+
 bool SNLDesignTruthTable::isInv(const SNLDesign* design) {
   auto truthTable = getTruthTable(design);
   if (truthTable.isInitialized()) {

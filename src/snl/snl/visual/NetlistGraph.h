@@ -42,6 +42,8 @@
 #include "SNLScalarNet.h"
 #include "SNLScalarTerm.h"
 #include "SNLUniverse.h"
+#include "SNLEquipotential.h"
+#include "SNLPath.h"
 
 using namespace naja::SNL;
 
@@ -106,7 +108,7 @@ class PortNode {
   void setPortDotName(const std::string& portDotName) {
     _portDotName = portDotName;
   }
-  const std::string& getPortDotNAme() const { return _portDotName; }
+  const std::string& getPortDotName() const { return _portDotName; }
 
  private:
   WireEdgeID _wireId = (WireEdgeID) -1;
@@ -540,17 +542,33 @@ class InstDataSnl : InstData {
   auto getSnlModel() const { return _snlModel; }
   std::string getModelName() const {
     std::string name = _snlModel->getName().getString();
+    //LCOV_EXCL_START
     if (name == std::string("")) {
-      return _snlModel->getDescription();
+      if (_snlModel->isAssign()) {
+        return std::string(std::string("assign_") +
+                       std::to_string(_snlModel->getID()));
+      }
+      std::string nameAnon(std::string("anonymous_") +
+                       std::to_string(_snlModel->getID()));
+      return nameAnon;
     }
+    //LCOV_EXCL_STOP
     return name;
   }
 
   std::string getInstName() const {
     std::string name = _snlInst->getName().getString();
+    //LCOV_EXCL_START
     if (name == std::string("")) {
-      return _snlInst->getDescription();
+      if (_snlModel->isAssign()) {
+        return std::string(std::string("assign_") +
+                       std::to_string(_snlInst->getID()));
+      }
+      std::string nameAnon(std::string("anonymous_") +
+                       std::to_string(_snlInst->getID()));
+      return nameAnon;
     }
+    //LCOV_EXCL_STOP
     return name;
   }
 
@@ -608,15 +626,20 @@ class WireDataSnl : WireData {
 
 class SnlVisualiser {
  public:
-  SnlVisualiser(SNLDesign* top) : _topSnl(top) {}
+  SnlVisualiser(SNLDesign* top, bool recursive = true, SNLEquipotential* equi = nullptr) : 
+    _topSnl(top), _recursive(recursive), _equi(equi) {}
   void process();
-  void processRec(InstNodeID instId);
+  void processRec(InstNodeID instId, const SNLPath& path);
   auto& getNetlistGraph() { return _snlNetlistGraph; }
 
  private:
   NetlistGraph<InstDataSnl, PortDataSnl, WireDataSnl, BusDataSnl>
       _snlNetlistGraph;
   SNLDesign* _topSnl;
+  bool _recursive = true;
+  SNLEquipotential* _equi = nullptr;
+  std::set<SNLPath> _equiPaths;
+  std::set<SNLBitNet*> _equiNets;
 };
 #include "NetlistGraph_impl.h"
 }  // namespace naja

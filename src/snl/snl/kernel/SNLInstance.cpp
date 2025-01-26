@@ -263,7 +263,7 @@ void SNLInstance::setTermNet(
   SNLTerm* term,
   SNLNet* net,
   SNLID::Bit netMSB, SNLID::Bit netLSB) {
-  SNLID::Bit size = SNLUtils::getSize(netMSB, netLSB);
+  SNLID::Bit size = SNLUtils::getWidth(netMSB, netLSB);
   if (auto busTerm = dynamic_cast<SNLBusTerm*>(term)) {
     SNLID::Bit termMSB = busTerm->getMSB();
     SNLID::Bit termLSB = (termMSB<busTerm->getLSB())?termMSB+size-1:termMSB-size+1;
@@ -274,10 +274,10 @@ void SNLInstance::setTermNet(
 }
 
 void SNLInstance::setTermNet(SNLTerm* term, SNLNet* net) {
-  if (term->getSize() not_eq net->getSize()) {
+  if (term->getWidth() not_eq net->getWidth()) {
     std::ostringstream reason;
-    reason << "setTermNet only supported when term (size: " << term->getSize() << ")"
-      << " and net share same size (size: " << net->getSize() << ")";
+    reason << "setTermNet only supported when term (width: " << term->getWidth() << ")"
+      << " and net share same width (width: " << net->getWidth() << ")";
     throw SNLException(reason.str());
   }
   Terms terms;
@@ -398,7 +398,6 @@ NajaCollection<SNLInstTerm*> SNLInstance::getInstTerms() const {
 NajaCollection<SNLInstTerm*> SNLInstance::getConnectedInstTerms() const {
   auto filter = [](const SNLInstTerm* it) {return it and it->getNet() != nullptr; };
   return NajaCollection(new NajaSTLCollection(&instTerms_)).getSubCollection(filter);
-
 }
 
 NajaCollection<SNLInstTerm*> SNLInstance::getInstScalarTerms() const {
@@ -568,21 +567,28 @@ const char* SNLInstance::getTypeName() const {
 
 //LCOV_EXCL_START
 std::string SNLInstance::getString() const {
-  if (not isAnonymous()) {
+  if (isAnonymous()) {
+    return "<anon:" + std::to_string(getID()) + ">";
+  } else {
     return getName().getString();
   }
-  return std::string();
 }
 //LCOV_EXCL_STOP
 
 //LCOV_EXCL_START
 std::string SNLInstance::getDescription() const {
-  return "<" + std::string(getTypeName())
-    + " " + name_.getString()
-    + " " + std::to_string(getID())
-    + " " + design_->getName().getString()
-    + " " + model_->getName().getString()
-    + ">";  
+  std::ostringstream description;
+  description << "<" << getTypeName();
+  if (isAnonymous()) {
+    description << " [anon]";
+  } else {
+    description << " " + name_.getString();
+  }
+  description << " " + std::to_string(getID());
+  description << " " + design_->getName().getString();
+  description << " " + model_->getName().getString();
+  description << ">";
+  return description.str();  
 }
 //LCOV_EXCL_STOP
 

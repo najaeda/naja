@@ -55,13 +55,26 @@ static PyObject* setType(PySNLNet* self, PyObject* arg) {
 
 PyTypeInheritedObjectDefinitions(SNLNet, SNLDesignObject)
 
+DirectGetIntMethod(PySNLNet_getWidth, getWidth, PySNLNet, SNLNet)
+GetBoolAttribute(Net, isConstant0)
+GetBoolAttribute(Net, isConstant1)
+GetBoolAttribute(Net, isConstant)
+
 PyMethodDef PySNLNet_Methods[] = {
   { "getName", (PyCFunction)PySNLNet_getName, METH_NOARGS,
     "get SNLNet name"},
+  { "getWidth", (PyCFunction)PySNLNet_getWidth, METH_NOARGS,
+    "get SNLNet width"},
   { "getBits", (PyCFunction)PySNLNet_getBits, METH_NOARGS,
     "get a container of SNLBitNets."},
   { "setType", (PyCFunction)setType, METH_O,
     "set the type of this Net."},
+  { "isConstant0", (PyCFunction)PySNLNet_isConstant0, METH_NOARGS,
+    "Returns True if this SNLNet is a Constant 0."},
+  { "isConstant1", (PyCFunction)PySNLNet_isConstant1, METH_NOARGS,
+    "Returns True if this SNLNet is a Constant 1."},
+  { "isConstant", (PyCFunction)PySNLNet_isConstant, METH_NOARGS,
+    "Returns True if this SNLNet is a Constant."},
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 

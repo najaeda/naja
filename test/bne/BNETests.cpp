@@ -37,7 +37,7 @@ class BNETests : public ::testing::Test {
       auto primitivesLib = SNLLibrary::create(db, SNLLibrary::Type::Primitives);
       auto designsLib = SNLLibrary::create(db);
       auto prim = SNLDesign::create(primitivesLib, SNLDesign::Type::Primitive, SNLName("PRIM"));
-      auto top = SNLDesign::create(designsLib, SNLName("TOP"));
+      top_ = SNLDesign::create(designsLib, SNLName("TOP"));
       auto h0 = SNLDesign::create(designsLib, SNLName("H0"));
       auto h1 = SNLDesign::create(designsLib, SNLName("H1"));
       auto h2 = SNLDesign::create(designsLib, SNLName("H2"));
@@ -47,7 +47,7 @@ class BNETests : public ::testing::Test {
       h1Instance_ = SNLInstance::create(h0, h1, SNLName("h1"));
       h3Instance_ = SNLInstance::create(h0, h3, SNLName("h3"));
       h3h2Instance_ = SNLInstance::create(h3, h2, SNLName("h2")); 
-      h0Instance_ = SNLInstance::create(top, h0, SNLName("h0"));
+      h0Instance_ = SNLInstance::create(top_, h0, SNLName("h0"));
   }
   void TearDown() override {
     SNLUniverse::get()->destroy();
@@ -58,6 +58,7 @@ class BNETests : public ::testing::Test {
   SNLInstance* h3Instance_    {nullptr};
   SNLInstance* h3h2Instance_  {nullptr};
   SNLInstance* h0Instance_    {nullptr};
+  SNLDesign*   top_           {nullptr};
 };
 
 TEST_F(BNETests, ActionComparators) {
@@ -253,3 +254,90 @@ TEST_F(BNETests, testCompare) {
 
   EXPECT_NE(uniquifier0.getString(), uniquifier1.getString());
 }
+
+TEST_F(BNETests, normalizeNodeDeletion) {
+  SNLUniverse::get()->setTopDesign(top_);
+  SNLPath::PathStringDescriptor pathDescriptor0 = { "h0", "h1", "h2", "prim"};
+  SNLPath::PathStringDescriptor pathDescriptor1 = { "h0", "h3", "h2", "prim"};
+
+  auto path0 = SNLPath(SNLUniverse::get()->getTopDesign(), pathDescriptor0);
+  auto path1 = SNLPath(SNLUniverse::get()->getTopDesign(), pathDescriptor1);
+
+  auto path0IDs = path0.getIDDescriptor();
+  auto path1IDs = path1.getIDDescriptor();
+
+  BNE bne;
+  bne.addDeleteAction(path0IDs);
+  bne.addDeleteAction(path1IDs);
+  path0IDs.pop_back();
+  path1IDs.pop_back();
+  EXPECT_EQ(getInstanceForPath(path0IDs)->getModel() == getInstanceForPath(path1IDs)->getModel(), true);
+  bne.process();
+  EXPECT_EQ(getInstanceForPath(path0IDs)->getModel() == getInstanceForPath(path1IDs)->getModel(), true);
+}
+
+TEST_F(BNETests, blockedNormalizeNodeDeletion) {
+  SNLUniverse::get()->setTopDesign(top_);
+  SNLPath::PathStringDescriptor pathDescriptor0 = { "h0", "h1", "h2", "prim"};
+  SNLPath::PathStringDescriptor pathDescriptor1 = { "h0", "h3", "h2", "prim"};
+
+  auto path0 = SNLPath(SNLUniverse::get()->getTopDesign(), pathDescriptor0);
+  auto path1 = SNLPath(SNLUniverse::get()->getTopDesign(), pathDescriptor1);
+
+  auto path0IDs = path0.getIDDescriptor();
+  auto path1IDs = path1.getIDDescriptor();
+  const bool blockNormalization = true;
+  BNE bne(blockNormalization);
+  bne.addDeleteAction(path0IDs);
+  bne.addDeleteAction(path1IDs);
+  path0IDs.pop_back();
+  path1IDs.pop_back();
+  EXPECT_EQ(getInstanceForPath(path0IDs)->getModel() == getInstanceForPath(path1IDs)->getModel(), true);
+  EXPECT_EQ(getInstanceForPath(path0IDs)->getModel()->getInstances().size(), 1);
+  EXPECT_EQ(getInstanceForPath(path1IDs)->getModel()->getInstances().size(), 1);
+  bne.process();
+  EXPECT_EQ(getInstanceForPath(path0IDs)->getModel()->getInstances().size(), 0);
+  EXPECT_EQ(getInstanceForPath(path1IDs)->getModel()->getInstances().size(), 0);
+  EXPECT_EQ(getInstanceForPath(path0IDs)->getModel() == getInstanceForPath(path1IDs)->getModel(), false);
+}
+
+TEST_F(BNETests, blockedNormalizeNodeDeletionOrphanNodeRemoval) {
+  SNLUniverse::get()->setTopDesign(top_);
+  auto h4 = SNLInstance::create(h0Instance_->getModel(), h3Instance_->getModel(), SNLName("h4"));
+  SNLInstance::create(h1h2Instance_->getModel(), primInstance_->getModel(), SNLName("prim2"));
+  SNLPath::PathStringDescriptor pathDescriptor0 = { "h0", "h4", "h2", "prim"};
+  SNLPath::PathStringDescriptor pathDescriptor1 = { "h0", "h3", "h2", "prim"};
+  SNLPath::PathStringDescriptor pathDescriptor2 = { "h0", "h4", "h2"};
+  SNLPath::PathStringDescriptor pathDescriptor3 = { "h0", "h3", "h2"};
+
+  auto path0 = SNLPath(SNLUniverse::get()->getTopDesign(), pathDescriptor0);
+  auto path1 = SNLPath(SNLUniverse::get()->getTopDesign(), pathDescriptor1);
+  auto path2 = SNLPath(SNLUniverse::get()->getTopDesign(), pathDescriptor2);
+  auto path3 = SNLPath(SNLUniverse::get()->getTopDesign(), pathDescriptor3);
+
+  auto path0IDs = path0.getIDDescriptor();
+  auto path1IDs = path1.getIDDescriptor();
+  auto path2IDs = path2.getIDDescriptor();
+  auto path3IDs = path3.getIDDescriptor();
+  const bool blockNormalization = false;
+  const bool keepOrder = true;
+  BNE bne(blockNormalization, keepOrder);
+  bne.addDeleteAction(path2IDs);
+  bne.addDeleteAction(path3IDs);
+  bne.addDeleteAction(path0IDs);
+  bne.addDeleteAction(path1IDs);
+  path0IDs.pop_back();
+  path1IDs.pop_back();
+  EXPECT_EQ(getInstanceForPath(path0IDs)->getModel() == getInstanceForPath(path1IDs)->getModel(), true);
+  EXPECT_EQ(getInstanceForPath(path0IDs)->getModel()->getInstances().size(), 2);
+  EXPECT_EQ(getInstanceForPath(path1IDs)->getModel()->getInstances().size(), 2);
+  bne.process();
+  //EXPECT_EQ(getInstanceForPath(path0IDs)->getModel()->getInstances().size(), 1);
+  //EXPECT_EQ(getInstanceForPath(path1IDs)->getModel()->getInstances().size(), 1);
+  //EXPECT_EQ(getInstanceForPath(path0IDs)->getModel() == getInstanceForPath(path1IDs)->getModel(), false);
+}
+
+TEST_F(BNETests, missingTop) {
+  EXPECT_THROW(new BNE(), SNLException);
+}
+

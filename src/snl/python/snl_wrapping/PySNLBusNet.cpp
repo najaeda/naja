@@ -48,9 +48,9 @@ static PyObject* PySNLBusNet_create(PyObject*, PyObject* args) {
 
 DirectGetIntMethod(PySNLBusNet_getMSB, getMSB, PySNLBusNet, SNLBusNet)
 DirectGetIntMethod(PySNLBusNet_getLSB, getLSB, PySNLBusNet, SNLBusNet)
-DirectGetIntMethod(PySNLBusNet_getSize, getSize, PySNLBusNet, SNLBusNet)
 
 GetObjectByIndex(BusNet, BusNetBit, Bit)
+GetObjectByIndex(BusNet, BusNetBit, BitAtPosition)
 
 DBoLinkCreateMethod(SNLBusNet)
 DBoDeallocMethod(SNLBusNet)
@@ -64,10 +64,10 @@ PyMethodDef PySNLBusNet_Methods[] = {
     "get SNLBusNet MSB value"},
   { "getLSB", (PyCFunction)PySNLBusNet_getLSB, METH_NOARGS,
     "get SNLBusNet LSB value"},
-  { "getSize", (PyCFunction)PySNLBusNet_getSize, METH_NOARGS,
-    "get SNLBusNet Size"},
   { "getBit", (PyCFunction)PySNLBusNet_getBit, METH_VARARGS,
-    "get SNLBusNet Bit, returns SNLBusNetBit"},
+    "get SNLBusNetBit at bit position"},
+  { "getBitAtPosition", (PyCFunction)PySNLBusNet_getBitAtPosition, METH_VARARGS,
+    "get SNLBusNetBit at index position. Index is 0 based"},
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 

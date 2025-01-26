@@ -9,12 +9,10 @@
 #include "PySNLPath.h"
 #include "SNLInstTerm.h"
 #include "SNLPath.h"
-#include "Utils.h"
 
 namespace PYSNL {
 
 using namespace naja::SNL;
-using namespace naja::BNE;
 
 #define METHOD_HEAD(function) GENERIC_METHOD_HEAD(SNLUniquifier, function)
 
@@ -49,7 +47,7 @@ ManagedTypeLinkCreateMethod(SNLUniquifier)
 //DBoLinkCreateMethod(SNLUniquifier)
 ManagedTypeDeallocMethod(SNLUniquifier)
 
-GetContainerMethod(Uniquifier, Instance, Instances, PathUniqCollection)
+GetContainerMethod(Uniquifier, Instance*, Instances, PathUniqCollection)
 
 PyMethodDef PySNLUniquifier_Methods[] = {
   { "getPathUniqCollection", (PyCFunction)PySNLUniquifier_getPathUniqCollection, METH_NOARGS,
