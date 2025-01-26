@@ -3,19 +3,115 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import logging
+import json
+from enum import Enum
+
 from najaeda import netlist
 
 
-class DesignsStats:
+class InstancesStats:
     def __init__(self):
         self.blackboxes = dict()
-        self.hier_designs = dict()
+        self.hier_instances = dict()
+
+    def dump_instance_stats_text(self, instance, stats_files):
+        dumped_models = set()
+        self.__dump_instance_stats_text(instance, stats_files, dumped_models)
+
+    def __dump_stats(self, file, value_name, value):
+        file.write(f"{value_name}: {value} \n")
+
+    def __dump_terms_stats_text(self, instance_stats, file):
+        file.write("Terms: ")
+        first = True
+        for terms in instance_stats.terms.items():
+            if not first:
+                file.write(", ")
+            else:
+                first = False
+            file.write(terms[0] + ":" + str(terms[1]))
+        file.write("\n")
+
+    def __dump_instances(self, stats_file, title, instances):
+        if len(instances) == 0:
+            return
+        sorted_instances = sorted(
+            instances.items(), key=lambda item: netlist.get_model_name(item[0])
+        )
+        stats_file.write(title + " " + str(sum(j for i, j in sorted_instances)) + "\n")
+        line_char = 0
+        for instance in sorted_instances:
+            model_name = netlist.get_model_name(instance[0])
+            if line_char != 0:
+                stats_file.write(",")
+                line_char += 1
+            if line_char > 80:
+                stats_file.write("\n")
+                line_char = 0
+            elif line_char != 0:
+                stats_file.write(" ")
+                line_char += 1
+            instance_char = model_name + ":" + str(instance[1])
+            line_char += len(instance_char)
+            stats_file.write(instance_char)
+        stats_file.write("\n\n")
+
+    def __dump_instance_stats_text(self, instance, file, dumped_models):
+        if instance.is_primitive() or instance.is_blackbox():
+            return
+        # Only dump once each model
+        model_id = instance.get_model_id()
+        if model_id in dumped_models:
+            return
+        dumped_models.add(model_id)
+
+        file.write("*** " + instance.get_name() + " ***\n")
+        
+        instance_stats = self.hier_instances.get(model_id)
+        if instance_stats is None:
+            print("Cannot find " + str(instance.get_model_name()) + " in instance_stats")
+            raise
+        
+        if len(instance_stats.terms) > 0:
+            self.__dump_terms_stats_text(instance_stats, file)
+
+        #self.__dump_instances(stats_file, "Instances:", design_stats.ins)
+        nb_primitives = sum(instance_stats.basic_primitives.values()) + sum(
+            instance_stats.primitives.values()
+        )
+        if nb_primitives > 1:
+            self.__dump_stats(file, "Primitives", nb_primitives)
+
+        self.__dump_instances(file, "Simple Primitives:", instance_stats.basic_primitives)
+        self.__dump_instances(file, "Other Primitives:", instance_stats.primitives)
+        self.__dump_instances(file, "Blackboxes:", instance_stats.blackboxes)
+        
+        if instance_stats.assigns > 0:
+            self.__dump_stats(file, "Assigns", instance_stats.assigns)
+
+        self.__dump_instances(file, "Flat Instances:", instance_stats.flat_ins)
+        self.__dump_instances(file, "Flat Blackboxes:", instance_stats.flat_blackboxes)
+
+        nb_primitives = sum(instance_stats.flat_basic_primitives.values()) + sum(
+            instance_stats.flat_primitives.values()
+        )
+        if nb_primitives > 1:
+            self.__dump_stats(file, "Flat Primitives", nb_primitives)
+        
+        self.__dump_instances(
+            file, "Flat Simple Primitives:", instance_stats.flat_basic_primitives)
+        self.__dump_instances(file, "Flat Other Primitives:", instance_stats.flat_primitives)
+
+        if instance_stats.flat_assigns > 0:
+            self.__dump_stats(file, "Flat Assigns", instance_stats.flat_assigns)
+        
+        file.write("\n")
+
+        for child_instance in instance.get_child_instances():
+            self.__dump_instance_stats_text(child_instance, file, dumped_models)
 
 
-class DesignStats:
-    TEXT = 0
-    JSON = 1
-
+class InstanceStats:
     def __init__(self):
         self.name = ""
         self.assigns = 0
@@ -47,121 +143,9 @@ class DesignStats:
                 self.flat_basic_primitives.get(primitive, 0) + nb
             )
 
-    def __dump_instances(stats_file, title, instances):
-        if len(instances) == 0:
-            return
-        sorted_instances = sorted(
-            instances.items(), key=lambda item: netlist.get_model_name(item[0])
-        )
-        stats_file.write(title + " " + str(sum(j for i, j in sorted_instances)) + "\n")
-        line_char = 0
-        for instance in sorted_instances:
-            model_name = netlist.get_model_name(instance[0])
-            if line_char != 0:
-                stats_file.write(",")
-                line_char += 1
-            if line_char > 80:
-                stats_file.write("\n")
-                line_char = 0
-            elif line_char != 0:
-                stats_file.write(" ")
-                line_char += 1
-            instance_char = model_name + ":" + str(instance[1])
-            line_char += len(instance_char)
-            stats_file.write(instance_char)
-        stats_file.write("\n\n")
+ 
 
-    def __dump_stats(self, files, value_name, value):
-        for file in files:
-            if file[0] == DesignStats.TEXT:
-                file[1].write(f"{value_name}: {value} \n")
-            elif file[0] == DesignStats.JSON:
-                file[1].write(f"    \"{value_name}\": {value},\n")
 
-    def dump_instance_stats(self, instance, dumped_models, dumped_files):
-        if instance.is_primitive() or instance.is_blackbox():
-            return
-        # Only dump once each model
-        model_id = instance.get_model_id()
-        if model_id in dumped_models:
-            return
-        dumped_models.add(model_id)
-
-        for file in dumped_files:
-            if file[0] == DesignsStats.TEXT:
-                file[1].write("*** " + instance.get_name() + " ***\n")
-            elif file[0] == DesignStats.JSON:
-                file[1].write("{\n")
-                file[1].write(f"    {instance.get_model_name()},\n")
-        design_stats = self.hier_designs.get(model_id)
-        if design_stats is None:
-            print("Cannot find " + str(instance.get_model_name()) + " in design_stats")
-            raise
-        if len(design_stats.terms) > 0:
-            for file in dumped_files:
-                if file[0] == DesignStats.TEXT:
-                    file[1].write("Terms: ")
-                    first = True
-                    for terms in design_stats.terms.items():
-                        if not first:
-                            file[1].write(", ")
-                        else:
-                            first = False
-                        file[1].write(terms[0] + ":" + str(terms[1]))
-                    file[1].write("\n")
-                elif file[0] == DesignStats.JSON:
-                    file[1].write("    \"Terms\": {\n")
-                    first = True
-                    for terms in design_stats.terms.items():
-                        if not first:
-                            file[1].write(",\n")
-                        else:
-                            first = False
-                        file[1].write(f"        \"{terms[0]}\": {terms[1]}")
-                    file[1].write("\n    }")
-
-        #self.__dump_instances(stats_file, "Instances:", design_stats.ins)
-        nb_primitives = sum(design_stats.basic_primitives.values()) + sum(
-            design_stats.primitives.values()
-        )
-        if nb_primitives > 1:
-            self.__dump_stats(dumped_files, "Primitives", nb_primitives)
-
-        for file in dumped_files:
-            if file[0] == DesignStats.TEXT:
-                self.__dump_instances(file[1], "Simple Primitives:", design_stats.basic_primitives)
-                self.__dump_instances(file[1], "Other Primitives:", design_stats.primitives)
-                self.__dump_instances(file[1], "Blackboxes:", design_stats.blackboxes)
-        
-        if design_stats.assigns > 0:
-            self.__dump_stats(dumped_files, "Assigns", design_stats.assigns)
-
-        for file in dumped_files:
-            if file[0] == DesignStats.TEXT:
-                self.__dump_instances(file[1], "Flat Instances:", design_stats.flat_ins)
-                self.__dump_instances(file[1], "Flat Blackboxes:", design_stats.flat_blackboxes)
-
-        nb_primitives = sum(design_stats.flat_basic_primitives.values()) + sum(
-            design_stats.flat_primitives.values()
-        )
-        if nb_primitives > 1:
-            self.__dump_stats(dumped_files, "Flat Primitives", nb_primitives)
-        
-        for file in dumped_files:
-            if file[0] == DesignStats.TEXT:
-                self.__dump_instances(
-                    file[1], "Flat Simple Primitives:", design_stats.flat_basic_primitives)
-                self.__dump_instances(file[1], "Flat Other Primitives:", design_stats.flat_primitives)
-
-        if self.design_stats.flat_assigns > 0:
-            self.__dump_stats(dumped_files, "Flat Assigns", design_stats.flat_assigns)
-        
-        for file in dumped_files:
-            if file[0] == DesignStats.TEXT:
-                file[1].write("\n")
-
-        for child_instance in instance.get_child_instances():
-            self.dump_instance_stats(child_instance, dumped_models, dumped_files)
 
 
 def is_basic_primitive(design):
@@ -170,92 +154,92 @@ def is_basic_primitive(design):
     )
 
 
-def compute_design_stats(design, designs_stats):
-    if design.get_model_id() in designs_stats.hier_designs:
-        return designs_stats.hier_designs.get(design.get_model_id())
-    design_stats = DesignStats()
-    design_stats.name = design.get_model_name()
-    for ins in design.get_child_instances():
+def compute_instance_stats(instance, instances_stats):
+    if instance.get_model_id() in instances_stats.hier_instances:
+        return instances_stats.hier_instances.get(instance.get_model_id())
+    instance_stats = InstanceStats()
+    instance_stats.name = instance.get_model_name()
+    for ins in instance.get_child_instances():
         model_id = ins.get_model_id()
         if ins.is_assign():
-            design_stats.assigns += 1
-            design_stats.flat_assigns += 1
+            instance_stats.assigns += 1
+            instance_stats.flat_assigns += 1
         elif ins.is_primitive():
             if is_basic_primitive(ins):
-                design_stats.basic_primitives[model_id] = (
-                    design_stats.basic_primitives.get(model_id, 0) + 1
+                instance_stats.basic_primitives[model_id] = (
+                    instance_stats.basic_primitives.get(model_id, 0) + 1
                 )
-                design_stats.flat_basic_primitives[model_id] = (
-                    design_stats.flat_basic_primitives.get(model_id, 0) + 1
+                instance_stats.flat_basic_primitives[model_id] = (
+                    instance_stats.flat_basic_primitives.get(model_id, 0) + 1
                 )
             else:
-                design_stats.primitives[model_id] = (
-                    design_stats.primitives.get(model_id, 0) + 1
+                instance_stats.primitives[model_id] = (
+                    instance_stats.primitives.get(model_id, 0) + 1
                 )
-                design_stats.flat_primitives[model_id] = (
-                    design_stats.flat_primitives.get(model_id, 0) + 1
+                instance_stats.flat_primitives[model_id] = (
+                    instance_stats.flat_primitives.get(model_id, 0) + 1
                 )
         elif ins.is_blackbox():
-            design_stats.blackboxes[model_id] = (
-                design_stats.blackboxes.get(model_id, 0) + 1
+            instance_stats.blackboxes[model_id] = (
+                instance_stats.blackboxes.get(model_id, 0) + 1
             )
-            design_stats.flat_blackboxes[model_id] = (
-                design_stats.flat_blackboxes.get(model_id, 0) + 1
+            instance_stats.flat_blackboxes[model_id] = (
+                instance_stats.flat_blackboxes.get(model_id, 0) + 1
             )
-            if model_id not in designs_stats.blackboxes:
-                designs_stats.blackboxes[model_id] = dict()
-                compute_design_terms(model_id, designs_stats.blackboxes[model_id])
+            if model_id not in instance_stats.blackboxes:
+                instance_stats.blackboxes[model_id] = dict()
+                compute_instance_terms(model_id, instance_stats.blackboxes[model_id])
         else:
-            if model_id in designs_stats.hier_designs:
-                model_stats = designs_stats.hier_designs[model_id]
+            if model_id in instances_stats.hier_instances:
+                model_stats = instances_stats.hier_instances[model_id]
             else:
-                model_stats = compute_design_stats(ins, designs_stats)
-            design_stats.ins[model_id] = design_stats.ins.get(model_id, 0) + 1
-            design_stats.flat_ins[model_id] = design_stats.flat_ins.get(model_id, 0) + 1
-            design_stats.add_ins_stats(model_stats)
-    compute_design_terms(design, design_stats)
-    compute_design_net_stats(design, design_stats)
-    designs_stats.hier_designs[design.get_model_id()] = design_stats
-    return design_stats
+                model_stats = compute_instance_stats(ins, instances_stats)
+            instance_stats.ins[model_id] = instance_stats.ins.get(model_id, 0) + 1
+            instance_stats.flat_ins[model_id] = instance_stats.flat_ins.get(model_id, 0) + 1
+            instance_stats.add_ins_stats(model_stats)
+    compute_instance_terms(instance, instance_stats)
+    compute_instance_net_stats(instance, instance_stats)
+    instances_stats.hier_instances[instance.get_model_id()] = instance_stats
+    return instance_stats
 
 
-def compute_design_terms(design, design_stats):
-    for term in design.get_terms():
+def compute_instance_terms(instance, instance_stats):
+    for term in instance.get_terms():
         if term.get_direction() == netlist.Term.INPUT:
-            design_stats.terms["inputs"] = design_stats.terms.get("inputs", 0) + 1
+            instance_stats.terms["inputs"] = instance_stats.terms.get("inputs", 0) + 1
             bit_terms = sum(1 for _ in term.get_bits())
-            design_stats.bit_terms["inputs"] = (
-                design_stats.bit_terms.get("inputs", 0) + bit_terms
+            instance_stats.bit_terms["inputs"] = (
+                instance_stats.bit_terms.get("inputs", 0) + bit_terms
             )
         elif term.get_direction() == netlist.Term.OUTPUT:
-            design_stats.terms["outputs"] = design_stats.terms.get("outputs", 0) + 1
+            instance_stats.terms["outputs"] = instance_stats.terms.get("outputs", 0) + 1
             bit_terms = sum(1 for _ in term.get_bits())
-            design_stats.bit_terms["outputs"] = (
-                design_stats.bit_terms.get("outputs", 0) + bit_terms
+            instance_stats.bit_terms["outputs"] = (
+                instance_stats.bit_terms.get("outputs", 0) + bit_terms
             )
         elif term.get_direction() == netlist.Term.INOUT:
-            design_stats.terms["inouts"] = design_stats.terms.get("inouts", 0) + 1
+            instance_stats.terms["inouts"] = instance_stats.terms.get("inouts", 0) + 1
             bit_terms = sum(1 for _ in term.get_bits())
-            design_stats.bit_terms["inouts"] = (
-                design_stats.bit_terms.get("inouts", 0) + bit_terms
+            instance_stats.bit_terms["inouts"] = (
+                instance_stats.bit_terms.get("inouts", 0) + bit_terms
             )
         else:
-            design_stats.terms["unknowns"] = design_stats.terms.get("unknowns", 0) + 1
+            instance_stats.terms["unknowns"] = instance_stats.terms.get("unknowns", 0) + 1
             bit_terms = sum(1 for _ in term.get_bits())
-            design_stats.bit_terms["unknowns"] = (
-                design_stats.bit_terms.get("unknowns", 0) + bit_terms
+            instance_stats.bit_terms["unknowns"] = (
+                instance_stats.bit_terms.get("unknowns", 0) + bit_terms
             )
 
 
-def compute_design_net_stats(design, design_stats):
-    for net in design.get_flat_nets():
+def compute_instance_net_stats(instance, instance_stats):
+    for net in instance.get_flat_nets():
         if net.is_const():
             pass
         nb_components = sum(1 for c in net.get_terms())
-        design_stats.net_stats[nb_components] = (
-            design_stats.net_stats.get(nb_components, 0) + 1
+        instance_stats.net_stats[nb_components] = (
+            instance_stats.net_stats.get(nb_components, 0) + 1
         )
-        design_stats.net_stats = dict(sorted(design_stats.net_stats.items()))
+        instance_stats.net_stats = dict(sorted(instance_stats.net_stats.items()))
 
 
 def dump_instances(stats_file, title, instances):
@@ -356,21 +340,50 @@ def dump_blackboxes_stats(stats_file, design_stats):
 #  primitives_figure.tight_layout()
 #  primitives_figure.savefig('figures/flat_primitives_' + design.getName() + '.png')
 
+def convert_instance_stats_to_json(instance_stats):
+    json_top = list()
+    for _, value in instance_stats.hier_instances.items():
+        nb_primitives = sum(value.basic_primitives.values())
+        + sum( value.primitives.values())
+        nb_terms = sum(value.terms.values())
+        nb_nets = sum(value.net_stats.keys())
+        nb_ins = sum(value.ins.values()) + nb_primitives
+        json_top.append(
+            {
+                "Name": value.name,
+                "primitives": nb_primitives,
+                "instances": nb_ins,
+                "terms": nb_terms,
+                "nets": nb_nets,
+                #"primitives": value.primitives,
+                #"flat_basic_primitives": value.flat_basic_primitives,
+                #"flat_primitives": value.flat_primitives,
+                #"blackboxes": value.blackboxes,
+                #"flat_blackboxes": value.flat_blackboxes,
+                #"ins": value.ins,
+                #"flat_ins": value.flat_ins,
+                #"terms": value.terms,
+                #"bit_terms": value.bit_terms,
+                #"net_stats": value.net_stats,
+            }
+        )
+    return json_top
 
-def dump_design_stats(design, stats_files):
-    designs_stats = DesignsStats()
-    compute_design_stats(design, designs_stats)
-    dumped_models = set()
-    designs_stats.dump_instance_stats(design, stats_files, designs_stats, dumped_models)
-    #dump_blackboxes_stats(stats_files, designs_stats)
 
-def dump_design_stats_json(design, stats_file):
-    stats_files = [(DesignStats.JSON, stats_file)]
-    dump_design_stats(design, stats_files)
+def dump_instance_stats_json(instance, stats_file):
+    #stats_files = [(InstanceStats.ReportType.JSON, stats_file)]
+    #stats_file.write("[\n") 
+    #dump_instance_stats(design, stats_files)
+    #stats_file.write("]")
+    instances_stats = InstancesStats()
+    compute_instance_stats(instance, instances_stats)
+    json_dict = convert_instance_stats_to_json(instances_stats)
+    json.dump(json_dict, stats_file, indent=4)
 
-def dump_design_stats_text(design, stats_file):
-    stats_files = [(DesignStats.TEXT, stats_file)]
-    dump_design_stats(design, stats_files)
+def dump_instance_stats_text(instance, file):
+    instances_stats = InstancesStats()
+    compute_instance_stats(instance, instances_stats)
+    instances_stats.dump_instance_stats_text(instance, file)
 
 def dump_constants(design, analyzed_models):
     if design.isPrimitive():
