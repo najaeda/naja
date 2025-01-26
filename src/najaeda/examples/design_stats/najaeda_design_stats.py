@@ -16,5 +16,5 @@ netlist.load_liberty(liberty_files)
 # snippet-start: design_stats
 top = netlist.load_verilog([path.join(benchmarks, 'verilog', 'tinyrocket.v')])
 design_stats_file = open('design.stats', 'w')
-stats.dump_design_stats(top, design_stats_file)
+stats.dump_instance_stats_text(top, design_stats_file)
 # snippet-end: design_stats
