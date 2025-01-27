@@ -13,16 +13,17 @@ import faulthandler
 
 
 # snippet-start: dle
-def apply_dle(top):
+def apply_dle(top, keep_attributes=None):
     # Trace back from design outputs
     visited = set()
-    traced_terms = top.get_flat_output_terms()
+    traced_terms = list(top.get_flat_output_terms())
     for leaf in top.get_leaf_children():
-        atrributes =  list(leaf.get_attributes())
-        for attr in atrributes:
-            if attr.get_name() == 'DONT_TOUCH' or attr.get_name() == 'KEEP' or attr.get_name() == 'preserve' or attr.get_name() == 'noprune':
+        attributes =  list(leaf.get_attributes())
+        for attr in attributes:
+            if attr in keep_attributes:
                 for term in leaf.get_flat_input_terms():
                     traced_terms.append(term)
+                break
     for termToTrace in traced_terms:
         queue = deque([termToTrace])
         while queue:
@@ -37,8 +38,7 @@ def apply_dle(top):
                 instances.add(instance)
                 input_terms = instance.get_flat_input_terms()
                 queue.extend(input_terms)
-    
-    
+
     to_delete = [leaf for leaf in top.get_leaf_children() if leaf not in instances]
     for leaf in to_delete:
         leaf.delete()
@@ -52,8 +52,8 @@ if __name__ == '__main__':
     instances = set()
     benchmarks = path.join('..', 'benchmarks')
     top = netlist.load_verilog([path.join(benchmarks, 'verilog', 'vexriscv.v')])
-
-    nb_deleted = apply_dle(top)
+    attributes =  ['DONT_TOUCH', 'KEEP', 'preserve', 'noprune']
+    nb_deleted = apply_dle(top, attributes)
     
     top.dump_verilog("./", "result.v")
     print(f'deleted {len(nb_deleted)} leaves')
