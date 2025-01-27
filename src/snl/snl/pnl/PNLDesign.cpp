@@ -4,6 +4,7 @@
 
 #include "PNLDesign.h"
 
+#include "SNLDB.h"
 #include "SNLLibrary.h"
 
 namespace naja { namespace SNL {
@@ -57,6 +58,14 @@ bool PNLDesign::deepCompare(const PNLDesign* other, std::string& reason) const {
 
 void PNLDesign::debugDump(size_t indent, bool recursive, std::ostream& stream) const {
 
+}
+
+SNLDB* PNLDesign::getDB() const {
+  return library_->getDB();
+}
+
+SNLID PNLDesign::getSNLID() const {
+  return SNLID(getDB()->getID(), library_->getID(), getID());
 }
 
 }} // namespace SNL // namespace naja
