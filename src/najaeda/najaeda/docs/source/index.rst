@@ -11,9 +11,7 @@ najaeda documentation
    :caption: Contents:
 
    introduction
-   instance
-   term
-   net
-   equipotential
+   netlist_classes
+   other_classes
    examples
    api
