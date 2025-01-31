@@ -12,6 +12,6 @@ najaeda documentation
 
    introduction
    netlist_classes
-   other_classes
+   common_classes
    examples
    api

@@ -727,12 +727,24 @@ class Attribute:
         return str(self.snlAttribute)
 
     def get_name(self):
+        """
+        :return: the name of the attribute.
+        :rtype: str
+        """
         return self.snlAttribute.getName()
 
     def has_value(self):
+        """
+        :return: True if the attribute has a value.
+        :rtype: bool
+        """
         return self.snlAttribute.hasValue()
 
     def get_value(self):
+        """
+        :return: the value of the attribute.
+        :rtype: str
+        """
         return self.snlAttribute.getValue()
 
 
