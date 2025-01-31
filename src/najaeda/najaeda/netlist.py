@@ -727,12 +727,24 @@ class Attribute:
         return str(self.snlAttribute)
 
     def get_name(self):
+        """
+        :return: the name of the attribute.
+        :rtype: str
+        """
         return self.snlAttribute.getName()
 
     def has_value(self):
+        """
+        :return: True if the attribute has a value.
+        :rtype: bool
+        """
         return self.snlAttribute.hasValue()
 
     def get_value(self):
+        """
+        :return: the value of the attribute.
+        :rtype: str
+        """
         return self.snlAttribute.getValue()
 
 
@@ -774,6 +786,7 @@ class Instance:
     def get_leaf_children(self):
         """Iterate over the leaf children of this Instance.
         Equivalent to the underlying leaves of the instanciation tree.
+
         :return: an iterator over the leaf children Instance of this Instance.
         :rtype: Iterator[Instance]
         """
@@ -801,7 +814,7 @@ class Instance:
         return len(self.pathIDs) == 0
 
     def is_assign(self) -> bool:
-        """Example: (assign a=b) will create an instance of assign connecting
+        """(assign a=b) will create an instance of assign connecting
         the wire a to the output of the assign and b to the input.
 
         :return: True if this is an assign. Assigns are represented with
@@ -1041,8 +1054,11 @@ class Instance:
                 yield Term(self.pathIDs, term)
 
     def get_flat_output_terms(self):
-        """Return the flat output terms of the instance.
-        This will iterate over all scalar output terms and bus output term bits.
+        """Iterate over all scalar output terms and bus output term bits
+        of this Instance.
+
+        :return: the flat output terms of this Instance.
+        :rtype: Iterator[Term]
         """
         for term in self.__get_snl_model().getTerms():
             if term.getDirection() != snl.SNLTerm.Direction.Input:
@@ -1053,6 +1069,11 @@ class Instance:
                     yield Term(self.pathIDs, term)
 
     def get_attributes(self):
+        """Iterate over the attributes of this Instance.
+
+        :return: the attributes of this Instance.
+        :rtype: Iterator[Attribute]
+        """
         leaf_object = self.__get_leaf_snl_object()
         for attribute in leaf_object.getAttributes():
             yield Attribute(attribute)
@@ -1191,6 +1212,7 @@ class Instance:
 
     def create_bus_term(self, name: str, msb: int, lsb: int, direction) -> Term:
         """Create a bus Term in this Instance with the given name, msb, lsb and direction.
+
         :param str name: the name of the Term to create.
         :param int msb: the most significant bit of the Term to create.
         :param int lsb: the least significant bit of the Term to create.
@@ -1328,7 +1350,9 @@ def load_liberty(files: list):
 
 def load_primitives(name: str):
     """Loads a primitive library embedded in najaeda.
+
     Currently supported libraries are:
+
     - xilinx
     """
     if name == "xilinx":

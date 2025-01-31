@@ -246,8 +246,12 @@ NajaCollection<SNLDB*> SNLUniverse::getUserDBs() const {
   return getDBs().getSubCollection(filter);
 }
 
-SNLDB* SNLUniverse::getTopDB() const {
-  return topDB_;
+SNLDB* SNLUniverse::getTopDB() {
+  auto universe = get();
+  if (universe) {
+    return universe->topDB_;
+  }
+  return nullptr;
 }
 
 void SNLUniverse::setTopDB(SNLDB* db) {
@@ -263,9 +267,10 @@ void SNLUniverse::setTopDesign(SNLDesign* design) {
   setTopDB(db);
 }
 
-SNLDesign* SNLUniverse::getTopDesign() const {
-  if (topDB_) {
-    return topDB_->getTopDesign();
+SNLDesign* SNLUniverse::getTopDesign() {
+  auto topDB = getTopDB();
+  if (topDB) {
+    return topDB->getTopDesign();
   }
   return nullptr;
 }

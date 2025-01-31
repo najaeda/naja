@@ -73,11 +73,11 @@ class SNLUniverse final: public SNLObject {
     
     /// \return the top SNLDB or null if it has not been set.
     /// \sa setTopDB()
-    SNLDB* getTopDB() const;
+    static SNLDB* getTopDB();
 
     /// \return the top SNLDesign or null if it has not been set.
     /// \sa setTopDesign()
-    SNLDesign* getTopDesign() const;
+    static SNLDesign* getTopDesign();
 
     /// set the top SNLDB.
     void setTopDB(SNLDB* db);
