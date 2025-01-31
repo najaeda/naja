@@ -786,7 +786,7 @@ class Instance:
     def get_leaf_children(self):
         """Iterate over the leaf children of this Instance.
         Equivalent to the underlying leaves of the instanciation tree.
-        
+
         :return: an iterator over the leaf children Instance of this Instance.
         :rtype: Iterator[Instance]
         """
