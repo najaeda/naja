@@ -135,24 +135,38 @@ PyObject* PySNLDB_loadLibertyPrimitives(PySNLDB* self, PyObject* args) {
   Py_RETURN_TRUE;
 }
 
-PyObject* PySNLDB_loadVerilog(PySNLDB* self, PyObject* args) {
-  PyObject* arg1 = nullptr;
-  if (not PyArg_ParseTuple(args, "O:SNLDB.loadVerilog", &arg1)) {
+// Define the list of accepted loadVerilog keyword arguments
+static const char* loadVerilogKWList[] = {"keep_assigns", nullptr};
+
+PyObject* PySNLDB_loadVerilog(PySNLDB* self, PyObject* args, PyObject* kwargs) {
+  PyObject* files = nullptr;
+  bool keep_assigns = true;  // Default: true
+
+  if (not PyArg_ParseTupleAndKeywords(args, kwargs,
+    "O|pp:SNLDB.loadVerilog",
+    loadVerilogKWList, 
+    &files, &keep_assigns)) {
     setError("malformed SNLDB loadVerilog");
     Py_RETURN_FALSE;
   }
-  if (not PyList_Check(arg1)) {
+
+  if (not PyList_Check(files)) {
     setError("malformed SNLDB.loadVerilog method");
     Py_RETURN_FALSE;
   }
   SNLDB* db = self->object_;
   TRY
-  auto designLibrary = SNLLibrary::create(db, SNLName("DESIGN"));
+  //loadVerilog can be called multiple times
+  //last one gets top
+  SNLLibrary* designLibrary = db->getLibrary(SNLName("DESIGN"));
+  if (designLibrary == nullptr) {
+    designLibrary = SNLLibrary::create(db, SNLName("DESIGN"));
+  }
   SNLVRLConstructor constructor(designLibrary);
   using Paths = std::vector<std::filesystem::path>;
   Paths inputPaths;
-  for (int i = 0; i < PyList_Size(arg1); ++i) {
-    PyObject* object = PyList_GetItem(arg1, i);
+  for (int i = 0; i < PyList_Size(files); ++i) {
+    PyObject* object = PyList_GetItem(files, i);
     if (not PyUnicode_Check(object)) {
       setError("SNLDB loadVerilog argument should be a file path");
       Py_RETURN_FALSE;
@@ -162,6 +176,9 @@ PyObject* PySNLDB_loadVerilog(PySNLDB* self, PyObject* args) {
     inputPaths.push_back(path);
   }
   constructor.construct(inputPaths);
+  if (not keep_assigns) {
+    db->mergeAssigns();
+  }
   auto top = SNLUtils::findTop(designLibrary);
   if (top) {
     SNLUniverse::get()->setTopDesign(top);

@@ -1333,11 +1333,16 @@ def create_top(name: str) -> Instance:
     snl.SNLUniverse.get().setTopDesign(top)
     return Instance()
 
+class VerilogConfig:
+    def __init__(self, keep_assigns=False):
+        self.keep_assigns = keep_assigns
 
-def load_verilog(files: list):
+def load_verilog(files: list, config: VerilogConfig = None) -> Instance:
+    if config is None:
+        config = VerilogConfig()  # Use default settings
     start_time = time.time()
     logging.info(f"Loading verilog: {', '.join(files)}")
-    get_top_db().loadVerilog(files)
+    get_top_db().loadVerilog(files, keep_assigns=config.keep_assigns)
     execution_time = time.time() - start_time
     logging.info(f"Loading done in {execution_time:.2f} seconds")
     return get_top()
