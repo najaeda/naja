@@ -142,7 +142,8 @@ PyObject* PySNLDB_loadVerilog(PySNLDB* self, PyObject* args, PyObject* kwargs) {
   static const char* const kwords[] = {"files", "keep_assigns", nullptr};
 
   if (not PyArg_ParseTupleAndKeywords(
-    args, kwargs, "O|p:SNLDB.loadVerilog", kwords, 
+    args, kwargs, "O|p:SNLDB.loadVerilog",
+    const_cast<char**>(kwords), 
     &files, &keep_assigns)) {
     setError("malformed SNLDB loadVerilog");
     return nullptr;
