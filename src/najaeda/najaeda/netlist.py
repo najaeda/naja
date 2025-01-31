@@ -1350,7 +1350,9 @@ def load_liberty(files: list):
 
 def load_primitives(name: str):
     """Loads a primitive library embedded in najaeda.
+
     Currently supported libraries are:
+    
     - xilinx
     """
     if name == "xilinx":
