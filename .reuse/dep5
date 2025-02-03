@@ -53,3 +53,6 @@ FILES: src/najaeda/examples/benchmarks/verilog/vexriscv.v
 Copyright: 2016 Spinal HDL contributors.
 License: MIT
 
+FILES: src/thirdparty/lefdef
+Copyright: Cadence Design Systems and distributed by Si2
+License: Apache-2.0
