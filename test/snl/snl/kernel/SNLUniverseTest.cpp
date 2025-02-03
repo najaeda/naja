@@ -42,3 +42,9 @@ TEST_F(SNLUniverseTest, testUniverseClashError) {
   ASSERT_NE(nullptr, SNLUniverse::get());
   EXPECT_THROW(SNLUniverse::create(), SNLException);
 }
+
+TEST_F(SNLUniverseTest, testEmptyUniverse) {
+  ASSERT_EQ(nullptr, SNLUniverse::get());
+  EXPECT_EQ(nullptr, SNLUniverse::getTopDB());
+  EXPECT_EQ(nullptr, SNLUniverse::getTopDesign());
+}
