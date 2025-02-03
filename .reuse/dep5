@@ -41,7 +41,7 @@ FILES: thirdparty/yosys-liberty/test/benchmarks/test1.lib test/snl/formats/liber
 Copyright: Copyright 2020 Lawrence T. Clark, Vinay Vashishtha, or Arizona State University
 License: BSD-3-Clause
 
-FILES: src/najaeda/najaeda/docs/*
+FILES: src/najaeda/README.rst src/najaeda/najaeda/docs/*
 Copyright: 2022 The Naja Authors.
 License: Apache-2.0
 
