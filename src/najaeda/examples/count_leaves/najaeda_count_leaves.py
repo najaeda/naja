@@ -7,9 +7,12 @@
 
 from os import path
 import sys
+import logging
 
 from najaeda import netlist
 from najaeda import instance_visitor
+
+logging.basicConfig(level=logging.INFO)
 
 netlist.load_primitives('xilinx')
 benchmarks = path.join('..','benchmarks')

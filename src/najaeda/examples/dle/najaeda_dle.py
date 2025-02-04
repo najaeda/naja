@@ -5,12 +5,14 @@
  
 from os import path
 import sys
+import logging
 from collections import deque
 
 from najaeda import netlist
 from najaeda import snl
 import faulthandler
 
+logging.basicConfig(level=logging.INFO)
 
 # snippet-start: dle
 def apply_dle(top, keep_attributes=None):
