@@ -12,6 +12,7 @@ from enum import Enum
 
 from najaeda import snl
 
+
 def consistent_hash(obj):
     def default_serializer(o):
         if isinstance(o, (str, int, float, bool, type(None))):
@@ -36,6 +37,7 @@ def consistent_hash(obj):
     serialized_obj = default_serializer(obj)
     obj_bytes = hash_object(serialized_obj)
     return int(hashlib.sha256(obj_bytes).hexdigest(), 16)
+
 
 def get_snl_instance_from_id_list(id_list: list) -> snl.SNLInstance:
     top = snl.SNLUniverse.get().getTopDesign()
@@ -438,7 +440,9 @@ class Term:
         if path.size() == 0:
             term_str = get_snl_term_for_ids(self.pathIDs, self.termIDs).getName()
         else:
-            term_str = f"{path}/{get_snl_term_for_ids(self.pathIDs, self.termIDs).getName()}"
+            term_str = (
+                f"{path}/{get_snl_term_for_ids(self.pathIDs, self.termIDs).getName()}"
+            )
         if self.is_bus:
             term_str += f"[{self.get_msb()}:{self.get_lsb()}]"
         elif self.is_bus_bit:
@@ -488,13 +492,15 @@ class Term:
         :rtype: bool
         """
         return self.is_scalar() or self.is_bus_bit()
-    
-    def get_bit(self):
+
+    def get_bit_number(self):
         """
         :return: the bit index of the term if it is a bit.
         :rtype: int or None
         """
-        if isinstance(get_snl_term_for_ids(self.pathIDs, self.termIDs), snl.SNLBusTermBit):
+        if isinstance(
+            get_snl_term_for_ids(self.pathIDs, self.termIDs), snl.SNLBusTermBit
+        ):
             return get_snl_term_for_ids(self.pathIDs, self.termIDs).getBit()
         return None
 
@@ -825,7 +831,7 @@ class Instance:
         """
         instance = get_snl_instance_from_id_list(self.pathIDs)
         return instance is not None
-    
+
     def is_top(self) -> bool:
         """
         :return: True if this is the top design.
@@ -1366,9 +1372,11 @@ def create_top(name: str) -> Instance:
     snl.SNLUniverse.get().setTopDesign(top)
     return Instance()
 
+
 class VerilogConfig:
     def __init__(self, keep_assigns=False):
         self.keep_assigns = keep_assigns
+
 
 def load_verilog(files: list, config: VerilogConfig = None) -> Instance:
     if config is None:
