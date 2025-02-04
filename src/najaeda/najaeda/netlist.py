@@ -1374,7 +1374,7 @@ def create_top(name: str) -> Instance:
 
 
 class VerilogConfig:
-    def __init__(self, keep_assigns=False):
+    def __init__(self, keep_assigns=True):
         self.keep_assigns = keep_assigns
 
 

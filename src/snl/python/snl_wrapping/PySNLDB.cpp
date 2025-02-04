@@ -14,7 +14,7 @@
 
 #include <Python.h>
 #include <filesystem>
-//#include "SNLCapnP.h"
+#include "SNLCapnP.h"
 #include "SNLLibertyConstructor.h"
 #include "SNLUtils.h"
 #include "SNLVRLConstructor.h"
@@ -51,7 +51,6 @@ static PyObject* PySNLDB_create(PyObject*, PyObject* args) {
   return PySNLDB_Link(db);
 }
 
-#if 0
 static PyObject* PySNLDB_loadSNL(PyObject*, PyObject* args) {
   PyObject* arg = nullptr;
   if (not PyArg_ParseTuple(args, "O:SNLDB.loadSNL", &arg)) {
@@ -87,7 +86,6 @@ PyObject* PySNLDB_dumpSNL(PySNLDB* self, PyObject* args) {
   // return true to python
   Py_RETURN_TRUE;
 }
-#endif
 
 PyObject* PySNLDB_loadLibertyPrimitives(PySNLDB* self, PyObject* args) {
   PyObject* arg0 = nullptr;
@@ -234,10 +232,10 @@ PyMethodDef PySNLDB_Methods[] = {
     "create a SNLDB."},
   { "getID", (PyCFunction)PySNLDB_getID, METH_NOARGS,
     "get the SNLDB ID."},
-//{ "loadSNL", (PyCFunction)PySNLDB_loadSNL, METH_VARARGS | METH_STATIC,
-//  "create a SNLDB from SNL format."},
-//{ "dumpSNL", (PyCFunction)PySNLDB_dumpSNL, METH_VARARGS,
-//  "dump this SNLDB to SNL format."},
+  { "loadSNL", (PyCFunction)PySNLDB_loadSNL, METH_VARARGS | METH_STATIC,
+    "create a SNLDB from SNL format."},
+  { "dumpSNL", (PyCFunction)PySNLDB_dumpSNL, METH_VARARGS,
+    "dump this SNLDB to SNL format."},
   { "loadLibertyPrimitives", (PyCFunction)PySNLDB_loadLibertyPrimitives, METH_VARARGS,
     "import primitives from Liberty format."},
   { "loadVerilog", (PyCFunction)PySNLDB_loadVerilog, METH_VARARGS|METH_KEYWORDS,
