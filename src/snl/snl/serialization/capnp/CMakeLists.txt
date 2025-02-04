@@ -23,3 +23,8 @@ target_include_directories(naja_snl_dump PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 install(
     FILES snl_common.capnp snl_interface.capnp snl_implementation.capnp snl_common.capnp
     DESTINATION ${CMAKE_INSTALL_DATADIR}/naja/snlif)
+
+if(BUILD_NAJA_PYTHON)
+    install(TARGETS naja_snl_dump LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/najaeda)
+endif(BUILD_NAJA_PYTHON)
+  
