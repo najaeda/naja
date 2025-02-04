@@ -33,7 +33,7 @@ before-all = '''
   cd capnproto-c++-1.1.0
   ./configure
   make -j6 check
-  make install
+  sudo make install
   cd ..
 '''
 
