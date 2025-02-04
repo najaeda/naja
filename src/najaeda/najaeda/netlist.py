@@ -12,7 +12,6 @@ from enum import Enum
 
 from najaeda import snl
 
-
 def consistent_hash(obj):
     def default_serializer(o):
         if isinstance(o, (str, int, float, bool, type(None))):
@@ -38,14 +37,14 @@ def consistent_hash(obj):
     obj_bytes = hash_object(serialized_obj)
     return int(hashlib.sha256(obj_bytes).hexdigest(), 16)
 
-
 def get_snl_instance_from_id_list(id_list: list) -> snl.SNLInstance:
     top = snl.SNLUniverse.get().getTopDesign()
     design = top
     instance = None
     for id in id_list:
         instance = design.getInstanceByID(id)
-        assert instance is not None
+        if instance is None:
+            return None
         design = instance.getModel()
     return instance
 
@@ -434,13 +433,16 @@ class Term:
         return consistent_hash((self.pathIDs, termIDs))
 
     def __str__(self):
+        term_str = ""
         path = get_snl_path_from_id_list(self.pathIDs)
         if path.size() == 0:
-            return get_snl_term_for_ids(self.pathIDs, self.termIDs).getName()
+            term_str = get_snl_term_for_ids(self.pathIDs, self.termIDs).getName()
         else:
-            return (
-                f"{path}/{get_snl_term_for_ids(self.pathIDs, self.termIDs).getName()}"
-            )
+            term_str = f"{path}/{get_snl_term_for_ids(self.pathIDs, self.termIDs).getName()}"
+        if self.is_bus:
+            term_str += f"[{self.get_msb()}:{self.get_lsb()}]"
+        elif self.is_bus_bit:
+            term_str += f"[{self.get_lsb()}]"
 
     def __repr__(self) -> str:
         path = get_snl_path_from_id_list(self.pathIDs)
@@ -485,6 +487,15 @@ class Term:
         :rtype: bool
         """
         return self.is_scalar() or self.is_bus_bit()
+    
+    def get_bit(self):
+        """
+        :return: the bit index of the term if it is a bit.
+        :rtype: int or None
+        """
+        if isinstance(get_snl_term_for_ids(self.pathIDs, self.termIDs), snl.SNLBusTermBit):
+            return get_snl_term_for_ids(self.pathIDs, self.termIDs).getBit()
+        return None
 
     def get_msb(self) -> int:
         """
@@ -806,6 +817,14 @@ class Instance:
                         yield Instance(path_child)
                     stack.append([inst_child, path_child])
 
+    def is_valid(self) -> bool:
+        """
+        :return: True if the instance is valid.
+        :rtype: bool
+        """
+        instance = get_snl_instance_from_id_list(self.pathIDs)
+        return instance is not None
+    
     def is_top(self) -> bool:
         """
         :return: True if this is the top design.
@@ -898,6 +917,19 @@ class Instance:
 
     def dump_context_dot(self, path: str):
         self.__get_snl_model().dumpContextDotFile(path)
+
+    def get_parent(self):
+        """Get the parent instance of this instance.
+
+        :return: the parent Instance of this instance.
+        :rtype: Instance
+        """
+        if self.is_top():
+            return None
+        path = get_snl_path_from_id_list(self.pathIDs)
+        parent_path = snl.SNLPath(path)
+        parent_path.pop()
+        return Instance(parent_path)
 
     def get_child_instance(self, name: str):
         """
