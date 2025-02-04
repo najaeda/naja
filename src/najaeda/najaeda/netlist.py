@@ -443,6 +443,7 @@ class Term:
             term_str += f"[{self.get_msb()}:{self.get_lsb()}]"
         elif self.is_bus_bit:
             term_str += f"[{self.get_lsb()}]"
+        return term_str
 
     def __repr__(self) -> str:
         path = get_snl_path_from_id_list(self.pathIDs)
