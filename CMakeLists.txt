@@ -94,7 +94,7 @@ if(NOT BUILD_ONLY_DOC)
   endif(NOT BUILD_NAJA_PYTHON)
 
   find_package(Boost REQUIRED)
-  find_package(CapnProto CONFIG REQUIRED)
+  find_package(CapnProto REQUIRED)
   if (NOT ${BUILD_NAJA_PYTHON})
     find_package(Python3 3.9...<3.99 COMPONENTS Interpreter Development.Embed Development.Module REQUIRED)
   else()
