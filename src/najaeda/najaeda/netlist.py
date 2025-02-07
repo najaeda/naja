@@ -384,6 +384,7 @@ def get_snl_term_for_ids(pathIDs, termIDs):
         else:
             return snlterm
 
+
 def get_snl_term_for_ids_with_path(path, termIDs):
     model = None
     if path.size() == 0:
@@ -398,6 +399,7 @@ def get_snl_term_for_ids_with_path(path, termIDs):
             return snlterm.getBit(termIDs[1])
         else:
             return snlterm
+
 
 class Term:
     INPUT = snl.SNLTerm.Direction.Input
