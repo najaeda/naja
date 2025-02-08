@@ -309,8 +309,10 @@ class NajaNetlistTest0(unittest.TestCase):
         self.assertEqual(len(computeEqui.get_terms()), len(snl_top_terms) + len(snl_inst_term_occurrences))
 
         for t in equi.get_top_terms():
-            self.assertTrue(netlist.get_snl_term_for_ids(t.pathIDs, t.termIDs) == snl_top_terms.pop(0)) 
-        
+            to_compare_with = snl_top_terms.pop(0)
+            self.assertTrue(netlist.get_snl_term_for_ids(t.pathIDs, t.termIDs) == to_compare_with) 
+            self.assertTrue(netlist.get_snl_term_for_ids_with_path(netlist.get_snl_path_from_id_list(t.pathIDs), t.termIDs) == to_compare_with)
+
         for t in equi.get_inst_terms():
             to_compare_with = snl_inst_term_occurrences.pop(0)
             self.assertTrue(netlist.get_snl_term_for_ids_with_path(netlist.get_snl_path_from_id_list(t.pathIDs), t.termIDs) == to_compare_with.getInstTerm().getBitTerm())
