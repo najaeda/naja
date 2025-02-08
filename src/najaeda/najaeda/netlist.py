@@ -71,7 +71,8 @@ class Equipotential:
     """
 
     def __init__(self, term):
-        snl_term = get_snl_term_for_ids(term.pathIDs, term.termIDs)
+        path = get_snl_path_from_id_list(term.pathIDs)
+        snl_term = get_snl_term_for_ids_with_path(path, term.termIDs)
         inst_term = None
         if isinstance(snl_term, snl.SNLBusTerm):
             raise ValueError("Equipotential cannot be constructed on bus term")
@@ -85,10 +86,10 @@ class Equipotential:
                 self.equi = None
                 return
             else:
+                path = snl.SNLPath(path, get_snl_instance_from_id_list(inst_term.pathIDs))
                 snl_term = get_snl_term_for_ids(inst_term.pathIDs, inst_term.termIDs)
         else:
             inst_term = term
-        path = get_snl_path_from_id_list(inst_term.pathIDs)
         ito = snl.SNLNetComponentOccurrence(
             path.getHeadPath(), path.getTailInstance().getInstTerm(snl_term)
         )
@@ -371,6 +372,22 @@ def get_snl_term_for_ids(pathIDs, termIDs):
     path = get_snl_path_from_id_list(pathIDs)
     model = None
     if len(pathIDs) == 0:
+        model = snl.SNLUniverse.get().getTopDesign()
+    else:
+        model = path.getTailInstance().getModel()
+    if termIDs[1] == -1:
+        return model.getTermByID(termIDs[0])
+    else:
+        snlterm = model.getTermByID(termIDs[0])
+        if isinstance(snlterm, snl.SNLBusTerm):
+            return snlterm.getBit(termIDs[1])
+        else:
+            return snlterm
+
+
+def get_snl_term_for_ids_with_path(path, termIDs):
+    model = None
+    if path.size() == 0:
         model = snl.SNLUniverse.get().getTopDesign()
     else:
         model = path.getTailInstance().getModel()
