@@ -313,6 +313,7 @@ class NajaNetlistTest0(unittest.TestCase):
         
         for t in equi.get_inst_terms():
             to_compare_with = snl_inst_term_occurrences.pop(0)
+            self.assertTrue(netlist.get_snl_term_for_ids_with_path(netlist.get_snl_path_from_id_list(t.pathIDs), t.termIDs) == to_compare_with.getInstTerm().getBitTerm())
             self.assertTrue(netlist.get_snl_term_for_ids(t.pathIDs, t.termIDs) == to_compare_with.getInstTerm().getBitTerm())
             self.assertTrue(netlist.get_snl_path_from_id_list(t.pathIDs).getHeadPath() == to_compare_with.getPath())
 
