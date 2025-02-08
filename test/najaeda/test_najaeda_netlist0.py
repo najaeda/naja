@@ -244,7 +244,12 @@ class NajaNetlistTest0(unittest.TestCase):
         self.noNameTop = snl.SNLScalarTerm.create(self.top, snl.SNLTerm.Direction.Input, "")
         self.noNameBusTop = snl.SNLBusTerm.create(self.top, snl.SNLTerm.Direction.Input, 4, 0, "")
 
+        
+
         path0 = snl.SNLPath()
+
+        self.assertEqual(self.noNameBusTop, netlist.get_snl_term_for_ids_with_path(path0, [self.noNameBusTop.getID(), -1]))
+
         #print(path0)
         self.assertIsNotNone(path0)
         self.assertTrue(path0.empty())
