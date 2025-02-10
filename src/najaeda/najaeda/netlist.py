@@ -401,6 +401,22 @@ def get_snl_term_for_ids_with_path(path, termIDs):
             return snlterm
 
 
+def get_snl_term_for_ids_with_path(path, termIDs):
+    model = None
+    if path.size() == 0:
+        model = snl.SNLUniverse.get().getTopDesign()
+    else:
+        model = path.getTailInstance().getModel()
+    if termIDs[1] == -1:
+        return model.getTermByID(termIDs[0])
+    else:
+        snlterm = model.getTermByID(termIDs[0])
+        if isinstance(snlterm, snl.SNLBusTerm):
+            return snlterm.getBit(termIDs[1])
+        else:
+            return snlterm
+
+
 class Term:
     INPUT = snl.SNLTerm.Direction.Input
     OUTPUT = snl.SNLTerm.Direction.Output
