@@ -324,6 +324,25 @@ static PyObject* PySNLDesign_dumpContextDotFile(PySNLDesign* self, PyObject* arg
   Py_RETURN_NONE;
 }
 
+static PyObject* PySNLDesign_getInstanceByIDList(PySNLDesign* self, PyObject* args) {
+  PyObject* arg0 = nullptr;
+  if (not PyArg_ParseTuple(args, "O:SNLDesign.getInsatnceByIDList", &arg0)) {
+    setError("malformed SNLDesign.getInsatnceByIDList method");
+    return nullptr;
+  }
+  if (not PyList_Check(arg0)) {
+    setError("malformed SNLDesign.getInsatnceByIDList method");
+    return nullptr;
+  }
+  naja::SNL::SNLDesign* design = self->object_;
+  naja::SNL::SNLInstance* instance = nullptr;
+  for (int i=0; i<PyList_Size(arg0); ++i) {
+    instance = design->getInstance(PyLong_AsLong(PyList_GetItem(arg0, i)));
+    design = instance->getModel();
+  }
+  return PySNLInstance_Link(instance);
+}
+
 static PyObject* PySNLDesign_getCombinatorialInputs(PySNLDesign*, PyObject* object) {
   GetDesignModelingRelatedObjects(SNLBitTerm, getCombinatorialInputs, SNLDesign)
 }
@@ -354,6 +373,7 @@ GetObjectByIndex(Design, Instance, InstanceByID)
 GetObjectByIndex(Design, Term, TermByID)
 GetNameMethod(SNLDesign)
 DirectGetIntMethod(PySNLDesign_getID, getID, PySNLDesign, SNLDesign)
+DirectGetIntMethod(PySNLDesign_getRevisionCount, getRevisionCount, PySNLDesign, SNLDesign)
 GetBoolAttribute(Design, isAnonymous)
 GetBoolAttribute(Design, isBlackBox)
 GetBoolAttribute(Design, isPrimitive)
@@ -383,6 +403,8 @@ PyMethodDef PySNLDesign_Methods[] = {
     "SNLDesign creator"},
   { "getID", (PyCFunction)PySNLDesign_getID, METH_NOARGS,
     "get the ID."},
+  { "getRevisionCount", (PyCFunction)PySNLDesign_getRevisionCount, METH_NOARGS,
+    "get revision count."},
   { "createPrimitive", (PyCFunction)PySNLDesign_createPrimitive, METH_VARARGS|METH_STATIC,
     "SNLDesign Primitive creator"},
   { "addCombinatorialArcs", (PyCFunction)PySNLDesign_addCombinatorialArcs, METH_VARARGS|METH_STATIC,
@@ -481,6 +503,8 @@ PyMethodDef PySNLDesign_Methods[] = {
     "dump full dot file for this SNLDesign."},
   { "dumpContextDotFile", (PyCFunction)PySNLDesign_dumpContextDotFile, METH_VARARGS,
     "dump context dot file for this SNLDesign."},
+  { "getInstanceByIDList", (PyCFunction)PySNLDesign_getInstanceByIDList, METH_VARARGS,
+    "get instance by ID list."},
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 

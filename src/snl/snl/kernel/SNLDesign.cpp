@@ -743,4 +743,11 @@ void SNLDesign::debugDump(size_t indent, bool recursive, std::ostream& stream) c
 }
 //LCOV_EXCL_STOP
 
+void SNLDesign::recursiveRevisionIncrement() {
+  incrementRevisionCount();
+  for (auto instance: getInstances()) {
+    instance->getModel()->recursiveRevisionIncrement();
+  }
+}
+
 }} // namespace SNL // namespace naja

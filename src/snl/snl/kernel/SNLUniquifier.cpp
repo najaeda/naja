@@ -44,7 +44,7 @@ void SNLUniquifier::process() {
     // LCOV_EXCL_STOP
 #endif
     SNLInstance *inst = currentDesign->getInstance(path_[i]);
-
+    inst->getModel()->recursiveRevisionIncrement();
     if ((i == path_.size() - 1) && !uniquifyTail_) {
       // If we are at the last instance, we can keep it
       pathUniq_.push_back(inst);

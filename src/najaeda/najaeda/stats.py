@@ -150,11 +150,8 @@ class InstanceStats:
             )
 
 
-def is_basic_primitive(design):
-    return (
-        design.is_const0() or design.is_const1() or design.is_buf() or design.is_inv()
-    )
-
+def is_basic_primitive(instance):
+    return instance.is_basic_primitive()
 
 def compute_instance_stats(instance, instances_stats):
     if instance.get_model_id() in instances_stats.hier_instances:

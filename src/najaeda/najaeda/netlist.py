@@ -40,14 +40,14 @@ def consistent_hash(obj):
 
 
 def get_snl_instance_from_id_list(id_list: list) -> snl.SNLInstance:
-    top = snl.SNLUniverse.get().getTopDesign()
-    design = top
-    instance = None
-    for id in id_list:
-        instance = design.getInstanceByID(id)
-        assert instance is not None
-        design = instance.getModel()
-    return instance
+    design = snl.SNLUniverse.get().getTopDesign()
+    # instance = None
+    # for id in id_list:
+    #     instance = design.getInstanceByID(id)
+    #     assert instance is not None
+    #     design = instance.getModel()
+    # return instance
+    return design.getInstanceByIDList(id_list)
 
 
 def get_snl_path_from_id_list(id_list: list) -> snl.SNLPath:
@@ -110,8 +110,9 @@ class Equipotential:
         """
         if self.equi is not None:
             for term in self.equi.getInstTermOccurrences():
-                yield Term(
-                    snl.SNLPath(term.getPath(), term.getInstTerm().getInstance()),
+                path = term.getPath().getPathIDs()
+                path.append(term.getInstTerm().getInstance().getID())
+                yield Term(path,
                     term.getInstTerm().getBitTerm(),
                 )
 
@@ -131,10 +132,9 @@ class Equipotential:
                 direction = term.getInstTerm().getDirection()
                 if direction != snl.SNLTerm.Direction.Output:
                     if term.getInstTerm().getInstance().getModel().isLeaf():
-                        yield Term(
-                            snl.SNLPath(
-                                term.getPath(), term.getInstTerm().getInstance()
-                            ),
+                        path = term.getPath().getPathIDs()
+                        path.append(term.getInstTerm().getInstance().getID())
+                        yield Term(path,
                             term.getInstTerm().getBitTerm(),
                         )
 
@@ -144,10 +144,9 @@ class Equipotential:
                 direction = term.getInstTerm().getDirection()
                 if direction != snl.SNLTerm.Direction.Input:
                     if term.getInstTerm().getInstance().getModel().isLeaf():
-                        yield Term(
-                            snl.SNLPath(
-                                term.getPath(), term.getInstTerm().getInstance()
-                            ),
+                        path = term.getPath().getPathIDs()
+                        path.append(term.getInstTerm().getInstance().getID())
+                        yield Term(path,
                             term.getInstTerm().getBitTerm(),
                         )
 
@@ -156,14 +155,14 @@ class Equipotential:
             for term in self.equi.getTerms():
                 direction = term.getDirection()
                 if direction != snl.SNLTerm.Direction.Input:
-                    yield Term(snl.SNLPath(), term)
+                    yield Term([], term)
 
     def get_top_drivers(self):
         if self.equi is not None:
             for term in self.equi.getTerms():
                 direction = term.getDirection()
                 if direction != snl.SNLTerm.Direction.Output:
-                    yield Term(snl.SNLPath(), term)
+                    yield Term([], term)
 
 
 class Net:
@@ -344,10 +343,11 @@ class Net:
         """
         if hasattr(self, "net_concat"):
             raise ValueError("Cannot get inst terms from a net_concat")
+        path = self.pathIDs.copy()
         for term in self.net.getInstTerms():
-            path = self.pathIDs.copy()
             path.append(term.getInstance().getID())
             yield Term(path, term.getBitTerm())
+            path.pop()
 
     def get_design_terms(self):
         """
@@ -380,7 +380,7 @@ def get_snl_term_for_ids(pathIDs, termIDs):
     else:
         snlterm = model.getTermByID(termIDs[0])
         if isinstance(snlterm, snl.SNLBusTerm):
-            return snlterm.getBit(termIDs[1])
+            return snlterm.getBusTermBit(termIDs[1])
         else:
             return snlterm
 
@@ -396,7 +396,7 @@ def get_snl_term_for_ids_with_path(path, termIDs):
     else:
         snlterm = model.getTermByID(termIDs[0])
         if isinstance(snlterm, snl.SNLBusTerm):
-            return snlterm.getBit(termIDs[1])
+            return snlterm.getBusTermBit(termIDs[1])
         else:
             return snlterm
 
@@ -407,19 +407,12 @@ class Term:
     INOUT = snl.SNLTerm.Direction.InOut
 
     def __init__(self, path, term):
-        self.termIDs = []
-        if isinstance(term, snl.SNLBusTerm):
-            self.termIDs = [term.getID(), -1]
-        else:
-            self.termIDs = [term.getID(), term.getBit()]
-
-        if isinstance(path, snl.SNLPath):
-            if path.size() > 0:
-                self.pathIDs = path.getPathIDs()
-            else:
-                self.pathIDs = []
-        elif isinstance(path, list):
-            self.pathIDs = path.copy()
+        # self.termIDs = []
+        # if isinstance(term, snl.SNLBusTerm):
+        #     self.termIDs = [term.getID(), -1]
+        # else:
+        self.termIDs = [term.getID(), term.getBit()]
+        self.pathIDs = path.copy()
 
     def __eq__(self, other) -> bool:
         return self.pathIDs == other.pathIDs and self.termIDs == other.termIDs
@@ -668,7 +661,7 @@ class Term:
         if isinstance(get_snl_term_for_ids(self.pathIDs, self.termIDs), snl.SNLBusTerm):
             return Term(
                 self.pathIDs,
-                get_snl_term_for_ids(self.pathIDs, self.termIDs).getBit(index),
+                get_snl_term_for_ids(self.pathIDs, self.termIDs).getBusTermBit(index),
             )
         return None
 
@@ -771,13 +764,20 @@ class Instance:
     """
 
     def __init__(self, path=snl.SNLPath()):
+        self.inst = None
+        self.revisionCount = 0
         if isinstance(path, snl.SNLPath):
             if path.size() > 0:
                 self.pathIDs = path.getPathIDs()
+                self.revisionCount = path.getTailInstance().getModel().getRevisionCount()
+                self.inst = path.getTailInstance()
             else:
                 self.pathIDs = []
         elif isinstance(path, list):
             self.pathIDs = path.copy()
+            if len(path) > 0:
+                self.inst = get_snl_instance_from_id_list(path)
+                self.revisionCount = self.inst.getModel().getRevisionCount()
 
     def __eq__(self, other) -> bool:
         return self.pathIDs == other.pathIDs
@@ -889,11 +889,19 @@ class Instance:
         """
         return self.__get_snl_model().isInv()
 
+    def is_basic_primitive(instance):
+        design = instance.__get_snl_model()
+        return (
+            design.isConst0() or design.isConst1() or design.isBuf() or design.isInv()
+        )
+
     def __get_snl_model(self):
         if self.is_top():
             return snl.SNLUniverse.get().getTopDesign()
-        instance = get_snl_instance_from_id_list(self.pathIDs)
-        return instance.getModel()
+        if self.inst.getModel().getRevisionCount() != self.revisionCount:
+            self.inst = get_snl_instance_from_id_list(self.pathIDs)
+            self.revisionCount = self.inst.getModel().getRevisionCount()
+        return self.inst.getModel()
 
     def __get_leaf_snl_object(self):
         if self.is_top():
@@ -936,10 +944,11 @@ class Instance:
         :return: an iterator over the child instances of this instance.
         :rtype: Iterator[Instance]
         """
+        path = get_snl_path_from_id_list(self.pathIDs)
         for inst in self.__get_snl_model().getInstances():
-            path = self.pathIDs.copy()
-            path.append(inst.getID())
-            yield Instance(path)
+            path_child = snl.SNLPath(path, inst)
+            yield Instance(path_child)
+            #path.pop()
 
     def get_number_of_child_instances(self) -> int:
         """
@@ -1198,7 +1207,7 @@ class Instance:
             path = get_snl_path_from_id_list(self.pathIDs)
         design = self.__get_snl_model()
         newSNLTerm = snl.SNLScalarTerm.create(design, direction, name)
-        return Term(path, newSNLTerm)
+        return Term(path.getPathIDs(), newSNLTerm)
 
     def create_output_term(self, name: str) -> Term:
         """Create an output Term in this Instance with the given name.
@@ -1239,10 +1248,9 @@ class Instance:
         path = get_snl_path_from_id_list(self.pathIDs)
         if path.size() > 0:
             snl.SNLUniquifier(path)
-            path = get_snl_path_from_id_list(self.pathIDs)
         design = self.__get_snl_model()
         newSNLTerm = snl.SNLBusTerm.create(design, direction, msb, lsb, name)
-        return Term(path, newSNLTerm)
+        return Term(self.pathIDs, newSNLTerm)
 
     def create_inout_bus_term(self, name: str, msb: int, lsb: int) -> Term:
         """Create an inout bus Term in this Instance with the given name, msb and lsb.
