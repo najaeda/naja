@@ -412,7 +412,7 @@ def get_snl_term_for_ids_with_path(path, termIDs):
     else:
         snlterm = model.getTermByID(termIDs[0])
         if isinstance(snlterm, snl.SNLBusTerm):
-            return snlterm.getBit(termIDs[1])
+            return snlterm.getBusTermBit(termIDs[1])
         else:
             return snlterm
 
