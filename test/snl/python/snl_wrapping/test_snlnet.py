@@ -79,7 +79,7 @@ class SNLNetTest(unittest.TestCase):
     self.assertEqual(1, sum(1 for n in self.design.getBusNets()))
     self.assertEqual(1+5, sum(1 for b in self.design.getBitNets()))
     
-    i1Bit4 = i1.getBit(4)
+    i1Bit4 = i1.getBusTermBit(4)
     i1NetBit4 = i1Net.getBit(4)
     self.assertIsNotNone(i1Bit4)
     self.assertIsNotNone(i1NetBit4)
@@ -99,7 +99,7 @@ class SNLNetTest(unittest.TestCase):
     design2Net = snl.SNLScalarNet.create(design2, "net")
     with self.assertRaises(RuntimeError) as context: i1.setNet(design2Net)
 
-    self.assertIsNone(i1.getBit(5))
+    self.assertIsNone(i1.getBusTermBit(5))
     self.assertIsNone(i1Net.getBit(5))
     del i1Bit4
     del i1NetBit4
@@ -120,7 +120,7 @@ class SNLNetTest(unittest.TestCase):
     i0Net = snl.SNLScalarNet.create(self.design, "I0")
     topI0.setNet(i0Net)
     i1Net = snl.SNLScalarNet.create(self.design, "I1")
-    topI1.getBit(0).setNet(i1Net)
+    topI1.getBusTermBit(0).setNet(i1Net)
     o0Net = snl.SNLScalarNet.create(self.design, "O0")
     topO0.setNet(o0Net)
     o1Net = snl.SNLScalarNet.create(self.design, "O1")
@@ -144,9 +144,9 @@ class SNLNetTest(unittest.TestCase):
 
     i1NetList = list(i1Net.getComponents())
     self.assertEqual(3, len(i1NetList))
-    self.assertEqual(topI1.getBit(0), i1NetList[0])
-    self.assertEqual(topI1, topI1.getBit(0).getBus())
-    self.assertEqual(0, topI1.getBit(0).getBit())
+    self.assertEqual(topI1.getBusTermBit(0), i1NetList[0])
+    self.assertEqual(topI1, topI1.getBusTermBit(0).getBus())
+    self.assertEqual(0, topI1.getBusTermBit(0).getBit())
     self.assertEqual(ins1.getInstTerm(self.model.getScalarTerm("i1")), i1NetList[1])
     self.assertEqual(ins2.getInstTerm(self.model.getScalarTerm("i1")), i1NetList[2])
 
