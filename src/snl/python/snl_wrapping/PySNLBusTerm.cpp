@@ -7,6 +7,7 @@
 #include "PyInterface.h"
 #include "PySNLDesign.h"
 #include "PySNLBusTermBit.h"
+#include <limits>
 
 #include "SNLBusTerm.h"
 #include "SNLBusTermBit.h"
@@ -72,7 +73,7 @@ PyObject* PySNLBusTerm_getBusTermBit(PySNLBusTerm* self, PyObject* args) {
 
 // Function named getBit with no args that returns -1 int
 PyObject* PySNLBusTerm_getBit(PySNLBusTerm* self) {
-  return PyLong_FromLong(-1);
+  return PyLong_FromLong(std::numeric_limits<long>::max());
 }
 
 DirectGetIntMethod(PySNLBusTerm_getMSB, getMSB, PySNLBusTerm, SNLBusTerm)

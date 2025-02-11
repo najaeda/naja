@@ -248,7 +248,7 @@ class NajaNetlistTest0(unittest.TestCase):
 
         path0 = snl.SNLPath()
 
-        self.assertEqual(self.noNameBusTop, netlist.get_snl_term_for_ids_with_path(path0, [self.noNameBusTop.getID(), -1]))
+        self.assertEqual(self.noNameBusTop, netlist.get_snl_term_for_ids_with_path(path0, [self.noNameBusTop.getID(), netlist.get_none_existent()]))
 
         #print(path0)
         self.assertIsNotNone(path0)

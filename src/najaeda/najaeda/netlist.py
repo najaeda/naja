@@ -8,10 +8,13 @@ import time
 import logging
 import hashlib
 import struct
+import sys
 from enum import Enum
 
 from najaeda import snl
 
+def get_none_existent():
+    return sys.maxsize
 
 def consistent_hash(obj):
     def default_serializer(o):
@@ -375,7 +378,7 @@ def get_snl_term_for_ids(pathIDs, termIDs):
         model = snl.SNLUniverse.get().getTopDesign()
     else:
         model = path.getTailInstance().getModel()
-    if termIDs[1] == -1:
+    if termIDs[1] == get_none_existent():
         return model.getTermByID(termIDs[0])
     else:
         snlterm = model.getTermByID(termIDs[0])
@@ -391,7 +394,7 @@ def get_snl_term_for_ids_with_path(path, termIDs):
         model = snl.SNLUniverse.get().getTopDesign()
     else:
         model = path.getTailInstance().getModel()
-    if termIDs[1] == -1:
+    if termIDs[1] == get_none_existent():
         return model.getTermByID(termIDs[0])
     else:
         snlterm = model.getTermByID(termIDs[0])
