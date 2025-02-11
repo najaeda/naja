@@ -113,6 +113,8 @@ class SNLDesignTest(unittest.TestCase):
   def test1(self):
     self.assertIsNotNone(self.lib)
     design = snl.SNLDesign.create(self.lib, "DESIGN")
+    with self.assertRaises(RuntimeError) as context: design.getInstanceByIDList()
+    with self.assertRaises(RuntimeError) as context: design.getInstanceByIDList("ERROR")
     self.assertIsNotNone(design)
     self.assertEqual("DESIGN", design.getName())
     self.assertEqual(self.lib, design.getLibrary())
@@ -143,6 +145,7 @@ class SNLDesignTest(unittest.TestCase):
     self.assertEqual(2, sum(1 for t in inputs))
     outputs = filter(lambda t: t.getDirection() == snl.SNLTerm.Direction.Output, design.getTerms())
     self.assertEqual(1, sum(1 for t in outputs))
+    
 
   def testCompare(self):
     self.assertIsNotNone(self.lib)

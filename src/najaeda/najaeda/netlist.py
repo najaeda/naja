@@ -113,7 +113,7 @@ class Equipotential:
                 path = term.getPath().getPathIDs()
                 path.append(term.getInstTerm().getInstance().getID())
                 yield Term(path,
-                    term.getInstTerm().getBitTerm(),
+                    term.getInstTerm().getBitTerm()
                 )
 
     def get_top_terms(self):
@@ -135,7 +135,7 @@ class Equipotential:
                         path = term.getPath().getPathIDs()
                         path.append(term.getInstTerm().getInstance().getID())
                         yield Term(path,
-                            term.getInstTerm().getBitTerm(),
+                            term.getInstTerm().getBitTerm()
                         )
 
     def get_leaf_drivers(self):
@@ -147,7 +147,7 @@ class Equipotential:
                         path = term.getPath().getPathIDs()
                         path.append(term.getInstTerm().getInstance().getID())
                         yield Term(path,
-                            term.getInstTerm().getBitTerm(),
+                            term.getInstTerm().getBitTerm()
                         )
 
     def get_top_readers(self):
@@ -372,22 +372,6 @@ def get_snl_term_for_ids(pathIDs, termIDs):
     path = get_snl_path_from_id_list(pathIDs)
     model = None
     if len(pathIDs) == 0:
-        model = snl.SNLUniverse.get().getTopDesign()
-    else:
-        model = path.getTailInstance().getModel()
-    if termIDs[1] == -1:
-        return model.getTermByID(termIDs[0])
-    else:
-        snlterm = model.getTermByID(termIDs[0])
-        if isinstance(snlterm, snl.SNLBusTerm):
-            return snlterm.getBusTermBit(termIDs[1])
-        else:
-            return snlterm
-
-
-def get_snl_term_for_ids_with_path(path, termIDs):
-    model = None
-    if path.size() == 0:
         model = snl.SNLUniverse.get().getTopDesign()
     else:
         model = path.getTailInstance().getModel()

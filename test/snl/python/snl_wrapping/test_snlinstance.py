@@ -82,6 +82,9 @@ class SNLInstanceTest(unittest.TestCase):
     self.assertEqual(instTerms[4].getBitTerm(), self.i1.getBusTermBit(1))
     self.assertEqual(instTerms[5].getBitTerm(), self.i1.getBusTermBit(0))
     self.assertEqual(instTerms[6].getBitTerm(), self.o)
+    with self.assertRaises(RuntimeError) as context: self.i1.getBusTermBit()
+    with self.assertRaises(RuntimeError) as context: self.i1.getBusTermBit([])
+
 
   def testInstParameters(self):
     self.assertEqual(4, sum(1 for p in self.model.getParameters()))
