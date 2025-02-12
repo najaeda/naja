@@ -903,9 +903,10 @@ class Instance:
     def __get_snl_model(self):
         if self.is_top():
             return snl.SNLUniverse.get().getTopDesign()
-
-        if (self.inst.getModel().getRevisionCount() != self.revisionCount or 
-            self.inst.getModel().getSNLID() != self.SNLID):
+        if (
+            self.inst.getModel().getRevisionCount() != self.revisionCount
+            or self.inst.getModel().getSNLID() != self.SNLID
+        ):
             self.inst = get_snl_instance_from_id_list(self.pathIDs)
             self.revisionCount = self.inst.getModel().getRevisionCount()
             self.SNLID = self.inst.getModel().getSNLID()
