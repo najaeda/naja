@@ -76,12 +76,15 @@ class SNLInstanceTest(unittest.TestCase):
       self.assertEqual(ins1, it.getInstance())
     instTerms = tuple(ins1.getInstTerms())
     self.assertEqual(instTerms[0].getBitTerm(), self.i0)
-    self.assertEqual(instTerms[1].getBitTerm(), self.i1.getBit(4))
-    self.assertEqual(instTerms[2].getBitTerm(), self.i1.getBit(3))
-    self.assertEqual(instTerms[3].getBitTerm(), self.i1.getBit(2))
-    self.assertEqual(instTerms[4].getBitTerm(), self.i1.getBit(1))
-    self.assertEqual(instTerms[5].getBitTerm(), self.i1.getBit(0))
+    self.assertEqual(instTerms[1].getBitTerm(), self.i1.getBusTermBit(4))
+    self.assertEqual(instTerms[2].getBitTerm(), self.i1.getBusTermBit(3))
+    self.assertEqual(instTerms[3].getBitTerm(), self.i1.getBusTermBit(2))
+    self.assertEqual(instTerms[4].getBitTerm(), self.i1.getBusTermBit(1))
+    self.assertEqual(instTerms[5].getBitTerm(), self.i1.getBusTermBit(0))
     self.assertEqual(instTerms[6].getBitTerm(), self.o)
+    with self.assertRaises(RuntimeError) as context: self.i1.getBusTermBit()
+    with self.assertRaises(RuntimeError) as context: self.i1.getBusTermBit([])
+
 
   def testInstParameters(self):
     self.assertEqual(4, sum(1 for p in self.model.getParameters()))
