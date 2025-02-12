@@ -65,9 +65,11 @@ PyObject* PySNLBusTerm_getBusTermBit(PySNLBusTerm* self, PyObject* args) {
     return nullptr;
   }
   SNLBusTermBit* bitTerm = nullptr;
+  // LCOV_EXCL_START
   TRY
   bitTerm = (static_cast<naja::SNL::SNLBusTerm*>(self->parent_.parent_.parent_.object_))->getBit(bit);
   SNLCATCH
+  // LCOV_EXCL_STOP
   return PySNLBusTermBit_Link(bitTerm);
 }
 
