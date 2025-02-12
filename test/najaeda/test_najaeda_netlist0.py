@@ -73,6 +73,7 @@ class NajaNetlistTest0(unittest.TestCase):
         top = netlist.get_top()
         self.assertIsNotNone(top)
         inst0 = top.get_child_instance('inst0')
+        self.assertFalse(inst0.is_basic_primitive())
         self.assertIsNotNone(inst0)
         self.assertEqual(0, sum(1 for _ in inst0.get_attributes()))
         #print(netlist.get_top())
