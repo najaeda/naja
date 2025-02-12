@@ -42,7 +42,7 @@ jobs:
         pip install coverage
     - name: Lint with flake8
       working-directory: ${{github.workspace}}/src/najaeda
-      run: flake8 --max-line-length=100 --ignore=E128 --exclude docs,examples,README
+      run: flake8 --max-line-length=100 --ignore E128,W504,W503 --exclude docs,examples,README
     - name: Run najaeda testing with pytest
       working-directory: ${{github.workspace}}/test/najaeda
       env:

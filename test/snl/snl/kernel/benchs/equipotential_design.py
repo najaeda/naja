@@ -18,7 +18,7 @@ def constructEquipotentialDesign(db):
   aan = snl.SNLScalarNet.create(aa, 'n')
   aao = snl.SNLBusTerm.create(aa, 3, 3, snl.SNLTerm.Direction.Output, 'o')
   aai.setNet(aan)
-  aao.getBit(3).setNet(aan)
+  aao.getBusTermBit(3).setNet(aan)
   aaprim = snl.SNLInstance.create(aa, prim, "p")
   aaprim.getInstTerm(primi).setNet(aan)
 
@@ -32,7 +32,7 @@ def constructEquipotentialDesign(db):
   ao.setNet(aon)
   aaa = snl.SNLInstance.create(a, aa, "aa")
   aaa.getInstTerm(aai).setNet(ain)
-  aaa.getInstTerm(aao.getBit(3)).setNet(aon)
+  aaa.getInstTerm(aao.getBusTermBit(3)).setNet(aon)
 
   #Design BB
   bb = snl.SNLDesign.create(designLib, 'BB')

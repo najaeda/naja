@@ -7,6 +7,7 @@ from os import path
 import sys
 import logging
 from collections import deque
+import time
 
 from najaeda import netlist
 from najaeda import snl
@@ -51,11 +52,19 @@ if __name__ == '__main__':
     faulthandler.enable()
     # Load design
     netlist.load_primitives('xilinx')
+
+    start = time.time()
+    print('Starting DLE')
+
     instances = set()
     benchmarks = path.join('..', 'benchmarks')
     top = netlist.load_verilog([path.join(benchmarks, 'verilog', 'vexriscv.v')])
     attributes =  ['DONT_TOUCH', 'KEEP', 'preserve', 'noprune']
     nb_deleted = apply_dle(top, attributes)
     
+    end = time.time()
+    print('DLE done in %s seconds', end - start)
+
     top.dump_verilog("./", "result.v")
     print(f'deleted {len(nb_deleted)} leaves')
+

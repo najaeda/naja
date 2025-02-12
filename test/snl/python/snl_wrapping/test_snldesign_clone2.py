@@ -31,7 +31,7 @@ class SNLDesignCloneTest2(unittest.TestCase):
     ins0.getInstTerm(ins0.getModel().getScalarTerm("I")).setNet(i0Net)
     n0 = snl.SNLBusNet.create(self.design, 1, 0, "N0")
     n0.setType(snl.SNLNet.Type.Assign1)
-    ins0.getInstTerm(ins0.getModel().getBusTerm("O").getBit(1)).setNet(n0.getBit(0))
+    ins0.getInstTerm(ins0.getModel().getBusTerm("O").getBusTermBit(1)).setNet(n0.getBit(0))
     ins1 = snl.SNLInstance.create(self.design, self.prim, "INS1")
     ins1.getInstTerm(ins1.getModel().getScalarTerm("I")).setNet(n0.getBit(0))
 
