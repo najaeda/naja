@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import os
 import unittest
 import snl
 import faulthandler 
@@ -29,15 +30,27 @@ class SNLDBTest(unittest.TestCase):
     u = snl.SNLUniverse.get()
     db = snl.SNLDB.create(u) 
     self.assertIsNotNone(u)
-    designs = ["../../../../../test/snl/formats/verilog/benchmarks/test0.v"]
-    primitives = ["../../../../../test/snl/formats/liberty/benchmarks/asap7_excerpt/test0.lib"]
+    formats_path = os.environ.get('FORMATS_PATH')
+    self.assertIsNotNone(formats_path)
+    verilogs = [os.path.join(formats_path, "verilog", "benchmarks", "test0.v")]
+    primitives = [os.path.join(formats_path, "liberty", "benchmarks", "asap7_excerpt", "test0.lib")]
     db.loadLibertyPrimitives(primitives)
-    db.loadVerilog(designs)
+    db.loadVerilog(verilogs)
     db.dumpVerilog("./test_verilog")
-    with self.assertRaises(SystemError) as context: db.dumpVerilog()
-    with self.assertRaises(SystemError) as context: db.dumpVerilog(-1)
-    with self.assertRaises(SystemError) as context: db.loadLibertyPrimitives("./error.lib")
-    del db  
+    with self.assertRaises(RuntimeError) as context: db.dumpVerilog()
+    with self.assertRaises(RuntimeError) as context: db.dumpVerilog(-1)
+    with self.assertRaises(RuntimeError) as context: db.loadLibertyPrimitives("./error.lib")
+  
+  def testVerilogNoAssigns(self):
+    u = snl.SNLUniverse.get()
+    db = snl.SNLDB.create(u) 
+    self.assertIsNotNone(u)
+    formats_path = os.environ.get('FORMATS_PATH')
+    self.assertIsNotNone(formats_path)
+    verilogs = [os.path.join(formats_path, "verilog", "benchmarks", "test0.v")]
+    primitives = [os.path.join(formats_path, "liberty", "benchmarks", "asap7_excerpt", "test0.lib")]
+    db.loadLibertyPrimitives(primitives)
+    db.loadVerilog(verilogs, keep_assigns=False)
 
   def testDestroy(self):
     u = snl.SNLUniverse.get()
@@ -58,14 +71,14 @@ class SNLDBTest(unittest.TestCase):
     primitivesNoExtention = ["../../../../../test/snl/formats/liberty/benchmarks/asap7_excerpt/test0"]
     primitivesCorrect = ["../../../../../test/snl/formats/liberty/benchmarks/asap7_excerpt/test0.lib"]
     primitivesWrongExtention = ["../../../../../test/snl/formats/liberty/benchmarks/asap7_excerpt/test0.sd"]
-    with self.assertRaises(SystemError) as context: db.loadVerilog("Error", "Error")
-    with self.assertRaises(SystemError) as context: db.loadLibertyPrimitives("Error", "Error")
-    with self.assertRaises(SystemError) as context: db.loadVerilog("Error")
-    with self.assertRaises(SystemError) as context: db.loadLibertyPrimitives("Error")
-    with self.assertRaises(SystemError) as context: db.loadLibertyPrimitives(primitives)
-    with self.assertRaises(SystemError) as context: db.loadVerilog(designs)
-    with self.assertRaises(SystemError) as context: db.loadLibertyPrimitives(primitivesNoExtention)
-    with self.assertRaises(SystemError) as context: db.loadLibertyPrimitives(primitivesWrongExtention)
+    with self.assertRaises(RuntimeError) as context: db.loadVerilog("Error", "Error")
+    with self.assertRaises(RuntimeError) as context: db.loadLibertyPrimitives("Error", "Error")
+    with self.assertRaises(RuntimeError) as context: db.loadVerilog("Error")
+    with self.assertRaises(RuntimeError) as context: db.loadLibertyPrimitives("Error")
+    with self.assertRaises(RuntimeError) as context: db.loadLibertyPrimitives(primitives)
+    with self.assertRaises(RuntimeError) as context: db.loadVerilog(designs)
+    with self.assertRaises(RuntimeError) as context: db.loadLibertyPrimitives(primitivesNoExtention)
+    with self.assertRaises(RuntimeError) as context: db.loadLibertyPrimitives(primitivesWrongExtention)
     u.destroy()
     with self.assertRaises(RuntimeError) as context: snl.SNLDB.create(u)
     #with self.assertRaises(RuntimeError) as context: snl.SNLDB.loadSNL()

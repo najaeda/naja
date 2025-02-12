@@ -8,7 +8,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "najaeda"
-version = "0.1.12"
+version = "0.1.13"
 description = "Naja EDA Python package"
 authors = [{name = "Naja Authors", email = "contact@keplertech.io"}]
 readme = "src/najaeda/README.rst"
@@ -24,6 +24,18 @@ Homepage = "https://github.com/najaeda/naja"
 
 [tool.cibuildwheel]
 build-verbosity = 1
+
+[tool.cibuildwheel.macos]
+build-frontend = "build"
+before-all = '''
+  curl -O https://capnproto.org/capnproto-c++-1.1.0.tar.gz
+  tar zxf capnproto-c++-1.1.0.tar.gz
+  cd capnproto-c++-1.1.0
+  ./configure
+  make -j6 check
+  sudo make install
+  cd ..
+'''
 
 [tool.cibuildwheel.linux]
 build-frontend = "build"
@@ -41,6 +53,13 @@ before-all = '''
   cd bison-3.8
   ./configure
   make
+  make install
+  cd ..
+  curl -O https://capnproto.org/capnproto-c++-1.1.0.tar.gz
+  tar zxf capnproto-c++-1.1.0.tar.gz
+  cd capnproto-c++-1.1.0
+  ./configure
+  make -j6 check
   make install
   cd ..
 '''

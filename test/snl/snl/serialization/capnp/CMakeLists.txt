@@ -9,7 +9,7 @@ set(snl_capnp_tests
     SNLCapnPTest0.cpp
     SNLCapnPTest1.cpp
     SNLCapnPTest2.cpp
-    SNLCapnPStreamingReceiveTest.cpp
+    #SNLCapnPStreamingReceiveTest.cpp
 )
 
 #add_executable(snlSenderTest SNLSender.cpp)

@@ -9,7 +9,7 @@ add_test(NAME snl-python-tests
 
 set_tests_properties(snl-python-tests
     PROPERTIES ENVIRONMENT
-    "PYTHONPATH=${PROJECT_BINARY_DIR}/src/snl/python/snl_wrapping:$ENV{PYTHONPATH};SNL_WRAPPING_TEST_PATH=${CMAKE_CURRENT_BINARY_DIR}"
+    "PYTHONPATH=${PROJECT_BINARY_DIR}/src/snl/python/snl_wrapping:$ENV{PYTHONPATH};SNL_WRAPPING_TEST_PATH=${CMAKE_CURRENT_BINARY_DIR};FORMATS_PATH=${CMAKE_CURRENT_SOURCE_DIR}/../../formats"
 )
 
 SET(proxy_property_tests

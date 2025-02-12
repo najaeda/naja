@@ -4,8 +4,12 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from os import path
+import logging
+
 from najaeda import netlist
 from najaeda import stats
+
+logging.basicConfig(level=logging.INFO)
 
 benchmarks = path.join('..','benchmarks')
 liberty_files = ['NangateOpenCellLibrary_typical.lib', 'fakeram45_1024x32.lib', 'fakeram45_64x32.lib']

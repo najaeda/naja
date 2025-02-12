@@ -5,8 +5,11 @@
 
 from os import path
 import sys
+import logging
 
 from najaeda import netlist
+
+logging.basicConfig(level=logging.INFO)
 
 # snippet-start: load_xilinx_design
 netlist.load_primitives('xilinx')
