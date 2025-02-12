@@ -109,7 +109,8 @@ class SNLDesignTest(unittest.TestCase):
     self.assertEqual(design, snl.SNLUniverse.get().getTopDesign())
     self.assertEqual(design.getDB(), snl.SNLUniverse.get().getTopDB())
     with self.assertRaises(RuntimeError) as context: snl.SNLUniverse.get().setTopDesign(self.lib)
-    
+    self.assertEqual(len(design.getSNLID()), 6)
+
   def test1(self):
     self.assertIsNotNone(self.lib)
     design = snl.SNLDesign.create(self.lib, "DESIGN")

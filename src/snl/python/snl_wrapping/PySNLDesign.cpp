@@ -343,6 +343,20 @@ static PyObject* PySNLDesign_getInstanceByIDList(PySNLDesign* self, PyObject* ar
   return PySNLInstance_Link(instance);
 }
 
+// Return list for SNLID of the design
+// Function to be called from Python
+PyObject* PySNLDesign_getSNLID(PySNLDesign* self, PyObject* args) { 
+  PyObject* py_list = PyList_New(6); 
+  naja::SNL::SNLID id = self->object_->getSNLID();
+  PyList_SetItem(py_list, 0, PyLong_FromLong(id.dbID_));
+  PyList_SetItem(py_list, 1, PyLong_FromLong(id.libraryID_));
+  PyList_SetItem(py_list, 2, PyLong_FromLong(id.designID_));
+  PyList_SetItem(py_list, 3, PyLong_FromLong(id.designObjectID_));
+  PyList_SetItem(py_list, 4, PyLong_FromLong(id.instanceID_));
+  PyList_SetItem(py_list, 5, PyLong_FromLong(id.bit_));
+  return py_list;
+}
+
 static PyObject* PySNLDesign_getCombinatorialInputs(PySNLDesign*, PyObject* object) {
   GetDesignModelingRelatedObjects(SNLBitTerm, getCombinatorialInputs, SNLDesign)
 }
@@ -505,6 +519,8 @@ PyMethodDef PySNLDesign_Methods[] = {
     "dump context dot file for this SNLDesign."},
   { "getInstanceByIDList", (PyCFunction)PySNLDesign_getInstanceByIDList, METH_VARARGS,
     "get instance by ID list."},
+  { "getSNLID", (PyCFunction)PySNLDesign_getSNLID, METH_VARARGS,
+    "get SNLID of the design."},
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 

@@ -768,6 +768,7 @@ class Instance:
     def __init__(self, path=snl.SNLPath()):
         self.inst = None
         self.revisionCount = 0
+        self.SNLID = [0, 0, 0, 0, 0, 0]
         if isinstance(path, snl.SNLPath):
             if path.size() > 0:
                 self.pathIDs = path.getPathIDs()
@@ -780,6 +781,8 @@ class Instance:
             if len(path) > 0:
                 self.inst = get_snl_instance_from_id_list(path)
                 self.revisionCount = self.inst.getModel().getRevisionCount()
+        if self.inst is not None:
+            self.SNLID = self.inst.getModel().getSNLID()
 
     def __eq__(self, other) -> bool:
         return self.pathIDs == other.pathIDs
@@ -900,9 +903,10 @@ class Instance:
     def __get_snl_model(self):
         if self.is_top():
             return snl.SNLUniverse.get().getTopDesign()
-        if self.inst.getModel().getRevisionCount() != self.revisionCount:
+        if self.inst.getModel().getRevisionCount() != self.revisionCount or self.inst.getModel().getSNLID() != self.SNLID: 
             self.inst = get_snl_instance_from_id_list(self.pathIDs)
             self.revisionCount = self.inst.getModel().getRevisionCount()
+            self.SNLID = self.inst.getModel().getSNLID()
         return self.inst.getModel()
 
     def __get_leaf_snl_object(self):
