@@ -13,8 +13,10 @@ from enum import Enum
 
 from najaeda import snl
 
+
 def get_none_existent():
     return sys.maxsize
+
 
 def consistent_hash(obj):
     def default_serializer(o):
@@ -116,8 +118,7 @@ class Equipotential:
                 path = term.getPath().getPathIDs()
                 path.append(term.getInstTerm().getInstance().getID())
                 yield Term(path,
-                    term.getInstTerm().getBitTerm()
-                )
+                    term.getInstTerm().getBitTerm())
 
     def get_top_terms(self):
         """Iterate over the top terminals of this equipotential.
@@ -138,8 +139,7 @@ class Equipotential:
                         path = term.getPath().getPathIDs()
                         path.append(term.getInstTerm().getInstance().getID())
                         yield Term(path,
-                            term.getInstTerm().getBitTerm()
-                        )
+                            term.getInstTerm().getBitTerm())
 
     def get_leaf_drivers(self):
         if self.equi is not None:
@@ -150,8 +150,7 @@ class Equipotential:
                         path = term.getPath().getPathIDs()
                         path.append(term.getInstTerm().getInstance().getID())
                         yield Term(path,
-                            term.getInstTerm().getBitTerm()
-                        )
+                            term.getInstTerm().getBitTerm())
 
     def get_top_readers(self):
         if self.equi is not None:
@@ -951,7 +950,7 @@ class Instance:
         for inst in self.__get_snl_model().getInstances():
             path_child = snl.SNLPath(path, inst)
             yield Instance(path_child)
-            #path.pop()
+            # path.pop()
 
     def get_number_of_child_instances(self) -> int:
         """
