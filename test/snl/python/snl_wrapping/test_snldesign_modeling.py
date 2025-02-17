@@ -86,8 +86,8 @@ class SNLDesignModelingTest(unittest.TestCase):
     o = snl.SNLBusTerm.create(design, snl.SNLTerm.Direction.Output, 3, 0, "O")
     d = snl.SNLBusTerm.create(design, snl.SNLTerm.Direction.Input, 3, 0, "D")
     snl.SNLDesign.addCombinatorialArcs(d, o)
-    self.assertEqual(4, sum(1 for t in snl.SNLDesign.getCombinatorialInputs(o.getBit(0))))
-    self.assertEqual(4, sum(1 for t in snl.SNLDesign.getCombinatorialOutputs(d.getBit(0))))
+    self.assertEqual(4, sum(1 for t in snl.SNLDesign.getCombinatorialInputs(o.getBusTermBit(0))))
+    self.assertEqual(4, sum(1 for t in snl.SNLDesign.getCombinatorialOutputs(d.getBusTermBit(0))))
 
   def testCombiWithBusses1(self):
     carry4 = snl.SNLDesign.createPrimitive(self.primitives, "CARRY4")

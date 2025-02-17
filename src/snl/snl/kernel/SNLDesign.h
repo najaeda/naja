@@ -290,6 +290,9 @@ class SNLDesign final: public SNLObject {
     std::string getString() const override;
     std::string getDescription() const override;
     void debugDump(size_t indent, bool recursive=true, std::ostream& stream=std::cerr) const override;
+    void incrementRevisionCount() { revisionCount_++; }
+    int getRevisionCount() const { return revisionCount_; }
+    void recursiveRevisionIncrement();
   private:
     SNLDesign(SNLLibrary* library, Type type, const SNLName& name);
     SNLDesign(SNLLibrary* library, SNLID::DesignID id, Type type, const SNLName& name);
@@ -354,6 +357,7 @@ class SNLDesign final: public SNLObject {
     using SNLDesignParameters = boost::intrusive::set<SNLParameter, SNLDesignParametersHook>;
 
     SNLID::DesignID                     id_;
+    int                              revisionCount_     = 0;
     SNLName                             name_               {};
     Type                                type_               { Type::Standard };
     SNLLibrary*                         library_;

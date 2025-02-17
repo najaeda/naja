@@ -226,6 +226,9 @@ std::string SNLPath::getDescription(const char separator) const {
 // LCOV_EXCL_STOP
 
 std::vector<SNLID::DesignObjectID> SNLPath::getPathIDs() const {
+  if (not sharedPath_) {
+    return {};
+  }
   return sharedPath_->getPathIDs();
 }
 
