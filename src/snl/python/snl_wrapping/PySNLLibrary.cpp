@@ -108,7 +108,7 @@ PyMethodDef PySNLLibrary_Methods[] = {
     "get Parent DB."},
   { "getLibrary", (PyCFunction)PySNLLibrary_getLibrary, METH_VARARGS,
     "retrieve a SNLLibrary."},
-  { "getDesign", (PyCFunction)PySNLLibrary_getSNLDesign, METH_O,
+  { "getSNLDesign", (PyCFunction)PySNLLibrary_getSNLDesign, METH_O,
     "retrieve a SNLDesign."},
   { "getSNLDesigns", (PyCFunction)PySNLLibrary_getSNLDesigns, METH_NOARGS,
     "get a container of SNLDesigns."},

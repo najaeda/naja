@@ -27,12 +27,12 @@ class SNLDesignTest(unittest.TestCase):
     self.assertFalse(design.isPrimitive())
     self.assertEqual(self.lib, design.getLibrary())
     self.assertEqual(self.lib.getDB(), design.getDB())
-    self.assertIsNotNone(self.lib.getDesign("DESIGN"))
-    self.assertEqual(design, self.lib.getDesign("DESIGN"))
-    self.assertEqual(design, self.lib.getDesign(0))
-    self.assertTrue(any(self.lib.getDesigns()))
-    self.assertEqual(1, sum(1 for d in self.lib.getDesigns()))
-    designs = [d for d in self.lib.getDesigns()]
+    self.assertIsNotNone(self.lib.getSNLDesign("DESIGN"))
+    self.assertEqual(design, self.lib.getSNLDesign("DESIGN"))
+    self.assertEqual(design, self.lib.getSNLDesign(0))
+    self.assertTrue(any(self.lib.getSNLDesigns()))
+    self.assertEqual(1, sum(1 for d in self.lib.getSNLDesigns()))
+    designs = [d for d in self.lib.getSNLDesigns()]
     self.assertEqual(1, len(designs))
     self.assertEqual(design, designs[0])
     self.assertFalse(any(design.getTerms()))
@@ -188,7 +188,7 @@ class SNLDesignTest(unittest.TestCase):
   def testCreationError(self):
     self.assertIsNotNone(self.lib)
     d = snl.SNLDesign.create(self.lib, "DESIGN")
-    with self.assertRaises(RuntimeError) as context: self.lib.getDesign(self.lib)
+    with self.assertRaises(RuntimeError) as context: self.lib.getSNLDesign(self.lib)
     with self.assertRaises(RuntimeError) as context: snl.SNLDesign.create("ERROR", "ERROR", "ERROR")
     with self.assertRaises(RuntimeError) as context: snl.SNLDesign.create(d, "DESIGN")
     with self.assertRaises(RuntimeError) as context: snl.SNLDesign.create(self.lib, "DESIGN")
