@@ -6,9 +6,10 @@
 #define __PNL_INSTANCE_H_
 
 #include "PNLDesignObject.h"
-//#include "PNLTransform.h"
+#include "PNLTransform.h"
+#include "PNLPoint.h"
 
-namespace naja { namespace SNL {
+namespace naja { namespace PNL {
 
 class PNLInstance final: public PNLDesignObject {
   public:
@@ -31,10 +32,10 @@ class PNLInstance final: public PNLDesignObject {
   
     PNLDesign*    design_;
     PNLDesign*    model_;
-    //PNLPoint      origin_;
-    //PNLTransform  transform_;
+    naja::PNL::PNLPoint      origin_{0, 0};
+    naja::PNL::PNLTransform  transform_;
 };
 
-}} // namespace SNL // namespace naja
+}} // namespace PNL // namespace naja
 
 #endif // __PNL_INSTANCE_H_

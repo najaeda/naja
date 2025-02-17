@@ -11,6 +11,8 @@
 #include "SNLDesign.h"
 #include "PNLDesign.h"
 
+using namespace naja::PNL; 
+
 namespace naja { namespace SNL {
 
 class SNLDB;
@@ -19,7 +21,7 @@ class SNLLibrary final: public SNLObject {
   public:
     friend class SNLDB;
     friend class SNLDesign;
-    friend class PNLDesign;
+    friend class naja::PNL::PNLDesign;
     using super = SNLObject;
 
     class Type {

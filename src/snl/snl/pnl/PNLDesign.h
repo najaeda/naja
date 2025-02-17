@@ -10,23 +10,26 @@
 #include "PNLPoint.h"
 
 namespace naja { namespace SNL {
+  class SNLDB;
+  class SNLLibrary;
+}}
 
-class SNLDB;
-class SNLLibrary;
+namespace naja { namespace PNL {
 
-class PNLDesign final: public SNLObject {
+class PNLDesign final: public naja::SNL::SNLObject {
+
   public:
-    friend class SNLLibrary;
-    using super = SNLObject;
-    static PNLDesign* create(SNLLibrary* library);
+    friend class naja::SNL::SNLLibrary;
+    using super = naja::SNL::SNLObject;
+    static PNLDesign* create(naja::SNL::SNLLibrary* library);
 
     ///\return owning SNLDB
-    SNLDB* getDB() const;
+    naja::SNL::SNLDB* getDB() const;
     /// \return owning SNLLibrary.
-    SNLLibrary* getLibrary() const { return library_; }
+    naja::SNL::SNLLibrary* getLibrary() const { return library_; }
 
-    SNLID::DesignID getID() const { return id_; }
-    SNLID getSNLID() const;
+    naja::SNL::SNLID::DesignID getID() const { return id_; }
+    naja::SNL::SNLID getSNLID() const;
 
     friend bool operator< (const PNLDesign& ld, const PNLDesign& rd) {
       return ld.getSNLID() < rd.getSNLID();
@@ -35,21 +38,22 @@ class PNLDesign final: public SNLObject {
     const char* getTypeName() const override;
     std::string getString() const override;
     std::string getDescription() const override;
-     bool deepCompare(const PNLDesign* other, std::string& reason) const;
+    bool deepCompare(const PNLDesign* other, std::string& reason) const;
     void debugDump(size_t indent, bool recursive=true, std::ostream& stream=std::cerr) const override;
+  
   private:
-    PNLDesign(SNLLibrary* library);
-    static void preCreate(const SNLLibrary* library);
+    PNLDesign(naja::SNL::SNLLibrary* library);
+    static void preCreate(const naja::SNL::SNLLibrary* library);
     void postCreateAndSetID();
     void postCreate();
     void preDestroy() override;
 
-    SNLID::DesignID                     id_;
-    SNL::SNLLibrary*                    library_            {};
-    PNLPoint                            origin_             {0,0};
-    boost::intrusive::set_member_hook<> libraryDesignsHook_ {};
+    naja::SNL::SNLID::DesignID                id_;
+    naja::SNL::SNLLibrary*                    library_            {};
+    naja::PNL::PNLPoint                       origin_             {0, 0};
+    boost::intrusive::set_member_hook<>       libraryDesignsHook_ {};
 };
 
-}} // namespace SNL // namespace naja
+}} // namespace PNL // namespace naja
 
 #endif // __PNL_DESIGN_H_

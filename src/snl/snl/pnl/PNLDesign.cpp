@@ -7,7 +7,9 @@
 #include "SNLDB.h"
 #include "SNLLibrary.h"
 
-namespace naja { namespace SNL {
+using namespace naja::SNL; 
+
+namespace naja { namespace PNL {
 
 PNLDesign::PNLDesign(SNLLibrary* library):
   super(), library_(library), origin_(0, 0)

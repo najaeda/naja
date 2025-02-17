@@ -1,7 +1,7 @@
 #ifndef __PNL_POINT_H_
 #define __PNL_POINT_H_
 
-namespace naja { namespace SNL {
+namespace naja { namespace PNL {
 
 class PNLPoint {
   public:
@@ -14,6 +14,6 @@ class PNLPoint {
 };
 
 
-}} // namespace SNL // namespace naja
+}} // namespace PNL // namespace naja
 
 #endif // __PNL_POINT_H_

@@ -11,6 +11,8 @@
 #include "SNLException.h"
 #include "SNLMacros.h"
 
+using namespace naja::PNL; 
+
 namespace naja { namespace SNL {
 
 SNLLibrary::Type::Type(const TypeEnum& typeEnum):

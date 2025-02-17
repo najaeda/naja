@@ -4,7 +4,7 @@
 
 #include "PNLDesignObject.h"
 
-namespace naja { namespace SNL {
+namespace naja { namespace PNL {
 
 void PNLDesignObject::preCreate() {
 }

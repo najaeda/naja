@@ -4,7 +4,7 @@
 
 #include "PNLInstance.h"
 
-namespace naja { namespace SNL {
+namespace naja { namespace PNL {
 
 PNLInstance::PNLInstance(PNLDesign* design, PNLDesign* model):
   super(), design_(design), model_(model)

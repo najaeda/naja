@@ -7,11 +7,11 @@
 
 #include "SNLObject.h"
 
-namespace naja { namespace SNL {
+namespace naja { namespace PNL {
 
 class PNLDesign;
 
-class PNLDesignObject: public SNLObject {
+class PNLDesignObject: public SNL::SNLObject {
   public:
     virtual PNLDesign* getDesign() const = 0;
   protected:
@@ -21,6 +21,6 @@ class PNLDesignObject: public SNLObject {
     void postCreate();
 };
 
-}} // namespace SNL // namespace naja
+}} // namespace PNL // namespace naja
 
 #endif // __PNL_DESIGN_OBJECT_H_
