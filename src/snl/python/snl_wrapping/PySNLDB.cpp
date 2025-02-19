@@ -6,9 +6,10 @@
 #include "PySNLDB.h"
 
 #include "PyInterface.h"
+#include "PySNLUniverse.h"
 #include "PySNLLibraries.h"
 #include "PySNLLibrary.h"
-#include "PySNLUniverse.h"
+#include "PySNLDesign.h"
 
 #include "SNLDB.h"
 
@@ -58,7 +59,10 @@ static PyObject* PySNLDB_loadSNL(PyObject*, PyObject* args) {
     return nullptr;
   }
   if (not PyUnicode_Check(arg)) {
-    setError("SNLDB loadSNL argument should be a file path");
+    std::ostringstream oss;
+    oss << "SNLDB loadSNL argument should be a file path, got: " 
+      << getStringForPyObject(arg);
+    setError(oss.str());
     return nullptr;
   }
   SNLDB* db = nullptr;
@@ -68,6 +72,7 @@ static PyObject* PySNLDB_loadSNL(PyObject*, PyObject* args) {
   }
   TRY 
   db = SNLCapnP::load(path);
+  SNLUniverse::get()->setTopDesign(db->getTopDesign());
   SNLCATCH
   return PySNLDB_Link(db);
 }
@@ -79,12 +84,14 @@ PyObject* PySNLDB_dumpSNL(PySNLDB* self, PyObject* args) {
     return nullptr;
   }
   if (not PyUnicode_Check(arg)) {
-    setError("SNLDB dumpSNL argument should be a file path");
+    std::ostringstream oss;
+    oss << "SNLDB dumpSNL argument should be a file path, got:"
+      << getStringForPyObject(arg);
+    setError(oss.str());
     return nullptr;
   }
   METHOD_HEAD("SNLDesign.setTruthTable()")
   SNLCapnP::dump(self->object_, PyUnicode_AsUTF8(arg));
-  // return true to python
   Py_RETURN_NONE;
 }
 
@@ -98,13 +105,12 @@ PyObject* PySNLDB_loadLibertyPrimitives(PySNLDB* self, PyObject* args) {
     setError("malformed SNLDesign.loadLibertyPrimitives method");
     return nullptr;
   }
-  SNLDB* db = nullptr;
+  METHOD_HEAD("SNLDB.loadLibertyPrimitives()")
   SNLLibrary* primitivesLibrary = nullptr;
-  db = self->object_;
-  primitivesLibrary = db->getLibrary(SNLName("PRIMS"));
+  primitivesLibrary = selfObject->getLibrary(SNLName("PRIMS"));
   if (primitivesLibrary == nullptr) {
     primitivesLibrary =
-      SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("PRIMS"));
+      SNLLibrary::create(selfObject, SNLLibrary::Type::Primitives, SNLName("PRIMS"));
   }
   for (int i = 0; i < PyList_Size(arg0); ++i) {
     PyObject* object = PyList_GetItem(arg0, i);
@@ -180,6 +186,7 @@ PyObject* PySNLDB_loadVerilog(PySNLDB* self, PyObject* args, PyObject* kwargs) {
   auto top = SNLUtils::findTop(designLibrary);
   if (top) {
     SNLUniverse::get()->setTopDesign(top);
+    SNLUniverse::get()->setTopDB(top->getDB());
   } else {
     setError("No top design was found after parsing verilog"); //LCOV_EXCL_LINE
     return nullptr; //LCOV_EXCL_LINE
@@ -222,6 +229,10 @@ PyObject* PySNLDB_getLibrary(PySNLDB* self, PyObject* arg) {
 }
 
 DirectGetIntMethod(PySNLDB_getID, getID, PySNLDB, SNLDB)
+
+GetBoolAttribute(DB, isTopDB)
+GetObjectMethod(DB, Design, getTopDesign)
+
 GetContainerMethod(DB, Library*, Libraries, Libraries)
 GetContainerMethod(DB, Library*, Libraries, GlobalLibraries)
 GetContainerMethod(DB, Library*, Libraries, PrimitiveLibraries)
@@ -233,6 +244,10 @@ PyMethodDef PySNLDB_Methods[] = {
     "create a SNLDB."},
   { "getID", (PyCFunction)PySNLDB_getID, METH_NOARGS,
     "get the SNLDB ID."},
+  { "isTopDB", (PyCFunction)PySNLDB_isTopDB, METH_NOARGS,
+    "Returns True if the SNLDB is the top DB."},
+  { "getTopDesign", (PyCFunction)PySNLDB_getTopDesign, METH_NOARGS,
+    "get the top design."},
   { "loadSNL", (PyCFunction)PySNLDB_loadSNL, METH_VARARGS | METH_STATIC,
     "create a SNLDB from SNL format."},
   { "dumpSNL", (PyCFunction)PySNLDB_dumpSNL, METH_VARARGS,
