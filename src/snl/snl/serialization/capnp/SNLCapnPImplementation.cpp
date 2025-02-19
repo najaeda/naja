@@ -7,7 +7,7 @@
 #include <fcntl.h>
 #include <iostream>
 #include <sstream>
-#include <boost/asio.hpp>
+//#include <boost/asio.hpp>
 
 #include <cassert>
 
@@ -26,7 +26,7 @@
 #include "SNLInstTerm.h"
 #include "SNLException.h"
 
-using boost::asio::ip::tcp;
+//using boost::asio::ip::tcp;
 
 namespace {
 
