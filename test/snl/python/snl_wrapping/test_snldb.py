@@ -51,6 +51,7 @@ class SNLDBTest(unittest.TestCase):
     primitives = [os.path.join(formats_path, "liberty", "benchmarks", "asap7_excerpt", "test0.lib")]
     db.loadLibertyPrimitives(primitives)
     db.loadVerilog(verilogs, keep_assigns=False)
+    with self.assertRaises(RuntimeError) as context: db.loadVerilog(verilogs, keep_assign=False)
 
   def testDestroy(self):
     u = snl.SNLUniverse.get()
@@ -68,17 +69,17 @@ class SNLDBTest(unittest.TestCase):
     #with self.assertRaises(RuntimeError) as context: snl.SNLDB.loadSNL("./test_verilogError.v")
     primitives = [1]
     designs = [2]
-    primitivesNoExtention = ["../../../../../test/snl/formats/liberty/benchmarks/asap7_excerpt/test0"]
+    primitivesNoExtension = ["../../../../../test/snl/formats/liberty/benchmarks/asap7_excerpt/test0"]
     primitivesCorrect = ["../../../../../test/snl/formats/liberty/benchmarks/asap7_excerpt/test0.lib"]
-    primitivesWrongExtention = ["../../../../../test/snl/formats/liberty/benchmarks/asap7_excerpt/test0.sd"]
+    primitivesWrongExtension = ["../../../../../test/snl/formats/liberty/benchmarks/asap7_excerpt/test0.sd"]
     with self.assertRaises(RuntimeError) as context: db.loadVerilog("Error", "Error")
     with self.assertRaises(RuntimeError) as context: db.loadLibertyPrimitives("Error", "Error")
     with self.assertRaises(RuntimeError) as context: db.loadVerilog("Error")
     with self.assertRaises(RuntimeError) as context: db.loadLibertyPrimitives("Error")
     with self.assertRaises(RuntimeError) as context: db.loadLibertyPrimitives(primitives)
     with self.assertRaises(RuntimeError) as context: db.loadVerilog(designs)
-    with self.assertRaises(RuntimeError) as context: db.loadLibertyPrimitives(primitivesNoExtention)
-    with self.assertRaises(RuntimeError) as context: db.loadLibertyPrimitives(primitivesWrongExtention)
+    with self.assertRaises(RuntimeError) as context: db.loadLibertyPrimitives(primitivesNoExtension)
+    with self.assertRaises(RuntimeError) as context: db.loadLibertyPrimitives(primitivesWrongExtension)
     u.destroy()
     with self.assertRaises(RuntimeError) as context: snl.SNLDB.create(u)
     #with self.assertRaises(RuntimeError) as context: snl.SNLDB.loadSNL()

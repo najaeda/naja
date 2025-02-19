@@ -76,15 +76,16 @@ PyObject* PySNLDB_dumpSNL(PySNLDB* self, PyObject* args) {
   PyObject* arg = nullptr;
   if (not PyArg_ParseTuple(args, "O:SNLDB.dumpSNL", &arg)) {
     setError("malformed SNLDB dumpSNL");
-    Py_RETURN_FALSE;
+    return nullptr;
   }
   if (not PyUnicode_Check(arg)) {
     setError("SNLDB dumpSNL argument should be a file path");
-    Py_RETURN_FALSE;
+    return nullptr;
   }
+  METHOD_HEAD("SNLDesign.setTruthTable()")
   SNLCapnP::dump(self->object_, PyUnicode_AsUTF8(arg));
   // return true to python
-  Py_RETURN_TRUE;
+  Py_RETURN_NONE;
 }
 
 PyObject* PySNLDB_loadLibertyPrimitives(PySNLDB* self, PyObject* args) {
