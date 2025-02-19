@@ -5,7 +5,11 @@
 
 from os import path
 import sys
+import logging
+
 from najaeda import netlist
+
+logging.basicConfig(level=logging.INFO)
 
 # snippet-start: print_design_recursive
 def print_netlist(instance):

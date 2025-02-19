@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import logging
 from najaeda import snl
 
 
@@ -426,6 +427,7 @@ def constructRAMB36E1(lib):
 
 
 def load(db):
+    logging.info("Loading Xilinx primitives")
     lib = snl.SNLLibrary.createPrimitives(db, "xilinx")
     constructIBUF(lib)
     constructOBUF(lib)

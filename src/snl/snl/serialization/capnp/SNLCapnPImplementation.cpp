@@ -7,7 +7,7 @@
 #include <fcntl.h>
 #include <iostream>
 #include <sstream>
-#include <boost/asio.hpp>
+//#include <boost/asio.hpp>
 
 #include <cassert>
 
@@ -26,7 +26,7 @@
 #include "SNLInstTerm.h"
 #include "SNLException.h"
 
-using boost::asio::ip::tcp;
+//using boost::asio::ip::tcp;
 
 namespace {
 
@@ -499,24 +499,24 @@ void SNLCapnP::dumpImplementation(const SNLDB* snlDB, const std::filesystem::pat
 }
 
 //LCOV_EXCL_START
-void SNLCapnP::sendImplementation(const SNLDB* db, tcp::socket& socket) {
-  sendImplementation(db, socket, db->getID());
-}
-
-void SNLCapnP::sendImplementation(const SNLDB* db, tcp::socket& socket, SNLID::DBID forceDBID) {
-  dumpImplementation(db, socket.native_handle(), forceDBID);
-}
-
-void SNLCapnP::sendImplementation(
-  const SNLDB* db,
-  const std::string& ipAddress,
-  uint16_t port) {
-  boost::asio::io_context ioContext;
-  //socket creation
-  tcp::socket socket(ioContext);
-  socket.connect(tcp::endpoint(boost::asio::ip::make_address(ipAddress), port));
-  sendImplementation(db, socket);
-}
+//void SNLCapnP::sendImplementation(const SNLDB* db, tcp::socket& socket) {
+//  sendImplementation(db, socket, db->getID());
+//}
+//
+//void SNLCapnP::sendImplementation(const SNLDB* db, tcp::socket& socket, SNLID::DBID forceDBID) {
+//  dumpImplementation(db, socket.native_handle(), forceDBID);
+//}
+//
+//void SNLCapnP::sendImplementation(
+//  const SNLDB* db,
+//  const std::string& ipAddress,
+//  uint16_t port) {
+//  boost::asio::io_context ioContext;
+//  //socket creation
+//  tcp::socket socket(ioContext);
+//  socket.connect(tcp::endpoint(boost::asio::ip::make_address(ipAddress), port));
+//  sendImplementation(db, socket);
+//}
 //LCOV_EXCL_STOP
 
 SNLDB* SNLCapnP::loadImplementation(int fileDescriptor) {
@@ -550,21 +550,21 @@ SNLDB* SNLCapnP::loadImplementation(const std::filesystem::path& implementationP
 }
 
 //LCOV_EXCL_START
-SNLDB* SNLCapnP::receiveImplementation(tcp::socket& socket) {
-  return loadImplementation(socket.native_handle());
-}
-
-SNLDB* SNLCapnP::receiveImplementation(uint16_t port) {
-  boost::asio::io_context ioContext;
-  //listen for new connection
-  tcp::acceptor acceptor_(ioContext, tcp::endpoint(tcp::v4(), port));
-  //socket creation 
-  tcp::socket socket(ioContext);
-  //waiting for connection
-  acceptor_.accept(socket);
-  SNLDB* db = receiveImplementation(socket);
-  return db;
-}
+//SNLDB* SNLCapnP::receiveImplementation(tcp::socket& socket) {
+//  return loadImplementation(socket.native_handle());
+//}
+//
+//SNLDB* SNLCapnP::receiveImplementation(uint16_t port) {
+//  boost::asio::io_context ioContext;
+//  //listen for new connection
+//  tcp::acceptor acceptor_(ioContext, tcp::endpoint(tcp::v4(), port));
+//  //socket creation 
+//  tcp::socket socket(ioContext);
+//  //waiting for connection
+//  acceptor_.accept(socket);
+//  SNLDB* db = receiveImplementation(socket);
+//  return db;
+//}
 //LCOV_EXCL_STOP
 
 }} // namespace SNL // namespace naja
