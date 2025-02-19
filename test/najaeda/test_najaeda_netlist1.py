@@ -101,6 +101,7 @@ class NajaNetlistTest1(unittest.TestCase):
         self.assertEqual(1, sum(1 for _ in top.get_flat_output_terms()))
 
         i0 = top.get_term('I0')
+        self.assertIsNone(i0.get_bit_number())
         self.assertIsNotNone(i0)
         self.assertTrue(i0.is_bus())
         self.assertTrue(i0.is_input())

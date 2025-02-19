@@ -845,14 +845,6 @@ class Instance:
                         yield Instance(path_child)
                     stack.append([inst_child, path_child])
 
-    def is_valid(self) -> bool:
-        """
-        :return: True if the instance is valid.
-        :rtype: bool
-        """
-        instance = get_snl_instance_from_id_list(self.pathIDs)
-        return instance is not None
-
     def is_top(self) -> bool:
         """
         :return: True if this is the top design.
