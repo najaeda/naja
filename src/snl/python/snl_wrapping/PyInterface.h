@@ -22,6 +22,8 @@ static void setError(const std::string& reason) {
   PyErr_SetString(PyExc_RuntimeError, reason.c_str());
 }
 
+//LCOV_EXCL_START
+//Can be used to debug the type of a PyObject
 static std::string getStringForPyObject(PyObject* obj) {
   if (PyUnicode_Check(obj)) {
     return PyUnicode_AsUTF8(obj);
@@ -75,6 +77,7 @@ static std::string getStringForPyObject(PyObject* obj) {
   }
   return "<unknown>";
 }
+//LCOV_EXCL_STOP
 
 template <typename T>
 PyObject* richCompare(T left, T right, int op) {
