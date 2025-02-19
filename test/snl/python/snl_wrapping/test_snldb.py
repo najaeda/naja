@@ -116,6 +116,12 @@ class SNLDBTest(unittest.TestCase):
     with self.assertRaises(RuntimeError) as context: snl.SNLDB.create(u)
     with self.assertRaises(RuntimeError) as context: snl.SNLDB.loadSNL()
     with self.assertRaises(RuntimeError) as context: snl.SNLDB.loadSNL("./error")
+
+  def testDumpError(self):
+    u = snl.SNLUniverse.get()
+    db = snl.SNLDB.create(u) 
+    with self.assertRaises(RuntimeError) as context: db.dumpSNL()
+    with self.assertRaises(RuntimeError) as context: db.dumpSNL(db)
     
 if __name__ == '__main__':
   faulthandler.enable()

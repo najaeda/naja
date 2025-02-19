@@ -959,19 +959,6 @@ class Instance:
     def dump_context_dot(self, path: str):
         self.__get_snl_model().dumpContextDotFile(path)
 
-    def get_parent(self):
-        """Get the parent instance of this instance.
-
-        :return: the parent Instance of this instance.
-        :rtype: Instance
-        """
-        if self.is_top():
-            return None
-        path = get_snl_path_from_id_list(self.pathIDs)
-        parent_path = snl.SNLPath(path)
-        parent_path.pop()
-        return Instance(parent_path)
-
     def get_child_instance(self, name: str):
         """
         :param str name: the name of the child Instance to get.
