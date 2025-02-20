@@ -446,13 +446,19 @@ class Term:
         return consistent_hash((self.pathIDs, termIDs))
 
     def __str__(self):
+        term_str = ""
         path = get_snl_path_from_id_list(self.pathIDs)
         if path.size() == 0:
-            return get_snl_term_for_ids(self.pathIDs, self.termIDs).getName()
+            term_str = get_snl_term_for_ids(self.pathIDs, self.termIDs).getName()
         else:
-            return (
+            term_str = (
                 f"{path}/{get_snl_term_for_ids(self.pathIDs, self.termIDs).getName()}"
             )
+        if self.is_bus:
+            term_str += f"[{self.get_msb()}:{self.get_lsb()}]"
+        elif self.is_bus_bit:
+            term_str += f"[{self.get_lsb()}]"
+        return term_str
 
     def __repr__(self) -> str:
         path = get_snl_path_from_id_list(self.pathIDs)
@@ -497,6 +503,17 @@ class Term:
         :rtype: bool
         """
         return self.is_scalar() or self.is_bus_bit()
+
+    def get_bit_number(self):
+        """
+        :return: the bit index of the term if it is a bit.
+        :rtype: int or None
+        """
+        if isinstance(
+            get_snl_term_for_ids(self.pathIDs, self.termIDs), snl.SNLBusTermBit
+        ):
+            return get_snl_term_for_ids(self.pathIDs, self.termIDs).getBit()
+        return None
 
     def get_msb(self) -> int:
         """
@@ -1369,10 +1386,17 @@ def create_top(name: str) -> Instance:
     return Instance()
 
 
-def load_verilog(files: list):
+class VerilogConfig:
+    def __init__(self, keep_assigns=True):
+        self.keep_assigns = keep_assigns
+
+
+def load_verilog(files: list, config: VerilogConfig = None) -> Instance:
+    if config is None:
+        config = VerilogConfig()  # Use default settings
     start_time = time.time()
     logging.info(f"Loading verilog: {', '.join(files)}")
-    get_top_db().loadVerilog(files)
+    get_top_db().loadVerilog(files, keep_assigns=config.keep_assigns)
     execution_time = time.time() - start_time
     logging.info(f"Loading done in {execution_time:.2f} seconds")
     return get_top()

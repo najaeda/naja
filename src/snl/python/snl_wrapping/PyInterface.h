@@ -22,6 +22,63 @@ static void setError(const std::string& reason) {
   PyErr_SetString(PyExc_RuntimeError, reason.c_str());
 }
 
+//LCOV_EXCL_START
+//Can be used to debug the type of a PyObject
+static std::string getStringForPyObject(PyObject* obj) {
+  if (PyUnicode_Check(obj)) {
+    return PyUnicode_AsUTF8(obj);
+  }
+  if (PyLong_Check(obj)) {
+    return std::to_string(PyLong_AsLong(obj));
+  }
+  if (PyFloat_Check(obj)) {
+    return std::to_string(PyFloat_AsDouble(obj));
+  }
+  if (PyBool_Check(obj)) {
+    return PyLong_AsLong(obj) ? "True" : "False";
+  }
+  if (PyBytes_Check(obj)) {
+    return PyBytes_AsString(obj);
+  }
+  if (PyByteArray_Check(obj)) {
+    return PyByteArray_AsString(obj);
+  }
+  if (PyList_Check(obj)) {
+    std::ostringstream oss;
+    oss << "[";
+    for (Py_ssize_t i = 0; i < PyList_Size(obj); ++i) {
+      if (i > 0) oss << ", ";
+      oss << getStringForPyObject(PyList_GetItem(obj, i));
+    }
+    oss << "]";
+    return oss.str();
+  }
+  if (PyTuple_Check(obj)) {
+    std::ostringstream oss;
+    oss << "(";
+    for (Py_ssize_t i = 0; i < PyTuple_Size(obj); ++i) {
+      if (i > 0) oss << ", ";
+      oss << getStringForPyObject(PyTuple_GetItem(obj, i));
+    }
+    oss << ")";
+    return oss.str();
+  }
+  if (PyDict_Check(obj)) {
+    std::ostringstream oss;
+    oss << "{";
+    PyObject *key, *value;
+    Py_ssize_t pos = 0;
+    while (PyDict_Next(obj, &pos, &key, &value)) {
+      if (pos > 0) oss << ", ";
+      oss << getStringForPyObject(key) << ": " << getStringForPyObject(value);
+    }
+    oss << "}";
+    return oss.str();
+  }
+  return "<unknown>";
+}
+//LCOV_EXCL_STOP
+
 template <typename T>
 PyObject* richCompare(T left, T right, int op) {
   if ((op == Py_LT) and (left <  right)) Py_RETURN_TRUE;

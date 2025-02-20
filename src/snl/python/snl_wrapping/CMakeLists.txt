@@ -31,12 +31,14 @@ add_library(naja_snl_python SHARED ${SOURCES})
 if (BUILD_NAJA_PYTHON)
   target_link_libraries(naja_snl_python
     PUBLIC
+    naja_snl_dump
     naja_snl_verilog naja_snl_liberty naja_snl_visual
     Python3::Module
   )
 else(BUILD_NAJA_PYTHON)
   target_link_libraries(naja_snl_python
     PUBLIC
+    naja_snl_dump
     naja_snl_verilog naja_snl_liberty naja_snl_visual
     Python3::Python
   )
