@@ -8,7 +8,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "najaeda"
-version = "0.1.13"
+version = "0.1.14"
 description = "Naja EDA Python package"
 authors = [{name = "Naja Authors", email = "contact@keplertech.io"}]
 readme = "src/najaeda/README.rst"
