@@ -293,6 +293,9 @@ static PyObject* PySNLDesign_setTruthTable(PySNLDesign* self, PyObject* args) {
 PyObject* PySNLDesign_getTruthTable(PySNLDesign* self, PyObject* args) { 
   const SNLTruthTable& truthTable =
       SNLDesignTruthTable::getTruthTable(self->object_);
+  if (!truthTable.isInitialized()) {
+    Py_RETURN_NONE;
+  }
   PyObject* py_list = PyList_New(2); 
   PyList_SetItem(py_list, 0, PyLong_FromLong(truthTable.size()));
   PyList_SetItem(py_list, 1, PyLong_FromLong(truthTable.bits()));
