@@ -357,7 +357,7 @@ class SNLDesign final: public SNLObject {
     using SNLDesignParameters = boost::intrusive::set<SNLParameter, SNLDesignParametersHook>;
 
     SNLID::DesignID                     id_;
-    int                              revisionCount_     = 0;
+    int                                 revisionCount_      {0};
     SNLName                             name_               {};
     Type                                type_               { Type::Standard };
     SNLLibrary*                         library_;
