@@ -67,3 +67,4 @@ if __name__ == '__main__':
 
     top.dump_verilog("./", "result.v")
     print(f'deleted {len(nb_deleted)} leaves')
+
