@@ -13,6 +13,8 @@ from najaeda import netlist
 from najaeda import snl
 import faulthandler
 
+logging.basicConfig(level=logging.INFO)
+
 # snippet-start: dle
 def apply_dle(top, keep_attributes=None):
     # Trace back from design outputs
@@ -65,4 +67,3 @@ if __name__ == '__main__':
 
     top.dump_verilog("./", "result.v")
     print(f'deleted {len(nb_deleted)} leaves')
-
