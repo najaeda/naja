@@ -28,6 +28,7 @@
 #include "SNLDesign.h"
 #include "SNLDesignModeling.h"
 #include "SNLDesignTruthTable.h"
+#include "SNLTruthTable.h"
 #include "SNLVRLDumper.h"
 
 #include "NetlistGraph.h"
@@ -288,6 +289,19 @@ static PyObject* PySNLDesign_setTruthTable(PySNLDesign* self, PyObject* args) {
   Py_RETURN_NONE;
 }
 
+// Return the truth table for design
+PyObject* PySNLDesign_getTruthTable(PySNLDesign* self, PyObject* args) { 
+  const SNLTruthTable& truthTable =
+      SNLDesignTruthTable::getTruthTable(self->object_);
+  if (!truthTable.isInitialized()) {
+    Py_RETURN_NONE;
+  }
+  PyObject* py_list = PyList_New(2); 
+  PyList_SetItem(py_list, 0, PyLong_FromLong(truthTable.size()));
+  PyList_SetItem(py_list, 1, PyLong_FromLong(truthTable.bits()));
+  return py_list;
+}
+
 static PyObject* PySNLDesign_dumpFullDotFile(PySNLDesign* self, PyObject* args) {
   char* path = NULL; 
   if (not PyArg_ParseTuple(args, "s:SELF_TYPE.METHOD", &path)) {
@@ -439,6 +453,8 @@ PyMethodDef PySNLDesign_Methods[] = {
     "get outputs related to a clock"},
   { "setTruthTable", (PyCFunction)PySNLDesign_setTruthTable, METH_VARARGS,
     "set truth table of a primitive"},
+  { "getTruthTable", (PyCFunction)PySNLDesign_getTruthTable, METH_NOARGS,
+    "get truth table of a primitive"},
   { "isConst0", (PyCFunction)PySNLDesign_isConst0, METH_NOARGS,
     "Returns True if this design is a primitive driving a constant 0"},
   { "isConst1", (PyCFunction)PySNLDesign_isConst1, METH_NOARGS,
