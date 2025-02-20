@@ -1351,6 +1351,13 @@ class Instance:
         :param str name: the name of the verilog file.
         """
         self.__get_snl_model().dumpVerilog(path, name)
+    
+    def get_truth_table(self):
+        """
+        :return: the truth table of the instance.
+        :rtype: list[str]
+        """
+        return self.__get_snl_model().getTruthTable()
 
 
 def get_top_db() -> snl.SNLDB:
