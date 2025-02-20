@@ -1351,7 +1351,7 @@ class Instance:
         :param str name: the name of the verilog file.
         """
         self.__get_snl_model().dumpVerilog(path, name)
-    
+
     def get_truth_table(self):
         """
         :return: the truth table of the instance.
