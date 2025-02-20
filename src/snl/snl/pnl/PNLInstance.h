@@ -24,6 +24,7 @@ class PNLInstance final: public PNLDesignObject {
     std::string getString() const override { return "PNLInstance"; }
     std::string getDescription() const override { return "PNLInstance"; }
     void debugDump(size_t indent, bool recursive=true, std::ostream& stream=std::cerr) const override;
+    
   private:
     PNLInstance(PNLDesign* design, PNLDesign* model);
 

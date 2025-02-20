@@ -6,6 +6,7 @@
 #define __PNL_DESIGN_OBJECT_H_
 
 #include "SNLObject.h"
+#include "SNLID.h"
 
 namespace naja { namespace PNL {
 

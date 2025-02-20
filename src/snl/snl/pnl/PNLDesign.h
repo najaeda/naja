@@ -8,6 +8,7 @@
 #include "SNLObject.h"
 #include "SNLID.h"
 #include "PNLPoint.h"
+#include "PNLTerm.h"
 
 namespace naja { namespace SNL {
   class SNLDB;
@@ -40,6 +41,18 @@ class PNLDesign final: public naja::SNL::SNLObject {
     std::string getDescription() const override;
     bool deepCompare(const PNLDesign* other, std::string& reason) const;
     void debugDump(size_t indent, bool recursive=true, std::ostream& stream=std::cerr) const override;
+
+    void addTerm(PNLTerm* term);
+    PNLTerm* getTerm(naja::SNL::SNLID::DesignObjectID id) const;
+    void detachTerm(naja::SNL::SNLID::DesignObjectID id);
+
+    void addInstance(PNLInstance* instance);
+    PNLInstance* getInstance(naja::SNL::SNLID::DesignObjectID id) const;
+    void detachInstance(naja::SNL::SNLID::DesignObjectID id);
+
+    void addNet(PNLNet* net);
+    PNLNet* getNet(naja::SNL::SNLID::DesignObjectID id) const;
+    void detachNet(naja::SNL::SNLID::DesignObjectID id);
   
   private:
     PNLDesign(naja::SNL::SNLLibrary* library);
@@ -52,6 +65,9 @@ class PNLDesign final: public naja::SNL::SNLObject {
     naja::SNL::SNLLibrary*                    library_            {};
     naja::PNL::PNLPoint                       origin_             {0, 0};
     boost::intrusive::set_member_hook<>       libraryDesignsHook_ {};
+    std::vector<PNLTerm*>                     terms_              {};
+    std::vector<PNLInstance*>                 instances_          {};
+    std::vector<PNLNet*>                      nets_               {};
 };
 
 }} // namespace PNL // namespace naja

@@ -37,6 +37,11 @@ void PNLDesign::postCreate() {
 }
 
 void PNLDesign::preDestroy() {
+  for (auto term : terms_) {
+    if (term) {
+      term->destroyFromDesign();
+    }
+  }
   super::preDestroy();
 }
 
@@ -70,4 +75,61 @@ SNLID PNLDesign::getSNLID() const {
   return SNLID(getDB()->getID(), library_->getID(), getID());
 }
 
-}} // namespace SNL // namespace naja
+void PNLDesign::addTerm(PNLTerm* term) {
+  terms_.push_back(term);
+}
+
+PNLTerm* PNLDesign::getTerm(SNLID::DesignObjectID id) const {
+  if (id >= terms_.size()) {
+    // TODO: throw exception
+    return nullptr;
+  }
+  return terms_[id];
+}
+
+void PNLDesign::detachTerm(SNLID::DesignObjectID id) {
+  if (id >= terms_.size()) {
+    // TODO: throw exception
+    return;
+  }
+  terms_[id] = nullptr;
+}
+
+void PNLDesign::detachNet(SNLID::DesignObjectID id) {
+  if (id >= nets_.size()) { 
+    // TODO: throw exception
+  }
+  nets_[id] = nullptr;
+}
+
+void PNLDesign::addNet(PNLNet* net) {
+  nets_.push_back(net);
+}
+
+PNLNet* PNLDesign::getNet(SNLID::DesignObjectID id) const {
+  if (id >= nets_.size()) {
+    // TODO: throw exception
+    return nullptr;
+  }
+  return nets_[id];
+}
+
+void PNLDesign::detachInstance(SNLID::DesignObjectID id) {
+  if (id >= instances_.size()) {
+    // TODO: throw exception
+  }
+  instances_[id] = nullptr;
+}
+
+void PNLDesign::addInstance(PNLInstance* instance) {
+  instances_.push_back(instance);
+}
+
+PNLInstance* PNLDesign::getInstance(SNLID::DesignObjectID id) const {
+  if (id >= instances_.size()) {
+    // TODO: throw exception
+  }
+  return instances_[id];
+}
+
+}} // namespace PNL // namespace naja

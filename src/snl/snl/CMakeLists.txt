@@ -36,6 +36,9 @@ set(PNL_KERNEL_SOURCES
   pnl/PNLDesignObject.cpp
   pnl/PNLInstance.cpp
   pnl/PNLOrientation.cpp
+  pnl/PNLNet.cpp
+  pnl/PNLTerm.cpp
+  pnl/PNLInstTerm.cpp
 )
 
 set(SNL_DECORATOR_SOURCES
