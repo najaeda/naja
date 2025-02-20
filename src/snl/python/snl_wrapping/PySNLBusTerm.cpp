@@ -7,6 +7,7 @@
 #include "PyInterface.h"
 #include "PySNLDesign.h"
 #include "PySNLBusTermBit.h"
+#include <limits>
 
 #include "SNLBusTerm.h"
 #include "SNLBusTermBit.h"
@@ -49,12 +50,40 @@ static PyObject* PySNLBusTerm_create(PyObject*, PyObject* args) {
   return PySNLBusTerm_Link(term);
 }
 
+// To retrun getBit but to rename the function as getBusTermBit
+PyObject* PySNLBusTerm_getBusTermBit(PySNLBusTerm* self, PyObject* args) {
+  PyObject* arg0 = nullptr;
+  if (not PyArg_ParseTuple(args, "O:SNLBusTerm.getBit", &arg0)) {
+    setError("malformed SNLBusTerm getBit method");
+    return nullptr;
+  }
+  SNLID::Bit bit = 0;
+  if (PyLong_Check(arg0)) {
+    bit = PyLong_AsLong(arg0);
+  } else {
+    setError("SNLBusTerm getBit accepts an integer as first argument");
+    return nullptr;
+  }
+  SNLBusTermBit* bitTerm = nullptr;
+  // LCOV_EXCL_START
+  TRY
+  bitTerm = (static_cast<naja::SNL::SNLBusTerm*>(self->parent_.parent_.parent_.object_))->getBit(bit);
+  SNLCATCH
+  // LCOV_EXCL_STOP
+  return PySNLBusTermBit_Link(bitTerm);
+}
+
+// Function named getBit with no args that returns -1 int
+PyObject* PySNLBusTerm_getBit(PySNLBusTerm* self) {
+  return PyLong_FromLong(std::numeric_limits<long>::max());
+}
+
 DirectGetIntMethod(PySNLBusTerm_getMSB, getMSB, PySNLBusTerm, SNLBusTerm)
 DirectGetIntMethod(PySNLBusTerm_getLSB, getLSB, PySNLBusTerm, SNLBusTerm)
 DirectGetIntMethod(PySNLBusTerm_getID, getID, PySNLBusTerm, SNLBusTerm)
 DirectGetIntMethod(PySNLBusTerm_getFlatID, getFlatID, PySNLBusTerm, SNLBusTerm)
 
-GetObjectByIndex(BusTerm, BusTermBit, Bit)
+//GetObjectByIndex(BusTerm, BusTermBit, Bit)
 
 DBoLinkCreateMethod(SNLBusTerm)
 DBoDeallocMethod(SNLBusTerm)
@@ -67,7 +96,9 @@ PyMethodDef PySNLBusTerm_Methods[] = {
     "get SNLBusTerm MSB value"},
   { "getLSB", (PyCFunction)PySNLBusTerm_getLSB, METH_NOARGS,
     "get SNLBusTerm LSB value"},
-  { "getBit", (PyCFunction)PySNLBusTerm_getBit, METH_VARARGS,
+  { "getBit", (PyCFunction)PySNLBusTerm_getBit, METH_NOARGS,
+    "retruns -1"},
+  { "getBusTermBit", (PyCFunction)PySNLBusTerm_getBusTermBit, METH_VARARGS,
     "get SNLBusTerm Bit, returns SNLBusTermBit"},
   { "getID", (PyCFunction)PySNLBusTerm_getID, METH_NOARGS,
     "get SNLBusTerm ID value"},

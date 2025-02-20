@@ -73,6 +73,7 @@ class NajaNetlistTest0(unittest.TestCase):
         top = netlist.get_top()
         self.assertIsNotNone(top)
         inst0 = top.get_child_instance('inst0')
+        self.assertFalse(inst0.is_basic_primitive())
         self.assertIsNotNone(inst0)
         self.assertEqual(0, sum(1 for _ in inst0.get_attributes()))
         #print(netlist.get_top())
@@ -106,8 +107,8 @@ class NajaNetlistTest0(unittest.TestCase):
         self.i0 = snl.SNLScalarTerm.create(self.model, snl.SNLTerm.Direction.Input, "I0")
         self.assertEqual(self.i0.getFlatID(), 0)
         self.i1 = snl.SNLBusTerm.create(self.model, snl.SNLTerm.Direction.Input, 4, 0, "I1")
-        self.assertEqual(self.i1.getBit(0).getBit(), 0)
-        self.assertEqual(self.i1.getBit(0).getFlatID(), 5)
+        self.assertEqual(self.i1.getBusTermBit(0).getBit(), 0)
+        self.assertEqual(self.i1.getBusTermBit(0).getFlatID(), 5)
         self.assertEqual(self.i1.getFlatID(), 1)
         self.o = snl.SNLScalarTerm.create(self.model, snl.SNLTerm.Direction.Output, "O")
         ins2 = snl.SNLInstance.create(self.model, self.submodel, "ins2")
@@ -244,7 +245,12 @@ class NajaNetlistTest0(unittest.TestCase):
         self.noNameTop = snl.SNLScalarTerm.create(self.top, snl.SNLTerm.Direction.Input, "")
         self.noNameBusTop = snl.SNLBusTerm.create(self.top, snl.SNLTerm.Direction.Input, 4, 0, "")
 
+        
+
         path0 = snl.SNLPath()
+
+        self.assertEqual(self.noNameBusTop, netlist.get_snl_term_for_ids_with_path(path0, [self.noNameBusTop.getID(), netlist.get_none_existent()]))
+
         #print(path0)
         self.assertIsNotNone(path0)
         self.assertTrue(path0.empty())
@@ -254,14 +260,14 @@ class NajaNetlistTest0(unittest.TestCase):
         noNameModel_net = snl.SNLScalarNet.create(self.model, "noName")
         self.noNameModel.setNet(noNameModel_net)
         noNameModelBus_net = snl.SNLScalarNet.create(self.model, "busNoName")
-        self.noNameBusModel.getBit(0).setNet(noNameModelBus_net)
+        self.noNameBusModel.getBusTermBit(0).setNet(noNameModelBus_net)
 
         noNameTop_net = snl.SNLScalarNet.create(self.top, "noName")
         self.noNameTop.setNet(noNameTop_net)
         ins1.getInstTerm(self.noNameModel).setNet(noNameTop_net)
         noNameTopBus_net = snl.SNLScalarNet.create(self.top, "busNoName")
-        self.noNameBusTop.getBit(0).setNet(noNameTopBus_net)
-        ins1.getInstTerm(self.noNameBusModel.getBit(0)).setNet(noNameTopBus_net)
+        self.noNameBusTop.getBusTermBit(0).setNet(noNameTopBus_net)
+        ins1.getInstTerm(self.noNameBusModel.getBusTermBit(0)).setNet(noNameTopBus_net)
 
         inst_terms = tuple(ins1.getInstTerms())
         i0_net = snl.SNLScalarNet.create(self.top, "I0")
@@ -280,7 +286,7 @@ class NajaNetlistTest0(unittest.TestCase):
         self.assertTrue(path1.getHeadInstance() == ins1)
         self.assertTrue(path2.getHeadInstance() == ins1)
         #print(path2)
-        inst_term = netlist.Term(path2, sub_inst_terms[0].getBitTerm())
+        inst_term = netlist.Term(path2.getPathIDs(), sub_inst_terms[0].getBitTerm())
         self.assertEqual(0, sub_inst_terms[0].getBitTerm().getFlatID())
         equi = netlist.Equipotential(inst_term)
         net_component_occurrence2 = snl.SNLNetComponentOccurrence(path1, sub_inst_terms[0])
@@ -309,10 +315,13 @@ class NajaNetlistTest0(unittest.TestCase):
         self.assertEqual(len(computeEqui.get_terms()), len(snl_top_terms) + len(snl_inst_term_occurrences))
 
         for t in equi.get_top_terms():
-            self.assertTrue(netlist.get_snl_term_for_ids(t.pathIDs, t.termIDs) == snl_top_terms.pop(0)) 
-        
+            to_compare_with = snl_top_terms.pop(0)
+            self.assertTrue(netlist.get_snl_term_for_ids(t.pathIDs, t.termIDs) == to_compare_with) 
+            self.assertTrue(netlist.get_snl_term_for_ids_with_path(netlist.get_snl_path_from_id_list(t.pathIDs), t.termIDs) == to_compare_with)
+
         for t in equi.get_inst_terms():
             to_compare_with = snl_inst_term_occurrences.pop(0)
+            self.assertTrue(netlist.get_snl_term_for_ids_with_path(netlist.get_snl_path_from_id_list(t.pathIDs), t.termIDs) == to_compare_with.getInstTerm().getBitTerm())
             self.assertTrue(netlist.get_snl_term_for_ids(t.pathIDs, t.termIDs) == to_compare_with.getInstTerm().getBitTerm())
             self.assertTrue(netlist.get_snl_path_from_id_list(t.pathIDs).getHeadPath() == to_compare_with.getPath())
 
@@ -399,8 +408,8 @@ class NajaNetlistTest0(unittest.TestCase):
         self.i0 = snl.SNLScalarTerm.create(self.top, snl.SNLTerm.Direction.Input, "I0")
         self.i1 = snl.SNLScalarTerm.create(self.top, snl.SNLTerm.Direction.Input, "I1")
 
-        top_term = netlist.Term(snl.SNLPath(), self.i0)
-        top_term2 = netlist.Term(snl.SNLPath(), self.i1)
+        top_term = netlist.Term(snl.SNLPath().getPathIDs(), self.i0)
+        top_term2 = netlist.Term(snl.SNLPath().getPathIDs(), self.i1)
 
         terms = set()
         terms.add(top_term)

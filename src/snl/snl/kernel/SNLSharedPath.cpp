@@ -128,12 +128,12 @@ std::string SNLSharedPath::getString(char separator) {
 
 std::vector<SNLID::DesignObjectID> SNLSharedPath::getPathIDs() const {
   std::vector<SNLID::DesignObjectID> result;
-  if (headSharedPath_) {
+  if (headSharedPath_ != nullptr) {
     result = headSharedPath_->getPathIDs();
     result.push_back(tailInstance_->getID());
     return result;
   }
-  if (tailInstance_) {
+  if (tailInstance_ != nullptr) {
     result.push_back(tailInstance_->getID());
     return result;
   }
