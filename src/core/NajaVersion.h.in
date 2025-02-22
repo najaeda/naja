@@ -4,6 +4,8 @@
 
 namespace naja {
 
+#include <string>
+
 const std::string NAJA_MAJOR { "0" };
 const std::string NAJA_MINOR { "1" };
 const std::string NAJA_PATCH { "0" };

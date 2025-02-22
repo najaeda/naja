@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+
 #include "PySNLUniverse.h"
 #include "PySNLAttribute.h"
 #include "PySNLDB.h"
@@ -44,9 +45,21 @@
 #include "PySNLInstTermOccurrences.h"
 #include "PySNLUniquifier.h"
 
+#include "NajaVersion.h"
+
 namespace PYSNL {
 
+static PyObject* getVersion(PyObject* self, PyObject* args) {
+  return PyUnicode_FromString(naja::NAJA_VERSION.c_str());
+}
+
+static PyObject* getGitVersion(PyObject* self, PyObject* args) {
+  return PyUnicode_FromString(naja::NAJA_GIT_HASH.c_str());
+}
+
 static PyMethodDef SNLMethods[] = {
+  { "getVersion", getVersion, METH_NOARGS, "get the version of SNL" },
+  { "getGitVersion", getGitVersion, METH_NOARGS, "get the naja git hash" },
   {NULL, NULL, 0, NULL}        /* Sentinel */
 };
 
@@ -174,52 +187,6 @@ PyMODINIT_FUNC PyInit_snl(void) {
   PYTYPE_READY(SNLInstTermOccurrences);
   PYTYPE_READY(SNLInstTermOccurrencesIterator);
 
-  //FIXME:XTOF Why those increfs ??
-  Py_INCREF(&PyTypeSNLAttribute);
-  Py_INCREF(&PyTypeSNLUniverse);
-  Py_INCREF(&PyTypeSNLDB);
-  Py_INCREF(&PyTypeSNLLibrary);
-  Py_INCREF(&PyTypeSNLDesign);
-  Py_INCREF(&PyTypeSNLParameter);
-  Py_INCREF(&PyTypeSNLInstParameter);
-  Py_INCREF(&PyTypeSNLDesignObject);
-  Py_INCREF(&PyTypeSNLNet);
-  Py_INCREF(&PyTypeSNLBusNet);
-  Py_INCREF(&PyTypeSNLBitNet);
-  Py_INCREF(&PyTypeSNLScalarNet);
-  Py_INCREF(&PyTypeSNLBusNetBit);
-  Py_INCREF(&PyTypeSNLNetComponent);
-  Py_INCREF(&PyTypeSNLTerm);
-  Py_INCREF(&PyTypeSNLBusTerm);
-  Py_INCREF(&PyTypeSNLBitTerm);
-  Py_INCREF(&PyTypeSNLScalarTerm);
-  Py_INCREF(&PyTypeSNLBusTermBit);
-  Py_INCREF(&PyTypeSNLInstance);
-  Py_INCREF(&PyTypeSNLPath);
-  Py_INCREF(&PyTypeSNLUniquifier);
-  Py_INCREF(&PyTypeSNLEquipotential);
-  Py_INCREF(&PyTypeSNLOccurrence);
-  Py_INCREF(&PyTypeSNLNetComponentOccurrence);
-  Py_INCREF(&PyTypeSNLInstTermOccurrence);
-  Py_INCREF(&PyTypeSNLInstTerm);
-  Py_INCREF(&PyTypeSNLDBs);
-  Py_INCREF(&PyTypeSNLLibraries);
-  Py_INCREF(&PyTypeSNLDesigns);
-  Py_INCREF(&PyTypeSNLParameters);
-  Py_INCREF(&PyTypeSNLTerms);
-  Py_INCREF(&PyTypeSNLBitTerms);
-  Py_INCREF(&PyTypeSNLScalarTerms);
-  Py_INCREF(&PyTypeSNLBusTerms);
-  Py_INCREF(&PyTypeSNLNets);
-  Py_INCREF(&PyTypeSNLBitNets);
-  Py_INCREF(&PyTypeSNLScalarNets);
-  Py_INCREF(&PyTypeSNLBusNets);
-  Py_INCREF(&PyTypeSNLNetComponents);
-  Py_INCREF(&PyTypeSNLInstances);
-  Py_INCREF(&PyTypeSNLInstParameters);
-  Py_INCREF(&PyTypeSNLInstTerms);
-  Py_INCREF(&PyTypeSNLInstTermOccurrences);
-
   PyObject* mod = PyModule_Create(&snlModule);
 
   if (not mod) {
@@ -230,33 +197,33 @@ PyMODINIT_FUNC PyInit_snl(void) {
     //LCOV_EXCL_STOP
   }
 
-  PyModule_AddObject(mod, "SNLAttribute", (PyObject*)&PyTypeSNLAttribute);
-  PyModule_AddObject(mod, "SNLUniverse", (PyObject*)&PyTypeSNLUniverse);
-  PyModule_AddObject(mod, "SNLDB", (PyObject*)&PyTypeSNLDB);
-  PyModule_AddObject(mod, "SNLLibrary", (PyObject*)&PyTypeSNLLibrary);
-  PyModule_AddObject(mod, "SNLDesign", (PyObject*)&PyTypeSNLDesign);
-  PyModule_AddObject(mod, "SNLParameter", (PyObject*)&PyTypeSNLParameter);
-  PyModule_AddObject(mod, "SNLDesignObject", (PyObject*)&PyTypeSNLDesignObject);
-  PyModule_AddObject(mod, "SNLNet", (PyObject*)&PyTypeSNLNet);
-  PyModule_AddObject(mod, "SNLBusNet", (PyObject*)&PyTypeSNLBusNet);
-  PyModule_AddObject(mod, "SNLBitNet", (PyObject*)&PyTypeSNLBitNet);
-  PyModule_AddObject(mod, "SNLScalarNet", (PyObject*)&PyTypeSNLScalarNet);
-  PyModule_AddObject(mod, "SNLBusNetBit", (PyObject*)&PyTypeSNLBusNetBit);
-  PyModule_AddObject(mod, "SNLNetComponent", (PyObject*)&PyTypeSNLNetComponent);
-  PyModule_AddObject(mod, "SNLTerm", (PyObject*)&PyTypeSNLTerm);
-  PyModule_AddObject(mod, "SNLBusTerm", (PyObject*)&PyTypeSNLBusTerm);
-  PyModule_AddObject(mod, "SNLBitTerm", (PyObject*)&PyTypeSNLBitTerm);
-  PyModule_AddObject(mod, "SNLScalarTerm", (PyObject*)&PyTypeSNLScalarTerm);
-  PyModule_AddObject(mod, "SNLBusTermBit", (PyObject*)&PyTypeSNLBusTermBit);
-  PyModule_AddObject(mod, "SNLInstance", (PyObject*)&PyTypeSNLInstance);
-  PyModule_AddObject(mod, "SNLInstParameter", (PyObject*)&PyTypeSNLInstParameter);
-  PyModule_AddObject(mod, "SNLInstTerm", (PyObject*)&PyTypeSNLInstTerm);
-  PyModule_AddObject(mod, "SNLPath", (PyObject*)&PyTypeSNLPath);
-  PyModule_AddObject(mod, "SNLUniquifier", (PyObject*)&PyTypeSNLUniquifier);
-  PyModule_AddObject(mod, "SNLOccurrence", (PyObject*)&PyTypeSNLOccurrence);
-  PyModule_AddObject(mod, "SNLNetComponentOccurrence", (PyObject*)&PyTypeSNLNetComponentOccurrence);
-  PyModule_AddObject(mod, "SNLInstTermOccurrence", (PyObject*)&PyTypeSNLInstTermOccurrence);
-  PyModule_AddObject(mod, "SNLEquipotential", (PyObject*)&PyTypeSNLEquipotential);
+  PyModule_AddType(mod, &PyTypeSNLAttribute);
+  PyModule_AddType(mod, &PyTypeSNLUniverse);
+  PyModule_AddType(mod, &PyTypeSNLDB);
+  PyModule_AddType(mod, &PyTypeSNLLibrary);
+  PyModule_AddType(mod, &PyTypeSNLDesign);
+  PyModule_AddType(mod, &PyTypeSNLParameter);
+  PyModule_AddType(mod, &PyTypeSNLDesignObject);
+  PyModule_AddType(mod, &PyTypeSNLNet);
+  PyModule_AddType(mod, &PyTypeSNLBusNet);
+  PyModule_AddType(mod, &PyTypeSNLBitNet);
+  PyModule_AddType(mod, &PyTypeSNLScalarNet);
+  PyModule_AddType(mod, &PyTypeSNLBusNetBit);
+  PyModule_AddType(mod, &PyTypeSNLNetComponent);
+  PyModule_AddType(mod, &PyTypeSNLTerm);
+  PyModule_AddType(mod, &PyTypeSNLBusTerm);
+  PyModule_AddType(mod, &PyTypeSNLBitTerm);
+  PyModule_AddType(mod, &PyTypeSNLScalarTerm);
+  PyModule_AddType(mod, &PyTypeSNLBusTermBit);
+  PyModule_AddType(mod, &PyTypeSNLInstance);
+  PyModule_AddType(mod, &PyTypeSNLInstParameter);
+  PyModule_AddType(mod, &PyTypeSNLInstTerm);
+  PyModule_AddType(mod, &PyTypeSNLPath);
+  PyModule_AddType(mod, &PyTypeSNLUniquifier);
+  PyModule_AddType(mod, &PyTypeSNLOccurrence);
+  PyModule_AddType(mod, &PyTypeSNLNetComponentOccurrence);
+  PyModule_AddType(mod, &PyTypeSNLInstTermOccurrence);
+  PyModule_AddType(mod, &PyTypeSNLEquipotential);
 
   PySNLTerm_postModuleInit();
   PySNLNet_postModuleInit();
