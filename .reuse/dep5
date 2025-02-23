@@ -45,7 +45,7 @@ FILES: src/najaeda/README.rst src/najaeda/najaeda/docs/*
 Copyright: 2022 The Naja Authors.
 License: Apache-2.0
 
-FILES: src/najaeda/examples/benchmarks/liberty/* src/najaeda/examples/benchmarks/verilog/tinyrocket.v
+FILES: src/najaeda/benchmarks/liberty/* src/najaeda/benchmarks/verilog/tinyrocket.v
 Copyright: 2022 The Naja Authors.
 License: Apache-2.0
 

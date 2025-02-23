@@ -15,7 +15,7 @@ from najaeda import instance_visitor
 logging.basicConfig(level=logging.INFO)
 
 netlist.load_primitives('xilinx')
-benchmarks = path.join('..','benchmarks')
+benchmarks = path.join('..', '..', 'benchmarks')
 top = netlist.load_verilog([path.join(benchmarks, 'verilog', 'vexriscv.v')])
 
 # snippet-start: count_leaves
