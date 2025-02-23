@@ -290,7 +290,7 @@ static PyObject* PySNLDesign_setTruthTable(PySNLDesign* self, PyObject* args) {
 }
 
 // Return the truth table for design
-PyObject* PySNLDesign_getTruthTable(PySNLDesign* self, PyObject* args) { 
+PyObject* PySNLDesign_getTruthTable(PySNLDesign* self) { 
   const SNLTruthTable& truthTable =
       SNLDesignTruthTable::getTruthTable(self->object_);
   if (!truthTable.isInitialized()) {
@@ -359,7 +359,7 @@ static PyObject* PySNLDesign_getInstanceByIDList(PySNLDesign* self, PyObject* ar
 
 // Return list for SNLID of the design
 // Function to be called from Python
-PyObject* PySNLDesign_getSNLID(PySNLDesign* self, PyObject* args) { 
+PyObject* PySNLDesign_getSNLID(PySNLDesign* self) { 
   PyObject* py_list = PyList_New(6); 
   naja::SNL::SNLID id = self->object_->getSNLID();
   PyList_SetItem(py_list, 0, PyLong_FromLong(id.dbID_));
@@ -535,7 +535,7 @@ PyMethodDef PySNLDesign_Methods[] = {
     "dump context dot file for this SNLDesign."},
   { "getInstanceByIDList", (PyCFunction)PySNLDesign_getInstanceByIDList, METH_VARARGS,
     "get instance by ID list."},
-  { "getSNLID", (PyCFunction)PySNLDesign_getSNLID, METH_VARARGS,
+  { "getSNLID", (PyCFunction)PySNLDesign_getSNLID, METH_NOARGS,
     "get SNLID of the design."},
   {NULL, NULL, 0, NULL}           /* sentinel */
 };

@@ -4,7 +4,7 @@
 
 import logging
 import os
-from naja import snl
+from najaeda import snl
 
 
 class DesignsStats:
