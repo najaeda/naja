@@ -232,7 +232,7 @@ defrData::DefGetTokenFromStack(char *s) {
  void 
 defrData::print_lines(long long lines) 
 {
-    if (lines %settings->defiDeltaNumberLines) {
+    if (lines % settings->defiDeltaNumberLines) {
         return;
     }
 
@@ -1354,7 +1354,7 @@ defrData::pathIsDone(int  sh, int  reset, int  osNet, int  *needCbk)
         //defrPath->reverseOrder();
         (*callbacks->PathCbk)(defrPathCbkType, &PathObj, session->UserData);
         PathObj.Destroy();
-        // free((char*) &PathObj); ?????? TODO:: check this
+        // free((char*) &PathObj); ?????? TODO:: check
     }
 
     PathObj.Init();
