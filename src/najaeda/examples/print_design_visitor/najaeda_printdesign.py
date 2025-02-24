@@ -12,7 +12,7 @@ from najaeda import instance_visitor
 
 logging.basicConfig(level=logging.INFO)
 
-benchmarks = path.join('..','benchmarks')
+benchmarks = path.join('..', '..', 'benchmarks')
 liberty_files = [
     'NangateOpenCellLibrary_typical.lib',
     'fakeram45_1024x32.lib',

@@ -11,7 +11,7 @@ from najaeda import netlist
 logging.basicConfig(level=logging.INFO)
 
 # snippet-start: load_design_liberty
-benchmarks = path.join('..','benchmarks')
+benchmarks = path.join('..', '..', 'benchmarks')
 liberty_files = [
     'NangateOpenCellLibrary_typical.lib',
     'fakeram45_1024x32.lib',

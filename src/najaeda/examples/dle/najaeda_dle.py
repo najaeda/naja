@@ -57,7 +57,7 @@ if __name__ == '__main__':
     print('Starting DLE')
 
     instances = set()
-    benchmarks = path.join('..', 'benchmarks')
+    benchmarks = path.join('..', '..', 'benchmarks')
     top = netlist.load_verilog([path.join(benchmarks, 'verilog', 'vexriscv.v')])
     attributes =  ['DONT_TOUCH', 'KEEP', 'preserve', 'noprune']
     nb_deleted = apply_dle(top, attributes)
