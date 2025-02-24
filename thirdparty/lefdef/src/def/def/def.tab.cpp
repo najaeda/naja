@@ -10759,7 +10759,7 @@ yyreturnlab:
     }
 #ifndef yyoverflow
   if (yyss != yyssa)
-    YYSTACK_FREE (yyss);
+    //YYSTACK_FREE (yyss);
 #endif
 
   return yyresult;
