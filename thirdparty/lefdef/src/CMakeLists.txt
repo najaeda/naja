@@ -11,8 +11,12 @@ if(DEFINED BISON_EXECUTABLE)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated -Wno-nonnull -Wno-free-nonheap-object")
 endif()
 
-# Ensure Ninja generator is used
-set(CMAKE_GENERATOR "Ninja" CACHE INTERNAL "" FORCE)
+# Ensure Ninja generator is used and set flags explicitly
+if(CMAKE_GENERATOR STREQUAL "Ninja")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-deprecated -Wno-nonnull -Wno-free-nonheap-object")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated -Wno-nonnull -Wno-free-nonheap-object")
+    add_compile_options(-Wno-deprecated -Wno-nonnull -Wno-free-nonheap-object)
+endif
 
  add_subdirectory(lef)
  add_subdirectory(def)
