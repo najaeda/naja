@@ -12,10 +12,7 @@ if(DEFINED BISON_EXECUTABLE)
 endif()
 
 # Ensure Ninja generator is used
-if(CMAKE_GENERATOR STREQUAL "Ninja")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-deprecated -Wno-nonnull -Wno-free-nonheap-object")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated -Wno-nonnull -Wno-free-nonheap-object")
-endif()
+set(CMAKE_GENERATOR "Ninja" CACHE INTERNAL "" FORCE)
 
  add_subdirectory(lef)
  add_subdirectory(def)
