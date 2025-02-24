@@ -16,7 +16,7 @@ if(CMAKE_GENERATOR STREQUAL "Ninja")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-deprecated -Wno-nonnull -Wno-free-nonheap-object")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated -Wno-nonnull -Wno-free-nonheap-object")
     add_compile_options(-Wno-deprecated -Wno-nonnull -Wno-free-nonheap-object)
-endif
+endif()
 
  add_subdirectory(lef)
  add_subdirectory(def)
