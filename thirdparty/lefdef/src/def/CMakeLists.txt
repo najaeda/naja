@@ -2,7 +2,7 @@
 
 # Check if the compiler is GCC
 if(CMAKE_COMPILER_IS_GNUCC OR CMAKE_COMPILER_IS_GNUCXX)
-    add_compile_options(-Wformat-truncation -Wdeprecated)
+    add_compile_options(-Wno-format-truncation -Wdeprecated)
 endif()
 
  add_subdirectory(def)
