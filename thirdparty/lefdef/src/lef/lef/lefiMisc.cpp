@@ -470,7 +470,7 @@ lefiGeometries::itemType(int index) const
 {
     char msg[160];
     if (index < 0 || index >= numItems_) {
-        sprintf(msg, "ERROR (LEFPARS-1360): The index number %d given for the geometry item is invalid.\nValid index is from 0 to %d", index, numItems_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1360): The index number %d given for the geometry item is invalid.\nValid index is from 0 to %d", index, numItems_);
         lefiError(0, 1360, msg);
         return lefiGeomUnknown;
     }
@@ -482,7 +482,7 @@ lefiGeometries::getRect(int index) const
 {
     char msg[160];
     if (index < 0 || index >= numItems_) {
-        sprintf(msg, "ERROR (LEFPARS-1361): The index number %d given for the geometry RECTANGLE is invalid.\nValid index is from 0 to %d", index, numItems_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1361): The index number %d given for the geometry RECTANGLE is invalid.\nValid index is from 0 to %d", index, numItems_);
         lefiError(0, 1361, msg);
         return 0;
     }
@@ -494,7 +494,7 @@ lefiGeometries::getRectIter(int index) const
 {
     char msg[160];
     if (index < 0 || index >= numItems_) {
-        sprintf(msg, "ERROR (LEFPARS-1362): The index number %d given for the geometry RECTANGLE ITERATE is invalid.\nValid index is from 0 to %d", index, numItems_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1362): The index number %d given for the geometry RECTANGLE ITERATE is invalid.\nValid index is from 0 to %d", index, numItems_);
         lefiError(0, 1362, msg);
         return 0;
     }
@@ -506,7 +506,7 @@ lefiGeometries::getPath(int index) const
 {
     char msg[160];
     if (index < 0 || index >= numItems_) {
-        sprintf(msg, "ERROR (LEFPARS-1363): The index number %d given for the geometry PATH is invalid.\nValid index is from 0 to %d", index, numItems_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1363): The index number %d given for the geometry PATH is invalid.\nValid index is from 0 to %d", index, numItems_);
         lefiError(0, 1363, msg);
         return 0;
     }
@@ -518,7 +518,7 @@ lefiGeometries::getPathIter(int index) const
 {
     char msg[160];
     if (index < 0 || index >= numItems_) {
-        sprintf(msg, "ERROR (LEFPARS-1364): The index number %d given for the geometry PATH ITERATE is invalid.\nValid index is from 0 to %d", index, numItems_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1364): The index number %d given for the geometry PATH ITERATE is invalid.\nValid index is from 0 to %d", index, numItems_);
         lefiError(0, 1364, msg);
         return 0;
     }
@@ -530,7 +530,7 @@ lefiGeometries::getLayer(int index) const
 {
     char msg[160];
     if (index < 0 || index >= numItems_) {
-        sprintf(msg, "ERROR (LEFPARS-1365): The index number %d given for the geometry LAYER is invalid.\nValid index is from 0 to %d", index, numItems_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1365): The index number %d given for the geometry LAYER is invalid.\nValid index is from 0 to %d", index, numItems_);
         lefiError(0, 1365, msg);
         return 0;
     }
@@ -543,7 +543,7 @@ lefiGeometries::hasLayerExceptPgNet(int index) const
 {
     char msg[160];
     if (index < 0 || index >= numItems_) {
-        sprintf(msg, "ERROR (LEFPARS-1366): The index number %d given for the geometry LAYER EXCEPT PG NET is invalid.\nValid index is from 0 to %d", index, numItems_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1366): The index number %d given for the geometry LAYER EXCEPT PG NET is invalid.\nValid index is from 0 to %d", index, numItems_);
         lefiError(0, 1366, msg);
         return 0;
     }
@@ -555,7 +555,7 @@ lefiGeometries::getLayerMinSpacing(int index) const
 {
     char msg[160];
     if (index < 0 || index >= numItems_) {
-        sprintf(msg, "ERROR (LEFPARS-1367): The index number %d given for the geometry LAYER MINSPACING is invalid.\nValid index is from 0 to %d", index, numItems_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1367): The index number %d given for the geometry LAYER MINSPACING is invalid.\nValid index is from 0 to %d", index, numItems_);
         lefiError(0, 1367, msg);
         return 0;
     }
@@ -567,7 +567,7 @@ lefiGeometries::getLayerRuleWidth(int index) const
 {
     char msg[160];
     if (index < 0 || index >= numItems_) {
-        sprintf(msg, "ERROR (LEFPARS-1368): The index number %d given for the geometry LAYER RULE WIDTH is invalid.\nValid index is from 0 to %d", index, numItems_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1368): The index number %d given for the geometry LAYER RULE WIDTH is invalid.\nValid index is from 0 to %d", index, numItems_);
         lefiError(0, 1368, msg);
         return 0;
     }
@@ -579,7 +579,7 @@ lefiGeometries::getWidth(int index) const
 {
     char msg[160];
     if (index < 0 || index >= numItems_) {
-        sprintf(msg, "ERROR (LEFPARS-1369): The index number %d given for the geometry WIDTH is invalid.\nValid index is from 0 to %d", index, numItems_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1369): The index number %d given for the geometry WIDTH is invalid.\nValid index is from 0 to %d", index, numItems_);
         lefiError(0, 1369, msg);
         return 0;
     }
@@ -591,7 +591,7 @@ lefiGeometries::getPolygon(int index) const
 {
     char msg[160];
     if (index < 0 || index >= numItems_) {
-        sprintf(msg, "ERROR (LEFPARS-1370): The index number %d given for the geometry POLYGON is invalid.\nValid index is from 0 to %d", index, numItems_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1370): The index number %d given for the geometry POLYGON is invalid.\nValid index is from 0 to %d", index, numItems_);
         lefiError(0, 1370, msg);
         return 0;
     }
@@ -603,7 +603,7 @@ lefiGeometries::getPolygonIter(int index) const
 {
     char msg[160];
     if (index < 0 || index >= numItems_) {
-        sprintf(msg, "ERROR (LEFPARS-1371): The index number %d given for the geometry POLYGON ITERATE is invalid.\nValid index is from 0 to %d", index, numItems_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1371): The index number %d given for the geometry POLYGON ITERATE is invalid.\nValid index is from 0 to %d", index, numItems_);
         lefiError(0, 1371, msg);
         return 0;
     }
@@ -615,7 +615,7 @@ lefiGeometries::getClass(int index) const
 {
     char msg[160];
     if (index < 0 || index >= numItems_) {
-        sprintf(msg, "ERROR (LEFPARS-1372): The index number %d given for the geometry CLASS is invalid.\nValid index is from 0 to %d", index, numItems_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1372): The index number %d given for the geometry CLASS is invalid.\nValid index is from 0 to %d", index, numItems_);
         lefiError(0, 1372, msg);
         return 0;
     }
@@ -627,7 +627,7 @@ lefiGeometries::getVia(int index) const
 {
     char msg[160];
     if (index < 0 || index >= numItems_) {
-        sprintf(msg, "ERROR (LEFPARS-1373): The index number %d given for the geometry VIA is invalid.\nValid index is from 0 to %d", index, numItems_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1373): The index number %d given for the geometry VIA is invalid.\nValid index is from 0 to %d", index, numItems_);
         lefiError(0, 1373, msg);
         return 0;
     }
@@ -639,7 +639,7 @@ lefiGeometries::getViaIter(int index) const
 {
     char msg[160];
     if (index < 0 || index >= numItems_) {
-        sprintf(msg, "ERROR (LEFPARS-1374): The index number %d given for the geometry VIA ITERATE is invalid.\nValid index is from 0 to %d", index, numItems_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1374): The index number %d given for the geometry VIA ITERATE is invalid.\nValid index is from 0 to %d", index, numItems_);
         lefiError(0, 1374, msg);
         return 0;
     }
@@ -1017,7 +1017,7 @@ lefiIRDrop::value1(int index) const
 {
     char msg[160];
     if (index < 0 || index >= numValues_) {
-        sprintf(msg, "ERROR (LEFPARS-1376): The index number %d given for the IRDROP is invalid.\nValid index is from 0 to %d", index, numValues_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1376): The index number %d given for the IRDROP is invalid.\nValid index is from 0 to %d", index, numValues_);
         lefiError(0, 1376, msg);
         return 0;
     }
@@ -1029,7 +1029,7 @@ lefiIRDrop::value2(int index) const
 {
     char msg[160];
     if (index < 0 || index >= numValues_) {
-        sprintf(msg, "ERROR (LEFPARS-1376): The index number %d given for the IRDROP is invalid.\nValid index is from 0 to %d", index, numValues_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1376): The index number %d given for the IRDROP is invalid.\nValid index is from 0 to %d", index, numValues_);
         lefiError(0, 1376, msg);
         return 0;
     }
@@ -1594,7 +1594,7 @@ lefiTrackPattern::layerName(int index) const
 {
     char msg[160];
     if (index < 0 || index >= numLayers_) {
-        sprintf(msg, "ERROR (LEFPARS-1377): The index number %d given for the TRACK PATTERN  is invalid.\nValid index is from 0 to %d", index, numLayers_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1377): The index number %d given for the TRACK PATTERN  is invalid.\nValid index is from 0 to %d", index, numLayers_);
         lefiError(0, 1377, msg);
         return 0;
     }

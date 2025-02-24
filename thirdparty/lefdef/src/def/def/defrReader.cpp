@@ -2317,7 +2317,7 @@ defrSetLimitPerMsg(int  msgId,
     char msgStr[10];
 
     if ((msgId <= 0) || ((msgId - 5000) >= NODEFMSG)) {   // Def starts at 5000
-        sprintf(msgStr, "%d", msgId);
+        snprintf(msgStr, strlen(msgStr), "%d", msgId);
         return;
     }
     defContext.settings->MsgLimit[msgId - 5000] = numMsg;
@@ -2463,7 +2463,7 @@ defrAddAlias(const char     *key,
     //strcpy(v1, value);
     if (marked != 0)
         marked = 1;                 // make sure only 1 digit
-    sprintf(v1, "%d%s", marked, value);
+    snprintf(v1, len, "%d%s", marked, value);
 
     defData->def_alias_set[k1] = v1;
 }

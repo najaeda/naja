@@ -232,7 +232,7 @@ defrData::DefGetTokenFromStack(char *s) {
  void 
 defrData::print_lines(long long lines) 
 {
-    if (lines % settings->defiDeltaNumberLines) {
+    if (lines %settings->defiDeltaNumberLines) {
         return;
     }
 
@@ -253,9 +253,9 @@ defrData::lines2str(long long lines)
 {
 
 #ifdef _WIN32
-    sprintf(lineBuffer, "%I64d", lines);
+    snprintf(lineBuffer, strlen(lineBuffer), "%I64d", lines);
 #else
-    sprintf(lineBuffer, "%lld", lines);
+    snprintf(lineBuffer, strlen(lineBuffer), "%lld", lines);
 #endif 
 
     return lineBuffer;
@@ -580,7 +580,7 @@ defrData::sublex(YYSTYPE *pYylval)
 
    if (defInvalidChar) {
       outMsg = (char*)malloc(500 + strlen(deftoken));
-      sprintf(outMsg, "Invalid characters found in \'%s\'.\nThese characters might be using the character types other than English.\nCreate characters by specifying valid characters types.",
+      snprintf(outMsg, strlen(outMsg), "Invalid characters found in \'%s\'.\nThese characters might be using the character types other than English.\nCreate characters by specifying valid characters types.",
               deftoken);
       defError(6008, outMsg);
       free(outMsg);
@@ -632,7 +632,7 @@ defrData::sublex(YYSTYPE *pYylval)
                else {
                   char* str = (char*)malloc(strlen(deftoken)
                                +strlen(session->FileName)+350);
-                  sprintf(str,
+                  snprintf(str, strlen(str),
                     "<Number has exceed the limit for an integer> in %s at line %s\n",
                     session->FileName, lines2str(nlines));
                   fflush(stdout);
@@ -657,7 +657,7 @@ defrData::sublex(YYSTYPE *pYylval)
             else {
                char* str = (char*)malloc(strlen(deftoken)
                                 +strlen(session->FileName)+350);
-               sprintf(str,
+               snprintf(str, strlen(str),
                  "<Number has exceed the limit for an integer> in %s at line %s\n",
                  session->FileName, lines2str(nlines));
                fflush(stdout);
@@ -961,34 +961,34 @@ defrData::defError(int msgNum, const char *s) {
    if (strcmp(s, "parse error") == 0) {
       if ((len > 1) && (deftoken[len] == ';')) {
          str = (char*)malloc(len + strlen(s) + strlen(session->FileName) + 350);
-         sprintf(str, "ERROR (DEFPARS-%d): %s, file %s at line %s\nLast token was <%s>, space is missing before <;>\n",
+         snprintf(str, strlen(str),"ERROR (DEFPARS-%d): %s, file %s at line %s\nLast token was <%s>, space is missing before <;>\n",
               msgNum, s, session->FileName, lines2str(nlines), curToken);
       } else if ((pvLen > 1) && (pv_deftoken[pvLen] == ';')) {
          str = (char*)malloc(pvLen + strlen(s) + strlen(session->FileName) + 350);
-         sprintf(str, "ERROR (DEFPARS-%d): %s, file %s at line %s\nLast token was <%s>, space is missing before <;>\n",
+         snprintf(str, strlen(str),"ERROR (DEFPARS-%d): %s, file %s at line %s\nLast token was <%s>, space is missing before <;>\n",
               msgNum, s, session->FileName, lines2str(nlines-1), pvToken);
       } else {
          str = (char*)malloc(len + strlen(session->FileName) + 350);
-         sprintf(str, "ERROR (DEFPARS-%d): Def parser has encountered an error in file %s at line %s, on token %s.\nProblem can be syntax error on the def file or an invalid parameter name.\nDouble check the syntax on the def file with the LEFDEF Reference Manual.\n",
+         snprintf(str, strlen(str),"ERROR (DEFPARS-%d): Def parser has encountered an error in file %s at line %s, on token %s.\nProblem can be syntax error on the def file or an invalid parameter name.\nDouble check the syntax on the def file with the LEFDEF Reference Manual.\n",
               msgNum, session->FileName, lines2str(nlines), curToken);
       }
    } else if (strcmp(s, "syntax error") == 0) {
       if ((len > 1) && (deftoken[len] == ';')) {
          str = (char*)malloc(len + strlen(s) + strlen(session->FileName) + 350);
-         sprintf(str, "ERROR (DEFPARS-%d): %s, file %s at line %s\nLast token was <%s>, space is missing before <;>\n",
+         snprintf(str, strlen(str),"ERROR (DEFPARS-%d): %s, file %s at line %s\nLast token was <%s>, space is missing before <;>\n",
               msgNum, s, session->FileName, lines2str(nlines), curToken);
       } else if ((pvLen > 1) && (pv_deftoken[pvLen] == ';')) {
          str = (char*)malloc(pvLen + strlen(s) + strlen(session->FileName) + 350);
-         sprintf(str, "ERROR (DEFPARS-%d): %s, file %s at line %s\nLast token was <%s>, space is missing before <;>\n",
+         snprintf(str, strlen(str),"ERROR (DEFPARS-%d): %s, file %s at line %s\nLast token was <%s>, space is missing before <;>\n",
               msgNum, s, session->FileName, lines2str(nlines-1), pvToken);
       } else {
          str = (char*)malloc(len + strlen(session->FileName) + 350);
-         sprintf(str, "ERROR (DEFPARS-%d): Def parser has encountered an error in file %s at line %s, on token %s.\nProblem can be syntax error on the def file or an invalid parameter name.\nDouble check the syntax on the def file with the LEFDEF Reference Manual.\n",
+         snprintf(str, strlen(str),"ERROR (DEFPARS-%d): Def parser has encountered an error in file %s at line %s, on token %s.\nProblem can be syntax error on the def file or an invalid parameter name.\nDouble check the syntax on the def file with the LEFDEF Reference Manual.\n",
               msgNum, session->FileName, lines2str(nlines), curToken);
       }
    } else {
       str = (char*)malloc(len + strlen(s) + strlen(session->FileName) + 350);
-      sprintf(str, "ERROR (DEFPARS-%d): %s Error in file %s at line %s, on token %s.\nUpdate the def file before parsing the file again.\n",
+      snprintf(str, strlen(str),"ERROR (DEFPARS-%d): %s Error in file %s at line %s, on token %s.\nUpdate the def file before parsing the file again.\n",
            msgNum, s, session->FileName, lines2str(nlines), curToken);
    }
 
@@ -1018,14 +1018,14 @@ defrData::defInfo(int msgNum, const char *s) {
    if (settings->ContextWarningLogFunction) {
       char* str = (char*)malloc(strlen(deftoken)+strlen(s)
                                    +strlen(session->FileName)+350);
-      sprintf(str, "INFO (DEFPARS-%d): %s See file %s at line %s.\n",
+      snprintf(str, strlen(str),"INFO (DEFPARS-%d): %s See file %s at line %s.\n",
               msgNum, s, session->FileName, lines2str(nlines));
       (*settings->ContextWarningLogFunction)(session->UserData, str);
       free(str);
    } else if (settings->WarningLogFunction) {
       char* str = (char*)malloc(strlen(deftoken)+strlen(s)
                                    +strlen(session->FileName)+350);
-      sprintf(str, "INFO (DEFPARS-%d): %s See file %s at line %s.\n",
+      snprintf(str, strlen(str),"INFO (DEFPARS-%d): %s See file %s at line %s.\n",
               msgNum, s, session->FileName, lines2str(nlines));
       (*settings->WarningLogFunction)(str);
       free(str);
@@ -1073,14 +1073,14 @@ defrData::defWarning(int msgNum, const char *s) {
    if (settings->ContextWarningLogFunction) {
       char* str = (char*)malloc(strlen(deftoken)+strlen(s)
                                    +strlen(session->FileName)+350);
-      sprintf(str, "WARNING (DEFPARS-%d): %s See file %s at line %s.\n",
+      snprintf(str, strlen(str),"WARNING (DEFPARS-%d): %s See file %s at line %s.\n",
               msgNum, s, session->FileName, lines2str(nlines));
       (*settings->ContextWarningLogFunction)(session->UserData, str);
       free(str);
    } else if (settings->WarningLogFunction) {
       char* str = (char*)malloc(strlen(deftoken)+strlen(s)
                                    +strlen(session->FileName)+350);
-      sprintf(str, "WARNING (DEFPARS-%d): %s See file %s at line %s.\n",
+      snprintf(str, strlen(str),"WARNING (DEFPARS-%d): %s See file %s at line %s.\n",
               msgNum, s, session->FileName, lines2str(nlines));
       (*settings->WarningLogFunction)(str);
       free(str);
@@ -1354,7 +1354,7 @@ defrData::pathIsDone(int  sh, int  reset, int  osNet, int  *needCbk)
         //defrPath->reverseOrder();
         (*callbacks->PathCbk)(defrPathCbkType, &PathObj, session->UserData);
         PathObj.Destroy();
-        free((char*) &PathObj);
+        // free((char*) &PathObj); ?????? TODO:: check this
     }
 
     PathObj.Init();

@@ -257,7 +257,7 @@ defrData::defiError(int check, int msgNum, const char* mess)
   } else if (settings->ErrorLogFunction) {
     (*(settings->ErrorLogFunction))(mess);
   } else {
-    fprintf(stderr, mess);
+    fprintf(stderr, "%s\n", mess);
   }
 }
 
@@ -332,7 +332,7 @@ defrData::validateMaskInput(int input, int warningIndex, int getWarningsIndex)
     if (VersionNum < 5.8 && input > 0) {
       if (warningIndex++ < getWarningsIndex) {
           defMsg = (char*)malloc(1000);
-          sprintf (defMsg,
+          snprintf (defMsg, strlen(defMsg),
              "The MASK statement is available in version 5.8 and later.\nHowever, your DEF file is defined with version %g", VersionNum);
           defError(7415, defMsg);
           free(defMsg);
@@ -369,7 +369,7 @@ defrData::validateMaskShiftInput(const char* shiftMask, int warningIndex, int ge
     if (hasError) {
         char *msg = (char*)malloc(1000);
 
-        sprintf(msg, 
+        snprintf(msg, strlen(msg),
                 "The MASKSHIFT value '%s' is not valid. The value should be a string consisting of decimal digits ('0' - '9').", 
                 shiftMask);
         defError(7416, msg);
@@ -386,7 +386,7 @@ defrData::validateMaskShiftInput(const char* shiftMask, int warningIndex, int ge
         if (warningIndex++ < getWarningsIndex) {
             char *msg = (char*)malloc(1000);
 
-            sprintf (msg, 
+            snprintf (msg, strlen(msg),
                      "The MASKSHIFT statement can be used only in DEF version 5.8 and later. This DEF file version is '%g'.", 
                      VersionNum);
             defError(7417, msg);
@@ -464,7 +464,7 @@ defrData::defValidNum(int values) {
                 if (callbacks->UnitsCbk) {
                   if (unitsWarnings++ < settings->UnitsWarnings) {
                     outMsg = (char*)malloc(1000);
-                    sprintf (outMsg,
+                    snprintf (outMsg, strlen(outMsg), 
                     "An error has been found while processing the DEF file '%s'\nUnit %d is a 5.6 or later syntax. Define the DEF file as 5.6 and then try again.",
                     session->FileName, values);
                     defError(6501, outMsg);
@@ -480,7 +480,7 @@ defrData::defValidNum(int values) {
     if (callbacks->UnitsCbk) {
       if (unitsWarnings++ < settings->UnitsWarnings) {
         outMsg = (char*)malloc(10000);
-        sprintf (outMsg,
+        snprintf (outMsg, strlen(outMsg),
           "The value %d defined for DEF UNITS DISTANCE MICRON is invalid\n. The valid values are 100, 200, 400, 800, 1000, 2000, 4000, 8000, 10000, or 20000. Specify a valid value and then try again.", values);
         defError(6502, outMsg);
         free(outMsg);

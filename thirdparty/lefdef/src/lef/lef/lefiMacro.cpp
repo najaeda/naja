@@ -1837,7 +1837,7 @@ lefiPin::port(int index) const
 {
     char msg[160];
     if (index < 0 || index > numPorts_) {
-        sprintf(msg, "ERROR (LEFPARS-1350): The index number %d given for the macro PIN is invalid.\nValid index is from 0 to %d", index, numPorts_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1350): The index number %d given for the macro PIN is invalid.\nValid index is from 0 to %d", index, numPorts_);
         lefiError(0, 1350, msg);
         return 0;
     }
@@ -2606,7 +2606,7 @@ lefiPin::propName(int index) const
 {
     char msg[160];
     if (index < 0 || index >= numProperties_) {
-        sprintf(msg, "ERROR (LEFPARS-1352): The index number %d given for the macro property is invalid.\nValid index is from 0 to %d", index, numProperties_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1352): The index number %d given for the macro property is invalid.\nValid index is from 0 to %d", index, numProperties_);
         lefiError(0, 1352, msg);
         return 0;
     }
@@ -2618,7 +2618,7 @@ lefiPin::propValue(int index) const
 {
     char msg[160];
     if (index < 0 || index >= numProperties_) {
-        sprintf(msg, "ERROR (LEFPARS-1352): The index number %d given for the macro property is invalid.\nValid index is from 0 to %d", index, numProperties_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1352): The index number %d given for the macro property is invalid.\nValid index is from 0 to %d", index, numProperties_);
         lefiError(0, 1352, msg);
         return 0;
     }
@@ -2630,7 +2630,7 @@ lefiPin::propNum(int index) const
 {
     char msg[160];
     if (index < 0 || index >= numProperties_) {
-        sprintf(msg, "ERROR (LEFPARS-1352): The index number %d given for the macro property is invalid.\nValid index is from 0 to %d", index, numProperties_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1352): The index number %d given for the macro property is invalid.\nValid index is from 0 to %d", index, numProperties_);
         lefiError(0, 1352, msg);
         return 0;
     }
@@ -2642,7 +2642,7 @@ lefiPin::propType(int index) const
 {
     char msg[160];
     if (index < 0 || index >= numProperties_) {
-        sprintf(msg, "ERROR (LEFPARS-1352): The index number %d given for the macro property is invalid.\nValid index is from 0 to %d", index, numProperties_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1352): The index number %d given for the macro property is invalid.\nValid index is from 0 to %d", index, numProperties_);
         lefiError(0, 1352, msg);
         return 0;
     }
@@ -2654,7 +2654,7 @@ lefiPin::propIsNumber(int index) const
 {
     char msg[160];
     if (index < 0 || index >= numProperties_) {
-        sprintf(msg, "ERROR (LEFPARS-1352): The index number %d given for the macro property is invalid.\nValid index is from 0 to %d", index, numProperties_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1352): The index number %d given for the macro property is invalid.\nValid index is from 0 to %d", index, numProperties_);
         lefiError(0, 1352, msg);
         return 0;
     }
@@ -2666,7 +2666,7 @@ lefiPin::propIsString(int index) const
 {
     char msg[160];
     if (index < 0 || index >= numProperties_) {
-        sprintf(msg, "ERROR (LEFPARS-1352): The index number %d given for the macro property is invalid.\nValid index is from 0 to %d", index, numProperties_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1352): The index number %d given for the macro property is invalid.\nValid index is from 0 to %d", index, numProperties_);
         lefiError(0, 1352, msg);
         return 0;
     }
@@ -3341,7 +3341,7 @@ lefiMacro::propName(int index) const
 {
     char msg[160];
     if (index < 0 || index >= numProperties_) {
-        sprintf(msg, "ERROR (LEFPARS-1352): The index number %d given for the macro property is invalid.\nValid index is from 0 to %d", index, numProperties_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1352): The index number %d given for the macro property is invalid.\nValid index is from 0 to %d", index, numProperties_);
         lefiError(0, 1352, msg);
         return 0;
     }
@@ -3353,7 +3353,7 @@ lefiMacro::propValue(int index) const
 {
     char msg[160];
     if (index < 0 || index >= numProperties_) {
-        sprintf(msg, "ERROR (LEFPARS-1352): The index number %d given for the macro property is invalid.\nValid index is from 0 to %d", index, numProperties_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1352): The index number %d given for the macro property is invalid.\nValid index is from 0 to %d", index, numProperties_);
         lefiError(0, 1352, msg);
         return 0;
     }
@@ -3365,7 +3365,7 @@ lefiMacro::propNum(int index) const
 {
     char msg[160];
     if (index < 0 || index >= numProperties_) {
-        sprintf(msg, "ERROR (LEFPARS-1352): The index number %d given for the macro property is invalid.\nValid index is from 0 to %d", index, numProperties_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1352): The index number %d given for the macro property is invalid.\nValid index is from 0 to %d", index, numProperties_);
         lefiError(0, 1352, msg);
         return 0;
     }
@@ -3377,7 +3377,7 @@ lefiMacro::propType(int index) const
 {
     char msg[160];
     if (index < 0 || index >= numProperties_) {
-        sprintf(msg, "ERROR (LEFPARS-1352): The index number %d given for the macro property is invalid.\nValid index is from 0 to %d", index, numProperties_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1352): The index number %d given for the macro property is invalid.\nValid index is from 0 to %d", index, numProperties_);
         lefiError(0, 1352, msg);
         return 0;
     }
@@ -3389,7 +3389,7 @@ lefiMacro::propIsNumber(int index) const
 {
     char msg[160];
     if (index < 0 || index >= numProperties_) {
-        sprintf(msg, "ERROR (LEFPARS-1352): The index number %d given for the macro property is invalid.\nValid index is from 0 to %d", index, numProperties_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1352): The index number %d given for the macro property is invalid.\nValid index is from 0 to %d", index, numProperties_);
         lefiError(0, 1352, msg);
         return 0;
     }
@@ -3401,7 +3401,7 @@ lefiMacro::propIsString(int index) const
 {
     char msg[160];
     if (index < 0 || index >= numProperties_) {
-        sprintf(msg, "ERROR (LEFPARS-1352): The index number %d given for the macro property is invalid.\nValid index is from 0 to %d", index, numProperties_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1352): The index number %d given for the macro property is invalid.\nValid index is from 0 to %d", index, numProperties_);
         lefiError(0, 1352, msg);
         return 0;
     }

@@ -470,7 +470,7 @@ int arrayCB(lefrCallbackType_e c, lefiArray* a, lefiUserData ud) {
         for (j = 0; j < a->numSites(i); j++) {
            pattern = a->site(i, j);
            fprintf(fout,
-               "ARRAY %s FLOORPLAN %s %s %s %g %g %s DO %d BY %d STEP %g %g\n",
+               "ARRAY %s FLOORPLAN %s %s %s %g %g %s DO %f BY %f STEP %g %g\n",
                a->name(), a->floorPlanName(i), a->siteType(i, j),
                pattern->name(), chkNum(pattern->x()), chkNum(pattern->y()),
                lefiOrientStr(pattern->orient()), pattern->xStart(),
@@ -1444,14 +1444,14 @@ int nonDefaultCB(lefrCallbackType_e c, lefiNonDefault* def, lefiUserData ud) {
      fprintf(fout, "\n");
   }
 
-  sprintf(defName, "NONDEFAULTRULE %s VIA", def->name());
+  snprintf(defName, strlen(defName),"NONDEFAULTRULE %s VIA", def->name());
   // handle via in nondefaultrule
   for (i = 0; i < def->numVias(); i++) {
      via = def->viaRule(i);
      lefVia(via, defName);
   }
 
-  sprintf(defName, "NONDEFAULTRULE %s SPACING", def->name());
+  snprintf(defName, strlen(defName),"NONDEFAULTRULE %s SPACING", def->name());
   // handle spacing in nondefaultrule
   for (i = 0; i < def->numSpacingRules(); i++) {
      spacing = def->spacingRule(i);
@@ -1745,7 +1745,7 @@ int pinCB(lefrCallbackType_e c, lefiPin* pin, lefiUserData ud) {
   char pinName[1024];
 
   for (i = 0; i < numPorts; i++) {
-     sprintf(pinName, "PIN %s PORT", pin->name());
+     snprintf(pinName, strlen(pinName),"PIN %s PORT", pin->name());
      geometry = pin->port(i);
      prtGeometry(geometry, pinName);
   }
