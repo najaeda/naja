@@ -1,4 +1,4 @@
-codeql:
+codeql-config:
   paths:
     - src/
   paths-ignore:
