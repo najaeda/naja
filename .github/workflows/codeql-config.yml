@@ -1,5 +1,7 @@
-codeql-config:
-  paths:
-    - src/
-  paths-ignore:
-    - thirdparty/**
+paths:
+  - src/
+paths-ignore:
+  - thirdparty/**
+queries:
+  - security-and-quality.qls
+  - cpp/ql/src/queries/security-and-quality.qls
