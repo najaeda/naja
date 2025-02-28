@@ -1,14 +1,3 @@
-paths:
-  - src/
+name: "CodeQL config"
 paths-ignore:
   - thirdparty/**
-queries:
-  - security-and-quality
-extractor-options:
-  python:
-    include-aliases: true
-    sublanguage-file-coverage: true
-  cpp:
-    trap.cache.dir: /home/runner/work/_temp/trapCaches/cpp
-    trap.cache.bound: 1024
-    trap.cache.write: false
