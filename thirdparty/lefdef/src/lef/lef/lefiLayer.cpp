@@ -4369,7 +4369,7 @@ lefiLayer::propName(int i) const
 {
     char msg[160];
     if (i < 0 || i >= numProps_) {
-        sprintf(msg, "ERROR (LEFPARS-1300): The index number %d given for the layer property is invalid.\nValid index is from 0 to %d", i, numProps_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1300): The index number %d given for the layer property is invalid.\nValid index is from 0 to %d", i, numProps_);
         lefiError(0, 1300, msg);
         return 0;
     }
@@ -4381,7 +4381,7 @@ lefiLayer::propValue(int i) const
 {
     char msg[160];
     if (i < 0 || i >= numProps_) {
-        sprintf(msg, "ERROR (LEFPARS-1300): The index number %d given for the layer property is invalid.\nValid index is from 0 to %d", i, numProps_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1300): The index number %d given for the layer property is invalid.\nValid index is from 0 to %d", i, numProps_);
         lefiError(0, 1300, msg);
         return 0;
     }
@@ -4393,7 +4393,7 @@ lefiLayer::propNumber(int i) const
 {
     char msg[160];
     if (i < 0 || i >= numProps_) {
-        sprintf(msg, "ERROR (LEFPARS-1300): The index number %d given for the layer property is invalid.\nValid index is from 0 to %d", i, numProps_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1300): The index number %d given for the layer property is invalid.\nValid index is from 0 to %d", i, numProps_);
         lefiError(0, 1300, msg);
         return 0;
     }
@@ -4405,7 +4405,7 @@ lefiLayer::propType(int i) const
 {
     char msg[160];
     if (i < 0 || i >= numProps_) {
-        sprintf(msg, "ERROR (LEFPARS-1300): The index number %d given for the layer property is invalid.\nValid index is from 0 to %d", i, numProps_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1300): The index number %d given for the layer property is invalid.\nValid index is from 0 to %d", i, numProps_);
         lefiError(0, 1300, msg);
         return 0;
     }
@@ -4417,7 +4417,7 @@ lefiLayer::propIsNumber(int i) const
 {
     char msg[160];
     if (i < 0 || i >= numProps_) {
-        sprintf(msg, "ERROR (LEFPARS-1300): The index number %d given for the layer property is invalid.\nValid index is from 0 to %d", i, numProps_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1300): The index number %d given for the layer property is invalid.\nValid index is from 0 to %d", i, numProps_);
         lefiError(0, 1300, msg);
         return 0;
     }
@@ -4429,7 +4429,7 @@ lefiLayer::propIsString(int i) const
 {
     char msg[160];
     if (i < 0 || i >= numProps_) {
-        sprintf(msg, "ERROR (LEFPARS-1300): The index number %d given for the layer property is invalid.\nValid index is from 0 to %d", i, numProps_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1300): The index number %d given for the layer property is invalid.\nValid index is from 0 to %d", i, numProps_);
         lefiError(0, 1300, msg);
         return 0;
     }
@@ -5493,7 +5493,7 @@ lefiLayer::minSizeWidth(int index) const
 {
     char msg[160];
     if (index < 0 || index > numMinSize_) {
-        sprintf(msg, "ERROR (LEFPARS-1301): The index number %d given for the layer MINSIZE is invalid.\nValid index is from 0 to %d\n", index, numMinSize_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1301): The index number %d given for the layer MINSIZE is invalid.\nValid index is from 0 to %d\n", index, numMinSize_);
         lefiError(0, 1301, msg);
         return 0;
     }
@@ -5505,7 +5505,7 @@ lefiLayer::minSizeLength(int index) const
 {
     char msg[160];
     if (index < 0 || index > numMinSize_) {
-        sprintf(msg, "ERROR (LEFPARS-1301): The index number %d given for the layer MINSIZE is invalid.\nValid index is from 0 to %d\n", index, numMinSize_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1301): The index number %d given for the layer MINSIZE is invalid.\nValid index is from 0 to %d\n", index, numMinSize_);
         lefiError(0, 1301, msg);
         return 0;
     }
@@ -5524,7 +5524,7 @@ lefiLayer::minstep(int index) const
 {
     char msg[160];
     if (index < 0 || index > numMinstep_) {
-        sprintf(msg, "ERROR (LEFPARS-1302): The index number %d given for the layer MINSTEP is invalid.\nValid index is from 0 to %d", index, numMinstep_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1302): The index number %d given for the layer MINSTEP is invalid.\nValid index is from 0 to %d", index, numMinstep_);
         lefiError(0, 1302, msg);
         return 0;
     }
@@ -5536,7 +5536,7 @@ lefiLayer::hasMinstepType(int index) const
 {
     char msg[160];
     if (index < 0 || index > numMinstep_) {
-        sprintf(msg, "ERROR (LEFPARS-1302): The index number %d given for the layer MINSTEP is invalid.\nValid index is from 0 to %d", index, numMinstep_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1302): The index number %d given for the layer MINSTEP is invalid.\nValid index is from 0 to %d", index, numMinstep_);
         lefiError(0, 1302, msg);
         return 0;
     }
@@ -5548,7 +5548,7 @@ lefiLayer::minstepType(int index) const
 {
     char msg[160];
     if (index < 0 || index > numMinstep_) {
-        sprintf(msg, "ERROR (LEFPARS-1302): The index number %d given for the layer MINSTEP is invalid.\nValid index is from 0 to %d", index, numMinstep_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1302): The index number %d given for the layer MINSTEP is invalid.\nValid index is from 0 to %d", index, numMinstep_);
         lefiError(0, 1302, msg);
         return 0;
     }
@@ -5560,7 +5560,7 @@ lefiLayer::hasMinstepLengthsum(int index) const
 {
     char msg[160];
     if (index < 0 || index > numMinstep_) {
-        sprintf(msg, "ERROR (LEFPARS-1302): The index number %d given for the layer MINSTEP is invalid.\nValid index is from 0 to %d", index, numMinstep_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1302): The index number %d given for the layer MINSTEP is invalid.\nValid index is from 0 to %d", index, numMinstep_);
         lefiError(0, 1302, msg);
         return 0;
     }
@@ -5572,7 +5572,7 @@ lefiLayer::minstepLengthsum(int index) const
 {
     char msg[160];
     if (index < 0 || index > numMinstep_) {
-        sprintf(msg, "ERROR (LEFPARS-1302): The index number %d given for the layer MINSTEP is invalid.\nValid index is from 0 to %d", index, numMinstep_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1302): The index number %d given for the layer MINSTEP is invalid.\nValid index is from 0 to %d", index, numMinstep_);
         lefiError(0, 1302, msg);
         return 0;
     }
@@ -5585,7 +5585,7 @@ lefiLayer::hasMinstepMaxedges(int index) const
 {
     char msg[160];
     if (index < 0 || index > numMinstep_) {
-        sprintf(msg, "ERROR (LEFPARS-1302): The index number %d given for the layer MINSTEP is invalid.\nValid index is from 0 to %d", index, numMinstep_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1302): The index number %d given for the layer MINSTEP is invalid.\nValid index is from 0 to %d", index, numMinstep_);
         lefiError(0, 1302, msg);
         return 0;
     }
@@ -5598,7 +5598,7 @@ lefiLayer::minstepMaxedges(int index) const
 {
     char msg[160];
     if (index < 0 || index > numMinstep_) {
-        sprintf(msg, "ERROR (LEFPARS-1302): The index number %d given for the layer MINSTEP is invalid.\nValid index is from 0 to %d", index, numMinstep_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1302): The index number %d given for the layer MINSTEP is invalid.\nValid index is from 0 to %d", index, numMinstep_);
         lefiError(0, 1302, msg);
         return 0;
     }
@@ -5611,7 +5611,7 @@ lefiLayer::hasMinstepMinAdjLength(int index) const
 {
     char msg[160];
     if (index < 0 || index > numMinstep_) {
-        sprintf(msg, "ERROR (LEFPARS-1302): The index number %d given for the layer MINSTEP is invalid.\nValid index is from 0 to %d", index, numMinstep_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1302): The index number %d given for the layer MINSTEP is invalid.\nValid index is from 0 to %d", index, numMinstep_);
         lefiError(0, 1302, msg);
         return 0;
     }
@@ -5624,7 +5624,7 @@ lefiLayer::minstepMinAdjLength(int index) const
 {
     char msg[160];
     if (index < 0 || index > numMinstep_) {
-        sprintf(msg, "ERROR (LEFPARS-1302): The index number %d given for the layer MINSTEP is invalid.\nValid index is from 0 to %d", index, numMinstep_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1302): The index number %d given for the layer MINSTEP is invalid.\nValid index is from 0 to %d", index, numMinstep_);
         lefiError(0, 1302, msg);
         return 0;
     }
@@ -5637,7 +5637,7 @@ lefiLayer::hasMinstepMinBetLength(int index) const
 {
     char msg[160];
     if (index < 0 || index > numMinstep_) {
-        sprintf(msg, "ERROR (LEFPARS-1302): The index number %d given for the layer MINSTEP is invalid.\nValid index is from 0 to %d", index, numMinstep_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1302): The index number %d given for the layer MINSTEP is invalid.\nValid index is from 0 to %d", index, numMinstep_);
         lefiError(0, 1302, msg);
         return 0;
     }
@@ -5650,7 +5650,7 @@ lefiLayer::minstepMinBetLength(int index) const
 {
     char msg[160];
     if (index < 0 || index > numMinstep_) {
-        sprintf(msg, "ERROR (LEFPARS-1302): The index number %d given for the layer MINSTEP is invalid.\nValid index is from 0 to %d", index, numMinstep_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1302): The index number %d given for the layer MINSTEP is invalid.\nValid index is from 0 to %d", index, numMinstep_);
         lefiError(0, 1302, msg);
         return 0;
     }
@@ -5663,7 +5663,7 @@ lefiLayer::hasMinstepXSameCorners(int index) const
 {
     char msg[160];
     if (index < 0 || index > numMinstep_) {
-        sprintf(msg, "ERROR (LEFPARS-1302): The index number %d given for the layer MINSTEP is invalid.\nValid index is from 0 to %d", index, numMinstep_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1302): The index number %d given for the layer MINSTEP is invalid.\nValid index is from 0 to %d", index, numMinstep_);
         lefiError(0, 1302, msg);
         return 0;
     }
@@ -5711,7 +5711,7 @@ lefiLayer::arrayCuts(int index) const
 {
     char msg[160];
     if (index < 0 || index > numArrayCuts_) {
-        sprintf(msg, "ERROR (LEFPARS-1303): The index number %d given for the layer ARRAYCUTS is invalid.\nValid index is from 0 to %d", index, numArrayCuts_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1303): The index number %d given for the layer ARRAYCUTS is invalid.\nValid index is from 0 to %d", index, numArrayCuts_);
         lefiError(0, 1303, msg);
         return 0;
     }
@@ -5724,7 +5724,7 @@ lefiLayer::arraySpacing(int index) const
 {
     char msg[160];
     if (index < 0 || index > numArrayCuts_) {
-        sprintf(msg, "ERROR (LEFPARS-1304): The index number %d given for the layer SPACING is invalid.\nValid index is from 0 to %d", index, numArrayCuts_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1304): The index number %d given for the layer SPACING is invalid.\nValid index is from 0 to %d", index, numArrayCuts_);
         lefiError(0, 1304, msg);
         return 0;
     }
@@ -5779,11 +5779,11 @@ lefiLayer::parseSpacing(int index)
 
             if (strcmp(type(), "CUT") != 0) {
                 /*
-                            sprintf(msg, "ERROR (LEFPARS-1321): The property LEF57_SPACING with value %s is for TYPE CUT only.\nThe current layer has the TYPE %s.\nUpdate the property of your lef file with the correct syntax or remove this property from your lef file.\n",
+                            snprintf(msg, strlen(msg),"ERROR (LEFPARS-1321): The property LEF57_SPACING with value %s is for TYPE CUT only.\nThe current layer has the TYPE %s.\nUpdate the property of your lef file with the correct syntax or remove this property from your lef file.\n",
                             values_[index], type());
                             lefiError(msg);
                 */
-                sprintf(msg, "The property LEF57_SPACING with value %s is for TYPE CUT only.\nThe current layer has the TYPE %s.\nUpdate the property of your lef file with the correct syntax or remove this property from your lef file.\n",
+                snprintf(msg, strlen(msg),"The property LEF57_SPACING with value %s is for TYPE CUT only.\nThe current layer has the TYPE %s.\nUpdate the property of your lef file with the correct syntax or remove this property from your lef file.\n",
                         values_[index], type());
                 lefError(1321, msg);
                 free(wrkingStr);
@@ -5818,11 +5818,11 @@ lefiLayer::parseSpacing(int index)
                         value = strtok(NULL, " ");
                         if (*value != ';') {
                             /*
-                                                 sprintf(msg, "ERROR (LEFPARS-1320): Incorrect syntax defined for property LEF57_SPACING: %s.\nCorrect syntax is \"SPACING cutSpacing [CENTERTOCENTER][SAMENET]\n\t[LAYER secondLayerName[STACK]\n\t| ADJACENTCUTS {2 | 3 | 4} WITHIN cutWithin [EXCEPTSAMEPGNET]\n\t| PARALLELOVERLAP\n\t| AREA cutArea ;\"",
+                                                 snprintf(msg, strlen(msg),"ERROR (LEFPARS-1320): Incorrect syntax defined for property LEF57_SPACING: %s.\nCorrect syntax is \"SPACING cutSpacing [CENTERTOCENTER][SAMENET]\n\t[LAYER secondLayerName[STACK]\n\t| ADJACENTCUTS {2 | 3 | 4} WITHIN cutWithin [EXCEPTSAMEPGNET]\n\t| PARALLELOVERLAP\n\t| AREA cutArea ;\"",
                                                  values_[index]);
                                                  lefiError(msg);
                             */
-                            sprintf(msg, "Incorrect syntax defined for property LEF57_SPACING: %s.\nCorrect syntax is \"SPACING cutSpacing [CENTERTOCENTER][SAMENET]\n\t[LAYER secondLayerName[STACK]\n\t| ADJACENTCUTS {2 | 3 | 4} WITHIN cutWithin [EXCEPTSAMEPGNET]\n\t| PARALLELOVERLAP\n\t| AREA cutArea ;\"",
+                            snprintf(msg, strlen(msg),"Incorrect syntax defined for property LEF57_SPACING: %s.\nCorrect syntax is \"SPACING cutSpacing [CENTERTOCENTER][SAMENET]\n\t[LAYER secondLayerName[STACK]\n\t| ADJACENTCUTS {2 | 3 | 4} WITHIN cutWithin [EXCEPTSAMEPGNET]\n\t| PARALLELOVERLAP\n\t| AREA cutArea ;\"",
                                     values_[index]);
                             lefError(1320, msg);
                             free(wrkingStr);
@@ -5830,11 +5830,11 @@ lefiLayer::parseSpacing(int index)
                         }
                     } else if (*value != ';') {
                         /*
-                                          sprintf(msg, "ERROR (LEFPARS-1320): Incorrect syntax defined for property LEF57_SPACING: %s.\nCorrect syntax is \"SPACING cutSpacing [CENTERTOCENTER][SAMENET]\n\t[LAYER secondLayerName[STACK]\n\t| ADJACENTCUTS {2 | 3 | 4} WITHIN cutWithin [EXCEPTSAMEPGNET]\n\t| PARALLELOVERLAP\n\t| AREA cutArea ;\"",
+                                          snprintf(msg, strlen(msg),"ERROR (LEFPARS-1320): Incorrect syntax defined for property LEF57_SPACING: %s.\nCorrect syntax is \"SPACING cutSpacing [CENTERTOCENTER][SAMENET]\n\t[LAYER secondLayerName[STACK]\n\t| ADJACENTCUTS {2 | 3 | 4} WITHIN cutWithin [EXCEPTSAMEPGNET]\n\t| PARALLELOVERLAP\n\t| AREA cutArea ;\"",
                                           values_[index]);
                                           lefiError(msg);
                         */
-                        sprintf(msg, "Incorrect syntax defined for property LEF57_SPACING: %s.\nCorrect syntax is \"SPACING cutSpacing [CENTERTOCENTER][SAMENET]\n\t[LAYER secondLayerName[STACK]\n\t| ADJACENTCUTS {2 | 3 | 4} WITHIN cutWithin [EXCEPTSAMEPGNET]\n\t| PARALLELOVERLAP\n\t| AREA cutArea ;\"",
+                        snprintf(msg, strlen(msg),"Incorrect syntax defined for property LEF57_SPACING: %s.\nCorrect syntax is \"SPACING cutSpacing [CENTERTOCENTER][SAMENET]\n\t[LAYER secondLayerName[STACK]\n\t| ADJACENTCUTS {2 | 3 | 4} WITHIN cutWithin [EXCEPTSAMEPGNET]\n\t| PARALLELOVERLAP\n\t| AREA cutArea ;\"",
                                 values_[index]);
                         lefError(1320, msg);
                         free(wrkingStr);
@@ -5849,11 +5849,11 @@ lefiLayer::parseSpacing(int index)
                 numCuts = atoi(value);
                 if ((numCuts < 2) || (numCuts > 4)) {
                     /*
-                                   sprintf(msg, "ERROR (LEFPARS-1320): Incorrect syntax defined for property LEF57_SPACING: %s.\nCorrect syntax is \"SPACING cutSpacing [CENTERTOCENTER][SAMENET]\n\t[LAYER secondLayerName[STACK]\n\t| ADJACENTCUTS {2 | 3 | 4} WITHIN cutWithin [EXCEPTSAMEPGNET]\n\t| PARALLELOVERLAP\n\t| AREA cutArea ;\"",
+                                   snprintf(msg, strlen(msg),"ERROR (LEFPARS-1320): Incorrect syntax defined for property LEF57_SPACING: %s.\nCorrect syntax is \"SPACING cutSpacing [CENTERTOCENTER][SAMENET]\n\t[LAYER secondLayerName[STACK]\n\t| ADJACENTCUTS {2 | 3 | 4} WITHIN cutWithin [EXCEPTSAMEPGNET]\n\t| PARALLELOVERLAP\n\t| AREA cutArea ;\"",
                                    values_[index]);
                                    lefiError(msg);
                     */
-                    sprintf(msg, "Incorrect syntax defined for property LEF57_SPACING: %s.\nCorrect syntax is \"SPACING cutSpacing [CENTERTOCENTER][SAMENET]\n\t[LAYER secondLayerName[STACK]\n\t| ADJACENTCUTS {2 | 3 | 4} WITHIN cutWithin [EXCEPTSAMEPGNET]\n\t| PARALLELOVERLAP\n\t| AREA cutArea ;\"",
+                    snprintf(msg, strlen(msg),"Incorrect syntax defined for property LEF57_SPACING: %s.\nCorrect syntax is \"SPACING cutSpacing [CENTERTOCENTER][SAMENET]\n\t[LAYER secondLayerName[STACK]\n\t| ADJACENTCUTS {2 | 3 | 4} WITHIN cutWithin [EXCEPTSAMEPGNET]\n\t| PARALLELOVERLAP\n\t| AREA cutArea ;\"",
                             values_[index]);
                     lefError(1320, msg);
                     free(wrkingStr);
@@ -5870,11 +5870,11 @@ lefiLayer::parseSpacing(int index)
                         value = strtok(NULL, " ");
                         if (*value != ';') {
                             /*
-                                                 sprintf(msg, "ERROR (LEFPARS-1320): Incorrect syntax defined for property LEF57_SPACING: %s.\nCorrect syntax is \"SPACING cutSpacing [CENTERTOCENTER][SAMENET]\n\t[LAYER secondLayerName[STACK]\n\t| ADJACENTCUTS {2 | 3 | 4} WITHIN cutWithin [EXCEPTSAMEPGNET]\n\t| PARALLELOVERLAP\n\t| AREA cutArea ;\"",
+                                                 snprintf(msg, strlen(msg),"ERROR (LEFPARS-1320): Incorrect syntax defined for property LEF57_SPACING: %s.\nCorrect syntax is \"SPACING cutSpacing [CENTERTOCENTER][SAMENET]\n\t[LAYER secondLayerName[STACK]\n\t| ADJACENTCUTS {2 | 3 | 4} WITHIN cutWithin [EXCEPTSAMEPGNET]\n\t| PARALLELOVERLAP\n\t| AREA cutArea ;\"",
                                                  values_[index]);
                                                  lefiError(msg);
                             */
-                            sprintf(msg, "Incorrect syntax defined for property LEF57_SPACING: %s.\nCorrect syntax is \"SPACING cutSpacing [CENTERTOCENTER][SAMENET]\n\t[LAYER secondLayerName[STACK]\n\t| ADJACENTCUTS {2 | 3 | 4} WITHIN cutWithin [EXCEPTSAMEPGNET]\n\t| PARALLELOVERLAP\n\t| AREA cutArea ;\"",
+                            snprintf(msg, strlen(msg),"Incorrect syntax defined for property LEF57_SPACING: %s.\nCorrect syntax is \"SPACING cutSpacing [CENTERTOCENTER][SAMENET]\n\t[LAYER secondLayerName[STACK]\n\t| ADJACENTCUTS {2 | 3 | 4} WITHIN cutWithin [EXCEPTSAMEPGNET]\n\t| PARALLELOVERLAP\n\t| AREA cutArea ;\"",
                                     values_[index]);
                             lefError(1320, msg);
                             free(wrkingStr);
@@ -5882,11 +5882,11 @@ lefiLayer::parseSpacing(int index)
                         }
                     } else if (*value != ';') {
                         /*
-                                          sprintf(msg, "ERROR (LEFPARS-1320): Incorrect syntax defined for property LEF57_SPACING: %s.\nCorrect syntax is \"SPACING cutSpacing [CENTERTOCENTER][SAMENET]\n\t[LAYER secondLayerName[STACK]\n\t| ADJACENTCUTS {2 | 3 | 4} WITHIN cutWithin [EXCEPTSAMEPGNET]\n\t| PARALLELOVERLAP\n\t| AREA cutArea ;\"",
+                                          snprintf(msg, strlen(msg),"ERROR (LEFPARS-1320): Incorrect syntax defined for property LEF57_SPACING: %s.\nCorrect syntax is \"SPACING cutSpacing [CENTERTOCENTER][SAMENET]\n\t[LAYER secondLayerName[STACK]\n\t| ADJACENTCUTS {2 | 3 | 4} WITHIN cutWithin [EXCEPTSAMEPGNET]\n\t| PARALLELOVERLAP\n\t| AREA cutArea ;\"",
                                           values_[index]);
                                           lefiError(msg);
                         */
-                        sprintf(msg, "Incorrect syntax defined for property LEF57_SPACING: %s.\nCorrect syntax is \"SPACING cutSpacing [CENTERTOCENTER][SAMENET]\n\t[LAYER secondLayerName[STACK]\n\t| ADJACENTCUTS {2 | 3 | 4} WITHIN cutWithin [EXCEPTSAMEPGNET]\n\t| PARALLELOVERLAP\n\t| AREA cutArea ;\"",
+                        snprintf(msg, strlen(msg),"Incorrect syntax defined for property LEF57_SPACING: %s.\nCorrect syntax is \"SPACING cutSpacing [CENTERTOCENTER][SAMENET]\n\t[LAYER secondLayerName[STACK]\n\t| ADJACENTCUTS {2 | 3 | 4} WITHIN cutWithin [EXCEPTSAMEPGNET]\n\t| PARALLELOVERLAP\n\t| AREA cutArea ;\"",
                                 values_[index]);
                         lefError(1320, msg);
                         free(wrkingStr);
@@ -5896,11 +5896,11 @@ lefiLayer::parseSpacing(int index)
                     }
                 } else {
                     /*
-                                   sprintf(msg, "ERROR (LEFPARS-1320): Incorrect syntax defined for property LEF57_SPACING: %s.\nCorrect syntax is \"SPACING cutSpacing [CENTERTOCENTER][SAMENET]\n\t[LAYER secondLayerName[STACK]\n\t| ADJACENTCUTS {2 | 3 | 4} WITHIN cutWithin [EXCEPTSAMEPGNET]\n\t| PARALLELOVERLAP\n\t| AREA cutArea ;\"",
+                                   snprintf(msg, strlen(msg),"ERROR (LEFPARS-1320): Incorrect syntax defined for property LEF57_SPACING: %s.\nCorrect syntax is \"SPACING cutSpacing [CENTERTOCENTER][SAMENET]\n\t[LAYER secondLayerName[STACK]\n\t| ADJACENTCUTS {2 | 3 | 4} WITHIN cutWithin [EXCEPTSAMEPGNET]\n\t| PARALLELOVERLAP\n\t| AREA cutArea ;\"",
                                    values_[index]);
                                    lefiError(msg);
                     */
-                    sprintf(msg, "Incorrect syntax defined for property LEF57_SPACING: %s.\nCorrect syntax is \"SPACING cutSpacing [CENTERTOCENTER][SAMENET]\n\t[LAYER secondLayerName[STACK]\n\t| ADJACENTCUTS {2 | 3 | 4} WITHIN cutWithin [EXCEPTSAMEPGNET]\n\t| PARALLELOVERLAP\n\t| AREA cutArea ;\"",
+                    snprintf(msg, strlen(msg),"Incorrect syntax defined for property LEF57_SPACING: %s.\nCorrect syntax is \"SPACING cutSpacing [CENTERTOCENTER][SAMENET]\n\t[LAYER secondLayerName[STACK]\n\t| ADJACENTCUTS {2 | 3 | 4} WITHIN cutWithin [EXCEPTSAMEPGNET]\n\t| PARALLELOVERLAP\n\t| AREA cutArea ;\"",
                             values_[index]);
                     lefError(1320, msg);
                     free(wrkingStr);
@@ -5912,11 +5912,11 @@ lefiLayer::parseSpacing(int index)
                 value = strtok(NULL, " ");
                 if (*value != ';') {
                     /*
-                                   sprintf(msg, "ERROR (LEFPARS-1320): Incorrect syntax defined for property LEF57_SPACING: %s.\nCorrect syntax is \"SPACING cutSpacing [CENTERTOCENTER][SAMENET]\n\t[LAYER secondLayerName[STACK]\n\t| ADJACENTCUTS {2 | 3 | 4} WITHIN cutWithin [EXCEPTSAMEPGNET]\n\t| PARALLELOVERLAP\n\t| AREA cutArea ;\"",
+                                   snprintf(msg, strlen(msg),"ERROR (LEFPARS-1320): Incorrect syntax defined for property LEF57_SPACING: %s.\nCorrect syntax is \"SPACING cutSpacing [CENTERTOCENTER][SAMENET]\n\t[LAYER secondLayerName[STACK]\n\t| ADJACENTCUTS {2 | 3 | 4} WITHIN cutWithin [EXCEPTSAMEPGNET]\n\t| PARALLELOVERLAP\n\t| AREA cutArea ;\"",
                                    values_[index]);
                                    lefiError(msg);
                     */
-                    sprintf(msg, "Incorrect syntax defined for property LEF57_SPACING: %s.\nCorrect syntax is \"SPACING cutSpacing [CENTERTOCENTER][SAMENET]\n\t[LAYER secondLayerName[STACK]\n\t| ADJACENTCUTS {2 | 3 | 4} WITHIN cutWithin [EXCEPTSAMEPGNET]\n\t| PARALLELOVERLAP\n\t| AREA cutArea ;\"",
+                    snprintf(msg, strlen(msg),"Incorrect syntax defined for property LEF57_SPACING: %s.\nCorrect syntax is \"SPACING cutSpacing [CENTERTOCENTER][SAMENET]\n\t[LAYER secondLayerName[STACK]\n\t| ADJACENTCUTS {2 | 3 | 4} WITHIN cutWithin [EXCEPTSAMEPGNET]\n\t| PARALLELOVERLAP\n\t| AREA cutArea ;\"",
                             values_[index]);
                     lefError(1320, msg);
                     free(wrkingStr);
@@ -5931,11 +5931,11 @@ lefiLayer::parseSpacing(int index)
                 value = strtok(NULL, " ");
                 if (*value != ';') {
                     /*
-                                   sprintf(msg, "ERROR (LEFPARS-1320): Incorrect syntax defined for property LEF57_SPACING: %s.\nCorrect syntax is \"SPACING cutSpacing [CENTERTOCENTER][SAMENET]\n\t[LAYER secondLayerName[STACK]\n\t| ADJACENTCUTS {2 | 3 | 4} WITHIN cutWithin [EXCEPTSAMEPGNET]\n\t| PARALLELOVERLAP\n\t| AREA cutArea ;\"",
+                                   snprintf(msg, strlen(msg),"ERROR (LEFPARS-1320): Incorrect syntax defined for property LEF57_SPACING: %s.\nCorrect syntax is \"SPACING cutSpacing [CENTERTOCENTER][SAMENET]\n\t[LAYER secondLayerName[STACK]\n\t| ADJACENTCUTS {2 | 3 | 4} WITHIN cutWithin [EXCEPTSAMEPGNET]\n\t| PARALLELOVERLAP\n\t| AREA cutArea ;\"",
                                    values_[index]);
                                    lefiError(msg);
                     */
-                    sprintf(msg, "Incorrect syntax defined for property LEF57_SPACING: %s.\nCorrect syntax is \"SPACING cutSpacing [CENTERTOCENTER][SAMENET]\n\t[LAYER secondLayerName[STACK]\n\t| ADJACENTCUTS {2 | 3 | 4} WITHIN cutWithin [EXCEPTSAMEPGNET]\n\t| PARALLELOVERLAP\n\t| AREA cutArea ;\"",
+                    snprintf(msg, strlen(msg),"Incorrect syntax defined for property LEF57_SPACING: %s.\nCorrect syntax is \"SPACING cutSpacing [CENTERTOCENTER][SAMENET]\n\t[LAYER secondLayerName[STACK]\n\t| ADJACENTCUTS {2 | 3 | 4} WITHIN cutWithin [EXCEPTSAMEPGNET]\n\t| PARALLELOVERLAP\n\t| AREA cutArea ;\"",
                             values_[index]);
                     lefError(1320, msg);
                     free(wrkingStr);
@@ -5959,11 +5959,11 @@ lefiLayer::parseSpacing(int index)
 
             if (strcmp(type(), "ROUTING") != 0) {
                 /*
-                            sprintf(msg, "ERROR (LEFPARS-1322): The property LEF57_SPACING with value %s is for TYPE ROUTING only.\nThe current layer has the TYPE %s.\nUpdate the property of your lef file with the correct syntax or remove this property from your lef file.\n",
+                            snprintf(msg, strlen(msg),"ERROR (LEFPARS-1322): The property LEF57_SPACING with value %s is for TYPE ROUTING only.\nThe current layer has the TYPE %s.\nUpdate the property of your lef file with the correct syntax or remove this property from your lef file.\n",
                             values_[index], type());
                             lefiError(msg);
                 */
-                sprintf(msg, "The property LEF57_SPACING with value %s is for TYPE ROUTING only.\nThe current layer has the TYPE %s.\nUpdate the property of your lef file with the correct syntax or remove this property from your lef file.\n",
+                snprintf(msg, strlen(msg),"The property LEF57_SPACING with value %s is for TYPE ROUTING only.\nThe current layer has the TYPE %s.\nUpdate the property of your lef file with the correct syntax or remove this property from your lef file.\n",
                         values_[index], type());
                 lefError(1322, msg);
                 free(wrkingStr);
@@ -6035,20 +6035,20 @@ lefiLayer::parseSpacing(int index)
                                 }
                             } else {
                                 /*
-                                                        sprintf(msg, "ERROR (LEFPARS-1305): Incorrect syntax defined for property LEF57_SPACING: %s.\nCorrect syntax is \"SPACING minSpacing [CENTERTOCENTER]\"\n\"[LAYER secondLayerName | ADJACENTCUTS {2|3|4} WITHIN cutWithin | PARALLELOVERLAP | AREA cutArea]\" or\n\"SPACING eolSpace ENDOFLINE eolWidth WITHIN eolWITHIN [PARALLELEDGE parSpace WITHIN parWithin [TOWEDGES]]\"\n", values_[index]);
+                                                        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1305): Incorrect syntax defined for property LEF57_SPACING: %s.\nCorrect syntax is \"SPACING minSpacing [CENTERTOCENTER]\"\n\"[LAYER secondLayerName | ADJACENTCUTS {2|3|4} WITHIN cutWithin | PARALLELOVERLAP | AREA cutArea]\" or\n\"SPACING eolSpace ENDOFLINE eolWidth WITHIN eolWITHIN [PARALLELEDGE parSpace WITHIN parWithin [TOWEDGES]]\"\n", values_[index]);
                                                         lefiError(msg);
                                 */
-                                sprintf(msg, "Incorrect syntax defined for property LEF57_SPACING: %s.\nCorrect syntax is \"SPACING minSpacing [CENTERTOCENTER]\"\n\"[LAYER secondLayerName | ADJACENTCUTS {2|3|4} WITHIN cutWithin | PARALLELOVERLAP | AREA cutArea]\" or\n\"SPACING eolSpace ENDOFLINE eolWidth WITHIN eolWITHIN [PARALLELEDGE parSpace WITHIN parWithin [TOWEDGES]]\"\n", values_[index]);
+                                snprintf(msg, strlen(msg),"Incorrect syntax defined for property LEF57_SPACING: %s.\nCorrect syntax is \"SPACING minSpacing [CENTERTOCENTER]\"\n\"[LAYER secondLayerName | ADJACENTCUTS {2|3|4} WITHIN cutWithin | PARALLELOVERLAP | AREA cutArea]\" or\n\"SPACING eolSpace ENDOFLINE eolWidth WITHIN eolWITHIN [PARALLELEDGE parSpace WITHIN parWithin [TOWEDGES]]\"\n", values_[index]);
                                 lefError(1305, msg);
                                 free(wrkingStr);
                                 return;
                             }
                         } else {
                             /*
-                                                 sprintf(msg, "ERROR (LEFPARS-1305): Incorrect syntax defined for property LEF57_SPACING: %s.\nCorrect syntax is \"SPACING minSpacing [CENTERTOCENTER]\"\n\"[LAYER secondLayerName | ADJACENTCUTS {2|3|4} WITHIN cutWithin | PARALLELOVERLAP | AREA cutArea]\" or\n\"SPACING eolSpace ENDOFLINE eolWidth WITHIN eolWITHIN [PARALLELEDGE parSpace WITHIN parWithin [TOWEDGES]]\"\n", values_[index]);
+                                                 snprintf(msg, strlen(msg),"ERROR (LEFPARS-1305): Incorrect syntax defined for property LEF57_SPACING: %s.\nCorrect syntax is \"SPACING minSpacing [CENTERTOCENTER]\"\n\"[LAYER secondLayerName | ADJACENTCUTS {2|3|4} WITHIN cutWithin | PARALLELOVERLAP | AREA cutArea]\" or\n\"SPACING eolSpace ENDOFLINE eolWidth WITHIN eolWITHIN [PARALLELEDGE parSpace WITHIN parWithin [TOWEDGES]]\"\n", values_[index]);
                                                  lefiError(msg);
                             */
-                            sprintf(msg, "Incorrect syntax defined for property LEF57_SPACING: %s.\nCorrect syntax is \"SPACING minSpacing [CENTERTOCENTER]\"\n\"[LAYER secondLayerName | ADJACENTCUTS {2|3|4} WITHIN cutWithin | PARALLELOVERLAP | AREA cutArea]\" or\n\"SPACING eolSpace ENDOFLINE eolWidth WITHIN eolWITHIN [PARALLELEDGE parSpace WITHIN parWithin [TOWEDGES]]\"\n", values_[index]);
+                            snprintf(msg, strlen(msg),"Incorrect syntax defined for property LEF57_SPACING: %s.\nCorrect syntax is \"SPACING minSpacing [CENTERTOCENTER]\"\n\"[LAYER secondLayerName | ADJACENTCUTS {2|3|4} WITHIN cutWithin | PARALLELOVERLAP | AREA cutArea]\" or\n\"SPACING eolSpace ENDOFLINE eolWidth WITHIN eolWITHIN [PARALLELEDGE parSpace WITHIN parWithin [TOWEDGES]]\"\n", values_[index]);
                             lefError(1305, msg);
                             free(wrkingStr);
                             return;
@@ -6070,20 +6070,20 @@ lefiLayer::parseSpacing(int index)
                 }
             } else {
                 /*
-                            sprintf(msg, "ERROR (LEFPARS-1305): Incorrect syntax defined for property LEF57_SPACING: %s.\nCorrect syntax is either \"SPACING minSpacing [CENTERTOCENTER]\"\n\"[LAYER secondLayerName | ADJACENTCUTS {2|3|4} WITHIN cutWithin | PARALLELOVERLAP | AREA cutArea]\" or\n\"SPACING eolSpace ENDOFLINE eolWidth WITHIN eolWITHIN [PARALLELEDGE parSpace WITHIN parWithin [TOWEDGES]]\"\n", values_[index]);
+                            snprintf(msg, strlen(msg),"ERROR (LEFPARS-1305): Incorrect syntax defined for property LEF57_SPACING: %s.\nCorrect syntax is either \"SPACING minSpacing [CENTERTOCENTER]\"\n\"[LAYER secondLayerName | ADJACENTCUTS {2|3|4} WITHIN cutWithin | PARALLELOVERLAP | AREA cutArea]\" or\n\"SPACING eolSpace ENDOFLINE eolWidth WITHIN eolWITHIN [PARALLELEDGE parSpace WITHIN parWithin [TOWEDGES]]\"\n", values_[index]);
                             lefiError(msg);
                 */
-                sprintf(msg, "Incorrect syntax defined for property LEF57_SPACING: %s.\nCorrect syntax is either \"SPACING minSpacing [CENTERTOCENTER]\"\n\"[LAYER secondLayerName | ADJACENTCUTS {2|3|4} WITHIN cutWithin | PARALLELOVERLAP | AREA cutArea]\" or\n\"SPACING eolSpace ENDOFLINE eolWidth WITHIN eolWITHIN [PARALLELEDGE parSpace WITHIN parWithin [TOWEDGES]]\"\n", values_[index]);
+                snprintf(msg, strlen(msg),"Incorrect syntax defined for property LEF57_SPACING: %s.\nCorrect syntax is either \"SPACING minSpacing [CENTERTOCENTER]\"\n\"[LAYER secondLayerName | ADJACENTCUTS {2|3|4} WITHIN cutWithin | PARALLELOVERLAP | AREA cutArea]\" or\n\"SPACING eolSpace ENDOFLINE eolWidth WITHIN eolWITHIN [PARALLELEDGE parSpace WITHIN parWithin [TOWEDGES]]\"\n", values_[index]);
                 lefError(1305, msg);
                 free(wrkingStr);
                 return;
             }
         } else {
             /*
-                     sprintf(msg, "ERROR (LEFPARS-1305): Incorrect syntax defined for property LEF57_SPACING: %s.\nCorrect syntax is either \"SPACING minSpacing [CENTERTOCENTER]\"\n\"[LAYER secondLayerName | ADJACENTCUTS {2|3|4} WITHIN cutWithin | PARALLELOVERLAP | AREA cutArea]\" or\n\"SPACING eolSpace ENDOFLINE eolWidth WITHIN eolWITHIN [PARALLELEDGE parSpace WITHIN parWithin [TOWEDGES]]\"\n", values_[index]);
+                     snprintf(msg, strlen(msg),"ERROR (LEFPARS-1305): Incorrect syntax defined for property LEF57_SPACING: %s.\nCorrect syntax is either \"SPACING minSpacing [CENTERTOCENTER]\"\n\"[LAYER secondLayerName | ADJACENTCUTS {2|3|4} WITHIN cutWithin | PARALLELOVERLAP | AREA cutArea]\" or\n\"SPACING eolSpace ENDOFLINE eolWidth WITHIN eolWITHIN [PARALLELEDGE parSpace WITHIN parWithin [TOWEDGES]]\"\n", values_[index]);
                      lefiError(msg);
             */
-            sprintf(msg, "Incorrect syntax defined for property LEF57_SPACING: %s.\nCorrect syntax is either \"SPACING minSpacing [CENTERTOCENTER]\"\n\"[LAYER secondLayerName | ADJACENTCUTS {2|3|4} WITHIN cutWithin | PARALLELOVERLAP | AREA cutArea]\" or\n\"SPACING eolSpace ENDOFLINE eolWidth WITHIN eolWITHIN [PARALLELEDGE parSpace WITHIN parWithin [TOWEDGES]]\"\n", values_[index]);
+            snprintf(msg, strlen(msg),"Incorrect syntax defined for property LEF57_SPACING: %s.\nCorrect syntax is either \"SPACING minSpacing [CENTERTOCENTER]\"\n\"[LAYER secondLayerName | ADJACENTCUTS {2|3|4} WITHIN cutWithin | PARALLELOVERLAP | AREA cutArea]\" or\n\"SPACING eolSpace ENDOFLINE eolWidth WITHIN eolWITHIN [PARALLELEDGE parSpace WITHIN parWithin [TOWEDGES]]\"\n", values_[index]);
             lefError(1305, msg);
             free(wrkingStr);
             return;
@@ -6105,7 +6105,7 @@ void lefiLayer::parseMaxFloating(int index) {
 
    value = strtok(wrkingStr, " ");
    if (strcmp(value, "MAXFLOATINGAREA") != 0) {
-      sprintf(msg, "ERROR (LEFPARS-1306): Incorrect syntax defined for property LEF57_MAXFLOATINGAREA: %s.\nCorrect syntax is \"MAXFLOATINGAREA maxArea\"\n", values_[index]);
+      snprintf(msg, strlen(msg),"ERROR (LEFPARS-1306): Incorrect syntax defined for property LEF57_MAXFLOATINGAREA: %s.\nCorrect syntax is \"MAXFLOATINGAREA maxArea\"\n", values_[index]);
       lefiError(0, 1306, msg);
       free(wrkingStr);
       return;
@@ -6134,10 +6134,10 @@ lefiLayer::parseArraySpacing(int index)
     value = strtok(wrkingStr, " ");
     if (strcmp(value, "ARRAYSPACING") != 0) {
         /*
-              sprintf(msg, "ERROR (LEFPARS-1307): Incorrect syntax defined for property LEF57_ARRAYSPACING: %s.\nCorrect syntax is ARRAYSPACING [LONGARRAY] [WIDTH viaWidth] CUTSPACING cutSpacing\n\tARRAYCUTS arrayCuts SPACING arraySpacing ...\n", values_[index]);
+              snprintf(msg, strlen(msg),"ERROR (LEFPARS-1307): Incorrect syntax defined for property LEF57_ARRAYSPACING: %s.\nCorrect syntax is ARRAYSPACING [LONGARRAY] [WIDTH viaWidth] CUTSPACING cutSpacing\n\tARRAYCUTS arrayCuts SPACING arraySpacing ...\n", values_[index]);
               lefiError(msg);
         */
-        sprintf(msg, "Incorrect syntax defined for property LEF57_ARRAYSPACING: %s.\nCorrect syntax is ARRAYSPACING [LONGARRAY] [WIDTH viaWidth] CUTSPACING cutSpacing\n\tARRAYCUTS arrayCuts SPACING arraySpacing ...\n", values_[index]);
+        snprintf(msg, strlen(msg),"Incorrect syntax defined for property LEF57_ARRAYSPACING: %s.\nCorrect syntax is ARRAYSPACING [LONGARRAY] [WIDTH viaWidth] CUTSPACING cutSpacing\n\tARRAYCUTS arrayCuts SPACING arraySpacing ...\n", values_[index]);
         lefError(1307, msg);
         free(wrkingStr);
         return;
@@ -6148,10 +6148,10 @@ lefiLayer::parseArraySpacing(int index)
         if (strcmp(value, "LONGARRAY") == 0) {
             if (cutSpacing != 0) { // make sure syntax has correct order 
                 /*
-                sprintf(msg, "ERROR (LEFPARS-1308): Incorrect syntax defined for property LEF57_ARRAYSPACING: %s.\nLONGARRAY is defined after CUTSPACING.\nCorrect syntax is ARRAYSPACING [LONGARRAY] [WIDTH viaWidth] CUTSPACING cutSpacing\n\tARRAYCUTS arrayCuts SPACING arraySpacing ...\n", values_[index]);
+                snprintf(msg, strlen(msg),"ERROR (LEFPARS-1308): Incorrect syntax defined for property LEF57_ARRAYSPACING: %s.\nLONGARRAY is defined after CUTSPACING.\nCorrect syntax is ARRAYSPACING [LONGARRAY] [WIDTH viaWidth] CUTSPACING cutSpacing\n\tARRAYCUTS arrayCuts SPACING arraySpacing ...\n", values_[index]);
                 lefiError(msg);
                 */
-                sprintf(msg, "Incorrect syntax defined for property LEF57_ARRAYSPACING: %s.\nLONGARRAY is defined after CUTSPACING.\nCorrect syntax is ARRAYSPACING [LONGARRAY] [WIDTH viaWidth] CUTSPACING cutSpacing\n\tARRAYCUTS arrayCuts SPACING arraySpacing ...\n", values_[index]);
+                snprintf(msg, strlen(msg),"Incorrect syntax defined for property LEF57_ARRAYSPACING: %s.\nLONGARRAY is defined after CUTSPACING.\nCorrect syntax is ARRAYSPACING [LONGARRAY] [WIDTH viaWidth] CUTSPACING cutSpacing\n\tARRAYCUTS arrayCuts SPACING arraySpacing ...\n", values_[index]);
                 lefError(1308, msg);
                 free(wrkingStr);
                 return;
@@ -6161,10 +6161,10 @@ lefiLayer::parseArraySpacing(int index)
         } else if (strcmp(value, "WIDTH") == 0) {
             if (cutSpacing != 0) { // make sure syntax has correct order 
                 /*
-                sprintf(msg, "ERROR (LEFPARS-1309): Incorrect syntax defined for property LEF57_ARRAYSPACING: %s.\nWIDTH is defined after CUTSPACING.\nCorrect syntax is ARRAYSPACING [LONGARRAY] [WIDTH viaWidth] CUTSPACING cutSpacing\n\tARRAYCUTS arrayCuts SPACING arraySpacing ...\n", values_[index]);
+                snprintf(msg, strlen(msg),"ERROR (LEFPARS-1309): Incorrect syntax defined for property LEF57_ARRAYSPACING: %s.\nWIDTH is defined after CUTSPACING.\nCorrect syntax is ARRAYSPACING [LONGARRAY] [WIDTH viaWidth] CUTSPACING cutSpacing\n\tARRAYCUTS arrayCuts SPACING arraySpacing ...\n", values_[index]);
                 lefiError(msg);
                 */
-                sprintf(msg, "Incorrect syntax defined for property LEF57_ARRAYSPACING: %s.\nWIDTH is defined after CUTSPACING.\nCorrect syntax is ARRAYSPACING [LONGARRAY] [WIDTH viaWidth] CUTSPACING cutSpacing\n\tARRAYCUTS arrayCuts SPACING arraySpacing ...\n", values_[index]);
+                snprintf(msg, strlen(msg),"Incorrect syntax defined for property LEF57_ARRAYSPACING: %s.\nWIDTH is defined after CUTSPACING.\nCorrect syntax is ARRAYSPACING [LONGARRAY] [WIDTH viaWidth] CUTSPACING cutSpacing\n\tARRAYCUTS arrayCuts SPACING arraySpacing ...\n", values_[index]);
                 lefError(1309, msg);
                 free(wrkingStr);
                 return;
@@ -6175,10 +6175,10 @@ lefiLayer::parseArraySpacing(int index)
         } else if (strcmp(value, "CUTSPACING") == 0) {
             if (cutSpacing != 0) { // make sure syntax has correct order 
                 /*
-                sprintf(msg, "ERROR (LEFPARS-1310): Incorrect syntax defined for property LEF57_ARRAYSPACING: %s.\nCUTSPACING has defined more than once.\nCorrect syntax is ARRAYSPACING [LONGARRAY] [WIDTH viaWidth] CUTSPACING cutSpacing\n\tARRAYCUTS arrayCuts SPACING arraySpacing ...\n", values_[index]);
+                snprintf(msg, strlen(msg),"ERROR (LEFPARS-1310): Incorrect syntax defined for property LEF57_ARRAYSPACING: %s.\nCUTSPACING has defined more than once.\nCorrect syntax is ARRAYSPACING [LONGARRAY] [WIDTH viaWidth] CUTSPACING cutSpacing\n\tARRAYCUTS arrayCuts SPACING arraySpacing ...\n", values_[index]);
                 lefiError(msg);
                 */
-                sprintf(msg, "Incorrect syntax defined for property LEF57_ARRAYSPACING: %s.\nCUTSPACING has defined more than once.\nCorrect syntax is ARRAYSPACING [LONGARRAY] [WIDTH viaWidth] CUTSPACING cutSpacing\n\tARRAYCUTS arrayCuts SPACING arraySpacing ...\n", values_[index]);
+                snprintf(msg, strlen(msg),"Incorrect syntax defined for property LEF57_ARRAYSPACING: %s.\nCUTSPACING has defined more than once.\nCorrect syntax is ARRAYSPACING [LONGARRAY] [WIDTH viaWidth] CUTSPACING cutSpacing\n\tARRAYCUTS arrayCuts SPACING arraySpacing ...\n", values_[index]);
                 lefError(1310, msg);
                 free(wrkingStr);
                 return;
@@ -6196,10 +6196,10 @@ lefiLayer::parseArraySpacing(int index)
         } else if (strcmp(value, "ARRAYCUTS") == 0) {
             if (cutSpacing == 0) { // make sure cutSpacing is already set 
                 /*
-                sprintf(msg, "ERROR (LEFPARS-1311): Incorrect syntax defined for property LEF57_ARRAYSPACING: %s.\nCUTSPACING which is required is either has not been defined or defined in a wrong location.\nCorrect syntax is ARRAYSPACING [LONGARRAY] [WIDTH viaWidth] CUTSPACING cutSpacing\n\tARRAYCUTS arrayCuts SPACING arraySpacing ...\n", values_[index]);
+                snprintf(msg, strlen(msg),"ERROR (LEFPARS-1311): Incorrect syntax defined for property LEF57_ARRAYSPACING: %s.\nCUTSPACING which is required is either has not been defined or defined in a wrong location.\nCorrect syntax is ARRAYSPACING [LONGARRAY] [WIDTH viaWidth] CUTSPACING cutSpacing\n\tARRAYCUTS arrayCuts SPACING arraySpacing ...\n", values_[index]);
                 lefiError(msg);
                 */
-                sprintf(msg, "Incorrect syntax defined for property LEF57_ARRAYSPACING: %s.\nCUTSPACING which is required is either has not been defined or defined in a wrong location.\nCorrect syntax is ARRAYSPACING [LONGARRAY] [WIDTH viaWidth] CUTSPACING cutSpacing\n\tARRAYCUTS arrayCuts SPACING arraySpacing ...\n", values_[index]);
+                snprintf(msg, strlen(msg),"Incorrect syntax defined for property LEF57_ARRAYSPACING: %s.\nCUTSPACING which is required is either has not been defined or defined in a wrong location.\nCorrect syntax is ARRAYSPACING [LONGARRAY] [WIDTH viaWidth] CUTSPACING cutSpacing\n\tARRAYCUTS arrayCuts SPACING arraySpacing ...\n", values_[index]);
                 lefError(1311, msg);
                 free(wrkingStr);
                 return;
@@ -6209,10 +6209,10 @@ lefiLayer::parseArraySpacing(int index)
             value = strtok(NULL, " ");
             if (strcmp(value, "SPACING") != 0) {
                 /*
-                            sprintf(msg, "ERROR (LEFPARS-1312): Incorrect syntax defined for  property LEF57_ARRAYSPACING: %s.\nSPACING should be defined with ARRAYCUTS.\nCorrect syntax is ARRAYSPACING [LONGARRAY] [WIDTH viaWidth] CUTSPACING cutSpacing\n\tARRAYCUTS arrayCuts SPACING arraySpacing ...\n", values_[index]);
+                            snprintf(msg, strlen(msg),"ERROR (LEFPARS-1312): Incorrect syntax defined for  property LEF57_ARRAYSPACING: %s.\nSPACING should be defined with ARRAYCUTS.\nCorrect syntax is ARRAYSPACING [LONGARRAY] [WIDTH viaWidth] CUTSPACING cutSpacing\n\tARRAYCUTS arrayCuts SPACING arraySpacing ...\n", values_[index]);
                             lefiError(msg);
                 */
-                sprintf(msg, "Incorrect syntax defined for  property LEF57_ARRAYSPACING: %s.\nSPACING should be defined with ARRAYCUTS.\nCorrect syntax is ARRAYSPACING [LONGARRAY] [WIDTH viaWidth] CUTSPACING cutSpacing\n\tARRAYCUTS arrayCuts SPACING arraySpacing ...\n", values_[index]);
+                snprintf(msg, strlen(msg),"Incorrect syntax defined for  property LEF57_ARRAYSPACING: %s.\nSPACING should be defined with ARRAYCUTS.\nCorrect syntax is ARRAYSPACING [LONGARRAY] [WIDTH viaWidth] CUTSPACING cutSpacing\n\tARRAYCUTS arrayCuts SPACING arraySpacing ...\n", values_[index]);
                 lefError(1312, msg);
                 free(wrkingStr);
                 return;
@@ -6227,10 +6227,10 @@ lefiLayer::parseArraySpacing(int index)
             hasArrayCut = 1;
         } else {  // Doesn't match any of the format
             /*
-            sprintf(msg, "ERROR (LEFPARS-1313): Incorrect syntax defined for property LEF57_ARRAYSPACING: %s.\nCorrect syntax is ARRAYSPACING [LONGARRAY] [WIDTH viaWidth] CUTSPACING cutSpacing\n\tARRAYCUTS arrayCuts SPACING arraySpacing ...\n", values_[index]);
+            snprintf(msg, strlen(msg),"ERROR (LEFPARS-1313): Incorrect syntax defined for property LEF57_ARRAYSPACING: %s.\nCorrect syntax is ARRAYSPACING [LONGARRAY] [WIDTH viaWidth] CUTSPACING cutSpacing\n\tARRAYCUTS arrayCuts SPACING arraySpacing ...\n", values_[index]);
             lefiError(msg);
             */
-            sprintf(msg, "Incorrect syntax defined for property LEF57_ARRAYSPACING: %s.\nCorrect syntax is ARRAYSPACING [LONGARRAY] [WIDTH viaWidth] CUTSPACING cutSpacing\n\tARRAYCUTS arrayCuts SPACING arraySpacing ...\n", values_[index]);
+            snprintf(msg, strlen(msg),"Incorrect syntax defined for property LEF57_ARRAYSPACING: %s.\nCorrect syntax is ARRAYSPACING [LONGARRAY] [WIDTH viaWidth] CUTSPACING cutSpacing\n\tARRAYCUTS arrayCuts SPACING arraySpacing ...\n", values_[index]);
             lefError(1313, msg);
             free(wrkingStr);
             return;
@@ -6240,9 +6240,9 @@ lefiLayer::parseArraySpacing(int index)
 
     if (hasArrayCut == 0) {  // ARRAYCUTS is required
         /*
-        sprintf(msg, "ERROR (LEFPARS-1314): Incorrect syntax defined for property LEF57_ARRAYSPACING: %s\nARRAYCUTS is required but has not been defined.\nCorrect syntax is ARRAYSPACING [LONGARRAY] [WIDTH viaWidth] CUTSPACING cutSpacing\n\tARRAYCUTS arrayCuts SPACING arraySpacing ...\n", values_[index]);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1314): Incorrect syntax defined for property LEF57_ARRAYSPACING: %s\nARRAYCUTS is required but has not been defined.\nCorrect syntax is ARRAYSPACING [LONGARRAY] [WIDTH viaWidth] CUTSPACING cutSpacing\n\tARRAYCUTS arrayCuts SPACING arraySpacing ...\n", values_[index]);
         */
-        sprintf(msg, "Incorrect syntax defined for property LEF57_ARRAYSPACING: %s\nARRAYCUTS is required but has not been defined.\nCorrect syntax is ARRAYSPACING [LONGARRAY] [WIDTH viaWidth] CUTSPACING cutSpacing\n\tARRAYCUTS arrayCuts SPACING arraySpacing ...\n", values_[index]);
+        snprintf(msg, strlen(msg),"Incorrect syntax defined for property LEF57_ARRAYSPACING: %s\nARRAYCUTS is required but has not been defined.\nCorrect syntax is ARRAYSPACING [LONGARRAY] [WIDTH viaWidth] CUTSPACING cutSpacing\n\tARRAYCUTS arrayCuts SPACING arraySpacing ...\n", values_[index]);
         lefError(1314, msg);
     }
 
@@ -6265,11 +6265,11 @@ lefiLayer::parseMinstep(int index)
 
     if (strcmp(type(), "ROUTING") != 0) {
         /*
-              sprintf(msg, "ERROR (LEFPARS-1323): The property LEF57_MINSTEP with value %s is for TYPE ROUTING only.\nThe current layer has the TYPE %s.\nUpdate the property of your lef file with the correct syntax or remove this property from your lef file.\n",
+              snprintf(msg, strlen(msg),"ERROR (LEFPARS-1323): The property LEF57_MINSTEP with value %s is for TYPE ROUTING only.\nThe current layer has the TYPE %s.\nUpdate the property of your lef file with the correct syntax or remove this property from your lef file.\n",
               values_[index], type());
               lefiError(msg);
         */
-        sprintf(msg, "The property LEF57_MINSTEP with value %s is for TYPE ROUTING only.\nThe current layer has the TYPE %s.\nUpdate the property of your lef file with the correct syntax or remove this property from your lef file.\n",
+        snprintf(msg, strlen(msg),"The property LEF57_MINSTEP with value %s is for TYPE ROUTING only.\nThe current layer has the TYPE %s.\nUpdate the property of your lef file with the correct syntax or remove this property from your lef file.\n",
                 values_[index], type());
         lefError(1323, msg);
         free(wrkingStr);
@@ -6279,10 +6279,10 @@ lefiLayer::parseMinstep(int index)
     value = strtok(wrkingStr, " ");
     if (strcmp(value, "MINSTEP") != 0) {
         /*
-              sprintf(msg, "ERROR (LEFPARS-1315): Incorrect syntax defined for property LEF57_MINSTEP: %s.\nCorrect syntax is \"MINSTEP minStepLength [MAXEDGES maxEdges] [MINADJACENTLENGTH minAdjLength | MINBETWEENLENGTH minBetweenLength [EXCEPTSAMECORNERS]] ;\"\n", values_[index]);
+              snprintf(msg, strlen(msg),"ERROR (LEFPARS-1315): Incorrect syntax defined for property LEF57_MINSTEP: %s.\nCorrect syntax is \"MINSTEP minStepLength [MAXEDGES maxEdges] [MINADJACENTLENGTH minAdjLength | MINBETWEENLENGTH minBetweenLength [EXCEPTSAMECORNERS]] ;\"\n", values_[index]);
               lefiError(msg);
         */
-        sprintf(msg, "Incorrect syntax defined for property LEF57_MINSTEP: %s.\nCorrect syntax is \"MINSTEP minStepLength [MAXEDGES maxEdges] [MINADJACENTLENGTH minAdjLength | MINBETWEENLENGTH minBetweenLength [EXCEPTSAMECORNERS]] ;\"\n", values_[index]);
+        snprintf(msg, strlen(msg),"Incorrect syntax defined for property LEF57_MINSTEP: %s.\nCorrect syntax is \"MINSTEP minStepLength [MAXEDGES maxEdges] [MINADJACENTLENGTH minAdjLength | MINBETWEENLENGTH minBetweenLength [EXCEPTSAMECORNERS]] ;\"\n", values_[index]);
         lefError(1315, msg);
         free(wrkingStr);
         return;
@@ -6298,10 +6298,10 @@ lefiLayer::parseMinstep(int index)
                 // MAXEDGES maxEdges
                 if (maxEdges) { // MAXEDGES has already defined
                     /*
-                    sprintf(msg, "ERROR (LEFPARS-1315): Incorrect syntax defined for property LEF57_MINSTEP: %s\nCorrect syntax is \"MINSTEP minStepLength [MAXEDGES maxEdges] [MINADJACENTLENGTH minAdjLength | MINBETWEENLENGTH minBetweenLength [EXCEPTSAMECORNERS]] ;\"\n", values_[index]);
+                    snprintf(msg, strlen(msg),"ERROR (LEFPARS-1315): Incorrect syntax defined for property LEF57_MINSTEP: %s\nCorrect syntax is \"MINSTEP minStepLength [MAXEDGES maxEdges] [MINADJACENTLENGTH minAdjLength | MINBETWEENLENGTH minBetweenLength [EXCEPTSAMECORNERS]] ;\"\n", values_[index]);
                     lefiError(msg);
                     */
-                    sprintf(msg, "Incorrect syntax defined for property LEF57_MINSTEP: %s\nCorrect syntax is \"MINSTEP minStepLength [MAXEDGES maxEdges] [MINADJACENTLENGTH minAdjLength | MINBETWEENLENGTH minBetweenLength [EXCEPTSAMECORNERS]] ;\"\n", values_[index]);
+                    snprintf(msg, strlen(msg),"Incorrect syntax defined for property LEF57_MINSTEP: %s\nCorrect syntax is \"MINSTEP minStepLength [MAXEDGES maxEdges] [MINADJACENTLENGTH minAdjLength | MINBETWEENLENGTH minBetweenLength [EXCEPTSAMECORNERS]] ;\"\n", values_[index]);
                     lefError(1315, msg);
                     free(wrkingStr);   // done parsing
                     return;
@@ -6315,10 +6315,10 @@ lefiLayer::parseMinstep(int index)
                     // MINBETWEENLENGTH has defined, it is either MINADJACENTLENGTH
                     // or MINBETWEENLENGTH but not both
                     /*
-                    sprintf(msg, "ERROR (LEFPARS-1315): Incorrect syntax defined for property LEF57_MINSTEP: %s\nCorrect syntax is \"MINSTEP minStepLength [MAXEDGES maxEdges] [MINADJACENTLENGTH minAdjLength | MINBETWEENLENGTH minBetweenLength [EXCEPTSAMECORNERS]] ;\"\n", values_[index]);
+                    snprintf(msg, strlen(msg),"ERROR (LEFPARS-1315): Incorrect syntax defined for property LEF57_MINSTEP: %s\nCorrect syntax is \"MINSTEP minStepLength [MAXEDGES maxEdges] [MINADJACENTLENGTH minAdjLength | MINBETWEENLENGTH minBetweenLength [EXCEPTSAMECORNERS]] ;\"\n", values_[index]);
                     lefiError(msg);
                     */
-                    sprintf(msg, "Incorrect syntax defined for property LEF57_MINSTEP: %s\nCorrect syntax is \"MINSTEP minStepLength [MAXEDGES maxEdges] [MINADJACENTLENGTH minAdjLength | MINBETWEENLENGTH minBetweenLength [EXCEPTSAMECORNERS]] ;\"\n", values_[index]);
+                    snprintf(msg, strlen(msg),"Incorrect syntax defined for property LEF57_MINSTEP: %s\nCorrect syntax is \"MINSTEP minStepLength [MAXEDGES maxEdges] [MINADJACENTLENGTH minAdjLength | MINBETWEENLENGTH minBetweenLength [EXCEPTSAMECORNERS]] ;\"\n", values_[index]);
                     lefError(1315, msg);
                     free(wrkingStr);   // done parsing
                     return;
@@ -6332,10 +6332,10 @@ lefiLayer::parseMinstep(int index)
                     // minadjACENTLENGTH has defined, it is either MINBETWEENLENGTH
                     // or minADJACENTLENGTH but not both
                     /*
-                    sprintf(msg, "ERROR (LEFPARS-1315): Incorrect syntax defined for property LEF57_MINSTEP: %s\nCorrect syntax is \"MINSTEP minStepLength [MAXEDGES maxEdges] [MINADJACENTLENGTH minAdjLength | MINBETWEENLENGTH minBetweenLength [EXCEPTSAMECORNERS]] ;\"\n", values_[index]);
+                    snprintf(msg, strlen(msg),"ERROR (LEFPARS-1315): Incorrect syntax defined for property LEF57_MINSTEP: %s\nCorrect syntax is \"MINSTEP minStepLength [MAXEDGES maxEdges] [MINADJACENTLENGTH minAdjLength | MINBETWEENLENGTH minBetweenLength [EXCEPTSAMECORNERS]] ;\"\n", values_[index]);
                     lefierror(msg);
                     */
-                    sprintf(msg, "Incorrect syntax defined for property LEF57_MINSTEP: %s\nCorrect syntax is \"MINSTEP minStepLength [MAXEDGES maxEdges] [MINADJACENTLENGTH minAdjLength | MINBETWEENLENGTH minBetweenLength [EXCEPTSAMECORNERS]] ;\"\n", values_[index]);
+                    snprintf(msg, strlen(msg),"Incorrect syntax defined for property LEF57_MINSTEP: %s\nCorrect syntax is \"MINSTEP minStepLength [MAXEDGES maxEdges] [MINADJACENTLENGTH minAdjLength | MINBETWEENLENGTH minBetweenLength [EXCEPTSAMECORNERS]] ;\"\n", values_[index]);
                     lefError(1315, msg);
                     free(wrkingStr);   // done parsing
                     return;
@@ -6351,10 +6351,10 @@ lefiLayer::parseMinstep(int index)
                     value = strtok(NULL, " ");
                 } else {
                     /*
-                                   sprintf(msg, "ERROR (LEFPARS-1315): Incorrect syntax defined for property LEF57_MINSTEP: %s\nCorrect syntax is \"MINSTEP minStepLength [MAXEDGES maxEdges] [MINADJACENTLENGTH minAdjLength | MINBETWEENLENGTH minBetweenLength [EXCEPTSAMECORNERS]] ;\"\n", values_[index]);
+                                   snprintf(msg, strlen(msg),"ERROR (LEFPARS-1315): Incorrect syntax defined for property LEF57_MINSTEP: %s\nCorrect syntax is \"MINSTEP minStepLength [MAXEDGES maxEdges] [MINADJACENTLENGTH minAdjLength | MINBETWEENLENGTH minBetweenLength [EXCEPTSAMECORNERS]] ;\"\n", values_[index]);
                                    lefierror(msg);
                     */
-                    sprintf(msg, "Incorrect syntax defined for property LEF57_MINSTEP: %s\nCorrect syntax is \"MINSTEP minStepLength [MAXEDGES maxEdges] [MINADJACENTLENGTH minAdjLength | MINBETWEENLENGTH minBetweenLength [EXCEPTSAMECORNERS]] ;\"\n", values_[index]);
+                    snprintf(msg, strlen(msg),"Incorrect syntax defined for property LEF57_MINSTEP: %s\nCorrect syntax is \"MINSTEP minStepLength [MAXEDGES maxEdges] [MINADJACENTLENGTH minAdjLength | MINBETWEENLENGTH minBetweenLength [EXCEPTSAMECORNERS]] ;\"\n", values_[index]);
                     lefError(1315, msg);
                     free(wrkingStr);   // done parsing
                     return;
@@ -6362,10 +6362,10 @@ lefiLayer::parseMinstep(int index)
             } else if (strcmp(value, ";") != 0) {
                 // an invalid value
                 /*
-                sprintf(msg, "ERROR (LEFPARS-1315): Incorrect syntax defined for property LEF57_MINSTEP: %s.\nCorrect syntax is \"MINSTEP minStepLength [MAXEDGES maxEdges] [MINADJACENTLENGTH minAdjLength | MINBETWEENLENGTH minBetweenLength [EXCEPTSAMECORNERS]] ;\"\n", values_[index]);
+                snprintf(msg, strlen(msg),"ERROR (LEFPARS-1315): Incorrect syntax defined for property LEF57_MINSTEP: %s.\nCorrect syntax is \"MINSTEP minStepLength [MAXEDGES maxEdges] [MINADJACENTLENGTH minAdjLength | MINBETWEENLENGTH minBetweenLength [EXCEPTSAMECORNERS]] ;\"\n", values_[index]);
                 lefierror(msg);
                 */
-                sprintf(msg, "Incorrect syntax defined for property LEF57_MINSTEP: %s.\nCorrect syntax is \"MINSTEP minStepLength [MAXEDGES maxEdges] [MINADJACENTLENGTH minAdjLength | MINBETWEENLENGTH minBetweenLength [EXCEPTSAMECORNERS]] ;\"\n", values_[index]);
+                snprintf(msg, strlen(msg),"Incorrect syntax defined for property LEF57_MINSTEP: %s.\nCorrect syntax is \"MINSTEP minStepLength [MAXEDGES maxEdges] [MINADJACENTLENGTH minAdjLength | MINBETWEENLENGTH minBetweenLength [EXCEPTSAMECORNERS]] ;\"\n", values_[index]);
                 lefError(1315, msg);
                 free(wrkingStr);   // done parsing
                 return;
@@ -6374,10 +6374,10 @@ lefiLayer::parseMinstep(int index)
         } else {
             // done parsing without ;
             /*
-            sprintf(msg, "eRROR (LEFPARS-1315): Incorrect syntax defined for property LEF57_MINSTEP: %s\nCorrect syntax is \"MINSTEP minStepLength [MAXEDGES maxEdges] [MINADJACENTLENGTH minAdjLength | MINBETWEENLENGTH minBetweenLength [EXCEPTSAMECORNERS]] ;\"\n", values_[index]);
+            snprintf(msg, strlen(msg),"eRROR (LEFPARS-1315): Incorrect syntax defined for property LEF57_MINSTEP: %s\nCorrect syntax is \"MINSTEP minStepLength [MAXEDGES maxEdges] [MINADJACENTLENGTH minAdjLength | MINBETWEENLENGTH minBetweenLength [EXCEPTSAMECORNERS]] ;\"\n", values_[index]);
             lefierror(msg);
             */
-            sprintf(msg, "incorrect syntax defined for property LEF57_MINSTEP: %s\nCorrect syntax is \"MINSTEP minStepLength [MAXEDGES maxEdges] [MINADJACENTLENGTH minAdjLength | MINBETWEENLENGTH minBetweenLength [EXCEPTSAMECORNERS]] ;\"\n", values_[index]);
+            snprintf(msg, strlen(msg),"incorrect syntax defined for property LEF57_MINSTEP: %s\nCorrect syntax is \"MINSTEP minStepLength [MAXEDGES maxEdges] [MINADJACENTLENGTH minAdjLength | MINBETWEENLENGTH minBetweenLength [EXCEPTSAMECORNERS]] ;\"\n", values_[index]);
             lefError(1315, msg);
             free(wrkingStr);   // done parsing
             return;
@@ -6409,10 +6409,10 @@ lefiLayer::parseAntennaCumRouting(int index)
     value = strtok(wrkingStr, " ");
     if (strcmp(value, "ANTENNACUMROUTINGPLUSCUT") != 0) {
         /*
-              sprintf(msg, "ERROR (LEFPARS-1316): Incorrect syntax defined for property LEF57_ANTENNACUMROUTINGPLUSCUT: %s.\nCorrect syntax is \"ANTANNACUMROUTINGPLUSCUT\"\n", values_[index]);
+              snprintf(msg, strlen(msg),"ERROR (LEFPARS-1316): Incorrect syntax defined for property LEF57_ANTENNACUMROUTINGPLUSCUT: %s.\nCorrect syntax is \"ANTANNACUMROUTINGPLUSCUT\"\n", values_[index]);
               lefiError(msg);
         */
-        sprintf(msg, "Incorrect syntax defined for property LEF57_ANTENNACUMROUTINGPLUSCUT: %s.\nCorrect syntax is \"ANTANNACUMROUTINGPLUSCUT\"\n", values_[index]);
+        snprintf(msg, strlen(msg),"Incorrect syntax defined for property LEF57_ANTENNACUMROUTINGPLUSCUT: %s.\nCorrect syntax is \"ANTANNACUMROUTINGPLUSCUT\"\n", values_[index]);
         lefError(1316, msg);
         free(wrkingStr);
         return;
@@ -6436,10 +6436,10 @@ lefiLayer::parseAntennaGatePlus(int index)
     value = strtok(wrkingStr, " ");
     if (strcmp(value, "ANTENNAGATEPLUSDIFF") != 0) {
         /*
-              sprintf(msg, "ERROR (LEFPARS-1317): Incorrect syntax defined for property LEF57_ANTENNAGATEPLUSDIFF: %s.\nCorrect syntax is \"ANTENNAGATEPLUSDIFF plusDiffFactor\"\n", values_[index]);
+              snprintf(msg, strlen(msg),"ERROR (LEFPARS-1317): Incorrect syntax defined for property LEF57_ANTENNAGATEPLUSDIFF: %s.\nCorrect syntax is \"ANTENNAGATEPLUSDIFF plusDiffFactor\"\n", values_[index]);
               lefiError(msg);
         */
-        sprintf(msg, "Incorrect syntax defined for property LEF57_ANTENNAGATEPLUSDIFF: %s.\nCorrect syntax is \"ANTENNAGATEPLUSDIFF plusDiffFactor\"\n", values_[index]);
+        snprintf(msg, strlen(msg),"Incorrect syntax defined for property LEF57_ANTENNAGATEPLUSDIFF: %s.\nCorrect syntax is \"ANTENNAGATEPLUSDIFF plusDiffFactor\"\n", values_[index]);
         lefError(1317, msg);
         free(wrkingStr);
         return;
@@ -6465,10 +6465,10 @@ lefiLayer::parseAntennaAreaMinus(int index)
     value = strtok(wrkingStr, " ");
     if (strcmp(value, "ANTENNAAREAMINUSDIFF") != 0) {
         /*
-              sprintf(msg, "ERROR (LEFPARS-1318): Incorrect syntax defined for property LEF57_ANTENNAAREAMINUSDIFF: %s.\nCorrect syntax is \"ANTENNAAREAMINUSDIFF minusDiffFactor\"\n", values_[index]);
+              snprintf(msg, strlen(msg),"ERROR (LEFPARS-1318): Incorrect syntax defined for property LEF57_ANTENNAAREAMINUSDIFF: %s.\nCorrect syntax is \"ANTENNAAREAMINUSDIFF minusDiffFactor\"\n", values_[index]);
               lefiError(msg);
         */
-        sprintf(msg, "Incorrect syntax defined for property LEF57_ANTENNAAREAMINUSDIFF: %s.\nCorrect syntax is \"ANTENNAAREAMINUSDIFF minusDiffFactor\"\n", values_[index]);
+        snprintf(msg, strlen(msg),"Incorrect syntax defined for property LEF57_ANTENNAAREAMINUSDIFF: %s.\nCorrect syntax is \"ANTENNAAREAMINUSDIFF minusDiffFactor\"\n", values_[index]);
         lefError(1318, msg);
         free(wrkingStr);
         return;
@@ -6496,10 +6496,10 @@ lefiLayer::parseAntennaAreaDiff(int index)
     value = strtok(wrkingStr, " ");
     if (strcmp(value, "ANTENNAAREADIFFREDUCEPWL") != 0) {
         /*
-              sprintf(msg, "ERROR (LEFPARS-1319): Incorrect syntax defined for property LEF57_ANTENNAAREADIFFREDUCEPWL: %s.\nCorrect syntax is \"ANTENNAAREADIFFREDUCEPWL (( diffArea1 metalDiffFactor1 ) ( diffArea2 metalDiffFactor2 )...)\"\n", values_[index]);
+              snprintf(msg, strlen(msg),"ERROR (LEFPARS-1319): Incorrect syntax defined for property LEF57_ANTENNAAREADIFFREDUCEPWL: %s.\nCorrect syntax is \"ANTENNAAREADIFFREDUCEPWL (( diffArea1 metalDiffFactor1 ) ( diffArea2 metalDiffFactor2 )...)\"\n", values_[index]);
               lefiError(msg);
         */
-        sprintf(msg, "Incorrect syntax defined for property LEF57_ANTENNAAREADIFFREDUCEPWL: %s.\nCorrect syntax is \"ANTENNAAREADIFFREDUCEPWL (( diffArea1 metalDiffFactor1 ) ( diffArea2 metalDiffFactor2 )...)\"\n", values_[index]);
+        snprintf(msg, strlen(msg),"Incorrect syntax defined for property LEF57_ANTENNAAREADIFFREDUCEPWL: %s.\nCorrect syntax is \"ANTENNAAREADIFFREDUCEPWL (( diffArea1 metalDiffFactor1 ) ( diffArea2 metalDiffFactor2 )...)\"\n", values_[index]);
         lefError(1319, msg);
         free(wrkingStr);
         return;
@@ -6551,11 +6551,11 @@ lefiLayer::parseLayerEnclosure(int index)
 
     if (strcmp(type(), "CUT") != 0) {
         /*
-              sprintf(msg, "ERROR (LEFPARS-1331): The property LEF57_ENCLOSURE with value %s is for TYPE CUT only.\nThe current layer has the TYPE %s.\nUpdate the property of your lef file with the correct syntax or remove this property from your lef file.\n",
+              snprintf(msg, strlen(msg),"ERROR (LEFPARS-1331): The property LEF57_ENCLOSURE with value %s is for TYPE CUT only.\nThe current layer has the TYPE %s.\nUpdate the property of your lef file with the correct syntax or remove this property from your lef file.\n",
               values_[index], type());
               lefiError(msg);
         */
-        sprintf(msg, "The property LEF57_ENCLOSURE with value %s is for TYPE CUT only.\nThe current layer has the TYPE %s.\nUpdate the property of your lef file with the correct syntax or remove this property from your lef file.\n",
+        snprintf(msg, strlen(msg),"The property LEF57_ENCLOSURE with value %s is for TYPE CUT only.\nThe current layer has the TYPE %s.\nUpdate the property of your lef file with the correct syntax or remove this property from your lef file.\n",
                 values_[index], type());
         lefError(1331, msg);
         free(wrkingStr);
@@ -6565,10 +6565,10 @@ lefiLayer::parseLayerEnclosure(int index)
     value = strtok(wrkingStr, " ");
     if (strcmp(value, "ENCLOSURE") != 0) {   // Unknown value
         /*
-        sprintf(msg, "ERROR (LEFPARS-1330): Incorrect syntax defined for property LEF57_ENCLOSURE: %s\nCorrect syntax is \"ENCLOSURE [ABOVE|BELOW] overhang1 overhang2\n\t[WIDTH minWidth [EXCEPTEXTRACUT cutWithin]\n\t|LENGTH minLength] ;\"\n", values_[index]);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1330): Incorrect syntax defined for property LEF57_ENCLOSURE: %s\nCorrect syntax is \"ENCLOSURE [ABOVE|BELOW] overhang1 overhang2\n\t[WIDTH minWidth [EXCEPTEXTRACUT cutWithin]\n\t|LENGTH minLength] ;\"\n", values_[index]);
         lefiError(msg);
         */
-        sprintf(msg, "Incorrect syntax defined for property LEF57_ENCLOSURE: %s\nCorrect syntax is \"ENCLOSURE [ABOVE|BELOW] overhang1 overhang2\n\t[WIDTH minWidth [EXCEPTEXTRACUT cutWithin]\n\t|LENGTH minLength] ;\"\n", values_[index]);
+        snprintf(msg, strlen(msg),"Incorrect syntax defined for property LEF57_ENCLOSURE: %s\nCorrect syntax is \"ENCLOSURE [ABOVE|BELOW] overhang1 overhang2\n\t[WIDTH minWidth [EXCEPTEXTRACUT cutWithin]\n\t|LENGTH minLength] ;\"\n", values_[index]);
         lefError(1330, msg);
         free(wrkingStr);
         return;
@@ -6588,10 +6588,10 @@ lefiLayer::parseLayerEnclosure(int index)
             //   |LENGTH minLength]
             if (overh) {
                 /*
-                            sprintf(msg, "ERROR (LEFPARS-1330): Incorrect syntax defined for property LEF57_ENCLOSURE: %s\nCorrect syntax is \"ENCLOSURE [ABOVE|BELOW] overhang1 overhang2\n\t[WIDTH minWidth [EXCEPTEXTRACUT cutWithin]\n\t|LENGTH minLength] ;\"\n", values_[index]);
+                            snprintf(msg, strlen(msg),"ERROR (LEFPARS-1330): Incorrect syntax defined for property LEF57_ENCLOSURE: %s\nCorrect syntax is \"ENCLOSURE [ABOVE|BELOW] overhang1 overhang2\n\t[WIDTH minWidth [EXCEPTEXTRACUT cutWithin]\n\t|LENGTH minLength] ;\"\n", values_[index]);
                             lefiError(msg);
                 */
-                sprintf(msg, "Incorrect syntax defined for property LEF57_ENCLOSURE: %s\nCorrect syntax is \"ENCLOSURE [ABOVE|BELOW] overhang1 overhang2\n\t[WIDTH minWidth [EXCEPTEXTRACUT cutWithin]\n\t|LENGTH minLength] ;\"\n", values_[index]);
+                snprintf(msg, strlen(msg),"Incorrect syntax defined for property LEF57_ENCLOSURE: %s\nCorrect syntax is \"ENCLOSURE [ABOVE|BELOW] overhang1 overhang2\n\t[WIDTH minWidth [EXCEPTEXTRACUT cutWithin]\n\t|LENGTH minLength] ;\"\n", values_[index]);
                 lefError(1330, msg);
                 free(wrkingStr);
                 if (enclRule)
@@ -6603,10 +6603,10 @@ lefiLayer::parseLayerEnclosure(int index)
         } else if (strcmp(value, "WIDTH") == 0) {
             if ((!overh)) {
                 /*
-                            sprintf(msg, "ERROR (LEFPARS-1330): Incorrect syntax defined for property LEF57_ENCLOSURE: %s\nCorrect syntax is \"ENCLOSURE [ABOVE|BELOW] overhang1 overhang2\n\t[WIDTH minWidth [EXCEPTEXTRACUT cutWithin]\n\t|LENGTH minLength] ;\"\n", values_[index]);
+                            snprintf(msg, strlen(msg),"ERROR (LEFPARS-1330): Incorrect syntax defined for property LEF57_ENCLOSURE: %s\nCorrect syntax is \"ENCLOSURE [ABOVE|BELOW] overhang1 overhang2\n\t[WIDTH minWidth [EXCEPTEXTRACUT cutWithin]\n\t|LENGTH minLength] ;\"\n", values_[index]);
                             lefiError(msg);
                 */
-                sprintf(msg, "Incorrect syntax defined for property LEF57_ENCLOSURE: %s\nCorrect syntax is \"ENCLOSURE [ABOVE|BELOW] overhang1 overhang2\n\t[WIDTH minWidth [EXCEPTEXTRACUT cutWithin]\n\t|LENGTH minLength] ;\"\n", values_[index]);
+                snprintf(msg, strlen(msg),"Incorrect syntax defined for property LEF57_ENCLOSURE: %s\nCorrect syntax is \"ENCLOSURE [ABOVE|BELOW] overhang1 overhang2\n\t[WIDTH minWidth [EXCEPTEXTRACUT cutWithin]\n\t|LENGTH minLength] ;\"\n", values_[index]);
                 lefError(1330, msg);
                 free(wrkingStr);
                 if (enclRule)
@@ -6632,10 +6632,10 @@ lefiLayer::parseLayerEnclosure(int index)
         } else if (strcmp(value, "LENGTH") == 0) {
             if (width || (!overh)) {
                 /*
-                            sprintf(msg, "ERROR (LEFPARS-1330): Incorrect syntax defined for property LEF57_ENCLOSURE: %s\nCorrect syntax is \"ENCLOSURE [ABOVE|BELOW] overhang1 overhang2\n\t[WIDTH minWidth [EXCEPTEXTRACUT cutWithin\n\t|LENGTH minLength] ;\"\n", values_[index]);
+                            snprintf(msg, strlen(msg),"ERROR (LEFPARS-1330): Incorrect syntax defined for property LEF57_ENCLOSURE: %s\nCorrect syntax is \"ENCLOSURE [ABOVE|BELOW] overhang1 overhang2\n\t[WIDTH minWidth [EXCEPTEXTRACUT cutWithin\n\t|LENGTH minLength] ;\"\n", values_[index]);
                             lefiError(msg);
                 */
-                sprintf(msg, "Incorrect syntax defined for property LEF57_ENCLOSURE: %s\nCorrect syntax is \"ENCLOSURE [ABOVE|BELOW] overhang1 overhang2\n\t[WIDTH minWidth [EXCEPTEXTRACUT cutWithin\n\t|LENGTH minLength] ;\"\n", values_[index]);
+                snprintf(msg, strlen(msg),"Incorrect syntax defined for property LEF57_ENCLOSURE: %s\nCorrect syntax is \"ENCLOSURE [ABOVE|BELOW] overhang1 overhang2\n\t[WIDTH minWidth [EXCEPTEXTRACUT cutWithin\n\t|LENGTH minLength] ;\"\n", values_[index]);
                 lefError(1330, msg);
                 free(wrkingStr);
                 if (enclRule)
@@ -6648,10 +6648,10 @@ lefiLayer::parseLayerEnclosure(int index)
         } else {
             if (overh == 1) { // Already has overhang value
                 /*
-                sprintf(msg, "ERROR (LEFPARS-1330): Incorrect syntax defined for property LEF57_ENCLOSURE: %s\nCorrect syntax is \"ENCLOSURE [ABOVE|BELOW] overhang1 overhang2\n\t[WIDTH minWidth [EXCEPTEXTRACUT cutWithin]\n\t|LENGTH minLength] ;\"\n", values_[index]);
+                snprintf(msg, strlen(msg),"ERROR (LEFPARS-1330): Incorrect syntax defined for property LEF57_ENCLOSURE: %s\nCorrect syntax is \"ENCLOSURE [ABOVE|BELOW] overhang1 overhang2\n\t[WIDTH minWidth [EXCEPTEXTRACUT cutWithin]\n\t|LENGTH minLength] ;\"\n", values_[index]);
                 lefiError(msg);
                 */
-                sprintf(msg, "Incorrect syntax defined for property LEF57_ENCLOSURE: %s\nCorrect syntax is \"ENCLOSURE [ABOVE|BELOW] overhang1 overhang2\n\t[WIDTH minWidth [EXCEPTEXTRACUT cutWithin]\n\t|LENGTH minLength] ;\"\n", values_[index]);
+                snprintf(msg, strlen(msg),"Incorrect syntax defined for property LEF57_ENCLOSURE: %s\nCorrect syntax is \"ENCLOSURE [ABOVE|BELOW] overhang1 overhang2\n\t[WIDTH minWidth [EXCEPTEXTRACUT cutWithin]\n\t|LENGTH minLength] ;\"\n", values_[index]);
                 lefError(1330, msg);
                 free(wrkingStr);
                 if (enclRule)
@@ -6666,9 +6666,9 @@ lefiLayer::parseLayerEnclosure(int index)
     }
     if (!overh) {
         /*
-              sprintf(msg, "ERROR (LEFPARS-1330): Incorrect syntax defined for property LEF57_ENCLOSURE: %s\nCorrect syntax is \"ENCLOSURE [ABOVE|BELOW] overhang1 overhang2\n\t[WIDTH minWidth [EXCEPTEXTRACUT cutWithin]\n\t|LENGTH minLength] ;\"\n", values_[index]);
+              snprintf(msg, strlen(msg),"ERROR (LEFPARS-1330): Incorrect syntax defined for property LEF57_ENCLOSURE: %s\nCorrect syntax is \"ENCLOSURE [ABOVE|BELOW] overhang1 overhang2\n\t[WIDTH minWidth [EXCEPTEXTRACUT cutWithin]\n\t|LENGTH minLength] ;\"\n", values_[index]);
         */
-        sprintf(msg, "Incorrect syntax defined for property LEF57_ENCLOSURE: %s\nCorrect syntax is \"ENCLOSURE [ABOVE|BELOW] overhang1 overhang2\n\t[WIDTH minWidth [EXCEPTEXTRACUT cutWithin]\n\t|LENGTH minLength] ;\"\n", values_[index]);
+        snprintf(msg, strlen(msg),"Incorrect syntax defined for property LEF57_ENCLOSURE: %s\nCorrect syntax is \"ENCLOSURE [ABOVE|BELOW] overhang1 overhang2\n\t[WIDTH minWidth [EXCEPTEXTRACUT cutWithin]\n\t|LENGTH minLength] ;\"\n", values_[index]);
         lefError(1330, msg);
     } else {
         addEnclosure(enclRule, overhang1, overhang2);

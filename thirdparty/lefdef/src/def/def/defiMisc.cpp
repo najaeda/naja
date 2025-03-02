@@ -109,7 +109,7 @@ int defiGeometries::numPoints() const {
 void defiGeometries::points(int index, int* x, int* y) const {
   char msg[160];
   if ((index < 0) || (index >= numPoints_)) {
-     sprintf (msg, "ERROR (LEFPARS-6070): The index number %d given for GEOMETRY POINTS is invalid.\nValid index is from 0 to %d", index, numPoints_);
+     snprintf (msg, strlen(msg),"ERROR (LEFPARS-6070): The index number %d given for GEOMETRY POINTS is invalid.\nValid index is from 0 to %d", index, numPoints_);
      defiError(0, 6070, msg, defData);
      return;
   }

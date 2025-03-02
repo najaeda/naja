@@ -18,7 +18,7 @@ def print_netlist(instance):
         print_netlist(child_instance)
 # snippet-end: print_design_recursive
 
-benchmarks = path.join('..','benchmarks')
+benchmarks = path.join('..', '..', 'benchmarks')
 liberty_files = [
     'NangateOpenCellLibrary_typical.lib',
     'fakeram45_1024x32.lib',

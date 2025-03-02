@@ -22,6 +22,7 @@ class SNLDesignTruthTablesTest(unittest.TestCase):
     prim = snl.SNLDesign.createPrimitive(self.primitives, "LOGIC0")
     snl.SNLScalarTerm.create(prim, snl.SNLTerm.Direction.Output, "Y")
     prim.setTruthTable(0b0)
+    self.assertEqual(prim.getTruthTable()[1], 0b0)
     self.assertTrue(prim.isConst0())
 
     prim = snl.SNLDesign.createPrimitive(self.primitives, "LOGIC1")

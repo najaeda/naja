@@ -606,7 +606,7 @@ lefiNonDefault::layerName(int index) const
 {
     char msg[160];
     if (index < 0 || index >= numLayers_) {
-        sprintf(msg, "ERROR (LEFPARS-1402): The index number %d given for the NONDEFAULT LAYER is invalid.\nValid index is from 0 to %d", index, numLayers_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1402): The index number %d given for the NONDEFAULT LAYER is invalid.\nValid index is from 0 to %d", index, numLayers_);
         lefiError(0, 1402, msg);
         return 0;
     }
@@ -618,7 +618,7 @@ lefiNonDefault::hasLayerWidth(int index) const
 {
     char msg[160];
     if (index < 0 || index >= numLayers_) {
-        sprintf(msg, "ERROR (LEFPARS-1402): The index number %d given for the NONDEFAULT LAYER is invalid.\nValid index is from 0 to %d", index, numLayers_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1402): The index number %d given for the NONDEFAULT LAYER is invalid.\nValid index is from 0 to %d", index, numLayers_);
         lefiError(0, 1402, msg);
         return 0;
     }
@@ -630,7 +630,7 @@ lefiNonDefault::layerWidth(int index) const
 {
     char msg[160];
     if (index < 0 || index >= numLayers_) {
-        sprintf(msg, "ERROR (LEFPARS-1402): The index number %d given for the NONDEFAULT LAYER is invalid.\nValid index is from 0 to %d", index, numLayers_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1402): The index number %d given for the NONDEFAULT LAYER is invalid.\nValid index is from 0 to %d", index, numLayers_);
         lefiError(0, 1402, msg);
         return 0.0;
     }
@@ -642,7 +642,7 @@ lefiNonDefault::hasLayerDiagWidth(int index) const
 {
     char msg[160];
     if (index < 0 || index >= numLayers_) {
-        sprintf(msg, "ERROR (LEFPARS-1402): The index number %d given for the NONDEFAULT LAYER is invalid.\nValid index is from 0 to %d", index, numLayers_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1402): The index number %d given for the NONDEFAULT LAYER is invalid.\nValid index is from 0 to %d", index, numLayers_);
         lefiError(0, 1402, msg);
         return 0;
     }
@@ -654,7 +654,7 @@ lefiNonDefault::layerDiagWidth(int index) const
 {
     char msg[160];
     if (index < 0 || index >= numLayers_) {
-        sprintf(msg, "ERROR (LEFPARS-1402): The index number %d given for the NONDEFAULT LAYER is invalid.\nValid index is from 0 to %d", index, numLayers_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1402): The index number %d given for the NONDEFAULT LAYER is invalid.\nValid index is from 0 to %d", index, numLayers_);
         lefiError(0, 1402, msg);
         return 0.0;
     }
@@ -666,7 +666,7 @@ lefiNonDefault::hasLayerWireExtension(int index) const
 {
     char msg[160];
     if (index < 0 || index >= numLayers_) {
-        sprintf(msg, "ERROR (LEFPARS-1402): The index number %d given for the NONDEFAULT LAYER is invalid.\nValid index is from 0 to %d", index, numLayers_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1402): The index number %d given for the NONDEFAULT LAYER is invalid.\nValid index is from 0 to %d", index, numLayers_);
         lefiError(0, 1402, msg);
         return 0;
     }
@@ -678,7 +678,7 @@ lefiNonDefault::hasLayerSpacing(int index) const
 {
     char msg[160];
     if (index < 0 || index >= numLayers_) {
-        sprintf(msg, "ERROR (LEFPARS-1402): The index number %d given for the NONDEFAULT LAYER is invalid.\nValid index is from 0 to %d", index, numLayers_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1402): The index number %d given for the NONDEFAULT LAYER is invalid.\nValid index is from 0 to %d", index, numLayers_);
         lefiError(0, 1402, msg);
         return 0;
     }
@@ -690,7 +690,7 @@ lefiNonDefault::layerWireExtension(int index) const
 {
     char msg[160];
     if (index < 0 || index >= numLayers_) {
-        sprintf(msg, "ERROR (LEFPARS-1402): The index number %d given for the NONDEFAULT LAYER is invalid.\nValid index is from 0 to %d", index, numLayers_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1402): The index number %d given for the NONDEFAULT LAYER is invalid.\nValid index is from 0 to %d", index, numLayers_);
         lefiError(0, 1402, msg);
         return 0.0;
     }
@@ -702,7 +702,7 @@ lefiNonDefault::layerSpacing(int index) const
 {
     char msg[160];
     if (index < 0 || index >= numLayers_) {
-        sprintf(msg, "ERROR (LEFPARS-1402): The index number %d given for the NONDEFAULT LAYER is invalid.\nValid index is from 0 to %d", index, numLayers_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1402): The index number %d given for the NONDEFAULT LAYER is invalid.\nValid index is from 0 to %d", index, numLayers_);
         lefiError(0, 1402, msg);
         return 0.0;
     }
@@ -714,7 +714,7 @@ lefiNonDefault::hasLayerResistance(int index) const
 {
     char msg[160];
     if (index < 0 || index >= numLayers_) {
-        sprintf(msg, "ERROR (LEFPARS-1402): The index number %d given for the NONDEFAULT LAYER is invalid.\nValid index is from 0 to %d", index, numLayers_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1402): The index number %d given for the NONDEFAULT LAYER is invalid.\nValid index is from 0 to %d", index, numLayers_);
         lefiError(0, 1402, msg);
         return 0;
     }
@@ -726,7 +726,7 @@ lefiNonDefault::layerResistance(int index) const
 {
     char msg[160];
     if (index < 0 || index >= numLayers_) {
-        sprintf(msg, "ERROR (LEFPARS-1402): The index number %d given for the NONDEFAULT LAYER is invalid.\nValid index is from 0 to %d", index, numLayers_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1402): The index number %d given for the NONDEFAULT LAYER is invalid.\nValid index is from 0 to %d", index, numLayers_);
         lefiError(0, 1402, msg);
         return 0.0;
     }
@@ -738,7 +738,7 @@ lefiNonDefault::hasLayerCapacitance(int index) const
 {
     char msg[160];
     if (index < 0 || index >= numLayers_) {
-        sprintf(msg, "ERROR (LEFPARS-1402): The index number %d given for the NONDEFAULT LAYER is invalid.\nValid index is from 0 to %d", index, numLayers_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1402): The index number %d given for the NONDEFAULT LAYER is invalid.\nValid index is from 0 to %d", index, numLayers_);
         lefiError(0, 1402, msg);
         return 0;
     }
@@ -750,7 +750,7 @@ lefiNonDefault::layerCapacitance(int index) const
 {
     char msg[160];
     if (index < 0 || index >= numLayers_) {
-        sprintf(msg, "ERROR (LEFPARS-1402): The index number %d given for the NONDEFAULT LAYER is invalid.\nValid index is from 0 to %d", index, numLayers_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1402): The index number %d given for the NONDEFAULT LAYER is invalid.\nValid index is from 0 to %d", index, numLayers_);
         lefiError(0, 1402, msg);
         return 0.0;
     }
@@ -762,7 +762,7 @@ lefiNonDefault::hasLayerEdgeCap(int index) const
 {
     char msg[160];
     if (index < 0 || index >= numLayers_) {
-        sprintf(msg, "ERROR (LEFPARS-1402): The index number %d given for the NONDEFAULT LAYER is invalid.\nValid index is from 0 to %d", index, numLayers_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1402): The index number %d given for the NONDEFAULT LAYER is invalid.\nValid index is from 0 to %d", index, numLayers_);
         lefiError(0, 1402, msg);
         return 0;
     }
@@ -774,7 +774,7 @@ lefiNonDefault::layerEdgeCap(int index) const
 {
     char msg[160];
     if (index < 0 || index >= numLayers_) {
-        sprintf(msg, "ERROR (LEFPARS-1402): The index number %d given for the NONDEFAULT LAYER is invalid.\nValid index is from 0 to %d", index, numLayers_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1402): The index number %d given for the NONDEFAULT LAYER is invalid.\nValid index is from 0 to %d", index, numLayers_);
         lefiError(0, 1402, msg);
         return 0.0;
     }
@@ -792,7 +792,7 @@ lefiNonDefault::viaRule(int index) const
 {
     char msg[160];
     if (index < 0 || index >= numVias_) {
-        sprintf(msg, "ERROR (LEFPARS-1403): The index number %d given for the NONDEFAULT VIA is invalid.\nValid index is from 0 to %d", index, numVias_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1403): The index number %d given for the NONDEFAULT VIA is invalid.\nValid index is from 0 to %d", index, numVias_);
         lefiError(0, 1403, msg);
         return 0;
     }
@@ -810,7 +810,7 @@ lefiNonDefault::spacingRule(int index) const
 {
     char msg[160];
     if (index < 0 || index >= numSpacing_) {
-        sprintf(msg, "ERROR (LEFPARS-1404): The index number %d given for the NONDEFAULT SPACING is invalid.\nValid index is from 0 to %d", index, numSpacing_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1404): The index number %d given for the NONDEFAULT SPACING is invalid.\nValid index is from 0 to %d", index, numSpacing_);
         lefiError(0, 1404, msg);
         return 0;
     }
@@ -840,7 +840,7 @@ lefiNonDefault::viaName(int index) const
 {
     char msg[160];
     if (index < 0 || index >= numUseVias_) {
-        sprintf(msg, "ERROR (LEFPARS-1405): The index number %d given for the NONDEFAULT USE VIA is invalid.\nValid index is from 0 to %d", index, numUseVias_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1405): The index number %d given for the NONDEFAULT USE VIA is invalid.\nValid index is from 0 to %d", index, numUseVias_);
         lefiError(0, 1405, msg);
         return 0;
     }
@@ -858,7 +858,7 @@ lefiNonDefault::viaRuleName(int index) const
 {
     char msg[160];
     if (index < 0 || index >= numUseViaRules_) {
-        sprintf(msg, "ERROR (LEFPARS-1406): The index number %d given for the NONDEFAULT USE VIARULE is invalid.\nValid index is from 0 to %d", index, numUseViaRules_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1406): The index number %d given for the NONDEFAULT USE VIARULE is invalid.\nValid index is from 0 to %d", index, numUseViaRules_);
         lefiError(0, 1406, msg);
         return 0;
     }
@@ -876,7 +876,7 @@ lefiNonDefault::cutLayerName(int index) const
 {
     char msg[160];
     if (index < 0 || index >= numMinCuts_) {
-        sprintf(msg, "ERROR (LEFPARS-1407): The index number %d given for the NONDEFAULT CUT is invalid.\nValid index is from 0 to %d", index, numMinCuts_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1407): The index number %d given for the NONDEFAULT CUT is invalid.\nValid index is from 0 to %d", index, numMinCuts_);
         lefiError(0, 1407, msg);
         return 0;
     }
@@ -888,7 +888,7 @@ lefiNonDefault::numCuts(int index) const
 {
     char msg[160];
     if (index < 0 || index >= numMinCuts_) {
-        sprintf(msg, "ERROR (LEFPARS-1407): The index number %d given for the NONDEFAULT CUT is invalid.\nValid index is from 0 to %d", index, numMinCuts_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1407): The index number %d given for the NONDEFAULT CUT is invalid.\nValid index is from 0 to %d", index, numMinCuts_);
         lefiError(0, 1407, msg);
         return 0;
     }
@@ -1050,7 +1050,7 @@ lefiNonDefault::propName(int index) const
 {
     char msg[160];
     if (index < 0 || index >= numProps_) {
-        sprintf(msg, "ERROR (LEFPARS-1408): The index number %d given for the NONDEFAULT PROPERTY is invalid.\nValid index is from 0 to %d", index, numProps_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1408): The index number %d given for the NONDEFAULT PROPERTY is invalid.\nValid index is from 0 to %d", index, numProps_);
         lefiError(0, 1408, msg);
         return 0;
     }
@@ -1062,7 +1062,7 @@ lefiNonDefault::propValue(int index) const
 {
     char msg[160];
     if (index < 0 || index >= numProps_) {
-        sprintf(msg, "ERROR (LEFPARS-1408): The index number %d given for the NONDEFAULT PROPERTY is invalid.\nValid index is from 0 to %d", index, numProps_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1408): The index number %d given for the NONDEFAULT PROPERTY is invalid.\nValid index is from 0 to %d", index, numProps_);
         lefiError(0, 1408, msg);
         return 0;
     }
@@ -1074,7 +1074,7 @@ lefiNonDefault::propNumber(int index) const
 {
     char msg[160];
     if (index < 0 || index >= numProps_) {
-        sprintf(msg, "ERROR (LEFPARS-1408): The index number %d given for the NONDEFAULT PROPERTY is invalid.\nValid index is from 0 to %d", index, numProps_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1408): The index number %d given for the NONDEFAULT PROPERTY is invalid.\nValid index is from 0 to %d", index, numProps_);
         lefiError(0, 1408, msg);
         return 0;
     }
@@ -1086,7 +1086,7 @@ lefiNonDefault::propType(int index) const
 {
     char msg[160];
     if (index < 0 || index >= numProps_) {
-        sprintf(msg, "ERROR (LEFPARS-1408): The index number %d given for the NONDEFAULT PROPERTY is invalid.\nValid index is from 0 to %d", index, numProps_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1408): The index number %d given for the NONDEFAULT PROPERTY is invalid.\nValid index is from 0 to %d", index, numProps_);
         lefiError(0, 1408, msg);
         return 0;
     }
@@ -1098,7 +1098,7 @@ lefiNonDefault::propIsNumber(int index) const
 {
     char msg[160];
     if (index < 0 || index >= numProps_) {
-        sprintf(msg, "ERROR (LEFPARS-1408): The index number %d given for the NONDEFAULT PROPERTY is invalid.\nValid index is from 0 to %d", index, numProps_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1408): The index number %d given for the NONDEFAULT PROPERTY is invalid.\nValid index is from 0 to %d", index, numProps_);
         lefiError(0, 1408, msg);
         return 0;
     }
@@ -1110,7 +1110,7 @@ lefiNonDefault::propIsString(int index) const
 {
     char msg[160];
     if (index < 0 || index >= numProps_) {
-        sprintf(msg, "ERROR (LEFPARS-1408): The index number %d given for the NONDEFAULT PROPERTY is invalid.\nValid index is from 0 to %d", index, numProps_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1408): The index number %d given for the NONDEFAULT PROPERTY is invalid.\nValid index is from 0 to %d", index, numProps_);
         lefiError(0, 1408, msg);
         return 0;
     }

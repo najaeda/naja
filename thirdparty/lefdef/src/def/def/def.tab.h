@@ -35,8 +35,8 @@
    especially those whose name start with YY_ or yy_.  They are
    private implementation details that can be changed or removed.  */
 
-#ifndef YY_DEFYY_DEF_TAB_H_INCLUDED
-# define YY_DEFYY_DEF_TAB_H_INCLUDED
+#ifndef YY_DEFYY_DEF_TAB_HPP_INCLUDED
+# define YY_DEFYY_DEF_TAB_HPP_INCLUDED
 /* Debug traces.  */
 #ifndef YYDEBUG
 # define YYDEBUG 0
@@ -329,4 +329,4 @@ extern int defyydebug;
 int defyyparse (defrData *defData);
 
 
-#endif /* !YY_DEFYY_DEF_TAB_H_INCLUDED  */
+#endif /* !YY_DEFYY_DEF_TAB_HPP_INCLUDED  */

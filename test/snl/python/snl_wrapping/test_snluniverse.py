@@ -10,6 +10,10 @@ class SNLUniverseTest(unittest.TestCase):
     if snl.SNLUniverse.get():
       snl.SNLUniverse.get().destroy()
 
+  def testVersion(self):
+    self.assertIsNotNone(snl.getVersion())
+    self.assertIsNotNone(snl.getGitVersion())
+  
   def test(self):
     self.assertIsNone(snl.SNLUniverse.get())
     snl.SNLUniverse.create()

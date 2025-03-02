@@ -118,7 +118,7 @@ BEGIN_LEFDEF_PARSER_NAMESPACE
 #define CHKPROPTYPE(propType, propName, name) \
     if (propType == 'N') { \
        defData->warningMsg = (char*)malloc(strlen(propName)+strlen(name)+40); \
-       sprintf(defData->warningMsg, "The PropName %s is not defined for %s.", \
+       snprintf(defData->warningMsg,  strlen(defData->warningMsg),"The PropName %s is not defined for %s.", \
                propName, name); \
        defData->defWarning(7010, defData->warningMsg); \
        free(defData->warningMsg); \
@@ -3298,7 +3298,7 @@ yyreduce:
         defData->VersionNum = defrData::convert_defname2num((yyvsp[-1].string));
         if (defData->VersionNum > CURRENT_VERSION) {
           char temp[300];
-          sprintf(temp,
+          snprintf(temp,
           "The execution has been stopped because the DEF parser %.1f does not support DEF file with version %s.\nUpdate your DEF file to version 5.8 or earlier.",
                   CURRENT_VERSION, (yyvsp[-1].string));
           defData->defError(6503, temp);
@@ -3388,7 +3388,7 @@ yyreduce:
 
             if (!defData->hasVer) {
               char temp[300];
-              sprintf(temp, "No VERSION statement found, using the default value %2g.", defData->VersionNum);
+              snprintf(temp, strlen(temp), "No VERSION statement found, using the default value %2g.", defData->VersionNum);
               defData->defWarning(7012, temp);            
             }
             if (!defData->hasNameCase && defData->VersionNum < 5.6)
@@ -3638,7 +3638,7 @@ yyreduce:
               if (defData->VersionNum < 5.6) {
                 if (defData->nonDefaultWarnings++ < defData->settings->NonDefaultWarnings) {
                   defData->defMsg = (char*)malloc(1000); 
-                  sprintf (defData->defMsg,
+                  snprintf (defData->defMsg, strlen(defData->defMsg),
                      "The NONDEFAULTRULE statement is available in version 5.6 and later.\nHowever, your DEF file is defined with version %g.", defData->VersionNum);
                   defData->defError(6505, defData->defMsg);
                   free(defData->defMsg);
@@ -3989,7 +3989,7 @@ yyreduce:
                 if ((defData->pinWarnings++ < defData->settings->PinWarnings) &&
                     (defData->pinWarnings++ < defData->settings->PinExtWarnings)) {
                   defData->defMsg = (char*)malloc(1000);
-                  sprintf (defData->defMsg,
+                  snprintf (defData->defMsg, strlen(defData->defMsg),
                      "The NETEXPR statement is available in version 5.6 and later.\nHowever, your DEF file is defined with version %g.", defData->VersionNum);
                   defData->defError(6506, defData->defMsg);
                   free(defData->defMsg);
@@ -4019,7 +4019,7 @@ yyreduce:
                 if ((defData->pinWarnings++ < defData->settings->PinWarnings) &&
                     (defData->pinWarnings++ < defData->settings->PinExtWarnings)) {
                   defData->defMsg = (char*)malloc(1000);
-                  sprintf (defData->defMsg,
+                  snprintf (defData->defMsg, strlen(defData->defMsg),
                      "The SUPPLYSENSITIVITY statement is available in version 5.6 and later.\nHowever, your DEF file is defined with version %g.", defData->VersionNum);
                   defData->defError(6507, defData->defMsg);
                   free(defData->defMsg);
@@ -4048,7 +4048,7 @@ yyreduce:
                 if ((defData->pinWarnings++ < defData->settings->PinWarnings) &&
                     (defData->pinWarnings++ < defData->settings->PinExtWarnings)) {
                   defData->defMsg = (char*)malloc(1000);
-                  sprintf (defData->defMsg,
+                  snprintf (defData->defMsg, strlen(defData->defMsg),
                      "The GROUNDSENSITIVITY statement is available in version 5.6 and later.\nHowever, your DEF file is defined with version %g.", defData->VersionNum);
                   defData->defError(6508, defData->defMsg);
                   free(defData->defMsg);
@@ -4079,7 +4079,7 @@ yyreduce:
                  if ((defData->pinWarnings++ < defData->settings->PinWarnings) &&
                      (defData->pinWarnings++ < defData->settings->PinExtWarnings)) {
                    defData->defMsg = (char*)malloc(10000);
-                   sprintf (defData->defMsg,
+                   snprintf (defData->defMsg, strlen(defData->defMsg),
                      "The PORT in PINS is available in version 5.7 or later.\nHowever, your DEF file is defined with version %g.", defData->VersionNum);
                    defData->defError(6555, defData->defMsg);
                    free(defData->defMsg);
@@ -4151,7 +4151,7 @@ yyreduce:
                 if ((defData->pinWarnings++ < defData->settings->PinWarnings) &&
                     (defData->pinWarnings++ < defData->settings->PinExtWarnings)) {
                   defData->defMsg = (char*)malloc(1000);
-                  sprintf (defData->defMsg,
+                  snprintf (defData->defMsg, strlen(defData->defMsg),
                      "The POLYGON statement is available in version 5.6 and later.\nHowever, your DEF file is defined with version %g.", defData->VersionNum);
                   defData->defError(6509, defData->defMsg);
                   free(defData->defMsg);
@@ -4208,7 +4208,7 @@ yyreduce:
                 if ((defData->pinWarnings++ < defData->settings->PinWarnings) &&
                     (defData->pinWarnings++ < defData->settings->PinExtWarnings)) {
                   defData->defMsg = (char*)malloc(1000);
-                  sprintf (defData->defMsg,
+                  snprintf (defData->defMsg, strlen(defData->defMsg),
                      "The PIN VIA statement is available in version 5.7 and later.\nHowever, your DEF file is defined with version %g.", defData->VersionNum);
                   defData->defError(6556, defData->defMsg);
                   free(defData->defMsg);
@@ -4266,7 +4266,7 @@ yyreduce:
                 if ((defData->pinWarnings++ < defData->settings->PinWarnings) &&
                     (defData->pinWarnings++ < defData->settings->PinExtWarnings)) {
                   defData->defMsg = (char*)malloc(1000);
-                  sprintf (defData->defMsg,
+                  snprintf (defData->defMsg, strlen(defData->defMsg),
                      "The ANTENNAPINPARTIALMETALAREA statement is available in version 5.4 and later.\nHowever, your DEF file is defined with version %g.", defData->VersionNum);
                   defData->defError(6510, defData->defMsg);
                   free(defData->defMsg);
@@ -4288,7 +4288,7 @@ yyreduce:
                 if ((defData->pinWarnings++ < defData->settings->PinWarnings) &&
                     (defData->pinWarnings++ < defData->settings->PinExtWarnings)) {
                   defData->defMsg = (char*)malloc(1000);
-                  sprintf (defData->defMsg,
+                  snprintf (defData->defMsg, strlen(defData->defMsg),
                      "The ANTENNAPINPARTIALMETALSIDEAREA statement is available in version 5.4 and later.\nHowever, your DEF file is defined with version %g.", defData->VersionNum);
                   defData->defError(6511, defData->defMsg);
                   free(defData->defMsg);
@@ -4310,7 +4310,7 @@ yyreduce:
                 if ((defData->pinWarnings++ < defData->settings->PinWarnings) &&
                     (defData->pinWarnings++ < defData->settings->PinExtWarnings)) {
                   defData->defMsg = (char*)malloc(1000);
-                  sprintf (defData->defMsg,
+                  snprintf (defData->defMsg, strlen(defData->defMsg),
                      "The ANTENNAPINGATEAREA statement is available in version 5.4 and later.\nHowever, your DEF file is defined with version %g.", defData->VersionNum);
                   defData->defError(6512, defData->defMsg);
                   free(defData->defMsg);
@@ -4332,7 +4332,7 @@ yyreduce:
                 if ((defData->pinWarnings++ < defData->settings->PinWarnings) &&
                     (defData->pinWarnings++ < defData->settings->PinExtWarnings)) {
                   defData->defMsg = (char*)malloc(1000);
-                  sprintf (defData->defMsg,
+                  snprintf (defData->defMsg, strlen(defData->defMsg),
                      "The ANTENNAPINDIFFAREA statement is available in version 5.4 and later.\nHowever, your DEF file is defined with version %g.", defData->VersionNum);
                   defData->defError(6513, defData->defMsg);
                   free(defData->defMsg);
@@ -4360,7 +4360,7 @@ yyreduce:
                 if ((defData->pinWarnings++ < defData->settings->PinWarnings) &&
                     (defData->pinWarnings++ < defData->settings->PinExtWarnings)) {
                   defData->defMsg = (char*)malloc(1000);
-                  sprintf (defData->defMsg,
+                  snprintf (defData->defMsg, strlen(defData->defMsg),
                      "The ANTENNAPINMAXAREACAR statement is available in version 5.4 and later.\nHowever, your DEF file is defined with version %g.", defData->VersionNum);
                   defData->defError(6514, defData->defMsg);
                   free(defData->defMsg);
@@ -4388,7 +4388,7 @@ yyreduce:
                 if ((defData->pinWarnings++ < defData->settings->PinWarnings) &&
                     (defData->pinWarnings++ < defData->settings->PinExtWarnings)) {
                   defData->defMsg = (char*)malloc(1000);
-                  sprintf (defData->defMsg,
+                  snprintf (defData->defMsg, strlen(defData->defMsg),
                      "The ANTENNAPINMAXSIDEAREACAR statement is available in version 5.4 and later.\nHowever, your DEF file is defined with version %g.", defData->VersionNum);
                   defData->defError(6515, defData->defMsg);
                   free(defData->defMsg);
@@ -4410,7 +4410,7 @@ yyreduce:
                 if ((defData->pinWarnings++ < defData->settings->PinWarnings) &&
                     (defData->pinWarnings++ < defData->settings->PinExtWarnings)) {
                   defData->defMsg = (char*)malloc(1000);
-                  sprintf (defData->defMsg,
+                  snprintf (defData->defMsg, strlen(defData->defMsg),
                      "The ANTENNAPINPARTIALCUTAREA statement is available in version 5.4 and later.\nHowever, your DEF file is defined with version %g.", defData->VersionNum);
                   defData->defError(6516, defData->defMsg);
                   free(defData->defMsg);
@@ -4438,7 +4438,7 @@ yyreduce:
                 if ((defData->pinWarnings++ < defData->settings->PinWarnings) &&
                     (defData->pinWarnings++ < defData->settings->PinExtWarnings)) {
                   defData->defMsg = (char*)malloc(1000);
-                  sprintf (defData->defMsg,
+                  snprintf (defData->defMsg, strlen(defData->defMsg),
                      "The ANTENNAPINMAXCUTCAR statement is available in version 5.4 and later.\nHowever, your DEF file is defined with version %g.", defData->VersionNum);
                   defData->defError(6517, defData->defMsg);
                   free(defData->defMsg);
@@ -4460,7 +4460,7 @@ yyreduce:
                 if ((defData->pinWarnings++ < defData->settings->PinWarnings) &&
                     (defData->pinWarnings++ < defData->settings->PinExtWarnings)) {
                   defData->defMsg = (char*)malloc(1000);
-                  sprintf (defData->defMsg,
+                  snprintf (defData->defMsg, strlen(defData->defMsg),
                      "The ANTENNAMODEL statement is available in version 5.5 and later.\nHowever, your DEF file is defined with version %g.", defData->VersionNum);
                   defData->defError(6518, defData->defMsg);
                   free(defData->defMsg);
@@ -4526,7 +4526,7 @@ yyreduce:
                 if ((defData->pinWarnings++ < defData->settings->PinWarnings) &&
                     (defData->pinWarnings++ < defData->settings->PinExtWarnings)) {
                   defData->defMsg = (char*)malloc(1000);
-                  sprintf (defData->defMsg,
+                  snprintf (defData->defMsg, strlen(defData->defMsg),
                      "The SPACING statement is available in version 5.6 and later.\nHowever, your DEF file is defined with version %g.", defData->VersionNum);
                   defData->defError(6519, defData->defMsg);
                   free(defData->defMsg);
@@ -4553,7 +4553,7 @@ yyreduce:
                 if ((defData->pinWarnings++ < defData->settings->PinWarnings) &&
                     (defData->pinWarnings++ < defData->settings->PinExtWarnings)) {
                   defData->defMsg = (char*)malloc(1000);
-                  sprintf (defData->defMsg,
+                  snprintf (defData->defMsg, strlen(defData->defMsg),
                      "DESIGNRULEWIDTH statement is a version 5.6 and later syntax.\nYour def file is defined with version %g", defData->VersionNum);
                   defData->defError(6520, defData->defMsg);
                   free(defData->defMsg);
@@ -4580,7 +4580,7 @@ yyreduce:
                 if ((defData->pinWarnings++ < defData->settings->PinWarnings) &&
                     (defData->pinWarnings++ < defData->settings->PinExtWarnings)) {
                   defData->defMsg = (char*)malloc(1000);
-                  sprintf (defData->defMsg,
+                  snprintf (defData->defMsg, strlen(defData->defMsg),
                      "SPACING statement is a version 5.6 and later syntax.\nYour def file is defined with version %g", defData->VersionNum);
                   defData->defError(6521, defData->defMsg);
                   free(defData->defMsg);
@@ -4607,7 +4607,7 @@ yyreduce:
                 if ((defData->pinWarnings++ < defData->settings->PinWarnings) &&
                     (defData->pinWarnings++ < defData->settings->PinExtWarnings)) {
                   defData->defMsg = (char*)malloc(1000);
-                  sprintf (defData->defMsg,
+                  snprintf (defData->defMsg, strlen(defData->defMsg),
                      "The DESIGNRULEWIDTH statement is available in version 5.6 and later.\nHowever, your DEF file is defined with version %g.", defData->VersionNum);
                   defData->defError(6520, defData->defMsg);
                   free(defData->defMsg);
@@ -4795,7 +4795,7 @@ yyreduce:
                 if (defData->callbacks->RowCbk) {
                   if (defData->rowWarnings++ < defData->settings->RowWarnings) {
                     defData->defMsg = (char*)malloc(1000);
-                    sprintf(defData->defMsg,
+                    snprintf(defData->defMsg, strlen(defData->defMsg),,
                             "The DO statement in the ROW statement with the name %s has invalid syntax.\nThe valid syntax is \"DO numX BY 1 STEP spaceX 0 | DO 1 BY numY STEP 0 spaceY\".\nSpecify the valid syntax and try again.", defData->rowName);
                     defData->defWarning(7018, defData->defMsg);
                     free(defData->defMsg);
@@ -4858,7 +4858,7 @@ yyreduce:
              propTp =  defData->session->RowProp.propType((yyvsp[-1].string));
              CHKPROPTYPE(propTp, (yyvsp[-1].string), "ROW");
              // For backword compatibility, also set the string value 
-             sprintf(str, "%g", (yyvsp[0].dval));
+             snprintf(str, strlen(str),"%g", (yyvsp[0].dval));
              defData->Row.addNumProperty((yyvsp[-1].string), (yyvsp[0].dval), str, propTp);
           }
         }
@@ -4908,7 +4908,7 @@ yyreduce:
             if (defData->callbacks->TrackCbk)
               if (defData->trackWarnings++ < defData->settings->TrackWarnings) {
                 defData->defMsg = (char*)malloc(1000);
-                sprintf (defData->defMsg,
+                snprintf (defData->defMsg, strlen(defData->defMsg),
                    "The DO number %g in TRACK is invalid.\nThe number value has to be greater than 0. Specify the valid syntax and try again.", (yyvsp[-4].dval));
                 defData->defError(6525, defData->defMsg);
                 free(defData->defMsg);
@@ -4918,7 +4918,7 @@ yyreduce:
             if (defData->callbacks->TrackCbk)
               if (defData->trackWarnings++ < defData->settings->TrackWarnings) {
                 defData->defMsg = (char*)malloc(1000);
-                sprintf (defData->defMsg,
+                snprintf (defData->defMsg, strlen(defData->defMsg),
                    "The STEP number %g in TRACK is invalid.\nThe number value has to be greater than 0. Specify the valid syntax and try again.", (yyvsp[-2].dval));
                 defData->defError(6526, defData->defMsg);
                 free(defData->defMsg);
@@ -5004,7 +5004,7 @@ yyreduce:
             if (defData->callbacks->GcellGridCbk)
               if (defData->gcellGridWarnings++ < defData->settings->GcellGridWarnings) {
                 defData->defMsg = (char*)malloc(1000);
-                sprintf (defData->defMsg,
+                snprintf (defData->defMsg, strlen(defData->defMsg),
                    "The DO number %g in GCELLGRID is invalid.\nThe number value has to be greater than 0. Specify the valid syntax and try again.", (yyvsp[-3].dval));
                 defData->defError(6527, defData->defMsg);
                 free(defData->defMsg);
@@ -5014,7 +5014,7 @@ yyreduce:
             if (defData->callbacks->GcellGridCbk)
               if (defData->gcellGridWarnings++ < defData->settings->GcellGridWarnings) {
                 defData->defMsg = (char*)malloc(1000);
-                sprintf (defData->defMsg,
+                snprintf (defData->defMsg, strlen(defData->defMsg),
                    "The STEP number %g in GCELLGRID is invalid.\nThe number value has to be greater than 0. Specify the valid syntax and try again.", (yyvsp[-1].dval));
                 defData->defError(6528, defData->defMsg);
                 free(defData->defMsg);
@@ -5107,7 +5107,7 @@ yyreduce:
                 if (defData->callbacks->ViaCbk) {
                   if (defData->viaWarnings++ < defData->settings->ViaWarnings) {
                     defData->defMsg = (char*)malloc(1000);
-                    sprintf (defData->defMsg,
+                    snprintf (defData->defMsg, strlen(defData->defMsg),
                        "The POLYGON statement is available in version 5.6 and later.\nHowever, your DEF file is defined with version %g.", defData->VersionNum);
                     defData->defError(6509, defData->defMsg);
                     free(defData->defMsg);
@@ -5175,7 +5175,7 @@ yyreduce:
                 if (defData->callbacks->ViaCbk) {
                   if (defData->viaWarnings++ < defData->settings->ViaWarnings) {
                     defData->defMsg = (char*)malloc(1000);
-                    sprintf (defData->defMsg,
+                    snprintf (defData->defMsg, strlen(defData->defMsg),
                        "The VIARULE statement is available in version 5.6 and later.\nHowever, your DEF file is defined with version %g.", defData->VersionNum);
                     defData->defError(6557, defData->defMsg);
                     free(defData->defMsg);
@@ -5445,7 +5445,7 @@ yyreduce:
              // We will use a temporary string to store the number.
              // The string space is borrowed from the ring buffer
              // in the lexer.
-             sprintf(str, "%g", (yyvsp[0].dval));
+             snprintf(str, strlen(str),"%g", (yyvsp[0].dval));
              defData->Region.addNumProperty((yyvsp[-1].string), (yyvsp[0].dval), str, propTp);
           }
         }
@@ -5496,7 +5496,7 @@ yyreduce:
            if (defData->VersionNum < 5.8) {
                 if (defData->componentWarnings++ < defData->settings->ComponentWarnings) {
                    defData->defMsg = (char*)malloc(10000);
-                   sprintf (defData->defMsg,
+                   snprintf (defData->defMsg, strlen(defData->defMsg),
                      "The MASKSHIFT statement is available in version 5.8 and later.\nHowever, your DEF file is defined with version %g", defData->VersionNum);
                    defData->defError(7415, defData->defMsg);
                    free(defData->defMsg);
@@ -5724,7 +5724,7 @@ yyreduce:
              if (defData->callbacks->ComponentCbk) {
                if (defData->componentWarnings++ < defData->settings->ComponentWarnings) {
                  defData->defMsg = (char*)malloc(1000);
-                 sprintf (defData->defMsg,
+                 snprintf (defData->defMsg, strlen(defData->defMsg),
                     "The HALO statement is a version 5.6 and later syntax.\nHowever, your DEF file is defined with version %g.", defData->VersionNum);
                  defData->defError(6529, defData->defMsg);
                  free(defData->defMsg);
@@ -5753,7 +5753,7 @@ yyreduce:
            if (defData->callbacks->ComponentCbk) {
              if (defData->componentWarnings++ < defData->settings->ComponentWarnings) {
                 defData->defMsg = (char*)malloc(10000);
-                sprintf (defData->defMsg,
+                snprintf (defData->defMsg, strlen(defData->defMsg),
                   "The HALO SOFT is available in version 5.7 or later.\nHowever, your DEF file is defined with version %g.", defData->VersionNum);
                 defData->defError(6550, defData->defMsg);
                 free(defData->defMsg);
@@ -5781,7 +5781,7 @@ yyreduce:
            if (defData->callbacks->ComponentCbk) {
              if (defData->componentWarnings++ < defData->settings->ComponentWarnings) {
                 defData->defMsg = (char*)malloc(10000);
-                sprintf (defData->defMsg,
+                snprintf (defData->defMsg, strlen(defData->defMsg),
                   "The ROUTEHALO is available in version 5.7 or later.\nHowever, your DEF file is defined with version %g.", defData->VersionNum);
                 defData->defError(6551, defData->defMsg);
                 free(defData->defMsg);
@@ -5817,7 +5817,7 @@ yyreduce:
             char* str = defData->ringCopy("                       ");
             propTp = defData->session->CompProp.propType((yyvsp[-1].string));
             CHKPROPTYPE(propTp, (yyvsp[-1].string), "COMPONENT");
-            sprintf(str, "%g", (yyvsp[0].dval));
+            snprintf(str, strlen(str),"%g", (yyvsp[0].dval));
             defData->Component.addNumProperty((yyvsp[-1].string), (yyvsp[0].dval), str, propTp);
           }
         }
@@ -6163,7 +6163,7 @@ yyreduce:
             if (defData->callbacks->NetCbk) {
               if (defData->netWarnings++ < defData->settings->NetWarnings) {
                  defData->defMsg = (char*)malloc(1000);
-                 sprintf (defData->defMsg,
+                 snprintf (defData->defMsg, strlen(defData->defMsg),
                     "The FIXEDBUMP statement is available in version 5.5 and later.\nHowever, your DEF file is defined with version %g.", defData->VersionNum);
                  defData->defError(6530, defData->defMsg);
                  free(defData->defMsg);
@@ -6189,7 +6189,7 @@ yyreduce:
             if (defData->callbacks->NetCbk) {
               if (defData->netWarnings++ < defData->settings->NetWarnings) {
                  defData->defMsg = (char*)malloc(1000);
-                 sprintf (defData->defMsg,
+                 snprintf (defData->defMsg, strlen(defData->defMsg),
                     "The FREQUENCY statement is a version 5.5 and later syntax.\nHowever, your DEF file is defined with version %g", defData->VersionNum);
                  defData->defError(6558, defData->defMsg);
                  free(defData->defMsg);
@@ -6420,7 +6420,7 @@ yyreduce:
             char* str = defData->ringCopy("                       ");
             propTp = defData->session->NetProp.propType((yyvsp[-1].string));
             CHKPROPTYPE(propTp, (yyvsp[-1].string), "NET");
-            sprintf(str, "%g", (yyvsp[0].dval));
+            snprintf(str, strlen(str),"%g", (yyvsp[0].dval));
             defData->Net.addNumProp((yyvsp[-1].string), (yyvsp[0].dval), str, propTp);
           }
         }
@@ -6644,7 +6644,7 @@ yyreduce:
               if (defData->callbacks->SNetCbk) {
                 if (defData->sNetWarnings++ < defData->settings->SNetWarnings) {
                   defData->defMsg = (char*)malloc(1000);
-                  sprintf (defData->defMsg,
+                  snprintf (defData->defMsg, strlen(defData->defMsg),
                      "The VIRTUAL statement is available in version 5.8 and later.\nHowever, your DEF file is defined with version %g", defData->VersionNum);
                   defData->defError(6536, defData->defMsg);
                   free(defData->defMsg);
@@ -6663,7 +6663,7 @@ yyreduce:
               if (defData->callbacks->SNetCbk) {
                 if (defData->sNetWarnings++ < defData->settings->SNetWarnings) {
                   defData->defMsg = (char*)malloc(1000);
-                  sprintf (defData->defMsg,
+                  snprintf (defData->defMsg, strlen(defData->defMsg),
                      "The RECT statement is available in version 5.8 and later.\nHowever, your DEF file is defined with version %g", defData->VersionNum);
                   defData->defError(6536, defData->defMsg);
                   free(defData->defMsg);
@@ -6770,7 +6770,7 @@ yyreduce:
               defData->callbacks->SNetCbk) {
             if (defData->netWarnings++ < defData->settings->NetWarnings) {
               defData->defMsg = (char*)malloc(1000);
-              sprintf (defData->defMsg,
+              snprintf (defData->defMsg, strlen(defData->defMsg),
                  "The VIA DO statement is available in version 5.5 and later.\nHowever, your DEF file is defined with version %g", defData->VersionNum);
               defData->defError(6532, defData->defMsg);
               free(defData->defMsg);
@@ -6808,7 +6808,7 @@ yyreduce:
               defData->callbacks->SNetCbk) {
             if (defData->netWarnings++ < defData->settings->NetWarnings) {
               defData->defMsg = (char*)malloc(1000);
-              sprintf (defData->defMsg,
+              snprintf (defData->defMsg, strlen(defData->defMsg),
                  "The VIA DO statement is available in version 5.5 and later.\nHowever, your DEF file is defined with version %g", defData->VersionNum);
               defData->defError(6532, defData->defMsg);
               CHKERR();
@@ -7088,7 +7088,7 @@ yyreduce:
                defData->callbacks->SNetCbk)) {
              if (defData->netWarnings++ < defData->settings->NetWarnings) {
                defData->defMsg = (char*)malloc(1000);
-               sprintf (defData->defMsg,
+               snprintf (defData->defMsg, strlen(defData->defMsg),
                   "The STYLE statement is available in version 5.6 and later.\nHowever, your DEF file is defined with version %g", defData->VersionNum);
                defData->defError(6534, defData->defMsg);
                free(defData->defMsg);
@@ -7118,7 +7118,7 @@ yyreduce:
             (defData->callbacks->SNetCbk && (defData->netOsnet==2)))) {
             if (defData->netWarnings++ < defData->settings->NetWarnings) {
               defData->defMsg = (char*)malloc(1000);
-              sprintf (defData->defMsg,
+              snprintf (defData->defMsg, strlen(defData->defMsg),
                  "The STYLE statement is available in version 5.6 and later.\nHowever, your DEF file is defined with version %g", defData->VersionNum);
               defData->defError(6534, defData->defMsg);
               free(defData->defMsg);
@@ -7192,7 +7192,7 @@ yyreduce:
                  if (defData->NeedPathData) {
                    if (defData->fillWarnings++ < defData->settings->FillWarnings) {
                      defData->defMsg = (char*)malloc(10000);
-                     sprintf (defData->defMsg,
+                     snprintf (defData->defMsg, strlen(defData->defMsg),
                        "The FILLWIREOPC is available in version 5.7 or later.\nHowever, your DEF file is defined with version %g.", defData->VersionNum);
                      defData->defError(6552, defData->defMsg);
                      free(defData->defMsg);
@@ -7243,7 +7243,7 @@ yyreduce:
              } else {
                  if (defData->callbacks->SNetCbk) {   // PCR 902306 
                    defData->defMsg = (char*)malloc(1024);
-                   sprintf(defData->defMsg, "The SPECIAL NET statement, with type %s, does not have any net statement defined.\nThe DEF parser will ignore this statemnet.", (yyvsp[0].string));
+                   snprintf(defData->defMsg, strlen(defData->defMsg),, "The SPECIAL NET statement, with type %s, does not have any net statement defined.\nThe DEF parser will ignore this statemnet.", (yyvsp[0].string));
                    defData->defWarning(7023, defData->defMsg);
                    free(defData->defMsg);
                  }
@@ -7327,7 +7327,7 @@ yyreduce:
               if (defData->callbacks->SNetCbk) {
                 if (defData->sNetWarnings++ < defData->settings->SNetWarnings) {
                   defData->defMsg = (char*)malloc(1000);
-                  sprintf (defData->defMsg,
+                  snprintf (defData->defMsg, strlen(defData->defMsg),
                      "The POLYGON statement is available in version 5.6 and later.\nHowever, your DEF file is defined with version %g", defData->VersionNum);
                   defData->defError(6535, defData->defMsg);
                   free(defData->defMsg);
@@ -7381,7 +7381,7 @@ yyreduce:
               if (defData->callbacks->SNetCbk) {
                 if (defData->sNetWarnings++ < defData->settings->SNetWarnings) {
                   defData->defMsg = (char*)malloc(1000);
-                  sprintf (defData->defMsg,
+                  snprintf (defData->defMsg, strlen(defData->defMsg),
                      "The RECT statement is available in version 5.6 and later.\nHowever, your DEF file is defined with version %g", defData->VersionNum);
                   defData->defError(6536, defData->defMsg);
                   free(defData->defMsg);
@@ -7424,7 +7424,7 @@ yyreduce:
               if (defData->callbacks->SNetCbk) {
                 if (defData->sNetWarnings++ < defData->settings->SNetWarnings) {
                   defData->defMsg = (char*)malloc(1000);
-                  sprintf (defData->defMsg,
+                  snprintf (defData->defMsg, strlen(defData->defMsg),
                      "The VIA statement is available in version 5.8 and later.\nHowever, your DEF file is defined with version %g", defData->VersionNum);
                   defData->defError(6536, defData->defMsg);
                   free(defData->defMsg);
@@ -7601,7 +7601,7 @@ yyreduce:
                 if (defData->callbacks->SNetCbk) {
                     if (defData->VersionNum < 5.8) { 
                         defData->defMsg = (char*)malloc(1024);
-                        sprintf(defData->defMsg, "The SPECIAL NET SHIELD statement doesn't have routing points definition.\nWill be ignored.");
+                        snprintf(defData->defMsg, strlen(defData->defMsg),, "The SPECIAL NET SHIELD statement doesn't have routing points definition.\nWill be ignored.");
                         defData->defWarning(7025, defData->defMsg);
                         free(defData->defMsg);
                     } else {  // CCR 1244433
@@ -7709,7 +7709,7 @@ yyreduce:
                  if (defData->callbacks->SNetCbk) {
                    if (defData->sNetWarnings++ < defData->settings->SNetWarnings) {
                      defData->defMsg = (char*)malloc(1000);
-                     sprintf (defData->defMsg,
+                     snprintf (defData->defMsg, strlen(defData->defMsg),
                         "The value %s for statement VOLTAGE is invalid. The value can only be integer.\nSpecify a valid value in units of millivolts", (yyvsp[0].string));
                      defData->defError(6537, defData->defMsg);
                      free(defData->defMsg);
@@ -7751,7 +7751,7 @@ yyreduce:
                 propTp = defData->session->SNetProp.propType((yyvsp[-1].string));
                 CHKPROPTYPE(propTp, (yyvsp[-1].string), "SPECIAL NET");
                 // For backword compatibility, also set the string value 
-                sprintf(str, "%g", (yyvsp[0].dval));
+                snprintf(str, strlen(str),"%g", (yyvsp[0].dval));
                 defData->Net.addNumProp((yyvsp[-1].string), (yyvsp[0].dval), str, propTp);
               }
             }
@@ -8051,7 +8051,7 @@ yyreduce:
           char* str = defData->ringCopy("                       ");
           propTp = defData->session->GroupProp.propType((yyvsp[-1].string));
           CHKPROPTYPE(propTp, (yyvsp[-1].string), "GROUP");
-          sprintf(str, "%g", (yyvsp[0].dval));
+          snprintf(str, strlen(str),"%g", (yyvsp[0].dval));
           defData->Group.addNumProperty((yyvsp[-1].string), (yyvsp[0].dval), str, propTp);
         }
       }
@@ -8477,7 +8477,7 @@ yyreduce:
           if (defData->callbacks->ScanchainCbk) {
             if (defData->scanchainWarnings++ < defData->settings->ScanchainWarnings) {
               defData->defMsg = (char*)malloc(1000);
-              sprintf (defData->defMsg,
+              snprintf (defData->defMsg, strlen(defData->defMsg),
                  "The PARTITION statement is available in version 5.5 and later.\nHowever, your DEF file is defined with version %g", defData->VersionNum);
               defData->defError(6538, defData->defMsg);
               free(defData->defMsg);
@@ -9597,7 +9597,7 @@ yyreduce:
           char* str = defData->ringCopy("                       ");
           propTp = defData->session->CompPinProp.propType((yyvsp[-1].string));
           CHKPROPTYPE(propTp, (yyvsp[-1].string), "PINPROPERTIES");
-          sprintf(str, "%g", (yyvsp[0].dval));
+          snprintf(str, strlen(str),"%g", (yyvsp[0].dval));
           defData->PinProp.addNumProperty((yyvsp[-1].string), (yyvsp[0].dval), str, propTp);
         }
       }
@@ -9707,7 +9707,7 @@ yyreduce:
           if (defData->callbacks->BlockageCbk) {
             if (defData->blockageWarnings++ < defData->settings->BlockageWarnings) {
               defData->defMsg = (char*)malloc(1000);
-              sprintf (defData->defMsg,
+              snprintf (defData->defMsg, strlen(defData->defMsg),
                  "The SPACING statement is available in version 5.6 and later.\nHowever, your DEF file is defined with version %g", defData->VersionNum);
               defData->defError(6540, defData->defMsg);
               free(defData->defMsg);
@@ -9873,7 +9873,7 @@ yyreduce:
            if (defData->callbacks->BlockageCbk) {
              if (defData->blockageWarnings++ < defData->settings->BlockageWarnings) {
                defData->defMsg = (char*)malloc(10000);
-               sprintf (defData->defMsg,
+               snprintf (defData->defMsg, strlen(defData->defMsg),
                  "The EXCEPTPGNET is available in version 5.7 or later.\nHowever, your DEF file is defined with version %g.", defData->VersionNum);
                defData->defError(6549, defData->defMsg);
                free(defData->defMsg);
@@ -9958,7 +9958,7 @@ yyreduce:
            if (defData->callbacks->BlockageCbk) {
              if (defData->blockageWarnings++ < defData->settings->BlockageWarnings) {
                defData->defMsg = (char*)malloc(10000);
-               sprintf (defData->defMsg,
+               snprintf (defData->defMsg, strlen(defData->defMsg),
                  "The PLACEMENT SOFT is available in version 5.7 or later.\nHowever, your DEF file is defined with version %g.", defData->VersionNum);
                defData->defError(6547, defData->defMsg);
                free(defData->defMsg);
@@ -9996,7 +9996,7 @@ yyreduce:
            if (defData->callbacks->BlockageCbk) {
              if (defData->blockageWarnings++ < defData->settings->BlockageWarnings) {
                 defData->defMsg = (char*)malloc(10000);
-                sprintf (defData->defMsg,
+                snprintf (defData->defMsg, strlen(defData->defMsg),
                   "The PARTIAL is available in version 5.7 or later.\nHowever, your DEF file is defined with version %g.", defData->VersionNum);
                 defData->defError(6548, defData->defMsg);
                 free(defData->defMsg);
@@ -10223,7 +10223,7 @@ yyreduce:
             defData->Fill.addPolygon(&defData->Geometries);
         } else {
             defData->defMsg = (char*)malloc(10000);
-            sprintf (defData->defMsg,
+            snprintf (defData->defMsg, strlen(defData->defMsg),
               "POLYGON statement in FILLS LAYER is a version 5.6 and later syntax.\nYour def file is defined with version %g.", defData->VersionNum);
             defData->defError(6564, defData->defMsg);
             free(defData->defMsg);
@@ -10240,7 +10240,7 @@ yyreduce:
            if (defData->callbacks->FillCbk) {
              if (defData->fillWarnings++ < defData->settings->FillWarnings) {
                defData->defMsg = (char*)malloc(10000);
-               sprintf (defData->defMsg,
+               snprintf (defData->defMsg, strlen(defData->defMsg),
                  "The LAYER OPC is available in version 5.7 or later.\nHowever, your DEF file is defined with version %g.", defData->VersionNum);
                defData->defError(6553, defData->defMsg);
                free(defData->defMsg);
@@ -10274,7 +10274,7 @@ yyreduce:
            if (defData->callbacks->FillCbk) {
              if (defData->fillWarnings++ < defData->settings->FillWarnings) {
                defData->defMsg = (char*)malloc(10000);
-               sprintf (defData->defMsg,
+               snprintf (defData->defMsg, strlen(defData->defMsg),
                  "The VIA OPC is available in version 5.7 or later.\nHowever, your DEF file is defined with version %g.", defData->VersionNum);
                defData->defError(6554, defData->defMsg);
                free(defData->defMsg);
@@ -10320,7 +10320,7 @@ yyreduce:
           if (defData->callbacks->NonDefaultStartCbk) {
             if (defData->nonDefaultWarnings++ < defData->settings->NonDefaultWarnings) {
               defData->defMsg = (char*)malloc(1000);
-              sprintf (defData->defMsg,
+              snprintf (defData->defMsg, strlen(defData->defMsg),
                  "The NONDEFAULTRULE statement is available in version 5.6 and later.\nHowever, your DEF file is defined with version %g.", defData->VersionNum);
               defData->defError(6545, defData->defMsg);
               free(defData->defMsg);
@@ -10489,7 +10489,7 @@ yyreduce:
           char* str = defData->ringCopy("                       ");
           propTp = defData->session->NDefProp.propType((yyvsp[-1].string));
           CHKPROPTYPE(propTp, (yyvsp[-1].string), "NONDEFAULTRULE");
-          sprintf(str, "%g", (yyvsp[0].dval));
+          snprintf(str, strlen(str),"%g", (yyvsp[0].dval));
           defData->NonDefault.addNumProperty((yyvsp[-1].string), (yyvsp[0].dval), str, propTp);
         }
       }
@@ -10529,7 +10529,7 @@ yyreduce:
           if (defData->callbacks->StylesStartCbk) {
             if (defData->stylesWarnings++ < defData->settings->StylesWarnings) {
               defData->defMsg = (char*)malloc(1000);
-              sprintf (defData->defMsg,
+              snprintf (defData->defMsg, strlen(defData->defMsg),
                  "The STYLES statement is available in version 5.6 and later.\nHowever, your DEF file is defined with version %g", defData->VersionNum);
               defData->defError(6546, defData->defMsg);
               free(defData->defMsg);

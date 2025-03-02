@@ -372,6 +372,8 @@ class NajaNetlistTest0(unittest.TestCase):
         self.assertFalse(instance.is_primitive())
         self.assertFalse(instance.is_leaf())
 
+        self.assertEqual(instance.get_truth_table(), None)
+
         leaf_count = 0
         for leaf in netlist.get_top().get_leaf_children():
             leaf_count += 1

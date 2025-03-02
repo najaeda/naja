@@ -460,7 +460,7 @@ int defiVia::numPolygons() const {
 const char* defiVia::polygonName(int index) const {
   char msg[160];
   if (index < 0 || index > numPolys_) {
-     sprintf (msg, "ERROR (DEFPARS-6180): The index number %d specified for the VIA POLYGON is invalid.\nValid index is from 0 to %d. Specify a valid index number and then try again",
+     snprintf (msg, strlen(msg),"ERROR (DEFPARS-6180): The index number %d specified for the VIA POLYGON is invalid.\nValid index is from 0 to %d. Specify a valid index number and then try again",
               index, numPolys_);
      defiError(0, 6180, msg, defData);
      return 0;
