@@ -28,6 +28,7 @@
 #include "SNLDesign.h"
 #include "SNLDesignModeling.h"
 #include "SNLDesignTruthTable.h"
+#include "SNLTruthTable.h"
 #include "SNLVRLDumper.h"
 
 #include "NetlistGraph.h"
@@ -288,6 +289,19 @@ static PyObject* PySNLDesign_setTruthTable(PySNLDesign* self, PyObject* args) {
   Py_RETURN_NONE;
 }
 
+// Return the truth table for design
+PyObject* PySNLDesign_getTruthTable(PySNLDesign* self) { 
+  const SNLTruthTable& truthTable =
+      SNLDesignTruthTable::getTruthTable(self->object_);
+  if (!truthTable.isInitialized()) {
+    Py_RETURN_NONE;
+  }
+  PyObject* py_list = PyList_New(2); 
+  PyList_SetItem(py_list, 0, PyLong_FromLong(truthTable.size()));
+  PyList_SetItem(py_list, 1, PyLong_FromLong(truthTable.bits()));
+  return py_list;
+}
+
 static PyObject* PySNLDesign_dumpFullDotFile(PySNLDesign* self, PyObject* args) {
   char* path = NULL; 
   if (not PyArg_ParseTuple(args, "s:SELF_TYPE.METHOD", &path)) {
@@ -345,7 +359,7 @@ static PyObject* PySNLDesign_getInstanceByIDList(PySNLDesign* self, PyObject* ar
 
 // Return list for SNLID of the design
 // Function to be called from Python
-PyObject* PySNLDesign_getSNLID(PySNLDesign* self, PyObject* args) { 
+PyObject* PySNLDesign_getSNLID(PySNLDesign* self) { 
   PyObject* py_list = PyList_New(6); 
   naja::SNL::SNLID id = self->object_->getSNLID();
   PyList_SetItem(py_list, 0, PyLong_FromLong(id.dbID_));
@@ -439,6 +453,8 @@ PyMethodDef PySNLDesign_Methods[] = {
     "get outputs related to a clock"},
   { "setTruthTable", (PyCFunction)PySNLDesign_setTruthTable, METH_VARARGS,
     "set truth table of a primitive"},
+  { "getTruthTable", (PyCFunction)PySNLDesign_getTruthTable, METH_NOARGS,
+    "get truth table of a primitive"},
   { "isConst0", (PyCFunction)PySNLDesign_isConst0, METH_NOARGS,
     "Returns True if this design is a primitive driving a constant 0"},
   { "isConst1", (PyCFunction)PySNLDesign_isConst1, METH_NOARGS,
@@ -519,7 +535,7 @@ PyMethodDef PySNLDesign_Methods[] = {
     "dump context dot file for this SNLDesign."},
   { "getInstanceByIDList", (PyCFunction)PySNLDesign_getInstanceByIDList, METH_VARARGS,
     "get instance by ID list."},
-  { "getSNLID", (PyCFunction)PySNLDesign_getSNLID, METH_VARARGS,
+  { "getSNLID", (PyCFunction)PySNLDesign_getSNLID, METH_NOARGS,
     "get SNLID of the design."},
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
