@@ -160,7 +160,7 @@ int validNum(int values) {
                 if (lefCallbacks->UnitsCbk) {
                   if (lefData->unitsWarnings++ < lefSettings->UnitsWarnings) {
                     lefData->outMsg = (char*)lefMalloc(10000);
-                    sprintf (lefData->outMsg,
+                    snprintf (lefData->outMsg,  10000,
                        "Error found when processing LEF file '%s'\nUnit %d is a version 5.6 or later syntax\nYour lef file is defined with version %g.",
                     lefData->lefrFileName, values, lefData->versionNum);
                     lefError(1501, lefData->outMsg);
@@ -174,7 +174,7 @@ int validNum(int values) {
     }
     if (lefData->unitsWarnings++ < lefSettings->UnitsWarnings) {
        lefData->outMsg = (char*)lefMalloc(10000);
-       sprintf (lefData->outMsg,
+       snprintf (lefData->outMsg,  10000,
           "The value %d defined for LEF UNITS DATABASE MICRONS is invalid\n. Correct value is 100, 200, 400, 800, 1000, 2000, 4000, 8000, 10000, or 20000", values);
        lefError(1502, lefData->outMsg);
        lefFree(lefData->outMsg);
@@ -339,7 +339,7 @@ lef_file: rules extension_opt  end_library
            return 1;
         if (!lefData->hasVer) {
               char temp[300];
-              sprintf(temp, "No VERSION statement found, using the default value %2g.", lefData->versionNum);
+             snprintf(temp, strlen(temp),"No VERSION statement found, using the default value %2g.", lefData->versionNum);
               lefWarning(2001, temp);            
         }        
         //only pre 5.6, 5.6 it is obsolete
@@ -364,7 +364,7 @@ version: K_VERSION { lefData->lefDumbMode = 1; lefData->lefNoNum = 1;} T_STRING 
          lefData->versionNum = convert_name2num($3);
          if (lefData->versionNum > CURRENT_VERSION) {
             char temp[120];
-            sprintf(temp,
+            snprintf(temp, strlen(temp),
                "Lef parser %.1f does not support lef file with version %s. Parser will stop processing.", CURRENT_VERSION, $3);
             lefError(1503, temp);
             return 1;
@@ -397,7 +397,7 @@ int_number : NUMBER
          // but the value shouldn't exceed the 64-bit integer limit. 
          if (!(( yylval.dval >= lefData->leflVal) && ( yylval.dval <= lefData->lefrVal))) { // YES, it isn't really a number 
             char *str = (char*) lefMalloc(strlen(lefData->current_token) + strlen(lefData->lefrFileName) + 350);
-            sprintf(str, "ERROR (LEFPARS-203) Number has exceeded the limit for an integer. See file %s at line %d.\n",
+            snprintf(str, strlen(lefData->current_token) + strlen(lefData->lefrFileName) + 350, "ERROR (LEFPARS-203) Number has exceeded the limit for an integer. See file %s at line %d.\n",
                     lefData->lefrFileName, lefData->lef_nlines);
             fflush(stdout);
             lefiError(0, 203, str);
@@ -673,7 +673,7 @@ end_layer: K_END {lefData->lefDumbMode = 1; lefData->lefNoNum = 1; } T_STRING
         if (lefCallbacks->LayerCbk) { // write error only if cbk is set 
           if (lefData->layerWarnings++ < lefSettings->LayerWarnings) {
              lefData->outMsg = (char*)lefMalloc(10000);
-             sprintf (lefData->outMsg,
+             snprintf (lefData->outMsg,  10000,
                 "END LAYER name %s is different from the LAYER name %s.\nCorrect the LEF file before rerunning it through the LEF parser.", $3, lefData->layerName);
              lefError(1507, lefData->outMsg);
              lefFree(lefData->outMsg);
@@ -714,7 +714,7 @@ end_layer: K_END {lefData->lefDumbMode = 1; lefData->lefNoNum = 1; } T_STRING
           if (lefCallbacks->LayerCbk) { // write error only if cbk is set 
             if (lefData->layerWarnings++ < lefSettings->LayerWarnings) {
               lefData->outMsg = (char*)lefMalloc(10000);
-              sprintf (lefData->outMsg, "The DIRECTION statement which is required in a LAYER with TYPE ROUTING is not defined in LAYER %s.\nUpdate your lef file and add the DIRECTION statement for layer %s.", $3, $3);
+              snprintf (lefData->outMsg,  10000, "The DIRECTION statement which is required in a LAYER with TYPE ROUTING is not defined in LAYER %s.\nUpdate your lef file and add the DIRECTION statement for layer %s.", $3, $3);
               lefError(1511, lefData->outMsg);
               lefFree(lefData->outMsg);
               CHKERR(); 
@@ -747,7 +747,7 @@ layer_option:
     {
       if (lefData->versionNum < 5.7) {
          lefData->outMsg = (char*)lefMalloc(10000);
-         sprintf(lefData->outMsg,
+         snprintf(lefData->outMsg, 10000,
            "ARRAYSPACING is a version 5.7 or later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
          lefError(1685, lefData->outMsg);
          lefFree(lefData->outMsg);
@@ -877,7 +877,7 @@ layer_option:
     {
       if (lefData->versionNum < 5.7) {
          lefData->outMsg = (char*)lefMalloc(10000);
-         sprintf(lefData->outMsg,
+         snprintf(lefData->outMsg, 10000,
            "SPACINGTABLE ORTHOGONAL is a version 5.7 or later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
          lefError(1694, lefData->outMsg);
          lefFree(lefData->outMsg);
@@ -1032,7 +1032,7 @@ layer_option:
             if (lefCallbacks->LayerCbk) { // write error only if cbk is set 
                if (lefData->layerWarnings++ < lefSettings->LayerWarnings) {
                   lefData->outMsg = (char*)lefMalloc(10000);
-                  sprintf (lefData->outMsg,
+                  snprintf (lefData->outMsg,  10000,
                     "ANTENNALENGTHFACTOR statement is a version 5.3 or earlier syntax.\nYour lef file with version %g, has both old and new ANTENNALENGTHFACTOR syntax, which is incorrect.", lefData->versionNum);
                   lefError(1526, lefData->outMsg);
                   lefFree(lefData->outMsg);
@@ -1212,7 +1212,7 @@ layer_option:
          if (lefCallbacks->LayerCbk) { // write error only if cbk is set 
             if (lefData->layerWarnings++ < lefSettings->LayerWarnings) {
                lefData->outMsg = (char*)lefMalloc(10000);
-               sprintf (lefData->outMsg,
+               snprintf (lefData->outMsg,  10000,
                  "ANTENNAAREARATIO statement is a version 5.4 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
                lefError(1531, lefData->outMsg);
                lefFree(lefData->outMsg);
@@ -1223,7 +1223,7 @@ layer_option:
          if (lefCallbacks->LayerCbk) { // write error only if cbk is set 
             if (lefData->layerWarnings++ < lefSettings->LayerWarnings) {
                lefData->outMsg = (char*)lefMalloc(10000);
-               sprintf (lefData->outMsg,
+               snprintf (lefData->outMsg,  10000,
                  "ANTENNADIFFAREARATIO statement is a version 5.4 or earlier syntax.\nYour lef file with version %g, has both old and new ANTENNAAREARATIO syntax, which is incorrect.", lefData->versionNum);
                lefError(1704, lefData->outMsg);
                lefFree(lefData->outMsg);
@@ -1250,7 +1250,7 @@ layer_option:
          if (lefCallbacks->LayerCbk) { // write error only if cbk is set 
             if (lefData->layerWarnings++ < lefSettings->LayerWarnings) {
                lefData->outMsg = (char*)lefMalloc(10000);
-               sprintf (lefData->outMsg,
+               snprintf (lefData->outMsg,  10000,
                   "ANTENNADIFFAREARATIO statement is a version 5.4 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
                lefError(1532, lefData->outMsg);
                lefFree(lefData->outMsg);
@@ -1261,7 +1261,7 @@ layer_option:
          if (lefCallbacks->LayerCbk) { // write error only if cbk is set 
             if (lefData->layerWarnings++ < lefSettings->LayerWarnings) {
                lefData->outMsg = (char*)lefMalloc(10000);
-               sprintf (lefData->outMsg,
+               snprintf (lefData->outMsg,  10000,
                  "ANTENNADIFFAREARATIO statement is a version 5.4 or earlier syntax.\nYour lef file with version %g, has both old and new ANTENNADIFFAREARATIO syntax, which is incorrect.", lefData->versionNum);
                lefError(1704, lefData->outMsg);
                lefFree(lefData->outMsg);
@@ -1289,7 +1289,7 @@ layer_option:
          if (lefCallbacks->LayerCbk) { // write error only if cbk is set 
             if (lefData->layerWarnings++ < lefSettings->LayerWarnings) {
                lefData->outMsg = (char*)lefMalloc(10000);
-               sprintf (lefData->outMsg,
+               snprintf (lefData->outMsg,  10000,
                   "ANTENNACUMAREARATIO statement is a version 5.4 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
                lefError(1535, lefData->outMsg);
                lefFree(lefData->outMsg);
@@ -1300,7 +1300,7 @@ layer_option:
          if (lefCallbacks->LayerCbk) { // write error only if cbk is set 
             if (lefData->layerWarnings++ < lefSettings->LayerWarnings) {
                lefData->outMsg = (char*)lefMalloc(10000);
-               sprintf (lefData->outMsg,
+               snprintf (lefData->outMsg,  10000,
                  "ANTENNACUMAREARATIO statement is a version 5.4 or earlier syntax.\nYour lef file with version %g, has both old and new ANTENNACUMAREARATIO syntax, which is incorrect.", lefData->versionNum);
                lefError(1536, lefData->outMsg);
                lefFree(lefData->outMsg);
@@ -1327,7 +1327,7 @@ layer_option:
          if (lefCallbacks->LayerCbk) { // write error only if cbk is set 
             if (lefData->layerWarnings++ < lefSettings->LayerWarnings) {
                lefData->outMsg = (char*)lefMalloc(10000);
-               sprintf (lefData->outMsg,
+               snprintf (lefData->outMsg,  10000,
                   "ANTENNACUMDIFFAREARATIO statement is a version 5.4 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
                lefError(1538, lefData->outMsg);
                lefFree(lefData->outMsg);
@@ -1338,7 +1338,7 @@ layer_option:
          if (lefCallbacks->LayerCbk) { // write error only if cbk is set 
             if (lefData->layerWarnings++ < lefSettings->LayerWarnings) {
                lefData->outMsg = (char*)lefMalloc(10000);
-               sprintf (lefData->outMsg,
+               snprintf (lefData->outMsg, 10000,
                  "ANTENNACUMDIFFAREARATIO statement is a version 5.4 or earlier syntax.\nYour lef file with version %g, has both old and new ANTENNACUMDIFFAREARATIO syntax, which is incorrect.", lefData->versionNum);
                lefError(1539, lefData->outMsg);
                lefFree(lefData->outMsg);
@@ -1389,7 +1389,7 @@ layer_option:
          if (lefCallbacks->LayerCbk) { // write error only if cbk is set 
             if (lefData->layerWarnings++ < lefSettings->LayerWarnings) {
                lefData->outMsg = (char*)lefMalloc(10000);
-               sprintf (lefData->outMsg,
+               snprintf (lefData->outMsg, 10000,
                   "ANTENNASIDEAREARATIO statement is a version 5.4 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
                lefError(1543, lefData->outMsg);
                lefFree(lefData->outMsg);
@@ -1400,7 +1400,7 @@ layer_option:
          if (lefCallbacks->LayerCbk) { // write error only if cbk is set 
             if (lefData->layerWarnings++ < lefSettings->LayerWarnings) {
                lefData->outMsg = (char*)lefMalloc(10000);
-               sprintf (lefData->outMsg,
+               snprintf (lefData->outMsg, 10000,
                  "ANTENNASIDEAREARATIO statement is a version 5.4 or earlier syntax.\nYour lef file with version %g, has both old and new ANTENNASIDEAREARATIO syntax, which is incorrect.", lefData->versionNum);
                lefError(1544, lefData->outMsg);
                lefFree(lefData->outMsg);
@@ -1427,7 +1427,7 @@ layer_option:
          if (lefCallbacks->LayerCbk) { // write error only if cbk is set 
             if (lefData->layerWarnings++ < lefSettings->LayerWarnings) {
                lefData->outMsg = (char*)lefMalloc(10000);
-               sprintf (lefData->outMsg,
+               snprintf (lefData->outMsg,  10000,
                   "ANTENNADIFFSIDEAREARATIO statement is a version 5.4 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
                lefError(1546, lefData->outMsg);
                lefFree(lefData->outMsg);
@@ -1438,7 +1438,7 @@ layer_option:
          if (lefCallbacks->LayerCbk) { // write error only if cbk is set 
             if (lefData->layerWarnings++ < lefSettings->LayerWarnings) {
                lefData->outMsg = (char*)lefMalloc(10000);
-               sprintf (lefData->outMsg,
+               snprintf (lefData->outMsg,  10000,
                  "ANTENNADIFFSIDEAREARATIO statement is a version 5.4 or earlier syntax.\nYour lef file with version %g, has both old and new ANTENNADIFFSIDEAREARATIO syntax, which is incorrect.", lefData->versionNum);
                lefError(1547, lefData->outMsg);
                lefFree(lefData->outMsg);
@@ -1466,7 +1466,7 @@ layer_option:
          if (lefCallbacks->LayerCbk) { // write error only if cbk is set 
             if (lefData->layerWarnings++ < lefSettings->LayerWarnings) {
                lefData->outMsg = (char*)lefMalloc(10000);
-               sprintf (lefData->outMsg,
+               snprintf (lefData->outMsg,  10000,
                   "ANTENNACUMSIDEAREARATIO statement is a version 5.4 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
                lefError(1549, lefData->outMsg);
                lefFree(lefData->outMsg);
@@ -1477,7 +1477,7 @@ layer_option:
          if (lefCallbacks->LayerCbk) { // write error only if cbk is set 
             if (lefData->layerWarnings++ < lefSettings->LayerWarnings) {
                lefData->outMsg = (char*)lefMalloc(10000);
-               sprintf (lefData->outMsg,
+               snprintf (lefData->outMsg,  10000,
                  "ANTENNACUMSIDEAREARATIO statement is a version 5.4 or earlier syntax.\nYour lef file with version %g, has both old and new ANTENNACUMSIDEAREARATIO syntax, which is incorrect.", lefData->versionNum);
                lefError(1550, lefData->outMsg);
                lefFree(lefData->outMsg);
@@ -1504,7 +1504,7 @@ layer_option:
          if (lefCallbacks->LayerCbk) { // write error only if cbk is set 
             if (lefData->layerWarnings++ < lefSettings->LayerWarnings) {
                lefData->outMsg = (char*)lefMalloc(10000);
-               sprintf (lefData->outMsg,
+               snprintf (lefData->outMsg,  10000,
                   "ANTENNACUMDIFFSIDEAREARATIO statement is a version 5.4 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
                lefError(1552, lefData->outMsg);
                lefFree(lefData->outMsg);
@@ -1515,7 +1515,7 @@ layer_option:
          if (lefCallbacks->LayerCbk) { // write error only if cbk is set 
             if (lefData->layerWarnings++ < lefSettings->LayerWarnings) {
                lefData->outMsg = (char*)lefMalloc(10000);
-               sprintf (lefData->outMsg,
+               snprintf (lefData->outMsg,  10000,
                  "ANTENNACUMDIFFSIDEAREARATIO statement is a version 5.4 or earlier syntax.\nYour lef file with version %g, has both old and new ANTENNACUMDIFFSIDEAREARATIO syntax, which is incorrect.", lefData->versionNum);
                lefError(1553, lefData->outMsg);
                lefFree(lefData->outMsg);
@@ -1543,7 +1543,7 @@ layer_option:
          if (lefCallbacks->LayerCbk) { // write error only if cbk is set 
             if (lefData->layerWarnings++ < lefSettings->LayerWarnings) {
                lefData->outMsg = (char*)lefMalloc(10000);
-               sprintf (lefData->outMsg,
+               snprintf (lefData->outMsg,  10000,
                   "ANTENNASIDEAREAFACTOR statement is a version 5.4 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
                lefError(1555, lefData->outMsg);
                lefFree(lefData->outMsg);
@@ -1554,7 +1554,7 @@ layer_option:
          if (lefCallbacks->LayerCbk) { // write error only if cbk is set 
             if (lefData->layerWarnings++ < lefSettings->LayerWarnings) {
                lefData->outMsg = (char*)lefMalloc(10000);
-               sprintf (lefData->outMsg,
+               snprintf (lefData->outMsg,  10000,
                  "ANTENNASIDEAREAFACTOR statement is a version 5.4 or earlier syntax.\nYour lef file with version %g, has both old and new ANTENNASIDEAREAFACTOR syntax, which is incorrect.", lefData->versionNum);
                lefError(1556, lefData->outMsg);
                lefFree(lefData->outMsg);
@@ -1583,7 +1583,7 @@ layer_option:
          if (lefCallbacks->LayerCbk) { // write error only if cbk is set 
             if (lefData->layerWarnings++ < lefSettings->LayerWarnings) {
                lefData->outMsg = (char*)lefMalloc(10000);
-               sprintf (lefData->outMsg,
+               snprintf (lefData->outMsg,  10000,
                   "ANTENNAMODEL statement is a version 5.5 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
                lefError(1558, lefData->outMsg);
                lefFree(lefData->outMsg);
@@ -1594,7 +1594,7 @@ layer_option:
          if (lefCallbacks->LayerCbk) { // write error only if cbk is set 
             if (lefData->layerWarnings++ < lefSettings->LayerWarnings) {
                lefData->outMsg = (char*)lefMalloc(10000);
-               sprintf (lefData->outMsg,
+               snprintf (lefData->outMsg,  10000,
                  "ANTENNAMODEL statement is a version 5.4 or earlier syntax.\nYour lef file with version %g, has both old and new ANTENNAMODEL syntax, which is incorrect.", lefData->versionNum);
                lefError(1559, lefData->outMsg);
                lefFree(lefData->outMsg);
@@ -1609,7 +1609,7 @@ layer_option:
     {
       if (lefData->versionNum < 5.7) {
          lefData->outMsg = (char*)lefMalloc(10000);
-         sprintf(lefData->outMsg,
+         snprintf(lefData->outMsg, 10000,
            "ANTENNACUMROUTINGPLUSCUT is a version 5.7 or later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
          lefError(1686, lefData->outMsg);
          lefFree(lefData->outMsg);
@@ -1630,7 +1630,7 @@ layer_option:
     {
       if (lefData->versionNum < 5.7) {
          lefData->outMsg = (char*)lefMalloc(10000);
-         sprintf(lefData->outMsg,
+         snprintf(lefData->outMsg, 10000,
            "ANTENNAGATEPLUSDIFF is a version 5.7 or later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
          lefError(1687, lefData->outMsg);
          lefFree(lefData->outMsg);
@@ -1651,7 +1651,7 @@ layer_option:
     {
       if (lefData->versionNum < 5.7) {
          lefData->outMsg = (char*)lefMalloc(10000);
-         sprintf(lefData->outMsg,
+         snprintf(lefData->outMsg, 10000,
            "ANTENNAAREAMINUSDIFF is a version 5.7 or later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
          lefError(1688, lefData->outMsg);
          lefFree(lefData->outMsg);
@@ -1699,7 +1699,7 @@ layer_option:
     {
       if (lefData->versionNum < 5.7) {
         lefData->outMsg = (char*)lefMalloc(10000);
-        sprintf(lefData->outMsg,
+        snprintf(lefData->outMsg, 10000,
           "ANTENNAAREADIFFREDUCEPWL is a version 5.7 or later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
         lefError(1689, lefData->outMsg);
         lefFree(lefData->outMsg);
@@ -1720,7 +1720,7 @@ layer_option:
          if (lefCallbacks->LayerCbk) { // write error only if cbk is set 
             if (lefData->layerWarnings++ < lefSettings->LayerWarnings) {
                lefData->outMsg = (char*)lefMalloc(10000);
-               sprintf (lefData->outMsg,
+               snprintf (lefData->outMsg,  10000,
                   "SLOTWIREWIDTH statement is a version 5.4 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
                lefError(1564, lefData->outMsg);
                lefFree(lefData->outMsg);
@@ -1744,7 +1744,7 @@ layer_option:
          if (lefCallbacks->LayerCbk) { // write error only if cbk is set 
             if (lefData->layerWarnings++ < lefSettings->LayerWarnings) {
                lefData->outMsg = (char*)lefMalloc(10000);
-               sprintf (lefData->outMsg,
+               snprintf (lefData->outMsg,  10000,
                   "SLOTWIRELENGTH statement is a version 5.4 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
                lefError(1565, lefData->outMsg);
                lefFree(lefData->outMsg);
@@ -1768,7 +1768,7 @@ layer_option:
          if (lefCallbacks->LayerCbk) { // write error only if cbk is set 
             if (lefData->layerWarnings++ < lefSettings->LayerWarnings) {
                lefData->outMsg = (char*)lefMalloc(10000);
-               sprintf (lefData->outMsg,
+               snprintf (lefData->outMsg,  10000,
                   "SLOTWIDTH statement is a version 5.4 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
                lefError(1566, lefData->outMsg);
                lefFree(lefData->outMsg);
@@ -1792,7 +1792,7 @@ layer_option:
          if (lefCallbacks->LayerCbk) { // write error only if cbk is set 
             if (lefData->layerWarnings++ < lefSettings->LayerWarnings) {
                lefData->outMsg = (char*)lefMalloc(10000);
-               sprintf (lefData->outMsg,
+               snprintf (lefData->outMsg,  10000,
                   "SLOTLENGTH statement is a version 5.4 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
                lefError(1567, lefData->outMsg);
                lefFree(lefData->outMsg);
@@ -1816,7 +1816,7 @@ layer_option:
          if (lefCallbacks->LayerCbk) { // write error only if cbk is set 
             if (lefData->layerWarnings++ < lefSettings->LayerWarnings) {
                lefData->outMsg = (char*)lefMalloc(10000);
-               sprintf (lefData->outMsg,
+               snprintf (lefData->outMsg,  10000,
                   "MAXADJACENTSLOTSPACING statement is a version 5.4 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
                lefError(1568, lefData->outMsg);
                lefFree(lefData->outMsg);
@@ -1840,7 +1840,7 @@ layer_option:
          if (lefCallbacks->LayerCbk) { // write error only if cbk is set 
             if (lefData->layerWarnings++ < lefSettings->LayerWarnings) {
                lefData->outMsg = (char*)lefMalloc(10000);
-               sprintf (lefData->outMsg,
+               snprintf (lefData->outMsg,  10000,
                   "MAXCOAXIALSLOTSPACING statement is a version 5.4 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
                lefError(1569, lefData->outMsg);
                lefFree(lefData->outMsg);
@@ -1864,7 +1864,7 @@ layer_option:
          if (lefCallbacks->LayerCbk) { // write error only if cbk is set 
             if (lefData->layerWarnings++ < lefSettings->LayerWarnings) {
                lefData->outMsg = (char*)lefMalloc(10000);
-               sprintf (lefData->outMsg,
+               snprintf (lefData->outMsg,  10000,
                   "MAXEDGESLOTSPACING statement is a version 5.4 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
                lefError(1570, lefData->outMsg);
                lefFree(lefData->outMsg);
@@ -1887,7 +1887,7 @@ layer_option:
          if (lefCallbacks->LayerCbk) { // write error only if cbk is set 
             if (lefData->layerWarnings++ < lefSettings->LayerWarnings) {
                lefData->outMsg = (char*)lefMalloc(10000);
-               sprintf (lefData->outMsg,
+               snprintf (lefData->outMsg,  10000,
                   "SPLITWIREWIDTH statement is a version 5.4 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
                lefError(1571, lefData->outMsg);
                lefFree(lefData->outMsg);
@@ -1905,7 +1905,7 @@ layer_option:
          if (lefCallbacks->LayerCbk) { // write error only if cbk is set 
             if (lefData->layerWarnings++ < lefSettings->LayerWarnings) {
                lefData->outMsg = (char*)lefMalloc(10000);
-               sprintf (lefData->outMsg,
+               snprintf (lefData->outMsg,  10000,
                   "MINIMUMDENSITY statement is a version 5.4 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
                lefError(1572, lefData->outMsg);
                lefFree(lefData->outMsg);
@@ -1923,7 +1923,7 @@ layer_option:
          if (lefCallbacks->LayerCbk) { // write error only if cbk is set 
             if (lefData->layerWarnings++ < lefSettings->LayerWarnings) {
                lefData->outMsg = (char*)lefMalloc(10000);
-               sprintf (lefData->outMsg,
+               snprintf (lefData->outMsg,  10000,
                   "MAXIMUMDENSITY statement is a version 5.4 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
                lefError(1573, lefData->outMsg);
                lefFree(lefData->outMsg);
@@ -1941,7 +1941,7 @@ layer_option:
          if (lefCallbacks->LayerCbk) { // write error only if cbk is set 
             if (lefData->layerWarnings++ < lefSettings->LayerWarnings) {
                lefData->outMsg = (char*)lefMalloc(10000);
-               sprintf (lefData->outMsg,
+               snprintf (lefData->outMsg,  10000,
                   "DENSITYCHECKWINDOW statement is a version 5.4 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
                lefError(1574, lefData->outMsg);
                lefFree(lefData->outMsg);
@@ -1959,7 +1959,7 @@ layer_option:
          if (lefCallbacks->LayerCbk) { // write error only if cbk is set 
             if (lefData->layerWarnings++ < lefSettings->LayerWarnings) {
                lefData->outMsg = (char*)lefMalloc(10000);
-               sprintf (lefData->outMsg,
+               snprintf (lefData->outMsg,  10000,
                   "DENSITYCHECKSTEP statement is a version 5.4 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
                lefError(1575, lefData->outMsg);
                lefFree(lefData->outMsg);
@@ -1977,7 +1977,7 @@ layer_option:
          if (lefCallbacks->LayerCbk) { // write error only if cbk is set 
             if (lefData->layerWarnings++ < lefSettings->LayerWarnings) {
                lefData->outMsg = (char*)lefMalloc(10000);
-               sprintf (lefData->outMsg,
+               snprintf (lefData->outMsg,  10000,
                   "FILLACTIVESPACING statement is a version 5.4 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
                lefError(1576, lefData->outMsg);
                lefFree(lefData->outMsg);
@@ -2002,7 +2002,7 @@ layer_option:
          if (lefCallbacks->LayerCbk) { // write error only if cbk is set 
             if (lefData->layerWarnings++ < lefSettings->LayerWarnings) {
                lefData->outMsg = (char*)lefMalloc(10000);
-               sprintf (lefData->outMsg,
+               snprintf (lefData->outMsg,  10000,
                   "MAXWIDTH statement is a version 5.5 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
                lefError(1578, lefData->outMsg);
                lefFree(lefData->outMsg);
@@ -2027,7 +2027,7 @@ layer_option:
          if (lefCallbacks->LayerCbk) { // write error only if cbk is set 
             if (lefData->layerWarnings++ < lefSettings->LayerWarnings) {
                lefData->outMsg = (char*)lefMalloc(10000);
-               sprintf (lefData->outMsg,
+               snprintf (lefData->outMsg,  10000,
                   "MINWIDTH statement is a version 5.5 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
                lefError(1580, lefData->outMsg);
                lefFree(lefData->outMsg);
@@ -2043,7 +2043,7 @@ layer_option:
          if (lefCallbacks->LayerCbk) { // write error only if cbk is set 
             if (lefData->layerWarnings++ < lefSettings->LayerWarnings) {
                lefData->outMsg = (char*)lefMalloc(10000);
-               sprintf (lefData->outMsg,
+               snprintf (lefData->outMsg,  10000,
                   "MINENCLOSEDAREA statement is a version 5.5 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
                lefError(1581, lefData->outMsg);
                lefFree(lefData->outMsg);
@@ -2082,7 +2082,7 @@ layer_option:
          if (lefCallbacks->LayerCbk) { // write error only if cbk is set 
             if (lefData->layerWarnings++ < lefSettings->LayerWarnings) {
                lefData->outMsg = (char*)lefMalloc(10000);
-               sprintf (lefData->outMsg,
+               snprintf (lefData->outMsg,  10000,
                   "PROTRUSION RULE statement is a version 5.5 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
                lefError(1582, lefData->outMsg);
                lefFree(lefData->outMsg);
@@ -2098,7 +2098,7 @@ layer_option:
          if (lefCallbacks->LayerCbk) { // write error only if cbk is set 
             if (lefData->layerWarnings++ < lefSettings->LayerWarnings) {
                lefData->outMsg = (char*)lefMalloc(10000);
-               sprintf (lefData->outMsg,
+               snprintf (lefData->outMsg,  10000,
                   "SPACINGTABLE statement is a version 5.5 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
                lefError(1583, lefData->outMsg);
                lefFree(lefData->outMsg);
@@ -2124,7 +2124,7 @@ layer_option:
          if (lefCallbacks->LayerCbk) { // write error only if cbk is set 
             if (lefData->layerWarnings++ < lefSettings->LayerWarnings) {
                lefData->outMsg = (char*)lefMalloc(10000);
-               sprintf (lefData->outMsg,
+               snprintf (lefData->outMsg,  10000,
                   "ENCLOSURE statement is a version 5.6 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
                lefError(1584, lefData->outMsg);
                lefFree(lefData->outMsg);
@@ -2143,7 +2143,7 @@ layer_option:
          if (lefCallbacks->LayerCbk) { // write error only if cbk is set 
             if (lefData->layerWarnings++ < lefSettings->LayerWarnings) {
                lefData->outMsg = (char*)lefMalloc(10000);
-               sprintf (lefData->outMsg,
+               snprintf (lefData->outMsg,  10000,
                   "PREFERENCLOSURE statement is a version 5.6 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
                lefError(1585, lefData->outMsg);
                lefFree(lefData->outMsg);
@@ -2161,7 +2161,7 @@ layer_option:
          if (lefCallbacks->LayerCbk) { // write error only if cbk is set 
             if (lefData->layerWarnings++ < lefSettings->LayerWarnings) {
                lefData->outMsg = (char*)lefMalloc(10000);
-               sprintf (lefData->outMsg,
+               snprintf (lefData->outMsg,  10000,
                   "RESISTANCE statement is a version 5.6 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
                lefError(1586, lefData->outMsg);
                lefFree(lefData->outMsg);
@@ -2186,7 +2186,7 @@ layer_option:
          if (lefCallbacks->LayerCbk) { // write error only if cbk is set 
             if (lefData->layerWarnings++ < lefSettings->LayerWarnings) {
                lefData->outMsg = (char*)lefMalloc(10000);
-               sprintf (lefData->outMsg,
+               snprintf (lefData->outMsg,  10000,
                   "DIAGMINEDGELENGTH statement is a version 5.6 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
                lefError(1588, lefData->outMsg);
                lefFree(lefData->outMsg);
@@ -2328,7 +2328,7 @@ sp_options:
     {
       if (lefData->versionNum < 5.7) {
         lefData->outMsg = (char*)lefMalloc(10000);
-        sprintf(lefData->outMsg,
+        snprintf(lefData->outMsg, 10000,
           "TWOWIDTHS is a version 5.7 or later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
         lefError(1697, lefData->outMsg);
         lefFree(lefData->outMsg);
@@ -2388,7 +2388,7 @@ layer_enclosure_width_opt:  // empty
     {
       if (lefData->versionNum < 5.7) {
          lefData->outMsg = (char*)lefMalloc(10000);
-         sprintf(lefData->outMsg,
+         snprintf(lefData->outMsg, 10000,
            "LENGTH is a version 5.7 or later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
          lefError(1691, lefData->outMsg);
          lefFree(lefData->outMsg);
@@ -2405,7 +2405,7 @@ layer_enclosure_width_except_opt: // empty
     {
       if (lefData->versionNum < 5.7) {
          lefData->outMsg = (char*)lefMalloc(10000);
-         sprintf(lefData->outMsg,
+         snprintf(lefData->outMsg, 10000,
            "EXCEPTEXTRACUT is a version 5.7 or later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
          lefError(1690, lefData->outMsg);
          lefFree(lefData->outMsg);
@@ -2430,7 +2430,7 @@ layer_minimumcut_within: // empty
     {
       if (lefData->versionNum < 5.7) {
         lefData->outMsg = (char*)lefMalloc(10000);
-        sprintf(lefData->outMsg,
+        snprintf(lefData->outMsg, 10000,
           "MINIMUMCUT WITHIN is a version 5.7 or later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
         lefError(1700, lefData->outMsg);
         lefFree(lefData->outMsg);
@@ -2449,7 +2449,7 @@ layer_minimumcut_from: // empty
          if (lefCallbacks->LayerCbk) { // write error only if cbk is set 
             if (lefData->layerWarnings++ < lefSettings->LayerWarnings) {
                lefData->outMsg = (char*)lefMalloc(10000);
-               sprintf (lefData->outMsg,
+               snprintf (lefData->outMsg,  10000,
                  "FROMABOVE statement is a version 5.5 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
                lefError(1596, lefData->outMsg);
                lefFree(lefData->outMsg);
@@ -2468,7 +2468,7 @@ layer_minimumcut_from: // empty
          if (lefCallbacks->LayerCbk) { // write error only if cbk is set 
             if (lefData->layerWarnings++ < lefSettings->LayerWarnings) {
                lefData->outMsg = (char*)lefMalloc(10000);
-               sprintf (lefData->outMsg,
+               snprintf (lefData->outMsg,  10000,
                  "FROMBELOW statement is a version 5.5 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
                lefError(1597, lefData->outMsg);
                lefFree(lefData->outMsg);
@@ -2488,7 +2488,7 @@ layer_minimumcut_length: // empty
          if (lefCallbacks->LayerCbk) { // write error only if cbk is set 
             if (lefData->layerWarnings++ < lefSettings->LayerWarnings) {
                lefData->outMsg = (char*)lefMalloc(10000);
-               sprintf (lefData->outMsg,
+               snprintf (lefData->outMsg,  10000,
                  "LENGTH WITHIN statement is a version 5.5 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
                lefError(1598, lefData->outMsg);
                lefFree(lefData->outMsg);
@@ -2516,7 +2516,7 @@ layer_minstep_option:
   {
     if (lefData->versionNum < 5.7) {
       lefData->outMsg = (char*)lefMalloc(10000);
-      sprintf(lefData->outMsg,
+      snprintf(lefData->outMsg, 10000,
         "MAXEDGES is a version 5.7 or later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
       lefError(1710, lefData->outMsg);
       lefFree(lefData->outMsg);
@@ -2575,7 +2575,7 @@ layer_antenna_duo: // empty
            if (lefCallbacks->LayerCbk) { // write error only if cbk is set 
               if (lefData->layerWarnings++ < lefSettings->LayerWarnings) {
                  lefData->outMsg = (char*)lefMalloc(10000);
-                 sprintf (lefData->outMsg,
+                 snprintf (lefData->outMsg,  10000,
                    "ANTENNAAREAFACTOR with DIFFUSEONLY statement is a version 5.4 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
                  lefError(1599, lefData->outMsg);
                  lefFree(lefData->outMsg);
@@ -2586,7 +2586,7 @@ layer_antenna_duo: // empty
            if (lefCallbacks->LayerCbk) { // write error only if cbk is set 
               if (lefData->layerWarnings++ < lefSettings->LayerWarnings) {
                  lefData->outMsg = (char*)lefMalloc(10000);
-                 sprintf (lefData->outMsg,
+                 snprintf (lefData->outMsg,  10000,
                    "ANTENNAAREAFACTOR with DIFFUSEONLY statement is a version 5.4 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
                  lefError(1599, lefData->outMsg);
                  lefFree(lefData->outMsg);
@@ -2683,7 +2683,7 @@ layer_prop:
   | T_STRING NUMBER
     {
       char temp[32];
-      sprintf(temp, "%.11g", $2);
+      snprintf(temp, strlen(temp),"%.11g", $2);
       if (lefCallbacks->LayerCbk) {
         char propTp;
         propTp = lefSettings->lefProps.lefrLayerProp.propType($1);
@@ -2833,7 +2833,7 @@ maxstack_via: K_MAXVIASTACK int_number ';'
         if (lefCallbacks->MaxStackViaCbk) { // write error only if cbk is set 
            if (lefData->maxStackViaWarnings++ < lefSettings->MaxStackViaWarnings) {
               lefData->outMsg = (char*)lefMalloc(10000);
-              sprintf (lefData->outMsg,
+              snprintf (lefData->outMsg,  10000,
                 "MAXVIASTACK statement is a version 5.5 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
               lefError(1604, lefData->outMsg);
               lefFree(lefData->outMsg);
@@ -2919,7 +2919,7 @@ via_viarule: K_VIARULE {lefData->lefDumbMode = 1; lefData->lefNoNum = 1; } T_STR
          if (lefCallbacks->ViaCbk) { // write error only if cbk is set 
             if (lefData->viaRuleWarnings++ < lefSettings->ViaRuleWarnings) {
               lefData->outMsg = (char*)lefMalloc(10000);
-              sprintf (lefData->outMsg,
+              snprintf (lefData->outMsg,  10000,
                 "VIARULE statement is a version 5.6 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
               lefError(1709, lefData->outMsg);
               lefFree(lefData->outMsg);
@@ -2996,7 +2996,7 @@ via_name_value_pair:
   T_STRING NUMBER
     { 
       char temp[32];
-      sprintf(temp, "%.11g", $2);
+      snprintf(temp, strlen(temp),"%.11g", $2);
       if (lefCallbacks->ViaCbk) {
          char propTp;
          propTp = lefSettings->lefProps.lefrViaProp.propType($1);
@@ -3140,7 +3140,7 @@ end_via: K_END {lefData->lefDumbMode = 1; lefData->lefNoNum = 1;} T_STRING
          if (lefCallbacks->ViaCbk) {  // write error only if cbk is set 
             if (lefData->viaWarnings++ < lefSettings->ViaWarnings) {
               lefData->outMsg = (char*)lefMalloc(10000);
-              sprintf (lefData->outMsg,
+              snprintf (lefData->outMsg,  10000,
                 "A LAYER statement is missing in the VIA %s.\nAt least one LAYERis required per VIA statement.", $3);
               lefError(1606, lefData->outMsg);
               lefFree(lefData->outMsg);
@@ -3152,7 +3152,7 @@ end_via: K_END {lefData->lefDumbMode = 1; lefData->lefNoNum = 1;} T_STRING
          if (lefCallbacks->ViaCbk) { // write error only if cbk is set 
             if (lefData->viaWarnings++ < lefSettings->ViaWarnings) {
               lefData->outMsg = (char*)lefMalloc(10000);
-              sprintf (lefData->outMsg,
+              snprintf (lefData->outMsg,  10000,
                 "END VIA name %s is different from the VIA name %s.\nCorrect the LEF file before rerunning it through the LEF parser.", $3, lefData->viaName);
               lefError(1607, lefData->outMsg);
               lefFree(lefData->outMsg);
@@ -3229,7 +3229,7 @@ viarule_generate_default:  // optional
          if (lefCallbacks->ViaRuleCbk) {  // write error only if cbk is set 
             if (lefData->viaRuleWarnings++ < lefSettings->ViaRuleWarnings) {
               lefData->outMsg = (char*)lefMalloc(10000);
-              sprintf (lefData->outMsg,
+              snprintf (lefData->outMsg,  10000,
                 "DEFAULT statement is a version 5.6 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
               lefError(1605, lefData->outMsg);
               lefFree(lefData->outMsg);
@@ -3284,7 +3284,7 @@ viarule_prop:
   | T_STRING NUMBER
     {
       char temp[32];
-      sprintf(temp, "%.11g", $2);
+      snprintf(temp, strlen(temp),"%.11g", $2);
       if (lefCallbacks->ViaRuleCbk) {
          char propTp;
          propTp = lefSettings->lefProps.lefrViaRuleProp.propType($1);
@@ -3387,7 +3387,7 @@ viarule_layer_option:
          if (lefCallbacks->ViaRuleCbk) { // write error only if cbk is set 
            if (lefData->viaRuleWarnings++ < lefSettings->ViaRuleWarnings) {
               lefData->outMsg = (char*)lefMalloc(10000);
-              sprintf (lefData->outMsg,
+              snprintf (lefData->outMsg,  10000,
                 "ENCLOSURE statement is a version 5.5 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
               lefError(1707, lefData->outMsg);
               lefFree(lefData->outMsg);
@@ -3491,7 +3491,7 @@ end_viarule: K_END {lefData->lefDumbMode = 1; lefData->lefNoNum = 1;}  T_STRING
             !lefData->lefrViaRule.layer(1)->hasRect() &&
             !lefData->lefrViaRule.layer(2)->hasRect()) {
             lefData->outMsg = (char*)lefMalloc(10000);
-            sprintf (lefData->outMsg, 
+            snprintf (lefData->outMsg,  10000, 
                      "VIARULE GENERATE '%s' cut layer definition should have RECT statement.\nCorrect the LEF file before rerunning it through the LEF parser.", 
                       lefData->viaRuleName);
             lefWarning(1714, lefData->outMsg); 
@@ -3504,7 +3504,7 @@ end_viarule: K_END {lefData->lefDumbMode = 1; lefData->lefNoNum = 1;}  T_STRING
         if (lefCallbacks->ViaRuleCbk) {  // write error only if cbk is set 
            if (lefData->viaRuleWarnings++ < lefSettings->ViaRuleWarnings) {
               lefData->outMsg = (char*)lefMalloc(10000);
-              sprintf (lefData->outMsg,
+              snprintf (lefData->outMsg,  10000,
                  "END VIARULE name %s is different from the VIARULE name %s.\nCorrect the LEF file before rerunning it through the LEF parser.", $3, lefData->viaRuleName);
               lefError(1615, lefData->outMsg);
               lefFree(lefData->outMsg);
@@ -3724,7 +3724,7 @@ end_nd_rule: K_END
         if (lefCallbacks->NonDefaultCbk) { // write error only if cbk is set 
           if (lefData->nonDefaultWarnings++ < lefSettings->NonDefaultWarnings) {
              lefData->outMsg = (char*)lefMalloc(10000);
-             sprintf (lefData->outMsg,
+             snprintf (lefData->outMsg,  10000,
                 "END NONDEFAULTRULE name %s is different from the NONDEFAULTRULE name %s.\nCorrect the LEF file before rerunning it through the LEF parser.", $2, lefData->nonDefaultRuleName);
              lefError(1619, lefData->outMsg);
              lefFree(lefData->nonDefaultRuleName);
@@ -3747,7 +3747,7 @@ nd_hardspacing:
           if (lefCallbacks->NonDefaultCbk) { // write error only if cbk is set 
             if (lefData->nonDefaultWarnings++ < lefSettings->NonDefaultWarnings) {
                lefData->outMsg = (char*)lefMalloc(10000);
-               sprintf (lefData->outMsg,
+               snprintf (lefData->outMsg,  10000,
                  "HARDSPACING statement is a version 5.6 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
                lefError(1620, lefData->outMsg);
                lefFree(lefData->outMsg);
@@ -3779,7 +3779,7 @@ usevia: K_USEVIA T_STRING ';'
        if (lefData->versionNum < 5.6) {
           if (lefCallbacks->NonDefaultCbk) { // write error only if cbk is set 
              lefData->outMsg = (char*)lefMalloc(10000);
-             sprintf (lefData->outMsg,
+             snprintf (lefData->outMsg,  10000,
                "USEVIA statement is a version 5.6 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
              lefError(1621, lefData->outMsg);
              lefFree(lefData->outMsg);
@@ -3797,7 +3797,7 @@ useviarule:  K_USEVIARULE T_STRING ';'
           if (lefCallbacks->NonDefaultCbk) { // write error only if cbk is set 
              if (lefData->nonDefaultWarnings++ < lefSettings->NonDefaultWarnings) {
                 lefData->outMsg = (char*)lefMalloc(10000);
-                sprintf (lefData->outMsg,
+                snprintf (lefData->outMsg,  10000,
                   "USEVIARULE statement is a version 5.6 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
                 lefError(1622, lefData->outMsg);
                 lefFree(lefData->outMsg);
@@ -3816,7 +3816,7 @@ mincuts: K_MINCUTS T_STRING int_number ';'
           if (lefCallbacks->NonDefaultCbk) { // write error only if cbk is set 
              if (lefData->nonDefaultWarnings++ < lefSettings->NonDefaultWarnings) {
                 lefData->outMsg = (char*)lefMalloc(10000);
-                sprintf (lefData->outMsg,
+                snprintf (lefData->outMsg,  10000,
                   "MINCUTS statement is a version 5.6 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
                 lefError(1623, lefData->outMsg);
                 lefFree(lefData->outMsg);
@@ -3860,7 +3860,7 @@ nd_prop:
       if (lefCallbacks->NonDefaultCbk) {
          char temp[32];
          char propTp;
-         sprintf(temp, "%.11g", $2);
+         snprintf(temp, strlen(temp),"%.11g", $2);
          propTp = lefSettings->lefProps.lefrNondefProp.propType($1);
          lefData->lefrNonDefault.addNumProp($1, $2, temp, propTp);
       }
@@ -3886,7 +3886,7 @@ nd_layer: K_LAYER {lefData->lefDumbMode = 1; lefData->lefNoNum = 1;} T_STRING
       if (lefCallbacks->NonDefaultCbk) { // write error only if cbk is set 
          if (lefData->nonDefaultWarnings++ < lefSettings->NonDefaultWarnings) {
             lefData->outMsg = (char*)lefMalloc(10000);
-            sprintf (lefData->outMsg,
+            snprintf (lefData->outMsg,  10000,
                "END LAYER name %s is different from the LAYER name %s.\nCorrect the LEF file before rerunning it through the LEF parser.", $3, lefData->layerName);
             lefError(1624, lefData->outMsg);
             lefFree(lefData->outMsg);
@@ -3910,7 +3910,7 @@ nd_layer: K_LAYER {lefData->lefDumbMode = 1; lefData->lefNoNum = 1;} T_STRING
       if (lefCallbacks->NonDefaultCbk) { // write error only if cbk is set 
          if (lefData->nonDefaultWarnings++ < lefSettings->NonDefaultWarnings) {
             lefData->outMsg = (char*)lefMalloc(10000);
-            sprintf (lefData->outMsg,
+            snprintf (lefData->outMsg,  10000,
                "A SPACING statement is required in the LAYER statement in NONDEFAULTRULE for lef file with version 5.5 and earlier.\nYour lef file is defined with version %g. Update your lef to add a LAYER statement and try again.",
                 lefData->versionNum);
             lefError(1626, lefData->outMsg);
@@ -3945,7 +3945,7 @@ nd_layer_stmt:
          if (lefCallbacks->NonDefaultCbk) { // write error only if cbk is set 
             if (lefData->nonDefaultWarnings++ < lefSettings->NonDefaultWarnings) {
                lefData->outMsg = (char*)lefMalloc(10000);
-               sprintf (lefData->outMsg,
+               snprintf (lefData->outMsg,  10000,
                  "RESISTANCE RPERSQ statement is a version 5.4 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
                lefError(1627, lefData->outMsg);
                lefFree(lefData->outMsg);
@@ -3969,7 +3969,7 @@ nd_layer_stmt:
          if (lefCallbacks->NonDefaultCbk) { // write error only if cbk is set 
             if (lefData->nonDefaultWarnings++ < lefSettings->NonDefaultWarnings) {
                lefData->outMsg = (char*)lefMalloc(10000);
-               sprintf (lefData->outMsg,
+               snprintf (lefData->outMsg,  10000,
                  "CAPACITANCE CPERSQDIST statement is a version 5.4 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
                lefError(1628, lefData->outMsg);
                lefFree(lefData->outMsg);
@@ -3992,7 +3992,7 @@ nd_layer_stmt:
          if (lefCallbacks->NonDefaultCbk) { // write error only if cbk is set 
             if (lefData->nonDefaultWarnings++ < lefSettings->NonDefaultWarnings) {
                lefData->outMsg = (char*)lefMalloc(10000);
-               sprintf (lefData->outMsg,
+               snprintf (lefData->outMsg,  10000,
                  "EDGECAPACITANCE statement is a version 5.4 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
                lefError(1629, lefData->outMsg);
                lefFree(lefData->outMsg);
@@ -4012,7 +4012,7 @@ nd_layer_stmt:
          if (lefCallbacks->NonDefaultCbk) { // write error only if cbk is set 
             if (lefData->nonDefaultWarnings++ < lefSettings->NonDefaultWarnings) {
                lefData->outMsg = (char*)lefMalloc(10000);
-               sprintf (lefData->outMsg,
+               snprintf (lefData->outMsg,  10000,
                  "DIAGWIDTH statement is a version 5.6 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
                lefError(1630, lefData->outMsg);
                lefFree(lefData->outMsg);
@@ -4047,7 +4047,7 @@ end_site: K_END {lefData->lefDumbMode = 1; lefData->lefNoNum = 1;} T_STRING
         if (lefCallbacks->SiteCbk) { // write error only if cbk is set 
            if (lefData->siteWarnings++ < lefSettings->SiteWarnings) {
               lefData->outMsg = (char*)lefMalloc(10000);
-              sprintf (lefData->outMsg,
+              snprintf (lefData->outMsg,  10000,
                  "END SITE name %s is different from the SITE name %s.\nCorrect the LEF file before rerunning it through the LEF parser.", $3, lefData->siteName);
               lefError(1631, lefData->outMsg);
               lefFree(lefData->outMsg);
@@ -4165,7 +4165,7 @@ end_macro: K_END {lefData->lefDumbMode = 1; lefData->lefNoNum = 1;} T_STRING
         if (lefCallbacks->MacroEndCbk) { // write error only if cbk is set 
            if (lefData->macroWarnings++ < lefSettings->MacroWarnings) {
               lefData->outMsg = (char*)lefMalloc(10000);
-              sprintf (lefData->outMsg,
+              snprintf (lefData->outMsg,  10000,
                  "END MACRO name %s is different from the MACRO name %s.\nCorrect the LEF file before rerunning it through the LEF parser.", $3, lefData->macroName);
               lefError(1634, lefData->outMsg);
               lefFree(lefData->outMsg);
@@ -4257,7 +4257,7 @@ macro_name_value_pair:
   T_STRING NUMBER
     {
       char temp[32];
-      sprintf(temp, "%.11g", $2);
+      snprintf(temp, strlen(temp),"%.11g", $2);
       if (lefCallbacks->MacroCbk) {
          char propTp;
          propTp = lefSettings->lefProps.lefrMacroProp.propType($1);
@@ -4299,7 +4299,7 @@ class_type:
                  lefWarning(2033, "The statement COVER BUMP is a LEF verion 5.5 syntax.\nYour LEF file is version 5.4 or earlier which is incorrect but will be allowed\nbecause this application does not enforce strict version checking.\nOther tools that enforce strict checking will have a syntax error when reading this file.\nYou can change the VERSION statement in this LEF file to 5.5 or higher to stop this warning.");
               else {
                  lefData->outMsg = (char*)lefMalloc(10000);
-                 sprintf (lefData->outMsg,
+                 snprintf (lefData->outMsg,  10000,
                     "COVER BUMP statement is a version 5.5 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
                  lefError(1635, lefData->outMsg);
                  lefFree(lefData->outMsg);
@@ -4320,7 +4320,7 @@ class_type:
                 lefWarning(2034, "The statement BLOCK BLACKBOX is a LEF verion 5.5 syntax.\nYour LEF file is version 5.4 or earlier which is incorrect but will be allowed\nbecause this application does not enforce strict version checking.\nOther tools that enforce strict checking will have a syntax error when reading this file.\nYou can change the VERSION statement in this LEF file to 5.5 or higher to stop this warning.");
               else {
                  lefData->outMsg = (char*)lefMalloc(10000);
-                 sprintf (lefData->outMsg,
+                 snprintf (lefData->outMsg,  10000,
                     "BLOCK BLACKBOX statement is a version 5.5 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
                  lefError(1636, lefData->outMsg);
                  lefFree(lefData->outMsg);
@@ -4338,7 +4338,7 @@ class_type:
         if (lefCallbacks->MacroCbk) { // write error only if cbk is set 
            if (lefData->macroWarnings++ < lefSettings->MacroWarnings) {
               lefData->outMsg = (char*)lefMalloc(10000);
-              sprintf (lefData->outMsg,
+              snprintf (lefData->outMsg,  10000,
                  "BLOCK SOFT statement is a version 5.6 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
               lefError(1637, lefData->outMsg);
               lefFree(lefData->outMsg);
@@ -4354,7 +4354,7 @@ class_type:
       {
         if (lefData->versionNum < 5.7) {
           lefData->outMsg = (char*)lefMalloc(10000);
-          sprintf(lefData->outMsg,
+          snprintf(lefData->outMsg, 10000,
             "BUMP is a version 5.7 or later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
           lefError(1698, lefData->outMsg);
           lefFree(lefData->outMsg);
@@ -4366,11 +4366,11 @@ class_type:
   | K_PAD     {$$ = (char*)"PAD"; } 
   | K_VIRTUAL {$$ = (char*)"VIRTUAL"; }
   | K_PAD  pad_type 
-      {  sprintf(lefData->temp_name, "PAD %s", $2);
+      {  snprintf(lefData->temp_name, strlen(lefData->temp_name), "PAD %s", $2);
         $$ = lefData->temp_name; 
         if (lefData->versionNum < 5.5) {
            if (strcmp("AREAIO", $2) != 0) {
-             sprintf(lefData->temp_name, "PAD %s", $2);
+             snprintf(lefData->temp_name, strlen(lefData->temp_name), "PAD %s", $2);
              $$ = lefData->temp_name; 
            } else if (lefCallbacks->MacroCbk) { 
              if (lefData->macroWarnings++ < lefSettings->MacroWarnings) {
@@ -4378,7 +4378,7 @@ class_type:
                   lefWarning(2035, "The statement PAD AREAIO is a LEF verion 5.5 syntax.\nYour LEF file is version 5.4 or earlier which is incorrect but will be allowed\nbecause this application does not enforce strict version checking.\nOther tools that enforce strict checking will have a syntax error when reading this file.\nYou can change the VERSION statement in this LEF file to 5.5 or higher to stop this warning.");
                else {
                   lefData->outMsg = (char*)lefMalloc(10000);
-                  sprintf (lefData->outMsg,
+                  snprintf (lefData->outMsg,  10000,
                      "PAD AREAIO statement is a version 5.5 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
                   lefError(1638, lefData->outMsg);
                   lefFree(lefData->outMsg);
@@ -4396,10 +4396,10 @@ class_type:
       // in 'frameworks'
       }
   | K_CORE core_type
-      {sprintf(lefData->temp_name, "CORE %s", $2);
+      {snprintf(lefData->temp_name, strlen(lefData->temp_name), "CORE %s", $2);
       $$ = lefData->temp_name;} 
   | K_ENDCAP endcap_type
-      {sprintf(lefData->temp_name, "ENDCAP %s", $2);
+      {snprintf(lefData->temp_name, strlen(lefData->temp_name), "ENDCAP %s", $2);
       $$ = lefData->temp_name;} 
 
 pad_type: 
@@ -4422,7 +4422,7 @@ core_type:
         if (lefCallbacks->MacroCbk) { // write error only if cbk is set 
            if (lefData->macroWarnings++ < lefSettings->MacroWarnings) {
               lefData->outMsg = (char*)lefMalloc(10000);
-              sprintf (lefData->outMsg,
+              snprintf (lefData->outMsg,  10000,
                  "SPACER statement is a version 5.4 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
               lefError(1639, lefData->outMsg);
               lefFree(lefData->outMsg);
@@ -4439,7 +4439,7 @@ core_type:
         if (lefCallbacks->MacroCbk) { // write error only if cbk is set 
            if (lefData->macroWarnings++ < lefSettings->MacroWarnings) {
               lefData->outMsg = (char*)lefMalloc(10000);
-              sprintf (lefData->outMsg,
+              snprintf (lefData->outMsg,  10000,
                  "ANTENNACELL statement is a version 5.4 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
               lefError(1640, lefData->outMsg);
               lefFree(lefData->outMsg);
@@ -4456,7 +4456,7 @@ core_type:
         if (lefCallbacks->MacroCbk) { // write error only if cbk is set 
            if (lefData->macroWarnings++ < lefSettings->MacroWarnings) {
               lefData->outMsg = (char*)lefMalloc(10000);
-              sprintf (lefData->outMsg,
+              snprintf (lefData->outMsg,  10000,
                  "WELLTAP statement is a version 5.6 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
               lefError(1641, lefData->outMsg);
               lefFree(lefData->outMsg);
@@ -4698,7 +4698,7 @@ end_macro_pin: K_END {lefData->lefDumbMode = 1; lefData->lefNoNum = 1;} T_STRING
         if (lefCallbacks->MacroCbk) { // write error only if cbk is set 
            if (lefData->macroWarnings++ < lefSettings->MacroWarnings) {
               lefData->outMsg = (char*)lefMalloc(10000);
-              sprintf (lefData->outMsg,
+              snprintf (lefData->outMsg,  10000,
                  "END PIN name %s is different from the PIN name %s.\nCorrect the LEF file before rerunning it through the LEF parser.", $3, lefData->pinName);
               lefError(1643, lefData->outMsg);
               lefFree(lefData->outMsg);
@@ -5017,7 +5017,7 @@ macro_pin_option:
            if (lefCallbacks->PinCbk) { // write error only if cbk is set 
              if (lefData->pinWarnings++ < lefSettings->PinWarnings) {
                 lefData->outMsg = (char*)lefMalloc(10000);
-                sprintf (lefData->outMsg,
+                snprintf (lefData->outMsg,  10000,
                    "ANTENNASIZE statement is a version 5.3 and earlier syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
                 lefError(1644, lefData->outMsg);
                 lefFree(lefData->outMsg);
@@ -5038,7 +5038,7 @@ macro_pin_option:
            if (lefCallbacks->PinCbk) { // write error only if cbk is set 
               if (lefData->pinWarnings++ < lefSettings->PinWarnings) {
                  lefData->outMsg = (char*)lefMalloc(10000);
-                 sprintf (lefData->outMsg,
+                 snprintf (lefData->outMsg,  10000,
                     "ANTENNAMETALAREA statement is a version 5.3 and earlier syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
                  lefError(1645, lefData->outMsg);
                  lefFree(lefData->outMsg);
@@ -5059,7 +5059,7 @@ macro_pin_option:
            if (lefCallbacks->PinCbk) { // write error only if cbk is set 
               if (lefData->pinWarnings++ < lefSettings->PinWarnings) {
                  lefData->outMsg = (char*)lefMalloc(10000);
-                 sprintf (lefData->outMsg,
+                 snprintf (lefData->outMsg,  10000,
                     "ANTENNAMETALLENGTH statement is a version 5.3 and earlier syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
                  lefError(1646, lefData->outMsg);
                  lefFree(lefData->outMsg);
@@ -5083,7 +5083,7 @@ macro_pin_option:
         if (lefCallbacks->PinCbk) { // write error only if cbk is set 
            if (lefData->pinWarnings++ < lefSettings->PinWarnings) {
               lefData->outMsg = (char*)lefMalloc(10000);
-              sprintf (lefData->outMsg,
+              snprintf (lefData->outMsg,  10000,
                  "ANTENNAPARTIALMETALAREA statement is a version 5.4 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
               lefError(1647, lefData->outMsg);
               lefFree(lefData->outMsg);
@@ -5094,7 +5094,7 @@ macro_pin_option:
         if (lefCallbacks->PinCbk) { // write error only if cbk is set 
            if (lefData->pinWarnings++ < lefSettings->PinWarnings) {
               lefData->outMsg = (char*)lefMalloc(10000);
-              sprintf (lefData->outMsg,
+              snprintf (lefData->outMsg,  10000,
                  "ANTENNAPARTIALMETALAREA statement is a version 5.4 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
               lefError(1647, lefData->outMsg);
               lefFree(lefData->outMsg);
@@ -5113,7 +5113,7 @@ macro_pin_option:
         if (lefCallbacks->PinCbk) { // write error only if cbk is set 
            if (lefData->pinWarnings++ < lefSettings->PinWarnings) {
               lefData->outMsg = (char*)lefMalloc(10000);
-              sprintf (lefData->outMsg,
+              snprintf (lefData->outMsg,  10000,
                  "ANTENNAPARTIALMETALSIDEAREA statement is a version 5.4 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
               lefError(1648, lefData->outMsg);
               lefFree(lefData->outMsg);
@@ -5124,7 +5124,7 @@ macro_pin_option:
         if (lefCallbacks->PinCbk) { // write error only if cbk is set 
            if (lefData->pinWarnings++ < lefSettings->PinWarnings) {
               lefData->outMsg = (char*)lefMalloc(10000);
-              sprintf (lefData->outMsg,
+              snprintf (lefData->outMsg,  10000,
                  "ANTENNAPARTIALMETALSIDEAREA statement is a version 5.4 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
               lefError(1648, lefData->outMsg);
               lefFree(lefData->outMsg);
@@ -5143,7 +5143,7 @@ macro_pin_option:
         if (lefCallbacks->PinCbk) { // write error only if cbk is set 
            if (lefData->pinWarnings++ < lefSettings->PinWarnings) {
               lefData->outMsg = (char*)lefMalloc(10000);
-              sprintf (lefData->outMsg,
+              snprintf (lefData->outMsg,  10000,
                  "ANTENNAPARTIALCUTAREA statement is a version 5.4 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
               lefError(1649, lefData->outMsg);
               lefFree(lefData->outMsg);
@@ -5154,7 +5154,7 @@ macro_pin_option:
         if (lefCallbacks->PinCbk) { // write error only if cbk is set 
            if (lefData->pinWarnings++ < lefSettings->PinWarnings) {
               lefData->outMsg = (char*)lefMalloc(10000);
-              sprintf (lefData->outMsg,
+              snprintf (lefData->outMsg,  10000,
                  "ANTENNAPARTIALCUTAREA statement is a version 5.4 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
               lefError(1649, lefData->outMsg);
               lefFree(lefData->outMsg);
@@ -5173,7 +5173,7 @@ macro_pin_option:
         if (lefCallbacks->PinCbk) { // write error only if cbk is set 
            if (lefData->pinWarnings++ < lefSettings->PinWarnings) {
               lefData->outMsg = (char*)lefMalloc(10000);
-              sprintf (lefData->outMsg,
+              snprintf (lefData->outMsg,  10000,
                  "ANTENNADIFFAREA statement is a version 5.4 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
               lefError(1650, lefData->outMsg);
               lefFree(lefData->outMsg);
@@ -5184,7 +5184,7 @@ macro_pin_option:
         if (lefCallbacks->PinCbk) { // write error only if cbk is set 
            if (lefData->pinWarnings++ < lefSettings->PinWarnings) {
               lefData->outMsg = (char*)lefMalloc(10000);
-              sprintf (lefData->outMsg,
+              snprintf (lefData->outMsg,  10000,
                  "ANTENNADIFFAREA statement is a version 5.4 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
               lefError(1650, lefData->outMsg);
               lefFree(lefData->outMsg);
@@ -5203,7 +5203,7 @@ macro_pin_option:
         if (lefCallbacks->PinCbk) { // write error only if cbk is set 
            if (lefData->pinWarnings++ < lefSettings->PinWarnings) {
               lefData->outMsg = (char*)lefMalloc(10000);
-              sprintf (lefData->outMsg,
+              snprintf (lefData->outMsg,  10000,
                  "ANTENNAGATEAREA statement is a version 5.4 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
               lefError(1651, lefData->outMsg);
               lefFree(lefData->outMsg);
@@ -5214,7 +5214,7 @@ macro_pin_option:
         if (lefCallbacks->PinCbk) { // write error only if cbk is set 
            if (lefData->pinWarnings++ < lefSettings->PinWarnings) {
               lefData->outMsg = (char*)lefMalloc(10000);
-              sprintf (lefData->outMsg,
+              snprintf (lefData->outMsg,  10000,
                  "ANTENNAGATEAREA statement is a version 5.4 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
               lefError(1651, lefData->outMsg);
               lefFree(lefData->outMsg);
@@ -5233,7 +5233,7 @@ macro_pin_option:
         if (lefCallbacks->PinCbk) { // write error only if cbk is set 
            if (lefData->pinWarnings++ < lefSettings->PinWarnings) {
               lefData->outMsg = (char*)lefMalloc(10000);
-              sprintf (lefData->outMsg,
+              snprintf (lefData->outMsg,  10000,
                  "ANTENNAMAXAREACAR statement is a version 5.4 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
               lefError(1652, lefData->outMsg);
               lefFree(lefData->outMsg);
@@ -5244,7 +5244,7 @@ macro_pin_option:
         if (lefCallbacks->PinCbk) { // write error only if cbk is set 
            if (lefData->pinWarnings++ < lefSettings->PinWarnings) {
               lefData->outMsg = (char*)lefMalloc(10000);
-              sprintf (lefData->outMsg,
+              snprintf (lefData->outMsg,  10000,
                  "ANTENNAMAXAREACAR statement is a version 5.4 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
               lefError(1652, lefData->outMsg);
               lefFree(lefData->outMsg);
@@ -5263,7 +5263,7 @@ macro_pin_option:
         if (lefCallbacks->PinCbk) { // write error only if cbk is set 
            if (lefData->pinWarnings++ < lefSettings->PinWarnings) {
               lefData->outMsg = (char*)lefMalloc(10000);
-              sprintf (lefData->outMsg,
+              snprintf (lefData->outMsg,  10000,
                  "ANTENNAMAXSIDEAREACAR statement is a version 5.4 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
               lefError(1653, lefData->outMsg);
               lefFree(lefData->outMsg);
@@ -5274,7 +5274,7 @@ macro_pin_option:
         if (lefCallbacks->PinCbk) { // write error only if cbk is set 
            if (lefData->pinWarnings++ < lefSettings->PinWarnings) {
               lefData->outMsg = (char*)lefMalloc(10000);
-              sprintf (lefData->outMsg,
+              snprintf (lefData->outMsg,  10000,
                  "ANTENNAMAXSIDEAREACAR statement is a version 5.4 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
               lefError(1653, lefData->outMsg);
               lefFree(lefData->outMsg);
@@ -5293,7 +5293,7 @@ macro_pin_option:
         if (lefCallbacks->PinCbk) { // write error only if cbk is set 
            if (lefData->pinWarnings++ < lefSettings->PinWarnings) {
               lefData->outMsg = (char*)lefMalloc(10000);
-              sprintf (lefData->outMsg,
+              snprintf (lefData->outMsg,  10000,
                  "ANTENNAMAXCUTCAR statement is a version 5.4 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
               lefError(1654, lefData->outMsg);
               lefFree(lefData->outMsg);
@@ -5304,7 +5304,7 @@ macro_pin_option:
         if (lefCallbacks->PinCbk) { // write error only if cbk is set 
            if (lefData->pinWarnings++ < lefSettings->PinWarnings) {
               lefData->outMsg = (char*)lefMalloc(10000);
-              sprintf (lefData->outMsg,
+              snprintf (lefData->outMsg,  10000,
                  "ANTENNAMAXCUTCAR statement is a version 5.4 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
               lefError(1654, lefData->outMsg);
               lefFree(lefData->outMsg);
@@ -5323,7 +5323,7 @@ macro_pin_option:
         if (lefCallbacks->PinCbk) { // write error only if cbk is set 
            if (lefData->pinWarnings++ < lefSettings->PinWarnings) {
               lefData->outMsg = (char*)lefMalloc(10000);
-              sprintf (lefData->outMsg,
+              snprintf (lefData->outMsg,  10000,
                  "ANTENNAMODEL statement is a version 5.5 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
               lefError(1655, lefData->outMsg);
               lefFree(lefData->outMsg);
@@ -5334,7 +5334,7 @@ macro_pin_option:
         if (lefCallbacks->PinCbk) { // write error only if cbk is set 
            if (lefData->pinWarnings++ < lefSettings->PinWarnings) {
               lefData->outMsg = (char*)lefMalloc(10000);
-              sprintf (lefData->outMsg,
+              snprintf (lefData->outMsg,  10000,
                  "ANTENNAMODEL statement is a version 5.5 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
               lefError(1655, lefData->outMsg);
               lefFree(lefData->outMsg);
@@ -5350,7 +5350,7 @@ macro_pin_option:
         if (lefCallbacks->PinCbk) { // write error only if cbk is set 
            if (lefData->pinWarnings++ < lefSettings->PinWarnings) {
               lefData->outMsg = (char*)lefMalloc(10000);
-              sprintf (lefData->outMsg,
+              snprintf (lefData->outMsg,  10000,
                  "NETEXPR statement is a version 5.6 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
               lefError(1656, lefData->outMsg);
               lefFree(lefData->outMsg);
@@ -5366,7 +5366,7 @@ macro_pin_option:
         if (lefCallbacks->PinCbk) { // write error only if cbk is set 
            if (lefData->pinWarnings++ < lefSettings->PinWarnings) {
               lefData->outMsg = (char*)lefMalloc(10000);
-              sprintf (lefData->outMsg,
+              snprintf (lefData->outMsg,  10000,
                  "SUPPLYSENSITIVITY statement is a version 5.6 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
               lefError(1657, lefData->outMsg);
               lefFree(lefData->outMsg);
@@ -5382,7 +5382,7 @@ macro_pin_option:
         if (lefCallbacks->PinCbk) { // write error only if cbk is set 
            if (lefData->pinWarnings++ < lefSettings->PinWarnings) {
               lefData->outMsg = (char*)lefMalloc(10000);
-              sprintf (lefData->outMsg,
+              snprintf (lefData->outMsg,  10000,
                  "GROUNDSENSITIVITY statement is a version 5.6 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
               lefError(1658, lefData->outMsg);
               lefFree(lefData->outMsg);
@@ -5424,7 +5424,7 @@ pin_name_value_pair:
   T_STRING NUMBER
     { 
       char temp[32];
-      sprintf(temp, "%.11g", $2);
+      snprintf(temp, strlen(temp),"%.11g", $2);
       if (lefCallbacks->PinCbk) {
          char propTp;
          propTp = lefSettings->lefProps.lefrPinProp.propType($1);
@@ -5660,7 +5660,7 @@ layer_exceptpgnet: // empty
     {
       if (lefData->versionNum < 5.7) {
         lefData->outMsg = (char*)lefMalloc(10000);
-        sprintf(lefData->outMsg,
+        snprintf(lefData->outMsg, 10000,
           "EXCEPTPGNET is a version 5.7 or later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
         lefError(1699, lefData->outMsg);
         lefFree(lefData->outMsg);
@@ -5678,7 +5678,7 @@ layer_spacing: // empty
            lefData->lefrGeometriesPtr->addLayerMinSpacing($2);
         else {
            lefData->outMsg = (char*)lefMalloc(10000);
-           sprintf (lefData->outMsg,
+           snprintf (lefData->outMsg,  10000,
               "THE SPACING statement has the value %g in MACRO OBS.\nValue has to be 0 or greater.", $2);
            lefError(1659, lefData->outMsg);
            lefFree(lefData->outMsg);
@@ -5692,7 +5692,7 @@ layer_spacing: // empty
            lefData->lefrGeometriesPtr->addLayerRuleWidth($2);
         else {
            lefData->outMsg = (char*)lefMalloc(10000);
-           sprintf (lefData->outMsg,
+           snprintf (lefData->outMsg,  10000,
               "THE DESIGNRULEWIDTH statement has the value %g in MACRO OBS.\nValue has to be 0 or greater.", $2);
            lefError(1660, lefData->outMsg);
            lefFree(lefData->outMsg);
@@ -5879,7 +5879,7 @@ macro_density: K_DENSITY density_layer density_layers K_END
         if (lefCallbacks->DensityCbk) { // write error only if cbk is set 
            if (lefData->macroWarnings++ < lefSettings->MacroWarnings) {
               lefData->outMsg = (char*)lefMalloc(10000);
-              sprintf (lefData->outMsg,
+              snprintf (lefData->outMsg,  10000,
                  "DENSITY statement is a version 5.6 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
               lefError(1661, lefData->outMsg);
               lefFree(lefData->outMsg);
@@ -6125,7 +6125,7 @@ end_array: K_END {lefData->lefDumbMode = 1; lefData->lefNoNum = 1;} T_STRING
         if (lefCallbacks->ArrayCbk) { // write error only if cbk is set 
            if (lefData->arrayWarnings++ < lefSettings->ArrayWarnings) {
               lefData->outMsg = (char*)lefMalloc(10000);
-              sprintf (lefData->outMsg,
+              snprintf (lefData->outMsg,  10000,
                  "END ARRAY name %s is different from the ARRAY name %s.\nCorrect the LEF file before rerunning it through the LEF parser.", $3, lefData->arrayName);
               lefError(1662, lefData->outMsg);
               lefFree(lefData->outMsg);
@@ -6549,7 +6549,7 @@ layer_spacing_opt: K_CENTERTOCENTER      // 5.7
         if (lefData->versionNum < 5.6) {
            if (lefData->layerWarnings++ < lefSettings->LayerWarnings) {
               lefData->outMsg = (char*)lefMalloc(10000);
-              sprintf (lefData->outMsg,
+              snprintf (lefData->outMsg,  10000,
                  "CENTERTOCENTER statement is a version 5.6 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
               lefError(1664, lefData->outMsg);
               lefFree(lefData->outMsg);
@@ -6578,7 +6578,7 @@ layer_spacing_opt: K_CENTERTOCENTER      // 5.7
     {
       if (lefData->versionNum < 5.7) {
         lefData->outMsg = (char*)lefMalloc(10000);
-        sprintf(lefData->outMsg,
+        snprintf(lefData->outMsg, 10000,
           "SAMENET is a version 5.7 or later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
         lefError(1684, lefData->outMsg);
         lefFree(lefData->outMsg);
@@ -6589,7 +6589,7 @@ layer_spacing_opt: K_CENTERTOCENTER      // 5.7
     {
       if (lefData->versionNum < 5.7) {
         lefData->outMsg = (char*)lefMalloc(10000);
-        sprintf(lefData->outMsg,
+        snprintf(lefData->outMsg, 10000,
           "PARALLELOVERLAP is a version 5.7 or later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
         lefError(1680, lefData->outMsg);
         lefFree(lefData->outMsg);
@@ -6633,7 +6633,7 @@ layer_spacing_cut_routing:
         if (lefData->versionNum < 5.5) {
            if (lefData->layerWarnings++ < lefSettings->LayerWarnings) {
               lefData->outMsg = (char*)lefMalloc(10000);
-              sprintf (lefData->outMsg,
+              snprintf (lefData->outMsg,  10000,
                  "ADJACENTCUTS statement is a version 5.5 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
               lefError(1668, lefData->outMsg);
               lefFree(lefData->outMsg);
@@ -6656,7 +6656,7 @@ layer_spacing_cut_routing:
     {
       if (lefData->versionNum < 5.7) {
         lefData->outMsg = (char*)lefMalloc(10000);
-        sprintf(lefData->outMsg,
+        snprintf(lefData->outMsg, 10000,
           "AREA is a version 5.7 or later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
         lefError(1693, lefData->outMsg);
         lefFree(lefData->outMsg);
@@ -6703,7 +6703,7 @@ layer_spacing_cut_routing:
     {
       if (lefData->versionNum < 5.7) {
         lefData->outMsg = (char*)lefMalloc(10000);
-        sprintf(lefData->outMsg,
+        snprintf(lefData->outMsg, 10000,
           "ENDOFLINE is a version 5.7 or later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
         lefError(1681, lefData->outMsg);
         lefFree(lefData->outMsg);
@@ -6714,7 +6714,7 @@ layer_spacing_cut_routing:
     {
       if (lefData->versionNum < 5.7) {
         lefData->outMsg = (char*)lefMalloc(10000);
-        sprintf(lefData->outMsg,
+        snprintf(lefData->outMsg, 10000,
           "NOTCHLENGTH is a version 5.7 or later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
         lefError(1682, lefData->outMsg);
         lefFree(lefData->outMsg);
@@ -6728,7 +6728,7 @@ layer_spacing_cut_routing:
     {
       if (lefData->versionNum < 5.7) {
         lefData->outMsg = (char*)lefMalloc(10000);
-        sprintf(lefData->outMsg,
+        snprintf(lefData->outMsg, 10000,
           "ENDOFNOTCHWIDTH is a version 5.7 or later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
         lefError(1696, lefData->outMsg);
         lefFree(lefData->outMsg);
@@ -6755,7 +6755,7 @@ opt_adjacentcuts_exceptsame:                // 5.7
     {
       if (lefData->versionNum < 5.7) {
         lefData->outMsg = (char*)lefMalloc(10000);
-        sprintf(lefData->outMsg,
+        snprintf(lefData->outMsg, 10000,
           "EXCEPTSAMEPGNET is a version 5.7 or later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
         lefError(1683, lefData->outMsg);
         lefFree(lefData->outMsg);
@@ -6979,7 +6979,7 @@ input_antenna: K_INPUTPINANTENNASIZE int_number ';'
               if (lefCallbacks->InputAntennaCbk) { // write warning only if cbk is set 
                 if (lefData->inputAntennaWarnings++ < lefSettings->InputAntennaWarnings) {
                    lefData->outMsg = (char*)lefMalloc(10000);
-                   sprintf (lefData->outMsg,
+                   snprintf (lefData->outMsg,  10000,
                       "INPUTPINANTENNASIZE statement is a version 5.3 or earlier syntax.\nYour lef file with version %g, has both old and new INPUTPINANTENNASIZE syntax, which is incorrect.", lefData->versionNum);
                    lefError(1671, lefData->outMsg);
                    lefFree(lefData->outMsg);
@@ -7003,7 +7003,7 @@ output_antenna: K_OUTPUTPINANTENNASIZE int_number ';'
               if (lefCallbacks->OutputAntennaCbk) { // write warning only if cbk is set 
                 if (lefData->outputAntennaWarnings++ < lefSettings->OutputAntennaWarnings) {
                    lefData->outMsg = (char*)lefMalloc(10000);
-                   sprintf (lefData->outMsg,
+                   snprintf (lefData->outMsg,  10000,
                       "OUTPUTPINANTENNASIZE statement is a version 5.3 or earlier syntax.\nYour lef file with version %g, has both old and new OUTPUTPINANTENNASIZE syntax, which is incorrect.", lefData->versionNum);
                    lefError(1672, lefData->outMsg);
                    lefFree(lefData->outMsg);
@@ -7027,7 +7027,7 @@ inout_antenna: K_INOUTPINANTENNASIZE int_number ';'
               if (lefCallbacks->InoutAntennaCbk) { // write warning only if cbk is set 
                 if (lefData->inoutAntennaWarnings++ < lefSettings->InoutAntennaWarnings) {
                    lefData->outMsg = (char*)lefMalloc(10000);
-                   sprintf (lefData->outMsg,
+                   snprintf (lefData->outMsg,  10000,
                       "INOUTPINANTENNASIZE statement is a version 5.3 or earlier syntax.\nYour lef file with version %g, has both old and new INOUTPINANTENNASIZE syntax, which is incorrect.", lefData->versionNum);
                    lefError(1673, lefData->outMsg);
                    lefFree(lefData->outMsg);
@@ -7051,7 +7051,7 @@ antenna_input: K_ANTENNAINPUTGATEAREA NUMBER ';'
            if (lefCallbacks->AntennaInputCbk) { // write warning only if cbk is set 
              if (lefData->antennaInputWarnings++ < lefSettings->AntennaInputWarnings) {
                lefData->outMsg = (char*)lefMalloc(10000);
-               sprintf (lefData->outMsg,
+               snprintf (lefData->outMsg, 10000,
                   "ANTENNAINPUTGATEAREA statement is a version 5.4 and later syntax.\nYour lef file is defined with version %g.\nEither update your VERSION number or use the 5.3 syntax.", lefData->versionNum);
                lefError(1674, lefData->outMsg);
                lefFree(lefData->outMsg);
@@ -7062,7 +7062,7 @@ antenna_input: K_ANTENNAINPUTGATEAREA NUMBER ';'
            if (lefCallbacks->AntennaInputCbk) { // write warning only if cbk is set 
              if (lefData->antennaInputWarnings++ < lefSettings->AntennaInputWarnings) {
                 lefData->outMsg = (char*)lefMalloc(10000);
-                sprintf (lefData->outMsg,
+                snprintf (lefData->outMsg,  10000,
                    "ANTENNAINPUTGATEAREA statement is a version 5.4 or later syntax.\nYour lef file with version %g, has both old and new ANTENNAINPUTGATEAREA syntax, which is incorrect.", lefData->versionNum);
                 lefError(1675, lefData->outMsg);
                 lefFree(lefData->outMsg);
@@ -7085,7 +7085,7 @@ antenna_inout: K_ANTENNAINOUTDIFFAREA NUMBER ';'
            if (lefCallbacks->AntennaInoutCbk) { // write warning only if cbk is set 
               if (lefData->antennaInoutWarnings++ < lefSettings->AntennaInoutWarnings) {
                  lefData->outMsg = (char*)lefMalloc(10000);
-                 sprintf (lefData->outMsg,
+                 snprintf (lefData->outMsg,  10000,
                     "ANTENNAINOUTDIFFAREA statement is a version 5.4 and later syntax.\nYour lef file is defined with version %g.\nEither update your VERSION number or use the 5.3 syntax.", lefData->versionNum);
                  lefError(1676, lefData->outMsg);
                  lefFree(lefData->outMsg);
@@ -7096,7 +7096,7 @@ antenna_inout: K_ANTENNAINOUTDIFFAREA NUMBER ';'
            if (lefCallbacks->AntennaInoutCbk) { // write warning only if cbk is set 
               if (lefData->antennaInoutWarnings++ < lefSettings->AntennaInoutWarnings) {
                  lefData->outMsg = (char*)lefMalloc(10000);
-                 sprintf (lefData->outMsg,
+                 snprintf (lefData->outMsg,  10000,
                     "ANTENNAINOUTDIFFAREA statement is a version 5.4 or later syntax.\nYour lef file with version %g, has both old and new ANTENNAINOUTDIFFAREA syntax, which is incorrect.", lefData->versionNum);
                  lefError(1677, lefData->outMsg);
                  lefFree(lefData->outMsg);
@@ -7119,7 +7119,7 @@ antenna_output: K_ANTENNAOUTPUTDIFFAREA NUMBER ';'
            if (lefCallbacks->AntennaOutputCbk) { // write warning only if cbk is set 
               if (lefData->antennaOutputWarnings++ < lefSettings->AntennaOutputWarnings) {
                  lefData->outMsg = (char*)lefMalloc(10000);
-                 sprintf (lefData->outMsg,
+                 snprintf (lefData->outMsg,  10000,
                     "ANTENNAOUTPUTDIFFAREA statement is a version 5.4 and later syntax.\nYour lef file is defined with version %g.\nEither update your VERSION number or use the 5.3 syntax.", lefData->versionNum);
                  lefError(1678, lefData->outMsg);
                  lefFree(lefData->outMsg);
@@ -7130,7 +7130,7 @@ antenna_output: K_ANTENNAOUTPUTDIFFAREA NUMBER ';'
            if (lefCallbacks->AntennaOutputCbk) { // write warning only if cbk is set 
               if (lefData->antennaOutputWarnings++ < lefSettings->AntennaOutputWarnings) {
                  lefData->outMsg = (char*)lefMalloc(10000);
-                 sprintf (lefData->outMsg,
+                 snprintf (lefData->outMsg,  10000,
                     "ANTENNAOUTPUTDIFFAREA statement is a version 5.4 or later syntax.\nYour lef file with version %g, has both old and new ANTENNAOUTPUTDIFFAREA syntax, which is incorrect.", lefData->versionNum);
                  lefError(1679, lefData->outMsg);
                  lefFree(lefData->outMsg);

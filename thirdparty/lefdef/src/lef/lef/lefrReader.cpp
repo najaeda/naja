@@ -66,7 +66,7 @@ lef_init(const char  *func)
 void
 lefiNerr(int i)
 {
-    sprintf(lefData->lefrErrMsg, "ERROR number %d\n", i);
+    snprintf(lefData->lefrErrMsg, strlen(lefData->lefrErrMsg),"ERROR number %d\n", i);
     lefiError(1, 0, lefData->lefrErrMsg);
     exit(2);
 }
@@ -74,7 +74,7 @@ lefiNerr(int i)
 void
 lefiNwarn(int i)
 {
-    sprintf(lefData->lefrErrMsg, "WARNING number %d\n", i);
+    snprintf(lefData->lefrErrMsg, strlen(lefData->lefrErrMsg),"WARNING number %d\n", i);
     lefiError(1, 0, lefData->lefrErrMsg);
     exit(2);
 }
@@ -113,7 +113,7 @@ convert_name2num(const char *versionName)
 
     lefFree(versionNm);
 
-    sprintf(finalVersion, "%.4f", version);
+    snprintf(finalVersion, strlen(finalVersion),"%.4f", version);
 
     versionNumber = atof(finalVersion);
 

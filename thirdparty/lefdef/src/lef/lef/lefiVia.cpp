@@ -295,7 +295,7 @@ lefiViaLayer::rectColorMask(int index)
     char msg[160];
 
     if (index < 0 || index >= numRects_) {
-        sprintf(msg, "ERROR (LEFPARS-1420): The index number %d given for the VIA LAYER RECTANGLE is invalid.\nValid index is from 0 to %d", index, numRects_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1420): The index number %d given for the VIA LAYER RECTANGLE is invalid.\nValid index is from 0 to %d", index, numRects_);
         lefiError(0, 1420, msg);
         return 0;
     }
@@ -309,7 +309,7 @@ lefiViaLayer::polyColorMask(int index)
     char msg[160];
 
     if (index < 0 || index >= numPolys_) {
-        sprintf(msg, "ERROR (LEFPARS-1420): The index number %d given for the VIA LAYER POLYGON is invalid.\nValid index is from 0 to %d", index, numPolys_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1420): The index number %d given for the VIA LAYER POLYGON is invalid.\nValid index is from 0 to %d", index, numPolys_);
         lefiError(0, 1420, msg);
         return 0;
     }
@@ -322,7 +322,7 @@ lefiViaLayer::xl(int index)
 {
     char msg[160];
     if (index < 0 || index >= numRects_) {
-        sprintf(msg, "ERROR (LEFPARS-1420): The index number %d given for the VIA LAYER RECTANGLE is invalid.\nValid index is from 0 to %d", index, numRects_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1420): The index number %d given for the VIA LAYER RECTANGLE is invalid.\nValid index is from 0 to %d", index, numRects_);
         lefiError(0, 1420, msg);
         return 0;
     }
@@ -334,7 +334,7 @@ lefiViaLayer::yl(int index)
 {
     char msg[160];
     if (index < 0 || index >= numRects_) {
-        sprintf(msg, "ERROR (LEFPARS-1420): The index number %d given for the VIA LAYER RECTANGLE is invalid.\nValid index is from 0 to %d", index, numRects_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1420): The index number %d given for the VIA LAYER RECTANGLE is invalid.\nValid index is from 0 to %d", index, numRects_);
         lefiError(0, 1420, msg);
         return 0;
     }
@@ -346,7 +346,7 @@ lefiViaLayer::xh(int index)
 {
     char msg[160];
     if (index < 0 || index >= numRects_) {
-        sprintf(msg, "ERROR (LEFPARS-1420): The index number %d given for the VIA LAYER RECTANGLE is invalid.\nValid index is from 0 to %d", index, numRects_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1420): The index number %d given for the VIA LAYER RECTANGLE is invalid.\nValid index is from 0 to %d", index, numRects_);
         lefiError(0, 1420, msg);
         return 0;
     }
@@ -358,7 +358,7 @@ lefiViaLayer::yh(int index)
 {
     char msg[160];
     if (index < 0 || index >= numRects_) {
-        sprintf(msg, "ERROR (LEFPARS-1420): The index number %d given for the VIA LAYER RECTANGLE is invalid.\nValid index is from 0 to %d", index, numRects_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1420): The index number %d given for the VIA LAYER RECTANGLE is invalid.\nValid index is from 0 to %d", index, numRects_);
         lefiError(0, 1420, msg);
         return 0;
     }
@@ -998,7 +998,7 @@ lefiVia::layerName(int layerNum) const
     lefiViaLayer    *vl;
     char            msg[160];
     if (layerNum < 0 || layerNum >= numLayers_) {
-        sprintf(msg, "ERROR (LEFPARS-1421): The layer number %d given for the VIA LAYER is invalid.\nValid number is from 0 to %d", layerNum, numLayers_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1421): The layer number %d given for the VIA LAYER is invalid.\nValid number is from 0 to %d", layerNum, numLayers_);
         lefiError(0, 1421, msg);
         return 0;
     }
@@ -1012,7 +1012,7 @@ lefiVia::numRects(int layerNum) const
     lefiViaLayer    *vl;
     char            msg[160];
     if (layerNum < 0 || layerNum >= numLayers_) {
-        sprintf(msg, "ERROR (LEFPARS-1421): The layer number %d given for the VIA LAYER is invalid.\nValid number is from 0 to %d", layerNum, numLayers_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1421): The layer number %d given for the VIA LAYER is invalid.\nValid number is from 0 to %d", layerNum, numLayers_);
         lefiError(0, 1421, msg);
         return 0;
     }
@@ -1027,7 +1027,7 @@ lefiVia::xl(int layerNum,
     lefiViaLayer    *vl;
     char            msg[160];
     if (layerNum < 0 || layerNum >= numLayers_) {
-        sprintf(msg, "ERROR (LEFPARS-1421): The layer number %d given for the VIA LAYER is invalid.\nValid number is from 0 to %d", layerNum, numLayers_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1421): The layer number %d given for the VIA LAYER is invalid.\nValid number is from 0 to %d", layerNum, numLayers_);
         lefiError(0, 1421, msg);
         return 0;
     }
@@ -1042,7 +1042,7 @@ lefiVia::yl(int layerNum,
     lefiViaLayer    *vl;
     char            msg[160];
     if (layerNum < 0 || layerNum >= numLayers_) {
-        sprintf(msg, "ERROR (LEFPARS-1421): The layer number %d given for the VIA LAYER is invalid.\nValid number is from 0 to %d", layerNum, numLayers_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1421): The layer number %d given for the VIA LAYER is invalid.\nValid number is from 0 to %d", layerNum, numLayers_);
         lefiError(0, 1421, msg);
         return 0;
     }
@@ -1057,7 +1057,7 @@ lefiVia::xh(int layerNum,
     lefiViaLayer    *vl;
     char            msg[160];
     if (layerNum < 0 || layerNum >= numLayers_) {
-        sprintf(msg, "ERROR (LEFPARS-1421): The layer number %d given for the VIA LAYER is invalid.\nValid number is from 0 to %d", layerNum, numLayers_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1421): The layer number %d given for the VIA LAYER is invalid.\nValid number is from 0 to %d", layerNum, numLayers_);
         lefiError(0, 1421, msg);
         return 0;
     }
@@ -1072,7 +1072,7 @@ lefiVia::yh(int layerNum,
     lefiViaLayer    *vl;
     char            msg[160];
     if (layerNum < 0 || layerNum >= numLayers_) {
-        sprintf(msg, "ERROR (LEFPARS-1421): The layer number %d given for the VIA LAYER is invalid.\nValid number is from 0 to %d", layerNum, numLayers_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1421): The layer number %d given for the VIA LAYER is invalid.\nValid number is from 0 to %d", layerNum, numLayers_);
         lefiError(0, 1421, msg);
         return 0;
     }
@@ -1088,7 +1088,7 @@ lefiVia::rectColorMask(int  layerNum,
     char            msg[160];
 
     if (layerNum < 0 || layerNum >= numLayers_) {
-        sprintf(msg, "ERROR (LEFPARS-1421): The layer number %d given for the VIA LAYER is invalid.\nValid number is from 0 to %d", layerNum, numLayers_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1421): The layer number %d given for the VIA LAYER is invalid.\nValid number is from 0 to %d", layerNum, numLayers_);
         lefiError(0, 1421, msg);
         return 0;
     }
@@ -1106,7 +1106,7 @@ lefiVia::polyColorMask(int  layerNum,
     char            msg[160];
 
     if (layerNum < 0 || layerNum >= numLayers_) {
-        sprintf(msg, "ERROR (LEFPARS-1421): The layer number %d given for the VIA LAYER is invalid.\nValid number is from 0 to %d", layerNum, numLayers_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1421): The layer number %d given for the VIA LAYER is invalid.\nValid number is from 0 to %d", layerNum, numLayers_);
         lefiError(0, 1421, msg);
         return 0;
     }
@@ -1122,7 +1122,7 @@ lefiVia::numPolygons(int layerNum) const
     lefiViaLayer    *vl;
     char            msg[160];
     if (layerNum < 0 || layerNum >= numLayers_) {
-        sprintf(msg, "ERROR (LEFPARS-1421): The layer number %d given for the VIA LAYER is invalid.\nValid number is from 0 to %d", layerNum, numLayers_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1421): The layer number %d given for the VIA LAYER is invalid.\nValid number is from 0 to %d", layerNum, numLayers_);
         lefiError(0, 1421, msg);
         return 0;
     }
@@ -1144,7 +1144,7 @@ lefiVia::getPolygon(int layerNum,
     tempPoly.colorMask = 0;
 
     if (layerNum < 0 || layerNum >= numLayers_) {
-        sprintf(msg, "ERROR (LEFPARS-1421): The layer number %d given for the VIA LAYER is invalid.\nValid number is from 0 to %d", layerNum, numLayers_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1421): The layer number %d given for the VIA LAYER is invalid.\nValid number is from 0 to %d", layerNum, numLayers_);
         lefiError(0, 1421, msg);
         return tempPoly;
     }
@@ -1179,7 +1179,7 @@ lefiVia::propName(int index) const
 {
     char msg[160];
     if (index < 0 || index >= numProps_) {
-        sprintf(msg, "ERROR (LEFPARS-1422): The layer number %d given for the VIA PROPERTY is invalid.\nValid number is from 0 to %d", index, numLayers_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1422): The layer number %d given for the VIA PROPERTY is invalid.\nValid number is from 0 to %d", index, numLayers_);
         lefiError(0, 1422, msg);
         return 0;
     }
@@ -1191,7 +1191,7 @@ lefiVia::propValue(int index) const
 {
     char msg[160];
     if (index < 0 || index >= numProps_) {
-        sprintf(msg, "ERROR (LEFPARS-1422): The layer number %d given for the VIA PROPERTY is invalid.\nValid number is from 0 to %d", index, numLayers_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1422): The layer number %d given for the VIA PROPERTY is invalid.\nValid number is from 0 to %d", index, numLayers_);
         lefiError(0, 1422, msg);
         return 0;
     }
@@ -1203,7 +1203,7 @@ lefiVia::propNumber(int index) const
 {
     char msg[160];
     if (index < 0 || index >= numProps_) {
-        sprintf(msg, "ERROR (LEFPARS-1422): The layer number %d given for the VIA PROPERTY is invalid.\nValid number is from 0 to %d", index, numLayers_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1422): The layer number %d given for the VIA PROPERTY is invalid.\nValid number is from 0 to %d", index, numLayers_);
         lefiError(0, 1422, msg);
         return 0;
     }
@@ -1215,7 +1215,7 @@ lefiVia::propType(int index) const
 {
     char msg[160];
     if (index < 0 || index >= numProps_) {
-        sprintf(msg, "ERROR (LEFPARS-1422): The layer number %d given for the VIA PROPERTY is invalid.\nValid number is from 0 to %d", index, numLayers_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1422): The layer number %d given for the VIA PROPERTY is invalid.\nValid number is from 0 to %d", index, numLayers_);
         lefiError(0, 1422, msg);
         return 0;
     }
@@ -1227,7 +1227,7 @@ lefiVia::propIsNumber(int index) const
 {
     char msg[160];
     if (index < 0 || index >= numProps_) {
-        sprintf(msg, "ERROR (LEFPARS-1422): The layer number %d given for the VIA PROPERTY is invalid.\nValid number is from 0 to %d", index, numLayers_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1422): The layer number %d given for the VIA PROPERTY is invalid.\nValid number is from 0 to %d", index, numLayers_);
         lefiError(0, 1422, msg);
         return 0;
     }
@@ -1239,7 +1239,7 @@ lefiVia::propIsString(int index) const
 {
     char msg[160];
     if (index < 0 || index >= numProps_) {
-        sprintf(msg, "ERROR (LEFPARS-1422): The layer number %d given for the VIA PROPERTY is invalid.\nValid number is from 0 to %d", index, numLayers_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1422): The layer number %d given for the VIA PROPERTY is invalid.\nValid number is from 0 to %d", index, numLayers_);
         lefiError(0, 1422, msg);
         return 0;
     }

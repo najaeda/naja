@@ -280,7 +280,7 @@ qStrCopy(char *string)
     char    *retStr;
 
     retStr = (char*) lefMalloc(len);
-    sprintf(retStr, "\"%s\"", string);
+    snprintf(retStr, strlen(retStr), "\"%s\"", string);
     return retStr;
 }
 
@@ -473,7 +473,7 @@ GetToken(char **buffer, int *bufferSize)
 
             // 7/23/2003 - pcr 606558 - do not allow \n in a string instead 
             // of ; 
-            if ((ch == '\n') ) {
+            if (ch == '\n') {
                 print_nlines(++lefData->lef_nlines);
                 // 2/2/2007 - PCR 909714, allow string to go more than 1 line 
                 //            continue to parse 
@@ -746,7 +746,7 @@ lefsublex()
 
     if (lefData->lefInvalidChar) {
         outStr = (char*) lefMalloc(500 + strlen(lefData->current_token));
-        sprintf(outStr, "Invalid characters found in \'%s\'.\nThese characters might have created by character types other than English.",
+        snprintf(outStr, strlen(outStr), "Invalid characters found in \'%s\'.\nThese characters might have created by character types other than English.",
                 lefData->current_token);
         lefError(1008, outStr);
         lefFree(outStr);
@@ -1025,46 +1025,46 @@ lefError(int        msgNum,
     if (strcmp(s, "parse error") == 0) {
         if ((len > 1) && (lefData->current_token[len] == ';')) {
             str = (char*) lefMalloc(len + strlen(s) + strlen(lefData->lefrFileName) + 350);
-            sprintf(str, "ERROR (LEFPARS-%d): %s, see file %s at line %d\nLast token was <%s>, space is missing before <;>\n",
+            snprintf(str, strlen(str),"ERROR (LEFPARS-%d): %s, see file %s at line %d\nLast token was <%s>, space is missing before <;>\n",
                     msgNum, s, lefData->lefrFileName, lefData->lef_nlines, curToken);
         } else if ((pvLen > 1) && (lefData->pv_token[pvLen] == ';')) {
             str = (char*) lefMalloc(pvLen + strlen(s) + strlen(lefData->lefrFileName) + 350);
-            sprintf(str, "ERROR (LEFPARS-%d): %s, see file %s at line %d\nLast token was <%s>, space is missing before <;>\n",
+            snprintf(str, strlen(str),"ERROR (LEFPARS-%d): %s, see file %s at line %d\nLast token was <%s>, space is missing before <;>\n",
                     msgNum, s, lefData->lefrFileName, lefData->lef_nlines - 1, pvToken);
         } else if ((lefData->current_token[0] == '"') && (lefData->spaceMissing)) {
             // most likely space is missing after the end " 
             str = (char*) lefMalloc(len + strlen(s) + strlen(lefData->lefrFileName) + 350);
-            sprintf(str, "ERROR (LEFPARS-%d): %s, see file %s at line %d\nLast token was <%s\">, space is missing between the closing \" of the string and ;.\n",
+            snprintf(str, strlen(str),"ERROR (LEFPARS-%d): %s, see file %s at line %d\nLast token was <%s\">, space is missing between the closing \" of the string and ;.\n",
                     1010, s, lefData->lefrFileName, lefData->lef_nlines, curToken);
             lefData->spaceMissing = 0;
         } else {
             str = (char*) lefMalloc(len + strlen(lefData->lefrFileName) + 350);
-            sprintf(str, "ERROR (LEFPARS-%d): Lef parser has encountered an error in file %s at line %d, on token %s.\nProblem can be syntax error on the lef file or an invalid parameter name.\nDouble check the syntax on the lef file with the LEFDEF Reference Manual.\n",
+            snprintf(str, strlen(str),"ERROR (LEFPARS-%d): Lef parser has encountered an error in file %s at line %d, on token %s.\nProblem can be syntax error on the lef file or an invalid parameter name.\nDouble check the syntax on the lef file with the LEFDEF Reference Manual.\n",
                     msgNum, lefData->lefrFileName, lefData->lef_nlines, curToken);
         }
     } else if (strcmp(s, "syntax error") == 0) {  // linux machines 
         if ((len > 1) && (lefData->current_token[len] == ';')) {
             str = (char*) lefMalloc(len + strlen(s) + strlen(lefData->lefrFileName) + 350);
-            sprintf(str, "ERROR (LEFPARS-%d): %s, see file %s at line %d\nLast token was <%s>, space is missing before <;>\n",
+            snprintf(str, strlen(str),"ERROR (LEFPARS-%d): %s, see file %s at line %d\nLast token was <%s>, space is missing before <;>\n",
                     msgNum, s, lefData->lefrFileName, lefData->lef_nlines, curToken);
         } else if ((pvLen > 1) && (lefData->pv_token[pvLen] == ';')) {
             str = (char*) lefMalloc(pvLen + strlen(s) + strlen(lefData->lefrFileName) + 350);
-            sprintf(str, "ERROR (LEFPARS-%d): %s, see file %s at line %d\nLast token was <%s>, space is missing before <;>\n",
+            snprintf(str, strlen(str),"ERROR (LEFPARS-%d): %s, see file %s at line %d\nLast token was <%s>, space is missing before <;>\n",
                     msgNum, s, lefData->lefrFileName, lefData->lef_nlines - 1, pvToken);
         } else if ((lefData->current_token[0] == '"') && (lefData->spaceMissing)) {
             // most likely space is missing after the end " 
             str = (char*) lefMalloc(len + strlen(s) + strlen(lefData->lefrFileName) + 350);
-            sprintf(str, "ERROR (LEFPARS-%d): %s, see file %s at line %d\nLast token was <%s\">, space is missing between the closing \" of the string and ;.\n",
+            snprintf(str, strlen(str),"ERROR (LEFPARS-%d): %s, see file %s at line %d\nLast token was <%s\">, space is missing between the closing \" of the string and ;.\n",
                     1011, s, lefData->lefrFileName, lefData->lef_nlines, curToken);
             lefData->spaceMissing = 0;
         } else {
             str = (char*) lefMalloc(len + strlen(lefData->lefrFileName) + 350);
-            sprintf(str, "ERROR (LEFPARS-%d): Lef parser has encountered an error in file %s at line %d, on token %s.\nProblem can be syntax error on the lef file or an invalid parameter name.\nDouble check the syntax on the lef file with the LEFDEF Reference Manual.\n",
+            snprintf(str, strlen(str),"ERROR (LEFPARS-%d): Lef parser has encountered an error in file %s at line %d, on token %s.\nProblem can be syntax error on the lef file or an invalid parameter name.\nDouble check the syntax on the lef file with the LEFDEF Reference Manual.\n",
                     msgNum, lefData->lefrFileName, lefData->lef_nlines, curToken);
         }
     } else {
         str = (char*) lefMalloc(len + strlen(s) + strlen(lefData->lefrFileName) + 350);
-        sprintf(str, "ERROR (LEFPARS-%d): %s Error in file %s at line %d, on token %s.\n",
+        snprintf(str, strlen(str),"ERROR (LEFPARS-%d): %s Error in file %s at line %d, on token %s.\n",
                 msgNum, s, lefData->lefrFileName, lefData->lef_nlines, curToken);
     }
     fflush(stdout);
@@ -1095,7 +1095,7 @@ lefInfo(int         msgNum,
 
     if (disableStatus == 1) {
         char msgStr[60];
-        sprintf(msgStr, "Message (LEFPARS-%d) has been suppressed from output.", msgNum);
+        snprintf(msgStr, strlen(msgStr), "Message (LEFPARS-%d) has been suppressed from output.", msgNum);
         lefWarning(2502, msgStr);
         return;
     } else if (disableStatus == 2) {
@@ -1110,7 +1110,7 @@ lefInfo(int         msgNum,
             if (lefData->msgLimit[1][msgNum]) // already printed out warning 
                 return;
             lefData->msgLimit[1][msgNum] = 1;
-            sprintf(msgStr,
+            snprintf(msgStr, strlen(msgStr),
                     "Message (LEFPARS-%d) has exceeded the message display limit of %d",
                     msgNum, lefSettings->MsgLimit[msgNum]);
             lefWarning(2503, msgStr);
@@ -1123,7 +1123,7 @@ lefInfo(int         msgNum,
     if (lefSettings->WarningLogFunction) {
         char *str = (char*) lefMalloc(strlen(lefData->current_token) + strlen(s) + strlen(lefData->lefrFileName)
                                       + 350);
-        sprintf(str, "INFO (LEFPARS-%d): %s See file %s at line %d.\n",
+        snprintf(str, strlen(str),"INFO (LEFPARS-%d): %s See file %s at line %d.\n",
                 msgNum, s, lefData->lefrFileName, lefData->lef_nlines);
         (*lefSettings->WarningLogFunction)(str);
         free(str);
@@ -1170,7 +1170,7 @@ lefWarning(int          msgNum,
 
         if (disableStatus == 1) {
             char msgStr[60];
-            sprintf(msgStr, "Message (LEFPARS-%d) has been suppressed from output.", msgNum);
+            snprintf(msgStr, strlen(msgStr), "Message (LEFPARS-%d) has been suppressed from output.", msgNum);
             lefWarning(2502, msgStr);
             return;
         } else if (disableStatus == 2) {
@@ -1186,7 +1186,7 @@ lefWarning(int          msgNum,
             if (lefData->msgLimit[1][msgNum]) // already printed out warning 
                 return;
             lefData->msgLimit[1][msgNum] = 1;
-            sprintf(msgStr,
+            snprintf(msgStr, strlen(msgStr),
                     "Message (LEFPARS-%d) has exceeded the message display limit of %d",
                     msgNum, lefSettings->MsgLimit[msgNum]);
             lefWarning(2503, msgStr);
@@ -1199,7 +1199,7 @@ lefWarning(int          msgNum,
     if (lefSettings->WarningLogFunction) {
         char *str = (char*) lefMalloc(strlen(lefData->current_token) + strlen(s) + strlen(lefData->lefrFileName)
                                       + 350);
-        sprintf(str, "WARNING (LEFPARS-%d): %s See file %s at line %d.\n",
+        snprintf(str, strlen(str),"WARNING (LEFPARS-%d): %s See file %s at line %d.\n",
                 msgNum, s, lefData->lefrFileName, lefData->lef_nlines);
         (*lefSettings->WarningLogFunction)(str);
         free(str);

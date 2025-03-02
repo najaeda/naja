@@ -776,7 +776,7 @@ lefiViaRule::propName(int i) const
 {
     char msg[160];
     if (i < 0 || i >= numProps_) {
-        sprintf(msg, "ERROR (LEFPARS-1431): The index number %d given for the VIARULE PROPERTY is invalid.\nValid index is from 0 to %d", i, numProps_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1431): The index number %d given for the VIARULE PROPERTY is invalid.\nValid index is from 0 to %d", i, numProps_);
         lefiError(0, 1431, msg);
         return 0;
     }
@@ -788,7 +788,7 @@ lefiViaRule::propValue(int i) const
 {
     char msg[160];
     if (i < 0 || i >= numProps_) {
-        sprintf(msg, "ERROR (LEFPARS-1431): The index number %d given for the VIARULE PROPERTY is invalid.\nValid index is from 0 to %d", i, numProps_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1431): The index number %d given for the VIARULE PROPERTY is invalid.\nValid index is from 0 to %d", i, numProps_);
         lefiError(0, 1431, msg);
         return 0;
     }
@@ -800,7 +800,7 @@ lefiViaRule::propNumber(int i) const
 {
     char msg[160];
     if (i < 0 || i >= numProps_) {
-        sprintf(msg, "ERROR (LEFPARS-1431): The index number %d given for the VIARULE PROPERTY is invalid.\nValid index is from 0 to %d", i, numProps_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1431): The index number %d given for the VIARULE PROPERTY is invalid.\nValid index is from 0 to %d", i, numProps_);
         lefiError(0, 1431, msg);
         return 0;
     }
@@ -812,7 +812,7 @@ lefiViaRule::propType(int i) const
 {
     char msg[160];
     if (i < 0 || i >= numProps_) {
-        sprintf(msg, "ERROR (LEFPARS-1431): The index number %d given for the VIARULE PROPERTY is invalid.\nValid index is from 0 to %d", i, numProps_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1431): The index number %d given for the VIARULE PROPERTY is invalid.\nValid index is from 0 to %d", i, numProps_);
         lefiError(0, 1431, msg);
         return 0;
     }
@@ -824,7 +824,7 @@ lefiViaRule::propIsNumber(int i) const
 {
     char msg[160];
     if (i < 0 || i >= numProps_) {
-        sprintf(msg, "ERROR (LEFPARS-1431): The index number %d given for the VIARULE PROPERTY is invalid.\nValid index is from 0 to %d", i, numProps_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1431): The index number %d given for the VIARULE PROPERTY is invalid.\nValid index is from 0 to %d", i, numProps_);
         lefiError(0, 1431, msg);
         return 0;
     }
@@ -836,7 +836,7 @@ lefiViaRule::propIsString(int i) const
 {
     char msg[160];
     if (i < 0 || i >= numProps_) {
-        sprintf(msg, "ERROR (LEFPARS-1431): The index number %d given for the VIARULE PROPERTY is invalid.\nValid index is from 0 to %d", i, numProps_);
+        snprintf(msg, strlen(msg),"ERROR (LEFPARS-1431): The index number %d given for the VIARULE PROPERTY is invalid.\nValid index is from 0 to %d", i, numProps_);
         lefiError(0, 1431, msg);
         return 0;
     }
