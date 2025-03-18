@@ -6,7 +6,7 @@ import os
 import unittest
 import faulthandler
 from najaeda import netlist
-from najaeda import snl
+from najaeda import naja
 
 # Get the PYTHONPATH environment variable
 pythonpath = os.environ.get('PYTHONPATH')
@@ -31,8 +31,8 @@ class NajaEDANetlistTestAttributes(unittest.TestCase):
         netlist.load_verilog(design_files)
 
     def tearDown(self):
-        if snl.NLUniverse.get():
-            snl.NLUniverse.get().destroy()
+        if naja.NLUniverse.get():
+            naja.NLUniverse.get().destroy()
     
     def test(self):
         top = netlist.get_top()

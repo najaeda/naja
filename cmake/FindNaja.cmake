@@ -39,7 +39,7 @@ find_path(NAJA_INCLUDE_DIR NAMES NLUniverse.h
    $ENV{NAJA_INSTALL}/include
 )
 
-find_library(NAJA_SNL_LIBRARY NAMES naja_snl
+find_library(NAJA_SNL_LIBRARY NAMES naja_nl
    HINTS
    $ENV{NAJA_INSTALL}/lib
 )

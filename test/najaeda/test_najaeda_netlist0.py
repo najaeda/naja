@@ -6,7 +6,7 @@ import os
 import unittest
 import faulthandler
 from najaeda import netlist
-from najaeda import snl
+from najaeda import naja
 
 # Get the PYTHONPATH environment variable
 pythonpath = os.environ.get('PYTHONPATH')
@@ -59,8 +59,8 @@ class NajaNetlistTest0(unittest.TestCase):
         pass
 
     def tearDown(self):
-        if snl.NLUniverse.get():
-            snl.NLUniverse.get().destroy()
+        if naja.NLUniverse.get():
+            naja.NLUniverse.get().destroy()
     
     def test_hash(self):
         with self.assertRaises(Exception) as context: netlist.consistent_hash("error")
@@ -82,39 +82,39 @@ class NajaNetlistTest0(unittest.TestCase):
 
     def test_loader1(self):
         design_files = [os.path.join(verilog_benchmarks, "test1.v")]
-        lut4 = snl.SNLDesign.createPrimitive(netlist.get_primitives_library(), "LUT4")
-        i0 = snl.SNLScalarTerm.create(lut4, snl.SNLTerm.Direction.Input, "I0")
-        i1 = snl.SNLScalarTerm.create(lut4, snl.SNLTerm.Direction.Input, "I1")
-        i2 = snl.SNLScalarTerm.create(lut4, snl.SNLTerm.Direction.Input, "I2")
-        i3 = snl.SNLScalarTerm.create(lut4, snl.SNLTerm.Direction.Input, "I3")
-        q = snl.SNLScalarTerm.create(lut4, snl.SNLTerm.Direction.Output, "Q")
-        snl.SNLParameter.create_binary(lut4, "INIT", 16, 0x0000)
+        lut4 = naja.SNLDesign.createPrimitive(netlist.get_primitives_library(), "LUT4")
+        i0 = naja.SNLScalarTerm.create(lut4, naja.SNLTerm.Direction.Input, "I0")
+        i1 = naja.SNLScalarTerm.create(lut4, naja.SNLTerm.Direction.Input, "I1")
+        i2 = naja.SNLScalarTerm.create(lut4, naja.SNLTerm.Direction.Input, "I2")
+        i3 = naja.SNLScalarTerm.create(lut4, naja.SNLTerm.Direction.Input, "I3")
+        q = naja.SNLScalarTerm.create(lut4, naja.SNLTerm.Direction.Output, "Q")
+        naja.SNLParameter.create_binary(lut4, "INIT", 16, 0x0000)
         netlist.load_verilog(design_files)
         #for inst in netlist.get_all_primitive_instances():
         #    print(inst)
-        if snl.NLUniverse.get():
-            snl.NLUniverse.get().destroy()
+        if naja.NLUniverse.get():
+            naja.NLUniverse.get().destroy()
         
 
     def test_instance(self):
-        u = snl.NLUniverse.create()
-        db = snl.NLDB.create(u)
-        lib = snl.NLLibrary.create(db)
-        self.top = snl.SNLDesign.create(lib)
+        u = naja.NLUniverse.create()
+        db = naja.NLDB.create(u)
+        lib = naja.NLLibrary.create(db)
+        self.top = naja.SNLDesign.create(lib)
         u.setTopDesign(self.top)
-        self.model = snl.SNLDesign.create(lib)
-        self.submodel = snl.SNLDesign.create(lib, "submodel")
-        self.i0 = snl.SNLScalarTerm.create(self.model, snl.SNLTerm.Direction.Input, "I0")
+        self.model = naja.SNLDesign.create(lib)
+        self.submodel = naja.SNLDesign.create(lib, "submodel")
+        self.i0 = naja.SNLScalarTerm.create(self.model, naja.SNLTerm.Direction.Input, "I0")
         self.assertEqual(self.i0.getFlatID(), 0)
-        self.i1 = snl.SNLBusTerm.create(self.model, snl.SNLTerm.Direction.Input, 4, 0, "I1")
+        self.i1 = naja.SNLBusTerm.create(self.model, naja.SNLTerm.Direction.Input, 4, 0, "I1")
         self.assertEqual(self.i1.getBusTermBit(0).getBit(), 0)
         self.assertEqual(self.i1.getBusTermBit(0).getFlatID(), 5)
         self.assertEqual(self.i1.getFlatID(), 1)
-        self.o = snl.SNLScalarTerm.create(self.model, snl.SNLTerm.Direction.Output, "O")
-        ins2 = snl.SNLInstance.create(self.model, self.submodel, "ins2")
-        ins1 = snl.SNLInstance.create(self.top, self.model, "ins1")
-        path1 = snl.SNLPath(ins1)
-        path2 = snl.SNLPath(path1, ins2)
+        self.o = naja.SNLScalarTerm.create(self.model, naja.SNLTerm.Direction.Output, "O")
+        ins2 = naja.SNLInstance.create(self.model, self.submodel, "ins2")
+        ins1 = naja.SNLInstance.create(self.top, self.model, "ins1")
+        path1 = naja.SNLPath(ins1)
+        path2 = naja.SNLPath(path1, ins2)
         instance = netlist.Instance(path1)
         self.assertEqual(netlist.get_snl_path_from_id_list(instance.pathIDs), path1)
         self.assertEqual(instance.get_model_name(), ins1.getModel().getName())
@@ -206,7 +206,7 @@ class NajaNetlistTest0(unittest.TestCase):
         for output in instance.get_output_terms():
             self.assertTrue(output.is_output())
             self.assertFalse(output.is_input())
-            self.assertTrue(output.get_direction() == snl.SNLTerm.Direction.Output)
+            self.assertTrue(output.get_direction() == naja.SNLTerm.Direction.Output)
             outputCount += 1
 
         self.assertEqual(outputCount, 2)
@@ -218,34 +218,34 @@ class NajaNetlistTest0(unittest.TestCase):
         #print(instance.get_name())
 
     def test_equipotential(self):
-        universe = snl.NLUniverse.create()
-        db = snl.NLDB.create(universe)
-        lib = snl.NLLibrary.create(db)
-        self.primitives = snl.NLLibrary.createPrimitives(db)
-        self.top = snl.SNLDesign.create(lib)
+        universe = naja.NLUniverse.create()
+        db = naja.NLDB.create(universe)
+        lib = naja.NLLibrary.create(db)
+        self.primitives = naja.NLLibrary.createPrimitives(db)
+        self.top = naja.SNLDesign.create(lib)
         universe.setTopDesign(self.top)
-        self.model = snl.SNLDesign.create(lib, "model")
-        self.submodel = snl.SNLDesign.createPrimitive(self.primitives, "submodel")
-        self.i0 = snl.SNLScalarTerm.create(self.model, snl.SNLTerm.Direction.Input, "I0")
+        self.model = naja.SNLDesign.create(lib, "model")
+        self.submodel = naja.SNLDesign.createPrimitive(self.primitives, "submodel")
+        self.i0 = naja.SNLScalarTerm.create(self.model, naja.SNLTerm.Direction.Input, "I0")
         self.assertEqual(self.i0.getFlatID(), 0)
-        self.i1 = snl.SNLBusTerm.create(self.model, snl.SNLTerm.Direction.Input, 4, 0, "I1")
-        self.o = snl.SNLScalarTerm.create(self.model, snl.SNLTerm.Direction.Output, "O")
-        self.i0Model = snl.SNLScalarTerm.create(self.submodel, snl.SNLTerm.Direction.Input, "I0")
-        self.noNameModel = snl.SNLScalarTerm.create(self.model, snl.SNLTerm.Direction.Input, "")
-        self.i1sub = snl.SNLBusTerm.create(self.submodel, snl.SNLTerm.Direction.Input, 4, 0, "I1")
-        self.noNameBusModel = snl.SNLBusTerm.create(self.model, snl.SNLTerm.Direction.Input, 4, 0, "")
-        self.noNameSubModel = snl.SNLScalarTerm.create(self.submodel, snl.SNLTerm.Direction.Input, "")
-        self.noNameBusSubModel = snl.SNLBusTerm.create(self.submodel, snl.SNLTerm.Direction.Input, 4, 0, "")
-        self.osub = snl.SNLScalarTerm.create(self.submodel, snl.SNLTerm.Direction.Output, "O")
-        ins2 = snl.SNLInstance.create(self.model, self.submodel, "ins2")
-        ins3 = snl.SNLInstance.create(self.model, self.submodel, "ins3")
-        ins1 = snl.SNLInstance.create(self.top, self.model, "ins1")
-        ins0 = snl.SNLInstance.create(self.top, self.model, "ins0")
-        self.i0Top = snl.SNLScalarTerm.create(self.top, snl.SNLTerm.Direction.Input, "I0")
-        self.noNameTop = snl.SNLScalarTerm.create(self.top, snl.SNLTerm.Direction.Input, "")
-        self.noNameBusTop = snl.SNLBusTerm.create(self.top, snl.SNLTerm.Direction.Input, 4, 0, "")
+        self.i1 = naja.SNLBusTerm.create(self.model, naja.SNLTerm.Direction.Input, 4, 0, "I1")
+        self.o = naja.SNLScalarTerm.create(self.model, naja.SNLTerm.Direction.Output, "O")
+        self.i0Model = naja.SNLScalarTerm.create(self.submodel, naja.SNLTerm.Direction.Input, "I0")
+        self.noNameModel = naja.SNLScalarTerm.create(self.model, naja.SNLTerm.Direction.Input, "")
+        self.i1sub = naja.SNLBusTerm.create(self.submodel, naja.SNLTerm.Direction.Input, 4, 0, "I1")
+        self.noNameBusModel = naja.SNLBusTerm.create(self.model, naja.SNLTerm.Direction.Input, 4, 0, "")
+        self.noNameSubModel = naja.SNLScalarTerm.create(self.submodel, naja.SNLTerm.Direction.Input, "")
+        self.noNameBusSubModel = naja.SNLBusTerm.create(self.submodel, naja.SNLTerm.Direction.Input, 4, 0, "")
+        self.osub = naja.SNLScalarTerm.create(self.submodel, naja.SNLTerm.Direction.Output, "O")
+        ins2 = naja.SNLInstance.create(self.model, self.submodel, "ins2")
+        ins3 = naja.SNLInstance.create(self.model, self.submodel, "ins3")
+        ins1 = naja.SNLInstance.create(self.top, self.model, "ins1")
+        ins0 = naja.SNLInstance.create(self.top, self.model, "ins0")
+        self.i0Top = naja.SNLScalarTerm.create(self.top, naja.SNLTerm.Direction.Input, "I0")
+        self.noNameTop = naja.SNLScalarTerm.create(self.top, naja.SNLTerm.Direction.Input, "")
+        self.noNameBusTop = naja.SNLBusTerm.create(self.top, naja.SNLTerm.Direction.Input, 4, 0, "")
 
-        path0 = snl.SNLPath()
+        path0 = naja.SNLPath()
 
         self.assertEqual(self.noNameBusTop, netlist.get_snl_term_for_ids_with_path(path0, [self.noNameBusTop.getID(), netlist.get_none_existent()]))
 
@@ -253,33 +253,33 @@ class NajaNetlistTest0(unittest.TestCase):
         self.assertIsNotNone(path0)
         self.assertTrue(path0.empty())
         self.assertEqual(0, path0.size())
-        self.assertEqual(snl.SNLPath(), path0.getHeadPath())
+        self.assertEqual(naja.SNLPath(), path0.getHeadPath())
 
-        noNameModel_net = snl.SNLScalarNet.create(self.model, "noName")
+        noNameModel_net = naja.SNLScalarNet.create(self.model, "noName")
         self.noNameModel.setNet(noNameModel_net)
-        noNameModelBus_net = snl.SNLScalarNet.create(self.model, "busNoName")
+        noNameModelBus_net = naja.SNLScalarNet.create(self.model, "busNoName")
         self.noNameBusModel.getBusTermBit(0).setNet(noNameModelBus_net)
 
-        noNameTop_net = snl.SNLScalarNet.create(self.top, "noName")
+        noNameTop_net = naja.SNLScalarNet.create(self.top, "noName")
         self.noNameTop.setNet(noNameTop_net)
         ins1.getInstTerm(self.noNameModel).setNet(noNameTop_net)
-        noNameTopBus_net = snl.SNLScalarNet.create(self.top, "busNoName")
+        noNameTopBus_net = naja.SNLScalarNet.create(self.top, "busNoName")
         self.noNameBusTop.getBusTermBit(0).setNet(noNameTopBus_net)
         ins1.getInstTerm(self.noNameBusModel.getBusTermBit(0)).setNet(noNameTopBus_net)
 
         inst_terms = tuple(ins1.getInstTerms())
-        i0_net = snl.SNLScalarNet.create(self.top, "I0")
+        i0_net = naja.SNLScalarNet.create(self.top, "I0")
         inst_terms[0].setNet(i0_net)
         self.i0Top.setNet(i0_net)
-        i0_net_sub = snl.SNLScalarNet.create(self.model, "I0")
+        i0_net_sub = naja.SNLScalarNet.create(self.model, "I0")
         sub_inst_terms = tuple(ins2.getInstTerms())
         sub_inst_terms[0].setNet(i0_net_sub)
         self.i0.setNet(i0_net_sub)
         #print(inst_terms[0])
         
-        path1 = snl.SNLPath(path0, ins1)
+        path1 = naja.SNLPath(path0, ins1)
         self.assertTrue(path1.size() == 1)
-        path2 = snl.SNLPath(path1, ins2)
+        path2 = naja.SNLPath(path1, ins2)
         self.assertTrue(path2.size() == 2)
         self.assertTrue(path1.getHeadInstance() == ins1)
         self.assertTrue(path2.getHeadInstance() == ins1)
@@ -287,8 +287,8 @@ class NajaNetlistTest0(unittest.TestCase):
         inst_term = netlist.Term(path2.getPathIDs(), sub_inst_terms[0].getBitTerm())
         self.assertEqual(0, sub_inst_terms[0].getBitTerm().getFlatID())
         equi = netlist.Equipotential(inst_term)
-        net_component_occurrence2 = snl.SNLNetComponentOccurrence(path1, sub_inst_terms[0])
-        snlequi = snl.SNLEquipotential(net_component_occurrence2)
+        net_component_occurrence2 = naja.SNLNetComponentOccurrence(path1, sub_inst_terms[0])
+        najaequi = naja.SNLEquipotential(net_component_occurrence2)
 
         equi.dump_dot("./test_equipotential.dot")
         with self.assertRaises(Exception) as context: equi.dump_dot(1)
@@ -298,27 +298,27 @@ class NajaNetlistTest0(unittest.TestCase):
         for term in computeEqui.get_terms():
             print("--", term)
 
-        snl_top_terms = []
-        for t in snlequi.getTerms():
-            snl_top_terms.append(t)
+        naja_top_terms = []
+        for t in najaequi.getTerms():
+            naja_top_terms.append(t)
             print("----",t)
 
-        snl_inst_term_occurrences = []
-        for t in snlequi.getInstTermOccurrences():
-            snl_inst_term_occurrences.append(t)
+        naja_inst_term_occurrences = []
+        for t in najaequi.getInstTermOccurrences():
+            naja_inst_term_occurrences.append(t)
             print("----",t)
 
         
         
-        self.assertEqual(len(computeEqui.get_terms()), len(snl_top_terms) + len(snl_inst_term_occurrences))
+        self.assertEqual(len(computeEqui.get_terms()), len(naja_top_terms) + len(naja_inst_term_occurrences))
 
         for t in equi.get_top_terms():
-            to_compare_with = snl_top_terms.pop(0)
+            to_compare_with = naja_top_terms.pop(0)
             self.assertTrue(netlist.get_snl_term_for_ids(t.pathIDs, t.termIDs) == to_compare_with) 
             self.assertTrue(netlist.get_snl_term_for_ids_with_path(netlist.get_snl_path_from_id_list(t.pathIDs), t.termIDs) == to_compare_with)
 
         for t in equi.get_inst_terms():
-            to_compare_with = snl_inst_term_occurrences.pop(0)
+            to_compare_with = naja_inst_term_occurrences.pop(0)
             self.assertTrue(netlist.get_snl_term_for_ids_with_path(netlist.get_snl_path_from_id_list(t.pathIDs), t.termIDs) == to_compare_with.getInstTerm().getBitTerm())
             self.assertTrue(netlist.get_snl_term_for_ids(t.pathIDs, t.termIDs) == to_compare_with.getInstTerm().getBitTerm())
             self.assertTrue(netlist.get_snl_path_from_id_list(t.pathIDs).getHeadPath() == to_compare_with.getPath())
@@ -399,17 +399,17 @@ class NajaNetlistTest0(unittest.TestCase):
         with self.assertRaises(Exception) as context: instance.delete_instance("")
 
     def testTopTerm(self):
-        universe = snl.NLUniverse.create()
-        db = snl.NLDB.create(universe)
-        lib = snl.NLLibrary.create(db)
-        self.primitives = snl.NLLibrary.createPrimitives(db)
-        self.top = snl.SNLDesign.create(lib)
+        universe = naja.NLUniverse.create()
+        db = naja.NLDB.create(universe)
+        lib = naja.NLLibrary.create(db)
+        self.primitives = naja.NLLibrary.createPrimitives(db)
+        self.top = naja.SNLDesign.create(lib)
         universe.setTopDesign(self.top)
-        self.i0 = snl.SNLScalarTerm.create(self.top, snl.SNLTerm.Direction.Input, "I0")
-        self.i1 = snl.SNLScalarTerm.create(self.top, snl.SNLTerm.Direction.Input, "I1")
+        self.i0 = naja.SNLScalarTerm.create(self.top, naja.SNLTerm.Direction.Input, "I0")
+        self.i1 = naja.SNLScalarTerm.create(self.top, naja.SNLTerm.Direction.Input, "I1")
 
-        top_term = netlist.Term(snl.SNLPath().getPathIDs(), self.i0)
-        top_term2 = netlist.Term(snl.SNLPath().getPathIDs(), self.i1)
+        top_term = netlist.Term(naja.SNLPath().getPathIDs(), self.i0)
+        top_term2 = netlist.Term(naja.SNLPath().getPathIDs(), self.i1)
 
         terms = set()
         terms.add(top_term)
@@ -431,26 +431,26 @@ class NajaNetlistTest0(unittest.TestCase):
         self.assertGreaterEqual(top_term2, top_term)
     
     def testInstTerm(self):
-        universe = snl.NLUniverse.create()
-        db = snl.NLDB.create(universe)
-        lib = snl.NLLibrary.create(db)
-        self.primitives = snl.NLLibrary.createPrimitives(db)
-        self.top = snl.SNLDesign.create(lib)
+        universe = naja.NLUniverse.create()
+        db = naja.NLDB.create(universe)
+        lib = naja.NLLibrary.create(db)
+        self.primitives = naja.NLLibrary.createPrimitives(db)
+        self.top = naja.SNLDesign.create(lib)
         universe.setTopDesign(self.top)
-        self.model = snl.SNLDesign.create(lib, "model")
-        self.submodel = snl.SNLDesign.createPrimitive(self.primitives, "submodel")
-        self.i0 = snl.SNLScalarTerm.create(self.model, snl.SNLTerm.Direction.Input, "I0")
-        self.i1 = snl.SNLBusTerm.create(self.model, snl.SNLTerm.Direction.Input, 4, 0, "I1")
-        self.o = snl.SNLScalarTerm.create(self.model, snl.SNLTerm.Direction.Output, "O")
-        self.i0sub = snl.SNLScalarTerm.create(self.submodel, snl.SNLTerm.Direction.Input, "I0")
-        self.i1sub = snl.SNLBusTerm.create(self.submodel, snl.SNLTerm.Direction.Input, 4, 0, "I1")
-        self.osub = snl.SNLScalarTerm.create(self.submodel, snl.SNLTerm.Direction.Output, "O")
-        ins2 = snl.SNLInstance.create(self.model, self.submodel, "ins2")
-        ins1 = snl.SNLInstance.create(self.top, self.model, "ins1")
+        self.model = naja.SNLDesign.create(lib, "model")
+        self.submodel = naja.SNLDesign.createPrimitive(self.primitives, "submodel")
+        self.i0 = naja.SNLScalarTerm.create(self.model, naja.SNLTerm.Direction.Input, "I0")
+        self.i1 = naja.SNLBusTerm.create(self.model, naja.SNLTerm.Direction.Input, 4, 0, "I1")
+        self.o = naja.SNLScalarTerm.create(self.model, naja.SNLTerm.Direction.Output, "O")
+        self.i0sub = naja.SNLScalarTerm.create(self.submodel, naja.SNLTerm.Direction.Input, "I0")
+        self.i1sub = naja.SNLBusTerm.create(self.submodel, naja.SNLTerm.Direction.Input, 4, 0, "I1")
+        self.osub = naja.SNLScalarTerm.create(self.submodel, naja.SNLTerm.Direction.Output, "O")
+        ins2 = naja.SNLInstance.create(self.model, self.submodel, "ins2")
+        ins1 = naja.SNLInstance.create(self.top, self.model, "ins1")
 
-        path0 = snl.SNLPath()
-        path1 = snl.SNLPath(path0, ins1)
-        path2 = snl.SNLPath(path1, ins2)
+        path0 = naja.SNLPath()
+        path1 = naja.SNLPath(path0, ins1)
+        path2 = naja.SNLPath(path1, ins2)
         instance = netlist.Instance(path1)
         instTerm0 = instance.get_term("I0")
         self.assertIsNotNone(instTerm0)
