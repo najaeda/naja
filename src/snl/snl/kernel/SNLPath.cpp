@@ -7,8 +7,9 @@
 
 #include <sstream>
 
+#include "NLException.h"
+
 #include "SNLDesign.h"
-#include "SNLException.h"
 #include "SNLInstance.h"
 #include "SNLSharedPath.h"
 
@@ -34,7 +35,7 @@ SNLPath::SNLPath(SNLInstance* instance) : SNLPath() {
 SNLPath::SNLPath(SNLInstance* headInstance, const SNLPath& tailPath)
     : SNLPath() {
   if (not headInstance) {
-    throw SNLException("cannot create SNLPath with null head instance");
+    throw NLException("cannot create SNLPath with null head instance");
   }
 
   if (not tailPath.sharedPath_) {
@@ -53,7 +54,7 @@ SNLPath::SNLPath(SNLInstance* headInstance, const SNLPath& tailPath)
 SNLPath::SNLPath(const SNLPath& headPath, SNLInstance* tailInstance)
     : SNLPath() {
   if (not tailInstance) {
-    throw SNLException("Cannot create SNLPath with null tailInstance");
+    throw NLException("Cannot create SNLPath with null tailInstance");
   }
 
   if (not headPath.sharedPath_) {
@@ -67,7 +68,7 @@ SNLPath::SNLPath(const SNLPath& headPath, SNLInstance* tailInstance)
       error << headSharedPath->getModel()->getString();
       error << " and tail instance: " << tailInstance->getDescription();
       error << " with design: " << tailInstance->getDesign()->getString();
-      throw SNLException(error.str());
+      throw NLException(error.str());
     }
 
     sharedPath_ = tailInstance->getSharedPath(headSharedPath);
@@ -85,11 +86,11 @@ SNLPath::SNLPath(const SNLDesign* top, const PathStringDescriptor& descriptor)
     auto design = top;
     for (auto instanceName : descriptor) {
       if (instanceName.empty()) {
-        throw SNLException("Anonymous instance in SNLPath constructor.");
+        throw NLException("Anonymous instance in SNLPath constructor.");
       }
-      auto instance = design->getInstance(SNLName(instanceName));
+      auto instance = design->getInstance(NLName(instanceName));
       if (not instance) {
-        throw SNLException("Unfound instance in SNLPath constructor.");
+        throw NLException("Unfound instance in SNLPath constructor.");
       }
       instances.push_back(instance);
       design = instance->getModel();
@@ -175,7 +176,7 @@ bool SNLPath::operator<(const SNLPath& path) const {
         while (thisSharedPath) {
           auto thisTailInstance = thisSharedPath->getTailInstance();
           auto otherTailInstance = otherSharedPath->getTailInstance();
-          if (thisTailInstance->getSNLID() < otherTailInstance->getSNLID()) {
+          if (thisTailInstance->getNLID() < otherTailInstance->getNLID()) {
             return true;
           }
           thisSharedPath = thisSharedPath->getHeadSharedPath();
@@ -225,7 +226,7 @@ std::string SNLPath::getDescription(const char separator) const {
 }
 // LCOV_EXCL_STOP
 
-std::vector<SNLID::DesignObjectID> SNLPath::getPathIDs() const {
+std::vector<NLID::DesignObjectID> SNLPath::getPathIDs() const {
   if (not sharedPath_) {
     return {};
   }

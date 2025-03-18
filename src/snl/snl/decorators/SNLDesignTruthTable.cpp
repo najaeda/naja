@@ -7,8 +7,9 @@
 #include <sstream>
 
 #include "NajaDumpableProperty.h"
+#include "NLException.h"
+
 #include "SNLDesign.h"
-#include "SNLException.h"
 
 namespace {
     
@@ -28,7 +29,7 @@ void createProperty(
   const naja::SNL::SNLTruthTable& truthTable) {
   auto property = getProperty(design);
   if (property) {
-    throw naja::SNL::SNLException("Design already has a Truth Table");
+    throw naja::SNL::NLException("Design already has a Truth Table");
   }
   property = naja::NajaDumpableProperty::create(design, SNLDesignTruthTablePropertyName);
   property->addUInt64Value(truthTable.size());
@@ -41,14 +42,14 @@ namespace naja { namespace SNL {
 
 void SNLDesignTruthTable::setTruthTable(SNLDesign* design, const SNLTruthTable& truthTable) {
   if (not design->isPrimitive()) {
-    throw SNLException("Cannot add truth table on non-primitive design");
+    throw NLException("Cannot add truth table on non-primitive design");
   }
   auto outputFilter = [](const SNLTerm* term) { return term->getDirection() == SNLTerm::Direction::Output; };
   auto outputs = design->getTerms().getSubCollection(outputFilter);
   if (outputs.size() not_eq 1) {
     std::ostringstream reason;
     reason << "cannot add truth table on Design <" << design->getName().getString() << "> that has <" << outputs.size() << "> outputs";
-    throw SNLException(reason.str());
+    throw NLException(reason.str());
   }
   createProperty(design, truthTable);
 }

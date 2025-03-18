@@ -9,14 +9,14 @@ using ::testing::ElementsAre;
 #include <filesystem>
 #include <fstream>
 
-#include "SNLUniverse.h"
+#include "NLUniverse.h"
+#include "NLException.h"
 #include "SNLScalarNet.h"
 #include "SNLBusNet.h"
 #include "SNLBusNetBit.h"
 #include "SNLUtils.h"
 #include "SNLBitTerm.h"
 #include "SNLInstTerm.h"
-#include "SNLException.h"
 
 #include "SNLPyLoader.h"
 #include "SNLVRLConstructor.h"
@@ -30,21 +30,21 @@ using namespace naja::SNL;
 class SNLVRLConstructorTestDefParams: public ::testing::Test {
   protected:
     void SetUp() override {
-      SNLUniverse* universe = SNLUniverse::create();
-      auto db = SNLDB::create(universe);
-      library_ = SNLLibrary::create(db, SNLName("MYLIB"));
+      NLUniverse* universe = NLUniverse::create();
+      auto db = NLDB::create(universe);
+      library_ = NLLibrary::create(db, NLName("MYLIB"));
     }
     void TearDown() override {
-      SNLUniverse::get()->destroy();
+      NLUniverse::get()->destroy();
       library_ = nullptr;
     }
   protected:
-    SNLLibrary*      library_;
+    NLLibrary*  library_;
 };
 
 TEST_F(SNLVRLConstructorTestDefParams, test) {
-  auto db = SNLDB::create(SNLUniverse::get());
-  auto prims = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("PRIMS"));
+  auto db = NLDB::create(NLUniverse::get());
+  auto prims = NLLibrary::create(db, NLLibrary::Type::Primitives, NLName("PRIMS"));
   auto primitivesPath = std::filesystem::path(SNL_VRL_BENCHMARKS_PATH);
   primitivesPath /= "primitives1.py";
   SNLPyLoader::loadPrimitives(prims, primitivesPath);
@@ -53,32 +53,32 @@ TEST_F(SNLVRLConstructorTestDefParams, test) {
   constructor.construct(benchmarksPath/"test_defparams.v");
 
   ASSERT_EQ(1, library_->getDesigns().size());
-  auto ins_decode = library_->getDesign(SNLName("ins_decode"));
+  auto ins_decode = library_->getDesign(NLName("ins_decode"));
   ASSERT_NE(ins_decode, nullptr);
   ASSERT_EQ(5, ins_decode->getInstances().size());
   using Instances = std::vector<SNLInstance*>;
   Instances instances(ins_decode->getInstances().begin(), ins_decode->getInstances().end());
   EXPECT_THAT(instances,
     ElementsAre(
-      ins_decode->getInstance(SNLName("decodes_in_0_0_1_0[7]")),
-      ins_decode->getInstance(SNLName("decodes_in_0_a2_i_o3[8]")),
-      ins_decode->getInstance(SNLName("decodes_RNO[6]")),
-      ins_decode->getInstance(SNLName("GND_Z")),
-      ins_decode->getInstance(SNLName("VCC_Z"))
+      ins_decode->getInstance(NLName("decodes_in_0_0_1_0[7]")),
+      ins_decode->getInstance(NLName("decodes_in_0_a2_i_o3[8]")),
+      ins_decode->getInstance(NLName("decodes_RNO[6]")),
+      ins_decode->getInstance(NLName("GND_Z")),
+      ins_decode->getInstance(NLName("VCC_Z"))
     )
   );
-  auto ins0 = ins_decode->getInstance(SNLName("decodes_in_0_0_1_0[7]"));
+  auto ins0 = ins_decode->getInstance(NLName("decodes_in_0_0_1_0[7]"));
   ASSERT_NE(ins0, nullptr);
   EXPECT_EQ(1, ins0->getInstParameters().size());
   auto param = *(ins0->getInstParameters().begin());
   EXPECT_EQ("INIT", param->getName().getString());
   EXPECT_EQ("16'h5054", param->getValue());
 
-  auto ins1 = ins_decode->getInstance(SNLName("decodes_in_0_a2_i_o3[8]"));
+  auto ins1 = ins_decode->getInstance(NLName("decodes_in_0_a2_i_o3[8]"));
   ASSERT_NE(ins1, nullptr);
   EXPECT_TRUE(ins1->getInstParameters().empty());
 
-  auto ins2 = ins_decode->getInstance(SNLName("decodes_RNO[6]"));
+  auto ins2 = ins_decode->getInstance(NLName("decodes_RNO[6]"));
   ASSERT_NE(ins2, nullptr);
   EXPECT_EQ(1, ins2->getInstParameters().size());
   param = *(ins2->getInstParameters().begin());
@@ -87,22 +87,22 @@ TEST_F(SNLVRLConstructorTestDefParams, test) {
 }
 
 TEST_F(SNLVRLConstructorTestDefParams, testErrors0) {
-  auto db = SNLDB::create(SNLUniverse::get());
+  auto db = NLDB::create(NLUniverse::get());
   SNLVRLConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_VRL_BENCHMARKS_PATH);
-  EXPECT_THROW(constructor.construct(benchmarksPath/"errors"/"error_defparams_0.v"), SNLException);
+  EXPECT_THROW(constructor.construct(benchmarksPath/"errors"/"error_defparams_0.v"), NLException);
 }
 
 TEST_F(SNLVRLConstructorTestDefParams, testErrors1) {
-  auto db = SNLDB::create(SNLUniverse::get());
+  auto db = NLDB::create(NLUniverse::get());
   SNLVRLConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_VRL_BENCHMARKS_PATH);
-  EXPECT_THROW(constructor.construct(benchmarksPath/"errors"/"error_defparams_1.v"), SNLException);
+  EXPECT_THROW(constructor.construct(benchmarksPath/"errors"/"error_defparams_1.v"), NLException);
 }
 
 TEST_F(SNLVRLConstructorTestDefParams, testErrors2) {
-  auto db = SNLDB::create(SNLUniverse::get());
+  auto db = NLDB::create(NLUniverse::get());
   SNLVRLConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_VRL_BENCHMARKS_PATH);
-  EXPECT_THROW(constructor.construct(benchmarksPath/"errors"/"error_defparams_2.v"), SNLException);
+  EXPECT_THROW(constructor.construct(benchmarksPath/"errors"/"error_defparams_2.v"), NLException);
 }

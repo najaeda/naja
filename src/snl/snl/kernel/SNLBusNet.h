@@ -30,14 +30,14 @@ class SNLBusNet final: public SNLNet {
      */
     static SNLBusNet* create(
         SNLDesign* design,
-        SNLID::Bit msb,
-        SNLID::Bit lsb,
-        const SNLName& name=SNLName());
+        NLID::Bit msb,
+        NLID::Bit lsb,
+        const NLName& name=NLName());
     
     /**
-     * \brief Create a SNLBusNet with a given SNLID::DesignObjectID.
+     * \brief Create a SNLBusNet with a given NLID::DesignObjectID.
      * \param design owner SNLDesign.
-     * \param id SNLID::DesignObjectID of the SNLBusNet.
+     * \param id NLID::DesignObjectID of the SNLBusNet.
      * \param msb MSB (Most Significant Bit) or left hand side of the bus range.
      * \param lsb LSB (Most Significant Bit) or right hand side of the bus range.
      * \param name optional name.
@@ -45,32 +45,32 @@ class SNLBusNet final: public SNLNet {
      */
     static SNLBusNet* create(
         SNLDesign* design,
-        SNLID::DesignObjectID id,
-        SNLID::Bit msb,
-        SNLID::Bit lsb,
-        const SNLName& name=SNLName());
+        NLID::DesignObjectID id,
+        NLID::Bit msb,
+        NLID::Bit lsb,
+        const NLName& name=NLName());
 
     SNLDesign* getDesign() const override { return design_; }
     /// \return MSB (Most Significant Bit) or left hand side of the bus range.
-    SNLID::Bit getMSB() const { return msb_; }
+    NLID::Bit getMSB() const { return msb_; }
     /// \return LSB (Most Significant Bit) or right hand side of the bus range.
-    SNLID::Bit getLSB() const { return lsb_; }
-    SNLID::Bit getWidth() const override;
-    SNLBusNetBit* getBit(SNLID::Bit bit) const;
+    NLID::Bit getLSB() const { return lsb_; }
+    NLID::Bit getWidth() const override;
+    SNLBusNetBit* getBit(NLID::Bit bit) const;
     SNLBusNetBit* getBitAtPosition(size_t position) const;
-    size_t getBitPosition(SNLID::Bit bit) const;
+    size_t getBitPosition(NLID::Bit bit) const;
     NajaCollection<SNLBitNet*> getBits() const override;
     NajaCollection<SNLBusNetBit*> getBusBits() const;
-    SNLID::DesignObjectID getID() const override { return id_; }
-    SNLID getSNLID() const override;
-    SNLName getName() const override { return name_; }
-    void setName(const SNLName& name) override;
+    NLID::DesignObjectID getID() const override { return id_; }
+    NLID getNLID() const override;
+    NLName getName() const override { return name_; }
+    void setName(const NLName& name) override;
     bool isAnonymous() const override { return name_.empty(); }
 
     void insertBits(
         std::vector<SNLBitNet*>& bits,
         std::vector<SNLBitNet*>::const_iterator position,
-        SNLID::Bit msb, SNLID::Bit lsb);
+        NLID::Bit msb, NLID::Bit lsb);
 
     void setType(const Type& type) override;
     bool isAllNull() const;
@@ -87,17 +87,17 @@ class SNLBusNet final: public SNLNet {
   private:
     SNLBusNet(
         SNLDesign* design,
-        SNLID::Bit msb,
-        SNLID::Bit lsb,
-        const SNLName& name);
+        NLID::Bit msb,
+        NLID::Bit lsb,
+        const NLName& name);
     SNLBusNet(
         SNLDesign* design,
-        SNLID::DesignObjectID id,
-        SNLID::Bit msb,
-        SNLID::Bit lsb,
-        const SNLName& name);
-    static void preCreate(const SNLDesign* design, const SNLName& name);
-    static void preCreate(const SNLDesign* design, SNLID::DesignObjectID id, const SNLName& name);
+        NLID::DesignObjectID id,
+        NLID::Bit msb,
+        NLID::Bit lsb,
+        const NLName& name);
+    static void preCreate(const SNLDesign* design, const NLName& name);
+    static void preCreate(const SNLDesign* design, NLID::DesignObjectID id, const NLName& name);
     void createBits();
     void postCreateAndSetID();
     void postCreate();
@@ -107,15 +107,15 @@ class SNLBusNet final: public SNLNet {
     void removeBit(SNLBusNetBit* bit);
     SNLNet* clone(SNLDesign* design) const override;
 
-    void setID(SNLID::DesignObjectID id) override { id_ = id; }
+    void setID(NLID::DesignObjectID id) override { id_ = id; }
 
     using Bits = std::vector<SNLBusNetBit*>;
 
     SNLDesign*            design_;
-    SNLID::DesignObjectID id_;
-    SNLName               name_   {};
-    SNLID::Bit            msb_;
-    SNLID::Bit            lsb_;
+    NLID::DesignObjectID  id_;
+    NLName                name_   {};
+    NLID::Bit             msb_;
+    NLID::Bit             lsb_;
     Bits                  bits_   {};
 };
 

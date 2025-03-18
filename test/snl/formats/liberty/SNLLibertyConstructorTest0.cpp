@@ -4,7 +4,8 @@
 
 #include "gtest/gtest.h"
 
-#include "SNLUniverse.h"
+#include "NLUniverse.h"
+
 #include "SNLScalarTerm.h"
 
 #include "SNLLibertyConstructor.h"
@@ -21,16 +22,16 @@ using namespace naja::SNL;
 class SNLLibertyConstructorTest0: public ::testing::Test {
   protected:
     void SetUp() override {
-      SNLUniverse* universe = SNLUniverse::create();
-      auto db = SNLDB::create(universe);
-      library_ = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("MYLIB"));
+      NLUniverse* universe = NLUniverse::create();
+      auto db = NLDB::create(universe);
+      library_ = NLLibrary::create(db, NLLibrary::Type::Primitives, NLName("MYLIB"));
     }
     void TearDown() override {
-      SNLUniverse::get()->destroy();
+      NLUniverse::get()->destroy();
       library_ = nullptr;
     }
   protected:
-    SNLLibrary*      library_;
+    NLLibrary*  library_;
 };
 
 TEST_F(SNLLibertyConstructorTest0, test0) {
@@ -41,25 +42,25 @@ TEST_F(SNLLibertyConstructorTest0, test0) {
       / std::filesystem::path("asap7_excerpt")
       / std::filesystem::path("test0.lib"));
   constructor.construct(testPath);
-  EXPECT_EQ(SNLName("asap7sc7p5t_AO_LVT_FF_ccs_201020"), library_->getName());
+  EXPECT_EQ(NLName("asap7sc7p5t_AO_LVT_FF_ccs_201020"), library_->getName());
   EXPECT_EQ(library_->getDesigns().size(), 2);
-  auto design = library_->getDesign(SNLName("A2O1A1Ixp33_ASAP7_75t_L"));
+  auto design = library_->getDesign(NLName("A2O1A1Ixp33_ASAP7_75t_L"));
   ASSERT_NE(nullptr, design);
   EXPECT_EQ(5, design->getTerms().size());
   EXPECT_EQ(5, design->getScalarTerms().size());
-  auto a1 = design->getScalarTerm(SNLName("A1"));
+  auto a1 = design->getScalarTerm(NLName("A1"));
   ASSERT_NE(nullptr, a1);
   EXPECT_EQ(SNLTerm::Direction::Input, a1->getDirection());
-  auto a2 = design->getScalarTerm(SNLName("A2"));
+  auto a2 = design->getScalarTerm(NLName("A2"));
   ASSERT_NE(nullptr, a2);
   EXPECT_EQ(SNLTerm::Direction::Input, a2->getDirection());
-  auto b = design->getScalarTerm(SNLName("B"));
+  auto b = design->getScalarTerm(NLName("B"));
   ASSERT_NE(nullptr, b);
   EXPECT_EQ(SNLTerm::Direction::Input, b->getDirection());
-  auto c = design->getScalarTerm(SNLName("C"));
+  auto c = design->getScalarTerm(NLName("C"));
   ASSERT_NE(nullptr, c);
   EXPECT_EQ(SNLTerm::Direction::Input, c->getDirection());
-  auto y = design->getScalarTerm(SNLName("Y"));
+  auto y = design->getScalarTerm(NLName("Y"));
   ASSERT_NE(nullptr, y);
   EXPECT_EQ(SNLTerm::Direction::Output, y->getDirection());
 }
@@ -73,11 +74,11 @@ TEST_F(SNLLibertyConstructorTest0, testInOut) {
       / std::filesystem::path("inout_test.lib"));
   constructor.construct(testPath);
   EXPECT_EQ(library_->getDesigns().size(), 1);
-  auto design = library_->getDesign(SNLName("iocell"));
+  auto design = library_->getDesign(NLName("iocell"));
   ASSERT_NE(nullptr, design);
   EXPECT_EQ(1, design->getTerms().size());
   EXPECT_EQ(1, design->getScalarTerms().size());
-  auto z = design->getScalarTerm(SNLName("Z"));
+  auto z = design->getScalarTerm(NLName("Z"));
   EXPECT_EQ(SNLTerm::Direction::InOut, z->getDirection());
 }
 
@@ -90,13 +91,13 @@ TEST_F(SNLLibertyConstructorTest0, testInternalPin) {
       / std::filesystem::path("internal_pin_test.lib"));
   constructor.construct(testPath);
   EXPECT_EQ(library_->getDesigns().size(), 1);
-  auto design = library_->getDesign(SNLName("internal_pin_test"));
+  auto design = library_->getDesign(NLName("internal_pin_test"));
   ASSERT_NE(nullptr, design);
   EXPECT_EQ(2, design->getTerms().size());
   EXPECT_EQ(2, design->getScalarTerms().size());
-  auto i = design->getScalarTerm(SNLName("I"));
+  auto i = design->getScalarTerm(NLName("I"));
   EXPECT_EQ(SNLTerm::Direction::Input, i->getDirection());
-  auto z = design->getScalarTerm(SNLName("Z"));
+  auto z = design->getScalarTerm(NLName("Z"));
   EXPECT_EQ(SNLTerm::Direction::Output, z->getDirection());
 }
 

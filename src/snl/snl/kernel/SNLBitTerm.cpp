@@ -3,10 +3,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "SNLBitTerm.h"
+
+#include "NLException.h"
+
 #include "SNLDesign.h"
 #include "SNLBusNet.h"
 #include "SNLBusNetBit.h"
-#include "SNLException.h"
 #include "SNLMacros.h"
 
 namespace naja { namespace SNL {

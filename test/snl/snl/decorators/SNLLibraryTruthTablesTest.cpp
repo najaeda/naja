@@ -4,27 +4,27 @@
 
 #include "gtest/gtest.h"
 
-#include "SNLUniverse.h"
-#include "SNLLibraryTruthTables.h"
-#include "SNLException.h"
+#include "NLUniverse.h"
+#include "NLException.h"
+#include "NLLibraryTruthTables.h"
 using namespace naja::SNL;
 
-class SNLLibraryTruthTablesTest: public ::testing::Test {
+class NLLibraryTruthTablesTest: public ::testing::Test {
   protected:
     void SetUp() override {
-      auto universe = SNLUniverse::create();
-      auto db = SNLDB::create(universe);
-      primitives_ = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("PRIMS"));
+      auto universe = NLUniverse::create();
+      auto db = NLDB::create(universe);
+      primitives_ = NLLibrary::create(db, NLLibrary::Type::Primitives, NLName("PRIMS"));
     }
     void TearDown() override {
-      if (SNLUniverse::get()) {
-        SNLUniverse::get()->destroy();
+      if (NLUniverse::get()) {
+        NLUniverse::get()->destroy();
       }
     }
-    SNLLibrary* primitives_ {};
+    NLLibrary* primitives_ {};
 };
 
-TEST_F(SNLLibraryTruthTablesTest, test) {
-  EXPECT_EQ(SNLLibraryTruthTables::LibraryTruthTables(), SNLLibraryTruthTables::construct(primitives_));
-  EXPECT_EQ(SNLLibraryTruthTables::LibraryTruthTables(), SNLLibraryTruthTables::getTruthTables(primitives_));
+TEST_F(NLLibraryTruthTablesTest, test) {
+  EXPECT_EQ(NLLibraryTruthTables::LibraryTruthTables(), NLLibraryTruthTables::construct(primitives_));
+  EXPECT_EQ(NLLibraryTruthTables::LibraryTruthTables(), NLLibraryTruthTables::getTruthTables(primitives_));
 }

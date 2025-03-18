@@ -9,7 +9,8 @@
 
 #include "SNLNetlist0.h"
 
-#include "SNLUniverse.h"
+#include "NLUniverse.h"
+
 #include "SNLBusTerm.h"
 #include "SNLBusTermBit.h"
 #include "SNLBusNetBit.h"
@@ -19,17 +20,17 @@ using namespace naja::SNL;
 class SNLNetlistTest0: public ::testing::Test {
   protected:
     void SetUp() override {
-      SNLUniverse* universe = SNLUniverse::create();
-      auto db = SNLDB::create(universe);
+      NLUniverse* universe = NLUniverse::create();
+      auto db = NLDB::create(universe);
       SNLNetlist0::create(db);
     }
     void TearDown() override {
-      SNLUniverse::get()->destroy();
+      NLUniverse::get()->destroy();
     }
 };
 
 TEST_F(SNLNetlistTest0, test) {
-  auto universe = SNLUniverse::get();
+  auto universe = NLUniverse::get();
   ASSERT_NE(nullptr, universe);
   ASSERT_NE(nullptr, SNLNetlist0::getDB());
   ASSERT_NE(nullptr, SNLNetlist0::getDesignsLib());

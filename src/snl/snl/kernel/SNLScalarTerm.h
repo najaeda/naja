@@ -21,28 +21,28 @@ class SNLScalarTerm final: public SNLBitTerm {
      * \param name optional name.
      * \return created SNLScalarTerm. 
      */
-    static SNLScalarTerm* create(SNLDesign* design, Direction direction, const SNLName& name=SNLName());
+    static SNLScalarTerm* create(SNLDesign* design, Direction direction, const NLName& name=NLName());
 
     /**
-     * \brief Create a SNLScalarTerm with a given SNLID::DesignObjectID.
+     * \brief Create a SNLScalarTerm with a given NLID::DesignObjectID.
      * \param design owner SNLDesign.
-     * \param id SNLID::DesignObjectID of the instance.
+     * \param id NLID::DesignObjectID of the instance.
      * \param direction direction of the term.
      * \param name optional name.
      * \return created SNLScalarTerm.
      */
-    static SNLScalarTerm* create(SNLDesign* design, SNLID::DesignObjectID id, Direction direction, const SNLName& name=SNLName());
+    static SNLScalarTerm* create(SNLDesign* design, NLID::DesignObjectID id, Direction direction, const NLName& name=NLName());
 
     SNLDesign* getDesign() const override { return design_; }
-    SNLID getSNLID() const override;
-    SNLID::DesignObjectID getID() const override { return id_; }
-    SNLID::Bit getBit() const override { return 0; }
+    NLID getNLID() const override;
+    NLID::DesignObjectID getID() const override { return id_; }
+    NLID::Bit getBit() const override { return 0; }
     size_t getFlatID() const override { return flatID_; }
-    SNLName getName() const override { return name_; }
+    NLName getName() const override { return name_; }
     bool isAnonymous() const override { return name_.empty(); }
 
     /// \brief Change the name of this SNLScalarTerm.
-    void setName(const SNLName& name) override;
+    void setName(const NLName& name) override;
 
     NajaCollection<SNLBitTerm*> getBits() const override;
     SNLTerm::Direction getDirection() const override { return direction_; }
@@ -54,10 +54,10 @@ class SNLScalarTerm final: public SNLBitTerm {
     void debugDump(size_t indent, bool recursive=true, std::ostream& stream=std::cerr) const override;
     bool deepCompare(const SNLTerm* other, std::string& reason) const override;
   private:
-    SNLScalarTerm(SNLDesign* design, Direction direction, const SNLName& name);
-    SNLScalarTerm(SNLDesign* design, SNLID::DesignObjectID, Direction direction, const SNLName& name);
-    static void preCreate(SNLDesign* design, const SNLName& name);
-    static void preCreate(SNLDesign* design, SNLID::DesignObjectID id, const SNLName& name);
+    SNLScalarTerm(SNLDesign* design, Direction direction, const NLName& name);
+    SNLScalarTerm(SNLDesign* design, NLID::DesignObjectID, Direction direction, const NLName& name);
+    static void preCreate(SNLDesign* design, const NLName& name);
+    static void preCreate(SNLDesign* design, NLID::DesignObjectID id, const NLName& name);
     void postCreateAndSetID();
     void postCreate();
     void destroyFromDesign() override;
@@ -65,13 +65,13 @@ class SNLScalarTerm final: public SNLBitTerm {
     void commonPreDestroy();
     void preDestroy() override;
 
-    void setID(SNLID::DesignObjectID id) override { id_ = id; }
+    void setID(NLID::DesignObjectID id) override { id_ = id; }
     void setFlatID(size_t flatID) override {flatID_ = flatID; }
 
     SNLDesign*            design_;
-    SNLID::DesignObjectID id_         {};
+    NLID::DesignObjectID  id_         {0};
     size_t                flatID_     {0};
-    SNLName               name_       {};
+    NLName                name_       {};
     SNLTerm::Direction    direction_;  
 };
 

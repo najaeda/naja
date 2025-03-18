@@ -4,14 +4,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "ActionTree.h"
-#include "Utils.h"
-
-#include "SNLDesign.h"
-#include "SNLDesignObject.h"
-#include "SNLID.h"
-#include "SNLInstance.h"
-#include "SNLUniquifier.h"
-#include "SNLUniverse.h"
 
 #include <algorithm>
 #include <cassert>
@@ -21,20 +13,29 @@
 #include <stack>
 #include <vector>
 
+#include "Utils.h"
+#include "NLUniverse.h"
+#include "NLID.h"
+
+#include "SNLDesign.h"
+#include "SNLDesignObject.h"
+#include "SNLInstance.h"
+#include "SNLUniquifier.h"
+
 using namespace naja::SNL;
 using namespace naja::BNE;
 
 ActionTree::ActionTree(bool blockNormalization, bool keepOrder)
     : blockNormalization_(blockNormalization), keepOrder_(keepOrder) {
-  if (not SNLUniverse::get()->getTopDesign()) {
-    throw SNLException("cannot create ActionTree with null top design");
+  if (not NLUniverse::get()->getTopDesign()) {
+    throw NLException("cannot create ActionTree with null top design");
   }
-  nodes_.push_back({0, SNLUniverse::get()->getTopDesign()->getSNLID(),
+  nodes_.push_back({0, NLUniverse::get()->getTopDesign()->getNLID(),
                     std::pair<size_t, size_t>((size_t)-1, 0), 0, this});
 }
 
 ActionTreeNode* ActionTree::getNodeForContext(
-    const std::vector<SNLID::DesignObjectID>& context) {
+    const std::vector<NLID::DesignObjectID>& context) {
   size_t id = nodes_[0].getID();
   for (auto& instance : context) {
     ActionTreeNode* child = nodes_[id].getChild(instance);
@@ -47,16 +48,16 @@ ActionTreeNode* ActionTree::getNodeForContext(
 }
 
 ActionTreeNode& ActionTree::addHierChild(
-    const std::vector<SNLID::DesignObjectID>& context) {
+    const std::vector<NLID::DesignObjectID>& context) {
   size_t id = nodes_[0].getID();
-  SNLDesign* model = SNLUniverse::get()->getTopDesign();
-  std::vector<SNLID::DesignObjectID> partialContextCheck;
+  SNLDesign* model = NLUniverse::get()->getTopDesign();
+  std::vector<NLID::DesignObjectID> partialContextCheck;
   for (auto& instance : context) {
     partialContextCheck.push_back(instance);
     model = model->getInstance(instance)->getModel();
     ActionTreeNode* child = nodes_[id].getChild(instance);
     if (child == nullptr) {
-      nodes_.push_back({instance, model->getSNLID(),
+      nodes_.push_back({instance, model->getNLID(),
                         std::pair<size_t, size_t>(nodes_[id].getID(), instance),
                         nodes_.size(), this});
       nodes_[id].addChild(nodes_.size() - 1);
@@ -91,21 +92,21 @@ void ActionTree::normalize() {
     }
   }
   // Collect in dfs manner all the tree nodes into a map with key of snlid
-  std::map<SNLID, std::vector<ActionTreeNode*>> snlid2Node;
+  std::map<NLID, std::vector<ActionTreeNode*>> snlid2Node;
   std::vector<ActionTreeNode*> stack;
   stack.push_back(&nodes_[0]);
-  std::vector<SNLID> snlidorder;
+  std::vector<NLID> snlidorder;
   while (!stack.empty()) {
     ActionTreeNode* currentNode = stack.back();
     stack.pop_back();
-    if (snlid2Node.find(currentNode->getSNLID()) != snlid2Node.end()) {
+    if (snlid2Node.find(currentNode->getNLID()) != snlid2Node.end()) {
       assert(getInstanceForPath(
-                 snlid2Node[currentNode->getSNLID()].back()->getContext())
+                 snlid2Node[currentNode->getNLID()].back()->getContext())
                  ->getModel() ==
              (getInstanceForPath(currentNode->getContext()))->getModel());
     }
-    snlid2Node[currentNode->getSNLID()].push_back(currentNode);
-    snlidorder.push_back(currentNode->getSNLID());
+    snlid2Node[currentNode->getNLID()].push_back(currentNode);
+    snlidorder.push_back(currentNode->getNLID());
 
     for (auto& child : currentNode->getChildren()) {
       stack.push_back(&nodes_[child]);
@@ -228,14 +229,14 @@ void ActionTree::process() {
     if (/*!currentNode->getActions().empty() &&*/ currentNode->getParents()[0].first != (size_t)-1
             /*&& !nodes_[currentNode->getParents()[0].first].getContext().empty()*/)
         {
-      SNLDesign* top = SNLUniverse::get()->getTopDesign();
+      SNLDesign* top = NLUniverse::get()->getTopDesign();
       SNLDesign* design = top;
-      std::vector<SNLID::DesignObjectID> path = currentNode->getContext();
+      std::vector<NLID::DesignObjectID> path = currentNode->getContext();
       // path.pop_back();
       std::string id("");
-      std::vector<SNLID::DesignObjectID> pathIds;
+      std::vector<NLID::DesignObjectID> pathIds;
       while (!path.empty()) {
-        SNLID::DesignObjectID name = path.front();
+        NLID::DesignObjectID name = path.front();
         path.erase(path.begin());
         SNLInstance* inst = design->getInstance(name);
         assert(inst);
@@ -251,7 +252,7 @@ void ActionTree::process() {
     for (auto& action : currentNode->getActions()) {
       if (actions_[action.order]->getContext().empty()) {
         actions_[action.order]->processOnContext(
-            SNLUniverse::get()->getTopDesign());
+            NLUniverse::get()->getTopDesign());
       } else {
         actions_[action.order]->processOnContext(
             getInstanceForPath(actions_[action.order]->getContext())
@@ -263,7 +264,7 @@ void ActionTree::process() {
     }
     // set all paths of parents to the new model
     for (auto& parent : currentNode->getParents()) {
-      std::vector<SNLID::DesignObjectID> context =
+      std::vector<NLID::DesignObjectID> context =
           nodes_[parent.first].getContext(); // <-- the crush
       context.push_back((unsigned)parent.second);
       getInstanceForPath(context)->setModel(
@@ -278,7 +279,7 @@ ActionTree::~ActionTree() {
   }
 }
 
-ActionTreeNode* ActionTreeNode::getChild(SNLID::DesignObjectID instance) {
+ActionTreeNode* ActionTreeNode::getChild(NLID::DesignObjectID instance) {
   for (auto& child : children_) {
     if (tree_->getNode(child).getInstance() == instance) {
       return &tree_->getNode(child);
@@ -287,8 +288,8 @@ ActionTreeNode* ActionTreeNode::getChild(SNLID::DesignObjectID instance) {
   return nullptr;
 }
 
-std::vector<SNLID::DesignObjectID> ActionTreeNode::getContext() const {
-  std::vector<SNLID::DesignObjectID> context;
+std::vector<NLID::DesignObjectID> ActionTreeNode::getContext() const {
+  std::vector<NLID::DesignObjectID> context;
   // collect the DOID from node until root and then reverse
   const ActionTreeNode* currentNode = this;
   assert(currentNode->isPartOfTree());

@@ -7,7 +7,8 @@
 #include <filesystem>
 #include <fstream>
 
-#include "SNLUniverse.h"
+#include "NLUniverse.h"
+
 #include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
 #include "SNLBusTermBit.h"
@@ -29,16 +30,16 @@ using namespace naja::SNL;
 class SNLVRLConstructorTest1: public ::testing::Test {
   protected:
     void SetUp() override {
-      SNLUniverse* universe = SNLUniverse::create();
-      auto db = SNLDB::create(universe);
-      library_ = SNLLibrary::create(db, SNLName("MYLIB"));
+      NLUniverse* universe = NLUniverse::create();
+      auto db = NLDB::create(universe);
+      library_ = NLLibrary::create(db, NLName("MYLIB"));
     }
     void TearDown() override {
-      SNLUniverse::get()->destroy();
+      NLUniverse::get()->destroy();
       library_ = nullptr;
     }
   protected:
-    SNLLibrary*      library_;
+    NLLibrary*  library_;
 };
 
 TEST_F(SNLVRLConstructorTest1, test) {
@@ -46,9 +47,9 @@ TEST_F(SNLVRLConstructorTest1, test) {
   std::filesystem::path benchmarksPath(SNL_VRL_BENCHMARKS_PATH);
   constructor.parse(benchmarksPath/"test0.v");
   ASSERT_EQ(3, library_->getDesigns().size());
-  auto mod0 = library_->getDesign(SNLName("mod0"));
-  auto mod1 = library_->getDesign(SNLName("mod1"));
-  auto test = library_->getDesign(SNLName("test")); 
+  auto mod0 = library_->getDesign(NLName("mod0"));
+  auto mod1 = library_->getDesign(NLName("mod1"));
+  auto test = library_->getDesign(NLName("test")); 
   ASSERT_TRUE(mod0);
   ASSERT_TRUE(test);
   EXPECT_TRUE(mod0->getNets().empty());
@@ -57,15 +58,15 @@ TEST_F(SNLVRLConstructorTest1, test) {
   EXPECT_TRUE(test->getInstances().empty());
 
   EXPECT_EQ(2, mod0->getTerms().size());
-  auto mod0i0 = mod0->getScalarTerm(SNLName("i0"));
+  auto mod0i0 = mod0->getScalarTerm(NLName("i0"));
   ASSERT_NE(mod0i0, nullptr);
   EXPECT_EQ(mod0i0->getDirection(), SNLTerm::Direction::Input);
-  auto mod0o0 = mod0->getScalarTerm(SNLName("o0"));
+  auto mod0o0 = mod0->getScalarTerm(NLName("o0"));
   EXPECT_NE(mod0o0, nullptr);
   EXPECT_EQ(mod0o0->getDirection(), SNLTerm::Direction::Output);
   
   EXPECT_EQ(2, mod1->getTerms().size());
-  auto mod1i = mod1->getBusTerm(SNLName("i"));
+  auto mod1i = mod1->getBusTerm(NLName("i"));
   ASSERT_NE(mod1i, nullptr);
   EXPECT_EQ(mod1i->getDirection(), SNLTerm::Direction::Input);
   EXPECT_EQ(5, mod1i->getWidth());
@@ -74,13 +75,13 @@ TEST_F(SNLVRLConstructorTest1, test) {
 
   {
     EXPECT_EQ(3, test->getTerms().size());
-    auto i = test->getTerm(SNLName("i"));
+    auto i = test->getTerm(NLName("i"));
     EXPECT_NE(i, nullptr);
     EXPECT_EQ(i->getDirection(), SNLTerm::Direction::Input);
-    auto o = test->getTerm(SNLName("o"));
+    auto o = test->getTerm(NLName("o"));
     EXPECT_NE(o, nullptr);
     EXPECT_EQ(o->getDirection(), SNLTerm::Direction::Output);
-    auto io = test->getTerm(SNLName("io"));
+    auto io = test->getTerm(NLName("io"));
     EXPECT_NE(io, nullptr);
     EXPECT_EQ(io->getDirection(), SNLTerm::Direction::InOut);
   }
@@ -91,7 +92,7 @@ TEST_F(SNLVRLConstructorTest1, test) {
   EXPECT_TRUE(mod0->isBlackBox());
   EXPECT_EQ(4, mod0->getNets().size());
   {
-    auto i0Net = mod0->getNet(SNLName("i0"));
+    auto i0Net = mod0->getNet(NLName("i0"));
     ASSERT_NE(i0Net, nullptr);
     auto i0ScalarNet = dynamic_cast<SNLScalarNet*>(i0Net);
     EXPECT_EQ(SNLNet::Type::Standard, i0ScalarNet->getType());
@@ -194,10 +195,10 @@ TEST_F(SNLVRLConstructorTest1, testMultipleFirstPassError) {
   SNLVRLConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_VRL_BENCHMARKS_PATH);
   constructor.parse(benchmarksPath/"test0.v");
-  //Will throw SNLException for library already containing module
+  //Will throw NLException for library already containing module
   EXPECT_THROW(
     constructor.parse(benchmarksPath/"test0.v"),
-    SNLException
+    NLException
   );
 }
 

@@ -16,10 +16,10 @@ from najaeda import snl
 class NajaNetlistTest2(unittest.TestCase):
     def setUp(self):
         logging.basicConfig(level=logging.DEBUG)
-        universe = snl.SNLUniverse.create()
-        db = snl.SNLDB.create(universe)
+        universe = snl.NLUniverse.create()
+        db = snl.NLDB.create(universe)
         universe.setTopDB(db)
-        primitives = snl.SNLLibrary.createPrimitives(db)
+        primitives = snl.NLLibrary.createPrimitives(db)
         and4 = snl.SNLDesign.createPrimitive(primitives, "AND4")
         snl.SNLScalarTerm.create(and4, snl.SNLTerm.Direction.Input, "I0")
         snl.SNLScalarTerm.create(and4, snl.SNLTerm.Direction.Input, "I1")
@@ -30,7 +30,7 @@ class NajaNetlistTest2(unittest.TestCase):
         snl.SNLScalarTerm.create(inv, snl.SNLTerm.Direction.Input, "I")
         snl.SNLScalarTerm.create(inv, snl.SNLTerm.Direction.Output, "O")
 
-        modules = snl.SNLLibrary.create(db, 'Modules')
+        modules = snl.NLLibrary.create(db, 'Modules')
         module0 = snl.SNLDesign.create(modules, 'Module0')
         i0 = snl.SNLBusTerm.create(module0, snl.SNLTerm.Direction.Input, 3, 0, 'I0')
         i0Net = snl.SNLBusNet.create(module0, 3, 0, 'I0')
@@ -69,8 +69,8 @@ class NajaNetlistTest2(unittest.TestCase):
         inv1.getInstTerm(inv.getScalarTerm('O')).setNet(oNet.getBit(1))
 
     def tearDown(self):
-        if snl.SNLUniverse.get():
-            snl.SNLUniverse.get().destroy()
+        if snl.NLUniverse.get():
+            snl.NLUniverse.get().destroy()
 
     def test_top0(self):
         def create_top():

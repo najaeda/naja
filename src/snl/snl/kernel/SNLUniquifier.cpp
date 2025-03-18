@@ -4,7 +4,8 @@
 
 #include "SNLUniquifier.h"
 
-#include "SNLUniverse.h"
+#include "NLUniverse.h"
+
 #include "SNLInstance.h"
 #include "SNLPath.h"
 
@@ -30,7 +31,7 @@ void SNLUniquifier::process() {
     path_.back()->getName().getString().c_str());
   // LCOV_EXCL_STOP
 #endif
-  SNLDesign *currentDesign = SNLUniverse::get()->getTopDesign();
+  SNLDesign *currentDesign = NLUniverse::get()->getTopDesign();
   for (size_t i = 0; i < path_.size(); i++) {
 #ifdef DEBUG_PRINTS
     // LCOV_EXCL_START
@@ -74,7 +75,7 @@ void SNLUniquifier::process() {
 
 SNLInstance* SNLUniquifier::replaceWithClone(SNLInstance* inst) {
   SNLDesign *clone = inst->getModel()->clone(
-  SNLName(std::string(inst->getModel()->getName().getString()) +
+  NLName(std::string(inst->getModel()->getName().getString()) +
           std::string("_clone_") + id_));
   assert(clone->getSlaveInstances().size() == 0);
   inst->setModel(clone);

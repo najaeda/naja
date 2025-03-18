@@ -7,7 +7,8 @@
 #include <iostream>
 #include <sstream>
 
-#include "SNLException.h"
+#include "NLException.h"
+
 #include "SNLDesign.h"
 #include "SNLInstance.h"
 #include "SNLBusTerm.h"
@@ -45,14 +46,14 @@ void printTerms(const naja::SNL::SNLInstance::Terms& terms, std::ostream& stream
 
 namespace naja { namespace SNL {
 
-SNLInstance::SNLInstance(SNLDesign* design, SNLDesign* model, const SNLName& name):
+SNLInstance::SNLInstance(SNLDesign* design, SNLDesign* model, const NLName& name):
   super(),
   design_(design),
   model_(model),
   name_(name)
 {}
 
-SNLInstance::SNLInstance(SNLDesign* design, SNLDesign* model, SNLID::DesignObjectID id, const SNLName& name):
+SNLInstance::SNLInstance(SNLDesign* design, SNLDesign* model, NLID::DesignObjectID id, const NLName& name):
   super(),
   design_(design),
   model_(model),
@@ -60,21 +61,21 @@ SNLInstance::SNLInstance(SNLDesign* design, SNLDesign* model, SNLID::DesignObjec
   name_(name)
 {}
 
-SNLInstance* SNLInstance::create(SNLDesign* design, SNLDesign* model, const SNLName& name) {
+SNLInstance* SNLInstance::create(SNLDesign* design, SNLDesign* model, const NLName& name) {
   preCreate(design, model, name);
   SNLInstance* instance = new SNLInstance(design, model, name);
   instance->postCreateAndSetID();
   return instance;
 }
 
-SNLInstance* SNLInstance::create(SNLDesign* design, SNLDesign* model, SNLID::DesignObjectID id, const SNLName& name) {
+SNLInstance* SNLInstance::create(SNLDesign* design, SNLDesign* model, NLID::DesignObjectID id, const NLName& name) {
   preCreate(design, model, id, name);
   SNLInstance* instance = new SNLInstance(design, model, id, name);
   instance->postCreate();
   return instance;
 }
 
-void SNLInstance::preCreate(SNLDesign* design, const SNLDesign* model, const SNLName& name) {
+void SNLInstance::preCreate(SNLDesign* design, const SNLDesign* model, const NLName& name) {
   super::preCreate();
   if (not design) {
     std::ostringstream reason;
@@ -94,7 +95,7 @@ void SNLInstance::preCreate(SNLDesign* design, const SNLDesign* model, const SNL
       // LCOV_EXCL_STOP
     }
     reason << " has a NULL design argument";
-    throw SNLException(reason.str());
+    throw NLException(reason.str());
   }
   if (not model) {
     std::ostringstream reason;
@@ -109,19 +110,19 @@ void SNLInstance::preCreate(SNLDesign* design, const SNLDesign* model, const SNL
     }
     reason << " in design: " << design->getString();
     reason << " has a NULL model argument";
-    throw SNLException(reason.str());
+    throw NLException(reason.str());
   }
   if (not name.empty() and design->getInstance(name)) {
     std::string reason = "SNLDesign " + design->getString() + " contains already a SNLInstance named: " + name.getString();
-    throw SNLException(reason);
+    throw NLException(reason);
   }
 }
 
-void SNLInstance::preCreate(SNLDesign* design, const SNLDesign* model, SNLID::DesignObjectID id, const SNLName& name) {
+void SNLInstance::preCreate(SNLDesign* design, const SNLDesign* model, NLID::DesignObjectID id, const NLName& name) {
   preCreate(design, model, name);
   if (design->getInstance(id)) {
     std::string reason = "SNLDesign " + design->getString() + " contains already a SNLInstance with id: " + std::to_string(id);
-    throw SNLException(reason);
+    throw NLException(reason);
   }
 }
 
@@ -208,17 +209,17 @@ void SNLInstance::setTermsNets(const Terms& terms, const Nets& nets) {
     reason << "setTermsNets only supported when terms (size: " << terms.size() << " ";
     printTerms(terms, reason);
     reason << ") and nets share same size (size: " << nets.size() << ")";
-    throw SNLException(reason.str());
+    throw NLException(reason.str());
   }
   for (size_t i=0; i<terms.size(); ++i) {
     SNLBitTerm* bitTerm = terms[i];
     assert(bitTerm);
     if (getModel() not_eq bitTerm->getDesign()) {
-      throw SNLException("setTermsNets error with incompatible instance and terminal");
+      throw NLException("setTermsNets error with incompatible instance and terminal");
     }
     auto bitNet = nets[i];
     if (bitNet and bitNet->getDesign() not_eq getDesign()) {
-      throw SNLException("setTermsNets error with incompatible instance and net");
+      throw NLException("setTermsNets error with incompatible instance and net");
     }
     SNLInstTerm* instTerm = getInstTerm(bitTerm);
     instTerm->setNet(bitNet);
@@ -227,16 +228,16 @@ void SNLInstance::setTermsNets(const Terms& terms, const Nets& nets) {
 
 void SNLInstance::setTermNet(
   SNLTerm* term,
-  SNLID::Bit termMSB, SNLID::Bit termLSB,
+  NLID::Bit termMSB, NLID::Bit termLSB,
   SNLNet* net,
-  SNLID::Bit netMSB, SNLID::Bit netLSB) {
+  NLID::Bit netMSB, NLID::Bit netLSB) {
   Terms terms;
   Nets nets;
   if (auto busTerm = dynamic_cast<SNLBusTerm*>(term)) {
     assert(SNLDesign::isBetween(termMSB, busTerm->getMSB(), busTerm->getLSB()));
     assert(SNLDesign::isBetween(termLSB, busTerm->getMSB(), busTerm->getLSB()));
-    SNLID::Bit incr = (termMSB<termLSB)?+1:-1;
-    for (SNLID::Bit bit=termMSB; (termMSB<termLSB)?bit<=termLSB:bit>=termLSB; bit+=incr) {
+    NLID::Bit incr = (termMSB<termLSB)?+1:-1;
+    for (NLID::Bit bit=termMSB; (termMSB<termLSB)?bit<=termLSB:bit>=termLSB; bit+=incr) {
       terms.push_back(busTerm->getBit(bit));
     }
   } else {
@@ -247,8 +248,8 @@ void SNLInstance::setTermNet(
   if (auto busNet = dynamic_cast<SNLBusNet*>(net)) {
     assert(SNLDesign::isBetween(netMSB, busNet->getMSB(), busNet->getLSB()));
     assert(SNLDesign::isBetween(netLSB, busNet->getMSB(), busNet->getLSB()));
-    SNLID::Bit incr = (netMSB<netLSB)?+1:-1;
-    for (SNLID::Bit bit=netMSB; (netMSB<netLSB)?bit<=netLSB:bit>=netLSB; bit+=incr) {
+    NLID::Bit incr = (netMSB<netLSB)?+1:-1;
+    for (NLID::Bit bit=netMSB; (netMSB<netLSB)?bit<=netLSB:bit>=netLSB; bit+=incr) {
       nets.push_back(busNet->getBit(bit));
     }
   } else {
@@ -262,11 +263,11 @@ void SNLInstance::setTermNet(
 void SNLInstance::setTermNet(
   SNLTerm* term,
   SNLNet* net,
-  SNLID::Bit netMSB, SNLID::Bit netLSB) {
-  SNLID::Bit size = SNLUtils::getWidth(netMSB, netLSB);
+  NLID::Bit netMSB, NLID::Bit netLSB) {
+  NLID::Bit size = SNLUtils::getWidth(netMSB, netLSB);
   if (auto busTerm = dynamic_cast<SNLBusTerm*>(term)) {
-    SNLID::Bit termMSB = busTerm->getMSB();
-    SNLID::Bit termLSB = (termMSB<busTerm->getLSB())?termMSB+size-1:termMSB-size+1;
+    NLID::Bit termMSB = busTerm->getMSB();
+    NLID::Bit termLSB = (termMSB<busTerm->getLSB())?termMSB+size-1:termMSB-size+1;
     setTermNet(term, termMSB, termLSB, net, netMSB, netLSB);
   } else {
     setTermNet(term, 0, 0, net, netMSB, netLSB);
@@ -278,7 +279,7 @@ void SNLInstance::setTermNet(SNLTerm* term, SNLNet* net) {
     std::ostringstream reason;
     reason << "setTermNet only supported when term (width: " << term->getWidth() << ")"
       << " and net share same width (width: " << net->getWidth() << ")";
-    throw SNLException(reason.str());
+    throw NLException(reason.str());
   }
   Terms terms;
   Nets nets;
@@ -347,12 +348,12 @@ void SNLInstance::preDestroy() {
   commonPreDestroy();
 }
 
-SNLID SNLInstance::getSNLID() const {
-  return SNLDesignObject::getSNLID(SNLID::Type::Instance, 0, id_, 0);
+NLID SNLInstance::getNLID() const {
+  return SNLDesignObject::getNLID(NLID::Type::Instance, 0, id_, 0);
 }
 
-SNLID::DesignObjectReference SNLInstance::getReference() const {
-  return SNLID::DesignObjectReference(getDesign()->getReference(), getID());
+NLID::DesignObjectReference SNLInstance::getReference() const {
+  return NLID::DesignObjectReference(getDesign()->getReference(), getID());
 }
 
 bool SNLInstance::isBlackBox() const {
@@ -372,20 +373,20 @@ SNLInstTerm* SNLInstance::getInstTerm(const SNLBitTerm* bitTerm) const {
     std::string reason = "SNLInstance::getInsTerm error in "
       + getName().getString() + " model: " + getModel()->getName().getString()
       + " bitTerm arg is null";
-    throw SNLException(reason);
+    throw NLException(reason);
   }
   if (bitTerm->getDesign() != getModel()) {
     std::string reason = "SNLInstance::getInsTerm incoherency: "
       + getName().getString() + " model: " + getModel()->getName().getString()
       + " and " + bitTerm->getString() + " model: " + bitTerm->getDesign()->getName().getString()
       + " should be the same";
-    throw SNLException(reason);
+    throw NLException(reason);
   }
   assert(bitTerm->getFlatID() < instTerms_.size());
   return instTerms_[bitTerm->getFlatID()];
 }
 
-SNLInstTerm* SNLInstance::getInstTerm(const SNLID::DesignObjectID termID) const {
+SNLInstTerm* SNLInstance::getInstTerm(const NLID::DesignObjectID termID) const {
   assert(termID < instTerms_.size());
   return instTerms_[termID];
 }
@@ -440,8 +441,8 @@ void SNLInstance::removeInstParameter(SNLInstParameter* instParameter) {
   instParameters_.erase(*instParameter);
 }
 
-SNLInstParameter* SNLInstance::getInstParameter(const SNLName& name) const {
-  auto it = instParameters_.find(name, SNLNameComp<SNLInstParameter>());
+SNLInstParameter* SNLInstance::getInstParameter(const NLName& name) const {
+  auto it = instParameters_.find(name, NLNameComp<SNLInstParameter>());
   if (it != instParameters_.end()) {
     return const_cast<SNLInstParameter*>(&*it);
   }
@@ -468,7 +469,7 @@ void SNLInstance::setModel(SNLDesign* model) {
   TermVector currentTerms(getModel()->getTerms().begin(), getModel()->getTerms().end());
   TermVector newTerms(model->getTerms().begin(), model->getTerms().end());
   if (currentTerms.size() != newTerms.size()) {
-    throw SNLException("SNLInstance::setModel error: different number of terms");
+    throw NLException("SNLInstance::setModel error: different number of terms");
   }
 
   using BitTermMap = std::map<SNLBitTerm*, SNLBitTerm*>;
@@ -477,34 +478,34 @@ void SNLInstance::setModel(SNLDesign* model) {
     auto currentTerm = currentTerms[i];
     auto newTerm = newTerms[i];
     if (currentTerm->isAnonymous() != newTerm->isAnonymous()) {
-      throw SNLException("SNLInstance::setModel error: anonymous contradiction");
+      throw NLException("SNLInstance::setModel error: anonymous contradiction");
     }
     if (not currentTerm->isAnonymous() && currentTerm->getName() != newTerms[i]->getName()) {
-      throw SNLException("SNLInstance::setModel error: different term names");
+      throw NLException("SNLInstance::setModel error: different term names");
     }
     if (currentTerm->getID() != newTerm->getID()) {
-      throw SNLException("SNLInstance::setModel error: different term IDs");
+      throw NLException("SNLInstance::setModel error: different term IDs");
     }
     if (currentTerm->getDirection() != newTerm->getDirection()) {
-      throw SNLException("SNLInstance::setModel error: different term directions");
+      throw NLException("SNLInstance::setModel error: different term directions");
     }
     if (auto currentBusTerm = dynamic_cast<SNLBusTerm*>(currentTerm)) {
       if (auto newBusTerm = dynamic_cast<SNLBusTerm*>(newTerm)) {
         if (currentBusTerm->getMSB() != newBusTerm->getMSB() or currentBusTerm->getLSB() != newBusTerm->getLSB()) {
-          throw SNLException("SNLInstance::setModel error: different bus term bits");
+          throw NLException("SNLInstance::setModel error: different bus term bits");
         }
         for (auto currentBit: currentBusTerm->getBits()) {
           auto newBit = newBusTerm->getBit(currentBit->getBit());
           bitTermMap[currentBit] = newBit;
         }
       } else {
-        throw SNLException("SNLInstance::setModel error: different term types");
+        throw NLException("SNLInstance::setModel error: different term types");
       }
     } else {
       if (auto newScalarTerm = dynamic_cast<SNLScalarTerm*>(newTerm)) {
         bitTermMap[static_cast<SNLBitTerm*>(currentTerm)] = newScalarTerm;
       } else {
-        throw SNLException("SNLInstance::setModel error: different term types");
+        throw NLException("SNLInstance::setModel error: different term types");
       }
     }
   }
@@ -514,7 +515,7 @@ void SNLInstance::setModel(SNLDesign* model) {
   ParametersVector currentParameters(getModel()->getParameters().begin(), getModel()->getParameters().end());
   ParametersVector newParameters(model->getParameters().begin(), model->getParameters().end());
   if (currentParameters.size() != newParameters.size()) {
-    throw SNLException("SNLInstance::setModel error: different number of parameters");
+    throw NLException("SNLInstance::setModel error: different number of parameters");
   }
   using ParametersMap = std::map<SNLParameter*, SNLParameter*>;
   ParametersMap parameterMap;
@@ -522,10 +523,10 @@ void SNLInstance::setModel(SNLDesign* model) {
     auto currentParameter = currentParameters[i];
     auto newParameter = newParameters[i];
     if (currentParameter->getName() != newParameter->getName()) {
-      throw SNLException("SNLInstance::setModel error: different parameter names");
+      throw NLException("SNLInstance::setModel error: different parameter names");
     }
     if (currentParameter->getType() != newParameter->getType()) {
-      throw SNLException("SNLInstance::setModel error: different parameter types");
+      throw NLException("SNLInstance::setModel error: different parameter types");
     }
     parameterMap[currentParameter] = newParameter;
   }
@@ -534,7 +535,7 @@ void SNLInstance::setModel(SNLDesign* model) {
     auto currentTerm = instTerm->getBitTerm();
     auto it = bitTermMap.find(currentTerm);
     if (it == bitTermMap.end()) {
-      throw SNLException("SNLInstance::setModel error: term not found in new model");
+      throw NLException("SNLInstance::setModel error: term not found in new model");
     }
     auto newTerm = it->second;
     instTerm->bitTerm_ = newTerm;
@@ -545,7 +546,7 @@ void SNLInstance::setModel(SNLDesign* model) {
     auto currentParameter = instParameter.parameter_;
     auto it = parameterMap.find(currentParameter);
     if (it == parameterMap.end()) {
-      throw SNLException("SNLInstance::setModel error: parameter not found in new model");
+      throw NLException("SNLInstance::setModel error: parameter not found in new model");
     }
     auto newParameter = it->second;
     instParameter.parameter_ = newParameter;

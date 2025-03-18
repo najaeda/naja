@@ -10,17 +10,17 @@
 
 namespace naja { namespace SNL {
 
-class SNLLibrary;
+class NLLibrary;
 
 class SNLLibertyConstructor {
   public:
     SNLLibertyConstructor() = delete;
     SNLLibertyConstructor(const SNLLibertyConstructor&) = delete;
-    SNLLibertyConstructor(SNLLibrary* library);
+    SNLLibertyConstructor(NLLibrary* library);
 
     void construct(const std::filesystem::path& path);
   private:
-    SNLLibrary* library_;
+    NLLibrary*  library_;
 };
 
 }} // namespace SNL // namespace naja

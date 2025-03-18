@@ -2,9 +2,9 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "SNLUniverseSnippet.h"
+#include "NLUniverseSnippet.h"
 
 int main() {
-  SNLUniverseSnippet::create();
+  NLUniverseSnippet::create();
   return 0;
 }

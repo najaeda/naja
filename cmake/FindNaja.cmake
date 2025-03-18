@@ -34,7 +34,7 @@ The following cache variables may also be set:
   path to the Naja verilog library
 #]=======================================================================]
 
-find_path(NAJA_INCLUDE_DIR NAMES SNLUniverse.h
+find_path(NAJA_INCLUDE_DIR NAMES NLUniverse.h
    HINTS
    $ENV{NAJA_INSTALL}/include
 )

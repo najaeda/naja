@@ -20,7 +20,7 @@ gtest_discover_tests(
   snlPyLoaderTests
   DISCOVERY_TIMEOUT 30
   PROPERTIES ENVIRONMENT
-  PYTHONPATH=${PROJECT_BINARY_DIR}/src/snl/python/snl_wrapping
+  PYTHONPATH=${PROJECT_BINARY_DIR}/src/snl/python/nl_wrapping
 )
 
 SET(snl_pyedit_tests
@@ -41,7 +41,7 @@ gtest_discover_tests(
   snlPyEditLongTests
   DISCOVERY_TIMEOUT 30
   PROPERTIES ENVIRONMENT
-  PYTHONPATH=${PROJECT_BINARY_DIR}/src/snl/python/snl_wrapping
+  PYTHONPATH=${PROJECT_BINARY_DIR}/src/snl/python/nl_wrapping
 )
 ENDIF(LONG_TESTS)
 
@@ -55,5 +55,5 @@ gtest_discover_tests(
   snlPyEditTests
   DISCOVERY_TIMEOUT 30
   PROPERTIES ENVIRONMENT
-  PYTHONPATH=${PROJECT_BINARY_DIR}/src/snl/python/snl_wrapping
+  PYTHONPATH=${PROJECT_BINARY_DIR}/src/snl/python/nl_wrapping
 )

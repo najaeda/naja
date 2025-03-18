@@ -4,10 +4,11 @@
 
 #include "gtest/gtest.h"
 
-#include "SNLUniverse.h"
+#include "NLUniverse.h"
+#include "NLException.h"
+
 #include "SNLScalarTerm.h"
 #include "SNLPyLoader.h"
-#include "SNLException.h"
 using namespace naja::SNL;
 
 #ifndef SNL_PRIMITIVES_TEST_PATH
@@ -17,21 +18,21 @@ using namespace naja::SNL;
 class SNLPyDesignLoaderTest0: public ::testing::Test {
   protected:
     void SetUp() override {
-      auto universe = SNLUniverse::create();
-      auto db = SNLDB::create(universe);
-      primitives_ = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("primitives"));
-      auto primitive = SNLDesign::create(primitives_, SNLDesign::Type::Primitive, SNLName("primitive"));
-      auto pi = SNLScalarTerm::create(primitive, SNLTerm::Direction::Input, SNLName("i"));
-      auto po = SNLScalarTerm::create(primitive, SNLTerm::Direction::Output, SNLName("o"));
-      auto designsLibrary = SNLLibrary::create(db, SNLName("designs"));
-      design_ = SNLDesign::create(designsLibrary, SNLName("design"));
+      auto universe = NLUniverse::create();
+      auto db = NLDB::create(universe);
+      primitives_ = NLLibrary::create(db, NLLibrary::Type::Primitives, NLName("primitives"));
+      auto primitive = SNLDesign::create(primitives_, SNLDesign::Type::Primitive, NLName("primitive"));
+      auto pi = SNLScalarTerm::create(primitive, SNLTerm::Direction::Input, NLName("i"));
+      auto po = SNLScalarTerm::create(primitive, SNLTerm::Direction::Output, NLName("o"));
+      auto designsLibrary = NLLibrary::create(db, NLName("designs"));
+      design_ = SNLDesign::create(designsLibrary, NLName("design"));
     }
     void TearDown() override {
-      if (SNLUniverse::get()) {
-        SNLUniverse::get()->destroy();
+      if (NLUniverse::get()) {
+        NLUniverse::get()->destroy();
       }
     }
-    SNLLibrary* primitives_;
+    NLLibrary* primitives_;
     SNLDesign*  design_;
 };
 
@@ -48,13 +49,13 @@ TEST_F(SNLPyDesignLoaderTest0, testDesignLoadingError) {
   auto scriptPath = std::filesystem::path(SNL_PRIMITIVES_TEST_PATH);
   scriptPath /= "scripts";
   scriptPath /= "design_faulty.py";
-  EXPECT_THROW(SNLPyLoader::loadDesign(design_, scriptPath), SNLException);
+  EXPECT_THROW(SNLPyLoader::loadDesign(design_, scriptPath), NLException);
 }
 
 TEST_F(SNLPyDesignLoaderTest0, testPrimitiveLoadingError) {
-  auto design = SNLDesign::create(primitives_, SNLDesign::Type::Primitive, SNLName("top"));
+  auto design = SNLDesign::create(primitives_, SNLDesign::Type::Primitive, NLName("top"));
   auto scriptPath = std::filesystem::path(SNL_PRIMITIVES_TEST_PATH);
   scriptPath /= "scripts";
   scriptPath /= "design_loader.py";
-  EXPECT_THROW(SNLPyLoader::loadDesign(design, scriptPath), SNLException);
+  EXPECT_THROW(SNLPyLoader::loadDesign(design, scriptPath), NLException);
 }

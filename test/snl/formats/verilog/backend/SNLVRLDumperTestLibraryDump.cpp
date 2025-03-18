@@ -9,8 +9,8 @@
 
 #include "SNLVRLDumper.h"
 
-#include "SNLUniverse.h"
-#include "SNLDB.h"
+#include "NLUniverse.h"
+#include "NLDB.h"
 #include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
 
@@ -27,32 +27,32 @@ using namespace naja::SNL;
 class SNLVRLDumperTestLibraryDump: public ::testing::Test {
   protected:
     void SetUp() override {
-      SNLUniverse* universe = SNLUniverse::create();
-      db_ = SNLDB::create(universe);
-      auto prims = SNLLibrary::create(db_, SNLLibrary::Type::Primitives, SNLName("PRIMS"));
+      NLUniverse* universe = NLUniverse::create();
+      db_ = NLDB::create(universe);
+      auto prims = NLLibrary::create(db_, NLLibrary::Type::Primitives, NLName("PRIMS"));
 
-      auto andp = SNLDesign::create(prims, SNLDesign::Type::Primitive, SNLName("AND"));
-      SNLScalarTerm::create(andp, SNLTerm::Direction::Input, SNLName("I0"));
-      SNLScalarTerm::create(andp, SNLTerm::Direction::Input, SNLName("I1"));
-      SNLScalarTerm::create(andp, SNLTerm::Direction::Output, SNLName("Q"));
+      auto andp = SNLDesign::create(prims, SNLDesign::Type::Primitive, NLName("AND"));
+      SNLScalarTerm::create(andp, SNLTerm::Direction::Input, NLName("I0"));
+      SNLScalarTerm::create(andp, SNLTerm::Direction::Input, NLName("I1"));
+      SNLScalarTerm::create(andp, SNLTerm::Direction::Output, NLName("Q"));
 
-      auto ram = SNLDesign::create(prims, SNLDesign::Type::Primitive, SNLName("RAM"));
-      SNLScalarTerm::create(ram, SNLTerm::Direction::Input, SNLName("CLK"));
-      SNLBusTerm::create(ram, SNLTerm::Direction::Input, 31, 0, SNLName("A0"));
-      SNLBusTerm::create(ram, SNLTerm::Direction::Input, 31, 0, SNLName("A1"));
-      SNLBusTerm::create(ram, SNLTerm::Direction::Output, 127, 0, SNLName("Q"));
-      SNLParameter::create(ram, SNLName("INVERTED_CLK"), SNLParameter::Type::Boolean, "0");
-      SNLParameter::create(ram, SNLName("WIDTH"), SNLParameter::Type::Decimal, "56");
+      auto ram = SNLDesign::create(prims, SNLDesign::Type::Primitive, NLName("RAM"));
+      SNLScalarTerm::create(ram, SNLTerm::Direction::Input, NLName("CLK"));
+      SNLBusTerm::create(ram, SNLTerm::Direction::Input, 31, 0, NLName("A0"));
+      SNLBusTerm::create(ram, SNLTerm::Direction::Input, 31, 0, NLName("A1"));
+      SNLBusTerm::create(ram, SNLTerm::Direction::Output, 127, 0, NLName("Q"));
+      SNLParameter::create(ram, NLName("INVERTED_CLK"), SNLParameter::Type::Boolean, "0");
+      SNLParameter::create(ram, NLName("WIDTH"), SNLParameter::Type::Decimal, "56");
     }
     void TearDown() override {
-      SNLUniverse::get()->destroy();
+      NLUniverse::get()->destroy();
     }
   protected:
-    SNLDB*      db_;
+    NLDB*      db_;
 };
 
 TEST_F(SNLVRLDumperTestLibraryDump, test0) {
-  auto lib = db_->getLibrary(SNLName("PRIMS"));  
+  auto lib = db_->getLibrary(NLName("PRIMS"));  
   ASSERT_TRUE(lib);
 
   std::filesystem::path outPath(SNL_VRL_DUMPER_TEST_PATH);
@@ -76,7 +76,7 @@ TEST_F(SNLVRLDumperTestLibraryDump, test0) {
 }
 
 TEST_F(SNLVRLDumperTestLibraryDump, testErrors) {
-  auto lib = db_->getLibrary(SNLName("PRIMS"));  
+  auto lib = db_->getLibrary(NLName("PRIMS"));  
   ASSERT_TRUE(lib);
   std::filesystem::path outPath("ERROR");
   SNLVRLDumper dumper;

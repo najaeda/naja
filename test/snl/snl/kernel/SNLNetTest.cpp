@@ -6,8 +6,9 @@
 #include "gmock/gmock.h"
 using ::testing::ElementsAre;
 
-#include "SNLException.h"
-#include "SNLUniverse.h"
+#include "NLUniverse.h"
+#include "NLException.h"
+
 #include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
 #include "SNLScalarNet.h"
@@ -19,14 +20,14 @@ using namespace naja::SNL;
 class SNLNetTest: public ::testing::Test {
   protected:
     void SetUp() override {
-      auto universe = SNLUniverse::create();
-      auto db = SNLDB::create(universe);
-      SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("PRIMITIVES"));
-      auto library = SNLLibrary::create(db, SNLName("LIB"));
-      design_ = SNLDesign::create(library, SNLName("Design"));
+      auto universe = NLUniverse::create();
+      auto db = NLDB::create(universe);
+      NLLibrary::create(db, NLLibrary::Type::Primitives, NLName("PRIMITIVES"));
+      auto library = NLLibrary::create(db, NLName("LIB"));
+      design_ = SNLDesign::create(library, NLName("Design"));
     }
     void TearDown() override {
-      SNLUniverse::get()->destroy();
+      NLUniverse::get()->destroy();
     }
   protected:
     SNLDesign*  design_;
@@ -36,7 +37,7 @@ TEST_F(SNLNetTest, testCreation) {
   //Create Model
   auto db = design_->getDB();
   ASSERT_TRUE(db);
-  auto primitives = db->getLibrary(SNLName("PRIMITIVES"));
+  auto primitives = db->getLibrary(NLName("PRIMITIVES"));
   EXPECT_EQ(0, primitives->getID());
   ASSERT_TRUE(primitives);
   EXPECT_TRUE(primitives->isPrimitives());
@@ -44,19 +45,19 @@ TEST_F(SNLNetTest, testCreation) {
   ASSERT_TRUE(primitive);
   EXPECT_TRUE(primitive->isPrimitive());
   EXPECT_TRUE(primitive->isLeaf());
-  SNLScalarTerm::create(primitive, SNLTerm::Direction::Input, SNLName("i0"));
-  SNLScalarTerm::create(primitive, SNLTerm::Direction::Input, SNLName("i1"));
-  SNLScalarTerm::create(primitive, SNLTerm::Direction::Output, SNLName("o"));
+  SNLScalarTerm::create(primitive, SNLTerm::Direction::Input, NLName("i0"));
+  SNLScalarTerm::create(primitive, SNLTerm::Direction::Input, NLName("i1"));
+  SNLScalarTerm::create(primitive, SNLTerm::Direction::Output, NLName("o"));
 
   ASSERT_TRUE(design_);
   auto lib = design_->getLibrary();
   ASSERT_TRUE(lib);
   EXPECT_EQ(1, lib->getID());
-  EXPECT_EQ(SNLName("Design"), design_->getName());
+  EXPECT_EQ(NLName("Design"), design_->getName());
   EXPECT_EQ(0, design_->getID());
   EXPECT_FALSE(design_->isAnonymous());
   EXPECT_EQ(design_, design_->getLibrary()->getDesign(0));
-  EXPECT_EQ(design_, design_->getLibrary()->getDesign(SNLName("Design")));
+  EXPECT_EQ(design_, design_->getLibrary()->getDesign(NLName("Design")));
   EXPECT_TRUE(design_->getNets().empty());
   EXPECT_TRUE(design_->getScalarNets().empty());
   EXPECT_TRUE(design_->getScalarNets().getParentTypeCollection<SNLBitNet*>().getSubCollection<SNLScalarNet*>().empty());
@@ -72,16 +73,16 @@ TEST_F(SNLNetTest, testCreation) {
   EXPECT_EQ(0, design_->getBitNets().getParentTypeCollection<SNLDesignObject*>().size());
   EXPECT_EQ(0, design_->getBitNets().getParentTypeCollection<SNLDesignObject*>().getSubCollection<SNLBusNetBit*>().size());
 
-  auto i0Term = SNLScalarTerm::create(design_, SNLTerm::Direction::Input, SNLName("I0"));
-  auto i1Term = SNLScalarTerm::create(design_, SNLTerm::Direction::Input, SNLName("I1"));
-  auto oTerm = SNLBusTerm::create(design_, SNLTerm::Direction::Input, 31, 0, SNLName("O"));
+  auto i0Term = SNLScalarTerm::create(design_, SNLTerm::Direction::Input, NLName("I0"));
+  auto i1Term = SNLScalarTerm::create(design_, SNLTerm::Direction::Input, NLName("I1"));
+  auto oTerm = SNLBusTerm::create(design_, SNLTerm::Direction::Input, 31, 0, NLName("O"));
 
   auto i0Net = SNLScalarNet::create(design_);
   EXPECT_EQ(0, i0Net->getID());
-  EXPECT_EQ(SNLID(SNLID::Type::Net, 1, 1, 0, 0, 0, 0), i0Net->getSNLID());
-  EXPECT_EQ(SNLID::DesignObjectReference(1, 1, 0, 0), i0Net->getReference());
-  EXPECT_EQ(i0Net, SNLUniverse::get()->getNet(SNLID::DesignObjectReference(1, 1, 0, 0)));
-  EXPECT_EQ(i0Net, SNLUniverse::get()->getObject(i0Net->getSNLID()));
+  EXPECT_EQ(NLID(NLID::Type::Net, 1, 1, 0, 0, 0, 0), i0Net->getNLID());
+  EXPECT_EQ(NLID::DesignObjectReference(1, 1, 0, 0), i0Net->getReference());
+  EXPECT_EQ(i0Net, NLUniverse::get()->getNet(NLID::DesignObjectReference(1, 1, 0, 0)));
+  EXPECT_EQ(i0Net, NLUniverse::get()->getObject(i0Net->getNLID()));
   EXPECT_FALSE(design_->getNets().empty());
   EXPECT_FALSE(design_->getScalarNets().empty());
   EXPECT_FALSE(design_->getBitNets().empty());
@@ -110,11 +111,11 @@ TEST_F(SNLNetTest, testCreation) {
 
   auto i1Net = SNLScalarNet::create(design_);
   EXPECT_EQ(1, i1Net->getID());
-  EXPECT_EQ(SNLID(SNLID::Type::Net, 1, 1, 0, 1, 0, 0), i1Net->getSNLID());
-  EXPECT_EQ(SNLID::DesignObjectReference(1, 1, 0, 1), i1Net->getReference());
-  EXPECT_EQ(i1Net, SNLUniverse::get()->getNet(SNLID::DesignObjectReference(1, 1, 0, 1)));
-  EXPECT_EQ(i1Net, SNLUniverse::get()->getObject(i1Net->getSNLID()));
-  EXPECT_EQ(nullptr, SNLUniverse::get()->getObject(SNLID(SNLID::Type::Net, 1, 1, 0, 2, 0, 0)));
+  EXPECT_EQ(NLID(NLID::Type::Net, 1, 1, 0, 1, 0, 0), i1Net->getNLID());
+  EXPECT_EQ(NLID::DesignObjectReference(1, 1, 0, 1), i1Net->getReference());
+  EXPECT_EQ(i1Net, NLUniverse::get()->getNet(NLID::DesignObjectReference(1, 1, 0, 1)));
+  EXPECT_EQ(i1Net, NLUniverse::get()->getObject(i1Net->getNLID()));
+  EXPECT_EQ(nullptr, NLUniverse::get()->getObject(NLID(NLID::Type::Net, 1, 1, 0, 2, 0, 0)));
   EXPECT_FALSE(i1Net->getBits().empty());
   EXPECT_EQ(1, i1Net->getBits().size());
   EXPECT_FALSE(design_->getNets().empty());
@@ -144,17 +145,17 @@ TEST_F(SNLNetTest, testCreation) {
   EXPECT_FALSE(i0Net->isSupply0());
   EXPECT_TRUE(i0Net->isSupply1());
 
-  auto instance0 = SNLInstance::create(design_, primitive, SNLName("instance0"));
-  auto instance1 = SNLInstance::create(design_, primitive, SNLName("instance1"));
-  auto instance2 = SNLInstance::create(design_, primitive, SNLName("instance2"));
+  auto instance0 = SNLInstance::create(design_, primitive, NLName("instance0"));
+  auto instance1 = SNLInstance::create(design_, primitive, NLName("instance1"));
+  auto instance2 = SNLInstance::create(design_, primitive, NLName("instance2"));
 
   EXPECT_FALSE(instance0->isBlackBox());
   EXPECT_TRUE(instance0->isPrimitive());
   EXPECT_TRUE(instance0->isLeaf());
 
-  SNLBusNet* net0 = SNLBusNet::create(design_, 31, 0, SNLName("net0"));
+  SNLBusNet* net0 = SNLBusNet::create(design_, 31, 0, NLName("net0"));
   ASSERT_TRUE(net0);
-  EXPECT_EQ(SNLName("net0"), net0->getName());
+  EXPECT_EQ(NLName("net0"), net0->getName());
   EXPECT_EQ(2, net0->getID());
   EXPECT_EQ(31, net0->getMSB());
   EXPECT_EQ(0, net0->getLSB());
@@ -162,11 +163,11 @@ TEST_F(SNLNetTest, testCreation) {
   EXPECT_EQ(design_, net0->getDesign());
   EXPECT_FALSE(net0->isAnonymous());
   EXPECT_EQ(net0, design_->getNet(2));
-  EXPECT_EQ(net0, design_->getNet(SNLName("net0")));
-  EXPECT_EQ(net0, design_->getBusNet(SNLName("net0")));
-  EXPECT_EQ(nullptr, design_->getScalarNet(SNLName("net0")));
-  EXPECT_EQ(SNLID(SNLID::Type::Net, 1, 1, 0, 2, 0, 0), net0->getSNLID());
-  EXPECT_EQ(SNLID::DesignObjectReference(1, 1, 0, 2), net0->getReference());
+  EXPECT_EQ(net0, design_->getNet(NLName("net0")));
+  EXPECT_EQ(net0, design_->getBusNet(NLName("net0")));
+  EXPECT_EQ(nullptr, design_->getScalarNet(NLName("net0")));
+  EXPECT_EQ(NLID(NLID::Type::Net, 1, 1, 0, 2, 0, 0), net0->getNLID());
+  EXPECT_EQ(NLID::DesignObjectReference(1, 1, 0, 2), net0->getReference());
   EXPECT_EQ(net0->getBit(1), design_->getBusNetBit(2, 1));
   EXPECT_EQ(net0->getBit(31), design_->getBusNetBit(2, 31));
   EXPECT_EQ(net0->getBit(1), design_->getBitNet(2, 1));
@@ -175,7 +176,7 @@ TEST_F(SNLNetTest, testCreation) {
   EXPECT_EQ(nullptr, design_->getBusNetBit(0, 32)); //is a scalar net
   EXPECT_EQ(nullptr, design_->getBitNet(2, 32));
   EXPECT_EQ(i0Net, design_->getBitNet(0, 32)); //is a scalar net 32 not relevant
-  EXPECT_EQ(net0, SNLUniverse::get()->getNet(SNLID::DesignObjectReference(1, 1, 0, 2)));
+  EXPECT_EQ(net0, NLUniverse::get()->getNet(NLID::DesignObjectReference(1, 1, 0, 2)));
   EXPECT_EQ(net0, design_->getNet(2));
   EXPECT_EQ(net0, design_->getBusNet(2));
   EXPECT_FALSE(net0->getBits().empty());
@@ -233,7 +234,7 @@ TEST_F(SNLNetTest, testCreation) {
   EXPECT_EQ(nullptr, net0->getBitAtPosition(32));
   EXPECT_EQ(nullptr, net0->getBitAtPosition(33));
 
-  SNLID::Bit bitNumber = 31;
+  NLID::Bit bitNumber = 31;
   for (auto bit: net0->getBusBits()) {
     EXPECT_EQ(SNLNet::Type::Standard, bit->getType());
     EXPECT_EQ(net0, bit->getBus());
@@ -242,11 +243,11 @@ TEST_F(SNLNetTest, testCreation) {
     EXPECT_FALSE(bit->getType().isDriving());
     EXPECT_FALSE(bit->isAnonymous());
     EXPECT_EQ(bit->getName(), bit->getBus()->getName());
-    EXPECT_EQ(SNLID(SNLID::Type::NetBit, 1, 1, 0, 2, 0, bitNumber--), bit->getSNLID());
-    EXPECT_EQ(bit, SNLUniverse::get()->getBusNetBit(bit->getSNLID()));
-    EXPECT_EQ(bit, SNLUniverse::get()->getObject(bit->getSNLID()));
+    EXPECT_EQ(NLID(NLID::Type::NetBit, 1, 1, 0, 2, 0, bitNumber--), bit->getNLID());
+    EXPECT_EQ(bit, NLUniverse::get()->getBusNetBit(bit->getNLID()));
+    EXPECT_EQ(bit, NLUniverse::get()->getObject(bit->getNLID()));
   }
-  EXPECT_EQ(nullptr, SNLUniverse::get()->getObject(SNLID(SNLID::Type::NetBit, 1, 1, 0, 2, 0, 32)));
+  EXPECT_EQ(nullptr, NLUniverse::get()->getObject(NLID(NLID::Type::NetBit, 1, 1, 0, 2, 0, 32)));
 
   net0->setType(SNLBitNet::Type::Supply1);
   EXPECT_FALSE(net0->isSupply0());
@@ -268,14 +269,14 @@ TEST_F(SNLNetTest, testCreation) {
 
   net0->destroy();
   EXPECT_EQ(nullptr, design_->getNet(2));
-  EXPECT_EQ(nullptr, design_->getNet(SNLName("net0")));
+  EXPECT_EQ(nullptr, design_->getNet(NLName("net0")));
 
   i1Net->destroy();
   EXPECT_EQ(nullptr, design_->getNet(1));
 }
 
 TEST_F(SNLNetTest, testBusNetBitDestruction) {
-  SNLBusNet* net0 = SNLBusNet::create(design_, 31, 0, SNLName("net0"));
+  SNLBusNet* net0 = SNLBusNet::create(design_, 31, 0, NLName("net0"));
   EXPECT_EQ(32, net0->getWidth());
   EXPECT_EQ(32, net0->getBits().size());
 
@@ -304,63 +305,63 @@ TEST_F(SNLNetTest, testNetType) {
 }
 
 TEST_F(SNLNetTest, testErrors) {
-  EXPECT_THROW(SNLScalarNet::create(nullptr), SNLException);
-  EXPECT_THROW(SNLBusNet::create(nullptr, 31, 0), SNLException);
+  EXPECT_THROW(SNLScalarNet::create(nullptr), NLException);
+  EXPECT_THROW(SNLBusNet::create(nullptr, 31, 0), NLException);
 
-  SNLDB* db = design_->getDB();
+  NLDB* db = design_->getDB();
   ASSERT_NE(db, nullptr);
-  SNLLibrary* library = db->getLibrary(SNLName("LIB"));
+  NLLibrary* library = db->getLibrary(NLName("LIB"));
   ASSERT_NE(library, nullptr);
-  SNLDesign* design = SNLDesign::create(library, SNLName("design"));
+  SNLDesign* design = SNLDesign::create(library, NLName("design"));
   ASSERT_NE(design, nullptr);
 
-  SNLScalarNet* net0 = SNLScalarNet::create(design, SNLName("net0"));
+  SNLScalarNet* net0 = SNLScalarNet::create(design, NLName("net0"));
   ASSERT_NE(nullptr, net0);
-  EXPECT_EQ(SNLID::DesignObjectID(0), net0->getID());
-  SNLBusNet* net1 = SNLBusNet::create(design, 31, 0, SNLName("net1"));
+  EXPECT_EQ(NLID::DesignObjectID(0), net0->getID());
+  SNLBusNet* net1 = SNLBusNet::create(design, 31, 0, NLName("net1"));
   ASSERT_NE(nullptr, net1);
-  EXPECT_EQ(SNLID::DesignObjectID(1), net1->getID());
-  EXPECT_THROW(SNLBusNet::create(design, 31, 0, SNLName("net0")), SNLException);
-  EXPECT_THROW(SNLScalarNet::create(design, SNLName("net1")), SNLException);
-  EXPECT_THROW(SNLBusNet::create(design, SNLID::DesignObjectID(0), 31, 0), SNLException);
-  EXPECT_THROW(SNLScalarNet::create(design, SNLID::DesignObjectID(1)), SNLException);
-  EXPECT_THROW(SNLScalarNet::create(design, SNLID::DesignObjectID(1), SNLName("conflict")), SNLException);
+  EXPECT_EQ(NLID::DesignObjectID(1), net1->getID());
+  EXPECT_THROW(SNLBusNet::create(design, 31, 0, NLName("net0")), NLException);
+  EXPECT_THROW(SNLScalarNet::create(design, NLName("net1")), NLException);
+  EXPECT_THROW(SNLBusNet::create(design, NLID::DesignObjectID(0), 31, 0), NLException);
+  EXPECT_THROW(SNLScalarNet::create(design, NLID::DesignObjectID(1)), NLException);
+  EXPECT_THROW(SNLScalarNet::create(design, NLID::DesignObjectID(1), NLName("conflict")), NLException);
 
   //create a design
-  auto design1 = SNLDesign::create(library, SNLName("design1"));
+  auto design1 = SNLDesign::create(library, NLName("design1"));
   //create scalar term
-  auto scalarTerm1 = SNLScalarTerm::create(design1, SNLTerm::Direction::Input, SNLName("term1"));
+  auto scalarTerm1 = SNLScalarTerm::create(design1, SNLTerm::Direction::Input, NLName("term1"));
   //incompatible nets
-  EXPECT_THROW(scalarTerm1->setNet(net0), SNLException);
+  EXPECT_THROW(scalarTerm1->setNet(net0), NLException);
 }
 
 TEST_F(SNLNetTest, testRename) {
-  auto net0 = SNLScalarNet::create(design_, SNLName("net0"));
-  auto net1 = SNLBusNet::create(design_, 31, 0, SNLName("net1"));
+  auto net0 = SNLScalarNet::create(design_, NLName("net0"));
+  auto net1 = SNLBusNet::create(design_, 31, 0, NLName("net1"));
   auto net2 = SNLScalarNet::create(design_);
-  EXPECT_EQ(net0, design_->getNet(SNLName("net0")));
-  EXPECT_EQ(net1, design_->getNet(SNLName("net1")));
+  EXPECT_EQ(net0, design_->getNet(NLName("net0")));
+  EXPECT_EQ(net1, design_->getNet(NLName("net1")));
   EXPECT_FALSE(net0->isAnonymous());
-  net0->setName(SNLName());
+  net0->setName(NLName());
   EXPECT_TRUE(net0->isAnonymous());
-  EXPECT_EQ(nullptr, design_->getNet(SNLName("net0")));
-  net0->setName(SNLName("net0"));
+  EXPECT_EQ(nullptr, design_->getNet(NLName("net0")));
+  net0->setName(NLName("net0"));
   EXPECT_FALSE(net0->isAnonymous());
-  EXPECT_EQ(net0, design_->getNet(SNLName("net0")));
+  EXPECT_EQ(net0, design_->getNet(NLName("net0")));
   EXPECT_FALSE(net1->isAnonymous());
-  net1->setName(SNLName("net1")); //nothing should happen...
-  EXPECT_EQ(net1, design_->getNet(SNLName("net1")));
-  net1->setName(SNLName("n1"));
+  net1->setName(NLName("net1")); //nothing should happen...
+  EXPECT_EQ(net1, design_->getNet(NLName("net1")));
+  net1->setName(NLName("n1"));
   EXPECT_FALSE(net1->isAnonymous());
-  EXPECT_EQ(nullptr, design_->getNet(SNLName("net1")));
-  EXPECT_EQ(net1, design_->getNet(SNLName("n1")));
+  EXPECT_EQ(nullptr, design_->getNet(NLName("net1")));
+  EXPECT_EQ(net1, design_->getNet(NLName("n1")));
   EXPECT_TRUE(net2->isAnonymous());
-  net2->setName(SNLName("net2"));
+  net2->setName(NLName("net2"));
   EXPECT_FALSE(net2->isAnonymous());
-  EXPECT_EQ(net2, design_->getNet(SNLName("net2")));
+  EXPECT_EQ(net2, design_->getNet(NLName("net2")));
   //Collision error
-  EXPECT_THROW(net1->setName(SNLName("net0")), SNLException);
+  EXPECT_THROW(net1->setName(NLName("net0")), NLException);
 
   //BusNetBit rename error
-  EXPECT_THROW(net1->getBit(0)->setName(SNLName("net0")), SNLException);
+  EXPECT_THROW(net1->getBit(0)->setName(NLName("net0")), NLException);
 }

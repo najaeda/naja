@@ -9,8 +9,8 @@
 
 #include "SNLVRLDumper.h"
 
-#include "SNLUniverse.h"
-#include "SNLDB.h"
+#include "NLUniverse.h"
+#include "NLDB.h"
 #include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
 #include "SNLScalarNet.h"
@@ -33,36 +33,36 @@ using namespace naja::SNL;
 class SNLVRLDumperTest4: public ::testing::Test {
   protected:
     void SetUp() override {
-      SNLUniverse* universe = SNLUniverse::create();
-      db_ = SNLDB::create(universe);
-      SNLLibrary* library = SNLLibrary::create(db_, SNLName("MYLIB"));
-      SNLDesign* design = SNLDesign::create(library, SNLName("top"));
+      NLUniverse* universe = NLUniverse::create();
+      db_ = NLDB::create(universe);
+      NLLibrary* library = NLLibrary::create(db_, NLName("MYLIB"));
+      SNLDesign* design = SNLDesign::create(library, NLName("top"));
 
-      auto term0 = SNLScalarTerm::create(design, SNLTerm::Direction::Input, SNLName("term0"));
-      auto term1 = SNLBusTerm::create(design, SNLTerm::Direction::Output, 31, 0, SNLName("term1"));
-      auto term2 = SNLBusTerm::create(design, SNLTerm::Direction::Input, 1, 1, SNLName("term2"));
+      auto term0 = SNLScalarTerm::create(design, SNLTerm::Direction::Input, NLName("term0"));
+      auto term1 = SNLBusTerm::create(design, SNLTerm::Direction::Output, 31, 0, NLName("term1"));
+      auto term2 = SNLBusTerm::create(design, SNLTerm::Direction::Input, 1, 1, NLName("term2"));
     }
 
     void TearDown() override {
-      SNLUniverse::get()->destroy();
+      NLUniverse::get()->destroy();
     }
   protected:
-    SNLDB*      db_;
+    NLDB* db_;
 };
 
 TEST_F(SNLVRLDumperTest4, top_terms_same_nets) {
-  auto lib = db_->getLibrary(SNLName("MYLIB"));  
+  auto lib = db_->getLibrary(NLName("MYLIB"));  
   ASSERT_TRUE(lib);
-  auto top = lib->getDesign(SNLName("top"));
+  auto top = lib->getDesign(NLName("top"));
   ASSERT_TRUE(top);
-  top->setName(SNLName("top_terms_same_nets"));
+  top->setName(NLName("top_terms_same_nets"));
 
-  auto net0 = SNLScalarNet::create(top, SNLName("term0"));
-  auto net1 = SNLBusNet::create(top, 31, 0, SNLName("term1"));
-  auto net2 = SNLBusNet::create(top, 1, 1, SNLName("term2"));
-  top->getTerm(SNLName("term0"))->setNet(net0);
-  top->getTerm(SNLName("term1"))->setNet(net1);
-  top->getTerm(SNLName("term2"))->setNet(net2);
+  auto net0 = SNLScalarNet::create(top, NLName("term0"));
+  auto net1 = SNLBusNet::create(top, 31, 0, NLName("term1"));
+  auto net2 = SNLBusNet::create(top, 1, 1, NLName("term2"));
+  top->getTerm(NLName("term0"))->setNet(net0);
+  top->getTerm(NLName("term1"))->setNet(net1);
+  top->getTerm(NLName("term2"))->setNet(net2);
 
   std::filesystem::path outPath(SNL_VRL_DUMPER_TEST_PATH);
   outPath = outPath / "test4_terms_same_nets";
@@ -85,18 +85,18 @@ TEST_F(SNLVRLDumperTest4, top_terms_same_nets) {
 }
 
 TEST_F(SNLVRLDumperTest4, top_terms_connected_nets) {
-  auto lib = db_->getLibrary(SNLName("MYLIB"));  
+  auto lib = db_->getLibrary(NLName("MYLIB"));  
   ASSERT_TRUE(lib);
-  auto top = lib->getDesign(SNLName("top"));
+  auto top = lib->getDesign(NLName("top"));
   ASSERT_TRUE(top);
-  top->setName(SNLName("top_terms_connected_nets"));
+  top->setName(NLName("top_terms_connected_nets"));
 
-  auto net0 = SNLScalarNet::create(top, SNLName("net0"));
-  auto net1 = SNLBusNet::create(top, 31, 0, SNLName("net1"));
-  auto net2 = SNLBusNet::create(top, 0, 0, SNLName("net2"));
-  top->getTerm(SNLName("term0"))->setNet(net0);
-  top->getTerm(SNLName("term1"))->setNet(net1);
-  top->getTerm(SNLName("term2"))->setNet(net2);
+  auto net0 = SNLScalarNet::create(top, NLName("net0"));
+  auto net1 = SNLBusNet::create(top, 31, 0, NLName("net1"));
+  auto net2 = SNLBusNet::create(top, 0, 0, NLName("net2"));
+  top->getTerm(NLName("term0"))->setNet(net0);
+  top->getTerm(NLName("term1"))->setNet(net1);
+  top->getTerm(NLName("term2"))->setNet(net2);
 
   std::filesystem::path outPath(SNL_VRL_DUMPER_TEST_PATH);
   outPath = outPath / "test4_terms_connected_nets";
@@ -119,18 +119,18 @@ TEST_F(SNLVRLDumperTest4, top_terms_connected_nets) {
 }
 
 TEST_F(SNLVRLDumperTest4, top_terms_erased_nets) {
-  auto lib = db_->getLibrary(SNLName("MYLIB"));  
+  auto lib = db_->getLibrary(NLName("MYLIB"));  
   ASSERT_TRUE(lib);
-  auto top = lib->getDesign(SNLName("top"));
+  auto top = lib->getDesign(NLName("top"));
   ASSERT_TRUE(top);
-  top->setName(SNLName("top_terms_erased_nets"));
+  top->setName(NLName("top_terms_erased_nets"));
 
-  auto net0 = SNLScalarNet::create(top, SNLName("term0"));
-  auto net1 = SNLBusNet::create(top, 31, 0, SNLName("term1"));
-  auto net2 = SNLBusNet::create(top, 1, 1, SNLName("term2"));
-  top->getTerm(SNLName("term0"))->setNet(net0);
-  top->getTerm(SNLName("term1"))->setNet(net1);
-  top->getTerm(SNLName("term2"))->setNet(net2);
+  auto net0 = SNLScalarNet::create(top, NLName("term0"));
+  auto net1 = SNLBusNet::create(top, 31, 0, NLName("term1"));
+  auto net2 = SNLBusNet::create(top, 1, 1, NLName("term2"));
+  top->getTerm(NLName("term0"))->setNet(net0);
+  top->getTerm(NLName("term1"))->setNet(net1);
+  top->getTerm(NLName("term2"))->setNet(net2);
 
   net0->destroy();
   net1->getBit(0)->destroy();
@@ -160,18 +160,18 @@ TEST_F(SNLVRLDumperTest4, top_terms_erased_nets) {
 }
 
 TEST_F(SNLVRLDumperTest4, top_terms_connected_and_erased_nets) {
-  auto lib = db_->getLibrary(SNLName("MYLIB"));  
+  auto lib = db_->getLibrary(NLName("MYLIB"));  
   ASSERT_TRUE(lib);
-  auto top = lib->getDesign(SNLName("top"));
+  auto top = lib->getDesign(NLName("top"));
   ASSERT_TRUE(top);
-  top->setName(SNLName("top_terms_connected_and_erased_nets"));
+  top->setName(NLName("top_terms_connected_and_erased_nets"));
 
-  auto net0 = SNLScalarNet::create(top, SNLName("net0"));
-  auto net1 = SNLBusNet::create(top, 31, 0, SNLName("net1"));
-  auto net2 = SNLBusNet::create(top, 0, 0, SNLName("net2"));
-  top->getTerm(SNLName("term0"))->setNet(net0);
-  top->getTerm(SNLName("term1"))->setNet(net1);
-  top->getTerm(SNLName("term2"))->setNet(net2);
+  auto net0 = SNLScalarNet::create(top, NLName("net0"));
+  auto net1 = SNLBusNet::create(top, 31, 0, NLName("net1"));
+  auto net2 = SNLBusNet::create(top, 0, 0, NLName("net2"));
+  top->getTerm(NLName("term0"))->setNet(net0);
+  top->getTerm(NLName("term1"))->setNet(net1);
+  top->getTerm(NLName("term2"))->setNet(net2);
 
   net0->destroy();
   net1->getBit(0)->destroy();

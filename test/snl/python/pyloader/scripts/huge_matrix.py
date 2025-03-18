@@ -6,7 +6,7 @@ import snl
 
 def construct(design):
   #find primitives library
-  universe = snl.SNLUniverse.get()
+  universe = snl.NLUniverse.get()
   db = universe.getDB(1)
   if db is None:
     raise Exception("Cannot find the db containing the primitives and top")

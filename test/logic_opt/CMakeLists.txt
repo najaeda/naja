@@ -38,5 +38,5 @@ TARGET_LINK_LIBRARIES(reductionOptTests naja_opt naja_snl_pyloader gmock gtest_m
 gtest_discover_tests(
   reductionOptTests
   PROPERTIES ENVIRONMENT
-  PYTHONPATH=${PROJECT_BINARY_DIR}/src/snl/python/snl_wrapping
+  PYTHONPATH=${PROJECT_BINARY_DIR}/src/snl/python/nl_wrapping
 )

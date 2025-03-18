@@ -7,47 +7,47 @@
 
 #include <filesystem>
 //#include <boost/asio.hpp>
-#include "SNLID.h"
+#include "NLID.h"
 
 namespace naja { namespace SNL {
 
-class SNLDB;
+class NLDB;
 
 class SNLCapnP {
   public:
     //static boost::asio::ip::tcp::socket getSocket(uint16_t port=0); 
     static constexpr std::string_view InterfaceName = "db_interface.snl";
     static constexpr std::string_view ImplementationName = "db_implementation.snl";
-    static void dump(const SNLDB* db, const std::filesystem::path& dumpPath);
-    //static void send(const SNLDB* db, const std::string& ipAddress, uint16_t port);
-    //static void send(const SNLDB* db, const std::string& ipAddress, uint16_t port, SNLID::DBID forceDBID);
-    static SNLDB* load(const std::filesystem::path& dumpPath);
-    //static SNLDB* receive(boost::asio::ip::tcp::socket& socket);
-    //static SNLDB* receive(uint16_t port);
+    static void dump(const NLDB* db, const std::filesystem::path& dumpPath);
+    //static void send(const NLDB* db, const std::string& ipAddress, uint16_t port);
+    //static void send(const NLDB* db, const std::string& ipAddress, uint16_t port, NLID::DBID forceDBID);
+    static NLDB* load(const std::filesystem::path& dumpPath);
+    //static NLDB* receive(boost::asio::ip::tcp::socket& socket);
+    //static NLDB* receive(uint16_t port);
 
-    static void dumpInterface(const SNLDB* db, int fileDescriptor);
-    static void dumpInterface(const SNLDB* db, int fileDescriptor, SNLID::DBID forceDBID);
-    static void dumpInterface(const SNLDB* db, const std::filesystem::path& interfacePath);
-    //static void sendInterface(const SNLDB* db, const std::string& ipAddress, uint16_t port);
-    //static void sendInterface(const SNLDB* db, boost::asio::ip::tcp::socket& socket); 
-    //static void sendInterface(const SNLDB* db, boost::asio::ip::tcp::socket& socket, SNLID::DBID forceDBID); 
+    static void dumpInterface(const NLDB* db, int fileDescriptor);
+    static void dumpInterface(const NLDB* db, int fileDescriptor, NLID::DBID forceDBID);
+    static void dumpInterface(const NLDB* db, const std::filesystem::path& interfacePath);
+    //static void sendInterface(const NLDB* db, const std::string& ipAddress, uint16_t port);
+    //static void sendInterface(const NLDB* db, boost::asio::ip::tcp::socket& socket); 
+    //static void sendInterface(const NLDB* db, boost::asio::ip::tcp::socket& socket, NLID::DBID forceDBID); 
 
-    static SNLDB* loadInterface(int fileDescriptor);
-    static SNLDB* loadInterface(const std::filesystem::path& interfacePath);
-    //static SNLDB* receiveInterface(uint16_t port);
-    //static SNLDB* receiveInterface(boost::asio::ip::tcp::socket& socket); 
+    static NLDB* loadInterface(int fileDescriptor);
+    static NLDB* loadInterface(const std::filesystem::path& interfacePath);
+    //static NLDB* receiveInterface(uint16_t port);
+    //static NLDB* receiveInterface(boost::asio::ip::tcp::socket& socket); 
 
-    static void dumpImplementation(const SNLDB* db, int fileDescriptor);
-    static void dumpImplementation(const SNLDB* db, int fileDescriptor, SNLID::DBID forceDBID);
-    static void dumpImplementation(const SNLDB* db, const std::filesystem::path& implementationPath);
-    //static void sendImplementation(const SNLDB* db, const std::string& ipAddress, uint16_t port);
-    //static void sendImplementation(const SNLDB* db, boost::asio::ip::tcp::socket& socket);
-    //static void sendImplementation(const SNLDB* db, boost::asio::ip::tcp::socket& socket, SNLID::DBID forceDBID);
+    static void dumpImplementation(const NLDB* db, int fileDescriptor);
+    static void dumpImplementation(const NLDB* db, int fileDescriptor, NLID::DBID forceDBID);
+    static void dumpImplementation(const NLDB* db, const std::filesystem::path& implementationPath);
+    //static void sendImplementation(const NLDB* db, const std::string& ipAddress, uint16_t port);
+    //static void sendImplementation(const NLDB* db, boost::asio::ip::tcp::socket& socket);
+    //static void sendImplementation(const NLDB* db, boost::asio::ip::tcp::socket& socket, NLID::DBID forceDBID);
 
-    static SNLDB* loadImplementation(int fileDescriptor);
-    static SNLDB* loadImplementation(const std::filesystem::path& implementationPath);
-    //static SNLDB* receiveImplementation(uint16_t port);
-    //static SNLDB* receiveImplementation(boost::asio::ip::tcp::socket& socket); 
+    static NLDB* loadImplementation(int fileDescriptor);
+    static NLDB* loadImplementation(const std::filesystem::path& implementationPath);
+    //static NLDB* receiveImplementation(uint16_t port);
+    //static NLDB* receiveImplementation(boost::asio::ip::tcp::socket& socket); 
 };
 
 }} // namespace SNL // namespace naja

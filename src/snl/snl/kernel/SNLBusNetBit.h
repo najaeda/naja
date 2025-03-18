@@ -19,35 +19,35 @@ class SNLBusNetBit final: public SNLBitNet {
     SNLDesign* getDesign() const override;
 
     //\remark returns the owner SNLBusNet ID
-    SNLID::DesignObjectID getID() const override;
-    SNLID getSNLID() const override;
+    NLID::DesignObjectID getID() const override;
+    NLID getNLID() const override;
     SNLBusNet* getBus() const { return bus_; }
-    SNLID::Bit getBit() const { return bit_; }
+    NLID::Bit getBit() const { return bit_; }
     NajaCollection<SNLBitNet*> getBits() const override;
 
     const char* getTypeName() const override;
-    SNLName getName() const override;
+    NLName getName() const override;
     bool isAnonymous() const override;
-    void setName(const SNLName& name) override;
+    void setName(const NLName& name) override;
     std::string getString() const override;
     std::string getDescription() const override;
     bool deepCompare(const SNLNet* other, std::string& reason) const override;
     void debugDump(size_t indent, bool recursive=true, std::ostream& stream=std::cerr) const override;
   private:
-    static SNLBusNetBit* create(SNLBusNet* bus, SNLID::Bit bit);
+    static SNLBusNetBit* create(SNLBusNet* bus, NLID::Bit bit);
 
-    SNLBusNetBit(SNLBusNet* bus, SNLID::Bit bit);
-    static void preCreate(const SNLBusNet* bus, SNLID::Bit bit);
+    SNLBusNetBit(SNLBusNet* bus, NLID::Bit bit);
+    static void preCreate(const SNLBusNet* bus, NLID::Bit bit);
     void postCreate();
     void destroyFromBus();
     void destroyFromDesign() override {} //LCOV_EXCL_LINE
     void commonPreDestroy();
     void preDestroy() override;
     SNLNet* clone(SNLDesign* design) const override { return nullptr; } //LCOV_EXCL_LINE
-    void setID(SNLID::DesignObjectID id) override {} //LCOV_EXCL_LINE
+    void setID(NLID::DesignObjectID id) override {} //LCOV_EXCL_LINE
 
     SNLBusNet*  bus_;
-    SNLID::Bit  bit_;
+    NLID::Bit   bit_;
 };
 
 }} // namespace SNL // namespace naja

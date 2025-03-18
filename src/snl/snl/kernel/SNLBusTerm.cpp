@@ -4,7 +4,8 @@
 
 #include "SNLBusTerm.h"
 
-#include "SNLException.h"
+#include "NLException.h"
+
 #include "SNLDesign.h"
 #include "SNLBusTermBit.h"
 #include "SNLBusNet.h"
@@ -18,9 +19,9 @@ namespace naja { namespace SNL {
 SNLBusTerm::SNLBusTerm(
     SNLDesign* design,
     Direction direction,
-    SNLID::Bit msb,
-    SNLID::Bit lsb,
-    const SNLName& name):
+    NLID::Bit msb,
+    NLID::Bit lsb,
+    const NLName& name):
   super(),
   design_(design),
   name_(name),
@@ -31,11 +32,11 @@ SNLBusTerm::SNLBusTerm(
 
 SNLBusTerm::SNLBusTerm(
     SNLDesign* design,
-    SNLID::DesignObjectID id,
+    NLID::DesignObjectID id,
     Direction direction,
-    SNLID::Bit msb,
-    SNLID::Bit lsb,
-    const SNLName& name):
+    NLID::Bit msb,
+    NLID::Bit lsb,
+    const NLName& name):
   super(),
   design_(design),
   id_(id),
@@ -48,9 +49,9 @@ SNLBusTerm::SNLBusTerm(
 SNLBusTerm* SNLBusTerm::create(
     SNLDesign* design,
     Direction direction,
-    SNLID::Bit msb,
-    SNLID::Bit lsb,
-    const SNLName& name) {
+    NLID::Bit msb,
+    NLID::Bit lsb,
+    const NLName& name) {
   preCreate(design, name);
   SNLBusTerm* term = new SNLBusTerm(design, direction, msb, lsb, name);
   term->postCreateAndSetID();
@@ -59,36 +60,36 @@ SNLBusTerm* SNLBusTerm::create(
 
 SNLBusTerm* SNLBusTerm::create(
     SNLDesign* design,
-    SNLID::DesignObjectID id,
+    NLID::DesignObjectID id,
     Direction direction,
-    SNLID::Bit msb,
-    SNLID::Bit lsb,
-    const SNLName& name) {
+    NLID::Bit msb,
+    NLID::Bit lsb,
+    const NLName& name) {
   preCreate(design, id, name);
   SNLBusTerm* term = new SNLBusTerm(design, id, direction, msb, lsb, name);
   term->postCreate();
   return term;
 }
 
-void SNLBusTerm::preCreate(const SNLDesign* design, const SNLName& name) {
+void SNLBusTerm::preCreate(const SNLDesign* design, const NLName& name) {
   super::preCreate();
   if (not design) {
-    throw SNLException("malformed SNLBusTerm creator with NULL design argument");
+    throw NLException("malformed SNLBusTerm creator with NULL design argument");
   }
   //verify that there is not an instance of name in this design
   if (not name.empty() and design->getTerm(name)) {
     std::string reason = "cannot create SNLBusTerm with name " + name.getString();
     reason += "A terminal with this name already exists.";
-    throw SNLException(reason);
+    throw NLException(reason);
   }
 }
 
-void SNLBusTerm::preCreate(const SNLDesign* design, SNLID::DesignObjectID id, const SNLName& name) {
+void SNLBusTerm::preCreate(const SNLDesign* design, NLID::DesignObjectID id, const NLName& name) {
   preCreate(design, name);
   if (design->getTerm(id)) {
     std::string reason = "cannot create SNLBusTerm with id " + std::to_string(id);
     reason += "A terminal with this id already exists.";
-    throw SNLException(reason);
+    throw NLException(reason);
   }
 }
 
@@ -96,7 +97,7 @@ void SNLBusTerm::createBits() {
   size_t size = static_cast<size_t>(getWidth());
   bits_.resize(size, nullptr);
   for (size_t i=0; i<size; i++) {
-    SNLID::Bit bit = (getMSB()>getLSB())?getMSB()-int(i):getMSB()+int(i);
+    NLID::Bit bit = (getMSB()>getLSB())?getMSB()-int(i):getMSB()+int(i);
     bits_[i] = SNLBusTermBit::create(this, bit);
   }
 }
@@ -149,10 +150,10 @@ void SNLBusTerm::setNet(SNLNet* net) {
     return;
   }
   if (getDesign() not_eq net->getDesign()) {
-    throw SNLException("setNet error: incompatible term and net");
+    throw NLException("setNet error: incompatible term and net");
   }
   if (getWidth() not_eq net->getWidth()) {
-    throw SNLException("setNet only supported when term and net have same width");
+    throw NLException("setNet only supported when term and net have same width");
   }
   if (auto bitNet = dynamic_cast<SNLBitNet*>(net)) {
     getBit(getMSB())->setNet(bitNet);
@@ -173,12 +174,12 @@ void SNLBusTerm::setNet(SNLNet* net) {
   }
 }
 
-SNLID::Bit SNLBusTerm::getWidth() const {
+NLID::Bit SNLBusTerm::getWidth() const {
   return SNLUtils::getWidth(getMSB(), getLSB());
 }
 
-SNLID SNLBusTerm::getSNLID() const {
-  return SNLDesignObject::getSNLID(SNLID::Type::Term, id_, 0, 0);
+NLID SNLBusTerm::getNLID() const {
+  return SNLDesignObject::getNLID(NLID::Type::Term, id_, 0, 0);
 }
 
 //LCOV_EXCL_START
@@ -210,7 +211,7 @@ void SNLBusTerm::debugDump(size_t indent, bool recursive, std::ostream& stream) 
 }
 //LCOV_EXCL_STOP
 
-SNLBusTermBit* SNLBusTerm::getBit(SNLID::Bit bit) const {
+SNLBusTermBit* SNLBusTerm::getBit(NLID::Bit bit) const {
   if (SNLDesign::isBetween(bit, getMSB(), getLSB())) {
     size_t pos = static_cast<size_t>(std::abs(getMSB()-bit));
     return getBitAtPosition(pos);

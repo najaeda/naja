@@ -9,8 +9,9 @@
 
 #include "SNLVRLDumper.h"
 
-#include "SNLUniverse.h"
-#include "SNLDB.h"
+#include "NLUniverse.h"
+#include "NLDB.h"
+#include "NLDB0.h"
 #include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
 #include "SNLBusTermBit.h"
@@ -18,7 +19,6 @@
 #include "SNLBusNet.h"
 #include "SNLBusNetBit.h"
 #include "SNLInstTerm.h"
-#include "SNLDB0.h"
 
 using namespace naja::SNL;
 
@@ -36,47 +36,47 @@ using namespace naja::SNL;
 class SNLVRLDumperTest2: public ::testing::Test {
   protected:
     void SetUp() override {
-      SNLUniverse* universe = SNLUniverse::create();
-      db_ = SNLDB::create(universe);
-      SNLLibrary* library = SNLLibrary::create(db_, SNLName("MYLIB"));
-      SNLDesign* top = SNLDesign::create(library, SNLName("top"));
+      NLUniverse* universe = NLUniverse::create();
+      db_ = NLDB::create(universe);
+      NLLibrary* library = NLLibrary::create(db_, NLName("MYLIB"));
+      SNLDesign* top = SNLDesign::create(library, NLName("top"));
 
       auto const0 = SNLScalarNet::create(top);
       const0->setType(SNLNet::Type::Assign0);
       auto const1 = SNLScalarNet::create(top);
       const1->setType(SNLNet::Type::Assign1);
-      auto bus = SNLBusNet::create(top, -2, 2, SNLName("bus"));
-      auto scalar = SNLScalarNet::create(top, SNLName("scalar"));
+      auto bus = SNLBusNet::create(top, -2, 2, NLName("bus"));
+      auto scalar = SNLScalarNet::create(top, NLName("scalar"));
 
-      auto assign0 = SNLInstance::create(top, SNLDB0::getAssign());
-      auto assign1 = SNLInstance::create(top, SNLDB0::getAssign());
-      auto assign2 = SNLInstance::create(top, SNLDB0::getAssign());
-      auto assign3 = SNLInstance::create(top, SNLDB0::getAssign());
-      auto assign4 = SNLInstance::create(top, SNLDB0::getAssign());
+      auto assign0 = SNLInstance::create(top, NLDB0::getAssign());
+      auto assign1 = SNLInstance::create(top, NLDB0::getAssign());
+      auto assign2 = SNLInstance::create(top, NLDB0::getAssign());
+      auto assign3 = SNLInstance::create(top, NLDB0::getAssign());
+      auto assign4 = SNLInstance::create(top, NLDB0::getAssign());
 
-      assign0->getInstTerm(SNLDB0::getAssignInput())->setNet(const0);
-      assign0->getInstTerm(SNLDB0::getAssignOutput())->setNet(bus->getBit(-2));
-      assign1->getInstTerm(SNLDB0::getAssignInput())->setNet(scalar);
-      assign1->getInstTerm(SNLDB0::getAssignOutput())->setNet(bus->getBit(-1));
-      assign2->getInstTerm(SNLDB0::getAssignInput())->setNet(const1);
-      assign2->getInstTerm(SNLDB0::getAssignOutput())->setNet(bus->getBit(0));
-      assign3->getInstTerm(SNLDB0::getAssignInput())->setNet(scalar);
-      assign3->getInstTerm(SNLDB0::getAssignOutput())->setNet(bus->getBit(1));
-      assign4->getInstTerm(SNLDB0::getAssignInput())->setNet(const0);
-      assign4->getInstTerm(SNLDB0::getAssignOutput())->setNet(bus->getBit(2));
+      assign0->getInstTerm(NLDB0::getAssignInput())->setNet(const0);
+      assign0->getInstTerm(NLDB0::getAssignOutput())->setNet(bus->getBit(-2));
+      assign1->getInstTerm(NLDB0::getAssignInput())->setNet(scalar);
+      assign1->getInstTerm(NLDB0::getAssignOutput())->setNet(bus->getBit(-1));
+      assign2->getInstTerm(NLDB0::getAssignInput())->setNet(const1);
+      assign2->getInstTerm(NLDB0::getAssignOutput())->setNet(bus->getBit(0));
+      assign3->getInstTerm(NLDB0::getAssignInput())->setNet(scalar);
+      assign3->getInstTerm(NLDB0::getAssignOutput())->setNet(bus->getBit(1));
+      assign4->getInstTerm(NLDB0::getAssignInput())->setNet(const0);
+      assign4->getInstTerm(NLDB0::getAssignOutput())->setNet(bus->getBit(2));
 
     }
     void TearDown() override {
-      SNLUniverse::get()->destroy();
+      NLUniverse::get()->destroy();
     }
   protected:
-    SNLDB*      db_;
+    NLDB*      db_;
 };
 
 TEST_F(SNLVRLDumperTest2, test0) {
-  auto lib = db_->getLibrary(SNLName("MYLIB"));  
+  auto lib = db_->getLibrary(NLName("MYLIB"));  
   ASSERT_TRUE(lib);
-  auto top = lib->getDesign(SNLName("top"));
+  auto top = lib->getDesign(NLName("top"));
   ASSERT_TRUE(top);
 
   std::filesystem::path outPath(SNL_VRL_DUMPER_TEST_PATH);
@@ -100,13 +100,13 @@ TEST_F(SNLVRLDumperTest2, test0) {
 }
 
 TEST_F(SNLVRLDumperTest2, testUnconnectedAssigns) {
-  auto lib = db_->getLibrary(SNLName("MYLIB"));  
+  auto lib = db_->getLibrary(NLName("MYLIB"));  
   ASSERT_TRUE(lib);
-  auto top = lib->getDesign(SNLName("top"));
+  auto top = lib->getDesign(NLName("top"));
   ASSERT_TRUE(top);
 
   //Destroy net: scalar
-  auto scalar = top->getScalarNet(SNLName("scalar"));
+  auto scalar = top->getScalarNet(NLName("scalar"));
   ASSERT_TRUE(scalar);
   scalar->destroy();
 

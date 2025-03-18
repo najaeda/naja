@@ -7,15 +7,17 @@
 #define NETLIST_GTAPH_H
 
 #include <filesystem>
-#include <fstream>
 #include <iostream>
 #include <ostream>
 #include <string>
 #include <vector>
-
 #include <fstream>
 #include <set>
 #include <sstream>
+#include <chrono>
+
+#include "NLUniverse.h"
+#include "NLID.h"
 
 #include "SNLBitNet.h"
 #include "SNLBitTerm.h"
@@ -24,24 +26,9 @@
 #include "SNLDesign.h"
 #include "SNLInstTerm.h"
 #include "SNLInstance.h"
-#include "SNLUniverse.h"
-
-#include <iostream>
-#include "SNLBusTerm.h"
 #include "SNLScalarTerm.h"
-
-#include "SNLInstTerm.h"
-#include "SNLScalarNet.h"
-
-#include <chrono>
-#include "SNLID.h"
-
-#include "SNLBusTerm.h"
 #include "SNLBusTermBit.h"
-#include "SNLInstTerm.h"
 #include "SNLScalarNet.h"
-#include "SNLScalarTerm.h"
-#include "SNLUniverse.h"
 #include "SNLEquipotential.h"
 #include "SNLPath.h"
 
@@ -533,7 +520,7 @@ class InstDataSnl : InstData {
     else
       name = _snlModel->getName().getString();
     if (name == std::string("")) {
-      name = _snlInst->getSNLID().getString();
+      name = _snlInst->getNLID().getString();
     }
     return name;
     // LCOV_EXCL_STOP

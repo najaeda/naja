@@ -6,10 +6,11 @@
 
 #include <sstream>
 
+#include "NLException.h"
+
 #include "SNLInstance.h"
 #include "SNLDesign.h"
 #include "SNLParameter.h"
-#include "SNLException.h"
 
 namespace naja { namespace SNL {
 
@@ -36,7 +37,7 @@ void SNLInstParameter::preCreate(SNLInstance* instance, SNLParameter* parameter)
     reason << parameter->getDescription();
     reason << ", contradictory designs: " << parameter->getDesign()->getDescription();
     reason << " and " << instance->getModel()->getDescription();
-    throw SNLException(reason.str());
+    throw NLException(reason.str());
   }
 }
 
@@ -49,7 +50,7 @@ void SNLInstParameter::destroyFromInstance() {
   delete this;
 }
 
-SNLName SNLInstParameter::getName() const {
+NLName SNLInstParameter::getName() const {
   return parameter_->getName(); 
 }
 

@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-add_subdirectory(snl_wrapping)
+add_subdirectory(nl_wrapping)
 if(NOT BUILD_NAJA_PYTHON)
   add_subdirectory(pyloader)
 endif(NOT BUILD_NAJA_PYTHON)

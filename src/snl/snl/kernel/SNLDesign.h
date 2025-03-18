@@ -15,7 +15,7 @@
 
 namespace naja { namespace SNL {
 
-class SNLLibrary;
+class NLLibrary;
 class SNLScalarNet;
 class SNLBusNet;
 class SNLBusNetBit;
@@ -29,16 +29,16 @@ class SNLBusTermBit;
  * and contains instances (SNLInstance::getDesign). 
  * SNLDesign manages the terms, instances, nets, and parameters associated with an SNLDesign.
  */
-class SNLDesign final: public SNLObject {
+class SNLDesign final: public NLObject {
   public:
-    friend class SNLLibrary;
+    friend class NLLibrary;
     friend class SNLScalarTerm;
     friend class SNLBusTerm;
     friend class SNLInstance;
     friend class SNLScalarNet;
     friend class SNLBusNet;
     friend class SNLParameter;
-    using super = SNLObject;
+    using super = NLObject;
 
     class Type {
       public:
@@ -59,30 +59,30 @@ class SNLDesign final: public SNLObject {
 
     /**
      * \brief Create a SNLDesign.
-     * \param library owning SNLLibrary.
-     * \param name SNLName of the SNLDesign. If empty, the SNLDesign is anonymous.
+     * \param library owning NLLibrary.
+     * \param name NLName of the SNLDesign. If empty, the SNLDesign is anonymous.
      * \return the created SNLDesign.
      */
-    static SNLDesign* create(SNLLibrary* library, const SNLName& name=SNLName());
+    static SNLDesign* create(NLLibrary* library, const NLName& name=NLName());
 
     /**
      * \brief Create a SNLDesign with a specific Type.
-     * \param library owning SNLLibrary.
+     * \param library owning NLLibrary.
      * \param type the Type of the SNLDesign to create.
-     * \param name SNLName of the SNLDesign. If empty, the SNLDesign is anonymous.
+     * \param name NLName of the SNLDesign. If empty, the SNLDesign is anonymous.
      * \return the created SNLDesign.
      */
-    static SNLDesign* create(SNLLibrary* library, Type type, const SNLName& name=SNLName());
+    static SNLDesign* create(NLLibrary* library, Type type, const NLName& name=NLName());
     
     /**
-     * \brief Create a SNLDesign with a specific SNLID::DesignID and a specific Type.
-     * \param library owning SNLLibrary.
-     * \param id the SNLID::DesignID of the SNLDesign to create.
+     * \brief Create a SNLDesign with a specific NLID::DesignID and a specific Type.
+     * \param library owning NLLibrary.
+     * \param id the NLID::DesignID of the SNLDesign to create.
      * \param type the Type of the SNLDesign to create.
-     * \param name SNLName of the SNLDesign. If empty, the SNLDesign is anonymous.
+     * \param name NLName of the SNLDesign. If empty, the SNLDesign is anonymous.
      * \return the created SNLDesign.
      */
-    static SNLDesign* create(SNLLibrary* library, SNLID::DesignID id, Type type, const SNLName& name=SNLName());
+    static SNLDesign* create(NLLibrary* library, NLID::DesignID id, Type type, const NLName& name=NLName());
 
     struct PointerLess {
       bool operator()(const SNLDesign* ld, const SNLDesign* rd) const {
@@ -90,32 +90,32 @@ class SNLDesign final: public SNLObject {
       }
     };
 
-    ///\return owning SNLDB
-    SNLDB* getDB() const;
-    /// \return owning SNLLibrary.
-    SNLLibrary* getLibrary() const { return library_; }
+    ///\return owning NLDB
+    NLDB* getDB() const;
+    /// \return owning NLLibrary.
+    NLLibrary* getLibrary() const { return library_; }
 
-    /// \return SNLTerm with SNLID::DesignObjectID id or nullptr if it does not exist.
-    SNLTerm* getTerm(SNLID::DesignObjectID id) const;
-    SNLTerm* getTermByID(SNLID::DesignObjectID id) const { return getTerm(id); }
-    /// \return SNLTerm with SNLName name or nullptr if it does not exist
-    SNLTerm* getTerm(const SNLName& name) const;
-    /// \return SNLScalarTerm with SNLID::DesignObjectID id or nullptr if it does not exist
-    SNLScalarTerm* getScalarTerm(SNLID::DesignObjectID id) const;
-    /// \return SNLBusTermBit with SNLID::DesignObjectID id and SNLID::Bit bit or nullptr if it does not exist.
-    SNLBusTermBit* getBusTermBit(SNLID::DesignObjectID id, SNLID::Bit bit) const;
-    /// \return SNLScalarTerm with SNLName termName or nullptr if it does not exist
-    SNLScalarTerm* getScalarTerm(const SNLName& termName) const;
+    /// \return SNLTerm with NLID::DesignObjectID id or nullptr if it does not exist.
+    SNLTerm* getTerm(NLID::DesignObjectID id) const;
+    SNLTerm* getTermByID(NLID::DesignObjectID id) const { return getTerm(id); }
+    /// \return SNLTerm with NLName name or nullptr if it does not exist
+    SNLTerm* getTerm(const NLName& name) const;
+    /// \return SNLScalarTerm with NLID::DesignObjectID id or nullptr if it does not exist
+    SNLScalarTerm* getScalarTerm(NLID::DesignObjectID id) const;
+    /// \return SNLBusTermBit with NLID::DesignObjectID id and NLID::Bit bit or nullptr if it does not exist.
+    SNLBusTermBit* getBusTermBit(NLID::DesignObjectID id, NLID::Bit bit) const;
+    /// \return SNLScalarTerm with NLName termName or nullptr if it does not exist
+    SNLScalarTerm* getScalarTerm(const NLName& termName) const;
     /**
-     * \param id SNLID::DesignObjectID of the SNLBitTerm.
-     * \param bit SNLID::Bit of the SNLBitTerm. Relevant only if the SNLBitTerm is a SNLBusTermBit.
-     * \return SNLBitTerm with SNLID::DesignObjectID id and SNLID::Bit bit or nullptr if it does not exist.
+     * \param id NLID::DesignObjectID of the SNLBitTerm.
+     * \param bit NLID::Bit of the SNLBitTerm. Relevant only if the SNLBitTerm is a SNLBusTermBit.
+     * \return SNLBitTerm with NLID::DesignObjectID id and NLID::Bit bit or nullptr if it does not exist.
      */
-    SNLBitTerm* getBitTerm(SNLID::DesignObjectID id, SNLID::Bit bit) const;
-    /// \return SNLBusTerm with SNLID::DesignObjectID id or nullptr if it does not exist
-    SNLBusTerm* getBusTerm(SNLID::DesignObjectID id) const;
-    /// \return SNLBusTerm with SNLName termName or nullptr if it does not exist
-    SNLBusTerm* getBusTerm(const SNLName& termName) const;
+    SNLBitTerm* getBitTerm(NLID::DesignObjectID id, NLID::Bit bit) const;
+    /// \return SNLBusTerm with NLID::DesignObjectID id or nullptr if it does not exist
+    SNLBusTerm* getBusTerm(NLID::DesignObjectID id) const;
+    /// \return SNLBusTerm with NLName termName or nullptr if it does not exist
+    SNLBusTerm* getBusTerm(const NLName& termName) const;
     /// \return the collection of SNLTerm of this SNLDesign
     NajaCollection<SNLTerm*> getTerms() const;
 
@@ -135,11 +135,11 @@ class SNLDesign final: public SNLObject {
 
     /// \return the collection of SNLBitTerm of this SNLDesign (SNLScalarTerm and flattened SNLBusTerm to SNLBusTermBit).
     NajaCollection<SNLBitTerm*> getBitTerms() const;
-    /// \return SNLInstance with SNLID::DesignObjectID id or nullptr if it does not exist.
-    SNLInstance* getInstance(SNLID::DesignObjectID id) const;
-    SNLInstance* getInstanceByID(SNLID::DesignObjectID id) const { return getInstance(id); }
-    /// \return SNLInstance with SNLName name if it does not exist.
-    SNLInstance* getInstance(const SNLName& instanceName) const;
+    /// \return SNLInstance with NLID::DesignObjectID id or nullptr if it does not exist.
+    SNLInstance* getInstance(NLID::DesignObjectID id) const;
+    SNLInstance* getInstanceByID(NLID::DesignObjectID id) const { return getInstance(id); }
+    /// \return SNLInstance with NLName name if it does not exist.
+    SNLInstance* getInstance(const NLName& instanceName) const;
     /// \return the collection of SNLInstance instantiated IN this SNLDesign (instance/parent relationship).
     NajaCollection<SNLInstance*> getInstances() const;
 
@@ -164,26 +164,26 @@ class SNLDesign final: public SNLObject {
      */
     NajaCollection<SNLInstance*> getNonPrimitiveInstances() const;
 
-    /// \return SNLNet with SNLID::DesignObjectID id or nullptr if it does not exist.
-    SNLNet* getNet(SNLID::DesignObjectID id) const;
-    /// \return SNLNet with SNLName name or nullptr if it does not exist.
-    SNLNet* getNet(const SNLName& netName) const;
-    /// \return SNLScalarNet with SNLID::DesignObjectID id or nullptr if it does not exist.
-    SNLScalarNet* getScalarNet(SNLID::DesignObjectID id) const;
-    /// \return SNLBusNetBit with SNLID::DesignObjectID id and SNLID::Bit bit or nullptr if it does not exist.
-    SNLBusNetBit* getBusNetBit(SNLID::DesignObjectID id, SNLID::Bit bit) const;
-    /// \return SNLScalarNet with SNLName name or nullptr if it does not exist.
-    SNLScalarNet* getScalarNet(const SNLName& netName) const;
+    /// \return SNLNet with NLID::DesignObjectID id or nullptr if it does not exist.
+    SNLNet* getNet(NLID::DesignObjectID id) const;
+    /// \return SNLNet with NLName name or nullptr if it does not exist.
+    SNLNet* getNet(const NLName& netName) const;
+    /// \return SNLScalarNet with NLID::DesignObjectID id or nullptr if it does not exist.
+    SNLScalarNet* getScalarNet(NLID::DesignObjectID id) const;
+    /// \return SNLBusNetBit with NLID::DesignObjectID id and NLID::Bit bit or nullptr if it does not exist.
+    SNLBusNetBit* getBusNetBit(NLID::DesignObjectID id, NLID::Bit bit) const;
+    /// \return SNLScalarNet with NLName name or nullptr if it does not exist.
+    SNLScalarNet* getScalarNet(const NLName& netName) const;
     /**
-     * \param id SNLID::DesignObjectID of the SNLBitNet.
-     * \param bit SNLID::Bit of the SNLBitNet. Relevant only if the SNLBitNet is a SNLBusNetBit.
-     * \return SNLBitNet with SNLID::DesignObjectID id and SNLID::Bit bit or nullptr if it does not exist.
+     * \param id NLID::DesignObjectID of the SNLBitNet.
+     * \param bit NLID::Bit of the SNLBitNet. Relevant only if the SNLBitNet is a SNLBusNetBit.
+     * \return SNLBitNet with NLID::DesignObjectID id and NLID::Bit bit or nullptr if it does not exist.
      */
-    SNLBitNet* getBitNet(SNLID::DesignObjectID id, SNLID::Bit bit) const;
+    SNLBitNet* getBitNet(NLID::DesignObjectID id, NLID::Bit bit) const;
     /// \return SNLBusNet with SNLIS::DesignObjectID id or nullptr if it does not exist.
-    SNLBusNet* getBusNet(SNLID::DesignObjectID id) const;
-    /// \return SNLBusNet with SNLName name or nullptr if it does not exist.
-    SNLBusNet* getBusNet(const SNLName& netName) const;
+    SNLBusNet* getBusNet(NLID::DesignObjectID id) const;
+    /// \return SNLBusNet with NLName name or nullptr if it does not exist.
+    SNLBusNet* getBusNet(const NLName& netName) const;
     /// \return the collection of SNLNet of this SNLDesign.
     NajaCollection<SNLNet*> getNets() const;
 
@@ -204,24 +204,24 @@ class SNLDesign final: public SNLObject {
     /// \return the collection of SNLBitNet of this SNLDesign (SNLScalarNet and flattened SNLBusNet to SNLBusNetBit).
     NajaCollection<SNLBitNet*> getBitNets() const;
 
-    /// \return SNLParameter with SNLName name or nullptr if it does not exist.
-    SNLParameter* getParameter(const SNLName& name) const;
+    /// \return SNLParameter with NLName name or nullptr if it does not exist.
+    SNLParameter* getParameter(const NLName& name) const;
     /// \return the collection of SNLParameter of this SNLDesign.
     NajaCollection<SNLParameter*> getParameters() const;
 
-    SNLID::DesignID getID() const { return id_; }
-    SNLID getSNLID() const;
-    SNLID::DesignReference getReference() const;
+    NLID::DesignID getID() const { return id_; }
+    NLID getNLID() const;
+    NLID::DesignReference getReference() const;
     
-    /// \return SNLName of this SNLDesign. 
-    SNLName getName() const { return name_; }
+    /// \return NLName of this SNLDesign. 
+    NLName getName() const { return name_; }
     /// \return true if this SNLDesign is anonymous.
     bool isAnonymous() const { return name_.empty(); }
     /**
-     * \brief set the SNLName of this SNLDesign
+     * \brief set the NLName of this SNLDesign
      * \warning this method will throw an exception if the name is already used in the design's library.
     */
-    void setName(const SNLName& name);
+    void setName(const NLName& name);
     
     /// \return this SNLDesign Type.
     Type getType() const { return type_; }
@@ -243,30 +243,30 @@ class SNLDesign final: public SNLObject {
 
     /**
      * \brief Cloning interface for SNLDesign.
-     * \param name SNLName of the the clone.
+     * \param name NLName of the the clone.
      * \return a new SNLDesign with the same interface as this SNLDesign.
      */
-    SNLDesign* cloneInterface(const SNLName& name=SNLName()) const;
+    SNLDesign* cloneInterface(const NLName& name=NLName()) const;
     /**
-     * \brief Cloning interface for SNLDesign to a specific SNLLibrary.
-     * \param library SNLLibrary where the clone will be created.
-     * \param name SNLName of the the clone.
+     * \brief Cloning interface for SNLDesign to a specific NLLibrary.
+     * \param library NLLibrary where the clone will be created.
+     * \param name NLName of the the clone.
      * \return a new SNLDesign with the same interface as this SNLDesign.
      */
-    SNLDesign* cloneInterfaceToLibrary(SNLLibrary* library, const SNLName& name=SNLName()) const;
+    SNLDesign* cloneInterfaceToLibrary(NLLibrary* library, const NLName& name=NLName()) const;
     /**
      * \brief Cloning for SNLDesign.
-     * \param name SNLName of the the clone.
+     * \param name NLName of the the clone.
      * \return a new SNLDesign with the same interface and content as this SNLDesign.
      */
-    SNLDesign* clone(const SNLName& name=SNLName()) const;
+    SNLDesign* clone(const NLName& name=NLName()) const;
     /**
-     * \brief Cloning for SNLDesign to a specific SNLLibrary.
-     * \param library SNLLibrary where the clone will be created.
-     * \param name SNLName of the the clone.
+     * \brief Cloning for SNLDesign to a specific NLLibrary.
+     * \param library NLLibrary where the clone will be created.
+     * \param name NLName of the the clone.
      * \return a new SNLDesign with the same interface and content as this SNLDesign.
      */
-    SNLDesign* cloneToLibrary(SNLLibrary* library, const SNLName& name=SNLName()) const;
+    SNLDesign* cloneToLibrary(NLLibrary* library, const NLName& name=NLName()) const;
 
     class CompareType {
       public:
@@ -294,10 +294,10 @@ class SNLDesign final: public SNLObject {
     int getRevisionCount() const { return revisionCount_; }
     void recursiveRevisionIncrement();
   private:
-    SNLDesign(SNLLibrary* library, Type type, const SNLName& name);
-    SNLDesign(SNLLibrary* library, SNLID::DesignID id, Type type, const SNLName& name);
-    static void preCreate(const SNLLibrary* library, Type type, const SNLName& name);
-    static void preCreate(const SNLLibrary* library, SNLID::DesignID id, Type type, const SNLName& name);
+    SNLDesign(NLLibrary* library, Type type, const NLName& name);
+    SNLDesign(NLLibrary* library, NLID::DesignID id, Type type, const NLName& name);
+    static void preCreate(const NLLibrary* library, Type type, const NLName& name);
+    static void preCreate(const NLLibrary* library, NLID::DesignID id, Type type, const NLName& name);
     void destroyFromLibrary();
     void postCreateAndSetID();
     void postCreate();
@@ -314,15 +314,15 @@ class SNLDesign final: public SNLObject {
     void addNet(SNLNet* net);
     void addNetAndSetID(SNLNet* net);
     void removeNet(SNLNet* net);
-    void rename(SNLTerm* term, const SNLName& previousName);
-    void rename(SNLNet* net, const SNLName& previousName);
-    void rename(SNLInstance* instance, const SNLName& previousName);
+    void rename(SNLTerm* term, const NLName& previousName);
+    void rename(SNLNet* net, const NLName& previousName);
+    void rename(SNLInstance* instance, const NLName& previousName);
     void addParameter(SNLParameter* parameter);
     void removeParameter(SNLParameter* parameter);
     static bool isBetween(int n, int MSB, int LSB);
 
     friend bool operator< (const SNLDesign& ld, const SNLDesign& rd) {
-      return ld.getSNLID() < rd.getSNLID();
+      return ld.getNLID() < rd.getNLID();
     }
 
     template<typename T>
@@ -330,10 +330,10 @@ class SNLDesign final: public SNLObject {
       bool operator()(const T& lt, const T& rt) const {
         return lt.getID() < rt.getID();
       }
-      bool operator()(SNLID::DesignObjectID id, const T& obj) const {
+      bool operator()(NLID::DesignObjectID id, const T& obj) const {
         return id < obj.getID();
       }
-      bool operator()(const T& obj, SNLID::DesignObjectID id) const {
+      bool operator()(const T& obj, NLID::DesignObjectID id) const {
         return obj.getID() < id;
       }
     };
@@ -341,14 +341,14 @@ class SNLDesign final: public SNLObject {
   using SNLDesignTermsHook =
       boost::intrusive::member_hook<SNLTerm, boost::intrusive::set_member_hook<>, &SNLTerm::designTermsHook_>;
   using SNLDesignTerms = boost::intrusive::set<SNLTerm, SNLDesignTermsHook, boost::intrusive::compare<CompareByID<SNLTerm>>>;
-    using SNLDesignObjectNameIDMap = std::map<SNLName, SNLID::DesignObjectID>;
+    using SNLDesignObjectNameIDMap = std::map<NLName, NLID::DesignObjectID>;
     using SNLDesignInstancesHook =
       boost::intrusive::member_hook<SNLInstance, boost::intrusive::set_member_hook<>, &SNLInstance::designInstancesHook_>;
     using SNLDesignInstances = boost::intrusive::set<SNLInstance, SNLDesignInstancesHook, boost::intrusive::compare<CompareByID<SNLInstance>>>;
     using SNLDesignSlaveInstancesHook =
       boost::intrusive::member_hook<SNLInstance, boost::intrusive::set_member_hook<>, &SNLInstance::designSlaveInstancesHook_>;
     using SNLDesignSlaveInstances = boost::intrusive::set<SNLInstance, SNLDesignSlaveInstancesHook>;
-    using SNLInstanceNameIDMap = std::map<SNLName, SNLID::DesignObjectID>;
+    using SNLInstanceNameIDMap = std::map<NLName, NLID::DesignObjectID>;
     using SNLDesignNetsHook =
       boost::intrusive::member_hook<SNLNet, boost::intrusive::set_member_hook<>, &SNLNet::designNetsHook_>;
     using SNLDesignNets = boost::intrusive::set<SNLNet, SNLDesignNetsHook, boost::intrusive::compare<CompareByID<SNLNet>>>;
@@ -356,11 +356,11 @@ class SNLDesign final: public SNLObject {
       boost::intrusive::member_hook<SNLParameter, boost::intrusive::set_member_hook<>, &SNLParameter::designParametersHook_>;
     using SNLDesignParameters = boost::intrusive::set<SNLParameter, SNLDesignParametersHook>;
 
-    SNLID::DesignID                     id_;
+    NLID::DesignID                      id_;
     int                                 revisionCount_      {0};
-    SNLName                             name_               {};
+    NLName                              name_               {};
     Type                                type_               { Type::Standard };
-    SNLLibrary*                         library_;
+    NLLibrary*                          library_;
     boost::intrusive::set_member_hook<> libraryDesignsHook_ {};
     SNLDesignTerms                      terms_              {};
     SNLDesignObjectNameIDMap            termNameIDMap_      {};

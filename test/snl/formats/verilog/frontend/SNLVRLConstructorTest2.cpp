@@ -10,7 +10,7 @@ using ::testing::TypedEq;
 #include <filesystem>
 #include <fstream>
 
-#include "SNLUniverse.h"
+#include "NLUniverse.h"
 #include "SNLScalarNet.h"
 #include "SNLBusNet.h"
 #include "SNLBusNetBit.h"
@@ -30,21 +30,21 @@ using namespace naja::SNL;
 class SNLVRLConstructorTest2: public ::testing::Test {
   protected:
     void SetUp() override {
-      SNLUniverse* universe = SNLUniverse::create();
-      auto db = SNLDB::create(universe);
-      library_ = SNLLibrary::create(db, SNLName("MYLIB"));
+      NLUniverse* universe = NLUniverse::create();
+      auto db = NLDB::create(universe);
+      library_ = NLLibrary::create(db, NLName("MYLIB"));
     }
     void TearDown() override {
-      SNLUniverse::get()->destroy();
+      NLUniverse::get()->destroy();
       library_ = nullptr;
     }
   protected:
-    SNLLibrary*      library_;
+    NLLibrary*      library_;
 };
 
 TEST_F(SNLVRLConstructorTest2, test) {
-  auto db = SNLDB::create(SNLUniverse::get());
-  auto prims = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("PRIMS"));
+  auto db = NLDB::create(NLUniverse::get());
+  auto prims = NLLibrary::create(db, NLLibrary::Type::Primitives, NLName("PRIMS"));
   auto primitivesPath = std::filesystem::path(SNL_VRL_BENCHMARKS_PATH);
   primitivesPath /= "primitives0.py";
   SNLPyLoader::loadPrimitives(prims, primitivesPath);
@@ -53,32 +53,32 @@ TEST_F(SNLVRLConstructorTest2, test) {
   constructor.parse(benchmarksPath/"test1.v");
 
   ASSERT_EQ(3, library_->getDesigns().size());
-  auto model0 = library_->getDesign(SNLName("model0"));
+  auto model0 = library_->getDesign(NLName("model0"));
   ASSERT_NE(model0, nullptr);
   ASSERT_EQ(3, model0->getTerms().size());
   using Terms = std::vector<SNLTerm*>;
   Terms terms(model0->getTerms().begin(), model0->getTerms().end());
   EXPECT_THAT(terms,
     ElementsAre(
-      model0->getTerm(SNLName("io")),
-      model0->getTerm(SNLName("o")),
-      model0->getTerm(SNLName("i"))
+      model0->getTerm(NLName("io")),
+      model0->getTerm(NLName("o")),
+      model0->getTerm(NLName("i"))
     )
   );
 
-  auto model1 = library_->getDesign(SNLName("model1"));
+  auto model1 = library_->getDesign(NLName("model1"));
   ASSERT_NE(model1, nullptr);
   ASSERT_EQ(3, model1->getTerms().size());
   terms = Terms(model1->getTerms().begin(), model1->getTerms().end());
   EXPECT_THAT(terms,
     ElementsAre(
-      model1->getTerm(SNLName("i")),
-      model1->getTerm(SNLName("o")),
-      model1->getTerm(SNLName("io"))
+      model1->getTerm(NLName("i")),
+      model1->getTerm(NLName("o")),
+      model1->getTerm(NLName("io"))
     )
   );
 
-  auto test = library_->getDesign(SNLName("test"));
+  auto test = library_->getDesign(NLName("test"));
   ASSERT_NE(test, nullptr);
 
   constructor.setFirstPass(false);
@@ -90,7 +90,7 @@ TEST_F(SNLVRLConstructorTest2, test) {
   //6 standard instances, 3 assigns
   ASSERT_EQ(9, instances.size());
   ASSERT_EQ(1, model0->getInstances().size());
-  auto lut = model0->getInstance(SNLName("lut"));
+  auto lut = model0->getInstance(NLName("lut"));
   ASSERT_NE(lut, nullptr);
   EXPECT_EQ("lut", lut->getName().getString());
   auto lutModel = lut->getModel();
@@ -101,16 +101,16 @@ TEST_F(SNLVRLConstructorTest2, test) {
   EXPECT_EQ("INIT", initParam->getName().getString());
 
   //
-  auto inst2 = top->getInstance(SNLName("inst2"));
+  auto inst2 = top->getInstance(NLName("inst2"));
   ASSERT_NE(nullptr, inst2);
   //verify instterms connectivity
   using InstTerms = std::vector<SNLInstTerm*>;
   InstTerms instTerms(inst2->getInstTerms().begin(), inst2->getInstTerms().end());
   ASSERT_EQ(3, instTerms.size());
-  EXPECT_THAT(instTerms[0]->getBitTerm(), TypedEq<SNLTerm*>(model1->getTerm(SNLName("i"))));
-  EXPECT_THAT(instTerms[1]->getBitTerm(), TypedEq<SNLTerm*>(model1->getTerm(SNLName("o"))));
-  EXPECT_THAT(instTerms[2]->getBitTerm(), TypedEq<SNLTerm*>(model1->getTerm(SNLName("io"))));
-  EXPECT_THAT(instTerms[0]->getNet(), TypedEq<SNLNet*>(top->getNet(SNLName("n2"))));
-  EXPECT_THAT(instTerms[1]->getNet(), TypedEq<SNLNet*>(top->getNet(SNLName("i"))));
-  EXPECT_THAT(instTerms[2]->getNet(), TypedEq<SNLNet*>(top->getNet(SNLName("io"))));
+  EXPECT_THAT(instTerms[0]->getBitTerm(), TypedEq<SNLTerm*>(model1->getTerm(NLName("i"))));
+  EXPECT_THAT(instTerms[1]->getBitTerm(), TypedEq<SNLTerm*>(model1->getTerm(NLName("o"))));
+  EXPECT_THAT(instTerms[2]->getBitTerm(), TypedEq<SNLTerm*>(model1->getTerm(NLName("io"))));
+  EXPECT_THAT(instTerms[0]->getNet(), TypedEq<SNLNet*>(top->getNet(NLName("n2"))));
+  EXPECT_THAT(instTerms[1]->getNet(), TypedEq<SNLNet*>(top->getNet(NLName("i"))));
+  EXPECT_THAT(instTerms[2]->getNet(), TypedEq<SNLNet*>(top->getNet(NLName("io"))));
 }

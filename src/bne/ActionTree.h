@@ -7,8 +7,8 @@
 
 #include <map>
 #include <tuple>
-#include "SNLID.h"
-#include "SNLUniverse.h"
+#include "NLID.h"
+#include "NLUniverse.h"
 #include "actions.h"
 // for find
 #include <algorithm>
@@ -16,7 +16,7 @@
 #include "Utils.h"
 // truth table
 #include "SNLDesignTruthTable.h"
-#include "SNLLibraryTruthTables.h"
+#include "NLLibraryTruthTables.h"
 #include "SNLTruthTable.h"
 
 using namespace naja::SNL;
@@ -52,8 +52,8 @@ class ActionTreeNode {
    * \param tree the tree of the node.
    * \return the created ActionTreeNode.
    */
-  ActionTreeNode(SNLID::DesignObjectID instance,
-                 SNLID snlid,
+  ActionTreeNode(NLID::DesignObjectID instance,
+                 NLID snlid,
                  std::pair<size_t, size_t> parent,
                  size_t id,
                  ActionTree* tree)
@@ -64,12 +64,12 @@ class ActionTreeNode {
    * \brief get the instance of the node.
    * \return the node's instance object id.
    */
-  SNLID::DesignObjectID getInstance() const { return instance_; }
+  NLID::DesignObjectID getInstance() const { return instance_; }
   /**
    * \brief get the snlid of the node.
    * \return the snlid of the node.
    */
-  SNLID getSNLID() const { return snlid_; }
+  NLID getNLID() const { return snlid_; }
   /**
    * \brief add an action to the node.
    * \param action the action to add.
@@ -99,7 +99,7 @@ class ActionTreeNode {
    * \param instance the instance of the child.
    * \return the child of the node.
    */
-  ActionTreeNode* getChild(SNLID::DesignObjectID instance);
+  ActionTreeNode* getChild(NLID::DesignObjectID instance);
   /**
    * \brief get the children of the node.
    * \return the children of the node.
@@ -142,7 +142,7 @@ class ActionTreeNode {
    * \brief get the context of the node.
    * \return the context of the node.
    */
-  std::vector<SNLID::DesignObjectID> getContext() const;
+  std::vector<NLID::DesignObjectID> getContext() const;
   /**
    * \brief get the tree of the node.
    * \return the tree of the node.
@@ -163,8 +163,8 @@ class ActionTreeNode {
   bool isPartOfTree() const;
  private:
   std::vector<ActionID> actions_;
-  SNLID::DesignObjectID instance_;
-  SNLID snlid_;
+  NLID::DesignObjectID instance_;
+  NLID snlid_;
   std::vector<size_t> children_;
   std::vector<std::pair<size_t/*parent node id*/, 
     size_t/*design object id of the child instance from parent view*/>> parents_;
@@ -188,14 +188,14 @@ class ActionTree {
    * \return The node for the context.
    */
   ActionTreeNode* getNodeForContext(
-      const std::vector<SNLID::DesignObjectID>& context);
+      const std::vector<NLID::DesignObjectID>& context);
   /**
    * \brief Add a node childe for the context path.
    * \param context The context of the node.
    * \return The node for the context.
    */
   ActionTreeNode& addHierChild(
-      const std::vector<SNLID::DesignObjectID>& context);
+      const std::vector<NLID::DesignObjectID>& context);
   /**
    * \brief Add a node childe for the context path.
    * \param context The context of the node.

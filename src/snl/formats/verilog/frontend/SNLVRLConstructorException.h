@@ -6,17 +6,17 @@
 #ifndef __SNL_VRL_CONSTRUCTOR_EXCEPTION_H_
 #define __SNL_VRL_CONSTRUCTOR_EXCEPTION_H_
 
-#include "SNLException.h"
+#include "NLException.h"
 
 namespace naja { namespace SNL {
 
-struct SNLVRLConstructorException: public SNLException {
+struct SNLVRLConstructorException: public NLException {
   public:
     SNLVRLConstructorException() = delete;
     SNLVRLConstructorException(const SNLVRLConstructorException&) = default;
 
     SNLVRLConstructorException(const std::string& reason):
-      SNLException(reason)
+      NLException(reason)
     {}
 };
 

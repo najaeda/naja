@@ -16,7 +16,9 @@
 
 #include "snl_implementation.capnp.h"
 
-#include "SNLUniverse.h"
+#include "NLUniverse.h"
+#include "NLException.h"
+
 #include "SNLScalarNet.h"
 #include "SNLBusNet.h"
 #include "SNLBusNetBit.h"
@@ -24,7 +26,6 @@
 #include "SNLBusTerm.h"
 #include "SNLBusTermBit.h"
 #include "SNLInstTerm.h"
-#include "SNLException.h"
 
 //using boost::asio::ip::tcp;
 
@@ -131,7 +132,7 @@ void dumpScalarNet(
 
 void dumpBusNetBit(
   DBImplementation::LibraryImplementation::DesignImplementation::BusNetBit::Builder& bitBuilder,
-  SNLID::Bit bit,
+  NLID::Bit bit,
   const SNLBusNetBit* busNetBit) {
   bitBuilder.setBit(bit);
   if (busNetBit) {
@@ -164,7 +165,7 @@ void dumpBusNet(
   auto bits = busNetBuilder.initBits(busNet->getWidth());
   size_t id = 0;
   for (size_t i=0; i<busNet->getWidth(); i++) {
-    SNLID::Bit bit = (busNet->getMSB()>busNet->getLSB())?
+    NLID::Bit bit = (busNet->getMSB()>busNet->getLSB())?
       busNet->getMSB()-int(i):busNet->getMSB()+int(i);
     SNLBusNetBit* busNetBit = busNet->getBit(bit);
     auto bitBuilder = bits[id++];
@@ -199,7 +200,7 @@ void dumpDesignImplementation(
 
 void dumpLibraryImplementation(
   DBImplementation::LibraryImplementation::Builder& libraryImplementation,
-  const SNLLibrary* snlLibrary) {
+  const NLLibrary* snlLibrary) {
   libraryImplementation.setId(snlLibrary->getID());
   auto subLibraries = libraryImplementation.initLibraryImplementations(snlLibrary->getLibraries().size());
   size_t id = 0;
@@ -237,13 +238,13 @@ void loadInstParameter(
   const DBImplementation::LibraryImplementation::DesignImplementation::Instance::InstParameter::Reader& instParameter) {
   auto name = instParameter.getName();
   auto value = instParameter.getValue();
-  auto parameter = instance->getModel()->getParameter(SNLName(name));
+  auto parameter = instance->getModel()->getParameter(NLName(name));
   //LCOV_EXCL_START
   if (not parameter) {
     std::ostringstream reason;
     reason << "cannot deserialize instance: no parameter " << std::string(name);
     reason << " exists in " << instance->getDescription() << " model";
-    throw SNLException(reason.str());
+    throw NLException(reason.str());
   }
   //LCOV_EXCL_STOP
   SNLInstParameter::create(instance, parameter, value);
@@ -253,26 +254,26 @@ void loadInstance(
   SNLDesign* design,
   const DBImplementation::LibraryImplementation::DesignImplementation::Instance::Reader& instance) {
   auto instanceID = instance.getId();
-  SNLName snlName;
+  NLName snlName;
   if (instance.hasName()) {
-    snlName = SNLName(instance.getName());
+    snlName = NLName(instance.getName());
   }
   auto modelReference = instance.getModelReference();
   auto snlModelReference =
-    SNLID::DesignReference(
+    NLID::DesignReference(
       modelReference.getDbID(),
       modelReference.getLibraryID(),
       modelReference.getDesignID());
-  auto model = SNLUniverse::get()->getDesign(snlModelReference);
+  auto model = NLUniverse::get()->getDesign(snlModelReference);
   //LCOV_EXCL_START
   if (not model) {
     std::ostringstream reason;
     reason << "cannot deserialize instance: no model found with provided reference";
-    throw SNLException(reason.str());
+    throw NLException(reason.str());
   }
   //LCOV_EXCL_STOP
   auto snlInstance =
-    SNLInstance::create(design, model, SNLID::DesignObjectID(instanceID), snlName);
+    SNLInstance::create(design, model, NLID::DesignObjectID(instanceID), snlName);
   if (instance.hasInstParameters()) {
     for (auto instParameter: instance.getInstParameters()) {
       loadInstParameter(snlInstance, instParameter);
@@ -284,12 +285,12 @@ void loadTermReference(
   SNLBitNet* net,
   const DBImplementation::LibraryImplementation::DesignImplementation::TermReference::Reader& termReference) {
   auto design = net->getDesign();
-  auto term = design->getTerm(SNLID::DesignObjectID(termReference.getTermID()));
+  auto term = design->getTerm(NLID::DesignObjectID(termReference.getTermID()));
   //LCOV_EXCL_START
   if (not term) {
     std::ostringstream reason;
     reason << "cannot deserialize term reference: no term found with provided reference";
-    throw SNLException(reason.str());
+    throw NLException(reason.str());
   }
   //LCOV_EXCL_STOP
   if (auto scalarTerm = dynamic_cast<SNLScalarTerm*>(term)) {
@@ -302,7 +303,7 @@ void loadTermReference(
     if (not busTermBit) {
       std::ostringstream reason;
       reason << "cannot deserialize term reference: no bus term bit found with provided reference";
-      throw SNLException(reason.str());
+      throw NLException(reason.str());
     }
     //LCOV_EXCL_STOP
     busTermBit->setNet(net);
@@ -314,25 +315,25 @@ void loadInstTermReference(
   const DBImplementation::LibraryImplementation::DesignImplementation::InstTermReference::Reader& instTermReference) {
   auto instanceID = instTermReference.getInstanceID();
   auto design = net->getDesign();
-  auto instance = design->getInstance(SNLID::DesignObjectID(instanceID));
+  auto instance = design->getInstance(NLID::DesignObjectID(instanceID));
   //LCOV_EXCL_START
   if (not instance) {
     std::ostringstream reason;
     reason << "cannot deserialize instance term reference, no instance found with ID ";
     reason << instanceID << " in design " << design->getDescription();
-    throw SNLException(reason.str());
+    throw NLException(reason.str());
   }
   //LCOV_EXCL_STOP
   auto model = instance->getModel();
   auto termID = instTermReference.getTermID();
-  auto term = model->getTerm(SNLID::DesignObjectID(termID));
+  auto term = model->getTerm(NLID::DesignObjectID(termID));
   //LCOV_EXCL_START
   if (not term) {
     std::ostringstream reason;
     reason << "cannot deserialize instance " << instance->getDescription();
     reason << " term reference: no term found with ID ";
     reason << termID << " in model " << model->getDescription();
-    throw SNLException(reason.str());
+    throw NLException(reason.str());
   }
   //LCOV_EXCL_STOP
   SNLBitTerm* bitTerm = dynamic_cast<SNLScalarTerm*>(term);
@@ -344,7 +345,7 @@ void loadInstTermReference(
     if (not bitTerm) {
       std::ostringstream reason;
       reason << "cannot deserialize instance term reference: no bit found in bus term with provided reference";
-      throw SNLException(reason.str());
+      throw NLException(reason.str());
     }
     //LCOV_EXCL_STOP
   }
@@ -356,11 +357,11 @@ void loadInstTermReference(
 void loadBusNet(
   SNLDesign* design,
   const DBImplementation::LibraryImplementation::DesignImplementation::BusNet::Reader& net) {
-  SNLName snlName;
+  NLName snlName;
   if (net.hasName()) {
-    snlName = SNLName(net.getName());
+    snlName = NLName(net.getName());
   }
-  auto busNet = SNLBusNet::create(design, SNLID::DesignObjectID(net.getId()), net.getMsb(), net.getLsb(), snlName);
+  auto busNet = SNLBusNet::create(design, NLID::DesignObjectID(net.getId()), net.getMsb(), net.getLsb(), snlName);
   if (net.hasBits()) {
     for (auto bitNet: net.getBits()) {
       auto bit = bitNet.getBit();
@@ -369,7 +370,7 @@ void loadBusNet(
       if (not busNetBit) {
         std::ostringstream reason;
         reason << "cannot deserialize bus net bit: no bit found in bus term with provided reference";
-        throw SNLException(reason.str());
+        throw NLException(reason.str());
       }
       //LCOV_EXCL_STOP
       if (bitNet.getDestroyed()) {
@@ -393,11 +394,11 @@ void loadBusNet(
 void loadScalarNet(
   SNLDesign* design,
   const DBImplementation::LibraryImplementation::DesignImplementation::ScalarNet::Reader& net) {
-  SNLName snlName;
+  NLName snlName;
   if (net.hasName()) {
-    snlName = SNLName(net.getName());
+    snlName = NLName(net.getName());
   }
-  auto scalarNet = SNLScalarNet::create(design, SNLID::DesignObjectID(net.getId()), snlName);
+  auto scalarNet = SNLScalarNet::create(design, NLID::DesignObjectID(net.getId()), snlName);
   scalarNet->setType(CapnPtoSNLNetType(net.getType()));
   if (net.hasComponents()) {
     for (auto componentReference: net.getComponents()) {
@@ -411,15 +412,15 @@ void loadScalarNet(
 }
 
 void loadDesignImplementation(
-  SNLLibrary* library,
+  NLLibrary* library,
   const DBImplementation::LibraryImplementation::DesignImplementation::Reader& designImplementation) {
   auto designID = designImplementation.getId();
-  SNLDesign* snlDesign = library->getDesign(SNLID::DesignID(designID));
+  SNLDesign* snlDesign = library->getDesign(NLID::DesignID(designID));
   //LCOV_EXCL_START
   if (not snlDesign) {
     std::ostringstream reason;
     reason << "cannot deserialize design: no design found in library with provided id";
-    throw SNLException(reason.str());
+    throw NLException(reason.str());
   }
   //LCOV_EXCL_STOP
   if (designImplementation.hasInstances()) {
@@ -440,9 +441,9 @@ void loadDesignImplementation(
   }
 }
 
-void loadLibraryImplementation(SNLDB* db, const DBImplementation::LibraryImplementation::Reader& libraryImplementation) {
+void loadLibraryImplementation(NLDB* db, const DBImplementation::LibraryImplementation::Reader& libraryImplementation) {
   auto libraryID = libraryImplementation.getId();
-  SNLLibrary* snlLibrary = db->getLibrary(SNLID::LibraryID(libraryID));
+  NLLibrary* snlLibrary = db->getLibrary(NLID::LibraryID(libraryID));
   //LCOV_EXCL_START
   if (not snlLibrary) {
     std::ostringstream reason;
@@ -456,7 +457,7 @@ void loadLibraryImplementation(SNLDB* db, const DBImplementation::LibraryImpleme
         reason << lib->getDescription() << std::endl;
       }
     }
-    throw SNLException(reason.str());
+    throw NLException(reason.str());
   }
   //LCOV_EXCL_STOP
   if (libraryImplementation.hasDesignImplementations()) {
@@ -470,11 +471,11 @@ void loadLibraryImplementation(SNLDB* db, const DBImplementation::LibraryImpleme
 
 namespace naja { namespace SNL {
 
-void SNLCapnP::dumpImplementation(const SNLDB* snlDB, int fileDescriptor) {
+void SNLCapnP::dumpImplementation(const NLDB* snlDB, int fileDescriptor) {
   dumpImplementation(snlDB, fileDescriptor, snlDB->getID());
 }
 
-void SNLCapnP::dumpImplementation(const SNLDB* snlDB, int fileDescriptor, SNLID::DBID forceDBID) {
+void SNLCapnP::dumpImplementation(const NLDB* snlDB, int fileDescriptor, NLID::DBID forceDBID) {
   ::capnp::MallocMessageBuilder message;
 
   DBImplementation::Builder db = message.initRoot<DBImplementation>();
@@ -489,7 +490,7 @@ void SNLCapnP::dumpImplementation(const SNLDB* snlDB, int fileDescriptor, SNLID:
   writePackedMessageToFd(fileDescriptor, message);
 }
 
-void SNLCapnP::dumpImplementation(const SNLDB* snlDB, const std::filesystem::path& implementationPath) {
+void SNLCapnP::dumpImplementation(const NLDB* snlDB, const std::filesystem::path& implementationPath) {
   int fd = open(
     implementationPath.c_str(),
     O_CREAT | O_WRONLY,
@@ -499,16 +500,16 @@ void SNLCapnP::dumpImplementation(const SNLDB* snlDB, const std::filesystem::pat
 }
 
 //LCOV_EXCL_START
-//void SNLCapnP::sendImplementation(const SNLDB* db, tcp::socket& socket) {
+//void SNLCapnP::sendImplementation(const NLDB* db, tcp::socket& socket) {
 //  sendImplementation(db, socket, db->getID());
 //}
 //
-//void SNLCapnP::sendImplementation(const SNLDB* db, tcp::socket& socket, SNLID::DBID forceDBID) {
+//void SNLCapnP::sendImplementation(const NLDB* db, tcp::socket& socket, NLID::DBID forceDBID) {
 //  dumpImplementation(db, socket.native_handle(), forceDBID);
 //}
 //
 //void SNLCapnP::sendImplementation(
-//  const SNLDB* db,
+//  const NLDB* db,
 //  const std::string& ipAddress,
 //  uint16_t port) {
 //  boost::asio::io_context ioContext;
@@ -519,19 +520,19 @@ void SNLCapnP::dumpImplementation(const SNLDB* snlDB, const std::filesystem::pat
 //}
 //LCOV_EXCL_STOP
 
-SNLDB* SNLCapnP::loadImplementation(int fileDescriptor) {
+NLDB* SNLCapnP::loadImplementation(int fileDescriptor) {
   ::capnp::ReaderOptions options;
   options.traversalLimitInWords = std::numeric_limits<uint64_t>::max();
   ::capnp::PackedFdMessageReader message(fileDescriptor, options);
 
   DBImplementation::Reader dbImplementation = message.getRoot<DBImplementation>();
   auto dbID = dbImplementation.getId();
-  auto universe = SNLUniverse::get();
+  auto universe = NLUniverse::get();
   //LCOV_EXCL_START
   if (not universe) {
     std::ostringstream reason;
     reason << "cannot deserialize DB implementation: no existing universe";
-    throw SNLException(reason.str());
+    throw NLException(reason.str());
   }
   //LCOV_EXCL_STOP
   auto snldb = universe->getDB(dbID);
@@ -543,18 +544,18 @@ SNLDB* SNLCapnP::loadImplementation(int fileDescriptor) {
   return snldb;
 }
 
-SNLDB* SNLCapnP::loadImplementation(const std::filesystem::path& implementationPath) {
+NLDB* SNLCapnP::loadImplementation(const std::filesystem::path& implementationPath) {
   //FIXME: verify if file can be opened
   int fd = open(implementationPath.c_str(), O_RDONLY);
   return loadImplementation(fd);
 }
 
 //LCOV_EXCL_START
-//SNLDB* SNLCapnP::receiveImplementation(tcp::socket& socket) {
+//NLDB* SNLCapnP::receiveImplementation(tcp::socket& socket) {
 //  return loadImplementation(socket.native_handle());
 //}
 //
-//SNLDB* SNLCapnP::receiveImplementation(uint16_t port) {
+//NLDB* SNLCapnP::receiveImplementation(uint16_t port) {
 //  boost::asio::io_context ioContext;
 //  //listen for new connection
 //  tcp::acceptor acceptor_(ioContext, tcp::endpoint(tcp::v4(), port));
@@ -562,7 +563,7 @@ SNLDB* SNLCapnP::loadImplementation(const std::filesystem::path& implementationP
 //  tcp::socket socket(ioContext);
 //  //waiting for connection
 //  acceptor_.accept(socket);
-//  SNLDB* db = receiveImplementation(socket);
+//  NLDB* db = receiveImplementation(socket);
 //  return db;
 //}
 //LCOV_EXCL_STOP

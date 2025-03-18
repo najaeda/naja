@@ -6,27 +6,28 @@
 
 #include <sstream>
 
-#include "SNLException.h"
+#include "NLException.h"
+
 #include "SNLBusTerm.h"
 
 namespace naja { namespace SNL {
 
 SNLBusTermBit::SNLBusTermBit(
     SNLBusTerm* bus,
-    SNLID::Bit bit):
+    NLID::Bit bit):
   super(),
   bus_(bus),
   bit_(bit)
 {}
 
-SNLBusTermBit* SNLBusTermBit::create(SNLBusTerm* bus, SNLID::Bit bit) {
+SNLBusTermBit* SNLBusTermBit::create(SNLBusTerm* bus, NLID::Bit bit) {
   preCreate(bus, bit);
   SNLBusTermBit* busTermBit = new SNLBusTermBit(bus, bit);
   busTermBit->postCreate();
   return busTermBit;
 }
 
-void SNLBusTermBit::preCreate(const SNLBusTerm* bus, SNLID::Bit bit) {
+void SNLBusTermBit::preCreate(const SNLBusTerm* bus, NLID::Bit bit) {
   super::preCreate();
 }
 
@@ -40,19 +41,19 @@ void SNLBusTermBit::destroyFromBus() {
 }
 
 void SNLBusTermBit::destroy() {
-  throw SNLException("Unauthorized destroy of SNLBusTermBit");
+  throw NLException("Unauthorized destroy of SNLBusTermBit");
 }
 
 void SNLBusTermBit::preDestroy() {
   super::preDestroy();
 }
 
-SNLID::DesignObjectID SNLBusTermBit::getID() const {
+NLID::DesignObjectID SNLBusTermBit::getID() const {
   return getBus()->getID();
 }
 
-SNLID SNLBusTermBit::getSNLID() const {
-  return SNLDesignObject::getSNLID(SNLID::Type::TermBit, getID(), 0, getBit());
+NLID SNLBusTermBit::getNLID() const {
+  return SNLDesignObject::getNLID(NLID::Type::TermBit, getID(), 0, getBit());
 }
 
 size_t SNLBusTermBit::getFlatID() const {
@@ -71,7 +72,7 @@ SNLDesign* SNLBusTermBit::getDesign() const {
   return getBus()->getDesign();
 }
 
-SNLName SNLBusTermBit::getName() const {
+NLName SNLBusTermBit::getName() const {
   return getBus()->getName();
 }
 
@@ -116,8 +117,8 @@ bool SNLBusTermBit::isAnonymous() const {
   return getBus()->isAnonymous();
 }
 
-void SNLBusTermBit::setName(const SNLName& name) {
-  throw SNLException("Unauthorized setName of SNLBusTermBit");  
+void SNLBusTermBit::setName(const NLName& name) {
+  throw NLException("Unauthorized setName of SNLBusTermBit");  
 }
 
 bool SNLBusTermBit::deepCompare(const SNLTerm* other, std::string& reason) const {

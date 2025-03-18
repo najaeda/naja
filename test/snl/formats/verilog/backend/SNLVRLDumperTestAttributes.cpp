@@ -9,7 +9,7 @@
 
 #include "SNLVRLDumper.h"
 
-#include "SNLUniverse.h"
+#include "NLUniverse.h"
 #include "SNLAttributes.h"
 #include "SNLScalarTerm.h"
 #include "SNLScalarNet.h"
@@ -29,14 +29,14 @@ using namespace naja::SNL;
 class SNLVRLDumperTestAttributes: public ::testing::Test {
   protected:
     void SetUp() override {
-      SNLUniverse* universe = SNLUniverse::create();
-      SNLDB* db = SNLDB::create(universe);
-      SNLLibrary* library = SNLLibrary::create(db, SNLName("MYLIB"));
-      model_ = SNLDesign::create(library, SNLName("model"));
-      top_ = SNLDesign::create(library, SNLName("top"));
+      NLUniverse* universe = NLUniverse::create();
+      NLDB* db = NLDB::create(universe);
+      NLLibrary* library = NLLibrary::create(db, NLName("MYLIB"));
+      model_ = SNLDesign::create(library, NLName("model"));
+      top_ = SNLDesign::create(library, NLName("top"));
     }
     void TearDown() override {
-      SNLUniverse::get()->destroy();
+      NLUniverse::get()->destroy();
     }
   protected:
     SNLDesign*  top_;
@@ -48,39 +48,39 @@ TEST_F(SNLVRLDumperTestAttributes, test0) {
   ASSERT_TRUE(model_);
 
   SNLAttributes::addAttribute(top_,
-    SNLAttribute(SNLName("PRAGMA1"), SNLAttributeValue("value1")));
+    SNLAttribute(NLName("PRAGMA1"), SNLAttributeValue("value1")));
   SNLAttributes::addAttribute(top_,
     SNLAttribute(
-      SNLName("PRAGMA2"),
+      NLName("PRAGMA2"),
       SNLAttributeValue(SNLAttributeValue::Type::NUMBER, "12")));
-  SNLAttributes::addAttribute(top_, SNLAttribute(SNLName("PRAGMA2")));
+  SNLAttributes::addAttribute(top_, SNLAttribute(NLName("PRAGMA2")));
 
-  auto term = SNLScalarTerm::create(top_, SNLTerm::Direction::Input, SNLName("term"));
+  auto term = SNLScalarTerm::create(top_, SNLTerm::Direction::Input, NLName("term"));
   SNLAttributes::addAttribute(term,
-    SNLAttribute(SNLName("TPRAGMA1"), SNLAttributeValue("value1")));
+    SNLAttribute(NLName("TPRAGMA1"), SNLAttributeValue("value1")));
   SNLAttributes::addAttribute(term,
     SNLAttribute(
-      SNLName("TPRAGMA2"),
+      NLName("TPRAGMA2"),
       SNLAttributeValue(SNLAttributeValue::Type::NUMBER, "155")));
-  SNLAttributes::addAttribute(term, SNLAttribute(SNLName("TPRAGMA2")));
+  SNLAttributes::addAttribute(term, SNLAttribute(NLName("TPRAGMA2")));
 
-  auto net = SNLScalarNet::create(top_, SNLName("net"));
+  auto net = SNLScalarNet::create(top_, NLName("net"));
   SNLAttributes::addAttribute(net,
-    SNLAttribute(SNLName("NPRAGMA1"), SNLAttributeValue("value1")));
+    SNLAttribute(NLName("NPRAGMA1"), SNLAttributeValue("value1")));
   SNLAttributes::addAttribute(net,
     SNLAttribute(
-      SNLName("NPRAGMA2"),
+      NLName("NPRAGMA2"),
       SNLAttributeValue(SNLAttributeValue::Type::NUMBER, "88")));
-  SNLAttributes::addAttribute(net, SNLAttribute(SNLName("NPRAGMA2")));
+  SNLAttributes::addAttribute(net, SNLAttribute(NLName("NPRAGMA2")));
 
-  auto instance = SNLInstance::create(top_, model_, SNLName("ins"));
+  auto instance = SNLInstance::create(top_, model_, NLName("ins"));
   SNLAttributes::addAttribute(instance,
-    SNLAttribute(SNLName("IPRAGMA1"), SNLAttributeValue("value1")));
+    SNLAttribute(NLName("IPRAGMA1"), SNLAttributeValue("value1")));
   SNLAttributes::addAttribute(instance,
     SNLAttribute(
-      SNLName("IPRAGMA2"),
+      NLName("IPRAGMA2"),
       SNLAttributeValue(SNLAttributeValue::Type::NUMBER, "9")));
-  SNLAttributes::addAttribute(instance, SNLAttribute(SNLName("IPRAGMA2")));
+  SNLAttributes::addAttribute(instance, SNLAttribute(NLName("IPRAGMA2")));
 
   std::filesystem::path outPath(SNL_VRL_DUMPER_TEST_PATH);
   outPath = outPath / "testAttributes0";

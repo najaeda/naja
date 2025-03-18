@@ -6,7 +6,8 @@
 #define __SNL_UNIQUIFIER_H_
 
 #include "NajaCollection.h"
-#include "SNLID.h"
+
+#include "NLID.h"
 
 namespace naja { namespace SNL {
 
@@ -15,9 +16,9 @@ class SNLInstance;
 
 class SNLUniquifier {
   public:
-    SNLUniquifier(const std::vector<SNLID::DesignObjectID>& path, size_t id, bool uniquifyTail = false)
+    SNLUniquifier(const std::vector<NLID::DesignObjectID>& path, size_t id, bool uniquifyTail = false)
       :path_(path), id_(std::to_string(id)), uniquifyTail_(uniquifyTail) {}
-    SNLUniquifier(const std::vector<SNLID::DesignObjectID>& path, std::string id, bool uniquifyTail = false)
+    SNLUniquifier(const std::vector<NLID::DesignObjectID>& path, std::string id, bool uniquifyTail = false)
       :path_(path), id_(id), uniquifyTail_(uniquifyTail) {}
     SNLUniquifier(const SNLPath& path, bool uniquifyTail = true);
     void process();
@@ -44,7 +45,7 @@ class SNLUniquifier {
     bool operator>=(const SNLUniquifier& other) const { return not operator<(other); }
 
   private:
-    std::vector<SNLID::DesignObjectID> path_;
+    std::vector<NLID::DesignObjectID> path_;
     std::vector<SNLInstance*> pathUniq_;
     std::string id_;
     bool uniquifyTail_ = false;

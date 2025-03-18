@@ -234,7 +234,7 @@ SNLBooleanTreeInputNode* SNLBooleanTree::parseInput(
     //    throw std::runtime_error("Bit `" + busIndex + "' not found in bus `" + busName + "'.");
     //  }
     //} else {
-      input = primitive->getScalarTerm(SNLName(inputName));
+      input = primitive->getScalarTerm(NLName(inputName));
       if (input == nullptr) {
         throw SNLLibertyConstructorException("Scalar `" + inputName + "' not found.");
       }

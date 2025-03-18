@@ -4,10 +4,11 @@
 
 #include "gtest/gtest.h"
 
-#include "SNLUniverse.h"
+#include "NLUniverse.h"
+#include "NLException.h"
+
 #include "SNLScalarTerm.h"
 #include "SNLPyLoader.h"
-#include "SNLException.h"
 using namespace naja::SNL;
 
 #ifndef SNL_PRIMITIVES_TEST_PATH
@@ -17,17 +18,17 @@ using namespace naja::SNL;
 class SNLPyDBLoaderTest0: public ::testing::Test {
   protected:
     void SetUp() override {
-      SNLUniverse::create();
+      NLUniverse::create();
     }
     void TearDown() override {
-      if (SNLUniverse::get()) {
-        SNLUniverse::get()->destroy();
+      if (NLUniverse::get()) {
+        NLUniverse::get()->destroy();
       }
     }
 };
 
 TEST_F(SNLPyDBLoaderTest0, test) {
-  auto db = SNLDB::create(SNLUniverse::get());
+  auto db = NLDB::create(NLUniverse::get());
   auto dbScriptPath = std::filesystem::path(SNL_PRIMITIVES_TEST_PATH);
   dbScriptPath /= "scripts";
   dbScriptPath /= "db_loader.py";
@@ -37,9 +38,9 @@ TEST_F(SNLPyDBLoaderTest0, test) {
 }
 
 TEST_F(SNLPyDBLoaderTest0, testDBLoadingError) {
-  auto db = SNLDB::create(SNLUniverse::get());
+  auto db = NLDB::create(NLUniverse::get());
   auto dbScriptPath = std::filesystem::path(SNL_PRIMITIVES_TEST_PATH);
   dbScriptPath /= "scripts";
   dbScriptPath /= "db_faulty.py";
-  EXPECT_THROW(SNLPyLoader::loadDB(db, dbScriptPath), SNLException);
+  EXPECT_THROW(SNLPyLoader::loadDB(db, dbScriptPath), NLException);
 }

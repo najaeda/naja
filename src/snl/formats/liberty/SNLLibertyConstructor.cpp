@@ -10,7 +10,8 @@
 
 #include "YosysLibertyParser.h"
 
-#include "SNLLibrary.h"
+#include "NLLibrary.h"
+
 #include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
 #include "SNLBooleanTree.h"
@@ -98,9 +99,9 @@ void parseTerms(
         } else {
           auto snlDirection = getSNLDirection(direction);
           if (busType.name.empty()) {
-            constructedScalarTerm = SNLScalarTerm::create(primitive, snlDirection, SNLName(pinName));
+            constructedScalarTerm = SNLScalarTerm::create(primitive, snlDirection, NLName(pinName));
           } else {
-            SNLBusTerm::create(primitive, snlDirection, busType.msb, busType.lsb, SNLName(pinName));
+            SNLBusTerm::create(primitive, snlDirection, busType.msb, busType.lsb, NLName(pinName));
           }
         }
       } else {
@@ -138,9 +139,9 @@ void parseTerms(
   }
 }
 
-void parseCell(SNLLibrary* library, const Yosys::LibertyAst* top, Yosys::LibertyAst* cell) {
+void parseCell(NLLibrary* library, const Yosys::LibertyAst* top, Yosys::LibertyAst* cell) {
   auto cellName = cell->args[0];
-  auto primitive = SNLDesign::create(library, SNLDesign::Type::Primitive, SNLName(cellName));
+  auto primitive = SNLDesign::create(library, SNLDesign::Type::Primitive, NLName(cellName));
   //std::cerr << "Parse cell: " << cellName << std::endl;
   auto ff = cell->find("ff");
   auto latch = cell->find("latch");
@@ -148,7 +149,7 @@ void parseCell(SNLLibrary* library, const Yosys::LibertyAst* top, Yosys::Liberty
   parseTerms(primitive, top, cell, ignoreFunction);
 }
 
-void parseCells(SNLLibrary* library, const Yosys::LibertyAst* ast) {
+void parseCells(NLLibrary* library, const Yosys::LibertyAst* ast) {
   for (auto child: ast->children) {
     if (child->id == "cell") {
       parseCell(library, ast, child);
@@ -160,7 +161,7 @@ void parseCells(SNLLibrary* library, const Yosys::LibertyAst* ast) {
 
 namespace naja { namespace SNL {
 
-SNLLibertyConstructor::SNLLibertyConstructor(SNLLibrary* library):
+SNLLibertyConstructor::SNLLibertyConstructor(NLLibrary* library):
   library_(library)
 {}
 
@@ -186,7 +187,7 @@ void SNLLibertyConstructor::construct(const std::filesystem::path& path) {
   }
   auto libraryName = ast->args[0];
   //find a policy for multiple libs
-  library_->setName(SNLName(libraryName));
+  library_->setName(NLName(libraryName));
   parseCells(library_, ast);
 }
 

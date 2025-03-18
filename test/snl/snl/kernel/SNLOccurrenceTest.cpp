@@ -6,7 +6,9 @@
 #include "gmock/gmock.h"
 using ::testing::ElementsAre;
 
-#include "SNLUniverse.h"
+#include "NLUniverse.h"
+#include "NLException.h"
+
 #include "SNLPath.h"
 #include "SNLScalarTerm.h"
 #include "SNLInstTerm.h"
@@ -15,7 +17,6 @@ using ::testing::ElementsAre;
 #include "SNLBitTermOccurrence.h"
 #include "SNLInstTermOccurrence.h"
 #include "SNLEquipotential.h"
-#include "SNLException.h"
 using namespace naja::SNL;
 
 class SNLOccurrenceTest: public ::testing::Test {
@@ -30,42 +31,42 @@ class SNLOccurrenceTest: public ::testing::Test {
       // simple test design with i term and net at each level
       // connected to upper and lower level.
       // At bottom level prim:o is unconnected.
-      auto universe = SNLUniverse::create();
-      auto db = SNLDB::create(universe);
-      auto primitivesLib = SNLLibrary::create(db, SNLLibrary::Type::Primitives);
-      auto designsLib = SNLLibrary::create(db);
-      auto prim = SNLDesign::create(primitivesLib, SNLDesign::Type::Primitive, SNLName("PRIM"));
-      auto primi = SNLScalarTerm::create(prim, SNLTerm::Direction::Input, SNLName("i"));
-      auto primo = SNLScalarTerm::create(prim, SNLTerm::Direction::Input, SNLName("o"));
-      auto primiNet = SNLScalarNet::create(prim, SNLName("i"));
+      auto universe = NLUniverse::create();
+      auto db = NLDB::create(universe);
+      auto primitivesLib = NLLibrary::create(db, NLLibrary::Type::Primitives);
+      auto designsLib = NLLibrary::create(db);
+      auto prim = SNLDesign::create(primitivesLib, SNLDesign::Type::Primitive, NLName("PRIM"));
+      auto primi = SNLScalarTerm::create(prim, SNLTerm::Direction::Input, NLName("i"));
+      auto primo = SNLScalarTerm::create(prim, SNLTerm::Direction::Input, NLName("o"));
+      auto primiNet = SNLScalarNet::create(prim, NLName("i"));
       primi->setNet(primiNet);
-      auto top = SNLDesign::create(designsLib, SNLName("TOP"));
-      auto topi = SNLScalarTerm::create(top, SNLTerm::Direction::Input, SNLName("i"));
-      auto topiNet = SNLScalarNet::create(top, SNLName("i"));
+      auto top = SNLDesign::create(designsLib, NLName("TOP"));
+      auto topi = SNLScalarTerm::create(top, SNLTerm::Direction::Input, NLName("i"));
+      auto topiNet = SNLScalarNet::create(top, NLName("i"));
       topi->setNet(topiNet);
-      auto h0 = SNLDesign::create(designsLib, SNLName("H0"));
-      auto h0i = SNLScalarTerm::create(h0, SNLTerm::Direction::Input, SNLName("i"));
-      auto h0iNet = SNLScalarNet::create(h0, SNLName("i"));
+      auto h0 = SNLDesign::create(designsLib, NLName("H0"));
+      auto h0i = SNLScalarTerm::create(h0, SNLTerm::Direction::Input, NLName("i"));
+      auto h0iNet = SNLScalarNet::create(h0, NLName("i"));
       h0i->setNet(h0iNet);
-      auto h1 = SNLDesign::create(designsLib, SNLName("H1"));
-      auto h1i = SNLScalarTerm::create(h1, SNLTerm::Direction::Input, SNLName("i"));
-      auto h1iNet = SNLScalarNet::create(h1, SNLName("i"));
+      auto h1 = SNLDesign::create(designsLib, NLName("H1"));
+      auto h1i = SNLScalarTerm::create(h1, SNLTerm::Direction::Input, NLName("i"));
+      auto h1iNet = SNLScalarNet::create(h1, NLName("i"));
       h1i->setNet(h1iNet);
-      auto h2 = SNLDesign::create(designsLib, SNLName("H2"));
-      auto h2i = SNLScalarTerm::create(h2, SNLTerm::Direction::Input, SNLName("i"));
-      auto h2iNet = SNLScalarNet::create(h2, SNLName("i"));
+      auto h2 = SNLDesign::create(designsLib, NLName("H2"));
+      auto h2i = SNLScalarTerm::create(h2, SNLTerm::Direction::Input, NLName("i"));
+      auto h2iNet = SNLScalarNet::create(h2, NLName("i"));
       h2i->setNet(h2iNet);
-      primInstance_ = SNLInstance::create(h2, prim, SNLName("prim"));
-      h2Instance_ = SNLInstance::create(h1, h2, SNLName("h2"));
-      h1Instance_ = SNLInstance::create(h0, h1, SNLName("h1"));
-      h0Instance_ = SNLInstance::create(top, h0, SNLName("h0"));
-      primInstance_->getInstTerm(prim->getScalarTerm(SNLName("i")))->setNet(h2->getScalarNet(SNLName("i")));
-      h2Instance_->getInstTerm(h2->getScalarTerm(SNLName("i")))->setNet(h1->getScalarNet(SNLName("i")));
-      h1Instance_->getInstTerm(h1->getScalarTerm(SNLName("i")))->setNet(h0->getScalarNet(SNLName("i")));
-      h0Instance_->getInstTerm(h0->getScalarTerm(SNLName("i")))->setNet(top->getScalarNet(SNLName("i")));
+      primInstance_ = SNLInstance::create(h2, prim, NLName("prim"));
+      h2Instance_ = SNLInstance::create(h1, h2, NLName("h2"));
+      h1Instance_ = SNLInstance::create(h0, h1, NLName("h1"));
+      h0Instance_ = SNLInstance::create(top, h0, NLName("h0"));
+      primInstance_->getInstTerm(prim->getScalarTerm(NLName("i")))->setNet(h2->getScalarNet(NLName("i")));
+      h2Instance_->getInstTerm(h2->getScalarTerm(NLName("i")))->setNet(h1->getScalarNet(NLName("i")));
+      h1Instance_->getInstTerm(h1->getScalarTerm(NLName("i")))->setNet(h0->getScalarNet(NLName("i")));
+      h0Instance_->getInstTerm(h0->getScalarTerm(NLName("i")))->setNet(top->getScalarNet(NLName("i")));
     }
     void TearDown() override {
-      SNLUniverse::get()->destroy();
+      NLUniverse::get()->destroy();
     }
 
     SNLInstance* primInstance_  {nullptr};
@@ -75,7 +76,7 @@ class SNLOccurrenceTest: public ::testing::Test {
 };
 
 TEST_F(SNLOccurrenceTest, testEmptyOccurrences0) {
-  ASSERT_NE(SNLUniverse::get(), nullptr);
+  ASSERT_NE(NLUniverse::get(), nullptr);
   auto emptyPath = SNLPath();
   auto emptyNetOccurrence = SNLBitNetOccurrence();
   auto emptyInstTermOccurrence = SNLInstTermOccurrence();
@@ -90,7 +91,7 @@ TEST_F(SNLOccurrenceTest, testEmptyOccurrences0) {
 }
 
 TEST_F(SNLOccurrenceTest, testEmptyOccurrences1) {
-  ASSERT_NE(SNLUniverse::get(), nullptr);
+  ASSERT_NE(NLUniverse::get(), nullptr);
   auto emptyPath = SNLPath();
   auto emptyNetOccurrence = SNLBitNetOccurrence(emptyPath, nullptr);
   auto emptyInstTermOccurrence = SNLInstTermOccurrence(emptyPath, nullptr);
@@ -107,7 +108,7 @@ TEST_F(SNLOccurrenceTest, testEmptyOccurrences1) {
 }
 
 TEST_F(SNLOccurrenceTest, testh0Level) {
-  auto topITerm = h0Instance_->getDesign()->getScalarTerm(SNLName("i"));
+  auto topITerm = h0Instance_->getDesign()->getScalarTerm(NLName("i"));
   ASSERT_NE(topITerm, nullptr);
   auto topITermOccurrence = SNLBitTermOccurrence(topITerm);
   EXPECT_TRUE(topITermOccurrence.getPath().empty());
@@ -116,7 +117,7 @@ TEST_F(SNLOccurrenceTest, testh0Level) {
 
   ASSERT_NE(h0Instance_, nullptr);
   auto h0Path = SNLPath(h0Instance_, SNLPath());
-  auto iTerm = h0Instance_->getModel()->getScalarTerm(SNLName("i"));
+  auto iTerm = h0Instance_->getModel()->getScalarTerm(NLName("i"));
   ASSERT_NE(nullptr, iTerm);
   auto h0iTermOccurrence = SNLBitTermOccurrence(h0Path, iTerm);
   EXPECT_EQ(h0Path, h0iTermOccurrence.getPath());
@@ -140,7 +141,7 @@ TEST_F(SNLOccurrenceTest, testh1Level) {
   ASSERT_NE(h1Instance_, nullptr);
   auto h0Path = SNLPath(h0Instance_);
   auto h1Path = SNLPath(h0Path, h1Instance_);
-  auto iTerm = h1Instance_->getModel()->getScalarTerm(SNLName("i"));
+  auto iTerm = h1Instance_->getModel()->getScalarTerm(NLName("i"));
   ASSERT_NE(nullptr, iTerm);
   auto h1iTermOccurrence = SNLBitTermOccurrence(h1Path, iTerm);
   EXPECT_EQ(h1Path, h1iTermOccurrence.getPath());
@@ -156,8 +157,8 @@ TEST_F(SNLOccurrenceTest, testh2Level) {
   auto h1Path = SNLPath(h0Path, h1Instance_);
   auto h2Path = SNLPath(h1Path, h2Instance_);
   ASSERT_EQ(3, h2Path.size());
-  auto primI = primInstance_->getInstTerm(primInstance_->getModel()->getScalarTerm(SNLName("i")));
-  auto primO = primInstance_->getInstTerm(primInstance_->getModel()->getScalarTerm(SNLName("o")));
+  auto primI = primInstance_->getInstTerm(primInstance_->getModel()->getScalarTerm(NLName("i")));
+  auto primO = primInstance_->getInstTerm(primInstance_->getModel()->getScalarTerm(NLName("o")));
   ASSERT_NE(nullptr, primI);
   ASSERT_NE(nullptr, primO);
   auto primITermOccurrence = SNLInstTermOccurrence(h2Path, primI);
@@ -171,7 +172,7 @@ TEST_F(SNLOccurrenceTest, testh2Level) {
 TEST_F(SNLOccurrenceTest, testEquipotential0) {
   ASSERT_NE(h0Instance_, nullptr);
   auto top = h0Instance_->getDesign();
-  auto topi = top->getScalarTerm(SNLName("i"));
+  auto topi = top->getScalarTerm(NLName("i"));
   ASSERT_NE(topi, nullptr);
   SNLEquipotential equipotential(topi);
   EXPECT_EQ(equipotential.getTerms().size(), 1);
@@ -181,7 +182,7 @@ TEST_F(SNLOccurrenceTest, testEquipotential0) {
   EXPECT_FALSE(h2Path.empty());
   EXPECT_EQ(3, h2Path.size());
   auto h2 = h2Path.getModel();
-  auto primi = primInstance_->getInstTerm(primInstance_->getModel()->getScalarTerm(SNLName("i")));
+  auto primi = primInstance_->getInstTerm(primInstance_->getModel()->getScalarTerm(NLName("i")));
   ASSERT_NE(nullptr, primi);
   auto primiOccurrence = SNLInstTermOccurrence(h2Path, primi);
   ASSERT_TRUE(primiOccurrence.isValid());
@@ -192,12 +193,12 @@ TEST_F(SNLOccurrenceTest, testEquipotential0) {
 TEST_F(SNLOccurrenceTest, testEquipotential1) {
   ASSERT_NE(h0Instance_, nullptr);
   auto top = h0Instance_->getDesign();
-  auto topi = top->getScalarTerm(SNLName("i"));
+  auto topi = top->getScalarTerm(NLName("i"));
   ASSERT_NE(topi, nullptr);
   SNLPath::PathStringDescriptor h1StringPath = {"h0", "h1"};
   SNLPath h1Path(top, h1StringPath);
   EXPECT_EQ(2, h1Path.size());
-  auto h2i = h2Instance_->getInstTerm(h2Instance_->getModel()->getScalarTerm(SNLName("i")));
+  auto h2i = h2Instance_->getInstTerm(h2Instance_->getModel()->getScalarTerm(NLName("i")));
   ASSERT_NE(nullptr, h2i);
   auto h2iOccurrence = SNLInstTermOccurrence(h1Path, h2i);
   SNLEquipotential equipotential(h2iOccurrence);
@@ -208,7 +209,7 @@ TEST_F(SNLOccurrenceTest, testEquipotential1) {
   EXPECT_FALSE(h2Path.empty());
   EXPECT_EQ(3, h2Path.size());
   auto h2 = h2Path.getModel();
-  auto primi = primInstance_->getInstTerm(primInstance_->getModel()->getScalarTerm(SNLName("i")));
+  auto primi = primInstance_->getInstTerm(primInstance_->getModel()->getScalarTerm(NLName("i")));
   ASSERT_NE(nullptr, primi);
   auto primiOccurrence = SNLInstTermOccurrence(h2Path, primi);
   ASSERT_TRUE(primiOccurrence.isValid());
@@ -222,7 +223,7 @@ TEST_F(SNLOccurrenceTest, testErrors) {
   SNLPath h2Path(top, h2StringPath);
   EXPECT_FALSE(h2Path.empty());
   EXPECT_EQ(3, h2Path.size());
-  auto h1i = h1Instance_->getInstTerm(h1Instance_->getModel()->getScalarTerm(SNLName("i")));
+  auto h1i = h1Instance_->getInstTerm(h1Instance_->getModel()->getScalarTerm(NLName("i")));
   ASSERT_NE(h1i, nullptr);
-  EXPECT_THROW(SNLInstTermOccurrence(h2Path, h1i), SNLException);
+  EXPECT_THROW(SNLInstTermOccurrence(h2Path, h1i), NLException);
 }

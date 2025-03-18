@@ -9,7 +9,8 @@ using ::testing::ElementsAre;
 #include <filesystem>
 #include <fstream>
 
-#include "SNLUniverse.h"
+#include "NLUniverse.h"
+
 #include "SNLScalarTerm.h"
 #include "SNLAttributes.h"
 
@@ -24,26 +25,26 @@ using namespace naja::SNL;
 class SNLVRLConstructorTestAttributes: public ::testing::Test {
   protected:
     void SetUp() override {
-      SNLUniverse* universe = SNLUniverse::create();
-      auto db = SNLDB::create(universe);
-      library_ = SNLLibrary::create(db, SNLName("MYLIB"));
+      NLUniverse* universe = NLUniverse::create();
+      auto db = NLDB::create(universe);
+      library_ = NLLibrary::create(db, NLName("MYLIB"));
     }
     void TearDown() override {
-      SNLUniverse::get()->destroy();
+      NLUniverse::get()->destroy();
       library_ = nullptr;
     }
   protected:
-    SNLLibrary*      library_;
+    NLLibrary*  library_;
 };
 
 TEST_F(SNLVRLConstructorTestAttributes, test0) {
-  auto db = SNLDB::create(SNLUniverse::get());
+  auto db = NLDB::create(NLUniverse::get());
   SNLVRLConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_VRL_BENCHMARKS_PATH);
   constructor.construct(benchmarksPath/"test_attributes.v");
 
   ASSERT_EQ(3, library_->getDesigns().size());
-  auto simple_netlist = library_->getDesign(SNLName("simple_netlist"));
+  auto simple_netlist = library_->getDesign(NLName("simple_netlist"));
   ASSERT_NE(simple_netlist, nullptr);
 
   ASSERT_EQ(3, SNLAttributes::getAttributes(simple_netlist).size());
@@ -55,13 +56,13 @@ TEST_F(SNLVRLConstructorTestAttributes, test0) {
   EXPECT_THAT(simple_netlistAttributes,
     ElementsAre(
       SNLAttribute(
-        SNLName("MODULE_ATTRIBUTE"),
+        NLName("MODULE_ATTRIBUTE"),
         SNLAttributeValue("Top level simple_netlist module")),
       SNLAttribute(
-        SNLName("MODULE_VERSION"),
+        NLName("MODULE_VERSION"),
         SNLAttributeValue("1.0")),
       SNLAttribute(
-        SNLName("VERSION"),
+        NLName("VERSION"),
         SNLAttributeValue(
           SNLAttributeValue::Type::NUMBER,
           "3"))
@@ -74,14 +75,14 @@ TEST_F(SNLVRLConstructorTestAttributes, test0) {
   Instances instances(simple_netlist->getInstances().begin(), simple_netlist->getInstances().end());
   EXPECT_THAT(instances,
     ElementsAre(
-      simple_netlist->getInstance(SNLName("and2_inst")),
-      simple_netlist->getInstance(SNLName("or2_inst")),
+      simple_netlist->getInstance(NLName("and2_inst")),
+      simple_netlist->getInstance(NLName("or2_inst")),
       simple_netlist->getInstance(2),
       simple_netlist->getInstance(3)
     )
   );
 
-  auto ins0 = simple_netlist->getInstance(SNLName("and2_inst"));
+  auto ins0 = simple_netlist->getInstance(NLName("and2_inst"));
   ASSERT_NE(ins0, nullptr);
   EXPECT_EQ(3, SNLAttributes::getAttributes(ins0).size());
   Attributes ins0Attributes(
@@ -94,20 +95,20 @@ TEST_F(SNLVRLConstructorTestAttributes, test0) {
   EXPECT_THAT(ins0Attributes,
     ElementsAre(
       SNLAttribute(
-        SNLName("INSTANCE_ATTRIBUTE_AND"),
+        NLName("INSTANCE_ATTRIBUTE_AND"),
         SNLAttributeValue("and2_inst")),
       SNLAttribute(
-        SNLName("description"),
+        NLName("description"),
         SNLAttributeValue("2-input AND gate instance")),
       SNLAttribute(
-        SNLName("VERSION"),
+        NLName("VERSION"),
         SNLAttributeValue(
           SNLAttributeValue::Type::NUMBER,
           "3"))
     )
   );
 
-  auto ins1 = simple_netlist->getInstance(SNLName("or2_inst"));
+  auto ins1 = simple_netlist->getInstance(NLName("or2_inst"));
   ASSERT_NE(ins1, nullptr);
   EXPECT_EQ(2, SNLAttributes::getAttributes(ins1).size());
   Attributes ins1Attributes(
@@ -117,10 +118,10 @@ TEST_F(SNLVRLConstructorTestAttributes, test0) {
   EXPECT_THAT(ins1Attributes,
     ElementsAre(
       SNLAttribute(
-        SNLName("INSTANCE_ATTRIBUTE_OR"),
+        NLName("INSTANCE_ATTRIBUTE_OR"),
         SNLAttributeValue("or2_inst")),
       SNLAttribute(
-        SNLName("description"),
+        NLName("description"),
         SNLAttributeValue("2-input OR gate instance"))
     )
   );
@@ -136,14 +137,14 @@ TEST_F(SNLVRLConstructorTestAttributes, test0) {
 
   EXPECT_THAT(terms,
     ElementsAre(
-      simple_netlist->getScalarTerm(SNLName("a")),
-      simple_netlist->getScalarTerm(SNLName("b")),
-      simple_netlist->getScalarTerm(SNLName("and_out")),
-      simple_netlist->getScalarTerm(SNLName("or_out"))
+      simple_netlist->getScalarTerm(NLName("a")),
+      simple_netlist->getScalarTerm(NLName("b")),
+      simple_netlist->getScalarTerm(NLName("and_out")),
+      simple_netlist->getScalarTerm(NLName("or_out"))
     )
   );
 
-  auto aTerm = simple_netlist->getScalarTerm(SNLName("a"));
+  auto aTerm = simple_netlist->getScalarTerm(NLName("a"));
   ASSERT_NE(aTerm, nullptr);
   EXPECT_EQ(1, SNLAttributes::getAttributes(aTerm).size());
   Attributes aTermAttributes(
@@ -152,12 +153,12 @@ TEST_F(SNLVRLConstructorTestAttributes, test0) {
   EXPECT_EQ(1, aTermAttributes.size());
   EXPECT_EQ(
     SNLAttribute(
-      SNLName("INPUT_ATTRIBUTE_A"),
+      NLName("INPUT_ATTRIBUTE_A"),
       SNLAttributeValue("Input signal A")),
     aTermAttributes[0]
   );
 
-  auto bTerm = simple_netlist->getScalarTerm(SNLName("b"));
+  auto bTerm = simple_netlist->getScalarTerm(NLName("b"));
   ASSERT_NE(bTerm, nullptr);
   EXPECT_EQ(1, SNLAttributes::getAttributes(bTerm).size());
   Attributes bTermAttributes(
@@ -166,12 +167,12 @@ TEST_F(SNLVRLConstructorTestAttributes, test0) {
   EXPECT_EQ(1, bTermAttributes.size());
   EXPECT_EQ(
     SNLAttribute(
-      SNLName("INPUT_ATTRIBUTE_B"),
+      NLName("INPUT_ATTRIBUTE_B"),
       SNLAttributeValue("Input signal B")),
     bTermAttributes[0]
   );
 
-  auto andOutTerm = simple_netlist->getScalarTerm(SNLName("and_out"));
+  auto andOutTerm = simple_netlist->getScalarTerm(NLName("and_out"));
   ASSERT_NE(andOutTerm, nullptr);
   EXPECT_EQ(1, SNLAttributes::getAttributes(andOutTerm).size());
     Attributes andOutTermAttributes(
@@ -180,12 +181,12 @@ TEST_F(SNLVRLConstructorTestAttributes, test0) {
   EXPECT_EQ(1, andOutTermAttributes.size());
   EXPECT_EQ(
     SNLAttribute(
-      SNLName("OUTPUT_ATTRIBUTE_AND"),
+      NLName("OUTPUT_ATTRIBUTE_AND"),
       SNLAttributeValue("Output of AND gate")),
     andOutTermAttributes[0]
   );
 
-  auto orOutTerm = simple_netlist->getScalarTerm(SNLName("or_out"));
+  auto orOutTerm = simple_netlist->getScalarTerm(NLName("or_out"));
   ASSERT_NE(orOutTerm, nullptr);
   EXPECT_EQ(1, SNLAttributes::getAttributes(orOutTerm).size());
     EXPECT_EQ(1, SNLAttributes::getAttributes(orOutTerm).size());
@@ -195,7 +196,7 @@ TEST_F(SNLVRLConstructorTestAttributes, test0) {
   EXPECT_EQ(1, orOutTermAttributes.size());
   EXPECT_EQ(
     SNLAttribute(
-      SNLName("OUTPUT_ATTRIBUTE_OR"),
+      NLName("OUTPUT_ATTRIBUTE_OR"),
       SNLAttributeValue("Output of OR gate")),
     orOutTermAttributes[0]
   );
@@ -204,7 +205,7 @@ TEST_F(SNLVRLConstructorTestAttributes, test0) {
   ASSERT_EQ(8, simple_netlist->getNets().size());
   ASSERT_EQ(8, simple_netlist->getScalarNets().size());
 
-  auto andWire = simple_netlist->getNet(SNLName("and_wire"));
+  auto andWire = simple_netlist->getNet(NLName("and_wire"));
   ASSERT_NE(andWire, nullptr);
   Attributes andWireAttributes(
     SNLAttributes::getAttributes(andWire).begin(),
@@ -212,12 +213,12 @@ TEST_F(SNLVRLConstructorTestAttributes, test0) {
   EXPECT_EQ(1, andWireAttributes.size());
   EXPECT_EQ(
     SNLAttribute(
-      SNLName("WIRE_ATTRIBUTE"),
+      NLName("WIRE_ATTRIBUTE"),
       SNLAttributeValue("Wire connecting AND gate output to top output")),
     andWireAttributes[0]
   );
 
-  auto orWire = simple_netlist->getNet(SNLName("or_wire"));
+  auto orWire = simple_netlist->getNet(NLName("or_wire"));
   ASSERT_NE(orWire, nullptr);
   Attributes orWireAttributes(
     SNLAttributes::getAttributes(orWire).begin(),
@@ -225,27 +226,27 @@ TEST_F(SNLVRLConstructorTestAttributes, test0) {
   EXPECT_EQ(1, orWireAttributes.size());
   EXPECT_EQ(
     SNLAttribute(
-      SNLName("WIRE_ATTRIBUTE"),
+      NLName("WIRE_ATTRIBUTE"),
       SNLAttributeValue("Wire connecting OR gate output to top output")),
     orWireAttributes[0]
   );
 }
 
 TEST_F(SNLVRLConstructorTestAttributes, testDisableAttributes) {
-  auto db = SNLDB::create(SNLUniverse::get());
+  auto db = NLDB::create(NLUniverse::get());
   SNLVRLConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_VRL_BENCHMARKS_PATH);
   constructor.setParseAttributes(false); //disable attributes
   constructor.construct(benchmarksPath/"test_attributes.v");
 
   ASSERT_EQ(3, library_->getDesigns().size());
-  auto simple_netlist = library_->getDesign(SNLName("simple_netlist"));
+  auto simple_netlist = library_->getDesign(NLName("simple_netlist"));
   ASSERT_NE(simple_netlist, nullptr);
   ASSERT_TRUE(SNLAttributes::getAttributes(simple_netlist).empty());
 
-  auto ins0 = simple_netlist->getInstance(SNLName("and2_inst"));
+  auto ins0 = simple_netlist->getInstance(NLName("and2_inst"));
   ASSERT_NE(ins0, nullptr);
   EXPECT_TRUE(SNLAttributes::getAttributes(ins0).empty());
-  auto ins1 = simple_netlist->getInstance(SNLName("or2_inst"));
+  auto ins1 = simple_netlist->getInstance(NLName("or2_inst"));
   EXPECT_TRUE(SNLAttributes::getAttributes(ins1).empty());
 }

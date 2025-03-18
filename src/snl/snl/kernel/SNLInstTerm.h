@@ -22,7 +22,7 @@ class SNLInstTerm final: public SNLNetComponent {
 
     SNLDesign* getDesign() const override;
 
-    SNLID getSNLID() const override;
+    NLID getNLID() const override;
     /// \return the SNLInstance owning this SNLInstTerm.
     SNLInstance* getInstance() const { return instance_; }
     /// \return the SNLBitTerm referenced by this SNLInstTerm.
@@ -31,7 +31,7 @@ class SNLInstTerm final: public SNLNetComponent {
     void setNet(SNLNet* net) override;
 
     bool isAnonymous() const override;
-    void setName(const SNLName& name) override;
+    void setName(const NLName& name) override;
     
     SNLTerm::Direction getDirection() const override;
     const char* getTypeName() const override;

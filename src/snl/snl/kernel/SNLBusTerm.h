@@ -32,14 +32,14 @@ class SNLBusTerm final: public SNLTerm {
     static SNLBusTerm* create(
         SNLDesign* design,
         Direction direction,
-        SNLID::Bit msb,
-        SNLID::Bit lsb,
-        const SNLName& name=SNLName());
+        NLID::Bit msb,
+        NLID::Bit lsb,
+        const NLName& name=NLName());
 
     /**
-     * \brief Create a SNLBusTerm with a given SNLID::DesignObjectID.
+     * \brief Create a SNLBusTerm with a given NLID::DesignObjectID.
      * \param design owner SNLDesign.
-     * \param id SNLID::DesignObjectID of the instance.
+     * \param id NLID::DesignObjectID of the instance.
      * \param direction direction of the term.
      * \param msb MSB (Most Significant Bit) or left hand side of the bus range.
      * \param lsb LSB (Most Significant Bit) or right hand side of the bus range.
@@ -48,11 +48,11 @@ class SNLBusTerm final: public SNLTerm {
      */
     static SNLBusTerm* create(
         SNLDesign* design,
-        SNLID::DesignObjectID id,
+        NLID::DesignObjectID id,
         Direction direction,
-        SNLID::Bit msb,
-        SNLID::Bit lsb,
-        const SNLName& name=SNLName());
+        NLID::Bit msb,
+        NLID::Bit lsb,
+        const NLName& name=NLName());
 
     SNLBitNet* getNet() const override { return nullptr; }
     void setNet(SNLNet* net) override;
@@ -60,21 +60,21 @@ class SNLBusTerm final: public SNLTerm {
     SNLDesign* getDesign() const override { return design_; }
     
     ///\return MSB (Most Significant Bit) or left hand side of the bus range.
-    SNLID::Bit getMSB() const { return msb_; }
+    NLID::Bit getMSB() const { return msb_; }
     ///\return LSB (Most Significant Bit) or right hand side of the bus range.
-    SNLID::Bit getLSB() const { return lsb_; }
-    SNLID::Bit getWidth() const override;
-    SNLBusTermBit* getBit(SNLID::Bit bit) const;
+    NLID::Bit getLSB() const { return lsb_; }
+    NLID::Bit getWidth() const override;
+    SNLBusTermBit* getBit(NLID::Bit bit) const;
     SNLBusTermBit* getBitAtPosition(size_t position) const;
     NajaCollection<SNLBitTerm*> getBits() const override;
     NajaCollection<SNLBusTermBit*> getBusBits() const;
 
-    SNLID::DesignObjectID getID() const override { return id_; }
-    SNLID getSNLID() const override;
+    NLID::DesignObjectID getID() const override { return id_; }
+    NLID getNLID() const override;
     size_t getFlatID() const override { return flatID_; }
-    SNLName getName() const override { return name_; }
+    NLName getName() const override { return name_; }
     bool isAnonymous() const override { return name_.empty(); }
-    void setName(const SNLName& name) override;
+    void setName(const NLName& name) override;
    
     SNLTerm::Direction getDirection() const override { return direction_; }
     void setDirection(const SNLTerm::Direction& direction) { direction_ = direction; }
@@ -90,18 +90,18 @@ class SNLBusTerm final: public SNLTerm {
     SNLBusTerm(
         SNLDesign* design,
         Direction direction,
-        SNLID::Bit msb,
-        SNLID::Bit lsb,
-        const SNLName& name);
+        NLID::Bit msb,
+        NLID::Bit lsb,
+        const NLName& name);
     SNLBusTerm(
         SNLDesign* design,
-        SNLID::DesignObjectID id,
+        NLID::DesignObjectID id,
         Direction direction,
-        SNLID::Bit msb,
-        SNLID::Bit lsb,
-        const SNLName& name);
-    static void preCreate(const SNLDesign* design, const SNLName& name);
-    static void preCreate(const SNLDesign* design, SNLID::DesignObjectID id, const SNLName& name);
+        NLID::Bit msb,
+        NLID::Bit lsb,
+        const NLName& name);
+    static void preCreate(const SNLDesign* design, const NLName& name);
+    static void preCreate(const SNLDesign* design, NLID::DesignObjectID id, const NLName& name);
     void createBits();
     void postCreate();
     void postCreateAndSetID();
@@ -110,18 +110,18 @@ class SNLBusTerm final: public SNLTerm {
     void commonPreDestroy();
     void preDestroy() override;
 
-    void setID(SNLID::DesignObjectID id) override { id_ = id; }
+    void setID(NLID::DesignObjectID id) override { id_ = id; }
     void setFlatID(size_t flatID) override { flatID_ = flatID; }
 
     using Bits = std::vector<SNLBusTermBit*>;
 
     SNLDesign*              design_;
-    SNLID::DesignObjectID   id_;
+    NLID::DesignObjectID    id_;
     size_t                  flatID_   {0};
-    SNLName                 name_     {};
+    NLName                  name_     {};
     SNLTerm::Direction      direction_;
-    SNLID::Bit              msb_;
-    SNLID::Bit              lsb_;
+    NLID::Bit               msb_;
+    NLID::Bit               lsb_;
     Bits                    bits_     {};
 };
 

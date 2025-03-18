@@ -6,7 +6,7 @@
 #include "gmock/gmock.h"
 using ::testing::ElementsAre;
 
-#include "SNLUniverse.h"
+#include "NLUniverse.h"
 #include "SNLScalarTerm.h"
 #include "SNLScalarNet.h"
 #include "SNLPath.h"
@@ -21,8 +21,8 @@ using namespace naja::SNL;
 class SNLEquipotentialTest: public ::testing::Test {
   protected:
     void SetUp() override {
-      auto universe = SNLUniverse::create();
-      db_ = SNLDB::create(universe);
+      auto universe = NLUniverse::create();
+      db_ = NLDB::create(universe);
 
       auto equipotentialDesignPath = std::filesystem::path(SNL_BENCHS_PATH);
       equipotentialDesignPath /= "equipotential_design.py";
@@ -30,22 +30,22 @@ class SNLEquipotentialTest: public ::testing::Test {
       
     }
     void TearDown() override {
-      SNLUniverse::get()->destroy();
+      NLUniverse::get()->destroy();
     }
-    SNLDB*  db_;
+    NLDB* db_;
 };
 
 TEST_F(SNLEquipotentialTest, test) {
   ASSERT_NE(db_, nullptr);
-  auto lib = db_->getLibrary(SNLID::LibraryID(1));
+  auto lib = db_->getLibrary(NLID::LibraryID(1));
   ASSERT_NE(lib, nullptr);
-  auto top = lib->getDesign(SNLName("TOP"));
+  auto top = lib->getDesign(NLName("TOP"));
   ASSERT_NE(top, nullptr);
-  auto topi0 = top->getScalarTerm(SNLName("i0"));
+  auto topi0 = top->getScalarTerm(NLName("i0"));
   ASSERT_NE(topi0, nullptr);
-  auto topi1 = top->getScalarTerm(SNLName("i1"));
+  auto topi1 = top->getScalarTerm(NLName("i1"));
   ASSERT_NE(topi1, nullptr);
-  auto topout = top->getScalarTerm(SNLName("out"));
+  auto topout = top->getScalarTerm(NLName("out"));
   ASSERT_NE(topout, nullptr);
   
   SNLPath::PathStringDescriptor aaStringPath = {"a", "aa"};
@@ -54,22 +54,22 @@ TEST_F(SNLEquipotentialTest, test) {
   SNLPath::PathStringDescriptor bbStringPath = {"b", "bb"};
   SNLPath bbPath(top, bbStringPath);
   EXPECT_EQ(2, bbPath.size());
-  SNLPath cPath(top->getInstance(SNLName("c")));
+  SNLPath cPath(top->getInstance(NLName("c")));
   EXPECT_EQ(1, cPath.size());
 
-  auto aap = aaPath.getModel()->getInstance(SNLName("p"));
+  auto aap = aaPath.getModel()->getInstance(NLName("p"));
   ASSERT_NE(aap, nullptr);
-  auto aapi = aap->getInstTerm(aap->getModel()->getScalarTerm(SNLName("i")));
+  auto aapi = aap->getInstTerm(aap->getModel()->getScalarTerm(NLName("i")));
   auto aapio = SNLInstTermOccurrence(aaPath, aapi);
 
-  auto bbp = bbPath.getModel()->getInstance(SNLName("p"));
+  auto bbp = bbPath.getModel()->getInstance(NLName("p"));
   ASSERT_NE(bbp, nullptr);
-  auto bbpi = bbp->getInstTerm(bbp->getModel()->getScalarTerm(SNLName("i")));
+  auto bbpi = bbp->getInstTerm(bbp->getModel()->getScalarTerm(NLName("i")));
   auto bbpio = SNLInstTermOccurrence(bbPath, bbpi);
 
-  auto cp = cPath.getModel()->getInstance(SNLName("p"));
+  auto cp = cPath.getModel()->getInstance(NLName("p"));
   ASSERT_NE(cp, nullptr);
-  auto cpi = cp->getInstTerm(cp->getModel()->getScalarTerm(SNLName("i")));
+  auto cpi = cp->getInstTerm(cp->getModel()->getScalarTerm(NLName("i")));
   auto cpio = SNLInstTermOccurrence(cPath, cpi);
   
   SNLEquipotential equipotentialTopI0(topi0);

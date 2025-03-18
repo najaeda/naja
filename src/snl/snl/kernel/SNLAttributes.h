@@ -6,11 +6,11 @@
 #define __SNL_ATTRIBUTES_H_
 
 #include "NajaCollection.h"
-#include "SNLName.h"
+#include "NLName.h"
 
 namespace naja { namespace SNL {
 
-class SNLObject;
+class NLObject;
 class SNLDesign;
 class SNLDesignObject;
 
@@ -53,10 +53,10 @@ class SNLAttribute {
     //Values are either numbers or strings.
     //but stored as strings.
     SNLAttribute() = default; //LCOV_EXCL_LINE
-    SNLAttribute(const SNLName& name, const SNLAttributeValue& value=SNLAttributeValue());
+    SNLAttribute(const NLName& name, const SNLAttributeValue& value=SNLAttributeValue());
     SNLAttribute(const SNLAttribute&) = default;
     
-    SNLName getName() const { return name_; }
+    NLName getName() const { return name_; }
     SNLAttributeValue getValue() const { return value_; }
     std::string getString() const;
     bool hasValue() const { return not value_.empty(); }
@@ -82,7 +82,7 @@ class SNLAttribute {
       return *this > ra or *this == ra;
     }
   private:
-    SNLName           name_   {};
+    NLName           name_    {};
     SNLAttributeValue value_  {};
 };
 
@@ -90,10 +90,10 @@ class SNLAttributes {
   public:
     static void addAttribute(SNLDesign* design, const SNLAttribute& attribute);
     static void addAttribute(SNLDesignObject* designObject, const SNLAttribute& attribute);
-    static void clearAttributes(SNLObject* object);
-    static void cloneAttributes(const SNLObject* from, SNLObject* to);
-    static bool compareAttributes(const SNLObject* object1, const SNLObject* object2, std::string& reason);
-    static NajaCollection<SNLAttribute> getAttributes(const SNLObject* object);
+    static void clearAttributes(NLObject* object);
+    static void cloneAttributes(const NLObject* from, NLObject* to);
+    static bool compareAttributes(const NLObject* object1, const NLObject* object2, std::string& reason);
+    static NajaCollection<SNLAttribute> getAttributes(const NLObject* object);
 };
 
 }} // namespace SNL // namespace naja

@@ -10,12 +10,12 @@
 #include <Python.h>
 #include <frameobject.h> // Include the header for PyFrameObject
 
-#include "SNLUniverse.h"
-#include "SNLLibraryTruthTables.h"
-#include "SNLException.h"
+#include "NLUniverse.h"
+#include "NLLibraryTruthTables.h"
+#include "NLException.h"
 
-#include "PySNLDB.h"
-#include "PySNLLibrary.h"
+#include "PyNLDB.h"
+#include "PyNLLibrary.h"
 #include "PySNLDesign.h"
 
 namespace {
@@ -75,7 +75,7 @@ PyObject* loadModule(const std::filesystem::path& path) {
   if (not std::filesystem::exists(path)) {
     std::ostringstream reason;
     reason << path << " does not exist";
-    throw naja::SNL::SNLException(reason.str());
+    throw naja::SNL::NLException(reason.str());
   }
   auto absolutePath = std::filesystem::canonical(path);
 
@@ -97,7 +97,7 @@ PyObject* loadModule(const std::filesystem::path& path) {
       reason << ": empty error message";
     }
     Py_DECREF(modulePathString);
-    throw naja::SNL::SNLException(reason.str());
+    throw naja::SNL::NLException(reason.str());
   }
   Py_DECREF(modulePathString);
   return module;
@@ -108,12 +108,12 @@ PyObject* loadModule(const std::filesystem::path& path) {
 namespace naja { namespace SNL {
 
 void SNLPyLoader::loadDB(
-    SNLDB* db,
+    NLDB* db,
     const std::filesystem::path& path) {
   
   auto module = loadModule(path);
 
-  PyObject* pyDB = PYSNL::PySNLDB_Link(db);
+  PyObject* pyDB = PYSNL::PyNLDB_Link(db);
   PyObject* constructString = PyUnicode_FromString("constructDB");
 
   PyObject* res =
@@ -133,7 +133,7 @@ void SNLPyLoader::loadDB(
     Py_DECREF(pyDB);
     Py_DECREF(constructString);
     Py_Finalize();
-    throw SNLException(reason.str());
+    throw NLException(reason.str());
   }
   //Cleaning
   //Py_DECREF(modulePathString);
@@ -144,32 +144,32 @@ void SNLPyLoader::loadDB(
 }
 
 void SNLPyLoader::loadPrimitives(
-    SNLLibrary* library,
+    NLLibrary* library,
     const std::filesystem::path& primitivesPath) {
   loadLibrary(library, primitivesPath, true);
-  SNLLibraryTruthTables::construct(library);
+  NLLibraryTruthTables::construct(library);
 }
 
 void SNLPyLoader::loadLibrary(
-    SNLLibrary* library,
+    NLLibrary* library,
     const std::filesystem::path& path,
     bool loadPrimitives) {
   if (loadPrimitives and not library->isPrimitives()) {
     std::ostringstream reason;
     reason << "Cannot construct primitives in non primitives library: "
       << library->getString();
-    throw SNLException(reason.str());
+    throw NLException(reason.str());
   }
   if (not loadPrimitives and library->isPrimitives()) {
     std::ostringstream reason;
     reason << "Cannot construct non primitives in primitives library: "
       << library->getString();
-    throw SNLException(reason.str()); 
+    throw NLException(reason.str()); 
   }
   
   auto module = loadModule(path);
 
-  PyObject* pyLib = PYSNL::PySNLLibrary_Link(library);
+  PyObject* pyLib = PYSNL::PyNLLibrary_Link(library);
   PyObject* constructString = nullptr;
   if (loadPrimitives) {
     constructString = PyUnicode_FromString("constructPrimitives");
@@ -194,7 +194,7 @@ void SNLPyLoader::loadLibrary(
     Py_DECREF(pyLib);
     Py_DECREF(constructString);
     Py_Finalize();
-    throw SNLException(reason.str());
+    throw NLException(reason.str());
   }
   //Cleaning
   //Py_DECREF(modulePathString);
@@ -210,7 +210,7 @@ void SNLPyLoader::loadDesign(
   if (design->isPrimitive()) {
     std::ostringstream reason;
     reason << "Cannot construct design if it is a primitive";
-    throw SNLException(reason.str());
+    throw NLException(reason.str());
   }
   auto module = loadModule(path);
 
@@ -233,7 +233,7 @@ void SNLPyLoader::loadDesign(
     Py_DECREF(pyDesign);
     Py_DECREF(constructString);
     Py_Finalize();
-    throw SNLException(reason.str());
+    throw NLException(reason.str());
   }
   //Cleaning
   Py_DECREF(module);
@@ -263,7 +263,7 @@ void SNLPyEdit::edit(const std::filesystem::path& path) {
     Py_DECREF(module);
     Py_DECREF(editString);
     Py_Finalize();
-    throw SNLException(reason.str());
+    throw NLException(reason.str());
   }
   //Cleaning
   //Py_DECREF(modulePathString);

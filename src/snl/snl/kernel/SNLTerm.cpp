@@ -20,8 +20,8 @@ void SNLTerm::preDestroy() {
   super::preDestroy();
 }
 
-SNLID::DesignObjectReference SNLTerm::getReference() const {
-  return SNLID::DesignObjectReference(getDesign()->getReference(), getID());
+NLID::DesignObjectReference SNLTerm::getReference() const {
+  return NLID::DesignObjectReference(getDesign()->getReference(), getID());
 }
 
 }} // namespace SNL // namespace naja

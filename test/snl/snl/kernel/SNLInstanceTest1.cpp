@@ -5,8 +5,10 @@
 #include "gtest/gtest.h"
 using namespace std;
 
-#include "SNLUniverse.h"
-#include "SNLDB.h"
+#include "NLUniverse.h"
+#include "NLDB.h"
+#include "NLException.h"
+
 #include "SNLDesign.h"
 #include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
@@ -16,30 +18,29 @@ using namespace std;
 #include "SNLScalarNet.h"
 #include "SNLInstance.h"
 #include "SNLInstTerm.h"
-#include "SNLException.h"
 using namespace naja::SNL;
 
 class SNLInstanceTest1: public ::testing::Test {
   protected:
     void SetUp() override {
-      auto universe = SNLUniverse::create();
-      auto db = SNLDB::create(universe);
+      auto universe = NLUniverse::create();
+      auto db = NLDB::create(universe);
 
-      auto library = SNLLibrary::create(db, SNLName("MYLIB"));
-      auto design = SNLDesign::create(library, SNLName("design"));
-      auto model = SNLDesign::create(library, SNLName("model"));
+      auto library = NLLibrary::create(db, NLName("MYLIB"));
+      auto design = SNLDesign::create(library, NLName("design"));
+      auto model = SNLDesign::create(library, NLName("model"));
 
-      inBus0_ = SNLBusTerm::create(model, SNLTerm::Direction::Input, -2, 2, SNLName("inBus0"));
-      outBus0_ = SNLBusTerm::create(model, SNLTerm::Direction::Output, 3, -1, SNLName("outBus0"));
-      inBus1_ = SNLBusTerm::create(model, SNLTerm::Direction::Input, -1, -1, SNLName("inBus1"));
-      inScalar_ = SNLScalarTerm::create(model, SNLTerm::Direction::Input, SNLName("in"));
-      outScalar_ = SNLScalarTerm::create(model, SNLTerm::Direction::Output, SNLName("out"));
+      inBus0_ = SNLBusTerm::create(model, SNLTerm::Direction::Input, -2, 2, NLName("inBus0"));
+      outBus0_ = SNLBusTerm::create(model, SNLTerm::Direction::Output, 3, -1, NLName("outBus0"));
+      inBus1_ = SNLBusTerm::create(model, SNLTerm::Direction::Input, -1, -1, NLName("inBus1"));
+      inScalar_ = SNLScalarTerm::create(model, SNLTerm::Direction::Input, NLName("in"));
+      outScalar_ = SNLScalarTerm::create(model, SNLTerm::Direction::Output, NLName("out"));
 
-      leftInstance_ = SNLInstance::create(design, model, SNLName("left"));
-      rightInstance_ = SNLInstance::create(design, model, SNLName("right"));
+      leftInstance_ = SNLInstance::create(design, model, NLName("left"));
+      rightInstance_ = SNLInstance::create(design, model, NLName("right"));
     }
     void TearDown() override {
-      SNLUniverse::get()->destroy();
+      NLUniverse::get()->destroy();
     }
     SNLBusTerm*     inBus0_;
     SNLBusTerm*     outBus0_;
@@ -180,22 +181,22 @@ TEST_F(SNLInstanceTest1, setTermNetTestErrors) {
   auto busNet0 = SNLBusNet::create(leftInstance_->getDesign(), 2, 0);
   EXPECT_EQ(inBus0_->getWidth(), outBus0_->getWidth());
   EXPECT_NE(busNet0->getWidth(), inBus0_->getWidth());
-  EXPECT_THROW(leftInstance_->setTermNet(inBus0_, busNet0), SNLException);
-  EXPECT_THROW(leftInstance_->setTermNet(outBus0_, busNet0), SNLException);
+  EXPECT_THROW(leftInstance_->setTermNet(inBus0_, busNet0), NLException);
+  EXPECT_THROW(leftInstance_->setTermNet(outBus0_, busNet0), NLException);
   
   // different terms/nets size
   SNLInstance::Terms terms {nullptr, nullptr};
   SNLInstance::Nets nets {nullptr};
-  EXPECT_THROW(leftInstance_->setTermsNets(terms, nets), SNLException);
+  EXPECT_THROW(leftInstance_->setTermsNets(terms, nets), NLException);
 
   // Incompatible instance/term
   //create a design to have a terminal 
   auto model1 = SNLDesign::create(leftInstance_->getLibrary());
   auto model1Term = SNLScalarTerm::create(model1, SNLTerm::Direction::Input);
-  EXPECT_THROW(leftInstance_->setTermNet(model1Term, SNLScalarNet::create(leftInstance_->getDesign())), SNLException);
+  EXPECT_THROW(leftInstance_->setTermNet(model1Term, SNLScalarNet::create(leftInstance_->getDesign())), NLException);
 
   // Incompatible design/net
   //create a design to have a terminal 
   auto design1 = SNLDesign::create(leftInstance_->getLibrary());
-  EXPECT_THROW(leftInstance_->setTermNet(inScalar_, SNLScalarNet::create(design1)), SNLException);
+  EXPECT_THROW(leftInstance_->setTermNet(inScalar_, SNLScalarNet::create(design1)), NLException);
 }

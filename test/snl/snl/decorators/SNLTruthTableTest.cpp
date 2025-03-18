@@ -182,8 +182,8 @@ TEST(SNLTruthTable, testMultipleConstantInputs) {
 }
 
 TEST(SNLTruthTable, testErrors) {
-  EXPECT_THROW(SNLTruthTable(8, 0xFFFFF), SNLException);
+  EXPECT_THROW(SNLTruthTable(8, 0xFFFFF), NLException);
   SNLTruthTable tt(4, 0xFFFF);
-  EXPECT_THROW(tt.getReducedWithConstant(5, 0), SNLException);
-  EXPECT_THROW(tt.removeVariable(5), SNLException);
+  EXPECT_THROW(tt.getReducedWithConstant(5, 0), NLException);
+  EXPECT_THROW(tt.removeVariable(5), NLException);
 }

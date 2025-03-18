@@ -6,12 +6,12 @@ import sys
 from naja import snl
 
 def main() -> int:
-  u = snl.SNLUniverse.create()
-  db1 = snl.SNLDB.create(u)
-  db2 = snl.SNLDB.create(u)
-  lib0 = snl.SNLLibrary.create(db1)
-  lib1 = snl.SNLLibrary.create(db2)
-  lib2 = snl.SNLLibrary.create(lib0)
+  u = snl.NLUniverse.create()
+  db1 = snl.NLDB.create(u)
+  db2 = snl.NLDB.create(u)
+  lib0 = snl.NLLibrary.create(db1)
+  lib1 = snl.NLLibrary.create(db2)
+  lib2 = snl.NLLibrary.create(lib0)
 
   model0 = snl.SNLDesign.create(lib1)
   print('Model:', model0)

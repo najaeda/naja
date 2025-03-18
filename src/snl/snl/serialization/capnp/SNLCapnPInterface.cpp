@@ -15,13 +15,15 @@
 #include "snl_interface.capnp.h"
 
 #include "NajaDumpableProperty.h"
-#include "SNLUniverse.h"
-#include "SNLDB.h"
+
+#include "NLUniverse.h"
+#include "NLDB.h"
+#include "NLException.h"
+
 #include "SNLDesign.h"
 #include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
-#include "SNLLibraryTruthTables.h"
-#include "SNLException.h"
+#include "NLLibraryTruthTables.h"
 
 //using boost::asio::ip::tcp;
 
@@ -164,33 +166,33 @@ void dumpDesignInterface(
   }
 }
 
-DBInterface::LibraryType SNLtoCapnPLibraryType(SNLLibrary::Type type) {
+DBInterface::LibraryType SNLtoCapnPLibraryType(NLLibrary::Type type) {
   switch (type) {
-    case SNLLibrary::Type::Standard:
+    case NLLibrary::Type::Standard:
       return DBInterface::LibraryType::STANDARD;
-    case SNLLibrary::Type::Primitives:
+    case NLLibrary::Type::Primitives:
       return DBInterface::LibraryType::PRIMITIVES;
     //LCOV_EXCL_START
-    case SNLLibrary::Type::InDB0:
-      throw SNLException("Unexpected InDB0 Library type while loading Library");
+    case NLLibrary::Type::InDB0:
+      throw NLException("Unexpected InDB0 Library type while loading Library");
     //LCOV_EXCL_STOP
   }
   return DBInterface::LibraryType::STANDARD; //LCOV_EXCL_LINE
 }
 
-SNLLibrary::Type CapnPtoSNLLibraryType(DBInterface::LibraryType type) {
+NLLibrary::Type CapnPtoNLLibraryType(DBInterface::LibraryType type) {
   switch (type) {
     case DBInterface::LibraryType::STANDARD:
-      return SNLLibrary::Type::Standard;
+      return NLLibrary::Type::Standard;
     case DBInterface::LibraryType::PRIMITIVES:
-      return  SNLLibrary::Type::Primitives;
+      return  NLLibrary::Type::Primitives;
   }
-  return SNLLibrary::Type::Standard; //LCOV_EXCL_LINE
+  return NLLibrary::Type::Standard; //LCOV_EXCL_LINE
 }
 
 void dumpLibraryInterface(
   DBInterface::LibraryInterface::Builder& libraryInterface,
-  const SNLLibrary* snlLibrary) {
+  const NLLibrary* snlLibrary) {
   libraryInterface.setId(snlLibrary->getID());
   auto lambda = [](DBInterface::LibraryInterface::Builder& builder, size_t nbProperties) {
     return builder.initProperties(nbProperties);
@@ -275,11 +277,11 @@ void loadScalarTerm(
   const DBInterface::LibraryInterface::DesignInterface::ScalarTerm::Reader& term) {
   auto termID = term.getId();
   auto termDirection = term.getDirection();
-  SNLName snlName;
+  NLName snlName;
   if (term.hasName()) {
-    snlName = SNLName(term.getName());
+    snlName = NLName(term.getName());
   }
-  SNLScalarTerm::create(design, SNLID::DesignObjectID(termID), CapnPtoSNLDirection(termDirection), snlName);
+  SNLScalarTerm::create(design, NLID::DesignObjectID(termID), CapnPtoSNLDirection(termDirection), snlName);
 }
 
 void loadBusTerm(
@@ -289,11 +291,11 @@ void loadBusTerm(
   auto termDirection = term.getDirection();
   auto msb = term.getMsb();
   auto lsb = term.getLsb();
-  SNLName snlName;
+  NLName snlName;
   if (term.hasName()) {
-    snlName = SNLName(term.getName());
+    snlName = NLName(term.getName());
   }
-  SNLBusTerm::create(design, SNLID::DesignObjectID(termID), CapnPtoSNLDirection(termDirection), msb, lsb, snlName);
+  SNLBusTerm::create(design, NLID::DesignObjectID(termID), CapnPtoSNLDirection(termDirection), msb, lsb, snlName);
 }
 
 void loadDesignParameter(
@@ -302,19 +304,19 @@ void loadDesignParameter(
   auto name = parameter.getName();
   auto type = parameter.getType();
   auto value = parameter.getValue();
-  SNLParameter::create(design, SNLName(name), CapnPtoSNLParameterType(type), value);
+  SNLParameter::create(design, NLName(name), CapnPtoSNLParameterType(type), value);
 }
 
 void loadDesignInterface(
-  SNLLibrary* library,
+  NLLibrary* library,
   const DBInterface::LibraryInterface::DesignInterface::Reader& designInterface) {
   auto designID = designInterface.getId();
   auto designType = designInterface.getType();
-  SNLName snlName;
+  NLName snlName;
   if (designInterface.hasName()) {
-    snlName = SNLName(designInterface.getName());
+    snlName = NLName(designInterface.getName());
   }
-  SNLDesign* snlDesign = SNLDesign::create(library, SNLID::DesignID(designID), CapnPtoSNLDesignType(designType), snlName);
+  SNLDesign* snlDesign = SNLDesign::create(library, NLID::DesignID(designID), CapnPtoSNLDesignType(designType), snlName);
    if (designInterface.hasProperties()) {
     auto lambda = [](const DBInterface::LibraryInterface::DesignInterface::Reader& reader) {
       return reader.getProperties();
@@ -340,22 +342,22 @@ void loadDesignInterface(
 }
 
 void loadLibraryInterface(NajaObject* parent, const DBInterface::LibraryInterface::Reader& libraryInterface) {
-  SNLLibrary* parentLibrary = nullptr;
-  SNLDB* parentDB = dynamic_cast<SNLDB*>(parent);
+  NLLibrary* parentLibrary = nullptr;
+  NLDB* parentDB = dynamic_cast<NLDB*>(parent);
   if (not parentDB) {
-    parentLibrary = static_cast<SNLLibrary*>(parent);
+    parentLibrary = static_cast<NLLibrary*>(parent);
   }
   auto libraryID = libraryInterface.getId();
   auto libraryType = libraryInterface.getType();
-  SNLName snlName;
+  NLName snlName;
   if (libraryInterface.hasName()) {
-    snlName = SNLName(libraryInterface.getName());
+    snlName = NLName(libraryInterface.getName());
   }
-  SNLLibrary* snlLibrary = nullptr;
+  NLLibrary* snlLibrary = nullptr;
   if (parentDB) {
-    snlLibrary = SNLLibrary::create(parentDB, SNLID::LibraryID(libraryID), CapnPtoSNLLibraryType(libraryType), snlName);
+    snlLibrary = NLLibrary::create(parentDB, NLID::LibraryID(libraryID), CapnPtoNLLibraryType(libraryType), snlName);
   } else {
-    snlLibrary = SNLLibrary::create(parentLibrary, SNLID::LibraryID(libraryID), CapnPtoSNLLibraryType(libraryType), snlName);
+    snlLibrary = NLLibrary::create(parentLibrary, NLID::LibraryID(libraryID), CapnPtoNLLibraryType(libraryType), snlName);
   }
   if (libraryInterface.hasProperties()) {
     auto lambda = [](const DBInterface::LibraryInterface::Reader& reader) {
@@ -374,7 +376,7 @@ void loadLibraryInterface(NajaObject* parent, const DBInterface::LibraryInterfac
     }
   }
   if (snlLibrary->isPrimitives()) {
-    SNLLibraryTruthTables::construct(snlLibrary);
+    NLLibraryTruthTables::construct(snlLibrary);
   }
 }
 
@@ -382,11 +384,11 @@ void loadLibraryInterface(NajaObject* parent, const DBInterface::LibraryInterfac
 
 namespace naja { namespace SNL {
 
-void SNLCapnP::dumpInterface(const SNLDB* snlDB, int fileDescriptor) {
+void SNLCapnP::dumpInterface(const NLDB* snlDB, int fileDescriptor) {
   dumpInterface(snlDB, fileDescriptor, snlDB->getID());
 }
 
-void SNLCapnP::dumpInterface(const SNLDB* snlDB, int fileDescriptor, SNLID::DBID forceDBID) {
+void SNLCapnP::dumpInterface(const NLDB* snlDB, int fileDescriptor, NLID::DBID forceDBID) {
   ::capnp::MallocMessageBuilder message;
 
   DBInterface::Builder db = message.initRoot<DBInterface>();
@@ -414,7 +416,7 @@ void SNLCapnP::dumpInterface(const SNLDB* snlDB, int fileDescriptor, SNLID::DBID
   writePackedMessageToFd(fileDescriptor, message);
 }
 
-void SNLCapnP::dumpInterface(const SNLDB* snlDB, const std::filesystem::path& interfacePath) {
+void SNLCapnP::dumpInterface(const NLDB* snlDB, const std::filesystem::path& interfacePath) {
   int fd = open(
     interfacePath.c_str(),
     O_CREAT | O_WRONLY,
@@ -426,16 +428,16 @@ void SNLCapnP::dumpInterface(const SNLDB* snlDB, const std::filesystem::path& in
 
 //Need to find a proper way to test serialization on the wire
 //LCOV_EXCL_START
-//void SNLCapnP::sendInterface(const SNLDB* db, tcp::socket& socket, SNLID::DBID forceDBID) {
+//void SNLCapnP::sendInterface(const NLDB* db, tcp::socket& socket, NLID::DBID forceDBID) {
 //  dumpInterface(db, socket.native_handle(), forceDBID);
 //}
 //
-//void SNLCapnP::sendInterface(const SNLDB* db, tcp::socket& socket) {
+//void SNLCapnP::sendInterface(const NLDB* db, tcp::socket& socket) {
 //  sendInterface(db, socket, db->getID());
 //}
 //
 //void SNLCapnP::sendInterface(
-//  const SNLDB* db,
+//  const NLDB* db,
 //  const std::string& ipAddress,
 //  uint16_t port) {
 //  boost::asio::io_context ioContext;
@@ -446,16 +448,16 @@ void SNLCapnP::dumpInterface(const SNLDB* snlDB, const std::filesystem::path& in
 //}
 //LCOV_EXCL_STOP
 
-SNLDB* SNLCapnP::loadInterface(int fileDescriptor) {
+NLDB* SNLCapnP::loadInterface(int fileDescriptor) {
   ::capnp::PackedFdMessageReader message(fileDescriptor);
 
   DBInterface::Reader dbInterface = message.getRoot<DBInterface>();
   auto dbID = dbInterface.getId();
-  auto universe = SNLUniverse::get();
+  auto universe = NLUniverse::get();
   if (not universe) {
-    universe = SNLUniverse::create();
+    universe = NLUniverse::create();
   }
-  auto snldb = SNLDB::create(universe, dbID);
+  auto snldb = NLDB::create(universe, dbID);
   if (dbInterface.hasProperties()) {
     auto lambda = [](const DBInterface::Reader& reader) {
       return reader.getProperties();
@@ -471,16 +473,16 @@ SNLDB* SNLCapnP::loadInterface(int fileDescriptor) {
   if (dbInterface.hasTopDesignReference()) {
     auto designReference = dbInterface.getTopDesignReference();
     auto snlDesignReference =
-      SNLID::DesignReference(
+      NLID::DesignReference(
         designReference.getDbID(),
         designReference.getLibraryID(),
         designReference.getDesignID());
-    auto topDesign = SNLUniverse::get()->getDesign(snlDesignReference);
+    auto topDesign = NLUniverse::get()->getDesign(snlDesignReference);
     if (not topDesign) {
       //LCOV_EXCL_START
       std::ostringstream reason;
       reason << "cannot deserialize top design: no design found with provided reference";
-      throw SNLException(reason.str());
+      throw NLException(reason.str());
       //LCOV_EXCL_STOP
     }
     snldb->setTopDesign(topDesign);
@@ -488,20 +490,20 @@ SNLDB* SNLCapnP::loadInterface(int fileDescriptor) {
   return snldb;
 }
 
-SNLDB* SNLCapnP::loadInterface(const std::filesystem::path& interfacePath) {
+NLDB* SNLCapnP::loadInterface(const std::filesystem::path& interfacePath) {
   //FIXME: verify if file can be opened
   int fd = open(interfacePath.c_str(), O_RDONLY);
   return loadInterface(fd);
 }
 
 //LCOV_EXCL_START
-//SNLDB* SNLCapnP::receiveInterface(tcp::socket& socket) {
+//NLDB* SNLCapnP::receiveInterface(tcp::socket& socket) {
 //  return loadInterface(socket.native_handle());
 //}
 //LCOV_EXCL_STOP
 
 //LCOV_EXCL_START
-//SNLDB* SNLCapnP::receiveInterface(uint16_t port) {
+//NLDB* SNLCapnP::receiveInterface(uint16_t port) {
 //  boost::asio::io_context ioContext;
 //  //listen for new connection
 //  tcp::acceptor acceptor_(ioContext, tcp::endpoint(tcp::v4(), port));
@@ -509,7 +511,7 @@ SNLDB* SNLCapnP::loadInterface(const std::filesystem::path& interfacePath) {
 //  tcp::socket socket(ioContext);
 //  //waiting for connection
 //  acceptor_.accept(socket);
-//  SNLDB* db = receiveInterface(socket);
+//  NLDB* db = receiveInterface(socket);
 //  return db;
 //}
 //LCOV_EXCL_STOP

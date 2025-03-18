@@ -9,8 +9,8 @@
 
 #include "SNLVRLDumper.h"
 
-#include "SNLUniverse.h"
-#include "SNLDB.h"
+#include "NLUniverse.h"
+#include "NLDB.h"
 #include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
 
@@ -30,30 +30,30 @@ using namespace naja::SNL;
 class SNLVRLDumperTest3: public ::testing::Test {
   protected:
     void SetUp() override {
-      SNLUniverse* universe = SNLUniverse::create();
-      db_ = SNLDB::create(universe);
-      SNLLibrary* library = SNLLibrary::create(db_, SNLName("MYLIB"));
-      SNLDesign* design = SNLDesign::create(library, SNLName("top"));
+      NLUniverse* universe = NLUniverse::create();
+      db_ = NLDB::create(universe);
+      NLLibrary* library = NLLibrary::create(db_, NLName("MYLIB"));
+      SNLDesign* design = SNLDesign::create(library, NLName("top"));
 
-      SNLScalarTerm::create(design, SNLTerm::Direction::Input, SNLName("i0"));
-      SNLBusTerm::create(design, SNLTerm::Direction::Input, 31, 0, SNLName("i1"));
-      SNLScalarTerm::create(design, SNLTerm::Direction::Output, SNLName("o"));
-      SNLBusTerm::create(design, SNLTerm::Direction::Input, 31, 0, SNLName("i2"));
+      SNLScalarTerm::create(design, SNLTerm::Direction::Input, NLName("i0"));
+      SNLBusTerm::create(design, SNLTerm::Direction::Input, 31, 0, NLName("i1"));
+      SNLScalarTerm::create(design, SNLTerm::Direction::Output, NLName("o"));
+      SNLBusTerm::create(design, SNLTerm::Direction::Input, 31, 0, NLName("i2"));
       for (int i = 0; i < 200; i++) {
-        SNLScalarTerm::create(design, SNLTerm::Direction::Output, SNLName("o_" + std::to_string(i)));
+        SNLScalarTerm::create(design, SNLTerm::Direction::Output, NLName("o_" + std::to_string(i)));
       }
     }
     void TearDown() override {
-      SNLUniverse::get()->destroy();
+      NLUniverse::get()->destroy();
     }
   protected:
-    SNLDB*      db_;
+    NLDB* db_;
 };
 
 TEST_F(SNLVRLDumperTest3, test) {
-  auto lib = db_->getLibrary(SNLName("MYLIB"));  
+  auto lib = db_->getLibrary(NLName("MYLIB"));  
   ASSERT_TRUE(lib);
-  auto top = lib->getDesign(SNLName("top"));
+  auto top = lib->getDesign(NLName("top"));
   ASSERT_TRUE(top);
   std::filesystem::path outPath(SNL_VRL_DUMPER_TEST_PATH);
   outPath = outPath / "test3";

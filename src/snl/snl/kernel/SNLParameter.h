@@ -7,7 +7,7 @@
 
 #include <boost/intrusive/set.hpp>
 
-#include "SNLName.h"
+#include "NLName.h"
 #include "NajaObject.h"
 
 namespace naja { namespace SNL {
@@ -39,17 +39,17 @@ class SNLParameter : public NajaObject {
     /**
      * \brief Create a SNLParameter.
      * \param design owner SNLDesign.
-     * \param name SNLName of the parameter.
+     * \param name NLName of the parameter.
      * \param type SNLParameter::Type of the parameter.
      * \param value value of the parameter.
      * \return created SNLParameter. 
      */
-    static SNLParameter* create(SNLDesign* design, const SNLName& name, Type type, const std::string& value);
+    static SNLParameter* create(SNLDesign* design, const NLName& name, Type type, const std::string& value);
     
     /// \brief Destroy this SNLParameter.
     void destroy();
     /// \return this SNLParameter name.
-    SNLName getName() const { return name_; }
+    NLName getName() const { return name_; }
     std::string getValue() const { return value_; }
     Type getType() const { return type_; }
     /// \return this SNLParameter owning SNLDesign.
@@ -63,22 +63,22 @@ class SNLParameter : public NajaObject {
       return lp.getName() < rp.getName();
     }
     struct SNLParameterComp {
-      bool operator()(const SNLName& ln, const SNLParameter& rp) const {
+      bool operator()(const NLName& ln, const SNLParameter& rp) const {
         return ln < rp.getName();
       }
-      bool operator()(const SNLParameter& lp, const SNLName& rn) const {
+      bool operator()(const SNLParameter& lp, const NLName& rn) const {
         return lp.getName() < rn;
       }
     };
     bool deepCompare(const SNLParameter* other, std::string& reason) const;
   private:
-    SNLParameter(SNLDesign* design, const SNLName& name, Type type, const std::string& value);
-    static void preCreate(SNLDesign* design, const SNLName& name);
+    SNLParameter(SNLDesign* design, const NLName& name, Type type, const std::string& value);
+    static void preCreate(SNLDesign* design, const NLName& name);
     void postCreate();
     void destroyFromDesign();
 
     SNLDesign*                          design_                 { nullptr };
-    SNLName                             name_                   {};
+    NLName                              name_                   {};
     Type                                type_                   { Type::Decimal };
     std::string                         value_                  {};
     boost::intrusive::set_member_hook<> designParametersHook_   {};

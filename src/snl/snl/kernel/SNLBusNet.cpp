@@ -7,12 +7,13 @@
 #include <algorithm>
 #include <limits>
 
-#include "SNLDB.h"
-#include "SNLLibrary.h"
+#include "NLDB.h"
+#include "NLLibrary.h"
+#include "NLException.h"
+
 #include "SNLDesign.h"
 #include "SNLBusNetBit.h"
 #include "SNLAttributes.h"
-#include "SNLException.h"
 #include "SNLUtils.h"
 #include "SNLMacros.h"
 
@@ -20,9 +21,9 @@ namespace naja { namespace SNL {
 
 SNLBusNet::SNLBusNet(
     SNLDesign* design,
-    SNLID::Bit msb,
-    SNLID::Bit lsb,
-    const SNLName& name):
+    NLID::Bit msb,
+    NLID::Bit lsb,
+    const NLName& name):
   super(),
   design_(design),
   name_(name),
@@ -32,10 +33,10 @@ SNLBusNet::SNLBusNet(
 
 SNLBusNet::SNLBusNet(
     SNLDesign* design,
-    SNLID::DesignObjectID id,
-    SNLID::Bit msb,
-    SNLID::Bit lsb,
-    const SNLName& name):
+    NLID::DesignObjectID id,
+    NLID::Bit msb,
+    NLID::Bit lsb,
+    const NLName& name):
   super(),
   design_(design),
   id_(id),
@@ -46,9 +47,9 @@ SNLBusNet::SNLBusNet(
 
 SNLBusNet* SNLBusNet::create(
     SNLDesign* design,
-    SNLID::Bit msb,
-    SNLID::Bit lsb,
-    const SNLName& name) {
+    NLID::Bit msb,
+    NLID::Bit lsb,
+    const NLName& name) {
   preCreate(design, name);
   SNLBusNet* net = new SNLBusNet(design, msb, lsb, name);
   net->postCreateAndSetID();
@@ -57,34 +58,34 @@ SNLBusNet* SNLBusNet::create(
 
 SNLBusNet* SNLBusNet::create(
     SNLDesign* design,
-    SNLID::DesignID id,
-    SNLID::Bit msb,
-    SNLID::Bit lsb,
-    const SNLName& name) {
+    NLID::DesignID id,
+    NLID::Bit msb,
+    NLID::Bit lsb,
+    const NLName& name) {
   preCreate(design, id, name);
   SNLBusNet* net = new SNLBusNet(design, id, msb, lsb, name);
   net->postCreate();
   return net;
 }
 
-void SNLBusNet::preCreate(const SNLDesign* design, const SNLName& name) {
+void SNLBusNet::preCreate(const SNLDesign* design, const NLName& name) {
   super::preCreate();
   if (not design) {
-    throw SNLException("malformed SNLBusNet creator with NULL design argument");
+    throw NLException("malformed SNLBusNet creator with NULL design argument");
   }
   if (not name.empty() and design->getNet(name)) {
     std::string reason = "cannot create SNLBusNet with name " + name.getString();
     reason += "A terminal with this name already exists.";
-    throw SNLException(reason);
+    throw NLException(reason);
   }
 }
 
-void SNLBusNet::preCreate(const SNLDesign* design, SNLID::DesignObjectID id, const SNLName& name) {
+void SNLBusNet::preCreate(const SNLDesign* design, NLID::DesignObjectID id, const NLName& name) {
   preCreate(design, name);
   if (design->getNet(id)) {
     std::string reason = "cannot create SNLBusNet with id " + std::to_string(id);
     reason += "A terminal with same id already exists.";
-    throw SNLException(reason);
+    throw NLException(reason);
   }
 }
 
@@ -93,7 +94,7 @@ void SNLBusNet::createBits() {
   size_t size = static_cast<size_t>(getWidth());
   bits_.resize(size, nullptr);
   for (size_t i=0; i<size; i++) {
-    SNLID::Bit bit = (getMSB()>getLSB())?getMSB()-int(i):getMSB()+int(i);
+    NLID::Bit bit = (getMSB()>getLSB())?getMSB()-int(i):getMSB()+int(i);
     bits_[i] = SNLBusNetBit::create(this, bit);
   }
 }
@@ -147,15 +148,15 @@ SNLNet* SNLBusNet::clone(SNLDesign* design) const {
   return newBus;
 }
 
-SNLID::Bit SNLBusNet::getWidth() const {
+NLID::Bit SNLBusNet::getWidth() const {
   return SNLUtils::getWidth(getMSB(), getLSB());
 }
 
-SNLID SNLBusNet::getSNLID() const {
-  return SNLDesignObject::getSNLID(SNLID::Type::Net, id_, 0, 0);
+NLID SNLBusNet::getNLID() const {
+  return SNLDesignObject::getNLID(NLID::Type::Net, id_, 0, 0);
 }
 
-SNLBusNetBit* SNLBusNet::getBit(SNLID::Bit bit) const {
+SNLBusNetBit* SNLBusNet::getBit(NLID::Bit bit) const {
   size_t position = getBitPosition(bit);
   if (position < bits_.size()) {
     return bits_[position];
@@ -163,7 +164,7 @@ SNLBusNetBit* SNLBusNet::getBit(SNLID::Bit bit) const {
   return nullptr;
 }
 
-size_t SNLBusNet::getBitPosition(SNLID::Bit bit) const {
+size_t SNLBusNet::getBitPosition(NLID::Bit bit) const {
   if (SNLDesign::isBetween(bit, getMSB(), getLSB())) {
     size_t pos = static_cast<size_t>(std::abs(getMSB()-bit));
     return pos;
@@ -190,8 +191,8 @@ NajaCollection<SNLBitNet*> SNLBusNet::getBits() const {
 void SNLBusNet::insertBits(
   std::vector<SNLBitNet*>& bitNets,
   std::vector<SNLBitNet*>::const_iterator position,
-  SNLID::Bit msb,
-  SNLID::Bit lsb) {
+  NLID::Bit msb,
+  NLID::Bit lsb) {
   if (not SNLDesign::isBetween(msb, getMSB(), getLSB())) {
     //FIXME
   }

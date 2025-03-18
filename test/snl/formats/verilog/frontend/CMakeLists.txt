@@ -15,7 +15,7 @@ target_link_libraries(snlVRLConstructorTests naja_snl_verilog gmock gtest_main)
 GTEST_DISCOVER_TESTS(snlVRLConstructorTests
   DISCOVERY_TIMEOUT 30
   PROPERTIES ENVIRONMENT
-  PYTHONPATH=${PROJECT_BINARY_DIR}/src/snl/python/snl_wrapping)
+  PYTHONPATH=${PROJECT_BINARY_DIR}/src/snl/python/nl_wrapping)
 
 if(NOT BUILD_NAJA_PYTHON)
   set(snl_vrl_constructor_tests_with_pyloader
@@ -30,6 +30,6 @@ if(NOT BUILD_NAJA_PYTHON)
   GTEST_DISCOVER_TESTS(snlVRLConstructorPyLoaderTests
     DISCOVERY_TIMEOUT 30
     PROPERTIES ENVIRONMENT
-    PYTHONPATH=${PROJECT_BINARY_DIR}/src/snl/python/snl_wrapping)
+    PYTHONPATH=${PROJECT_BINARY_DIR}/src/snl/python/nl_wrapping)
 endif(NOT BUILD_NAJA_PYTHON)
   

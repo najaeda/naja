@@ -7,21 +7,22 @@
 #include <iostream>
 #include <sstream>
 
+#include "NLException.h"
+
 #include "SNLDesign.h"
 #include "SNLAttributes.h"
-#include "SNLException.h"
 #include "SNLMacros.h"
 
 namespace naja { namespace SNL {
 
-SNLScalarTerm::SNLScalarTerm(SNLDesign* design, Direction direction, const SNLName& name):
+SNLScalarTerm::SNLScalarTerm(SNLDesign* design, Direction direction, const NLName& name):
   super(),
   design_(design),
   name_(name),
   direction_(direction)
 {}
 
-SNLScalarTerm::SNLScalarTerm(SNLDesign* design, SNLID::DesignObjectID id, Direction direction, const SNLName& name):
+SNLScalarTerm::SNLScalarTerm(SNLDesign* design, NLID::DesignObjectID id, Direction direction, const NLName& name):
   super(),
   design_(design),
   id_(id),
@@ -29,36 +30,36 @@ SNLScalarTerm::SNLScalarTerm(SNLDesign* design, SNLID::DesignObjectID id, Direct
   direction_(direction)
 {}
 
-SNLScalarTerm* SNLScalarTerm::create(SNLDesign* design, Direction direction, const SNLName& name) {
+SNLScalarTerm* SNLScalarTerm::create(SNLDesign* design, Direction direction, const NLName& name) {
   preCreate(design, name);
   SNLScalarTerm* net = new SNLScalarTerm(design, direction, name);
   net->postCreateAndSetID();
   return net;
 }
 
-SNLScalarTerm* SNLScalarTerm::create(SNLDesign* design, SNLID::DesignObjectID id, Direction direction, const SNLName& name) {
+SNLScalarTerm* SNLScalarTerm::create(SNLDesign* design, NLID::DesignObjectID id, Direction direction, const NLName& name) {
   preCreate(design, id, name);
   SNLScalarTerm* net = new SNLScalarTerm(design, id, direction, name);
   net->postCreate();
   return net;
 }
 
-void SNLScalarTerm::preCreate(SNLDesign* design, const SNLName& name) {
+void SNLScalarTerm::preCreate(SNLDesign* design, const NLName& name) {
   super::preCreate();
   if (not design) {
-    throw SNLException("malformed SNLScalarTerm creator with NULL design argument");
+    throw NLException("malformed SNLScalarTerm creator with NULL design argument");
   }
   if (not name.empty() and design->getTerm(name)) {
     std::string reason = "SNLDesign " + design->getString() + " contains already a SNLScalarTerm named: " + name.getString();
-    throw SNLException(reason);
+    throw NLException(reason);
   }
 }
 
-void SNLScalarTerm::preCreate(SNLDesign* design, SNLID::DesignObjectID id, const SNLName& name) {
+void SNLScalarTerm::preCreate(SNLDesign* design, NLID::DesignObjectID id, const NLName& name) {
   preCreate(design, name);
-  if (design->getTerm(SNLID::DesignObjectID(id))) {
+  if (design->getTerm(NLID::DesignObjectID(id))) {
     std::string reason = "SNLDesign " + design->getString() + " contains already a SNLScalarTerm with ID: " + std::to_string(id);
-    throw SNLException(reason);
+    throw NLException(reason);
   }
 }
 
@@ -98,8 +99,8 @@ SNLTerm* SNLScalarTerm::clone(SNLDesign* design) const {
 
 DESIGN_OBJECT_SET_NAME(SNLScalarTerm, Term, term)
 
-SNLID SNLScalarTerm::getSNLID() const {
-  return SNLDesignObject::getSNLID(SNLID::Type::Term, id_, 0, 0);
+NLID SNLScalarTerm::getNLID() const {
+  return SNLDesignObject::getNLID(NLID::Type::Term, id_, 0, 0);
 }
 
 NajaCollection<SNLBitTerm*> SNLScalarTerm::getBits() const {

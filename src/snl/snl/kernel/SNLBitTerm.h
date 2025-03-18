@@ -21,12 +21,12 @@ class SNLBitTerm: public SNLTerm {
       }
     };
 
-    SNLID::Bit getWidth() const override { return 1; }
-    virtual SNLID::Bit getBit() const = 0;
+    NLID::Bit getWidth() const override { return 1; }
+    virtual NLID::Bit getBit() const = 0;
     SNLBitNet* getNet() const override { return net_; }
     void setNet(SNLNet* net) override;
-    SNLID::DesignObjectID getOrderID() const { return orderID_; }
-    void setOrderID(SNLID::DesignObjectID orderID) { orderID_ = orderID; }
+    NLID::DesignObjectID getOrderID() const { return orderID_; }
+    void setOrderID(NLID::DesignObjectID orderID) { orderID_ = orderID; }
     
   protected:
     SNLBitTerm() = default;
@@ -35,7 +35,7 @@ class SNLBitTerm: public SNLTerm {
     void preDestroy() override;
   private:
     SNLBitNet*            net_      { nullptr };
-    SNLID::DesignObjectID orderID_  { (SNLID::DesignObjectID) -1 };
+    NLID::DesignObjectID  orderID_  { (NLID::DesignObjectID) -1 };
 };
 
 }} // namespace SNL // namespace naja

@@ -4,13 +4,13 @@
 
 #include "SNLCapnP.h"
 #include "SNLDumpManifest.h"
-#include "SNLDB.h"
+#include "NLDB.h"
 
 //using boost::asio::ip::tcp;
 
 namespace naja { namespace SNL {
 
-void SNLCapnP::dump(const SNLDB* db, const std::filesystem::path& path) {
+void SNLCapnP::dump(const NLDB* db, const std::filesystem::path& path) {
   std::filesystem::create_directory(path);
   SNLDumpManifest::dump(path);
   dumpInterface(db, path/InterfaceName);
@@ -19,11 +19,11 @@ void SNLCapnP::dump(const SNLDB* db, const std::filesystem::path& path) {
 
 //Need to find a proper way to test serialization on the wire
 //LCOV_EXCL_START
-//void SNLCapnP::send(const SNLDB* db, const std::string& ipAddress, uint16_t port) {
+//void SNLCapnP::send(const NLDB* db, const std::string& ipAddress, uint16_t port) {
 //  send(db, ipAddress, port, db->getID());
 //}
 //
-//void SNLCapnP::send(const SNLDB* db, const std::string& ipAddress, uint16_t port, SNLID::DBID forceDBID) {
+//void SNLCapnP::send(const NLDB* db, const std::string& ipAddress, uint16_t port, NLID::DBID forceDBID) {
 //  boost::asio::io_context ioContext;
 //  //socket creation
 //  tcp::socket socket(ioContext);
@@ -33,9 +33,9 @@ void SNLCapnP::dump(const SNLDB* db, const std::filesystem::path& path) {
 //}
 //LCOV_EXCL_STOP
 
-SNLDB* SNLCapnP::load(const std::filesystem::path& path) {
+NLDB* SNLCapnP::load(const std::filesystem::path& path) {
   loadInterface(path/InterfaceName);
-  SNLDB* db = loadImplementation(path/ImplementationName);
+  NLDB* db = loadImplementation(path/ImplementationName);
   return db;
 }
 
@@ -52,13 +52,13 @@ SNLDB* SNLCapnP::load(const std::filesystem::path& path) {
 //  return std::move(socket);
 //}
 //
-//SNLDB* SNLCapnP::receive(boost::asio::ip::tcp::socket& socket) {
+//NLDB* SNLCapnP::receive(boost::asio::ip::tcp::socket& socket) {
 //  receiveInterface(socket);
-//  SNLDB* db = receiveImplementation(socket);
+//  NLDB* db = receiveImplementation(socket);
 //  return db;
 //}
 //
-//SNLDB* SNLCapnP::receive(uint16_t port) {
+//NLDB* SNLCapnP::receive(uint16_t port) {
 //  auto socket = getSocket(port);
 //  return receive(socket);
 //}

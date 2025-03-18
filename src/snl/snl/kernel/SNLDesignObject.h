@@ -5,20 +5,20 @@
 #ifndef __SNL_DESIGN_OBJECT_H_
 #define __SNL_DESIGN_OBJECT_H_
 
-#include "SNLObject.h"
-#include "SNLID.h"
-#include "SNLName.h"
+#include "NLObject.h"
+#include "NLID.h"
+#include "NLName.h"
 #include "SNLAttributes.h"
 
 namespace naja { namespace SNL {
 
-class SNLDB;
-class SNLLibrary;
-class SNLDesign;
+class NLDB;
+class NLLibrary;
+class NLDesign;
 
-class SNLDesignObject: public SNLObject {
+class SNLDesignObject: public NLObject {
   public:
-    using super = SNLObject;
+    using super = NLObject;
     SNLDesignObject(const SNLDesignObject&) = delete;
     SNLDesignObject(const SNLDesignObject&&) = delete;
 
@@ -30,19 +30,19 @@ class SNLDesignObject: public SNLObject {
 
     /// \return the owner SNLDesign of this SNLDesignObject.
     virtual SNLDesign* getDesign() const = 0;
-    /// \return the unique SNLID of this SNLDesignObject.
-    virtual SNLID getSNLID() const = 0;
-    SNLID getSNLID(const SNLID::Type& type,
-        SNLID::DesignObjectID id,
-        SNLID::DesignObjectID instanceID,
-        SNLID::Bit bit) const;
-    /// \return the owner SNLLibrary of this SNLDesignObject.
-    SNLLibrary* getLibrary() const;
+    /// \return the unique NLID of this SNLDesignObject.
+    virtual NLID getNLID() const = 0;
+    NLID getNLID(const NLID::Type& type,
+        NLID::DesignObjectID id,
+        NLID::DesignObjectID instanceID,
+        NLID::Bit bit) const;
+    /// \return the owner NLLibrary of this SNLDesignObject.
+    NLLibrary* getLibrary() const;
 
     NajaCollection<SNLAttribute> getAttributes() const;
 
-    /// \return the owner SNLDB of this SNLDesignObject.
-    SNLDB* getDB() const;
+    /// \return the owner NLDB of this SNLDesignObject.
+    NLDB* getDB() const;
     /// \return true if this SNLDesignObject is anonymous, false if not.
     virtual bool isAnonymous() const = 0;
     /**
@@ -50,22 +50,22 @@ class SNLDesignObject: public SNLObject {
      * \warning this method will throw an exception if used on SNLBusTermBit, SNLBusNetBit or SNLInstTermBit
      * or if the name is already used in the design.
     */
-    virtual void setName(const SNLName& name) = 0;
+    virtual void setName(const NLName& name) = 0;
     
     /**
-     * \brief Less Compare two SNLDesignObjets by their SNLID.
+     * \brief Less Compare two SNLDesignObjets by their NLID.
      * \param rhs Right Hand Side SNLDesignObject.
      */
     bool operator<(const SNLDesignObject &rhs) const {
-      return getSNLID() < rhs.getSNLID();
+      return getNLID() < rhs.getNLID();
     }
 
     /**
-     * \brief Equality Compare two SNLDesignObjets by their SNLID.
+     * \brief Equality Compare two SNLDesignObjets by their NLID.
      * \param rhs Right Hand Side SNLDesignObject.
      */
     bool operator==(const SNLDesignObject &rhs) const {
-      return getSNLID() == rhs.getSNLID();
+      return getNLID() == rhs.getNLID();
     }
   protected:
     SNLDesignObject() = default;

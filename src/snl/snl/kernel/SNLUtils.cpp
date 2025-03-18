@@ -7,7 +7,8 @@
 #include <algorithm>
 #include <list>
 
-#include "SNLLibrary.h"
+#include "NLLibrary.h"
+
 #include "SNLDesign.h"
 
 namespace naja { namespace SNL {
@@ -44,18 +45,18 @@ void SNLUtils::getDesignsSortedByHierarchicalLevel(const SNLDesign* top, SortedD
   std::sort(sortedDesigns.begin(), sortedDesigns.end(),
     [](const DesignLevel& ldl, const DesignLevel& rdl) {
       if (ldl.second == rdl.second) {
-        return ldl.first->getSNLID() < rdl.first->getSNLID();
+        return ldl.first->getNLID() < rdl.first->getNLID();
       }
       return ldl.second < rdl.second;
     }
   );
 }
 
-SNLID::Bit SNLUtils::getWidth(SNLID::Bit msb, SNLID::Bit lsb) {
+NLID::Bit SNLUtils::getWidth(NLID::Bit msb, NLID::Bit lsb) {
   return std::abs(lsb - msb) + 1;
 }
 
-SNLDesign* SNLUtils::findTop(const SNLLibrary* library) {
+SNLDesign* SNLUtils::findTop(const NLLibrary* library) {
   using Tops = std::list<SNLDesign*>;
   Tops tops;
   for (auto design: library->getDesigns()) {

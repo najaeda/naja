@@ -428,7 +428,7 @@ def constructRAMB36E1(lib):
 
 def load(db):
     logging.info("Loading Xilinx primitives")
-    lib = snl.SNLLibrary.createPrimitives(db, "xilinx")
+    lib = snl.NLLibrary.createPrimitives(db, "xilinx")
     constructIBUF(lib)
     constructOBUF(lib)
     constructBUFG(lib)
