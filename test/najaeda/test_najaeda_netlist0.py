@@ -59,8 +59,8 @@ class NajaNetlistTest0(unittest.TestCase):
         pass
 
     def tearDown(self):
-        if snl.SNLUniverse.get():
-            snl.SNLUniverse.get().destroy()
+        if snl.NLUniverse.get():
+            snl.NLUniverse.get().destroy()
     
     def test_hash(self):
         with self.assertRaises(Exception) as context: netlist.consistent_hash("error")
@@ -92,14 +92,14 @@ class NajaNetlistTest0(unittest.TestCase):
         netlist.load_verilog(design_files)
         #for inst in netlist.get_all_primitive_instances():
         #    print(inst)
-        if snl.SNLUniverse.get():
-            snl.SNLUniverse.get().destroy()
+        if snl.NLUniverse.get():
+            snl.NLUniverse.get().destroy()
         
 
     def test_instance(self):
-        u = snl.SNLUniverse.create()
-        db = snl.SNLDB.create(u)
-        lib = snl.SNLLibrary.create(db)
+        u = snl.NLUniverse.create()
+        db = snl.NLDB.create(u)
+        lib = snl.NLLibrary.create(db)
         self.top = snl.SNLDesign.create(lib)
         u.setTopDesign(self.top)
         self.model = snl.SNLDesign.create(lib)
@@ -218,10 +218,10 @@ class NajaNetlistTest0(unittest.TestCase):
         #print(instance.get_name())
 
     def test_equipotential(self):
-        universe = snl.SNLUniverse.create()
-        db = snl.SNLDB.create(universe)
-        lib = snl.SNLLibrary.create(db)
-        self.primitives = snl.SNLLibrary.createPrimitives(db)
+        universe = snl.NLUniverse.create()
+        db = snl.NLDB.create(universe)
+        lib = snl.NLLibrary.create(db)
+        self.primitives = snl.NLLibrary.createPrimitives(db)
         self.top = snl.SNLDesign.create(lib)
         universe.setTopDesign(self.top)
         self.model = snl.SNLDesign.create(lib, "model")
@@ -244,8 +244,6 @@ class NajaNetlistTest0(unittest.TestCase):
         self.i0Top = snl.SNLScalarTerm.create(self.top, snl.SNLTerm.Direction.Input, "I0")
         self.noNameTop = snl.SNLScalarTerm.create(self.top, snl.SNLTerm.Direction.Input, "")
         self.noNameBusTop = snl.SNLBusTerm.create(self.top, snl.SNLTerm.Direction.Input, 4, 0, "")
-
-        
 
         path0 = snl.SNLPath()
 
@@ -401,10 +399,10 @@ class NajaNetlistTest0(unittest.TestCase):
         with self.assertRaises(Exception) as context: instance.delete_instance("")
 
     def testTopTerm(self):
-        universe = snl.SNLUniverse.create()
-        db = snl.SNLDB.create(universe)
-        lib = snl.SNLLibrary.create(db)
-        self.primitives = snl.SNLLibrary.createPrimitives(db)
+        universe = snl.NLUniverse.create()
+        db = snl.NLDB.create(universe)
+        lib = snl.NLLibrary.create(db)
+        self.primitives = snl.NLLibrary.createPrimitives(db)
         self.top = snl.SNLDesign.create(lib)
         universe.setTopDesign(self.top)
         self.i0 = snl.SNLScalarTerm.create(self.top, snl.SNLTerm.Direction.Input, "I0")
@@ -433,10 +431,10 @@ class NajaNetlistTest0(unittest.TestCase):
         self.assertGreaterEqual(top_term2, top_term)
     
     def testInstTerm(self):
-        universe = snl.SNLUniverse.create()
-        db = snl.SNLDB.create(universe)
-        lib = snl.SNLLibrary.create(db)
-        self.primitives = snl.SNLLibrary.createPrimitives(db)
+        universe = snl.NLUniverse.create()
+        db = snl.NLDB.create(universe)
+        lib = snl.NLLibrary.create(db)
+        self.primitives = snl.NLLibrary.createPrimitives(db)
         self.top = snl.SNLDesign.create(lib)
         universe.setTopDesign(self.top)
         self.model = snl.SNLDesign.create(lib, "model")

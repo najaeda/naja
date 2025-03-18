@@ -14,7 +14,7 @@
 #include <sstream>
 #include <iomanip>
 
-#include "SNLException.h"
+#include "NLException.h"
 
 namespace naja { namespace SNL {
 
@@ -27,7 +27,7 @@ class SNLTruthTable {
         oss << "Cannot create SNLTruthTable with bits_: " << bits;
         oss << " and size: " << size;
         oss << " (max=6)";
-        throw SNLException(oss.str());
+        throw NLException(oss.str());
       }
     }
 
@@ -91,7 +91,7 @@ class SNLTruthTable {
 
         // Check if the index is out of range
         if (index > currentTT.size_ - 1) {
-          throw SNLException("Index out of range (max=6)");
+          throw NLException("Index out of range (max=6)");
         }
 
         // Calculate the number of entries in the truth table
@@ -138,7 +138,7 @@ class SNLTruthTable {
     // Function to remove a variable from the truth table
     SNLTruthTable removeVariable(uint32_t variableIndex) const {
       if (variableIndex > size_-1) {
-        throw SNLException("Index out of range");
+        throw NLException("Index out of range");
       }
       SNLTruthTable reducedTruthTable(size_-1, 0);
       for (uint32_t i = 0; i < (1U << size_); ++i) {

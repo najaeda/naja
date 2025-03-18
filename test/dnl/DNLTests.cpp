@@ -6,7 +6,8 @@
 
 #include "gtest/gtest.h"
 
-#include "SNLUniverse.h"
+#include "NLUniverse.h"
+#include "NLException.h"
 #include "SNLScalarTerm.h"
 #include "SNLInstTerm.h"
 #include "SNLScalarNet.h"
@@ -14,7 +15,6 @@
 #include "SNLBitTermOccurrence.h"
 #include "SNLEquipotential.h"
 #include "SNLPath.h"
-#include "SNLException.h"
 #include "SNLUniquifier.h"
 
 using namespace naja::DNL;
@@ -36,7 +36,7 @@ class DNLTests : public ::testing::Test {
         // Code here will be called immediately after each test (right
         // before the destructor).
         //Destroy the SNL
-        SNLUniverse::get()->destroy();
+        NLUniverse::get()->destroy();
     }
 
 };
@@ -46,13 +46,13 @@ class DNLTests : public ::testing::Test {
 //and validate the access to the data
 TEST_F(DNLTests, SNLDataAccess) {
     //Create one module snl with one input and one output
-    SNLUniverse* univ = SNLUniverse::create();
-    SNLDB* db = SNLDB::create(univ);
-    SNLLibrary* library = SNLLibrary::create(db, SNLName("MYLIB"));
-    SNLDesign* mod = SNLDesign::create(library, SNLName("mod"));
+    NLUniverse* univ = NLUniverse::create();
+    NLDB* db = NLDB::create(univ);
+    NLLibrary* library = NLLibrary::create(db, NLName("MYLIB"));
+    SNLDesign* mod = SNLDesign::create(library, NLName("mod"));
     univ->setTopDesign(mod);
-    auto inTerm = SNLScalarTerm::create(mod, SNLTerm::Direction::Input, SNLName("in"));
-    auto outTerm = SNLScalarTerm::create(mod, SNLTerm::Direction::Output, SNLName("out"));
+    auto inTerm = SNLScalarTerm::create(mod, SNLTerm::Direction::Input, NLName("in"));
+    auto outTerm = SNLScalarTerm::create(mod, SNLTerm::Direction::Output, NLName("out"));
     //Create a DNL on top of the SNL
     DNLFull* dnl = get();
     assert(dnl != nullptr);
@@ -75,10 +75,10 @@ TEST_F(DNLTests, SNLDataAccess) {
 //Empty top
 TEST_F(DNLTests, EmptyTop) {
     //Create one module snl with one input and one output
-    SNLUniverse* univ = SNLUniverse::create();
-    SNLDB* db = SNLDB::create(univ);
-    SNLLibrary* library = SNLLibrary::create(db, SNLName("MYLIB"));
-    SNLDesign* mod = SNLDesign::create(library, SNLName("mod"));
+    NLUniverse* univ = NLUniverse::create();
+    NLDB* db = NLDB::create(univ);
+    NLLibrary* library = NLLibrary::create(db, NLName("MYLIB"));
+    SNLDesign* mod = SNLDesign::create(library, NLName("mod"));
     univ->setTopDesign(mod);
     //Create a DNL on top of the SNL
     DNLFull* dnl = get();
@@ -89,12 +89,12 @@ TEST_F(DNLTests, EmptyTop) {
 //Empty child
 TEST_F(DNLTests, EmptyChild) {
     //Create one module snl with one input and one output
-    SNLUniverse* univ = SNLUniverse::create();
-    SNLDB* db = SNLDB::create(univ);
-    SNLLibrary* library = SNLLibrary::create(db, SNLName("MYLIB"));
-    SNLDesign* mod = SNLDesign::create(library, SNLName("mod"));
-    SNLDesign* submod = SNLDesign::create(library, SNLName("submod"));
-    SNLInstance* subinst = SNLInstance::create(mod, submod, SNLName("subinst"));
+    NLUniverse* univ = NLUniverse::create();
+    NLDB* db = NLDB::create(univ);
+    NLLibrary* library = NLLibrary::create(db, NLName("MYLIB"));
+    SNLDesign* mod = SNLDesign::create(library, NLName("mod"));
+    SNLDesign* submod = SNLDesign::create(library, NLName("submod"));
+    SNLInstance* subinst = SNLInstance::create(mod, submod, NLName("subinst"));
     univ->setTopDesign(mod);
     //Create a DNL on top of the SNL
     DNLFull* dnl = get();
@@ -104,18 +104,18 @@ TEST_F(DNLTests, EmptyChild) {
 
 TEST_F(DNLTests, SNLDataAccessWith2levelsOfHierarchy) {
     //Create one module snl with one input and one output
-    SNLUniverse* univ = SNLUniverse::create();
-    SNLDB* db = SNLDB::create(univ);
-    SNLLibrary* library = SNLLibrary::create(db, SNLName("MYLIB"));
-    SNLDesign* mod = SNLDesign::create(library, SNLName("mod"));
+    NLUniverse* univ = NLUniverse::create();
+    NLDB* db = NLDB::create(univ);
+    NLLibrary* library = NLLibrary::create(db, NLName("MYLIB"));
+    SNLDesign* mod = SNLDesign::create(library, NLName("mod"));
     univ->setTopDesign(mod);
-    auto inTerm = SNLScalarTerm::create(mod, SNLTerm::Direction::Input, SNLName("in"));
-    auto outTerm = SNLScalarTerm::create(mod, SNLTerm::Direction::Output, SNLName("out"));
+    auto inTerm = SNLScalarTerm::create(mod, SNLTerm::Direction::Input, NLName("in"));
+    auto outTerm = SNLScalarTerm::create(mod, SNLTerm::Direction::Output, NLName("out"));
     //Create a sub module snl with one input and one output
-    SNLDesign* submod = SNLDesign::create(library, SNLName("submod"));
-    auto subinTerm = SNLScalarTerm::create(submod, SNLTerm::Direction::Input, SNLName("subin"));
-    auto suboutTerm = SNLScalarTerm::create(submod, SNLTerm::Direction::Output, SNLName("subout"));
-    SNLInstance* subinst = SNLInstance::create(mod, submod, SNLName("subinst"));
+    SNLDesign* submod = SNLDesign::create(library, NLName("submod"));
+    auto subinTerm = SNLScalarTerm::create(submod, SNLTerm::Direction::Input, NLName("subin"));
+    auto suboutTerm = SNLScalarTerm::create(submod, SNLTerm::Direction::Output, NLName("subout"));
+    SNLInstance* subinst = SNLInstance::create(mod, submod, NLName("subinst"));
     //Create a DNL on top of the SNL
     DNLFull* dnl = get();
     ASSERT_NE(dnl, nullptr);
@@ -139,29 +139,29 @@ TEST_F(DNLTests, SNLDataAccessWith2levelsOfHierarchy) {
 
 TEST_F(DNLTests, SNLDataAccessWith3levelsOfHierarchy) {
     //Create one module snl with one input and one output
-    SNLUniverse* univ = SNLUniverse::create();
-    SNLDB* db = SNLDB::create(univ);
-    SNLLibrary* library = SNLLibrary::create(db, SNLName("MYLIB"));
-    SNLDesign* mod = SNLDesign::create(library, SNLName("mod"));
+    NLUniverse* univ = NLUniverse::create();
+    NLDB* db = NLDB::create(univ);
+    NLLibrary* library = NLLibrary::create(db, NLName("MYLIB"));
+    SNLDesign* mod = SNLDesign::create(library, NLName("mod"));
     univ->setTopDesign(mod);
-    auto inTerm = SNLScalarTerm::create(mod, SNLTerm::Direction::Input, SNLName("in"));
-    auto outTerm = SNLScalarTerm::create(mod, SNLTerm::Direction::Output, SNLName("out"));
+    auto inTerm = SNLScalarTerm::create(mod, SNLTerm::Direction::Input, NLName("in"));
+    auto outTerm = SNLScalarTerm::create(mod, SNLTerm::Direction::Output, NLName("out"));
     //Create a DNL on top of the SNL
     
    
     //Create a sub module snl with one input and one output
-    SNLDesign* submod = SNLDesign::create(library, SNLName("submod"));
-    auto subinTerm = SNLScalarTerm::create(submod, SNLTerm::Direction::Input, SNLName("subin"));
-    auto suboutTerm = SNLScalarTerm::create(submod, SNLTerm::Direction::Output, SNLName("subout"));
-    SNLInstance* subinst = SNLInstance::create(mod, submod, SNLName("subinst"));
+    SNLDesign* submod = SNLDesign::create(library, NLName("submod"));
+    auto subinTerm = SNLScalarTerm::create(submod, SNLTerm::Direction::Input, NLName("subin"));
+    auto suboutTerm = SNLScalarTerm::create(submod, SNLTerm::Direction::Output, NLName("subout"));
+    SNLInstance* subinst = SNLInstance::create(mod, submod, NLName("subinst"));
     //Create a DNL on top of the SNL
     
     
     //Create a sub module snl with one input and one output
-    SNLDesign* subsubmod = SNLDesign::create(library, SNLName("subsubmod"));
-    auto subsubinTerm = SNLScalarTerm::create(subsubmod, SNLTerm::Direction::Input, SNLName("subsubin"));
-    auto subsuboutTerm = SNLScalarTerm::create(subsubmod, SNLTerm::Direction::Output, SNLName("subsubout"));
-    SNLInstance* subsubinst = SNLInstance::create(submod, subsubmod, SNLName("subsubinst"));
+    SNLDesign* subsubmod = SNLDesign::create(library, NLName("subsubmod"));
+    auto subsubinTerm = SNLScalarTerm::create(subsubmod, SNLTerm::Direction::Input, NLName("subsubin"));
+    auto subsuboutTerm = SNLScalarTerm::create(subsubmod, SNLTerm::Direction::Output, NLName("subsubout"));
+    SNLInstance* subsubinst = SNLInstance::create(submod, subsubmod, NLName("subsubinst"));
     //Create a DNL on top of the SNL
     //Validate the access to the SNL data
     DNLFull* dnl = get();
@@ -199,30 +199,30 @@ TEST_F(DNLTests, SNLDataAccessWith3levelsOfHierarchy) {
 // 6. Validate the iso db
 TEST_F(DNLTests, SNLDataAccessWith3levelsOfHierarchyAndIsoDB) {
     //Create one module snl with one input and one output
-    SNLUniverse* univ = SNLUniverse::create();
-    SNLDB* db = SNLDB::create(univ);
-    SNLLibrary* library = SNLLibrary::create(db, SNLName("MYLIB"));
-    SNLDesign* mod = SNLDesign::create(library, SNLName("mod"));
+    NLUniverse* univ = NLUniverse::create();
+    NLDB* db = NLDB::create(univ);
+    NLLibrary* library = NLLibrary::create(db, NLName("MYLIB"));
+    SNLDesign* mod = SNLDesign::create(library, NLName("mod"));
     univ->setTopDesign(mod);
-    auto inTerm = SNLScalarTerm::create(mod, SNLTerm::Direction::Input, SNLName("in"));
-    auto outTerm = SNLScalarTerm::create(mod, SNLTerm::Direction::Output, SNLName("out"));
+    auto inTerm = SNLScalarTerm::create(mod, SNLTerm::Direction::Input, NLName("in"));
+    auto outTerm = SNLScalarTerm::create(mod, SNLTerm::Direction::Output, NLName("out"));
     //Create a sub module snl with one input and one output
-    SNLDesign* submod = SNLDesign::create(library, SNLName("submod"));
-    auto subinTerm = SNLScalarTerm::create(submod, SNLTerm::Direction::Input, SNLName("subin"));
-    auto suboutTerm = SNLScalarTerm::create(submod, SNLTerm::Direction::Output, SNLName("subout"));
-    SNLInstance* subinst = SNLInstance::create(mod, submod, SNLName("subinst"));
+    SNLDesign* submod = SNLDesign::create(library, NLName("submod"));
+    auto subinTerm = SNLScalarTerm::create(submod, SNLTerm::Direction::Input, NLName("subin"));
+    auto suboutTerm = SNLScalarTerm::create(submod, SNLTerm::Direction::Output, NLName("subout"));
+    SNLInstance* subinst = SNLInstance::create(mod, submod, NLName("subinst"));
     //Create a sub module snl with one input and one output
-    SNLDesign* subsubmod = SNLDesign::create(library, SNLName("subsubmod"));
-    auto subsubinTerm = SNLScalarTerm::create(subsubmod, SNLTerm::Direction::Input, SNLName("subsubin"));
-    auto subsuboutTerm = SNLScalarTerm::create(subsubmod, SNLTerm::Direction::Output, SNLName("subsubout"));
-    SNLInstance* subsubinst = SNLInstance::create(submod, subsubmod, SNLName("subsubinst"));
+    SNLDesign* subsubmod = SNLDesign::create(library, NLName("subsubmod"));
+    auto subsubinTerm = SNLScalarTerm::create(subsubmod, SNLTerm::Direction::Input, NLName("subsubin"));
+    auto subsuboutTerm = SNLScalarTerm::create(subsubmod, SNLTerm::Direction::Output, NLName("subsubout"));
+    SNLInstance* subsubinst = SNLInstance::create(submod, subsubmod, NLName("subsubinst"));
     //Connect the output of the second sub module to the output of the first sub module
-    auto subOutNet = SNLScalarNet::create(submod, SNLName("submodnet"));
+    auto subOutNet = SNLScalarNet::create(submod, NLName("submodnet"));
     subOutNet->setType(SNLNet::Type::Assign0);
     suboutTerm->setNet(subOutNet);
     subsubinst->getInstTerm(subsuboutTerm)->setNet(subOutNet);
     //Connect the output of the first sub module to the input of the top module
-    auto outNet = SNLScalarNet::create(mod, SNLName("modnet"));
+    auto outNet = SNLScalarNet::create(mod, NLName("modnet"));
     outNet->setType(SNLNet::Type::Assign1);
     outTerm->setNet(outNet);
     subinst->getInstTerm(suboutTerm)->setNet(outNet);
@@ -315,29 +315,29 @@ TEST_F(DNLTests, SNLDataAccessWith3levelsOfHierarchyAndIsoDB) {
 TEST_F(DNLTests, SNLDataAccessWith3levelsOfHierarchyAndIsoDBNonMT) {
     setenv("NON_MT", "", 1);
     //Create one module snl with one input and one output
-    SNLUniverse* univ = SNLUniverse::create();
-    SNLDB* db = SNLDB::create(univ);
-    SNLLibrary* library = SNLLibrary::create(db, SNLName("MYLIB"));
-    SNLDesign* mod = SNLDesign::create(library, SNLName("mod"));
+    NLUniverse* univ = NLUniverse::create();
+    NLDB* db = NLDB::create(univ);
+    NLLibrary* library = NLLibrary::create(db, NLName("MYLIB"));
+    SNLDesign* mod = SNLDesign::create(library, NLName("mod"));
     univ->setTopDesign(mod);
-    auto inTerm = SNLScalarTerm::create(mod, SNLTerm::Direction::Input, SNLName("in"));
-    auto outTerm = SNLScalarTerm::create(mod, SNLTerm::Direction::Output, SNLName("out"));
+    auto inTerm = SNLScalarTerm::create(mod, SNLTerm::Direction::Input, NLName("in"));
+    auto outTerm = SNLScalarTerm::create(mod, SNLTerm::Direction::Output, NLName("out"));
     //Create a sub module snl with one input and one output
-    SNLDesign* submod = SNLDesign::create(library, SNLName("submod"));
-    auto subinTerm = SNLScalarTerm::create(submod, SNLTerm::Direction::Input, SNLName("subin"));
-    auto suboutTerm = SNLScalarTerm::create(submod, SNLTerm::Direction::Output, SNLName("subout"));
-    SNLInstance* subinst = SNLInstance::create(mod, submod, SNLName("subinst"));
+    SNLDesign* submod = SNLDesign::create(library, NLName("submod"));
+    auto subinTerm = SNLScalarTerm::create(submod, SNLTerm::Direction::Input, NLName("subin"));
+    auto suboutTerm = SNLScalarTerm::create(submod, SNLTerm::Direction::Output, NLName("subout"));
+    SNLInstance* subinst = SNLInstance::create(mod, submod, NLName("subinst"));
     //Create a sub module snl with one input and one output
-    SNLDesign* subsubmod = SNLDesign::create(library, SNLName("subsubmod"));
-    auto subsubinTerm = SNLScalarTerm::create(subsubmod, SNLTerm::Direction::Input, SNLName("subsubin"));
-    auto subsuboutTerm = SNLScalarTerm::create(subsubmod, SNLTerm::Direction::Output, SNLName("subsubout"));
-    SNLInstance* subsubinst = SNLInstance::create(submod, subsubmod, SNLName("subsubinst"));
+    SNLDesign* subsubmod = SNLDesign::create(library, NLName("subsubmod"));
+    auto subsubinTerm = SNLScalarTerm::create(subsubmod, SNLTerm::Direction::Input, NLName("subsubin"));
+    auto subsuboutTerm = SNLScalarTerm::create(subsubmod, SNLTerm::Direction::Output, NLName("subsubout"));
+    SNLInstance* subsubinst = SNLInstance::create(submod, subsubmod, NLName("subsubinst"));
     //Connect the output of the second sub module to the output of the first sub module
-    auto subOutNet = SNLScalarNet::create(submod, SNLName("submodnet"));
+    auto subOutNet = SNLScalarNet::create(submod, NLName("submodnet"));
     suboutTerm->setNet(subOutNet);
     subsubinst->getInstTerm(subsuboutTerm)->setNet(subOutNet);
     //Connect the output of the first sub module to the input of the top module
-    auto outNet = SNLScalarNet::create(mod, SNLName("modnet"));
+    auto outNet = SNLScalarNet::create(mod, NLName("modnet"));
     outTerm->setNet(outNet);
     subinst->getInstTerm(suboutTerm)->setNet(outNet);
     //Connect the input of the second sub module to the input of the first submodule module
@@ -418,32 +418,32 @@ TEST_F(DNLTests, SNLDataAccessWith3levelsOfHierarchyAndIsoDBNonMT) {
 //Based on last test, only with multi driver
 TEST_F(DNLTests, SNLDataAccessWith3levelsOfHierarchyAndIsoDBWithMultiDriverMT) {
     //Create one module snl with one input and one output
-    SNLUniverse* univ = SNLUniverse::create();
-    SNLDB* db = SNLDB::create(univ);
-    SNLLibrary* library = SNLLibrary::create(db, SNLName("MYLIB"));
-    SNLDesign* mod = SNLDesign::create(library, SNLName("mod"));
+    NLUniverse* univ = NLUniverse::create();
+    NLDB* db = NLDB::create(univ);
+    NLLibrary* library = NLLibrary::create(db, NLName("MYLIB"));
+    SNLDesign* mod = SNLDesign::create(library, NLName("mod"));
     univ->setTopDesign(mod);
-    auto inTerm = SNLScalarTerm::create(mod, SNLTerm::Direction::Input, SNLName("in"));
-    auto inTerm2 = SNLScalarTerm::create(mod, SNLTerm::Direction::Input, SNLName("in2"));
-    auto outTerm = SNLScalarTerm::create(mod, SNLTerm::Direction::Output, SNLName("out"));
+    auto inTerm = SNLScalarTerm::create(mod, SNLTerm::Direction::Input, NLName("in"));
+    auto inTerm2 = SNLScalarTerm::create(mod, SNLTerm::Direction::Input, NLName("in2"));
+    auto outTerm = SNLScalarTerm::create(mod, SNLTerm::Direction::Output, NLName("out"));
     //Create a sub module snl with one input and one output
-    SNLDesign* submod = SNLDesign::create(library, SNLName("submod"));
-    auto subinTerm = SNLScalarTerm::create(submod, SNLTerm::Direction::Input, SNLName("subin"));
-    auto suboutTerm = SNLScalarTerm::create(submod, SNLTerm::Direction::Output, SNLName("subout"));
-    SNLInstance* subinst = SNLInstance::create(mod, submod, SNLName("subinst"));
+    SNLDesign* submod = SNLDesign::create(library, NLName("submod"));
+    auto subinTerm = SNLScalarTerm::create(submod, SNLTerm::Direction::Input, NLName("subin"));
+    auto suboutTerm = SNLScalarTerm::create(submod, SNLTerm::Direction::Output, NLName("subout"));
+    SNLInstance* subinst = SNLInstance::create(mod, submod, NLName("subinst"));
     //Create a sub module snl with one input and one output
-    SNLDesign* subsubmod = SNLDesign::create(library, SNLName("subsubmod"));
-    auto subsubinTerm = SNLScalarTerm::create(subsubmod, SNLTerm::Direction::Input, SNLName("subsubin"));
-    auto subsuboutTerm = SNLScalarTerm::create(subsubmod, SNLTerm::Direction::Output, SNLName("subsubout"));
-    auto subsuboutTerm2 = SNLScalarTerm::create(subsubmod, SNLTerm::Direction::Output, SNLName("subsubout2"));
-    SNLInstance* subsubinst = SNLInstance::create(submod, subsubmod, SNLName("subsubinst"));
+    SNLDesign* subsubmod = SNLDesign::create(library, NLName("subsubmod"));
+    auto subsubinTerm = SNLScalarTerm::create(subsubmod, SNLTerm::Direction::Input, NLName("subsubin"));
+    auto subsuboutTerm = SNLScalarTerm::create(subsubmod, SNLTerm::Direction::Output, NLName("subsubout"));
+    auto subsuboutTerm2 = SNLScalarTerm::create(subsubmod, SNLTerm::Direction::Output, NLName("subsubout2"));
+    SNLInstance* subsubinst = SNLInstance::create(submod, subsubmod, NLName("subsubinst"));
     //Connect the output of the second sub module to the output of the first sub module
-    auto subOutNet = SNLScalarNet::create(submod, SNLName("submodnet"));
+    auto subOutNet = SNLScalarNet::create(submod, NLName("submodnet"));
     suboutTerm->setNet(subOutNet);
     subsubinst->getInstTerm(subsuboutTerm)->setNet(subOutNet);
     subsubinst->getInstTerm(subsuboutTerm2)->setNet(subOutNet);
     //Connect the output of the first sub module to the input of the top module
-    auto outNet = SNLScalarNet::create(mod, SNLName("modnet"));
+    auto outNet = SNLScalarNet::create(mod, NLName("modnet"));
     outTerm->setNet(outNet);
     subinst->getInstTerm(suboutTerm)->setNet(outNet);
     //Connect the input of the second sub module to the input of the first submodule module
@@ -518,34 +518,34 @@ TEST_F(DNLTests, SNLDataAccessWith3levelsOfHierarchyAndIsoDBWithMultiDriverMT) {
 TEST_F(DNLTests, SNLDataAccessWith3levelsOfHierarchyAndIsoDBWithMultiDriverNonMT) {
     //Create one module snl with one input and one output
     setenv("NON_MT", "", 1);
-    SNLUniverse* univ = SNLUniverse::create();
-    SNLDB* db = SNLDB::create(univ);
-    SNLLibrary* library = SNLLibrary::create(db, SNLName("MYLIB"));
-    SNLDesign* mod = SNLDesign::create(library, SNLName("mod"));
+    NLUniverse* univ = NLUniverse::create();
+    NLDB* db = NLDB::create(univ);
+    NLLibrary* library = NLLibrary::create(db, NLName("MYLIB"));
+    SNLDesign* mod = SNLDesign::create(library, NLName("mod"));
     univ->setTopDesign(mod);
-    auto inTerm = SNLScalarTerm::create(mod, SNLTerm::Direction::Input, SNLName("in"));
-    auto inTerm2 = SNLScalarTerm::create(mod, SNLTerm::Direction::Input, SNLName("in2"));
-    auto outTerm = SNLScalarTerm::create(mod, SNLTerm::Direction::Output, SNLName("out"));
+    auto inTerm = SNLScalarTerm::create(mod, SNLTerm::Direction::Input, NLName("in"));
+    auto inTerm2 = SNLScalarTerm::create(mod, SNLTerm::Direction::Input, NLName("in2"));
+    auto outTerm = SNLScalarTerm::create(mod, SNLTerm::Direction::Output, NLName("out"));
     //Create a sub module snl with one input and one output
-    SNLDesign* submod = SNLDesign::create(library, SNLName("submod"));
-    auto subinTerm = SNLScalarTerm::create(submod, SNLTerm::Direction::Input, SNLName("subin"));
-    auto subinTerm2 = SNLScalarTerm::create(submod, SNLTerm::Direction::Input, SNLName("subin2"));
-    auto suboutTerm = SNLScalarTerm::create(submod, SNLTerm::Direction::Output, SNLName("subout"));
-    SNLInstance* subinst = SNLInstance::create(mod, submod, SNLName("subinst"));
-    SNLInstance* subinst2 = SNLInstance::create(mod, submod, SNLName("subinst2"));
+    SNLDesign* submod = SNLDesign::create(library, NLName("submod"));
+    auto subinTerm = SNLScalarTerm::create(submod, SNLTerm::Direction::Input, NLName("subin"));
+    auto subinTerm2 = SNLScalarTerm::create(submod, SNLTerm::Direction::Input, NLName("subin2"));
+    auto suboutTerm = SNLScalarTerm::create(submod, SNLTerm::Direction::Output, NLName("subout"));
+    SNLInstance* subinst = SNLInstance::create(mod, submod, NLName("subinst"));
+    SNLInstance* subinst2 = SNLInstance::create(mod, submod, NLName("subinst2"));
     //Create a sub module snl with one input and one output
-    SNLDesign* subsubmod = SNLDesign::create(library, SNLName("subsubmod"));
-    auto subsubinTerm = SNLScalarTerm::create(subsubmod, SNLTerm::Direction::Input, SNLName("subsubin"));
-    auto subsuboutTerm = SNLScalarTerm::create(subsubmod, SNLTerm::Direction::Output, SNLName("subsubout"));
-    SNLInstance* subsubinst = SNLInstance::create(submod, subsubmod, SNLName("subsubinst"));
-    SNLInstance* subsubinst2 = SNLInstance::create(submod, subsubmod, SNLName("subsubinst2"));
+    SNLDesign* subsubmod = SNLDesign::create(library, NLName("subsubmod"));
+    auto subsubinTerm = SNLScalarTerm::create(subsubmod, SNLTerm::Direction::Input, NLName("subsubin"));
+    auto subsuboutTerm = SNLScalarTerm::create(subsubmod, SNLTerm::Direction::Output, NLName("subsubout"));
+    SNLInstance* subsubinst = SNLInstance::create(submod, subsubmod, NLName("subsubinst"));
+    SNLInstance* subsubinst2 = SNLInstance::create(submod, subsubmod, NLName("subsubinst2"));
     //Connect the output of the second sub module to the output of the first sub module
-    auto subOutNet = SNLScalarNet::create(submod, SNLName("submodnet"));
+    auto subOutNet = SNLScalarNet::create(submod, NLName("submodnet"));
     subOutNet->setType(SNLNet::Type::Assign1);
     suboutTerm->setNet(subOutNet);
     subsubinst->getInstTerm(subsuboutTerm)->setNet(subOutNet);
     //Connect the output of the first sub module to the input of the top module
-    auto outNet = SNLScalarNet::create(mod, SNLName("modnet"));
+    auto outNet = SNLScalarNet::create(mod, NLName("modnet"));
     outNet->setType(SNLNet::Type::Assign1);
     outTerm->setNet(outNet);
     subinst->getInstTerm(suboutTerm)->setNet(outNet);
@@ -624,7 +624,7 @@ TEST_F(DNLTests, SNLDataAccessWith3levelsOfHierarchyAndIsoDBWithMultiDriverNonMT
     EXPECT_EQ(dnl->getDNLNullTerminal().isNull(), true);
     //Destroy the DNL
     EXPECT_EQ(isCreated(), true);
-    std::vector<SNLID::DesignObjectID> path;
+    std::vector<NLID::DesignObjectID> path;
     path.push_back(0);
     path.push_back(0);
     std::string id("");

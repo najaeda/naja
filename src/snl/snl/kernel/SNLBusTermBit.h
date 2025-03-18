@@ -18,20 +18,20 @@ class SNLBusTermBit final: public SNLBitTerm {
 
     SNLDesign* getDesign() const override;
 
-    SNLID::DesignObjectID getID() const override;
-    SNLID getSNLID() const override;
+    NLID::DesignObjectID getID() const override;
+    NLID getNLID() const override;
     ///\return this SNLBusTermBit owner SNLBusTerm.
     SNLBusTerm* getBus() const { return bus_; }
-    SNLID::Bit getBit() const override { return bit_; }
+    NLID::Bit getBit() const override { return bit_; }
     size_t getFlatID() const override;
     ///\return the position of this SNLBusTermBit in SNLBusTerm bits vector.
     size_t getPositionInBus() const;
     NajaCollection<SNLBitTerm*> getBits() const override;
 
     const char* getTypeName() const override;
-    SNLName getName() const override;
+    NLName getName() const override;
     bool isAnonymous() const override;
-    void setName(const SNLName& name) override;
+    void setName(const NLName& name) override;
     SNLTerm::Direction getDirection() const override;
     std::string getString() const override;
     std::string getDescription() const override;
@@ -40,13 +40,13 @@ class SNLBusTermBit final: public SNLBitTerm {
 
     void destroy() override;
   private:
-    static SNLBusTermBit* create(SNLBusTerm* bus, SNLID::Bit bit);
+    static SNLBusTermBit* create(SNLBusTerm* bus, NLID::Bit bit);
 
-    void setID(SNLID::DesignObjectID id) override {} //LCOV_EXCL_LINE
+    void setID(NLID::DesignObjectID id) override {} //LCOV_EXCL_LINE
     void setFlatID(size_t position) override {} //LCOV_EXCL_LINE
 
-    SNLBusTermBit(SNLBusTerm* bus, SNLID::Bit bit);
-    static void preCreate(const SNLBusTerm* bus, SNLID::Bit bit);
+    SNLBusTermBit(SNLBusTerm* bus, NLID::Bit bit);
+    static void preCreate(const SNLBusTerm* bus, NLID::Bit bit);
     void postCreate();
     void destroyFromBus();
     void destroyFromDesign() override {} //LCOV_EXCL_LINE
@@ -54,7 +54,7 @@ class SNLBusTermBit final: public SNLBitTerm {
     void preDestroy() override;
 
     SNLBusTerm* bus_;
-    SNLID::Bit  bit_;
+    NLID::Bit   bit_;
 };
 
 }} // namespace SNL // namespace naja

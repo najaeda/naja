@@ -9,8 +9,8 @@
 
 #include "SNLVRLDumper.h"
 
-#include "SNLUniverse.h"
-#include "SNLDB.h"
+#include "NLUniverse.h"
+#include "NLDB.h"
 #include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
 #include "SNLScalarNet.h"
@@ -32,44 +32,44 @@ using namespace naja::SNL;
 class SNLVRLDumperTest0: public ::testing::Test {
   protected:
     void SetUp() override {
-      SNLUniverse* universe = SNLUniverse::create();
-      db_ = SNLDB::create(universe);
-      SNLLibrary* library = SNLLibrary::create(db_, SNLName("MYLIB"));
-      SNLDesign* design = SNLDesign::create(library, SNLName("design"));
+      NLUniverse* universe = NLUniverse::create();
+      db_ = NLDB::create(universe);
+      NLLibrary* library = NLLibrary::create(db_, NLName("MYLIB"));
+      SNLDesign* design = SNLDesign::create(library, NLName("design"));
 
-      SNLScalarTerm::create(design, SNLTerm::Direction::Input, SNLName("i0"));
-      SNLBusTerm::create(design, SNLTerm::Direction::Input, 31, 0, SNLName("i1"));
-      SNLScalarTerm::create(design, SNLTerm::Direction::Output, SNLName("o"));
+      SNLScalarTerm::create(design, SNLTerm::Direction::Input, NLName("i0"));
+      SNLBusTerm::create(design, SNLTerm::Direction::Input, 31, 0, NLName("i1"));
+      SNLScalarTerm::create(design, SNLTerm::Direction::Output, NLName("o"));
 
       SNLScalarNet::create(design);
       SNLBusNet::create(design, 31, 0);
-      SNLScalarNet::create(design, SNLName("n1"));
-      SNLScalarNet::create(design, SNLName("n2"));
+      SNLScalarNet::create(design, NLName("n1"));
+      SNLScalarNet::create(design, NLName("n2"));
 
-      SNLDesign* model = SNLDesign::create(library, SNLName("model"));
-      SNLScalarTerm::create(model, SNLTerm::Direction::Input, SNLName("i"));
-      SNLScalarTerm::create(model, SNLTerm::Direction::Output, SNLName("o"));
-      SNLScalarTerm::create(model, SNLTerm::Direction::InOut, SNLName("io"));
-      SNLInstance* instance1 = SNLInstance::create(design, model, SNLName("instance1"));
-      SNLInstance* instance2 = SNLInstance::create(design, model, SNLName("instance2"));
+      SNLDesign* model = SNLDesign::create(library, NLName("model"));
+      SNLScalarTerm::create(model, SNLTerm::Direction::Input, NLName("i"));
+      SNLScalarTerm::create(model, SNLTerm::Direction::Output, NLName("o"));
+      SNLScalarTerm::create(model, SNLTerm::Direction::InOut, NLName("io"));
+      SNLInstance* instance1 = SNLInstance::create(design, model, NLName("instance1"));
+      SNLInstance* instance2 = SNLInstance::create(design, model, NLName("instance2"));
 
       //connections between instances
-      instance1->getInstTerm(model->getScalarTerm(SNLName("o")))->setNet(design->getScalarNet(SNLName("n1")));
-      instance2->getInstTerm(model->getScalarTerm(SNLName("i")))->setNet(design->getScalarNet(SNLName("n1")));
-      instance1->getInstTerm(model->getScalarTerm(SNLName("io")))->setNet(design->getScalarNet(SNLName("n2")));
-      instance2->getInstTerm(model->getScalarTerm(SNLName("io")))->setNet(design->getScalarNet(SNLName("n2")));
+      instance1->getInstTerm(model->getScalarTerm(NLName("o")))->setNet(design->getScalarNet(NLName("n1")));
+      instance2->getInstTerm(model->getScalarTerm(NLName("i")))->setNet(design->getScalarNet(NLName("n1")));
+      instance1->getInstTerm(model->getScalarTerm(NLName("io")))->setNet(design->getScalarNet(NLName("n2")));
+      instance2->getInstTerm(model->getScalarTerm(NLName("io")))->setNet(design->getScalarNet(NLName("n2")));
     }
     void TearDown() override {
-      SNLUniverse::get()->destroy();
+      NLUniverse::get()->destroy();
     }
   protected:
-    SNLDB*      db_;
+    NLDB* db_;
 };
 
 TEST_F(SNLVRLDumperTest0, testNonExistingPath) {
-  auto lib = db_->getLibrary(SNLName("MYLIB"));  
+  auto lib = db_->getLibrary(NLName("MYLIB"));  
   ASSERT_TRUE(lib);
-  auto top = lib->getDesign(SNLName("design"));
+  auto top = lib->getDesign(NLName("design"));
   ASSERT_TRUE(top);
   std::filesystem::path outPath(SNL_VRL_DUMPER_TEST_PATH);
   outPath = outPath / "ERROR";
@@ -78,9 +78,9 @@ TEST_F(SNLVRLDumperTest0, testNonExistingPath) {
 }
 
 TEST_F(SNLVRLDumperTest0, testSingleFile) {
-  auto lib = db_->getLibrary(SNLName("MYLIB"));  
+  auto lib = db_->getLibrary(NLName("MYLIB"));  
   ASSERT_TRUE(lib);
-  auto top = lib->getDesign(SNLName("design"));
+  auto top = lib->getDesign(NLName("design"));
   ASSERT_TRUE(top);
   std::filesystem::path outPath(SNL_VRL_DUMPER_TEST_PATH);
   outPath = outPath / "test0SingleFile";
@@ -103,9 +103,9 @@ TEST_F(SNLVRLDumperTest0, testSingleFile) {
 }
 
 TEST_F(SNLVRLDumperTest0, testMultipleFiles) {
-  auto lib = db_->getLibrary(SNLName("MYLIB"));  
+  auto lib = db_->getLibrary(NLName("MYLIB"));  
   ASSERT_TRUE(lib);
-  auto top = lib->getDesign(SNLName("design"));
+  auto top = lib->getDesign(NLName("design"));
   ASSERT_TRUE(top);
   std::filesystem::path outPath(SNL_VRL_DUMPER_TEST_PATH);
   outPath = outPath / "test0MultipleFiles";

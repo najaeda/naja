@@ -6,7 +6,6 @@
 
 #include "SNLBitNet.h"
 #include "SNLDesign.h"
-#include "SNLException.h"
 
 namespace naja { namespace SNL {
 

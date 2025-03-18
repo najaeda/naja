@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 add_executable(snl_snippet
-  ${PROJECT_SOURCE_DIR}/src/app_snippet/src/SNLUniverseSnippet.cpp
+  ${PROJECT_SOURCE_DIR}/src/app_snippet/src/NLUniverseSnippet.cpp
   SNLSnippet.cpp
 )
 #add_executable(snl_receiver

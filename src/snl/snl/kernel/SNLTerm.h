@@ -7,7 +7,7 @@
 
 #include <boost/intrusive/set.hpp>
 
-#include "SNLName.h"
+#include "NLName.h"
 #include "SNLNetComponent.h"
 
 namespace naja { namespace SNL {
@@ -19,10 +19,10 @@ class SNLTerm: public SNLNetComponent {
     friend class SNLDesign;
     using super = SNLNetComponent;
     
-    SNLID::DesignObjectReference getReference() const;
+    NLID::DesignObjectReference getReference() const;
     
-    /// \return the unique SNLID::DesignObjectID of this SNLTerm in the containing SNLDesign.
-    virtual SNLID::DesignObjectID getID() const = 0;
+    /// \return the unique NLID::DesignObjectID of this SNLTerm in the containing SNLDesign.
+    virtual NLID::DesignObjectID getID() const = 0;
 
     /**
      * \brief Get the flat id of this SNLTerm in the containing SNLDesign flat SNLBitTerms.
@@ -40,10 +40,10 @@ class SNLTerm: public SNLNetComponent {
      * \return this SNLTerm flat id in the containing SNLDesign flat SNLBitTerms.
      **/
     virtual size_t getFlatID() const = 0;
-    /// \return term SNLName.
-    virtual SNLName getName() const = 0;
+    /// \return term NLName.
+    virtual NLName getName() const = 0;
     /// \return term width, 1 for SNLScalarTerm and SNLBusNetBit.
-    virtual SNLID::Bit getWidth() const = 0;
+    virtual NLID::Bit getWidth() const = 0;
 
     /// \return the Collection of SNLBitTerm composing this SNLTerm. 
     virtual NajaCollection<SNLBitTerm*> getBits() const = 0;
@@ -59,7 +59,7 @@ class SNLTerm: public SNLNetComponent {
 
   private:
     //following used in BusTerm and ScalarTerm
-    virtual void setID(SNLID::DesignObjectID id) = 0;
+    virtual void setID(NLID::DesignObjectID id) = 0;
     virtual void setFlatID(size_t flatID) = 0;
     boost::intrusive::set_member_hook<> designTermsHook_  {};
     virtual void destroyFromDesign() = 0;

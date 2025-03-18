@@ -5,7 +5,8 @@
 
 #include "gtest/gtest.h"
 
-#include "SNLUniverse.h"
+#include "NLUniverse.h"
+
 #include "SNLScalarTerm.h"
 #include "SNLDesignTruthTable.h"
 using namespace naja::SNL;
@@ -13,22 +14,22 @@ using namespace naja::SNL;
 class SNLDesignTruthTableTest0: public ::testing::Test {
   protected:
     void TearDown() override {
-      if (SNLUniverse::get()) {
-        SNLUniverse::get()->destroy();
+      if (NLUniverse::get()) {
+        NLUniverse::get()->destroy();
       }
     }
 };
 
 TEST_F(SNLDesignTruthTableTest0, testTruthTablesConflictError) {
   //Create primitives
-  SNLUniverse::create();
-  auto db = SNLDB::create(SNLUniverse::get());
-  auto prims = SNLLibrary::create(db, SNLLibrary::Type::Primitives);
-  auto design = SNLDesign::create(prims, SNLDesign::Type::Primitive, SNLName("design"));
-  auto i0 = SNLScalarTerm::create(design, SNLTerm::Direction::Input, SNLName("I0"));
-  auto i1 = SNLScalarTerm::create(design, SNLTerm::Direction::Input, SNLName("I1"));
-  auto o = SNLScalarTerm::create(design, SNLTerm::Direction::Output, SNLName("O"));
+  NLUniverse::create();
+  auto db = NLDB::create(NLUniverse::get());
+  auto prims = NLLibrary::create(db, NLLibrary::Type::Primitives);
+  auto design = SNLDesign::create(prims, SNLDesign::Type::Primitive, NLName("design"));
+  auto i0 = SNLScalarTerm::create(design, SNLTerm::Direction::Input, NLName("I0"));
+  auto i1 = SNLScalarTerm::create(design, SNLTerm::Direction::Input, NLName("I1"));
+  auto o = SNLScalarTerm::create(design, SNLTerm::Direction::Output, NLName("O"));
   //set truth table
   SNLDesignTruthTable::setTruthTable(design, SNLTruthTable(2, 0x5));
-  EXPECT_THROW(SNLDesignTruthTable::setTruthTable(design, SNLTruthTable(2, 0x1)), SNLException);
+  EXPECT_THROW(SNLDesignTruthTable::setTruthTable(design, SNLTruthTable(2, 0x1)), NLException);
 }

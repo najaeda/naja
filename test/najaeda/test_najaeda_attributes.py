@@ -31,8 +31,8 @@ class NajaEDANetlistTestAttributes(unittest.TestCase):
         netlist.load_verilog(design_files)
 
     def tearDown(self):
-        if snl.SNLUniverse.get():
-            snl.SNLUniverse.get().destroy()
+        if snl.NLUniverse.get():
+            snl.NLUniverse.get().destroy()
     
     def test(self):
         top = netlist.get_top()

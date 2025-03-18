@@ -10,8 +10,8 @@
 
 #include "SNLVRLDumper.h"
 
-#include "SNLUniverse.h"
-#include "SNLDB.h"
+#include "NLUniverse.h"
+#include "NLDB.h"
 #include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
 #include "SNLBusTermBit.h"
@@ -32,13 +32,13 @@ using namespace naja::SNL;
 class SNLVRLDumperTestTermNets: public ::testing::Test {
   protected:
     void SetUp() override {
-      SNLUniverse* universe = SNLUniverse::create();
-      SNLDB* db = SNLDB::create(universe);
-      SNLLibrary* library = SNLLibrary::create(db, SNLName("MYLIB"));
-      top_ = SNLDesign::create(library, SNLName("top"));
+      NLUniverse* universe = NLUniverse::create();
+      NLDB* db = NLDB::create(universe);
+      NLLibrary* library = NLLibrary::create(db, NLName("MYLIB"));
+      top_ = SNLDesign::create(library, NLName("top"));
     }
     void TearDown() override {
-      SNLUniverse::get()->destroy();
+      NLUniverse::get()->destroy();
     }
   protected:
     SNLDesign*  top_;
@@ -46,10 +46,10 @@ class SNLVRLDumperTestTermNets: public ::testing::Test {
 
 TEST_F(SNLVRLDumperTestTermNets, testFeedthru0) {
   ASSERT_TRUE(top_);
-  auto inScalar = SNLScalarTerm::create(top_, SNLTerm::Direction::Input, SNLName("in"));
-  auto outScalar = SNLScalarTerm::create(top_, SNLTerm::Direction::Output, SNLName("out"));
+  auto inScalar = SNLScalarTerm::create(top_, SNLTerm::Direction::Input, NLName("in"));
+  auto outScalar = SNLScalarTerm::create(top_, SNLTerm::Direction::Output, NLName("out"));
 
-  auto feedthru = SNLScalarNet::create(top_, SNLName("feedtru"));
+  auto feedthru = SNLScalarNet::create(top_, NLName("feedtru"));
   inScalar->setNet(feedthru);
   outScalar->setNet(feedthru);
 
@@ -75,10 +75,10 @@ TEST_F(SNLVRLDumperTestTermNets, testFeedthru0) {
 
 TEST_F(SNLVRLDumperTestTermNets, testFeedthru1) {
   ASSERT_TRUE(top_);
-  auto inScalar = SNLScalarTerm::create(top_, SNLTerm::Direction::Input, SNLName("in"));
-  auto outScalar = SNLScalarTerm::create(top_, SNLTerm::Direction::Output, SNLName("out"));
+  auto inScalar = SNLScalarTerm::create(top_, SNLTerm::Direction::Input, NLName("in"));
+  auto outScalar = SNLScalarTerm::create(top_, SNLTerm::Direction::Output, NLName("out"));
 
-  auto feedthru = SNLBusNet::create(top_, 5, 5, SNLName("feedtru"));
+  auto feedthru = SNLBusNet::create(top_, 5, 5, NLName("feedtru"));
   auto bit = feedthru->getBit(5);
   ASSERT_TRUE(bit);
   inScalar->setNet(bit);
@@ -106,10 +106,10 @@ TEST_F(SNLVRLDumperTestTermNets, testFeedthru1) {
  
 TEST_F(SNLVRLDumperTestTermNets, testFeedthru2) {
   ASSERT_TRUE(top_);
-  auto inBus = SNLBusTerm::create(top_, SNLTerm::Direction::Input, -4, -4, SNLName("in"));
-  auto outBus = SNLBusTerm::create(top_, SNLTerm::Direction::Output, 6, 6, SNLName("out"));
+  auto inBus = SNLBusTerm::create(top_, SNLTerm::Direction::Input, -4, -4, NLName("in"));
+  auto outBus = SNLBusTerm::create(top_, SNLTerm::Direction::Output, 6, 6, NLName("out"));
 
-  auto feedthru = SNLScalarNet::create(top_, SNLName("feedtru"));
+  auto feedthru = SNLScalarNet::create(top_, NLName("feedtru"));
   auto inBusBit = inBus->getBit(-4);
   ASSERT_TRUE(inBusBit);
   auto outBusBit = outBus->getBit(6);
@@ -139,10 +139,10 @@ TEST_F(SNLVRLDumperTestTermNets, testFeedthru2) {
 
 TEST_F(SNLVRLDumperTestTermNets, testFeedthru3) {
   ASSERT_TRUE(top_);
-  auto inBus = SNLBusTerm::create(top_, SNLTerm::Direction::Input, -4, -4, SNLName("in"));
-  auto outBus = SNLBusTerm::create(top_, SNLTerm::Direction::Output, 6, 6, SNLName("out"));
+  auto inBus = SNLBusTerm::create(top_, SNLTerm::Direction::Input, -4, -4, NLName("in"));
+  auto outBus = SNLBusTerm::create(top_, SNLTerm::Direction::Output, 6, 6, NLName("out"));
 
-  auto feedthru = SNLBusNet::create(top_, 5, 5, SNLName("feedtru"));
+  auto feedthru = SNLBusNet::create(top_, 5, 5, NLName("feedtru"));
   auto bitNet = feedthru->getBit(5);
   ASSERT_TRUE(bitNet);
 
@@ -175,11 +175,11 @@ TEST_F(SNLVRLDumperTestTermNets, testFeedthru3) {
 
 TEST_F(SNLVRLDumperTestTermNets, testError1) {
   ASSERT_TRUE(top_);
-  auto inScalar = SNLScalarTerm::create(top_, SNLTerm::Direction::Input, SNLName("in"));
-  auto outScalar = SNLScalarTerm::create(top_, SNLTerm::Direction::Output, SNLName("out"));
+  auto inScalar = SNLScalarTerm::create(top_, SNLTerm::Direction::Input, NLName("in"));
+  auto outScalar = SNLScalarTerm::create(top_, SNLTerm::Direction::Output, NLName("out"));
 
   //bus sharing same name than scalar input "in"
-  auto feedthru = SNLBusNet::create(top_, 5, 5, SNLName("in"));
+  auto feedthru = SNLBusNet::create(top_, 5, 5, NLName("in"));
   auto bit = feedthru->getBit(5);
   ASSERT_TRUE(bit);
   inScalar->setNet(bit);
@@ -199,11 +199,11 @@ TEST_F(SNLVRLDumperTestTermNets, testError1) {
 
 TEST_F(SNLVRLDumperTestTermNets, testError2) {
   ASSERT_TRUE(top_);
-  auto inBus = SNLBusTerm::create(top_, SNLTerm::Direction::Input, -4, -4, SNLName("in"));
-  auto outBus = SNLBusTerm::create(top_, SNLTerm::Direction::Output, 6, 6, SNLName("out"));
+  auto inBus = SNLBusTerm::create(top_, SNLTerm::Direction::Input, -4, -4, NLName("in"));
+  auto outBus = SNLBusTerm::create(top_, SNLTerm::Direction::Output, 6, 6, NLName("out"));
 
   //bus term and scalar net sharing same name
-  auto feedthru = SNLScalarNet::create(top_, SNLName("in"));
+  auto feedthru = SNLScalarNet::create(top_, NLName("in"));
   auto inBusBit = inBus->getBit(-4);
   ASSERT_TRUE(inBusBit);
   auto outBusBit = outBus->getBit(6);
@@ -225,11 +225,11 @@ TEST_F(SNLVRLDumperTestTermNets, testError2) {
 
 TEST_F(SNLVRLDumperTestTermNets, testError3) {
   ASSERT_TRUE(top_);
-  auto inBus = SNLBusTerm::create(top_, SNLTerm::Direction::Input, -4, -4, SNLName("in"));
-  auto outBus = SNLBusTerm::create(top_, SNLTerm::Direction::Output, 6, 6, SNLName("out"));
+  auto inBus = SNLBusTerm::create(top_, SNLTerm::Direction::Input, -4, -4, NLName("in"));
+  auto outBus = SNLBusTerm::create(top_, SNLTerm::Direction::Output, 6, 6, NLName("out"));
 
   //same name but not same bit
-  auto feedthru = SNLBusNet::create(top_, 5, 5, SNLName("in"));
+  auto feedthru = SNLBusNet::create(top_, 5, 5, NLName("in"));
   auto bitNet = feedthru->getBit(5);
   ASSERT_TRUE(bitNet);
 
@@ -254,8 +254,8 @@ TEST_F(SNLVRLDumperTestTermNets, testError3) {
 
 TEST_F(SNLVRLDumperTestTermNets, testError4) {
   ASSERT_TRUE(top_);
-  auto term = SNLScalarTerm::create(top_, SNLTerm::Direction::InOut, SNLName("term"));
-  auto net = SNLScalarNet::create(top_, SNLName("net"));
+  auto term = SNLScalarTerm::create(top_, SNLTerm::Direction::InOut, NLName("term"));
+  auto net = SNLScalarNet::create(top_, NLName("net"));
   term->setNet(net);
 
   std::filesystem::path outPath(SNL_VRL_DUMPER_TEST_PATH);

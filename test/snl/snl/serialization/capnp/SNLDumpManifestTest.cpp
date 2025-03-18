@@ -6,7 +6,7 @@
 #include <filesystem>
 
 #include "SNLDumpManifest.h"
-#include "SNLException.h"
+#include "NLException.h"
 using namespace naja::SNL;
 
 #ifndef SNL_CAPNP_TEST_PATH
@@ -60,6 +60,6 @@ TEST_F(SNLDumpManifestTest, test0) {
 
 TEST_F(SNLDumpManifestTest, testErrors) {
   std::filesystem::path errorPath("/error");
-  EXPECT_THROW(SNLDumpManifest::dump(errorPath), SNLException);
-  EXPECT_THROW(SNLDumpManifest::load(errorPath), SNLException);
+  EXPECT_THROW(SNLDumpManifest::dump(errorPath), NLException);
+  EXPECT_THROW(SNLDumpManifest::load(errorPath), NLException);
 }

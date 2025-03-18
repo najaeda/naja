@@ -7,7 +7,7 @@
 #include <filesystem>
 #include <fstream>
 
-#include "SNLUniverse.h"
+#include "NLUniverse.h"
 #include "SNLScalarNet.h"
 #include "SNLBusNet.h"
 #include "SNLBusNetBit.h"
@@ -25,16 +25,16 @@ using namespace naja::SNL;
 class SNLVRLConstructorTestErrors: public ::testing::Test {
   protected:
     void SetUp() override {
-      SNLUniverse* universe = SNLUniverse::create();
-      auto db = SNLDB::create(universe);
-      library_ = SNLLibrary::create(db, SNLName("MYLIB"));
+      NLUniverse* universe = NLUniverse::create();
+      auto db = NLDB::create(universe);
+      library_ = NLLibrary::create(db, NLName("MYLIB"));
     }
     void TearDown() override {
-      SNLUniverse::get()->destroy();
+      NLUniverse::get()->destroy();
       library_ = nullptr;
     }
   protected:
-    SNLLibrary*      library_;
+    NLLibrary*  library_;
 };
 
 TEST_F(SNLVRLConstructorTestErrors, test0) {

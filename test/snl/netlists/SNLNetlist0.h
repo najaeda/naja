@@ -8,8 +8,9 @@
 #include <string>
 
 namespace naja::SNL {
-  class SNLDB;
-  class SNLLibrary;
+  class NLDB;
+  class NLLibrary;
+
   class SNLDesign;
   class SNLInstance;
   class SNLBusTerm;
@@ -41,9 +42,9 @@ class SNLNetlist0 {
     static constexpr char ModuleI1Name[]    { "i1" };
     static constexpr char ModuleOName[]     { "o" };
     
-    static naja::SNL::SNLDesign* create(naja::SNL::SNLDB* db);
-    static naja::SNL::SNLDB* getDB();
-    static naja::SNL::SNLLibrary* getDesignsLib();
+    static naja::SNL::SNLDesign* create(naja::SNL::NLDB* db);
+    static naja::SNL::NLDB* getDB();
+    static naja::SNL::NLLibrary* getDesignsLib();
     static naja::SNL::SNLDesign* getTop();
     static naja::SNL::SNLInstance* getTopIns0();
     static naja::SNL::SNLInstance* getTopIns1();

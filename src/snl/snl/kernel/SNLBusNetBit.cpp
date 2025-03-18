@@ -7,27 +7,28 @@
 #include <iostream>
 
 #include "NajaCollection.h"
+#include "NLException.h"
+
 #include "SNLBusNet.h"
-#include "SNLException.h"
 
 namespace naja { namespace SNL {
 
 SNLBusNetBit::SNLBusNetBit(
     SNLBusNet* bus,
-    SNLID::Bit bit):
+    NLID::Bit bit):
   super(),
   bus_(bus),
   bit_(bit)
 {}
 
-SNLBusNetBit* SNLBusNetBit::create(SNLBusNet* bus, SNLID::Bit bit) {
+SNLBusNetBit* SNLBusNetBit::create(SNLBusNet* bus, NLID::Bit bit) {
   preCreate(bus, bit);
   SNLBusNetBit* busNetBit = new SNLBusNetBit(bus, bit);
   busNetBit->postCreate();
   return busNetBit;
 }
 
-void SNLBusNetBit::preCreate(const SNLBusNet* bus, SNLID::Bit bit) {
+void SNLBusNetBit::preCreate(const SNLBusNet* bus, NLID::Bit bit) {
   super::preCreate();
 }
 
@@ -49,12 +50,12 @@ void SNLBusNetBit::preDestroy() {
   getBus()->removeBit(this);
 }
 
-SNLID::DesignObjectID SNLBusNetBit::getID() const {
+NLID::DesignObjectID SNLBusNetBit::getID() const {
   return getBus()->getID();
 }
 
-SNLID SNLBusNetBit::getSNLID() const {
-  return SNLDesignObject::getSNLID(SNLID::Type::NetBit, getBus()->getID(), 0, getBit());
+NLID SNLBusNetBit::getNLID() const {
+  return SNLDesignObject::getNLID(NLID::Type::NetBit, getBus()->getID(), 0, getBit());
 }
 
 SNLDesign* SNLBusNetBit::getDesign() const {
@@ -71,7 +72,7 @@ const char* SNLBusNetBit::getTypeName() const {
 }
 //LCOV_EXCL_STOP
 
-SNLName SNLBusNetBit::getName() const {
+NLName SNLBusNetBit::getName() const {
   return getBus()->getName();
 }
 
@@ -121,8 +122,8 @@ bool SNLBusNetBit::isAnonymous() const {
   return getBus()->isAnonymous();
 }
 
-void SNLBusNetBit::setName(const SNLName& name) {
-  throw SNLException("Unauthorized setName of SNLBusNetBit");  
+void SNLBusNetBit::setName(const NLName& name) {
+  throw NLException("Unauthorized setName of SNLBusNetBit");  
 }
 
 }} // namespace SNL // namespace naja

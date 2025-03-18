@@ -6,36 +6,37 @@
 #include "gmock/gmock.h"
 using ::testing::ElementsAre;
 
-#include "SNLUniverse.h"
+#include "NLUniverse.h"
+#include "NLException.h"
+
 #include "SNLDesignModeling.h"
 #include "SNLScalarTerm.h"
-#include "SNLException.h"
 using namespace naja::SNL;
 
 class SNLDesignModelingTest0: public ::testing::Test {
   protected:
     void TearDown() override {
-      if (SNLUniverse::get()) {
-        SNLUniverse::get()->destroy();
+      if (NLUniverse::get()) {
+        NLUniverse::get()->destroy();
       }
     }
 };
 
 TEST_F(SNLDesignModelingTest0, testCombinatorial) {
   //Create primitives
-  SNLUniverse::create();
-  auto db = SNLDB::create(SNLUniverse::get());
-  auto prims = SNLLibrary::create(db, SNLLibrary::Type::Primitives);
-  auto designs = SNLLibrary::create(db);
-  auto top = SNLDesign::create(designs, SNLName("top"));
-  auto lut = SNLDesign::create(prims, SNLDesign::Type::Primitive, SNLName("LUT"));
-  auto luti0 = SNLScalarTerm::create(lut, SNLTerm::Direction::Input, SNLName("I0"));
-  auto luti1 = SNLScalarTerm::create(lut, SNLTerm::Direction::Input, SNLName("I1"));
-  auto luti2 = SNLScalarTerm::create(lut, SNLTerm::Direction::Input, SNLName("I2"));
-  auto luti3 = SNLScalarTerm::create(lut, SNLTerm::Direction::Input, SNLName("I3"));
-  auto luto = SNLScalarTerm::create(lut, SNLTerm::Direction::Output, SNLName("O"));
+  NLUniverse::create();
+  auto db = NLDB::create(NLUniverse::get());
+  auto prims = NLLibrary::create(db, NLLibrary::Type::Primitives);
+  auto designs = NLLibrary::create(db);
+  auto top = SNLDesign::create(designs, NLName("top"));
+  auto lut = SNLDesign::create(prims, SNLDesign::Type::Primitive, NLName("LUT"));
+  auto luti0 = SNLScalarTerm::create(lut, SNLTerm::Direction::Input, NLName("I0"));
+  auto luti1 = SNLScalarTerm::create(lut, SNLTerm::Direction::Input, NLName("I1"));
+  auto luti2 = SNLScalarTerm::create(lut, SNLTerm::Direction::Input, NLName("I2"));
+  auto luti3 = SNLScalarTerm::create(lut, SNLTerm::Direction::Input, NLName("I3"));
+  auto luto = SNLScalarTerm::create(lut, SNLTerm::Direction::Output, NLName("O"));
   SNLDesignModeling::addCombinatorialArcs({luti0, luti1, luti2, luti3}, {luto});
-  auto lutIns0 = SNLInstance::create(top, lut, SNLName("ins0"));
+  auto lutIns0 = SNLInstance::create(top, lut, NLName("ins0"));
   EXPECT_TRUE(SNLDesignModeling::getCombinatorialOutputs(luto).empty());
   ASSERT_EQ(4, SNLDesignModeling::getCombinatorialInputs(luto).size());
   EXPECT_THAT(
@@ -95,15 +96,15 @@ TEST_F(SNLDesignModelingTest0, testCombinatorial) {
 
 TEST_F(SNLDesignModelingTest0, testSequential) {
   //Create primitives
-  SNLUniverse::create();
-  auto db = SNLDB::create(SNLUniverse::get());
-  auto prims = SNLLibrary::create(db, SNLLibrary::Type::Primitives);
-  auto designs = SNLLibrary::create(db);
-  auto top = SNLDesign::create(designs, SNLName("top"));
-  auto reg = SNLDesign::create(prims, SNLDesign::Type::Primitive, SNLName("REG"));
-  auto regD = SNLScalarTerm::create(reg, SNLTerm::Direction::Input, SNLName("D"));
-  auto regQ = SNLScalarTerm::create(reg, SNLTerm::Direction::Input, SNLName("Q"));
-  auto regC = SNLScalarTerm::create(reg, SNLTerm::Direction::Input, SNLName("C"));
+  NLUniverse::create();
+  auto db = NLDB::create(NLUniverse::get());
+  auto prims = NLLibrary::create(db, NLLibrary::Type::Primitives);
+  auto designs = NLLibrary::create(db);
+  auto top = SNLDesign::create(designs, NLName("top"));
+  auto reg = SNLDesign::create(prims, SNLDesign::Type::Primitive, NLName("REG"));
+  auto regD = SNLScalarTerm::create(reg, SNLTerm::Direction::Input, NLName("D"));
+  auto regQ = SNLScalarTerm::create(reg, SNLTerm::Direction::Input, NLName("Q"));
+  auto regC = SNLScalarTerm::create(reg, SNLTerm::Direction::Input, NLName("C"));
   SNLDesignModeling::addInputsToClockArcs({regD}, regC);
   SNLDesignModeling::addClockToOutputsArcs(regC, {regQ});
 
@@ -144,7 +145,7 @@ TEST_F(SNLDesignModelingTest0, testSequential) {
       SNLDesignModeling::getOutputRelatedClocks(regQ).end()),
     ElementsAre(regC));
 
-  auto regIns = SNLInstance::create(top, reg, SNLName("regIns"));
+  auto regIns = SNLInstance::create(top, reg, NLName("regIns"));
   EXPECT_TRUE(SNLDesignModeling::getCombinatorialOutputs(regIns->getInstTerm(regD)).empty());
   EXPECT_TRUE(SNLDesignModeling::getCombinatorialOutputs(regIns->getInstTerm(regQ)).empty());
   EXPECT_TRUE(SNLDesignModeling::getCombinatorialOutputs(regIns->getInstTerm(regC)).empty());
@@ -181,17 +182,17 @@ TEST_F(SNLDesignModelingTest0, testSequential) {
 
 TEST_F(SNLDesignModelingTest0, testCombiWithParameter) {
   //Create primitives
-  SNLUniverse::create();
-  auto db = SNLDB::create(SNLUniverse::get());
-  auto designs = SNLLibrary::create(db);
-  auto top = SNLDesign::create(designs, SNLName("top"));
-  auto prims = SNLLibrary::create(db, SNLLibrary::Type::Primitives);
-  auto gate = SNLDesign::create(prims, SNLDesign::Type::Primitive, SNLName("LUT"));
-  auto mode = SNLParameter::create(gate, SNLName("MODE"), SNLParameter::Type::String, "NORMAL");
-  auto luti0 = SNLScalarTerm::create(gate, SNLTerm::Direction::Input, SNLName("I0"));
-  auto luti1 = SNLScalarTerm::create(gate, SNLTerm::Direction::Input, SNLName("I1"));
-  auto luto0 = SNLScalarTerm::create(gate, SNLTerm::Direction::Output, SNLName("O0"));
-  auto luto1 = SNLScalarTerm::create(gate, SNLTerm::Direction::Output, SNLName("O1"));
+  NLUniverse::create();
+  auto db = NLDB::create(NLUniverse::get());
+  auto designs = NLLibrary::create(db);
+  auto top = SNLDesign::create(designs, NLName("top"));
+  auto prims = NLLibrary::create(db, NLLibrary::Type::Primitives);
+  auto gate = SNLDesign::create(prims, SNLDesign::Type::Primitive, NLName("LUT"));
+  auto mode = SNLParameter::create(gate, NLName("MODE"), SNLParameter::Type::String, "NORMAL");
+  auto luti0 = SNLScalarTerm::create(gate, SNLTerm::Direction::Input, NLName("I0"));
+  auto luti1 = SNLScalarTerm::create(gate, SNLTerm::Direction::Input, NLName("I1"));
+  auto luto0 = SNLScalarTerm::create(gate, SNLTerm::Direction::Output, NLName("O0"));
+  auto luto1 = SNLScalarTerm::create(gate, SNLTerm::Direction::Output, NLName("O1"));
   SNLDesignModeling::setParameter(gate, "MODE", "NORMAL");
   //no parameter arg so default mode
   SNLDesignModeling::addCombinatorialArcs({luti0}, {luto0});
@@ -206,14 +207,14 @@ TEST_F(SNLDesignModelingTest0, testCombiWithParameter) {
   EXPECT_EQ(luto1, *SNLDesignModeling::getCombinatorialOutputs(luti1).begin());
 
   //instance with no parameter => default parameter
-  auto ins0 = SNLInstance::create(top, gate, SNLName("ins0")); 
+  auto ins0 = SNLInstance::create(top, gate, NLName("ins0")); 
   EXPECT_EQ(1, SNLDesignModeling::getCombinatorialOutputs(ins0->getInstTerm(luti0)).size());
   EXPECT_EQ(1, SNLDesignModeling::getCombinatorialOutputs(ins0->getInstTerm(luti1)).size());
   EXPECT_EQ(ins0->getInstTerm(luto0), *SNLDesignModeling::getCombinatorialOutputs(ins0->getInstTerm(luti0)).begin());
   EXPECT_EQ(ins0->getInstTerm(luto1), *SNLDesignModeling::getCombinatorialOutputs(ins0->getInstTerm(luti1)).begin());
 
   //instance with default parameter value
-  auto ins1 = SNLInstance::create(top, gate, SNLName("ins1")); 
+  auto ins1 = SNLInstance::create(top, gate, NLName("ins1")); 
   SNLInstParameter::create(ins1, mode, "NORMAL");
   EXPECT_EQ(1, SNLDesignModeling::getCombinatorialOutputs(ins1->getInstTerm(luti0)).size());
   EXPECT_EQ(1, SNLDesignModeling::getCombinatorialOutputs(ins1->getInstTerm(luti1)).size());
@@ -221,7 +222,7 @@ TEST_F(SNLDesignModelingTest0, testCombiWithParameter) {
   EXPECT_EQ(ins1->getInstTerm(luto1), *SNLDesignModeling::getCombinatorialOutputs(ins1->getInstTerm(luti1)).begin());
 
   //instance with non default parameter value
-  auto ins2 = SNLInstance::create(top, gate, SNLName("ins2")); 
+  auto ins2 = SNLInstance::create(top, gate, NLName("ins2")); 
   SNLInstParameter::create(ins2, mode, "CROSS");
   EXPECT_EQ(1, SNLDesignModeling::getCombinatorialOutputs(ins2->getInstTerm(luti0)).size());
   EXPECT_EQ(1, SNLDesignModeling::getCombinatorialOutputs(ins2->getInstTerm(luti1)).size());
@@ -229,50 +230,50 @@ TEST_F(SNLDesignModelingTest0, testCombiWithParameter) {
   EXPECT_EQ(ins2->getInstTerm(luto0), *SNLDesignModeling::getCombinatorialOutputs(ins2->getInstTerm(luti1)).begin());
 
   //Error for non existing parameter
-  auto ins3 = SNLInstance::create(top, gate, SNLName("ins3")); 
+  auto ins3 = SNLInstance::create(top, gate, NLName("ins3")); 
   SNLInstParameter::create(ins3, mode, "UNKNOWN");
-  EXPECT_THROW(SNLDesignModeling::getCombinatorialOutputs(ins3->getInstTerm(luti0)), SNLException);
+  EXPECT_THROW(SNLDesignModeling::getCombinatorialOutputs(ins3->getInstTerm(luti0)), NLException);
 }
 
 TEST_F(SNLDesignModelingTest0, testErrors0) {
   //Create primitives
-  SNLUniverse::create();
-  auto db = SNLDB::create(SNLUniverse::get());
-  auto designs = SNLLibrary::create(db);
+  NLUniverse::create();
+  auto db = NLDB::create(NLUniverse::get());
+  auto designs = NLLibrary::create(db);
   //not a primitive
-  auto design = SNLDesign::create(designs, SNLName("design"));
-  auto designD = SNLScalarTerm::create(design, SNLTerm::Direction::Input, SNLName("D"));
-  auto designC = SNLScalarTerm::create(design, SNLTerm::Direction::Input, SNLName("C"));
-  EXPECT_THROW(SNLDesignModeling::addInputsToClockArcs({designD}, designC), SNLException);
+  auto design = SNLDesign::create(designs, NLName("design"));
+  auto designD = SNLScalarTerm::create(design, SNLTerm::Direction::Input, NLName("D"));
+  auto designC = SNLScalarTerm::create(design, SNLTerm::Direction::Input, NLName("C"));
+  EXPECT_THROW(SNLDesignModeling::addInputsToClockArcs({designD}, designC), NLException);
 }
 
 TEST_F(SNLDesignModelingTest0, testErrors1) {
   //Create primitives
-  SNLUniverse::create();
-  auto db = SNLDB::create(SNLUniverse::get());
-  auto prims = SNLLibrary::create(db, SNLLibrary::Type::Primitives);
-  auto design = SNLDesign::create(prims, SNLDesign::Type::Primitive, SNLName("design"));
-  auto designD = SNLScalarTerm::create(design, SNLTerm::Direction::Input, SNLName("D"));
-  auto designC = SNLScalarTerm::create(design, SNLTerm::Direction::Input, SNLName("C"));
-  auto designA = SNLScalarTerm::create(design, SNLTerm::Direction::Input, SNLName("A"));
-  auto designB = SNLScalarTerm::create(design, SNLTerm::Direction::Output, SNLName("B"));
-  EXPECT_THROW(SNLDesignModeling::addInputsToClockArcs({}, designC), SNLException);
-  EXPECT_THROW(SNLDesignModeling::addClockToOutputsArcs(designC, {}), SNLException);
-  EXPECT_THROW(SNLDesignModeling::addCombinatorialArcs({designA}, {}), SNLException);
-  EXPECT_THROW(SNLDesignModeling::addCombinatorialArcs({}, {designB}), SNLException);
+  NLUniverse::create();
+  auto db = NLDB::create(NLUniverse::get());
+  auto prims = NLLibrary::create(db, NLLibrary::Type::Primitives);
+  auto design = SNLDesign::create(prims, SNLDesign::Type::Primitive, NLName("design"));
+  auto designD = SNLScalarTerm::create(design, SNLTerm::Direction::Input, NLName("D"));
+  auto designC = SNLScalarTerm::create(design, SNLTerm::Direction::Input, NLName("C"));
+  auto designA = SNLScalarTerm::create(design, SNLTerm::Direction::Input, NLName("A"));
+  auto designB = SNLScalarTerm::create(design, SNLTerm::Direction::Output, NLName("B"));
+  EXPECT_THROW(SNLDesignModeling::addInputsToClockArcs({}, designC), NLException);
+  EXPECT_THROW(SNLDesignModeling::addClockToOutputsArcs(designC, {}), NLException);
+  EXPECT_THROW(SNLDesignModeling::addCombinatorialArcs({designA}, {}), NLException);
+  EXPECT_THROW(SNLDesignModeling::addCombinatorialArcs({}, {designB}), NLException);
 
-  auto design1 = SNLDesign::create(prims, SNLDesign::Type::Primitive, SNLName("design1"));
-  auto design1A = SNLScalarTerm::create(design1, SNLTerm::Direction::Input, SNLName("A"));
-  auto design1B = SNLScalarTerm::create(design1, SNLTerm::Direction::Output, SNLName("B"));
-  EXPECT_THROW(SNLDesignModeling::addCombinatorialArcs({designA}, {design1B}), SNLException);
-  EXPECT_THROW(SNLDesignModeling::addCombinatorialArcs({designA, design1A}, {design1B}), SNLException);
+  auto design1 = SNLDesign::create(prims, SNLDesign::Type::Primitive, NLName("design1"));
+  auto design1A = SNLScalarTerm::create(design1, SNLTerm::Direction::Input, NLName("A"));
+  auto design1B = SNLScalarTerm::create(design1, SNLTerm::Direction::Output, NLName("B"));
+  EXPECT_THROW(SNLDesignModeling::addCombinatorialArcs({designA}, {design1B}), NLException);
+  EXPECT_THROW(SNLDesignModeling::addCombinatorialArcs({designA, design1A}, {design1B}), NLException);
 }
 
 TEST_F(SNLDesignModelingTest0, testNonExistingParameterError) {
   //Create primitives
-  SNLUniverse::create();
-  auto db = SNLDB::create(SNLUniverse::get());
-  auto prims = SNLLibrary::create(db, SNLLibrary::Type::Primitives);
-  auto prim = SNLDesign::create(prims, SNLDesign::Type::Primitive, SNLName("prim"));
-  EXPECT_THROW(SNLDesignModeling::setParameter(prim, "MODE", "NORMAL"), SNLException);
+  NLUniverse::create();
+  auto db = NLDB::create(NLUniverse::get());
+  auto prims = NLLibrary::create(db, NLLibrary::Type::Primitives);
+  auto prim = SNLDesign::create(prims, SNLDesign::Type::Primitive, NLName("prim"));
+  EXPECT_THROW(SNLDesignModeling::setParameter(prim, "MODE", "NORMAL"), NLException);
 }

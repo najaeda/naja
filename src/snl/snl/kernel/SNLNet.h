@@ -7,7 +7,7 @@
 
 #include <boost/intrusive/set.hpp>
 
-#include "SNLName.h"
+#include "NLName.h"
 #include "SNLDesignObject.h"
 
 namespace naja { namespace SNL {
@@ -49,15 +49,15 @@ class SNLNet: public SNLDesignObject {
         TypeEnum typeEnum_;
     };
 
-    SNLID::DesignObjectReference getReference() const;
+    NLID::DesignObjectReference getReference() const;
     /// \return this SNLNet unique ID in parent SNLDesign.
-    virtual SNLID::DesignObjectID getID() const = 0;
+    virtual NLID::DesignObjectID getID() const = 0;
 
-    /// \return net SNLName.
-    virtual SNLName getName() const = 0;
+    /// \return net NLName.
+    virtual NLName getName() const = 0;
     
     /// \return net width, 1 for SNLScalarNet and SNLBusNetBit.
-    virtual SNLID::Bit getWidth() const = 0;
+    virtual NLID::Bit getWidth() const = 0;
 
     /**
      * \return this SNLNet SNLBitNet collection.
@@ -104,7 +104,7 @@ class SNLNet: public SNLDesignObject {
     virtual SNLNet* clone(SNLDesign* design) const = 0;
 
     //following used in BusNet and ScalarNet
-    virtual void setID(SNLID::DesignObjectID id) = 0;
+    virtual void setID(NLID::DesignObjectID id) = 0;
     boost::intrusive::set_member_hook<> designNetsHook_ {};
 };
 

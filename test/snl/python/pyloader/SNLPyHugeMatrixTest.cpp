@@ -4,9 +4,10 @@
 
 #include "gtest/gtest.h"
 
-#include "SNLUniverse.h"
+#include "NLUniverse.h"
+#include "NLException.h"
+
 #include "SNLScalarTerm.h"
-#include "SNLException.h"
 #include "SNLPyLoader.h"
 #include "SNLCapnP.h"
 #include "SNLVRLDumper.h"
@@ -22,30 +23,30 @@ using namespace naja::SNL;
 class SNLPyHugeMatrixTest: public ::testing::Test {
   protected:
     void SetUp() override {
-      SNLUniverse::create();
-      auto db = SNLDB::create(SNLUniverse::get());
-      auto primitivesLibrary = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("primitives"));
-      auto square = SNLDesign::create(primitivesLibrary, SNLDesign::Type::Primitive, SNLName("square"));
-      auto n = SNLScalarTerm::create(square, SNLTerm::Direction::Output, SNLName("n"));
-      auto e = SNLScalarTerm::create(square, SNLTerm::Direction::Output, SNLName("e"));
-      auto s = SNLScalarTerm::create(square, SNLTerm::Direction::Input, SNLName("s"));
-      auto w = SNLScalarTerm::create(square, SNLTerm::Direction::Input, SNLName("w"));
-      designsLibrary_ = SNLLibrary::create(db, SNLName("designs"));
+      NLUniverse::create();
+      auto db = NLDB::create(NLUniverse::get());
+      auto primitivesLibrary = NLLibrary::create(db, NLLibrary::Type::Primitives, NLName("primitives"));
+      auto square = SNLDesign::create(primitivesLibrary, SNLDesign::Type::Primitive, NLName("square"));
+      auto n = SNLScalarTerm::create(square, SNLTerm::Direction::Output, NLName("n"));
+      auto e = SNLScalarTerm::create(square, SNLTerm::Direction::Output, NLName("e"));
+      auto s = SNLScalarTerm::create(square, SNLTerm::Direction::Input, NLName("s"));
+      auto w = SNLScalarTerm::create(square, SNLTerm::Direction::Input, NLName("w"));
+      designsLibrary_ = NLLibrary::create(db, NLName("designs"));
     }
     void TearDown() override {
-      if (SNLUniverse::get()) {
-        SNLUniverse::get()->destroy();
+      if (NLUniverse::get()) {
+        NLUniverse::get()->destroy();
       }
     }
-    SNLLibrary* designsLibrary_;
+    NLLibrary*   designsLibrary_;
 };
 
 TEST_F(SNLPyHugeMatrixTest, test) {
-  auto db = SNLDB::create(SNLUniverse::get());
+  auto db = NLDB::create(NLUniverse::get());
   auto scriptPath = std::filesystem::path(SNL_PYEDIT_TEST_PATH);
   scriptPath /= "scripts";
   scriptPath /= "huge_matrix.py";
-  auto top = SNLDesign::create(designsLibrary_, SNLName("top"));
+  auto top = SNLDesign::create(designsLibrary_, NLName("top"));
   SNLPyLoader::loadDesign(top, scriptPath);
 
   //dump the design
@@ -63,7 +64,7 @@ TEST_F(SNLPyHugeMatrixTest, test) {
   dumper.setSingleFile(true);
   dumper.dumpDesign(top, outPath);
   
-  SNLUniverse::get()->destroy();  
+  NLUniverse::get()->destroy();  
   top = nullptr;
   designsLibrary_ = nullptr;
   

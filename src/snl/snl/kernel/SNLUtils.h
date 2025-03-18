@@ -9,7 +9,7 @@
 
 namespace naja { namespace SNL {
 
-class SNLLibrary;
+class NLLibrary;
 class SNLDesign;
 
 class SNLUtils {
@@ -19,8 +19,8 @@ class SNLUtils {
     using DesignLevel = std::pair<const SNLDesign*, unsigned>;
     using SortedDesigns = std::vector<DesignLevel>;
     static void getDesignsSortedByHierarchicalLevel(const SNLDesign* top, SortedDesigns& sortedDesigns);
-    static SNLID::Bit getWidth(int msb, int lsb);
-    static SNLDesign* findTop(const SNLLibrary* library);
+    static NLID::Bit getWidth(int msb, int lsb);
+    static SNLDesign* findTop(const NLLibrary* library);
 };
 
 }} // namespace SNL // namespace naja

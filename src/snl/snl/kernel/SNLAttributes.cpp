@@ -19,7 +19,7 @@ class SNLAttributesPrivateProperty: public naja::NajaPrivateProperty {
     using Attributes = std::vector<SNLAttribute>;
     static const inline std::string Name = "SNLDesignTruthTableProperty";
     
-    static SNLAttributesPrivateProperty* create(naja::SNL::SNLObject* object) {
+    static SNLAttributesPrivateProperty* create(naja::SNL::NLObject* object) {
       preCreate(object, Name);
       auto property = new SNLAttributesPrivateProperty();
       property->postCreate(object);
@@ -36,13 +36,13 @@ class SNLAttributesPrivateProperty: public naja::NajaPrivateProperty {
     }
     //LCOV_EXCL_STOP
     
-    static SNLAttributesPrivateProperty* get(const naja::SNL::SNLObject* object) {
+    static SNLAttributesPrivateProperty* get(const naja::SNL::NLObject* object) {
       return static_cast<SNLAttributesPrivateProperty*>(
         object->getProperty(SNLAttributesPrivateProperty::Name)
       );
     }
 
-    static SNLAttributesPrivateProperty* getOrCreate(naja::SNL::SNLObject* object) {
+    static SNLAttributesPrivateProperty* getOrCreate(naja::SNL::NLObject* object) {
       auto prop = get(object);
       if (prop == nullptr) {
         prop = SNLAttributesPrivateProperty::create(object);
@@ -67,7 +67,7 @@ class SNLAttributesPrivateProperty: public naja::NajaPrivateProperty {
 namespace naja { namespace SNL {
 
 SNLAttribute::SNLAttribute(
-  const SNLName& name,
+  const NLName& name,
   const SNLAttributeValue& value):
   name_(name), value_(value)
 {}
@@ -100,7 +100,7 @@ void SNLAttributes::addAttribute(SNLDesignObject* object, const SNLAttribute& at
   prop->addAttribute(attribute);
 }
 
-NajaCollection<SNLAttribute> SNLAttributes::getAttributes(const SNLObject* object) {
+NajaCollection<SNLAttribute> SNLAttributes::getAttributes(const NLObject* object) {
   auto prop = SNLAttributesPrivateProperty::get(object);
   if (prop) {
     return prop->getAttributes();
@@ -108,7 +108,7 @@ NajaCollection<SNLAttribute> SNLAttributes::getAttributes(const SNLObject* objec
   return NajaCollection<SNLAttribute>();
 }
 
-void SNLAttributes::cloneAttributes(const SNLObject* from, SNLObject* to) {
+void SNLAttributes::cloneAttributes(const NLObject* from, NLObject* to) {
   auto propFrom = SNLAttributesPrivateProperty::get(from);
   if (propFrom) {
     auto propTo = SNLAttributesPrivateProperty::getOrCreate(to);
@@ -119,8 +119,8 @@ void SNLAttributes::cloneAttributes(const SNLObject* from, SNLObject* to) {
 }
 
 bool SNLAttributes::compareAttributes(
-  const SNLObject* object1,
-  const SNLObject* object2,
+  const NLObject* object1,
+  const NLObject* object2,
   std::string& reason) {
   auto prop1 = SNLAttributesPrivateProperty::get(object1);
   auto prop2 = SNLAttributesPrivateProperty::get(object2);
@@ -154,7 +154,7 @@ bool SNLAttributes::compareAttributes(
   return true;
 }
 
-void SNLAttributes::clearAttributes(SNLObject* object) {
+void SNLAttributes::clearAttributes(NLObject* object) {
   auto prop = SNLAttributesPrivateProperty::get(object);
   if (prop) {
     prop->destroy();

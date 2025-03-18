@@ -24,8 +24,8 @@ class ConstantPropagation {
   const std::set<DNLID>& getConstants0() const { return constants0_; }
   const std::set<DNLID>& getConstants1() const { return constants1_; }
   void initializeTypesID();
-  const std::vector<std::tuple<std::vector<SNLID::DesignObjectID>, 
-    std::vector<std::pair<SNLID::DesignObjectID, int>>, DNLID>>&
+  const std::vector<std::tuple<std::vector<NLID::DesignObjectID>, 
+    std::vector<std::pair<NLID::DesignObjectID, int>>, DNLID>>&
       getPartialConstantReaders() const {
     return partialConstantReaders_;
   }
@@ -46,18 +46,18 @@ class ConstantPropagation {
   void changeDriverToLocal0(SNLInstTerm* term, DNLID id);
   void changeDriverToLocal1(SNLInstTerm* term, DNLID id);
   DNLFull* dnl_ = nullptr;
-  std::unordered_map<SNLID::DesignID, DNLID> designObjectID2Type_;
+  std::unordered_map<NLID::DesignID, DNLID> designObjectID2Type_;
   std::set<DNLID> initialConstants0_;
   std::set<DNLID> initialConstants1_;
   std::set<DNLID> constants0_;
   std::set<DNLID> constants1_;
   std::set<DNLID> partialConstantInstances_;
-  std::vector<std::tuple<std::vector<SNLID::DesignObjectID>, SNLID::DesignObjectID, DNLID>>
+  std::vector<std::tuple<std::vector<NLID::DesignObjectID>, NLID::DesignObjectID, DNLID>>
       constant0Readers_;
   std::vector<SNLBitTerm*> constant0TopReaders_;
-  std::vector<std::tuple<std::vector<SNLID::DesignObjectID>, SNLID::DesignObjectID, DNLID>>
+  std::vector<std::tuple<std::vector<NLID::DesignObjectID>, NLID::DesignObjectID, DNLID>>
       constant1Readers_;
-  std::vector<std::tuple<std::vector<SNLID::DesignObjectID>, std::vector<std::pair<SNLID::DesignObjectID, int>>, DNLID>>
+  std::vector<std::tuple<std::vector<NLID::DesignObjectID>, std::vector<std::pair<NLID::DesignObjectID, int>>, DNLID>>
       partialConstantReaders_;
   std::vector<SNLBitTerm*> constant1TopReaders_;
   bool truthTableEngine_ = false;

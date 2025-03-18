@@ -12,7 +12,7 @@
 #include "NajaCollection.h"
 
 #include "SNLDesignObject.h"
-#include "SNLID.h"
+#include "NLID.h"
 #include "SNLSharedPath.h"
 #include "SNLInstParameter.h"
 
@@ -44,35 +44,35 @@ class SNLInstance final: public SNLDesignObject {
      * \param name optional name.
      * \return created SNLInstance. 
      */
-    static SNLInstance* create(SNLDesign* design, SNLDesign* model, const SNLName& name=SNLName());
+    static SNLInstance* create(SNLDesign* design, SNLDesign* model, const NLName& name=NLName());
 
     /**
-     * \brief Create a SNLInstance with a given SNLID::DesignObjectID.
+     * \brief Create a SNLInstance with a given NLID::DesignObjectID.
      * \param design owner SNLDesign.
      * \param model instanciated SNLDesign (model).
-     * \param id SNLID::DesignObjectID of the instance.
+     * \param id NLID::DesignObjectID of the instance.
      * \param name optional name.
      * \return created SNLInstance. 
      */
-    static SNLInstance* create(SNLDesign* design, SNLDesign* model, SNLID::DesignObjectID id, const SNLName& name=SNLName());
+    static SNLInstance* create(SNLDesign* design, SNLDesign* model, NLID::DesignObjectID id, const NLName& name=NLName());
 
     SNLDesign* getDesign() const override { return design_; }
     /// \return the instanciated SNLDesign (model).
     SNLDesign* getModel() const { return model_; }
 
     /// \return this SNLInstance id. Positional id in parent SNLDesign.
-    SNLID::DesignObjectID getID() const { return id_; }
-    SNLID getSNLID() const override;
-    SNLID::DesignObjectReference getReference() const;
+    NLID::DesignObjectID getID() const { return id_; }
+    NLID getNLID() const override;
+    NLID::DesignObjectReference getReference() const;
     bool deepCompare(const SNLInstance* other, std::string& reason) const;
 
     /// \return this SNLInstance name.
-    SNLName getName() const { return name_; }
+    NLName getName() const { return name_; }
     /**
      * \brief Set this SNLInstance name.
      * \param name new SNLInstance name. 
      */
-    void setName(const SNLName& name) override;
+    void setName(const NLName& name) override;
 
     bool isAnonymous() const override { return name_.empty(); }
     ///\return true if this SNLInstance is a blackbox.
@@ -87,12 +87,12 @@ class SNLInstance final: public SNLDesignObject {
     std::string getDescription() const override;
     void debugDump(size_t indent, bool recursive=true, std::ostream& stream=std::cerr) const override;
 
-    SNLInstParameter* getInstParameter(const SNLName& name) const;
+    SNLInstParameter* getInstParameter(const NLName& name) const;
     NajaCollection<SNLInstParameter*> getInstParameters() const;
 
     ///\return SNLInstTerm corresponding to the SNLBitTerm representative in this instance. 
     SNLInstTerm* getInstTerm(const SNLBitTerm* bitTerm) const;
-    SNLInstTerm* getInstTerm(const SNLID::DesignObjectID termID) const;
+    SNLInstTerm* getInstTerm(const NLID::DesignObjectID termID) const;
     ///\return the NajaCollection of all SNLInstTerm of this SNLInstance.
     NajaCollection<SNLInstTerm*> getInstTerms() const;
     /**
@@ -126,9 +126,9 @@ class SNLInstance final: public SNLDesignObject {
      */
     void setTermNet(
       SNLTerm* term,
-      SNLID::Bit termMSB, SNLID::Bit termLSB,
+      NLID::Bit termMSB, NLID::Bit termLSB,
       SNLNet* net,
-      SNLID::Bit netMSB, SNLID::Bit netLSB);
+      NLID::Bit netMSB, NLID::Bit netLSB);
     /**
      * \brief Helper function allowing to connect a SNLTerm representative in current instance to the
      * corresponding SNLNet bits. This version allows to connect a subpart of net bits.
@@ -136,7 +136,7 @@ class SNLInstance final: public SNLDesignObject {
     void setTermNet(
       SNLTerm* term,
       SNLNet* net,
-      SNLID::Bit netMSB, SNLID::Bit netLSB);
+      NLID::Bit netMSB, NLID::Bit netLSB);
 
     /**
      * \brief Seting new model for this instance.
@@ -144,14 +144,14 @@ class SNLInstance final: public SNLDesignObject {
      */
     void setModel(SNLDesign* newModel);
 
-    SNLID::DesignObjectID getOrderID() const { return orederID_; }
-    void setOrderID(SNLID::DesignObjectID orderID) { orederID_ = orderID; }
+    NLID::DesignObjectID getOrderID() const { return orderID_; }
+    void setOrderID(NLID::DesignObjectID orderID) { orderID_ = orderID; }
 
   private:
-    SNLInstance(SNLDesign* design, SNLDesign* model, const SNLName& name);
-    SNLInstance(SNLDesign* design, SNLDesign* model, SNLID::DesignObjectID id, const SNLName& name);
-    static void preCreate(SNLDesign* design, const SNLDesign* model, const SNLName& name);
-    static void preCreate(SNLDesign* design, const SNLDesign* model, SNLID::DesignObjectID id, const SNLName& name);
+    SNLInstance(SNLDesign* design, SNLDesign* model, const NLName& name);
+    SNLInstance(SNLDesign* design, SNLDesign* model, NLID::DesignObjectID id, const NLName& name);
+    static void preCreate(SNLDesign* design, const SNLDesign* model, const NLName& name);
+    static void preCreate(SNLDesign* design, const SNLDesign* model, NLID::DesignObjectID id, const NLName& name);
     void commonPostCreate();
     void postCreateAndSetID();
     void postCreate();
@@ -173,14 +173,14 @@ class SNLInstance final: public SNLDesignObject {
     using SNLInstanceSharedPaths = std::map<const SNLSharedPath*, SNLSharedPath*>;
     SNLDesign*                          design_                   {nullptr};
     SNLDesign*                          model_                    {nullptr};
-    SNLID::DesignObjectID               id_;
-    SNLName                             name_                     {};
+    NLID::DesignObjectID                id_;
+    NLName                              name_                     {};
     SNLInstanceInstTerms                instTerms_                {};
     SNLInstanceSharedPaths              sharedPaths_              {};
     SNLInstParameters                   instParameters_           {};
     boost::intrusive::set_member_hook<> designInstancesHook_      {};
     boost::intrusive::set_member_hook<> designSlaveInstancesHook_ {};
-    SNLID::DesignObjectID orederID_ = (SNLID::DesignObjectID) -1;
+    NLID::DesignObjectID                orderID_                  {(NLID::DesignObjectID)-1};
 };
 
 }} // namespace SNL // namespace naja

@@ -6,10 +6,11 @@
 
 #include <sstream>
 
+#include "NLException.h"
+
 #include "SNLDesign.h"
 #include "SNLPath.h"
 #include "SNLDesignObject.h"
-#include "SNLException.h"
 
 namespace naja { namespace SNL {
 
@@ -27,7 +28,7 @@ SNLOccurrence::SNLOccurrence(const SNLPath& path, SNLDesignObject* object) {
         << " in Occurrence constructor, path model: " 
         << model->getDescription() << " is not object design: "
         << object->getDesign()->getDescription();
-      throw SNLException(reason.str());
+      throw NLException(reason.str());
     }
   }
   path_ = path.getSharedPath();
@@ -45,7 +46,7 @@ bool SNLOccurrence::operator==(const SNLOccurrence& rhs) const {
 }
 
 bool SNLOccurrence::operator<(const SNLOccurrence& rhs) const {
-  //First start by comparing objects (through their SNLIDs)
+  //First start by comparing objects (through their NLIDs)
   //If equal compare their path. Paths can be nullptr
   if (getObject() == nullptr) {
     return rhs.getObject() not_eq nullptr;

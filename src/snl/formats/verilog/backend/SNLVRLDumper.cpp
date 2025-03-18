@@ -12,7 +12,9 @@
 
 #include "NajaUtils.h"
 
-#include "SNLLibrary.h"
+#include "NLDB0.h"
+#include "NLLibrary.h"
+
 #include "SNLDesign.h"
 #include "SNLParameter.h"
 #include "SNLScalarTerm.h"
@@ -24,7 +26,6 @@
 #include "SNLInstTerm.h"
 #include "SNLAttributes.h"
 #include "SNLUtils.h"
-#include "SNLDB0.h"
 
 namespace {
 
@@ -154,12 +155,12 @@ void dumpRange(ContiguousNetBits& bits, bool& firstElement, bool& concatenation,
         firstElement = false;
       }
       naja::SNL::SNLBusNetBit* rangeMSBBit = static_cast<naja::SNL::SNLBusNetBit*>(bits[0]);
-      naja::SNL::SNLID::Bit rangeMSB = rangeMSBBit->getBit();
+      naja::SNL::NLID::Bit rangeMSB = rangeMSBBit->getBit();
       naja::SNL::SNLBusNetBit* rangeLSBBit =static_cast<naja::SNL::SNLBusNetBit*>(bits[bits.size()-1]);
-      naja::SNL::SNLID::Bit rangeLSB = rangeLSBBit->getBit();
+      naja::SNL::NLID::Bit rangeLSB = rangeLSBBit->getBit();
       naja::SNL::SNLBusNet* bus = rangeMSBBit->getBus();
-      naja::SNL::SNLID::Bit busMSB = bus->getMSB();
-      naja::SNL::SNLID::Bit busLSB = bus->getLSB();
+      naja::SNL::NLID::Bit busMSB = bus->getMSB();
+      naja::SNL::NLID::Bit busLSB = bus->getLSB();
       if (rangeMSB == busMSB and rangeLSB == busLSB) {
         o += dumpName(bus->getName().getString());
       } else if (rangeMSB == rangeLSB) {
@@ -214,7 +215,7 @@ std::string SNLVRLDumper::createDesignName(const SNLDesign* design) {
   auto designID = design->getID();
   std::string designName = "module" + std::to_string(designID);
   int conflict = 0;
-  while (library->getDesign(SNLName(designName))) {
+  while (library->getDesign(NLName(designName))) {
     designName += "_" + std::to_string(conflict++); 
   }
   return designName;
@@ -226,7 +227,7 @@ std::string SNLVRLDumper::createInstanceName(const SNLInstance* instance, Design
   std::string instanceName = "instance_" + std::to_string(instanceID);
   int conflict = 0;
   std::string uniqueInstanceName(instanceName);
-  while (design->getInstance(SNLName(uniqueInstanceName))
+  while (design->getInstance(NLName(uniqueInstanceName))
       && naming.instanceNameSet_.find(uniqueInstanceName) != naming.instanceNameSet_.end()) {
     uniqueInstanceName = instanceName + "_" + std::to_string(conflict++); 
   }
@@ -235,21 +236,21 @@ std::string SNLVRLDumper::createInstanceName(const SNLInstance* instance, Design
   return uniqueInstanceName;
 }
 
-SNLName SNLVRLDumper::createNetName(const SNLNet* net, DesignInsideAnonymousNaming& naming) {
+NLName SNLVRLDumper::createNetName(const SNLNet* net, DesignInsideAnonymousNaming& naming) {
   auto design = net->getDesign();
   auto netID = net->getID();
   std::string netName = "net_" + std::to_string(netID);
   int conflict = 0;
-  SNLName uniqueNetName(netName);
-  while (naming.netTermNameSet_.find(SNLName(uniqueNetName)) != naming.netTermNameSet_.end()) {
-    uniqueNetName = SNLName(netName + "_" + std::to_string(conflict++)); 
+  NLName uniqueNetName(netName);
+  while (naming.netTermNameSet_.find(NLName(uniqueNetName)) != naming.netTermNameSet_.end()) {
+    uniqueNetName = NLName(netName + "_" + std::to_string(conflict++)); 
   }
   naming.netTermNameSet_.insert(uniqueNetName);
   naming.netNames_[net->getID()] = uniqueNetName;
   return uniqueNetName;
 }
 
-SNLName SNLVRLDumper::getNetName(const SNLNet* net, const DesignInsideAnonymousNaming& naming) {
+NLName SNLVRLDumper::getNetName(const SNLNet* net, const DesignInsideAnonymousNaming& naming) {
   if (net->isAnonymous()) {
     auto it = naming.netNames_.find(net->getID());
     assert(it != naming.netNames_.end());
@@ -259,7 +260,7 @@ SNLName SNLVRLDumper::getNetName(const SNLNet* net, const DesignInsideAnonymousN
   }
 }
 
-void SNLVRLDumper::dumpAttributes(const SNLObject* object, std::ostream& o) {
+void SNLVRLDumper::dumpAttributes(const NLObject* object, std::ostream& o) {
   for (const auto& attribute: SNLAttributes::getAttributes(object)) {
     o << "(* ";
     o << attribute.getName().getString();
@@ -311,7 +312,7 @@ bool SNLVRLDumper::dumpNet(const SNLNet* net, std::ostream& o, DesignInsideAnony
   if (net->isAssignConstant()) {
     return false;
   }
-  SNLName netName;
+  NLName netName;
   if (net->isAnonymous()) {
     netName = createNetName(net, naming);
   } else {
@@ -374,7 +375,7 @@ void SNLVRLDumper::dumpInsTermConnectivity(
           }
         } else if (dynamic_cast<SNLScalarNet*>(net)) {
           dumpRange(contiguousBits, firstElement, concatenation, connectionStr);
-          SNLName netName = getNetName(net, naming);
+          NLName netName = getNetName(net, naming);
           if (not firstElement) {
             connectionStr += ", ";
             concatenation = true;
@@ -529,9 +530,9 @@ bool SNLVRLDumper::dumpInstance(
   const SNLInstance* instance,
   std::ostream& o,
   DesignInsideAnonymousNaming& naming) {
-  if (SNLDB0::isAssign(instance->getModel())) {
-    auto inputNet = instance->getInstTerm(SNLDB0::getAssignInput())->getNet();
-    auto outputNet = instance->getInstTerm(SNLDB0::getAssignOutput())->getNet();
+  if (NLDB0::isAssign(instance->getModel())) {
+    auto inputNet = instance->getInstTerm(NLDB0::getAssignInput())->getNet();
+    auto outputNet = instance->getInstTerm(NLDB0::getAssignOutput())->getNet();
     if (inputNet and outputNet) {
       std::string inputNetString;
       if (inputNet->isConstant0()) {
@@ -782,7 +783,7 @@ void SNLVRLDumper::dumpDesign(const SNLDesign* design, std::ostream& o) {
   }
 }
 
-void SNLVRLDumper::dumpLibrary(const SNLLibrary* library, std::ostream& o) {
+void SNLVRLDumper::dumpLibrary(const NLLibrary* library, std::ostream& o) {
   for (auto design: library->getDesigns()) {
     dumpOneDesign(design, o);
   }
@@ -798,7 +799,7 @@ std::string SNLVRLDumper::getTopFileName(const SNLDesign* top) const {
   return "top.v";
 } 
 
-std::string SNLVRLDumper::getLibraryFileName(const SNLLibrary* library) const {
+std::string SNLVRLDumper::getLibraryFileName(const NLLibrary* library) const {
   if (configuration_.hasLibraryFileName()) {
     return configuration_.getLibraryFileName();
   }
@@ -855,7 +856,7 @@ void SNLVRLDumper::dumpDesign(const SNLDesign* design, const std::filesystem::pa
   }
 }
 
-void SNLVRLDumper::dumpLibrary(const SNLLibrary* library, const std::filesystem::path& path) {
+void SNLVRLDumper::dumpLibrary(const NLLibrary* library, const std::filesystem::path& path) {
   if (not std::filesystem::exists(path)) {
     std::ostringstream reason;
     if (not library->isAnonymous()) {

@@ -7,8 +7,8 @@
 #include <filesystem>
 #include <fstream>
 
-#include "SNLUniverse.h"
-#include "SNLDB.h"
+#include "NLUniverse.h"
+#include "NLDB.h"
 #include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
 #include "SNLBusTermBit.h"
@@ -31,32 +31,32 @@ class SNLCapNpTest1: public ::testing::Test {
   protected:
     void SetUp() override {
       //
-      SNLUniverse* universe = SNLUniverse::create();
-      db_ = SNLDB::create(universe);
-      SNLLibrary* root1 = SNLLibrary::create(db_, SNLName("ROOT"));
-      SNLLibrary* lib1 = SNLLibrary::create(root1, SNLName("lib1")); 
-      SNLLibrary* lib2 = SNLLibrary::create(root1);
-      SNLLibrary* lib3 = SNLLibrary::create(lib2, SNLName("lib3"));
-      SNLLibrary* lib4 = SNLLibrary::create(lib2);
-      SNLDesign* design0 = SNLDesign::create(lib2, SNLName("design0"));
+      NLUniverse* universe = NLUniverse::create();
+      db_ = NLDB::create(universe);
+      NLLibrary* root1 = NLLibrary::create(db_, NLName("ROOT"));
+      NLLibrary* lib1 = NLLibrary::create(root1, NLName("lib1")); 
+      NLLibrary* lib2 = NLLibrary::create(root1);
+      NLLibrary* lib3 = NLLibrary::create(lib2, NLName("lib3"));
+      NLLibrary* lib4 = NLLibrary::create(lib2);
+      SNLDesign* design0 = SNLDesign::create(lib2, NLName("design0"));
       SNLDesign* design1 = SNLDesign::create(lib2, SNLDesign::Type::Blackbox);
-      SNLLibrary* primitives = SNLLibrary::create(db_, SNLLibrary::Type::Primitives, SNLName("PRIMITIVES"));
-      SNLLibrary* prims1 = SNLLibrary::create(primitives, SNLLibrary::Type::Primitives);
-      SNLLibrary* prims2 = SNLLibrary::create(primitives, SNLLibrary::Type::Primitives, SNLName("prims2"));
-      SNLLibrary* prims3 = SNLLibrary::create(prims1, SNLLibrary::Type::Primitives, SNLName("prims3"));
-      SNLDesign* prim = SNLDesign::create(prims2, SNLDesign::Type::Primitive, SNLName("prim"));
-      SNLScalarTerm::create(prim, SNLTerm::Direction::Input, SNLName("A"));
-      SNLScalarTerm::create(prim, SNLTerm::Direction::Input, SNLName("B"));
-      SNLScalarTerm::create(prim, SNLTerm::Direction::Output, SNLName("Y"));
+      NLLibrary* primitives = NLLibrary::create(db_, NLLibrary::Type::Primitives, NLName("PRIMITIVES"));
+      NLLibrary* prims1 = NLLibrary::create(primitives, NLLibrary::Type::Primitives);
+      NLLibrary* prims2 = NLLibrary::create(primitives, NLLibrary::Type::Primitives, NLName("prims2"));
+      NLLibrary* prims3 = NLLibrary::create(prims1, NLLibrary::Type::Primitives, NLName("prims3"));
+      SNLDesign* prim = SNLDesign::create(prims2, SNLDesign::Type::Primitive, NLName("prim"));
+      SNLScalarTerm::create(prim, SNLTerm::Direction::Input, NLName("A"));
+      SNLScalarTerm::create(prim, SNLTerm::Direction::Input, NLName("B"));
+      SNLScalarTerm::create(prim, SNLTerm::Direction::Output, NLName("Y"));
       SNLDesignTruthTable::setTruthTable(prim, SNLTruthTable(2, 0x8));
     }
     void TearDown() override {
-      if (SNLUniverse::get()) {
-        SNLUniverse::get()->destroy();
+      if (NLUniverse::get()) {
+        NLUniverse::get()->destroy();
       }
     }
   protected:
-    SNLDB*      db_;
+    NLDB* db_;
 };
 
 TEST_F(SNLCapNpTest1, test0) {
@@ -67,22 +67,22 @@ TEST_F(SNLCapNpTest1, test0) {
   }
 
   SNLCapnP::dump(db_, outPath);
-  SNLUniverse::get()->destroy();  
+  NLUniverse::get()->destroy();  
   db_ = nullptr;
   db_ = SNLCapnP::load(outPath);
   ASSERT_TRUE(db_);
   EXPECT_EQ(nullptr, db_->getTopDesign());
-  EXPECT_EQ(SNLID::DBID(1), db_->getID());
+  EXPECT_EQ(NLID::DBID(1), db_->getID());
   EXPECT_EQ(2, db_->getLibraries().size());
-  using Libraries = std::vector<SNLLibrary*>;
+  using Libraries = std::vector<NLLibrary*>;
   Libraries libraries(db_->getLibraries().begin(), db_->getLibraries().end());
   ASSERT_EQ(2, libraries.size());
   auto library = libraries[0];
   ASSERT_TRUE(library);
-  EXPECT_EQ(SNLID::LibraryID(0), library->getID());
-  EXPECT_EQ(SNLName("ROOT"), library->getName());
+  EXPECT_EQ(NLID::LibraryID(0), library->getID());
+  EXPECT_EQ(NLName("ROOT"), library->getName());
   EXPECT_TRUE(library->isRoot());
-  EXPECT_EQ(SNLLibrary::Type::Standard, library->getType());
+  EXPECT_EQ(NLLibrary::Type::Standard, library->getType());
   EXPECT_TRUE(library->isStandard());
   EXPECT_TRUE(library->getDesigns().empty());
   EXPECT_EQ(2, library->getLibraries().size());
@@ -90,7 +90,7 @@ TEST_F(SNLCapNpTest1, test0) {
   ASSERT_EQ(2, libraries.size());
   auto lib1 = libraries[0];
   EXPECT_NE(nullptr, lib1);
-  EXPECT_EQ(SNLName("lib1"), lib1->getName());
+  EXPECT_EQ(NLName("lib1"), lib1->getName());
   EXPECT_TRUE(library->isRoot());
   EXPECT_TRUE(lib1->getLibraries().empty());
   EXPECT_EQ(library, lib1->getParentLibrary());
@@ -103,7 +103,7 @@ TEST_F(SNLCapNpTest1, test0) {
   ASSERT_EQ(2, libraries.size());
   auto lib3 = libraries[0];
   EXPECT_NE(nullptr, lib3);
-  EXPECT_EQ(SNLName("lib3"), lib3->getName());
+  EXPECT_EQ(NLName("lib3"), lib3->getName());
   EXPECT_TRUE(lib3->getLibraries().empty());
   auto lib4 = libraries[1];
   EXPECT_NE(nullptr, lib4);
@@ -112,7 +112,7 @@ TEST_F(SNLCapNpTest1, test0) {
 
   libraries = Libraries(db_->getLibraries().begin(), db_->getLibraries().end());
   auto primitives = libraries[1];
-  EXPECT_EQ(SNLName("PRIMITIVES"), primitives->getName());
+  EXPECT_EQ(NLName("PRIMITIVES"), primitives->getName());
   EXPECT_TRUE(primitives->isRoot());
   EXPECT_TRUE(primitives->isPrimitives());
   EXPECT_FALSE(primitives->isStandard());
@@ -134,7 +134,7 @@ TEST_F(SNLCapNpTest1, test0) {
   EXPECT_NE(nullptr, prim);
   EXPECT_TRUE(prim->isPrimitive());
   EXPECT_FALSE(prim->isAnonymous());
-  EXPECT_EQ(SNLName("prim"), prim->getName());
+  EXPECT_EQ(NLName("prim"), prim->getName());
   auto primTT = SNLDesignTruthTable::getTruthTable(prim);
   EXPECT_TRUE(primTT.isInitialized());
   EXPECT_EQ(SNLTruthTable(2, 0x8), SNLDesignTruthTable::getTruthTable(prim));
@@ -144,5 +144,5 @@ TEST_F(SNLCapNpTest1, test0) {
   auto prims3 = libraries[0];
   EXPECT_NE(nullptr, prims3);
   EXPECT_FALSE(prims3->isAnonymous());
-  EXPECT_EQ(SNLName("prims3"), prims3->getName());
+  EXPECT_EQ(NLName("prims3"), prims3->getName());
 }

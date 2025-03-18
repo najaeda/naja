@@ -7,9 +7,10 @@
 #include <sstream>
 
 #include "NajaPrivateProperty.h"
+#include "NLException.h"
+
 #include "SNLDesign.h"
 #include "SNLInstTerm.h"
-#include "SNLException.h"
 
 namespace {
 
@@ -32,7 +33,7 @@ class SNLDesignModelingProperty: public naja::NajaPrivateProperty {
         std::ostringstream reason;
         reason << "Impossible to add Timing Modeling on a non leaf design <"
           << design->getName().getString() << ">";
-        throw naja::SNL::SNLException(reason.str());
+        throw naja::SNL::NLException(reason.str());
       }
     }
     void preDestroy() override {
@@ -87,14 +88,14 @@ void insertInArcs(
   if (iit == arcs.end()) {
     auto result = arcs.insert({term0, naja::SNL::SNLDesignModeling::TermArcs()});
     if (not result.second) {
-      throw naja::SNL::SNLException("Error while inserting in timing arcs");
+      throw naja::SNL::NLException("Error while inserting in timing arcs");
     }
     iit = result.first;
   }
   naja::SNL::SNLDesignModeling::TermArcs& termArcs = iit->second;
   auto oit = termArcs.find(term1);
   if (oit != termArcs.end()) {
-    throw naja::SNL::SNLException("Error while inserting in timing arcs");
+    throw naja::SNL::NLException("Error while inserting in timing arcs");
   }
   termArcs.insert(term1);
 }
@@ -106,22 +107,22 @@ naja::SNL::SNLDesign* verifyInputs(
   const std::string& terms1Naming,
   const std::string& method) {
   if (terms0.empty()) {
-    throw naja::SNL::SNLException("Error in " + method + ": empty " + terms0Naming);
+    throw naja::SNL::NLException("Error in " + method + ": empty " + terms0Naming);
   }
   if (terms1.empty()) {
-    throw naja::SNL::SNLException("Error in " + method + ": empty " + terms1Naming);
+    throw naja::SNL::NLException("Error in " + method + ": empty " + terms1Naming);
   }
   naja::SNL::SNLDesign* design = nullptr;
   for (auto term: terms0) {
     if (not design) {
       design = term->getDesign();
     } else if (design not_eq term->getDesign()) {
-      throw naja::SNL::SNLException("Error in " + method + ": incompatible designs");
+      throw naja::SNL::NLException("Error in " + method + ": incompatible designs");
     }
   }
   for (auto term: terms1) {
     if (design not_eq term->getDesign()) {
-      throw naja::SNL::SNLException("Error in " + method + ": incompatible designs");
+      throw naja::SNL::NLException("Error in " + method + ": incompatible designs");
     }
   }
   return design;
@@ -180,7 +181,7 @@ void SNLDesignModeling::addCombinatorialArc_(SNLBitTerm* input, SNLBitTerm* outp
 
 void SNLDesignModeling::addInputToClockArc_(SNLBitTerm* input, SNLBitTerm* clock) {
   if (type_ not_eq Type::NO_PARAMETER) {
-    throw SNLException("Wrong SNLDesignModeling type for addInputToClockArc");
+    throw NLException("Wrong SNLDesignModeling type for addInputToClockArc");
   }
   TimingArcs& arcs = std::get<Type::NO_PARAMETER>(model_);
   insertInArcs(arcs.inputToClockArcs_, input, clock);
@@ -189,7 +190,7 @@ void SNLDesignModeling::addInputToClockArc_(SNLBitTerm* input, SNLBitTerm* clock
 
 void SNLDesignModeling::addClockToOutputArc_(SNLBitTerm* clock, SNLBitTerm* output) {
   if (type_ not_eq Type::NO_PARAMETER) {
-    throw SNLException("Wrong SNLDesignModeling type for addClockToOutputArc");
+    throw NLException("Wrong SNLDesignModeling type for addClockToOutputArc");
   }
   TimingArcs& arcs = std::get<Type::NO_PARAMETER>(model_);
   insertInArcs(arcs.outputToClockArcs_, output, clock);
@@ -199,7 +200,7 @@ void SNLDesignModeling::addClockToOutputArc_(SNLBitTerm* clock, SNLBitTerm* outp
 SNLDesignModeling::TimingArcs* SNLDesignModeling::getOrCreateTimingArcs(const std::string& parameterValue) {
   if (type_ == Type::NO_PARAMETER) {
     if (not parameterValue.empty()) {
-      throw SNLException("Contradictory type in SNLDesignModeling");
+      throw NLException("Contradictory type in SNLDesignModeling");
     }
     return &std::get<Type::NO_PARAMETER>(model_);
   } else {
@@ -213,7 +214,7 @@ SNLDesignModeling::TimingArcs* SNLDesignModeling::getOrCreateTimingArcs(const st
       //create it
       auto result = parameterizedArcs.insert({paramValue, TimingArcs()});
       if (not result.second) {
-        throw naja::SNL::SNLException("Error in Timing arcs insertion");
+        throw naja::SNL::NLException("Error in Timing arcs insertion");
       }
       ait = result.first;
     }
@@ -231,7 +232,7 @@ const SNLDesignModeling::TimingArcs* SNLDesignModeling::getTimingArcs(const SNLI
       // //get Arcs from parameter
       auto parameter = parameter_.first;
       //find parameter in instance
-      auto instParameter = instance->getInstParameter(SNLName(parameter));
+      auto instParameter = instance->getInstParameter(NLName(parameter));
       if (instParameter) {
         auto value = instParameter->getValue();
         auto pit = parameterizedArcs.find(value);
@@ -248,7 +249,7 @@ const SNLDesignModeling::TimingArcs* SNLDesignModeling::getTimingArcs(const SNLI
             reason << parcs.first;
             first = false;
           }
-          throw SNLException(reason.str());
+          throw NLException(reason.str());
         }
         return &(pit->second);
       }
@@ -256,7 +257,7 @@ const SNLDesignModeling::TimingArcs* SNLDesignModeling::getTimingArcs(const SNLI
     } 
     auto defaultParameterValue = parameter_.second;
     if (defaultParameterValue.empty()) {
-      throw SNLException("No Default parameter value while getting Timing Arcs");
+      throw NLException("No Default parameter value while getting Timing Arcs");
     }
     auto ait = parameterizedArcs.find(defaultParameterValue);
     if (ait != parameterizedArcs.end()) {
@@ -264,7 +265,7 @@ const SNLDesignModeling::TimingArcs* SNLDesignModeling::getTimingArcs(const SNLI
     } else {
       std::ostringstream reason;
       reason << "cannot find " << defaultParameterValue << " in parameterized arcs.";
-      throw SNLException(reason.str());
+      throw NLException(reason.str());
     }
   }
 }
@@ -361,11 +362,11 @@ void SNLDesignModeling::addClockToOutputsArcs(SNLBitTerm* clock, const BitTerms&
 }
 
 void SNLDesignModeling::setParameter(SNLDesign* design, const std::string& name, const std::string& defaultValue) {
-  auto parameter = design->getParameter(SNLName(name));
+  auto parameter = design->getParameter(NLName(name));
   if (not parameter) {
     std::ostringstream reason;
     reason << "Parameter " << name << " is unknown in " << design->getName().getString();
-    throw SNLException(reason.str());
+    throw NLException(reason.str());
   }
   auto property = getOrCreateProperty(design, Type::PARAMETERIZED);
   auto modeling = property->getModeling();

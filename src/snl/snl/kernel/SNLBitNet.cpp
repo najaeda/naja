@@ -6,13 +6,14 @@
 
 #include <list>
 
+#include "NLDB.h"
+#include "NLException.h"
+
 #include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
 #include "SNLBusTermBit.h"
 #include "SNLInstTerm.h"
-#include "SNLDB.h"
 #include "SNLDesign.h"
-#include "SNLException.h"
 
 namespace naja { namespace SNL {
 
@@ -44,7 +45,7 @@ void SNLBitNet::cloneComponents(SNLBitNet* newNet) const {
           newScalarTerm->net_ = newNet;
           return newScalarTerm;
         } else {
-          throw SNLException("SNLBitNet::cloneComponents: scalarTerm not found"); //LCOV_EXCL_LINE
+          throw NLException("SNLBitNet::cloneComponents: scalarTerm not found"); //LCOV_EXCL_LINE
         }
       } else if (auto busTermBit = dynamic_cast<const SNLBusTermBit*>(&component)) {
         auto busTerm = busTermBit->getBus();
@@ -55,10 +56,10 @@ void SNLBitNet::cloneComponents(SNLBitNet* newNet) const {
             newBusTermBit->net_ = newNet;
             return newBusTermBit;
           } else {
-            throw SNLException("SNLBitNet::cloneComponents: busTermBit not found"); //LCOV_EXCL_LINE
+            throw NLException("SNLBitNet::cloneComponents: busTermBit not found"); //LCOV_EXCL_LINE
           }
         } else {
-          throw SNLException("SNLBitNet::cloneComponents: busTerm not found"); //LCOV_EXCL_LINE
+          throw NLException("SNLBitNet::cloneComponents: busTerm not found"); //LCOV_EXCL_LINE
         }
       } else if (auto instTerm = dynamic_cast<const SNLInstTerm*>(&component)) {
         auto instance = instTerm->getInstance();
@@ -69,13 +70,13 @@ void SNLBitNet::cloneComponents(SNLBitNet* newNet) const {
             newInstTerm->net_ = newNet;
             return newInstTerm;
           } else {
-            throw SNLException("SNLBitNet::cloneComponents: instTerm not found"); //LCOV_EXCL_LINE
+            throw NLException("SNLBitNet::cloneComponents: instTerm not found"); //LCOV_EXCL_LINE
           }
         } else {
-          throw SNLException("SNLBitNet::cloneComponents: instance not found"); //LCOV_EXCL_LINE
+          throw NLException("SNLBitNet::cloneComponents: instance not found"); //LCOV_EXCL_LINE
         }
       } else {
-        throw SNLException("SNLBitNet::cloneComponents: unknown component type"); //LCOV_EXCL_LINE
+        throw NLException("SNLBitNet::cloneComponents: unknown component type"); //LCOV_EXCL_LINE
       }
     },
     [](SNLNetComponent*){} //LCOV_EXCL_LINE

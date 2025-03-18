@@ -11,8 +11,8 @@ from najaeda import snl
 
 class NajaNetlistTestXilinx(unittest.TestCase):
     def tearDown(self):
-        if snl.SNLUniverse.get():
-            snl.SNLUniverse.get().destroy()
+        if snl.NLUniverse.get():
+            snl.NLUniverse.get().destroy()
 
     def test_xilinx_primitives(self):
         top = netlist.create_top('Top')

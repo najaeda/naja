@@ -45,7 +45,7 @@ def consistent_hash(obj):
 
 
 def get_snl_instance_from_id_list(id_list: list) -> snl.SNLInstance:
-    design = snl.SNLUniverse.get().getTopDesign()
+    design = snl.NLUniverse.get().getTopDesign()
     # instance = None
     # for id in id_list:
     #     instance = design.getInstanceByID(id)
@@ -56,7 +56,7 @@ def get_snl_instance_from_id_list(id_list: list) -> snl.SNLInstance:
 
 
 def get_snl_path_from_id_list(id_list: list) -> snl.SNLPath:
-    top = snl.SNLUniverse.get().getTopDesign()
+    top = snl.NLUniverse.get().getTopDesign()
     design = top
     path = snl.SNLPath()
     for id in id_list:
@@ -374,7 +374,7 @@ def get_snl_term_for_ids(pathIDs, termIDs):
     path = get_snl_path_from_id_list(pathIDs)
     model = None
     if len(pathIDs) == 0:
-        model = snl.SNLUniverse.get().getTopDesign()
+        model = snl.NLUniverse.get().getTopDesign()
     else:
         model = path.getTailInstance().getModel()
     if termIDs[1] == get_none_existent():
@@ -390,7 +390,7 @@ def get_snl_term_for_ids(pathIDs, termIDs):
 def get_snl_term_for_ids_with_path(path, termIDs):
     model = None
     if path.size() == 0:
-        model = snl.SNLUniverse.get().getTopDesign()
+        model = snl.NLUniverse.get().getTopDesign()
     else:
         model = path.getTailInstance().getModel()
     if termIDs[1] == get_none_existent():
@@ -723,7 +723,7 @@ def get_instance_by_path(names: list):
     assert len(names) > 0
     path = snl.SNLPath()
     instance = None
-    top = snl.SNLUniverse.get().getTopDesign()
+    top = snl.NLUniverse.get().getTopDesign()
     design = top
     for name in names:
         path = snl.SNLPath(path, design.getInstance(name))
@@ -738,7 +738,7 @@ def get_instance_by_path(names: list):
 #    assert len(pathlist) > 0
 #    path = snl.SNLPath()
 #    instance = None
-#    top = snl.SNLUniverse.get().getTopDesign()
+#    top = snl.NLUniverse.get().getTopDesign()
 #    design = top
 #    for id in pathlist:
 #        path = snl.SNLPath(path, design.getInstanceByID(id))
@@ -799,7 +799,7 @@ class Instance:
                 self.inst = get_snl_instance_from_id_list(path)
                 self.revisionCount = self.inst.getModel().getRevisionCount()
         if self.inst is not None:
-            self.SNLID = self.inst.getModel().getSNLID()
+            self.SNLID = self.inst.getModel().getNLID()
 
     def __eq__(self, other) -> bool:
         return self.pathIDs == other.pathIDs
@@ -919,24 +919,24 @@ class Instance:
 
     def __get_snl_model(self):
         if self.is_top():
-            return snl.SNLUniverse.get().getTopDesign()
+            return snl.NLUniverse.get().getTopDesign()
         if (
             self.inst.getModel().getRevisionCount() != self.revisionCount or
-            self.inst.getModel().getSNLID() != self.SNLID
+            self.inst.getModel().getNLID() != self.SNLID
         ):
             self.inst = get_snl_instance_from_id_list(self.pathIDs)
             self.revisionCount = self.inst.getModel().getRevisionCount()
-            self.SNLID = self.inst.getModel().getSNLID()
+            self.SNLID = self.inst.getModel().getNLID()
 
         return self.inst.getModel()
 
     def __get_leaf_snl_object(self):
         if self.is_top():
-            return snl.SNLUniverse.get().getTopDesign()
+            return snl.NLUniverse.get().getTopDesign()
         return get_snl_instance_from_id_list(self.pathIDs)
 
     def __find_snl_model(self, name: str) -> snl.SNLDesign:
-        u = snl.SNLUniverse.get()
+        u = snl.NLUniverse.get()
         for db in u.getUserDBs():
             for lib in db.getLibraries():
                 found_model = lib.getDesign(name)
@@ -1360,13 +1360,13 @@ class Instance:
         return self.__get_snl_model().getTruthTable()
 
 
-def get_top_db() -> snl.SNLDB:
-    if snl.SNLUniverse.get() is None:
-        snl.SNLUniverse.create()
-    if snl.SNLUniverse.get().getTopDB() is None:
-        db = snl.SNLDB.create(snl.SNLUniverse.get())
-        snl.SNLUniverse.get().setTopDB(db)
-    return snl.SNLUniverse.get().getTopDB()
+def get_top_db() -> snl.NLDB:
+    if snl.NLUniverse.get() is None:
+        snl.NLUniverse.create()
+    if snl.NLUniverse.get().getTopDB() is None:
+        db = snl.NLDB.create(snl.NLUniverse.get())
+        snl.NLUniverse.get().setTopDB(db)
+    return snl.NLUniverse.get().getTopDB()
 
 
 def get_top():
@@ -1387,9 +1387,9 @@ def create_top(name: str) -> Instance:
     # init
     db = get_top_db()
     # create top design
-    lib = snl.SNLLibrary.create(db)
+    lib = snl.NLLibrary.create(db)
     top = snl.SNLDesign.create(lib, name)
-    snl.SNLUniverse.get().setTopDesign(top)
+    snl.NLUniverse.get().setTopDesign(top)
     return Instance()
 
 
@@ -1430,10 +1430,10 @@ def load_primitives(name: str):
         raise ValueError(f"Unknown primitives library: {name}")
 
 
-def get_primitives_library() -> snl.SNLLibrary:
+def get_primitives_library() -> snl.NLLibrary:
     lib = get_top_db().getLibrary("PRIMS")
     if lib is None:
-        lib = snl.SNLLibrary.createPrimitives(get_top_db(), "PRIMS")
+        lib = snl.NLLibrary.createPrimitives(get_top_db(), "PRIMS")
     return lib
 
 
@@ -1443,7 +1443,7 @@ def get_model_name(id: tuple[int, int, int]) -> str:
     :return: the name of the model given its id or None if it does not exist.
     :rtype: str or None
     """
-    u = snl.SNLUniverse.get()
+    u = snl.NLUniverse.get()
     if u:
         db = u.getDB(id[0])
         if db:

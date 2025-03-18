@@ -7,7 +7,7 @@
 
 #include <boost/intrusive/set.hpp>
 
-#include "SNLName.h"
+#include "NLName.h"
 #include "NajaObject.h"
 
 namespace naja { namespace SNL {
@@ -33,7 +33,7 @@ class SNLInstParameter : public NajaObject {
     /// \brief Destroy this instance parameter. 
     void destroy();
     /// \return The name of the parameter.
-    SNLName getName() const;
+    NLName getName() const;
     /// \return The instance to which this instance parameter belongs.
     SNLInstance* getInstance() const { return instance_; }
     /// \return The instantiated parameter.
@@ -50,10 +50,10 @@ class SNLInstParameter : public NajaObject {
       return lp.getName() < rp.getName();
     }
     struct SNLInstanceParameterComp {
-      bool operator()(const SNLName& ln, const SNLInstParameter& rp) const {
+      bool operator()(const NLName& ln, const SNLInstParameter& rp) const {
         return ln < rp.getName();
       }
-      bool operator()(const SNLInstParameter& lp, const SNLName& rn) const {
+      bool operator()(const SNLInstParameter& lp, const NLName& rn) const {
         return lp.getName() < rn;
       }
     };

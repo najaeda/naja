@@ -29,12 +29,12 @@ class LoadlessLogicRemover {
   std::vector<DNLID> getUntracedIsos(
       const naja::DNL::DNL<DNLInstanceFull, DNLTerminalFull>& dnl,
       const tbb::concurrent_unordered_set<DNLID>& tracedIsos);
-  std::vector<std::pair<std::vector<SNLID::DesignObjectID>, DNLID>> getLoadlessInstances(
+  std::vector<std::pair<std::vector<NLID::DesignObjectID>, DNLID>> getLoadlessInstances(
       const naja::DNL::DNL<DNLInstanceFull, DNLTerminalFull>& dnl,
       const tbb::concurrent_unordered_set<DNLID>& tracedIsos);
   void removeLoadlessInstances(
       SNLDesign* top,
-      std::vector<std::pair<std::vector<SNLID::DesignObjectID>, DNLID>>&
+      std::vector<std::pair<std::vector<NLID::DesignObjectID>, DNLID>>&
           loadlessInstances);
   void removeLoadlessLogic();
   std::string collectStatistics() const;
@@ -44,7 +44,7 @@ class LoadlessLogicRemover {
   }
  private:
   naja::DNL::DNL<DNLInstanceFull, DNLTerminalFull>* dnl_;
-  std::vector<std::pair<std::vector<SNLID::DesignObjectID>, DNLID>> loadlessInstances_;
+  std::vector<std::pair<std::vector<NLID::DesignObjectID>, DNLID>> loadlessInstances_;
   std::string report_;
   bool normalizedUniquification_ = true;
 };

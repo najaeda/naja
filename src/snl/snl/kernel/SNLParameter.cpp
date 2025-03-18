@@ -6,8 +6,9 @@
 
 #include <sstream>
 
+#include "NLException.h"
+
 #include "SNLDesign.h"
-#include "SNLException.h"
 
 namespace naja { namespace SNL {
 
@@ -27,11 +28,11 @@ std::string SNLParameter::Type::getString() const {
 }
 //LCOV_EXCL_STOP
 
-SNLParameter::SNLParameter(SNLDesign* design, const SNLName& name, Type type, const std::string& value):
+SNLParameter::SNLParameter(SNLDesign* design, const NLName& name, Type type, const std::string& value):
   design_(design), name_(name), type_(type), value_(value)
 {}
 
-SNLParameter* SNLParameter::create(SNLDesign* design, const SNLName& name, Type type, const std::string& value) {
+SNLParameter* SNLParameter::create(SNLDesign* design, const NLName& name, Type type, const std::string& value) {
   preCreate(design, name);
   SNLParameter* parameter = new SNLParameter(design, name, type, value);
   parameter->postCreate();
@@ -42,10 +43,10 @@ void SNLParameter::postCreate() {
   design_->addParameter(this);
 }
 
-void SNLParameter::preCreate(SNLDesign* design, const SNLName& name) {
+void SNLParameter::preCreate(SNLDesign* design, const NLName& name) {
   if (design->getParameter(name)) {
     std::string reason = "SNLDesign " + design->getString() + " contains already a SNLParameter named: " + name.getString();
-    throw SNLException(reason);
+    throw NLException(reason);
   }
 }
 

@@ -4,9 +4,10 @@
 
 #include "gtest/gtest.h"
 
-#include "SNLUniverse.h"
+#include "NLUniverse.h"
+#include "NLException.h"
+
 #include "SNLPath.h"
-#include "SNLException.h"
 using namespace naja::SNL;
 
 class SNLPathTest0: public ::testing::Test {
@@ -19,23 +20,23 @@ class SNLPathTest0: public ::testing::Test {
       //                 |-> prim0
       //                 |-> prim1
       // 
-      auto universe = SNLUniverse::create();
-      auto db = SNLDB::create(universe);
-      auto primitivesLib = SNLLibrary::create(db, SNLLibrary::Type::Primitives);
-      auto designsLib = SNLLibrary::create(db);
-      auto prim = SNLDesign::create(primitivesLib, SNLDesign::Type::Primitive, SNLName("PRIM"));
-      auto top = SNLDesign::create(designsLib, SNLName("TOP"));
-      auto h0 = SNLDesign::create(designsLib, SNLName("H0"));
-      auto h1 = SNLDesign::create(designsLib, SNLName("H1"));
-      auto h2 = SNLDesign::create(designsLib, SNLName("H2"));
-      prim0Instance_ = SNLInstance::create(h2, prim, SNLName("prim0"));
-      prim1Instance_ = SNLInstance::create(h2, prim, SNLName("prim1"));
-      h2Instance_ = SNLInstance::create(h1, h2, SNLName("h2"));
-      h1Instance_ = SNLInstance::create(h0, h1, SNLName("h1"));
-      h0Instance_ = SNLInstance::create(top, h0, SNLName("h0"));
+      auto universe = NLUniverse::create();
+      auto db = NLDB::create(universe);
+      auto primitivesLib = NLLibrary::create(db, NLLibrary::Type::Primitives);
+      auto designsLib = NLLibrary::create(db);
+      auto prim = SNLDesign::create(primitivesLib, SNLDesign::Type::Primitive, NLName("PRIM"));
+      auto top = SNLDesign::create(designsLib, NLName("TOP"));
+      auto h0 = SNLDesign::create(designsLib, NLName("H0"));
+      auto h1 = SNLDesign::create(designsLib, NLName("H1"));
+      auto h2 = SNLDesign::create(designsLib, NLName("H2"));
+      prim0Instance_ = SNLInstance::create(h2, prim, NLName("prim0"));
+      prim1Instance_ = SNLInstance::create(h2, prim, NLName("prim1"));
+      h2Instance_ = SNLInstance::create(h1, h2, NLName("h2"));
+      h1Instance_ = SNLInstance::create(h0, h1, NLName("h1"));
+      h0Instance_ = SNLInstance::create(top, h0, NLName("h0"));
     }
     void TearDown() override {
-      SNLUniverse::get()->destroy();
+      NLUniverse::get()->destroy();
     }
 
     SNLInstance* prim0Instance_ {nullptr};
@@ -46,7 +47,7 @@ class SNLPathTest0: public ::testing::Test {
 };
 
 TEST_F(SNLPathTest0, testEmptyPath) {
-  ASSERT_NE(SNLUniverse::get(), nullptr);
+  ASSERT_NE(NLUniverse::get(), nullptr);
   auto emptyPath = SNLPath();
   EXPECT_TRUE(emptyPath.empty());
   EXPECT_EQ(0, emptyPath.size());
@@ -229,20 +230,20 @@ TEST_F(SNLPathTest0, comparePaths) {
 TEST_F(SNLPathTest0, testErrors) {
   SNLInstance* instance = nullptr;
   SNLPath emptyPath;
-  EXPECT_THROW(SNLPath(instance, emptyPath), SNLException);
-  EXPECT_THROW(SNLPath(emptyPath, instance), SNLException);
+  EXPECT_THROW(SNLPath(instance, emptyPath), NLException);
+  EXPECT_THROW(SNLPath(emptyPath, instance), NLException);
   //incompatible paths
   ASSERT_NE(h0Instance_, nullptr);
   ASSERT_NE(prim0Instance_, nullptr);
-  EXPECT_THROW(SNLPath(SNLPath(h0Instance_), prim0Instance_), SNLException);
-  EXPECT_THROW(SNLPath(h0Instance_, SNLPath(prim0Instance_)), SNLException);
+  EXPECT_THROW(SNLPath(SNLPath(h0Instance_), prim0Instance_), NLException);
+  EXPECT_THROW(SNLPath(h0Instance_, SNLPath(prim0Instance_)), NLException);
 
   //Path Descriptor errors
   SNLPath::PathStringDescriptor pathDescriptor0 = { "h0", "h1", "", "prim"};
-  EXPECT_THROW(SNLPath(h0Instance_->getDesign(), pathDescriptor0), SNLException);
+  EXPECT_THROW(SNLPath(h0Instance_->getDesign(), pathDescriptor0), NLException);
 
   SNLPath::PathStringDescriptor pathDescriptor1 = { "h0", "h1", "h3", "prim"};
-  EXPECT_THROW(SNLPath(h0Instance_->getDesign(), pathDescriptor1), SNLException);
+  EXPECT_THROW(SNLPath(h0Instance_->getDesign(), pathDescriptor1), NLException);
 }
 
 TEST_F(SNLPathTest0, testInstanceDestroy0) {
@@ -270,7 +271,7 @@ TEST_F(SNLPathTest0, testInstanceDestroy1) {
   h0Instance_ = nullptr;
   {
     SNLPath::PathStringDescriptor pathDescriptor0 = { "h0", "h1", "h2", "prim0"};
-    EXPECT_THROW(SNLPath(top, pathDescriptor0), SNLException);
+    EXPECT_THROW(SNLPath(top, pathDescriptor0), NLException);
 
     SNLPath::PathStringDescriptor pathDescriptor1 = { "h1", "h2", "prim0"};
     auto path = SNLPath(h1Instance_->getDesign(), pathDescriptor1);
@@ -300,7 +301,7 @@ TEST_F(SNLPathTest0, testInstanceDestroy2) {
   h2Instance_ = nullptr;
   {
     SNLPath::PathStringDescriptor pathDescriptor0 = { "h0", "h1", "h2", "prim0" };
-    EXPECT_THROW(SNLPath(top, pathDescriptor0), SNLException);
+    EXPECT_THROW(SNLPath(top, pathDescriptor0), NLException);
 
     SNLPath::PathStringDescriptor pathDescriptor1 = { "h0", "h1" };
     auto path = SNLPath(top, pathDescriptor1);

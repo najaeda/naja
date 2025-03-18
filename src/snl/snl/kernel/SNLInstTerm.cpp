@@ -7,7 +7,8 @@
 #include <sstream>
 #include <iostream>
 
-#include "SNLException.h"
+#include "NLException.h"
+
 #include "SNLDesign.h"
 #include "SNLBitTerm.h"
 #include "SNLBusNet.h"
@@ -50,15 +51,15 @@ void SNLInstTerm::destroyFromInstance() {
 }
 
 void SNLInstTerm::destroy() {
-  throw SNLException("Unauthorized destroy of SNLInstTerm");
+  throw NLException("Unauthorized destroy of SNLInstTerm");
 }
 
 SNLDesign* SNLInstTerm::getDesign() const {
   return getInstance()->getDesign();
 }
 
-SNLID SNLInstTerm::getSNLID() const {
-  return SNLDesignObject::getSNLID(SNLID::Type::InstTerm, getBitTerm()->getID(), getInstance()->getID(), getBitTerm()->getBit());
+NLID SNLInstTerm::getNLID() const {
+  return SNLDesignObject::getNLID(NLID::Type::InstTerm, getBitTerm()->getID(), getInstance()->getID(), getBitTerm()->getBit());
 }
 
 SNLTerm::Direction SNLInstTerm::getDirection() const {
@@ -71,8 +72,8 @@ bool SNLInstTerm::isAnonymous() const {
   return getBitTerm()->isAnonymous();
 }
 
-void SNLInstTerm::setName(const SNLName& name) {
-  throw SNLException("Unauthorized setName of SNLInstTerm");
+void SNLInstTerm::setName(const NLName& name) {
+  throw NLException("Unauthorized setName of SNLInstTerm");
 }
 
 //LCOV_EXCL_START

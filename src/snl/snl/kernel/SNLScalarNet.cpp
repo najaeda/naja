@@ -6,54 +6,55 @@
 
 #include <sstream>
 
-#include "SNLDB.h"
-#include "SNLLibrary.h"
+#include "NLDB.h"
+#include "NLLibrary.h"
+#include "NLException.h"
+
 #include "SNLDesign.h"
 #include "SNLAttributes.h"
-#include "SNLException.h"
 #include "SNLMacros.h"
 
 namespace naja { namespace SNL {
 
-SNLScalarNet::SNLScalarNet(SNLDesign* design, const SNLName& name):
+SNLScalarNet::SNLScalarNet(SNLDesign* design, const NLName& name):
   super(),
   design_(design),
   name_(name)
 {}
 
-SNLScalarNet::SNLScalarNet(SNLDesign* design, SNLID::DesignObjectID id, const SNLName& name):
+SNLScalarNet::SNLScalarNet(SNLDesign* design, NLID::DesignObjectID id, const NLName& name):
   super(),
   design_(design),
   id_(id),
   name_(name)
 {}
 
-SNLScalarNet* SNLScalarNet::create(SNLDesign* design, const SNLName& name) {
+SNLScalarNet* SNLScalarNet::create(SNLDesign* design, const NLName& name) {
   preCreate(design, name);
   SNLScalarNet* net = new SNLScalarNet(design, name);
   net->postCreateAndSetID();
   return net;
 }
 
-SNLScalarNet* SNLScalarNet::create(SNLDesign* design, SNLID::DesignObjectID id, const SNLName& name) {
+SNLScalarNet* SNLScalarNet::create(SNLDesign* design, NLID::DesignObjectID id, const NLName& name) {
   preCreate(design, id, name);
   SNLScalarNet* net = new SNLScalarNet(design, id, name);
   net->postCreate();
   return net;
 }
 
-void SNLScalarNet::preCreate(const SNLDesign* design, const SNLName& name) {
+void SNLScalarNet::preCreate(const SNLDesign* design, const NLName& name) {
   super::preCreate();
   if (not design) {
-    throw SNLException("malformed SNLScalarNet creator with NULL design argument");
+    throw NLException("malformed SNLScalarNet creator with NULL design argument");
   }
   if (not name.empty() and design->getNet(name)) {
     std::string reason = "SNLDesign " + design->getString() + " contains already a SNLScalarNet named: " + name.getString();
-    throw SNLException(reason);
+    throw NLException(reason);
   }
 }
 
-void SNLScalarNet::preCreate(const SNLDesign* design, SNLID::DesignObjectID id, const SNLName& name) {
+void SNLScalarNet::preCreate(const SNLDesign* design, NLID::DesignObjectID id, const NLName& name) {
   preCreate(design, name);
   if (auto conflict = design->getNet(id)) {
     std::ostringstream reason;
@@ -65,7 +66,7 @@ void SNLScalarNet::preCreate(const SNLDesign* design, SNLID::DesignObjectID id, 
       reason << " " << name.getString() << " ScalarNet";
     }
     reason << ". This design contains already a SNLNet: " << conflict->getDescription() << " with conflicting ID.";
-    throw SNLException(reason.str());
+    throw NLException(reason.str());
   }
 }
 
@@ -103,8 +104,8 @@ SNLNet* SNLScalarNet::clone(SNLDesign* design) const {
   return newNet;
 }
 
-SNLID SNLScalarNet::getSNLID() const {
-  return SNLDesignObject::getSNLID(SNLID::Type::Net, id_, 0, 0);
+NLID SNLScalarNet::getNLID() const {
+  return SNLDesignObject::getNLID(NLID::Type::Net, id_, 0, 0);
 }
 
 NajaCollection<SNLBitNet*> SNLScalarNet::getBits() const {

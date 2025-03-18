@@ -5,8 +5,8 @@
 import snl
 
 def constructEquipotentialDesign(db):
-  primitivesLib = snl.SNLLibrary.createPrimitives(db, "Primitives")
-  designLib = snl.SNLLibrary.create(db, "DESIGN")
+  primitivesLib = snl.NLLibrary.createPrimitives(db, "Primitives")
+  designLib = snl.NLLibrary.create(db, "DESIGN")
 
   #Primitive
   prim = snl.SNLDesign.createPrimitive(primitivesLib, "PRIM")

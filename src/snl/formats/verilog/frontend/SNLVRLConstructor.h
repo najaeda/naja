@@ -16,7 +16,7 @@
 
 namespace naja { namespace SNL {
 
-class SNLLibrary;
+class NLLibrary;
 class SNLDesign;
 class SNLScalarNet;
 
@@ -24,7 +24,7 @@ class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
   public:
     SNLVRLConstructor() = delete;
     SNLVRLConstructor(const SNLVRLConstructor&) = delete;
-    SNLVRLConstructor(SNLLibrary* library);
+    SNLVRLConstructor(NLLibrary* library);
 
     static SNLNet::Type VRLTypeToSNLType(const naja::verilog::Net::Type& type);
     static SNLTerm::Direction VRLDirectionToSNLDirection(const naja::verilog::Port::Direction& direction);
@@ -90,7 +90,7 @@ class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
     bool              firstPass_                      {true};
     bool              blackboxDetection_              {true};
     bool              parseAttributes_                {true};
-    SNLLibrary*       library_                        {nullptr};
+    NLLibrary*        library_                        {nullptr};
     Attributes        nextObjectAttributes_           {};
     SNLDesign*        currentModule_                  {nullptr};
     std::string       currentModelName_               {};

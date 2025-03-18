@@ -13,11 +13,10 @@
 
 #include "SNLDesignModeling.h"
 #include "SNLDesignTruthTable.h"
-#include "SNLLibraryTruthTables.h"
+#include "NLLibraryTruthTables.h"
 #include "SNLScalarNet.h"
 #include "SNLTruthTable.h"
 #include "SNLUniquifier.h"
-
 
 #include "Reduction.h"
 using namespace naja::DNL;
@@ -132,7 +131,7 @@ void ConstantPropagation::initializeTypesID() {
 }
 
 void ConstantPropagation::collectConstants() {
-  auto logic0 = SNLLibraryTruthTables::getDesignForTruthTable(
+  auto logic0 = NLLibraryTruthTables::getDesignForTruthTable(
                     *(dnl_->getTop()
                           .getSNLModel()
                           ->getDB()
@@ -140,7 +139,7 @@ void ConstantPropagation::collectConstants() {
                           .begin()),
                     SNLTruthTable::Logic0())
                     .first;
-  auto logic1 = SNLLibraryTruthTables::getDesignForTruthTable(
+  auto logic1 = NLLibraryTruthTables::getDesignForTruthTable(
                     *(dnl_->getTop()
                           .getSNLModel()
                           ->getDB()
@@ -193,7 +192,7 @@ unsigned ConstantPropagation::computeOutputValue(DNLID instanceID) {
     return (unsigned)-1;
     // LCOV_EXCL_STOP
   }
-  std::vector<std::pair<SNLID::DesignObjectID, int>> constTerms;
+  std::vector<std::pair<NLID::DesignObjectID, int>> constTerms;
   for (DNLID termId = instance.getTermIndexes().first;
        termId != DNLID_MAX and termId <= instance.getTermIndexes().second;
        termId++) {
@@ -919,7 +918,7 @@ void ConstantPropagation::changeDriverToLocal0(SNLInstTerm* term, DNLID id) {
   term->setNet(nullptr);
   std::string name(std::string("logic0_naja_") +
                    term->getDesign()->getName().getString());
-  auto netName = SNLName(name + "_net");
+  auto netName = NLName(name + "_net");
   SNLNet* assign0 = term->getDesign()->getNet(netName);
   if (nullptr == assign0) {
     assign0 = SNLScalarNet::create(term->getDesign(), netName);
@@ -930,21 +929,21 @@ void ConstantPropagation::changeDriverToLocal0(SNLInstTerm* term, DNLID id) {
   // find primitives library
   if (term->getDB()->getPrimitiveLibraries().size() != 1) {
     // LCOV_EXCL_START
-    throw SNLException("There should be only one primitive library");
+    throw NLException("There should be only one primitive library");
     // LCOV_EXCL_STOP
   }
   auto primitives = *term->getDB()->getPrimitiveLibraries().begin();
   auto logic0 =
-      SNLLibraryTruthTables::getDesignForTruthTable(primitives, tt).first;
+      NLLibraryTruthTables::getDesignForTruthTable(primitives, tt).first;
 
-  SNLInstance* logic0Inst = term->getDesign()->getInstance(SNLName(name));
+  SNLInstance* logic0Inst = term->getDesign()->getInstance(NLName(name));
   if (nullptr == logic0Inst) {
     if (logic0 == nullptr) {
       // LCOV_EXCL_START
-      throw SNLException("No logic0 design found");
+      throw NLException("No logic0 design found");
       // LCOV_EXCL_STOP
     }
-    logic0Inst = SNLInstance::create(term->getDesign(), logic0, SNLName(name));
+    logic0Inst = SNLInstance::create(term->getDesign(), logic0, NLName(name));
   }
   (*logic0Inst->getInstTerms().begin())->setNet(assign0);
 }
@@ -953,7 +952,7 @@ void ConstantPropagation::changeDriverToLocal1(SNLInstTerm* term, DNLID id) {
   term->setNet(nullptr);
   std::string name(std::string("logic1_naja_") +
                    term->getDesign()->getName().getString());
-  auto netName = SNLName(name + "_net");
+  auto netName = NLName(name + "_net");
   SNLNet* assign1 = term->getDesign()->getNet(netName);
   if (nullptr == assign1) {
     assign1 = SNLScalarNet::create(term->getDesign(), netName);
@@ -965,20 +964,20 @@ void ConstantPropagation::changeDriverToLocal1(SNLInstTerm* term, DNLID id) {
   // find primitives library
   if (term->getDB()->getPrimitiveLibraries().size() != 1) {
     // LCOV_EXCL_START
-    throw SNLException("There should be only one primitive library");
+    throw NLException("There should be only one primitive library");
     // LCOV_EXCL_STOP
   }
   auto primitives = *term->getDB()->getPrimitiveLibraries().begin();
   auto logic1 =
-      SNLLibraryTruthTables::getDesignForTruthTable(primitives, tt).first;
-  SNLInstance* logic1Inst = term->getDesign()->getInstance(SNLName(name));
+      NLLibraryTruthTables::getDesignForTruthTable(primitives, tt).first;
+  SNLInstance* logic1Inst = term->getDesign()->getInstance(NLName(name));
   if (nullptr == logic1Inst) {
     if (logic1 == nullptr) {
       // LCOV_EXCL_START
-      throw SNLException("No logic1 design found");
+      throw NLException("No logic1 design found");
       // LCOV_EXCL_STOP
     }
-    logic1Inst = SNLInstance::create(term->getDesign(), logic1, SNLName(name));
+    logic1Inst = SNLInstance::create(term->getDesign(), logic1, NLName(name));
   }
   (*logic1Inst->getInstTerms().begin())->setNet(assign1);
 }
@@ -999,15 +998,15 @@ void ConstantPropagation::propagateConstants() {
         constant0TopReaders_.push_back(readerTerm.getSnlBitTerm());
         continue;
       }
-      std::vector<SNLID::DesignObjectID> path;
+      std::vector<NLID::DesignObjectID> path;
       DNLInstanceFull currentInstance = readerInst;
       while (currentInstance.isTop() == false) {
         path.push_back(currentInstance.getSNLInstance()->getID());
         currentInstance = currentInstance.getParentInstance();
       }
       std::reverse(path.begin(), path.end());
-      constant0Readers_.push_back(std::tuple<std::vector<SNLID::DesignObjectID>,
-                                             SNLID::DesignObjectID, DNLID>(
+      constant0Readers_.push_back(std::tuple<std::vector<NLID::DesignObjectID>,
+                                             NLID::DesignObjectID, DNLID>(
           path, readerTerm.getSnlTerm()->getBitTerm()->getID(),
           readerInst.getID()));
     }
@@ -1027,29 +1026,29 @@ void ConstantPropagation::propagateConstants() {
         constant1TopReaders_.push_back(readerTerm.getSnlBitTerm());
         continue;
       }
-      std::vector<SNLID::DesignObjectID> path;
+      std::vector<NLID::DesignObjectID> path;
       DNLInstanceFull currentInstance = readerInst;
       while (currentInstance.isTop() == false) {
         path.push_back(currentInstance.getSNLInstance()->getID());
         currentInstance = currentInstance.getParentInstance();
       }
       std::reverse(path.begin(), path.end());
-      constant1Readers_.push_back(std::tuple<std::vector<SNLID::DesignObjectID>,
-                                             SNLID::DesignObjectID, DNLID>(
+      constant1Readers_.push_back(std::tuple<std::vector<NLID::DesignObjectID>,
+                                             NLID::DesignObjectID, DNLID>(
           path, readerTerm.getSnlTerm()->getBitTerm()->getID(),
           readerInst.getID()));
     }
   }
   for (DNLID instId : partialConstantInstances_) {
     DNLInstanceFull inst = dnl_->getDNLInstanceFromID(instId);
-    std::vector<SNLID::DesignObjectID> path;
+    std::vector<NLID::DesignObjectID> path;
     DNLInstanceFull currentInstance = inst;
     while (currentInstance.isTop() == false) {
       path.push_back(currentInstance.getSNLInstance()->getID());
       currentInstance = currentInstance.getParentInstance();
     }
     std::reverse(path.begin(), path.end());
-    std::vector<std::pair<SNLID::DesignObjectID, int>> instTerms;
+    std::vector<std::pair<NLID::DesignObjectID, int>> instTerms;
     // size_t numInputs = 0;
     for (DNLID termId = inst.getTermIndexes().first;
          termId <= inst.getTermIndexes().second; termId++) {
@@ -1058,18 +1057,18 @@ void ConstantPropagation::propagateConstants() {
           SNLBitTerm::Direction::Input) {
         // numInputs++;
         if (constants0_.find(term.getIsoID()) != constants0_.end()) {
-          instTerms.push_back(std::pair<SNLID::DesignObjectID, int>(
+          instTerms.push_back(std::pair<NLID::DesignObjectID, int>(
               term.getSnlTerm()->getBitTerm()->getID(), 0));
         } else if (constants1_.find(term.getIsoID()) != constants1_.end()) {
-          instTerms.push_back(std::pair<SNLID::DesignObjectID, int>(
+          instTerms.push_back(std::pair<NLID::DesignObjectID, int>(
               term.getSnlTerm()->getBitTerm()->getID(), 1));
         }
       }
     }
     // assert(numInputs > instTerms.size());
     partialConstantReaders_.push_back(
-        std::tuple<std::vector<SNLID::DesignObjectID>,
-                   std::vector<std::pair<SNLID::DesignObjectID, int>>, DNLID>(
+        std::tuple<std::vector<NLID::DesignObjectID>,
+                   std::vector<std::pair<NLID::DesignObjectID, int>>, DNLID>(
             path, instTerms, inst.getID()));
   }
   if (!normalizedUniquification_) {
@@ -1084,7 +1083,7 @@ void ConstantPropagation::propagateConstants() {
       term->setNet(nullptr);
       std::string name(std::string("logic0_naja_") +
                        term->getDesign()->getName().getString());
-      auto netName = SNLName(name + "_net");
+      auto netName = NLName(name + "_net");
       SNLNet* assign0 = term->getDesign()->getNet(netName);
       if (nullptr == assign0) {
         assign0 = SNLScalarNet::create(term->getDesign(), netName);
@@ -1092,13 +1091,13 @@ void ConstantPropagation::propagateConstants() {
       assign0->setType(naja::SNL::SNLNet::Type::Supply0);
       term->setNet(assign0);
       SNLTruthTable tt(0, 0);
-      auto logic0 = SNLLibraryTruthTables::getDesignForTruthTable(
+      auto logic0 = NLLibraryTruthTables::getDesignForTruthTable(
                         *(term->getDB()->getPrimitiveLibraries().begin()), tt)
                         .first;
-      SNLInstance* logic0Inst = term->getDesign()->getInstance(SNLName(name));
+      SNLInstance* logic0Inst = term->getDesign()->getInstance(NLName(name));
       if (nullptr == logic0Inst) {
         logic0Inst =
-            SNLInstance::create(term->getDesign(), logic0, SNLName(name));
+            SNLInstance::create(term->getDesign(), logic0, NLName(name));
       }
       (*logic0Inst->getInstTerms().begin())->setNet(assign0);
     }
@@ -1113,7 +1112,7 @@ void ConstantPropagation::propagateConstants() {
       term->setNet(nullptr);
       std::string name(std::string("logic1_naja_") +
                        term->getDesign()->getName().getString());
-      auto netName = SNLName(name + "_net");
+      auto netName = NLName(name + "_net");
       SNLNet* assign1 = term->getDesign()->getNet(netName);
       if (nullptr == assign1) {
         assign1 = SNLScalarNet::create(term->getDesign(), netName);
@@ -1121,13 +1120,13 @@ void ConstantPropagation::propagateConstants() {
       assign1->setType(naja::SNL::SNLNet::Type::Supply1);
       term->setNet(assign1);
       SNLTruthTable tt(0, 1);
-      auto logic1 = SNLLibraryTruthTables::getDesignForTruthTable(
+      auto logic1 = NLLibraryTruthTables::getDesignForTruthTable(
                         *(term->getDB()->getPrimitiveLibraries().begin()), tt)
                         .first;
-      SNLInstance* logic1Inst = term->getDesign()->getInstance(SNLName(name));
+      SNLInstance* logic1Inst = term->getDesign()->getInstance(NLName(name));
       if (nullptr == logic1Inst) {
         logic1Inst =
-            SNLInstance::create(term->getDesign(), logic1, SNLName(name));
+            SNLInstance::create(term->getDesign(), logic1, NLName(name));
       }
       (*logic1Inst->getInstTerms().begin())->setNet(assign1);
     }
@@ -1140,7 +1139,7 @@ void ConstantPropagation::propagateConstants() {
                                      std::get<1>(path), 0);
     }
     for (SNLBitTerm* term : constant0TopReaders_) {
-      bne.addDriveWithConstantAction(std::vector<SNLID::DesignObjectID>(),
+      bne.addDriveWithConstantAction(std::vector<NLID::DesignObjectID>(),
                                      (unsigned)-1, (unsigned)-1, 0, term);
     }
     for (auto& path : constant1Readers_) {
@@ -1150,7 +1149,7 @@ void ConstantPropagation::propagateConstants() {
                                      std::get<1>(path), 1);
     }
     for (SNLBitTerm* term : constant1TopReaders_) {
-      bne.addDriveWithConstantAction(std::vector<SNLID::DesignObjectID>(),
+      bne.addDriveWithConstantAction(std::vector<NLID::DesignObjectID>(),
                                      (unsigned)-1, (unsigned)-1, 1, term);
     }
     bne.process();

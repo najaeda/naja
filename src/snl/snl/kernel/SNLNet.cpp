@@ -37,8 +37,8 @@ std::string SNLNet::Type::getString() const {
 }
 //LCOV_EXCL_STOP
 
-SNLID::DesignObjectReference SNLNet::getReference() const {
-  return SNLID::DesignObjectReference(getDesign()->getReference(), getID());
+NLID::DesignObjectReference SNLNet::getReference() const {
+  return NLID::DesignObjectReference(getDesign()->getReference(), getID());
 }
 
 }} // namespace SNL // namespace naja

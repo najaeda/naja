@@ -6,17 +6,17 @@
 #ifndef __SNL_LIBERTY_CONSTRUCTOR_EXCEPTION_H_
 #define __SNL_LIBERTY_CONSTRUCTOR_EXCEPTION_H_
 
-#include "SNLException.h"
+#include "NLException.h"
 
 namespace naja { namespace SNL {
 
-struct SNLLibertyConstructorException: public SNLException {
+struct SNLLibertyConstructorException: public NLException {
   public:
     SNLLibertyConstructorException() = delete;
     SNLLibertyConstructorException(const SNLLibertyConstructorException&) = default;
 
     SNLLibertyConstructorException(const std::string& reason):
-      SNLException(reason)
+      NLException(reason)
     {}
 };
 

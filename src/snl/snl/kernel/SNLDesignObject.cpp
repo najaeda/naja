@@ -4,8 +4,8 @@
 
 #include "SNLDesignObject.h"
 
-#include "SNLDB.h"
-#include "SNLLibrary.h"
+#include "NLDB.h"
+#include "NLLibrary.h"
 #include "SNLDesign.h"
 
 namespace naja { namespace SNL {
@@ -18,20 +18,20 @@ void SNLDesignObject::preDestroy() {
   super::preDestroy();
 }
 
-SNLLibrary* SNLDesignObject::getLibrary() const {
+NLLibrary* SNLDesignObject::getLibrary() const {
   return getDesign()->getLibrary();
 }
 
-SNLDB* SNLDesignObject::getDB() const {
+NLDB* SNLDesignObject::getDB() const {
   return getLibrary()->getDB();
 }
 
-SNLID SNLDesignObject::getSNLID(
-    const SNLID::Type& type,
-    SNLID::DesignObjectID objectID,
-    SNLID::DesignObjectID instanceID,
-    SNLID::Bit bit) const {
-  return SNLID(type,
+NLID SNLDesignObject::getNLID(
+    const NLID::Type& type,
+    NLID::DesignObjectID objectID,
+    NLID::DesignObjectID instanceID,
+    NLID::Bit bit) const {
+  return NLID(type,
       getDB()->getID(),
       getLibrary()->getID(),
       getDesign()->getID(),

@@ -6,8 +6,9 @@
 
 #include <sstream>
 
+#include "NLException.h"
+
 #include "SNLDesign.h"
-#include "SNLException.h"
 
 namespace naja { namespace SNL {
 
@@ -22,7 +23,7 @@ SNLSharedPath::SNLSharedPath(SNLInstance* tailInstance, SNLSharedPath* headShare
     stream << " with model " << headSharedPath_->getModel()->getString();
     stream << " and " << tailInstance->getString();
     stream << " with parent design: " << tailInstance->getDesign()->getString();
-    throw SNLException(stream.str());
+    throw NLException(stream.str());
   }
   tailInstance_->addSharedPath(this);
 }
@@ -126,8 +127,8 @@ std::string SNLSharedPath::getString(char separator) {
   return "";
 }
 
-std::vector<SNLID::DesignObjectID> SNLSharedPath::getPathIDs() const {
-  std::vector<SNLID::DesignObjectID> result;
+std::vector<NLID::DesignObjectID> SNLSharedPath::getPathIDs() const {
+  std::vector<NLID::DesignObjectID> result;
   if (headSharedPath_ != nullptr) {
     result = headSharedPath_->getPathIDs();
     result.push_back(tailInstance_->getID());

@@ -22,7 +22,8 @@
 #include "NajaPerf.h"
 #include "NajaUtils.h"
 
-#include "SNLException.h"
+#include "NLUniverse.h"
+#include "NLException.h"
 #include "SNLPyEdit.h"
 #include "SNLPyLoader.h"
 #include "SNLUtils.h"
@@ -34,7 +35,6 @@
 #include "DNL.h"
 #include "RemoveLoadlessLogic.h"
 #include "SNLCapnP.h"
-#include "SNLUniverse.h"
 #include "Reduction.h"
 #include "Utils.h"
 #include "NetlistGraph.h"
@@ -262,11 +262,11 @@ int main(int argc, char* argv[]) {
   }
 
   try {
-    SNLDB* db = nullptr;
-    SNLLibrary* primitivesLibrary = nullptr;
+    NLDB* db = nullptr;
+    NLLibrary* primitivesLibrary = nullptr;
     {
       naja::NajaPerf::Scope scope("SNL Creation");
-      SNLUniverse::create();
+      NLUniverse::create();
 
       if (inputFormatType == FormatType::SNL) {
         naja::NajaPerf::Scope scope("Parsing SNL format");
@@ -277,7 +277,7 @@ int main(int argc, char* argv[]) {
         const auto start{std::chrono::steady_clock::now()};
         auto inputPath = inputPaths[0];
         db = SNLCapnP::load(inputPath);
-        SNLUniverse::get()->setTopDesign(db->getTopDesign());
+        NLUniverse::get()->setTopDesign(db->getTopDesign());
         const auto end{std::chrono::steady_clock::now()};
         const std::chrono::duration<double> elapsed_seconds{end - start};
         {
@@ -287,9 +287,9 @@ int main(int argc, char* argv[]) {
         }
       } else if (inputFormatType == FormatType::VERILOG) {
         naja::NajaPerf::Scope scope("Parsing verilog");
-        db = SNLDB::create(SNLUniverse::get());
-        primitivesLibrary = SNLLibrary::create(db, SNLLibrary::Type::Primitives,
-                                               SNLName("PRIMS"));
+        db = NLDB::create(NLUniverse::get());
+        primitivesLibrary = NLLibrary::create(db, NLLibrary::Type::Primitives,
+                                               NLName("PRIMS"));
         for (const auto& path : primitivesPaths) {
           SPDLOG_INFO("Parsing primitives file: {}", path.string());
           auto extension = path.extension();
@@ -307,7 +307,7 @@ int main(int argc, char* argv[]) {
           }
         }
 
-        auto designLibrary = SNLLibrary::create(db, SNLName("DESIGN"));
+        auto designLibrary = NLLibrary::create(db, NLName("DESIGN"));
         SNLVRLConstructor constructor(designLibrary);
         const auto start{std::chrono::steady_clock::now()};
         {
@@ -326,7 +326,7 @@ int main(int argc, char* argv[]) {
         constructor.construct(inputPaths);
         auto top = SNLUtils::findTop(designLibrary);
         if (top) {
-          SNLUniverse::get()->setTopDesign(top);
+          NLUniverse::get()->setTopDesign(top);
           SPDLOG_INFO("Found top design: " + top->getString());
         } else {
           SPDLOG_ERROR("No top design was found after parsing verilog");
@@ -339,8 +339,8 @@ int main(int argc, char* argv[]) {
           SPDLOG_INFO(oss.str());
         }
     } else if (inputFormatType == FormatType::NOT_PROVIDED) {
-      db = SNLDB::create(SNLUniverse::get());
-      SNLUniverse::get()->setTopDB(db);
+      db = NLDB::create(NLUniverse::get());
+      NLUniverse::get()->setTopDB(db);
       } else {
         SPDLOG_CRITICAL("Unrecognized input format type: {}", inputFormat);
         std::exit(EXIT_FAILURE);
@@ -475,7 +475,7 @@ int main(int argc, char* argv[]) {
         dumper.dumpLibrary(primitivesLibrary, output);
       }
     }
-  } catch (const SNLException& e) {
+  } catch (const NLException& e) {
     //SPDLOG_CRITICAL("Caught SNL error: {}\n{}",
     //  e.what(), e.trace().to_string()); 
     SPDLOG_CRITICAL("Caught SNL error: {}\n", e.what());

@@ -24,6 +24,6 @@ class NetlistStatistics {
   std::string report_;
 };
 
-SNLInstance *getInstanceForPath(const std::vector<SNLID::DesignObjectID> &pathToModel);
+SNLInstance *getInstanceForPath(const std::vector<NLID::DesignObjectID> &pathToModel);
 
 }  // namespace naja::BNE

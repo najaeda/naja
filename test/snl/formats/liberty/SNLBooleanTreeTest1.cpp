@@ -4,7 +4,8 @@
 
 #include "gtest/gtest.h"
 
-#include "SNLUniverse.h"
+#include "NLUniverse.h"
+
 #include "SNLScalarTerm.h"
 #include "SNLBooleanTree.h"
 #include "SNLLibertyConstructorException.h"
@@ -13,26 +14,26 @@ using namespace naja::SNL;
 class SNLBooleanTreeTest1: public ::testing::Test {
   protected:
     void SetUp() override {
-      SNLUniverse* universe = SNLUniverse::create();
-      auto db = SNLDB::create(universe);
-      library_ = SNLLibrary::create(db, SNLLibrary::Type::Primitives, SNLName("MYLIB"));
+      NLUniverse* universe = NLUniverse::create();
+      auto db = NLDB::create(universe);
+      library_ = NLLibrary::create(db, NLLibrary::Type::Primitives, NLName("MYLIB"));
     }
     void TearDown() override {
-      SNLUniverse::get()->destroy();
+      NLUniverse::get()->destroy();
       library_ = nullptr;
     }
   protected:
-    SNLLibrary*      library_;
+    NLLibrary*      library_;
 };
 
 TEST_F(SNLBooleanTreeTest1, testError0) {
-  auto and2 = SNLDesign::create(library_, SNLDesign::Type::Primitive, SNLName("AND2"));
-  SNLScalarTerm::create(and2, SNLTerm::Direction::Input, SNLName("A"));
-  SNLScalarTerm::create(and2, SNLTerm::Direction::Input, SNLName("B"));
-  SNLScalarTerm::create(and2, SNLTerm::Direction::Output, SNLName("Y"));
+  auto and2 = SNLDesign::create(library_, SNLDesign::Type::Primitive, NLName("AND2"));
+  SNLScalarTerm::create(and2, SNLTerm::Direction::Input, NLName("A"));
+  SNLScalarTerm::create(and2, SNLTerm::Direction::Input, NLName("B"));
+  SNLScalarTerm::create(and2, SNLTerm::Direction::Output, NLName("Y"));
   auto tree = std::make_unique<SNLBooleanTree>();
-  auto aNode = tree->getOrCreateInputNode(and2->getScalarTerm(SNLName("A")));
-  auto bNode = tree->getOrCreateInputNode(and2->getScalarTerm(SNLName("B")));
+  auto aNode = tree->getOrCreateInputNode(and2->getScalarTerm(NLName("A")));
+  auto bNode = tree->getOrCreateInputNode(and2->getScalarTerm(NLName("B")));
   auto invNode = new SNLBooleanTreeFunctionNode(SNLBooleanTreeFunctionNode::Type::NOT);
   tree->setRoot(invNode);
   invNode->addInput(aNode);
@@ -41,13 +42,13 @@ TEST_F(SNLBooleanTreeTest1, testError0) {
 }
 
 TEST_F(SNLBooleanTreeTest1, testError1) {
-  auto and2 = SNLDesign::create(library_, SNLDesign::Type::Primitive, SNLName("AND2"));
-  SNLScalarTerm::create(and2, SNLTerm::Direction::Input, SNLName("A"));
-  SNLScalarTerm::create(and2, SNLTerm::Direction::Input, SNLName("B"));
-  SNLScalarTerm::create(and2, SNLTerm::Direction::Output, SNLName("Y"));
+  auto and2 = SNLDesign::create(library_, SNLDesign::Type::Primitive, NLName("AND2"));
+  SNLScalarTerm::create(and2, SNLTerm::Direction::Input, NLName("A"));
+  SNLScalarTerm::create(and2, SNLTerm::Direction::Input, NLName("B"));
+  SNLScalarTerm::create(and2, SNLTerm::Direction::Output, NLName("Y"));
   auto tree = std::make_unique<SNLBooleanTree>();
-  auto aNode = tree->getOrCreateInputNode(and2->getScalarTerm(SNLName("A")));
-  auto bNode = tree->getOrCreateInputNode(and2->getScalarTerm(SNLName("B")));
+  auto aNode = tree->getOrCreateInputNode(and2->getScalarTerm(NLName("A")));
+  auto bNode = tree->getOrCreateInputNode(and2->getScalarTerm(NLName("B")));
   auto bufNode = new SNLBooleanTreeFunctionNode(SNLBooleanTreeFunctionNode::Type::BUFFER);
   tree->setRoot(bufNode);
   bufNode->addInput(aNode);

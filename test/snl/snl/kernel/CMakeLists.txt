@@ -5,8 +5,9 @@
 INCLUDE(GoogleTest)
 
 SET(snl_tests
-  SNLIDTest.cpp
-  SNLUniverseTest.cpp SNLDBTest.cpp SNLLibraryTest.cpp
+  NLIDTest.cpp
+  NLUniverseTest.cpp NLDBTest.cpp NLLibraryTest.cpp
+  NLDB0Test.cpp
   SNLDesignTest.cpp SNLDesignCloneTest.cpp
   SNLTermTest.cpp
   SNLInstanceTest0.cpp SNLInstanceTest1.cpp SNLInstanceTest2.cpp
@@ -15,7 +16,6 @@ SET(snl_tests
   SNLPathTest0.cpp SNLPathTest1.cpp SNLPathTest2.cpp
   SNLOccurrenceTest.cpp SNLParameterTest.cpp
   SNLAttributesTest.cpp
-  SNLDB0Test.cpp
   SNLMergeAssignsTest.cpp
   SNLUtilsTest.cpp
 )
@@ -38,6 +38,6 @@ if(NOT BUILD_NAJA_PYTHON)
   GTEST_DISCOVER_TESTS(snlTestsWithPyLoader
     DISCOVERY_TIMEOUT 30
     PROPERTIES ENVIRONMENT
-    PYTHONPATH=${PROJECT_BINARY_DIR}/src/snl/python/snl_wrapping
+    PYTHONPATH=${PROJECT_BINARY_DIR}/src/snl/python/nl_wrapping
   )
 endif(NOT BUILD_NAJA_PYTHON)

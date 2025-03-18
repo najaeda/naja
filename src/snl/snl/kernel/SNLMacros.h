@@ -19,7 +19,7 @@ void TYPE::setNet(SNLNet* net) { \
     std::string reason = "Impossible setNet call with incompatible designs: "; \
     reason += getString() + " is in " + getDesign()->getString() + " while "; \
     reason += net->getString() + " is in " + net->getDesign()->getString(); \
-    throw SNLException(reason); \
+    throw NLException(reason); \
   } \
   SNLBitNet* bitNet = nullptr; \
   if (net) { \
@@ -31,7 +31,7 @@ void TYPE::setNet(SNLNet* net) { \
           std::ostringstream reason; \
           reason << "In design " << getDesign()->getString() << ", cannot set " << getString(); \
           reason << " to " << net->getString() << ", bus width is " << bus->getWidth(); \
-          throw SNLException(reason.str()); \
+          throw NLException(reason.str()); \
         } \
         bitNet = bus->getBit(bus->getMSB()); \
       } \
@@ -73,7 +73,7 @@ void TYPE::setNet(SNLNet* net) { \
 }
 
 #define DESIGN_OBJECT_SET_NAME(TYPE, METHOD_TYPE, STRING) \
-void TYPE::setName(const SNLName& name) { \
+void TYPE::setName(const NLName& name) { \
   if (name_ == name) { \
     return; \
   } \
@@ -85,7 +85,7 @@ void TYPE::setName(const SNLName& name) { \
         << ", cannot rename " << getString() << " to " \
         << name.getString() << ", another #STRING: " << collision->getString() \
         << " has already this name."; \
-      throw SNLException(reason.str()); \
+      throw NLException(reason.str()); \
     } \
   } \
   auto previousName = getName(); \
@@ -94,7 +94,7 @@ void TYPE::setName(const SNLName& name) { \
 }
 
 #define OWNER_RENAME(OWNER, TYPE, MAP) \
-void OWNER::rename(TYPE* object, const SNLName& previousName) { \
+void OWNER::rename(TYPE* object, const NLName& previousName) { \
   /*if object was anonymous, and new one is not... just insert with new name */ \
   if (previousName.empty()) { \
     if (not object->isAnonymous()) { \

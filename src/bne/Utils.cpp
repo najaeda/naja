@@ -8,9 +8,9 @@
 #include <vector>
 #include <sstream>
 
-#include "SNLUniverse.h"
+#include "NLUniverse.h"
+#include "NLDB0.h"
 #include "SNLBusNetBit.h"
-#include "SNLDB0.h"
 
 using namespace naja::SNL;
 using namespace naja::DNL;
@@ -34,10 +34,10 @@ namespace naja::BNE {
     report_ = ss.str();
   }
 
-  SNLInstance *getInstanceForPath(const std::vector<SNLID::DesignObjectID> &pathToModel)
+  SNLInstance *getInstanceForPath(const std::vector<NLID::DesignObjectID> &pathToModel)
   {
-    std::vector<SNLID::DesignObjectID> path = pathToModel;
-    SNLDesign *top = SNLUniverse::get()->getTopDesign();
+    std::vector<NLID::DesignObjectID> path = pathToModel;
+    SNLDesign *top = NLUniverse::get()->getTopDesign();
     SNLDesign *designToSet = top;
     SNLInstance *inst = nullptr;
 #ifdef DEBUG_PRINTS
@@ -45,7 +45,7 @@ namespace naja::BNE {
 #endif
     while (!path.empty())
     {
-      SNLID::DesignObjectID name = path.front();
+      NLID::DesignObjectID name = path.front();
       path.erase(path.begin());
       inst = designToSet->getInstance(name);
 #ifdef DEBUG_PRINTS

@@ -5,11 +5,15 @@
 add_subdirectory(serialization)
 add_subdirectory(visual)
 
+set(NL_SOURCES
+  nl/NLObject.cpp
+  nl/NLUniverse.cpp
+  nl/NLDB.cpp nl/NLDB0.cpp
+  nl/NLLibrary.cpp
+)
+
 set(SNL_KERNEL_SOURCES
-  kernel/SNLObject.cpp
   kernel/SNLAttributes.cpp
-  kernel/SNLUniverse.cpp kernel/SNLDB.cpp kernel/SNLDB0.cpp
-  kernel/SNLLibrary.cpp
   kernel/SNLDesignObject.cpp
   kernel/SNLNet.cpp kernel/SNLBusNet.cpp
   kernel/SNLBitNet.cpp kernel/SNLScalarNet.cpp kernel/SNLBusNetBit.cpp
@@ -29,18 +33,19 @@ set(SNL_KERNEL_SOURCES
   kernel/SNLUniquifier.cpp
 )
 set(SNL_DECORATOR_SOURCES
+  decorators/NLLibraryTruthTables.cpp
   decorators/SNLDesignModeling.cpp
-  decorators/SNLLibraryTruthTables.cpp
   decorators/SNLDesignTruthTable.cpp
 )
 
-set(SNL_HEADERS
-  kernel/SNLName.h
+set(HEADERS
+  nl/NLName.h
+  nl/NLID.h
+  nl/NLObject.h
+  nl/NLLibrary.h nl/NLDesign.h
+  nl/NLUniverse.h nl/NLDB.h
+  nl/NLException.h
   kernel/SNLAttributes.h
-  kernel/SNLID.h
-  kernel/SNLObject.h
-  kernel/SNLUniverse.h kernel/SNLDB.h
-  kernel/SNLLibrary.h kernel/SNLDesign.h
   kernel/SNLDesignObject.h
   kernel/SNLNet.h kernel/SNLBusNet.h
   kernel/SNLBitNet.h kernel/SNLScalarNet.h kernel/SNLBusNetBit.h
@@ -51,7 +56,6 @@ set(SNL_HEADERS
   kernel/SNLInstance.h kernel/SNLInstTerm.h
   kernel/SNLSharedPath.h kernel/SNLPath.h
   kernel/SNLParameter.h kernel/SNLInstParameter.h
-  kernel/SNLException.h
   kernel/SNLUtils.h
   kernel/SNLOccurrence.h
   kernel/SNLBitNetOccurrence.h
@@ -64,7 +68,7 @@ set(SNL_HEADERS
   decorators/SNLLibraryTruthTables.h
 )
 
-add_library(naja_snl SHARED ${SNL_KERNEL_SOURCES} ${SNL_DECORATOR_SOURCES})
+add_library(naja_snl SHARED ${NL_SOURCES} ${SNL_KERNEL_SOURCES} ${SNL_DECORATOR_SOURCES})
 
 target_link_libraries(naja_snl PUBLIC naja_core)
 target_compile_options(naja_snl PRIVATE ${NAJA_CXX_WARNINGS}) 
@@ -73,6 +77,7 @@ target_compile_options(naja_snl PRIVATE ${NAJA_CXX_WARNINGS})
 
 target_include_directories(naja_snl SYSTEM BEFORE PUBLIC ${Boost_INCLUDE_DIR})
 target_include_directories(naja_snl PUBLIC
+  ${CMAKE_CURRENT_SOURCE_DIR}/nl
   ${CMAKE_CURRENT_SOURCE_DIR}/kernel
   ${CMAKE_CURRENT_SOURCE_DIR}/decorators
 )
