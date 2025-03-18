@@ -53,7 +53,7 @@ jobs:
     - name: TestSNLKernelWithPyLoader
       working-directory: ${{github.workspace}}/build/test/snl/snl/kernel
       env:
-        PYTHONPATH: ${{env.PYTHONPATH}}:${{github.workspace}}/build/src/snl/python/snl_wrapping
+        PYTHONPATH: ${{env.PYTHONPATH}}:${{github.workspace}}/build/src/snl/python/nl_wrapping
         PYTHONMALLOC: malloc
       run: valgrind --error-exitcode=1 --show-leak-kinds=definite --leak-check=full --errors-for-leak-kinds=definite ./snlTestsWithPyLoader
 
@@ -68,7 +68,7 @@ jobs:
     - name: TestSNLVRLConstructor
       working-directory: ${{github.workspace}}/build/test/snl/formats/verilog/frontend
       env:
-        PYTHONPATH: ${{env.PYTHONPATH}}:${{github.workspace}}/build/src/snl/python/snl_wrapping
+        PYTHONPATH: ${{env.PYTHONPATH}}:${{github.workspace}}/build/src/snl/python/nl_wrapping
         PYTHONMALLOC: malloc
       run: valgrind --error-exitcode=1 --show-leak-kinds=definite --leak-check=full --errors-for-leak-kinds=definite ./snlVRLConstructorTests
 
@@ -83,7 +83,7 @@ jobs:
     - name: TestSNLPyLoader
       working-directory: ${{github.workspace}}/build/test/snl/python/pyloader
       env:
-        PYTHONPATH: ${{env.PYTHONPATH}}:${{github.workspace}}/build/src/snl/python/snl_wrapping
+        PYTHONPATH: ${{env.PYTHONPATH}}:${{github.workspace}}/build/src/snl/python/nl_wrapping
         PYTHONMALLOC: malloc
       run: valgrind --error-exitcode=1 --show-leak-kinds=definite --leak-check=full --errors-for-leak-kinds=definite ./snlPyLoaderTests --gtest_filter=-"*testFaultyPythonScript*" 
 
@@ -109,7 +109,7 @@ jobs:
     #- name: TestReductionOpt
     #  working-directory: ${{github.workspace}}/build/test/logic_opt
     #  env:
-    #    PYTHONPATH: ${{env.PYTHONPATH}}:${{github.workspace}}/build/src/snl/python/snl_wrapping
+    #    PYTHONPATH: ${{env.PYTHONPATH}}:${{github.workspace}}/build/src/snl/python/nl_wrapping
     #    PYTHONMALLOC: malloc
     #  run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./reductionOptTests
     #  #run: valgrind --error-exitcode=1 ./reductionOptTests
