@@ -3,13 +3,13 @@ from naja import snl
 
 def edit():
   logging.basicConfig(filename='edit.log', filemode='w' ,level=logging.DEBUG)
-  universe = snl.SNLUniverse.get()
+  universe = snl.NLUniverse.get()
   if universe is None:
-    logging.critical('No loaded SNLUniverse')
+    logging.critical('No loaded NLUniverse')
     return 1
   top = universe.getTopDesign()
   if top is None:
-    logging.critical('SNLUniverse does not contain any top SNLDesign')
+    logging.critical('NLUniverse does not contain any top SNLDesign')
     return 1
   else:
     logging.info('Found top design ' + str(top))
