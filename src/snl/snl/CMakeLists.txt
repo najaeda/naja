@@ -45,6 +45,7 @@ set(HEADERS
   nl/NLLibrary.h nl/NLDesign.h
   nl/NLUniverse.h nl/NLDB.h
   nl/NLException.h
+  decorators/NLLibraryTruthTables.h
   kernel/SNLAttributes.h
   kernel/SNLDesignObject.h
   kernel/SNLNet.h kernel/SNLBusNet.h
@@ -65,7 +66,6 @@ set(HEADERS
   kernel/SNLEquipotential.h
   decorators/SNLDesignModeling.h
   decorators/SNLTruthTable.h
-  decorators/SNLLibraryTruthTables.h
 )
 
 add_library(naja_snl SHARED ${NL_SOURCES} ${SNL_KERNEL_SOURCES} ${SNL_DECORATOR_SOURCES})
@@ -85,7 +85,7 @@ target_include_directories(naja_snl PUBLIC ${SPDLOG_DIR})
 if(BUILD_NAJA_PYTHON)
   install(TARGETS naja_snl LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/najaeda)
 else(BUILD_NAJA_PYTHON)
-  set_target_properties(naja_snl PROPERTIES PUBLIC_HEADER "${SNL_HEADERS}")
+  set_target_properties(naja_snl PROPERTIES PUBLIC_HEADER "${HEADERS}")
   install(TARGETS naja_snl
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
