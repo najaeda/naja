@@ -42,11 +42,12 @@ set(HEADERS
   nl/NLName.h
   nl/NLID.h
   nl/NLObject.h
-  nl/NLLibrary.h nl/NLDesign.h
+  nl/NLLibrary.h
   nl/NLUniverse.h nl/NLDB.h
   nl/NLException.h
   decorators/NLLibraryTruthTables.h
   kernel/SNLAttributes.h
+  kernel/SNLDesign.h
   kernel/SNLDesignObject.h
   kernel/SNLNet.h kernel/SNLBusNet.h
   kernel/SNLBitNet.h kernel/SNLScalarNet.h kernel/SNLBusNetBit.h
