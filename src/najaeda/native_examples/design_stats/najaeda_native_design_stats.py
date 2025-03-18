@@ -16,8 +16,8 @@ benchmarks = path.join('..', '..', 'benchmarks')
 liberty_files = ['NangateOpenCellLibrary_typical.lib', 'fakeram45_1024x32.lib', 'fakeram45_64x32.lib']
 liberty_files = list(map(lambda p:path.join(benchmarks, 'liberty', p), liberty_files))
 
-u = snl.SNLUniverse.create()
-db = snl.SNLDB.create(u)
+u = snl.NLUniverse.create()
+db = snl.NLDB.create(u)
 db.loadLibertyPrimitives(liberty_files)
 
 files = [path.join(benchmarks, 'verilog', 'tinyrocket.v')]
