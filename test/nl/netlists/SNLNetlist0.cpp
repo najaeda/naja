@@ -15,7 +15,7 @@
 #include "SNLBusNetBit.h"
 #include "SNLInstTerm.h" 
 
-using namespace naja::SNL;
+using namespace naja::NL;
 
 SNLDesign* SNLNetlist0::create(NLDB* db) {
   auto primsLib = NLLibrary::create(db, NLLibrary::Type::Primitives, NLName("PRIMS"));

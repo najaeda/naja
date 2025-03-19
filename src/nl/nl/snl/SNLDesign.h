@@ -13,7 +13,7 @@
 #include "SNLInstance.h"
 #include "SNLParameter.h"
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 class NLLibrary;
 class SNLScalarNet;
@@ -372,6 +372,6 @@ class SNLDesign final: public NLObject {
     SNLDesignParameters                 parameters_         {};
 };
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja
 
 #endif // __SNL_DESIGN_H_

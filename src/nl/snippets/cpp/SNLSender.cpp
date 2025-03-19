@@ -8,7 +8,7 @@
 #include "SNLCapnP.h"
 #include "SNLUniverseSnippet.h"
 
-using namespace naja::SNL;
+using namespace naja::NL;
 
 int main(int argc, char* argv[]) {
   if (argc != 3) {

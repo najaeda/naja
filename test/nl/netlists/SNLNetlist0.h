@@ -7,7 +7,7 @@
 
 #include <string>
 
-namespace naja::SNL {
+namespace naja::NL {
   class NLDB;
   class NLLibrary;
 
@@ -42,16 +42,16 @@ class SNLNetlist0 {
     static constexpr char ModuleI1Name[]    { "i1" };
     static constexpr char ModuleOName[]     { "o" };
     
-    static naja::SNL::SNLDesign* create(naja::SNL::NLDB* db);
-    static naja::SNL::NLDB* getDB();
-    static naja::SNL::NLLibrary* getDesignsLib();
-    static naja::SNL::SNLDesign* getTop();
-    static naja::SNL::SNLInstance* getTopIns0();
-    static naja::SNL::SNLInstance* getTopIns1();
-    static naja::SNL::SNLBusTerm* getTopITerm();
-    static naja::SNL::SNLBusTerm* getTopOTerm();
-    static naja::SNL::SNLBusNet* getTopINet();
-    static naja::SNL::SNLScalarNet* getTopONet();
+    static naja::NL::SNLDesign* create(naja::NL::NLDB* db);
+    static naja::NL::NLDB* getDB();
+    static naja::NL::NLLibrary* getDesignsLib();
+    static naja::NL::SNLDesign* getTop();
+    static naja::NL::SNLInstance* getTopIns0();
+    static naja::NL::SNLInstance* getTopIns1();
+    static naja::NL::SNLBusTerm* getTopITerm();
+    static naja::NL::SNLBusTerm* getTopOTerm();
+    static naja::NL::SNLBusNet* getTopINet();
+    static naja::NL::SNLScalarNet* getTopONet();
 };
 
 #endif // __SNL_NETLIST0_H_

@@ -6,7 +6,7 @@
 
 #include "SNLBitNet.h"
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 SNLBitNetOccurrence::SNLBitNetOccurrence(SNLBitNet* net):
   SNLOccurrence(net)
@@ -20,4 +20,4 @@ SNLBitNet* SNLBitNetOccurrence::getNet() const {
   return static_cast<SNLBitNet*>(getObject());
 }
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja

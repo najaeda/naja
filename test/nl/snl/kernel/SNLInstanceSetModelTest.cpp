@@ -16,7 +16,7 @@
 #include "SNLInstTerm.h"
 #include "SNLScalarNet.h"
 #include "SNLBusNet.h"
-using namespace naja::SNL;
+using namespace naja::NL;
 
 class SNLInstanceSetModelTest: public ::testing::Test {
   protected:

@@ -9,7 +9,7 @@
 //#include <boost/asio.hpp>
 #include "NLID.h"
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 class NLDB;
 
@@ -50,6 +50,6 @@ class SNLCapnP {
     //static NLDB* receiveImplementation(boost::asio::ip::tcp::socket& socket); 
 };
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja
 
 #endif // __SNL_CAPNP_H_

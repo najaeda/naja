@@ -8,20 +8,20 @@
 #include <Python.h>
 #include "NajaCollection.h"
 
-namespace naja::SNL {
+namespace naja::NL {
   class SNLInstTerm;
 }
 
-namespace PYSNL {
+namespace PYNAJA {
 
 typedef struct {
   PyObject_HEAD
-  naja::NajaCollection<naja::SNL::SNLInstTerm*>* object_;
+  naja::NajaCollection<naja::NL::SNLInstTerm*>* object_;
 } PySNLInstTerms;
 
 typedef struct {
   PyObject_HEAD
-  naja::NajaCollection<naja::SNL::SNLInstTerm*>::Iterator* object_;
+  naja::NajaCollection<naja::NL::SNLInstTerm*>::Iterator* object_;
   PySNLInstTerms* container_;
 } PySNLInstTermsIterator;
 
@@ -30,6 +30,6 @@ extern PyTypeObject PyTypeSNLInstTermsIterator;
 
 extern void PySNLInstTerms_LinkPyType();
 
-} /* PYSNL namespace */
+} /* PYNAJA namespace */
  
 #endif /* __PY_SNL_INST_TERMS_H_ */

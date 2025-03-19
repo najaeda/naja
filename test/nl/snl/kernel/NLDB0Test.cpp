@@ -9,7 +9,7 @@
 #include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
 #include "NLException.h"
-using namespace naja::SNL;
+using namespace naja::NL;
 
 class NLDB0Test: public ::testing::Test {
   protected:

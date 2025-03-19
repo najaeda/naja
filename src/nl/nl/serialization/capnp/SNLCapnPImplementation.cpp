@@ -31,7 +31,7 @@
 
 namespace {
 
-using namespace naja::SNL;
+using namespace naja::NL;
 
 DBImplementation::LibraryImplementation::DesignImplementation::NetType SNLtoCapnPNetType(SNLNet::Type type) {
   switch (type) {
@@ -469,7 +469,7 @@ void loadLibraryImplementation(NLDB* db, const DBImplementation::LibraryImplemen
 
 }
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 void SNLCapnP::dumpImplementation(const NLDB* snlDB, int fileDescriptor) {
   dumpImplementation(snlDB, fileDescriptor, snlDB->getID());
@@ -568,4 +568,4 @@ NLDB* SNLCapnP::loadImplementation(const std::filesystem::path& implementationPa
 //}
 //LCOV_EXCL_STOP
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja

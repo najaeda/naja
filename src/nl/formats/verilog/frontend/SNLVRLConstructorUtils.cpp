@@ -8,7 +8,7 @@
 #include <sstream>
 #include "SNLVRLConstructorException.h"
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 void SNLVRLConstructorUtils::setBit(boost::dynamic_bitset<>& bits, size_t i) {
   if (i<bits.size()) {
@@ -36,7 +36,7 @@ boost::dynamic_bitset<> SNLVRLConstructorUtils::numberToBits(const naja::verilog
           default: {
             std::stringstream stream;
             stream << "In SNLVRLConstructorUtils::numberToBits, unrecognized binary character: " << c;
-            throw naja::SNL::SNLVRLConstructorException(stream.str());
+            throw naja::NL::SNLVRLConstructorException(stream.str());
           }
         }
       }
@@ -68,7 +68,7 @@ boost::dynamic_bitset<> SNLVRLConstructorUtils::numberToBits(const naja::verilog
           default: {
             std::stringstream stream;
             stream << "In SNLVRLConstructorUtils::numberToBits, unrecognized Hexadecimal character: " << c;
-            throw naja::SNL::SNLVRLConstructorException(stream.str());
+            throw naja::NL::SNLVRLConstructorException(stream.str());
           }
         }
         i+=4;
@@ -82,7 +82,7 @@ boost::dynamic_bitset<> SNLVRLConstructorUtils::numberToBits(const naja::verilog
       std::stringstream stream;
       stream << "In SNLVRLConstructorUtils::numberToBits, unsupported format: "
         << naja::verilog::BasedNumber::getBaseString(number.base_);
-      throw naja::SNL::SNLVRLConstructorException(stream.str());
+      throw naja::NL::SNLVRLConstructorException(stream.str());
     }
   }
   return boost::dynamic_bitset<>();

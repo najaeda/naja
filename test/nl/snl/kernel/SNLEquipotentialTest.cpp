@@ -12,7 +12,7 @@ using ::testing::ElementsAre;
 #include "SNLPath.h"
 #include "SNLEquipotential.h"
 #include "SNLPyLoader.h"
-using namespace naja::SNL;
+using namespace naja::NL;
 
 #ifndef SNL_BENCHS_PATH
 #define SNL_BENCHS_PATH "Undefined"

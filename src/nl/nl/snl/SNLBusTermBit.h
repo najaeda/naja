@@ -7,7 +7,7 @@
 
 #include "SNLBitTerm.h"
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 class SNLBusTerm;
 
@@ -57,6 +57,6 @@ class SNLBusTermBit final: public SNLBitTerm {
     NLID::Bit   bit_;
 };
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja
 
 #endif // __SNL_BUS_TERM_H_

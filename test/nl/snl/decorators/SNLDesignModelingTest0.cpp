@@ -11,7 +11,7 @@ using ::testing::ElementsAre;
 
 #include "SNLDesignModeling.h"
 #include "SNLScalarTerm.h"
-using namespace naja::SNL;
+using namespace naja::NL;
 
 class SNLDesignModelingTest0: public ::testing::Test {
   protected:

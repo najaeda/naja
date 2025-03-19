@@ -10,7 +10,7 @@
 
 #include "NLID.h"
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 class SNLInstance;
 class SNLDesign;
@@ -60,6 +60,6 @@ class SNLSharedPath {
     SNLInstance*                        tailInstance_             {nullptr};
 };
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja
 
 #endif // __SNL_SHARED_PATH_H_

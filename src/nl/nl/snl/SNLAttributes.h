@@ -8,7 +8,7 @@
 #include "NajaCollection.h"
 #include "NLName.h"
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 class NLObject;
 class SNLDesign;
@@ -96,6 +96,6 @@ class SNLAttributes {
     static NajaCollection<SNLAttribute> getAttributes(const NLObject* object);
 };
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja
 
 #endif // __SNL_ATTRIBUTES_H_

@@ -8,7 +8,7 @@
 
 #include "SNLTerm.h"
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 class SNLInstance;
 class SNLBitTerm;
@@ -53,6 +53,6 @@ class SNLInstTerm final: public SNLNetComponent {
     SNLBitNet*    net_      { nullptr};
 };
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja
 
 #endif /* __SNL_INST_TERM_H_ */

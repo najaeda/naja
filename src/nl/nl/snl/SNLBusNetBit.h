@@ -7,7 +7,7 @@
 
 #include "SNLBitNet.h"
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 class SNLBusNet;
 
@@ -50,6 +50,6 @@ class SNLBusNetBit final: public SNLBitNet {
     NLID::Bit   bit_;
 };
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja
 
 #endif // __SNL_BUS_NET_BIT_H_

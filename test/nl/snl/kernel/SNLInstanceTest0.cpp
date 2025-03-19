@@ -17,7 +17,7 @@ using ::testing::ElementsAre;
 #include "SNLBusTermBit.h"
 #include "SNLInstance.h"
 #include "SNLInstTerm.h"
-using namespace naja::SNL;
+using namespace naja::NL;
 
 class SNLInstanceTest0: public ::testing::Test {
   protected:

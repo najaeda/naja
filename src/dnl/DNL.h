@@ -24,10 +24,10 @@
 #include "tbb/parallel_for.h"
 #include "tbb/enumerable_thread_specific.h"
 
-using namespace naja::SNL;
+using namespace naja::NL;
 
 namespace naja {
-namespace SNL {
+namespace NL {
 class SNLBitNet;
 }
 }  // namespace naja

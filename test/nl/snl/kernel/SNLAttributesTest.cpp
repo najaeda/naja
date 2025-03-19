@@ -12,7 +12,7 @@ using ::testing::ElementsAre;
 #include "SNLScalarTerm.h"
 #include "SNLScalarNet.h"
 #include "SNLAttributes.h"
-using namespace naja::SNL;
+using namespace naja::NL;
 
 class SNLAttributesTest: public ::testing::Test {
   protected:

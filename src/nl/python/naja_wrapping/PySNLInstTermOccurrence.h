@@ -8,22 +8,22 @@
 #include <Python.h>
 #include "SNLInstTermOccurrence.h"
 
-namespace PYSNL {
+namespace PYNAJA {
 
 typedef struct {
   PyObject_HEAD
-  naja::SNL::SNLInstTermOccurrence* object_;
+  naja::NL::SNLInstTermOccurrence* object_;
 } PySNLInstTermOccurrence;
 
 extern PyTypeObject PyTypeSNLInstTermOccurrence;
 
-extern PyObject*  PySNLInstTermOccurrence_Link(const naja::SNL::SNLInstTermOccurrence& occurrence);
+extern PyObject*  PySNLInstTermOccurrence_Link(const naja::NL::SNLInstTermOccurrence& occurrence);
 extern void       PySNLInstTermOccurrence_LinkPyType();
 
 #define IsPySNLInstTermOccurrence(v) (PyObject_TypeCheck(v, &PyTypeSNLInstTermOccurrence))
 #define PYSNLInstTermOccurrence(v)   ((PySNLInstTermOccurrence*)(v))
 #define PYSNLInstTermOccurrence_O(v) (PYSNLInstTermOccurrence(v)->object_)
 
-} // PYSNL namespace
+} // PYNAJA namespace
  
 #endif // __PY_SNL_INST_TREM_OCCURRENCE_H_

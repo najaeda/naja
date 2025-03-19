@@ -10,7 +10,7 @@
 #include "NLName.h"
 #include "NajaObject.h"
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 class SNLInstance;
 class SNLParameter;
@@ -70,6 +70,6 @@ class SNLInstParameter : public NajaObject {
     boost::intrusive::set_member_hook<> instParametersHook_ {};
 };
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja
 
 #endif // __SNL_INST_PARAMETER_H_

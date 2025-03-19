@@ -22,7 +22,7 @@
 #include "SNLInstance.h"
 #include "SNLUniquifier.h"
 
-using namespace naja::SNL;
+using namespace naja::NL;
 using namespace naja::BNE;
 
 ActionTree::ActionTree(bool blockNormalization, bool keepOrder)

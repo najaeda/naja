@@ -11,9 +11,9 @@
 
 #include "NLUniverse.h"
 
-namespace PYSNL {
+namespace PYNAJA {
 
-using namespace naja::SNL;
+using namespace naja::NL;
 
 #define METHOD_HEAD(function) GENERIC_METHOD_HEAD(NLUniverse, function)
 
@@ -61,11 +61,11 @@ DBoDestroyAttribute(PyNLUniverse_destroy, PyNLUniverse)
 
 PyMethodDef PyNLUniverse_Methods[] = {
   { "create", (PyCFunction)PyNLUniverse_create, METH_NOARGS|METH_STATIC,
-    "create the SNL Universe (static object)"},
+    "create the NLUniverse (static object)"},
   { "destroy", (PyCFunction)PyNLUniverse_destroy, METH_NOARGS,
     "destroy the associated NLUniverse"},
   { "get", (PyCFunction)PyNLUniverse_get, METH_NOARGS|METH_STATIC,
-    "get the SNL Universe (static object)"},
+    "get the NLUniverse (static object)"},
   { "getTopDesign", (PyCFunction)PyNLUniverse_getTopDesign, METH_NOARGS,
     "get the top SNLDesign"},
   { "setTopDesign", (PyCFunction)PyNLUniverse_setTopDesign, METH_O,

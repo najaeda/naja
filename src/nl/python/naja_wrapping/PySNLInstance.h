@@ -8,7 +8,7 @@
 #include "PySNLDesignObject.h"
 #include "SNLInstance.h"
 
-namespace PYSNL {
+namespace PYNAJA {
 
 typedef struct {
   PySNLDesignObject parent_;
@@ -16,13 +16,13 @@ typedef struct {
 
 extern PyTypeObject PyTypeSNLInstance;
 
-extern PyObject*    PySNLInstance_Link(naja::SNL::SNLInstance* u);
+extern PyObject*    PySNLInstance_Link(naja::NL::SNLInstance* u);
 extern void         PySNLInstance_LinkPyType();
 
 #define IsPySNLInstance(v) (PyObject_TypeCheck(v, &PyTypeSNLInstance))
 #define PYSNLInstance(v)   ((PySNLInstance*)(v))
-#define PYSNLInstance_O(v) (static_cast<naja::SNL::SNLInstance*>(PYSNLInstance(v)->parent_.object_))
+#define PYSNLInstance_O(v) (static_cast<naja::NL::SNLInstance*>(PYSNLInstance(v)->parent_.object_))
 
-} // PYSNL namespace
+} // PYNAJA namespace
  
 #endif // __PY_SNL_INSTANCE_H_

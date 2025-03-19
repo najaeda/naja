@@ -4,9 +4,9 @@
 
 #include "PySNLTermDirection.h"
 
-namespace PYSNL {
+namespace PYNAJA {
 
-using namespace naja::SNL;
+using namespace naja::NL;
 
 PyTypeObjectDefinitions(SNLTermDirection)
 

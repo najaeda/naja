@@ -7,7 +7,7 @@
 
 #include <string>
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 class SNLDesign;
 
@@ -39,6 +39,6 @@ class SNLDump {
     //static constexpr std::string_view DesignDBName = "design.db";
 };
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja
 
 #endif // __SNL_DUMP_H_

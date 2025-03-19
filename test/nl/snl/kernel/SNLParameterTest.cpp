@@ -10,7 +10,7 @@ using ::testing::ElementsAre;
 #include "NLException.h"
 
 #include "SNLParameter.h"
-using namespace naja::SNL;
+using namespace naja::NL;
 
 class SNLParameterTest: public ::testing::Test {
   protected:

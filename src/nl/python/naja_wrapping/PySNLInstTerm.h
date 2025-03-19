@@ -8,7 +8,7 @@
 #include "PySNLNetComponent.h"
 #include "SNLInstTerm.h"
 
-namespace PYSNL {
+namespace PYNAJA {
 
 typedef struct {
   PySNLNetComponent parent_;
@@ -16,14 +16,14 @@ typedef struct {
 
 extern PyTypeObject PyTypeSNLInstTerm;
 
-extern PyObject* PySNLInstTerm_Link(naja::SNL::SNLInstTerm*);
+extern PyObject* PySNLInstTerm_Link(naja::NL::SNLInstTerm*);
 extern void PySNLInstTerm_LinkPyType();
 extern void PySNLInstTerm_postModuleInit();
 
 #define IsPySNLInstTerm(v) (PyObject_TypeCheck(v, &PyTypeSNLInstTerm))
 #define PYSNLInstTerm(v)   ((PySNLInstTerm*)(v))
-#define PYSNLInstTerm_O(v) (static_cast<naja::SNL::SNLInstTerm*>(PYSNLInstTerm(v)->parent_.parent_.object_))
+#define PYSNLInstTerm_O(v) (static_cast<naja::NL::SNLInstTerm*>(PYSNLInstTerm(v)->parent_.parent_.object_))
 
-} /* PYSNL namespace */
+} /* PYNAJA namespace */
  
 #endif /* __PY_SNL_INSTTERM_H_ */

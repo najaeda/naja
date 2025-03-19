@@ -12,7 +12,7 @@
 #include "SNLUniquifier.h"
 
 using namespace naja::DNL;
-using namespace naja::SNL;
+using namespace naja::NL;
 using namespace naja::NAJA_OPT;
 
 // #define DEBUG_PRINTS

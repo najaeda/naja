@@ -7,7 +7,7 @@
 
 #include <cstdio>
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 class NLUniverse;
 class NLDB;
@@ -50,6 +50,6 @@ class NLDB0 {
     static constexpr char ANDName[]               { "AND" };
 };
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja
 
 #endif // __NL_DB0_H_

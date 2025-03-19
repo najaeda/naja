@@ -11,9 +11,9 @@
 
 #include "NLLibrary.h"
 
-using namespace naja::SNL;
+using namespace naja::NL;
 
-namespace PYSNL {
+namespace PYNAJA {
 
 #define METHOD_HEAD(function) GENERIC_METHOD_HEAD(NLLibrary, function)
 

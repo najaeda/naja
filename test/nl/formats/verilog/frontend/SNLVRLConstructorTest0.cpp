@@ -8,7 +8,7 @@
 #include "SNLVRLConstructor.h"
 #include "SNLVRLConstructorException.h"
 
-using namespace naja::SNL;
+using namespace naja::NL;
 
 TEST(SNLVRLConstructorTest0, test0) {
   EXPECT_EQ(SNLNet::Type::Standard,

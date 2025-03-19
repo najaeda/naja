@@ -8,7 +8,7 @@
 #include "PySNLBitTerm.h"
 #include "SNLScalarTerm.h"
 
-namespace PYSNL {
+namespace PYNAJA {
 
 typedef struct {
   PySNLBitTerm parent_;
@@ -16,13 +16,13 @@ typedef struct {
 
 extern PyTypeObject PyTypeSNLScalarTerm;
 
-extern PyObject*    PySNLScalarTerm_Link(naja::SNL::SNLScalarTerm* t);
+extern PyObject*    PySNLScalarTerm_Link(naja::NL::SNLScalarTerm* t);
 extern void         PySNLScalarTerm_LinkPyType();
 
 #define IsPySNLScalarTerm(v) (PyObject_TypeCheck(v, &PyTypeSNLScalarTerm))
 #define PYSNLScalarTerm(v)   (static_cast<PySNLScalarTerm*>(v))
 #define PYSNLScalarTerm_O(v) (PYSNLScalarTerm(v)->object_)
 
-} // PYSNL namespace
+} // PYNAJA namespace
  
 #endif // __PY_SNL_SCALAR_TERM_H_

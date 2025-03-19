@@ -14,7 +14,7 @@
 #include "ConstantPropagation.h"
 
 using namespace naja;
-using namespace naja::SNL;
+using namespace naja::NL;
 using namespace naja::NAJA_OPT;
 
 namespace {

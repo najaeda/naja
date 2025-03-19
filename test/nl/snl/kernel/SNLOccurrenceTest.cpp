@@ -17,7 +17,7 @@ using ::testing::ElementsAre;
 #include "SNLBitTermOccurrence.h"
 #include "SNLInstTermOccurrence.h"
 #include "SNLEquipotential.h"
-using namespace naja::SNL;
+using namespace naja::NL;
 
 class SNLOccurrenceTest: public ::testing::Test {
   protected:

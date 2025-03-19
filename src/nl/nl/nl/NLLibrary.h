@@ -9,7 +9,7 @@
 #include "NajaCollection.h"
 #include "SNLDesign.h"
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 class NLDB;
 
@@ -188,6 +188,6 @@ class NLLibrary final: public NLObject {
     SNLDesignNameIDMap                  designNameIDMap_      {};
 };
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja
 
 #endif // __NL_LIBRARY_H_

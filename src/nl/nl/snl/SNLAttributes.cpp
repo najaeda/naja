@@ -15,11 +15,11 @@ namespace {
 class SNLAttributesPrivateProperty: public naja::NajaPrivateProperty {
   public:
     using Inherit = naja::NajaPrivateProperty;
-    using SNLAttribute = naja::SNL::SNLAttribute;
+    using SNLAttribute = naja::NL::SNLAttribute;
     using Attributes = std::vector<SNLAttribute>;
     static const inline std::string Name = "SNLDesignTruthTableProperty";
     
-    static SNLAttributesPrivateProperty* create(naja::SNL::NLObject* object) {
+    static SNLAttributesPrivateProperty* create(naja::NL::NLObject* object) {
       preCreate(object, Name);
       auto property = new SNLAttributesPrivateProperty();
       property->postCreate(object);
@@ -36,13 +36,13 @@ class SNLAttributesPrivateProperty: public naja::NajaPrivateProperty {
     }
     //LCOV_EXCL_STOP
     
-    static SNLAttributesPrivateProperty* get(const naja::SNL::NLObject* object) {
+    static SNLAttributesPrivateProperty* get(const naja::NL::NLObject* object) {
       return static_cast<SNLAttributesPrivateProperty*>(
         object->getProperty(SNLAttributesPrivateProperty::Name)
       );
     }
 
-    static SNLAttributesPrivateProperty* getOrCreate(naja::SNL::NLObject* object) {
+    static SNLAttributesPrivateProperty* getOrCreate(naja::NL::NLObject* object) {
       auto prop = get(object);
       if (prop == nullptr) {
         prop = SNLAttributesPrivateProperty::create(object);
@@ -64,7 +64,7 @@ class SNLAttributesPrivateProperty: public naja::NajaPrivateProperty {
 
 }
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 SNLAttribute::SNLAttribute(
   const NLName& name,
@@ -161,4 +161,4 @@ void SNLAttributes::clearAttributes(NLObject* object) {
   }
 }
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja

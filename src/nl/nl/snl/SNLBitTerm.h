@@ -7,7 +7,7 @@
 
 #include "SNLTerm.h"
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 class SNLBitTerm: public SNLTerm {
   public:
@@ -38,6 +38,6 @@ class SNLBitTerm: public SNLTerm {
     NLID::DesignObjectID  orderID_  { (NLID::DesignObjectID) -1 };
 };
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja
 
 #endif // __SNL_BIT_TERM_H_

@@ -10,7 +10,7 @@
 #include "NLName.h"
 #include "SNLDesignObject.h"
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 class SNLBitNet;
 
@@ -108,6 +108,6 @@ class SNLNet: public SNLDesignObject {
     boost::intrusive::set_member_hook<> designNetsHook_ {};
 };
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja
 
 #endif // __SNL_NET_H_

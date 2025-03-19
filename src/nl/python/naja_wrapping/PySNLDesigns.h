@@ -8,20 +8,20 @@
 #include <Python.h>
 #include "NajaCollection.h"
 
-namespace naja::SNL {
+namespace naja::NL {
   class SNLDesign;
 }
 
-namespace PYSNL {
+namespace PYNAJA {
 
 typedef struct {
   PyObject_HEAD
-  naja::NajaCollection<naja::SNL::SNLDesign*>* object_;
+  naja::NajaCollection<naja::NL::SNLDesign*>* object_;
 } PySNLDesigns;
 
 typedef struct {
   PyObject_HEAD
-  naja::NajaCollection<naja::SNL::SNLDesign*>::Iterator* object_;
+  naja::NajaCollection<naja::NL::SNLDesign*>::Iterator* object_;
   PySNLDesigns* container_;
 } PySNLDesignsIterator;
 
@@ -30,6 +30,6 @@ extern PyTypeObject PyTypeSNLDesignsIterator;
 
 extern void PySNLDesigns_LinkPyType();
 
-} /* PYSNL namespace */
+} /* PYNAJA namespace */
  
 #endif /* __PY_SNL_DESIGNS_H_ */

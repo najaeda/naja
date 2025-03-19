@@ -10,7 +10,7 @@
 #include "SNLScalarTerm.h"
 #include "SNLScalarNet.h"
 #include "SNLInstTerm.h"
-using namespace naja::SNL;
+using namespace naja::NL;
 
 class SNLMergeAssignsTest: public ::testing::Test {
   protected:

@@ -8,7 +8,7 @@ using ::testing::ElementsAre;
 
 #include "NLUniverse.h"
 #include "NLException.h"
-using namespace naja::SNL;
+using namespace naja::NL;
 
 class NLLibraryTest: public ::testing::Test {
   protected:

@@ -7,7 +7,7 @@
 #include "SNLBitNet.h"
 #include "SNLDesign.h"
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 SNLNetComponent::Direction::Direction(const DirectionEnum& dirEnum):
   dirEnum_(dirEnum) 
@@ -37,4 +37,4 @@ void SNLNetComponent::preDestroy() {
   super::preDestroy();
 }
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja

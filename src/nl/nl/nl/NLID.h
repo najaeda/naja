@@ -9,7 +9,7 @@
 #include <tuple>
 #include <cstdint>
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 /**
  * \brief The NLID structure allows global comparison between the various NL objects
@@ -314,14 +314,14 @@ struct NLID final {
 
 template<typename T>
 struct NLIDComp {
-  bool operator()(const SNL::NLID& id, const T& obj) const {
+  bool operator()(const NL::NLID& id, const T& obj) const {
     return id < obj.getNLID();
   }
-  bool operator()(const T& obj, const SNL::NLID& id) const {
+  bool operator()(const T& obj, const NL::NLID& id) const {
     return obj.getNLID() < id;
   }
 };
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja
 
 #endif // __NL_ID_H_

@@ -7,7 +7,7 @@
 
 #include "NLDB.h"
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 class SNLBusTermBit;
 
@@ -118,6 +118,6 @@ class NLUniverse final: public NLObject {
     NLDB*               topDB_        {nullptr};
 };
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja
 
-#endif // __SNL_UNIVERSE_H_
+#endif // __NL_UNIVERSE_H_

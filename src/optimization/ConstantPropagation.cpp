@@ -21,7 +21,7 @@
 #include "Reduction.h"
 using namespace naja::DNL;
 using namespace naja::NAJA_OPT;
-using namespace naja::SNL;
+using namespace naja::NL;
 using namespace naja::BNE;
 
 // #define DEBUG_PRINTS
@@ -923,7 +923,7 @@ void ConstantPropagation::changeDriverToLocal0(SNLInstTerm* term, DNLID id) {
   if (nullptr == assign0) {
     assign0 = SNLScalarNet::create(term->getDesign(), netName);
   }
-  assign0->setType(naja::SNL::SNLNet::Type::Supply0);
+  assign0->setType(naja::NL::SNLNet::Type::Supply0);
   term->setNet(assign0);
   SNLTruthTable tt(0, 0);
   // find primitives library
@@ -957,7 +957,7 @@ void ConstantPropagation::changeDriverToLocal1(SNLInstTerm* term, DNLID id) {
   if (nullptr == assign1) {
     assign1 = SNLScalarNet::create(term->getDesign(), netName);
   }
-  assign1->setType(naja::SNL::SNLNet::Type::Supply1);
+  assign1->setType(naja::NL::SNLNet::Type::Supply1);
   term->setNet(assign1);
   SNLTruthTable tt(0, 1);
 
@@ -1088,7 +1088,7 @@ void ConstantPropagation::propagateConstants() {
       if (nullptr == assign0) {
         assign0 = SNLScalarNet::create(term->getDesign(), netName);
       }
-      assign0->setType(naja::SNL::SNLNet::Type::Supply0);
+      assign0->setType(naja::NL::SNLNet::Type::Supply0);
       term->setNet(assign0);
       SNLTruthTable tt(0, 0);
       auto logic0 = NLLibraryTruthTables::getDesignForTruthTable(
@@ -1117,7 +1117,7 @@ void ConstantPropagation::propagateConstants() {
       if (nullptr == assign1) {
         assign1 = SNLScalarNet::create(term->getDesign(), netName);
       }
-      assign1->setType(naja::SNL::SNLNet::Type::Supply1);
+      assign1->setType(naja::NL::SNLNet::Type::Supply1);
       term->setNet(assign1);
       SNLTruthTable tt(0, 1);
       auto logic1 = NLLibraryTruthTables::getDesignForTruthTable(

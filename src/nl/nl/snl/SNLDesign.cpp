@@ -23,7 +23,7 @@
 #include "SNLAttributes.h"
 #include "SNLMacros.h"
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 SNLDesign::Type::Type(const TypeEnum& typeEnum):
   typeEnum_(typeEnum) 
@@ -751,4 +751,4 @@ void SNLDesign::recursiveRevisionIncrement() {
   }
 }
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja

@@ -47,7 +47,7 @@
 
 #include "NajaVersion.h"
 
-namespace PYSNL {
+namespace PYNAJA {
 
 static PyObject* getVersion(PyObject* self, PyObject* args) {
   return PyUnicode_FromString(naja::NAJA_VERSION.c_str());
@@ -57,7 +57,7 @@ static PyObject* getGitVersion(PyObject* self, PyObject* args) {
   return PyUnicode_FromString(naja::NAJA_GIT_HASH.c_str());
 }
 
-static PyMethodDef SNLMethods[] = {
+static PyMethodDef NajaMethods[] = {
   { "getVersion", getVersion, METH_NOARGS, "get the version of SNL" },
   { "getGitVersion", getGitVersion, METH_NOARGS, "get the naja git hash" },
   {NULL, NULL, 0, NULL}        /* Sentinel */
@@ -68,7 +68,7 @@ static struct PyModuleDef najaModule = {
   "naja",
   "Python interface for Naja API",
   -1,
-  SNLMethods
+  NajaMethods
 };
 
 PyMODINIT_FUNC PyInit_naja(void) {

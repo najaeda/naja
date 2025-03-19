@@ -10,7 +10,7 @@
 #include "SNLTerm.h"
 #include "NajaCollection.h"
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 class SNLNet;
 class SNLBusTermBit;
@@ -125,6 +125,6 @@ class SNLBusTerm final: public SNLTerm {
     Bits                    bits_     {};
 };
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja
 
 #endif // __SNL_BUS_TERM_H_

@@ -10,7 +10,7 @@
 #include "SNLBitTerm.h"
 #include "SNLTruthTable.h"
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 class SNLDesign;
 class SNLBitTerm;
@@ -114,6 +114,6 @@ class SNLBooleanTree {
     SNLBooleanTreeFunctionNode* root_       {nullptr};  
 };
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja
 
 #endif // __SNL_BOOLEAN_TREE_H_

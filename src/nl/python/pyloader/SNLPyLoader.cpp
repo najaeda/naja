@@ -75,7 +75,7 @@ PyObject* loadModule(const std::filesystem::path& path) {
   if (not std::filesystem::exists(path)) {
     std::ostringstream reason;
     reason << path << " does not exist";
-    throw naja::SNL::NLException(reason.str());
+    throw naja::NL::NLException(reason.str());
   }
   auto absolutePath = std::filesystem::canonical(path);
 
@@ -97,7 +97,7 @@ PyObject* loadModule(const std::filesystem::path& path) {
       reason << ": empty error message";
     }
     Py_DECREF(modulePathString);
-    throw naja::SNL::NLException(reason.str());
+    throw naja::NL::NLException(reason.str());
   }
   Py_DECREF(modulePathString);
   return module;
@@ -105,7 +105,7 @@ PyObject* loadModule(const std::filesystem::path& path) {
 
 }
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 void SNLPyLoader::loadDB(
     NLDB* db,
@@ -113,7 +113,7 @@ void SNLPyLoader::loadDB(
   
   auto module = loadModule(path);
 
-  PyObject* pyDB = PYSNL::PyNLDB_Link(db);
+  PyObject* pyDB = PYNAJA::PyNLDB_Link(db);
   PyObject* constructString = PyUnicode_FromString("constructDB");
 
   PyObject* res =
@@ -169,7 +169,7 @@ void SNLPyLoader::loadLibrary(
   
   auto module = loadModule(path);
 
-  PyObject* pyLib = PYSNL::PyNLLibrary_Link(library);
+  PyObject* pyLib = PYNAJA::PyNLLibrary_Link(library);
   PyObject* constructString = nullptr;
   if (loadPrimitives) {
     constructString = PyUnicode_FromString("constructPrimitives");
@@ -214,7 +214,7 @@ void SNLPyLoader::loadDesign(
   }
   auto module = loadModule(path);
 
-  PyObject* pyDesign = PYSNL::PySNLDesign_Link(design);
+  PyObject* pyDesign = PYNAJA::PySNLDesign_Link(design);
   PyObject* constructString = PyUnicode_FromString("construct");
 
   PyObject* res =
@@ -272,4 +272,4 @@ void SNLPyEdit::edit(const std::filesystem::path& path) {
   Py_Finalize();
 }
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja

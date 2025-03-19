@@ -7,11 +7,11 @@
 
 #include "PySNLDesignObject.h"
 
-namespace naja::SNL {
+namespace naja::NL {
   class SNLNet;
 }
 
-namespace PYSNL {
+namespace PYNAJA {
 
 typedef struct {
   PySNLDesignObject parent_;
@@ -19,14 +19,14 @@ typedef struct {
 
 extern PyTypeObject PyTypeSNLNet;
 
-extern PyObject*    PySNLNet_Link(naja::SNL::SNLNet*);
+extern PyObject*    PySNLNet_Link(naja::NL::SNLNet*);
 extern void         PySNLNet_LinkPyType();
 extern void         PySNLNet_postModuleInit();
 
 #define IsPySNLNet(v) (PyObject_TypeCheck(v, &PyTypeSNLNet))
 #define PYSNLNet(v)   ((PySNLNet*)(v))
-#define PYSNLNet_O(v) (static_cast<naja::SNL::SNLNet*>(PYSNLNet(v)->parent_.object_))
+#define PYSNLNet_O(v) (static_cast<naja::NL::SNLNet*>(PYSNLNet(v)->parent_.object_))
 
-} /* PYSNL namespace */
+} /* PYNAJA namespace */
  
 #endif /* __PY_SNL_NET_H_ */

@@ -13,7 +13,7 @@
 #include "YosysLibertyException.h"
 #include "SNLLibertyConstructorException.h"
 
-using namespace naja::SNL;
+using namespace naja::NL;
 
 #ifndef SNL_LIBERTY_BENCHMARKS
 #define SNL_LIBERTY_BENCHMARKS "Undefined"

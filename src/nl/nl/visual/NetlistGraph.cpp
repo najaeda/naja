@@ -6,7 +6,7 @@
 #include "NetlistGraph.h"
 #include "SNLPath.h"
 
-using namespace naja::SNL;
+using namespace naja::NL;
 using namespace naja;
 
 void SnlVisualiser::process() {

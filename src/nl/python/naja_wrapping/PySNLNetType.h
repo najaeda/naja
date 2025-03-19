@@ -8,23 +8,23 @@
 #include "PyInterface.h"
 #include "SNLNet.h"
 
-namespace PYSNL {
+namespace PYNAJA {
 
 typedef struct {
   PyObject_HEAD
-  naja::SNL::SNLNet::Type* object_;
+  naja::NL::SNLNet::Type* object_;
 } PySNLNetType;
 
 extern PyTypeObject PyTypeSNLNetType;
 
-extern PyObject*    PySNLNetType_Link(naja::SNL::SNLNet::Type*);
+extern PyObject*    PySNLNetType_Link(naja::NL::SNLNet::Type*);
 extern void         PySNLNetType_LinkPyType();
 extern void         PySNLNetType_postModuleInit();
 
 #define IsPySNLNetType(v) (PyObject_TypeCheck(v, &PyTypeSNLNetType))
 #define PYSNLNetType(v)   (static_cast<PySNLNetType*>(v))
-#define PYSNLNetType_O(v) (static_cast<naja::SNL::SNLNet::Type*>(PYSNLNetType(v)->object_))
+#define PYSNLNetType_O(v) (static_cast<naja::NL::SNLNet::Type*>(PYSNLNetType(v)->object_))
 
-} /* PYSNL namespace */
+} /* PYNAJA namespace */
 
 #endif /* __PY_SNL_NET_TYPE_H_ */

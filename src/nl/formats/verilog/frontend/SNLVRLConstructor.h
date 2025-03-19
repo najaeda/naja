@@ -14,7 +14,7 @@
 #include "SNLNet.h"
 #include "SNLTerm.h"
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 class NLLibrary;
 class SNLDesign;
@@ -105,6 +105,6 @@ class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
     InterfacePortsMap currentModuleInterfacePortsMap_ {};
 };
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja
 
 #endif // __NAJA_VERILOG_CONSTRUCTOR_H_

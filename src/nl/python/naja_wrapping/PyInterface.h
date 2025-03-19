@@ -15,7 +15,7 @@
 #include "SNLProxyProperty.h"
 #include "sstream"
 
-namespace PYSNL {
+namespace PYNAJA {
 
 static void setError(const std::string& reason) {
   //Mabybe create a custom error type in the future ?
@@ -100,7 +100,7 @@ PyObject* richCompare(T left, T right, int op) {
 #define TRY try {
 
 #define NLCATCH                                        \
-  } catch (const naja::SNL::NLException& e) {          \
+  } catch (const naja::NL::NLException& e) {          \
     setError("SNL exception: " + e.getReason());        \
     return nullptr;                                     \
   } catch (const std::exception& e) {                   \

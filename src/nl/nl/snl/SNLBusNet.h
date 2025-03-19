@@ -10,7 +10,7 @@
 #include "SNLNet.h"
 #include "NajaCollection.h"
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 class SNLBusNetBit;
 
@@ -119,6 +119,6 @@ class SNLBusNet final: public SNLNet {
     Bits                  bits_   {};
 };
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja
 
 #endif // __SNL_BUS_NET_H_

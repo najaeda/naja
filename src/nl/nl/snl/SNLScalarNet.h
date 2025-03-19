@@ -7,7 +7,7 @@
 
 #include "SNLBitNet.h"
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 class SNLScalarNet final: public SNLBitNet {
   public:
@@ -69,6 +69,6 @@ class SNLScalarNet final: public SNLBitNet {
     NLName                              name_;
 };
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja
 
 #endif // __SNL_SCALAR_NET_H_

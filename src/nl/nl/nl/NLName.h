@@ -7,7 +7,7 @@
 
 #include <string>
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 class NLName {
   public:
@@ -42,14 +42,14 @@ class NLName {
 
 template<typename T>
 struct NLNameComp {
-  bool operator()(const SNL::NLName& name, const T& obj) const {
+  bool operator()(const NL::NLName& name, const T& obj) const {
     return name < obj.getName();
   }
-  bool operator()(const T& obj, const SNL::NLName& name) const {
+  bool operator()(const T& obj, const NL::NLName& name) const {
     return obj.getName() < name;
   }
 };
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja
 
 #endif // __NL_NAME_H_

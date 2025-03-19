@@ -7,11 +7,11 @@
 
 #include "PySNLNetComponent.h"
 
-namespace naja::SNL {
+namespace naja::NL {
   class SNLTerm;
 }
 
-namespace PYSNL {
+namespace PYNAJA {
 
 typedef struct {
   PySNLNetComponent parent_;
@@ -19,14 +19,14 @@ typedef struct {
 
 extern PyTypeObject PyTypeSNLTerm;
 
-extern PyObject* PySNLTerm_Link(naja::SNL::SNLTerm*);
+extern PyObject* PySNLTerm_Link(naja::NL::SNLTerm*);
 extern void PySNLTerm_LinkPyType();
 extern void PySNLTerm_postModuleInit();
 
 #define IsPySNLTerm(v) (PyObject_TypeCheck(v, &PyTypeSNLTerm))
 #define PYSNLTerm(v)   (static_cast<PySNLTerm*>(v))
-#define PYSNLTerm_O(v) (static_cast<naja::SNL::SNLTerm*>(PYSNLTerm(v)->parent_->parent_->object_))
+#define PYSNLTerm_O(v) (static_cast<naja::NL::SNLTerm*>(PYSNLTerm(v)->parent_->parent_->object_))
 
-} /* PYSNL namespace */
+} /* PYNAJA namespace */
  
 #endif /* __PY_SNL_TERM_H_ */

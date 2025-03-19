@@ -7,9 +7,9 @@
 #include "PyInterface.h"
 #include "PySNLBitTerm.h"
 
-namespace PYSNL {
+namespace PYNAJA {
 
-using namespace naja::SNL;
+using namespace naja::NL;
 
 PyTypeContainerObjectDefinitions(SNLBitTerms)
 PyTypeContainerObjectDefinitions(SNLBitTermsIterator)

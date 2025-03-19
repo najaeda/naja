@@ -8,11 +8,11 @@
 #include "Python.h"
 #include "SNLDesignObject.h"
 
-namespace PYSNL {
+namespace PYNAJA {
 
 typedef struct {
   PyObject_HEAD
-  naja::SNL::SNLDesignObject* object_;
+  naja::NL::SNLDesignObject* object_;
 } PySNLDesignObject;
 
 extern PyTypeObject PyTypeSNLDesignObject;
@@ -23,6 +23,6 @@ extern void         PySNLDesignObject_LinkPyType();
 #define PYSNLDesignObject(v)   ((PySNLDesignObject*)(v))
 #define PYSNLDesignObject_O(v) (PYSNLDesignObject(v)->object_)
 
-} /* PYSNL namespace */
+} /* PYNAJA namespace */
  
 #endif /* __PY_SNL_DESIGN_OBJECT_H_ */

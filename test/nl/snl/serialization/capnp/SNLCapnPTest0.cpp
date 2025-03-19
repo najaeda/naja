@@ -25,7 +25,7 @@ using ::testing::Property;
 #include "SNLCapnP.h"
 
 using namespace naja;
-using namespace naja::SNL;
+using namespace naja::NL;
 
 #ifndef SNL_CAPNP_TEST_PATH
 #define SNL_CAPNP_TEST_PATH "Undefined"

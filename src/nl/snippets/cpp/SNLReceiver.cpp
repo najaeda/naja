@@ -7,7 +7,7 @@
 #include "SNLDB.h"
 #include "SNLCapnP.h"
 
-using namespace naja::SNL;
+using namespace naja::NL;
 
 namespace {
 

@@ -11,7 +11,7 @@
 #include "tbb/scalable_allocator.h"
 
 using namespace naja::DNL;
-using namespace naja::SNL;
+using namespace naja::NL;
 
 namespace naja::NAJA_OPT {
 

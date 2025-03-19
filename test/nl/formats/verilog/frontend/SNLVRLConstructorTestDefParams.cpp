@@ -21,7 +21,7 @@ using ::testing::ElementsAre;
 #include "SNLPyLoader.h"
 #include "SNLVRLConstructor.h"
 
-using namespace naja::SNL;
+using namespace naja::NL;
 
 #ifndef SNL_VRL_BENCHMARKS_PATH
 #define SNL_VRL_BENCHMARKS_PATH "Undefined"

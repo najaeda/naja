@@ -8,7 +8,7 @@
 #include "PySNLNet.h"
 #include "SNLBitNet.h"
 
-namespace PYSNL {
+namespace PYNAJA {
 
 typedef struct {
   PySNLNet parent_;
@@ -16,13 +16,13 @@ typedef struct {
 
 extern PyTypeObject PyTypeSNLBitNet;
 
-extern PyObject*    PySNLBitNet_Link(naja::SNL::SNLBitNet*);
+extern PyObject*    PySNLBitNet_Link(naja::NL::SNLBitNet*);
 extern void         PySNLBitNet_LinkPyType();
 
 #define IsPySNLBitNet(v) (PyObject_TypeCheck(v, &PyTypeSNLBitNet))
 #define PYSNLBitNet(v)   ((PySNLBitNet*)(v))
-#define PYSNLBitNet_O(v) (static_cast<naja::SNL::SNLBitNet*>(PYSNLBitNet(v)->parent_.parent_.object_))
+#define PYSNLBitNet_O(v) (static_cast<naja::NL::SNLBitNet*>(PYSNLBitNet(v)->parent_.parent_.object_))
 
-} /* PYSNL namespace */
+} /* PYNAJA namespace */
  
 #endif /* __PY_SNL_BIT_NET_H_ */

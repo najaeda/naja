@@ -8,7 +8,7 @@
 #include "PySNLBitNet.h"
 #include "SNLScalarNet.h"
 
-namespace PYSNL {
+namespace PYNAJA {
 
 typedef struct {
   PySNLBitNet parent_;
@@ -16,13 +16,13 @@ typedef struct {
 
 extern PyTypeObject PyTypeSNLScalarNet;
 
-extern PyObject*    PySNLScalarNet_Link(naja::SNL::SNLScalarNet* n);
+extern PyObject*    PySNLScalarNet_Link(naja::NL::SNLScalarNet* n);
 extern void         PySNLScalarNet_LinkPyType();
 
 #define IsPySNLScalarNet(v) (PyObject_TypeCheck(v, &PyTypeSNLScalarNet))
 #define PYSNLScalarNet(v)   (static_cast<PySNLScalarNet*>(v))
 #define PYSNLScalarNet_O(v) (PYSNLScalarNet(v)->object_)
 
-} /* PYSNL namespace */
+} /* PYNAJA namespace */
  
 #endif /* __PY_SNL_SCALAR_NET_H_ */

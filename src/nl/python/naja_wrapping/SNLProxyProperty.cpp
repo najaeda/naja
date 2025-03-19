@@ -33,13 +33,13 @@ SNLProxyProperty::SNLProxyProperty(void* shadow)
 
 SNLProxyProperty* SNLProxyProperty::create(void* shadow) {
   if (not shadow)
-    throw SNL::NLException(
+    throw NL::NLException(
         "SNLProxyProperty::create(): Empty \"shadow\" argument.");
 
   SNLProxyProperty* property = new SNLProxyProperty(shadow);
 
   if (not property)
-    throw SNL::NLException("SNLProxyProperty::create()");
+    throw NL::NLException("SNLProxyProperty::create()");
 
   return property;
 }
@@ -57,7 +57,7 @@ void SNLProxyProperty::preDestroy() {
 
 void SNLProxyProperty::onCapturedBy(NajaObject* owner) {
   if ((_owner != NULL) && (_owner != owner))
-    throw SNL::NLException(getString().c_str());
+    throw NL::NLException(getString().c_str());
 
   _owner = owner;
 }
@@ -74,7 +74,7 @@ void SNLProxyProperty::onNotOwned() {
 
 void SNLProxyProperty::setOffset(int offset) {
   if (_offset >= 0)
-    throw SNL::NLException(twiceSetOffset);
+    throw NL::NLException(twiceSetOffset);
 
   _offset = offset;
 }

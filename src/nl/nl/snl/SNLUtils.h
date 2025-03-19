@@ -7,7 +7,7 @@
 
 #include "SNLDesign.h"
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 class NLLibrary;
 class SNLDesign;
@@ -23,6 +23,6 @@ class SNLUtils {
     static SNLDesign* findTop(const NLLibrary* library);
 };
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja
 
 #endif // __SNL_UTILS_H_

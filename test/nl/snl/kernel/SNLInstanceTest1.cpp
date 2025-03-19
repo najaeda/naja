@@ -18,7 +18,7 @@ using namespace std;
 #include "SNLScalarNet.h"
 #include "SNLInstance.h"
 #include "SNLInstTerm.h"
-using namespace naja::SNL;
+using namespace naja::NL;
 
 class SNLInstanceTest1: public ::testing::Test {
   protected:

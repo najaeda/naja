@@ -8,22 +8,22 @@
 #include <Python.h>
 #include "NLUniverse.h"
 
-namespace PYSNL {
+namespace PYNAJA {
 
 typedef struct {
   PyObject_HEAD
-  naja::SNL::NLUniverse* object_;
+  naja::NL::NLUniverse* object_;
 } PyNLUniverse;
 
 extern PyTypeObject PyTypeNLUniverse;
 
-extern PyObject*    PyNLUniverse_Link(naja::SNL::NLUniverse* u);
+extern PyObject*    PyNLUniverse_Link(naja::NL::NLUniverse* u);
 extern void         PyNLUniverse_LinkPyType();
 
 #define IsPyNLUniverse(v) (PyObject_TypeCheck(v, &PyTypeNLUniverse))
 #define PYNLUNIVERSE(v)   ((PyNLUniverse*)(v))
 #define PYNLUNIVERSE_O(v) (PYNLUNIVERSE(v)->object_)
 
-} // PYSNL namespace
+} // PYNAJA namespace
  
 #endif // __PY_NL_UNIVERSE_H_

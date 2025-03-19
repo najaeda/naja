@@ -8,22 +8,22 @@
 #include <Python.h>
 #include "SNLUniquifier.h"
 
-namespace PYSNL {
+namespace PYNAJA {
 
 typedef struct {
   PyObject_HEAD
-  naja::SNL::SNLUniquifier* object_;
+  naja::NL::SNLUniquifier* object_;
 } PySNLUniquifier;
 
 extern PyTypeObject PyTypeSNLUniquifier;
 
-extern PyObject*  PySNLUniquifier_Link(const naja::SNL::SNLUniquifier& uniquifier);
+extern PyObject*  PySNLUniquifier_Link(const naja::NL::SNLUniquifier& uniquifier);
 extern void       PySNLUniquifier_LinkPyType();
 
 #define IsPySNLUniquifier(v) (PyObject_TypeCheck(v, &PyTypeSNLUniquifier))
 #define PYSNLUniquifier(v)   ((PySNLUniquifier*)(v))
 #define PYSNLUniquifier_O(v) (PYSNLUniquifier(v)->object_)
 
-} // PYSNL namespace
+} // PYNAJA namespace
  
 #endif // __PY_SNL_UNIQUIFIER_H_

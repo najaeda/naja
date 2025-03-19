@@ -13,7 +13,7 @@ using ::testing::ElementsAre;
 #include "SNLDesignTruthTable.h"
 #include "SNLPyLoader.h"
 #include "NLLibraryTruthTables.h"
-using namespace naja::SNL;
+using namespace naja::NL;
 
 #ifndef SNL_PRIMITIVES_TEST_PATH
 #define SNL_PRIMITIVES_TEST_PATH "Undefined"

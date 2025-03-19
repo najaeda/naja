@@ -15,7 +15,7 @@ using ::testing::ElementsAre;
 #include "SNLBusTermBit.h"
 #include "SNLUtils.h"
 #include "NLException.h"
-using namespace naja::SNL;
+using namespace naja::NL;
 
 class SNLDesignTest: public ::testing::Test {
   protected:

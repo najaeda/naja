@@ -19,12 +19,12 @@
 #include "NLLibraryTruthTables.h"
 #include "SNLTruthTable.h"
 
-using namespace naja::SNL;
+using namespace naja::NL;
 
-namespace naja::SNL {
+namespace naja::NL {
 class SNLDesign;
 class SNLInstance;
-}  // namespace naja::SNL
+}  // namespace naja::NL
 
 namespace naja::BNE {
 

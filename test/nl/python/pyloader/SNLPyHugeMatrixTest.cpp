@@ -11,7 +11,7 @@
 #include "SNLPyLoader.h"
 #include "SNLCapnP.h"
 #include "SNLVRLDumper.h"
-using namespace naja::SNL;
+using namespace naja::NL;
 
 #ifndef SNL_PYEDIT_TEST_PATH
 #define SNL_PYEDIT_TEST_PATH "Undefined"

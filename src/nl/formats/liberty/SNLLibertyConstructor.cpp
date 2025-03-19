@@ -20,7 +20,7 @@
 
 namespace {
 
-using namespace naja::SNL;
+using namespace naja::NL;
 
 SNLTerm::Direction getSNLDirection(const std::string& direction) {
   if (direction == "input") {
@@ -124,10 +124,10 @@ void parseTerms(
   }
   if (termFunctions.size() == 1) {
     auto function = termFunctions.begin()->second;
-    auto tree = std::make_unique<naja::SNL::SNLBooleanTree>();
+    auto tree = std::make_unique<naja::NL::SNLBooleanTree>();
     //std::cerr << "Parsing function: " << function << std::endl;
     tree->parse(primitive, function);
-    naja::SNL::SNLBooleanTree::Terms terms;
+    naja::NL::SNLBooleanTree::Terms terms;
     for (auto term: primitive->getBitTerms()) {
       if (term->getDirection() == SNLTerm::Direction::Input) {
         terms.push_back(term);
@@ -135,7 +135,7 @@ void parseTerms(
     }
     std::reverse(terms.begin(), terms.end());
     auto truthTable = tree->getTruthTable(terms);
-    naja::SNL::SNLDesignTruthTable::setTruthTable(primitive, truthTable);
+    naja::NL::SNLDesignTruthTable::setTruthTable(primitive, truthTable);
   }
 }
 
@@ -159,7 +159,7 @@ void parseCells(NLLibrary* library, const Yosys::LibertyAst* ast) {
 
 }
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 SNLLibertyConstructor::SNLLibertyConstructor(NLLibrary* library):
   library_(library)
@@ -191,4 +191,4 @@ void SNLLibertyConstructor::construct(const std::filesystem::path& path) {
   parseCells(library_, ast);
 }
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja

@@ -11,7 +11,7 @@
 
 #include "SNLDesign.h"
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 unsigned SNLUtils::levelize(const SNLDesign* design, DesignsLevel& designsLevel) {
   if (design->getInstances().empty()) {
@@ -72,4 +72,4 @@ SNLDesign* SNLUtils::findTop(const NLLibrary* library) {
   return nullptr;
 }
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja

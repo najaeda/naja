@@ -18,7 +18,7 @@
 #include "Utils.h"
 
 using namespace naja::DNL;
-using namespace naja::SNL;
+using namespace naja::NL;
 using namespace naja::BNE;
 
 void DriveWithConstantAction::changeDriverToLocal0(SNLInstTerm* term) {
@@ -29,7 +29,7 @@ void DriveWithConstantAction::changeDriverToLocal0(SNLInstTerm* term) {
   if (nullptr == assign0) {
     assign0 = SNLScalarNet::create(term->getDesign(), netName);
   }
-  assign0->setType(naja::SNL::SNLNet::Type::Supply0);
+  assign0->setType(naja::NL::SNLNet::Type::Supply0);
   term->setNet(assign0);
   // find primitives library
   if (term->getDB()->getPrimitiveLibraries().size() != 1) {
@@ -61,7 +61,7 @@ void DriveWithConstantAction::changeDriverToLocal1(SNLInstTerm* term) {
   if (nullptr == assign1) {
     assign1 = SNLScalarNet::create(term->getDesign(), netName);
   }
-  assign1->setType(naja::SNL::SNLNet::Type::Supply1);
+  assign1->setType(naja::NL::SNLNet::Type::Supply1);
   term->setNet(assign1);
 
   // find primitives library
@@ -93,7 +93,7 @@ void DriveWithConstantAction::changeDriverto0Top(SNLBitTerm* term) {
   if (nullptr == assign0) {
     assign0 = SNLScalarNet::create(term->getDesign(), netName);
   }
-  assign0->setType(naja::SNL::SNLNet::Type::Supply0);
+  assign0->setType(naja::NL::SNLNet::Type::Supply0);
   term->setNet(assign0);
   auto logic0 = NLLibraryTruthTables::getDesignForTruthTable(
                     *(term->getDB()->getPrimitiveLibraries().begin()), SNLTruthTable::Logic0())
@@ -113,7 +113,7 @@ void DriveWithConstantAction::changeDriverto1Top(SNLBitTerm* term) {
   if (nullptr == assign1) {
     assign1 = SNLScalarNet::create(term->getDesign(), netName);
   }
-  assign1->setType(naja::SNL::SNLNet::Type::Supply1);
+  assign1->setType(naja::NL::SNLNet::Type::Supply1);
   term->setNet(assign1);
   auto logic1 = NLLibraryTruthTables::getDesignForTruthTable(
                     *(term->getDB()->getPrimitiveLibraries().begin()), SNLTruthTable::Logic1())

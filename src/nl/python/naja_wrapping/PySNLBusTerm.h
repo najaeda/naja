@@ -8,7 +8,7 @@
 #include "PySNLTerm.h"
 #include "SNLBusTerm.h"
 
-namespace PYSNL {
+namespace PYNAJA {
 
 typedef struct {
   PySNLTerm parent_;
@@ -16,13 +16,13 @@ typedef struct {
 
 extern PyTypeObject PyTypeSNLBusTerm;
 
-extern PyObject*    PySNLBusTerm_Link(naja::SNL::SNLBusTerm* t);
+extern PyObject*    PySNLBusTerm_Link(naja::NL::SNLBusTerm* t);
 extern void         PySNLBusTerm_LinkPyType();
 
 #define IsPySNLBusTerm(v) (PyObject_TypeCheck(v, &PyTypeSNLBusTerm))
 #define PYSNLBusTerm(v)   ((PySNLBusTerm*)(v))
-#define PYSNLBusTerm_O(v) (static_cast<naja::SNL::SNLBusTerm*>(PYSNLBusTerm(v)->parent_.parent_.parent_.object_))
+#define PYSNLBusTerm_O(v) (static_cast<naja::NL::SNLBusTerm*>(PYSNLBusTerm(v)->parent_.parent_.parent_.object_))
 
-} // PYSNL namespace
+} // PYNAJA namespace
  
 #endif // __PY_SNL_BUS_TERM_H_

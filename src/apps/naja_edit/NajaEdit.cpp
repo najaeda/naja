@@ -39,7 +39,7 @@
 #include "Utils.h"
 #include "NetlistGraph.h"
 
-using namespace naja::SNL;
+using namespace naja::NL;
 using namespace naja::DNL;
 using namespace naja::NAJA_OPT;
 

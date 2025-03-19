@@ -7,26 +7,26 @@
 
 #include <Python.h>
 
-namespace naja::SNL {
+namespace naja::NL {
   class NLLibrary;
 }
 
-namespace PYSNL {
+namespace PYNAJA {
 
 typedef struct {
   PyObject_HEAD
-  naja::SNL::NLLibrary* object_;
+  naja::NL::NLLibrary* object_;
 } PyNLLibrary;
 
 extern PyTypeObject PyTypeNLLibrary;
 
-extern PyObject*    PyNLLibrary_Link(naja::SNL::NLLibrary* u);
+extern PyObject*    PyNLLibrary_Link(naja::NL::NLLibrary* u);
 extern void         PyNLLibrary_LinkPyType();
 
 #define IsPyNLLibrary(v) (PyObject_TypeCheck(v, &PyTypeNLLibrary))
 #define PYNLLibrary(v)   ((PyNLLibrary*)(v))
 #define PYNLLibrary_O(v) (PYNLLibrary(v)->object_)
 
-} /* PYSNL namespace */
+} /* PYNAJA namespace */
  
 #endif /* __PY_NL_LIBRARY_H_ */

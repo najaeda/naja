@@ -5,7 +5,7 @@
 #include "gtest/gtest.h"
 
 #include "NLID.h"
-using namespace naja::SNL;
+using namespace naja::NL;
 
 TEST(NLIDTest, testSize) {
   EXPECT_EQ(1, sizeof(NLID::Type));

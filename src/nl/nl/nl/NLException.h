@@ -7,7 +7,7 @@
 
 #include "NajaException.h"
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 struct NLException: public NajaException {
   public:
@@ -19,6 +19,6 @@ struct NLException: public NajaException {
     {}
 };
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja
 
 #endif // __NL_EXCEPTION_H_

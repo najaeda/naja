@@ -7,7 +7,7 @@
 
 #include "SNLTruthTable.h"
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 class SNLDesign;
 
@@ -22,6 +22,6 @@ class SNLDesignTruthTable {
     static bool isBuf(const SNLDesign* design);
 };
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja
 
 #endif // __SNL_DESIGN_MODELING_H_

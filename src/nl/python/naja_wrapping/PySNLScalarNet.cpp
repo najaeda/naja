@@ -9,9 +9,9 @@
 
 #include "SNLScalarNet.h"
 
-namespace PYSNL {
+namespace PYNAJA {
 
-using namespace naja::SNL;
+using namespace naja::NL;
 
 #undef   ACCESS_OBJECT
 #undef   ACCESS_CLASS

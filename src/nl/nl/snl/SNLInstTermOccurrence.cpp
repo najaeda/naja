@@ -6,7 +6,7 @@
 
 #include "SNLInstTerm.h"
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 SNLInstTermOccurrence::SNLInstTermOccurrence(SNLInstTerm* instTerm):
   super(instTerm)
@@ -20,4 +20,4 @@ SNLInstTerm* SNLInstTermOccurrence::getInstTerm() const {
   return static_cast<SNLInstTerm*>(getObject());
 }
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja

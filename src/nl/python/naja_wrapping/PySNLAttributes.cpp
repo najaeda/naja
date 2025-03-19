@@ -7,9 +7,9 @@
 #include "PyInterface.h"
 #include "PySNLAttribute.h"
 
-namespace PYSNL {
+namespace PYNAJA {
 
-using namespace naja::SNL;
+using namespace naja::NL;
 
 PyTypeContainerObjectDefinitions(SNLAttributes)
 PyTypeContainerObjectDefinitions(SNLAttributesIterator)

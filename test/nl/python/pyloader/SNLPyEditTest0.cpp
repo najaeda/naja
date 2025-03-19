@@ -9,7 +9,7 @@
 #include "NLException.h"
 
 #include "SNLPyEdit.h"
-using namespace naja::SNL;
+using namespace naja::NL;
 
 #ifndef SNL_PYEDIT_TEST_PATH
 #define SNL_PYEDIT_TEST_PATH "Undefined"

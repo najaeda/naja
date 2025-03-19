@@ -9,7 +9,7 @@
 
 #include "SNLScalarTerm.h"
 #include "SNLDesignTruthTable.h"
-using namespace naja::SNL;
+using namespace naja::NL;
 
 class SNLDesignTruthTableTest0: public ::testing::Test {
   protected:

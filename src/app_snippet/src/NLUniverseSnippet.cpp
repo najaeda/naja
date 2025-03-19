@@ -13,7 +13,7 @@
 #include "SNLScalarNet.h"
 #include "SNLInstTerm.h"
 
-using namespace naja::SNL;
+using namespace naja::NL;
 
 void NLUniverseSnippet::create() {
   NLUniverse::create();

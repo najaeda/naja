@@ -9,7 +9,7 @@
 #include <map>
 #include "SNLTruthTable.h"
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 class NLLibrary;
 class SNLDesign;
@@ -24,6 +24,6 @@ class NLLibraryTruthTables {
       static std::pair<SNLDesign*, Indexes> getDesignForTruthTable(const NLLibrary* library, const SNLTruthTable& tt);
 };
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja
 
 #endif // __NL_LIBRARY_TRUTH_TABLES_H_

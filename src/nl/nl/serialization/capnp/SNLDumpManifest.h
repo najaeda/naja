@@ -8,7 +8,7 @@
 #include <filesystem>
 #include "SNLDump.h"
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 class SNLDumpManifest {
   public:
@@ -21,6 +21,6 @@ class SNLDumpManifest {
     SNLDump::Version  version_;
 };
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja
 
 #endif // __SNL_DUMP_MANIFEST_H_

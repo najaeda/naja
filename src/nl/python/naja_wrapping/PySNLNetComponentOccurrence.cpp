@@ -10,9 +10,9 @@
 #include "SNLPath.h"
 #include "SNLNetComponentOccurrence.h"
 
-namespace PYSNL {
+namespace PYNAJA {
 
-using namespace naja::SNL;
+using namespace naja::NL;
 
 #define METHOD_HEAD(function) GENERIC_METHOD_HEAD(SNLNetComponentOccurrence, function)
 
@@ -57,4 +57,4 @@ PyMethodDef PySNLNetComponentOccurrence_Methods[] = {
 PyTypeManagedNLObjectWithoutNLIDLinkPyType(SNLNetComponentOccurrence)
 PyTypeObjectDefinitions(SNLNetComponentOccurrence)
 
-}  // namespace PYSNL
+}  // namespace PYNAJA

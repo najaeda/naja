@@ -10,7 +10,7 @@
 
 #include "SNLDesign.h"
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 SNLParameter::Type::Type(const TypeEnum& typeEnum):
   typeEnum_(typeEnum) 
@@ -93,4 +93,4 @@ std::string SNLParameter::getDescription() const {
 }
 //LCOV_EXCL_STOP
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja

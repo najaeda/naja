@@ -7,26 +7,26 @@
 
 #include <Python.h>
 
-namespace naja::SNL {
+namespace naja::NL {
   class SNLOccurrence;
 }
 
-namespace PYSNL {
+namespace PYNAJA {
 
 typedef struct {
   PyObject_HEAD
-  naja::SNL::SNLOccurrence* object_;
+  naja::NL::SNLOccurrence* object_;
 } PySNLOccurrence;
 
 extern PyTypeObject PyTypeSNLOccurrence;
 
-extern PyObject*  PySNLOccurrence_Link(naja::SNL::SNLOccurrence* occurrence);
+extern PyObject*  PySNLOccurrence_Link(naja::NL::SNLOccurrence* occurrence);
 extern void       PySNLOccurrence_LinkPyType();
 
 #define IsPySNLOccurrence(v) (PyObject_TypeCheck(v, &PyTypeSNLOccurrence))
 #define PYSNLOccurrence(v)   ((PySNLOccurrence*)(v))
 #define PYSNLOccurrence_O(v) (PYSNLOccurrence(v)->object_)
 
-} // PYSNL namespace
+} // PYNAJA namespace
  
 #endif // __PY_SNL_OCCURRENCE_H_

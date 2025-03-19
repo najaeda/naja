@@ -15,7 +15,7 @@ using ::testing::ElementsAre;
 #include "SNLBusNet.h"
 #include "SNLBusNetBit.h"
 
-using namespace naja::SNL;
+using namespace naja::NL;
 
 class SNLNetTest: public ::testing::Test {
   protected:

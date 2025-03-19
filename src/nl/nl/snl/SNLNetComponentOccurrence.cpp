@@ -8,7 +8,7 @@
 #include "SNLPath.h"
 #include "SNLBitNetOccurrence.h"
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 SNLNetComponentOccurrence::SNLNetComponentOccurrence(SNLNetComponent* component):
   super(component)
@@ -38,4 +38,4 @@ SNLBitNet* SNLNetComponentOccurrence::getNet() const {
   return nullptr;
 }
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja
