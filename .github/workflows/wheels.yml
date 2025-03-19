@@ -104,8 +104,8 @@ jobs:
           CIBW_MANYLINUX_I686_IMAGE: ${{ matrix.manylinux_image }}
           CIBW_TEST_REQUIRES: "pytest"
           CIBW_TEST_COMMAND: |
-            export VERILOG_BENCHMARKS_PATH='{project}/test/snl/formats/verilog/benchmarks' &&
-            export LIBERTY_BENCHMARKS_PATH='{project}/test/snl/formats/liberty/benchmarks' &&
+            export VERILOG_BENCHMARKS_PATH='{project}/test/nl/formats/verilog/benchmarks' &&
+            export LIBERTY_BENCHMARKS_PATH='{project}/test/nl/formats/liberty/benchmarks' &&
             export NAJAEDA_TEST_PATH='{project}/test/najaeda' &&
             python -m pytest {project}/test/najaeda &&
             cd {project}/src/najaeda/examples && python run_regress.py 
