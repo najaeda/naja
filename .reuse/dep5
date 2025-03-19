@@ -11,7 +11,7 @@ Files: README.md README.rst README_pages/* AUTHORS docs/* src/najaeda/README/*
 Copyright: 2022 The Naja Authors.
 License: Apache-2.0
 
-Files: test/snl/formats/verilog/benchmarks/* test/snl/snl/kernel/benchs/* test/najaeda/.coveragerc
+Files: test/nl/formats/verilog/benchmarks/* test/nl/snl/kernel/benchs/* test/najaeda/.coveragerc
 Copyright: 2022 The Naja Authors.
 License: Apache-2.0
 
@@ -23,7 +23,7 @@ Files: test/snl/formats/verilog/backend/references/*
 Copyright: 2022 The Naja Authors.
 License: CC0-1.0
 
-Files: test/snl/formats/liberty/benchmarks/errors/* test/snl/formats/liberty/benchmarks/tests/* thirdparty/yosys-liberty/test/benchmarks/test0.lib
+Files: test/nl/formats/liberty/benchmarks/errors/* test/nl/formats/liberty/benchmarks/tests/* thirdparty/yosys-liberty/test/benchmarks/test0.lib
 Copyright: 2022 The Naja Authors.
 License: CC0-1.0
 
