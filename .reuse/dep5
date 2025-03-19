@@ -19,7 +19,7 @@ Files: src/apps/naja_edit/examples/*
 Copyright: 2022 The Naja Authors.
 License: Apache-2.0
 
-Files: test/snl/formats/verilog/backend/references/*
+Files: test/nl/formats/verilog/backend/references/*
 Copyright: 2022 The Naja Authors.
 License: CC0-1.0
 
