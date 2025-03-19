@@ -59,7 +59,7 @@ jobs:
       run: make install
       
     - name: ExecutePythonSnippetApp
-      working-directory: ${{github.workspace}}/snlpythonapp
+      working-directory: ${{github.workspace}}/najapythonapp
       env:
         LD_LIBRARY_PATH: ${{env.LD_LIBRARY_PATH}}:${{env.NAJA_INSTALL}}/lib
         PYTHONPATH: ${{env.PYTHONPATH}}:${{env.NAJA_INSTALL}}/lib/python
