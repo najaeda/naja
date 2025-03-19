@@ -21,7 +21,7 @@ using ::testing::ElementsAre;
 #include "SNLBusNetBit.h"
 #include "SNLAttributes.h"
 #include "SNLUtils.h"
-using namespace naja::SNL;
+using namespace naja::NL;
 
 namespace {
 

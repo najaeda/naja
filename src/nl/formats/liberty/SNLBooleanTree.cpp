@@ -18,15 +18,15 @@ namespace {
 
 struct Token {
   char                            type_;
-  naja::SNL::SNLBooleanTreeNode*  node_ {nullptr};
+  naja::NL::SNLBooleanTreeNode*  node_ {nullptr};
   
   Token(char t) : type_(t) {}
-  Token(char t, naja::SNL::SNLBooleanTreeNode* n) : type_(t), node_(n) {}
+  Token(char t, naja::NL::SNLBooleanTreeNode* n) : type_(t), node_(n) {}
 };
 
 using Stack = std::vector<Token>;
 
-using namespace naja::SNL;
+using namespace naja::NL;
 
 bool reduce(
   const SNLDesign* primitive,
@@ -146,7 +146,7 @@ bool reduce(
 
 } // namespace
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 SNLBooleanTreeFunctionNode::~SNLBooleanTreeFunctionNode() {
   for (auto input: inputs_) {

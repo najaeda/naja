@@ -12,9 +12,9 @@
 #include "SNLBusTerm.h"
 #include "SNLBusTermBit.h"
 
-namespace PYSNL {
+namespace PYNAJA {
 
-using namespace naja::SNL;
+using namespace naja::NL;
 
 #undef   ACCESS_OBJECT
 #undef   ACCESS_CLASS
@@ -50,7 +50,7 @@ static PyObject* PySNLBusTerm_create(PyObject*, PyObject* args) {
   return PySNLBusTerm_Link(term);
 }
 
-// To retrun getBit but to rename the function as getBusTermBit
+// To return getBit but to rename the function as getBusTermBit
 PyObject* PySNLBusTerm_getBusTermBit(PySNLBusTerm* self, PyObject* args) {
   PyObject* arg0 = nullptr;
   if (not PyArg_ParseTuple(args, "O:SNLBusTerm.getBit", &arg0)) {
@@ -64,10 +64,11 @@ PyObject* PySNLBusTerm_getBusTermBit(PySNLBusTerm* self, PyObject* args) {
     setError("SNLBusTerm getBit accepts an integer as first argument");
     return nullptr;
   }
+  METHOD_HEAD("SNLBusTerm.getBusTermBit")
   SNLBusTermBit* bitTerm = nullptr;
   // LCOV_EXCL_START
   TRY
-  bitTerm = (static_cast<naja::SNL::SNLBusTerm*>(self->parent_.parent_.parent_.object_))->getBit(bit);
+  bitTerm = selfObject->getBit(bit);
   NLCATCH
   // LCOV_EXCL_STOP
   return PySNLBusTermBit_Link(bitTerm);

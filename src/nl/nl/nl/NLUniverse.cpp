@@ -15,7 +15,7 @@
 #include "SNLInstTerm.h"
 #include "NLException.h"
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 NLUniverse* NLUniverse::universe_ = nullptr;
 
@@ -45,7 +45,7 @@ void NLUniverse::preDestroy() {
   std::cerr << "Destroying " << getDescription() << std::endl; 
 #endif
   struct destroyDBFromUniverse {
-    void operator()(SNL::NLDB* db) {
+    void operator()(NL::NLDB* db) {
       db->destroyFromUniverse();
     }
   };
@@ -310,4 +310,4 @@ void NLUniverse::debugDump(size_t indent, bool recursive, std::ostream& stream) 
 }
 //LCOV_EXCL_STOP
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja

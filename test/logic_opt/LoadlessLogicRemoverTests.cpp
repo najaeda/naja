@@ -18,7 +18,7 @@
 #include "tbb/scalable_allocator.h"
 
 using namespace naja::DNL;
-using namespace naja::SNL;
+using namespace naja::NL;
 using namespace naja::NAJA_OPT;
 
 class LoadlessRemoveLogicTests : public ::testing::Test {

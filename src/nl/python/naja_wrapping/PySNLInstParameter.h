@@ -7,20 +7,20 @@
 
 #include <Python.h>
 
-namespace naja::SNL {
+namespace naja::NL {
   class SNLInstParameter;
 }
 
-namespace PYSNL {
+namespace PYNAJA {
 
 typedef struct {
   PyObject_HEAD
-  naja::SNL::SNLInstParameter* object_;
+  naja::NL::SNLInstParameter* object_;
 } PySNLInstParameter;
 
 extern PyTypeObject PyTypeSNLInstParameter;
 
-extern PyObject* PySNLInstParameter_Link(naja::SNL::SNLInstParameter* u);
+extern PyObject* PySNLInstParameter_Link(naja::NL::SNLInstParameter* u);
 extern void PySNLInstParameter_LinkPyType();
 extern void PySNLInstParameter_postModuleInit();
 
@@ -28,6 +28,6 @@ extern void PySNLInstParameter_postModuleInit();
 #define PYSNLInstParameter(v)   ((PySNLInstParameter*)(v))
 #define PYSNLInstParameter_O(v) (PYSNLInstParameter(v)->object_)
 
-} /* PYSNL namespace */
+} /* PYNAJA namespace */
  
 #endif /* __PY_SNL_INST_PARAMETER_H_ */

@@ -8,22 +8,22 @@
 #include <Python.h>
 #include "NLDB.h"
 
-namespace PYSNL {
+namespace PYNAJA {
 
 typedef struct {
   PyObject_HEAD
-  naja::SNL::NLDB* object_;
+  naja::NL::NLDB* object_;
 } PyNLDB;
 
 extern PyTypeObject PyTypeNLDB;
 
-extern PyObject*    PyNLDB_Link(naja::SNL::NLDB* u);
+extern PyObject*    PyNLDB_Link(naja::NL::NLDB* u);
 extern void         PyNLDB_LinkPyType();
 
 #define IsPyNLDB(v) (PyObject_TypeCheck(v, &PyTypeNLDB))
 #define PYNLDB(v)   ((PyNLDB*)(v))
 #define PYNLDB_O(v) (PYNLDB(v)->object_)
 
-} /* PYSNL namespace */
+} /* PYNAJA namespace */
  
-#endif /* __PY_SNL_DB_H_ */
+#endif /* __PY_NL_DB_H_ */

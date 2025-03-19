@@ -10,7 +10,7 @@
 #include "SNLBitTerm.h"
 #include "SNLInstTermOccurrence.h"
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 class SNLNetComponent;
 class SNLNetComponentOccurrence;
@@ -56,6 +56,6 @@ class SNLEquipotential {
     Terms               terms_                {};
 };
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja
 
 #endif // __SNL_EQUIPOTENTIAL_H_

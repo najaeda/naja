@@ -29,22 +29,22 @@
 
 namespace {
 
-size_t dumpDirection(const naja::SNL::SNLTerm* term, std::ostream& o) {
+size_t dumpDirection(const naja::NL::SNLTerm* term, std::ostream& o) {
   switch (term->getDirection()) {
-    case naja::SNL::SNLTerm::Direction::Input:
+    case naja::NL::SNLTerm::Direction::Input:
       o << "input";
       return std::char_traits<char>::length("input");
-    case naja::SNL::SNLTerm::Direction::Output:
+    case naja::NL::SNLTerm::Direction::Output:
       o << "output";
       return std::char_traits<char>::length("output");
-    case naja::SNL::SNLTerm::Direction::InOut:
+    case naja::NL::SNLTerm::Direction::InOut:
       o << "inout";
       return std::char_traits<char>::length("inout");
   }
   return 0; //LCOV_EXCL_LINE
 }
 
-using ContiguousNetBits = std::vector<naja::SNL::SNLBitNet*>;
+using ContiguousNetBits = std::vector<naja::NL::SNLBitNet*>;
 void dumpConstantRange(ContiguousNetBits& bits, bool& firstElement, bool& concatenation, std::string& o) {
   if (not bits.empty()) {
     if (not firstElement) {
@@ -55,12 +55,12 @@ void dumpConstantRange(ContiguousNetBits& bits, bool& firstElement, bool& concat
     }
     std::string constantStr;
     for (auto bit: bits) {
-      if (bit->getType() == naja::SNL::SNLNet::Type::Assign0) {
+      if (bit->getType() == naja::NL::SNLNet::Type::Assign0) {
         constantStr += "0";
-      } else if (bit->getType() == naja::SNL::SNLNet::Type::Assign1) {
+      } else if (bit->getType() == naja::NL::SNLNet::Type::Assign1) {
         constantStr += "1";
       } else {
-        throw naja::SNL::SNLVRLDumperException("ERROR");
+        throw naja::NL::SNLVRLDumperException("ERROR");
       }
     }
     if (constantStr.size() < 4) {
@@ -70,7 +70,7 @@ void dumpConstantRange(ContiguousNetBits& bits, bool& firstElement, bool& concat
     } else {
       //hexa
       o += std::to_string(bits.size()) + "'h";
-      constantStr = naja::SNL::SNLVRLDumper::binStrToHexStr(constantStr);
+      constantStr = naja::NL::SNLVRLDumper::binStrToHexStr(constantStr);
       o += constantStr;
     }
   }
@@ -154,13 +154,13 @@ void dumpRange(ContiguousNetBits& bits, bool& firstElement, bool& concatenation,
       } else {
         firstElement = false;
       }
-      naja::SNL::SNLBusNetBit* rangeMSBBit = static_cast<naja::SNL::SNLBusNetBit*>(bits[0]);
-      naja::SNL::NLID::Bit rangeMSB = rangeMSBBit->getBit();
-      naja::SNL::SNLBusNetBit* rangeLSBBit =static_cast<naja::SNL::SNLBusNetBit*>(bits[bits.size()-1]);
-      naja::SNL::NLID::Bit rangeLSB = rangeLSBBit->getBit();
-      naja::SNL::SNLBusNet* bus = rangeMSBBit->getBus();
-      naja::SNL::NLID::Bit busMSB = bus->getMSB();
-      naja::SNL::NLID::Bit busLSB = bus->getLSB();
+      naja::NL::SNLBusNetBit* rangeMSBBit = static_cast<naja::NL::SNLBusNetBit*>(bits[0]);
+      naja::NL::NLID::Bit rangeMSB = rangeMSBBit->getBit();
+      naja::NL::SNLBusNetBit* rangeLSBBit =static_cast<naja::NL::SNLBusNetBit*>(bits[bits.size()-1]);
+      naja::NL::NLID::Bit rangeLSB = rangeLSBBit->getBit();
+      naja::NL::SNLBusNet* bus = rangeMSBBit->getBus();
+      naja::NL::NLID::Bit busMSB = bus->getMSB();
+      naja::NL::NLID::Bit busLSB = bus->getLSB();
       if (rangeMSB == busMSB and rangeLSB == busLSB) {
         o += dumpName(bus->getName().getString());
       } else if (rangeMSB == rangeLSB) {
@@ -179,11 +179,11 @@ void dumpRange(ContiguousNetBits& bits, bool& firstElement, bool& concatenation,
   }
 }
 
-std::string getBitNetString(const naja::SNL::SNLBitNet* bitNet) {
-  if (auto scalarNet = dynamic_cast<const naja::SNL::SNLScalarNet*>(bitNet)) {
+std::string getBitNetString(const naja::NL::SNLBitNet* bitNet) {
+  if (auto scalarNet = dynamic_cast<const naja::NL::SNLScalarNet*>(bitNet)) {
     return dumpName(scalarNet->getName().getString());
   } else {
-    auto busNetBit = static_cast<const naja::SNL::SNLBusNetBit*>(bitNet);
+    auto busNetBit = static_cast<const naja::NL::SNLBusNetBit*>(bitNet);
     auto bus = busNetBit->getBus();
     auto busName = dumpName(bus->getName().getString());
     return busName + "[" + std::to_string(busNetBit->getBit()) + "]";
@@ -192,7 +192,7 @@ std::string getBitNetString(const naja::SNL::SNLBitNet* bitNet) {
 
 }
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 void SNLVRLDumper::setSingleFile(bool mode) {
   configuration_.setSingleFile(mode);
@@ -916,11 +916,11 @@ std::string SNLVRLDumper::binStrToHexStr(std::string binStr) {
       std::ostringstream reason;
       reason << "Error in binary to hexadecimal conversion: ";
       reason << hex << " is not a convertible binary.";
-      throw naja::SNL::SNLVRLDumperException(reason.str());
+      throw naja::NL::SNLVRLDumperException(reason.str());
     }
     it += 4;
   }
   return hexStr;
 }
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja

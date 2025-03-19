@@ -19,21 +19,21 @@ class SNLDesignModelingProperty: public naja::NajaPrivateProperty {
     using Inherit = naja::NajaPrivateProperty;
     static const inline std::string Name = "SNLDesignModelingProperty";
     static SNLDesignModelingProperty* create(
-      naja::SNL::SNLDesign* design,
-      naja::SNL::SNLDesignModeling::Type type) {
+      naja::NL::SNLDesign* design,
+      naja::NL::SNLDesignModeling::Type type) {
       preCreate(design, Name);
       SNLDesignModelingProperty* property = new SNLDesignModelingProperty();
-      property->modeling_ = new naja::SNL::SNLDesignModeling(type);
+      property->modeling_ = new naja::NL::SNLDesignModeling(type);
       property->postCreate(design);
       return property;
     }
-    static void preCreate(naja::SNL::SNLDesign* design, const std::string& name) {
+    static void preCreate(naja::NL::SNLDesign* design, const std::string& name) {
       Inherit::preCreate(design, name);
       if (not (design->isLeaf())) {
         std::ostringstream reason;
         reason << "Impossible to add Timing Modeling on a non leaf design <"
           << design->getName().getString() << ">";
-        throw naja::SNL::NLException(reason.str());
+        throw naja::NL::NLException(reason.str());
       }
     }
     void preDestroy() override {
@@ -42,7 +42,7 @@ class SNLDesignModelingProperty: public naja::NajaPrivateProperty {
       }
       Inherit::preDestroy();
     }
-    naja::SNL::SNLDesignModeling::Type getModelingType() const {
+    naja::NL::SNLDesignModeling::Type getModelingType() const {
       return getModeling()->getType();
     }
     std::string getName() const override {
@@ -53,14 +53,14 @@ class SNLDesignModelingProperty: public naja::NajaPrivateProperty {
       return Name;
     }
     //LCOV_EXCL_STOP
-    naja::SNL::SNLDesignModeling* getModeling() const {
+    naja::NL::SNLDesignModeling* getModeling() const {
       return modeling_;
     }
   private:
-    naja::SNL::SNLDesignModeling* modeling_ {nullptr};
+    naja::NL::SNLDesignModeling* modeling_ {nullptr};
 };
 
-SNLDesignModelingProperty* getProperty(const naja::SNL::SNLDesign* design) {
+SNLDesignModelingProperty* getProperty(const naja::NL::SNLDesign* design) {
   auto property =
     static_cast<SNLDesignModelingProperty*>(design->getProperty(SNLDesignModelingProperty::Name));
   if (property) {
@@ -71,8 +71,8 @@ SNLDesignModelingProperty* getProperty(const naja::SNL::SNLDesign* design) {
 
 //type will used only if the property is created
 SNLDesignModelingProperty* getOrCreateProperty(
-  naja::SNL::SNLDesign* design,
-  naja::SNL::SNLDesignModeling::Type type) {
+  naja::NL::SNLDesign* design,
+  naja::NL::SNLDesignModeling::Type type) {
   auto property = getProperty(design);
   if (property) {
     return property;
@@ -81,48 +81,48 @@ SNLDesignModelingProperty* getOrCreateProperty(
 }
 
 void insertInArcs(
-  naja::SNL::SNLDesignModeling::Arcs& arcs,
-  naja::SNL::SNLBitTerm* term0,
-  naja::SNL::SNLBitTerm* term1) {
+  naja::NL::SNLDesignModeling::Arcs& arcs,
+  naja::NL::SNLBitTerm* term0,
+  naja::NL::SNLBitTerm* term1) {
   auto iit = arcs.find(term0);
   if (iit == arcs.end()) {
-    auto result = arcs.insert({term0, naja::SNL::SNLDesignModeling::TermArcs()});
+    auto result = arcs.insert({term0, naja::NL::SNLDesignModeling::TermArcs()});
     if (not result.second) {
-      throw naja::SNL::NLException("Error while inserting in timing arcs");
+      throw naja::NL::NLException("Error while inserting in timing arcs");
     }
     iit = result.first;
   }
-  naja::SNL::SNLDesignModeling::TermArcs& termArcs = iit->second;
+  naja::NL::SNLDesignModeling::TermArcs& termArcs = iit->second;
   auto oit = termArcs.find(term1);
   if (oit != termArcs.end()) {
-    throw naja::SNL::NLException("Error while inserting in timing arcs");
+    throw naja::NL::NLException("Error while inserting in timing arcs");
   }
   termArcs.insert(term1);
 }
 
-naja::SNL::SNLDesign* verifyInputs(
-  const naja::SNL::SNLDesignModeling::BitTerms& terms0,
+naja::NL::SNLDesign* verifyInputs(
+  const naja::NL::SNLDesignModeling::BitTerms& terms0,
   const std::string& terms0Naming,
-  const naja::SNL::SNLDesignModeling::BitTerms& terms1,
+  const naja::NL::SNLDesignModeling::BitTerms& terms1,
   const std::string& terms1Naming,
   const std::string& method) {
   if (terms0.empty()) {
-    throw naja::SNL::NLException("Error in " + method + ": empty " + terms0Naming);
+    throw naja::NL::NLException("Error in " + method + ": empty " + terms0Naming);
   }
   if (terms1.empty()) {
-    throw naja::SNL::NLException("Error in " + method + ": empty " + terms1Naming);
+    throw naja::NL::NLException("Error in " + method + ": empty " + terms1Naming);
   }
-  naja::SNL::SNLDesign* design = nullptr;
+  naja::NL::SNLDesign* design = nullptr;
   for (auto term: terms0) {
     if (not design) {
       design = term->getDesign();
     } else if (design not_eq term->getDesign()) {
-      throw naja::SNL::NLException("Error in " + method + ": incompatible designs");
+      throw naja::NL::NLException("Error in " + method + ": incompatible designs");
     }
   }
   for (auto term: terms1) {
     if (design not_eq term->getDesign()) {
-      throw naja::SNL::NLException("Error in " + method + ": incompatible designs");
+      throw naja::NL::NLException("Error in " + method + ": incompatible designs");
     }
   }
   return design;
@@ -157,7 +157,7 @@ naja::SNL::SNLDesign* verifyInputs(
   
 }
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 SNLDesignModeling::SNLDesignModeling(Type type): type_(type) {
   if (type_ == NO_PARAMETER) {
@@ -214,7 +214,7 @@ SNLDesignModeling::TimingArcs* SNLDesignModeling::getOrCreateTimingArcs(const st
       //create it
       auto result = parameterizedArcs.insert({paramValue, TimingArcs()});
       if (not result.second) {
-        throw naja::SNL::NLException("Error in Timing arcs insertion");
+        throw naja::NL::NLException("Error in Timing arcs insertion");
       }
       ait = result.first;
     }
@@ -421,4 +421,4 @@ NajaCollection<SNLInstTerm*> SNLDesignModeling::getOutputRelatedClocks(SNLInstTe
   GET_RELATED_OBJECTS(SNLInstTerm, output, getInstance()->getModel(), getOutputRelatedClocks_)
 }
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja

@@ -8,20 +8,20 @@
 #include <Python.h>
 #include "NajaCollection.h"
 
-namespace naja::SNL {
+namespace naja::NL {
   class SNLInstTermOccurrence;
 }
 
-namespace PYSNL {
+namespace PYNAJA {
 
 typedef struct {
   PyObject_HEAD
-  naja::NajaCollection<naja::SNL::SNLInstTermOccurrence>* object_;
+  naja::NajaCollection<naja::NL::SNLInstTermOccurrence>* object_;
 } PySNLInstTermOccurrences;
 
 typedef struct {
   PyObject_HEAD
-  naja::NajaCollection<naja::SNL::SNLInstTermOccurrence>::Iterator* object_;
+  naja::NajaCollection<naja::NL::SNLInstTermOccurrence>::Iterator* object_;
   PySNLInstTermOccurrences* container_;
 } PySNLInstTermOccurrencesIterator;
 
@@ -30,6 +30,6 @@ extern PyTypeObject PyTypeSNLInstTermOccurrencesIterator;
 
 extern void PySNLInstTermOccurrences_LinkPyType();
 
-} /* PYSNL namespace */
+} /* PYNAJA namespace */
  
 #endif /* __PY_SNL_INST_TERM_OCCURRENCES_H_ */

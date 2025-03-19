@@ -9,7 +9,7 @@
 #include "VerilogTypes.h"
 #include <boost/dynamic_bitset.hpp>
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 class SNLVRLConstructorUtils {
   public:
@@ -21,6 +21,6 @@ class SNLVRLConstructorUtils {
     static boost::dynamic_bitset<> numberToBits(const naja::verilog::BasedNumber& number);
 };
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja
 
 #endif /* __SNL_VRL_CONSTRUCTOR_UTILS_H_ */

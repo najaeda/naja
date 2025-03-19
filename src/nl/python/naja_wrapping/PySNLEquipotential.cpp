@@ -15,9 +15,9 @@
 #include "SNLEquipotential.h"
 #include "NetlistGraph.h"
 
-namespace PYSNL {
+namespace PYNAJA {
 
-using namespace naja::SNL;
+using namespace naja::NL;
 
 #define METHOD_HEAD(function) GENERIC_METHOD_HEAD(SNLEquipotential, function)
 
@@ -85,4 +85,4 @@ PyMethodDef PySNLEquipotential_Methods[] = {
 PyTypeManagedNLObjectWithoutNLIDLinkPyType(SNLEquipotential)
 PyTypeObjectDefinitions(SNLEquipotential)
 
-}  // namespace PYSNL
+}  // namespace PYNAJA

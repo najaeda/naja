@@ -5,7 +5,7 @@
 #include "gtest/gtest.h"
 
 #include "NajaObject.h"
-#include "SNLProxyProperty.h"
+#include "NajaPythonProperty.h"
 #include "NajaException.h"
 using namespace naja;
 
@@ -42,37 +42,9 @@ class TestObject: public NajaObject {
     }
 };
 
-class TestPrivateProperty: public SNLProxyProperty {
-  public:
-    using super = SNLProxyProperty;
-    static const inline std::string Name = "TestPrivateProperty";
-    static void preCreate(NajaObject* object) {
-      super::preCreate(object, Name);
-    }
-
-    void postCreate(NajaObject* owner) {
-      super::postCreate(owner);
-    }
-
-    /*static TestPrivateProperty* create(NajaObject* owner) {
-      preCreate(owner);
-      TestPrivateProperty* property = new TestPrivateProperty();
-      property->postCreate(owner);
-      return property;
-    }*/
-
-    std::string getName() const override {
-      return Name;
-    }
-
-    std::string getString() const override {
-      return getName();
-    }
-};
-
 }
 
-class SNLProxyPropertyTest: public ::testing::Test {
+class NajaPythonPropertyTest: public ::testing::Test {
   protected:
     void SetUp() override {
       testObject_ = TestObject::create();
@@ -87,18 +59,18 @@ class SNLProxyPropertyTest: public ::testing::Test {
     TestObject* testObject_;
 };
 
-TEST_F(SNLProxyPropertyTest, test) {
+TEST_F(NajaPythonPropertyTest, test) {
   ASSERT_NE(nullptr, testObject_);
   TestObject copyOfTestObject = *testObject_;
-  naja::SNLProxyProperty*  proxy = naja::SNLProxyProperty::create ( (void*)testObject_ );     
+  naja::NajaPythonProperty*  proxy = naja::NajaPythonProperty::create ( (void*)testObject_ );     
   ASSERT_NE(nullptr, proxy);
   testObject_->put ( proxy ); 
-  naja::SNLProxyProperty*  proxyNew = naja::SNLProxyProperty::create ( (void*)testObject_ );     
+  naja::NajaPythonProperty*  proxyNew = naja::NajaPythonProperty::create ( (void*)testObject_ );     
   ASSERT_NE(nullptr, proxyNew);
   testObject_->put ( proxyNew ); 
   EXPECT_THROW(copyOfTestObject.put ( proxyNew ), NajaException);
   EXPECT_THROW(testObject_->put ( nullptr ), NajaException);
   EXPECT_THROW(testObject_->remove( nullptr ), NajaException);
-  EXPECT_THROW(naja::SNLProxyProperty::create ( nullptr ), NajaException);
+  EXPECT_THROW(naja::NajaPythonProperty::create ( nullptr ), NajaException);
   proxyNew->getString();
 }

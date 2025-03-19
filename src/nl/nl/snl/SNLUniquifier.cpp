@@ -9,7 +9,7 @@
 #include "SNLInstance.h"
 #include "SNLPath.h"
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 SNLUniquifier::SNLUniquifier(const SNLPath& path, bool uniquifyTail):
   uniquifyTail_(uniquifyTail) {
@@ -93,4 +93,4 @@ std::string SNLUniquifier::getFullPath() const {
 }
 // LCOV_EXCL_STOP
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja

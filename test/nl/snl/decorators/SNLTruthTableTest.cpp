@@ -5,7 +5,7 @@
 #include "gtest/gtest.h"
 
 #include "SNLTruthTable.h"
-using namespace naja::SNL;
+using namespace naja::NL;
 
 TEST(SNLTruthTableTest, test) {
 

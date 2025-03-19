@@ -11,7 +11,7 @@
 
 #include "SNLBitTerm.h"
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 class SNLInstance;
 class SNLInstTerm;
@@ -85,6 +85,6 @@ class SNLDesignModeling {
     TimingModel   model_      {};
 };
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja
 
 #endif // __SNL_DESIGN_MODELING_H_

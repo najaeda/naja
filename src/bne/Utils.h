@@ -9,7 +9,7 @@
 #include "SNLPath.h"
 
 using namespace naja::DNL;
-using namespace naja::SNL;
+using namespace naja::NL;
 
 namespace naja::BNE {
 

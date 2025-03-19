@@ -8,7 +8,7 @@
 
 #include <filesystem>
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 class NLLibrary;
 

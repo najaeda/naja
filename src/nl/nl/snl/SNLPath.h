@@ -12,7 +12,7 @@
 #include "NLID.h"
 
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 class SNLDesign;
 class SNLInstance;
@@ -139,6 +139,6 @@ class SNLPath {
     SNLSharedPath*  sharedPath_ {nullptr};
 };
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja
 
 #endif // __SNL_PATH_H_

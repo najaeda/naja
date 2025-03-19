@@ -14,7 +14,7 @@
 #include "SNLUtils.h"
 #include "SNLMacros.h"
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 SNLBusTerm::SNLBusTerm(
     SNLDesign* design,
@@ -297,4 +297,4 @@ bool SNLBusTerm::deepCompare(const SNLTerm* other, std::string& reason) const {
   return SNLAttributes::compareAttributes(this, other, reason);
 }
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja

@@ -18,7 +18,7 @@
 #include "SNLUniquifier.h"
 
 using namespace naja::DNL;
-using namespace naja::SNL;
+using namespace naja::NL;
 
 class DNLTests : public ::testing::Test {
  protected:

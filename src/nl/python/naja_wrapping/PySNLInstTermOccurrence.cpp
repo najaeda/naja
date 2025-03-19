@@ -12,9 +12,9 @@
 #include "SNLPath.h"
 #include "SNLInstTermOccurrence.h"
 
-namespace PYSNL {
+namespace PYNAJA {
 
-using namespace naja::SNL;
+using namespace naja::NL;
 
 #define METHOD_HEAD(function) GENERIC_METHOD_HEAD(SNLInstTermOccurrence, function)
 
@@ -67,4 +67,4 @@ PyMethodDef PySNLInstTermOccurrence_Methods[] = {
 PyTypeManagedNLObjectWithoutNLIDLinkPyType(SNLInstTermOccurrence)
 PyTypeObjectDefinitions(SNLInstTermOccurrence)
 
-}  // namespace PYSNL
+}  // namespace PYNAJA

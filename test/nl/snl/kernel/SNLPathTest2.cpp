@@ -8,7 +8,7 @@
 #include "NLException.h"
 
 #include "SNLPath.h"
-using namespace naja::SNL;
+using namespace naja::NL;
 
 class SNLPathTest2: public ::testing::Test {
   protected:

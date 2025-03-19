@@ -8,20 +8,20 @@
 #include <Python.h>
 #include "NajaCollection.h"
 
-namespace naja::SNL {
+namespace naja::NL {
   class SNLBitNet;
 }
 
-namespace PYSNL {
+namespace PYNAJA {
 
 typedef struct {
   PyObject_HEAD
-  naja::NajaCollection<naja::SNL::SNLBitNet*>* object_;
+  naja::NajaCollection<naja::NL::SNLBitNet*>* object_;
 } PySNLBitNets;
 
 typedef struct {
   PyObject_HEAD
-  naja::NajaCollection<naja::SNL::SNLBitNet*>::Iterator* object_;
+  naja::NajaCollection<naja::NL::SNLBitNet*>::Iterator* object_;
   PySNLBitNets* container_;
 } PySNLBitNetsIterator;
 
@@ -30,6 +30,6 @@ extern PyTypeObject PyTypeSNLBitNetsIterator;
 
 extern void PySNLBitNets_LinkPyType();
 
-} /* PYSNL namespace */
+} /* PYNAJA namespace */
  
 #endif /* __PY_SNL_BITNETS_H_ */

@@ -32,7 +32,7 @@
 #include "SNLEquipotential.h"
 #include "SNLPath.h"
 
-using namespace naja::SNL;
+using namespace naja::NL;
 
 namespace naja {
 
@@ -172,13 +172,13 @@ class NetlistGraph {
   using Nets = std::map<size_t, unsigned>;
 
   std::string SNLDirectionToJsonDirection(
-      naja::SNL::SNLTerm::Direction direction) {
+      naja::NL::SNLTerm::Direction direction) {
     switch (direction) {
-      case naja::SNL::SNLTerm::Direction::Input:
+      case naja::NL::SNLTerm::Direction::Input:
         return "input";
-      case naja::SNL::SNLTerm::Direction::Output:
+      case naja::NL::SNLTerm::Direction::Output:
         return "output";
-      case naja::SNL::SNLTerm::Direction::InOut:
+      case naja::NL::SNLTerm::Direction::InOut:
         return "inout";
     }
     return "ERROR";

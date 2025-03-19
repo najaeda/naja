@@ -13,7 +13,7 @@ using ::testing::Key;
 #include "SNLBooleanTree.h"
 #include "SNLLibertyConstructorException.h"
 
-using namespace naja::SNL;
+using namespace naja::NL;
 
 class SNLBooleanTreeTest0: public ::testing::Test {
   protected:

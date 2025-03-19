@@ -9,7 +9,7 @@
 #include "SNLBusTerm.h"
 #include "SNLScalarNet.h"
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 NLDB* NLDB0::create(NLUniverse* universe) {
   NLDB* db = NLDB::create(universe);
@@ -121,4 +121,4 @@ SNLBusTerm* NLDB0::getANDInputs(const SNLDesign* gate) {
   return nullptr;
 }
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja

@@ -7,7 +7,7 @@
 #include <unordered_map>
 #include "SNLTruthTable.h"
 
-using namespace naja::SNL;
+using namespace naja::NL;
 using namespace naja::DNL;
 
 namespace naja::NAJA_OPT {

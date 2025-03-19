@@ -5,7 +5,7 @@
 #include "gtest/gtest.h"
 
 #include "SNLVRLDumper.h"
-using namespace naja::SNL;
+using namespace naja::NL;
 
 TEST(SNLVRLDumperTestUtils, testbinStrToHexStr) {
   EXPECT_EQ("0", SNLVRLDumper::binStrToHexStr("0"));

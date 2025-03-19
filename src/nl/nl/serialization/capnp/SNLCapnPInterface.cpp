@@ -30,7 +30,7 @@
 namespace {
 
 using namespace naja;
-using namespace naja::SNL;
+using namespace naja::NL;
 
 void dumpProperty(
   Property::Builder& property,
@@ -382,7 +382,7 @@ void loadLibraryInterface(NajaObject* parent, const DBInterface::LibraryInterfac
 
 }
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 void SNLCapnP::dumpInterface(const NLDB* snlDB, int fileDescriptor) {
   dumpInterface(snlDB, fileDescriptor, snlDB->getID());
@@ -516,4 +516,4 @@ NLDB* SNLCapnP::loadInterface(const std::filesystem::path& interfacePath) {
 //}
 //LCOV_EXCL_STOP
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja

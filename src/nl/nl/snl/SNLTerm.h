@@ -10,7 +10,7 @@
 #include "NLName.h"
 #include "SNLNetComponent.h"
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 class SNLBitTerm;
 
@@ -66,6 +66,6 @@ class SNLTerm: public SNLNetComponent {
     virtual SNLTerm* clone(SNLDesign* design) const = 0;
 };
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja
 
 #endif // __SNL_TERM_H_

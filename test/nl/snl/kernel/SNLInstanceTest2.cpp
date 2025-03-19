@@ -13,7 +13,7 @@ using namespace std;
 #include "SNLInstance.h"
 #include "SNLScalarTerm.h"
 #include "SNLInstTerm.h"
-using namespace naja::SNL;
+using namespace naja::NL;
 
 class SNLInstanceTest2: public ::testing::Test {
   protected:

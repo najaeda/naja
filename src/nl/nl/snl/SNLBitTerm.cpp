@@ -11,7 +11,7 @@
 #include "SNLBusNetBit.h"
 #include "SNLMacros.h"
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 void SNLBitTerm::preCreate() {
   super::preCreate();
@@ -27,4 +27,4 @@ void SNLBitTerm::preDestroy() {
 
 NET_COMPONENT_SET_NET(SNLBitTerm)
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja

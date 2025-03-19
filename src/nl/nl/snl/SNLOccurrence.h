@@ -7,7 +7,7 @@
 
 #include <string>
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 class SNLPath;
 class SNLSharedPath;
@@ -72,6 +72,6 @@ class SNLOccurrence {
     SNLDesignObject*    object_ {nullptr};
 };
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja
 
 #endif // __SNL_OCCURRENCE_H_

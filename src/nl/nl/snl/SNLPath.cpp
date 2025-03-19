@@ -13,8 +13,7 @@
 #include "SNLInstance.h"
 #include "SNLSharedPath.h"
 
-namespace naja {
-namespace SNL {
+namespace naja { namespace NL {
 
 SNLPath::SNLPath(SNLSharedPath* sharedPath) : sharedPath_(sharedPath) {}
 
@@ -233,5 +232,4 @@ std::vector<NLID::DesignObjectID> SNLPath::getPathIDs() const {
   return sharedPath_->getPathIDs();
 }
 
-}  // namespace SNL
-}  // namespace naja
+}}  // namespace NL // namespace naja

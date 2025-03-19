@@ -8,7 +8,7 @@
 
 #include "NLException.h"
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 struct SNLLibertyConstructorException: public NLException {
   public:
@@ -20,6 +20,6 @@ struct SNLLibertyConstructorException: public NLException {
     {}
 };
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja
 
 #endif // __SNL_LIBERTY_CONSTRUCTOR_EXCEPTION_H_

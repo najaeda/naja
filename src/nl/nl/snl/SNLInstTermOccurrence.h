@@ -7,7 +7,7 @@
 
 #include "SNLNetComponentOccurrence.h"
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 class SNLInstTerm;
 
@@ -33,6 +33,6 @@ class SNLInstTermOccurrence: public SNLNetComponentOccurrence {
     SNLInstTerm* getInstTerm() const;
 };
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja
 
 #endif // __SNL_INST_TERM_OCCURRENCE_H_

@@ -8,24 +8,24 @@
 #include "PyInterface.h"
 #include "SNLTerm.h"
 
-namespace PYSNL {
+namespace PYNAJA {
 
 typedef struct {
   PyObject_HEAD
-  naja::SNL::SNLTerm::Direction* object_;
+  naja::NL::SNLTerm::Direction* object_;
 } PySNLTermDirection;
 
 extern PyTypeObject PyTypeSNLTermDirection;
 
-extern PyObject*    PySNLTermDirection_Link(naja::SNL::SNLTerm::Direction*);
+extern PyObject*    PySNLTermDirection_Link(naja::NL::SNLTerm::Direction*);
 extern void         PySNLTermDirection_LinkPyType();
 extern void         PySNLTermDirection_postModuleInit();
 
 
 #define IsPySNLTermDirection(v) (PyObject_TypeCheck(v, &PyTypeSNLTermDirection))
 #define PYSNLTermDirection(v)   (static_cast<PySNLTermDirection*>(v))
-#define PYSNLTermDirection_O(v) (static_cast<naja::SNL::SNLTerm::Direction*>(PYSNLTermDirection(v)->object_))
+#define PYSNLTermDirection_O(v) (static_cast<naja::NL::SNLTerm::Direction*>(PYSNLTermDirection(v)->object_))
 
-} /* PYSNL namespace */
+} /* PYNAJA namespace */
 
 #endif /* __PY_SNL_TERM_DIRECTION_H_ */

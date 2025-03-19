@@ -13,7 +13,7 @@
 #include "SNLAttributes.h"
 #include "SNLMacros.h"
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 SNLScalarTerm::SNLScalarTerm(SNLDesign* design, Direction direction, const NLName& name):
   super(),
@@ -174,4 +174,4 @@ bool SNLScalarTerm::deepCompare(const SNLTerm* other, std::string& reason) const
   return SNLAttributes::compareAttributes(this, other, reason);
 }
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja

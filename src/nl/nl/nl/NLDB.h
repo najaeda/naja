@@ -8,7 +8,7 @@
 #include "NLObject.h"
 #include "NLLibrary.h"
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 class NLUniverse;
 
@@ -110,6 +110,6 @@ class NLDB final: public NLObject {
     SNLDesign*                          topDesign_                {nullptr};
 };
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja
 
 #endif // __NL_DB_H_

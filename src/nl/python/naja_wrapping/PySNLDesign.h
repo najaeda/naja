@@ -7,26 +7,26 @@
 
 #include <Python.h>
 
-namespace naja::SNL {
+namespace naja::NL {
   class SNLDesign;
 }
 
-namespace PYSNL {
+namespace PYNAJA {
 
 typedef struct {
   PyObject_HEAD
-  naja::SNL::SNLDesign* object_;
+  naja::NL::SNLDesign* object_;
 } PySNLDesign;
 
 extern PyTypeObject PyTypeSNLDesign;
 
-extern PyObject*    PySNLDesign_Link(naja::SNL::SNLDesign* u);
+extern PyObject*    PySNLDesign_Link(naja::NL::SNLDesign* u);
 extern void         PySNLDesign_LinkPyType();
 
 #define IsPySNLDesign(v) (PyObject_TypeCheck(v, &PyTypeSNLDesign))
 #define PYSNLDesign(v)   ((PySNLDesign*)(v))
 #define PYSNLDesign_O(v) (PYSNLDesign(v)->object_)
 
-} /* PYSNL namespace */
+} /* PYNAJA namespace */
  
 #endif /* __PY_SNL_DESIGN_H_ */

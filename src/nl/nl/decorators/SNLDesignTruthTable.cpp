@@ -15,7 +15,7 @@ namespace {
     
 static const std::string SNLDesignTruthTablePropertyName = "SNLDesignTruthTableProperty";
 
-naja::NajaDumpableProperty* getProperty(const naja::SNL::SNLDesign* design) {
+naja::NajaDumpableProperty* getProperty(const naja::NL::SNLDesign* design) {
   auto property =
     static_cast<naja::NajaDumpableProperty*>(design->getProperty(SNLDesignTruthTablePropertyName));
   if (property) {
@@ -25,11 +25,11 @@ naja::NajaDumpableProperty* getProperty(const naja::SNL::SNLDesign* design) {
 }
 
 void createProperty(
-  naja::SNL::SNLDesign* design,
-  const naja::SNL::SNLTruthTable& truthTable) {
+  naja::NL::SNLDesign* design,
+  const naja::NL::SNLTruthTable& truthTable) {
   auto property = getProperty(design);
   if (property) {
-    throw naja::SNL::NLException("Design already has a Truth Table");
+    throw naja::NL::NLException("Design already has a Truth Table");
   }
   property = naja::NajaDumpableProperty::create(design, SNLDesignTruthTablePropertyName);
   property->addUInt64Value(truthTable.size());
@@ -38,7 +38,7 @@ void createProperty(
 
 } // namespace
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 void SNLDesignTruthTable::setTruthTable(SNLDesign* design, const SNLTruthTable& truthTable) {
   if (not design->isPrimitive()) {
@@ -57,12 +57,12 @@ void SNLDesignTruthTable::setTruthTable(SNLDesign* design, const SNLTruthTable& 
 SNLTruthTable SNLDesignTruthTable::getTruthTable(const SNLDesign* design) {
   auto property = getProperty(design); 
   if (property) {
-    return naja::SNL::SNLTruthTable(
+    return naja::NL::SNLTruthTable(
       (uint32_t)property->getUInt64Value(0),
       property->getUInt64Value(1)
     );
   }
-  return naja::SNL::SNLTruthTable();
+  return naja::NL::SNLTruthTable();
 }
 
 bool SNLDesignTruthTable::isConst0(const SNLDesign* design) {
@@ -106,4 +106,4 @@ bool SNLDesignTruthTable::isBuf(const SNLDesign* design) {
   return false;
 }
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja

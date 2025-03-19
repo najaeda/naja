@@ -13,7 +13,7 @@
 #include "NLException.h"
 #include "SNLMacros.h"
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 NLDB::NLDB(NLID::DBID id):
   id_(id)
@@ -62,7 +62,7 @@ void NLDB::commonPreDrestroy() {
   std::cerr << "Destroying " << getDescription() << std::endl; 
 #endif
   struct destroyLibraryFromDB {
-    void operator()(SNL::NLLibrary* library) {
+    void operator()(NL::NLLibrary* library) {
       library->destroyFromDB();
     }
   };
@@ -252,4 +252,4 @@ void NLDB::debugDump(size_t indent, bool recursive, std::ostream& stream) const 
 }
 //LCOV_EXCL_STOP
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja

@@ -15,7 +15,7 @@
 #include "SNLInstTerm.h"
 #include "SNLDesign.h"
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 void SNLBitNet::preCreate() {
   super::preCreate();
@@ -115,4 +115,4 @@ void SNLBitNet::connectAllComponentsTo(SNLBitNet* net) {
   components_.clear();
 }
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja

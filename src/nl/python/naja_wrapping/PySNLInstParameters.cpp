@@ -7,9 +7,9 @@
 #include "PyInterface.h"
 #include "PySNLInstParameter.h"
 
-namespace PYSNL {
+namespace PYNAJA {
 
-using namespace naja::SNL;
+using namespace naja::NL;
 
 PyTypeContainerObjectDefinitions(SNLInstParameters)
 PyTypeContainerObjectDefinitions(SNLInstParametersIterator)

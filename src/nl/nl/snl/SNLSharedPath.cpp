@@ -10,7 +10,7 @@
 
 #include "SNLDesign.h"
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 SNLSharedPath::SNLSharedPath(SNLInstance* tailInstance, SNLSharedPath* headSharedPath):
   headSharedPath_(headSharedPath),
@@ -140,8 +140,6 @@ std::vector<NLID::DesignObjectID> SNLSharedPath::getPathIDs() const {
   }
   return result;
 }
-
-
 //LCOV_EXCL_STOP
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja

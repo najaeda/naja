@@ -8,9 +8,9 @@
 
 #include "SNLAttributes.h"
 
-namespace PYSNL {
+namespace PYNAJA {
 
-using namespace naja::SNL;
+using namespace naja::NL;
 
 #define METHOD_HEAD(function) GENERIC_METHOD_HEAD(SNLAttribute, function)
 
@@ -85,4 +85,4 @@ PyMethodDef PySNLAttribute_Methods[] = {
 PyTypeManagedNLObjectWithoutNLIDLinkPyType(SNLAttribute)
 PyTypeObjectDefinitions(SNLAttribute)
 
-}  // namespace PYSNL
+}  // namespace PYNAJA

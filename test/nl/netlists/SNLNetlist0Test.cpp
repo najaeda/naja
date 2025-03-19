@@ -15,7 +15,7 @@
 #include "SNLBusTermBit.h"
 #include "SNLBusNetBit.h"
 
-using namespace naja::SNL;
+using namespace naja::NL;
 
 class SNLNetlistTest0: public ::testing::Test {
   protected:

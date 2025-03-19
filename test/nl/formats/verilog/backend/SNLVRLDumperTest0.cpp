@@ -17,7 +17,7 @@
 #include "SNLBusNet.h"
 #include "SNLInstTerm.h"
 
-using namespace naja::SNL;
+using namespace naja::NL;
 
 #ifndef SNL_VRL_DUMPER_TEST_PATH
 #define SNL_VRL_DUMPER_TEST_PATH "Undefined"

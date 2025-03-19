@@ -16,7 +16,7 @@
 
 #include "NLException.h"
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 class SNLTruthTable {
   public:
@@ -178,6 +178,6 @@ class SNLTruthTable {
     uint64_t  bits_ {0};
 };
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja
 
 #endif /* __SNL_TRUTH_TABLE_H_ */

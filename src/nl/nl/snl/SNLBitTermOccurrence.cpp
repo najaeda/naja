@@ -6,7 +6,7 @@
 
 #include "SNLBitTerm.h"
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 SNLBitTermOccurrence::SNLBitTermOccurrence(SNLBitTerm* term):
   super(term)
@@ -20,4 +20,4 @@ SNLBitTerm* SNLBitTermOccurrence::getTerm() const {
   return static_cast<SNLBitTerm*>(getObject());
 }
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja

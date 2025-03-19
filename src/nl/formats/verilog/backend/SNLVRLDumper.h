@@ -12,7 +12,7 @@
 
 #include "SNLTerm.h"
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 class SNLDesign;
 class SNLParameter;
@@ -152,6 +152,6 @@ class SNLVRLDumper {
     DesignsAnonynousNaming  designsAnonymousNaming_ {};
 };
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja
 
 #endif // __SNL_VRL_DUMPER_H_

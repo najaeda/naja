@@ -7,7 +7,7 @@
 
 #include <filesystem>
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 class NLDB;
 class NLLibrary;
@@ -30,6 +30,6 @@ class SNLPyLoader {
       const std::filesystem::path& scriptPath);
 };
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja
 
 #endif // __SNL_PYLOADER_H_

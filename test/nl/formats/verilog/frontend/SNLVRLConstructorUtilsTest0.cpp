@@ -7,7 +7,7 @@
 #include "SNLVRLConstructorUtils.h"
 #include "SNLVRLConstructorException.h"
 
-using namespace naja::SNL;
+using namespace naja::NL;
 
 TEST(SNLVRLConstructorUtilsTest0, testBinary) {
   auto num = naja::verilog::BasedNumber("4", false, 'b', "1010");

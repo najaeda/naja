@@ -11,7 +11,7 @@
 
 #include "SNLBusNet.h"
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 SNLBusNetBit::SNLBusNetBit(
     SNLBusNet* bus,
@@ -126,4 +126,4 @@ void SNLBusNetBit::setName(const NLName& name) {
   throw NLException("Unauthorized setName of SNLBusNetBit");  
 }
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja

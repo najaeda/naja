@@ -19,7 +19,7 @@
 #include "SNLBusNetBit.h"
 #include "SNLInstTerm.h"
 
-using namespace naja::SNL;
+using namespace naja::NL;
 
 #ifndef SNL_VRL_DUMPER_TEST_PATH
 #define SNL_VRL_DUMPER_TEST_PATH "Undefined"
@@ -313,7 +313,7 @@ TEST_F(SNLVRLDumperTest1, test5) {
   auto i0BusTerm = model->getBusTerm(NLName("i0"));
   ASSERT_NE(nullptr, i0BusTerm);
   auto assign0Bus = SNLBusNet::create(top, 4, 0);
-  assign0Bus->setType(naja::SNL::SNLNet::Type::Assign0);
+  assign0Bus->setType(naja::NL::SNLNet::Type::Assign0);
   instance1->setTermNet(i0BusTerm, assign0Bus);
   
   auto param0 = instance1->getModel()->getParameter(NLName("PARAM0"));
@@ -332,15 +332,15 @@ TEST_F(SNLVRLDumperTest1, test5) {
   SNLInstance::Nets nets;
   {
     auto n0 = SNLScalarNet::create(top);
-    n0->setType(naja::SNL::SNLNet::Type::Assign1);
+    n0->setType(naja::NL::SNLNet::Type::Assign1);
     auto n1 = SNLScalarNet::create(top);
-    n1->setType(naja::SNL::SNLNet::Type::Assign0);
+    n1->setType(naja::NL::SNLNet::Type::Assign0);
     auto n2 = SNLScalarNet::create(top);
-    n2->setType(naja::SNL::SNLNet::Type::Assign0);
+    n2->setType(naja::NL::SNLNet::Type::Assign0);
     auto n3 = SNLScalarNet::create(top);
-    n3->setType(naja::SNL::SNLNet::Type::Assign1);
+    n3->setType(naja::NL::SNLNet::Type::Assign1);
     auto n4 = SNLScalarNet::create(top);
-    n4->setType(naja::SNL::SNLNet::Type::Assign1);
+    n4->setType(naja::NL::SNLNet::Type::Assign1);
     nets = {n0, n1, n2, n3, n4};
   }
   SNLInstance::Terms terms(i0BusTerm->getBits().begin(), i0BusTerm->getBits().end()); 
@@ -353,9 +353,9 @@ TEST_F(SNLVRLDumperTest1, test5) {
   terms = SNLInstance::Terms(i1BusTerm->getBits().begin(), i1BusTerm->getBits().end());
   {
     auto n0 = SNLScalarNet::create(top);
-    n0->setType(naja::SNL::SNLNet::Type::Assign0);
+    n0->setType(naja::NL::SNLNet::Type::Assign0);
     auto n1 = SNLScalarNet::create(top);
-    n1->setType(naja::SNL::SNLNet::Type::Assign1);
+    n1->setType(naja::NL::SNLNet::Type::Assign1);
     auto n2 = SNLScalarNet::create(top, NLName("n2"));
     auto n3 = SNLScalarNet::create(top, NLName("n3"));
     auto n4 = SNLScalarNet::create(top, NLName("n4"));

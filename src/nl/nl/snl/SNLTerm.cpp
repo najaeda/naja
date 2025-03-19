@@ -6,7 +6,7 @@
 
 #include "SNLDesign.h"
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 void SNLTerm::preCreate() {
   super::preCreate();
@@ -24,4 +24,4 @@ NLID::DesignObjectReference SNLTerm::getReference() const {
   return NLID::DesignObjectReference(getDesign()->getReference(), getID());
 }
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja

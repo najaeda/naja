@@ -9,7 +9,7 @@
 
 #include "NLID.h"
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 class SNLPath;
 class SNLInstance;
@@ -51,6 +51,6 @@ class SNLUniquifier {
     bool uniquifyTail_ = false;
 };
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja
 
 #endif  // __SNL_UNIQUIFIER_H_

@@ -12,10 +12,9 @@
 #include <Python.h>
 
 #include "NLException.h"
-#include "SNLProxyProperty.h"
-#include "sstream"
+#include "NajaPythonProperty.h"
 
-namespace PYSNL {
+namespace PYNAJA {
 
 static void setError(const std::string& reason) {
   //Mabybe create a custom error type in the future ?
@@ -100,7 +99,7 @@ PyObject* richCompare(T left, T right, int op) {
 #define TRY try {
 
 #define NLCATCH                                        \
-  } catch (const naja::SNL::NLException& e) {          \
+  } catch (const naja::NL::NLException& e) {          \
     setError("SNL exception: " + e.getReason());        \
     return nullptr;                                     \
   } catch (const std::exception& e) {                   \
@@ -192,8 +191,8 @@ PyObject* richCompare(T left, T right, int op) {
       PyErr_SetString( PyExc_RuntimeError, message.str().c_str() );                                                  \
       return NULL;                                                                                           \
     }                                                                                                        \
-    naja::SNLProxyProperty* proxy = static_cast<naja::SNLProxyProperty*>                                     \
-                           ( self->ACCESS_OBJECT->getProperty( naja::SNLProxyProperty::getPropertyName() ) );\
+    naja::NajaPythonProperty* proxy = static_cast<naja::NajaPythonProperty*>                                     \
+                           ( self->ACCESS_OBJECT->getProperty( naja::NajaPythonProperty::getPropertyName() ) );\
     if (proxy == NULL) {                                                                                     \
       std::ostringstream  message;                                                                           \
       message << "Trying to destroy() a Hurricane object of with no Proxy attached ";                        \
@@ -218,8 +217,8 @@ PyObject* richCompare(T left, T right, int op) {
   static void Py##SELF_TYPE##_DeAlloc ( Py##SELF_TYPE *self )                               \
   {                                                                                         \
     if ( self->ACCESS_OBJECT != NULL ) {                                                    \
-        naja::SNLProxyProperty* proxy = static_cast<naja::SNLProxyProperty*>                \
-        ( self->ACCESS_OBJECT->getProperty ( naja::SNLProxyProperty::getPropertyName() ) ); \
+        naja::NajaPythonProperty* proxy = static_cast<naja::NajaPythonProperty*>                \
+        ( self->ACCESS_OBJECT->getProperty ( naja::NajaPythonProperty::getPropertyName() ) ); \
         if (proxy == NULL) {                                                                \
           std::ostringstream  message;                                                      \
           message << "deleting a Python object with no Proxy attached ";                    \
@@ -307,17 +306,17 @@ PyObject* richCompare(T left, T right, int op) {
     }                                                                                       \
     Py##SELF_TYPE* pyObject = NULL;                                                         \
     TRY                                                                                     \
-    naja::SNLProxyProperty* proxy = static_cast<naja::SNLProxyProperty*>                    \
-      ( object->getProperty ( naja::SNLProxyProperty::getPropertyName() ) );                \
+    naja::NajaPythonProperty* proxy = static_cast<naja::NajaPythonProperty*>                    \
+      ( object->getProperty ( naja::NajaPythonProperty::getPropertyName() ) );                \
     if ( proxy == NULL ) {                                                                  \
       pyObject = PyObject_NEW(Py##SELF_TYPE, &PyType##SELF_TYPE);                           \
       if (pyObject == NULL) { return NULL; }                                                \
-      proxy = naja::SNLProxyProperty::create ( (void*)pyObject );                           \
+      proxy = naja::NajaPythonProperty::create ( (void*)pyObject );                           \
       CHECK_OFFSET ( pyObject, SELF_TYPE )                                                  \
       pyObject->ACCESS_OBJECT = object;                                                     \
       object->put ( proxy );                                                                \
-    naja::SNLProxyProperty* proxy = static_cast<naja::SNLProxyProperty*>                    \
-    ( pyObject->ACCESS_OBJECT->getProperty ( naja::SNLProxyProperty::getPropertyName() ) ); \
+    naja::NajaPythonProperty* proxy = static_cast<naja::NajaPythonProperty*>                    \
+    ( pyObject->ACCESS_OBJECT->getProperty ( naja::NajaPythonProperty::getPropertyName() ) ); \
     assert(proxy != nullptr);                                                               \
     } else {                                                                                \
       pyObject = (Py##SELF_TYPE*)proxy->getShadow ();                                       \

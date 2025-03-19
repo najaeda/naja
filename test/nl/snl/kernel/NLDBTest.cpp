@@ -6,7 +6,7 @@
 
 #include "NLUniverse.h"
 #include "NLException.h"
-using namespace naja::SNL;
+using namespace naja::NL;
 
 class NLDBTest: public ::testing::Test {
   protected:

@@ -16,7 +16,7 @@
 #include "SNLBitNet.h"
 #include "SNLMacros.h"
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 SNLInstTerm::SNLInstTerm(SNLInstance* instance, SNLBitTerm* bitTerm):
   instance_(instance),
@@ -115,4 +115,4 @@ void SNLInstTerm::debugDump(size_t indent, bool recursive, std::ostream& stream)
 }
 //LCOV_EXCL_STOP
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja

@@ -16,7 +16,7 @@
 #include "SNLSharedPath.h"
 #include "SNLInstParameter.h"
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 class SNLTerm;
 class SNLNet;
@@ -183,6 +183,6 @@ class SNLInstance final: public SNLDesignObject {
     NLID::DesignObjectID                orderID_                  {(NLID::DesignObjectID)-1};
 };
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja
 
 #endif // __SNL_INSTANCE_H_ 

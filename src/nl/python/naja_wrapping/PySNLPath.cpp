@@ -13,10 +13,9 @@
 #include "PyInterface.h"
 #include "PySNLInstance.h"
 
+namespace PYNAJA {
 
-namespace PYSNL {
-
-using namespace naja::SNL;
+using namespace naja::NL;
 
 #define METHOD_HEAD(function) GENERIC_METHOD_HEAD(SNLPath, function)
 
@@ -53,7 +52,7 @@ static int PySNLPath_Init(PySNLPath* self, PyObject* args, PyObject* kwargs) {
 
 // Function to be called from Python
 PyObject* PySNLPath_getPathIDs(PySNLPath* self, PyObject* args) { 
-  std::vector<naja::SNL::NLID::DesignObjectID> vec = self->object_->getPathIDs();
+  std::vector<naja::NL::NLID::DesignObjectID> vec = self->object_->getPathIDs();
   PyObject* py_list = PyList_New(vec.size()); 
   for (size_t i = 0; i < vec.size(); ++i) { 
     PyList_SetItem(py_list, i, PyLong_FromLong(vec[i])); 
@@ -92,4 +91,4 @@ PyMethodDef PySNLPath_Methods[] = {
 PyTypeManagedNLObjectWithoutNLIDLinkPyType(SNLPath)
 PyTypeObjectDefinitions(SNLPath)
 
-}  // namespace PYSNL
+}  // namespace PYNAJA

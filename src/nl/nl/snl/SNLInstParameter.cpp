@@ -12,7 +12,7 @@
 #include "SNLDesign.h"
 #include "SNLParameter.h"
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 SNLInstParameter::SNLInstParameter(SNLInstance* instance, SNLParameter* parameter, const std::string& value):
   instance_(instance), parameter_(parameter), value_(value)
@@ -92,4 +92,4 @@ std::string SNLInstParameter::getDescription() const {
 }
 //LCOV_EXCL_STOP
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja

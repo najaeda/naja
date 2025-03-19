@@ -15,7 +15,7 @@ using ::testing::ElementsAre;
 #include "SNLScalarNet.h"
 #include "SNLBusNet.h"
 #include "SNLBusNetBit.h"
-using namespace naja::SNL;
+using namespace naja::NL;
 
 class SNLTermTest: public ::testing::Test {
   protected:

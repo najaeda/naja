@@ -35,9 +35,9 @@
 
 #include "NetlistGraph.h"
 
-namespace PYSNL {
+namespace PYNAJA {
 
-using namespace naja::SNL;
+using namespace naja::NL;
 
 #define METHOD_HEAD(function) GENERIC_METHOD_HEAD(SNLDesign, function)
 
@@ -315,7 +315,7 @@ static PyObject* PySNLDesign_dumpFullDotFile(PySNLDesign* self, PyObject* args) 
     outputPath = std::filesystem::path(path);
   }
   std::string dotFileName(outputPath.string());
-  naja::SNL::SNLDesign* design = self->object_;
+  naja::NL::SNLDesign* design = self->object_;
   naja::SnlVisualiser snl(design);
   snl.process();
   snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
@@ -333,7 +333,7 @@ static PyObject* PySNLDesign_dumpContextDotFile(PySNLDesign* self, PyObject* arg
     outputPath = std::filesystem::path(path);
   }
   std::string dotFileName(outputPath.string());
-  naja::SNL::SNLDesign* design = self->object_;
+  naja::NL::SNLDesign* design = self->object_;
   naja::SnlVisualiser snl(design, false);
   snl.process();
   snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
@@ -350,8 +350,8 @@ static PyObject* PySNLDesign_getInstanceByIDList(PySNLDesign* self, PyObject* ar
     setError("malformed SNLDesign.getInsatnceByIDList method");
     return nullptr;
   }
-  naja::SNL::SNLDesign* design = self->object_;
-  naja::SNL::SNLInstance* instance = nullptr;
+  naja::NL::SNLDesign* design = self->object_;
+  naja::NL::SNLInstance* instance = nullptr;
   for (int i=0; i<PyList_Size(arg0); ++i) {
     instance = design->getInstance(PyLong_AsLong(PyList_GetItem(arg0, i)));
     design = instance->getModel();
@@ -363,7 +363,7 @@ static PyObject* PySNLDesign_getInstanceByIDList(PySNLDesign* self, PyObject* ar
 // Function to be called from Python
 PyObject* PySNLDesign_getNLID(PySNLDesign* self) { 
   PyObject* py_list = PyList_New(6); 
-  naja::SNL::NLID id = self->object_->getNLID();
+  naja::NL::NLID id = self->object_->getNLID();
   PyList_SetItem(py_list, 0, PyLong_FromLong(id.dbID_));
   PyList_SetItem(py_list, 1, PyLong_FromLong(id.libraryID_));
   PyList_SetItem(py_list, 2, PyLong_FromLong(id.designID_));

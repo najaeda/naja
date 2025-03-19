@@ -24,7 +24,7 @@
 namespace {
 
 //LCOV_EXCL_START
-void printTerms(const naja::SNL::SNLInstance::Terms& terms, std::ostream& stream) {
+void printTerms(const naja::NL::SNLInstance::Terms& terms, std::ostream& stream) {
   stream << "[";
   bool first = true;
   for (auto term: terms) {
@@ -44,7 +44,7 @@ void printTerms(const naja::SNL::SNLInstance::Terms& terms, std::ostream& stream
 
 }
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 SNLInstance::SNLInstance(SNLDesign* design, SNLDesign* model, const NLName& name):
   super(),
@@ -614,4 +614,4 @@ void SNLInstance::debugDump(size_t indent, bool recursive, std::ostream& stream)
 }
 //LCOV_EXCL_STOP
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja

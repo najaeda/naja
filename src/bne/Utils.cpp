@@ -12,7 +12,7 @@
 #include "NLDB0.h"
 #include "SNLBusNetBit.h"
 
-using namespace naja::SNL;
+using namespace naja::NL;
 using namespace naja::DNL;
 
 // #define DEBUG_PRINTS

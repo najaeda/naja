@@ -12,7 +12,7 @@
 #include "SNLPath.h"
 #include "SNLDesignObject.h"
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 SNLOccurrence::SNLOccurrence(SNLDesignObject* object):
   object_(object)
@@ -101,4 +101,4 @@ std::string SNLOccurrence::getDescription() const {
 }
 //LCOV_EXCL_STOP
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja

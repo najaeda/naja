@@ -10,7 +10,7 @@
 
 #include "NajaObject.h"
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 /**
  * \brief SNLObject is the root object of SNL database objects.
@@ -35,6 +35,6 @@ class NLObject: public NajaObject {
     void preDestroy() override;
 };
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja
 
 #endif // __SNL_OBJECT_H_

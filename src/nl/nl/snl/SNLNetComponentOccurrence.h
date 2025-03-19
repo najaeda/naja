@@ -7,7 +7,7 @@
 
 #include "SNLOccurrence.h"
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 class SNLNetComponent;
 class SNLBitNet;
@@ -31,6 +31,6 @@ class SNLNetComponentOccurrence: public SNLOccurrence {
     SNLBitNetOccurrence getNetOccurrence() const;
 };
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja
 
 #endif // __SNL_NET_COMPONENT_OCCURRENCE_H_

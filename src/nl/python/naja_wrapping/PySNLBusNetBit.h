@@ -8,7 +8,7 @@
 #include "PySNLBitNet.h"
 #include "SNLBusNetBit.h"
 
-namespace PYSNL {
+namespace PYNAJA {
 
 typedef struct {
   PySNLBitNet parent_;
@@ -16,13 +16,13 @@ typedef struct {
 
 extern PyTypeObject PyTypeSNLBusNetBit;
 
-extern PyObject*    PySNLBusNetBit_Link(naja::SNL::SNLBusNetBit* n);
+extern PyObject*    PySNLBusNetBit_Link(naja::NL::SNLBusNetBit* n);
 extern void         PySNLBusNetBit_LinkPyType();
 
 #define IsPySNLBusNetBit(v)  (PyObject_TypeCheck(v, &PyTypeSNLBusNetBit))
 #define PYSNLBusNetBit(v)    (static_cast<PySNLBusNetBit*>(v))
 #define PYSNLBusNetBit_O(v)  (PYSNLBusNetBit(v)->object_)
 
-} /* PYSNL namespace */
+} /* PYNAJA namespace */
  
 #endif /* __PY_SNL_BUS_NET_BIT_H_ */

@@ -12,7 +12,7 @@ using ::testing::ElementsAre;
 #include "SNLScalarTerm.h"
 #include "SNLDesignModeling.h"
 #include "SNLPyLoader.h"
-using namespace naja::SNL;
+using namespace naja::NL;
 
 #ifndef SNL_PRIMITIVES_TEST_PATH
 #define SNL_PRIMITIVES_TEST_PATH "Undefined"

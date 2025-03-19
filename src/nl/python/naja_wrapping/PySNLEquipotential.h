@@ -7,26 +7,26 @@
 
 #include <Python.h>
 
-namespace naja::SNL {
+namespace naja::NL {
   class SNLEquipotential;
 }
 
-namespace PYSNL {
+namespace PYNAJA {
 
 typedef struct {
   PyObject_HEAD
-  naja::SNL::SNLEquipotential* object_;
+  naja::NL::SNLEquipotential* object_;
 } PySNLEquipotential;
 
 extern PyTypeObject PyTypeSNLEquipotential;
 
-extern PyObject*  PySNLEquipotential_Link(naja::SNL::SNLEquipotential* equipotential);
+extern PyObject*  PySNLEquipotential_Link(naja::NL::SNLEquipotential* equipotential);
 extern void       PySNLEquipotential_LinkPyType();
 
 #define IsPySNLEquipotential(v) (PyObject_TypeCheck(v, &PyTypeSNLEquipotential))
 #define PYSNLEquipotential(v)   ((PySNLEquipotential*)(v))
 #define PYSNLEquipotential_O(v) (PYSNLEquipotential(v)->object_)
 
-} // PYSNL namespace
+} // PYNAJA namespace
  
 #endif // __PY_SNL_EQUIPOTENTIAL_H_

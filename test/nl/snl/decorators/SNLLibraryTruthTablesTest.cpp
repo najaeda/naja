@@ -7,7 +7,7 @@
 #include "NLUniverse.h"
 #include "NLException.h"
 #include "NLLibraryTruthTables.h"
-using namespace naja::SNL;
+using namespace naja::NL;
 
 class NLLibraryTruthTablesTest: public ::testing::Test {
   protected:

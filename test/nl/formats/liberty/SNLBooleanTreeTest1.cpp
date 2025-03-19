@@ -9,7 +9,7 @@
 #include "SNLScalarTerm.h"
 #include "SNLBooleanTree.h"
 #include "SNLLibertyConstructorException.h"
-using namespace naja::SNL;
+using namespace naja::NL;
 
 class SNLBooleanTreeTest1: public ::testing::Test {
   protected:

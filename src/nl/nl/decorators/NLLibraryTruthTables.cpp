@@ -20,8 +20,8 @@ class NLLibraryModelingProperty: public naja::NajaPrivateProperty {
     using Inherit = naja::NajaPrivateProperty;
     static const inline std::string Name = "NLLibraryModelingProperty";
     static NLLibraryModelingProperty* create(
-      naja::SNL::NLLibrary* library,
-      const naja::SNL::NLLibraryTruthTables::LibraryTruthTables& truthTables) {
+      naja::NL::NLLibrary* library,
+      const naja::NL::NLLibraryTruthTables::LibraryTruthTables& truthTables) {
       preCreate(library, Name);
       NLLibraryModelingProperty* property = new NLLibraryModelingProperty();
       property->truthTables_ = truthTables;
@@ -36,14 +36,14 @@ class NLLibraryModelingProperty: public naja::NajaPrivateProperty {
       return Name;
     }
     //LCOV_EXCL_STOP
-    naja::SNL::NLLibraryTruthTables::LibraryTruthTables getTruthTables() const {
+    naja::NL::NLLibraryTruthTables::LibraryTruthTables getTruthTables() const {
       return truthTables_;
     }
   private:
-    naja::SNL::NLLibraryTruthTables::LibraryTruthTables  truthTables_ {};
+    naja::NL::NLLibraryTruthTables::LibraryTruthTables  truthTables_ {};
 };
 
-NLLibraryModelingProperty* getProperty(const naja::SNL::NLLibrary* library) {
+NLLibraryModelingProperty* getProperty(const naja::NL::NLLibrary* library) {
   auto property =
     static_cast<NLLibraryModelingProperty*>(library->getProperty(NLLibraryModelingProperty::Name));
   if (property) {
@@ -54,7 +54,7 @@ NLLibraryModelingProperty* getProperty(const naja::SNL::NLLibrary* library) {
 
 } // namespace
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 NLLibraryTruthTables::LibraryTruthTables NLLibraryTruthTables::construct(NLLibrary* library) {
   if (library->getType() != NLLibrary::Type::Primitives) {
@@ -115,4 +115,4 @@ NLLibraryTruthTables::getDesignForTruthTable(const NLLibrary* library, const SNL
   return std::pair(primitives[0], indexes);
 }
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja

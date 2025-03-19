@@ -10,7 +10,7 @@
 #include "NLName.h"
 #include "SNLAttributes.h"
 
-namespace naja { namespace SNL {
+namespace naja { namespace NL {
 
 class NLDB;
 class NLLibrary;
@@ -74,6 +74,6 @@ class SNLDesignObject: public NLObject {
     void preDestroy() override;
 };
 
-}} // namespace SNL // namespace naja
+}} // namespace NL // namespace naja
 
 #endif // __SNL_DESIGN_OBJECT_H_

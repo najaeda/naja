@@ -15,7 +15,7 @@
 
 using namespace naja;
 using namespace naja::DNL;
-using namespace naja::SNL;
+using namespace naja::NL;
 
 namespace {
 
