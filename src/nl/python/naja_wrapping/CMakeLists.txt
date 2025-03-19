@@ -25,7 +25,8 @@ set(SOURCES
   PySNLNets.cpp PySNLBitNets.cpp PySNLScalarNets.cpp PySNLBusNets.cpp
   PySNLInstances.cpp PySNLInstTerms.cpp PySNLPath.cpp PySNLOccurrence.cpp
   PySNLNetComponentOccurrence.cpp PySNLInstTermOccurrence.cpp PySNLInstTermOccurrences.cpp
-  PySNLEquipotential.cpp PySNLUniquifier.cpp SNLProxyProperty.cpp
+  PySNLEquipotential.cpp PySNLUniquifier.cpp
+  NajaPythonProperty.cpp
 )
 
 add_library(naja_python SHARED ${SOURCES})
