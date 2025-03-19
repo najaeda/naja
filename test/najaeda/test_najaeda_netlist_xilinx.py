@@ -7,12 +7,12 @@ import unittest
 import faulthandler
 
 from najaeda import netlist
-from najaeda import snl
+from najaeda import naja
 
 class NajaNetlistTestXilinx(unittest.TestCase):
     def tearDown(self):
-        if snl.NLUniverse.get():
-            snl.NLUniverse.get().destroy()
+        if naja.NLUniverse.get():
+            naja.NLUniverse.get().destroy()
 
     def test_xilinx_primitives(self):
         top = netlist.create_top('Top')

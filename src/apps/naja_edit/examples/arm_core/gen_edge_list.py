@@ -1,9 +1,9 @@
 import logging
-from naja import snl
+from naja import naja
 
 def edit():
   logging.basicConfig(filename='edit.log', filemode='w' ,level=logging.DEBUG)
-  universe = snl.NLUniverse.get()
+  universe = naja.NLUniverse.get()
   if universe is None:
     logging.critical('No loaded NLUniverse')
     return 1
@@ -22,7 +22,7 @@ def edit():
     edge = set()
     first = True
     for component in net.getComponents():
-      if isinstance(component, snl.SNLInstTerm):
+      if isinstance(component, naja.SNLInstTerm):
         instance = component.getInstance()
         edge.add(instance)
       else:

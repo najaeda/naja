@@ -9,68 +9,68 @@ import faulthandler
 import logging
 
 from najaeda import netlist
-from najaeda import snl
+from najaeda import naja
 
 #close to netlist1 test but with more busses
 
 class NajaNetlistTest2(unittest.TestCase):
     def setUp(self):
         logging.basicConfig(level=logging.DEBUG)
-        universe = snl.NLUniverse.create()
-        db = snl.NLDB.create(universe)
+        universe = naja.NLUniverse.create()
+        db = naja.NLDB.create(universe)
         universe.setTopDB(db)
-        primitives = snl.NLLibrary.createPrimitives(db)
-        and4 = snl.SNLDesign.createPrimitive(primitives, "AND4")
-        snl.SNLScalarTerm.create(and4, snl.SNLTerm.Direction.Input, "I0")
-        snl.SNLScalarTerm.create(and4, snl.SNLTerm.Direction.Input, "I1")
-        snl.SNLScalarTerm.create(and4, snl.SNLTerm.Direction.Input, "I2")
-        snl.SNLScalarTerm.create(and4, snl.SNLTerm.Direction.Input, "I3")
-        snl.SNLScalarTerm.create(and4, snl.SNLTerm.Direction.Output, "O")
-        inv = snl.SNLDesign.createPrimitive(primitives, "INV")
-        snl.SNLScalarTerm.create(inv, snl.SNLTerm.Direction.Input, "I")
-        snl.SNLScalarTerm.create(inv, snl.SNLTerm.Direction.Output, "O")
+        primitives = naja.NLLibrary.createPrimitives(db)
+        and4 = naja.SNLDesign.createPrimitive(primitives, "AND4")
+        naja.SNLScalarTerm.create(and4, naja.SNLTerm.Direction.Input, "I0")
+        naja.SNLScalarTerm.create(and4, naja.SNLTerm.Direction.Input, "I1")
+        naja.SNLScalarTerm.create(and4, naja.SNLTerm.Direction.Input, "I2")
+        naja.SNLScalarTerm.create(and4, naja.SNLTerm.Direction.Input, "I3")
+        naja.SNLScalarTerm.create(and4, naja.SNLTerm.Direction.Output, "O")
+        inv = naja.SNLDesign.createPrimitive(primitives, "INV")
+        naja.SNLScalarTerm.create(inv, naja.SNLTerm.Direction.Input, "I")
+        naja.SNLScalarTerm.create(inv, naja.SNLTerm.Direction.Output, "O")
 
-        modules = snl.NLLibrary.create(db, 'Modules')
-        module0 = snl.SNLDesign.create(modules, 'Module0')
-        i0 = snl.SNLBusTerm.create(module0, snl.SNLTerm.Direction.Input, 3, 0, 'I0')
-        i0Net = snl.SNLBusNet.create(module0, 3, 0, 'I0')
+        modules = naja.NLLibrary.create(db, 'Modules')
+        module0 = naja.SNLDesign.create(modules, 'Module0')
+        i0 = naja.SNLBusTerm.create(module0, naja.SNLTerm.Direction.Input, 3, 0, 'I0')
+        i0Net = naja.SNLBusNet.create(module0, 3, 0, 'I0')
         i0.setNet(i0Net)
-        i1 = snl.SNLBusTerm.create(module0, snl.SNLTerm.Direction.Input, 3, 0, 'I1')
-        i1Net = snl.SNLBusNet.create(module0, 3, 0, 'I1')
+        i1 = naja.SNLBusTerm.create(module0, naja.SNLTerm.Direction.Input, 3, 0, 'I1')
+        i1Net = naja.SNLBusNet.create(module0, 3, 0, 'I1')
         i1.setNet(i1Net)
-        o = snl.SNLBusTerm.create(module0, snl.SNLTerm.Direction.Output, 1, 0, 'O')
-        oNet = snl.SNLBusNet.create(module0, 1, 0, 'O')
+        o = naja.SNLBusTerm.create(module0, naja.SNLTerm.Direction.Output, 1, 0, 'O')
+        oNet = naja.SNLBusNet.create(module0, 1, 0, 'O')
         o.setNet(oNet)
 
-        net = snl.SNLBusNet.create(module0, 1, 0, 'net')
+        net = naja.SNLBusNet.create(module0, 1, 0, 'net')
 
-        and0Net = snl.SNLScalarNet.create(module0, 'and0O')
-        and1Net = snl.SNLScalarNet.create(module0, 'and1O')
-        and0 = snl.SNLInstance.create(module0, and4, 'and0')
+        and0Net = naja.SNLScalarNet.create(module0, 'and0O')
+        and1Net = naja.SNLScalarNet.create(module0, 'and1O')
+        and0 = naja.SNLInstance.create(module0, and4, 'and0')
         and0.getInstTerm(and4.getScalarTerm('I0')).setNet(i0Net.getBit(0))
         and0.getInstTerm(and4.getScalarTerm('I1')).setNet(i0Net.getBit(1))
         and0.getInstTerm(and4.getScalarTerm('I2')).setNet(i0Net.getBit(2))
         and0.getInstTerm(and4.getScalarTerm('I3')).setNet(i0Net.getBit(3))
         and0.getInstTerm(and4.getScalarTerm('O')).setNet(net.getBit(0))
 
-        and1 = snl.SNLInstance.create(module0, and4, 'and1')
+        and1 = naja.SNLInstance.create(module0, and4, 'and1')
         and1.getInstTerm(and4.getScalarTerm('I0')).setNet(i1Net.getBit(0))
         and1.getInstTerm(and4.getScalarTerm('I1')).setNet(i1Net.getBit(1))
         and1.getInstTerm(and4.getScalarTerm('I2')).setNet(i1Net.getBit(2))
         and1.getInstTerm(and4.getScalarTerm('I3')).setNet(i1Net.getBit(3))
         and1.getInstTerm(and4.getScalarTerm('O')).setNet(net.getBit(1))
         
-        inv0 = snl.SNLInstance.create(module0, inv, 'in0')
+        inv0 = naja.SNLInstance.create(module0, inv, 'in0')
         inv0.getInstTerm(inv.getScalarTerm('I')).setNet(net.getBit(0))
         inv0.getInstTerm(inv.getScalarTerm('O')).setNet(oNet.getBit(0))
 
-        inv1 = snl.SNLInstance.create(module0, inv, 'in1')
+        inv1 = naja.SNLInstance.create(module0, inv, 'in1')
         inv1.getInstTerm(inv.getScalarTerm('I')).setNet(net.getBit(1))
         inv1.getInstTerm(inv.getScalarTerm('O')).setNet(oNet.getBit(1))
 
     def tearDown(self):
-        if snl.NLUniverse.get():
-            snl.NLUniverse.get().destroy()
+        if naja.NLUniverse.get():
+            naja.NLUniverse.get().destroy()
 
     def test_top0(self):
         def create_top():

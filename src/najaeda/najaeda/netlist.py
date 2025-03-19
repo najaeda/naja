@@ -11,7 +11,7 @@ import struct
 import sys
 from enum import Enum
 
-from najaeda import snl
+from najaeda import naja
 
 
 def get_none_existent():
@@ -44,8 +44,8 @@ def consistent_hash(obj):
     return int(hashlib.sha256(obj_bytes).hexdigest(), 16)
 
 
-def get_snl_instance_from_id_list(id_list: list) -> snl.SNLInstance:
-    design = snl.NLUniverse.get().getTopDesign()
+def get_snl_instance_from_id_list(id_list: list) -> naja.SNLInstance:
+    design = naja.NLUniverse.get().getTopDesign()
     # instance = None
     # for id in id_list:
     #     instance = design.getInstanceByID(id)
@@ -55,14 +55,14 @@ def get_snl_instance_from_id_list(id_list: list) -> snl.SNLInstance:
     return design.getInstanceByIDList(id_list)
 
 
-def get_snl_path_from_id_list(id_list: list) -> snl.SNLPath:
-    top = snl.NLUniverse.get().getTopDesign()
+def get_snl_path_from_id_list(id_list: list) -> naja.SNLPath:
+    top = naja.NLUniverse.get().getTopDesign()
     design = top
-    path = snl.SNLPath()
+    path = naja.SNLPath()
     for id in id_list:
         instance = design.getInstanceByID(id)
         assert instance is not None
-        path = snl.SNLPath(path, instance)
+        path = naja.SNLPath(path, instance)
         assert path.getTailInstance() is not None
         design = instance.getModel()
     if len(id_list) > 0:
@@ -79,7 +79,7 @@ class Equipotential:
         path = get_snl_path_from_id_list(term.pathIDs)
         snl_term = get_snl_term_for_ids_with_path(path, term.termIDs)
         inst_term = None
-        if isinstance(snl_term, snl.SNLBusTerm):
+        if isinstance(snl_term, naja.SNLBusTerm):
             raise ValueError("Equipotential cannot be constructed on bus term")
         if len(term.pathIDs) == 0:
             net = term.get_lower_net()
@@ -91,14 +91,14 @@ class Equipotential:
                 self.equi = None
                 return
             else:
-                path = snl.SNLPath(path, get_snl_instance_from_id_list(inst_term.pathIDs))
+                path = naja.SNLPath(path, get_snl_instance_from_id_list(inst_term.pathIDs))
                 snl_term = get_snl_term_for_ids(inst_term.pathIDs, inst_term.termIDs)
         else:
             inst_term = term
-        ito = snl.SNLNetComponentOccurrence(
+        ito = naja.SNLNetComponentOccurrence(
             path.getHeadPath(), path.getTailInstance().getInstTerm(snl_term)
         )
-        self.equi = snl.SNLEquipotential(ito)
+        self.equi = naja.SNLEquipotential(ito)
 
     def __eq__(self, value):
         return self.equi == value.equi
@@ -134,7 +134,7 @@ class Equipotential:
         if self.equi is not None:
             for term in self.equi.getInstTermOccurrences():
                 direction = term.getInstTerm().getDirection()
-                if direction != snl.SNLTerm.Direction.Output:
+                if direction != naja.SNLTerm.Direction.Output:
                     if term.getInstTerm().getInstance().getModel().isLeaf():
                         path = term.getPath().getPathIDs()
                         path.append(term.getInstTerm().getInstance().getID())
@@ -145,7 +145,7 @@ class Equipotential:
         if self.equi is not None:
             for term in self.equi.getInstTermOccurrences():
                 direction = term.getInstTerm().getDirection()
-                if direction != snl.SNLTerm.Direction.Input:
+                if direction != naja.SNLTerm.Direction.Input:
                     if term.getInstTerm().getInstance().getModel().isLeaf():
                         path = term.getPath().getPathIDs()
                         path.append(term.getInstTerm().getInstance().getID())
@@ -156,31 +156,31 @@ class Equipotential:
         if self.equi is not None:
             for term in self.equi.getTerms():
                 direction = term.getDirection()
-                if direction != snl.SNLTerm.Direction.Input:
+                if direction != naja.SNLTerm.Direction.Input:
                     yield Term([], term)
 
     def get_top_drivers(self):
         if self.equi is not None:
             for term in self.equi.getTerms():
                 direction = term.getDirection()
-                if direction != snl.SNLTerm.Direction.Output:
+                if direction != naja.SNLTerm.Direction.Output:
                     yield Term([], term)
 
 
 class Net:
     class Type(Enum):
-        STANDARD = snl.SNLNet.Type.Standard
-        ASSIGN0 = snl.SNLNet.Type.Assign0
-        ASSIGN1 = snl.SNLNet.Type.Assign1
-        SUPPLY0 = snl.SNLNet.Type.Supply0
-        SUPPLY1 = snl.SNLNet.Type.Supply1
+        STANDARD = naja.SNLNet.Type.Standard
+        ASSIGN0 = naja.SNLNet.Type.Assign0
+        ASSIGN1 = naja.SNLNet.Type.Assign1
+        SUPPLY0 = naja.SNLNet.Type.Supply0
+        SUPPLY1 = naja.SNLNet.Type.Supply1
 
     def __init__(self, path, net=None, net_concat=None):
         if net is not None and net_concat is not None:
             raise ValueError(
                 "Only one of `net` or `net_concat` should be provided, not both."
             )
-        if isinstance(path, snl.SNLPath):
+        if isinstance(path, naja.SNLPath):
             if path.size() > 0:
                 self.pathIDs = path.getPathIDs()
             else:
@@ -227,7 +227,7 @@ class Net:
         :return: the most significant bit of the net if it is a bus.
         :rtype: int
         """
-        if hasattr(self, "net") and isinstance(self.net, snl.SNLBusNet):
+        if hasattr(self, "net") and isinstance(self.net, naja.SNLBusNet):
             return self.net.getMSB()
         return None
 
@@ -236,7 +236,7 @@ class Net:
         :return: the least significant bit of the net if it is a bus.
         :rtype: int
         """
-        if hasattr(self, "net") and isinstance(self.net, snl.SNLBusNet):
+        if hasattr(self, "net") and isinstance(self.net, naja.SNLBusNet):
             return self.net.getLSB()
         return None
 
@@ -245,21 +245,21 @@ class Net:
         :return: True if the net is a bus.
         :rtype: bool
         """
-        return hasattr(self, "net") and isinstance(self.net, snl.SNLBusNet)
+        return hasattr(self, "net") and isinstance(self.net, naja.SNLBusNet)
 
     def is_bus_bit(self) -> bool:
         """
         :return: True if the net is a bit of a bus.
         :rtype: bool
         """
-        return hasattr(self, "net") and isinstance(self.net, snl.SNLBusNetBit)
+        return hasattr(self, "net") and isinstance(self.net, naja.SNLBusNetBit)
 
     def is_scalar(self) -> bool:
         """
         :return: True if the net is a scalar.
         :rtype: bool
         """
-        return hasattr(self, "net") and isinstance(self.net, snl.SNLScalarNet)
+        return hasattr(self, "net") and isinstance(self.net, naja.SNLScalarNet)
 
     def is_bit(self) -> bool:
         """
@@ -314,7 +314,7 @@ class Net:
         :rtype: Iterator[Net]
         """
         if hasattr(self, "net"):
-            if isinstance(self.net, snl.SNLBusNet):
+            if isinstance(self.net, naja.SNLBusNet):
                 for bit in self.net.getBits():
                     yield Net(self.pathIDs, bit)
             else:
@@ -330,7 +330,7 @@ class Net:
         :rtype: Net
         """
         if hasattr(self, "net"):
-            if isinstance(self.net, snl.SNLBusNet):
+            if isinstance(self.net, naja.SNLBusNet):
                 return Net(self.pathIDs, self.net.getBit(index))
             else:
                 return None
@@ -374,14 +374,14 @@ def get_snl_term_for_ids(pathIDs, termIDs):
     path = get_snl_path_from_id_list(pathIDs)
     model = None
     if len(pathIDs) == 0:
-        model = snl.NLUniverse.get().getTopDesign()
+        model = naja.NLUniverse.get().getTopDesign()
     else:
         model = path.getTailInstance().getModel()
     if termIDs[1] == get_none_existent():
         return model.getTermByID(termIDs[0])
     else:
         snlterm = model.getTermByID(termIDs[0])
-        if isinstance(snlterm, snl.SNLBusTerm):
+        if isinstance(snlterm, naja.SNLBusTerm):
             return snlterm.getBusTermBit(termIDs[1])
         else:
             return snlterm
@@ -390,27 +390,27 @@ def get_snl_term_for_ids(pathIDs, termIDs):
 def get_snl_term_for_ids_with_path(path, termIDs):
     model = None
     if path.size() == 0:
-        model = snl.NLUniverse.get().getTopDesign()
+        model = naja.NLUniverse.get().getTopDesign()
     else:
         model = path.getTailInstance().getModel()
     if termIDs[1] == get_none_existent():
         return model.getTermByID(termIDs[0])
     else:
         snlterm = model.getTermByID(termIDs[0])
-        if isinstance(snlterm, snl.SNLBusTerm):
+        if isinstance(snlterm, naja.SNLBusTerm):
             return snlterm.getBusTermBit(termIDs[1])
         else:
             return snlterm
 
 
 class Term:
-    INPUT = snl.SNLTerm.Direction.Input
-    OUTPUT = snl.SNLTerm.Direction.Output
-    INOUT = snl.SNLTerm.Direction.InOut
+    INPUT = naja.SNLTerm.Direction.Input
+    OUTPUT = naja.SNLTerm.Direction.Output
+    INOUT = naja.SNLTerm.Direction.InOut
 
     def __init__(self, path, term):
         # self.termIDs = []
-        # if isinstance(term, snl.SNLBusTerm):
+        # if isinstance(term, naja.SNLBusTerm):
         #     self.termIDs = [term.getID(), -1]
         # else:
         self.termIDs = [term.getID(), term.getBit()]
@@ -439,7 +439,7 @@ class Term:
     def __hash__(self):
         termIDs = []
         snlterm = get_snl_term_for_ids(self.pathIDs, self.termIDs)
-        if isinstance(snlterm, snl.SNLBusTerm):
+        if isinstance(snlterm, naja.SNLBusTerm):
             termIDs = [snlterm.getID(), -1]
         else:
             termIDs = [snlterm.getID(), snlterm.getBit()]
@@ -468,7 +468,7 @@ class Term:
         path = get_snl_path_from_id_list(self.pathIDs)
         if path.size() > 1:
             path = path.getHeadPath()
-            snl.SNLUniquifier(path)
+            naja.SNLUniquifier(path)
 
     def is_bus(self) -> bool:
         """
@@ -476,7 +476,7 @@ class Term:
         :rtype: bool
         """
         return isinstance(
-            get_snl_term_for_ids(self.pathIDs, self.termIDs), snl.SNLBusTerm
+            get_snl_term_for_ids(self.pathIDs, self.termIDs), naja.SNLBusTerm
         )
 
     def is_bus_bit(self) -> bool:
@@ -485,7 +485,7 @@ class Term:
         :rtype: bool
         """
         return isinstance(
-            get_snl_term_for_ids(self.pathIDs, self.termIDs), snl.SNLBusTermBit
+            get_snl_term_for_ids(self.pathIDs, self.termIDs), naja.SNLBusTermBit
         )
 
     def is_scalar(self) -> bool:
@@ -494,7 +494,7 @@ class Term:
         :rtype: bool
         """
         return isinstance(
-            get_snl_term_for_ids(self.pathIDs, self.termIDs), snl.SNLScalarTerm
+            get_snl_term_for_ids(self.pathIDs, self.termIDs), naja.SNLScalarTerm
         )
 
     def is_bit(self) -> bool:
@@ -510,7 +510,7 @@ class Term:
         :rtype: int or None
         """
         if isinstance(
-            get_snl_term_for_ids(self.pathIDs, self.termIDs), snl.SNLBusTermBit
+            get_snl_term_for_ids(self.pathIDs, self.termIDs), naja.SNLBusTermBit
         ):
             return get_snl_term_for_ids(self.pathIDs, self.termIDs).getBit()
         return None
@@ -520,7 +520,7 @@ class Term:
         :return: the most significant bit of the term if it is a bus.
         :rtype: int or None
         """
-        if isinstance(get_snl_term_for_ids(self.pathIDs, self.termIDs), snl.SNLBusTerm):
+        if isinstance(get_snl_term_for_ids(self.pathIDs, self.termIDs), naja.SNLBusTerm):
             return get_snl_term_for_ids(self.pathIDs, self.termIDs).getMSB()
         return None
 
@@ -529,7 +529,7 @@ class Term:
         :return: the least significant bit of the term if it is a bus.
         :rtype: int or None
         """
-        if isinstance(get_snl_term_for_ids(self.pathIDs, self.termIDs), snl.SNLBusTerm):
+        if isinstance(get_snl_term_for_ids(self.pathIDs, self.termIDs), naja.SNLBusTerm):
             return get_snl_term_for_ids(self.pathIDs, self.termIDs).getLSB()
         return None
 
@@ -547,17 +547,17 @@ class Term:
         """
         return get_snl_term_for_ids(self.pathIDs, self.termIDs).getName()
 
-    def get_direction(self) -> snl.SNLTerm.Direction:
+    def get_direction(self) -> naja.SNLTerm.Direction:
         """
         :return: the direction of the term.
-        :rtype: snl.SNLTerm.Direction
+        :rtype: naja.SNLTerm.Direction
         """
         snlterm = get_snl_term_for_ids(self.pathIDs, self.termIDs)
-        if snlterm.getDirection() == snl.SNLTerm.Direction.Input:
+        if snlterm.getDirection() == naja.SNLTerm.Direction.Input:
             return Term.INPUT
-        elif snlterm.getDirection() == snl.SNLTerm.Direction.Output:
+        elif snlterm.getDirection() == naja.SNLTerm.Direction.Output:
             return Term.OUTPUT
-        elif snlterm.getDirection() == snl.SNLTerm.Direction.InOut:
+        elif snlterm.getDirection() == naja.SNLTerm.Direction.InOut:
             return Term.INOUT
 
     def __get_snl_bitnet(self, bit) -> Net:
@@ -572,13 +572,13 @@ class Term:
     def __get_snl_lower_bitnet(self, bit) -> Net:
         return bit.getNet()
 
-    def __get_snl_busnet(self, snl_nets) -> snl.SNLBusNet:
+    def __get_snl_busnet(self, snl_nets) -> naja.SNLBusNet:
         # iterate on all elements of the list and check if
         # a full SNLBusNet can be reconstructed
         snl_bus_net = None
         for i in range(len(snl_nets)):
             snl_net = snl_nets[i]
-            if not isinstance(snl_net, snl.SNLBusNetBit):
+            if not isinstance(snl_net, naja.SNLBusNetBit):
                 return None
             bit_bus = snl_net.getBus()
             if bit_bus.getWidth() != len(snl_nets):
@@ -592,7 +592,7 @@ class Term:
         return snl_bus_net
 
     def __get_net(self, path, snl_term_net_accessor) -> Net:
-        if isinstance(get_snl_term_for_ids(self.pathIDs, self.termIDs), snl.SNLBusTerm):
+        if isinstance(get_snl_term_for_ids(self.pathIDs, self.termIDs), naja.SNLBusTerm):
             snl_nets = []
             for bit in get_snl_term_for_ids(self.pathIDs, self.termIDs).getBits():
                 snl_net = snl_term_net_accessor(bit)
@@ -649,7 +649,7 @@ class Term:
         :rtype: bool
         """
         snlterm = get_snl_term_for_ids(self.pathIDs, self.termIDs)
-        return snlterm.getDirection() == snl.SNLTerm.Direction.Input
+        return snlterm.getDirection() == naja.SNLTerm.Direction.Input
 
     def is_output(self) -> bool:
         """
@@ -657,7 +657,7 @@ class Term:
         :rtype: bool
         """
         snlterm = get_snl_term_for_ids(self.pathIDs, self.termIDs)
-        return snlterm.getDirection() == snl.SNLTerm.Direction.Output
+        return snlterm.getDirection() == naja.SNLTerm.Direction.Output
 
     def get_bits(self):
         """
@@ -665,7 +665,7 @@ class Term:
             If the term is scalar, it will return an iterator over itself.
         :rtype: Iterator[Term]
         """
-        if isinstance(get_snl_term_for_ids(self.pathIDs, self.termIDs), snl.SNLBusTerm):
+        if isinstance(get_snl_term_for_ids(self.pathIDs, self.termIDs), naja.SNLBusTerm):
             for bit in get_snl_term_for_ids(self.pathIDs, self.termIDs).getBits():
                 yield Term(self.pathIDs, bit)
         else:
@@ -677,7 +677,7 @@ class Term:
         :return: the Term bit at the given index or None if it does not exist.
         :rtype: Term or None
         """
-        if isinstance(get_snl_term_for_ids(self.pathIDs, self.termIDs), snl.SNLBusTerm):
+        if isinstance(get_snl_term_for_ids(self.pathIDs, self.termIDs), naja.SNLBusTerm):
             return Term(
                 self.pathIDs,
                 get_snl_term_for_ids(self.pathIDs, self.termIDs).getBusTermBit(index),
@@ -721,27 +721,27 @@ class Term:
 
 def get_instance_by_path(names: list):
     assert len(names) > 0
-    path = snl.SNLPath()
+    path = naja.SNLPath()
     instance = None
-    top = snl.NLUniverse.get().getTopDesign()
+    top = naja.NLUniverse.get().getTopDesign()
     design = top
     for name in names:
-        path = snl.SNLPath(path, design.getInstance(name))
+        path = naja.SNLPath(path, design.getInstance(name))
         instance = design.getInstance(name)
         assert instance is not None
         design = instance.getModel()
     return Instance(path)
 
 
-# def refresh_path(path: snl.SNLPath):
+# def refresh_path(path: naja.SNLPath):
 #    pathlist = path.getPathIDs()
 #    assert len(pathlist) > 0
-#    path = snl.SNLPath()
+#    path = naja.SNLPath()
 #    instance = None
-#    top = snl.NLUniverse.get().getTopDesign()
+#    top = naja.NLUniverse.get().getTopDesign()
 #    design = top
 #    for id in pathlist:
-#        path = snl.SNLPath(path, design.getInstanceByID(id))
+#        path = naja.SNLPath(path, design.getInstanceByID(id))
 #        instance = design.getInstanceByID(id)
 #        assert instance is not None
 #        design = instance.getModel()
@@ -782,11 +782,11 @@ class Instance:
     of the snl occurrence API.
     """
 
-    def __init__(self, path=snl.SNLPath()):
+    def __init__(self, path=naja.SNLPath()):
         self.inst = None
         self.revisionCount = 0
         self.SNLID = [0, 0, 0, 0, 0, 0]
-        if isinstance(path, snl.SNLPath):
+        if isinstance(path, naja.SNLPath):
             if path.size() > 0:
                 self.pathIDs = path.getPathIDs()
                 self.revisionCount = path.getTailInstance().getModel().getRevisionCount()
@@ -832,15 +832,15 @@ class Instance:
         initial_path = get_snl_path_from_id_list(self.pathIDs)
         for inst in self.__get_snl_model().getInstances():
             if inst.getModel().isLeaf():
-                yield Instance(snl.SNLPath(initial_path, inst))
-            path = snl.SNLPath(initial_path, inst)
+                yield Instance(naja.SNLPath(initial_path, inst))
+            path = naja.SNLPath(initial_path, inst)
             stack = [[inst, path]]
             while stack:
                 current = stack.pop()
                 current_inst = current[0]
                 current_path = current[1]
                 for inst_child in current_inst.getModel().getInstances():
-                    path_child = snl.SNLPath(current_path, inst_child)
+                    path_child = naja.SNLPath(current_path, inst_child)
                     if inst_child.getModel().isLeaf():
                         yield Instance(path_child)
                     stack.append([inst_child, path_child])
@@ -919,7 +919,7 @@ class Instance:
 
     def __get_snl_model(self):
         if self.is_top():
-            return snl.NLUniverse.get().getTopDesign()
+            return naja.NLUniverse.get().getTopDesign()
         if (
             self.inst.getModel().getRevisionCount() != self.revisionCount or
             self.inst.getModel().getNLID() != self.SNLID
@@ -932,11 +932,11 @@ class Instance:
 
     def __get_leaf_snl_object(self):
         if self.is_top():
-            return snl.NLUniverse.get().getTopDesign()
+            return naja.NLUniverse.get().getTopDesign()
         return get_snl_instance_from_id_list(self.pathIDs)
 
-    def __find_snl_model(self, name: str) -> snl.SNLDesign:
-        u = snl.NLUniverse.get()
+    def __find_snl_model(self, name: str) -> naja.SNLDesign:
+        u = naja.NLUniverse.get()
         for db in u.getUserDBs():
             for lib in db.getLibraries():
                 found_model = lib.getDesign(name)
@@ -973,7 +973,7 @@ class Instance:
         """
         path = get_snl_path_from_id_list(self.pathIDs)
         for inst in self.__get_snl_model().getInstances():
-            path_child = snl.SNLPath(path, inst)
+            path_child = naja.SNLPath(path, inst)
             yield Instance(path_child)
             # path.pop()
 
@@ -988,14 +988,14 @@ class Instance:
     #    FIXME: concat first local path with the path of the instance
     #    model = self.__get_snl_model()
     #    for inst in model.getInstances():
-    #        path = snl.SNLPath(inst)
+    #        path = naja.SNLPath(inst)
     #        stack = [[inst, path]]
     #        while stack:
     #            current = stack.pop()
     #            current_inst = current[0]
     #            current_path = current[1]
     #            for inst_child in current_inst.getModel().getInstances():
-    #                path_child = snl.SNLPath(current_path, inst_child)
+    #                path_child = naja.SNLPath(current_path, inst_child)
     #                if inst_child.getModel().isPrimitive():
     #                    yield Instance(path_child)
     #                stack.append([inst_child, path_child])
@@ -1016,7 +1016,7 @@ class Instance:
         :rtype: Iterator[Net]
         """
         for net in self.__get_snl_model().getNets():
-            if isinstance(net, snl.SNLBusNet):
+            if isinstance(net, naja.SNLBusNet):
                 for bit in net.getBits():
                     yield Net(self.pathIDs, bit)
             else:
@@ -1077,7 +1077,7 @@ class Instance:
         :rtype: Iterator[Term]
         """
         for term in self.__get_snl_model().getTerms():
-            if term.getDirection() != snl.SNLTerm.Direction.Output:
+            if term.getDirection() != naja.SNLTerm.Direction.Output:
                 yield Term(self.pathIDs, term)
 
     def get_flat_input_terms(self):
@@ -1088,8 +1088,8 @@ class Instance:
         :rtype: Iterator[Term]
         """
         for term in self.__get_snl_model().getTerms():
-            if term.getDirection() != snl.SNLTerm.Direction.Output:
-                if isinstance(term, snl.SNLBusTerm):
+            if term.getDirection() != naja.SNLTerm.Direction.Output:
+                if isinstance(term, naja.SNLBusTerm):
                     for bit in term.getBits():
                         yield Term(self.pathIDs, bit)
                 else:
@@ -1103,7 +1103,7 @@ class Instance:
         :rtype: Iterator[Term]
         """
         for term in self.__get_snl_model().getTerms():
-            if term.getDirection() != snl.SNLTerm.Direction.Input:
+            if term.getDirection() != naja.SNLTerm.Direction.Input:
                 yield Term(self.pathIDs, term)
 
     def get_flat_output_terms(self):
@@ -1114,8 +1114,8 @@ class Instance:
         :rtype: Iterator[Term]
         """
         for term in self.__get_snl_model().getTerms():
-            if term.getDirection() != snl.SNLTerm.Direction.Input:
-                if isinstance(term, snl.SNLBusTerm):
+            if term.getDirection() != naja.SNLTerm.Direction.Input:
+                if isinstance(term, naja.SNLBusTerm):
                     for bit in term.getBits():
                         yield Term(self.pathIDs, bit)
                 else:
@@ -1138,8 +1138,8 @@ class Instance:
                 "Cannot delete instance with empty name. Try delete_instance_by_id instead."
             )
         init_path = get_snl_path_from_id_list(self.pathIDs)
-        path = snl.SNLPath(init_path, self.__get_snl_model().getInstance(name))
-        snl.SNLUniquifier(path)
+        path = naja.SNLPath(init_path, self.__get_snl_model().getInstance(name))
+        naja.SNLUniquifier(path)
         if init_path.size() > 0:
             # Delete the last instance in uniq_path
             self.__get_snl_model().getInstance(name).destroy()
@@ -1150,8 +1150,8 @@ class Instance:
         :param str id: the ID of the Instance to delete.
         """
         init_path = get_snl_path_from_id_list(self.pathIDs)
-        path = snl.SNLPath(init_path, self.__get_snl_model().getInstanceByID(id))
-        snl.SNLUniquifier(path)
+        path = naja.SNLPath(init_path, self.__get_snl_model().getInstanceByID(id))
+        naja.SNLUniquifier(path)
         # Delete the last instance in uniq_path
         self.__get_snl_model().getInstanceByID(id).destroy()
 
@@ -1169,7 +1169,7 @@ class Instance:
     def delete(self):
         """Delete this instance."""
         path = get_snl_path_from_id_list(self.pathIDs)
-        snl.SNLUniquifier(path)
+        naja.SNLUniquifier(path)
         self.get_design().delete_instance_by_id(path.getTailInstance().getID())
 
     def get_name(self) -> str:
@@ -1209,7 +1209,7 @@ class Instance:
         """
         path = get_snl_path_from_id_list(self.pathIDs)
         if path.size() > 0:
-            snl.SNLUniquifier(path)
+            naja.SNLUniquifier(path)
             path = get_snl_path_from_id_list(self.pathIDs)
         design = self.__get_snl_model()
         new_instance_model = self.__find_snl_model(model)
@@ -1217,23 +1217,23 @@ class Instance:
             raise ValueError(
                 f"Cannot create instance {name} in {self}: model {model} cannot be found"
             )
-        newSNLInstance = snl.SNLInstance.create(design, new_instance_model, name)
-        path = snl.SNLPath(path, newSNLInstance)
+        newSNLInstance = naja.SNLInstance.create(design, new_instance_model, name)
+        path = naja.SNLPath(path, newSNLInstance)
         return Instance(path)
 
-    def create_term(self, name: str, direction: snl.SNLTerm.Direction) -> Term:
+    def create_term(self, name: str, direction: naja.SNLTerm.Direction) -> Term:
         """Create a Term in this Instance with the given name and direction.
 
         :param str name: the name of the Term to create.
-        :param snl.SNLTerm.Direction direction: the direction of the Term to create.
+        :param naja.SNLTerm.Direction direction: the direction of the Term to create.
         :return: the created Term.
         """
         path = get_snl_path_from_id_list(self.pathIDs)
         if path.size() > 0:
-            snl.SNLUniquifier(path)
+            naja.SNLUniquifier(path)
             path = get_snl_path_from_id_list(self.pathIDs)
         design = self.__get_snl_model()
-        newSNLTerm = snl.SNLScalarTerm.create(design, direction, name)
+        newSNLTerm = naja.SNLScalarTerm.create(design, direction, name)
         return Term(path.getPathIDs(), newSNLTerm)
 
     def create_output_term(self, name: str) -> Term:
@@ -1243,7 +1243,7 @@ class Instance:
         :return: the created Term.
         :rtype: Term
         """
-        return self.create_term(name, snl.SNLTerm.Direction.Output)
+        return self.create_term(name, naja.SNLTerm.Direction.Output)
 
     def create_input_term(self, name: str) -> Term:
         """Create an input Term in this Instance with the given name.
@@ -1252,7 +1252,7 @@ class Instance:
         :return: the created Term.
         :rtype: Term
         """
-        return self.create_term(name, snl.SNLTerm.Direction.Input)
+        return self.create_term(name, naja.SNLTerm.Direction.Input)
 
     def create_inout_term(self, name: str) -> Term:
         """Create an inout Term in this Instance with the given name.
@@ -1261,7 +1261,7 @@ class Instance:
         :return: the created Term.
         :rtype: Term
         """
-        return self.create_term(name, snl.SNLTerm.Direction.InOut)
+        return self.create_term(name, naja.SNLTerm.Direction.InOut)
 
     def create_bus_term(self, name: str, msb: int, lsb: int, direction) -> Term:
         """Create a bus Term in this Instance with the given name, msb, lsb and direction.
@@ -1269,14 +1269,14 @@ class Instance:
         :param str name: the name of the Term to create.
         :param int msb: the most significant bit of the Term to create.
         :param int lsb: the least significant bit of the Term to create.
-        :param snl.SNLTerm.Direction direction: the direction of the Term to create.
+        :param naja.SNLTerm.Direction direction: the direction of the Term to create.
         :return: the created Term.
         """
         path = get_snl_path_from_id_list(self.pathIDs)
         if path.size() > 0:
-            snl.SNLUniquifier(path)
+            naja.SNLUniquifier(path)
         design = self.__get_snl_model()
-        newSNLTerm = snl.SNLBusTerm.create(design, direction, msb, lsb, name)
+        newSNLTerm = naja.SNLBusTerm.create(design, direction, msb, lsb, name)
         return Term(self.pathIDs, newSNLTerm)
 
     def create_inout_bus_term(self, name: str, msb: int, lsb: int) -> Term:
@@ -1288,7 +1288,7 @@ class Instance:
         :return: the created Term.
         :rtype: Term
         """
-        return self.create_bus_term(name, msb, lsb, snl.SNLTerm.Direction.InOut)
+        return self.create_bus_term(name, msb, lsb, naja.SNLTerm.Direction.InOut)
 
     def create_output_bus_term(self, name: str, msb: int, lsb: int) -> Term:
         """Create an output bus Term in this Instance with the given name, msb and lsb.
@@ -1299,7 +1299,7 @@ class Instance:
         :return: the created Term.
         :rtype: Term
         """
-        return self.create_bus_term(name, msb, lsb, snl.SNLTerm.Direction.Output)
+        return self.create_bus_term(name, msb, lsb, naja.SNLTerm.Direction.Output)
 
     def create_input_bus_term(self, name: str, msb: int, lsb: int) -> Term:
         """Create an input bus Term in this Instance with the given name, msb and lsb.
@@ -1310,7 +1310,7 @@ class Instance:
         :return: the created Term.
         :rtype: Term
         """
-        return self.create_bus_term(name, msb, lsb, snl.SNLTerm.Direction.Input)
+        return self.create_bus_term(name, msb, lsb, naja.SNLTerm.Direction.Input)
 
     def create_net(self, name: str) -> Net:
         """Create a scalar Net in this Instance with the given name.
@@ -1321,10 +1321,10 @@ class Instance:
         """
         path = get_snl_path_from_id_list(self.pathIDs)
         if path.size() > 0:
-            snl.SNLUniquifier(path)
+            naja.SNLUniquifier(path)
             path = get_snl_path_from_id_list(self.pathIDs)
         model = self.__get_snl_model()
-        newSNLNet = snl.SNLScalarNet.create(model, name)
+        newSNLNet = naja.SNLScalarNet.create(model, name)
         return Net(path, newSNLNet)
 
     def create_bus_net(self, name: str, msb: int, lsb: int) -> Net:
@@ -1338,10 +1338,10 @@ class Instance:
         """
         path = get_snl_path_from_id_list(self.pathIDs)
         if path.size() > 0:
-            snl.SNLUniquifier(path)
+            naja.SNLUniquifier(path)
             path = get_snl_path_from_id_list(self.pathIDs)
         model = self.__get_snl_model()
-        newSNLNet = snl.SNLBusNet.create(model, msb, lsb, name)
+        newSNLNet = naja.SNLBusNet.create(model, msb, lsb, name)
         return Net(path, newSNLNet)
 
     def dump_verilog(self, path: str, name: str):
@@ -1360,13 +1360,13 @@ class Instance:
         return self.__get_snl_model().getTruthTable()
 
 
-def get_top_db() -> snl.NLDB:
-    if snl.NLUniverse.get() is None:
-        snl.NLUniverse.create()
-    if snl.NLUniverse.get().getTopDB() is None:
-        db = snl.NLDB.create(snl.NLUniverse.get())
-        snl.NLUniverse.get().setTopDB(db)
-    return snl.NLUniverse.get().getTopDB()
+def get_top_db() -> naja.NLDB:
+    if naja.NLUniverse.get() is None:
+        naja.NLUniverse.create()
+    if naja.NLUniverse.get().getTopDB() is None:
+        db = naja.NLDB.create(naja.NLUniverse.get())
+        naja.NLUniverse.get().setTopDB(db)
+    return naja.NLUniverse.get().getTopDB()
 
 
 def get_top():
@@ -1374,7 +1374,7 @@ def get_top():
     :return: the top Instance.
     :rtype: Instance
     """
-    return Instance(snl.SNLPath())
+    return Instance(naja.SNLPath())
 
 
 def create_top(name: str) -> Instance:
@@ -1387,9 +1387,9 @@ def create_top(name: str) -> Instance:
     # init
     db = get_top_db()
     # create top design
-    lib = snl.NLLibrary.create(db)
-    top = snl.SNLDesign.create(lib, name)
-    snl.NLUniverse.get().setTopDesign(top)
+    lib = naja.NLLibrary.create(db)
+    top = naja.SNLDesign.create(lib, name)
+    naja.NLUniverse.get().setTopDesign(top)
     return Instance()
 
 
@@ -1430,10 +1430,10 @@ def load_primitives(name: str):
         raise ValueError(f"Unknown primitives library: {name}")
 
 
-def get_primitives_library() -> snl.NLLibrary:
+def get_primitives_library() -> naja.NLLibrary:
     lib = get_top_db().getLibrary("PRIMS")
     if lib is None:
-        lib = snl.NLLibrary.createPrimitives(get_top_db(), "PRIMS")
+        lib = naja.NLLibrary.createPrimitives(get_top_db(), "PRIMS")
     return lib
 
 
@@ -1443,7 +1443,7 @@ def get_model_name(id: tuple[int, int, int]) -> str:
     :return: the name of the model given its id or None if it does not exist.
     :rtype: str or None
     """
-    u = snl.NLUniverse.get()
+    u = naja.NLUniverse.get()
     if u:
         db = u.getDB(id[0])
         if db:

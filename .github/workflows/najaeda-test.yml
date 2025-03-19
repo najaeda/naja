@@ -47,8 +47,8 @@ jobs:
       working-directory: ${{github.workspace}}/test/najaeda
       env:
         PYTHONPATH: ${{github.workspace}}/build/test/najaeda
-        LIBERTY_BENCHMARKS_PATH: ${{github.workspace}}/test/snl/formats/liberty/benchmarks
-        VERILOG_BENCHMARKS_PATH: ${{github.workspace}}/test/snl/formats/verilog/benchmarks        
+        LIBERTY_BENCHMARKS_PATH: ${{github.workspace}}/test/nl/formats/liberty/benchmarks
+        VERILOG_BENCHMARKS_PATH: ${{github.workspace}}/test/nl/formats/verilog/benchmarks        
         NAJAEDA_TEST_PATH: ${{github.workspace}}/build/test/najaeda
       run: |
         python -m coverage run -m unittest && python -m coverage xml --rcfile=./.coveragerc

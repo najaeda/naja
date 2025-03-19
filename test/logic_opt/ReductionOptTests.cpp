@@ -58,7 +58,7 @@ TEST_F(ReductionOptTests, test) {
   auto library = NLLibrary::create(db, NLLibrary::Type::Primitives,
                                     NLName("nangate45"));
   auto primitives0Path = std::filesystem::path(SNL_PRIMITIVES_TEST_PATH);
-  primitives0Path /= "../snl/python/pyloader/scripts/";
+  primitives0Path /= "../nl/python/pyloader/scripts/";
   primitives0Path /= "primitives1.py";
   SNLPyLoader::loadPrimitives(library, primitives0Path);
   ASSERT_EQ(13, library->getDesigns().size());
@@ -92,7 +92,7 @@ TEST_F(ReductionOptTests, testTruthTablesMap) {
   auto library = NLLibrary::create(db, NLLibrary::Type::Primitives,
                                     NLName("nangate45"));
   auto primitives0Path = std::filesystem::path(SNL_PRIMITIVES_TEST_PATH);
-  primitives0Path /= "../snl/python/pyloader/scripts/";
+  primitives0Path /= "../nl/python/pyloader/scripts/";
   primitives0Path /= "primitives1.py";
   SNLPyLoader::loadPrimitives(library, primitives0Path);
   ASSERT_EQ(13, library->getDesigns().size());
@@ -449,7 +449,7 @@ TEST_F(ReductionOptTests, test_bne) {
   auto library = NLLibrary::create(db, NLLibrary::Type::Primitives,
                                     NLName("nangate45"));
   auto primitives0Path = std::filesystem::path(SNL_PRIMITIVES_TEST_PATH);
-  primitives0Path /= "../snl/python/pyloader/scripts/";
+  primitives0Path /= "../nl/python/pyloader/scripts/";
   primitives0Path /= "primitives1.py";
   SNLPyLoader::loadPrimitives(library, primitives0Path);
   ASSERT_EQ(13, library->getDesigns().size());
@@ -483,7 +483,7 @@ TEST_F(ReductionOptTests, testTruthTablesMap_bne) {
   auto library = NLLibrary::create(db, NLLibrary::Type::Primitives,
                                     NLName("nangate45"));
   auto primitives0Path = std::filesystem::path(SNL_PRIMITIVES_TEST_PATH);
-  primitives0Path /= "../snl/python/pyloader/scripts/";
+  primitives0Path /= "../nl/python/pyloader/scripts/";
   primitives0Path /= "primitives1.py";
   SNLPyLoader::loadPrimitives(library, primitives0Path);
   ASSERT_EQ(13, library->getDesigns().size());
