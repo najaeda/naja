@@ -84,7 +84,7 @@ TEST_F(SNLCapNpTest1, test0) {
   EXPECT_TRUE(library->isRoot());
   EXPECT_EQ(NLLibrary::Type::Standard, library->getType());
   EXPECT_TRUE(library->isStandard());
-  EXPECT_TRUE(library->getDesigns().empty());
+  EXPECT_TRUE(library->getSNLDesigns().empty());
   EXPECT_EQ(2, library->getLibraries().size());
   libraries = Libraries(library->getLibraries().begin(), library->getLibraries().end());
   ASSERT_EQ(2, libraries.size());
@@ -123,14 +123,14 @@ TEST_F(SNLCapNpTest1, test0) {
   EXPECT_NE(nullptr, prims1);
   EXPECT_TRUE(prims1->isAnonymous());
   EXPECT_TRUE(prims1->isPrimitives());
-  EXPECT_TRUE(prims1->getDesigns().empty());
+  EXPECT_TRUE(prims1->getSNLDesigns().empty());
   EXPECT_EQ(1, prims1->getLibraries().size());
   auto prims2 = libraries[1];
   EXPECT_NE(nullptr, prims2);
   EXPECT_FALSE(prims2->isAnonymous());
   EXPECT_TRUE(prims2->isPrimitives());
-  EXPECT_EQ(1, prims2->getDesigns().size());
-  auto prim = *(prims2->getDesigns().begin());
+  EXPECT_EQ(1, prims2->getSNLDesigns().size());
+  auto prim = *(prims2->getSNLDesigns().begin());
   EXPECT_NE(nullptr, prim);
   EXPECT_TRUE(prim->isPrimitive());
   EXPECT_FALSE(prim->isAnonymous());

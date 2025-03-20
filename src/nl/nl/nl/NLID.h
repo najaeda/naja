@@ -236,7 +236,7 @@ struct NLID final {
     libraryID_(libraryID)
   {}
 
-  ///Special constructor for SNLDesign
+  ///Special constructor for NLDesign
   NLID(DBID dbID, LibraryID libraryID, DesignID designID):
     type_(NLID::Type::Design),
     dbID_(dbID),

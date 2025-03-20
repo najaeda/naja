@@ -42,9 +42,9 @@ TEST_F(SNLInstanceTest0, testCreation) {
   EXPECT_EQ(NLID(NLID::Type::Design, 1, 0, 0, 0, 0, 0), design->getNLID());
   EXPECT_EQ(NLID(NLID::Type::Design, 1, 0, 1, 0, 0, 0), model->getNLID());
   EXPECT_EQ(NLID::DesignReference(1, 0, 0), design->getReference());
-  EXPECT_EQ(design, NLUniverse::get()->getDesign(NLID::DesignReference(1, 0, 0)));
+  EXPECT_EQ(design, NLUniverse::get()->getSNLDesign(NLID::DesignReference(1, 0, 0)));
   EXPECT_EQ(NLID::DesignReference(1, 0, 1), model->getReference());
-  EXPECT_EQ(model, NLUniverse::get()->getDesign(NLID::DesignReference(1, 0, 1)));
+  EXPECT_EQ(model, NLUniverse::get()->getSNLDesign(NLID::DesignReference(1, 0, 1)));
   auto term0 = SNLScalarTerm::create(model, SNLTerm::Direction::Input, NLName("i0"));
   auto term1 = SNLBusTerm::create(model, SNLTerm::Direction::Output, 0, 3);
   auto term2 = SNLScalarTerm::create(model, SNLTerm::Direction::Input, NLName("i1"));
@@ -451,8 +451,8 @@ TEST_F(SNLInstanceTest0, testModelDestroy) {
   SNLDesign* model0 = SNLDesign::create(library, NLName("model0"));
   SNLDesign* model1 = SNLDesign::create(library, NLName("model1"));
 
-  EXPECT_FALSE(library->getDesigns().empty());
-  EXPECT_EQ(3, library->getDesigns().size());
+  EXPECT_FALSE(library->getSNLDesigns().empty());
+  EXPECT_EQ(3, library->getSNLDesigns().size());
 
   EXPECT_TRUE(design->getInstances().empty());
   EXPECT_TRUE(design->getPrimitiveInstances().empty());
@@ -473,12 +473,12 @@ TEST_F(SNLInstanceTest0, testModelDestroy) {
   EXPECT_EQ(4, model1->getSlaveInstances().size());
 
   model0->destroy();
-  EXPECT_EQ(2, library->getDesigns().size());
+  EXPECT_EQ(2, library->getSNLDesigns().size());
   EXPECT_EQ(4, design->getInstances().size());
   EXPECT_EQ(4, model1->getSlaveInstances().size());
 
   model1->destroy();
-  EXPECT_EQ(1, library->getDesigns().size());
+  EXPECT_EQ(1, library->getSNLDesigns().size());
   EXPECT_EQ(0, design->getInstances().size());
   EXPECT_TRUE(design->getInstances().empty());
 }

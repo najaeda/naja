@@ -210,9 +210,9 @@ void dumpLibraryInterface(
     dumpLibraryInterface(subLibraryBuilder, subLib);
   }
 
-  auto designs = libraryInterface.initDesignInterfaces(snlLibrary->getDesigns().size());
+  auto designs = libraryInterface.initDesignInterfaces(snlLibrary->getSNLDesigns().size());
   id = 0;
-  for (auto snlDesign: snlLibrary->getDesigns()) {
+  for (auto snlDesign: snlLibrary->getSNLDesigns()) {
     auto designInterfaceBuilder = designs[id++]; 
     dumpDesignInterface(designInterfaceBuilder, snlDesign);
   }
@@ -477,7 +477,7 @@ NLDB* SNLCapnP::loadInterface(int fileDescriptor) {
         designReference.getDbID(),
         designReference.getLibraryID(),
         designReference.getDesignID());
-    auto topDesign = NLUniverse::get()->getDesign(snlDesignReference);
+    auto topDesign = NLUniverse::get()->getSNLDesign(snlDesignReference);
     if (not topDesign) {
       //LCOV_EXCL_START
       std::ostringstream reason;

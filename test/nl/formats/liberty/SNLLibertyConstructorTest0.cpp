@@ -43,8 +43,8 @@ TEST_F(SNLLibertyConstructorTest0, test0) {
       / std::filesystem::path("test0.lib"));
   constructor.construct(testPath);
   EXPECT_EQ(NLName("asap7sc7p5t_AO_LVT_FF_ccs_201020"), library_->getName());
-  EXPECT_EQ(library_->getDesigns().size(), 2);
-  auto design = library_->getDesign(NLName("A2O1A1Ixp33_ASAP7_75t_L"));
+  EXPECT_EQ(library_->getSNLDesigns().size(), 2);
+  auto design = library_->getSNLDesign(NLName("A2O1A1Ixp33_ASAP7_75t_L"));
   ASSERT_NE(nullptr, design);
   EXPECT_EQ(5, design->getTerms().size());
   EXPECT_EQ(5, design->getScalarTerms().size());
@@ -73,8 +73,8 @@ TEST_F(SNLLibertyConstructorTest0, testInOut) {
       / std::filesystem::path("tests")
       / std::filesystem::path("inout_test.lib"));
   constructor.construct(testPath);
-  EXPECT_EQ(library_->getDesigns().size(), 1);
-  auto design = library_->getDesign(NLName("iocell"));
+  EXPECT_EQ(library_->getSNLDesigns().size(), 1);
+  auto design = library_->getSNLDesign(NLName("iocell"));
   ASSERT_NE(nullptr, design);
   EXPECT_EQ(1, design->getTerms().size());
   EXPECT_EQ(1, design->getScalarTerms().size());
@@ -90,8 +90,8 @@ TEST_F(SNLLibertyConstructorTest0, testInternalPin) {
       / std::filesystem::path("tests")
       / std::filesystem::path("internal_pin_test.lib"));
   constructor.construct(testPath);
-  EXPECT_EQ(library_->getDesigns().size(), 1);
-  auto design = library_->getDesign(NLName("internal_pin_test"));
+  EXPECT_EQ(library_->getSNLDesigns().size(), 1);
+  auto design = library_->getSNLDesign(NLName("internal_pin_test"));
   ASSERT_NE(nullptr, design);
   EXPECT_EQ(2, design->getTerms().size());
   EXPECT_EQ(2, design->getScalarTerms().size());

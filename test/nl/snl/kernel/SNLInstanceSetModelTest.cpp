@@ -174,7 +174,7 @@ TEST_F(SNLInstanceSetModelTest, testDifferentParametersSizeError) {
   auto newModel = model_->clone();
   ASSERT_NE(newModel, nullptr);
   std::string reason;
-  EXPECT_TRUE(model_->deepCompare(newModel, reason, SNLDesign::CompareType::IgnoreIDAndName));
+  EXPECT_TRUE(model_->deepCompare(newModel, reason, NLDesign::CompareType::IgnoreIDAndName));
   EXPECT_TRUE(reason.empty());
   EXPECT_EQ(std::string(), reason);
   EXPECT_TRUE(newModel->isAnonymous());

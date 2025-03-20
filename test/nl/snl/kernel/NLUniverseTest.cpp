@@ -28,7 +28,7 @@ TEST_F(NLUniverseTest, testGetSNLObjects1) {
   EXPECT_EQ(1, universe->getDBs().size());
   EXPECT_TRUE(universe->getUserDBs().empty());
   EXPECT_EQ(0, universe->getUserDBs().size());
-  EXPECT_EQ(nullptr, universe->getDesign(NLID::DesignReference(0, 1, 1)));
+  EXPECT_EQ(nullptr, universe->getSNLDesign(NLID::DesignReference(0, 1, 1)));
   EXPECT_EQ(nullptr, universe->getTerm(NLID::DesignObjectReference(1, 1, 2, 3)));
   EXPECT_EQ(nullptr, universe->getBusTermBit(NLID(NLID::Type::TermBit, 1, 1, 1, 0, 1, 1)));
   EXPECT_EQ(nullptr, universe->getNet(NLID::DesignObjectReference(2, 3, 1, 1)));

@@ -49,9 +49,9 @@ class SNLDesignTruthTableTest1: public ::testing::Test {
 };
 
 TEST_F(SNLDesignTruthTableTest1, testStandardGates) {
-  EXPECT_EQ(4, prims_->getDesigns().size());
+  EXPECT_EQ(4, prims_->getSNLDesigns().size());
   using Prims = std::vector<SNLDesign*>;
-  Prims prims(prims_->getDesigns().begin(), prims_->getDesigns().end());
+  Prims prims(prims_->getSNLDesigns().begin(), prims_->getSNLDesigns().end());
   //logic0
   EXPECT_EQ(prims[0]->getName().getString(), "logic0");
   EXPECT_TRUE(SNLDesignTruthTable::isConst0(prims[0]));

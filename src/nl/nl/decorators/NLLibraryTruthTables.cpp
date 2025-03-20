@@ -61,7 +61,7 @@ NLLibraryTruthTables::LibraryTruthTables NLLibraryTruthTables::construct(NLLibra
     return {};
   }
   LibraryTruthTables truthTables;
-  for (auto design : library->getDesigns()) {
+  for (auto design : library->getSNLDesigns()) {
     SNLTruthTable tt = SNLDesignTruthTable::getTruthTable(design);
     if (tt.isInitialized()) {
       auto it = truthTables.find(tt);
