@@ -32,6 +32,11 @@ set(SNL_SOURCES
   snl/SNLEquipotential.cpp
   snl/SNLUniquifier.cpp
 )
+
+set(PNL_SOURCES
+  #pnl/PNLPoint.cpp
+)
+
 set(DECORATOR_SOURCES
   decorators/NLLibraryTruthTables.cpp
   decorators/SNLDesignModeling.cpp
@@ -65,6 +70,7 @@ set(HEADERS
   snl/SNLBitTermOccurrence.h
   snl/SNLInstTermOccurrence.h
   snl/SNLEquipotential.h
+  pnl/PNLPoint.h
   decorators/SNLDesignModeling.h
   decorators/SNLTruthTable.h
 )
@@ -80,6 +86,7 @@ target_include_directories(naja_nl SYSTEM BEFORE PUBLIC ${Boost_INCLUDE_DIR})
 target_include_directories(naja_nl PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/nl
   ${CMAKE_CURRENT_SOURCE_DIR}/snl
+  ${CMAKE_CURRENT_SOURCE_DIR}/pnl
   ${CMAKE_CURRENT_SOURCE_DIR}/decorators
 )
 target_include_directories(naja_nl PUBLIC ${SPDLOG_DIR})

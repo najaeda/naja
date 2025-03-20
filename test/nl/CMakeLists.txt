@@ -5,6 +5,7 @@
 add_subdirectory(netlists)
 add_subdirectory(formats)
 add_subdirectory(snl)
+add_subdirectory(pnl)
 add_subdirectory(python)
 if(NOT BUILD_NAJA_PYTHON)
   add_subdirectory(visual)
