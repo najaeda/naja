@@ -50,6 +50,7 @@ set(HEADERS
   nl/NLObject.h
   nl/NLLibrary.h
   nl/NLUniverse.h nl/NLDB.h
+  nl/NLDesign.h
   nl/NLException.h
   decorators/NLLibraryTruthTables.h
   snl/SNLAttributes.h
