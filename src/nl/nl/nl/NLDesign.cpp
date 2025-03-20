@@ -4,8 +4,6 @@
 
 #include "NLDesign.h"
 
-#include <string>
-
 namespace naja { namespace NL {
 
 NLDesign::CompareType::CompareType(const CompareTypeEnum& typeEnum):

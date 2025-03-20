@@ -6,6 +6,7 @@
 #define __NL_DESIGN_H_
 
 #include <map>
+#include <string>
 
 namespace naja { namespace NL {
 
