@@ -12,7 +12,7 @@ def construct(design):
   primitives = db.getLibrary("primitives")
   if primitives is None:
     raise Exception("Cannot find the primitives library")
-  prim = primitives.getDesign("primitive")
+  prim = primitives.getSNLDesign("primitive")
   if prim is None:
     raise Exception("Cannot find the primitive design")
   naja.SNLInstance.create(design, prim, "myins")

@@ -43,8 +43,8 @@ TEST_F(SNLVRLConstructorTestAttributes, test0) {
   std::filesystem::path benchmarksPath(SNL_VRL_BENCHMARKS_PATH);
   constructor.construct(benchmarksPath/"test_attributes.v");
 
-  ASSERT_EQ(3, library_->getDesigns().size());
-  auto simple_netlist = library_->getDesign(NLName("simple_netlist"));
+  ASSERT_EQ(3, library_->getSNLDesigns().size());
+  auto simple_netlist = library_->getSNLDesign(NLName("simple_netlist"));
   ASSERT_NE(simple_netlist, nullptr);
 
   ASSERT_EQ(3, SNLAttributes::getAttributes(simple_netlist).size());
@@ -239,8 +239,8 @@ TEST_F(SNLVRLConstructorTestAttributes, testDisableAttributes) {
   constructor.setParseAttributes(false); //disable attributes
   constructor.construct(benchmarksPath/"test_attributes.v");
 
-  ASSERT_EQ(3, library_->getDesigns().size());
-  auto simple_netlist = library_->getDesign(NLName("simple_netlist"));
+  ASSERT_EQ(3, library_->getSNLDesigns().size());
+  auto simple_netlist = library_->getSNLDesign(NLName("simple_netlist"));
   ASSERT_NE(simple_netlist, nullptr);
   ASSERT_TRUE(SNLAttributes::getAttributes(simple_netlist).empty());
 

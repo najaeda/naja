@@ -50,7 +50,7 @@ bool NLDB0::isDB0Primitive(const SNLDesign* design) {
 SNLDesign* NLDB0::getAssign() {
   auto primitives = getPrimitivesLibrary();
   if (primitives) {
-    return primitives->getDesign(NLID::DesignID(0));
+    return primitives->getSNLDesign(NLID::DesignID(0));
   }
   return nullptr;
 }
@@ -92,7 +92,7 @@ SNLDesign* NLDB0::getAND(size_t nbInputs) {
       andLibrary = NLLibrary::create(primitives, NLLibrary::Type::Primitives, NLName(ANDName));
     }
     std::string andGateName(std::string(ANDName) + "_" + std::to_string(nbInputs));
-    auto andGate = andLibrary->getDesign(NLName(andGateName));
+    auto andGate = andLibrary->getSNLDesign(NLName(andGateName));
     if (not andGate) {
       andGate = SNLDesign::create(andLibrary, SNLDesign::Type::Primitive, NLName(andGateName));
       SNLScalarTerm::create(andGate, SNLTerm::Direction::Output);

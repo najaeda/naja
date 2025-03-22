@@ -30,7 +30,7 @@ class NLLibraryTest(unittest.TestCase):
     self.assertEqual("LIB1", lib1.getName())
     self.assertEqual(lib1, db.getLibrary("LIB1"))
     self.assertEqual(lib1, db.getLibrary(0))
-    self.assertFalse(any(lib1.getDesigns()))
+    self.assertFalse(any(lib1.getSNLDesigns()))
     self.assertTrue(lib1.isStandard())
     self.assertFalse(lib1.isPrimitives())
     self.assertListEqual([lib1], list(db.getLibraries()))

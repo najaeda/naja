@@ -33,21 +33,21 @@ class SNLDesignTest: public ::testing::Test {
 TEST_F(SNLDesignTest, testCreation0) {
   NLLibrary* library = db_->getLibrary(NLName("MYLIB"));
   ASSERT_NE(library, nullptr);
-  EXPECT_EQ(0, library->getDesigns().size());
-  EXPECT_TRUE(library->getDesigns().empty());
+  EXPECT_EQ(0, library->getSNLDesigns().size());
+  EXPECT_TRUE(library->getSNLDesigns().empty());
   SNLDesign* design = SNLDesign::create(library, NLName("design"));
   ASSERT_NE(design, nullptr);
   EXPECT_EQ(NLName("design"), design->getName());
   EXPECT_EQ(0, design->getID());
   EXPECT_FALSE(design->isAnonymous());
-  EXPECT_EQ(design, library->getDesign(0));
-  EXPECT_EQ(design, library->getDesign(NLName("design")));
+  EXPECT_EQ(design, library->getSNLDesign(0));
+  EXPECT_EQ(design, library->getSNLDesign(NLName("design")));
   EXPECT_EQ(library, design->getLibrary());
-  EXPECT_EQ(1, library->getDesigns().size());
-  EXPECT_FALSE(library->getDesigns().empty());
+  EXPECT_EQ(1, library->getSNLDesigns().size());
+  EXPECT_FALSE(library->getSNLDesigns().empty());
   EXPECT_EQ(db_, design->getDB());
   EXPECT_EQ(NLID(1, 0, 0), design->getNLID());
-  EXPECT_EQ(design, NLUniverse::get()->getDesign(NLID::DesignReference(1, 0, 0)));
+  EXPECT_EQ(design, NLUniverse::get()->getSNLDesign(NLID::DesignReference(1, 0, 0)));
   EXPECT_EQ(design, NLUniverse::get()->getObject(NLID(1, 0, 0)));
   EXPECT_TRUE(design->isStandard());
   EXPECT_TRUE(design->getTerms().empty());
@@ -56,12 +56,12 @@ TEST_F(SNLDesignTest, testCreation0) {
   EXPECT_TRUE(design->getBitTerms().empty());
   auto designReference = NLID::DesignReference(1, 0, 0);
   EXPECT_EQ(designReference, design->getReference());
-  EXPECT_EQ(design, NLUniverse::get()->getDesign(designReference));
+  EXPECT_EQ(design, NLUniverse::get()->getSNLDesign(designReference));
   designReference = NLID::DesignReference(1, 1, 0);
-  EXPECT_EQ(nullptr, NLUniverse::get()->getDesign(designReference)); 
+  EXPECT_EQ(nullptr, NLUniverse::get()->getSNLDesign(designReference)); 
   EXPECT_NE(designReference, design->getReference());
   designReference = NLID::DesignReference(1, 0, 1);
-  EXPECT_EQ(nullptr, NLUniverse::get()->getDesign(designReference)); 
+  EXPECT_EQ(nullptr, NLUniverse::get()->getSNLDesign(designReference)); 
   EXPECT_NE(designReference, design->getReference());
 
   SNLScalarTerm* term0 = SNLScalarTerm::create(design, SNLTerm::Direction::Input, NLName("term0"));
@@ -187,14 +187,14 @@ TEST_F(SNLDesignTest, testCreation0) {
   EXPECT_EQ(1, model->getID());
   EXPECT_EQ(NLID(1, 0, 1), model->getNLID());
   EXPECT_LT(design->getNLID(), model->getNLID());
-  EXPECT_EQ(model, NLUniverse::get()->getDesign(NLID::DesignReference(1, 0, 1)));
+  EXPECT_EQ(model, NLUniverse::get()->getSNLDesign(NLID::DesignReference(1, 0, 1)));
   EXPECT_EQ(model, NLUniverse::get()->getObject(NLID(1, 0, 1)));
   EXPECT_FALSE(model->isAnonymous());
-  EXPECT_EQ(model, library->getDesign(1));
-  EXPECT_EQ(model, library->getDesign(NLName("model")));
-  EXPECT_EQ(2, library->getDesigns().size());
-  EXPECT_FALSE(library->getDesigns().empty());
-  EXPECT_THAT(std::vector(library->getDesigns().begin(), library->getDesigns().end()),
+  EXPECT_EQ(model, library->getSNLDesign(1));
+  EXPECT_EQ(model, library->getSNLDesign(NLName("model")));
+  EXPECT_EQ(2, library->getSNLDesigns().size());
+  EXPECT_FALSE(library->getSNLDesigns().empty());
+  EXPECT_THAT(std::vector(library->getSNLDesigns().begin(), library->getSNLDesigns().end()),
     ElementsAre(design, model));
 
   //anonymous design
@@ -202,39 +202,39 @@ TEST_F(SNLDesignTest, testCreation0) {
   ASSERT_NE(anon, nullptr);
   EXPECT_EQ(2, anon->getID());
   EXPECT_EQ(NLID(1, 0, 2), anon->getNLID());
-  EXPECT_EQ(anon, NLUniverse::get()->getDesign(NLID::DesignReference(1, 0, 2)));
+  EXPECT_EQ(anon, NLUniverse::get()->getSNLDesign(NLID::DesignReference(1, 0, 2)));
   EXPECT_EQ(anon, NLUniverse::get()->getObject(NLID(1, 0, 2)));
   EXPECT_TRUE(anon->isAnonymous());
-  EXPECT_EQ(anon, library->getDesign(2));
+  EXPECT_EQ(anon, library->getSNLDesign(2));
   EXPECT_EQ(library, anon->getLibrary());
   EXPECT_EQ(db_, anon->getDB());
   EXPECT_EQ(NLID(1, 0, 2), anon->getNLID());
   EXPECT_TRUE(anon->isStandard());
-  EXPECT_EQ(3, library->getDesigns().size());
-  EXPECT_FALSE(library->getDesigns().empty());
-  EXPECT_THAT(std::vector(library->getDesigns().begin(), library->getDesigns().end()),
+  EXPECT_EQ(3, library->getSNLDesigns().size());
+  EXPECT_FALSE(library->getSNLDesigns().empty());
+  EXPECT_THAT(std::vector(library->getSNLDesigns().begin(), library->getSNLDesigns().end()),
     ElementsAre(design, model, anon));
 }
 
 TEST_F(SNLDesignTest, testCreation1) {
   NLLibrary* library = db_->getLibrary(NLName("MYLIB"));
   ASSERT_NE(library, nullptr);
-  EXPECT_EQ(0, library->getDesigns().size());
-  EXPECT_TRUE(library->getDesigns().empty());
+  EXPECT_EQ(0, library->getSNLDesigns().size());
+  EXPECT_TRUE(library->getSNLDesigns().empty());
 
   //anonymous design
   SNLDesign* anon = SNLDesign::create(library);
   ASSERT_NE(anon, nullptr);
   EXPECT_EQ(0, anon->getID());
   EXPECT_TRUE(anon->isAnonymous());
-  EXPECT_EQ(anon, library->getDesign(0));
+  EXPECT_EQ(anon, library->getSNLDesign(0));
   EXPECT_EQ(library, anon->getLibrary());
   EXPECT_EQ(db_, anon->getDB());
   EXPECT_EQ(NLID(1, 0, 0), anon->getNLID());
   EXPECT_TRUE(anon->isStandard());
-  EXPECT_EQ(1, library->getDesigns().size());
-  EXPECT_FALSE(library->getDesigns().empty());
-  EXPECT_THAT(std::vector(library->getDesigns().begin(), library->getDesigns().end()),
+  EXPECT_EQ(1, library->getSNLDesigns().size());
+  EXPECT_FALSE(library->getSNLDesigns().empty());
+  EXPECT_THAT(std::vector(library->getSNLDesigns().begin(), library->getSNLDesigns().end()),
     ElementsAre(anon));
 }
 
@@ -320,19 +320,19 @@ TEST_F(SNLDesignTest, testSetName) {
   EXPECT_EQ(NLName("design0"), design0->getName());
   design0->setName(NLName("design0"));
   EXPECT_EQ(NLName("design0"), design0->getName());
-  EXPECT_EQ(design0, library->getDesign(NLName("design0")));
+  EXPECT_EQ(design0, library->getSNLDesign(NLName("design0")));
 
   design0->setName(NLName("design1"));
   EXPECT_EQ(NLName("design1"), design0->getName());
-  EXPECT_EQ(design0, library->getDesign(NLName("design1")));
-  EXPECT_EQ(nullptr, library->getDesign(NLName("design0")));
+  EXPECT_EQ(design0, library->getSNLDesign(NLName("design1")));
+  EXPECT_EQ(nullptr, library->getSNLDesign(NLName("design0")));
   design0->setName(NLName("design0"));
   EXPECT_EQ(NLName("design0"), design0->getName());
-  EXPECT_EQ(design0, library->getDesign(NLName("design0")));
-  EXPECT_EQ(nullptr, library->getDesign(NLName("design1")));
+  EXPECT_EQ(design0, library->getSNLDesign(NLName("design0")));
+  EXPECT_EQ(nullptr, library->getSNLDesign(NLName("design1")));
 
   auto design1 = SNLDesign::create(library, NLName("design1"));
   EXPECT_EQ(NLName("design1"), design1->getName());
-  EXPECT_EQ(design1, library->getDesign(NLName("design1")));
+  EXPECT_EQ(design1, library->getSNLDesign(NLName("design1")));
   EXPECT_THROW(design1->setName(NLName("design0")), NLException);
 }

@@ -38,8 +38,8 @@ TEST_F(SNLPrimitivesTest0, test) {
   primitives0Path /= "primitives0.py";
   SNLPyLoader::loadPrimitives(library, primitives0Path);
   EXPECT_EQ("PRIMITIVES0", library->getName().getString());
-  ASSERT_EQ(1, library->getDesigns().size());
-  auto lut4 = library->getDesign(NLName("LUT4")); 
+  ASSERT_EQ(1, library->getSNLDesigns().size());
+  auto lut4 = library->getSNLDesign(NLName("LUT4")); 
   ASSERT_NE(nullptr, lut4);
   EXPECT_TRUE(lut4->isPrimitive());
   ASSERT_EQ(5, lut4->getScalarTerms().size());

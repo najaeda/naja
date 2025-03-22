@@ -8,6 +8,7 @@
 #include <map>
 
 #include "NajaCollection.h"
+#include "NLDesign.h"
 #include "SNLTerm.h"
 #include "SNLNet.h"
 #include "SNLInstance.h"
@@ -268,22 +269,10 @@ class SNLDesign final: public NLObject {
      */
     SNLDesign* cloneToLibrary(NLLibrary* library, const NLName& name=NLName()) const;
 
-    class CompareType {
-      public:
-        enum CompareTypeEnum {
-          Complete, IgnoreID, IgnoreIDAndName
-        };
-        CompareType(const CompareTypeEnum& typeEnum);
-        CompareType(const CompareType& type) = default;
-        operator const CompareTypeEnum&() const {return typeEnum_;}
-        std::string getString() const;
-        private:
-          CompareTypeEnum typeEnum_;
-    };
     bool deepCompare(
       const SNLDesign* other,
       std::string& reason,
-      CompareType type=CompareType::Complete) const;
+      NLDesign::CompareType type=NLDesign::CompareType::Complete) const;
     void mergeAssigns();
 
     const char* getTypeName() const override;

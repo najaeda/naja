@@ -41,11 +41,11 @@ class NLUniverse final: public NLObject {
     NLLibrary* getLibrary(NLID::DBID dbID, NLID::LibraryID libraryID) const;
 
     /// \return the SNLDesign with NLID::DesignReference reference or null if it does not exist
-    SNLDesign* getDesign(const NLID::DesignReference& reference) const;
+    SNLDesign* getSNLDesign(const NLID::DesignReference& reference) const;
 
     /// \return the SNLDesign named name or null if it does not exist
     /// DBs are browsed in their index ordering
-    SNLDesign* getDesign(const NLName& name) const;
+    SNLDesign* getSNLDesign(const NLName& name) const;
 
     /// \return the SNLTerm with NLID::DesignObjectReference reference or null if it does not exist
     SNLTerm* getTerm(const NLID::DesignObjectReference& reference) const;

@@ -117,17 +117,17 @@ NLLibrary* NLUniverse::getLibrary(NLID::DBID dbid, NLID::LibraryID libraryID) co
   return nullptr;
 }
 
-SNLDesign* NLUniverse::getDesign(const NLID::DesignReference& reference) const {
+SNLDesign* NLUniverse::getSNLDesign(const NLID::DesignReference& reference) const {
   auto db = getDB(reference.dbID_);
   if (db) {
-    return db->getDesign(reference.getDBDesignReference());
+    return db->getSNLDesign(reference.getDBDesignReference());
   }
   return nullptr;
 }
 
-SNLDesign* NLUniverse::getDesign(const NLName& name) const {
+SNLDesign* NLUniverse::getSNLDesign(const NLName& name) const {
   for (auto db: getDBs()) {
-    auto design = db->getDesign(name);
+    auto design = db->getSNLDesign(name);
     if (design) {
       return design;
     }
@@ -136,7 +136,7 @@ SNLDesign* NLUniverse::getDesign(const NLName& name) const {
 }
 
 SNLTerm* NLUniverse::getTerm(const NLID::DesignObjectReference& reference) const {
-  auto design = getDesign(reference.getDesignReference());
+  auto design = getSNLDesign(reference.getDesignReference());
   if (design) {
     return design->getTerm(reference.designObjectID_);
   }
@@ -144,7 +144,7 @@ SNLTerm* NLUniverse::getTerm(const NLID::DesignObjectReference& reference) const
 }
 
 SNLNet* NLUniverse::getNet(const NLID::DesignObjectReference& reference) const {
-  auto design = getDesign(reference.getDesignReference());
+  auto design = getSNLDesign(reference.getDesignReference());
   if (design) {
     return design->getNet(reference.designObjectID_);
   }
@@ -152,7 +152,7 @@ SNLNet* NLUniverse::getNet(const NLID::DesignObjectReference& reference) const {
 }
 
 SNLBitNet* NLUniverse::getBitNet(const NLID::BitNetReference& reference) const {
-  auto design = getDesign(reference.getDesignReference());
+  auto design = getSNLDesign(reference.getDesignReference());
   if (design) {
     if (reference.isBusBit_) {
       return design->getBusNetBit(reference.designObjectID_, reference.bit_);
@@ -164,7 +164,7 @@ SNLBitNet* NLUniverse::getBitNet(const NLID::BitNetReference& reference) const {
 }
 
 SNLInstance* NLUniverse::getInstance(const NLID::DesignObjectReference& reference) const {
-  auto design = getDesign(reference.getDesignReference());
+  auto design = getSNLDesign(reference.getDesignReference());
   if (design) {
     return design->getInstance(reference.designObjectID_);
   }
@@ -220,7 +220,7 @@ NLObject* NLUniverse::getObject(const NLID& id) {
     case NLID::Type::Library:
       return getLibrary(id.dbID_, id.libraryID_);
     case NLID::Type::Design:
-      return getDesign(NLID::DesignReference(id.dbID_, id.libraryID_, id.designID_));
+      return getSNLDesign(NLID::DesignReference(id.dbID_, id.libraryID_, id.designID_));
     case NLID::Type::Instance:
       return getInstance(NLID::DesignObjectReference(id.dbID_, id.libraryID_, id.designID_, id.instanceID_));
     case NLID::Type::Term:

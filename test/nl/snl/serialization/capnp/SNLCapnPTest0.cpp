@@ -107,7 +107,7 @@ TEST_F(SNLCapNpTest0, test0) {
   auto lib = db_->getLibrary(NLName("MYLIB"));
   ASSERT_TRUE(lib);
   EXPECT_EQ(1, lib->getProperties().size());
-  auto top = lib->getDesign(NLName("design"));
+  auto top = lib->getSNLDesign(NLName("design"));
   ASSERT_TRUE(top);
 
   std::filesystem::path outPath(SNL_CAPNP_TEST_PATH);
@@ -168,9 +168,9 @@ TEST_F(SNLCapNpTest0, test0) {
   EXPECT_TRUE(library->getProperties().empty());
   EXPECT_FALSE(library->hasProperty("LIB_PROPERTY"));
 
-  EXPECT_EQ(3, library->getDesigns().size());
+  EXPECT_EQ(3, library->getSNLDesigns().size());
   using Designs = std::vector<SNLDesign*>;
-  Designs designs(library->getDesigns().begin(), library->getDesigns().end());
+  Designs designs(library->getSNLDesigns().begin(), library->getSNLDesigns().end());
   EXPECT_EQ(3, designs.size());
   
   auto design = designs[0];
@@ -291,7 +291,7 @@ TEST_F(SNLCapNpTest0, test0) {
 
     EXPECT_EQ(4, instance1->getInstParameters().size());
     using InstParameters = std::vector<SNLInstParameter*>;
-    Designs designs(library->getDesigns().begin(), library->getDesigns().end());
+    Designs designs(library->getSNLDesigns().begin(), library->getSNLDesigns().end());
     InstParameters instParameters(instance1->getInstParameters().begin(), instance1->getInstParameters().end());
     EXPECT_EQ(4, instParameters.size());
     EXPECT_THAT(instParameters, Each(Property("getInstance", &SNLInstParameter::getInstance, instance1)));

@@ -72,7 +72,7 @@ class SNLVRLDumperTest1: public ::testing::Test {
 TEST_F(SNLVRLDumperTest1, test0) {
   auto lib = db_->getLibrary(NLName("MYLIB"));  
   ASSERT_TRUE(lib);
-  auto top = lib->getDesign(NLName("top"));
+  auto top = lib->getSNLDesign(NLName("top"));
   ASSERT_TRUE(top);
 
   SNLInstance* instance1 = top->getInstance(NLName("instance1"));
@@ -115,7 +115,7 @@ TEST_F(SNLVRLDumperTest1, test0) {
 TEST_F(SNLVRLDumperTest1, test1) {
   auto lib = db_->getLibrary(NLName("MYLIB"));  
   ASSERT_TRUE(lib);
-  auto top = lib->getDesign(NLName("top"));
+  auto top = lib->getSNLDesign(NLName("top"));
   ASSERT_TRUE(top);
 
   SNLInstance* instance1 = top->getInstance(NLName("instance1"));
@@ -159,7 +159,7 @@ TEST_F(SNLVRLDumperTest1, test1) {
 TEST_F(SNLVRLDumperTest1, test2) {
   auto lib = db_->getLibrary(NLName("MYLIB"));  
   ASSERT_TRUE(lib);
-  auto top = lib->getDesign(NLName("top"));
+  auto top = lib->getSNLDesign(NLName("top"));
   ASSERT_TRUE(top);
 
   SNLInstance* instance1 = top->getInstance(NLName("instance1"));
@@ -202,7 +202,7 @@ TEST_F(SNLVRLDumperTest1, test2) {
 TEST_F(SNLVRLDumperTest1, test3) {
   auto lib = db_->getLibrary(NLName("MYLIB"));  
   ASSERT_TRUE(lib);
-  auto top = lib->getDesign(NLName("top"));
+  auto top = lib->getSNLDesign(NLName("top"));
   ASSERT_TRUE(top);
 
   SNLInstance* instance1 = top->getInstance(NLName("instance1"));
@@ -246,7 +246,7 @@ TEST_F(SNLVRLDumperTest1, test3) {
 TEST_F(SNLVRLDumperTest1, test4) {
   auto lib = db_->getLibrary(NLName("MYLIB"));  
   ASSERT_TRUE(lib);
-  auto top = lib->getDesign(NLName("top"));
+  auto top = lib->getSNLDesign(NLName("top"));
   ASSERT_TRUE(top);
   SNLBusNet* bus0 = top->getBusNet(NLName("bus0"));
   ASSERT_TRUE(bus0);
@@ -294,7 +294,7 @@ TEST_F(SNLVRLDumperTest1, test4) {
 TEST_F(SNLVRLDumperTest1, test5) {
   auto lib = db_->getLibrary(NLName("MYLIB"));  
   ASSERT_TRUE(lib);
-  auto top = lib->getDesign(NLName("top"));
+  auto top = lib->getSNLDesign(NLName("top"));
   ASSERT_TRUE(top);
   SNLBusNet* bus0 = top->getBusNet(NLName("bus0"));
   ASSERT_TRUE(bus0);

@@ -59,7 +59,7 @@ NLID::Bit SNLUtils::getWidth(NLID::Bit msb, NLID::Bit lsb) {
 SNLDesign* SNLUtils::findTop(const NLLibrary* library) {
   using Tops = std::list<SNLDesign*>;
   Tops tops;
-  for (auto design: library->getDesigns()) {
+  for (auto design: library->getSNLDesigns()) {
     if (not design->isBlackBox()
       && not design->isPrimitive()
       && design->getSlaveInstances().empty()) {

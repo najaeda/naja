@@ -939,7 +939,7 @@ class Instance:
         u = naja.NLUniverse.get()
         for db in u.getUserDBs():
             for lib in db.getLibraries():
-                found_model = lib.getDesign(name)
+                found_model = lib.getSNLDesign(name)
                 if found_model is not None:
                     return found_model
         return None
@@ -1449,7 +1449,7 @@ def get_model_name(id: tuple[int, int, int]) -> str:
         if db:
             lib = db.getLibrary(id[1])
             if lib:
-                model = lib.getDesign(id[2])
+                model = lib.getSNLDesign(id[2])
                 if model:
                     return model.getName()
     return None

@@ -13,7 +13,7 @@ def construct(design):
   primitives = db.getLibrary("primitives")
   if primitives is None:
     raise Exception("Cannot find the primitives library")
-  square = primitives.getDesign("square")
+  square = primitives.getSNLDesign("square")
   if square is None:
     raise Exception("Cannot find the square primitive")
   n = square.getScalarTerm("n")
