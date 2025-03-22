@@ -350,6 +350,25 @@ void NLLibrary::removeSNLDesign(SNLDesign* design) {
   snlDesigns_.erase(*design);
 }
 
+void NLLibrary::addPNLDesignAndSetID(PNLDesign* design) {
+  if (snlDesigns_.empty()) {
+    design->id_ = 0;
+  } else {
+    auto it = snlDesigns_.rbegin();
+    SNLDesign* lastDesign = &(*it);
+    NLID::DesignID designID = lastDesign->id_+1;
+    design->id_ = designID;
+  }
+  addPNLDesign(design);
+}
+
+void NLLibrary::addPNLDesign(PNLDesign* design) {
+  pnlDesigns_.insert(*design);
+  if (not design->isAnonymous()) {
+    designNameIDMap_[design->getName()] = design->id_;
+  }
+}
+
 bool NLLibrary::deepCompare(const NLLibrary* other, std::string& reason) const {
   if (getID() not_eq other->getID()) {
     return false;

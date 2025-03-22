@@ -25,8 +25,8 @@ class PNLDesign final: public NLObject {
     
     static PNLDesign* create(NLLibrary* library, const NLName& name=NLName());
 
- 
     NLID::DesignID getID() const { return id_; }
+    NLID getNLID() const;
 
     ///\return owning NLDB
     NLDB* getDB() const;
@@ -49,7 +49,15 @@ class PNLDesign final: public NLObject {
 
    
   private:
+    PNLDesign(NLLibrary* library, const NLName& name);
+    static void preCreate(const NLLibrary* library, const NLName& name);
+    void postCreateAndSetID();
+    void commonPreDestroy();
     void destroyFromLibrary();
+
+    friend bool operator< (const PNLDesign& ld, const PNLDesign& rd) {
+      return ld.getNLID() < rd.getNLID();
+    }
 
     NLID::DesignID                      id_;
     NLName                              name_               {};

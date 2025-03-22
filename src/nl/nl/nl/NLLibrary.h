@@ -18,6 +18,7 @@ class NLLibrary final: public NLObject {
   public:
     friend class NLDB;
     friend class SNLDesign;
+    friend class PNLDesign;
     using super = NLObject;
 
     class Type {
@@ -169,6 +170,9 @@ class NLLibrary final: public NLObject {
     void addSNLDesignAndSetID(SNLDesign* design);
     void addSNLDesign(SNLDesign* design);
     void removeSNLDesign(SNLDesign* design);
+
+    void addPNLDesignAndSetID(PNLDesign* design);
+    void addPNLDesign(PNLDesign* design);
 
     using NLLibraryNameIDMap = std::map<NLName, NLID::LibraryID>;
     using NLLibrarySNLDesignsHook =
