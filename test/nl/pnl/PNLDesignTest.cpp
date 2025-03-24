@@ -50,6 +50,11 @@ TEST_F(PNLDesignTest, testCreation0) {
   EXPECT_TRUE(design0->deepCompare(design0, reason));
   EXPECT_TRUE(reason.empty());
 
+  EXPECT_FALSE(design1->deepCompare(design0, reason));
+  EXPECT_FALSE(reason.empty());
+
+  reason.clear();
+
   EXPECT_FALSE(design1->deepCompare(design0, reason, NLDesign::CompareType::IgnoreID));
   EXPECT_FALSE(reason.empty());
 }
