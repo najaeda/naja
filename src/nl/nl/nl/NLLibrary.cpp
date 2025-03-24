@@ -351,11 +351,11 @@ void NLLibrary::removeSNLDesign(SNLDesign* design) {
 }
 
 void NLLibrary::addPNLDesignAndSetID(PNLDesign* design) {
-  if (snlDesigns_.empty()) {
+  if (pnlDesigns_.empty()) {
     design->id_ = 0;
   } else {
-    auto it = snlDesigns_.rbegin();
-    SNLDesign* lastDesign = &(*it);
+    auto it = pnlDesigns_.rbegin();
+    PNLDesign* lastDesign = &(*it);
     NLID::DesignID designID = lastDesign->id_+1;
     design->id_ = designID;
   }

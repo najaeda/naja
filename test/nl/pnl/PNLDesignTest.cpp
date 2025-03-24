@@ -39,7 +39,7 @@ TEST_F(PNLDesignTest, testCreation0) {
 
   auto design1 = PNLDesign::create(library, NLName("design1"));
   ASSERT_NE(design1, nullptr);
-  EXPECT_EQ(NLName("design0"), design1->getName());
+  EXPECT_EQ(NLName("design1"), design1->getName());
   EXPECT_EQ(1, design1->getID());
   EXPECT_FALSE(design1->isAnonymous());
   EXPECT_EQ(design1, library->getPNLDesign(1));
