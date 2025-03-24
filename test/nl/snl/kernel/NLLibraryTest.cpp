@@ -206,6 +206,18 @@ TEST_F(NLLibraryTest, testRename) {
   EXPECT_EQ("ROOT", root->getName().getString());
 }
 
+TEST_F(NLLibraryTest, testCompare) {
+  NLDB* db = NLDB::create(universe_);
+  NLLibrary* root = NLLibrary::create(db);
+  NLLibrary* lib1 = NLLibrary::create(root);
+  NLLibrary* lib2 = NLLibrary::create(root);
+  std::string reason;
+  EXPECT_TRUE(lib1->deepCompare(lib1, reason));
+  EXPECT_TRUE(reason.empty());
+  EXPECT_FALSE(lib1->deepCompare(lib2, reason));
+  EXPECT_FALSE(reason.empty());
+}
+
 TEST_F(NLLibraryTest, testErrors) {
   NLDB* db = NLDB::create(universe_);
   ASSERT_TRUE(db);

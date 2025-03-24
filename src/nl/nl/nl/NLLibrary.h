@@ -115,6 +115,10 @@ class NLLibrary final: public NLObject {
     /// \return the collection of SNLDesign contained in this NLLibrary
     NajaCollection<SNLDesign*> getSNLDesigns() const;
 
+    /// \return PNLDesign with NLID::DesignID id
+    PNLDesign* getPNLDesign(NLID::DesignID id) const;
+    /// \return PNLDesign named name
+    PNLDesign* getPNLDesign(const NLName& name) const;
     /// \return the collection of PNLDesign contained in this NLLibrary
     NajaCollection<PNLDesign*> getPNLDesigns() const;
 

@@ -26,12 +26,22 @@ TEST_F(PNLDesignTest, testCreation0) {
   ASSERT_NE(library, nullptr);
   EXPECT_EQ(0, library->getPNLDesigns().size());
   EXPECT_TRUE(library->getPNLDesigns().empty());
+  EXPECT_EQ(nullptr, library->getPNLDesign(0));
+  EXPECT_EQ(nullptr, library->getPNLDesign(NLName("design")));
 
-  auto design = PNLDesign::create(library, NLName("design"));
-  ASSERT_NE(design, nullptr);
-  EXPECT_EQ(NLName("design"), design->getName());
-  EXPECT_EQ(0, design->getID());
-  EXPECT_FALSE(design->isAnonymous());
-  //EXPECT_EQ(design, library->getPNLDesign(0));
-  //EXPECT_EQ(design, library->getPNLDesign(NLName("design")));
+  auto design0 = PNLDesign::create(library, NLName("design0"));
+  ASSERT_NE(design0, nullptr);
+  EXPECT_EQ(NLName("design0"), design0->getName());
+  EXPECT_EQ(0, design0->getID());
+  EXPECT_FALSE(design0->isAnonymous());
+  EXPECT_EQ(design0, library->getPNLDesign(0));
+  EXPECT_EQ(design0, library->getPNLDesign(NLName("design0")));
+
+  auto design1 = PNLDesign::create(library, NLName("design1"));
+  ASSERT_NE(design1, nullptr);
+  EXPECT_EQ(NLName("design0"), design1->getName());
+  EXPECT_EQ(1, design1->getID());
+  EXPECT_FALSE(design1->isAnonymous());
+  EXPECT_EQ(design1, library->getPNLDesign(1));
+  EXPECT_EQ(design1, library->getPNLDesign(NLName("design1"))); 
 }

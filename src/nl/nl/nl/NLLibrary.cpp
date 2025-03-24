@@ -369,8 +369,30 @@ void NLLibrary::addPNLDesign(PNLDesign* design) {
   }
 }
 
+PNLDesign* NLLibrary::getPNLDesign(NLID::DesignID id) const {
+  auto it = pnlDesigns_.find(NLID(getDB()->getID(), getID(), id), NLIDComp<PNLDesign>());
+  if (it != pnlDesigns_.end()) {
+    return const_cast<PNLDesign*>(&*it);
+  }
+  return nullptr;
+}
+
+PNLDesign* NLLibrary::getPNLDesign(const NLName& name) const {
+  auto dit = designNameIDMap_.find(name);
+  if (dit != designNameIDMap_.end()) {
+    NLID::DesignID id = dit->second;
+    return getPNLDesign(id);
+  }
+  return nullptr;
+}
+
 bool NLLibrary::deepCompare(const NLLibrary* other, std::string& reason) const {
   if (getID() not_eq other->getID()) {
+    std::ostringstream oss;
+    oss << "Libraries mismatch between ";
+    oss << getDescription() << " and " << other->getDescription();
+    oss << " (ID mismatch)";
+    reason = oss.str();
     return false;
   }
   if (name_ not_eq other->getName()) {
