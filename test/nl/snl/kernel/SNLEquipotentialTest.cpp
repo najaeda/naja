@@ -39,7 +39,7 @@ TEST_F(SNLEquipotentialTest, test) {
   ASSERT_NE(db_, nullptr);
   auto lib = db_->getLibrary(NLID::LibraryID(1));
   ASSERT_NE(lib, nullptr);
-  auto top = lib->getDesign(NLName("TOP"));
+  auto top = lib->getSNLDesign(NLName("TOP"));
   ASSERT_NE(top, nullptr);
   auto topi0 = top->getScalarTerm(NLName("i0"));
   ASSERT_NE(topi0, nullptr);

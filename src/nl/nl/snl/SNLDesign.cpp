@@ -40,21 +40,6 @@ std::string SNLDesign::Type::getString() const {
 }
 //LCOV_EXCL_STOP
 
-SNLDesign::CompareType::CompareType(const CompareTypeEnum& typeEnum):
-  typeEnum_(typeEnum) 
-{}
-
-//LCOV_EXCL_START
-std::string SNLDesign::CompareType::getString() const {
-  switch (typeEnum_) {
-    case CompareType::Complete: return "Complete";
-    case CompareType::IgnoreID: return "IgnoreID";
-    case CompareType::IgnoreIDAndName: return "IgnoreIDAndName";
-  }
-  return "Unknown";
-}
-//LCOV_EXCL_STOP
-
 SNLDesign* SNLDesign::create(NLLibrary* library, const NLName& name) {
   preCreate(library, Type::Standard, name);
   SNLDesign* design = new SNLDesign(library, Type::Standard, name);
@@ -119,7 +104,7 @@ void SNLDesign::preCreate(const NLLibrary* library, Type type, const NLName& nam
     throw NLException(reason.str());
   }
   //test if design with same name exists in library
-  if (not name.empty() and library->getDesign(name)) {
+  if (not name.empty() and library->getSNLDesign(name)) {
     std::string reason = "NLLibrary " + library->getString() + " contains already a SNLDesign named: " + name.getString();
     throw NLException(reason);
   }
@@ -128,7 +113,7 @@ void SNLDesign::preCreate(const NLLibrary* library, Type type, const NLName& nam
 void SNLDesign::preCreate(const NLLibrary* library, NLID::DesignID id, Type type, const NLName& name) {
   SNLDesign::preCreate(library, type, name);
   //test if design with same id exists in library
-  if (library->getDesign(id)) {
+  if (library->getSNLDesign(id)) {
     std::string reason = "NLLibrary " + library->getString() + " contains already a SNLDesign with ID: " + std::to_string(id);
     throw NLException(reason);
   }
@@ -136,12 +121,12 @@ void SNLDesign::preCreate(const NLLibrary* library, NLID::DesignID id, Type type
 
 void SNLDesign::postCreate() {
   super::postCreate();
-  library_->addDesign(this);
+  library_->addSNLDesign(this);
 }
 
 void SNLDesign::postCreateAndSetID() {
   super::postCreate();
-  library_->addDesignAndSetID(this);
+  library_->addSNLDesignAndSetID(this);
 }
 
 void SNLDesign::commonPreDestroy() {
@@ -197,7 +182,7 @@ void SNLDesign::preDestroy() {
   if (isPrimitive()) {
     //FIXME: Error
   }
-  library_->removeDesign(this);
+  library_->removeSNLDesign(this);
   commonPreDestroy();
 }
 
@@ -544,11 +529,11 @@ bool SNLDesign::isAssign() const {
 bool SNLDesign::deepCompare(
   const SNLDesign* other,
   std::string& reason,
-  CompareType type) const {
-  if (type==CompareType::Complete and (getID() not_eq other->getID())) {
+  NLDesign::CompareType type) const {
+  if (type==NLDesign::CompareType::Complete and (getID() not_eq other->getID())) {
     return false; //LCOV_EXCL_LINE
   }
-  if (type!=CompareType::IgnoreIDAndName and (name_ not_eq other->getName())) {
+  if (type!=NLDesign::CompareType::IgnoreIDAndName and (name_ not_eq other->getName())) {
     return false; //LCOV_EXCL_LINE
   }
   if (type_ not_eq other->getType()) {
@@ -629,7 +614,7 @@ SNLDesign* SNLDesign::cloneInterface(const NLName& name) const {
 }
 
 SNLDesign* SNLDesign::cloneToLibrary(NLLibrary* library, const NLName& name) const {
-  if (not name.empty() and library->getDesign(name)) {
+  if (not name.empty() and library->getSNLDesign(name)) {
     std::string reason = "NLLibrary " + library->getString() + " contains already a SNLDesign named: " + getName().getString();
     throw NLException(reason);
   }
@@ -665,7 +650,7 @@ void SNLDesign::setName(const NLName& name) {
   }
   if (not name.empty()) {
     /* check collision */
-    if (auto collision = getLibrary()->getDesign(name)) {
+    if (auto collision = getLibrary()->getSNLDesign(name)) {
       std::ostringstream reason;
       reason << "In library " << getLibrary()->getString()
         << ", cannot rename " << getString() << " to "

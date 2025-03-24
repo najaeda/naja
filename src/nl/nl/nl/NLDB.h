@@ -57,10 +57,10 @@ class NLDB final: public NLObject {
     NLLibrary* getLibrary(const NLName& name) const;
 
     /// \return the SNLDesign with NLID::DBDesignReference reference or null if it does not exist
-    SNLDesign* getDesign(const NLID::DBDesignReference& designReference) const;
+    SNLDesign* getSNLDesign(const NLID::DBDesignReference& designReference) const;
 
     /// \return the SNLDesign named name or null if it does not exist
-    SNLDesign* getDesign(const NLName& name) const;
+    SNLDesign* getSNLDesign(const NLName& name) const;
 
     bool isTopDB() const;
     SNLDesign* getTopDesign() const;

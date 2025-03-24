@@ -241,7 +241,7 @@ void SNLVRLConstructor::startModule(const naja::verilog::Identifier& module) {
       std::cerr << "Construct Module: " << module.getString() << std::endl; //LCOV_EXCL_LINE
     }
   } else {
-    currentModule_ = library_->getDesign(NLName(module.name_));
+    currentModule_ = library_->getSNLDesign(NLName(module.name_));
     if (not currentModule_) {
       std::ostringstream reason;
       reason << "In SNLVRLConstructor second pass, ";
@@ -453,12 +453,12 @@ void SNLVRLConstructor::addInstance(const naja::verilog::Identifier& instance) {
   if (not inFirstPass()) {
     assert(not currentModelName_.empty());
     NLName modelName(currentModelName_);
-    SNLDesign* model = library_->getDesign(modelName);
+    SNLDesign* model = library_->getSNLDesign(modelName);
     if (not model) {
-      model = library_->getDB()->getDesign(modelName);
+      model = library_->getDB()->getSNLDesign(modelName);
     }
     if (not model) {
-      model = NLUniverse::get()->getDesign(modelName);
+      model = NLUniverse::get()->getSNLDesign(modelName);
     }
     if (not model) {
       std::ostringstream reason;

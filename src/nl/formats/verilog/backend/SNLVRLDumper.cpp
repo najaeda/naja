@@ -215,7 +215,7 @@ std::string SNLVRLDumper::createDesignName(const SNLDesign* design) {
   auto designID = design->getID();
   std::string designName = "module" + std::to_string(designID);
   int conflict = 0;
-  while (library->getDesign(NLName(designName))) {
+  while (library->getSNLDesign(NLName(designName))) {
     designName += "_" + std::to_string(conflict++); 
   }
   return designName;
@@ -784,7 +784,7 @@ void SNLVRLDumper::dumpDesign(const SNLDesign* design, std::ostream& o) {
 }
 
 void SNLVRLDumper::dumpLibrary(const NLLibrary* library, std::ostream& o) {
-  for (auto design: library->getDesigns()) {
+  for (auto design: library->getSNLDesigns()) {
     dumpOneDesign(design, o);
   }
 }
@@ -881,7 +881,7 @@ void SNLVRLDumper::dumpLibrary(const NLLibrary* library, const std::filesystem::
     outFile << std::endl;
     dumpLibrary(library, outFile);
   } else {
-    for (auto design: library->getDesigns()) {
+    for (auto design: library->getSNLDesigns()) {
       dumpDesign(design, path);
     }
   }
