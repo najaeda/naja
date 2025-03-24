@@ -38,7 +38,7 @@ void PNLDesign::preCreate(const NLLibrary* library, const NLName& name) {
     throw NLException("malformed design creator with null library");
   }
   //test if design with same name exists in library
-  if (not name.empty() and library->getSNLDesign(name)) {
+  if (not name.empty() and library->getPNLDesign(name)) {
     std::string reason = "NLLibrary " + library->getString() + " contains already a PNLDesign named: " + name.getString();
     throw NLException(reason);
   }

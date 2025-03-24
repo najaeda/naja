@@ -5,6 +5,7 @@
 #include "gtest/gtest.h"
 
 #include "NLUniverse.h"
+#include "NLException.h"
 #include "PNLDesign.h"
 using namespace naja::NL;
 
@@ -44,4 +45,15 @@ TEST_F(PNLDesignTest, testCreation0) {
   EXPECT_FALSE(design1->isAnonymous());
   EXPECT_EQ(design1, library->getPNLDesign(1));
   EXPECT_EQ(design1, library->getPNLDesign(NLName("design1"))); 
+}
+
+TEST_F(PNLDesignTest, testErrors) {
+  EXPECT_THROW(PNLDesign::create(nullptr, NLName("design0")), NLException);
+
+  NLLibrary* library = db_->getLibrary(NLName("MYLIB"));
+  ASSERT_NE(library, nullptr);
+
+  PNLDesign::create(library, NLName("design0"));
+
+  EXPECT_THROW(PNLDesign::create(library, NLName("design0")), NLException);
 }
