@@ -66,10 +66,20 @@ bool PNLDesign::deepCompare(
   std::string& reason,
   NLDesign::CompareType type) const {
   if (type==NLDesign::CompareType::Complete and (getID() not_eq other->getID())) {
-    return false; //LCOV_EXCL_LINE
+    std::ostringstream oss;
+    oss << "Designs mismatch between ";
+    oss << getDescription() << " and " << other->getDescription();
+    oss << " (ID mismatch)";
+    reason = oss.str();
+    return false;
   }
   if (type!=NLDesign::CompareType::IgnoreIDAndName and (name_ not_eq other->getName())) {
-    return false; //LCOV_EXCL_LINE
+    std::ostringstream oss;
+    oss << "Designs mismatch between ";
+    oss << getDescription() << " and " << other->getDescription();
+    oss << " (name mismatch)";
+    reason = oss.str();
+    return false;
   }
   return true;
 }

@@ -44,7 +44,14 @@ TEST_F(PNLDesignTest, testCreation0) {
   EXPECT_EQ(1, design1->getID());
   EXPECT_FALSE(design1->isAnonymous());
   EXPECT_EQ(design1, library->getPNLDesign(1));
-  EXPECT_EQ(design1, library->getPNLDesign(NLName("design1"))); 
+  EXPECT_EQ(design1, library->getPNLDesign(NLName("design1")));
+
+  std::string reason;
+  EXPECT_TRUE(design0->deepCompare(design0, reason));
+  EXPECT_TRUE(reason.empty());
+
+  EXPECT_FALSE(design1->deepCompare(design0, reason));
+  EXPECT_FALSE(reason.empty());
 }
 
 TEST_F(PNLDesignTest, testErrors) {
