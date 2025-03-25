@@ -2,13 +2,10 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __PNL_DESIGN_H_
-#define __PNL_DESIGN_H_
+#pragma once
 
 #include "NLDesign.h"
-#include "NLName.h"
-#include "NLObject.h"
-#include "NLID.h"
+#include "PNLInstance.h"
 
 namespace naja { namespace NL {
 
@@ -19,6 +16,9 @@ class PNLDesign final: public NLObject {
   public:
     friend class NLLibrary;
     using super = NLObject;
+    using PNLDesignInstancesHook =
+      boost::intrusive::member_hook<PNLInstance, boost::intrusive::set_member_hook<>, &PNLInstance::designInstancesHook_>;
+    using PNLDesignInstances = boost::intrusive::set<PNLInstance, PNLDesignInstancesHook, boost::intrusive::compare<NLDesign::CompareByID<PNLInstance>>>;
     //using PNLDesignSlaveInstancesHook =
     //  boost::intrusive::member_hook<PNLInstance, boost::intrusive::set_member_hook<>, &PNLInstance::designSlaveInstancesHook_>;
     //using PNLDesignSlaveInstances = boost::intrusive::set<PNLInstance, PNLDesignSlaveInstancesHook>;
@@ -66,5 +66,3 @@ class PNLDesign final: public NLObject {
 };
 
 }} // namespace NL // namespace naja
-
-#endif // __PNL_DESIGN_H_

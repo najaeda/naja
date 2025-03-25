@@ -314,33 +314,20 @@ class SNLDesign final: public NLObject {
       return ld.getNLID() < rd.getNLID();
     }
 
-    template<typename T>
-      struct CompareByID {
-      bool operator()(const T& lt, const T& rt) const {
-        return lt.getID() < rt.getID();
-      }
-      bool operator()(NLID::DesignObjectID id, const T& obj) const {
-        return id < obj.getID();
-      }
-      bool operator()(const T& obj, NLID::DesignObjectID id) const {
-        return obj.getID() < id;
-      }
-    };
-
-  using SNLDesignTermsHook =
+    using SNLDesignTermsHook =
       boost::intrusive::member_hook<SNLTerm, boost::intrusive::set_member_hook<>, &SNLTerm::designTermsHook_>;
-  using SNLDesignTerms = boost::intrusive::set<SNLTerm, SNLDesignTermsHook, boost::intrusive::compare<CompareByID<SNLTerm>>>;
+    using SNLDesignTerms = boost::intrusive::set<SNLTerm, SNLDesignTermsHook, boost::intrusive::compare<NLDesign::CompareByID<SNLTerm>>>;
     using SNLDesignObjectNameIDMap = std::map<NLName, NLID::DesignObjectID>;
     using SNLDesignInstancesHook =
       boost::intrusive::member_hook<SNLInstance, boost::intrusive::set_member_hook<>, &SNLInstance::designInstancesHook_>;
-    using SNLDesignInstances = boost::intrusive::set<SNLInstance, SNLDesignInstancesHook, boost::intrusive::compare<CompareByID<SNLInstance>>>;
+    using SNLDesignInstances = boost::intrusive::set<SNLInstance, SNLDesignInstancesHook, boost::intrusive::compare<NLDesign::CompareByID<SNLInstance>>>;
     using SNLDesignSlaveInstancesHook =
       boost::intrusive::member_hook<SNLInstance, boost::intrusive::set_member_hook<>, &SNLInstance::designSlaveInstancesHook_>;
     using SNLDesignSlaveInstances = boost::intrusive::set<SNLInstance, SNLDesignSlaveInstancesHook>;
     using SNLInstanceNameIDMap = std::map<NLName, NLID::DesignObjectID>;
     using SNLDesignNetsHook =
       boost::intrusive::member_hook<SNLNet, boost::intrusive::set_member_hook<>, &SNLNet::designNetsHook_>;
-    using SNLDesignNets = boost::intrusive::set<SNLNet, SNLDesignNetsHook, boost::intrusive::compare<CompareByID<SNLNet>>>;
+    using SNLDesignNets = boost::intrusive::set<SNLNet, SNLDesignNetsHook, boost::intrusive::compare<NLDesign::CompareByID<SNLNet>>>;
     using SNLDesignParametersHook =
       boost::intrusive::member_hook<SNLParameter, boost::intrusive::set_member_hook<>, &SNLParameter::designParametersHook_>;
     using SNLDesignParameters = boost::intrusive::set<SNLParameter, SNLDesignParametersHook>;

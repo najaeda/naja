@@ -36,6 +36,7 @@ set(SNL_SOURCES
 
 set(PNL_SOURCES
   pnl/PNLDesign.cpp
+  pnl/PNLInstance.cpp
 )
 
 set(DECORATOR_SOURCES
