@@ -6,6 +6,7 @@ INCLUDE(GoogleTest)
 
 SET(pnl_tests
   PNLPointTest.cpp
+  PNLBoxTest.cpp
   PNLDesignTest.cpp
 )
 
