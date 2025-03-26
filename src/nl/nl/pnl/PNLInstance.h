@@ -14,6 +14,9 @@ class PNLInstance final: public PNLDesignObject {
   public:
     friend class PNLDesign;
     using super = PNLDesignObject;
+
+    static PNLInstance* create(PNLDesign* design, PNLDesign* model, const NLName& name=NLName());
+
     PNLDesign* getDesign() const override { return design_; }
     /// \return the instanciated SNLDesign (model).
     PNLDesign* getModel() const { return model_; }
@@ -28,6 +31,13 @@ class PNLInstance final: public PNLDesignObject {
     std::string getDescription() const override;
     void debugDump(size_t indent, bool recursive=true, std::ostream& stream=std::cerr) const override;
   private:
+    PNLInstance(PNLDesign* design, PNLDesign* model, const NLName& name);
+    static void preCreate(PNLDesign* design, const PNLDesign* model, const NLName& name);
+    void commonPostCreate();
+    void postCreateAndSetID();
+    void postCreate();
+    void commonPreDestroy();
+
     PNLDesign*                          design_                 {nullptr};
     PNLDesign*                          model_                  {nullptr};
     NLID::DesignObjectID                id_;

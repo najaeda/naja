@@ -10,6 +10,26 @@
 
 namespace naja { namespace NL {
 
+PNLInstance::PNLInstance(PNLDesign* design, PNLDesign* model, const NLName& name):
+  super(),
+  design_(design),
+  model_(model),
+  name_(name)
+{}
+
+void PNLInstance::postCreateAndSetID() {
+  super::postCreate();
+  getDesign()->addInstanceAndSetID(this);
+  commonPostCreate();
+}
+
+PNLInstance* PNLInstance::create(PNLDesign* design, PNLDesign* model, const NLName& name) {
+  preCreate(design, model, name);
+  auto instance = new PNLInstance(design, model, name);
+  instance->postCreateAndSetID();
+  return instance;
+}
+
 //LCOV_EXCL_START
 const char* PNLInstance::getTypeName() const {
   return "PNLInstance";
