@@ -77,6 +77,7 @@ set(HEADERS
   pnl/PNLPoint.h
   pnl/PNLDesign.h
   pnl/PNLInstance.h
+  pnl/PNLDesignObject.h
   decorators/SNLDesignModeling.h
   decorators/SNLTruthTable.h
 )
