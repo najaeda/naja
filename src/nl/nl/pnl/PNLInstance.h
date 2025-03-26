@@ -40,6 +40,7 @@ class PNLInstance final: public PNLDesignObject {
     void postCreateAndSetID();
     void postCreate();
     void commonPreDestroy();
+    void preDestroy() override;
 
     PNLDesign*                          design_                 {nullptr};
     PNLDesign*                          model_                  {nullptr};

@@ -131,4 +131,34 @@ naja::NL::NLID PNLInstance::getNLID() const {
   return PNLDesignObject::getNLID(naja::NL::NLID::Type::Instance, 0, id_, 0);
 }
 
+void PNLInstance::preDestroy() {
+  if (not getModel()->isPrimitive()) {
+    getModel()->removeSlaveInstance(this);
+  }
+  getDesign()->removeInstance(this);
+  commonPreDestroy();
+}
+
+void PNLInstance::commonPreDestroy() {
+// #ifdef SNL_DESTROY_DEBUG
+//   std::cerr << "commonPreDestroy " << getDescription() << std::endl; 
+// #endif
+
+//   for (const auto& sharedPathsElement: sharedPaths_) {
+//     sharedPathsElement.second->destroyFromInstance();
+//   }
+//   for (auto instTerm: instTerms_) {
+//     if (instTerm) {
+//       instTerm->destroyFromInstance();
+//     }
+//   }
+//   struct destroyInstParameterFromInstance {
+//     void operator()(PNLInstParameter* instParameter) {
+//       instParameter->destroyFromInstance();
+//     }
+//   };
+//   instParameters_.clear_and_dispose(destroyInstParameterFromInstance());
+//   super::preDestroy();
+}
+
 }} // namespace NL // namespace naja

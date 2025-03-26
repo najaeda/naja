@@ -34,4 +34,5 @@ TEST_F(PNLInstanceTest0, testCreation) {
   EXPECT_EQ(1, model->getID());
 
   auto instance = PNLInstance::create(design, model, NLName("instance"));
+  instance->destroy();
 }

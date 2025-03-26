@@ -13,6 +13,20 @@
 
 namespace naja { namespace NL {
 
+PNLDesign::Type::Type(const TypeEnum& typeEnum):
+  typeEnum_(typeEnum) 
+{}
+
+//LCOV_EXCL_START
+std::string PNLDesign::Type::getString() const {
+  switch (typeEnum_) {
+    case Type::Standard: return "Standard";
+    case Type::Blackbox: return "Blackbox";
+    case Type::Primitive: return "Primitive";
+  }
+  return "Unknown";
+}
+
 PNLDesign::PNLDesign(NLLibrary* library, const NLName& name):
   super(),
   name_(name),
@@ -162,6 +176,17 @@ PNLInstance* PNLDesign::getInstance(NLID::DesignObjectID id) const {
 void PNLDesign::addSlaveInstance(PNLInstance* instance) {
   //addSlaveInstance must be executed after addInstance.
   slaveInstances_.insert(*instance);
+}
+
+void PNLDesign::removeSlaveInstance(PNLInstance* instance) {
+  slaveInstances_.erase(*instance);
+}
+
+void PNLDesign::removeInstance(PNLInstance* instance) {
+  if (not instance->getName().empty()) {
+    instanceNameIDMap_.erase(instance->getName());
+  }
+  instances_.erase(*instance);
 }
 
 }} // namespace NL // namespace naja
