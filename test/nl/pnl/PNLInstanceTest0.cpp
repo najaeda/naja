@@ -45,4 +45,8 @@ TEST_F(PNLInstanceTest0, testCreation) {
   auto instance2 = PNLInstance::create(design, model, NLName("instance2"));
   instance->destroy();
   instance2->destroy();
+  EXPECT_THROW(PNLInstance::create(nullptr, model), NLException);
+  EXPECT_THROW(PNLInstance::create(design, nullptr), NLException);
+  auto ins = PNLInstance::create(design, model, NLName("name"));
+  EXPECT_THROW(PNLInstance::create(design, model, NLName("name")), NLException);
 }
