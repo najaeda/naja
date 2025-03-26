@@ -25,6 +25,7 @@ void PNLInstance::postCreateAndSetID() {
   super::postCreate();
   getDesign()->addInstanceAndSetID(this);
   commonPostCreate();
+  getModel()->addSlaveInstance(this);
 }
 
 PNLInstance* PNLInstance::create(PNLDesign* design, PNLDesign* model, const NLName& name) {

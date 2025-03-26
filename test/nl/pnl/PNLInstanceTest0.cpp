@@ -34,5 +34,15 @@ TEST_F(PNLInstanceTest0, testCreation) {
   EXPECT_EQ(1, model->getID());
 
   auto instance = PNLInstance::create(design, model, NLName("instance"));
+  EXPECT_EQ(NLName("instance"), instance->getName());
+  EXPECT_EQ(0, instance->getID());
+  EXPECT_EQ(design, instance->getDesign());
+  EXPECT_EQ(model, instance->getModel());
+  EXPECT_EQ(instance, design->getInstance(NLName("instance")));
+  EXPECT_EQ(nullptr, design->getInstance(NLName("instance3")));
+  EXPECT_EQ(instance, design->getInstance(0));
+  EXPECT_EQ(nullptr, design->getInstance(1));
+  auto instance2 = PNLInstance::create(design, model, NLName("instance2"));
   instance->destroy();
+  instance2->destroy();
 }
