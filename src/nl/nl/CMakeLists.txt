@@ -36,6 +36,8 @@ set(SNL_SOURCES
 
 set(PNL_SOURCES
   pnl/PNLDesign.cpp
+  pnl/PNLInstance.cpp
+  pnl/PNLDesignObject.cpp
 )
 
 set(DECORATOR_SOURCES
@@ -74,6 +76,8 @@ set(HEADERS
   snl/SNLEquipotential.h
   pnl/PNLPoint.h
   pnl/PNLDesign.h
+  pnl/PNLInstance.h
+  pnl/PNLDesignObject.h
   decorators/SNLDesignModeling.h
   decorators/SNLTruthTable.h
 )

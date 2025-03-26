@@ -254,7 +254,7 @@ void SNLDesign::removeTerm(SNLTerm* term) {
 }
 
 SNLTerm* SNLDesign::getTerm(NLID::DesignObjectID id) const {
-  auto it = terms_.find(id, CompareByID<SNLTerm>());
+  auto it = terms_.find(id, NLDesign::CompareByID<SNLTerm>());
   if (it != terms_.end()) {
     return const_cast<SNLTerm*>(&*it);
   }
@@ -364,7 +364,7 @@ NajaCollection<SNLInstance*> SNLDesign::getNonPrimitiveInstances() const {
 }
 
 SNLInstance* SNLDesign::getInstance(NLID::DesignObjectID id) const {
-  auto it = instances_.find(id, CompareByID<SNLInstance>());
+  auto it = instances_.find(id, NLDesign::CompareByID<SNLInstance>());
   if (it != instances_.end()) {
     return const_cast<SNLInstance*>(&*it);
   }
@@ -422,7 +422,7 @@ OWNER_RENAME(SNLDesign, SNLNet, netNameIDMap_)
 OWNER_RENAME(SNLDesign, SNLInstance, instanceNameIDMap_)
 
 SNLNet* SNLDesign::getNet(NLID::DesignObjectID id) const {
-  auto it = nets_.find(id, CompareByID<SNLNet>());
+  auto it = nets_.find(id, NLDesign::CompareByID<SNLNet>());
   if (it != nets_.end()) {
     return const_cast<SNLNet*>(&*it);
   }

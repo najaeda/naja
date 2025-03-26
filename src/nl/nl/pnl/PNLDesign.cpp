@@ -13,6 +13,20 @@
 
 namespace naja { namespace NL {
 
+PNLDesign::Type::Type(const TypeEnum& typeEnum):
+  typeEnum_(typeEnum) 
+{}
+
+//LCOV_EXCL_START
+std::string PNLDesign::Type::getString() const {
+  switch (typeEnum_) {
+    case Type::Standard: return "Standard";
+    case Type::Blackbox: return "Blackbox";
+    case Type::Primitive: return "Primitive";
+  }
+  return "Unknown";
+}
+
 PNLDesign::PNLDesign(NLLibrary* library, const NLName& name):
   super(),
   name_(name),
@@ -122,5 +136,57 @@ void PNLDesign::debugDump(size_t indent, bool recursive, std::ostream& stream) c
   stream << std::string(indent, ' ') << getDescription() << std::endl;
 }
 //LCOV_EXCL_STOP
+
+void PNLDesign::addInstance(PNLInstance* instance) {
+  instances_.insert(*instance);
+  if (not instance->getName().empty()) {
+    instanceNameIDMap_[instance->getName()] = instance->id_;
+  }
+}
+
+void PNLDesign::addInstanceAndSetID(PNLInstance* instance) {
+  if (instances_.empty()) {
+    instance->id_ = 0;
+  } else {
+    auto it = instances_.rbegin();
+    PNLInstance* lastInstance = &(*it);
+    NLID::DesignObjectID instanceID = lastInstance->id_+1;
+    instance->id_ = instanceID;
+  }
+  addInstance(instance);
+}
+
+PNLInstance* PNLDesign::getInstance(const NLName& name) const {
+  auto it = instanceNameIDMap_.find(name);
+  if (it != instanceNameIDMap_.end()) {
+    NLID::DesignObjectID id = it->second;
+    return getInstance(id);
+  }
+  return nullptr;
+}
+
+PNLInstance* PNLDesign::getInstance(NLID::DesignObjectID id) const {
+  auto it = instances_.find(id, NLDesign::CompareByID<PNLInstance>());
+  if (it != instances_.end()) {
+    return const_cast<PNLInstance*>(&*it);
+  }
+  return nullptr;
+}
+
+void PNLDesign::addSlaveInstance(PNLInstance* instance) {
+  //addSlaveInstance must be executed after addInstance.
+  slaveInstances_.insert(*instance);
+}
+
+void PNLDesign::removeSlaveInstance(PNLInstance* instance) {
+  slaveInstances_.erase(*instance);
+}
+
+void PNLDesign::removeInstance(PNLInstance* instance) {
+  if (not instance->getName().empty()) {
+    instanceNameIDMap_.erase(instance->getName());
+  }
+  instances_.erase(*instance);
+}
 
 }} // namespace NL // namespace naja
