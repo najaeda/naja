@@ -19,10 +19,11 @@ class PNLDesign final: public NLObject {
     using PNLDesignInstancesHook =
       boost::intrusive::member_hook<PNLInstance, boost::intrusive::set_member_hook<>, &PNLInstance::designInstancesHook_>;
     using PNLDesignInstances = boost::intrusive::set<PNLInstance, PNLDesignInstancesHook, boost::intrusive::compare<NLDesign::CompareByID<PNLInstance>>>;
-    //using PNLDesignSlaveInstancesHook =
-    //  boost::intrusive::member_hook<PNLInstance, boost::intrusive::set_member_hook<>, &PNLInstance::designSlaveInstancesHook_>;
-    //using PNLDesignSlaveInstances = boost::intrusive::set<PNLInstance, PNLDesignSlaveInstancesHook>;
-    
+    using PNLDesignObjectNameIDMap = std::map<NLName, NLID::DesignObjectID>;
+    using PNLDesignSlaveInstancesHook =
+      boost::intrusive::member_hook<PNLInstance, boost::intrusive::set_member_hook<>, &PNLInstance::designSlaveInstancesHook_>;
+    using PNLDesignSlaveInstances = boost::intrusive::set<PNLInstance, PNLDesignSlaveInstancesHook>;
+
     static PNLDesign* create(NLLibrary* library, const NLName& name=NLName());
 
     NLID::DesignID getID() const { return id_; }
@@ -46,7 +47,14 @@ class PNLDesign final: public NLObject {
       std::string& reason,
       NLDesign::CompareType type=NLDesign::CompareType::Complete) const;
     void debugDump(size_t indent, bool recursive=true, std::ostream& stream=std::cerr) const override;
+    void addInstance(PNLInstance* instance);
+    void addInstanceAndSetID(PNLInstance* instance);
 
+    PNLInstance* getInstance(const NLName& name) const;
+
+    PNLInstance* getInstance(NLID::DesignObjectID id) const;
+
+    void addSlaveInstance(PNLInstance* instance);
    
   private:
     PNLDesign(NLLibrary* library, const NLName& name);
@@ -63,6 +71,9 @@ class PNLDesign final: public NLObject {
     NLName                              name_               {};
     NLLibrary*                          library_            {};
     boost::intrusive::set_member_hook<> libraryDesignsHook_ {};
+    PNLDesignInstances                  instances_          {};
+    PNLDesignObjectNameIDMap            instanceNameIDMap_  {};
+    PNLDesignSlaveInstances             slaveInstances_     {};
 };
 
 }} // namespace NL // namespace naja

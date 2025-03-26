@@ -30,6 +30,9 @@ class PNLInstance final: public PNLDesignObject {
     std::string getString() const override;
     std::string getDescription() const override;
     void debugDump(size_t indent, bool recursive=true, std::ostream& stream=std::cerr) const override;
+
+    naja::NL::NLID getNLID() const override;
+
   private:
     PNLInstance(PNLDesign* design, PNLDesign* model, const NLName& name);
     static void preCreate(PNLDesign* design, const PNLDesign* model, const NLName& name);
@@ -43,6 +46,7 @@ class PNLInstance final: public PNLDesignObject {
     NLID::DesignObjectID                id_;
     NLName                              name_                   {};
     boost::intrusive::set_member_hook<> designInstancesHook_    {};
+    boost::intrusive::set_member_hook<> designSlaveInstancesHook_ {};
 };
 
 }} // namespace NL // namespace naja
