@@ -93,10 +93,6 @@ class PNLDesign final: public NLObject {
     PNLTerm* getTerm(NLID::DesignObjectID id) const;
 
     const PNLDesignNets& getNets() const { return nets_; }
-    ///\return true if this SNLDesign is a blackbox.
-    bool isBlackBox() const { return type_ == Type::Blackbox; }
-    ///\return true if this SNLDesign is a primitive.
-    bool isPrimitive() const { return type_ == Type::Primitive; }
 
   private:
     PNLDesign(NLLibrary* library, const NLName& name);
