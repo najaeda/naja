@@ -214,6 +214,5 @@ PNLTerm* PNLDesign::getTerm(NLID::DesignObjectID id) const {
   }
   return nullptr;
 }
-
-
+  
 }} // namespace NL // namespace naja

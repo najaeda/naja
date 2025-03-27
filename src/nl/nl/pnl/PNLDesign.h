@@ -32,7 +32,6 @@ class PNLDesign final: public NLObject {
       boost::intrusive::member_hook<PNLNet, boost::intrusive::set_member_hook<>, &PNLNet::designNetsHook_>;
     using PNLDesignNets = boost::intrusive::set<PNLNet, PNLDesignNetsHook, boost::intrusive::compare<NLDesign::CompareByID<PNLNet>>>;
 
-
     class Type {
       public:
         enum TypeEnum {
@@ -94,6 +93,10 @@ class PNLDesign final: public NLObject {
     PNLTerm* getTerm(NLID::DesignObjectID id) const;
 
     const PNLDesignNets& getNets() const { return nets_; }
+    ///\return true if this SNLDesign is a blackbox.
+    bool isBlackBox() const { return type_ == Type::Blackbox; }
+    ///\return true if this SNLDesign is a primitive.
+    bool isPrimitive() const { return type_ == Type::Primitive; }
 
   private:
     PNLDesign(NLLibrary* library, const NLName& name);
