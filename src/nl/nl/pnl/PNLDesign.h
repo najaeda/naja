@@ -6,6 +6,8 @@
 
 #include "NLDesign.h"
 #include "PNLInstance.h"
+#include "PNLTerm.h"
+#include "PNLNet.h"
 
 namespace naja { namespace NL {
 
@@ -23,6 +25,13 @@ class PNLDesign final: public NLObject {
     using PNLDesignSlaveInstancesHook =
       boost::intrusive::member_hook<PNLInstance, boost::intrusive::set_member_hook<>, &PNLInstance::designSlaveInstancesHook_>;
     using PNLDesignSlaveInstances = boost::intrusive::set<PNLInstance, PNLDesignSlaveInstancesHook>;
+    using PNLDesignTermsHook =
+      boost::intrusive::member_hook<PNLTerm, boost::intrusive::set_member_hook<>, &PNLTerm::designTermsHook_>;
+    using PNLDesignTerms = boost::intrusive::set<PNLTerm, PNLDesignTermsHook, boost::intrusive::compare<NLDesign::CompareByID<PNLTerm>>>;
+    using PNLDesignNetsHook =
+      boost::intrusive::member_hook<PNLNet, boost::intrusive::set_member_hook<>, &PNLNet::designNetsHook_>;
+    using PNLDesignNets = boost::intrusive::set<PNLNet, PNLDesignNetsHook, boost::intrusive::compare<NLDesign::CompareByID<PNLNet>>>;
+
 
     class Type {
       public:
@@ -73,10 +82,18 @@ class PNLDesign final: public NLObject {
     void removeSlaveInstance(PNLInstance* instance);
 
     bool isStandard() const { return type_ == Type::Standard; }
-    ///\return true if this SNLDesign is a blackbox.
+    ///\return true if this PNLDesign is a blackbox.
     bool isBlackBox() const { return type_ == Type::Blackbox; }
-    ///\return true if this SNLDesign is a primitive.
+    ///\return true if this PNLDesign is a primitive.
     bool isPrimitive() const { return type_ == Type::Primitive; }
+
+    NLID::DesignReference getReference() const;
+
+    NajaCollection<PNLTerm*> getTerms() const;
+    PNLTerm* getTerm(const NLName& name) const;
+    PNLTerm* getTerm(NLID::DesignObjectID id) const;
+
+    const PNLDesignNets& getNets() const { return nets_; }
 
   private:
     PNLDesign(NLLibrary* library, const NLName& name);
@@ -97,6 +114,10 @@ class PNLDesign final: public NLObject {
     PNLDesignObjectNameIDMap            instanceNameIDMap_  {};
     PNLDesignSlaveInstances             slaveInstances_     {};
     Type                                type_               { Type::Standard };
+    PNLDesignTerms                      terms_              {};
+    PNLDesignObjectNameIDMap            termNameIDMap_      {};
+    PNLDesignNets                       nets_               {};
+    PNLDesignObjectNameIDMap            netNameIDMap_       {};
 };
 
 }} // namespace NL // namespace naja

@@ -38,6 +38,12 @@ set(PNL_SOURCES
   pnl/PNLDesign.cpp
   pnl/PNLInstance.cpp
   pnl/PNLDesignObject.cpp
+  pnl/PNLNet.cpp
+  pnl/PNLNetComponent.cpp
+  pnl/PNLTerm.cpp
+  pnl/PNLBitTerm.cpp
+  pnl/PNLBitNet.cpp
+  pnl/PNLInstTerm.cpp
 )
 
 set(DECORATOR_SOURCES
@@ -78,6 +84,12 @@ set(HEADERS
   pnl/PNLDesign.h
   pnl/PNLInstance.h
   pnl/PNLDesignObject.h
+  pnl/PNLNet.h
+  pnl/PNLNetComponent.h
+  pnl/PNLTerm.h
+  pnl/PNLBitTerm.h
+  pnl/PNLBitNet.h
+  pnl/PNLInstTerm.h
   decorators/SNLDesignModeling.h
   decorators/SNLTruthTable.h
 )

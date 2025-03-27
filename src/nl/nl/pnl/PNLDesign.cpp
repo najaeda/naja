@@ -9,6 +9,7 @@
 #include "NLDB.h"
 #include "NLLibrary.h"
 #include "NLException.h"
+#include "PNLTerm.h"
 
 
 namespace naja { namespace NL {
@@ -188,5 +189,31 @@ void PNLDesign::removeInstance(PNLInstance* instance) {
   }
   instances_.erase(*instance);
 }
+
+NLID::DesignReference PNLDesign::getReference() const {
+  return NLID::DesignReference(getDB()->getID(), library_->getID(), getID());
+}
+
+NajaCollection<PNLTerm*> PNLDesign::getTerms() const {
+  return NajaCollection(new NajaIntrusiveSetCollection(&terms_));
+}
+
+PNLTerm* PNLDesign::getTerm(const NLName& name) const {
+  auto it = termNameIDMap_.find(name);
+  if (it != termNameIDMap_.end()) {
+    NLID::DesignObjectID id = it->second;
+    return getTerm(id);
+  }
+  return nullptr;
+}
+
+PNLTerm* PNLDesign::getTerm(NLID::DesignObjectID id) const {
+  auto it = terms_.find(id, NLDesign::CompareByID<PNLTerm>());
+  if (it != terms_.end()) {
+    return const_cast<PNLTerm*>(&*it);
+  }
+  return nullptr;
+}
+
 
 }} // namespace NL // namespace naja
