@@ -114,4 +114,8 @@ void PNLInstTerm::debugDump(size_t indent, bool recursive, std::ostream& stream)
 }
 //LCOV_EXCL_STOP
 
+bool PNLInstTerm::isAnonymous() const {
+  return getBitTerm()->isAnonymous();
+}
+
 }} // namespace NL // namespace naja

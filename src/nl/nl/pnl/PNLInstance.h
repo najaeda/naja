@@ -39,6 +39,10 @@ class PNLInstance final: public PNLDesignObject {
 
     void createInstTerm(PNLBitTerm* term);
     void removeInstTerm(PNLBitTerm* term);
+    PNLInstTerm* getInstTerm(const PNLBitTerm* term) const;
+    PNLInstTerm* getInstTerm(const NLID::DesignObjectID id) const;
+
+    bool isAnonymous() const override { return name_.empty(); }
 
   private:
     PNLInstance(PNLDesign* design, PNLDesign* model, const NLName& name);

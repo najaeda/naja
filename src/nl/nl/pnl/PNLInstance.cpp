@@ -181,5 +181,28 @@ void PNLInstance::removeInstTerm(PNLBitTerm* term) {
   instTerms_[term->getFlatID()] = nullptr;
 }
 
+PNLInstTerm* PNLInstance::getInstTerm(const PNLBitTerm* bitTerm) const {
+  if (bitTerm == nullptr) {
+    std::string reason = "PNLInstance::getInsTerm error in "
+      + getName().getString() + " model: " + getModel()->getName().getString()
+      + " bitTerm arg is null";
+    throw NLException(reason);
+  }
+  if (bitTerm->getDesign() != getModel()) {
+    std::string reason = "PNLInstance::getInsTerm incoherency: "
+      + getName().getString() + " model: " + getModel()->getName().getString()
+      + " and " + bitTerm->getString() + " model: " + bitTerm->getDesign()->getName().getString()
+      + " should be the same";
+    throw NLException(reason);
+  }
+  assert(bitTerm->getFlatID() < instTerms_.size());
+  return instTerms_[bitTerm->getFlatID()];
+}
+
+PNLInstTerm* PNLInstance::getInstTerm(const NLID::DesignObjectID termID) const {
+  assert(termID < instTerms_.size());
+  return instTerms_[termID];
+}
+
 }  // namespace NL
 }  // namespace naja

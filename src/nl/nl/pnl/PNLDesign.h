@@ -8,6 +8,7 @@
 #include "PNLInstance.h"
 #include "PNLTerm.h"
 #include "PNLNet.h"
+#include "PNLScalarTerm.h"
 
 namespace naja { namespace NL {
 
@@ -93,6 +94,25 @@ class PNLDesign final: public NLObject {
     PNLTerm* getTerm(NLID::DesignObjectID id) const;
 
     const PNLDesignNets& getNets() const { return nets_; }
+    PNLNet* getNet(const NLName& name) const;
+    PNLNet* getNet(NLID::DesignObjectID id) const;
+
+    void addNet(PNLNet* net);
+    void addNetAndSetID(PNLNet* net);
+    void removeNet(PNLNet* net);
+
+    PNLScalarTerm* getScalarTerm(NLID::DesignObjectID id) const;
+    PNLScalarTerm* getScalarTerm(const NLName& termName) const;
+
+    void rename(PNLTerm* term, const NLName& previousName);
+    void rename(PNLNet* net, const NLName& previousName);
+    void rename(PNLInstance* instance, const NLName& previousName);
+
+    void addTerm(PNLTerm* term);
+    void addTermAndSetID(PNLTerm* term);
+    void removeTerm(PNLTerm* term);
+
+    NajaCollection<PNLInstance*> getSlaveInstances() const;
 
   private:
     PNLDesign(NLLibrary* library, const NLName& name);

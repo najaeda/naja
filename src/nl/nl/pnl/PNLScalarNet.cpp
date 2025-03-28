@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "SNLScalarNet.h"
+#include "PNLScalarNet.h"
 
 #include <sstream>
 
@@ -10,122 +10,123 @@
 #include "NLLibrary.h"
 #include "NLException.h"
 
-#include "SNLDesign.h"
+#include "PNLDesign.h"
+//#include "PNLAttributes.h"
 #include "SNLMacros.h"
 
 namespace naja { namespace NL {
 
-SNLScalarNet::SNLScalarNet(SNLDesign* design, const NLName& name):
+PNLScalarNet::PNLScalarNet(PNLDesign* design, const NLName& name):
   super(),
   design_(design),
   name_(name)
 {}
 
-SNLScalarNet::SNLScalarNet(SNLDesign* design, NLID::DesignObjectID id, const NLName& name):
+PNLScalarNet::PNLScalarNet(PNLDesign* design, NLID::DesignObjectID id, const NLName& name):
   super(),
   design_(design),
   id_(id),
   name_(name)
 {}
 
-SNLScalarNet* SNLScalarNet::create(SNLDesign* design, const NLName& name) {
+PNLScalarNet* PNLScalarNet::create(PNLDesign* design, const NLName& name) {
   preCreate(design, name);
-  SNLScalarNet* net = new SNLScalarNet(design, name);
+  PNLScalarNet* net = new PNLScalarNet(design, name);
   net->postCreateAndSetID();
   return net;
 }
 
-SNLScalarNet* SNLScalarNet::create(SNLDesign* design, NLID::DesignObjectID id, const NLName& name) {
+PNLScalarNet* PNLScalarNet::create(PNLDesign* design, NLID::DesignObjectID id, const NLName& name) {
   preCreate(design, id, name);
-  SNLScalarNet* net = new SNLScalarNet(design, id, name);
+  PNLScalarNet* net = new PNLScalarNet(design, id, name);
   net->postCreate();
   return net;
 }
 
-void SNLScalarNet::preCreate(const SNLDesign* design, const NLName& name) {
+void PNLScalarNet::preCreate(const PNLDesign* design, const NLName& name) {
   super::preCreate();
   if (not design) {
-    throw NLException("malformed SNLScalarNet creator with NULL design argument");
+    throw NLException("malformed PNLScalarNet creator with NULL design argument");
   }
   if (not name.empty() and design->getNet(name)) {
-    std::string reason = "SNLDesign " + design->getString() + " contains already a SNLScalarNet named: " + name.getString();
+    std::string reason = "PNLDesign " + design->getString() + " contains already a PNLScalarNet named: " + name.getString();
     throw NLException(reason);
   }
 }
 
-void SNLScalarNet::preCreate(const SNLDesign* design, NLID::DesignObjectID id, const NLName& name) {
+void PNLScalarNet::preCreate(const PNLDesign* design, NLID::DesignObjectID id, const NLName& name) {
   preCreate(design, name);
   if (auto conflict = design->getNet(id)) {
     std::ostringstream reason;
-    reason << "In SNLDesign " << design->getString();
+    reason << "In PNLDesign " << design->getString();
     reason << ", error while trying to create";
     if (name.empty()) {
       reason << " anonymous ScalarNet";
     } else {
       reason << " " << name.getString() << " ScalarNet";
     }
-    reason << ". This design contains already a SNLNet: " << conflict->getDescription() << " with conflicting ID.";
+    reason << ". This design contains already a PNLNet: " << conflict->getDescription() << " with conflicting ID.";
     throw NLException(reason.str());
   }
 }
 
-void SNLScalarNet::postCreateAndSetID() {
+void PNLScalarNet::postCreateAndSetID() {
   super::postCreate();
   getDesign()->addNetAndSetID(this);
 }
 
-void SNLScalarNet::postCreate() {
+void PNLScalarNet::postCreate() {
   super::postCreate();
   getDesign()->addNet(this);
 }
 
-DESIGN_OBJECT_SET_NAME(SNLScalarNet, Net, net)
+DESIGN_OBJECT_SET_NAME(PNLScalarNet, Net, net)
 
-void SNLScalarNet::commonPreDestroy() {
+void PNLScalarNet::commonPreDestroy() {
   super::preDestroy();
 }
 
-void SNLScalarNet::destroyFromDesign() {
+void PNLScalarNet::destroyFromDesign() {
   commonPreDestroy();
   delete this;
 }
 
-void SNLScalarNet::preDestroy() {
+void PNLScalarNet::preDestroy() {
   commonPreDestroy();
   getDesign()->removeNet(this);
 }
 
-SNLNet* SNLScalarNet::clone(SNLDesign* design) const {
-  auto newNet = new SNLScalarNet(design, id_, name_);
+PNLNet* PNLScalarNet::clone(PNLDesign* design) const {
+  auto newNet = new PNLScalarNet(design, id_, name_);
   newNet->setType(getType());
-  SNLAttributes::cloneAttributes(this, newNet);
+  //PNLAttributes::cloneAttributes(this, newNet);
   cloneComponents(newNet);
   return newNet;
 }
 
-NLID SNLScalarNet::getNLID() const {
-  return SNLDesignObject::getNLID(NLID::Type::Net, id_, 0, 0);
+NLID PNLScalarNet::getNLID() const {
+  return PNLDesignObject::getNLID(NLID::Type::Net, id_, 0, 0);
 }
 
-NajaCollection<SNLBitNet*> SNLScalarNet::getBits() const {
-  return NajaCollection(new NajaSingletonCollection(const_cast<SNLScalarNet*>(this))).getParentTypeCollection<SNLBitNet*>();
+NajaCollection<PNLBitNet*> PNLScalarNet::getBits() const {
+  return NajaCollection(new NajaSingletonCollection(const_cast<PNLScalarNet*>(this))).getParentTypeCollection<PNLBitNet*>();
 }
 
 //LCOV_EXCL_START
-const char* SNLScalarNet::getTypeName() const {
-  return "SNLScalarNet";
+const char* PNLScalarNet::getTypeName() const {
+  return "PNLScalarNet";
 }
 //LCOV_EXCL_STOP
 
 
 //LCOV_EXCL_START
-std::string SNLScalarNet::getString() const {
+std::string PNLScalarNet::getString() const {
   return getName().getString();
 }
 //LCOV_EXCL_STOP
 
 //LCOV_EXCL_START
-std::string SNLScalarNet::getDescription() const {
+std::string PNLScalarNet::getDescription() const {
   std::ostringstream stream;
   stream << "<" << std::string(getTypeName());
   if (not isAnonymous()) {
@@ -141,11 +142,11 @@ std::string SNLScalarNet::getDescription() const {
 }
 //LCOV_EXCL_STOP
 
-bool SNLScalarNet::deepCompare(const SNLNet* other, std::string& reason) const {
-  const SNLScalarNet* otherScalarNet = dynamic_cast<const SNLScalarNet*>(other);
+bool PNLScalarNet::deepCompare(const PNLNet* other, std::string& reason) const {
+  const PNLScalarNet* otherScalarNet = dynamic_cast<const PNLScalarNet*>(other);
   if (not otherScalarNet) {
     //LCOV_EXCL_START
-    reason = "other term is not a SNLScalarNet";
+    reason = "other term is not a PNLScalarNet";
     return false;
     //LCOV_EXCL_STOP
   }
@@ -161,11 +162,12 @@ bool SNLScalarNet::deepCompare(const SNLNet* other, std::string& reason) const {
     return false;
     //LCOV_EXCL_STOP
   }
-  return SNLAttributes::compareAttributes(this, otherScalarNet, reason);
+  //return PNLAttributes::compareAttributes(this, otherScalarNet, reason);
+  return true;
 }
 
 //LCOV_EXCL_START
-void SNLScalarNet::debugDump(size_t indent, bool recursive, std::ostream& stream) const {
+void PNLScalarNet::debugDump(size_t indent, bool recursive, std::ostream& stream) const {
   stream << std::string(indent, ' ') << getDescription() << std::endl;
   if (not getComponents().empty()) {
     stream << std::string(indent+2, ' ') << "<components>" << std::endl;

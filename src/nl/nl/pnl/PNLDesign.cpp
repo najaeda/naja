@@ -10,6 +10,7 @@
 #include "NLLibrary.h"
 #include "NLException.h"
 #include "PNLTerm.h"
+#include "SNLMacros.h"
 
 
 namespace naja { namespace NL {
@@ -214,5 +215,135 @@ PNLTerm* PNLDesign::getTerm(NLID::DesignObjectID id) const {
   }
   return nullptr;
 }
+
+PNLNet* PNLDesign::getNet(const NLName& name) const {
+  auto it = netNameIDMap_.find(name);
+  if (it != netNameIDMap_.end()) {
+    NLID::DesignObjectID id = it->second;
+    return getNet(id);
+  }
+  return nullptr;
+}
+
+PNLNet* PNLDesign::getNet(NLID::DesignObjectID id) const {
+  auto it = nets_.find(id, NLDesign::CompareByID<PNLNet>());
+  if (it != nets_.end()) {
+    return const_cast<PNLNet*>(&*it);
+  }
+  return nullptr;
+}
+
+void PNLDesign::addNetAndSetID(PNLNet* net) {
+  if (nets_.empty()) {
+    net->setID(0);
+  } else {
+    auto it = nets_.rbegin();
+    PNLNet* lastNet = &(*it);
+    NLID::DesignObjectID netID = lastNet->getID()+1;
+    net->setID(netID);
+  }
+  addNet(net);
+}
+
+void PNLDesign::addNet(PNLNet* net) {
+  nets_.insert(*net);
+  if (not net->getName().empty()) {
+    netNameIDMap_[net->getName()] = net->getID();
+  }
+}
+
+void PNLDesign::removeNet(PNLNet* net) {
+  assert(dynamic_cast<PNLScalarNet*>(net) or dynamic_cast<PNLBusNet*>(net));
+
+  if (not net->getName().empty()) {
+    netNameIDMap_.erase(net->getName());
+  }
+  nets_.erase(*net);
+}
+
+PNLScalarTerm* PNLDesign::getScalarTerm(NLID::DesignObjectID id) const {
+  return dynamic_cast<PNLScalarTerm*>(getTerm(id));
+}
+
+PNLScalarTerm* PNLDesign::getScalarTerm(const NLName& name) const {
+  return dynamic_cast<PNLScalarTerm*>(getTerm(name));
+}
+
+OWNER_RENAME(PNLDesign, PNLTerm, termNameIDMap_)
+OWNER_RENAME(PNLDesign, PNLNet, netNameIDMap_)
+OWNER_RENAME(PNLDesign, PNLInstance, instanceNameIDMap_)
   
+void PNLDesign::addTermAndSetID(PNLTerm* term) {
+ if (terms_.empty()) {
+    term->setID(0);
+  } else {
+    auto it = terms_.rbegin();
+    PNLTerm* lastTerm = &(*it);
+    NLID::DesignObjectID termID = lastTerm->getID()+1;
+    term->setID(termID);
+  }
+  addTerm(term);
+}
+
+void PNLDesign::addTerm(PNLTerm* term) {
+  assert(dynamic_cast<PNLScalarTerm*>(term) or dynamic_cast<PNLBusTerm*>(term));
+
+  if (terms_.empty()) {
+    term->setFlatID(0);
+  } else {
+    auto it = terms_.rbegin();
+    PNLTerm* lastTerm = &(*it);
+    size_t flatID = 0;
+    if (PNLScalarTerm* scalarTerm = dynamic_cast<PNLScalarTerm*>(lastTerm)) {
+      flatID = scalarTerm->getFlatID() + 1;
+    } else {
+      assert(false);
+    //   PNLBusTerm* busTerm = static_cast<PNLBusTerm*>(lastTerm);
+    //   flatID = busTerm->flatID_ + static_cast<size_t>(busTerm->getWidth());
+    }
+    term->setFlatID(flatID);
+  }
+  terms_.insert(*term);
+  if (not term->getName().empty()) {
+    termNameIDMap_[term->getName()] = term->getID();
+  }
+
+  //Create corresponding instance terminals in slave instances
+  for (auto instance: getSlaveInstances()) {
+    if (PNLScalarTerm* scalarTerm = dynamic_cast<PNLScalarTerm*>(term)) {
+      instance->createInstTerm(scalarTerm);
+    } else {
+      assert(false);
+    //   PNLBusTerm* busTerm = static_cast<PNLBusTerm*>(term);
+    //   for (auto bit: busTerm->getBits()) {
+    //     instance->createInstTerm(bit);
+    //   }
+    }
+  }
+}
+
+void PNLDesign::removeTerm(PNLTerm* term) {
+  //Remove corresponding instance terminals in slave instances
+  for (auto instance: getSlaveInstances()) {
+    // if (PNLBusTerm* bus = dynamic_cast<PNLBusTerm*>(term)) {
+    //   for (auto bit: bus->getBits()) {
+    //     instance->removeInstTerm(bit);
+    //   }
+    // } else {
+      PNLBitTerm* bitTerm = static_cast<PNLBitTerm*>(term);
+      instance->removeInstTerm(bitTerm);
+    //}
+  }
+  if (/**dynamic_cast<PNLBusTerm*>(term) or*/ dynamic_cast<PNLScalarTerm*>(term)) {
+    if (not term->getName().empty()) {
+      termNameIDMap_.erase(term->getName());
+    }
+    terms_.erase(*term);
+  }
+}
+
+NajaCollection<PNLInstance*> PNLDesign::getSlaveInstances() const {
+  return NajaCollection(new NajaIntrusiveSetCollection(&slaveInstances_));
+}
+
 }} // namespace NL // namespace naja

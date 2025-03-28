@@ -37,6 +37,8 @@ class PNLInstTerm final: public PNLNetComponent {
     void debugDump(size_t indent, bool recursive=true, std::ostream& stream=std::cerr) const override;
 
     void destroy() override;
+
+    bool isAnonymous() const override;
   private:
     PNLInstTerm(PNLInstance* instance, PNLBitTerm* term);
     static PNLInstTerm* create(PNLInstance* instance, PNLBitTerm* term);

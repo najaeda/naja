@@ -44,6 +44,8 @@ set(PNL_SOURCES
   pnl/PNLBitTerm.cpp
   pnl/PNLBitNet.cpp
   pnl/PNLInstTerm.cpp
+  pnl/PNLScalarNet.cpp
+  pnl/PNLScalarTerm.cpp
 )
 
 set(DECORATOR_SOURCES
@@ -90,6 +92,8 @@ set(HEADERS
   pnl/PNLBitTerm.h
   pnl/PNLBitNet.h
   pnl/PNLInstTerm.h
+  pnl/PNLScalarNet.h
+  pnl/PNLScalarTerm.h
   decorators/SNLDesignModeling.h
   decorators/SNLTruthTable.h
 )
