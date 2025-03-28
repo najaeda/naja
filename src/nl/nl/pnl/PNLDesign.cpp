@@ -293,7 +293,7 @@ void PNLDesign::addTermAndSetID(PNLTerm* term) {
 }
 
 void PNLDesign::addTerm(PNLTerm* term) {
-  assert(dynamic_cast<PNLScalarTerm*>(term) or dynamic_cast<PNLBusTerm*>(term));
+  assert(dynamic_cast<PNLScalarTerm*>(term) /*or dynamic_cast<PNLBusTerm*>(term)*/);
 
   if (terms_.empty()) {
     term->setFlatID(0);
