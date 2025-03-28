@@ -12,6 +12,7 @@
 #include "PNLDesign.h"
 #include "PNLBitTerm.h"
 #include "PNLBitNet.h"
+#include "SNLMacros.h"
 
 namespace naja { namespace NL {
 
@@ -63,17 +64,7 @@ PNLTerm::Direction PNLInstTerm::getDirection() const {
   return getBitTerm()->getDirection();
 }
 
-void PNLInstTerm::setNet(PNLNet* net) {
-  PNLBitNet* bitnet = dynamic_cast<PNLBitNet*>(net);
-  assert(bitnet);
-  if (net_) {
-    net_->removeComponent(this);
-  }
-  net_ = bitnet;
-  if (net_) {
-    net_->addComponent(this);
-  }
-}
+PNL_NET_COMPONENT_SET_NET(PNLInstTerm)
 
 //LCOV_EXCL_START
 const char* PNLInstTerm::getTypeName() const {

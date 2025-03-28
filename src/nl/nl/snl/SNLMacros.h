@@ -48,6 +48,32 @@ void TYPE::setNet(SNLNet* net) { \
   } \
 }
 
+#define PNL_NET_COMPONENT_SET_NET(TYPE) \
+void TYPE::setNet(PNLNet* net) { \
+  if (net and net->getDesign() not_eq getDesign()) { \
+    std::string reason = "Impossible setNet call with incompatible designs: "; \
+    reason += getString() + " is in " + getDesign()->getString() + " while "; \
+    reason += net->getString() + " is in " + net->getDesign()->getString(); \
+    throw NLException(reason); \
+  } \
+  PNLBitNet* bitNet = nullptr; \
+  if (net) { \
+    bitNet = dynamic_cast<PNLBitNet*>(net); \
+    if (not bitNet) { \
+      assert(false); \
+    } \
+  } \
+  if (net_ not_eq bitNet) { \
+    if (net_) { \
+      net_->removeComponent(this); \
+    } \
+    net_ = bitNet; \
+    if (net_) { \
+      net_->addComponent(this); \
+    } \
+  } \
+}
+
 //
 //Contains various methods used in different while similar... contexts
 //Might seem dirty to use good old macros but I prefer this than plain copy/paste...
