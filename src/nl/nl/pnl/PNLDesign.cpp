@@ -1,4 +1,5 @@
-// SPDX-FileCopyrightText: 2024 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+// SPDX-FileCopyrightText: 2024 The Naja authors
+// <https://github.com/najaeda/naja/blob/main/AUTHORS>
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -7,42 +8,43 @@
 #include <sstream>
 
 #include "NLDB.h"
-#include "NLLibrary.h"
 #include "NLException.h"
+#include "NLLibrary.h"
+#include "PNLBitNet.h"
+#include "PNLNet.h"
 #include "PNLTerm.h"
 #include "SNLMacros.h"
+#include "PNLScalarNet.h"
 
+namespace naja {
+namespace NL {
 
-namespace naja { namespace NL {
+PNLDesign::Type::Type(const TypeEnum& typeEnum) : typeEnum_(typeEnum) {}
 
-PNLDesign::Type::Type(const TypeEnum& typeEnum):
-  typeEnum_(typeEnum) 
-{}
-
-//LCOV_EXCL_START
+// LCOV_EXCL_START
 std::string PNLDesign::Type::getString() const {
   switch (typeEnum_) {
-    case Type::Standard: return "Standard";
-    case Type::Blackbox: return "Blackbox";
-    case Type::Primitive: return "Primitive";
+    case Type::Standard:
+      return "Standard";
+    case Type::Blackbox:
+      return "Blackbox";
+    case Type::Primitive:
+      return "Primitive";
   }
   return "Unknown";
 }
 
-PNLDesign::PNLDesign(NLLibrary* library, const NLName& name):
-  super(),
-  name_(name),
-  library_(library)
-{}
+PNLDesign::PNLDesign(NLLibrary* library, const NLName& name, const Type::TypeEnum& type)
+    : super(), name_(name), library_(library), type_(type) {}
 
-PNLDesign* PNLDesign::create(NLLibrary* library, const NLName& name) {
+PNLDesign* PNLDesign::create(NLLibrary* library, const NLName& name, const Type::TypeEnum& type) {
   preCreate(library, name);
-  PNLDesign* design = new PNLDesign(library, name);
+  PNLDesign* design = new PNLDesign(library, name, type);
   design->postCreateAndSetID();
   return design;
 }
 
-//This should be removed tomorrow: PNLDesignID should be NLDesign ID
+// This should be removed tomorrow: PNLDesignID should be NLDesign ID
 void PNLDesign::postCreateAndSetID() {
   super::postCreate();
   library_->addPNLDesignAndSetID(this);
@@ -53,9 +55,11 @@ void PNLDesign::preCreate(const NLLibrary* library, const NLName& name) {
   if (not library) {
     throw NLException("malformed design creator with null library");
   }
-  //test if design with same name exists in library
+  // test if design with same name exists in library
   if (not name.empty() and library->getPNLDesign(name)) {
-    std::string reason = "NLLibrary " + library->getString() + " contains already a PNLDesign named: " + name.getString();
+    std::string reason =
+        "NLLibrary " + library->getString() +
+        " contains already a PNLDesign named: " + name.getString();
     throw NLException(reason);
   }
 }
@@ -77,11 +81,11 @@ void PNLDesign::destroyFromLibrary() {
   delete this;
 }
 
-bool PNLDesign::deepCompare(
-  const PNLDesign* other,
-  std::string& reason,
-  NLDesign::CompareType type) const {
-  if (type==NLDesign::CompareType::Complete and (getID() not_eq other->getID())) {
+bool PNLDesign::deepCompare(const PNLDesign* other,
+                            std::string& reason,
+                            NLDesign::CompareType type) const {
+  if (type == NLDesign::CompareType::Complete and
+      (getID() not_eq other->getID())) {
     std::ostringstream oss;
     oss << "Designs mismatch between ";
     oss << getDescription() << " and " << other->getDescription();
@@ -89,7 +93,8 @@ bool PNLDesign::deepCompare(
     reason = oss.str();
     return false;
   }
-  if (type!=NLDesign::CompareType::IgnoreIDAndName and (name_ not_eq other->getName())) {
+  if (type != NLDesign::CompareType::IgnoreIDAndName and
+      (name_ not_eq other->getName())) {
     std::ostringstream oss;
     oss << "Designs mismatch between ";
     oss << getDescription() << " and " << other->getDescription();
@@ -100,13 +105,13 @@ bool PNLDesign::deepCompare(
   return true;
 }
 
-//LCOV_EXCL_START
+// LCOV_EXCL_START
 const char* PNLDesign::getTypeName() const {
   return "PNLDesign";
 }
-//LCOV_EXCL_STOP
+// LCOV_EXCL_STOP
 
-//LCOV_EXCL_START
+// LCOV_EXCL_START
 std::string PNLDesign::getString() const {
   if (not isAnonymous()) {
     return getName().getString();
@@ -114,9 +119,9 @@ std::string PNLDesign::getString() const {
     return "<anonymous>";
   }
 }
-//LCOV_EXCL_STOP
+// LCOV_EXCL_STOP
 
-//LCOV_EXCL_START
+// LCOV_EXCL_START
 std::string PNLDesign::getDescription() const {
   std::ostringstream stream;
   stream << "<" + std::string(getTypeName());
@@ -131,13 +136,15 @@ std::string PNLDesign::getDescription() const {
   stream << ">";
   return stream.str();
 }
-//LCOV_EXCL_STOP
+// LCOV_EXCL_STOP
 
-//LCOV_EXCL_START
-void PNLDesign::debugDump(size_t indent, bool recursive, std::ostream& stream) const {
+// LCOV_EXCL_START
+void PNLDesign::debugDump(size_t indent,
+                          bool recursive,
+                          std::ostream& stream) const {
   stream << std::string(indent, ' ') << getDescription() << std::endl;
 }
-//LCOV_EXCL_STOP
+// LCOV_EXCL_STOP
 
 void PNLDesign::addInstance(PNLInstance* instance) {
   instances_.insert(*instance);
@@ -152,7 +159,7 @@ void PNLDesign::addInstanceAndSetID(PNLInstance* instance) {
   } else {
     auto it = instances_.rbegin();
     PNLInstance* lastInstance = &(*it);
-    NLID::DesignObjectID instanceID = lastInstance->id_+1;
+    NLID::DesignObjectID instanceID = lastInstance->id_ + 1;
     instance->id_ = instanceID;
   }
   addInstance(instance);
@@ -176,7 +183,7 @@ PNLInstance* PNLDesign::getInstance(NLID::DesignObjectID id) const {
 }
 
 void PNLDesign::addSlaveInstance(PNLInstance* instance) {
-  //addSlaveInstance must be executed after addInstance.
+  // addSlaveInstance must be executed after addInstance.
   slaveInstances_.insert(*instance);
 }
 
@@ -239,7 +246,7 @@ void PNLDesign::addNetAndSetID(PNLNet* net) {
   } else {
     auto it = nets_.rbegin();
     PNLNet* lastNet = &(*it);
-    NLID::DesignObjectID netID = lastNet->getID()+1;
+    NLID::DesignObjectID netID = lastNet->getID() + 1;
     net->setID(netID);
   }
   addNet(net);
@@ -272,14 +279,14 @@ PNLScalarTerm* PNLDesign::getScalarTerm(const NLName& name) const {
 OWNER_RENAME(PNLDesign, PNLTerm, termNameIDMap_)
 OWNER_RENAME(PNLDesign, PNLNet, netNameIDMap_)
 OWNER_RENAME(PNLDesign, PNLInstance, instanceNameIDMap_)
-  
+
 void PNLDesign::addTermAndSetID(PNLTerm* term) {
- if (terms_.empty()) {
+  if (terms_.empty()) {
     term->setID(0);
   } else {
     auto it = terms_.rbegin();
     PNLTerm* lastTerm = &(*it);
-    NLID::DesignObjectID termID = lastTerm->getID()+1;
+    NLID::DesignObjectID termID = lastTerm->getID() + 1;
     term->setID(termID);
   }
   addTerm(term);
@@ -298,8 +305,8 @@ void PNLDesign::addTerm(PNLTerm* term) {
       flatID = scalarTerm->getFlatID() + 1;
     } else {
       assert(false);
-    //   PNLBusTerm* busTerm = static_cast<PNLBusTerm*>(lastTerm);
-    //   flatID = busTerm->flatID_ + static_cast<size_t>(busTerm->getWidth());
+      //   PNLBusTerm* busTerm = static_cast<PNLBusTerm*>(lastTerm);
+      //   flatID = busTerm->flatID_ + static_cast<size_t>(busTerm->getWidth());
     }
     term->setFlatID(flatID);
   }
@@ -308,33 +315,34 @@ void PNLDesign::addTerm(PNLTerm* term) {
     termNameIDMap_[term->getName()] = term->getID();
   }
 
-  //Create corresponding instance terminals in slave instances
-  for (auto instance: getSlaveInstances()) {
+  // Create corresponding instance terminals in slave instances
+  for (auto instance : getSlaveInstances()) {
     if (PNLScalarTerm* scalarTerm = dynamic_cast<PNLScalarTerm*>(term)) {
       instance->createInstTerm(scalarTerm);
     } else {
       assert(false);
-    //   PNLBusTerm* busTerm = static_cast<PNLBusTerm*>(term);
-    //   for (auto bit: busTerm->getBits()) {
-    //     instance->createInstTerm(bit);
-    //   }
+      //   PNLBusTerm* busTerm = static_cast<PNLBusTerm*>(term);
+      //   for (auto bit: busTerm->getBits()) {
+      //     instance->createInstTerm(bit);
+      //   }
     }
   }
 }
 
 void PNLDesign::removeTerm(PNLTerm* term) {
-  //Remove corresponding instance terminals in slave instances
-  for (auto instance: getSlaveInstances()) {
+  // Remove corresponding instance terminals in slave instances
+  for (auto instance : getSlaveInstances()) {
     // if (PNLBusTerm* bus = dynamic_cast<PNLBusTerm*>(term)) {
     //   for (auto bit: bus->getBits()) {
     //     instance->removeInstTerm(bit);
     //   }
     // } else {
-      PNLBitTerm* bitTerm = static_cast<PNLBitTerm*>(term);
-      instance->removeInstTerm(bitTerm);
+    PNLBitTerm* bitTerm = static_cast<PNLBitTerm*>(term);
+    instance->removeInstTerm(bitTerm);
     //}
   }
-  if (/**dynamic_cast<PNLBusTerm*>(term) or*/ dynamic_cast<PNLScalarTerm*>(term)) {
+  if (/**dynamic_cast<PNLBusTerm*>(term) or*/ dynamic_cast<PNLScalarTerm*>(
+      term)) {
     if (not term->getName().empty()) {
       termNameIDMap_.erase(term->getName());
     }
@@ -346,4 +354,33 @@ NajaCollection<PNLInstance*> PNLDesign::getSlaveInstances() const {
   return NajaCollection(new NajaIntrusiveSetCollection(&slaveInstances_));
 }
 
-}} // namespace NL // namespace naja
+PNLBitTerm* PNLDesign::getBitTerm(NLID::DesignObjectID id) const {
+  return dynamic_cast<PNLBitTerm*>(getTerm(id));
+}
+
+PNLBitTerm* PNLDesign::getBitTerm(const NLName& name) const {
+  return dynamic_cast<PNLBitTerm*>(getTerm(name));
+}
+
+NajaCollection<PNLNet*> PNLDesign::getNets() const {
+  return NajaCollection(new NajaIntrusiveSetCollection(&nets_));
+}
+
+NajaCollection<PNLBitNet*> PNLDesign::getBitNets() const {
+  return getNets().getSubCollection<PNLBitNet*>();
+}
+
+NajaCollection<PNLScalarNet*> PNLDesign::getScalarNets() const {
+  return getNets().getSubCollection<PNLScalarNet*>();
+}
+
+PNLScalarNet* PNLDesign::getScalarNet(NLID::DesignObjectID id) const {
+  return dynamic_cast<PNLScalarNet*>(getNet(id));
+}
+
+PNLScalarNet* PNLDesign::getScalarNet(const NLName& netName) const {
+  return dynamic_cast<PNLScalarNet*>(getNet(netName));
+}
+
+}  // namespace NL
+}  // namespace naja

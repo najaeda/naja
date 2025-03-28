@@ -204,5 +204,11 @@ PNLInstTerm* PNLInstance::getInstTerm(const NLID::DesignObjectID termID) const {
   return instTerms_[termID];
 }
 
+bool PNLInstance::isBlackBox() const { return model_->isBlackBox(); }
+
+bool PNLInstance::isPrimitive() const { return model_->isPrimitive(); }
+
+bool PNLInstance::isLeaf() const { return model_->isLeaf(); }
+
 }  // namespace NL
 }  // namespace naja

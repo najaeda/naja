@@ -9,6 +9,7 @@
 
 #include "PNLDesign.h"
 #include "PNLBitNet.h"
+#include "SNLMacros.h"
 
 namespace naja {
 namespace NL {
@@ -25,16 +26,7 @@ void PNLBitTerm::preDestroy() {
   super::preDestroy();
 }
 
-void PNLBitTerm::setNet(PNLNet* net) {
-  PNLBitNet* bitnet = dynamic_cast<PNLBitNet*>(net);
-  assert(bitnet);
-  if (net_) {
-    net_->removeComponent(this);
-  }
-  net_ = bitnet;
-  if (net_) {
-    net_->addComponent(this);
-  }
-}
+PNL_NET_COMPONENT_SET_NET(PNLBitTerm)
+
 }  // namespace NL
 }  // namespace naja

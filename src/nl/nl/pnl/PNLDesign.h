@@ -9,6 +9,7 @@
 #include "PNLTerm.h"
 #include "PNLNet.h"
 #include "PNLScalarTerm.h"
+#include "PNLScalarNet.h"
 
 namespace naja { namespace NL {
 
@@ -47,7 +48,7 @@ class PNLDesign final: public NLObject {
           TypeEnum typeEnum_;
     };
 
-    static PNLDesign* create(NLLibrary* library, const NLName& name=NLName());
+    static PNLDesign* create(NLLibrary* library, const NLName& name=NLName(), const Type::TypeEnum& type=Type::Standard);
 
     NLID::DesignID getID() const { return id_; }
     NLID getNLID() const;
@@ -93,7 +94,8 @@ class PNLDesign final: public NLObject {
     PNLTerm* getTerm(const NLName& name) const;
     PNLTerm* getTerm(NLID::DesignObjectID id) const;
 
-    const PNLDesignNets& getNets() const { return nets_; }
+    //const PNLDesignNets& getNets() const { return nets_; }
+    NajaCollection<PNLNet*> getNets() const;
     PNLNet* getNet(const NLName& name) const;
     PNLNet* getNet(NLID::DesignObjectID id) const;
 
@@ -114,8 +116,19 @@ class PNLDesign final: public NLObject {
 
     NajaCollection<PNLInstance*> getSlaveInstances() const;
 
+    PNLBitTerm* getBitTerm(NLID::DesignObjectID id) const;
+    PNLBitTerm* getBitTerm(const NLName& termName) const;
+    
+    NajaCollection<PNLBitNet*> getBitNets() const;
+    NajaCollection<PNLScalarNet*> getScalarNets() const;
+
+    PNLScalarNet* getScalarNet(NLID::DesignObjectID id) const;
+    PNLScalarNet* getScalarNet(const NLName& netName) const;
+
+    bool isLeaf() const { return isBlackBox() or isPrimitive(); }
+
   private:
-    PNLDesign(NLLibrary* library, const NLName& name);
+    PNLDesign(NLLibrary* library, const NLName& name, const Type::TypeEnum& type = Type::Standard);
     static void preCreate(const NLLibrary* library, const NLName& name);
     void postCreateAndSetID();
     void commonPreDestroy();

@@ -44,6 +44,10 @@ class PNLInstance final: public PNLDesignObject {
 
     bool isAnonymous() const override { return name_.empty(); }
 
+    bool isBlackBox() const;
+    bool isPrimitive() const;
+    bool isLeaf() const;
+
   private:
     PNLInstance(PNLDesign* design, PNLDesign* model, const NLName& name);
     static void preCreate(PNLDesign* design, const PNLDesign* model, const NLName& name);
