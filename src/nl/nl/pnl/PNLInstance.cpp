@@ -99,6 +99,26 @@ void PNLInstance::commonPostCreate() {
   }
 }
 
+void PNLInstance::destroyFromModel() {
+#ifdef PNL_DESTROY_DEBUG
+  std::cerr << "Destroying from Model " << getDescription() << std::endl; 
+#endif
+  getDesign()->removeInstance(this);
+  commonPreDestroy();
+  delete this;
+}
+
+void PNLInstance::destroyFromDesign() {
+#ifdef PNL_DESTROY_DEBUG
+  std::cerr << "Destroying from Design " << getDescription() << std::endl; 
+#endif
+  if (not getModel()->isPrimitive()) {
+    getModel()->removeSlaveInstance(this);
+  }
+  commonPreDestroy();
+  delete this;
+}
+
 // LCOV_EXCL_START
 const char* PNLInstance::getTypeName() const {
   return "PNLInstance";

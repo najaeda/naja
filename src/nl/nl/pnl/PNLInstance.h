@@ -48,6 +48,9 @@ class PNLInstance final: public PNLDesignObject {
     bool isPrimitive() const;
     bool isLeaf() const;
 
+    void destroyFromDesign();
+    void destroyFromModel();
+
   private:
     PNLInstance(PNLDesign* design, PNLDesign* model, const NLName& name);
     static void preCreate(PNLDesign* design, const PNLDesign* model, const NLName& name);

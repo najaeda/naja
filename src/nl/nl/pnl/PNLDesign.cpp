@@ -73,6 +73,46 @@ NLID PNLDesign::getNLID() const {
 }
 
 void PNLDesign::commonPreDestroy() {
+#ifdef PNL_DESTROY_DEBUG
+  std::cerr << "Destroying " << getDescription() << std::endl; 
+#endif
+  struct destroyInstanceFromDesign {
+    void operator()(PNLInstance* instance) {
+      instance->destroyFromDesign();
+    }
+  };
+  instances_.clear_and_dispose(destroyInstanceFromDesign());
+
+  if (not isPrimitive()) {
+    struct destroySlaveInstanceFromModel {
+      void operator()(PNLInstance* instance) {
+        instance->destroyFromModel();
+      }
+    };
+    slaveInstances_.clear_and_dispose(destroySlaveInstanceFromModel());
+  }
+
+  struct destroyTermFromDesign {
+    void operator()(PNLTerm* term) {
+      term->destroyFromDesign();
+    }
+  };
+  terms_.clear_and_dispose(destroyTermFromDesign());
+
+  struct destroyNetFromDesign {
+    void operator()(PNLNet* net) {
+      net->destroyFromDesign();
+    }
+  };
+  nets_.clear_and_dispose(destroyNetFromDesign());
+
+  // struct destroyParameterFromDesign {
+  //   void operator()(PNLParameter* parameter) {
+  //     parameter->destroyFromDesign();
+  //   }
+  // };
+  // parameters_.clear_and_dispose(destroyParameterFromDesign());
+
   super::preDestroy();
 }
 
