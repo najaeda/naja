@@ -260,7 +260,7 @@ void PNLDesign::addNet(PNLNet* net) {
 }
 
 void PNLDesign::removeNet(PNLNet* net) {
-  assert(dynamic_cast<PNLScalarNet*>(net) or dynamic_cast<PNLBusNet*>(net));
+  assert(dynamic_cast<PNLScalarNet*>(net) /*or dynamic_cast<PNLBusNet*>(net)*/);
 
   if (not net->getName().empty()) {
     netNameIDMap_.erase(net->getName());
