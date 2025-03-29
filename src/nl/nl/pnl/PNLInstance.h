@@ -63,10 +63,11 @@ class PNLInstance final: public PNLDesignObject {
     PNLDesign*                          design_                 {nullptr};
     PNLDesign*                          model_                  {nullptr};
     NLID::DesignObjectID                id_;
+    PNLInstanceInstTerms                instTerms_              {};
     NLName                              name_                   {};
     boost::intrusive::set_member_hook<> designInstancesHook_    {};
     boost::intrusive::set_member_hook<> designSlaveInstancesHook_ {};
-    PNLInstanceInstTerms               instTerms_              {};
+    
 };
 
 }} // namespace NL // namespace naja
