@@ -9,6 +9,8 @@ SET(pnl_tests
   PNLBoxTest.cpp
   PNLDesignTest.cpp
   PNLInstanceTest0.cpp
+  PNLTermTest.cpp
+  PNLNetTest.cpp
 )
 
 ADD_EXECUTABLE(pnlTests ${pnl_tests})
