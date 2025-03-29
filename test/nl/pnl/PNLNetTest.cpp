@@ -41,7 +41,7 @@ TEST_F(PNLNetTest, testCreation) {
   EXPECT_EQ(0, primitives->getID());
   ASSERT_TRUE(primitives);
   EXPECT_TRUE(primitives->isPrimitives());
-  auto primitive = PNLDesign::create(primitives, NLName(""), PNLDesign::Type::Primitive);
+  auto primitive = PNLDesign::create(primitives, PNLDesign::Type::Primitive, NLName(""));
   ASSERT_TRUE(primitive);
   EXPECT_TRUE(primitive->isPrimitive());
   EXPECT_TRUE(primitive->isLeaf());

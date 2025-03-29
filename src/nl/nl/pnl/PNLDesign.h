@@ -47,8 +47,25 @@ class PNLDesign final: public NLObject {
         private:
           TypeEnum typeEnum_;
     };
+    
+    /**
+     * \brief Create a PNLDesign.
+     * \param library owning NLLibrary.
+     * \param name NLName of the PNLDesign. If empty, the PNLDesign is anonymous.
+     * \return the created PNLDesign.
+     */
+    static PNLDesign* create(NLLibrary* library, const NLName& name=NLName());
 
-    static PNLDesign* create(NLLibrary* library, const NLName& name=NLName(), const Type::TypeEnum& type=Type::Standard);
+    static PNLDesign* create(NLLibrary* library, const Type& type, const NLName& name=NLName());
+    /**
+     * \brief Create a PNLDesign with a specific NLID::DesignID and a specific Type.
+     * \param library owning NLLibrary.
+     * \param id the NLID::DesignID of the PNLDesign to create.
+     * \param type the Type of the PNLDesign to create.
+     * \param name NLName of the PNLDesign. If empty, the PNLDesign is anonymous.
+     * \return the created PNLDesign.
+     */
+    static PNLDesign* create(NLLibrary* library, NLID::DesignID id, Type type, const NLName& name=NLName());
 
     NLID::DesignID getID() const { return id_; }
     NLID getNLID() const;
@@ -118,18 +135,26 @@ class PNLDesign final: public NLObject {
 
     PNLBitTerm* getBitTerm(NLID::DesignObjectID id) const;
     PNLBitTerm* getBitTerm(const NLName& termName) const;
+    NajaCollection<PNLBitTerm*> getBitTerms() const;
+    PNLBitTerm* getBitTerm(NLID::DesignObjectID id, NLID::Bit bit) const;
     
     NajaCollection<PNLBitNet*> getBitNets() const;
     NajaCollection<PNLScalarNet*> getScalarNets() const;
 
     PNLScalarNet* getScalarNet(NLID::DesignObjectID id) const;
     PNLScalarNet* getScalarNet(const NLName& netName) const;
+    NajaCollection<PNLScalarTerm*> getScalarTerms() const;
 
     bool isLeaf() const { return isBlackBox() or isPrimitive(); }
 
+    ///\warning setType cannot be called to set a design as a primitive.
+    void setType(Type type);
+
   private:
-    PNLDesign(NLLibrary* library, const NLName& name, const Type::TypeEnum& type = Type::Standard);
-    static void preCreate(const NLLibrary* library, const NLName& name);
+    PNLDesign(NLLibrary* library, const Type& type = Type::Standard, const NLName& name = NLName());
+    PNLDesign(NLLibrary* library, NLID::DesignID id, Type type, const NLName& name);
+    static void preCreate(const NLLibrary* library, Type type, const NLName& name);
+    static void preCreate(const NLLibrary* library, NLID::DesignID id, Type type, const NLName& name);
     void postCreateAndSetID();
     void commonPreDestroy();
     void destroyFromLibrary();

@@ -34,13 +34,35 @@ std::string PNLDesign::Type::getString() const {
   return "Unknown";
 }
 
-PNLDesign::PNLDesign(NLLibrary* library, const NLName& name, const Type::TypeEnum& type)
+PNLDesign::PNLDesign(NLLibrary* library, const Type& type, const NLName& name)
     : super(), name_(name), library_(library), type_(type) {}
 
-PNLDesign* PNLDesign::create(NLLibrary* library, const NLName& name, const Type::TypeEnum& type) {
-  preCreate(library, name);
-  PNLDesign* design = new PNLDesign(library, name, type);
+PNLDesign::PNLDesign(NLLibrary* library, NLID::DesignID id, Type type, const NLName& name):
+  super(),
+  id_(id),
+  name_(name),
+  library_(library),
+  type_(type)
+{}
+
+PNLDesign* PNLDesign::create(NLLibrary* library, const NLName& name) {
+  preCreate(library, Type::Standard, name);
+  PNLDesign* design = new PNLDesign(library, Type::Standard, name);
   design->postCreateAndSetID();
+  return design;
+}
+
+PNLDesign* PNLDesign::create(NLLibrary* library, const Type& type, const NLName& name) {
+  preCreate(library, type, name);
+  PNLDesign* design = new PNLDesign(library, type, name);
+  design->postCreateAndSetID();
+  return design;
+}
+
+PNLDesign* PNLDesign::create(NLLibrary* library, NLID::DesignID id, Type type, const NLName& name) {
+  preCreate(library, id, type, name);
+  PNLDesign* design = new PNLDesign(library, id, type, name);
+  design->postCreate();
   return design;
 }
 
@@ -50,16 +72,45 @@ void PNLDesign::postCreateAndSetID() {
   library_->addPNLDesignAndSetID(this);
 }
 
-void PNLDesign::preCreate(const NLLibrary* library, const NLName& name) {
+void PNLDesign::preCreate(const NLLibrary* library, Type type, const NLName& name) {
   super::preCreate();
   if (not library) {
     throw NLException("malformed design creator with null library");
   }
-  // test if design with same name exists in library
+  if (type == Type::Primitive and not library->isPrimitives()) {
+    std::ostringstream reason;
+    reason << "Cannot create a primitive design";
+    if (name.empty()) {
+      reason << " <anonymous>";
+    } else {
+      reason << " named: " << name.getString();
+    }
+    reason << " in a non primitives library: " << library->getString();
+    throw NLException(reason.str());
+  }
+  if (type != Type::Primitive and library->isPrimitives()) {
+    std::ostringstream reason;
+    reason << "Cannot create a non primitive design";
+    if (name.empty()) {
+      reason << " <anonymous>";
+    } else {
+      reason << " named: " << name.getString();
+    }
+    reason << " in a primitives library: " << library->getString();
+    throw NLException(reason.str());
+  }
+  //test if design with same name exists in library
   if (not name.empty() and library->getPNLDesign(name)) {
-    std::string reason =
-        "NLLibrary " + library->getString() +
-        " contains already a PNLDesign named: " + name.getString();
+    std::string reason = "NLLibrary " + library->getString() + " contains already a PNLDesign named: " + name.getString();
+    throw NLException(reason);
+  }
+}
+
+void PNLDesign::preCreate(const NLLibrary* library, NLID::DesignID id, Type type, const NLName& name) {
+  PNLDesign::preCreate(library, type, name);
+  //test if design with same id exists in library
+  if (library->getPNLDesign(id)) {
+    std::string reason = "NLLibrary " + library->getString() + " contains already a PNLDesign with ID: " + std::to_string(id);
     throw NLException(reason);
   }
 }
@@ -420,6 +471,31 @@ PNLScalarNet* PNLDesign::getScalarNet(NLID::DesignObjectID id) const {
 
 PNLScalarNet* PNLDesign::getScalarNet(const NLName& netName) const {
   return dynamic_cast<PNLScalarNet*>(getNet(netName));
+}
+
+NajaCollection<PNLScalarTerm*> PNLDesign::getScalarTerms() const {
+  return getTerms().getSubCollection<PNLScalarTerm*>();
+}
+
+NajaCollection<PNLBitTerm*> PNLDesign::getBitTerms() const {
+  // auto flattener = [](const PNLBusTerm* b) { return b->getBusBits(); };
+  // return getTerms().getFlatCollection<PNLBusTerm*, PNLBusTermBit*, PNLBitTerm*>(flattener);
+  return getTerms().getSubCollection<PNLBitTerm*>();
+}
+
+PNLBitTerm* PNLDesign::getBitTerm(NLID::DesignObjectID id, NLID::Bit bit) const {
+  PNLBitTerm* bitTerm = getScalarTerm(id);
+  // if (not bitTerm) {
+  //   bitTerm = getBusTermBit(id, bit);
+  // }
+  return bitTerm;
+}
+
+void PNLDesign::setType(Type type) {
+  if (type == Type::Primitive) {
+    throw NLException("cannot change design type to Primitive");
+  }
+  type_ = type;
 }
 
 }  // namespace NL
