@@ -200,31 +200,31 @@ TEST_F(PNLTermTest, testCreation) {
 //   // ASSERT_EQ(term0->getBit(-1)->getNet(), nullptr);
 // }
 
-// TEST_F(PNLTermTest, testSetNetErrors) {
-//    //SetNet for TermBus size == 1
-//   NLLibrary* library = db_->getLibrary(NLName("MYLIB"));
-//   ASSERT_NE(library, nullptr);
-//   EXPECT_EQ(0, library->getPNLDesigns().size());
-//   EXPECT_TRUE(library->getPNLDesigns().empty());
-//   PNLDesign* design = PNLDesign::create(library, NLName("design"));
+TEST_F(PNLTermTest, testSetNetErrors) {
+   //SetNet for TermBus size == 1
+  NLLibrary* library = db_->getLibrary(NLName("MYLIB"));
+  ASSERT_NE(library, nullptr);
+  EXPECT_EQ(0, library->getPNLDesigns().size());
+  EXPECT_TRUE(library->getPNLDesigns().empty());
+  PNLDesign* design = PNLDesign::create(library, NLName("design"));
 
 //   //PNLBusTerm* term0 = PNLBusTerm::create(design, PNLTerm::Direction::InOut, -2, 2, NLName("term0"));
 
-//   //With scalar net
-//   PNLNet* net = PNLScalarNet::create(design, NLName("n0"));
-//   EXPECT_THROW(term0->setNet(net), NLException);
-//   net->destroy();
+  //With scalar net
+  PNLNet* net = PNLScalarNet::create(design, NLName("n0"));
+  //EXPECT_THROW(term0->setNet(net), NLException);
+  net->destroy();
  
 //   //different size PNLBusNet case
 //   //net = PNLBusNet::create(design, 0, 2, NLName("n0"));
 //   EXPECT_THROW(term0->setNet(net), NLException);
 //   net->destroy();
 
-//   //other design
-//   auto other = PNLDesign::create(library, NLName("other"));
-//   PNLNet* otherNet = PNLScalarNet::create(other, NLName("n0"));
-//   EXPECT_THROW(term0->setNet(otherNet), NLException);
-// }
+  //other design
+  auto other = PNLDesign::create(library, NLName("other"));
+  PNLNet* otherNet = PNLScalarNet::create(other, NLName("n0"));
+  //EXPECT_THROW(term0->setNet(otherNet), NLException);
+}
 
 TEST_F(PNLTermTest, testErrors) {
   EXPECT_THROW(PNLScalarTerm::create(nullptr, PNLTerm::Direction::Input), NLException);
@@ -240,9 +240,10 @@ TEST_F(PNLTermTest, testErrors) {
   //PNLBusTerm* term1 = PNLBusTerm::create(design, PNLTerm::Direction::Input, 31, 0, NLName("term1"));
   //ASSERT_NE(nullptr, term1);
   //EXPECT_THROW(PNLBusTerm::create(design, PNLTerm::Direction::Input, 31, 0, NLName("term0")), NLException);
-  //EXPECT_THROW(PNLScalarTerm::create(design, PNLTerm::Direction::Input, NLName("term1")), NLException);
+  PNLScalarTerm* term1 = PNLScalarTerm::create(design, PNLTerm::Direction::Input, NLName("term1"));
+  EXPECT_THROW(PNLScalarTerm::create(design, PNLTerm::Direction::Input, NLName("term1")), NLException);
   //EXPECT_THROW(PNLBusTerm::create(design, NLID::DesignObjectID(0), PNLTerm::Direction::Input, 31, 0), NLException);
-  //EXPECT_THROW(PNLScalarTerm::create(design, NLID::DesignObjectID(1), PNLTerm::Direction::Input), NLException);
+  EXPECT_THROW(PNLScalarTerm::create(design, NLID::DesignObjectID(1), PNLTerm::Direction::Input), NLException);
   //EXPECT_THROW(term1->getBit(1)->setName(NLName("bit1")), NLException);
 }
 
@@ -256,13 +257,13 @@ TEST_F(PNLTermTest, testRename) {
   //auto term1 = PNLBusTerm::create(design, PNLTerm::Direction::Output, 31, 0, NLName("term1"));
   auto term2 = PNLScalarTerm::create(design, PNLTerm::Direction::Input);
   EXPECT_EQ(term0, design->getTerm(NLName("term0")));
-  // EXPECT_EQ(term0, design->getBitTerm(0, 0));
-  // EXPECT_EQ(term0, design->getBitTerm(0, -12));
-  // EXPECT_EQ(term0, design->getBitTerm(0, 100));
-  // //EXPECT_EQ(term1, design->getTerm(NLName("term1")));
-  // EXPECT_EQ(term2, design->getBitTerm(2, 0));
-  // EXPECT_EQ(term2, design->getBitTerm(2, -12));
-  // EXPECT_EQ(term2, design->getBitTerm(2, 100));
+  EXPECT_EQ(term0, design->getBitTerm(0, 0));
+  EXPECT_EQ(term0, design->getBitTerm(0, -12));
+  EXPECT_EQ(term0, design->getBitTerm(0, 100));
+  //EXPECT_EQ(term1, design->getTerm(NLName("term1")));
+  EXPECT_EQ(term2, design->getBitTerm(1, 0));
+  EXPECT_EQ(term2, design->getBitTerm(1, -12));
+  EXPECT_EQ(term2, design->getBitTerm(1, 100));
   EXPECT_FALSE(term0->isAnonymous());
   term0->setName(NLName());
   EXPECT_TRUE(term0->isAnonymous());

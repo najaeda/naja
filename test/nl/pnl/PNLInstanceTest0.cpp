@@ -51,3 +51,4 @@ TEST_F(PNLInstanceTest0, testCreation) {
   EXPECT_THROW(PNLInstance::create(design, model, NLName("name")), NLException);
   ins->destroy();
 }
+

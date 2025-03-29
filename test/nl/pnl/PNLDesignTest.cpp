@@ -145,14 +145,14 @@ TEST_F(PNLDesignTest, testCreation0) {
   // EXPECT_EQ(nullptr, design->getBusTerm(NLName("term4")));
   // EXPECT_EQ(nullptr, design->getBusTerm(4));
 
-  // EXPECT_FALSE(design->getTerms().empty());
-  // EXPECT_FALSE(design->getScalarTerms().empty());
+  EXPECT_FALSE(design->getTerms().empty());
+  EXPECT_FALSE(design->getScalarTerms().empty());
   // EXPECT_FALSE(design->getBusTerms().empty());
-  // EXPECT_FALSE(design->getBitTerms().empty());
+  EXPECT_FALSE(design->getBitTerms().empty());
   // EXPECT_EQ(4, design->getTerms().size());
-  // EXPECT_EQ(3, design->getScalarTerms().size());
+  EXPECT_EQ(3, design->getScalarTerms().size());
   // EXPECT_EQ(1, design->getBusTerms().size());
-  // EXPECT_EQ(1+1+1+5, design->getBitTerms().size());
+  //EXPECT_EQ(1+1+1+5, design->getBitTerms().size());
 
   // EXPECT_THAT(std::vector(design->getTerms().begin(), design->getTerms().end()),
   //   ElementsAre(term0, term1, term2, term3));
