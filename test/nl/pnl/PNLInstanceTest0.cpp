@@ -63,7 +63,7 @@ TEST_F(PNLInstanceTest0, testInstTermRenameError) {
   auto ins = PNLInstance::create(design, model, NLName("instance"));
   auto instTerm = ins->getInstTerm(a);
   EXPECT_EQ(ins->getInstTerm(b), ins->getInstTerm(1));
-  model->removeTerm(a);
+  //model->removeTerm(a);
   //EXPECT_THROW(instTerm->setName(NLName("b")), NLException);
 }
 
