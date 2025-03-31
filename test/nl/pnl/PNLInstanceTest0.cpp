@@ -52,3 +52,20 @@ TEST_F(PNLInstanceTest0, testCreation) {
   ins->destroy();
 }
 
+TEST_F(PNLInstanceTest0, testInstTermRenameError) {
+  NLLibrary* library = NLLibrary::create(db_, NLName("MYLIB"));
+  PNLDesign* design = PNLDesign::create(library, NLName("design"));
+  PNLDesign* model = PNLDesign::create(library, NLName("model"));
+  auto a = PNLScalarTerm::create(model, PNLTerm::Direction::Input, NLName("a"));
+  auto ins = PNLInstance::create(design, model, NLName("instance"));
+  auto instTerm = ins->getInstTerm(a);
+  //EXPECT_THROW(instTerm->setName(NLName("b")), NLException);
+}
+
+TEST_F(PNLInstanceTest0, testInstTermNullTerm) {
+  NLLibrary* library = NLLibrary::create(db_, NLName("MYLIB"));
+  PNLDesign* design = PNLDesign::create(library, NLName("design"));
+  PNLDesign* model = PNLDesign::create(library, NLName("model"));
+  auto ins = PNLInstance::create(design, model, NLName("instance"));
+  EXPECT_THROW(ins->getInstTerm(nullptr), NLException);
+}
