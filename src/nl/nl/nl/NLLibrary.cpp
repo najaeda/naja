@@ -365,13 +365,13 @@ void NLLibrary::addPNLDesignAndSetID(PNLDesign* design) {
 void NLLibrary::addPNLDesign(PNLDesign* design) {
   pnlDesigns_.insert(*design);
   if (not design->isAnonymous()) {
-    designNameIDMap_[design->getName()] = design->id_;
+    pnlDesignNameIDMap_[design->getName()] = design->id_;
   }
 }
 
 void NLLibrary::removePNLDesign(PNLDesign* design) {
   if (not design->isAnonymous()) {
-    designNameIDMap_.erase(design->getName());
+    pnlDesignNameIDMap_.erase(design->getName());
   }
   pnlDesigns_.erase(*design);
 }
@@ -385,8 +385,8 @@ PNLDesign* NLLibrary::getPNLDesign(NLID::DesignID id) const {
 }
 
 PNLDesign* NLLibrary::getPNLDesign(const NLName& name) const {
-  auto dit = designNameIDMap_.find(name);
-  if (dit != designNameIDMap_.end()) {
+  auto dit = pnlDesignNameIDMap_.find(name);
+  if (dit != pnlDesignNameIDMap_.end()) {
     NLID::DesignID id = dit->second;
     return getPNLDesign(id);
   }
