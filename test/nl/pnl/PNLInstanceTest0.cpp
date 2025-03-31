@@ -10,6 +10,8 @@ using namespace std;
 #include "NLDB.h"
 #include "NLException.h"
 
+#define private public 
+
 using namespace naja::NL;
 
 class PNLInstanceTest0: public ::testing::Test {
@@ -57,8 +59,11 @@ TEST_F(PNLInstanceTest0, testInstTermRenameError) {
   PNLDesign* design = PNLDesign::create(library, NLName("design"));
   PNLDesign* model = PNLDesign::create(library, NLName("model"));
   auto a = PNLScalarTerm::create(model, PNLTerm::Direction::Input, NLName("a"));
+  auto b = PNLScalarTerm::create(model, PNLTerm::Direction::Input, NLName("b"));
   auto ins = PNLInstance::create(design, model, NLName("instance"));
   auto instTerm = ins->getInstTerm(a);
+  EXPECT_EQ(ins->getInstTerm(b), ins->getInstTerm(1));
+  model->removeTerm(a);
   //EXPECT_THROW(instTerm->setName(NLName("b")), NLException);
 }
 
@@ -67,5 +72,7 @@ TEST_F(PNLInstanceTest0, testInstTermNullTerm) {
   PNLDesign* design = PNLDesign::create(library, NLName("design"));
   PNLDesign* model = PNLDesign::create(library, NLName("model"));
   auto ins = PNLInstance::create(design, model, NLName("instance"));
+  auto anonym = PNLInstance::create(design, model);
+  EXPECT_EQ(true, anonym->isAnonymous());
   EXPECT_THROW(ins->getInstTerm(nullptr), NLException);
 }

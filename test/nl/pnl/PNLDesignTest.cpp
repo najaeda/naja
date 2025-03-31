@@ -277,6 +277,7 @@ TEST_F(PNLDesignTest, testSetTop) {
   ASSERT_NE(design0, nullptr);
   //EXPECT_EQ(design0, PNLUtils::findTop(library));
   PNLDesign* design1 = PNLDesign::create(library, NLName("design1"));
+  design1->setType(PNLDesign::Type::Standard);
   ASSERT_NE(design1, nullptr);
   //EXPECT_EQ(nullptr, PNLUtils::findTop(library));
 

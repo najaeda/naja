@@ -36,9 +36,6 @@ class PNLInstance final: public PNLDesignObject {
     void debugDump(size_t indent, bool recursive=true, std::ostream& stream=std::cerr) const override;
 
     naja::NL::NLID getNLID() const override;
-
-    void createInstTerm(PNLBitTerm* term);
-    void removeInstTerm(PNLBitTerm* term);
     PNLInstTerm* getInstTerm(const PNLBitTerm* term) const;
     PNLInstTerm* getInstTerm(const NLID::DesignObjectID id) const;
 
@@ -52,11 +49,14 @@ class PNLInstance final: public PNLDesignObject {
     void destroyFromModel();
 
   private:
+  
     PNLInstance(PNLDesign* design, PNLDesign* model, const NLName& name);
     static void preCreate(PNLDesign* design, const PNLDesign* model, const NLName& name);
     void commonPostCreate();
     void postCreateAndSetID();
     void postCreate();
+    void createInstTerm(PNLBitTerm* term);
+    void removeInstTerm(PNLBitTerm* term);
     void commonPreDestroy();
     void preDestroy() override;
 

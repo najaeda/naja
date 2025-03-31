@@ -49,6 +49,8 @@ TEST_F(PNLNetTest, testCreation) {
   PNLScalarTerm::create(primitive, PNLTerm::Direction::Input, NLName("i1"));
   PNLScalarTerm::create(primitive, PNLTerm::Direction::Output, NLName("o"));
 
+  EXPECT_EQ(primitive->getBitTerm(NLName("i1")), primitive->getBitTerm(1));
+
   ASSERT_TRUE(design_);
   auto lib = design_->getLibrary();
   ASSERT_TRUE(lib);
@@ -181,18 +183,18 @@ TEST_F(PNLNetTest, testCreation) {
   // EXPECT_EQ(net0, design_->getBusNet(2));
   // EXPECT_FALSE(net0->getBits().empty());
   // EXPECT_EQ(32, net0->getBits().size());
-  // EXPECT_EQ(nullptr, design_->getScalarNet(2)); 
-  // EXPECT_EQ(nullptr, design_->getNet(3)); 
-  // EXPECT_EQ(nullptr, design_->getScalarNet(3)); 
-  // EXPECT_EQ(nullptr, design_->getBusNet(3)); 
-  // EXPECT_FALSE(design_->getNets().empty());
-  // EXPECT_FALSE(design_->getScalarNets().empty());
-  // EXPECT_FALSE(design_->getBitNets().empty());
-  // EXPECT_FALSE(design_->getBusNets().empty());
-  // EXPECT_EQ(3, design_->getNets().size());
-  // EXPECT_EQ(2, design_->getScalarNets().size());
-  // EXPECT_EQ(1, design_->getBusNets().size());
-  // EXPECT_EQ(1+1+32, design_->getBitNets().size());
+  EXPECT_EQ(nullptr, design_->getScalarNet(2)); 
+  EXPECT_EQ(nullptr, design_->getNet(3)); 
+  EXPECT_EQ(nullptr, design_->getScalarNet(3)); 
+  //EXPECT_EQ(nullptr, design_->getBusNet(3)); 
+  EXPECT_FALSE(design_->getNets().empty());
+  EXPECT_FALSE(design_->getScalarNets().empty());
+  EXPECT_FALSE(design_->getBitNets().empty());
+  //EXPECT_FALSE(design_->getBusNets().empty());
+  EXPECT_EQ(2, design_->getNets().size());
+  EXPECT_EQ(2, design_->getScalarNets().size());
+  //EXPECT_EQ(1, design_->getBusNets().size());
+  EXPECT_EQ(1+1, design_->getBitNets().size());
   // EXPECT_THAT(std::vector(design_->getNets().begin(), design_->getNets().end()),
   //   ElementsAre(i0Net, i1Net, net0));
   // EXPECT_THAT(std::vector(design_->getScalarNets().begin(), design_->getScalarNets().end()),
@@ -268,8 +270,8 @@ TEST_F(PNLNetTest, testCreation) {
   // }
 
   // net0->destroy();
-  // EXPECT_EQ(nullptr, design_->getNet(2));
-  // EXPECT_EQ(nullptr, design_->getNet(NLName("net0")));
+  EXPECT_EQ(nullptr, design_->getNet(2));
+  EXPECT_EQ(nullptr, design_->getNet(NLName("net0")));
 
   i1Net->destroy();
   EXPECT_EQ(nullptr, design_->getNet(1));
@@ -316,6 +318,7 @@ TEST_F(PNLNetTest, testErrors) {
   ASSERT_NE(design, nullptr);
 
   PNLScalarNet* net0 = PNLScalarNet::create(design, NLName("net0"));
+  EXPECT_EQ(net0, design->getScalarNet(NLName("net0")));
   ASSERT_NE(nullptr, net0);
   EXPECT_EQ(NLID::DesignObjectID(0), net0->getID());
   PNLScalarNet* net1 = PNLScalarNet::create(design, NLName("net1"));
@@ -323,7 +326,7 @@ TEST_F(PNLNetTest, testErrors) {
   //ASSERT_NE(nullptr, net1);
   //EXPECT_EQ(NLID::DesignObjectID(1), net1->getID());
   //EXPECT_THROW(PNLBusNet::create(design, 31, 0, NLName("net0")), NLException);
-  //EXPECT_THROW(PNLScalarNet::create(design, NLName("net1")), NLException);
+  EXPECT_THROW(PNLScalarNet::create(design, NLName("net1")), NLException);
   //EXPECT_THROW(PNLBusNet::create(design, NLID::DesignObjectID(0), 31, 0), NLException);
   EXPECT_THROW(PNLScalarNet::create(design, NLID::DesignObjectID(1)), NLException);
   EXPECT_THROW(PNLScalarNet::create(design, NLID::DesignObjectID(1), NLName("conflict")), NLException);
@@ -349,13 +352,13 @@ TEST_F(PNLNetTest, testRename) {
   net0->setName(NLName("net0"));
   EXPECT_FALSE(net0->isAnonymous());
   EXPECT_EQ(net0, design_->getNet(NLName("net0")));
-  //EXPECT_FALSE(net1->isAnonymous());
-  //net1->setName(NLName("net1")); //nothing should happen...
-  // EXPECT_EQ(net1, design_->getNet(NLName("net1")));
-  // net1->setName(NLName("n1"));
-  // EXPECT_FALSE(net1->isAnonymous());
-  // EXPECT_EQ(nullptr, design_->getNet(NLName("net1")));
-  // EXPECT_EQ(net1, design_->getNet(NLName("n1")));
+  EXPECT_FALSE(net0->isAnonymous());
+  net0->setName(NLName("net0")); //nothing should happen...
+  EXPECT_EQ(net0, design_->getNet(NLName("net0")));
+  net0->setName(NLName("n1"));
+  EXPECT_FALSE(net0->isAnonymous());
+  EXPECT_EQ(nullptr, design_->getNet(NLName("net0")));
+  EXPECT_EQ(net0, design_->getNet(NLName("n1")));
   EXPECT_TRUE(net2->isAnonymous());
   net2->setName(NLName("net2"));
   EXPECT_FALSE(net2->isAnonymous());
