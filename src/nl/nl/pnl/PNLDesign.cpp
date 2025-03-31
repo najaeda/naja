@@ -172,6 +172,14 @@ void PNLDesign::destroyFromLibrary() {
   delete this;
 }
 
+void PNLDesign::preDestroy() {
+  if (isPrimitive()) {
+    //FIXME: Error
+  }
+  library_->removePNLDesign(this);
+  commonPreDestroy();
+}
+
 bool PNLDesign::deepCompare(const PNLDesign* other,
                             std::string& reason,
                             NLDesign::CompareType type) const {
@@ -496,6 +504,20 @@ void PNLDesign::setType(Type type) {
     throw NLException("cannot change design type to Primitive");
   }
   type_ = type;
+}
+
+NajaCollection<PNLInstance*> PNLDesign::getInstances() const {
+  return NajaCollection(new NajaIntrusiveSetCollection(&instances_));
+}
+
+NajaCollection<PNLInstance*> PNLDesign::getPrimitiveInstances() const {
+  auto filter = [](const PNLInstance* instance) { return instance->getModel()->isPrimitive(); };
+  return getInstances().getSubCollection(filter);
+}
+
+NajaCollection<PNLInstance*> PNLDesign::getNonPrimitiveInstances() const {
+  auto filter = [](const PNLInstance* instance) { return not instance->getModel()->isPrimitive(); };
+  return getInstances().getSubCollection(filter);
 }
 
 }  // namespace NL

@@ -369,6 +369,13 @@ void NLLibrary::addPNLDesign(PNLDesign* design) {
   }
 }
 
+void NLLibrary::removePNLDesign(PNLDesign* design) {
+  if (not design->isAnonymous()) {
+    designNameIDMap_.erase(design->getName());
+  }
+  pnlDesigns_.erase(*design);
+}
+
 PNLDesign* NLLibrary::getPNLDesign(NLID::DesignID id) const {
   auto it = pnlDesigns_.find(NLID(getDB()->getID(), getID(), id), NLIDComp<PNLDesign>());
   if (it != pnlDesigns_.end()) {

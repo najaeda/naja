@@ -150,6 +150,10 @@ class PNLDesign final: public NLObject {
     ///\warning setType cannot be called to set a design as a primitive.
     void setType(Type type);
 
+    NajaCollection<PNLInstance*> getInstances() const;
+    NajaCollection<PNLInstance*> getPrimitiveInstances() const;
+    NajaCollection<PNLInstance*> getNonPrimitiveInstances() const;
+
   private:
     PNLDesign(NLLibrary* library, const Type& type = Type::Standard, const NLName& name = NLName());
     PNLDesign(NLLibrary* library, NLID::DesignID id, Type type, const NLName& name);
@@ -158,6 +162,7 @@ class PNLDesign final: public NLObject {
     void postCreateAndSetID();
     void commonPreDestroy();
     void destroyFromLibrary();
+    void preDestroy() override;
 
     friend bool operator< (const PNLDesign& ld, const PNLDesign& rd) {
       return ld.getNLID() < rd.getNLID();

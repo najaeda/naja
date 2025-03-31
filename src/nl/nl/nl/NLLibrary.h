@@ -177,6 +177,7 @@ class NLLibrary final: public NLObject {
 
     void addPNLDesignAndSetID(PNLDesign* design);
     void addPNLDesign(PNLDesign* design);
+    void removePNLDesign(PNLDesign* design);
 
     using NLLibraryNameIDMap = std::map<NLName, NLID::LibraryID>;
     using NLLibrarySNLDesignsHook =

@@ -75,3 +75,41 @@ TEST_F(PNLInstanceTest0, testInstTermNullTerm) {
   EXPECT_EQ(true, anonym->isAnonymous());
   EXPECT_THROW(ins->getInstTerm(nullptr), NLException);
 }
+
+TEST_F(PNLInstanceTest0, testModelDestroy) {
+  NLLibrary* library = NLLibrary::create(db_, NLName("MYLIB"));
+  PNLDesign* design = PNLDesign::create(library, NLName("design"));
+  PNLDesign* model0 = PNLDesign::create(library, NLName("model0"));
+  PNLDesign* model1 = PNLDesign::create(library, NLName("model1"));
+
+  EXPECT_FALSE(library->getPNLDesigns().empty());
+  EXPECT_EQ(3, library->getPNLDesigns().size());
+
+  EXPECT_TRUE(design->getInstances().empty());
+  EXPECT_TRUE(design->getPrimitiveInstances().empty());
+  EXPECT_TRUE(design->getNonPrimitiveInstances().empty());
+  EXPECT_TRUE(model0->getSlaveInstances().empty());
+  EXPECT_TRUE(model1->getSlaveInstances().empty());
+
+  for (int i=0; i<4; ++i) {
+    auto inst0 = PNLInstance::create(design, model0);
+    auto inst1 = PNLInstance::create(design, model1);
+  }
+
+  EXPECT_FALSE(design->getInstances().empty());
+  EXPECT_FALSE(model0->getSlaveInstances().empty());
+  EXPECT_FALSE(model1->getSlaveInstances().empty());
+  EXPECT_EQ(8, design->getInstances().size());
+  EXPECT_EQ(4, model0->getSlaveInstances().size());
+  EXPECT_EQ(4, model1->getSlaveInstances().size());
+
+  model0->destroy();
+  EXPECT_EQ(2, library->getPNLDesigns().size());
+  EXPECT_EQ(4, design->getInstances().size());
+  EXPECT_EQ(4, model1->getSlaveInstances().size());
+
+  model1->destroy();
+  EXPECT_EQ(1, library->getPNLDesigns().size());
+  EXPECT_EQ(0, design->getInstances().size());
+  EXPECT_TRUE(design->getInstances().empty());
+}
