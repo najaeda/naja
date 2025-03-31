@@ -58,12 +58,13 @@ TEST_F(PNLInstanceTest0, testInstTermRenameError) {
   PNLDesign* model = PNLDesign::create(library, NLName("model"));
   auto a = PNLScalarTerm::create(model, PNLTerm::Direction::Input, NLName("a"));
   auto b = PNLScalarTerm::create(model, PNLTerm::Direction::Input, NLName("b"));
+  auto c = PNLScalarTerm::create(design, PNLTerm::Direction::Input, NLName("c"));
   auto ins = PNLInstance::create(design, model, NLName("instance"));
   auto instTerm = ins->getInstTerm(a);
   EXPECT_EQ(ins->getInstTerm(b), ins->getInstTerm(1));
   a->destroy();
   //model->removeTerm(a);
-  //EXPECT_THROW(instTerm->setName(NLName("b")), NLException);
+  EXPECT_THROW(ins->getInstTerm(c), NLException);
 }
 
 TEST_F(PNLInstanceTest0, testInstTermNullTerm) {
