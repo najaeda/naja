@@ -10,8 +10,6 @@ using namespace std;
 #include "NLDB.h"
 #include "NLException.h"
 
-#define private public 
-
 using namespace naja::NL;
 
 class PNLInstanceTest0: public ::testing::Test {
@@ -63,6 +61,7 @@ TEST_F(PNLInstanceTest0, testInstTermRenameError) {
   auto ins = PNLInstance::create(design, model, NLName("instance"));
   auto instTerm = ins->getInstTerm(a);
   EXPECT_EQ(ins->getInstTerm(b), ins->getInstTerm(1));
+  a->destroy();
   //model->removeTerm(a);
   //EXPECT_THROW(instTerm->setName(NLName("b")), NLException);
 }
