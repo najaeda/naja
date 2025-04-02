@@ -33,6 +33,8 @@ class PNLDesignObject: public NL::NLObject {
   
   naja::NL::NLDB* getDB() const;
 
+  virtual bool isAnonymous() const = 0;
+
   protected:
     PNLDesignObject() = default;
     

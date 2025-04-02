@@ -177,6 +177,7 @@ class NLLibrary final: public NLObject {
 
     void addPNLDesignAndSetID(PNLDesign* design);
     void addPNLDesign(PNLDesign* design);
+    void removePNLDesign(PNLDesign* design);
 
     using NLLibraryNameIDMap = std::map<NLName, NLID::LibraryID>;
     using NLLibrarySNLDesignsHook =
@@ -186,6 +187,7 @@ class NLLibrary final: public NLObject {
       boost::intrusive::member_hook<PNLDesign, boost::intrusive::set_member_hook<>, &PNLDesign::libraryDesignsHook_>;
     using NLLibraryPNLDesigns = boost::intrusive::set<PNLDesign, NLLibraryPNLDesignsHook>;
     using SNLDesignNameIDMap = std::map<NLName, NLID::DesignID>;
+    using PNLDesignNameIDMap = std::map<NLName, NLID::DesignID>;
 
     NLID::LibraryID                     id_;
     NLName                              name_                 {};
@@ -202,6 +204,7 @@ class NLLibrary final: public NLObject {
     NLLibrarySNLDesigns                 snlDesigns_           {};
     NLLibraryPNLDesigns                 pnlDesigns_           {};
     SNLDesignNameIDMap                  designNameIDMap_      {};
+    PNLDesignNameIDMap                  pnlDesignNameIDMap_      {};
 };
 
 }} // namespace NL // namespace naja
