@@ -32,16 +32,16 @@ PNLScalarTerm::PNLScalarTerm(PNLDesign* design, NLID::DesignObjectID id, Directi
 
 PNLScalarTerm* PNLScalarTerm::create(PNLDesign* design, Direction direction, const NLName& name) {
   preCreate(design, name);
-  PNLScalarTerm* net = new PNLScalarTerm(design, direction, name);
-  net->postCreateAndSetID();
-  return net;
+  PNLScalarTerm* term = new PNLScalarTerm(design, direction, name);
+  term->postCreateAndSetID();
+  return term;
 }
 
 PNLScalarTerm* PNLScalarTerm::create(PNLDesign* design, NLID::DesignObjectID id, Direction direction, const NLName& name) {
   preCreate(design, id, name);
-  PNLScalarTerm* net = new PNLScalarTerm(design, id, direction, name);
-  net->postCreate();
-  return net;
+  PNLScalarTerm* term = new PNLScalarTerm(design, id, direction, name);
+  term->postCreate();
+  return term;
 }
 
 void PNLScalarTerm::preCreate(PNLDesign* design, const NLName& name) {
@@ -90,12 +90,12 @@ void PNLScalarTerm::preDestroy() {
   getDesign()->removeTerm(this);
 }
 
-PNLTerm* PNLScalarTerm::clone(PNLDesign* design) const {
-  auto newScalarTerm = new PNLScalarTerm(design, id_, direction_, name_);
-  newScalarTerm->setFlatID(getFlatID());
-  //PNLAttributes::cloneAttributes(this, newScalarTerm);
-  return newScalarTerm;
-}
+// PNLTerm* PNLScalarTerm::clone(PNLDesign* design) const {
+//   auto newScalarTerm = new PNLScalarTerm(design, id_, direction_, name_);
+//   newScalarTerm->setFlatID(getFlatID());
+//   //PNLAttributes::cloneAttributes(this, newScalarTerm);
+//   return newScalarTerm;
+// }
 
 DESIGN_OBJECT_SET_NAME(PNLScalarTerm, Term, term)
 
@@ -142,37 +142,37 @@ void PNLScalarTerm::debugDump(size_t indent, bool recursive, std::ostream& strea
 }
 //LCOV_EXCL_STOP
 
-bool PNLScalarTerm::deepCompare(const PNLTerm* other, std::string& reason) const {
-  const PNLScalarTerm* otherScalarTerm = dynamic_cast<const PNLScalarTerm*>(other);
-  if (not otherScalarTerm) {
-    //LCOV_EXCL_START
-    reason = "other term is not a PNLScalarTerm";
-    return false;
-    //LCOV_EXCL_STOP
-  }
-  if (direction_ != otherScalarTerm->direction_) {
-    //LCOV_EXCL_START
-    reason = "direction mismatch";
-    return false;
-    //LCOV_EXCL_STOP
-  }
-  if (getID() != otherScalarTerm->getID()) {
-    //LCOV_EXCL_START
-    reason = "ID mismatch";
-    return false;
-    //LCOV_EXCL_STOP
-  }
-  if (getFlatID() != otherScalarTerm->getFlatID()) {
-    //LCOV_EXCL_START
-    reason = "flatID mismatch between ";
-    reason += getString() + " FlatID: " + std::to_string(getFlatID());
-    reason += " and " + otherScalarTerm->getString();
-    reason += " FlatID: " + std::to_string(otherScalarTerm->getFlatID());
-    return false;
-    //LCOV_EXCL_STOP
-  }
-  return true;
-  //return PNLAttributes::compareAttributes(this, other, reason);
-}
+// bool PNLScalarTerm::deepCompare(const PNLTerm* other, std::string& reason) const {
+//   const PNLScalarTerm* otherScalarTerm = dynamic_cast<const PNLScalarTerm*>(other);
+//   if (not otherScalarTerm) {
+//     //LCOV_EXCL_START
+//     reason = "other term is not a PNLScalarTerm";
+//     return false;
+//     //LCOV_EXCL_STOP
+//   }
+//   if (direction_ != otherScalarTerm->direction_) {
+//     //LCOV_EXCL_START
+//     reason = "direction mismatch";
+//     return false;
+//     //LCOV_EXCL_STOP
+//   }
+//   if (getID() != otherScalarTerm->getID()) {
+//     //LCOV_EXCL_START
+//     reason = "ID mismatch";
+//     return false;
+//     //LCOV_EXCL_STOP
+//   }
+//   if (getFlatID() != otherScalarTerm->getFlatID()) {
+//     //LCOV_EXCL_START
+//     reason = "flatID mismatch between ";
+//     reason += getString() + " FlatID: " + std::to_string(getFlatID());
+//     reason += " and " + otherScalarTerm->getString();
+//     reason += " FlatID: " + std::to_string(otherScalarTerm->getFlatID());
+//     return false;
+//     //LCOV_EXCL_STOP
+//   }
+//   return true;
+//   //return PNLAttributes::compareAttributes(this, other, reason);
+// }
 
 }} // namespace NL // namespace naja

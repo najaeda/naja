@@ -48,7 +48,7 @@ class PNLTerm: public PNLNetComponent {
     /// \return the Collection of PNLBitTerm composing this PNLTerm. 
     virtual NajaCollection<PNLBitTerm*> getBits() const = 0;
 
-    virtual bool deepCompare(const PNLTerm* other, std::string& reason) const = 0;
+    //virtual bool deepCompare(const PNLTerm* other, std::string& reason) const = 0;
 
   protected:
     PNLTerm() = default;
@@ -63,7 +63,7 @@ class PNLTerm: public PNLNetComponent {
     virtual void setFlatID(size_t flatID) = 0;
     boost::intrusive::set_member_hook<> designTermsHook_  {};
     virtual void destroyFromDesign() = 0;
-    virtual PNLTerm* clone(PNLDesign* design) const = 0;
+    //virtual PNLTerm* clone(PNLDesign* design) const = 0;
 };
 
 }} // namespace NL // namespace naja

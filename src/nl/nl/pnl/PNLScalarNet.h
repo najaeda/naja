@@ -48,7 +48,7 @@ class PNLScalarNet final: public PNLBitNet {
     std::string getString() const override;
     std::string getDescription() const override;
 
-    bool deepCompare(const PNLNet* other, std::string& reason) const override;
+    //bool deepCompare(const PNLNet* other, std::string& reason) const override;
     void debugDump(size_t indent, bool recursive=true, std::ostream& stream = std::cerr) const override;
   private:
     PNLScalarNet(PNLDesign* design, const NLName& name);
@@ -60,7 +60,7 @@ class PNLScalarNet final: public PNLBitNet {
     void destroyFromDesign() override;
     void commonPreDestroy();
     void preDestroy() override;
-    PNLNet* clone(PNLDesign* design) const override;
+    //PNLNet* clone(PNLDesign* design) const override;
 
     void setID(NLID::DesignObjectID id) override { id_ = id; }
 

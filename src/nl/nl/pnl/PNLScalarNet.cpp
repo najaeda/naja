@@ -96,13 +96,13 @@ void PNLScalarNet::preDestroy() {
   getDesign()->removeNet(this);
 }
 
-PNLNet* PNLScalarNet::clone(PNLDesign* design) const {
-  auto newNet = new PNLScalarNet(design, id_, name_);
-  newNet->setType(getType());
-  //PNLAttributes::cloneAttributes(this, newNet);
-  cloneComponents(newNet);
-  return newNet;
-}
+// PNLNet* PNLScalarNet::clone(PNLDesign* design) const {
+//   auto newNet = new PNLScalarNet(design, id_, name_);
+//   newNet->setType(getType());
+//   //PNLAttributes::cloneAttributes(this, newNet);
+//   cloneComponents(newNet);
+//   return newNet;
+// }
 
 NLID PNLScalarNet::getNLID() const {
   return PNLDesignObject::getNLID(NLID::Type::Net, id_, 0, 0);
@@ -142,29 +142,29 @@ std::string PNLScalarNet::getDescription() const {
 }
 //LCOV_EXCL_STOP
 
-bool PNLScalarNet::deepCompare(const PNLNet* other, std::string& reason) const {
-  const PNLScalarNet* otherScalarNet = dynamic_cast<const PNLScalarNet*>(other);
-  if (not otherScalarNet) {
-    //LCOV_EXCL_START
-    reason = "other term is not a PNLScalarNet";
-    return false;
-    //LCOV_EXCL_STOP
-  }
-  if (getType() != otherScalarNet->getType()) {
-    //LCOV_EXCL_START
-    reason = "type mismatch";
-    return false;
-    //LCOV_EXCL_STOP
-  }
-  if (getID() != otherScalarNet->getID()) {
-    //LCOV_EXCL_START
-    reason = "ID mismatch";
-    return false;
-    //LCOV_EXCL_STOP
-  }
-  //return PNLAttributes::compareAttributes(this, otherScalarNet, reason);
-  return true;
-}
+// bool PNLScalarNet::deepCompare(const PNLNet* other, std::string& reason) const {
+//   const PNLScalarNet* otherScalarNet = dynamic_cast<const PNLScalarNet*>(other);
+//   if (not otherScalarNet) {
+//     //LCOV_EXCL_START
+//     reason = "other term is not a PNLScalarNet";
+//     return false;
+//     //LCOV_EXCL_STOP
+//   }
+//   if (getType() != otherScalarNet->getType()) {
+//     //LCOV_EXCL_START
+//     reason = "type mismatch";
+//     return false;
+//     //LCOV_EXCL_STOP
+//   }
+//   if (getID() != otherScalarNet->getID()) {
+//     //LCOV_EXCL_START
+//     reason = "ID mismatch";
+//     return false;
+//     //LCOV_EXCL_STOP
+//   }
+//   //return PNLAttributes::compareAttributes(this, otherScalarNet, reason);
+//   return true;
+// }
 
 //LCOV_EXCL_START
 void PNLScalarNet::debugDump(size_t indent, bool recursive, std::ostream& stream) const {

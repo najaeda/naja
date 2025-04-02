@@ -330,6 +330,7 @@ TEST_F(PNLNetTest, testErrors) {
   //EXPECT_THROW(PNLBusNet::create(design, NLID::DesignObjectID(0), 31, 0), NLException);
   EXPECT_THROW(PNLScalarNet::create(design, NLID::DesignObjectID(1)), NLException);
   EXPECT_THROW(PNLScalarNet::create(design, NLID::DesignObjectID(1), NLName("conflict")), NLException);
+  PNLScalarNet::create(design, NLID::DesignObjectID(2));
   net1->destroy();
   //create a design
   auto design1 = PNLDesign::create(library, NLName("design1"));

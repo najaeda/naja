@@ -90,7 +90,7 @@ class PNLNet: public PNLDesignObject {
     bool isConstant() const { return isConstant0() or isConstant1(); }
 
 
-    virtual bool deepCompare(const PNLNet* other, std::string& reason) const = 0;
+    //virtual bool deepCompare(const PNLNet* other, std::string& reason) const = 0;
 
   protected:
     PNLNet() = default;
@@ -101,7 +101,7 @@ class PNLNet: public PNLDesignObject {
 
   private:
     virtual void destroyFromDesign() = 0;
-    virtual PNLNet* clone(PNLDesign* design) const = 0;
+    //virtual PNLNet* clone(PNLDesign* design) const = 0;
 
     //following used in BusNet and ScalarNet
     virtual void setID(NLID::DesignObjectID id) = 0;

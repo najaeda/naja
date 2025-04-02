@@ -177,12 +177,12 @@ TEST_F(PNLTermTest, testCreation) {
 
 //   //PNLBusTerm* term0 = PNLBusTerm::create(design, PNLTerm::Direction::InOut, -1, -1, NLName("term0"));
 
-//   //PNLScalarNet case
-//   PNLNet* net = PNLScalarNet::create(design, NLName("n0"));
-//   term0->setNet(net);
-//   ASSERT_EQ(term0->getBit(-1)->getNet(), net);
-//   net->destroy();
-//   ASSERT_EQ(term0->getBit(-1)->getNet(), nullptr);
+  //PNLScalarNet case
+  //PNLNet* net = PNLScalarNet::create(design, NLName("n0"));
+  // term0->setNet(net);
+  // ASSERT_EQ(term0->getBit(-1)->getNet(), net);
+  //net->destroy();
+  // ASSERT_EQ(term0->getBit(-1)->getNet(), nullptr);
 
 //   // //1 bit bus PNLBusNet case
 //   // //net = PNLBusNet::create(design, -1, -1, NLName("n0"));
@@ -245,6 +245,7 @@ TEST_F(PNLTermTest, testErrors) {
   //EXPECT_THROW(PNLBusTerm::create(design, NLID::DesignObjectID(0), PNLTerm::Direction::Input, 31, 0), NLException);
   EXPECT_THROW(PNLScalarTerm::create(design, NLID::DesignObjectID(1), PNLTerm::Direction::Input), NLException);
   //EXPECT_THROW(term1->getBit(1)->setName(NLName("bit1")), NLException);
+  PNLScalarTerm::create(design, NLID::DesignObjectID(2), PNLTerm::Direction::Input, NLName("term2"));
 }
 
 TEST_F(PNLTermTest, testRename) {

@@ -60,11 +60,19 @@ TEST_F(PNLInstanceTest0, testInstTermRenameError) {
   auto b = PNLScalarTerm::create(model, PNLTerm::Direction::Input, NLName("b"));
   auto c = PNLScalarTerm::create(design, PNLTerm::Direction::Input, NLName("c"));
   auto ins = PNLInstance::create(design, model, NLName("instance"));
+  design->rename(ins, NLName("instance"));
   auto instTerm = ins->getInstTerm(a);
   EXPECT_EQ(ins->getInstTerm(b), ins->getInstTerm(1));
   a->destroy();
   //model->removeTerm(a);
   EXPECT_THROW(ins->getInstTerm(c), NLException);
+  EXPECT_THROW(ins->getInstTerm(b)->destroy(), NLException);  
+  // Test getDesign for inst term
+  EXPECT_EQ(design, ins->getInstTerm(b)->getDesign());
+  // Test getDirection for inst term
+  EXPECT_EQ(PNLTerm::Direction::Input, ins->getInstTerm(b)->getDirection());
+  // Test isAnno for inst term
+  EXPECT_FALSE(ins->getInstTerm(b)->isAnonymous());
 }
 
 TEST_F(PNLInstanceTest0, testInstTermNullTerm) {
