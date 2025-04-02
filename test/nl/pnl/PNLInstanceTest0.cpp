@@ -73,6 +73,9 @@ TEST_F(PNLInstanceTest0, testInstTermRenameError) {
   EXPECT_EQ(PNLTerm::Direction::Input, ins->getInstTerm(b)->getDirection());
   // Test isAnno for inst term
   EXPECT_FALSE(ins->getInstTerm(b)->isAnonymous());
+  EXPECT_EQ(a->getBit(), 0);
+  auto d = PNLScalarTerm::create(model, PNLTerm::Direction::Input, NLName("d"));
+  
 }
 
 TEST_F(PNLInstanceTest0, testInstTermNullTerm) {
