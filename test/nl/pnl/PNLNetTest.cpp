@@ -364,6 +364,8 @@ TEST_F(PNLNetTest, testRename) {
   net2->setName(NLName("net2"));
   EXPECT_FALSE(net2->isAnonymous());
   EXPECT_EQ(net2, design_->getNet(NLName("net2")));
+  EXPECT_FALSE(net2->isAssign1());
+  EXPECT_EQ(net0->getWidth(), 1);
   //Collision error
   //EXPECT_THROW(net1->setName(NLName("net0")), NLException);
 

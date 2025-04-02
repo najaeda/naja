@@ -9,6 +9,7 @@ using namespace std;
 #include "NLUniverse.h"
 #include "NLDB.h"
 #include "NLException.h"
+#include "PNLDesignObject.h"
 
 using namespace naja::NL;
 
@@ -78,7 +79,10 @@ TEST_F(PNLInstanceTest0, testInstTermRenameError) {
   EXPECT_EQ(b->getWidth(), 1);
   EXPECT_EQ(NLID::DesignObjectReference(1, 0, 1, 1), b->getReference());
   auto d = PNLScalarTerm::create(model, PNLTerm::Direction::Input, NLName("d"));
-  
+  // Test getNLID for inst term
+  EXPECT_EQ(naja::NL::NLID(NLID::Type::InstTerm, ins->getInstTerm(b)->getDB()->getID(), ins->getInstTerm(b)->getLibrary()->getID(),
+               ins->getInstTerm(b)->getDesign()->getID(), ins->getInstTerm(b)->getBitTerm()->getID(), 
+               ins->getID(), ins->getInstTerm(b)->getBitTerm()->getBit()), ins->getInstTerm(b)->getNLID());
 }
 
 TEST_F(PNLInstanceTest0, testInstTermNullTerm) {
