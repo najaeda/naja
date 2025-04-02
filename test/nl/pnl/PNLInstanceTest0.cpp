@@ -62,6 +62,7 @@ TEST_F(PNLInstanceTest0, testInstTermRenameError) {
   auto ins = PNLInstance::create(design, model, NLName("instance"));
   design->rename(ins, NLName("instance"));
   auto instTerm = ins->getInstTerm(a);
+  EXPECT_EQ(instTerm->getNet(), nullptr);
   EXPECT_EQ(ins->getInstTerm(b), ins->getInstTerm(1));
   a->destroy();
   //model->removeTerm(a);
@@ -73,7 +74,9 @@ TEST_F(PNLInstanceTest0, testInstTermRenameError) {
   EXPECT_EQ(PNLTerm::Direction::Input, ins->getInstTerm(b)->getDirection());
   // Test isAnno for inst term
   EXPECT_FALSE(ins->getInstTerm(b)->isAnonymous());
-  EXPECT_EQ(a->getBit(), 0);
+  EXPECT_EQ(b->getBit(), 0);
+  EXPECT_EQ(b->getWidth(), 1);
+  EXPECT_EQ(NLID::DesignObjectReference(1, 0, 1, 1), b->getReference());
   auto d = PNLScalarTerm::create(model, PNLTerm::Direction::Input, NLName("d"));
   
 }
