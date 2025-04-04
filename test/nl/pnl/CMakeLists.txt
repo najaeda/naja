@@ -11,6 +11,8 @@ SET(pnl_tests
   PNLInstanceTest0.cpp
   PNLTermTest.cpp
   PNLNetTest.cpp
+  PNLOrientationTest.cpp
+  PNLTransformTest.cpp
 )
 
 ADD_EXECUTABLE(pnlTests ${pnl_tests})
