@@ -10,7 +10,7 @@ file(GLOB_RECURSE PYTHON_FILES
 # Command to create the simulated naja python package structure
 add_custom_target(najaeda-python-tests-structure
   COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/src/najaeda/najaeda ${CMAKE_CURRENT_BINARY_DIR}/najaeda
-  COMMAND ${CMAKE_COMMAND} -E create_symlink ${CMAKE_BINARY_DIR}/src/snl/python/snl_wrapping/snl.so ${CMAKE_CURRENT_BINARY_DIR}/najaeda/snl.so
+  COMMAND ${CMAKE_COMMAND} -E create_symlink ${CMAKE_BINARY_DIR}/src/nl/python/naja_wrapping/naja.so ${CMAKE_CURRENT_BINARY_DIR}/najaeda/naja.so
   COMMAND Python3::Interpreter -m unittest discover -v ${CMAKE_CURRENT_SOURCE_DIR}
   DEPENDS ${PYTHON_FILES} 
 )
@@ -23,5 +23,5 @@ add_test(NAME najaeda-python-tests
 #add_dependencies(naja-python-tests simulate_package_structure)
 
 set_tests_properties(najaeda-python-tests PROPERTIES
-    ENVIRONMENT "PYTHONPATH=${CMAKE_CURRENT_BINARY_DIR};VERILOG_BENCHMARKS_PATH=${CMAKE_SOURCE_DIR}/test/snl/formats/verilog/benchmarks;LIBERTY_BENCHMARKS_PATH=${CMAKE_SOURCE_DIR}/test/snl/formats/liberty/benchmarks;NAJAEDA_TEST_PATH=${CMAKE_CURRENT_BINARY_DIR}"
+    ENVIRONMENT "PYTHONPATH=${CMAKE_CURRENT_BINARY_DIR};VERILOG_BENCHMARKS_PATH=${CMAKE_SOURCE_DIR}/test/nl/formats/verilog/benchmarks;LIBERTY_BENCHMARKS_PATH=${CMAKE_SOURCE_DIR}/test/nl/formats/liberty/benchmarks;NAJAEDA_TEST_PATH=${CMAKE_CURRENT_BINARY_DIR}"
 )

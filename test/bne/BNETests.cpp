@@ -12,7 +12,7 @@
 #include "BNE.h"
 
 using namespace naja::DNL;
-using namespace naja::SNL;
+using namespace naja::NL;
 using namespace naja::BNE;
 
 class BNETests : public ::testing::Test {
@@ -32,25 +32,25 @@ class BNETests : public ::testing::Test {
       //       |-> h3
       //            |-> h2
       //                 |-> prim
-      auto universe = SNLUniverse::create();
-      auto db = SNLDB::create(universe);
-      auto primitivesLib = SNLLibrary::create(db, SNLLibrary::Type::Primitives);
-      auto designsLib = SNLLibrary::create(db);
-      auto prim = SNLDesign::create(primitivesLib, SNLDesign::Type::Primitive, SNLName("PRIM"));
-      top_ = SNLDesign::create(designsLib, SNLName("TOP"));
-      auto h0 = SNLDesign::create(designsLib, SNLName("H0"));
-      auto h1 = SNLDesign::create(designsLib, SNLName("H1"));
-      auto h2 = SNLDesign::create(designsLib, SNLName("H2"));
-      auto h3 = SNLDesign::create(designsLib, SNLName("H3"));
-      primInstance_ = SNLInstance::create(h2, prim, SNLName("prim"));
-      h1h2Instance_ = SNLInstance::create(h1, h2, SNLName("h2"));
-      h1Instance_ = SNLInstance::create(h0, h1, SNLName("h1"));
-      h3Instance_ = SNLInstance::create(h0, h3, SNLName("h3"));
-      h3h2Instance_ = SNLInstance::create(h3, h2, SNLName("h2")); 
-      h0Instance_ = SNLInstance::create(top_, h0, SNLName("h0"));
+      auto universe = NLUniverse::create();
+      auto db = NLDB::create(universe);
+      auto primitivesLib = NLLibrary::create(db, NLLibrary::Type::Primitives);
+      auto designsLib = NLLibrary::create(db);
+      auto prim = SNLDesign::create(primitivesLib, SNLDesign::Type::Primitive, NLName("PRIM"));
+      top_ = SNLDesign::create(designsLib, NLName("TOP"));
+      auto h0 = SNLDesign::create(designsLib, NLName("H0"));
+      auto h1 = SNLDesign::create(designsLib, NLName("H1"));
+      auto h2 = SNLDesign::create(designsLib, NLName("H2"));
+      auto h3 = SNLDesign::create(designsLib, NLName("H3"));
+      primInstance_ = SNLInstance::create(h2, prim, NLName("prim"));
+      h1h2Instance_ = SNLInstance::create(h1, h2, NLName("h2"));
+      h1Instance_ = SNLInstance::create(h0, h1, NLName("h1"));
+      h3Instance_ = SNLInstance::create(h0, h3, NLName("h3"));
+      h3h2Instance_ = SNLInstance::create(h3, h2, NLName("h2")); 
+      h0Instance_ = SNLInstance::create(top_, h0, NLName("h0"));
   }
   void TearDown() override {
-    SNLUniverse::get()->destroy();
+    NLUniverse::get()->destroy();
   }
   SNLInstance* primInstance_  {nullptr};
   SNLInstance* h1h2Instance_  {nullptr};
@@ -63,9 +63,9 @@ class BNETests : public ::testing::Test {
 
 TEST_F(BNETests, ActionComparators) {
   // Create artificial DriveWithConstantActions and compare them
-  /*const std::vector<SNLID::DesignObjectID>& context,
-                        const SNLID::DesignObjectID& pathToDrive,
-                        const SNLID::DesignObjectID& termToDrive,
+  /*const std::vector<NLID::DesignObjectID>& context,
+                        const NLID::DesignObjectID& pathToDrive,
+                        const NLID::DesignObjectID& termToDrive,
                         const double& value,
                         SNLBitTerm* topTermToDrive = nullptr
   bool operator<(const Action& action) const override {
@@ -98,7 +98,7 @@ TEST_F(BNETests, ActionComparators) {
   }
   return false;
 }*/
-  std::vector<SNLID::DesignObjectID> context;
+  std::vector<NLID::DesignObjectID> context;
   {
     DriveWithConstantAction action1(context, 0, 0, 0);
     DriveWithConstantAction action2(context, 0, 0, 0);
@@ -134,12 +134,12 @@ TEST_F(BNETests, ActionComparators) {
   {
     ReductionAction action1(
         context, 0,
-        std::pair<SNLDesign*, SNLLibraryTruthTables::Indexes>(
-            nullptr, SNLLibraryTruthTables::Indexes()));
+        std::pair<SNLDesign*, NLLibraryTruthTables::Indexes>(
+            nullptr, NLLibraryTruthTables::Indexes()));
     ReductionAction action2(
         context, 0,
-        std::pair<SNLDesign*, SNLLibraryTruthTables::Indexes>(
-            nullptr, SNLLibraryTruthTables::Indexes()));
+        std::pair<SNLDesign*, NLLibraryTruthTables::Indexes>(
+            nullptr, NLLibraryTruthTables::Indexes()));
     Action* action2ptr = &action2;
     Action* action1ptr = &action1;
     bool compare = *action1ptr == *action2ptr;
@@ -150,12 +150,12 @@ TEST_F(BNETests, ActionComparators) {
   {
     ReductionAction action1(
         context, 0,
-        std::pair<SNLDesign*, SNLLibraryTruthTables::Indexes>(
-            nullptr, SNLLibraryTruthTables::Indexes()));
+        std::pair<SNLDesign*, NLLibraryTruthTables::Indexes>(
+            nullptr, NLLibraryTruthTables::Indexes()));
     ReductionAction action2(
         context, 0,
-        std::pair<SNLDesign*, SNLLibraryTruthTables::Indexes>(
-            nullptr, SNLLibraryTruthTables::Indexes()));
+        std::pair<SNLDesign*, NLLibraryTruthTables::Indexes>(
+            nullptr, NLLibraryTruthTables::Indexes()));
     Action* action2ptr = &action2;
     Action* action1ptr = &action1;
     bool compare = *action1ptr == *action2ptr;
@@ -166,13 +166,13 @@ TEST_F(BNETests, ActionComparators) {
   {
     ReductionAction action1(
         context, 0,
-        std::pair<SNLDesign*, SNLLibraryTruthTables::Indexes>(
-            nullptr, SNLLibraryTruthTables::Indexes()));
-    SNLLibraryTruthTables::Indexes indexes;
+        std::pair<SNLDesign*, NLLibraryTruthTables::Indexes>(
+            nullptr, NLLibraryTruthTables::Indexes()));
+    NLLibraryTruthTables::Indexes indexes;
     indexes.push_back(0);
     ReductionAction action2(
         context, 0,
-        std::pair<SNLDesign*, SNLLibraryTruthTables::Indexes>(
+        std::pair<SNLDesign*, NLLibraryTruthTables::Indexes>(
             nullptr, indexes));
     Action* action2ptr = &action2;
     Action* action1ptr = &action1;
@@ -182,26 +182,26 @@ TEST_F(BNETests, ActionComparators) {
   {
     ReductionAction action1(
         context, 0,
-        std::pair<SNLDesign*, SNLLibraryTruthTables::Indexes>(
-            nullptr, SNLLibraryTruthTables::Indexes()));
+        std::pair<SNLDesign*, NLLibraryTruthTables::Indexes>(
+            nullptr, NLLibraryTruthTables::Indexes()));
     ReductionAction action2(
         context, 1,
-        std::pair<SNLDesign*, SNLLibraryTruthTables::Indexes>(
-            nullptr, SNLLibraryTruthTables::Indexes()));
+        std::pair<SNLDesign*, NLLibraryTruthTables::Indexes>(
+            nullptr, NLLibraryTruthTables::Indexes()));
     Action* action2ptr = &action2;
     Action* action1ptr = &action1;
     bool compare = *action1ptr < *action2ptr;
     EXPECT_EQ(compare, true);
   }
   {
-    auto pathToDelete = std::vector<SNLID::DesignObjectID>();
+    auto pathToDelete = std::vector<NLID::DesignObjectID>();
     pathToDelete.push_back(0);
     DeleteAction action1(pathToDelete);
     DriveWithConstantAction action2(context, 0, 0, 0);
     ReductionAction action3(
         context, 0,
-        std::pair<SNLDesign*, SNLLibraryTruthTables::Indexes>(
-            nullptr, SNLLibraryTruthTables::Indexes()));
+        std::pair<SNLDesign*, NLLibraryTruthTables::Indexes>(
+            nullptr, NLLibraryTruthTables::Indexes()));
     Action* action1ptr = &action1;
     Action* action2ptr = &action2;
     Action* action3ptr = &action3;
@@ -256,12 +256,12 @@ TEST_F(BNETests, testCompare) {
 }
 
 TEST_F(BNETests, normalizeNodeDeletion) {
-  SNLUniverse::get()->setTopDesign(top_);
+  NLUniverse::get()->setTopDesign(top_);
   SNLPath::PathStringDescriptor pathDescriptor0 = { "h0", "h1", "h2", "prim"};
   SNLPath::PathStringDescriptor pathDescriptor1 = { "h0", "h3", "h2", "prim"};
 
-  auto path0 = SNLPath(SNLUniverse::get()->getTopDesign(), pathDescriptor0);
-  auto path1 = SNLPath(SNLUniverse::get()->getTopDesign(), pathDescriptor1);
+  auto path0 = SNLPath(NLUniverse::get()->getTopDesign(), pathDescriptor0);
+  auto path1 = SNLPath(NLUniverse::get()->getTopDesign(), pathDescriptor1);
 
   auto path0IDs = path0.getIDDescriptor();
   auto path1IDs = path1.getIDDescriptor();
@@ -277,12 +277,12 @@ TEST_F(BNETests, normalizeNodeDeletion) {
 }
 
 TEST_F(BNETests, blockedNormalizeNodeDeletion) {
-  SNLUniverse::get()->setTopDesign(top_);
+  NLUniverse::get()->setTopDesign(top_);
   SNLPath::PathStringDescriptor pathDescriptor0 = { "h0", "h1", "h2", "prim"};
   SNLPath::PathStringDescriptor pathDescriptor1 = { "h0", "h3", "h2", "prim"};
 
-  auto path0 = SNLPath(SNLUniverse::get()->getTopDesign(), pathDescriptor0);
-  auto path1 = SNLPath(SNLUniverse::get()->getTopDesign(), pathDescriptor1);
+  auto path0 = SNLPath(NLUniverse::get()->getTopDesign(), pathDescriptor0);
+  auto path1 = SNLPath(NLUniverse::get()->getTopDesign(), pathDescriptor1);
 
   auto path0IDs = path0.getIDDescriptor();
   auto path1IDs = path1.getIDDescriptor();
@@ -302,18 +302,18 @@ TEST_F(BNETests, blockedNormalizeNodeDeletion) {
 }
 
 TEST_F(BNETests, blockedNormalizeNodeDeletionOrphanNodeRemoval) {
-  SNLUniverse::get()->setTopDesign(top_);
-  auto h4 = SNLInstance::create(h0Instance_->getModel(), h3Instance_->getModel(), SNLName("h4"));
-  SNLInstance::create(h1h2Instance_->getModel(), primInstance_->getModel(), SNLName("prim2"));
+  NLUniverse::get()->setTopDesign(top_);
+  auto h4 = SNLInstance::create(h0Instance_->getModel(), h3Instance_->getModel(), NLName("h4"));
+  SNLInstance::create(h1h2Instance_->getModel(), primInstance_->getModel(), NLName("prim2"));
   SNLPath::PathStringDescriptor pathDescriptor0 = { "h0", "h4", "h2", "prim"};
   SNLPath::PathStringDescriptor pathDescriptor1 = { "h0", "h3", "h2", "prim"};
   SNLPath::PathStringDescriptor pathDescriptor2 = { "h0", "h4", "h2"};
   SNLPath::PathStringDescriptor pathDescriptor3 = { "h0", "h3", "h2"};
 
-  auto path0 = SNLPath(SNLUniverse::get()->getTopDesign(), pathDescriptor0);
-  auto path1 = SNLPath(SNLUniverse::get()->getTopDesign(), pathDescriptor1);
-  auto path2 = SNLPath(SNLUniverse::get()->getTopDesign(), pathDescriptor2);
-  auto path3 = SNLPath(SNLUniverse::get()->getTopDesign(), pathDescriptor3);
+  auto path0 = SNLPath(NLUniverse::get()->getTopDesign(), pathDescriptor0);
+  auto path1 = SNLPath(NLUniverse::get()->getTopDesign(), pathDescriptor1);
+  auto path2 = SNLPath(NLUniverse::get()->getTopDesign(), pathDescriptor2);
+  auto path3 = SNLPath(NLUniverse::get()->getTopDesign(), pathDescriptor3);
 
   auto path0IDs = path0.getIDDescriptor();
   auto path1IDs = path1.getIDDescriptor();
@@ -338,6 +338,6 @@ TEST_F(BNETests, blockedNormalizeNodeDeletionOrphanNodeRemoval) {
 }
 
 TEST_F(BNETests, missingTop) {
-  EXPECT_THROW(new BNE(), SNLException);
+  EXPECT_THROW(new BNE(), NLException);
 }
 

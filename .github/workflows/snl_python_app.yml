@@ -1,4 +1,4 @@
-name: snl_python_app
+name: naja_python_app
 
 on:
   push:
@@ -47,20 +47,20 @@ jobs:
     - name: CreateDirs and copy script
       run: |
            mkdir -p ${{env.NAJA_INSTALL}} 
-           mkdir -p ${{github.workspace}}/snlpythonapp
+           mkdir -p ${{github.workspace}}/najapythonapp
     
     - name: Copy Python app
-      working-directory: ${{github.workspace}}/snlpythonapp
+      working-directory: ${{github.workspace}}/najapythonapp
       run: | 
-           cp ${{github.workspace}}/src/snl/snippets/python/snl_snippet.py .
+           cp ${{github.workspace}}/src/nl/snippets/python/naja_snippet.py .
 
     - name: Install
       working-directory: ${{github.workspace}}/build
       run: make install
       
     - name: ExecutePythonSnippetApp
-      working-directory: ${{github.workspace}}/snlpythonapp
+      working-directory: ${{github.workspace}}/najapythonapp
       env:
         LD_LIBRARY_PATH: ${{env.LD_LIBRARY_PATH}}:${{env.NAJA_INSTALL}}/lib
         PYTHONPATH: ${{env.PYTHONPATH}}:${{env.NAJA_INSTALL}}/lib/python
-      run: python3 snl_snippet.py
+      run: python3 naja_snippet.py

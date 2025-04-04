@@ -10,7 +10,6 @@ from collections import deque
 import time
 
 from najaeda import netlist
-from najaeda import snl
 import faulthandler
 
 logging.basicConfig(level=logging.INFO)

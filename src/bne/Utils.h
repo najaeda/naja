@@ -9,7 +9,7 @@
 #include "SNLPath.h"
 
 using namespace naja::DNL;
-using namespace naja::SNL;
+using namespace naja::NL;
 
 namespace naja::BNE {
 
@@ -24,6 +24,6 @@ class NetlistStatistics {
   std::string report_;
 };
 
-SNLInstance *getInstanceForPath(const std::vector<SNLID::DesignObjectID> &pathToModel);
+SNLInstance *getInstanceForPath(const std::vector<NLID::DesignObjectID> &pathToModel);
 
 }  // namespace naja::BNE

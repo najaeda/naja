@@ -8,14 +8,14 @@
 using namespace naja::BNE;
 
 void BNE::addDeleteAction(
-    const std::vector<SNLID::DesignObjectID>& pathToDelete) {
+    const std::vector<NLID::DesignObjectID>& pathToDelete) {
   DeleteAction* deleteAction = new DeleteAction(pathToDelete);
   tree_.addAction(deleteAction);
 }
 void BNE::addDriveWithConstantAction(
-    const std::vector<SNLID::DesignObjectID>& context,
-    const SNLID::DesignObjectID& pathToDrive,
-    const SNLID::DesignObjectID& termToDrive,
+    const std::vector<NLID::DesignObjectID>& context,
+    const NLID::DesignObjectID& pathToDrive,
+    const NLID::DesignObjectID& termToDrive,
     const double& value,
     SNLBitTerm* topTermToDrive) {
   DriveWithConstantAction* driveWithConstantAction =
@@ -24,9 +24,9 @@ void BNE::addDriveWithConstantAction(
   tree_.addAction(driveWithConstantAction);
 }
 void BNE::addReductionCommand(
-    const std::vector<SNLID::DesignObjectID>& context,
-    SNLID::DesignObjectID instance,
-    const std::pair<SNLDesign*, SNLLibraryTruthTables::Indexes>& result) {
+    const std::vector<NLID::DesignObjectID>& context,
+    NLID::DesignObjectID instance,
+    const std::pair<SNLDesign*, NLLibraryTruthTables::Indexes>& result) {
   ReductionAction* reductionAction =
       new ReductionAction(context, instance, result);
   tree_.addAction(reductionAction);

@@ -8,12 +8,12 @@
 #include <vector>
 #include "SNLDesign.h"
 #include "SNLDesignTruthTable.h"
-#include "SNLID.h"
+#include "NLID.h"
 #include "SNLInstance.h"
-#include "SNLLibraryTruthTables.h"
+#include "NLLibraryTruthTables.h"
 #include "SNLTruthTable.h"
 
-using namespace naja::SNL;
+using namespace naja::NL;
 
 namespace naja::BNE {
 
@@ -43,7 +43,7 @@ class Action {
    * \brief Get the context of the action.
    * \return The context of the action.
    */
-  virtual const std::vector<SNLID::DesignObjectID>& getContext() const = 0;
+  virtual const std::vector<NLID::DesignObjectID>& getContext() const = 0;
   // comparator
   virtual bool operator==(const Action& action) const = 0;
   // < operator
@@ -59,9 +59,9 @@ class Action {
 
 class DriveWithConstantAction : public Action {
  public:
-  DriveWithConstantAction(const std::vector<SNLID::DesignObjectID>& context,
-                          const SNLID::DesignObjectID& pathToDrive,
-                          const SNLID::DesignObjectID& termToDrive,
+  DriveWithConstantAction(const std::vector<NLID::DesignObjectID>& context,
+                          const NLID::DesignObjectID& pathToDrive,
+                          const NLID::DesignObjectID& termToDrive,
                           const double& value,
                           SNLBitTerm* topTermToDrive = nullptr)
       : Action(ActionType::DRIVE_WITH_CONSTANT),
@@ -75,12 +75,12 @@ class DriveWithConstantAction : public Action {
   void changeDriverto0Top(SNLBitTerm* term);
   void changeDriverto1Top(SNLBitTerm* term);
   void processOnContext(SNLDesign* design) override;
-  const SNLID::DesignObjectID& getPathToDrive() const { return pathToDrive_; }
+  const NLID::DesignObjectID& getPathToDrive() const { return pathToDrive_; }
   const double& getValue() const { return value_; }
-  const std::vector<SNLID::DesignObjectID>& getContext() const override {
+  const std::vector<NLID::DesignObjectID>& getContext() const override {
     return context_;
   }
-  const SNLID::DesignObjectID& getTermToDrive() const { return termToDrive_; }
+  const NLID::DesignObjectID& getTermToDrive() const { return termToDrive_; }
   const SNLBitTerm* getTopTermToDrive() const { return topTermToDrive_; }
   // copy constructor
   DriveWithConstantAction(const DriveWithConstantAction& action)
@@ -95,19 +95,19 @@ class DriveWithConstantAction : public Action {
   bool operator<(const Action& action) const override;
   void destroy() override { delete this; }
  private:
-  SNLID::DesignObjectID pathToDrive_;
-  SNLID::DesignObjectID termToDrive_;
+  NLID::DesignObjectID pathToDrive_;
+  NLID::DesignObjectID termToDrive_;
   double value_;
-  std::vector<SNLID::DesignObjectID> context_;
+  std::vector<NLID::DesignObjectID> context_;
   SNLBitTerm* topTermToDrive_ = nullptr;
 };
 
 class DeleteAction : public Action {
  public:
-  DeleteAction(const std::vector<SNLID::DesignObjectID>& pathToDelete);
+  DeleteAction(const std::vector<NLID::DesignObjectID>& pathToDelete);
   void processOnContext(SNLDesign* design) override;
-  SNLID::DesignObjectID getToDelete() const { return toDelete_; }
-  const std::vector<SNLID::DesignObjectID>& getContext() const override {
+  NLID::DesignObjectID getToDelete() const { return toDelete_; }
+  const std::vector<NLID::DesignObjectID>& getContext() const override {
     return context_;
   }
   // copy constructor
@@ -120,34 +120,34 @@ class DeleteAction : public Action {
   bool operator<(const Action& action) const override;
   void destroy() override { delete this; }
  private:
-  SNLID::DesignObjectID toDelete_;
-  std::vector<SNLID::DesignObjectID> context_;
+  NLID::DesignObjectID toDelete_;
+  std::vector<NLID::DesignObjectID> context_;
 };
 
 class ReductionAction : public Action {
  public:
   ReductionAction(
-      const std::vector<SNLID::DesignObjectID>& context,
-      SNLID::DesignObjectID instance,
-      const std::pair<SNLDesign*, SNLLibraryTruthTables::Indexes>& result)
+      const std::vector<NLID::DesignObjectID>& context,
+      NLID::DesignObjectID instance,
+      const std::pair<SNLDesign*, NLLibraryTruthTables::Indexes>& result)
       : Action(ActionType::REDUCTION),
         context_(context),
         instance_(instance),
         result_(result) {}
   void replaceInstance(
     SNLInstance* instance,
-    const std::pair<SNLDesign*, SNLLibraryTruthTables::Indexes>& result);
+    const std::pair<SNLDesign*, NLLibraryTruthTables::Indexes>& result);
   void processOnContext(SNLDesign* design) override;
-  const std::vector<SNLID::DesignObjectID>& getContext() const override {
+  const std::vector<NLID::DesignObjectID>& getContext() const override {
     return context_;
   }
   bool operator==(const Action& action) const override;
   bool operator<(const Action& action) const override;
   void destroy() override { delete this; }
  private:
-  const std::vector<SNLID::DesignObjectID> context_;
-  const SNLID::DesignObjectID instance_;
-  const std::pair<SNLDesign*, SNLLibraryTruthTables::Indexes> result_;
+  const std::vector<NLID::DesignObjectID> context_;
+  const NLID::DesignObjectID instance_;
+  const std::pair<SNLDesign*, NLLibraryTruthTables::Indexes> result_;
 };
 
 }  // namespace naja::BNE

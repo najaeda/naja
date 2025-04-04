@@ -5,20 +5,20 @@
 
 #include "DNL.h"
 #include "RemoveLoadlessLogic.h"
+#include "NLException.h"
 #include "SNLBitNetOccurrence.h"
 #include "SNLBitTermOccurrence.h"
 #include "SNLEquipotential.h"
-#include "SNLException.h"
 #include "SNLInstTerm.h"
 #include "SNLPath.h"
 #include "SNLScalarNet.h"
 #include "SNLScalarTerm.h"
-#include "SNLUniverse.h"
+#include "NLUniverse.h"
 #include "gtest/gtest.h"
 #include "tbb/scalable_allocator.h"
 
 using namespace naja::DNL;
-using namespace naja::SNL;
+using namespace naja::NL;
 using namespace naja::NAJA_OPT;
 
 class LoadlessRemoveLogicTests : public ::testing::Test {
@@ -37,7 +37,7 @@ class LoadlessRemoveLogicTests : public ::testing::Test {
     // Code here will be called immediately after each test (right
     // before the destructor).
     // Destroy the SNL
-    SNLUniverse::get()->destroy();
+    NLUniverse::get()->destroy();
   }
 };
 
@@ -51,29 +51,29 @@ class LoadlessRemoveLogicTests : public ::testing::Test {
 
 TEST_F(LoadlessRemoveLogicTests, simple_0_loadless) {
   // Create a simple logic with a single input and output
-  SNLUniverse* univ = SNLUniverse::create();
-  SNLDB* db = SNLDB::create(univ);
-  SNLLibrary* library = SNLLibrary::create(db, SNLName("MYLIB"));
-  SNLDesign* mod = SNLDesign::create(library, SNLName("mod"));
+  NLUniverse* univ = NLUniverse::create();
+  NLDB* db = NLDB::create(univ);
+  NLLibrary* library = NLLibrary::create(db, NLName("MYLIB"));
+  SNLDesign* mod = SNLDesign::create(library, NLName("mod"));
   univ->setTopDesign(mod);
   auto inTerm =
-      SNLScalarTerm::create(mod, SNLTerm::Direction::Input, SNLName("in"));
+      SNLScalarTerm::create(mod, SNLTerm::Direction::Input, NLName("in"));
   auto outTerm1 =
-      SNLScalarTerm::create(mod, SNLTerm::Direction::Output, SNLName("out1"));
+      SNLScalarTerm::create(mod, SNLTerm::Direction::Output, NLName("out1"));
   auto outTerm2 =
-      SNLScalarTerm::create(mod, SNLTerm::Direction::Output, SNLName("out2"));
+      SNLScalarTerm::create(mod, SNLTerm::Direction::Output, NLName("out2"));
 
-  SNLDesign* bb = SNLDesign::create(library, SNLName("bb"));
+  SNLDesign* bb = SNLDesign::create(library, NLName("bb"));
   auto inTermBB =
-      SNLScalarTerm::create(bb, SNLTerm::Direction::Input, SNLName("in"));
+      SNLScalarTerm::create(bb, SNLTerm::Direction::Input, NLName("in"));
   auto outTermBB =
-      SNLScalarTerm::create(bb, SNLTerm::Direction::Output, SNLName("out"));
+      SNLScalarTerm::create(bb, SNLTerm::Direction::Output, NLName("out"));
 
-  SNLInstance* inst1 = SNLInstance::create(mod, bb, SNLName("bb1"));
-  SNLInstance* inst2 = SNLInstance::create(mod, bb, SNLName("bb2"));
-  auto inNet1 = SNLScalarNet::create(mod, SNLName("inNet1"));
-  auto outNet1 = SNLScalarNet::create(mod, SNLName("outNet1"));
-  auto outNet2 = SNLScalarNet::create(mod, SNLName("outNet2"));
+  SNLInstance* inst1 = SNLInstance::create(mod, bb, NLName("bb1"));
+  SNLInstance* inst2 = SNLInstance::create(mod, bb, NLName("bb2"));
+  auto inNet1 = SNLScalarNet::create(mod, NLName("inNet1"));
+  auto outNet1 = SNLScalarNet::create(mod, NLName("outNet1"));
+  auto outNet2 = SNLScalarNet::create(mod, NLName("outNet2"));
   inst1->getInstTerm(inTermBB)->setNet(inNet1);
   inst1->getInstTerm(outTermBB)->setNet(outNet1);
   inst2->getInstTerm(inTermBB)->setNet(inNet1);
@@ -102,29 +102,29 @@ TEST_F(LoadlessRemoveLogicTests, simple_0_loadless) {
 TEST_F(LoadlessRemoveLogicTests, simple_0_loadlessNonMT) {
   setenv("NON_MT", "", 1);
   // Create a simple logic with a single input and output
-  SNLUniverse* univ = SNLUniverse::create();
-  SNLDB* db = SNLDB::create(univ);
-  SNLLibrary* library = SNLLibrary::create(db, SNLName("MYLIB"));
-  SNLDesign* mod = SNLDesign::create(library, SNLName("mod"));
+  NLUniverse* univ = NLUniverse::create();
+  NLDB* db = NLDB::create(univ);
+  NLLibrary* library = NLLibrary::create(db, NLName("MYLIB"));
+  SNLDesign* mod = SNLDesign::create(library, NLName("mod"));
   univ->setTopDesign(mod);
   auto inTerm =
-      SNLScalarTerm::create(mod, SNLTerm::Direction::Input, SNLName("in"));
+      SNLScalarTerm::create(mod, SNLTerm::Direction::Input, NLName("in"));
   auto outTerm1 =
-      SNLScalarTerm::create(mod, SNLTerm::Direction::Output, SNLName("out1"));
+      SNLScalarTerm::create(mod, SNLTerm::Direction::Output, NLName("out1"));
   auto outTerm2 =
-      SNLScalarTerm::create(mod, SNLTerm::Direction::Output, SNLName("out2"));
+      SNLScalarTerm::create(mod, SNLTerm::Direction::Output, NLName("out2"));
 
-  SNLDesign* bb = SNLDesign::create(library, SNLName("bb"));
+  SNLDesign* bb = SNLDesign::create(library, NLName("bb"));
   auto inTermBB =
-      SNLScalarTerm::create(bb, SNLTerm::Direction::Input, SNLName("in"));
+      SNLScalarTerm::create(bb, SNLTerm::Direction::Input, NLName("in"));
   auto outTermBB =
-      SNLScalarTerm::create(bb, SNLTerm::Direction::Output, SNLName("out"));
+      SNLScalarTerm::create(bb, SNLTerm::Direction::Output, NLName("out"));
 
-  SNLInstance* inst1 = SNLInstance::create(mod, bb, SNLName("bb1"));
-  SNLInstance* inst2 = SNLInstance::create(mod, bb, SNLName("bb2"));
-  auto inNet1 = SNLScalarNet::create(mod, SNLName("inNet1"));
-  auto outNet1 = SNLScalarNet::create(mod, SNLName("outNet1"));
-  auto outNet2 = SNLScalarNet::create(mod, SNLName("outNet2"));
+  SNLInstance* inst1 = SNLInstance::create(mod, bb, NLName("bb1"));
+  SNLInstance* inst2 = SNLInstance::create(mod, bb, NLName("bb2"));
+  auto inNet1 = SNLScalarNet::create(mod, NLName("inNet1"));
+  auto outNet1 = SNLScalarNet::create(mod, NLName("outNet1"));
+  auto outNet2 = SNLScalarNet::create(mod, NLName("outNet2"));
   inst1->getInstTerm(inTermBB)->setNet(inNet1);
   inst1->getInstTerm(outTermBB)->setNet(outNet1);
   inst2->getInstTerm(inTermBB)->setNet(inNet1);
@@ -152,27 +152,27 @@ TEST_F(LoadlessRemoveLogicTests, simple_0_loadlessNonMT) {
 
 TEST_F(LoadlessRemoveLogicTests, simple_1_loadless) {
   // Create a simple logic with a single input and output
-  SNLUniverse* univ = SNLUniverse::create();
-  SNLDB* db = SNLDB::create(univ);
-  SNLLibrary* library = SNLLibrary::create(db, SNLName("MYLIB"));
-  SNLDesign* mod = SNLDesign::create(library, SNLName("mod"));
+  NLUniverse* univ = NLUniverse::create();
+  NLDB* db = NLDB::create(univ);
+  NLLibrary* library = NLLibrary::create(db, NLName("MYLIB"));
+  SNLDesign* mod = SNLDesign::create(library, NLName("mod"));
   univ->setTopDesign(mod);
   auto inTerm =
-      SNLScalarTerm::create(mod, SNLTerm::Direction::Input, SNLName("in"));
+      SNLScalarTerm::create(mod, SNLTerm::Direction::Input, NLName("in"));
   auto outTerm =
-      SNLScalarTerm::create(mod, SNLTerm::Direction::Output, SNLName("out"));
+      SNLScalarTerm::create(mod, SNLTerm::Direction::Output, NLName("out"));
 
-  SNLDesign* bb = SNLDesign::create(library, SNLName("bb"));
+  SNLDesign* bb = SNLDesign::create(library, NLName("bb"));
   auto inTermBB =
-      SNLScalarTerm::create(bb, SNLTerm::Direction::Input, SNLName("in"));
+      SNLScalarTerm::create(bb, SNLTerm::Direction::Input, NLName("in"));
   auto outTermBB =
-      SNLScalarTerm::create(bb, SNLTerm::Direction::Output, SNLName("out"));
+      SNLScalarTerm::create(bb, SNLTerm::Direction::Output, NLName("out"));
 
-  SNLInstance* inst1 = SNLInstance::create(mod, bb, SNLName("bb1"));
-  SNLInstance* inst2 = SNLInstance::create(mod, bb, SNLName("bb2"));
-  auto inNet1 = SNLScalarNet::create(mod, SNLName("inNet1"));
-  auto outNet1 = SNLScalarNet::create(mod, SNLName("outNet1"));
-  // auto inNet2 = SNLScalarNet::create(mod, SNLName("inNet2"));
+  SNLInstance* inst1 = SNLInstance::create(mod, bb, NLName("bb1"));
+  SNLInstance* inst2 = SNLInstance::create(mod, bb, NLName("bb2"));
+  auto inNet1 = SNLScalarNet::create(mod, NLName("inNet1"));
+  auto outNet1 = SNLScalarNet::create(mod, NLName("outNet1"));
+  // auto inNet2 = SNLScalarNet::create(mod, NLName("inNet2"));
   inst1->getInstTerm(inTermBB)->setNet(inNet1);
   inst1->getInstTerm(outTermBB)->setNet(outNet1);
   inst2->getInstTerm(inTermBB)->setNet(inNet1);
@@ -198,25 +198,25 @@ TEST_F(LoadlessRemoveLogicTests, simple_1_loadless) {
 
 TEST_F(LoadlessRemoveLogicTests, simple_2_loadless) {
   // Create a simple logic with a single input and output
-  SNLUniverse* univ = SNLUniverse::create();
-  SNLDB* db = SNLDB::create(univ);
-  SNLLibrary* library = SNLLibrary::create(db, SNLName("MYLIB"));
-  SNLDesign* mod = SNLDesign::create(library, SNLName("mod"));
+  NLUniverse* univ = NLUniverse::create();
+  NLDB* db = NLDB::create(univ);
+  NLLibrary* library = NLLibrary::create(db, NLName("MYLIB"));
+  SNLDesign* mod = SNLDesign::create(library, NLName("mod"));
   univ->setTopDesign(mod);
   auto inTerm =
-      SNLScalarTerm::create(mod, SNLTerm::Direction::Input, SNLName("in"));
+      SNLScalarTerm::create(mod, SNLTerm::Direction::Input, NLName("in"));
   auto outTerm =
-      SNLScalarTerm::create(mod, SNLTerm::Direction::Output, SNLName("out"));
+      SNLScalarTerm::create(mod, SNLTerm::Direction::Output, NLName("out"));
 
-  SNLDesign* bb = SNLDesign::create(library, SNLName("bb"));
+  SNLDesign* bb = SNLDesign::create(library, NLName("bb"));
   auto inTermBB =
-      SNLScalarTerm::create(bb, SNLTerm::Direction::Input, SNLName("in"));
+      SNLScalarTerm::create(bb, SNLTerm::Direction::Input, NLName("in"));
   auto outTermBB =
-      SNLScalarTerm::create(bb, SNLTerm::Direction::Output, SNLName("out"));
+      SNLScalarTerm::create(bb, SNLTerm::Direction::Output, NLName("out"));
 
-  SNLInstance* inst1 = SNLInstance::create(mod, bb, SNLName("bb1"));
-  SNLInstance* inst2 = SNLInstance::create(mod, bb, SNLName("bb2"));
-  auto inNet1 = SNLScalarNet::create(mod, SNLName("inNet1"));
+  SNLInstance* inst1 = SNLInstance::create(mod, bb, NLName("bb1"));
+  SNLInstance* inst2 = SNLInstance::create(mod, bb, NLName("bb2"));
+  auto inNet1 = SNLScalarNet::create(mod, NLName("inNet1"));
   inst1->getInstTerm(inTermBB)->setNet(inNet1);
   inst2->getInstTerm(inTermBB)->setNet(inNet1);
   inTerm->setNet(inNet1);
@@ -241,34 +241,34 @@ TEST_F(LoadlessRemoveLogicTests, simple_2_loadless) {
 TEST_F(LoadlessRemoveLogicTests, simple_2_loadless_nonMT) {
   setenv("NON_MT", "", 1);
   // Create a simple logic with a single input and output
-  SNLUniverse* univ = SNLUniverse::create();
-  SNLDB* db = SNLDB::create(univ);
-  SNLLibrary* library = SNLLibrary::create(db, SNLName("MYLIB"));
-  SNLDesign* mod = SNLDesign::create(library, SNLName("mod"));
+  NLUniverse* univ = NLUniverse::create();
+  NLDB* db = NLDB::create(univ);
+  NLLibrary* library = NLLibrary::create(db, NLName("MYLIB"));
+  SNLDesign* mod = SNLDesign::create(library, NLName("mod"));
   univ->setTopDesign(mod);
   auto inTerm =
-      SNLScalarTerm::create(mod, SNLTerm::Direction::Input, SNLName("in"));
+      SNLScalarTerm::create(mod, SNLTerm::Direction::Input, NLName("in"));
   auto outTerm =
-      SNLScalarTerm::create(mod, SNLTerm::Direction::Output, SNLName("out"));
+      SNLScalarTerm::create(mod, SNLTerm::Direction::Output, NLName("out"));
 
-  SNLDesign* bb = SNLDesign::create(library, SNLName("bb"));
+  SNLDesign* bb = SNLDesign::create(library, NLName("bb"));
   auto inTermBB =
-      SNLScalarTerm::create(bb, SNLTerm::Direction::Input, SNLName("in"));
+      SNLScalarTerm::create(bb, SNLTerm::Direction::Input, NLName("in"));
   auto outTermBB =
-      SNLScalarTerm::create(bb, SNLTerm::Direction::Output, SNLName("out"));
+      SNLScalarTerm::create(bb, SNLTerm::Direction::Output, NLName("out"));
 
-  SNLDesign* bbNoOutput = SNLDesign::create(library, SNLName("bbNoOutput"));
+  SNLDesign* bbNoOutput = SNLDesign::create(library, NLName("bbNoOutput"));
   auto inTermBBno = SNLScalarTerm::create(bbNoOutput, SNLTerm::Direction::Input,
-                                          SNLName("in"));
+                                          NLName("in"));
   SNLDesign* bbNoOutputNoInput =
-      SNLDesign::create(library, SNLName("bbNoOutputNoInput"));
+      SNLDesign::create(library, NLName("bbNoOutputNoInput"));
 
-  SNLInstance* inst1 = SNLInstance::create(mod, bb, SNLName("bb1"));
-  SNLInstance* inst2 = SNLInstance::create(mod, bb, SNLName("bb2"));
-  SNLInstance* inst3 = SNLInstance::create(mod, bbNoOutput, SNLName("bbno"));
+  SNLInstance* inst1 = SNLInstance::create(mod, bb, NLName("bb1"));
+  SNLInstance* inst2 = SNLInstance::create(mod, bb, NLName("bb2"));
+  SNLInstance* inst3 = SNLInstance::create(mod, bbNoOutput, NLName("bbno"));
   SNLInstance* inst4 =
-      SNLInstance::create(mod, bbNoOutputNoInput, SNLName("bbnoni"));
-  auto inNet1 = SNLScalarNet::create(mod, SNLName("inNet1"));
+      SNLInstance::create(mod, bbNoOutputNoInput, NLName("bbnoni"));
+  auto inNet1 = SNLScalarNet::create(mod, NLName("inNet1"));
   inst1->getInstTerm(inTermBB)->setNet(inNet1);
   inst2->getInstTerm(inTermBB)->setNet(inNet1);
   inst3->getInstTerm(inTermBBno)->setNet(inNet1);
@@ -295,52 +295,52 @@ TEST_F(LoadlessRemoveLogicTests, simple_2_loadless_nonMT) {
 TEST_F(LoadlessRemoveLogicTests, simple_2_loadless_2_levels) {
   // Create a simple logic with a single
   // input and output
-  SNLUniverse* univ = SNLUniverse::create();
-  SNLDB* db = SNLDB::create(univ);
-  SNLLibrary* library = SNLLibrary::create(db, SNLName("MYLIB"));
-  SNLDesign* mod = SNLDesign::create(library, SNLName("mod"));
+  NLUniverse* univ = NLUniverse::create();
+  NLDB* db = NLDB::create(univ);
+  NLLibrary* library = NLLibrary::create(db, NLName("MYLIB"));
+  SNLDesign* mod = SNLDesign::create(library, NLName("mod"));
   univ->setTopDesign(mod);
   auto inTerm =
-      SNLScalarTerm::create(mod, SNLTerm::Direction::Input, SNLName("in"));
+      SNLScalarTerm::create(mod, SNLTerm::Direction::Input, NLName("in"));
   auto outTerm =
-      SNLScalarTerm::create(mod, SNLTerm::Direction::Output, SNLName("out"));
+      SNLScalarTerm::create(mod, SNLTerm::Direction::Output, NLName("out"));
 
-  SNLDesign* bb = SNLDesign::create(library, SNLName("bb"));
+  SNLDesign* bb = SNLDesign::create(library, NLName("bb"));
   auto inTermBB =
-      SNLScalarTerm::create(bb, SNLTerm::Direction::Input, SNLName("in"));
+      SNLScalarTerm::create(bb, SNLTerm::Direction::Input, NLName("in"));
   auto outTermBB =
-      SNLScalarTerm::create(bb, SNLTerm::Direction::Output, SNLName("out"));
+      SNLScalarTerm::create(bb, SNLTerm::Direction::Output, NLName("out"));
 
-  SNLDesign* bbNoOutput = SNLDesign::create(library, SNLName("bbNoOutput"));
+  SNLDesign* bbNoOutput = SNLDesign::create(library, NLName("bbNoOutput"));
   auto inTermBBno = SNLScalarTerm::create(bbNoOutput, SNLTerm::Direction::Input,
-                                          SNLName("in"));
+                                          NLName("in"));
   SNLDesign* bbNoOutputNoInput =
-      SNLDesign::create(library, SNLName("bbNoOutputNoInput"));
+      SNLDesign::create(library, NLName("bbNoOutputNoInput"));
 
-  SNLInstance* bb1 = SNLInstance::create(mod, bb, SNLName("bb1"));
-  SNLInstance* bb2 = SNLInstance::create(mod, bbNoOutput, SNLName("bb2"));
+  SNLInstance* bb1 = SNLInstance::create(mod, bb, NLName("bb1"));
+  SNLInstance* bb2 = SNLInstance::create(mod, bbNoOutput, NLName("bb2"));
   SNLInstance* bbnoni =
-      SNLInstance::create(mod, bbNoOutputNoInput, SNLName("bbnoni"));
+      SNLInstance::create(mod, bbNoOutputNoInput, NLName("bbnoni"));
 
-  SNLDesign* hierNoOutput = SNLDesign::create(library, SNLName("hierNoOutput"));
+  SNLDesign* hierNoOutput = SNLDesign::create(library, NLName("hierNoOutput"));
   auto inTermHIno = SNLScalarTerm::create(hierNoOutput, SNLTerm::Direction::Input,
-                                          SNLName("in"));
+                                          NLName("in"));
   
   SNLInstance* bb3 =
-      SNLInstance::create(hierNoOutput, bb, SNLName("bb1"));
+      SNLInstance::create(hierNoOutput, bb, NLName("bb1"));
   SNLInstance* bb4 =
-      SNLInstance::create(hierNoOutput, bb, SNLName("bb2"));
+      SNLInstance::create(hierNoOutput, bb, NLName("bb2"));
   
-  auto inNet1 = SNLScalarNet::create(mod, SNLName("inNet1"));
+  auto inNet1 = SNLScalarNet::create(mod, NLName("inNet1"));
   bb1->getInstTerm(inTermBB)->setNet(inNet1);
   bb2->getInstTerm(inTermBBno)->setNet(inNet1);
   inTerm->setNet(inNet1);
-  auto inNetHier = SNLScalarNet::create(hierNoOutput, SNLName("inNetHier"));
+  auto inNetHier = SNLScalarNet::create(hierNoOutput, NLName("inNetHier"));
   bb3->getInstTerm(inTermBB)->setNet(inNetHier);
   bb4->getInstTerm(inTermBB)->setNet(inNetHier);
   inTermHIno->setNet(inNetHier);
-  SNLInstance* hi1 = SNLInstance::create(mod, hierNoOutput, SNLName("hi1"));
-  SNLInstance* hi2 = SNLInstance::create(mod, hierNoOutput, SNLName("hi2"));
+  SNLInstance* hi1 = SNLInstance::create(mod, hierNoOutput, NLName("hi1"));
+  SNLInstance* hi2 = SNLInstance::create(mod, hierNoOutput, NLName("hi2"));
   hi1->getInstTerm(inTermHIno)->setNet(inNet1);
   hi2->getInstTerm(inTermHIno)->setNet(inNet1);
   DNLFull* dnl = get();
@@ -365,58 +365,58 @@ TEST_F(LoadlessRemoveLogicTests, simple_2_loadless_2_levels) {
 TEST_F(LoadlessRemoveLogicTests, simple_2_loadless_3_levels) {
   // Create a simple logic with a single
   // input and output
-  SNLUniverse* univ = SNLUniverse::create();
-  SNLDB* db = SNLDB::create(univ);
-  SNLLibrary* library = SNLLibrary::create(db, SNLName("MYLIB"));
-  SNLDesign* top = SNLDesign::create(library, SNLName("top"));
+  NLUniverse* univ = NLUniverse::create();
+  NLDB* db = NLDB::create(univ);
+  NLLibrary* library = NLLibrary::create(db, NLName("MYLIB"));
+  SNLDesign* top = SNLDesign::create(library, NLName("top"));
   univ->setTopDesign(top);
-  SNLDesign* mod = SNLDesign::create(library, SNLName("mod"));
+  SNLDesign* mod = SNLDesign::create(library, NLName("mod"));
  
   auto inTerm =
-      SNLScalarTerm::create(mod, SNLTerm::Direction::Input, SNLName("in"));
+      SNLScalarTerm::create(mod, SNLTerm::Direction::Input, NLName("in"));
   auto outTerm =
-      SNLScalarTerm::create(mod, SNLTerm::Direction::Output, SNLName("out"));
+      SNLScalarTerm::create(mod, SNLTerm::Direction::Output, NLName("out"));
 
-  SNLDesign* bb = SNLDesign::create(library, SNLName("bb"));
+  SNLDesign* bb = SNLDesign::create(library, NLName("bb"));
   auto inTermBB =
-      SNLScalarTerm::create(bb, SNLTerm::Direction::Input, SNLName("in"));
+      SNLScalarTerm::create(bb, SNLTerm::Direction::Input, NLName("in"));
   auto outTermBB =
-      SNLScalarTerm::create(bb, SNLTerm::Direction::Output, SNLName("out"));
+      SNLScalarTerm::create(bb, SNLTerm::Direction::Output, NLName("out"));
 
-  SNLDesign* bbNoOutput = SNLDesign::create(library, SNLName("bbNoOutput"));
+  SNLDesign* bbNoOutput = SNLDesign::create(library, NLName("bbNoOutput"));
   auto inTermBBno = SNLScalarTerm::create(bbNoOutput, SNLTerm::Direction::Input,
-                                          SNLName("in"));
+                                          NLName("in"));
   SNLDesign* bbNoOutputNoInput =
-      SNLDesign::create(library, SNLName("bbNoOutputNoInput"));
+      SNLDesign::create(library, NLName("bbNoOutputNoInput"));
 
-  SNLInstance* bb1 = SNLInstance::create(mod, bb, SNLName("bb1"));
-  SNLInstance* bb2 = SNLInstance::create(mod, bbNoOutput, SNLName("bb2"));
+  SNLInstance* bb1 = SNLInstance::create(mod, bb, NLName("bb1"));
+  SNLInstance* bb2 = SNLInstance::create(mod, bbNoOutput, NLName("bb2"));
   SNLInstance* bbnoni =
-      SNLInstance::create(mod, bbNoOutputNoInput, SNLName("bbnoni"));
+      SNLInstance::create(mod, bbNoOutputNoInput, NLName("bbnoni"));
 
-  SNLDesign* hierNoOutput = SNLDesign::create(library, SNLName("hierNoOutput"));
+  SNLDesign* hierNoOutput = SNLDesign::create(library, NLName("hierNoOutput"));
   auto inTermHIno = SNLScalarTerm::create(hierNoOutput, SNLTerm::Direction::Input,
-                                          SNLName("in"));
+                                          NLName("in"));
   
   SNLInstance* bb3 =
-      SNLInstance::create(hierNoOutput, bb, SNLName("bb1"));
+      SNLInstance::create(hierNoOutput, bb, NLName("bb1"));
   SNLInstance* bb4 =
-      SNLInstance::create(hierNoOutput, bb, SNLName("bb2"));
+      SNLInstance::create(hierNoOutput, bb, NLName("bb2"));
   
-  auto inNet1 = SNLScalarNet::create(mod, SNLName("inNet1"));
+  auto inNet1 = SNLScalarNet::create(mod, NLName("inNet1"));
   bb1->getInstTerm(inTermBB)->setNet(inNet1);
   bb2->getInstTerm(inTermBBno)->setNet(inNet1);
   inTerm->setNet(inNet1);
-  auto inNetHier = SNLScalarNet::create(hierNoOutput, SNLName("inNetHier"));
+  auto inNetHier = SNLScalarNet::create(hierNoOutput, NLName("inNetHier"));
   bb3->getInstTerm(inTermBB)->setNet(inNetHier);
   bb4->getInstTerm(inTermBB)->setNet(inNetHier);
   inTermHIno->setNet(inNetHier);
-  SNLInstance* hi1 = SNLInstance::create(mod, hierNoOutput, SNLName("hi1"));
-  SNLInstance* hi2 = SNLInstance::create(mod, hierNoOutput, SNLName("hi2"));
+  SNLInstance* hi1 = SNLInstance::create(mod, hierNoOutput, NLName("hi1"));
+  SNLInstance* hi2 = SNLInstance::create(mod, hierNoOutput, NLName("hi2"));
   hi1->getInstTerm(inTermHIno)->setNet(inNet1);
   hi2->getInstTerm(inTermHIno)->setNet(inNet1);
-  SNLInstance* modInst1 = SNLInstance::create(top, mod, SNLName("modInst1"));
-  SNLInstance* modInst2 = SNLInstance::create(top, mod, SNLName("modInst2"));
+  SNLInstance* modInst1 = SNLInstance::create(top, mod, NLName("modInst1"));
+  SNLInstance* modInst2 = SNLInstance::create(top, mod, NLName("modInst2"));
   DNLFull* dnl = get();
   LoadlessLogicRemover remover;
   remover.setNormalizedUniquification(false);
@@ -440,58 +440,58 @@ TEST_F(LoadlessRemoveLogicTests, simple_2_loadless_3_levels) {
 TEST_F(LoadlessRemoveLogicTests, simple_2_loadless_3_levels_bne) {
   // Create a simple logic with a single
   // input and output
-  SNLUniverse* univ = SNLUniverse::create();
-  SNLDB* db = SNLDB::create(univ);
-  SNLLibrary* library = SNLLibrary::create(db, SNLName("MYLIB"));
-  SNLDesign* top = SNLDesign::create(library, SNLName("top"));
+  NLUniverse* univ = NLUniverse::create();
+  NLDB* db = NLDB::create(univ);
+  NLLibrary* library = NLLibrary::create(db, NLName("MYLIB"));
+  SNLDesign* top = SNLDesign::create(library, NLName("top"));
   univ->setTopDesign(top);
-  SNLDesign* mod = SNLDesign::create(library, SNLName("mod"));
+  SNLDesign* mod = SNLDesign::create(library, NLName("mod"));
  
   auto inTerm =
-      SNLScalarTerm::create(mod, SNLTerm::Direction::Input, SNLName("in"));
+      SNLScalarTerm::create(mod, SNLTerm::Direction::Input, NLName("in"));
   auto outTerm =
-      SNLScalarTerm::create(mod, SNLTerm::Direction::Output, SNLName("out"));
+      SNLScalarTerm::create(mod, SNLTerm::Direction::Output, NLName("out"));
 
-  SNLDesign* bb = SNLDesign::create(library, SNLName("bb"));
+  SNLDesign* bb = SNLDesign::create(library, NLName("bb"));
   auto inTermBB =
-      SNLScalarTerm::create(bb, SNLTerm::Direction::Input, SNLName("in"));
+      SNLScalarTerm::create(bb, SNLTerm::Direction::Input, NLName("in"));
   auto outTermBB =
-      SNLScalarTerm::create(bb, SNLTerm::Direction::Output, SNLName("out"));
+      SNLScalarTerm::create(bb, SNLTerm::Direction::Output, NLName("out"));
 
-  SNLDesign* bbNoOutput = SNLDesign::create(library, SNLName("bbNoOutput"));
+  SNLDesign* bbNoOutput = SNLDesign::create(library, NLName("bbNoOutput"));
   auto inTermBBno = SNLScalarTerm::create(bbNoOutput, SNLTerm::Direction::Input,
-                                          SNLName("in"));
+                                          NLName("in"));
   SNLDesign* bbNoOutputNoInput =
-      SNLDesign::create(library, SNLName("bbNoOutputNoInput"));
+      SNLDesign::create(library, NLName("bbNoOutputNoInput"));
 
-  SNLInstance* bb1 = SNLInstance::create(mod, bb, SNLName("bb1"));
-  SNLInstance* bb2 = SNLInstance::create(mod, bbNoOutput, SNLName("bb2"));
+  SNLInstance* bb1 = SNLInstance::create(mod, bb, NLName("bb1"));
+  SNLInstance* bb2 = SNLInstance::create(mod, bbNoOutput, NLName("bb2"));
   SNLInstance* bbnoni =
-      SNLInstance::create(mod, bbNoOutputNoInput, SNLName("bbnoni"));
+      SNLInstance::create(mod, bbNoOutputNoInput, NLName("bbnoni"));
 
-  SNLDesign* hierNoOutput = SNLDesign::create(library, SNLName("hierNoOutput"));
+  SNLDesign* hierNoOutput = SNLDesign::create(library, NLName("hierNoOutput"));
   auto inTermHIno = SNLScalarTerm::create(hierNoOutput, SNLTerm::Direction::Input,
-                                          SNLName("in"));
+                                          NLName("in"));
   
   SNLInstance* bb3 =
-      SNLInstance::create(hierNoOutput, bb, SNLName("bb1"));
+      SNLInstance::create(hierNoOutput, bb, NLName("bb1"));
   SNLInstance* bb4 =
-      SNLInstance::create(hierNoOutput, bb, SNLName("bb2"));
+      SNLInstance::create(hierNoOutput, bb, NLName("bb2"));
   
-  auto inNet1 = SNLScalarNet::create(mod, SNLName("inNet1"));
+  auto inNet1 = SNLScalarNet::create(mod, NLName("inNet1"));
   bb1->getInstTerm(inTermBB)->setNet(inNet1);
   bb2->getInstTerm(inTermBBno)->setNet(inNet1);
   inTerm->setNet(inNet1);
-  auto inNetHier = SNLScalarNet::create(hierNoOutput, SNLName("inNetHier"));
+  auto inNetHier = SNLScalarNet::create(hierNoOutput, NLName("inNetHier"));
   bb3->getInstTerm(inTermBB)->setNet(inNetHier);
   bb4->getInstTerm(inTermBB)->setNet(inNetHier);
   inTermHIno->setNet(inNetHier);
-  SNLInstance* hi1 = SNLInstance::create(mod, hierNoOutput, SNLName("hi1"));
-  SNLInstance* hi2 = SNLInstance::create(mod, hierNoOutput, SNLName("hi2"));
+  SNLInstance* hi1 = SNLInstance::create(mod, hierNoOutput, NLName("hi1"));
+  SNLInstance* hi2 = SNLInstance::create(mod, hierNoOutput, NLName("hi2"));
   hi1->getInstTerm(inTermHIno)->setNet(inNet1);
   hi2->getInstTerm(inTermHIno)->setNet(inNet1);
-  SNLInstance* modInst1 = SNLInstance::create(top, mod, SNLName("modInst1"));
-  SNLInstance* modInst2 = SNLInstance::create(top, mod, SNLName("modInst2"));
+  SNLInstance* modInst1 = SNLInstance::create(top, mod, NLName("modInst1"));
+  SNLInstance* modInst2 = SNLInstance::create(top, mod, NLName("modInst2"));
   DNLFull* dnl = get();
   LoadlessLogicRemover remover;
   remover.setNormalizedUniquification(true);

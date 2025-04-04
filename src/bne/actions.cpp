@@ -12,43 +12,43 @@
 #include <vector>
 #include "SNLDesignModeling.h"
 #include "SNLDesignTruthTable.h"
-#include "SNLLibraryTruthTables.h"
+#include "NLLibraryTruthTables.h"
 #include "SNLScalarNet.h"
 #include "SNLTruthTable.h"
 #include "Utils.h"
 
 using namespace naja::DNL;
-using namespace naja::SNL;
+using namespace naja::NL;
 using namespace naja::BNE;
 
 void DriveWithConstantAction::changeDriverToLocal0(SNLInstTerm* term) {
   term->setNet(nullptr);
   std::string name(std::string("logic0_naja"));
-  auto netName = SNLName(name + "_net");
+  auto netName = NLName(name + "_net");
   SNLNet* assign0 = term->getDesign()->getNet(netName);
   if (nullptr == assign0) {
     assign0 = SNLScalarNet::create(term->getDesign(), netName);
   }
-  assign0->setType(naja::SNL::SNLNet::Type::Supply0);
+  assign0->setType(naja::NL::SNLNet::Type::Supply0);
   term->setNet(assign0);
   // find primitives library
   if (term->getDB()->getPrimitiveLibraries().size() != 1) {
     // LCOV_EXCL_START
-    throw SNLException("There should be only one primitive library");
+    throw NLException("There should be only one primitive library");
     // LCOV_EXCL_STOP
   }
   auto primitives = *term->getDB()->getPrimitiveLibraries().begin();
   auto logic0 =
-      SNLLibraryTruthTables::getDesignForTruthTable(primitives, SNLTruthTable::Logic0()).first;
+      NLLibraryTruthTables::getDesignForTruthTable(primitives, SNLTruthTable::Logic0()).first;
 
-  SNLInstance* logic0Inst = term->getDesign()->getInstance(SNLName(name));
+  SNLInstance* logic0Inst = term->getDesign()->getInstance(NLName(name));
   if (nullptr == logic0Inst) {
     if (logic0 == nullptr) {
       // LCOV_EXCL_START
-      throw SNLException("No logic0 design found");
+      throw NLException("No logic0 design found");
       // LCOV_EXCL_STOP
     }
-    logic0Inst = SNLInstance::create(term->getDesign(), logic0, SNLName(name));
+    logic0Inst = SNLInstance::create(term->getDesign(), logic0, NLName(name));
   }
   (*logic0Inst->getInstTerms().begin())->setNet(assign0);
 }
@@ -56,31 +56,31 @@ void DriveWithConstantAction::changeDriverToLocal0(SNLInstTerm* term) {
 void DriveWithConstantAction::changeDriverToLocal1(SNLInstTerm* term) {
   term->setNet(nullptr);
   std::string name(std::string("logic1_naja"));
-  auto netName = SNLName(name + "_net");
+  auto netName = NLName(name + "_net");
   SNLNet* assign1 = term->getDesign()->getNet(netName);
   if (nullptr == assign1) {
     assign1 = SNLScalarNet::create(term->getDesign(), netName);
   }
-  assign1->setType(naja::SNL::SNLNet::Type::Supply1);
+  assign1->setType(naja::NL::SNLNet::Type::Supply1);
   term->setNet(assign1);
 
   // find primitives library
   if (term->getDB()->getPrimitiveLibraries().size() != 1) {
     // LCOV_EXCL_START
-    throw SNLException("There should be only one primitive library");
+    throw NLException("There should be only one primitive library");
     // LCOV_EXCL_STOP
   }
   auto primitives = *term->getDB()->getPrimitiveLibraries().begin();
   auto logic1 =
-      SNLLibraryTruthTables::getDesignForTruthTable(primitives, SNLTruthTable::Logic1()).first;
-  SNLInstance* logic1Inst = term->getDesign()->getInstance(SNLName(name));
+      NLLibraryTruthTables::getDesignForTruthTable(primitives, SNLTruthTable::Logic1()).first;
+  SNLInstance* logic1Inst = term->getDesign()->getInstance(NLName(name));
   if (nullptr == logic1Inst) {
     if (logic1 == nullptr) {
       // LCOV_EXCL_START
-      throw SNLException("No logic1 design found");
+      throw NLException("No logic1 design found");
       // LCOV_EXCL_STOP
     }
-    logic1Inst = SNLInstance::create(term->getDesign(), logic1, SNLName(name));
+    logic1Inst = SNLInstance::create(term->getDesign(), logic1, NLName(name));
   }
   (*logic1Inst->getInstTerms().begin())->setNet(assign1);
 }
@@ -88,19 +88,19 @@ void DriveWithConstantAction::changeDriverToLocal1(SNLInstTerm* term) {
 void DriveWithConstantAction::changeDriverto0Top(SNLBitTerm* term) {
   term->setNet(nullptr);
   std::string name(std::string("logic0_naja"));
-  auto netName = SNLName(name + "_net");
+  auto netName = NLName(name + "_net");
   SNLNet* assign0 = term->getDesign()->getNet(netName);
   if (nullptr == assign0) {
     assign0 = SNLScalarNet::create(term->getDesign(), netName);
   }
-  assign0->setType(naja::SNL::SNLNet::Type::Supply0);
+  assign0->setType(naja::NL::SNLNet::Type::Supply0);
   term->setNet(assign0);
-  auto logic0 = SNLLibraryTruthTables::getDesignForTruthTable(
+  auto logic0 = NLLibraryTruthTables::getDesignForTruthTable(
                     *(term->getDB()->getPrimitiveLibraries().begin()), SNLTruthTable::Logic0())
                     .first;
-  SNLInstance* logic0Inst = term->getDesign()->getInstance(SNLName(name));
+  SNLInstance* logic0Inst = term->getDesign()->getInstance(NLName(name));
   if (nullptr == logic0Inst) {
-    logic0Inst = SNLInstance::create(term->getDesign(), logic0, SNLName(name));
+    logic0Inst = SNLInstance::create(term->getDesign(), logic0, NLName(name));
   }
   (*logic0Inst->getInstTerms().begin())->setNet(assign0);
 }
@@ -108,19 +108,19 @@ void DriveWithConstantAction::changeDriverto0Top(SNLBitTerm* term) {
 void DriveWithConstantAction::changeDriverto1Top(SNLBitTerm* term) {
   term->setNet(nullptr);
   std::string name(std::string("logic1_naja"));
-  auto netName = SNLName(name + "_net");
+  auto netName = NLName(name + "_net");
   SNLNet* assign1 = term->getDesign()->getNet(netName);
   if (nullptr == assign1) {
     assign1 = SNLScalarNet::create(term->getDesign(), netName);
   }
-  assign1->setType(naja::SNL::SNLNet::Type::Supply1);
+  assign1->setType(naja::NL::SNLNet::Type::Supply1);
   term->setNet(assign1);
-  auto logic1 = SNLLibraryTruthTables::getDesignForTruthTable(
+  auto logic1 = NLLibraryTruthTables::getDesignForTruthTable(
                     *(term->getDB()->getPrimitiveLibraries().begin()), SNLTruthTable::Logic1())
                     .first;
-  SNLInstance* logic1Inst = term->getDesign()->getInstance(SNLName(name));
+  SNLInstance* logic1Inst = term->getDesign()->getInstance(NLName(name));
   if (nullptr == logic1Inst) {
-    logic1Inst = SNLInstance::create(term->getDesign(), logic1, SNLName(name));
+    logic1Inst = SNLInstance::create(term->getDesign(), logic1, NLName(name));
   }
   (*logic1Inst->getInstTerms().begin())->setNet(assign1);
 }
@@ -146,7 +146,7 @@ void DriveWithConstantAction::processOnContext(SNLDesign* design) {
     }
   } else {
     // LCOV_EXCL_START
-    throw SNLException("Value should be 0 or 1");
+    throw NLException("Value should be 0 or 1");
     // LCOV_EXCL_STOP
   }
 }
@@ -195,7 +195,7 @@ bool DriveWithConstantAction::operator<(const Action& action) const {
 }
 
 DeleteAction::DeleteAction(
-    const std::vector<SNLID::DesignObjectID>& pathToDelete)
+    const std::vector<NLID::DesignObjectID>& pathToDelete)
     : Action(ActionType::DELETE) {
   assert(!pathToDelete.empty());
   toDelete_ = pathToDelete.back();
@@ -229,12 +229,12 @@ bool DeleteAction::operator<(const Action& action) const {
 
 void ReductionAction::replaceInstance(
     SNLInstance* instance,
-    const std::pair<SNLDesign*, SNLLibraryTruthTables::Indexes>& result) {
+    const std::pair<SNLDesign*, NLLibraryTruthTables::Indexes>& result) {
   SNLDesign* design = instance->getDesign();
   SNLDesign* reducedDesign = result.first;
   SNLInstance* reducedInstance = SNLInstance::create(
       design, reducedDesign,
-      SNLName(std::string(instance->getName().getString()) + "_reduced"));
+      NLName(std::string(instance->getName().getString()) + "_reduced"));
   std::vector<SNLInstTerm*> reducedInstTerms;
   SNLInstTerm* output = nullptr;
   SNLInstTerm* reducedOutput = nullptr;

@@ -4,7 +4,7 @@
 
 import logging
 import os
-from najaeda import snl
+from najaeda import naja
 
 
 class DesignsStats:
@@ -99,19 +99,19 @@ def compute_design_stats(design, designs_stats):
 
 def compute_design_terms(design, design_stats):
     for term in design.getTerms():
-        if term.getDirection() == snl.SNLTerm.Direction.Input:
+        if term.getDirection() == naja.SNLTerm.Direction.Input:
             design_stats.terms["inputs"] = design_stats.terms.get("inputs", 0) + 1
             bit_terms = sum(1 for _ in term.getBits())
             design_stats.bit_terms["inputs"] = (
                 design_stats.bit_terms.get("inputs", 0) + bit_terms
             )
-        elif term.getDirection() == snl.SNLTerm.Direction.Output:
+        elif term.getDirection() == naja.SNLTerm.Direction.Output:
             design_stats.terms["outputs"] = design_stats.terms.get("outputs", 0) + 1
             bit_terms = sum(1 for _ in term.getBits())
             design_stats.bit_terms["outputs"] = (
                 design_stats.bit_terms.get("outputs", 0) + bit_terms
             )
-        elif term.getDirection() == snl.SNLTerm.Direction.InOut:
+        elif term.getDirection() == naja.SNLTerm.Direction.InOut:
             design_stats.terms["inouts"] = design_stats.terms.get("inouts", 0) + 1
             bit_terms = sum(1 for _ in term.getBits())
             design_stats.bit_terms["inouts"] = (

@@ -1,15 +1,15 @@
 import logging
-from naja import snl
+from naja import naja
 
 def edit():
   logging.basicConfig(filename='edit.log', filemode='w' ,level=logging.DEBUG)
-  universe = snl.SNLUniverse.get()
+  universe = naja.NLUniverse.get()
   if universe is None:
-    logging.critical('No loaded SNLUniverse')
+    logging.critical('No loaded NLUniverse')
     return 1
   top = universe.getTopDesign()
   if top is None:
-    logging.critical('SNLUniverse does not contain any top SNLDesign')
+    logging.critical('NLUniverse does not contain any top SNLDesign')
     return 1
   else:
     logging.info('Found top design ' + str(top))
@@ -22,7 +22,7 @@ def edit():
     edge = set()
     first = True
     for component in net.getComponents():
-      if isinstance(component, snl.SNLInstTerm):
+      if isinstance(component, naja.SNLInstTerm):
         instance = component.getInstance()
         edge.add(instance)
       else:

@@ -18,10 +18,10 @@
 #include "SNLBitTerm.h"
 #include "SNLInstTerm.h"
 #include "SNLInstance.h"
-#include "SNLUniverse.h"
+#include "NLUniverse.h"
 #include "tbb/parallel_for.h"
 
-using namespace naja::SNL;
+using namespace naja::NL;
 using namespace naja::DNL;
 
 // #define DEBUG_PRINTS
@@ -30,21 +30,21 @@ namespace naja {
 
 void OrderIDInitializer::process() {
   std::stack<SNLDesign*> designs;
-  designs.push(SNLUniverse::get()->getTopDesign());
-  naja::SNL::SNLID::DesignObjectID bitTermId = 0;
-  for (auto term : SNLUniverse::get()->getTopDesign()->getBitTerms()) {
+  designs.push(NLUniverse::get()->getTopDesign());
+  naja::NL::NLID::DesignObjectID bitTermId = 0;
+  for (auto term : NLUniverse::get()->getTopDesign()->getBitTerms()) {
     term->setOrderID(bitTermId);
     bitTermId++;
   }
   while (!designs.empty()) {
     SNLDesign* design = designs.top();
     designs.pop();
-    naja::SNL::SNLID::DesignObjectID id = 0;
+    naja::NL::NLID::DesignObjectID id = 0;
     for (auto inst : design->getInstances()) {
       inst->setOrderID(id);
       id++;
       designs.push(inst->getModel());
-      naja::SNL::SNLID::DesignObjectID TermId = 0;
+      naja::NL::NLID::DesignObjectID TermId = 0;
       for (auto term : inst->getInstTerms()) {
         term->getBitTerm()->setOrderID(TermId);
         TermId++;
@@ -62,9 +62,9 @@ bool isCreated() {
   return dnlFull_ != nullptr;
 }
 DNL<DNLInstanceFull, DNLTerminalFull>* create() {
-  assert(SNLUniverse::get());
+  assert(NLUniverse::get());
   dnlFull_ = new DNL<DNLInstanceFull, DNLTerminalFull>(
-      SNLUniverse::get()->getTopDesign());
+      NLUniverse::get()->getTopDesign());
   dnlFull_->process();
   return dnlFull_;
 }
@@ -117,7 +117,7 @@ const SNLDesign* DNLInstanceFull::getSNLModel() const {
   if (instance_) {
     return instance_->getModel();
   } else {
-    return SNLUniverse::get()->getTopDesign();
+    return NLUniverse::get()->getTopDesign();
   }
 }
 
@@ -155,9 +155,9 @@ const DNLInstanceFull& DNLInstanceFull::getChildInstance(
   std::advance(first, childrenIndexes_.first);
   auto last = (*get()).getDNLInstances().begin();
   std::advance(last, childrenIndexes_.second + 1);// "+ 1" <- exclusive of this
-  element naja::SNL::SNLID::DesignObjectID id = snlInst->getID(); auto result =
+  element naja::NL::NLID::DesignObjectID id = snlInst->getID(); auto result =
   std::lower_bound( first, last, id,
-          [](const DNLInstanceFull& inst, naja::SNL::SNLID::DesignObjectID id) {
+          [](const DNLInstanceFull& inst, naja::NL::NLID::DesignObjectID id) {
             return inst.getSNLInstance()->getID() < id;
           });
   if (result != last && (*result).getSNLInstance() == snlInst) {

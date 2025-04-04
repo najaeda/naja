@@ -12,15 +12,15 @@
 #include "SNLUniquifier.h"
 
 using namespace naja::DNL;
-using namespace naja::SNL;
+using namespace naja::NL;
 using namespace naja::NAJA_OPT;
 
 // #define DEBUG_PRINTS
 
 ReductionOptimization::ReductionOptimization(
     const std::vector<
-        std::tuple<std::vector<SNLID::DesignObjectID>,
-                   std::vector<std::pair<SNLID::DesignObjectID, int>>,
+        std::tuple<std::vector<NLID::DesignObjectID>,
+                   std::vector<std::pair<NLID::DesignObjectID, int>>,
                    DNLID>>& partialConstantReaders)
     : partialConstantReaders_(partialConstantReaders) {}
 
@@ -44,7 +44,7 @@ void ReductionOptimization::run() {
 SNLTruthTable ReductionOptimization::reduceTruthTable(
     SNLInstance* uniquifiedCandidate,
     const SNLTruthTable& truthTable,
-    const std::vector<std::pair<SNLID::DesignObjectID, int>>& constTerms) {
+    const std::vector<std::pair<NLID::DesignObjectID, int>>& constTerms) {
   assert(constTerms.size() <= truthTable.size());
   std::map<size_t, size_t> termID2index;
   size_t index = 0;
@@ -67,7 +67,7 @@ SNLTruthTable ReductionOptimization::reduceTruthTable(
 
 void ReductionOptimization::replaceInstance(
     SNLInstance* instance,
-    const std::pair<SNLDesign*, SNLLibraryTruthTables::Indexes>& result) {
+    const std::pair<SNLDesign*, NLLibraryTruthTables::Indexes>& result) {
   reductionStatistics_[std::pair<std::string, std::string>(
       instance->getModel()->getName().getString(),
       result.first->getName().getString())]++;
@@ -75,7 +75,7 @@ void ReductionOptimization::replaceInstance(
   SNLDesign* reducedDesign = result.first;
   SNLInstance* reducedInstance = SNLInstance::create(
       design, reducedDesign,
-      SNLName(std::string(instance->getName().getString()) + "_reduced"));
+      NLName(std::string(instance->getName().getString()) + "_reduced"));
   std::vector<SNLInstTerm*> reducedInstTerms;
   SNLInstTerm* output = nullptr;
   SNLInstTerm* reducedOutput = nullptr;
@@ -117,15 +117,15 @@ void ReductionOptimization::replaceInstance(
 }
 
 void ReductionOptimization::reducPartialConstantInstance(
-    std::tuple<std::vector<SNLID::DesignObjectID>,
-               std::vector<std::pair<SNLID::DesignObjectID, int>>,
+    std::tuple<std::vector<NLID::DesignObjectID>,
+               std::vector<std::pair<NLID::DesignObjectID, int>>,
                DNLID>& candidate) {
 #ifdef DEBUG_PRINTS
   // LCOV_EXCL_START
   printf("reducPartialConstantInstance Reducing partial constant instance\n");
   // LCOV_EXCL_STOP
 #endif
-  auto library = *(SNLUniverse::get()
+  auto library = *(NLUniverse::get()
                        ->getTopDesign()
                        ->getDB()
                        ->getPrimitiveLibraries()
@@ -173,7 +173,7 @@ void ReductionOptimization::reducPartialConstantInstance(
 // LCOV_EXCL_STOP
 #endif
   auto result =
-      SNLLibraryTruthTables::getDesignForTruthTable(library, reducedTruthTable);
+      NLLibraryTruthTables::getDesignForTruthTable(library, reducedTruthTable);
   if (result.first) {
 #ifdef DEBUG_PRINTS
     // LCOV_EXCL_START
@@ -197,15 +197,15 @@ void ReductionOptimization::reducPartialConstantInstance(
 
 void ReductionOptimization::
     reducPartialConstantInstanceWithNormalizedUniquification(
-        std::tuple<std::vector<SNLID::DesignObjectID>,
-                   std::vector<std::pair<SNLID::DesignObjectID, int>>,
+        std::tuple<std::vector<NLID::DesignObjectID>,
+                   std::vector<std::pair<NLID::DesignObjectID, int>>,
                    DNLID>& candidate) {
 #ifdef DEBUG_PRINTS
   // LCOV_EXCL_START
   printf("reducPartialConstantInstance Reducing partial constant instance\n");
   // LCOV_EXCL_STOP
 #endif
-  auto library = *(SNLUniverse::get()
+  auto library = *(NLUniverse::get()
                        ->getTopDesign()
                        ->getDB()
                        ->getPrimitiveLibraries()
@@ -243,7 +243,7 @@ void ReductionOptimization::
 // LCOV_EXCL_STOP
 #endif
   auto result =
-      SNLLibraryTruthTables::getDesignForTruthTable(library, reducedTruthTable);
+      NLLibraryTruthTables::getDesignForTruthTable(library, reducedTruthTable);
   if (result.first) {
 #ifdef DEBUG_PRINTS
     // LCOV_EXCL_START

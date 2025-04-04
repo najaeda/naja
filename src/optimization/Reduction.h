@@ -11,39 +11,39 @@
 #include "BNE.h"
 
 #include "SNLTruthTable.h"
-#include "SNLLibraryTruthTables.h"
+#include "NLLibraryTruthTables.h"
 
 #include "DNL.h"
 
 using namespace naja::DNL;
-using namespace naja::SNL;
+using namespace naja::NL;
 using namespace naja::BNE;
 
 namespace naja::NAJA_OPT {
 
 class ReductionOptimization {
  public:
-  ReductionOptimization(const std::vector<std::tuple<std::vector<SNLID::DesignObjectID>,
-                         std::vector<std::pair<SNLID::DesignObjectID, int>>,
+  ReductionOptimization(const std::vector<std::tuple<std::vector<NLID::DesignObjectID>,
+                         std::vector<std::pair<NLID::DesignObjectID, int>>,
                          DNLID>>& partialConstantReaders);
   static SNLTruthTable reduceTruthTable(SNLInstance* uniquifiedCandidate,
     const SNLTruthTable& truthTable,
-    const std::vector<std::pair<SNLID::DesignObjectID, int>>& constTerms);
+    const std::vector<std::pair<NLID::DesignObjectID, int>>& constTerms);
   void run();
   std::string collectStatistics() const;
   void setNormalizedUniquification(bool normalizedUniquification) {
     normalizedUniquification_ = normalizedUniquification;
   }
  private:
-  void replaceInstance(SNLInstance* instance, const std::pair<SNLDesign*, SNLLibraryTruthTables::Indexes>& result);
-  void reducPartialConstantInstanceWithNormalizedUniquification(std::tuple<std::vector<SNLID::DesignObjectID>,
-                     std::vector<std::pair<SNLID::DesignObjectID, int>>,
+  void replaceInstance(SNLInstance* instance, const std::pair<SNLDesign*, NLLibraryTruthTables::Indexes>& result);
+  void reducPartialConstantInstanceWithNormalizedUniquification(std::tuple<std::vector<NLID::DesignObjectID>,
+                     std::vector<std::pair<NLID::DesignObjectID, int>>,
                      DNLID>& candidate);
-  void reducPartialConstantInstance(std::tuple<std::vector<SNLID::DesignObjectID>,
-                     std::vector<std::pair<SNLID::DesignObjectID, int>>,
+  void reducPartialConstantInstance(std::tuple<std::vector<NLID::DesignObjectID>,
+                     std::vector<std::pair<NLID::DesignObjectID, int>>,
                      DNLID>& candidate);
-  std::vector<std::tuple<std::vector<SNLID::DesignObjectID>,
-                         std::vector<std::pair<SNLID::DesignObjectID, int>>,
+  std::vector<std::tuple<std::vector<NLID::DesignObjectID>,
+                         std::vector<std::pair<NLID::DesignObjectID, int>>,
                          DNLID>>
       partialConstantReaders_;
   std::map<std::pair<std::string, std::string>, size_t> reductionStatistics_;

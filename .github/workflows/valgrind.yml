@@ -43,52 +43,52 @@ jobs:
       run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./najaCoreTests
 
     - name: TestSNLKernel
-      working-directory: ${{github.workspace}}/build/test/snl/snl/kernel
+      working-directory: ${{github.workspace}}/build/test/nl/snl/kernel
       run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./snlTests
 
     - name: TestDecoratorsTest
-      working-directory: ${{github.workspace}}/build/test/snl/snl/decorators
+      working-directory: ${{github.workspace}}/build/test/nl/snl/decorators
       run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./snlDecoratorsTests
 
     - name: TestSNLKernelWithPyLoader
-      working-directory: ${{github.workspace}}/build/test/snl/snl/kernel
+      working-directory: ${{github.workspace}}/build/test/nl/snl/kernel
       env:
-        PYTHONPATH: ${{env.PYTHONPATH}}:${{github.workspace}}/build/src/snl/python/snl_wrapping
+        PYTHONPATH: ${{env.PYTHONPATH}}:${{github.workspace}}/build/src/nl/python/naja_wrapping
         PYTHONMALLOC: malloc
       run: valgrind --error-exitcode=1 --show-leak-kinds=definite --leak-check=full --errors-for-leak-kinds=definite ./snlTestsWithPyLoader
 
     - name: TestSNLDump
-      working-directory: ${{github.workspace}}/build/test/snl/snl/serialization/capnp
+      working-directory: ${{github.workspace}}/build/test/nl/snl/serialization/capnp
       run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./snlCapnPTests
 
     - name: TestSNLNetlists
-      working-directory: ${{github.workspace}}/build/test/snl/netlists
+      working-directory: ${{github.workspace}}/build/test/nl/netlists
       run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./snlNetlistTests
 
     - name: TestSNLVRLConstructor
-      working-directory: ${{github.workspace}}/build/test/snl/formats/verilog/frontend
+      working-directory: ${{github.workspace}}/build/test/nl/formats/verilog/frontend
       env:
-        PYTHONPATH: ${{env.PYTHONPATH}}:${{github.workspace}}/build/src/snl/python/snl_wrapping
+        PYTHONPATH: ${{env.PYTHONPATH}}:${{github.workspace}}/build/src/nl/python/nl_wrapping
         PYTHONMALLOC: malloc
       run: valgrind --error-exitcode=1 --show-leak-kinds=definite --leak-check=full --errors-for-leak-kinds=definite ./snlVRLConstructorTests
 
     - name: TestLiberty
-      working-directory: ${{github.workspace}}/build/test/snl/formats/liberty
+      working-directory: ${{github.workspace}}/build/test/nl/formats/liberty
       run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./snl_liberty_tests
 
     - name: TestSNLVRLDumper
-      working-directory: ${{github.workspace}}/build/test/snl/formats/verilog/backend
+      working-directory: ${{github.workspace}}/build/test/nl/formats/verilog/backend
       run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./snlVRLDumperTests
 
     - name: TestSNLPyLoader
-      working-directory: ${{github.workspace}}/build/test/snl/python/pyloader
+      working-directory: ${{github.workspace}}/build/test/nl/python/pyloader
       env:
-        PYTHONPATH: ${{env.PYTHONPATH}}:${{github.workspace}}/build/src/snl/python/snl_wrapping
+        PYTHONPATH: ${{env.PYTHONPATH}}:${{github.workspace}}/build/src/nl/python/naja_wrapping
         PYTHONMALLOC: malloc
       run: valgrind --error-exitcode=1 --show-leak-kinds=definite --leak-check=full --errors-for-leak-kinds=definite ./snlPyLoaderTests --gtest_filter=-"*testFaultyPythonScript*" 
 
     - name: TestSNLVisualsTest
-      working-directory: ${{github.workspace}}/build/test/snl/visual
+      working-directory: ${{github.workspace}}/build/test/nl/visual
       run: valgrind --error-exitcode=1 ./snl_visual_tests
       #run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./snl_visual_tests
 
@@ -109,7 +109,7 @@ jobs:
     #- name: TestReductionOpt
     #  working-directory: ${{github.workspace}}/build/test/logic_opt
     #  env:
-    #    PYTHONPATH: ${{env.PYTHONPATH}}:${{github.workspace}}/build/src/snl/python/snl_wrapping
+    #    PYTHONPATH: ${{env.PYTHONPATH}}:${{github.workspace}}/build/src/snl/python/nl_wrapping
     #    PYTHONMALLOC: malloc
     #  run: valgrind --error-exitcode=1 --show-leak-kinds=all --leak-check=full --errors-for-leak-kinds=all ./reductionOptTests
     #  #run: valgrind --error-exitcode=1 ./reductionOptTests
