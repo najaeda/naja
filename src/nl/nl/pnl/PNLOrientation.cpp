@@ -21,7 +21,9 @@ std::string PNLOrientation::Type::getString() const {
     case MX: return "MX";
     case MXR90: return "MXR90";
   }
+  // LCOV_EXCL_START
   return "Unknown";
+  // LCOV_EXCL_STOP
 }
 
 }} // namespace PNL // namespace naja
