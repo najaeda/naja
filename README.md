@@ -258,7 +258,7 @@ export PYTHONPATH=$PYTHONPATH:$NAJA_INSTALL/lib/python
 
 ##### SNL Interchange Format
 
-SNL relies on [Cap'n Proto](https://github.com/capnproto/capnproto) for data serialization and streaming. Schema files and C++ implementation can be found [here](https://github.com/najaeda/naja/tree/main/src/snl/snl/serialization/capnp).
+SNL relies on [Cap'n Proto](https://github.com/capnproto/capnproto) for data serialization and streaming. Schema files and C++ implementation can be found [here](https://github.com/najaeda/naja/tree/main/src/nl/nl/serialization/capnp).
 
 Files composing the dump are created in a directory usually named "snl", composed of the following files:
 
@@ -276,12 +276,8 @@ capnp decode --packed snl_implementation.capnp DBImplementation < snl/db_impleme
 ##### Verilog
 
 For Verilog parsing, Naja relies on naja-verilog [submodule](https://github.com/najaeda/naja-verilog).
-Leaf primitives are loaded through the Python primitive loader: [SNLPrimitivesLoader](https://github.com/najaeda/naja/blob/main/src/snl/python/primitives/SNLPrimitivesLoader.h).
-An application snippet can be found [here](https://github.com/najaeda/naja/blob/main/src/snl/snippets/app/src/SNLVRLSnippet.cpp) and examples of
-primitive libraries described using the Python interface can be found in the
-[primitives](https://github.com/najaeda/naja/blob/main/primitives) directory.
 
-A Verilog dumper is included in SNL API. See [here](https://github.com/najaeda/naja/blob/main/src/snl/formats/verilog/backend/SNLVRLDumper.h).
+A Verilog dumper is included in SNL API. See [here](https://github.com/najaeda/naja/blob/main/src/nl/formats/verilog/backend/SNLVRLDumper.h).
 
 <div align="right">[ <a href="#Introduction">↑ Back to top ↑</a> ]</div>
 
@@ -291,11 +287,11 @@ A Verilog dumper is included in SNL API. See [here](https://github.com/najaeda/n
 
 #### c++
 
-This [snippet](https://github.com/najaeda/naja/blob/main/src/app_snippet/src/SNLUniverseSnippet.cpp) shows various SNL API netlist construction, manipulation and browsing examples.
+This [snippet](https://github.com/najaeda/naja/blob/main/src/app_snippet/src/NLUniverseSnippet.cpp) shows various SNL API netlist construction, manipulation and browsing examples.
 
 #### Python
 
-This [snippet](https://github.com/najaeda/naja/blob/main/src/snl/snippets/python/snl_snippet.py) shows an equivalent example using Python interface.
+This [snippet](https://github.com/najaeda/naja/blob/main/src/nl/snippets/python/naja_snippet.py) shows an equivalent example using Python interface.
 
 #### Application snippet
 
