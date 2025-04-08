@@ -97,6 +97,7 @@ set(HEADERS
   pnl/PNLScalarTerm.h
   pnl/PNLOrientation.h
   pnl/PNLTransform.h
+  pnl/PNLBox.h
   decorators/SNLDesignModeling.h
   decorators/SNLTruthTable.h
 )
