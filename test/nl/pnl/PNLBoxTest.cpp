@@ -15,4 +15,13 @@ TEST(PNLBoxTest, test0) {
     EXPECT_EQ(box0.getTop(), 200);
     EXPECT_EQ(box0.getLowerLeft(), PNLPoint(5, 100));
     EXPECT_EQ(box0.getUpperRight(), PNLPoint(25, 200));
+
+    // Comperators testng
+    auto box1 = PNLBox(5, 100, 25, 200);
+    EXPECT_EQ(box0, box1);
+    EXPECT_FALSE(box0 != box1);
+    EXPECT_FALSE(box0 < box1);
+    EXPECT_FALSE(box0 > box1);
+    EXPECT_TRUE(box0 <= box1);
+    EXPECT_TRUE(box0 >= box1);
 }

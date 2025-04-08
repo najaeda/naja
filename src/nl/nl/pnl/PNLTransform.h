@@ -19,8 +19,31 @@ class PNLTransform {
       offset_(offset), orientation_(PNLOrientation(orientation))
     {}
 
+    // Default constructor
+    PNLTransform() = default;
+
     PNLPoint getOffset() const { return offset_; }
     PNLOrientation getOrientation() const { return orientation_; }
+
+    // Comperators
+    bool operator==(const PNLTransform& other) const {
+      return offset_ == other.offset_ && orientation_ == other.orientation_;
+    }
+    bool operator!=(const PNLTransform& other) const {
+      return !(*this == other);
+    }
+    bool operator<(const PNLTransform& other) const {
+      return (offset_ < other.offset_) || (offset_ == other.offset_ && orientation_ < other.orientation_);
+    }
+    bool operator>(const PNLTransform& other) const {
+      return (offset_ > other.offset_) || (offset_ == other.offset_ && orientation_ > other.orientation_);
+    }
+    bool operator<=(const PNLTransform& other) const {
+      return !(*this > other);
+    }
+    bool operator>=(const PNLTransform& other) const {
+      return !(*this < other);
+    }
   private:
     PNLPoint        offset_{0, 0};
     PNLOrientation  orientation_;

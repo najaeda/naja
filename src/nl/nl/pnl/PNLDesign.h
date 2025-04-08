@@ -10,6 +10,7 @@
 #include "PNLNet.h"
 #include "PNLScalarTerm.h"
 #include "PNLScalarNet.h"
+#include "PNLBox.h"
 
 namespace naja { namespace NL {
 
@@ -154,6 +155,10 @@ class PNLDesign final: public NLObject {
     NajaCollection<PNLInstance*> getPrimitiveInstances() const;
     NajaCollection<PNLInstance*> getNonPrimitiveInstances() const;
 
+    void setAbutmentBox(const PNLBox& box) { abutmentBox_ = box; }
+    const PNLBox& getAbutmentBox() const { return abutmentBox_; }
+    //const PNLBox& getBoundingBox() const { return boundingBox_; }
+
   private:
     PNLDesign(NLLibrary* library, const Type& type = Type::Standard, const NLName& name = NLName());
     PNLDesign(NLLibrary* library, NLID::DesignID id, Type type, const NLName& name);
@@ -180,6 +185,8 @@ class PNLDesign final: public NLObject {
     PNLDesignObjectNameIDMap            termNameIDMap_      {};
     PNLDesignNets                       nets_               {};
     PNLDesignObjectNameIDMap            netNameIDMap_       {};
+    PNLBox                              abutmentBox_;
+    PNLBox                              boundingBox_;
 };
 
 }} // namespace NL // namespace naja

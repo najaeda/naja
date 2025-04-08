@@ -132,3 +132,18 @@ TEST_F(PNLInstanceTest0, testModelDestroy) {
   EXPECT_EQ(0, design->getInstances().size());
   EXPECT_TRUE(design->getInstances().empty());
 }
+
+TEST_F(PNLInstanceTest0, testTransform) {
+  NLLibrary* library = NLLibrary::create(db_, NLName("MYLIB"));
+  PNLDesign* design = PNLDesign::create(library, NLName("design"));
+  PNLDesign* model = PNLDesign::create(library, NLName("model"));
+  auto ins = PNLInstance::create(design, model, NLName("instance"));
+  EXPECT_EQ(ins->getTransform().getOffset().getX(), 0);
+  EXPECT_EQ(ins->getTransform().getOffset().getY(), 0);
+  EXPECT_EQ(ins->getTransform().getOrientation().getType(), PNLOrientation::Type(PNLOrientation::Type::R0));
+  auto transform = PNLTransform(PNLPoint(1, 2), PNLOrientation::Type(PNLOrientation::Type::R90));
+  ins->setTransform(transform);
+  EXPECT_EQ(ins->getTransform().getOffset().getX(), 1);
+  EXPECT_EQ(ins->getTransform().getOffset().getY(), 2);
+  EXPECT_EQ(ins->getTransform().getOrientation().getType(), PNLOrientation::Type(PNLOrientation::Type::R90));
+}

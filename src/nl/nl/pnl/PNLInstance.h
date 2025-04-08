@@ -8,6 +8,7 @@
 #include "NLID.h"
 #include "NLName.h"
 #include "PNLInstTerm.h"
+#include "PNLTransform.h"
 
 namespace naja { namespace NL {
 
@@ -48,6 +49,9 @@ class PNLInstance final: public PNLDesignObject {
     void destroyFromDesign();
     void destroyFromModel();
 
+    void setTransform(const PNLTransform& transform) { transform_ = transform; }
+    const PNLTransform& getTransform() const { return transform_; }
+
   private:
   
     PNLInstance(PNLDesign* design, PNLDesign* model, const NLName& name);
@@ -65,6 +69,7 @@ class PNLInstance final: public PNLDesignObject {
     NLID::DesignObjectID                id_;
     PNLInstanceInstTerms                instTerms_              {};
     NLName                              name_                   {};
+    PNLTransform                        transform_;
     boost::intrusive::set_member_hook<> designInstancesHook_    {};
     boost::intrusive::set_member_hook<> designSlaveInstancesHook_ {};
     
