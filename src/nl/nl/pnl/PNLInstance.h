@@ -19,7 +19,9 @@ class PNLInstance final: public PNLDesignObject {
     friend class PNLDesign;
     using super = PNLDesignObject;
     using PNLInstanceInstTerms = std::vector<PNLInstTerm*>;
-    
+
+    enum PlacementStatus {UNPLACED=0, PLACED=1, FIXED=2};
+
     static PNLInstance* create(PNLDesign* design, PNLDesign* model, const NLName& name=NLName());
 
     PNLDesign* getDesign() const override { return design_; }
@@ -52,6 +54,15 @@ class PNLInstance final: public PNLDesignObject {
     void setTransform(const PNLTransform& transform) { transform_ = transform; }
     const PNLTransform& getTransform() const { return transform_; }
 
+    void setPlacementStatus(PlacementStatus status) { placementStatus_ = status; }
+    PlacementStatus getPlacementStatus() const { return placementStatus_; }
+
+    void setOrigin(const PNLPoint& origin) { origin_ = origin; }
+    const PNLPoint& getOrigin() const { return origin_; }
+
+    void setType(Type type) { type_ = type; }
+    Type getType() const { return type_; }
+
   private:
   
     PNLInstance(PNLDesign* design, PNLDesign* model, const NLName& name);
@@ -69,7 +80,9 @@ class PNLInstance final: public PNLDesignObject {
     NLID::DesignObjectID                id_;
     PNLInstanceInstTerms                instTerms_              {};
     NLName                              name_                   {};
+    PNLPoint                            origin_                 {0, 0};
     PNLTransform                        transform_;
+    PlacementStatus                     placementStatus_        {UNPLACED};
     boost::intrusive::set_member_hook<> designInstancesHook_    {};
     boost::intrusive::set_member_hook<> designSlaveInstancesHook_ {};
     
