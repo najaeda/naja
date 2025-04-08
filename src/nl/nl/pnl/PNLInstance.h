@@ -60,9 +60,6 @@ class PNLInstance final: public PNLDesignObject {
     void setOrigin(const PNLPoint& origin) { origin_ = origin; }
     const PNLPoint& getOrigin() const { return origin_; }
 
-    void setType(Type type) { type_ = type; }
-    Type getType() const { return type_; }
-
   private:
   
     PNLInstance(PNLDesign* design, PNLDesign* model, const NLName& name);
