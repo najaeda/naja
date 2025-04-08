@@ -22,8 +22,9 @@ class PNLNet: public PNLDesignObject {
     class Type {
       public:
         enum TypeEnum {
-          Standard, Assign0, Assign1, Supply0, Supply1
+          Undefined=0, Logical=1, Clock=2, VDD=3, GND=4, Blockage=5
         };
+
         Type(const TypeEnum& typeEnum);
         Type(const Type&) = default;
         Type& operator=(const Type&) = default;
@@ -35,15 +36,11 @@ class PNLNet: public PNLDesignObject {
         }
 
         operator const TypeEnum&() const { return typeEnum_; }
-        constexpr bool isAssign0() const { return typeEnum_ == Assign0;  }
-        constexpr bool isAssign1() const { return typeEnum_ == Assign1;  }
-        constexpr bool isAssign() const { return isAssign0() or isAssign1(); }
-        constexpr bool isSupply0() const { return typeEnum_ == Supply0; }
-        constexpr bool isSupply1() const { return typeEnum_ == Supply1; }
-        constexpr bool isSupply() const { return isSupply0() or isSupply1(); }
-        constexpr bool isConst0() const { return typeEnum_ == Assign0 or typeEnum_ == Supply0; }
-        constexpr bool isConst1() const { return typeEnum_ == Assign1 or typeEnum_ == Supply1; }
-        constexpr bool isDriving() const { return isAssign() or isSupply(); }
+        constexpr bool isLogical() const { return typeEnum_ == Logical; }
+        constexpr bool isClock() const { return typeEnum_ == Clock; }
+        constexpr bool isVDD() const { return typeEnum_ == VDD; }
+        constexpr bool isGND() const { return typeEnum_ == GND; }
+        constexpr bool isBlockage() const { return typeEnum_ == Blockage; }
         std::string getString() const;
       private:
         TypeEnum typeEnum_;
@@ -71,23 +68,11 @@ class PNLNet: public PNLDesignObject {
     virtual void setType(const Type& type) = 0;
 
     /// \return true if all bits of this net are assigned to 1'b0.
-    virtual bool isAssign0() const = 0;
+    virtual bool isGND() const = 0;
     /// \return true if all bits of this net are assigned to 1'b1.
-    virtual bool isAssign1() const = 0;
+    virtual bool isVDD() const = 0;
     /// \return true if all bits of this net are assigned to 1'b0 or 1'b1.
-    bool isAssignConstant() const { return isAssign0() or isAssign1(); }
-    /// \return true if all bits of this net are of type Supply0
-    virtual bool isSupply0() const = 0;
-    /// \return true if all bits of this net are of type Supply1
-    virtual bool isSupply1() const = 0;
-    /// \return true if all bits of this net are of type Supply0 or Supply1
-    bool isSupply() const { return isSupply0() or isSupply1(); }
-    /// \return true if all bits of this net are constants 0
-    bool isConstant0() const { return isAssign0() or isSupply0(); }
-    /// \return true if all bits of this net are constants 1
-    bool isConstant1() const { return isAssign1() or isSupply1(); }
-    /// \return true if all bits of this net are constants
-    bool isConstant() const { return isConstant0() or isConstant1(); }
+    bool isConstant() const { return isGND() or isVDD(); }
 
 
     //virtual bool deepCompare(const PNLNet* other, std::string& reason) const = 0;

@@ -25,10 +25,8 @@ class PNLBitNet: public PNLNet {
     Type getType() const { return type_; }
     NLID::Bit getWidth() const override { return 1; }
 
-    bool isAssign0() const override { return type_.isAssign0(); } 
-    bool isAssign1() const override { return type_.isAssign1(); } 
-    bool isSupply0() const override { return type_.isSupply0(); } 
-    bool isSupply1() const override { return type_.isSupply1(); } 
+    bool isGND() const override { return type_.isGND(); } 
+    bool isVDD() const override { return type_.isVDD(); }
 
     ///\return the collection of PNLComponent ot this PNLBitNet
     NajaCollection<PNLNetComponent*> getComponents() const;
@@ -54,7 +52,7 @@ class PNLBitNet: public PNLNet {
       boost::intrusive::member_hook<PNLNetComponent, boost::intrusive::set_member_hook<>, &PNLNetComponent::netComponentsHook_>;
     using PNLBitNetComponents = boost::intrusive::set<PNLNetComponent, PNLBitNetComponentsHook>;
 
-    Type                type_       { Type::Standard };
+    Type                type_       { Type::Undefined };
     PNLBitNetComponents components_ {};
 };
 

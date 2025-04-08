@@ -27,11 +27,12 @@ void PNLNet::preDestroy() {
 //LCOV_EXCL_START
 std::string PNLNet::Type::getString() const {
   switch (typeEnum_) {
-    case Type::Standard: return "Standard";
-    case Type::Assign0:  return "Assign0";
-    case Type::Assign1:  return "Assign1";
-    case Type::Supply0:  return "Supply0";
-    case Type::Supply1:  return "Supply1";
+    case Undefined: return "Undefined";
+    case Logical:   return "Logical";
+    case Clock:     return "Clock";
+    case VDD:       return "VDD";
+    case GND:       return "GND";
+    case Blockage:  return "Blockage";
   }
   return "Unknown";
 }
