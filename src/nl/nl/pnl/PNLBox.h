@@ -22,6 +22,31 @@ class PNLBox {
     Unit getTop() const { return top_; }
     PNLPoint getUpperRight() const { return PNLPoint(right_, top_); }
     PNLPoint getLowerLeft() const { return PNLPoint(left_, bottom_); }
+
+    // Comperators 
+    bool operator==(const PNLBox& other) const {
+      return left_ == other.left_ && bottom_ == other.bottom_ &&
+             right_ == other.right_ && top_ == other.top_;
+    }
+    bool operator!=(const PNLBox& other) const {
+      return !(*this == other);
+    }
+    bool operator<(const PNLBox& other) const {
+      return (left_ < other.left_) || (left_ == other.left_ && bottom_ < other.bottom_) ||
+             (left_ == other.left_ && bottom_ == other.bottom_ && right_ < other.right_) ||
+             (left_ == other.left_ && bottom_ == other.bottom_ && right_ == other.right_ && top_ < other.top_);
+    }
+    bool operator>(const PNLBox& other) const {
+      return (left_ > other.left_) || (left_ == other.left_ && bottom_ > other.bottom_) ||
+             (left_ == other.left_ && bottom_ == other.bottom_ && right_ > other.right_) ||
+             (left_ == other.left_ && bottom_ == other.bottom_ && right_ == other.right_ && top_ > other.top_);
+    }
+    bool operator<=(const PNLBox& other) const {
+      return !(*this > other);
+    }
+    bool operator>=(const PNLBox& other) const {
+      return !(*this < other);
+    }
     private:
       Unit left_    {std::numeric_limits<Unit>::max()};
       Unit bottom_  {std::numeric_limits<Unit>::max()};
