@@ -53,7 +53,6 @@ endif()
 
 set(CMAKE_CXX_STANDARD 20)
 
-
 option(BUILD_ONLY_DOC "Only configure to build Doxygen documentation" OFF)
 
 set(NAJA_CXX_WARNINGS -Werror -Wall -pedantic-errors -Wconversion -Wsign-conversion -Wextra -Wno-unused-parameter)
