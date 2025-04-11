@@ -8,6 +8,7 @@
 #include "NLID.h"
 #include "NLName.h"
 #include "PNLInstTerm.h"
+#include "PNLTransform.h"
 
 namespace naja { namespace NL {
 
@@ -18,6 +19,8 @@ class PNLInstance final: public PNLDesignObject {
     friend class PNLDesign;
     using super = PNLDesignObject;
     using PNLInstanceInstTerms = std::vector<PNLInstTerm*>;
+
+    enum PlacementStatus {Unplaced=0, Placed=1, Fixed=2};
 
     static PNLInstance* create(PNLDesign* design, PNLDesign* model, const NLName& name=NLName());
 
@@ -48,6 +51,15 @@ class PNLInstance final: public PNLDesignObject {
     void destroyFromDesign();
     void destroyFromModel();
 
+    void setTransform(const PNLTransform& transform) { transform_ = transform; }
+    const PNLTransform& getTransform() const { return transform_; }
+
+    void setPlacementStatus(PlacementStatus status) { placementStatus_ = status; }
+    PlacementStatus getPlacementStatus() const { return placementStatus_; }
+
+    void setOrigin(const PNLPoint& origin) { origin_ = origin; }
+    const PNLPoint& getOrigin() const { return origin_; }
+
   private:
   
     PNLInstance(PNLDesign* design, PNLDesign* model, const NLName& name);
@@ -65,6 +77,9 @@ class PNLInstance final: public PNLDesignObject {
     NLID::DesignObjectID                id_;
     PNLInstanceInstTerms                instTerms_              {};
     NLName                              name_                   {};
+    PNLPoint                            origin_                 {0, 0};
+    PNLTransform                        transform_;
+    PlacementStatus                     placementStatus_        {Unplaced};
     boost::intrusive::set_member_hook<> designInstancesHook_    {};
     boost::intrusive::set_member_hook<> designSlaveInstancesHook_ {};
     

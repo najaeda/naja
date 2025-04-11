@@ -18,4 +18,12 @@ TEST(PNLTransformTest, test0) {
     EXPECT_EQ(transform2.getOffset().getY(), 4);
     EXPECT_EQ(transform3.getOffset().getX(), 5);
     EXPECT_EQ(transform3.getOffset().getY(), 6);
+
+    // Comperators testng
+    EXPECT_EQ(transform1, transform1);
+    EXPECT_FALSE(transform1 != transform1);
+    EXPECT_FALSE(transform1 < transform1);
+    EXPECT_FALSE(transform1 > transform1);
+    EXPECT_TRUE(transform1 <= transform1);
+    EXPECT_TRUE(transform1 >= transform1);
 }

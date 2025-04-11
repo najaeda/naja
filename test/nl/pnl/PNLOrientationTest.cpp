@@ -25,4 +25,7 @@ TEST(PNLOrientationTest, test0) {
     EXPECT_EQ(orientation5.getString(), "MYR90");
     EXPECT_EQ(orientation6.getString(), "MX");
     EXPECT_EQ(orientation7.getString(), "MXR90");
+
+    // Test getType
+    EXPECT_EQ(orientation0, PNLOrientation::Type(PNLOrientation::Type::R0));
 }

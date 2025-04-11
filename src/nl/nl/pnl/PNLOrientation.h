@@ -25,12 +25,56 @@ class PNLOrientation {
         };
         Type(const TypeEnum& typeEnum);
         Type(const Type&) = default;
+        // Default constructor
+        Type() = default;
         Type& operator=(const Type&) = default;
         std::string getString() const;
+        // Comperators
+        bool operator==(const Type& other) const {
+          return typeEnum_ == other.typeEnum_;
+        }
+        bool operator!=(const Type& other) const {
+          return !(typeEnum_ == other.typeEnum_);
+        }
+        bool operator<(const Type& other) const {
+          return typeEnum_ < other.typeEnum_;
+        }
+        bool operator>(const Type& other) const {
+          return typeEnum_ > other.typeEnum_;
+        }
+        bool operator<=(const Type& other) const {
+          return !(typeEnum_ > other.typeEnum_);
+        }
+        bool operator>=(const Type& other) const {
+          return !(typeEnum_ < other.typeEnum_);
+        }
+        const TypeEnum& getType() const { return typeEnum_; }
       private:
-        TypeEnum typeEnum_;
+        TypeEnum typeEnum_ = R0; // Default to R0
     };
     PNLOrientation(Type orientationType) : orientationType_(orientationType) {}
+    // Default constructor
+    PNLOrientation() = default;
+    const Type& getType() const { return orientationType_; }
+    // Comperators
+    bool operator==(const PNLOrientation& other) const {
+      return orientationType_ == other.orientationType_;
+    }
+    bool operator!=(const PNLOrientation& other) const {
+      return !(*this == other);
+    }
+    bool operator<(const PNLOrientation& other) const {
+      return orientationType_ < other.orientationType_;
+    }
+    bool operator>(const PNLOrientation& other) const {
+      return orientationType_ > other.orientationType_;
+    }
+    bool operator<=(const PNLOrientation& other) const {
+      return !(*this > other);
+    }
+    bool operator>=(const PNLOrientation& other) const {
+      return !(*this < other);
+    }
     private:
     Type orientationType_;
 };

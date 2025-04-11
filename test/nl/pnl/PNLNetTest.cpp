@@ -138,14 +138,14 @@ TEST_F(PNLNetTest, testCreation) {
   i1Term->setNet(i1Net);
   EXPECT_EQ(i1Net, i1Term->getNet());
 
-  EXPECT_EQ(PNLNet::Type::Standard ,i0Net->getType());
-  i0Net->setType(PNLBitNet::Type::Assign0);
-  EXPECT_EQ(PNLNet::Type::Assign0 ,i0Net->getType());
-  EXPECT_TRUE(i0Net->isConstant0());
-  i0Net->setType(PNLBitNet::Type::Supply1);
-  EXPECT_EQ(PNLNet::Type::Supply1 ,i0Net->getType());
-  EXPECT_FALSE(i0Net->isSupply0());
-  EXPECT_TRUE(i0Net->isSupply1());
+  EXPECT_EQ(PNLNet::Type::Undefined ,i0Net->getType());
+  i0Net->setType(PNLBitNet::Type::GND);
+  EXPECT_EQ(PNLNet::Type::GND ,i0Net->getType());
+  EXPECT_TRUE(i0Net->isConstant());
+  i0Net->setType(PNLBitNet::Type::VDD);
+  EXPECT_EQ(PNLNet::Type::VDD ,i0Net->getType());
+  EXPECT_FALSE(i0Net->isGND());
+  EXPECT_TRUE(i0Net->isVDD());
 
   auto instance0 = PNLInstance::create(design_, primitive, NLName("instance0"));
   auto instance1 = PNLInstance::create(design_, primitive, NLName("instance1"));
@@ -238,7 +238,7 @@ TEST_F(PNLNetTest, testCreation) {
 
   // NLID::Bit bitNumber = 31;
   // for (auto bit: net0->getBusBits()) {
-  //   EXPECT_EQ(PNLNet::Type::Standard, bit->getType());
+  //   EXPECT_EQ(PNLNet::Type::Undefined, bit->getType());
   //   EXPECT_EQ(net0, bit->getBus());
   //   EXPECT_EQ(net0->getID(), bit->getID());
   //   EXPECT_EQ(design_, bit->getDesign());
@@ -251,20 +251,20 @@ TEST_F(PNLNetTest, testCreation) {
   // }
   // EXPECT_EQ(nullptr, NLUniverse::get()->getObject(NLID(NLID::Type::NetBit, 1, 1, 0, 2, 0, 32)));
 
-  // net0->setType(PNLBitNet::Type::Supply1);
-  // EXPECT_FALSE(net0->isSupply0());
-  // EXPECT_TRUE(net0->isSupply1());
+  // net0->setType(PNLBitNet::Type::VDD);
+  // EXPECT_FALSE(net0->isGND());
+  // EXPECT_TRUE(net0->isVDD());
   // for (auto bit: net0->getBits()) {
-  //   EXPECT_EQ(PNLNet::Type::Supply1, bit->getType());
+  //   EXPECT_EQ(PNLNet::Type::VDD, bit->getType());
   //   EXPECT_TRUE(bit->getType().isSupply());
   //   EXPECT_TRUE(bit->getType().isDriving());
   //   EXPECT_TRUE(bit->isConstant1());
   // }
-  // net0->setType(PNLBitNet::Type::Assign0);
-  // EXPECT_FALSE(net0->isSupply0());
-  // (net0->isSupply1());
+  // net0->setType(PNLBitNet::Type::GND);
+  // EXPECT_FALSE(net0->isGND());
+  // (net0->isVDD());
   // for (auto bit: net0->getBits()) {
-  //   EXPECT_EQ(PNLNet::Type::Assign0, bit->getType());
+  //   EXPECT_EQ(PNLNet::Type::GND, bit->getType());
   //   EXPECT_TRUE(bit->getType().isDriving());
   //   EXPECT_TRUE(bit->isConstant0());
   // }
@@ -293,18 +293,6 @@ TEST_F(PNLNetTest, testCreation) {
 //   EXPECT_EQ(31, net0->getBits().size());
 //   EXPECT_EQ(nullptr, net0->getBitAtPosition(bit3Position));
 // }
-
-TEST_F(PNLNetTest, testNetType) {
-  EXPECT_TRUE(PNLNet::Type(PNLNet::Type::Assign0).isAssign());
-  EXPECT_TRUE(PNLNet::Type(PNLNet::Type::Assign1).isAssign());
-  EXPECT_TRUE(PNLNet::Type(PNLNet::Type::Supply0).isSupply());
-  EXPECT_TRUE(PNLNet::Type(PNLNet::Type::Supply1).isSupply());
-  EXPECT_TRUE(PNLNet::Type(PNLNet::Type::Assign0).isDriving());
-  EXPECT_TRUE(PNLNet::Type(PNLNet::Type::Assign1).isDriving());
-  EXPECT_TRUE(PNLNet::Type(PNLNet::Type::Supply0).isDriving());
-  EXPECT_TRUE(PNLNet::Type(PNLNet::Type::Supply1).isDriving());
-  EXPECT_FALSE(PNLNet::Type(PNLNet::Type::Standard).isDriving());
-}
 
 TEST_F(PNLNetTest, testErrors) {
   EXPECT_THROW(PNLScalarNet::create(nullptr), NLException);
@@ -364,7 +352,7 @@ TEST_F(PNLNetTest, testRename) {
   net2->setName(NLName("net2"));
   EXPECT_FALSE(net2->isAnonymous());
   EXPECT_EQ(net2, design_->getNet(NLName("net2")));
-  EXPECT_FALSE(net2->isAssign1());
+  EXPECT_FALSE(net2->isVDD());
   EXPECT_EQ(net0->getWidth(), 1);
   //Collision error
   //EXPECT_THROW(net1->setName(NLName("net0")), NLException);

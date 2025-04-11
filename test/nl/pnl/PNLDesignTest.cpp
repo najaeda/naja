@@ -329,3 +329,12 @@ TEST_F(PNLDesignTest, testSetTop) {
 //   EXPECT_EQ(design1, library->getPNLDesign(NLName("design1")));
 //   EXPECT_THROW(design1->setName(NLName("design0")), NLException);
 // }
+
+TEST_F(PNLDesignTest, testAbutmentBox) {
+  NLLibrary* library = db_->getLibrary(NLName("MYLIB"));
+  ASSERT_NE(library, nullptr);
+  PNLDesign* design0 = PNLDesign::create(library, NLName("design0"));
+  PNLBox box0(0, 0, 10, 10);
+  design0->setAbutmentBox(box0);
+  EXPECT_EQ(box0, design0->getAbutmentBox());
+}
