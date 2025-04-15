@@ -6,6 +6,13 @@ INCLUDE(GoogleTest)
 
 SET(pnl_tests
   PNLPointTest.cpp
+  PNLBoxTest.cpp
+  PNLDesignTest.cpp
+  PNLInstanceTest0.cpp
+  PNLTermTest.cpp
+  PNLNetTest.cpp
+  PNLOrientationTest.cpp
+  PNLTransformTest.cpp
 )
 
 ADD_EXECUTABLE(pnlTests ${pnl_tests})

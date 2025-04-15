@@ -11,7 +11,6 @@
 #include "NLException.h"
 
 #include "SNLDesign.h"
-#include "SNLAttributes.h"
 #include "SNLMacros.h"
 
 namespace naja { namespace NL {

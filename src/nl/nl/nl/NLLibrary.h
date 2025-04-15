@@ -8,6 +8,7 @@
 #include <map>
 #include "NajaCollection.h"
 #include "SNLDesign.h"
+#include "PNLDesign.h"
 
 namespace naja { namespace NL {
 
@@ -17,6 +18,7 @@ class NLLibrary final: public NLObject {
   public:
     friend class NLDB;
     friend class SNLDesign;
+    friend class PNLDesign;
     using super = NLObject;
 
     class Type {
@@ -107,11 +109,18 @@ class NLLibrary final: public NLObject {
     /// \return the collection of sub NLLibrary
     NajaCollection<NLLibrary*> getLibraries() const;
     /// \return SNLDesign with NLID::DesignID id
-    SNLDesign* getDesign(NLID::DesignID id) const;
+    SNLDesign* getSNLDesign(NLID::DesignID id) const;
     /// \return SNLDesign named name
-    SNLDesign* getDesign(const NLName& name) const;
+    SNLDesign* getSNLDesign(const NLName& name) const;
     /// \return the collection of SNLDesign contained in this NLLibrary
-    NajaCollection<SNLDesign*> getDesigns() const;
+    NajaCollection<SNLDesign*> getSNLDesigns() const;
+
+    /// \return PNLDesign with NLID::DesignID id
+    PNLDesign* getPNLDesign(NLID::DesignID id) const;
+    /// \return PNLDesign named name
+    PNLDesign* getPNLDesign(const NLName& name) const;
+    /// \return the collection of PNLDesign contained in this NLLibrary
+    NajaCollection<PNLDesign*> getPNLDesigns() const;
 
     /// \return the unique NLID::LibraryID in the owning NLDB.
     NLID::LibraryID getID() const { return id_; }
@@ -161,16 +170,24 @@ class NLLibrary final: public NLObject {
     void addLibrary(NLLibrary* library);
     void removeLibrary(NLLibrary* library);
     void rename(NLLibrary* library, const NLName& name);
-    void rename(SNLDesign* design, const NLName& name);
-    void addDesignAndSetID(SNLDesign* design);
-    void addDesign(SNLDesign* design);
-    void removeDesign(SNLDesign* design);
+    void rename(SNLDesign* design, const NLName& name); //FIXME what about PNL ??
+    void addSNLDesignAndSetID(SNLDesign* design);
+    void addSNLDesign(SNLDesign* design);
+    void removeSNLDesign(SNLDesign* design);
+
+    void addPNLDesignAndSetID(PNLDesign* design);
+    void addPNLDesign(PNLDesign* design);
+    void removePNLDesign(PNLDesign* design);
 
     using NLLibraryNameIDMap = std::map<NLName, NLID::LibraryID>;
-    using NLLibraryDesignsHook =
+    using NLLibrarySNLDesignsHook =
       boost::intrusive::member_hook<SNLDesign, boost::intrusive::set_member_hook<>, &SNLDesign::libraryDesignsHook_>;
-    using NLLibraryDesigns = boost::intrusive::set<SNLDesign, NLLibraryDesignsHook>;
+    using NLLibrarySNLDesigns = boost::intrusive::set<SNLDesign, NLLibrarySNLDesignsHook>;
+    using NLLibraryPNLDesignsHook =
+      boost::intrusive::member_hook<PNLDesign, boost::intrusive::set_member_hook<>, &PNLDesign::libraryDesignsHook_>;
+    using NLLibraryPNLDesigns = boost::intrusive::set<PNLDesign, NLLibraryPNLDesignsHook>;
     using SNLDesignNameIDMap = std::map<NLName, NLID::DesignID>;
+    using PNLDesignNameIDMap = std::map<NLName, NLID::DesignID>;
 
     NLID::LibraryID                     id_;
     NLName                              name_                 {};
@@ -184,8 +201,10 @@ class NLLibrary final: public NLObject {
     using NLLibraryLibraries = boost::intrusive::set<NLLibrary, NLLibraryLibrariesHook>;
     NLLibraryLibraries                  libraries_            {}; 
     NLLibraryNameIDMap                  libraryNameIDMap_     {};
-    NLLibraryDesigns                    designs_              {};
+    NLLibrarySNLDesigns                 snlDesigns_           {};
+    NLLibraryPNLDesigns                 pnlDesigns_           {};
     SNLDesignNameIDMap                  designNameIDMap_      {};
+    PNLDesignNameIDMap                  pnlDesignNameIDMap_      {};
 };
 
 }} // namespace NL // namespace naja
