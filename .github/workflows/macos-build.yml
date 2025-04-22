@@ -41,9 +41,7 @@ jobs:
 
     - name: Configure CMake (macos-13)
       if: matrix.os == 'macos-13'
-      env:
-        CXXFLAGS: "-Wno-sign-conversion"
-      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DLONG_TESTS=ON -DENABLE_SANITIZERS=OFF
+      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_CXX_FLAGS="-Wno-sign-conversion" -DLONG_TESTS=ON -DENABLE_SANITIZERS=OFF
 
     - name: Build
       # Build your program with the given configuration
