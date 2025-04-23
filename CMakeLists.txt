@@ -53,23 +53,9 @@ endif()
 
 set(CMAKE_CXX_STANDARD 20)
 
-
 option(BUILD_ONLY_DOC "Only configure to build Doxygen documentation" OFF)
 
 set(NAJA_CXX_WARNINGS -Werror -Wall -pedantic-errors -Wconversion -Wsign-conversion -Wextra -Wno-unused-parameter)
-
-if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
-    execute_process(
-        COMMAND sw_vers -productVersion
-        OUTPUT_VARIABLE MACOS_VERSION
-        OUTPUT_STRIP_TRAILING_WHITESPACE
-    )
-
-    if(MACOS_VERSION VERSION_LESS 14)
-        message(STATUS "Applying -Wno-sign-conversion for macOS ${MACOS_VERSION}")
-        add_compile_options(-Wno-sign-conversion)
-    endif()
-endif()
 
 set(ARGPARSE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/argparse-3.1/include)
 set(SPDLOG_DIR ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/spdlog-1.14.1/include)

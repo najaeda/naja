@@ -13,16 +13,18 @@
 #include <stack>
 #include <vector>
 #include <map>
-#include "NLUniverse.h"
+
 #include "tbb/scalable_allocator.h"
 #include "tbb/concurrent_vector.h"
-#include <tbb/task_arena.h>
+#include "tbb/task_arena.h"
+#include "tbb/parallel_for.h"
+#include "tbb/enumerable_thread_specific.h"
+
+#include "NLUniverse.h"
 #include "SNLBitNet.h"
 #include "SNLBitTerm.h"
 #include "SNLInstTerm.h"
 #include "SNLInstance.h"
-#include "tbb/parallel_for.h"
-#include "tbb/enumerable_thread_specific.h"
 
 using namespace naja::NL;
 
