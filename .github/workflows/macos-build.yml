@@ -35,13 +35,8 @@ jobs:
         echo "/usr/local/opt/flex/bin" >> $GITHUB_PATH; echo "/usr/local/opt/bison/bin" >> $GITHUB_PATH;
         echo "/opt/homebrew/opt/flex/bin" >> $GITHUB_PATH; echo "/opt/homebrew/opt/bison/bin" >> $GITHUB_PATH
 
-    - name: Configure CMake (default)
-      if: matrix.os != 'macos-13'
+    - name: Configure CMake
       run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DLONG_TESTS=ON -DENABLE_SANITIZERS=OFF
-
-    - name: Configure CMake (macos-13)
-      if: matrix.os == 'macos-13'
-      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_CXX_FLAGS="-Wno-sign-conversion" -DLONG_TESTS=ON -DENABLE_SANITIZERS=OFF
 
     - name: Build
       # Build your program with the given configuration
