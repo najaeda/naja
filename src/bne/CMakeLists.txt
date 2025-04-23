@@ -19,7 +19,11 @@ set(NAJA_BNE_HEADERS
 add_library(naja_bne SHARED ${SOURCES})
 target_link_libraries(naja_bne PUBLIC naja_dnl coverage_config sanitizers_config)
 
-target_compile_options(naja_bne PRIVATE ${NAJA_CXX_WARNINGS}) 
+if(APPLE AND CMAKE_SYSTEM_VERSION VERSION_GREATER_EQUAL "22.0.0" AND CMAKE_SYSTEM_VERSION VERSION_LESS "23.0.0")
+  # macOS 13 (Ventura) has Darwin version 22.x.x
+  target_compile_options(naja_bne PRIVATE -Wno-sign-conversion)
+endif()
+target_compile_options(naja_bne BEFORE PRIVATE ${NAJA_CXX_WARNINGS}) 
 
 target_include_directories(naja_bne SYSTEM BEFORE PUBLIC ${Boost_INCLUDE_DIR})
 target_include_directories(naja_bne PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
