@@ -17,7 +17,11 @@ set(NAJA_OPT_HEADERS
 add_library(naja_opt SHARED ${SOURCES})
 target_link_libraries(naja_opt PUBLIC naja_bne naja_dnl coverage_config sanitizers_config)
 
-target_compile_options(naja_opt PRIVATE ${NAJA_CXX_WARNINGS}) 
+if(APPLE AND CMAKE_SYSTEM_VERSION VERSION_GREATER_EQUAL "22.0.0" AND CMAKE_SYSTEM_VERSION VERSION_LESS "23.0.0")
+  # see dnl compile for details
+  target_compile_options(naja_bne PRIVATE -Wno-sign-conversion)
+endif()
+target_compile_options(naja_opt BEFORE PRIVATE ${NAJA_CXX_WARNINGS}) 
 
 target_include_directories(naja_opt SYSTEM BEFORE PUBLIC ${Boost_INCLUDE_DIR})
 target_include_directories(naja_opt PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
