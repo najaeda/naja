@@ -19,7 +19,7 @@ target_link_libraries(naja_opt PUBLIC naja_bne naja_dnl coverage_config sanitize
 
 if(APPLE AND CMAKE_SYSTEM_VERSION VERSION_GREATER_EQUAL "22.0.0" AND CMAKE_SYSTEM_VERSION VERSION_LESS "23.0.0")
   # see dnl compile for details
-  target_compile_options(naja_bne PRIVATE -Wno-sign-conversion)
+  target_compile_options(naja_opt PRIVATE -Wno-sign-conversion)
 endif()
 target_compile_options(naja_opt BEFORE PRIVATE ${NAJA_CXX_WARNINGS}) 
 
