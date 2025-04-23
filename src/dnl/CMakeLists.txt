@@ -16,7 +16,7 @@ if(APPLE AND CMAKE_SYSTEM_VERSION VERSION_GREATER_EQUAL "22.0.0" AND CMAKE_SYSTE
   # macOS 13 (Ventura) has Darwin version 22.x.x
   target_compile_options(naja_dnl PRIVATE -Wno-sign-conversion)
 endif()
-target_compile_options(naja_dnl PRIVATE ${NAJA_CXX_WARNINGS}) 
+target_compile_options(naja_dnl BEFORE PRIVATE ${NAJA_CXX_WARNINGS}) 
 #target_compile_definitions(naja_dnl PRIVATE SNL_DESTROY_DEBUG)
 
 target_include_directories(naja_dnl SYSTEM BEFORE PUBLIC ${Boost_INCLUDE_DIR})
