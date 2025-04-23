@@ -12,6 +12,8 @@ set(DNL_HEADERS
 add_library(naja_dnl SHARED ${DNL_SOURCES})
 
 target_link_libraries(naja_dnl PUBLIC naja_nl TBB::tbb TBB::tbbmalloc)
+message(STATUS "Is Apple ${APPLE}")
+message(STATUS "version: ${CMAKE_SYSTEM_VERSION}")
 if(APPLE AND CMAKE_SYSTEM_VERSION VERSION_EQUAL "22.0.0")
   # macOS 13 (Ventura) has Darwin version 22.x.x
   target_compile_options(naja_dnl PRIVATE -Wno-sign-conversion)
