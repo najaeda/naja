@@ -164,9 +164,8 @@ PNLDesign* PNLDesign::create(NLLibrary* library,
 void PNLDesign::postCreateAndSetID() {
   super::postCreate();
   library_->addPNLDesignAndSetID(this);
-  printf("PNLDesign %s\n", getName().getString().c_str());
   assert(library_->getPNLDesign(getID()) == this);
-  assert(library_->getPNLDesign(getName()) == this);
+  assert(library_->getPNLDesign(getName()) == this || getName().empty());
 }
 
 void PNLDesign::preCreate(const NLLibrary* library,
