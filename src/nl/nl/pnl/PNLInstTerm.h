@@ -39,6 +39,8 @@ class PNLInstTerm final: public PNLNetComponent {
     void destroy() override;
 
     bool isAnonymous() const override;
+    NLName getName() const override;
+
   private:
     PNLInstTerm(PNLInstance* instance, PNLBitTerm* term);
     static PNLInstTerm* create(PNLInstance* instance, PNLBitTerm* term);

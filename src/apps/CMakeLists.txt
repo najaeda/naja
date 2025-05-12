@@ -3,3 +3,4 @@
 # SPDX-License-Identifier: Apache-2.0
 
 add_subdirectory(naja_edit)
+add_subdirectory(naja_format_router)

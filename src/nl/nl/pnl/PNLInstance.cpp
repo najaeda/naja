@@ -223,6 +223,18 @@ PNLInstTerm* PNLInstance::getInstTerm(const NLID::DesignObjectID termID) const {
   return instTerms_[termID];
 }
 
+PNLInstTerm* PNLInstance::getInstTerm(const NLName& name) const {
+  for (auto instTerm : instTerms_) {
+    if (instTerm->getName() == name) {
+      return instTerm;
+    }
+  }
+  std::string reason = "PNLInstance::getInstTerm error in "
+    + getName().getString() + " model: " + getModel()->getName().getString()
+    + " no instance term with name: " + name.getString();
+  throw NLException(reason);
+}
+
 bool PNLInstance::isBlackBox() const { return model_->isBlackBox(); }
 
 bool PNLInstance::isPrimitive() const { return model_->isPrimitive(); }

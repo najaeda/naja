@@ -171,6 +171,7 @@ class NLLibrary final: public NLObject {
     void removeLibrary(NLLibrary* library);
     void rename(NLLibrary* library, const NLName& name);
     void rename(SNLDesign* design, const NLName& name); //FIXME what about PNL ??
+    void rename(PNLDesign* design, const NLName& name);
     void addSNLDesignAndSetID(SNLDesign* design);
     void addSNLDesign(SNLDesign* design);
     void removeSNLDesign(SNLDesign* design);
@@ -204,7 +205,7 @@ class NLLibrary final: public NLObject {
     NLLibrarySNLDesigns                 snlDesigns_           {};
     NLLibraryPNLDesigns                 pnlDesigns_           {};
     SNLDesignNameIDMap                  designNameIDMap_      {};
-    PNLDesignNameIDMap                  pnlDesignNameIDMap_      {};
+    PNLDesignNameIDMap                  pnlDesignNameIDMap_   {};
 };
 
 }} // namespace NL // namespace naja

@@ -109,4 +109,8 @@ bool PNLInstTerm::isAnonymous() const {
   return getBitTerm()->isAnonymous();
 }
 
+NLName PNLInstTerm::getName() const {
+  return getBitTerm()->getName();
+}
+
 }} // namespace NL // namespace naja

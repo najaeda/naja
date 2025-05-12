@@ -41,6 +41,7 @@ class PNLInstance final: public PNLDesignObject {
     naja::NL::NLID getNLID() const override;
     PNLInstTerm* getInstTerm(const PNLBitTerm* term) const;
     PNLInstTerm* getInstTerm(const NLID::DesignObjectID id) const;
+    PNLInstTerm* getInstTerm(const NLName& name) const;
 
     bool isAnonymous() const override { return name_.empty(); }
 

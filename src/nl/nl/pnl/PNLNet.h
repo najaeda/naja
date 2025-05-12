@@ -22,7 +22,7 @@ class PNLNet: public PNLDesignObject {
     class Type {
       public:
         enum TypeEnum {
-          Undefined=0, Logical=1, Clock=2, VDD=3, GND=4, Blockage=5
+          Undefined=0, Logical=1, Clock=2, VDD=3, GND=4, Blockage=5, Analog=6
         };
 
         Type(const TypeEnum& typeEnum);
@@ -52,6 +52,7 @@ class PNLNet: public PNLDesignObject {
 
     /// \return net NLName.
     virtual NLName getName() const = 0;
+    virtual void setName(const NLName& name) = 0;
     
     /// \return net width, 1 for PNLScalarNet and PNLBusNetBit.
     virtual NLID::Bit getWidth() const = 0;
@@ -72,8 +73,15 @@ class PNLNet: public PNLDesignObject {
     /// \return true if all bits of this net are assigned to 1'b1.
     virtual bool isVDD() const = 0;
     /// \return true if all bits of this net are assigned to 1'b0 or 1'b1.
+    virtual bool isClock() const = 0;
     bool isConstant() const { return isGND() or isVDD(); }
 
+    bool isSupply() const { return isGND() or isVDD(); }
+
+    void setGlobal(bool isGlobal) { isGlobal_ = isGlobal; }
+    bool isGlobal() const { return isGlobal_; }
+    void setExternal(bool isExternal) { isExternal_ = isExternal; }
+    bool isExternal() const { return isExternal_; }
 
     //virtual bool deepCompare(const PNLNet* other, std::string& reason) const = 0;
 
@@ -91,6 +99,8 @@ class PNLNet: public PNLDesignObject {
     //following used in BusNet and ScalarNet
     virtual void setID(NLID::DesignObjectID id) = 0;
     boost::intrusive::set_member_hook<> designNetsHook_ {};
+    private: bool isGlobal_;
+    private: bool isExternal_;
 };
 
 }} // namespace NL // namespace naja

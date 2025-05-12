@@ -33,6 +33,7 @@ std::string PNLNet::Type::getString() const {
     case VDD:       return "VDD";
     case GND:       return "GND";
     case Blockage:  return "Blockage";
+    case Analog:    return "Analog";
   }
   return "Unknown";
 }

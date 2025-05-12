@@ -248,6 +248,7 @@ void NLLibrary::setName(const NLName& name) {
 
 OWNER_RENAME(NLLibrary, NLLibrary, libraryNameIDMap_)
 OWNER_RENAME(NLLibrary, SNLDesign, designNameIDMap_)
+OWNER_RENAME(NLLibrary, PNLDesign, pnlDesignNameIDMap_)
 
 NLDB* NLLibrary::getDB() const {
   if (isRoot()) {
@@ -388,6 +389,9 @@ PNLDesign* NLLibrary::getPNLDesign(const NLName& name) const {
   auto dit = pnlDesignNameIDMap_.find(name);
   if (dit != pnlDesignNameIDMap_.end()) {
     NLID::DesignID id = dit->second;
+    printf("getPNLDesign name %s\n", name.getString().c_str());
+    printf("getPNLDesign found %s\n", getPNLDesign(id)->getName().getString().c_str());
+    printf("getPNLDesign id %d\n", getPNLDesign(id)->getID());
     return getPNLDesign(id);
   }
   return nullptr;
