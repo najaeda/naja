@@ -28,12 +28,7 @@ class PNLTechnology {
 
   void addSite(PNLSite* site);
 
-  void removeSite(PNLSite* site) {
-    auto it = std::remove(sites_.begin(), sites_.end(), site);
-    if (it != sites_.end()) {
-      sites_.erase(it, sites_.end());
-    }
-  }
+  void removeSite(PNLSite* site);
 
   const std::vector<PNLSite*>& getSites() const { return sites_; }
 

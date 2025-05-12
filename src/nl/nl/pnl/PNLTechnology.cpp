@@ -4,8 +4,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "PNLTechnology.h"
-
 #include "PNLSite.h"
+#include <algorithm>
 
 using namespace naja::NL;
 
@@ -16,6 +16,13 @@ void PNLTechnology::addSite(PNLSite* site) {
   sites_.push_back(site);
 }
 
+void PNLTechnology::removeSite(PNLSite* site) {
+  auto it = std::remove(sites_.begin(), sites_.end(), site);
+  if (it != sites_.end()) {
+    sites_.erase(it, sites_.end());
+  }
+}
+
 PNLTechnology::~PNLTechnology() {
   for (auto site : sites_) {
     delete site;
@@ -24,9 +31,7 @@ PNLTechnology::~PNLTechnology() {
 }
 
 PNLSite* PNLTechnology::getSiteByName(const NLName& name) const {
-   printf("getSiteByName name %s\n", name.getString().c_str());
   for (auto site : sites_) {
-    printf("getSiteByName site %s\n", site->getName().getString().c_str());
     if (site->getName() == name) {
       return site;
     }
