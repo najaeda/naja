@@ -91,7 +91,7 @@ void PNLScalarTerm::preDestroy() {
 }
 
 void PNLScalarTerm::setDirection(const PNLTerm::Direction& direction) { 
-  assert(getSlaveInstances().size() == 0);
+  assert(design_->getSlaveInstances().size() == 0);
   direction_ = direction; 
 }
 
