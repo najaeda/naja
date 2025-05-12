@@ -8,7 +8,7 @@
 
 #include "PNLOrientation.h"
 #include "PNLPoint.h"
-#include "PNLUnit.h"
+#include "PNLBox.h"
 
 namespace naja {
 namespace NL {
@@ -90,8 +90,8 @@ class PNLTransform {
       : offset_(offset), orientation_(orientation) {}
   PNLTransform(const PNLPoint& offset, const PNLOrientation::Type& orientation)
       : offset_(offset), orientation_(PNLOrientation(orientation)) {}
-  PNLTransform(PNLUnit::Unit x,
-               PNLUnit::Unit y,
+  PNLTransform(PNLBox::Unit x,
+               PNLBox::Unit y,
                const PNLOrientation& orientation)
       : offset_(PNLPoint(x, y)), orientation_(orientation) {}
 
@@ -117,8 +117,8 @@ class PNLTransform {
   bool operator<=(const PNLTransform& other) const { return !(*this > other); }
   bool operator>=(const PNLTransform& other) const { return !(*this < other); }
   PNLTransform getTransform(const PNLTransform& transformation) const {
-    PNLUnit::Unit x = transformation.offset_.getX();
-    PNLUnit::Unit y = transformation.offset_.getY();
+    PNLBox::Unit x = transformation.offset_.getX();
+    PNLBox::Unit y = transformation.offset_.getY();
 
     return PNLTransform(
         (x * A[orientation_.getType().getType()]) +
@@ -131,19 +131,19 @@ class PNLTransform {
   void applyOn(PNLTransform& transformation) const {
     transformation = getTransform(transformation);
   }
-  PNLUnit::Unit getX(const PNLUnit::Unit& x, const PNLUnit::Unit& y) const {
+  PNLBox::Unit getX(const PNLBox::Unit& x, const PNLBox::Unit& y) const {
     return (x * A[(int)orientation_.getType().getType()]) +
            (y * B[(int)orientation_.getType().getType()]) + offset_.getX();
   }
 
-  PNLUnit::Unit getY(const PNLUnit::Unit& x, const PNLUnit::Unit& y) const {
+  PNLBox::Unit getY(const PNLBox::Unit& x, const PNLBox::Unit& y) const {
     return (x * C[(int)orientation_.getType().getType()]) +
            (y * D[(int)orientation_.getType().getType()]) + offset_.getY();
   }
-  PNLBox getBox(const PNLUnit::Unit& x1,
-                const PNLUnit::Unit& y1,
-                const PNLUnit::Unit& x2,
-                const PNLUnit::Unit& y2) const {
+  PNLBox getBox(const PNLBox::Unit& x1,
+                const PNLBox::Unit& y1,
+                const PNLBox::Unit& x2,
+                const PNLBox::Unit& y2) const {
     return PNLBox(getX(x1, y1), getY(x1, y1), getX(x2, y2), getY(x2, y2));
   }
   PNLBox getBox(const PNLBox& box) const {

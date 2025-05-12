@@ -14,7 +14,7 @@
 #include <sstream>
 #include "PNLSite.h"
 #include "PNLTechnology.h"
-#include "PNLUnit.h"
+#include "PNLBox.h"
 
 using namespace std;
 using namespace naja::NL;
@@ -320,7 +320,7 @@ int LEFDumper::unitsCbk_(lefwCallbackType_e, lefiUserData udata) {
 
   status = lefwManufacturingGrid(
       PNLTechnology::getOrCreate()
-          ->getManufacturingGrid() /*LEFDumper::toLefUnits(PNLUnit::fromGrid(1.0))*/);
+          ->getManufacturingGrid() /*LEFDumper::toLefUnits(PNLBox::fromGrid(1.0))*/);
 
   if (status != 0)
     return dumpr->checkStatus(status);

@@ -9,8 +9,8 @@
 using namespace naja::NL;
 
 PNLSite* PNLSite::create(const NLName& name, ClassType siteClass,
-                  const PNLUnit::Unit& width,
-                  const PNLUnit::Unit& height) {
+                  const PNLBox::Unit& width,
+                  const PNLBox::Unit& height) {
     PNLSite* site = new PNLSite();
     site->name_ = name;
     site->width_ = width;

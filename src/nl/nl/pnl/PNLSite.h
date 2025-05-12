@@ -9,7 +9,7 @@
 #include "NLID.h"
 #include "NLName.h"
 #include "PNLTechnology.h"
-#include "PNLUnit.h"
+#include "PNLBox.h"
 
 namespace naja {
 namespace NL {
@@ -37,8 +37,8 @@ class PNLSite {
 
   static PNLSite* create(const NLName& name,
                          ClassType siteClass,
-                         const PNLUnit::Unit& width,
-                         const PNLUnit::Unit& height);
+                         const PNLBox::Unit& width,
+                         const PNLBox::Unit& height);
 
   void setID(NLID::DesignObjectID id) { id_ = id; }
   NLID::DesignObjectID getID() const { return id_; }
@@ -46,8 +46,8 @@ class PNLSite {
   void setClass(const ClassType& classType) { class_ = classType; }
   const ClassType& getClass() const { return class_; }
 
-  PNLUnit::Unit getWidth() const { return width_; }
-  PNLUnit::Unit getHeight() const { return height_; }
+  PNLBox::Unit getWidth() const { return width_; }
+  PNLBox::Unit getHeight() const { return height_; }
 
   void setSymmetry(Symmetry symmetry) { symmetry_ = symmetry; }
   Symmetry getSymmetry() const { return symmetry_; }
@@ -56,8 +56,8 @@ class PNLSite {
   NLName name_;
   ClassType class_;
   NLID::DesignObjectID id_ = (NLID::DesignObjectID)-1;
-  PNLUnit::Unit width_ = 0;
-  PNLUnit::Unit height_ = 0;
+  PNLBox::Unit width_ = 0;
+  PNLBox::Unit height_ = 0;
   Symmetry symmetry_ = Symmetry::NONE;
 };
 

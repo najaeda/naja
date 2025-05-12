@@ -8,7 +8,7 @@
 
 // #include "PNLSite.h"
 #include <vector>
-#include "PNLUnit.h"
+#include "PNLBox.h"
 
 namespace naja {
 namespace NL {
@@ -41,8 +41,8 @@ class PNLTechnology {
 
 //   PNLSite* getSiteByClass(const std::string& siteClass) const;
 
-  PNLUnit::Unit getManufacturingGrid() const { return manufacturingGrid_; }
-  void setManufacturingGrid(PNLUnit::Unit grid) { manufacturingGrid_ = grid; }
+  PNLBox::Unit getManufacturingGrid() const { return manufacturingGrid_; }
+  void setManufacturingGrid(PNLBox::Unit grid) { manufacturingGrid_ = grid; }
 
  private:
   PNLTechnology() = default;  // Private constructor
@@ -56,7 +56,7 @@ class PNLTechnology {
 
   std::vector<PNLSite*> sites_;
 
-  PNLUnit::Unit manufacturingGrid_ = 0;
+  PNLBox::Unit manufacturingGrid_ = 0;
 };
 
 }  // namespace NL

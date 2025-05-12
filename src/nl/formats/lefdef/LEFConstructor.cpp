@@ -19,7 +19,7 @@
 #include "PNLPoint.h"
 #include "PNLSite.h"
 #include "PNLTerm.h"
-#include "PNLUnit.h"
+#include "PNLBox.h"
 #include "lefrReader.hpp"
 
 // sstream
@@ -235,10 +235,10 @@ int LEFConstructor::siteCbk_(lefrCallbackType_e c,
     }
   }
   PNLBox::Unit lefSiteWidth =
-      site->sizeX();  // PNLUnit::fromPhysical( site->sizeX(), PNLUnit::Micro
+      site->sizeX();  // PNLBox::fromPhysical( site->sizeX(), PNLBox::Micro
                       // );
   PNLBox::Unit lefSiteHeight =
-      site->sizeY();  // PNLUnit::fromPhysical( site->sizeY(), PNLUnit::Micro
+      site->sizeY();  // PNLBox::fromPhysical( site->sizeY(), PNLBox::Micro
   auto pnlSite = PNLSite::create(NLName(site->name()), siteClass, lefSiteWidth,
                                  lefSiteHeight);
   if (site->hasXSymmetry() && site->hasYSymmetry()) {
