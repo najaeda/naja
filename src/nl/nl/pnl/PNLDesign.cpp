@@ -450,7 +450,6 @@ void PNLDesign::addNetAndSetID(PNLNet* net) {
 
 PNLNet* PNLDesign::addNet(const NLName& name) {
   PNLNet* net = PNLScalarNet::create(this, name);
-  addNetAndSetID(net);
   return net;
 }
 
@@ -496,7 +495,6 @@ void PNLDesign::addTermAndSetID(PNLTerm* term) {
 
 PNLTerm* PNLDesign::addTerm(const NLName& name) {
   PNLTerm* term = PNLScalarTerm::create(this, PNLTerm::Direction::InOut, name);
-  addTermAndSetID(term);
   return term;
 }
 

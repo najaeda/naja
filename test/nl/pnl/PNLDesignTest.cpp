@@ -338,3 +338,37 @@ TEST_F(PNLDesignTest, testAbutmentBox) {
   design0->setAbutmentBox(box0);
   EXPECT_EQ(box0, design0->getAbutmentBox());
 }
+
+TEST_F(PNLDesignTest, testAddNet) {
+  NLLibrary* library = db_->getLibrary(NLName("MYLIB"));
+  ASSERT_NE(library, nullptr);
+  PNLDesign* design0 = PNLDesign::create(library, NLName("design0"));
+  PNLNet* net0 = design0->addNet(NLName("net0"));
+  EXPECT_EQ(NLName("net0"), net0->getName());
+  EXPECT_EQ(0, net0->getID());
+  EXPECT_EQ(design0, net0->getDesign());
+  EXPECT_EQ(net0, design0->getNet(NLName("net0")));
+}
+
+
+TEST_F(PNLDesignTest, addTerm) {
+  NLLibrary* library = db_->getLibrary(NLName("MYLIB"));
+  ASSERT_NE(library, nullptr);
+  PNLDesign* design0 = PNLDesign::create(library, NLName("design0"));
+  PNLTerm* term0 = design0->addTerm(NLName("term0"));
+  EXPECT_EQ(NLName("term0"), term0->getName());
+  EXPECT_EQ(0, term0->getID());
+  EXPECT_EQ(design0, term0->getDesign());
+  EXPECT_EQ(term0, design0->getTerm(NLName("term0")));
+}
+
+
+TEST_F(PNLDesignTest, testSetNameCollision) {
+  NLLibrary* library = db_->getLibrary(NLName("MYLIB"));
+  ASSERT_NE(library, nullptr);
+  PNLDesign* design0 = PNLDesign::create(library, NLName("design0"));
+  PNLDesign* design1 = PNLDesign::create(library, NLName("design1"));
+  EXPECT_THROW(design0->setName(NLName("design1")), NLException);
+  EXPECT_THROW(design1->setName(NLName("design0")), NLException);
+  design0->setName(NLName("design2"));
+}
