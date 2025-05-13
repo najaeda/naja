@@ -14,12 +14,14 @@ find_package(CapnProto REQUIRED)
 set(CAPNPC_SRC_PREFIX "${PROJECT_SOURCE_DIR}/../schema" CACHE STRING "" FORCE)
 set(CAPNPC_OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR})
 
-capnp_generate_cpp(NajaSNLCommonSources NajaSNKCommonHeaders ${CAPNPC_SRC_PREFIX}/snl_common.capnp)
+capnp_generate_cpp(NajaCommonSources NajaCommonHeaders ${CAPNPC_SRC_PREFIX}/naja_common.capnp)
+capnp_generate_cpp(NajaNLInterfaceSources NajaNLInterfaceHeaders ${CAPNPC_SRC_PREFIX}/nl_interface.capnp)
 capnp_generate_cpp(NajaSNLInterfaceSources NajaSNLInterfaceHeaders ${CAPNPC_SRC_PREFIX}/snl_interface.capnp)
 capnp_generate_cpp(NajaSNLImplementationSources NajaSNLImplementationHeaders ${CAPNPC_SRC_PREFIX}/snl_implementation.capnp)
 
 add_library(naja_if STATIC
-    ${NajaSNLCommonSources} ${NajaSNLInterfaceSources} ${NajaSNLImplementationSources}
+    ${NajaCommonSources} ${NajaNLInterfaceSources}
+    ${NajaSNLInterfaceSources} ${NajaSNLImplementationSources}
 )
 
 target_link_libraries(naja_if PUBLIC CapnProto::capnp)
