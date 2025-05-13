@@ -14,7 +14,7 @@
 #include <capnp/message.h>
 #include <capnp/serialize-packed.h>
 
-#include "snl_implementation.capnp.h"
+#include "naja_snl_implementation.capnp.h"
 
 #include "NLUniverse.h"
 #include "NLException.h"
