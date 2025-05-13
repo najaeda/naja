@@ -20,8 +20,6 @@ TEST(PNLTechnologyTest, test0) {
     EXPECT_EQ(site0->getClass(), PNLSite::ClassType::Core);
     EXPECT_EQ(site0->getID(), (NLID::DesignObjectID)0);
     EXPECT_EQ(tech->getSites().size(), 1);
-
-    // Clean up
-    delete site0;
+    EXPECT_EQ(tech->getSiteByName(NLName("site0")), site0);
     PNLTechnology::getOrCreate()->destroy();
 }
