@@ -4,7 +4,7 @@
 
 @0xd0ba693613b57951;
 
-using SNLCommon = import "snl_common.capnp";
+using NajaCommon = import "naja_common.capnp";
 
 struct DBImplementation {
   id                      @0 : UInt8 = 1;
@@ -28,7 +28,7 @@ struct DBImplementation {
 
         id              @0 : UInt32;
         name            @1 : Text;
-        modelReference  @2 : SNLCommon.DesignReference;
+        modelReference  @2 : NajaCommon.DesignReference;
         instParameters  @3 : List(InstParameter);
       }
 
