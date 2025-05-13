@@ -153,10 +153,14 @@ TEST_F(PNLInstanceTest0, testgetInstTerm) {
   PNLDesign* design = PNLDesign::create(library, NLName("design"));
   PNLDesign* model = PNLDesign::create(library, NLName("model"));
   auto a = PNLScalarTerm::create(model, PNLTerm::Direction::Input, NLName("a"));
+  // test set direction
+  a->setDirection(PNLTerm::Direction::Output);
+  EXPECT_EQ(PNLTerm::Direction::Output, a->getDirection());
   auto b = PNLScalarTerm::create(model, PNLTerm::Direction::Input, NLName("b"));
   auto c = PNLScalarTerm::create(design, PNLTerm::Direction::Input, NLName("c"));
   auto ins = PNLInstance::create(design, model, NLName("instance"));
   EXPECT_EQ(ins->getInstTerm(NLName("a")), ins->getInstTerm(a));
   EXPECT_EQ(ins->getInstTerm(NLName("b")), ins->getInstTerm(b));
   EXPECT_THROW(ins->getInstTerm(NLName("c")), NLException);
+   EXPECT_EQ(ins->getInstTerm(NLName("b"))->getName(), NLName("b"));
 }
