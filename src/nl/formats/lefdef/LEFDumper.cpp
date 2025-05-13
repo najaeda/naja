@@ -466,18 +466,11 @@ void LEFDumper::dump(const std::vector<PNLDesign*>& cells,
 void LEFDumper::dump(NLLibrary* library) {
   string libraryName = "symbolic";
   std::vector<PNLDesign*> cells;
-  std::vector<PNLDesign*> temp;
 
   if (library != NULL) {
     libraryName = library->getName().getString();
-
     for (PNLDesign* icell : library->getPNLDesigns()) {
-      temp.push_back(icell);
-    }
-    for (PNLDesign* icell : temp) {
-      if (std::find(cells.begin(), cells.end(), icell) == cells.end()) {
-        cells.push_back(icell);
-      }
+      cells.push_back(icell);
     }
   }
   LEFDumper::dump(cells, libraryName);
