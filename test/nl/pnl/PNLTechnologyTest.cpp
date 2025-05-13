@@ -23,4 +23,5 @@ TEST(PNLTechnologyTest, test0) {
 
     // Clean up
     delete site0;
+    PNLTechnology::getOrCreate()->destroy();
 }

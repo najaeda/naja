@@ -39,6 +39,10 @@ class PNLTechnology {
   PNLBox::Unit getManufacturingGrid() const { return manufacturingGrid_; }
   void setManufacturingGrid(PNLBox::Unit grid) { manufacturingGrid_ = grid; }
 
+  void destroy() {
+    delete this;
+  }
+
  private:
   PNLTechnology() {};  // Private constructor
   ~PNLTechnology();           // Private destructor
