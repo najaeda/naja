@@ -621,16 +621,20 @@ NajaCollection<PNLInstance*> PNLDesign::getInstances() const {
 }
 
 NajaCollection<PNLInstance*> PNLDesign::getPrimitiveInstances() const {
+  // LCOV_EXCL_START
   auto filter = [](const PNLInstance* instance) {
     return instance->getModel()->isPrimitive();
   };
+  // LCOV_EXCL_STOP
   return getInstances().getSubCollection(filter);
 }
 
 NajaCollection<PNLInstance*> PNLDesign::getNonPrimitiveInstances() const {
+  // LCOV_EXCL_START
   auto filter = [](const PNLInstance* instance) {
     return not instance->getModel()->isPrimitive();
   };
+  // LCOV_EXCL_STOP
   return getInstances().getSubCollection(filter);
 }
 
