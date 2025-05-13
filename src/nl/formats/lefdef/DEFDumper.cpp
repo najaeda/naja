@@ -662,8 +662,9 @@ void DEFDumper::drive(PNLDesign* PNLDesign, uint32_t flags) {
     std::string path = "./" + designName + ".def";
 
     defStream = fopen(path.c_str(), "w");
-    if (defStream == NULL)
-      throw "DEFDumper::drive(): Cannot open <%s>.", path.c_str();
+    if (defStream == NULL) {
+      throw std::runtime_error("DEFDumper::drive(): Cannot open <" + path + ">");
+    }
 
     unique_ptr<DEFDumper> driver(
         new DEFDumper(PNLDesign, designName, defStream, flags));
