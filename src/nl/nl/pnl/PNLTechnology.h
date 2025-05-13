@@ -40,7 +40,7 @@ class PNLTechnology {
   void setManufacturingGrid(PNLBox::Unit grid) { manufacturingGrid_ = grid; }
 
  private:
-  PNLTechnology() = default;  // Private constructor
+  PNLTechnology() {};  // Private constructor
   ~PNLTechnology();           // Private destructor
 
   static PNLTechnology* tech_;

@@ -33,7 +33,7 @@ class PNLSite {
  };
 
   PNLSite() = default;
-  ~PNLSite() = default;
+  ~PNLSite();
 
   static PNLSite* create(const NLName& name,
                          ClassType siteClass,

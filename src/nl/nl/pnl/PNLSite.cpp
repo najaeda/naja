@@ -19,3 +19,7 @@ PNLSite* PNLSite::create(const NLName& name, ClassType siteClass,
     PNLTechnology::getOrCreate()->addSite(site);
     return site;
   }
+
+  PNLSite::~PNLSite() {
+    PNLTechnology::getOrCreate()->removeSite(this);
+  }
