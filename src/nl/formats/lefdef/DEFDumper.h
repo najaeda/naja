@@ -7,6 +7,7 @@
 
 #include "PNLBox.h"
 #include <string>
+#include <cstdint>
 
 namespace naja {
 namespace NL {
