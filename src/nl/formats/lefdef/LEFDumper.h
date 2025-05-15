@@ -10,15 +10,13 @@
 // For vector
 #include <vector>
 #include "PNLBox.h"
-#include "PNLDesign.h"
-#include "lefwWriter.hpp"
-#include "lefwWriterCalls.hpp"
 
 using namespace std;
 
 namespace naja {
 namespace NL {
 
+class PNLDesign;
 class NLLibrary;
 
 class LEFDumper {
@@ -27,33 +25,14 @@ class LEFDumper {
   static int getUnits();
   static PNLBox::Unit getSliceHeight();
   static PNLBox::Unit getPitchWidth();
+  LEFDumper(const std::vector<PNLDesign*>&, const string& libraryName, FILE*);
   ~LEFDumper();
   int write();
   static void dump(naja::NL::NLLibrary* library);
-
- private:
-  LEFDumper(const std::vector<PNLDesign*>&, const string& libraryName, FILE*);
+  inline int getStatus() const;
   inline const std::vector<PNLDesign*> getPNLDesigns() const;
   inline const string& getNLLibraryName() const;
-  inline int getStatus() const;
   int checkStatus(int status);
-  static int versionCbk_(lefwCallbackType_e, lefiUserData);
-  static int busBitCharsCbk_(lefwCallbackType_e, lefiUserData);
-  static int clearanceMeasureCbk_(lefwCallbackType_e, lefiUserData);
-  static int dividerCharCbk_(lefwCallbackType_e, lefiUserData);
-  static int unitsCbk_(lefwCallbackType_e, lefiUserData);
-  static int extCbk_(lefwCallbackType_e, lefiUserData);
-  static int propDefCbk_(lefwCallbackType_e, lefiUserData);
-  static int endLibCbk_(lefwCallbackType_e, lefiUserData);
-  static int layerCbk_(lefwCallbackType_e, lefiUserData);
-  static int macroCbk_(lefwCallbackType_e, lefiUserData);
-  static int manufacturingGridCbk_(lefwCallbackType_e, lefiUserData);
-  static int nonDefaultCbk_(lefwCallbackType_e, lefiUserData);
-  static int siteCbk_(lefwCallbackType_e, lefiUserData);
-  static int spacingCbk_(lefwCallbackType_e, lefiUserData);
-  static int useMinSpacingCbk_(lefwCallbackType_e, lefiUserData);
-  static int viaCbk_(lefwCallbackType_e, lefiUserData);
-  static int viaRuleCbk_(lefwCallbackType_e, lefiUserData);
   int dumpMacro_(PNLDesign*);
 
  private:

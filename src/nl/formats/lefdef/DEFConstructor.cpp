@@ -11,7 +11,6 @@
 #include "DEFConstructor.h"
 #include "NLDB.h"
 #include "NLLibrary.h"
-#include "PNLBox.h"
 #include "PNLDesign.h"
 #include "PNLInstTerm.h"
 #include "PNLNet.h"
@@ -20,6 +19,10 @@
 // for ostringstream
 #include <sstream>
 #include "NLUniverse.h"
+#include "NLDB.h"
+
+#include "defrReader.hpp"
+#include "lefrReader.hpp"
 
 using namespace std;
 using namespace naja::NL;
@@ -28,6 +31,352 @@ using std::cerr;
 using std::endl;
 using std::string;
 using namespace std;
+
+namespace {
+
+int unitsCbk_(defrCallbackType_e c, double defUnits, lefiUserData ud) {
+  DEFConstructor* parser = (DEFConstructor*)ud;
+  parser->setUnits(defUnits);
+  return 0;
+}
+
+int busBitCbk_(defrCallbackType_e c, const char* busbits, lefiUserData ud) {
+  DEFConstructor* parser = (DEFConstructor*)ud;
+
+  if (strlen(busbits) == 2) {
+    parser->setBusBits(busbits);
+  } else {
+    // ostringstream message;
+    // message << "BUSBITCHARS is not two character long (" << busbits << ")";
+    // parser->pushError( message.str() );
+    assert(false);
+  }
+
+  return 0;
+}
+
+int designEndCbk_(defrCallbackType_e c, void*, lefiUserData ud) {
+  DEFConstructor* parser = (DEFConstructor*)ud;
+
+  if ((parser->getFlags() & DEFConstructor::FitAbOnDesigns) and
+      not parser->getFitOnPNLDesignsDieArea().isEmpty()) {
+    parser->getPNLDesign()->setAbutmentBox(parser->getFitOnPNLDesignsDieArea());
+  }
+
+  return 0;
+}
+
+int dieAreaCbk_(defrCallbackType_e c, defiBox* box, lefiUserData ud) {
+  DEFConstructor* parser = (DEFConstructor*)ud;
+
+  parser->getPNLDesign()->setAbutmentBox(
+      PNLBox(DEFConstructor::fromDefUnits(box->xl()),
+             DEFConstructor::fromDefUnits(box->yl()),
+             DEFConstructor::fromDefUnits(box->xh()),
+             DEFConstructor::fromDefUnits(box->yh())));
+
+  return 0;
+}
+
+int viaCbk_(defrCallbackType_e c, defiVia* via, defiUserData ud) {
+  DEFConstructor* parser = (DEFConstructor*)ud;
+  string viaName = via->name();
+
+  PNLDesign* viaPNLDesign =
+      PNLDesign::create(parser->getPNLDesign()->getLibrary(), NLName(viaName));
+  viaPNLDesign->setTerminalNetlist(true);
+  if (via->hasViaRule()) {
+    char* viaRuleName;
+    char* defbotLayer;
+    char* defcutLayer;
+    char* deftopLayer;
+    int defxCutSize = 0;
+    int defyCutSize = 0;
+    int defxCutSpacing = 0;
+    int defyCutSpacing = 0;
+    int defxBotEnc = 0;
+    int defyBotEnc = 0;
+    int defxTopEnc = 0;
+    int defyTopEnc = 0;
+    int numCutRows = 1;
+    int numCutCols = 1;
+    via->viaRule(&viaRuleName, &defxCutSize, &defyCutSize, &defbotLayer,
+                 &defcutLayer, &deftopLayer, &defxCutSpacing, &defyCutSpacing,
+                 &defxBotEnc, &defyBotEnc, &defxTopEnc, &defyTopEnc);
+    if (via->hasRowCol())
+      via->rowCol(&numCutRows, &numCutCols);
+    PNLBox::Unit xCutSize = DEFConstructor::fromDefUnits(defxCutSize);
+    PNLBox::Unit yCutSize = DEFConstructor::fromDefUnits(defyCutSize);
+    PNLBox::Unit xCutSpacing = DEFConstructor::fromDefUnits(defxCutSpacing);
+    PNLBox::Unit yCutSpacing = DEFConstructor::fromDefUnits(defyCutSpacing);
+    PNLBox::Unit xBotEnc = DEFConstructor::fromDefUnits(defxBotEnc);
+    PNLBox::Unit yBotEnc = DEFConstructor::fromDefUnits(defyBotEnc);
+    PNLBox::Unit xTopEnc = DEFConstructor::fromDefUnits(defxTopEnc);
+    PNLBox::Unit yTopEnc = DEFConstructor::fromDefUnits(defyTopEnc);
+    // Layer*     botLayer    = parser->lookupLayer( defbotLayer );
+    // Layer*     cutLayer    = parser->lookupLayer( defcutLayer );
+    // Layer*     topLayer    = parser->lookupLayer( deftopLayer );
+    PNLNet* net = viaPNLDesign->addNet(NLName("via"));
+    PNLBox cellBb;
+
+    PNLBox::Unit halfXSide =
+        xTopEnc + (xCutSize * numCutRows + xCutSpacing * (numCutRows - 1)) / 2;
+    PNLBox::Unit halfYSide =
+        yTopEnc + (xCutSize * numCutCols + xCutSpacing * (numCutRows - 1)) / 2;
+    PNLBox padBb = PNLBox(0, 0);
+    padBb.increase(halfXSide, halfYSide);
+    cellBb.merge(padBb);
+    // Pad::create( net, topLayer, padBb );
+    halfXSide =
+        xBotEnc + (xCutSize * numCutRows + xCutSpacing * (numCutRows - 1)) / 2;
+    halfYSide =
+        yBotEnc + (xCutSize * numCutCols + xCutSpacing * (numCutRows - 1)) / 2;
+    padBb = PNLBox(0, 0);
+    padBb.increase(halfXSide, halfYSide);
+    cellBb.merge(padBb);
+    // Pad::create( net, botLayer, padBb );
+
+    // PNLBox::Unit x = - (xCutSize*numCutRows + xCutSpacing*(numCutRows-1)) /
+    // 2; for ( int row=0 ; row<numCutRows ; ++row ) {
+    //   PNLBox::Unit y = - (yCutSize*numCutCols + xCutSpacing*(numCutCols-1)) /
+    //   2; for ( int col=0 ; col<numCutCols ; ++col ) {
+    //     Pad::create( net, cutLayer, PNLBox( x, y, x+xCutSize, y+yCutSize ));
+    //     y += yCutSize + yCutSpacing;
+    //   }
+    //   x += xCutSize + xCutSpacing;
+    // }
+    viaPNLDesign->setAbutmentBox(cellBb);
+  }
+  parser->addViaLookup(viaName, viaPNLDesign);
+
+  return 0;
+}
+
+int pinCbk_(defrCallbackType_e c, defiPin* pin, lefiUserData ud) {
+  return 0;
+}
+
+int componentCbk_(defrCallbackType_e c,
+                  defiComponent* component,
+                  lefiUserData ud) {
+  DEFConstructor* parser = (DEFConstructor*)ud;
+
+  string componentName = component->name();
+  string componentId = component->id();
+  PNLDesign* macro = parser->getLEFMacro(componentName);
+
+  if (macro == NULL) {
+    ostringstream message;
+    message << "Unknown model/PNLDesign (LEF MACRO) " << componentName
+            << " in <%s>.";
+    parser->pushError(message.str());
+    return 0;
+  }
+
+  PNLTransform placement;
+  PNLInstance::PlacementStatus state(PNLInstance::PlacementStatus::Unplaced);
+  if (component->isPlaced() or component->isFixed()) {
+    state = (component->isPlaced()) ? PNLInstance::PlacementStatus::Placed
+                                    : PNLInstance::PlacementStatus::Fixed;
+
+    placement = DEFConstructor::getPNLTransform(
+        macro->getAbutmentBox(),
+        DEFConstructor::fromDefUnits(component->placementX()),
+        DEFConstructor::fromDefUnits(component->placementY()),
+        DEFConstructor::fromDefOrientation(component->placementOrient()));
+  }
+  PNLInstance* instance =
+      PNLInstance::create(parser->getPNLDesign(), macro, NLName(componentId));
+  // , placement
+  // , state
+  // );
+  assert(parser->getPNLDesign()->getInstance(NLName(componentId)));
+  instance->setPlacementStatus(state);
+  instance->setTransform(placement);
+  if (state != PNLInstance::PlacementStatus::Unplaced) {
+    parser->mergeToFitOnPNLDesignsDieArea(
+        instance->getModel()->getAbutmentBox());
+  }
+  return 0;
+}
+
+int componentEndCbk_(defrCallbackType_e c, void*, lefiUserData ud) {
+  DEFConstructor* parser = (DEFConstructor*)ud;
+  return parser->flushErrors();
+}
+
+int netCbk_(defrCallbackType_e c, defiNet* net, lefiUserData ud) {
+  static size_t netCount = 0;
+
+  DEFConstructor* parser = (DEFConstructor*)ud;
+
+  // cerr << "     - PNLNet " << net->name() << endl;
+
+  string name = net->name();
+  parser->toHurricaneName(name);
+
+  PNLNetDatas* netDatas = parser->lookupPNLNet(name);
+  PNLNet* hnet = NULL;
+  if (not netDatas) {
+    hnet = parser->getPNLDesign()->addNet(NLName(name));
+    parser->addPNLNetLookup(name, hnet);
+  } else
+    hnet = get<0>(*netDatas);
+
+  // if (parser->getPrebuildPNLNet(false)) {
+  //   NLName prebuildAlias = parser->getPrebuildPNLNet()->getName();
+  //   hnet->merge( parser->getPrebuildPNLNet() );
+  //   hnet->removeAlias( prebuildAlias );
+  //   parser->setPrebuildPNLNet( NULL );
+  // }
+
+  if (name.size() > 78) {
+    name.erase(0, name.size() - 75);
+    name.insert(0, 3, '.');
+  }
+  name.insert(0, "\"");
+  name.insert(name.size(), "\"");
+  if (name.size() < 80)
+    name.insert(name.size(), 80 - name.size(), ' ');
+
+  int numConnections = net->numConnections();
+  for (int icon = 0; icon < numConnections; ++icon) {
+    string instanceName = net->instance(icon);
+    string pinName = net->pin(icon);
+
+    // Connect to an external pin.
+    if (instanceName.compare("PIN") == 0)
+      continue;
+    parser->toHurricaneName(pinName);
+
+    PNLInstance* instance =
+        parser->getPNLDesign()->getInstance(NLName(instanceName));
+    if (instance == NULL) {
+      ostringstream message;
+      message << "Unknown instance (DEF COMPONENT) <" << instanceName
+              << "> in <%s>.";
+      parser->pushError(message.str());
+      continue;
+    }
+
+    /*PNLNet* masterPNLNet = instance->getModel()->getNet( NLName(pinName) );
+    if (not masterPNLNet) {
+      ostringstream message;
+      message << "Unknown PIN <" << pinName << "> in instance <"
+              << instanceName << "> (LEF MACRO) in <%s>.";
+      parser->pushError( message.str() );
+      continue;
+    }*/
+    assert(instance->getInstTerm(NLName(pinName)) != NULL);
+    instance->getInstTerm(NLName(pinName))->setNet(hnet);
+  }
+
+  return 0;
+}
+
+int snetCbk_(defrCallbackType_e c, defiNet* net, lefiUserData ud) {
+  static size_t netCount = 0;
+
+  DEFConstructor* parser = (DEFConstructor*)ud;
+
+  string name = net->name();
+  parser->toHurricaneName(name);
+
+  PNLNetDatas* netDatas = parser->lookupPNLNet(name);
+  PNLNet* hnet = NULL;
+  if (not netDatas) {
+    hnet = parser->getPNLDesign()->addNet(NLName(name));
+    parser->addPNLNetLookup(name, hnet);
+  } else
+    hnet = get<0>(*netDatas);
+
+  // if (parser->getPrebuildPNLNet(false)) {
+  //   const NLName & prebuildAlias = parser->getPrebuildPNLNet()->getName();
+  //   hnet->merge( parser->getPrebuildPNLNet() );
+  //   hnet->removeAlias( prebuildAlias );
+  //   parser->setPrebuildPNLNet( NULL );
+  // }
+
+  if (name.size() > 78) {
+    name.erase(0, name.size() - 75);
+    name.insert(0, 3, '.');
+  }
+  name.insert(0, "\"");
+  name.insert(name.size(), "\"");
+  if (name.size() < 80)
+    name.insert(name.size(), 80 - name.size(), ' ');
+
+  int numConnections = net->numConnections();
+  for (int icon = 0; icon < numConnections; ++icon) {
+    string instanceName = net->instance(icon);
+    string pinName = net->pin(icon);
+
+    // Connect to an external pin.
+    if (instanceName.compare("PIN") == 0)
+      continue;
+    parser->toHurricaneName(pinName);
+
+    PNLInstance* instance =
+        parser->getPNLDesign()->getInstance(NLName(instanceName));
+    if (instance == NULL) {
+      ostringstream message;
+      message << "Unknown instance (DEF COMPONENT) <" << instanceName
+              << "> in <%s>.";
+      parser->pushError(message.str());
+      continue;
+    }
+    instance->getInstTerm(NLName(pinName))->setNet(hnet);
+  }
+
+  return 0;
+}
+
+int netEndCbk_(defrCallbackType_e c, void*, lefiUserData ud) {
+  DEFConstructor* parser = (DEFConstructor*)ud;
+  return parser->flushErrors();
+}
+
+int pathCbk_(defrCallbackType_e c, defiPath* path, lefiUserData ud) {
+  return 0;
+}
+
+}  // namespace
+
+PNLDesign* DEFConstructor::parse(string file,
+                                 unsigned int flags,
+                                 naja::NL::NLDB* db) {
+  size_t iext = file.rfind('.');
+  if (file.compare(iext, 4, ".def") != 0) {
+    assert(false);
+    // throw Error ("DEFConstructor::construct(): DEF files must have  \".def\"
+    // extension <%s>.",file.c_str());
+  }
+
+  size_t istart = 0;
+  size_t length = file.size() - 4;
+  size_t islash = file.rfind('/');
+  if (islash != string::npos) {
+    istart = islash + 1;
+    length = file.size() - istart - 4;
+  }
+  string designName = file.substr(istart, length);
+  unique_ptr<DEFConstructor> parser(
+      new DEFConstructor(file, /*library,*/ flags, db));
+
+  FILE* defStream = fopen(file.c_str(), "r");
+  if (not defStream) {
+    assert(false);
+    // throw Error ("DEFConstructor::construct(): Cannot open DEF file
+    // <%s>.",file.c_str());
+  }
+
+  parser->createPNLDesign_(designName.c_str());
+  defrRead(defStream, file.c_str(), (defiUserData)parser.get(), 1);
+
+  fclose(defStream);
+
+  return parser->getPNLDesign();
+}
 
 void addSupplyPNLNets(PNLDesign* cell) {
   /*PNLNet* vcc = cell->addNet(NLName("VDD") );
@@ -84,7 +433,7 @@ inline void DEFConstructor::setUnits(double units) {
   defUnits_ = 1 / units;
 }
 inline PNLBox::Unit DEFConstructor::fromDefUnits(int u) {
-  return u; 
+  return u;
 }
 inline bool DEFConstructor::isSky130() const {
   return flags_ & Sky130;
@@ -305,369 +654,9 @@ ViaDatas* DEFConstructor::addViaLookup(string viaName, PNLDesign* via) {
   return viaDatas;
 }
 
-int DEFConstructor::unitsCbk_(defrCallbackType_e c,
-                              double defUnits,
-                              lefiUserData ud) {
-  DEFConstructor* parser = (DEFConstructor*)ud;
-  parser->setUnits(defUnits);
-  return 0;
-}
-
-int DEFConstructor::busBitCbk_(defrCallbackType_e c,
-                               const char* busbits,
-                               lefiUserData ud) {
-  DEFConstructor* parser = (DEFConstructor*)ud;
-
-  if (strlen(busbits) == 2) {
-    parser->setBusBits(busbits);
-  } else {
-    // ostringstream message;
-    // message << "BUSBITCHARS is not two character long (" << busbits << ")";
-    // parser->pushError( message.str() );
-    assert(false);
-  }
-
-  return 0;
-}
-
-int DEFConstructor::designEndCbk_(defrCallbackType_e c,
-                                  void*,
-                                  lefiUserData ud) {
-  DEFConstructor* parser = (DEFConstructor*)ud;
-
-  if ((parser->getFlags() & DEFConstructor::FitAbOnDesigns) and
-      not parser->getFitOnPNLDesignsDieArea().isEmpty()) {
-    parser->getPNLDesign()->setAbutmentBox(parser->getFitOnPNLDesignsDieArea());
-  }
-
-  return 0;
-}
-
-int DEFConstructor::dieAreaCbk_(defrCallbackType_e c,
-                                defiBox* box,
-                                lefiUserData ud) {
-  DEFConstructor* parser = (DEFConstructor*)ud;
-
-  parser->getPNLDesign()->setAbutmentBox(
-      PNLBox(fromDefUnits(box->xl()), fromDefUnits(box->yl()),
-             fromDefUnits(box->xh()), fromDefUnits(box->yh())));
-
-  return 0;
-}
-
-int DEFConstructor::viaCbk_(defrCallbackType_e c,
-                            defiVia* via,
-                            defiUserData ud) {
-  DEFConstructor* parser = (DEFConstructor*)ud;
-  string viaName = via->name();
-
-  PNLDesign* viaPNLDesign =
-      PNLDesign::create(parser->getPNLDesign()->getLibrary(), NLName(viaName));
-  viaPNLDesign->setTerminalNetlist(true);
-  if (via->hasViaRule()) {
-    char* viaRuleName;
-    char* defbotLayer;
-    char* defcutLayer;
-    char* deftopLayer;
-    int defxCutSize = 0;
-    int defyCutSize = 0;
-    int defxCutSpacing = 0;
-    int defyCutSpacing = 0;
-    int defxBotEnc = 0;
-    int defyBotEnc = 0;
-    int defxTopEnc = 0;
-    int defyTopEnc = 0;
-    int numCutRows = 1;
-    int numCutCols = 1;
-    via->viaRule(&viaRuleName, &defxCutSize, &defyCutSize, &defbotLayer,
-                 &defcutLayer, &deftopLayer, &defxCutSpacing, &defyCutSpacing,
-                 &defxBotEnc, &defyBotEnc, &defxTopEnc, &defyTopEnc);
-    if (via->hasRowCol())
-      via->rowCol(&numCutRows, &numCutCols);
-    PNLBox::Unit xCutSize = fromDefUnits(defxCutSize);
-    PNLBox::Unit yCutSize = fromDefUnits(defyCutSize);
-    PNLBox::Unit xCutSpacing = fromDefUnits(defxCutSpacing);
-    PNLBox::Unit yCutSpacing = fromDefUnits(defyCutSpacing);
-    PNLBox::Unit xBotEnc = fromDefUnits(defxBotEnc);
-    PNLBox::Unit yBotEnc = fromDefUnits(defyBotEnc);
-    PNLBox::Unit xTopEnc = fromDefUnits(defxTopEnc);
-    PNLBox::Unit yTopEnc = fromDefUnits(defyTopEnc);
-    // Layer*     botLayer    = parser->lookupLayer( defbotLayer );
-    // Layer*     cutLayer    = parser->lookupLayer( defcutLayer );
-    // Layer*     topLayer    = parser->lookupLayer( deftopLayer );
-    PNLNet* net = viaPNLDesign->addNet(NLName("via"));
-    PNLBox cellBb;
-
-    PNLBox::Unit halfXSide =
-        xTopEnc + (xCutSize * numCutRows + xCutSpacing * (numCutRows - 1)) / 2;
-    PNLBox::Unit halfYSide =
-        yTopEnc + (xCutSize * numCutCols + xCutSpacing * (numCutRows - 1)) / 2;
-    PNLBox padBb = PNLBox(0, 0);
-    padBb.increase(halfXSide, halfYSide);
-    cellBb.merge(padBb);
-    // Pad::create( net, topLayer, padBb );
-    halfXSide =
-        xBotEnc + (xCutSize * numCutRows + xCutSpacing * (numCutRows - 1)) / 2;
-    halfYSide =
-        yBotEnc + (xCutSize * numCutCols + xCutSpacing * (numCutRows - 1)) / 2;
-    padBb = PNLBox(0, 0);
-    padBb.increase(halfXSide, halfYSide);
-    cellBb.merge(padBb);
-    // Pad::create( net, botLayer, padBb );
-
-    // PNLBox::Unit x = - (xCutSize*numCutRows + xCutSpacing*(numCutRows-1)) /
-    // 2; for ( int row=0 ; row<numCutRows ; ++row ) {
-    //   PNLBox::Unit y = - (yCutSize*numCutCols + xCutSpacing*(numCutCols-1)) /
-    //   2; for ( int col=0 ; col<numCutCols ; ++col ) {
-    //     Pad::create( net, cutLayer, PNLBox( x, y, x+xCutSize, y+yCutSize ));
-    //     y += yCutSize + yCutSpacing;
-    //   }
-    //   x += xCutSize + xCutSpacing;
-    // }
-    viaPNLDesign->setAbutmentBox(cellBb);
-  }
-  parser->addViaLookup(viaName, viaPNLDesign);
-
-  return 0;
-}
-
-int DEFConstructor::pinCbk_(defrCallbackType_e c,
-                            defiPin* pin,
-                            lefiUserData ud) {
-  return 0;
-}
-
-int DEFConstructor::componentCbk_(defrCallbackType_e c,
-                                  defiComponent* component,
-                                  lefiUserData ud) {
-  DEFConstructor* parser = (DEFConstructor*)ud;
-
-  string componentName = component->name();
-  string componentId = component->id();
-  PNLDesign* macro = parser->getLEFMacro(componentName);
-
-  if (macro == NULL) {
-    ostringstream message;
-    message << "Unknown model/PNLDesign (LEF MACRO) " << componentName
-            << " in <%s>.";
-    parser->pushError(message.str());
-    return 0;
-  }
-
-  PNLTransform placement;
-  PNLInstance::PlacementStatus state(PNLInstance::PlacementStatus::Unplaced);
-  if (component->isPlaced() or component->isFixed()) {
-    state = (component->isPlaced()) ? PNLInstance::PlacementStatus::Placed
-                                    : PNLInstance::PlacementStatus::Fixed;
-
-    placement =
-        getPNLTransform(macro->getAbutmentBox(),
-                        fromDefUnits(component->placementX()),
-                        fromDefUnits(component->placementY()),
-                        fromDefOrientation(component->placementOrient()));
-  }
-  PNLInstance* instance = PNLInstance::create(
-      parser->getPNLDesign(), macro, NLName(componentId));
-  // , placement
-  // , state
-  // );
-  assert(parser->getPNLDesign()->getInstance(NLName(componentId)));
-  instance->setPlacementStatus(state);
-  instance->setTransform(placement);
-  if (state != PNLInstance::PlacementStatus::Unplaced) {
-    parser->mergeToFitOnPNLDesignsDieArea(
-        instance->getModel()->getAbutmentBox());
-  }
-  return 0;
-}
-
-int DEFConstructor::componentEndCbk_(defrCallbackType_e c,
-                                     void*,
-                                     lefiUserData ud) {
-  DEFConstructor* parser = (DEFConstructor*)ud;
-  return parser->flushErrors();
-}
-
-int DEFConstructor::netCbk_(defrCallbackType_e c,
-                            defiNet* net,
-                            lefiUserData ud) {
-  static size_t netCount = 0;
-
-  DEFConstructor* parser = (DEFConstructor*)ud;
-
-  // cerr << "     - PNLNet " << net->name() << endl;
-
-  string name = net->name();
-  parser->toHurricaneName(name);
-
-  PNLNetDatas* netDatas = parser->lookupPNLNet(name);
-  PNLNet* hnet = NULL;
-  if (not netDatas) {
-    hnet = parser->getPNLDesign()->addNet(NLName(name));
-    parser->addPNLNetLookup(name, hnet);
-  } else
-    hnet = get<0>(*netDatas);
-
-  // if (parser->getPrebuildPNLNet(false)) {
-  //   NLName prebuildAlias = parser->getPrebuildPNLNet()->getName();
-  //   hnet->merge( parser->getPrebuildPNLNet() );
-  //   hnet->removeAlias( prebuildAlias );
-  //   parser->setPrebuildPNLNet( NULL );
-  // }
-
-  if (name.size() > 78) {
-    name.erase(0, name.size() - 75);
-    name.insert(0, 3, '.');
-  }
-  name.insert(0, "\"");
-  name.insert(name.size(), "\"");
-  if (name.size() < 80)
-    name.insert(name.size(), 80 - name.size(), ' ');
-
-  int numConnections = net->numConnections();
-  for (int icon = 0; icon < numConnections; ++icon) {
-    string instanceName = net->instance(icon);
-    string pinName = net->pin(icon);
-
-    // Connect to an external pin.
-    if (instanceName.compare("PIN") == 0)
-      continue;
-    parser->toHurricaneName(pinName);
-
-    PNLInstance* instance =
-        parser->getPNLDesign()->getInstance(NLName(instanceName));
-    if (instance == NULL) {
-      ostringstream message;
-      message << "Unknown instance (DEF COMPONENT) <" << instanceName
-              << "> in <%s>.";
-      parser->pushError(message.str());
-      continue;
-    }
-
-    /*PNLNet* masterPNLNet = instance->getModel()->getNet( NLName(pinName) );
-    if (not masterPNLNet) {
-      ostringstream message;
-      message << "Unknown PIN <" << pinName << "> in instance <"
-              << instanceName << "> (LEF MACRO) in <%s>.";
-      parser->pushError( message.str() );
-      continue;
-    }*/
-    assert(instance->getInstTerm(NLName(pinName)) != NULL);
-    instance->getInstTerm(NLName(pinName))->setNet(hnet);
-  }
-
-  return 0;
-}
-
-int DEFConstructor::snetCbk_(defrCallbackType_e c,
-                             defiNet* net,
-                             lefiUserData ud) {
-  static size_t netCount = 0;
-
-  DEFConstructor* parser = (DEFConstructor*)ud;
-
-  string name = net->name();
-  parser->toHurricaneName(name);
-
-  PNLNetDatas* netDatas = parser->lookupPNLNet(name);
-  PNLNet* hnet = NULL;
-  if (not netDatas) {
-    hnet = parser->getPNLDesign()->addNet(NLName(name));
-    parser->addPNLNetLookup(name, hnet);
-  } else
-    hnet = get<0>(*netDatas);
-
-  // if (parser->getPrebuildPNLNet(false)) {
-  //   const NLName & prebuildAlias = parser->getPrebuildPNLNet()->getName();
-  //   hnet->merge( parser->getPrebuildPNLNet() );
-  //   hnet->removeAlias( prebuildAlias );
-  //   parser->setPrebuildPNLNet( NULL );
-  // }
-
-  if (name.size() > 78) {
-    name.erase(0, name.size() - 75);
-    name.insert(0, 3, '.');
-  }
-  name.insert(0, "\"");
-  name.insert(name.size(), "\"");
-  if (name.size() < 80)
-    name.insert(name.size(), 80 - name.size(), ' ');
-
-  int numConnections = net->numConnections();
-  for (int icon = 0; icon < numConnections; ++icon) {
-    string instanceName = net->instance(icon);
-    string pinName = net->pin(icon);
-
-    // Connect to an external pin.
-    if (instanceName.compare("PIN") == 0)
-      continue;
-    parser->toHurricaneName(pinName);
-
-    PNLInstance* instance =
-        parser->getPNLDesign()->getInstance(NLName(instanceName));
-    if (instance == NULL) {
-      ostringstream message;
-      message << "Unknown instance (DEF COMPONENT) <" << instanceName
-              << "> in <%s>.";
-      parser->pushError(message.str());
-      continue;
-    }
-    instance->getInstTerm(NLName(pinName))->setNet(hnet);
-  }
-
-  return 0;
-}
-
-int DEFConstructor::netEndCbk_(defrCallbackType_e c, void*, lefiUserData ud) {
-  DEFConstructor* parser = (DEFConstructor*)ud;
-  return parser->flushErrors();
-}
-
-int DEFConstructor::pathCbk_(defrCallbackType_e c,
-                             defiPath* path,
-                             lefiUserData ud) {
-  return 0;
-}
-
-PNLDesign* DEFConstructor::parse(string file,
-                                 unsigned int flags,
-                                 naja::NL::NLDB* db) {
-  size_t iext = file.rfind('.');
-  if (file.compare(iext, 4, ".def") != 0) {
-    assert(false);
-    // throw Error ("DEFConstructor::construct(): DEF files must have  \".def\"
-    // extension <%s>.",file.c_str());
-  }
-
-  size_t istart = 0;
-  size_t length = file.size() - 4;
-  size_t islash = file.rfind('/');
-  if (islash != string::npos) {
-    istart = islash + 1;
-    length = file.size() - istart - 4;
-  }
-  string designName = file.substr(istart, length);
-  unique_ptr<DEFConstructor> parser(
-      new DEFConstructor(file, /*library,*/ flags, db));
-
-  FILE* defStream = fopen(file.c_str(), "r");
-  if (not defStream) {
-    assert(false);
-    // throw Error ("DEFConstructor::construct(): Cannot open DEF file
-    // <%s>.",file.c_str());
-  }
-
-  parser->createPNLDesign_(designName.c_str());
-  defrRead(defStream, file.c_str(), (defiUserData)parser.get(), 1);
-
-  fclose(defStream);
-
-  return parser->getPNLDesign();
-}
-
 PNLDesign* DEFConstructor::construct(string design,
-                                unsigned int flags,
-                                naja::NL::NLDB* db) {
+                                     unsigned int flags,
+                                     naja::NL::NLDB* db) {
   PNLDesign* cell = NULL;
   if ((design.size() > 4) and (design.substr(design.size() - 4) != ".def"))
     design += ".def";

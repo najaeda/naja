@@ -8,7 +8,6 @@
 #include <string>
 #include "NLDB.h"
 #include "PNLBox.h"
-#include "lefrReader.hpp"
 
 using namespace std;
 
@@ -59,29 +58,9 @@ class LEFConstructor {
   inline void clearPinComponents();
   naja::NL::NLDB* getDB() { return db_; }
   static naja::NL::NLLibrary* construct(std::string fileName);
-
- private:
-  static int unitsCbk_(lefrCallbackType_e, lefiUnits*, lefiUserData);
-  static int layerCbk_(lefrCallbackType_e, lefiLayer*, lefiUserData);
-  static int siteCbk_(lefrCallbackType_e, lefiSite*, lefiUserData);
-  static int obstructionCbk_(lefrCallbackType_e,
-                             lefiObstruction*,
-                             lefiUserData);
-  static int macroCbk_(lefrCallbackType_e, lefiMacro*, lefiUserData);
-  static int macroSiteCbk_(lefrCallbackType_e,
-                           const lefiMacroSite*,
-                           lefiUserData);
-  static int macroForeignCbk_(lefrCallbackType_e,
-                              const lefiMacroForeign*,
-                              lefiUserData);
-  static int pinCbk_(lefrCallbackType_e, lefiPin*, lefiUserData);
-  void pinStdPostProcess_();
-  void pinPadPostProcess_();
-  static int viaCbk_(lefrCallbackType_e type, lefiVia* via, lefiUserData);
-  static int manufacturingCB_(lefrCallbackType_e /* unused: c */,
-                              double num,
-                              lefiUserData ud);
-  static void logFunction_(const char* message);
+  static string getGdsForeignDirectory() {
+    return gdsForeignDirectory_;
+  }
 
  private:
   naja::NL::NLDB* db_ = nullptr;

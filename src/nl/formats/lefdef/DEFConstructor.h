@@ -11,16 +11,21 @@
 #include <string>
 #include <tuple>
 #include <vector>
-#include "defrReader.hpp"
-#include "lefrReader.hpp"
-#include "NLDB.h"
+#include "PNLBox.h"
 
 using namespace std;
 
 namespace naja {
-namespace PNL {
+
+namespace NL {
 class PNLDesign;
+class NLDB;
+class PNLNet;
+class NLLibrary;
+class PNLTransform;
+class PNLOrientation;
 }
+
 namespace NL {
 typedef tuple<PNLNet*, uint32_t> PNLNetDatas;
 typedef tuple<PNLDesign*, uint32_t> ViaDatas;
@@ -81,22 +86,7 @@ class DEFConstructor {
   ViaDatas* addViaLookup(std::string viaName, PNLDesign*);
   void toHurricaneName(std::string&);
   inline void mergeToFitOnPNLDesignsDieArea(const PNLBox&);
-  // Contact*           createVia                ( string viaName, PNLNet*,
-  // PNLBox::Unit x, PNLBox::Unit y );
- private:
-  static int unitsCbk_(defrCallbackType_e, double, defiUserData);
-  static int busBitCbk_(defrCallbackType_e, const char*, defiUserData);
-  static int designEndCbk_(defrCallbackType_e, void*, defiUserData);
-  static int dieAreaCbk_(defrCallbackType_e, defiBox*, defiUserData);
-  static int pinCbk_(defrCallbackType_e, defiPin*, defiUserData);
-  static int viaCbk_(defrCallbackType_e, defiVia*, defiUserData);
-  static int componentCbk_(defrCallbackType_e, defiComponent*, defiUserData);
-  static int componentEndCbk_(defrCallbackType_e, void*, defiUserData);
-  static int netCbk_(defrCallbackType_e, defiNet*, defiUserData);
-  static int netEndCbk_(defrCallbackType_e, void*, defiUserData);
-  static int snetCbk_(defrCallbackType_e, defiNet*, defiUserData);
-  static int pathCbk_(defrCallbackType_e, defiPath*, defiUserData);
-
+ 
  private:
   static double defUnits_;
   static NLLibrary* lefRootNLLibrary_;

@@ -6,14 +6,15 @@
 #pragma once
 
 #include "PNLBox.h"
-#include "PNLDesign.h"
-#include "PNLInstance.h"
-#include "defwWriter.hpp"
-#include "defwWriterCalls.hpp"
-#include "lefwWriter.hpp"
+#include <string>
 
 namespace naja {
 namespace NL {
+
+  class PNLDesign;
+  class PNLOrientation;
+  class PNLInstance;
+  class PNLTransform;
 
 class DEFDumper {
  public:
@@ -31,40 +32,14 @@ class DEFDumper {
                                int& statusOrient);
   static PNLBox::Unit getSliceHeight();
   static PNLBox::Unit getPitchWidth();
+  DEFDumper(PNLDesign*, const std::string& designName, FILE*, uint32_t flags);
   ~DEFDumper();
   int write();
-
- private:
-  DEFDumper(PNLDesign*, const std::string& designName, FILE*, uint32_t flags);
+  int checkStatus(int status, std::string info);
   inline PNLDesign* getDesign();
   inline const std::string& getDesignName() const;
   inline uint32_t getFlags() const;
   inline int getStatus() const;
-  int checkStatus(int status, std::string info);
- private:
-  static int designCbk_(defwCallbackType_e, defiUserData);
-  static int designEndCbk_(defwCallbackType_e, defiUserData);
-  static int historyCbk_(defwCallbackType_e, defiUserData);
-  static int versionCbk_(defwCallbackType_e, defiUserData);
-  static int dividerCbk_(defwCallbackType_e, defiUserData);
-  static int busBitCbk_(defwCallbackType_e, defiUserData);
-  static int unitsCbk_(defwCallbackType_e, defiUserData);
-  static int technologyCbk_(defwCallbackType_e, defiUserData);
-  static int dieAreaCbk_(defwCallbackType_e, defiUserData);
-  static int gPNLDesignGridCbk_(defwCallbackType_e, defiUserData);  // TOTO ?
-  static int rowCbk_(defwCallbackType_e, defiUserData);
-  static int trackCbk_(defwCallbackType_e, defiUserData);
-  static int viaCbk_(defwCallbackType_e, defiUserData);
-  static int pinCbk_(defwCallbackType_e, defiUserData);
-  static int pinPropCbk_(defwCallbackType_e, defiUserData);
-  static int componentCbk_(defwCallbackType_e, defiUserData);
-  static int netCbk_(defwCallbackType_e, defiUserData);
-  static int snetCbk_(defwCallbackType_e, defiUserData);
-  static int extensionCbk_(defwCallbackType_e, defiUserData);
-  static int groupCbk_(defwCallbackType_e, defiUserData);
-  static int propDefCbk_(defwCallbackType_e, defiUserData);
-  static int regionCbk_(defwCallbackType_e, defiUserData);
-  static int scanchainCbk_(defwCallbackType_e, defiUserData);
 
  private:
   static int units_;
