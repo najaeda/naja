@@ -371,4 +371,7 @@ TEST_F(PNLDesignTest, testSetNameCollision) {
   EXPECT_THROW(design0->setName(NLName("design1")), NLException);
   EXPECT_THROW(design1->setName(NLName("design0")), NLException);
   design0->setName(NLName("design2"));
+  EXPECT_EQ(NLName("design2"), design0->getName());
+  design0->setName(NLName("design2"));
+  EXPECT_EQ(NLName("design2"), design0->getName());
 }

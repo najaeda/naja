@@ -21,5 +21,6 @@ TEST(PNLTechnologyTest, test0) {
     EXPECT_EQ(site0->getID(), (NLID::DesignObjectID)0);
     EXPECT_EQ(tech->getSites().size(), 1);
     EXPECT_EQ(tech->getSiteByName(NLName("site0")), site0);
+    EXPECT_EQ(tech->getSiteByName(NLName("site1")), nullptr);
     PNLTechnology::getOrCreate()->destroy();
 }
