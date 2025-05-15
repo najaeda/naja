@@ -607,8 +607,6 @@ DEFDumper::DEFDumper(PNLDesign* PNLDesign,
       defStream_(defStream),
       flags_(flags),
       status_(0) {
-  // AllianceFramework* framework = AllianceFramework::get ();
-  // PNLDesignGauge*         cg        = framework->getDesignGauge();
 
   // sliceHeight_ = cg->getSliceHeight ();
   // pitchWidth_  = cg->getPitch       ();

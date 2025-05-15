@@ -395,12 +395,9 @@ NLLibrary* DEFConstructor::lefRootNLLibrary_ = NULL;
 
 DEFConstructor::DEFConstructor(
     string file,
-    /*AllianceNLLibrary* library,*/ unsigned int flags,
     naja::NL::NLDB* db)
     : flags_(flags),
-      file_(file)
-      //, library_          (library)
-      ,
+      file_(file),
       busBits_("()"),
       cell_(NULL),
       pitchs_(0),

@@ -41,7 +41,6 @@ class DEFConstructor {
                                    unsigned int flags,
                                    naja::NL::NLDB* db);
 
-  // static AllianceFramework* getFramework             ();
   PNLDesign* getLEFMacro(std::string name);
   static void setUnits(double);
   static PNLBox::Unit fromDefUnits(int);
@@ -57,14 +56,12 @@ class DEFConstructor {
                                       const PNLBox::Unit y,
                                       const PNLOrientation);
   static PNLDesign* parse(std::string file, unsigned int flags, naja::NL::NLDB* db);
-  DEFConstructor(std::string file,
-                 /*AllianceNLLibrary*,*/ unsigned int flags,
+  DEFConstructor(std::string file, unsigned int flags,
                  naja::NL::NLDB* db);
   ~DEFConstructor();
   inline bool hasErrors();
   inline bool isSky130() const;
   inline unsigned int getFlags() const;
-  // inline AllianceNLLibrary*   getLibrary               ();
   inline PNLDesign* getPNLDesign();
   inline size_t getPitchs() const;
   inline size_t getSlices() const;
