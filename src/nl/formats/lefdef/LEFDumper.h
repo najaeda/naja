@@ -10,6 +10,7 @@
 // For vector
 #include <vector>
 #include "PNLBox.h"
+#include <cstdint>
 
 using namespace std;
 
