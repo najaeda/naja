@@ -24,7 +24,7 @@ class PNLNet;
 class NLLibrary;
 class PNLTransform;
 class PNLOrientation;
-}
+}  // namespace NL
 
 namespace NL {
 typedef tuple<PNLNet*, uint32_t> PNLNetDatas;
@@ -38,8 +38,8 @@ class DEFConstructor {
  public:
   PNLDesign* createPNLDesign_(const char* name);
   static naja::NL::PNLDesign* construct(std::string design,
-                                   unsigned int flags,
-                                   naja::NL::NLDB* db);
+                                        unsigned int flags,
+                                        naja::NL::NLDB* db);
 
   PNLDesign* getLEFMacro(std::string name);
   static void setUnits(double);
@@ -55,9 +55,10 @@ class DEFConstructor {
                                       const PNLBox::Unit x,
                                       const PNLBox::Unit y,
                                       const PNLOrientation);
-  static PNLDesign* parse(std::string file, unsigned int flags, naja::NL::NLDB* db);
-  DEFConstructor(std::string file, unsigned int flags,
-                 naja::NL::NLDB* db);
+  static PNLDesign* parse(std::string file,
+                          unsigned int flags,
+                          naja::NL::NLDB* db);
+  DEFConstructor(std::string file, unsigned int flags, naja::NL::NLDB* db);
   ~DEFConstructor();
   inline bool hasErrors();
   inline bool isSky130() const;
@@ -83,7 +84,7 @@ class DEFConstructor {
   ViaDatas* addViaLookup(std::string viaName, PNLDesign*);
   void toHurricaneName(std::string&);
   inline void mergeToFitOnPNLDesignsDieArea(const PNLBox&);
- 
+
  private:
   static double defUnits_;
   static NLLibrary* lefRootNLLibrary_;

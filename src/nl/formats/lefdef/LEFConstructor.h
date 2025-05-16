@@ -58,9 +58,7 @@ class LEFConstructor {
   inline void clearPinComponents();
   naja::NL::NLDB* getDB() { return db_; }
   static naja::NL::NLLibrary* construct(std::string fileName);
-  static string getGdsForeignDirectory() {
-    return gdsForeignDirectory_;
-  }
+  static string getGdsForeignDirectory() { return gdsForeignDirectory_; }
 
  private:
   naja::NL::NLDB* db_ = nullptr;

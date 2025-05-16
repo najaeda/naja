@@ -5,17 +5,17 @@
 
 #pragma once
 
-#include "PNLBox.h"
-#include <string>
 #include <cstdint>
+#include <string>
+#include "PNLBox.h"
 
 namespace naja {
 namespace NL {
 
-  class PNLDesign;
-  class PNLOrientation;
-  class PNLInstance;
-  class PNLTransform;
+class PNLDesign;
+class PNLOrientation;
+class PNLInstance;
+class PNLTransform;
 
 class DEFDumper {
  public:

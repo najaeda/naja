@@ -607,7 +607,6 @@ DEFDumper::DEFDumper(PNLDesign* PNLDesign,
       defStream_(defStream),
       flags_(flags),
       status_(0) {
-
   // sliceHeight_ = cg->getSliceHeight ();
   // pitchWidth_  = cg->getPitch       ();
   // units_       = PNLBox::toGrid( PNLBox::fromMicrons(1.0) );

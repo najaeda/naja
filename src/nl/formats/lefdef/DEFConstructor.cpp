@@ -18,8 +18,8 @@
 #include "PNLTransform.h"
 // for ostringstream
 #include <sstream>
-#include "NLUniverse.h"
 #include "NLDB.h"
+#include "NLUniverse.h"
 
 #include "defrReader.hpp"
 #include "lefrReader.hpp"
@@ -393,10 +393,9 @@ void addSupplyPNLNets(PNLDesign* cell) {
 double DEFConstructor::defUnits_ = 0.01;
 NLLibrary* DEFConstructor::lefRootNLLibrary_ = NULL;
 
-DEFConstructor::DEFConstructor(
-    string file,
-    unsigned int flags,
-    naja::NL::NLDB* db)
+DEFConstructor::DEFConstructor(string file,
+                               unsigned int flags,
+                               naja::NL::NLDB* db)
     : flags_(flags),
       file_(file),
       busBits_("()"),

@@ -21,7 +21,6 @@
 #include "PNLSite.h"
 #include "PNLTerm.h"
 #include "lefrReader.hpp"
-#include "lefrReader.hpp"
 
 // sstream
 #include <sstream>
