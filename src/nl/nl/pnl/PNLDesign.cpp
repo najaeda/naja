@@ -12,14 +12,16 @@
 #include "NLLibrary.h"
 #include "PNLBitNet.h"
 #include "PNLNet.h"
+#include "PNLScalarNet.h"
 #include "PNLTerm.h"
 #include "SNLMacros.h"
-#include "PNLScalarNet.h"
 
 namespace naja {
 namespace NL {
 
 PNLDesign::Type::Type(const TypeEnum& typeEnum) : typeEnum_(typeEnum) {}
+PNLDesign::ClassType::ClassType(const ClassTypeEnum& typeEnum)
+    : typeEnum_(typeEnum) {}
 
 // LCOV_EXCL_START
 std::string PNLDesign::Type::getString() const {
@@ -34,16 +36,103 @@ std::string PNLDesign::Type::getString() const {
   return "Unknown";
 }
 
+std::string PNLDesign::ClassType::getString() const {
+  std::string macroClass;
+  switch (typeEnum_) {
+        case PNLDesign::ClassType::CORE:
+            macroClass = "CORE";
+            break;
+        case PNLDesign::ClassType::CORE_FEEDTHRU:
+            macroClass = "CORE FEEDTHRU";
+            break;
+        case PNLDesign::ClassType::CORE_TIEHIGH:
+            macroClass = "CORE TIEHIGH";
+            break;
+        case PNLDesign::ClassType::CORE_TIELOW:
+            macroClass = "CORE TIELOW";
+            break;
+        case PNLDesign::ClassType::CORE_SPACER:
+            macroClass = "CORE SPACER";
+            break;
+        case PNLDesign::ClassType::CORE_ANTENNACELL:
+            macroClass = "CORE ANTENNACELL";
+            break;
+        case PNLDesign::ClassType::CORE_WELLTAP:
+            macroClass = "CORE WELLTAP";
+            break;
+        case PNLDesign::ClassType::PAD:
+            macroClass = "PAD";
+            break;
+        case PNLDesign::ClassType::PAD_INPUT:
+            macroClass = "PAD INPUT";
+            break;
+        case PNLDesign::ClassType::PAD_OUTPUT:
+            macroClass = "PAD OUTPUT";
+            break;
+        case PNLDesign::ClassType::PAD_INOUT:
+            macroClass = "PAD INOUT";
+            break;
+        case PNLDesign::ClassType::PAD_POWER:
+            macroClass = "PAD POWER";
+            break;
+        case PNLDesign::ClassType::PAD_SPACER:
+            macroClass = "PAD SPACER";
+            break;
+        case PNLDesign::ClassType::PAD_AREAIO:
+            macroClass = "PAD AREAIO";
+            break;
+        case PNLDesign::ClassType::BLOCK:
+            macroClass = "BLOCK";
+            break;
+        case PNLDesign::ClassType::BLACKBOX:
+            macroClass = "BLACKBOX";
+            break;
+        case PNLDesign::ClassType::SOFT_MACRO:
+            macroClass = "SOFT MACRO";
+            break;
+        case PNLDesign::ClassType::ENDCAP_PRE:
+            macroClass = "ENDCAP PRE";
+            break;
+        case PNLDesign::ClassType::ENDCAP_POST:
+            macroClass = "ENDCAP POST";
+            break;
+        case PNLDesign::ClassType::ENDCAP_TOPLEFT:
+            macroClass = "ENDCAP TOPLEFT";
+            break;
+        case PNLDesign::ClassType::ENDCAP_TOPRIGHT:
+            macroClass = "ENDCAP TOPRIGHT";
+            break;
+        case PNLDesign::ClassType::ENDCAP_BOTTOMLEFT: 
+            macroClass = "ENDCAP BOTTOMLEFT";
+            break;
+        case PNLDesign::ClassType::ENDCAP_BOTTOMRIGHT:
+            macroClass = "ENDCAP BOTTOMRIGHT";
+            break;
+        case PNLDesign::ClassType::COVER:
+            macroClass = "COVER";
+            break;
+        case PNLDesign::ClassType::COVER_BUMP:  
+            macroClass = "COVER BUMP";
+            break;
+        case PNLDesign::ClassType::RING:
+            macroClass = "RING";
+            break;
+        case PNLDesign::ClassType::NONE:
+            break;
+        default:
+            assert(false);
+    }
+  return macroClass;
+}
+
 PNLDesign::PNLDesign(NLLibrary* library, const Type& type, const NLName& name)
     : super(), name_(name), library_(library), type_(type) {}
 
-PNLDesign::PNLDesign(NLLibrary* library, NLID::DesignID id, Type type, const NLName& name):
-  super(),
-  id_(id),
-  name_(name),
-  library_(library),
-  type_(type)
-{}
+PNLDesign::PNLDesign(NLLibrary* library,
+                     NLID::DesignID id,
+                     Type type,
+                     const NLName& name)
+    : super(), id_(id), name_(name), library_(library), type_(type) {}
 
 PNLDesign* PNLDesign::create(NLLibrary* library, const NLName& name) {
   preCreate(library, Type::Standard, name);
@@ -52,17 +141,22 @@ PNLDesign* PNLDesign::create(NLLibrary* library, const NLName& name) {
   return design;
 }
 
-PNLDesign* PNLDesign::create(NLLibrary* library, const Type& type, const NLName& name) {
+PNLDesign* PNLDesign::create(NLLibrary* library,
+                             const Type& type,
+                             const NLName& name) {
   preCreate(library, type, name);
   PNLDesign* design = new PNLDesign(library, type, name);
   design->postCreateAndSetID();
   return design;
 }
 
-PNLDesign* PNLDesign::create(NLLibrary* library, NLID::DesignID id, Type type, const NLName& name) {
+PNLDesign* PNLDesign::create(NLLibrary* library,
+                             NLID::DesignID id,
+                             Type type,
+                             const NLName& name) {
   preCreate(library, id, type, name);
   PNLDesign* design = new PNLDesign(library, id, type, name);
-  design->postCreate();
+  design->postCreateAndSetID();
   return design;
 }
 
@@ -70,9 +164,13 @@ PNLDesign* PNLDesign::create(NLLibrary* library, NLID::DesignID id, Type type, c
 void PNLDesign::postCreateAndSetID() {
   super::postCreate();
   library_->addPNLDesignAndSetID(this);
+  assert(library_->getPNLDesign(getID()) == this);
+  assert(library_->getPNLDesign(getName()) == this || getName().empty());
 }
 
-void PNLDesign::preCreate(const NLLibrary* library, Type type, const NLName& name) {
+void PNLDesign::preCreate(const NLLibrary* library,
+                          Type type,
+                          const NLName& name) {
   super::preCreate();
   if (not library) {
     throw NLException("malformed design creator with null library");
@@ -99,18 +197,25 @@ void PNLDesign::preCreate(const NLLibrary* library, Type type, const NLName& nam
     reason << " in a primitives library: " << library->getString();
     throw NLException(reason.str());
   }
-  //test if design with same name exists in library
+  // test if design with same name exists in library
   if (not name.empty() and library->getPNLDesign(name)) {
-    std::string reason = "NLLibrary " + library->getString() + " contains already a PNLDesign named: " + name.getString();
+    std::string reason =
+        "NLLibrary " + library->getString() +
+        " contains already a PNLDesign named: " + name.getString();
     throw NLException(reason);
   }
 }
 
-void PNLDesign::preCreate(const NLLibrary* library, NLID::DesignID id, Type type, const NLName& name) {
+void PNLDesign::preCreate(const NLLibrary* library,
+                          NLID::DesignID id,
+                          Type type,
+                          const NLName& name) {
   PNLDesign::preCreate(library, type, name);
-  //test if design with same id exists in library
+  // test if design with same id exists in library
   if (library->getPNLDesign(id)) {
-    std::string reason = "NLLibrary " + library->getString() + " contains already a PNLDesign with ID: " + std::to_string(id);
+    std::string reason =
+        "NLLibrary " + library->getString() +
+        " contains already a PNLDesign with ID: " + std::to_string(id);
     throw NLException(reason);
   }
 }
@@ -125,35 +230,27 @@ NLID PNLDesign::getNLID() const {
 
 void PNLDesign::commonPreDestroy() {
 #ifdef PNL_DESTROY_DEBUG
-  std::cerr << "Destroying " << getDescription() << std::endl; 
+  std::cerr << "Destroying " << getDescription() << std::endl;
 #endif
   struct destroyInstanceFromDesign {
-    void operator()(PNLInstance* instance) {
-      instance->destroyFromDesign();
-    }
+    void operator()(PNLInstance* instance) { instance->destroyFromDesign(); }
   };
   instances_.clear_and_dispose(destroyInstanceFromDesign());
 
   if (not isPrimitive()) {
     struct destroySlaveInstanceFromModel {
-      void operator()(PNLInstance* instance) {
-        instance->destroyFromModel();
-      }
+      void operator()(PNLInstance* instance) { instance->destroyFromModel(); }
     };
     slaveInstances_.clear_and_dispose(destroySlaveInstanceFromModel());
   }
 
   struct destroyTermFromDesign {
-    void operator()(PNLTerm* term) {
-      term->destroyFromDesign();
-    }
+    void operator()(PNLTerm* term) { term->destroyFromDesign(); }
   };
   terms_.clear_and_dispose(destroyTermFromDesign());
 
   struct destroyNetFromDesign {
-    void operator()(PNLNet* net) {
-      net->destroyFromDesign();
-    }
+    void operator()(PNLNet* net) { net->destroyFromDesign(); }
   };
   nets_.clear_and_dispose(destroyNetFromDesign());
 
@@ -174,7 +271,7 @@ void PNLDesign::destroyFromLibrary() {
 
 void PNLDesign::preDestroy() {
   if (isPrimitive()) {
-    //FIXME: Error
+    // FIXME: Error
   }
   library_->removePNLDesign(this);
   commonPreDestroy();
@@ -351,6 +448,11 @@ void PNLDesign::addNetAndSetID(PNLNet* net) {
   addNet(net);
 }
 
+PNLNet* PNLDesign::addNet(const NLName& name) {
+  PNLNet* net = PNLScalarNet::create(this, name);
+  return net;
+}
+
 void PNLDesign::addNet(PNLNet* net) {
   nets_.insert(*net);
   if (not net->getName().empty()) {
@@ -391,8 +493,14 @@ void PNLDesign::addTermAndSetID(PNLTerm* term) {
   addTerm(term);
 }
 
+PNLTerm* PNLDesign::addTerm(const NLName& name) {
+  PNLTerm* term = PNLScalarTerm::create(this, PNLTerm::Direction::InOut, name);
+  return term;
+}
+
 void PNLDesign::addTerm(PNLTerm* term) {
-  assert(dynamic_cast<PNLScalarTerm*>(term) /*or dynamic_cast<PNLBusTerm*>(term)*/);
+  assert(dynamic_cast<PNLScalarTerm*>(
+      term) /*or dynamic_cast<PNLBusTerm*>(term)*/);
 
   if (terms_.empty()) {
     term->setFlatID(0);
@@ -487,11 +595,13 @@ NajaCollection<PNLScalarTerm*> PNLDesign::getScalarTerms() const {
 
 NajaCollection<PNLBitTerm*> PNLDesign::getBitTerms() const {
   // auto flattener = [](const PNLBusTerm* b) { return b->getBusBits(); };
-  // return getTerms().getFlatCollection<PNLBusTerm*, PNLBusTermBit*, PNLBitTerm*>(flattener);
+  // return getTerms().getFlatCollection<PNLBusTerm*, PNLBusTermBit*,
+  // PNLBitTerm*>(flattener);
   return getTerms().getSubCollection<PNLBitTerm*>();
 }
 
-PNLBitTerm* PNLDesign::getBitTerm(NLID::DesignObjectID id, NLID::Bit bit) const {
+PNLBitTerm* PNLDesign::getBitTerm(NLID::DesignObjectID id,
+                                  NLID::Bit bit) const {
   PNLBitTerm* bitTerm = getScalarTerm(id);
   // if (not bitTerm) {
   //   bitTerm = getBusTermBit(id, bit);
@@ -511,13 +621,40 @@ NajaCollection<PNLInstance*> PNLDesign::getInstances() const {
 }
 
 NajaCollection<PNLInstance*> PNLDesign::getPrimitiveInstances() const {
-  auto filter = [](const PNLInstance* instance) { return instance->getModel()->isPrimitive(); };
+  // LCOV_EXCL_START
+  auto filter = [](const PNLInstance* instance) {
+    return instance->getModel()->isPrimitive();
+  };
+  // LCOV_EXCL_STOP
   return getInstances().getSubCollection(filter);
 }
 
 NajaCollection<PNLInstance*> PNLDesign::getNonPrimitiveInstances() const {
-  auto filter = [](const PNLInstance* instance) { return not instance->getModel()->isPrimitive(); };
+  // LCOV_EXCL_START
+  auto filter = [](const PNLInstance* instance) {
+    return not instance->getModel()->isPrimitive();
+  };
+  // LCOV_EXCL_STOP
   return getInstances().getSubCollection(filter);
+}
+
+void PNLDesign::setName(const naja::NL::NLName& name) {
+  if (name_ == name) {
+    return;
+  }
+  if (not name.empty()) {
+    /* check collision */
+    if (auto collision = getLibrary()->getPNLDesign(name)) {
+      std::ostringstream reason;
+      reason << "In library " << getLibrary()->getString() << ", cannot rename "
+             << getString() << " to " << name.getString() << ", another Design "
+             << collision->getString() << " has already this name.";
+      throw NLException(reason.str());
+    }
+  }
+  auto previousName = getName();
+  name_ = name;
+  getLibrary()->rename(this, previousName);
 }
 
 }  // namespace NL
