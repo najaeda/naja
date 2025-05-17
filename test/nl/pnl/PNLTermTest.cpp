@@ -312,6 +312,8 @@ TEST_F(PNLTermTest, testDestroy) {
   //term1->setNet(net1);
   //term2->setNet(net2);
   EXPECT_EQ(term0->getNet(), net0);
+  term0->setDirection(PNLTerm::Direction::Output);
+  EXPECT_EQ(term0->getDirection(), PNLTerm::Direction::Output);
   //EXPECT_EQ(term2->getNet(), net2->getBit(0));
 
   //start destroying
