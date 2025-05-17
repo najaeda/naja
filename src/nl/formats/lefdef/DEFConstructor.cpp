@@ -267,8 +267,8 @@ int netCbk_(defrCallbackType_e c, defiNet* net, lefiUserData ud) {
       parser->pushError( message.str() );
       continue;
     }*/
-    assert(instance->getInstTerm(NLName(pinName)) != NULL);
-    instance->getInstTerm(NLName(pinName))->setNet(hnet);
+    assert(instance->getInstTerm(instance->getModel()->getBitTerm(NLName(pinName))) != NULL);
+    instance->getInstTerm(instance->getModel()->getBitTerm(NLName(pinName)))->setNet(hnet);
   }
 
   return 0;
@@ -325,7 +325,7 @@ int snetCbk_(defrCallbackType_e c, defiNet* net, lefiUserData ud) {
       parser->pushError(message.str());
       continue;
     }
-    instance->getInstTerm(NLName(pinName))->setNet(hnet);
+    instance->getInstTerm(instance->getModel()->getBitTerm(NLName(pinName)))->setNet(hnet);
   }
 
   return 0;
