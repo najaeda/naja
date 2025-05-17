@@ -8,6 +8,7 @@
 #include <boost/intrusive/set.hpp>
 
 #include "PNLDesignObject.h"
+#include "NLName.h"
 
 namespace naja { namespace NL {
 
@@ -27,7 +28,9 @@ class PNLNetComponent: public PNLDesignObject {
         enum DirectionEnum {
           Input,  ///< Input direction.
           Output, ///< Output direction.
-          InOut   ///< InOut direction.
+          InOut,   ///< InOut direction.
+          Tristate, ///< Tristate direction.
+          Undefined ///< Undefined direction.
         };
         Direction(const DirectionEnum& dirEnum);
         Direction(const Direction& direction) = default;
@@ -40,6 +43,7 @@ class PNLNetComponent: public PNLDesignObject {
 
     /// \return this PNLNetComponent Direction.
     virtual Direction getDirection() const = 0;
+    //virtual void setDirection(const Direction& direction) = 0;
 
     /// \return this PNLNetComponent PNLNet. 
     virtual PNLBitNet* getNet() const =0;
@@ -49,7 +53,9 @@ class PNLNetComponent: public PNLDesignObject {
      * \remark This PNLNetComponent and net must have the same size. 
      * \remark If net is null, this PNLNetComponent will be disconnected.
      */
-    virtual void setNet(PNLNet* net) =0;
+    virtual void setNet(PNLNet* net) = 0;
+
+    virtual NLName getName() const = 0;
 
   protected:
     PNLNetComponent() = default;

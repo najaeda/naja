@@ -27,6 +27,7 @@ class PNLBitNet: public PNLNet {
 
     bool isGND() const override { return type_.isGND(); } 
     bool isVDD() const override { return type_.isVDD(); }
+    bool isClock() const override { return type_.isClock(); }
 
     ///\return the collection of PNLComponent ot this PNLBitNet
     NajaCollection<PNLNetComponent*> getComponents() const;

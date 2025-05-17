@@ -45,7 +45,6 @@ class PNLScalarTerm final: public PNLBitTerm {
 
     NajaCollection<PNLBitTerm*> getBits() const override;
     PNLTerm::Direction getDirection() const override { return direction_; }
-    void setDirection(const PNLTerm::Direction& direction) { direction_ = direction; }
 
     const char* getTypeName() const override;
     std::string getString() const override;
@@ -53,6 +52,7 @@ class PNLScalarTerm final: public PNLBitTerm {
     void debugDump(size_t indent, bool recursive=true, std::ostream& stream=std::cerr) const override;
     //bool deepCompare(const PNLTerm* other, std::string& reason) const override;
     bool isAnonymous() const override { return name_.empty(); }
+    void setDirection(const PNLTerm::Direction& direction) override;
   private:
     PNLScalarTerm(PNLDesign* design, Direction direction, const NLName& name);
     PNLScalarTerm(PNLDesign* design, NLID::DesignObjectID, Direction direction, const NLName& name);

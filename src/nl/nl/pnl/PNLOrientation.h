@@ -52,7 +52,8 @@ class PNLOrientation {
       private:
         TypeEnum typeEnum_ = R0; // Default to R0
     };
-    PNLOrientation(Type orientationType) : orientationType_(orientationType) {}
+    PNLOrientation(const Type::TypeEnum& orientationType) : orientationType_(orientationType) {}
+    PNLOrientation(const Type& orientationType) : orientationType_(orientationType) {}
     // Default constructor
     PNLOrientation() = default;
     const Type& getType() const { return orientationType_; }

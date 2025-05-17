@@ -12,7 +12,7 @@
 #include <capnp/message.h>
 #include <capnp/serialize-packed.h>
 
-#include "snl_interface.capnp.h"
+#include "naja_nl_interface.capnp.h"
 
 #include "NajaDumpableProperty.h"
 
@@ -63,34 +63,34 @@ template<typename T> void dumpProperties(
   }
 }
 
-DBInterface::LibraryInterface::DesignInterface::Direction SNLtoCapnPDirection(SNLTerm::Direction direction) {
+Direction SNLtoCapnPDirection(SNLTerm::Direction direction) {
   switch (direction) {
     case SNLTerm::Direction::Input:
-      return DBInterface::LibraryInterface::DesignInterface::Direction::INPUT;
+      return Direction::INPUT;
     case SNLTerm::Direction::Output:
-      return DBInterface::LibraryInterface::DesignInterface::Direction::OUTPUT;
+      return Direction::OUTPUT;
     case SNLTerm::Direction::InOut:
-      return DBInterface::LibraryInterface::DesignInterface::Direction::INOUT;
+      return Direction::INOUT;
   }
-  return DBInterface::LibraryInterface::DesignInterface::Direction::INPUT; //LCOV_EXCL_LINE
+  return Direction::INPUT; //LCOV_EXCL_LINE
 }
 
-DBInterface::LibraryInterface::DesignInterface::ParameterType SNLtoCapNpParameterType(SNLParameter::Type type) {
+SNLDesignInterface::ParameterType SNLtoCapNpParameterType(SNLParameter::Type type) {
   switch (type) {
     case SNLParameter::Type::Decimal:
-      return DBInterface::LibraryInterface::DesignInterface::ParameterType::DECIMAL;
+      return SNLDesignInterface::ParameterType::DECIMAL;
     case SNLParameter::Type::Binary:
-      return DBInterface::LibraryInterface::DesignInterface::ParameterType::BINARY;
+      return SNLDesignInterface::ParameterType::BINARY;
     case SNLParameter::Type::Boolean:
-      return DBInterface::LibraryInterface::DesignInterface::ParameterType::BOOLEAN;
+      return SNLDesignInterface::ParameterType::BOOLEAN;
     case SNLParameter::Type::String:
-      return DBInterface::LibraryInterface::DesignInterface::ParameterType::STRING;
+      return SNLDesignInterface::ParameterType::STRING;
   }
-  return DBInterface::LibraryInterface::DesignInterface::ParameterType::DECIMAL; //LCOV_EXCL_LINE
+  return SNLDesignInterface::ParameterType::DECIMAL; //LCOV_EXCL_LINE
 }
 
 void dumpScalarTerm(
-  DBInterface::LibraryInterface::DesignInterface::Term::Builder& term,
+  SNLDesignInterface::Term::Builder& term,
   const SNLScalarTerm* scalarTerm) {
   auto scalarTermBuilder = term.initScalarTerm();
   scalarTermBuilder.setId(scalarTerm->getID());
@@ -101,7 +101,7 @@ void dumpScalarTerm(
 }
 
 void dumpBusTerm(
-  DBInterface::LibraryInterface::DesignInterface::Term::Builder& term,
+  SNLDesignInterface::Term::Builder& term,
   const SNLBusTerm* busTerm) {
   auto busTermBuilder = term.initBusTerm();
   busTermBuilder.setId(busTerm->getID());
@@ -114,34 +114,34 @@ void dumpBusTerm(
 }
 
 void dumpParameter(
-  DBInterface::LibraryInterface::DesignInterface::Parameter::Builder& parameter,
+  SNLDesignInterface::Parameter::Builder& parameter,
   const SNLParameter* snlParameter) {
   parameter.setName(snlParameter->getName().getString());
   parameter.setType(SNLtoCapNpParameterType(snlParameter->getType()));
   parameter.setValue(snlParameter->getValue());
 }
 
-DBInterface::LibraryInterface::DesignType SNLtoCapNpDesignType(SNLDesign::Type type) {
+DesignType SNLtoCapNpDesignType(SNLDesign::Type type) {
   switch (type) {
     case SNLDesign::Type::Standard:
-      return DBInterface::LibraryInterface::DesignType::STANDARD;
+      return DesignType::STANDARD;
     case SNLDesign::Type::Primitive:
-      return DBInterface::LibraryInterface::DesignType::PRIMITIVE;
+      return DesignType::PRIMITIVE;
     case SNLDesign::Type::Blackbox:
-      return DBInterface::LibraryInterface::DesignType::BLACKBOX;
+      return DesignType::BLACKBOX;
   }
-  return DBInterface::LibraryInterface::DesignType::STANDARD; //LCOV_EXCL_LINE
+  return DesignType::STANDARD; //LCOV_EXCL_LINE
 }
 
 void dumpDesignInterface(
-  DBInterface::LibraryInterface::DesignInterface::Builder& designInterface,
+  SNLDesignInterface::Builder& designInterface,
   const SNLDesign* snlDesign) {
   designInterface.setId(snlDesign->getID());
   if (not snlDesign->isAnonymous()) {
     designInterface.setName(snlDesign->getName().getString());
   }
   designInterface.setType(SNLtoCapNpDesignType(snlDesign->getType()));
-  auto lambda = [](DBInterface::LibraryInterface::DesignInterface::Builder& builder, size_t nbProperties) {
+  auto lambda = [](SNLDesignInterface::Builder& builder, size_t nbProperties) {
     return builder.initProperties(nbProperties);
   };
   dumpProperties(designInterface, snlDesign, lambda);
@@ -210,7 +210,7 @@ void dumpLibraryInterface(
     dumpLibraryInterface(subLibraryBuilder, subLib);
   }
 
-  auto designs = libraryInterface.initDesignInterfaces(snlLibrary->getSNLDesigns().size());
+  auto designs = libraryInterface.initSnlDesignInterfaces(snlLibrary->getSNLDesigns().size());
   id = 0;
   for (auto snlDesign: snlLibrary->getSNLDesigns()) {
     auto designInterfaceBuilder = designs[id++]; 
@@ -218,39 +218,39 @@ void dumpLibraryInterface(
   }
 }
 
-SNLDesign::Type CapnPtoSNLDesignType(DBInterface::LibraryInterface::DesignType type) {
+SNLDesign::Type CapnPtoSNLDesignType(DesignType type) {
   switch (type) {
-    case DBInterface::LibraryInterface::DesignType::STANDARD:
+    case DesignType::STANDARD:
       return SNLDesign::Type::Standard;
-    case DBInterface::LibraryInterface::DesignType::BLACKBOX: 
+    case DesignType::BLACKBOX: 
       return SNLDesign::Type::Blackbox;
-    case DBInterface::LibraryInterface::DesignType::PRIMITIVE: 
+    case DesignType::PRIMITIVE: 
       return SNLDesign::Type::Primitive;
   }
   return SNLDesign::Type::Standard; //LCOV_EXCL_LINE
 }
 
-SNLTerm::Direction CapnPtoSNLDirection(DBInterface::LibraryInterface::DesignInterface::Direction direction) {
+SNLTerm::Direction CapnPtoSNLDirection(Direction direction) {
   switch (direction) {
-    case DBInterface::LibraryInterface::DesignInterface::Direction::INPUT:
+    case Direction::INPUT:
       return SNLTerm::Direction::Input;
-    case DBInterface::LibraryInterface::DesignInterface::Direction::OUTPUT:
+    case Direction::OUTPUT:
       return SNLTerm::Direction::Output;
-    case DBInterface::LibraryInterface::DesignInterface::Direction::INOUT:
+    case Direction::INOUT:
       return SNLTerm::Direction::InOut;
   }
   return SNLTerm::Direction::Input; //LCOV_EXCL_LINE
 }
 
-SNLParameter::Type CapnPtoSNLParameterType(DBInterface::LibraryInterface::DesignInterface::ParameterType type) {
+SNLParameter::Type CapnPtoSNLParameterType(SNLDesignInterface::ParameterType type) {
   switch (type) {
-    case DBInterface::LibraryInterface::DesignInterface::ParameterType::DECIMAL:
+    case SNLDesignInterface::ParameterType::DECIMAL:
       return SNLParameter::Type::Decimal;
-    case DBInterface::LibraryInterface::DesignInterface::ParameterType::BINARY:
+    case SNLDesignInterface::ParameterType::BINARY:
       return SNLParameter::Type::Binary;
-    case DBInterface::LibraryInterface::DesignInterface::ParameterType::BOOLEAN:
+    case SNLDesignInterface::ParameterType::BOOLEAN:
       return SNLParameter::Type::Boolean;
-    case DBInterface::LibraryInterface::DesignInterface::ParameterType::STRING:
+    case SNLDesignInterface::ParameterType::STRING:
       return SNLParameter::Type::String;
   }
   return SNLParameter::Type::Decimal; //LCOV_EXCL_LINE
@@ -274,7 +274,7 @@ template<typename T> void loadProperties(
 
 void loadScalarTerm(
   SNLDesign* design,
-  const DBInterface::LibraryInterface::DesignInterface::ScalarTerm::Reader& term) {
+  const SNLDesignInterface::ScalarTerm::Reader& term) {
   auto termID = term.getId();
   auto termDirection = term.getDirection();
   NLName snlName;
@@ -286,7 +286,7 @@ void loadScalarTerm(
 
 void loadBusTerm(
   SNLDesign* design,
-  const DBInterface::LibraryInterface::DesignInterface::BusTerm::Reader& term) {
+  const SNLDesignInterface::BusTerm::Reader& term) {
   auto termID = term.getId();
   auto termDirection = term.getDirection();
   auto msb = term.getMsb();
@@ -300,7 +300,7 @@ void loadBusTerm(
 
 void loadDesignParameter(
   SNLDesign* design,
-  const DBInterface::LibraryInterface::DesignInterface::Parameter::Reader& parameter) {
+  const SNLDesignInterface::Parameter::Reader& parameter) {
   auto name = parameter.getName();
   auto type = parameter.getType();
   auto value = parameter.getValue();
@@ -309,7 +309,7 @@ void loadDesignParameter(
 
 void loadDesignInterface(
   NLLibrary* library,
-  const DBInterface::LibraryInterface::DesignInterface::Reader& designInterface) {
+  const SNLDesignInterface::Reader& designInterface) {
   auto designID = designInterface.getId();
   auto designType = designInterface.getType();
   NLName snlName;
@@ -318,7 +318,7 @@ void loadDesignInterface(
   }
   SNLDesign* snlDesign = SNLDesign::create(library, NLID::DesignID(designID), CapnPtoSNLDesignType(designType), snlName);
    if (designInterface.hasProperties()) {
-    auto lambda = [](const DBInterface::LibraryInterface::DesignInterface::Reader& reader) {
+    auto lambda = [](const SNLDesignInterface::Reader& reader) {
       return reader.getProperties();
     };
     loadProperties(designInterface, snlDesign, lambda);
@@ -365,8 +365,8 @@ void loadLibraryInterface(NajaObject* parent, const DBInterface::LibraryInterfac
     };
     loadProperties(libraryInterface, snlLibrary, lambda);
   }
-  if (libraryInterface.hasDesignInterfaces()) {
-    for (auto designInterface: libraryInterface.getDesignInterfaces()) {
+  if (libraryInterface.hasSnlDesignInterfaces()) {
+    for (auto designInterface: libraryInterface.getSnlDesignInterfaces()) {
       loadDesignInterface(snlLibrary, designInterface);
     } 
   }

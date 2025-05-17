@@ -19,6 +19,8 @@ std::string PNLNetComponent::Direction::getString() const {
     case Direction::Input: return "Input";
     case Direction::Output: return "Output";
     case Direction::InOut: return "InOut";
+    case Direction::Tristate: return "Tristate";
+    case Direction::Undefined: return "Undefined";
   }
   return "Unknown";
 }

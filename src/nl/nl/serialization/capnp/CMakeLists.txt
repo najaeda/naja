@@ -5,12 +5,13 @@
 set(CAPNPC_SRC_PREFIX "${PROJECT_SOURCE_DIR}/thirdparty/naja-if/schema" CACHE STRING "" FORCE)
 set(CAPNPC_OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR})
 
-capnp_generate_cpp(snlCommonSources snlCommonHeaders ${CAPNPC_SRC_PREFIX}/snl_common.capnp)
-capnp_generate_cpp(snlInterfaceSources snlInterfaceHeaders ${CAPNPC_SRC_PREFIX}/snl_interface.capnp)
-capnp_generate_cpp(snlImplementationSources snlImplementationHeaders ${CAPNPC_SRC_PREFIX}/snl_implementation.capnp)
+capnp_generate_cpp(najaCommonSources najaCommonHeaders ${CAPNPC_SRC_PREFIX}/naja_common.capnp)
+capnp_generate_cpp(najaNLInterfaceSources najaNLInterfaceHeaders ${CAPNPC_SRC_PREFIX}/naja_nl_interface.capnp)
+capnp_generate_cpp(najaSNLImplementationSources najaSNLImplementationHeaders ${CAPNPC_SRC_PREFIX}/naja_snl_implementation.capnp)
 
 add_library(naja_nl_dump STATIC
-    ${snlCommonSources} ${snlInterfaceSources} ${snlImplementationSources}
+    ${najaCommonSources} ${najaNLInterfaceSources}
+    ${najaSNLImplementationSources}
     SNLDump.cpp SNLDumpManifest.cpp
     SNLCapnP.cpp
     SNLCapnPInterface.cpp SNLCapnPImplementation.cpp)

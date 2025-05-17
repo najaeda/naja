@@ -39,9 +39,9 @@ class PNLScalarNet final: public PNLBitNet {
 
     /// \return this PNLScalarNet name.
     NLName getName() const override { return name_; }
+    void setName(const NLName& name) override;
     /// \return true if this PNLScalarNet is anonymous.
     bool isAnonymous() const override { return name_.empty(); }
-    void setName(const NLName& name);
     NajaCollection<PNLBitNet*> getBits() const override;
 
     const char* getTypeName() const override;

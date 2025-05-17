@@ -4299,7 +4299,7 @@ class_type:
                  lefWarning(2033, "The statement COVER BUMP is a LEF verion 5.5 syntax.\nYour LEF file is version 5.4 or earlier which is incorrect but will be allowed\nbecause this application does not enforce strict version checking.\nOther tools that enforce strict checking will have a syntax error when reading this file.\nYou can change the VERSION statement in this LEF file to 5.5 or higher to stop this warning.");
               else {
                  lefData->outMsg = (char*)lefMalloc(10000);
-                 snprintf (lefData->outMsg,  10000,
+                 snprintf (lefData->outMsg, 10000,
                     "COVER BUMP statement is a version 5.5 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
                  lefError(1635, lefData->outMsg);
                  lefFree(lefData->outMsg);
@@ -4320,7 +4320,7 @@ class_type:
                 lefWarning(2034, "The statement BLOCK BLACKBOX is a LEF verion 5.5 syntax.\nYour LEF file is version 5.4 or earlier which is incorrect but will be allowed\nbecause this application does not enforce strict version checking.\nOther tools that enforce strict checking will have a syntax error when reading this file.\nYou can change the VERSION statement in this LEF file to 5.5 or higher to stop this warning.");
               else {
                  lefData->outMsg = (char*)lefMalloc(10000);
-                 snprintf (lefData->outMsg,  10000,
+                 sprintf (lefData->outMsg,
                     "BLOCK BLACKBOX statement is a version 5.5 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
                  lefError(1636, lefData->outMsg);
                  lefFree(lefData->outMsg);
@@ -4338,7 +4338,7 @@ class_type:
         if (lefCallbacks->MacroCbk) { // write error only if cbk is set 
            if (lefData->macroWarnings++ < lefSettings->MacroWarnings) {
               lefData->outMsg = (char*)lefMalloc(10000);
-              snprintf (lefData->outMsg,  10000,
+              sprintf (lefData->outMsg,
                  "BLOCK SOFT statement is a version 5.6 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
               lefError(1637, lefData->outMsg);
               lefFree(lefData->outMsg);
@@ -4354,7 +4354,7 @@ class_type:
       {
         if (lefData->versionNum < 5.7) {
           lefData->outMsg = (char*)lefMalloc(10000);
-          snprintf(lefData->outMsg, 10000,
+          sprintf(lefData->outMsg,
             "BUMP is a version 5.7 or later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
           lefError(1698, lefData->outMsg);
           lefFree(lefData->outMsg);
@@ -4366,11 +4366,11 @@ class_type:
   | K_PAD     {$$ = (char*)"PAD"; } 
   | K_VIRTUAL {$$ = (char*)"VIRTUAL"; }
   | K_PAD  pad_type 
-      {  snprintf(lefData->temp_name, strlen(lefData->temp_name), "PAD %s", $2);
+      {  sprintf(lefData->temp_name, "PAD %s", $2);
         $$ = lefData->temp_name; 
         if (lefData->versionNum < 5.5) {
            if (strcmp("AREAIO", $2) != 0) {
-             snprintf(lefData->temp_name, strlen(lefData->temp_name), "PAD %s", $2);
+             sprintf(lefData->temp_name, "PAD %s", $2);
              $$ = lefData->temp_name; 
            } else if (lefCallbacks->MacroCbk) { 
              if (lefData->macroWarnings++ < lefSettings->MacroWarnings) {
@@ -4378,7 +4378,7 @@ class_type:
                   lefWarning(2035, "The statement PAD AREAIO is a LEF verion 5.5 syntax.\nYour LEF file is version 5.4 or earlier which is incorrect but will be allowed\nbecause this application does not enforce strict version checking.\nOther tools that enforce strict checking will have a syntax error when reading this file.\nYou can change the VERSION statement in this LEF file to 5.5 or higher to stop this warning.");
                else {
                   lefData->outMsg = (char*)lefMalloc(10000);
-                  snprintf (lefData->outMsg,  10000,
+                  sprintf (lefData->outMsg,
                      "PAD AREAIO statement is a version 5.5 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
                   lefError(1638, lefData->outMsg);
                   lefFree(lefData->outMsg);
@@ -4396,10 +4396,10 @@ class_type:
       // in 'frameworks'
       }
   | K_CORE core_type
-      {snprintf(lefData->temp_name, strlen(lefData->temp_name), "CORE %s", $2);
+      {sprintf(lefData->temp_name, "CORE %s", $2);
       $$ = lefData->temp_name;} 
   | K_ENDCAP endcap_type
-      {snprintf(lefData->temp_name, strlen(lefData->temp_name), "ENDCAP %s", $2);
+      {sprintf(lefData->temp_name, "ENDCAP %s", $2);
       $$ = lefData->temp_name;} 
 
 pad_type: 
@@ -4422,7 +4422,7 @@ core_type:
         if (lefCallbacks->MacroCbk) { // write error only if cbk is set 
            if (lefData->macroWarnings++ < lefSettings->MacroWarnings) {
               lefData->outMsg = (char*)lefMalloc(10000);
-              snprintf (lefData->outMsg,  10000,
+              sprintf (lefData->outMsg,
                  "SPACER statement is a version 5.4 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
               lefError(1639, lefData->outMsg);
               lefFree(lefData->outMsg);
@@ -4439,7 +4439,7 @@ core_type:
         if (lefCallbacks->MacroCbk) { // write error only if cbk is set 
            if (lefData->macroWarnings++ < lefSettings->MacroWarnings) {
               lefData->outMsg = (char*)lefMalloc(10000);
-              snprintf (lefData->outMsg,  10000,
+              sprintf (lefData->outMsg,
                  "ANTENNACELL statement is a version 5.4 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
               lefError(1640, lefData->outMsg);
               lefFree(lefData->outMsg);
@@ -4456,7 +4456,7 @@ core_type:
         if (lefCallbacks->MacroCbk) { // write error only if cbk is set 
            if (lefData->macroWarnings++ < lefSettings->MacroWarnings) {
               lefData->outMsg = (char*)lefMalloc(10000);
-              snprintf (lefData->outMsg,  10000,
+              sprintf (lefData->outMsg,
                  "WELLTAP statement is a version 5.6 and later syntax.\nYour lef file is defined with version %g.", lefData->versionNum);
               lefError(1641, lefData->outMsg);
               lefFree(lefData->outMsg);

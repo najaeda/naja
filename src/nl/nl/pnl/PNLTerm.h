@@ -40,8 +40,7 @@ class PNLTerm: public PNLNetComponent {
      * \return this PNLTerm flat id in the containing PNLDesign flat PNLBitTerms.
      **/
     virtual size_t getFlatID() const = 0;
-    /// \return term NLName.
-    virtual NLName getName() const = 0;
+    
     /// \return term width, 1 for PNLScalarTerm and PNLBusNetBit.
     virtual NLID::Bit getWidth() const = 0;
 
@@ -49,6 +48,7 @@ class PNLTerm: public PNLNetComponent {
     virtual NajaCollection<PNLBitTerm*> getBits() const = 0;
 
     //virtual bool deepCompare(const PNLTerm* other, std::string& reason) const = 0;
+    virtual void setDirection(const PNLTerm::Direction& direction) = 0;
 
   protected:
     PNLTerm() = default;
