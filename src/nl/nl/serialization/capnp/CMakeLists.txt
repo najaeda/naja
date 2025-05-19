@@ -7,11 +7,11 @@ set(CAPNPC_OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR})
 
 capnp_generate_cpp(najaCommonSources najaCommonHeaders ${CAPNPC_SRC_PREFIX}/naja_common.capnp)
 capnp_generate_cpp(najaNLInterfaceSources najaNLInterfaceHeaders ${CAPNPC_SRC_PREFIX}/naja_nl_interface.capnp)
-capnp_generate_cpp(najaSNLImplementationSources najaSNLImplementationHeaders ${CAPNPC_SRC_PREFIX}/naja_snl_implementation.capnp)
+capnp_generate_cpp(najaNLImplementationSources najaNLImplementationHeaders ${CAPNPC_SRC_PREFIX}/naja_nl_implementation.capnp)
 
 add_library(naja_nl_dump STATIC
     ${najaCommonSources} ${najaNLInterfaceSources}
-    ${najaSNLImplementationSources}
+    ${najaNLImplementationSources}
     SNLDump.cpp SNLDumpManifest.cpp
     SNLCapnP.cpp
     SNLCapnPInterface.cpp SNLCapnPImplementation.cpp)
