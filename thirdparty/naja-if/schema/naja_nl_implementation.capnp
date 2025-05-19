@@ -6,32 +6,29 @@
 
 using NajaCommon = import "naja_common.capnp";
 
-struct NetComponentReference {
-  union {
-    termReference     @0 : TermReference;
-    instTermReference @1 : InstTermReference;
-  }
-}
 
-struct TermReference {
-  termID  @0 : UInt32;
-  bit     @1 : UInt32;    
-}
-
-struct InstTermReference {
-  instanceID  @0 : UInt32;
-  termID      @1 : UInt32;
-  bit         @2 : UInt32;    
-}
-
-struct Point {
-  x @0 : Int32;
-  y @1 : Int32;
-}
 
 struct DBImplementation {
   id                      @0 : UInt8 = 1;
   libraryImplementations  @1 : List(LibraryImplementation);
+
+  struct NetComponentReference {
+    union {
+      termReference     @0 : TermReference;
+      instTermReference @1 : InstTermReference;
+    }
+  }
+
+  struct TermReference {
+    termID  @0 : UInt32;
+    bit     @1 : UInt32;    
+  }
+
+  struct InstTermReference {
+    instanceID  @0 : UInt32;
+    termID      @1 : UInt32;
+    bit         @2 : UInt32;    
+  }
 
   struct LibraryImplementation {
     id                        @0 : UInt16 = 0;
@@ -97,6 +94,11 @@ struct DBImplementation {
       id        @0 : UInt32 = 0;
       instances @1 : List(Instance);
       nets      @2 : List(Net);
+
+      struct Point {
+        x @0 : Int32;
+        y @1 : Int32;
+      }
 
       struct Instance {
         id              @0 : UInt32;
