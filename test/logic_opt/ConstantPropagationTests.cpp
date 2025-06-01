@@ -75,6 +75,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagation) {
   auto topOut =
       SNLScalarTerm::create(top, SNLTerm::Direction::Output, NLName("out"));
   // 3. create a logic_0 model
+  // need to create additional top outputs for every logic gate (EILON)
   
   SNLDesign* logic0 = SNLDesign::create(library, SNLDesign::Type::Primitive, NLName("LOGIC0"));
   
@@ -92,9 +93,9 @@ TEST_F(ConstantPropagationTests, TestConstantPropagation) {
   NLLibraryTruthTables::construct(library);
   
   // 5. create a logic_0 instace in top
-  SNLInstance* inst1 = SNLInstance::create(top, logic0, NLName("logic0"));
+  SNLInstance* instLogic0 = SNLInstance::create(top, logic0, NLName("logic0"));
   // 6. create a logic_1 instace in top
-  SNLInstance* inst2 = SNLInstance::create(top, logic1, NLName("logic1"));
+  SNLInstance* instLogic1 = SNLInstance::create(top, logic1, NLName("logic1"));
   // 7. create a and model
   SNLDesign* andModel = SNLDesign::create(library, SNLDesign::Type::Primitive, NLName("AND"));
   // add 2 inputs and 1 output to and
@@ -209,71 +210,73 @@ TEST_F(ConstantPropagationTests, TestConstantPropagation) {
                                       NLName("Y"));
 
   // create a and instance in top
-  SNLInstance* inst3 = SNLInstance::create(top, andModel, NLName("and"));
+  SNLInstance* instAnd = SNLInstance::create(top, andModel, NLName("and"));
   // create a or instance in top
-  SNLInstance* inst4 = SNLInstance::create(top, orModel, NLName("or"));
+  SNLInstance* instOr = SNLInstance::create(top, orModel, NLName("or"));
   // create a xor instance in top
-  SNLInstance* inst5 = SNLInstance::create(top, xorModel, NLName("xor"));
+  SNLInstance* instxOr = SNLInstance::create(top, xorModel, NLName("xor"));
   // create a nand instance in top
-  SNLInstance* inst6 = SNLInstance::create(top, nandModel, NLName("nand"));
+  SNLInstance* instnAnd = SNLInstance::create(top, nandModel, NLName("nand"));
   // create a nor instance in top
-  SNLInstance* inst7 = SNLInstance::create(top, norModel, NLName("nor"));
+  SNLInstance* instNor = SNLInstance::create(top, norModel, NLName("nor"));
   // create a xnor instance in top
-  SNLInstance* inst8 = SNLInstance::create(top, xnorModel, NLName("xnor"));
+  SNLInstance* instXnor = SNLInstance::create(top, xnorModel, NLName("xnor"));
   // create a inv instance in top
-  SNLInstance* inst9 = SNLInstance::create(top, invModel, NLName("inv"));
+  SNLInstance* instInv = SNLInstance::create(top, invModel, NLName("inv"));
   // create a buf instance in top
-  SNLInstance* inst10 = SNLInstance::create(top, bufModel, NLName("buf"));
+  SNLInstance* instBuf = SNLInstance::create(top, bufModel, NLName("buf"));
   // create a ha instance in top
-  SNLInstance* inst11 = SNLInstance::create(top, haModel, NLName("ha"));
+  SNLInstance* instHa = SNLInstance::create(top, haModel, NLName("ha"));
   // create a dff instance in top
-  SNLInstance* inst12 = SNLInstance::create(top, dffModel, NLName("dff"));
+  SNLInstance* instDff = SNLInstance::create(top, dffModel, NLName("dff"));
   // create a mux instance in top
-  SNLInstance* inst13 = SNLInstance::create(top, muxModel, NLName("mux"));
+  SNLInstance* instMux = SNLInstance::create(top, muxModel, NLName("mux"));
   // create a oai instance in top
-  SNLInstance* inst14 = SNLInstance::create(top, oaiModel, NLName("oai"));
+  SNLInstance* instOai = SNLInstance::create(top, oaiModel, NLName("oai"));
 
   // 9. connect all instances inputs 
-  SNLNet* net1 = SNLScalarNet::create(top, NLName("logic_0_net"));
-  net1->setType(SNLNet::Type::Assign0);
-  SNLNet* net2 = SNLScalarNet::create(top, NLName("logic_1_net"));
-  net2->setType(SNLNet::Type::Assign1);
-  SNLNet* net3 = SNLScalarNet::create(top, NLName("and_output_net"));
+  SNLNet* netlogic0 = SNLScalarNet::create(top, NLName("logic_0_net"));
+  netlogic0->setType(SNLNet::Type::Assign0);
+  SNLNet* netlogic1 = SNLScalarNet::create(top, NLName("logic_1_net"));
+  netlogic1->setType(SNLNet::Type::Assign1);
+  SNLNet* netand = SNLScalarNet::create(top, NLName("and_output_net"));
   // connect logic0 to and
-  inst1->getInstTerm(logic0Out)->setNet(net1);
-  inst3->getInstTerm(andIn1)->setNet(net1);
-  inst4->getInstTerm(orIn1)->setNet(net1);
-  inst5->getInstTerm(xorIn1)->setNet(net1);
-  inst6->getInstTerm(nandIn1)->setNet(net1);
-  inst7->getInstTerm(norIn1)->setNet(net1);
-  inst8->getInstTerm(xnorIn1)->setNet(net1);
-  inst9->getInstTerm(invIn)->setNet(net1);
-  inst10->getInstTerm(bufIn)->setNet(net1);
-  inst11->getInstTerm(haIn1)->setNet(net1);
-  inst12->getInstTerm(dffD)->setNet(net1);
-  inst13->getInstTerm(muxS)->setNet(net1);
-  inst14->getInstTerm(oaiA)->setNet(net1);
+  instLogic0->getInstTerm(logic0Out)->setNet(netlogic0);
+  instAnd->getInstTerm(andIn1)->setNet(netlogic0);
+  instOr->getInstTerm(orIn1)->setNet(netlogic0);
+  instxOr->getInstTerm(xorIn1)->setNet(netlogic0);
+  instnAnd->getInstTerm(nandIn1)->setNet(netlogic0);
+  instNor->getInstTerm(norIn1)->setNet(netlogic0);
+  instXnor->getInstTerm(xnorIn1)->setNet(netlogic0);
+  instInv->getInstTerm(invIn)->setNet(netlogic0);
+  instBuf->getInstTerm(bufIn)->setNet(netlogic0);
+  instHa->getInstTerm(haIn1)->setNet(netlogic0);
+  instDff->getInstTerm(dffD)->setNet(netlogic0);
+  instMux->getInstTerm(muxS)->setNet(netlogic0);
+  instOai->getInstTerm(oaiA)->setNet(netlogic0);
 
-  // connect logic1 to and
-  inst2->getInstTerm(logic1Out)->setNet(net2);
-  inst3->getInstTerm(andIn2)->setNet(net2);
-  inst4->getInstTerm(orIn2)->setNet(net2);
-  inst5->getInstTerm(xorIn2)->setNet(net2);
-  inst6->getInstTerm(nandIn2)->setNet(net2);
-  inst7->getInstTerm(norIn2)->setNet(net2);
-  inst8->getInstTerm(xnorIn2)->setNet(net2);
-  inst9->getInstTerm(invIn)->setNet(net2);
-  inst10->getInstTerm(bufIn)->setNet(net2);
-  inst11->getInstTerm(haIn2)->setNet(net2);
-  inst12->getInstTerm(dffCLK)->setNet(net2);
-  inst13->getInstTerm(muxA)->setNet(net2);
-  inst13->getInstTerm(muxB)->setNet(net2);
-  inst14->getInstTerm(oaiB1)->setNet(net2);
-  inst14->getInstTerm(oaiB2)->setNet(net2);
+  // connect logic1 to all gate inputs
+  instLogic1->getInstTerm(logic1Out)->setNet(netlogic1);
+  instAnd->getInstTerm(andIn2)->setNet(netlogic1);
+  instOr->getInstTerm(orIn2)->setNet(netlogic1);
+  instxOr->getInstTerm(xorIn2)->setNet(netlogic1);
+  instnAnd->getInstTerm(nandIn2)->setNet(netlogic1);
+  instNor->getInstTerm(norIn2)->setNet(netlogic1);
+  instXnor->getInstTerm(xnorIn2)->setNet(netlogic1);
+  instInv->getInstTerm(invIn)->setNet(netlogic1);
+  instBuf->getInstTerm(bufIn)->setNet(netlogic1);
+  instHa->getInstTerm(haIn2)->setNet(netlogic1);
+  instDff->getInstTerm(dffCLK)->setNet(netlogic1);
+  instMux->getInstTerm(muxA)->setNet(netlogic1);
+  instMux->getInstTerm(muxB)->setNet(netlogic1);
+  instOai->getInstTerm(oaiB1)->setNet(netlogic1);
+  instOai->getInstTerm(oaiB2)->setNet(netlogic1);
 
   // 10. connect the and instance output to the top output
-  inst3->getInstTerm(andOut)->setNet(net3);
-  topOut->setNet(net3);
+  instAnd->getInstTerm(andOut)->setNet(netand);
+  topOut->setNet(netand);
+  //inst4->getInstTerm(orOut)->setNet(net4);
+  //topOut2->setNet(net4);
   // 11. create DNL
   get();
   // 12. create a constant propagation object
@@ -290,6 +293,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagation) {
                .c_str());
   }
   ConstantPropagation cp;
+  cp.setTruthTableEngine(true);   
   // 13. collect the constants
   cp.collectConstants();
   //EXPECT_EQ(cp.getConstants1().size(), 1);
@@ -2851,6 +2855,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationPartialNonDefinedModel) 
     executeCommand(std::string(std::string("dot -Tsvg ") + dotFileName +
                        std::string(" -o ") + svgFileName)
                .c_str());
+               
   }
 }
 
