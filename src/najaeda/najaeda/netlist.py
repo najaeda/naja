@@ -1399,6 +1399,8 @@ class VerilogConfig:
 
 
 def load_verilog(files: list, config: VerilogConfig = None) -> Instance:
+    if not files:
+        logging.error("No verilog files provided")
     if config is None:
         config = VerilogConfig()  # Use default settings
     start_time = time.time()
@@ -1422,7 +1424,6 @@ def load_primitives(name: str):
     - xilinx
     """
     if name == "xilinx":
-        logging.info("Loading xilinx primitives")
         from najaeda.primitives import xilinx
 
         xilinx.load(get_top_db())
