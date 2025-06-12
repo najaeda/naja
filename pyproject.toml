@@ -29,6 +29,7 @@ build-verbosity = 1
 build-frontend = "build"
 before-build = "rm -rf build dist"
 before-all = '''
+  brew install tbb
   curl -O https://capnproto.org/capnproto-c++-1.1.0.tar.gz
   tar zxf capnproto-c++-1.1.0.tar.gz
   cd capnproto-c++-1.1.0
@@ -41,7 +42,7 @@ before-all = '''
 [tool.cibuildwheel.linux]
 build-frontend = "build"
 before-all = '''
-  yum -y install wget boost-devel flex
+  yum -y install wget boost-devel tbb-devel
   wget https://github.com/westes/flex/releases/download/v2.6.4/flex-2.6.4.tar.gz
   tar -xvzf flex-2.6.4.tar.gz
   cd flex-2.6.4
