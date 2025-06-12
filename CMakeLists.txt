@@ -89,10 +89,7 @@ endif(ENABLE_SANITIZERS)
 
 
 if(NOT BUILD_ONLY_DOC)
-  if(NOT BUILD_NAJA_PYTHON)
-    find_package(TBB REQUIRED)
-  endif(NOT BUILD_NAJA_PYTHON)
-
+  find_package(TBB REQUIRED)
   find_package(Boost REQUIRED)
   find_package(CapnProto REQUIRED)
   if (NOT ${BUILD_NAJA_PYTHON})

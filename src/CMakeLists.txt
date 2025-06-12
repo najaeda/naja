@@ -4,10 +4,10 @@
 
 add_subdirectory(core)
 add_subdirectory(nl)
+add_subdirectory(dnl)
+add_subdirectory(bne)
+add_subdirectory(optimization)
 add_subdirectory(najaeda)
 if(NOT BUILD_NAJA_PYTHON)
-  add_subdirectory(dnl)
-  add_subdirectory(bne)
   add_subdirectory(apps)
-  add_subdirectory(optimization)
 endif(NOT BUILD_NAJA_PYTHON)
