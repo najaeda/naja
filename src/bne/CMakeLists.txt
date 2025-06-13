@@ -29,6 +29,10 @@ target_include_directories(naja_bne SYSTEM BEFORE PUBLIC ${Boost_INCLUDE_DIR})
 target_include_directories(naja_bne PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_include_directories(naja_bne PUBLIC ${SPDLOG_DIR})
 
-set_target_properties(naja_bne PROPERTIES PUBLIC_HEADER "${naja_bne_HEADERS}")
 
-install(TARGETS naja_bne LIBRARY DESTINATION lib PUBLIC_HEADER DESTINATION include) 
+if(BUILD_NAJA_PYTHON)
+  install(TARGETS naja_bne LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/najaeda)
+else(BUILD_NAJA_PYTHON)
+  set_target_properties(naja_bne PROPERTIES PUBLIC_HEADER "${naja_bne_HEADERS}")
+  install(TARGETS naja_bne LIBRARY DESTINATION lib PUBLIC_HEADER DESTINATION include) 
+endif(BUILD_NAJA_PYTHON)

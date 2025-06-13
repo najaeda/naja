@@ -28,8 +28,14 @@ target_compile_options(naja_dnl BEFORE PRIVATE ${NAJA_CXX_WARNINGS})
 target_include_directories(naja_dnl SYSTEM BEFORE PUBLIC ${Boost_INCLUDE_DIR})
 target_include_directories(naja_dnl SYSTEM BEFORE PUBLIC ${TBB_INCLUDE_DIR})
 target_include_directories(naja_dnl PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-set_target_properties(naja_dnl PROPERTIES PUBLIC_HEADER "${DNL_HEADERS}")
 
-install(TARGETS naja_dnl
-  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-  PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+if(BUILD_NAJA_PYTHON)
+  install(TARGETS naja_dnl LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/najaeda)
+else(BUILD_NAJA_PYTHON)
+  set_target_properties(naja_dnl PROPERTIES PUBLIC_HEADER "${DNL_HEADERS}")
+  install(TARGETS naja_dnl
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+endif(BUILD_NAJA_PYTHON)
+
+
