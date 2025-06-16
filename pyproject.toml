@@ -51,9 +51,11 @@ before-all = '''
 build-frontend = "build"
 before-all = '''
   yum -y install wget boost-devel
-  echo "::group::Installing cmake"
+  echo "::group::get cmake"
   wget https://github.com/Kitware/CMake/releases/download/v4.0.3/cmake-4.0.3.tar.gz
   tar -xvzf cmake-4.0.3.tar.gz
+  echo "::endgroup::"
+  echo "::group::Installing cmake"
   cd cmake-4.0.3
   ./bootstrap --prefix=/usr/local
   make -j6
