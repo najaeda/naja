@@ -18,6 +18,7 @@ license = {text = "Apache License 2.0"}
 [tool.scikit-build.cmake.define]
 CMAKE_BUILD_TYPE="Release"
 BUILD_NAJA_PYTHON="ON"
+CMAKE_PREFIX_PATH = "/usr/local/lib/cmake/TBB"
 
 [project.urls]
 Homepage = "https://github.com/najaeda/naja"
