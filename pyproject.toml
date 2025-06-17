@@ -53,7 +53,7 @@ before-all = '''
   yum -y install wget boost-devel
   echo "::group::get cmake"
   wget https://cmake.org/files/v4.0/cmake-4.0.3-linux-x86_64.tar.gz
-  tar -xvzf v4.0/cmake-4.0.3-linux-x86_64.tar.gz
+  tar -xvzf cmake-4.0.3-linux-x86_64.tar.gz
   #add cmake to PATH
   export PATH=$PWD/cmake-4.0.3-linux-x86_64/bin:$PATH
   echo "::endgroup::"
