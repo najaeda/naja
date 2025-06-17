@@ -32,14 +32,14 @@ before-build = "rm -rf build dist"
 before-all = '''
   brew install tbb cmake
   curl -O https://capnproto.org/capnproto-c++-1.1.0.tar.gz
-  tar zxf capnproto-c++-1.1.0.tar.gz
+  tar -xzf capnproto-c++-1.1.0.tar.gz
   cd capnproto-c++-1.1.0
   ./configure
   make -j6 check
   sudo make install
   cd ..
-  wget https://github.com/uxlfoundation/oneTBB/archive/refs/tags/v2022.1.0.tar.gz
-  tar xzf v2022.1.0.tar.gz
+  wget -q https://github.com/uxlfoundation/oneTBB/archive/refs/tags/v2022.1.0.tar.gz
+  tar -xzf v2022.1.0.tar.gz
   cd oneTBB-2022.1.0
   cmake . -DCMAKE_INSTALL_PREFIX=/usr/local -DCMAKE_BUILD_TYPE=Release
   make -j6
@@ -52,13 +52,15 @@ build-frontend = "build"
 before-all = '''
   yum -y install wget boost-devel
   echo "::group::get cmake"
-  wget https://cmake.org/files/v4.0/cmake-4.0.3-linux-x86_64.tar.gz
-  tar -xvzf cmake-4.0.3-linux-x86_64.tar.gz
+  wget -q https://cmake.org/files/v4.0/cmake-4.0.3-linux-x86_64.tar.gz
+  tar -xzf cmake-4.0.3-linux-x86_64.tar.gz
   #add cmake to PATH
   export PATH=$PWD/cmake-4.0.3-linux-x86_64/bin:$PATH
+  echo "CMake is located at: $(which cmake)"
+  echo "CMake version: $(cmake --version)"
   echo "::endgroup::"
   echo "::group::Installing flex"
-  wget https://github.com/westes/flex/releases/download/v2.6.4/flex-2.6.4.tar.gz
+  wget -q https://github.com/westes/flex/releases/download/v2.6.4/flex-2.6.4.tar.gz
   tar -xvzf flex-2.6.4.tar.gz
   cd flex-2.6.4
   ./configure
@@ -67,8 +69,8 @@ before-all = '''
   echo "::endgroup::"
   cd ..
   echo "::group::Installing bison"
-  wget http://ftp.gnu.org/gnu/bison/bison-3.8.tar.gz
-  tar -xvzf bison-3.8.tar.gz
+  wget -q http://ftp.gnu.org/gnu/bison/bison-3.8.tar.gz
+  tar -xzf bison-3.8.tar.gz
   cd bison-3.8
   ./configure
   make
@@ -77,7 +79,7 @@ before-all = '''
   cd ..
   echo "::group::Installing capnproto"
   curl -O https://capnproto.org/capnproto-c++-1.1.0.tar.gz
-  tar zxf capnproto-c++-1.1.0.tar.gz
+  tar -xzf capnproto-c++-1.1.0.tar.gz
   cd capnproto-c++-1.1.0
   ./configure
   make -j6 check
@@ -85,8 +87,8 @@ before-all = '''
   echo "::endgroup::"
   cd ..
   echo "::group::Installing TBB"
-  wget https://github.com/uxlfoundation/oneTBB/archive/refs/tags/v2022.1.0.tar.gz
-  tar xzf v2022.1.0.tar.gz
+  wget -q https://github.com/uxlfoundation/oneTBB/archive/refs/tags/v2022.1.0.tar.gz
+  tar -xzf v2022.1.0.tar.gz
   cd oneTBB-2022.1.0
   cmake . -DCMAKE_INSTALL_PREFIX=/usr/local -DCMAKE_BUILD_TYPE=Release
   make -j6
