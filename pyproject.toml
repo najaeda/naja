@@ -46,7 +46,7 @@ before-all = '''
   tar -xzf v2022.1.0.tar.gz
   mkdir TBB_build
   cd TBB_build
-  cmake ../oneTBB-2022.1.0 -DCMAKE_INSTALL_PREFIX=/usr/local -DCMAKE_BUILD_TYPE=Release -DTBB_TEST=OFF
+  cmake ../oneTBB-2022.1.0 -DCMAKE_BUILD_TYPE=Release -DTBB_TEST=OFF
   make -j6
   make install
   echo "::endgroup::"
