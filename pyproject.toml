@@ -31,35 +31,32 @@ build-frontend = "build"
 before-build = "rm -rf build dist"
 before-all = '''
   brew install tbb cmake
+  echo "::group::Installing capnproto"
   curl -O https://capnproto.org/capnproto-c++-1.1.0.tar.gz
   tar -xzf capnproto-c++-1.1.0.tar.gz
   cd capnproto-c++-1.1.0
   ./configure
   make -j6 check
   sudo make install
+  echo "::endgroup::"
   cd ..
-  #wget -q https://github.com/oneapi-src/oneTBB/archive/refs/tags/v2022.1.0.tar.gz
-  #tar -xzf v2022.1.0.tar.gz
-  #cd oneTBB-2022.1.0
-  #cmake . -DCMAKE_INSTALL_PREFIX=/usr/local -DCMAKE_BUILD_TYPE=Release
-  #make -j6
-  #make install
-  #cd ..
+
+  echo "::group::Installing TBB"
+  wget -q https://github.com/oneapi-src/oneTBB/archive/refs/tags/v2022.1.0.tar.gz
+  tar -xzf v2022.1.0.tar.gz
+  mkdir TBB_build
+  cd TBB_build
+  cmake ../oneTBB-2022.1.0 -DCMAKE_INSTALL_PREFIX=/usr/local -DCMAKE_BUILD_TYPE=Release -DTBB_TEST=OFF
+  make -j6
+  make install
+  echo "::endgroup::"
+  cd ..
 '''
 
 [tool.cibuildwheel.linux]
 build-frontend = "build"
 before-all = '''
   yum -y install wget boost-devel 
-  #echo "::group::get cmake"
-  #wget -q https://cmake.org/files/v4.0/cmake-4.0.3-linux-x86_64.tar.gz
-  #tar -xzf cmake-4.0.3-linux-x86_64.tar.gz
-  ##add cmake to PATH
-  #export PATH=$PWD/cmake-4.0.3-linux-x86_64/bin:$PATH
-  #echo "CMake is located at: $(which cmake)"
-  #echo "CMake version: $(cmake --version)"
-  #echo "::endgroup::"
-
   echo "::group::Installing TBB"
   wget -q https://github.com/oneapi-src/oneTBB/archive/refs/tags/v2022.1.0.tar.gz
   tar -xzf v2022.1.0.tar.gz
