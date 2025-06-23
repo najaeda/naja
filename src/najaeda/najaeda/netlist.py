@@ -1399,8 +1399,8 @@ class VerilogConfig:
 
 
 def load_verilog(files: list, config: VerilogConfig = None) -> Instance:
-    if not files:
-        logging.error("No verilog files provided")
+    if not files or len(files) == 0:
+        raise Exception("No verilog files provided")
     if config is None:
         config = VerilogConfig()  # Use default settings
     start_time = time.time()

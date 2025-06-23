@@ -19,6 +19,10 @@ class NajaNetlistTestErrors(unittest.TestCase):
         self.assertIsNotNone(top)
         self.assertRaises(Exception, top.create_child_instance, 'Module0', 'mod')
 
+    def test_missing_verilog(self):
+        self.assertRaises(Exception, netlist.load_verilog)
+        self.assertRaises(Exception, netlist.load_verilog, [])
+
     def test_width_mismatch(self):
         top = netlist.create_top('Top')
         self.assertIsNotNone(top)
