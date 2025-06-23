@@ -27,7 +27,7 @@ Files: test/nl/formats/liberty/benchmarks/errors/* test/nl/formats/liberty/bench
 Copyright: 2022 The Naja Authors.
 License: CC0-1.0
 
-Files: thirdparty/spdlog-1.14.1/*
+Files: thirdparty/spdlog-1.15.3/*
 Source: https://github.com/gabime/spdlog 
 Copyright: 2016 Gabi Melman.
 License: MIT

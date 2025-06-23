@@ -5,8 +5,6 @@
 
 #include "Reduction.h"
 
-#include <spdlog/spdlog.h>
-
 #include "SNLDesignTruthTable.h"
 #include "SNLTruthTable.h"
 #include "SNLUniquifier.h"
