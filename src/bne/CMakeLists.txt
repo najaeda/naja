@@ -19,7 +19,7 @@ set(NAJA_BNE_HEADERS
 add_library(naja_bne SHARED ${SOURCES})
 target_link_libraries(naja_bne PUBLIC naja_dnl coverage_config sanitizers_config)
 
-if(APPLE AND CMAKE_SYSTEM_VERSION VERSION_GREATER_EQUAL "22.0.0" AND CMAKE_SYSTEM_VERSION VERSION_LESS "23.0.0")
+if(APPLE)
   # see dnl compile for details
   target_compile_options(naja_bne PRIVATE -Wno-sign-conversion)
 endif()
