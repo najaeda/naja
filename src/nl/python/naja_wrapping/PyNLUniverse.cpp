@@ -32,12 +32,12 @@ static PyObject* PyNLUniverse_get() {
   return PyNLUniverse_Link(universe);
 }
 
-static PyObject* PyNLUniverse_applyDLE() {
-  LoadlessLogicRemover remover;
-  remover.setNormalizedUniquification(true);
-  remover.process();
-  Py_RETURN_NONE;
-}
+//static PyObject* PyNLUniverse_applyDLE() {
+//  LoadlessLogicRemover remover;
+//  remover.setNormalizedUniquification(true);
+//  remover.process();
+//  Py_RETURN_NONE;
+//}
 
 static PyObject* PyNLUniverse_setTopDesign(PyNLUniverse* self, PyObject* arg) {
   METHOD_HEAD("NLUniverse.setTopDesign()")
@@ -87,8 +87,8 @@ PyMethodDef PyNLUniverse_Methods[] = {
     "get the NLDB with the given index"},
   { "getUserDBs", (PyCFunction)PyNLUniverse_getUserDBs, METH_NOARGS,
     "iterate on User NLDBs."},
-  { "applyDLE", (PyCFunction)PyNLUniverse_applyDLE, METH_NOARGS|METH_STATIC,
-    "apply Dead Logic Elimination to the top design of the NLUniverse."},
+  //{ "applyDLE", (PyCFunction)PyNLUniverse_applyDLE, METH_NOARGS|METH_STATIC,
+  //  "apply Dead Logic Elimination to the top design of the NLUniverse."},
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 
