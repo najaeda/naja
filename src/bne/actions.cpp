@@ -4,14 +4,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "actions.h"
-#include <spdlog/spdlog.h>
+
 #include <iostream>
-#include <ranges>
-#include <set>
-#include <stack>
 #include <vector>
-#include "SNLDesignModeling.h"
-#include "SNLDesignTruthTable.h"
+
 #include "NLLibraryTruthTables.h"
 #include "SNLScalarNet.h"
 #include "SNLTruthTable.h"
