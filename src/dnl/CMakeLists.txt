@@ -12,9 +12,9 @@ set(DNL_HEADERS
 add_library(naja_dnl SHARED ${DNL_SOURCES})
 
 target_link_libraries(naja_dnl PUBLIC naja_nl TBB::tbb TBB::tbbmalloc)
-if(APPLE AND CMAKE_SYSTEM_VERSION VERSION_GREATER_EQUAL "22.0.0" AND CMAKE_SYSTEM_VERSION VERSION_LESS "23.0.0")
+if(APPLE)
   #xtof: 23/04/2025
-  # avoid on macOS 13 (Ventura) the following error:
+  # avoid on macOS (Ventura) the following error:
   # /usr/local/include/oneapi/tbb/detail/_utils.h:174:31: error: implicit conversion changes signedness: 'int' to 'unsigned long' [-Werror,-Wsign-conversion]
   #   return 0 == (arg & (arg - divisor));
   # /usr/local/include/tbb/../oneapi/tbb/concurrent_vector.h:734:16: note: in instantiation of function template specialization
