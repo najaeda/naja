@@ -124,6 +124,7 @@ target_include_directories(naja_nl PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/decorators
 )
 target_include_directories(naja_nl PUBLIC ${SPDLOG_DIR})
+
 if(BUILD_NAJA_PYTHON)
   install(TARGETS naja_nl LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/najaeda)
 else(BUILD_NAJA_PYTHON)

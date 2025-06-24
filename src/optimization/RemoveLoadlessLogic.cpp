@@ -5,7 +5,6 @@
 
 #include "RemoveLoadlessLogic.h"
 
-#include <spdlog/spdlog.h>
 #include <vector>
 #include <sstream>
 
@@ -336,8 +335,7 @@ void LoadlessLogicRemover::removeLoadlessInstances(
   }
   // #ifdef DEBUG_PRINTS
   //  LCOV_EXCL_START
-  spdlog::info("Deleted {} leaf instances out of {}", loadlessInstances.size(),
-               dnl_->getLeaves().size());
+  std::cout << "Deleted " << loadlessInstances.size() << " leaf instances out of " << dnl_->getLeaves().size() << std::endl;
   // LCOV_EXCL_STOP
   /// #endif
 }

@@ -58,7 +58,7 @@ option(BUILD_ONLY_DOC "Only configure to build Doxygen documentation" OFF)
 set(NAJA_CXX_WARNINGS -Werror -Wall -pedantic-errors -Wconversion -Wsign-conversion -Wextra -Wno-unused-parameter)
 
 set(ARGPARSE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/argparse-3.1/include)
-set(SPDLOG_DIR ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/spdlog-1.14.1/include)
+set(SPDLOG_DIR ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/spdlog-1.15.3/include)
 set(LEFDEF_DIR ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/lefdef)
 
 add_library(coverage_config INTERFACE)
@@ -89,10 +89,7 @@ endif(ENABLE_SANITIZERS)
 
 
 if(NOT BUILD_ONLY_DOC)
-  if(NOT BUILD_NAJA_PYTHON)
-    find_package(TBB REQUIRED)
-  endif(NOT BUILD_NAJA_PYTHON)
-
+  find_package(TBB REQUIRED)
   find_package(Boost REQUIRED)
   find_package(CapnProto REQUIRED)
   if (NOT ${BUILD_NAJA_PYTHON})

@@ -4,6 +4,6 @@
 
 add_subdirectory(naja-verilog)
 add_subdirectory(yosys-liberty)
-add_subdirectory(lefdef)
+add_subdirectory(lefdef EXCLUDE_FROM_ALL)
 add_subdirectory(googletest EXCLUDE_FROM_ALL)
 #add_subdirectory(cpptrace EXCLUDE_FROM_ALL)
