@@ -8,7 +8,7 @@ import sys
 import logging
 from collections import deque
 import time
-import naja
+
 from najaeda import netlist
 import faulthandler
 
@@ -43,10 +43,6 @@ def apply_dle(top, keep_attributes=None):
             visited.add(term)
             equipotential = term.get_equipotential()
             leaf_drivers = equipotential.get_leaf_drivers()
-            
-            for assign in equipotential.get_assigns():
-                if (assign.get_direction() == netlist.Term.OUTPUT):
-                    instances.add(assign.get_instance())
             for driver in leaf_drivers:
                 instance = driver.get_instance()
                 instances.add(instance)
