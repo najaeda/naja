@@ -11,6 +11,7 @@
 
 #include "NLUniverse.h"
 #include "RemoveLoadlessLogic.h"
+#include "ConstantPropagation.h"
 
 namespace PYNAJA {
 
@@ -38,6 +39,14 @@ static PyObject* PyNLUniverse_applyDLE() {
  remover.process();
  Py_RETURN_NONE;
 }
+
+static PyObject* PyNLUniverse_applyConstantPropagation() {
+  ConstantPropagation cp;
+  cp.setTruthTableEngine(true);
+  cp.run();
+  Py_RETURN_NONE;
+}
+
 
 static PyObject* PyNLUniverse_setTopDesign(PyNLUniverse* self, PyObject* arg) {
   METHOD_HEAD("NLUniverse.setTopDesign()")
@@ -88,7 +97,9 @@ PyMethodDef PyNLUniverse_Methods[] = {
   { "getUserDBs", (PyCFunction)PyNLUniverse_getUserDBs, METH_NOARGS,
     "iterate on User NLDBs."},
   { "applyDLE", (PyCFunction)PyNLUniverse_applyDLE, METH_NOARGS|METH_STATIC,
-   "apply Dead Logic Elimination to the top design of the NLUniverse."},
+   "apply Dead Logic Elimination on the top design of the NLUniverse."},
+  { "applyConstantPropagation", (PyCFunction)PyNLUniverse_applyConstantPropagation, METH_NOARGS|METH_STATIC,
+    "apply Constant Propagation on the top design of the NLUniverse."},
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 

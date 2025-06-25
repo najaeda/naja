@@ -500,10 +500,12 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::process() {
   // LCOV_EXCL_STOP
 #endif
   assert(driversToTreat.size() == multiDriverIsosRound2.size());
+  // Handling dangling nets
   for (DNLID termid = 0; termid < dnl_.getDNLTerms().size() - 1; termid++) {
     auto term = dnl_.getDNLTerms()[termid];
     // Check if the term have net but not iso
-    if (term.getSnlBitTerm()->getNet() != nullptr &&
+    if (((term.getSnlBitTerm()->getNet() != nullptr && !term.getDNLInstance().isLeaf()) 
+        || (!term.getDNLInstance().isTop() && term.getSnlTerm()->getNet() != nullptr)) &&
         term.getIsoID() == DNLID_MAX) {
       DNLIso& dnlIso = addIsoToDB();
       term.setIsoID(dnlIso.getIsoID());

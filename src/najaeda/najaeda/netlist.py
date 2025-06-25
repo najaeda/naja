@@ -1460,3 +1460,9 @@ def apply_dle() :
     top = naja.NLUniverse.get().getTopDesign()
     if top is not None:
         naja.NLUniverse.get().applyDLE()
+        
+def apply_constant_propagation() :
+    """Apply constant propagation to the top design."""
+    top = naja.NLUniverse.get().getTopDesign()
+    if top is not None:
+        naja.NLUniverse.get().applyConstantPropagation()

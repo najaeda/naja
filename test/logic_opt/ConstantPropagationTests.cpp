@@ -291,7 +291,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagation) {
   }
   ConstantPropagation cp;
   // 13. collect the constants
-  cp.collectConstants();
+  //cp.collectConstants();
   //EXPECT_EQ(cp.getConstants1().size(), 1);
   //EXPECT_EQ(cp.getConstants0().size(), 1);
   // 14. run the constant propagation
@@ -543,7 +543,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationNonBNE) {
   ConstantPropagation cp;
   cp.setNormalizedUniquification(false);
   // 13. collect the constants
-  cp.collectConstants();
+  //cp.collectConstants();
   //EXPECT_EQ(cp.getConstants1().size(), 1);
   //EXPECT_EQ(cp.getConstants0().size(), 1);
   // 14. run the constant propagation
@@ -650,7 +650,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationAND) {
   }
   ConstantPropagation cp;
   // 13. collect the constants
-  cp.collectConstants();
+  //cp.collectConstants();
   // 14. run the constant propagation
   cp.run();
   // 15. check the output value of the top instance
@@ -748,7 +748,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationOR) {
   }
   ConstantPropagation cp;
   // 13. collect the constants
-  cp.collectConstants();
+  //cp.collectConstants();
   // 14. run the constant propagation
   cp.run();
   // 15. check the output value of the top instance
@@ -837,7 +837,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationXOR) {
   }
   ConstantPropagation cp;
   // 13. collect the constants
-  cp.collectConstants();
+  //cp.collectConstants();
   // 14. run the constant propagation
   cp.run();
   // 15. check the output value of the top instance
@@ -933,7 +933,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationNAND) {
   }
   ConstantPropagation cp;
   // 13. collect the constants
-  cp.collectConstants();
+  //cp.collectConstants();
   // 14. run the constant propagation
   cp.run();
   // 15. check the output value of the top instance
@@ -1029,7 +1029,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationNOR) {
   }
   ConstantPropagation cp;
   // 13. collect the constants
-  cp.collectConstants();
+  //cp.collectConstants();
   // 14. run the constant propagation
   cp.run();
   // 15. check the output value of the top instance
@@ -1117,7 +1117,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationXNOR) {
   }
   ConstantPropagation cp;
   // 13. collect the constants
-  cp.collectConstants();
+  //cp.collectConstants();
   // 14. run the constant propagation
   cp.run();
   // 15. check the output value of the top instance
@@ -1198,7 +1198,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationINV) {
   }
   ConstantPropagation cp;
   // 13. collect the constants
-  cp.collectConstants();
+  //cp.collectConstants();
   // 14. run the constant propagation
   cp.run();
   // 15. check the output value of the top instance
@@ -1279,7 +1279,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationBUF) {
   }
   ConstantPropagation cp;
   // 13. collect the constants
-  cp.collectConstants();
+  //cp.collectConstants();
   // 14. run the constant propagation
   cp.run();
   // 15. check the output value of the top instance
@@ -1381,7 +1381,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationMUX) {
   }
   ConstantPropagation cp;
   // 13. collect the constants
-  cp.collectConstants();
+  //cp.collectConstants();
   // 14. run the constant propagation
   cp.run();
   // 15. check the output value of the top instance
@@ -1472,7 +1472,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationDFF) {
   }
   ConstantPropagation cp;
   // 13. collect the constants
-  cp.collectConstants();
+  //cp.collectConstants();
   // 14. run the constant propagation
   cp.run();
   // 15. check the output value of the top instance
@@ -1566,7 +1566,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationOAI) {
   }
   ConstantPropagation cp;
   // 13. collect the constants
-  cp.collectConstants();
+  //cp.collectConstants();
   // 14. run the constant propagation
   cp.run();
   // 15. check the output value of the top instance
@@ -1659,7 +1659,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationNonDefinedModel) {
   }
   ConstantPropagation cp;
   // 13. collect the constants
-  cp.collectConstants();
+  //cp.collectConstants();
   // 14. run the constant propagation
   cp.run();
   // 15. check the output value of the top instance
@@ -1760,7 +1760,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationPartialAND) {
   }
   ConstantPropagation cp;
   // 13. collect the constants
-  cp.collectConstants();
+  //cp.collectConstants();
   // 14. run the constant propagation
   cp.run();
   // 15. check the output value of the top instance
@@ -1861,7 +1861,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationPartialOR) {
   }
   ConstantPropagation cp;
   // 13. collect the constants
-  cp.collectConstants();
+  //cp.collectConstants();
   // 14. run the constant propagation
   cp.run();
   // 15. check the output value of the top instance
@@ -1954,7 +1954,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationPartialXOR) {
   }
   ConstantPropagation cp;
   // 13. collect the constants
-  cp.collectConstants();
+  //cp.collectConstants();
   // 14. run the constant propagation
   cp.run();
   // 15. check the output value of the top instance
@@ -2054,7 +2054,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationPartialNAND) {
   }
   ConstantPropagation cp;
   // 13. collect the constants
-  cp.collectConstants();
+  //cp.collectConstants();
   // 14. run the constant propagation
   cp.run();
   // 15. check the output value of the top instance
@@ -2156,7 +2156,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationPartialNOR) {
   }
   ConstantPropagation cp;
   // 13. collect the constants
-  cp.collectConstants();
+  //cp.collectConstants();
   // 14. run the constant propagation
   cp.run();
   // 15. check the output value of the top instance
@@ -2248,7 +2248,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationPartialXNOR) {
   }
   ConstantPropagation cp;
   // 13. collect the constants
-  cp.collectConstants();
+  //cp.collectConstants();
   // 14. run the constant propagation
   cp.run();
   // 15. check the output value of the top instance
@@ -2333,7 +2333,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationPartialINV) {
   }
   ConstantPropagation cp;
   // 13. collect the constants
-  cp.collectConstants();
+  //cp.collectConstants();
   // 14. run the constant propagation
   cp.run();
   // 15. check the output value of the top instance
@@ -2418,7 +2418,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationPartialBUF) {
   }
   ConstantPropagation cp;
   // 13. collect the constants
-  cp.collectConstants();
+  //cp.collectConstants();
   // 14. run the constant propagation
   cp.run();
   // 15. check the output value of the top instance
@@ -2525,7 +2525,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationPartialMUX) {
   }
   ConstantPropagation cp;
   // 13. collect the constants
-  cp.collectConstants();
+  //cp.collectConstants();
   // 14. run the constant propagation
   cp.run();
   // 15. check the output value of the top instance
@@ -2628,7 +2628,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationPartialDFF) {
   }
   ConstantPropagation cp;
   // 13. collect the constants
-  cp.collectConstants();
+  //cp.collectConstants();
   // 14. run the constant propagation
   cp.run();
   // 15. check the output value of the top instance
@@ -2736,7 +2736,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationPartialOAI) {
   }
   ConstantPropagation cp;
   // 13. collect the constants
-  cp.collectConstants();
+  //cp.collectConstants();
   // 14. run the constant propagation
   cp.run();
   // 15. check the output value of the top instance
@@ -2836,7 +2836,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationPartialNonDefinedModel) 
   ConstantPropagation cp;
   cp.setNormalizedUniquification(false);
   // 13. collect the constants
-  cp.collectConstants();
+  //cp.collectConstants();
   // 14. run the constant propagation
   cp.run();
   // 15. check the output value of the top instance
@@ -3007,7 +3007,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationAND_Hierarchical_duplica
   ConstantPropagation cp;
   cp.setNormalizedUniquification(true);
   // 13. collect the constants
-  cp.collectConstants();
+  //cp.collectConstants();
   // 14. run the constant propagation
   cp.run();
   // 15. check the output value of the top instance
@@ -3178,7 +3178,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationAND_Hierarchical_duplica
   ConstantPropagation cp;
   cp.setNormalizedUniquification(false);
   // 13. collect the constants
-  cp.collectConstants();
+  //cp.collectConstants();
   // 14. run the constant propagation
   cp.run();
   // 15. check the output value of the top instance
@@ -3349,7 +3349,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationAND_Hierarchical_duplica
   ConstantPropagation cp;
   cp.setNormalizedUniquification(false);
   // 13. collect the constants
-  cp.collectConstants();
+  //cp.collectConstants();
   // 14. run the constant propagation
   cp.run();
   // 15. check the output value of the top instance
