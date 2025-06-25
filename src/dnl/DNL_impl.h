@@ -482,6 +482,18 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::process() {
   // LCOV_EXCL_STOP
 #endif
   assert(driversToTreat.size() == multiDriverIsosRound2.size());
+  for (DNLID termid = 0; termid <  dnl_.getDNLTerms().size() - 1; termid++) {
+    auto term = dnl_.getDNLTerms()[termid];
+    // Check if the term have net but not iso
+    if (term.getSnlBitTerm()->getNet() != nullptr &&
+        term.getIsoID() == DNLID_MAX) {
+      DNLIso& dnlIso = addIsoToDB();
+      term.setIsoID(dnlIso.getIsoID());
+      treatDriver(
+          term, dnlIso, visit.local(), true, true, true);
+      assert(dnlIso.getDrivers().size() == 0);
+    } 
+  }
 #ifdef DEBUG_PRINTS
   // LCOV_EXCL_START
   printf("num fi %zu\n", dnl_.getDNLInstances().size());

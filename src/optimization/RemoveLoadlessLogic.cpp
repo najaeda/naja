@@ -202,6 +202,7 @@ std::vector<DNLID> LoadlessLogicRemover::getUntracedIsos(
     const naja::DNL::DNL<DNLInstanceFull, DNLTerminalFull>& dnl,
     const tbb::concurrent_unordered_set<DNLID>& tracedIsos) {
   std::vector<DNLID> untracedIsos;
+  // print traced isos
   for (DNLID iso = 0; iso < dnl.getDNLIsoDB().getNumIsos(); iso++) {
     if (tracedIsos.find(iso) == tracedIsos.end()) {
       untracedIsos.push_back(iso);
