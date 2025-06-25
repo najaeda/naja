@@ -95,7 +95,7 @@ def constructFA(lib, X):
   cell = snl.SNLDesign.createPrimitive(lib, "FA_X" + str(X))
   a = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A")
   b = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B")
-  b = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "CI")
+  ci = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "CI")
   co = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "CO")
   s = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "S")
 
