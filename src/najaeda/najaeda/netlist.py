@@ -151,17 +151,6 @@ class Equipotential:
                         path.append(term.getInstTerm().getInstance().getID())
                         yield Term(path,
                             term.getInstTerm().getBitTerm())
-    
-    def get_assigns(self):
-        if self.equi is not None:
-            for term in self.equi.getInstTermOccurrences():
-                # print direction
-                direction = term.getInstTerm().getDirection()
-                if term.getInstTerm().getInstance().getModel().isAssign():
-                    path = term.getPath().getPathIDs()
-                    path.append(term.getInstTerm().getInstance().getID())
-                    yield Term(path,
-                        term.getInstTerm().getBitTerm())
 
     def get_top_readers(self):
         if self.equi is not None:
