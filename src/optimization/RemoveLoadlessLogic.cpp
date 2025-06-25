@@ -166,7 +166,7 @@ tbb::concurrent_unordered_set<DNLID> LoadlessLogicRemover::getTracedIsos(
           term != DNLID_MAX and term <= instance.getTermIndexes().second;
           term++) {
         if (dnl.getDNLTerminalFromID(term).getSnlBitTerm()->getDirection() !=
-            SNLTerm::Direction::Output) {
+            SNLTerm::Direction::Output && dnl.getIsoIdfromTermId(term) != DNLID_MAX) {
           topOutputIsos.push_back(dnl.getIsoIdfromTermId(term));
         }
       }

@@ -151,6 +151,17 @@ class Equipotential:
                         path.append(term.getInstTerm().getInstance().getID())
                         yield Term(path,
                             term.getInstTerm().getBitTerm())
+    
+    def get_assigns(self):
+        if self.equi is not None:
+            for term in self.equi.getInstTermOccurrences():
+                # print direction
+                direction = term.getInstTerm().getDirection()
+                if term.getInstTerm().getInstance().getModel().isAssign():
+                    path = term.getPath().getPathIDs()
+                    path.append(term.getInstTerm().getInstance().getID())
+                    yield Term(path,
+                        term.getInstTerm().getBitTerm())
 
     def get_top_readers(self):
         if self.equi is not None:
@@ -1454,3 +1465,9 @@ def get_model_name(id: tuple[int, int, int]) -> str:
                 if model:
                     return model.getName()
     return None
+
+def apply_dle() :
+    """Apply the DLE (Design Language Extension) to the top design."""
+    top = naja.NLUniverse.get().getTopDesign()
+    if top is not None:
+        naja.NLUniverse.get().applyDLE()

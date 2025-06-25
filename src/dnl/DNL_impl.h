@@ -65,7 +65,7 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::treatDriver(
         dnl_.getNonConstDNLTerminalFromID(fid).setIsoID(DNLIso.getIsoID());
       }
     }
-    if (fterm.getSnlBitTerm()->getNet()) {
+    if (fterm.getSnlBitTerm()->getNet() && !fterm.getDNLInstance().getSNLModel()->isAssign()) {
       if (updateConst && fterm.getSnlBitTerm()->getNet()->isConstant1()) {
         addConstantIso1(DNLIso.getIsoID());
       } else if (updateConst && fterm.getSnlBitTerm()->getNet()->isConstant0()) {
@@ -100,8 +100,9 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::treatDriver(
         }
       }
     }
+    // Going inside the module
     if (!fterm.getDNLInstance().isTop() &&
-        fterm.getSnlTerm()->getNet()) {
+        fterm.getSnlTerm()->getNet() != nullptr) {
       if (updateConst && fterm.getSnlTerm()->getNet()->isConstant1()) {
         addConstantIso1(DNLIso.getIsoID());
       } else if (updateConst && fterm.getSnlTerm()->getNet()->isConstant0()) {
