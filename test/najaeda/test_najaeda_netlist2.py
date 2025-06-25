@@ -362,6 +362,7 @@ class NajaNetlistTest2(unittest.TestCase):
         os.makedirs(bench_dir)
         top = netlist.get_top()
         top.dump_verilog(os.path.join(bench_dir), "netlist2_top3.v")
+        netlist.apply_dle()
 
 if __name__ == '__main__':
     faulthandler.enable()
