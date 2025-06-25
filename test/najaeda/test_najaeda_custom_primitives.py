@@ -56,3 +56,12 @@ class NajaNetlistCustomPrimitivesTest(unittest.TestCase):
         or2_ins0.get_term("I0").connect(net)
         nb_connections = sum(1 for _ in net.get_inst_terms())
         self.assertEqual(nb_connections, 2)
+
+    def test_errors(self):
+        universe = naja.NLUniverse.get()
+        self.assertIsNotNone(universe)
+        db = universe.getTopDB()
+        self.assertIsNotNone(db)
+        self.assertRaises(Exception, netlist.load_primitives_from_file, "non_existent_file.py")
+        primitives_path = os.path.join(najaeda_source_test_path, 'test_najaeda_custom_primitives', 'error_primitives.py')
+        self.assertRaises(Exception, netlist.load_primitives_from_file, primitives_path)
