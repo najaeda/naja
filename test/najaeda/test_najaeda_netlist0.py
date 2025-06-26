@@ -183,6 +183,7 @@ class NajaNetlistTest0(unittest.TestCase):
             inputCount += 1
         
         self.assertEqual(inputCount, 6)
+        self.assertEqual(instance.count_flat_input_terms(), 6)
         
         outputCount = 0
         for output in instance.get_output_terms():
@@ -201,6 +202,7 @@ class NajaNetlistTest0(unittest.TestCase):
             inputCount += 1
         
         self.assertEqual(inputCount, 13)
+        self.assertEqual(instance.count_flat_input_terms(), 13)
         
         outputCount = 0
         for output in instance.get_output_terms():
