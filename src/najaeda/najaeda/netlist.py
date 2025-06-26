@@ -9,6 +9,7 @@ import logging
 import hashlib
 import struct
 import sys
+import os
 from enum import Enum
 
 from najaeda import naja
@@ -1360,7 +1361,7 @@ class Instance:
         return self.__get_snl_model().getTruthTable()
 
 
-def get_top_db() -> naja.NLDB:
+def __get_top_db() -> naja.NLDB:
     if naja.NLUniverse.get() is None:
         naja.NLUniverse.create()
     if naja.NLUniverse.get().getTopDB() is None:
@@ -1385,7 +1386,7 @@ def create_top(name: str) -> Instance:
     :rtype: Instance
     """
     # init
-    db = get_top_db()
+    db = __get_top_db()
     # create top design
     lib = naja.NLLibrary.create(db)
     top = naja.SNLDesign.create(lib, name)
@@ -1405,7 +1406,7 @@ def load_verilog(files: list, config: VerilogConfig = None) -> Instance:
         config = VerilogConfig()  # Use default settings
     start_time = time.time()
     logging.info(f"Loading verilog: {', '.join(files)}")
-    get_top_db().loadVerilog(files, keep_assigns=config.keep_assigns)
+    __get_top_db().loadVerilog(files, keep_assigns=config.keep_assigns)
     execution_time = time.time() - start_time
     logging.info(f"Loading done in {execution_time:.2f} seconds")
     return get_top()
@@ -1413,7 +1414,7 @@ def load_verilog(files: list, config: VerilogConfig = None) -> Instance:
 
 def load_liberty(files: list):
     logging.info(f"Loading liberty files: {', '.join(files)}")
-    get_top_db().loadLibertyPrimitives(files)
+    __get_top_db().loadLibertyPrimitives(files)
 
 
 def load_primitives(name: str):
@@ -1426,15 +1427,37 @@ def load_primitives(name: str):
     if name == "xilinx":
         from najaeda.primitives import xilinx
 
-        xilinx.load(get_top_db())
+        xilinx.load(__get_top_db())
     else:
         raise ValueError(f"Unknown primitives library: {name}")
 
 
+def load_primitives_from_file(file: str):
+    """Loads a primitives library from a file.
+
+    :param str file: the path to the primitives library file.
+    The file must define a function `load(db)`.
+    """
+    logging.info(f"Loading primitives from file: {file}")
+    if not os.path.isfile(file):
+        raise FileNotFoundError(f"Cannot load primitives from non existing file: {file}")
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("user_module", file)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["user_module"] = module
+    spec.loader.exec_module(module)
+
+    if not hasattr(module, "load"):
+        raise RuntimeError(f"The file {file} must define a function named `load(db)`")
+
+    db = __get_top_db()
+    module.load(db)
+
+
 def get_primitives_library() -> naja.NLLibrary:
-    lib = get_top_db().getLibrary("PRIMS")
+    lib = __get_top_db().getLibrary("PRIMS")
     if lib is None:
-        lib = naja.NLLibrary.createPrimitives(get_top_db(), "PRIMS")
+        lib = naja.NLLibrary.createPrimitives(__get_top_db(), "PRIMS")
     return lib
 
 
