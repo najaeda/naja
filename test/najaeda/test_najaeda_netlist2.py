@@ -95,7 +95,7 @@ class NajaNetlistTest2(unittest.TestCase):
         self.assertIsNotNone(top)
 
         self.assertEqual(1, sum(1 for _ in top.get_output_terms()))
-        self.assertEual(1, top.count_output_terms())
+        self.assertEqual(1, top.count_output_terms())
         self.assertEqual(2, sum(1 for _ in top.get_flat_output_terms()))
         self.assertEqual(2, top.count_flat_output_terms())
 
