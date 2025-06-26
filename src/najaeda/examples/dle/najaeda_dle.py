@@ -66,7 +66,6 @@ if __name__ == '__main__':
     instances = set()
     benchmarks = path.join('..', '..', 'benchmarks')
     top = netlist.load_verilog([path.join(benchmarks, 'verilog', 'vexriscv.v')])
-    top.dump_context_dot("./context.dot")
     attributes =  ['DONT_TOUCH', 'KEEP', 'preserve', 'noprune']
     nb_deleted = apply_dle(top, attributes)
     

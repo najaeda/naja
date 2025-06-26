@@ -84,8 +84,7 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::treatDriver(
                                 .getID();
         if (visited[finstTermId]) {
           netAlreadyVisited = true;
-          break;  // If the term was visietd, by definition the current net was
-                  // handeled.
+          break;  // If the term was visited, by definition the current net was handled.
         }
         assert(finstTermId != DNLID_MAX);
         stack.push(finstTermId);
@@ -98,8 +97,7 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::treatDriver(
             continue;
           }
           if (visited[fbitTermId]) {
-            break;  // If the term was visietd, by definition the current net
-                    // was handeled.
+            break;  // If the term was visited, by definition the current net was handled.
           }
           assert(fbitTermId != DNLID_MAX);
           stack.push(fbitTermId);
@@ -123,8 +121,7 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::treatDriver(
                                 .getID();
         if (visited[finstTermId]) {
           netAlreadyVisited = true;
-          break;  // If the term was visietd, by definition the current net was
-                  // handeled.
+          break;  // If the term was visited, by definition the current net was handled.
         }
         if (finstTermId == fid) {
           continue;
@@ -140,8 +137,7 @@ void DNLIsoDBBuilder<DNLInstance, DNLTerminal>::treatDriver(
             continue;
           }*/
           if (visited[fbitTermId]) {
-            break;  // If the term was visietd, by definition the current net
-                    // was handeled.
+            break;  // If the term was visited, by definition the current net was handled.
           }
           assert(fbitTermId != DNLID_MAX);
           stack.push(fbitTermId);
@@ -195,7 +191,7 @@ void DNL<DNLInstance, DNLTerminal>::process() {
     DNLTerms_.push_back(DNLTerminal(parentId, bitterm, DNLTerms_.size()));
   }
   if (termIndexes.first == DNLTerms_.size()) {
-    // No terms are accoiated
+    // No terms are associated
     termIndexes.first = DNLID_MAX;
     termIndexes.second = DNLID_MAX;
   } else {
@@ -223,7 +219,7 @@ void DNL<DNLInstance, DNLTerminal>::process() {
           DNLTerminal(DNLInstances_.back().getID(), term, DNLTerms_.size()));
     }
     if (termIndexes.first == DNLTerms_.size()) {
-      // No terms are accoiated
+      // No terms are associated
       termIndexes.first = DNLID_MAX;
       termIndexes.second = DNLID_MAX;
     } else {
@@ -232,7 +228,7 @@ void DNL<DNLInstance, DNLTerminal>::process() {
     DNLInstances_.back().setTermsIndexes(termIndexes);
   }
   if (childrenIndexes.first == DNLInstances_.size()) {
-    // No terms are accoiated
+    // No terms are associated
     childrenIndexes.first = DNLID_MAX;
     childrenIndexes.second = DNLID_MAX;
   } else {
@@ -299,14 +295,14 @@ void DNL<DNLInstance, DNLTerminal>::process() {
       }
       termIndexes.second = DNLTerms_.back().getID();
       if (termIndexes.first == DNLTerms_.size()) {
-        // No terms are accoiated
+        // No terms are associated
         termIndexes.first = DNLID_MAX;
         termIndexes.second = DNLID_MAX;
       }
       DNLInstances_.back().setTermsIndexes(termIndexes);
     }
     if (childrenIndexes.first == DNLInstances_.size()) {
-      // No terms are accoiated
+      // No terms are associated
       childrenIndexes.first = DNLID_MAX;
       childrenIndexes.second = DNLID_MAX;
     } else {
