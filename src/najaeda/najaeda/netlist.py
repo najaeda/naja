@@ -1480,7 +1480,7 @@ def get_model_name(id: tuple[int, int, int]) -> str:
 
 
 def apply_dle():
-    """Apply the DLE (Design Language Extension) to the top design."""
+    """Apply the DLE (Dead Logic Elimination) to the top design."""
     top = naja.NLUniverse.get().getTopDesign()
     if top is not None:
         naja.NLUniverse.get().applyDLE()
