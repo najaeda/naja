@@ -3,7 +3,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
 [build-system]
-requires = ["scikit-build-core >=0.4.3"]
+requires = [
+  "scikit-build-core >=0.4.3",
+  "setuptools>=42",
+  "setuptools-scm"
+]
 build-backend = "scikit_build_core.build"
 
 [project]
@@ -19,9 +23,6 @@ package-dir = {"" = "src"}
 
 [tool.setuptools.dynamic]
 version = {uses = "setuptools_scm"}
-
-[build-system]
-requires = ["setuptools>=42", "setuptools-scm"]
 
 [tool.scikit-build.cmake.define]
 CMAKE_BUILD_TYPE="Release"
