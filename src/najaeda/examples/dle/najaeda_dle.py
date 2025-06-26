@@ -21,11 +21,19 @@ def apply_dle(top, keep_attributes=None):
     traced_terms = list(top.get_flat_output_terms())
     for leaf in top.get_leaf_children():
         attributes =  list(leaf.get_attributes())
+        outputs = 0
+        for term in leaf.get_flat_output_terms():
+            outputs += 1
+        if (outputs == 0):
+            for term in leaf.get_flat_input_terms():
+                    traced_terms.append(term)
+            continue
         for attr in attributes:
             if attr in keep_attributes:
                 for term in leaf.get_flat_input_terms():
                     traced_terms.append(term)
                 break
+    
     for termToTrace in traced_terms:
         queue = deque([termToTrace])
         while queue:
@@ -51,13 +59,14 @@ if __name__ == '__main__':
     faulthandler.enable()
     # Load design
     netlist.load_primitives('xilinx')
-
+    
     start = time.time()
     print('Starting DLE')
 
     instances = set()
     benchmarks = path.join('..', '..', 'benchmarks')
     top = netlist.load_verilog([path.join(benchmarks, 'verilog', 'vexriscv.v')])
+    top.dump_context_dot("./context.dot")
     attributes =  ['DONT_TOUCH', 'KEEP', 'preserve', 'noprune']
     nb_deleted = apply_dle(top, attributes)
     

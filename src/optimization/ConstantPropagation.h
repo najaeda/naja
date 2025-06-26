@@ -17,7 +17,7 @@ class ConstantPropagation {
 
   enum Type { AND = 1, OR, XOR, NAND, NOR, XNOR, INV, BUF, HA, DFF, MUX, OAI };
 
-  ConstantPropagation() { dnl_ = get(); }
+  ConstantPropagation() { }
   void collectConstants();
   void run();
   // Getting all constant isos
