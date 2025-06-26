@@ -1477,3 +1477,17 @@ def get_model_name(id: tuple[int, int, int]) -> str:
                 if model:
                     return model.getName()
     return None
+
+
+def apply_dle():
+    """Apply the DLE (Design Language Extension) to the top design."""
+    top = naja.NLUniverse.get().getTopDesign()
+    if top is not None:
+        naja.NLUniverse.get().applyDLE()
+
+
+def apply_constant_propagation():
+    """Apply constant propagation to the top design."""
+    top = naja.NLUniverse.get().getTopDesign()
+    if top is not None:
+        naja.NLUniverse.get().applyConstantPropagation()

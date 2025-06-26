@@ -10,7 +10,7 @@ SET(sources
 
 ADD_EXECUTABLE(loadlessLogicRemoverTests ${sources})
 
-TARGET_LINK_LIBRARIES(loadlessLogicRemoverTests naja_dnl naja_opt gmock gtest_main)
+TARGET_LINK_LIBRARIES(loadlessLogicRemoverTests naja_dnl naja_opt gmock gtest_main naja_snl_visual)
 
 GTEST_DISCOVER_TESTS(loadlessLogicRemoverTests)
 

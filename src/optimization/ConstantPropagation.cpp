@@ -1156,6 +1156,8 @@ void ConstantPropagation::propagateConstants() {
 }
 
 void ConstantPropagation::run() {
+  destroy();
+  dnl_ = get();
   initializeTypesID();
   collectConstants();
   performConstantPropagationAnalysis();
