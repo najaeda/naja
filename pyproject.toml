@@ -3,11 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 [build-system]
-requires = [
-  "scikit-build-core >=0.4.3",
-  "setuptools>=42",
-  "setuptools-scm"
-]
+requires = ["scikit-build-core >=0.4.3"]
 build-backend = "scikit_build_core.build"
 
 [project]
@@ -17,13 +13,7 @@ authors = [{name = "Naja Authors", email = "contact@keplertech.io"}]
 readme = "src/najaeda/README.rst"
 requires-python = ">=3.8"
 license = {text = "Apache License 2.0"}
-dynamic = ["version"]
-
-[tool.setuptools]
-package-dir = {"" = "src"}
-
-[tool.setuptools.dynamic]
-version = {uses = "setuptools_scm"}
+version = "0.1.21"
 
 [tool.scikit-build.cmake.define]
 CMAKE_BUILD_TYPE="Release"
