@@ -29,6 +29,4 @@ if __name__ == '__main__':
     netlist.apply_dle()
     
     end = time.time()
-    print('DLE done in %s seconds', end - start)
-
-    top.dump_verilog("./", "result.v")
+    print('DLE done in', end - start, 'seconds')

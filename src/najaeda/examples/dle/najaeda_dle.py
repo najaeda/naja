@@ -66,12 +66,9 @@ if __name__ == '__main__':
     instances = set()
     benchmarks = path.join('..', '..', 'benchmarks')
     top = netlist.load_verilog([path.join(benchmarks, 'verilog', 'vexriscv.v')])
-    top.dump_context_dot("./context.dot")
     attributes =  ['DONT_TOUCH', 'KEEP', 'preserve', 'noprune']
     nb_deleted = apply_dle(top, attributes)
-    
-    end = time.time()
-    print('DLE done in %s seconds', end - start)
-
-    top.dump_verilog("./", "result.v")
     print(f'deleted {len(nb_deleted)} leaves')
+
+    end = time.time()
+    print('DLE done in', end - start, 'seconds')
