@@ -978,7 +978,7 @@ class Instance:
             yield Instance(path_child)
             # path.pop()
 
-    def get_number_of_child_instances(self) -> int:
+    def count_child_instances(self) -> int:
         """
         :return: the number of child instances of this instance.
         :rtype: int
