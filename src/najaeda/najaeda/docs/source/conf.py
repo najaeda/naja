@@ -15,7 +15,7 @@ sys.path.insert(0, os.path.abspath('../../../'))
 project = 'najaeda'
 copyright = '2024, Naja authors'
 author = 'Naja authors'
-release = '0.1.9'
+release = '0.1.22'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -27,7 +27,7 @@ extensions = [
     'sphinx.ext.todo',          # (Optional) For TODOs in the documentation
 ]
 
-autodoc_mock_imports = ["najaeda.snl"]
+autodoc_mock_imports = ["najaeda.naja"]
 templates_path = ['_templates']
 exclude_patterns = []
 
