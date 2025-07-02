@@ -21,7 +21,7 @@ def apply_dle(top, keep_attributes=None):
     traced_terms = list(top.get_flat_output_terms())
     for leaf in top.get_leaf_children():
         attributes =  list(leaf.get_attributes())
-        if (leaf.count_flat_output_terms() == 0):
+        if leaf.count_flat_output_terms() == 0:
             for term in leaf.get_flat_input_terms():
                     traced_terms.append(term)
             continue
