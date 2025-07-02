@@ -34,4 +34,3 @@ if __name__ == '__main__':
         if child.is_assign():
             continue
         print("Child instance: ", child.get_name(), " of model ", child.get_model_name())
-    
