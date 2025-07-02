@@ -978,7 +978,7 @@ class Instance:
             yield Instance(path_child)
             # path.pop()
 
-    def get_number_of_child_instances(self) -> int:
+    def count_child_instances(self) -> int:
         """
         :return: the number of child instances of this instance.
         :rtype: int
@@ -1010,6 +1010,14 @@ class Instance:
         for net in self.__get_snl_model().getNets():
             yield Net(self.pathIDs, net)
 
+    def count_nets(self) -> int:
+        """Count the number of scalar nets and bus nets of this Instance.
+
+        :return: the number of nets of this Instance.
+        :rtype: int
+        """
+        return sum(1 for _ in self.get_nets())
+
     def get_flat_nets(self):
         """Iterate over all scalar nets and bus net bits.
 
@@ -1022,6 +1030,14 @@ class Instance:
                     yield Net(self.pathIDs, bit)
             else:
                 yield Net(self.pathIDs, net)
+
+    def count_flat_nets(self) -> int:
+        """Count the number of scalar nets and bus net bits of this Instance.
+
+        :return: the number of flat nets of this Instance.
+        :rtype: int
+        """
+        return sum(1 for _ in self.get_flat_nets())
 
     def get_net(self, name: str) -> Net:
         """
@@ -1050,6 +1066,14 @@ class Instance:
         for term in self.__get_snl_model().getTerms():
             yield Term(self.pathIDs, term)
 
+    def count_terms(self) -> int:
+        """Count the number of scalar terms and bus terms of this Instance.
+
+        :return: the number of terms of this Instance.
+        :rtype: int
+        """
+        return sum(1 for _ in self.get_terms())
+
     def get_flat_terms(self):
         """Iterate over all scalar terms and bus term bits.
 
@@ -1058,6 +1082,14 @@ class Instance:
         """
         for term in self.__get_snl_model().getBitTerms():
             yield Term(self.pathIDs, term)
+
+    def count_flat_terms(self) -> int:
+        """Count the number of scalar terms and bus term bits of this Instance.
+
+        :return: the number of flat terms of this Instance.
+        :rtype: int
+        """
+        return sum(1 for _ in self.get_flat_terms())
 
     def get_term(self, name: str) -> Term:
         """
@@ -1081,6 +1113,15 @@ class Instance:
             if term.getDirection() != naja.SNLTerm.Direction.Output:
                 yield Term(self.pathIDs, term)
 
+    def count_input_terms(self) -> int:
+        """Count the number of scalar input terms and bus input terms
+        of this Instance.
+
+        :return: the number of input terms of this Instance.
+        :rtype: int
+        """
+        return sum(1 for _ in self.get_input_terms())
+
     def get_flat_input_terms(self):
         """Iterate over all scalar input terms and bus input term bits
         of this Instance.
@@ -1096,6 +1137,15 @@ class Instance:
                 else:
                     yield Term(self.pathIDs, term)
 
+    def count_flat_input_terms(self) -> int:
+        """Count the number of scalar input terms and bus input term bits
+        of this Instance.
+
+        :return: the number of flat input terms of this Instance.
+        :rtype: int
+        """
+        return sum(1 for _ in self.get_flat_input_terms())
+
     def get_output_terms(self):
         """Iterate over all scalar output terms and bus output terms
         of this Instance.
@@ -1106,6 +1156,15 @@ class Instance:
         for term in self.__get_snl_model().getTerms():
             if term.getDirection() != naja.SNLTerm.Direction.Input:
                 yield Term(self.pathIDs, term)
+
+    def count_output_terms(self) -> int:
+        """Count the number of scalar output terms and bus output terms
+        of this Instance.
+
+        :return: the number of output terms of this Instance.
+        :rtype: int
+        """
+        return sum(1 for _ in self.get_output_terms())
 
     def get_flat_output_terms(self):
         """Iterate over all scalar output terms and bus output term bits
@@ -1121,6 +1180,15 @@ class Instance:
                         yield Term(self.pathIDs, bit)
                 else:
                     yield Term(self.pathIDs, term)
+
+    def count_flat_output_terms(self) -> int:
+        """Count the number of scalar output terms and bus output term bits
+        of this Instance.
+
+        :return: the number of flat output terms of this Instance.
+        :rtype: int
+        """
+        return sum(1 for _ in self.get_flat_output_terms())
 
     def get_attributes(self):
         """Iterate over the attributes of this Instance.

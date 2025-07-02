@@ -138,19 +138,19 @@ class NajaNetlistTest0(unittest.TestCase):
                          netlist.get_snl_path_from_id_list(instance.get_child_instance(ins2.getName()).pathIDs))
         self.assertEqual(instance2, instance.get_child_instance(ins2.getName()))
 
-        self.assertEqual(instance.get_number_of_child_instances(), 1)
+        self.assertEqual(instance.count_child_instances(), 1)
         instance.delete_instance(instance2.get_name())
-        self.assertEqual(instance.get_number_of_child_instances(), 0)
+        self.assertEqual(instance.count_child_instances(), 0)
 
         instance.create_child_instance(self.submodel.getName(), "ins2")
-        self.assertEqual(instance.get_number_of_child_instances(), 1)
+        self.assertEqual(instance.count_child_instances(), 1)
         self.assertIsNotNone(instance.get_child_instance("ins2"))
         self.assertEqual(instance.get_child_instance("ins2").get_name(), "ins2")
         self.assertEqual(instance.get_child_instance("ins2").get_model_name(), self.submodel.getName())
 
         #Test bus term creation connection and disconnection
         instance3 = instance.create_child_instance(self.submodel.getName(), "ins3")
-        self.assertTrue(instance.get_number_of_child_instances() == 2)
+        self.assertTrue(instance.count_child_instances() == 2)
         instance3.create_output_bus_term("O1", 4, 0)
         instance.create_bus_net("netO1", 4, 0)
         #connect the bus term to the bus net
@@ -183,6 +183,7 @@ class NajaNetlistTest0(unittest.TestCase):
             inputCount += 1
         
         self.assertEqual(inputCount, 6)
+        self.assertEqual(instance.count_flat_input_terms(), 6)
         
         outputCount = 0
         for output in instance.get_output_terms():
@@ -201,6 +202,7 @@ class NajaNetlistTest0(unittest.TestCase):
             inputCount += 1
         
         self.assertEqual(inputCount, 13)
+        self.assertEqual(instance.count_flat_input_terms(), 13)
         
         outputCount = 0
         for output in instance.get_output_terms():
