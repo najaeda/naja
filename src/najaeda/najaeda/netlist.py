@@ -1529,6 +1529,10 @@ def get_primitives_library() -> naja.NLLibrary:
     return lib
 
 
+def dump_naja_if(path: str):
+    __get_top_db().dumpNajaIF(path)
+
+
 def get_model_name(id: tuple[int, int, int]) -> str:
     """
     :param tuple[int, int, int] id: the id of the model.
