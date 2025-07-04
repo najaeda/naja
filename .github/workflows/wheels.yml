@@ -55,7 +55,7 @@ jobs:
             platform_id: manylinux_x86_64
             manylinux_image: manylinux2014
             free_threaded_support: True
-            
+          
           # Linux AArch64 manylinux2014
           - os: ubuntu-latest
             python: 39
@@ -116,6 +116,10 @@ jobs:
           submodules: recursive
           fetch-depth: 0
           fetch-tags: true
+      - name: Set up QEMU for multi-arch builds
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: all
 
       - name: Configure macOS Environment
         if: runner.os == 'macOS'
