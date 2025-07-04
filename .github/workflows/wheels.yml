@@ -56,6 +56,39 @@ jobs:
             manylinux_image: manylinux2014
             free_threaded_support: True
             
+          # Linux AArch64 manylinux2014
+          - os: ubuntu-latest
+            python: 39
+            platform_id: manylinux_aarch64
+            manylinux_image: manylinux2014
+            cibw_arch: aarch64
+          - os: ubuntu-latest
+            python: 310
+            platform_id: manylinux_aarch64
+            manylinux_image: manylinux2014
+            cibw_arch: aarch64
+          - os: ubuntu-latest
+            python: 311
+            platform_id: manylinux_aarch64
+            manylinux_image: manylinux2014
+            cibw_arch: aarch64
+          - os: ubuntu-latest
+            python: 312
+            platform_id: manylinux_aarch64
+            manylinux_image: manylinux2014
+            cibw_arch: aarch64
+          - os: ubuntu-latest
+            python: 313
+            platform_id: manylinux_aarch64
+            manylinux_image: manylinux2014
+            cibw_arch: aarch64
+          - os: ubuntu-latest
+            python: 313t
+            platform_id: manylinux_aarch64
+            manylinux_image: manylinux2014
+            cibw_arch: aarch64
+            free_threaded_support: True
+            
           # MacOS arm64
           - os: macos-14
             python: 39
@@ -101,7 +134,7 @@ jobs:
           CIBW_FREE_THREADED_SUPPORT: ${{ matrix.free_threaded_support }}
           CIBW_ENVIRONMENT: SKLEARN_SKIP_NETWORK_TESTS=1
           CIBW_BUILD: cp${{ matrix.python }}-${{ matrix.platform_id }}
-          CIBW_ARCHS: all
+          CIBW_ARCHS: ${{ matrix.cibw_arch || 'all' }}
           CIBW_MANYLINUX_X86_64_IMAGE: ${{ matrix.manylinux_image }}
           CIBW_MANYLINUX_I686_IMAGE: ${{ matrix.manylinux_image }}
           CIBW_TEST_REQUIRES: "pytest"
