@@ -117,6 +117,7 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
       - name: Set up QEMU for multi-arch builds
+        if: runner.os == 'Linux'
         uses: docker/setup-qemu-action@v3
         with:
           platforms: all
