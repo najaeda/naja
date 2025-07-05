@@ -58,21 +58,6 @@ jobs:
           
           # Linux AArch64 manylinux2014
           - os: ubuntu-latest
-            python: 39
-            platform_id: manylinux_aarch64
-            manylinux_image: manylinux2014
-            cibw_arch: aarch64
-          - os: ubuntu-latest
-            python: 310
-            platform_id: manylinux_aarch64
-            manylinux_image: manylinux2014
-            cibw_arch: aarch64
-          - os: ubuntu-latest
-            python: 311
-            platform_id: manylinux_aarch64
-            manylinux_image: manylinux2014
-            cibw_arch: aarch64
-          - os: ubuntu-latest
             python: 312
             platform_id: manylinux_aarch64
             manylinux_image: manylinux2014
@@ -82,12 +67,12 @@ jobs:
             platform_id: manylinux_aarch64
             manylinux_image: manylinux2014
             cibw_arch: aarch64
-          - os: ubuntu-latest
-            python: 313t
-            platform_id: manylinux_aarch64
-            manylinux_image: manylinux2014
-            cibw_arch: aarch64
-            free_threaded_support: True
+          #- os: ubuntu-latest
+          #  python: 313t
+          #  platform_id: manylinux_aarch64
+          #  manylinux_image: manylinux2014
+          #  cibw_arch: aarch64
+          #  free_threaded_support: True
             
           # MacOS arm64
           - os: macos-14
