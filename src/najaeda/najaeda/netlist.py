@@ -15,6 +15,7 @@ from typing import Union, List
 
 from najaeda import naja
 
+
 def get_none_existent():
     return sys.maxsize
 
