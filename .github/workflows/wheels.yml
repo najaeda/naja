@@ -177,6 +177,19 @@ jobs:
         with:
           name: cibw-wheels-cp${{ matrix.python }}-${{ matrix.platform_id }}
           path: ./wheelhouse/*.whl
+
+  debug_context:
+    name: Debug Context
+    runs-on: ubuntu-latest
+    steps:
+      - name: Print GitHub Context
+        run: |
+          echo "github.ref: ${{ github.ref }}"
+          echo "github.ref_name: ${{ github.ref_name }}"
+          echo "github.head_ref: ${{ github.head_ref }}"
+          echo "github.base_ref: ${{ github.base_ref }}"
+          echo "github.event_name: ${{ github.event_name }}"
+          echo "github.ref_type: ${{ github.ref_type }}"
   
   test_upload_pypi:
     # TODO: create an sdist that can build without a custom environment
