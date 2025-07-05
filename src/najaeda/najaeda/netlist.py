@@ -455,9 +455,9 @@ class Term:
             term_str = (
                 f"{path}/{get_snl_term_for_ids(self.pathIDs, self.termIDs).getName()}"
             )
-        if self.is_bus:
+        if self.is_bus():
             term_str += f"[{self.get_msb()}:{self.get_lsb()}]"
-        elif self.is_bus_bit:
+        elif self.is_bus_bit():
             term_str += f"[{self.get_lsb()}]"
         return term_str
 
