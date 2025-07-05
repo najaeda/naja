@@ -2,6 +2,7 @@
 <img width="150" alt="Naja Logo" src="./docs/images/Naja-Logo.png"><h1>Naja</h1>
 </div>
 
+[![PyPI](https://img.shields.io/pypi/v/najaeda)](https://pypi.org/project/najaeda)
 ![Ubuntu Build](https://github.com/najaeda/naja/actions/workflows/ubuntu-build.yml/badge.svg)
 ![MacOS Build](https://github.com/najaeda/naja/actions/workflows/macos-build.yml/badge.svg)
 [![Codacy Badge](https://api.codacy.com/project/badge/Grade/b224740790e24c80a381a6eede28cad8)](https://app.codacy.com/gh/najaeda/naja?utm_source=github.com&utm_medium=referral&utm_content=najaeda/naja&utm_campaign=Badge_Grade_Settings)

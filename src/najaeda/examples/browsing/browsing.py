@@ -19,16 +19,18 @@ if __name__ == '__main__':
     # Load design
     netlist.load_primitives('xilinx')
 
-    start = time.time()
-    print('Starting DLE')
-
     instances = set()
     benchmarks = path.join('..', '..', 'benchmarks')
     top = netlist.load_verilog([path.join(benchmarks, 'verilog', 'vexriscv.v')])
-    attributes =  ['DONT_TOUCH', 'KEEP', 'preserve', 'noprune']
-    netlist.apply_dle()
     
-    end = time.time()
-    print('DLE done in', end - start, 'seconds')
-
-    top.dump_verilog("./", "resultDLEwithNajaAPI.v")
+    instance = top.get_child_instance("IBusCachedPlugin_cache")
+    
+    for term in instance.get_terms():
+        if term.is_bus():
+            print("Bus Term: ", term.get_name(), " with width: ", term.get_width())
+        else:
+            print("Scalar Term: ", term.get_name())
+    for child in instance.get_child_instances():
+        if child.is_assign():
+            continue
+        print("Child instance: ", child.get_name(), " of model ", child.get_model_name())
