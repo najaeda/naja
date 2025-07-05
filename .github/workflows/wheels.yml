@@ -117,7 +117,7 @@ jobs:
 
   build_wheels_aarch64:
     runs-on: ${{ matrix.os }}
-    if: ${{ startsWith(github.ref, 'refs/heads/b') || startsWith(github.ref, 'refs/tags/v') }}
+    if: ${{ startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'pull_request' && startsWith(github.head_ref, 'b')) }}
     strategy:
       # Ensure that a wheel builder finishes even if another fails
       fail-fast: false
@@ -170,8 +170,6 @@ jobs:
             cd {project}/src/najaeda/examples && python run_regress.py 
             cd {project}/src/najaeda/native_examples && python run_regress.py 
         run: python -m cibuildwheel --output-dir wheelhouse
-
-      #Reminder!!: actions/upload-artifact and actions/download-artifact
 
       #Reminder!!: actions/upload-artifact and actions/download-artifact
       #need to have same version
