@@ -266,15 +266,24 @@ class NajaNetlistTest1(unittest.TestCase):
         #    list(top.get_flat_primitive_instances())
         #)
     
-    def testDump(self):
-        bench_dir = os.environ.get('NAJAEDA_TEST_PATH')
-        self.assertIsNotNone(bench_dir)
-        bench_dir = os.path.join(bench_dir, "test_najaeda_netlist1")
-        if os.path.exists(bench_dir):
-            shutil.rmtree(bench_dir)
-        os.makedirs(bench_dir)
+    def testDumpVerilog(self):
+        out_dir = os.environ.get('NAJAEDA_TEST_PATH')
+        self.assertIsNotNone(out_dir)
+        bench_dir = os.path.join(out_dir, "test_najaeda_netlist1_verilog")
+        if os.path.exists(out_dir):
+            shutil.rmtree(out_dir)
+        os.makedirs(out_dir)
         top = netlist.get_top()
-        top.dump_verilog(os.path.join(bench_dir), "netlist1.v")
+        top.dump_verilog(os.path.join(out_dir), "netlist1.v")
+
+    def testDumpNajaIF(self):
+        out_dir = os.environ.get('NAJAEDA_TEST_PATH')
+        self.assertIsNotNone(out_dir)
+        bench_dir = os.path.join(out_dir, "test_najaeda_netlist1_if")
+        if os.path.exists(out_dir):
+            shutil.rmtree(out_dir)
+        os.makedirs(out_dir)
+        netlist.dump_naja_if(out_dir)
 
     def testInstanceVisitor(self):
         top = netlist.get_top()
