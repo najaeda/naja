@@ -54,7 +54,7 @@ class NajaNetlistCustomPrimitivesTest(unittest.TestCase):
         self.assertIsNotNone(net)
         and2_ins0.get_term("O").connect(net)
         or2_ins0.get_term("I0").connect(net)
-        nb_connections = sum(1 for _ in net.get_inst_terms())
+        nb_connections = net.count_inst_terms()
         self.assertEqual(nb_connections, 2)
 
     def test_errors(self):
