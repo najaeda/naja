@@ -114,6 +114,7 @@ jobs:
             export VERILOG_BENCHMARKS_PATH='{project}/test/nl/formats/verilog/benchmarks' &&
             export LIBERTY_BENCHMARKS_PATH='{project}/test/nl/formats/liberty/benchmarks' &&
             export NAJAEDA_TEST_PATH='{project}/test/najaeda' &&
+            export NAJAEDA_SOURCE_TEST_PATH='project/test/najaeda' &&
             python -m pytest {project}/test/najaeda &&
             cd {project}/src/najaeda/examples && python run_regress.py 
             cd {project}/src/najaeda/native_examples && python run_regress.py 
