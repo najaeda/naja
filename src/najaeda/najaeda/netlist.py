@@ -353,6 +353,15 @@ class Net:
             yield Term(path, term.getBitTerm())
             path.pop()
 
+    def count_inst_terms(self) -> int:
+        """
+        Count the instance terminals of this net.
+
+        :return: the number of instance terminals of this net.
+        :rtype: int
+        """
+        return sum(1 for _ in self.get_inst_terms())
+
     def get_design_terms(self):
         """
         :return: an iterator over the design terminals of the net.
