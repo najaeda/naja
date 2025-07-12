@@ -199,6 +199,15 @@ bool NLDB0::isGate(const SNLDesign* design) {
   return isNInputGate(design);
 }
 
+std::string NLDB0::getGateName(const SNLDesign* design) {
+  if (not isGate(design)) {
+    return std::string();
+  }
+  auto lib = design->getLibrary();
+  auto type = GateType(lib->getName().getString());
+  return type.getString();
+}
+
 bool NLDB0::isNInputGate(const SNLDesign* design) {
   if (not design) {
     return false;

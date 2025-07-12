@@ -3,8 +3,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "gtest/gtest.h"
-//#include "gmock/gmock.h"
-//using ::testing::ElementsAre;
+#include "gmock/gmock.h"
+using ::testing::ElementsAre;
 //using ::testing::TypedEq;
 
 #include <filesystem>
@@ -12,6 +12,7 @@
 
 #include "NLUniverse.h"
 
+#include "SNLUtils.h"
 #include "SNLVRLConstructor.h"
 
 using namespace naja::NL;
@@ -41,49 +42,36 @@ TEST_F(SNLVRLConstructorTestGate0, test) {
   std::filesystem::path benchmarksPath(SNL_VRL_BENCHMARKS_PATH);
   constructor.parse(benchmarksPath/"test_gates0.v");
 
-#if 0
-  ASSERT_EQ(3, library_->getSNLDesigns().size());
-  auto model0 = library_->getSNLDesign(NLName("model0"));
-  ASSERT_NE(model0, nullptr);
-  ASSERT_EQ(3, model0->getTerms().size());
+  ASSERT_EQ(1, library_->getSNLDesigns().size());
+  auto fa = library_->getSNLDesign(NLName("FA"));
+  ASSERT_NE(fa, nullptr);
+  ASSERT_EQ(5, fa->getTerms().size());
   using Terms = std::vector<SNLTerm*>;
-  Terms terms(model0->getTerms().begin(), model0->getTerms().end());
+  Terms terms(fa->getTerms().begin(), fa->getTerms().end());
   EXPECT_THAT(terms,
     ElementsAre(
-      model0->getTerm(NLName("io")),
-      model0->getTerm(NLName("o")),
-      model0->getTerm(NLName("i"))
+      fa->getTerm(NLName("A")),
+      fa->getTerm(NLName("B")),
+      fa->getTerm(NLName("C")),
+      fa->getTerm(NLName("OUT")),
+      fa->getTerm(NLName("COUT"))
     )
   );
-
-  auto model1 = library_->getSNLDesign(NLName("model1"));
-  ASSERT_NE(model1, nullptr);
-  ASSERT_EQ(3, model1->getTerms().size());
-  terms = Terms(model1->getTerms().begin(), model1->getTerms().end());
-  EXPECT_THAT(terms,
-    ElementsAre(
-      model1->getTerm(NLName("i")),
-      model1->getTerm(NLName("o")),
-      model1->getTerm(NLName("io"))
-    )
-  );
-
-  auto test = library_->getSNLDesign(NLName("test"));
-  ASSERT_NE(test, nullptr);
 
   constructor.setFirstPass(false);
-  constructor.parse(benchmarksPath/"test1.v");
+  constructor.parse(benchmarksPath/"test_gates0.v");
   auto top = SNLUtils::findTop(library_);
-  EXPECT_EQ(top, test);
+  EXPECT_EQ(top, fa);
+
   using Instances = std::vector<SNLInstance*>;
   Instances instances(top->getInstances().begin(), top->getInstances().end());
-  //6 standard instances, 3 assigns
   ASSERT_EQ(9, instances.size());
-  ASSERT_EQ(1, model0->getInstances().size());
-  auto lut = model0->getInstance(NLName("lut"));
-  ASSERT_NE(lut, nullptr);
-  EXPECT_EQ("lut", lut->getName().getString());
-  auto lutModel = lut->getModel();
+  auto and0 = instances[0];
+  ASSERT_NE(and0, nullptr);
+  EXPECT_EQ("and0", and0->getName().getString());
+  auto and2Model = and0->getModel();
+  EXPECT_TRUE(NLDB0::isNInputGate(and2Model));
+#if 0
   ASSERT_NE(lutModel, nullptr);
   EXPECT_EQ("LUT4", lutModel->getName().getString());
   ASSERT_EQ(1, lut->getInstParameters().size());

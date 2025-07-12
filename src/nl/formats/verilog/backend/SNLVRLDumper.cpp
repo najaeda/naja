@@ -530,7 +530,36 @@ bool SNLVRLDumper::dumpInstance(
   const SNLInstance* instance,
   std::ostream& o,
   DesignInsideAnonymousNaming& naming) {
-  if (NLDB0::isAssign(instance->getModel())) {
+  if (NLDB0::isNInputGate(instance->getModel())) {
+    auto gateName = NLDB0::getGateName(instance->getModel());
+    o << gateName << " ";
+    if (not instance->isAnonymous()) {
+      o << instance->getName().getString();
+    }
+    o << "(";
+    auto outputNet = instance->getInstTerm(NLDB0::getNInputGateOutput(instance->getModel()))->getNet();
+    if (outputNet) {
+      o << getBitNetString(outputNet);
+    } else {
+      o << "DUMMY";
+    }
+    o << ", ";
+    auto inputs = NLDB0::getNInputGateInputs(instance->getModel());
+    for (size_t i=0; i<inputs->getWidth(); ++i) {
+      auto inputNet = instance->getInstTerm(inputs->getBitAtPosition(i))->getNet();
+      if (inputNet) {
+        o << getBitNetString(inputNet);
+      } else {
+        o << "DUMMY";
+      }
+      if (i < inputs->getWidth() - 1) {
+        o << ", ";
+      }
+    }
+    o << ");";
+    o << std::endl;
+    return true;
+  } else if (NLDB0::isAssign(instance->getModel())) {
     auto inputNet = instance->getInstTerm(NLDB0::getAssignInput())->getNet();
     auto outputNet = instance->getInstTerm(NLDB0::getAssignOutput())->getNet();
     if (inputNet and outputNet) {
