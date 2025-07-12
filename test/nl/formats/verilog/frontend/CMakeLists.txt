@@ -7,6 +7,7 @@ set(snl_vrl_constructor_tests
     SNLVRLConstructorTest0.cpp
     SNLVRLConstructorTest1.cpp
     SNLVRLConstructorTestAttributes.cpp
+    SNLVRLConstructorTestGate0.cpp
 )
 add_executable(snlVRLConstructorTests ${snl_vrl_constructor_tests})
 target_compile_definitions(snlVRLConstructorTests PRIVATE

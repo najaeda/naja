@@ -135,9 +135,51 @@ bool allNetsArePortNets(naja::NL::SNLDesign* design) {
   return true;
 }
 
+naja::NL::NLDB0::GateType najaVerilogToNLDB0GateType(const naja::verilog::GateType& gateType) {
+  switch (gateType) {
+    case naja::verilog::GateType::And:
+      return naja::NL::NLDB0::GateType::And;
+    case naja::verilog::GateType::Nand:
+      return naja::NL::NLDB0::GateType::Nand;
+    case naja::verilog::GateType::Or:
+      return naja::NL::NLDB0::GateType::Or;
+    case naja::verilog::GateType::Nor:
+      return naja::NL::NLDB0::GateType::Nor;
+    case naja::verilog::GateType::Xor:
+      return naja::NL::NLDB0::GateType::Xor;
+    case naja::verilog::GateType::Xnor:
+      return naja::NL::NLDB0::GateType::Xnor;
+    case naja::verilog::GateType::Buf:
+      return naja::NL::NLDB0::GateType::Buf;
+    case naja::verilog::GateType::Not:
+      return naja::NL::NLDB0::GateType::Not;
+    default: {
+      std::ostringstream reason;
+      reason << "Unsupported verilog gate type: ";
+      reason << gateType.getString();
+      throw naja::NL::SNLVRLConstructorException(reason.str());
+    }
+  }
+  return naja::NL::NLDB0::GateType::Unknown; //LCOV_EXCL_LINE
+}
+
 }
 
 namespace naja { namespace NL {
+
+void SNLVRLConstructor::GateInstance::reset() {
+  gateType_ = NLDB0::GateType::Unknown;
+  instanceName_ = std::string();
+  connections_.clear();
+}
+
+bool SNLVRLConstructor::GateInstance::isValid() const {
+  return gateType_ != NLDB0::GateType::Unknown;
+}
+
+std::string SNLVRLConstructor::GateInstance::getString() const {
+  return std::string();
+}
 
 SNLTerm::Direction
 SNLVRLConstructor::VRLDirectionToSNLDirection(const naja::verilog::Port::Direction& direction) {
@@ -641,6 +683,52 @@ void SNLVRLConstructor::addOrderedInstanceConnection(
         << std::endl;
       //LCOV_EXCL_STOP
     }
+  }
+}
+
+void SNLVRLConstructor::startGateInstantiation(const naja::verilog::GateType& gateType) {
+  if (not inFirstPass()) {
+    currentGateInstance_.gateType_ = najaVerilogToNLDB0GateType(gateType);
+    if (verbose_) {
+      std::cerr << "Start Instantiation: " << gateType.getString() << std::endl; //LCOV_EXCL_LINE
+    }
+  }
+}
+
+void SNLVRLConstructor::addGateInstance(const naja::verilog::Identifier& id) {
+  if (not inFirstPass() and not id.empty()) {
+    currentGateInstance_.instanceName_ = id.name_;
+  }
+}
+
+void SNLVRLConstructor::addGateOutputInstanceConnection(
+  size_t portIndex,
+  const naja::verilog::RangeIdentifiers identifiers) {
+
+}
+
+void SNLVRLConstructor::addGateInputInstanceConnection(
+  size_t portIndex,
+  const naja::verilog::Expression& expression) {
+}
+
+void SNLVRLConstructor::endGateInstantiation() {
+  if (not inFirstPass()) {
+    assert(currentGateInstance_.isValid());
+    if (verbose_) {
+      std::cerr << "End " << currentGateInstance_.getString() 
+        << " instantiation" << std::endl; //LCOV_EXCL_LINE
+    }
+    //create gate instance
+    size_t nbTerms = currentGateInstance_.connections_.size();
+    auto gate = NLDB0::getOrCreateNInputGate(currentGateInstance_.gateType_, nbTerms-1);
+    auto gateInstance = SNLInstance::create(
+      currentModule_,
+      gate,
+      NLName(currentGateInstance_.instanceName_));
+
+    currentInstance_ = nullptr;
+    currentGateInstance_.reset();
   }
 }
 
