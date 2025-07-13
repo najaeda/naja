@@ -352,3 +352,4 @@ TEST(BitVecDynamic, Uint64Cast_LowBits) {
   // only bit3 appears
   EXPECT_EQ(x, (1ULL<<3));
 }
+
