@@ -104,6 +104,7 @@ set(HEADERS
   pnl/PNLTechnology.h
   decorators/SNLDesignModeling.h
   decorators/SNLTruthTable.h
+  decorators/BitVecDynamic.h
 )
 
 add_library(naja_nl SHARED
