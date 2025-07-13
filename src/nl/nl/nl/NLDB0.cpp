@@ -216,10 +216,6 @@ SNLDesign* NLDB0::getOrCreateNInputGate(const GateType& type, size_t nbInputs) {
   return gate;
 }
 
-bool NLDB0::isGate(const SNLDesign* design) {
-  return isNInputGate(design);
-}
-
 std::string NLDB0::getGateName(const SNLDesign* design) {
   if (not isGate(design)) {
     return std::string();
@@ -239,6 +235,30 @@ bool NLDB0::isNInputGate(const SNLDesign* design) {
   }
   auto type = GateType(lib->getName().getString());
   return type.isNInput();
+}
+
+bool NLDB0::isNOutputGate(const SNLDesign* design) {
+  if (not design) {
+    return false;
+  }
+  auto lib = design->getLibrary();
+  if (not isGateLibrary(lib)) {
+    return false;
+  }
+  auto type = GateType(lib->getName().getString());
+  return type.isNOutput();
+}
+
+bool NLDB0::isGate(const SNLDesign* design) {
+  if (not design) {
+    return false;
+  }
+  auto lib = design->getLibrary();
+  if (not isGateLibrary(lib)) {
+    return false;
+  }
+  auto type = GateType(lib->getName().getString());
+  return type != GateType::Unknown;
 }
 
 SNLScalarTerm* NLDB0::getGateSingleTerm(const SNLDesign* gate) {
