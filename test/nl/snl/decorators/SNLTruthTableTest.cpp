@@ -5,6 +5,7 @@
 #include "gtest/gtest.h"
 
 #include "SNLTruthTable.h"
+#include "BitVecDynamic.h"
 using namespace naja::NL;
 
 TEST(SNLTruthTableTest, test) {
@@ -283,4 +284,71 @@ TEST(SNLTruthTableTest, VectorCtor_CtorThrowsSizeLE6) {
     EXPECT_THROW(SNLTruthTable(sz, v), NLException)
         << "size=" << sz << " should not accept vector<bool>";
   }
+}
+
+// Mask‐ctor must throw if length>64, otherwise accept
+TEST(BitVecDynamic, MaskCtor_Boundary) {
+  // Exactly 64 is OK
+  EXPECT_NO_THROW({
+    BitVecDynamic bv(0xFFFFFFFFFFFFFFFFULL, 64);
+    EXPECT_EQ(64u, bv.size());
+    EXPECT_TRUE(bv >> 63);
+    EXPECT_FALSE(bv >> 64);  // out‐of‐range
+  });
+
+  // >64 → throw
+  EXPECT_THROW(BitVecDynamic(0ULL, 65), std::out_of_range);
+  EXPECT_THROW(BitVecDynamic(0xFF, 100), std::out_of_range);
+}
+
+// vector<bool>‐ctor must throw if length≤64, accept if >64
+TEST(BitVecDynamic, VecBoolCtor_ThrowsOrAccepts) {
+  // length ≤ 64 → throw
+  for (uint32_t len : {0u, 1u, 32u, 64u}) {
+    std::vector<bool> v(len, true);
+    EXPECT_THROW(BitVecDynamic(v, len), std::out_of_range)
+        << "Expected throw for len=" << len;
+  }
+
+  // length > 64 → no throw
+  std::vector<bool> big(65, false);
+  EXPECT_NO_THROW({
+    BitVecDynamic bv(big, 65);
+    EXPECT_EQ(65u, bv.size());
+    // default‐initialized to zeros
+    EXPECT_FALSE(bv >> 0);
+    EXPECT_FALSE(bv >> 64);
+  });
+}
+
+// length‐only ctor: for ≤64 builds a mask, for >64 a vector<bool>
+TEST(BitVecDynamic, LengthOnlyCtor_SmallAndLarge) {
+  // small
+  BitVecDynamic small(10);
+  EXPECT_EQ(10u, small.size());
+  EXPECT_FALSE(small >> 9);
+  EXPECT_FALSE(small >> 10);
+
+  // large
+  BitVecDynamic large(130);
+  EXPECT_EQ(130u, large.size());
+  EXPECT_FALSE(large >> 129);
+  EXPECT_FALSE(large >> 130);
+}
+
+// operator uint64_t: returns low 64 bits for both variants
+TEST(BitVecDynamic, Uint64Cast_LowBits) {
+  // mask‐ctor
+  BitVecDynamic m(0xF0F0F0F0F0F0F0F0ULL, 64);
+  EXPECT_EQ(static_cast<uint64_t>(m), 0xF0F0F0F0F0F0F0F0ULL);
+
+  // vector<bool>‐ctor >64: high‐bit set at pos=70 but cast only sees [0..63]
+  std::vector<bool> v(80, false);
+  v[70] = true;
+  // also set a low bit:
+  v[3]  = true;
+  BitVecDynamic vb(v, 80);
+  uint64_t x = static_cast<uint64_t>(vb);
+  // only bit3 appears
+  EXPECT_EQ(x, (1ULL<<3));
 }
