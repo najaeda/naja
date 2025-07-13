@@ -46,8 +46,8 @@ class SNLVRLDumperTestGate0: public ::testing::Test {
 
       auto and5 =
         SNLInstance::create(design, NLDB0::getOrCreateNInputGate(NLDB0::GateType::And, 5), NLName("and5"));
-      and5->getInstTerm(NLDB0::getNInputGateOutput(and5->getModel()))->setNet(out0Net);
-      auto inputs = NLDB0::getNInputGateInputs(and5->getModel());
+      and5->getInstTerm(NLDB0::getGateSingleTerm(and5->getModel()))->setNet(out0Net);
+      auto inputs = NLDB0::getGateNTerms(and5->getModel());
       for (size_t i = 0; i < inputs->getWidth(); ++i) {
         auto instTerm = and5->getInstTerm(inputs->getBitAtPosition(i));
         instTerm->setNet(busNet->getBit(i));
@@ -56,8 +56,8 @@ class SNLVRLDumperTestGate0: public ::testing::Test {
       //anonymous gate instance
       auto xor5 =
         SNLInstance::create(design, NLDB0::getOrCreateNInputGate(NLDB0::GateType::Xor, 5));
-      xor5->getInstTerm(NLDB0::getNInputGateOutput(xor5->getModel()))->setNet(out1Net);
-      inputs = NLDB0::getNInputGateInputs(xor5->getModel());
+      xor5->getInstTerm(NLDB0::getGateSingleTerm(xor5->getModel()))->setNet(out1Net);
+      inputs = NLDB0::getGateNTerms(xor5->getModel());
       for (size_t i = 0; i < inputs->getWidth(); ++i) {
         auto instTerm = xor5->getInstTerm(inputs->getBitAtPosition(i));
         instTerm->setNet(busNet->getBit(i));

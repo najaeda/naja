@@ -26,7 +26,7 @@ class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
     //the last one, so we need to store all gate instance characteristics
     //before creating it in endInstantiation; 
     struct GateInstance {
-      using Connections = std::vector<SNLBitNet*>;
+      using Connections = std::vector<naja::verilog::Expression>;
       bool isValid() const;
       void reset();
       std::string getString() const;

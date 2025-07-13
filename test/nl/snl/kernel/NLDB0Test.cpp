@@ -60,11 +60,11 @@ TEST_F(NLDB0Test, testAND) {
 
   SNLDesign* and2 = NLDB0::getOrCreateNInputGate(NLDB0::GateType::And, 2);
   ASSERT_NE(nullptr, and2);
-  SNLScalarTerm* and2Out = NLDB0::getNInputGateOutput(and2);
+  SNLScalarTerm* and2Out = NLDB0::getGateSingleTerm(and2);
   ASSERT_NE(nullptr, and2Out);
   EXPECT_EQ(NLID::DesignObjectID(0), and2Out->getID());
   EXPECT_EQ(SNLTerm::Direction::Output, and2Out->getDirection());
-  SNLBusTerm* and2Inputs = NLDB0::getNInputGateInputs(and2);
+  SNLBusTerm* and2Inputs = NLDB0::getGateNTerms(and2);
   ASSERT_NE(nullptr, and2Inputs);
   EXPECT_EQ(NLID::DesignObjectID(1), and2Inputs->getID());
   EXPECT_EQ(SNLTerm::Direction::Input, and2Inputs->getDirection());
@@ -75,11 +75,11 @@ TEST_F(NLDB0Test, testAND) {
 
   SNLDesign* and48 = NLDB0::getOrCreateNInputGate(NLDB0::GateType::And, 48);
   ASSERT_NE(nullptr, and48);
-  SNLScalarTerm* and48Out = NLDB0::getNInputGateOutput(and48);
+  SNLScalarTerm* and48Out = NLDB0::getGateSingleTerm(and48);
   ASSERT_NE(nullptr, and48Out);
   EXPECT_EQ(NLID::DesignObjectID(0), and48Out->getID());
   EXPECT_EQ(SNLTerm::Direction::Output, and48Out->getDirection());
-  SNLBusTerm* and48Inputs = NLDB0::getNInputGateInputs(and48);
+  SNLBusTerm* and48Inputs = NLDB0::getGateNTerms(and48);
   ASSERT_NE(nullptr, and48Inputs);
   EXPECT_EQ(NLID::DesignObjectID(1), and48Inputs->getID());
   EXPECT_EQ(SNLTerm::Direction::Input, and48Inputs->getDirection());

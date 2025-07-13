@@ -11,7 +11,9 @@ set(snl_vrl_constructor_tests
 )
 add_executable(snlVRLConstructorTests ${snl_vrl_constructor_tests})
 target_compile_definitions(snlVRLConstructorTests PRIVATE
-  SNL_VRL_BENCHMARKS_PATH="${CMAKE_CURRENT_SOURCE_DIR}/../benchmarks")
+  SNL_VRL_BENCHMARKS_PATH="${CMAKE_CURRENT_SOURCE_DIR}/../benchmarks"
+  SNL_VRL_DUMPER_TEST_PATH="${CMAKE_CURRENT_BINARY_DIR}"
+)
 target_link_libraries(snlVRLConstructorTests naja_snl_verilog gmock gtest_main)
 GTEST_DISCOVER_TESTS(snlVRLConstructorTests
   DISCOVERY_TIMEOUT 30

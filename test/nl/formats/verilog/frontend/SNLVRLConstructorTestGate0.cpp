@@ -14,6 +14,7 @@ using ::testing::ElementsAre;
 
 #include "SNLUtils.h"
 #include "SNLVRLConstructor.h"
+#include "SNLVRLDumper.h"
 
 using namespace naja::NL;
 
@@ -92,4 +93,27 @@ TEST_F(SNLVRLConstructorTestGate0, test) {
   EXPECT_THAT(instTerms[1]->getNet(), TypedEq<SNLNet*>(top->getNet(NLName("i"))));
   EXPECT_THAT(instTerms[2]->getNet(), TypedEq<SNLNet*>(top->getNet(NLName("io"))));
 #endif
+}
+
+TEST_F(SNLVRLConstructorTestGate0, testLoadAndDump) {
+  auto db = NLDB::create(NLUniverse::get());
+  SNLVRLConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_VRL_BENCHMARKS_PATH);
+  constructor.parse(benchmarksPath/"test_gates0.v");
+
+  constructor.setFirstPass(false);
+  constructor.parse(benchmarksPath/"test_gates0.v");
+  auto top = SNLUtils::findTop(library_);
+  EXPECT_NE(nullptr, top);
+
+  std::filesystem::path outPath(SNL_VRL_DUMPER_TEST_PATH);
+  outPath = outPath / "test_gates0";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+  SNLVRLDumper dumper;
+  dumper.setTopFileName(top->getName().getString() + ".v");
+  dumper.setSingleFile(true);
+  dumper.dumpDesign(top, outPath);
 }

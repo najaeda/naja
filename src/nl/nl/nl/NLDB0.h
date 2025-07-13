@@ -44,6 +44,7 @@ class NLDB0 {
         operator const GateTypeEnum&() const {return gateTypeEnum_;}
         std::string getString() const;
         bool isNInput() const;
+        bool isNOutput() const;
       private:
         GateTypeEnum  gateTypeEnum_;
     };
@@ -62,12 +63,16 @@ class NLDB0 {
     static NLLibrary* getGateLibrary(const GateType& type);
     static bool isGateLibrary(const NLLibrary* lib);
     static NLLibrary* getOrCreateGateLibrary(const GateType& type);
+    static SNLDesign* getOrCreateNOutputGate(const GateType& type, size_t nbOutputs);
     static SNLDesign* getOrCreateNInputGate(const GateType& type, size_t nbInputs);
     static bool isGate(const SNLDesign* design);
     static std::string getGateName(const SNLDesign* design);
     static bool isNInputGate(const SNLDesign* design);
-    static SNLScalarTerm* getNInputGateOutput(const SNLDesign* gate);
-    static SNLBusTerm* getNInputGateInputs(const SNLDesign* gate);
+    static bool isNOutputGate(const SNLDesign* design);
+    ///\return the single terminal of a N-Gate: output if N-input, input if N-output.
+    static SNLScalarTerm* getGateSingleTerm(const SNLDesign* gate);
+    ///\return the bus term of size N of a N-Gate: output if N-output, input if N-input.
+    static SNLBusTerm* getGateNTerms(const SNLDesign* gate);
   private:
     static NLDB* create(NLUniverse* universe);
     static constexpr char RootLibraryName[] { "PRIMITIVES" };

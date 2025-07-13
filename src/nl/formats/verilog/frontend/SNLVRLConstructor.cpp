@@ -704,12 +704,30 @@ void SNLVRLConstructor::addGateInstance(const naja::verilog::Identifier& id) {
 void SNLVRLConstructor::addGateOutputInstanceConnection(
   size_t portIndex,
   const naja::verilog::RangeIdentifiers identifiers) {
-
+  if (inFirstPass()) {
+    return;
+  }
+  if (identifiers.size() != 1) {
+    std::ostringstream reason;
+    reason << getLocationString();
+    reason << ": " << naja::verilog::getRangeIdentifiersString(identifiers) << " is not supported";
+    throw SNLVRLConstructorException(reason.str());
+  }
+  auto identifier = identifiers[0];
+  naja::verilog::Expression expression;
+  expression.value_ = identifier;
+  expression.valid_ = true;
+  expression.supported_ = true;
+  currentGateInstance_.connections_.push_back(expression);
 }
 
 void SNLVRLConstructor::addGateInputInstanceConnection(
   size_t portIndex,
   const naja::verilog::Expression& expression) {
+  if (inFirstPass()) {
+    return;
+  }
+  currentGateInstance_.connections_.push_back(expression);
 }
 
 void SNLVRLConstructor::endGateInstantiation() {
@@ -720,12 +738,23 @@ void SNLVRLConstructor::endGateInstantiation() {
         << " instantiation" << std::endl; //LCOV_EXCL_LINE
     }
     //create gate instance
+    SNLDesign* gate = nullptr;
     size_t nbTerms = currentGateInstance_.connections_.size();
-    auto gate = NLDB0::getOrCreateNInputGate(currentGateInstance_.gateType_, nbTerms-1);
-    auto gateInstance = SNLInstance::create(
+    if (currentGateInstance_.gateType_.isNInput()) {
+      gate = NLDB0::getOrCreateNInputGate(currentGateInstance_.gateType_, nbTerms-1);
+    } else {
+      gate = NLDB0::getOrCreateNOutputGate(currentGateInstance_.gateType_, nbTerms-1);
+    }
+    currentInstance_ = SNLInstance::create(
       currentModule_,
       gate,
       NLName(currentGateInstance_.instanceName_));
+
+    //for (size_t i=0; i<currentGateInstance_.connections_.size(); ++i) {
+    //  currentInstancePortConnection(
+    //    currentInstance_->getTerm(NLID::DesignObjectID(i)),
+    //    currentGateInstance_.connections_[i]);
+    //}
 
     currentInstance_ = nullptr;
     currentGateInstance_.reset();

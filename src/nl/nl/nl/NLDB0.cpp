@@ -45,6 +45,11 @@ bool NLDB0::GateType::isNInput() const {
     or gateTypeEnum_ == GateType::Xnor;
 }
 
+bool NLDB0::GateType::isNOutput() const {
+  return gateTypeEnum_ == GateType::Buf
+    or gateTypeEnum_ == GateType::Not;
+}
+
 std::string NLDB0::GateType::getString() const {
   switch (gateTypeEnum_) {
     case GateType::And:
@@ -179,6 +184,22 @@ bool NLDB0::isGateLibrary(const NLLibrary* library) {
   return type != GateType::Unknown;
 }
 
+SNLDesign* NLDB0::getOrCreateNOutputGate(const GateType& type, size_t nbOutputs) {
+  assert(nbOutputs>0);
+  auto gateLibrary = getOrCreateGateLibrary(type);
+  if (not gateLibrary) {
+    return nullptr;
+  }
+  std::string gateName(type.getString() + "_" + std::to_string(nbOutputs));
+  auto gate = gateLibrary->getSNLDesign(NLName(gateName));
+  if (not gate) {
+    gate = SNLDesign::create(gateLibrary, SNLDesign::Type::Primitive, NLName(gateName));
+    SNLScalarTerm::create(gate, SNLTerm::Direction::Input);
+    SNLBusTerm::create(gate, SNLTerm::Direction::Output, NLID::Bit(nbOutputs-1), 0);
+  }
+  return gate;
+}
+
 SNLDesign* NLDB0::getOrCreateNInputGate(const GateType& type, size_t nbInputs) {
   assert(nbInputs>0);
   auto gateLibrary = getOrCreateGateLibrary(type);
@@ -220,15 +241,15 @@ bool NLDB0::isNInputGate(const SNLDesign* design) {
   return type.isNInput();
 }
 
-SNLScalarTerm* NLDB0::getNInputGateOutput(const SNLDesign* gate) {
-  if (isNInputGate(gate)) {
+SNLScalarTerm* NLDB0::getGateSingleTerm(const SNLDesign* gate) {
+  if (isGate(gate)) {
     return gate->getScalarTerm(NLID::DesignObjectID(0));
   }
   return nullptr;
 }
 
-SNLBusTerm* NLDB0::getNInputGateInputs(const SNLDesign* gate) {
-  if (isNInputGate(gate)) {
+SNLBusTerm* NLDB0::getGateNTerms(const SNLDesign* gate) {
+  if (isGate(gate)) {
     return gate->getBusTerm(NLID::DesignObjectID(1));
   }
   return nullptr;
