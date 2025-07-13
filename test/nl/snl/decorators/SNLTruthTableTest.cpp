@@ -236,9 +236,51 @@ TEST(SNLTruthTableTest, VectorCtorAllOnesPattern) {
   EXPECT_TRUE(t8o.isInitialized());
 }
 
+// TODO:
 //------------------------------------------------------------------------------
 // Once you’ve fixed bits()/all0()/getReducedWithConstants on vector<bool>,
 // you can extend this section with real checks for data‐roundtrips,
 // reduction, hasNoInfluence(), removeVariable(), etc.
 //------------------------------------------------------------------------------
 
+// -----------------------------------------------------------------------------
+// Cover the SNLTruthTable(vector<bool>) path for size > 6
+// -----------------------------------------------------------------------------
+
+TEST(SNLTruthTableTest, VectorCtor_BasicProps) {
+  // Build a 7-input table (128 rows), set a few truths
+  std::vector<bool> v7(1u << 7, false);
+  v7[  3] = true;
+  v7[127] = true;
+
+  // Must accept size>6
+  SNLTruthTable tt7(7, v7);
+  EXPECT_TRUE(tt7.isInitialized());
+  EXPECT_EQ(7u, tt7.size());
+
+  // getString() reflects the size and low-word bits()
+  // (we know bits() only shows low-64 bits, here bit3==1)
+  auto s = tt7.getString();
+  EXPECT_NE(std::string::npos, s.find("<7,"));  
+  EXPECT_NE(std::string::npos, s.find("8"));     // 1<<3 == 8
+
+  // two tables built from identical data compare equal
+  SNLTruthTable tt7b(7, v7);
+  EXPECT_TRUE(tt7 == tt7b);
+  EXPECT_FALSE(tt7 < tt7b);
+
+  // flipping any one entry makes them order‐distinct
+  v7[3] = false;  // clear bit3
+  SNLTruthTable tt7c(7, v7);
+  EXPECT_FALSE(tt7c == tt7b);
+  EXPECT_TRUE(tt7c < tt7b);  // low bits 0 < low bits 8
+}
+
+TEST(SNLTruthTableTest, VectorCtor_CtorThrowsSizeLE6) {
+  // For sizes 0..6, vector<bool> ctor must throw
+  for (uint32_t sz = 0; sz <= 6; ++sz) {
+    std::vector<bool> v(1u << sz, false);
+    EXPECT_THROW(SNLTruthTable(sz, v), NLException)
+        << "size=" << sz << " should not accept vector<bool>";
+  }
+}
