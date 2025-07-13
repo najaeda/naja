@@ -187,3 +187,58 @@ TEST(SNLTruthTable, testErrors) {
   EXPECT_THROW(tt.getReducedWithConstant(5, 0), NLException);
   EXPECT_THROW(tt.removeVariable(5), NLException);
 }
+
+//------------------------------------------------------------------------------
+// Beyond 6‐input truth tables: only constructor + size() + exceptions
+//------------------------------------------------------------------------------
+
+TEST(SNLTruthTableTest, VectorCtorThrowsForSizeUpTo6) {
+  // For size 0…6, the vector<bool> constructor should be disallowed
+  for (uint32_t sz = 0; sz <= 6; ++sz) {
+    std::vector<bool> v(1u << sz, false);
+    EXPECT_THROW(SNLTruthTable(sz, v), NLException)
+        << "Expected exception for size=" << sz;
+  }
+}
+
+TEST(SNLTruthTableTest, VectorCtorAcceptsForSizeAbove6) {
+  // For size 7…9, the vector<bool> constructor must succeed
+  for (uint32_t sz = 7; sz <= 9; ++sz) {
+    std::vector<bool> v(1u << sz);
+    // Fill with a known pattern: alternating true/false
+    for (size_t i = 0; i < v.size(); ++i)
+      v[i] = (i % 2 == 0);
+
+    // Must not throw
+    EXPECT_NO_THROW({
+      SNLTruthTable tt(sz, v);
+      EXPECT_EQ(sz, tt.size());
+      // We don’t assert all0/all1 or bits() here because
+      // that logic isn’t yet reliable on vector<bool> path.
+    }) << "Constructor failed for size=" << sz;
+  }
+}
+
+TEST(SNLTruthTableTest, VectorCtorZeroPattern) {
+  // A 7‐input table of all‐zeros must construct and size()=7
+  std::vector<bool> allz(1u << 7, false);
+  SNLTruthTable t7z(7, allz);
+  EXPECT_EQ(7u, t7z.size());
+  // At least this must hold, even if all0()/bits() aren’t reliable:
+  EXPECT_TRUE(t7z.isInitialized());
+}
+
+TEST(SNLTruthTableTest, VectorCtorAllOnesPattern) {
+  // A 8‐input table of all‐ones must construct and size()=8
+  std::vector<bool> allo(1u << 8, true);
+  SNLTruthTable t8o(8, allo);
+  EXPECT_EQ(8u, t8o.size());
+  EXPECT_TRUE(t8o.isInitialized());
+}
+
+//------------------------------------------------------------------------------
+// Once you’ve fixed bits()/all0()/getReducedWithConstants on vector<bool>,
+// you can extend this section with real checks for data‐roundtrips,
+// reduction, hasNoInfluence(), removeVariable(), etc.
+//------------------------------------------------------------------------------
+

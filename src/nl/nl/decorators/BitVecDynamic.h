@@ -40,6 +40,18 @@ public:
   }
 
   // Construct a zero-filled vector of given length
+  explicit BitVecDynamic(const std::vector<bool>& bits, uint32_t length)
+    : nbits_(length)
+  {
+    if (length > 64) {
+      data_ = bits;
+    } else {
+      throw std::out_of_range(
+        "When under size of 64, use mask constructor.");
+    }
+  }
+
+  // Construct a zero-filled vector of given length
   explicit BitVecDynamic(uint32_t length)
     : nbits_(length)
   {
