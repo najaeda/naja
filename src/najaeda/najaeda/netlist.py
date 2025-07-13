@@ -11,6 +11,7 @@ import struct
 import sys
 import os
 from enum import Enum
+from typing import Union, List
 
 from najaeda import naja
 
@@ -352,6 +353,15 @@ class Net:
             yield Term(path, term.getBitTerm())
             path.pop()
 
+    def count_inst_terms(self) -> int:
+        """
+        Count the instance terminals of this net.
+
+        :return: the number of instance terminals of this net.
+        :rtype: int
+        """
+        return sum(1 for _ in self.get_inst_terms())
+
     def get_design_terms(self):
         """
         :return: an iterator over the design terminals of the net.
@@ -455,9 +465,9 @@ class Term:
             term_str = (
                 f"{path}/{get_snl_term_for_ids(self.pathIDs, self.termIDs).getName()}"
             )
-        if self.is_bus:
+        if self.is_bus():
             term_str += f"[{self.get_msb()}:{self.get_lsb()}]"
-        elif self.is_bus_bit:
+        elif self.is_bus_bit():
             term_str += f"[{self.get_lsb()}]"
         return term_str
 
@@ -1467,7 +1477,14 @@ class VerilogConfig:
         self.keep_assigns = keep_assigns
 
 
-def load_verilog(files: list, config: VerilogConfig = None) -> Instance:
+def load_verilog(files: Union[str, List[str]], config: VerilogConfig = None) -> Instance:
+    """Load verilog files into the top design.
+    :param files: a list of verilog files to load or a single file.
+    :param config: the configuration to use when loading the files.
+    :return: the top Instance.
+    """
+    if isinstance(files, str):
+        files = [files]
     if not files or len(files) == 0:
         raise Exception("No verilog files provided")
     if config is None:
@@ -1480,7 +1497,14 @@ def load_verilog(files: list, config: VerilogConfig = None) -> Instance:
     return get_top()
 
 
-def load_liberty(files: list):
+def load_liberty(files: Union[str, List[str]]):
+    """Load liberty files.
+    :param files: a list of liberty files to load or a single file.
+    """
+    if isinstance(files, str):
+        files = [files]
+    if not files or len(files) == 0:
+        raise Exception("No liberty files provided")
     logging.info(f"Loading liberty files: {', '.join(files)}")
     __get_top_db().loadLibertyPrimitives(files)
 

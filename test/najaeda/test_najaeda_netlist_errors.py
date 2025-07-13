@@ -27,8 +27,11 @@ class NajaNetlistTestErrors(unittest.TestCase):
         top = netlist.create_top('Top')
         self.assertIsNotNone(top)
         topTerm = top.create_input_term('Top')
-        topNet = top.create_net('net')
-        self.assertRaises(Exception, topTerm.connect(topNet))
+        topNet = top.create_bus_net('net', 1, 0)
+        self.assertRaises(Exception, topTerm.connect, topNet)
+
+    def test_empty_liberty(self):
+        self.assertRaises(Exception, netlist.load_liberty, [])
             
 if __name__ == '__main__':
     faulthandler.enable()

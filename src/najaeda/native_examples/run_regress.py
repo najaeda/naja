@@ -9,12 +9,13 @@ import subprocess
 
 root_dir = os.getcwd()
 
+failure = False
+
 # Iterate only through the immediate subdirectories
 for dir_name in next(os.walk(root_dir))[1]:  # [1] gives the list of subdirectories
     subdir_path = os.path.join(root_dir, dir_name)
     print(f"Processing directory: {subdir_path}")
 
-    failure = False
     
     # Iterate through the files in this subdirectory
     for file in os.listdir(subdir_path):

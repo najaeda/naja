@@ -13,7 +13,21 @@ authors = [{name = "Naja Authors", email = "contact@keplertech.io"}]
 readme = "src/najaeda/README.rst"
 requires-python = ">=3.8"
 license = {text = "Apache License 2.0"}
-version = "0.1.22"
+version = "0.1.23"
+
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Electronic Design Automation (EDA)"
+]
 
 [tool.scikit-build.cmake.define]
 CMAKE_BUILD_TYPE="Release"
@@ -62,7 +76,7 @@ before-all = '''
   mkdir TBB_build
   cd TBB_build
   cmake ../oneTBB-2022.1.0 -DCMAKE_INSTALL_PREFIX=/usr/local -DCMAKE_BUILD_TYPE=Release -DTBB_TEST=OFF
-  make -j6
+  make -j$(nproc)
   make install
   echo "::endgroup::"
   cd ..
@@ -89,7 +103,7 @@ before-all = '''
   tar -xzf capnproto-c++-1.1.0.tar.gz
   cd capnproto-c++-1.1.0
   ./configure
-  make -j6 check
+  make -j$(nproc) check
   make install
   echo "::endgroup::"
   cd ..
