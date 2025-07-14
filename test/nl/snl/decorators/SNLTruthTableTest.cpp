@@ -287,33 +287,33 @@ TEST(SNLTruthTableTest, VectorCtor_CtorThrowsSizeLE6) {
 }
 
 // Mask‐ctor must throw if length>64, otherwise accept
-TEST(BitVecDynamic, MaskCtor_Boundary) {
+TEST(NLBitVecDynamic, MaskCtor_Boundary) {
   // Exactly 64 is OK
   EXPECT_NO_THROW({
-    BitVecDynamic bv(0xFFFFFFFFFFFFFFFFULL, 64);
+    NLBitVecDynamic bv(0xFFFFFFFFFFFFFFFFULL, 64);
     EXPECT_EQ(64u, bv.size());
     EXPECT_TRUE(bv >> 63);
     EXPECT_FALSE(bv >> 64);  // out‐of‐range
   });
 
   // >64 → throw
-  EXPECT_THROW(BitVecDynamic(0ULL, 65), std::out_of_range);
-  EXPECT_THROW(BitVecDynamic(0xFF, 100), std::out_of_range);
+  EXPECT_THROW(NLBitVecDynamic(0ULL, 65), std::out_of_range);
+  EXPECT_THROW(NLBitVecDynamic(0xFF, 100), std::out_of_range);
 }
 
 // vector<bool>‐ctor must throw if length≤64, accept if >64
-TEST(BitVecDynamic, VecBoolCtor_ThrowsOrAccepts) {
+TEST(NLBitVecDynamic, VecBoolCtor_ThrowsOrAccepts) {
   // length ≤ 64 → throw
   for (uint32_t len : {0u, 1u, 32u, 64u}) {
     std::vector<bool> v(len, true);
-    EXPECT_THROW(BitVecDynamic(v, len), std::out_of_range)
+    EXPECT_THROW(NLBitVecDynamic(v, len), std::out_of_range)
         << "Expected throw for len=" << len;
   }
 
   // length > 64 → no throw
   std::vector<bool> big(65, false);
   EXPECT_NO_THROW({
-    BitVecDynamic bv(big, 65);
+    NLBitVecDynamic bv(big, 65);
     EXPECT_EQ(65u, bv.size());
     // default‐initialized to zeros
     EXPECT_FALSE(bv >> 0);
@@ -322,24 +322,24 @@ TEST(BitVecDynamic, VecBoolCtor_ThrowsOrAccepts) {
 }
 
 // length‐only ctor: for ≤64 builds a mask, for >64 a vector<bool>
-TEST(BitVecDynamic, LengthOnlyCtor_SmallAndLarge) {
+TEST(NLBitVecDynamic, LengthOnlyCtor_SmallAndLarge) {
   // small
-  BitVecDynamic small(10);
+  NLBitVecDynamic small(10);
   EXPECT_EQ(10u, small.size());
   EXPECT_FALSE(small >> 9);
   EXPECT_FALSE(small >> 10);
 
   // large
-  BitVecDynamic large(130);
+  NLBitVecDynamic large(130);
   EXPECT_EQ(130u, large.size());
   EXPECT_FALSE(large >> 129);
   EXPECT_FALSE(large >> 130);
 }
 
 // operator uint64_t: returns low 64 bits for both variants
-TEST(BitVecDynamic, Uint64Cast_LowBits) {
+TEST(NLBitVecDynamic, Uint64Cast_LowBits) {
   // mask‐ctor
-  BitVecDynamic m(0xF0F0F0F0F0F0F0F0ULL, 64);
+  NLBitVecDynamic m(0xF0F0F0F0F0F0F0F0ULL, 64);
   EXPECT_EQ(static_cast<uint64_t>(m), 0xF0F0F0F0F0F0F0F0ULL);
 
   // vector<bool>‐ctor >64: high‐bit set at pos=70 but cast only sees [0..63]
@@ -347,16 +347,16 @@ TEST(BitVecDynamic, Uint64Cast_LowBits) {
   v[70] = true;
   // also set a low bit:
   v[3]  = true;
-  BitVecDynamic vb(v, 80);
+  NLBitVecDynamic vb(v, 80);
   uint64_t x = static_cast<uint64_t>(vb);
   // only bit3 appears
   EXPECT_EQ(x, (1ULL<<3));
 }
 
-TEST(BitVecDynamic, OrMask_UsesVectorBoolBranch) {
-  // Create a BitVecDynamic with >64 bits: triggers the vector<bool> path
+TEST(NLBitVecDynamic, OrMask_UsesVectorBoolBranch) {
+  // Create a NLBitVecDynamic with >64 bits: triggers the vector<bool> path
   const uint32_t N = 100;
-  BitVecDynamic bv(N);
+  NLBitVecDynamic bv(N);
 
   // OR in a mask with bits in the 0..63 range
   uint64_t mask = (1ULL << 0)  // bit 0
@@ -379,10 +379,10 @@ TEST(BitVecDynamic, OrMask_UsesVectorBoolBranch) {
   EXPECT_FALSE(bv >> 50);  // still false
 }
 
-TEST(BitVecDynamic, OrMask_WithLengthCtorVectorBool) {
+TEST(NLBitVecDynamic, OrMask_WithLengthCtorVectorBool) {
   // 1) length-only ctor with length>64 ⇒ data_ is vector<bool>
   const uint32_t N = 80;
-  BitVecDynamic bv(N);
+  NLBitVecDynamic bv(N);
 
   // initially all bits false
   EXPECT_FALSE(bv >> 5);
@@ -402,11 +402,11 @@ TEST(BitVecDynamic, OrMask_WithLengthCtorVectorBool) {
   EXPECT_FALSE(bv >> 79);
 }
 
-TEST(BitVecDynamic, OrMask_WithVectorBoolCtor) {
+TEST(NLBitVecDynamic, OrMask_WithVectorBoolCtor) {
   // 2) explicit vector<bool> ctor for length>64
   const uint32_t M = 90;
   std::vector<bool> init(M, false);
-  BitVecDynamic vb(init, M);
+  NLBitVecDynamic vb(init, M);
 
   // OR the same low‐word mask
   uint64_t mask = (1ULL << 10) | (1ULL << 32);

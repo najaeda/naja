@@ -34,7 +34,7 @@ class SNLTruthTable {
     }
     size_ = size;
     // now safe: 1<<size <= 64
-    bits_ = BitVecDynamic(bits, 1u << size);
+    bits_ = NLBitVecDynamic(bits, 1u << size);
   }
 
   SNLTruthTable(uint32_t size, const std::vector<bool>& bits) : size_(size) {
@@ -45,7 +45,7 @@ class SNLTruthTable {
     }
     size_ = size;
     // now safe: 1<<size <= 64
-    bits_ = BitVecDynamic(bits, 1u << size);
+    bits_ = NLBitVecDynamic(bits, 1u << size);
   }
 
   static SNLTruthTable Logic0() { return SNLTruthTable(0, 0); }
@@ -179,7 +179,7 @@ class SNLTruthTable {
 
  private:
   uint32_t size_{std::numeric_limits<uint32_t>::max()};
-  BitVecDynamic bits_{0, /*length=*/1};
+  NLBitVecDynamic bits_{0, /*length=*/1};
 };
 
 }  // namespace NL
