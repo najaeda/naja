@@ -14,7 +14,7 @@
 #include <string>
 #include <vector>
 
-#include "BitVecDynamic.h"
+#include "NLBitVecDynamic.h"
 #include "NLException.h"
 
 namespace naja {

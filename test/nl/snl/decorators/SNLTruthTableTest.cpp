@@ -5,7 +5,7 @@
 #include "gtest/gtest.h"
 
 #include "SNLTruthTable.h"
-#include "BitVecDynamic.h"
+#include "NLBitVecDynamic.h"
 using namespace naja::NL;
 
 TEST(SNLTruthTableTest, test) {
