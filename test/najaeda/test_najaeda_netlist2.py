@@ -112,9 +112,9 @@ class NajaNetlistTest2(unittest.TestCase):
         modI1 = mod.get_term('I1')
         self.assertIsNotNone(modI1)
         modI1Net = modI1.get_net()
-        self.assertIsNotNone(modI0Net)
-        self.assertTrue(modI0Net.is_bus())
-        self.assertEqual(top.get_net('I0'), modI0Net)
+        self.assertIsNotNone(modI1Net)
+        self.assertTrue(modI1Net.is_bus())
+        self.assertEqual(top.get_net('I1'), modI1Net)
 
         modO = mod.get_term('O')
         self.assertIsNotNone(modO)

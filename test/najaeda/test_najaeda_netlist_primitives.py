@@ -9,10 +9,17 @@ import faulthandler
 from najaeda import netlist
 from najaeda import naja
 
-class NajaNetlistTestXilinx(unittest.TestCase):
+class NajaNetlistTestPrimitives(unittest.TestCase):
     def tearDown(self):
         if naja.NLUniverse.get():
             naja.NLUniverse.get().destroy()
+
+    def test_yosys_primitives(self):
+        netlist.load_primitives('yosys')
+        top = netlist.create_top('Top')
+
+        and2_ins = top.create_child_instance('$_AND_', 'and2_ins')
+        or2_ins = top.create_child_instance('$_OR_', 'or2_ins')
 
     def test_xilinx_primitives(self):
         top = netlist.create_top('Top')
@@ -68,6 +75,9 @@ class NajaNetlistTestXilinx(unittest.TestCase):
         top.delete_instance_by_id(0)
         lut2_ins1.delete()
 
+    def test_errors(self):
+        with self.assertRaises(Exception) as context:
+            netlist.load_primitives('unknown')
 
 if __name__ == '__main__':
     faulthandler.enable()
