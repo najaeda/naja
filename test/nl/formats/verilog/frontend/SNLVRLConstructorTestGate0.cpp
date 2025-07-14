@@ -104,6 +104,28 @@ TEST_F(SNLVRLConstructorTestGate0, test) {
 #endif
 }
 
+TEST_F(SNLVRLConstructorTestGate0, testGateTypes) {
+  EXPECT_EQ(NLDB0::GateType::And, NLDB0::GateType("and"));
+  EXPECT_EQ(NLDB0::GateType::Nand, NLDB0::GateType("nand"));
+  EXPECT_EQ(NLDB0::GateType::Or, NLDB0::GateType("or"));
+  EXPECT_EQ(NLDB0::GateType::Nor, NLDB0::GateType("nor"));
+  EXPECT_EQ(NLDB0::GateType::Xor, NLDB0::GateType("xor"));
+  EXPECT_EQ(NLDB0::GateType::Xor, NLDB0::GateType("xnor"));
+  EXPECT_EQ(NLDB0::GateType::Buf, NLDB0::GateType("buf"));
+  EXPECT_EQ(NLDB0::GateType::Not, NLDB0::GateType("not"));
+  EXPECT_EQ(NLDB0::GateType::Unknown, NLDB0::GateType("Foo"));
+
+  EXPECT_EQ("and", NLDB0::GateType(NLDB0::GateType::And).getString());
+  EXPECT_EQ("nand", NLDB0::GateType(NLDB0::GateType::Nand).getString());
+  EXPECT_EQ("or", NLDB0::GateType(NLDB0::GateType::Or).getString());
+  EXPECT_EQ("nor", NLDB0::GateType(NLDB0::GateType::Nor).getString());
+  EXPECT_EQ("xor", NLDB0::GateType(NLDB0::GateType::Xor).getString());
+  EXPECT_EQ("xnor", NLDB0::GateType(NLDB0::GateType::Xnor).getString());
+  EXPECT_EQ("buf", NLDB0::GateType(NLDB0::GateType::Buf).getString());
+  EXPECT_EQ("not", NLDB0::GateType(NLDB0::GateType::Not).getString());
+  EXPECT_EQ("UNKNOWN", NLDB0::GateType(NLDB0::GateType::Unknown).getString());
+}
+
 TEST_F(SNLVRLConstructorTestGate0, testErrors) {
   EXPECT_FALSE(NLDB0::isNInputGate(nullptr));
   EXPECT_FALSE(NLDB0::isNOutputGate(nullptr));

@@ -72,7 +72,7 @@ std::string NLDB0::GateType::getString() const {
     case GateType::Unknown:
       return "UNKNOWN";
   }
-  return "Bug";
+  return "Bug"; //LCOV_EXCL_LINE
 }
 
 NLDB* NLDB0::create(NLUniverse* universe) {
