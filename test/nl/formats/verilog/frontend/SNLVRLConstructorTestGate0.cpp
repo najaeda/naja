@@ -72,6 +72,12 @@ TEST_F(SNLVRLConstructorTestGate0, test) {
   EXPECT_EQ("and0", and0->getName().getString());
   auto and2Model = and0->getModel();
   EXPECT_TRUE(NLDB0::isNInputGate(and2Model));
+
+  auto not2 = instances[2];
+  ASSERT_NE(not2, nullptr);
+  EXPECT_EQ("not2", not2->getName().getString());
+  auto not2Model = not2->getModel();
+  EXPECT_TRUE(NLDB0::isNOutputGate(not2Model));
 #if 0
   ASSERT_NE(lutModel, nullptr);
   EXPECT_EQ("LUT4", lutModel->getName().getString());
@@ -93,6 +99,18 @@ TEST_F(SNLVRLConstructorTestGate0, test) {
   EXPECT_THAT(instTerms[1]->getNet(), TypedEq<SNLNet*>(top->getNet(NLName("i"))));
   EXPECT_THAT(instTerms[2]->getNet(), TypedEq<SNLNet*>(top->getNet(NLName("io"))));
 #endif
+}
+
+TEST_F(SNLVRLConstructorTestGate0, testErrors) {
+  EXPECT_FALSE(NLDB0::isNInputGate(nullptr));
+  EXPECT_FALSE(NLDB0::isNOutputGate(nullptr));
+  EXPECT_FALSE(NLDB0::isGate(nullptr));
+
+  auto model = SNLDesign::create(library_, NLName("testGate"));
+  EXPECT_FALSE(NLDB0::isNInputGate(model));
+  EXPECT_FALSE(NLDB0::isNOutputGate(model));
+  EXPECT_FALSE(NLDB0::isGate(model));
+  EXPECT_EQ(std::string(), NLDB0::getGateName(model));
 }
 
 TEST_F(SNLVRLConstructorTestGate0, testLoadAndDump) {
