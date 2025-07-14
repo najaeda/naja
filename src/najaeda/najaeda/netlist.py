@@ -1530,11 +1530,14 @@ def load_primitives(name: str):
     Currently supported libraries are:
 
     - xilinx
+    - yosys
     """
     if name == "xilinx":
         from najaeda.primitives import xilinx
-
         xilinx.load(__get_top_db())
+    elif name == "yosys":
+        from najaeda.primitives import yosys
+        yosys.load(__get_top_db())
     else:
         raise ValueError(f"Unknown primitives library: {name}")
 
