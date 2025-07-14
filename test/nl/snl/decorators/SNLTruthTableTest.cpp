@@ -353,3 +353,67 @@ TEST(BitVecDynamic, Uint64Cast_LowBits) {
   EXPECT_EQ(x, (1ULL<<3));
 }
 
+TEST(BitVecDynamic, OrMask_UsesVectorBoolBranch) {
+  // Create a BitVecDynamic with >64 bits: triggers the vector<bool> path
+  const uint32_t N = 100;
+  BitVecDynamic bv(N);
+
+  // OR in a mask with bits in the 0..63 range
+  uint64_t mask = (1ULL << 0)  // bit 0
+                | (1ULL << 10) // bit 10
+                | (1ULL << 63); // bit 63
+  bv |= mask;
+
+  // Only those bits <64 should be set
+  EXPECT_TRUE (bv >> 0);
+  EXPECT_TRUE (bv >> 10);
+  EXPECT_TRUE (bv >> 63);
+
+  // Bits beyond 63 remain false
+  EXPECT_FALSE(bv >> 64);
+  EXPECT_FALSE(bv >> 99);
+
+  // OR again with a mask that has no bits <64 (e.g. high bits simulated by zero)
+  bv |= 0;  
+  EXPECT_TRUE (bv >> 10);  // unchanged
+  EXPECT_FALSE(bv >> 50);  // still false
+}
+
+TEST(BitVecDynamic, OrMask_WithLengthCtorVectorBool) {
+  // 1) length-only ctor with length>64 ⇒ data_ is vector<bool>
+  const uint32_t N = 80;
+  BitVecDynamic bv(N);
+
+  // initially all bits false
+  EXPECT_FALSE(bv >> 5);
+  EXPECT_FALSE(bv >> 63);
+  EXPECT_FALSE(bv >> 79);
+
+  // OR in a mask with bits only in 0..63
+  uint64_t mask = (1ULL << 5) | (1ULL << 63);
+  bv |= mask;  // <— hits the else‐branch
+
+  // low‐word bits 5 and 63 must now be true
+  EXPECT_TRUE (bv >> 5);
+  EXPECT_TRUE (bv >> 63);
+
+  // bits outside [0..63] remain false
+  EXPECT_FALSE(bv >> 0);
+  EXPECT_FALSE(bv >> 79);
+}
+
+TEST(BitVecDynamic, OrMask_WithVectorBoolCtor) {
+  // 2) explicit vector<bool> ctor for length>64
+  const uint32_t M = 90;
+  std::vector<bool> init(M, false);
+  BitVecDynamic vb(init, M);
+
+  // OR the same low‐word mask
+  uint64_t mask = (1ULL << 10) | (1ULL << 32);
+  vb |= mask;  // also hits the else‐branch
+
+  EXPECT_TRUE (vb >> 10);
+  EXPECT_TRUE (vb >> 32);
+  EXPECT_FALSE(vb >> 0);
+  EXPECT_FALSE(vb >> 89);
+}
