@@ -5,6 +5,7 @@
 #include "NLDB0.h"
 
 #include "NLUniverse.h"
+#include "NLException.h"
 #include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
 #include "SNLScalarNet.h"
@@ -185,6 +186,12 @@ bool NLDB0::isGateLibrary(const NLLibrary* library) {
 }
 
 SNLDesign* NLDB0::getOrCreateNOutputGate(const GateType& type, size_t nbOutputs) {
+  if (not type.isNOutput()) {
+    throw NLException("NLDB0::getOrCreateNOutputGate: type is not an NOutput gate");
+  }
+  if (nbOutputs == 0) {
+    throw NLException("NLDB0::getOrCreateNOutputGate: nbOutputs is 0");
+  }
   assert(nbOutputs>0);
   auto gateLibrary = getOrCreateGateLibrary(type);
   if (not gateLibrary) {

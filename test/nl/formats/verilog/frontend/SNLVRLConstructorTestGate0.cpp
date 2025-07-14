@@ -11,6 +11,7 @@ using ::testing::ElementsAre;
 #include <fstream>
 
 #include "NLUniverse.h"
+#include "NLException.h"
 
 #include "SNLUtils.h"
 #include "SNLVRLConstructor.h"
@@ -30,7 +31,9 @@ class SNLVRLConstructorTestGate0: public ::testing::Test {
       library_ = NLLibrary::create(db, NLName("MYLIB"));
     }
     void TearDown() override {
-      NLUniverse::get()->destroy();
+      if (NLUniverse::get()) {
+        NLUniverse::get()->destroy();
+      }
       library_ = nullptr;
     }
   protected:
@@ -111,6 +114,9 @@ TEST_F(SNLVRLConstructorTestGate0, testErrors) {
   EXPECT_FALSE(NLDB0::isNOutputGate(model));
   EXPECT_FALSE(NLDB0::isGate(model));
   EXPECT_EQ(std::string(), NLDB0::getGateName(model));
+  EXPECT_THROW(NLDB0::getOrCreateNOutputGate(NLDB0::GateType::Unknown, 2), NLException);
+  NLUniverse::get()->destroy();
+  EXPECT_THROW(NLDB0::getOrCreateNOutputGate(NLDB0::GateType::Unknown, 2), NLException);
 }
 
 TEST_F(SNLVRLConstructorTestGate0, testLoadAndDump) {

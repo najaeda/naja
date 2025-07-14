@@ -5,6 +5,7 @@
 import logging
 from najaeda import naja
 
+
 def constructAND(lib):
     and2 = naja.SNLDesign.createPrimitive(lib, "$_AND_")
     naja.SNLScalarTerm.create(and2, naja.SNLTerm.Direction.Input, "A")
