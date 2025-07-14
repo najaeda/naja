@@ -1513,7 +1513,7 @@ def load_verilog(files: Union[str, List[str]], config: VerilogConfig = None) -> 
 
 def load_liberty(files: Union[str, List[str]]):
     """Load liberty files.
- 
+
     :param files: a list of liberty files to load or a single file.
     """
     if isinstance(files, str):
