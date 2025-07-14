@@ -158,7 +158,9 @@ class SNLTruthTable {
       }
     }
     return out;
+    //LCOV_EXCL_START
   }
+  //LCOV_EXCL_STOP
 
   bool all0() const {
     uint64_t n = 1ull << size_;
