@@ -110,7 +110,7 @@ TEST_F(SNLVRLConstructorTestGate0, testGateTypes) {
   EXPECT_EQ(NLDB0::GateType::Or, NLDB0::GateType("or"));
   EXPECT_EQ(NLDB0::GateType::Nor, NLDB0::GateType("nor"));
   EXPECT_EQ(NLDB0::GateType::Xor, NLDB0::GateType("xor"));
-  EXPECT_EQ(NLDB0::GateType::Xor, NLDB0::GateType("xnor"));
+  EXPECT_EQ(NLDB0::GateType::Xnor, NLDB0::GateType("xnor"));
   EXPECT_EQ(NLDB0::GateType::Buf, NLDB0::GateType("buf"));
   EXPECT_EQ(NLDB0::GateType::Not, NLDB0::GateType("not"));
   EXPECT_EQ(NLDB0::GateType::Unknown, NLDB0::GateType("Foo"));
