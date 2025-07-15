@@ -111,28 +111,6 @@ TEST_F(SNLVRLConstructorTestGate1, test) {
   auto nand3ModelBis = ins3->getModel();
   EXPECT_TRUE(NLDB0::isNInputGate(nand3ModelBis));
   EXPECT_EQ(nand3Model, nand3ModelBis); // should be the same as ins0
-
-#if 0
-  ASSERT_NE(lutModel, nullptr);
-  EXPECT_EQ("LUT4", lutModel->getName().getString());
-  ASSERT_EQ(1, lut->getInstParameters().size());
-  auto initParam = *(lut->getInstParameters().begin());
-  EXPECT_EQ("INIT", initParam->getName().getString());
-
-  //
-  auto inst2 = top->getInstance(NLName("inst2"));
-  ASSERT_NE(nullptr, inst2);
-  //verify instterms connectivity
-  using InstTerms = std::vector<SNLInstTerm*>;
-  InstTerms instTerms(inst2->getInstTerms().begin(), inst2->getInstTerms().end());
-  ASSERT_EQ(3, instTerms.size());
-  EXPECT_THAT(instTerms[0]->getBitTerm(), TypedEq<SNLTerm*>(model1->getTerm(NLName("i"))));
-  EXPECT_THAT(instTerms[1]->getBitTerm(), TypedEq<SNLTerm*>(model1->getTerm(NLName("o"))));
-  EXPECT_THAT(instTerms[2]->getBitTerm(), TypedEq<SNLTerm*>(model1->getTerm(NLName("io"))));
-  EXPECT_THAT(instTerms[0]->getNet(), TypedEq<SNLNet*>(top->getNet(NLName("n2"))));
-  EXPECT_THAT(instTerms[1]->getNet(), TypedEq<SNLNet*>(top->getNet(NLName("i"))));
-  EXPECT_THAT(instTerms[2]->getNet(), TypedEq<SNLNet*>(top->getNet(NLName("io"))));
-#endif
 }
 
 TEST_F(SNLVRLConstructorTestGate1, testLoadAndDump) {
