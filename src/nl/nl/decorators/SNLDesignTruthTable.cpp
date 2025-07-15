@@ -33,7 +33,9 @@ void createProperty(
   }
   property = naja::NajaDumpableProperty::create(design, SNLDesignTruthTablePropertyName);
   property->addUInt64Value(truthTable.size());
-  property->addUInt64Value(truthTable.bits());
+  for (auto mask : truthTable.bits().getChunks()) {
+    property->addUInt64Value(mask);
+  }
 }
 
 } // namespace

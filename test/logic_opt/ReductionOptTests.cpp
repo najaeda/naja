@@ -218,7 +218,7 @@ TEST_F(ReductionOptTests, testTruthTablesMap) {
   // A=1
   tt = mux2TruthTable.getReducedWithConstant(0, 1);
   EXPECT_EQ(2, tt.size());
-  EXPECT_EQ(0xB, tt.bits());
+  EXPECT_TRUE(NLBitVecDynamic(0xB, 4) == tt.bits());
   result = NLLibraryTruthTables::getDesignForTruthTable(library, tt);
   design = result.first;
   EXPECT_EQ(nullptr, design);  // no design for or2 with one inversed input
@@ -226,7 +226,7 @@ TEST_F(ReductionOptTests, testTruthTablesMap) {
   // if S=0, then A, if S=1, then B
   tt = mux2TruthTable.getReducedWithConstant(2, 0);
   EXPECT_EQ(2, tt.size());
-  EXPECT_EQ(0xA, tt.bits());
+  EXPECT_TRUE(NLBitVecDynamic(0xA, 4) == tt.bits());
   result = NLLibraryTruthTables::getDesignForTruthTable(library, tt);
   design = result.first;
   ASSERT_NE(nullptr, design);
@@ -609,7 +609,7 @@ TEST_F(ReductionOptTests, testTruthTablesMap_bne) {
   // A=1
   tt = mux2TruthTable.getReducedWithConstant(0, 1);
   EXPECT_EQ(2, tt.size());
-  EXPECT_EQ(0xB, tt.bits());
+  EXPECT_TRUE(NLBitVecDynamic(0xB, 4) == tt.bits());
   result = NLLibraryTruthTables::getDesignForTruthTable(library, tt);
   design = result.first;
   EXPECT_EQ(nullptr, design);  // no design for or2 with one inversed input
@@ -617,7 +617,7 @@ TEST_F(ReductionOptTests, testTruthTablesMap_bne) {
   // if S=0, then A, if S=1, then B
   tt = mux2TruthTable.getReducedWithConstant(2, 0);
   EXPECT_EQ(2, tt.size());
-  EXPECT_EQ(0xA, tt.bits());
+  EXPECT_TRUE(NLBitVecDynamic(0xA, 4) == tt.bits());
   result = NLLibraryTruthTables::getDesignForTruthTable(library, tt);
   design = result.first;
   ASSERT_NE(nullptr, design);
