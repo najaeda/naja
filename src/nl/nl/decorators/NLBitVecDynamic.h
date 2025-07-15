@@ -125,12 +125,10 @@ public:
     uint64_t m    = 0;
     if (std::holds_alternative<uint64_t>(data_)) {
       m = std::get<uint64_t>(data_);
-      printf("m = %llu\n", m);
     } else {
       throw NLException(
         "NLBitVecDynamic: cannot generate uint64_t for above 64 bits");
     }
-    printf("return m = %llu\n", m);
     return m;
   }
 
@@ -140,8 +138,6 @@ public:
   bool bit(size_t i) const { 
     if (nbits_ <= 64) {
       auto mask = std::get<uint64_t>(data_);
-      printf("%llu\n",mask);
-      printf("%llu\n",((mask >> i) & 1));
       return ((mask >> i) & 1);
     }
     auto const &vec = std::get<std::vector<bool>>(data_);
