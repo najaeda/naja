@@ -761,12 +761,17 @@ void SNLVRLConstructor::endGateInstantiation() {
       gate,
       NLName(currentGateInstance_.instanceName_));
 
-    //for (size_t i=0; i<currentGateInstance_.connections_.size(); ++i) {
-    //  currentInstancePortConnection(
-    //    currentInstance_->getTerm(NLID::DesignObjectID(i)),
-    //    currentGateInstance_.connections_[i]);
-    //}
+    using Terms = std::vector<SNLBitTerm*>;
+    Terms terms;
+    terms.push_back(NLDB0::getGateSingleTerm(gate));
+    auto nterm = NLDB0::getGateNTerms(gate);
+    terms.insert(terms.end(), nterm->getBits().begin(), nterm->getBits().end());
 
+    for (size_t i=0; i<currentGateInstance_.connections_.size(); ++i) {
+      currentInstancePortConnection(
+        terms[i],
+        currentGateInstance_.connections_[i]);
+    }
     currentInstance_ = nullptr;
     currentGateInstance_.reset();
   }
