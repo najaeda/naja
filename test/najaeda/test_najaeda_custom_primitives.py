@@ -56,6 +56,7 @@ class NajaNetlistCustomPrimitivesTest(unittest.TestCase):
         or2_ins0.get_term("I0").connect(net)
         nb_connections = net.count_inst_terms()
         self.assertEqual(nb_connections, 2)
+        self.assertEqual(0, net.count_design_terms())
 
     def test_errors(self):
         universe = naja.NLUniverse.get()

@@ -5,10 +5,11 @@
 #ifndef __NL_DB0_H_
 #define __NL_DB0_H_
 
-#include <cstdio>
+#include <string>
 
 namespace naja { namespace NL {
 
+class NLName;
 class NLUniverse;
 class NLDB;
 class NLLibrary;
@@ -29,9 +30,29 @@ class SNLBusTerm;
 class NLDB0 {
   friend class NLUniverse;
   public:
+    class GateType {
+      public:
+        enum GateTypeEnum {
+          And, Nand, Or, Nor, Xor, Xnor, Buf, Not, Unknown
+        };
+        GateType() = default;
+        GateType(const std::string& name);
+        GateType(const GateTypeEnum& gateTypeEnum);
+        GateType(const GateType&) = default;
+        GateType(GateType&&) = default;
+        GateType& operator=(const GateType&) = default;
+        operator const GateTypeEnum&() const {return gateTypeEnum_;}
+        std::string getString() const;
+        bool isNInput() const;
+        bool isNOutput() const;
+      private:
+        GateTypeEnum  gateTypeEnum_;
+    };
+
     static NLDB* getDB0();
     static bool isDB0(const NLDB* db);
-    static NLLibrary* getPrimitivesLibrary();
+    static NLLibrary* getDB0RootLibrary();
+    static bool isDB0Library(const NLLibrary* library);
     static bool isDB0Primitive(const SNLDesign* design);
 
     static SNLDesign* getAssign(); 
@@ -39,15 +60,23 @@ class NLDB0 {
     static SNLScalarTerm* getAssignInput();
     static SNLScalarTerm* getAssignOutput();
 
-    static NLLibrary* getANDLibrary();
-    static SNLDesign* getAND(size_t nbInputs);
-    static bool isAND(const SNLDesign* design);
-    static SNLScalarTerm* getANDOutput(const SNLDesign* gate);
-    static SNLBusTerm* getANDInputs(const SNLDesign* gate);
+    static NLLibrary* getGateLibrary(const GateType& type);
+    static bool isGateLibrary(const NLLibrary* lib);
+    static NLLibrary* getOrCreateGateLibrary(const GateType& type);
+    static SNLDesign* getOrCreateNOutputGate(const GateType& type, size_t nbOutputs);
+    static SNLDesign* getOrCreateNInputGate(const GateType& type, size_t nbInputs);
+    static bool isGate(const SNLDesign* design);
+    static std::string getGateName(const SNLDesign* design);
+    static bool isNInputGate(const SNLDesign* design);
+    static bool isNOutputGate(const SNLDesign* design);
+    ///\return the single terminal of a N-Gate: output if N-input, input if N-output.
+    static SNLScalarTerm* getGateSingleTerm(const SNLDesign* gate);
+    ///\return the bus term of size N of a N-Gate: output if N-output, input if N-input.
+    static SNLBusTerm* getGateNTerms(const SNLDesign* gate);
   private:
     static NLDB* create(NLUniverse* universe);
-    static constexpr char PrimitivesLibraryName[] { "PRIMITIVES" };
-    static constexpr char ANDName[]               { "AND" };
+    static constexpr char RootLibraryName[] { "PRIMITIVES" };
+    static constexpr char ANDName[]         { "AND" };
 };
 
 }} // namespace NL // namespace naja
