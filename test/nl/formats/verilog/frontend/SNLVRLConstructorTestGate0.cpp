@@ -126,21 +126,6 @@ TEST_F(SNLVRLConstructorTestGate0, testGateTypes) {
   EXPECT_EQ("UNKNOWN", NLDB0::GateType(NLDB0::GateType::Unknown).getString());
 }
 
-TEST_F(SNLVRLConstructorTestGate0, testErrors) {
-  EXPECT_FALSE(NLDB0::isNInputGate(nullptr));
-  EXPECT_FALSE(NLDB0::isNOutputGate(nullptr));
-  EXPECT_FALSE(NLDB0::isGate(nullptr));
-
-  auto model = SNLDesign::create(library_, NLName("testGate"));
-  EXPECT_FALSE(NLDB0::isNInputGate(model));
-  EXPECT_FALSE(NLDB0::isNOutputGate(model));
-  EXPECT_FALSE(NLDB0::isGate(model));
-  EXPECT_EQ(std::string(), NLDB0::getGateName(model));
-  EXPECT_THROW(NLDB0::getOrCreateNOutputGate(NLDB0::GateType::Unknown, 2), NLException);
-  NLUniverse::get()->destroy();
-  EXPECT_THROW(NLDB0::getOrCreateNOutputGate(NLDB0::GateType::Unknown, 2), NLException);
-}
-
 TEST_F(SNLVRLConstructorTestGate0, testLoadAndDump) {
   auto db = NLDB::create(NLUniverse::get());
   SNLVRLConstructor constructor(library_);

@@ -192,7 +192,6 @@ SNLDesign* NLDB0::getOrCreateNOutputGate(const GateType& type, size_t nbOutputs)
   if (nbOutputs == 0) {
     throw NLException("NLDB0::getOrCreateNOutputGate: nbOutputs is 0");
   }
-  assert(nbOutputs>0);
   auto gateLibrary = getOrCreateGateLibrary(type);
   if (not gateLibrary) {
     return nullptr;
@@ -208,7 +207,12 @@ SNLDesign* NLDB0::getOrCreateNOutputGate(const GateType& type, size_t nbOutputs)
 }
 
 SNLDesign* NLDB0::getOrCreateNInputGate(const GateType& type, size_t nbInputs) {
-  assert(nbInputs>0);
+  if (not type.isNInput()) {
+    throw NLException("NLDB0::getOrCreateNInputGate: type is not an NInput gate");
+  }
+  if (nbInputs == 0) {
+    throw NLException("NLDB0::getOrCreateNInputGate: nbInputs is 0");
+  }
   auto gateLibrary = getOrCreateGateLibrary(type);
   if (not gateLibrary) {
     return nullptr;

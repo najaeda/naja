@@ -153,12 +153,14 @@ naja::NL::NLDB0::GateType najaVerilogToNLDB0GateType(const naja::verilog::GateTy
       return naja::NL::NLDB0::GateType::Buf;
     case naja::verilog::GateType::Not:
       return naja::NL::NLDB0::GateType::Not;
+    //LCOV_EXCL_START
     default: {
       std::ostringstream reason;
       reason << "Unsupported verilog gate type: ";
       reason << gateType.getString();
       throw naja::NL::SNLVRLConstructorException(reason.str());
     }
+    //LCOV_EXCL_STOP
   }
   return naja::NL::NLDB0::GateType::Unknown; //LCOV_EXCL_LINE
 }
@@ -177,8 +179,8 @@ bool SNLVRLConstructor::GateInstance::isValid() const {
   return gateType_ != NLDB0::GateType::Unknown;
 }
 
+//LCOV_EXCL_START
 std::string SNLVRLConstructor::GateInstance::getString() const {
-  //LCOV_EXCL_START
   std::ostringstream stream;
   stream << "GateInstance: " << gateType_.getString();
   if (not instanceName_.empty()) {
@@ -187,8 +189,8 @@ std::string SNLVRLConstructor::GateInstance::getString() const {
     stream << " <anonymous>";
   }
   return stream.str();
-  //LCOV_EXCL_STOP
 }
+//LCOV_EXCL_STOP
 
 SNLTerm::Direction
 SNLVRLConstructor::VRLDirectionToSNLDirection(const naja::verilog::Port::Direction& direction) {
@@ -717,10 +719,12 @@ void SNLVRLConstructor::addGateOutputInstanceConnection(
     return;
   }
   if (identifiers.size() != 1) {
+    //LCOV_EXCL_START
     std::ostringstream reason;
     reason << getLocationString();
     reason << ": " << naja::verilog::getRangeIdentifiersString(identifiers) << " is not supported";
     throw SNLVRLConstructorException(reason.str());
+    //LCOV_EXCL_STOP
   }
   auto identifier = identifiers[0];
   naja::verilog::Expression expression;
