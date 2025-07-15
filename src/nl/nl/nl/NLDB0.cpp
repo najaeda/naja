@@ -194,7 +194,7 @@ SNLDesign* NLDB0::getOrCreateNOutputGate(const GateType& type, size_t nbOutputs)
   }
   auto gateLibrary = getOrCreateGateLibrary(type);
   if (not gateLibrary) {
-    return nullptr;
+    throw NLException("NLDB0::getOrCreateNOutputGate: cannot create gate library");
   }
   std::string gateName(type.getString() + "_" + std::to_string(nbOutputs));
   auto gate = gateLibrary->getSNLDesign(NLName(gateName));
@@ -215,7 +215,7 @@ SNLDesign* NLDB0::getOrCreateNInputGate(const GateType& type, size_t nbInputs) {
   }
   auto gateLibrary = getOrCreateGateLibrary(type);
   if (not gateLibrary) {
-    return nullptr;
+    throw NLException("NLDB0::getOrCreateNInputGate: cannot create gate library");
   }
   std::string gateName(type.getString() + "_" + std::to_string(nbInputs));
   auto gate = gateLibrary->getSNLDesign(NLName(gateName));

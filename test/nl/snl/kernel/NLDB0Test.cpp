@@ -93,7 +93,7 @@ TEST_F(NLDB0Test, testNULLUniverse) {
   EXPECT_EQ(nullptr, NLDB0::getAssignInput());
   EXPECT_EQ(nullptr, NLDB0::getAssignOutput());
   EXPECT_EQ(nullptr, NLDB0::getGateLibrary(NLDB0::GateType::And));
-  EXPECT_EQ(nullptr, NLDB0::getOrCreateNInputGate(NLDB0::GateType::And, 2));
+  EXPECT_THROW(NLDB0::getOrCreateNInputGate(NLDB0::GateType::And, 2), NLException);
 }
 
 TEST_F(NLDB0Test, testErrors) {
@@ -107,6 +107,10 @@ TEST_F(NLDB0Test, testErrors) {
   ASSERT_NE(nullptr, db);
   auto library = NLLibrary::create(db, NLName("testLibrary"));
 
+  auto childLibrary = NLLibrary::create(library, NLName("childLibrary"));
+  ASSERT_NE(nullptr, childLibrary);
+  EXPECT_FALSE(NLDB0::isGateLibrary(childLibrary));
+
   auto model = SNLDesign::create(library, NLName("testGate"));
   EXPECT_FALSE(NLDB0::isNInputGate(model));
   EXPECT_FALSE(NLDB0::isNOutputGate(model));
@@ -114,9 +118,9 @@ TEST_F(NLDB0Test, testErrors) {
   EXPECT_EQ(std::string(), NLDB0::getGateName(model));
   EXPECT_THROW(NLDB0::getOrCreateNOutputGate(NLDB0::GateType::Unknown, 2), NLException);
   EXPECT_THROW(NLDB0::getOrCreateNInputGate(NLDB0::GateType::Unknown, 2), NLException);
-  EXPECT_THROW(NLDB0::getOrCreateNOutputGate(NLDB0::GateType::And, 0), NLException);
-  EXPECT_THROW(NLDB0::getOrCreateNInputGate(NLDB0::GateType::Buf, 0), NLException);
+  EXPECT_THROW(NLDB0::getOrCreateNOutputGate(NLDB0::GateType::Buf, 0), NLException);
+  EXPECT_THROW(NLDB0::getOrCreateNInputGate(NLDB0::GateType::And, 0), NLException);
   NLUniverse::get()->destroy();
-  EXPECT_THROW(NLDB0::getOrCreateNOutputGate(NLDB0::GateType::Unknown, 2), NLException);
-  EXPECT_THROW(NLDB0::getOrCreateNInputGate(NLDB0::GateType::Unknown, 2), NLException);
+  EXPECT_THROW(NLDB0::getOrCreateNOutputGate(NLDB0::GateType::Buf, 2), NLException);
+  EXPECT_THROW(NLDB0::getOrCreateNInputGate(NLDB0::GateType::And, 2), NLException);
 }
