@@ -174,6 +174,7 @@ private:
     return out;
   }
 
+
   uint32_t                               nbits_;
   std::variant<uint64_t, std::vector<bool>> data_;
 };
