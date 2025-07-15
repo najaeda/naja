@@ -47,7 +47,7 @@ public:
       data_ = bits;
     } else {
       throw NLException(
-        "When under size of 64, use mask constructor.");
+        "When not over size of 64, use mask constructor.");
     }
   }
 
@@ -162,7 +162,6 @@ private:
     size_t nbits   = bits.size();
     size_t nWords  = (nbits + 63) / 64;
     std::vector<uint64_t> out(nWords, 0ULL);
-
     for (size_t i = 0; i < nbits; ++i) {
       if (bits[i]) {
         size_t wordIdx = i >> 6;        // i / 64
@@ -170,9 +169,10 @@ private:
         out[wordIdx] |= (uint64_t{1} << bitPos);
       }
     }
-
+    //LCOV_EXCL_START
     return out;
   }
+  //LCOV_EXCL_STOP
 
 
   uint32_t                               nbits_;
