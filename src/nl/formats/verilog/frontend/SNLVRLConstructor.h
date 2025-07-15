@@ -8,8 +8,8 @@
 
 #include "VerilogConstructor.h"
 
-#include <map>
 
+#include "NLDB0.h"
 #include "SNLInstance.h"
 #include "SNLNet.h"
 #include "SNLTerm.h"
@@ -22,6 +22,20 @@ class SNLScalarNet;
 
 class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
   public:
+    //As we don't know how many ports are instanciated before reaching
+    //the last one, so we need to store all gate instance characteristics
+    //before creating it in endInstantiation; 
+    struct GateInstance {
+      using Connections = std::vector<naja::verilog::Expression>;
+      bool isValid() const;
+      void reset();
+      std::string getString() const;
+
+      NLDB0::GateType gateType_     { NLDB0::GateType::Unknown };
+      std::string     instanceName_ {};
+      Connections     connections_  {};
+    };
+
     SNLVRLConstructor() = delete;
     SNLVRLConstructor(const SNLVRLConstructor&) = delete;
     SNLVRLConstructor(NLLibrary* library);
@@ -60,6 +74,16 @@ class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
     void addOrderedInstanceConnection(
       size_t portIndex,
       const naja::verilog::Expression& expression) override;
+    void startGateInstantiation(
+      const naja::verilog::GateType& gateType) override;
+    void addGateInstance(const naja::verilog::Identifier& id) override;
+    void addGateOutputInstanceConnection(
+      size_t portIndex,
+      const naja::verilog::RangeIdentifiers identifiers) override;
+    void addGateInputInstanceConnection(
+      size_t portIndex,
+      const naja::verilog::Expression& expression) override;
+    void endGateInstantiation() override;
     void addDefParameterAssignment(
       const naja::verilog::Identifiers& hierarchicalParameter,
       const naja::verilog::ConstantExpression& expression) override;
@@ -94,6 +118,7 @@ class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
     Attributes        nextObjectAttributes_           {};
     SNLDesign*        currentModule_                  {nullptr};
     std::string       currentModelName_               {};
+    GateInstance      currentGateInstance_            {};
     SNLInstance*      currentInstance_                {nullptr};
     using ParameterValues = std::map<std::string, std::string>;
     ParameterValues   currentInstanceParameterValues_ {};

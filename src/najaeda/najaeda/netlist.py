@@ -363,7 +363,10 @@ class Net:
         return sum(1 for _ in self.get_inst_terms())
 
     def get_design_terms(self):
-        """
+        """Return an iterator over the design terminals of the net.
+        This includes only the terminals that are part of the current design.
+        The iterator will yield Term objects bit per bit.
+
         :return: an iterator over the design terminals of the net.
         :rtype: Iterator[Term]
         """
@@ -372,8 +375,18 @@ class Net:
         for term in self.net.getBitTerms():
             yield Term(self.pathIDs, term)
 
-    def get_terms(self):
+    def count_design_terms(self) -> int:
+        """Count the design terminals of this net.
+
+        :return: the number of design terminals of this net.
+        :rtype: int
         """
+        return sum(1 for _ in self.get_design_terms())
+
+    def get_terms(self):
+        """Return an iterator over the terminals of the net.
+        This includes both design and instance terminals.
+
         :return: an iterator over the terminals of the net.
         :rtype: Iterator[Term]
         """
@@ -1479,6 +1492,7 @@ class VerilogConfig:
 
 def load_verilog(files: Union[str, List[str]], config: VerilogConfig = None) -> Instance:
     """Load verilog files into the top design.
+
     :param files: a list of verilog files to load or a single file.
     :param config: the configuration to use when loading the files.
     :return: the top Instance.
@@ -1499,6 +1513,7 @@ def load_verilog(files: Union[str, List[str]], config: VerilogConfig = None) -> 
 
 def load_liberty(files: Union[str, List[str]]):
     """Load liberty files.
+
     :param files: a list of liberty files to load or a single file.
     """
     if isinstance(files, str):
@@ -1515,11 +1530,14 @@ def load_primitives(name: str):
     Currently supported libraries are:
 
     - xilinx
+    - yosys
     """
     if name == "xilinx":
         from najaeda.primitives import xilinx
-
         xilinx.load(__get_top_db())
+    elif name == "yosys":
+        from najaeda.primitives import yosys
+        yosys.load(__get_top_db())
     else:
         raise ValueError(f"Unknown primitives library: {name}")
 
