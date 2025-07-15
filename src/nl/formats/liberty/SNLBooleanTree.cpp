@@ -349,12 +349,24 @@ SNLTruthTable SNLBooleanTree::getTruthTable(const Terms& terms) {
   int n = inputs.size();
   
   if (n > 6) {
-    std::ostringstream message;
-    message << "Truth table for function: " << function_
-      << " cannot be constructed because size: " << n
-      << " is > than max supported size (6)";  
-    std::cerr << message.str() << std::endl; 
-    return SNLTruthTable();
+    int rows = pow(2, n);
+
+    //initialize the inputs
+    for (auto input: inputs) {
+      input->setValue(false);
+    }
+
+    std::vector<bool> mask(1u << n, false);
+    for (int i = 0; i < rows; ++i) {
+      // Calculate the truth values for this row
+      for (int j = 0; j < n; ++j) {
+        inputs[j]->setValue((i & (1 << (n - j - 1))) != 0);
+      }
+      bool result = root_->getValue();
+      mask[i] = result;
+    }
+    
+    return SNLTruthTable(n, mask);
   }
 
   int rows = pow(2, n);

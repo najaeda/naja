@@ -12,7 +12,7 @@ TEST(SNLTruthTableTest, test) {
 
   SNLTruthTable ttand2(2, 0b1000);
   EXPECT_EQ(2, ttand2.size());
-  EXPECT_EQ(0b1000, ttand2.bits());
+  EXPECT_EQ(0b1000, ttand2.bits().operator uint64_t());
   EXPECT_FALSE(ttand2.all0());
   EXPECT_FALSE(ttand2.all1());
   auto reducedtt = ttand2.getReducedWithConstant(0, 0);
@@ -21,12 +21,12 @@ TEST(SNLTruthTableTest, test) {
   reducedtt = ttand2.getReducedWithConstant(0, 1);
   EXPECT_EQ(reducedtt.size(), 1);
   //buffer
-  EXPECT_EQ(0b10, reducedtt.bits());
+  EXPECT_EQ(0b10, reducedtt.bits().operator uint64_t());
   SNLTruthTable ttor2(2, 0b1110);
   reducedtt = ttor2.getReducedWithConstant(0, 0);
   EXPECT_EQ(reducedtt.size(), 1);
   //buffer
-  EXPECT_EQ(0b10, reducedtt.bits());
+  EXPECT_EQ(0b10, reducedtt.bits().operator uint64_t());
   reducedtt = ttor2.getReducedWithConstant(0, 1);
   EXPECT_EQ(reducedtt.size(), 0);
   EXPECT_TRUE(reducedtt.all1());
@@ -38,7 +38,7 @@ TEST(SNLTruthTableTest, test) {
   reducedtt = ttand4.getReducedWithConstant(0, 1);
   EXPECT_EQ(reducedtt.size(), 3);
   //and3
-  EXPECT_EQ(0b10000000, reducedtt.bits());
+  EXPECT_EQ(0b10000000, reducedtt.bits().operator uint64_t());
   EXPECT_EQ(reducedtt, SNLTruthTable(3, 0b10000000));
   
   reducedtt = ttand4.getReducedWithConstant(1, 0);
@@ -47,7 +47,7 @@ TEST(SNLTruthTableTest, test) {
 
   reducedtt = ttand4.getReducedWithConstant(1, 1);
   //and3
-  EXPECT_EQ(0b10000000, reducedtt.bits());
+  EXPECT_EQ(0b10000000, reducedtt.bits().operator uint64_t());
   EXPECT_EQ(reducedtt, SNLTruthTable(3, 0b10000000));
 
   SNLTruthTable ttor4(4, 0b1111111111111110);
@@ -57,17 +57,17 @@ TEST(SNLTruthTableTest, test) {
 
   reducedtt = ttor4.getReducedWithConstant(0, 0);
   //or3
-  EXPECT_EQ(0b11111110, reducedtt.bits());
+  EXPECT_EQ(0b11111110, reducedtt.bits().operator uint64_t());
   EXPECT_EQ(reducedtt, SNLTruthTable(3, 0b11111110));
 
   SNLTruthTable ttxor2(2, 0b0110);
   reducedtt = ttxor2.getReducedWithConstant(0, 0);
   //buffer
-  EXPECT_EQ(0b10, reducedtt.bits());
+  EXPECT_EQ(0b10, reducedtt.bits().operator uint64_t());
 
   reducedtt = ttxor2.getReducedWithConstant(0, 1);
   //invert
-  EXPECT_EQ(0b01, reducedtt.bits());
+  EXPECT_EQ(0b01, reducedtt.bits().operator uint64_t());
 
   //function: "!(A | (B1 & B2))";
   //order 0: A 1: B1 2: B2
@@ -86,18 +86,18 @@ TEST(SNLTruthTableTest, test) {
   reducedtt = tt.getReducedWithConstant(0, 0);
   //!(B1 & B2)
   EXPECT_EQ(2, reducedtt.size());
-  EXPECT_EQ(0b0111, reducedtt.bits());
+  EXPECT_EQ(0b0111, reducedtt.bits().operator uint64_t());
 
   //set B1 to 1
   reducedtt = tt.getReducedWithConstant(1, 1);
   //!(A | B2) nor
   EXPECT_EQ(2, reducedtt.size());
-  EXPECT_EQ(0x1, reducedtt.bits());
+  EXPECT_EQ(0x1, reducedtt.bits().operator uint64_t());
 
   //set B1 to 0
   reducedtt = tt.getReducedWithConstant(1, 0);
   EXPECT_EQ(2, reducedtt.size());
-  EXPECT_EQ(0x5, reducedtt.bits());
+  EXPECT_EQ(0x5, reducedtt.bits().operator uint64_t());
 
   //B2 has no influence
   EXPECT_TRUE(reducedtt.hasNoInfluence(1));
@@ -107,7 +107,7 @@ TEST(SNLTruthTableTest, test) {
   reducedtt = reducedtt.removeVariable(1);
   EXPECT_EQ(1, reducedtt.size());
   //gate is now !A
-  EXPECT_EQ(0x1, reducedtt.bits());
+  EXPECT_EQ(0x1, reducedtt.bits().operator uint64_t());
 }
 
 TEST(SNLTruthTableTest, testConstants) {
@@ -135,37 +135,37 @@ TEST(SNLTruthTable, testMultipleConstantInputs) {
   //A&B are 0
   auto reducedtt = tt.getReducedWithConstants({{0, 0}, {1, 0}});
   EXPECT_EQ(0, reducedtt.size());
-  EXPECT_EQ(0x0, reducedtt.bits());
+  EXPECT_EQ(0x0, reducedtt.bits().operator uint64_t());
 
   //A&B are 1
   reducedtt = tt.getReducedWithConstants({{0, 1}, {1, 1}});
   EXPECT_EQ(0, reducedtt.size());
-  EXPECT_EQ(0x1, reducedtt.bits());
+  EXPECT_EQ(0x1, reducedtt.bits().operator uint64_t());
 
   //S=0 B=0 => A
   reducedtt = tt.getReducedWithConstants({{1, 0}, {2, 0}});
   EXPECT_EQ(1, reducedtt.size());
-  EXPECT_EQ(0x2, reducedtt.bits());
+  EXPECT_EQ(0x2, reducedtt.bits().operator uint64_t());
 
   //S=0 B=1 => A
   reducedtt = tt.getReducedWithConstants({{1, 1}, {2, 0}});
   EXPECT_EQ(1, reducedtt.size());
-  EXPECT_EQ(0x2, reducedtt.bits());
+  EXPECT_EQ(0x2, reducedtt.bits().operator uint64_t());
 
   //S=1 B=0 => 0
   reducedtt = tt.getReducedWithConstants({{1, 0}, {2, 1}});
   EXPECT_EQ(0, reducedtt.size());
-  EXPECT_EQ(0x0, reducedtt.bits());
+  EXPECT_EQ(0x0, reducedtt.bits().operator uint64_t());
 
   //S=1 B=1 => 1
   reducedtt = tt.getReducedWithConstants({{1, 1}, {2, 1}});
   EXPECT_EQ(0, reducedtt.size());
-  EXPECT_EQ(0x1, reducedtt.bits());
+  EXPECT_EQ(0x1, reducedtt.bits().operator uint64_t());
 
   //S=0 A=0 => 0
   reducedtt = tt.getReducedWithConstants({{0, 0}, {2, 0}});
   EXPECT_EQ(0, reducedtt.size());
-  EXPECT_EQ(0x0, reducedtt.bits());
+  EXPECT_EQ(0x0, reducedtt.bits().operator uint64_t());
 
   //S=0 A=1 => 1
   reducedtt = tt.getReducedWithConstants({{0, 1}, {2, 0}});
@@ -174,12 +174,12 @@ TEST(SNLTruthTable, testMultipleConstantInputs) {
   //A=0, B=1 => S
   reducedtt = tt.getReducedWithConstants({{0, 0}, {1, 1}});
   EXPECT_EQ(1, reducedtt.size());
-  EXPECT_EQ(0x2, reducedtt.bits());
+  EXPECT_EQ(0x2, reducedtt.bits().operator uint64_t());
 
   //A=1, B=0 => !S
   reducedtt = tt.getReducedWithConstants({{0, 1}, {1, 0}});
   EXPECT_EQ(1, reducedtt.size());
-  EXPECT_EQ(0x1, reducedtt.bits());
+  EXPECT_EQ(0x1, reducedtt.bits().operator uint64_t());
 }
 
 TEST(SNLTruthTable, testErrors) {
@@ -214,7 +214,7 @@ TEST(SNLTruthTableTest, VectorCtorAcceptsForSizeAbove6) {
     EXPECT_NO_THROW({
       SNLTruthTable tt(sz, v);
       EXPECT_EQ(sz, tt.size());
-      // We don’t assert all0/all1 or bits() here because
+      // We don’t assert all0/all1 or bits().operator uint64_t() here because
       // that logic isn’t yet reliable on vector<bool> path.
     }) << "Constructor failed for size=" << sz;
   }
@@ -225,7 +225,7 @@ TEST(SNLTruthTableTest, VectorCtorZeroPattern) {
   std::vector<bool> allz(1u << 7, false);
   SNLTruthTable t7z(7, allz);
   EXPECT_EQ(7u, t7z.size());
-  // At least this must hold, even if all0()/bits() aren’t reliable:
+  // At least this must hold, even if all0()/bits().operator uint64_t() aren’t reliable:
   EXPECT_TRUE(t7z.isInitialized());
 }
 
@@ -239,7 +239,7 @@ TEST(SNLTruthTableTest, VectorCtorAllOnesPattern) {
 
 // TODO:
 //------------------------------------------------------------------------------
-// Once you’ve fixed bits()/all0()/getReducedWithConstants on vector<bool>,
+// Once you’ve fixed bits().operator uint64_t()/all0()/getReducedWithConstants on vector<bool>,
 // you can extend this section with real checks for data‐roundtrips,
 // reduction, hasNoInfluence(), removeVariable(), etc.
 //------------------------------------------------------------------------------
@@ -259,11 +259,11 @@ TEST(SNLTruthTableTest, VectorCtor_BasicProps) {
   EXPECT_TRUE(tt7.isInitialized());
   EXPECT_EQ(7u, tt7.size());
 
-  // getString() reflects the size and low-word bits()
-  // (we know bits() only shows low-64 bits, here bit3==1)
+  // getString() reflects the size and low-word bits().operator uint64_t()
+  // (we know bits().operator uint64_t() only shows low-64 bits, here bit3==1)
   auto s = tt7.getString();
   EXPECT_NE(std::string::npos, s.find("<7,"));  
-  EXPECT_NE(std::string::npos, s.find("8"));     // 1<<3 == 8
+  EXPECT_NE(std::string::npos, s.find("|0001000|"));     // 1<<3 == 8
 
   // two tables built from identical data compare equal
   SNLTruthTable tt7b(7, v7);
@@ -297,8 +297,8 @@ TEST(NLBitVecDynamic, MaskCtor_Boundary) {
   });
 
   // >64 → throw
-  EXPECT_THROW(NLBitVecDynamic(0ULL, 65), std::out_of_range);
-  EXPECT_THROW(NLBitVecDynamic(0xFF, 100), std::out_of_range);
+  EXPECT_THROW(NLBitVecDynamic(0ULL, 65), NLException);
+  EXPECT_THROW(NLBitVecDynamic(0xFF, 100), NLException);
 }
 
 // vector<bool>‐ctor must throw if length≤64, accept if >64
@@ -306,7 +306,7 @@ TEST(NLBitVecDynamic, VecBoolCtor_ThrowsOrAccepts) {
   // length ≤ 64 → throw
   for (uint32_t len : {0u, 1u, 32u, 64u}) {
     std::vector<bool> v(len, true);
-    EXPECT_THROW(NLBitVecDynamic(v, len), std::out_of_range)
+    EXPECT_THROW(NLBitVecDynamic(v, len), NLException)
         << "Expected throw for len=" << len;
   }
 
@@ -348,9 +348,9 @@ TEST(NLBitVecDynamic, Uint64Cast_LowBits) {
   // also set a low bit:
   v[3]  = true;
   NLBitVecDynamic vb(v, 80);
-  uint64_t x = static_cast<uint64_t>(vb);
+  //uint64_t x = static_cast<uint64_t>(vb);
   // only bit3 appears
-  EXPECT_EQ(x, (1ULL<<3));
+  //EXPECT_EQ(x, vb);
 }
 
 TEST(NLBitVecDynamic, OrMask_UsesVectorBoolBranch) {
@@ -416,4 +416,148 @@ TEST(NLBitVecDynamic, OrMask_WithVectorBoolCtor) {
   EXPECT_TRUE (vb >> 32);
   EXPECT_FALSE(vb >> 0);
   EXPECT_FALSE(vb >> 89);
+}
+
+TEST(SNLTruthTable, Or7TruthTable) {
+  constexpr uint32_t N = 7;
+  // build the 2^7=128 bit-vector: only index 0 → false, all others → true
+  std::vector<bool> bits(1u << N);
+  for (uint32_t i = 0; i < bits.size(); ++i) {
+    bits[i] = (i != 0);
+  }
+
+  // construct the 7-input OR table
+  SNLTruthTable tt(N, bits);
+  EXPECT_EQ(tt.size(), N);
+
+  // index 0 => OR(all zeros)==0
+  EXPECT_FALSE(tt.bits() >> 0u);
+
+  // all other indexes => OR(...)==1
+  for (uint32_t idx = 1; idx < bits.size(); ++idx) {
+    EXPECT_TRUE(tt.bits() >> idx)
+        << "expected bit " << idx << " == 1";
+  }
+
+  // no single input can be removed without changing the function
+  for (uint32_t v = 0; v < N; ++v) {
+    EXPECT_FALSE(tt.hasNoInfluence(v))
+        << "input " << v << " should influence OR";
+  }
+
+  // reduced with one constant should yield a 6-input OR
+  auto r0 = tt.getReducedWithConstant(0, false);
+  EXPECT_EQ(r0.size(), 6);
+  // still false only at index 0
+  EXPECT_FALSE(r0.bits().bit(0));
+  /*for (uint32_t i = 1; i < (1u << 7); ++i) {
+    EXPECT_TRUE(r0.bits().bit(i));
+  }*/
+}
+
+TEST(SNLTruthTable, Or8TruthTable) {
+  constexpr uint32_t N = 8;
+  // build the 2^7=128 bit-vector: only index 0 → false, all others → true
+  std::vector<bool> bits(1u << N);
+  for (uint32_t i = 0; i < bits.size(); ++i) {
+    bits[i] = (i != 0);
+  }
+
+  // construct the 7-input OR table
+  SNLTruthTable tt(N, bits);
+  EXPECT_EQ(tt.size(), N);
+
+  // index 0 => OR(all zeros)==0
+  EXPECT_FALSE(tt.bits() >> 0u);
+
+  // all other indexes => OR(...)==1
+  for (uint32_t idx = 1; idx < bits.size(); ++idx) {
+    EXPECT_TRUE(tt.bits() >> idx)
+        << "expected bit " << idx << " == 1";
+  }
+
+  // no single input can be removed without changing the function
+  for (uint32_t v = 0; v < N; ++v) {
+    EXPECT_FALSE(tt.hasNoInfluence(v))
+        << "input " << v << " should influence OR";
+  }
+
+  // reduced with one constant should yield a 6-input OR
+  auto r0 = tt.getReducedWithConstant(0, false);
+  EXPECT_EQ(r0.size(), 7);
+  // still false only at index 0
+  EXPECT_FALSE(r0.bits().bit(0));
+  /*for (uint32_t i = 1; i < (1u << 7); ++i) {
+    EXPECT_TRUE(r0.bits().bit(i));
+  }*/
+}
+
+// Helper: build a vector<bool> of length N with a simple pattern
+static std::vector<bool> buildPattern(size_t N) {
+  std::vector<bool> v(N);
+  for (size_t i = 0; i < N; ++i)
+    v[i] = (i % 3 == 0);  // every 3rd bit = 1
+  return v;
+}
+
+TEST(NLBitVecDynamic, bit_and_getChunks_large) {
+  constexpr size_t N = 130;               // >64 to force vector<bool> path
+  auto pattern = buildPattern(N);
+
+  // Construct in vector<bool> mode:
+  NLBitVecDynamic bv(pattern, N);
+
+  // 1) bit(i) on both a few in‐range and out‐of‐pattern
+  EXPECT_TRUE (bv.bit(0));    // 0 % 3 == 0 → true
+  EXPECT_FALSE(bv.bit(1));    // 1 % 3 != 0 → false
+  EXPECT_TRUE (bv.bit(3));    // 3 % 3 == 0 → true
+  EXPECT_EQ   (bv.bit(129), (129 % 3 == 0));
+
+  // 2) packBits via getChunks(): each chunk is 64-bit mask of 64 bits
+  auto chunks = bv.getChunks();
+  // should be ceil(130/64) = 3 chunks
+  ASSERT_EQ(chunks.size(), 3u);
+
+  // Re-pack first 64 bits manually, compare to chunk[0]
+  uint64_t expected0 = 0;
+  for (size_t i = 0; i < 64; ++i)
+    if (pattern[i])
+      expected0 |= (uint64_t{1} << i);
+  EXPECT_EQ(chunks[0], expected0);
+
+  // last chunk holds bits 128..129
+  uint64_t expected2 = 0;
+  if (pattern[128]) expected2 |= (1ull << 0);
+  if (pattern[129]) expected2 |= (1ull << 1);
+  EXPECT_EQ(chunks[2], expected2);
+}
+
+TEST(SNLTruthTable, all0_all1_large) {
+  // size = 7 → 128 entries → uses vector<bool> in all0()/all1()
+  constexpr uint32_t SZ = 7;
+  uint32_t rows = 1u << SZ;
+
+  // all‐zero table
+  std::vector<bool> zeros(rows, false);
+  SNLTruthTable t0(SZ, zeros);
+  EXPECT_TRUE (t0.all0());
+  EXPECT_FALSE(t0.all1());
+
+  // all‐one table
+  std::vector<bool> ones(rows, true);
+  SNLTruthTable t1(SZ, ones);
+  EXPECT_FALSE(t1.all0());
+  EXPECT_TRUE (t1.all1());
+}
+
+TEST(NLBitVecDynamic, operatorUint64ThrowsWhenAbove64Bits) {
+  // Build a 65‐bit vector → forces the vector<bool> arm + nbits_>64
+  std::vector<bool> v(65, true);
+  NLBitVecDynamic bv(v, /*length=*/65);
+
+  // Should throw our out‐of‐range exception
+  EXPECT_THROW(
+    (void)static_cast<uint64_t>(bv),
+    NLException
+  );
 }

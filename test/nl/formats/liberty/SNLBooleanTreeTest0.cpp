@@ -74,7 +74,8 @@ TEST_F(SNLBooleanTreeTest0, test01) {
 
   auto truthTable = tree->getTruthTable(inputs);
   EXPECT_EQ(2, truthTable.size());
-  EXPECT_EQ(0b1000, truthTable.bits());
+  uint64_t result = 0b1000;
+  EXPECT_TRUE(NLBitVecDynamic(result, 4) == truthTable.bits());
 }
 
 TEST_F(SNLBooleanTreeTest0, test10) {
@@ -106,7 +107,8 @@ TEST_F(SNLBooleanTreeTest0, test10) {
 
   auto truthTable = tree->getTruthTable(inputs);
   EXPECT_EQ(3, truthTable.size());
-  EXPECT_EQ(0b10000000, truthTable.bits());
+  uint64_t result = 0b10000000;
+  EXPECT_TRUE(NLBitVecDynamic(result, 8) == truthTable.bits());
 }
 
 TEST_F(SNLBooleanTreeTest0, test20) {
@@ -151,7 +153,8 @@ TEST_F(SNLBooleanTreeTest0, test21) {
   EXPECT_FALSE(root->getValue());
   auto tt = tree->getTruthTable(inputs);
   EXPECT_EQ(2, tt.size());
-  EXPECT_EQ(0b0100, tt.bits());
+  uint64_t result = 0b0100;
+  EXPECT_TRUE(NLBitVecDynamic(result, 4) == tt.bits());
 }
 
 TEST_F(SNLBooleanTreeTest0, test30) {
@@ -178,7 +181,8 @@ TEST_F(SNLBooleanTreeTest0, test30) {
   EXPECT_TRUE(root->getValue());
   auto tt = tree->getTruthTable(inputs);
   EXPECT_EQ(2, tt.size());
-  EXPECT_EQ(0b1110, tt.bits());
+  uint64_t result = 0b1110;
+  EXPECT_TRUE(NLBitVecDynamic(result, 4) == tt.bits());
 }
 
 TEST_F(SNLBooleanTreeTest0, test40) {
@@ -207,7 +211,8 @@ TEST_F(SNLBooleanTreeTest0, test40) {
   EXPECT_TRUE(root->getValue());
   auto tt = tree->getTruthTable(inputs);
   EXPECT_EQ(2, tt.size());
-  EXPECT_EQ(0b0110, tt.bits());
+  uint64_t result = 0b0110;
+  EXPECT_TRUE(NLBitVecDynamic(result, 4) == tt.bits());
 }
 
 TEST_F(SNLBooleanTreeTest0, test50) {
@@ -238,7 +243,8 @@ TEST_F(SNLBooleanTreeTest0, test50) {
   EXPECT_FALSE(root->getValue());
   auto tt = tree->getTruthTable(inputs);
   EXPECT_EQ(3, tt.size());
-  EXPECT_EQ(0xE0, tt.bits());
+  uint64_t result = 0xE0;
+  EXPECT_TRUE(NLBitVecDynamic(result, 8) == tt.bits());
 }
 
 TEST_F(SNLBooleanTreeTest0, test60) {
@@ -276,7 +282,8 @@ TEST_F(SNLBooleanTreeTest0, test60) {
   EXPECT_FALSE(root->getValue());
   auto tt = tree->getTruthTable(inputs);
   EXPECT_EQ(6, tt.size());
-  EXPECT_EQ(0x111F111F111FFFFF, tt.bits());
+  uint64_t result = 0x111F111F111FFFFF;
+  EXPECT_TRUE(NLBitVecDynamic(result, 64) == tt.bits());
 }
 
 TEST_F(SNLBooleanTreeTest0, testFunctionError) {
@@ -291,4 +298,47 @@ TEST_F(SNLBooleanTreeTest0, testEmptyTreeError) {
   auto test = SNLDesign::create(library_, SNLDesign::Type::Primitive, NLName("TEST"));
   auto tree = std::make_unique<SNLBooleanTree>();
   EXPECT_THROW(tree->getTruthTable(SNLBooleanTree::Terms()), SNLLibertyConstructorException);
+}
+
+TEST_F(SNLBooleanTreeTest0, test7Inputs) {
+  auto oai222 = SNLDesign::create(library_, SNLDesign::Type::Primitive, NLName("OAI222"));
+  SNLBooleanTree::Terms inputs;
+  inputs.push_back(SNLScalarTerm::create(oai222, SNLTerm::Direction::Input, NLName("A1")));
+  inputs.push_back(SNLScalarTerm::create(oai222, SNLTerm::Direction::Input, NLName("A2")));
+  inputs.push_back(SNLScalarTerm::create(oai222, SNLTerm::Direction::Input, NLName("B1")));
+  inputs.push_back(SNLScalarTerm::create(oai222, SNLTerm::Direction::Input, NLName("B2")));
+  inputs.push_back(SNLScalarTerm::create(oai222, SNLTerm::Direction::Input, NLName("C1")));
+  inputs.push_back(SNLScalarTerm::create(oai222, SNLTerm::Direction::Input, NLName("C2")));
+  inputs.push_back(SNLScalarTerm::create(oai222, SNLTerm::Direction::Input, NLName("D1")));
+  SNLScalarTerm::create(oai222, SNLTerm::Direction::Output, NLName("Y"));
+  auto tree = std::make_unique<SNLBooleanTree>();
+  tree->parse(oai222, "(!(((A1 | A2) & (B1 | B2)) & (C1 | C2))) | D1");
+  ASSERT_NE(nullptr, tree);
+  auto root = tree->getRoot();
+  ASSERT_NE(nullptr, root);
+  //EXPECT_EQ(SNLBooleanTreeFunctionNode::Type::NOT, root->getType());
+  ASSERT_EQ(7, tree->getInputs().size());
+  EXPECT_THAT(tree->getInputs(), ElementsAre(
+    Key(oai222->getScalarTerm(NLName("A1"))),
+    Key(oai222->getScalarTerm(NLName("A2"))),
+    Key(oai222->getScalarTerm(NLName("B1"))),
+    Key(oai222->getScalarTerm(NLName("B2"))),
+    Key(oai222->getScalarTerm(NLName("C1"))),
+    Key(oai222->getScalarTerm(NLName("C2"))),
+    Key(oai222->getScalarTerm(NLName("D1")))
+  ));
+  //all 0
+  EXPECT_TRUE(root->getValue());
+  tree->getInput(oai222->getScalarTerm(NLName("A1")))->setValue(true);
+  EXPECT_TRUE(root->getValue());
+  tree->getInput(oai222->getScalarTerm(NLName("B1")))->setValue(true);
+  EXPECT_TRUE(root->getValue());
+  tree->getInput(oai222->getScalarTerm(NLName("C1")))->setValue(true);
+  EXPECT_FALSE(root->getValue());
+  tree->getInput(oai222->getScalarTerm(NLName("D1")))->setValue(true);
+  EXPECT_TRUE(root->getValue());
+  auto tt = tree->getTruthTable(inputs);
+  EXPECT_EQ(7, tt.size());
+  // uint64_t result = 0x111F111F111FFFFF;
+  // EXPECT_TRUE(NLBitVecDynamic(result, 128) == tt.bits());
 }

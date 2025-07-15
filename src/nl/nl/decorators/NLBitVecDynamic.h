@@ -16,7 +16,7 @@
 #include <vector>
 #include <variant>
 #include <algorithm>
-#include <stdexcept>
+#include "NLException.h"
 
 namespace naja { namespace NL {
 
@@ -34,7 +34,7 @@ public:
     if (length <= 64) {
       data_ = mask;
     } else {
-      throw std::out_of_range(
+      throw NLException(
         "NLBitVecDynamic: cannot construct from mask when length>64");
     }
   }
@@ -46,8 +46,8 @@ public:
     if (length > 64) {
       data_ = bits;
     } else {
-      throw std::out_of_range(
-        "When under size of 64, use mask constructor.");
+      throw NLException(
+        "When not over size of 64, use mask constructor.");
     }
   }
 
@@ -123,13 +123,11 @@ public:
   // Convert back to uint64_t (old “static_cast<uint64_t>(bits_)”)
   explicit operator uint64_t() const {
     uint64_t m    = 0;
-    uint32_t upto = std::min<uint32_t>(nbits_, 64U);
     if (std::holds_alternative<uint64_t>(data_)) {
       m = std::get<uint64_t>(data_);
     } else {
-      auto const &vec = std::get<std::vector<bool>>(data_);
-      for (uint32_t i = 0; i < upto; ++i)
-        if (vec[i]) m |= (uint64_t{1} << i);
+      throw NLException(
+        "NLBitVecDynamic: cannot generate uint64_t for above 64 bits");
     }
     return m;
   }
@@ -137,7 +135,46 @@ public:
   // Number of bits
   uint32_t size() const { return nbits_; }
 
+  bool bit(size_t i) const { 
+    if (nbits_ <= 64) {
+      auto mask = std::get<uint64_t>(data_);
+      return ((mask >> i) & 1);
+    }
+    auto const &vec = std::get<std::vector<bool>>(data_);
+    return vec[i];
+  }
+
+  std::vector<uint64_t> getChunks() const {
+    if (nbits_ <= 64) {
+      std::vector<uint64_t> result;
+      result.push_back(std::get<uint64_t>(data_));
+      return result;
+    }
+    return packBits(std::get<std::vector<bool>>(data_));
+  } 
+
+
 private:
+
+  // Packs 'bits' into 64-bit chunks.
+  // bits.size() can be any length; the returned vector has ceiling(bits.size()/64) words.
+  std::vector<uint64_t> packBits(const std::vector<bool>& bits) const {
+    size_t nbits   = bits.size();
+    size_t nWords  = (nbits + 63) / 64;
+    std::vector<uint64_t> out(nWords, 0ULL);
+    for (size_t i = 0; i < nbits; ++i) {
+      if (bits[i]) {
+        size_t wordIdx = i >> 6;        // i / 64
+        size_t bitPos  = i & 63;        // i % 64
+        out[wordIdx] |= (uint64_t{1} << bitPos);
+      }
+    }
+    //LCOV_EXCL_START
+    return out;
+  }
+  //LCOV_EXCL_STOP
+
+
   uint32_t                               nbits_;
   std::variant<uint64_t, std::vector<bool>> data_;
 };
