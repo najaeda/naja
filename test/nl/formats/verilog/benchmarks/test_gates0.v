@@ -1,5 +1,5 @@
 /*
-  test16: Test "generic RTL" code.
+  test_gates0: Test "generic RTL" code.
 */
 
 module FA(A, B, C, OUT, COUT);

@@ -178,7 +178,16 @@ bool SNLVRLConstructor::GateInstance::isValid() const {
 }
 
 std::string SNLVRLConstructor::GateInstance::getString() const {
-  return std::string();
+  //LCOV_EXCL_START
+  std::ostringstream stream;
+  stream << "GateInstance: " << gateType_.getString();
+  if (not instanceName_.empty()) {
+    stream  << " " << instanceName_;
+  } else {
+    stream << " <anonymous>";
+  }
+  return stream.str();
+  //LCOV_EXCL_STOP
 }
 
 SNLTerm::Direction
@@ -734,8 +743,10 @@ void SNLVRLConstructor::endGateInstantiation() {
   if (not inFirstPass()) {
     assert(currentGateInstance_.isValid());
     if (verbose_) {
+      //LCOV_EXCL_START
       std::cerr << "End " << currentGateInstance_.getString() 
-        << " instantiation" << std::endl; //LCOV_EXCL_LINE
+        << " instantiation" << std::endl;
+      //LCOV_EXCL_STOP
     }
     //create gate instance
     SNLDesign* gate = nullptr;
