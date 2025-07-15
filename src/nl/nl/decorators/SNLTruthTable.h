@@ -24,6 +24,22 @@ class SNLTruthTable {
  public:
   SNLTruthTable() : size_(std::numeric_limits<uint32_t>::max()) {}
 
+  // user‐provided copy‐ctor
+  SNLTruthTable(const SNLTruthTable& o)
+    : size_(o.size_),
+      bits_(o.bits_)
+  {}
+
+  // explicit copy‐assignment to match
+  SNLTruthTable& operator=(const SNLTruthTable& o)
+  {
+    if (this != &o) {
+      size_ = o.size_;
+      bits_ = o.bits_;
+    }
+    return *this;
+  }
+
   // Enforce size ≤ 6 BEFORE touching BitVecDynamic
   explicit SNLTruthTable(uint32_t size, uint64_t bits) {
     if (size > 6) {
@@ -87,10 +103,6 @@ class SNLTruthTable {
     if (size_ == 0) {
       return *this;
     }
-    
-    if (size_ > 6) {
-      return *this;
-    }
 
     // validate
     for (auto const& ic : idxConsts) {
@@ -103,6 +115,7 @@ class SNLTruthTable {
     uint32_t newSize = (size_ > k ? size_ - k : 0);
     uint32_t newN = 1u << newSize;
     uint64_t reduced = 0;
+    std::vector<bool> reducedVect(newN, false);
 
     // for each assignment 'j' of the remaining newSize bits,
     // weave in the constants to build the original index:
@@ -127,19 +140,35 @@ class SNLTruthTable {
 
         origIdx |= (uint32_t(val) << bit);
       }
+      // always pull the bit via bit()
+      bool inputBit = bits().bit(origIdx);
 
-      // copy the matching output bit
-      if (((bits() >> origIdx) & 1) != 0) {
-        reduced |= (1u << j);
+      if (newSize <= 6) {
+        if (inputBit) {
+          reduced |= (uint64_t{1} << j);
+        }
+      } else {
+        reducedVect[j] = inputBit;
       }
     }
 
     // build & normalize result
-    SNLTruthTable out(newSize, reduced);
-    if (out.all0())
+    SNLTruthTable out;
+    if (newSize > 6) {
+      out = SNLTruthTable(newSize, reducedVect);
+    } else {
+      out = SNLTruthTable(newSize, reduced);
+    }
+    printf("%s\n", out.getString().c_str());
+    
+    if (out.all0()) {
+      printf("return 0\n");
       return Logic0();
-    if (out.all1())
+    }
+    if (out.all1()) {
       return Logic1();
+    }
+    printf("return full\n");
     return out;
   }
 
@@ -176,8 +205,10 @@ class SNLTruthTable {
 
   bool all0() const {
     if (size() <= 6) {
-      uint64_t n = 1ull << size_;
-      uint64_t mask = (1ull << n) - 1ull;
+      uint64_t rows = 1ull << size_;    // # of table entries = 1<<size_
+      uint64_t mask = (rows < 64
+               ? ((1ull << rows) - 1ull)
+               : std::numeric_limits<uint64_t>::max());
       return (bits().operator uint64_t() & mask) == 0ull;
     }
     bool result = false;
@@ -189,8 +220,10 @@ class SNLTruthTable {
 
   bool all1() const {
     if (size() <= 6) {
-      uint64_t n = 1ull << size_;
-      uint64_t mask = (1ull << n) - 1ull;
+      uint64_t rows = 1ull << size_;    // # of table entries = 1<<size_
+      uint64_t mask = (rows < 64
+               ? ((1ull << rows) - 1ull)
+               : std::numeric_limits<uint64_t>::max());
       return (bits().operator uint64_t() & mask) == mask;
     }
     bool result = true;

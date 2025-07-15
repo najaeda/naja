@@ -417,3 +417,41 @@ TEST(NLBitVecDynamic, OrMask_WithVectorBoolCtor) {
   EXPECT_FALSE(vb >> 0);
   EXPECT_FALSE(vb >> 89);
 }
+
+TEST(SNLTruthTable, Or7TruthTable) {
+  constexpr uint32_t N = 7;
+  // build the 2^7=128 bit-vector: only index 0 → false, all others → true
+  std::vector<bool> bits(1u << N);
+  for (uint32_t i = 0; i < bits.size(); ++i) {
+    bits[i] = (i != 0);
+  }
+
+  // construct the 7-input OR table
+  SNLTruthTable tt(N, bits);
+  EXPECT_EQ(tt.size(), N);
+
+  // index 0 => OR(all zeros)==0
+  EXPECT_FALSE(tt.bits() >> 0u);
+
+  // all other indexes => OR(...)==1
+  for (uint32_t idx = 1; idx < bits.size(); ++idx) {
+    EXPECT_TRUE(tt.bits() >> idx)
+        << "expected bit " << idx << " == 1";
+  }
+
+  // no single input can be removed without changing the function
+  for (uint32_t v = 0; v < N; ++v) {
+    EXPECT_FALSE(tt.hasNoInfluence(v))
+        << "input " << v << " should influence OR";
+  }
+
+  // reduced with one constant should yield a 6-input OR
+  auto r0 = tt.getReducedWithConstant(0, false);
+  printf("%s\n", r0.getString().c_str());
+  EXPECT_EQ(r0.size(), 6);
+  // still false only at index 0
+  EXPECT_FALSE(r0.bits().bit(0));
+  /*for (uint32_t i = 1; i < (1u << 7); ++i) {
+    EXPECT_TRUE(r0.bits().bit(i));
+  }*/
+}
