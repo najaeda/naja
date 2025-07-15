@@ -447,11 +447,68 @@ TEST(SNLTruthTable, Or7TruthTable) {
 
   // reduced with one constant should yield a 6-input OR
   auto r0 = tt.getReducedWithConstant(0, false);
-  printf("%s\n", r0.getString().c_str());
   EXPECT_EQ(r0.size(), 6);
   // still false only at index 0
   EXPECT_FALSE(r0.bits().bit(0));
   /*for (uint32_t i = 1; i < (1u << 7); ++i) {
     EXPECT_TRUE(r0.bits().bit(i));
   }*/
+}
+
+// Helper: build a vector<bool> of length N with a simple pattern
+static std::vector<bool> buildPattern(size_t N) {
+  std::vector<bool> v(N);
+  for (size_t i = 0; i < N; ++i)
+    v[i] = (i % 3 == 0);  // every 3rd bit = 1
+  return v;
+}
+
+TEST(NLBitVecDynamic, bit_and_getChunks_large) {
+  constexpr size_t N = 130;               // >64 to force vector<bool> path
+  auto pattern = buildPattern(N);
+
+  // Construct in vector<bool> mode:
+  NLBitVecDynamic bv(pattern, N);
+
+  // 1) bit(i) on both a few in‐range and out‐of‐pattern
+  EXPECT_TRUE (bv.bit(0));    // 0 % 3 == 0 → true
+  EXPECT_FALSE(bv.bit(1));    // 1 % 3 != 0 → false
+  EXPECT_TRUE (bv.bit(3));    // 3 % 3 == 0 → true
+  EXPECT_EQ   (bv.bit(129), (129 % 3 == 0));
+
+  // 2) packBits via getChunks(): each chunk is 64-bit mask of 64 bits
+  auto chunks = bv.getChunks();
+  // should be ceil(130/64) = 3 chunks
+  ASSERT_EQ(chunks.size(), 3u);
+
+  // Re-pack first 64 bits manually, compare to chunk[0]
+  uint64_t expected0 = 0;
+  for (size_t i = 0; i < 64; ++i)
+    if (pattern[i])
+      expected0 |= (uint64_t{1} << i);
+  EXPECT_EQ(chunks[0], expected0);
+
+  // last chunk holds bits 128..129
+  uint64_t expected2 = 0;
+  if (pattern[128]) expected2 |= (1ull << 0);
+  if (pattern[129]) expected2 |= (1ull << 1);
+  EXPECT_EQ(chunks[2], expected2);
+}
+
+TEST(SNLTruthTable, all0_all1_large) {
+  // size = 7 → 128 entries → uses vector<bool> in all0()/all1()
+  constexpr uint32_t SZ = 7;
+  uint32_t rows = 1u << SZ;
+
+  // all‐zero table
+  std::vector<bool> zeros(rows, false);
+  SNLTruthTable t0(SZ, zeros);
+  EXPECT_TRUE (t0.all0());
+  EXPECT_FALSE(t0.all1());
+
+  // all‐one table
+  std::vector<bool> ones(rows, true);
+  SNLTruthTable t1(SZ, ones);
+  EXPECT_FALSE(t1.all0());
+  EXPECT_TRUE (t1.all1());
 }

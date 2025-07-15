@@ -158,17 +158,13 @@ class SNLTruthTable {
       out = SNLTruthTable(newSize, reducedVect);
     } else {
       out = SNLTruthTable(newSize, reduced);
-    }
-    printf("%s\n", out.getString().c_str());
-    
+    }    
     if (out.all0()) {
-      printf("return 0\n");
       return Logic0();
     }
     if (out.all1()) {
       return Logic1();
     }
-    printf("return full\n");
     return out;
   }
 
