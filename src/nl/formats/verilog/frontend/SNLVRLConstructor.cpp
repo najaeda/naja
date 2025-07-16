@@ -165,6 +165,35 @@ naja::NL::NLDB0::GateType najaVerilogToNLDB0GateType(const naja::verilog::GateTy
   return naja::NL::NLDB0::GateType::Unknown; //LCOV_EXCL_LINE
 }
 
+naja::NL::NLLibrary* getOrCreateAutoBlackBoxLibrary(naja::NL::NLLibrary* library) {
+  const std::string AUTO_BLACKBOX = "AUTO_BLACKBOX";
+  if (not library) {
+    throw naja::NL::SNLVRLConstructorException("getOrCreateAutoBlackBoxLibrary: parent library is null");
+  }
+  auto autoBlackBoxLibrary = library->getLibrary(naja::NL::NLName(AUTO_BLACKBOX));
+  if (not autoBlackBoxLibrary) {
+    autoBlackBoxLibrary = naja::NL::NLLibrary::create(library, naja::NL::NLName(AUTO_BLACKBOX));
+  }
+  return autoBlackBoxLibrary;
+}
+
+naja::NL::SNLDesign* getOrCreateAutoBlackBox(
+  naja::NL::NLLibrary* autoBlackBoxLibrary,
+  const naja::NL::NLName& modelName) {
+  if (not autoBlackBoxLibrary) {
+    throw naja::NL::SNLVRLConstructorException("getOrCreateAutoBlackBox: autoBlackBoxLibrary is null");
+  }
+  auto model = autoBlackBoxLibrary->getSNLDesign(modelName);
+  if (not model) {
+    model = naja::NL::SNLDesign::create(
+      autoBlackBoxLibrary,
+      naja::NL::SNLDesign::Type::Blackbox,
+      modelName
+    );
+  }
+  return model;
+}
+
 }
 
 namespace naja { namespace NL {
@@ -290,7 +319,7 @@ void SNLVRLConstructor::startModule(const naja::verilog::Identifier& module) {
   if (inFirstPass()) {
     currentModule_ = SNLDesign::create(library_, NLName(module.name_));
     collectAttributes(currentModule_, nextObjectAttributes_);
-    if (verbose_) {
+    if (config_.verbose_) {
       std::cerr << "Construct Module: " << module.getString() << std::endl; //LCOV_EXCL_LINE
     }
   } else {
@@ -315,7 +344,7 @@ void SNLVRLConstructor::startModule(const naja::verilog::Identifier& module) {
 
 void SNLVRLConstructor::moduleInterfaceSimplePort(const naja::verilog::Identifier& port) {
   if (inFirstPass()) {
-    if (verbose_) {
+    if (config_.verbose_) {
       std::cerr << "Add port: " << port.getString() << std::endl; //LCOV_EXCL_LINE
     }
     if (currentModuleInterfacePortsMap_.find(port.name_) != currentModuleInterfacePortsMap_.end()) {
@@ -333,7 +362,7 @@ void SNLVRLConstructor::moduleInterfaceSimplePort(const naja::verilog::Identifie
 
 void SNLVRLConstructor::moduleImplementationPort(const naja::verilog::Port& port) {
   if (inFirstPass()) {
-    if (verbose_) {
+    if (config_.verbose_) {
       //LCOV_EXCL_START
       std::cerr << "Add implementation port: "
         << port.getString() << std::endl;
@@ -366,7 +395,7 @@ void SNLVRLConstructor::moduleInterfaceCompletePort(const naja::verilog::Port& p
 
 void SNLVRLConstructor::addNet(const naja::verilog::Net& net) {
   if (not inFirstPass()) {
-    if (verbose_) {
+    if (config_.verbose_) {
       std::cerr << "Add net: " << net.getString() << std::endl; //LCOV_EXCL_LINE
     }
     auto netName = NLName(net.identifier_.name_);
@@ -413,16 +442,16 @@ void SNLVRLConstructor::addAssign(
   using BitNets = std::vector<SNLBitNet*>;
   BitNets leftNets;
   BitNets rightNets;
-  if (verbose_) {
+  if (config_.verbose_) {
     std::cerr << "Assign: " << std::endl; //LCOV_EXCL_LINE
   }
   for (auto id: identifiers) {
     collectIdentifierNets(id, leftNets);
-    if (verbose_) {
+    if (config_.verbose_) {
       std::cerr << "ID: " << id.getString() << std::endl; //LCOV_EXCL_LINE
     }
   }
-  if (verbose_) {
+  if (config_.verbose_) {
     std::cerr << expression.getString() << std::endl; //LCOV_EXCL_LINE
   }
   if (expression.valid_) {
@@ -496,7 +525,7 @@ void SNLVRLConstructor::addAssign(
 void SNLVRLConstructor::startInstantiation(const naja::verilog::Identifier& model) {
   if (not inFirstPass()) {
     currentModelName_ = model.name_;
-    if (verbose_) {
+    if (config_.verbose_) {
       std::cerr << "Start Instantiation: " << model.getString() << std::endl; //LCOV_EXCL_LINE
     }
   }
@@ -514,12 +543,20 @@ void SNLVRLConstructor::addInstance(const naja::verilog::Identifier& instance) {
       model = NLUniverse::get()->getSNLDesign(modelName);
     }
     if (not model) {
-      std::ostringstream reason;
-      reason << getLocationString();
-      reason << ": " << currentModelName_
-        << " cannot be found in SNL while constructing instance "
-        << instance.getString();
-      throw SNLVRLConstructorException(reason.str());
+      if (config_.allowUnknownDesigns_) {
+        if (config_.verbose_) {
+          std::cerr << "Unknown design: " << modelName.getString() << std::endl; //LCOV_EXCL_LINE
+        }
+        autoBlackBoxLibrary_ = getOrCreateAutoBlackBoxLibrary(library_);
+        model = getOrCreateAutoBlackBox(autoBlackBoxLibrary_, modelName);
+      } else {
+        std::ostringstream reason;
+        reason << getLocationString();
+        reason << ": " << currentModelName_
+          << " cannot be found in SNL while constructing instance "
+          << instance.getString();
+        throw SNLVRLConstructorException(reason.str());
+      }
     }
     //FIXME
     //might be a good idea to create a cache <Name, SNLDesign*> here
@@ -541,7 +578,7 @@ void SNLVRLConstructor::addParameterAssignment(
 void SNLVRLConstructor::endInstantiation() {
   if (not inFirstPass()) {
     assert(currentInstance_);
-    if (verbose_) {
+    if (config_.verbose_) {
       std::cerr << "End " << currentInstance_->getString() 
         << " instantiation" << std::endl; //LCOV_EXCL_LINE
     }
@@ -667,7 +704,7 @@ void SNLVRLConstructor::addInstanceConnection(
       throw SNLVRLConstructorException(reason.str());
     }
     currentInstancePortConnection(term, expression);
-    if (verbose_) {
+    if (config_.verbose_) {
       //LCOV_EXCL_START
       std::cerr << "Instance connection: "
         << currentInstance_->getString()
@@ -686,7 +723,7 @@ void SNLVRLConstructor::addOrderedInstanceConnection(
     SNLDesign* model = currentInstance_->getModel();
     SNLTerm* term = model->getTerm(NLID::DesignObjectID(portIndex));
     currentInstancePortConnection(term, expression);
-    if (verbose_) {
+    if (config_.verbose_) {
       //LCOV_EXCL_START
       std::cerr << "Instance connection: "
         << currentInstance_->getString()
@@ -700,7 +737,7 @@ void SNLVRLConstructor::addOrderedInstanceConnection(
 void SNLVRLConstructor::startGateInstantiation(const naja::verilog::GateType& gateType) {
   if (not inFirstPass()) {
     currentGateInstance_.gateType_ = najaVerilogToNLDB0GateType(gateType);
-    if (verbose_) {
+    if (config_.verbose_) {
       std::cerr << "Start Instantiation: " << gateType.getString() << std::endl; //LCOV_EXCL_LINE
     }
   }
@@ -746,7 +783,7 @@ void SNLVRLConstructor::addGateInputInstanceConnection(
 void SNLVRLConstructor::endGateInstantiation() {
   if (not inFirstPass()) {
     assert(currentGateInstance_.isValid());
-    if (verbose_) {
+    if (config_.verbose_) {
       //LCOV_EXCL_START
       std::cerr << "End " << currentGateInstance_.getString() 
         << " instantiation" << std::endl;
@@ -790,7 +827,7 @@ void SNLVRLConstructor::addAttribute(
 }
 
 void SNLVRLConstructor::endModule() {
-  if (verbose_) {
+  if (config_.verbose_) {
     //LCOV_EXCL_START
     std::cerr << "End module: "
       << currentModule_->getString() << std::endl;
@@ -821,7 +858,7 @@ void SNLVRLConstructor::endModule() {
     }
   } else {
     //Blackbox detection
-    if (blackboxDetection_ and currentModule_->getType() == SNLDesign::Type::Standard) {
+    if (config_.blackboxDetection_ and currentModule_->getType() == SNLDesign::Type::Standard) {
       if (currentModule_->getInstances().empty()) {
         if (allNetsArePortNets(currentModule_)) {
           currentModule_->setType(SNLDesign::Type::Blackbox);
