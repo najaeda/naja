@@ -274,7 +274,7 @@ class NajaNetlistTest1(unittest.TestCase):
             shutil.rmtree(bench_dir)
         os.makedirs(bench_dir)
         top = netlist.get_top()
-        top.dump_verilog(os.path.join(bench_dir), "netlist1.v")
+        top.dump_verilog(os.path.join(bench_dir, "netlist1.v"))
 
     def testInstanceVisitor(self):
         top = netlist.get_top()

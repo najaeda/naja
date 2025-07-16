@@ -138,7 +138,7 @@ class NajaNetlistTest2(unittest.TestCase):
             shutil.rmtree(bench_dir)
         os.makedirs(bench_dir)
         top = netlist.get_top()
-        top.dump_verilog(os.path.join(bench_dir), "netlist2_top0.v")
+        top.dump_verilog(os.path.join(bench_dir, "netlist2_top0.v"))
 
     def test_top1(self):
         def create_top():
@@ -237,7 +237,7 @@ class NajaNetlistTest2(unittest.TestCase):
             shutil.rmtree(bench_dir)
         os.makedirs(bench_dir)
         top = netlist.get_top()
-        top.dump_verilog(os.path.join(bench_dir), "netlist2_top1.v")
+        top.dump_verilog(os.path.join(bench_dir, "netlist2_top1.v"))
 
 
     def test_top2(self):
@@ -329,7 +329,7 @@ class NajaNetlistTest2(unittest.TestCase):
             shutil.rmtree(bench_dir)
         os.makedirs(bench_dir)
         top = netlist.get_top()
-        top.dump_verilog(os.path.join(bench_dir), "netlist2_top2.v")
+        top.dump_verilog(os.path.join(bench_dir, "netlist2_top2.v"))
 
     def test_top3(self):
         def create_top():
@@ -363,7 +363,7 @@ class NajaNetlistTest2(unittest.TestCase):
             shutil.rmtree(bench_dir)
         os.makedirs(bench_dir)
         top = netlist.get_top()
-        top.dump_verilog(os.path.join(bench_dir), "netlist2_top3.v")
+        top.dump_verilog(os.path.join(bench_dir, "netlist2_top3.v"))
         netlist.apply_constant_propagation()
         netlist.apply_dle()
         top.dump_full_dot("./netlist2_top3.dot")

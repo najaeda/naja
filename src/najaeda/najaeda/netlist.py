@@ -1436,13 +1436,17 @@ class Instance:
         newSNLNet = naja.SNLBusNet.create(model, msb, lsb, name)
         return Net(path, newSNLNet)
 
-    def dump_verilog(self, path: str, name: str):
+    def dump_verilog(self, path: str):
         """Dump the verilog of this instance.
 
-        :param str path: the path where to dump the verilog.
-        :param str name: the name of the verilog file.
+        :param str path: the file path where to dump the verilog.
         """
-        self.__get_snl_model().dumpVerilog(path, name)
+        if not path.endswith(".v"):
+            raise ValueError("The path must end with .v")
+        #path should be a file path of the form "path/to/file.v"
+        if not os.path.exists(os.path.dirname(path)):
+            raise FileNotFoundError(f"The directory {os.path.dirname(path)} does not exist")
+        self.__get_snl_model().dumpVerilog(os.path.dirname(path), os.path.basename(path))
 
     def get_truth_table(self):
         """
