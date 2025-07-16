@@ -1488,6 +1488,7 @@ def create_top(name: str) -> Instance:
 class VerilogConfig:
     def __init__(self, keep_assigns=True):
         self.keep_assigns = keep_assigns
+        self.allow_unknown_designs = False
 
 
 def load_verilog(files: Union[str, List[str]], config: VerilogConfig = None) -> Instance:
@@ -1505,7 +1506,11 @@ def load_verilog(files: Union[str, List[str]], config: VerilogConfig = None) -> 
         config = VerilogConfig()  # Use default settings
     start_time = time.time()
     logging.info(f"Loading verilog: {', '.join(files)}")
-    __get_top_db().loadVerilog(files, keep_assigns=config.keep_assigns)
+    __get_top_db().loadVerilog(
+        files,
+        keep_assigns=config.keep_assigns,
+        allow_unknown_designs=config.allow_unknown_designs
+    )
     execution_time = time.time() - start_time
     logging.info(f"Loading done in {execution_time:.2f} seconds")
     return get_top()
