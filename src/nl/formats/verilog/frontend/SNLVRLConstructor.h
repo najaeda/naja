@@ -120,7 +120,6 @@ class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
     bool              firstPass_                      {true};
     bool              parseAttributes_                {true};
     NLLibrary*        library_                        {nullptr};
-    NLLibrary*        autoBlackBoxLibrary_            {nullptr};
     Attributes        nextObjectAttributes_           {};
     SNLDesign*        currentModule_                  {nullptr};
     std::string       currentModelName_               {};

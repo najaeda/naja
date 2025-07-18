@@ -187,7 +187,7 @@ naja::NL::SNLDesign* getOrCreateAutoBlackBox(
   if (not model) {
     model = naja::NL::SNLDesign::create(
       autoBlackBoxLibrary,
-      naja::NL::SNLDesign::Type::Blackbox,
+      naja::NL::SNLDesign::Type::AutoBlackbox,
       modelName
     );
   }
@@ -547,8 +547,8 @@ void SNLVRLConstructor::addInstance(const naja::verilog::Identifier& instance) {
         if (config_.verbose_) {
           std::cerr << "Unknown design: " << modelName.getString() << std::endl; //LCOV_EXCL_LINE
         }
-        autoBlackBoxLibrary_ = getOrCreateAutoBlackBoxLibrary(library_);
-        model = getOrCreateAutoBlackBox(autoBlackBoxLibrary_, modelName);
+        auto autoBlackBoxLibrary = getOrCreateAutoBlackBoxLibrary(library_);
+        model = getOrCreateAutoBlackBox(autoBlackBoxLibrary, modelName);
       } else {
         std::ostringstream reason;
         reason << getLocationString();
@@ -696,12 +696,19 @@ void SNLVRLConstructor::addInstanceConnection(
     SNLDesign* model = currentInstance_->getModel();
     SNLTerm* term = model->getTerm(NLName(port.name_));
     if (not term) {
-      std::ostringstream reason;
-      reason << getLocationString();
-      reason << ": " << port.getString()
-        << " port cannot be found in " << model->getName().getString()
-        << " model";
-      throw SNLVRLConstructorException(reason.str());
+      if (model->isAutoBlackBox()) {
+        term = SNLScalarTerm::create(
+          model,
+          SNLTerm::Direction::InOut, //FIXME: should be output?
+          NLName(port.name_));
+      } else {
+        std::ostringstream reason;
+        reason << getLocationString();
+        reason << ": " << port.getString()
+          << " port cannot be found in " << model->getName().getString()
+          << " model";
+        throw SNLVRLConstructorException(reason.str());
+      }
     }
     currentInstancePortConnection(term, expression);
     if (config_.verbose_) {
@@ -861,7 +868,7 @@ void SNLVRLConstructor::endModule() {
     if (config_.blackboxDetection_ and currentModule_->getType() == SNLDesign::Type::Standard) {
       if (currentModule_->getInstances().empty()) {
         if (allNetsArePortNets(currentModule_)) {
-          currentModule_->setType(SNLDesign::Type::Blackbox);
+          currentModule_->setType(SNLDesign::Type::UserBlackbox);
           //spdlog::info("Blackbox detected: {}", currentModule_->getName().getString());
         }
       }

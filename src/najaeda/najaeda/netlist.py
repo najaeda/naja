@@ -646,6 +646,7 @@ class Term:
         """
         :return: the net of the term.
         :rtype: Net
+        :remark: If the term is a top level term, it will return None.
         """
         head_path = self.pathIDs.copy()
         if len(head_path) == 0:
