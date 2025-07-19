@@ -39,7 +39,7 @@ class SNLCapNpTest1: public ::testing::Test {
       NLLibrary* lib3 = NLLibrary::create(lib2, NLName("lib3"));
       NLLibrary* lib4 = NLLibrary::create(lib2);
       SNLDesign* design0 = SNLDesign::create(lib2, NLName("design0"));
-      SNLDesign* design1 = SNLDesign::create(lib2, SNLDesign::Type::Blackbox);
+      SNLDesign* design1 = SNLDesign::create(lib2, SNLDesign::Type::UserBlackbox);
       NLLibrary* primitives = NLLibrary::create(db_, NLLibrary::Type::Primitives, NLName("PRIMITIVES"));
       NLLibrary* prims1 = NLLibrary::create(primitives, NLLibrary::Type::Primitives);
       NLLibrary* prims2 = NLLibrary::create(primitives, NLLibrary::Type::Primitives, NLName("prims2"));

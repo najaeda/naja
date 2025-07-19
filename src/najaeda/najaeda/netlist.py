@@ -12,6 +12,7 @@ import sys
 import os
 from enum import Enum
 from typing import Union, List
+from dataclasses import dataclass
 
 from najaeda import naja
 
@@ -428,9 +429,11 @@ def get_snl_term_for_ids_with_path(path, termIDs):
 
 
 class Term:
-    INPUT = naja.SNLTerm.Direction.Input
-    OUTPUT = naja.SNLTerm.Direction.Output
-    INOUT = naja.SNLTerm.Direction.InOut
+    class Direction(Enum):
+        """Enum for the direction of a term."""
+        INPUT = naja.SNLTerm.Direction.Input
+        OUTPUT = naja.SNLTerm.Direction.Output
+        INOUT = naja.SNLTerm.Direction.InOut
 
     def __init__(self, path, term):
         # self.termIDs = []
@@ -571,18 +574,18 @@ class Term:
         """
         return get_snl_term_for_ids(self.pathIDs, self.termIDs).getName()
 
-    def get_direction(self) -> naja.SNLTerm.Direction:
+    def get_direction(self) -> Direction:
         """
         :return: the direction of the term.
-        :rtype: naja.SNLTerm.Direction
+        :rtype: Term.Direction
         """
         snlterm = get_snl_term_for_ids(self.pathIDs, self.termIDs)
         if snlterm.getDirection() == naja.SNLTerm.Direction.Input:
-            return Term.INPUT
+            return Term.Direction.INPUT
         elif snlterm.getDirection() == naja.SNLTerm.Direction.Output:
-            return Term.OUTPUT
+            return Term.Direction.OUTPUT
         elif snlterm.getDirection() == naja.SNLTerm.Direction.InOut:
-            return Term.INOUT
+            return Term.Direction.INOUT
 
     def __get_snl_bitnet(self, bit) -> Net:
         # single bit
@@ -646,6 +649,7 @@ class Term:
         """
         :return: the net of the term.
         :rtype: Net
+        :remark: If the term is a top level term, it will return None.
         """
         head_path = self.pathIDs.copy()
         if len(head_path) == 0:
@@ -975,17 +979,24 @@ class Instance:
     def dump_context_dot(self, path: str):
         self.__get_snl_model().dumpContextDotFile(path)
 
-    def get_child_instance(self, name: str):
+    def get_child_instance(self, names: Union[str, list]):
         """
-        :param str name: the name of the child Instance to get.
-        :return: the child Instance with the given name or None if it does not exist.
+        :param names: the name of the child instance or the path to the child Instance as alist of names.
+        :return: the child Instance at the given path or None if it does not exist.
         :rtype: Instance or None
         """
-        childInst = self.__get_snl_model().getInstance(name)
-        if childInst is None:
-            return None
+        if isinstance(names, str):
+            names = [names]
+        if not names:
+            return self
+        model = self.__get_snl_model()
         path = self.pathIDs.copy()
-        path.append(childInst.getID())
+        for name in names:
+            childInst = model.getInstance(name)
+            if childInst is None:
+                return None
+            path.append(childInst.getID())
+            model = childInst.getModel()
         return Instance(path)
 
     def get_child_instances(self):
@@ -1313,11 +1324,11 @@ class Instance:
         path = naja.SNLPath(path, newSNLInstance)
         return Instance(path)
 
-    def create_term(self, name: str, direction: naja.SNLTerm.Direction) -> Term:
+    def create_term(self, name: str, direction: Term.Direction) -> Term:
         """Create a Term in this Instance with the given name and direction.
 
         :param str name: the name of the Term to create.
-        :param naja.SNLTerm.Direction direction: the direction of the Term to create.
+        :param Term.Direction direction: the direction of the Term to create.
         :return: the created Term.
         """
         path = get_snl_path_from_id_list(self.pathIDs)
@@ -1325,7 +1336,7 @@ class Instance:
             naja.SNLUniquifier(path)
             path = get_snl_path_from_id_list(self.pathIDs)
         design = self.__get_snl_model()
-        newSNLTerm = naja.SNLScalarTerm.create(design, direction, name)
+        newSNLTerm = naja.SNLScalarTerm.create(design, direction.value, name)
         return Term(path.getPathIDs(), newSNLTerm)
 
     def create_output_term(self, name: str) -> Term:
@@ -1335,7 +1346,7 @@ class Instance:
         :return: the created Term.
         :rtype: Term
         """
-        return self.create_term(name, naja.SNLTerm.Direction.Output)
+        return self.create_term(name, Term.Direction.OUTPUT)
 
     def create_input_term(self, name: str) -> Term:
         """Create an input Term in this Instance with the given name.
@@ -1344,7 +1355,7 @@ class Instance:
         :return: the created Term.
         :rtype: Term
         """
-        return self.create_term(name, naja.SNLTerm.Direction.Input)
+        return self.create_term(name, Term.Direction.INPUT)
 
     def create_inout_term(self, name: str) -> Term:
         """Create an inout Term in this Instance with the given name.
@@ -1353,22 +1364,22 @@ class Instance:
         :return: the created Term.
         :rtype: Term
         """
-        return self.create_term(name, naja.SNLTerm.Direction.InOut)
+        return self.create_term(name, Term.Direction.INOUT)
 
-    def create_bus_term(self, name: str, msb: int, lsb: int, direction) -> Term:
+    def create_bus_term(self, name: str, msb: int, lsb: int, direction: Term.Direction) -> Term:
         """Create a bus Term in this Instance with the given name, msb, lsb and direction.
 
         :param str name: the name of the Term to create.
         :param int msb: the most significant bit of the Term to create.
         :param int lsb: the least significant bit of the Term to create.
-        :param naja.SNLTerm.Direction direction: the direction of the Term to create.
+        :param Term.Direction direction: the direction of the Term to create.
         :return: the created Term.
         """
         path = get_snl_path_from_id_list(self.pathIDs)
         if path.size() > 0:
             naja.SNLUniquifier(path)
         design = self.__get_snl_model()
-        newSNLTerm = naja.SNLBusTerm.create(design, direction, msb, lsb, name)
+        newSNLTerm = naja.SNLBusTerm.create(design, direction.value, msb, lsb, name)
         return Term(self.pathIDs, newSNLTerm)
 
     def create_inout_bus_term(self, name: str, msb: int, lsb: int) -> Term:
@@ -1380,7 +1391,7 @@ class Instance:
         :return: the created Term.
         :rtype: Term
         """
-        return self.create_bus_term(name, msb, lsb, naja.SNLTerm.Direction.InOut)
+        return self.create_bus_term(name, msb, lsb, Term.Direction.INOUT)
 
     def create_output_bus_term(self, name: str, msb: int, lsb: int) -> Term:
         """Create an output bus Term in this Instance with the given name, msb and lsb.
@@ -1391,7 +1402,7 @@ class Instance:
         :return: the created Term.
         :rtype: Term
         """
-        return self.create_bus_term(name, msb, lsb, naja.SNLTerm.Direction.Output)
+        return self.create_bus_term(name, msb, lsb, Term.Direction.OUTPUT)
 
     def create_input_bus_term(self, name: str, msb: int, lsb: int) -> Term:
         """Create an input bus Term in this Instance with the given name, msb and lsb.
@@ -1402,7 +1413,7 @@ class Instance:
         :return: the created Term.
         :rtype: Term
         """
-        return self.create_bus_term(name, msb, lsb, naja.SNLTerm.Direction.Input)
+        return self.create_bus_term(name, msb, lsb, Term.Direction.INPUT)
 
     def create_net(self, name: str) -> Net:
         """Create a scalar Net in this Instance with the given name.
@@ -1436,13 +1447,17 @@ class Instance:
         newSNLNet = naja.SNLBusNet.create(model, msb, lsb, name)
         return Net(path, newSNLNet)
 
-    def dump_verilog(self, path: str, name: str):
+    def dump_verilog(self, path: str):
         """Dump the verilog of this instance.
 
-        :param str path: the path where to dump the verilog.
-        :param str name: the name of the verilog file.
+        :param str path: the file path where to dump the verilog.
         """
-        self.__get_snl_model().dumpVerilog(path, name)
+        if not path.endswith(".v"):
+            raise ValueError("The path must end with .v")
+        #path should be a file path of the form "path/to/file.v"
+        if not os.path.exists(os.path.dirname(path)):
+            raise FileNotFoundError(f"The directory {os.path.dirname(path)} does not exist")
+        self.__get_snl_model().dumpVerilog(os.path.dirname(path), os.path.basename(path))
 
     def get_truth_table(self):
         """
@@ -1459,6 +1474,13 @@ def __get_top_db() -> naja.NLDB:
         db = naja.NLDB.create(naja.NLUniverse.get())
         naja.NLUniverse.get().setTopDB(db)
     return naja.NLUniverse.get().getTopDB()
+
+
+def reset():
+    """Reset the environment by deleting everything."""
+    u = naja.NLUniverse.get()
+    if u is not None:
+        u.destroy()
 
 
 def get_top():
@@ -1485,9 +1507,10 @@ def create_top(name: str) -> Instance:
     return Instance()
 
 
+@dataclass
 class VerilogConfig:
-    def __init__(self, keep_assigns=True):
-        self.keep_assigns = keep_assigns
+    keep_assigns: bool = True
+    allow_unknown_designs: bool = False
 
 
 def load_verilog(files: Union[str, List[str]], config: VerilogConfig = None) -> Instance:
@@ -1505,7 +1528,11 @@ def load_verilog(files: Union[str, List[str]], config: VerilogConfig = None) -> 
         config = VerilogConfig()  # Use default settings
     start_time = time.time()
     logging.info(f"Loading verilog: {', '.join(files)}")
-    __get_top_db().loadVerilog(files, keep_assigns=config.keep_assigns)
+    __get_top_db().loadVerilog(
+        files,
+        keep_assigns=config.keep_assigns,
+        allow_unknown_designs=config.allow_unknown_designs
+    )
     execution_time = time.time() - start_time
     logging.info(f"Loading done in {execution_time:.2f} seconds")
     return get_top()

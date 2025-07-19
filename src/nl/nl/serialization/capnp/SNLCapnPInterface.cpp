@@ -127,8 +127,10 @@ DesignType SNLtoCapNpDesignType(SNLDesign::Type type) {
       return DesignType::STANDARD;
     case SNLDesign::Type::Primitive:
       return DesignType::PRIMITIVE;
-    case SNLDesign::Type::Blackbox:
-      return DesignType::BLACKBOX;
+    case SNLDesign::Type::UserBlackbox:
+      return DesignType::USER_BLACKBOX;
+    case SNLDesign::Type::AutoBlackbox:
+      return DesignType::AUTO_BLACKBOX;
   }
   return DesignType::STANDARD; //LCOV_EXCL_LINE
 }
@@ -222,8 +224,10 @@ SNLDesign::Type CapnPtoSNLDesignType(DesignType type) {
   switch (type) {
     case DesignType::STANDARD:
       return SNLDesign::Type::Standard;
-    case DesignType::BLACKBOX: 
-      return SNLDesign::Type::Blackbox;
+    case DesignType::USER_BLACKBOX: 
+      return SNLDesign::Type::UserBlackbox;
+    case DesignType::AUTO_BLACKBOX: 
+      return SNLDesign::Type::AutoBlackbox;
     case DesignType::PRIMITIVE: 
       return SNLDesign::Type::Primitive;
   }

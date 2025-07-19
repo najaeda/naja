@@ -144,13 +144,17 @@ PyObject* PyNLDB_loadLibertyPrimitives(PyNLDB* self, PyObject* args) {
 PyObject* PyNLDB_loadVerilog(PyNLDB* self, PyObject* args, PyObject* kwargs) {
   PyObject* files = nullptr;
   int keep_assigns = 1;  // Default: true
+  int allow_unknown_designs = 0; // Default: false
 
-  static const char* const kwords[] = {"files", "keep_assigns", nullptr};
+  static const char* const kwords[] = {
+    "files", "keep_assigns", "allow_unknown_designs",
+    nullptr
+  };
 
   if (not PyArg_ParseTupleAndKeywords(
-    args, kwargs, "O|p:NLDB.loadVerilog",
+    args, kwargs, "O|pp:NLDB.loadVerilog",
     const_cast<char**>(kwords), 
-    &files, &keep_assigns)) {
+    &files, &keep_assigns, &allow_unknown_designs)) {
     setError("malformed NLDB loadVerilog");
     return nullptr;
   }
@@ -168,6 +172,9 @@ PyObject* PyNLDB_loadVerilog(PyNLDB* self, PyObject* args, PyObject* kwargs) {
     designLibrary = NLLibrary::create(db, NLName("DESIGN"));
   }
   SNLVRLConstructor constructor(designLibrary);
+  if (allow_unknown_designs) {
+    constructor.config_.allowUnknownDesigns_ = true;
+  }
   using Paths = std::vector<std::filesystem::path>;
   Paths inputPaths;
   for (int i = 0; i < PyList_Size(files); ++i) {
