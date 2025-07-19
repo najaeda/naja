@@ -12,6 +12,7 @@ import sys
 import os
 from enum import Enum
 from typing import Union, List
+from dataclasses import dataclass
 
 from najaeda import naja
 
@@ -1506,10 +1507,10 @@ def create_top(name: str) -> Instance:
     return Instance()
 
 
+@dataclass
 class VerilogConfig:
-    def __init__(self, keep_assigns=True):
-        self.keep_assigns = keep_assigns
-        self.allow_unknown_designs = False
+    keep_assigns: bool = True
+    allow_unknown_designs: bool = False
 
 
 def load_verilog(files: Union[str, List[str]], config: VerilogConfig = None) -> Instance:
