@@ -188,6 +188,7 @@ class NajaNetlistTest1(unittest.TestCase):
         #self.assertLess(i0Net, i1Net)
         #self.assertLessEqual(i0Net, i1Net)
         ins0 = top.get_child_instance('Ins0')
+        self.assertEqual(ins0, top.get_child_instance(['Ins0']))
         self.assertIsNotNone(ins0)
         self.assertEqual('Ins0', ins0.get_name())
         self.assertEqual('Module0', ins0.get_model_name())

@@ -126,6 +126,7 @@ class NajaNetlistTest2(unittest.TestCase):
         #get inside mod
         modAnd0 = mod.get_child_instance('and0')
         self.assertIsNotNone(modAnd0)
+        self.assertEqual(modAnd0, top.get_child_instance(['mod', 'and0']))
         modAnd0I0 = modAnd0.get_term('I0')
         self.assertIsNotNone(modAnd0I0)
         self.assertFalse(modAnd0I0.is_bus())

@@ -976,17 +976,24 @@ class Instance:
     def dump_context_dot(self, path: str):
         self.__get_snl_model().dumpContextDotFile(path)
 
-    def get_child_instance(self, name: str):
+    def get_child_instance(self, names: Union[str, list]):
         """
-        :param str name: the name of the child Instance to get.
-        :return: the child Instance with the given name or None if it does not exist.
+        :param names: the name of the child instance or the path to the child Instance as alist of names.
+        :return: the child Instance at the given path or None if it does not exist.
         :rtype: Instance or None
         """
-        childInst = self.__get_snl_model().getInstance(name)
-        if childInst is None:
-            return None
+        if isinstance(names, str):
+            names = [names]
+        if not names:
+            return self
+        model = self.__get_snl_model()
         path = self.pathIDs.copy()
-        path.append(childInst.getID())
+        for name in names:
+            childInst = model.getInstance(name)
+            if childInst is None:
+                return None
+            path.append(childInst.getID())
+            model = childInst.getModel()
         return Instance(path)
 
     def get_child_instances(self):
