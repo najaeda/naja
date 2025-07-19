@@ -220,7 +220,7 @@ class NajaNetlistTest0(unittest.TestCase):
         for output in instance.get_output_terms():
             self.assertTrue(output.is_output())
             self.assertFalse(output.is_input())
-            self.assertTrue(output.get_direction() == naja.SNLTerm.Direction.Output)
+            self.assertTrue(output.get_direction() == netlist.Term.Direction.OUTPUT)
             outputCount += 1
 
         self.assertEqual(outputCount, 2)
