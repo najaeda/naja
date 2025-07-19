@@ -643,7 +643,8 @@ void SNLVRLConstructor::currentInstancePortConnection(
           SNLBusNet* busNet = dynamic_cast<SNLBusNet*>(net);
           if (not busNet) {
             std::ostringstream reason;
-            reason << getLocationString() << " NOT BUSTERM"; 
+            reason << getLocationString()
+              << ": net \"" << name << "\" is not a bus net (expected SNLBusNet) for range access";
             throw SNLVRLConstructorException(reason.str());
           }
           int netMSB = identifier.range_.msb_;
@@ -665,7 +666,9 @@ void SNLVRLConstructor::currentInstancePortConnection(
         auto busTerm = dynamic_cast<SNLBusTerm*>(term);
         if (not busTerm) {
           std::ostringstream reason;
-          reason << getLocationString() << ": NOT BUSTERM";
+            reason << getLocationString()
+               << ": term \"" << (term ? term->getString() : "<null>")
+               << "\" is not a bus term (expected SNLBusTerm) for concatenation connection";
           throw SNLVRLConstructorException(reason.str());
         }
         BitTerms bitTerms(busTerm->getBits().begin(), busTerm->getBits().end());
@@ -697,10 +700,19 @@ void SNLVRLConstructor::addInstanceConnection(
     SNLTerm* term = model->getTerm(NLName(port.name_));
     if (not term) {
       if (model->isAutoBlackBox()) {
+        if (expression.getSize() > 1) {
+          term = SNLBusTerm::create(
+            model,
+            SNLTerm::Direction::InOut,
+            expression.getSize()-1,
+            0,
+            NLName(port.name_));
+        } else {
         term = SNLScalarTerm::create(
           model,
-          SNLTerm::Direction::InOut, //FIXME: should be output?
+          SNLTerm::Direction::InOut,
           NLName(port.name_));
+        }
       } else {
         std::ostringstream reason;
         reason << getLocationString();
