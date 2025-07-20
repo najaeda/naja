@@ -981,7 +981,8 @@ class Instance:
 
     def get_child_instance(self, names: Union[str, list]):
         """
-        :param names: the name of the child instance or the path to the child Instance as alist of names.
+        :param names: the name of the child instance
+            or the path to the child Instance as a list of names.
         :return: the child Instance at the given path or None if it does not exist.
         :rtype: Instance or None
         """
@@ -1451,8 +1452,11 @@ class Instance:
         """Dump the verilog of this instance.
 
         :param str path: the file path where to dump the verilog.
+        :rtype: None
+        :raises ValueError: if the path does not end with .v.
+        :raises FileNotFoundError: if the directory of the path does not exist.
         """
-        #path should be a file path of the form "path/to/file.v"
+        # path should be a file path of the form "path/to/file.v"
         if not path.endswith(".v"):
             raise ValueError("The path must end with .v")
         dir_path = os.path.dirname(path) or "."
@@ -1478,7 +1482,9 @@ def __get_top_db() -> naja.NLDB:
 
 
 def reset():
-    """Reset the environment by deleting everything."""
+    """Reset the environment by deleting everything.
+    :rtype: None
+    """
     u = naja.NLUniverse.get()
     if u is not None:
         u.destroy()
@@ -1559,6 +1565,9 @@ def load_primitives(name: str):
 
     - xilinx
     - yosys
+    :param str name: the name of the primitives library to load.
+    :raises ValueError: if the name is not recognized.
+    :rtype: None
     """
     if name == "xilinx":
         from najaeda.primitives import xilinx
@@ -1618,14 +1627,18 @@ def get_model_name(id: tuple[int, int, int]) -> str:
 
 
 def apply_dle():
-    """Apply the DLE (Dead Logic Elimination) to the top design."""
+    """Apply the DLE (Dead Logic Elimination) to the top design.
+    :rtype: None
+    """
     top = naja.NLUniverse.get().getTopDesign()
     if top is not None:
         naja.NLUniverse.get().applyDLE()
 
 
 def apply_constant_propagation():
-    """Apply constant propagation to the top design."""
+    """Apply constant propagation to the top design.
+    :rtype: None
+    """
     top = naja.NLUniverse.get().getTopDesign()
     if top is not None:
         naja.NLUniverse.get().applyConstantPropagation()
