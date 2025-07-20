@@ -1452,12 +1452,13 @@ class Instance:
 
         :param str path: the file path where to dump the verilog.
         """
+        #path should be a file path of the form "path/to/file.v"
         if not path.endswith(".v"):
             raise ValueError("The path must end with .v")
-        #path should be a file path of the form "path/to/file.v"
-        if not os.path.exists(os.path.dirname(path)):
-            raise FileNotFoundError(f"The directory {os.path.dirname(path)} does not exist")
-        self.__get_snl_model().dumpVerilog(os.path.dirname(path), os.path.basename(path))
+        dir_path = os.path.dirname(path) or "."
+        if not os.path.exists(dir_path):
+            raise FileNotFoundError(f"The directory {dir_path} does not exist")
+        self.__get_snl_model().dumpVerilog(dir_path, os.path.basename(path))
 
     def get_truth_table(self):
         """
