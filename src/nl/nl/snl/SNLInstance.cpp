@@ -360,6 +360,14 @@ bool SNLInstance::isBlackBox() const {
   return getModel()->isBlackBox();
 }
 
+bool SNLInstance::isAutoBlackBox() const {
+  return getModel()->isAutoBlackBox();
+}
+
+bool SNLInstance::isUserBlackBox() const {
+  return getModel()->isUserBlackBox();
+}
+
 bool SNLInstance::isPrimitive() const {
   return getModel()->isPrimitive();
 }

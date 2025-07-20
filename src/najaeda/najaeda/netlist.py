@@ -1526,6 +1526,8 @@ def load_verilog(files: Union[str, List[str]], config: VerilogConfig = None) -> 
     :param files: a list of verilog files to load or a single file.
     :param config: the configuration to use when loading the files.
     :return: the top Instance.
+    :rtype: Instance
+    :raises Exception: if no files are provided.
     """
     if isinstance(files, str):
         files = [files]
@@ -1549,6 +1551,8 @@ def load_liberty(files: Union[str, List[str]]):
     """Load liberty files.
 
     :param files: a list of liberty files to load or a single file.
+    :rtype: None
+    :raises Exception: if no liberty files are provided.
     """
     if isinstance(files, str):
         files = [files]

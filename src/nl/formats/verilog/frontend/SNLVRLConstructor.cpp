@@ -19,6 +19,7 @@
 #include "SNLBusNet.h"
 #include "SNLBusNetBit.h"
 #include "SNLScalarNet.h"
+#include "SNLInstTerm.h"
 #include "SNLInstParameter.h"
 #include "SNLAttributes.h"
 
@@ -187,7 +188,7 @@ naja::NL::SNLDesign* getOrCreateAutoBlackBox(
   if (not model) {
     model = naja::NL::SNLDesign::create(
       autoBlackBoxLibrary,
-      naja::NL::SNLDesign::Type::AutoBlackbox,
+      naja::NL::SNLDesign::Type::AutoBlackBox,
       modelName
     );
   }
@@ -703,14 +704,14 @@ void SNLVRLConstructor::addInstanceConnection(
         if (expression.getSize() > 1) {
           term = SNLBusTerm::create(
             model,
-            SNLTerm::Direction::InOut,
+            SNLTerm::Direction::Undefined,
             expression.getSize()-1,
             0,
             NLName(port.name_));
         } else {
         term = SNLScalarTerm::create(
           model,
-          SNLTerm::Direction::InOut,
+          SNLTerm::Direction::Undefined,
           NLName(port.name_));
         }
       } else {
@@ -880,8 +881,38 @@ void SNLVRLConstructor::endModule() {
     if (config_.blackboxDetection_ and currentModule_->getType() == SNLDesign::Type::Standard) {
       if (currentModule_->getInstances().empty()) {
         if (allNetsArePortNets(currentModule_)) {
-          currentModule_->setType(SNLDesign::Type::UserBlackbox);
+          currentModule_->setType(SNLDesign::Type::UserBlackBox);
           //spdlog::info("Blackbox detected: {}", currentModule_->getName().getString());
+        }
+      }
+    }
+    //Allow unknown designs
+    if (config_.allowUnknownDesigns_ and currentModule_->isStandard()) {
+      for (auto instance: currentModule_->getInstances()) {
+        if (instance->isAutoBlackBox()) {
+          //spdlog::info("Auto blackbox detected: {}", instance->getDesign()->getName().getString());
+          auto model = instance->getModel();
+          for (auto term: model->getTerms()) {
+            if (term->getDirection() == SNLTerm::Direction::Undefined) {
+              if (auto scalarTerm = dynamic_cast<SNLScalarTerm*>(term)) {
+                auto instanceTerm = instance->getInstTerm(scalarTerm);
+                if (instanceTerm) {
+                  auto net = instanceTerm->getNet();
+                  if (net->isConstant()) {
+                    scalarTerm->setDirection(SNLTerm::Direction::Input);
+                  }
+                }
+              }
+              //else if (auto busTerm = dynamic_cast<SNLBusTerm*>(term)) {
+              //  busTerm->setDirection(SNLTerm::Direction::InOut);
+              //} else {
+              //  std::ostringstream reason;
+              //  reason << getLocationString();
+              //  reason << ": " << term->getString() << " is not a bus or scalar term";
+              //  throw SNLVRLConstructorException(reason.str());
+              //}
+            }
+          }
         }
       }
     }

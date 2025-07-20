@@ -60,6 +60,18 @@ TEST_F(SNLVRLConstructorTestAutoBlackBox0, test) {
   auto ins0 = instances[0];
   ASSERT_NE(ins0, nullptr);
   EXPECT_FALSE(ins0->isAnonymous());
+
+  auto model = ins0->getModel();
+  ASSERT_NE(model, nullptr);
+  EXPECT_TRUE(model->isAutoBlackBox());
+  EXPECT_TRUE(model->isBlackBox());
+  EXPECT_EQ(5, model->getTerms().size());
+  
+  auto aTerm = model->getTerm(NLName("A"));
+  ASSERT_NE(aTerm, nullptr);
+  EXPECT_EQ(aTerm->getWidth(), 1);
+  EXPECT_EQ(aTerm->getBits().size(), 1);
+  EXPECT_EQ(SNLTerm::Direction::Input, aTerm->getDirection());
 }
 
 TEST_F(SNLVRLConstructorTestAutoBlackBox0, testLoadAndDump) {
