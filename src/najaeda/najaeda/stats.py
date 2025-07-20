@@ -207,19 +207,19 @@ def compute_instance_stats(instance, instances_stats):
 
 def compute_instance_terms(instance, instance_stats):
     for term in instance.get_terms():
-        if term.get_direction() == netlist.Term.INPUT:
+        if term.get_direction() == netlist.Term.Direction.INPUT:
             instance_stats.terms["inputs"] = instance_stats.terms.get("inputs", 0) + 1
             bit_terms = sum(1 for _ in term.get_bits())
             instance_stats.bit_terms["inputs"] = (
                 instance_stats.bit_terms.get("inputs", 0) + bit_terms
             )
-        elif term.get_direction() == netlist.Term.OUTPUT:
+        elif term.get_direction() == netlist.Term.Direction.OUTPUT:
             instance_stats.terms["outputs"] = instance_stats.terms.get("outputs", 0) + 1
             bit_terms = sum(1 for _ in term.get_bits())
             instance_stats.bit_terms["outputs"] = (
                 instance_stats.bit_terms.get("outputs", 0) + bit_terms
             )
-        elif term.get_direction() == netlist.Term.INOUT:
+        elif term.get_direction() == netlist.Term.Direction.INOUT:
             instance_stats.terms["inouts"] = instance_stats.terms.get("inouts", 0) + 1
             bit_terms = sum(1 for _ in term.get_bits())
             instance_stats.bit_terms["inouts"] = (
