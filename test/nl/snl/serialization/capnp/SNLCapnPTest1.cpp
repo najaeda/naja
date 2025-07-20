@@ -40,6 +40,7 @@ class SNLCapNpTest1: public ::testing::Test {
       NLLibrary* lib4 = NLLibrary::create(lib2);
       SNLDesign* design0 = SNLDesign::create(lib2, NLName("design0"));
       SNLDesign* design1 = SNLDesign::create(lib2, SNLDesign::Type::UserBlackBox);
+      SNLDesign* design2 = SNLDesign::create(lib2, SNLDesign::Type::AutoBlackBox);
       NLLibrary* primitives = NLLibrary::create(db_, NLLibrary::Type::Primitives, NLName("PRIMITIVES"));
       NLLibrary* prims1 = NLLibrary::create(primitives, NLLibrary::Type::Primitives);
       NLLibrary* prims2 = NLLibrary::create(primitives, NLLibrary::Type::Primitives, NLName("prims2"));
@@ -99,6 +100,20 @@ TEST_F(SNLCapNpTest1, test0) {
   EXPECT_TRUE(lib2->isAnonymous());
   EXPECT_EQ(library, lib2->getParentLibrary());
   EXPECT_EQ(2, lib2->getLibraries().size());
+  auto design0 = lib2->getSNLDesign(NLName("design0"));
+  using Designs = std::vector<SNLDesign*>;
+  Designs designs(lib2->getSNLDesigns().begin(), lib2->getSNLDesigns().end());
+  ASSERT_EQ(3, designs.size());
+  auto design0Test = designs[0];
+  EXPECT_EQ(design0, design0Test);
+  auto design1 = designs[1];
+  EXPECT_TRUE(design1->isUserBlackBox());
+  EXPECT_TRUE(design1->isBlackBox());
+  EXPECT_TRUE(design1->isAnonymous());
+  auto design2 = designs[2];
+  EXPECT_TRUE(design2->isAutoBlackBox());
+  EXPECT_TRUE(design2->isBlackBox());
+  EXPECT_TRUE(design2->isAnonymous());
   libraries = Libraries(lib2->getLibraries().begin(), lib2->getLibraries().end());
   ASSERT_EQ(2, libraries.size());
   auto lib3 = libraries[0];

@@ -168,9 +168,6 @@ naja::NL::NLDB0::GateType najaVerilogToNLDB0GateType(const naja::verilog::GateTy
 
 naja::NL::NLLibrary* getOrCreateAutoBlackBoxLibrary(naja::NL::NLLibrary* library) {
   const std::string AUTO_BLACKBOX = "AUTO_BLACKBOX";
-  if (not library) {
-    throw naja::NL::SNLVRLConstructorException("getOrCreateAutoBlackBoxLibrary: parent library is null");
-  }
   auto autoBlackBoxLibrary = library->getLibrary(naja::NL::NLName(AUTO_BLACKBOX));
   if (not autoBlackBoxLibrary) {
     autoBlackBoxLibrary = naja::NL::NLLibrary::create(library, naja::NL::NLName(AUTO_BLACKBOX));
@@ -181,9 +178,6 @@ naja::NL::NLLibrary* getOrCreateAutoBlackBoxLibrary(naja::NL::NLLibrary* library
 naja::NL::SNLDesign* getOrCreateAutoBlackBox(
   naja::NL::NLLibrary* autoBlackBoxLibrary,
   const naja::NL::NLName& modelName) {
-  if (not autoBlackBoxLibrary) {
-    throw naja::NL::SNLVRLConstructorException("getOrCreateAutoBlackBox: autoBlackBoxLibrary is null");
-  }
   auto model = autoBlackBoxLibrary->getSNLDesign(modelName);
   if (not model) {
     model = naja::NL::SNLDesign::create(
