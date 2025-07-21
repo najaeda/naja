@@ -10,6 +10,7 @@ set(NL_SOURCES
   nl/NLUniverse.cpp
   nl/NLDB.cpp nl/NLDB0.cpp
   nl/NLLibrary.cpp
+  nl/NLDesign.cpp
 )
 
 set(SNL_SOURCES
@@ -34,7 +35,18 @@ set(SNL_SOURCES
 )
 
 set(PNL_SOURCES
-  #pnl/PNLPoint.cpp
+  pnl/PNLDesign.cpp
+  pnl/PNLInstance.cpp
+  pnl/PNLDesignObject.cpp
+  pnl/PNLNet.cpp
+  pnl/PNLNetComponent.cpp
+  pnl/PNLTerm.cpp
+  pnl/PNLBitTerm.cpp
+  pnl/PNLBitNet.cpp
+  pnl/PNLInstTerm.cpp
+  pnl/PNLScalarNet.cpp
+  pnl/PNLScalarTerm.cpp
+  pnl/PNLOrientation.cpp
 )
 
 set(DECORATOR_SOURCES
@@ -49,6 +61,7 @@ set(HEADERS
   nl/NLObject.h
   nl/NLLibrary.h
   nl/NLUniverse.h nl/NLDB.h
+  nl/NLDesign.h
   nl/NLException.h
   decorators/NLLibraryTruthTables.h
   snl/SNLAttributes.h
@@ -71,11 +84,28 @@ set(HEADERS
   snl/SNLInstTermOccurrence.h
   snl/SNLEquipotential.h
   pnl/PNLPoint.h
+  pnl/PNLDesign.h
+  pnl/PNLInstance.h
+  pnl/PNLDesignObject.h
+  pnl/PNLNet.h
+  pnl/PNLNetComponent.h
+  pnl/PNLTerm.h
+  pnl/PNLBitTerm.h
+  pnl/PNLBitNet.h
+  pnl/PNLInstTerm.h
+  pnl/PNLScalarNet.h
+  pnl/PNLScalarTerm.h
+  pnl/PNLOrientation.h
+  pnl/PNLTransform.h
+  pnl/PNLBox.h
   decorators/SNLDesignModeling.h
   decorators/SNLTruthTable.h
 )
 
-add_library(naja_nl SHARED ${NL_SOURCES} ${SNL_SOURCES} ${DECORATOR_SOURCES})
+add_library(naja_nl SHARED
+  ${NL_SOURCES} ${SNL_SOURCES} ${PNL_SOURCES}
+  ${DECORATOR_SOURCES}
+)
 
 target_link_libraries(naja_nl PUBLIC naja_core)
 target_compile_options(naja_nl PRIVATE ${NAJA_CXX_WARNINGS}) 

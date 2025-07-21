@@ -69,7 +69,7 @@ class SNLVRLDumperTest0: public ::testing::Test {
 TEST_F(SNLVRLDumperTest0, testNonExistingPath) {
   auto lib = db_->getLibrary(NLName("MYLIB"));  
   ASSERT_TRUE(lib);
-  auto top = lib->getDesign(NLName("design"));
+  auto top = lib->getSNLDesign(NLName("design"));
   ASSERT_TRUE(top);
   std::filesystem::path outPath(SNL_VRL_DUMPER_TEST_PATH);
   outPath = outPath / "ERROR";
@@ -80,7 +80,7 @@ TEST_F(SNLVRLDumperTest0, testNonExistingPath) {
 TEST_F(SNLVRLDumperTest0, testSingleFile) {
   auto lib = db_->getLibrary(NLName("MYLIB"));  
   ASSERT_TRUE(lib);
-  auto top = lib->getDesign(NLName("design"));
+  auto top = lib->getSNLDesign(NLName("design"));
   ASSERT_TRUE(top);
   std::filesystem::path outPath(SNL_VRL_DUMPER_TEST_PATH);
   outPath = outPath / "test0SingleFile";
@@ -105,7 +105,7 @@ TEST_F(SNLVRLDumperTest0, testSingleFile) {
 TEST_F(SNLVRLDumperTest0, testMultipleFiles) {
   auto lib = db_->getLibrary(NLName("MYLIB"));  
   ASSERT_TRUE(lib);
-  auto top = lib->getDesign(NLName("design"));
+  auto top = lib->getSNLDesign(NLName("design"));
   ASSERT_TRUE(top);
   std::filesystem::path outPath(SNL_VRL_DUMPER_TEST_PATH);
   outPath = outPath / "test0MultipleFiles";

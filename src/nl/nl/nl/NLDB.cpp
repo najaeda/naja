@@ -144,17 +144,17 @@ NLLibrary* NLDB::getLibrary(const NLName& name) const {
   return nullptr;
 }
 
-SNLDesign* NLDB::getDesign(const NLID::DBDesignReference& designReference) const {
+SNLDesign* NLDB::getSNLDesign(const NLID::DBDesignReference& designReference) const {
   auto library = getLibrary(designReference.libraryID_);
   if (library) {
-    return library->getDesign(designReference.designID_);
+    return library->getSNLDesign(designReference.designID_);
   }
   return nullptr;
 }
 
-SNLDesign* NLDB::getDesign(const NLName& name) const {
+SNLDesign* NLDB::getSNLDesign(const NLName& name) const {
   for (auto library: getLibraries()) {
-    auto design = library->getDesign(name);
+    auto design = library->getSNLDesign(name);
     if (design) {
       return design;
     }

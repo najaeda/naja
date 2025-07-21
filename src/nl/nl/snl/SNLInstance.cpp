@@ -63,14 +63,14 @@ SNLInstance::SNLInstance(SNLDesign* design, SNLDesign* model, NLID::DesignObject
 
 SNLInstance* SNLInstance::create(SNLDesign* design, SNLDesign* model, const NLName& name) {
   preCreate(design, model, name);
-  SNLInstance* instance = new SNLInstance(design, model, name);
+  auto instance = new SNLInstance(design, model, name);
   instance->postCreateAndSetID();
   return instance;
 }
 
 SNLInstance* SNLInstance::create(SNLDesign* design, SNLDesign* model, NLID::DesignObjectID id, const NLName& name) {
   preCreate(design, model, id, name);
-  SNLInstance* instance = new SNLInstance(design, model, id, name);
+  auto instance = new SNLInstance(design, model, id, name);
   instance->postCreate();
   return instance;
 }

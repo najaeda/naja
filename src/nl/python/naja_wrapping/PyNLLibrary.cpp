@@ -55,17 +55,17 @@ static PyObject* PyNLLibrary_createPrimitives(PyObject*, PyObject* args) {
   return createLibrary(args, NLLibrary::Type::Primitives);
 }
 
-static PyObject* PyNLLibrary_getDesign(PyNLLibrary* self, PyObject* arg) {
+static PyObject* PyNLLibrary_getSNLDesign(PyNLLibrary* self, PyObject* arg) {
   SNLDesign* design = nullptr;
-  METHOD_HEAD("NLLibrary.getDesign()")
+  METHOD_HEAD("NLLibrary.getSNLDesign()")
   if (PyUnicode_Check(arg)) {
     const char* name = PyUnicode_AsUTF8(arg);
-    design = selfObject->getDesign(NLName(name));
+    design = selfObject->getSNLDesign(NLName(name));
   } else if (PyLong_Check(arg)) {
     int index = PyLong_AsLong(arg);
-    design = selfObject->getDesign(index);
+    design = selfObject->getSNLDesign(index);
   } else {
-      setError("invalid number of parameters for getDesign.");
+      setError("invalid number of parameters for getSNLDesign.");
       return nullptr;
   }
   return PySNLDesign_Link(design);
@@ -82,7 +82,7 @@ GetBoolAttribute(NLLibrary, isPrimitives)
 SetNameMethod(NLLibrary)
 GetNameMethod(NLLibrary)
 
-GetContainerMethod(NLLibrary, SNLDesign*, SNLDesigns, Designs)
+GetContainerMethod(NLLibrary, SNLDesign*, SNLDesigns, SNLDesigns)
 
 DBoDeallocMethod(NLLibrary)
 
@@ -108,9 +108,9 @@ PyMethodDef PyNLLibrary_Methods[] = {
     "get Parent DB."},
   { "getLibrary", (PyCFunction)PyNLLibrary_getLibrary, METH_VARARGS,
     "retrieve a NLLibrary."},
-  { "getDesign", (PyCFunction)PyNLLibrary_getDesign, METH_O,
+  { "getSNLDesign", (PyCFunction)PyNLLibrary_getSNLDesign, METH_O,
     "retrieve a SNLDesign."},
-  { "getDesigns", (PyCFunction)PyNLLibrary_getDesigns, METH_NOARGS,
+  { "getSNLDesigns", (PyCFunction)PyNLLibrary_getSNLDesigns, METH_NOARGS,
     "get a container of SNLDesigns."},
   {NULL, NULL, 0, NULL}           /* sentinel */
 };

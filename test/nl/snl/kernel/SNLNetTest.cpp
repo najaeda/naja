@@ -56,8 +56,8 @@ TEST_F(SNLNetTest, testCreation) {
   EXPECT_EQ(NLName("Design"), design_->getName());
   EXPECT_EQ(0, design_->getID());
   EXPECT_FALSE(design_->isAnonymous());
-  EXPECT_EQ(design_, design_->getLibrary()->getDesign(0));
-  EXPECT_EQ(design_, design_->getLibrary()->getDesign(NLName("Design")));
+  EXPECT_EQ(design_, design_->getLibrary()->getSNLDesign(0));
+  EXPECT_EQ(design_, design_->getLibrary()->getSNLDesign(NLName("Design")));
   EXPECT_TRUE(design_->getNets().empty());
   EXPECT_TRUE(design_->getScalarNets().empty());
   EXPECT_TRUE(design_->getScalarNets().getParentTypeCollection<SNLBitNet*>().getSubCollection<SNLScalarNet*>().empty());

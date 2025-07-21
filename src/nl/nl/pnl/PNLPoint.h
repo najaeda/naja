@@ -19,6 +19,18 @@ class PNLPoint {
     bool operator!=(const PNLPoint& other) const {
       return !(*this == other);
     }
+    bool operator<(const PNLPoint& other) const {
+      return (x_ < other.x_) || (x_ == other.x_ && y_ < other.y_);
+    }
+    bool operator>(const PNLPoint& other) const {
+      return (x_ > other.x_) || (x_ == other.x_ && y_ > other.y_);
+    }
+    bool operator<=(const PNLPoint& other) const {
+      return !(*this > other);
+    }
+    bool operator>=(const PNLPoint& other) const {
+      return !(*this < other);
+    }
  
   private:
     Unit  x_;

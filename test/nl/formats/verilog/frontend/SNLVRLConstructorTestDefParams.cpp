@@ -52,8 +52,8 @@ TEST_F(SNLVRLConstructorTestDefParams, test) {
   std::filesystem::path benchmarksPath(SNL_VRL_BENCHMARKS_PATH);
   constructor.construct(benchmarksPath/"test_defparams.v");
 
-  ASSERT_EQ(1, library_->getDesigns().size());
-  auto ins_decode = library_->getDesign(NLName("ins_decode"));
+  ASSERT_EQ(1, library_->getSNLDesigns().size());
+  auto ins_decode = library_->getSNLDesign(NLName("ins_decode"));
   ASSERT_NE(ins_decode, nullptr);
   ASSERT_EQ(5, ins_decode->getInstances().size());
   using Instances = std::vector<SNLInstance*>;
