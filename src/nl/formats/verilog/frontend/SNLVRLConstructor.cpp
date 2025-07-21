@@ -574,8 +574,10 @@ void SNLVRLConstructor::endInstantiation() {
   if (not inFirstPass()) {
     assert(currentInstance_);
     if (config_.verbose_) {
+      //LCOV_EXCL_START
       std::cerr << "End " << currentInstance_->getString() 
-        << " instantiation" << std::endl; //LCOV_EXCL_LINE
+        << " instantiation" << std::endl;
+      //LCOV_EXCL_STOP
     }
     //Save current Parameter assignments
     for (auto parameterValue: currentInstanceParameterValues_) {
