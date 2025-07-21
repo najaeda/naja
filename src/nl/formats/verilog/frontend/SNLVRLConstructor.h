@@ -22,6 +22,14 @@ class SNLScalarNet;
 
 class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
   public:
+    struct Config {
+      bool verbose_             {false};  ///< If true, print debug information.
+      bool blackboxDetection_   {true};   ///< If true, detect blackbox designs.
+      bool allowUnknownDesigns_ {false};  ///< If true, allow unknown designs to be created as blackbox.
+    };
+
+    Config  config_ {};
+
     //As we don't know how many ports are instanciated before reaching
     //the last one, so we need to store all gate instance characteristics
     //before creating it in endInstantiation; 
@@ -47,8 +55,6 @@ class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
     void construct(const Paths& paths);
     void construct(const std::filesystem::path& path);
 
-    void setVerbose(bool verbose) { verbose_ = verbose; }
-    bool getVerbose() const { return verbose_; }
     void setParseAttributes(bool parseAttributes) { parseAttributes_ = parseAttributes; }
     bool getParseAttributes() const { return parseAttributes_; }
 
@@ -93,6 +99,7 @@ class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
       const naja::verilog::Identifier& attributeName,
       const naja::verilog::ConstantExpression& expression) override;
     void endModule() override;
+
   private:
     void createCurrentModuleAssignNets();
     void createConstantNets(
@@ -110,9 +117,7 @@ class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
     
     std::string getLocationString() const;
 
-    bool              verbose_                        {false};
     bool              firstPass_                      {true};
-    bool              blackboxDetection_              {true};
     bool              parseAttributes_                {true};
     NLLibrary*        library_                        {nullptr};
     Attributes        nextObjectAttributes_           {};

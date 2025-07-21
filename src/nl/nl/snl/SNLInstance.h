@@ -77,6 +77,10 @@ class SNLInstance final: public SNLDesignObject {
     bool isAnonymous() const override { return name_.empty(); }
     ///\return true if this SNLInstance is a blackbox.
     bool isBlackBox() const;
+    ///\return true if this SNLInstance is an auto blackbox.
+    bool isAutoBlackBox() const;
+    ///\return true if this SNLInstance is a user instance.
+    bool isUserBlackBox() const;
     ///\return true if this SNLInstance is a primitive.
     bool isPrimitive() const;
     ///\return true if this SNLInstance is a hierarchy leaf (blackbox or primitive).

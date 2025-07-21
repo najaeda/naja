@@ -27,7 +27,7 @@ liberty_files = [
 liberty_files = list(map(lambda p:path.join(benchmarks, 'liberty', p), liberty_files))
     
 netlist.load_liberty(liberty_files)
-top = netlist.load_verilog([path.join(benchmarks, 'verilog', 'tinyrocket.v')])
+top = netlist.load_verilog(path.join(benchmarks, 'verilog', 'tinyrocket.v'))
 
 print_netlist(top)
 

@@ -73,4 +73,4 @@ if __name__ == '__main__':
     end = time.time()
     print('DLE done in', end - start, 'seconds')
 
-    top.dump_verilog("./", "resultDLEwithNajaEDA.v")
+    top.dump_verilog("resultDLEwithNajaEDA.v")

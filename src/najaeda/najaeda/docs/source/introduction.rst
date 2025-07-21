@@ -23,8 +23,7 @@ With **najaeda**, it is possible to:
 * **Prototype EDA Ideas Quickly**:
     * Use an intuitive API to experiment with new EDA concepts and workflows.
 * **Develop Custom EDA Tools**:
-    * Build fast, tailored tools for solving specific challenges
-    without relying on costly, proprietary EDA software.
+    * Build fast, tailored tools for solving specific challenges without relying on costly, proprietary EDA software.
 
 **najaeda** empowers developers to innovate, adapt, and accelerate
 their EDA processes with minimal overhead.
@@ -33,6 +32,15 @@ Information about the **najaeda** PyPI package is available at https://pypi.org/
 
 If you want more details about the underlying **naja** C++ library,
 please visit the **naja** GitHub repository at https://github.com/najaeda/naja .
+
+Quick Start
+===========
+
+To get started with **najaeda**, try out the interactive notebook in Google Colab:
+
+.. image:: https://colab.research.google.com/assets/colab-badge.svg
+   :target: https://colab.research.google.com/github/najaeda/najaeda-tutorials/blob/main/notebooks/01_getting_started.ipynb
+   :alt: Open in Colab
 
 Installation
 ------------

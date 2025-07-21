@@ -38,6 +38,7 @@ size_t dumpDirection(const naja::NL::SNLTerm* term, std::ostream& o) {
       o << "output";
       return std::char_traits<char>::length("output");
     case naja::NL::SNLTerm::Direction::InOut:
+    case naja::NL::SNLTerm::Direction::Undefined:
       o << "inout";
       return std::char_traits<char>::length("inout");
   }

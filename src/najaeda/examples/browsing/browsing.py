@@ -21,7 +21,7 @@ if __name__ == '__main__':
 
     instances = set()
     benchmarks = path.join('..', '..', 'benchmarks')
-    top = netlist.load_verilog([path.join(benchmarks, 'verilog', 'vexriscv.v')])
+    top = netlist.load_verilog(path.join(benchmarks, 'verilog', 'vexriscv.v'))
     
     instance = top.get_child_instance("IBusCachedPlugin_cache")
     
