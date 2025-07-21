@@ -101,6 +101,7 @@ class NajaNetlistTest2(unittest.TestCase):
 
         mod = top.get_child_instance('mod')
         self.assertIsNotNone(mod)
+        self.assertRaises(ValueError, mod.get_child_instance, [])
 
         modI0 = mod.get_term('I0')
         self.assertIsNotNone(modI0)
@@ -140,6 +141,8 @@ class NajaNetlistTest2(unittest.TestCase):
         os.makedirs(bench_dir)
         top = netlist.get_top()
         top.dump_verilog(os.path.join(bench_dir, "netlist2_top0.v"))
+        self.assertRaises(ValueError, top.dump_verilog, "netlist")
+        self.assertRaises(FileNotFoundError, top.dump_verilog, os.path.join("non_existing", "netlist2_top0.v"))
 
     def test_top1(self):
         def create_top():
@@ -239,7 +242,6 @@ class NajaNetlistTest2(unittest.TestCase):
         os.makedirs(bench_dir)
         top = netlist.get_top()
         top.dump_verilog(os.path.join(bench_dir, "netlist2_top1.v"))
-
 
     def test_top2(self):
         def create_top():

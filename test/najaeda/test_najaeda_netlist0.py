@@ -107,7 +107,6 @@ class NajaNetlistTest0(unittest.TestCase):
         if naja.NLUniverse.get():
             naja.NLUniverse.get().destroy()
         
-
     def test_instance(self):
         u = naja.NLUniverse.create()
         db = naja.NLDB.create(u)

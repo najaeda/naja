@@ -989,7 +989,7 @@ class Instance:
         if isinstance(names, str):
             names = [names]
         if not names:
-            return self
+            raise ValueError("Names argument cannot be empty")
         model = self.__get_snl_model()
         path = self.pathIDs.copy()
         for name in names:

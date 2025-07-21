@@ -41,6 +41,9 @@ class SNLCapNpTest1: public ::testing::Test {
       SNLDesign* design0 = SNLDesign::create(lib2, NLName("design0"));
       SNLDesign* design1 = SNLDesign::create(lib2, SNLDesign::Type::UserBlackBox);
       SNLDesign* design2 = SNLDesign::create(lib2, SNLDesign::Type::AutoBlackBox);
+      SNLScalarTerm::create(design2, SNLTerm::Direction::Undefined, NLName("I0"));
+      SNLScalarTerm::create(design2, SNLTerm::Direction::Undefined, NLName("I1"));
+      SNLScalarTerm::create(design2, SNLTerm::Direction::Undefined, NLName("O"));
       NLLibrary* primitives = NLLibrary::create(db_, NLLibrary::Type::Primitives, NLName("PRIMITIVES"));
       NLLibrary* prims1 = NLLibrary::create(primitives, NLLibrary::Type::Primitives);
       NLLibrary* prims2 = NLLibrary::create(primitives, NLLibrary::Type::Primitives, NLName("prims2"));
@@ -114,6 +117,16 @@ TEST_F(SNLCapNpTest1, test0) {
   EXPECT_TRUE(design2->isAutoBlackBox());
   EXPECT_TRUE(design2->isBlackBox());
   EXPECT_TRUE(design2->isAnonymous());
+  EXPECT_EQ(3, design2->getTerms().size());
+  EXPECT_EQ(3, design2->getScalarTerms().size());
+  EXPECT_TRUE(std::all_of(
+    design2->getTerms().begin(),
+    design2->getTerms().end(),
+    [](const auto& term) {
+        return term->getDirection() == SNLTerm::Direction::Undefined;
+    }
+  ));
+
   libraries = Libraries(lib2->getLibraries().begin(), lib2->getLibraries().end());
   ASSERT_EQ(2, libraries.size());
   auto lib3 = libraries[0];
