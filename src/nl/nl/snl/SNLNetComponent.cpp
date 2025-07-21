@@ -19,6 +19,7 @@ std::string SNLNetComponent::Direction::getString() const {
     case Direction::Input: return "Input";
     case Direction::Output: return "Output";
     case Direction::InOut: return "InOut";
+    case Direction::Undefined: return "Undefined";
   }
   return "Unknown";
 }

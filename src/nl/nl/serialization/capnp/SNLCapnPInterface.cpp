@@ -71,6 +71,8 @@ Direction SNLtoCapnPDirection(SNLTerm::Direction direction) {
       return Direction::OUTPUT;
     case SNLTerm::Direction::InOut:
       return Direction::INOUT;
+    case SNLTerm::Direction::Undefined:
+      return Direction::UNDEFINED;
   }
   return Direction::INPUT; //LCOV_EXCL_LINE
 }
@@ -127,8 +129,10 @@ DesignType SNLtoCapNpDesignType(SNLDesign::Type type) {
       return DesignType::STANDARD;
     case SNLDesign::Type::Primitive:
       return DesignType::PRIMITIVE;
-    case SNLDesign::Type::Blackbox:
-      return DesignType::BLACKBOX;
+    case SNLDesign::Type::UserBlackBox:
+      return DesignType::USER_BLACKBOX;
+    case SNLDesign::Type::AutoBlackBox:
+      return DesignType::AUTO_BLACKBOX;
   }
   return DesignType::STANDARD; //LCOV_EXCL_LINE
 }
@@ -222,8 +226,10 @@ SNLDesign::Type CapnPtoSNLDesignType(DesignType type) {
   switch (type) {
     case DesignType::STANDARD:
       return SNLDesign::Type::Standard;
-    case DesignType::BLACKBOX: 
-      return SNLDesign::Type::Blackbox;
+    case DesignType::USER_BLACKBOX: 
+      return SNLDesign::Type::UserBlackBox;
+    case DesignType::AUTO_BLACKBOX: 
+      return SNLDesign::Type::AutoBlackBox;
     case DesignType::PRIMITIVE: 
       return SNLDesign::Type::Primitive;
   }
@@ -238,8 +244,10 @@ SNLTerm::Direction CapnPtoSNLDirection(Direction direction) {
       return SNLTerm::Direction::Output;
     case Direction::INOUT:
       return SNLTerm::Direction::InOut;
+    case Direction::UNDEFINED:
+      return SNLTerm::Direction::Undefined;
   }
-  return SNLTerm::Direction::Input; //LCOV_EXCL_LINE
+  return SNLTerm::Direction::Undefined; //LCOV_EXCL_LINE
 }
 
 SNLParameter::Type CapnPtoSNLParameterType(SNLDesignInterface::ParameterType type) {

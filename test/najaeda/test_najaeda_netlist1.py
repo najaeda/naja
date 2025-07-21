@@ -135,8 +135,8 @@ class NajaNetlistTest1(unittest.TestCase):
         self.assertEqual(i1.get_lsb(), 0)
         self.assertEqual(i1.get_msb(), 1)
         self.assertEqual(i1.get_width(), 2)
-        self.assertEqual(i1.get_direction(), netlist.Term.INPUT)
-        
+        self.assertEqual(i1.get_direction(), netlist.Term.Direction.INPUT)
+
         o = top.get_term('O')
         self.assertIsNotNone(o)
         self.assertTrue(o.is_output())
@@ -144,7 +144,7 @@ class NajaNetlistTest1(unittest.TestCase):
         self.assertTrue(o.is_scalar())
         self.assertFalse(o.is_bus_bit())
         self.assertTrue(o.is_bit())
-        self.assertEqual(o.get_direction(), netlist.Term.OUTPUT)
+        self.assertEqual(o.get_direction(), netlist.Term.Direction.OUTPUT)
         self.assertEqual(o.get_name(), 'O')
         self.assertEqual(o.get_width(), 1)
         self.assertIsNone(o.get_lsb())
@@ -188,6 +188,7 @@ class NajaNetlistTest1(unittest.TestCase):
         #self.assertLess(i0Net, i1Net)
         #self.assertLessEqual(i0Net, i1Net)
         ins0 = top.get_child_instance('Ins0')
+        self.assertEqual(ins0, top.get_child_instance(['Ins0']))
         self.assertIsNotNone(ins0)
         self.assertEqual('Ins0', ins0.get_name())
         self.assertEqual('Module0', ins0.get_model_name())
@@ -274,7 +275,7 @@ class NajaNetlistTest1(unittest.TestCase):
             shutil.rmtree(bench_dir)
         os.makedirs(bench_dir)
         top = netlist.get_top()
-        top.dump_verilog(os.path.join(bench_dir), "netlist1.v")
+        top.dump_verilog(os.path.join(bench_dir, "netlist1.v"))
 
     def testInstanceVisitor(self):
         top = netlist.get_top()

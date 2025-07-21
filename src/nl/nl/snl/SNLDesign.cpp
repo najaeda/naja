@@ -33,7 +33,8 @@ SNLDesign::Type::Type(const TypeEnum& typeEnum):
 std::string SNLDesign::Type::getString() const {
   switch (typeEnum_) {
     case Type::Standard: return "Standard";
-    case Type::Blackbox: return "Blackbox";
+    case Type::UserBlackBox: return "UserBlackBox";
+    case Type::AutoBlackBox: return "AutoBlackBox";
     case Type::Primitive: return "Primitive";
   }
   return "Unknown";

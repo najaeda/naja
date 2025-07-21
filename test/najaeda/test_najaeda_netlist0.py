@@ -107,7 +107,6 @@ class NajaNetlistTest0(unittest.TestCase):
         if naja.NLUniverse.get():
             naja.NLUniverse.get().destroy()
         
-
     def test_instance(self):
         u = naja.NLUniverse.create()
         db = naja.NLDB.create(u)
@@ -220,7 +219,7 @@ class NajaNetlistTest0(unittest.TestCase):
         for output in instance.get_output_terms():
             self.assertTrue(output.is_output())
             self.assertFalse(output.is_input())
-            self.assertTrue(output.get_direction() == naja.SNLTerm.Direction.Output)
+            self.assertTrue(output.get_direction() == netlist.Term.Direction.OUTPUT)
             outputCount += 1
 
         self.assertEqual(outputCount, 2)

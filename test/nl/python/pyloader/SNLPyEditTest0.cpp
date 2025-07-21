@@ -26,7 +26,7 @@ class SNLPyDBEditTest0: public ::testing::Test {
       auto top = SNLDesign::create(designsLibrary, NLName("top"));
       auto inst0 = SNLInstance::create(top, prim0, NLName("instance0"));
       auto bbox = SNLDesign::create(designsLibrary, NLName("bbox"));
-      bbox->setType(SNLDesign::Type::Blackbox);
+      bbox->setType(SNLDesign::Type::UserBlackBox);
       auto inst1 = SNLInstance::create(top, bbox, NLName("instance1"));
       auto inst2 = SNLInstance::create(top, NLDB0::getAssign(), NLName("instance2"));
       universe->setTopDesign(top);
