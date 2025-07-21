@@ -548,6 +548,7 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationNonBNE) {
   cp.setNormalizedUniquification(false);
   // 13. collect the constants
   cp.collectConstants();
+
   //EXPECT_EQ(cp.getConstants1().size(), 1);
   //EXPECT_EQ(cp.getConstants0().size(), 1);
   // 14. run the constant propagation
@@ -571,9 +572,1032 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationNonBNE) {
   //EXPECT_EQ(topOut->getNet()->getType(), naja::SNL::SNLNet::Type::Assign0);
 }
 
+TEST_F(ConstantPropagationTests, TestAndFull) {
+  // 1. Create SNL
+  NLUniverse* univ = NLUniverse::create();
+  NLDB* db = NLDB::create(univ);
+  NLLibrary* library = NLLibrary::create(db, NLLibrary::Type::Primitives, NLName("nangate45"));
+  // 2. Create a top model with one output
+  SNLDesign* top = SNLDesign::create(library, SNLDesign::Type::Primitive, NLName("top"));
+  univ->setTopDesign(top);
+  auto topOut00 =
+      SNLScalarTerm::create(top, SNLTerm::Direction::Output, NLName("out00"));
+
+  auto topOut01 =
+      SNLScalarTerm::create(top, SNLTerm::Direction::Output, NLName("out01"));
+      
+  auto topOut02 =
+      SNLScalarTerm::create(top, SNLTerm::Direction::Output, NLName("out02"));    
+
+  auto topOut03 =
+      SNLScalarTerm::create(top, SNLTerm::Direction::Output, NLName("out03"));
+
+  auto topOut04 =
+      SNLScalarTerm::create(top, SNLTerm::Direction::Output, NLName("out04"));
+
+  auto topOut05 =
+      SNLScalarTerm::create(top, SNLTerm::Direction::Output, NLName("out05"));
+
+
+  auto topOut06 =
+      SNLScalarTerm::create(top, SNLTerm::Direction::Output, NLName("out06"));
+
+  auto topOut07 =
+      SNLScalarTerm::create(top, SNLTerm::Direction::Output, NLName("out07"));        
+
+  auto topOut08 =
+      SNLScalarTerm::create(top, SNLTerm::Direction::Output, NLName("out08"));
+
+  auto topIn =
+      SNLScalarTerm::create(top, SNLTerm::Direction::Input, NLName("in"));    
+
+  // 3. create a logic_0 model
+  // need to create additional top outputs for every logic gate (EILON)
+  
+  SNLDesign* logic0 = SNLDesign::create(library, SNLDesign::Type::Primitive, NLName("LOGIC0"));
+  
+  // add output to logic0
+  auto logic0Out =
+      SNLScalarTerm::create(logic0, SNLTerm::Direction::Output, NLName("out"));
+  // 4. create a logic_1 model
+  SNLDesign* logic1 = SNLDesign::create(library, SNLDesign::Type::Primitive, NLName("LOGIC1"));
+  // add output to logic0
+  auto logic1Out =
+      SNLScalarTerm::create(logic1, SNLTerm::Direction::Output, NLName("out"));
+  
+
+  
+  // 5. create a logic_0 instace in top
+  SNLInstance* instLogic0 = SNLInstance::create(top, logic0, NLName("logic0"));
+  // 6. create a logic_1 instace in top
+  SNLInstance* instLogic1 = SNLInstance::create(top, logic1, NLName("logic1"));
+  // 7. create a and model
+
+
+
+  SNLDesign* andModel = SNLDesign::create(library, SNLDesign::Type::Primitive, NLName("AND"));
+  // add 2 inputs and 1 output to and
+  auto andIn1 = SNLScalarTerm::create(andModel, SNLTerm::Direction::Input,
+                                      NLName("in1"));
+  auto andIn2 = SNLScalarTerm::create(andModel, SNLTerm::Direction::Input,
+                                      NLName("in2"));
+  auto andOut = SNLScalarTerm::create(andModel, SNLTerm::Direction::Output,
+                                      NLName("out"));
+
+
+  SNLDesignTruthTable::setTruthTable(logic0, SNLTruthTable(0,0));
+  SNLDesignTruthTable::setTruthTable(logic1, SNLTruthTable(0,1));
+  SNLDesignTruthTable::setTruthTable(andModel, SNLTruthTable(2,8));
+  NLLibraryTruthTables::construct(library);
+  
+  // SNLDesign* andModel1 = SNLDesign::create(library, SNLDesign::Type::Primitive, NLName("AND1"));
+  // // add 2 inputs and 1 output to and
+  // auto and1In1 = SNLScalarTerm::create(andModel, SNLTerm::Direction::Input,
+  //                                     NLName("1in1"));
+  // auto and1In2 = SNLScalarTerm::create(andModel, SNLTerm::Direction::Input,
+  //                                     NLName("1in2"));
+  // auto and1Out = SNLScalarTerm::create(andModel, SNLTerm::Direction::Output,
+  //                                     NLName("1out"));            
+
+
+  // SNLDesign* andModel2 = SNLDesign::create(library, SNLDesign::Type::Primitive, NLName("AND2"));
+  // // add 2 inputs and 1 output to and
+  // auto and2In1 = SNLScalarTerm::create(andModel, SNLTerm::Direction::Input,
+  //                                     NLName("2in1"));
+  // auto and2In2 = SNLScalarTerm::create(andModel, SNLTerm::Direction::Input,
+  //                                     NLName("2in2"));
+  // auto and2Out = SNLScalarTerm::create(andModel, SNLTerm::Direction::Output,
+  //                                     NLName("2out"));                                                                
+  // //Repeat 7 for all types in constant propagation code with paying atttention to the port names that are used in the ConstatPropagation.cpp
+  // // 7. create a and model for or
+  // SNLDesign* andModel3 = SNLDesign::create(library, SNLDesign::Type::Primitive, NLName("AND3"));
+  // // add 2 inputs and 1 output to and
+  // auto and3In1 = SNLScalarTerm::create(andModel, SNLTerm::Direction::Input,
+  //                                     NLName("3in1"));
+  // auto and3In2 = SNLScalarTerm::create(andModel, SNLTerm::Direction::Input,
+  //                                     NLName("3in2"));
+  // auto and3Out = SNLScalarTerm::create(andModel, SNLTerm::Direction::Output,
+  //                                     NLName("3out"));    
+
+
+  // SNLDesign* andModel4 = SNLDesign::create(library, SNLDesign::Type::Primitive, NLName("AND4"));
+  // // add 2 inputs and 1 output to and
+  // auto and4In1 = SNLScalarTerm::create(andModel, SNLTerm::Direction::Input,
+  //                                     NLName("4in1"));
+  // auto and4In2 = SNLScalarTerm::create(andModel, SNLTerm::Direction::Input,
+  //                                     NLName("4in2"));
+  // auto and4Out = SNLScalarTerm::create(andModel, SNLTerm::Direction::Output,
+  //                                     NLName("4out")); 
+
+  // SNLDesign* andModel5 = SNLDesign::create(library, SNLDesign::Type::Primitive, NLName("AND5"));
+  // // add 2 inputs and 1 output to and
+  // auto and5In1 = SNLScalarTerm::create(andModel, SNLTerm::Direction::Input,
+  //                                     NLName("5in1"));
+  // auto and5In2 = SNLScalarTerm::create(andModel, SNLTerm::Direction::Input,
+  //                                     NLName("5in2"));
+  // auto and5Out = SNLScalarTerm::create(andModel, SNLTerm::Direction::Output,
+  //                                     NLName("5out"));                                           
+
+  // SNLDesign* andModel6 = SNLDesign::create(library, SNLDesign::Type::Primitive, NLName("AND6"));
+  // // add 2 inputs and 1 output to and
+  // auto and6In1 = SNLScalarTerm::create(andModel, SNLTerm::Direction::Input,
+  //                                     NLName("6in1"));
+  // auto and6In2 = SNLScalarTerm::create(andModel, SNLTerm::Direction::Input,
+  //                                     NLName("6in2"));
+  // auto and6Out = SNLScalarTerm::create(andModel, SNLTerm::Direction::Output,
+  //                                     NLName("6out"));    
+
+  // SNLDesign* andModel7 = SNLDesign::create(library, SNLDesign::Type::Primitive, NLName("AND7"));
+  // // add 2 inputs and 1 output to and
+  // auto and7In1 = SNLScalarTerm::create(andModel, SNLTerm::Direction::Input,
+  //                                     NLName("7in1"));
+  // auto and7In2 = SNLScalarTerm::create(andModel, SNLTerm::Direction::Input,
+  //                                     NLName("7in2"));
+  // auto and7Out = SNLScalarTerm::create(andModel, SNLTerm::Direction::Output,
+  //                                     NLName("7out"));
+  
+  // SNLDesign* andModel8 = SNLDesign::create(library, SNLDesign::Type::Primitive, NLName("AND8"));
+  // // add 2 inputs and 1 output to and
+  // auto and8In1 = SNLScalarTerm::create(andModel, SNLTerm::Direction::Input,
+  //                                     NLName("8in1"));
+  // auto and8In2 = SNLScalarTerm::create(andModel, SNLTerm::Direction::Input,
+  //                                     NLName("8in2"));
+  // auto and8Out = SNLScalarTerm::create(andModel, SNLTerm::Direction::Output,
+  //                                     NLName("8out"));    
+  
+     
+
+  // create a and instance in top
+  SNLInstance* instAnd00 = SNLInstance::create(top, andModel, NLName("and00"));
+
+  SNLInstance* instAnd01 = SNLInstance::create(top, andModel, NLName("and01"));
+
+  SNLInstance* instAnd02 = SNLInstance::create(top, andModel, NLName("and02"));
+
+  SNLInstance* instAnd03 = SNLInstance::create(top, andModel, NLName("and03"));
+
+  SNLInstance* instAnd04 = SNLInstance::create(top, andModel, NLName("and04"));
+
+  SNLInstance* instAnd05 = SNLInstance::create(top, andModel, NLName("and05"));
+
+  SNLInstance* instAnd06 = SNLInstance::create(top, andModel, NLName("and06"));
+
+  SNLInstance* instAnd07 = SNLInstance::create(top, andModel, NLName("and07"));
+
+  SNLInstance* instAnd08 = SNLInstance::create(top, andModel, NLName("and08"));
+
+
+
+
+
+ 
+
+
+
+
+  
+  // create a or instance in top
+ 
+
+  // 9. connect all instances inputs 
+  SNLNet* netlogic0 = SNLScalarNet::create(top, NLName("logic_0_net"));
+  netlogic0->setType(SNLNet::Type::Assign0);
+  SNLNet* netlogic1 = SNLScalarNet::create(top, NLName("logic_1_net"));
+  netlogic1->setType(SNLNet::Type::Assign1);
+  SNLNet* netlogicx = SNLScalarNet::create(top, NLName("logic_x_net"));
+  SNLNet* netOut00 = SNLScalarNet::create(top, NLName("out00_net"));
+  SNLNet* netOut01 = SNLScalarNet::create(top, NLName("out01_net"));
+  SNLNet* netOut02 = SNLScalarNet::create(top, NLName("out02_net"));
+  SNLNet* netOut03 = SNLScalarNet::create(top, NLName("out03_net"));
+  SNLNet* netOut04 = SNLScalarNet::create(top, NLName("out04_net"));
+  SNLNet* netOut05 = SNLScalarNet::create(top, NLName("out05_net"));
+  SNLNet* netOut06 = SNLScalarNet::create(top, NLName("out06_net"));
+  SNLNet* netOut07 = SNLScalarNet::create(top, NLName("out07_net"));
+  SNLNet* netOut08 = SNLScalarNet::create(top, NLName("out08_net"));
+  
+  
+
+
+
+  SNLNet* netand0 = SNLScalarNet::create(top, NLName("and_output_net"));
+  SNLNet* netand1 = SNLScalarNet::create(top, NLName("and_output_net1"));
+  SNLNet* netand2 = SNLScalarNet::create(top, NLName("and_output_net2"));
+  SNLNet* netand3 = SNLScalarNet::create(top, NLName("and_output_net3"));
+  SNLNet* netand4 = SNLScalarNet::create(top, NLName("and_output_net4"));
+  SNLNet* netand5 = SNLScalarNet::create(top, NLName("and_output_net5"));
+  SNLNet* netand6 = SNLScalarNet::create(top, NLName("and_output_net6"));
+  SNLNet* netand7 = SNLScalarNet::create(top, NLName("and_output_net7"));
+  SNLNet* netand8 = SNLScalarNet::create(top, NLName("and_output_net8"));
+
+
+  // connect logic0 to and
+  instLogic0->getInstTerm(logic0Out)->setNet(netlogic0);
+  instAnd00->getInstTerm(andIn1)->setNet(netlogic0);
+  instAnd00->getInstTerm(andIn2)->setNet(netlogic0);
+  instAnd01->getInstTerm(andIn1)->setNet(netlogic0);
+  instAnd02->getInstTerm(andIn1)->setNet(netlogic0);
+  instAnd03->getInstTerm(andIn2)->setNet(netlogic0);
+  instAnd06->getInstTerm(andIn2)->setNet(netlogic0);
+
+
+
+
+  
+  
+  
+
+  // connect logic1 to all gate inputs
+  instLogic1->getInstTerm(logic1Out)->setNet(netlogic1);
+  instAnd01->getInstTerm(andIn2)->setNet(netlogic1);
+  instAnd03->getInstTerm(andIn1)->setNet(netlogic1);
+  instAnd04->getInstTerm(andIn1)->setNet(netlogic1);
+  instAnd04->getInstTerm(andIn2)->setNet(netlogic1);
+  instAnd05->getInstTerm(andIn1)->setNet(netlogic1);
+  instAnd07->getInstTerm(andIn2)->setNet(netlogic1);
+
+  topIn->setNet(netlogicx);
+  instAnd02->getInstTerm(andIn2)->setNet(netlogicx);
+  instAnd05->getInstTerm(andIn2)->setNet(netlogicx);
+  instAnd06->getInstTerm(andIn1)->setNet(netlogicx);
+  instAnd07->getInstTerm(andIn1)->setNet(netlogicx);
+  instAnd08->getInstTerm(andIn1)->setNet(netlogicx);
+  instAnd08->getInstTerm(andIn2)->setNet(netlogicx);
+  
+  topOut00->setNet(netOut00);
+  instAnd00->getInstTerm(andOut)->setNet(netOut00);
+  
+  topOut01->setNet(netOut01);
+  instAnd01->getInstTerm(andOut)->setNet(netOut01);
+  
+  topOut02->setNet(netOut02);
+  instAnd02->getInstTerm(andOut)->setNet(netOut02);
+  
+  topOut03->setNet(netOut03);
+  instAnd03->getInstTerm(andOut)->setNet(netOut03);
+  
+  topOut04->setNet(netOut04);
+  instAnd04->getInstTerm(andOut)->setNet(netOut04);
+  
+  topOut05->setNet(netOut05);
+  instAnd05->getInstTerm(andOut)->setNet(netOut05);
+  
+  topOut06->setNet(netOut06);
+  instAnd06->getInstTerm(andOut)->setNet(netOut06);
+  
+  topOut07->setNet(netOut07);
+  instAnd07->getInstTerm(andOut)->setNet(netOut07);
+  
+  topOut08->setNet(netOut08);
+  instAnd08->getInstTerm(andOut)->setNet(netOut08);
+
+
+  
+
+ 
+
+  // 10. connect the and instance output to the top output
+//   instAnd00->getInstTerm(andOut)->setNet(netand);
+//   topOut->setNet(netand);
+  //inst4->getInstTerm(orOut)->setNet(net4);
+  //topOut2->setNet(net4);
+  // 11. create DNL
+  get();
+  // 12. create a constant propagation object
+  {
+    std::string dotFileName(
+        std::string(std::string("./TestAndFullbeforeCP") + std::string(".dot")));
+    std::string svgFileName(
+        std::string(std::string("./TestAndFullbeforeCP") + std::string(".svg")));
+    SnlVisualiser snl(top);
+    snl.process();
+    snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
+    executeCommand(std::string(std::string("dot -Tsvg ") + dotFileName +
+                       std::string(" -o ") + svgFileName)
+               .c_str());
+  }
+  ConstantPropagation cp;
+  cp.setTruthTableEngine(true);   
+  // 13. collect the constants
+  cp.collectConstants();
+  //EXPECT_EQ(cp.getConstants1().size(), 1);
+  //EXPECT_EQ(cp.getConstants0().size(), 1);
+  // 14. run the constant propagation
+  cp.run();
+  // 15. check the output value of the top instance
+  {
+    std::string dotFileName(
+        std::string(std::string("./TestAndFullafterCP") + std::string(".dot")));
+    std::string svgFileName(
+        std::string(std::string("./TestAndFullafterCP") + std::string(".svg")));
+    SnlVisualiser snl(top);
+    snl.process();
+    snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
+    executeCommand(std::string(std::string("dot -Tsvg ") + dotFileName +
+                       std::string(" -o ") + svgFileName)
+               .c_str());
+  }
+  //EXPECT_EQ(cp.getConstants1().size(), 1);
+  //EXPECT_EQ(cp.getConstants0().size(), 2);
+  //EXPECT_EQ(topOut->getNet()->getInstTerms().size(), 0);
+  //EXPECT_EQ(topOut->getNet()->getType(), naja::SNL::SNLNet::Type::Assign0);
+}
+
+
+
+
+
+
 //Seperate the test case above for tests for each type in the constant propagation code
 
 // Test constat propagation for AND
+
+
+TEST_F(ConstantPropagationTests, TestorFull) {
+  // 1. Create SNL
+  NLUniverse* univ = NLUniverse::create();
+  NLDB* db = NLDB::create(univ);
+  NLLibrary* library = NLLibrary::create(db, NLLibrary::Type::Primitives, NLName("nangate45"));
+  // 2. Create a top model with one output
+  SNLDesign* top = SNLDesign::create(library, SNLDesign::Type::Primitive, NLName("top"));
+  univ->setTopDesign(top);
+  auto topOut00 =
+      SNLScalarTerm::create(top, SNLTerm::Direction::Output, NLName("out00"));
+
+  auto topOut01 =
+      SNLScalarTerm::create(top, SNLTerm::Direction::Output, NLName("out01"));
+      
+  auto topOut02 =
+      SNLScalarTerm::create(top, SNLTerm::Direction::Output, NLName("out02"));    
+
+  auto topOut03 =
+      SNLScalarTerm::create(top, SNLTerm::Direction::Output, NLName("out03"));
+
+  auto topOut04 =
+      SNLScalarTerm::create(top, SNLTerm::Direction::Output, NLName("out04"));
+
+  auto topOut05 =
+      SNLScalarTerm::create(top, SNLTerm::Direction::Output, NLName("out05"));
+
+
+  auto topOut06 =
+      SNLScalarTerm::create(top, SNLTerm::Direction::Output, NLName("out06"));
+
+  auto topOut07 =
+      SNLScalarTerm::create(top, SNLTerm::Direction::Output, NLName("out07"));        
+
+  auto topOut08 =
+      SNLScalarTerm::create(top, SNLTerm::Direction::Output, NLName("out08"));
+
+  auto topIn =
+      SNLScalarTerm::create(top, SNLTerm::Direction::Input, NLName("in"));    
+
+  // 3. create a logic_0 model
+  // need to create additional top outputs for every logic gate (EILON)
+  
+  SNLDesign* logic0 = SNLDesign::create(library, SNLDesign::Type::Primitive, NLName("LOGIC0"));
+  
+  // add output to logic0
+  auto logic0Out =
+      SNLScalarTerm::create(logic0, SNLTerm::Direction::Output, NLName("out"));
+  // 4. create a logic_1 model
+  SNLDesign* logic1 = SNLDesign::create(library, SNLDesign::Type::Primitive, NLName("LOGIC1"));
+  // add output to logic0
+  auto logic1Out =
+      SNLScalarTerm::create(logic1, SNLTerm::Direction::Output, NLName("out"));
+  
+
+  
+  // 5. create a logic_0 instace in top
+  SNLInstance* instLogic0 = SNLInstance::create(top, logic0, NLName("logic0"));
+  // 6. create a logic_1 instace in top
+  SNLInstance* instLogic1 = SNLInstance::create(top, logic1, NLName("logic1"));
+  // 7. create a and model
+
+
+
+  SNLDesign* orModel = SNLDesign::create(library, SNLDesign::Type::Primitive, NLName("OR"));
+  // add 2 inputs and 1 output to and
+  auto orIn1 = SNLScalarTerm::create(orModel, SNLTerm::Direction::Input,
+                                      NLName("in1"));
+  auto orIn2 = SNLScalarTerm::create(orModel, SNLTerm::Direction::Input,
+                                      NLName("in2"));
+  auto orOut = SNLScalarTerm::create(orModel, SNLTerm::Direction::Output,
+                                      NLName("out"));
+
+
+  SNLDesignTruthTable::setTruthTable(logic0, SNLTruthTable(0,0));
+  SNLDesignTruthTable::setTruthTable(logic1, SNLTruthTable(0,1));
+  SNLDesignTruthTable::setTruthTable(orModel, SNLTruthTable(2,14));
+  NLLibraryTruthTables::construct(library);
+  
+  // SNLDesign* andModel1 = SNLDesign::create(library, SNLDesign::Type::Primitive, NLName("AND1"));
+  // // add 2 inputs and 1 output to and
+  // auto and1In1 = SNLScalarTerm::create(andModel, SNLTerm::Direction::Input,
+  //                                     NLName("1in1"));
+  // auto and1In2 = SNLScalarTerm::create(andModel, SNLTerm::Direction::Input,
+  //                                     NLName("1in2"));
+  // auto and1Out = SNLScalarTerm::create(andModel, SNLTerm::Direction::Output,
+  //                                     NLName("1out"));            
+
+
+  // SNLDesign* andModel2 = SNLDesign::create(library, SNLDesign::Type::Primitive, NLName("AND2"));
+  // // add 2 inputs and 1 output to and
+  // auto and2In1 = SNLScalarTerm::create(andModel, SNLTerm::Direction::Input,
+  //                                     NLName("2in1"));
+  // auto and2In2 = SNLScalarTerm::create(andModel, SNLTerm::Direction::Input,
+  //                                     NLName("2in2"));
+  // auto and2Out = SNLScalarTerm::create(andModel, SNLTerm::Direction::Output,
+  //                                     NLName("2out"));                                                                
+  // //Repeat 7 for all types in constant propagation code with paying atttention to the port names that are used in the ConstatPropagation.cpp
+  // // 7. create a and model for or
+  // SNLDesign* andModel3 = SNLDesign::create(library, SNLDesign::Type::Primitive, NLName("AND3"));
+  // // add 2 inputs and 1 output to and
+  // auto and3In1 = SNLScalarTerm::create(andModel, SNLTerm::Direction::Input,
+  //                                     NLName("3in1"));
+  // auto and3In2 = SNLScalarTerm::create(andModel, SNLTerm::Direction::Input,
+  //                                     NLName("3in2"));
+  // auto and3Out = SNLScalarTerm::create(andModel, SNLTerm::Direction::Output,
+  //                                     NLName("3out"));    
+
+
+  // SNLDesign* andModel4 = SNLDesign::create(library, SNLDesign::Type::Primitive, NLName("AND4"));
+  // // add 2 inputs and 1 output to and
+  // auto and4In1 = SNLScalarTerm::create(andModel, SNLTerm::Direction::Input,
+  //                                     NLName("4in1"));
+  // auto and4In2 = SNLScalarTerm::create(andModel, SNLTerm::Direction::Input,
+  //                                     NLName("4in2"));
+  // auto and4Out = SNLScalarTerm::create(andModel, SNLTerm::Direction::Output,
+  //                                     NLName("4out")); 
+
+  // SNLDesign* andModel5 = SNLDesign::create(library, SNLDesign::Type::Primitive, NLName("AND5"));
+  // // add 2 inputs and 1 output to and
+  // auto and5In1 = SNLScalarTerm::create(andModel, SNLTerm::Direction::Input,
+  //                                     NLName("5in1"));
+  // auto and5In2 = SNLScalarTerm::create(andModel, SNLTerm::Direction::Input,
+  //                                     NLName("5in2"));
+  // auto and5Out = SNLScalarTerm::create(andModel, SNLTerm::Direction::Output,
+  //                                     NLName("5out"));                                           
+
+  // SNLDesign* andModel6 = SNLDesign::create(library, SNLDesign::Type::Primitive, NLName("AND6"));
+  // // add 2 inputs and 1 output to and
+  // auto and6In1 = SNLScalarTerm::create(andModel, SNLTerm::Direction::Input,
+  //                                     NLName("6in1"));
+  // auto and6In2 = SNLScalarTerm::create(andModel, SNLTerm::Direction::Input,
+  //                                     NLName("6in2"));
+  // auto and6Out = SNLScalarTerm::create(andModel, SNLTerm::Direction::Output,
+  //                                     NLName("6out"));    
+
+  // SNLDesign* andModel7 = SNLDesign::create(library, SNLDesign::Type::Primitive, NLName("AND7"));
+  // // add 2 inputs and 1 output to and
+  // auto and7In1 = SNLScalarTerm::create(andModel, SNLTerm::Direction::Input,
+  //                                     NLName("7in1"));
+  // auto and7In2 = SNLScalarTerm::create(andModel, SNLTerm::Direction::Input,
+  //                                     NLName("7in2"));
+  // auto and7Out = SNLScalarTerm::create(andModel, SNLTerm::Direction::Output,
+  //                                     NLName("7out"));
+  
+  // SNLDesign* andModel8 = SNLDesign::create(library, SNLDesign::Type::Primitive, NLName("AND8"));
+  // // add 2 inputs and 1 output to and
+  // auto and8In1 = SNLScalarTerm::create(andModel, SNLTerm::Direction::Input,
+  //                                     NLName("8in1"));
+  // auto and8In2 = SNLScalarTerm::create(andModel, SNLTerm::Direction::Input,
+  //                                     NLName("8in2"));
+  // auto and8Out = SNLScalarTerm::create(andModel, SNLTerm::Direction::Output,
+  //                                     NLName("8out"));    
+  
+     
+
+  // create a and instance in top
+  SNLInstance* instOr00 = SNLInstance::create(top, orModel, NLName("or00"));
+
+  SNLInstance* instOr01 = SNLInstance::create(top, orModel, NLName("or01"));
+
+  SNLInstance* instOr02 = SNLInstance::create(top, orModel, NLName("or02"));
+
+  SNLInstance* instOr03 = SNLInstance::create(top, orModel, NLName("or03"));
+
+  SNLInstance* instOr04 = SNLInstance::create(top, orModel, NLName("or04"));
+
+  SNLInstance* instOr05 = SNLInstance::create(top, orModel, NLName("or05"));
+
+  SNLInstance* instOr06 = SNLInstance::create(top, orModel, NLName("or06"));
+
+  SNLInstance* instOr07 = SNLInstance::create(top, orModel, NLName("or07"));
+
+  SNLInstance* instOr08 = SNLInstance::create(top, orModel, NLName("or08"));
+
+
+
+
+
+ 
+
+
+
+
+  
+  // create a or instance in top
+ 
+
+  // 9. connect all instances inputs 
+  SNLNet* netlogic0 = SNLScalarNet::create(top, NLName("logic_0_net"));
+  netlogic0->setType(SNLNet::Type::Assign0);
+  SNLNet* netlogic1 = SNLScalarNet::create(top, NLName("logic_1_net"));
+  netlogic1->setType(SNLNet::Type::Assign1);
+  SNLNet* netlogicx = SNLScalarNet::create(top, NLName("logic_x_net"));
+  SNLNet* netOut00 = SNLScalarNet::create(top, NLName("out00_net"));
+  SNLNet* netOut01 = SNLScalarNet::create(top, NLName("out01_net"));
+  SNLNet* netOut02 = SNLScalarNet::create(top, NLName("out02_net"));
+  SNLNet* netOut03 = SNLScalarNet::create(top, NLName("out03_net"));
+  SNLNet* netOut04 = SNLScalarNet::create(top, NLName("out04_net"));
+  SNLNet* netOut05 = SNLScalarNet::create(top, NLName("out05_net"));
+  SNLNet* netOut06 = SNLScalarNet::create(top, NLName("out06_net"));
+  SNLNet* netOut07 = SNLScalarNet::create(top, NLName("out07_net"));
+  SNLNet* netOut08 = SNLScalarNet::create(top, NLName("out08_net"));
+  
+  
+
+
+
+  SNLNet* netor0 = SNLScalarNet::create(top, NLName("or_output_net"));
+  SNLNet* netor1 = SNLScalarNet::create(top, NLName("or_output_net1"));
+  SNLNet* netor2 = SNLScalarNet::create(top, NLName("or_output_net2"));
+  SNLNet* netor3 = SNLScalarNet::create(top, NLName("or_output_net3"));
+  SNLNet* netor4 = SNLScalarNet::create(top, NLName("or_output_net4"));
+  SNLNet* netor5 = SNLScalarNet::create(top, NLName("or_output_net5"));
+  SNLNet* netor6 = SNLScalarNet::create(top, NLName("or_output_net6"));
+  SNLNet* netor7 = SNLScalarNet::create(top, NLName("or_output_net7"));
+  SNLNet* netor8 = SNLScalarNet::create(top, NLName("or_output_net8"));
+
+
+  // connect logic0 to and
+  instLogic0->getInstTerm(logic0Out)->setNet(netlogic0);
+  instOr00->getInstTerm(orIn1)->setNet(netlogic0);
+  instOr00->getInstTerm(orIn2)->setNet(netlogic0);
+  instOr01->getInstTerm(orIn1)->setNet(netlogic0);
+  instOr02->getInstTerm(orIn1)->setNet(netlogic0);
+  instOr03->getInstTerm(orIn2)->setNet(netlogic0);
+  instOr06->getInstTerm(orIn2)->setNet(netlogic0);
+
+
+
+
+  
+  
+  
+
+  // connect logic1 to all gate inputs
+  instLogic1->getInstTerm(logic1Out)->setNet(netlogic1);
+  instOr01->getInstTerm(orIn2)->setNet(netlogic1);
+  instOr03->getInstTerm(orIn1)->setNet(netlogic1);
+  instOr04->getInstTerm(orIn1)->setNet(netlogic1);
+  instOr04->getInstTerm(orIn2)->setNet(netlogic1);
+  instOr05->getInstTerm(orIn1)->setNet(netlogic1);
+  instOr07->getInstTerm(orIn2)->setNet(netlogic1);
+
+  topIn->setNet(netlogicx);
+  instOr02->getInstTerm(orIn2)->setNet(netlogicx);
+  instOr05->getInstTerm(orIn2)->setNet(netlogicx);
+  instOr06->getInstTerm(orIn1)->setNet(netlogicx);
+  instOr07->getInstTerm(orIn1)->setNet(netlogicx);
+  instOr08->getInstTerm(orIn1)->setNet(netlogicx);
+  instOr08->getInstTerm(orIn2)->setNet(netlogicx);
+  
+  topOut00->setNet(netOut00);
+  instOr00->getInstTerm(orOut)->setNet(netOut00);
+  
+  topOut01->setNet(netOut01);
+  instOr01->getInstTerm(orOut)->setNet(netOut01);
+  
+  topOut02->setNet(netOut02);
+  instOr02->getInstTerm(orOut)->setNet(netOut02);
+  
+  topOut03->setNet(netOut03);
+  instOr03->getInstTerm(orOut)->setNet(netOut03);
+  
+  topOut04->setNet(netOut04);
+  instOr04->getInstTerm(orOut)->setNet(netOut04);
+  
+  topOut05->setNet(netOut05);
+  instOr05->getInstTerm(orOut)->setNet(netOut05);
+  
+  topOut06->setNet(netOut06);
+  instOr06->getInstTerm(orOut)->setNet(netOut06);
+  
+  topOut07->setNet(netOut07);
+  instOr07->getInstTerm(orOut)->setNet(netOut07);
+  
+  topOut08->setNet(netOut08);
+  instOr08->getInstTerm(orOut)->setNet(netOut08);
+
+
+  
+
+ 
+
+  // 10. connect the and instance output to the top output
+//   instAnd00->getInstTerm(andOut)->setNet(netand);
+//   topOut->setNet(netand);
+  //inst4->getInstTerm(orOut)->setNet(net4);
+  //topOut2->setNet(net4);
+  // 11. create DNL
+  get();
+  // 12. create a constant propagation object
+  {
+    std::string dotFileName(
+        std::string(std::string("./TestOrFullbeforeCP") + std::string(".dot")));
+    std::string svgFileName(
+        std::string(std::string("./TestOrFullbeforeCP") + std::string(".svg")));
+    SnlVisualiser snl(top);
+    snl.process();
+    snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
+    executeCommand(std::string(std::string("dot -Tsvg ") + dotFileName +
+                       std::string(" -o ") + svgFileName)
+               .c_str());
+  }
+  ConstantPropagation cp;
+  cp.setTruthTableEngine(true);   
+  // 13. collect the constants
+  cp.collectConstants();
+  //EXPECT_EQ(cp.getConstants1().size(), 1);
+  //EXPECT_EQ(cp.getConstants0().size(), 1);
+  // 14. run the constant propagation
+  cp.run();
+  // 15. check the output value of the top instance
+  {
+    std::string dotFileName(
+        std::string(std::string("./TestOrFullafterCP") + std::string(".dot")));
+    std::string svgFileName(
+        std::string(std::string("./TestOrFullafterCP") + std::string(".svg")));
+    SnlVisualiser snl(top);
+    snl.process();
+    snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
+    executeCommand(std::string(std::string("dot -Tsvg ") + dotFileName +
+                       std::string(" -o ") + svgFileName)
+               .c_str());
+  }
+  //EXPECT_EQ(cp.getConstants1().size(), 1);
+  //EXPECT_EQ(cp.getConstants0().size(), 2);
+  //EXPECT_EQ(topOut->getNet()->getInstTerms().size(), 0);
+  //EXPECT_EQ(topOut->getNet()->getType(), naja::SNL::SNLNet::Type::Assign0);
+}
+
+
+
+TEST_F(ConstantPropagationTests, TestnorFull) {
+  // 1. Create SNL
+  NLUniverse* univ = NLUniverse::create();
+  NLDB* db = NLDB::create(univ);
+  NLLibrary* library = NLLibrary::create(db, NLLibrary::Type::Primitives, NLName("nangate45"));
+  // 2. Create a top model with one output
+  SNLDesign* top = SNLDesign::create(library, SNLDesign::Type::Primitive, NLName("top"));
+  univ->setTopDesign(top);
+  auto topOut00 =
+      SNLScalarTerm::create(top, SNLTerm::Direction::Output, NLName("out00"));
+
+  auto topOut01 =
+      SNLScalarTerm::create(top, SNLTerm::Direction::Output, NLName("out01"));
+      
+  auto topOut02 =
+      SNLScalarTerm::create(top, SNLTerm::Direction::Output, NLName("out02"));    
+
+  auto topOut03 =
+      SNLScalarTerm::create(top, SNLTerm::Direction::Output, NLName("out03"));
+
+  auto topOut04 =
+      SNLScalarTerm::create(top, SNLTerm::Direction::Output, NLName("out04"));
+
+  auto topOut05 =
+      SNLScalarTerm::create(top, SNLTerm::Direction::Output, NLName("out05"));
+
+
+  auto topOut06 =
+      SNLScalarTerm::create(top, SNLTerm::Direction::Output, NLName("out06"));
+
+  auto topOut07 =
+      SNLScalarTerm::create(top, SNLTerm::Direction::Output, NLName("out07"));        
+
+  auto topOut08 =
+      SNLScalarTerm::create(top, SNLTerm::Direction::Output, NLName("out08"));
+
+  auto topIn =
+      SNLScalarTerm::create(top, SNLTerm::Direction::Input, NLName("in"));    
+
+  // 3. create a logic_0 model
+  // need to create additional top outputs for every logic gate (EILON)
+  
+  SNLDesign* logic0 = SNLDesign::create(library, SNLDesign::Type::Primitive, NLName("LOGIC0"));
+  
+  // add output to logic0
+  auto logic0Out =
+      SNLScalarTerm::create(logic0, SNLTerm::Direction::Output, NLName("out"));
+  // 4. create a logic_1 model
+  SNLDesign* logic1 = SNLDesign::create(library, SNLDesign::Type::Primitive, NLName("LOGIC1"));
+  // add output to logic0
+  auto logic1Out =
+      SNLScalarTerm::create(logic1, SNLTerm::Direction::Output, NLName("out"));
+  
+
+  
+  // 5. create a logic_0 instace in top
+  SNLInstance* instLogic0 = SNLInstance::create(top, logic0, NLName("logic0"));
+  // 6. create a logic_1 instace in top
+  SNLInstance* instLogic1 = SNLInstance::create(top, logic1, NLName("logic1"));
+  // 7. create a and model
+
+
+
+  SNLDesign* norModel = SNLDesign::create(library, SNLDesign::Type::Primitive, NLName("NOR"));
+  // add 2 inputs and 1 output to and
+  auto norIn1 = SNLScalarTerm::create(norModel, SNLTerm::Direction::Input,
+                                      NLName("in1"));
+  auto norIn2 = SNLScalarTerm::create(norModel, SNLTerm::Direction::Input,
+                                      NLName("in2"));
+  auto norOut = SNLScalarTerm::create(norModel, SNLTerm::Direction::Output,
+                                      NLName("out"));
+
+
+  SNLDesignTruthTable::setTruthTable(logic0, SNLTruthTable(0,0));
+  SNLDesignTruthTable::setTruthTable(logic1, SNLTruthTable(0,1));
+  SNLDesignTruthTable::setTruthTable(norModel, SNLTruthTable(2,1));
+  NLLibraryTruthTables::construct(library);
+  
+  // SNLDesign* andModel1 = SNLDesign::create(library, SNLDesign::Type::Primitive, NLName("AND1"));
+  // // add 2 inputs and 1 output to and
+  // auto and1In1 = SNLScalarTerm::create(andModel, SNLTerm::Direction::Input,
+  //                                     NLName("1in1"));
+  // auto and1In2 = SNLScalarTerm::create(andModel, SNLTerm::Direction::Input,
+  //                                     NLName("1in2"));
+  // auto and1Out = SNLScalarTerm::create(andModel, SNLTerm::Direction::Output,
+  //                                     NLName("1out"));            
+
+
+  // SNLDesign* andModel2 = SNLDesign::create(library, SNLDesign::Type::Primitive, NLName("AND2"));
+  // // add 2 inputs and 1 output to and
+  // auto and2In1 = SNLScalarTerm::create(andModel, SNLTerm::Direction::Input,
+  //                                     NLName("2in1"));
+  // auto and2In2 = SNLScalarTerm::create(andModel, SNLTerm::Direction::Input,
+  //                                     NLName("2in2"));
+  // auto and2Out = SNLScalarTerm::create(andModel, SNLTerm::Direction::Output,
+  //                                     NLName("2out"));                                                                
+  // //Repeat 7 for all types in constant propagation code with paying atttention to the port names that are used in the ConstatPropagation.cpp
+  // // 7. create a and model for or
+  // SNLDesign* andModel3 = SNLDesign::create(library, SNLDesign::Type::Primitive, NLName("AND3"));
+  // // add 2 inputs and 1 output to and
+  // auto and3In1 = SNLScalarTerm::create(andModel, SNLTerm::Direction::Input,
+  //                                     NLName("3in1"));
+  // auto and3In2 = SNLScalarTerm::create(andModel, SNLTerm::Direction::Input,
+  //                                     NLName("3in2"));
+  // auto and3Out = SNLScalarTerm::create(andModel, SNLTerm::Direction::Output,
+  //                                     NLName("3out"));    
+
+
+  // SNLDesign* andModel4 = SNLDesign::create(library, SNLDesign::Type::Primitive, NLName("AND4"));
+  // // add 2 inputs and 1 output to and
+  // auto and4In1 = SNLScalarTerm::create(andModel, SNLTerm::Direction::Input,
+  //                                     NLName("4in1"));
+  // auto and4In2 = SNLScalarTerm::create(andModel, SNLTerm::Direction::Input,
+  //                                     NLName("4in2"));
+  // auto and4Out = SNLScalarTerm::create(andModel, SNLTerm::Direction::Output,
+  //                                     NLName("4out")); 
+
+  // SNLDesign* andModel5 = SNLDesign::create(library, SNLDesign::Type::Primitive, NLName("AND5"));
+  // // add 2 inputs and 1 output to and
+  // auto and5In1 = SNLScalarTerm::create(andModel, SNLTerm::Direction::Input,
+  //                                     NLName("5in1"));
+  // auto and5In2 = SNLScalarTerm::create(andModel, SNLTerm::Direction::Input,
+  //                                     NLName("5in2"));
+  // auto and5Out = SNLScalarTerm::create(andModel, SNLTerm::Direction::Output,
+  //                                     NLName("5out"));                                           
+
+  // SNLDesign* andModel6 = SNLDesign::create(library, SNLDesign::Type::Primitive, NLName("AND6"));
+  // // add 2 inputs and 1 output to and
+  // auto and6In1 = SNLScalarTerm::create(andModel, SNLTerm::Direction::Input,
+  //                                     NLName("6in1"));
+  // auto and6In2 = SNLScalarTerm::create(andModel, SNLTerm::Direction::Input,
+  //                                     NLName("6in2"));
+  // auto and6Out = SNLScalarTerm::create(andModel, SNLTerm::Direction::Output,
+  //                                     NLName("6out"));    
+
+  // SNLDesign* andModel7 = SNLDesign::create(library, SNLDesign::Type::Primitive, NLName("AND7"));
+  // // add 2 inputs and 1 output to and
+  // auto and7In1 = SNLScalarTerm::create(andModel, SNLTerm::Direction::Input,
+  //                                     NLName("7in1"));
+  // auto and7In2 = SNLScalarTerm::create(andModel, SNLTerm::Direction::Input,
+  //                                     NLName("7in2"));
+  // auto and7Out = SNLScalarTerm::create(andModel, SNLTerm::Direction::Output,
+  //                                     NLName("7out"));
+  
+  // SNLDesign* andModel8 = SNLDesign::create(library, SNLDesign::Type::Primitive, NLName("AND8"));
+  // // add 2 inputs and 1 output to and
+  // auto and8In1 = SNLScalarTerm::create(andModel, SNLTerm::Direction::Input,
+  //                                     NLName("8in1"));
+  // auto and8In2 = SNLScalarTerm::create(andModel, SNLTerm::Direction::Input,
+  //                                     NLName("8in2"));
+  // auto and8Out = SNLScalarTerm::create(andModel, SNLTerm::Direction::Output,
+  //                                     NLName("8out"));    
+  
+     
+
+  // create a and instance in top
+  SNLInstance* instNor00 = SNLInstance::create(top, norModel, NLName("nor00"));
+
+  SNLInstance* instNor01 = SNLInstance::create(top, norModel, NLName("nor01"));
+
+  SNLInstance* instNor02 = SNLInstance::create(top, norModel, NLName("nor02"));
+
+  SNLInstance* instNor03 = SNLInstance::create(top, norModel, NLName("nor03"));
+
+  SNLInstance* instNor04 = SNLInstance::create(top, norModel, NLName("nor04"));
+
+  SNLInstance* instNor05 = SNLInstance::create(top, norModel, NLName("nor05"));
+
+  SNLInstance* instNor06 = SNLInstance::create(top, norModel, NLName("nor06"));
+
+  SNLInstance* instNor07 = SNLInstance::create(top, norModel, NLName("nor07"));
+
+  SNLInstance* instNor08 = SNLInstance::create(top, norModel, NLName("nor08"));
+
+
+
+
+
+ 
+
+
+
+
+  
+  // create a or instance in top
+ 
+
+  // 9. connect all instances inputs 
+  SNLNet* netlogic0 = SNLScalarNet::create(top, NLName("logic_0_net"));
+  netlogic0->setType(SNLNet::Type::Assign0);
+  SNLNet* netlogic1 = SNLScalarNet::create(top, NLName("logic_1_net"));
+  netlogic1->setType(SNLNet::Type::Assign1);
+  SNLNet* netlogicx = SNLScalarNet::create(top, NLName("logic_x_net"));
+  SNLNet* netOut00 = SNLScalarNet::create(top, NLName("out00_net"));
+  SNLNet* netOut01 = SNLScalarNet::create(top, NLName("out01_net"));
+  SNLNet* netOut02 = SNLScalarNet::create(top, NLName("out02_net"));
+  SNLNet* netOut03 = SNLScalarNet::create(top, NLName("out03_net"));
+  SNLNet* netOut04 = SNLScalarNet::create(top, NLName("out04_net"));
+  SNLNet* netOut05 = SNLScalarNet::create(top, NLName("out05_net"));
+  SNLNet* netOut06 = SNLScalarNet::create(top, NLName("out06_net"));
+  SNLNet* netOut07 = SNLScalarNet::create(top, NLName("out07_net"));
+  SNLNet* netOut08 = SNLScalarNet::create(top, NLName("out08_net"));
+  
+  
+
+
+
+  SNLNet* netnor0 = SNLScalarNet::create(top, NLName("nor_output_net"));
+  SNLNet* netnor1 = SNLScalarNet::create(top, NLName("nor_output_net1"));
+  SNLNet* netnor2 = SNLScalarNet::create(top, NLName("nor_output_net2"));
+  SNLNet* netnor3 = SNLScalarNet::create(top, NLName("nor_output_net3"));
+  SNLNet* netnor4 = SNLScalarNet::create(top, NLName("nor_output_net4"));
+  SNLNet* netnor5 = SNLScalarNet::create(top, NLName("nor_output_net5"));
+  SNLNet* netnor6 = SNLScalarNet::create(top, NLName("nor_output_net6"));
+  SNLNet* netnor7 = SNLScalarNet::create(top, NLName("nor_output_net7"));
+  SNLNet* netnor8 = SNLScalarNet::create(top, NLName("nor_output_net8"));
+
+
+  // connect logic0 to and
+  instLogic0->getInstTerm(logic0Out)->setNet(netlogic0);
+  instNor00->getInstTerm(norIn1)->setNet(netlogic0);
+  instNor00->getInstTerm(norIn2)->setNet(netlogic0);
+  instNor01->getInstTerm(norIn1)->setNet(netlogic0);
+  instNor02->getInstTerm(norIn1)->setNet(netlogic0);
+  instNor03->getInstTerm(norIn2)->setNet(netlogic0);
+  instNor06->getInstTerm(norIn2)->setNet(netlogic0);
+
+
+
+
+  
+  
+  
+
+  // connect logic1 to all gate inputs
+  instLogic1->getInstTerm(logic1Out)->setNet(netlogic1);
+  instNor01->getInstTerm(norIn2)->setNet(netlogic1);
+  instNor03->getInstTerm(norIn1)->setNet(netlogic1);
+  instNor04->getInstTerm(norIn1)->setNet(netlogic1);
+  instNor04->getInstTerm(norIn2)->setNet(netlogic1);
+  instNor05->getInstTerm(norIn1)->setNet(netlogic1);
+  instNor07->getInstTerm(norIn2)->setNet(netlogic1);
+
+  topIn->setNet(netlogicx);
+  instNor02->getInstTerm(norIn2)->setNet(netlogicx);
+  instNor05->getInstTerm(norIn2)->setNet(netlogicx);
+  instNor06->getInstTerm(norIn1)->setNet(netlogicx);
+  instNor07->getInstTerm(norIn1)->setNet(netlogicx);
+  instNor08->getInstTerm(norIn1)->setNet(netlogicx);
+  instNor08->getInstTerm(norIn2)->setNet(netlogicx);
+  
+  topOut00->setNet(netOut00);
+  instNor00->getInstTerm(norOut)->setNet(netOut00);
+  
+  topOut01->setNet(netOut01);
+  instNor01->getInstTerm(norOut)->setNet(netOut01);
+  
+  topOut02->setNet(netOut02);
+  instNor02->getInstTerm(norOut)->setNet(netOut02);
+  
+  topOut03->setNet(netOut03);
+  instNor03->getInstTerm(norOut)->setNet(netOut03);
+  
+  topOut04->setNet(netOut04);
+  instNor04->getInstTerm(norOut)->setNet(netOut04);
+  
+  topOut05->setNet(netOut05);
+  instNor05->getInstTerm(norOut)->setNet(netOut05);
+  
+  topOut06->setNet(netOut06);
+  instNor06->getInstTerm(norOut)->setNet(netOut06);
+  
+  topOut07->setNet(netOut07);
+  instNor07->getInstTerm(norOut)->setNet(netOut07);
+  
+  topOut08->setNet(netOut08);
+  instNor08->getInstTerm(norOut)->setNet(netOut08);
+
+
+  
+
+ 
+
+  // 10. connect the and instance output to the top output
+//   instAnd00->getInstTerm(andOut)->setNet(netand);
+//   topOut->setNet(netand);
+  //inst4->getInstTerm(orOut)->setNet(net4);
+  //topOut2->setNet(net4);
+  // 11. create DNL
+  get();
+  // 12. create a constant propagation object
+  {
+    std::string dotFileName(
+        std::string(std::string("./TestNorFullbeforeCP") + std::string(".dot")));
+    std::string svgFileName(
+        std::string(std::string("./TestNorFullbeforeCP") + std::string(".svg")));
+    SnlVisualiser snl(top);
+    snl.process();
+    snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
+    executeCommand(std::string(std::string("dot -Tsvg ") + dotFileName +
+                       std::string(" -o ") + svgFileName)
+               .c_str());
+  }
+  ConstantPropagation cp;
+  cp.setTruthTableEngine(true);   
+  // 13. collect the constants
+  cp.collectConstants();
+  //EXPECT_EQ(cp.getConstants1().size(), 1);
+  //EXPECT_EQ(cp.getConstants0().size(), 1);
+  // 14. run the constant propagation
+  cp.run();
+  // 15. check the output value of the top instance
+  {
+    std::string dotFileName(
+        std::string(std::string("./TestNorFullafterCP") + std::string(".dot")));
+    std::string svgFileName(
+        std::string(std::string("./TestNorFullafterCP") + std::string(".svg")));
+    SnlVisualiser snl(top);
+    snl.process();
+    snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
+    executeCommand(std::string(std::string("dot -Tsvg ") + dotFileName +
+                       std::string(" -o ") + svgFileName)
+               .c_str());
+  }
+
+  EXPECT_TRUE(topOut00->getNet()->getName().getString() == "logic1_naja_net");
+  EXPECT_TRUE(topOut01->getNet()->getName().getString() == "logic0_naja_net");
+  EXPECT_TRUE(topOut02->getNet()->getName().getString() == "out02_net");
+
+
+  //EXPECT_EQ(cp.getConstants1().size(), 1);
+  //EXPECT_EQ(cp.getConstants0().size(), 2);
+  //EXPECT_EQ(topOut->getNet()->getInstTerms().size(), 0);
+  //EXPECT_EQ(topOut->getNet()->getType(), naja::SNL::SNLNet::Type::Assign0);
+}
+
+
+
+
+
+//Seperate the test case above for tests for each type in the constant propagation code
+
+// Test constat propagation for AND
+
+
+
+
+
+
+
+
+
+
+
 TEST_F(ConstantPropagationTests, TestConstantPropagationAND) {
   // 1. Create SNL
   NLUniverse* univ = NLUniverse::create();
