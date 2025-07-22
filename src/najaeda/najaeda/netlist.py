@@ -1607,6 +1607,11 @@ def load_primitives_from_file(file: str):
     module.load(db)
 
 
+def dump_naja_if(path: str):
+    """Dump the Naja IF to the given path."""
+    __get_top_db().dumpNajaIF(path)
+
+
 def get_primitives_library() -> naja.NLLibrary:
     lib = __get_top_db().getLibrary("PRIMS")
     if lib is None:
