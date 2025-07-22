@@ -11,6 +11,7 @@
 #include "SNLDesignTruthTable.h"
 
 #include "SNLLibertyConstructor.h"
+#include "NLBitVecDynamic.h"
 
 using namespace naja::NL;
 
@@ -82,7 +83,7 @@ TEST_F(SNLLibertyConstructorTest1, testBufferFunction) {
   auto tt = SNLDesignTruthTable::getTruthTable(design);
   EXPECT_TRUE(tt.isInitialized());
   EXPECT_EQ(1, tt.size());
-  EXPECT_EQ(0b10, tt.bits());
+  EXPECT_TRUE(NLBitVecDynamic(0b10, 2) == tt.bits());
   EXPECT_TRUE(SNLDesignTruthTable::isBuf(design));
 }
 
@@ -110,7 +111,7 @@ TEST_F(SNLLibertyConstructorTest1, testInvFunction) {
   auto tt = SNLDesignTruthTable::getTruthTable(design);
   EXPECT_TRUE(tt.isInitialized());
   EXPECT_EQ(1, tt.size());
-  EXPECT_EQ(0b01, tt.bits());
+  EXPECT_TRUE(NLBitVecDynamic(0b01, 2) == tt.bits());
   EXPECT_TRUE(SNLDesignTruthTable::isInv(design));
 }
 
@@ -141,7 +142,7 @@ TEST_F(SNLLibertyConstructorTest1, testAnd2Function) {
   auto tt = SNLDesignTruthTable::getTruthTable(design);
   EXPECT_TRUE(tt.isInitialized());
   EXPECT_EQ(2, tt.size());
-  EXPECT_EQ(0b1000, tt.bits());
+  EXPECT_TRUE(NLBitVecDynamic(0b1000, 4) == tt.bits());
 }
 
 TEST_F(SNLLibertyConstructorTest1, testAnd4Function) {
@@ -177,7 +178,7 @@ TEST_F(SNLLibertyConstructorTest1, testAnd4Function) {
   auto tt = SNLDesignTruthTable::getTruthTable(design);
   EXPECT_TRUE(tt.isInitialized());
   EXPECT_EQ(4, tt.size());
-  EXPECT_EQ(0x8000, tt.bits());
+  EXPECT_TRUE(NLBitVecDynamic(0x8000, 16) == tt.bits());
 }
 
 TEST_F(SNLLibertyConstructorTest1, testOr2Function) {
@@ -207,7 +208,7 @@ TEST_F(SNLLibertyConstructorTest1, testOr2Function) {
   auto tt = SNLDesignTruthTable::getTruthTable(design);
   EXPECT_TRUE(tt.isInitialized());
   EXPECT_EQ(2, tt.size());
-  EXPECT_EQ(0b1110, tt.bits());
+  EXPECT_TRUE(NLBitVecDynamic(0b1110, 4) == tt.bits());
 }
 
 TEST_F(SNLLibertyConstructorTest1, testXor2Function) {
@@ -237,7 +238,7 @@ TEST_F(SNLLibertyConstructorTest1, testXor2Function) {
   auto tt = SNLDesignTruthTable::getTruthTable(design);
   EXPECT_TRUE(tt.isInitialized());
   EXPECT_EQ(2, tt.size());
-  EXPECT_EQ(0b0110, tt.bits());
+  EXPECT_TRUE(NLBitVecDynamic(0b0110, 4) == tt.bits());
 }
 
 TEST_F(SNLLibertyConstructorTest1, testGate0Function) {
@@ -274,7 +275,7 @@ TEST_F(SNLLibertyConstructorTest1, testGate0Function) {
   auto tt = SNLDesignTruthTable::getTruthTable(gate0);
   EXPECT_TRUE(tt.isInitialized());
   EXPECT_EQ(3, tt.size());
-  EXPECT_EQ(0x15, tt.bits());
+  EXPECT_TRUE(NLBitVecDynamic(0x15, 8) == tt.bits());
 
   auto gate1 = library_->getSNLDesign(NLName("gate0"));
   ASSERT_NE(nullptr, gate1);
@@ -296,7 +297,7 @@ TEST_F(SNLLibertyConstructorTest1, testGate0Function) {
   tt = SNLDesignTruthTable::getTruthTable(gate1);
   EXPECT_TRUE(tt.isInitialized());
   EXPECT_EQ(3, tt.size());
-  EXPECT_EQ(0x15, tt.bits());
+  EXPECT_TRUE(NLBitVecDynamic(0x15, 8) == tt.bits());
 }
 
 TEST_F(SNLLibertyConstructorTest1, testLogic01Function) {
@@ -320,7 +321,7 @@ TEST_F(SNLLibertyConstructorTest1, testLogic01Function) {
   auto tt = SNLDesignTruthTable::getTruthTable(logic0);
   EXPECT_TRUE(tt.isInitialized());
   EXPECT_EQ(0, tt.size());
-  EXPECT_EQ(0b0, tt.bits());
+  EXPECT_TRUE(0b0 == tt.bits().operator uint64_t());
   EXPECT_TRUE(SNLDesignTruthTable::isConst0(logic0));
 
   auto logic1 = library_->getSNLDesign(NLName("logic1"));
@@ -334,7 +335,7 @@ TEST_F(SNLLibertyConstructorTest1, testLogic01Function) {
   tt = SNLDesignTruthTable::getTruthTable(logic1);
   EXPECT_TRUE(tt.isInitialized());
   EXPECT_EQ(0, tt.size());
-  EXPECT_EQ(0b1, tt.bits());
+  EXPECT_EQ(0b1, tt.bits().operator uint64_t());
   EXPECT_TRUE(SNLDesignTruthTable::isConst1(logic1));
 }
 
@@ -403,5 +404,6 @@ TEST_F(SNLLibertyConstructorTest1, testOAI222Function) {
   auto tt = SNLDesignTruthTable::getTruthTable(design);
   EXPECT_TRUE(tt.isInitialized());
   EXPECT_EQ(6, tt.size());
-  EXPECT_EQ(0x111f111f111fffff, tt.bits());
+  uint64_t result = 0x111f111f111fffff;
+  EXPECT_TRUE(NLBitVecDynamic(result, 64) == tt.bits());
 }

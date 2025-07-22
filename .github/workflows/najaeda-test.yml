@@ -50,6 +50,7 @@ jobs:
         LIBERTY_BENCHMARKS_PATH: ${{github.workspace}}/test/nl/formats/liberty/benchmarks
         VERILOG_BENCHMARKS_PATH: ${{github.workspace}}/test/nl/formats/verilog/benchmarks        
         NAJAEDA_TEST_PATH: ${{github.workspace}}/build/test/najaeda
+        NAJAEDA_SOURCE_TEST_PATH: ${{github.workspace}}/test/najaeda
       run: |
         python -m coverage run -m unittest && python -m coverage xml --rcfile=./.coveragerc
     - name: Upload coverage to Codecov

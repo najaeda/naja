@@ -19,12 +19,19 @@ class NajaNetlistTestErrors(unittest.TestCase):
         self.assertIsNotNone(top)
         self.assertRaises(Exception, top.create_child_instance, 'Module0', 'mod')
 
+    def test_missing_verilog(self):
+        self.assertRaises(Exception, netlist.load_verilog)
+        self.assertRaises(Exception, netlist.load_verilog, [])
+
     def test_width_mismatch(self):
         top = netlist.create_top('Top')
         self.assertIsNotNone(top)
         topTerm = top.create_input_term('Top')
-        topNet = top.create_net('net')
-        self.assertRaises(Exception, topTerm.connect(topNet))
+        topNet = top.create_bus_net('net', 1, 0)
+        self.assertRaises(Exception, topTerm.connect, topNet)
+
+    def test_empty_liberty(self):
+        self.assertRaises(Exception, netlist.load_liberty, [])
             
 if __name__ == '__main__':
     faulthandler.enable()

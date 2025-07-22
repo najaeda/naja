@@ -6,78 +6,78 @@ from naja import snl as snl
 
 def constructBUF(lib, X):
   cell = snl.SNLDesign.createPrimitive(lib, "BUF_X" + str(X))
-  a = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A")
-  z = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "Z")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "Z")
   cell.setTruthTable(0b10)
 
 def constructCLKBUF(lib, X):
   cell = snl.SNLDesign.createPrimitive(lib, "CLKBUF_X" + str(X))
-  a = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A")
-  z = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "Z")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "Z")
   cell.setTruthTable(0b10)
 
 def constructINV(lib, X):
   cell = snl.SNLDesign.createPrimitive(lib, "INV_X" + str(X))
-  a = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A")
-  zn = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "ZN")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "ZN")
   cell.setTruthTable(0b01)
 
 def constructLOGIC0(lib, X):
   cell = snl.SNLDesign.createPrimitive(lib, "LOGIC0_X" + str(X))
-  z = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "Z")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "Z")
   cell.setTruthTable(0b0)
 
 def constructLOGIC1(lib, X):
   cell = snl.SNLDesign.createPrimitive(lib, "LOGIC1_X" + str(X))
-  z = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "Z")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "Z")
   cell.setTruthTable(0b1)
 
 def constructAND2(lib, X):
   cell = snl.SNLDesign.createPrimitive(lib, "AND2_X" + str(X))
-  a1 = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A1")
-  a2 = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A2")
-  zn = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "ZN")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A1")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A2")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "ZN")
   cell.setTruthTable(0x8)
 
 def constructAND3(lib, X):
   cell = snl.SNLDesign.createPrimitive(lib, "AND3_X" + str(X))
-  a1 = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A1")
-  a2 = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A2")
-  a3 = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A3")
-  zn = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "ZN")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A1")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A2")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A3")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "ZN")
   cell.setTruthTable(0x80)
 
 def constructAND4(lib, X):
   cell = snl.SNLDesign.createPrimitive(lib, "AND4_X" + str(X))
-  a1 = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A1")
-  a2 = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A2")
-  a3 = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A3")
-  a4 = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A4")
-  zn = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "ZN")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A1")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A2")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A3")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A4")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "ZN")
   cell.setTruthTable(0x8000)
 
 def constructDFF(lib, X):
   cell = snl.SNLDesign.createPrimitive(lib, "DFF_X" + str(X))
-  d = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "D")
-  ck = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "CK")
-  q = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "Q")
-  qn = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "QN")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "D")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "CK")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "Q")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "QN")
 
 def constructDFFR(lib, X):
   cell = snl.SNLDesign.createPrimitive(lib, "DFFR_X" + str(X))
-  d = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "D")
-  rn = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "RN")
-  ck = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "CK")
-  q = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "Q")
-  qn = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "QN")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "D")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "RN")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "CK")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "Q")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "QN")
 
 def constructDFFS(lib, X):
   cell = snl.SNLDesign.createPrimitive(lib, "DFFS_X" + str(X))
-  d = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "D")
-  sn = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "SN")
-  ck = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "CK")
-  q = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "Q")
-  qn = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "QN")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "D")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "SN")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "CK")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "Q")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "QN")
 
 def constructDLL(lib, X):
   cell = snl.SNLDesign.createPrimitive(lib, "DLL_X" + str(X))
@@ -93,107 +93,107 @@ def constructDLH(lib, X):
 
 def constructFA(lib, X):
   cell = snl.SNLDesign.createPrimitive(lib, "FA_X" + str(X))
-  a = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A")
-  b = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B")
-  b = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "CI")
-  co = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "CO")
-  s = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "S")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "CI")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "CO")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "S")
 
 def constructHA(lib, X):
   cell = snl.SNLDesign.createPrimitive(lib, "HA_X" + str(X))
-  a = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A")
-  b = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B")
-  co = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "CO")
-  s = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "S")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "CO")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "S")
 
 def constructMUX2(lib, X):
   #function		: "((S & B) | (A & !S))";
   cell = snl.SNLDesign.createPrimitive(lib, "MUX2_X" + str(X))
-  a = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A")
-  b = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B")
-  s = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "S")
-  z = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "Z")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "S")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "Z")
   cell.setTruthTable(0xCA)
 
 def constructNAND2(lib, X):
   cell = snl.SNLDesign.createPrimitive(lib, "NAND2_X" + str(X))
-  a1 = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A1")
-  a2 = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A2")
-  zn = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "ZN")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A1")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A2")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "ZN")
   cell.setTruthTable(0x7)
 
 def constructNAND3(lib, X):
   cell = snl.SNLDesign.createPrimitive(lib, "NAND3_X" + str(X))
-  a1 = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A1")
-  a2 = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A2")
-  a3 = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A3")
-  zn = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "ZN")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A1")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A2")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A3")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "ZN")
   cell.setTruthTable(0x7F)
   
 def constructNAND4(lib, X):
   cell = snl.SNLDesign.createPrimitive(lib, "NAND4_X" + str(X))
-  a1 = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A1")
-  a2 = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A2")
-  a3 = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A3")
-  a4 = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A4")
-  zn = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "ZN")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A1")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A2")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A3")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A4")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "ZN")
   cell.setTruthTable(0x7FFF)
 
 def constructNOR2(lib, X):
   cell = snl.SNLDesign.createPrimitive(lib, "NOR2_X" + str(X))
-  a1 = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A1")
-  a2 = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A2")
-  zn = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "ZN")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A1")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A2")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "ZN")
   cell.setTruthTable(0x1)
 
 def constructNOR3(lib, X):
   cell = snl.SNLDesign.createPrimitive(lib, "NOR3_X" + str(X))
-  a1 = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A1")
-  a2 = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A2")
-  a3 = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A3")
-  zn = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "ZN")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A1")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A2")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A3")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "ZN")
   cell.setTruthTable(0x01)
 
 def constructNOR4(lib, X):
   cell = snl.SNLDesign.createPrimitive(lib, "NOR4_X" + str(X))
-  a1 = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A1")
-  a2 = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A2")
-  a3 = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A3")
-  a3 = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A4")
-  zn = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "ZN")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A1")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A2")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A3")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A4")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "ZN")
   cell.setTruthTable(0x0001)
 
 def constructOR2(lib, X):
   cell = snl.SNLDesign.createPrimitive(lib, "OR2_X" + str(X))
-  a1 = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A1")
-  a2 = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A2")
-  zn = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "ZN")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A1")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A2")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "ZN")
   cell.setTruthTable(0xE)
 
 def constructOR3(lib, X):
   cell = snl.SNLDesign.createPrimitive(lib, "OR3_X" + str(X))
-  a1 = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A1")
-  a2 = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A2")
-  a3 = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A3")
-  zn = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "ZN")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A1")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A2")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A3")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "ZN")
   cell.setTruthTable(0xFE)
 
 def constructOR4(lib, X):
   cell = snl.SNLDesign.createPrimitive(lib, "OR4_X" + str(X))
-  a1 = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A1")
-  a2 = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A2")
-  a3 = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A3")
-  a4 = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A4")
-  zn = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "ZN")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A1")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A2")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A3")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A4")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "ZN")
   cell.setTruthTable(0xFFFE)
 
 def constructAOI21(lib, X):
   #function: !(A | (B1 & B2))
   cell = snl.SNLDesign.createPrimitive(lib, "AOI21_X" + str(X))
-  a = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A")
-  b1 = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B1")
-  b2 = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B2")
-  zn = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "ZN")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B1")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B2")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "ZN")
   cell.setTruthTable(0x15)
 
 def constructAOI211(lib, X):
@@ -251,21 +251,21 @@ def constructOAI21(lib, X):
 def constructOAI211(lib, X):
   #function: !(((C1 | C2) & A) & B)
   cell = snl.SNLDesign.createPrimitive(lib, "OAI211_X" + str(X))
-  a = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A")
-  b = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B")
-  c1 = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "C1")
-  c2 = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "C2")
-  zn = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "ZN")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "C1")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "C2")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "ZN")
   cell.setTruthTable(0xEEEF)
 
 def constructOAI22(lib, X):
   #function: !((A1 | A2) & (B1 | B2))
   cell = snl.SNLDesign.createPrimitive(lib, "OAI22_X" + str(X))
-  a1 = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A1")
-  a2 = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A2")
-  b1 = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B1")
-  b2 = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B2")
-  zn = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "ZN")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A1")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A2")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B1")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B2")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "ZN")
   cell.setTruthTable(0x111F)
 
 def constructOAI221(lib, X):
@@ -305,27 +305,27 @@ def constructOAI33(lib, X):
 
 def constructXOR2(lib, X):
   cell = snl.SNLDesign.createPrimitive(lib, "XOR2_X" + str(X))
-  a = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A")
-  b = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B")
-  z = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "Z")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "Z")
   cell.setTruthTable(0x6)
 
 def constructXNOR2(lib, X):
   cell = snl.SNLDesign.createPrimitive(lib, "XNOR2_X" + str(X))
-  a = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A")
-  b = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B")
-  zn = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "ZN")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "A")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "B")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Output, "ZN")
   cell.setTruthTable(0x9)
 
 def constructfakeram(lib, addr, data):
   cell = snl.SNLDesign.createPrimitive(lib, "fakeram45_" + str(pow(2, addr)) + "x" + str(data))
-  clk = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "clk")
-  we_in = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "we_in")
-  ce_in = snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "ce_in")
-  wd_in = snl.SNLBusTerm.create(cell, snl.SNLTerm.Direction.Input, data-1, 0, "wd_in")
-  w_mask_in = snl.SNLBusTerm.create(cell, snl.SNLTerm.Direction.Input, data-1, 0, "w_mask_in")
-  addr_in = snl.SNLBusTerm.create(cell, snl.SNLTerm.Direction.Input, addr-1, 0, "addr_in")
-  rd_out = snl.SNLBusTerm.create(cell, snl.SNLTerm.Direction.Output, data-1, 0, "rd_out")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "clk")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "we_in")
+  snl.SNLScalarTerm.create(cell, snl.SNLTerm.Direction.Input, "ce_in")
+  snl.SNLBusTerm.create(cell, snl.SNLTerm.Direction.Input, data-1, 0, "wd_in")
+  snl.SNLBusTerm.create(cell, snl.SNLTerm.Direction.Input, data-1, 0, "w_mask_in")
+  snl.SNLBusTerm.create(cell, snl.SNLTerm.Direction.Input, addr-1, 0, "addr_in")
+  snl.SNLBusTerm.create(cell, snl.SNLTerm.Direction.Output, data-1, 0, "rd_out")
 
 def constructPrimitives(lib):
   lib.setName('nangate45')

@@ -10,7 +10,8 @@ SET(snl_tests
   NLDB0Test.cpp
   SNLDesignTest.cpp SNLDesignCloneTest.cpp
   SNLTermTest.cpp
-  SNLInstanceTest0.cpp SNLInstanceTest1.cpp SNLInstanceTest2.cpp
+  SNLInstanceTest0.cpp SNLInstanceTest1.cpp
+  SNLInstanceTest2.cpp SNLInstanceTest3.cpp
   SNLInstanceSetModelTest.cpp
   SNLNetTest.cpp
   SNLPathTest0.cpp SNLPathTest1.cpp SNLPathTest2.cpp

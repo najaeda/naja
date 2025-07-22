@@ -2,12 +2,16 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-capnp_generate_cpp(snlCommonSources snlCommonHeaders snl_common.capnp)
-capnp_generate_cpp(snlInterfaceSources snlInterfaceHeaders snl_interface.capnp)
-capnp_generate_cpp(snlImplementationSources snlImplementationHeaders snl_implementation.capnp)
+set(CAPNPC_SRC_PREFIX "${PROJECT_SOURCE_DIR}/thirdparty/naja-if/schema" CACHE STRING "" FORCE)
+set(CAPNPC_OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR})
+
+capnp_generate_cpp(najaCommonSources najaCommonHeaders ${CAPNPC_SRC_PREFIX}/naja_common.capnp)
+capnp_generate_cpp(najaNLInterfaceSources najaNLInterfaceHeaders ${CAPNPC_SRC_PREFIX}/naja_nl_interface.capnp)
+capnp_generate_cpp(najaNLImplementationSources najaNLImplementationHeaders ${CAPNPC_SRC_PREFIX}/naja_nl_implementation.capnp)
 
 add_library(naja_nl_dump STATIC
-    ${snlCommonSources} ${snlInterfaceSources} ${snlImplementationSources}
+    ${najaCommonSources} ${najaNLInterfaceSources}
+    ${najaNLImplementationSources}
     SNLDump.cpp SNLDumpManifest.cpp
     SNLCapnP.cpp
     SNLCapnPInterface.cpp SNLCapnPImplementation.cpp)
@@ -18,9 +22,3 @@ target_link_libraries(naja_nl_dump PRIVATE CapnProto::capnp )
 target_link_libraries(naja_nl_dump PUBLIC naja_nl)
 target_include_directories(naja_nl_dump PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 target_include_directories(naja_nl_dump PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-
-if(NOT BUILD_NAJA_PYTHON)
-install(
-    FILES snl_common.capnp snl_interface.capnp snl_implementation.capnp snl_common.capnp
-    DESTINATION ${CMAKE_INSTALL_DATADIR}/naja/snlif)
-endif(NOT BUILD_NAJA_PYTHON)

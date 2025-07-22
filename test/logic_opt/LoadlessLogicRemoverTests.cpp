@@ -16,10 +16,19 @@
 #include "NLUniverse.h"
 #include "gtest/gtest.h"
 #include "tbb/scalable_allocator.h"
+#include "NetlistGraph.h"
 
+using namespace naja;
 using namespace naja::DNL;
 using namespace naja::NL;
 using namespace naja::NAJA_OPT;
+
+void executeCommand(const std::string& command) {
+  int result = system(command.c_str());
+  if (result != 0) {
+    std::cerr << "Command execution failed." << std::endl;
+  }
+}
 
 class LoadlessRemoveLogicTests : public ::testing::Test {
  protected:
@@ -422,7 +431,7 @@ TEST_F(LoadlessRemoveLogicTests, simple_2_loadless_3_levels) {
   remover.setNormalizedUniquification(false);
   // Verify each function of remover
   tbb::concurrent_unordered_set<DNLID> tracedIsos = remover.getTracedIsos(*dnl);
-  EXPECT_EQ(tracedIsos.size(), 1);
+  EXPECT_EQ(tracedIsos.size(), 2);
   std::vector<DNLID> untracedIsos = remover.getUntracedIsos(*dnl, tracedIsos);
   EXPECT_EQ(untracedIsos.size(), 0);
   // std::set<SNLBitNet*> loadlessNets = lnr.getLoadlessNets(*dnl, tracedIsos);
@@ -497,14 +506,14 @@ TEST_F(LoadlessRemoveLogicTests, simple_2_loadless_3_levels_bne) {
   remover.setNormalizedUniquification(true);
   // Verify each function of remover
   tbb::concurrent_unordered_set<DNLID> tracedIsos = remover.getTracedIsos(*dnl);
-  EXPECT_EQ(tracedIsos.size(), 1);
+  EXPECT_EQ(tracedIsos.size(), 2);
   std::vector<DNLID> untracedIsos = remover.getUntracedIsos(*dnl, tracedIsos);
   EXPECT_EQ(untracedIsos.size(), 0);
   // std::set<SNLBitNet*> loadlessNets = lnr.getLoadlessNets(*dnl, tracedIsos);
   // EXPECT_EQ(loadlessNets.size(), 1);
   auto loadlessInstances = remover.getLoadlessInstances(*dnl, tracedIsos);
   EXPECT_EQ(loadlessInstances.size(), 10);
-  destroy();
+  //destroy();
   remover.process();
   // Check that the loadless logic is removed
   destroy();

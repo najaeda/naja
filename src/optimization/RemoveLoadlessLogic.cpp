@@ -5,7 +5,6 @@
 
 #include "RemoveLoadlessLogic.h"
 
-#include <spdlog/spdlog.h>
 #include <vector>
 #include <sstream>
 
@@ -167,7 +166,7 @@ tbb::concurrent_unordered_set<DNLID> LoadlessLogicRemover::getTracedIsos(
           term != DNLID_MAX and term <= instance.getTermIndexes().second;
           term++) {
         if (dnl.getDNLTerminalFromID(term).getSnlBitTerm()->getDirection() !=
-            SNLTerm::Direction::Output) {
+            SNLTerm::Direction::Output && dnl.getIsoIdfromTermId(term) != DNLID_MAX) {
           topOutputIsos.push_back(dnl.getIsoIdfromTermId(term));
         }
       }
@@ -203,6 +202,7 @@ std::vector<DNLID> LoadlessLogicRemover::getUntracedIsos(
     const naja::DNL::DNL<DNLInstanceFull, DNLTerminalFull>& dnl,
     const tbb::concurrent_unordered_set<DNLID>& tracedIsos) {
   std::vector<DNLID> untracedIsos;
+  // print traced isos
   for (DNLID iso = 0; iso < dnl.getDNLIsoDB().getNumIsos(); iso++) {
     if (tracedIsos.find(iso) == tracedIsos.end()) {
       untracedIsos.push_back(iso);
@@ -336,8 +336,7 @@ void LoadlessLogicRemover::removeLoadlessInstances(
   }
   // #ifdef DEBUG_PRINTS
   //  LCOV_EXCL_START
-  spdlog::info("Deleted {} leaf instances out of {}", loadlessInstances.size(),
-               dnl_->getLeaves().size());
+  std::cout << "Deleted " << loadlessInstances.size() << " leaf instances out of " << dnl_->getLeaves().size() << std::endl;
   // LCOV_EXCL_STOP
   /// #endif
 }

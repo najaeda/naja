@@ -80,6 +80,18 @@ class NajaNetlistTest0(unittest.TestCase):
         #for inst in netlist.get_all_primitive_instances():
         #    print(inst)
 
+    def test_loader_single_arg(self):
+        design_files = os.path.join(verilog_benchmarks, "test0.v")
+        primitives = os.path.join(liberty_benchmarks, "asap7_excerpt" , "test0.lib")
+        netlist.load_liberty(primitives)
+        netlist.load_verilog(design_files)
+        top = netlist.get_top()
+        self.assertIsNotNone(top)
+        inst0 = top.get_child_instance('inst0')
+        self.assertFalse(inst0.is_basic_primitive())
+        self.assertIsNotNone(inst0)
+        self.assertEqual(0, sum(1 for _ in inst0.get_attributes()))
+
     def test_loader1(self):
         design_files = [os.path.join(verilog_benchmarks, "test1.v")]
         lut4 = naja.SNLDesign.createPrimitive(netlist.get_primitives_library(), "LUT4")
@@ -95,7 +107,6 @@ class NajaNetlistTest0(unittest.TestCase):
         if naja.NLUniverse.get():
             naja.NLUniverse.get().destroy()
         
-
     def test_instance(self):
         u = naja.NLUniverse.create()
         db = naja.NLDB.create(u)
@@ -138,19 +149,19 @@ class NajaNetlistTest0(unittest.TestCase):
                          netlist.get_snl_path_from_id_list(instance.get_child_instance(ins2.getName()).pathIDs))
         self.assertEqual(instance2, instance.get_child_instance(ins2.getName()))
 
-        self.assertEqual(instance.get_number_of_child_instances(), 1)
+        self.assertEqual(instance.count_child_instances(), 1)
         instance.delete_instance(instance2.get_name())
-        self.assertEqual(instance.get_number_of_child_instances(), 0)
+        self.assertEqual(instance.count_child_instances(), 0)
 
         instance.create_child_instance(self.submodel.getName(), "ins2")
-        self.assertEqual(instance.get_number_of_child_instances(), 1)
+        self.assertEqual(instance.count_child_instances(), 1)
         self.assertIsNotNone(instance.get_child_instance("ins2"))
         self.assertEqual(instance.get_child_instance("ins2").get_name(), "ins2")
         self.assertEqual(instance.get_child_instance("ins2").get_model_name(), self.submodel.getName())
 
         #Test bus term creation connection and disconnection
         instance3 = instance.create_child_instance(self.submodel.getName(), "ins3")
-        self.assertTrue(instance.get_number_of_child_instances() == 2)
+        self.assertTrue(instance.count_child_instances() == 2)
         instance3.create_output_bus_term("O1", 4, 0)
         instance.create_bus_net("netO1", 4, 0)
         #connect the bus term to the bus net
@@ -183,6 +194,7 @@ class NajaNetlistTest0(unittest.TestCase):
             inputCount += 1
         
         self.assertEqual(inputCount, 6)
+        self.assertEqual(instance.count_flat_input_terms(), 6)
         
         outputCount = 0
         for output in instance.get_output_terms():
@@ -201,12 +213,13 @@ class NajaNetlistTest0(unittest.TestCase):
             inputCount += 1
         
         self.assertEqual(inputCount, 13)
+        self.assertEqual(instance.count_flat_input_terms(), 13)
         
         outputCount = 0
         for output in instance.get_output_terms():
             self.assertTrue(output.is_output())
             self.assertFalse(output.is_input())
-            self.assertTrue(output.get_direction() == naja.SNLTerm.Direction.Output)
+            self.assertTrue(output.get_direction() == netlist.Term.Direction.OUTPUT)
             outputCount += 1
 
         self.assertEqual(outputCount, 2)

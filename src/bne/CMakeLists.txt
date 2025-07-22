@@ -19,12 +19,20 @@ set(NAJA_BNE_HEADERS
 add_library(naja_bne SHARED ${SOURCES})
 target_link_libraries(naja_bne PUBLIC naja_dnl coverage_config sanitizers_config)
 
-target_compile_options(naja_bne PRIVATE ${NAJA_CXX_WARNINGS}) 
+if(APPLE)
+  # see dnl compile for details
+  target_compile_options(naja_bne PRIVATE -Wno-sign-conversion)
+endif()
+target_compile_options(naja_bne BEFORE PRIVATE ${NAJA_CXX_WARNINGS}) 
 
 target_include_directories(naja_bne SYSTEM BEFORE PUBLIC ${Boost_INCLUDE_DIR})
 target_include_directories(naja_bne PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_include_directories(naja_bne PUBLIC ${SPDLOG_DIR})
 
-set_target_properties(naja_bne PROPERTIES PUBLIC_HEADER "${naja_bne_HEADERS}")
 
-install(TARGETS naja_bne LIBRARY DESTINATION lib PUBLIC_HEADER DESTINATION include) 
+if(BUILD_NAJA_PYTHON)
+  install(TARGETS naja_bne LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/najaeda)
+else(BUILD_NAJA_PYTHON)
+  set_target_properties(naja_bne PROPERTIES PUBLIC_HEADER "${naja_bne_HEADERS}")
+  install(TARGETS naja_bne LIBRARY DESTINATION lib PUBLIC_HEADER DESTINATION include) 
+endif(BUILD_NAJA_PYTHON)

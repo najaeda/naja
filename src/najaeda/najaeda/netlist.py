@@ -9,7 +9,10 @@ import logging
 import hashlib
 import struct
 import sys
+import os
 from enum import Enum
+from typing import Union, List
+from dataclasses import dataclass
 
 from najaeda import naja
 
@@ -351,8 +354,20 @@ class Net:
             yield Term(path, term.getBitTerm())
             path.pop()
 
-    def get_design_terms(self):
+    def count_inst_terms(self) -> int:
         """
+        Count the instance terminals of this net.
+
+        :return: the number of instance terminals of this net.
+        :rtype: int
+        """
+        return sum(1 for _ in self.get_inst_terms())
+
+    def get_design_terms(self):
+        """Return an iterator over the design terminals of the net.
+        This includes only the terminals that are part of the current design.
+        The iterator will yield Term objects bit per bit.
+
         :return: an iterator over the design terminals of the net.
         :rtype: Iterator[Term]
         """
@@ -361,8 +376,18 @@ class Net:
         for term in self.net.getBitTerms():
             yield Term(self.pathIDs, term)
 
-    def get_terms(self):
+    def count_design_terms(self) -> int:
+        """Count the design terminals of this net.
+
+        :return: the number of design terminals of this net.
+        :rtype: int
         """
+        return sum(1 for _ in self.get_design_terms())
+
+    def get_terms(self):
+        """Return an iterator over the terminals of the net.
+        This includes both design and instance terminals.
+
         :return: an iterator over the terminals of the net.
         :rtype: Iterator[Term]
         """
@@ -404,9 +429,11 @@ def get_snl_term_for_ids_with_path(path, termIDs):
 
 
 class Term:
-    INPUT = naja.SNLTerm.Direction.Input
-    OUTPUT = naja.SNLTerm.Direction.Output
-    INOUT = naja.SNLTerm.Direction.InOut
+    class Direction(Enum):
+        """Enum for the direction of a term."""
+        INPUT = naja.SNLTerm.Direction.Input
+        OUTPUT = naja.SNLTerm.Direction.Output
+        INOUT = naja.SNLTerm.Direction.InOut
 
     def __init__(self, path, term):
         # self.termIDs = []
@@ -454,9 +481,9 @@ class Term:
             term_str = (
                 f"{path}/{get_snl_term_for_ids(self.pathIDs, self.termIDs).getName()}"
             )
-        if self.is_bus:
+        if self.is_bus():
             term_str += f"[{self.get_msb()}:{self.get_lsb()}]"
-        elif self.is_bus_bit:
+        elif self.is_bus_bit():
             term_str += f"[{self.get_lsb()}]"
         return term_str
 
@@ -547,18 +574,18 @@ class Term:
         """
         return get_snl_term_for_ids(self.pathIDs, self.termIDs).getName()
 
-    def get_direction(self) -> naja.SNLTerm.Direction:
+    def get_direction(self) -> Direction:
         """
         :return: the direction of the term.
-        :rtype: naja.SNLTerm.Direction
+        :rtype: Term.Direction
         """
         snlterm = get_snl_term_for_ids(self.pathIDs, self.termIDs)
         if snlterm.getDirection() == naja.SNLTerm.Direction.Input:
-            return Term.INPUT
+            return Term.Direction.INPUT
         elif snlterm.getDirection() == naja.SNLTerm.Direction.Output:
-            return Term.OUTPUT
+            return Term.Direction.OUTPUT
         elif snlterm.getDirection() == naja.SNLTerm.Direction.InOut:
-            return Term.INOUT
+            return Term.Direction.INOUT
 
     def __get_snl_bitnet(self, bit) -> Net:
         # single bit
@@ -622,6 +649,7 @@ class Term:
         """
         :return: the net of the term.
         :rtype: Net
+        :remark: If the term is a top level term, it will return None.
         """
         head_path = self.pathIDs.copy()
         if len(head_path) == 0:
@@ -951,17 +979,25 @@ class Instance:
     def dump_context_dot(self, path: str):
         self.__get_snl_model().dumpContextDotFile(path)
 
-    def get_child_instance(self, name: str):
+    def get_child_instance(self, names: Union[str, list]):
         """
-        :param str name: the name of the child Instance to get.
-        :return: the child Instance with the given name or None if it does not exist.
+        :param names: the name of the child instance
+            or the path to the child Instance as a list of names.
+        :return: the child Instance at the given path or None if it does not exist.
         :rtype: Instance or None
         """
-        childInst = self.__get_snl_model().getInstance(name)
-        if childInst is None:
-            return None
+        if isinstance(names, str):
+            names = [names]
+        if not names:
+            raise ValueError("Names argument cannot be empty")
+        model = self.__get_snl_model()
         path = self.pathIDs.copy()
-        path.append(childInst.getID())
+        for name in names:
+            childInst = model.getInstance(name)
+            if childInst is None:
+                return None
+            path.append(childInst.getID())
+            model = childInst.getModel()
         return Instance(path)
 
     def get_child_instances(self):
@@ -977,7 +1013,7 @@ class Instance:
             yield Instance(path_child)
             # path.pop()
 
-    def get_number_of_child_instances(self) -> int:
+    def count_child_instances(self) -> int:
         """
         :return: the number of child instances of this instance.
         :rtype: int
@@ -1009,6 +1045,14 @@ class Instance:
         for net in self.__get_snl_model().getNets():
             yield Net(self.pathIDs, net)
 
+    def count_nets(self) -> int:
+        """Count the number of scalar nets and bus nets of this Instance.
+
+        :return: the number of nets of this Instance.
+        :rtype: int
+        """
+        return sum(1 for _ in self.get_nets())
+
     def get_flat_nets(self):
         """Iterate over all scalar nets and bus net bits.
 
@@ -1021,6 +1065,14 @@ class Instance:
                     yield Net(self.pathIDs, bit)
             else:
                 yield Net(self.pathIDs, net)
+
+    def count_flat_nets(self) -> int:
+        """Count the number of scalar nets and bus net bits of this Instance.
+
+        :return: the number of flat nets of this Instance.
+        :rtype: int
+        """
+        return sum(1 for _ in self.get_flat_nets())
 
     def get_net(self, name: str) -> Net:
         """
@@ -1049,6 +1101,14 @@ class Instance:
         for term in self.__get_snl_model().getTerms():
             yield Term(self.pathIDs, term)
 
+    def count_terms(self) -> int:
+        """Count the number of scalar terms and bus terms of this Instance.
+
+        :return: the number of terms of this Instance.
+        :rtype: int
+        """
+        return sum(1 for _ in self.get_terms())
+
     def get_flat_terms(self):
         """Iterate over all scalar terms and bus term bits.
 
@@ -1057,6 +1117,14 @@ class Instance:
         """
         for term in self.__get_snl_model().getBitTerms():
             yield Term(self.pathIDs, term)
+
+    def count_flat_terms(self) -> int:
+        """Count the number of scalar terms and bus term bits of this Instance.
+
+        :return: the number of flat terms of this Instance.
+        :rtype: int
+        """
+        return sum(1 for _ in self.get_flat_terms())
 
     def get_term(self, name: str) -> Term:
         """
@@ -1080,6 +1148,15 @@ class Instance:
             if term.getDirection() != naja.SNLTerm.Direction.Output:
                 yield Term(self.pathIDs, term)
 
+    def count_input_terms(self) -> int:
+        """Count the number of scalar input terms and bus input terms
+        of this Instance.
+
+        :return: the number of input terms of this Instance.
+        :rtype: int
+        """
+        return sum(1 for _ in self.get_input_terms())
+
     def get_flat_input_terms(self):
         """Iterate over all scalar input terms and bus input term bits
         of this Instance.
@@ -1095,6 +1172,15 @@ class Instance:
                 else:
                     yield Term(self.pathIDs, term)
 
+    def count_flat_input_terms(self) -> int:
+        """Count the number of scalar input terms and bus input term bits
+        of this Instance.
+
+        :return: the number of flat input terms of this Instance.
+        :rtype: int
+        """
+        return sum(1 for _ in self.get_flat_input_terms())
+
     def get_output_terms(self):
         """Iterate over all scalar output terms and bus output terms
         of this Instance.
@@ -1105,6 +1191,15 @@ class Instance:
         for term in self.__get_snl_model().getTerms():
             if term.getDirection() != naja.SNLTerm.Direction.Input:
                 yield Term(self.pathIDs, term)
+
+    def count_output_terms(self) -> int:
+        """Count the number of scalar output terms and bus output terms
+        of this Instance.
+
+        :return: the number of output terms of this Instance.
+        :rtype: int
+        """
+        return sum(1 for _ in self.get_output_terms())
 
     def get_flat_output_terms(self):
         """Iterate over all scalar output terms and bus output term bits
@@ -1120,6 +1215,15 @@ class Instance:
                         yield Term(self.pathIDs, bit)
                 else:
                     yield Term(self.pathIDs, term)
+
+    def count_flat_output_terms(self) -> int:
+        """Count the number of scalar output terms and bus output term bits
+        of this Instance.
+
+        :return: the number of flat output terms of this Instance.
+        :rtype: int
+        """
+        return sum(1 for _ in self.get_flat_output_terms())
 
     def get_attributes(self):
         """Iterate over the attributes of this Instance.
@@ -1221,11 +1325,11 @@ class Instance:
         path = naja.SNLPath(path, newSNLInstance)
         return Instance(path)
 
-    def create_term(self, name: str, direction: naja.SNLTerm.Direction) -> Term:
+    def create_term(self, name: str, direction: Term.Direction) -> Term:
         """Create a Term in this Instance with the given name and direction.
 
         :param str name: the name of the Term to create.
-        :param naja.SNLTerm.Direction direction: the direction of the Term to create.
+        :param Term.Direction direction: the direction of the Term to create.
         :return: the created Term.
         """
         path = get_snl_path_from_id_list(self.pathIDs)
@@ -1233,7 +1337,7 @@ class Instance:
             naja.SNLUniquifier(path)
             path = get_snl_path_from_id_list(self.pathIDs)
         design = self.__get_snl_model()
-        newSNLTerm = naja.SNLScalarTerm.create(design, direction, name)
+        newSNLTerm = naja.SNLScalarTerm.create(design, direction.value, name)
         return Term(path.getPathIDs(), newSNLTerm)
 
     def create_output_term(self, name: str) -> Term:
@@ -1243,7 +1347,7 @@ class Instance:
         :return: the created Term.
         :rtype: Term
         """
-        return self.create_term(name, naja.SNLTerm.Direction.Output)
+        return self.create_term(name, Term.Direction.OUTPUT)
 
     def create_input_term(self, name: str) -> Term:
         """Create an input Term in this Instance with the given name.
@@ -1252,7 +1356,7 @@ class Instance:
         :return: the created Term.
         :rtype: Term
         """
-        return self.create_term(name, naja.SNLTerm.Direction.Input)
+        return self.create_term(name, Term.Direction.INPUT)
 
     def create_inout_term(self, name: str) -> Term:
         """Create an inout Term in this Instance with the given name.
@@ -1261,22 +1365,22 @@ class Instance:
         :return: the created Term.
         :rtype: Term
         """
-        return self.create_term(name, naja.SNLTerm.Direction.InOut)
+        return self.create_term(name, Term.Direction.INOUT)
 
-    def create_bus_term(self, name: str, msb: int, lsb: int, direction) -> Term:
+    def create_bus_term(self, name: str, msb: int, lsb: int, direction: Term.Direction) -> Term:
         """Create a bus Term in this Instance with the given name, msb, lsb and direction.
 
         :param str name: the name of the Term to create.
         :param int msb: the most significant bit of the Term to create.
         :param int lsb: the least significant bit of the Term to create.
-        :param naja.SNLTerm.Direction direction: the direction of the Term to create.
+        :param Term.Direction direction: the direction of the Term to create.
         :return: the created Term.
         """
         path = get_snl_path_from_id_list(self.pathIDs)
         if path.size() > 0:
             naja.SNLUniquifier(path)
         design = self.__get_snl_model()
-        newSNLTerm = naja.SNLBusTerm.create(design, direction, msb, lsb, name)
+        newSNLTerm = naja.SNLBusTerm.create(design, direction.value, msb, lsb, name)
         return Term(self.pathIDs, newSNLTerm)
 
     def create_inout_bus_term(self, name: str, msb: int, lsb: int) -> Term:
@@ -1288,7 +1392,7 @@ class Instance:
         :return: the created Term.
         :rtype: Term
         """
-        return self.create_bus_term(name, msb, lsb, naja.SNLTerm.Direction.InOut)
+        return self.create_bus_term(name, msb, lsb, Term.Direction.INOUT)
 
     def create_output_bus_term(self, name: str, msb: int, lsb: int) -> Term:
         """Create an output bus Term in this Instance with the given name, msb and lsb.
@@ -1299,7 +1403,7 @@ class Instance:
         :return: the created Term.
         :rtype: Term
         """
-        return self.create_bus_term(name, msb, lsb, naja.SNLTerm.Direction.Output)
+        return self.create_bus_term(name, msb, lsb, Term.Direction.OUTPUT)
 
     def create_input_bus_term(self, name: str, msb: int, lsb: int) -> Term:
         """Create an input bus Term in this Instance with the given name, msb and lsb.
@@ -1310,7 +1414,7 @@ class Instance:
         :return: the created Term.
         :rtype: Term
         """
-        return self.create_bus_term(name, msb, lsb, naja.SNLTerm.Direction.Input)
+        return self.create_bus_term(name, msb, lsb, Term.Direction.INPUT)
 
     def create_net(self, name: str) -> Net:
         """Create a scalar Net in this Instance with the given name.
@@ -1344,13 +1448,21 @@ class Instance:
         newSNLNet = naja.SNLBusNet.create(model, msb, lsb, name)
         return Net(path, newSNLNet)
 
-    def dump_verilog(self, path: str, name: str):
+    def dump_verilog(self, path: str):
         """Dump the verilog of this instance.
 
-        :param str path: the path where to dump the verilog.
-        :param str name: the name of the verilog file.
+        :param str path: the file path where to dump the verilog.
+        :rtype: None
+        :raises ValueError: if the path does not end with .v.
+        :raises FileNotFoundError: if the directory of the path does not exist.
         """
-        self.__get_snl_model().dumpVerilog(path, name)
+        # path should be a file path of the form "path/to/file.v"
+        if not path.endswith(".v"):
+            raise ValueError("The path must end with .v")
+        dir_path = os.path.dirname(path) or "."
+        if not os.path.exists(dir_path):
+            raise FileNotFoundError(f"The directory {dir_path} does not exist")
+        self.__get_snl_model().dumpVerilog(dir_path, os.path.basename(path))
 
     def get_truth_table(self):
         """
@@ -1360,13 +1472,22 @@ class Instance:
         return self.__get_snl_model().getTruthTable()
 
 
-def get_top_db() -> naja.NLDB:
+def __get_top_db() -> naja.NLDB:
     if naja.NLUniverse.get() is None:
         naja.NLUniverse.create()
     if naja.NLUniverse.get().getTopDB() is None:
         db = naja.NLDB.create(naja.NLUniverse.get())
         naja.NLUniverse.get().setTopDB(db)
     return naja.NLUniverse.get().getTopDB()
+
+
+def reset():
+    """Reset the environment by deleting everything.
+    :rtype: None
+    """
+    u = naja.NLUniverse.get()
+    if u is not None:
+        u.destroy()
 
 
 def get_top():
@@ -1385,7 +1506,7 @@ def create_top(name: str) -> Instance:
     :rtype: Instance
     """
     # init
-    db = get_top_db()
+    db = __get_top_db()
     # create top design
     lib = naja.NLLibrary.create(db)
     top = naja.SNLDesign.create(lib, name)
@@ -1393,25 +1514,52 @@ def create_top(name: str) -> Instance:
     return Instance()
 
 
+@dataclass
 class VerilogConfig:
-    def __init__(self, keep_assigns=True):
-        self.keep_assigns = keep_assigns
+    keep_assigns: bool = True
+    allow_unknown_designs: bool = False
 
 
-def load_verilog(files: list, config: VerilogConfig = None) -> Instance:
+def load_verilog(files: Union[str, List[str]], config: VerilogConfig = None) -> Instance:
+    """Load verilog files into the top design.
+
+    :param files: a list of verilog files to load or a single file.
+    :param config: the configuration to use when loading the files.
+    :return: the top Instance.
+    :rtype: Instance
+    :raises Exception: if no files are provided.
+    """
+    if isinstance(files, str):
+        files = [files]
+    if not files or len(files) == 0:
+        raise Exception("No verilog files provided")
     if config is None:
         config = VerilogConfig()  # Use default settings
     start_time = time.time()
     logging.info(f"Loading verilog: {', '.join(files)}")
-    get_top_db().loadVerilog(files, keep_assigns=config.keep_assigns)
+    __get_top_db().loadVerilog(
+        files,
+        keep_assigns=config.keep_assigns,
+        allow_unknown_designs=config.allow_unknown_designs
+    )
     execution_time = time.time() - start_time
     logging.info(f"Loading done in {execution_time:.2f} seconds")
     return get_top()
 
 
-def load_liberty(files: list):
+def load_liberty(files: Union[str, List[str]]):
+    """Load liberty files.
+
+    :param files: a list of liberty files to load or a single file.
+    :rtype: None
+    :raises Exception: if no liberty files are provided.
+    """
+    if isinstance(files, str):
+        files = [files]
+    if not files or len(files) == 0:
+        raise Exception("No liberty files provided")
     logging.info(f"Loading liberty files: {', '.join(files)}")
-    get_top_db().loadLibertyPrimitives(files)
+    __get_top_db().loadLibertyPrimitives(files)
 
 
 def load_primitives(name: str):
@@ -1420,20 +1568,47 @@ def load_primitives(name: str):
     Currently supported libraries are:
 
     - xilinx
+    - yosys
+    :param str name: the name of the primitives library to load.
+    :raises ValueError: if the name is not recognized.
+    :rtype: None
     """
     if name == "xilinx":
-        logging.info("Loading xilinx primitives")
         from najaeda.primitives import xilinx
-
-        xilinx.load(get_top_db())
+        xilinx.load(__get_top_db())
+    elif name == "yosys":
+        from najaeda.primitives import yosys
+        yosys.load(__get_top_db())
     else:
         raise ValueError(f"Unknown primitives library: {name}")
 
 
+def load_primitives_from_file(file: str):
+    """Loads a primitives library from a file.
+
+    :param str file: the path to the primitives library file.
+    The file must define a function `load(db)`.
+    """
+    logging.info(f"Loading primitives from file: {file}")
+    if not os.path.isfile(file):
+        raise FileNotFoundError(f"Cannot load primitives from non existing file: {file}")
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("user_module", file)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["user_module"] = module
+    spec.loader.exec_module(module)
+
+    if not hasattr(module, "load"):
+        raise RuntimeError(f"The file {file} must define a function named `load(db)`")
+
+    db = __get_top_db()
+    module.load(db)
+
+
 def get_primitives_library() -> naja.NLLibrary:
-    lib = get_top_db().getLibrary("PRIMS")
+    lib = __get_top_db().getLibrary("PRIMS")
     if lib is None:
-        lib = naja.NLLibrary.createPrimitives(get_top_db(), "PRIMS")
+        lib = naja.NLLibrary.createPrimitives(__get_top_db(), "PRIMS")
     return lib
 
 
@@ -1453,3 +1628,21 @@ def get_model_name(id: tuple[int, int, int]) -> str:
                 if model:
                     return model.getName()
     return None
+
+
+def apply_dle():
+    """Apply the DLE (Dead Logic Elimination) to the top design.
+    :rtype: None
+    """
+    top = naja.NLUniverse.get().getTopDesign()
+    if top is not None:
+        naja.NLUniverse.get().applyDLE()
+
+
+def apply_constant_propagation():
+    """Apply constant propagation to the top design.
+    :rtype: None
+    """
+    top = naja.NLUniverse.get().getTopDesign()
+    if top is not None:
+        naja.NLUniverse.get().applyConstantPropagation()

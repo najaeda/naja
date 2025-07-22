@@ -14,7 +14,7 @@
 #include <capnp/message.h>
 #include <capnp/serialize-packed.h>
 
-#include "snl_implementation.capnp.h"
+#include "naja_nl_implementation.capnp.h"
 
 #include "NLUniverse.h"
 #include "NLException.h"
@@ -33,31 +33,31 @@ namespace {
 
 using namespace naja::NL;
 
-DBImplementation::LibraryImplementation::DesignImplementation::NetType SNLtoCapnPNetType(SNLNet::Type type) {
+DBImplementation::LibraryImplementation::SNLDesignImplementation::NetType SNLtoCapnPNetType(SNLNet::Type type) {
   switch (type) {
     case SNLNet::Type::Standard:
-      return DBImplementation::LibraryImplementation::DesignImplementation::NetType::STANDARD;
+      return DBImplementation::LibraryImplementation::SNLDesignImplementation::NetType::STANDARD;
     case SNLNet::Type::Assign0:
-      return DBImplementation::LibraryImplementation::DesignImplementation::NetType::ASSIGN0;
+      return DBImplementation::LibraryImplementation::SNLDesignImplementation::NetType::ASSIGN0;
     case SNLNet::Type::Assign1:
-      return DBImplementation::LibraryImplementation::DesignImplementation::NetType::ASSIGN1;
+      return DBImplementation::LibraryImplementation::SNLDesignImplementation::NetType::ASSIGN1;
     case SNLNet::Type::Supply0:
-      return DBImplementation::LibraryImplementation::DesignImplementation::NetType::SUPPLY0;
+      return DBImplementation::LibraryImplementation::SNLDesignImplementation::NetType::SUPPLY0;
     case SNLNet::Type::Supply1:
-      return DBImplementation::LibraryImplementation::DesignImplementation::NetType::SUPPLY1;
+      return DBImplementation::LibraryImplementation::SNLDesignImplementation::NetType::SUPPLY1;
   }
-  return DBImplementation::LibraryImplementation::DesignImplementation::NetType::STANDARD; //LCOV_EXCL_LINE
+  return DBImplementation::LibraryImplementation::SNLDesignImplementation::NetType::STANDARD; //LCOV_EXCL_LINE
 }
 
 void dumpInstParameter(
-  DBImplementation::LibraryImplementation::DesignImplementation::Instance::InstParameter::Builder& instParameter,
+  DBImplementation::LibraryImplementation::SNLDesignImplementation::Instance::InstParameter::Builder& instParameter,
   const SNLInstParameter* snlInstParameter) {
   instParameter.setName(snlInstParameter->getName().getString());
   instParameter.setValue(snlInstParameter->getValue());
 }
 
 void dumpInstance(
-  DBImplementation::LibraryImplementation::DesignImplementation::Instance::Builder& instance,
+  DBImplementation::LibraryImplementation::SNLDesignImplementation::Instance::Builder& instance,
   const SNLInstance* snlInstance) {
   instance.setId(snlInstance->getID());
   if (not snlInstance->isAnonymous()) {
@@ -77,8 +77,7 @@ void dumpInstance(
   }
 }
 
-void dumpBitTermReference(
-  DBImplementation::LibraryImplementation::DesignImplementation::NetComponentReference::Builder& componentReference,
+void dumpBitTermReference(DBImplementation::NetComponentReference::Builder& componentReference,
   const SNLBitTerm* term) {
   auto termRefenceBuilder = componentReference.initTermReference();
   termRefenceBuilder.setTermID(term->getID());
@@ -88,7 +87,7 @@ void dumpBitTermReference(
 }
 
 void dumpInstTermReference(
-  DBImplementation::LibraryImplementation::DesignImplementation::NetComponentReference::Builder& componentReference,
+  DBImplementation::NetComponentReference::Builder& componentReference,
   const SNLInstTerm* instTerm) {
   auto instTermRefenceBuilder = componentReference.initInstTermReference();
   instTermRefenceBuilder.setInstanceID(instTerm->getInstance()->getID());
@@ -100,7 +99,7 @@ void dumpInstTermReference(
 }
 
 void dumpNetComponentReference(
-  DBImplementation::LibraryImplementation::DesignImplementation::NetComponentReference::Builder& componentReference,
+  DBImplementation::NetComponentReference::Builder& componentReference,
   const SNLNetComponent* component) {
   if (auto instTerm = dynamic_cast<const SNLInstTerm*>(component)) {
     dumpInstTermReference(componentReference, instTerm);
@@ -111,7 +110,7 @@ void dumpNetComponentReference(
 }
 
 void dumpScalarNet(
-  DBImplementation::LibraryImplementation::DesignImplementation::Net::Builder& net,
+  DBImplementation::LibraryImplementation::SNLDesignImplementation::Net::Builder& net,
   const SNLScalarNet* scalarNet) {
   auto scalarNetBuilder = net.initScalarNet();
   scalarNetBuilder.setId(scalarNet->getID());
@@ -131,7 +130,7 @@ void dumpScalarNet(
 }
 
 void dumpBusNetBit(
-  DBImplementation::LibraryImplementation::DesignImplementation::BusNetBit::Builder& bitBuilder,
+  DBImplementation::LibraryImplementation::SNLDesignImplementation::BusNetBit::Builder& bitBuilder,
   NLID::Bit bit,
   const SNLBusNetBit* busNetBit) {
   bitBuilder.setBit(bit);
@@ -153,7 +152,7 @@ void dumpBusNetBit(
 }
 
 void dumpBusNet(
-  DBImplementation::LibraryImplementation::DesignImplementation::Net::Builder& net,
+  DBImplementation::LibraryImplementation::SNLDesignImplementation::Net::Builder& net,
   const SNLBusNet* busNet) {
   auto busNetBuilder = net.initBusNet();
   busNetBuilder.setId(busNet->getID());
@@ -174,7 +173,7 @@ void dumpBusNet(
 }
 
 void dumpDesignImplementation(
-  DBImplementation::LibraryImplementation::DesignImplementation::Builder& designImplementation,
+  DBImplementation::LibraryImplementation::SNLDesignImplementation::Builder& designImplementation,
   const SNLDesign* snlDesign) {
   designImplementation.setId(snlDesign->getID());
 
@@ -209,7 +208,7 @@ void dumpLibraryImplementation(
     dumpLibraryImplementation(subLibraryBuilder, subLib);
   }
 
-  auto designs = libraryImplementation.initDesignImplementations(snlLibrary->getSNLDesigns().size());
+  auto designs = libraryImplementation.initSnlDesignImplementations(snlLibrary->getSNLDesigns().size());
   id = 0;
   for (auto snlDesign: snlLibrary->getSNLDesigns()) {
     auto designImplementationBuilder = designs[id++]; 
@@ -217,17 +216,17 @@ void dumpLibraryImplementation(
   }
 }
 
-SNLNet::Type CapnPtoSNLNetType(DBImplementation::LibraryImplementation::DesignImplementation::NetType type) {
+SNLNet::Type CapnPtoSNLNetType(DBImplementation::LibraryImplementation::SNLDesignImplementation::NetType type) {
   switch (type) {
-    case DBImplementation::LibraryImplementation::DesignImplementation::NetType::STANDARD:
+    case DBImplementation::LibraryImplementation::SNLDesignImplementation::NetType::STANDARD:
       return SNLNet::Type::Standard;
-    case DBImplementation::LibraryImplementation::DesignImplementation::NetType::ASSIGN0:
+    case DBImplementation::LibraryImplementation::SNLDesignImplementation::NetType::ASSIGN0:
       return SNLNet::Type::Assign0;
-    case DBImplementation::LibraryImplementation::DesignImplementation::NetType::ASSIGN1:
+    case DBImplementation::LibraryImplementation::SNLDesignImplementation::NetType::ASSIGN1:
       return SNLNet::Type::Assign1;
-    case DBImplementation::LibraryImplementation::DesignImplementation::NetType::SUPPLY0:
+    case DBImplementation::LibraryImplementation::SNLDesignImplementation::NetType::SUPPLY0:
       return SNLNet::Type::Supply0;
-    case DBImplementation::LibraryImplementation::DesignImplementation::NetType::SUPPLY1:
+    case DBImplementation::LibraryImplementation::SNLDesignImplementation::NetType::SUPPLY1:
       return SNLNet::Type::Supply1;
   }
   return SNLNet::Type::Standard; //LCOV_EXCL_LINE
@@ -235,7 +234,7 @@ SNLNet::Type CapnPtoSNLNetType(DBImplementation::LibraryImplementation::DesignIm
 
 void loadInstParameter(
   SNLInstance* instance,
-  const DBImplementation::LibraryImplementation::DesignImplementation::Instance::InstParameter::Reader& instParameter) {
+  const DBImplementation::LibraryImplementation::SNLDesignImplementation::Instance::InstParameter::Reader& instParameter) {
   auto name = instParameter.getName();
   auto value = instParameter.getValue();
   auto parameter = instance->getModel()->getParameter(NLName(name));
@@ -252,7 +251,7 @@ void loadInstParameter(
 
 void loadInstance(
   SNLDesign* design,
-  const DBImplementation::LibraryImplementation::DesignImplementation::Instance::Reader& instance) {
+  const DBImplementation::LibraryImplementation::SNLDesignImplementation::Instance::Reader& instance) {
   auto instanceID = instance.getId();
   NLName snlName;
   if (instance.hasName()) {
@@ -283,7 +282,7 @@ void loadInstance(
 
 void loadTermReference(
   SNLBitNet* net,
-  const DBImplementation::LibraryImplementation::DesignImplementation::TermReference::Reader& termReference) {
+  const DBImplementation::TermReference::Reader& termReference) {
   auto design = net->getDesign();
   auto term = design->getTerm(NLID::DesignObjectID(termReference.getTermID()));
   //LCOV_EXCL_START
@@ -312,7 +311,7 @@ void loadTermReference(
 
 void loadInstTermReference(
   SNLBitNet* net,
-  const DBImplementation::LibraryImplementation::DesignImplementation::InstTermReference::Reader& instTermReference) {
+  const DBImplementation::InstTermReference::Reader& instTermReference) {
   auto instanceID = instTermReference.getInstanceID();
   auto design = net->getDesign();
   auto instance = design->getInstance(NLID::DesignObjectID(instanceID));
@@ -356,7 +355,7 @@ void loadInstTermReference(
 
 void loadBusNet(
   SNLDesign* design,
-  const DBImplementation::LibraryImplementation::DesignImplementation::BusNet::Reader& net) {
+  const DBImplementation::LibraryImplementation::SNLDesignImplementation::BusNet::Reader& net) {
   NLName snlName;
   if (net.hasName()) {
     snlName = NLName(net.getName());
@@ -393,7 +392,7 @@ void loadBusNet(
 
 void loadScalarNet(
   SNLDesign* design,
-  const DBImplementation::LibraryImplementation::DesignImplementation::ScalarNet::Reader& net) {
+  const DBImplementation::LibraryImplementation::SNLDesignImplementation::ScalarNet::Reader& net) {
   NLName snlName;
   if (net.hasName()) {
     snlName = NLName(net.getName());
@@ -413,7 +412,7 @@ void loadScalarNet(
 
 void loadDesignImplementation(
   NLLibrary* library,
-  const DBImplementation::LibraryImplementation::DesignImplementation::Reader& designImplementation) {
+  const DBImplementation::LibraryImplementation::SNLDesignImplementation::Reader& designImplementation) {
   auto designID = designImplementation.getId();
   SNLDesign* snlDesign = library->getSNLDesign(NLID::DesignID(designID));
   //LCOV_EXCL_START
@@ -460,8 +459,8 @@ void loadLibraryImplementation(NLDB* db, const DBImplementation::LibraryImplemen
     throw NLException(reason.str());
   }
   //LCOV_EXCL_STOP
-  if (libraryImplementation.hasDesignImplementations()) {
-    for (auto designImplementation: libraryImplementation.getDesignImplementations()) {
+  if (libraryImplementation.hasSnlDesignImplementations()) {
+    for (auto designImplementation: libraryImplementation.getSnlDesignImplementations()) {
       loadDesignImplementation(snlLibrary, designImplementation);
     } 
   }

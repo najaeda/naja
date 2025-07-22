@@ -25,9 +25,10 @@ class SNLNetComponent: public SNLDesignObject {
     class Direction {
       public:
         enum DirectionEnum {
-          Input,  ///< Input direction.
-          Output, ///< Output direction.
-          InOut   ///< InOut direction.
+          Input,    ///< Input direction.
+          Output,   ///< Output direction.
+          InOut,    ///< InOut direction.
+          Undefined ///< Undefined direction.
         };
         Direction(const DirectionEnum& dirEnum);
         Direction(const Direction& direction) = default;

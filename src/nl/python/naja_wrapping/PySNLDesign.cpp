@@ -300,7 +300,9 @@ PyObject* PySNLDesign_getTruthTable(PySNLDesign* self) {
   }
   PyObject* py_list = PyList_New(2); 
   PyList_SetItem(py_list, 0, PyLong_FromLong(truthTable.size()));
-  PyList_SetItem(py_list, 1, PyLong_FromLong(truthTable.bits()));
+  for (auto mask : truthTable.bits().getChunks()) {
+    PyList_SetItem(py_list, 1, PyLong_FromLong(mask));
+  }
   return py_list;
 }
 

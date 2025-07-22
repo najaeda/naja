@@ -3,8 +3,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef NETLIST_GTAPH_H
-#define NETLIST_GTAPH_H
+#ifndef NETLIST_GRAPH_H
+#define NETLIST_GRAPH_H
 
 #include <filesystem>
 #include <iostream>
@@ -180,6 +180,8 @@ class NetlistGraph {
         return "output";
       case naja::NL::SNLTerm::Direction::InOut:
         return "inout";
+      case naja::NL::SNLTerm::Direction::Undefined:
+        return "undefined";
     }
     return "ERROR";
   }

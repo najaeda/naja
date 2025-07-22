@@ -90,6 +90,12 @@ void PNLScalarTerm::preDestroy() {
   getDesign()->removeTerm(this);
 }
 
+void PNLScalarTerm::setDirection(const PNLTerm::Direction& direction) { 
+  assert(design_->getSlaveInstances().size() == 0);
+  direction_ = direction; 
+}
+
+
 // PNLTerm* PNLScalarTerm::clone(PNLDesign* design) const {
 //   auto newScalarTerm = new PNLScalarTerm(design, id_, direction_, name_);
 //   newScalarTerm->setFlatID(getFlatID());

@@ -1,183 +1,243 @@
-// SPDX-FileCopyrightText: 2024 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+// SPDX-FileCopyrightText: 2024 The Naja authors
+// <https://github.com/najaeda/naja/blob/main/AUTHORS>
 //
 // SPDX-License-Identifier: Apache-2.0
 
 #ifndef __SNL_TRUTH_TABLE_H_
 #define __SNL_TRUTH_TABLE_H_
 
-#include <iostream>
-#include <cstdint>
-#include <vector>
 #include <algorithm>
-#include <cmath>
-#include <string>
+#include <cstdint>
+#include <iostream>
+#include <limits>
 #include <sstream>
-#include <iomanip>
+#include <string>
+#include <vector>
 
+#include "NLBitVecDynamic.h"
 #include "NLException.h"
 
-namespace naja { namespace NL {
+namespace naja {
+namespace NL {
 
 class SNLTruthTable {
-  public:
-    SNLTruthTable(): size_(std::numeric_limits<uint32_t>::max()) {}
-    explicit SNLTruthTable(uint32_t size, uint64_t bits): size_(size), bits_(bits) {
-      if (size > 6) {
-        std::ostringstream oss;
-        oss << "Cannot create SNLTruthTable with bits_: " << bits;
-        oss << " and size: " << size;
-        oss << " (max=6)";
-        throw NLException(oss.str());
-      }
+ public:
+  SNLTruthTable() : size_(std::numeric_limits<uint32_t>::max()) {}
+
+  // user‐provided copy‐ctor
+  SNLTruthTable(const SNLTruthTable& o)
+    : size_(o.size_),
+      bits_(o.bits_)
+  {}
+
+  // explicit copy‐assignment to match
+  SNLTruthTable& operator=(const SNLTruthTable& o)
+  {
+    if (this != &o) {
+      size_ = o.size_;
+      bits_ = o.bits_;
+    }
+    return *this;
+  }
+
+  // Enforce size ≤ 6 BEFORE touching BitVecDynamic
+  explicit SNLTruthTable(uint32_t size, uint64_t bits) {
+    if (size > 6) {
+      std::ostringstream oss;
+      oss << "Cannot create SNLTruthTable with bits_: " << bits
+          << " and size: " << size << " (max=6)";
+      throw NLException(oss.str());
+    }
+    size_ = size;
+    // now safe: 1<<size <= 64
+    bits_ = NLBitVecDynamic(bits, 1u << size);
+  }
+
+  SNLTruthTable(uint32_t size, const std::vector<bool>& bits) : size_(size) {
+    if (size <= 6) {
+      std::ostringstream oss;
+      oss << "Should use mask constructor for 6 or less inputs";
+      throw NLException(oss.str());
+    }
+    size_ = size;
+    // now safe: 1<<size <= 64
+    bits_ = NLBitVecDynamic(bits, 1u << size);
+  }
+
+  static SNLTruthTable Logic0() { return SNLTruthTable(0, 0); }
+  static SNLTruthTable Logic1() { return SNLTruthTable(0, 1); }
+  static SNLTruthTable Inv() { return SNLTruthTable(1, 0b01); }
+  static SNLTruthTable Buf() { return SNLTruthTable(1, 0b10); }
+
+  bool operator==(const SNLTruthTable& o) const {
+    return size_ == o.size_ && bits_ == o.bits_;
+  }
+
+  bool operator<(const SNLTruthTable& o) const {
+    if (size_ != o.size_)
+      return size_ < o.size_;
+    return bits_ < o.bits_;
+  }
+
+  std::string getString() const {
+    std::string result = "";
+    result =  "<" + std::to_string(size_) + ", |"; 
+    for (size_t i = 0; i < size_; i++) {
+      result += std::to_string(bits_.bit(i));
+    }
+      
+    result += "|>";
+    return result;
+  }
+
+  bool isInitialized() const {
+    return size_ != std::numeric_limits<uint32_t>::max();
+  }
+
+  using ConstantInput = std::pair<uint32_t, bool>;
+  using ConstantInputs = std::vector<ConstantInput>;
+
+  // Apply _all_ constants in one shot:
+  SNLTruthTable getReducedWithConstants(ConstantInputs idxConsts) const {
+    // trivial 0‐input table
+    if (size_ == 0) {
+      return *this;
     }
 
-    static SNLTruthTable Logic0() {
-      return SNLTruthTable(0, 0);
+    // validate
+    for (auto const& ic : idxConsts) {
+      if (ic.first >= size_)
+        throw NLException("Index out of range (max=6)");
     }
 
-    static SNLTruthTable Logic1() {
-      return SNLTruthTable(0, 1);
-    }
+    // new size = old size minus #constants
+    uint32_t k = static_cast<uint32_t>(idxConsts.size());
+    uint32_t newSize = (size_ > k ? size_ - k : 0);
+    uint32_t newN = 1u << newSize;
+    uint64_t reduced = 0;
+    std::vector<bool> reducedVect(newN, false);
 
-    static SNLTruthTable Inv() {
-      return SNLTruthTable(1, 0b01);
-    }
+    // for each assignment 'j' of the remaining newSize bits,
+    // weave in the constants to build the original index:
+    for (uint32_t j = 0; j < newN; ++j) {
+      uint32_t origIdx = 0;
+      uint32_t remPos = 0;
 
-    static SNLTruthTable Buf() {
-      return SNLTruthTable(1, 0b10);
-    }
+      for (uint32_t bit = 0; bit < size_; ++bit) {
+        bool val = false;
 
-    bool operator ==(const SNLTruthTable& other) const {
-      return size_ == other.size_ and bits_ == other.bits_;	    
-    }
-    bool operator <(const SNLTruthTable& other) const {
-      if (size_ < other.size_) {
-        return true;
-      }
-      if (size_ > other.size_) {
-        return false;
-      }
-      return bits_ < other.bits_;
-    }
-
-    std::string getString() const {
-      return "<" + std::to_string(size_) + ", " + std::to_string(bits_) + ">";
-    }
-
-    bool isInitialized() const {
-      return size_ != std::numeric_limits<uint32_t>::max();
-    }
-
-    using ConstantInput = std::pair<uint32_t, bool>;
-    using ConstantInputs = std::vector<ConstantInput>;
-    SNLTruthTable getReducedWithConstants(ConstantInputs indexConstants) const {
-      // If the truth table is empty, return itself
-      if (size_ == 0) {
-        return *this;
-      }
-
-      sort(indexConstants.begin(), indexConstants.end(),
-        [](const ConstantInput& l, const ConstantInput& r) {
-        return l.first > r.first;
-      });
-
-      // Create a copy of the current truth table
-      SNLTruthTable currentTT = *this;
-
-      // Iterate through each pair of index and constant
-      for (const auto& indexConstant: indexConstants) {
-        uint32_t index = indexConstant.first;
-        bool constant = indexConstant.second;
-
-        // Check if the index is out of range
-        if (index > currentTT.size_ - 1) {
-          throw NLException("Index out of range (max=6)");
+        // if this 'bit' is one of the constants, use that:
+        auto it = std::find_if(
+            idxConsts.begin(), idxConsts.end(),
+            [&](ConstantInput const& c) { return c.first == bit; });
+        if (it != idxConsts.end()) {
+          val = it->second;
+        } else {
+          // otherwise pull next bit from 'j'
+          val = ((j >> remPos) & 1) != 0;
+          ++remPos;
         }
 
-        // Calculate the number of entries in the truth table
-        uint32_t n = 1U << currentTT.size_;
-        uint64_t reducedBits = 0;
-        uint32_t bitPos = 0;
-
-        // Iterate over all possible input combinations
-        for (uint32_t i = 0; i < n; ++i) {
-          // Check if the index-th bit matches the constant
-          if (((i >> index) & 1) == constant) {
-            // Copy the corresponding bit from the original truth table
-            reducedBits |= ((currentTT.bits_ >> i) & 1) << bitPos;
-            ++bitPos;
-          }
-        }
-
-        // Update the current truth table with the reduced size and bits
-        currentTT = SNLTruthTable(currentTT.size_ - 1, reducedBits);
-
-        // Check if the new truth table represents a constant 0 or 1
-        if (currentTT.all0()) {
-          return SNLTruthTable::Logic0();
-        }
-        if (currentTT.all1()) {
-          return SNLTruthTable::Logic1();
-        }
+        origIdx |= (uint32_t(val) << bit);
       }
-      // Return the final reduced truth table
-      return currentTT;
+      // always pull the bit via bit()
+      bool inputBit = bits().bit(origIdx);
+
+      if (newSize <= 6) {
+        if (inputBit) {
+          reduced |= (uint64_t{1} << j);
+        }
+      } else {
+        reducedVect[j] = inputBit;
+      }
     }
 
-    SNLTruthTable getReducedWithConstant(uint32_t index, bool constant) const {
-      return getReducedWithConstants({{index, constant}});
-    }
-
-    // Function to check if an input has no influence on the output
-    bool hasNoInfluence(uint32_t variableIndex) const {
-      SNLTruthTable tableWithZero = getReducedWithConstant(variableIndex, false);
-      SNLTruthTable tableWithOne = getReducedWithConstant(variableIndex, true);
-      return tableWithZero == tableWithOne;
+    // build & normalize result
+    SNLTruthTable out;
+    if (newSize > 6) {
+      out = SNLTruthTable(newSize, reducedVect);
+    } else {
+      out = SNLTruthTable(newSize, reduced);
     }    
+    if (out.all0()) {
+      return Logic0();
+    }
+    if (out.all1()) {
+      return Logic1();
+    }
+    return out;
+  }
 
-    // Function to remove a variable from the truth table
-    SNLTruthTable removeVariable(uint32_t variableIndex) const {
-      if (variableIndex > size_-1) {
-        throw NLException("Index out of range");
+  SNLTruthTable getReducedWithConstant(uint32_t idx, bool c) const {
+    return getReducedWithConstants({{idx, c}});
+  }
+
+  bool hasNoInfluence(uint32_t v) const {
+    auto t0 = getReducedWithConstant(v, false);
+    auto t1 = getReducedWithConstant(v, true);
+    return t0 == t1;
+  }
+
+  SNLTruthTable removeVariable(uint32_t v) const {
+    if (v >= size_)
+      throw NLException("Index out of range");
+    SNLTruthTable out(size_ - 1, 0);
+    uint32_t fullN = 1u << size_;
+
+    for (uint32_t i = 0; i < fullN; ++i) {
+      if (((i >> v) & 1) == 0) {
+        uint32_t low = i & ((1u << v) - 1);
+        uint32_t high = (i >> 1) & ~((1u << v) - 1);
+        uint32_t ni = low | high;
+
+        if (((bits() >> i) & 1) != 0)
+          out.bits_ |= (1u << ni);
       }
-      SNLTruthTable reducedTruthTable(size_-1, 0);
-      for (uint32_t i = 0; i < (1U << size_); ++i) {
-        if (((i >> variableIndex) & 1) == 0) {
-            uint32_t newIdx = ((i & ((1U << variableIndex) - 1U)) | ((i >> 1U) & (~((1U << variableIndex) - 1U))));
-            if (((bits_ >> i) & 1) == 1) {
-              reducedTruthTable.bits_ |= (1U << newIdx);
-            }
-        }
-      }
-      return reducedTruthTable;
     }
+    return out;
+    //LCOV_EXCL_START
+  }
+  //LCOV_EXCL_STOP
 
-    bool all0() const {
-      uint64_t n = 1ULL << size_;
-      uint64_t mask = (1ULL << n) - 1ULL;
-      uint64_t result = bits_ & mask;
-      return result == 0;
+  bool all0() const {
+    if (size() <= 6) {
+      uint64_t rows = 1ull << size_;    // # of table entries = 1<<size_
+      uint64_t mask = (rows < 64
+               ? ((1ull << rows) - 1ull)
+               : std::numeric_limits<uint64_t>::max());
+      return (bits().operator uint64_t() & mask) == 0ull;
     }
+    bool result = false;
+    for (size_t i = 0; i < bits().size(); i++) {
+      result |= bits().bit(i);
+    }
+    return result == false;
+  }
 
-    bool all1() const {
-      uint64_t n = 1ULL << size_;
-      uint64_t mask = (1ULL << n) - 1ULL;
-      uint64_t result = bits_ & mask;
-      return result == mask;
+  bool all1() const {
+    if (size() <= 6) {
+      uint64_t rows = 1ull << size_;    // # of table entries = 1<<size_
+      uint64_t mask = (rows < 64
+               ? ((1ull << rows) - 1ull)
+               : std::numeric_limits<uint64_t>::max());
+      return (bits().operator uint64_t() & mask) == mask;
     }
+    bool result = true;
+    for (size_t i = 0; i < bits().size(); i++) {
+      result &= bits().bit(i);
+    }
+    return result;
+  }
 
-    uint32_t size() const {
-      return size_;
-    }
-    
-    uint64_t bits() const {
-      return bits_;
-    }
-  private:
-    uint32_t  size_ {std::numeric_limits<uint32_t>::max()};
-    uint64_t  bits_ {0};
+  uint32_t size() const { return size_; }
+  const NLBitVecDynamic& bits() const { return bits_; }
+
+ private:
+  uint32_t size_{std::numeric_limits<uint32_t>::max()};
+  NLBitVecDynamic bits_{0, /*length=*/1};
 };
 
-}} // namespace NL // namespace naja
+}  // namespace NL
+}  // namespace naja
 
-#endif /* __SNL_TRUTH_TABLE_H_ */
+#endif  // __SNL_TRUTH_TABLE_H_

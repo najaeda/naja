@@ -4,7 +4,6 @@
 // SPDX-License-Identifier: Apache-2.0
 #include "ConstantPropagation.h"
 
-#include <spdlog/spdlog.h>
 #include <iostream>
 #include <ranges>
 #include <set>
@@ -1157,6 +1156,8 @@ void ConstantPropagation::propagateConstants() {
 }
 
 void ConstantPropagation::run() {
+  destroy();
+  dnl_ = get();
   initializeTypesID();
   collectConstants();
   performConstantPropagationAnalysis();

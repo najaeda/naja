@@ -13,6 +13,8 @@ SET(pnl_tests
   PNLNetTest.cpp
   PNLOrientationTest.cpp
   PNLTransformTest.cpp
+  PNLSiteTest.cpp
+  PNLTechnologyTest.cpp
 )
 
 ADD_EXECUTABLE(pnlTests ${pnl_tests})

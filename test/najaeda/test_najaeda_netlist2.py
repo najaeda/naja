@@ -95,10 +95,13 @@ class NajaNetlistTest2(unittest.TestCase):
         self.assertIsNotNone(top)
 
         self.assertEqual(1, sum(1 for _ in top.get_output_terms()))
+        self.assertEqual(1, top.count_output_terms())
         self.assertEqual(2, sum(1 for _ in top.get_flat_output_terms()))
+        self.assertEqual(2, top.count_flat_output_terms())
 
         mod = top.get_child_instance('mod')
         self.assertIsNotNone(mod)
+        self.assertRaises(ValueError, mod.get_child_instance, [])
 
         modI0 = mod.get_term('I0')
         self.assertIsNotNone(modI0)
@@ -110,9 +113,9 @@ class NajaNetlistTest2(unittest.TestCase):
         modI1 = mod.get_term('I1')
         self.assertIsNotNone(modI1)
         modI1Net = modI1.get_net()
-        self.assertIsNotNone(modI0Net)
-        self.assertTrue(modI0Net.is_bus())
-        self.assertEqual(top.get_net('I0'), modI0Net)
+        self.assertIsNotNone(modI1Net)
+        self.assertTrue(modI1Net.is_bus())
+        self.assertEqual(top.get_net('I1'), modI1Net)
 
         modO = mod.get_term('O')
         self.assertIsNotNone(modO)
@@ -124,6 +127,7 @@ class NajaNetlistTest2(unittest.TestCase):
         #get inside mod
         modAnd0 = mod.get_child_instance('and0')
         self.assertIsNotNone(modAnd0)
+        self.assertEqual(modAnd0, top.get_child_instance(['mod', 'and0']))
         modAnd0I0 = modAnd0.get_term('I0')
         self.assertIsNotNone(modAnd0I0)
         self.assertFalse(modAnd0I0.is_bus())
@@ -136,7 +140,9 @@ class NajaNetlistTest2(unittest.TestCase):
             shutil.rmtree(bench_dir)
         os.makedirs(bench_dir)
         top = netlist.get_top()
-        top.dump_verilog(os.path.join(bench_dir), "netlist2_top0.v")
+        top.dump_verilog(os.path.join(bench_dir, "netlist2_top0.v"))
+        self.assertRaises(ValueError, top.dump_verilog, "netlist")
+        self.assertRaises(FileNotFoundError, top.dump_verilog, os.path.join("non_existing", "netlist2_top0.v"))
 
     def test_top1(self):
         def create_top():
@@ -235,8 +241,7 @@ class NajaNetlistTest2(unittest.TestCase):
             shutil.rmtree(bench_dir)
         os.makedirs(bench_dir)
         top = netlist.get_top()
-        top.dump_verilog(os.path.join(bench_dir), "netlist2_top1.v")
-
+        top.dump_verilog(os.path.join(bench_dir, "netlist2_top1.v"))
 
     def test_top2(self):
         def create_top():
@@ -327,7 +332,7 @@ class NajaNetlistTest2(unittest.TestCase):
             shutil.rmtree(bench_dir)
         os.makedirs(bench_dir)
         top = netlist.get_top()
-        top.dump_verilog(os.path.join(bench_dir), "netlist2_top2.v")
+        top.dump_verilog(os.path.join(bench_dir, "netlist2_top2.v"))
 
     def test_top3(self):
         def create_top():
@@ -361,7 +366,11 @@ class NajaNetlistTest2(unittest.TestCase):
             shutil.rmtree(bench_dir)
         os.makedirs(bench_dir)
         top = netlist.get_top()
-        top.dump_verilog(os.path.join(bench_dir), "netlist2_top3.v")
+        top.dump_verilog(os.path.join(bench_dir, "netlist2_top3.v"))
+        netlist.apply_constant_propagation()
+        netlist.apply_dle()
+        top.dump_full_dot("./netlist2_top3.dot")
+
 
 if __name__ == '__main__':
     faulthandler.enable()

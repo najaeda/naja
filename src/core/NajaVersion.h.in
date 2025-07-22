@@ -8,7 +8,7 @@ namespace naja {
 
 const std::string NAJA_MAJOR { "0" };
 const std::string NAJA_MINOR { "1" };
-const std::string NAJA_PATCH { "17" };
+const std::string NAJA_PATCH { "25" };
 const std::string NAJA_VERSION { NAJA_MAJOR + "." + NAJA_MINOR + "." + NAJA_PATCH };
 
 const std::string NAJA_GIT_HASH { "@NAJA_GIT_HASH@" };

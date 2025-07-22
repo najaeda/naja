@@ -105,10 +105,12 @@ void DNLInstanceFull::display() const {
 
 const DNLInstanceFull& DNLInstanceFull::getParentInstance() const {
   return (*get()).getDNLInstanceFromID(parent_);
-};
+}
+
 DNLID DNLInstanceFull::getID() const {
   return id_;
 }
+
 DNLID DNLInstanceFull::getParentID() const {
   return parent_;
 }
@@ -235,7 +237,7 @@ std::string DNLInstanceFull::getFullPath() const {
       fullPath += (*it)->getName().getString() + "/";
     }
     return fullPath;
-  };
+  }
 
 DNLTerminalFull::DNLTerminalFull(DNLID DNLInstID,
                                  SNLInstTerm* terminal,
@@ -243,22 +245,26 @@ DNLTerminalFull::DNLTerminalFull(DNLID DNLInstID,
     : DNLInstID_(DNLInstID),
       terminal_(terminal),
       bitTerminal_(terminal->getBitTerm()),
-      id_(id){};
+      id_(id)
+    {}
 
 DNLTerminalFull::DNLTerminalFull(DNLID DNLInstID,
                                  SNLBitTerm* terminal,
                                  DNLID id)
-    : DNLInstID_(DNLInstID), bitTerminal_(terminal), id_(id){};
+    : DNLInstID_(DNLInstID), bitTerminal_(terminal), id_(id) {}
+
 DNLID DNLTerminalFull::getID() const {
   return id_;
 }
 
 SNLBitTerm* DNLTerminalFull::getSnlBitTerm() const {
   return bitTerminal_ ? bitTerminal_ : terminal_->getBitTerm();
-};
+}
+
 SNLInstTerm* DNLTerminalFull::getSnlTerm() const {
   return terminal_;
 }
+
 const DNLInstanceFull& DNLTerminalFull::getDNLInstance() const {
   return (*get()).getDNLInstanceFromID(DNLInstID_);
 }
@@ -266,11 +272,12 @@ const DNLInstanceFull& DNLTerminalFull::getDNLInstance() const {
 void DNLTerminalFull::setIsoID(DNLID isoID) {
   (*get()).setIsoIdforTermId(isoID, id_);
 }
+
 DNLID DNLTerminalFull::getIsoID() const {
   return (*get()).getIsoIdfromTermId(id_);
 }
 
-DNLIso::DNLIso(DNLID id) : id_(id){};
+DNLIso::DNLIso(DNLID id): id_(id) {}
 
 void DNLIso::addDriver(DNLID driver) {
 #ifdef DEBUG_PRINTS

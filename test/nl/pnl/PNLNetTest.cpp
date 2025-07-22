@@ -142,6 +142,7 @@ TEST_F(PNLNetTest, testCreation) {
   i0Net->setType(PNLBitNet::Type::GND);
   EXPECT_EQ(PNLNet::Type::GND ,i0Net->getType());
   EXPECT_TRUE(i0Net->isConstant());
+  EXPECT_FALSE(i0Net->isClock());
   i0Net->setType(PNLBitNet::Type::VDD);
   EXPECT_EQ(PNLNet::Type::VDD ,i0Net->getType());
   EXPECT_FALSE(i0Net->isGND());

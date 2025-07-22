@@ -8,8 +8,8 @@
 
 #include "VerilogConstructor.h"
 
-#include <map>
 
+#include "NLDB0.h"
 #include "SNLInstance.h"
 #include "SNLNet.h"
 #include "SNLTerm.h"
@@ -22,6 +22,28 @@ class SNLScalarNet;
 
 class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
   public:
+    struct Config {
+      bool verbose_             {false};  ///< If true, print debug information.
+      bool blackboxDetection_   {true};   ///< If true, detect blackbox designs.
+      bool allowUnknownDesigns_ {false};  ///< If true, allow unknown designs to be created as blackbox.
+    };
+
+    Config  config_ {};
+
+    //As we don't know how many ports are instanciated before reaching
+    //the last one, so we need to store all gate instance characteristics
+    //before creating it in endInstantiation; 
+    struct GateInstance {
+      using Connections = std::vector<naja::verilog::Expression>;
+      bool isValid() const;
+      void reset();
+      std::string getString() const;
+
+      NLDB0::GateType gateType_     { NLDB0::GateType::Unknown };
+      std::string     instanceName_ {};
+      Connections     connections_  {};
+    };
+
     SNLVRLConstructor() = delete;
     SNLVRLConstructor(const SNLVRLConstructor&) = delete;
     SNLVRLConstructor(NLLibrary* library);
@@ -33,8 +55,6 @@ class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
     void construct(const Paths& paths);
     void construct(const std::filesystem::path& path);
 
-    void setVerbose(bool verbose) { verbose_ = verbose; }
-    bool getVerbose() const { return verbose_; }
     void setParseAttributes(bool parseAttributes) { parseAttributes_ = parseAttributes; }
     bool getParseAttributes() const { return parseAttributes_; }
 
@@ -60,6 +80,16 @@ class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
     void addOrderedInstanceConnection(
       size_t portIndex,
       const naja::verilog::Expression& expression) override;
+    void startGateInstantiation(
+      const naja::verilog::GateType& gateType) override;
+    void addGateInstance(const naja::verilog::Identifier& id) override;
+    void addGateOutputInstanceConnection(
+      size_t portIndex,
+      const naja::verilog::RangeIdentifiers identifiers) override;
+    void addGateInputInstanceConnection(
+      size_t portIndex,
+      const naja::verilog::Expression& expression) override;
+    void endGateInstantiation() override;
     void addDefParameterAssignment(
       const naja::verilog::Identifiers& hierarchicalParameter,
       const naja::verilog::ConstantExpression& expression) override;
@@ -69,6 +99,7 @@ class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
       const naja::verilog::Identifier& attributeName,
       const naja::verilog::ConstantExpression& expression) override;
     void endModule() override;
+
   private:
     void createCurrentModuleAssignNets();
     void createConstantNets(
@@ -86,14 +117,13 @@ class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
     
     std::string getLocationString() const;
 
-    bool              verbose_                        {false};
     bool              firstPass_                      {true};
-    bool              blackboxDetection_              {true};
     bool              parseAttributes_                {true};
     NLLibrary*        library_                        {nullptr};
     Attributes        nextObjectAttributes_           {};
     SNLDesign*        currentModule_                  {nullptr};
     std::string       currentModelName_               {};
+    GateInstance      currentGateInstance_            {};
     SNLInstance*      currentInstance_                {nullptr};
     using ParameterValues = std::map<std::string, std::string>;
     ParameterValues   currentInstanceParameterValues_ {};

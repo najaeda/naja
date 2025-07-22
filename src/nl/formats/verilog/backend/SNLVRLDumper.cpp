@@ -38,6 +38,7 @@ size_t dumpDirection(const naja::NL::SNLTerm* term, std::ostream& o) {
       o << "output";
       return std::char_traits<char>::length("output");
     case naja::NL::SNLTerm::Direction::InOut:
+    case naja::NL::SNLTerm::Direction::Undefined:
       o << "inout";
       return std::char_traits<char>::length("inout");
   }
@@ -530,7 +531,36 @@ bool SNLVRLDumper::dumpInstance(
   const SNLInstance* instance,
   std::ostream& o,
   DesignInsideAnonymousNaming& naming) {
-  if (NLDB0::isAssign(instance->getModel())) {
+  if (NLDB0::isGate(instance->getModel())) {
+    auto gateName = NLDB0::getGateName(instance->getModel());
+    o << gateName << " ";
+    if (not instance->isAnonymous()) {
+      o << instance->getName().getString();
+    }
+    o << "(";
+    auto singleNet = instance->getInstTerm(NLDB0::getGateSingleTerm(instance->getModel()))->getNet();
+    if (singleNet) {
+      o << getBitNetString(singleNet);
+    } else {
+      o << "DUMMY";
+    }
+    o << ", ";
+    auto nNets = NLDB0::getGateNTerms(instance->getModel());
+    for (size_t i=0; i<nNets->getWidth(); ++i) {
+      auto net = instance->getInstTerm(nNets->getBitAtPosition(i))->getNet();
+      if (net) {
+        o << getBitNetString(net);
+      } else {
+        o << "DUMMY";
+      }
+      if (i < nNets->getWidth() - 1) {
+        o << ", ";
+      }
+    }
+    o << ");";
+    o << std::endl;
+    return true;
+  } else if (NLDB0::isAssign(instance->getModel())) {
     auto inputNet = instance->getInstTerm(NLDB0::getAssignInput())->getNet();
     auto outputNet = instance->getInstTerm(NLDB0::getAssignOutput())->getNet();
     if (inputNet and outputNet) {

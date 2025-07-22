@@ -47,6 +47,8 @@ set(PNL_SOURCES
   pnl/PNLScalarNet.cpp
   pnl/PNLScalarTerm.cpp
   pnl/PNLOrientation.cpp
+  pnl/PNLSite.cpp
+  pnl/PNLTechnology.cpp
 )
 
 set(DECORATOR_SOURCES
@@ -98,8 +100,11 @@ set(HEADERS
   pnl/PNLOrientation.h
   pnl/PNLTransform.h
   pnl/PNLBox.h
+  pnl/PNLSite.h
+  pnl/PNLTechnology.h
   decorators/SNLDesignModeling.h
   decorators/SNLTruthTable.h
+  decorators/NLBitVecDynamic.h
 )
 
 add_library(naja_nl SHARED
@@ -120,6 +125,7 @@ target_include_directories(naja_nl PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/decorators
 )
 target_include_directories(naja_nl PUBLIC ${SPDLOG_DIR})
+
 if(BUILD_NAJA_PYTHON)
   install(TARGETS naja_nl LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/najaeda)
 else(BUILD_NAJA_PYTHON)

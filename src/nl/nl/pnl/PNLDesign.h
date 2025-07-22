@@ -16,9 +16,17 @@ namespace naja { namespace NL {
 
 class NLDB;
 class NLLibrary;
+class PNLSite;
 
 class PNLDesign final: public NLObject {
   public:
+    enum Symmetry {
+      NONE = 0,
+      X,
+      Y,
+      X_Y,
+      R90
+    };
     friend class NLLibrary;
     using super = NLObject;
     using PNLDesignInstancesHook =
@@ -47,6 +55,25 @@ class PNLDesign final: public NLObject {
         std::string getString() const;
         private:
           TypeEnum typeEnum_;
+    };
+
+     class ClassType {
+      public:
+        enum ClassTypeEnum {
+          NONE, 
+          CORE, CORE_FEEDTHRU, CORE_TIEHIGH, CORE_TIELOW, CORE_SPACER, CORE_ANTENNACELL, CORE_WELLTAP,
+          PAD, PAD_INPUT, PAD_OUTPUT, PAD_INOUT, PAD_POWER, PAD_SPACER, PAD_AREAIO, 
+          BLOCK, BLACKBOX, SOFT_MACRO, 
+          ENDCAP_PRE, ENDCAP_POST, ENDCAP_TOPLEFT, ENDCAP_TOPRIGHT, ENDCAP_BOTTOMLEFT, ENDCAP_BOTTOMRIGHT, 
+          COVER, COVER_BUMP, RING
+        };
+        ClassType(const ClassTypeEnum& typeEnum);
+        ClassType(const ClassType&) = default;
+        ClassType& operator=(const ClassType&) = default;
+        operator const ClassTypeEnum&() const {return typeEnum_;}
+        std::string getString() const;
+        private:
+          ClassTypeEnum typeEnum_;
     };
     
     /**
@@ -78,6 +105,7 @@ class PNLDesign final: public NLObject {
 
     /// \return NLName of this PNLDesign. 
     NLName getName() const { return name_; }
+    void setName(const NLName& name);
     /// \return true if this PNLDesign is anonymous.
     bool isAnonymous() const { return name_.empty(); }
 
@@ -117,6 +145,7 @@ class PNLDesign final: public NLObject {
     PNLNet* getNet(const NLName& name) const;
     PNLNet* getNet(NLID::DesignObjectID id) const;
 
+    PNLNet* addNet(const NLName& name);
     void addNet(PNLNet* net);
     void addNetAndSetID(PNLNet* net);
     void removeNet(PNLNet* net);
@@ -128,6 +157,7 @@ class PNLDesign final: public NLObject {
     void rename(PNLNet* net, const NLName& previousName);
     void rename(PNLInstance* instance, const NLName& previousName);
 
+    PNLTerm* addTerm(const NLName& name);
     void addTerm(PNLTerm* term);
     void addTermAndSetID(PNLTerm* term);
     void removeTerm(PNLTerm* term);
@@ -151,6 +181,9 @@ class PNLDesign final: public NLObject {
     ///\warning setType cannot be called to set a design as a primitive.
     void setType(Type type);
 
+    void setClassType(ClassType type) { classType_ = type; }
+    ClassType getClassType() const { return classType_; }
+
     NajaCollection<PNLInstance*> getInstances() const;
     NajaCollection<PNLInstance*> getPrimitiveInstances() const;
     NajaCollection<PNLInstance*> getNonPrimitiveInstances() const;
@@ -158,6 +191,14 @@ class PNLDesign final: public NLObject {
     void setAbutmentBox(const PNLBox& box) { abutmentBox_ = box; }
     const PNLBox& getAbutmentBox() const { return abutmentBox_; }
     //const PNLBox& getBoundingBox() const { return boundingBox_; }
+
+    void setTerminalNetlist(bool terminalNetlist) { terminalNetlist_ = terminalNetlist; }
+    bool isTerminalNetlist() const { return terminalNetlist_; }
+    void setSite(PNLSite* site) { site_ = site; }
+    PNLSite* getSite() const { return site_; }
+
+    void setSymmetry(Symmetry symmetry) { Symmetry_ = symmetry; }
+    Symmetry getSymmetry() const { return Symmetry_; }
 
   private:
     PNLDesign(NLLibrary* library, const Type& type = Type::Standard, const NLName& name = NLName());
@@ -181,12 +222,16 @@ class PNLDesign final: public NLObject {
     PNLDesignObjectNameIDMap            instanceNameIDMap_  {};
     PNLDesignSlaveInstances             slaveInstances_     {};
     Type                                type_               { Type::Standard };
+    ClassType                           classType_          { ClassType::NONE };
     PNLDesignTerms                      terms_              {};
     PNLDesignObjectNameIDMap            termNameIDMap_      {};
     PNLDesignNets                       nets_               {};
     PNLDesignObjectNameIDMap            netNameIDMap_       {};
     PNLBox                              abutmentBox_;
     PNLBox                              boundingBox_;
+    bool                                terminalNetlist_ = false;
+    PNLSite*                            site_ = nullptr;
+    Symmetry                            Symmetry_ = NONE;
 };
 
 }} // namespace NL // namespace naja

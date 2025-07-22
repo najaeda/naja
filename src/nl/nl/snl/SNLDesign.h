@@ -44,12 +44,18 @@ class SNLDesign final: public NLObject {
     class Type {
       public:
         enum TypeEnum {
-          Standard, Blackbox, Primitive
+          Standard, UserBlackBox, AutoBlackBox, Primitive
         };
         Type(const TypeEnum& typeEnum);
         Type(const Type&) = default;
         Type& operator=(const Type&) = default;
         operator const TypeEnum&() const {return typeEnum_;}
+        bool isAutoBlackBox() const {
+          return typeEnum_ == AutoBlackBox;
+        }
+        bool isUserBlackBox() const {
+          return typeEnum_ == UserBlackBox;
+        }
         std::string getString() const;
         private:
           TypeEnum typeEnum_;
@@ -231,8 +237,12 @@ class SNLDesign final: public NLObject {
     void setType(Type type);
     ///\return true if this SNLDesign is a standard design.
     bool isStandard() const { return type_ == Type::Standard; }
+    ///\return true if this SNLDesign is a user blackbox.
+    bool isUserBlackBox() const { return type_.isUserBlackBox(); }
+    ///\return true if this SNLDesign is an auto blackbox.
+    bool isAutoBlackBox() const { return type_.isAutoBlackBox(); }
     ///\return true if this SNLDesign is a blackbox.
-    bool isBlackBox() const { return type_ == Type::Blackbox; }
+    bool isBlackBox() const { return isUserBlackBox() or isAutoBlackBox(); }
     ///\return true if this SNLDesign is a primitive.
     bool isPrimitive() const { return type_ == Type::Primitive; }
     ///\return true if this SNLDesign is the Assign primitive (in verilog: assign net1 = net0).
