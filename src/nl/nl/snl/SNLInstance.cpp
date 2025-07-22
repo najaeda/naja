@@ -165,7 +165,7 @@ bool SNLInstance::deepCompare(const SNLInstance* other, std::string& reason) con
     return false; //LCOV_EXCL_LINE
   }
   //FIXME compare models: same library id, same id
-  DEEP_COMPARE_MEMBER(InstParameters)
+  DEEP_COMPARE_MEMBER(InstParameters, this, other)
   return SNLAttributes::compareAttributes(this, other, reason);
 }
 

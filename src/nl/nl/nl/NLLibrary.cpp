@@ -412,8 +412,8 @@ bool NLLibrary::deepCompare(const NLLibrary* other, std::string& reason) const {
   if (type_ not_eq other->getType()) {
     return false;
   }
-  DEEP_COMPARE_MEMBER(SNLDesigns)
-  DEEP_COMPARE_MEMBER(PNLDesigns)
+  DEEP_COMPARE_MEMBER(SNLDesigns, this, other)
+  DEEP_COMPARE_MEMBER(PNLDesigns, this, other)
   return true;
 }
 

@@ -39,6 +39,8 @@ class SNLBitNet: public SNLNet {
 
     void connectAllComponentsTo(SNLBitNet* net);
 
+    bool compareComponents(const SNLBitNet* otherNet, std::string& reason) const;
+
   protected:
     SNLBitNet() = default;
     static void preCreate();

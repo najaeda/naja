@@ -161,6 +161,7 @@ bool SNLScalarNet::deepCompare(const SNLNet* other, std::string& reason) const {
     return false;
     //LCOV_EXCL_STOP
   }
+  return compareComponents(otherScalarNet, reason);
   return SNLAttributes::compareAttributes(this, otherScalarNet, reason);
 }
 

@@ -14,6 +14,9 @@ using ::testing::ElementsAre;
 
 #include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
+#include "SNLBusTermBit.h"
+#include "SNLScalarNet.h"
+#include "SNLInstTerm.h"
 #include "SNLUtils.h"
 #include "SNLVRLConstructor.h"
 #include "SNLVRLDumper.h"
@@ -97,15 +100,54 @@ TEST_F(SNLVRLConstructorTestGate2, test) {
   ASSERT_NE(g1, nullptr);
   EXPECT_FALSE(g1->isUnnamed());
   EXPECT_EQ("g1", g1->getName().getString());
-  auto g1Model = g1->getModel(); // g1 is a not
-  EXPECT_TRUE(NLDB0::isNOutputGate(g1Model));
-  auto g1SingleTerm = NLDB0::getGateSingleTerm(g1Model);
+  auto notModel = g1->getModel(); // g1 is a not
+  EXPECT_TRUE(NLDB0::isNOutputGate(notModel));
+  auto g1SingleTerm = NLDB0::getGateSingleTerm(notModel);
   EXPECT_NE(g1SingleTerm, nullptr);
   EXPECT_EQ(SNLTerm::Direction::Input, g1SingleTerm->getDirection());
-  auto g1MultiTerm = NLDB0::getGateNTerms(g1Model);
+  auto g1MultiTerm = NLDB0::getGateNTerms(notModel);
   EXPECT_EQ(SNLTerm::Direction::Output, g1MultiTerm->getDirection());
   EXPECT_EQ(g1MultiTerm->getWidth(), 1);
   EXPECT_EQ(g1MultiTerm->getBits().size(), 1);
+
+  auto g2 = instances[2];
+  ASSERT_NE(g2, nullptr);
+  EXPECT_FALSE(g2->isUnnamed());
+  EXPECT_EQ("g2", g2->getName().getString());
+  EXPECT_EQ(notModel, g2->getModel());
+
+  //Test w0
+  auto w0 = top->getScalarNet(NLName("w0"));
+  ASSERT_NE(nullptr, w0);
+  ASSERT_EQ(2, w0->getInstTerms().size());
+  using InstTerms = std::vector<SNLInstTerm*>;
+  InstTerms w0InstTerms(w0->getInstTerms().begin(), w0->getInstTerms().end());
+  ASSERT_EQ(2, w0InstTerms.size());
+  auto w0InstTerm0 = w0InstTerms[0];
+  EXPECT_EQ(w0InstTerm0->getInstance(), g0);
+  EXPECT_EQ(w0InstTerm0->getBitTerm(), NLDB0::getGateSingleTerm(g0Model));
+  EXPECT_EQ(SNLTerm::Direction::Output, w0InstTerm0->getDirection());
+
+  auto w0InstTerm1 = w0InstTerms[1];
+  EXPECT_EQ(w0InstTerm1->getInstance(), g1);
+  EXPECT_EQ(w0InstTerm1->getBitTerm(), NLDB0::getGateSingleTerm(notModel));
+  EXPECT_EQ(SNLTerm::Direction::Input, w0InstTerm1->getDirection());
+
+  //Test w1
+  auto w1 = top->getScalarNet(NLName("w1"));
+  ASSERT_NE(nullptr, w1);
+  ASSERT_EQ(2, w1->getInstTerms().size());
+  InstTerms w1InstTerms(w1->getInstTerms().begin(), w1->getInstTerms().end());
+  ASSERT_EQ(2, w1InstTerms.size());
+  auto w1InstTerm0 = w1InstTerms[0];
+  EXPECT_EQ(w1InstTerm0->getInstance(), g1);
+  EXPECT_EQ(w1InstTerm0->getBitTerm(), NLDB0::getGateNTerms(notModel)->getBit(0));
+  EXPECT_EQ(SNLTerm::Direction::Output, w1InstTerm0->getDirection());
+
+  auto w1InstTerm1 = w1InstTerms[1];
+  EXPECT_EQ(w1InstTerm1->getInstance(), g2);
+  EXPECT_EQ(w1InstTerm1->getBitTerm(), NLDB0::getGateSingleTerm(notModel));
+  EXPECT_EQ(SNLTerm::Direction::Input, w1InstTerm1->getDirection());
 }
 
 TEST_F(SNLVRLConstructorTestGate2, testLoadAndDump) {
@@ -129,4 +171,18 @@ TEST_F(SNLVRLConstructorTestGate2, testLoadAndDump) {
   dumper.setTopFileName(top->getName().getString() + ".v");
   dumper.setSingleFile(true);
   dumper.dumpDesign(top, outPath);
+
+  //reload the design
+  {
+    auto db = NLDB::create(NLUniverse::get());
+    NLLibrary* library = NLLibrary::create(db, NLName("MYLIB"));
+    SNLVRLConstructor constructor(library);
+    constructor.construct(outPath / (top->getName().getString() + ".v"));
+
+    auto newTop = SNLUtils::findTop(library);
+    EXPECT_NE(nullptr, newTop);
+    std::string reason;
+    EXPECT_TRUE(newTop->deepCompare(top, reason)) << reason;
+    EXPECT_TRUE(reason.empty());
+  }
 }

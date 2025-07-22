@@ -106,26 +106,26 @@ void TYPE::setNet(PNLNet* net) { \
   } \
 }
 
-#define DEEP_COMPARE_MEMBER(MEMBER) \
+#define DEEP_COMPARE_MEMBER(MEMBER, REF, OTHER) \
 { \
-  auto this##MEMBER##It = get##MEMBER().begin(); \
-  auto other##MEMBER##It = other->get##MEMBER().begin(); \
-  while (this##MEMBER##It not_eq get##MEMBER().end()) { \
-    if (other##MEMBER##It == other->get##MEMBER().end()) { \
-      reason += "In " + getDescription() + ", different size of " #MEMBER + ":" ; \
-      reason += std::to_string(get##MEMBER().size()) + " vs "; \
-      reason += std::to_string(other->get##MEMBER().size()); \
+  auto ref##MEMBER##It = REF->get##MEMBER().begin(); \
+  auto other##MEMBER##It = OTHER->get##MEMBER().begin(); \
+  while (ref##MEMBER##It not_eq REF->get##MEMBER().end()) { \
+    if (other##MEMBER##It == OTHER->get##MEMBER().end()) { \
+      reason += "In " + REF->getDescription() + ", different size of " #MEMBER + ":" ; \
+      reason += std::to_string(REF->get##MEMBER().size()) + " vs "; \
+      reason += std::to_string(OTHER->get##MEMBER().size()); \
       return false; \
     } \
-    auto this##MEMBER = *this##MEMBER##It; \
+    auto ref##MEMBER = *ref##MEMBER##It; \
     auto other##MEMBER = *other##MEMBER##It; \
-    if (not this##MEMBER->deepCompare(other##MEMBER, reason)) { \
+    if (not ref##MEMBER->deepCompare(other##MEMBER, reason)) { \
       return false; \
     } \
-    ++this##MEMBER##It; \
+    ++ref##MEMBER##It; \
     ++other##MEMBER##It; \
   } \
-  if (other##MEMBER##It not_eq other->get##MEMBER().end()) { \
+  if (other##MEMBER##It not_eq OTHER->get##MEMBER().end()) { \
     return false; \
   } \
 }
