@@ -146,6 +146,8 @@ class NajaNetlistTest2(unittest.TestCase):
 
         #dump naja if
         netlist.dump_naja_if(os.path.join(bench_dir, "netlist2_top0.najaif"))
+        netlist.reset()
+        netlist.load_naja_if(os.path.join(bench_dir, "netlist2_top0.najaif"))
 
     def test_top1(self):
         def create_top():

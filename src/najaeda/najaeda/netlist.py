@@ -1607,6 +1607,14 @@ def load_primitives_from_file(file: str):
     module.load(db)
 
 
+def load_naja_if(path: str):
+    """Load the Naja IF from the given path."""
+    if not os.path.isdir(path):
+        raise FileNotFoundError(f"Cannot load Naja IF from non existing directory: {path}")
+    logging.info(f"Loading Naja IF from {path}")
+    naja.NLDB.loadNajaIF(path)
+
+
 def dump_naja_if(path: str):
     """Dump the Naja IF to the given path."""
     __get_top_db().dumpNajaIF(path)
