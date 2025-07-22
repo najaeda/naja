@@ -538,23 +538,18 @@ bool SNLVRLDumper::dumpInstance(
       o << instance->getName().getString();
     }
     o << "(";
-    auto singleNet = instance->getInstTerm(NLDB0::getGateSingleTerm(instance->getModel()))->getNet();
-    if (singleNet) {
-      o << getBitNetString(singleNet);
-    } else {
-      o << "DUMMY";
-    }
-    o << ", ";
-    auto nNets = NLDB0::getGateNTerms(instance->getModel());
-    for (size_t i=0; i<nNets->getWidth(); ++i) {
-      auto net = instance->getInstTerm(nNets->getBitAtPosition(i))->getNet();
+    bool first = true;
+    for (auto instTerm: instance->getInstTerms()) {
+      if (first) {
+        first = false;
+      } else {
+        o << ", ";
+      }
+      auto net = instTerm->getNet();
       if (net) {
         o << getBitNetString(net);
       } else {
         o << "DUMMY";
-      }
-      if (i < nNets->getWidth() - 1) {
-        o << ", ";
       }
     }
     o << ");";

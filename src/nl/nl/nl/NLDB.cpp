@@ -211,7 +211,7 @@ void NLDB::setTopDesign(SNLDesign* design) {
 
 bool NLDB::deepCompare(const NLDB* other, std::string& reason) const {
   //don't compare NLDB ID
-  DEEP_COMPARE_MEMBER(Libraries)
+  DEEP_COMPARE_MEMBER(Libraries, this, other)
   return true;
 }
 

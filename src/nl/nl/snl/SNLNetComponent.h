@@ -52,6 +52,8 @@ class SNLNetComponent: public SNLDesignObject {
      */
     virtual void setNet(SNLNet* net) =0;
 
+    virtual bool deepCompare(const SNLNetComponent* other, std::string& reason) const = 0;
+
   protected:
     SNLNetComponent() = default;
 

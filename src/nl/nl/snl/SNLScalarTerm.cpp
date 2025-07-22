@@ -142,7 +142,7 @@ void SNLScalarTerm::debugDump(size_t indent, bool recursive, std::ostream& strea
 }
 //LCOV_EXCL_STOP
 
-bool SNLScalarTerm::deepCompare(const SNLTerm* other, std::string& reason) const {
+bool SNLScalarTerm::deepCompare(const SNLNetComponent* other, std::string& reason) const {
   const SNLScalarTerm* otherScalarTerm = dynamic_cast<const SNLScalarTerm*>(other);
   if (not otherScalarTerm) {
     //LCOV_EXCL_START

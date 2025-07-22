@@ -121,7 +121,7 @@ void SNLBusTermBit::setName(const NLName& name) {
   throw NLException("Unauthorized setName of SNLBusTermBit");  
 }
 
-bool SNLBusTermBit::deepCompare(const SNLTerm* other, std::string& reason) const {
+bool SNLBusTermBit::deepCompare(const SNLNetComponent* other, std::string& reason) const {
   const SNLBusTermBit* otherBusTermBit = dynamic_cast<const SNLBusTermBit*>(other);
   if (not otherBusTermBit) {
     //LCOV_EXCL_START

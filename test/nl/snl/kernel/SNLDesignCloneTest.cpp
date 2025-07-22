@@ -334,10 +334,12 @@ TEST_F(SNLDesignCloneTest, testCloneCompare) {
   ASSERT_NE(nullptr, instance);
   instance->setName(NLName("inst0new"));
   EXPECT_FALSE(newDesign->deepCompare(design_, reason, NLDesign::CompareType::IgnoreIDAndName));
+  EXPECT_FALSE(reason.empty());
+  reason = std::string();
 
   instance->setName(NLName("inst0"));
   EXPECT_TRUE(newDesign->deepCompare(design_, reason, NLDesign::CompareType::IgnoreIDAndName));
-  EXPECT_EQ("", reason);
+  EXPECT_TRUE(reason.empty());
 
   //change an instance parameter value
   auto instParameter = instance->getInstParameter(NLName("param0"));
