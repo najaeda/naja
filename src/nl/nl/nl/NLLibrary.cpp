@@ -313,13 +313,13 @@ NajaCollection<PNLDesign*> NLLibrary::getPNLDesigns() const {
 
 void NLLibrary::addLibrary(NLLibrary* library) {
   libraries_.insert(*library);
-  if (not library->isAnonymous()) {
+  if (not library->isUnnamed()) {
     libraryNameIDMap_[library->getName()] = library->id_;
   }
 }
 
 void NLLibrary::removeLibrary(NLLibrary* library) {
-  if (not library->isAnonymous()) {
+  if (not library->isUnnamed()) {
     libraryNameIDMap_.erase(library->getName());
   }
   libraries_.erase(*library);
@@ -339,13 +339,13 @@ void NLLibrary::addSNLDesignAndSetID(SNLDesign* design) {
 
 void NLLibrary::addSNLDesign(SNLDesign* design) {
   snlDesigns_.insert(*design);
-  if (not design->isAnonymous()) {
+  if (not design->isUnnamed()) {
     designNameIDMap_[design->getName()] = design->id_;
   }
 }
 
 void NLLibrary::removeSNLDesign(SNLDesign* design) {
-  if (not design->isAnonymous()) {
+  if (not design->isUnnamed()) {
     designNameIDMap_.erase(design->getName());
   }
   snlDesigns_.erase(*design);
@@ -365,13 +365,13 @@ void NLLibrary::addPNLDesignAndSetID(PNLDesign* design) {
 
 void NLLibrary::addPNLDesign(PNLDesign* design) {
   pnlDesigns_.insert(*design);
-  if (not design->isAnonymous()) {
+  if (not design->isUnnamed()) {
     pnlDesignNameIDMap_[design->getName()] = design->id_;
   }
 }
 
 void NLLibrary::removePNLDesign(PNLDesign* design) {
-  if (not design->isAnonymous()) {
+  if (not design->isUnnamed()) {
     pnlDesignNameIDMap_.erase(design->getName());
   }
   pnlDesigns_.erase(*design);
@@ -444,7 +444,7 @@ std::string NLLibrary::getString() const {
 std::string NLLibrary::getDescription() const {
   std::ostringstream description;
   description << "<" + std::string(getTypeName());
-  if (not isAnonymous()) {
+  if (not isUnnamed()) {
     description << " " + name_.getString();
   }
   if (isPrimitives()) {

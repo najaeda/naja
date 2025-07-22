@@ -156,19 +156,19 @@ TEST_F(NLLibraryTest, test1) {
   ASSERT_TRUE(db);
   NLLibrary* root = NLLibrary::create(db, NLLibrary::Type::Primitives);
   ASSERT_TRUE(root);
-  EXPECT_TRUE(root->isAnonymous());
+  EXPECT_TRUE(root->isUnnamed());
   EXPECT_EQ(0, root->getID());
   EXPECT_EQ(nullptr, root->getParentLibrary());
   EXPECT_EQ(1, db->getPrimitiveLibraries().size());
 
   NLLibrary* primitives0 = NLLibrary::create(root, NLLibrary::Type::Primitives, NLName("Primitives0"));
-  EXPECT_FALSE(primitives0->isAnonymous());
+  EXPECT_FALSE(primitives0->isUnnamed());
   EXPECT_EQ(NLName("Primitives0"), primitives0->getName());
   EXPECT_EQ(1, primitives0->getID());
   EXPECT_EQ(2, db->getPrimitiveLibraries().size());
 
   NLLibrary* primitives1 = NLLibrary::create(root, NLLibrary::Type::Primitives);
-  EXPECT_TRUE(primitives1->isAnonymous());
+  EXPECT_TRUE(primitives1->isUnnamed());
   EXPECT_EQ(2, primitives1->getID());
   EXPECT_EQ(3, db->getPrimitiveLibraries().size());
 
@@ -200,9 +200,9 @@ TEST_F(NLLibraryTest, testDesignSearch) {
 TEST_F(NLLibraryTest, testRename) {
   NLDB* db = NLDB::create(universe_);
   NLLibrary* root = NLLibrary::create(db);
-  EXPECT_TRUE(root->isAnonymous());
+  EXPECT_TRUE(root->isUnnamed());
   root->setName(NLName("ROOT"));
-  EXPECT_FALSE(root->isAnonymous());
+  EXPECT_FALSE(root->isUnnamed());
   EXPECT_EQ("ROOT", root->getName().getString());
 }
 
@@ -223,7 +223,7 @@ TEST_F(NLLibraryTest, testErrors) {
   ASSERT_TRUE(db);
   NLLibrary* root = NLLibrary::create(db);
   ASSERT_TRUE(root);
-  EXPECT_TRUE(root->isAnonymous());
+  EXPECT_TRUE(root->isUnnamed());
   EXPECT_EQ(NLID::LibraryID(0), root->getID());
 
   NLDB* nullDB = nullptr;

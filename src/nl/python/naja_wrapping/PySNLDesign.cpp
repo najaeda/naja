@@ -406,7 +406,7 @@ GetObjectByIndex(SNLDesign, SNLTerm, TermByID)
 GetNameMethod(SNLDesign)
 DirectGetIntMethod(PySNLDesign_getID, getID, PySNLDesign, SNLDesign)
 DirectGetIntMethod(PySNLDesign_getRevisionCount, getRevisionCount, PySNLDesign, SNLDesign)
-GetBoolAttribute(SNLDesign, isAnonymous)
+GetBoolAttribute(SNLDesign, isUnnamed)
 GetBoolAttribute(SNLDesign, isBlackBox)
 GetBoolAttribute(SNLDesign, isPrimitive)
 GetBoolAttribute(SNLDesign, isLeaf)
@@ -473,8 +473,8 @@ PyMethodDef PySNLDesign_Methods[] = {
     "Returns True if this design is an inverter primitive"},  
   { "getName", (PyCFunction)PySNLDesign_getName, METH_NOARGS,
     "get SNLDesign name"},
-  { "isAnonymous", (PyCFunction)PySNLDesign_isAnonymous, METH_NOARGS,
-    "Returns True if the SNLDesign is anonymous"},
+  { "isUnnamed", (PyCFunction)PySNLDesign_isUnnamed, METH_NOARGS,
+    "Returns True if the SNLDesign is unnamed"},
   { "isBlackBox", (PyCFunction)PySNLDesign_isBlackBox, METH_NOARGS,
     "Returns True if the SNLDesign is a Blackbox"},
   { "isPrimitive", (PyCFunction)PySNLDesign_isPrimitive, METH_NOARGS,

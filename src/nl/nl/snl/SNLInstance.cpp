@@ -485,10 +485,10 @@ void SNLInstance::setModel(SNLDesign* model) {
   for (size_t i=0; i<currentTerms.size(); ++i) {
     auto currentTerm = currentTerms[i];
     auto newTerm = newTerms[i];
-    if (currentTerm->isAnonymous() != newTerm->isAnonymous()) {
+    if (currentTerm->isUnnamed() != newTerm->isUnnamed()) {
       throw NLException("SNLInstance::setModel error: anonymous contradiction");
     }
-    if (not currentTerm->isAnonymous() && currentTerm->getName() != newTerms[i]->getName()) {
+    if (not currentTerm->isUnnamed() && currentTerm->getName() != newTerms[i]->getName()) {
       throw NLException("SNLInstance::setModel error: different term names");
     }
     if (currentTerm->getID() != newTerm->getID()) {
@@ -576,7 +576,7 @@ const char* SNLInstance::getTypeName() const {
 
 //LCOV_EXCL_START
 std::string SNLInstance::getString() const {
-  if (isAnonymous()) {
+  if (isUnnamed()) {
     if (getModel()->isAssign()) {
       return "<assign: " + std::to_string(getID()) + ">";
     } else {
@@ -592,7 +592,7 @@ std::string SNLInstance::getString() const {
 std::string SNLInstance::getDescription() const {
   std::ostringstream description;
   description << "<" << getTypeName();
-  if (isAnonymous()) {
+  if (isUnnamed()) {
     if (getModel()->isAssign()) {
       description << "[assign]";
     } else {

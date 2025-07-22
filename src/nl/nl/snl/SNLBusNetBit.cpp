@@ -118,8 +118,8 @@ void SNLBusNetBit::debugDump(size_t indent, bool recursive, std::ostream& stream
 }
 //LCOV_EXCL_STOP
 
-bool SNLBusNetBit::isAnonymous() const {
-  return getBus()->isAnonymous();
+bool SNLBusNetBit::isUnnamed() const {
+  return getBus()->isUnnamed();
 }
 
 void SNLBusNetBit::setName(const NLName& name) {

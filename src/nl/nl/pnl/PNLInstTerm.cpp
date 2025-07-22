@@ -105,8 +105,8 @@ void PNLInstTerm::debugDump(size_t indent, bool recursive, std::ostream& stream)
 }
 //LCOV_EXCL_STOP
 
-bool PNLInstTerm::isAnonymous() const {
-  return getBitTerm()->isAnonymous();
+bool PNLInstTerm::isUnnamed() const {
+  return getBitTerm()->isUnnamed();
 }
 
 NLName PNLInstTerm::getName() const {

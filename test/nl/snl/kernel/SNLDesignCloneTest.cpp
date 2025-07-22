@@ -34,7 +34,7 @@ void compareTerms(const SNLDesign* design, const SNLDesign* newDesign) {
     EXPECT_EQ(term->getDirection(), found->getDirection());
     EXPECT_EQ(term->getName(), found->getName());
     EXPECT_EQ(term->getWidth(), found->getWidth());
-    if (not found->isAnonymous()) {
+    if (not found->isUnnamed()) {
       EXPECT_EQ(found, newDesign->getTerm(found->getName()));
     }
   }
@@ -69,7 +69,7 @@ void compareInstances(const SNLDesign* design, const SNLDesign* newDesign) {
     EXPECT_EQ(instance->getID(), found->getID());
     EXPECT_EQ(instance->getModel(), found->getModel());
     EXPECT_EQ(instance->getName(), found->getName());
-    if (not found->isAnonymous()) {
+    if (not found->isUnnamed()) {
       EXPECT_EQ(found, newDesign->getInstance(found->getName()));
     }
     compareInstParameters(instance, found);
@@ -238,7 +238,7 @@ class SNLDesignCloneTest: public ::testing::Test {
 TEST_F(SNLDesignCloneTest, testcloneInterface0) {
   auto newDesign = design_->cloneInterface();
   ASSERT_NE(nullptr, newDesign);
-  EXPECT_TRUE(newDesign->isAnonymous());
+  EXPECT_TRUE(newDesign->isUnnamed());
   EXPECT_EQ(design_->getLibrary(), newDesign->getLibrary());
   EXPECT_EQ(newDesign, design_->getLibrary()->getSNLDesign(newDesign->getID()));
   compareAttributes(design_, newDesign);
@@ -260,7 +260,7 @@ TEST_F(SNLDesignCloneTest, testcloneInterface0) {
 TEST_F(SNLDesignCloneTest, testCloneInterface1) {
   auto newDesign = design_->cloneInterface(NLName("newDesign"));
   ASSERT_NE(nullptr, newDesign);
-  EXPECT_FALSE(newDesign->isAnonymous());
+  EXPECT_FALSE(newDesign->isUnnamed());
   EXPECT_EQ(NLName("newDesign"), newDesign->getName());
   EXPECT_EQ(design_->getLibrary(), newDesign->getLibrary());
   EXPECT_EQ(newDesign, design_->getLibrary()->getSNLDesign(newDesign->getID()));
@@ -276,7 +276,7 @@ TEST_F(SNLDesignCloneTest, testCloneInterface2) {
   auto newLibrary = NLLibrary::create(design_->getLibrary()->getDB(), NLName("newLibrary"));
   auto newDesign = design_->cloneInterfaceToLibrary(newLibrary, NLName("newDesign"));
   ASSERT_NE(nullptr, newDesign);
-  EXPECT_FALSE(newDesign->isAnonymous());
+  EXPECT_FALSE(newDesign->isUnnamed());
   EXPECT_EQ(NLName("newDesign"), newDesign->getName());
   EXPECT_EQ(newLibrary, newDesign->getLibrary());
   EXPECT_EQ(newDesign, newLibrary->getSNLDesign(newDesign->getID()));
@@ -300,7 +300,7 @@ TEST_F(SNLDesignCloneTest, testClone0) {
 
   auto newDesign = design_->clone();
   ASSERT_NE(nullptr, newDesign);
-  EXPECT_TRUE(newDesign->isAnonymous());
+  EXPECT_TRUE(newDesign->isUnnamed());
   EXPECT_EQ(design_->getLibrary(), newDesign->getLibrary());
   EXPECT_EQ(newDesign, design_->getLibrary()->getSNLDesign(newDesign->getID()));
   compareAttributes(design_, newDesign);

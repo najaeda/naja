@@ -109,7 +109,7 @@ std::string SNLSharedPath::getString(char separator) {
     if (tailInstance_) {
       std::ostringstream stream;
       stream << headSharedPath_->getString(separator) << separator;
-      if (tailInstance_->isAnonymous()) {
+      if (tailInstance_->isUnnamed()) {
         stream << "<anon:" << tailInstance_->getID() << ">";
       } else {
         stream << tailInstance_->getName().getString();
@@ -118,7 +118,7 @@ std::string SNLSharedPath::getString(char separator) {
     }
   }
   if (tailInstance_) {
-    if (tailInstance_->isAnonymous()) {
+    if (tailInstance_->isUnnamed()) {
       return "<anon:" + std::to_string(tailInstance_->getID()) + ">";
     } else {
       return tailInstance_->getName().getString();

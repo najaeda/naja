@@ -65,10 +65,10 @@ TEST_F(SNLInstanceTest0, testCreation) {
   EXPECT_TRUE(dynamic_cast<SNLBusTerm*>(termsVector[1]));
   EXPECT_TRUE(dynamic_cast<SNLScalarTerm*>(termsVector[2]));
   EXPECT_TRUE(dynamic_cast<SNLScalarTerm*>(termsVector[3]));
-  EXPECT_FALSE(termsVector[0]->isAnonymous());
-  EXPECT_TRUE(termsVector[1]->isAnonymous());
-  EXPECT_FALSE(termsVector[2]->isAnonymous());
-  EXPECT_FALSE(termsVector[3]->isAnonymous());
+  EXPECT_FALSE(termsVector[0]->isUnnamed());
+  EXPECT_TRUE(termsVector[1]->isUnnamed());
+  EXPECT_FALSE(termsVector[2]->isUnnamed());
+  EXPECT_FALSE(termsVector[3]->isUnnamed());
   EXPECT_EQ(NLName("i0"), termsVector[0]->getName());
   EXPECT_EQ(NLName("i1"), termsVector[2]->getName());
   EXPECT_EQ(NLName("i2"), termsVector[3]->getName());
@@ -262,7 +262,7 @@ TEST_F(SNLInstanceTest0, testCreation) {
   termsVector = TermsVector(termsBegin, termsEnd);
   EXPECT_EQ(5, termsVector.size());
   EXPECT_EQ(NLID(NLID::Type::Term, 1, 0, 1, 4, 0, 0), termsVector[4]->getNLID());
-  EXPECT_FALSE(termsVector[4]->isAnonymous());
+  EXPECT_FALSE(termsVector[4]->isUnnamed());
   EXPECT_EQ(8, instance1->getInstTerms().size());
   EXPECT_EQ(8, instance2->getInstTerms().size());
   EXPECT_EQ(0, instance1->getConnectedInstTerms().size());
@@ -275,7 +275,7 @@ TEST_F(SNLInstanceTest0, testCreation) {
   termsVector = TermsVector(model->getTerms().begin(), model->getTerms().end());
   EXPECT_EQ(6, termsVector.size());
   EXPECT_EQ(NLID(NLID::Type::Term, 1, 0, 1, 5, 0, 0), termsVector[5]->getNLID());
-  EXPECT_FALSE(termsVector[5]->isAnonymous());
+  EXPECT_FALSE(termsVector[5]->isUnnamed());
   EXPECT_EQ(14, instance1->getInstTerms().size());
   EXPECT_EQ(14, instance2->getInstTerms().size());
   EXPECT_EQ(0, instance1->getConnectedInstTerms().size());
@@ -306,20 +306,20 @@ TEST_F(SNLInstanceTest0, testCreation) {
     EXPECT_EQ(dynamic_cast<SNLBusTerm*>(termsVector[5])->getBit(2), instTermsVector[12]->getBitTerm());
     EXPECT_EQ(dynamic_cast<SNLBusTerm*>(termsVector[5])->getBit(3), instTermsVector[13]->getBitTerm());
 
-    EXPECT_FALSE(instTermsVector[0]->isAnonymous());
-    EXPECT_TRUE(instTermsVector[1]->isAnonymous());
-    EXPECT_TRUE(instTermsVector[2]->isAnonymous());
-    EXPECT_TRUE(instTermsVector[3]->isAnonymous());
-    EXPECT_TRUE(instTermsVector[4]->isAnonymous());
-    EXPECT_FALSE(instTermsVector[5]->isAnonymous());
-    EXPECT_FALSE(instTermsVector[6]->isAnonymous());
-    EXPECT_FALSE(instTermsVector[7]->isAnonymous());
-    EXPECT_FALSE(instTermsVector[8]->isAnonymous());
-    EXPECT_FALSE(instTermsVector[9]->isAnonymous());
-    EXPECT_FALSE(instTermsVector[10]->isAnonymous());
-    EXPECT_FALSE(instTermsVector[11]->isAnonymous());
-    EXPECT_FALSE(instTermsVector[12]->isAnonymous());
-    EXPECT_FALSE(instTermsVector[13]->isAnonymous());
+    EXPECT_FALSE(instTermsVector[0]->isUnnamed());
+    EXPECT_TRUE(instTermsVector[1]->isUnnamed());
+    EXPECT_TRUE(instTermsVector[2]->isUnnamed());
+    EXPECT_TRUE(instTermsVector[3]->isUnnamed());
+    EXPECT_TRUE(instTermsVector[4]->isUnnamed());
+    EXPECT_FALSE(instTermsVector[5]->isUnnamed());
+    EXPECT_FALSE(instTermsVector[6]->isUnnamed());
+    EXPECT_FALSE(instTermsVector[7]->isUnnamed());
+    EXPECT_FALSE(instTermsVector[8]->isUnnamed());
+    EXPECT_FALSE(instTermsVector[9]->isUnnamed());
+    EXPECT_FALSE(instTermsVector[10]->isUnnamed());
+    EXPECT_FALSE(instTermsVector[11]->isUnnamed());
+    EXPECT_FALSE(instTermsVector[12]->isUnnamed());
+    EXPECT_FALSE(instTermsVector[13]->isUnnamed());
 
     EXPECT_EQ(0,  termsVector[0]->getFlatID());
     EXPECT_EQ(1,  termsVector[1]->getFlatID());

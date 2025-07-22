@@ -96,7 +96,7 @@ std::string SNLBusTermBit::getString() const {
 std::string SNLBusTermBit::getDescription() const {
   std::ostringstream stream;
   stream << "<" << std::string(getTypeName()) << " ";
-  if (not getBus()->isAnonymous()) {
+  if (not getBus()->isUnnamed()) {
     stream << getBus()->getName().getString();
   } else {
     stream << "(" << getBus()->getID() << ")";
@@ -113,8 +113,8 @@ void SNLBusTermBit::debugDump(size_t indent, bool recursive, std::ostream& strea
 }
 //LCOV_EXCL_STOP
 
-bool SNLBusTermBit::isAnonymous() const {
-  return getBus()->isAnonymous();
+bool SNLBusTermBit::isUnnamed() const {
+  return getBus()->isUnnamed();
 }
 
 void SNLBusTermBit::setName(const NLName& name) {

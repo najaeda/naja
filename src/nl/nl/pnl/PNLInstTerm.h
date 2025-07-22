@@ -38,7 +38,7 @@ class PNLInstTerm final: public PNLNetComponent {
 
     void destroy() override;
 
-    bool isAnonymous() const override;
+    bool isUnnamed() const override;
     NLName getName() const override;
 
   private:

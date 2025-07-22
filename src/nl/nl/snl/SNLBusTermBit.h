@@ -30,7 +30,7 @@ class SNLBusTermBit final: public SNLBitTerm {
 
     const char* getTypeName() const override;
     NLName getName() const override;
-    bool isAnonymous() const override;
+    bool isUnnamed() const override;
     void setName(const NLName& name) override;
     SNLTerm::Direction getDirection() const override;
     std::string getString() const override;

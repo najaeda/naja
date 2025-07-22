@@ -309,10 +309,10 @@ const char* PNLDesign::getTypeName() const {
 
 // LCOV_EXCL_START
 std::string PNLDesign::getString() const {
-  if (not isAnonymous()) {
+  if (not isUnnamed()) {
     return getName().getString();
   } else {
-    return "<anonymous>";
+    return "<unnamed>";
   }
 }
 // LCOV_EXCL_STOP
@@ -321,11 +321,11 @@ std::string PNLDesign::getString() const {
 std::string PNLDesign::getDescription() const {
   std::ostringstream stream;
   stream << "<" + std::string(getTypeName());
-  if (not isAnonymous()) {
+  if (not isUnnamed()) {
     stream << " " + getName().getString();
   }
   stream << " " << getID();
-  if (not getLibrary()->isAnonymous()) {
+  if (not getLibrary()->isUnnamed()) {
     stream << " " << getLibrary()->getName().getString();
   }
   stream << " " << getLibrary()->getID();

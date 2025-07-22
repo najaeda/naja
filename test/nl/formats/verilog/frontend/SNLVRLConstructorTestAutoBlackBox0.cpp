@@ -59,7 +59,7 @@ TEST_F(SNLVRLConstructorTestAutoBlackBox0, test) {
   ASSERT_EQ(1, instances.size());
   auto ins0 = instances[0];
   ASSERT_NE(ins0, nullptr);
-  EXPECT_FALSE(ins0->isAnonymous());
+  EXPECT_FALSE(ins0->isUnnamed());
 
   auto model = ins0->getModel();
   ASSERT_NE(model, nullptr);
