@@ -39,7 +39,7 @@ class SNLScalarTerm final: public SNLBitTerm {
     NLID::Bit getBit() const override { return 0; }
     size_t getFlatID() const override { return flatID_; }
     NLName getName() const override { return name_; }
-    bool isAnonymous() const override { return name_.empty(); }
+    bool isUnnamed() const override { return name_.empty(); }
 
     /// \brief Change the name of this SNLScalarTerm.
     void setName(const NLName& name) override;

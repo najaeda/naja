@@ -110,10 +110,10 @@ TEST_F(SNLVRLConstructorTest1, test) {
   using Nets = std::vector<SNLNet*>;
   Nets nets(test->getNets().begin(), test->getNets().end());
   ASSERT_EQ(12, nets.size());
-  EXPECT_TRUE(nets[0]->isAnonymous());
-  EXPECT_TRUE(nets[1]->isAnonymous());
+  EXPECT_TRUE(nets[0]->isUnnamed());
+  EXPECT_TRUE(nets[1]->isUnnamed());
   for (size_t i=2; i<12; ++i) {
-    EXPECT_FALSE(nets[i]->isAnonymous());
+    EXPECT_FALSE(nets[i]->isUnnamed());
   }
 
   ASSERT_TRUE(dynamic_cast<SNLScalarNet*>(nets[0]));

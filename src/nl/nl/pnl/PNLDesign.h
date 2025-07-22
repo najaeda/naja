@@ -106,8 +106,8 @@ class PNLDesign final: public NLObject {
     /// \return NLName of this PNLDesign. 
     NLName getName() const { return name_; }
     void setName(const NLName& name);
-    /// \return true if this PNLDesign is anonymous.
-    bool isAnonymous() const { return name_.empty(); }
+    /// \return true if this PNLDesign is unnamed.
+    bool isUnnamed() const { return name_.empty(); }
 
     const char* getTypeName() const override;
     std::string getString() const override;

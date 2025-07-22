@@ -153,16 +153,16 @@ void TYPE::setName(const NLName& name) { \
 
 #define OWNER_RENAME(OWNER, TYPE, MAP) \
 void OWNER::rename(TYPE* object, const NLName& previousName) { \
-  /*if object was anonymous, and new one is not... just insert with new name */ \
+  /*if object was unnamed, and new one is not... just insert with new name */ \
   if (previousName.empty()) { \
-    if (not object->isAnonymous()) { \
+    if (not object->isUnnamed()) { \
       /* collision is already verified by object before trying insertion */ \
       MAP[object->getName()] = object->getID(); \
-    } /* else nothing to do, anonymous to anonymous */ \
+    } /* else nothing to do, unnamed to unnamed */ \
   } else { \
     auto node = MAP.extract(previousName); \
     assert(node); \
-    if (not object->isAnonymous()) { \
+    if (not object->isUnnamed()) { \
       node.key() = object->getName(); \
       MAP.insert(std::move(node)); \
     } \

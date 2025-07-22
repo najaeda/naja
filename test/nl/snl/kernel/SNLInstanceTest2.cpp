@@ -39,23 +39,23 @@ TEST_F(SNLInstanceTest2, testRename) {
   
   EXPECT_EQ(instance0, design_->getInstance(NLName("instance0")));
   EXPECT_EQ(instance1, design_->getInstance(NLName("instance1")));
-  EXPECT_FALSE(instance0->isAnonymous());
+  EXPECT_FALSE(instance0->isUnnamed());
   instance0->setName(NLName());
-  EXPECT_TRUE(instance0->isAnonymous());
+  EXPECT_TRUE(instance0->isUnnamed());
   EXPECT_EQ(nullptr, design_->getInstance(NLName("instance0")));
   instance0->setName(NLName("instance0"));
-  EXPECT_FALSE(instance0->isAnonymous());
+  EXPECT_FALSE(instance0->isUnnamed());
   EXPECT_EQ(instance0, design_->getInstance(NLName("instance0")));
-  EXPECT_FALSE(instance1->isAnonymous());
+  EXPECT_FALSE(instance1->isUnnamed());
   instance1->setName(NLName("instance1")); //nothing should happen...
   EXPECT_EQ(instance1, design_->getInstance(NLName("instance1")));
   instance1->setName(NLName("t1"));
-  EXPECT_FALSE(instance1->isAnonymous());
+  EXPECT_FALSE(instance1->isUnnamed());
   EXPECT_EQ(nullptr, design_->getInstance(NLName("instance1")));
   EXPECT_EQ(instance1, design_->getInstance(NLName("t1")));
-  EXPECT_TRUE(instance2->isAnonymous());
+  EXPECT_TRUE(instance2->isUnnamed());
   instance2->setName(NLName("instance2"));
-  EXPECT_FALSE(instance2->isAnonymous());
+  EXPECT_FALSE(instance2->isUnnamed());
   EXPECT_EQ(instance2, design_->getInstance(NLName("instance2")));
   //Collision error
   EXPECT_THROW(instance2->setName(NLName("instance0")), NLException);

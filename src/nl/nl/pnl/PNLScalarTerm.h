@@ -51,7 +51,7 @@ class PNLScalarTerm final: public PNLBitTerm {
     std::string getDescription() const override;
     void debugDump(size_t indent, bool recursive=true, std::ostream& stream=std::cerr) const override;
     //bool deepCompare(const PNLTerm* other, std::string& reason) const override;
-    bool isAnonymous() const override { return name_.empty(); }
+    bool isUnnamed() const override { return name_.empty(); }
     void setDirection(const PNLTerm::Direction& direction) override;
   private:
     PNLScalarTerm(PNLDesign* design, Direction direction, const NLName& name);

@@ -127,8 +127,8 @@ class NLLibrary final: public NLObject {
     NLID getNLID() const;
     /// \return the name of this NLLibrary.
     NLName getName() const { return name_; }
-    /// \return true if this NLLibrary is anonymous, false otherwise.
-    bool isAnonymous() const { return name_.empty(); }
+    /// \return true if this NLLibrary is unnamed, false otherwise.
+    bool isUnnamed() const { return name_.empty(); }
     const char* getTypeName() const override;
     std::string getString() const override;
     std::string getDescription() const override;

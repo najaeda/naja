@@ -30,7 +30,7 @@ class SNLInstTerm final: public SNLNetComponent {
     SNLBitNet* getNet() const override { return net_; }
     void setNet(SNLNet* net) override;
 
-    bool isAnonymous() const override;
+    bool isUnnamed() const override;
     void setName(const NLName& name) override;
     
     SNLTerm::Direction getDirection() const override;

@@ -36,7 +36,7 @@ TEST_F(PNLDesignTest, testCreation0) {
   ASSERT_NE(design, nullptr);
   EXPECT_EQ(NLName("design"), design->getName());
   EXPECT_EQ(0, design->getID());
-  EXPECT_FALSE(design->isAnonymous());
+  EXPECT_FALSE(design->isUnnamed());
   EXPECT_EQ(design, library->getPNLDesign(0));
   EXPECT_EQ(design, library->getPNLDesign(NLName("design")));
   EXPECT_EQ(library, design->getLibrary());
@@ -62,7 +62,7 @@ TEST_F(PNLDesignTest, testCreation0) {
   PNLScalarTerm* term0 = PNLScalarTerm::create(design, PNLTerm::Direction::Input, NLName("term0"));
   ASSERT_NE(term0, nullptr);
   EXPECT_EQ(NLName("term0"), term0->getName());
-  ASSERT_FALSE(term0->isAnonymous());
+  ASSERT_FALSE(term0->isUnnamed());
   EXPECT_EQ(0, term0->getID());
   EXPECT_EQ(NLID(NLID::Type::Term, 1, 0, 0, 0, 0, 0), term0->getNLID());
   EXPECT_EQ(design, term0->getDesign());
@@ -79,7 +79,7 @@ TEST_F(PNLDesignTest, testCreation0) {
   PNLScalarTerm* term1 = PNLScalarTerm::create(design, PNLTerm::Direction::Output, NLName("term1"));
   ASSERT_NE(term1, nullptr);
   EXPECT_EQ(NLName("term1"), term1->getName());
-  ASSERT_FALSE(term1->isAnonymous());
+  ASSERT_FALSE(term1->isUnnamed());
   EXPECT_EQ(1, term1->getID());
   EXPECT_EQ(NLID(NLID::Type::Term, 1, 0, 0, 1, 0, 0), term1->getNLID());
   EXPECT_LT(term0->getNLID(), term1->getNLID());
@@ -104,7 +104,7 @@ TEST_F(PNLDesignTest, testCreation0) {
   PNLScalarTerm* term2 = PNLScalarTerm::create(design, PNLTerm::Direction::InOut);
   ASSERT_NE(term2, nullptr);
   EXPECT_TRUE(term2->getName().empty());
-  ASSERT_TRUE(term2->isAnonymous());
+  ASSERT_TRUE(term2->isUnnamed());
   EXPECT_EQ(2, term2->getID());
   EXPECT_EQ(NLID(NLID::Type::Term, 1, 0, 0, 2, 0, 0), term2->getNLID());
   EXPECT_LT(term1->getNLID(), term2->getNLID());
@@ -181,7 +181,7 @@ TEST_F(PNLDesignTest, testCreation0) {
   EXPECT_LT(design->getNLID(), model->getNLID());
   //EXPECT_EQ(model, NLUniverse::get()->getPNLDesign(NLID::DesignReference(1, 0, 1)));
   //EXPECT_EQ(model, NLUniverse::get()->getObject(NLID(1, 0, 1)));
-  EXPECT_FALSE(model->isAnonymous());
+  EXPECT_FALSE(model->isUnnamed());
   EXPECT_EQ(model, library->getPNLDesign(1));
   EXPECT_EQ(model, library->getPNLDesign(NLName("model")));
   EXPECT_EQ(2, library->getPNLDesigns().size());
@@ -196,7 +196,7 @@ TEST_F(PNLDesignTest, testCreation0) {
   EXPECT_EQ(NLID(1, 0, 2), anon->getNLID());
   //EXPECT_EQ(anon, NLUniverse::get()->getPNLDesign(NLID::DesignReference(1, 0, 2)));
   //EXPECT_EQ(anon, NLUniverse::get()->getObject(NLID(1, 0, 2)));
-  EXPECT_TRUE(anon->isAnonymous());
+  EXPECT_TRUE(anon->isUnnamed());
   EXPECT_EQ(anon, library->getPNLDesign(2));
   EXPECT_EQ(library, anon->getLibrary());
   EXPECT_EQ(db_, anon->getDB());
@@ -218,7 +218,7 @@ TEST_F(PNLDesignTest, testCreation1) {
   PNLDesign* anon = PNLDesign::create(library);
   ASSERT_NE(anon, nullptr);
   EXPECT_EQ(0, anon->getID());
-  EXPECT_TRUE(anon->isAnonymous());
+  EXPECT_TRUE(anon->isUnnamed());
   EXPECT_EQ(anon, library->getPNLDesign(0));
   EXPECT_EQ(library, anon->getLibrary());
   EXPECT_EQ(db_, anon->getDB());

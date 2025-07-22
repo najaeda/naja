@@ -5,7 +5,6 @@
 #include "gtest/gtest.h"
 #include "gmock/gmock.h"
 using ::testing::ElementsAre;
-//using ::testing::TypedEq;
 
 #include <filesystem>
 #include <fstream>
@@ -75,7 +74,7 @@ TEST_F(SNLVRLConstructorTestGate1, test) {
   ASSERT_EQ(4, instances.size());
   auto ins0 = instances[0];
   ASSERT_NE(ins0, nullptr);
-  EXPECT_TRUE(ins0->isAnonymous());
+  EXPECT_TRUE(ins0->isUnnamed());
   auto nand3Model = ins0->getModel();
   EXPECT_TRUE(NLDB0::isNInputGate(nand3Model));
   auto nand3SingleTerm = NLDB0::getGateSingleTerm(nand3Model);
@@ -88,7 +87,7 @@ TEST_F(SNLVRLConstructorTestGate1, test) {
 
   auto ins1 = instances[1];
   ASSERT_NE(ins1, nullptr);
-  EXPECT_TRUE(ins1->isAnonymous());
+  EXPECT_TRUE(ins1->isUnnamed());
   auto nor5Model = ins1->getModel();
   EXPECT_TRUE(NLDB0::isNInputGate(nor5Model));
   auto nor5SingleTerm = NLDB0::getGateSingleTerm(nor5Model);
@@ -101,13 +100,13 @@ TEST_F(SNLVRLConstructorTestGate1, test) {
 
   auto ins2 = instances[2];
   ASSERT_NE(ins2, nullptr);
-  EXPECT_TRUE(ins2->isAnonymous());
+  EXPECT_TRUE(ins2->isUnnamed());
   auto xnor4Model = ins2->getModel();
   EXPECT_TRUE(NLDB0::isNInputGate(xnor4Model));
 
   auto ins3 = instances[3];
   ASSERT_NE(ins3, nullptr);
-  EXPECT_TRUE(ins3->isAnonymous());
+  EXPECT_TRUE(ins3->isUnnamed());
   auto nand3ModelBis = ins3->getModel();
   EXPECT_TRUE(NLDB0::isNInputGate(nand3ModelBis));
   EXPECT_EQ(nand3Model, nand3ModelBis); // should be the same as ins0

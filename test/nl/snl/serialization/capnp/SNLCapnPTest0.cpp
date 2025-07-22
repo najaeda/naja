@@ -238,13 +238,13 @@ TEST_F(SNLCapNpTest0, test0) {
     auto scalarNet0 = dynamic_cast<SNLScalarNet*>(nets[0]);
     EXPECT_NE(nullptr, scalarNet0);
     EXPECT_EQ(NLID::DesignObjectID(0), scalarNet0->getID());
-    EXPECT_TRUE(scalarNet0->isAnonymous());
+    EXPECT_TRUE(scalarNet0->isUnnamed());
 
     EXPECT_NE(nullptr, nets[1]);
     auto busNet1 = dynamic_cast<SNLBusNet*>(nets[1]);
     EXPECT_NE(nullptr, busNet1);
     EXPECT_EQ(NLID::DesignObjectID(1), busNet1->getID());
-    EXPECT_TRUE(busNet1->isAnonymous());
+    EXPECT_TRUE(busNet1->isUnnamed());
     EXPECT_EQ(31, busNet1->getMSB());
     EXPECT_EQ(0, busNet1->getLSB());
 
@@ -252,13 +252,13 @@ TEST_F(SNLCapNpTest0, test0) {
     auto scalarNet2 = dynamic_cast<SNLScalarNet*>(nets[2]);
     EXPECT_NE(nullptr, scalarNet2);
     EXPECT_EQ(NLID::DesignObjectID(2), scalarNet2->getID());
-    EXPECT_TRUE(scalarNet2->isAnonymous());
+    EXPECT_TRUE(scalarNet2->isUnnamed());
 
     EXPECT_NE(nullptr, nets[3]);
     auto scalarNet3 = dynamic_cast<SNLScalarNet*>(nets[3]);
     EXPECT_NE(nullptr, scalarNet3);
     EXPECT_EQ(NLID::DesignObjectID(3), scalarNet3->getID());
-    EXPECT_FALSE(scalarNet3->isAnonymous());
+    EXPECT_FALSE(scalarNet3->isUnnamed());
     EXPECT_EQ(NLName("n1"), scalarNet3->getName());
     EXPECT_EQ(2, scalarNet3->getComponents().size());
     EXPECT_TRUE(scalarNet3->getBitTerms().empty());
@@ -275,7 +275,7 @@ TEST_F(SNLCapNpTest0, test0) {
     auto busNet4 = dynamic_cast<SNLBusNet*>(nets[4]);
     EXPECT_NE(nullptr, busNet4);
     EXPECT_EQ(NLID::DesignObjectID(4), busNet4->getID());
-    EXPECT_FALSE(busNet4->isAnonymous());
+    EXPECT_FALSE(busNet4->isUnnamed());
     EXPECT_EQ(NLName("n2"), busNet4->getName());
     for (auto bit: busNet4->getBits()) {
       EXPECT_EQ(2, bit->getComponents().size());

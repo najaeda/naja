@@ -200,8 +200,8 @@ SNLDesign* NLDB0::getOrCreateNOutputGate(const GateType& type, size_t nbOutputs)
   auto gate = gateLibrary->getSNLDesign(NLName(gateName));
   if (not gate) {
     gate = SNLDesign::create(gateLibrary, SNLDesign::Type::Primitive, NLName(gateName));
-    SNLScalarTerm::create(gate, SNLTerm::Direction::Input);
     SNLBusTerm::create(gate, SNLTerm::Direction::Output, NLID::Bit(nbOutputs-1), 0);
+    SNLScalarTerm::create(gate, SNLTerm::Direction::Input);
   }
   return gate;
 }
@@ -273,15 +273,19 @@ bool NLDB0::isGate(const SNLDesign* design) {
 }
 
 SNLScalarTerm* NLDB0::getGateSingleTerm(const SNLDesign* gate) {
-  if (isGate(gate)) {
+  if (isNInputGate(gate)) {
     return gate->getScalarTerm(NLID::DesignObjectID(0));
+  } else if (isNOutputGate(gate)) {
+    return gate->getScalarTerm(NLID::DesignObjectID(1));
   }
   return nullptr;
 }
 
 SNLBusTerm* NLDB0::getGateNTerms(const SNLDesign* gate) {
-  if (isGate(gate)) {
+  if (isNInputGate(gate)) {
     return gate->getBusTerm(NLID::DesignObjectID(1));
+  } else if (isNOutputGate(gate)) {
+    return gate->getBusTerm(NLID::DesignObjectID(0));
   }
   return nullptr;
 }

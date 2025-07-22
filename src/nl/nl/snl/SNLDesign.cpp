@@ -673,10 +673,10 @@ const char* SNLDesign::getTypeName() const {
 
 //LCOV_EXCL_START
 std::string SNLDesign::getString() const {
-  if (not isAnonymous()) {
+  if (not isUnnamed()) {
     return getName().getString();
   } else {
-    return "<anonymous>";
+    return "<unnamed>";
   }
 }
 //LCOV_EXCL_STOP
@@ -685,14 +685,14 @@ std::string SNLDesign::getString() const {
 std::string SNLDesign::getDescription() const {
   std::ostringstream stream;
   stream << "<" + std::string(getTypeName());
-  if (not isAnonymous()) {
+  if (not isUnnamed()) {
     stream << " " + getName().getString();
   }
   stream << " " << getID();
   if (isPrimitive()) {
     stream << " (prim)";
   }
-  if (not getLibrary()->isAnonymous()) {
+  if (not getLibrary()->isUnnamed()) {
     stream << " " << getLibrary()->getName().getString();
   }
   stream << " " << getLibrary()->getID();

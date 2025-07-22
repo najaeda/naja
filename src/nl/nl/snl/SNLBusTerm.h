@@ -73,7 +73,7 @@ class SNLBusTerm final: public SNLTerm {
     NLID getNLID() const override;
     size_t getFlatID() const override { return flatID_; }
     NLName getName() const override { return name_; }
-    bool isAnonymous() const override { return name_.empty(); }
+    bool isUnnamed() const override { return name_.empty(); }
     void setName(const NLName& name) override;
    
     SNLTerm::Direction getDirection() const override { return direction_; }

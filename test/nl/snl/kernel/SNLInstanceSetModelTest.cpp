@@ -177,7 +177,7 @@ TEST_F(SNLInstanceSetModelTest, testDifferentParametersSizeError) {
   EXPECT_TRUE(model_->deepCompare(newModel, reason, NLDesign::CompareType::IgnoreIDAndName));
   EXPECT_TRUE(reason.empty());
   EXPECT_EQ(std::string(), reason);
-  EXPECT_TRUE(newModel->isAnonymous());
+  EXPECT_TRUE(newModel->isUnnamed());
   ASSERT_EQ(3, newModel->getParameters().size());
   auto param0 = newModel->getParameter(NLName("param0"));
   ASSERT_NE(nullptr, param0);

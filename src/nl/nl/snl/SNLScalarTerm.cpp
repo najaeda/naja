@@ -123,11 +123,11 @@ std::string SNLScalarTerm::getString() const {
 std::string SNLScalarTerm::getDescription() const {
   std::ostringstream stream;
   stream << "<" << std::string(getTypeName());
-  if (not isAnonymous()) {
+  if (not isUnnamed()) {
     stream << " " + getName().getString();
   }
   stream << " " << getID();
-  if (not getDesign()->isAnonymous()) {
+  if (not getDesign()->isUnnamed()) {
     stream << " " + getDesign()->getName().getString();
   }
   stream << " " << getDesign()->getID();

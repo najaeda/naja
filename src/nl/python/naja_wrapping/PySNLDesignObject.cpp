@@ -21,9 +21,13 @@ DBoDestroyAttribute(PySNLDesignObject_destroy, PySNLDesignObject)
 
 PyTypeObjectDefinitions(SNLDesignObject)
 
+GetBoolAttribute(SNLDesignObject, isUnnamed)
+
 PyMethodDef PySNLDesignObject_Methods[] = {
   {"getDesign", (PyCFunction)PySNLDesignObject_getDesign, METH_NOARGS,
     "Returns the SNLDesignObject owner design."},
+  {"isUnnamed", (PyCFunction)PySNLDesignObject_isUnnamed, METH_NOARGS,
+    "Returns whether the SNLDesignObject is unnamed."},
   {"setName", (PyCFunction)PySNLDesignObject_setName, METH_O,
     "Set the NLName of this SNLDesignObject."},
   {"destroy", (PyCFunction)PySNLDesignObject_destroy, METH_NOARGS,

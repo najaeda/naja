@@ -43,8 +43,8 @@ class SNLDesignObject: public NLObject {
 
     /// \return the owner NLDB of this SNLDesignObject.
     NLDB* getDB() const;
-    /// \return true if this SNLDesignObject is anonymous, false if not.
-    virtual bool isAnonymous() const = 0;
+    /// \return true if this SNLDesignObject is unnamed, false if not.
+    virtual bool isUnnamed() const = 0;
     /**
      * \brief set the SNLName of this SNLDesignObject
      * \warning this method will throw an exception if used on SNLBusTermBit, SNLBusNetBit or SNLInstTermBit

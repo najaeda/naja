@@ -68,8 +68,8 @@ SNLTerm::Direction SNLInstTerm::getDirection() const {
 
 NET_COMPONENT_SET_NET(SNLInstTerm)
 
-bool SNLInstTerm::isAnonymous() const {
-  return getBitTerm()->isAnonymous();
+bool SNLInstTerm::isUnnamed() const {
+  return getBitTerm()->isUnnamed();
 }
 
 void SNLInstTerm::setName(const NLName& name) {
@@ -96,11 +96,11 @@ std::string SNLInstTerm::getString() const {
 std::string SNLInstTerm::getDescription() const {
   std::ostringstream str;
   str << "<" << getTypeName();
-  if (not getInstance()->isAnonymous()) {
+  if (not getInstance()->isUnnamed()) {
     str << " " << getInstance()->getName().getString();
   }
   str << " " << getInstance()->getID();
-  if (not getBitTerm()->isAnonymous()) {
+  if (not getBitTerm()->isUnnamed()) {
     str << " " << getBitTerm()->getString();
   }
   str << " " << getBitTerm()->getID();
