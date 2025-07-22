@@ -895,6 +895,12 @@ TEST_F(ConstantPropagationTests, TestAndFull) {
                        std::string(" -o ") + svgFileName)
                .c_str());
   }
+  EXPECT_TRUE(topOut00->getNet()->getName().getString() == std::string("logic0_naja_net"));
+  EXPECT_TRUE(topOut01->getNet()->getName().getString() == std::string("logic0_naja_net"));
+  EXPECT_TRUE(topOut02->getNet()->getName().getString() == std::string("logic0_naja_net"));
+  EXPECT_TRUE(topOut03->getNet()->getName().getString() == std::string("logic0_naja_net"));
+  EXPECT_TRUE(topOut04->getNet()->getName().getString() == std::string("logic1_naja_net"));
+  EXPECT_TRUE(topOut06->getNet()->getName().getString() == std::string("logic0_naja_net"));
   //EXPECT_EQ(cp.getConstants1().size(), 1);
   //EXPECT_EQ(cp.getConstants0().size(), 2);
   //EXPECT_EQ(topOut->getNet()->getInstTerms().size(), 0);
