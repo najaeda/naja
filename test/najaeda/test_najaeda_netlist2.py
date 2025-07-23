@@ -147,6 +147,8 @@ class NajaNetlistTest2(unittest.TestCase):
         #dump naja if
         netlist.dump_naja_if(os.path.join(bench_dir, "netlist2_top0.najaif"))
         netlist.reset()
+        self.assertRaises(FileNotFoundError, netlist.load_naja_if, os.path.join(bench_dir, "non_existing.najaif"))
+        #load naja if
         netlist.load_naja_if(os.path.join(bench_dir, "netlist2_top0.najaif"))
 
     def test_top1(self):
