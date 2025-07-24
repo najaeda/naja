@@ -81,8 +81,8 @@ class SNLTruthTable {
 
   std::string getString() const {
     std::string result = "";
-    result =  "<" + std::to_string(size_) + ", |"; 
-    for (size_t i = 0; i < size_; i++) {
+    result =  "<" + std::to_string(bits_.size()) + ", |"; 
+    for (size_t i = 0; i < bits_.size(); i++) {
       result += std::to_string(bits_.bit(i));
     }
       
