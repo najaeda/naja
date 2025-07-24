@@ -200,13 +200,13 @@ class SNLTruthTable {
   //LCOV_EXCL_STOP
 
   bool all0() const {
-    // if (size() <= 6) {
-    //   uint64_t rows = 1ull << size_;    // # of table entries = 1<<size_
-    //   uint64_t mask = (rows < 64
-    //            ? ((1ull << rows) - 1ull)
-    //            : std::numeric_limits<uint64_t>::max());
-    //   return (bits().operator uint64_t() & mask) == 0ull;
-    // }
+    if (size() <= 6) {
+      uint64_t rows = 1ull << size_;    // # of table entries = 1<<size_
+      uint64_t mask = (rows < 64
+               ? ((1ull << rows) - 1ull)
+               : std::numeric_limits<uint64_t>::max());
+      return (bits().operator uint64_t() & mask) == 0ull;
+    }
     bool result = false;
     for (size_t i = 0; i < bits().size(); i++) {
       result |= bits().bit(i);
@@ -215,13 +215,13 @@ class SNLTruthTable {
   }
 
   bool all1() const {
-    // if (size() <= 6) {
-    //   uint64_t rows = 1ull << size_;    // # of table entries = 1<<size_
-    //   uint64_t mask = (rows < 64
-    //            ? ((1ull << rows) - 1ull)
-    //            : std::numeric_limits<uint64_t>::max());
-    //   return (bits().operator uint64_t() & mask) == mask;
-    // }
+    if (size() <= 6) {
+      uint64_t rows = 1ull << size_;    // # of table entries = 1<<size_
+      uint64_t mask = (rows < 64
+               ? ((1ull << rows) - 1ull)
+               : std::numeric_limits<uint64_t>::max());
+      return (bits().operator uint64_t() & mask) == mask;
+    }
     bool result = true;
     for (size_t i = 0; i < bits().size(); i++) {
       result &= bits().bit(i);
