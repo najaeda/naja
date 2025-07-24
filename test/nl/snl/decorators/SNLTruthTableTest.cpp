@@ -254,27 +254,28 @@ TEST(SNLTruthTableTest, VectorCtor_BasicProps) {
   v7[  3] = true;
   v7[127] = true;
 
-  // Must accept size>6
+  // Must accept size > 6
   SNLTruthTable tt7(7, v7);
   EXPECT_TRUE(tt7.isInitialized());
   EXPECT_EQ(7u, tt7.size());
 
-  // getString() reflects the size and low-word bits().operator uint64_t()
-  // (we know bits().operator uint64_t() only shows low-64 bits, here bit3==1)
+  // getString() now shows "<128, |…|>"
   auto s = tt7.getString();
-  EXPECT_NE(std::string::npos, s.find("<7,"));  
-  EXPECT_NE(std::string::npos, s.find("|0001000|"));     // 1<<3 == 8
+  // 1<<7 == 128 rows
+  EXPECT_NE(std::string::npos, s.find("<128,"));
+  // bit #3 is 1 so the very first eight bits are "00010000"
+  EXPECT_NE(std::string::npos, s.find("|00010000"));
 
   // two tables built from identical data compare equal
   SNLTruthTable tt7b(7, v7);
   EXPECT_TRUE(tt7 == tt7b);
   EXPECT_FALSE(tt7 < tt7b);
 
-  // flipping any one entry makes them order‐distinct
-  v7[3] = false;  // clear bit3
+  // flipping one entry changes the low-word, so ordering flips
+  v7[3] = false;  
   SNLTruthTable tt7c(7, v7);
   EXPECT_FALSE(tt7c == tt7b);
-  EXPECT_TRUE(tt7c < tt7b);  // low bits 0 < low bits 8
+  EXPECT_TRUE(tt7c < tt7b);  // now low-bits = 0 < 8
 }
 
 TEST(SNLTruthTableTest, VectorCtor_CtorThrowsSizeLE6) {
