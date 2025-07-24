@@ -68,8 +68,8 @@ SNLTerm::Direction SNLInstTerm::getDirection() const {
 
 NET_COMPONENT_SET_NET(SNLInstTerm)
 
-bool SNLInstTerm::isAnonymous() const {
-  return getBitTerm()->isAnonymous();
+bool SNLInstTerm::isUnnamed() const {
+  return getBitTerm()->isUnnamed();
 }
 
 void SNLInstTerm::setName(const NLName& name) {
@@ -96,11 +96,11 @@ std::string SNLInstTerm::getString() const {
 std::string SNLInstTerm::getDescription() const {
   std::ostringstream str;
   str << "<" << getTypeName();
-  if (not getInstance()->isAnonymous()) {
+  if (not getInstance()->isUnnamed()) {
     str << " " << getInstance()->getName().getString();
   }
   str << " " << getInstance()->getID();
-  if (not getBitTerm()->isAnonymous()) {
+  if (not getBitTerm()->isUnnamed()) {
     str << " " << getBitTerm()->getString();
   }
   str << " " << getBitTerm()->getID();
@@ -114,5 +114,36 @@ void SNLInstTerm::debugDump(size_t indent, bool recursive, std::ostream& stream)
   stream << std::string(indent, ' ') << getDescription() << std::endl;
 }
 //LCOV_EXCL_STOP
+
+bool SNLInstTerm::deepCompare(const SNLNetComponent* other, std::string& reason) const {
+  const SNLInstTerm* otherInstTerm = dynamic_cast<const SNLInstTerm*>(other);
+  if (not otherInstTerm) {
+    //LCOV_EXCL_START
+    reason = "other term is not a SNLInstTerm";
+    return false;
+    //LCOV_EXCL_STOP
+  }
+  if (not instance_->deepCompare(otherInstTerm->getInstance(), reason)) {
+    //LCOV_EXCL_START
+    reason = "Instance mismatch between ";
+    reason += getString() + " and " + otherInstTerm->getString();
+    reason += " Instance: " + instance_->getDescription();
+    reason += " and Instance: " + otherInstTerm->getInstance()->getDescription();
+    reason += " are not the same";
+    return false;
+    //LCOV_EXCL_STOP
+  }
+  if (not bitTerm_->deepCompare(otherInstTerm->getBitTerm(), reason)) {
+    //LCOV_EXCL_START
+    reason = "Instance mismatch between ";
+    reason += getString() + " and " + otherInstTerm->getString();
+    reason += " Term: " + bitTerm_->getDescription();
+    reason += " and Term: " + otherInstTerm->getBitTerm()->getDescription();
+    reason += " are not the same";
+    return false;
+    //LCOV_EXCL_STOP
+  }
+  return true;
+}
 
 }} // namespace NL // namespace naja

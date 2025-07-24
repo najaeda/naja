@@ -39,8 +39,8 @@ class SNLScalarNet final: public SNLBitNet {
 
     /// \return this SNLScalarNet name.
     NLName getName() const override { return name_; }
-    /// \return true if this SNLScalarNet is anonymous.
-    bool isAnonymous() const override { return name_.empty(); }
+    /// \return true if this SNLScalarNet is unnamed.
+    bool isUnnamed() const override { return name_.empty(); }
     void setName(const NLName& name) override;
     NajaCollection<SNLBitNet*> getBits() const override;
 

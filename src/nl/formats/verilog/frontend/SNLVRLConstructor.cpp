@@ -820,9 +820,19 @@ void SNLVRLConstructor::endGateInstantiation() {
 
     using Terms = std::vector<SNLBitTerm*>;
     Terms terms;
-    terms.push_back(NLDB0::getGateSingleTerm(gate));
-    auto nterm = NLDB0::getGateNTerms(gate);
-    terms.insert(terms.end(), nterm->getBits().begin(), nterm->getBits().end());
+    if (currentGateInstance_.gateType_.isNInput()) {
+      //first term is the gate output single term
+      //then n-inputs (bus)
+      terms.push_back(NLDB0::getGateSingleTerm(gate));
+      auto nterm = NLDB0::getGateNTerms(gate);
+      terms.insert(terms.end(), nterm->getBits().begin(), nterm->getBits().end());
+    } else {
+      //first term is the gate n-output (bus)
+      //then single input
+      auto nterm = NLDB0::getGateNTerms(gate);
+      terms.insert(terms.end(), nterm->getBits().begin(), nterm->getBits().end());
+      terms.push_back(NLDB0::getGateSingleTerm(gate));
+    }
 
     for (size_t i=0; i<currentGateInstance_.connections_.size(); ++i) {
       currentInstancePortConnection(

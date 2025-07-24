@@ -100,7 +100,7 @@ TEST_F(SNLCapNpTest1, test0) {
   EXPECT_EQ(library, lib1->getParentLibrary());
   auto lib2 = libraries[1];
   EXPECT_NE(nullptr, lib2);
-  EXPECT_TRUE(lib2->isAnonymous());
+  EXPECT_TRUE(lib2->isUnnamed());
   EXPECT_EQ(library, lib2->getParentLibrary());
   EXPECT_EQ(2, lib2->getLibraries().size());
   auto design0 = lib2->getSNLDesign(NLName("design0"));
@@ -112,11 +112,11 @@ TEST_F(SNLCapNpTest1, test0) {
   auto design1 = designs[1];
   EXPECT_TRUE(design1->isUserBlackBox());
   EXPECT_TRUE(design1->isBlackBox());
-  EXPECT_TRUE(design1->isAnonymous());
+  EXPECT_TRUE(design1->isUnnamed());
   auto design2 = designs[2];
   EXPECT_TRUE(design2->isAutoBlackBox());
   EXPECT_TRUE(design2->isBlackBox());
-  EXPECT_TRUE(design2->isAnonymous());
+  EXPECT_TRUE(design2->isUnnamed());
   EXPECT_EQ(3, design2->getTerms().size());
   EXPECT_EQ(3, design2->getScalarTerms().size());
   EXPECT_TRUE(std::all_of(
@@ -135,7 +135,7 @@ TEST_F(SNLCapNpTest1, test0) {
   EXPECT_TRUE(lib3->getLibraries().empty());
   auto lib4 = libraries[1];
   EXPECT_NE(nullptr, lib4);
-  EXPECT_TRUE(lib4->isAnonymous());
+  EXPECT_TRUE(lib4->isUnnamed());
   EXPECT_TRUE(lib4->getLibraries().empty());
 
   libraries = Libraries(db_->getLibraries().begin(), db_->getLibraries().end());
@@ -149,19 +149,19 @@ TEST_F(SNLCapNpTest1, test0) {
   EXPECT_EQ(2, libraries.size());
   auto prims1 = libraries[0];
   EXPECT_NE(nullptr, prims1);
-  EXPECT_TRUE(prims1->isAnonymous());
+  EXPECT_TRUE(prims1->isUnnamed());
   EXPECT_TRUE(prims1->isPrimitives());
   EXPECT_TRUE(prims1->getSNLDesigns().empty());
   EXPECT_EQ(1, prims1->getLibraries().size());
   auto prims2 = libraries[1];
   EXPECT_NE(nullptr, prims2);
-  EXPECT_FALSE(prims2->isAnonymous());
+  EXPECT_FALSE(prims2->isUnnamed());
   EXPECT_TRUE(prims2->isPrimitives());
   EXPECT_EQ(1, prims2->getSNLDesigns().size());
   auto prim = *(prims2->getSNLDesigns().begin());
   EXPECT_NE(nullptr, prim);
   EXPECT_TRUE(prim->isPrimitive());
-  EXPECT_FALSE(prim->isAnonymous());
+  EXPECT_FALSE(prim->isUnnamed());
   EXPECT_EQ(NLName("prim"), prim->getName());
   auto primTT = SNLDesignTruthTable::getTruthTable(prim);
   EXPECT_TRUE(primTT.isInitialized());
@@ -171,6 +171,6 @@ TEST_F(SNLCapNpTest1, test0) {
   EXPECT_EQ(1, libraries.size());
   auto prims3 = libraries[0];
   EXPECT_NE(nullptr, prims3);
-  EXPECT_FALSE(prims3->isAnonymous());
+  EXPECT_FALSE(prims3->isUnnamed());
   EXPECT_EQ(NLName("prims3"), prims3->getName());
 }

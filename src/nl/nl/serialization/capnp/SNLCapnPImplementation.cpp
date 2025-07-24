@@ -60,7 +60,7 @@ void dumpInstance(
   DBImplementation::LibraryImplementation::SNLDesignImplementation::Instance::Builder& instance,
   const SNLInstance* snlInstance) {
   instance.setId(snlInstance->getID());
-  if (not snlInstance->isAnonymous()) {
+  if (not snlInstance->isUnnamed()) {
     instance.setName(snlInstance->getName().getString());
   }
   auto model = snlInstance->getModel();
@@ -114,7 +114,7 @@ void dumpScalarNet(
   const SNLScalarNet* scalarNet) {
   auto scalarNetBuilder = net.initScalarNet();
   scalarNetBuilder.setId(scalarNet->getID());
-  if (not scalarNet->isAnonymous()) {
+  if (not scalarNet->isUnnamed()) {
     scalarNetBuilder.setName(scalarNet->getName().getString());
   }
   scalarNetBuilder.setType(SNLtoCapnPNetType(scalarNet->getType()));
@@ -156,7 +156,7 @@ void dumpBusNet(
   const SNLBusNet* busNet) {
   auto busNetBuilder = net.initBusNet();
   busNetBuilder.setId(busNet->getID());
-  if (not busNet->isAnonymous()) {
+  if (not busNet->isUnnamed()) {
     busNetBuilder.setName(busNet->getName().getString());
   }
   busNetBuilder.setMsb(busNet->getMSB());

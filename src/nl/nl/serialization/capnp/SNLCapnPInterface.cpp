@@ -96,7 +96,7 @@ void dumpScalarTerm(
   const SNLScalarTerm* scalarTerm) {
   auto scalarTermBuilder = term.initScalarTerm();
   scalarTermBuilder.setId(scalarTerm->getID());
-  if (not scalarTerm->isAnonymous()) {
+  if (not scalarTerm->isUnnamed()) {
     scalarTermBuilder.setName(scalarTerm->getName().getString());
   }
   scalarTermBuilder.setDirection(SNLtoCapnPDirection(scalarTerm->getDirection()));
@@ -107,7 +107,7 @@ void dumpBusTerm(
   const SNLBusTerm* busTerm) {
   auto busTermBuilder = term.initBusTerm();
   busTermBuilder.setId(busTerm->getID());
-  if (not busTerm->isAnonymous()) {
+  if (not busTerm->isUnnamed()) {
     busTermBuilder.setName(busTerm->getName().getString());
   }
   busTermBuilder.setMsb(busTerm->getMSB());
@@ -141,7 +141,7 @@ void dumpDesignInterface(
   SNLDesignInterface::Builder& designInterface,
   const SNLDesign* snlDesign) {
   designInterface.setId(snlDesign->getID());
-  if (not snlDesign->isAnonymous()) {
+  if (not snlDesign->isUnnamed()) {
     designInterface.setName(snlDesign->getName().getString());
   }
   designInterface.setType(SNLtoCapNpDesignType(snlDesign->getType()));
@@ -203,7 +203,7 @@ void dumpLibraryInterface(
   };
   dumpProperties(libraryInterface, snlLibrary, lambda);
 
-  if (not snlLibrary->isAnonymous()) {
+  if (not snlLibrary->isUnnamed()) {
     libraryInterface.setName(snlLibrary->getName().getString());
   }
   libraryInterface.setType(SNLtoCapnPLibraryType(snlLibrary->getType()));

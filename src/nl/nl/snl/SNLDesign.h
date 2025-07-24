@@ -222,8 +222,8 @@ class SNLDesign final: public NLObject {
     
     /// \return NLName of this SNLDesign. 
     NLName getName() const { return name_; }
-    /// \return true if this SNLDesign is anonymous.
-    bool isAnonymous() const { return name_.empty(); }
+    /// \return true if this SNLDesign is unnamed.
+    bool isUnnamed() const { return name_.empty(); }
     /**
      * \brief set the NLName of this SNLDesign
      * \warning this method will throw an exception if the name is already used in the design's library.

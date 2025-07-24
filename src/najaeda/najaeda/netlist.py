@@ -475,16 +475,18 @@ class Term:
     def __str__(self):
         term_str = ""
         path = get_snl_path_from_id_list(self.pathIDs)
+        snl_term = get_snl_term_for_ids(self.pathIDs, self.termIDs)
+        snl_term_str = snl_term.getName()
+        if snl_term.isUnnamed():
+            snl_term_str = "<unnamed>"
         if path.size() == 0:
-            term_str = get_snl_term_for_ids(self.pathIDs, self.termIDs).getName()
+            term_str = snl_term_str
         else:
-            term_str = (
-                f"{path}/{get_snl_term_for_ids(self.pathIDs, self.termIDs).getName()}"
-            )
+            term_str = f"{path}/{snl_term_str}"
         if self.is_bus():
             term_str += f"[{self.get_msb()}:{self.get_lsb()}]"
         elif self.is_bus_bit():
-            term_str += f"[{self.get_lsb()}]"
+            term_str += f"[{self.get_msb()}]"
         return term_str
 
     def __repr__(self) -> str:
@@ -885,7 +887,7 @@ class Instance:
         the wire a to the output of the assign and b to the input.
 
         :return: True if this is an assign. Assigns are represented with
-        anonymous Assign instances.
+        unnamed Assign instances.
         :rtype: bool
         """
         return self.__get_snl_model().isAssign()

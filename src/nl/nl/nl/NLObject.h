@@ -13,7 +13,7 @@
 namespace naja { namespace NL {
 
 /**
- * \brief SNLObject is the root object of SNL database objects.
+ * \brief NLObject is the root object of Naja database objects.
  */
 class NLObject: public NajaObject {
   public:

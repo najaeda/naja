@@ -30,12 +30,12 @@ class SNLBusTermBit final: public SNLBitTerm {
 
     const char* getTypeName() const override;
     NLName getName() const override;
-    bool isAnonymous() const override;
+    bool isUnnamed() const override;
     void setName(const NLName& name) override;
     SNLTerm::Direction getDirection() const override;
     std::string getString() const override;
     std::string getDescription() const override;
-    bool deepCompare(const SNLTerm* other, std::string& reason) const override;
+    bool deepCompare(const SNLNetComponent* other, std::string& reason) const override;
     void debugDump(size_t indent, bool recursive=true, std::ostream& stream=std::cerr) const override;
 
     void destroy() override;
