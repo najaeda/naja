@@ -25,6 +25,12 @@ if __name__ == '__main__':
     
     instance = top.get_child_instance("IBusCachedPlugin_cache")
     
+    term = instance.get_term("io_cpu_prefetch_haltIt")
+    
+    equi = term.get_equipotential()
+    
+    equi.dump_dot("equi.dot")
+    
     for term in instance.get_terms():
         if term.is_bus():
             print("Bus Term: ", term.get_name(), " with width: ", term.get_width())
