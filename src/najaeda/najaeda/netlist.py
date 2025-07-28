@@ -485,8 +485,9 @@ class Term:
             term_str = f"{path}/{snl_term_str}"
         if self.is_bus():
             term_str += f"[{self.get_msb()}:{self.get_lsb()}]"
-        elif self.is_bus_bit():
-            term_str += f"[{self.get_msb()}]"
+        bit = self.get_bit_number()
+        if bit is not None:
+            term_str += f"[{bit}]"
         return term_str
 
     def __repr__(self) -> str:
@@ -671,6 +672,10 @@ class Term:
         return self.get_equipotential().get_leaf_readers()
 
     def get_equipotential(self) -> Equipotential:
+        """
+        :return: the Equipotential of this Term.
+        :rtype: Equipotential
+        """
         return Equipotential(self)
 
     def is_input(self) -> bool:
