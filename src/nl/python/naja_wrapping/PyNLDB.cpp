@@ -53,15 +53,15 @@ static PyObject* PyNLDB_create(PyObject*, PyObject* args) {
   return PyNLDB_Link(db);
 }
 
-static PyObject* PyNLDB_loadSNL(PyObject*, PyObject* args) {
+static PyObject* PyNLDB_loadNajaIF(PyObject*, PyObject* args) {
   PyObject* arg = nullptr;
-  if (not PyArg_ParseTuple(args, "O:NLDB.loadSNL", &arg)) {
-    setError("malformed NLDB loadSNL");
+  if (not PyArg_ParseTuple(args, "O:NLDB.loadNajaIF", &arg)) {
+    setError("malformed NLDB loadNajaIF");
     return nullptr;
   }
   if (not PyUnicode_Check(arg)) {
     std::ostringstream oss;
-    oss << "NLDB loadSNL argument should be a file path, got: " 
+    oss << "NLDB loadNajaIF argument should be a file path, got: "
       << getStringForPyObject(arg);
     setError(oss.str());
     return nullptr;
@@ -78,20 +78,20 @@ static PyObject* PyNLDB_loadSNL(PyObject*, PyObject* args) {
   return PyNLDB_Link(db);
 }
 
-PyObject* PyNLDB_dumpSNL(PyNLDB* self, PyObject* args) {
+PyObject* PyNLDB_dumpNajaIF(PyNLDB* self, PyObject* args) {
   PyObject* arg = nullptr;
-  if (not PyArg_ParseTuple(args, "O:NLDB.dumpSNL", &arg)) {
-    setError("malformed NLDB dumpSNL");
+  if (not PyArg_ParseTuple(args, "O:NLDB.dumpNajaIF", &arg)) {
+    setError("malformed NLDB dumpNajaIF");
     return nullptr;
   }
   if (not PyUnicode_Check(arg)) {
     std::ostringstream oss;
-    oss << "NLDB dumpSNL argument should be a file path, got:"
+    oss << "NLDB dumpNajaIF argument should be a file path, got:"
       << getStringForPyObject(arg);
     setError(oss.str());
     return nullptr;
   }
-  METHOD_HEAD("SNLDesign.setTruthTable()")
+  METHOD_HEAD("NLDB.dumpNajaIF()")
   SNLCapnP::dump(self->object_, PyUnicode_AsUTF8(arg));
   Py_RETURN_NONE;
 }
@@ -256,10 +256,10 @@ PyMethodDef PyNLDB_Methods[] = {
     "Returns True if the NLDB is the top DB."},
   { "getTopDesign", (PyCFunction)PyNLDB_getTopDesign, METH_NOARGS,
     "get the top design."},
-  { "loadSNL", (PyCFunction)PyNLDB_loadSNL, METH_VARARGS | METH_STATIC,
-    "create a NLDB from SNL format."},
-  { "dumpSNL", (PyCFunction)PyNLDB_dumpSNL, METH_VARARGS,
-    "dump this NLDB to SNL format."},
+  { "loadNajaIF", (PyCFunction)PyNLDB_loadNajaIF, METH_VARARGS | METH_STATIC,
+    "create a NLDB from NajaIF format."},
+  { "dumpNajaIF", (PyCFunction)PyNLDB_dumpNajaIF, METH_VARARGS,
+    "dump this NLDB to NajaIF format."},
   { "loadLibertyPrimitives", (PyCFunction)PyNLDB_loadLibertyPrimitives, METH_VARARGS,
     "import primitives from Liberty format."},
   { "loadVerilog", (PyCFunction)PyNLDB_loadVerilog, METH_VARARGS|METH_KEYWORDS,

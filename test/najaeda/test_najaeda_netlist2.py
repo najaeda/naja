@@ -144,6 +144,13 @@ class NajaNetlistTest2(unittest.TestCase):
         self.assertRaises(ValueError, top.dump_verilog, "netlist")
         self.assertRaises(FileNotFoundError, top.dump_verilog, os.path.join("non_existing", "netlist2_top0.v"))
 
+        #dump naja if
+        netlist.dump_naja_if(os.path.join(bench_dir, "netlist2_top0.najaif"))
+        netlist.reset()
+        self.assertRaises(FileNotFoundError, netlist.load_naja_if, os.path.join(bench_dir, "non_existing.najaif"))
+        #load naja if
+        netlist.load_naja_if(os.path.join(bench_dir, "netlist2_top0.najaif"))
+
     def test_top1(self):
         def create_top():
             top = netlist.create_top('Top')
