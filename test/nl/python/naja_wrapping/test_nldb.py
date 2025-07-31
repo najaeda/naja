@@ -60,12 +60,12 @@ class SNLDBTest(unittest.TestCase):
     naja_path = os.environ.get('SNL_WRAPPING_TEST_PATH')
     self.assertIsNotNone(naja_path)
     naja_dir = os.path.join(naja_path, "test.naja")
-    db.dumpSNL(naja_dir)
+    db.dumpNajaIF(naja_dir)
     #destroy everything
     naja.NLUniverse.get().destroy()
 
-    #load SNL
-    naja.NLDB.loadSNL(naja_dir)
+    #load NajaIF
+    naja.NLDB.loadNajaIF(naja_dir)
     u = naja.NLUniverse.get()
     self.assertIsNotNone(u)
     db = u.getTopDB()
@@ -97,8 +97,8 @@ class SNLDBTest(unittest.TestCase):
     db = naja.NLDB.create(u) 
     with self.assertRaises(RuntimeError) as context: naja.NLDB.create()
     with self.assertRaises(RuntimeError) as context: naja.NLDB.create("ERROR")
-    with self.assertRaises(RuntimeError) as context: naja.NLDB.loadSNL(u)
-    with self.assertRaises(RuntimeError) as context: naja.NLDB.loadSNL("./test_verilogError.v")
+    with self.assertRaises(RuntimeError) as context: naja.NLDB.loadNajaIF(u)
+    with self.assertRaises(RuntimeError) as context: naja.NLDB.loadNajaIF("./test_verilogError.v")
     primitives = [1]
     designs = [2]
     primitivesNoExtension = ["../../../../../test/naja/formats/liberty/benchmarks/asap7_excerpt/test0"]
@@ -114,15 +114,15 @@ class SNLDBTest(unittest.TestCase):
     with self.assertRaises(RuntimeError) as context: db.loadLibertyPrimitives(primitivesWrongExtension)
     u.destroy()
     with self.assertRaises(RuntimeError) as context: naja.NLDB.create(u)
-    with self.assertRaises(RuntimeError) as context: naja.NLDB.loadSNL()
-    with self.assertRaises(RuntimeError) as context: naja.NLDB.loadSNL("./error")
+    with self.assertRaises(RuntimeError) as context: naja.NLDB.loadNajaIF()
+    with self.assertRaises(RuntimeError) as context: naja.NLDB.loadNajaIF("./error")
 
   def testDumpError(self):
     u = naja.NLUniverse.get()
     db = naja.NLDB.create(u) 
-    with self.assertRaises(RuntimeError) as context: db.dumpSNL()
-    with self.assertRaises(RuntimeError) as context: db.dumpSNL(db)
-    
+    with self.assertRaises(RuntimeError) as context: db.dumpNajaIF()
+    with self.assertRaises(RuntimeError) as context: db.dumpNajaIF(db)
+
 if __name__ == '__main__':
   faulthandler.enable()
   unittest.main()

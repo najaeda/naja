@@ -1,7 +1,5 @@
 /*
 * This is a test file for the auto blackbox generation.
-* It contains various test cases to ensure the functionality
-* of the blackbox generation process.
 */
 
 module test();
