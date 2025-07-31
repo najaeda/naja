@@ -294,8 +294,32 @@ DNLID DNLTerminalFull::getIsoID() const {
 }
 
 SNLEquipotential DNLTerminalFull::getEquipotential() const {
-  naja::NL::SNLNetComponentOccurrence occurrence(
-      this->getDNLInstance().getPath(), this->getSnlBitTerm());
+  #ifdef DEBUG_PRINTS
+  // LCOV_EXCL_START
+  printf("path: %s\n", this->getDNLInstance().getPath().getString().c_str());
+  // LCOV_EXCL_STOP
+  #endif
+  if (this->getDNLInstance().isTop()) {
+    naja::NL::SNLNetComponentOccurrence occurrence(
+    this->getDNLInstance().getPath(), this->getSnlBitTerm());
+    #ifdef DEBUG_PRINTS
+    // LCOV_EXCL_START
+    printf("occurrence: %s\n", occurrence.getString().c_str());
+    SNLEquipotential equipotential(occurrence);
+    printf("equipotential: %s\n", equipotential.getString().c_str());
+    // LCOV_EXCL_STOP
+    #endif
+    return SNLEquipotential(occurrence);
+  }
+  naja::NL::SNLInstTermOccurrence occurrence(
+    this->getDNLInstance().getPath().getHeadPath(), this->getSnlTerm());
+  #ifdef DEBUG_PRINTS
+  // LCOV_EXCL_START
+  printf("occurrence: %s\n", occurrence.getString().c_str());
+  SNLEquipotential equipotential(occurrence);
+  printf("equipotential: %s\n", equipotential.getString().c_str());
+  // LCOV_EXCL_STOP
+  #endif
   return SNLEquipotential(occurrence);
 }
 
