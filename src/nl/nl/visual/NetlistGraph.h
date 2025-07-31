@@ -616,7 +616,10 @@ class WireDataSnl : WireData {
 class SnlVisualiser {
  public:
   SnlVisualiser(SNLDesign* top, bool recursive = true, SNLEquipotential* equi = nullptr) : 
-    _topSnl(top), _recursive(recursive), _equi(equi) {}
+    _topSnl(top), _recursive(recursive) { if (equi != nullptr) { _equis.push_back(*equi); } }
+  SnlVisualiser(SNLDesign* top, std::vector<SNLEquipotential> equis, bool recursive = true) :
+    _topSnl(top), _recursive(recursive), _equis(equis) {
+  }
   void process();
   void processRec(InstNodeID instId, const SNLPath& path);
   auto& getNetlistGraph() { return _snlNetlistGraph; }
@@ -626,7 +629,8 @@ class SnlVisualiser {
       _snlNetlistGraph;
   SNLDesign* _topSnl;
   bool _recursive = true;
-  SNLEquipotential* _equi = nullptr;
+  //SNLEquipotential* _equi = nullptr;
+  std::vector<SNLEquipotential> _equis;
   std::set<SNLPath> _equiPaths;
   std::set<SNLBitNet*> _equiNets;
 };

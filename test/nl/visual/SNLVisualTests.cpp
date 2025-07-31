@@ -301,6 +301,7 @@ TEST_F(SNLVisualTests, BusTest) {
                                     NLName("outBus0"));
   // Create a sub module snl with one input and one output
   SNLDesign* submod = SNLDesign::create(library, NLName("submod"));
+  EXPECT_FALSE(submod->isPrimitive());
   auto subinTerm = SNLBusTerm::create(submod, SNLTerm::Direction::Input, 0, 2,
                                       NLName("inBus0"));
   auto suboutTerm = SNLBusTerm::create(submod, SNLTerm::Direction::Output, 0, 2,
@@ -342,5 +343,25 @@ TEST_F(SNLVisualTests, BusTest) {
   snl.getNetlistGraph().dumpDotFile(dotFileName.c_str());
   executeCommand(std::string(std::string("dot -Tsvg ") + dotFileName +
                      std::string(" -o ") + svgFileName)
+             .c_str());
+  std::vector<SNLEquipotential> equipotentials;
+  DNLFull* dnl = get();
+  for (const auto& term : dnl->getDNLTerms()) {
+    if (term.isNull()) {
+      continue;
+    }
+    printf("Term %s has equipotential %s\n", term.getSnlBitTerm()->getName().getString().c_str(),
+           term.getEquipotential().getString().c_str());
+    equipotentials.push_back(term.getEquipotential());
+  }
+  std::string dotFileNameEquis(
+      std::string(std::string("./testBusEquis") + std::string(".dot")));
+  std::string svgFileNameEquis(
+      std::string(std::string("./testBusEquis") + std::string(".svg")));
+  SnlVisualiser snl2(mod, equipotentials);
+  snl2.process();
+  snl2.getNetlistGraph().dumpDotFile(dotFileNameEquis.c_str());
+  executeCommand(std::string(std::string("dot -Tsvg ") + dotFileNameEquis +
+                     std::string(" -o ") + svgFileNameEquis)
              .c_str());
 }
