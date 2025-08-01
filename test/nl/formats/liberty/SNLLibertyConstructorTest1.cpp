@@ -409,6 +409,9 @@ TEST_F(SNLLibertyConstructorTest1, testOAI222Function) {
 }
 
 TEST_F(SNLLibertyConstructorTest1, testFA_X1Function) {
+  //This test tests a multiple output term primitive.
+  //The primitive is a full adder with 3 inputs and 2 outputs.
+  
   SNLLibertyConstructor constructor(library_);
   std::filesystem::path testPath(
       std::filesystem::path(SNL_LIBERTY_BENCHMARKS)
