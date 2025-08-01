@@ -136,6 +136,12 @@ void parseTerms(
     std::reverse(terms.begin(), terms.end());
     auto truthTable = tree->getTruthTable(terms);
     naja::NL::SNLDesignTruthTable::setTruthTable(primitive, truthTable);
+  } else {
+    std::ostringstream reason;
+    reason << "Multiple output term functions found in " << primitive->getName().getString();
+    reason << ", no function will be set.";
+    //FIXME replace with spdlog::warn
+    std::cerr << reason.str() << std::endl;
   }
 }
 

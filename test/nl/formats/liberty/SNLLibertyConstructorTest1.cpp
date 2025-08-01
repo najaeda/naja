@@ -407,3 +407,43 @@ TEST_F(SNLLibertyConstructorTest1, testOAI222Function) {
   uint64_t result = 0x111f111f111fffff;
   EXPECT_TRUE(NLBitVecDynamic(result, 64) == tt.bits());
 }
+
+TEST_F(SNLLibertyConstructorTest1, testFA_X1Function) {
+  //This test tests a multiple output term primitive.
+  //The primitive is a full adder with 3 inputs and 2 outputs.
+  
+  SNLLibertyConstructor constructor(library_);
+  std::filesystem::path testPath(
+      std::filesystem::path(SNL_LIBERTY_BENCHMARKS)
+      / std::filesystem::path("benchmarks")
+      / std::filesystem::path("tests")
+      / std::filesystem::path("FA_X1.lib"));
+  constructor.construct(testPath);
+  EXPECT_EQ(NLName("FA_X1_test"), library_->getName());
+  EXPECT_EQ(library_->getSNLDesigns().size(), 1);
+  auto design = library_->getSNLDesign(NLName("FA_X1"));
+  ASSERT_NE(nullptr, design);
+  EXPECT_EQ(5, design->getTerms().size());
+  EXPECT_EQ(5, design->getScalarTerms().size());
+  EXPECT_TRUE(design->getBusTerms().empty());
+  auto a = design->getScalarTerm(NLName("A"));
+  ASSERT_NE(nullptr, a);
+  EXPECT_EQ(SNLTerm::Direction::Input, a->getDirection());
+  auto b = design->getScalarTerm(NLName("B"));
+  ASSERT_NE(nullptr, b);
+  EXPECT_EQ(SNLTerm::Direction::Input, b->getDirection());
+  auto ci = design->getScalarTerm(NLName("CI"));
+  ASSERT_NE(nullptr, ci);
+  EXPECT_EQ(SNLTerm::Direction::Input, ci->getDirection());
+  auto co = design->getScalarTerm(NLName("CO"));
+  ASSERT_NE(nullptr, co);
+  EXPECT_EQ(SNLTerm::Direction::Output, co->getDirection());
+  auto s = design->getScalarTerm(NLName("S"));
+  ASSERT_NE(nullptr, s);
+  EXPECT_EQ(SNLTerm::Direction::Output, s->getDirection());
+  auto tt = SNLDesignTruthTable::getTruthTable(design);
+  EXPECT_FALSE(tt.isInitialized());
+  //EXPECT_EQ(3, tt.size());
+  //uint64_t result = 0x111f111f111fffff;
+  //EXPECT_TRUE(NLBitVecDynamic(result, 64) == tt.bits());
+}

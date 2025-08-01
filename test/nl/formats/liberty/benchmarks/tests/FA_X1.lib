@@ -1,0 +1,46 @@
+library(FA_X1_test) {
+  cell (FA_X1) {
+    pin (A) {
+      direction           : input;
+      related_power_pin   : "VDD";
+      related_ground_pin  : "VSS";
+      capacitance         : 3.745709;
+      fall_capacitance    : 3.605599;
+      rise_capacitance    : 3.745709;
+    }
+
+    pin (B) {
+      direction           : input;
+      related_power_pin   : "VDD";
+      related_ground_pin  : "VSS";
+      capacitance         : 3.471985;
+      fall_capacitance    : 3.399547;
+      rise_capacitance    : 3.471985;
+    }
+
+    pin (CI) {
+      direction           : input;
+      related_power_pin   : "VDD";
+      related_ground_pin  : "VSS";
+      capacitance         : 2.762078;
+      fall_capacitance    : 2.664753;
+      rise_capacitance    : 2.762078;
+    }
+
+    pin (CO) {
+      direction           : output;
+      related_power_pin   : "VDD";
+      related_ground_pin  : "VSS";
+      max_capacitance     : 60.119600;
+      function            : "((A & B) | (CI & (A | B)))";
+    }
+
+    pin (S) {
+      direction           : output;
+      related_power_pin   : "VDD";
+      related_ground_pin  : "VSS";
+      max_capacitance     : 60.272200;
+      function            : "(CI ^ (A ^ B))";
+    }
+  }
+}
