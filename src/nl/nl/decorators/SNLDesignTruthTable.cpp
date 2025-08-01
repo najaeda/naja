@@ -104,15 +104,15 @@ SNLTruthTable SNLDesignTruthTable::getTruthTable(const SNLDesign* design) {
 
     // how many chunks *should* we have, given the stored input‐count?
     uint64_t declaredInputs = property->getUInt64Value(0);
+    uint64_t num_bits = 1u << declaredInputs;
     size_t   expectedChunks =
-        (declaredInputs == 0 && tableSize == 1)
+        (declaredInputs == 0 && tableSize == 2)
             ? 1
-            : (tableSize / 64 + ((tableSize % 64) ? 1 : 0));
-
+            : (num_bits / 64 + ((num_bits % 64) > 0 ? 1 : 0));
     if (expectedChunks != tableSize) {
       std::ostringstream reason;
       reason << "Truth table size " << tableSize
-             << " does not match number of chunks " << tableSize;
+             << " does not match number of chunks " << expectedChunks;
       throw NLException(reason.str());
     }
 

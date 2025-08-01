@@ -186,6 +186,35 @@ TEST_F(SNLDesignTruthTablesTest1, testStandardGates) {
   EXPECT_EQ(tt1hybrid, SNLDesignTruthTable::getTruthTable(hybrid, 1));
   EXPECT_EQ(tt2hybrid, SNLDesignTruthTable::getTruthTable(hybrid, 2));
   EXPECT_EQ(tt3hybrid, SNLDesignTruthTable::getTruthTable(hybrid, 3));
+
+  // single big mask
+  auto singleLarge = SNLDesign::create(prims_, SNLDesign::Type::Primitive, NLName("singleLarge"));
+  SNLScalarTerm::create(singleLarge, SNLTerm::Direction::Input,  NLName("I0"));
+  SNLScalarTerm::create(singleLarge, SNLTerm::Direction::Input,  NLName("I1"));
+  SNLScalarTerm::create(singleLarge, SNLTerm::Direction::Output, NLName("O0"));
+  std::vector<bool> bitVectSingleLarge(128);
+  for (size_t i = 0; i < bitVectSingleLarge.size(); ++i) {
+    bitVectSingleLarge[i] = (i % 2);
+  }
+  SNLTruthTable tt0singleLarge(7, bitVectSingleLarge);
+
+  SNLDesignTruthTable::setTruthTable(singleLarge, tt0singleLarge);
+  EXPECT_EQ(tt0singleLarge, SNLDesignTruthTable::getTruthTable(singleLarge));
+  
+  // error for wrong number outputs for tt
+  auto singleLargeError = SNLDesign::create(prims_, SNLDesign::Type::Primitive, NLName("singleLargeError"));
+  SNLScalarTerm::create(singleLargeError, SNLTerm::Direction::Output,  NLName("O"));
+  std::vector<bool> bitVectSingleLargeError(128);
+  for (size_t i = 0; i < bitVectSingleLargeError.size(); ++i) {
+    bitVectSingleLargeError[i] = (i % 2);
+  }
+  SNLTruthTable tt0singleLargeError(7, bitVectSingleLargeError);
+  std::vector<SNLTruthTable> singleLargeErrorTables = {tt0singleLargeError, tt0singleLargeError};
+  EXPECT_THROW(
+    SNLDesignTruthTable::setTruthTables(singleLargeError, singleLargeErrorTables),
+    NLException
+  );
+
 }
 
 //-----------------------------------------------------------------------------
