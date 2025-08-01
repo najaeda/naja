@@ -7,10 +7,11 @@
 #include "NLUniverse.h"
 #include "SNLScalarTerm.h"
 #include "SNLDesignTruthTable.h"
+#include "NajaDumpableProperty.h"
 
 using namespace naja::NL;
 
-class SNLDesignTruthTableTest1: public ::testing::Test {
+class SNLDesignTruthTablesTest1: public ::testing::Test {
   protected:
     void SetUp() override {
       auto universe = NLUniverse::create();
@@ -44,6 +45,7 @@ class SNLDesignTruthTableTest1: public ::testing::Test {
         auto buf = SNLDesign::create(prims_, SNLDesign::Type::Primitive, NLName("buf"));
         SNLScalarTerm::create(buf, SNLTerm::Direction::Input,  NLName("I"));
         SNLScalarTerm::create(buf, SNLTerm::Direction::Output, NLName("O"));
+        // FIXED: call setTruthTable, not setTruthTablesatted
         SNLDesignTruthTable::setTruthTable(buf, SNLTruthTable(1, 0b10));
       }
     }
@@ -57,7 +59,11 @@ class SNLDesignTruthTableTest1: public ::testing::Test {
     NLLibrary* prims_;
 };
 
-TEST_F(SNLDesignTruthTableTest1, testStandardGates) {
+//-----------------------------------------------------------------------------
+// Original tests (unchanged)
+//-----------------------------------------------------------------------------
+
+TEST_F(SNLDesignTruthTablesTest1, testStandardGates) {
   EXPECT_EQ(4, prims_->getSNLDesigns().size());
   using Prims = std::vector<SNLDesign*>;
   Prims prims(prims_->getSNLDesigns().begin(), prims_->getSNLDesigns().end());
@@ -182,3 +188,68 @@ TEST_F(SNLDesignTruthTableTest1, testStandardGates) {
   EXPECT_EQ(tt3hybrid, SNLDesignTruthTable::getTruthTable(hybrid, 3));
 }
 
+//-----------------------------------------------------------------------------
+// Additional edge-case tests for full coverage
+//-----------------------------------------------------------------------------
+
+TEST_F(SNLDesignTruthTablesTest1, IndexedGetThrowsOutOfRange) {
+  auto D = SNLDesign::create(prims_, SNLDesign::Type::Primitive, NLName("one_o"));
+  SNLScalarTerm::create(D, SNLTerm::Direction::Output, NLName("O"));
+  SNLDesignTruthTable::setTruthTable(D, SNLTruthTable(1, 0b10));
+
+  EXPECT_ANY_THROW(
+    SNLDesignTruthTable::getTruthTable(D, /*outputID=*/1)
+  );
+}
+
+TEST_F(SNLDesignTruthTablesTest1, SingleChunkDeclaredTooLargeThrows) {
+  auto D = SNLDesign::create(prims_, SNLDesign::Type::Primitive, NLName("bad_single"));
+  SNLScalarTerm::create(D, SNLTerm::Direction::Output, NLName("O"));
+
+  auto P = naja::NajaDumpableProperty::create(
+    static_cast<naja::NajaObject*>(D),
+    "SNLDesignTruthTableProperty"
+  );
+  P->addUInt64Value(7);            // declaredInputs > 6
+  P->addUInt64Value(0xDEADBEEF);   // only one chunk
+
+  EXPECT_THROW(
+    SNLDesignTruthTable::getTruthTable(D),
+    NLException
+  );
+}
+
+TEST_F(SNLDesignTruthTablesTest1, MultiChunkButTooSmallThrows) {
+  auto D = SNLDesign::create(prims_, SNLDesign::Type::Primitive, NLName("bad_multi_small"));
+  SNLScalarTerm::create(D, SNLTerm::Direction::Output, NLName("O"));
+
+  auto P = naja::NajaDumpableProperty::create(
+    static_cast<naja::NajaObject*>(D),
+    "SNLDesignTruthTableProperty"
+  );
+  P->addUInt64Value(4);  // declaredInputs=4 => nBits=16 <= 64
+  P->addUInt64Value(0);
+  P->addUInt64Value(0);  // values.size()>2
+
+  EXPECT_THROW(
+    SNLDesignTruthTable::getTruthTable(D),
+    NLException
+  );
+}
+
+TEST_F(SNLDesignTruthTablesTest1, SingleGetAfterMultiTableInstallationThrows) {
+  auto D = SNLDesign::create(prims_, SNLDesign::Type::Primitive, NLName("two_tables"));
+  SNLScalarTerm::create(D, SNLTerm::Direction::Input,  NLName("I"));
+  SNLScalarTerm::create(D, SNLTerm::Direction::Input,  NLName("J"));
+  SNLScalarTerm::create(D, SNLTerm::Direction::Output, NLName("O0"));
+  SNLScalarTerm::create(D, SNLTerm::Direction::Output, NLName("O1"));
+
+  SNLTruthTable t0(2, uint64_t{1});
+  SNLTruthTable t1(2, uint64_t{2});
+  SNLDesignTruthTable::setTruthTables(D, {t0, t1});
+
+  EXPECT_THROW(
+    SNLDesignTruthTable::getTruthTable(D),
+    NLException
+  );
+}
