@@ -9,10 +9,17 @@ import faulthandler
 from najaeda import netlist
 from najaeda import naja
 
-class NajaNetlistTestErrors(unittest.TestCase):
+class NajaNetlistTestSimple(unittest.TestCase):
     def tearDown(self):
         if naja.NLUniverse.get():
             naja.NLUniverse.get().destroy()
+
+    def test_versioning(self):
+        import najaeda
+        version = najaeda.version()
+        self.assertIsNotNone(version)
+        hash = najaeda.git_hash()
+        self.assertIsNotNone(hash)
 
     def test_terms(self):
         top = netlist.create_top('Top')
