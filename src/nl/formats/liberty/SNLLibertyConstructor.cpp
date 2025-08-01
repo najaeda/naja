@@ -179,10 +179,12 @@ void SNLLibertyConstructor::construct(const std::filesystem::path& path) {
   std::ifstream inFile(path);
   auto parser = std::make_unique<Yosys::LibertyParser>(inFile);
   auto ast = parser->ast;
+  //LCOV_EXCL_START
   if (ast == nullptr) {
     std::string reason("Liberty parser: failed to parse the file: " + path.string());
     throw SNLLibertyConstructorException(reason);
   }
+  //LCOV_EXCL_STOP
   auto libraryName = ast->args[0];
   //find a policy for multiple libs
   library_->setName(NLName(libraryName));
