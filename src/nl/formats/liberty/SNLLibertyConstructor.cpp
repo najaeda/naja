@@ -173,23 +173,15 @@ SNLLibertyConstructor::SNLLibertyConstructor(NLLibrary* library):
 
 void SNLLibertyConstructor::construct(const std::filesystem::path& path) {
   if (not std::filesystem::exists(path)) {
-    std::string reason(path.string() + " does not exist");
+    std::string reason("Liberty parser: " + path.string() + " does not exist");
     throw SNLLibertyConstructorException(reason);
   }
   std::ifstream inFile(path);
-  if (not inFile.good()) {
-    //LCOV_EXCL_START
-    std::string reason(path.string() + " is not a readable file");
-    throw SNLLibertyConstructorException(reason);
-    //LCOV_EXCL_STOP
-  }
   auto parser = std::make_unique<Yosys::LibertyParser>(inFile);
   auto ast = parser->ast;
   if (ast == nullptr) {
-    //LCOV_EXCL_START
-    std::string reason("Failed to parse the file");
+    std::string reason("Liberty parser: failed to parse the file: " + path.string());
     throw SNLLibertyConstructorException(reason);
-    //LCOV_EXCL_STOP
   }
   auto libraryName = ast->args[0];
   //find a policy for multiple libs
