@@ -7,7 +7,6 @@
 
 #include <fstream>
 #include <sstream>
-#include <spdlog/spdlog.h>
 
 #include "YosysLibertyParser.h"
 
@@ -141,7 +140,8 @@ void parseTerms(
     std::ostringstream reason;
     reason << "Multiple output term functions found in " << primitive->getName().getString();
     reason << ", no function will be set.";
-    spdlog::warn(reason.str());
+    //FIXME replace with spdlog::warn
+    std::cerr << reason.str() << std::endl;
   }
 }
 
