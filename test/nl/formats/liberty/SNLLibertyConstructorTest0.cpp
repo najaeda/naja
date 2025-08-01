@@ -110,6 +110,16 @@ TEST_F(SNLLibertyConstructorTest0, testNonExistingFile) {
   EXPECT_THROW(constructor.construct(testPath), SNLLibertyConstructorException);
 }
 
+TEST_F(SNLLibertyConstructorTest0, testWrongFileType) {
+  SNLLibertyConstructor constructor(library_);
+  std::filesystem::path testPath(
+      std::filesystem::path(SNL_LIBERTY_BENCHMARKS)
+      / std::filesystem::path("benchmarks")
+      / std::filesystem::path("errors")
+      / std::filesystem::path("not_a_file.lib"));
+  EXPECT_THROW(constructor.construct(testPath), SNLLibertyConstructorException);
+}
+
 TEST_F(SNLLibertyConstructorTest0, testWrongSyntaxFile) {
   SNLLibertyConstructor constructor(library_);
   std::filesystem::path testPath(
