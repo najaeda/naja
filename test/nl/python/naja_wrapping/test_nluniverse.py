@@ -12,7 +12,7 @@ class SNLUniverseTest(unittest.TestCase):
 
   def testVersion(self):
     self.assertIsNotNone(naja.getVersion())
-    self.assertIsNotNone(naja.getGitVersion())
+    self.assertIsNotNone(naja.getGitHash())
   
   def test(self):
     self.assertIsNone(naja.NLUniverse.get())

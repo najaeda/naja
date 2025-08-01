@@ -53,13 +53,13 @@ static PyObject* getVersion(PyObject* self, PyObject* args) {
   return PyUnicode_FromString(naja::NAJA_VERSION.c_str());
 }
 
-static PyObject* getGitVersion(PyObject* self, PyObject* args) {
+static PyObject* getGitHash(PyObject* self, PyObject* args) {
   return PyUnicode_FromString(naja::NAJA_GIT_HASH.c_str());
 }
 
 static PyMethodDef NajaMethods[] = {
-  { "getVersion", getVersion, METH_NOARGS, "get the version of SNL" },
-  { "getGitVersion", getGitVersion, METH_NOARGS, "get the naja git hash" },
+  { "getVersion", getVersion, METH_NOARGS, "get the version of Naja" },
+  { "getGitHash", getGitHash, METH_NOARGS, "get the Naja git hash" },
   {NULL, NULL, 0, NULL}        /* Sentinel */
 };
 
@@ -227,6 +227,8 @@ PyMODINIT_FUNC PyInit_naja(void) {
 
   PySNLTerm_postModuleInit();
   PySNLNet_postModuleInit();
+
+  
 
   return mod;
 }
