@@ -900,7 +900,12 @@ TEST_F(ConstantPropagationTests, TestAndFull) {
   EXPECT_TRUE(topOut02->getNet()->getName().getString() == std::string("logic0_naja_net"));
   EXPECT_TRUE(topOut03->getNet()->getName().getString() == std::string("logic0_naja_net"));
   EXPECT_TRUE(topOut04->getNet()->getName().getString() == std::string("logic1_naja_net"));
+  EXPECT_TRUE(topOut05->getNet()->getName().getString() == std::string("out05_net"));
   EXPECT_TRUE(topOut06->getNet()->getName().getString() == std::string("logic0_naja_net"));
+  EXPECT_TRUE(topOut07->getNet()->getName().getString() == std::string("out07_net"));
+  EXPECT_TRUE(topOut08->getNet()->getName().getString() == std::string("out08_net"));
+
+  
   //EXPECT_EQ(cp.getConstants1().size(), 1);
   //EXPECT_EQ(cp.getConstants0().size(), 2);
   //EXPECT_EQ(topOut->getNet()->getInstTerms().size(), 0);
@@ -1243,10 +1248,14 @@ TEST_F(ConstantPropagationTests, TestorFull) {
   }
   EXPECT_TRUE(topOut00->getNet()->getName().getString() == std::string("logic0_naja_net"));
   EXPECT_TRUE(topOut01->getNet()->getName().getString() == std::string("logic1_naja_net"));
+  EXPECT_TRUE(topOut02->getNet()->getName().getString() == std::string("out02_net"));
   EXPECT_TRUE(topOut03->getNet()->getName().getString() == std::string("logic1_naja_net"));
   EXPECT_TRUE(topOut04->getNet()->getName().getString() == std::string("logic1_naja_net"));
   EXPECT_TRUE(topOut05->getNet()->getName().getString() == std::string("logic1_naja_net"));
+  EXPECT_TRUE(topOut06->getNet()->getName().getString() == std::string("out06_net"));
   EXPECT_TRUE(topOut07->getNet()->getName().getString() == std::string("logic1_naja_net"));
+  EXPECT_TRUE(topOut08->getNet()->getName().getString() == std::string("out08_net"));
+
   //EXPECT_EQ(cp.getConstants1().size(), 1);
   //EXPECT_EQ(cp.getConstants0().size(), 2);
   //EXPECT_EQ(topOut->getNet()->getInstTerms().size(), 0);
@@ -1583,6 +1592,15 @@ TEST_F(ConstantPropagationTests, TestNorFull) {
   EXPECT_TRUE(topOut00->getNet()->getName().getString() == std::string("logic1_naja_net"));
   EXPECT_TRUE(topOut01->getNet()->getName().getString() == std::string("logic0_naja_net"));
   EXPECT_TRUE(topOut02->getNet()->getName().getString() == std::string("out02_net"));
+  EXPECT_TRUE(topOut03->getNet()->getName().getString() == std::string("logic0_naja_net"));
+  EXPECT_TRUE(topOut04->getNet()->getName().getString() == std::string("logic0_naja_net"));
+  EXPECT_TRUE(topOut05->getNet()->getName().getString() == std::string("logic0_naja_net"));
+  EXPECT_TRUE(topOut06->getNet()->getName().getString() == std::string("out06_net"));
+  EXPECT_TRUE(topOut07->getNet()->getName().getString() == std::string("logic0_naja_net"));
+  EXPECT_TRUE(topOut08->getNet()->getName().getString() == std::string("out08_net"));
+
+
+
 
 
   //EXPECT_EQ(cp.getConstants1().size(), 1);
