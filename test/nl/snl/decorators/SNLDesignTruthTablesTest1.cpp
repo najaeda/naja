@@ -475,3 +475,4 @@ TEST_F(SNLDesignTruthTablesTest1, IsConst0_NoProperty_ReturnsFalse) {
   // Without any stored table, isConst0 must return false
   EXPECT_FALSE(SNLDesignTruthTable::isConst0(D));
 }
+
