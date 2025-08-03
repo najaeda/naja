@@ -165,18 +165,21 @@ SNLTruthTable SNLDesignTruthTable::getTruthTable(
     size_t valIdx   = 0;
     size_t total    = property->getValues().size();
 
-    while (tableIdx < outputID) {
-      if (valIdx + 1 >= total) {
+    while (true) {
+      if (valIdx >= total) {
         std::ostringstream reason;
         reason << "Output ID " << outputID
                << " is out of range for design <"
                << design->getName().getString() << ">";
         throw NLException(reason.str());
       }
+      if (tableIdx >= outputID) {
+        break;
+      }
       uint32_t nInputs = static_cast<uint32_t>(
           property->getUInt64Value(valIdx));
       size_t   nBits   = 1u << nInputs;
-      size_t   nChunks = (nBits + 63) / 64;
+      size_t   nChunks = nBits / 64 + ((nBits % 64) > 0 ? 1 : 0);
       valIdx += 1 + nChunks;
       ++tableIdx;
     }
@@ -191,7 +194,7 @@ SNLTruthTable SNLDesignTruthTable::getTruthTable(
     // else multi‐chunk
     uint32_t numInputs = static_cast<uint32_t>(declaredInputs);
     uint32_t nBits     = 1u << numInputs;
-    size_t   nChunks   = (nBits + 63) / 64;
+    size_t   nChunks   = nBits / 64 + ((nBits % 64) > 0 ? 1 : 0);
 
     std::vector<bool> bits(nBits, false);
     for (size_t c = 0; c < nChunks; ++c) {

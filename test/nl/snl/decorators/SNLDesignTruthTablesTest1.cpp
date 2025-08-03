@@ -282,3 +282,196 @@ TEST_F(SNLDesignTruthTablesTest1, SingleGetAfterMultiTableInstallationThrows) {
     NLException
   );
 }
+
+// Test error for out of range id in getTruthTable
+TEST_F(SNLDesignTruthTablesTest1, GetTruthTableOutOfRangeID) {
+  auto D = SNLDesign::create(prims_, SNLDesign::Type::Primitive, NLName("out_of_range"));
+  SNLScalarTerm::create(D, SNLTerm::Direction::Output, NLName("O"));
+
+  SNLTruthTable t0(1, 0b1);
+  SNLDesignTruthTable::setTruthTable(D, t0);
+
+  EXPECT_THROW(
+    SNLDesignTruthTable::getTruthTable(D, /*outputID=*/1),
+    NLException
+  );
+}
+
+//-----------------------------------------------------------------------------
+// Appended exception‐coverage tests for SNLDesignTruthTable
+//-----------------------------------------------------------------------------
+
+// Throws when getTruthTable is called with an invalid output index
+TEST_F(SNLDesignTruthTablesTest1, GetTruthTable_InvalidOutputIndex_Throws) {
+  auto D = SNLDesign::create(prims_, SNLDesign::Type::Primitive, NLName("one_out"));
+  SNLScalarTerm::create(D, SNLTerm::Direction::Output, NLName("O"));
+  SNLDesignTruthTable::setTruthTable(D, SNLTruthTable(1, 0b10));
+
+  // only one output exists, index 1 is out of range
+  EXPECT_THROW(
+    SNLDesignTruthTable::getTruthTable(D, /*outputID=*/1),
+    NLException
+  );
+}
+
+// Throws when declaredInputs > 6 but only a single 64-bit chunk is provided
+TEST_F(SNLDesignTruthTablesTest1, DeclaredInputsGreaterThan64_SingleChunk_Throws) {
+  auto D = SNLDesign::create(prims_, SNLDesign::Type::Primitive, NLName("too_large_single"));
+  SNLScalarTerm::create(D, SNLTerm::Direction::Output, NLName("O"));
+
+  auto P = naja::NajaDumpableProperty::create(
+    static_cast<naja::NajaObject*>(D),
+    "SNLDesignTruthTableProperty"
+  );
+  P->addUInt64Value(7);           // declaredInputs == 7 => 2^7 bits but only 1 chunk
+  P->addUInt64Value(0xFEDCBA98);  // single chunk
+
+  EXPECT_THROW(
+    SNLDesignTruthTable::getTruthTable(D),
+    NLException
+  );
+}
+
+// Throws when multi‐chunk path is taken but total bit-width ≤ 64
+TEST_F(SNLDesignTruthTablesTest1, NBitsNotGreaterThan64_MultiChunkPath_Throws) {
+  auto D = SNLDesign::create(prims_, SNLDesign::Type::Primitive, NLName("multi_too_small"));
+  SNLScalarTerm::create(D, SNLTerm::Direction::Output, NLName("O"));
+
+  auto P = naja::NajaDumpableProperty::create(
+    static_cast<naja::NajaObject*>(D),
+    "SNLDesignTruthTableProperty"
+  );
+  P->addUInt64Value(4);  // declaredInputs=4 => nBits=16
+  P->addUInt64Value(0);
+  P->addUInt64Value(1);  // values.size()>2 forces multi-chunk branch
+
+  EXPECT_THROW(
+    SNLDesignTruthTable::getTruthTable(D),
+    NLException
+  );
+}
+
+// Throws when the number of supplied mask-chunks doesn’t match expectedChunks
+TEST_F(SNLDesignTruthTablesTest1, ChunkCountMismatch_Throws) {
+  auto D = SNLDesign::create(prims_, SNLDesign::Type::Primitive, NLName("chunk_mismatch"));
+  SNLScalarTerm::create(D, SNLTerm::Direction::Output, NLName("O"));
+
+  // declaredInputs=3 => nBits=8 => expectedChunks=1, but we provide 2 chunks
+  auto P = naja::NajaDumpableProperty::create(
+    static_cast<naja::NajaObject*>(D),
+    "SNLDesignTruthTableProperty"
+  );
+  P->addUInt64Value(3);
+  P->addUInt64Value(0);  // chunk #0
+  P->addUInt64Value(0);  // chunk #1 (extra)
+
+  EXPECT_THROW(
+    SNLDesignTruthTable::getTruthTable(D),
+    NLException
+  );
+}
+
+// Throws when multiple tables are set and a single-table getTruthTable() is invoked
+TEST_F(SNLDesignTruthTablesTest1, MultipleTables_ThenGetTruthTable_Throws) {
+  auto D = SNLDesign::create(prims_, SNLDesign::Type::Primitive, NLName("many_tables"));
+  SNLScalarTerm::create(D, SNLTerm::Direction::Input,  NLName("I"));
+  SNLScalarTerm::create(D, SNLTerm::Direction::Input,  NLName("J"));
+  SNLScalarTerm::create(D, SNLTerm::Direction::Output, NLName("O0"));
+  SNLScalarTerm::create(D, SNLTerm::Direction::Output, NLName("O1"));
+
+  // install two distinct truth tables
+  SNLTruthTable t0(2, uint64_t{1});
+  SNLTruthTable t1(2, uint64_t{2});
+  SNLDesignTruthTable::setTruthTables(D, {t0, t1});
+
+  // calling the single‐table overload without outputID should fail
+  EXPECT_THROW(
+    SNLDesignTruthTable::getTruthTable(D),
+    NLException
+  );
+}
+//-----------------------------------------------------------------------------
+// Tests for createProperty() exception paths via setTruthTables()
+//-----------------------------------------------------------------------------
+
+// Throws when attempting to set an empty vector of truth tables
+TEST_F(SNLDesignTruthTablesTest1, SetTruthTables_EmptyVector_Throws) {
+  auto D = SNLDesign::create(prims_, SNLDesign::Type::Primitive, NLName("empty_tt"));
+  SNLScalarTerm::create(D, SNLTerm::Direction::Output, NLName("O"));
+
+  std::vector<SNLTruthTable> noTables;
+  EXPECT_THROW(
+    SNLDesignTruthTable::setTruthTables(D, noTables),
+    NLException
+  );
+}
+
+// Throws when a truth-table property already exists on the design
+TEST_F(SNLDesignTruthTablesTest1, SetTruthTables_AlreadyHasProperty_Throws) {
+  auto D = SNLDesign::create(prims_, SNLDesign::Type::Primitive, NLName("dup_tt"));
+  SNLScalarTerm::create(D, SNLTerm::Direction::Input,  NLName("I"));
+  SNLScalarTerm::create(D, SNLTerm::Direction::Output, NLName("O"));
+
+  // First installation succeeds
+  SNLTruthTable t0(1, uint64_t{1});
+  ASSERT_NO_THROW(
+    SNLDesignTruthTable::setTruthTables(D, { t0 })
+  );
+
+  // Second installation must throw "Design already has a Truth Table"
+  EXPECT_THROW(
+    SNLDesignTruthTable::setTruthTables(D, { t0 }),
+    NLException
+  );
+}
+
+//-----------------------------------------------------------------------------
+// Exception when declaredInputs == 0 but two chunks follow (special‐case mismatch)
+//-----------------------------------------------------------------------------
+TEST_F(SNLDesignTruthTablesTest1, DeclaredInputsZero_TwoChunks_Throws) {
+  auto D = SNLDesign::create(prims_, SNLDesign::Type::Primitive, NLName("zero_mismatch"));
+  SNLScalarTerm::create(D, SNLTerm::Direction::Output, NLName("O"));
+
+  // Manually create the underlying property to simulate two trailing chunks
+  auto P = naja::NajaDumpableProperty::create(
+      static_cast<naja::NajaObject*>(D),
+      "SNLDesignTruthTableProperty"
+  );
+  P->addUInt64Value(0);  // declaredInputs = 0
+  P->addUInt64Value(0);  // chunk 0
+  P->addUInt64Value(1);  // chunk 1
+
+  // special‐case: declaredInputs == 0 && tableSize == 2 → expectedChunks = 1,
+  // but tableSize is actually 2, so we should get a mismatch exception
+  EXPECT_THROW(
+    SNLDesignTruthTable::getTruthTable(D),
+    NLException
+  );
+}
+
+//-----------------------------------------------------------------------------
+// Test: indexed getTruthTable returns empty when no property is set
+//-----------------------------------------------------------------------------
+
+TEST_F(SNLDesignTruthTablesTest1, GetTruthTableIndexed_NoProperty_ReturnsUninitialized) {
+  // Create a primitive with one output but never call setTruthTable/setTruthTables
+  auto D = SNLDesign::create(prims_, SNLDesign::Type::Primitive, NLName("empty_indexed"));
+  SNLScalarTerm::create(D, SNLTerm::Direction::Output, NLName("O"));
+
+  // indexed lookup on a design with no property should return an uninitialized table
+  auto tt = SNLDesignTruthTable::getTruthTable(D, 0);
+  EXPECT_FALSE(tt.isInitialized());
+}
+
+//-----------------------------------------------------------------------------
+// Test: isConst0 on a design without any truth‐table property should be false
+//-----------------------------------------------------------------------------
+
+TEST_F(SNLDesignTruthTablesTest1, IsConst0_NoProperty_ReturnsFalse) {
+  // Create a primitive with one output but never set any truth table
+  auto D = SNLDesign::create(prims_, SNLDesign::Type::Primitive, NLName("empty_const0"));
+  SNLScalarTerm::create(D, SNLTerm::Direction::Output, NLName("O"));
+
+  // Without any stored table, isConst0 must return false
+  EXPECT_FALSE(SNLDesignTruthTable::isConst0(D));
+}
