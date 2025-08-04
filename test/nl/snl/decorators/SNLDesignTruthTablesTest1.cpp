@@ -592,3 +592,49 @@ TEST_F(SNLDesignTruthTablesTest1, GetTruthTable_SingleChunkInputsTooLargeThrows)
   );
 }
 
+//-----------------------------------------------------------------------------
+// Tests for SNLDesignTruthTable::setTruthTables exception paths
+//-----------------------------------------------------------------------------
+
+// 1) Cannot add truth tables on a non‐primitive design
+TEST_F(SNLDesignTruthTablesTest1, SetTruthTables_NonPrimitiveDesignThrows) {
+  // Create a non‐primitive library and a design in it
+  auto designs = NLLibrary::create(prims_->getDB());
+  auto D       = SNLDesign::create(designs, NLName("non_primitive"));
+
+  // Any non‐empty vector should trigger the “non‐primitive” exception
+  std::vector<SNLTruthTable> tables{ SNLTruthTable(1, 0u) };
+  EXPECT_THROW(
+    SNLDesignTruthTable::setTruthTables(D, tables),
+    NLException
+  );
+}
+
+// 2) Cannot add truth tables when #outputs ≠ truthTables.size()
+TEST_F(SNLDesignTruthTablesTest1, SetTruthTables_WrongOutputCountThrows) {
+  // Create a primitive design with two outputs
+  auto D = SNLDesign::create(prims_, SNLDesign::Type::Primitive, NLName("two_outputs"));
+  SNLScalarTerm::create(D, SNLTerm::Direction::Output, NLName("O0"));
+  SNLScalarTerm::create(D, SNLTerm::Direction::Output, NLName("O1"));
+
+  // Provide only one table → mismatch
+  std::vector<SNLTruthTable> tables{ SNLTruthTable(1, 0u) };
+  EXPECT_THROW(
+    SNLDesignTruthTable::setTruthTables(D, tables),
+    NLException
+  );
+}
+
+// 3) Cannot set an empty truth‐tables vector
+TEST_F(SNLDesignTruthTablesTest1, SetTruthTables_EmptyVectorThrows) {
+  // Create a primitive design with zero outputs
+  auto D = SNLDesign::create(prims_, SNLDesign::Type::Primitive, NLName("zero_outputs"));
+
+  // An empty vector matches 0 outputs, but then createProperty throws
+  std::vector<SNLTruthTable> emptyTables;
+  EXPECT_THROW(
+    SNLDesignTruthTable::setTruthTables(D, emptyTables),
+    NLException
+  );
+}
+

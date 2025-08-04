@@ -121,10 +121,12 @@ SNLTruthTable SNLDesignTruthTable::getTruthTable(const SNLDesign* design) {
       uint32_t numInputs = static_cast<uint32_t>(declaredInputs);
       uint32_t nBits     = 1u << numInputs;
       if (nBits <= 64) {
+        // LCOV_EXCL_START
         std::ostringstream reason;
         reason << "Truth table size " << nBits
                << " is not larger than 64 bits";
         throw NLException(reason.str());
+        // LCOV_EXCL_STOP
       }
 
       std::vector<bool> bits(nBits, false);
@@ -146,10 +148,12 @@ SNLTruthTable SNLDesignTruthTable::getTruthTable(const SNLDesign* design) {
       return SNLTruthTable(static_cast<uint32_t>(declaredInputs),
                            property->getUInt64Value(1));
     } else {
+      // LCOV_EXCL_START
       std::ostringstream reason;
       reason << "Truth table size " << declaredInputs
              << " is larger than 64 bits";
       throw NLException(reason.str());
+      // LCOV_EXCL_STOP
     }
   }
   return SNLTruthTable();
