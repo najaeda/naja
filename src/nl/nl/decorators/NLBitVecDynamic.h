@@ -170,6 +170,8 @@ private:
       }
     }
     //LCOV_EXCL_START
+    // print bits
+    // for debugging purposes
     return out;
   }
   //LCOV_EXCL_STOP
