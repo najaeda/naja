@@ -476,3 +476,71 @@ TEST_F(SNLDesignTruthTablesTest1, IsConst0_NoProperty_ReturnsFalse) {
   EXPECT_FALSE(SNLDesignTruthTable::isConst0(D));
 }
 
+//-----------------------------------------------------------------------------
+// Tests for exception paths in SNLDesignTruthTable::getTruthTable()
+//-----------------------------------------------------------------------------
+
+// 1) Mismatched chunk count → first exception path
+TEST_F(SNLDesignTruthTablesTest1,
+       GetTruthTable_MismatchedChunks_ThrowsNLException) {
+  // Create a primitive design with one output
+  auto D = SNLDesign::create(prims_, SNLDesign::Type::Primitive,
+                             NLName("mismatch_chunks"));
+  SNLScalarTerm::create(D, SNLTerm::Direction::Output, NLName("O"));
+
+  // Manually inject a truth‐table property with incorrect chunk count:
+  // declaredInputs = 3 → num_bits = 8 → expectedChunks = 1
+  // but we add two chunk masks → tableSize = 2 ≠ expectedChunks
+  auto prop = naja::NajaDumpableProperty::create(
+      D, "SNLDesignTruthTableProperty");
+  prop->addUInt64Value(3);  // declaredInputs
+  prop->addUInt64Value(0);  // mask #1
+  prop->addUInt64Value(0);  // mask #2
+
+  EXPECT_THROW(
+      SNLDesignTruthTable::getTruthTable(D),
+      NLException);
+}
+
+// 2) Multi‐chunk branch but too few bits → second exception path
+TEST_F(SNLDesignTruthTablesTest1,
+       GetTruthTable_MultiChunkSizeTooSmall_ThrowsNLException) {
+  // Create a primitive design with one output
+  auto D = SNLDesign::create(prims_, SNLDesign::Type::Primitive,
+                             NLName("multi_too_small"));
+  SNLScalarTerm::create(D, SNLTerm::Direction::Output, NLName("O"));
+
+  // declaredInputs = 3 → num_bits = 8 ≤ 64
+  // To enter multi‐chunk branch, property->getValues().size() > 2:
+  // add three chunk masks → size() == 4
+  auto prop = naja::NajaDumpableProperty::create(
+      D, "SNLDesignTruthTableProperty");
+  prop->addUInt64Value(3);  // declaredInputs
+  prop->addUInt64Value(0);  // mask #1
+  prop->addUInt64Value(0);  // mask #2
+  prop->addUInt64Value(0);  // mask #3
+
+  EXPECT_THROW(
+      SNLDesignTruthTable::getTruthTable(D),
+      NLException);
+}
+
+// 3) Single‐chunk branch with declaredInputs > 6 → third exception path
+TEST_F(SNLDesignTruthTablesTest1,
+       GetTruthTable_DeclaredInputsTooLarge_ThrowsNLException) {
+  // Create a primitive design with one output
+  auto D = SNLDesign::create(prims_, SNLDesign::Type::Primitive,
+                             NLName("single_too_large"));
+  SNLScalarTerm::create(D, SNLTerm::Direction::Output, NLName("O"));
+
+  // declaredInputs = 7 → nBits = 128 → but getValues().size() == 2
+  // → skip multi‐chunk, hit single‐chunk else branch
+  auto prop = naja::NajaDumpableProperty::create(
+      D, "SNLDesignTruthTableProperty");
+  prop->addUInt64Value(7);  // declaredInputs
+  prop->addUInt64Value(0);  // mask #1 (only one chunk stored)
+
+  EXPECT_THROW(
+      SNLDesignTruthTable::getTruthTable(D),
+      NLException);
+}
