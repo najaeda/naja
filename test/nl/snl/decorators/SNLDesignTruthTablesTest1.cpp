@@ -544,3 +544,51 @@ TEST_F(SNLDesignTruthTablesTest1,
       SNLDesignTruthTable::getTruthTable(D),
       NLException);
 }
+
+//-----------------------------------------------------------------------------
+// Tests to cover the remaining two NLExceptions in getTruthTable(design)
+//-----------------------------------------------------------------------------
+
+// 2) multi‐chunk branch but nBits ≤ 64 → should throw
+TEST_F(SNLDesignTruthTablesTest1, GetTruthTable_MultiChunkBitsNotLargerThan64Throws) {
+  // Setup a primitive with one output
+  auto D = SNLDesign::create(prims_, SNLDesign::Type::Primitive, NLName("multi_too_small"));
+  SNLScalarTerm::create(D, SNLTerm::Direction::Output, NLName("O"));
+
+  // Create a property with declaredInputs=5 → nBits=32, but >2 entries to take the multi-chunk branch
+  auto P = naja::NajaDumpableProperty::create(
+    static_cast<naja::NajaObject*>(D),
+    "SNLDesignTruthTableProperty"
+  );
+  P->addUInt64Value(5);    // declaredInputs
+  P->addUInt64Value(0x0);  // chunk #0
+  P->addUInt64Value(0x0);  // chunk #1
+
+  // nBits == 32 <= 64, so multi-chunk path must throw
+  EXPECT_THROW(
+    SNLDesignTruthTable::getTruthTable(D),
+    NLException
+  );
+}
+
+// 3) single-chunk branch but declaredInputs > 6 → should throw
+TEST_F(SNLDesignTruthTablesTest1, GetTruthTable_SingleChunkInputsTooLargeThrows) {
+  // Setup a primitive with one output
+  auto D = SNLDesign::create(prims_, SNLDesign::Type::Primitive, NLName("single_too_large"));
+  SNLScalarTerm::create(D, SNLTerm::Direction::Output, NLName("O"));
+
+  // Create a property with declaredInputs=7 (>6) and only one chunk value
+  auto P = naja::NajaDumpableProperty::create(
+    static_cast<naja::NajaObject*>(D),
+    "SNLDesignTruthTableProperty"
+  );
+  P->addUInt64Value(7);    // declaredInputs > 6
+  P->addUInt64Value(0x0);  // single chunk
+
+  // declaredInputs > 6 on single-chunk path must throw
+  EXPECT_THROW(
+    SNLDesignTruthTable::getTruthTable(D),
+    NLException
+  );
+}
+
