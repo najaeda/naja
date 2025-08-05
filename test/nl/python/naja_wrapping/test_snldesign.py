@@ -10,6 +10,7 @@ class SNLDesignTest(unittest.TestCase):
     universe = naja.NLUniverse.create()
     db = naja.NLDB.create(universe)
     self.lib = naja.NLLibrary.create(db)
+    self.libP = naja.NLLibrary.createPrimitives(db)
 
   def tearDown(self):
     if naja.NLUniverse.get():
@@ -249,6 +250,20 @@ class SNLDesignTest(unittest.TestCase):
   def testDestroy(self):
     design = naja.SNLDesign.create(self.lib, "DESIGN")
     design.destroy()
+  
+  # testing truth table setting and getting
+  def testTruthTable(self):
+    design = naja.SNLDesign.createPrimitive(self.libP, "DESIGN")
+    i0 = naja.SNLScalarTerm.create(design, naja.SNLTerm.Direction.Input, "I0")
+    i1 = naja.SNLScalarTerm.create(design, naja.SNLTerm.Direction.Input, "I1")
+    o = naja.SNLScalarTerm.create(design, naja.SNLTerm.Direction.Output, "O")
+    # list of truth tables
+    tables = [1, 1]
+    # set truth table for output
+    design.setTruthTables(tables)
+    
+    # check truth table
+    self.assertEqual([1, 1], design.getTruthTableByOutputID(o.getID()))
    
 if __name__ == '__main__':
   unittest.main()

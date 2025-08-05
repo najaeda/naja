@@ -310,23 +310,14 @@ static PyObject* PySNLDesign_setTruthTables(PySNLDesign* self, PyObject* args) {
       return nullptr;
     }
     // extract u_int64_t from item
-    u_int64_t size;
-    if (not PyArg_ParseTuple(item, "K:SNLDesign.setTruthTable", &size)) {
-      setError("malformed SNLDesign.setTruthTable method");
-      return nullptr;
-    }
-    
+    u_int64_t size = PyLong_AsUnsignedLongLong(item);
     i++;
     item = PyList_GetItem(arg0, i);
     if (not PyLong_Check(item)) {
       setError("malformed SNLDesign.setTruthTables method, expected list of integers");
       return nullptr;
     }
-    u_int64_t mask;
-    if (not PyArg_ParseTuple(item, "K:SNLDesign.setTruthTable", &mask)) {
-      setError("malformed SNLDesign.setTruthTable method");
-      return nullptr;
-    }
+    u_int64_t mask = PyLong_AsUnsignedLongLong(item);;
     truthTables.push_back(SNLTruthTable(size, mask));
   }
   METHOD_HEAD("SNLDesign.setTruthTables()")
