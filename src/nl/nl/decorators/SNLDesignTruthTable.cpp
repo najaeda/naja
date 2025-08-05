@@ -62,6 +62,10 @@ void SNLDesignTruthTable::setTruthTable(SNLDesign* design,
   if (!design->isPrimitive()) {
     throw NLException("Cannot add truth table on non-primitive design");
   }
+  // Check no truth table already exists
+  if (getProperty(design)) {
+    throw NLException("Design already has a Truth Table");
+  }
   auto outputs = design->getTerms().getSubCollection(
       [](const SNLTerm* t) {
         return t->getDirection() == SNLTerm::Direction::Output;
@@ -81,6 +85,10 @@ void SNLDesignTruthTable::setTruthTables(
     const std::vector<SNLTruthTable>& truthTables) {
   if (!design->isPrimitive()) {
     throw NLException("Cannot add truth table on non-primitive design");
+  }
+  // Check no truth table already exists
+  if (getProperty(design)) {
+    throw NLException("Design already has a Truth Table");
   }
   auto outputs = design->getTerms().getSubCollection(
       [](const SNLTerm* t) {
@@ -107,13 +115,13 @@ SNLTruthTable SNLDesignTruthTable::getTruthTable(const SNLDesign* design) {
     uint64_t declaredInputs = property->getUInt64Value(0);
     uint64_t num_bits = 1u << declaredInputs;
     size_t   expectedChunks =
-        (declaredInputs == 0 && tableSize == 2)
+        (declaredInputs == 0 && tableSize == 1)
             ? 1
             : (num_bits / 64 + ((num_bits % 64) > 0 ? 1 : 0));
     if (expectedChunks != tableSize) {
       std::ostringstream reason;
       reason << "Truth table size " << tableSize
-             << " does not match number of chunks " << expectedChunks;
+             << " does not match number of chunks " << expectedChunks << " which suggest per output functionality";
       throw NLException(reason.str());
     }
 
@@ -231,18 +239,33 @@ SNLTruthTable SNLDesignTruthTable::getTruthTable(
 }
 
 bool SNLDesignTruthTable::isConst0(const SNLDesign* design) {
+  auto property = getProperty(design);
+  // return false if number of values large than 2
+  if (property && property->getValues().size() > 2) {
+    return false;
+  }
   auto truthTable = getTruthTable(design);
   return truthTable.isInitialized() &&
          truthTable == SNLTruthTable::Logic0();
 }
 
 bool SNLDesignTruthTable::isConst1(const SNLDesign* design) {
+   auto property = getProperty(design);
+  // return false if number of values large than 2
+  if (property && property->getValues().size() > 2) {
+    return false;
+  }
   auto truthTable = getTruthTable(design);
   return truthTable.isInitialized() &&
          truthTable == SNLTruthTable::Logic1();
 }
 
 bool SNLDesignTruthTable::isConst(const SNLDesign* design) {
+  auto property = getProperty(design);
+  // return false if number of values large than 2
+  if (property && property->getValues().size() > 2) {
+    return false;
+  }
   auto truthTable = getTruthTable(design);
   return truthTable.isInitialized() &&
          (truthTable == SNLTruthTable::Logic0() ||
@@ -250,12 +273,22 @@ bool SNLDesignTruthTable::isConst(const SNLDesign* design) {
 }
 
 bool SNLDesignTruthTable::isInv(const SNLDesign* design) {
+  auto property = getProperty(design);
+  // return false if number of values large than 2
+  if (property && property->getValues().size() > 2) {
+    return false;
+  }
   auto truthTable = getTruthTable(design);
   return truthTable.isInitialized() &&
          truthTable == SNLTruthTable::Inv();
 }
 
 bool SNLDesignTruthTable::isBuf(const SNLDesign* design) {
+   auto property = getProperty(design);
+  // return false if number of values large than 2
+  if (property && property->getValues().size() > 2) {
+    return false;
+  }
   auto truthTable = getTruthTable(design);
   return truthTable.isInitialized() &&
          truthTable == SNLTruthTable::Buf();
