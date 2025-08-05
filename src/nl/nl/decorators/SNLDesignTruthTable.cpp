@@ -88,9 +88,10 @@ void SNLDesignTruthTable::setTruthTables(
       });
   if (outputs.size() != truthTables.size()) {
     std::ostringstream reason;
-    reason << "cannot add truth table on Design <"
+    reason << "cannot add truth tables on Design <"
            << design->getName().getString() << "> that has <"
-           << outputs.size() << "> outputs";
+           << outputs.size() << "> outputs, but provided <"
+           << truthTables.size() << "> truth tables";
     throw NLException(reason.str());
   }
   createProperty(design, truthTables);
@@ -161,8 +162,23 @@ SNLTruthTable SNLDesignTruthTable::getTruthTable(const SNLDesign* design) {
 
 SNLTruthTable SNLDesignTruthTable::getTruthTable(
     const SNLDesign* design,
-    NLID::DesignObjectID outputID) {
+    NLID::DesignObjectID termID) {
   auto property = getProperty(design);
+  std::map<NLID::DesignObjectID, NLID::DesignObjectID> termID2outputID;
+  NLID::DesignObjectID outputIndex = 0;
+  for (const auto& term : design->getTerms()) {
+    if (term->getDirection() == SNLTerm::Direction::Output) {
+      termID2outputID[term->getID()] = outputIndex;
+      ++outputIndex;
+    }
+  }
+  if (termID2outputID.find(termID) == termID2outputID.end()) {
+    std::ostringstream reason;
+    reason << "Term ID " << termID
+           << " not found in design <" << design->getName().getString() << ">";
+    throw NLException(reason.str());
+  }
+  NLID::DesignObjectID outputID = termID2outputID[termID];
   if (property) {
     // scan through each stored table until we reach outputID
     size_t tableIdx = 0;

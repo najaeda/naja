@@ -291,10 +291,74 @@ static PyObject* PySNLDesign_setTruthTable(PySNLDesign* self, PyObject* args) {
   Py_RETURN_NONE;
 }
 
+// Set truth tables for design
+static PyObject* PySNLDesign_setTruthTables(PySNLDesign* self, PyObject* args) {
+  PyObject* arg0 = nullptr;
+  if (not PyArg_ParseTuple(args, "O:SNLDesign.setTruthTables", &arg0)) {
+    setError("malformed SNLDesign.setTruthTables method");
+    return nullptr;
+  }
+  if (not PyList_Check(arg0)) {
+    setError("malformed SNLDesign.setTruthTables method");
+    return nullptr;
+  }
+  std::vector<SNLTruthTable> truthTables;
+  for (int i=0; i<PyList_Size(arg0); ++i) {
+    PyObject* item = PyList_GetItem(arg0, i);
+    if (not PyLong_Check(item)) {
+      setError("malformed SNLDesign.setTruthTables method, expected list of integers");
+      return nullptr;
+    }
+    // extract u_int64_t from item
+    u_int64_t size;
+    if (not PyArg_ParseTuple(item, "K:SNLDesign.setTruthTable", &size)) {
+      setError("malformed SNLDesign.setTruthTable method");
+      return nullptr;
+    }
+    
+    i++;
+    item = PyList_GetItem(arg0, i);
+    if (not PyLong_Check(item)) {
+      setError("malformed SNLDesign.setTruthTables method, expected list of integers");
+      return nullptr;
+    }
+    u_int64_t mask;
+    if (not PyArg_ParseTuple(item, "K:SNLDesign.setTruthTable", &mask)) {
+      setError("malformed SNLDesign.setTruthTable method");
+      return nullptr;
+    }
+    truthTables.push_back(SNLTruthTable(size, mask));
+  }
+  METHOD_HEAD("SNLDesign.setTruthTables()")
+  SNLDesignTruthTable::setTruthTables(selfObject, truthTables);
+  Py_RETURN_NONE;
+}
+
 // Return the truth table for design
 PyObject* PySNLDesign_getTruthTable(PySNLDesign* self) { 
   const SNLTruthTable& truthTable =
       SNLDesignTruthTable::getTruthTable(self->object_);
+  if (!truthTable.isInitialized()) {
+    Py_RETURN_NONE;
+  }
+  PyObject* py_list = PyList_New(2); 
+  PyList_SetItem(py_list, 0, PyLong_FromLong(truthTable.size()));
+  for (auto mask : truthTable.bits().getChunks()) {
+    PyList_SetItem(py_list, 1, PyLong_FromLong(mask));
+  }
+  return py_list;
+}
+
+// Return the truth table for design by output ID
+static PyObject* PySNLDesign_getTruthTableByOutputID(PySNLDesign* self, PyObject* args) {
+  long outputID = 0;
+  if (not PyArg_ParseTuple(args, "l:SNLDesign.getTruthTableByOutputID", &outputID)) {
+    setError("malformed SNLDesign.getTruthTableByOutputID method");
+    return nullptr;
+  }
+  METHOD_HEAD("SNLDesign.getTruthTableByOutputID()")
+  SNLTruthTable truthTable =
+      SNLDesignTruthTable::getTruthTable(selfObject, outputID);
   if (!truthTable.isInitialized()) {
     Py_RETURN_NONE;
   }

@@ -120,13 +120,13 @@ TEST_F(SNLDesignTruthTablesTest1, testStandardGates) {
     SNLDesignTruthTable::setTruthTable(error, SNLTruthTable(1, 0b10)),
     NLException
   );
-
+  {
   // two-output truth tables + single-get throws
   auto multiple_outputs = SNLDesign::create(prims_, SNLDesign::Type::Primitive, NLName("multiple_outputs"));
   SNLScalarTerm::create(multiple_outputs, SNLTerm::Direction::Input,  NLName("I0"));
   SNLScalarTerm::create(multiple_outputs, SNLTerm::Direction::Input,  NLName("I1"));
-  SNLScalarTerm::create(multiple_outputs, SNLTerm::Direction::Output, NLName("O0"));
-  SNLScalarTerm::create(multiple_outputs, SNLTerm::Direction::Output, NLName("O1"));
+  auto o0 = SNLScalarTerm::create(multiple_outputs, SNLTerm::Direction::Output, NLName("O0"));
+  auto o1 = SNLScalarTerm::create(multiple_outputs, SNLTerm::Direction::Output, NLName("O1"));
   SNLTruthTable tt0(2, 0b10), tt1(2, 0b01);
   SNLDesignTruthTable::setTruthTables(multiple_outputs, {tt0, tt1});
 
@@ -134,43 +134,44 @@ TEST_F(SNLDesignTruthTablesTest1, testStandardGates) {
     SNLDesignTruthTable::getTruthTable(multiple_outputs),
     NLException
   );
-  auto tt0get = SNLDesignTruthTable::getTruthTable(multiple_outputs, 0);
-  auto tt1get = SNLDesignTruthTable::getTruthTable(multiple_outputs, 1);
+  auto tt0get = SNLDesignTruthTable::getTruthTable(multiple_outputs, o0->getID());
+  auto tt1get = SNLDesignTruthTable::getTruthTable(multiple_outputs, o1->getID());
   EXPECT_TRUE(tt0get.isInitialized());
   EXPECT_EQ(tt0, tt0get);
   EXPECT_TRUE(tt1get.isInitialized());
-  EXPECT_EQ(tt1, tt1get);
-
+  EXPECT_EQ(tt1, tt1get); 
+  }
+  {
   // multi-chunk + two outputs
   auto multiple_outputs2 = SNLDesign::create(prims_, SNLDesign::Type::Primitive, NLName("multiple_outputs2"));
   SNLScalarTerm::create(multiple_outputs2, SNLTerm::Direction::Input,  NLName("I0"));
   SNLScalarTerm::create(multiple_outputs2, SNLTerm::Direction::Input,  NLName("I1"));
-  SNLScalarTerm::create(multiple_outputs2, SNLTerm::Direction::Output, NLName("O0"));
-  SNLScalarTerm::create(multiple_outputs2, SNLTerm::Direction::Output, NLName("O1"));
+  auto o0 = SNLScalarTerm::create(multiple_outputs2, SNLTerm::Direction::Output, NLName("O0"));
+  auto o1 = SNLScalarTerm::create(multiple_outputs2, SNLTerm::Direction::Output, NLName("O1"));
   std::vector<bool> bitVect(128);
   for (size_t i = 0; i < bitVect.size(); ++i) bitVect[i] = (i % 2);
   SNLTruthTable tt0Big(7, bitVect), tt1Big(7, bitVect);
   SNLDesignTruthTable::setTruthTables(multiple_outputs2, {tt0Big, tt1Big});
 
-  EXPECT_THROW(
-    SNLDesignTruthTable::getTruthTable(multiple_outputs2),
+  EXPECT_THROW( SNLDesignTruthTable::getTruthTable(multiple_outputs2),
     NLException
   );
-  auto tt0getBig = SNLDesignTruthTable::getTruthTable(multiple_outputs2, 0);
-  auto tt1getBig = SNLDesignTruthTable::getTruthTable(multiple_outputs2, 1);
+  auto tt0getBig = SNLDesignTruthTable::getTruthTable(multiple_outputs2, o0->getID());
+  auto tt1getBig = SNLDesignTruthTable::getTruthTable(multiple_outputs2, o1->getID());
   EXPECT_TRUE(tt0getBig.isInitialized());
   EXPECT_EQ(tt0Big, tt0getBig);
   EXPECT_TRUE(tt1getBig.isInitialized());
   EXPECT_EQ(tt1Big, tt1getBig);
-
+  }
+  {
   // hybrid 4-output (mask, mask, vector, mask)
   auto hybrid = SNLDesign::create(prims_, SNLDesign::Type::Primitive, NLName("hybrid"));
-  SNLScalarTerm::create(hybrid, SNLTerm::Direction::Input,  NLName("I0"));
-  SNLScalarTerm::create(hybrid, SNLTerm::Direction::Input,  NLName("I1"));
-  SNLScalarTerm::create(hybrid, SNLTerm::Direction::Output, NLName("O0"));
-  SNLScalarTerm::create(hybrid, SNLTerm::Direction::Output, NLName("O1"));
-  SNLScalarTerm::create(hybrid, SNLTerm::Direction::Output, NLName("O2"));
-  SNLScalarTerm::create(hybrid, SNLTerm::Direction::Output, NLName("O3"));
+  auto i0 = SNLScalarTerm::create(hybrid, SNLTerm::Direction::Input,  NLName("I0"));
+  auto i1 = SNLScalarTerm::create(hybrid, SNLTerm::Direction::Input,  NLName("I1"));
+  auto o0 = SNLScalarTerm::create(hybrid, SNLTerm::Direction::Output, NLName("O0"));
+  auto o1 = SNLScalarTerm::create(hybrid, SNLTerm::Direction::Output, NLName("O1"));
+  auto o2 = SNLScalarTerm::create(hybrid, SNLTerm::Direction::Output, NLName("O2"));
+  auto o3 = SNLScalarTerm::create(hybrid, SNLTerm::Direction::Output, NLName("O3"));
   SNLTruthTable tt0hybrid(2, 0b10), tt1hybrid(2, 0b01), tt3hybrid(2, 0b01);
   std::vector<bool> bitVect2(128);
   for (size_t i = 0; i < bitVect2.size(); ++i) bitVect2[i] = (i % 2);
@@ -182,11 +183,11 @@ TEST_F(SNLDesignTruthTablesTest1, testStandardGates) {
     SNLDesignTruthTable::getTruthTable(hybrid),
     NLException
   );
-  EXPECT_EQ(tt0hybrid, SNLDesignTruthTable::getTruthTable(hybrid, 0));
-  EXPECT_EQ(tt1hybrid, SNLDesignTruthTable::getTruthTable(hybrid, 1));
-  EXPECT_EQ(tt2hybrid, SNLDesignTruthTable::getTruthTable(hybrid, 2));
-  EXPECT_EQ(tt3hybrid, SNLDesignTruthTable::getTruthTable(hybrid, 3));
-
+  EXPECT_EQ(tt0hybrid, SNLDesignTruthTable::getTruthTable(hybrid, o0->getID()));
+  EXPECT_EQ(tt1hybrid, SNLDesignTruthTable::getTruthTable(hybrid, o1->getID()));
+  EXPECT_EQ(tt2hybrid, SNLDesignTruthTable::getTruthTable(hybrid, o2->getID()));
+  EXPECT_EQ(tt3hybrid, SNLDesignTruthTable::getTruthTable(hybrid, o3->getID()));
+  }
   // single big mask
   auto singleLarge = SNLDesign::create(prims_, SNLDesign::Type::Primitive, NLName("singleLarge"));
   SNLScalarTerm::create(singleLarge, SNLTerm::Direction::Input,  NLName("I0"));
@@ -456,10 +457,10 @@ TEST_F(SNLDesignTruthTablesTest1, DeclaredInputsZero_TwoChunks_Throws) {
 TEST_F(SNLDesignTruthTablesTest1, GetTruthTableIndexed_NoProperty_ReturnsUninitialized) {
   // Create a primitive with one output but never call setTruthTable/setTruthTables
   auto D = SNLDesign::create(prims_, SNLDesign::Type::Primitive, NLName("empty_indexed"));
-  SNLScalarTerm::create(D, SNLTerm::Direction::Output, NLName("O"));
+  auto term = SNLScalarTerm::create(D, SNLTerm::Direction::Output, NLName("O"));
 
   // indexed lookup on a design with no property should return an uninitialized table
-  auto tt = SNLDesignTruthTable::getTruthTable(D, 0);
+  auto tt = SNLDesignTruthTable::getTruthTable(D, term->getID());
   EXPECT_FALSE(tt.isInitialized());
 }
 

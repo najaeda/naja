@@ -91,6 +91,7 @@ void parseTerms(
       }
       bool foundDirection = false;
       SNLScalarTerm* constructedScalarTerm = nullptr;
+      SNLBusTerm* constructedBusTerm = nullptr;
       auto directionNode = child->find("direction");
       if (directionNode) {
         auto direction = directionNode->value;
@@ -101,7 +102,7 @@ void parseTerms(
           if (busType.name.empty()) {
             constructedScalarTerm = SNLScalarTerm::create(primitive, snlDirection, NLName(pinName));
           } else {
-            SNLBusTerm::create(primitive, snlDirection, busType.msb, busType.lsb, NLName(pinName));
+            constructedBusTerm = SNLBusTerm::create(primitive, snlDirection, busType.msb, busType.lsb, NLName(pinName));
           }
         }
       } else {
@@ -119,6 +120,14 @@ void parseTerms(
           auto function = functionNode->value;
           termFunctions[constructedScalarTerm] = function;
         }
+      } else if (not ignoreFunction
+        and constructedBusTerm
+        and constructedBusTerm->getDirection() == SNLTerm::Direction::Output
+        && (child->find("function") != nullptr)) {
+        // Throw an exception if there are bus outputs
+        std::ostringstream reason;
+        reason << "No support for function for bus term while processing " << child->id << " " << pinName;
+        throw SNLLibertyConstructorException(reason.str());
       }
     }
   }
@@ -136,12 +145,24 @@ void parseTerms(
     std::reverse(terms.begin(), terms.end());
     auto truthTable = tree->getTruthTable(terms);
     naja::NL::SNLDesignTruthTable::setTruthTable(primitive, truthTable);
-  } else {
-    std::ostringstream reason;
-    reason << "Multiple output term functions found in " << primitive->getName().getString();
-    reason << ", no function will be set.";
-    //FIXME replace with spdlog::warn
-    std::cerr << reason.str() << std::endl;
+  } else if (termFunctions.size() > 1) {  
+    std::vector<SNLTruthTable> truthTables;
+    // Assuming termFunctions is ordered based on termIDs!
+    for (auto& [term, function]: termFunctions) {
+      auto tree = std::make_unique<naja::NL::SNLBooleanTree>();
+      //std::cerr << "Parsing function: " << function << std::endl;
+      tree->parse(primitive, function);
+      naja::NL::SNLBooleanTree::Terms terms;
+      for (auto term: primitive->getBitTerms()) {
+        if (term->getDirection() == SNLTerm::Direction::Input) {
+          terms.push_back(term);
+        }
+      }
+      std::reverse(terms.begin(), terms.end());
+      auto truthTable = tree->getTruthTable(terms);
+      truthTables.push_back(truthTable);
+    }
+    naja::NL::SNLDesignTruthTable::setTruthTables(primitive, truthTables);
   }
 }
 
