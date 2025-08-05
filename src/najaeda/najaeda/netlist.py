@@ -758,16 +758,16 @@ class Term:
         if not self.is_output():
             raise ValueError("Truth table can only be computed for output terms")
         # get the instance
+        if self.is_bus():
+            raise ValueError("Truth table cannot be computed for bus terms")
         inst = self.get_instance()
         # get the model
-        model = inst.__get_snl_model()
-        index = 0
+        model = inst._Instance__get_snl_model()
         for term in model.getTerms():
             if term.getDirection() == naja.SNLTerm.Direction.Output:
                 if term.getName() == self.get_name():
                     # get the truth table
-                    return model.getTruthTable(index)
-                index += 1
+                    return model.getTruthTableByOutputID(term.getID())
         return None
 
 

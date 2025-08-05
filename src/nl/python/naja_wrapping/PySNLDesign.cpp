@@ -605,6 +605,10 @@ PyMethodDef PySNLDesign_Methods[] = {
     "get instance by ID list."},
   { "getNLID", (PyCFunction)PySNLDesign_getNLID, METH_NOARGS,
     "get NLID of the design."},
+  { "getTruthTableByOutputID", (PyCFunction)PySNLDesign_getTruthTableByOutputID, METH_VARARGS,
+    "get truth table by output ID."},
+  { "setTruthTables", (PyCFunction)PySNLDesign_setTruthTables, METH_VARARGS,
+    "set truth tables for design."},
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 
