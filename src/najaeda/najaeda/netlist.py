@@ -577,6 +577,13 @@ class Term:
         """
         return get_snl_term_for_ids(self.pathIDs, self.termIDs).getName()
 
+    def is_unnamed(self) -> bool:
+        """
+        :return: True if the term is unnamed.
+        :rtype: bool
+        """
+        return get_snl_term_for_ids(self.pathIDs, self.termIDs).isUnnamed()
+
     def get_direction(self) -> Direction:
         """
         :return: the direction of the term.
@@ -813,8 +820,7 @@ class Attribute:
 
 
 class Instance:
-    """Class that represents the instance and wraps some
-    of the snl occurrence API.
+    """Class that represents an instance in the design hierarchy.
     """
 
     def __init__(self, path=naja.SNLPath()):
@@ -1288,11 +1294,27 @@ class Instance:
         :return: the name of the instance or name of the top is this is the top.
         :rtype: str
         """
-        path = get_snl_path_from_id_list(self.pathIDs)
         if self.is_top():
             return self.get_model_name()
         else:
+            path = get_snl_path_from_id_list(self.pathIDs)
             return path.getTailInstance().getName()
+
+    def set_name(self, name: str):
+        """Set the name of this instance.
+
+        :param str name: the new name of the instance.
+        """
+        if self.is_top():
+            topSNLDesign = naja.NLUniverse.get().getTopDesign()
+            topSNLDesign.setName(name)
+        else:
+            path = get_snl_path_from_id_list(self.pathIDs)
+            if path.size() > 0:
+                naja.SNLUniquifier(path)
+                path = get_snl_path_from_id_list(self.pathIDs)
+            inst = path.getTailInstance()
+            inst.setName(name)
 
     def get_model_name(self) -> str:
         """
