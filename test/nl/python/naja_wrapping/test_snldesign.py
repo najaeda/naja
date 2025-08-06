@@ -264,6 +264,16 @@ class SNLDesignTest(unittest.TestCase):
     
     # check truth table
     self.assertEqual([1, 1], design.getTruthTableByOutputID(o.getID()))
+
+  # testing setting truth table with more than 6 inputs
+  def testTruthTableError(self):
+    design = naja.SNLDesign.createPrimitive(self.libP, "DESIGN")
+    i0 = naja.SNLScalarTerm.create(design, naja.SNLTerm.Direction.Input, "I0")
+    i1 = naja.SNLScalarTerm.create(design, naja.SNLTerm.Direction.Input, "I1")
+    o = naja.SNLScalarTerm.create(design, naja.SNLTerm.Direction.Output, "O")
+    # list of truth tables with more than 6 inputs
+    tables = [7, 1, 1]
+    with self.assertRaises(RuntimeError) as context: design.setTruthTables(tables)
    
 if __name__ == '__main__':
   unittest.main()

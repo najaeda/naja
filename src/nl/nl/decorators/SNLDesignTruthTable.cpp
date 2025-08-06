@@ -107,6 +107,9 @@ void SNLDesignTruthTable::setTruthTables(
 
 SNLTruthTable SNLDesignTruthTable::getTruthTable(const SNLDesign* design) {
   auto property = getProperty(design);
+  if (property && property->getValues().size() > 2) {
+    return SNLTruthTable();
+  }
   if (property) {
     // total number of mask‐values trailing the first “size” entry
     size_t tableSize = property->getValues().size() - 1;
@@ -239,33 +242,18 @@ SNLTruthTable SNLDesignTruthTable::getTruthTable(
 }
 
 bool SNLDesignTruthTable::isConst0(const SNLDesign* design) {
-  auto property = getProperty(design);
-  // return false if number of values large than 2
-  if (property && property->getValues().size() > 2) {
-    return false;
-  }
   auto truthTable = getTruthTable(design);
   return truthTable.isInitialized() &&
          truthTable == SNLTruthTable::Logic0();
 }
 
 bool SNLDesignTruthTable::isConst1(const SNLDesign* design) {
-   auto property = getProperty(design);
-  // return false if number of values large than 2
-  if (property && property->getValues().size() > 2) {
-    return false;
-  }
   auto truthTable = getTruthTable(design);
   return truthTable.isInitialized() &&
          truthTable == SNLTruthTable::Logic1();
 }
 
 bool SNLDesignTruthTable::isConst(const SNLDesign* design) {
-  auto property = getProperty(design);
-  // return false if number of values large than 2
-  if (property && property->getValues().size() > 2) {
-    return false;
-  }
   auto truthTable = getTruthTable(design);
   return truthTable.isInitialized() &&
          (truthTable == SNLTruthTable::Logic0() ||
@@ -273,22 +261,12 @@ bool SNLDesignTruthTable::isConst(const SNLDesign* design) {
 }
 
 bool SNLDesignTruthTable::isInv(const SNLDesign* design) {
-  auto property = getProperty(design);
-  // return false if number of values large than 2
-  if (property && property->getValues().size() > 2) {
-    return false;
-  }
   auto truthTable = getTruthTable(design);
   return truthTable.isInitialized() &&
          truthTable == SNLTruthTable::Inv();
 }
 
 bool SNLDesignTruthTable::isBuf(const SNLDesign* design) {
-   auto property = getProperty(design);
-  // return false if number of values large than 2
-  if (property && property->getValues().size() > 2) {
-    return false;
-  }
   auto truthTable = getTruthTable(design);
   return truthTable.isInitialized() &&
          truthTable == SNLTruthTable::Buf();
