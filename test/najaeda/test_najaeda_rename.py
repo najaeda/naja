@@ -46,7 +46,9 @@ class NajaNetlistTestRename(unittest.TestCase):
         self.assertEqual(inst0, top.get_child_instance('myinst0'))
 
         #rename top
-        self.assertEqual(top, top.get_name())
+        self.assertEqual('test', top.get_name())
+        top.set_name('mytest')
+        self.assertEqual('mytest', top.get_name())
 
 if __name__ == '__main__':
     faulthandler.enable()
