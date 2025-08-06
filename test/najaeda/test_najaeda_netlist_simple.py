@@ -11,8 +11,7 @@ from najaeda import naja
 
 class NajaNetlistTestSimple(unittest.TestCase):
     def tearDown(self):
-        if naja.NLUniverse.get():
-            naja.NLUniverse.get().destroy()
+        netlist.reset()
 
     def test_versioning(self):
         import najaeda

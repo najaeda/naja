@@ -11,8 +11,7 @@ from najaeda import naja
 
 class NajaNetlistTestPrimitives(unittest.TestCase):
     def tearDown(self):
-        if naja.NLUniverse.get():
-            naja.NLUniverse.get().destroy()
+        netlist.reset()
 
     def test_yosys_primitives(self):
         netlist.load_primitives('yosys')

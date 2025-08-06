@@ -225,6 +225,17 @@ class Net:
             return self.net.getName()
         return "{" + ",".join(map(str, self.net_concat)) + "}"
 
+    def set_name(self, name: str):
+        """
+        :param str name: the name to set for this Net.
+        """
+        if hasattr(self, "net"):
+            self.net.setName(name)
+        else:
+            raise ValueError(
+                "Cannot set name for a concatenated net. Use the individual nets instead."
+            )
+
     def get_msb(self) -> int:
         """
         :return: the most significant bit of the net if it is a bus.

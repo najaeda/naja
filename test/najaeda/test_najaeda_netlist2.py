@@ -69,8 +69,7 @@ class NajaNetlistTest2(unittest.TestCase):
         inv1.getInstTerm(inv.getScalarTerm('O')).setNet(oNet.getBit(1))
 
     def tearDown(self):
-        if naja.NLUniverse.get():
-            naja.NLUniverse.get().destroy()
+        netlist.reset()
 
     def test_top0(self):
         def create_top():

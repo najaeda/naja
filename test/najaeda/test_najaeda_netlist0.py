@@ -59,8 +59,7 @@ class NajaNetlistTest0(unittest.TestCase):
         pass
 
     def tearDown(self):
-        if naja.NLUniverse.get():
-            naja.NLUniverse.get().destroy()
+        netlist.reset()
     
     def test_hash(self):
         with self.assertRaises(Exception) as context: netlist.consistent_hash("error")
