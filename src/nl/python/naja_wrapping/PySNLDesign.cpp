@@ -287,7 +287,12 @@ static PyObject* PySNLDesign_setTruthTable(PySNLDesign* self, PyObject* args) {
   auto filter = [](const SNLTerm* term) { return term->getDirection() == SNLTerm::Direction::Input; };
   size_t size = selfObject->getBitTerms().getSubCollection(filter).size();
   SNLTruthTable truthTable(size, tt);
-  SNLDesignTruthTable::setTruthTable(selfObject, truthTable);
+  try {
+    SNLDesignTruthTable::setTruthTable(selfObject, truthTable);
+  } catch (const NLException& e) {
+    PyErr_SetString(PyExc_RuntimeError, e.what());
+    return nullptr;
+  }
   Py_RETURN_NONE;
 }
 
@@ -312,6 +317,11 @@ static PyObject* PySNLDesign_setTruthTables(PySNLDesign* self, PyObject* args) {
     // extract u_int64_t from item
     u_int64_t size = PyLong_AsUnsignedLongLong(item);
     i++;
+    // check if we are still under size
+    if (i >= PyList_Size(arg0)) {
+      setError("malformed SNLDesign.setTruthTables method, expected list of integers");
+      return nullptr;
+    }
     item = PyList_GetItem(arg0, i);
     if (not PyLong_Check(item)) {
       setError("malformed SNLDesign.setTruthTables method, expected list of integers");
@@ -321,7 +331,12 @@ static PyObject* PySNLDesign_setTruthTables(PySNLDesign* self, PyObject* args) {
     truthTables.push_back(SNLTruthTable(size, mask));
   }
   METHOD_HEAD("SNLDesign.setTruthTables()")
-  SNLDesignTruthTable::setTruthTables(selfObject, truthTables);
+  try {
+    SNLDesignTruthTable::setTruthTables(selfObject, truthTables);
+  } catch (const NLException& e) {
+    PyErr_SetString(PyExc_RuntimeError, e.what());
+    return nullptr;
+  }
   Py_RETURN_NONE;
 }
 
