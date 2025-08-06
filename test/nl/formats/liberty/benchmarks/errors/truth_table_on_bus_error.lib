@@ -1,13 +1,38 @@
 library (bus_test) {
+    type (ram_64x15_DATA) {
+        base_type : array ;
+        data_type : bit ;
+        bit_width : 15;
+        bit_from : 14;
+        bit_to : 0 ;
+        downto : true ;
+    }
+    type (ram_64x15_ADDRESS) {
+        base_type : array ;
+        data_type : bit ;
+        bit_width : 6;
+        bit_from : 5;
+        bit_to : 0 ;
+        downto : true ;
+    }
+
     cell (ram) {
         pin(clk)   {
             direction : input;
             clock : true;
         } 
         bus(rd_out) {
-            base_type : array ;
+            bus_type : ram_64x15_DATA;
             direction : output; 
-            function : "I0|I1" ;
+        }
+        bus(wd_in)   {
+            bus_type : ram_64x15_DATA;
+            direction : output;
+            function: "!I" ;
+        }
+        bus(addr_in)   {
+            bus_type : ram_64x15_ADDRESS;
+            direction : input;
         }
     }
 }

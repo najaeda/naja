@@ -146,8 +146,6 @@ void parseTerms(
     auto truthTable = tree->getTruthTable(terms);
     naja::NL::SNLDesignTruthTable::setTruthTable(primitive, truthTable);
   } else if (termFunctions.size() > 1) {  
-    printf("Found %zu output functions for primitive %s\n",
-           termFunctions.size(), primitive->getName().getString().c_str());
     std::vector<SNLTruthTable> truthTables;
     // Assuming termFunctions is ordered based on termIDs!
     for (auto& [term, function]: termFunctions) {

@@ -162,7 +162,9 @@ TEST_F(SNLLibertyConstructorTest0, testMissingBusType) {
 
 // Test error for truth table on bus with truth_table_on_bus_error.lib
 TEST_F(SNLLibertyConstructorTest0, testTruthTableOnBusError) {
-  SNLLibertyConstructor constructor(library_);
+  NLLibrary*  library = NLLibrary::create(NLDB::create(NLUniverse::get()),
+      NLLibrary::Type::Primitives, NLName("MYLIB"));
+  SNLLibertyConstructor constructor(library);
   std::filesystem::path testPath(
       std::filesystem::path(SNL_LIBERTY_BENCHMARKS)
       / std::filesystem::path("benchmarks")
