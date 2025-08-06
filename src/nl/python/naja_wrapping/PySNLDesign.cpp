@@ -315,7 +315,7 @@ static PyObject* PySNLDesign_setTruthTables(PySNLDesign* self, PyObject* args) {
       return nullptr;
     }
     // extract u_int64_t from item
-    u_int64_t size = PyLong_AsUnsignedLongLong(item);
+    uint64_t size = PyLong_AsUnsignedLongLong(item);
     i++;
     // check if we are still under size
     if (i >= PyList_Size(arg0)) {
@@ -327,7 +327,7 @@ static PyObject* PySNLDesign_setTruthTables(PySNLDesign* self, PyObject* args) {
       setError("malformed SNLDesign.setTruthTables method, expected list of integers");
       return nullptr;
     }
-    u_int64_t mask = PyLong_AsUnsignedLongLong(item);;
+    uint64_t mask = PyLong_AsUnsignedLongLong(item);;
     truthTables.push_back(SNLTruthTable(size, mask));
   }
   METHOD_HEAD("SNLDesign.setTruthTables()")
