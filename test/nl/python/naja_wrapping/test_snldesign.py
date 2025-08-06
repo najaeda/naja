@@ -254,9 +254,11 @@ class SNLDesignTest(unittest.TestCase):
   # testing truth table setting and getting
   def testTruthTable(self):
     design = naja.SNLDesign.createPrimitive(self.libP, "DESIGN")
+    
     i0 = naja.SNLScalarTerm.create(design, naja.SNLTerm.Direction.Input, "I0")
     i1 = naja.SNLScalarTerm.create(design, naja.SNLTerm.Direction.Input, "I1")
     o = naja.SNLScalarTerm.create(design, naja.SNLTerm.Direction.Output, "O")
+    self.assertEqual(None, design.getTruthTableByOutputID(o.getID()))
     # list of truth tables
     tables = [1, 1]
     # set truth table for output
@@ -316,6 +318,8 @@ class SNLDesignTest(unittest.TestCase):
 
     # Uneven number of elements in list (incomplete size/mask pair)
     with self.assertRaises(RuntimeError): design.setTruthTables([4])
+    
+    with self.assertRaises(RuntimeError): design.setTruthTable(4)
 
 
 if __name__ == '__main__':

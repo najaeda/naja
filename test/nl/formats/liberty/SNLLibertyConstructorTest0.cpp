@@ -159,3 +159,14 @@ TEST_F(SNLLibertyConstructorTest0, testMissingBusType) {
       / std::filesystem::path("missing_bus_type_error.lib"));
   EXPECT_THROW(constructor.construct(testPath), SNLLibertyConstructorException);
 }
+
+// Test error for truth table on bus with truth_table_on_bus_error.lib
+TEST_F(SNLLibertyConstructorTest0, testTruthTableOnBusError) {
+  SNLLibertyConstructor constructor(library_);
+  std::filesystem::path testPath(
+      std::filesystem::path(SNL_LIBERTY_BENCHMARKS)
+      / std::filesystem::path("benchmarks")
+      / std::filesystem::path("errors")
+      / std::filesystem::path("truth_table_on_bus_error.lib"));
+  EXPECT_THROW(constructor.construct(testPath), SNLLibertyConstructorException);
+}

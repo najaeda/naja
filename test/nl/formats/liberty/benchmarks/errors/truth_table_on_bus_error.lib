@@ -1,0 +1,13 @@
+library (bus_test) {
+    cell (ram) {
+        pin(clk)   {
+            direction : input;
+            clock : true;
+        } 
+        bus(rd_out) {
+            base_type : array ;
+            direction : output; 
+            function : "I0|I1" ;
+        }
+    }
+}

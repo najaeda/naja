@@ -151,7 +151,15 @@ TEST_F(SNLDesignTruthTablesTest1, testStandardGates) {
   std::vector<bool> bitVect(128);
   for (size_t i = 0; i < bitVect.size(); ++i) bitVect[i] = (i % 2);
   SNLTruthTable tt0Big(7, bitVect), tt1Big(7, bitVect);
+  EXPECT_FALSE(tt0Big.all0());
+  EXPECT_FALSE(tt0Big.all1());
+
   SNLDesignTruthTable::setTruthTables(multiple_outputs2, {tt0Big, tt1Big});
+  EXPECT_FALSE(SNLDesignTruthTable::isBuf(multiple_outputs2));
+  EXPECT_FALSE(SNLDesignTruthTable::isInv(multiple_outputs2));
+  EXPECT_FALSE(SNLDesignTruthTable::isConst0(multiple_outputs2));
+  EXPECT_FALSE(SNLDesignTruthTable::isConst1(multiple_outputs2));
+  EXPECT_FALSE(SNLDesignTruthTable::isConst(multiple_outputs2));
 
   EXPECT_THROW( SNLDesignTruthTable::getTruthTable(multiple_outputs2),
     NLException
