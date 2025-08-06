@@ -752,7 +752,7 @@ class Term:
             ):
                 iterm = inst.getInstTerm(bterm)
                 iterm.setNet(bnet)
-    
+
     def get_truth_table(self):
         # check the index of the output
         if not self.is_output():
