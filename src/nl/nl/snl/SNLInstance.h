@@ -74,7 +74,7 @@ class SNLInstance final: public SNLDesignObject {
      */
     void setName(const NLName& name) override;
 
-    bool isAnonymous() const override { return name_.empty(); }
+    bool isUnnamed() const override { return name_.empty(); }
     ///\return true if this SNLInstance is a blackbox.
     bool isBlackBox() const;
     ///\return true if this SNLInstance is an auto blackbox.

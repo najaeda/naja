@@ -136,6 +136,12 @@ void parseTerms(
     std::reverse(terms.begin(), terms.end());
     auto truthTable = tree->getTruthTable(terms);
     naja::NL::SNLDesignTruthTable::setTruthTable(primitive, truthTable);
+  } else {
+    std::ostringstream reason;
+    reason << "Multiple output term functions found in " << primitive->getName().getString();
+    reason << ", no function will be set.";
+    //FIXME replace with spdlog::warn
+    std::cerr << reason.str() << std::endl;
   }
 }
 
@@ -167,24 +173,18 @@ SNLLibertyConstructor::SNLLibertyConstructor(NLLibrary* library):
 
 void SNLLibertyConstructor::construct(const std::filesystem::path& path) {
   if (not std::filesystem::exists(path)) {
-    std::string reason(path.string() + " does not exist");
+    std::string reason("Liberty parser: " + path.string() + " does not exist");
     throw SNLLibertyConstructorException(reason);
   }
   std::ifstream inFile(path);
-  if (not inFile.good()) {
-    //LCOV_EXCL_START
-    std::string reason(path.string() + " is not a readable file");
-    throw SNLLibertyConstructorException(reason);
-    //LCOV_EXCL_STOP
-  }
   auto parser = std::make_unique<Yosys::LibertyParser>(inFile);
   auto ast = parser->ast;
+  //LCOV_EXCL_START
   if (ast == nullptr) {
-    //LCOV_EXCL_START
-    std::string reason("Failed to parse the file");
+    std::string reason("Liberty parser: failed to parse the file: " + path.string());
     throw SNLLibertyConstructorException(reason);
-    //LCOV_EXCL_STOP
   }
+  //LCOV_EXCL_STOP
   auto libraryName = ast->args[0];
   //find a policy for multiple libs
   library_->setName(NLName(libraryName));

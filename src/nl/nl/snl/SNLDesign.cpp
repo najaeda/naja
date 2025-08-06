@@ -540,10 +540,10 @@ bool SNLDesign::deepCompare(
   if (type_ not_eq other->getType()) {
     return false; //LCOV_EXCL_LINE
   }
-  DEEP_COMPARE_MEMBER(Terms)
-  DEEP_COMPARE_MEMBER(Nets)
-  DEEP_COMPARE_MEMBER(Parameters)
-  DEEP_COMPARE_MEMBER(Instances)
+  DEEP_COMPARE_MEMBER(Terms, this, other)
+  DEEP_COMPARE_MEMBER(Nets, this, other)
+  DEEP_COMPARE_MEMBER(Parameters, this, other)
+  DEEP_COMPARE_MEMBER(Instances, this, other)
   return SNLAttributes::compareAttributes(this, other, reason);
 }
 
@@ -673,10 +673,10 @@ const char* SNLDesign::getTypeName() const {
 
 //LCOV_EXCL_START
 std::string SNLDesign::getString() const {
-  if (not isAnonymous()) {
+  if (not isUnnamed()) {
     return getName().getString();
   } else {
-    return "<anonymous>";
+    return "<unnamed>";
   }
 }
 //LCOV_EXCL_STOP
@@ -685,14 +685,14 @@ std::string SNLDesign::getString() const {
 std::string SNLDesign::getDescription() const {
   std::ostringstream stream;
   stream << "<" + std::string(getTypeName());
-  if (not isAnonymous()) {
+  if (not isUnnamed()) {
     stream << " " + getName().getString();
   }
   stream << " " << getID();
   if (isPrimitive()) {
     stream << " (prim)";
   }
-  if (not getLibrary()->isAnonymous()) {
+  if (not getLibrary()->isUnnamed()) {
     stream << " " << getLibrary()->getName().getString();
   }
   stream << " " << getLibrary()->getID();

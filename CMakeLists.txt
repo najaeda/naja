@@ -87,7 +87,6 @@ if(ENABLE_SANITIZERS)
   )
 endif(ENABLE_SANITIZERS)
 
-
 if(NOT BUILD_ONLY_DOC)
   find_package(TBB REQUIRED)
   find_package(Boost REQUIRED)

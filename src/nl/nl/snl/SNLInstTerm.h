@@ -30,7 +30,7 @@ class SNLInstTerm final: public SNLNetComponent {
     SNLBitNet* getNet() const override { return net_; }
     void setNet(SNLNet* net) override;
 
-    bool isAnonymous() const override;
+    bool isUnnamed() const override;
     void setName(const NLName& name) override;
     
     SNLTerm::Direction getDirection() const override;
@@ -38,6 +38,8 @@ class SNLInstTerm final: public SNLNetComponent {
     std::string getString() const override;
     std::string getDescription() const override;
     void debugDump(size_t indent, bool recursive=true, std::ostream& stream=std::cerr) const override;
+
+    bool deepCompare(const SNLNetComponent* other, std::string& reason) const override;
 
     void destroy() override;
   private:

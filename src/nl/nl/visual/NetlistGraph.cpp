@@ -10,22 +10,30 @@ using namespace naja::NL;
 using namespace naja;
 
 void SnlVisualiser::process() {
-  SNLPath path;
-  if (_equi != nullptr) {
-    for (auto oc : _equi->getInstTermOccurrences()) {
-      auto path = oc.getPath();
-      while (path.size() > 0) {
-        _equiPaths.insert(path);
-        path = path.getHeadPath();
+  if (!_equis.empty()) {
+    for (const auto& equi : _equis) {
+      for (auto oc : equi.getInstTermOccurrences()) {
+        auto path = oc.getPath();
+        while (path.size() > 0) {
+          _equiPaths.insert(path);
+          path = path.getHeadPath();
+        }
+        _equiNets.insert(oc.getInstTerm()->getNet());
+        _equiNets.insert(oc.getInstTerm()->getBitTerm()->getNet());
+        auto termPath = SNLPath(oc.getPath(), oc.getInstTerm()->getInstance());
+        while (termPath.size() > 0) {
+          _equiPaths.insert(termPath);
+          termPath = termPath.getHeadPath();
+        }
+        
       }
-      _equiNets.insert(oc.getNet());
-      auto termPath = SNLPath(oc.getPath(), oc.getInstTerm()->getInstance());
-      _equiPaths.insert(termPath);
-    }
-    for (auto term : _equi->getTerms()) {
-      _equiNets.insert(term->getNet());
+      for (auto term : equi.getTerms()) {
+        _equiNets.insert(term->getNet());
+        _equiPaths.insert(SNLPath());
+      }
     }
   }
+  SNLPath path;
   InstDataSnl instChildData(_topSnl);
   InstNode<InstDataSnl> child(instChildData, 0,
                               _snlNetlistGraph.getInsts().size());
@@ -75,6 +83,7 @@ void SnlVisualiser::process() {
 }
 
 void SnlVisualiser::processRec(InstNodeID instId, const SNLPath& path) {
+  
   std::map<SNLBitNet*, size_t> net2wireId;
   SNLInstance* inst = _snlNetlistGraph.getInst(instId).getData().getSnlInst();
   SNLPath localPath;
@@ -87,7 +96,7 @@ void SnlVisualiser::processRec(InstNodeID instId, const SNLPath& path) {
   // Nets are not conditoned by the equi
   for (SNLBitNet* net :
        _snlNetlistGraph.getInst(instId).getData().getSnlModel()->getBitNets()) {
-    if (_equi != nullptr) {
+    if (!_equis.empty()) {
       if (_equiNets.find(net) == _equiNets.end()) {
         continue;
       }
@@ -110,7 +119,7 @@ void SnlVisualiser::processRec(InstNodeID instId, const SNLPath& path) {
         name = std::to_string(term->getFlatID());
       }
       if (term->getNet()) {
-        if (_equi != nullptr) {
+        if (!_equis.empty()) {
           if (_equiNets.find(term->getNet()) == _equiNets.end()) {
             continue;
           }
@@ -138,7 +147,7 @@ void SnlVisualiser::processRec(InstNodeID instId, const SNLPath& path) {
       name = std::to_string(term->getFlatID());
     }
     if (term->getNet()) {
-      if (_equi != nullptr) {
+      if (!_equis.empty()) {
         if (_equiNets.find(term->getNet()) == _equiNets.end()) {
           continue;
         }
@@ -166,11 +175,10 @@ void SnlVisualiser::processRec(InstNodeID instId, const SNLPath& path) {
                                     .getData()
                                     .getSnlModel()
                                     ->getInstances()) {
-    if (_equi != nullptr) {
-      SNLPath newPath(localPath, instChild);
-      if (_equiPaths.find(newPath) == _equiPaths.end()) {
+    if (!_equis.empty()) {
+      if (_equiPaths.find(localPath) == _equiPaths.end()) {
         continue;
-      }
+      } 
     }
     InstDataSnl instChildData(instChild);
     InstNode<InstDataSnl> child(instChildData,
@@ -189,7 +197,7 @@ void SnlVisualiser::processRec(InstNodeID instId, const SNLPath& path) {
         if (child.getData().getSnlInst()->getInstTerm(term)->getNet()) {
           SNLInstTerm* netTerm =
               child.getData().getSnlInst()->getInstTerm(term);
-          if (_equi != nullptr) {
+          if (!_equis.empty()) {
             if (_equiNets.find(netTerm->getNet()) == _equiNets.end()) {
               continue;
             }
@@ -233,7 +241,7 @@ void SnlVisualiser::processRec(InstNodeID instId, const SNLPath& path) {
       _snlNetlistGraph.addPort(port);
       if (child.getData().getSnlInst()->getInstTerm(term)->getNet()) {
         SNLInstTerm* netTerm = child.getData().getSnlInst()->getInstTerm(term);
-        if (_equi != nullptr) {
+        if (!_equis.empty()) {
           if (_equiNets.find(netTerm->getNet()) == _equiNets.end()) {
             continue;
           }

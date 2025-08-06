@@ -14,6 +14,7 @@
 #include "SNLBusTermBit.h"
 #include "SNLInstTerm.h"
 #include "SNLDesign.h"
+#include "SNLMacros.h"
 
 namespace naja { namespace NL {
 
@@ -114,5 +115,13 @@ void SNLBitNet::connectAllComponentsTo(SNLBitNet* net) {
   }
   components_.clear();
 }
+
+bool SNLBitNet::compareComponents(
+  const SNLBitNet* otherNet,
+  std::string& reason) const {
+  DEEP_COMPARE_MEMBER(Components, this, otherNet)
+  return true;
+}
+
 
 }} // namespace NL // namespace naja

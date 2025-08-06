@@ -252,7 +252,7 @@ NLName SNLVRLDumper::createNetName(const SNLNet* net, DesignInsideAnonymousNamin
 }
 
 NLName SNLVRLDumper::getNetName(const SNLNet* net, const DesignInsideAnonymousNaming& naming) {
-  if (net->isAnonymous()) {
+  if (net->isUnnamed()) {
     auto it = naming.netNames_.find(net->getID());
     assert(it != naming.netNames_.end());
     return it->second;
@@ -314,7 +314,7 @@ bool SNLVRLDumper::dumpNet(const SNLNet* net, std::ostream& o, DesignInsideAnony
     return false;
   }
   NLName netName;
-  if (net->isAnonymous()) {
+  if (net->isUnnamed()) {
     netName = createNetName(net, naming);
   } else {
     netName = net->getName();
@@ -332,7 +332,7 @@ bool SNLVRLDumper::dumpNet(const SNLNet* net, std::ostream& o, DesignInsideAnony
 void SNLVRLDumper::dumpNets(const SNLDesign* design, std::ostream& o, DesignInsideAnonymousNaming& naming) {
   bool atLeastOne = false;
   for (auto net: design->getNets()) {
-    if (not net->isAnonymous()) {
+    if (not net->isUnnamed()) {
       auto name = net->getName();
       if (design->getTerm(name)) {
         //already dumped
@@ -534,27 +534,22 @@ bool SNLVRLDumper::dumpInstance(
   if (NLDB0::isGate(instance->getModel())) {
     auto gateName = NLDB0::getGateName(instance->getModel());
     o << gateName << " ";
-    if (not instance->isAnonymous()) {
+    if (not instance->isUnnamed()) {
       o << instance->getName().getString();
     }
     o << "(";
-    auto singleNet = instance->getInstTerm(NLDB0::getGateSingleTerm(instance->getModel()))->getNet();
-    if (singleNet) {
-      o << getBitNetString(singleNet);
-    } else {
-      o << "DUMMY";
-    }
-    o << ", ";
-    auto nNets = NLDB0::getGateNTerms(instance->getModel());
-    for (size_t i=0; i<nNets->getWidth(); ++i) {
-      auto net = instance->getInstTerm(nNets->getBitAtPosition(i))->getNet();
+    bool first = true;
+    for (auto instTerm: instance->getInstTerms()) {
+      if (first) {
+        first = false;
+      } else {
+        o << ", ";
+      }
+      auto net = instTerm->getNet();
       if (net) {
         o << getBitNetString(net);
       } else {
         o << "DUMMY";
-      }
-      if (i < nNets->getWidth() - 1) {
-        o << ", ";
       }
     }
     o << ");";
@@ -580,14 +575,14 @@ bool SNLVRLDumper::dumpInstance(
     }
   }
   std::string instanceName;
-  if (instance->isAnonymous()) {
+  if (instance->isUnnamed()) {
     instanceName = createInstanceName(instance, naming);
   } else {
     instanceName = instance->getName().getString();
   }
   dumpAttributes(instance, o);
   auto model = instance->getModel();
-  if (not model->isAnonymous()) { //FIXME !!
+  if (not model->isUnnamed()) { //FIXME !!
     o << dumpName(model->getName().getString()) << " ";
   }
   dumpInstParameters(instance, o);
@@ -765,16 +760,16 @@ void SNLVRLDumper::dumpParameters(const SNLDesign* design, std::ostream& o) {
 void SNLVRLDumper::dumpOneDesign(const SNLDesign* design, std::ostream& o) {
   DesignInsideAnonymousNaming naming;
   for (auto term: design->getTerms()) {
-    if (not term->isAnonymous()) {
+    if (not term->isUnnamed()) {
       naming.netTermNameSet_.insert(term->getName());
     }
   }
   for (auto net: design->getNets()) {
-    if (not net->isAnonymous()) {
+    if (not net->isUnnamed()) {
       naming.netTermNameSet_.insert(net->getName());
     }
   }
-  if (design->isAnonymous()) {
+  if (design->isUnnamed()) {
     createDesignName(design);
   }
   dumpAttributes(design, o);
@@ -823,7 +818,7 @@ std::string SNLVRLDumper::getTopFileName(const SNLDesign* top) const {
   if (configuration_.hasTopFileName()) {
     return configuration_.getTopFileName();
   }
-  if (not top->isAnonymous()) {
+  if (not top->isUnnamed()) {
     return top->getName().getString() + ".v";
   }
   return "top.v";
@@ -833,7 +828,7 @@ std::string SNLVRLDumper::getLibraryFileName(const NLLibrary* library) const {
   if (configuration_.hasLibraryFileName()) {
     return configuration_.getLibraryFileName();
   }
-  if (not library->isAnonymous()) {
+  if (not library->isUnnamed()) {
     return library->getName().getString() + ".v";
   }
   return "library.v";
@@ -842,7 +837,7 @@ std::string SNLVRLDumper::getLibraryFileName(const NLLibrary* library) const {
 void SNLVRLDumper::dumpDesign(const SNLDesign* design, const std::filesystem::path& path) {
   if (not std::filesystem::exists(path)) {
     std::ostringstream reason;
-    if (not design->isAnonymous()) {
+    if (not design->isUnnamed()) {
       reason << design->getName().getString();
     } else {
       reason << "anonymous design";
@@ -889,7 +884,7 @@ void SNLVRLDumper::dumpDesign(const SNLDesign* design, const std::filesystem::pa
 void SNLVRLDumper::dumpLibrary(const NLLibrary* library, const std::filesystem::path& path) {
   if (not std::filesystem::exists(path)) {
     std::ostringstream reason;
-    if (not library->isAnonymous()) {
+    if (not library->isUnnamed()) {
       reason << library->getName().getString();
     } else {
       reason << library->getDescription();

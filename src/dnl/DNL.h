@@ -31,6 +31,8 @@ using namespace naja::NL;
 namespace naja {
 namespace NL {
 class SNLBitNet;
+class SNLPath;
+class SNLEquipotential;
 }
 }  // namespace naja
 
@@ -179,6 +181,8 @@ class DNLInstanceFull {
     return childrenIndexes_.first == childrenIndexes_.second;
   }
 
+  SNLPath getPath() const;
+
  private:
   std::pair<DNLID, DNLID> childrenIndexes_;
   SNLInstance* instance_{nullptr};
@@ -248,6 +252,8 @@ class DNLTerminalFull {
    * \return True if the DNLTerminalFull is top port.
    */
   bool isTopPort() const { return terminal_ == nullptr; }
+
+  SNLEquipotential getEquipotential() const;
 
  private:
   DNLID DNLInstID_ = DNLID_MAX;

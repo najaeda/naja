@@ -73,7 +73,7 @@ class SNLBusTerm final: public SNLTerm {
     NLID getNLID() const override;
     size_t getFlatID() const override { return flatID_; }
     NLName getName() const override { return name_; }
-    bool isAnonymous() const override { return name_.empty(); }
+    bool isUnnamed() const override { return name_.empty(); }
     void setName(const NLName& name) override;
    
     SNLTerm::Direction getDirection() const override { return direction_; }
@@ -82,7 +82,7 @@ class SNLBusTerm final: public SNLTerm {
     const char* getTypeName() const override;
     std::string getString() const override;
     std::string getDescription() const override;
-    bool deepCompare(const SNLTerm* other, std::string& reason) const override;
+    bool deepCompare(const SNLNetComponent* other, std::string& reason) const override;
     
     void debugDump(size_t indent, bool recursive=true, std::ostream& stream=std::cerr) const override;
 

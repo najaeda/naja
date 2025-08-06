@@ -803,7 +803,6 @@ TEST_F(ReductionOptTests, testTruthTablesMap_bne) {
     topOut11->setNet(net15);
     modInst2->getInstTerm(modOut6)->setNet(net16);
     topOut12->setNet(net16);
-
     ConstantPropagation cp;
     cp.setTruthTableEngine(true);
     cp.run();

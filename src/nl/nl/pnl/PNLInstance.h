@@ -42,7 +42,7 @@ class PNLInstance final: public PNLDesignObject {
     PNLInstTerm* getInstTerm(const PNLBitTerm* term) const;
     PNLInstTerm* getInstTerm(const NLID::DesignObjectID id) const;
 
-    bool isAnonymous() const override { return name_.empty(); }
+    bool isUnnamed() const override { return name_.empty(); }
 
     bool isBlackBox() const;
     bool isPrimitive() const;

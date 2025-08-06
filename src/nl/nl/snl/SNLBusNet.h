@@ -65,7 +65,7 @@ class SNLBusNet final: public SNLNet {
     NLID getNLID() const override;
     NLName getName() const override { return name_; }
     void setName(const NLName& name) override;
-    bool isAnonymous() const override { return name_.empty(); }
+    bool isUnnamed() const override { return name_.empty(); }
 
     void insertBits(
         std::vector<SNLBitNet*>& bits,

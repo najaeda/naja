@@ -4404,6 +4404,23 @@ TEST_F(ConstantPropagationTests, TestConstantPropagationAND_Hierarchical_duplica
                        std::string(" -o ") + svgFileName)
                .c_str());
   }
+  std::vector<SNLEquipotential> equipotentials;
+    for (const auto& term : get()->getDNLTerms()) {
+        if (term.isNull()) {
+        continue;
+        }
+        equipotentials.push_back(term.getEquipotential());
+    }
+    std::string dotFileNameEquis(
+        std::string(std::string("./testBusEquis") + std::string(".dot")));
+    std::string svgFileNameEquis(
+        std::string(std::string("./testBusEquis") + std::string(".svg")));
+    SnlVisualiser snl2(top, equipotentials);
+    snl2.process();
+    snl2.getNetlistGraph().dumpDotFile(dotFileNameEquis.c_str());
+    executeCommand(std::string(std::string("dot -Tsvg ") + dotFileNameEquis +
+                        std::string(" -o ") + svgFileNameEquis)
+                .c_str());
   ConstantPropagation cp;
   cp.setNormalizedUniquification(false);
   // 13. collect the constants

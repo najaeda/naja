@@ -9,7 +9,9 @@ set(snl_vrl_constructor_tests
     SNLVRLConstructorTestAttributes.cpp
     SNLVRLConstructorTestGate0.cpp
     SNLVRLConstructorTestGate1.cpp
+    SNLVRLConstructorTestGate2.cpp
     SNLVRLConstructorTestAutoBlackBox0.cpp
+    SNLVRLConstructorTestAutoBlackBox1.cpp
 )
 add_executable(snlVRLConstructorTests ${snl_vrl_constructor_tests})
 target_compile_definitions(snlVRLConstructorTests PRIVATE

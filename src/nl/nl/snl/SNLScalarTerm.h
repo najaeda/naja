@@ -39,7 +39,7 @@ class SNLScalarTerm final: public SNLBitTerm {
     NLID::Bit getBit() const override { return 0; }
     size_t getFlatID() const override { return flatID_; }
     NLName getName() const override { return name_; }
-    bool isAnonymous() const override { return name_.empty(); }
+    bool isUnnamed() const override { return name_.empty(); }
 
     /// \brief Change the name of this SNLScalarTerm.
     void setName(const NLName& name) override;
@@ -52,7 +52,7 @@ class SNLScalarTerm final: public SNLBitTerm {
     std::string getString() const override;
     std::string getDescription() const override;
     void debugDump(size_t indent, bool recursive=true, std::ostream& stream=std::cerr) const override;
-    bool deepCompare(const SNLTerm* other, std::string& reason) const override;
+    bool deepCompare(const SNLNetComponent* other, std::string& reason) const override;
   private:
     SNLScalarTerm(SNLDesign* design, Direction direction, const NLName& name);
     SNLScalarTerm(SNLDesign* design, NLID::DesignObjectID, Direction direction, const NLName& name);

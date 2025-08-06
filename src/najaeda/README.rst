@@ -35,7 +35,8 @@ processes with minimal overhead.
 
 najaeda is the Python counterpart of the `Naja C++ project <https://github.com/najaeda/naja>`_.
 
-If you’re interested in this project, please consider starring it on GitHub.
+If you find this project useful, please consider `starring it on GitHub <https://github.com/najaeda/naja>`_ to show your support.
+
 Feel free to reach out to us anytime at `contact@keplertech.io <mailto:contact@keplertech.io>`_.
 
 Installation

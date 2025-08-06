@@ -7,19 +7,24 @@
 
 #include <fstream>
 #include <iostream>
+#include <iterator>
 #include <limits>
 #include <set>
 #include <stack>
 #include <vector>
-#include <iterator>
 
 #include <tbb/task_arena.h>
+#include "NLUniverse.h"
 #include "SNLBitNet.h"
 #include "SNLBitTerm.h"
 #include "SNLInstTerm.h"
 #include "SNLInstance.h"
-#include "NLUniverse.h"
+#include "SNLPath.h"
 #include "tbb/parallel_for.h"
+
+#include "SNLNetComponentOccurrence.h"
+#include "SNLBitNetOccurrence.h"
+#include "SNLEquipotential.h"
 
 using namespace naja::NL;
 using namespace naja::DNL;
@@ -82,9 +87,7 @@ void destroy() {
 }
 }  // namespace naja::DNL
 
-DNLInstanceFull::DNLInstanceFull(SNLInstance* instance,
-                                 DNLID id,
-                                 DNLID parent)
+DNLInstanceFull::DNLInstanceFull(SNLInstance* instance, DNLID id, DNLID parent)
     : instance_(instance), id_(id), parent_(parent) {}
 
 void DNLInstanceFull::display() const {
@@ -128,14 +131,15 @@ SNLInstance* DNLInstanceFull::getSNLInstance() const {
 }
 void DNLInstanceFull::setTermsIndexes(
     const std::pair<DNLID, DNLID>& termsIndexes) {
-      //assert(termsIndexes.first < termsIndexes.second || 
-      //(termsIndexes.first == DNLID_MAX && termsIndexes.second == DNLID_MAX));
+  // assert(termsIndexes.first < termsIndexes.second ||
+  //(termsIndexes.first == DNLID_MAX && termsIndexes.second == DNLID_MAX));
   termsIndexes_ = termsIndexes;
 }
 void DNLInstanceFull::setChildrenIndexes(
     const std::pair<DNLID, DNLID>& childrenIndexes) {
-      //assert(childrenIndexes.first < childrenIndexes.second || 
-      //(childrenIndexes.first == DNLID_MAX && childrenIndexes.second == DNLID_MAX));
+  // assert(childrenIndexes.first < childrenIndexes.second ||
+  //(childrenIndexes.first == DNLID_MAX && childrenIndexes.second ==
+  // DNLID_MAX));
   childrenIndexes_ = childrenIndexes;
 }
 const DNLInstanceFull& DNLInstanceFull::getChildInstance(
@@ -173,7 +177,8 @@ const DNLTerminalFull& DNLInstanceFull::getTerminal(
   if (snlTerm == nullptr || snlTerm->getInstance() != instance_) {
     return (*get()).getDNLNullTerminal();
   }
-  return (*get()).getDNLTerms()[termsIndexes_.first + snlTerm->getBitTerm()->getOrderID()];
+  return (*get())
+      .getDNLTerms()[termsIndexes_.first + snlTerm->getBitTerm()->getOrderID()];
   /*auto first = (*get()).getDNLTerms().begin();
   std::advance(first, termsIndexes_.first);
   auto last = (*get()).getDNLTerms().begin();
@@ -216,28 +221,40 @@ const DNLTerminalFull& DNLInstanceFull::getTerminalFromBitTerm(
 }
 
 std::string DNLInstanceFull::getFullPath() const {
-    std::vector<SNLInstance*> path;
-    DNLID instID = getID();
-    DNLInstanceFull inst = *this;
-    SNLInstance* snlInst = inst.getSNLInstance();
+  std::vector<SNLInstance*> path;
+  DNLID instID = getID();
+  DNLInstanceFull inst = *this;
+  SNLInstance* snlInst = inst.getSNLInstance();
+  if (snlInst != nullptr) {
+    path.push_back(snlInst);
+  }
+  instID = inst.getParentID();
+  while (instID != DNLID_MAX) {
+    inst = inst.getParentInstance();
+    snlInst = inst.getSNLInstance();
     if (snlInst != nullptr) {
       path.push_back(snlInst);
     }
     instID = inst.getParentID();
-    while (instID != DNLID_MAX) {
-      inst = inst.getParentInstance();
-      snlInst = inst.getSNLInstance();
-      if (snlInst != nullptr) {
-        path.push_back(snlInst);
-      }
-      instID = inst.getParentID();
-    }
-    std::string fullPath;
-    for (auto it = path.rbegin(); it != path.rend(); ++it) {
-      fullPath += (*it)->getName().getString() + "/";
-    }
-    return fullPath;
   }
+  std::string fullPath;
+  for (auto it = path.rbegin(); it != path.rend(); ++it) {
+    fullPath += (*it)->getName().getString() + "/";
+  }
+  return fullPath;
+}
+
+SNLPath DNLInstanceFull::getPath() const {
+  std::vector<std::string> path;
+  naja::DNL::DNLInstanceFull currentInstance = *this;
+  while (currentInstance.isTop() == false) {
+    path.push_back(currentInstance.getSNLInstance()->getName().getString());
+    currentInstance = currentInstance.getParentInstance();
+  }
+  std::reverse(path.begin(), path.end());
+  SNLPath snlPath(NLUniverse::get()->getTopDesign(), path);
+  return snlPath;
+}
 
 DNLTerminalFull::DNLTerminalFull(DNLID DNLInstID,
                                  SNLInstTerm* terminal,
@@ -245,8 +262,7 @@ DNLTerminalFull::DNLTerminalFull(DNLID DNLInstID,
     : DNLInstID_(DNLInstID),
       terminal_(terminal),
       bitTerminal_(terminal->getBitTerm()),
-      id_(id)
-    {}
+      id_(id) {}
 
 DNLTerminalFull::DNLTerminalFull(DNLID DNLInstID,
                                  SNLBitTerm* terminal,
@@ -277,7 +293,37 @@ DNLID DNLTerminalFull::getIsoID() const {
   return (*get()).getIsoIdfromTermId(id_);
 }
 
-DNLIso::DNLIso(DNLID id): id_(id) {}
+SNLEquipotential DNLTerminalFull::getEquipotential() const {
+  #ifdef DEBUG_PRINTS
+  // LCOV_EXCL_START
+  printf("path: %s\n", this->getDNLInstance().getPath().getString().c_str());
+  // LCOV_EXCL_STOP
+  #endif
+  if (this->getDNLInstance().isTop()) {
+    naja::NL::SNLNetComponentOccurrence occurrence(
+    this->getDNLInstance().getPath(), this->getSnlBitTerm());
+    #ifdef DEBUG_PRINTS
+    // LCOV_EXCL_START
+    printf("occurrence: %s\n", occurrence.getString().c_str());
+    SNLEquipotential equipotential(occurrence);
+    printf("equipotential: %s\n", equipotential.getString().c_str());
+    // LCOV_EXCL_STOP
+    #endif
+    return SNLEquipotential(occurrence);
+  }
+  naja::NL::SNLInstTermOccurrence occurrence(
+    this->getDNLInstance().getPath().getHeadPath(), this->getSnlTerm());
+  #ifdef DEBUG_PRINTS
+  // LCOV_EXCL_START
+  printf("occurrence: %s\n", occurrence.getString().c_str());
+  SNLEquipotential equipotential(occurrence);
+  printf("equipotential: %s\n", equipotential.getString().c_str());
+  // LCOV_EXCL_STOP
+  #endif
+  return SNLEquipotential(occurrence);
+}
+
+DNLIso::DNLIso(DNLID id) : id_(id) {}
 
 void DNLIso::addDriver(DNLID driver) {
 #ifdef DEBUG_PRINTS
@@ -340,21 +386,21 @@ void DNLIso::display(std::ostream& stream) const {
                     .getDNLTerminalFromID(driver)
                     .getSnlBitTerm()
                     ->getName()
-                    .getString() << std::endl;
+                    .getString()
+             << std::endl;
       continue;
     }
-    stream << "driver instance "
-           << (*get())
-                  .getDNLTerminalFromID(driver)
-                  .getSnlTerm()
-                  ->getInstance()
-                  ->getName()
-                  .getString()
-           << std::endl
-           << (*get())
-                  .getDNLTerminalFromID(driver)
-                  .getDNLInstance().getFullPath()
-           << std::endl;
+    stream
+        << "driver instance "
+        << (*get())
+               .getDNLTerminalFromID(driver)
+               .getSnlTerm()
+               ->getInstance()
+               ->getName()
+               .getString()
+        << std::endl
+        << (*get()).getDNLTerminalFromID(driver).getDNLInstance().getFullPath()
+        << std::endl;
     ;
     stream << "driver "
            << (*get()).getDNLTerminalFromID(driver).getSnlTerm()->getString()
@@ -371,14 +417,14 @@ void DNLIso::display(std::ostream& stream) const {
                     .getDNLTerminalFromID(reader)
                     .getSnlBitTerm()
                     ->getName()
-                    .getString() << std::endl;
+                    .getString()
+             << std::endl;
       continue;
     }
-    stream << "reader instance"
-           << (*get())
-                  .getDNLTerminalFromID(reader)
-                  .getDNLInstance().getFullPath()
-           << std::endl;
+    stream
+        << "reader instance"
+        << (*get()).getDNLTerminalFromID(reader).getDNLInstance().getFullPath()
+        << std::endl;
     ;
     stream << "reader"
            << (*get()).getDNLTerminalFromID(reader).getSnlTerm()->getString()

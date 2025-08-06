@@ -265,23 +265,23 @@ TEST_F(PNLTermTest, testRename) {
   EXPECT_EQ(term2, design->getBitTerm(1, 0));
   EXPECT_EQ(term2, design->getBitTerm(1, -12));
   EXPECT_EQ(term2, design->getBitTerm(1, 100));
-  EXPECT_FALSE(term0->isAnonymous());
+  EXPECT_FALSE(term0->isUnnamed());
   term0->setName(NLName());
-  EXPECT_TRUE(term0->isAnonymous());
+  EXPECT_TRUE(term0->isUnnamed());
   EXPECT_EQ(nullptr, design->getTerm(NLName("term0")));
   term0->setName(NLName("term0"));
-  EXPECT_FALSE(term0->isAnonymous());
+  EXPECT_FALSE(term0->isUnnamed());
   EXPECT_EQ(term0, design->getTerm(NLName("term0")));
-  // EXPECT_FALSE(term1->isAnonymous());
+  // EXPECT_FALSE(term1->isUnnamed());
   // term1->setName(NLName("term1")); //nothing should happen...
   // EXPECT_EQ(term1, design->getTerm(NLName("term1")));
   // term1->setName(NLName("t1"));
-  // EXPECT_FALSE(term1->isAnonymous());
+  // EXPECT_FALSE(term1->isUnnamed());
   // EXPECT_EQ(nullptr, design->getTerm(NLName("term1")));
   // EXPECT_EQ(term1, design->getTerm(NLName("t1")));
-  EXPECT_TRUE(term2->isAnonymous());
+  EXPECT_TRUE(term2->isUnnamed());
   term2->setName(NLName("term2"));
-  EXPECT_FALSE(term2->isAnonymous());
+  EXPECT_FALSE(term2->isUnnamed());
   EXPECT_EQ(term2, design->getTerm(NLName("term2")));
   //Collision error
   EXPECT_THROW(term2->setName(NLName("term0")), NLException);

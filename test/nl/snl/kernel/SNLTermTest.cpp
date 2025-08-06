@@ -40,7 +40,7 @@ TEST_F(SNLTermTest, testCreation) {
   SNLBusTerm* term0 = SNLBusTerm::create(design, SNLTerm::Direction::InOut, -1, -4, NLName("term0"));
   ASSERT_NE(term0, nullptr);
   EXPECT_EQ(NLName("term0"), term0->getName());
-  ASSERT_FALSE(term0->isAnonymous());
+  ASSERT_FALSE(term0->isUnnamed());
   EXPECT_EQ(0, term0->getID());
   EXPECT_EQ(NLID(NLID::Type::Term, 1, 0, 0, 0, 0, 0), term0->getNLID());
   EXPECT_EQ(NLID::DesignObjectReference(1, 0, 0, 0), term0->getReference());
@@ -56,7 +56,7 @@ TEST_F(SNLTermTest, testCreation) {
   for (auto bit: term0->getBusBits()) {
     EXPECT_EQ(SNLTerm::Direction::InOut, bit->getDirection());
     EXPECT_EQ(term0, bit->getBus());
-    EXPECT_FALSE(bit->isAnonymous());
+    EXPECT_FALSE(bit->isUnnamed());
     EXPECT_EQ(bit->getName(), bit->getBus()->getName());
   }
   EXPECT_THAT(std::vector(term0->getBits().begin(), term0->getBits().end()),
@@ -262,23 +262,23 @@ TEST_F(SNLTermTest, testRename) {
   EXPECT_EQ(term2, design->getBitTerm(2, 0));
   EXPECT_EQ(term2, design->getBitTerm(2, -12));
   EXPECT_EQ(term2, design->getBitTerm(2, 100));
-  EXPECT_FALSE(term0->isAnonymous());
+  EXPECT_FALSE(term0->isUnnamed());
   term0->setName(NLName());
-  EXPECT_TRUE(term0->isAnonymous());
+  EXPECT_TRUE(term0->isUnnamed());
   EXPECT_EQ(nullptr, design->getTerm(NLName("term0")));
   term0->setName(NLName("term0"));
-  EXPECT_FALSE(term0->isAnonymous());
+  EXPECT_FALSE(term0->isUnnamed());
   EXPECT_EQ(term0, design->getTerm(NLName("term0")));
-  EXPECT_FALSE(term1->isAnonymous());
+  EXPECT_FALSE(term1->isUnnamed());
   term1->setName(NLName("term1")); //nothing should happen...
   EXPECT_EQ(term1, design->getTerm(NLName("term1")));
   term1->setName(NLName("t1"));
-  EXPECT_FALSE(term1->isAnonymous());
+  EXPECT_FALSE(term1->isUnnamed());
   EXPECT_EQ(nullptr, design->getTerm(NLName("term1")));
   EXPECT_EQ(term1, design->getTerm(NLName("t1")));
-  EXPECT_TRUE(term2->isAnonymous());
+  EXPECT_TRUE(term2->isUnnamed());
   term2->setName(NLName("term2"));
-  EXPECT_FALSE(term2->isAnonymous());
+  EXPECT_FALSE(term2->isUnnamed());
   EXPECT_EQ(term2, design->getTerm(NLName("term2")));
   //Collision error
   EXPECT_THROW(term2->setName(NLName("term0")), NLException);

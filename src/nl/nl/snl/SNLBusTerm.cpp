@@ -234,7 +234,7 @@ NajaCollection<SNLBitTerm*> SNLBusTerm::getBits() const {
   return getBusBits().getParentTypeCollection<SNLBitTerm*>();
 }
 
-bool SNLBusTerm::deepCompare(const SNLTerm* other, std::string& reason) const {
+bool SNLBusTerm::deepCompare(const SNLNetComponent* other, std::string& reason) const {
   const SNLBusTerm* otherBusTerm = dynamic_cast<const SNLBusTerm*>(other);
   if (not otherBusTerm) {
     //LCOV_EXCL_START

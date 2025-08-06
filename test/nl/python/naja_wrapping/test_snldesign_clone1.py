@@ -26,7 +26,7 @@ class SNLDesignCloneTest1(unittest.TestCase):
     newDesign = self.design.clone()
     self.assertIsNotNone(newDesign)
     self.assertNotEqual(self.design, newDesign)
-    self.assertTrue(newDesign.isAnonymous())
+    self.assertTrue(newDesign.isUnnamed())
     self.assertEqual(self.design.getLibrary(), newDesign.getLibrary())
     self.assertEqual(self.design.getDB(), newDesign.getDB())
     termsSize = sum(1 for t in self.design.getTerms())
@@ -40,7 +40,7 @@ class SNLDesignCloneTest1(unittest.TestCase):
     newDesign = self.design.clone("cloned")
     self.assertIsNotNone(newDesign)
     self.assertNotEqual(self.design, newDesign)
-    self.assertFalse(newDesign.isAnonymous())
+    self.assertFalse(newDesign.isUnnamed())
     self.assertEqual("cloned", newDesign.getName())
 
   def testErrors(self):

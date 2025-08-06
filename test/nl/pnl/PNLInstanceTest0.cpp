@@ -73,8 +73,8 @@ TEST_F(PNLInstanceTest0, testInstTermRenameError) {
   EXPECT_EQ(design, ins->getInstTerm(b)->getDesign());
   // Test getDirection for inst term
   EXPECT_EQ(PNLTerm::Direction::Input, ins->getInstTerm(b)->getDirection());
-  // Test isAnno for inst term
-  EXPECT_FALSE(ins->getInstTerm(b)->isAnonymous());
+  // Test isUnnamed for inst term
+  EXPECT_FALSE(ins->getInstTerm(b)->isUnnamed());
   EXPECT_EQ(b->getBit(), 0);
   EXPECT_EQ(b->getWidth(), 1);
   EXPECT_EQ(NLID::DesignObjectReference(1, 0, 1, 1), b->getReference());
@@ -91,7 +91,7 @@ TEST_F(PNLInstanceTest0, testInstTermNullTerm) {
   PNLDesign* model = PNLDesign::create(library, NLName("model"));
   auto ins = PNLInstance::create(design, model, NLName("instance"));
   auto anonym = PNLInstance::create(design, model);
-  EXPECT_EQ(true, anonym->isAnonymous());
+  EXPECT_EQ(true, anonym->isUnnamed());
   EXPECT_THROW(ins->getInstTerm(nullptr), NLException);
 }
 
