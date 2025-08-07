@@ -767,7 +767,9 @@ class Term:
             if term.getDirection() == naja.SNLTerm.Direction.Output:
                 if term.getName() == self.get_name():
                     # get the truth table
-                    return model.getTruthTableByOutputID(term.getID())
+                    tt = model.getTruthTableByOutputID(term.getID())
+                    if tt != None:
+                        return model.getTruthTableByOutputID(term.getID())
         return None
 
 
