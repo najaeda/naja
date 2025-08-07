@@ -17,7 +17,7 @@ class SNLDesignTruthTable {
     static void setTruthTable(SNLDesign* design, const SNLTruthTable& truthTable);
     static void setTruthTables(SNLDesign* design, const std::vector<SNLTruthTable>& truthTable);
     static SNLTruthTable getTruthTable(const SNLDesign* design);
-    static SNLTruthTable getTruthTable(const SNLDesign* design, NLID::DesignObjectID outputID);
+    static SNLTruthTable getTruthTable(const SNLDesign* design, NLID::DesignObjectID termID);
     static bool isConst0(const SNLDesign* design);
     static bool isConst1(const SNLDesign* design);
     static bool isConst(const SNLDesign* design);

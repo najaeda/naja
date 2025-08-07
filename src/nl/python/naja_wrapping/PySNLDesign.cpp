@@ -287,7 +287,56 @@ static PyObject* PySNLDesign_setTruthTable(PySNLDesign* self, PyObject* args) {
   auto filter = [](const SNLTerm* term) { return term->getDirection() == SNLTerm::Direction::Input; };
   size_t size = selfObject->getBitTerms().getSubCollection(filter).size();
   SNLTruthTable truthTable(size, tt);
-  SNLDesignTruthTable::setTruthTable(selfObject, truthTable);
+  try {
+    SNLDesignTruthTable::setTruthTable(selfObject, truthTable);
+  } catch (const NLException& e) {
+    PyErr_SetString(PyExc_RuntimeError, e.what());
+    return nullptr;
+  }
+  Py_RETURN_NONE;
+}
+
+// Set truth tables for design
+static PyObject* PySNLDesign_setTruthTables(PySNLDesign* self, PyObject* args) {
+  PyObject* arg0 = nullptr;
+  if (not PyArg_ParseTuple(args, "O:SNLDesign.setTruthTables", &arg0)) {
+    setError("malformed SNLDesign.setTruthTables method");
+    return nullptr;
+  }
+  if (not PyList_Check(arg0)) {
+    setError("malformed SNLDesign.setTruthTables method");
+    return nullptr;
+  }
+  std::vector<SNLTruthTable> truthTables;
+  for (int i=0; i<PyList_Size(arg0); ++i) {
+    PyObject* item = PyList_GetItem(arg0, i);
+    if (not PyLong_Check(item)) {
+      setError("malformed SNLDesign.setTruthTables method, expected list of integers");
+      return nullptr;
+    }
+    // extract u_int64_t from item
+    uint64_t size = PyLong_AsUnsignedLongLong(item);
+    i++;
+    // check if we are still under size
+    if (i >= PyList_Size(arg0)) {
+      setError("malformed SNLDesign.setTruthTables method, expected list of integers");
+      return nullptr;
+    }
+    item = PyList_GetItem(arg0, i);
+    if (not PyLong_Check(item)) {
+      setError("malformed SNLDesign.setTruthTables method, expected list of integers");
+      return nullptr;
+    }
+    uint64_t mask = PyLong_AsUnsignedLongLong(item);;
+    truthTables.push_back(SNLTruthTable(size, mask));
+  }
+  METHOD_HEAD("SNLDesign.setTruthTables()")
+  try {
+    SNLDesignTruthTable::setTruthTables(selfObject, truthTables);
+  } catch (const NLException& e) {
+    PyErr_SetString(PyExc_RuntimeError, e.what());
+    return nullptr;
+  }
   Py_RETURN_NONE;
 }
 
@@ -298,10 +347,33 @@ PyObject* PySNLDesign_getTruthTable(PySNLDesign* self) {
   if (!truthTable.isInitialized()) {
     Py_RETURN_NONE;
   }
-  PyObject* py_list = PyList_New(2); 
+  std::vector<uint64_t> chunks = truthTable.bits().getChunks();
+  PyObject* py_list = PyList_New(1 + chunks.size()); 
   PyList_SetItem(py_list, 0, PyLong_FromLong(truthTable.size()));
-  for (auto mask : truthTable.bits().getChunks()) {
-    PyList_SetItem(py_list, 1, PyLong_FromLong(mask));
+  for (size_t i = 0; i < chunks.size(); i++) {
+    PyList_SetItem(py_list, i + 1, PyLong_FromLong(chunks[i]));
+  }
+  return py_list;
+}
+
+// Return the truth table for design by output ID
+static PyObject* PySNLDesign_getTruthTableByOutputID(PySNLDesign* self, PyObject* args) {
+  long outputID = 0;
+  if (not PyArg_ParseTuple(args, "l:SNLDesign.getTruthTableByOutputID", &outputID)) {
+    setError("malformed SNLDesign.getTruthTableByOutputID method");
+    return nullptr;
+  }
+  METHOD_HEAD("SNLDesign.getTruthTableByOutputID()")
+  SNLTruthTable truthTable =
+      SNLDesignTruthTable::getTruthTable(selfObject, outputID);
+  if (!truthTable.isInitialized()) {
+    Py_RETURN_NONE;
+  }
+  std::vector<uint64_t> chunks = truthTable.bits().getChunks();
+  PyObject* py_list = PyList_New(1 + chunks.size()); 
+  PyList_SetItem(py_list, 0, PyLong_FromLong(truthTable.size()));
+  for (size_t i = 0; i < chunks.size(); i++) {
+    PyList_SetItem(py_list, i + 1, PyLong_FromLong(chunks[i]));
   }
   return py_list;
 }
@@ -541,6 +613,10 @@ PyMethodDef PySNLDesign_Methods[] = {
     "get instance by ID list."},
   { "getNLID", (PyCFunction)PySNLDesign_getNLID, METH_NOARGS,
     "get NLID of the design."},
+  { "getTruthTableByOutputID", (PyCFunction)PySNLDesign_getTruthTableByOutputID, METH_VARARGS,
+    "get truth table by output ID."},
+  { "setTruthTables", (PyCFunction)PySNLDesign_setTruthTables, METH_VARARGS,
+    "set truth tables for design."},
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 
