@@ -547,6 +547,8 @@ class NajaNetlistTest0(unittest.TestCase):
         prim.setTruthTables([2,4])
         truth_table = inst.get_term('O').get_truth_table()
         self.assertEqual(truth_table, [2,4])
+        with self.assertRaises(Exception) as context: prim.setTruthTables([2,4])
+        with self.assertRaises(Exception) as context: prim.setTruthTable(2,)
         
 if __name__ == '__main__':
     faulthandler.enable()

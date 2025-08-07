@@ -195,11 +195,13 @@ SNLTruthTable SNLDesignTruthTable::getTruthTable(
 
     while (true) {
       if (valIdx >= total) {
+        // LCOV_EXCL_START
         std::ostringstream reason;
         reason << "Output ID " << outputID
                << " is out of range for design <"
                << design->getName().getString() << ">";
         throw NLException(reason.str());
+        // LCOV_EXCL_STOP
       }
       if (tableIdx >= outputID) {
         break;
