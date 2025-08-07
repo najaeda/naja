@@ -232,11 +232,13 @@ class Net:
         """
         if self.is_concat():
             raise ValueError(
-                f"set_name of {self}: cannot set name for a concatenated net. Use the individual nets instead."
+                f"set_name of {self}: cannot set name for a concatenated net. "
+                "Use the individual nets instead."
             )
         elif self.is_bus_bit():
             raise ValueError(
-                f"set_name of {self}: cannot set name for a bus bit. Use the bus net instead."
+                f"set_name of {self}: cannot set name for a bus bit. "
+                "Use the bus net instead."
             )
         else:
             self.net.setName(name)
