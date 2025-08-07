@@ -768,7 +768,7 @@ class Term:
                 if term.getName() == self.get_name():
                     # get the truth table
                     tt = model.getTruthTableByOutputID(term.getID())
-                    if tt != None:
+                    if tt is not None:
                         return model.getTruthTableByOutputID(term.getID())
         return None
 
