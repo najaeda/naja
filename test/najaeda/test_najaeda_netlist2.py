@@ -381,9 +381,7 @@ class NajaNetlistTest2(unittest.TestCase):
         netlist.apply_constant_propagation()
         netlist.apply_dle()
         top.dump_full_dot("./netlist2_top3.dot")
-        #truth_table = mod.get_term('O').get_truth_table()
-        #self.assertEqual(truth_table, [2, 4])
-
+        
 if __name__ == '__main__':
     faulthandler.enable()
     unittest.main()
