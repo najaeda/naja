@@ -121,7 +121,7 @@ SNLTruthTable SNLDesignTruthTable::getTruthTable(const SNLDesign* design) {
     if (expectedChunks != tableSize) {
       std::ostringstream reason;
       reason << "Truth table size " << tableSize
-             << " does not match number of chunks " << expectedChunks << " which suggest per output functionality";
+             << " does not match number of chunks " << expectedChunks << " which suggests per output functionality";
       throw NLException(reason.str());
     }
 

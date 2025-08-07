@@ -347,10 +347,11 @@ PyObject* PySNLDesign_getTruthTable(PySNLDesign* self) {
   if (!truthTable.isInitialized()) {
     Py_RETURN_NONE;
   }
-  PyObject* py_list = PyList_New(2); 
+  std::vector<uint64_t> chunks = truthTable.bits().getChunks();
+  PyObject* py_list = PyList_New(1 + chunks.size()); 
   PyList_SetItem(py_list, 0, PyLong_FromLong(truthTable.size()));
-  for (auto mask : truthTable.bits().getChunks()) {
-    PyList_SetItem(py_list, 1, PyLong_FromLong(mask));
+  for (size_t i = 0; i < chunks.size(); i++) {
+    PyList_SetItem(py_list, i + 1, PyLong_FromLong(chunks[i]));
   }
   return py_list;
 }
@@ -368,10 +369,11 @@ static PyObject* PySNLDesign_getTruthTableByOutputID(PySNLDesign* self, PyObject
   if (!truthTable.isInitialized()) {
     Py_RETURN_NONE;
   }
-  PyObject* py_list = PyList_New(2); 
+  std::vector<uint64_t> chunks = truthTable.bits().getChunks();
+  PyObject* py_list = PyList_New(1 + chunks.size()); 
   PyList_SetItem(py_list, 0, PyLong_FromLong(truthTable.size()));
-  for (auto mask : truthTable.bits().getChunks()) {
-    PyList_SetItem(py_list, 1, PyLong_FromLong(mask));
+  for (size_t i = 0; i < chunks.size(); i++) {
+    PyList_SetItem(py_list, i + 1, PyLong_FromLong(chunks[i]));
   }
   return py_list;
 }

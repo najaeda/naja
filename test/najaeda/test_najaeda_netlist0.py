@@ -539,9 +539,12 @@ class NajaNetlistTest0(unittest.TestCase):
         primitives = naja.NLLibrary.createPrimitives(db)
         prim = naja.SNLDesign.createPrimitive(primitives, 'Prim')
         naja.SNLScalarTerm.create(prim, naja.SNLTerm.Direction.Output, "O")
-        prim.setTruthTables([2,4])
+        
         top.create_child_instance(prim.getName(), "prim")
         inst = top.get_child_instance('prim')
+        truth_table = inst.get_term('O').get_truth_table()
+        self.assertEqual(truth_table, None)
+        prim.setTruthTables([2,4])
         truth_table = inst.get_term('O').get_truth_table()
         self.assertEqual(truth_table, [2,4])
         
