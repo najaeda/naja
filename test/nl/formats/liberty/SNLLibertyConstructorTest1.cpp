@@ -441,9 +441,16 @@ TEST_F(SNLLibertyConstructorTest1, testFA_X1Function) {
   auto s = design->getScalarTerm(NLName("S"));
   ASSERT_NE(nullptr, s);
   EXPECT_EQ(SNLTerm::Direction::Output, s->getDirection());
-  auto tt = SNLDesignTruthTable::getTruthTable(design);
-  EXPECT_FALSE(tt.isInitialized());
-  //EXPECT_EQ(3, tt.size());
-  //uint64_t result = 0x111f111f111fffff;
-  //EXPECT_TRUE(NLBitVecDynamic(result, 64) == tt.bits());
+  // Check the truth table per output
+  auto tt_co = SNLDesignTruthTable::getTruthTable(design, co->getID());
+  EXPECT_TRUE(tt_co.isInitialized());
+  EXPECT_EQ(3, tt_co.size());
+  auto tt_s = SNLDesignTruthTable::getTruthTable(design, s->getID());
+  EXPECT_TRUE(tt_s.isInitialized());
+  EXPECT_EQ(3, tt_s.size());
+  // Check the truth table for the design as a whole
+  // Note: The design truth table is not initialized for multiple outputs.
+  // This is a limitation of the current implementation.
+  // Uncomment the following lines if you want to test the design truth table.
+  //EXPECT_TRUE(SNLDesignTruthTable::isInitialized(design));
 }

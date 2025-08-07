@@ -10,6 +10,7 @@ class SNLDesignTest(unittest.TestCase):
     universe = naja.NLUniverse.create()
     db = naja.NLDB.create(universe)
     self.lib = naja.NLLibrary.create(db)
+    self.libP = naja.NLLibrary.createPrimitives(db)
 
   def tearDown(self):
     if naja.NLUniverse.get():
@@ -249,6 +250,77 @@ class SNLDesignTest(unittest.TestCase):
   def testDestroy(self):
     design = naja.SNLDesign.create(self.lib, "DESIGN")
     design.destroy()
-   
+  
+  # testing truth table setting and getting
+  def testTruthTable(self):
+    design = naja.SNLDesign.createPrimitive(self.libP, "DESIGN")
+    
+    i0 = naja.SNLScalarTerm.create(design, naja.SNLTerm.Direction.Input, "I0")
+    i1 = naja.SNLScalarTerm.create(design, naja.SNLTerm.Direction.Input, "I1")
+    o = naja.SNLScalarTerm.create(design, naja.SNLTerm.Direction.Output, "O")
+    self.assertEqual(None, design.getTruthTableByOutputID(o.getID()))
+    # list of truth tables
+    tables = [1, 1]
+    # set truth table for output
+    design.setTruthTables(tables)
+    
+    # check truth table
+    self.assertEqual([1, 1], design.getTruthTableByOutputID(o.getID()))
+
+  # testing setting truth table with more than 6 inputs
+  def testTruthTableError(self):
+    design = naja.SNLDesign.createPrimitive(self.libP, "DESIGN")
+    i0 = naja.SNLScalarTerm.create(design, naja.SNLTerm.Direction.Input, "I0")
+    i1 = naja.SNLScalarTerm.create(design, naja.SNLTerm.Direction.Input, "I1")
+    o = naja.SNLScalarTerm.create(design, naja.SNLTerm.Direction.Output, "O")
+    o1 = naja.SNLScalarTerm.create(design, naja.SNLTerm.Direction.Output, "O1")
+    # list of truth tables with more than 6 inputs
+    tables = [6, 1, 6, 1]
+    design.setTruthTables(tables)
+    self.assertEqual(design.isConst(), False)
+    
+  def testTruthTableByOutputIDExceptions(self):
+    design = naja.SNLDesign.create(self.lib, "DESIGN")
+    
+    # Invalid types
+    with self.assertRaises(RuntimeError): design.getTruthTableByOutputID()
+    with self.assertRaises(RuntimeError): design.getTruthTableByOutputID("invalid")
+    with self.assertRaises(RuntimeError): design.getTruthTableByOutputID(None)
+    with self.assertRaises(RuntimeError): design.getTruthTableByOutputID(3.14)
+    with self.assertRaises(RuntimeError): design.getTruthTableByOutputID([1, 2, 3])
+  
+  def testSetTruthTablesExceptions(self):
+    design = naja.SNLDesign.create(self.lib, "DESIGN")
+    
+    # add output
+    o = naja.SNLScalarTerm.create(design, naja.SNLTerm.Direction.Output, "O")
+
+    # Missing argument
+    with self.assertRaises(RuntimeError): design.setTruthTables()
+
+    # Incorrect type: None
+    with self.assertRaises(RuntimeError): design.setTruthTables(None)
+
+    # Incorrect type: string
+    with self.assertRaises(RuntimeError): design.setTruthTables("not a list")
+
+    # Incorrect type: dict
+    with self.assertRaises(RuntimeError): design.setTruthTables({"size": 4, "mask": 0b1010})
+
+    # Incorrect structure: flat list
+    with self.assertRaises(RuntimeError): design.setTruthTables([4, 0b1010])
+
+    # Incorrect item types: list of floats
+    with self.assertRaises(RuntimeError): design.setTruthTables([4.0, 0b1010])
+
+    # Incorrect item types: list of mixed types
+    with self.assertRaises(RuntimeError): design.setTruthTables([4, "0b1010"])
+
+    # Uneven number of elements in list (incomplete size/mask pair)
+    with self.assertRaises(RuntimeError): design.setTruthTables([4])
+    
+    with self.assertRaises(RuntimeError): design.setTruthTable(4)
+
+
 if __name__ == '__main__':
   unittest.main()

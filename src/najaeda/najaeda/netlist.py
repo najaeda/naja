@@ -771,6 +771,25 @@ class Term:
                 iterm = inst.getInstTerm(bterm)
                 iterm.setNet(bnet)
 
+    def get_truth_table(self):
+        # check the index of the output
+        if not self.is_output():
+            raise ValueError("Truth table can only be computed for output terms")
+        # get the instance
+        if self.is_bus():
+            raise ValueError("Truth table cannot be computed for bus terms")
+        inst = self.get_instance()
+        # get the model
+        model = inst._Instance__get_snl_model()
+        for term in model.getTerms():
+            if term.getDirection() == naja.SNLTerm.Direction.Output:
+                if term.getName() == self.get_name():
+                    # get the truth table
+                    tt = model.getTruthTableByOutputID(term.getID())
+                    if tt is not None:
+                        return model.getTruthTableByOutputID(term.getID())
+        return None
+
 
 def get_instance_by_path(names: list):
     assert len(names) > 0
