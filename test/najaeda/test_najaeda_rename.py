@@ -61,7 +61,23 @@ class NajaNetlistTestRename(unittest.TestCase):
         self.assertEqual(net1, top.get_net('mynet1'))
 
         #error on renaming a net concatenation
-        
+        net4 = top.get_net('net4')
+        self.assertIsNotNone(net4)
+        self.assertEqual('net4', net4.get_name())
+        net4_1 = net4.get_bit(1)
+        self.assertIsNotNone(net4_1)
+        with self.assertRaises(ValueError):
+            net4_1.set_name('my_net4')
+
+        net4_0 = net4.get_bit(0)
+        self.assertIsNotNone(net4_0)
+
+        net_concat = netlist.Net('net_concat', net_concat=[net4_0, net4_1])
+        self.assertIsNotNone(net_concat)
+        self.assertTrue(net_concat.is_concat())
+        with self.assertRaises(ValueError):
+            net_concat.set_name('my_net_concat')
+
 
 if __name__ == '__main__':
     faulthandler.enable()

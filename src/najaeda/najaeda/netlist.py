@@ -207,14 +207,15 @@ class Net:
         return not eq_result
 
     def __str__(self):
-        if hasattr(self, "net"):
-            net_str = str(self.net)
-        elif hasattr(self, "net_concat"):
+        if self.is_concat():
             net_str = "{" + ",".join(map(str, self.net_concat)) + "}"
+            return net_str
+        net_str = str(self.net)
         path = get_snl_path_from_id_list(self.pathIDs)
         if path.size() > 0:
             return f"{path}/{net_str}"
-        return net_str
+        else:
+            return net_str
 
     def get_name(self) -> str:
         """
@@ -229,12 +230,16 @@ class Net:
         """
         :param str name: the name to set for this Net.
         """
-        if hasattr(self, "net"):
-            self.net.setName(name)
-        else:
+        if self.is_concat():
             raise ValueError(
-                "Cannot set name for a concatenated net. Use the individual nets instead."
+                f"set_name of {self}: cannot set name for a concatenated net. Use the individual nets instead."
             )
+        elif self.is_bus_bit():
+            raise ValueError(
+                f"set_name of {self}: cannot set name for a bus bit. Use the bus net instead."
+            )
+        else:
+            self.net.setName(name)
 
     def get_msb(self) -> int:
         """
