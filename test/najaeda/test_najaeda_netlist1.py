@@ -78,8 +78,7 @@ class NajaNetlistTest1(unittest.TestCase):
         ins2.get_term('O').connect(oNet)
 
     def tearDown(self):
-        if naja.NLUniverse.get():
-            naja.NLUniverse.get().destroy()
+        netlist.reset()
 
     def test_browse(self):
         top = netlist.get_top()

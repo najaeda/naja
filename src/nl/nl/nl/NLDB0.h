@@ -76,7 +76,6 @@ class NLDB0 {
   private:
     static NLDB* create(NLUniverse* universe);
     static constexpr char RootLibraryName[] { "PRIMITIVES" };
-    static constexpr char ANDName[]         { "AND" };
 };
 
 }} // namespace NL // namespace naja

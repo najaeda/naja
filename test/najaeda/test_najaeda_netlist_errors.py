@@ -11,8 +11,7 @@ from najaeda import naja
 
 class NajaNetlistTestErrors(unittest.TestCase):
     def tearDown(self):
-        if naja.NLUniverse.get():
-            naja.NLUniverse.get().destroy()
+        netlist.reset()
 
     def test_missing_model(self):
         top = netlist.create_top('Top')

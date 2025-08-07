@@ -19,8 +19,7 @@ class NajaNetlistCustomPrimitivesTest(unittest.TestCase):
         universe.setTopDB(db)
 
     def tearDown(self):
-        if naja.NLUniverse.get():
-            naja.NLUniverse.get().destroy()
+        netlist.reset()
 
     def test_loading(self):
         universe = naja.NLUniverse.get()
