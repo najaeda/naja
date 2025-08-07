@@ -41,6 +41,10 @@ class NajaNetlistTest2(unittest.TestCase):
         o = naja.SNLBusTerm.create(module0, naja.SNLTerm.Direction.Output, 1, 0, 'O')
         oNet = naja.SNLBusNet.create(module0, 1, 0, 'O')
         o.setNet(oNet)
+        
+        prim = naja.SNLDesign.createPrimitive(primitives, 'Prim')
+        naja.SNLScalarTerm.create(prim, naja.SNLTerm.Direction.Output, "O")
+        prim.setTruthTables([2,4])
 
         net = naja.SNLBusNet.create(module0, 1, 0, 'net')
 
@@ -377,7 +381,8 @@ class NajaNetlistTest2(unittest.TestCase):
         netlist.apply_constant_propagation()
         netlist.apply_dle()
         top.dump_full_dot("./netlist2_top3.dot")
-
+        #truth_table = mod.get_term('O').get_truth_table()
+        #self.assertEqual(truth_table, [2, 4])
 
 if __name__ == '__main__':
     faulthandler.enable()

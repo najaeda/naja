@@ -503,6 +503,7 @@ class NajaNetlistTest0(unittest.TestCase):
         top.create_input_term("I0")
         top.create_input_bus_term("I1", 4, 0)
         top.create_output_term("O")
+        top.create_output_bus_term("O1", 4, 0)
         count = 0
         for input in top.get_flat_input_terms():
             count += 1
@@ -510,8 +511,11 @@ class NajaNetlistTest0(unittest.TestCase):
         count = 0
         for output in top.get_flat_output_terms():
             count += 1
-        self.assertEqual(count, 1)
+        self.assertEqual(count, 6)
         top_i1 = top.get_term("I1")
+        with self.assertRaises(Exception) as context: top_i1.get_truth_table()
+        top_o1 = top.get_term("O1")
+        with self.assertRaises(Exception) as context: top_o1.get_truth_table()
         self.assertIsNotNone(top_i1)
         self.assertTrue(top_i1.is_input())
         self.assertTrue(top_i1.is_bus())
