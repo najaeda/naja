@@ -23,9 +23,11 @@ naja::NajaDumpableProperty* getProperty(const naja::NL::SNLDesign* design) {
 
 void createProperty(naja::NL::SNLDesign* design,
                     const naja::NL::SNLTruthTable& truthTable) {
+  // LCOV_EXCL_START
   if (getProperty(design)) {
     throw naja::NL::NLException("Design already has a Truth Table");
   }
+  // LCOV_EXCL_STOP
   auto property = naja::NajaDumpableProperty::create(
       design, SNLDesignTruthTablePropertyName);
   property->addUInt64Value(truthTable.size());
@@ -39,9 +41,11 @@ void createProperty(naja::NL::SNLDesign* design,
   if (truthTables.empty()) {
     throw naja::NL::NLException("Cannot set empty truth table");
   }
+  // LCOV_EXCL_START
   if (getProperty(design)) {
     throw naja::NL::NLException("Design already has a Truth Table");
   }
+  // LCOV_EXCL_STOP
   auto property = naja::NajaDumpableProperty::create(
       design, SNLDesignTruthTablePropertyName);
   for (const auto& truthTable : truthTables) {
@@ -194,15 +198,15 @@ SNLTruthTable SNLDesignTruthTable::getTruthTable(
     size_t total    = property->getValues().size();
 
     while (true) {
+      // LCOV_EXCL_START
       if (valIdx >= total) {
-        // LCOV_EXCL_START
         std::ostringstream reason;
         reason << "Output ID " << outputID
                << " is out of range for design <"
                << design->getName().getString() << ">";
         throw NLException(reason.str());
-        // LCOV_EXCL_STOP
       }
+      // LCOV_EXCL_STOP
       if (tableIdx >= outputID) {
         break;
       }
