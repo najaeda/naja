@@ -22,7 +22,6 @@ for instance in top.get_child_instances():
     # print truth table for each instance
     for port in instance.get_output_terms():
         if not port.is_bus() and port.get_direction() != netlist.Term.Direction.OUTPUT:
-            print("here")
             # print name
             print(f"  {port.get_name()}")
             # print truth table
