@@ -50,6 +50,16 @@ class NajaNetlistTestRename(unittest.TestCase):
         top.set_name('mytest')
         self.assertEqual('mytest', top.get_name())
 
+        #rename nets
+        net1 = top.get_net('net1')
+        self.assertIsNotNone(net1)
+        self.assertEqual('net1', net1.get_name())
+        net1.set_name('mynet1')
+        self.assertEqual('mynet1', net1.get_name())
+        self.assertIsNone(top.get_net('net1'))
+        self.assertIsNotNone(top.get_net('mynet1'))
+        self.assertEqual(net1, top.get_net('mynet1'))
+
 if __name__ == '__main__':
     faulthandler.enable()
     unittest.main()
