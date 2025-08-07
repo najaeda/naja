@@ -60,6 +60,9 @@ class NajaNetlistTestRename(unittest.TestCase):
         self.assertIsNotNone(top.get_net('mynet1'))
         self.assertEqual(net1, top.get_net('mynet1'))
 
+        #error on renaming a net concatenation
+        
+
 if __name__ == '__main__':
     faulthandler.enable()
     unittest.main()
