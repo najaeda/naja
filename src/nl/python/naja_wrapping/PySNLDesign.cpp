@@ -476,6 +476,7 @@ GetObjectByName(SNLDesign, SNLParameter, getParameter)
 GetObjectByIndex(SNLDesign, SNLInstance, InstanceByID)
 GetObjectByIndex(SNLDesign, SNLTerm, TermByID)
 GetNameMethod(SNLDesign)
+SetNameMethod(SNLDesign)
 DirectGetIntMethod(PySNLDesign_getID, getID, PySNLDesign, SNLDesign)
 DirectGetIntMethod(PySNLDesign_getRevisionCount, getRevisionCount, PySNLDesign, SNLDesign)
 GetBoolAttribute(SNLDesign, isUnnamed)
@@ -547,6 +548,8 @@ PyMethodDef PySNLDesign_Methods[] = {
     "get SNLDesign name"},
   { "isUnnamed", (PyCFunction)PySNLDesign_isUnnamed, METH_NOARGS,
     "Returns True if the SNLDesign is unnamed"},
+  { "setName", (PyCFunction)PySNLDesign_setName, METH_O,
+    "Set the NLName of this SNLDesign."},
   { "isBlackBox", (PyCFunction)PySNLDesign_isBlackBox, METH_NOARGS,
     "Returns True if the SNLDesign is a Blackbox"},
   { "isPrimitive", (PyCFunction)PySNLDesign_isPrimitive, METH_NOARGS,
