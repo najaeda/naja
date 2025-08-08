@@ -3,7 +3,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import itertools
 import time
 import logging
 import hashlib
@@ -308,10 +307,7 @@ class Net:
         if hasattr(self, "net"):
             return self.net.isConstant()
         else:
-            for net in self.net_concat:
-                if not net.isConstant():
-                    return False
-            return True
+            return all(net.isConstant() for net in self.net_concat)
 
     def set_type(self, net_type: Type):
         """
@@ -346,7 +342,7 @@ class Net:
                 yield self
         else:
             for net in self.net_concat:
-                yield Net(net)
+                yield Net(self.pathIDs, net)
 
     def get_bit(self, index: int):
         """
@@ -413,8 +409,8 @@ class Net:
         :return: an iterator over the terminals of the net.
         :rtype: Iterator[Term]
         """
-        for term in itertools.chain(self.get_design_terms(), self.get_inst_terms()):
-            yield term
+        yield from self.get_design_terms()
+        yield from self.get_inst_terms()
 
 
 def get_snl_term_for_ids(pathIDs, termIDs):
@@ -996,12 +992,6 @@ class Instance:
         """
         return self.__get_snl_model().isInv()
 
-    def is_basic_primitive(instance):
-        design = instance.__get_snl_model()
-        return (
-            design.isConst0() or design.isConst1() or design.isBuf() or design.isInv()
-        )
-
     def __get_snl_model(self):
         if self.is_top():
             return naja.NLUniverse.get().getTopDesign()
@@ -1291,6 +1281,14 @@ class Instance:
         leaf_object = self.__get_leaf_snl_object()
         for attribute in leaf_object.getAttributes():
             yield Attribute(attribute)
+
+    def count_attributes(self) -> int:
+        """Count the attributes of this Instance.
+
+        :return: the number of attributes of this Instance.
+        :rtype: int
+        """
+        return sum(1 for _ in self.get_attributes())
 
     def delete_instance(self, name: str):
         """Delete the child instance with the given name."""
