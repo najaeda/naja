@@ -1141,6 +1141,13 @@ class Instance:
         :rtype: bool
         """
         return self.__get_snl_model().isPrimitive()
+    
+    def is_sequential(self) -> bool:
+        """
+        :return: True if this is a sequential element.
+        :rtype: bool
+        """
+        return self.__get_snl_model().isSequential()
 
     def get_terms(self):
         """Iterate over all scalar terms and bus terms of this Instance.

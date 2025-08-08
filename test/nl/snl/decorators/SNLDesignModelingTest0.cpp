@@ -108,6 +108,8 @@ TEST_F(SNLDesignModelingTest0, testSequential) {
   SNLDesignModeling::addInputsToClockArcs({regD}, regC);
   SNLDesignModeling::addClockToOutputsArcs(regC, {regQ});
 
+  EXPECT_TRUE(reg->isSequential());
+
   EXPECT_TRUE(SNLDesignModeling::getCombinatorialOutputs(regD).empty());
   EXPECT_TRUE(SNLDesignModeling::getCombinatorialOutputs(regQ).empty());
   EXPECT_TRUE(SNLDesignModeling::getCombinatorialOutputs(regC).empty());
