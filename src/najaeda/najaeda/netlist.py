@@ -133,27 +133,27 @@ class Equipotential:
             for term in self.equi.getTerms():
                 yield Term([], term)
 
-    def get_leaf_readers(self):
+    def get_leaf_readers(self, filter=None):
         if self.equi is not None:
             for term in self.equi.getInstTermOccurrences():
                 direction = term.getInstTerm().getDirection()
-                if direction != naja.SNLTerm.Direction.Output:
-                    if term.getInstTerm().getInstance().getModel().isLeaf():
-                        path = term.getPath().getPathIDs()
-                        path.append(term.getInstTerm().getInstance().getID())
-                        yield Term(path,
-                            term.getInstTerm().getBitTerm())
+                if direction != naja.SNLTerm.Direction.Output and \
+                term.getInstTerm().getInstance().getModel().isLeaf() and \
+                (filter is None or filter(term)):
+                    path = term.getPath().getPathIDs()
+                    path.append(term.getInstTerm().getInstance().getID())
+                    yield Term(path, term.getInstTerm().getBitTerm())
 
-    def get_leaf_drivers(self):
+    def get_leaf_drivers(self, filter=None):
         if self.equi is not None:
             for term in self.equi.getInstTermOccurrences():
                 direction = term.getInstTerm().getDirection()
-                if direction != naja.SNLTerm.Direction.Input:
-                    if term.getInstTerm().getInstance().getModel().isLeaf():
-                        path = term.getPath().getPathIDs()
-                        path.append(term.getInstTerm().getInstance().getID())
-                        yield Term(path,
-                            term.getInstTerm().getBitTerm())
+                if direction != naja.SNLTerm.Direction.Input and \
+                term.getInstTerm().getInstance().getModel().isLeaf() and \
+                (filter is None or filter(term)):
+                    path = term.getPath().getPathIDs()
+                    path.append(term.getInstTerm().getInstance().getID())
+                    yield Term(path, term.getInstTerm().getBitTerm())
 
     def get_top_readers(self):
         if self.equi is not None:
@@ -241,6 +241,10 @@ class Net:
                 "Use the bus net instead."
             )
         else:
+            # We need to uniquify until parent instance if parent instance is not top.
+            path = get_snl_path_from_id_list(self.pathIDs)
+            if path.size() > 1:
+                naja.SNLUniquifier(path.getHeadPath())
             self.net.setName(name)
 
     def get_msb(self) -> int:
@@ -693,8 +697,11 @@ class Term:
         """
         return Instance(self.pathIDs)
 
-    def get_flat_fanout(self):
-        return self.get_equipotential().get_leaf_readers()
+    def get_flat_fanout(self, filter=None):
+        return self.get_equipotential().get_leaf_readers(filter=filter)
+    
+    def count_flat_fanout(self, filter=None):
+        return sum(1 for _ in self.get_flat_fanout(filter=filter))
 
     def get_equipotential(self) -> Equipotential:
         """
@@ -1347,8 +1354,10 @@ class Instance:
             topSNLDesign.setName(name)
         else:
             path = get_snl_path_from_id_list(self.pathIDs)
-            if path.size() > 0:
-                naja.SNLUniquifier(path)
+            # We need to uniquify until parent instance if parent instance
+            # is not top.
+            if path.size() > 1:
+                naja.SNLUniquifier(path.getHeadPath())
                 path = get_snl_path_from_id_list(self.pathIDs)
             inst = path.getTailInstance()
             inst.setName(name)
