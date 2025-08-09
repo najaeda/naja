@@ -485,6 +485,7 @@ GetBoolAttribute(SNLDesign, isPrimitive)
 GetBoolAttribute(SNLDesign, isLeaf)
 GetBoolAttribute(SNLDesign, isAssign)
 GetBoolAttribute(SNLDesign, isTopDesign)
+GetBoolAttribute(SNLDesign, isSequential)
 GetBoolAttributeWithFunction(SNLDesign, isConst0, SNLDesignTruthTable::isConst0)
 GetBoolAttributeWithFunction(SNLDesign, isConst1, SNLDesignTruthTable::isConst1)
 GetBoolAttributeWithFunction(SNLDesign, isConst, SNLDesignTruthTable::isConst)
@@ -558,6 +559,8 @@ PyMethodDef PySNLDesign_Methods[] = {
     "Returns True if the SNLDesign is a Leaf"},
   { "isAssign", (PyCFunction)PySNLDesign_isAssign, METH_NOARGS,
     "Returns True if the SNLDesign is an Assign"},
+  { "isSequential", (PyCFunction)PySNLDesign_isSequential, METH_NOARGS,
+    "Returns True if the SNLDesign is a Sequential"},
   { "getDB", (PyCFunction)PySNLDesign_getDB, METH_NOARGS,
     "Returns the SNLDesign owner SNLDB."},
   { "getLibrary", (PyCFunction)PySNLDesign_getLibrary, METH_NOARGS,
