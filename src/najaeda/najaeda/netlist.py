@@ -1543,7 +1543,7 @@ class Instance:
         :rtype: list[str]
         """
         return self.__get_snl_model().getTruthTable()
-    
+
     def add_clock_related_inputs(self, clock_term: Term, input_terms: List[Term]):
         """Add input terms that are related to the given clock term.
 
@@ -1554,7 +1554,7 @@ class Instance:
         snlterms = [get_snl_term_for_ids(term.pathIDs, term.termIDs) for term in input_terms]
         self.__get_snl_model().addInputsToClockArcs(snlterms, 
                                                     get_snl_term_for_ids(clock_term.pathIDs, clock_term.termIDs))
-    
+
     def get_clock_related_inputs(self, clock_term: Term) -> List[Term]:
         """Get all input terms that are related to the given clock term.
 
@@ -1575,8 +1575,8 @@ class Instance:
         """
         # convert Term objects to SNL terms
         snlterms = [get_snl_term_for_ids(term.pathIDs, term.termIDs) for term in output_terms]
-        self.__get_snl_model().addClockToOutputsArcs(get_snl_term_for_ids(clock_term.pathIDs, clock_term.termIDs),
-                                                     snlterms)
+        self.__get_snl_model().addClockToOutputsArcs(
+            get_snl_term_for_ids(clock_term.pathIDs, clock_term.termIDs),snlterms)
 
     def get_clock_related_outputs(self, clock_term: Term) -> List[Term]:
         """Get all output terms that are related to the given clock term.
@@ -1585,10 +1585,11 @@ class Instance:
         :return: a list of output terms that are related to the clock term.
         :rtype: List[Term]
         """
-        terms = self.__get_snl_model().getClockRelatedOutputs(get_snl_term_for_ids(clock_term.pathIDs, clock_term.termIDs))
+        terms = self.__get_snl_model().getClockRelatedOutputs(
+            get_snl_term_for_ids(clock_term.pathIDs, clock_term.termIDs))
         # Convert SNL terms to Term objects
         return [Term(clock_term.pathIDs, term) for term in terms]
-    
+
     def add_combinatorial_arcs(self, input_terms: List[Term], output_terms: List[Term]):
         """Add input terms that are combinatorial inputs for the given output term.
 
@@ -1596,28 +1597,32 @@ class Instance:
         :param input_terms: a list of input terms to add.
         :return: None
         """
-        self.__get_snl_model().addCombinatorialArcs([get_snl_term_for_ids(term.pathIDs, term.termIDs) for term in input_terms],
-                                                      [get_snl_term_for_ids(term.pathIDs, term.termIDs) for term in output_terms])
-    
+        self.__get_snl_model().addCombinatorialArcs(
+            [get_snl_term_for_ids(term.pathIDs, term.termIDs) for term in input_terms],
+            [get_snl_term_for_ids(term.pathIDs, term.termIDs) for term in output_terms])
+
     def get_combinatorial_inputs(self, output_term: Term) -> List[Term]:
         """Get all combinatorial input terms of this instance.
 
         :return: a list of combinatorial input terms.
         :rtype: List[Term]
         """
-        terms = self.__get_snl_model().getCombinatorialInputs(get_snl_term_for_ids(output_term.pathIDs, output_term.termIDs))
+        terms = self.__get_snl_model().getCombinatorialInputs(
+            get_snl_term_for_ids(output_term.pathIDs, output_term.termIDs))
         # Convert SNL terms to Term objects
         return [Term(self.pathIDs, term) for term in terms]
-    
+
     def get_combinatorial_outputs(self, input_term: Term) -> List[Term]:
         """Get all combinatorial output terms of this instance.
 
         :return: a list of combinatorial output terms.
         :rtype: List[Term]
         """
-        terms = self.__get_snl_model().getCombinatorialOutputs(get_snl_term_for_ids(input_term.pathIDs, input_term.termIDs))
+        terms = self.__get_snl_model().getCombinatorialOutputs(
+            get_snl_term_for_ids(input_term.pathIDs, input_term.termIDs))
         # Convert SNL terms to Term objects
         return [Term(self.pathIDs, term) for term in terms]
+
 
 def __get_top_db() -> naja.NLDB:
     if naja.NLUniverse.get() is None:
