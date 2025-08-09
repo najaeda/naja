@@ -1552,8 +1552,8 @@ class Instance:
         :return: None
         """
         snlterms = [get_snl_term_for_ids(term.pathIDs, term.termIDs) for term in input_terms]
-        self.__get_snl_model().addInputsToClockArcs(snlterms, 
-                                                    get_snl_term_for_ids(clock_term.pathIDs, 
+        self.__get_snl_model().addInputsToClockArcs(snlterms,
+                                                    get_snl_term_for_ids(clock_term.pathIDs,
                                                                          clock_term.termIDs))
 
     def get_clock_related_inputs(self, clock_term: Term) -> List[Term]:
@@ -1563,7 +1563,7 @@ class Instance:
         :return: a list of input terms that are related to the clock term.
         :rtype: List[Term]
         """
-        terms =  self.__get_snl_model().getClockRelatedInputs(
+        terms = self.__get_snl_model().getClockRelatedInputs(
             get_snl_term_for_ids(clock_term.pathIDs, clock_term.termIDs))
         # Convert SNL terms to Term objects
         return [Term(clock_term.pathIDs, term) for term in terms]
