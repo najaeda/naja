@@ -50,6 +50,8 @@ class NajaNetlistTest2(unittest.TestCase):
         naja.SNLScalarTerm.create(primSeq, naja.SNLTerm.Direction.Output, "o0")
         naja.SNLScalarTerm.create(primSeq, naja.SNLTerm.Direction.Input, "i0")
         naja.SNLScalarTerm.create(primSeq, naja.SNLTerm.Direction.Input, "c")
+        naja.SNLScalarTerm.create(primSeq, naja.SNLTerm.Direction.Input, "i1")
+        naja.SNLScalarTerm.create(primSeq, naja.SNLTerm.Direction.Input, "o1")
 
         net = naja.SNLBusNet.create(module0, 1, 0, 'net')
 
@@ -395,12 +397,15 @@ class NajaNetlistTest2(unittest.TestCase):
         # create clock related input
         in0 = inst.get_term('i0')
         self.assertIsNotNone(in0)
-        inst.add_clock_related_inputs(clk, in0)
+        inst.add_clock_related_inputs(clk, [in0])
         # create clock related output
         out0 = inst.get_term('o0')
-        inst.add_clock_related_outputs(clk, out0)
+        inst.add_clock_related_outputs(clk, [out0])
         self.assertEqual([in0], inst.get_clock_related_inputs(clk))
         self.assertEqual([out0], inst.get_clock_related_outputs(clk))
+        inst.add_combinatorial_arcs([inst.get_term('i1')], [inst.get_term('o1')])
+        self.assertEqual([inst.get_term('i1')], inst.get_combinatorial_inputs(inst.get_term('o1')))
+        self.assertEqual([inst.get_term('o1')], inst.get_combinatorial_outputs(inst.get_term('i1')))
         
 if __name__ == '__main__':
     faulthandler.enable()
