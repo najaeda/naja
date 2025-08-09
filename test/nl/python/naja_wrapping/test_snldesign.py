@@ -322,6 +322,5 @@ class SNLDesignTest(unittest.TestCase):
     
     with self.assertRaises(RuntimeError): design.setTruthTable(4)
 
-
 if __name__ == '__main__':
   unittest.main()
