@@ -1141,7 +1141,7 @@ class Instance:
         :rtype: bool
         """
         return self.__get_snl_model().isPrimitive()
-    
+
     def is_sequential(self) -> bool:
         """
         :return: True if this is a sequential element.
@@ -1553,7 +1553,8 @@ class Instance:
         """
         snlterms = [get_snl_term_for_ids(term.pathIDs, term.termIDs) for term in input_terms]
         self.__get_snl_model().addInputsToClockArcs(snlterms, 
-                                                    get_snl_term_for_ids(clock_term.pathIDs, clock_term.termIDs))
+                                                    get_snl_term_for_ids(clock_term.pathIDs, 
+                                                                         clock_term.termIDs))
 
     def get_clock_related_inputs(self, clock_term: Term) -> List[Term]:
         """Get all input terms that are related to the given clock term.
@@ -1562,7 +1563,8 @@ class Instance:
         :return: a list of input terms that are related to the clock term.
         :rtype: List[Term]
         """
-        terms =  self.__get_snl_model().getClockRelatedInputs(get_snl_term_for_ids(clock_term.pathIDs, clock_term.termIDs))
+        terms =  self.__get_snl_model().getClockRelatedInputs(
+            get_snl_term_for_ids(clock_term.pathIDs, clock_term.termIDs))
         # Convert SNL terms to Term objects
         return [Term(clock_term.pathIDs, term) for term in terms]
 
@@ -1576,7 +1578,7 @@ class Instance:
         # convert Term objects to SNL terms
         snlterms = [get_snl_term_for_ids(term.pathIDs, term.termIDs) for term in output_terms]
         self.__get_snl_model().addClockToOutputsArcs(
-            get_snl_term_for_ids(clock_term.pathIDs, clock_term.termIDs),snlterms)
+            get_snl_term_for_ids(clock_term.pathIDs, clock_term.termIDs), snlterms)
 
     def get_clock_related_outputs(self, clock_term: Term) -> List[Term]:
         """Get all output terms that are related to the given clock term.
