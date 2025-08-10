@@ -225,6 +225,7 @@ class SNLDesignTest(unittest.TestCase):
   def testParameterClashErrors(self):
     self.assertIsNotNone(self.lib)
     design = naja.SNLDesign.create(self.lib, "DESIGN")
+    self.assertFalse(design.isSequential())
     self.assertIsNotNone(design)
     p0 = naja.SNLParameter.create_decimal(design, "REG", 34)
     p1 = naja.SNLParameter.create_binary(design, "INIT", 16, 0x0000)
@@ -320,7 +321,6 @@ class SNLDesignTest(unittest.TestCase):
     with self.assertRaises(RuntimeError): design.setTruthTables([4])
     
     with self.assertRaises(RuntimeError): design.setTruthTable(4)
-
 
 if __name__ == '__main__':
   unittest.main()

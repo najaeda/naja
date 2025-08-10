@@ -532,6 +532,7 @@ class NajaNetlistTest0(unittest.TestCase):
         universe.setTopDB(db)
         netlist.create_top('Top')
         top = netlist.get_top()
+        self.assertFalse(top.is_sequential())
         primitives = naja.NLLibrary.createPrimitives(db)
         prim = naja.SNLDesign.createPrimitive(primitives, 'Prim')
         naja.SNLScalarTerm.create(prim, naja.SNLTerm.Direction.Output, "O")

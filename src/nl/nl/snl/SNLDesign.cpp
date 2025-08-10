@@ -22,6 +22,7 @@
 #include "SNLBusNetBit.h"
 #include "SNLAttributes.h"
 #include "SNLMacros.h"
+#include "SNLDesignModeling.h"
 
 namespace naja { namespace NL {
 
@@ -735,6 +736,17 @@ void SNLDesign::recursiveRevisionIncrement() {
   for (auto instance: getInstances()) {
     instance->getModel()->recursiveRevisionIncrement();
   }
+}
+
+bool SNLDesign::isSequential() const {
+  for (auto term : this->getBitTerms()) {
+    auto seqRelatedInputs = SNLDesignModeling::getClockRelatedInputs(term); 
+    auto seqRelatedOutputs = SNLDesignModeling::getClockRelatedOutputs(term);
+    if (!seqRelatedInputs.empty() || !seqRelatedOutputs.empty()) {
+      return true;
+    }
+  }
+  return false;
 }
 
 }} // namespace NL // namespace naja

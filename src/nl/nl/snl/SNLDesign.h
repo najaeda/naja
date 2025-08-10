@@ -252,6 +252,8 @@ class SNLDesign final: public NLObject {
     ///\return true if this SNLDesign is a top design.
     bool isTopDesign() const;
 
+    bool isSequential() const;
+
     /**
      * \brief Cloning interface for SNLDesign.
      * \param name NLName of the the clone.
