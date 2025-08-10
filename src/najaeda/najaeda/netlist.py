@@ -246,7 +246,7 @@ class Net:
         else:
             # We need to uniquify until parent instance if parent instance is not top.
             path = get_snl_path_from_id_list(self.pathIDs)
-            if path.size() > 1:
+            if path.size():
                 naja.SNLUniquifier(path.getHeadPath())
             self.net.setName(name)
 
@@ -1380,7 +1380,7 @@ class Instance:
         else:
             path = get_snl_path_from_id_list(self.pathIDs)
             # We need to uniquify until parent instance if parent instance
-            # is not top.
+            # is not top. path.size == 1 for instance under top
             if path.size() > 1:
                 naja.SNLUniquifier(path.getHeadPath())
                 path = get_snl_path_from_id_list(self.pathIDs)
