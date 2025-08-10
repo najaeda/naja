@@ -151,7 +151,7 @@ class InstanceStats:
 
 
 def is_basic_primitive(instance):
-    return instance.is_basic_primitive()
+    return instance.is_const() or instance.is_buf() or instance.is_inv()
 
 
 def compute_instance_stats(instance, instances_stats):
