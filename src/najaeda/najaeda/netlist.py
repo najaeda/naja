@@ -638,7 +638,7 @@ class Term:
     def __get_snl_bitnet(self, bit) -> Net:
         # single bit
         path = get_snl_path_from_id_list(self.pathIDs)
-        if path.size() > 0:
+        if path.size():
             instTerm = path.getTailInstance().getInstTerm(bit)
             return instTerm.getNet()
         else:
@@ -886,9 +886,9 @@ class Instance:
     def __init__(self, path=naja.SNLPath()):
         self.inst = None
         self.revisionCount = 0
-        self.SNLID = [0, 0, 0, 0, 0, 0]
+        self.SNLID = [0] * 6
         if isinstance(path, naja.SNLPath):
-            if path.size() > 0:
+            if path.size():
                 self.pathIDs = path.getPathIDs()
                 self.revisionCount = path.getTailInstance().getModel().getRevisionCount()
                 self.inst = path.getTailInstance()
@@ -896,10 +896,10 @@ class Instance:
                 self.pathIDs = []
         elif isinstance(path, list):
             self.pathIDs = path.copy()
-            if len(path) > 0:
+            if path:
                 self.inst = get_snl_instance_from_id_list(path)
                 self.revisionCount = self.inst.getModel().getRevisionCount()
-        if self.inst is not None:
+        if self.inst:
             self.SNLID = self.inst.getModel().getNLID()
 
     def __eq__(self, other) -> bool:
