@@ -151,10 +151,7 @@ class InstanceStats:
 
 
 def is_basic_primitive(instance):
-    model = instance.__get_snl_model()
-    return (
-        model.isConst0() or model.isConst1() or model.isBuf() or model.isInv()
-    )
+    return instance.is_const() or instance.is_buf() or instance.is_inv()
 
 
 def compute_instance_stats(instance, instances_stats):
