@@ -411,6 +411,7 @@ class NajaNetlistTest2(unittest.TestCase):
         self.assertTrue(inst.get_term('c').is_sequential())
         self.assertFalse(inst.get_term('i1').is_sequential())
         self.assertFalse(inst.get_term('o1').is_sequential())
+
         
 if __name__ == '__main__':
     faulthandler.enable()
