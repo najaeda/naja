@@ -3,7 +3,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import itertools
 import time
 import logging
 import hashlib
@@ -133,27 +132,31 @@ class Equipotential:
             for term in self.equi.getTerms():
                 yield Term([], term)
 
-    def get_leaf_readers(self):
+    def get_leaf_readers(self, filter=None):
         if self.equi is not None:
             for term in self.equi.getInstTermOccurrences():
                 direction = term.getInstTerm().getDirection()
-                if direction != naja.SNLTerm.Direction.Output:
-                    if term.getInstTerm().getInstance().getModel().isLeaf():
-                        path = term.getPath().getPathIDs()
-                        path.append(term.getInstTerm().getInstance().getID())
-                        yield Term(path,
-                            term.getInstTerm().getBitTerm())
+                if (
+                    direction != naja.SNLTerm.Direction.Output and
+                    term.getInstTerm().getInstance().getModel().isLeaf() and
+                    (filter is None or filter(term))
+                ):
+                    path = term.getPath().getPathIDs()
+                    path.append(term.getInstTerm().getInstance().getID())
+                    yield Term(path, term.getInstTerm().getBitTerm())
 
-    def get_leaf_drivers(self):
+    def get_leaf_drivers(self, filter=None):
         if self.equi is not None:
             for term in self.equi.getInstTermOccurrences():
                 direction = term.getInstTerm().getDirection()
-                if direction != naja.SNLTerm.Direction.Input:
-                    if term.getInstTerm().getInstance().getModel().isLeaf():
-                        path = term.getPath().getPathIDs()
-                        path.append(term.getInstTerm().getInstance().getID())
-                        yield Term(path,
-                            term.getInstTerm().getBitTerm())
+                if (
+                    direction != naja.SNLTerm.Direction.Input and
+                    term.getInstTerm().getInstance().getModel().isLeaf() and
+                    (filter is None or filter(term))
+                ):
+                    path = term.getPath().getPathIDs()
+                    path.append(term.getInstTerm().getInstance().getID())
+                    yield Term(path, term.getInstTerm().getBitTerm())
 
     def get_top_readers(self):
         if self.equi is not None:
@@ -241,6 +244,10 @@ class Net:
                 "Use the bus net instead."
             )
         else:
+            # We need to uniquify until parent instance if parent instance is not top.
+            path = get_snl_path_from_id_list(self.pathIDs)
+            if path.size():
+                naja.SNLUniquifier(path.getHeadPath())
             self.net.setName(name)
 
     def get_msb(self) -> int:
@@ -304,10 +311,7 @@ class Net:
         if hasattr(self, "net"):
             return self.net.isConstant()
         else:
-            for net in self.net_concat:
-                if not net.isConstant():
-                    return False
-            return True
+            return all(net.isConstant() for net in self.net_concat)
 
     def set_type(self, net_type: Type):
         """
@@ -342,7 +346,7 @@ class Net:
                 yield self
         else:
             for net in self.net_concat:
-                yield Net(net)
+                yield Net(self.pathIDs, net)
 
     def get_bit(self, index: int):
         """
@@ -409,8 +413,8 @@ class Net:
         :return: an iterator over the terminals of the net.
         :rtype: Iterator[Term]
         """
-        for term in itertools.chain(self.get_design_terms(), self.get_inst_terms()):
-            yield term
+        yield from self.get_design_terms()
+        yield from self.get_inst_terms()
 
 
 def get_snl_term_for_ids(pathIDs, termIDs):
@@ -634,7 +638,7 @@ class Term:
     def __get_snl_bitnet(self, bit) -> Net:
         # single bit
         path = get_snl_path_from_id_list(self.pathIDs)
-        if path.size() > 0:
+        if path.size():
             instTerm = path.getTailInstance().getInstTerm(bit)
             return instTerm.getNet()
         else:
@@ -709,8 +713,11 @@ class Term:
         """
         return Instance(self.pathIDs)
 
-    def get_flat_fanout(self):
-        return self.get_equipotential().get_leaf_readers()
+    def get_flat_fanout(self, filter=None):
+        return self.get_equipotential().get_leaf_readers(filter=filter)
+
+    def count_flat_fanout(self, filter=None):
+        return sum(1 for _ in self.get_flat_fanout(filter=filter))
 
     def get_equipotential(self) -> Equipotential:
         """
@@ -879,9 +886,9 @@ class Instance:
     def __init__(self, path=naja.SNLPath()):
         self.inst = None
         self.revisionCount = 0
-        self.SNLID = [0, 0, 0, 0, 0, 0]
+        self.SNLID = [0] * 6
         if isinstance(path, naja.SNLPath):
-            if path.size() > 0:
+            if path.size():
                 self.pathIDs = path.getPathIDs()
                 self.revisionCount = path.getTailInstance().getModel().getRevisionCount()
                 self.inst = path.getTailInstance()
@@ -889,10 +896,10 @@ class Instance:
                 self.pathIDs = []
         elif isinstance(path, list):
             self.pathIDs = path.copy()
-            if len(path) > 0:
+            if path:
                 self.inst = get_snl_instance_from_id_list(path)
                 self.revisionCount = self.inst.getModel().getRevisionCount()
-        if self.inst is not None:
+        if self.inst:
             self.SNLID = self.inst.getModel().getNLID()
 
     def __eq__(self, other) -> bool:
@@ -1004,12 +1011,6 @@ class Instance:
         :rtype: bool
         """
         return self.__get_snl_model().isInv()
-
-    def is_basic_primitive(instance):
-        design = instance.__get_snl_model()
-        return (
-            design.isConst0() or design.isConst1() or design.isBuf() or design.isInv()
-        )
 
     def __get_snl_model(self):
         if self.is_top():
@@ -1308,6 +1309,14 @@ class Instance:
         for attribute in leaf_object.getAttributes():
             yield Attribute(attribute)
 
+    def count_attributes(self) -> int:
+        """Count the attributes of this Instance.
+
+        :return: the number of attributes of this Instance.
+        :rtype: int
+        """
+        return sum(1 for _ in self.get_attributes())
+
     def delete_instance(self, name: str):
         """Delete the child instance with the given name."""
         if name == "":
@@ -1370,8 +1379,10 @@ class Instance:
             topSNLDesign.setName(name)
         else:
             path = get_snl_path_from_id_list(self.pathIDs)
-            if path.size() > 0:
-                naja.SNLUniquifier(path)
+            # We need to uniquify until parent instance if parent instance
+            # is not top. path.size == 1 for instance under top
+            if path.size() > 1:
+                naja.SNLUniquifier(path.getHeadPath())
                 path = get_snl_path_from_id_list(self.pathIDs)
             inst = path.getTailInstance()
             inst.setName(name)

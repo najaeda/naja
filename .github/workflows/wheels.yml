@@ -6,7 +6,6 @@ on:
   push:
     branches:
       - main
-      - b*
     tags:
       - v*
   # Also allow running this action on PRs if requested by applying the
