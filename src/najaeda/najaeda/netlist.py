@@ -136,9 +136,11 @@ class Equipotential:
         if self.equi is not None:
             for term in self.equi.getInstTermOccurrences():
                 direction = term.getInstTerm().getDirection()
-                if direction != naja.SNLTerm.Direction.Output and \
-                term.getInstTerm().getInstance().getModel().isLeaf() and \
-                (filter is None or filter(term)):
+                if (
+                    direction != naja.SNLTerm.Direction.Output and
+                    term.getInstTerm().getInstance().getModel().isLeaf() and
+                    (filter is None or filter(term))
+                ):
                     path = term.getPath().getPathIDs()
                     path.append(term.getInstTerm().getInstance().getID())
                     yield Term(path, term.getInstTerm().getBitTerm())
@@ -147,9 +149,11 @@ class Equipotential:
         if self.equi is not None:
             for term in self.equi.getInstTermOccurrences():
                 direction = term.getInstTerm().getDirection()
-                if direction != naja.SNLTerm.Direction.Input and \
-                term.getInstTerm().getInstance().getModel().isLeaf() and \
-                (filter is None or filter(term)):
+                if (
+                    direction != naja.SNLTerm.Direction.Input and
+                    term.getInstTerm().getInstance().getModel().isLeaf() and
+                    (filter is None or filter(term))
+                ):
                     path = term.getPath().getPathIDs()
                     path.append(term.getInstTerm().getInstance().getID())
                     yield Term(path, term.getInstTerm().getBitTerm())
@@ -695,7 +699,7 @@ class Term:
 
     def get_flat_fanout(self, filter=None):
         return self.get_equipotential().get_leaf_readers(filter=filter)
-    
+
     def count_flat_fanout(self, filter=None):
         return sum(1 for _ in self.get_flat_fanout(filter=filter))
 
