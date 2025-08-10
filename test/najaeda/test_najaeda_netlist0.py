@@ -73,7 +73,7 @@ class NajaNetlistTest0(unittest.TestCase):
         self.assertIsNotNone(top)
         inst0 = top.get_child_instance('inst0')
         self.assertIsNotNone(inst0)
-        self.assertEqual(0, sum(1 for _ in inst0.get_attributes()))
+        self.assertEqual(0, inst0.count_attributes())
         #print(netlist.get_top())
         #for inst in netlist.get_all_primitive_instances():
         #    print(inst)
@@ -87,7 +87,7 @@ class NajaNetlistTest0(unittest.TestCase):
         self.assertIsNotNone(top)
         inst0 = top.get_child_instance('inst0')
         self.assertIsNotNone(inst0)
-        self.assertEqual(0, sum(1 for _ in inst0.get_attributes()))
+        self.assertEqual(0, inst0.count_attributes())
 
     def test_loader1(self):
         design_files = [os.path.join(verilog_benchmarks, "test1.v")]
@@ -348,6 +348,7 @@ class NajaNetlistTest0(unittest.TestCase):
         for fanout in instance.get_term("I0").get_flat_fanout():
             flat_fanout += 1
         self.assertEqual(flat_fanout, 1)
+        self.assertEqual(instance.get_term("I0").count_flat_fanout(), 1)
 
         netlistNet1 = netlist.Net(path1, i0_net)
         netlistNet2 = netlist.Net(path2, i0_net_sub)
@@ -488,6 +489,7 @@ class NajaNetlistTest0(unittest.TestCase):
             for to in bit.get_flat_fanout():
                 count += 1
             self.assertEqual(count, 0)
+            self.assertEqual(bit.count_flat_fanout(), 0)
 
 
     def testTop(self):

@@ -67,6 +67,15 @@ class NajaNetlistTestGates0(unittest.TestCase):
         #ha1 should have been uniquified
         self.assertNotEqual(ha1_carry_and.get_name(), 'carry_and')
 
+        #set_name of net on instance under ha2
+        ha2 = self.top.get_child_instance('ha2')
+        self.assertIsNotNone(ha2)
+        ha2_sum = ha2.get_net('sum')
+        ha2_sum.set_name('sum_renamed')
+        ha2_sum_renamed = ha2.get_net('sum_renamed')
+        self.assertIsNotNone(ha2_sum_renamed)
+        self.assertEqual(ha2_sum_renamed.get_name(), 'sum_renamed')
+
 if __name__ == '__main__':
     faulthandler.enable()
     unittest.main()

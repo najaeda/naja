@@ -38,7 +38,7 @@ class NajaEDANetlistTestAttributes(unittest.TestCase):
         self.assertIsNotNone(top)
         and2_inst = top.get_child_instance('and2_inst')
         self.assertIsNotNone(and2_inst)
-        self.assertEqual(3, sum(1 for _ in and2_inst.get_attributes()))
+        self.assertEqual(3, and2_inst.count_attributes())
         and2_attributes = list(and2_inst.get_attributes())
         self.assertEqual(3, len(and2_attributes))
         self.assertEqual('INSTANCE_ATTRIBUTE_AND', and2_attributes[0].get_name())
