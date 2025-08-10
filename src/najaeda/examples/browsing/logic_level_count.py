@@ -39,7 +39,6 @@ if __name__ == '__main__':
         visited = set() # To avoid cycles
         while len(queue) > 0:
             term, logic_level = queue.popleft()
-            path2ll[(tuple(term.pathIDs), tuple(term.termIDs))] = logic_level
             if term in visited:
                 continue
             visited.add(term)
@@ -51,8 +50,9 @@ if __name__ == '__main__':
                     continue
                 instance = driver.get_instance()
                 key = (tuple(driver.pathIDs), tuple(driver.termIDs))
-                if key in path2ll and path2ll[key] > logic_level + 1:
+                if key in path2ll and path2ll[key] > logic_level:
                     continue
+                path2ll[(tuple(driver.pathIDs), tuple(driver.termIDs))] = logic_level
                 input_terms = instance.get_combinatorial_inputs(driver)
                 for input_term in input_terms:
                     queue.append((input_term, logic_level + 1))
