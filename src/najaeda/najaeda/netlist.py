@@ -552,6 +552,22 @@ class Term:
         """
         return self.is_scalar() or self.is_bus_bit()
 
+    def is_sequential(self) -> bool:
+        """
+        :return: True if the term is a sequential term.
+        :rtype: bool
+        """
+        for term in self.get_instance().get_flat_terms():
+            clockRelatedInputs = term.get_instance().get_clock_related_inputs(term)
+            if self in clockRelatedInputs:
+                return True
+            clockRelatedOutputs = term.get_instance().get_clock_related_outputs(term)
+            if self in clockRelatedOutputs:
+                return True
+            if (len(clockRelatedInputs) > 0 or len(clockRelatedOutputs) > 0) and (term == self):
+                return True
+        return False
+
     def get_bit_number(self):
         """
         :return: the bit index of the term if it is a bit.

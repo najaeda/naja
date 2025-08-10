@@ -406,6 +406,12 @@ class NajaNetlistTest2(unittest.TestCase):
         inst.add_combinatorial_arcs([inst.get_term('i1')], [inst.get_term('o1')])
         self.assertEqual([inst.get_term('i1')], inst.get_combinatorial_inputs(inst.get_term('o1')))
         self.assertEqual([inst.get_term('o1')], inst.get_combinatorial_outputs(inst.get_term('i1')))
+        self.assertTrue(inst.get_term('i0').is_sequential())
+        self.assertTrue(inst.get_term('o0').is_sequential())
+        self.assertTrue(inst.get_term('c').is_sequential())
+        self.assertFalse(inst.get_term('i1').is_sequential())
+        self.assertFalse(inst.get_term('o1').is_sequential())
+
         
 if __name__ == '__main__':
     faulthandler.enable()
