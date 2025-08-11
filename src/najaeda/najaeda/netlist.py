@@ -10,7 +10,7 @@ import struct
 import sys
 import os
 from enum import Enum
-from typing import Union, List
+from typing import Union, List, Iterator
 from dataclasses import dataclass
 
 from najaeda import naja
@@ -822,15 +822,15 @@ class Term:
 
 
 def get_instance_by_path(names: list):
-    assert len(names) > 0
+    if not names:
+        raise ValueError("Path names list cannot be empty")
     path = naja.SNLPath()
-    instance = None
-    top = naja.NLUniverse.get().getTopDesign()
-    design = top
+    design = naja.NLUniverse.get().getTopDesign()
     for name in names:
-        path = naja.SNLPath(path, design.getInstance(name))
         instance = design.getInstance(name)
-        assert instance is not None
+        if instance is None:
+            raise LookupError(f"Instance '{name}' not found in design {design}")
+        path = naja.SNLPath(path, instance)
         design = instance.getModel()
     return Instance(path)
 
@@ -1299,7 +1299,7 @@ class Instance:
         """
         return sum(1 for _ in self.get_flat_output_terms())
 
-    def get_attributes(self):
+    def get_attributes(self) -> Iterator[Attribute]:
         """Iterate over the attributes of this Instance.
 
         :return: the attributes of this Instance.
@@ -1341,7 +1341,7 @@ class Instance:
         # Delete the last instance in uniq_path
         self.__get_snl_model().getInstanceByID(id).destroy()
 
-    def get_design(self):
+    def get_design(self) -> "Instance":
         """
         :return: the Instance containing this instance.
         :rtype: Instance
@@ -1403,7 +1403,7 @@ class Instance:
         model = self.__get_snl_model()
         return model.getDB().getID(), model.getLibrary().getID(), model.getID()
 
-    def create_child_instance(self, model: str, name: str):
+    def create_child_instance(self, model: str, name: str) -> "Instance":
         """Create a child instance with the given model and name.
 
         :param str model: the name of the model of the instance to create.
@@ -1524,7 +1524,7 @@ class Instance:
         :rtype: Net
         """
         path = get_snl_path_from_id_list(self.pathIDs)
-        if path.size() > 0:
+        if path.size():
             naja.SNLUniquifier(path)
             path = get_snl_path_from_id_list(self.pathIDs)
         model = self.__get_snl_model()
@@ -1541,7 +1541,7 @@ class Instance:
         :rtype: Net
         """
         path = get_snl_path_from_id_list(self.pathIDs)
-        if path.size() > 0:
+        if path.size():
             naja.SNLUniquifier(path)
             path = get_snl_path_from_id_list(self.pathIDs)
         model = self.__get_snl_model()
