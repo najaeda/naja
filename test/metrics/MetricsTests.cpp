@@ -142,7 +142,7 @@ TEST_F(MetricsTests, simpleTest) {
   SNLInstance* modInst1 = SNLInstance::create(top, mod, NLName("modInst1"));
   SNLInstance* modInst2 = SNLInstance::create(top, mod, NLName("modInst2"));
   SNLInstance* bbSeqInst1 =
-      SNLInstance::create(mod, bbSeq, NLName("bbSeqInst1"));
+      SNLInstance::create(top, bbSeq, NLName("bbSeqInst1"));
   auto outNetMod1 =
       SNLScalarNet::create(mod, NLName("outNetMod"));
   outTerm->setNet(outNetMod1);
@@ -174,8 +174,8 @@ TEST_F(MetricsTests, simpleTest) {
   }
   LogicLevelComputer llc;
   llc.process();
-  EXPECT_EQ(llc.getMaxLogicLevel(), 2);
+  EXPECT_EQ(llc.getMaxLogicLevel(), 4);
   FanoutComputer fc;
   fc.process();
-  EXPECT_EQ(fc.getMaxFanout(), 6);
+  EXPECT_EQ(fc.getMaxFanout(), 8);
 }
