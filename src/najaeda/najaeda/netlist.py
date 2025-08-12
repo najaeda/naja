@@ -561,7 +561,7 @@ class Term:
         :return: True if the term is a sequential term.
         :rtype: bool
         """
-        for term in self.get_instance().get_flat_terms():
+        for term in self.get_instance().get_bit_terms():
             clockRelatedInputs = term.get_instance().get_clock_related_inputs(term)
             if self in clockRelatedInputs:
                 return True
@@ -951,14 +951,13 @@ class Instance:
         :return: True if this is the top design.
         :rtype: bool
         """
-        return len(self.pathIDs) == 0
+        return not self.pathIDs
 
     def is_assign(self) -> bool:
         """(assign a=b) will create an instance of assign connecting
         the wire a to the output of the assign and b to the input.
 
-        :return: True if this is an assign. Assigns are represented with
-        unnamed Assign instances.
+        :return: True if this is an assign (represented by an unnamed assign instance).
         :rtype: bool
         """
         return self.__get_snl_model().isAssign()
@@ -1119,8 +1118,8 @@ class Instance:
         :rtype: int
         """
         return sum(1 for _ in self.get_nets())
-
-    def get_flat_nets(self):
+    
+    def get_bit_nets(self):
         """Iterate over all scalar nets and bus net bits.
 
         :return: an iterator over the flat nets of this Instance.
@@ -1133,13 +1132,13 @@ class Instance:
             else:
                 yield Net(self.pathIDs, net)
 
-    def count_flat_nets(self) -> int:
+    def count_bit_nets(self) -> int:
         """Count the number of scalar nets and bus net bits of this Instance.
 
-        :return: the number of flat nets of this Instance.
+        :return: the number of bit nets of this Instance.
         :rtype: int
         """
-        return sum(1 for _ in self.get_flat_nets())
+        return sum(1 for _ in self.get_bit_nets())
 
     def get_net(self, name: str) -> Net:
         """
@@ -1183,22 +1182,22 @@ class Instance:
         """
         return sum(1 for _ in self.get_terms())
 
-    def get_flat_terms(self):
+    def get_bit_terms(self):
         """Iterate over all scalar terms and bus term bits.
 
-        :return: the flat terms of this Instance.
+        :return: the bit terms of this Instance.
         :rtype: Iterator[Term]
         """
         for term in self.__get_snl_model().getBitTerms():
             yield Term(self.pathIDs, term)
 
-    def count_flat_terms(self) -> int:
+    def count_bit_terms(self) -> int:
         """Count the number of scalar terms and bus term bits of this Instance.
 
-        :return: the number of flat terms of this Instance.
+        :return: the number of bit terms of this Instance.
         :rtype: int
         """
-        return sum(1 for _ in self.get_flat_terms())
+        return sum(1 for _ in self.get_bit_terms())
 
     def get_term(self, name: str) -> Term:
         """
@@ -1231,11 +1230,11 @@ class Instance:
         """
         return sum(1 for _ in self.get_input_terms())
 
-    def get_flat_input_terms(self):
+    def get_input_bit_terms(self):
         """Iterate over all scalar input terms and bus input term bits
         of this Instance.
 
-        :return: the flat input terms of this Instance.
+        :return: the bit input terms of this Instance.
         :rtype: Iterator[Term]
         """
         for term in self.__get_snl_model().getTerms():
@@ -1246,14 +1245,14 @@ class Instance:
                 else:
                     yield Term(self.pathIDs, term)
 
-    def count_flat_input_terms(self) -> int:
+    def count_input_bit_terms(self) -> int:
         """Count the number of scalar input terms and bus input term bits
         of this Instance.
 
-        :return: the number of flat input terms of this Instance.
+        :return: the number of bit input terms of this Instance.
         :rtype: int
         """
-        return sum(1 for _ in self.get_flat_input_terms())
+        return sum(1 for _ in self.get_input_bit_terms())
 
     def get_output_terms(self):
         """Iterate over all scalar output terms and bus output terms
@@ -1275,11 +1274,11 @@ class Instance:
         """
         return sum(1 for _ in self.get_output_terms())
 
-    def get_flat_output_terms(self):
+    def get_output_bit_terms(self):
         """Iterate over all scalar output terms and bus output term bits
         of this Instance.
 
-        :return: the flat output terms of this Instance.
+        :return: the bit output terms of this Instance.
         :rtype: Iterator[Term]
         """
         for term in self.__get_snl_model().getTerms():
@@ -1290,14 +1289,14 @@ class Instance:
                 else:
                     yield Term(self.pathIDs, term)
 
-    def count_flat_output_terms(self) -> int:
+    def count_output_bit_terms(self) -> int:
         """Count the number of scalar output terms and bus output term bits
         of this Instance.
 
-        :return: the number of flat output terms of this Instance.
+        :return: the number of bit output terms of this Instance.
         :rtype: int
         """
-        return sum(1 for _ in self.get_flat_output_terms())
+        return sum(1 for _ in self.get_output_bit_terms())
 
     def get_attributes(self) -> Iterator[Attribute]:
         """Iterate over the attributes of this Instance.

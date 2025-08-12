@@ -372,21 +372,18 @@ def convert_instance_stats_to_json(instance_stats):
     return json_top
 
 
-def dump_instance_stats_json(instance, stats_file):
-    # stats_files = [(InstanceStats.ReportType.JSON, stats_file)]
-    # stats_file.write("[\n")
-    # dump_instance_stats(design, stats_files)
-    # stats_file.write("]")
+def dump_instance_stats_json(instance, path: str):
     instances_stats = InstancesStats()
     compute_instance_stats(instance, instances_stats)
     json_dict = convert_instance_stats_to_json(instances_stats)
-    json.dump(json_dict, stats_file, indent=4)
+    with open(path, "w") as f:
+        json.dump(json_dict, f, indent=4)
 
 
-def dump_instance_stats_text(instance, file):
+def dump_instance_stats_text(instance, path: str):
     instances_stats = InstancesStats()
     compute_instance_stats(instance, instances_stats)
-    instances_stats.dump_instance_stats_text(instance, file)
+    instances_stats.dump_instance_stats_text(instance, path)
 
 
 def dump_constants(design, analyzed_models):
