@@ -5,6 +5,7 @@
 [![PyPI](https://img.shields.io/pypi/v/najaeda)](https://pypi.org/project/najaeda)
 [![Open Chapter 1](https://colab.research.google.com/assets/colab-badge.svg)](
 https://colab.research.google.com/github/najaeda/najaeda-tutorials/blob/main/notebooks/01_getting_started.ipynb)
+[![Join Matrix Chat →](https://img.shields.io/badge/Matrix-Join%20Chat-success?logo=matrix)](https://matrix.to/#/#naja:fossi-chat.org)
 ![Ubuntu Build](https://github.com/najaeda/naja/actions/workflows/ubuntu-build.yml/badge.svg)
 ![MacOS Build](https://github.com/najaeda/naja/actions/workflows/macos-build.yml/badge.svg)
 [![Codacy Badge](https://api.codacy.com/project/badge/Grade/b224740790e24c80a381a6eede28cad8)](https://app.codacy.com/gh/najaeda/naja?utm_source=github.com&utm_medium=referral&utm_content=najaeda/naja&utm_campaign=Badge_Grade_Settings)
