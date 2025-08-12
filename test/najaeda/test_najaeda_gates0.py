@@ -43,7 +43,15 @@ class NajaNetlistTestGates0(unittest.TestCase):
         for term in and0.get_terms():
             self.assertIsNotNone(term)
             self.assertTrue(term.is_unnamed())
-
+        netlist.reset()
+    
+        design_files = [os.path.join(verilog_benchmarks, "test_gates0.v")]
+        netlist.load_primitives('xilinx')
+        netlist.load_verilog(design_files)
+        print("Max logic level:", netlist.get_max_logic_level())
+        print("Max fanout:", netlist.get_max_fanout())
+       
+        
 if __name__ == '__main__':
     faulthandler.enable()
     unittest.main()

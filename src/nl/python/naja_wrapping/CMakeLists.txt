@@ -36,6 +36,7 @@ if (BUILD_NAJA_PYTHON)
     naja_nl_dump
     naja_snl_verilog naja_snl_liberty naja_snl_visual
     naja_opt
+    naja_metrics
     Python3::Module
   )
 else(BUILD_NAJA_PYTHON)
@@ -44,6 +45,7 @@ else(BUILD_NAJA_PYTHON)
     naja_nl_dump
     naja_snl_verilog naja_snl_liberty naja_snl_visual
     naja_opt
+    naja_metrics
     Python3::Python
   )
 endif(BUILD_NAJA_PYTHON)

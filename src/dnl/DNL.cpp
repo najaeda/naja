@@ -22,9 +22,10 @@
 #include "SNLPath.h"
 #include "tbb/parallel_for.h"
 
-#include "SNLNetComponentOccurrence.h"
 #include "SNLBitNetOccurrence.h"
+#include "SNLDesignModeling.h"
 #include "SNLEquipotential.h"
+#include "SNLNetComponentOccurrence.h"
 
 using namespace naja::NL;
 using namespace naja::DNL;
@@ -273,6 +274,56 @@ DNLID DNLTerminalFull::getID() const {
   return id_;
 }
 
+bool DNLTerminalFull::isSequential() const {
+  std::set<SNLBitTerm*> seq;
+  DNLInstanceFull inst = (*get()).getDNLInstanceFromID(DNLInstID_);
+  for (DNLID term = inst.getTermIndexes().first;
+       term <= inst.getTermIndexes().second; term++) {
+    const DNLTerminalFull& dnlTerm = (*get()).getDNLTerminalFromID(term);
+    auto clockRelatedOutputs =
+        SNLDesignModeling::getClockRelatedOutputs(dnlTerm.getSnlBitTerm());
+    for (auto snlBitTerm : clockRelatedOutputs) {
+      if (this->getSnlBitTerm() == snlBitTerm) {
+        return true;
+      }
+    }
+    auto clockRelatedInputs =
+        SNLDesignModeling::getClockRelatedInputs(dnlTerm.getSnlBitTerm());
+    for (auto snlBitTerm : clockRelatedInputs) {
+      if (this->getSnlBitTerm() == snlBitTerm) {
+        return true;
+      }
+    }
+    if ((!clockRelatedOutputs.empty() ||
+        !clockRelatedInputs.empty()) && term == this->getID()) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool DNLTerminalFull::isCombinatorial() const {
+  std::set<SNLBitTerm*> comb;
+  DNLInstanceFull inst = (*get()).getDNLInstanceFromID(DNLInstID_);
+  for (DNLID term = inst.getTermIndexes().first;
+       term <= inst.getTermIndexes().second; term++) {
+    const DNLTerminalFull& dnlTerm = (*get()).getDNLTerminalFromID(term);
+    for (auto snlBitTerm :
+         SNLDesignModeling::getCombinatorialOutputs(dnlTerm.getSnlBitTerm())) {
+      if (this->getSnlBitTerm() == snlBitTerm) {
+        return true;
+      }
+    }
+    for (auto snlBitTerm :
+         SNLDesignModeling::getCombinatorialInputs(dnlTerm.getSnlBitTerm())) {
+      if (this->getSnlBitTerm() == snlBitTerm) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 SNLBitTerm* DNLTerminalFull::getSnlBitTerm() const {
   return bitTerminal_ ? bitTerminal_ : terminal_->getBitTerm();
 }
@@ -294,32 +345,32 @@ DNLID DNLTerminalFull::getIsoID() const {
 }
 
 SNLEquipotential DNLTerminalFull::getEquipotential() const {
-  #ifdef DEBUG_PRINTS
+#ifdef DEBUG_PRINTS
   // LCOV_EXCL_START
   printf("path: %s\n", this->getDNLInstance().getPath().getString().c_str());
-  // LCOV_EXCL_STOP
-  #endif
+// LCOV_EXCL_STOP
+#endif
   if (this->getDNLInstance().isTop()) {
     naja::NL::SNLNetComponentOccurrence occurrence(
-    this->getDNLInstance().getPath(), this->getSnlBitTerm());
-    #ifdef DEBUG_PRINTS
+        this->getDNLInstance().getPath(), this->getSnlBitTerm());
+#ifdef DEBUG_PRINTS
     // LCOV_EXCL_START
     printf("occurrence: %s\n", occurrence.getString().c_str());
     SNLEquipotential equipotential(occurrence);
     printf("equipotential: %s\n", equipotential.getString().c_str());
-    // LCOV_EXCL_STOP
-    #endif
+// LCOV_EXCL_STOP
+#endif
     return SNLEquipotential(occurrence);
   }
   naja::NL::SNLInstTermOccurrence occurrence(
-    this->getDNLInstance().getPath().getHeadPath(), this->getSnlTerm());
-  #ifdef DEBUG_PRINTS
+      this->getDNLInstance().getPath().getHeadPath(), this->getSnlTerm());
+#ifdef DEBUG_PRINTS
   // LCOV_EXCL_START
   printf("occurrence: %s\n", occurrence.getString().c_str());
   SNLEquipotential equipotential(occurrence);
   printf("equipotential: %s\n", equipotential.getString().c_str());
-  // LCOV_EXCL_STOP
-  #endif
+// LCOV_EXCL_STOP
+#endif
   return SNLEquipotential(occurrence);
 }
 

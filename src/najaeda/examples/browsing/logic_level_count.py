@@ -25,6 +25,9 @@ if __name__ == '__main__':
     start = time.time()
     
     trace_back_terms = list(top.get_flat_output_terms())
+    print("Number of top terms to trace back: ", len(trace_back_terms))
+    num_leaves = sum(1 for _ in top.get_leaf_children())
+    print("Number of leaves: ", num_leaves)
     for leaf in top.get_leaf_children():
         if leaf.is_sequential():
             for term in leaf.get_flat_input_terms():
@@ -33,29 +36,33 @@ if __name__ == '__main__':
     
     global_max_logic_level = 0
     path2ll = {}
+    print("Number of leaf terms to trace back: ", len(trace_back_terms))
     for termToTrace in trace_back_terms:
-        queue = deque([(termToTrace, 0)])
+        queue = deque([(termToTrace, [])])
         max_logic_level = 0
-        visited = set() # To avoid cycles
         while len(queue) > 0:
-            term, logic_level = queue.popleft()
-            if term in visited:
-                continue
-            visited.add(term)
-            if logic_level > max_logic_level:
-                max_logic_level = logic_level
+            term, path = queue.popleft()
+            if path is not None and len(path) > max_logic_level:
+                max_logic_level = len(path)
             leaf_drivers = term.get_equipotential().get_leaf_drivers()
             for driver in leaf_drivers:
                 if driver.is_sequential() or driver.get_instance().is_top():
                     continue
                 instance = driver.get_instance()
                 key = (tuple(driver.pathIDs), tuple(driver.termIDs))
-                if key in path2ll and path2ll[key] > logic_level:
+                if key in path2ll and path2ll[key] > len(path):
                     continue
-                path2ll[(tuple(driver.pathIDs), tuple(driver.termIDs))] = logic_level
+                if path is not None:
+                    path2ll[(tuple(driver.pathIDs), tuple(driver.termIDs))] = len(path)
                 input_terms = instance.get_combinatorial_inputs(driver)
                 for input_term in input_terms:
-                    queue.append((input_term, logic_level + 1))
+                    if path is not None and input_term in path:
+                        continue # Avoid cycles
+                    newPath = []
+                    if path is not None:
+                        newPath = path.copy()
+                    newPath.append(input_term)
+                    queue.append((input_term, newPath))        
         if max_logic_level > global_max_logic_level:
             global_max_logic_level = max_logic_level
     
