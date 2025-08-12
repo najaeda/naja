@@ -255,7 +255,7 @@ class DNLTerminalFull {
 
   bool isSequential() const;
 
-  bool isCombenatorial() const;
+  bool isCombinatorial() const;
 
   SNLEquipotential getEquipotential() const;
 

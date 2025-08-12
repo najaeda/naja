@@ -17,6 +17,7 @@
 #include "SNLScalarNet.h"
 #include "SNLScalarTerm.h"
 #include "SNLUniquifier.h"
+#include "SNLDesignModeling.h"
 
 using namespace naja::DNL;
 using namespace naja::NL;
@@ -917,3 +918,80 @@ TEST_F(DNLTests,
   uniquifier.getFullPath();
   destroy();
 }
+
+TEST_F (DNLTests, testIsCombinatorial) {
+  // Create one module snl with one input and one output
+  NLUniverse* univ = NLUniverse::create();
+  NLDB* db = NLDB::create(univ);
+  NLLibrary* library = NLLibrary::create(db, NLName("MYLIB"));
+  NLLibrary* libraryP = NLLibrary::create(db, NLLibrary::Type::Primitives);
+  SNLDesign* top = SNLDesign::create(library, NLName("mod"));
+  univ->setTopDesign(top);
+  SNLDesign* bb =
+      SNLDesign::create(libraryP, SNLDesign::Type::Primitive, NLName("bb"));
+  auto inTermBB =
+      SNLScalarTerm::create(bb, SNLTerm::Direction::Input, NLName("inCombi"));
+  auto outTermBB =
+      SNLScalarTerm::create(bb, SNLTerm::Direction::Output, NLName("outCombi"));
+  // set combinatorial dependecies
+  SNLDesignModeling::addCombinatorialArcs({inTermBB}, {outTermBB});
+  
+  auto clk =
+      SNLScalarTerm::create(bb, SNLTerm::Direction::Input, NLName("clk"));
+  auto inTermBBseq =
+      SNLScalarTerm::create(bb, SNLTerm::Direction::Input, NLName("inseq"));
+    auto outTermBBseq =
+        SNLScalarTerm::create(bb, SNLTerm::Direction::Output, NLName("outseq"));
+    // set sequential dependecies
+    SNLDesignModeling::addInputsToClockArcs(
+        {inTermBBseq}, clk);
+    SNLDesignModeling::addClockToOutputsArcs(clk, {outTermBBseq});
+
+    auto inTerm =
+        SNLScalarTerm::create(bb, SNLTerm::Direction::Input, NLName("inNon"));
+    auto outTerm =
+        SNLScalarTerm::create(bb, SNLTerm::Direction::Output, NLName("outNon"));
+    
+    SNLInstance* instBB = SNLInstance::create(top, bb, NLName("BB"));
+
+    DNLFull* dnl = get();
+    EXPECT_TRUE(dnl != nullptr);
+    EXPECT_TRUE(dnl->getTop().getSNLModel() != nullptr);
+    // get bb inst
+    DNLInstanceFull instBBDNL =
+        dnl->getTop().getChildInstance(instBB);
+
+    // get bb combi terminal
+    DNLTerminalFull inTermBBDNL =
+        instBBDNL.getTerminalFromBitTerm(inTermBB);
+    EXPECT_TRUE(inTermBBDNL.isCombinatorial());
+    EXPECT_FALSE(inTermBBDNL.isSequential());
+    DNLTerminalFull outTermBBDNL =
+        instBBDNL.getTerminalFromBitTerm(outTermBB);
+    EXPECT_TRUE(outTermBBDNL.isCombinatorial());
+    EXPECT_FALSE(outTermBBDNL.isSequential());
+    // get bb seq terminal
+    DNLTerminalFull inTermBBSeqDNL =
+        instBBDNL.getTerminalFromBitTerm(inTermBBseq);
+    EXPECT_FALSE(inTermBBSeqDNL.isCombinatorial());
+    EXPECT_TRUE(inTermBBSeqDNL.isSequential());
+    DNLTerminalFull outTermBBSeqDNL =
+        instBBDNL.getTerminalFromBitTerm(outTermBBseq);
+    EXPECT_FALSE(outTermBBSeqDNL.isCombinatorial());
+    EXPECT_TRUE(outTermBBSeqDNL.isSequential());
+    // get no type terminals
+    DNLTerminalFull inTermNonDNL =
+        instBBDNL.getTerminalFromBitTerm(inTerm);
+    EXPECT_FALSE(inTermNonDNL.isCombinatorial());
+    EXPECT_FALSE(inTermNonDNL.isSequential());
+    DNLTerminalFull outTermNonDNL =
+        instBBDNL.getTerminalFromBitTerm(outTerm);
+    EXPECT_FALSE(outTermNonDNL.isCombinatorial());
+    EXPECT_FALSE(outTermNonDNL.isSequential());
+}
+    
+    
+    
+
+
+

@@ -302,7 +302,7 @@ bool DNLTerminalFull::isSequential() const {
   return false;
 }
 
-bool DNLTerminalFull::isCombenatorial() const {
+bool DNLTerminalFull::isCombinatorial() const {
   std::set<SNLBitTerm*> comb;
   DNLInstanceFull inst = (*get()).getDNLInstanceFromID(DNLInstID_);
   for (DNLID term = inst.getTermIndexes().first;
