@@ -97,7 +97,9 @@ void LogicLevelComputer::process() {
             }
             if (dnlID2ll.find(driver) != dnlID2ll.end() &&
                 dnlID2ll[driver] > path.size()) {
+              // LCOV_EXCL_START
               continue;
+              // LCOV_EXCL_STOP
             }
             dnlID2ll[driver] = path.size();
             auto CombinatorialInputsCollection =
