@@ -1848,9 +1848,11 @@ def get_max_fanout() -> int:
     :return: the maximum fanout of the top design.
     :rtype: int
     """
-    top = naja.NLUniverse.get().getTopDesign()
-    if top is not None:
-        return naja.NLUniverse.get().getMaxFanout()
+    u = naja.NLUniverse.get()
+    if u is not None:
+        top = naja.NLUniverse.get().getTopDesign()
+        if top is not None:
+            return naja.NLUniverse.get().getMaxFanout()
     return 0
 
 
@@ -1860,7 +1862,9 @@ def get_max_logic_level() -> int:
     :return: the maximum logic level of the top design.
     :rtype: int
     """
-    top = naja.NLUniverse.get().getTopDesign()
-    if top is not None:
-        return naja.NLUniverse.get().getMaxLogicLevel()
+    u = naja.NLUniverse.get()
+    if u is not None:
+        top = naja.NLUniverse.get().getTopDesign()
+        if top is not None:
+            return naja.NLUniverse.get().getMaxLogicLevel()
     return 0
