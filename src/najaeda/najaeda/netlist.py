@@ -1118,7 +1118,7 @@ class Instance:
         :rtype: int
         """
         return sum(1 for _ in self.get_nets())
-    
+
     def get_bit_nets(self):
         """Iterate over all scalar nets and bus net bits.
 
