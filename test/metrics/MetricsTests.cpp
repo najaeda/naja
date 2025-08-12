@@ -80,10 +80,25 @@ TEST_F(MetricsTests, simpleTest) {
       SNLDesign::create(libraryP, SNLDesign::Type::Primitive, NLName("bb"));
   auto inTermBB =
       SNLScalarTerm::create(bb, SNLTerm::Direction::Input, NLName("in"));
+  auto inTermBB1 =
+      SNLScalarTerm::create(bb, SNLTerm::Direction::Input, NLName("in1"));
   auto outTermBB =
       SNLScalarTerm::create(bb, SNLTerm::Direction::Output, NLName("out"));
   // set combinatorial dependecies
-  SNLDesignModeling::addCombinatorialArcs({inTermBB}, {outTermBB});
+  SNLDesignModeling::addCombinatorialArcs({inTermBB, inTermBB1}, {outTermBB});
+
+  // create bbSeq
+    SNLDesign* bbSeq = SNLDesign::create(
+        libraryP, SNLDesign::Type::Primitive, NLName("bbSeq"));
+    auto inTermBBseq =
+        SNLScalarTerm::create(bbSeq, SNLTerm::Direction::Input, NLName("inseq"));
+    auto outTermBBseq = SNLScalarTerm::create(
+        bbSeq, SNLTerm::Direction::Output, NLName("outseq"));
+    auto clk =
+        SNLScalarTerm::create(bbSeq, SNLTerm::Direction::Input, NLName("clk"));
+    // set sequential dependecies
+    SNLDesignModeling::addInputsToClockArcs({inTermBBseq}, clk);
+    SNLDesignModeling::addClockToOutputsArcs(clk, {outTermBBseq});
 
   SNLDesign* bbNoOutput = SNLDesign::create(
       libraryP, SNLDesign::Type::Primitive, NLName("bbNoOutput"));
@@ -118,6 +133,7 @@ TEST_F(MetricsTests, simpleTest) {
   bb4->getInstTerm(inTermBB)->setNet(inNetHier);
   inTermH->setNet(inNetHier);
   bb3->getInstTerm(outTermBB)->setNet(outNetHier);
+  bb3->getInstTerm(inTermBB1)->setNet(outNetHier);
   outTermH->setNet(outNetHier);
   SNLInstance* hi1 = SNLInstance::create(mod, hier, NLName("hi1"));
   SNLInstance* hi2 = SNLInstance::create(mod, hier, NLName("hi2"));
@@ -125,6 +141,8 @@ TEST_F(MetricsTests, simpleTest) {
   hi2->getInstTerm(inTermH)->setNet(inNet1);
   SNLInstance* modInst1 = SNLInstance::create(top, mod, NLName("modInst1"));
   SNLInstance* modInst2 = SNLInstance::create(top, mod, NLName("modInst2"));
+  SNLInstance* bbSeqInst1 =
+      SNLInstance::create(mod, bbSeq, NLName("bbSeqInst1"));
   auto outNetMod1 =
       SNLScalarNet::create(mod, NLName("outNetMod"));
   outTerm->setNet(outNetMod1);
@@ -141,6 +159,7 @@ TEST_F(MetricsTests, simpleTest) {
       SNLScalarNet::create(top, NLName("concateNet"));
   modInst1->getInstTerm(outTerm)->setNet(concateInNet);
   modInst2->getInstTerm(inTerm)->setNet(concateInNet);
+  bbSeqInst1->getInstTerm(inTermBBseq)->setNet(concateInNet);
   {
     std::string dotFileName(
         std::string(std::string("./MetricsTest") + std::string(".dot")));

@@ -988,6 +988,10 @@ TEST_F (DNLTests, testIsCombinatorial) {
         instBBDNL.getTerminalFromBitTerm(outTerm);
     EXPECT_FALSE(outTermNonDNL.isCombinatorial());
     EXPECT_FALSE(outTermNonDNL.isSequential());
+    // check the clk
+    DNLTerminalFull clkDNL = instBBDNL.getTerminalFromBitTerm(clk);
+    EXPECT_FALSE(clkDNL.isCombinatorial());
+    EXPECT_TRUE(clkDNL.isSequential());
 }
     
     
