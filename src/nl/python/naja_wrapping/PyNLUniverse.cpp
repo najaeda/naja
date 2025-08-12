@@ -12,11 +12,15 @@
 #include "NLUniverse.h"
 #include "RemoveLoadlessLogic.h"
 #include "ConstantPropagation.h"
+#include "FanoutComputer.h"
+#include "LogicLevelComputer.h"
 
 namespace PYNAJA {
 
 using namespace naja::NL;
 using namespace naja::NAJA_OPT;
+using namespace naja::NAJA_METRICS;
+
 
 #define METHOD_HEAD(function) GENERIC_METHOD_HEAD(NLUniverse, function)
 
@@ -38,6 +42,19 @@ static PyObject* PyNLUniverse_applyDLE() {
  remover.setNormalizedUniquification(true);
  remover.process();
  Py_RETURN_NONE;
+}
+
+// fanout calculation
+static PyObject* PyNLUniverse_getMaxFanout() {
+  FanoutComputer fanoutComputer;
+  fanoutComputer.process();
+  return PyLong_FromSize_t(fanoutComputer.getMaxFanout());
+}
+
+static PyObject* PyNLUniverse_getMaxLogicLevel() {
+  LogicLevelComputer logicLevelComputer;
+  logicLevelComputer.process();
+  return PyLong_FromSize_t(logicLevelComputer.getMaxLogicLevel());
 }
 
 static PyObject* PyNLUniverse_applyConstantPropagation() {
@@ -100,6 +117,10 @@ PyMethodDef PyNLUniverse_Methods[] = {
    "apply Dead Logic Elimination on the top design of the NLUniverse."},
   { "applyConstantPropagation", (PyCFunction)PyNLUniverse_applyConstantPropagation, METH_NOARGS|METH_STATIC,
     "apply Constant Propagation on the top design of the NLUniverse."},
+  { "getMaxFanout", (PyCFunction)PyNLUniverse_getMaxFanout, METH_NOARGS|METH_STATIC,
+    "get the maximum fanout of the top design of the NLUniverse."},
+  { "getMaxLogicLevel", (PyCFunction)PyNLUniverse_getMaxLogicLevel, METH_NOARGS|METH_STATIC,
+    "get the maximum logic level of the top design of the NLUniverse."},
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 

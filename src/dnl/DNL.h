@@ -253,6 +253,10 @@ class DNLTerminalFull {
    */
   bool isTopPort() const { return terminal_ == nullptr; }
 
+  bool isSequential() const;
+
+  bool isCombenatorial() const;
+
   SNLEquipotential getEquipotential() const;
 
  private:
