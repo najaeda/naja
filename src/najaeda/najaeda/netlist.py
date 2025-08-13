@@ -822,17 +822,7 @@ class Term:
 
 
 def get_instance_by_path(names: list):
-    if not names:
-        raise ValueError("Path names list cannot be empty")
-    path = naja.SNLPath()
-    design = naja.NLUniverse.get().getTopDesign()
-    for name in names:
-        instance = design.getInstance(name)
-        if instance is None:
-            raise LookupError(f"Instance '{name}' not found in design {design}")
-        path = naja.SNLPath(path, instance)
-        design = instance.getModel()
-    return Instance(path)
+    return get_top().get_child_instance(names)
 
 
 # def refresh_path(path: naja.SNLPath):
@@ -1122,7 +1112,7 @@ class Instance:
     def get_bit_nets(self):
         """Iterate over all scalar nets and bus net bits.
 
-        :return: an iterator over the flat nets of this Instance.
+        :return: an iterator over the nets at bit level of this Instance.
         :rtype: Iterator[Net]
         """
         for net in self.__get_snl_model().getNets():
