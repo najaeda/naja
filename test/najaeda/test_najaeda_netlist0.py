@@ -169,10 +169,10 @@ class NajaNetlistTest0(unittest.TestCase):
         self.assertEqual(net_i1.get_width(), 5)
         i1.connect(net_i1)
 
-        for flat_output in instance.get_flat_output_terms():
+        for flat_output in instance.get_output_bit_terms():
             self.assertEqual(flat_output.get_instance(), instance)
         
-        for flat_net in instance.get_flat_nets():
+        for flat_net in instance.get_bit_nets():
             self.assertEqual(netlist.get_snl_path_from_id_list(flat_net.pathIDs), 
                              netlist.get_snl_path_from_id_list(instance.pathIDs))
 
@@ -183,15 +183,15 @@ class NajaNetlistTest0(unittest.TestCase):
         #     self.assertEqual(insterm.getNet(), net_i1)
         
         inputCount = 0
-        for bit in instance.get_flat_input_terms():
+        for bit in instance.get_input_bit_terms():
             #print(bit)
             self.assertTrue(bit.is_input())
             self.assertFalse(bit.is_output())
             inputCount += 1
         
         self.assertEqual(inputCount, 6)
-        self.assertEqual(instance.count_flat_input_terms(), 6)
-        
+        self.assertEqual(instance.count_input_bit_terms(), 6)
+
         outputCount = 0
         for output in instance.get_output_terms():
             self.assertTrue(output.is_output())
@@ -203,14 +203,14 @@ class NajaNetlistTest0(unittest.TestCase):
         instance.create_output_term("O2")
         
         inputCount = 0
-        for input in instance.get_flat_input_terms():
+        for input in instance.get_input_bit_terms():
             self.assertTrue(input.is_input())
             self.assertFalse(input.is_output())
             inputCount += 1
         
         self.assertEqual(inputCount, 13)
-        self.assertEqual(instance.count_flat_input_terms(), 13)
-        
+        self.assertEqual(instance.count_input_bit_terms(), 13)
+
         outputCount = 0
         for output in instance.get_output_terms():
             self.assertTrue(output.is_output())
@@ -503,11 +503,11 @@ class NajaNetlistTest0(unittest.TestCase):
         top.create_output_term("O")
         top.create_output_bus_term("O1", 4, 0)
         count = 0
-        for input in top.get_flat_input_terms():
+        for input in top.get_input_bit_terms():
             count += 1
         self.assertEqual(count, 6)
         count = 0
-        for output in top.get_flat_output_terms():
+        for output in top.get_output_bit_terms():
             count += 1
         self.assertEqual(count, 6)
         top_i1 = top.get_term("I1")

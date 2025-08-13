@@ -18,19 +18,19 @@ logging.basicConfig(level=logging.INFO)
 def apply_dle(top, keep_attributes=None):
     # Trace back from design outputs
     visited = set()
-    traced_terms = list(top.get_flat_output_terms())
+    traced_terms = list(top.get_output_bit_terms())
     for leaf in top.get_leaf_children():
         attributes =  list(leaf.get_attributes())
         outputs = 0
-        for term in leaf.get_flat_output_terms():
+        for term in leaf.get_output_bit_terms():
             outputs += 1
         if (outputs == 0):
-            for term in leaf.get_flat_input_terms():
+            for term in leaf.get_input_bit_terms():
                     traced_terms.append(term)
             continue
         for attr in attributes:
             if attr in keep_attributes:
-                for term in leaf.get_flat_input_terms():
+                for term in leaf.get_input_bit_terms():
                     traced_terms.append(term)
                 break
     
@@ -46,7 +46,7 @@ def apply_dle(top, keep_attributes=None):
             for driver in leaf_drivers:
                 instance = driver.get_instance()
                 instances.add(instance)
-                input_terms = instance.get_flat_input_terms()
+                input_terms = instance.get_input_bit_terms()
                 queue.extend(input_terms)
 
     to_delete = [leaf for leaf in top.get_leaf_children() if leaf not in instances]

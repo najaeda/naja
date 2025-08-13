@@ -23,9 +23,9 @@ if __name__ == '__main__':
     benchmarks = path.join('..', '..', 'benchmarks')
     top = netlist.load_verilog(path.join(benchmarks, 'verilog', 'vexriscv.v'))
     
-    drivers = list(top.get_flat_input_terms())
+    drivers = list(top.get_input_bit_terms())
     for leaf in top.get_leaf_children():
-        for term in leaf.get_flat_output_terms():
+        for term in leaf.get_output_bit_terms():
             drivers.append(term)
     
     max_fanout = 0
