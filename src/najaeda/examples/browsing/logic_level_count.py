@@ -24,13 +24,13 @@ if __name__ == '__main__':
     
     start = time.time()
     
-    trace_back_terms = list(top.get_flat_output_terms())
+    trace_back_terms = list(top.get_output_bit_terms())
     print("Number of top terms to trace back: ", len(trace_back_terms))
     num_leaves = sum(1 for _ in top.get_leaf_children())
     print("Number of leaves: ", num_leaves)
     for leaf in top.get_leaf_children():
         if leaf.is_sequential():
-            for term in leaf.get_flat_input_terms():
+            for term in leaf.get_input_bit_terms():
                 if term.is_sequential():
                     trace_back_terms.append(term)
     
