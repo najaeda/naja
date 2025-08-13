@@ -236,7 +236,7 @@ def compute_instance_terms(instance, instance_stats):
 
 
 def compute_instance_net_stats(instance, instance_stats):
-    for net in instance.get_flat_nets():
+    for net in instance.get_bit_nets():
         if net.is_const():
             pass
         nb_components = sum(1 for c in net.get_terms())
