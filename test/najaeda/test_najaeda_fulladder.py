@@ -75,6 +75,16 @@ class NajaNetlistTestGates0(unittest.TestCase):
         ha2_sum_renamed = ha2.get_net('sum_renamed')
         self.assertIsNotNone(ha2_sum_renamed)
         self.assertEqual(ha2_sum_renamed.get_name(), 'sum_renamed')
+    
+    # def test_get_max_logic_level(self):
+    #     # Test the maximum logic level of the design
+    #     max_logic_level = netlist.get_max_logic_level()
+    #     self.assertEqual(max_logic_level, 2)
+    
+    def test_get_fanout(self):
+        # Test the maximum fanout of the design
+        max_fanout = netlist.get_max_fanout()
+        self.assertEqual(max_fanout, 2)
 
 if __name__ == '__main__':
     faulthandler.enable()

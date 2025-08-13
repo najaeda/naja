@@ -411,6 +411,15 @@ class NajaNetlistTest2(unittest.TestCase):
         self.assertTrue(inst.get_term('c').is_sequential())
         self.assertFalse(inst.get_term('i1').is_sequential())
         self.assertFalse(inst.get_term('o1').is_sequential())
+    
+    def testMerticsOnNone(self):
+        netlist.reset()
+        self.assertEqual(0, netlist.get_max_logic_level())
+        self.assertEqual(0, netlist.get_max_fanout())
+        universe = naja.NLUniverse.create()
+        self.assertEqual(0, netlist.get_max_logic_level())
+        self.assertEqual(0, netlist.get_max_fanout())
+        
 
         
 if __name__ == '__main__':
