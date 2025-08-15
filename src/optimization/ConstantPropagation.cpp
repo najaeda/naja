@@ -11,7 +11,6 @@
 #include <vector>
 
 #include "SNLDesignModeling.h"
-#include "SNLDesignTruthTable.h"
 #include "NLLibraryTruthTables.h"
 #include "SNLScalarNet.h"
 #include "SNLTruthTable.h"
@@ -185,7 +184,7 @@ void ConstantPropagation::collectConstants() {
 unsigned ConstantPropagation::computeOutputValue(DNLID instanceID) {
   DNLInstanceFull instance = dnl_->getDNLInstanceFromID(instanceID);
   const SNLTruthTable& truthTable =
-      SNLDesignTruthTable::getTruthTable(instance.getSNLInstance()->getModel());
+      SNLDesignModeling::getTruthTable(instance.getSNLInstance()->getModel());
   if (not truthTable.isInitialized()) {
     // LCOV_EXCL_START
     return (unsigned)-1;

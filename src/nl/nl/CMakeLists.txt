@@ -54,7 +54,6 @@ set(PNL_SOURCES
 set(DECORATOR_SOURCES
   decorators/NLLibraryTruthTables.cpp
   decorators/SNLDesignModeling.cpp
-  decorators/SNLDesignTruthTable.cpp
 )
 
 set(HEADERS
@@ -103,7 +102,6 @@ set(HEADERS
   pnl/PNLSite.h
   pnl/PNLTechnology.h
   decorators/SNLDesignModeling.h
-  decorators/SNLTruthTable.h
   decorators/NLBitVecDynamic.h
 )
 

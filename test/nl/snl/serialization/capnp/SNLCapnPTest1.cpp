@@ -16,7 +16,7 @@
 #include "SNLBusNet.h"
 #include "SNLBusNetBit.h"
 #include "SNLInstTerm.h"
-#include "SNLDesignTruthTable.h"
+#include "SNLDesignModeling.h"
 
 #include "SNLCapnP.h"
 
@@ -52,7 +52,7 @@ class SNLCapNpTest1: public ::testing::Test {
       SNLScalarTerm::create(prim, SNLTerm::Direction::Input, NLName("A"));
       SNLScalarTerm::create(prim, SNLTerm::Direction::Input, NLName("B"));
       SNLScalarTerm::create(prim, SNLTerm::Direction::Output, NLName("Y"));
-      SNLDesignTruthTable::setTruthTable(prim, SNLTruthTable(2, 0x8));
+      SNLDesignModeling::setTruthTable(prim, SNLTruthTable(2, 0x8));
     }
     void TearDown() override {
       if (NLUniverse::get()) {
@@ -163,9 +163,9 @@ TEST_F(SNLCapNpTest1, test0) {
   EXPECT_TRUE(prim->isPrimitive());
   EXPECT_FALSE(prim->isUnnamed());
   EXPECT_EQ(NLName("prim"), prim->getName());
-  auto primTT = SNLDesignTruthTable::getTruthTable(prim);
+  auto primTT = SNLDesignModeling::getTruthTable(prim);
   EXPECT_TRUE(primTT.isInitialized());
-  EXPECT_EQ(SNLTruthTable(2, 0x8), SNLDesignTruthTable::getTruthTable(prim));
+  EXPECT_EQ(SNLTruthTable(2, 0x8), SNLDesignModeling::getTruthTable(prim));
 
   libraries = Libraries(prims1->getLibraries().begin(), prims1->getLibraries().end());
   EXPECT_EQ(1, libraries.size());

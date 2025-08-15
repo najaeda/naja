@@ -29,7 +29,6 @@
 
 #include "SNLDesign.h"
 #include "SNLDesignModeling.h"
-#include "SNLDesignTruthTable.h"
 #include "SNLTruthTable.h"
 #include "SNLVRLDumper.h"
 
@@ -288,7 +287,7 @@ static PyObject* PySNLDesign_setTruthTable(PySNLDesign* self, PyObject* args) {
   size_t size = selfObject->getBitTerms().getSubCollection(filter).size();
   SNLTruthTable truthTable(size, tt);
   try {
-    SNLDesignTruthTable::setTruthTable(selfObject, truthTable);
+    SNLDesignModeling::setTruthTable(selfObject, truthTable);
   } catch (const NLException& e) {
     PyErr_SetString(PyExc_RuntimeError, e.what());
     return nullptr;
@@ -332,7 +331,7 @@ static PyObject* PySNLDesign_setTruthTables(PySNLDesign* self, PyObject* args) {
   }
   METHOD_HEAD("SNLDesign.setTruthTables()")
   try {
-    SNLDesignTruthTable::setTruthTables(selfObject, truthTables);
+    SNLDesignModeling::setTruthTables(selfObject, truthTables);
   } catch (const NLException& e) {
     PyErr_SetString(PyExc_RuntimeError, e.what());
     return nullptr;
@@ -343,7 +342,7 @@ static PyObject* PySNLDesign_setTruthTables(PySNLDesign* self, PyObject* args) {
 // Return the truth table for design
 PyObject* PySNLDesign_getTruthTable(PySNLDesign* self) { 
   const SNLTruthTable& truthTable =
-      SNLDesignTruthTable::getTruthTable(self->object_);
+      SNLDesignModeling::getTruthTable(self->object_);
   if (!truthTable.isInitialized()) {
     Py_RETURN_NONE;
   }
@@ -365,7 +364,7 @@ static PyObject* PySNLDesign_getTruthTableByOutputID(PySNLDesign* self, PyObject
   }
   METHOD_HEAD("SNLDesign.getTruthTableByOutputID()")
   SNLTruthTable truthTable =
-      SNLDesignTruthTable::getTruthTable(selfObject, outputID);
+      SNLDesignModeling::getTruthTable(selfObject, outputID);
   if (!truthTable.isInitialized()) {
     Py_RETURN_NONE;
   }
@@ -486,11 +485,11 @@ GetBoolAttribute(SNLDesign, isLeaf)
 GetBoolAttribute(SNLDesign, isAssign)
 GetBoolAttribute(SNLDesign, isTopDesign)
 GetBoolAttribute(SNLDesign, isSequential)
-GetBoolAttributeWithFunction(SNLDesign, isConst0, SNLDesignTruthTable::isConst0)
-GetBoolAttributeWithFunction(SNLDesign, isConst1, SNLDesignTruthTable::isConst1)
-GetBoolAttributeWithFunction(SNLDesign, isConst, SNLDesignTruthTable::isConst)
-GetBoolAttributeWithFunction(SNLDesign, isBuf, SNLDesignTruthTable::isBuf)
-GetBoolAttributeWithFunction(SNLDesign, isInv, SNLDesignTruthTable::isInv)
+GetBoolAttributeWithFunction(SNLDesign, isConst0, SNLDesignModeling::isConst0)
+GetBoolAttributeWithFunction(SNLDesign, isConst1, SNLDesignModeling::isConst1)
+GetBoolAttributeWithFunction(SNLDesign, isConst, SNLDesignModeling::isConst)
+GetBoolAttributeWithFunction(SNLDesign, isBuf, SNLDesignModeling::isBuf)
+GetBoolAttributeWithFunction(SNLDesign, isInv, SNLDesignModeling::isInv)
 GetContainerMethod(SNLDesign, SNLTerm*, SNLTerms, Terms)
 GetContainerMethod(SNLDesign, SNLBitTerm*, SNLBitTerms, BitTerms)
 GetContainerMethod(SNLDesign, SNLScalarTerm*, SNLScalarTerms, ScalarTerms)
