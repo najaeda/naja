@@ -16,7 +16,6 @@
 #include "SNLBusTerm.h"
 #include "SNLBooleanTree.h"
 #include "SNLDesignModeling.h"
-#include "SNLDesignTruthTable.h"
 #include "SNLLibertyConstructorException.h"
 
 namespace {
@@ -187,7 +186,7 @@ void parseTerms(
     }
     std::reverse(terms.begin(), terms.end());
     auto truthTable = tree->getTruthTable(terms);
-    naja::NL::SNLDesignTruthTable::setTruthTable(primitive, truthTable);
+    naja::NL::SNLDesignModeling::setTruthTable(primitive, truthTable);
   } else if (termFunctions.size() > 1) {  
     std::vector<SNLTruthTable> truthTables;
     // Assuming termFunctions is ordered based on termIDs!
@@ -205,7 +204,7 @@ void parseTerms(
       auto truthTable = tree->getTruthTable(terms);
       truthTables.push_back(truthTable);
     }
-    naja::NL::SNLDesignTruthTable::setTruthTables(primitive, truthTables);
+    naja::NL::SNLDesignModeling::setTruthTables(primitive, truthTables);
   }
 }
 

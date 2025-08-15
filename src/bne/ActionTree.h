@@ -15,7 +15,6 @@
 #include <queue>
 #include "Utils.h"
 // truth table
-#include "SNLDesignTruthTable.h"
 #include "NLLibraryTruthTables.h"
 #include "SNLTruthTable.h"
 
