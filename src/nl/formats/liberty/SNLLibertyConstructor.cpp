@@ -15,6 +15,7 @@
 #include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
 #include "SNLBooleanTree.h"
+#include "SNLDesignModeling.h"
 #include "SNLDesignTruthTable.h"
 #include "SNLLibertyConstructorException.h"
 
@@ -63,13 +64,20 @@ BusType findBusType(const Yosys::LibertyAst* ast, const std::string& busType) {
   return BusType();
 }
 
+enum class FunctionParsingType {
+  Ignore,
+  Sequential,
+  Combinational
+};
+
 void parseTerms(
   SNLDesign* primitive,
   const Yosys::LibertyAst* top,
   const Yosys::LibertyAst* cell,
-  bool ignoreFunction = false) {
+  FunctionParsingType functionParsingType = FunctionParsingType::Ignore) {
   using TermFunctions = std::map<SNLScalarTerm*, std::string, SNLScalarTerm::PointerLess>;
   TermFunctions termFunctions;
+  TermFunctions seqTermClocks; //for sequential terms, key is clock term name
   for (auto child: cell->children) {
     if (child->id == "pin" or child->id == "bus") {
       auto pinName = child->args[0];
@@ -110,7 +118,8 @@ void parseTerms(
         reason << "Direction not found for " << child->id << " " << pinName;
         throw SNLLibertyConstructorException(reason.str());
       }
-      if (ignoreFunction and constructedScalarTerm) { //sequential
+      if (functionParsingType == FunctionParsingType::Sequential
+        and constructedScalarTerm) {
         //look for timing
         auto timingNode = child->find("timing");
         if (timingNode) {
@@ -119,13 +128,19 @@ void parseTerms(
           if (timingTypeNode) {
             // Parse timing information
             auto timingType = timingTypeNode->value;
-            if (timingType == "rising_edge" or timingType == "falling_edge") {
+            if (timingType == "hold_rising" or timingType == "setup_rising"
+              or timingType == "rising_edge") {
               // Handle sequential logic
+              auto ckPin = timingNode->find("related_pin");
+              if (ckPin) {
+                auto ckPinName = ckPin->value;
+                seqTermClocks[constructedScalarTerm] = ckPinName;
+              }
             }
           }
         }
       }
-      if (not ignoreFunction
+      if (functionParsingType == FunctionParsingType::Combinational
         and constructedScalarTerm
         and constructedScalarTerm->getDirection() == SNLTerm::Direction::Output) {
         termFunctions[constructedScalarTerm] = pinName;
@@ -135,7 +150,7 @@ void parseTerms(
           auto function = functionNode->value;
           termFunctions[constructedScalarTerm] = function;
         }
-      } else if (not ignoreFunction
+      } else if (not (functionParsingType == FunctionParsingType::Ignore)
         and constructedBusTerm
         and constructedBusTerm->getDirection() == SNLTerm::Direction::Output
         && (child->find("function") != nullptr)) {
@@ -146,7 +161,20 @@ void parseTerms(
       }
     }
   }
-  if (termFunctions.size() == 1) {
+  if (seqTermClocks.size() > 0) {
+    for (const auto& pair: seqTermClocks) {
+      auto term = pair.first;
+      const auto& clockName = pair.second;
+      auto clock = dynamic_cast<SNLScalarTerm*>(primitive->getTerm(NLName(clockName)));
+      if (clock) {
+        if (term->getDirection() == SNLTerm::Direction::Input) {
+          SNLDesignModeling::addInputsToClockArcs({term}, clock);
+        } else if (term->getDirection() == SNLTerm::Direction::Output) {
+          SNLDesignModeling::addClockToOutputsArcs(clock, {term});
+        }
+      }
+    }
+  } else if (termFunctions.size() == 1) {
     auto function = termFunctions.begin()->second;
     auto tree = std::make_unique<naja::NL::SNLBooleanTree>();
     //std::cerr << "Parsing function: " << function << std::endl;
@@ -185,10 +213,13 @@ void parseCell(NLLibrary* library, const Yosys::LibertyAst* top, Yosys::LibertyA
   auto cellName = cell->args[0];
   auto primitive = SNLDesign::create(library, SNLDesign::Type::Primitive, NLName(cellName));
   //std::cerr << "Parse cell: " << cellName << std::endl;
-  auto ff = cell->find("ff");
-  auto latch = cell->find("latch");
-  bool ignoreFunction = ff or latch;
-  parseTerms(primitive, top, cell, ignoreFunction);
+  FunctionParsingType type = FunctionParsingType::Combinational;
+  if (cell->find("ff")) {
+    type = FunctionParsingType::Sequential;
+  } else if (cell->find("latch")) {
+    type = FunctionParsingType::Ignore;
+  }
+  parseTerms(primitive, top, cell, type);
 }
 
 void parseCells(NLLibrary* library, const Yosys::LibertyAst* ast) {

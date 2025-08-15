@@ -12,6 +12,7 @@
 
 #include "SNLLibertyConstructor.h"
 #include "NLBitVecDynamic.h"
+#include "SNLDesignModeling.h"
 
 using namespace naja::NL;
 
@@ -482,4 +483,10 @@ TEST_F(SNLLibertyConstructorTest1, testFF) {
   // No truth table on seq output
   auto tt_q = SNLDesignTruthTable::getTruthTable(design, q->getID());
   EXPECT_FALSE(tt_q.isInitialized());
+  auto inputs = SNLDesignModeling::getClockRelatedInputs(ck);
+  EXPECT_EQ(1, inputs.size());
+  EXPECT_EQ(d, *inputs.begin());
+  auto outputs = SNLDesignModeling::getClockRelatedOutputs(ck);
+  EXPECT_EQ(1, outputs.size());
+  EXPECT_EQ(q, *outputs.begin());
 }
