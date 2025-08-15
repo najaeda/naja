@@ -454,3 +454,32 @@ TEST_F(SNLLibertyConstructorTest1, testFA_X1Function) {
   // Uncomment the following lines if you want to test the design truth table.
   //EXPECT_TRUE(SNLDesignTruthTable::isInitialized(design));
 }
+
+TEST_F(SNLLibertyConstructorTest1, testFF) {
+  SNLLibertyConstructor constructor(library_);
+  std::filesystem::path testPath(
+      std::filesystem::path(SNL_LIBERTY_BENCHMARKS)
+      / std::filesystem::path("benchmarks")
+      / std::filesystem::path("tests")
+      / std::filesystem::path("FF.lib"));
+  constructor.construct(testPath);
+  EXPECT_EQ(NLName("FF_test"), library_->getName());
+  EXPECT_EQ(library_->getSNLDesigns().size(), 1);
+  auto design = library_->getSNLDesign(NLName("FF"));
+  ASSERT_NE(nullptr, design);
+  EXPECT_EQ(3, design->getTerms().size());
+  EXPECT_EQ(3, design->getScalarTerms().size());
+  EXPECT_TRUE(design->getBusTerms().empty());
+  auto ck = design->getScalarTerm(NLName("CK"));
+  ASSERT_NE(nullptr, ck);
+  EXPECT_EQ(SNLTerm::Direction::Input, ck->getDirection());
+  auto d = design->getScalarTerm(NLName("D"));
+  ASSERT_NE(nullptr, d);
+  EXPECT_EQ(SNLTerm::Direction::Input, d->getDirection());
+  auto q = design->getScalarTerm(NLName("Q"));
+  ASSERT_NE(nullptr, q);
+  EXPECT_EQ(SNLTerm::Direction::Output, q->getDirection());
+  // No truth table on seq output
+  auto tt_q = SNLDesignTruthTable::getTruthTable(design, q->getID());
+  EXPECT_FALSE(tt_q.isInitialized());
+}

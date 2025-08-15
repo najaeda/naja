@@ -110,6 +110,21 @@ void parseTerms(
         reason << "Direction not found for " << child->id << " " << pinName;
         throw SNLLibertyConstructorException(reason.str());
       }
+      if (ignoreFunction and constructedScalarTerm) { //sequential
+        //look for timing
+        auto timingNode = child->find("timing");
+        if (timingNode) {
+          //look for timing_type
+          auto timingTypeNode = timingNode->find("timing_type");
+          if (timingTypeNode) {
+            // Parse timing information
+            auto timingType = timingTypeNode->value;
+            if (timingType == "rising_edge" or timingType == "falling_edge") {
+              // Handle sequential logic
+            }
+          }
+        }
+      }
       if (not ignoreFunction
         and constructedScalarTerm
         and constructedScalarTerm->getDirection() == SNLTerm::Direction::Output) {
