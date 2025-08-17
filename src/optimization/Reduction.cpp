@@ -5,7 +5,7 @@
 
 #include "Reduction.h"
 
-#include "SNLDesignTruthTable.h"
+#include "SNLDesignModeling.h"
 #include "SNLTruthTable.h"
 #include "SNLUniquifier.h"
 
@@ -140,7 +140,7 @@ void ReductionOptimization::reducPartialConstantInstance(
     throw SNLException(reason.str());
   }*/
   SNLTruthTable invTruthTable =
-      SNLDesignTruthTable::getTruthTable(uniquifiedCandidate->getModel());
+      SNLDesignModeling::getTruthTable(uniquifiedCandidate->getModel());
   if (!invTruthTable.isInitialized()) {
 #ifdef DEBUG_PRINTS
     // LCOV_EXCL_START
@@ -210,7 +210,7 @@ void ReductionOptimization::
                        .begin());
   auto inst = getInstanceForPath(std::get<0>(candidate));
   SNLTruthTable invTruthTable =
-      SNLDesignTruthTable::getTruthTable(inst->getModel());
+      SNLDesignModeling::getTruthTable(inst->getModel());
   if (!invTruthTable.isInitialized()) {
 #ifdef DEBUG_PRINTS
     // LCOV_EXCL_START

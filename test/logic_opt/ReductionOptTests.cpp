@@ -7,11 +7,11 @@
 #include "gtest/gtest.h"
 using ::testing::ElementsAre;
 
-#include "SNLDesignTruthTable.h"
 #include "NLUniverse.h"
 #include "NLLibraryTruthTables.h"
 #include "SNLPyLoader.h"
 #include "SNLScalarTerm.h"
+#include "SNLDesignModeling.h"
 #include "Utils.h"
 #include "ConstantPropagation.h"
 #include "DNL.h"
@@ -21,7 +21,6 @@ using ::testing::ElementsAre;
 #include "SNLInstTerm.h"
 #include "SNLPath.h"
 #include "SNLScalarNet.h"
-#include "SNLScalarTerm.h"
 
 #ifndef SNL_PRIMITIVES_TEST_PATH
 #define SNL_PRIMITIVES_TEST_PATH
@@ -65,7 +64,7 @@ TEST_F(ReductionOptTests, test) {
   auto logic0 = library->getSNLDesign(NLName("LOGIC0"));
   EXPECT_NE(nullptr, logic0);
   EXPECT_TRUE(logic0->isPrimitive());
-  auto logic0TruthTable = SNLDesignTruthTable::getTruthTable(logic0);
+  auto logic0TruthTable = SNLDesignModeling::getTruthTable(logic0);
   EXPECT_TRUE(logic0TruthTable.isInitialized());
   EXPECT_EQ(0, logic0TruthTable.size());
   EXPECT_TRUE(logic0TruthTable.all0());
@@ -73,7 +72,7 @@ TEST_F(ReductionOptTests, test) {
   auto logic1 = library->getSNLDesign(NLName("LOGIC1"));
   EXPECT_NE(nullptr, logic1);
   EXPECT_TRUE(logic1->isPrimitive());
-  auto logic1TruthTable = SNLDesignTruthTable::getTruthTable(logic1);
+  auto logic1TruthTable = SNLDesignModeling::getTruthTable(logic1);
   EXPECT_TRUE(logic1TruthTable.isInitialized());
   EXPECT_EQ(0, logic1TruthTable.size());
   EXPECT_TRUE(logic1TruthTable.all1());
@@ -81,7 +80,7 @@ TEST_F(ReductionOptTests, test) {
   auto and2 = library->getSNLDesign(NLName("AND2"));
   EXPECT_NE(nullptr, and2);
   EXPECT_TRUE(and2->isPrimitive());
-  auto and2TruthTable = SNLDesignTruthTable::getTruthTable(and2);
+  auto and2TruthTable = SNLDesignModeling::getTruthTable(and2);
   EXPECT_TRUE(and2TruthTable.isInitialized());
   EXPECT_EQ(2, and2TruthTable.size());
   EXPECT_EQ(SNLTruthTable(2, 0x8), and2TruthTable);
@@ -104,7 +103,7 @@ TEST_F(ReductionOptTests, testTruthTablesMap) {
 
   auto buf = library->getSNLDesign(NLName("BUF"));
   ASSERT_NE(nullptr, buf);
-  auto bufTruthTable = SNLDesignTruthTable::getTruthTable(buf);
+  auto bufTruthTable = SNLDesignModeling::getTruthTable(buf);
   ASSERT_TRUE(bufTruthTable.isInitialized());
   auto tt = bufTruthTable.getReducedWithConstant(0, 0);
   auto result = NLLibraryTruthTables::getDesignForTruthTable(library, tt);
@@ -118,7 +117,7 @@ TEST_F(ReductionOptTests, testTruthTablesMap) {
 
   auto inv = library->getSNLDesign(NLName("INV"));
   ASSERT_NE(nullptr, inv);
-  auto invTruthTable = SNLDesignTruthTable::getTruthTable(inv);
+  auto invTruthTable = SNLDesignModeling::getTruthTable(inv);
   ASSERT_TRUE(invTruthTable.isInitialized());
   tt = invTruthTable.getReducedWithConstant(0, 0);
   result = NLLibraryTruthTables::getDesignForTruthTable(library, tt);
@@ -133,7 +132,7 @@ TEST_F(ReductionOptTests, testTruthTablesMap) {
 
   auto and2 = library->getSNLDesign(NLName("AND2"));
   ASSERT_NE(nullptr, and2);
-  auto and2TruthTable = SNLDesignTruthTable::getTruthTable(and2);
+  auto and2TruthTable = SNLDesignModeling::getTruthTable(and2);
   ASSERT_TRUE(and2TruthTable.isInitialized());
   tt = and2TruthTable.getReducedWithConstant(0, 0);
   result = NLLibraryTruthTables::getDesignForTruthTable(library, tt);
@@ -143,7 +142,7 @@ TEST_F(ReductionOptTests, testTruthTablesMap) {
 
   auto or4 = library->getSNLDesign(NLName("OR4"));
   ASSERT_NE(nullptr, or4);
-  auto or4TruthTable = SNLDesignTruthTable::getTruthTable(or4);
+  auto or4TruthTable = SNLDesignModeling::getTruthTable(or4);
   ASSERT_TRUE(or4TruthTable.isInitialized());
   tt = or4TruthTable.getReducedWithConstant(0, 1);
   result = NLLibraryTruthTables::getDesignForTruthTable(library, tt);
@@ -158,7 +157,7 @@ TEST_F(ReductionOptTests, testTruthTablesMap) {
 
   auto xor2 = library->getSNLDesign(NLName("XOR2"));
   ASSERT_NE(nullptr, xor2);
-  auto xor2TruthTable = SNLDesignTruthTable::getTruthTable(xor2);
+  auto xor2TruthTable = SNLDesignModeling::getTruthTable(xor2);
   ASSERT_TRUE(xor2TruthTable.isInitialized());
   tt = xor2TruthTable.getReducedWithConstant(0, 0);
   result = NLLibraryTruthTables::getDesignForTruthTable(library, tt);
@@ -174,7 +173,7 @@ TEST_F(ReductionOptTests, testTruthTablesMap) {
 
   auto xnor2 = library->getSNLDesign(NLName("XNOR2"));
   ASSERT_NE(nullptr, xnor2);
-  auto xnor2TruthTable = SNLDesignTruthTable::getTruthTable(xnor2);
+  auto xnor2TruthTable = SNLDesignModeling::getTruthTable(xnor2);
   ASSERT_TRUE(xnor2TruthTable.isInitialized());
   tt = xnor2TruthTable.getReducedWithConstant(0, 0);
   result = NLLibraryTruthTables::getDesignForTruthTable(library, tt);
@@ -190,7 +189,7 @@ TEST_F(ReductionOptTests, testTruthTablesMap) {
 
   auto oai21 = library->getSNLDesign(NLName("OAI21"));
   ASSERT_NE(nullptr, oai21);
-  auto oai21TruthTable = SNLDesignTruthTable::getTruthTable(oai21);
+  auto oai21TruthTable = SNLDesignModeling::getTruthTable(oai21);
   ASSERT_TRUE(oai21TruthTable.isInitialized());
   tt = oai21TruthTable.getReducedWithConstant(0, 0);
   result = NLLibraryTruthTables::getDesignForTruthTable(library, tt);
@@ -206,7 +205,7 @@ TEST_F(ReductionOptTests, testTruthTablesMap) {
   auto mux2 = library->getSNLDesign(NLName("MUX2"));
   ASSERT_NE(nullptr, mux2);
   // 0: A, 1: B, 2: S
-  auto mux2TruthTable = SNLDesignTruthTable::getTruthTable(mux2);
+  auto mux2TruthTable = SNLDesignModeling::getTruthTable(mux2);
   ASSERT_TRUE(mux2TruthTable.isInitialized());
   // A=0
   tt = mux2TruthTable.getReducedWithConstant(0, 0);
@@ -456,7 +455,7 @@ TEST_F(ReductionOptTests, test_bne) {
   auto logic0 = library->getSNLDesign(NLName("LOGIC0"));
   EXPECT_NE(nullptr, logic0);
   EXPECT_TRUE(logic0->isPrimitive());
-  auto logic0TruthTable = SNLDesignTruthTable::getTruthTable(logic0);
+  auto logic0TruthTable = SNLDesignModeling::getTruthTable(logic0);
   EXPECT_TRUE(logic0TruthTable.isInitialized());
   EXPECT_EQ(0, logic0TruthTable.size());
   EXPECT_TRUE(logic0TruthTable.all0());
@@ -464,7 +463,7 @@ TEST_F(ReductionOptTests, test_bne) {
   auto logic1 = library->getSNLDesign(NLName("LOGIC1"));
   EXPECT_NE(nullptr, logic1);
   EXPECT_TRUE(logic1->isPrimitive());
-  auto logic1TruthTable = SNLDesignTruthTable::getTruthTable(logic1);
+  auto logic1TruthTable = SNLDesignModeling::getTruthTable(logic1);
   EXPECT_TRUE(logic1TruthTable.isInitialized());
   EXPECT_EQ(0, logic1TruthTable.size());
   EXPECT_TRUE(logic1TruthTable.all1());
@@ -472,7 +471,7 @@ TEST_F(ReductionOptTests, test_bne) {
   auto and2 = library->getSNLDesign(NLName("AND2"));
   EXPECT_NE(nullptr, and2);
   EXPECT_TRUE(and2->isPrimitive());
-  auto and2TruthTable = SNLDesignTruthTable::getTruthTable(and2);
+  auto and2TruthTable = SNLDesignModeling::getTruthTable(and2);
   EXPECT_TRUE(and2TruthTable.isInitialized());
   EXPECT_EQ(2, and2TruthTable.size());
   EXPECT_EQ(SNLTruthTable(2, 0x8), and2TruthTable);
@@ -495,7 +494,7 @@ TEST_F(ReductionOptTests, testTruthTablesMap_bne) {
 
   auto buf = library->getSNLDesign(NLName("BUF"));
   ASSERT_NE(nullptr, buf);
-  auto bufTruthTable = SNLDesignTruthTable::getTruthTable(buf);
+  auto bufTruthTable = SNLDesignModeling::getTruthTable(buf);
   ASSERT_TRUE(bufTruthTable.isInitialized());
   auto tt = bufTruthTable.getReducedWithConstant(0, 0);
   auto result = NLLibraryTruthTables::getDesignForTruthTable(library, tt);
@@ -509,7 +508,7 @@ TEST_F(ReductionOptTests, testTruthTablesMap_bne) {
 
   auto inv = library->getSNLDesign(NLName("INV"));
   ASSERT_NE(nullptr, inv);
-  auto invTruthTable = SNLDesignTruthTable::getTruthTable(inv);
+  auto invTruthTable = SNLDesignModeling::getTruthTable(inv);
   ASSERT_TRUE(invTruthTable.isInitialized());
   tt = invTruthTable.getReducedWithConstant(0, 0);
   result = NLLibraryTruthTables::getDesignForTruthTable(library, tt);
@@ -524,7 +523,7 @@ TEST_F(ReductionOptTests, testTruthTablesMap_bne) {
 
   auto and2 = library->getSNLDesign(NLName("AND2"));
   ASSERT_NE(nullptr, and2);
-  auto and2TruthTable = SNLDesignTruthTable::getTruthTable(and2);
+  auto and2TruthTable = SNLDesignModeling::getTruthTable(and2);
   ASSERT_TRUE(and2TruthTable.isInitialized());
   tt = and2TruthTable.getReducedWithConstant(0, 0);
   result = NLLibraryTruthTables::getDesignForTruthTable(library, tt);
@@ -534,7 +533,7 @@ TEST_F(ReductionOptTests, testTruthTablesMap_bne) {
 
   auto or4 = library->getSNLDesign(NLName("OR4"));
   ASSERT_NE(nullptr, or4);
-  auto or4TruthTable = SNLDesignTruthTable::getTruthTable(or4);
+  auto or4TruthTable = SNLDesignModeling::getTruthTable(or4);
   ASSERT_TRUE(or4TruthTable.isInitialized());
   tt = or4TruthTable.getReducedWithConstant(0, 1);
   result = NLLibraryTruthTables::getDesignForTruthTable(library, tt);
@@ -549,7 +548,7 @@ TEST_F(ReductionOptTests, testTruthTablesMap_bne) {
 
   auto xor2 = library->getSNLDesign(NLName("XOR2"));
   ASSERT_NE(nullptr, xor2);
-  auto xor2TruthTable = SNLDesignTruthTable::getTruthTable(xor2);
+  auto xor2TruthTable = SNLDesignModeling::getTruthTable(xor2);
   ASSERT_TRUE(xor2TruthTable.isInitialized());
   tt = xor2TruthTable.getReducedWithConstant(0, 0);
   result = NLLibraryTruthTables::getDesignForTruthTable(library, tt);
@@ -565,7 +564,7 @@ TEST_F(ReductionOptTests, testTruthTablesMap_bne) {
 
   auto xnor2 = library->getSNLDesign(NLName("XNOR2"));
   ASSERT_NE(nullptr, xnor2);
-  auto xnor2TruthTable = SNLDesignTruthTable::getTruthTable(xnor2);
+  auto xnor2TruthTable = SNLDesignModeling::getTruthTable(xnor2);
   ASSERT_TRUE(xnor2TruthTable.isInitialized());
   tt = xnor2TruthTable.getReducedWithConstant(0, 0);
   result = NLLibraryTruthTables::getDesignForTruthTable(library, tt);
@@ -581,7 +580,7 @@ TEST_F(ReductionOptTests, testTruthTablesMap_bne) {
 
   auto oai21 = library->getSNLDesign(NLName("OAI21"));
   ASSERT_NE(nullptr, oai21);
-  auto oai21TruthTable = SNLDesignTruthTable::getTruthTable(oai21);
+  auto oai21TruthTable = SNLDesignModeling::getTruthTable(oai21);
   ASSERT_TRUE(oai21TruthTable.isInitialized());
   tt = oai21TruthTable.getReducedWithConstant(0, 0);
   result = NLLibraryTruthTables::getDesignForTruthTable(library, tt);
@@ -597,7 +596,7 @@ TEST_F(ReductionOptTests, testTruthTablesMap_bne) {
   auto mux2 = library->getSNLDesign(NLName("MUX2"));
   ASSERT_NE(nullptr, mux2);
   // 0: A, 1: B, 2: S
-  auto mux2TruthTable = SNLDesignTruthTable::getTruthTable(mux2);
+  auto mux2TruthTable = SNLDesignModeling::getTruthTable(mux2);
   ASSERT_TRUE(mux2TruthTable.isInitialized());
   // A=0
   tt = mux2TruthTable.getReducedWithConstant(0, 0);

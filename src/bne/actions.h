@@ -7,9 +7,8 @@
 
 #include <vector>
 #include "SNLDesign.h"
-#include "SNLDesignTruthTable.h"
-#include "NLID.h"
 #include "SNLInstance.h"
+#include "SNLDesignModeling.h"
 #include "NLLibraryTruthTables.h"
 #include "SNLTruthTable.h"
 

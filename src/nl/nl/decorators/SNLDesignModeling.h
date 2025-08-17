@@ -10,6 +10,7 @@
 #include <variant>
 
 #include "SNLBitTerm.h"
+#include "SNLTruthTable.h"
 
 namespace naja { namespace NL {
 
@@ -57,6 +58,16 @@ class SNLDesignModeling {
     static NajaCollection<SNLInstTerm*> getInputRelatedClocks(SNLInstTerm* iinput);
     static NajaCollection<SNLInstTerm*> getClockRelatedOutputs(SNLInstTerm* iclock);
     static NajaCollection<SNLInstTerm*> getClockRelatedInputs(SNLInstTerm* iclock);
+
+    static void setTruthTable(SNLDesign* design, const SNLTruthTable& truthTable);
+    static void setTruthTables(SNLDesign* design, const std::vector<SNLTruthTable>& truthTable);
+    static SNLTruthTable getTruthTable(const SNLDesign* design);
+    static SNLTruthTable getTruthTable(const SNLDesign* design, NLID::DesignObjectID termID);
+    static bool isConst0(const SNLDesign* design);
+    static bool isConst1(const SNLDesign* design);
+    static bool isConst(const SNLDesign* design);
+    static bool isInv(const SNLDesign* design);
+    static bool isBuf(const SNLDesign* design);
 
     SNLDesignModeling(Type type);
     Type getType() const { return type_; }

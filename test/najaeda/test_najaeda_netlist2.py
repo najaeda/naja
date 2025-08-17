@@ -401,18 +401,18 @@ class NajaNetlistTest2(unittest.TestCase):
         # create clock related output
         out0 = inst.get_term('o0')
         inst.add_clock_related_outputs(clk, [out0])
-        self.assertEqual([in0], inst.get_clock_related_inputs(clk))
-        self.assertEqual([out0], inst.get_clock_related_outputs(clk))
+        self.assertEqual([in0], clk.get_clock_related_inputs())
+        self.assertEqual([out0], clk.get_clock_related_outputs())
         inst.add_combinatorial_arcs([inst.get_term('i1')], [inst.get_term('o1')])
-        self.assertEqual([inst.get_term('i1')], inst.get_combinatorial_inputs(inst.get_term('o1')))
-        self.assertEqual([inst.get_term('o1')], inst.get_combinatorial_outputs(inst.get_term('i1')))
+        self.assertEqual([inst.get_term('i1')], inst.get_term('o1').get_combinatorial_inputs())
+        self.assertEqual([inst.get_term('o1')], inst.get_term('i1').get_combinatorial_outputs())
         self.assertTrue(inst.get_term('i0').is_sequential())
         self.assertTrue(inst.get_term('o0').is_sequential())
         self.assertTrue(inst.get_term('c').is_sequential())
         self.assertFalse(inst.get_term('i1').is_sequential())
         self.assertFalse(inst.get_term('o1').is_sequential())
     
-    def testMerticsOnNone(self):
+    def testMetricsOnNone(self):
         netlist.reset()
         self.assertEqual(0, netlist.get_max_logic_level())
         self.assertEqual(0, netlist.get_max_fanout())

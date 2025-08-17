@@ -11,7 +11,7 @@
 #include "NLLibrary.h"
 #include "NLException.h"
 
-#include "SNLDesignTruthTable.h"
+#include "SNLDesignModeling.h"
 
 namespace {
 
@@ -62,7 +62,7 @@ NLLibraryTruthTables::LibraryTruthTables NLLibraryTruthTables::construct(NLLibra
   }
   LibraryTruthTables truthTables;
   for (auto design : library->getSNLDesigns()) {
-    SNLTruthTable tt = SNLDesignTruthTable::getTruthTable(design);
+    SNLTruthTable tt = SNLDesignModeling::getTruthTable(design);
     if (tt.isInitialized()) {
       auto it = truthTables.find(tt);
       if (it != truthTables.end()) {
