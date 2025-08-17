@@ -216,7 +216,7 @@ void parseCell(NLLibrary* library, const Yosys::LibertyAst* top, Yosys::LibertyA
   if (cell->find("ff")) {
     type = FunctionParsingType::Sequential;
   } else if (cell->find("latch")) {
-    type = FunctionParsingType::Ignore;
+    type = FunctionParsingType::Ignore; //LCOV_EXCL_LINE
   }
   parseTerms(primitive, top, cell, type);
 }

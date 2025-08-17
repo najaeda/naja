@@ -54,7 +54,7 @@ if __name__ == '__main__':
                     continue
                 if path is not None:
                     path2ll[(tuple(driver.pathIDs), tuple(driver.termIDs))] = len(path)
-                input_terms = instance.get_combinatorial_inputs(driver)
+                input_terms = driver.get_combinatorial_inputs()
                 for input_term in input_terms:
                     if path is not None and input_term in path:
                         continue # Avoid cycles

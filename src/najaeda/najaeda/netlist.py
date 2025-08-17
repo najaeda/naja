@@ -1622,8 +1622,6 @@ class Instance:
                                                     get_snl_term_for_ids(clock_term.pathIDs,
                                                                          clock_term.termIDs))
 
-    
-
     def add_clock_related_outputs(self, clock_term: Term, output_terms: List[Term]):
         """Add output terms that are related to the given clock term.
 
@@ -1636,8 +1634,6 @@ class Instance:
         self.__get_snl_model().addClockToOutputsArcs(
             get_snl_term_for_ids(clock_term.pathIDs, clock_term.termIDs), snlterms)
 
-
-
     def add_combinatorial_arcs(self, input_terms: List[Term], output_terms: List[Term]):
         """Add input terms that are combinatorial inputs for the given output term.
 
@@ -1649,8 +1645,6 @@ class Instance:
             [get_snl_term_for_ids(term.pathIDs, term.termIDs) for term in input_terms],
             [get_snl_term_for_ids(term.pathIDs, term.termIDs) for term in output_terms])
 
-
-
 def __get_top_db() -> naja.NLDB:
     if naja.NLUniverse.get() is None:
         naja.NLUniverse.create()
@@ -1658,7 +1652,6 @@ def __get_top_db() -> naja.NLDB:
         db = naja.NLDB.create(naja.NLUniverse.get())
         naja.NLUniverse.get().setTopDB(db)
     return naja.NLUniverse.get().getTopDB()
-
 
 def reset():
     """Reset the environment by deleting everything.
