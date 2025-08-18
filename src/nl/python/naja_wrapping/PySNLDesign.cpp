@@ -623,6 +623,8 @@ PyMethodDef PySNLDesign_Methods[] = {
     "get truth table by output ID."},
   { "setTruthTables", (PyCFunction)PySNLDesign_setTruthTables, METH_VARARGS,
     "set truth tables for design."},
+  { "hasModeling", (PyCFunction)PySNLDesign_hasModeling, METH_NOARGS,
+    "Returns True if the SNLDesign has modeling."},
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 
