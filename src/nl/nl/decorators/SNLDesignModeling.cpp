@@ -338,7 +338,6 @@ const SNLDesignModeling::TimingArcs* SNLDesignModeling::getTimingArcs(const SNLI
   }
 }
 
-
 NajaCollection<SNLBitTerm*> SNLDesignModeling::getCombinatorialOutputs_(SNLBitTerm* term) const {
   auto property = getProperty(term->getDesign());
   if (property) {
@@ -693,6 +692,25 @@ SNLTruthTable SNLDesignModeling::getTruthTable(
     return SNLTruthTable(numInputs, bits);
   }
   return SNLTruthTable();
+}
+
+bool SNLDesignModeling::hasModeling(const SNLDesign* design) {
+  auto property = getProperty(design);
+  if (property) {
+    return true;
+  } else {
+    return getTruthTableProperty(design);
+  }
+}
+
+bool SNLDesignModeling::isSequential(const SNLDesign* design) {
+  auto property = getProperty(design);
+  if (property) {
+    auto modeling = property->getModeling();
+    const auto arcs = modeling->getTimingArcs();
+    return not arcs->inputToClockArcs_.empty() or not arcs->clockToInputArcs_.empty();
+  }
+  return false;
 }
 
 bool SNLDesignModeling::isConst0(const SNLDesign* design) {

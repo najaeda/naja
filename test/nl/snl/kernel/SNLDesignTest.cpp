@@ -106,7 +106,6 @@ TEST_F(SNLDesignTest, testCreation0) {
   EXPECT_EQ(term1, design->getBitTerm(1, 11)); //bit irrelevant
   EXPECT_EQ(nullptr, design->getScalarTerm(NLName("term2")));
   EXPECT_EQ(nullptr, design->getBitTerm(2, -100)); //bit irrelevant
-  EXPECT_FALSE(design->isSequential());
 
   //anonymous scalar term
   SNLScalarTerm* term2 = SNLScalarTerm::create(design, SNLTerm::Direction::InOut);
