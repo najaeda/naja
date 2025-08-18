@@ -243,6 +243,69 @@ class NajaSTLCollection: public NajaBaseCollection<typename STLType::value_type>
     const STLType* container_ {nullptr};
 };
 
+template<class STLType>
+class NajaOwnedSTLCollection: public NajaBaseCollection<typename STLType::value_type> {
+  public:
+    using super = NajaBaseCollection<typename STLType::value_type>;
+
+    class NajaOwnedSTLCollectionIterator: public NajaBaseIterator<typename STLType::value_type> {
+      public:
+        using STLTypeIterator = typename STLType::const_iterator;
+
+        NajaOwnedSTLCollectionIterator(NajaOwnedSTLCollectionIterator&) = default;
+        NajaOwnedSTLCollectionIterator(const STLType& container, bool beginOrEnd=true): container_(container) {
+          if (beginOrEnd) {
+            it_ = container_.begin();
+          } else {
+            it_ = container_.end();
+          }
+        }
+
+        NajaBaseIterator<typename STLType::value_type>* clone() override {
+          return new NajaOwnedSTLCollectionIterator(*this);
+        }
+
+        typename STLType::value_type getElement() const override { return *it_; } 
+        void progress() override { ++it_; }
+        bool isEqual(const NajaBaseIterator<typename STLType::value_type>* r) const override {
+          if (auto rit = dynamic_cast<const NajaOwnedSTLCollectionIterator*>(r)) {
+            return it_ == rit->it_;
+          }
+          return false;
+        }
+        bool isValid() const override {
+          return it_ != container_.end();
+        }
+      private:
+        const STLType   container_  {};
+        STLTypeIterator it_         {};
+    };
+
+    NajaOwnedSTLCollection() = delete;
+    NajaOwnedSTLCollection(const NajaOwnedSTLCollection&) = delete;
+    NajaOwnedSTLCollection(NajaOwnedSTLCollection&&) = delete;
+    NajaOwnedSTLCollection(const STLType& container): super(), container_(container) {}
+    NajaBaseCollection<typename STLType::value_type>* clone() const override {
+      return new NajaOwnedSTLCollection(container_);
+    }
+    NajaBaseIterator<typename STLType::value_type>* begin() const override {
+      return new NajaOwnedSTLCollectionIterator(container_, true);
+    }
+    NajaBaseIterator<typename STLType::value_type>* end() const override {
+      return new NajaOwnedSTLCollectionIterator(container_, false);
+    }
+
+    size_t size() const override {
+      return container_.size();
+    }
+
+    bool empty() const override {
+      return container_.empty();
+    }
+  private:
+    const STLType container_ {};
+};
+
 template<class STLMapType>
 class NajaSTLMapCollection: public NajaBaseCollection<typename STLMapType::mapped_type> {
   public:

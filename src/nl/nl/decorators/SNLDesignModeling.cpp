@@ -200,6 +200,29 @@ void createTruthTableProperty(naja::NL::SNLDesign* design,
   }
 }
 
+naja::NajaCollection<naja::NL::SNLBitTerm*> getCombinatorialTermsFromTruthTable(naja::NL::SNLBitTerm* term) {
+  auto tt = naja::NL::SNLDesignModeling::getTruthTable(term->getDesign());
+  if (tt.isInitialized()) {
+    //make the assumption that if there is a tt,
+    //then all opposite terms are combi related.
+    if (term->getDirection() == naja::NL::SNLTerm::Direction::Input) {
+      return term->getDesign()->getBitTerms().getSubCollection(
+        [](naja::NL::SNLBitTerm* t) {
+          return t->getDirection() == naja::NL::SNLTerm::Direction::Output;
+        }
+      );
+    } else if (term->getDirection() == naja::NL::SNLTerm::Direction::Output) {
+      //return all inputs
+      return term->getDesign()->getBitTerms().getSubCollection(
+        [](naja::NL::SNLBitTerm* t) {
+          return t->getDirection() == naja::NL::SNLTerm::Direction::Input;
+        }
+      );
+    }
+  }
+  return {};
+}
+
 }  // namespace
   
 namespace naja { namespace NL {
@@ -315,20 +338,43 @@ const SNLDesignModeling::TimingArcs* SNLDesignModeling::getTimingArcs(const SNLI
   }
 }
 
+
 NajaCollection<SNLBitTerm*> SNLDesignModeling::getCombinatorialOutputs_(SNLBitTerm* term) const {
-  GET_RELATED_TERMS_IN_ARCS(inputCombinatorialArcs_)
+  auto property = getProperty(term->getDesign());
+  if (property) {
+    GET_RELATED_TERMS_IN_ARCS(inputCombinatorialArcs_)
+  } else {
+    return getCombinatorialTermsFromTruthTable(term);
+  }
 }
 
 NajaCollection<SNLInstTerm*> SNLDesignModeling::getCombinatorialOutputs_(SNLInstTerm* iterm) const {
-  GET_RELATED_INSTTERMS_IN_ARCS(inputCombinatorialArcs_)
+  auto property = getProperty(iterm->getInstance()->getModel());
+  if (property) {
+    GET_RELATED_INSTTERMS_IN_ARCS(inputCombinatorialArcs_)
+  } else {
+    return getCombinatorialTermsFromTruthTable(iterm->getBitTerm()).getTransformerCollection<SNLInstTerm*>(
+      [=](const SNLBitTerm* term) { return iterm->getInstance()->getInstTerm(term); });
+  }
 }
 
 NajaCollection<SNLBitTerm*> SNLDesignModeling::getCombinatorialInputs_(SNLBitTerm* term) const {
-  GET_RELATED_TERMS_IN_ARCS(outputCombinatorialArcs_)
+  auto property = getProperty(term->getDesign());
+  if (property) {
+    GET_RELATED_TERMS_IN_ARCS(outputCombinatorialArcs_)
+  } else {
+    return getCombinatorialTermsFromTruthTable(term);
+  }
 }
 
 NajaCollection<SNLInstTerm*> SNLDesignModeling::getCombinatorialInputs_(SNLInstTerm* iterm) const {
-  GET_RELATED_INSTTERMS_IN_ARCS(outputCombinatorialArcs_)
+  auto property = getProperty(iterm->getInstance()->getModel());
+  if (property) {
+    GET_RELATED_INSTTERMS_IN_ARCS(outputCombinatorialArcs_)
+  } else {
+    return getCombinatorialTermsFromTruthTable(iterm->getBitTerm()).getTransformerCollection<SNLInstTerm*>(
+      [=](const SNLBitTerm* term) { return iterm->getInstance()->getInstTerm(term); });
+  }
 }
 
 NajaCollection<SNLBitTerm*> SNLDesignModeling::getClockRelatedInputs_(SNLBitTerm* term) const {
