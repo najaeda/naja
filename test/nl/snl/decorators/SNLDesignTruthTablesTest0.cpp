@@ -32,6 +32,4 @@ TEST_F(SNLDesignTruthTableTest0, testTruthTablesConflictError) {
   //set truth table
   SNLDesignModeling::setTruthTable(design, SNLTruthTable(2, 0x5));
   EXPECT_THROW(SNLDesignModeling::setTruthTable(design, SNLTruthTable(2, 0x1)), NLException);
-  auto arcs = SNLDesignModeling::getCombinatorialInputs(o);
-  EXPECT_EQ(arcs.size(), 2);
 }

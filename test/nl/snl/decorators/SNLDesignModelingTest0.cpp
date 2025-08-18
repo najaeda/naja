@@ -279,3 +279,34 @@ TEST_F(SNLDesignModelingTest0, testNonExistingParameterError) {
   auto prim = SNLDesign::create(prims, SNLDesign::Type::Primitive, NLName("prim"));
   EXPECT_THROW(SNLDesignModeling::setParameter(prim, "MODE", "NORMAL"), NLException);
 }
+
+TEST_F(SNLDesignModelingTest0, testGetCombiDepsFromTT) {
+  //Create primitives
+  NLUniverse::create();
+  auto db = NLDB::create(NLUniverse::get());
+  auto prims = NLLibrary::create(db, NLLibrary::Type::Primitives);
+  auto design = SNLDesign::create(prims, SNLDesign::Type::Primitive, NLName("design"));
+  auto i0 = SNLScalarTerm::create(design, SNLTerm::Direction::Input, NLName("I0"));
+  auto i1 = SNLScalarTerm::create(design, SNLTerm::Direction::Input, NLName("I1"));
+  auto o = SNLScalarTerm::create(design, SNLTerm::Direction::Output, NLName("O"));
+  //set truth table
+  SNLDesignModeling::setTruthTable(design, SNLTruthTable(2, 0x5));
+  EXPECT_THROW(SNLDesignModeling::setTruthTable(design, SNLTruthTable(2, 0x1)), NLException);
+  auto inputArcs = SNLDesignModeling::getCombinatorialInputs(o);
+  EXPECT_EQ(inputArcs.size(), 2);
+  auto outputArcs = SNLDesignModeling::getCombinatorialOutputs(i0);
+  EXPECT_EQ(outputArcs.size(), 1);
+  auto designs = NLLibrary::create(db);
+  auto top = SNLDesign::create(designs, NLName("top"));
+  auto ins0 = SNLInstance::create(top, design, NLName("ins0"));
+  auto insInputArcs = SNLDesignModeling::getCombinatorialInputs(ins0->getInstTerm(o));
+  EXPECT_EQ(insInputArcs.size(), 2);
+  EXPECT_THAT(
+    std::vector(insInputArcs.begin(), insInputArcs.end()),
+    ElementsAre(ins0->getInstTerm(i0), ins0->getInstTerm(i1)));
+  auto insOutputArcs = SNLDesignModeling::getCombinatorialOutputs(ins0->getInstTerm(i0));
+  EXPECT_EQ(insOutputArcs.size(), 1);
+  EXPECT_THAT(
+    std::vector(insOutputArcs.begin(), insOutputArcs.end()),
+    ElementsAre(ins0->getInstTerm(o)));
+}

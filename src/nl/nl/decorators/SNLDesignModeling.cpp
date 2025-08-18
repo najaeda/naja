@@ -339,39 +339,19 @@ const SNLDesignModeling::TimingArcs* SNLDesignModeling::getTimingArcs(const SNLI
 }
 
 NajaCollection<SNLBitTerm*> SNLDesignModeling::getCombinatorialOutputs_(SNLBitTerm* term) const {
-  auto property = getProperty(term->getDesign());
-  if (property) {
-    GET_RELATED_TERMS_IN_ARCS(inputCombinatorialArcs_)
-  } 
-  // Error out
-  throw NLException("Design does not have Timing Modeling");
+  GET_RELATED_TERMS_IN_ARCS(inputCombinatorialArcs_)
 }
 
 NajaCollection<SNLInstTerm*> SNLDesignModeling::getCombinatorialOutputs_(SNLInstTerm* iterm) const {
-  auto property = getProperty(iterm->getInstance()->getModel());
-  if (property) {
-    GET_RELATED_INSTTERMS_IN_ARCS(inputCombinatorialArcs_)
-  }
-  // Error out
-  throw NLException("Design does not have Timing Modeling");
+  GET_RELATED_INSTTERMS_IN_ARCS(inputCombinatorialArcs_)
 }
 
 NajaCollection<SNLBitTerm*> SNLDesignModeling::getCombinatorialInputs_(SNLBitTerm* term) const {
-  auto property = getProperty(term->getDesign());
-  if (property) {
-    GET_RELATED_TERMS_IN_ARCS(outputCombinatorialArcs_)
-  }
-  // Error out
-  throw NLException("Design does not have Timing Modeling");
+  GET_RELATED_TERMS_IN_ARCS(outputCombinatorialArcs_)
 }
 
 NajaCollection<SNLInstTerm*> SNLDesignModeling::getCombinatorialInputs_(SNLInstTerm* iterm) const {
-  auto property = getProperty(iterm->getInstance()->getModel());
-  if (property) {
-    GET_RELATED_INSTTERMS_IN_ARCS(outputCombinatorialArcs_)
-  }
-  // Error out
-  throw NLException("Design does not have Timing Modeling");
+  GET_RELATED_INSTTERMS_IN_ARCS(outputCombinatorialArcs_)
 }
 
 NajaCollection<SNLBitTerm*> SNLDesignModeling::getClockRelatedInputs_(SNLBitTerm* term) const {
