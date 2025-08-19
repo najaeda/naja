@@ -1205,6 +1205,13 @@ class Instance:
         """
         return self.__get_snl_model().isSequential()
 
+    def has_modeling(self) -> bool:
+        """
+        :return: True if this instance has timing modeling.
+        :rtype: bool
+        """
+        return self.__get_snl_model().hasModeling()
+
     def get_terms(self):
         """Iterate over all scalar terms and bus terms of this Instance.
 

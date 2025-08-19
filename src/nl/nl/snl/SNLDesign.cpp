@@ -738,15 +738,5 @@ void SNLDesign::recursiveRevisionIncrement() {
   }
 }
 
-bool SNLDesign::isSequential() const {
-  for (auto term : this->getBitTerms()) {
-    auto seqRelatedInputs = SNLDesignModeling::getClockRelatedInputs(term); 
-    auto seqRelatedOutputs = SNLDesignModeling::getClockRelatedOutputs(term);
-    if (!seqRelatedInputs.empty() || !seqRelatedOutputs.empty()) {
-      return true;
-    }
-  }
-  return false;
-}
 
 }} // namespace NL // namespace naja

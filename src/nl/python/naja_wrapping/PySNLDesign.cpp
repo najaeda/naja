@@ -484,12 +484,13 @@ GetBoolAttribute(SNLDesign, isPrimitive)
 GetBoolAttribute(SNLDesign, isLeaf)
 GetBoolAttribute(SNLDesign, isAssign)
 GetBoolAttribute(SNLDesign, isTopDesign)
-GetBoolAttribute(SNLDesign, isSequential)
+GetBoolAttributeWithFunction(SNLDesign, hasModeling, SNLDesignModeling::hasModeling)
 GetBoolAttributeWithFunction(SNLDesign, isConst0, SNLDesignModeling::isConst0)
 GetBoolAttributeWithFunction(SNLDesign, isConst1, SNLDesignModeling::isConst1)
 GetBoolAttributeWithFunction(SNLDesign, isConst, SNLDesignModeling::isConst)
 GetBoolAttributeWithFunction(SNLDesign, isBuf, SNLDesignModeling::isBuf)
 GetBoolAttributeWithFunction(SNLDesign, isInv, SNLDesignModeling::isInv)
+GetBoolAttributeWithFunction(SNLDesign, isSequential, SNLDesignModeling::isSequential)
 GetContainerMethod(SNLDesign, SNLTerm*, SNLTerms, Terms)
 GetContainerMethod(SNLDesign, SNLBitTerm*, SNLBitTerms, BitTerms)
 GetContainerMethod(SNLDesign, SNLScalarTerm*, SNLScalarTerms, ScalarTerms)
@@ -622,6 +623,8 @@ PyMethodDef PySNLDesign_Methods[] = {
     "get truth table by output ID."},
   { "setTruthTables", (PyCFunction)PySNLDesign_setTruthTables, METH_VARARGS,
     "set truth tables for design."},
+  { "hasModeling", (PyCFunction)PySNLDesign_hasModeling, METH_NOARGS,
+    "Returns True if the SNLDesign has modeling."},
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 

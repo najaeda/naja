@@ -63,6 +63,8 @@ class SNLDesignModeling {
     static void setTruthTables(SNLDesign* design, const std::vector<SNLTruthTable>& truthTable);
     static SNLTruthTable getTruthTable(const SNLDesign* design);
     static SNLTruthTable getTruthTable(const SNLDesign* design, NLID::DesignObjectID termID);
+    static bool hasModeling(const SNLDesign* design);
+    static bool isSequential(const SNLDesign* design);
     static bool isConst0(const SNLDesign* design);
     static bool isConst1(const SNLDesign* design);
     static bool isConst(const SNLDesign* design);
@@ -78,7 +80,6 @@ class SNLDesignModeling {
     void addClockToOutputArc_(SNLBitTerm* clock, SNLBitTerm* output);
     const TimingArcs* getTimingArcs(const SNLInstance* instance=nullptr) const;
     TimingArcs* getOrCreateTimingArcs(const std::string& parameterValue=std::string());
-    //bool isClock_(const SNLBitTerm* term) const;
     NajaCollection<SNLBitTerm*> getCombinatorialOutputs_(SNLBitTerm* input) const;
     NajaCollection<SNLBitTerm*> getCombinatorialInputs_(SNLBitTerm* output) const;
     NajaCollection<SNLInstTerm*> getCombinatorialOutputs_(SNLInstTerm* iinput) const;
