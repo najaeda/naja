@@ -201,8 +201,8 @@ void createTruthTableProperty(naja::NL::SNLDesign* design,
 }
 
 naja::NajaCollection<naja::NL::SNLBitTerm*> getCombinatorialTermsFromTruthTable(naja::NL::SNLBitTerm* term) {
-  auto tt = naja::NL::SNLDesignModeling::getTruthTable(term->getDesign(), term->getID());
-  if (tt.isInitialized()) {
+  size_t tableCount = naja::NL::SNLDesignModeling::getTruthTableCount(term->getDesign());
+  if (tableCount > 0) {
     //make the assumption that if there is a tt,
     //then all opposite terms are combi related.
     if (term->getDirection() == naja::NL::SNLTerm::Direction::Input) {
