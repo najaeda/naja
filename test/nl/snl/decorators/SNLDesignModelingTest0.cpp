@@ -201,6 +201,7 @@ TEST_F(SNLDesignModelingTest0, testCombiWithParameter) {
   SNLDesignModeling::addCombinatorialArcs({luti1}, {luto1});
   SNLDesignModeling::addCombinatorialArcs("CROSS", {luti1}, {luto0});
   SNLDesignModeling::addCombinatorialArcs("CROSS", {luti0}, {luto1});
+  EXPECT_TRUE(SNLDesignModeling::hasModeling(gate));
 
   //Default parameter
   EXPECT_EQ(1, SNLDesignModeling::getCombinatorialOutputs(luti0).size());
