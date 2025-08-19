@@ -391,6 +391,7 @@ class NajaNetlistTest2(unittest.TestCase):
     def testClockRelatedInputsAndOutputs(self):
         top = netlist.create_top('Top')
         inst = top.create_child_instance('PrimSeq', 'inst')
+        self.assertFalse(inst.has_modeling())
         # Create clock input
         clk = inst.get_term('c')
         self.assertIsNotNone(clk)

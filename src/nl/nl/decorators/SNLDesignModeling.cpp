@@ -339,41 +339,19 @@ const SNLDesignModeling::TimingArcs* SNLDesignModeling::getTimingArcs(const SNLI
 }
 
 NajaCollection<SNLBitTerm*> SNLDesignModeling::getCombinatorialOutputs_(SNLBitTerm* term) const {
-  auto property = getProperty(term->getDesign());
-  if (property) {
-    GET_RELATED_TERMS_IN_ARCS(inputCombinatorialArcs_)
-  } else {
-    return getCombinatorialTermsFromTruthTable(term);
-  }
+  GET_RELATED_TERMS_IN_ARCS(inputCombinatorialArcs_)
 }
 
 NajaCollection<SNLInstTerm*> SNLDesignModeling::getCombinatorialOutputs_(SNLInstTerm* iterm) const {
-  auto property = getProperty(iterm->getInstance()->getModel());
-  if (property) {
-    GET_RELATED_INSTTERMS_IN_ARCS(inputCombinatorialArcs_)
-  } else {
-    return getCombinatorialTermsFromTruthTable(iterm->getBitTerm()).getTransformerCollection<SNLInstTerm*>(
-      [=](const SNLBitTerm* term) { return iterm->getInstance()->getInstTerm(term); });
-  }
+  GET_RELATED_INSTTERMS_IN_ARCS(inputCombinatorialArcs_)
 }
 
 NajaCollection<SNLBitTerm*> SNLDesignModeling::getCombinatorialInputs_(SNLBitTerm* term) const {
-  auto property = getProperty(term->getDesign());
-  if (property) {
-    GET_RELATED_TERMS_IN_ARCS(outputCombinatorialArcs_)
-  } else {
-    return getCombinatorialTermsFromTruthTable(term);
-  }
+  GET_RELATED_TERMS_IN_ARCS(outputCombinatorialArcs_)
 }
 
 NajaCollection<SNLInstTerm*> SNLDesignModeling::getCombinatorialInputs_(SNLInstTerm* iterm) const {
-  auto property = getProperty(iterm->getInstance()->getModel());
-  if (property) {
-    GET_RELATED_INSTTERMS_IN_ARCS(outputCombinatorialArcs_)
-  } else {
-    return getCombinatorialTermsFromTruthTable(iterm->getBitTerm()).getTransformerCollection<SNLInstTerm*>(
-      [=](const SNLBitTerm* term) { return iterm->getInstance()->getInstTerm(term); });
-  }
+  GET_RELATED_INSTTERMS_IN_ARCS(outputCombinatorialArcs_)
 }
 
 NajaCollection<SNLBitTerm*> SNLDesignModeling::getClockRelatedInputs_(SNLBitTerm* term) const {
@@ -464,19 +442,42 @@ void SNLDesignModeling::setParameter(SNLDesign* design, const std::string& name,
 }
 
 NajaCollection<SNLBitTerm*> SNLDesignModeling::getCombinatorialOutputs(SNLBitTerm* term) {
-  GET_RELATED_OBJECTS(SNLBitTerm, term, getDesign(), getCombinatorialOutputs_)
+  auto property = getProperty(term->getDesign());
+  if (property) {
+    GET_RELATED_OBJECTS(SNLBitTerm, term, getDesign(), getCombinatorialOutputs_)
+  } else {
+    return getCombinatorialTermsFromTruthTable(term);
+  }
 }
 
 NajaCollection<SNLInstTerm*> SNLDesignModeling::getCombinatorialOutputs(SNLInstTerm* iterm) {
-  GET_RELATED_OBJECTS(SNLInstTerm, iterm, getInstance()->getModel(), getCombinatorialOutputs_)
+  auto property = getProperty(iterm->getInstance()->getModel());
+  if (property) {
+    GET_RELATED_OBJECTS(SNLInstTerm, iterm, getInstance()->getModel(), getCombinatorialOutputs_)
+  } else {
+    return getCombinatorialTermsFromTruthTable(iterm->getBitTerm()).getTransformerCollection<SNLInstTerm*>(
+      [=](const SNLBitTerm* term) { return iterm->getInstance()->getInstTerm(term); });
+  }
 }
 
 NajaCollection<SNLBitTerm*> SNLDesignModeling::getCombinatorialInputs(SNLBitTerm* term) {
-  GET_RELATED_OBJECTS(SNLBitTerm, term, getDesign(), getCombinatorialInputs_)
+  auto property = getProperty(term->getDesign());
+  if (property) {
+    GET_RELATED_OBJECTS(SNLBitTerm, term, getDesign(), getCombinatorialInputs_)
+  }
+  else {
+    return getCombinatorialTermsFromTruthTable(term);
+  }
 }
 
 NajaCollection<SNLInstTerm*> SNLDesignModeling::getCombinatorialInputs(SNLInstTerm* iterm) {
-  GET_RELATED_OBJECTS(SNLInstTerm, iterm, getInstance()->getModel(), getCombinatorialInputs_)
+  auto property = getProperty(iterm->getInstance()->getModel());
+  if (property) {
+    GET_RELATED_OBJECTS(SNLInstTerm, iterm, getInstance()->getModel(), getCombinatorialInputs_)
+  } else {
+    return getCombinatorialTermsFromTruthTable(iterm->getBitTerm()).getTransformerCollection<SNLInstTerm*>(
+      [=](const SNLBitTerm* term) { return iterm->getInstance()->getInstTerm(term); });
+  }
 }
 
 NajaCollection<SNLBitTerm*> SNLDesignModeling::getClockRelatedInputs(SNLBitTerm* clock) {
