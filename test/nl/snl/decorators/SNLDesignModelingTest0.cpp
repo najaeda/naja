@@ -35,7 +35,10 @@ TEST_F(SNLDesignModelingTest0, testCombinatorial) {
   auto luti2 = SNLScalarTerm::create(lut, SNLTerm::Direction::Input, NLName("I2"));
   auto luti3 = SNLScalarTerm::create(lut, SNLTerm::Direction::Input, NLName("I3"));
   auto luto = SNLScalarTerm::create(lut, SNLTerm::Direction::Output, NLName("O"));
+  EXPECT_FALSE(SNLDesignModeling::hasModeling(lut));
   SNLDesignModeling::addCombinatorialArcs({luti0, luti1, luti2, luti3}, {luto});
+  EXPECT_TRUE(SNLDesignModeling::hasModeling(lut));
+  EXPECT_FALSE(SNLDesignModeling::isSequential(lut));
   auto lutIns0 = SNLInstance::create(top, lut, NLName("ins0"));
   EXPECT_TRUE(SNLDesignModeling::getCombinatorialOutputs(luto).empty());
   ASSERT_EQ(4, SNLDesignModeling::getCombinatorialInputs(luto).size());
@@ -105,9 +108,11 @@ TEST_F(SNLDesignModelingTest0, testSequential) {
   auto regD = SNLScalarTerm::create(reg, SNLTerm::Direction::Input, NLName("D"));
   auto regQ = SNLScalarTerm::create(reg, SNLTerm::Direction::Input, NLName("Q"));
   auto regC = SNLScalarTerm::create(reg, SNLTerm::Direction::Input, NLName("C"));
+
+  EXPECT_FALSE(SNLDesignModeling::hasModeling(reg));
   SNLDesignModeling::addInputsToClockArcs({regD}, regC);
   SNLDesignModeling::addClockToOutputsArcs(regC, {regQ});
-
+  EXPECT_TRUE(SNLDesignModeling::hasModeling(reg));
   EXPECT_TRUE(SNLDesignModeling::isSequential(reg));
 
   EXPECT_TRUE(SNLDesignModeling::getCombinatorialOutputs(regD).empty());
@@ -278,4 +283,21 @@ TEST_F(SNLDesignModelingTest0, testNonExistingParameterError) {
   auto prims = NLLibrary::create(db, NLLibrary::Type::Primitives);
   auto prim = SNLDesign::create(prims, SNLDesign::Type::Primitive, NLName("prim"));
   EXPECT_THROW(SNLDesignModeling::setParameter(prim, "MODE", "NORMAL"), NLException);
+}
+
+TEST_F(SNLDesignModelingTest0, testFromTruthTable) {
+  //Create primitives
+  NLUniverse::create();
+  auto db = NLDB::create(NLUniverse::get());
+  auto prims = NLLibrary::create(db, NLLibrary::Type::Primitives);
+  auto and2 = SNLDesign::create(prims, SNLDesign::Type::Primitive, NLName("prim"));
+  auto i0 = SNLScalarTerm::create(and2, SNLTerm::Direction::Input, NLName("I0"));
+  auto i1 = SNLScalarTerm::create(and2, SNLTerm::Direction::Input, NLName("I1"));
+  auto Z = SNLScalarTerm::create(and2, SNLTerm::Direction::Output, NLName("Z"));
+  SNLDesignModeling::setTruthTable(and2, SNLTruthTable(2, 0b1000));
+  EXPECT_TRUE(SNLDesignModeling::hasModeling(and2));
+  EXPECT_FALSE(SNLDesignModeling::isSequential(and2));
+  auto inputs = SNLDesignModeling::getCombinatorialInputs(Z);
+  EXPECT_EQ(2, inputs.size());
+  //EXPECT_THAT(inputs, testing::UnorderedElementsAre(i0, i1));
 }
