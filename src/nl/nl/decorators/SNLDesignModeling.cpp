@@ -573,8 +573,8 @@ size_t SNLDesignModeling::getTruthTableCount(const SNLDesign* design) {
       size_t   nBits   = 1u << nInputs;
       size_t   nChunks = nBits / 64 + ((nBits % 64) > 0 ? 1 : 0);
       valIdx += 1 + nChunks;
+      // LCOV_EXCL_START
       if (valIdx >= total + 1 /*because this loop will take you to the next table, therefore the + 1*/) {
-        // LCOV_EXCL_START
         std::ostringstream reason;
         // create a string by concating all values
         std::string result = "";
@@ -585,8 +585,8 @@ size_t SNLDesignModeling::getTruthTableCount(const SNLDesign* design) {
                << design->getName().getString() << ">" << " " << result << "\n" 
                << "With valIdx " << valIdx << " and total " << total;
         throw NLException(reason.str());
-        // LCOV_EXCL_STOP
       }
+      // LCOV_EXCL_STOP
       ++tableIdx;
     }
   }
