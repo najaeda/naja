@@ -201,8 +201,8 @@ void createTruthTableProperty(naja::NL::SNLDesign* design,
 }
 
 naja::NajaCollection<naja::NL::SNLBitTerm*> getCombinatorialTermsFromTruthTable(naja::NL::SNLBitTerm* term) {
-  auto tt = naja::NL::SNLDesignModeling::getTruthTable(term->getDesign());
-  if (tt.isInitialized()) {
+  size_t tableCount = naja::NL::SNLDesignModeling::getTruthTableCount(term->getDesign());
+  if (tableCount > 0) {
     //make the assumption that if there is a tt,
     //then all opposite terms are combi related.
     if (term->getDirection() == naja::NL::SNLTerm::Direction::Input) {
@@ -464,8 +464,7 @@ NajaCollection<SNLBitTerm*> SNLDesignModeling::getCombinatorialInputs(SNLBitTerm
   auto property = getProperty(term->getDesign());
   if (property) {
     GET_RELATED_OBJECTS(SNLBitTerm, term, getDesign(), getCombinatorialInputs_)
-  }
-  else {
+  } else {
     return getCombinatorialTermsFromTruthTable(term);
   }
 }
@@ -560,6 +559,40 @@ void SNLDesignModeling::setTruthTables(
   createTruthTableProperty(design, truthTables);
 }
 
+size_t SNLDesignModeling::getTruthTableCount(const SNLDesign* design) {
+  auto property = getTruthTableProperty(design);
+  size_t tableIdx = 0;
+  if (property) {
+    // scan through each stored table until we reach outputID
+    size_t valIdx   = 0;
+    size_t total    = property->getValues().size();
+
+    while (valIdx < total) {
+      uint32_t nInputs = static_cast<uint32_t>(
+          property->getUInt64Value(valIdx));
+      size_t   nBits   = 1u << nInputs;
+      size_t   nChunks = nBits / 64 + ((nBits % 64) > 0 ? 1 : 0);
+      valIdx += 1 + nChunks;
+      // LCOV_EXCL_START
+      if (valIdx >= total + 1 /*because this loop will take you to the next table, therefore the + 1*/) {
+        std::ostringstream reason;
+        // create a string by concating all values
+        std::string result = "";
+        for (size_t i = 0; i < total; ++i) {
+          result += std::to_string(property->getUInt64Value(i)) + " ";
+        }
+        reason << "Maldformed truth table for design <"
+               << design->getName().getString() << ">" << " " << result << "\n" 
+               << "With valIdx " << valIdx << " and total " << total;
+        throw NLException(reason.str());
+      }
+      // LCOV_EXCL_STOP
+      ++tableIdx;
+    }
+  }
+  return tableIdx;
+}
+
 SNLTruthTable SNLDesignModeling::getTruthTable(const SNLDesign* design) {
   auto property = getTruthTableProperty(design);
   if (property) {
@@ -644,6 +677,10 @@ SNLTruthTable SNLDesignModeling::getTruthTable(
   NLID::DesignObjectID outputID = termID2outputID[termID];
   if (property) {
     // scan through each stored table until we reach outputID
+    if (getTruthTableCount(design) == 1) {
+      // if there is only one table, then it is the same for all outputs
+      return getTruthTable(design);
+    }
     size_t tableIdx = 0;
     size_t valIdx   = 0;
     size_t total    = property->getValues().size();
