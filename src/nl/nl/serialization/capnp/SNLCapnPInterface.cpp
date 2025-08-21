@@ -357,26 +357,26 @@ void loadLibraryInterface(NajaObject* parent, const DBInterface::LibraryInterfac
   }
   auto libraryID = libraryInterface.getId();
   auto libraryType = libraryInterface.getType();
-  // if (primitivesAreLoded) {
-  //   if (libraryType == DBInterface::LibraryType::PRIMITIVES) {
-  //     // verify this library is already loaded
-  //     auto universe = NLUniverse::get();
-  //     if (not universe) {
-  //       std::ostringstream reason;
-  //       reason << "Cannot load library interface: no existing universe";
-  //       throw NLException(reason.str());
-  //     }
-  //     // Get DB id
+  if (primitivesAreLoded) {
+    if (libraryType == DBInterface::LibraryType::PRIMITIVES) {
+      // verify this library is already loaded
+      auto universe = NLUniverse::get();
+      if (not universe) {
+        std::ostringstream reason;
+        reason << "Cannot load library interface: no existing universe";
+        throw NLException(reason.str());
+      }
+      // Get DB id
       
-  //     auto snlLibrary = universe->getLibrary(parentLibrary->getDB()->getID(), libraryInterface.getId());
-  //     if (not snlLibrary) {
-  //       std::ostringstream reason;
-  //       reason << "Cannot load library interface: no primitives library found in universe";
-  //       throw NLException(reason.str());
-  //     }
-  //     return;
-  //   }
-  // }
+      auto snlLibrary = universe->getLibrary(parentLibrary->getDB()->getID(), libraryInterface.getId());
+      if (not snlLibrary) {
+        std::ostringstream reason;
+        reason << "Cannot load library interface: no primitives library found in universe";
+        throw NLException(reason.str());
+      }
+      return;
+    }
+  }
   NLName snlName;
   if (libraryInterface.hasName()) {
     snlName = NLName(libraryInterface.getName());
