@@ -33,8 +33,8 @@ void SNLCapnP::dump(const NLDB* db, const std::filesystem::path& path) {
 //}
 //LCOV_EXCL_STOP
 
-NLDB* SNLCapnP::load(const std::filesystem::path& path) {
-  loadInterface(path/InterfaceName);
+NLDB* SNLCapnP::load(const std::filesystem::path& path, bool primitivesAreLoded) {
+  loadInterface(path/InterfaceName, primitivesAreLoded);
   NLDB* db = loadImplementation(path/ImplementationName);
   return db;
 }
