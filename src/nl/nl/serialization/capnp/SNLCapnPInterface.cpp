@@ -367,8 +367,12 @@ void loadLibraryInterface(NajaObject* parent, const DBInterface::LibraryInterfac
         throw NLException(reason.str());
       }
       // Get DB id
-      
-      auto snlLibrary = universe->getLibrary(parentLibrary->getDB()->getID(), libraryInterface.getId());
+      NLLibrary* snlLibrary = nullptr;
+      if (parentDB) {
+        snlLibrary = universe->getLibrary(parentDB->getID(), libraryInterface.getId());
+      } else {
+        snlLibrary = universe->getLibrary(parentLibrary->getDB()->getID(), libraryInterface.getId());
+      }
       if (not snlLibrary) {
         std::ostringstream reason;
         reason << "Cannot load library interface: no primitives library found in universe";

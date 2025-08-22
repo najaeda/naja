@@ -12,6 +12,7 @@
 #include "SNLLibertyConstructor.h"
 #include "NLBitVecDynamic.h"
 #include "SNLDesignModeling.h"
+#include "SNLCapnP.h"
 
 using namespace naja::NL;
 
@@ -23,8 +24,8 @@ class SNLLibertyConstructorTest2: public ::testing::Test {
   protected:
     void SetUp() override {
       NLUniverse* universe = NLUniverse::create();
-      auto db = NLDB::create(universe);
-      library_ = NLLibrary::create(db, NLLibrary::Type::Primitives, NLName("MYLIB"));
+      db_ = NLDB::create(universe);
+      library_ = NLLibrary::create(db_, NLLibrary::Type::Primitives, NLName("MYLIB"));
     }
     void TearDown() override {
       NLUniverse::get()->destroy();
@@ -32,6 +33,7 @@ class SNLLibertyConstructorTest2: public ::testing::Test {
     }
   protected:
     NLLibrary*  library_;
+    NLDB* db_ = nullptr;
 };
 
 TEST_F(SNLLibertyConstructorTest2, test) {
@@ -89,4 +91,21 @@ TEST_F(SNLLibertyConstructorTest2, test) {
     auto clocks = SNLDesignModeling::getOutputRelatedClocks(q);
     EXPECT_EQ(1, clocks.size());
   }
+  // dump to naja if
+  std::filesystem::path outPath("dump_if");
+  SNLCapnP::dump(db_, outPath);
+  {
+    NLUniverse::get()->destroy();
+    NLUniverse* universe = NLUniverse::create();
+    db_ = NLDB::create(universe);
+    library_ = NLLibrary::create(db_, NLLibrary::Type::Primitives, NLName("MYLIB"));
+    SNLLibertyConstructor constructor(library_);
+    std::filesystem::path testPath(
+        std::filesystem::path(SNL_LIBERTY_BENCHMARKS)
+        / std::filesystem::path("benchmarks")
+        / std::filesystem::path("tests")
+        / std::filesystem::path("small.lib"));
+    constructor.construct(testPath);
+  }
+  auto db = SNLCapnP::load(outPath, true);
 }
