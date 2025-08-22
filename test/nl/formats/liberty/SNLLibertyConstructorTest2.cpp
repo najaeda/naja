@@ -108,4 +108,6 @@ TEST_F(SNLLibertyConstructorTest2, test) {
     constructor.construct(testPath);
   }
   auto db = SNLCapnP::load(outPath, true);
+  NLUniverse::get()->destroy();
+  EXPECT_THROW(SNLCapnP::load(outPath, true), NLException);
 }

@@ -361,18 +361,22 @@ void loadLibraryInterface(NajaObject* parent, const DBInterface::LibraryInterfac
     if (libraryType == DBInterface::LibraryType::PRIMITIVES) {
       // verify this library is already loaded
       auto universe = NLUniverse::get();
+      // LCOV_EXCL_START
       if (not universe) {
         std::ostringstream reason;
         reason << "Cannot load library interface: no existing universe";
         throw NLException(reason.str());
       }
+      // LCOV_EXCL_STOP
       // Get DB id
       NLLibrary* snlLibrary = nullptr;
       if (parentDB) {
         snlLibrary = universe->getLibrary(parentDB->getID(), libraryInterface.getId());
+      // LCOV_EXCL_START
       } else {
         snlLibrary = universe->getLibrary(parentLibrary->getDB()->getID(), libraryInterface.getId());
       }
+      // LCOV_EXCL_STOP
       if (not snlLibrary) {
         std::ostringstream reason;
         reason << "Cannot load library interface: no primitives library found in universe";
@@ -492,12 +496,14 @@ NLDB* SNLCapnP::loadInterface(int fileDescriptor, bool primitivesAreLoaded) {
   NLDB* snldb = nullptr;
   if (primitivesAreLoaded) {
     snldb = universe->getDB(dbID);
+    // LCOV_EXCL_START
     if (not snldb) {
       std::ostringstream reason;
       reason << "No DB exist even tough primitives should be loaded: "
              << "dbID: " << dbID;
       throw NLException(reason.str());
     }
+    // LCOV_EXCL_STOP
   } else {
     snldb = NLDB::create(universe, dbID);
   }
