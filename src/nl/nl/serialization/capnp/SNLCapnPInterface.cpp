@@ -349,7 +349,7 @@ void loadDesignInterface(
   }
 }
 
-void loadLibraryInterface(NajaObject* parent, const DBInterface::LibraryInterface::Reader& libraryInterface) {
+void loadLibraryInterface(NajaObject* parent, const DBInterface::LibraryInterface::Reader& libraryInterface, bool primitivesAreLoaded = false) {
   NLLibrary* parentLibrary = nullptr;
   NLDB* parentDB = dynamic_cast<NLDB*>(parent);
   if (not parentDB) {
@@ -357,6 +357,34 @@ void loadLibraryInterface(NajaObject* parent, const DBInterface::LibraryInterfac
   }
   auto libraryID = libraryInterface.getId();
   auto libraryType = libraryInterface.getType();
+  if (primitivesAreLoaded) {
+    if (libraryType == DBInterface::LibraryType::PRIMITIVES) {
+      // verify this library is already loaded
+      auto universe = NLUniverse::get();
+      // LCOV_EXCL_START
+      if (not universe) {
+        std::ostringstream reason;
+        reason << "Cannot load library interface: no existing universe";
+        throw NLException(reason.str());
+      }
+      // LCOV_EXCL_STOP
+      // Get DB id
+      NLLibrary* snlLibrary = nullptr;
+      if (parentDB) {
+        snlLibrary = universe->getLibrary(parentDB->getID(), libraryInterface.getId());
+      // LCOV_EXCL_START
+      } else {
+        snlLibrary = universe->getLibrary(parentLibrary->getDB()->getID(), libraryInterface.getId());
+      }
+      // LCOV_EXCL_STOP
+      if (not snlLibrary) {
+        std::ostringstream reason;
+        reason << "Cannot load library interface: no primitives library found in universe";
+        throw NLException(reason.str());
+      }
+      return;
+    }
+  }
   NLName snlName;
   if (libraryInterface.hasName()) {
     snlName = NLName(libraryInterface.getName());
@@ -380,7 +408,7 @@ void loadLibraryInterface(NajaObject* parent, const DBInterface::LibraryInterfac
   }
   if (libraryInterface.hasLibraryInterfaces()) {
     for (auto subLibraryInterface: libraryInterface.getLibraryInterfaces()) {
-      loadLibraryInterface(snlLibrary, subLibraryInterface);
+      loadLibraryInterface(snlLibrary, subLibraryInterface, primitivesAreLoaded);
     }
   }
   if (snlLibrary->isPrimitives()) {
@@ -456,7 +484,7 @@ void SNLCapnP::dumpInterface(const NLDB* snlDB, const std::filesystem::path& int
 //}
 //LCOV_EXCL_STOP
 
-NLDB* SNLCapnP::loadInterface(int fileDescriptor) {
+NLDB* SNLCapnP::loadInterface(int fileDescriptor, bool primitivesAreLoaded) {
   ::capnp::PackedFdMessageReader message(fileDescriptor);
 
   DBInterface::Reader dbInterface = message.getRoot<DBInterface>();
@@ -465,7 +493,21 @@ NLDB* SNLCapnP::loadInterface(int fileDescriptor) {
   if (not universe) {
     universe = NLUniverse::create();
   }
-  auto snldb = NLDB::create(universe, dbID);
+  NLDB* snldb = nullptr;
+  if (primitivesAreLoaded) {
+    snldb = universe->getDB(dbID);
+    // LCOV_EXCL_START
+    if (not snldb) {
+      std::ostringstream reason;
+      reason << "No DB exist even tough primitives should be loaded: "
+             << "dbID: " << dbID;
+      throw NLException(reason.str());
+    }
+    // LCOV_EXCL_STOP
+  } else {
+    snldb = NLDB::create(universe, dbID);
+  }
+  
   if (dbInterface.hasProperties()) {
     auto lambda = [](const DBInterface::Reader& reader) {
       return reader.getProperties();
@@ -475,7 +517,7 @@ NLDB* SNLCapnP::loadInterface(int fileDescriptor) {
   
   if (dbInterface.hasLibraryInterfaces()) {
     for (auto libraryInterface: dbInterface.getLibraryInterfaces()) {
-      loadLibraryInterface(snldb, libraryInterface);
+      loadLibraryInterface(snldb, libraryInterface, primitivesAreLoaded);
     }
   }
   if (dbInterface.hasTopDesignReference()) {
@@ -498,10 +540,10 @@ NLDB* SNLCapnP::loadInterface(int fileDescriptor) {
   return snldb;
 }
 
-NLDB* SNLCapnP::loadInterface(const std::filesystem::path& interfacePath) {
+NLDB* SNLCapnP::loadInterface(const std::filesystem::path& interfacePath, bool primitivesAreLoaded) {
   //FIXME: verify if file can be opened
   int fd = open(interfacePath.c_str(), O_RDONLY);
-  return loadInterface(fd);
+  return loadInterface(fd, primitivesAreLoaded);
 }
 
 //LCOV_EXCL_START
