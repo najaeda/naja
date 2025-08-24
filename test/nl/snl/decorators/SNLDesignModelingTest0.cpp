@@ -11,6 +11,7 @@ using ::testing::ElementsAre;
 
 #include "SNLDesignModeling.h"
 #include "SNLScalarTerm.h"
+#include "SNLInstTerm.h"
 using namespace naja::NL;
 
 class SNLDesignModelingTest0: public ::testing::Test {
@@ -296,10 +297,15 @@ TEST_F(SNLDesignModelingTest0, testGetCombiDepsFromTT) {
   auto i1 = SNLScalarTerm::create(design, SNLTerm::Direction::Input, NLName("I1"));
   auto o = SNLScalarTerm::create(design, SNLTerm::Direction::Output, NLName("O"));
   //set truth table
-  SNLDesignModeling::setTruthTable(design, SNLTruthTable(2, 0x5));
-  EXPECT_THROW(SNLDesignModeling::setTruthTable(design, SNLTruthTable(2, 0x1)), NLException);
+  std::vector<u_int64_t> deps;
+  deps.push_back(3);
+  SNLDesignModeling::setTruthTable(design, SNLTruthTable(2, 0x5, deps));
+  printf("deps size: %zu\n", SNLDesignModeling::getTruthTable(design).getDependencies().size());
+  EXPECT_THROW(SNLDesignModeling::setTruthTable(design, SNLTruthTable(2, 0x1, deps)), NLException);
   printf("1\n");
   auto inputArcs = SNLDesignModeling::getCombinatorialInputs(o);
+  printf("deps size: %zu\n", SNLDesignModeling::getTruthTable(design, o->getFlatID()).getDependencies().size());
+  printf("arcs size: %zu\n", inputArcs.size());
   EXPECT_EQ(inputArcs.size(), 2);
   printf("2\n");
   auto outputArcs = SNLDesignModeling::getCombinatorialOutputs(i0);
@@ -315,6 +321,9 @@ TEST_F(SNLDesignModelingTest0, testGetCombiDepsFromTT) {
     ElementsAre(ins0->getInstTerm(i0), ins0->getInstTerm(i1)));
   auto insOutputArcs = SNLDesignModeling::getCombinatorialOutputs(ins0->getInstTerm(i0));
   EXPECT_EQ(insOutputArcs.size(), 1);
+  for (auto arc: insOutputArcs) {
+    printf("arc: %s\n", arc->getBitTerm()->getName().getString().c_str());
+  }
   EXPECT_THAT(
     std::vector(insOutputArcs.begin(), insOutputArcs.end()),
     ElementsAre(ins0->getInstTerm(o)));

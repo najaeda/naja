@@ -128,14 +128,16 @@ TEST_F(SNLDesignTruthTablesTest1, testStandardGates) {
   auto o0 = SNLScalarTerm::create(multiple_outputs, SNLTerm::Direction::Output, NLName("O0"));
   auto o1 = SNLScalarTerm::create(multiple_outputs, SNLTerm::Direction::Output, NLName("O1"));
   SNLTruthTable tt0(2, 0b10), tt1(2, 0b01);
+  printf("tt1get: %s\n", tt1.toString().c_str());
   SNLDesignModeling::setTruthTables(multiple_outputs, {tt0, tt1});
 
   EXPECT_THROW(
     SNLDesignModeling::getTruthTable(multiple_outputs),
     NLException
   );
-  auto tt0get = SNLDesignModeling::getTruthTable(multiple_outputs, o0->getID());
-  auto tt1get = SNLDesignModeling::getTruthTable(multiple_outputs, o1->getID());
+  auto tt0get = SNLDesignModeling::getTruthTable(multiple_outputs, o0->getFlatID());
+  auto tt1get = SNLDesignModeling::getTruthTable(multiple_outputs, o1->getFlatID());
+  printf("tt1get: %s\n", tt1get.toString().c_str());
   EXPECT_TRUE(tt0get.isInitialized());
   EXPECT_EQ(tt0, tt0get);
   EXPECT_TRUE(tt1get.isInitialized());
@@ -167,8 +169,12 @@ TEST_F(SNLDesignTruthTablesTest1, testStandardGates) {
   auto tt0getBig = SNLDesignModeling::getTruthTable(multiple_outputs2, o0->getID());
   auto tt1getBig = SNLDesignModeling::getTruthTable(multiple_outputs2, o1->getID());
   EXPECT_TRUE(tt0getBig.isInitialized());
+  printf("tt0Big: %s\n", tt0Big.toString().c_str());
+  printf("tt0getBig: %s\n", tt0getBig.toString().c_str());
   EXPECT_EQ(tt0Big, tt0getBig);
   EXPECT_TRUE(tt1getBig.isInitialized());
+  printf("tt1Big: %s\n", tt1Big.toString().c_str());
+  printf("tt1getBig: %s\n", tt1getBig.toString().c_str());
   EXPECT_EQ(tt1Big, tt1getBig);
   }
   {
@@ -208,6 +214,9 @@ TEST_F(SNLDesignTruthTablesTest1, testStandardGates) {
   SNLTruthTable tt0singleLarge(7, bitVectSingleLarge);
 
   SNLDesignModeling::setTruthTable(singleLarge, tt0singleLarge);
+  printf("tt0singleLarge: %s\n", tt0singleLarge.toString().c_str());
+  printf("get tt0singleLarge: %s\n",
+         SNLDesignModeling::getTruthTable(singleLarge).toString().c_str());
   EXPECT_EQ(tt0singleLarge, SNLDesignModeling::getTruthTable(singleLarge));
   
   // error for wrong number outputs for tt
@@ -268,6 +277,7 @@ TEST_F(SNLDesignTruthTablesTest1, MultiChunkButTooSmallThrows) {
   P->addUInt64Value(4);  // declaredInputs=4 => nBits=16 <= 64
   P->addUInt64Value(0);
   P->addUInt64Value(0);  // values.size()>2
+  P->addUInt64Value(0);  // add 1 more for deps
 
   EXPECT_THROW(
     SNLDesignModeling::getTruthTable(D),
@@ -353,6 +363,7 @@ TEST_F(SNLDesignTruthTablesTest1, NBitsNotGreaterThan64_MultiChunkPath_Throws) {
   P->addUInt64Value(4);  // declaredInputs=4 => nBits=16
   P->addUInt64Value(0);
   P->addUInt64Value(1);  // values.size()>2 forces multi-chunk branch
+  P->addUInt64Value(0); // add 1 more for deps
 
   EXPECT_THROW(
     SNLDesignModeling::getTruthTable(D),
@@ -373,6 +384,7 @@ TEST_F(SNLDesignTruthTablesTest1, ChunkCountMismatch_Throws) {
   P->addUInt64Value(3);
   P->addUInt64Value(0);  // chunk #0
   P->addUInt64Value(0);  // chunk #1 (extra)
+  P->addUInt64Value(0);  // deps
 
   EXPECT_THROW(
     SNLDesignModeling::getTruthTable(D),
@@ -505,6 +517,7 @@ TEST_F(SNLDesignTruthTablesTest1,
   prop->addUInt64Value(3);  // declaredInputs
   prop->addUInt64Value(0);  // mask #1
   prop->addUInt64Value(0);  // mask #2
+  prop->addUInt64Value(0);  // deps #1
 
   EXPECT_THROW(
       SNLDesignModeling::getTruthTable(D),
@@ -572,6 +585,7 @@ TEST_F(SNLDesignTruthTablesTest1, GetTruthTable_MultiChunkBitsNotLargerThan64Thr
   P->addUInt64Value(5);    // declaredInputs
   P->addUInt64Value(0x0);  // chunk #0
   P->addUInt64Value(0x0);  // chunk #1
+  P->addUInt64Value(0x0);  // deps
 
   // nBits == 32 <= 64, so multi-chunk path must throw
   EXPECT_THROW(
