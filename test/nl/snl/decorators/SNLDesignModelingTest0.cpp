@@ -383,3 +383,30 @@ TEST_F(SNLDesignModelingTest0, testNoDepsFromTT) {
   EXPECT_EQ(SNLDesignModeling::getCombinatorialOutputs(ins0->getInstTerm(i0)).size(), 2);
   EXPECT_EQ(SNLDesignModeling::getCombinatorialOutputs(ins0->getInstTerm(i1)).size(), 2);
 }
+
+TEST_F(SNLDesignModelingTest0, testNoDepsFromSingleTT) {
+  //Create primitives
+  NLUniverse::create();
+  auto db = NLDB::create(NLUniverse::get());
+  auto prims = NLLibrary::create(db, NLLibrary::Type::Primitives);
+  auto design = SNLDesign::create(prims, SNLDesign::Type::Primitive, NLName("design"));
+  auto i0 = SNLScalarTerm::create(design, SNLTerm::Direction::Input, NLName("I0"));
+  auto i1 = SNLScalarTerm::create(design, SNLTerm::Direction::Input, NLName("I1"));
+  auto o = SNLScalarTerm::create(design, SNLTerm::Direction::Output, NLName("O"));
+  // create a top
+  auto designs = NLLibrary::create(db);
+  auto top = SNLDesign::create(designs, NLName("top"));
+  // create an instance of the design
+  auto ins0 = SNLInstance::create(top, design, NLName("ins0"));
+  //set truth table
+  std::vector<u_int64_t> deps;
+  SNLDesignModeling::setTruthTable(design, SNLTruthTable(2, 0x5, deps));
+  // Test all inputs are returned for combinatorial quarie for each output
+  EXPECT_EQ(SNLDesignModeling::getCombinatorialInputs(o).size(), 2);
+  EXPECT_EQ(SNLDesignModeling::getCombinatorialInputs(ins0->getInstTerm(o)).size(), 2);
+  // Test all outputs are returned for combinatorial quarie for each input
+  EXPECT_EQ(SNLDesignModeling::getCombinatorialOutputs(i0).size(), 1);
+  EXPECT_EQ(SNLDesignModeling::getCombinatorialOutputs(i1).size(), 1);
+  EXPECT_EQ(SNLDesignModeling::getCombinatorialOutputs(ins0->getInstTerm(i0)).size(), 1);
+  EXPECT_EQ(SNLDesignModeling::getCombinatorialOutputs(ins0->getInstTerm(i1)).size(), 1);
+}
