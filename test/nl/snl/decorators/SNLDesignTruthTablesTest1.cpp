@@ -128,7 +128,6 @@ TEST_F(SNLDesignTruthTablesTest1, testStandardGates) {
   auto o0 = SNLScalarTerm::create(multiple_outputs, SNLTerm::Direction::Output, NLName("O0"));
   auto o1 = SNLScalarTerm::create(multiple_outputs, SNLTerm::Direction::Output, NLName("O1"));
   SNLTruthTable tt0(2, 0b10), tt1(2, 0b01);
-  printf("tt1get: %s\n", tt1.toString().c_str());
   SNLDesignModeling::setTruthTables(multiple_outputs, {tt0, tt1});
 
   EXPECT_THROW(
@@ -137,7 +136,6 @@ TEST_F(SNLDesignTruthTablesTest1, testStandardGates) {
   );
   auto tt0get = SNLDesignModeling::getTruthTable(multiple_outputs, o0->getFlatID());
   auto tt1get = SNLDesignModeling::getTruthTable(multiple_outputs, o1->getFlatID());
-  printf("tt1get: %s\n", tt1get.toString().c_str());
   EXPECT_TRUE(tt0get.isInitialized());
   EXPECT_EQ(tt0, tt0get);
   EXPECT_TRUE(tt1get.isInitialized());
@@ -169,12 +167,8 @@ TEST_F(SNLDesignTruthTablesTest1, testStandardGates) {
   auto tt0getBig = SNLDesignModeling::getTruthTable(multiple_outputs2, o0->getID());
   auto tt1getBig = SNLDesignModeling::getTruthTable(multiple_outputs2, o1->getID());
   EXPECT_TRUE(tt0getBig.isInitialized());
-  printf("tt0Big: %s\n", tt0Big.toString().c_str());
-  printf("tt0getBig: %s\n", tt0getBig.toString().c_str());
   EXPECT_EQ(tt0Big, tt0getBig);
   EXPECT_TRUE(tt1getBig.isInitialized());
-  printf("tt1Big: %s\n", tt1Big.toString().c_str());
-  printf("tt1getBig: %s\n", tt1getBig.toString().c_str());
   EXPECT_EQ(tt1Big, tt1getBig);
   }
   {
@@ -214,9 +208,6 @@ TEST_F(SNLDesignTruthTablesTest1, testStandardGates) {
   SNLTruthTable tt0singleLarge(7, bitVectSingleLarge);
 
   SNLDesignModeling::setTruthTable(singleLarge, tt0singleLarge);
-  printf("tt0singleLarge: %s\n", tt0singleLarge.toString().c_str());
-  printf("get tt0singleLarge: %s\n",
-         SNLDesignModeling::getTruthTable(singleLarge).toString().c_str());
   EXPECT_EQ(tt0singleLarge, SNLDesignModeling::getTruthTable(singleLarge));
   
   // error for wrong number outputs for tt
@@ -247,6 +238,12 @@ TEST_F(SNLDesignTruthTablesTest1, IndexedGetThrowsOutOfRange) {
   EXPECT_ANY_THROW(
     SNLDesignModeling::getTruthTable(D, /*outputID=*/1)
   );
+}
+
+TEST_F(SNLDesignTruthTablesTest1, WrongDepsSize) {
+  auto D = SNLDesign::create(prims_, SNLDesign::Type::Primitive, NLName("one_o"));
+  SNLScalarTerm::create(D, SNLTerm::Direction::Output, NLName("O"));
+  EXPECT_ANY_THROW(SNLDesignModeling::setTruthTable(D, SNLTruthTable(1, 0b10, {0, 1, 2})));
 }
 
 TEST_F(SNLDesignTruthTablesTest1, SingleChunkDeclaredTooLargeThrows) {
@@ -411,6 +408,7 @@ TEST_F(SNLDesignTruthTablesTest1, MultipleTables_ThenGetTruthTable_Throws) {
     NLException
   );
 }
+
 //-----------------------------------------------------------------------------
 // Tests for createProperty() exception paths via setTruthTables()
 //-----------------------------------------------------------------------------
