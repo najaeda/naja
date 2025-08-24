@@ -300,16 +300,10 @@ TEST_F(SNLDesignModelingTest0, testGetCombiDepsFromTT) {
   std::vector<u_int64_t> deps;
   deps.push_back(3);
   SNLDesignModeling::setTruthTable(design, SNLTruthTable(2, 0x5, deps));
-  printf("deps size: %zu\n", SNLDesignModeling::getTruthTable(design).getDependencies().size());
   EXPECT_THROW(SNLDesignModeling::setTruthTable(design, SNLTruthTable(2, 0x1, deps)), NLException);
-  printf("1\n");
   auto inputArcs = SNLDesignModeling::getCombinatorialInputs(o);
-  printf("deps size: %zu\n", SNLDesignModeling::getTruthTable(design, o->getFlatID()).getDependencies().size());
-  printf("arcs size: %zu\n", inputArcs.size());
   EXPECT_EQ(inputArcs.size(), 2);
-  printf("2\n");
   auto outputArcs = SNLDesignModeling::getCombinatorialOutputs(i0);
-  printf("3\n");
   EXPECT_EQ(outputArcs.size(), 1);
   auto designs = NLLibrary::create(db);
   auto top = SNLDesign::create(designs, NLName("top"));
@@ -321,9 +315,6 @@ TEST_F(SNLDesignModelingTest0, testGetCombiDepsFromTT) {
     ElementsAre(ins0->getInstTerm(i0), ins0->getInstTerm(i1)));
   auto insOutputArcs = SNLDesignModeling::getCombinatorialOutputs(ins0->getInstTerm(i0));
   EXPECT_EQ(insOutputArcs.size(), 1);
-  for (auto arc: insOutputArcs) {
-    printf("arc: %s\n", arc->getBitTerm()->getName().getString().c_str());
-  }
   EXPECT_THAT(
     std::vector(insOutputArcs.begin(), insOutputArcs.end()),
     ElementsAre(ins0->getInstTerm(o)));

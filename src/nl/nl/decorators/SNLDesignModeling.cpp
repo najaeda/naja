@@ -183,7 +183,6 @@ void createTruthTableProperty(naja::NL::SNLDesign* design,
   }
   for (auto dep : truthTable.getDependencies()) {
     property->addUInt64Value(dep);
-    // printf("Adding dep: %llu\n", dep);
   }
 }
 
@@ -207,7 +206,6 @@ void createTruthTableProperty(
     }
     for (auto dep : truthTable.getDependencies()) {
       property->addUInt64Value(dep);
-      // printf("Adding dep: %llu\n", dep);
     }
   }
 }
@@ -233,17 +231,11 @@ getCombinatorialOutputsDepsFromTruthTable(naja::NL::SNLBitTerm* term) {
   // turn to vector to use the STL algorithm
   std::vector<naja::NL::SNLBitTerm*> flatTermsVec(flatTerms.begin(),
                                                   flatTerms.end());
-  // printf("flatTermsVec size: %zu\n", flatTermsVec.size());
   auto it = std::find_if(flatTermsVec.begin(), flatTermsVec.end(),
                          [term](const naja::NL::SNLBitTerm* t) {
                            return t->getID() == term->getID() &&
                                   t->getBit() == term->getBit();
                          });
-  // printf("ID: %u, Bit: %u\n", term->getID(), term->getBit());
-  //for (size_t i = 0; i < flatTermsVec.size(); ++i) {
-    // printf("flatTermsVec[%zu]: ID: %u, Bit: %u\n", i, flatTermsVec[i]->getID(),
-           //flatTermsVec[i]->getBit());
-  //}
   if (it != flatTermsVec.end()) {
     flatID = static_cast<size_t>(std::distance(flatTermsVec.begin(), it));
   } else {
@@ -257,7 +249,6 @@ getCombinatorialOutputsDepsFromTruthTable(naja::NL::SNLBitTerm* term) {
   if (naja::NL::SNLDesignModeling::getTruthTableCount(term->getDesign()) == 0) {
     return {};
   }
-  // printf("flatID: %zu\n", flatID);
   auto design = term->getDesign();
   auto property = getTruthTableProperty(design);
   size_t tableIdx = 0;
@@ -279,9 +270,6 @@ getCombinatorialOutputsDepsFromTruthTable(naja::NL::SNLBitTerm* term) {
         deps.push_back(property->getUInt64Value(i));
       }
       auto decodedDeps = naja::NL::NLBitDependencies::decodeBits(deps);
-      //for (size_t dep : decodedDeps) {
-        // printf("Decoded dep: %zu\n", dep);
-      //}
       // check if the flatID is in the dependencies
       if (std::find(decodedDeps.begin(), decodedDeps.end(), flatID) !=
           decodedDeps.end()) {
@@ -315,10 +303,6 @@ getCombinatorialOutputsDepsFromTruthTable(naja::NL::SNLBitTerm* term) {
       ++tableIdx;
     }
   }
-  // printf("flatDepIDs size: %zu\n", flatDepIDs.size());
-  for (size_t i = 0; i < flatDepIDs.size(); ++i) {
-    // printf("flatDepIDs[%zu]: %zu\n", i, flatDepIDs[i]);
-  }
   std::set<std::pair<naja::NL::NLID::DesignObjectID,
                      naja::NL::NLID::DesignObjectID> >
       depTermsIds;
@@ -333,7 +317,6 @@ getCombinatorialOutputsDepsFromTruthTable(naja::NL::SNLBitTerm* term) {
       throw naja::NL::NLException(reason.str());
     }
   }
-  // printf("depTermsIds size: %zu\n", depTermsIds.size());
   auto filter = [=](const naja::NL::SNLBitTerm* bterm) {
     return depTermsIds.find({bterm->getID(), bterm->getBit()}) !=
            depTermsIds.end();
@@ -390,8 +373,6 @@ naja::NajaCollection<naja::NL::SNLBitTerm*> getCombinatorialDepsFromTruthTable(
   if (term->getDirection() != naja::NL::SNLTerm::Direction::Input) {
     return getCombinatorialInputDepsFromTruthTable(term);
   }
-  // printf("size of combinatorial outputs deps: %zu\n",
-       //  getCombinatorialOutputsDepsFromTruthTable(term).size());
   return getCombinatorialOutputsDepsFromTruthTable(term);
 }
 
@@ -659,7 +640,6 @@ NajaCollection<SNLBitTerm*> SNLDesignModeling::getCombinatorialInputs(
   if (property) {
     GET_RELATED_OBJECTS(SNLBitTerm, term, getDesign(), getCombinatorialInputs_)
   } else {
-    // printf("here\n");
     return getCombinatorialDepsFromTruthTable(term);
   }
 }
@@ -768,37 +748,69 @@ void SNLDesignModeling::setTruthTables(
   createTruthTableProperty(design, truthTables);
 }
 
+// Common macros to unify repeated calculations without changing behavior
+#define TT_NCHUNKS_FROM_BITS(nBits) \
+  ((nBits) / 64 + (((nBits) % 64) > 0 ? 1 : 0))
+
+#define TT_NDEPS_FROM_INPUTS(nInputs) \
+  ((nInputs) / 64 + (((nInputs) % 64) > 0 ? 1 : 0))
+
+#define TT_ADVANCE_VALIDX_COUNT(valIdx, nInputs)           \
+  do {                                                     \
+    size_t _tt_nbits   = static_cast<size_t>(1u) << (nInputs); \
+    size_t _tt_nchunks = TT_NCHUNKS_FROM_BITS(_tt_nbits);  \
+    (valIdx) += _tt_nchunks;                               \
+    (valIdx) += TT_NDEPS_FROM_INPUTS(nInputs);             \
+    (valIdx) += 1; /* skip the size entry */               \
+  } while (0)
+
+#define TT_ADVANCE_VALIDX_SIZEFIRST(valIdx, nInputs)       \
+  do {                                                     \
+    size_t _tt_nbits = static_cast<size_t>(1u) << (nInputs); \
+    (valIdx) += 1; /* skip the size entry */               \
+    (valIdx) += TT_NCHUNKS_FROM_BITS(_tt_nbits);           \
+    (valIdx) += TT_NDEPS_FROM_INPUTS(nInputs);             \
+  } while (0)
+
+#define TT_FILL_BITS(bitsVec, nBits, property, bitsIdx)    \
+  do {                                                     \
+    size_t _tt_nchunks = TT_NCHUNKS_FROM_BITS(nBits);      \
+    for (size_t c = 0; c < _tt_nchunks; ++c) {             \
+      uint64_t mask = (property)->getUInt64Value((bitsIdx) + c); \
+      for (size_t b = 0; b < 64; ++b) {                    \
+        size_t pos = c * 64 + b;                           \
+        if (pos >= (nBits)) break;                         \
+        if ((mask >> b) & 1) (bitsVec)[pos] = true;        \
+      }                                                    \
+    }                                                      \
+  } while (0)
+
 size_t SNLDesignModeling::getTruthTableCount(const SNLDesign* design) {
   auto property = getTruthTableProperty(design);
   size_t tableIdx = 0;
   if (property) {
-    // scan through each stored table until we reach outputID
     size_t valIdx = 0;
     size_t total = property->getValues().size();
 
     while (valIdx < total) {
       uint32_t nInputs =
-          static_cast<uint32_t>(property->getUInt64Value(valIdx));
-      size_t nBits = 1u << nInputs;
-      size_t nChunks = nBits / 64 + ((nBits % 64) > 0 ? 1 : 0);
-      valIdx += nChunks;
-      valIdx +=
-          nInputs / 64 + ((nInputs % 64) > 0 ? 1 : 0);  // for dependencies
-      valIdx += 1;  // skip the first value which is the size of the table
+        static_cast<uint32_t>(property->getUInt64Value(valIdx));
+      TT_ADVANCE_VALIDX_COUNT(valIdx, nInputs);
+
       // LCOV_EXCL_START
-      if (valIdx >= total + 1 /*because this loop will take you to the next table, therefore the + 1*/) {
+      if (valIdx >= total + 1) {
         std::ostringstream reason;
-        // create a string by concating all values
-        std::string result = "";
-        for (size_t i = 0; i < total; ++i) {
+        std::string result;
+        for (size_t i = 0; i < total; ++i)
           result += std::to_string(property->getUInt64Value(i)) + " ";
-        }
         reason << "Maldformed truth table for design <"
-               << design->getName().getString() << ">" << " " << result << "\n"
-               << "With valIdx " << valIdx << " and total " << total;
+               << design->getName().getString() << "> "
+               << result << "\nWith valIdx " << valIdx
+               << " and total " << total;
         throw NLException(reason.str());
       }
       // LCOV_EXCL_STOP
+
       ++tableIdx;
     }
   }
@@ -806,75 +818,45 @@ size_t SNLDesignModeling::getTruthTableCount(const SNLDesign* design) {
 }
 
 SNLTruthTable SNLDesignModeling::getTruthTable(const SNLDesign* design) {
-  printf("getTruthTable for design %s\n",
-         design->getName().getString().c_str());
   auto property = getTruthTableProperty(design);
   if (property) {
-    // total number of mask‐values trailing the first “size” entry
     size_t tableSize = property->getValues().size() - 1;
-
-    // how many chunks *should* we have, given the stored input‐count?
     uint64_t declaredInputs = property->getUInt64Value(0);
-    uint64_t num_bits = 1u << declaredInputs;
-    size_t expectedChunks =
-        (declaredInputs == 0 && tableSize == 1)  // this case is for constant
-            ? 1
-            : (num_bits / 64 + ((num_bits % 64) > 0 ? 1 : 0)) +
-                  (declaredInputs / 64 + ((declaredInputs % 64) > 0 ? 1 : 0));
+    uint64_t num_bits      = 1u << declaredInputs;
+    size_t expectedChunks  =
+      (declaredInputs == 0 && tableSize == 1)
+        ? 1
+        : (TT_NCHUNKS_FROM_BITS(num_bits) +
+           TT_NDEPS_FROM_INPUTS(declaredInputs));
     if (expectedChunks != tableSize) {
       std::ostringstream reason;
       reason << "Truth table size " << tableSize
-             << " does not match number of chunks " << expectedChunks 
+             << " does not match number of chunks " << expectedChunks
              << " which suggests per output functionality";
       throw NLException(reason.str());
     }
-    printf("here\n");
-    // multi‐chunk (i.e. >64‐bit) table?
+
+    // multi‐chunk (>64‐bit) table?
     if (property->getValues().size() > 3) {
       uint32_t numInputs = static_cast<uint32_t>(declaredInputs);
-      uint32_t nBits = 1u << numInputs;
+      uint32_t nBits      = 1u << numInputs;
       if (nBits <= 64) {
         // LCOV_EXCL_START
         std::ostringstream reason;
-        reason << "Truth table size " << nBits << " is not larger than 64 bits";
+        reason << "Truth table size " << nBits
+               << " is not larger than 64 bits";
         throw NLException(reason.str());
         // LCOV_EXCL_STOP
       }
 
-      // else multi‐chunk
-      size_t nChunks = nBits / 64 + ((nBits % 64) > 0 ? 1 : 0);
-      size_t bitsIdx = 0 + 1;  // skip the first value which is the size of the table
+      size_t nChunks  = TT_NCHUNKS_FROM_BITS(nBits);
+      size_t bitsIdx  = 1;  // skip the size entry
       std::vector<bool> bits(nBits, false);
-      for (size_t c = 0; c < nChunks; ++c) {
-        uint64_t mask = property->getUInt64Value(bitsIdx + c);
-        for (size_t b = 0; b < 64; ++b) {
-          size_t pos = c * 64 + b;
-          if (pos >= nBits)
-            break;
-          if ((mask >> b) & 1)
-            bits[pos] = true;
-        }
-      }
-      //size_t bitCount = 0;
+      TT_FILL_BITS(bits, nBits, property, bitsIdx);
+
       size_t depsIdx = bitsIdx + nChunks;
-      // for (size_t i = depsIdx; i < property->getValues().size();
-      //      ++i) {
-      //   if (i < property->getValues().size()) {
-      //     bitCount += naja::NL::NLBitDependencies::count_bits(
-      //         property->getUInt64Value(i));
-      //   } else {
-      //     break;
-      //   }
-      //   if (bitCount == nBits) {
-      //     break;  // we have enough bits for this table
-      //   }
-      // }
-      printf("here 1\n");
       std::vector<u_int64_t> deps;
-      size_t nDeps = (numInputs) / 64 +
-                     + ((numInputs % 64) > 0 ? 1 : 0);  // number of dependencies
-      printf("nDeps: %zu\n", nDeps);
-      printf("depsIdx: %zu\n", depsIdx);
+      size_t nDeps = TT_NDEPS_FROM_INPUTS(numInputs);
       for (size_t i = depsIdx; i < depsIdx + nDeps; ++i) {
         if (i < property->getValues().size()) {
           deps.push_back(property->getUInt64Value(i));
@@ -889,7 +871,7 @@ SNLTruthTable SNLDesignModeling::getTruthTable(const SNLDesign* design) {
       }
       return SNLTruthTable(numInputs, bits, deps);
     }
-    printf("here 2\n");
+
     // single‐chunk
     if (declaredInputs <= 6) {
       std::vector<u_int64_t> deps;
@@ -897,18 +879,19 @@ SNLTruthTable SNLDesignModeling::getTruthTable(const SNLDesign* design) {
         deps.push_back(property->getUInt64Value(2));
       } else {
         if (property->getValues().size() != 2) {
-          // suppose to be constant so have to have 2 values
           // LCOV_EXCL_START
           std::ostringstream reason;
           reason << "Truth table size " << declaredInputs
                  << " is not 2, but " << property->getValues().size();
           throw NLException(reason.str());
+          // LCOV_EXCL_STOP
         }
       }
-      
-      printf("here 3\n");
-      return SNLTruthTable(static_cast<uint32_t>(declaredInputs),
-                           property->getUInt64Value(1), deps);
+      return SNLTruthTable(
+        static_cast<uint32_t>(declaredInputs),
+        property->getUInt64Value(1),
+        deps
+      );
     } else {
       // LCOV_EXCL_START
       std::ostringstream reason;
@@ -918,116 +901,98 @@ SNLTruthTable SNLDesignModeling::getTruthTable(const SNLDesign* design) {
       // LCOV_EXCL_STOP
     }
   }
-  printf("here 4\n");
   return SNLTruthTable();
 }
 
-SNLTruthTable SNLDesignModeling::getTruthTable(const SNLDesign* design,
-                                               size_t flatTermID) {
-  printf("getTruthTable for design %s with flatTermID %zu\n",
-         design->getName().getString().c_str(), flatTermID);                                        
+SNLTruthTable SNLDesignModeling::getTruthTable(
+    const SNLDesign* design,
+    size_t flatTermID
+) {
   auto property = getTruthTableProperty(design);
   std::map<size_t, NLID::DesignObjectID> termID2outputID;
   NLID::DesignObjectID outputIndex = 0;
   for (const auto& term : design->getBitTerms()) {
     if (term->getDirection() == SNLTerm::Direction::Output) {
-      termID2outputID[term->getID()] = outputIndex;
-      ++outputIndex;
+      termID2outputID[term->getID()] = outputIndex++;
     }
   }
   if (termID2outputID.find(flatTermID) == termID2outputID.end()) {
     std::ostringstream reason;
-    reason << "Term ID " << flatTermID << " not found in design <"
-           << design->getName().getString() << ">";
+    reason << "Term ID " << flatTermID
+           << " not found in design <" << design->getName().getString() << ">";
     throw NLException(reason.str());
   }
   NLID::DesignObjectID outputID = termID2outputID[flatTermID];
+
   if (property) {
-    // scan through each stored table until we reach outputID
     if (getTruthTableCount(design) == 1) {
-      // if there is only one table, then it is the same for all outputs
       return getTruthTable(design);
     }
+
     size_t tableIdx = 0;
-    size_t valIdx = 0;
-    size_t total = property->getValues().size();
+    size_t valIdx    = 0;
+    size_t total     = property->getValues().size();
 
     while (true) {
       // LCOV_EXCL_START
       if (valIdx >= total) {
         std::ostringstream reason;
-        reason << "Output ID " << outputID << " is out of range for design <"
+        reason << "Output ID " << outputID
+               << " is out of range for design <"
                << design->getName().getString() << ">";
         throw NLException(reason.str());
       }
       // LCOV_EXCL_STOP
+
       if (tableIdx == outputID) {
         break;
-      } else if (tableIdx > outputID) {
-        std::ostringstream reason;
-        reason << "Output ID " << outputID << " is out of range for design <"
-               << design->getName().getString() << ">";
-        throw NLException(reason.str());
       }
       uint32_t nInputs =
-          static_cast<uint32_t>(property->getUInt64Value(valIdx));
-      size_t nBits = 1u << nInputs;
-      valIdx += 1;  // skip the first value which is the size of the table
-      size_t nChunks = nBits / 64 + ((nBits % 64) > 0 ? 1 : 0);
-      valIdx += nChunks;
-      // add number of deps (number of bytes needed to store the dependencies)
-      valIdx += nInputs / 64 + ((nInputs % 64) > 0 ? 1 : 0);
+        static_cast<uint32_t>(property->getUInt64Value(valIdx));
+      TT_ADVANCE_VALIDX_SIZEFIRST(valIdx, nInputs);
       ++tableIdx;
     }
 
     uint64_t declaredInputs = property->getUInt64Value(valIdx);
+
     // single‐chunk fast‐path?
     if (declaredInputs <= 6) {
       std::vector<u_int64_t> deps;
       if (declaredInputs != 0) {
         deps.push_back(property->getUInt64Value(valIdx + 2));
       }
-      return SNLTruthTable(static_cast<uint32_t>(declaredInputs),
-                           property->getUInt64Value(valIdx + 1), deps);
+      return SNLTruthTable(
+        static_cast<uint32_t>(declaredInputs),
+        property->getUInt64Value(valIdx + 1),
+        deps
+      );
     }
 
-    // else multi‐chunk
+    // multi‐chunk
     uint32_t numInputs = static_cast<uint32_t>(declaredInputs);
-    uint32_t nBits = 1u << numInputs;
-    size_t nChunks = nBits / 64 + ((nBits % 64) > 0 ? 1 : 0);
-    size_t bitsIdx = valIdx + 1;  // skip the first value which is the size of the table
+    uint32_t nBits     = 1u << numInputs;
+    size_t nChunks     = TT_NCHUNKS_FROM_BITS(nBits);
+    size_t bitsIdx     = valIdx + 1;
     std::vector<bool> bits(nBits, false);
-    for (size_t c = 0; c < nChunks; ++c) {
-      uint64_t mask = property->getUInt64Value(bitsIdx + c);
-      for (size_t b = 0; b < 64; ++b) {
-        size_t pos = c * 64 + b;
-        if (pos >= nBits)
-          break;
-        if ((mask >> b) & 1)
-          bits[pos] = true;
-      }
-    }
+    TT_FILL_BITS(bits, nBits, property, bitsIdx);
+
     std::vector<u_int64_t> deps;
-    size_t nDeps =
-        (declaredInputs) / 64 +
-        +((declaredInputs % 64) > 0 ? 1 : 0);  // number of dependencies
-    for (size_t i = bitsIdx + nChunks; i < bitsIdx + nChunks + nDeps;
-         ++i) {
+    size_t nDeps = TT_NDEPS_FROM_INPUTS(declaredInputs);
+    for (size_t i = bitsIdx + nChunks; i < bitsIdx + nChunks + nDeps; ++i) {
       if (i < total) {
         deps.push_back(property->getUInt64Value(i));
       } else {
         // LCOV_EXCL_START
         std::ostringstream reason;
         reason << "Truth table size " << total
-                 << " is smaller then requested index " << i;
+               << " is smaller then requested index " << i;
         throw NLException(reason.str());
         // LCOV_EXCL_STOP
       }
     }
-    printf("retun\n");
     return SNLTruthTable(numInputs, bits, deps);
   }
-  printf("retun\n");
+
   return SNLTruthTable();
 }
 
