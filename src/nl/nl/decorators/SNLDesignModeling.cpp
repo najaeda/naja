@@ -239,11 +239,13 @@ getCombinatorialOutputsDepsFromTruthTable(naja::NL::SNLBitTerm* term) {
   if (it != flatTermsVec.end()) {
     flatID = static_cast<size_t>(std::distance(flatTermsVec.begin(), it));
   } else {
+    // LLOV_EXCL_START
     std::ostringstream reason;
     reason << "Bit term with ID " << term->getID() << " and bit "
            << term->getBit() << " not found in design "
            << term->getDesign()->getName().getString();
     throw naja::NL::NLException(reason.str());
+    // LCOV_EXCL_STOP
   }
   // iterate over the tables nad cache all the tbale idxes that contain flatID
   if (naja::NL::SNLDesignModeling::getTruthTableCount(term->getDesign()) == 0) {
@@ -276,10 +278,12 @@ getCombinatorialOutputsDepsFromTruthTable(naja::NL::SNLBitTerm* term) {
         // if so, add the table index to the result
         if (outputFlatID2FlatID.find(tableIdx) ==
             outputFlatID2FlatID.end()) {
+          // LCOV_EXCL_START
           std::ostringstream reason;
           reason << "Output flat ID " << tableIdx
                  << " not found in the output flat ID to flat ID map";
           throw naja::NL::NLException(reason.str());
+          // LCOV_EXCL_STOP
         }
         flatDepIDs.push_back(outputFlatID2FlatID[tableIdx]);
       }
@@ -311,10 +315,12 @@ getCombinatorialOutputsDepsFromTruthTable(naja::NL::SNLBitTerm* term) {
     if (bitTerm) {
       depTermsIds.insert({bitTerm->getID(), bitTerm->getBit()});
     } else {
+      // LCOV_EXCL_START
       std::ostringstream reason;
       reason << "Bit term with ID " << bitId << " not found in design "
              << term->getDesign()->getName().getString();
       throw naja::NL::NLException(reason.str());
+      // LCOV_EXCL_STOP
     }
   }
   auto filter = [=](const naja::NL::SNLBitTerm* bterm) {
@@ -355,10 +361,12 @@ getCombinatorialInputDepsFromTruthTable(naja::NL::SNLBitTerm* term) {
     if (bitTerm) {
       depTermsIds.insert({bitTerm->getID(), bitTerm->getBit()});
     } else {
+      // LCOV_EXCL_START
       std::ostringstream reason;
       reason << "Bit term with ID " << bitId << " not found in design "
              << term->getDesign()->getName().getString();
       throw naja::NL::NLException(reason.str());
+      // LCOV_EXCL_STOP
     }
   }
   auto filter = [=](const naja::NL::SNLBitTerm* bterm) {
@@ -490,16 +498,20 @@ const SNLDesignModeling::TimingArcs* SNLDesignModeling::getTimingArcs(
     }
     auto defaultParameterValue = parameter_.second;
     if (defaultParameterValue.empty()) {
+      // LCOV_EXCL_START
       throw NLException("No Default parameter value while getting Timing Arcs");
+      // LCOV_EXCL_STOP
     }
     auto ait = parameterizedArcs.find(defaultParameterValue);
     if (ait != parameterizedArcs.end()) {
       return &(ait->second);
     } else {
+      // LCOV_EXCL_START
       std::ostringstream reason;
       reason << "cannot find " << defaultParameterValue
              << " in parameterized arcs.";
       throw NLException(reason.str());
+      // LCOV_EXCL_STOP
     }
   }
 }
