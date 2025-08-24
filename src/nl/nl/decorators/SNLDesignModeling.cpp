@@ -907,7 +907,7 @@ SNLTruthTable SNLDesignModeling::getTruthTable(const SNLDesign* design) {
       TT_FILL_BITS(bits, nBits, property, bitsIdx);
 
       size_t depsIdx = bitsIdx + nChunks;
-      std::vector<u_int64_t> deps;
+      std::vector<uint64_t> deps;
       size_t nDeps = TT_NDEPS_FROM_INPUTS(numInputs);
       for (size_t i = depsIdx; i < depsIdx + nDeps; ++i) {
         if (i < property->getValues().size()) {
@@ -926,7 +926,7 @@ SNLTruthTable SNLDesignModeling::getTruthTable(const SNLDesign* design) {
 
     // single‐chunk
     if (declaredInputs <= 6) {
-      std::vector<u_int64_t> deps;
+      std::vector<uint64_t> deps;
       if (property->getValues().size() == 3) {
         deps.push_back(property->getUInt64Value(2));
       } else {
@@ -1009,7 +1009,7 @@ SNLTruthTable SNLDesignModeling::getTruthTable(
 
     // single‐chunk fast‐path?
     if (declaredInputs <= 6) {
-      std::vector<u_int64_t> deps;
+      std::vector<uint64_t> deps;
       if (declaredInputs != 0) {
         deps.push_back(property->getUInt64Value(valIdx + 2));
       }
@@ -1028,7 +1028,7 @@ SNLTruthTable SNLDesignModeling::getTruthTable(
     std::vector<bool> bits(nBits, false);
     TT_FILL_BITS(bits, nBits, property, bitsIdx);
 
-    std::vector<u_int64_t> deps;
+    std::vector<uint64_t> deps;
     size_t nDeps = TT_NDEPS_FROM_INPUTS(declaredInputs);
     for (size_t i = bitsIdx + nChunks; i < bitsIdx + nChunks + nDeps; ++i) {
       if (i < total) {

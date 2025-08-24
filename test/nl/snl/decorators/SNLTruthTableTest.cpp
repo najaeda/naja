@@ -6,6 +6,7 @@
 
 #include "SNLTruthTable.h"
 #include "NLBitVecDynamic.h"
+#include "NLBitDependencies.h"
 using namespace naja::NL;
 
 TEST(SNLTruthTableTest, test) {
@@ -572,3 +573,9 @@ TEST(NLBitVecDynamic, operatorUint64ThrowsWhenAbove64Bits) {
     NLException
   );
 }
+
+// test count_bits() for both branches
+TEST(NLBitDependenciesTest, CountBits) {
+  EXPECT_EQ(NLBitDependencies::count_bits(3), 2); // 32 bits set in first word
+}
+  
