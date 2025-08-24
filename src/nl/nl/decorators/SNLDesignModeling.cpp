@@ -892,14 +892,14 @@ SNLTruthTable SNLDesignModeling::getTruthTable(const SNLDesign* design) {
     if (property->getValues().size() > 3) {
       uint32_t numInputs = static_cast<uint32_t>(declaredInputs);
       uint32_t nBits      = 1u << numInputs;
+      // LCOV_EXCL_START
       if (nBits <= 64) {
-        // LCOV_EXCL_START
         std::ostringstream reason;
         reason << "Truth table size " << nBits
                << " is not larger than 64 bits";
         throw NLException(reason.str());
-        // LCOV_EXCL_STOP
       }
+      // LCOV_EXCL_STOP
 
       size_t nChunks  = TT_NCHUNKS_FROM_BITS(nBits);
       size_t bitsIdx  = 1;  // skip the size entry
@@ -930,14 +930,14 @@ SNLTruthTable SNLDesignModeling::getTruthTable(const SNLDesign* design) {
       if (property->getValues().size() == 3) {
         deps.push_back(property->getUInt64Value(2));
       } else {
+        // LCOV_EXCL_START
         if (property->getValues().size() != 2) {
-          // LCOV_EXCL_START
           std::ostringstream reason;
           reason << "Truth table size " << declaredInputs
                  << " is not 2, but " << property->getValues().size();
           throw NLException(reason.str());
-          // LCOV_EXCL_STOP
         }
+        // LCOV_EXCL_STOP
       }
       return SNLTruthTable(
         static_cast<uint32_t>(declaredInputs),
