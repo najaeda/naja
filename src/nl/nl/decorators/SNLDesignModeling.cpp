@@ -340,7 +340,7 @@ getCombinatorialInputDepsFromTruthTable(naja::NL::SNLBitTerm* term) {
   }
   auto deps = truthTable.getDependencies();
   auto flatTermsIDs = naja::NL::NLBitDependencies::decodeBits(deps);
-  assert(naja::NL::NLBitDependencies::encodeBits(flatTermsIDs) ==
+  assert(flatTermsIDs.empty() ? true : naja::NL::NLBitDependencies::encodeBits(flatTermsIDs) ==
          deps);  // check that we have the same dependencies
   auto flatTerms = term->getDesign()->getBitTerms();
   // turn to vector to use the STL algorithm
