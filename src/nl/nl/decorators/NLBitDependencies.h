@@ -6,6 +6,7 @@
 
 #include <vector>
 #include "NLID.h"
+#include <cstdint>
 
 namespace naja {
 namespace NL {
