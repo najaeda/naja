@@ -239,7 +239,7 @@ getCombinatorialOutputsDepsFromTruthTable(naja::NL::SNLBitTerm* term) {
   if (it != flatTermsVec.end()) {
     flatID = static_cast<size_t>(std::distance(flatTermsVec.begin(), it));
   } else {
-    // LLOV_EXCL_START
+    // LCOV_EXCL_START
     std::ostringstream reason;
     reason << "Bit term with ID " << term->getID() << " and bit "
            << term->getBit() << " not found in design "
