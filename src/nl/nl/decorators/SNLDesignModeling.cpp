@@ -616,6 +616,13 @@ NajaCollection<SNLBitTerm*> SNLDesignModeling::getCombinatorialOutputs(
   if (property) {
     GET_RELATED_OBJECTS(SNLBitTerm, term, getDesign(), getCombinatorialOutputs_)
   } else {
+    if (getCombinatorialDepsFromTruthTable(term).empty()) {
+      // return all outputs of the design
+      return term->getDesign()->getBitTerms().getSubCollection(
+          [](const SNLTerm* t) {
+            return t->getDirection() != SNLTerm::Direction::Input;
+          });
+    }
     return getCombinatorialDepsFromTruthTable(term);
   }
 }
@@ -627,6 +634,18 @@ NajaCollection<SNLInstTerm*> SNLDesignModeling::getCombinatorialOutputs(
     GET_RELATED_OBJECTS(SNLInstTerm, iterm, getInstance()->getModel(),
                         getCombinatorialOutputs_)
   } else {
+    if (getCombinatorialDepsFromTruthTable(iterm->getBitTerm())
+        .getTransformerCollection<SNLInstTerm*>([=](const SNLBitTerm* term) {
+          return iterm->getInstance()->getInstTerm(term);
+        }).empty()) {
+      // return all outputs of the instance
+      return iterm->getInstance()->getModel()->getBitTerms().getSubCollection(
+          [](const SNLTerm* t) {
+            return t->getDirection() != SNLTerm::Direction::Input;
+          }).getTransformerCollection<SNLInstTerm*>([=](const SNLBitTerm* term) {
+          return iterm->getInstance()->getInstTerm(term);
+        });
+    }
     return getCombinatorialDepsFromTruthTable(iterm->getBitTerm())
         .getTransformerCollection<SNLInstTerm*>([=](const SNLBitTerm* term) {
           return iterm->getInstance()->getInstTerm(term);
@@ -640,6 +659,14 @@ NajaCollection<SNLBitTerm*> SNLDesignModeling::getCombinatorialInputs(
   if (property) {
     GET_RELATED_OBJECTS(SNLBitTerm, term, getDesign(), getCombinatorialInputs_)
   } else {
+    const auto& result = getCombinatorialDepsFromTruthTable(term);
+    if (result.empty()) {
+      // return all inputs of the design
+      return term->getDesign()->getBitTerms().getSubCollection(
+          [](const SNLTerm* t) {
+            return t->getDirection() != SNLTerm::Direction::Output;
+          });
+    }
     return getCombinatorialDepsFromTruthTable(term);
   }
 }
@@ -651,6 +678,19 @@ NajaCollection<SNLInstTerm*> SNLDesignModeling::getCombinatorialInputs(
     GET_RELATED_OBJECTS(SNLInstTerm, iterm, getInstance()->getModel(),
                         getCombinatorialInputs_)
   } else {
+    const auto& result =  getCombinatorialDepsFromTruthTable(iterm->getBitTerm())
+        .getTransformerCollection<SNLInstTerm*>([=](const SNLBitTerm* term) {
+          return iterm->getInstance()->getInstTerm(term);
+        });
+    if (result.empty()) {
+      // return all inputs of the instance
+      return iterm->getInstance()->getModel()->getBitTerms().getSubCollection(
+          [](const SNLTerm* t) {
+            return t->getDirection() != SNLTerm::Direction::Output;
+          }).getTransformerCollection<SNLInstTerm*>([=](const SNLBitTerm* term) {
+          return iterm->getInstance()->getInstTerm(term);
+        });;
+    }
     return getCombinatorialDepsFromTruthTable(iterm->getBitTerm())
         .getTransformerCollection<SNLInstTerm*>([=](const SNLBitTerm* term) {
           return iterm->getInstance()->getInstTerm(term);
@@ -711,7 +751,7 @@ void SNLDesignModeling::setTruthTable(SNLDesign* design,
   if (getTruthTableProperty(design)) {
     throw NLException("Design already has a Truth Table");
   }
-  auto outputs = design->getTerms().getSubCollection([](const SNLTerm* t) {
+  const auto& outputs = design->getTerms().getSubCollection([](const SNLTerm* t) {
     return t->getDirection() == SNLTerm::Direction::Output;
   });
   if (outputs.size() != 1) {
@@ -734,7 +774,7 @@ void SNLDesignModeling::setTruthTables(
   if (getTruthTableProperty(design)) {
     throw NLException("Design already has a Truth Table");
   }
-  auto outputs = design->getTerms().getSubCollection([](const SNLTerm* t) {
+  const auto& outputs = design->getTerms().getSubCollection([](const SNLTerm* t) {
     return t->getDirection() == SNLTerm::Direction::Output;
   });
   if (outputs.size() != truthTables.size()) {
