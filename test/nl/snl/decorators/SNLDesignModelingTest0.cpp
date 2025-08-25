@@ -437,6 +437,13 @@ TEST_F(SNLDesignModelingTest0, testNoDepsFromSingleTTWithEmptyDeps) {
   // create an instance of the design
   auto ins0 = SNLInstance::create(top, design, NLName("ins0"));
   //set truth table
+  EXPECT_EQ(SNLDesignModeling::getCombinatorialInputs(o).size(), 2);
+  EXPECT_EQ(SNLDesignModeling::getCombinatorialInputs(ins0->getInstTerm(o)).size(), 2);
+  // Test all outputs are returned for combinatorial quarie for each input
+  EXPECT_EQ(SNLDesignModeling::getCombinatorialOutputs(i0).size(), 1);
+  EXPECT_EQ(SNLDesignModeling::getCombinatorialOutputs(i1).size(), 1);
+  EXPECT_EQ(SNLDesignModeling::getCombinatorialOutputs(ins0->getInstTerm(i0)).size(), 1);
+  EXPECT_EQ(SNLDesignModeling::getCombinatorialOutputs(ins0->getInstTerm(i1)).size(), 1);
   std::vector<u_int64_t> deps;
   SNLDesignModeling::setTruthTable(design, SNLTruthTable(2, 0x5, deps));
   // Test all inputs are returned for combinatorial quarie for each output
