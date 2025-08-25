@@ -19,9 +19,9 @@ Welcome to Naja's documentation!
 
 .. toctree::
    :maxdepth: 2
-   :caption: SNL (Structured Netlist)
+   :caption: NL (Structured Netlist)
 
-   snl/index
+   nl/index
 
 .. toctree::
    :maxdepth: 2

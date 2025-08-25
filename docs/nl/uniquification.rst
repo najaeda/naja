@@ -1,10 +1,10 @@
-Uniquification
-=========
+Cloning and Uniquification
+==========================
 
 .. image:: ../images/Naja-Clone.png
-   :alt: Naja SNL
+   :alt: Naja Cloning
 
-In an hierarchical netlist, there are models who are being used multiple times as implementation for different instances.
+In an hierarchical netlist, there are models who are being used multiple times as the same implementation for different instances.
 
 The action of uniquification of an instance means to create a unique model for the context of the instance alone by cloning its original model.
 

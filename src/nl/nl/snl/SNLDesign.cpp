@@ -738,5 +738,4 @@ void SNLDesign::recursiveRevisionIncrement() {
   }
 }
 
-
 }} // namespace NL // namespace naja
