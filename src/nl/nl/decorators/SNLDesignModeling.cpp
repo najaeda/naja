@@ -285,13 +285,13 @@ getCombinatorialOutputsDepsFromTruthTable(naja::NL::SNLBitTerm* term) {
   }
   // LCOV_EXCL_STOP
   flatID = static_cast<size_t>(std::distance(flatTermsVec.begin(), it));
-
+  // LCOV_EXCL_START
   // ensure there's at least one truth table
   if (naja::NL::SNLDesignModeling::getTruthTableCount(
           term->getDesign()) == 0) {
     throw naja::NL::NLException("Design has an empty truth table");
   }
-
+  // LCOV_EXCL_STOP
   auto design   = term->getDesign();
   auto property = getTruthTableProperty(design);
   size_t tableIdx = 0;
