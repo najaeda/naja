@@ -295,6 +295,7 @@ class SNLDesign final: public NLObject {
   private:
     SNLDesign(NLLibrary* library, Type type, const NLName& name);
     SNLDesign(NLLibrary* library, NLID::DesignID id, Type type, const NLName& name);
+    void setNewFlatID(SNLTerm* term);
     static void preCreate(const NLLibrary* library, Type type, const NLName& name);
     static void preCreate(const NLLibrary* library, NLID::DesignID id, Type type, const NLName& name);
     void destroyFromLibrary();

@@ -6,6 +6,7 @@
 
 #include "SNLTruthTable.h"
 #include "NLBitVecDynamic.h"
+#include "NLBitDependencies.h"
 using namespace naja::NL;
 
 TEST(SNLTruthTableTest, test) {
@@ -189,6 +190,11 @@ TEST(SNLTruthTable, testErrors) {
   EXPECT_THROW(tt.removeVariable(5), NLException);
 }
 
+TEST(SNLTruthTable, testWrongSizeDeps) {
+  EXPECT_THROW(SNLTruthTable(8, 0xFFFFF), NLException);
+  EXPECT_THROW(SNLTruthTable(4, 0xFFFF, {1,2,3,4}), NLException);
+}
+
 //------------------------------------------------------------------------------
 // Beyond 6‐input truth tables: only constructor + size() + exceptions
 //------------------------------------------------------------------------------
@@ -237,6 +243,11 @@ TEST(SNLTruthTableTest, VectorCtorAllOnesPattern) {
   EXPECT_TRUE(t8o.isInitialized());
 }
 
+TEST(SNLTruthTableTest, WrongSizeDeps) {
+  // A 8‐input table of all‐ones must construct and size()=8
+  std::vector<bool> allo(1u << 8, true);
+  EXPECT_THROW(SNLTruthTable(8, allo, {0,1,2,3,4,5,6,7,8}), NLException);  // 9 deps
+}
 // TODO:
 //------------------------------------------------------------------------------
 // Once you’ve fixed bits().operator uint64_t()/all0()/getReducedWithConstants on vector<bool>,
@@ -562,3 +573,9 @@ TEST(NLBitVecDynamic, operatorUint64ThrowsWhenAbove64Bits) {
     NLException
   );
 }
+
+// test count_bits() for both branches
+TEST(NLBitDependenciesTest, CountBits) {
+  EXPECT_EQ(NLBitDependencies::count_bits(3), 2); // 32 bits set in first word
+}
+  

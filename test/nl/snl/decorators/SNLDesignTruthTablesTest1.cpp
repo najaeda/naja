@@ -134,8 +134,8 @@ TEST_F(SNLDesignTruthTablesTest1, testStandardGates) {
     SNLDesignModeling::getTruthTable(multiple_outputs),
     NLException
   );
-  auto tt0get = SNLDesignModeling::getTruthTable(multiple_outputs, o0->getID());
-  auto tt1get = SNLDesignModeling::getTruthTable(multiple_outputs, o1->getID());
+  auto tt0get = SNLDesignModeling::getTruthTable(multiple_outputs, o0->getFlatID());
+  auto tt1get = SNLDesignModeling::getTruthTable(multiple_outputs, o1->getFlatID());
   EXPECT_TRUE(tt0get.isInitialized());
   EXPECT_EQ(tt0, tt0get);
   EXPECT_TRUE(tt1get.isInitialized());
@@ -240,6 +240,12 @@ TEST_F(SNLDesignTruthTablesTest1, IndexedGetThrowsOutOfRange) {
   );
 }
 
+TEST_F(SNLDesignTruthTablesTest1, WrongDepsSize) {
+  auto D = SNLDesign::create(prims_, SNLDesign::Type::Primitive, NLName("one_o"));
+  SNLScalarTerm::create(D, SNLTerm::Direction::Output, NLName("O"));
+  EXPECT_ANY_THROW(SNLDesignModeling::setTruthTable(D, SNLTruthTable(1, 0b10, {0, 1, 2})));
+}
+
 TEST_F(SNLDesignTruthTablesTest1, SingleChunkDeclaredTooLargeThrows) {
   auto D = SNLDesign::create(prims_, SNLDesign::Type::Primitive, NLName("bad_single"));
   SNLScalarTerm::create(D, SNLTerm::Direction::Output, NLName("O"));
@@ -268,6 +274,7 @@ TEST_F(SNLDesignTruthTablesTest1, MultiChunkButTooSmallThrows) {
   P->addUInt64Value(4);  // declaredInputs=4 => nBits=16 <= 64
   P->addUInt64Value(0);
   P->addUInt64Value(0);  // values.size()>2
+  P->addUInt64Value(0);  // add 1 more for deps
 
   EXPECT_THROW(
     SNLDesignModeling::getTruthTable(D),
@@ -353,6 +360,7 @@ TEST_F(SNLDesignTruthTablesTest1, NBitsNotGreaterThan64_MultiChunkPath_Throws) {
   P->addUInt64Value(4);  // declaredInputs=4 => nBits=16
   P->addUInt64Value(0);
   P->addUInt64Value(1);  // values.size()>2 forces multi-chunk branch
+  P->addUInt64Value(0); // add 1 more for deps
 
   EXPECT_THROW(
     SNLDesignModeling::getTruthTable(D),
@@ -373,6 +381,7 @@ TEST_F(SNLDesignTruthTablesTest1, ChunkCountMismatch_Throws) {
   P->addUInt64Value(3);
   P->addUInt64Value(0);  // chunk #0
   P->addUInt64Value(0);  // chunk #1 (extra)
+  P->addUInt64Value(0);  // deps
 
   EXPECT_THROW(
     SNLDesignModeling::getTruthTable(D),
@@ -399,6 +408,7 @@ TEST_F(SNLDesignTruthTablesTest1, MultipleTables_ThenGetTruthTable_Throws) {
     NLException
   );
 }
+
 //-----------------------------------------------------------------------------
 // Tests for createProperty() exception paths via setTruthTables()
 //-----------------------------------------------------------------------------
@@ -505,6 +515,7 @@ TEST_F(SNLDesignTruthTablesTest1,
   prop->addUInt64Value(3);  // declaredInputs
   prop->addUInt64Value(0);  // mask #1
   prop->addUInt64Value(0);  // mask #2
+  prop->addUInt64Value(0);  // deps #1
 
   EXPECT_THROW(
       SNLDesignModeling::getTruthTable(D),
@@ -572,6 +583,7 @@ TEST_F(SNLDesignTruthTablesTest1, GetTruthTable_MultiChunkBitsNotLargerThan64Thr
   P->addUInt64Value(5);    // declaredInputs
   P->addUInt64Value(0x0);  // chunk #0
   P->addUInt64Value(0x0);  // chunk #1
+  P->addUInt64Value(0x0);  // deps
 
   // nBits == 32 <= 64, so multi-chunk path must throw
   EXPECT_THROW(
