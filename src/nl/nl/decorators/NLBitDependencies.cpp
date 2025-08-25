@@ -32,10 +32,8 @@ std::vector<uint64_t> encodeBits(const std::vector<size_t>& positions) {
         result[blockIdx] |= (1ULL << bitIdx);
     }
 
-    // Trim trailing zero blocks
-    while (!result.empty() && result.back() == 0) {
-        result.pop_back();
-    }
+    // As length of result is highest position, it must be non zero
+   assert(result.back() != 0);
 
     return result;
 }
