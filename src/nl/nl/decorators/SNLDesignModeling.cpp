@@ -274,6 +274,7 @@ getCombinatorialOutputsDepsFromTruthTable(naja::NL::SNLBitTerm* term) {
         return t->getID() == term->getID()
             && t->getBit() == term->getBit();
       });
+  // LCOV_EXCL_START
   if (it == flatTermsVec.end()) {
     std::ostringstream reason;
     reason << "Bit term with ID " << term->getID()
@@ -282,6 +283,7 @@ getCombinatorialOutputsDepsFromTruthTable(naja::NL::SNLBitTerm* term) {
            << term->getDesign()->getName().getString();
     throw naja::NL::NLException(reason.str());
   }
+  // LCOV_EXCL_STOP
   flatID = static_cast<size_t>(std::distance(flatTermsVec.begin(), it));
 
   // ensure there's at least one truth table
@@ -318,12 +320,14 @@ getCombinatorialOutputsDepsFromTruthTable(naja::NL::SNLBitTerm* term) {
           std::find(decodedDeps.begin(), decodedDeps.end(), flatID)
               != decodedDeps.end()) {
         auto mapIt = outputFlatID2FlatID.find(tableIdx);
+        // LCOV_EXCL_START
         if (mapIt == outputFlatID2FlatID.end()) {
           std::ostringstream reason;
           reason << "Output flat ID " << tableIdx
                  << " not found in map";
           throw naja::NL::NLException(reason.str());
         }
+        // LCOV_EXCL_STOP
         flatDepIDs.push_back(mapIt->second);
       }
 
@@ -354,6 +358,7 @@ getCombinatorialOutputsDepsFromTruthTable(naja::NL::SNLBitTerm* term) {
                      naja::NL::NLID::DesignObjectID>> depTermsIds;
   for (auto id : flatDepIDs) {
     auto bt = flatTermsVec[id];
+    // LCOV_EXCL_START
     if (!bt) {
       std::ostringstream reason;
       reason << "Bit term with ID " << id
@@ -361,6 +366,7 @@ getCombinatorialOutputsDepsFromTruthTable(naja::NL::SNLBitTerm* term) {
              << term->getDesign()->getName().getString();
       throw naja::NL::NLException(reason.str());
     }
+    // LCOV_EXCL_STOP
     depTermsIds.insert({bt->getID(), bt->getBit()});
   }
 
