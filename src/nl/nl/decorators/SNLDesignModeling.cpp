@@ -238,19 +238,19 @@ getCombinatorialOutputsDepsFromTruthTable(naja::NL::SNLBitTerm* term) {
                          });
   if (it != flatTermsVec.end()) {
     flatID = static_cast<size_t>(std::distance(flatTermsVec.begin(), it));
+  // LCOV_EXCL_START
   } else {
-    // LCOV_EXCL_START
     std::ostringstream reason;
     reason << "Bit term with ID " << term->getID() << " and bit "
            << term->getBit() << " not found in design "
            << term->getDesign()->getName().getString();
     throw naja::NL::NLException(reason.str());
-    // LCOV_EXCL_STOP
   }
   // iterate over the tables nad cache all the tbale idxes that contain flatID
   if (naja::NL::SNLDesignModeling::getTruthTableCount(term->getDesign()) == 0) {
-    return {};
+    throw naja::NL::NLException("Design has am empty truth table");
   }
+  // LCOV_EXCL_STOP
   auto design = term->getDesign();
   auto property = getTruthTableProperty(design);
   size_t tableIdx = 0;
@@ -314,14 +314,14 @@ getCombinatorialOutputsDepsFromTruthTable(naja::NL::SNLBitTerm* term) {
     auto bitTerm = flatTermsVec[bitId];
     if (bitTerm) {
       depTermsIds.insert({bitTerm->getID(), bitTerm->getBit()});
-    } else {
       // LCOV_EXCL_START
+    } else {
       std::ostringstream reason;
       reason << "Bit term with ID " << bitId << " not found in design "
              << term->getDesign()->getName().getString();
       throw naja::NL::NLException(reason.str());
-      // LCOV_EXCL_STOP
     }
+    // LCOV_EXCL_STOP
   }
   auto filter = [=](const naja::NL::SNLBitTerm* bterm) {
     return depTermsIds.find({bterm->getID(), bterm->getBit()}) !=
@@ -346,8 +346,6 @@ getCombinatorialInputDepsFromTruthTable(naja::NL::SNLBitTerm* term) {
   }
   auto deps = truthTable.getDependencies();
   auto flatTermsIDs = naja::NL::NLBitDependencies::decodeBits(deps);
-  assert(flatTermsIDs.empty() ? true : naja::NL::NLBitDependencies::encodeBits(flatTermsIDs) ==
-         deps);  // check that we have the same dependencies
   auto flatTerms = term->getDesign()->getBitTerms();
   // turn to vector to use the STL algorithm
   std::vector<naja::NL::SNLBitTerm*> flatTermsVec(flatTerms.begin(),
@@ -360,14 +358,14 @@ getCombinatorialInputDepsFromTruthTable(naja::NL::SNLBitTerm* term) {
     auto bitTerm = flatTermsVec[bitId];
     if (bitTerm) {
       depTermsIds.insert({bitTerm->getID(), bitTerm->getBit()});
-    } else {
       // LCOV_EXCL_START
+    } else {
       std::ostringstream reason;
       reason << "Bit term with ID " << bitId << " not found in design "
              << term->getDesign()->getName().getString();
       throw naja::NL::NLException(reason.str());
-      // LCOV_EXCL_STOP
     }
+    // LCOV_EXCL_STOP
   }
   auto filter = [=](const naja::NL::SNLBitTerm* bterm) {
     return depTermsIds.find({bterm->getID(), bterm->getBit()}) !=

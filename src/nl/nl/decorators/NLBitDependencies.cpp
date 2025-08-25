@@ -7,10 +7,12 @@
 #include <iostream>
 #include <bit>        // C++20 <bit> header
 #include "NLBitDependencies.h"
+#include <cassert>
 
 // Encode a list of non-negative bit positions into 64-bit blocks.
 // Blocks with no set bits at the high end are trimmed off.
-std::vector<uint64_t> naja::NL::NLBitDependencies::encodeBits(const std::vector<size_t>& positions) {
+// Helper function, as it does not have knowledge of inputs size. So can be used only for assertion and testing.
+std::vector<uint64_t> encodeBits(const std::vector<size_t>& positions) {
     if (positions.empty()) {
         return {};
     }
@@ -38,6 +40,14 @@ std::vector<uint64_t> naja::NL::NLBitDependencies::encodeBits(const std::vector<
     return result;
 }
 
+size_t count_bits_for_vector(std::vector<uint64_t> blocks) {
+    size_t count = 0;
+    for (uint64_t block : blocks) {
+        count += static_cast<size_t>(std::popcount(block));
+    }
+    return count;
+}
+
 // Decode 64-bit blocks back into a list of bit positions
 std::vector<size_t> naja::NL::NLBitDependencies::decodeBits(const std::vector<uint64_t>& blocks) {
     std::vector<size_t> out;
@@ -51,6 +61,7 @@ std::vector<size_t> naja::NL::NLBitDependencies::decodeBits(const std::vector<ui
             x &= x - 1;
         }
     }
+    assert(encodeBits(out).size() == blocks.size() ? encodeBits(out) == blocks : count_bits_for_vector(encodeBits(out)) == count_bits_for_vector(blocks)); // sanity check
     return out;
 }
 
