@@ -61,7 +61,9 @@ std::vector<size_t> naja::NL::NLBitDependencies::decodeBits(const std::vector<ui
     }
     assert(encodeBits(out).size() == blocks.size() ? encodeBits(out) == blocks : count_bits_for_vector(encodeBits(out)) == count_bits_for_vector(blocks)); // sanity check
     return out;
+    // LCOV_EXCL_START
 }
+// LCOV_EXCL_STOP
 
 uint64_t naja::NL::NLBitDependencies::count_bits(uint64_t x) {
     return static_cast<uint64_t>(std::popcount(x));
