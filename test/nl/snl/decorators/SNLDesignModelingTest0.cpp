@@ -400,6 +400,44 @@ TEST_F(SNLDesignModelingTest0, testNoDepsFromSingleTT) {
   auto ins0 = SNLInstance::create(top, design, NLName("ins0"));
   //set truth table
   std::vector<u_int64_t> deps;
+  deps.push_back(1);
+  SNLDesignModeling::setTruthTable(design, SNLTruthTable(2, 0x5, deps));
+  // Test all inputs are returned for combinatorial quarie for each output
+  EXPECT_EQ(SNLDesignModeling::getCombinatorialInputs(o).size(), 1);
+  EXPECT_EQ(SNLDesignModeling::getCombinatorialInputs(ins0->getInstTerm(o)).size(), 1);
+  // Test all outputs are returned for combinatorial quarie for each input
+  EXPECT_EQ(SNLDesignModeling::getCombinatorialOutputs(i0).size(), 1);
+  EXPECT_EQ(SNLDesignModeling::getCombinatorialOutputs(i1).size(), 0);
+  EXPECT_EQ(SNLDesignModeling::getCombinatorialOutputs(ins0->getInstTerm(i0)).size(), 1);
+  EXPECT_EQ(SNLDesignModeling::getCombinatorialOutputs(ins0->getInstTerm(i1)).size(), 0);
+  auto inputArcs = SNLDesignModeling::getCombinatorialInputs(o);
+  EXPECT_THAT(
+    std::vector(inputArcs.begin(), inputArcs.end()),
+    ElementsAre(i0));
+  auto outputArcs = SNLDesignModeling::getCombinatorialOutputs(i0);
+  EXPECT_THAT(
+    std::vector(outputArcs.begin(), outputArcs.end()),
+    ElementsAre(o));
+  auto ouputArcsI1 = SNLDesignModeling::getCombinatorialOutputs(i1);
+  EXPECT_TRUE(ouputArcsI1.empty());
+}
+
+TEST_F(SNLDesignModelingTest0, testNoDepsFromSingleTTWithEmptyDeps) {
+  //Create primitives
+  NLUniverse::create();
+  auto db = NLDB::create(NLUniverse::get());
+  auto prims = NLLibrary::create(db, NLLibrary::Type::Primitives);
+  auto design = SNLDesign::create(prims, SNLDesign::Type::Primitive, NLName("design"));
+  auto i0 = SNLScalarTerm::create(design, SNLTerm::Direction::Input, NLName("I0"));
+  auto i1 = SNLScalarTerm::create(design, SNLTerm::Direction::Input, NLName("I1"));
+  auto o = SNLScalarTerm::create(design, SNLTerm::Direction::Output, NLName("O"));
+  // create a top
+  auto designs = NLLibrary::create(db);
+  auto top = SNLDesign::create(designs, NLName("top"));
+  // create an instance of the design
+  auto ins0 = SNLInstance::create(top, design, NLName("ins0"));
+  //set truth table
+  std::vector<u_int64_t> deps;
   SNLDesignModeling::setTruthTable(design, SNLTruthTable(2, 0x5, deps));
   // Test all inputs are returned for combinatorial quarie for each output
   EXPECT_EQ(SNLDesignModeling::getCombinatorialInputs(o).size(), 2);

@@ -38,7 +38,7 @@ std::vector<uint64_t> encodeBits(const std::vector<size_t>& positions) {
     return result;
 }
 
-size_t count_bits_for_vector(std::vector<uint64_t> blocks) {
+size_t naja::NL::NLBitDependencies::count_bits_for_vector(std::vector<uint64_t> blocks) {
     size_t count = 0;
     for (uint64_t block : blocks) {
         count += static_cast<size_t>(std::popcount(block));

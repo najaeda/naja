@@ -17,6 +17,8 @@ class NLBitDependencies {
   static std::vector<size_t> decodeBits(const std::vector<uint64_t>& blocks);
 
   static uint64_t count_bits(uint64_t x);
+
+  static size_t count_bits_for_vector(std::vector<uint64_t> blocks);
 };
 
 }  // namespace NL
