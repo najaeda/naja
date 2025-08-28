@@ -826,16 +826,10 @@ class Term:
 
     def disconnect_lower_net(self):
         """Disconnect this term from its lower net."""
-        if self.get_instance().is_top():
-            for bit in get_snl_term_for_ids(self.pathIDs, self.termIDs).getBits():
-                bit.setNet(None)
-        else:
-            path = get_snl_path_from_id_list(self.pathIDs)
-            self.__make_unique()
-            inst = path.getTailInstance()
-            for bit in get_snl_term_for_ids(self.pathIDs, self.termIDs).getBits():
-                iterm = inst.getInstTerm(bit)
-                iterm.setLowerNet(None)
+        path = get_snl_path_from_id_list(self.pathIDs)
+        self.__make_unique()
+        for bit in get_snl_term_for_ids(self.pathIDs, self.termIDs).getBits():
+            bit.setNet(None)
 
     def connect_upper_net(self, net: Net):
         """Connect this term to the given upper Net.
