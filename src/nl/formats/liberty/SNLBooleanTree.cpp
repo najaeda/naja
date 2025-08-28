@@ -365,8 +365,7 @@ SNLTruthTable SNLBooleanTree::getTruthTable(const Terms& terms) {
       bool result = root_->getValue();
       mask[i] = result;
     }
-    std::vector<uint64_t> deps(n / 64 + ((n % 64) > 0 ? 1 : 0), 0);
-    return SNLTruthTable(n, mask, deps);
+    return SNLTruthTable(n, mask);
   }
 
   int rows = pow(2, n);
