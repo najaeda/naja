@@ -826,7 +826,6 @@ class Term:
 
     def disconnect_lower_net(self):
         """Disconnect this term from its lower net."""
-        path = get_snl_path_from_id_list(self.pathIDs)
         self.__make_unique()
         for bit in get_snl_term_for_ids(self.pathIDs, self.termIDs).getBits():
             bit.setNet(None)
