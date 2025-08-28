@@ -578,4 +578,10 @@ TEST(NLBitVecDynamic, operatorUint64ThrowsWhenAbove64Bits) {
 TEST(NLBitDependenciesTest, CountBits) {
   EXPECT_EQ(NLBitDependencies::count_bits(3), 2); // 32 bits set in first word
 }
+
+// Test error for reduce with non trivial dependencies
+TEST(SNLTruthTable, ReduceWithNonTrivialDepsThrows) {
+  SNLTruthTable ttand2(2, 0b1000, {5});
+  EXPECT_THROW(ttand2.getReducedWithConstant(0, 0), NLException);
+}
   

@@ -13,12 +13,16 @@ namespace NL {
 
 class NLBitDependencies {
  public:
+  // Encode a list of non-negative bit positions into 64-bit blocks
+  static  std::vector<uint64_t> encodeBits(const std::vector<size_t>& positions);
   // Decode 64-bit blocks back into a list of bit positions
   static std::vector<size_t> decodeBits(const std::vector<uint64_t>& blocks);
 
   static uint64_t count_bits(uint64_t x);
 
   static size_t count_bits_for_vector(std::vector<uint64_t> blocks);
+
+  static bool is_simple(const std::vector<uint64_t>& blocks);
 };
 
 }  // namespace NL

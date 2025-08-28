@@ -1117,7 +1117,7 @@ bool SNLDesignModeling::isConst0(const SNLDesign* design) {
 
 bool SNLDesignModeling::isConst1(const SNLDesign* design) {
   auto property = getTruthTableProperty(design);
-  // return false if number of values large than 2
+  // return false if number of values large than 3
   if (property && property->getValues().size() > 3) {
     return false;
   }
@@ -1127,7 +1127,7 @@ bool SNLDesignModeling::isConst1(const SNLDesign* design) {
 
 bool SNLDesignModeling::isConst(const SNLDesign* design) {
   auto property = getTruthTableProperty(design);
-  // return false if number of values large than 2
+  // return false if number of values large than 3
   if (property && property->getValues().size() > 3) {
     return false;
   }
@@ -1138,7 +1138,7 @@ bool SNLDesignModeling::isConst(const SNLDesign* design) {
 
 bool SNLDesignModeling::isInv(const SNLDesign* design) {
   auto property = getTruthTableProperty(design);
-  // return false if number of values large than 2
+  // return false if number of values large than 3
   if (property && property->getValues().size() > 3) {
     return false;
   }
@@ -1148,7 +1148,7 @@ bool SNLDesignModeling::isInv(const SNLDesign* design) {
 
 bool SNLDesignModeling::isBuf(const SNLDesign* design) {
   auto property = getTruthTableProperty(design);
-  // return false if number of values large than 2
+  // return false if number of values large than 3
   if (property && property->getValues().size() > 3) {
     return false;
   }

@@ -12,7 +12,7 @@
 // Encode a list of non-negative bit positions into 64-bit blocks.
 // Blocks with no set bits at the high end are trimmed off.
 // Helper function, as it does not have knowledge of inputs size. So can be used only for assertion and testing.
-std::vector<uint64_t> encodeBits(const std::vector<size_t>& positions) {
+std::vector<uint64_t> naja::NL::NLBitDependencies::encodeBits(const std::vector<size_t>& positions) {
     if (positions.empty()) {
         return {};
     }
@@ -67,4 +67,23 @@ std::vector<size_t> naja::NL::NLBitDependencies::decodeBits(const std::vector<ui
 
 uint64_t naja::NL::NLBitDependencies::count_bits(uint64_t x) {
     return static_cast<uint64_t>(std::popcount(x));
+}
+
+bool naja::NL::NLBitDependencies::is_simple(const std::vector<uint64_t>& blocks) {
+    // Verify that there are no holes in the blocks
+    bool found_zero_bit = false;
+    for (uint64_t block : blocks) {
+        for (int i = 0; i < 64; ++i) {
+            bool bit_set = (block >> i) & 1;
+            if (bit_set) {
+                if (found_zero_bit) {
+                    return false; // Found a set bit after a zero bit
+                }
+            } else {
+                found_zero_bit = true;
+            }
+        }
+    }
+    
+    return true;
 }

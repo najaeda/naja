@@ -54,10 +54,14 @@ class SNLTruthTable {
     size_ = size;
     // now safe: 1<<size <= 64
     bits_ = NLBitVecDynamic(bits, 1u << size);
-    if (dependencies_.empty()) {
-      dependencies_ = std::vector<uint64_t>(size / 64 + ((size % 64) > 0 ? 1 : 0), 0);
+    if (dependencies_.empty() && size > 0) {
+      std::vector<size_t> deps(size);
+      for (size_t i = 0; i < size; ++i) {
+        deps[i] = i;
+      }
+      dependencies_ = NLBitDependencies::encodeBits(deps);
     }
-    if (dependencies_.size() != size / 64 + ((size % 64) > 0 ? 1 : 0)) {
+    if ((dependencies_.size() != size / 64 + ((size % 64) > 0 ? 1 : 0)) && size > 0) {
       std::ostringstream oss;
       oss << "Dependencies size mismatch: expected "
           << (size / 64 + ((size % 64) > 0 ? 1 : 0))
@@ -75,10 +79,14 @@ class SNLTruthTable {
     size_ = size;
     // now safe: 1<<size <= 64
     bits_ = NLBitVecDynamic(bits, 1u << size);
-    if (dependencies_.empty()) {
-      dependencies_ = std::vector<uint64_t>(size / 64 + ((size % 64) > 0 ? 1 : 0), 0);
+    if (dependencies_.empty() && size > 0) {
+      std::vector<size_t> deps(size);
+      for (size_t i = 0; i < size; ++i) {
+        deps[i] = i;
+      }
+      dependencies_ = NLBitDependencies::encodeBits(deps);
     }
-    if (dependencies_.size() != size / 64 + ((size % 64) > 0 ? 1 : 0)) {
+    if ((dependencies_.size() != size / 64 + ((size % 64) > 0 ? 1 : 0)) && size > 0) {
       std::ostringstream oss;
       oss << "Dependencies size mismatch: expected "
           << (size / 64 + ((size % 64) > 0 ? 1 : 0))
@@ -87,10 +95,10 @@ class SNLTruthTable {
     }
   }
 
-  static SNLTruthTable Logic0() { return SNLTruthTable(0, 0); }
-  static SNLTruthTable Logic1() { return SNLTruthTable(0, 1); }
-  static SNLTruthTable Inv() { return SNLTruthTable(1, 0b01); }
-  static SNLTruthTable Buf() { return SNLTruthTable(1, 0b10); }
+  static SNLTruthTable Logic0() { return SNLTruthTable(0, 0, {}); }
+  static SNLTruthTable Logic1() { return SNLTruthTable(0, 1, {}); }
+  static SNLTruthTable Inv() { return SNLTruthTable(1, 0b01, {1}); }
+  static SNLTruthTable Buf() { return SNLTruthTable(1, 0b10, {1}); }
 
   bool operator==(const SNLTruthTable& o) const {
     return size_ == o.size_ && bits_ == o.bits_ && dependencies_ == o.dependencies_;
@@ -124,6 +132,10 @@ class SNLTruthTable {
 
   // Apply _all_ constants in one shot:
   SNLTruthTable getReducedWithConstants(ConstantInputs idxConsts) const {
+    // Error out in case of dependencies as it is not supported
+    if (!NLBitDependencies::is_simple(dependencies_)) {
+      throw NLException("getReducedWithConstants() does not support non full dependencies");
+    }
     // trivial 0‐input table
     if (size_ == 0) {
       return *this;
@@ -177,7 +189,6 @@ class SNLTruthTable {
       }
     }
 
-    // build & normalize result
     SNLTruthTable out;
     if (newSize > 6) {
       out = SNLTruthTable(newSize, reducedVect);
