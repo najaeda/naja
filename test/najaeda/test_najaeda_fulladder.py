@@ -75,7 +75,15 @@ class NajaNetlistTestGates0(unittest.TestCase):
         ha2_sum_renamed = ha2.get_net('sum_renamed')
         self.assertIsNotNone(ha2_sum_renamed)
         self.assertEqual(ha2_sum_renamed.get_name(), 'sum_renamed')
-    
+
+    def test_disconnect(self):
+        #disconnect top term
+        cin = self.top.get_term('cin')
+        self.assertIsNotNone(cin)
+        self.assertIsNone(cin.get_upper_net())
+        self.assertIsNotNone(cin.get_lower_net())
+        self.assertRaises(ValueError, cin.disconnect_upper_net)        
+
     # def test_get_max_logic_level(self):
     #     # Test the maximum logic level of the design
     #     max_logic_level = netlist.get_max_logic_level()

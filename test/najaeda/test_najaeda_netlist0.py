@@ -32,11 +32,11 @@ class ComputeEqui:
 
     def collect(self, termToCollect):
       #if net of term is in self.nets return
-      if termToCollect.get_net() in self.nets:
+      if termToCollect.get_upper_net() in self.nets:
           return
       #add net of term to self.nets
-      self.nets.append(termToCollect.get_net())
-      net = termToCollect.get_net()
+      self.nets.append(termToCollect.get_upper_net())
+      net = termToCollect.get_upper_net()
       for term in net.get_terms():
           if (term.get_instance().is_top()):
                 if not (term in self.terms):
@@ -167,7 +167,7 @@ class NajaNetlistTest0(unittest.TestCase):
         self.assertEqual(i1.get_width(), 5)
         net_i1 = instance.get_net("netO1")
         self.assertEqual(net_i1.get_width(), 5)
-        i1.connect(net_i1)
+        i1.connect_upper_net(net_i1)
 
         for flat_output in instance.get_output_bit_terms():
             self.assertEqual(flat_output.get_instance(), instance)
@@ -339,11 +339,11 @@ class NajaNetlistTest0(unittest.TestCase):
         #print(instance.get_term("I0").get_net())
         self.assertIsNotNone(instance.get_term("I0"))
         #print(netlist.Net(path0, i0_net))
-        self.assertEqual(instance.get_term("I0").get_net(), netlist.Net(path1.getHeadPath(), i0_net))
+        self.assertEqual(instance.get_term("I0").get_upper_net(), netlist.Net(path1.getHeadPath(), i0_net))
         #print(str(instance.get_term("I0")))
-        instance.get_term("I0").disconnect()
-        self.assertIsNone(instance.get_term("I0").get_net())
-        instance.get_term("I0").connect(netlist.Net(path0, i0_net))
+        instance.get_term("I0").disconnect_upper_net()
+        self.assertIsNone(instance.get_term("I0").get_upper_net())
+        instance.get_term("I0").connect_upper_net(netlist.Net(path0, i0_net))
         flat_fanout = 0
         for fanout in instance.get_term("I0").get_flat_fanout():
             flat_fanout += 1
@@ -429,7 +429,7 @@ class NajaNetlistTest0(unittest.TestCase):
 
         net = netlist.get_top().create_net("netI1") 
 
-        top_term.connect(net)
+        top_term.connect_upper_net(net)
 
         self.assertEqual(None, top_term.get_equipotential().equi)
 

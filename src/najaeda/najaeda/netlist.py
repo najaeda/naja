@@ -458,10 +458,6 @@ class Term:
         INOUT = naja.SNLTerm.Direction.InOut
 
     def __init__(self, path, term):
-        # self.termIDs = []
-        # if isinstance(term, naja.SNLBusTerm):
-        #     self.termIDs = [term.getID(), -1]
-        # else:
         self.termIDs = [term.getID(), term.getBit()]
         self.pathIDs = path.copy()
 
@@ -743,9 +739,9 @@ class Term:
         """
         return self.__get_net(self.pathIDs, self.__get_snl_lower_bitnet)
 
-    def get_net(self) -> Net:
+    def get_upper_net(self) -> Net:
         """
-        :return: the net of the term.
+        :return: the upper net of the term.
         :rtype: Net
         :remark: If the term is a top level term, it will return None.
         """
@@ -817,8 +813,10 @@ class Term:
             )
         return None
 
-    def disconnect(self):
-        """Disconnect this term from its net."""
+    def disconnect_upper_net(self):
+        """Disconnect this term from its upper net."""
+        if self.get_instance().is_top():
+            raise ValueError("Cannot disconnect the upper net of a top level term")
         path = get_snl_path_from_id_list(self.pathIDs)
         self.__make_unique()
         inst = path.getTailInstance()
@@ -826,10 +824,23 @@ class Term:
             iterm = inst.getInstTerm(bit)
             iterm.setNet(None)
 
-    def connect(self, net: Net):
-        """Connect this term to the given Net.
+    def disconnect_lower_net(self):
+        """Disconnect this term from its lower net."""
+        if self.get_instance().is_top():
+            for bit in get_snl_term_for_ids(self.pathIDs, self.termIDs).getBits():
+                bit.setNet(None)
+        else:
+            path = get_snl_path_from_id_list(self.pathIDs)
+            self.__make_unique()
+            inst = path.getTailInstance()
+            for bit in get_snl_term_for_ids(self.pathIDs, self.termIDs).getBits():
+                iterm = inst.getInstTerm(bit)
+                iterm.setLowerNet(None)
 
-        :param Net net: the Net to connect to.
+    def connect_upper_net(self, net: Net):
+        """Connect this term to the given upper Net.
+
+        :param Net net: the upper Net to connect to.
         """
         if self.get_width() != net.get_width():
             raise ValueError("Width mismatch")
@@ -873,21 +884,6 @@ class Term:
 
 def get_instance_by_path(names: list):
     return get_top().get_child_instance(names)
-
-
-# def refresh_path(path: naja.SNLPath):
-#    pathlist = path.getPathIDs()
-#    assert len(pathlist) > 0
-#    path = naja.SNLPath()
-#    instance = None
-#    top = naja.NLUniverse.get().getTopDesign()
-#    design = top
-#    for id in pathlist:
-#        path = naja.SNLPath(path, design.getInstanceByID(id))
-#        instance = design.getInstanceByID(id)
-#        assert instance is not None
-#        design = instance.getModel()
-#    return path
 
 
 class Attribute:
