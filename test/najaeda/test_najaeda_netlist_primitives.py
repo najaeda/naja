@@ -35,11 +35,11 @@ class NajaNetlistTestPrimitives(unittest.TestCase):
         net1 = top.create_net("net1") 
         net2 = top.create_net("net2")
 
-        i.connect_upper_net(net1)
+        i.connect_lower_net(net1)
         lut2_ins0.get_term("I0").connect_upper_net(net1)
         lut2_ins0.get_term("O").connect_upper_net(net2)
         lut2_ins1.get_term("I0").connect_upper_net(net2)
-        o.connect_upper_net(net2)
+        o.connect_lower_net(net2)
 
         top.dump_full_dot('./test_xilinx_primitives.dot')
         with self.assertRaises(Exception) as context: top.dump_full_dot(-1)

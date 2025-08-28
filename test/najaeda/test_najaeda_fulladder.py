@@ -82,7 +82,13 @@ class NajaNetlistTestGates0(unittest.TestCase):
         self.assertIsNotNone(cin)
         self.assertIsNone(cin.get_upper_net())
         self.assertIsNotNone(cin.get_lower_net())
-        self.assertRaises(ValueError, cin.disconnect_upper_net)        
+        self.assertRaises(ValueError, cin.disconnect_upper_net)
+        lower_net = cin.get_lower_net()
+        self.assertIsNotNone(lower_net)
+        cin.disconnect_lower_net()
+        self.assertIsNone(cin.get_lower_net())
+        cin.connect_lower_net(lower_net)
+        self.assertIsNotNone(cin.get_lower_net())
 
     # def test_get_max_logic_level(self):
     #     # Test the maximum logic level of the design

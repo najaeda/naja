@@ -842,25 +842,33 @@ class Term:
 
         :param Net net: the upper Net to connect to.
         """
+        if self.get_instance().is_top():
+            raise ValueError("Cannot connect the upper net of a top level term")
         if self.get_width() != net.get_width():
             raise ValueError("Width mismatch")
-        if self.get_instance().is_top():
-            for bterm, bnet in zip(
-                get_snl_term_for_ids(self.pathIDs, self.termIDs).getBits(),
-                net.net.getBits(),
-            ):
-                logging.debug(f"Connecting {bterm} to {bnet}")
-                bterm.setNet(bnet)
-        else:
-            self.__make_unique()
-            path = get_snl_path_from_id_list(self.pathIDs)
-            inst = path.getTailInstance()
-            for bterm, bnet in zip(
-                get_snl_term_for_ids(self.pathIDs, self.termIDs).getBits(),
-                net.net.getBits(),
-            ):
-                iterm = inst.getInstTerm(bterm)
-                iterm.setNet(bnet)
+        self.__make_unique()
+        path = get_snl_path_from_id_list(self.pathIDs)
+        inst = path.getTailInstance()
+        for bterm, bnet in zip(
+            get_snl_term_for_ids(self.pathIDs, self.termIDs).getBits(),
+            net.net.getBits(),
+        ):
+            iterm = inst.getInstTerm(bterm)
+            iterm.setNet(bnet)
+
+    def connect_lower_net(self, net: Net):
+        """Connect this term to the given lower Net.
+
+        :param Net net: the lower Net to connect to.
+        """
+        if self.get_width() != net.get_width():
+            raise ValueError("Width mismatch")
+        self.__make_unique()
+        for bterm, bnet in zip(
+            get_snl_term_for_ids(self.pathIDs, self.termIDs).getBits(),
+            net.net.getBits(),
+        ):
+            bterm.setNet(bnet)
 
     def get_truth_table(self):
         # check the index of the output

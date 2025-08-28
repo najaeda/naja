@@ -429,7 +429,7 @@ class NajaNetlistTest0(unittest.TestCase):
 
         net = netlist.get_top().create_net("netI1") 
 
-        top_term.connect_upper_net(net)
+        top_term.connect_lower_net(net)
 
         self.assertEqual(None, top_term.get_equipotential().equi)
 
