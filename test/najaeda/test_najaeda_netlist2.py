@@ -324,6 +324,18 @@ class NajaNetlistTest2(unittest.TestCase):
             # modI1.get_bit(i) is the connected to I0_{i} scalar net
             self.assertEqual(modI1Net.get_bit(i).get_name(), top.get_net(f'I1_{i}').get_name())
 
+        # delete modI1Net
+        modI1Net.delete()
+        self.assertIsNone(modI1.get_upper_net())
+
+        mod_net = mod.create_net('test_net')
+        self.assertIsNotNone(mod_net)
+        self.assertRaises(ValueError, modI1.connect_upper_net, mod_net)
+
+        self.assertEqual(mod, top.get_child_instance_by_id(0))
+        self.assertIsNone(top.get_child_instance_by_id([1, 0]))
+        self.assertIsNone(top.get_child_instance_by_id([-1]))
+
         topO = top.get_term('O')
         self.assertEqual(topO.get_msb(), 1)
         self.assertEqual(topO.get_lsb(), 0)

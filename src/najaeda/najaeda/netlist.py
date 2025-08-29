@@ -225,7 +225,7 @@ class Net:
             self.net.destroy()
         else:
             for net in self.net_concat:
-                net.delete()
+                net.destroy()
 
     def get_name(self) -> str:
         """

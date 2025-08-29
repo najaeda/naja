@@ -104,8 +104,10 @@ class NajaNetlistTestGates0(unittest.TestCase):
         self.assertIsNotNone(ha2_b.get_lower_net())
         self.assertEqual(ha2_b.get_lower_net(), ha2_b_lower_net)
         ha2_b_lower_net.delete()
+        print(ha2_b_lower_net)
         self.assertIsNone(ha2_b.get_lower_net())
         print(ha2)
+        self.assertRaises(ValueError, self.top.delete)
 
 
     # def test_get_max_logic_level(self):
