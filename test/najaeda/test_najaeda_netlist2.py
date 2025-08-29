@@ -335,6 +335,7 @@ class NajaNetlistTest2(unittest.TestCase):
         self.assertEqual(mod, top.get_child_instance_by_id(0))
         self.assertIsNone(top.get_child_instance_by_id([1, 0]))
         self.assertIsNone(top.get_child_instance_by_id([-1]))
+        self.assertRaises(ValueError, top.get_child_instance_by_id, [])
 
         topO = top.get_term('O')
         self.assertEqual(topO.get_msb(), 1)
