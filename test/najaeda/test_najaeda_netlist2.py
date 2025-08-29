@@ -266,25 +266,27 @@ class NajaNetlistTest2(unittest.TestCase):
             i0 = top.create_input_bus_term('I0', 3, 0)
             i1 = top.create_input_bus_term('I1', 3, 0)
             o = top.create_output_bus_term('O', 1, 0)
-            mod = top.create_child_instance('Module0', 'mod')
+            mod0 = top.create_child_instance('Module0', 'mod0')
+            mod1 = top.create_child_instance('Module0', 'mod1')
             for i in range(4):
                 i0Net = top.create_net(f'I0_{i}')
                 i0.get_bit(i).connect_lower_net(i0Net)
-                mod.get_term('I0').get_bit(i).connect_upper_net(i0Net)
+                mod0.get_term('I0').get_bit(i).connect_upper_net(i0Net)
             for i in range(4):
                 i1Net = top.create_net(f'I1_{3-i}')
                 i1.get_bit(i).connect_lower_net(i1Net)
-                mod.get_term('I1').get_bit(i).connect_upper_net(i1Net)
+                mod0.get_term('I1').get_bit(i).connect_upper_net(i1Net)
             oNet = top.create_bus_net('O_net', 0, 1)
             o.connect_lower_net(oNet)
 
         create_top()
         top = netlist.get_top()
         self.assertIsNotNone(top)
-        mod = top.get_child_instance('mod')
-        self.assertIsNotNone(mod)
+        mod0 = top.get_child_instance('mod0')
+        self.assertIsNotNone(mod0)
+        self.assertEqual('Module0', mod0.get_model_name())
 
-        modI0 = mod.get_term('I0')
+        modI0 = mod0.get_term('I0')
         self.assertTrue(modI0.is_bus())
         self.assertEqual(modI0.get_msb(), 3)
         self.assertEqual(modI0.get_lsb(), 0)
@@ -307,7 +309,7 @@ class NajaNetlistTest2(unittest.TestCase):
             # modIO.get_bit(i) is the connected to I0_{3-i} scalar net
             self.assertEqual(modI0Net.get_bit(i).get_name(), top.get_net(f'I0_{3-i}').get_name())
 
-        modI1 = mod.get_term('I1')
+        modI1 = mod0.get_term('I1')
         self.assertTrue(modI1.is_bus())
         self.assertEqual(modI1.get_msb(), 3)
         self.assertEqual(modI1.get_lsb(), 0)
@@ -326,22 +328,25 @@ class NajaNetlistTest2(unittest.TestCase):
 
         # delete modI1Net
         modI1Net.delete()
+        #Module0 should not have been uniquified
+        self.assertEqual('Module0', mod0.get_model_name())
         self.assertIsNone(modI1.get_upper_net())
 
-        mod_net = mod.create_net('test_net')
+        mod_net = mod0.create_net('test_net')
         self.assertIsNotNone(mod_net)
         self.assertRaises(ValueError, modI1.connect_upper_net, mod_net)
         self.assertRaises(ValueError, modI1.connect_lower_net, mod_net)
 
         #incompatible net
-        mod_bus_net = mod.create_bus_net('test_bus_net', 3, 0)
+        mod_bus_net = mod0.create_bus_net('test_bus_net', 3, 0)
         self.assertIsNotNone(mod_bus_net)
         self.assertRaises(Exception, modI0.connect_upper_net, mod_bus_net)
         modI1.connect_lower_net(mod_bus_net)
         self.assertIsNotNone(modI1.get_lower_net())
+        self.assertNotEqual('Module0', mod0.get_model_name())
 
-        self.assertEqual(mod, top.get_child_instance_by_id(0))
-        self.assertIsNone(top.get_child_instance_by_id([1, 0]))
+        self.assertEqual(mod0, top.get_child_instance_by_id(0))
+        self.assertIsNone(top.get_child_instance_by_id([2, 0]))
         self.assertIsNone(top.get_child_instance_by_id([-1]))
         self.assertRaises(ValueError, top.get_child_instance_by_id, [])
 
@@ -441,8 +446,6 @@ class NajaNetlistTest2(unittest.TestCase):
         universe = naja.NLUniverse.create()
         self.assertEqual(0, netlist.get_max_logic_level())
         self.assertEqual(0, netlist.get_max_fanout())
-        
-
         
 if __name__ == '__main__':
     faulthandler.enable()
