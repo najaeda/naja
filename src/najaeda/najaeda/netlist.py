@@ -1387,7 +1387,7 @@ class Instance:
         """Delete this instance."""
         if self.is_top():
             raise ValueError("Cannot delete the top instance")
-        #FIXME: should be upper path ?
+        # FIXME: should be upper path ?
         path = get_snl_path_from_id_list(self.pathIDs)
         inst = get_snl_instance_from_id_list(self.pathIDs)
         naja.SNLUniquifier(path)
