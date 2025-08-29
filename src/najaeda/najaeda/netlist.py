@@ -220,6 +220,13 @@ class Net:
         else:
             return net_str
 
+    def delete(self):
+        if hasattr(self, "net"):
+            self.net.destroy()
+        else:
+            for net in self.net_concat:
+                net.delete()
+
     def get_name(self) -> str:
         """
         :return: the name of this Net.
@@ -1103,6 +1110,27 @@ class Instance:
             model = childInst.getModel()
         return Instance(path)
 
+    def get_child_instance_by_id(self, ids: Union[int, list[int]]):
+        """
+        :param ids: the ID of the child instance
+            or the path to the child Instance as a list of IDs.
+        :return: the child Instance at the given path or None if it does not exist.
+        :rtype: Instance or None
+        """
+        if isinstance(ids, int):
+            ids = [ids]
+        if not ids:
+            raise ValueError("IDs argument cannot be empty")
+        model = self.__get_snl_model()
+        path = self.pathIDs.copy()
+        for id in ids:
+            childInst = model.getInstanceByID(id)
+            if childInst is None:
+                return None
+            path.append(childInst.getID())
+            model = childInst.getModel()
+        return Instance(path)
+
     def get_child_instances(self):
         """Iterate over the child instances of this instance.
         Equivalent to go down one level in hierarchy.
@@ -1122,22 +1150,6 @@ class Instance:
         :rtype: int
         """
         return sum(1 for _ in self.__get_snl_model().getInstances())
-
-    # def get_flat_primitive_instances(self):
-    #    FIXME: concat first local path with the path of the instance
-    #    model = self.__get_snl_model()
-    #    for inst in model.getInstances():
-    #        path = naja.SNLPath(inst)
-    #        stack = [[inst, path]]
-    #        while stack:
-    #            current = stack.pop()
-    #            current_inst = current[0]
-    #            current_path = current[1]
-    #            for inst_child in current_inst.getModel().getInstances():
-    #                path_child = naja.SNLPath(current_path, inst_child)
-    #                if inst_child.getModel().isPrimitive():
-    #                    yield Instance(path_child)
-    #                stack.append([inst_child, path_child])
 
     def get_nets(self):
         """Iterate over all scalar nets and bus nets.
@@ -1360,30 +1372,6 @@ class Instance:
         """
         return sum(1 for _ in self.get_attributes())
 
-    def delete_instance(self, name: str):
-        """Delete the child instance with the given name."""
-        if name == "":
-            raise ValueError(
-                "Cannot delete instance with empty name. Try delete_instance_by_id instead."
-            )
-        init_path = get_snl_path_from_id_list(self.pathIDs)
-        path = naja.SNLPath(init_path, self.__get_snl_model().getInstance(name))
-        naja.SNLUniquifier(path)
-        if init_path.size() > 0:
-            # Delete the last instance in uniq_path
-            self.__get_snl_model().getInstance(name).destroy()
-
-    def delete_instance_by_id(self, id: str):
-        """Delete the child instance with the given ID.
-
-        :param str id: the ID of the Instance to delete.
-        """
-        init_path = get_snl_path_from_id_list(self.pathIDs)
-        path = naja.SNLPath(init_path, self.__get_snl_model().getInstanceByID(id))
-        naja.SNLUniquifier(path)
-        # Delete the last instance in uniq_path
-        self.__get_snl_model().getInstanceByID(id).destroy()
-
     def get_design(self) -> "Instance":
         """
         :return: the Instance containing this instance.
@@ -1397,9 +1385,13 @@ class Instance:
 
     def delete(self):
         """Delete this instance."""
+        if self.is_top():
+            raise ValueError("Cannot delete the top instance")
+        #FIXME: should be upper path ?
         path = get_snl_path_from_id_list(self.pathIDs)
+        inst = get_snl_instance_from_id_list(self.pathIDs)
         naja.SNLUniquifier(path)
-        self.get_design().delete_instance_by_id(path.getTailInstance().getID())
+        inst.destroy()
 
     def get_name(self) -> str:
         """

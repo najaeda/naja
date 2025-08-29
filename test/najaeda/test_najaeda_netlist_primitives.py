@@ -71,7 +71,9 @@ class NajaNetlistTestPrimitives(unittest.TestCase):
         
         self.assertEqual(2, leaf_count)
 
-        top.delete_instance_by_id(0)
+        child_instance = top.get_child_instance_by_id(0)
+        self.assertIsNotNone(child_instance)
+        child_instance.delete()
         lut2_ins1.delete()
 
     def test_errors(self):

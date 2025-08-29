@@ -146,7 +146,7 @@ class NajaNetlistTest0(unittest.TestCase):
         self.assertEqual(instance2, instance.get_child_instance(ins2.getName()))
 
         self.assertEqual(instance.count_child_instances(), 1)
-        instance.delete_instance(instance2.get_name())
+        instance2.delete()
         self.assertEqual(instance.count_child_instances(), 0)
 
         instance.create_child_instance(self.submodel.getName(), "ins2")
@@ -405,7 +405,9 @@ class NajaNetlistTest0(unittest.TestCase):
 
         self.assertLess(instance.get_term("I0"), instance2.get_term("I0"))
 
-        instance.delete_instance_by_id(0)
+        sub_instance = instance.get_child_instance_by_id(0)
+        self.assertIsNotNone(sub_instance)
+        sub_instance.delete()
         with self.assertRaises(Exception) as context: instance.delete_instance("")
 
     def testTopTerm(self):
