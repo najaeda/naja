@@ -331,6 +331,14 @@ class NajaNetlistTest2(unittest.TestCase):
         mod_net = mod.create_net('test_net')
         self.assertIsNotNone(mod_net)
         self.assertRaises(ValueError, modI1.connect_upper_net, mod_net)
+        self.assertRaises(ValueError, modI1.connect_lower_net, mod_net)
+
+        #incompatible net
+        mod_bus_net = mod.create_bus_net('test_bus_net', 3, 0)
+        self.assertIsNotNone(mod_bus_net)
+        self.assertRaises(Exception, modI0.connect_upper_net, mod_bus_net)
+        modI1.connect_lower_net(mod_bus_net)
+        self.assertIsNotNone(modI1.get_lower_net())
 
         self.assertEqual(mod, top.get_child_instance_by_id(0))
         self.assertIsNone(top.get_child_instance_by_id([1, 0]))
