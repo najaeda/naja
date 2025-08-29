@@ -18,11 +18,11 @@ class NLBitDependencies {
   // Decode 64-bit blocks back into a list of bit positions
   static std::vector<size_t> decodeBits(const std::vector<uint64_t>& blocks);
 
-  static uint64_t count_bits(uint64_t x);
+  static uint64_t countBits(uint64_t x);
 
-  static size_t count_bits_for_vector(std::vector<uint64_t> blocks);
+  static size_t countBitsForVector(std::vector<uint64_t> blocks);
 
-  static bool is_simple(const std::vector<uint64_t>& blocks);
+  static bool isSimple(const std::vector<uint64_t>& blocks);
 };
 
 }  // namespace NL

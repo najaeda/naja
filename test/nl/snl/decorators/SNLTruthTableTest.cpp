@@ -574,9 +574,13 @@ TEST(NLBitVecDynamic, operatorUint64ThrowsWhenAbove64Bits) {
   );
 }
 
-// test count_bits() for both branches
+// test countBits() for both branches
 TEST(NLBitDependenciesTest, CountBits) {
-  EXPECT_EQ(NLBitDependencies::count_bits(3), 2); // 32 bits set in first word
+  EXPECT_EQ(NLBitDependencies::countBits(3), 2); // 32 bits set in first word
+}
+
+TEST(NLBitDependenciesTest, encodingEmptyVactor) {
+  EXPECT_EQ(NLBitDependencies::encodeBits({}).size(), 0);
 }
 
 // Test error for reduce with non trivial dependencies

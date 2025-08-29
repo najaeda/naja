@@ -133,7 +133,7 @@ class SNLTruthTable {
   // Apply _all_ constants in one shot:
   SNLTruthTable getReducedWithConstants(ConstantInputs idxConsts) const {
     // Error out in case of dependencies as it is not supported
-    if (!NLBitDependencies::is_simple(dependencies_)) {
+    if (!NLBitDependencies::isSimple(dependencies_)) {
       throw NLException("getReducedWithConstants() does not support non full dependencies");
     }
     // trivial 0‐input table

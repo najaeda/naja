@@ -38,7 +38,7 @@ std::vector<uint64_t> naja::NL::NLBitDependencies::encodeBits(const std::vector<
     return result;
 }
 
-size_t naja::NL::NLBitDependencies::count_bits_for_vector(std::vector<uint64_t> blocks) {
+size_t naja::NL::NLBitDependencies::countBitsForVector(std::vector<uint64_t> blocks) {
     size_t count = 0;
     for (uint64_t block : blocks) {
         count += static_cast<size_t>(std::popcount(block));
@@ -59,17 +59,17 @@ std::vector<size_t> naja::NL::NLBitDependencies::decodeBits(const std::vector<ui
             x &= x - 1;
         }
     }
-    assert(encodeBits(out).size() == blocks.size() ? encodeBits(out) == blocks : count_bits_for_vector(encodeBits(out)) == count_bits_for_vector(blocks)); // sanity check
+    assert(encodeBits(out).size() == blocks.size() ? encodeBits(out) == blocks : countBitsForVector(encodeBits(out)) == countBitsForVector(blocks)); // sanity check
     return out;
     // LCOV_EXCL_START
 }
 // LCOV_EXCL_STOP
 
-uint64_t naja::NL::NLBitDependencies::count_bits(uint64_t x) {
+uint64_t naja::NL::NLBitDependencies::countBits(uint64_t x) {
     return static_cast<uint64_t>(std::popcount(x));
 }
 
-bool naja::NL::NLBitDependencies::is_simple(const std::vector<uint64_t>& blocks) {
+bool naja::NL::NLBitDependencies::isSimple(const std::vector<uint64_t>& blocks) {
     // Verify that there are no holes in the blocks
     bool found_zero_bit = false;
     for (uint64_t block : blocks) {

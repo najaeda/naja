@@ -424,7 +424,7 @@ getCombinatorialInputDepsFromTruthTable(naja::NL::SNLBitTerm* term) {
                                                             flatID);
   }
   auto deps = truthTable.getDependencies();
-  if (naja::NL::NLBitDependencies::count_bits_for_vector(deps) == 0) {
+  if (naja::NL::NLBitDependencies::countBitsForVector(deps) == 0) {
     // In the absence of any deps, we assume—by default—that everything depends on everything
     return flatTerms.getSubCollection(
         [](const naja::NL::SNLBitTerm* bterm) { return bterm->getDirection() != naja::NL::SNLBitTerm::Direction::Output; });
