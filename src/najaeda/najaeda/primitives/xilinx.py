@@ -443,7 +443,7 @@ def constructRAMB36E1(lib):
     clka = naja.SNLScalarTerm.create(ramb36e1, naja.SNLTerm.Direction.Input, "CLKARDCLK")
     clkb = naja.SNLScalarTerm.create(ramb36e1, naja.SNLTerm.Direction.Input, "CLKBWRCLK")
     dbiterr = naja.SNLScalarTerm.create(ramb36e1, naja.SNLTerm.Direction.Output, "DBITERR")
-    a_outputs.append(dbiterr) # not sure about which kind of modeling to put here...
+    a_outputs.append(dbiterr)  # not sure about which kind of modeling to put here...
     diadi = naja.SNLBusTerm.create(ramb36e1, naja.SNLTerm.Direction.Input, 31, 0, "DIADI")
     a_inputs.extend(list(diadi.getBits()))
     dibdi = naja.SNLBusTerm.create(ramb36e1, naja.SNLTerm.Direction.Input, 31, 0, "DIBDI")
@@ -461,31 +461,39 @@ def constructRAMB36E1(lib):
     dopbdop = naja.SNLBusTerm.create(ramb36e1, naja.SNLTerm.Direction.Output, 3, 0, "DOPBDOP")
     b_outputs.extend(list(dopbdop.getBits()))
     eccparity = naja.SNLBusTerm.create(ramb36e1, naja.SNLTerm.Direction.Output, 7, 0, "ECCPARITY")
-    a_outputs.extend(list(eccparity.getBits())) # not sure about which kind of modeling to put here.
+    a_outputs.extend(list(eccparity.getBits()))  # not sure about which kind of modeling to put here.
     enarden = naja.SNLScalarTerm.create(ramb36e1, naja.SNLTerm.Direction.Input, "ENARDEN")
     a_inputs.append(enarden)
     enbwren = naja.SNLScalarTerm.create(ramb36e1, naja.SNLTerm.Direction.Input, "ENBWREN")
     b_inputs.append(enbwren)
-    injectdbiterr = naja.SNLScalarTerm.create(ramb36e1, naja.SNLTerm.Direction.Input, "INJECTDBITERR")
-    injectsbiterr = naja.SNLScalarTerm.create(ramb36e1, naja.SNLTerm.Direction.Input, "INJECTSBITERR")
-    a_inputs.append(injectdbiterr) # not sure about which kind of modeling to put here.
-    a_inputs.append(injectsbiterr) # not sure about which kind of modeling to put here.
+    injectdbiterr = naja.SNLScalarTerm.create(
+        ramb36e1, naja.SNLTerm.Direction.Input, "INJECTDBITERR"
+    )
+    injectsbiterr = naja.SNLScalarTerm.create(
+        ramb36e1, naja.SNLTerm.Direction.Input, "INJECTSBITERR"
+    )
+    a_inputs.append(injectdbiterr)  # not sure about which kind of modeling to put here.
+    a_inputs.append(injectsbiterr)  # not sure about which kind of modeling to put here.
     rdaddrecc = naja.SNLBusTerm.create(ramb36e1, naja.SNLTerm.Direction.Output, 8, 0, "RDADDRECC")
     a_outputs.extend(list(rdaddrecc.getBits()))
     regcearegce = naja.SNLScalarTerm.create(ramb36e1, naja.SNLTerm.Direction.Input, "REGCEAREGCE")
     a_inputs.append(regcearegce)
     regceb = naja.SNLScalarTerm.create(ramb36e1, naja.SNLTerm.Direction.Input, "REGCEB")
     b_inputs.append(regceb)
-    rstramarstram = naja.SNLScalarTerm.create(ramb36e1, naja.SNLTerm.Direction.Input, "RSTRAMARSTRAM")
+    rstramarstram = naja.SNLScalarTerm.create(
+        ramb36e1, naja.SNLTerm.Direction.Input, "RSTRAMARSTRAM"
+    )
     a_inputs.append(rstramarstram)
     rstramb = naja.SNLScalarTerm.create(ramb36e1, naja.SNLTerm.Direction.Input, "RSTRAMB")
     b_inputs.append(rstramb)
-    rstregarstreg = naja.SNLScalarTerm.create(ramb36e1, naja.SNLTerm.Direction.Input, "RSTREGARSTREG")
+    rstregarstreg = naja.SNLScalarTerm.create(
+        ramb36e1, naja.SNLTerm.Direction.Input, "RSTREGARSTREG"
+    )
     a_inputs.append(rstregarstreg)
     rstregb = naja.SNLScalarTerm.create(ramb36e1, naja.SNLTerm.Direction.Input, "RSTREGB")
     b_inputs.append(rstregb)
     sbiterr = naja.SNLScalarTerm.create(ramb36e1, naja.SNLTerm.Direction.Output, "SBITERR")
-    a_outputs.append(sbiterr) # not sure about which kind of modeling to put here.
+    a_outputs.append(sbiterr)  # not sure about which kind of modeling to put here.
     wea = naja.SNLBusTerm.create(ramb36e1, naja.SNLTerm.Direction.Input, 3, 0, "WEA")
     a_inputs.extend(list(wea.getBits()))
     webwe = naja.SNLBusTerm.create(ramb36e1, naja.SNLTerm.Direction.Input, 7, 0, "WEBWE")
