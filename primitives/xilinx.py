@@ -4,6 +4,19 @@
 
 from naja import naja as snl
 
+def constructSequentialPrimitive(design, clk):
+  input_terms = []
+  output_terms = []
+  for term in design.getBitTerms():
+    if term == clk:
+      pass
+    if term.getDirection() == snl.SNLTerm.Direction.Input:
+      input_terms.append(term)
+    elif term.getDirection() == snl.SNLTerm.Direction.Output:
+      output_terms.append(term)
+  snl.SNLDesign.addClockToOutputArcs(clk, output_terms)
+  snl.SNLDesign.addInputsToClockArcs(input_terms, clk)
+
 def constructIBUF(lib):
   ibuf = snl.SNLDesign.createPrimitive(lib, "IBUF")
   i = snl.SNLScalarTerm.create(ibuf, snl.SNLTerm.Direction.Input, "I")
@@ -42,7 +55,7 @@ def constructDSP48E1(lib):
   snl.SNLBusTerm.create(dsp48e1, snl.SNLTerm.Direction.Input, 47, 0, "PCIN")
   snl.SNLBusTerm.create(dsp48e1, snl.SNLTerm.Direction.Input, 3, 0, "ALUMODE")
   snl.SNLBusTerm.create(dsp48e1, snl.SNLTerm.Direction.Input, 2, 0, "CARRYINSEL")
-  snl.SNLScalarTerm.create(dsp48e1, snl.SNLTerm.Direction.Input, "CLK")
+  clk = snl.SNLScalarTerm.create(dsp48e1, snl.SNLTerm.Direction.Input, "CLK")
   snl.SNLBusTerm.create(dsp48e1, snl.SNLTerm.Direction.Input, 4, 0, "INMODE")
   snl.SNLBusTerm.create(dsp48e1, snl.SNLTerm.Direction.Input, 6, 0, "OPMODE")
   snl.SNLBusTerm.create(dsp48e1, snl.SNLTerm.Direction.Input, 29, 0, "A")
@@ -92,7 +105,8 @@ def constructDSP48E1(lib):
   snl.SNLParameter.create_boolean(dsp48e1, "USE_DPORT", False)
   snl.SNLParameter.create_string(dsp48e1, "USE_MULT", "MULTIPLY")
   snl.SNLParameter.create_string(dsp48e1, "USE_SIMD", "ONE48")
-
+  constructSequentialPrimitive(dsp48e1, clk)
+  
 def constructINV(lib):
   inv = snl.SNLDesign.createPrimitive(lib, "INV")
   i = snl.SNLScalarTerm.create(inv, snl.SNLTerm.Direction.Input, "I")
