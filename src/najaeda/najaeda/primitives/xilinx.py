@@ -461,7 +461,8 @@ def constructRAMB36E1(lib):
     dopbdop = naja.SNLBusTerm.create(ramb36e1, naja.SNLTerm.Direction.Output, 3, 0, "DOPBDOP")
     b_outputs.extend(list(dopbdop.getBits()))
     eccparity = naja.SNLBusTerm.create(ramb36e1, naja.SNLTerm.Direction.Output, 7, 0, "ECCPARITY")
-    a_outputs.extend(list(eccparity.getBits()))  # not sure about which kind of modeling to put here.
+    # not sure about which kind of modeling to put here.
+    a_outputs.extend(list(eccparity.getBits()))
     enarden = naja.SNLScalarTerm.create(ramb36e1, naja.SNLTerm.Direction.Input, "ENARDEN")
     a_inputs.append(enarden)
     enbwren = naja.SNLScalarTerm.create(ramb36e1, naja.SNLTerm.Direction.Input, "ENBWREN")
