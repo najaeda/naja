@@ -71,6 +71,7 @@ class SNLDesignModeling {
     static bool isInv(const SNLDesign* design);
     static bool isBuf(const SNLDesign* design);
     static size_t getTruthTableCount(const SNLDesign* design);
+    static bool areDependenciesDefined(const SNLDesign* design);
     SNLDesignModeling(Type type);
     Type getType() const { return type_; }
   private:

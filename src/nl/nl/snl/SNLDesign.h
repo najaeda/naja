@@ -295,7 +295,6 @@ class SNLDesign final: public NLObject {
   private:
     SNLDesign(NLLibrary* library, Type type, const NLName& name);
     SNLDesign(NLLibrary* library, NLID::DesignID id, Type type, const NLName& name);
-    void setNewFlatID(SNLTerm* term);
     static void preCreate(const NLLibrary* library, Type type, const NLName& name);
     static void preCreate(const NLLibrary* library, NLID::DesignID id, Type type, const NLName& name);
     void destroyFromLibrary();
@@ -320,6 +319,7 @@ class SNLDesign final: public NLObject {
     void addParameter(SNLParameter* parameter);
     void removeParameter(SNLParameter* parameter);
     static bool isBetween(int n, int MSB, int LSB);
+    void setOrderIDs();
 
     friend bool operator< (const SNLDesign& ld, const SNLDesign& rd) {
       return ld.getNLID() < rd.getNLID();
