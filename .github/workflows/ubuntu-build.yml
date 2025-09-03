@@ -1,10 +1,10 @@
 name: Ubuntu Build
 
-on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+on : pull_request
+  # push:
+  #   branches: [ main ]
+  # pull_request:
+    # branches: [ main ]
 
 env:
   # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
@@ -20,7 +20,7 @@ jobs:
 
     strategy:
       matrix:
-        os: [ubuntu-24.04, ubuntu-22.04]
+        os: [ubuntu-24.04, tenki-standard-autoscale]
 
     steps:
     - uses: actions/checkout@v4
