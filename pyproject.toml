@@ -72,7 +72,8 @@ before-build = '''
   if exist build rmdir /S /Q build
   if exist dist rmdir /S /Q dist
 '''
-bash -c "
+before-all = '''
+  bash -c "
   echo ::group::Installing TBB && \
   curl -LO https://github.com/oneapi-src/oneTBB/archive/refs/tags/v2022.1.0.zip && \
   unzip v2022.1.0.zip && \
@@ -82,6 +83,7 @@ bash -c "
   cmake --build . --config Release --target install && \
   echo ::endgroup::
 "
+'''
 
 [tool.cibuildwheel.linux]
 build-frontend = "build"
