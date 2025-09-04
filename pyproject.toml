@@ -82,18 +82,6 @@ before-all = '''
   echo TBB_DIR=C:/TBB/lib/cmake/TBB >> %GITHUB_ENV%
 '''
 
-  echo "::group::Installing TBB"
-  wget -q https://github.com/oneapi-src/oneTBB/archive/refs/tags/v2022.1.0.tar.gz
-  tar -xzf v2022.1.0.tar.gz
-  mkdir TBB_build
-  cd TBB_build
-  cmake ../oneTBB-2022.1.0 -DCMAKE_BUILD_TYPE=Release -DTBB_TEST=OFF
-  make -j6
-  sudo make install
-  echo "::endgroup::"
-  cd ..
-'''
-
 [tool.cibuildwheel.linux]
 build-frontend = "build"
 before-all = '''
