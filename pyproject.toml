@@ -68,7 +68,10 @@ before-all = '''
 
 [tool.cibuildwheel.windows]
 build-frontend = "build"
-before-build = "rmdir /S /Q build && rmdir /S /Q dist"
+before-build = '''
+  if exist build rmdir /S /Q build
+  if exist dist rmdir /S /Q dist
+'''
 before-all = '''
   echo "::group::Installing TBB"
   curl -LO https://github.com/oneapi-src/oneTBB/archive/refs/tags/v2022.1.0.zip
