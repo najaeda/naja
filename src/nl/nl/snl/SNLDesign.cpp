@@ -233,6 +233,7 @@ void SNLDesign::addTerm(SNLTerm* term) {
       }
     }
   }
+  setOrderIDs();
 }
 
 void SNLDesign::removeTerm(SNLTerm* term) {
@@ -253,6 +254,7 @@ void SNLDesign::removeTerm(SNLTerm* term) {
     }
     terms_.erase(*term);
   }
+  setOrderIDs();
 }
 
 SNLTerm* SNLDesign::getTerm(NLID::DesignObjectID id) const {
@@ -735,6 +737,14 @@ void SNLDesign::recursiveRevisionIncrement() {
   incrementRevisionCount();
   for (auto instance: getInstances()) {
     instance->getModel()->recursiveRevisionIncrement();
+  }
+}
+
+void SNLDesign::setOrderIDs() {
+  NLID::DesignObjectID bitTermId = 0;
+  for (auto term : this->getBitTerms()) {
+    term->setOrderID(bitTermId);
+    bitTermId++;
   }
 }
 

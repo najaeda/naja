@@ -62,7 +62,7 @@ class SNLDesignModeling {
     static void setTruthTable(SNLDesign* design, const SNLTruthTable& truthTable);
     static void setTruthTables(SNLDesign* design, const std::vector<SNLTruthTable>& truthTable);
     static SNLTruthTable getTruthTable(const SNLDesign* design);
-    static SNLTruthTable getTruthTable(const SNLDesign* design, NLID::DesignObjectID termID);
+    static SNLTruthTable getTruthTable(const SNLDesign* design, size_t flatTermID);
     static bool hasModeling(const SNLDesign* design);
     static bool isSequential(const SNLDesign* design);
     static bool isConst0(const SNLDesign* design);
@@ -71,6 +71,7 @@ class SNLDesignModeling {
     static bool isInv(const SNLDesign* design);
     static bool isBuf(const SNLDesign* design);
     static size_t getTruthTableCount(const SNLDesign* design);
+    static bool areDependenciesDefined(const SNLDesign* design);
     SNLDesignModeling(Type type);
     Type getType() const { return type_; }
   private:
