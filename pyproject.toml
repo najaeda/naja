@@ -66,6 +66,34 @@ before-all = '''
   cd ..
 '''
 
+[tool.cibuildwheel.windows]
+build-frontend = "build"
+before-build = "rmdir /S /Q build dist"
+before-all = '''
+  echo "::group::Installing TBB"
+  curl -LO https://github.com/oneapi-src/oneTBB/archive/refs/tags/v2022.1.0.zip
+  powershell -Command "Expand-Archive -Path v2022.1.0.zip -DestinationPath ."
+  mkdir TBB_build
+  cd TBB_build
+  cmake ../oneTBB-2022.1.0 -DCMAKE_BUILD_TYPE=Release -DTBB_TEST=OFF -DCMAKE_INSTALL_PREFIX="C:/TBB"
+  cmake --build . --config Release --target install
+  echo "::endgroup::"
+  cd ..
+  echo TBB_DIR=C:/TBB/lib/cmake/TBB >> %GITHUB_ENV%
+'''
+
+  echo "::group::Installing TBB"
+  wget -q https://github.com/oneapi-src/oneTBB/archive/refs/tags/v2022.1.0.tar.gz
+  tar -xzf v2022.1.0.tar.gz
+  mkdir TBB_build
+  cd TBB_build
+  cmake ../oneTBB-2022.1.0 -DCMAKE_BUILD_TYPE=Release -DTBB_TEST=OFF
+  make -j6
+  sudo make install
+  echo "::endgroup::"
+  cd ..
+'''
+
 [tool.cibuildwheel.linux]
 build-frontend = "build"
 before-all = '''
