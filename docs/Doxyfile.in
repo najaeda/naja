@@ -874,7 +874,9 @@ WARN_LOGFILE           =
 
 INPUT                  = @CMAKE_SOURCE_DIR@/docs/naja.md
 INPUT                  += @CMAKE_SOURCE_DIR@/src/core
-INPUT                  += @CMAKE_SOURCE_DIR@/src/snl
+INPUT                  += @CMAKE_SOURCE_DIR@/src/nl/snl
+INPUT                  += @CMAKE_SOURCE_DIR@/src/nl/snl
+INPUT                  += @CMAKE_SOURCE_DIR@/src/nl/pnl
 INPUT                  += @CMAKE_SOURCE_DIR@/src/dnl
 INPUT                  += @CMAKE_SOURCE_DIR@/src/bne
 
