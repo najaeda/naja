@@ -1,5 +1,5 @@
 Uniquification
-=========
+==============
 
 .. image:: ../images/Naja-Clone.png
    :alt: Naja SNL
@@ -12,7 +12,7 @@ In order to implement the operations of the BNE(Batch Netlist Editor), we will h
 
 In order to enable uniquification in SNL, we are providing 2 APIs:
 
-   1) clone() API for SNLDesign.
-   2) setModel(SNLModel* model) for SNLInstance. 
+   1) :func:`SNLDesign::clone()` API for SNLDesign.
+   2) :func:`SNLDesign::setModel(SNLDesign* model)` for SNLInstance.
 
 These 2 APIs are the atomic actions that together can implement Uniquification. 

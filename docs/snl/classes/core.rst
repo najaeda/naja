@@ -1,11 +1,11 @@
-SNL Core Classes
-================
+NL Core Classes
+===============
 
-.. doxygenclass:: naja::SNL::SNLName
+.. doxygenclass:: naja::NL::NLName
    :members:
 
-.. doxygenclass:: naja::SNL::SNLObject
+.. doxygenclass:: naja::NL::NLObject
    :members:
 
-.. doxygenstruct:: naja::SNL::SNLID
+.. doxygenstruct:: naja::NL::NLID
    :members:

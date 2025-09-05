@@ -1,17 +1,17 @@
 SNL Design and Instance Classes
 ===============================
 
-.. doxygenclass:: naja::SNL::SNLDesignObject
+.. doxygenclass:: naja::NL::SNLDesignObject
    :members:
 
-.. doxygenclass:: naja::SNL::SNLDesign
+.. doxygenclass:: naja::NL::SNLDesign
    :members:
 
-.. doxygenclass:: naja::SNL::SNLParameter
+.. doxygenclass:: naja::NL::SNLParameter
    :members:
 
-.. doxygenclass:: naja::SNL::SNLInstance
+.. doxygenclass:: naja::NL::SNLInstance
    :members:
 
-.. doxygenclass:: naja::SNL::SNLInstParameter
+.. doxygenclass:: naja::NL::SNLInstParameter
    :members:
