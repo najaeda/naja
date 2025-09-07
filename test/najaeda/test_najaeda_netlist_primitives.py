@@ -35,11 +35,11 @@ class NajaNetlistTestPrimitives(unittest.TestCase):
         net1 = top.create_net("net1") 
         net2 = top.create_net("net2")
 
-        i.connect(net1)
-        lut2_ins0.get_term("I0").connect(net1)
-        lut2_ins0.get_term("O").connect(net2)
-        lut2_ins1.get_term("I0").connect(net2)
-        o.connect(net2)
+        i.connect_lower_net(net1)
+        lut2_ins0.get_term("I0").connect_upper_net(net1)
+        lut2_ins0.get_term("O").connect_upper_net(net2)
+        lut2_ins1.get_term("I0").connect_upper_net(net2)
+        o.connect_lower_net(net2)
 
         top.dump_full_dot('./test_xilinx_primitives.dot')
         with self.assertRaises(Exception) as context: top.dump_full_dot(-1)
@@ -71,7 +71,9 @@ class NajaNetlistTestPrimitives(unittest.TestCase):
         
         self.assertEqual(2, leaf_count)
 
-        top.delete_instance_by_id(0)
+        child_instance = top.get_child_instance_by_id(0)
+        self.assertIsNotNone(child_instance)
+        child_instance.delete()
         lut2_ins1.delete()
 
     def test_errors(self):

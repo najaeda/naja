@@ -220,6 +220,13 @@ class Net:
         else:
             return net_str
 
+    def delete(self):
+        if hasattr(self, "net"):
+            self.net.destroy()
+        else:
+            for net in self.net_concat:
+                net.destroy()
+
     def get_name(self) -> str:
         """
         :return: the name of this Net.
@@ -458,10 +465,6 @@ class Term:
         INOUT = naja.SNLTerm.Direction.InOut
 
     def __init__(self, path, term):
-        # self.termIDs = []
-        # if isinstance(term, naja.SNLBusTerm):
-        #     self.termIDs = [term.getID(), -1]
-        # else:
         self.termIDs = [term.getID(), term.getBit()]
         self.pathIDs = path.copy()
 
@@ -743,9 +746,9 @@ class Term:
         """
         return self.__get_net(self.pathIDs, self.__get_snl_lower_bitnet)
 
-    def get_net(self) -> Net:
+    def get_upper_net(self) -> Net:
         """
-        :return: the net of the term.
+        :return: the upper net of the term.
         :rtype: Net
         :remark: If the term is a top level term, it will return None.
         """
@@ -817,8 +820,10 @@ class Term:
             )
         return None
 
-    def disconnect(self):
-        """Disconnect this term from its net."""
+    def disconnect_upper_net(self):
+        """Disconnect this term from its upper net."""
+        if self.get_instance().is_top():
+            raise ValueError("Cannot disconnect the upper net of a top level term")
         path = get_snl_path_from_id_list(self.pathIDs)
         self.__make_unique()
         inst = path.getTailInstance()
@@ -826,30 +831,44 @@ class Term:
             iterm = inst.getInstTerm(bit)
             iterm.setNet(None)
 
-    def connect(self, net: Net):
-        """Connect this term to the given Net.
+    def disconnect_lower_net(self):
+        """Disconnect this term from its lower net."""
+        self.__make_unique()
+        for bit in get_snl_term_for_ids(self.pathIDs, self.termIDs).getBits():
+            bit.setNet(None)
 
-        :param Net net: the Net to connect to.
+    def connect_upper_net(self, net: Net):
+        """Connect this term to the given upper Net.
+
+        :param Net net: the upper Net to connect to.
+        """
+        if self.get_instance().is_top():
+            raise ValueError("Cannot connect the upper net of a top level term")
+        if self.get_width() != net.get_width():
+            raise ValueError("Width mismatch")
+        self.__make_unique()
+        path = get_snl_path_from_id_list(self.pathIDs)
+        inst = path.getTailInstance()
+        for bterm, bnet in zip(
+            get_snl_term_for_ids(self.pathIDs, self.termIDs).getBits(),
+            net.net.getBits(),
+        ):
+            iterm = inst.getInstTerm(bterm)
+            iterm.setNet(bnet)
+
+    def connect_lower_net(self, net: Net):
+        """Connect this term to the given lower Net.
+
+        :param Net net: the lower Net to connect to.
         """
         if self.get_width() != net.get_width():
             raise ValueError("Width mismatch")
-        if self.get_instance().is_top():
-            for bterm, bnet in zip(
-                get_snl_term_for_ids(self.pathIDs, self.termIDs).getBits(),
-                net.net.getBits(),
-            ):
-                logging.debug(f"Connecting {bterm} to {bnet}")
-                bterm.setNet(bnet)
-        else:
-            self.__make_unique()
-            path = get_snl_path_from_id_list(self.pathIDs)
-            inst = path.getTailInstance()
-            for bterm, bnet in zip(
-                get_snl_term_for_ids(self.pathIDs, self.termIDs).getBits(),
-                net.net.getBits(),
-            ):
-                iterm = inst.getInstTerm(bterm)
-                iterm.setNet(bnet)
+        self.__make_unique()
+        for bterm, bnet in zip(
+            get_snl_term_for_ids(self.pathIDs, self.termIDs).getBits(),
+            net.net.getBits(),
+        ):
+            bterm.setNet(bnet)
 
     def get_truth_table(self):
         # check the index of the output
@@ -873,21 +892,6 @@ class Term:
 
 def get_instance_by_path(names: list):
     return get_top().get_child_instance(names)
-
-
-# def refresh_path(path: naja.SNLPath):
-#    pathlist = path.getPathIDs()
-#    assert len(pathlist) > 0
-#    path = naja.SNLPath()
-#    instance = None
-#    top = naja.NLUniverse.get().getTopDesign()
-#    design = top
-#    for id in pathlist:
-#        path = naja.SNLPath(path, design.getInstanceByID(id))
-#        instance = design.getInstanceByID(id)
-#        assert instance is not None
-#        design = instance.getModel()
-#    return path
 
 
 class Attribute:
@@ -1106,6 +1110,27 @@ class Instance:
             model = childInst.getModel()
         return Instance(path)
 
+    def get_child_instance_by_id(self, ids: Union[int, list[int]]):
+        """
+        :param ids: the ID of the child instance
+            or the path to the child Instance as a list of IDs.
+        :return: the child Instance at the given path or None if it does not exist.
+        :rtype: Instance or None
+        """
+        if isinstance(ids, int):
+            ids = [ids]
+        if not ids:
+            raise ValueError("IDs argument cannot be empty")
+        model = self.__get_snl_model()
+        path = self.pathIDs.copy()
+        for id in ids:
+            childInst = model.getInstanceByID(id)
+            if childInst is None:
+                return None
+            path.append(childInst.getID())
+            model = childInst.getModel()
+        return Instance(path)
+
     def get_child_instances(self):
         """Iterate over the child instances of this instance.
         Equivalent to go down one level in hierarchy.
@@ -1125,22 +1150,6 @@ class Instance:
         :rtype: int
         """
         return sum(1 for _ in self.__get_snl_model().getInstances())
-
-    # def get_flat_primitive_instances(self):
-    #    FIXME: concat first local path with the path of the instance
-    #    model = self.__get_snl_model()
-    #    for inst in model.getInstances():
-    #        path = naja.SNLPath(inst)
-    #        stack = [[inst, path]]
-    #        while stack:
-    #            current = stack.pop()
-    #            current_inst = current[0]
-    #            current_path = current[1]
-    #            for inst_child in current_inst.getModel().getInstances():
-    #                path_child = naja.SNLPath(current_path, inst_child)
-    #                if inst_child.getModel().isPrimitive():
-    #                    yield Instance(path_child)
-    #                stack.append([inst_child, path_child])
 
     def get_nets(self):
         """Iterate over all scalar nets and bus nets.
@@ -1363,30 +1372,6 @@ class Instance:
         """
         return sum(1 for _ in self.get_attributes())
 
-    def delete_instance(self, name: str):
-        """Delete the child instance with the given name."""
-        if name == "":
-            raise ValueError(
-                "Cannot delete instance with empty name. Try delete_instance_by_id instead."
-            )
-        init_path = get_snl_path_from_id_list(self.pathIDs)
-        path = naja.SNLPath(init_path, self.__get_snl_model().getInstance(name))
-        naja.SNLUniquifier(path)
-        if init_path.size() > 0:
-            # Delete the last instance in uniq_path
-            self.__get_snl_model().getInstance(name).destroy()
-
-    def delete_instance_by_id(self, id: str):
-        """Delete the child instance with the given ID.
-
-        :param str id: the ID of the Instance to delete.
-        """
-        init_path = get_snl_path_from_id_list(self.pathIDs)
-        path = naja.SNLPath(init_path, self.__get_snl_model().getInstanceByID(id))
-        naja.SNLUniquifier(path)
-        # Delete the last instance in uniq_path
-        self.__get_snl_model().getInstanceByID(id).destroy()
-
     def get_design(self) -> "Instance":
         """
         :return: the Instance containing this instance.
@@ -1400,9 +1385,13 @@ class Instance:
 
     def delete(self):
         """Delete this instance."""
+        if self.is_top():
+            raise ValueError("Cannot delete the top instance")
+        # FIXME: should be upper path ?
         path = get_snl_path_from_id_list(self.pathIDs)
+        inst = get_snl_instance_from_id_list(self.pathIDs)
         naja.SNLUniquifier(path)
-        self.get_design().delete_instance_by_id(path.getTailInstance().getID())
+        inst.destroy()
 
     def get_name(self) -> str:
         """

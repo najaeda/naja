@@ -70,10 +70,11 @@ class SNLDesignModeling {
     static bool isConst(const SNLDesign* design);
     static bool isInv(const SNLDesign* design);
     static bool isBuf(const SNLDesign* design);
-
+    static size_t getTruthTableCount(const SNLDesign* design);
     SNLDesignModeling(Type type);
     Type getType() const { return type_; }
   private:
+    
     void addCombinatorialArc_(SNLBitTerm* input, SNLBitTerm* output);
     void addCombinatorialArc_(SNLBitTerm* input, SNLBitTerm* output, const std::string& parameterValue);
     void addInputToClockArc_(SNLBitTerm* input, SNLBitTerm* clock);
