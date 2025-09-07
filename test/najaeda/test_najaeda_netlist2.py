@@ -29,6 +29,8 @@ class NajaNetlistTest2(unittest.TestCase):
         inv = naja.SNLDesign.createPrimitive(primitives, "INV")
         naja.SNLScalarTerm.create(inv, naja.SNLTerm.Direction.Input, "I")
         naja.SNLScalarTerm.create(inv, naja.SNLTerm.Direction.Output, "O")
+        # set combinatorial arc
+        inv.addCombinatorialArcs([inv.getScalarTerm('I')], [inv.getScalarTerm('O')])
 
         modules = naja.NLLibrary.create(db, 'Modules')
         module0 = naja.SNLDesign.create(modules, 'Module0')
@@ -438,6 +440,24 @@ class NajaNetlistTest2(unittest.TestCase):
         self.assertTrue(inst.get_term('c').is_sequential())
         self.assertFalse(inst.get_term('i1').is_sequential())
         self.assertFalse(inst.get_term('o1').is_sequential())
+    
+    def test2LogicLevels(self):
+        top = netlist.create_top('Top')
+        # create scalar input and net 
+        in0 = top.create_input_term('in0')
+        in0Net = top.create_net('in0Net')
+        # create an invertor
+        inv = top.create_child_instance('INV', 'inv0')
+        in0.connect_lower_net(in0Net)
+        inv.get_term('I').connect_upper_net(in0Net)
+        invOutNet = top.create_net('invOutNet')
+        inv.get_term('O').connect_upper_net(invOutNet)
+        out0 = top.create_output_term('out0')
+        out0.connect_lower_net(invOutNet)
+        
+
+        self.assertEqual(1, netlist.get_max_logic_level()[0])
+        self.assertEqual(1, netlist.get_max_fanout()[0])
     
     def testMetricsOnNone(self):
         netlist.reset()
