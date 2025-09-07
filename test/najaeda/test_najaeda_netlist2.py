@@ -455,6 +455,17 @@ class NajaNetlistTest2(unittest.TestCase):
         out0 = top.create_output_term('out0')
         out0.connect_lower_net(invOutNet)
         
+        # create andother invertor with dedicated input and output top terms
+        in1 = top.create_input_term('in1')
+        in1Net = top.create_net('in1Net')
+        in1.connect_lower_net(in1Net)
+        inv1 = top.create_child_instance('INV', 'inv1')
+        inv1.get_term('I').connect_upper_net(in1Net)
+        inv1OutNet = top.create_net('inv1OutNet')
+        inv1.get_term('O').connect_upper_net(inv1OutNet)
+        out1 = top.create_output_term('out1')
+        out1.connect_lower_net(inv1OutNet)
+        
 
         self.assertEqual(1, netlist.get_max_logic_level()[0])
         self.assertEqual(1, netlist.get_max_fanout()[0])
