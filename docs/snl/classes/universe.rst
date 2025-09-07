@@ -1,16 +1,11 @@
-SNL Top Classes
-===============
+NL Top Classes
+==============
 
-SNL
-
-SNLUniverse
------------
-
-.. doxygenclass:: naja::SNL::SNLUniverse
+.. doxygenclass:: naja::NL::SNLUniverse
    :members:
 
-.. doxygenclass:: naja::SNL::SNLDB
+.. doxygenclass:: naja::NL::NLDB
    :members:
 
-.. doxygenclass:: naja::SNL::SNLLibrary
+.. doxygenclass:: naja::NL::NLLibrary
    :members:
