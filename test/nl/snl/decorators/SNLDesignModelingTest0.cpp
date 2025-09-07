@@ -35,7 +35,10 @@ TEST_F(SNLDesignModelingTest0, testCombinatorial) {
   auto luti2 = SNLScalarTerm::create(lut, SNLTerm::Direction::Input, NLName("I2"));
   auto luti3 = SNLScalarTerm::create(lut, SNLTerm::Direction::Input, NLName("I3"));
   auto luto = SNLScalarTerm::create(lut, SNLTerm::Direction::Output, NLName("O"));
+  EXPECT_FALSE(SNLDesignModeling::hasModeling(lut));
   SNLDesignModeling::addCombinatorialArcs({luti0, luti1, luti2, luti3}, {luto});
+  EXPECT_TRUE(SNLDesignModeling::hasModeling(lut));
+  EXPECT_FALSE(SNLDesignModeling::isSequential(lut));
   auto lutIns0 = SNLInstance::create(top, lut, NLName("ins0"));
   EXPECT_TRUE(SNLDesignModeling::getCombinatorialOutputs(luto).empty());
   ASSERT_EQ(4, SNLDesignModeling::getCombinatorialInputs(luto).size());
@@ -105,9 +108,11 @@ TEST_F(SNLDesignModelingTest0, testSequential) {
   auto regD = SNLScalarTerm::create(reg, SNLTerm::Direction::Input, NLName("D"));
   auto regQ = SNLScalarTerm::create(reg, SNLTerm::Direction::Input, NLName("Q"));
   auto regC = SNLScalarTerm::create(reg, SNLTerm::Direction::Input, NLName("C"));
+
+  EXPECT_FALSE(SNLDesignModeling::hasModeling(reg));
   SNLDesignModeling::addInputsToClockArcs({regD}, regC);
   SNLDesignModeling::addClockToOutputsArcs(regC, {regQ});
-
+  EXPECT_TRUE(SNLDesignModeling::hasModeling(reg));
   EXPECT_TRUE(SNLDesignModeling::isSequential(reg));
 
   EXPECT_TRUE(SNLDesignModeling::getCombinatorialOutputs(regD).empty());

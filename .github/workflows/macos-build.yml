@@ -28,7 +28,10 @@ jobs:
         submodules: true
     # install dependencies
     - name: Install dependencies
-      run: brew install cmake doxygen capnp tbb bison flex boost
+      run: |
+        brew uninstall --ignore-dependencies cmake || true
+        brew untap homebrew/local || true
+        brew install cmake doxygen capnp tbb bison flex boost
     
     - name: set env variable
       run: |

@@ -1,23 +1,23 @@
 SNL Net Component Classes
 =========================
 
-.. doxygenclass:: naja::SNL::SNLNetComponent
+.. doxygenclass:: naja::NL::SNLNetComponent
    :members:
 
-.. doxygenclass:: naja::SNL::SNLTerm
+.. doxygenclass:: naja::NL::SNLTerm
    :members:
 
-.. doxygenclass:: naja::SNL::SNLBusTerm
+.. doxygenclass:: naja::NL::SNLBusTerm
    :members:
 
-.. doxygenclass:: naja::SNL::SNLBitTerm
+.. doxygenclass:: naja::NL::SNLBitTerm
    :members:
 
-.. doxygenclass:: naja::SNL::SNLBusTermBit
+.. doxygenclass:: naja::NL::SNLBusTermBit
    :members:
 
-.. doxygenclass:: naja::SNL::SNLScalarTerm
+.. doxygenclass:: naja::NL::SNLScalarTerm
    :members:
 
-.. doxygenclass:: naja::SNL::SNLInstTerm
+.. doxygenclass:: naja::NL::SNLInstTerm
    :members:

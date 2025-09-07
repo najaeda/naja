@@ -75,7 +75,41 @@ class NajaNetlistTestGates0(unittest.TestCase):
         ha2_sum_renamed = ha2.get_net('sum_renamed')
         self.assertIsNotNone(ha2_sum_renamed)
         self.assertEqual(ha2_sum_renamed.get_name(), 'sum_renamed')
-    
+
+    def test_disconnect(self):
+        #disconnect top term
+        cin = self.top.get_term('cin')
+        self.assertIsNotNone(cin)
+        self.assertIsNone(cin.get_upper_net())
+        self.assertIsNotNone(cin.get_lower_net())
+        self.assertRaises(ValueError, cin.disconnect_upper_net)
+        cin_lower_net = cin.get_lower_net()
+        self.assertIsNotNone(cin_lower_net)
+        cin.disconnect_lower_net()
+        self.assertIsNone(cin.get_lower_net())
+        cin.connect_lower_net(cin_lower_net)
+        self.assertIsNotNone(cin.get_lower_net())
+        self.assertEqual(cin.get_lower_net(), cin_lower_net)
+
+        ha2 = self.top.get_child_instance('ha2')
+        ha2_b = ha2.get_term('b')
+        self.assertIsNotNone(ha2_b)
+        self.assertIsNotNone(ha2_b.get_upper_net())
+        self.assertEqual(ha2_b.get_upper_net(), cin_lower_net)
+        self.assertIsNotNone(ha2_b.get_lower_net())
+        ha2_b_lower_net = ha2_b.get_lower_net()
+        ha2_b.disconnect_lower_net()
+        self.assertIsNone(ha2_b.get_lower_net())
+        ha2_b.connect_lower_net(ha2_b_lower_net)
+        self.assertIsNotNone(ha2_b.get_lower_net())
+        self.assertEqual(ha2_b.get_lower_net(), ha2_b_lower_net)
+        ha2_b_lower_net.delete()
+        print(ha2_b_lower_net)
+        self.assertIsNone(ha2_b.get_lower_net())
+        print(ha2)
+        self.assertRaises(ValueError, self.top.delete)
+
+
     # def test_get_max_logic_level(self):
     #     # Test the maximum logic level of the design
     #     max_logic_level = netlist.get_max_logic_level()

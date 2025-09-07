@@ -73,6 +73,12 @@ Support
 If you encounter any issues or have questions, please report them on the
 `Naja issue tracker <https://github.com/najaeda/naja/issues>`_.
 
+You’re also welcome to join the discussion on Matrix:
+
+.. image:: https://img.shields.io/badge/Matrix-Join%20Chat-success?logo=matrix
+   :target: https://matrix.to/#/#naja:fossi-chat.org
+   :alt: Join the Matrix chat
+
 License
 -------
 This project is licensed under the Apache License 2.0. \
