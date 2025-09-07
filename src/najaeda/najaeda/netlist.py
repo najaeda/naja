@@ -1853,7 +1853,7 @@ def get_max_fanout() -> list:
         top = naja.NLUniverse.get().getTopDesign()
         if top is not None:
             return naja.NLUniverse.get().getMaxFanout()
-    return 0
+    return [0]
 
 
 def get_max_logic_level() -> list:
@@ -1867,4 +1867,4 @@ def get_max_logic_level() -> list:
         top = naja.NLUniverse.get().getTopDesign()
         if top is not None:
             return naja.NLUniverse.get().getMaxLogicLevel()
-    return 0
+    return [0]

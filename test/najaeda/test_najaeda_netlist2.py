@@ -415,11 +415,11 @@ class NajaNetlistTest2(unittest.TestCase):
     
     def testMetricsOnNone(self):
         netlist.reset()
-        self.assertEqual(0, netlist.get_max_logic_level())
-        self.assertEqual(0, netlist.get_max_fanout())
+        self.assertEqual(0, netlist.get_max_logic_level()[0])
+        self.assertEqual(0, netlist.get_max_fanout()[0])
         universe = naja.NLUniverse.create()
-        self.assertEqual(0, netlist.get_max_logic_level())
-        self.assertEqual(0, netlist.get_max_fanout())
+        self.assertEqual(0, netlist.get_max_logic_level()[0])
+        self.assertEqual(0, netlist.get_max_fanout()[0])
         
 
         

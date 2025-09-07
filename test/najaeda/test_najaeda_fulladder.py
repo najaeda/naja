@@ -84,7 +84,7 @@ class NajaNetlistTestGates0(unittest.TestCase):
     def test_get_fanout(self):
         # Test the maximum fanout of the design
         max_fanout = netlist.get_max_fanout()
-        self.assertEqual(max_fanout, 2)
+        self.assertEqual(max_fanout[0], 2)
 
 if __name__ == '__main__':
     faulthandler.enable()
