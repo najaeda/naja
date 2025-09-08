@@ -960,8 +960,6 @@ def get_instance_by_path(names: list):
     return get_top().get_child_instance(names)
 
 
-
-
 class Instance:
     """Class that represents an instance in the design hierarchy.
     """
