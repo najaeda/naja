@@ -62,9 +62,22 @@ class NajaEDANetlistTestAttributes(unittest.TestCase):
         self.assertTrue(and2_attributes[2].has_value())
         self.assertEqual('3', and2_attributes[2].get_value())
 
-        #print(netlist.get_top())
-        #for inst in netlist.get_all_primitive_instances():
-        #    print(inst)
+        #   get attributes on term
+        # (* INPUT_ATTRIBUTE_A = "Input signal A" *)
+        top_a = top.get_term('a')
+        self.assertIsNotNone(top_a)
+        top_a_attributes = list(top_a.get_attributes())
+        self.assertEqual(1, len(top_a_attributes))
+        self.assertEqual("INPUT_ATTRIBUTE_A", top_a_attributes[0].get_name())
+        self.assertEqual("Input signal A", top_a_attributes[0].get_value())
+
+        # (* WIRE_ATTRIBUTE = "Wire connecting AND gate output to top output" *)
+        top_and_wire = top.get_net('and_wire')
+        self.assertIsNotNone(top_and_wire)
+        top_and_wire_attributes = list(top_and_wire.get_attributes())
+        self.assertEqual(1, len(top_and_wire_attributes))
+        self.assertEqual("WIRE_ATTRIBUTE", top_and_wire_attributes[0].get_name())
+        self.assertEqual("Wire connecting AND gate output to top output", top_and_wire_attributes[0].get_value())
 
 if __name__ == '__main__':
     faulthandler.enable()
