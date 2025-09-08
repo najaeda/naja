@@ -68,6 +68,7 @@ class NajaEDANetlistTestAttributes(unittest.TestCase):
         self.assertIsNotNone(top_a)
         top_a_attributes = list(top_a.get_attributes())
         self.assertEqual(1, len(top_a_attributes))
+        self.assertEqual(1, top_a.count_attributes())
         self.assertEqual("INPUT_ATTRIBUTE_A", top_a_attributes[0].get_name())
         self.assertEqual("Input signal A", top_a_attributes[0].get_value())
 
@@ -76,6 +77,7 @@ class NajaEDANetlistTestAttributes(unittest.TestCase):
         self.assertIsNotNone(top_and_wire)
         top_and_wire_attributes = list(top_and_wire.get_attributes())
         self.assertEqual(1, len(top_and_wire_attributes))
+        self.assertEqual(1, top_and_wire.count_attributes())
         self.assertEqual("WIRE_ATTRIBUTE", top_and_wire_attributes[0].get_name())
         self.assertEqual("Wire connecting AND gate output to top output", top_and_wire_attributes[0].get_value())
 

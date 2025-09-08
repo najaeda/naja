@@ -63,6 +63,7 @@ class SNLAttributesTest(unittest.TestCase):
 
   def testErrors(self):
     with self.assertRaises(RuntimeError) as context: self.ins0.addAttribute(3)
+    with self.assertRaises(RuntimeError) as context: self.top.addAttribute(3)
   
 if __name__ == '__main__':
   unittest.main()
