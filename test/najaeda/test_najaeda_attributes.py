@@ -36,6 +36,17 @@ class NajaEDANetlistTestAttributes(unittest.TestCase):
     def test(self):
         top = netlist.get_top()
         self.assertIsNotNone(top)
+        top_attributes = list(top.get_attributes())
+        self.assertEqual(3, len(top_attributes))
+        # (* MODULE_ATTRIBUTE = "Top level simple_netlist module", MODULE_VERSION = "1.0" *)
+        # (* VERSION = 3 *)
+        self.assertEqual('MODULE_ATTRIBUTE', top_attributes[0].get_name())
+        self.assertEqual('Top level simple_netlist module', top_attributes[0].get_value())
+        self.assertEqual('MODULE_VERSION', top_attributes[1].get_name())
+        self.assertEqual('1.0', top_attributes[1].get_value())
+        self.assertEqual('VERSION', top_attributes[2].get_name())
+        self.assertEqual('3', top_attributes[2].get_value())
+
         and2_inst = top.get_child_instance('and2_inst')
         self.assertIsNotNone(and2_inst)
         self.assertEqual(3, and2_inst.count_attributes())

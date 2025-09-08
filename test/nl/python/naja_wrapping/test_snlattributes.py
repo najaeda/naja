@@ -53,6 +53,13 @@ class SNLAttributesTest(unittest.TestCase):
     self.assertEqual("value0", attributes[0].getValue())
     self.assertEqual("attr1", attributes[1].getName())
     self.assertEqual("value1", attributes[1].getValue())
+    #add and test on top
+    self.assertEqual(0, sum(1 for a in self.top.getAttributes()))
+    self.top.addAttribute(naja.SNLAttribute("topattr", "topvalue"))
+    self.assertEqual(1, sum(1 for a in self.top.getAttributes()))
+    attributes = list(self.top.getAttributes())
+    self.assertEqual("topattr", attributes[0].getName())
+    self.assertEqual("topvalue", attributes[0].getValue())
 
   def testErrors(self):
     with self.assertRaises(RuntimeError) as context: self.ins0.addAttribute(3)
