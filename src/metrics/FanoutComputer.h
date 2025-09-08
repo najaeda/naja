@@ -15,8 +15,10 @@ class FanoutComputer {
   }
   void process();
   size_t getMaxFanout() const { return maxFanout_; }
+  const std::vector<std::pair<naja::DNL::DNLID, std::vector<naja::DNL::DNLID>>>& getMaxFanoutTerms() const { return fanouts_; }
 
  private:
+  std::vector<std::pair<naja::DNL::DNLID, std::vector<naja::DNL::DNLID>>> fanouts_; 
   size_t maxFanout_ = 0;
   naja::DNL::DNLFull* dnl_ = nullptr;
 };

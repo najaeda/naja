@@ -1831,7 +1831,7 @@ def apply_constant_propagation():
         naja.NLUniverse.get().applyConstantPropagation()
 
 
-def get_max_fanout() -> int:
+def get_max_fanout() -> list:
     """Get the maximum fanout of the top design.
 
     :return: the maximum fanout of the top design.
@@ -1842,10 +1842,10 @@ def get_max_fanout() -> int:
         top = naja.NLUniverse.get().getTopDesign()
         if top is not None:
             return naja.NLUniverse.get().getMaxFanout()
-    return 0
+    return [0]
 
 
-def get_max_logic_level() -> int:
+def get_max_logic_level() -> list:
     """Get the maximum logic level of the top design.
 
     :return: the maximum logic level of the top design.
@@ -1856,4 +1856,4 @@ def get_max_logic_level() -> int:
         top = naja.NLUniverse.get().getTopDesign()
         if top is not None:
             return naja.NLUniverse.get().getMaxLogicLevel()
-    return 0
+    return [0]

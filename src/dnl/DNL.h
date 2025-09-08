@@ -33,6 +33,7 @@ namespace NL {
 class SNLBitNet;
 class SNLPath;
 class SNLEquipotential;
+class SNLNetComponentOccurrence;
 }
 }  // namespace naja
 
@@ -258,6 +259,8 @@ class DNLTerminalFull {
   bool isCombinatorial() const;
 
   SNLEquipotential getEquipotential() const;
+
+  SNLNetComponentOccurrence getOccurrence() const;
 
  private:
   DNLID DNLInstID_ = DNLID_MAX;
