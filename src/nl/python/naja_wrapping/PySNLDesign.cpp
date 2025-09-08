@@ -26,6 +26,8 @@
 #include "PySNLBitNets.h"
 #include "PySNLInstances.h"
 #include "PySNLParameters.h"
+#include "PySNLAttributes.h"
+#include "PySNLAttribute.h"
 
 #include "SNLDesign.h"
 #include "SNLDesignModeling.h"
@@ -446,6 +448,19 @@ PyObject* PySNLDesign_getNLID(PySNLDesign* self) {
   return py_list;
 }
 
+static PyObject* PySNLDesign_addAttribute(PySNLDesign* self, PyObject* args) {
+  METHOD_HEAD("SNLDesign.addAttribute()")
+  PySNLAttribute* pyAttribute = nullptr;
+  if (PyArg_ParseTuple(args, "O!", &PyTypeSNLAttribute, &pyAttribute)) {
+    auto attribute = PYSNLAttribute_O(pyAttribute);
+    SNLAttributes::addAttribute(selfObject, *attribute);
+  } else {
+    setError("invalid number of parameters for addAttribute.");
+    return nullptr;
+  }
+  Py_RETURN_NONE;
+}
+
 static PyObject* PySNLDesign_getCombinatorialInputs(PySNLDesign*, PyObject* object) {
   GetDesignModelingRelatedObjects(SNLBitTerm, getCombinatorialInputs, SNLDesign)
 }
@@ -501,6 +516,7 @@ GetContainerMethod(SNLDesign, SNLBusNet*, SNLBusNets, BusNets)
 GetContainerMethod(SNLDesign, SNLBitNet*, SNLBitNets, BitNets)
 GetContainerMethod(SNLDesign, SNLInstance*, SNLInstances, Instances)
 GetContainerMethod(SNLDesign, SNLParameter*, SNLParameters, Parameters)
+GetContainerMethod(SNLDesign, SNLAttribute, SNLAttributes, Attributes)
 
 DBoDestroyAttribute(PySNLDesign_destroy, PySNLDesign)
 
@@ -625,6 +641,10 @@ PyMethodDef PySNLDesign_Methods[] = {
     "set truth tables for design."},
   { "hasModeling", (PyCFunction)PySNLDesign_hasModeling, METH_NOARGS,
     "Returns True if the SNLDesign has modeling."},
+  {"addAttribute", (PyCFunction)PySNLDesign_addAttribute, METH_VARARGS,
+    "add an attribute to the design."},
+  {"getAttributes", (PyCFunction)PySNLDesign_getAttributes, METH_NOARGS,
+    "get a container of SNLAttributes."},
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 

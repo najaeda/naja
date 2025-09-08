@@ -68,6 +68,13 @@ TEST_F(SNLVRLConstructorTestAttributes, test0) {
           "3"))
     )
   );
+  //get from design
+  Attributes attributesFromDesign(
+    simple_netlist->getAttributes().begin(),
+    simple_netlist->getAttributes().end()
+  );
+  EXPECT_EQ(3, attributesFromDesign.size());
+  EXPECT_EQ(attributesFromDesign, simple_netlistAttributes);
 
   //2 standard instances, 2 assigns
   ASSERT_EQ(4, simple_netlist->getInstances().size());
