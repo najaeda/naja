@@ -36,6 +36,17 @@ class NajaEDANetlistTestAttributes(unittest.TestCase):
     def test(self):
         top = netlist.get_top()
         self.assertIsNotNone(top)
+        top_attributes = list(top.get_attributes())
+        self.assertEqual(3, len(top_attributes))
+        # (* MODULE_ATTRIBUTE = "Top level simple_netlist module", MODULE_VERSION = "1.0" *)
+        # (* VERSION = 3 *)
+        self.assertEqual('MODULE_ATTRIBUTE', top_attributes[0].get_name())
+        self.assertEqual('Top level simple_netlist module', top_attributes[0].get_value())
+        self.assertEqual('MODULE_VERSION', top_attributes[1].get_name())
+        self.assertEqual('1.0', top_attributes[1].get_value())
+        self.assertEqual('VERSION', top_attributes[2].get_name())
+        self.assertEqual('3', top_attributes[2].get_value())
+
         and2_inst = top.get_child_instance('and2_inst')
         self.assertIsNotNone(and2_inst)
         self.assertEqual(3, and2_inst.count_attributes())
@@ -51,9 +62,24 @@ class NajaEDANetlistTestAttributes(unittest.TestCase):
         self.assertTrue(and2_attributes[2].has_value())
         self.assertEqual('3', and2_attributes[2].get_value())
 
-        #print(netlist.get_top())
-        #for inst in netlist.get_all_primitive_instances():
-        #    print(inst)
+        #   get attributes on term
+        # (* INPUT_ATTRIBUTE_A = "Input signal A" *)
+        top_a = top.get_term('a')
+        self.assertIsNotNone(top_a)
+        top_a_attributes = list(top_a.get_attributes())
+        self.assertEqual(1, len(top_a_attributes))
+        self.assertEqual(1, top_a.count_attributes())
+        self.assertEqual("INPUT_ATTRIBUTE_A", top_a_attributes[0].get_name())
+        self.assertEqual("Input signal A", top_a_attributes[0].get_value())
+
+        # (* WIRE_ATTRIBUTE = "Wire connecting AND gate output to top output" *)
+        top_and_wire = top.get_net('and_wire')
+        self.assertIsNotNone(top_and_wire)
+        top_and_wire_attributes = list(top_and_wire.get_attributes())
+        self.assertEqual(1, len(top_and_wire_attributes))
+        self.assertEqual(1, top_and_wire.count_attributes())
+        self.assertEqual("WIRE_ATTRIBUTE", top_and_wire_attributes[0].get_name())
+        self.assertEqual("Wire connecting AND gate output to top output", top_and_wire_attributes[0].get_value())
 
 if __name__ == '__main__':
     faulthandler.enable()

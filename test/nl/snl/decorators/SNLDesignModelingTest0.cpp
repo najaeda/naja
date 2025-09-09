@@ -298,12 +298,9 @@ TEST_F(SNLDesignModelingTest0, testGetCombiDepsFromTT) {
   //set truth table
   SNLDesignModeling::setTruthTable(design, SNLTruthTable(2, 0x5));
   EXPECT_THROW(SNLDesignModeling::setTruthTable(design, SNLTruthTable(2, 0x1)), NLException);
-  printf("1\n");
   auto inputArcs = SNLDesignModeling::getCombinatorialInputs(o);
   EXPECT_EQ(inputArcs.size(), 2);
-  printf("2\n");
   auto outputArcs = SNLDesignModeling::getCombinatorialOutputs(i0);
-  printf("3\n");
   EXPECT_EQ(outputArcs.size(), 1);
   auto designs = NLLibrary::create(db);
   auto top = SNLDesign::create(designs, NLName("top"));

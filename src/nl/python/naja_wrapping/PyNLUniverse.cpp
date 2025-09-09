@@ -14,6 +14,8 @@
 #include "ConstantPropagation.h"
 #include "FanoutComputer.h"
 #include "LogicLevelComputer.h"
+#include "SNLNetComponentOccurrence.h"
+#include "PySNLNetComponentOccurrence.h"
 
 namespace PYNAJA {
 
@@ -48,13 +50,69 @@ static PyObject* PyNLUniverse_applyDLE() {
 static PyObject* PyNLUniverse_getMaxFanout() {
   FanoutComputer fanoutComputer;
   fanoutComputer.process();
-  return PyLong_FromSize_t(fanoutComputer.getMaxFanout());
+  const auto& fanouts = fanoutComputer.getMaxFanoutTerms();
+  std::vector<std::pair<SNLNetComponentOccurrence, std::vector<SNLNetComponentOccurrence>>> pyFanouts;
+  for (const auto& [termID, readerIDs] : fanouts) {
+    const DNLTerminalFull& term = naja::DNL::get()->getDNLTerminalFromID(termID);
+    SNLNetComponentOccurrence pyTerm = term.getOccurrence();
+    std::vector<SNLNetComponentOccurrence> pyReaders;
+    for (const auto& readerID : readerIDs) {
+      const DNLTerminalFull& readerTerm = naja::DNL::get()->getDNLTerminalFromID(readerID);
+      pyReaders.push_back(readerTerm.getOccurrence());
+    }
+    pyFanouts.push_back({pyTerm, pyReaders});
+  }
+  // return a pair (maxFanout, terms(with PySNLNetComponentOccurrence))
+  PyObject* py_list = PyList_New(2);
+  PyList_SetItem(py_list, 0, PyLong_FromSize_t(fanoutComputer.getMaxFanout()));
+  PyObject* py_terms_list = PyList_New(pyFanouts.size());
+  for (size_t i = 0; i < pyFanouts.size(); i++) {
+    PyObject* readers_list = PyList_New(pyFanouts[i].second.size());
+    for (size_t j = 0; j < pyFanouts[i].second.size(); j++) {
+      PyList_SetItem(readers_list, j, PySNLNetComponentOccurrence_Link(pyFanouts[i].second[j]));
+    }
+    PyObject* term_and_readers = PyTuple_New(2);
+    PyTuple_SetItem(term_and_readers, 0, PySNLNetComponentOccurrence_Link(pyFanouts[i].first));
+    PyTuple_SetItem(term_and_readers, 1, readers_list);
+    PyList_SetItem(py_terms_list, i, term_and_readers);
+  }
+  PyList_SetItem(py_list, 1, py_terms_list);
+  return py_list;
 }
 
 static PyObject* PyNLUniverse_getMaxLogicLevel() {
   LogicLevelComputer logicLevelComputer;
   logicLevelComputer.process();
-  return PyLong_FromSize_t(logicLevelComputer.getMaxLogicLevel());
+  const std::vector<std::vector<std::pair<DNLID, DNLID>>>& paths = logicLevelComputer.getMaxLogicLevelPaths();
+  std::vector<std::vector<SNLNetComponentOccurrence>> pyPaths;
+  for (const auto& path : paths) {
+    std::vector<SNLNetComponentOccurrence> pyPath;
+    for (const auto& [fromTermID, toTermID] : path) {
+      if (fromTermID != naja::DNL::DNLID_MAX) {
+        const DNLTerminalFull& fromTerm = naja::DNL::get()->getDNLTerminalFromID(fromTermID);
+        // only one term in the path
+        pyPath.push_back(fromTerm.getOccurrence());
+      }
+      if (toTermID != naja::DNL::DNLID_MAX) {
+        const DNLTerminalFull& toTerm = naja::DNL::get()->getDNLTerminalFromID(toTermID);
+        pyPath.push_back(toTerm.getOccurrence());
+      }
+    }
+    pyPaths.push_back(pyPath);
+  }
+  // return a pair (maxLogicLevel, paths(with PySNLNetComponentOccurrence))
+  PyObject* py_list = PyList_New(2);
+  PyList_SetItem(py_list, 0, PyLong_FromSize_t(logicLevelComputer.getMaxLogicLevel()));
+  PyObject* py_paths_list = PyList_New(pyPaths.size());
+  for (size_t i = 0; i < pyPaths.size(); i++) {
+    PyObject* path_list = PyList_New(pyPaths[i].size());
+    for (size_t j = 0; j < pyPaths[i].size(); j++) {
+      PyList_SetItem(path_list, j, PySNLNetComponentOccurrence_Link(pyPaths[i][j]));
+    }
+    PyList_SetItem(py_paths_list, i, path_list);
+  }
+  PyList_SetItem(py_list, 1, py_paths_list);
+  return py_list;
 }
 
 static PyObject* PyNLUniverse_applyConstantPropagation() {

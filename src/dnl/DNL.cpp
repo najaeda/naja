@@ -344,6 +344,17 @@ DNLID DNLTerminalFull::getIsoID() const {
   return (*get()).getIsoIdfromTermId(id_);
 }
 
+SNLNetComponentOccurrence DNLTerminalFull::getOccurrence() const {
+  if (this->getDNLInstance().isTop()) {
+    naja::NL::SNLNetComponentOccurrence occurrence(
+        this->getDNLInstance().getPath(), this->getSnlBitTerm());
+    return occurrence;
+  }
+  naja::NL::SNLInstTermOccurrence occurrence(
+      this->getDNLInstance().getPath().getHeadPath(), this->getSnlTerm());
+  return occurrence;
+}
+
 SNLEquipotential DNLTerminalFull::getEquipotential() const {
 #ifdef DEBUG_PRINTS
   // LCOV_EXCL_START
