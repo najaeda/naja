@@ -122,7 +122,6 @@ static PyObject* PyNLUniverse_applyConstantPropagation() {
   Py_RETURN_NONE;
 }
 
-
 static PyObject* PyNLUniverse_setTopDesign(PyNLUniverse* self, PyObject* arg) {
   METHOD_HEAD("NLUniverse.setTopDesign()")
   if (IsPySNLDesign(arg)) {
