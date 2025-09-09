@@ -12,6 +12,7 @@ project(naja
 )
 
 cmake_policy(SET CMP0048 NEW)
+cmake_policy(SET CMP0144 NEW)
 if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.30")
   cmake_policy(SET CMP0167 OLD)
 endif()
@@ -54,6 +55,7 @@ endif()
 set(CMAKE_CXX_STANDARD 20)
 
 option(BUILD_ONLY_DOC "Only configure to build Doxygen documentation" OFF)
+option(EMSCRIPTEN_BUILD "Build with Emscripten" OFF)
 
 set(NAJA_CXX_WARNINGS -Werror -Wall -pedantic-errors -Wconversion -Wsign-conversion -Wextra -Wno-unused-parameter)
 
@@ -88,17 +90,19 @@ if(ENABLE_SANITIZERS)
 endif(ENABLE_SANITIZERS)
 
 if(NOT BUILD_ONLY_DOC)
-  find_package(TBB REQUIRED)
   find_package(Boost REQUIRED)
-  find_package(CapnProto REQUIRED)
-  if (NOT ${BUILD_NAJA_PYTHON})
-    find_package(Python3 3.9...<3.99 COMPONENTS Interpreter Development.Embed Development.Module REQUIRED)
-  else()
-    find_package(Python3 3.9...<3.99 COMPONENTS Interpreter Development.Module REQUIRED)
-  endif()
+  if(NOT EMSCRIPTEN_BUILD)
+    find_package(TBB REQUIRED)
+    find_package(CapnProto REQUIRED)
+    if (NOT ${BUILD_NAJA_PYTHON})
+      find_package(Python3 3.9...<3.99 COMPONENTS Interpreter Development.Embed Development.Module REQUIRED)
+    else()
+      find_package(Python3 3.9...<3.99 COMPONENTS Interpreter Development.Module REQUIRED)
+    endif()
+  endif(NOT EMSCRIPTEN_BUILD)
 endif(NOT BUILD_ONLY_DOC)
 
-if(PROJECT_IS_TOP_LEVEL AND NOT BUILD_NAJA_PYTHON)
+if(PROJECT_IS_TOP_LEVEL AND NOT BUILD_NAJA_PYTHON AND NOT EMSCRIPTEN_BUILD)
   option(LONG_TESTS "Enable long tests" OFF)
   include(CTest)
   enable_testing()
@@ -113,16 +117,16 @@ if(PROJECT_IS_TOP_LEVEL AND NOT BUILD_NAJA_PYTHON)
   if(DOXYGEN_FOUND)
     add_subdirectory(docs)
   endif(DOXYGEN_FOUND)
-  #Sphinx
-  #look for Sphinx package
-  find_package(Sphinx)
   
   if(BUILD_SPHINX_DOCUMENTATION)
+    #Sphinx
+    #look for Sphinx package
+    find_package(Sphinx)
     if (NOT (DOXYGEN_FOUND AND SPHINX_FOUND))
       message(SEND_ERROR "Doxygen and Sphinx must be available to build Sphinx documentation")
     endif(NOT (DOXYGEN_FOUND AND SPHINX_FOUND))
   endif(BUILD_SPHINX_DOCUMENTATION)
-endif(PROJECT_IS_TOP_LEVEL AND NOT BUILD_NAJA_PYTHON)
+endif()
 
 if(NOT BUILD_ONLY_DOC)
   add_subdirectory(thirdparty)

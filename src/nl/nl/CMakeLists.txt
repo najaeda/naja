@@ -2,8 +2,10 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-add_subdirectory(serialization)
-add_subdirectory(visual)
+if (NOT EMSCRIPTEN_BUILD)
+  add_subdirectory(serialization)
+  add_subdirectory(visual)
+endif()
 
 set(NL_SOURCES
   nl/NLObject.cpp
