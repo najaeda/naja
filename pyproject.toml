@@ -15,7 +15,6 @@ requires-python = ">=3.8"
 license = {text = "Apache License 2.0"}
 version = "0.2.11"
 
-
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -65,25 +64,6 @@ before-all = '''
   sudo make install
   echo "::endgroup::"
   cd ..
-'''
-
-[tool.cibuildwheel.windows]
-build-frontend = "build"
-before-build = '''
-  if exist build rmdir /S /Q build
-  if exist dist rmdir /S /Q dist
-'''
-before-all = '''
-  bash -c "
-  echo ::group::Installing TBB && \
-  curl -LO https://github.com/oneapi-src/oneTBB/archive/refs/tags/v2022.1.0.zip && \
-  unzip v2022.1.0.zip && \
-  mkdir TBB_build && \
-  cd TBB_build && \
-  cmake ../oneTBB-2022.1.0 -DCMAKE_BUILD_TYPE=Release -DTBB_TEST=OFF -DCMAKE_INSTALL_PREFIX=/c/TBB && \
-  cmake --build . --config Release --target install && \
-  echo ::endgroup::
-"
 '''
 
 [tool.cibuildwheel.linux]
