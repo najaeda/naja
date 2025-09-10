@@ -3,10 +3,12 @@
 # SPDX-License-Identifier: Apache-2.0
 
 add_subdirectory(netlists)
-add_subdirectory(formats)
+if (NOT EMSCRIPTEN_BUILD)
+  add_subdirectory(formats)
+  add_subdirectory(python)
+endif()
 add_subdirectory(snl)
 add_subdirectory(pnl)
-add_subdirectory(python)
-if(NOT BUILD_NAJA_PYTHON)
+if(NOT BUILD_NAJA_PYTHON AND NOT EMSCRIPTEN_BUILD)
   add_subdirectory(visual)
-endif(NOT BUILD_NAJA_PYTHON)
+endif()

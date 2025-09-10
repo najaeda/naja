@@ -3,5 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 add_subdirectory(kernel)
-add_subdirectory(serialization)
+if (NOT EMSCRIPTEN_BUILD)
+  add_subdirectory(serialization)
+endif()
 add_subdirectory(decorators)
