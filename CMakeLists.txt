@@ -12,9 +12,9 @@ project(naja
 )
 
 cmake_policy(SET CMP0048 NEW)
-cmake_policy(SET CMP0144 NEW)
 if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.30")
   cmake_policy(SET CMP0167 OLD)
+  cmake_policy(SET CMP0144 NEW)
 endif()
 
 include(GNUInstallDirs)
@@ -61,9 +61,13 @@ endif()
 if(BUILD_EMSCRIPTEN)
   add_compile_options(-fexceptions)
   add_link_options(
-       -sEXIT_RUNTIME=1 -sASSERTIONS=0 -sVERBOSE=0
-      -sALLOW_MEMORY_GROWTH=1 -sDISABLE_EXCEPTION_CATCHING=0
-      --verbose)
+  "-sEXIT_RUNTIME=1"
+  "-sASSERTIONS=0"
+  "-sVERBOSE=0"
+  "-sALLOW_MEMORY_GROWTH=1"
+  "-sDISABLE_EXCEPTION_CATCHING=0"
+  "--verbose"
+)
 endif()
 
 set(ARGPARSE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/argparse-3.1/include)

@@ -3,6 +3,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 add_subdirectory(src)
-if (NOT EMSCRIPTEN_BUILD)
+if (NOT BUILD_EMSCRIPTEN)
   add_subdirectory(test)
-endif(NOT EMSCRIPTEN_BUILD)
+endif(NOT BUILD_EMSCRIPTEN)

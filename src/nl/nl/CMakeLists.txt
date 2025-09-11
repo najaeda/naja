@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-if (NOT EMSCRIPTEN_BUILD)
+if (NOT BUILD_EMSCRIPTEN)
   add_subdirectory(serialization)
   add_subdirectory(visual)
 endif()
