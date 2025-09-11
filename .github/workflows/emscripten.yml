@@ -30,13 +30,13 @@ jobs:
       - name: Configure (Emscripten)
         run: |
           emcmake cmake -S . -B build-wasm \
-            -DBUILD_EMSCRIPTEN=ON \
-            -DFLEX_INCLUDE_DIR=$(pwd)/flex_include \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DBOOST_ROOT=/opt/homebrew/lib/cmake/Boost-1.89.0 \
-            -DBoost_NO_SYSTEM_PATHS=ON \
-            -DBoost_INCLUDE_DIR=/opt/homebrew/include \
-            -DBoost_NO_BOOST_CMAKE=ON
+              -DBUILD_EMSCRIPTEN=ON \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DFLEX_INCLUDE_DIR=$(pwd)/flex_includes \
+              -DBOOST_ROOT=/usr/local/lib/cmake/Boost-1.83.0 \
+              -DBoost_NO_SYSTEM_PATHS=ON \
+              -DBoost_INCLUDE_DIR=/usr/local/include \
+              -DBoost_NO_BOOST_CMAKE=ON
 
       - name: Build
         run: cmake --build build-wasm -j
