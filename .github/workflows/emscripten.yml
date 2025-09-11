@@ -37,7 +37,7 @@ jobs:
           emcmake cmake -S . -B build-wasm \
               -DBUILD_EMSCRIPTEN=ON \
               -DCMAKE_BUILD_TYPE=Release \
-              -DFLEX_INCLUDE_DIR=$(pwd)/flex_includes \
+              -DFLEX_INCLUDE_DIR=$(pwd)/flex_include \
               -DBOOST_ROOT=$(pwd)/boost_1_89_0 \
               -DBoost_NO_SYSTEM_PATHS=ON \
               -DBoost_INCLUDE_DIR=$(pwd)/boost_1_89_0 \
