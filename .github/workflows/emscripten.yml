@@ -19,13 +19,12 @@ jobs:
       - name: Install dependencies
         run: sudo apt-get update && sudo apt-get install -yq libfl-dev
 
-      - name: Install boost intrusive
+      - name: get boost intrusive
         run: |
           git clone --filter=blob:none --no-checkout https://github.com/boostorg/intrusive.git
           cd intrusive
           git sparse-checkout init --cone
           git sparse-checkout set include/boost/intrusive
-          mkdir -p boost_includes && cp -r include/boost boost_includes
 
       - name: Copy locally FlexLexer.h
         run: mkdir -p flex_include && cp /usr/include/FlexLexer.h flex_include
@@ -43,7 +42,7 @@ jobs:
               -DFLEX_INCLUDE_DIR=$(pwd)/flex_includes \
               -DBOOST_ROOT=/usr/local/lib/cmake/Boost-1.83.0 \
               -DBoost_NO_SYSTEM_PATHS=ON \
-              -DBoost_INCLUDE_DIR=$(pwd)/boost_includes \
+              -DBoost_INCLUDE_DIR=$(pwd)/intrusive/include \
               -DBoost_NO_BOOST_CMAKE=ON
 
       - name: Build
