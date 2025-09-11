@@ -22,7 +22,6 @@ jobs:
       - name: get boost
         run: |
           wget https://archives.boost.io/release/1.89.0/source/boost_1_89_0.tar.gz
-          tar -xzf boost_1_89_0.tar.gz
 
       - name: Copy locally FlexLexer.h
         run: mkdir -p flex_include && cp /usr/include/FlexLexer.h flex_include
@@ -40,7 +39,7 @@ jobs:
               -DFLEX_INCLUDE_DIR=$(pwd)/flex_includes \
               -DBOOST_ROOT=$(pwd)/boost_1_89_0 \
               -DBoost_NO_SYSTEM_PATHS=ON \
-              -DBoost_INCLUDE_DIR=$(pwd)/boost_1_89_0/include \
+              -DBoost_INCLUDE_DIR=$(pwd)/boost_1_89_0 \
               -DBoost_NO_BOOST_CMAKE=ON
 
       - name: Build
