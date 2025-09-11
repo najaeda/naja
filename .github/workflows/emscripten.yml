@@ -23,6 +23,7 @@ jobs:
         run: |
           wget https://archives.boost.io/release/1.89.0/source/boost_1_89_0.tar.gz
           tar -xzf boost_1_89_0.tar.gz
+          ls -Rall
 
       - name: Copy locally FlexLexer.h
         run: mkdir -p flex_include && cp /usr/include/FlexLexer.h flex_include
