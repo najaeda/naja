@@ -17,6 +17,8 @@
 
 #include "BNE.h"
 
+#include "debug/getTopOutputIsos.hpp"
+
 using namespace naja::DNL;
 using namespace naja::NL;
 using namespace naja::BNE;
@@ -29,59 +31,38 @@ using namespace naja::NAJA_OPT;
 LoadlessLogicRemover::LoadlessLogicRemover() {}
 
 // Given a DNL, getting all isos connected to top output.
-std::vector<DNLID> LoadlessLogicRemover::getTopOutputIsos(
-    const naja::DNL::DNL<DNLInstanceFull, DNLTerminalFull>& dnl) {
+std::vector<DNLID> LoadlessLogicRemover::getTopOutputIsos(const naja::DNL::DNL<DNLInstanceFull, DNLTerminalFull>& dnl)
+{
   std::vector<DNLID> topOutputIsos;
-  for (DNLID term = dnl.getTop().getTermIndexes().first;
-       term <= dnl.getTop().getTermIndexes().second && term != DNLID_MAX; term++) {
-    assert(DNLID_MAX != term);
-#ifdef DEBUG_PRINTS
-    // LCOV_EXCL_START
-    printf("Checking %s\n",
-           dnl.getDNLTerminalFromID(term).getSnlBitTerm()->getString().c_str());
-    printf("Direction %s\n", dnl.getDNLTerminalFromID(term)
-                                 .getSnlBitTerm()
-                                 ->getDirection()
-                                 .getString()
-                                 .c_str());
-    // LCOV_EXCL_STOP
-#endif
-    if (dnl.getDNLTerminalFromID(term).getSnlBitTerm()->getDirection() !=
-        SNLTerm::Direction::DirectionEnum::Input) {
-      if (dnl.getIsoIdfromTermId(term) != DNLID_MAX) {
-#ifdef DEBUG_PRINTS
-        // LCOV_EXCL_START
-        printf("Tracing %s\n", dnl.getDNLTerminalFromID(term)
-                                   .getSnlBitTerm()
-                                   ->getString()
-                                   .c_str());
-
-        // LCOV_EXCL_STOP
-#endif
-        topOutputIsos.push_back(dnl.getIsoIdfromTermId(term));
-      } else {
-#ifdef DEBUG_PRINTS
-        // LCOV_EXCL_START
-        printf("No iso %s\n", dnl.getDNLTerminalFromID(term)
-                                  .getSnlBitTerm()
-                                  ->getString()
-                                  .c_str());
-        // LCOV_EXCL_STOP
-#endif
-      }
+  for (DNLID term = DNL_GET_FIRST_TERM;
+       term <= DNL_GET_SECOND_TERM
+	 && term != DNLID_MAX;
+       term++)
+    {
+      assert(DNLID_MAX != term);
+      LCOV_EXCL_DIRECTION("Checking %s\n", term, dnl);
+      if (DNL_BIT_IS_INPUT)
+	{
+	  if (!DNL_IS_AT_MAX)
+	    {
+	      LCOV_EXCL("Tracing %s\n", term, dnl);
+	      topOutputIsos.push_back(dnl.getIsoIdfromTermId(term));
+	    }
+	  else
+	    LCOV_EXCL("No iso %s\n", term, dnl);
+	}
     }
-  }
   return topOutputIsos;
 }
 
 // Giving a DNL and iso, get all isos traced back from this iso to top inputs
-void LoadlessLogicRemover::getIsoTrace(
-    const naja::DNL::DNL<DNLInstanceFull, DNLTerminalFull>& dnl,
-    DNLID iso,
-    tbb::concurrent_unordered_set<DNLID,
-                                  std::hash<DNLID>,
-                                  std::equal_to<DNLID>,
-                                  tbb::scalable_allocator<DNLID>>& isoTrace) {
+void LoadlessLogicRemover::getIsoTrace(const naja::DNL::DNL<DNLInstanceFull, DNLTerminalFull>& dnl,
+				       DNLID iso,
+				       tbb::concurrent_unordered_set<DNLID,
+				       std::hash<DNLID>,
+				       std::equal_to<DNLID>,
+				       tbb::scalable_allocator<DNLID>>& isoTrace)
+{
   std::vector<DNLID> isoQueue;
   isoQueue.push_back(iso);
   while (!isoQueue.empty()) {

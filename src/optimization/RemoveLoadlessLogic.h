@@ -4,7 +4,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #pragma once
-
+o
 #include <string>
 #include "DNL.h"
 #include "tbb/concurrent_unordered_set.h"
@@ -50,3 +50,11 @@ class LoadlessLogicRemover {
 };
 
 }  // namespace naja::NAJA_OPT
+
+#define DNL_GET_FIRST_TERM dnl.getTop().getTermIndexes().first
+#define DNL_GET_SECOND_TERM dnl.getTop().getTermIndexes().second
+#define DNL_IS_AT_MAX dnl.getIsoIdfromTermId(term) >= DNLID_MAX
+
+#define DNL_GET_BIT_TERM_DIRECTION dnl.getDNLTerminalFromID(term).getSnlBitTerm()->getDirection()
+#define SNL_INPUT SNLTerm::Direction::DirectionEnum::Input
+#define DNL_BIT_IS_INPUT DNL_GET_BIT_TERM_DIRECTION != SNL_INPUT
