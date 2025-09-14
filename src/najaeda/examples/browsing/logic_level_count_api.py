@@ -46,6 +46,7 @@ if __name__ == '__main__':
             print("Attributes:")
             for att in term.get_instance().get_attributes():
                 print(att.get_name(), "=", att.get_value())
-        
+            print(n)
+    
     
     
