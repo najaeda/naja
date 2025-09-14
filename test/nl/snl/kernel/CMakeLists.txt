@@ -31,7 +31,7 @@ target_compile_definitions(snlTests PRIVATE
 TARGET_LINK_LIBRARIES(snlTests naja_nl gmock gtest_main)
 GTEST_DISCOVER_TESTS(snlTests)
 
-if(NOT BUILD_NAJA_PYTHON)
+if(NOT BUILD_NAJA_PYTHON AND NOT BUILD_EMSCRIPTEN)
   ADD_EXECUTABLE(snlTestsWithPyLoader ${snl_tests_with_pyloader})
   target_compile_definitions(snlTestsWithPyLoader PRIVATE
     SNL_BENCHS_PATH="${CMAKE_CURRENT_SOURCE_DIR}/benchs")
@@ -41,4 +41,4 @@ if(NOT BUILD_NAJA_PYTHON)
     PROPERTIES ENVIRONMENT
     PYTHONPATH=${PROJECT_BINARY_DIR}/src/nl/python/naja_wrapping
   )
-endif(NOT BUILD_NAJA_PYTHON)
+endif()

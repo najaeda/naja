@@ -31,7 +31,8 @@ void FanoutComputer::process() {
   }
 
   // 2) Per-thread holder for the maximum fanout seen locally
-  tbb::enumerable_thread_specific<size_t> localMaxFanout;
+  tbb::enumerable_thread_specific<std::pair<size_t, 
+    std::vector<std::pair<naja::DNL::DNLID, std::vector<naja::DNL::DNLID>>>>> localMaxFanout;
 
   // 3) Parallel scan over each term, updating only thread-local max
   tbb::parallel_for_each(
@@ -44,15 +45,34 @@ void FanoutComputer::process() {
                             .size();
 
         // Update local max if this fanout is larger
-        if (fanout > localMaxFanout.local()) {
-          localMaxFanout.local() = fanout;
+        if (fanout > localMaxFanout.local().first) {
+          localMaxFanout.local().first = fanout;
+          localMaxFanout.local().second.clear();
+          const auto& vect = dnl_->getDNLIsoDB()
+                                         .getIsoFromIsoIDconst(
+                                             dnl_->getDNLTerminalFromID(term).getIsoID())
+                                         .getReaders();
+          std::vector<DNLID> readers(vect.begin(), vect.end()); ;
+          localMaxFanout.local().second.push_back(
+              {term, readers});
+        } else if (fanout == localMaxFanout.local().first && fanout > 0) {
+          const auto& vect = dnl_->getDNLIsoDB()
+                                         .getIsoFromIsoIDconst(
+                                             dnl_->getDNLTerminalFromID(term).getIsoID())
+                                         .getReaders();
+          std::vector<DNLID> readers(vect.begin(), vect.end()); ;
+          localMaxFanout.local().second.push_back(
+              {term, readers});
         }
       });
 
   // 4) Single reduction of all local maxima into the class member
   for (const auto& localMax : localMaxFanout) {
-    if (localMax > maxFanout_) {
-      maxFanout_ = localMax;
+    if (localMax.first > maxFanout_) {
+      maxFanout_ = localMax.first;
+      fanouts_ = localMax.second;
+    } else if (localMax.first == maxFanout_) {
+      fanouts_.insert(fanouts_.end(), localMax.second.begin(), localMax.second.end());
     }
   }
 }

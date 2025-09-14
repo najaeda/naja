@@ -51,7 +51,8 @@ void LogicLevelComputer::process() {
   printf("Logic Level Computer: %zu terms to trace\n", termsToTrace.size());
 #endif
   // 2) Prepare a combinable to hold each thread's local max
-  tbb::enumerable_thread_specific<size_t> localMaxLogicLevel;
+  tbb::enumerable_thread_specific<std::pair<size_t,
+    std::vector<std::vector<std::pair<naja::DNL::DNLID, naja::DNL::DNLID>>>>> localMaxLogicLevel;
 
   tbb::concurrent_map<size_t, size_t> dnlID2ll;
   // 3) Parallel BFS starting from each term, updating only thread-local max
@@ -59,15 +60,15 @@ void LogicLevelComputer::process() {
       termsToTrace.begin(), termsToTrace.end(), [&](DNLID term) {
         // for (DNLID term : termsToTrace) {
         //  Reference to this thread's local maximum
-        size_t& localMax = localMaxLogicLevel.local();
+        size_t& localMax = localMaxLogicLevel.local().first;
 
-        std::queue<std::pair<DNLID, std::vector<DNLID>>> queue;
-        queue.push({term, std::vector<DNLID>()});
+        std::queue<std::pair<DNLID, std::vector<std::pair<DNLID, DNLID>>>> queue;
+        queue.push({term, std::vector<std::pair<DNLID, DNLID>>({{term, DNLID_MAX}})});
         while (!queue.empty()) {
           auto [currentTerm, path] = queue.front();
           queue.pop();
           // Update thread-local max only
-          if (path.size() > localMax) {
+          if (path.size() - 1 > localMax) {
 #ifdef DEBUG_PRINTS
             printf("Term %s instance %s at level %zu\n",
                    dnl_->getDNLTerminalFromID(currentTerm)
@@ -83,7 +84,11 @@ void LogicLevelComputer::process() {
                        .c_str(),
                    path.size());
 #endif
-            localMax = path.size();
+            localMax = path.size() - 1;
+            localMaxLogicLevel.local().second.clear();
+            localMaxLogicLevel.local().second.push_back(path);
+          } else if (path.size() - 1 == localMax && localMax > 0) {
+            localMaxLogicLevel.local().second.push_back(path);
           }
           const auto& iso = dnl_->getDNLIsoDB().getIsoFromIsoIDconst(
               dnl_->getDNLTerminalFromID(currentTerm).getIsoID());
@@ -120,11 +125,11 @@ void LogicLevelComputer::process() {
               }
               if (driverInputTerm.getSnlBitTerm()->getDirection() !=
                   SNLTerm::Direction::Output) {
-                if (std::find(path.begin(), path.end(), termId) != path.end()) {
+                if (std::find(path.begin(), path.end(), std::pair<DNLID, DNLID>(termId, driver)) != path.end()) {
                   continue;  // Avoid cycles
                 }
                 auto newPath = path;
-                newPath.push_back(termId);
+                newPath.push_back({termId, driver});
                 queue.push({termId, newPath});
 #ifdef DEBUG_PRINTS
                 printf(
@@ -157,8 +162,12 @@ void LogicLevelComputer::process() {
 
   // 4) Combine all thread-local maxima once, store in member
   for (const auto& localMax : localMaxLogicLevel) {
-    if (localMax > maxLogicLevel_) {
-      maxLogicLevel_ = localMax;
+    if (localMax.first > maxLogicLevel_) {
+      maxLogicLevel_ = localMax.first;
+      logicLevels_ = localMax.second;
+    } else if (localMax.first == maxLogicLevel_) {
+      logicLevels_.insert(logicLevels_.end(), localMax.second.begin(),
+                          localMax.second.end());
     }
   }
 }

@@ -72,6 +72,35 @@ def get_snl_path_from_id_list(id_list: list) -> naja.SNLPath:
     return path
 
 
+class Attribute:
+    def __init__(self, snlAttribute):
+        self.snlAttribute = snlAttribute
+
+    def __str__(self):
+        return str(self.snlAttribute)
+
+    def get_name(self):
+        """
+        :return: the name of the attribute.
+        :rtype: str
+        """
+        return self.snlAttribute.getName()
+
+    def has_value(self):
+        """
+        :return: True if the attribute has a value.
+        :rtype: bool
+        """
+        return self.snlAttribute.hasValue()
+
+    def get_value(self):
+        """
+        :return: the value of the attribute.
+        :rtype: str
+        """
+        return self.snlAttribute.getValue()
+
+
 class Equipotential:
     """Class that represents the term and wraps
     some of the snl occurrence API.
@@ -423,6 +452,25 @@ class Net:
         yield from self.get_design_terms()
         yield from self.get_inst_terms()
 
+    def get_attributes(self) -> Iterator[Attribute]:
+        """Iterate over the attributes of this Net.
+
+        :return: the attributes of this Net.
+        :rtype: Iterator[Attribute]
+        """
+        if hasattr(self, "net"):
+            snlnet = self.net
+            for attribute in snlnet.getAttributes():
+                yield Attribute(attribute)
+
+    def count_attributes(self) -> int:
+        """Count the attributes of this Net.
+
+        :return: the number of attributes of this Net.
+        :rtype: int
+        """
+        return sum(1 for _ in self.get_attributes())
+
 
 def get_snl_term_for_ids(pathIDs, termIDs):
     path = get_snl_path_from_id_list(pathIDs)
@@ -637,6 +685,24 @@ class Term:
             return Term.Direction.OUTPUT
         elif snlterm.getDirection() == naja.SNLTerm.Direction.InOut:
             return Term.Direction.INOUT
+
+    def get_attributes(self) -> Iterator[Attribute]:
+        """Iterate over the attributes of this Term.
+
+        :return: the attributes of this Term.
+        :rtype: Iterator[Attribute]
+        """
+        snlterm = get_snl_term_for_ids(self.pathIDs, self.termIDs)
+        for attribute in snlterm.getAttributes():
+            yield Attribute(attribute)
+
+    def count_attributes(self) -> int:
+        """Count the attributes of this Term.
+
+        :return: the number of attributes of this Term.
+        :rtype: int
+        """
+        return sum(1 for _ in self.get_attributes())
 
     def get_combinatorial_inputs(self):
         """Get all combinatorial input terms of this instance.
@@ -892,35 +958,6 @@ class Term:
 
 def get_instance_by_path(names: list):
     return get_top().get_child_instance(names)
-
-
-class Attribute:
-    def __init__(self, snlAttribute):
-        self.snlAttribute = snlAttribute
-
-    def __str__(self):
-        return str(self.snlAttribute)
-
-    def get_name(self):
-        """
-        :return: the name of the attribute.
-        :rtype: str
-        """
-        return self.snlAttribute.getName()
-
-    def has_value(self):
-        """
-        :return: True if the attribute has a value.
-        :rtype: bool
-        """
-        return self.snlAttribute.hasValue()
-
-    def get_value(self):
-        """
-        :return: the value of the attribute.
-        :rtype: str
-        """
-        return self.snlAttribute.getValue()
 
 
 class Instance:
@@ -1831,7 +1868,7 @@ def apply_constant_propagation():
         naja.NLUniverse.get().applyConstantPropagation()
 
 
-def get_max_fanout() -> int:
+def get_max_fanout() -> list:
     """Get the maximum fanout of the top design.
 
     :return: the maximum fanout of the top design.
@@ -1842,10 +1879,10 @@ def get_max_fanout() -> int:
         top = naja.NLUniverse.get().getTopDesign()
         if top is not None:
             return naja.NLUniverse.get().getMaxFanout()
-    return 0
+    return [0]
 
 
-def get_max_logic_level() -> int:
+def get_max_logic_level() -> list:
     """Get the maximum logic level of the top design.
 
     :return: the maximum logic level of the top design.
@@ -1856,4 +1893,4 @@ def get_max_logic_level() -> int:
         top = naja.NLUniverse.get().getTopDesign()
         if top is not None:
             return naja.NLUniverse.get().getMaxLogicLevel()
-    return 0
+    return [0]

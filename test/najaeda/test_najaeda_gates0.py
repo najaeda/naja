@@ -48,8 +48,8 @@ class NajaNetlistTestGates0(unittest.TestCase):
         design_files = [os.path.join(verilog_benchmarks, "test_gates0.v")]
         netlist.load_primitives('xilinx')
         netlist.load_verilog(design_files)
-        print("Max logic level:", netlist.get_max_logic_level())
-        print("Max fanout:", netlist.get_max_fanout())
+        print("Max logic level:", netlist.get_max_logic_level()[0])
+        print("Max fanout:", netlist.get_max_fanout()[0])
        
         
 if __name__ == '__main__':

@@ -14,9 +14,7 @@ project(naja
 cmake_policy(SET CMP0048 NEW)
 if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.30")
   cmake_policy(SET CMP0167 OLD)
-endif()
-if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.24")
-  set(CMAKE_COMPILE_WARNING_AS_ERROR ON)
+  cmake_policy(SET CMP0144 NEW)
 endif()
 
 include(GNUInstallDirs)
@@ -54,8 +52,23 @@ endif()
 set(CMAKE_CXX_STANDARD 20)
 
 option(BUILD_ONLY_DOC "Only configure to build Doxygen documentation" OFF)
+option(BUILD_EMSCRIPTEN "Build with Emscripten" OFF)
 
-set(NAJA_CXX_WARNINGS -Werror -Wall -pedantic-errors -Wconversion -Wsign-conversion -Wextra -Wno-unused-parameter)
+if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.24" AND NOT BUILD_EMSCRIPTEN)
+  set(CMAKE_COMPILE_WARNING_AS_ERROR ON)
+endif()
+
+if(BUILD_EMSCRIPTEN)
+  add_compile_options(-fexceptions)
+  add_link_options(
+  "-sEXIT_RUNTIME=1"
+  "-sASSERTIONS=0"
+  "-sVERBOSE=0"
+  "-sALLOW_MEMORY_GROWTH=1"
+  "-sDISABLE_EXCEPTION_CATCHING=0"
+  "--verbose"
+)
+endif()
 
 set(ARGPARSE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/argparse-3.1/include)
 set(SPDLOG_DIR ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/spdlog-1.15.3/include)
@@ -88,14 +101,16 @@ if(ENABLE_SANITIZERS)
 endif(ENABLE_SANITIZERS)
 
 if(NOT BUILD_ONLY_DOC)
-  find_package(TBB REQUIRED)
   find_package(Boost REQUIRED)
-  find_package(CapnProto REQUIRED)
-  if (NOT ${BUILD_NAJA_PYTHON})
-    find_package(Python3 3.9...<3.99 COMPONENTS Interpreter Development.Embed Development.Module REQUIRED)
-  else()
-    find_package(Python3 3.9...<3.99 COMPONENTS Interpreter Development.Module REQUIRED)
-  endif()
+  if(NOT BUILD_EMSCRIPTEN)
+    find_package(TBB REQUIRED)
+    find_package(CapnProto REQUIRED)
+    if (NOT ${BUILD_NAJA_PYTHON})
+      find_package(Python3 3.9...<3.99 COMPONENTS Interpreter Development.Embed Development.Module REQUIRED)
+    else()
+      find_package(Python3 3.9...<3.99 COMPONENTS Interpreter Development.Module REQUIRED)
+    endif()
+  endif(NOT BUILD_EMSCRIPTEN)
 endif(NOT BUILD_ONLY_DOC)
 
 if(PROJECT_IS_TOP_LEVEL AND NOT BUILD_NAJA_PYTHON)
@@ -103,7 +118,9 @@ if(PROJECT_IS_TOP_LEVEL AND NOT BUILD_NAJA_PYTHON)
   include(CTest)
   enable_testing()
   add_subdirectory(test)
+endif()
   
+if(BUILD_ONLY_DOC)
   option(BUILD_SPHINX_DOCUMENTATION "Build Sphinx documentation" OFF)
   
   set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
@@ -113,16 +130,16 @@ if(PROJECT_IS_TOP_LEVEL AND NOT BUILD_NAJA_PYTHON)
   if(DOXYGEN_FOUND)
     add_subdirectory(docs)
   endif(DOXYGEN_FOUND)
-  #Sphinx
-  #look for Sphinx package
-  find_package(Sphinx)
   
   if(BUILD_SPHINX_DOCUMENTATION)
+    #Sphinx
+    #look for Sphinx package
+    find_package(Sphinx)
     if (NOT (DOXYGEN_FOUND AND SPHINX_FOUND))
       message(SEND_ERROR "Doxygen and Sphinx must be available to build Sphinx documentation")
     endif(NOT (DOXYGEN_FOUND AND SPHINX_FOUND))
   endif(BUILD_SPHINX_DOCUMENTATION)
-endif(PROJECT_IS_TOP_LEVEL AND NOT BUILD_NAJA_PYTHON)
+endif()
 
 if(NOT BUILD_ONLY_DOC)
   add_subdirectory(thirdparty)
