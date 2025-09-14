@@ -3,19 +3,19 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "RemoveLoadlessLogic.h"
+#include <RemoveLoadlessLogic.h>
 
 #include <vector>
 #include <sstream>
 
-#include "tbb/enumerable_thread_specific.h"
+#include <tbb/enumerable_thread_specific.h>
 
-#include "NLUniverse.h"
-#include "NLDB0.h"
-#include "SNLBusNetBit.h"
-#include "SNLUniquifier.h"
+#include <NLUniverse.h>
+#include <NLDB0.h>
+#include <SNLBusNetBit.h>
+#include <SNLUniquifier.h>
 
-#include "BNE.h"
+#include <BNE.h>
 
 using namespace naja::DNL;
 using namespace naja::NL;

@@ -6,9 +6,9 @@
 #pragma once
 
 #include <string>
-#include "DNL.h"
-#include "tbb/concurrent_unordered_set.h"
-#include "tbb/scalable_allocator.h"
+#include <DNL.h>
+#include <tbb/concurrent_unordered_set.h>
+#include <tbb/scalable_allocator.h>
 
 using namespace naja::DNL;
 using namespace naja::NL;

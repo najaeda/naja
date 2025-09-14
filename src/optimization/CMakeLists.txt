@@ -2,32 +2,34 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-set(SOURCES
-  RemoveLoadlessLogic.cpp
-  ConstantPropagation.cpp
-  Reduction.cpp
+# Add subdirectories - each will build their own libraries
+add_subdirectory(constant_propagation)
+add_subdirectory(loadless_logic)
+add_subdirectory(reduction)
+
+# Main optimization library that links all sub-modules
+add_library(naja_opt INTERFACE)
+target_link_libraries(naja_opt 
+  INTERFACE 
+    naja_constant_propagation
+    naja_loadless_logic
+    naja_reduction
+    naja_bne 
+    naja_dnl 
+    coverage_config 
+    sanitizers_config
 )
 
-set(NAJA_OPT_HEADERS
-  RemoveLoadlessLogic.h
-  ConstantPropagation.h
-  Reduction.h
+target_include_directories(naja_opt 
+  INTERFACE 
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${SPDLOG_DIR}
 )
 
-add_library(naja_opt SHARED ${SOURCES})
-target_link_libraries(naja_opt PUBLIC naja_bne naja_dnl coverage_config sanitizers_config)
-
-if(APPLE)
-  # see dnl compile for details
-  target_compile_options(naja_opt PRIVATE -Wno-sign-conversion)
-endif()
-target_compile_options(naja_opt BEFORE PRIVATE ${NAJA_CXX_WARNINGS}) 
-
-target_include_directories(naja_opt SYSTEM BEFORE PUBLIC ${Boost_INCLUDE_DIR})
-target_include_directories(naja_opt PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_include_directories(naja_opt PUBLIC ${SPDLOG_DIR})
-
-set_target_properties(naja_opt PROPERTIES PUBLIC_HEADER "${naja_opt_HEADERS}")
+target_include_directories(naja_opt SYSTEM 
+  INTERFACE 
+    ${Boost_INCLUDE_DIR}
+)
 
 if(BUILD_NAJA_PYTHON)
   install(TARGETS naja_opt LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/najaeda)

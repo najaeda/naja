@@ -2,7 +2,7 @@
 // <https://github.com/najaeda/naja/blob/main/AUTHORS>
 //
 // SPDX-License-Identifier: Apache-2.0
-#include "ConstantPropagation.h"
+#include <ConstantPropagation.h>
 
 #include <iostream>
 #include <ranges>
@@ -10,13 +10,13 @@
 #include <stack>
 #include <vector>
 
-#include "SNLDesignModeling.h"
-#include "NLLibraryTruthTables.h"
-#include "SNLScalarNet.h"
-#include "SNLTruthTable.h"
-#include "SNLUniquifier.h"
+#include <SNLDesignModeling.h>
+#include <NLLibraryTruthTables.h>
+#include <SNLScalarNet.h>
+#include <SNLTruthTable.h>
+#include <SNLUniquifier.h>
 
-#include "Reduction.h"
+#include <Reduction.h>
 using namespace naja::DNL;
 using namespace naja::NAJA_OPT;
 using namespace naja::NL;

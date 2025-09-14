@@ -8,12 +8,12 @@
 #include <set>
 #include <vector>
 
-#include "BNE.h"
+#include <BNE.h>
 
-#include "SNLTruthTable.h"
-#include "NLLibraryTruthTables.h"
+#include <SNLTruthTable.h>
+#include <NLLibraryTruthTables.h>
 
-#include "DNL.h"
+#include <DNL.h>
 
 using namespace naja::DNL;
 using namespace naja::NL;

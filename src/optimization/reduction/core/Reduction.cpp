@@ -3,11 +3,11 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "Reduction.h"
+#include <Reduction.h>
 
-#include "SNLDesignModeling.h"
-#include "SNLTruthTable.h"
-#include "SNLUniquifier.h"
+#include <SNLDesignModeling.h>
+#include <SNLTruthTable.h>
+#include <SNLUniquifier.h>
 
 using namespace naja::DNL;
 using namespace naja::NL;

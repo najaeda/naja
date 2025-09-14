@@ -3,9 +3,9 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "DNL.h"
+#include <DNL.h>
 #include <unordered_map>
-#include "SNLTruthTable.h"
+#include <SNLTruthTable.h>
 
 using namespace naja::NL;
 using namespace naja::DNL;
