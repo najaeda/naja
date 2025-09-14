@@ -42,7 +42,6 @@ if __name__ == '__main__':
         max_logic_level = 0
         while len(queue) > 0:
             term, path = queue.popleft()
-            print("Queue size:", len(queue), "Current term:", term, "Path length:", len(path))
             if path is not None and len(path) > max_logic_level:
                 max_logic_level = len(path)
             leaf_drivers = term.get_equipotential().get_leaf_drivers()
@@ -57,7 +56,6 @@ if __name__ == '__main__':
                     path2ll[(tuple(driver.pathIDs), tuple(driver.termIDs))] = len(path)
                 input_terms = driver.get_combinatorial_inputs()
                 for input_term in input_terms:
-                    print(" --- Input term: ", input_term, " from instance: ", instance.get_name(), " direction: ", input_term.get_direction())
                     if path is not None and input_term in path:
                         continue # Avoid cycles
                     newPath = []
