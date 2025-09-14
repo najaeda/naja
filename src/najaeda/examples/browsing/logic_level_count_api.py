@@ -10,6 +10,7 @@ from collections import deque
 import time
 
 from najaeda import netlist
+from najaeda import naja
 import faulthandler
 
 logging.basicConfig(level=logging.INFO)
@@ -36,7 +37,15 @@ if __name__ == '__main__':
         print("Path", i, ":")
         i += 1
         for n in p:
-            print(n)
-    
+            component = n.getComponent()
+            if isinstance(component, naja.SNLInstTerm):
+                component = component.getBitTerm()
+            term = netlist.Term(n.getPath().getPathIDs(), component)
+            print("Term:", term)
+            #if len(term.get_instance().pathIDs) > 0 and term.get_instance().count_attributes() > 0:
+            print("Attributes:")
+            for att in term.get_instance().get_attributes():
+                print(att.get_name(), "=", att.get_value())
+        
     
     
