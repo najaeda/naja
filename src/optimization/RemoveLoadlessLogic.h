@@ -4,7 +4,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #pragma once
-o
+
 #include <string>
 #include "DNL.h"
 #include "tbb/concurrent_unordered_set.h"

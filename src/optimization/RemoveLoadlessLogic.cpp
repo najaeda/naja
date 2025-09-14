@@ -23,7 +23,7 @@ using namespace naja::DNL;
 using namespace naja::NL;
 using namespace naja::BNE;
 
-// #define DEBUG_PRINTS
+//#define DEBUG_PRINTS
 
 using namespace naja::NAJA_OPT;
 

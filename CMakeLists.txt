@@ -49,7 +49,7 @@ endif()
 
 ######
 
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 23)
 
 option(BUILD_ONLY_DOC "Only configure to build Doxygen documentation" OFF)
 option(BUILD_EMSCRIPTEN "Build with Emscripten" OFF)
