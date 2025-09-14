@@ -31,7 +31,8 @@ using namespace naja::NAJA_OPT;
 LoadlessLogicRemover::LoadlessLogicRemover() {}
 
 // Given a DNL, getting all isos connected to top output.
-std::vector<DNLID> LoadlessLogicRemover::getTopOutputIsos(const naja::DNL::DNL<DNLInstanceFull, DNLTerminalFull>& dnl)
+std::vector<DNLID> LoadlessLogicRemover::getTopOutputIsos(const naja::DNL::DNL<DNLInstanceFull,
+							  DNLTerminalFull>& dnl)
 {
   std::vector<DNLID> topOutputIsos;
   for (DNLID term = DNL_GET_FIRST_TERM;
