@@ -4,7 +4,9 @@
 
 add_subdirectory(nl)
 add_subdirectory(formats)
-add_subdirectory(python)
-if(NOT BUILD_NAJA_PYTHON)
+if (NOT BUILD_EMSCRIPTEN)
+  add_subdirectory(python)
+endif()
+if(NOT BUILD_NAJA_PYTHON AND NOT BUILD_EMSCRIPTEN)
   add_subdirectory(snippets)
-endif(NOT BUILD_NAJA_PYTHON)
+endif(NOT BUILD_NAJA_PYTHON AND NOT BUILD_EMSCRIPTEN)
