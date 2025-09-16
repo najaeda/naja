@@ -32,20 +32,13 @@ if __name__ == '__main__':
     
     # print the max logic level paths
     max_level_paths = netlist.get_max_logic_level()[1]
-    i = 0
-    for p in max_level_paths:
-        print("Path", i, ":")
-        i += 1
-        for n in p:
-            component = n.getComponent()
-            if isinstance(component, naja.SNLInstTerm):
-                component = component.getBitTerm()
-            term = netlist.Term(n.getPath().getPathIDs(), component)
-            print("Term:", term)
-            #if len(term.get_instance().pathIDs) > 0 and term.get_instance().count_attributes() > 0:
-            print("Attributes:")
-            for att in term.get_instance().get_attributes():
-                print(att.get_name(), "=", att.get_value())
+    for path in max_level_paths:
+        for term in path:
+            print(term)
+            for attr in term.get_instance().get_attributes():
+                print("   ", attr)
+        
+       
         
     
     
