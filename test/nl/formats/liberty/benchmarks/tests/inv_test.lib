@@ -1,0 +1,12 @@
+library (inv_test) {
+  cell (inv) {
+    pin(I) {
+      direction : input ;  
+    }
+
+    pin(Z) {
+      direction : output ;
+      function : "!I" ;
+    }
+  }
+}

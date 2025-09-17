@@ -1,5 +1,5 @@
 // Copyright 2022 The Naja Authors.
-// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
+// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -113,11 +113,11 @@ class NajaSingletonCollection: public NajaBaseCollection<Type*> {
     Type* object_ {nullptr};
 };
 
-template<class Type, class HookType>
-class NajaIntrusiveSetCollection: public NajaBaseCollection<Type*> {
+template<class Set>
+class NajaIntrusiveSetCollection: public NajaBaseCollection<typename Set::value_type*> {
   public:
+    using Type = typename Set::value_type;
     using super = NajaBaseCollection<Type*>;
-    using Set = boost::intrusive::set<Type, HookType>;
 
     class NajaIntrusiveSetCollectionIterator: public NajaBaseIterator<Type*> {
       public:
@@ -1070,13 +1070,30 @@ template<class Type> class NajaCollection {
       return NajaCollection<ReturnType>();
     }
 
-    NajaBaseIterator<Type>* begin_() { if (collection_) { return collection_->begin(); } return nullptr; }
-    NajaBaseIterator<Type>* end_() { if (collection_) { return collection_->end(); } return nullptr; }
-    Iterator begin() { return Iterator(begin_()); }
-    Iterator end() { return Iterator(end_()); }
+    NajaBaseIterator<Type>* begin_() const { if (collection_) { return collection_->begin(); } return nullptr; }
+    NajaBaseIterator<Type>* end_() const { if (collection_) { return collection_->end(); } return nullptr; }
+    Iterator begin() const { return Iterator(begin_()); }
+    Iterator end() const { return Iterator(end_()); }
 
     size_t size() const { if (collection_) { return collection_->size(); } return 0; }
     bool empty() const { if (collection_) { return collection_->empty(); } return true; }
+    
+    //comparator
+    bool operator==(const NajaCollection& r) const {
+      if (size() == r.size()) {
+        auto it = begin();
+        auto rit = r.begin();
+        while (it != end()) {
+          if (*it != *rit) {
+            return false;
+          }
+          ++it;
+          ++rit;
+        }
+        return true;
+      }
+      return false;
+    }
   private:
     const NajaBaseCollection<Type>*  collection_ {nullptr};
 };

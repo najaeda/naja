@@ -1,9 +1,17 @@
-
-# SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
+# SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
 #
 # SPDX-License-Identifier: Apache-2.0
 
 include(GoogleTest)
 
 add_subdirectory(core)
-add_subdirectory(snl)
+add_subdirectory(nl)
+if (NOT BUILD_EMSCRIPTEN)
+  add_subdirectory(najaeda)
+endif()
+if(NOT BUILD_NAJA_PYTHON AND NOT BUILD_EMSCRIPTEN)
+  add_subdirectory(dnl)
+  add_subdirectory(bne)
+  add_subdirectory(logic_opt)
+  add_subdirectory(metrics)
+endif()

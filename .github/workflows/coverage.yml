@@ -16,26 +16,29 @@ jobs:
     # well on Windows or Mac.  You can convert this to a matrix build if you need
     # cross-platform coverage.
     # See: https://docs.github.com/en/free-pro-team@latest/actions/learn-github-actions/managing-complex-workflows#using-a-build-matrix
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         fetch-depth: 0
         submodules: true
 
     - name: Install boost & capnproto
       # install dependencies
-      run: sudo apt-get update && sudo apt-get install -yq libboost-dev libfl-dev capnproto libcapnp-dev lcov
+      run: sudo apt-get update && sudo apt-get install -yq libboost-dev libfl-dev capnproto libcapnp-dev lcov libtbb-dev libtbb-dev clang
       
     - name: Configure CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
       # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
-      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCODE_COVERAGE=ON
+      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCODE_COVERAGE=ON -DLONG_TESTS=ON
 
     - name: Build
       # Build your program with the given configuration
       run: cmake --build ${{github.workspace}}/build -j 4 --config ${{env.BUILD_TYPE}}
+      env:
+        CC:   clang
+        CXX:  clang++
 
     - name: Test
       working-directory: ${{github.workspace}}/build
@@ -47,15 +50,16 @@ jobs:
       working-directory: ${{github.workspace}}/build
       run: |
            lcov --directory . --capture --output-file coverage.info
-           lcov --remove coverage.info --output-file coverage.info '/usr/*' '*/naja/test/*' '*/naja/thirdparty/*'
+           lcov --remove coverage.info --output-file coverage.info '/usr/*' '*/test/*' '*/naja/thirdparty/*'
     - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v3
+      uses: codecov/codecov-action@v4
+      env:
+        CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       with:
-        directory: ${{github.workspace}}/build
-        #env_vars: OS,PYTHON
         fail_ci_if_error: true
+        file: ${{github.workspace}}/build/coverage.info
+        disable_search: true
         files: coverage.info
         flags: unittests
         name: codecov-umbrella
-        #path_to_write_report: ./coverage/codecov_report.txt
         verbose: true

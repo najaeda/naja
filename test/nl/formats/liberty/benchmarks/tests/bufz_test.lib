@@ -1,0 +1,16 @@
+library (bufz_test) {
+  cell(bufz) {
+    pin(EN) {
+      direction : input ;
+    }
+
+    pin(I) {
+      direction : input ;
+    }
+
+    pin(Z) {
+      direction : output ;
+      function : "I" ;
+    }
+  }
+}

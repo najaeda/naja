@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
+// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -70,9 +70,7 @@ class TestPrivateProperty: public NajaPrivateProperty {
     }
 };
 
-
 }
-
 
 class NajaPrivatePropertyTest: public ::testing::Test {
   protected:
@@ -96,6 +94,5 @@ TEST_F(NajaPrivatePropertyTest, test) {
   EXPECT_TRUE(testObject_->hasProperty(TestPrivateProperty::Name));
   EXPECT_EQ(property, testObject_->getProperty(TestPrivateProperty::Name));
   EXPECT_EQ(1, testObject_->getProperties().size());
-  EXPECT_FALSE(property->isDumpable());
   EXPECT_THROW(TestPrivateProperty::create(testObject_), NajaException);
 }

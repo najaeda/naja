@@ -1,0 +1,14 @@
+library (or2_test) {
+  cell (or2) {
+    pin(I0) {
+      direction : input ;  
+    }
+    pin(I1) {
+      direction : input ;  
+    }
+    pin(Z) {
+      direction : output ;
+      function : "I0|I1" ;
+    }
+  }
+}

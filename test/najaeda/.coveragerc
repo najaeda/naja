@@ -1,0 +1,9 @@
+[report]
+omit =
+    test_najaeda_*.py
+    primitives.py
+    error_primitives.py
+
+exclude_lines =
+    def __str__
+    def __repr__

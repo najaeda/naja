@@ -3,4 +3,10 @@
 	url = https://github.com/google/googletest
 [submodule "thirdparty/naja-verilog"]
 	path = thirdparty/naja-verilog
-	url = https://github.com/xtofalex/naja-verilog
+	url = https://github.com/najaeda/naja-verilog
+[submodule "thirdparty/cpptrace"]
+	path = thirdparty/cpptrace
+	url = https://github.com/jeremy-rifkin/cpptrace
+[submodule "thirdparty/naja-if"]
+	path = thirdparty/naja-if
+	url = https://github.com/najaeda/naja-if

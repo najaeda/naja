@@ -1,5 +1,5 @@
 // Copyright 2022 The Naja Authors.
-// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
+// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -13,6 +13,7 @@
 namespace naja {
 
 class NajaProperty;
+class NajaDumpableProperty;
 
 class NajaObject {
   public:
@@ -35,10 +36,14 @@ class NajaObject {
     ///\return the collection of NajaProperties of this NajaObject
     NajaCollection<NajaProperty*> getProperties() const;
     ///\return the collection of dumpable NajaProperties of this NajaObject
-    NajaCollection<NajaProperty*> getDumpableProperties() const;
+    NajaCollection<NajaDumpableProperty*> getDumpableProperties() const;
 
     ///destroy this object
     virtual void destroy();
+    void put(NajaProperty* property);
+    void remove(NajaProperty* property);
+    void onDestroyed (NajaProperty* property);
+    
   protected:
     NajaObject() = default;
     virtual ~NajaObject() = default;

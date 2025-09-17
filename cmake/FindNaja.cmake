@@ -1,5 +1,5 @@
 #[=======================================================================[.rst:
-# SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/xtofalex/naja/blob/main/AUTHORS>
+# SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
 #
 # SPDX-License-Identifier: Apache-2.0
 FindNaja
@@ -34,12 +34,12 @@ The following cache variables may also be set:
   path to the Naja verilog library
 #]=======================================================================]
 
-find_path(NAJA_INCLUDE_DIR NAMES SNLUniverse.h
+find_path(NAJA_INCLUDE_DIR NAMES NLUniverse.h
    HINTS
    $ENV{NAJA_INSTALL}/include
 )
 
-find_library(NAJA_SNL_LIBRARY NAMES naja_snl
+find_library(NAJA_SNL_LIBRARY NAMES naja_nl
    HINTS
    $ENV{NAJA_INSTALL}/lib
 )
