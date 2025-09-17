@@ -37,6 +37,3 @@ if __name__ == '__main__':
             print(term)
             for attr in term.get_instance().get_attributes():
                 print("   ", attr)
-    
-    
-    
