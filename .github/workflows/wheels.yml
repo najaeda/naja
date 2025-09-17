@@ -6,7 +6,6 @@ on:
   push:
     branches:
       - main
-      - b*
     tags:
       - v*
   # Also allow running this action on PRs if requested by applying the
@@ -148,7 +147,7 @@ jobs:
           path: dist
           merge-multiple: true
 
-      - uses: pypa/gh-action-pypi-publish@v1.12.2
+      - uses: pypa/gh-action-pypi-publish@v1.13.0
         with:
           password: ${{ secrets.TEST_PYPI_API_TOKEN }}
           repository-url: https://test.pypi.org/legacy/
@@ -167,7 +166,7 @@ jobs:
           pattern: cibw-*
           path: dist
           merge-multiple: true
-      - uses: pypa/gh-action-pypi-publish@v1.12.2
+      - uses: pypa/gh-action-pypi-publish@v1.13.0
         with:
           password: ${{ secrets.PYPI_API_TOKEN }}
           skip-existing: true

@@ -11,8 +11,7 @@ from najaeda import naja
 
 class NajaNetlistTestErrors(unittest.TestCase):
     def tearDown(self):
-        if naja.NLUniverse.get():
-            naja.NLUniverse.get().destroy()
+        netlist.reset()
 
     def test_missing_model(self):
         top = netlist.create_top('Top')
@@ -28,7 +27,7 @@ class NajaNetlistTestErrors(unittest.TestCase):
         self.assertIsNotNone(top)
         topTerm = top.create_input_term('Top')
         topNet = top.create_bus_net('net', 1, 0)
-        self.assertRaises(Exception, topTerm.connect, topNet)
+        self.assertRaises(Exception, topTerm.connect_upper_net, topNet)
 
     def test_empty_liberty(self):
         self.assertRaises(Exception, netlist.load_liberty, [])

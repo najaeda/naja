@@ -8,7 +8,7 @@
 #include "NLUniverse.h"
 
 #include "SNLScalarTerm.h"
-#include "SNLDesignTruthTable.h"
+#include "SNLDesignModeling.h"
 using namespace naja::NL;
 
 class SNLDesignTruthTableTest0: public ::testing::Test {
@@ -30,6 +30,6 @@ TEST_F(SNLDesignTruthTableTest0, testTruthTablesConflictError) {
   auto i1 = SNLScalarTerm::create(design, SNLTerm::Direction::Input, NLName("I1"));
   auto o = SNLScalarTerm::create(design, SNLTerm::Direction::Output, NLName("O"));
   //set truth table
-  SNLDesignTruthTable::setTruthTable(design, SNLTruthTable(2, 0x5));
-  EXPECT_THROW(SNLDesignTruthTable::setTruthTable(design, SNLTruthTable(2, 0x1)), NLException);
+  SNLDesignModeling::setTruthTable(design, SNLTruthTable(2, 0x5));
+  EXPECT_THROW(SNLDesignModeling::setTruthTable(design, SNLTruthTable(2, 0x1)), NLException);
 }

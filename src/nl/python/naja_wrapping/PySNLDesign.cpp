@@ -26,10 +26,11 @@
 #include "PySNLBitNets.h"
 #include "PySNLInstances.h"
 #include "PySNLParameters.h"
+#include "PySNLAttributes.h"
+#include "PySNLAttribute.h"
 
 #include "SNLDesign.h"
 #include "SNLDesignModeling.h"
-#include "SNLDesignTruthTable.h"
 #include "SNLTruthTable.h"
 #include "SNLVRLDumper.h"
 
@@ -288,7 +289,7 @@ static PyObject* PySNLDesign_setTruthTable(PySNLDesign* self, PyObject* args) {
   size_t size = selfObject->getBitTerms().getSubCollection(filter).size();
   SNLTruthTable truthTable(size, tt);
   try {
-    SNLDesignTruthTable::setTruthTable(selfObject, truthTable);
+    SNLDesignModeling::setTruthTable(selfObject, truthTable);
   } catch (const NLException& e) {
     PyErr_SetString(PyExc_RuntimeError, e.what());
     return nullptr;
@@ -332,7 +333,7 @@ static PyObject* PySNLDesign_setTruthTables(PySNLDesign* self, PyObject* args) {
   }
   METHOD_HEAD("SNLDesign.setTruthTables()")
   try {
-    SNLDesignTruthTable::setTruthTables(selfObject, truthTables);
+    SNLDesignModeling::setTruthTables(selfObject, truthTables);
   } catch (const NLException& e) {
     PyErr_SetString(PyExc_RuntimeError, e.what());
     return nullptr;
@@ -343,7 +344,7 @@ static PyObject* PySNLDesign_setTruthTables(PySNLDesign* self, PyObject* args) {
 // Return the truth table for design
 PyObject* PySNLDesign_getTruthTable(PySNLDesign* self) { 
   const SNLTruthTable& truthTable =
-      SNLDesignTruthTable::getTruthTable(self->object_);
+      SNLDesignModeling::getTruthTable(self->object_);
   if (!truthTable.isInitialized()) {
     Py_RETURN_NONE;
   }
@@ -365,7 +366,7 @@ static PyObject* PySNLDesign_getTruthTableByOutputID(PySNLDesign* self, PyObject
   }
   METHOD_HEAD("SNLDesign.getTruthTableByOutputID()")
   SNLTruthTable truthTable =
-      SNLDesignTruthTable::getTruthTable(selfObject, outputID);
+      SNLDesignModeling::getTruthTable(selfObject, outputID);
   if (!truthTable.isInitialized()) {
     Py_RETURN_NONE;
   }
@@ -447,6 +448,19 @@ PyObject* PySNLDesign_getNLID(PySNLDesign* self) {
   return py_list;
 }
 
+static PyObject* PySNLDesign_addAttribute(PySNLDesign* self, PyObject* args) {
+  METHOD_HEAD("SNLDesign.addAttribute()")
+  PySNLAttribute* pyAttribute = nullptr;
+  if (PyArg_ParseTuple(args, "O!", &PyTypeSNLAttribute, &pyAttribute)) {
+    auto attribute = PYSNLAttribute_O(pyAttribute);
+    SNLAttributes::addAttribute(selfObject, *attribute);
+  } else {
+    setError("invalid number of parameters for addAttribute.");
+    return nullptr;
+  }
+  Py_RETURN_NONE;
+}
+
 static PyObject* PySNLDesign_getCombinatorialInputs(PySNLDesign*, PyObject* object) {
   GetDesignModelingRelatedObjects(SNLBitTerm, getCombinatorialInputs, SNLDesign)
 }
@@ -476,6 +490,7 @@ GetObjectByName(SNLDesign, SNLParameter, getParameter)
 GetObjectByIndex(SNLDesign, SNLInstance, InstanceByID)
 GetObjectByIndex(SNLDesign, SNLTerm, TermByID)
 GetNameMethod(SNLDesign)
+SetNameMethod(SNLDesign)
 DirectGetIntMethod(PySNLDesign_getID, getID, PySNLDesign, SNLDesign)
 DirectGetIntMethod(PySNLDesign_getRevisionCount, getRevisionCount, PySNLDesign, SNLDesign)
 GetBoolAttribute(SNLDesign, isUnnamed)
@@ -484,11 +499,13 @@ GetBoolAttribute(SNLDesign, isPrimitive)
 GetBoolAttribute(SNLDesign, isLeaf)
 GetBoolAttribute(SNLDesign, isAssign)
 GetBoolAttribute(SNLDesign, isTopDesign)
-GetBoolAttributeWithFunction(SNLDesign, isConst0, SNLDesignTruthTable::isConst0)
-GetBoolAttributeWithFunction(SNLDesign, isConst1, SNLDesignTruthTable::isConst1)
-GetBoolAttributeWithFunction(SNLDesign, isConst, SNLDesignTruthTable::isConst)
-GetBoolAttributeWithFunction(SNLDesign, isBuf, SNLDesignTruthTable::isBuf)
-GetBoolAttributeWithFunction(SNLDesign, isInv, SNLDesignTruthTable::isInv)
+GetBoolAttributeWithFunction(SNLDesign, hasModeling, SNLDesignModeling::hasModeling)
+GetBoolAttributeWithFunction(SNLDesign, isConst0, SNLDesignModeling::isConst0)
+GetBoolAttributeWithFunction(SNLDesign, isConst1, SNLDesignModeling::isConst1)
+GetBoolAttributeWithFunction(SNLDesign, isConst, SNLDesignModeling::isConst)
+GetBoolAttributeWithFunction(SNLDesign, isBuf, SNLDesignModeling::isBuf)
+GetBoolAttributeWithFunction(SNLDesign, isInv, SNLDesignModeling::isInv)
+GetBoolAttributeWithFunction(SNLDesign, isSequential, SNLDesignModeling::isSequential)
 GetContainerMethod(SNLDesign, SNLTerm*, SNLTerms, Terms)
 GetContainerMethod(SNLDesign, SNLBitTerm*, SNLBitTerms, BitTerms)
 GetContainerMethod(SNLDesign, SNLScalarTerm*, SNLScalarTerms, ScalarTerms)
@@ -499,6 +516,7 @@ GetContainerMethod(SNLDesign, SNLBusNet*, SNLBusNets, BusNets)
 GetContainerMethod(SNLDesign, SNLBitNet*, SNLBitNets, BitNets)
 GetContainerMethod(SNLDesign, SNLInstance*, SNLInstances, Instances)
 GetContainerMethod(SNLDesign, SNLParameter*, SNLParameters, Parameters)
+GetContainerMethod(SNLDesign, SNLAttribute, SNLAttributes, Attributes)
 
 DBoDestroyAttribute(PySNLDesign_destroy, PySNLDesign)
 
@@ -547,6 +565,8 @@ PyMethodDef PySNLDesign_Methods[] = {
     "get SNLDesign name"},
   { "isUnnamed", (PyCFunction)PySNLDesign_isUnnamed, METH_NOARGS,
     "Returns True if the SNLDesign is unnamed"},
+  { "setName", (PyCFunction)PySNLDesign_setName, METH_O,
+    "Set the NLName of this SNLDesign."},
   { "isBlackBox", (PyCFunction)PySNLDesign_isBlackBox, METH_NOARGS,
     "Returns True if the SNLDesign is a Blackbox"},
   { "isPrimitive", (PyCFunction)PySNLDesign_isPrimitive, METH_NOARGS,
@@ -555,6 +575,8 @@ PyMethodDef PySNLDesign_Methods[] = {
     "Returns True if the SNLDesign is a Leaf"},
   { "isAssign", (PyCFunction)PySNLDesign_isAssign, METH_NOARGS,
     "Returns True if the SNLDesign is an Assign"},
+  { "isSequential", (PyCFunction)PySNLDesign_isSequential, METH_NOARGS,
+    "Returns True if the SNLDesign is a Sequential"},
   { "getDB", (PyCFunction)PySNLDesign_getDB, METH_NOARGS,
     "Returns the SNLDesign owner SNLDB."},
   { "getLibrary", (PyCFunction)PySNLDesign_getLibrary, METH_NOARGS,
@@ -617,6 +639,12 @@ PyMethodDef PySNLDesign_Methods[] = {
     "get truth table by output ID."},
   { "setTruthTables", (PyCFunction)PySNLDesign_setTruthTables, METH_VARARGS,
     "set truth tables for design."},
+  { "hasModeling", (PyCFunction)PySNLDesign_hasModeling, METH_NOARGS,
+    "Returns True if the SNLDesign has modeling."},
+  {"addAttribute", (PyCFunction)PySNLDesign_addAttribute, METH_VARARGS,
+    "add an attribute to the design."},
+  {"getAttributes", (PyCFunction)PySNLDesign_getAttributes, METH_NOARGS,
+    "get a container of SNLAttributes."},
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 

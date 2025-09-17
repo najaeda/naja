@@ -12,8 +12,6 @@
 #include "PySNLInstParameter.h"
 #include "PySNLInstTerm.h"
 #include "PySNLBitTerm.h"
-#include "PySNLAttribute.h"
-#include "PySNLAttributes.h"
 #include "PySNLInstTerms.h"
 #include "PySNLInstParameters.h"
 
@@ -60,7 +58,7 @@ static PyObject* PySNLInstance_create(PyObject*, PyObject* args) {
 GetObjectMethod(SNLInstance, SNLDesign, getModel)
 GetObjectByName(SNLInstance, SNLInstParameter, getInstParameter)
 
-static PyObject* PySNLDesign_getCombinatorialInputs(PySNLDesign*, PyObject* output) {
+static PyObject* PySNLInstance_getCombinatorialInputs(PySNLDesign*, PyObject* output) {
   if (IsPySNLInstTerm(output)) {
     auto outputITerm = PYSNLInstTerm_O(output);
     PySNLInstTerms* pyObjects = nullptr;
@@ -76,7 +74,7 @@ static PyObject* PySNLDesign_getCombinatorialInputs(PySNLDesign*, PyObject* outp
   return nullptr;
 }
 
-static PyObject* PySNLDesign_getCombinatorialOutputs(PySNLDesign*, PyObject* input) {
+static PyObject* PySNLInstance_getCombinatorialOutputs(PySNLDesign*, PyObject* input) {
   if (IsPySNLInstTerm(input)) {
     auto inputITerm = PYSNLInstTerm_O(input);
     PySNLInstTerms* pyObjects = nullptr;
@@ -119,22 +117,8 @@ static PyObject* PySNLInstance_getInstTerm(PySNLInstance* self, PyObject* args) 
 
 GetContainerMethod(SNLInstance, SNLInstTerm*, SNLInstTerms, InstTerms)
 GetContainerMethod(SNLInstance, SNLInstParameter*, SNLInstParameters, InstParameters)
-GetContainerMethod(SNLInstance, SNLAttribute, SNLAttributes, Attributes)
 
 DirectGetIntMethod(PySNLInstance_getID, getID, PySNLInstance, SNLInstance)
-
-static PyObject* PySNLInstance_addAttribute(PySNLInstance* self, PyObject* args) {
-  METHOD_HEAD("SNLInstance.addAttribute()")
-  PySNLAttribute* pyAttribute = nullptr;
-  if (PyArg_ParseTuple(args, "O!", &PyTypeSNLAttribute, &pyAttribute)) {
-    auto attribute = PYSNLAttribute_O(pyAttribute);
-    SNLAttributes::addAttribute(selfObject, *attribute);
-  } else {
-    setError("invalid number of parameters for getInstTerm.");
-    return nullptr;
-  }
-  Py_RETURN_NONE;
-}
 
 PyMethodDef PySNLInstance_Methods[] = {
   { "create", (PyCFunction)PySNLInstance_create, METH_VARARGS|METH_STATIC,
@@ -153,13 +137,9 @@ PyMethodDef PySNLInstance_Methods[] = {
     "get a container of SNLInstTerms."},
   {"getInstParameters", (PyCFunction)PySNLInstance_getInstParameters, METH_NOARGS,
     "get a container of SNLInstParameters."},
-  {"addAttribute", (PyCFunction)PySNLInstance_addAttribute, METH_VARARGS,
-    "add an attribute to the instance."},
-  {"getAttributes", (PyCFunction)PySNLInstance_getAttributes, METH_NOARGS,
-    "get a container of SNLAttributes."},
-  { "getCombinatorialInputs", (PyCFunction)PySNLDesign_getCombinatorialInputs, METH_O|METH_STATIC,
+  { "getCombinatorialInputs", (PyCFunction)PySNLInstance_getCombinatorialInputs, METH_O|METH_STATIC,
     "get combinatorial inputs of an instance term"},
-  { "getCombinatorialOutputs", (PyCFunction)PySNLDesign_getCombinatorialOutputs, METH_O|METH_STATIC,
+  { "getCombinatorialOutputs", (PyCFunction)PySNLInstance_getCombinatorialOutputs, METH_O|METH_STATIC,
     "get combinatorial outputs of an instance term"},
   {NULL, NULL, 0, NULL}           /* sentinel */
 };

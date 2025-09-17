@@ -22,6 +22,7 @@
 #include "SNLBusNetBit.h"
 #include "SNLAttributes.h"
 #include "SNLMacros.h"
+#include "SNLDesignModeling.h"
 
 namespace naja { namespace NL {
 
@@ -512,6 +513,10 @@ NajaCollection<SNLParameter*> SNLDesign::getParameters() const {
   return NajaCollection(new NajaIntrusiveSetCollection(&parameters_));
 }
 
+NajaCollection<SNLAttribute> SNLDesign::getAttributes() const {
+  return SNLAttributes::getAttributes(this);
+}
+
 void SNLDesign::setType(Type type) {
   if (type == Type::Primitive) {
     throw NLException("cannot change design type to Primitive");
@@ -736,5 +741,6 @@ void SNLDesign::recursiveRevisionIncrement() {
     instance->getModel()->recursiveRevisionIncrement();
   }
 }
+
 
 }} // namespace NL // namespace naja

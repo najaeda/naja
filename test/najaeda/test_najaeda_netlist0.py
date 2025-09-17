@@ -32,11 +32,11 @@ class ComputeEqui:
 
     def collect(self, termToCollect):
       #if net of term is in self.nets return
-      if termToCollect.get_net() in self.nets:
+      if termToCollect.get_upper_net() in self.nets:
           return
       #add net of term to self.nets
-      self.nets.append(termToCollect.get_net())
-      net = termToCollect.get_net()
+      self.nets.append(termToCollect.get_upper_net())
+      net = termToCollect.get_upper_net()
       for term in net.get_terms():
           if (term.get_instance().is_top()):
                 if not (term in self.terms):
@@ -59,8 +59,7 @@ class NajaNetlistTest0(unittest.TestCase):
         pass
 
     def tearDown(self):
-        if naja.NLUniverse.get():
-            naja.NLUniverse.get().destroy()
+        netlist.reset()
     
     def test_hash(self):
         with self.assertRaises(Exception) as context: netlist.consistent_hash("error")
@@ -73,9 +72,8 @@ class NajaNetlistTest0(unittest.TestCase):
         top = netlist.get_top()
         self.assertIsNotNone(top)
         inst0 = top.get_child_instance('inst0')
-        self.assertFalse(inst0.is_basic_primitive())
         self.assertIsNotNone(inst0)
-        self.assertEqual(0, sum(1 for _ in inst0.get_attributes()))
+        self.assertEqual(0, inst0.count_attributes())
         #print(netlist.get_top())
         #for inst in netlist.get_all_primitive_instances():
         #    print(inst)
@@ -88,9 +86,8 @@ class NajaNetlistTest0(unittest.TestCase):
         top = netlist.get_top()
         self.assertIsNotNone(top)
         inst0 = top.get_child_instance('inst0')
-        self.assertFalse(inst0.is_basic_primitive())
         self.assertIsNotNone(inst0)
-        self.assertEqual(0, sum(1 for _ in inst0.get_attributes()))
+        self.assertEqual(0, inst0.count_attributes())
 
     def test_loader1(self):
         design_files = [os.path.join(verilog_benchmarks, "test1.v")]
@@ -104,8 +101,7 @@ class NajaNetlistTest0(unittest.TestCase):
         netlist.load_verilog(design_files)
         #for inst in netlist.get_all_primitive_instances():
         #    print(inst)
-        if naja.NLUniverse.get():
-            naja.NLUniverse.get().destroy()
+        netlist.reset()
         
     def test_instance(self):
         u = naja.NLUniverse.create()
@@ -150,7 +146,7 @@ class NajaNetlistTest0(unittest.TestCase):
         self.assertEqual(instance2, instance.get_child_instance(ins2.getName()))
 
         self.assertEqual(instance.count_child_instances(), 1)
-        instance.delete_instance(instance2.get_name())
+        instance2.delete()
         self.assertEqual(instance.count_child_instances(), 0)
 
         instance.create_child_instance(self.submodel.getName(), "ins2")
@@ -171,12 +167,12 @@ class NajaNetlistTest0(unittest.TestCase):
         self.assertEqual(i1.get_width(), 5)
         net_i1 = instance.get_net("netO1")
         self.assertEqual(net_i1.get_width(), 5)
-        i1.connect(net_i1)
+        i1.connect_upper_net(net_i1)
 
-        for flat_output in instance.get_flat_output_terms():
+        for flat_output in instance.get_output_bit_terms():
             self.assertEqual(flat_output.get_instance(), instance)
         
-        for flat_net in instance.get_flat_nets():
+        for flat_net in instance.get_bit_nets():
             self.assertEqual(netlist.get_snl_path_from_id_list(flat_net.pathIDs), 
                              netlist.get_snl_path_from_id_list(instance.pathIDs))
 
@@ -187,15 +183,15 @@ class NajaNetlistTest0(unittest.TestCase):
         #     self.assertEqual(insterm.getNet(), net_i1)
         
         inputCount = 0
-        for bit in instance.get_flat_input_terms():
+        for bit in instance.get_input_bit_terms():
             #print(bit)
             self.assertTrue(bit.is_input())
             self.assertFalse(bit.is_output())
             inputCount += 1
         
         self.assertEqual(inputCount, 6)
-        self.assertEqual(instance.count_flat_input_terms(), 6)
-        
+        self.assertEqual(instance.count_input_bit_terms(), 6)
+
         outputCount = 0
         for output in instance.get_output_terms():
             self.assertTrue(output.is_output())
@@ -207,14 +203,14 @@ class NajaNetlistTest0(unittest.TestCase):
         instance.create_output_term("O2")
         
         inputCount = 0
-        for input in instance.get_flat_input_terms():
+        for input in instance.get_input_bit_terms():
             self.assertTrue(input.is_input())
             self.assertFalse(input.is_output())
             inputCount += 1
         
         self.assertEqual(inputCount, 13)
-        self.assertEqual(instance.count_flat_input_terms(), 13)
-        
+        self.assertEqual(instance.count_input_bit_terms(), 13)
+
         outputCount = 0
         for output in instance.get_output_terms():
             self.assertTrue(output.is_output())
@@ -343,15 +339,16 @@ class NajaNetlistTest0(unittest.TestCase):
         #print(instance.get_term("I0").get_net())
         self.assertIsNotNone(instance.get_term("I0"))
         #print(netlist.Net(path0, i0_net))
-        self.assertEqual(instance.get_term("I0").get_net(), netlist.Net(path1.getHeadPath(), i0_net))
+        self.assertEqual(instance.get_term("I0").get_upper_net(), netlist.Net(path1.getHeadPath(), i0_net))
         #print(str(instance.get_term("I0")))
-        instance.get_term("I0").disconnect()
-        self.assertIsNone(instance.get_term("I0").get_net())
-        instance.get_term("I0").connect(netlist.Net(path0, i0_net))
+        instance.get_term("I0").disconnect_upper_net()
+        self.assertIsNone(instance.get_term("I0").get_upper_net())
+        instance.get_term("I0").connect_upper_net(netlist.Net(path0, i0_net))
         flat_fanout = 0
         for fanout in instance.get_term("I0").get_flat_fanout():
             flat_fanout += 1
         self.assertEqual(flat_fanout, 1)
+        self.assertEqual(instance.get_term("I0").count_flat_fanout(), 1)
 
         netlistNet1 = netlist.Net(path1, i0_net)
         netlistNet2 = netlist.Net(path2, i0_net_sub)
@@ -408,7 +405,9 @@ class NajaNetlistTest0(unittest.TestCase):
 
         self.assertLess(instance.get_term("I0"), instance2.get_term("I0"))
 
-        instance.delete_instance_by_id(0)
+        sub_instance = instance.get_child_instance_by_id(0)
+        self.assertIsNotNone(sub_instance)
+        sub_instance.delete()
         with self.assertRaises(Exception) as context: instance.delete_instance("")
 
     def testTopTerm(self):
@@ -432,7 +431,7 @@ class NajaNetlistTest0(unittest.TestCase):
 
         net = netlist.get_top().create_net("netI1") 
 
-        top_term.connect(net)
+        top_term.connect_lower_net(net)
 
         self.assertEqual(None, top_term.get_equipotential().equi)
 
@@ -492,6 +491,7 @@ class NajaNetlistTest0(unittest.TestCase):
             for to in bit.get_flat_fanout():
                 count += 1
             self.assertEqual(count, 0)
+            self.assertEqual(bit.count_flat_fanout(), 0)
 
 
     def testTop(self):
@@ -505,11 +505,11 @@ class NajaNetlistTest0(unittest.TestCase):
         top.create_output_term("O")
         top.create_output_bus_term("O1", 4, 0)
         count = 0
-        for input in top.get_flat_input_terms():
+        for input in top.get_input_bit_terms():
             count += 1
         self.assertEqual(count, 6)
         count = 0
-        for output in top.get_flat_output_terms():
+        for output in top.get_output_bit_terms():
             count += 1
         self.assertEqual(count, 6)
         top_i1 = top.get_term("I1")
@@ -536,6 +536,7 @@ class NajaNetlistTest0(unittest.TestCase):
         universe.setTopDB(db)
         netlist.create_top('Top')
         top = netlist.get_top()
+        self.assertFalse(top.is_sequential())
         primitives = naja.NLLibrary.createPrimitives(db)
         prim = naja.SNLDesign.createPrimitive(primitives, 'Prim')
         naja.SNLScalarTerm.create(prim, naja.SNLTerm.Direction.Output, "O")

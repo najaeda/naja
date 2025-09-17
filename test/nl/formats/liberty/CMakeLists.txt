@@ -7,6 +7,7 @@ include(GoogleTest)
 set(tests
   SNLLibertyConstructorTest0.cpp
   SNLLibertyConstructorTest1.cpp
+  SNLLibertyConstructorTest2.cpp
   SNLBooleanTreeTest0.cpp
   SNLBooleanTreeTest1.cpp
 )
@@ -15,6 +16,6 @@ add_executable(snl_liberty_tests ${tests})
 target_compile_definitions(snl_liberty_tests PRIVATE
   SNL_LIBERTY_BENCHMARKS="${CMAKE_CURRENT_SOURCE_DIR}")
 
-target_link_libraries(snl_liberty_tests naja_snl_liberty gmock gtest_main)
+target_link_libraries(snl_liberty_tests naja_snl_liberty gmock gtest_main naja_nl_dump)
 
 GTEST_DISCOVER_TESTS(snl_liberty_tests)

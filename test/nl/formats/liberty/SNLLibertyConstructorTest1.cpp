@@ -8,10 +8,10 @@
 
 #include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
-#include "SNLDesignTruthTable.h"
 
 #include "SNLLibertyConstructor.h"
 #include "NLBitVecDynamic.h"
+#include "SNLDesignModeling.h"
 
 using namespace naja::NL;
 
@@ -80,11 +80,11 @@ TEST_F(SNLLibertyConstructorTest1, testBufferFunction) {
   auto z = design->getScalarTerm(NLName("Z"));
   ASSERT_NE(nullptr, z);
   EXPECT_EQ(SNLTerm::Direction::Output, z->getDirection());
-  auto tt = SNLDesignTruthTable::getTruthTable(design);
+  auto tt = SNLDesignModeling::getTruthTable(design);
   EXPECT_TRUE(tt.isInitialized());
   EXPECT_EQ(1, tt.size());
   EXPECT_TRUE(NLBitVecDynamic(0b10, 2) == tt.bits());
-  EXPECT_TRUE(SNLDesignTruthTable::isBuf(design));
+  EXPECT_TRUE(SNLDesignModeling::isBuf(design));
 }
 
 TEST_F(SNLLibertyConstructorTest1, testInvFunction) {
@@ -108,11 +108,11 @@ TEST_F(SNLLibertyConstructorTest1, testInvFunction) {
   auto z = design->getScalarTerm(NLName("Z"));
   ASSERT_NE(nullptr, z);
   EXPECT_EQ(SNLTerm::Direction::Output, z->getDirection());
-  auto tt = SNLDesignTruthTable::getTruthTable(design);
+  auto tt = SNLDesignModeling::getTruthTable(design);
   EXPECT_TRUE(tt.isInitialized());
   EXPECT_EQ(1, tt.size());
   EXPECT_TRUE(NLBitVecDynamic(0b01, 2) == tt.bits());
-  EXPECT_TRUE(SNLDesignTruthTable::isInv(design));
+  EXPECT_TRUE(SNLDesignModeling::isInv(design));
 }
 
 TEST_F(SNLLibertyConstructorTest1, testAnd2Function) {
@@ -139,7 +139,7 @@ TEST_F(SNLLibertyConstructorTest1, testAnd2Function) {
   auto z = design->getScalarTerm(NLName("Z"));
   ASSERT_NE(nullptr, z);
   EXPECT_EQ(SNLTerm::Direction::Output, z->getDirection());
-  auto tt = SNLDesignTruthTable::getTruthTable(design);
+  auto tt = SNLDesignModeling::getTruthTable(design);
   EXPECT_TRUE(tt.isInitialized());
   EXPECT_EQ(2, tt.size());
   EXPECT_TRUE(NLBitVecDynamic(0b1000, 4) == tt.bits());
@@ -175,7 +175,7 @@ TEST_F(SNLLibertyConstructorTest1, testAnd4Function) {
   auto z = design->getScalarTerm(NLName("Z"));
   ASSERT_NE(nullptr, z);
   EXPECT_EQ(SNLTerm::Direction::Output, z->getDirection());
-  auto tt = SNLDesignTruthTable::getTruthTable(design);
+  auto tt = SNLDesignModeling::getTruthTable(design);
   EXPECT_TRUE(tt.isInitialized());
   EXPECT_EQ(4, tt.size());
   EXPECT_TRUE(NLBitVecDynamic(0x8000, 16) == tt.bits());
@@ -205,7 +205,7 @@ TEST_F(SNLLibertyConstructorTest1, testOr2Function) {
   auto z = design->getScalarTerm(NLName("Z"));
   ASSERT_NE(nullptr, z);
   EXPECT_EQ(SNLTerm::Direction::Output, z->getDirection());
-  auto tt = SNLDesignTruthTable::getTruthTable(design);
+  auto tt = SNLDesignModeling::getTruthTable(design);
   EXPECT_TRUE(tt.isInitialized());
   EXPECT_EQ(2, tt.size());
   EXPECT_TRUE(NLBitVecDynamic(0b1110, 4) == tt.bits());
@@ -235,7 +235,7 @@ TEST_F(SNLLibertyConstructorTest1, testXor2Function) {
   auto z = design->getScalarTerm(NLName("Z"));
   ASSERT_NE(nullptr, z);
   EXPECT_EQ(SNLTerm::Direction::Output, z->getDirection());
-  auto tt = SNLDesignTruthTable::getTruthTable(design);
+  auto tt = SNLDesignModeling::getTruthTable(design);
   EXPECT_TRUE(tt.isInitialized());
   EXPECT_EQ(2, tt.size());
   EXPECT_TRUE(NLBitVecDynamic(0b0110, 4) == tt.bits());
@@ -272,7 +272,7 @@ TEST_F(SNLLibertyConstructorTest1, testGate0Function) {
   auto z = gate0->getScalarTerm(NLName("Z"));
   ASSERT_NE(nullptr, z);
   EXPECT_EQ(SNLTerm::Direction::Output, z->getDirection());
-  auto tt = SNLDesignTruthTable::getTruthTable(gate0);
+  auto tt = SNLDesignModeling::getTruthTable(gate0);
   EXPECT_TRUE(tt.isInitialized());
   EXPECT_EQ(3, tt.size());
   EXPECT_TRUE(NLBitVecDynamic(0x15, 8) == tt.bits());
@@ -294,7 +294,7 @@ TEST_F(SNLLibertyConstructorTest1, testGate0Function) {
   z = gate1->getScalarTerm(NLName("Z"));
   ASSERT_NE(nullptr, z);
   EXPECT_EQ(SNLTerm::Direction::Output, z->getDirection());
-  tt = SNLDesignTruthTable::getTruthTable(gate1);
+  tt = SNLDesignModeling::getTruthTable(gate1);
   EXPECT_TRUE(tt.isInitialized());
   EXPECT_EQ(3, tt.size());
   EXPECT_TRUE(NLBitVecDynamic(0x15, 8) == tt.bits());
@@ -318,11 +318,11 @@ TEST_F(SNLLibertyConstructorTest1, testLogic01Function) {
   auto z = logic0->getScalarTerm(NLName("Z"));
   ASSERT_NE(nullptr, z);
   EXPECT_EQ(SNLTerm::Direction::Output, z->getDirection());
-  auto tt = SNLDesignTruthTable::getTruthTable(logic0);
+  auto tt = SNLDesignModeling::getTruthTable(logic0);
   EXPECT_TRUE(tt.isInitialized());
   EXPECT_EQ(0, tt.size());
   EXPECT_TRUE(0b0 == tt.bits().operator uint64_t());
-  EXPECT_TRUE(SNLDesignTruthTable::isConst0(logic0));
+  EXPECT_TRUE(SNLDesignModeling::isConst0(logic0));
 
   auto logic1 = library_->getSNLDesign(NLName("logic1"));
   ASSERT_NE(nullptr, logic1);
@@ -332,11 +332,11 @@ TEST_F(SNLLibertyConstructorTest1, testLogic01Function) {
   z = logic1->getScalarTerm(NLName("Z"));
   ASSERT_NE(nullptr, z);
   EXPECT_EQ(SNLTerm::Direction::Output, z->getDirection());
-  tt = SNLDesignTruthTable::getTruthTable(logic1);
+  tt = SNLDesignModeling::getTruthTable(logic1);
   EXPECT_TRUE(tt.isInitialized());
   EXPECT_EQ(0, tt.size());
   EXPECT_EQ(0b1, tt.bits().operator uint64_t());
-  EXPECT_TRUE(SNLDesignTruthTable::isConst1(logic1));
+  EXPECT_TRUE(SNLDesignModeling::isConst1(logic1));
 }
 
 TEST_F(SNLLibertyConstructorTest1, testBufZFunction) {
@@ -401,7 +401,7 @@ TEST_F(SNLLibertyConstructorTest1, testOAI222Function) {
   auto zn = design->getScalarTerm(NLName("ZN"));
   ASSERT_NE(nullptr, zn);
   EXPECT_EQ(SNLTerm::Direction::Output, zn->getDirection());
-  auto tt = SNLDesignTruthTable::getTruthTable(design);
+  auto tt = SNLDesignModeling::getTruthTable(design);
   EXPECT_TRUE(tt.isInitialized());
   EXPECT_EQ(6, tt.size());
   uint64_t result = 0x111f111f111fffff;
@@ -442,15 +442,50 @@ TEST_F(SNLLibertyConstructorTest1, testFA_X1Function) {
   ASSERT_NE(nullptr, s);
   EXPECT_EQ(SNLTerm::Direction::Output, s->getDirection());
   // Check the truth table per output
-  auto tt_co = SNLDesignTruthTable::getTruthTable(design, co->getID());
+  auto tt_co = SNLDesignModeling::getTruthTable(design, co->getID());
   EXPECT_TRUE(tt_co.isInitialized());
   EXPECT_EQ(3, tt_co.size());
-  auto tt_s = SNLDesignTruthTable::getTruthTable(design, s->getID());
+  auto tt_s = SNLDesignModeling::getTruthTable(design, s->getID());
   EXPECT_TRUE(tt_s.isInitialized());
   EXPECT_EQ(3, tt_s.size());
   // Check the truth table for the design as a whole
   // Note: The design truth table is not initialized for multiple outputs.
   // This is a limitation of the current implementation.
   // Uncomment the following lines if you want to test the design truth table.
-  //EXPECT_TRUE(SNLDesignTruthTable::isInitialized(design));
+  //EXPECT_TRUE(SNLDesignModeling::isInitialized(design));
+}
+
+TEST_F(SNLLibertyConstructorTest1, testFF) {
+  SNLLibertyConstructor constructor(library_);
+  std::filesystem::path testPath(
+      std::filesystem::path(SNL_LIBERTY_BENCHMARKS)
+      / std::filesystem::path("benchmarks")
+      / std::filesystem::path("tests")
+      / std::filesystem::path("FF.lib"));
+  constructor.construct(testPath);
+  EXPECT_EQ(NLName("FF_test"), library_->getName());
+  EXPECT_EQ(library_->getSNLDesigns().size(), 1);
+  auto design = library_->getSNLDesign(NLName("FF"));
+  ASSERT_NE(nullptr, design);
+  EXPECT_EQ(3, design->getTerms().size());
+  EXPECT_EQ(3, design->getScalarTerms().size());
+  EXPECT_TRUE(design->getBusTerms().empty());
+  auto ck = design->getScalarTerm(NLName("CK"));
+  ASSERT_NE(nullptr, ck);
+  EXPECT_EQ(SNLTerm::Direction::Input, ck->getDirection());
+  auto d = design->getScalarTerm(NLName("D"));
+  ASSERT_NE(nullptr, d);
+  EXPECT_EQ(SNLTerm::Direction::Input, d->getDirection());
+  auto q = design->getScalarTerm(NLName("Q"));
+  ASSERT_NE(nullptr, q);
+  EXPECT_EQ(SNLTerm::Direction::Output, q->getDirection());
+  // No truth table on seq output
+  auto tt_q = SNLDesignModeling::getTruthTable(design, q->getID());
+  EXPECT_FALSE(tt_q.isInitialized());
+  auto inputs = SNLDesignModeling::getClockRelatedInputs(ck);
+  EXPECT_EQ(1, inputs.size());
+  EXPECT_EQ(d, *inputs.begin());
+  auto outputs = SNLDesignModeling::getClockRelatedOutputs(ck);
+  EXPECT_EQ(1, outputs.size());
+  EXPECT_EQ(q, *outputs.begin());
 }

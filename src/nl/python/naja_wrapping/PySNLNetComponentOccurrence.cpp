@@ -49,8 +49,14 @@ static int PySNLNetComponentOccurrence_Init(PySNLNetComponentOccurrence* self, P
 ManagedTypeLinkCreateMethod(SNLNetComponentOccurrence) 
 //LCOV_EXCL_STOP
 ManagedTypeDeallocMethod(SNLNetComponentOccurrence)
+GetObjectMethod(SNLNetComponentOccurrence, SNLNetComponent, getComponent)
+GetObjectMethod(SNLNetComponentOccurrence, SNLPath, getPath)
 
 PyMethodDef PySNLNetComponentOccurrence_Methods[] = {
+  { "getComponent", (PyCFunction)PySNLNetComponentOccurrence_getComponent, METH_NOARGS,
+    "get the SNLInstTerm of the SNLInstTermOccurrence."},
+  { "getPath", (PyCFunction)PySNLNetComponentOccurrence_getPath, METH_NOARGS,
+    "get the SNLPath of the SNLInstTermOccurrence."},
   {NULL, NULL, 0, NULL} /* sentinel */
 };
 

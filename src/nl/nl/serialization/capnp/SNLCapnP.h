@@ -21,7 +21,7 @@ class SNLCapnP {
     static void dump(const NLDB* db, const std::filesystem::path& dumpPath);
     //static void send(const NLDB* db, const std::string& ipAddress, uint16_t port);
     //static void send(const NLDB* db, const std::string& ipAddress, uint16_t port, NLID::DBID forceDBID);
-    static NLDB* load(const std::filesystem::path& dumpPath);
+    static NLDB* load(const std::filesystem::path& dumpPath, bool primitivesAreLoaded = false);  
     //static NLDB* receive(boost::asio::ip::tcp::socket& socket);
     //static NLDB* receive(uint16_t port);
 
@@ -32,8 +32,8 @@ class SNLCapnP {
     //static void sendInterface(const NLDB* db, boost::asio::ip::tcp::socket& socket); 
     //static void sendInterface(const NLDB* db, boost::asio::ip::tcp::socket& socket, NLID::DBID forceDBID); 
 
-    static NLDB* loadInterface(int fileDescriptor);
-    static NLDB* loadInterface(const std::filesystem::path& interfacePath);
+    static NLDB* loadInterface(int fileDescriptor, bool primitivesAreLoaded = false);
+    static NLDB* loadInterface(const std::filesystem::path& interfacePath, bool primitivesAreLoaded = false);
     //static NLDB* receiveInterface(uint16_t port);
     //static NLDB* receiveInterface(boost::asio::ip::tcp::socket& socket); 
 

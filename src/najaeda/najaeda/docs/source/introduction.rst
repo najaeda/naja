@@ -52,8 +52,15 @@ Installation
 
 Bug Reports
 -----------
-Please report any bugs to the `najaeda` issue tracker at
-https://github.com/najaeda/naja/issues .
+
+If you encounter any bugs, please report them on the `najaeda` issue tracker:
+https://github.com/najaeda/naja/issues
+
+You’re also welcome to join the discussion on Matrix:
+
+.. image:: https://img.shields.io/badge/Matrix-Join%20Chat-success?logo=matrix
+   :target: https://matrix.to/#/#naja:fossi-chat.org
+   :alt: Join the Matrix chat
 
 License
 -------
