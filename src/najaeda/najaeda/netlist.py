@@ -1878,7 +1878,35 @@ def get_max_fanout() -> list:
     if u is not None:
         top = naja.NLUniverse.get().getTopDesign()
         if top is not None:
-            return naja.NLUniverse.get().getMaxFanout()
+            max_fanout = naja.NLUniverse.get().getMaxFanout()
+            result = []
+            index = 0
+            result.append(max_fanout[0])
+            fanouts = []
+            for entry in max_fanout[1]:
+                fanout = []
+                driver = entry[0]
+                component = driver.getComponent()
+                path = driver.getPath().getPathIDs()
+                if isinstance(component, naja.SNLInstTerm):
+                    path.append(component.getInstance().getID())
+                    component = component.getBitTerm()
+                print(component)
+                print(path)
+                fanout.append(Term(path, component))
+                readers = []
+                for item in entry[1]:
+                    component = item.getComponent()
+                    path = item.getPath().getPathIDs()
+                    if isinstance(component, naja.SNLInstTerm):
+                        path.append(component.getInstance().getID())
+                        component = component.getBitTerm()
+                    readers.append(Term(path, component))
+                fanout.append(readers)
+                fanouts.append(fanout)
+                index += 1
+            result.append(fanouts)
+            return result
     return [0]
 
 
@@ -1892,5 +1920,25 @@ def get_max_logic_level() -> list:
     if u is not None:
         top = naja.NLUniverse.get().getTopDesign()
         if top is not None:
-            return naja.NLUniverse.get().getMaxLogicLevel()
+            max_logic_level = naja.NLUniverse.get().getMaxLogicLevel()
+            result = []
+            index = 0
+            for entry in max_logic_level:
+                if index == 0:
+                    result.append(max_logic_level[0])
+                else:
+                    paths = []
+                    for path in entry:
+                        llpath = []
+                        for item in path:
+                            component = item.getComponent()
+                            pathIDs = item.getPath().getPathIDs()
+                            if isinstance(component, naja.SNLInstTerm):
+                                pathIDs.append(component.getInstance().getID())
+                                component = component.getBitTerm()
+                            llpath.append(Term(pathIDs, component))
+                        paths.append(llpath)
+                    result.append(paths)
+                index += 1
+            return result
     return [0]

@@ -22,8 +22,15 @@ if __name__ == '__main__':
     benchmarks = path.join('..', '..', 'benchmarks')
     top = netlist.load_verilog(path.join(benchmarks, 'verilog', 'vexriscv.v'))
     
-    print(netlist.get_max_fanout()[0])
-    for terms in netlist.get_max_fanout()[1]:
+    max_fanout = netlist.get_max_fanout()
+    print("max_fanout",max_fanout)
+    print(max_fanout[0])
+    for terms in max_fanout[1]:
+        print(terms)
         print("Fanout for terminal", terms[0],":")
+        for attr in terms[0].get_instance().get_attributes():
+                print("   ", attr)
         for t in terms[1]:
             print(t)
+            for attr in t.get_instance().get_attributes():
+                print("   ", attr)

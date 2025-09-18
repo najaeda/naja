@@ -10,6 +10,7 @@ from collections import deque
 import time
 
 from najaeda import netlist
+from najaeda import naja
 import faulthandler
 
 logging.basicConfig(level=logging.INFO)
@@ -31,12 +32,8 @@ if __name__ == '__main__':
     
     # print the max logic level paths
     max_level_paths = netlist.get_max_logic_level()[1]
-    i = 0
-    for p in max_level_paths:
-        print("Path", i, ":")
-        i += 1
-        for n in p:
-            print(n)
-    
-    
-    
+    for path in max_level_paths:
+        for term in path:
+            print(term)
+            for attr in term.get_instance().get_attributes():
+                print("   ", attr)
