@@ -45,7 +45,7 @@ class PNLInstTerm final: public PNLNetComponent {
     PNLInstTerm(PNLInstance* instance, PNLBitTerm* term);
     static PNLInstTerm* create(PNLInstance* instance, PNLBitTerm* term);
     static void preCreate(const PNLInstance* instance, const PNLBitTerm* term);
-    void postCreate();
+    void postCreate() override;
     void preDestroy() override;
     void destroyFromInstance();
 

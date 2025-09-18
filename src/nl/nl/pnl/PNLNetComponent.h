@@ -61,7 +61,7 @@ class PNLNetComponent: public PNLDesignObject {
     PNLNetComponent() = default;
 
     static void preCreate();
-    void postCreate();
+    void postCreate() override;
     void preDestroy() override;
 
   private:

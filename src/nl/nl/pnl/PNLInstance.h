@@ -66,7 +66,7 @@ class PNLInstance final: public PNLDesignObject {
     static void preCreate(PNLDesign* design, const PNLDesign* model, const NLName& name);
     void commonPostCreate();
     void postCreateAndSetID();
-    void postCreate();
+    void postCreate() override;
     void createInstTerm(PNLBitTerm* term);
     void removeInstTerm(PNLBitTerm* term);
     void commonPreDestroy();

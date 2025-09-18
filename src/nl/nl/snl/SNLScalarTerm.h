@@ -59,7 +59,7 @@ class SNLScalarTerm final: public SNLBitTerm {
     static void preCreate(SNLDesign* design, const NLName& name);
     static void preCreate(SNLDesign* design, NLID::DesignObjectID id, const NLName& name);
     void postCreateAndSetID();
-    void postCreate();
+    void postCreate() override;
     void destroyFromDesign() override;
     SNLTerm* clone(SNLDesign* design) const override;
     void commonPreDestroy();

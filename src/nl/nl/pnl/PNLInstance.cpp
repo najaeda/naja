@@ -20,11 +20,17 @@ namespace NL {
 PNLInstance::PNLInstance(PNLDesign* design,
                          PNLDesign* model,
                          const NLName& name)
-    : super(), design_(design), model_(model), name_(name) {}
+  : super(), design_(design), model_(model), name_(name) {}
 
 void PNLInstance::postCreateAndSetID() {
   super::postCreate();
   getDesign()->addInstanceAndSetID(this);
+  commonPostCreate();
+}
+
+void PNLInstance::postCreate() {
+  super::postCreate();
+  getDesign()->addInstance(this);
   commonPostCreate();
 }
 

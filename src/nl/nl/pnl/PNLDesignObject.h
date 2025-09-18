@@ -39,7 +39,7 @@ class PNLDesignObject: public NL::NLObject {
     PNLDesignObject() = default;
     
     static void preCreate();
-    void postCreate();
+    void postCreate() override;
 };
 
 }} // namespace NL // namespace naja

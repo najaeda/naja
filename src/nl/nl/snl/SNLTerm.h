@@ -52,7 +52,7 @@ class SNLTerm: public SNLNetComponent {
     SNLTerm() = default;
 
     static void preCreate();
-    void postCreate();
+    void postCreate() override;
     void preDestroy() override;
 
   private:
