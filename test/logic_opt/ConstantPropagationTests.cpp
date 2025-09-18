@@ -644,9 +644,9 @@ TEST_F(ConstantPropagationTests, TestAndFull) {
                                       NLName("out"));
 
 
-  SNLDesignTruthTable::setTruthTable(logic0, SNLTruthTable(0,0));
-  SNLDesignTruthTable::setTruthTable(logic1, SNLTruthTable(0,1));
-  SNLDesignTruthTable::setTruthTable(andModel, SNLTruthTable(2,8));
+  SNLDesignModeling::setTruthTable(logic0, SNLTruthTable(0,0));
+  SNLDesignModeling::setTruthTable(logic1, SNLTruthTable(0,1));
+  SNLDesignModeling::setTruthTable(andModel, SNLTruthTable(2,8));
   NLLibraryTruthTables::construct(library);
   
   // SNLDesign* andModel1 = SNLDesign::create(library, SNLDesign::Type::Primitive, NLName("AND1"));
@@ -995,9 +995,9 @@ TEST_F(ConstantPropagationTests, TestorFull) {
                                       NLName("out"));
 
 
-  SNLDesignTruthTable::setTruthTable(logic0, SNLTruthTable(0,0));
-  SNLDesignTruthTable::setTruthTable(logic1, SNLTruthTable(0,1));
-  SNLDesignTruthTable::setTruthTable(orModel, SNLTruthTable(2,14));
+  SNLDesignModeling::setTruthTable(logic0, SNLTruthTable(0,0));
+  SNLDesignModeling::setTruthTable(logic1, SNLTruthTable(0,1));
+  SNLDesignModeling::setTruthTable(orModel, SNLTruthTable(2,14));
   NLLibraryTruthTables::construct(library);
   
   // SNLDesign* andModel1 = SNLDesign::create(library, SNLDesign::Type::Primitive, NLName("AND1"));
@@ -1337,9 +1337,9 @@ TEST_F(ConstantPropagationTests, TestNorFull) {
                                       NLName("out"));
 
 
-  SNLDesignTruthTable::setTruthTable(logic0, SNLTruthTable(0,0));
-  SNLDesignTruthTable::setTruthTable(logic1, SNLTruthTable(0,1));
-  SNLDesignTruthTable::setTruthTable(norModel, SNLTruthTable(2,1));
+  SNLDesignModeling::setTruthTable(logic0, SNLTruthTable(0,0));
+  SNLDesignModeling::setTruthTable(logic1, SNLTruthTable(0,1));
+  SNLDesignModeling::setTruthTable(norModel, SNLTruthTable(2,1));
   NLLibraryTruthTables::construct(library);
   
   // SNLDesign* andModel1 = SNLDesign::create(library, SNLDesign::Type::Primitive, NLName("AND1"));
