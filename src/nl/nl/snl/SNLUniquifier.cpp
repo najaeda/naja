@@ -23,7 +23,6 @@ SNLUniquifier::SNLUniquifier(const SNLPath& path, bool uniquifyTail):
 }
 
 void SNLUniquifier::process() {
-  std::vector<SNLInstance *> instancesToDelete;
 #ifdef DEBUG_PRINTS
   // LCOV_EXCL_START
   printf("SNLUniquifier::process() - dnlid %s\n", id_);

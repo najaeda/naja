@@ -100,7 +100,7 @@ class SNLBusNet final: public SNLNet {
     static void preCreate(const SNLDesign* design, NLID::DesignObjectID id, const NLName& name);
     void createBits();
     void postCreateAndSetID();
-    void postCreate();
+    void postCreate() override;
     void destroyFromDesign() override;
     void commonPreDestroy();
     void preDestroy() override;

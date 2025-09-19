@@ -17,10 +17,12 @@
 namespace naja {
 namespace NL {
 
-PNLInstance::PNLInstance(PNLDesign* design,
-                         PNLDesign* model,
-                         const NLName& name)
-    : super(), design_(design), model_(model), name_(name) {}
+PNLInstance::PNLInstance(PNLDesign* design, PNLDesign* model, const NLName& name):
+  super(),
+  design_(design),
+  model_(model),
+  name_(name)
+{}
 
 void PNLInstance::postCreateAndSetID() {
   super::postCreate();
@@ -28,19 +30,14 @@ void PNLInstance::postCreateAndSetID() {
   commonPostCreate();
 }
 
-PNLInstance* PNLInstance::create(PNLDesign* design,
-                                 PNLDesign* model,
-                                 const NLName& name) {
-
+PNLInstance* PNLInstance::create(PNLDesign* design, PNLDesign* model, const NLName& name) {
   preCreate(design, model, name);
   auto instance = new PNLInstance(design, model, name);
   instance->postCreateAndSetID();
   return instance;
 }
 
-void PNLInstance::preCreate(PNLDesign* design,
-                            const PNLDesign* model,
-                            const NLName& name) {
+void PNLInstance::preCreate(PNLDesign* design, const PNLDesign* model, const NLName& name) {
   super::preCreate();
   if (not design) {
     std::ostringstream reason;

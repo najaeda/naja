@@ -301,7 +301,7 @@ class SNLDesign final: public NLObject {
     static void preCreate(const NLLibrary* library, NLID::DesignID id, Type type, const NLName& name);
     void destroyFromLibrary();
     void postCreateAndSetID();
-    void postCreate();
+    void postCreate() override;
     void commonPreDestroy();
     void preDestroy() override;
     void addTerm(SNLTerm* term);

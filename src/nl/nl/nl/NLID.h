@@ -62,7 +62,7 @@ struct NLID final {
 
     DesignReference() = delete;
     DesignReference(const DesignReference&) = default;
-    DesignReference(const NLID& id):
+    explicit DesignReference(const NLID& id):
       dbID_(id.dbID_),
       libraryID_(id.libraryID_),
       designID_(id.designID_)
@@ -99,7 +99,7 @@ struct NLID final {
 
     DesignObjectReference() = delete;
     DesignObjectReference(const DesignObjectReference&) = default;
-    DesignObjectReference(const NLID& id):
+    explicit DesignObjectReference(const NLID& id):
       dbID_(id.dbID_),
       libraryID_(id.libraryID_),
       designID_(id.designID_),
@@ -224,7 +224,7 @@ struct NLID final {
   NLID() = delete;
   
   ///Special constructor for SNLDB
-  NLID(DBID dbID):
+  explicit NLID(DBID dbID):
     type_(NLID::Type::DB),
     dbID_(dbID)
   {}

@@ -101,7 +101,7 @@ class NLUniverse final: public NLObject {
   private:
     NLUniverse() = default;
     static void preCreate();
-    void postCreate();
+    void postCreate() override;
     void preDestroy() override;
 
     void addDBAndSetID(NLDB* db);

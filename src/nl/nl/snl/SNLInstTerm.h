@@ -46,13 +46,13 @@ class SNLInstTerm final: public SNLNetComponent {
     SNLInstTerm(SNLInstance* instance, SNLBitTerm* term);
     static SNLInstTerm* create(SNLInstance* instance, SNLBitTerm* term);
     static void preCreate(const SNLInstance* instance, const SNLBitTerm* term);
-    void postCreate();
+    void postCreate() override;
     void preDestroy() override;
     void destroyFromInstance();
 
     SNLInstance*  instance_;
     SNLBitTerm*   bitTerm_;
-    SNLBitNet*    net_      { nullptr};
+    SNLBitNet*    net_      { nullptr };
 };
 
 }} // namespace NL // namespace naja

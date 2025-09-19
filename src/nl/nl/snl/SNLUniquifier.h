@@ -20,7 +20,7 @@ class SNLUniquifier {
       :path_(path), id_(std::to_string(id)), uniquifyTail_(uniquifyTail) {}
     SNLUniquifier(const std::vector<NLID::DesignObjectID>& path, std::string id, bool uniquifyTail = false)
       :path_(path), id_(id), uniquifyTail_(uniquifyTail) {}
-    SNLUniquifier(const SNLPath& path, bool uniquifyTail = true);
+    explicit SNLUniquifier(const SNLPath& path, bool uniquifyTail = true);
     void process();
     SNLInstance* replaceWithClone(SNLInstance* inst);
     std::vector<SNLInstance*>& getPathUniq() { return pathUniq_; }

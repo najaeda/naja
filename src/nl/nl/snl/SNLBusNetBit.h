@@ -38,7 +38,7 @@ class SNLBusNetBit final: public SNLBitNet {
 
     SNLBusNetBit(SNLBusNet* bus, NLID::Bit bit);
     static void preCreate(const SNLBusNet* bus, NLID::Bit bit);
-    void postCreate();
+    void postCreate() override;
     void destroyFromBus();
     void destroyFromDesign() override {} //LCOV_EXCL_LINE
     void commonPreDestroy();
