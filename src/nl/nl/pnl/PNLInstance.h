@@ -61,28 +61,25 @@ class PNLInstance final: public PNLDesignObject {
     const PNLPoint& getOrigin() const { return origin_; }
 
   private:
-  
     PNLInstance(PNLDesign* design, PNLDesign* model, const NLName& name);
     static void preCreate(PNLDesign* design, const PNLDesign* model, const NLName& name);
     void commonPostCreate();
     void postCreateAndSetID();
-    void postCreate() override;
     void createInstTerm(PNLBitTerm* term);
     void removeInstTerm(PNLBitTerm* term);
     void commonPreDestroy();
     void preDestroy() override;
 
-    PNLDesign*                          design_                 {nullptr};
-    PNLDesign*                          model_                  {nullptr};
+    PNLDesign*                          design_                   {nullptr};
+    PNLDesign*                          model_                    {nullptr};
     NLID::DesignObjectID                id_;
-    PNLInstanceInstTerms                instTerms_              {};
-    NLName                              name_                   {};
-    PNLPoint                            origin_                 {0, 0};
+    PNLInstanceInstTerms                instTerms_                {};
+    NLName                              name_                     {};
+    PNLPoint                            origin_                   {0, 0};
     PNLTransform                        transform_;
-    PlacementStatus                     placementStatus_        {Unplaced};
-    boost::intrusive::set_member_hook<> designInstancesHook_    {};
+    PlacementStatus                     placementStatus_          {Unplaced};
+    boost::intrusive::set_member_hook<> designInstancesHook_      {};
     boost::intrusive::set_member_hook<> designSlaveInstancesHook_ {};
-    
 };
 
 }} // namespace NL // namespace naja
