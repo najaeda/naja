@@ -41,7 +41,7 @@ void LogicLevelComputer::process() {
       if (dnl_->getDNLTerminalFromID(term).getSnlBitTerm()->getDirection() !=
           SNLTerm::Direction::Output) {
         if (!dnl_->getDNLTerminalFromID(term).isSequential()) {
-          continue;  // Skip sequential and top port terms
+          continue;  // Skip non sequential terms
         }
         termsToTrace.insert(term);
       }

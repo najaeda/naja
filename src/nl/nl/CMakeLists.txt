@@ -56,6 +56,7 @@ set(PNL_SOURCES
 set(DECORATOR_SOURCES
   decorators/NLLibraryTruthTables.cpp
   decorators/SNLDesignModeling.cpp
+  decorators/NLBitDependencies.cpp
 )
 
 set(HEADERS
@@ -105,6 +106,7 @@ set(HEADERS
   pnl/PNLTechnology.h
   decorators/SNLDesignModeling.h
   decorators/NLBitVecDynamic.h
+  decorators/NLBitDependencies.h
 )
 
 add_library(naja_nl SHARED

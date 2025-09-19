@@ -153,6 +153,19 @@ public:
     return packBits(std::get<std::vector<bool>>(data_));
   } 
 
+  std::string toString() const {
+    std::string result;
+    if (std::holds_alternative<uint64_t>(data_)) {
+      result = std::to_string(std::get<uint64_t>(data_));
+    } else {
+      auto const &vec = std::get<std::vector<bool>>(data_);
+      for (bool bit : vec) {
+        result += (bit ? '1' : '0');
+      }
+    }
+    return result;
+  }
+
 
 private:
 

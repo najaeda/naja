@@ -1,4 +1,5 @@
-// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+// SPDX-FileCopyrightText: 2023 The Naja authors
+// <https://github.com/najaeda/naja/blob/main/AUTHORS>
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -6,85 +7,119 @@
 
 #include <sstream>
 
-#include "NajaPrivateProperty.h"
-#include "NajaDumpableProperty.h"
+#include "NLBitDependencies.h"
 #include "NLException.h"
+#include "NajaDumpableProperty.h"
+#include "NajaPrivateProperty.h"
 
 #include "SNLDesign.h"
 #include "SNLInstTerm.h"
 
+// Common macros to unify repeated calculations without changing behavior
+#define TT_NCHUNKS_FROM_BITS(nBits) \
+  ((nBits) / 64 + (((nBits) % 64) > 0 ? 1 : 0))
+
+#define TT_NDEPS_FROM_INPUTS(nInputs) \
+  ((nInputs) / 64 + (((nInputs) % 64) > 0 ? 1 : 0))
+
+#define TT_ADVANCE_VALIDX_COUNT(valIdx, nInputs)             \
+  do {                                                       \
+    size_t _tt_nbits = static_cast<size_t>(1u) << (nInputs); \
+    size_t _tt_nchunks = TT_NCHUNKS_FROM_BITS(_tt_nbits);    \
+    (valIdx) += _tt_nchunks;                                 \
+    (valIdx) += TT_NDEPS_FROM_INPUTS(nInputs);               \
+    (valIdx) += 1; /* skip the size entry */                 \
+  } while (0)
+
+#define TT_ADVANCE_VALIDX_SIZEFIRST(valIdx, nInputs)         \
+  do {                                                       \
+    size_t _tt_nbits = static_cast<size_t>(1u) << (nInputs); \
+    (valIdx) += 1; /* skip the size entry */                 \
+    (valIdx) += TT_NCHUNKS_FROM_BITS(_tt_nbits);             \
+    (valIdx) += TT_NDEPS_FROM_INPUTS(nInputs);               \
+  } while (0)
+
+#define TT_FILL_BITS(bitsVec, nBits, property, bitsIdx)          \
+  do {                                                           \
+    size_t _tt_nchunks = TT_NCHUNKS_FROM_BITS(nBits);            \
+    for (size_t c = 0; c < _tt_nchunks; ++c) {                   \
+      uint64_t mask = (property)->getUInt64Value((bitsIdx) + c); \
+      for (size_t b = 0; b < 64; ++b) {                          \
+        size_t pos = c * 64 + b;                                 \
+        if (pos >= (nBits))                                      \
+          break;                                                 \
+        if ((mask >> b) & 1)                                     \
+          (bitsVec)[pos] = true;                                 \
+      }                                                          \
+    }                                                            \
+  } while (0)
+
 namespace {
 
-class SNLDesignModelingProperty: public naja::NajaPrivateProperty {
-  public:
-    using Inherit = naja::NajaPrivateProperty;
-    static const inline std::string Name = "SNLDesignModelingProperty";
-    static SNLDesignModelingProperty* create(
+class SNLDesignModelingProperty : public naja::NajaPrivateProperty {
+ public:
+  using Inherit = naja::NajaPrivateProperty;
+  static const inline std::string Name = "SNLDesignModelingProperty";
+  static SNLDesignModelingProperty* create(
       naja::NL::SNLDesign* design,
       naja::NL::SNLDesignModeling::Type type) {
-      preCreate(design, Name);
-      SNLDesignModelingProperty* property = new SNLDesignModelingProperty();
-      property->modeling_ = new naja::NL::SNLDesignModeling(type);
-      property->postCreate(design);
-      return property;
+    preCreate(design, Name);
+    SNLDesignModelingProperty* property = new SNLDesignModelingProperty();
+    property->modeling_ = new naja::NL::SNLDesignModeling(type);
+    property->postCreate(design);
+    return property;
+  }
+  static void preCreate(naja::NL::SNLDesign* design, const std::string& name) {
+    Inherit::preCreate(design, name);
+    if (not(design->isLeaf())) {
+      std::ostringstream reason;
+      reason << "Impossible to add Timing Modeling on a non leaf design <"
+             << design->getName().getString() << ">";
+      throw naja::NL::NLException(reason.str());
     }
-    static void preCreate(naja::NL::SNLDesign* design, const std::string& name) {
-      Inherit::preCreate(design, name);
-      if (not (design->isLeaf())) {
-        std::ostringstream reason;
-        reason << "Impossible to add Timing Modeling on a non leaf design <"
-          << design->getName().getString() << ">";
-        throw naja::NL::NLException(reason.str());
-      }
+  }
+  void preDestroy() override {
+    if (modeling_) {
+      delete modeling_;
     }
-    void preDestroy() override {
-      if (modeling_) {
-        delete modeling_;
-      }
-      Inherit::preDestroy();
-    }
-    naja::NL::SNLDesignModeling::Type getModelingType() const {
-      return getModeling()->getType();
-    }
-    std::string getName() const override {
-      return Name;
-    }
-    //LCOV_EXCL_START
-    std::string getString() const override {
-      return Name;
-    }
-    //LCOV_EXCL_STOP
-    naja::NL::SNLDesignModeling* getModeling() const {
-      return modeling_;
-    }
-  private:
-    naja::NL::SNLDesignModeling* modeling_ {nullptr};
+    Inherit::preDestroy();
+  }
+  naja::NL::SNLDesignModeling::Type getModelingType() const {
+    return getModeling()->getType();
+  }
+  std::string getName() const override { return Name; }
+  // LCOV_EXCL_START
+  std::string getString() const override { return Name; }
+  // LCOV_EXCL_STOP
+  naja::NL::SNLDesignModeling* getModeling() const { return modeling_; }
+
+ private:
+  naja::NL::SNLDesignModeling* modeling_{nullptr};
 };
 
 SNLDesignModelingProperty* getProperty(const naja::NL::SNLDesign* design) {
-  auto property =
-    static_cast<SNLDesignModelingProperty*>(design->getProperty(SNLDesignModelingProperty::Name));
+  auto property = static_cast<SNLDesignModelingProperty*>(
+      design->getProperty(SNLDesignModelingProperty::Name));
   if (property) {
     return property;
   }
   return nullptr;
 }
 
-//type will used only if the property is created
+// type will used only if the property is created
 SNLDesignModelingProperty* getOrCreateProperty(
-  naja::NL::SNLDesign* design,
-  naja::NL::SNLDesignModeling::Type type) {
+    naja::NL::SNLDesign* design,
+    naja::NL::SNLDesignModeling::Type type) {
   auto property = getProperty(design);
   if (property) {
     return property;
-  } 
+  }
   return SNLDesignModelingProperty::create(design, type);
 }
 
-void insertInArcs(
-  naja::NL::SNLDesignModeling::Arcs& arcs,
-  naja::NL::SNLBitTerm* term0,
-  naja::NL::SNLBitTerm* term1) {
+void insertInArcs(naja::NL::SNLDesignModeling::Arcs& arcs,
+                  naja::NL::SNLBitTerm* term0,
+                  naja::NL::SNLBitTerm* term1) {
   auto iit = arcs.find(term0);
   if (iit == arcs.end()) {
     auto result = arcs.insert({term0, naja::NL::SNLDesignModeling::TermArcs()});
@@ -102,71 +137,78 @@ void insertInArcs(
 }
 
 naja::NL::SNLDesign* verifyInputs(
-  const naja::NL::SNLDesignModeling::BitTerms& terms0,
-  const std::string& terms0Naming,
-  const naja::NL::SNLDesignModeling::BitTerms& terms1,
-  const std::string& terms1Naming,
-  const std::string& method) {
+    const naja::NL::SNLDesignModeling::BitTerms& terms0,
+    const std::string& terms0Naming,
+    const naja::NL::SNLDesignModeling::BitTerms& terms1,
+    const std::string& terms1Naming,
+    const std::string& method) {
   if (terms0.empty()) {
-    throw naja::NL::NLException("Error in " + method + ": empty " + terms0Naming);
+    throw naja::NL::NLException("Error in " + method + ": empty " +
+                                terms0Naming);
   }
   if (terms1.empty()) {
-    throw naja::NL::NLException("Error in " + method + ": empty " + terms1Naming);
+    throw naja::NL::NLException("Error in " + method + ": empty " +
+                                terms1Naming);
   }
   naja::NL::SNLDesign* design = nullptr;
-  for (auto term: terms0) {
+  for (auto term : terms0) {
     if (not design) {
       design = term->getDesign();
     } else if (design not_eq term->getDesign()) {
-      throw naja::NL::NLException("Error in " + method + ": incompatible designs");
+      throw naja::NL::NLException("Error in " + method +
+                                  ": incompatible designs");
     }
   }
-  for (auto term: terms1) {
+  for (auto term : terms1) {
     if (design not_eq term->getDesign()) {
-      throw naja::NL::NLException("Error in " + method + ": incompatible designs");
+      throw naja::NL::NLException("Error in " + method +
+                                  ": incompatible designs");
     }
   }
   return design;
 }
 
-#define GET_RELATED_TERMS_IN_ARCS(ARCS) \
-  const auto* timingArcs = getTimingArcs(); \
+#define GET_RELATED_TERMS_IN_ARCS(ARCS)        \
+  const auto* timingArcs = getTimingArcs();    \
   const auto it = timingArcs->ARCS.find(term); \
-  if (it == timingArcs->ARCS.end()) { \
-    return NajaCollection<SNLBitTerm*>(); \
-  } \
+  if (it == timingArcs->ARCS.end()) {          \
+    return NajaCollection<SNLBitTerm*>();      \
+  }                                            \
   return NajaCollection(new NajaSTLCollection(&(it->second)));
 
-
-#define GET_RELATED_INSTTERMS_IN_ARCS(ARCS) \
-  auto instance = iterm->getInstance(); \
-  const TimingArcs* timingArcs = getTimingArcs(instance); \
-  auto it = timingArcs->ARCS.find(iterm->getBitTerm()); \
-  if (it == timingArcs->ARCS.end()) { \
-    return NajaCollection<SNLInstTerm*>(); \
-  } \
-  auto transformer = [=](const SNLBitTerm* term) { return instance->getInstTerm(term); }; \
-  return NajaCollection(new NajaSTLCollection(&(it->second))).getTransformerCollection<SNLInstTerm*>(transformer);
+#define GET_RELATED_INSTTERMS_IN_ARCS(ARCS)                   \
+  auto instance = iterm->getInstance();                       \
+  const TimingArcs* timingArcs = getTimingArcs(instance);     \
+  auto it = timingArcs->ARCS.find(iterm->getBitTerm());       \
+  if (it == timingArcs->ARCS.end()) {                         \
+    return NajaCollection<SNLInstTerm*>();                    \
+  }                                                           \
+  auto transformer = [=](const SNLBitTerm* term) {            \
+    return instance->getInstTerm(term);                       \
+  };                                                          \
+  return NajaCollection(new NajaSTLCollection(&(it->second))) \
+      .getTransformerCollection<SNLInstTerm*>(transformer);
 
 #define GET_RELATED_OBJECTS(TYPE, INPUT, DESIGN_GETTER, GETTER) \
-  auto property = getProperty(INPUT->DESIGN_GETTER); \
-  if (property) { \
-    auto modeling = property->getModeling(); \
-    return modeling->GETTER(INPUT); \
-  } \
+  auto property = getProperty(INPUT->DESIGN_GETTER);            \
+  if (property) {                                               \
+    auto modeling = property->getModeling();                    \
+    return modeling->GETTER(INPUT);                             \
+  }                                                             \
   return NajaCollection<TYPE*>();
 
 static const std::string SNLDesignTruthTablePropertyName =
     "SNLDesignTruthTableProperty";
 
-naja::NajaDumpableProperty* getTruthTableProperty(const naja::NL::SNLDesign* design) {
+naja::NajaDumpableProperty* getTruthTableProperty(
+    const naja::NL::SNLDesign* design) {
   auto property = static_cast<naja::NajaDumpableProperty*>(
       design->getProperty(SNLDesignTruthTablePropertyName));
   return property;
 }
 
 void createTruthTableProperty(naja::NL::SNLDesign* design,
-                    const naja::NL::SNLTruthTable& truthTable) {
+                              const naja::NL::SNLTruthTable& truthTable) {
   // LCOV_EXCL_START
   if (getTruthTableProperty(design)) {
     throw naja::NL::NLException("Design already has a Truth Table");
@@ -178,10 +220,14 @@ void createTruthTableProperty(naja::NL::SNLDesign* design,
   for (auto mask : truthTable.bits().getChunks()) {
     property->addUInt64Value(mask);
   }
+  for (auto dep : truthTable.getDependencies()) {
+    property->addUInt64Value(dep);
+  }
 }
 
-void createTruthTableProperty(naja::NL::SNLDesign* design,
-                    const std::vector<naja::NL::SNLTruthTable>& truthTables) {
+void createTruthTableProperty(
+    naja::NL::SNLDesign* design,
+    const std::vector<naja::NL::SNLTruthTable>& truthTables) {
   if (truthTables.empty()) {
     throw naja::NL::NLException("Cannot set empty truth table");
   }
@@ -197,57 +243,229 @@ void createTruthTableProperty(naja::NL::SNLDesign* design,
     for (auto mask : truthTable.bits().getChunks()) {
       property->addUInt64Value(mask);
     }
+    for (auto dep : truthTable.getDependencies()) {
+      property->addUInt64Value(dep);
+    }
   }
 }
 
-naja::NajaCollection<naja::NL::SNLBitTerm*> getCombinatorialTermsFromTruthTable(naja::NL::SNLBitTerm* term) {
-  size_t tableCount = naja::NL::SNLDesignModeling::getTruthTableCount(term->getDesign());
-  if (tableCount > 0) {
-    //make the assumption that if there is a tt,
-    //then all opposite terms are combi related.
-    if (term->getDirection() == naja::NL::SNLTerm::Direction::Input) {
-      return term->getDesign()->getBitTerms().getSubCollection(
-        [](naja::NL::SNLBitTerm* t) {
-          return t->getDirection() == naja::NL::SNLTerm::Direction::Output;
+naja::NajaCollection<naja::NL::SNLBitTerm*>
+getCombinatorialOutputsDepsFromTruthTable(naja::NL::SNLBitTerm* term) {
+  size_t flatID = term->getOrderID();
+
+  // Find the flatID of the term
+  auto flatTerms = term->getDesign()->getBitTerms();
+
+  // build map: output‐index → flat‐index
+  std::map<size_t, size_t> outputFlatID2FlatID;
+  size_t outputID = 0, flatIdx = 0;
+  for (auto const& ft : flatTerms) {
+    if (ft->getDirection() == naja::NL::SNLTerm::Direction::Output) {
+      outputFlatID2FlatID[outputID++] = flatIdx;
+    }
+    ++flatIdx;
+  }
+
+  // turn to vector for std::find_if
+  std::vector<naja::NL::SNLBitTerm*> flatTermsVec(flatTerms.begin(),
+                                                  flatTerms.end());
+
+  // LCOV_EXCL_START
+  // ensure there's at least one truth table
+  if (naja::NL::SNLDesignModeling::getTruthTableCount(term->getDesign()) == 0) {
+    throw naja::NL::NLException("Design has an empty truth table");
+  }
+  // LCOV_EXCL_STOP
+  auto design = term->getDesign();
+  auto property = getTruthTableProperty(design);
+  size_t tableIdx = 0;
+  std::vector<size_t> flatDepIDs;
+
+  if (property) {
+    size_t valIdx = 0;
+    size_t total = property->getValues().size();
+
+    while (valIdx < total) {
+      uint32_t nInputs =
+          static_cast<uint32_t>(property->getUInt64Value(valIdx));
+      size_t nBits = static_cast<size_t>(1u) << nInputs;
+      size_t nchunks = TT_NCHUNKS_FROM_BITS(nBits);
+      size_t ndeps = TT_NDEPS_FROM_INPUTS(nInputs);
+
+      // collect dependency masks
+      std::vector<uint64_t> deps;
+      for (size_t i = valIdx + 1 + nchunks; i < valIdx + 1 + nchunks + ndeps;
+           ++i) {
+        deps.push_back(property->getUInt64Value(i));
+      }
+
+      auto decodedDeps = naja::NL::NLBitDependencies::decodeBits(deps);
+      if (decodedDeps.empty() ||
+          std::find(decodedDeps.begin(), decodedDeps.end(), flatID) !=
+              decodedDeps.end()) {
+        auto mapIt = outputFlatID2FlatID.find(tableIdx);
+        // LCOV_EXCL_START
+        if (mapIt == outputFlatID2FlatID.end()) {
+          std::ostringstream reason;
+          reason << "Output flat ID " << tableIdx << " not found in map";
+          throw naja::NL::NLException(reason.str());
         }
-      );
-    } else if (term->getDirection() == naja::NL::SNLTerm::Direction::Output) {
-      //return all inputs
-      return term->getDesign()->getBitTerms().getSubCollection(
-        [](naja::NL::SNLBitTerm* t) {
-          return t->getDirection() == naja::NL::SNLTerm::Direction::Input;
+        // LCOV_EXCL_STOP
+        flatDepIDs.push_back(mapIt->second);
+      }
+
+      // advance valIdx past this table's values, masks, and count entry
+      TT_ADVANCE_VALIDX_COUNT(valIdx, nInputs);
+
+      // LCOV_EXCL_START: malformed‐table guard
+      if (valIdx >= total + 1) {
+        std::ostringstream reason;
+        std::string all;
+        for (size_t i = 0; i < total; ++i) {
+          all += std::to_string(property->getUInt64Value(i)) + " ";
         }
-      );
+        reason << "Malformed truth table for design <"
+               << design->getName().getString() << "> " << all
+               << "\nWith valIdx " << valIdx << " and total " << total;
+        throw naja::NL::NLException(reason.str());
+      }
+      // LCOV_EXCL_STOP
+
+      ++tableIdx;
     }
   }
-  return {};
+
+  // build result collection from unique (ID,bit) pairs
+  std::set<
+      std::pair<naja::NL::NLID::DesignObjectID, naja::NL::NLID::DesignObjectID>>
+      depTermsIds;
+  for (auto id : flatDepIDs) {
+    auto bt = flatTermsVec[id];
+    // LCOV_EXCL_START
+    if (!bt) {
+      std::ostringstream reason;
+      reason << "Bit term with ID " << id << " not found in design "
+             << term->getDesign()->getName().getString();
+      throw naja::NL::NLException(reason.str());
+    }
+    // LCOV_EXCL_STOP
+    depTermsIds.insert({bt->getID(), bt->getBit()});
+  }
+
+  auto filter = [=](auto const* bterm) {
+    return depTermsIds.count({bterm->getID(), bterm->getBit()}) > 0;
+  };
+  return flatTerms.getSubCollection(filter);
+}
+
+naja::NajaCollection<naja::NL::SNLBitTerm*>
+getCombinatorialInputDepsFromTruthTable(naja::NL::SNLBitTerm* term) {
+  size_t flatID = term->getOrderID();
+  // Find the flatID of the term
+  auto flatTerms = term->getDesign()->getBitTerms();
+  // create a map for output index and flatID
+  std::map<size_t, size_t> outputFlatID2FlatID;
+
+  // turn to vector to use the STL algorithm
+  std::vector<naja::NL::SNLBitTerm*> flatTermsVec(flatTerms.begin(),
+                                                  flatTerms.end());
+  size_t tableCount =
+      naja::NL::SNLDesignModeling::getTruthTableCount(term->getDesign());
+  if (tableCount == 0) {
+    return {};
+  }
+  naja::NL::SNLTruthTable truthTable;
+  if (tableCount == 1) {
+    truthTable = naja::NL::SNLDesignModeling::getTruthTable(term->getDesign());
+  } else {
+    truthTable =
+        naja::NL::SNLDesignModeling::getTruthTable(term->getDesign(), flatID);
+  }
+  const auto& deps = truthTable.getDependencies();
+  if (naja::NL::NLBitDependencies::countBitsForVector(deps) == 0) {
+    // In the absence of any deps, we assume—by default—that everything depends
+    // on everything
+    return flatTerms.getSubCollection([](const naja::NL::SNLBitTerm* bterm) {
+      return bterm->getDirection() != naja::NL::SNLBitTerm::Direction::Output;
+    });
+  }
+  // auto flatTermsIDs = naja::NL::NLBitDependencies::decodeBits(deps);
+  // auto flatTerms = term->getDesign()->getBitTerms();
+  //  turn to vector to use the STL algorithm
+  // std::vector<naja::NL::SNLBitTerm*> flatTermsVec(flatTerms.begin(),
+  //                                                 flatTerms.end());
+
+  std::set<
+      std::pair<naja::NL::NLID::DesignObjectID, naja::NL::NLID::DesignObjectID>>
+      depTermsIds;
+  // extract bit values for depsß
+  size_t depsIdx = 0;
+  for (auto chunk : deps) {
+    for (size_t b = 0; b < 64; ++b) {
+      size_t pos = depsIdx * 64 + b;
+      if (pos >= flatTerms.size())
+        break;
+      if ((chunk >> b) & 1) {
+        auto bt = flatTermsVec[pos];
+        // LCOV_EXCL_START
+        if (!bt) {
+          std::ostringstream reason;
+          reason << "Bit term with ID " << pos << " not found in design "
+                 << term->getDesign()->getName().getString();
+          throw naja::NL::NLException(reason.str());
+        }
+        // LCOV_EXCL_STOP
+        depTermsIds.insert({bt->getID(), bt->getBit()});
+      }
+    }
+    depsIdx++;
+  }
+  auto filter = [=](const naja::NL::SNLBitTerm* bterm) {
+    return depTermsIds.find({bterm->getID(), bterm->getBit()}) !=
+           depTermsIds.end();
+  };
+  return flatTerms.getSubCollection(filter);
+}
+
+naja::NajaCollection<naja::NL::SNLBitTerm*> getCombinatorialDepsFromTruthTable(
+    naja::NL::SNLBitTerm* term) {
+  if (term->getDirection() != naja::NL::SNLTerm::Direction::Input) {
+    return getCombinatorialInputDepsFromTruthTable(term);
+  }
+  return getCombinatorialOutputsDepsFromTruthTable(term);
 }
 
 }  // namespace
-  
-namespace naja { namespace NL {
 
-SNLDesignModeling::SNLDesignModeling(Type type): type_(type) {
+namespace naja {
+namespace NL {
+
+SNLDesignModeling::SNLDesignModeling(Type type) : type_(type) {
   if (type_ == NO_PARAMETER) {
-    model_ = TimingArcs(); 
+    model_ = TimingArcs();
   } else {
     model_ = ParameterizedArcs();
   }
 }
 
-void SNLDesignModeling::addCombinatorialArc_(SNLBitTerm* input, SNLBitTerm* output) {
+void SNLDesignModeling::addCombinatorialArc_(SNLBitTerm* input,
+                                             SNLBitTerm* output) {
   TimingArcs* arcs = getOrCreateTimingArcs();
   insertInArcs(arcs->inputCombinatorialArcs_, input, output);
   insertInArcs(arcs->outputCombinatorialArcs_, output, input);
 }
 
-void SNLDesignModeling::addCombinatorialArc_(SNLBitTerm* input, SNLBitTerm* output, const std::string& parameterValue) {
+void SNLDesignModeling::addCombinatorialArc_(
+    SNLBitTerm* input,
+    SNLBitTerm* output,
+    const std::string& parameterValue) {
   TimingArcs* arcs = getOrCreateTimingArcs(parameterValue);
   insertInArcs(arcs->inputCombinatorialArcs_, input, output);
   insertInArcs(arcs->outputCombinatorialArcs_, output, input);
 }
 
-void SNLDesignModeling::addInputToClockArc_(SNLBitTerm* input, SNLBitTerm* clock) {
+void SNLDesignModeling::addInputToClockArc_(SNLBitTerm* input,
+                                            SNLBitTerm* clock) {
   if (type_ not_eq Type::NO_PARAMETER) {
     throw NLException("Wrong SNLDesignModeling type for addInputToClockArc");
   }
@@ -256,7 +474,8 @@ void SNLDesignModeling::addInputToClockArc_(SNLBitTerm* input, SNLBitTerm* clock
   insertInArcs(arcs.clockToInputArcs_, clock, input);
 }
 
-void SNLDesignModeling::addClockToOutputArc_(SNLBitTerm* clock, SNLBitTerm* output) {
+void SNLDesignModeling::addClockToOutputArc_(SNLBitTerm* clock,
+                                             SNLBitTerm* output) {
   if (type_ not_eq Type::NO_PARAMETER) {
     throw NLException("Wrong SNLDesignModeling type for addClockToOutputArc");
   }
@@ -265,7 +484,8 @@ void SNLDesignModeling::addClockToOutputArc_(SNLBitTerm* clock, SNLBitTerm* outp
   insertInArcs(arcs.clockToOutputArcs_, clock, output);
 }
 
-SNLDesignModeling::TimingArcs* SNLDesignModeling::getOrCreateTimingArcs(const std::string& parameterValue) {
+SNLDesignModeling::TimingArcs* SNLDesignModeling::getOrCreateTimingArcs(
+    const std::string& parameterValue) {
   if (type_ == Type::NO_PARAMETER) {
     if (not parameterValue.empty()) {
       throw NLException("Contradictory type in SNLDesignModeling");
@@ -276,10 +496,11 @@ SNLDesignModeling::TimingArcs* SNLDesignModeling::getOrCreateTimingArcs(const st
     if (not parameterValue.empty()) {
       paramValue = parameterValue;
     }
-    ParameterizedArcs& parameterizedArcs = std::get<Type::PARAMETERIZED>(model_);
+    ParameterizedArcs& parameterizedArcs =
+        std::get<Type::PARAMETERIZED>(model_);
     auto ait = parameterizedArcs.find(paramValue);
     if (ait == parameterizedArcs.end()) {
-      //create it
+      // create it
       auto result = parameterizedArcs.insert({paramValue, TimingArcs()});
       if (not result.second) {
         throw naja::NL::NLException("Error in Timing arcs insertion");
@@ -290,27 +511,30 @@ SNLDesignModeling::TimingArcs* SNLDesignModeling::getOrCreateTimingArcs(const st
   }
 }
 
-const SNLDesignModeling::TimingArcs* SNLDesignModeling::getTimingArcs(const SNLInstance* instance) const {
+const SNLDesignModeling::TimingArcs* SNLDesignModeling::getTimingArcs(
+    const SNLInstance* instance) const {
   if (type_ == Type::NO_PARAMETER) {
     return &std::get<Type::NO_PARAMETER>(model_);
   } else {
-    const ParameterizedArcs& parameterizedArcs = std::get<Type::PARAMETERIZED>(model_);
-    //find the parameter value
+    const ParameterizedArcs& parameterizedArcs =
+        std::get<Type::PARAMETERIZED>(model_);
+    // find the parameter value
     if (instance != nullptr) {
       // //get Arcs from parameter
       auto parameter = parameter_.first;
-      //find parameter in instance
+      // find parameter in instance
       auto instParameter = instance->getInstParameter(NLName(parameter));
       if (instParameter) {
         auto value = instParameter->getValue();
         auto pit = parameterizedArcs.find(value);
         if (pit == parameterizedArcs.end()) {
           std::ostringstream reason;
-          reason << "Parameter value <" << value << "> for Parameter <" << parameter
-            << "> cannot be found in design <" << instance->getModel()->getName().getString()
-            << "> modeling. Existing values are: ";
+          reason << "Parameter value <" << value << "> for Parameter <"
+                 << parameter << "> cannot be found in design <"
+                 << instance->getModel()->getName().getString()
+                 << "> modeling. Existing values are: ";
           bool first = true;
-          for (auto parcs: parameterizedArcs) {
+          for (auto parcs : parameterizedArcs) {
             if (!first) {
               reason << ", ";
             }
@@ -321,119 +545,127 @@ const SNLDesignModeling::TimingArcs* SNLDesignModeling::getTimingArcs(const SNLI
         }
         return &(pit->second);
       }
-      //if not found then switch to default parameter
-    } 
+      // if not found then switch to default parameter
+    }
     auto defaultParameterValue = parameter_.second;
     if (defaultParameterValue.empty()) {
+      // LCOV_EXCL_START
       throw NLException("No Default parameter value while getting Timing Arcs");
+      // LCOV_EXCL_STOP
     }
     auto ait = parameterizedArcs.find(defaultParameterValue);
     if (ait != parameterizedArcs.end()) {
       return &(ait->second);
     } else {
+      // LCOV_EXCL_START
       std::ostringstream reason;
-      reason << "cannot find " << defaultParameterValue << " in parameterized arcs.";
+      reason << "cannot find " << defaultParameterValue
+             << " in parameterized arcs.";
       throw NLException(reason.str());
+      // LCOV_EXCL_STOP
     }
   }
 }
 
-NajaCollection<SNLBitTerm*> SNLDesignModeling::getCombinatorialOutputs_(SNLBitTerm* term) const {
-  GET_RELATED_TERMS_IN_ARCS(inputCombinatorialArcs_)
-}
+NajaCollection<SNLBitTerm*> SNLDesignModeling::getCombinatorialOutputs_(
+    SNLBitTerm* term) const {GET_RELATED_TERMS_IN_ARCS(inputCombinatorialArcs_)}
 
-NajaCollection<SNLInstTerm*> SNLDesignModeling::getCombinatorialOutputs_(SNLInstTerm* iterm) const {
-  GET_RELATED_INSTTERMS_IN_ARCS(inputCombinatorialArcs_)
-}
+NajaCollection<SNLInstTerm*> SNLDesignModeling::getCombinatorialOutputs_(
+    SNLInstTerm* iterm) const {
+    GET_RELATED_INSTTERMS_IN_ARCS(inputCombinatorialArcs_)}
 
-NajaCollection<SNLBitTerm*> SNLDesignModeling::getCombinatorialInputs_(SNLBitTerm* term) const {
-  GET_RELATED_TERMS_IN_ARCS(outputCombinatorialArcs_)
-}
+NajaCollection<SNLBitTerm*> SNLDesignModeling::getCombinatorialInputs_(
+    SNLBitTerm* term) const {
+    GET_RELATED_TERMS_IN_ARCS(outputCombinatorialArcs_)}
 
-NajaCollection<SNLInstTerm*> SNLDesignModeling::getCombinatorialInputs_(SNLInstTerm* iterm) const {
-  GET_RELATED_INSTTERMS_IN_ARCS(outputCombinatorialArcs_)
-}
+NajaCollection<SNLInstTerm*> SNLDesignModeling::getCombinatorialInputs_(
+    SNLInstTerm* iterm) const {
+    GET_RELATED_INSTTERMS_IN_ARCS(outputCombinatorialArcs_)}
 
-NajaCollection<SNLBitTerm*> SNLDesignModeling::getClockRelatedInputs_(SNLBitTerm* term) const {
-  GET_RELATED_TERMS_IN_ARCS(clockToInputArcs_)
-}
+NajaCollection<SNLBitTerm*> SNLDesignModeling::getClockRelatedInputs_(
+    SNLBitTerm* term) const {GET_RELATED_TERMS_IN_ARCS(clockToInputArcs_)}
 
-NajaCollection<SNLBitTerm*> SNLDesignModeling::getClockRelatedOutputs_(SNLBitTerm* term) const {
-  GET_RELATED_TERMS_IN_ARCS(clockToOutputArcs_)
-}
+NajaCollection<SNLBitTerm*> SNLDesignModeling::getClockRelatedOutputs_(
+    SNLBitTerm* term) const {GET_RELATED_TERMS_IN_ARCS(clockToOutputArcs_)}
 
-NajaCollection<SNLBitTerm*> SNLDesignModeling::getInputRelatedClocks_(SNLBitTerm* term) const {
-  GET_RELATED_TERMS_IN_ARCS(inputToClockArcs_)
-}
+NajaCollection<SNLBitTerm*> SNLDesignModeling::getInputRelatedClocks_(
+    SNLBitTerm* term) const {GET_RELATED_TERMS_IN_ARCS(inputToClockArcs_)}
 
-NajaCollection<SNLBitTerm*> SNLDesignModeling::getOutputRelatedClocks_(SNLBitTerm* term) const {
-  GET_RELATED_TERMS_IN_ARCS(outputToClockArcs_)
-}
+NajaCollection<SNLBitTerm*> SNLDesignModeling::getOutputRelatedClocks_(
+    SNLBitTerm* term) const {GET_RELATED_TERMS_IN_ARCS(outputToClockArcs_)}
 
-NajaCollection<SNLInstTerm*> SNLDesignModeling::getClockRelatedInputs_(SNLInstTerm* iterm) const {
-  GET_RELATED_INSTTERMS_IN_ARCS(clockToInputArcs_)
-}
+NajaCollection<SNLInstTerm*> SNLDesignModeling::getClockRelatedInputs_(
+    SNLInstTerm* iterm) const {GET_RELATED_INSTTERMS_IN_ARCS(clockToInputArcs_)}
 
-NajaCollection<SNLInstTerm*> SNLDesignModeling::getClockRelatedOutputs_(SNLInstTerm* iterm) const {
-  GET_RELATED_INSTTERMS_IN_ARCS(clockToOutputArcs_)
-}
+NajaCollection<SNLInstTerm*> SNLDesignModeling::getClockRelatedOutputs_(
+    SNLInstTerm* iterm) const {
+    GET_RELATED_INSTTERMS_IN_ARCS(clockToOutputArcs_)}
 
-NajaCollection<SNLInstTerm*> SNLDesignModeling::getInputRelatedClocks_(SNLInstTerm* iterm) const {
-  GET_RELATED_INSTTERMS_IN_ARCS(inputToClockArcs_)
-}
+NajaCollection<SNLInstTerm*> SNLDesignModeling::getInputRelatedClocks_(
+    SNLInstTerm* iterm) const {GET_RELATED_INSTTERMS_IN_ARCS(inputToClockArcs_)}
 
-NajaCollection<SNLInstTerm*> SNLDesignModeling::getOutputRelatedClocks_(SNLInstTerm* iterm) const {
+NajaCollection<SNLInstTerm*> SNLDesignModeling::getOutputRelatedClocks_(
+    SNLInstTerm* iterm) const {
   GET_RELATED_INSTTERMS_IN_ARCS(outputToClockArcs_)
 }
 
-void SNLDesignModeling::addCombinatorialArcs(
-  const BitTerms& inputs, const BitTerms& outputs) {
-  auto design = verifyInputs(inputs, "inputs", outputs, "outputs", "addCombinatorialArcs");
+void SNLDesignModeling::addCombinatorialArcs(const BitTerms& inputs,
+                                             const BitTerms& outputs) {
+  auto design = verifyInputs(inputs, "inputs", outputs, "outputs",
+                             "addCombinatorialArcs");
   auto property = getOrCreateProperty(design, Type::NO_PARAMETER);
   auto modeling = property->getModeling();
-  for (auto input: inputs) {
-    for (auto output: outputs) {
+  for (auto input : inputs) {
+    for (auto output : outputs) {
       modeling->addCombinatorialArc_(input, output);
     }
   }
 }
 
-void SNLDesignModeling::addCombinatorialArcs(
-  const std::string& parameterValue,
-  const BitTerms& inputs, const BitTerms& outputs) {
-  auto design = verifyInputs(inputs, "inputs", outputs, "outputs", "addCombinatorialArcs");
+void SNLDesignModeling::addCombinatorialArcs(const std::string& parameterValue,
+                                             const BitTerms& inputs,
+                                             const BitTerms& outputs) {
+  auto design = verifyInputs(inputs, "inputs", outputs, "outputs",
+                             "addCombinatorialArcs");
   auto property = getOrCreateProperty(design, Type::PARAMETERIZED);
   auto modeling = property->getModeling();
-  for (auto input: inputs) {
-    for (auto output: outputs) {
+  for (auto input : inputs) {
+    for (auto output : outputs) {
       modeling->addCombinatorialArc_(input, output, parameterValue);
     }
   }
 }
 
-void SNLDesignModeling::addInputsToClockArcs(const BitTerms& inputs, SNLBitTerm* clock) {
-  auto design = verifyInputs(inputs, "inputs", {clock}, "clock", "addInputsToClockArcs");
+void SNLDesignModeling::addInputsToClockArcs(const BitTerms& inputs,
+                                             SNLBitTerm* clock) {
+  auto design =
+      verifyInputs(inputs, "inputs", {clock}, "clock", "addInputsToClockArcs");
   auto property = getOrCreateProperty(design, Type::NO_PARAMETER);
   auto modeling = property->getModeling();
-  for (auto input: inputs) {
+  for (auto input : inputs) {
     modeling->addInputToClockArc_(input, clock);
   }
 }
 
-void SNLDesignModeling::addClockToOutputsArcs(SNLBitTerm* clock, const BitTerms& outputs) {
-  auto design = verifyInputs({clock}, "clock", outputs, "outputs", "addClockToOutputsArcs");
+void SNLDesignModeling::addClockToOutputsArcs(SNLBitTerm* clock,
+                                              const BitTerms& outputs) {
+  auto design = verifyInputs({clock}, "clock", outputs, "outputs",
+                             "addClockToOutputsArcs");
   auto property = getOrCreateProperty(design, Type::NO_PARAMETER);
   auto modeling = property->getModeling();
-  for (auto output: outputs) {
+  for (auto output : outputs) {
     modeling->addClockToOutputArc_(clock, output);
   }
 }
 
-void SNLDesignModeling::setParameter(SNLDesign* design, const std::string& name, const std::string& defaultValue) {
+void SNLDesignModeling::setParameter(SNLDesign* design,
+                                     const std::string& name,
+                                     const std::string& defaultValue) {
   auto parameter = design->getParameter(NLName(name));
   if (not parameter) {
     std::ostringstream reason;
-    reason << "Parameter " << name << " is unknown in " << design->getName().getString();
+    reason << "Parameter " << name << " is unknown in "
+           << design->getName().getString();
     throw NLException(reason.str());
   }
   auto property = getOrCreateProperty(design, Type::PARAMETERIZED);
@@ -441,78 +673,150 @@ void SNLDesignModeling::setParameter(SNLDesign* design, const std::string& name,
   modeling->parameter_ = std::make_pair(name, defaultValue);
 }
 
-NajaCollection<SNLBitTerm*> SNLDesignModeling::getCombinatorialOutputs(SNLBitTerm* term) {
+NajaCollection<SNLBitTerm*> SNLDesignModeling::getCombinatorialOutputs(
+    SNLBitTerm* term) {
   auto property = getProperty(term->getDesign());
   if (property) {
     GET_RELATED_OBJECTS(SNLBitTerm, term, getDesign(), getCombinatorialOutputs_)
   } else {
-    return getCombinatorialTermsFromTruthTable(term);
+    if (naja::NL::SNLDesignModeling::areDependenciesDefined(term->getDesign())) {
+      return getCombinatorialDepsFromTruthTable(term);
+    }
   }
+  // return all outputs of the design
+  return term->getDesign()->getBitTerms().getSubCollection(
+      [](const SNLBitTerm* t) {
+        return t->getDirection() != SNLTerm::Direction::Input;
+      });
 }
 
-NajaCollection<SNLInstTerm*> SNLDesignModeling::getCombinatorialOutputs(SNLInstTerm* iterm) {
+NajaCollection<SNLInstTerm*> SNLDesignModeling::getCombinatorialOutputs(
+    SNLInstTerm* iterm) {
   auto property = getProperty(iterm->getInstance()->getModel());
   if (property) {
-    GET_RELATED_OBJECTS(SNLInstTerm, iterm, getInstance()->getModel(), getCombinatorialOutputs_)
+    GET_RELATED_OBJECTS(SNLInstTerm, iterm, getInstance()->getModel(),
+                        getCombinatorialOutputs_)
   } else {
-    return getCombinatorialTermsFromTruthTable(iterm->getBitTerm()).getTransformerCollection<SNLInstTerm*>(
-      [=](const SNLBitTerm* term) { return iterm->getInstance()->getInstTerm(term); });
+    if (naja::NL::SNLDesignModeling::areDependenciesDefined(iterm->getBitTerm()->getDesign())) {
+      return getCombinatorialDepsFromTruthTable(iterm->getBitTerm())
+            .getTransformerCollection<SNLInstTerm*>(
+                [=](const SNLBitTerm* term) {
+                  return iterm->getInstance()->getInstTerm(term);
+                });
+    }
   }
+  // return all outputs of the instance
+  return iterm->getInstance()
+      ->getModel()
+      ->getBitTerms()
+      .getSubCollection([](const SNLBitTerm* t) {
+        return t->getDirection() != SNLTerm::Direction::Input;
+      })
+      .getTransformerCollection<SNLInstTerm*>([=](const SNLBitTerm* term) {
+        return iterm->getInstance()->getInstTerm(term);
+      });
 }
 
-NajaCollection<SNLBitTerm*> SNLDesignModeling::getCombinatorialInputs(SNLBitTerm* term) {
+NajaCollection<SNLBitTerm*> SNLDesignModeling::getCombinatorialInputs(
+    SNLBitTerm* term) {
   auto property = getProperty(term->getDesign());
   if (property) {
     GET_RELATED_OBJECTS(SNLBitTerm, term, getDesign(), getCombinatorialInputs_)
   } else {
-    return getCombinatorialTermsFromTruthTable(term);
+    if (naja::NL::SNLDesignModeling::getTruthTableCount(term->getDesign()) >
+        0) {
+      auto snltt = naja::NL::SNLDesignModeling::getTruthTable(
+          term->getDesign(), term->getOrderID());
+      if (NLBitDependencies::countBitsForVector(snltt.getDependencies()) > 0) {
+        return getCombinatorialDepsFromTruthTable(term);
+      }
+    }
   }
+  // return all inputs of the design
+  return term->getDesign()->getBitTerms().getSubCollection(
+      [](const SNLBitTerm* t) {
+        return t->getDirection() != SNLTerm::Direction::Output;
+      });
 }
 
-NajaCollection<SNLInstTerm*> SNLDesignModeling::getCombinatorialInputs(SNLInstTerm* iterm) {
+NajaCollection<SNLInstTerm*> SNLDesignModeling::getCombinatorialInputs(
+    SNLInstTerm* iterm) {
   auto property = getProperty(iterm->getInstance()->getModel());
   if (property) {
-    GET_RELATED_OBJECTS(SNLInstTerm, iterm, getInstance()->getModel(), getCombinatorialInputs_)
+    GET_RELATED_OBJECTS(SNLInstTerm, iterm, getInstance()->getModel(),
+                        getCombinatorialInputs_)
   } else {
-    return getCombinatorialTermsFromTruthTable(iterm->getBitTerm()).getTransformerCollection<SNLInstTerm*>(
-      [=](const SNLBitTerm* term) { return iterm->getInstance()->getInstTerm(term); });
+    if (naja::NL::SNLDesignModeling::getTruthTableCount(
+            iterm->getInstance()->getModel()) > 0) {
+      auto snltt = naja::NL::SNLDesignModeling::getTruthTable(
+          iterm->getInstance()->getModel(), iterm->getBitTerm()->getOrderID());
+      if (NLBitDependencies::countBitsForVector(snltt.getDependencies()) > 0) {
+        return getCombinatorialDepsFromTruthTable(iterm->getBitTerm())
+            .getTransformerCollection<SNLInstTerm*>(
+                [=](const SNLBitTerm* term) {
+                  return iterm->getInstance()->getInstTerm(term);
+                });
+      }
+    }
+    // return all inputs of the instance
   }
+  return iterm->getInstance()
+      ->getModel()
+      ->getBitTerms()
+      .getSubCollection([](const SNLBitTerm* t) {
+        return t->getDirection() != SNLTerm::Direction::Output;
+      })
+      .getTransformerCollection<SNLInstTerm*>([=](const SNLBitTerm* term) {
+        return iterm->getInstance()->getInstTerm(term);
+      });
 }
 
-NajaCollection<SNLBitTerm*> SNLDesignModeling::getClockRelatedInputs(SNLBitTerm* clock) {
-  GET_RELATED_OBJECTS(SNLBitTerm, clock, getDesign(), getClockRelatedInputs_)
-}
+NajaCollection<SNLBitTerm*> SNLDesignModeling::getClockRelatedInputs(
+    SNLBitTerm* clock){
+    GET_RELATED_OBJECTS(SNLBitTerm, clock, getDesign(), getClockRelatedInputs_)}
 
-NajaCollection<SNLBitTerm*> SNLDesignModeling::getClockRelatedOutputs(SNLBitTerm* clock) {
-  GET_RELATED_OBJECTS(SNLBitTerm, clock, getDesign(), getClockRelatedOutputs_)
-}
+NajaCollection<SNLBitTerm*> SNLDesignModeling::getClockRelatedOutputs(
+    SNLBitTerm* clock){GET_RELATED_OBJECTS(SNLBitTerm,
+                                           clock,
+                                           getDesign(),
+                                           getClockRelatedOutputs_)}
 
-NajaCollection<SNLBitTerm*> SNLDesignModeling::getInputRelatedClocks(SNLBitTerm* input) {
-  GET_RELATED_OBJECTS(SNLBitTerm, input, getDesign(), getInputRelatedClocks_)
-}
+NajaCollection<SNLBitTerm*> SNLDesignModeling::getInputRelatedClocks(
+    SNLBitTerm* input){
+    GET_RELATED_OBJECTS(SNLBitTerm, input, getDesign(), getInputRelatedClocks_)}
 
-NajaCollection<SNLBitTerm*> SNLDesignModeling::getOutputRelatedClocks(SNLBitTerm* output) {
-  GET_RELATED_OBJECTS(SNLBitTerm, output, getDesign(), getOutputRelatedClocks_)
-}
+NajaCollection<SNLBitTerm*> SNLDesignModeling::getOutputRelatedClocks(
+    SNLBitTerm* output){GET_RELATED_OBJECTS(SNLBitTerm,
+                                            output,
+                                            getDesign(),
+                                            getOutputRelatedClocks_)}
 
-NajaCollection<SNLInstTerm*> SNLDesignModeling::getClockRelatedInputs(SNLInstTerm* clock) {
-  GET_RELATED_OBJECTS(SNLInstTerm, clock, getInstance()->getModel(), getClockRelatedInputs_)
-}
+NajaCollection<SNLInstTerm*> SNLDesignModeling::getClockRelatedInputs(
+    SNLInstTerm* clock){GET_RELATED_OBJECTS(SNLInstTerm,
+                                            clock,
+                                            getInstance() -> getModel(),
+                                            getClockRelatedInputs_)}
 
-NajaCollection<SNLInstTerm*> SNLDesignModeling::getClockRelatedOutputs(SNLInstTerm* clock) {
-  GET_RELATED_OBJECTS(SNLInstTerm, clock, getInstance()->getModel(), getClockRelatedOutputs_)
-}
+NajaCollection<SNLInstTerm*> SNLDesignModeling::getClockRelatedOutputs(
+    SNLInstTerm* clock){GET_RELATED_OBJECTS(SNLInstTerm,
+                                            clock,
+                                            getInstance()->getModel(),
+                                            getClockRelatedOutputs_)}
 
-NajaCollection<SNLInstTerm*> SNLDesignModeling::getInputRelatedClocks(SNLInstTerm* input) {
-  GET_RELATED_OBJECTS(SNLInstTerm, input, getInstance()->getModel(), getInputRelatedClocks_)
-}
+NajaCollection<SNLInstTerm*> SNLDesignModeling::getInputRelatedClocks(
+    SNLInstTerm* input){GET_RELATED_OBJECTS(SNLInstTerm,
+                                            input,
+                                            getInstance()->getModel(),
+                                            getInputRelatedClocks_)}
 
-NajaCollection<SNLInstTerm*> SNLDesignModeling::getOutputRelatedClocks(SNLInstTerm* output) {
-  GET_RELATED_OBJECTS(SNLInstTerm, output, getInstance()->getModel(), getOutputRelatedClocks_)
+NajaCollection<SNLInstTerm*> SNLDesignModeling::getOutputRelatedClocks(
+    SNLInstTerm* output) {
+  GET_RELATED_OBJECTS(SNLInstTerm, output, getInstance()->getModel(),
+                      getOutputRelatedClocks_)
 }
 
 void SNLDesignModeling::setTruthTable(SNLDesign* design,
-                                        const SNLTruthTable& truthTable) {
+                                      const SNLTruthTable& truthTable) {
   if (!design->isPrimitive()) {
     throw NLException("Cannot add truth table on non-primitive design");
   }
@@ -520,15 +824,15 @@ void SNLDesignModeling::setTruthTable(SNLDesign* design,
   if (getTruthTableProperty(design)) {
     throw NLException("Design already has a Truth Table");
   }
-  auto outputs = design->getTerms().getSubCollection(
-      [](const SNLTerm* t) {
+  const auto& outputs =
+      design->getBitTerms().getSubCollection([](const SNLBitTerm* t) {
         return t->getDirection() == SNLTerm::Direction::Output;
       });
   if (outputs.size() != 1) {
     std::ostringstream reason;
     reason << "cannot add truth table on Design <"
-           << design->getName().getString() << "> that has <"
-           << outputs.size() << "> outputs";
+           << design->getName().getString() << "> that has <" << outputs.size()
+           << "> outputs";
     throw NLException(reason.str());
   }
   createTruthTableProperty(design, truthTable);
@@ -544,49 +848,64 @@ void SNLDesignModeling::setTruthTables(
   if (getTruthTableProperty(design)) {
     throw NLException("Design already has a Truth Table");
   }
-  auto outputs = design->getTerms().getSubCollection(
-      [](const SNLTerm* t) {
+  const auto& outputs =
+      design->getBitTerms().getSubCollection([](const SNLBitTerm* t) {
         return t->getDirection() == SNLTerm::Direction::Output;
       });
   if (outputs.size() != truthTables.size()) {
     std::ostringstream reason;
     reason << "cannot add truth tables on Design <"
-           << design->getName().getString() << "> that has <"
-           << outputs.size() << "> outputs, but provided <"
-           << truthTables.size() << "> truth tables";
+           << design->getName().getString() << "> that has <" << outputs.size()
+           << "> outputs, but provided <" << truthTables.size()
+           << "> truth tables";
     throw NLException(reason.str());
   }
   createTruthTableProperty(design, truthTables);
 }
 
+bool SNLDesignModeling::areDependenciesDefined(const SNLDesign* design) {
+  for (const auto& term : design->getBitTerms()) {
+    if (term->getDirection() != SNLTerm::Direction::Input) {
+      SNLTruthTable tt =
+          SNLDesignModeling::getTruthTable(design, term->getOrderID());
+      auto deps = tt.getDependencies();
+      if (naja::NL::NLBitDependencies::countBitsForVector(deps) == 0) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
 size_t SNLDesignModeling::getTruthTableCount(const SNLDesign* design) {
   auto property = getTruthTableProperty(design);
   size_t tableIdx = 0;
-  if (property) {
-    // scan through each stored table until we reach outputID
-    size_t valIdx   = 0;
-    size_t total    = property->getValues().size();
+  if (property != nullptr) {
+    size_t valIdx = 0;
+    size_t total = property->getValues().size();
+
+    if (total == 0) {
+      return 0;
+    }
 
     while (valIdx < total) {
-      uint32_t nInputs = static_cast<uint32_t>(
-          property->getUInt64Value(valIdx));
-      size_t   nBits   = 1u << nInputs;
-      size_t   nChunks = nBits / 64 + ((nBits % 64) > 0 ? 1 : 0);
-      valIdx += 1 + nChunks;
+      uint32_t nInputs =
+          static_cast<uint32_t>(property->getUInt64Value(valIdx));
+      TT_ADVANCE_VALIDX_COUNT(valIdx, nInputs);
+
       // LCOV_EXCL_START
-      if (valIdx >= total + 1 /*because this loop will take you to the next table, therefore the + 1*/) {
+      if (valIdx >= total + 1) {
         std::ostringstream reason;
-        // create a string by concating all values
-        std::string result = "";
-        for (size_t i = 0; i < total; ++i) {
+        std::string result;
+        for (size_t i = 0; i < total; ++i)
           result += std::to_string(property->getUInt64Value(i)) + " ";
-        }
         reason << "Maldformed truth table for design <"
-               << design->getName().getString() << ">" << " " << result << "\n" 
-               << "With valIdx " << valIdx << " and total " << total;
+               << design->getName().getString() << "> " << result
+               << "\nWith valIdx " << valIdx << " and total " << total;
         throw NLException(reason.str());
       }
       // LCOV_EXCL_STOP
+
       ++tableIdx;
     }
   }
@@ -596,56 +915,73 @@ size_t SNLDesignModeling::getTruthTableCount(const SNLDesign* design) {
 SNLTruthTable SNLDesignModeling::getTruthTable(const SNLDesign* design) {
   auto property = getTruthTableProperty(design);
   if (property) {
-    // total number of mask‐values trailing the first “size” entry
     size_t tableSize = property->getValues().size() - 1;
-
-    // how many chunks *should* we have, given the stored input‐count?
     uint64_t declaredInputs = property->getUInt64Value(0);
     uint64_t num_bits = 1u << declaredInputs;
-    size_t expectedChunks =
-      static_cast<size_t>(
-        (declaredInputs == 0 && tableSize == 1)
-            ? 1
-            : (num_bits / 64 + ((num_bits % 64) > 0 ? 1 : 0))
-      );
+    size_t expectedChunks = (declaredInputs == 0 && tableSize == 1)
+                                ? 1
+                                : (TT_NCHUNKS_FROM_BITS(num_bits) +
+                                   TT_NDEPS_FROM_INPUTS(declaredInputs));
     if (expectedChunks != tableSize) {
       std::ostringstream reason;
       reason << "Truth table size " << tableSize
-             << " does not match number of chunks " << expectedChunks << " which suggests per output functionality";
+             << " does not match number of chunks " << expectedChunks
+             << " which suggests per output functionality";
       throw NLException(reason.str());
     }
 
-    // multi‐chunk (i.e. >64‐bit) table?
-    if (property->getValues().size() > 2) {
+    // multi‐chunk (>64‐bit) table?
+    if (property->getValues().size() > 3) {
       uint32_t numInputs = static_cast<uint32_t>(declaredInputs);
-      uint32_t nBits     = 1u << numInputs;
+      uint32_t nBits = 1u << numInputs;
+      // LCOV_EXCL_START
       if (nBits <= 64) {
-        // LCOV_EXCL_START
         std::ostringstream reason;
-        reason << "Truth table size " << nBits
-               << " is not larger than 64 bits";
+        reason << "Truth table size " << nBits << " is not larger than 64 bits";
         throw NLException(reason.str());
-        // LCOV_EXCL_STOP
       }
+      // LCOV_EXCL_STOP
 
+      size_t nChunks = TT_NCHUNKS_FROM_BITS(nBits);
+      size_t bitsIdx = 1;  // skip the size entry
       std::vector<bool> bits(nBits, false);
-      size_t            nChunks = (nBits + 63) / 64;
+      TT_FILL_BITS(bits, nBits, property, bitsIdx);
 
-      for (size_t c = 0; c < nChunks; ++c) {
-        uint64_t mask = property->getUInt64Value(c + 1);
-        for (size_t b = 0; b < 64; ++b) {
-          size_t pos = c * 64 + b;
-          if (pos >= nBits) break;
-          if ((mask >> b) & 1) bits[pos] = true;
+      size_t depsIdx = bitsIdx + nChunks;
+      std::vector<uint64_t> deps;
+      size_t nDeps = TT_NDEPS_FROM_INPUTS(numInputs);
+      for (size_t i = depsIdx; i < depsIdx + nDeps; ++i) {
+        if (i < property->getValues().size()) {
+          deps.push_back(property->getUInt64Value(i));
+        } else {
+          // LCOV_EXCL_START
+          std::ostringstream reason;
+          reason << "Truth table size " << property->getValues().size()
+                 << " is smaller then requested index " << i;
+          throw NLException(reason.str());
+          // LCOV_EXCL_STOP
         }
       }
-
-      return SNLTruthTable(numInputs, bits);
+      return SNLTruthTable(numInputs, bits, deps);
     }
+
     // single‐chunk
     if (declaredInputs <= 6) {
+      std::vector<uint64_t> deps;
+      if (property->getValues().size() == 3) {
+        deps.push_back(property->getUInt64Value(2));
+      } else {
+        // LCOV_EXCL_START
+        if (property->getValues().size() != 2) {
+          std::ostringstream reason;
+          reason << "Truth table size " << declaredInputs << " is not 2, but "
+                 << property->getValues().size();
+          throw NLException(reason.str());
+        }
+        // LCOV_EXCL_STOP
+      }
       return SNLTruthTable(static_cast<uint32_t>(declaredInputs),
-                           property->getUInt64Value(1));
+                           property->getUInt64Value(1), deps);
     } else {
       // LCOV_EXCL_START
       std::ostringstream reason;
@@ -658,79 +994,91 @@ SNLTruthTable SNLDesignModeling::getTruthTable(const SNLDesign* design) {
   return SNLTruthTable();
 }
 
-SNLTruthTable SNLDesignModeling::getTruthTable(
-    const SNLDesign* design,
-    NLID::DesignObjectID termID) {
+SNLTruthTable SNLDesignModeling::getTruthTable(const SNLDesign* design,
+                                               size_t flatTermID) {
   auto property = getTruthTableProperty(design);
-  std::map<NLID::DesignObjectID, NLID::DesignObjectID> termID2outputID;
+  std::map<size_t, NLID::DesignObjectID> termID2outputID;
   NLID::DesignObjectID outputIndex = 0;
-  for (const auto& term : design->getTerms()) {
-    if (term->getDirection() == SNLTerm::Direction::Output) {
-      termID2outputID[term->getID()] = outputIndex;
-      ++outputIndex;
+  size_t bitTermIdx = 0;
+  for (const auto& term : design->getBitTerms()) {
+    if (term->getDirection() != SNLTerm::Direction::Input) {
+      termID2outputID[bitTermIdx] = outputIndex++;
     }
+    bitTermIdx++;
   }
-  if (termID2outputID.find(termID) == termID2outputID.end()) {
+  if (termID2outputID.find(flatTermID) == termID2outputID.end()) {
     std::ostringstream reason;
-    reason << "Term ID " << termID
-           << " not found in design <" << design->getName().getString() << ">";
+    reason << "Term ID " << flatTermID << " is not an output in design <"
+           << design->getName().getString() << ">";
     throw NLException(reason.str());
   }
-  NLID::DesignObjectID outputID = termID2outputID[termID];
+  NLID::DesignObjectID outputID = termID2outputID[flatTermID];
+
   if (property) {
-    // scan through each stored table until we reach outputID
     if (getTruthTableCount(design) == 1) {
-      // if there is only one table, then it is the same for all outputs
       return getTruthTable(design);
     }
+
     size_t tableIdx = 0;
-    size_t valIdx   = 0;
-    size_t total    = property->getValues().size();
+    size_t valIdx = 0;
+    size_t total = property->getValues().size();
 
     while (true) {
       // LCOV_EXCL_START
-      if (valIdx >= total) {
+      if (valIdx >= total + 1) {
         std::ostringstream reason;
-        reason << "Output ID " << outputID
-               << " is out of range for design <"
+        reason << "Output ID " << outputID << " is out of range for design <"
                << design->getName().getString() << ">";
         throw NLException(reason.str());
       }
       // LCOV_EXCL_STOP
-      if (tableIdx >= outputID) {
+
+      if (tableIdx == outputID) {
         break;
       }
-      uint32_t nInputs = static_cast<uint32_t>(
-          property->getUInt64Value(valIdx));
-      size_t   nBits   = 1u << nInputs;
-      size_t   nChunks = nBits / 64 + ((nBits % 64) > 0 ? 1 : 0);
-      valIdx += 1 + nChunks;
+      uint32_t nInputs =
+          static_cast<uint32_t>(property->getUInt64Value(valIdx));
+      TT_ADVANCE_VALIDX_SIZEFIRST(valIdx, nInputs);
       ++tableIdx;
     }
 
     uint64_t declaredInputs = property->getUInt64Value(valIdx);
+
     // single‐chunk fast‐path?
     if (declaredInputs <= 6) {
+      std::vector<uint64_t> deps;
+      if (declaredInputs != 0) {
+        deps.push_back(property->getUInt64Value(valIdx + 2));
+      }
       return SNLTruthTable(static_cast<uint32_t>(declaredInputs),
-                           property->getUInt64Value(valIdx + 1));
+                           property->getUInt64Value(valIdx + 1), deps);
     }
 
-    // else multi‐chunk
+    // multi‐chunk
     uint32_t numInputs = static_cast<uint32_t>(declaredInputs);
-    uint32_t nBits     = 1u << numInputs;
-    size_t   nChunks   = nBits / 64 + ((nBits % 64) > 0 ? 1 : 0);
-
+    uint32_t nBits = 1u << numInputs;
+    size_t nChunks = TT_NCHUNKS_FROM_BITS(nBits);
+    size_t bitsIdx = valIdx + 1;
     std::vector<bool> bits(nBits, false);
-    for (size_t c = 0; c < nChunks; ++c) {
-      uint64_t mask = property->getUInt64Value(valIdx + 1 + c);
-      for (size_t b = 0; b < 64; ++b) {
-        size_t pos = c * 64 + b;
-        if (pos >= nBits) break;
-        if ((mask >> b) & 1) bits[pos] = true;
+    TT_FILL_BITS(bits, nBits, property, bitsIdx);
+
+    std::vector<uint64_t> deps;
+    size_t nDeps = TT_NDEPS_FROM_INPUTS(declaredInputs);
+    for (size_t i = bitsIdx + nChunks; i < bitsIdx + nChunks + nDeps; ++i) {
+      if (i < total) {
+        deps.push_back(property->getUInt64Value(i));
+      } else {
+        // LCOV_EXCL_START
+        std::ostringstream reason;
+        reason << "Truth table size " << total
+               << " is smaller then requested index " << i;
+        throw NLException(reason.str());
+        // LCOV_EXCL_STOP
       }
     }
-    return SNLTruthTable(numInputs, bits);
+    return SNLTruthTable(numInputs, bits, deps);
   }
+
   return SNLTruthTable();
 }
 
@@ -748,7 +1096,8 @@ bool SNLDesignModeling::isSequential(const SNLDesign* design) {
   if (property) {
     auto modeling = property->getModeling();
     const auto arcs = modeling->getTimingArcs();
-    return not arcs->inputToClockArcs_.empty() or not arcs->clockToInputArcs_.empty();
+    return not arcs->inputToClockArcs_.empty() or
+           not arcs->clockToInputArcs_.empty();
   }
   return false;
 }
@@ -756,57 +1105,53 @@ bool SNLDesignModeling::isSequential(const SNLDesign* design) {
 bool SNLDesignModeling::isConst0(const SNLDesign* design) {
   auto property = getTruthTableProperty(design);
   // return false if number of values large than 2
-  if (property && property->getValues().size() > 2) {
+  if (property && property->getValues().size() > 3) {
     return false;
   }
   auto truthTable = getTruthTable(design);
-  return truthTable.isInitialized() &&
-         truthTable == SNLTruthTable::Logic0();
+  return truthTable.isInitialized() && truthTable == SNLTruthTable::Logic0();
 }
 
 bool SNLDesignModeling::isConst1(const SNLDesign* design) {
-   auto property = getTruthTableProperty(design);
-  // return false if number of values large than 2
-  if (property && property->getValues().size() > 2) {
+  auto property = getTruthTableProperty(design);
+  // return false if number of values large than 3
+  if (property && property->getValues().size() > 3) {
     return false;
   }
   auto truthTable = getTruthTable(design);
-  return truthTable.isInitialized() &&
-         truthTable == SNLTruthTable::Logic1();
+  return truthTable.isInitialized() && truthTable == SNLTruthTable::Logic1();
 }
 
 bool SNLDesignModeling::isConst(const SNLDesign* design) {
   auto property = getTruthTableProperty(design);
-  // return false if number of values large than 2
-  if (property && property->getValues().size() > 2) {
+  // return false if number of values large than 3
+  if (property && property->getValues().size() > 3) {
     return false;
   }
   auto truthTable = getTruthTable(design);
-  return truthTable.isInitialized() &&
-         (truthTable == SNLTruthTable::Logic0() ||
-          truthTable == SNLTruthTable::Logic1());
+  return truthTable.isInitialized() && (truthTable == SNLTruthTable::Logic0() ||
+                                        truthTable == SNLTruthTable::Logic1());
 }
 
 bool SNLDesignModeling::isInv(const SNLDesign* design) {
   auto property = getTruthTableProperty(design);
-  // return false if number of values large than 2
-  if (property && property->getValues().size() > 2) {
+  // return false if number of values large than 3
+  if (property && property->getValues().size() > 3) {
     return false;
   }
   auto truthTable = getTruthTable(design);
-  return truthTable.isInitialized() &&
-         truthTable == SNLTruthTable::Inv();
+  return truthTable.isInitialized() && truthTable == SNLTruthTable::Inv();
 }
 
 bool SNLDesignModeling::isBuf(const SNLDesign* design) {
-   auto property = getTruthTableProperty(design);
-  // return false if number of values large than 2
-  if (property && property->getValues().size() > 2) {
+  auto property = getTruthTableProperty(design);
+  // return false if number of values large than 3
+  if (property && property->getValues().size() > 3) {
     return false;
   }
   auto truthTable = getTruthTable(design);
-  return truthTable.isInitialized() &&
-         truthTable == SNLTruthTable::Buf();
+  return truthTable.isInitialized() && truthTable == SNLTruthTable::Buf();
 }
 
-}} // namespace NL // namespace naja
+}  // namespace NL
+}  // namespace naja

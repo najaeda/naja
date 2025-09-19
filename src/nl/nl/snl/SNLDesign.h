@@ -321,6 +321,7 @@ class SNLDesign final: public NLObject {
     void addParameter(SNLParameter* parameter);
     void removeParameter(SNLParameter* parameter);
     static bool isBetween(int n, int MSB, int LSB);
+    void setOrderIDs();
 
     friend bool operator< (const SNLDesign& ld, const SNLDesign& rd) {
       return ld.getNLID() < rd.getNLID();
