@@ -25,7 +25,7 @@ class TestObject: public NajaObject {
       return "TestObject";
     }
 
-    void postCreate() {
+    void postCreate() override {
       super::postCreate();
     }
 

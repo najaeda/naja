@@ -31,7 +31,7 @@ class SNLBitTerm: public SNLTerm {
   protected:
     SNLBitTerm() = default;
     static void preCreate();
-    void postCreate();
+    void postCreate() override;
     void preDestroy() override;
   private:
     SNLBitNet*            net_      { nullptr };

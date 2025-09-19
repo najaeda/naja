@@ -11,7 +11,8 @@ namespace naja { namespace NL {
 
 class NLName {
   public:
-    explicit NLName(const std::string& name = std::string()):
+    // cppcheck-suppress noExplicitConstructor
+    NLName(const std::string& name = std::string()):
       string_(name)
     {}
 

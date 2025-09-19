@@ -59,7 +59,7 @@ class PNLScalarTerm final: public PNLBitTerm {
     static void preCreate(PNLDesign* design, const NLName& name);
     static void preCreate(PNLDesign* design, NLID::DesignObjectID id, const NLName& name);
     void postCreateAndSetID();
-    void postCreate();
+    void postCreate() override;
     void destroyFromDesign() override;
     //PNLTerm* clone(PNLDesign* design) const override;
     void commonPreDestroy();

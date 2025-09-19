@@ -30,8 +30,10 @@ class NLObject: public NajaObject {
     virtual void debugDump(size_t indent, bool recursive=true, std::ostream& stream=std::cerr) const = 0;
     
   protected:
+    // cppcheck-suppress duplInheritedMember
     static void preCreate();
-    void postCreate();
+
+    void postCreate() override;
     void preDestroy() override;
 };
 

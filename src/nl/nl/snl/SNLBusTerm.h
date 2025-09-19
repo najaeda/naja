@@ -103,7 +103,7 @@ class SNLBusTerm final: public SNLTerm {
     static void preCreate(const SNLDesign* design, const NLName& name);
     static void preCreate(const SNLDesign* design, NLID::DesignObjectID id, const NLName& name);
     void createBits();
-    void postCreate();
+    void postCreate() override;
     void postCreateAndSetID();
     void destroyFromDesign() override;
     SNLTerm* clone(SNLDesign* design) const override;

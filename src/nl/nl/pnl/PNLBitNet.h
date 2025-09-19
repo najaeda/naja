@@ -41,7 +41,7 @@ class PNLBitNet: public PNLNet {
   protected:
     PNLBitNet() = default;
     static void preCreate();
-    void postCreate();
+    void postCreate() override;
     void preDestroy() override;
     //void cloneComponents(PNLBitNet* newNet) const;
 

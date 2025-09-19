@@ -47,7 +47,7 @@ class SNLBusTermBit final: public SNLBitTerm {
 
     SNLBusTermBit(SNLBusTerm* bus, NLID::Bit bit);
     static void preCreate(const SNLBusTerm* bus, NLID::Bit bit);
-    void postCreate();
+    void postCreate() override;
     void destroyFromBus();
     void destroyFromDesign() override {} //LCOV_EXCL_LINE
     SNLTerm* clone(SNLDesign* design) const override { return nullptr; } //LCOV_EXCL_LINE

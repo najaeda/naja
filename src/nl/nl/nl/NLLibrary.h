@@ -157,7 +157,7 @@ class NLLibrary final: public NLObject {
     static void preCreate(NLLibrary* parent, NLID::LibraryID id, Type type, const NLName& name);
     void destroyFromDB();
     void destroyFromParentLibrary();
-    void postCreate();
+    void postCreate() override;
     void postCreateAndSetID();
     void commonPreDestroy();
     void preDestroy() override;

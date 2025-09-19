@@ -55,7 +55,7 @@ class PNLScalarNet final: public PNLBitNet {
     PNLScalarNet(PNLDesign* design, NLID::DesignObjectID id, const NLName& name);
     static void preCreate(const PNLDesign* design, const NLName& name);
     static void preCreate(const PNLDesign* design, NLID::DesignObjectID id, const NLName& name);
-    void postCreate();
+    void postCreate() override;
     void postCreateAndSetID();
     void destroyFromDesign() override;
     void commonPreDestroy();

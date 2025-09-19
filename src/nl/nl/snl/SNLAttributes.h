@@ -19,7 +19,7 @@ class SNLAttributeValue {
     enum class Type { NUMBER, STRING };
     SNLAttributeValue() = default;
     SNLAttributeValue(const SNLAttributeValue&) = default;
-    SNLAttributeValue(const std::string& value): type_(Type::STRING), value_(value) {};
+    explicit SNLAttributeValue(const std::string& value): type_(Type::STRING), value_(value) {};
     SNLAttributeValue(Type type, const std::string& value): type_(type), value_(value) {};
     std::string getString() const { return value_; }
     bool isString() const { return type_ == Type::STRING; }
@@ -53,7 +53,7 @@ class SNLAttribute {
     //Values are either numbers or strings.
     //but stored as strings.
     SNLAttribute() = default; //LCOV_EXCL_LINE
-    SNLAttribute(const NLName& name, const SNLAttributeValue& value=SNLAttributeValue());
+    explicit SNLAttribute(const NLName& name, const SNLAttributeValue& value=SNLAttributeValue());
     SNLAttribute(const SNLAttribute&) = default;
     
     NLName getName() const { return name_; }
