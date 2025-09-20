@@ -748,5 +748,11 @@ void SNLDesign::setOrderIDs() {
   }
 }
 
+const SNLTruthTable& SNLDesign::getTruthTable(size_t flatID) {
+  if (!truthTable_.isInitialized()) {
+    truthTable_ = SNLDesignModeling::getTruthTable(this, flatID);
+  }
+  return *truthTable_;
+}
 
 }} // namespace NL // namespace naja
