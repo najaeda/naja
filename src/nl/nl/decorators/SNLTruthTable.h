@@ -16,6 +16,7 @@
 
 #include "NLBitVecDynamic.h"
 #include "NLException.h"
+#include "NLBitDependencies.h"
 
 namespace naja {
 namespace NL {
@@ -27,7 +28,8 @@ class SNLTruthTable {
   // user‐provided copy‐ctor
   SNLTruthTable(const SNLTruthTable& o)
     : size_(o.size_),
-      bits_(o.bits_)
+      bits_(o.bits_),
+      dependencies_(o.dependencies_)
   {}
 
   // explicit copy‐assignment to match
@@ -36,12 +38,13 @@ class SNLTruthTable {
     if (this != &o) {
       size_ = o.size_;
       bits_ = o.bits_;
+      dependencies_ = o.dependencies_;
     }
     return *this;
   }
 
   // Enforce size ≤ 6 BEFORE touching BitVecDynamic
-  explicit SNLTruthTable(uint32_t size, uint64_t bits) {
+  explicit SNLTruthTable(uint32_t size, uint64_t bits, const std::vector<uint64_t>& dependencies = std::vector<uint64_t>()) : dependencies_(dependencies) {
     if (size > 6) {
       std::ostringstream oss;
       oss << "Cannot create SNLTruthTable with bits_: " << bits
@@ -51,9 +54,23 @@ class SNLTruthTable {
     size_ = size;
     // now safe: 1<<size <= 64
     bits_ = NLBitVecDynamic(bits, 1u << size);
+    if (dependencies_.empty() && size > 0) {
+      std::vector<size_t> deps(size);
+      for (size_t i = 0; i < size; ++i) {
+        deps[i] = i;
+      }
+      dependencies_ = NLBitDependencies::encodeBits(deps);
+    }
+    if ((dependencies_.size() != size / 64 + ((size % 64) > 0 ? 1 : 0)) && size > 0) {
+      std::ostringstream oss;
+      oss << "Dependencies size mismatch: expected "
+          << (size / 64 + ((size % 64) > 0 ? 1 : 0))
+          << ", got " << dependencies_.size();
+      throw NLException(oss.str());
+    }
   }
 
-  SNLTruthTable(uint32_t size, const std::vector<bool>& bits) : size_(size) {
+  SNLTruthTable(uint32_t size, const std::vector<bool>& bits, const std::vector<uint64_t>& dependencies = std::vector<uint64_t>()) : size_(size), dependencies_(dependencies) {
     if (size <= 6) {
       std::ostringstream oss;
       oss << "Should use mask constructor for 6 or less inputs";
@@ -62,21 +79,37 @@ class SNLTruthTable {
     size_ = size;
     // now safe: 1<<size <= 64
     bits_ = NLBitVecDynamic(bits, 1u << size);
+    if (dependencies_.empty() && size > 0) {
+      std::vector<size_t> deps(size);
+      for (size_t i = 0; i < size; ++i) {
+        deps[i] = i;
+      }
+      dependencies_ = NLBitDependencies::encodeBits(deps);
+    }
+    if ((dependencies_.size() != size / 64 + ((size % 64) > 0 ? 1 : 0)) && size > 0) {
+      std::ostringstream oss;
+      oss << "Dependencies size mismatch: expected "
+          << (size / 64 + ((size % 64) > 0 ? 1 : 0))
+          << ", got " << dependencies_.size();
+      throw NLException(oss.str());
+    }
   }
 
-  static SNLTruthTable Logic0() { return SNLTruthTable(0, 0); }
-  static SNLTruthTable Logic1() { return SNLTruthTable(0, 1); }
-  static SNLTruthTable Inv() { return SNLTruthTable(1, 0b01); }
-  static SNLTruthTable Buf() { return SNLTruthTable(1, 0b10); }
+  static SNLTruthTable Logic0() { return SNLTruthTable(0, 0, {}); }
+  static SNLTruthTable Logic1() { return SNLTruthTable(0, 1, {}); }
+  static SNLTruthTable Inv() { return SNLTruthTable(1, 0b01, {1}); }
+  static SNLTruthTable Buf() { return SNLTruthTable(1, 0b10, {1}); }
 
   bool operator==(const SNLTruthTable& o) const {
-    return size_ == o.size_ && bits_ == o.bits_;
+    return size_ == o.size_ && bits_ == o.bits_ && dependencies_ == o.dependencies_;
   }
 
   bool operator<(const SNLTruthTable& o) const {
     if (size_ != o.size_)
       return size_ < o.size_;
-    return bits_ < o.bits_;
+    if (bits_ != o.bits_)
+      return bits_ < o.bits_;
+    return dependencies_ < o.dependencies_;
   }
 
   std::string getString() const {
@@ -99,6 +132,10 @@ class SNLTruthTable {
 
   // Apply _all_ constants in one shot:
   SNLTruthTable getReducedWithConstants(ConstantInputs idxConsts) const {
+    // Error out in case of dependencies as it is not supported
+    if (!NLBitDependencies::isSimple(dependencies_)) {
+      throw NLException("getReducedWithConstants() does not support non full dependencies");
+    }
     // trivial 0‐input table
     if (size_ == 0) {
       return *this;
@@ -152,7 +189,6 @@ class SNLTruthTable {
       }
     }
 
-    // build & normalize result
     SNLTruthTable out;
     if (newSize > 6) {
       out = SNLTruthTable(newSize, reducedVect);
@@ -232,9 +268,26 @@ class SNLTruthTable {
   uint32_t size() const { return size_; }
   const NLBitVecDynamic& bits() const { return bits_; }
 
+  const std::vector<uint64_t>& getDependencies() const { return dependencies_; }
+
+  std::string toString() const {
+    std::ostringstream oss;
+    oss << "SNLTruthTable(size=" << size_ << ", bits=" << bits_.toString()
+        << ", dependencies=[";
+    for (size_t i = 0; i < dependencies_.size(); ++i) {
+      oss << dependencies_[i];
+      if (i < dependencies_.size() - 1) {
+        oss << ", ";
+      }
+    }
+    oss << "])";
+    return oss.str();
+  }
+
  private:
   uint32_t size_{std::numeric_limits<uint32_t>::max()};
   NLBitVecDynamic bits_{0, /*length=*/1};
+  std::vector<uint64_t> dependencies_{};
 };
 
 }  // namespace NL

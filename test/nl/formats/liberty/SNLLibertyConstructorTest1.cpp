@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "gtest/gtest.h"
-
+#include "gmock/gmock.h"
 #include "NLUniverse.h"
 
 #include "SNLScalarTerm.h"
@@ -12,6 +12,7 @@
 #include "SNLLibertyConstructor.h"
 #include "NLBitVecDynamic.h"
 #include "SNLDesignModeling.h"
+using ::testing::ElementsAre;
 
 using namespace naja::NL;
 
@@ -83,6 +84,7 @@ TEST_F(SNLLibertyConstructorTest1, testBufferFunction) {
   auto tt = SNLDesignModeling::getTruthTable(design);
   EXPECT_TRUE(tt.isInitialized());
   EXPECT_EQ(1, tt.size());
+  EXPECT_THAT(tt.getDependencies(), ::testing::ElementsAre(1));
   EXPECT_TRUE(NLBitVecDynamic(0b10, 2) == tt.bits());
   EXPECT_TRUE(SNLDesignModeling::isBuf(design));
 }
@@ -442,10 +444,10 @@ TEST_F(SNLLibertyConstructorTest1, testFA_X1Function) {
   ASSERT_NE(nullptr, s);
   EXPECT_EQ(SNLTerm::Direction::Output, s->getDirection());
   // Check the truth table per output
-  auto tt_co = SNLDesignModeling::getTruthTable(design, co->getID());
+  auto tt_co = SNLDesignModeling::getTruthTable(design, co->getFlatID());
   EXPECT_TRUE(tt_co.isInitialized());
   EXPECT_EQ(3, tt_co.size());
-  auto tt_s = SNLDesignModeling::getTruthTable(design, s->getID());
+  auto tt_s = SNLDesignModeling::getTruthTable(design, s->getFlatID());
   EXPECT_TRUE(tt_s.isInitialized());
   EXPECT_EQ(3, tt_s.size());
   // Check the truth table for the design as a whole

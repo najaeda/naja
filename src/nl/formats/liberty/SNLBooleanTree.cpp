@@ -365,7 +365,6 @@ SNLTruthTable SNLBooleanTree::getTruthTable(const Terms& terms) {
       bool result = root_->getValue();
       mask[i] = result;
     }
-    
     return SNLTruthTable(n, mask);
   }
 
@@ -385,7 +384,6 @@ SNLTruthTable SNLBooleanTree::getTruthTable(const Terms& terms) {
     bool result = root_->getValue();
     mask |= (result ? 1UL : 0UL) << i;
   }
-  
   return SNLTruthTable(n, mask);
 }
 
