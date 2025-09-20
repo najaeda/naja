@@ -6,9 +6,11 @@
 
 #include "NLUniverse.h"
 #include "NLException.h"
+
 #include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
 #include "SNLScalarNet.h"
+#include "SNLDesignModeling.h"
 
 namespace naja { namespace NL {
 
@@ -89,6 +91,7 @@ NLDB* NLDB0::create(NLUniverse* universe) {
   SNLScalarNet* assignFT = SNLScalarNet::create(assign);
   assignInput->setNet(assignFT);
   assignOutput->setNet(assignFT);
+  SNLDesignModeling::addCombinatorialArcs({assignInput}, {assignOutput});
   return db;
 }
 

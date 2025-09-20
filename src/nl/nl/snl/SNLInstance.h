@@ -158,7 +158,7 @@ class SNLInstance final: public SNLDesignObject {
     static void preCreate(SNLDesign* design, const SNLDesign* model, NLID::DesignObjectID id, const NLName& name);
     void commonPostCreate();
     void postCreateAndSetID();
-    void postCreate();
+    void postCreate() override;
     void commonPreDestroy();
     void addInstParameter(SNLInstParameter* instParameter);
     void removeInstParameter(SNLInstParameter* instParameter);

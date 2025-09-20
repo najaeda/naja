@@ -31,7 +31,7 @@ class PNLBitTerm: public PNLTerm {
   protected:
     PNLBitTerm() = default;
     static void preCreate();
-    void postCreate();
+    void postCreate() override;
     void preDestroy() override;
   private:
     PNLBitNet*            net_      { nullptr };

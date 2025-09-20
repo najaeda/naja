@@ -1,17 +1,17 @@
 SNL Connectivity Classes
 ========================
 
-.. doxygenclass:: naja::SNL::SNLNet
+.. doxygenclass:: naja::NL::SNLNet
    :members:
 
-.. doxygenclass:: naja::SNL::SNLBusNet
+.. doxygenclass:: naja::NL::SNLBusNet
    :members:
 
-.. doxygenclass:: naja::SNL::SNLBitNet
+.. doxygenclass:: naja::NL::SNLBitNet
    :members:
 
-.. doxygenclass:: naja::SNL::SNLBusNetBit
+.. doxygenclass:: naja::NL::SNLBusNetBit
    :members:
 
-.. doxygenclass:: naja::SNL::SNLScalarNet
+.. doxygenclass:: naja::NL::SNLScalarNet
    :members:

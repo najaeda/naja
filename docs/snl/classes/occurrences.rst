@@ -1,20 +1,20 @@
 Occurrence Classes
 ==================
 
-.. doxygenclass:: naja::SNL::SNLPath
+.. doxygenclass:: naja::NL::SNLPath
    :members:
 
-.. doxygenclass:: naja::SNL::SNLOccurrence
+.. doxygenclass:: naja::NL::SNLOccurrence
    :members:
 
-.. doxygenclass:: naja::SNL::SNLNetComponentOccurrence
+.. doxygenclass:: naja::NL::SNLNetComponentOccurrence
    :members:
 
-.. doxygenclass:: naja::SNL::SNLNetComponentOccurrence
+.. doxygenclass:: naja::NL::SNLNetComponentOccurrence
    :members:
 
-.. doxygenclass:: naja::SNL::SNLBitTermOccurrence
+.. doxygenclass:: naja::NL::SNLBitTermOccurrence
    :members:
 
-.. doxygenclass:: naja::SNL::SNLBitNetOccurrence
+.. doxygenclass:: naja::NL::SNLBitNetOccurrence
    :members:

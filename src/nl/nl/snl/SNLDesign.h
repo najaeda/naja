@@ -217,6 +217,8 @@ class SNLDesign final: public NLObject {
     /// \return the collection of SNLParameter of this SNLDesign.
     NajaCollection<SNLParameter*> getParameters() const;
 
+    NajaCollection<SNLAttribute> getAttributes() const;
+
     NLID::DesignID getID() const { return id_; }
     NLID getNLID() const;
     NLID::DesignReference getReference() const;
@@ -302,7 +304,7 @@ class SNLDesign final: public NLObject {
     static void preCreate(const NLLibrary* library, NLID::DesignID id, Type type, const NLName& name);
     void destroyFromLibrary();
     void postCreateAndSetID();
-    void postCreate();
+    void postCreate() override;
     void commonPreDestroy();
     void preDestroy() override;
     void addTerm(SNLTerm* term);

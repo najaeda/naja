@@ -29,6 +29,8 @@ class NajaNetlistTest2(unittest.TestCase):
         inv = naja.SNLDesign.createPrimitive(primitives, "INV")
         naja.SNLScalarTerm.create(inv, naja.SNLTerm.Direction.Input, "I")
         naja.SNLScalarTerm.create(inv, naja.SNLTerm.Direction.Output, "O")
+        # set combinatorial arc
+        inv.addCombinatorialArcs([inv.getScalarTerm('I')], [inv.getScalarTerm('O')])
 
         modules = naja.NLLibrary.create(db, 'Modules')
         module0 = naja.SNLDesign.create(modules, 'Module0')
@@ -439,13 +441,42 @@ class NajaNetlistTest2(unittest.TestCase):
         self.assertFalse(inst.get_term('i1').is_sequential())
         self.assertFalse(inst.get_term('o1').is_sequential())
     
+    def test2LogicLevels(self):
+        top = netlist.create_top('Top')
+        # create scalar input and net 
+        in0 = top.create_input_term('in0')
+        in0Net = top.create_net('in0Net')
+        # create an invertor
+        inv = top.create_child_instance('INV', 'inv0')
+        in0.connect_lower_net(in0Net)
+        inv.get_term('I').connect_upper_net(in0Net)
+        invOutNet = top.create_net('invOutNet')
+        inv.get_term('O').connect_upper_net(invOutNet)
+        out0 = top.create_output_term('out0')
+        out0.connect_lower_net(invOutNet)
+        
+        # create andother invertor with dedicated input and output top terms
+        in1 = top.create_input_term('in1')
+        in1Net = top.create_net('in1Net')
+        in1.connect_lower_net(in1Net)
+        inv1 = top.create_child_instance('INV', 'inv1')
+        inv1.get_term('I').connect_upper_net(in1Net)
+        inv1OutNet = top.create_net('inv1OutNet')
+        inv1.get_term('O').connect_upper_net(inv1OutNet)
+        out1 = top.create_output_term('out1')
+        out1.connect_lower_net(inv1OutNet)
+        
+
+        self.assertEqual(1, netlist.get_max_logic_level()[0])
+        self.assertEqual(1, netlist.get_max_fanout()[0])
+    
     def testMetricsOnNone(self):
         netlist.reset()
-        self.assertEqual(0, netlist.get_max_logic_level())
-        self.assertEqual(0, netlist.get_max_fanout())
+        self.assertEqual(0, netlist.get_max_logic_level()[0])
+        self.assertEqual(0, netlist.get_max_fanout()[0])
         universe = naja.NLUniverse.create()
-        self.assertEqual(0, netlist.get_max_logic_level())
-        self.assertEqual(0, netlist.get_max_fanout())
+        self.assertEqual(0, netlist.get_max_logic_level()[0])
+        self.assertEqual(0, netlist.get_max_fanout()[0])
         
 if __name__ == '__main__':
     faulthandler.enable()

@@ -4,7 +4,7 @@
 
 set(SOURCES SNLNetlist0.cpp)
 
-add_library(snl_netlists SHARED ${SOURCES})
+add_library(snl_netlists STATIC ${SOURCES})
 
 target_link_libraries(snl_netlists naja_nl)
 

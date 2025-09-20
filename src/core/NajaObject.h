@@ -49,7 +49,7 @@ class NajaObject {
     virtual ~NajaObject() = default;
 
     static void preCreate() {}
-    void postCreate() {}
+    virtual void postCreate() {}
     virtual void preDestroy();
 
   private:

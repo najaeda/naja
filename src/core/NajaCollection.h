@@ -55,7 +55,7 @@ class NajaSingletonCollection: public NajaBaseCollection<Type*> {
     class NajaSingletonCollectionIterator: public NajaBaseIterator<Type*> {
       public:
         NajaSingletonCollectionIterator(const NajaSingletonCollectionIterator&) = default;
-        NajaSingletonCollectionIterator(Type* object, bool beginOrEnd=true): object_(object) {
+        explicit NajaSingletonCollectionIterator(Type* object, bool beginOrEnd=true): object_(object) {
           if (object_) {
             if (beginOrEnd) {
               begin_ = true;
@@ -94,7 +94,7 @@ class NajaSingletonCollection: public NajaBaseCollection<Type*> {
     NajaSingletonCollection() = delete;
     NajaSingletonCollection(const NajaSingletonCollection&) = delete;
     NajaSingletonCollection(NajaSingletonCollection&&) = delete;
-    NajaSingletonCollection(Type* object): super(), object_(object) {}
+    explicit NajaSingletonCollection(Type* object): super(), object_(object) {}
 
     NajaBaseCollection<Type*>* clone() const override {
       return new NajaSingletonCollection(object_);
@@ -123,7 +123,7 @@ class NajaIntrusiveSetCollection: public NajaBaseCollection<typename Set::value_
       public:
         using SetIterator = typename Set::const_iterator;
         NajaIntrusiveSetCollectionIterator(const NajaIntrusiveSetCollectionIterator&) = default;
-        NajaIntrusiveSetCollectionIterator(const Set* set, bool beginOrEnd=true): set_(set) {
+        explicit NajaIntrusiveSetCollectionIterator(const Set* set, bool beginOrEnd=true): set_(set) {
           if (set_) {
             if (beginOrEnd) {
               it_ = set->begin();
@@ -162,7 +162,7 @@ class NajaIntrusiveSetCollection: public NajaBaseCollection<typename Set::value_
     NajaIntrusiveSetCollection() = delete;
     NajaIntrusiveSetCollection(const NajaIntrusiveSetCollection&) = delete;
     NajaIntrusiveSetCollection(NajaIntrusiveSetCollection&&) = delete;
-    NajaIntrusiveSetCollection(const Set* set): super(), set_(set) {}
+    explicit NajaIntrusiveSetCollection(const Set* set): super(), set_(set) {}
 
     NajaBaseCollection<Type*>* clone() const override {
       return new NajaIntrusiveSetCollection(set_);
@@ -188,7 +188,7 @@ class NajaSTLCollection: public NajaBaseCollection<typename STLType::value_type>
         using STLTypeIterator = typename STLType::const_iterator;
 
         NajaSTLCollectionIterator(NajaSTLCollectionIterator&) = default;
-        NajaSTLCollectionIterator(const STLType* container, bool beginOrEnd=true): container_(container) {
+        explicit NajaSTLCollectionIterator(const STLType* container, bool beginOrEnd=true): container_(container) {
           if (container_) {
             if (beginOrEnd) {
               it_ = container_->begin();
@@ -221,7 +221,7 @@ class NajaSTLCollection: public NajaBaseCollection<typename STLType::value_type>
     NajaSTLCollection() = delete;
     NajaSTLCollection(const NajaSTLCollection&) = delete;
     NajaSTLCollection(NajaSTLCollection&&) = delete;
-    NajaSTLCollection(const STLType* container): super(), container_(container) {}
+    explicit NajaSTLCollection(const STLType* container): super(), container_(container) {}
     NajaBaseCollection<typename STLType::value_type>* clone() const override {
       return new NajaSTLCollection(container_);
     }
@@ -253,7 +253,7 @@ class NajaSTLMapCollection: public NajaBaseCollection<typename STLMapType::mappe
         using STLMapTypeIterator = typename STLMapType::const_iterator;
 
         NajaSTLMapCollectionIterator(NajaSTLMapCollectionIterator&) = default;
-        NajaSTLMapCollectionIterator(const STLMapType* container, bool beginOrEnd=true): container_(container) {
+        explicit NajaSTLMapCollectionIterator(const STLMapType* container, bool beginOrEnd=true): container_(container) {
           if (container_) {
             if (beginOrEnd) {
               it_ = container_->begin();
@@ -286,7 +286,7 @@ class NajaSTLMapCollection: public NajaBaseCollection<typename STLMapType::mappe
     NajaSTLMapCollection() = delete;
     NajaSTLMapCollection(const NajaSTLMapCollection&) = delete;
     NajaSTLMapCollection(NajaSTLMapCollection&&) = delete;
-    NajaSTLMapCollection(const STLMapType* container): super(), container_(container) {}
+    explicit NajaSTLMapCollection(const STLMapType* container): super(), container_(container) {}
     NajaBaseCollection<typename STLMapType::mapped_type>* clone() const override {
       return new NajaSTLMapCollection(container_);
     }
@@ -315,7 +315,7 @@ template<class Type, class ParentType> class NajaParentTypeCollection: public Na
     class NajaParentTypeCollectionIterator: public NajaBaseIterator<ParentType> {
       public:
         using super = NajaBaseIterator<ParentType>;
-        NajaParentTypeCollectionIterator(const NajaBaseCollection<Type>* collection, bool beginOrEnd=true):
+        explicit NajaParentTypeCollectionIterator(const NajaBaseCollection<Type>* collection, bool beginOrEnd=true):
           super() {
           if (collection) {
             endIt_ = collection->end();
@@ -369,7 +369,7 @@ template<class Type, class ParentType> class NajaParentTypeCollection: public Na
     NajaParentTypeCollection(const NajaParentTypeCollection&) = delete;
     NajaParentTypeCollection& operator=(const NajaParentTypeCollection&) = delete;
     NajaParentTypeCollection(const NajaParentTypeCollection&&) = delete;
-    NajaParentTypeCollection(const NajaBaseCollection<Type>* collection):
+    explicit NajaParentTypeCollection(const NajaBaseCollection<Type>* collection):
       super(), collection_(collection)
     {}
     ~NajaParentTypeCollection() {
@@ -408,7 +408,7 @@ template<class Type, class SubType> class NajaSubTypeCollection: public NajaBase
     class NajaSubTypeCollectionIterator: public NajaBaseIterator<SubType> {
       public:
         using super = NajaBaseIterator<SubType>;
-        NajaSubTypeCollectionIterator(const NajaBaseCollection<Type>* collection, bool beginOrEnd=true):
+        explicit NajaSubTypeCollectionIterator(const NajaBaseCollection<Type>* collection, bool beginOrEnd=true):
           super() {
           if (collection) {
             endIt_ = collection->end();
@@ -416,7 +416,8 @@ template<class Type, class SubType> class NajaSubTypeCollection: public NajaBase
               it_ = endIt_;
             } else {
               it_ = collection->begin();
-              while (isValid() and not dynamic_cast<SubType>(it_->getElement())) {
+              while (NajaSubTypeCollectionIterator::isValid()
+                and not dynamic_cast<SubType>(it_->getElement())) {
                 it_->progress();
               }
             }
@@ -467,7 +468,7 @@ template<class Type, class SubType> class NajaSubTypeCollection: public NajaBase
     NajaSubTypeCollection(const NajaSubTypeCollection&) = delete;
     NajaSubTypeCollection& operator=(const NajaSubTypeCollection&) = delete;
     NajaSubTypeCollection(const NajaSubTypeCollection&&) = delete;
-    NajaSubTypeCollection(const NajaBaseCollection<Type>* collection):
+    explicit NajaSubTypeCollection(const NajaBaseCollection<Type>* collection):
       super(), collection_(collection)
     {}
     ~NajaSubTypeCollection() {
@@ -519,7 +520,8 @@ template<class Type, typename Filter> class NajaFilteredCollection: public NajaB
               it_ = endIt_;
             } else {
               it_ = collection->begin();
-              while (isValid() and not filter_(it_->getElement())) {
+              while (NajaFilteredCollectionIterator::isValid()
+                and not filter_(it_->getElement())) {
                 it_->progress();
               }
             }

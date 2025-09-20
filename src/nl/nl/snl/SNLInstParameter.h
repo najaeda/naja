@@ -18,6 +18,7 @@ class SNLParameter;
 class SNLInstParameter : public NajaObject {
   public:
     friend class SNLInstance;
+    using super = NajaObject;
 
     SNLInstParameter() = delete;
     SNLInstParameter(const SNLInstParameter&) = delete;
@@ -30,8 +31,6 @@ class SNLInstParameter : public NajaObject {
      * \return The new instance parameter.
      */
     static SNLInstParameter* create(SNLInstance* instance, SNLParameter* parameter, const std::string& value);
-    /// \brief Destroy this instance parameter. 
-    void destroy();
     /// \return The name of the parameter.
     NLName getName() const;
     /// \return The instance to which this instance parameter belongs.
@@ -42,9 +41,9 @@ class SNLInstParameter : public NajaObject {
     std::string getValue() const { return value_; }
     void setValue(const std::string& value) { value_ = value; }
 
-    const char* getTypeName() const;
-    std::string getString() const;
-    std::string getDescription() const;
+    const char* getTypeName() const override;
+    std::string getString() const override;
+    std::string getDescription() const override;
 
     friend bool operator< (const SNLInstParameter& lp, const SNLInstParameter& rp) {
       return lp.getName() < rp.getName();
@@ -61,7 +60,8 @@ class SNLInstParameter : public NajaObject {
   private:
     SNLInstParameter(SNLInstance* instance, SNLParameter* parameter, const std::string& value);
     static void preCreate(SNLInstance* instance, SNLParameter* parameter);
-    void postCreate();
+    void postCreate() override;
+    void preDestroy() override;
     void destroyFromInstance();
 
     SNLInstance*                        instance_           {nullptr};

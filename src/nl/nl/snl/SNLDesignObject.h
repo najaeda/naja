@@ -70,7 +70,7 @@ class SNLDesignObject: public NLObject {
   protected:
     SNLDesignObject() = default;
 
-    void postCreate();
+    void postCreate() override;
     void preDestroy() override;
 };
 

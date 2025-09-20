@@ -41,9 +41,9 @@ void SNLInstParameter::preCreate(SNLInstance* instance, SNLParameter* parameter)
   }
 }
 
-void SNLInstParameter::destroy() {
+void SNLInstParameter::preDestroy() {
   instance_->removeInstParameter(this);
-  delete this;
+  super::preDestroy();
 }
 
 void SNLInstParameter::destroyFromInstance() {

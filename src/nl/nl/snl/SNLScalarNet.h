@@ -55,7 +55,7 @@ class SNLScalarNet final: public SNLBitNet {
     SNLScalarNet(SNLDesign* design, NLID::DesignObjectID id, const NLName& name);
     static void preCreate(const SNLDesign* design, const NLName& name);
     static void preCreate(const SNLDesign* design, NLID::DesignObjectID id, const NLName& name);
-    void postCreate();
+    void postCreate() override;
     void postCreateAndSetID();
     void destroyFromDesign() override;
     void commonPreDestroy();

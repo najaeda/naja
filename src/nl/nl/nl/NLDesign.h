@@ -15,6 +15,7 @@ class NLDesign {
         enum CompareTypeEnum {
           Complete, IgnoreID, IgnoreIDAndName
         };
+        // cppcheck-suppress noExplicitConstructor
         CompareType(const CompareTypeEnum& typeEnum);
         CompareType(const CompareType& type) = default;
         operator const CompareTypeEnum&() const {return typeEnum_;}

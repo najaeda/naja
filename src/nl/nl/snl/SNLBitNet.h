@@ -44,7 +44,7 @@ class SNLBitNet: public SNLNet {
   protected:
     SNLBitNet() = default;
     static void preCreate();
-    void postCreate();
+    void postCreate() override;
     void preDestroy() override;
     void cloneComponents(SNLBitNet* newNet) const;
 
