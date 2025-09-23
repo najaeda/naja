@@ -234,6 +234,11 @@ class DNLTerminalFull {
    */
   const DNLInstanceFull& getDNLInstance() const;
   /**
+   * \brief Get the full unique ID of the DNLTerminalFull.
+   * \return full unique ID of the DNLTerminalFull.
+   */
+  std::vector<naja::NL::NLID::DesignObjectID> getFullPathIDs() const;
+  /**
    * \brief Check if the DNLTerminalFull is null.
    * \return True if the DNLTerminalFull is null.
    */
