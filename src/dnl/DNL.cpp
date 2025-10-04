@@ -305,7 +305,9 @@ bool DNLTerminalFull::isSequential() const {
 std::vector<naja::NL::NLID::DesignObjectID> DNLTerminalFull::getFullPathIDs() const {
   auto path = this->getDNLInstance().getPath();
   std::vector<naja::NL::NLID::DesignObjectID> fullPathIDs = path.getPathIDs();
-  fullPathIDs.push_back(this->getDNLInstance().getSNLInstance()->getID());
+  if (!this->getDNLInstance().isTop()) {
+    fullPathIDs.push_back(this->getDNLInstance().getSNLInstance()->getID());
+  }
   fullPathIDs.push_back(this->getSnlBitTerm()->getID());
   fullPathIDs.push_back(this->getSnlBitTerm()->getBit());
   return fullPathIDs;
