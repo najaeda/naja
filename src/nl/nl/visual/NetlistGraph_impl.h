@@ -25,7 +25,8 @@ void NetlistGraph<InstData, PortData, WireData, BusData>::dumpDotFile(
          << "style =bold\n";
   size_t i = 0;
   dumpDotFileRec(&getInst(_top), myfile, i);
-  alignRec(&getInst(_top), myfile);
+  int count = 0;
+  alignRec(&getInst(_top), myfile, count);
   myfile << "[ constraint=true  style=invis ];" << std::endl;
   addConnectivity(myfile);
   myfile << "}";
@@ -75,6 +76,7 @@ void NetlistGraph<InstData, PortData, WireData, BusData>::dumpDotFileRec(
   }
 
   if (!node->getInBuses().empty() || !node->getInPorts().empty()) {
+    size_t totalIn = 0;
     myfile << "leaf" << i
            << " [rank=min, shape=record, style=bold, label=\"{ { ";
     node->setInPortsLeaf(i);
@@ -82,7 +84,15 @@ void NetlistGraph<InstData, PortData, WireData, BusData>::dumpDotFileRec(
     // dynamic_cast<const SNLTreeTopNode*>(node) != nullptr) {
     size_t count = 0;
     for (BusNodeID id : node->getInBuses()) {
-      if (count != 0) {
+      if (totalIn >= 100) {
+        totalIn = 0;
+        count = 0;
+        i++;
+        myfile << " } }\"];" << std::endl;
+        myfile << "leaf" << i
+           << " [rank=min, shape=record, style=bold, label=\"{ { ";
+      }
+      if (count != 0 ) {
         myfile << " | ";
       }
       count++;
@@ -103,6 +113,7 @@ void NetlistGraph<InstData, PortData, WireData, BusData>::dumpDotFileRec(
         if (bit != bus.getPortsCount() - 1)
           myfile << " | ";
         bit++;
+        totalIn++;
       }
       myfile << " } }";
     }
@@ -111,6 +122,14 @@ void NetlistGraph<InstData, PortData, WireData, BusData>::dumpDotFileRec(
     }
     size_t k = 0;
     for (PortNodeID id : node->getInPorts()) {
+      if (totalIn >= 100) {
+        totalIn = 0;
+        count = 0;
+        i++;
+        myfile << " } }\"];" << std::endl;
+        myfile << "leaf" << i
+           << " [rank=min, shape=record, style=bold, label=\"{ { ";
+      }
       //printf("port %lu\n", id);
       PortNode<PortData>& port = getPort(id);
       port.setPortDotName(std::string("leaf") + std::to_string(i) +
@@ -121,10 +140,11 @@ void NetlistGraph<InstData, PortData, WireData, BusData>::dumpDotFileRec(
       //printf("----$$$$%s\n", port.getData().getName().c_str());
       // i++;
 
-      if (k < node->getInPorts().size() - 1) {
+      if (k < node->getInPorts().size() - 1 && totalIn < 100) {
         myfile << "|";
       }
       k++;
+      totalIn++;
     }
     // if (node != _top) {
     myfile << " } }\"];" << std::endl;
@@ -136,8 +156,18 @@ void NetlistGraph<InstData, PortData, WireData, BusData>::dumpDotFileRec(
     node->setOutPortsLeaf(i);
     // if (dynamic_cast<const SNLTreeInstanceNode*>(node) != nullptr ||
     // dynamic_cast<const SNLTreeTopNode*>(node) != nullptr) {
+    size_t totalOut = 0;  
+
     size_t count = 0;
     for (BusNodeID id : node->getOutBuses()) {
+      if (totalOut >= 100) {
+        totalOut = 0;
+        count = 0;
+        i++;
+        myfile << " } }\"];" << std::endl;
+        myfile << "leaf" << i
+           << " [rank=min, shape=record, style=bold, label=\"{ { ";
+      }
       if (count != 0) {
         myfile << " | ";
       }
@@ -159,6 +189,7 @@ void NetlistGraph<InstData, PortData, WireData, BusData>::dumpDotFileRec(
         if (bit != bus.getPortsCount() - 1)
           myfile << " | ";
         bit++;
+        totalOut++;
       }
       myfile << " } } ";
     }
@@ -167,6 +198,14 @@ void NetlistGraph<InstData, PortData, WireData, BusData>::dumpDotFileRec(
       myfile << " | ";
     }
     for (PortNodeID id : node->getOutPorts()) {
+      if (totalOut >= 100) {
+        totalOut = 0;
+        count = 0;
+        i++;
+        myfile << " } }\"];" << std::endl;
+        myfile << "leaf" << i
+           << " [rank=min, shape=record, style=bold, label=\"{ { ";
+      }
       //printf("port %lu\n", id);
       PortNode<PortData>& port = getPort(id);
       port.setPortDotName(std::string("leaf") + std::to_string(i) +
@@ -177,10 +216,11 @@ void NetlistGraph<InstData, PortData, WireData, BusData>::dumpDotFileRec(
       //printf("----$$$$%s\n", port.getData().getName().c_str());
       // i++;
 
-      if (k < node->getOutPorts().size() - 1) {
+      if (k < node->getOutPorts().size() - 1 && totalOut < 100) {
         myfile << "|";
       }
       k++;
+      totalOut++;
     }
     // if (node != _top) {
     myfile << " } }\"];" << std::endl;
