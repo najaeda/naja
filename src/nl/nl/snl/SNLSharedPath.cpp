@@ -126,11 +126,12 @@ std::string SNLSharedPath::getString(char separator) {
   }
   return "";
 }
+//LCOV_EXCL_STOP
 
-std::vector<NLID::DesignObjectID> SNLSharedPath::getPathIDs() const {
+std::vector<NLID::DesignObjectID> SNLSharedPath::getIDs() const {
   std::vector<NLID::DesignObjectID> result;
   if (headSharedPath_ != nullptr) {
-    result = headSharedPath_->getPathIDs();
+    result = headSharedPath_->getIDs();
     result.push_back(tailInstance_->getID());
     return result;
   }
@@ -140,6 +141,19 @@ std::vector<NLID::DesignObjectID> SNLSharedPath::getPathIDs() const {
   }
   return result;
 }
-//LCOV_EXCL_STOP
+
+std::vector<SNLInstance*> SNLSharedPath::getInstances() const {
+  std::vector<SNLInstance*> result;
+  if (headSharedPath_ != nullptr) {
+    result = headSharedPath_->getInstances();
+    result.push_back(tailInstance_);
+    return result;
+  }
+  if (tailInstance_ != nullptr) {
+    result.push_back(tailInstance_);
+    return result;
+  }
+  return result;
+}
 
 }} // namespace NL // namespace naja

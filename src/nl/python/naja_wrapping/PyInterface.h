@@ -573,6 +573,16 @@ PyObject* richCompare(T left, T right, int op) {
     return (PyObject*)pyObjects; \
   }
 
+#define HasElementsMethod(TYPE, METHOD, CONTAINER) \
+  static PyObject* Py##TYPE##_##METHOD(Py##TYPE *self) { \
+    METHOD_HEAD(#TYPE "." #METHOD "()") \
+    TRY \
+    if (selfObject->CONTAINER().empty()) Py_RETURN_FALSE; \
+    Py_RETURN_TRUE; \
+    NLCATCH \
+    return nullptr; \
+  }
+
 #define GetContainerMethodWithMethodName(TYPE, ITERATED, METHOD) \
   static PyObject* PySNL##TYPE##_##METHOD(PySNL##TYPE *self) { \
     METHOD_HEAD("SNL" #TYPE "." #METHOD "()") \

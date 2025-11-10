@@ -144,6 +144,47 @@ static PyObject* PyNLUniverse_setTopDB(PyNLUniverse* self, PyObject* arg) {
   Py_RETURN_NONE;
 }
 
+static PyObject* pyNLUniverse_getSNLDesign(PyNLUniverse* self, PyObject* arg) {
+  PyObject* arg0;
+  SNLDesign* design = nullptr;
+  METHOD_HEAD("NLUniverse.getSNLDesign()")
+
+  if (!PyArg_ParseTuple(arg, "O:NLUniverse.getSNLDesign", &arg0)) {
+    return nullptr;
+  }
+
+  if (PyUnicode_Check(arg0)) {
+    const char* name = PyUnicode_AsUTF8(arg0);
+    if (!name) {
+      return nullptr; // Unicode conversion failed
+    }
+    design = selfObject->getSNLDesign(NLName(name));
+    return PySNLDesign_Link(design);
+  } else if (PyTuple_Check(arg0) && PyTuple_Size(arg0) == 3) {
+    PyObject *db_id_obj = PyTuple_GetItem(arg0, 0);
+    PyObject *lib_id_obj = PyTuple_GetItem(arg0, 1);
+    PyObject *design_id_obj = PyTuple_GetItem(arg0, 2);
+
+    if (!PyLong_Check(db_id_obj)
+      or not PyLong_Check(lib_id_obj)
+      or not PyLong_Check(design_id_obj)) {
+      PyErr_SetString(PyExc_TypeError, "Tuple must contain three integers");
+      return nullptr;
+    }
+
+    NLID::DBID db_id = (NLID::DBID)PyLong_AsLong(db_id_obj);
+    NLID::LibraryID lib_id = (NLID::LibraryID)PyLong_AsLong(lib_id_obj);
+    NLID::DesignID design_id = (NLID::DesignID)PyLong_AsLong(design_id_obj);
+    PySys_WriteStderr("Looking for design with db_id=%d lib_id=%d design_id=%d\n", db_id, lib_id, design_id);
+            
+    design = selfObject->getSNLDesign(NLID::DesignReference(db_id, lib_id, design_id));
+  } else {
+    setError("NLUniverse getSNLDesign takes a string (design name) or a tuple of three integers (dbID, libID, designID)");
+    return nullptr;
+  }
+  return PySNLDesign_Link(design);
+}
+
 GetObjectMethod(NLUniverse, SNLDesign, getTopDesign)
 GetObjectMethod(NLUniverse, NLDB, getTopDB)
 GetObjectByIndex(NLUniverse, NLDB, DB)
@@ -162,6 +203,8 @@ PyMethodDef PyNLUniverse_Methods[] = {
     "get the top SNLDesign"},
   { "setTopDesign", (PyCFunction)PyNLUniverse_setTopDesign, METH_O,
     "set the top SNLDesign"},
+  { "getSNLDesign", (PyCFunction)pyNLUniverse_getSNLDesign, METH_VARARGS,
+    "get the SNLDesign with the given name or NLID::DesignReference (dbID, libID, designID)"},
   { "setTopDB", (PyCFunction)PyNLUniverse_setTopDB, METH_O,
     "set the top NLDB"},
   { "getTopDB", (PyCFunction)PyNLUniverse_getTopDB, METH_NOARGS,

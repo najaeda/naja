@@ -131,7 +131,8 @@ class SNLPath {
 
     std::string getDescription(const char separator='/') const;
 
-    std::vector<NLID::DesignObjectID> getPathIDs() const;
+    std::vector<NLID::DesignObjectID> getIDs() const;
+    std::vector<SNLInstance*> getInstances() const;
 
   private:
     static SNLSharedPath* createInstanceSharedPath(SNLInstance* instance);

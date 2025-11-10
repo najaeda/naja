@@ -225,11 +225,19 @@ std::string SNLPath::getDescription(const char separator) const {
 }
 // LCOV_EXCL_STOP
 
-std::vector<NLID::DesignObjectID> SNLPath::getPathIDs() const {
+std::vector<NLID::DesignObjectID> SNLPath::getIDs() const {
   if (not sharedPath_) {
     return {};
   }
-  return sharedPath_->getPathIDs();
+  return sharedPath_->getIDs();
+}
+
+std::vector<SNLInstance*> SNLPath::getInstances() const {
+  std::vector<SNLInstance*> instances;
+  if (not sharedPath_) {
+    return instances;
+  }
+  return sharedPath_->getInstances();
 }
 
 }}  // namespace NL // namespace naja

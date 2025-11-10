@@ -5,11 +5,12 @@
 
 #include "PySNLEquipotential.h"
 #include "PyInterface.h"
-#include "SNLNetComponentOccurrence.h"
+#include "PySNLNetComponent.h"
 #include "PySNLNetComponentOccurrence.h"
 #include "PySNLPath.h"
 #include "PySNLInstTermOccurrences.h"
 #include "PySNLBitTerms.h"
+
 #include "SNLNetComponentOccurrence.h"
 #include "SNLPath.h"
 #include "SNLEquipotential.h"
@@ -34,8 +35,10 @@ static int PySNLEquipotential_Init(PySNLEquipotential* self, PyObject* args, PyO
   if (arg0 != nullptr) {
     if (IsPySNLNetComponentOccurrence(arg0)) {
       equipotential = new SNLEquipotential(*PYSNLNetComponentOccurrence_O(arg0));
+    } else if (IsPySNLNetComponent(arg0)) {
+      equipotential = new SNLEquipotential(PYSNLNetComponent_O(arg0));
     } else {
-      setError("SNLEquipotential create accepts SNLNetComponentOccurrence as only argument");
+      setError("SNLEquipotential create accepts SNLNetComponent orSNLNetComponentOccurrence as only argument");
       return -1;
     }
   }  else {
