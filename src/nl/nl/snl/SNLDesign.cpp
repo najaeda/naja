@@ -22,8 +22,6 @@
 #include "SNLBusNetBit.h"
 #include "SNLAttributes.h"
 #include "SNLMacros.h"
-#include "SNLDesignModeling.h"
-
 namespace naja { namespace NL {
 
 SNLDesign::Type::Type(const TypeEnum& typeEnum):

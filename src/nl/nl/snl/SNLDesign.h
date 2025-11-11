@@ -13,6 +13,7 @@
 #include "SNLNet.h"
 #include "SNLInstance.h"
 #include "SNLParameter.h"
+#include "SNLDesignModeling.h"
 
 namespace naja { namespace NL {
 
@@ -23,7 +24,6 @@ class SNLBusNetBit;
 class SNLScalarTerm;
 class SNLBusTerm;
 class SNLBusTermBit;
-class SNLTruthTable;
 
 /**
  * @class SNLDesign
