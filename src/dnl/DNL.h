@@ -170,7 +170,7 @@ class DNLInstanceFull {
    * \brief Check if the DNLInstanceFull is top.
    * \return True if the DNLInstanceFull is top.
    */
-  bool isTop() const { return parent_ == (DNLID)DNLID_MAX; }
+  bool isTop() const { return id_ == 0; }
   const std::pair<DNLID, DNLID>& getChildren() const {
     return childrenIndexes_;
   }

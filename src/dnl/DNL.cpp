@@ -122,9 +122,10 @@ DNLID DNLInstanceFull::getParentID() const {
 const SNLDesign* DNLInstanceFull::getSNLModel() const {
   if (instance_) {
     return instance_->getModel();
-  } else {
+  } else if (isTop()) {
     return NLUniverse::get()->getTopDesign();
   }
+  return nullptr;
 }
 
 SNLInstance* DNLInstanceFull::getSNLInstance() const {
