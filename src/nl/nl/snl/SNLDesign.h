@@ -296,8 +296,6 @@ class SNLDesign final: public NLObject {
     int getRevisionCount() const { return revisionCount_; }
     void recursiveRevisionIncrement();
 
-    const SNLTruthTable& getTruthTable(size_t flatID);
-    const SNLTruthTable& getTruthTable();
   private:
     SNLDesign(NLLibrary* library, Type type, const NLName& name);
     SNLDesign(NLLibrary* library, NLID::DesignID id, Type type, const NLName& name);
@@ -363,7 +361,6 @@ class SNLDesign final: public NLObject {
     SNLDesignNets                       nets_               {};
     SNLDesignObjectNameIDMap            netNameIDMap_       {};
     SNLDesignParameters                 parameters_         {};
-    SNLTruthTable                       truthTable_;
 };
 
 }} // namespace NL // namespace naja
