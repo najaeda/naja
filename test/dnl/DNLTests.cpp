@@ -879,17 +879,17 @@ TEST_F(DNLTests,
   dnl->display();
   dnl->getTop().display();
   dnl->getTop().getChildInstance(subinst).display();
-  
-  auto pathDescriptor = dnl->getTop()
-                .getChildInstance(subinst)
-                .getTerminal(subsubinst->getInstTerm(subsubinTerm)).getFullPathIDs();
-  pathDescriptor.pop();
-  pathDescriptor.pop();
-  SNLPath path(mod, pathDescriptor);
+  {
+    auto pathDescriptor = dnl->getTop()
+                    .getChildInstance(subinst)
+                    .getTerminal(subsubinst->getInstTerm(subsubinTerm)).getFullPathIDs();
+    pathDescriptor.pop_back();
+    pathDescriptor.pop_back();
+    SNLPath path(mod, pathDescriptor);
 
-  EXPECT_EQ(path, dnl->getTop()
-                .getChildInstance(subinst).getPath());
-
+    EXPECT_EQ(path, dnl->getTop()
+                    .getChildInstance(subinst).getPath());
+  }
   EXPECT_EQ(dnl->getTop()
                 .getChildInstance(subinst)
                 .getTerminal(subsubinst->getInstTerm(subsubinTerm))
