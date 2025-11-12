@@ -2,8 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __PY_SNL_OCCURRENCE_H_
-#define __PY_SNL_OCCURRENCE_H_
+#pragma once
 
 #include <Python.h>
 
@@ -20,7 +19,7 @@ typedef struct {
 
 extern PyTypeObject PyTypeSNLOccurrence;
 
-extern PyObject*  PySNLOccurrence_Link(naja::NL::SNLOccurrence* occurrence);
+extern PyObject*  PySNLOccurrence_Link(const naja::NL::SNLOccurrence& occurrence);
 extern void       PySNLOccurrence_LinkPyType();
 
 #define IsPySNLOccurrence(v) (PyObject_TypeCheck(v, &PyTypeSNLOccurrence))
@@ -28,5 +27,3 @@ extern void       PySNLOccurrence_LinkPyType();
 #define PYSNLOccurrence_O(v) (PYSNLOccurrence(v)->object_)
 
 } // PYNAJA namespace
- 
-#endif // __PY_SNL_OCCURRENCE_H_

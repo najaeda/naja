@@ -50,6 +50,10 @@ class SNLDesignTest(unittest.TestCase):
     self.assertEqual(1, len(terms))
     self.assertEqual(i0, terms[0])
     with self.assertRaises(RuntimeError) as context: naja.SNLScalarTerm.create(design, naja.SNLTerm.Direction.Input, "I0")
+    self.assertIsInstance(i0, naja.SNLScalarTerm)
+    self.assertIsInstance(i0, naja.SNLTerm)
+    self.assertIsInstance(i0, naja.SNLNetComponent)
+    self.assertIsInstance(i0, naja.SNLDesignObject)
 
     i1 = naja.SNLScalarTerm.create(design, naja.SNLTerm.Direction.Input, "I1")
     self.assertEqual(i1, design.getTerm("I1"))

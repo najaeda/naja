@@ -3,19 +3,19 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#include "gtest/gtest.h"
+#include "tbb/scalable_allocator.h"
+
 #include "DNL.h"
 #include "RemoveLoadlessLogic.h"
 #include "NLException.h"
-#include "SNLBitNetOccurrence.h"
-#include "SNLBitTermOccurrence.h"
+#include "SNLOccurrence.h"
 #include "SNLEquipotential.h"
 #include "SNLInstTerm.h"
 #include "SNLPath.h"
 #include "SNLScalarNet.h"
 #include "SNLScalarTerm.h"
 #include "NLUniverse.h"
-#include "gtest/gtest.h"
-#include "tbb/scalable_allocator.h"
 #include "NetlistGraph.h"
 
 using namespace naja;

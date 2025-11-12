@@ -14,18 +14,18 @@
 #include <vector>
 
 #include <tbb/task_arena.h>
+#include "tbb/parallel_for.h"
+
 #include "NLUniverse.h"
 #include "SNLBitNet.h"
 #include "SNLBitTerm.h"
 #include "SNLInstTerm.h"
 #include "SNLInstance.h"
 #include "SNLPath.h"
-#include "tbb/parallel_for.h"
+#include "SNLOccurrence.h"
 
-#include "SNLBitNetOccurrence.h"
 #include "SNLDesignModeling.h"
 #include "SNLEquipotential.h"
-#include "SNLNetComponentOccurrence.h"
 
 using namespace naja::NL;
 using namespace naja::DNL;
@@ -344,13 +344,13 @@ DNLID DNLTerminalFull::getIsoID() const {
   return (*get()).getIsoIdfromTermId(id_);
 }
 
-SNLNetComponentOccurrence DNLTerminalFull::getOccurrence() const {
+SNLOccurrence DNLTerminalFull::getOccurrence() const {
   if (this->getDNLInstance().isTop()) {
-    naja::NL::SNLNetComponentOccurrence occurrence(
+    naja::NL::SNLOccurrence occurrence(
         this->getDNLInstance().getPath(), this->getSnlBitTerm());
     return occurrence;
   }
-  naja::NL::SNLInstTermOccurrence occurrence(
+  naja::NL::SNLOccurrence occurrence(
       this->getDNLInstance().getPath().getHeadPath(), this->getSnlTerm());
   return occurrence;
 }
@@ -362,7 +362,7 @@ SNLEquipotential DNLTerminalFull::getEquipotential() const {
 // LCOV_EXCL_STOP
 #endif
   if (this->getDNLInstance().isTop()) {
-    naja::NL::SNLNetComponentOccurrence occurrence(
+    naja::NL::SNLOccurrence occurrence(
         this->getDNLInstance().getPath(), this->getSnlBitTerm());
 #ifdef DEBUG_PRINTS
     // LCOV_EXCL_START
@@ -373,7 +373,7 @@ SNLEquipotential DNLTerminalFull::getEquipotential() const {
 #endif
     return SNLEquipotential(occurrence);
   }
-  naja::NL::SNLInstTermOccurrence occurrence(
+  naja::NL::SNLOccurrence occurrence(
       this->getDNLInstance().getPath().getHeadPath(), this->getSnlTerm());
 #ifdef DEBUG_PRINTS
   // LCOV_EXCL_START

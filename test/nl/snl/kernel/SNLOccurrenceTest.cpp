@@ -13,9 +13,7 @@ using ::testing::ElementsAre;
 #include "SNLScalarTerm.h"
 #include "SNLInstTerm.h"
 #include "SNLScalarNet.h"
-#include "SNLBitNetOccurrence.h"
-#include "SNLBitTermOccurrence.h"
-#include "SNLInstTermOccurrence.h"
+#include "SNLOccurrence.h"
 #include "SNLEquipotential.h"
 using namespace naja::NL;
 
@@ -78,61 +76,38 @@ class SNLOccurrenceTest: public ::testing::Test {
 TEST_F(SNLOccurrenceTest, testEmptyOccurrences0) {
   ASSERT_NE(NLUniverse::get(), nullptr);
   auto emptyPath = SNLPath();
-  auto emptyNetOccurrence = SNLBitNetOccurrence();
-  auto emptyInstTermOccurrence = SNLInstTermOccurrence();
-  auto emptyTermOccurrence = SNLBitTermOccurrence();
-  EXPECT_FALSE(emptyNetOccurrence.isValid());
-  EXPECT_FALSE(emptyInstTermOccurrence.isValid());
-  EXPECT_FALSE(emptyTermOccurrence.isValid());
-  EXPECT_EQ(emptyNetOccurrence, emptyInstTermOccurrence);
-  EXPECT_EQ(emptyNetOccurrence, SNLInstTermOccurrence());
-  EXPECT_FALSE(emptyNetOccurrence < emptyInstTermOccurrence);
-  EXPECT_FALSE(emptyInstTermOccurrence < emptyNetOccurrence);
-}
-
-TEST_F(SNLOccurrenceTest, testEmptyOccurrences1) {
-  ASSERT_NE(NLUniverse::get(), nullptr);
-  auto emptyPath = SNLPath();
-  auto emptyNetOccurrence = SNLBitNetOccurrence(emptyPath, nullptr);
-  auto emptyInstTermOccurrence = SNLInstTermOccurrence(emptyPath, nullptr);
-  auto emptyTermOccurrence = SNLBitTermOccurrence(emptyPath, nullptr);
-  EXPECT_FALSE(emptyNetOccurrence.isValid());
-  EXPECT_EQ(emptyNetOccurrence, emptyInstTermOccurrence);
-  EXPECT_EQ(emptyNetOccurrence, SNLInstTermOccurrence());
-  EXPECT_FALSE(emptyNetOccurrence < emptyInstTermOccurrence);
-  EXPECT_FALSE(emptyInstTermOccurrence < emptyNetOccurrence);
-  EXPECT_TRUE(emptyInstTermOccurrence <= emptyNetOccurrence);
-  EXPECT_TRUE(emptyInstTermOccurrence >= emptyNetOccurrence);
-  EXPECT_FALSE(emptyInstTermOccurrence > emptyNetOccurrence);
-  std::string emptyPathString = emptyTermOccurrence.getString();
+  auto emptyOccurrence = SNLOccurrence();
+  EXPECT_FALSE(emptyOccurrence.isValid());
+  EXPECT_EQ(emptyOccurrence, emptyOccurrence);
+  EXPECT_EQ(emptyOccurrence, SNLOccurrence());
 }
 
 TEST_F(SNLOccurrenceTest, testh0Level) {
   auto topITerm = h0Instance_->getDesign()->getScalarTerm(NLName("i"));
   ASSERT_NE(topITerm, nullptr);
-  auto topITermOccurrence = SNLBitTermOccurrence(topITerm);
+  auto topITermOccurrence = SNLOccurrence(topITerm);
   EXPECT_TRUE(topITermOccurrence.getPath().empty());
-  EXPECT_EQ(topITermOccurrence.getTerm(), topITerm);
-  EXPECT_EQ(topITermOccurrence, SNLBitTermOccurrence(topITerm));
+  EXPECT_EQ(topITermOccurrence.getBitTerm(), topITerm);
+  EXPECT_EQ(topITermOccurrence, SNLOccurrence(topITerm));
 
   ASSERT_NE(h0Instance_, nullptr);
   auto h0Path = SNLPath(h0Instance_, SNLPath());
   auto iTerm = h0Instance_->getModel()->getScalarTerm(NLName("i"));
   ASSERT_NE(nullptr, iTerm);
-  auto h0iTermOccurrence = SNLBitTermOccurrence(h0Path, iTerm);
+  auto h0iTermOccurrence = SNLOccurrence(h0Path, iTerm);
   EXPECT_EQ(h0Path, h0iTermOccurrence.getPath());
-  EXPECT_EQ(iTerm, h0iTermOccurrence.getTerm());
-  EXPECT_EQ(iTerm->getNet(), h0iTermOccurrence.getNet());
-  EXPECT_EQ(SNLBitNetOccurrence(h0Path, iTerm->getNet()), h0iTermOccurrence.getNetOccurrence());
-  EXPECT_TRUE(SNLBitNetOccurrence(iTerm->getNet()).isValid());
-  EXPECT_LT(SNLBitTermOccurrence(), h0iTermOccurrence);
-  EXPECT_LT(h0iTermOccurrence, SNLBitNetOccurrence(h0Path, iTerm->getNet()));
+  EXPECT_EQ(iTerm, h0iTermOccurrence.getBitTerm());
+  EXPECT_EQ(iTerm->getNet(), h0iTermOccurrence.getComponentBitNet());
+  EXPECT_EQ(SNLOccurrence(h0Path, iTerm->getNet()), h0iTermOccurrence.getComponentBitNetOccurrence());
+  EXPECT_TRUE(SNLOccurrence(iTerm->getNet()).isValid());
+  EXPECT_LT(SNLOccurrence(), h0iTermOccurrence);
+  EXPECT_LT(h0iTermOccurrence, SNLOccurrence(h0Path, iTerm->getNet()));
 
   auto h0IInstTerm = h0Instance_->getInstTerm(iTerm);
   ASSERT_NE(h0IInstTerm, nullptr);
-  auto h0IInstTermOccurrence = SNLInstTermOccurrence(h0IInstTerm);
+  auto h0IInstTermOccurrence = SNLOccurrence(h0IInstTerm);
   std::string h0IInstTermString = h0IInstTermOccurrence.getString();
-  EXPECT_EQ(h0IInstTermOccurrence, SNLInstTermOccurrence(SNLPath(), h0IInstTerm));
+  EXPECT_EQ(h0IInstTermOccurrence, SNLOccurrence(SNLPath(), h0IInstTerm));
   EXPECT_TRUE(h0IInstTermOccurrence.getPath().empty());
   EXPECT_EQ(h0IInstTermOccurrence.getInstTerm(), h0IInstTerm);
 }
@@ -143,13 +118,13 @@ TEST_F(SNLOccurrenceTest, testh1Level) {
   auto h1Path = SNLPath(h0Path, h1Instance_);
   auto iTerm = h1Instance_->getModel()->getScalarTerm(NLName("i"));
   ASSERT_NE(nullptr, iTerm);
-  auto h1iTermOccurrence = SNLBitTermOccurrence(h1Path, iTerm);
+  auto h1iTermOccurrence = SNLOccurrence(h1Path, iTerm);
   EXPECT_EQ(h1Path, h1iTermOccurrence.getPath());
-  EXPECT_EQ(iTerm, h1iTermOccurrence.getTerm());
-  EXPECT_EQ(iTerm->getNet(), h1iTermOccurrence.getNet());
-  EXPECT_EQ(SNLBitNetOccurrence(h1Path, iTerm->getNet()), h1iTermOccurrence.getNetOccurrence());
-  EXPECT_LT(SNLBitTermOccurrence(), h1iTermOccurrence);
-  EXPECT_LT(h1iTermOccurrence, SNLBitNetOccurrence(h1Path, iTerm->getNet()));
+  EXPECT_EQ(iTerm, h1iTermOccurrence.getBitTerm());
+  EXPECT_EQ(iTerm->getNet(), h1iTermOccurrence.getComponentBitNet());
+  EXPECT_EQ(SNLOccurrence(h1Path, iTerm->getNet()), h1iTermOccurrence.getComponentBitNetOccurrence());
+  EXPECT_LT(SNLOccurrence(), h1iTermOccurrence);
+  EXPECT_LT(h1iTermOccurrence, SNLOccurrence(h1Path, iTerm->getNet()));
 }
 
 TEST_F(SNLOccurrenceTest, testh2Level) {
@@ -161,12 +136,12 @@ TEST_F(SNLOccurrenceTest, testh2Level) {
   auto primO = primInstance_->getInstTerm(primInstance_->getModel()->getScalarTerm(NLName("o")));
   ASSERT_NE(nullptr, primI);
   ASSERT_NE(nullptr, primO);
-  auto primITermOccurrence = SNLInstTermOccurrence(h2Path, primI);
-  auto primOTermOccurrence = SNLInstTermOccurrence(h2Path, primO);
+  auto primITermOccurrence = SNLOccurrence(h2Path, primI);
+  auto primOTermOccurrence = SNLOccurrence(h2Path, primO);
   ASSERT_TRUE(primITermOccurrence.isValid());
   ASSERT_TRUE(primOTermOccurrence.isValid());
-  EXPECT_FALSE(primOTermOccurrence.getNetOccurrence().isValid());
-  EXPECT_EQ(nullptr, primOTermOccurrence.getNet());
+  EXPECT_FALSE(primOTermOccurrence.getComponentBitNetOccurrence().isValid());
+  EXPECT_EQ(nullptr, primOTermOccurrence.getComponentBitNet());
 }
 
 TEST_F(SNLOccurrenceTest, testEquipotential0) {
@@ -184,7 +159,7 @@ TEST_F(SNLOccurrenceTest, testEquipotential0) {
   auto h2 = h2Path.getModel();
   auto primi = primInstance_->getInstTerm(primInstance_->getModel()->getScalarTerm(NLName("i")));
   ASSERT_NE(nullptr, primi);
-  auto primiOccurrence = SNLInstTermOccurrence(h2Path, primi);
+  auto primiOccurrence = SNLOccurrence(h2Path, primi);
   ASSERT_TRUE(primiOccurrence.isValid());
   EXPECT_EQ(equipotential.getInstTermOccurrences().size(), 1);
   EXPECT_EQ(*equipotential.getInstTermOccurrences().begin(), primiOccurrence);
@@ -200,7 +175,7 @@ TEST_F(SNLOccurrenceTest, testEquipotential1) {
   EXPECT_EQ(2, h1Path.size());
   auto h2i = h2Instance_->getInstTerm(h2Instance_->getModel()->getScalarTerm(NLName("i")));
   ASSERT_NE(nullptr, h2i);
-  auto h2iOccurrence = SNLInstTermOccurrence(h1Path, h2i);
+  auto h2iOccurrence = SNLOccurrence(h1Path, h2i);
   SNLEquipotential equipotential(h2iOccurrence);
   EXPECT_EQ(equipotential.getTerms().size(), 1);
   EXPECT_EQ(*equipotential.getTerms().begin(), topi);
@@ -211,7 +186,7 @@ TEST_F(SNLOccurrenceTest, testEquipotential1) {
   auto h2 = h2Path.getModel();
   auto primi = primInstance_->getInstTerm(primInstance_->getModel()->getScalarTerm(NLName("i")));
   ASSERT_NE(nullptr, primi);
-  auto primiOccurrence = SNLInstTermOccurrence(h2Path, primi);
+  auto primiOccurrence = SNLOccurrence(h2Path, primi);
   ASSERT_TRUE(primiOccurrence.isValid());
   EXPECT_EQ(equipotential.getInstTermOccurrences().size(), 1);
   EXPECT_EQ(*equipotential.getInstTermOccurrences().begin(), primiOccurrence);
@@ -225,5 +200,5 @@ TEST_F(SNLOccurrenceTest, testErrors) {
   EXPECT_EQ(3, h2Path.size());
   auto h1i = h1Instance_->getInstTerm(h1Instance_->getModel()->getScalarTerm(NLName("i")));
   ASSERT_NE(h1i, nullptr);
-  EXPECT_THROW(SNLInstTermOccurrence(h2Path, h1i), NLException);
+  EXPECT_THROW(SNLOccurrence(h2Path, h1i), NLException);
 }

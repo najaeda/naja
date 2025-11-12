@@ -296,7 +296,7 @@ class NajaNetlistTest0(unittest.TestCase):
         inst_term = netlist.Term(path2.getIDs(), sub_inst_terms[0].getBitTerm())
         self.assertEqual(0, sub_inst_terms[0].getBitTerm().getFlatID())
         equi = netlist.Equipotential(inst_term)
-        net_component_occurrence2 = naja.SNLNetComponentOccurrence(path1, sub_inst_terms[0])
+        net_component_occurrence2 = naja.SNLOccurrence(path1, sub_inst_terms[0])
         najaequi = naja.SNLEquipotential(net_component_occurrence2)
 
         equi.dump_dot("./test_equipotential.dot")

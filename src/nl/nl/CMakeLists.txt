@@ -29,9 +29,7 @@ set(SNL_SOURCES
   snl/SNLSharedPath.cpp snl/SNLPath.cpp
   snl/SNLParameter.cpp snl/SNLInstParameter.cpp
   snl/SNLUtils.cpp
-  snl/SNLOccurrence.cpp snl/SNLBitNetOccurrence.cpp
-  snl/SNLNetComponentOccurrence.cpp 
-  snl/SNLBitTermOccurrence.cpp snl/SNLInstTermOccurrence.cpp
+  snl/SNLOccurrence.cpp
   snl/SNLEquipotential.cpp
   snl/SNLUniquifier.cpp
 )

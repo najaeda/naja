@@ -4,14 +4,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "PySNLEquipotential.h"
+
 #include "PyInterface.h"
 #include "PySNLNetComponent.h"
-#include "PySNLNetComponentOccurrence.h"
 #include "PySNLPath.h"
-#include "PySNLInstTermOccurrences.h"
+#include "PySNLOccurrence.h"
+#include "PySNLOccurrences.h"
 #include "PySNLBitTerms.h"
 
-#include "SNLNetComponentOccurrence.h"
 #include "SNLPath.h"
 #include "SNLEquipotential.h"
 #include "NetlistGraph.h"
@@ -33,12 +33,21 @@ static int PySNLEquipotential_Init(PySNLEquipotential* self, PyObject* args, PyO
     return -1;
   }
   if (arg0 != nullptr) {
-    if (IsPySNLNetComponentOccurrence(arg0)) {
-      equipotential = new SNLEquipotential(*PYSNLNetComponentOccurrence_O(arg0));
+    if (IsPySNLOccurrence(arg0)) {
+      const auto occurrence = PYSNLOccurrence_O(arg0);
+      if (not occurrence) {
+        setError("NULL SNLOccurrence passed to SNLEquipotential constructor");
+        return -1;
+      }
+      if (not occurrence->isNetComponentOccurrence()) {
+        setError("SNLOccurrence passed to SNLEquipotential constructor is not a SNLNetComponentOccurrence");
+        return -1;
+      }
+      equipotential = new SNLEquipotential(*occurrence);
     } else if (IsPySNLNetComponent(arg0)) {
       equipotential = new SNLEquipotential(PYSNLNetComponent_O(arg0));
     } else {
-      setError("SNLEquipotential create accepts SNLNetComponent orSNLNetComponentOccurrence as only argument");
+      setError("SNLEquipotential create accepts SNLNetComponent or SNLNetComponentOccurrence as only argument");
       return -1;
     }
   }  else {
@@ -68,7 +77,7 @@ static PyObject* PySNLEquipotential_dumpDotFile(PySNLEquipotential* self, PyObje
 }
 
 GetContainerMethod(SNLEquipotential, SNLBitTerm*, SNLBitTerms, Terms)
-GetContainerMethod(SNLEquipotential, SNLInstTermOccurrence, SNLInstTermOccurrences, InstTermOccurrences)
+GetContainerMethod(SNLEquipotential, SNLOccurrence, SNLOccurrences, InstTermOccurrences)
 
 //LCOV_EXCL_START
 ManagedTypeLinkCreateMethod(SNLEquipotential) 

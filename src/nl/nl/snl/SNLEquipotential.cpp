@@ -5,9 +5,6 @@
 #include "SNLEquipotential.h"
 
 #include "SNLPath.h"
-#include "SNLInstTermOccurrence.h"
-#include "SNLBitTermOccurrence.h"
-#include "SNLBitNetOccurrence.h"
 #include "SNLBitNet.h"
 #include "SNLBitTerm.h"
 #include "SNLInstTerm.h"
@@ -27,8 +24,8 @@ struct SNLEquipotentialExtractor {
   {}
 
   void extractNetComponentsFromNetOccurrence(
-    const naja::NL::SNLBitNetOccurrence& netOccurrence,
-    const SNLNetComponentOccurrence& comingFromComponent,
+    const naja::NL::SNLOccurrence& netOccurrence,
+    const SNLOccurrence& comingFromComponent,
     bool start
   ) {
     if (visitedNetOccurrences_.find(netOccurrence) != visitedNetOccurrences_.end()) {
@@ -36,23 +33,23 @@ struct SNLEquipotentialExtractor {
       return;
     }
     visitedNetOccurrences_.insert(netOccurrence);
-    auto net = netOccurrence.getNet();
+    auto net = dynamic_cast<const SNLBitNet*>(netOccurrence.getObject());
     auto path = netOccurrence.getPath();
     for (auto component: net->getComponents()) {
-      if (not start and component == comingFromComponent.getComponent()) {
+      if (not start and component == comingFromComponent.getObject()) {
         continue;
       }
       if (auto instTerm = dynamic_cast<SNLInstTerm*>(component)) {
         auto instance = instTerm->getInstance();
         if (instance->isLeaf()) {
           //construct InstTerm Occurrences
-          instTermOccurrences_.emplace(naja::NL::SNLInstTermOccurrence(path, instTerm));
+          instTermOccurrences_.emplace(naja::NL::SNLOccurrence(path, instTerm));
         } else {
           //get inside instance by exploring from term occurrence
           auto term = instTerm->getBitTerm();
           auto instancePath = naja::NL::SNLPath(path, instance);
           //
-          extractNetFromNetComponentOccurrence(naja::NL::SNLBitTermOccurrence(instancePath, term), false);
+          extractNetFromNetComponentOccurrence(naja::NL::SNLOccurrence(instancePath, term), false);
         }
       } else {
         auto term = static_cast<SNLBitTerm*>(component);
@@ -66,7 +63,7 @@ struct SNLEquipotentialExtractor {
             auto instance = path.getTailInstance();
             auto instTerm = instance->getInstTerm(term);
             //
-            extractNetFromNetComponentOccurrence(naja::NL::SNLInstTermOccurrence(parentPath, instTerm), false);
+            extractNetFromNetComponentOccurrence(naja::NL::SNLOccurrence(parentPath, instTerm), false);
           }
         }
       }
@@ -76,10 +73,10 @@ struct SNLEquipotentialExtractor {
   //start extraction from net component
   //construct net and start exploration
   void extractNetFromNetComponentOccurrence(
-    const naja::NL::SNLNetComponentOccurrence& netComponentOccurrence,
+    const naja::NL::SNLOccurrence& netComponentOccurrence,
     bool start
   ) {
-    auto netOccurrence = netComponentOccurrence.getNetOccurrence();
+    auto netOccurrence = netComponentOccurrence.getComponentBitNetOccurrence();
     if (netOccurrence.isValid()) {
       extractNetComponentsFromNetOccurrence(netOccurrence, netComponentOccurrence, start);
     }
@@ -120,7 +117,7 @@ struct SNLEquipotentialExtractor {
   private:
     SNLEquipotential::InstTermOccurrences&  instTermOccurrences_;
     SNLEquipotential::Terms&                terms_;
-    using NetOccurrences = std::set<SNLBitNetOccurrence>;
+    using NetOccurrences = std::set<SNLOccurrence>;
     NetOccurrences                          visitedNetOccurrences_  {};
 };
 
@@ -129,10 +126,10 @@ struct SNLEquipotentialExtractor {
 namespace naja { namespace NL {
 
 SNLEquipotential::SNLEquipotential(SNLNetComponent* netComponent):
-  SNLEquipotential(SNLNetComponentOccurrence(netComponent))
+  SNLEquipotential(SNLOccurrence(netComponent))
 {}
 
-SNLEquipotential::SNLEquipotential(const SNLNetComponentOccurrence& netComponentOccurrence) {
+SNLEquipotential::SNLEquipotential(const SNLOccurrence& netComponentOccurrence) {
   SNLEquipotentialExtractor extractor(instTermOccurrences_, terms_);
   extractor.extractNetFromNetComponentOccurrence(netComponentOccurrence, true);
 }
@@ -165,7 +162,7 @@ NajaCollection<SNLBitTerm*> SNLEquipotential::getTerms() const {
   return NajaCollection(new NajaSTLCollection(&terms_));
 }
 
-NajaCollection<SNLInstTermOccurrence> SNLEquipotential::getInstTermOccurrences() const {
+NajaCollection<SNLOccurrence> SNLEquipotential::getInstTermOccurrences() const {
   return NajaCollection(new NajaSTLCollection(&instTermOccurrences_));
 }
 

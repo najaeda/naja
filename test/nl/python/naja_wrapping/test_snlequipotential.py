@@ -46,8 +46,7 @@ class SNLEquiTest(unittest.TestCase):
     print(instTerms[0])  
     path1 = naja.SNLPath(path0, ins1)
     path2 = naja.SNLPath(path1, ins2)
-    netcomponentoccurrence = naja.SNLNetComponentOccurrence()
-    netcomponentoccurrence1 = naja.SNLNetComponentOccurrence(path1, subinstTerms[0])
+    netcomponentoccurrence1 = naja.SNLOccurrence(path1, subinstTerms[0])
 
     #insttermoccurrence1 = naja.SNLInstTermOccurrence(path0, instTerms[0])
 

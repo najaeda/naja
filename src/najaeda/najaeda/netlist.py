@@ -126,7 +126,7 @@ class Equipotential:
                 snl_term = get_snl_term_for_ids(inst_term.pathIDs, inst_term.termIDs)
         else:
             inst_term = term
-        ito = naja.SNLNetComponentOccurrence(
+        ito = naja.SNLOccurrence(
             path.getHeadPath(), path.getTailInstance().getInstTerm(snl_term)
         )
         self.equi = naja.SNLEquipotential(ito)
@@ -1886,7 +1886,7 @@ def get_max_fanout() -> list:
             for entry in max_fanout[1]:
                 fanout = []
                 driver = entry[0]
-                component = driver.getComponent()
+                component = driver.getNetComponent()
                 path = driver.getPath().getIDs()
                 if isinstance(component, naja.SNLInstTerm):
                     path.append(component.getInstance().getID())
@@ -1896,7 +1896,7 @@ def get_max_fanout() -> list:
                 fanout.append(Term(path, component))
                 readers = []
                 for item in entry[1]:
-                    component = item.getComponent()
+                    component = item.getNetComponent()
                     path = item.getPath().getIDs()
                     if isinstance(component, naja.SNLInstTerm):
                         path.append(component.getInstance().getID())
@@ -1931,7 +1931,7 @@ def get_max_logic_level() -> list:
                     for path in entry:
                         llpath = []
                         for item in path:
-                            component = item.getComponent()
+                            component = item.getNetComponent()
                             pathIDs = item.getPath().getIDs()
                             if isinstance(component, naja.SNLInstTerm):
                                 pathIDs.append(component.getInstance().getID())

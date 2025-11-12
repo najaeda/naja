@@ -47,6 +47,8 @@ class SNLInstanceTest(unittest.TestCase):
     self.assertEqual(1, len(instances))
     self.assertEqual(ins1, instances[0])
     self.assertFalse(all(False for _ in ins1.getInstTerms()))
+    self.assertIsInstance(ins1, naja.SNLInstance)
+    self.assertIsInstance(ins1, naja.SNLDesignObject)
   
   def testDestroyInstance(self):
     ins1 = naja.SNLInstance.create(self.top, self.model, "ins1")

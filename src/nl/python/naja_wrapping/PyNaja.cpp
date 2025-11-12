@@ -39,10 +39,8 @@
 #include "PySNLInstTerms.h"
 #include "PySNLPath.h"
 #include "PySNLOccurrence.h"
-#include "PySNLInstTermOccurrence.h"
-#include "PySNLNetComponentOccurrence.h"
 #include "PySNLEquipotential.h"
-#include "PySNLInstTermOccurrences.h"
+#include "PySNLOccurrences.h"
 #include "PySNLUniquifier.h"
 
 #include "NajaVersion.h"
@@ -99,8 +97,6 @@ PyMODINIT_FUNC PyInit_naja(void) {
   PySNLUniquifier_LinkPyType();
   PySNLEquipotential_LinkPyType();
   PySNLOccurrence_LinkPyType();
-  PySNLNetComponentOccurrence_LinkPyType();
-  PySNLInstTermOccurrence_LinkPyType();
 
   PySNLAttributes_LinkPyType();
   PyNLDBs_LinkPyType();
@@ -119,7 +115,7 @@ PyMODINIT_FUNC PyInit_naja(void) {
   PySNLInstances_LinkPyType();
   PySNLInstParameters_LinkPyType();
   PySNLInstTerms_LinkPyType();
-  PySNLInstTermOccurrences_LinkPyType();
+  PySNLOccurrences_LinkPyType();
 
   PYTYPE_READY(SNLAttribute);
   PYTYPE_READY(NLUniverse);
@@ -149,8 +145,6 @@ PyMODINIT_FUNC PyInit_naja(void) {
   PYTYPE_READY(SNLUniquifier);
   PYTYPE_READY(SNLEquipotential);
   PYTYPE_READY(SNLOccurrence);
-  PYTYPE_READY(SNLNetComponentOccurrence);
-  PYTYPE_READY(SNLInstTermOccurrence);
   PYTYPE_READY(SNLAttributes);
   PYTYPE_READY(NLDBs);
   PYTYPE_READY(NLDBsIterator);
@@ -184,8 +178,8 @@ PyMODINIT_FUNC PyInit_naja(void) {
   PYTYPE_READY(SNLInstParametersIterator);
   PYTYPE_READY(SNLInstTerms);
   PYTYPE_READY(SNLInstTermsIterator);
-  PYTYPE_READY(SNLInstTermOccurrences);
-  PYTYPE_READY(SNLInstTermOccurrencesIterator);
+  PYTYPE_READY(SNLOccurrences);
+  PYTYPE_READY(SNLOccurrencesIterator);
 
   PyObject* mod = PyModule_Create(&najaModule);
 
@@ -221,14 +215,10 @@ PyMODINIT_FUNC PyInit_naja(void) {
   PyModule_AddType(mod, &PyTypeSNLPath);
   PyModule_AddType(mod, &PyTypeSNLUniquifier);
   PyModule_AddType(mod, &PyTypeSNLOccurrence);
-  PyModule_AddType(mod, &PyTypeSNLNetComponentOccurrence);
-  PyModule_AddType(mod, &PyTypeSNLInstTermOccurrence);
   PyModule_AddType(mod, &PyTypeSNLEquipotential);
 
   PySNLTerm_postModuleInit();
   PySNLNet_postModuleInit();
-
-  
 
   return mod;
 }
