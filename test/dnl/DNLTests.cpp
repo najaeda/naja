@@ -854,7 +854,7 @@ TEST_F(DNLTests,
   {
     auto pathDescriptor = dnl->getTop()
                     .getChildInstance(subinst)
-                    .getTerminal(subsubinst->getInstTerm(subsuboutTerm)).getFullPathIDs();
+                    .getTerminalFromBitTerm(subsuboutTerm).getFullPathIDs();
     pathDescriptor.pop_back();
     pathDescriptor.pop_back();
     SNLPath path(mod, pathDescriptor);
