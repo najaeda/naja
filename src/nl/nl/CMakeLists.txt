@@ -2,10 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-if (NOT BUILD_EMSCRIPTEN)
-  add_subdirectory(serialization)
-  add_subdirectory(visual)
-endif()
+add_subdirectory(serialization)
+add_subdirectory(visual)
 
 set(NL_SOURCES
   nl/NLObject.cpp
@@ -80,10 +78,6 @@ set(HEADERS
   snl/SNLParameter.h snl/SNLInstParameter.h
   snl/SNLUtils.h
   snl/SNLOccurrence.h
-  snl/SNLBitNetOccurrence.h
-  snl/SNLNetComponentOccurrence.h
-  snl/SNLBitTermOccurrence.h
-  snl/SNLInstTermOccurrence.h
   snl/SNLEquipotential.h
   pnl/PNLPoint.h
   pnl/PNLDesign.h
