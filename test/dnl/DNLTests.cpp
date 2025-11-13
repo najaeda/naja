@@ -859,7 +859,7 @@ TEST_F(DNLTests,
     pathDescriptor.pop_back();
     SNLPath path(mod, pathDescriptor);
 
-    EXPECT_EQ(path, dnl->getTop()
+    EXPECT_TRUE(path == dnl->getTop()
                     .getChildInstance(subinst).getPath());
   }
   EXPECT_EQ(inIsoID, subinIsoID);
