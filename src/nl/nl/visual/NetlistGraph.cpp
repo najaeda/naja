@@ -126,8 +126,12 @@ void SnlVisualiser::processRec(InstNodeID instId, const SNLPath& path) {
           // guard: ensure net2wireId contains the net before using it
           auto it = net2wireId.find(term->getNet());
           if (it == net2wireId.end()) {
+            // LCOV_EXCL_START
             // net not created in this scope; skip wiring to avoid UB
-            continue;
+            //continue;
+            throw std::runtime_error(
+                "SnlVisualiser::processRec: output term net not found in net2wireId map");
+            // LCOV_EXCL_STOP
           }
           _snlNetlistGraph.getWire(it->second)
               .addPort(_snlNetlistGraph.getInst(instId)
@@ -136,7 +140,11 @@ void SnlVisualiser::processRec(InstNodeID instId, const SNLPath& path) {
         } else {
           auto it = net2wireId.find(term->getNet());
           if (it == net2wireId.end()) {
-            continue;
+            //continue;
+            // LCOV_EXCL_START
+            throw std::runtime_error(
+                "SnlVisualiser::processRec: input term net not found in net2wireId map");
+            // LCOV_EXCL_STOP
           }
           _snlNetlistGraph.getWire(it->second)
               .addDriver(_snlNetlistGraph.getInst(instId)
@@ -169,7 +177,11 @@ void SnlVisualiser::processRec(InstNodeID instId, const SNLPath& path) {
       auto it = net2wireId.find(term->getNet());
       if (it == net2wireId.end()) {
         // net not created in this scope; skip wiring
-        continue;
+        //continue;
+        // LCOV_EXCL_START
+        throw std::runtime_error(
+            "SnlVisualiser::processRec: scalar term net not found in net2wireId map");
+        // LCOV_EXCL_STOP
       }
       if (term->getDirection() == SNLTerm::Direction::DirectionEnum::Output) {
         _snlNetlistGraph.getWire(it->second)
@@ -292,8 +304,10 @@ void SnlVisualiser::processRec(InstNodeID instId, const SNLPath& path) {
             //     port.getId();
             // bus.addPort(port.getId());
             // continue;
+            // LCOV_EXCL_START
             throw std::runtime_error(
                 "SnlVisualiser internal error: wire for net not found");
+            // LCOV_EXCL_STOP
           }
           if (term->getDirection() ==
               SNLTerm::Direction::DirectionEnum::Input) {
