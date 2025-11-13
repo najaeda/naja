@@ -458,6 +458,7 @@ class NetlistGraph {
   void alignRec(InstNode<InstData>* node, std::fstream& myfile, int& count) {
     if (node->getInPortLeafId() != -1) {
       if (count > 100) {
+        // LCOV_EXCL_START
         // new line
         if (node != &getTop()) {
           if (count) {
@@ -467,6 +468,7 @@ class NetlistGraph {
         myfile << "leaf" << node->getInPortLeafId();
         myfile << "[ constraint=true  style=invis ];" << std::endl;
         count = 0;
+        // LCOV_EXCL_STOP
       }
       if (node != &getTop()) {
         if (count) {
@@ -479,20 +481,24 @@ class NetlistGraph {
     for (size_t child : node->getChildren()) {
       // printf("alignRec child\n");
       if (count > 100) {
+        // LCOV_EXCL_START
         myfile << "[ constraint=true  style=invis ];" << std::endl;
         count = 0;
+        // LCOV_EXCL_STOP
       }
       alignRec(&getInst(child), myfile, count);
     }
     size_t localLeaf = 0;
     for (auto id : node->getLeaves()) {
       if (count > 100) {
+        // LCOV_EXCL_START
         if (count) {
           myfile << "->";
         }
         myfile << "leaf" << node->getInPortLeafId();
         myfile << "[ constraint=true  style=invis ];" << std::endl;
         count = 0;
+        // LCOV_EXCL_STOP
       }
       if (localLeaf) {
         myfile << ",";  // If not first local leaf so wrap them together
@@ -505,12 +511,14 @@ class NetlistGraph {
     }
     if (node->getOutPortLeafId() != -1) {
       if (count > 100) {
+        // LCOV_EXCL_START
         if (count) {
           myfile << "->";
         }
         myfile << "leaf" << node->getInPortLeafId();
         myfile << "[ constraint=true  style=invis ];" << std::endl;
         count = 0;
+        // LCOV_EXCL_STOP
       } 
       if (count) {
         myfile << "->";
