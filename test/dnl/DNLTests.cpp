@@ -851,6 +851,17 @@ TEST_F(DNLTests,
                              .getChildInstance(subsubinst)
                              .getTerminalFromBitTerm(subsuboutTerm)
                              .getIsoID();
+  {
+    auto pathDescriptor = dnl->getTop()
+                    .getChildInstance(subinst)
+                    .getTerminal(subsubinst->getInstTerm(subsuboutTerm)).getFullPathIDs();
+    pathDescriptor.pop_back();
+    pathDescriptor.pop_back();
+    SNLPath path(mod, pathDescriptor);
+
+    EXPECT_EQ(path, dnl->getTop()
+                    .getChildInstance(subinst).getPath());
+  }
   EXPECT_EQ(inIsoID, subinIsoID);
   EXPECT_EQ(subinIsoID, subsubInIsoID);
   EXPECT_EQ(outIsoID, suboutIsoID);
@@ -879,17 +890,7 @@ TEST_F(DNLTests,
   dnl->display();
   dnl->getTop().display();
   dnl->getTop().getChildInstance(subinst).display();
-  {
-    auto pathDescriptor = dnl->getTop()
-                    .getChildInstance(subinst)
-                    .getTerminal(subsubinst->getInstTerm(subsubinTerm)).getFullPathIDs();
-    pathDescriptor.pop_back();
-    pathDescriptor.pop_back();
-    SNLPath path(mod, pathDescriptor);
 
-    EXPECT_EQ(path, dnl->getTop()
-                    .getChildInstance(subinst).getPath());
-  }
   EXPECT_EQ(dnl->getTop()
                 .getChildInstance(subinst)
                 .getTerminal(subsubinst->getInstTerm(subsubinTerm))
