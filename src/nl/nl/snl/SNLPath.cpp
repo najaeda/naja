@@ -102,6 +102,28 @@ SNLPath::SNLPath(const SNLDesign* top, const PathStringDescriptor& descriptor)
   }
 }
 
+SNLPath ::SNLPath(const SNLDesign* top, const PathIDDescriptor& descriptor)
+    : SNLPath() {
+  if (top and not descriptor.empty()) {
+    using Instances = std::vector<SNLInstance*>;
+    Instances instances;
+    auto design = top;
+    for (auto instanceID : descriptor) {
+      auto instance = design->getInstance(instanceID);
+      if (not instance) {
+        throw NLException("Unfound instance in SNLPath constructor.");
+      }
+      instances.push_back(instance);
+      design = instance->getModel();
+    }
+    SNLPath path;
+    for (auto instance : instances) {
+      path = SNLPath(path, instance);
+    }
+    sharedPath_ = path.sharedPath_;
+  }
+}
+
 SNLPath::PathIDDescriptor SNLPath::getIDDescriptor() const {
   SNLPath::PathIDDescriptor descriptor;
   if (sharedPath_) {

@@ -122,9 +122,10 @@ DNLID DNLInstanceFull::getParentID() const {
 const SNLDesign* DNLInstanceFull::getSNLModel() const {
   if (instance_) {
     return instance_->getModel();
-  } else {
+  } else if (isTop()) {
     return NLUniverse::get()->getTopDesign();
   }
+  return nullptr;
 }
 
 SNLInstance* DNLInstanceFull::getSNLInstance() const {
@@ -300,6 +301,14 @@ bool DNLTerminalFull::isSequential() const {
     }
   }
   return false;
+}
+
+std::vector<naja::NL::NLID::DesignObjectID> DNLTerminalFull::getFullPathIDs() const {
+  auto path = this->getDNLInstance().getPath();
+  std::vector<naja::NL::NLID::DesignObjectID> fullPathIDs = path.getPathIDs();
+  fullPathIDs.push_back(this->getSnlBitTerm()->getID());
+  fullPathIDs.push_back(this->getSnlBitTerm()->getBit());
+  return fullPathIDs;
 }
 
 bool DNLTerminalFull::isCombinatorial() const {

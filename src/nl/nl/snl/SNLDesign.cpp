@@ -752,5 +752,4 @@ void SNLDesign::setOrderIDs() {
   }
 }
 
-
 }} // namespace NL // namespace naja
