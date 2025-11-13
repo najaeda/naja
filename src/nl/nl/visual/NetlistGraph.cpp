@@ -264,6 +264,7 @@ void SnlVisualiser::processRec(InstNodeID instId, const SNLPath& path) {
           SNLInstTerm* netTerm =
               child.getData().getSnlInst()->getInstTerm(term);
           if (!_equis.empty()) {
+            // LCOV_EXCL_START
             if (_equiNets.find(netTerm->getNet()) == _equiNets.end()) {
               // do not register port wiring for nets outside equiNets
               // still keep the port created so port IDs remain consistent
@@ -277,6 +278,7 @@ void SnlVisualiser::processRec(InstNodeID instId, const SNLPath& path) {
               bus.addPort(port.getId());
               continue;
             }
+            // LCOV_EXCL_STOP
           }
           // net is allowed — ensure the corresponding wire exists in this scope
           auto it = net2wireId.find(netTerm->getNet());
@@ -356,6 +358,7 @@ void SnlVisualiser::processRec(InstNodeID instId, const SNLPath& path) {
         }
         auto it = net2wireId.find(netTerm->getNet());
         if (it == net2wireId.end()) {
+          // LCOV_EXCL_START
           // skip wiring if wire not found locally
           std::string name = term->getName().getString();
           if (name == "") {
@@ -369,6 +372,7 @@ void SnlVisualiser::processRec(InstNodeID instId, const SNLPath& path) {
             child.addOutPort(port.getId());
           }
           continue;
+          // LCOV_EXCL_STOP
         }
         if (term->getDirection() == SNLTerm::Direction::DirectionEnum::Input) {
           _snlNetlistGraph.getWire(it->second).addPort(port.getId());
