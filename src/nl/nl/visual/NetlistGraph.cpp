@@ -283,15 +283,17 @@ void SnlVisualiser::processRec(InstNodeID instId, const SNLPath& path) {
           // net is allowed — ensure the corresponding wire exists in this scope
           auto it = net2wireId.find(netTerm->getNet());
           if (it == net2wireId.end()) {
-            // wire not found at this scope: skip wiring to avoid UB
-            std::string name = term->getName().getString();
-            if (name == "") {
-              name = std::to_string(term->getFlatID());
-            }
-            child.getPortName2PortId()[name + std::to_string(term->getBit())] =
-                port.getId();
-            bus.addPort(port.getId());
-            continue;
+            // // wire not found at this scope: skip wiring to avoid UB
+            // std::string name = term->getName().getString();
+            // if (name == "") {
+            //   name = std::to_string(term->getFlatID());
+            // }
+            // child.getPortName2PortId()[name + std::to_string(term->getBit())] =
+            //     port.getId();
+            // bus.addPort(port.getId());
+            // continue;
+            throw std::runtime_error(
+                "SnlVisualiser internal error: wire for net not found");
           }
           if (term->getDirection() ==
               SNLTerm::Direction::DirectionEnum::Input) {
