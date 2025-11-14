@@ -225,11 +225,11 @@ std::string SNLPath::getDescription(const char separator) const {
 }
 // LCOV_EXCL_STOP
 
-std::vector<NLID::DesignObjectID> SNLPath::getIDs() const {
+std::vector<NLID::DesignObjectID> SNLPath::getInstanceIDs() const {
   if (not sharedPath_) {
     return {};
   }
-  return sharedPath_->getIDs();
+  return sharedPath_->getInstanceIDs();
 }
 
 std::vector<SNLInstance*> SNLPath::getInstances() const {

@@ -128,10 +128,10 @@ std::string SNLSharedPath::getString(char separator) {
 }
 //LCOV_EXCL_STOP
 
-std::vector<NLID::DesignObjectID> SNLSharedPath::getIDs() const {
+std::vector<NLID::DesignObjectID> SNLSharedPath::getInstanceIDs() const {
   std::vector<NLID::DesignObjectID> result;
   if (headSharedPath_ != nullptr) {
-    result = headSharedPath_->getIDs();
+    result = headSharedPath_->getInstanceIDs();
     result.push_back(tailInstance_->getID());
     return result;
   }

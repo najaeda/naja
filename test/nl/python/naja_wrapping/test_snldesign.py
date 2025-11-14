@@ -38,6 +38,8 @@ class SNLDesignTest(unittest.TestCase):
     self.assertEqual(design, designs[0])
     self.assertFalse(any(design.getTerms()))
     self.assertEqual(0, sum(1 for d in design.getTerms()))
+    design_id_list = (design.getDB().getID(), design.getLibrary().getID(), design.getID())
+    self.assertEqual(design, naja.NLUniverse.get().getSNLDesign(design_id_list))
 
     i0 = naja.SNLScalarTerm.create(design, naja.SNLTerm.Direction.Input, "I0")
     self.assertEqual(design, i0.getDesign())
@@ -152,7 +154,6 @@ class SNLDesignTest(unittest.TestCase):
     outputs = filter(lambda t: t.getDirection() == naja.SNLTerm.Direction.Output, design.getTerms())
     self.assertEqual(1, sum(1 for t in outputs))
     
-
   def testCompare(self):
     self.assertIsNotNone(self.lib)
     design0 = naja.SNLDesign.create(self.lib, "DESIGN0")

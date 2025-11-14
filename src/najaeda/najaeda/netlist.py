@@ -146,7 +146,7 @@ class Equipotential:
         """
         if self.equi is not None:
             for term in self.equi.getInstTermOccurrences():
-                path = term.getPath().getIDs()
+                path = term.getPath().getInstanceIDs()
                 path.append(term.getInstTerm().getInstance().getID())
                 yield Term(path,
                     term.getInstTerm().getBitTerm())
@@ -170,7 +170,7 @@ class Equipotential:
                     term.getInstTerm().getInstance().getModel().isLeaf() and
                     (filter is None or filter(term))
                 ):
-                    path = term.getPath().getIDs()
+                    path = term.getPath().getInstanceIDs()
                     path.append(term.getInstTerm().getInstance().getID())
                     yield Term(path, term.getInstTerm().getBitTerm())
 
@@ -183,7 +183,7 @@ class Equipotential:
                     term.getInstTerm().getInstance().getModel().isLeaf() and
                     (filter is None or filter(term))
                 ):
-                    path = term.getPath().getIDs()
+                    path = term.getPath().getInstanceIDs()
                     path.append(term.getInstTerm().getInstance().getID())
                     yield Term(path, term.getInstTerm().getBitTerm())
 
@@ -217,7 +217,7 @@ class Net:
             )
         if isinstance(path, naja.SNLPath):
             if path.size() > 0:
-                self.pathIDs = path.getIDs()
+                self.pathIDs = path.getInstanceIDs()
             else:
                 self.pathIDs = []
         elif isinstance(path, list):
@@ -970,7 +970,7 @@ class Instance:
         self.SNLID = [0] * 6
         if isinstance(path, naja.SNLPath):
             if path.size():
-                self.pathIDs = path.getIDs()
+                self.pathIDs = path.getInstanceIDs()
                 self.revisionCount = path.getTailInstance().getModel().getRevisionCount()
                 self.inst = path.getTailInstance()
             else:
@@ -1510,7 +1510,7 @@ class Instance:
             path = get_snl_path_from_id_list(self.pathIDs)
         design = self.__get_snl_model()
         newSNLTerm = naja.SNLScalarTerm.create(design, direction.value, name)
-        return Term(path.getIDs(), newSNLTerm)
+        return Term(path.getInstanceIDs(), newSNLTerm)
 
     def create_output_term(self, name: str) -> Term:
         """Create an output Term in this Instance with the given name.
@@ -1887,7 +1887,7 @@ def get_max_fanout() -> list:
                 fanout = []
                 driver = entry[0]
                 component = driver.getNetComponent()
-                path = driver.getPath().getIDs()
+                path = driver.getPath().getInstanceIDs()
                 if isinstance(component, naja.SNLInstTerm):
                     path.append(component.getInstance().getID())
                     component = component.getBitTerm()
@@ -1897,7 +1897,7 @@ def get_max_fanout() -> list:
                 readers = []
                 for item in entry[1]:
                     component = item.getNetComponent()
-                    path = item.getPath().getIDs()
+                    path = item.getPath().getInstanceIDs()
                     if isinstance(component, naja.SNLInstTerm):
                         path.append(component.getInstance().getID())
                         component = component.getBitTerm()
@@ -1932,7 +1932,7 @@ def get_max_logic_level() -> list:
                         llpath = []
                         for item in path:
                             component = item.getNetComponent()
-                            pathIDs = item.getPath().getIDs()
+                            pathIDs = item.getPath().getInstanceIDs()
                             if isinstance(component, naja.SNLInstTerm):
                                 pathIDs.append(component.getInstance().getID())
                                 component = component.getBitTerm()

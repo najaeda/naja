@@ -161,9 +161,9 @@ static PyObject* pyNLUniverse_getSNLDesign(PyNLUniverse* self, PyObject* arg) {
     design = selfObject->getSNLDesign(NLName(name));
     return PySNLDesign_Link(design);
   } else if (PyTuple_Check(arg0) && PyTuple_Size(arg0) == 3) {
-    PyObject *db_id_obj = PyTuple_GetItem(arg0, 0);
-    PyObject *lib_id_obj = PyTuple_GetItem(arg0, 1);
-    PyObject *design_id_obj = PyTuple_GetItem(arg0, 2);
+    PyObject* db_id_obj = PyTuple_GetItem(arg0, 0);
+    PyObject* lib_id_obj = PyTuple_GetItem(arg0, 1);
+    PyObject* design_id_obj = PyTuple_GetItem(arg0, 2);
 
     if (!PyLong_Check(db_id_obj)
       or not PyLong_Check(lib_id_obj)

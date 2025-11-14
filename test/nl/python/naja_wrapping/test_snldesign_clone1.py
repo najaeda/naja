@@ -22,6 +22,16 @@ class SNLDesignCloneTest1(unittest.TestCase):
     if naja.NLUniverse.get():
       naja.NLUniverse.get().destroy()
 
+  def testGetSNLDesign(self):
+    self.assertIsNotNone(self.design)    
+    design_db_id = self.design.getDB().getID()
+    design_lib_id = self.design.getLibrary().getID()
+    design_id = self.design.getID()
+    test_design = naja.NLUniverse.get().getSNLDesign((design_db_id, design_lib_id, design_id))
+    self.assertIsNotNone(test_design)
+    self.assertEqual(self.design, test_design)
+    self.assertIsNone(naja.NLUniverse.get().getSNLDesign((design_db_id, design_lib_id, 99999)))
+
   def testCloneInterface0(self):
     newDesign = self.design.clone()
     self.assertIsNotNone(newDesign)

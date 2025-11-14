@@ -293,7 +293,7 @@ class NajaNetlistTest0(unittest.TestCase):
         self.assertTrue(path1.getHeadInstance() == ins1)
         self.assertTrue(path2.getHeadInstance() == ins1)
         #print(path2)
-        inst_term = netlist.Term(path2.getIDs(), sub_inst_terms[0].getBitTerm())
+        inst_term = netlist.Term(path2.getInstanceIDs(), sub_inst_terms[0].getBitTerm())
         self.assertEqual(0, sub_inst_terms[0].getBitTerm().getFlatID())
         equi = netlist.Equipotential(inst_term)
         net_component_occurrence2 = naja.SNLOccurrence(path1, sub_inst_terms[0])
@@ -420,8 +420,8 @@ class NajaNetlistTest0(unittest.TestCase):
         self.i0 = naja.SNLScalarTerm.create(self.top, naja.SNLTerm.Direction.Input, "I0")
         self.i1 = naja.SNLScalarTerm.create(self.top, naja.SNLTerm.Direction.Input, "I1")
 
-        top_term = netlist.Term(naja.SNLPath().getIDs(), self.i0)
-        top_term2 = netlist.Term(naja.SNLPath().getIDs(), self.i1)
+        top_term = netlist.Term(naja.SNLPath().getInstanceIDs(), self.i0)
+        top_term2 = netlist.Term(naja.SNLPath().getInstanceIDs(), self.i1)
 
         terms = set()
         terms.add(top_term)

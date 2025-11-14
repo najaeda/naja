@@ -51,8 +51,8 @@ static int PySNLPath_Init(PySNLPath* self, PyObject* args, PyObject* kwargs) {
   return 0;
 }
 
-PyObject* PySNLPath_getIDs(PySNLPath* self, PyObject* args) { 
-  std::vector<naja::NL::NLID::DesignObjectID> vec = self->object_->getIDs();
+PyObject* PySNLPath_getInstanceIDs(PySNLPath* self, PyObject* args) { 
+  std::vector<naja::NL::NLID::DesignObjectID> vec = self->object_->getInstanceIDs();
   PyObject* py_list = PyList_New(vec.size()); 
   for (size_t i = 0; i < vec.size(); ++i) { 
     PyList_SetItem(py_list, i, PyLong_FromLong(vec[i])); 
@@ -98,7 +98,7 @@ PyMethodDef PySNLPath_Methods[] = {
     "Returns the model of the tail instance of this path"},
   { "size", (PyCFunction)PySNLPath_size, METH_NOARGS,
     "Returns the size of this path"},
-  { "getIDs", (PyCFunction)PySNLPath_getIDs, METH_NOARGS,
+  { "getInstanceIDs", (PyCFunction)PySNLPath_getInstanceIDs, METH_NOARGS,
     "Returns the ids of the path"},
   { "getInstances", (PyCFunction)PySNLPath_getInstances, METH_NOARGS,
     "Returns the instances of the path"},
