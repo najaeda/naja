@@ -49,6 +49,13 @@ class SNLInstanceTest(unittest.TestCase):
     self.assertFalse(all(False for _ in ins1.getInstTerms()))
     self.assertIsInstance(ins1, naja.SNLInstance)
     self.assertIsInstance(ins1, naja.SNLDesignObject)
+    self.assertTrue(self.top.hasInstances())
+    self.assertTrue(self.top.hasNonPrimitiveInstances())
+    self.assertFalse(self.top.hasPrimitiveInstances())
+    self.assertFalse(self.model.hasInstances())
+    self.assertFalse(self.model.hasNonPrimitiveInstances())
+    self.assertFalse(self.model.hasPrimitiveInstances())
+    self.assertTrue(self.model.hasTerms())
   
   def testDestroyInstance(self):
     ins1 = naja.SNLInstance.create(self.top, self.model, "ins1")

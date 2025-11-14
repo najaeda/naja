@@ -23,6 +23,10 @@ class SNLDesignTest(unittest.TestCase):
     self.assertEqual(0, sum(1 for d in self.lib.getSNLDesigns()))
     design = naja.SNLDesign.create(self.lib, "DESIGN")
     self.assertIsNotNone(design)
+    self.assertFalse(design.hasTerms())
+    self.assertFalse(design.hasInstances())
+    self.assertFalse(design.hasPrimitiveInstances())
+    self.assertFalse(design.hasNonPrimitiveInstances())
     self.assertEqual("DESIGN", design.getName())
     self.assertEqual(0, design.getID())
     self.assertFalse(design.isPrimitive())
@@ -40,6 +44,9 @@ class SNLDesignTest(unittest.TestCase):
     self.assertEqual(0, sum(1 for d in design.getTerms()))
     design_id_list = (design.getDB().getID(), design.getLibrary().getID(), design.getID())
     self.assertEqual(design, naja.NLUniverse.get().getSNLDesign(design_id_list))
+    self.assertEqual(design, naja.NLUniverse.get().getSNLDesign(design.getName()))
+    self.assertIsNone(naja.NLUniverse.get().getSNLDesign((10, 100, 1000)))
+    self.assertIsNone(naja.NLUniverse.get().getSNLDesign("ERROR"))
 
     i0 = naja.SNLScalarTerm.create(design, naja.SNLTerm.Direction.Input, "I0")
     self.assertEqual(design, i0.getDesign())
@@ -56,6 +63,7 @@ class SNLDesignTest(unittest.TestCase):
     self.assertIsInstance(i0, naja.SNLTerm)
     self.assertIsInstance(i0, naja.SNLNetComponent)
     self.assertIsInstance(i0, naja.SNLDesignObject)
+    self.assertTrue(design.hasTerms())
 
     i1 = naja.SNLScalarTerm.create(design, naja.SNLTerm.Direction.Input, "I1")
     self.assertEqual(i1, design.getTerm("I1"))
