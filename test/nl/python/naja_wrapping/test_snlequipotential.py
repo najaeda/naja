@@ -59,7 +59,12 @@ class SNLEquiTest(unittest.TestCase):
     for t in insttermoccurrences :
       print(t)
     
-    with self.assertRaises(RuntimeError) as context: naja.SNLEquipotential(path1)
+def testErrors(self):
+    ins = naja.SNLInstance.create(self.model, self.submodel, "ins")
+    with self.assertRaises(RuntimeError) as context: naja.SNLEquipotential(ins)
+    with self.assertRaises(RuntimeError) as context: naja.SNLEquipotential(naja.SNLOccurrence(ins))
+    with self.assertRaises(RuntimeError) as context: naja.SNLEquipotential(naja.SNLPath())
+    with self.assertRaises(RuntimeError) as context: naja.SNLEquipotential(naja.SNLOccurrence())
     with self.assertRaises(RuntimeError) as context: naja.SNLEquipotential(-1, -1, -1)
     with self.assertRaises(RuntimeError) as context: naja.SNLEquipotential()
     
