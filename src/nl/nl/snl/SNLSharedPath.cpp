@@ -153,7 +153,7 @@ std::vector<SNLInstance*> SNLSharedPath::getInstances() const {
     result.push_back(tailInstance_);
     return result;
   }
-  return result;
+  return result; //LCOV_EXCL_LINE
 }
 
 }} // namespace NL // namespace naja

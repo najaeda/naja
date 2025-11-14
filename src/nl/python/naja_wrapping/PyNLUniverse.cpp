@@ -150,6 +150,7 @@ static PyObject* pyNLUniverse_getSNLDesign(PyNLUniverse* self, PyObject* arg) {
   METHOD_HEAD("NLUniverse.getSNLDesign()")
 
   if (!PyArg_ParseTuple(arg, "O:NLUniverse.getSNLDesign", &arg0)) {
+    PyErr_SetString(PyExc_TypeError, "malformed NLUniverse getSNLDesign method");
     return nullptr;
   }
 
@@ -165,7 +166,7 @@ static PyObject* pyNLUniverse_getSNLDesign(PyNLUniverse* self, PyObject* arg) {
     PyObject* lib_id_obj = PyTuple_GetItem(arg0, 1);
     PyObject* design_id_obj = PyTuple_GetItem(arg0, 2);
 
-    if (!PyLong_Check(db_id_obj)
+    if (not PyLong_Check(db_id_obj)
       or not PyLong_Check(lib_id_obj)
       or not PyLong_Check(design_id_obj)) {
       PyErr_SetString(PyExc_TypeError, "Tuple must contain three integers");
@@ -175,7 +176,7 @@ static PyObject* pyNLUniverse_getSNLDesign(PyNLUniverse* self, PyObject* arg) {
     NLID::DBID db_id = (NLID::DBID)PyLong_AsLong(db_id_obj);
     NLID::LibraryID lib_id = (NLID::LibraryID)PyLong_AsLong(lib_id_obj);
     NLID::DesignID design_id = (NLID::DesignID)PyLong_AsLong(design_id_obj);
-    PySys_WriteStderr("Looking for design with db_id=%d lib_id=%d design_id=%d\n", db_id, lib_id, design_id);
+    //PySys_WriteStderr("Looking for design with db_id=%d lib_id=%d design_id=%d\n", db_id, lib_id, design_id);
             
     design = selfObject->getSNLDesign(NLID::DesignReference(db_id, lib_id, design_id));
   } else {

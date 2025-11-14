@@ -80,6 +80,8 @@ TEST_F(SNLOccurrenceTest, testEmptyOccurrences0) {
   EXPECT_FALSE(emptyOccurrence.isValid());
   EXPECT_EQ(emptyOccurrence, emptyOccurrence);
   EXPECT_EQ(emptyOccurrence, SNLOccurrence());
+  EXPECT_EQ(SNLOccurrence(), emptyOccurrence.getComponentBitNetOccurrence());
+  EXPECT_EQ(nullptr, emptyOccurrence.getComponentBitNet());
 }
 
 TEST_F(SNLOccurrenceTest, testh0Level) {
@@ -89,6 +91,8 @@ TEST_F(SNLOccurrenceTest, testh0Level) {
   EXPECT_TRUE(topITermOccurrence.getPath().empty());
   EXPECT_EQ(topITermOccurrence.getBitTerm(), topITerm);
   EXPECT_EQ(topITermOccurrence, SNLOccurrence(topITerm));
+  EXPECT_EQ(SNLOccurrence(topITerm->getNet()), topITermOccurrence.getComponentBitNetOccurrence());
+  EXPECT_EQ(topITerm->getNet(), topITermOccurrence.getComponentBitNet());
 
   ASSERT_NE(h0Instance_, nullptr);
   auto h0Path = SNLPath(h0Instance_, SNLPath());

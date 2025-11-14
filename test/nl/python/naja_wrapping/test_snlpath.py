@@ -30,6 +30,8 @@ class SNLPathTest(unittest.TestCase):
     self.assertEqual(naja.SNLPath(), path0.getTailPath())
     self.assertIsNone(path0.getHeadInstance())
     self.assertIsNone(path0.getTailInstance())
+    self.assertListEqual([], path0.getInstances())
+    self.assertListEqual([], path0.getInstanceIDs())
     
     path1 = naja.SNLPath(ins1)
     self.assertIsNotNone(path1)
@@ -39,6 +41,8 @@ class SNLPathTest(unittest.TestCase):
     self.assertEqual(naja.SNLPath(), path1.getTailPath())
     self.assertEqual(ins1, path1.getHeadInstance())
     self.assertEqual(ins1, path1.getTailInstance())
+    self.assertListEqual([ins1], path1.getInstances())
+    self.assertListEqual([ins1.getID()], path1.getInstanceIDs())
 
     path2 = naja.SNLPath(path1, ins2)
     
@@ -51,6 +55,8 @@ class SNLPathTest(unittest.TestCase):
     self.assertEqual(ins2, path2.getTailInstance())
     self.assertEqual(path2.getDesign(), ins1.getDesign())
     self.assertEqual(path2.getModel(), ins2.getModel())
+    self.assertListEqual([ins1, ins2], path2.getInstances())
+    self.assertListEqual([ins1.getID(), ins2.getID()], path2.getInstanceIDs())
     #TODO: fix commented lines
     #uniq = naja.SNLUniquifier(path2)
     #uniqPath = uniq.getPathUniqCollection()

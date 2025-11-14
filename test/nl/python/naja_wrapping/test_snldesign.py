@@ -212,6 +212,9 @@ class SNLDesignTest(unittest.TestCase):
     with self.assertRaises(RuntimeError) as context: naja.SNLScalarNet.create(self.lib, "O")
     with self.assertRaises(RuntimeError) as context: naja.SNLBusNet.create(self.lib)
     with self.assertRaises(RuntimeError) as context: naja.SNLBusNet.create(self.lib, naja.SNLTerm.Direction.Output, 3, 2, "O")
+    with self.assertRaises(TypeError) as context: naja.NLUniverse.get().getSNLDesign()
+    with self.assertRaises(RuntimeError) as context: naja.NLUniverse.get().getSNLDesign(self.lib)
+    with self.assertRaises(TypeError) as context: naja.NLUniverse.get().getSNLDesign((0, 1, "error"))
 
   def testParametersError(self):
     self.assertIsNotNone(self.lib)
