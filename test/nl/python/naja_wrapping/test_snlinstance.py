@@ -44,6 +44,9 @@ class SNLInstanceTest(unittest.TestCase):
     self.assertTrue(any(self.top.getInstances()))
     self.assertEqual(1, sum(1 for d in self.top.getInstances()))
     instances = [i for i in self.top.getInstances()]
+    self.assertListEqual([ins1], [i for i in self.top.getInstances()])
+    self.assertListEqual([ins1], [i for i in self.top.getNonPrimitiveInstances()])
+    self.assertListEqual([], [i for i in self.top.getPrimitiveInstances()])
     self.assertEqual(1, len(instances))
     self.assertEqual(ins1, instances[0])
     self.assertFalse(all(False for _ in ins1.getInstTerms()))
