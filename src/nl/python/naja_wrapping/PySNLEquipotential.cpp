@@ -25,33 +25,23 @@ using namespace naja::NL;
 static int PySNLEquipotential_Init(PySNLEquipotential* self, PyObject* args, PyObject* kwargs) {
   SNLEquipotential* equipotential = nullptr;
   PyObject* arg0 = nullptr;
-  PyObject* arg1 = nullptr;
 
   //SNLEquipotential has three types of constructors:
-  if (not PyArg_ParseTuple(args, "|O:SNLEquipotential", &arg0)) {
+  if (not PyArg_ParseTuple(args, "O:SNLEquipotential", &arg0)) {
     setError("malformed SNLEquipotential create method");
     return -1;
   }
-  if (arg0 != nullptr) {
-    if (IsPySNLOccurrence(arg0)) {
-      const auto occurrence = PYSNLOccurrence_O(arg0);
-      if (not occurrence) {
-        setError("NULL SNLOccurrence passed to SNLEquipotential constructor");
-        return -1;
-      }
-      if (not occurrence->isNetComponentOccurrence()) {
-        setError("SNLOccurrence passed to SNLEquipotential constructor is not a SNLNetComponentOccurrence");
-        return -1;
-      }
-      equipotential = new SNLEquipotential(*occurrence);
-    } else if (IsPySNLNetComponent(arg0)) {
-      equipotential = new SNLEquipotential(PYSNLNetComponent_O(arg0));
-    } else {
-      setError("SNLEquipotential create accepts SNLNetComponent or SNLNetComponentOccurrence as only argument");
+  if (IsPySNLOccurrence(arg0)) {
+    const auto occurrence = PYSNLOccurrence_O(arg0);
+    if (not occurrence->isNetComponentOccurrence()) {
+      setError("SNLOccurrence passed to SNLEquipotential constructor is not a SNLNetComponentOccurrence");
       return -1;
     }
-  }  else {
-    setError("invalid number of parameters for Occurrence constructor.");
+    equipotential = new SNLEquipotential(*occurrence);
+  } else if (IsPySNLNetComponent(arg0)) {
+    equipotential = new SNLEquipotential(PYSNLNetComponent_O(arg0));
+  } else {
+    setError("SNLEquipotential create accepts SNLNetComponent or SNLNetComponentOccurrence as only argument");
     return -1;
   }
   self->object_ = equipotential;
