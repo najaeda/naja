@@ -3,6 +3,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "gtest/gtest.h"
+#include "gmock/gmock.h"
+using ::testing::ElementsAre;
 
 #include "NLUniverse.h"
 #include "NLException.h"
@@ -58,6 +60,8 @@ TEST_F(SNLPathTest0, testEmptyPath) {
   EXPECT_EQ(nullptr, emptyPath.getDesign());
   EXPECT_EQ(nullptr, emptyPath.getModel());
   EXPECT_FALSE(emptyPath < emptyPath);
+  EXPECT_TRUE(emptyPath.getInstanceIDs().empty());
+  EXPECT_TRUE(emptyPath.getInstances().empty());
 }
 
 TEST_F(SNLPathTest0, testTopDown0) {
@@ -75,6 +79,9 @@ TEST_F(SNLPathTest0, testTopDown0) {
 
   EXPECT_EQ(SNLPath(h0Instance_), h0Path);
   EXPECT_EQ(SNLPath(SNLPath(), h0Instance_), h0Path);
+
+  EXPECT_THAT(h0Path.getInstanceIDs(), ElementsAre(h0Instance_->getID()));
+  EXPECT_THAT(h0Path.getInstances(), ElementsAre(h0Instance_));
 }
 
 TEST_F(SNLPathTest0, testTopDown1) {
@@ -149,6 +156,9 @@ TEST_F(SNLPathTest0, testBottomUp0) {
 
   EXPECT_EQ(SNLPath(prim0Instance_), prim0Path);
   EXPECT_EQ(SNLPath(prim0Instance_, SNLPath()), prim0Path);
+
+  EXPECT_THAT(prim0Path.getInstanceIDs(), ElementsAre(prim0Instance_->getID()));
+  EXPECT_THAT(prim0Path.getInstances(), ElementsAre(prim0Instance_));
 }
 
 TEST_F(SNLPathTest0, testBottomUp1) {
@@ -176,6 +186,8 @@ TEST_F(SNLPathTest0, testBottomUp1) {
   EXPECT_EQ(h2Instance_->getDesign(), h2Path.getDesign());
   EXPECT_EQ(SNLPath(h2Instance_), h2Path.getHeadPath());
   EXPECT_EQ(prim0Path, h2Path.getTailPath());
+  EXPECT_THAT(h2Path.getInstanceIDs(), ElementsAre(h2Instance_->getID(), prim0Instance_->getID()));
+  EXPECT_THAT(h2Path.getInstances(), ElementsAre(h2Instance_, prim0Instance_));
 
   ASSERT_NE(h1Instance_, nullptr);
   auto h1Path = SNLPath(h1Instance_, h2Path);
@@ -190,6 +202,8 @@ TEST_F(SNLPathTest0, testBottomUp1) {
   EXPECT_EQ(h1Instance_->getDesign(), h1Path.getDesign());
   EXPECT_EQ(SNLPath(h1Instance_, SNLPath(h2Instance_)), h1Path.getHeadPath());
   EXPECT_EQ(h2Path, h1Path.getTailPath());
+  EXPECT_THAT(h1Path.getInstanceIDs(), ElementsAre(h1Instance_->getID(), h2Instance_->getID(), prim0Instance_->getID()));
+  EXPECT_THAT(h1Path.getInstances(), ElementsAre(h1Instance_, h2Instance_, prim0Instance_));
 
   ASSERT_NE(h0Instance_, nullptr);
   auto h0Path = SNLPath(h0Instance_, h1Path);

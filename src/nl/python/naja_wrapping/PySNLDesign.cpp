@@ -417,12 +417,12 @@ static PyObject* PySNLDesign_dumpContextDotFile(PySNLDesign* self, PyObject* arg
 
 static PyObject* PySNLDesign_getInstanceByIDList(PySNLDesign* self, PyObject* args) {
   PyObject* arg0 = nullptr;
-  if (not PyArg_ParseTuple(args, "O:SNLDesign.getInsatnceByIDList", &arg0)) {
-    setError("malformed SNLDesign.getInsatnceByIDList method");
+  if (not PyArg_ParseTuple(args, "O:SNLDesign.getInstanceByIDList", &arg0)) {
+    setError("malformed SNLDesign.getInstanceByIDList method");
     return nullptr;
   }
   if (not PyList_Check(arg0)) {
-    setError("malformed SNLDesign.getInsatnceByIDList method");
+    setError("malformed SNLDesign.getInstanceByIDList method");
     return nullptr;
   }
   naja::NL::SNLDesign* design = self->object_;
@@ -506,6 +506,7 @@ GetBoolAttributeWithFunction(SNLDesign, isConst, SNLDesignModeling::isConst)
 GetBoolAttributeWithFunction(SNLDesign, isBuf, SNLDesignModeling::isBuf)
 GetBoolAttributeWithFunction(SNLDesign, isInv, SNLDesignModeling::isInv)
 GetBoolAttributeWithFunction(SNLDesign, isSequential, SNLDesignModeling::isSequential)
+HasElementsMethod(SNLDesign, hasTerms, getTerms)
 GetContainerMethod(SNLDesign, SNLTerm*, SNLTerms, Terms)
 GetContainerMethod(SNLDesign, SNLBitTerm*, SNLBitTerms, BitTerms)
 GetContainerMethod(SNLDesign, SNLScalarTerm*, SNLScalarTerms, ScalarTerms)
@@ -514,7 +515,12 @@ GetContainerMethod(SNLDesign, SNLNet*, SNLNets, Nets)
 GetContainerMethod(SNLDesign, SNLScalarNet*, SNLScalarNets, ScalarNets)
 GetContainerMethod(SNLDesign, SNLBusNet*, SNLBusNets, BusNets)
 GetContainerMethod(SNLDesign, SNLBitNet*, SNLBitNets, BitNets)
+HasElementsMethod(SNLDesign, hasInstances, getInstances)
 GetContainerMethod(SNLDesign, SNLInstance*, SNLInstances, Instances)
+HasElementsMethod(SNLDesign, hasPrimitiveInstances, getPrimitiveInstances)
+GetContainerMethod(SNLDesign, SNLInstance*, SNLInstances, PrimitiveInstances)
+HasElementsMethod(SNLDesign, hasNonPrimitiveInstances, getNonPrimitiveInstances)
+GetContainerMethod(SNLDesign, SNLInstance*, SNLInstances, NonPrimitiveInstances)
 GetContainerMethod(SNLDesign, SNLParameter*, SNLParameters, Parameters)
 GetContainerMethod(SNLDesign, SNLAttribute, SNLAttributes, Attributes)
 
@@ -601,6 +607,8 @@ PyMethodDef PySNLDesign_Methods[] = {
     "retrieve a SNLInstance."},
   { "getParameter", (PyCFunction)PySNLDesign_getParameter, METH_VARARGS,
     "retrieve a SNLParameter."},
+  { "hasTerms", (PyCFunction)PySNLDesign_hasTerms, METH_NOARGS,
+    "Returns True if the SNLDesign has terms."},
   { "getTerms", (PyCFunction)PySNLDesign_getTerms, METH_NOARGS,
     "get a container of SNLTerms."},
   { "getBitTerms", (PyCFunction)PySNLDesign_getBitTerms, METH_NOARGS,
@@ -617,8 +625,18 @@ PyMethodDef PySNLDesign_Methods[] = {
     "get a container of SNLBusNets."},
   { "getBitNets", (PyCFunction)PySNLDesign_getBitNets, METH_NOARGS,
     "get a container of SNLBitNets."},
+  { "hasInstances", (PyCFunction)PySNLDesign_hasInstances, METH_NOARGS,
+    "Returns True if the SNLDesign has instances."},
   { "getInstances", (PyCFunction)PySNLDesign_getInstances, METH_NOARGS,
     "get a container of SNLInstances."},
+  { "hasPrimitiveInstances", (PyCFunction)PySNLDesign_hasPrimitiveInstances, METH_NOARGS,
+    "Returns True if the SNLDesign has primitive instances."},
+  { "getPrimitiveInstances", (PyCFunction)PySNLDesign_getPrimitiveInstances, METH_NOARGS,
+    "get a container of Primitive SNLInstances."},
+  { "hasNonPrimitiveInstances", (PyCFunction)PySNLDesign_hasNonPrimitiveInstances, METH_NOARGS,
+    "Returns True if the SNLDesign has non-primitive instances."},
+  { "getNonPrimitiveInstances", (PyCFunction)PySNLDesign_getNonPrimitiveInstances, METH_NOARGS,
+    "get a container of NonPrimitive SNLInstances."},
   { "getParameters", (PyCFunction)PySNLDesign_getParameters, METH_NOARGS,
     "get a container of SNLParameters."},
   { "destroy", (PyCFunction)PySNLDesign_destroy, METH_NOARGS,

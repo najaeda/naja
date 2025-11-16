@@ -9,6 +9,7 @@ using ::testing::ElementsAre;
 #include "NLUniverse.h"
 #include "SNLScalarTerm.h"
 #include "SNLScalarNet.h"
+#include "SNLInstTerm.h"
 #include "SNLPath.h"
 #include "SNLEquipotential.h"
 #include "SNLPyLoader.h"
@@ -60,17 +61,17 @@ TEST_F(SNLEquipotentialTest, test) {
   auto aap = aaPath.getModel()->getInstance(NLName("p"));
   ASSERT_NE(aap, nullptr);
   auto aapi = aap->getInstTerm(aap->getModel()->getScalarTerm(NLName("i")));
-  auto aapio = SNLInstTermOccurrence(aaPath, aapi);
+  auto aapio = SNLOccurrence(aaPath, aapi);
 
   auto bbp = bbPath.getModel()->getInstance(NLName("p"));
   ASSERT_NE(bbp, nullptr);
   auto bbpi = bbp->getInstTerm(bbp->getModel()->getScalarTerm(NLName("i")));
-  auto bbpio = SNLInstTermOccurrence(bbPath, bbpi);
+  auto bbpio = SNLOccurrence(bbPath, bbpi);
 
   auto cp = cPath.getModel()->getInstance(NLName("p"));
   ASSERT_NE(cp, nullptr);
   auto cpi = cp->getInstTerm(cp->getModel()->getScalarTerm(NLName("i")));
-  auto cpio = SNLInstTermOccurrence(cPath, cpi);
+  auto cpio = SNLOccurrence(cPath, cpi);
   
   SNLEquipotential equipotentialTopI0(topi0);
   using Terms = std::set<SNLBitTerm*, SNLDesignObject::PointerLess>;
@@ -78,7 +79,7 @@ TEST_F(SNLEquipotentialTest, test) {
   terms.insert(topi0);
   terms.insert(topi1);
   terms.insert(topout);
-  std::set<SNLInstTermOccurrence> instTermOccurrences;
+  std::set<SNLOccurrence> instTermOccurrences;
   instTermOccurrences.insert(aapio);
   instTermOccurrences.insert(bbpio);
   instTermOccurrences.insert(cpio);
@@ -93,11 +94,11 @@ TEST_F(SNLEquipotentialTest, test) {
   EXPECT_EQ(equipotentialTopOut.getTerms(), naja::NajaCollection(new naja::NajaSTLCollection(&terms)));
   EXPECT_EQ(equipotentialTopOut.getInstTermOccurrences(), naja::NajaCollection(new naja::NajaSTLCollection(&instTermOccurrences)));
 
-  std::set<SNLInstTermOccurrence> instTermOccurrences1;
+  std::set<SNLOccurrence> instTermOccurrences1;
   instTermOccurrences.insert(aapio);
   instTermOccurrences.insert(bbpio);
   instTermOccurrences.insert(cpio);
-  std::set<SNLInstTermOccurrence> instTermOccurrences2;
+  std::set<SNLOccurrence> instTermOccurrences2;
   instTermOccurrences.insert(aapio);
   instTermOccurrences.insert(bbpio);
   instTermOccurrences.insert(bbpio);

@@ -8,27 +8,26 @@
 
 #include <set>
 #include "SNLBitTerm.h"
-#include "SNLInstTermOccurrence.h"
+#include "SNLOccurrence.h"
 
 namespace naja { namespace NL {
 
 class SNLNetComponent;
-class SNLNetComponentOccurrence;
 
 class SNLEquipotential {
   public:
     //SNLEquipotential()=delete;
     //SNLEquipotential(const SNLEquipotential&)=delete;
-    using InstTermOccurrences = std::set<SNLInstTermOccurrence>;
+    using InstTermOccurrences = std::set<SNLOccurrence>;
     using Terms = std::set<SNLBitTerm*, SNLDesignObject::PointerLess>;
 
     SNLEquipotential(SNLNetComponent* netComponent);
-    SNLEquipotential(const SNLNetComponentOccurrence& netComponentOccurrence);
+    SNLEquipotential(const SNLOccurrence& netComponentOccurrence);
 
     const Terms& getTermsSet() const { return terms_; }
     const InstTermOccurrences& getInstTermOccurrencesSet() const { return instTermOccurrences_; }
     NajaCollection<SNLBitTerm*> getTerms() const;
-    NajaCollection<SNLInstTermOccurrence> getInstTermOccurrences() const;
+    NajaCollection<SNLOccurrence> getInstTermOccurrences() const;
     std::string getString() const;
     //Comparators
     bool operator==(const SNLEquipotential& other) const {

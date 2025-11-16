@@ -4,13 +4,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "PySNLEquipotential.h"
+
 #include "PyInterface.h"
-#include "SNLNetComponentOccurrence.h"
-#include "PySNLNetComponentOccurrence.h"
+#include "PySNLNetComponent.h"
 #include "PySNLPath.h"
-#include "PySNLInstTermOccurrences.h"
+#include "PySNLOccurrence.h"
+#include "PySNLOccurrences.h"
 #include "PySNLBitTerms.h"
-#include "SNLNetComponentOccurrence.h"
+
 #include "SNLPath.h"
 #include "SNLEquipotential.h"
 #include "NetlistGraph.h"
@@ -24,22 +25,23 @@ using namespace naja::NL;
 static int PySNLEquipotential_Init(PySNLEquipotential* self, PyObject* args, PyObject* kwargs) {
   SNLEquipotential* equipotential = nullptr;
   PyObject* arg0 = nullptr;
-  PyObject* arg1 = nullptr;
 
   //SNLEquipotential has three types of constructors:
-  if (not PyArg_ParseTuple(args, "|O:SNLEquipotential", &arg0)) {
+  if (not PyArg_ParseTuple(args, "O:SNLEquipotential", &arg0)) {
     setError("malformed SNLEquipotential create method");
     return -1;
   }
-  if (arg0 != nullptr) {
-    if (IsPySNLNetComponentOccurrence(arg0)) {
-      equipotential = new SNLEquipotential(*PYSNLNetComponentOccurrence_O(arg0));
-    } else {
-      setError("SNLEquipotential create accepts SNLNetComponentOccurrence as only argument");
+  if (IsPySNLOccurrence(arg0)) {
+    const auto occurrence = PYSNLOccurrence_O(arg0);
+    if (not occurrence->isNetComponentOccurrence()) {
+      setError("SNLOccurrence passed to SNLEquipotential constructor is not a SNLNetComponentOccurrence");
       return -1;
     }
-  }  else {
-    setError("invalid number of parameters for Occurrence constructor.");
+    equipotential = new SNLEquipotential(*occurrence);
+  } else if (IsPySNLNetComponent(arg0)) {
+    equipotential = new SNLEquipotential(PYSNLNetComponent_O(arg0));
+  } else {
+    setError("SNLEquipotential create accepts SNLNetComponent or SNLNetComponentOccurrence as only argument");
     return -1;
   }
   self->object_ = equipotential;
@@ -65,7 +67,7 @@ static PyObject* PySNLEquipotential_dumpDotFile(PySNLEquipotential* self, PyObje
 }
 
 GetContainerMethod(SNLEquipotential, SNLBitTerm*, SNLBitTerms, Terms)
-GetContainerMethod(SNLEquipotential, SNLInstTermOccurrence, SNLInstTermOccurrences, InstTermOccurrences)
+GetContainerMethod(SNLEquipotential, SNLOccurrence, SNLOccurrences, InstTermOccurrences)
 
 //LCOV_EXCL_START
 ManagedTypeLinkCreateMethod(SNLEquipotential) 

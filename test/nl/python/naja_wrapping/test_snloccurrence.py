@@ -50,16 +50,17 @@ class SNLOccurrenceTest(unittest.TestCase):
     occurrence = naja.SNLOccurrence(path1, ins2)
     occurrence2 = naja.SNLOccurrence(ins1)
     occurrence3 = naja.SNLOccurrence()
+    self.assertIsInstance(occurrence, naja.SNLOccurrence)
 
     instTerms = tuple(ins1.getInstTerms())
 
-    netcomponentoccurrence = naja.SNLNetComponentOccurrence()
-    netcomponentoccurrence1 = naja.SNLNetComponentOccurrence(path0, instTerms[0])
-    netcomponentoccurrence1 = naja.SNLNetComponentOccurrence(instTerms[0])
+    netcomponentoccurrence1 = naja.SNLOccurrence(path0, instTerms[0])
+    netcomponentoccurrence2 = naja.SNLOccurrence(instTerms[0])
+    self.assertIsInstance(netcomponentoccurrence1, naja.SNLOccurrence)
+    self.assertIsInstance(netcomponentoccurrence2, naja.SNLOccurrence)
 
-    insttermoccurrence = naja.SNLInstTermOccurrence()
-    insttermoccurrence1 = naja.SNLInstTermOccurrence(path0, instTerms[0])
-    insttermoccurrence2 = naja.SNLInstTermOccurrence(instTerms[0])
+    insttermoccurrence1 = naja.SNLOccurrence(path0, instTerms[0])
+    insttermoccurrence2 = naja.SNLOccurrence(instTerms[0])
 
     instTerm = insttermoccurrence1.getInstTerm()
     
@@ -69,13 +70,12 @@ class SNLOccurrenceTest(unittest.TestCase):
     with self.assertRaises(RuntimeError) as context: naja.SNLOccurrence(path1)
     with self.assertRaises(RuntimeError) as context: naja.SNLOccurrence(-1, -1, -1)
     with self.assertRaises(RuntimeError) as context: naja.SNLOccurrence(path1, path1)
-    with self.assertRaises(RuntimeError) as context: naja.SNLNetComponentOccurrence(path1)
-    with self.assertRaises(RuntimeError) as context: naja.SNLNetComponentOccurrence(-1, -1, -1)
-    with self.assertRaises(RuntimeError) as context: naja.SNLNetComponentOccurrence(path1, path1)
-    with self.assertRaises(RuntimeError) as context: naja.SNLInstTermOccurrence(path1)
-    with self.assertRaises(RuntimeError) as context: naja.SNLInstTermOccurrence(-1, -1, -1)
-    with self.assertRaises(RuntimeError) as context: naja.SNLInstTermOccurrence(path1, path1)
-
+    with self.assertRaises(RuntimeError) as context: naja.SNLOccurrence(path1)
+    with self.assertRaises(RuntimeError) as context: naja.SNLOccurrence(-1, -1, -1)
+    with self.assertRaises(RuntimeError) as context: naja.SNLOccurrence(path1, path1)
+    with self.assertRaises(RuntimeError) as context: naja.SNLOccurrence(path1)
+    with self.assertRaises(RuntimeError) as context: naja.SNLOccurrence(-1, -1, -1)
+    with self.assertRaises(RuntimeError) as context: naja.SNLOccurrence(path1, path1)
     with self.assertRaises(RuntimeError) as context: naja.SNLUniquifier("ERROR")
     with self.assertRaises(RuntimeError) as context: naja.SNLUniquifier()
     with self.assertRaises(RuntimeError) as context: naja.SNLUniquifier("ERROR", "ERROR")
