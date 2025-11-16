@@ -40,10 +40,10 @@ static PyObject* PyNLUniverse_get() {
 }
 
 static PyObject* PyNLUniverse_applyDLE() {
- LoadlessLogicRemover remover;
- remover.setNormalizedUniquification(true);
- remover.process();
- Py_RETURN_NONE;
+  LoadlessLogicRemover remover;
+  remover.setNormalizedUniquification(true);
+  remover.process();
+  Py_RETURN_NONE;
 }
 
 // fanout calculation
@@ -156,9 +156,6 @@ static PyObject* pyNLUniverse_getSNLDesign(PyNLUniverse* self, PyObject* arg) {
 
   if (PyUnicode_Check(arg0)) {
     const char* name = PyUnicode_AsUTF8(arg0);
-    if (!name) {
-      return nullptr; // Unicode conversion failed
-    }
     design = selfObject->getSNLDesign(NLName(name));
     return PySNLDesign_Link(design);
   } else if (PyTuple_Check(arg0) && PyTuple_Size(arg0) == 3) {
