@@ -66,8 +66,9 @@ class SNLEquiTest(unittest.TestCase):
     self.assertEqual(1, len(insttermoccurrences))
     self.assertListEqual([netcomponentoccurrence1], insttermoccurrences)
     
-def testErrors(self):
+  def testErrors(self):
     ins = naja.SNLInstance.create(self.model, self.submodel, "ins")
+    with self.assertRaises(RuntimeError) as context: naja.SNLEquipotential(0)
     with self.assertRaises(RuntimeError) as context: naja.SNLEquipotential(ins)
     with self.assertRaises(RuntimeError) as context: naja.SNLEquipotential(naja.SNLOccurrence(ins))
     with self.assertRaises(RuntimeError) as context: naja.SNLEquipotential(naja.SNLPath())
