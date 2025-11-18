@@ -12,6 +12,8 @@ set(snl_vrl_constructor_tests
     SNLVRLConstructorTestGate2.cpp
     SNLVRLConstructorTestAutoBlackBox0.cpp
     SNLVRLConstructorTestAutoBlackBox1.cpp
+    SNLVRLConstructorTestAutoBlackBox2.cpp
+    SNLVRLConstructorTestEmptyInstanceConnection.cpp
 )
 add_executable(snlVRLConstructorTests ${snl_vrl_constructor_tests})
 target_compile_definitions(snlVRLConstructorTests PRIVATE

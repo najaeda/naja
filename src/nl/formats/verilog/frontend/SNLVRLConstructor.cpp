@@ -332,6 +332,9 @@ void SNLVRLConstructor::startModule(const naja::verilog::Identifier& module) {
       reason << module.getString() << " module should no contain any net";
       throw SNLVRLConstructorException(reason.str());
     }
+    if (config_.verbose_) {
+      std::cerr << "Second pass Construct Module: " << currentModule_->getDescription() << std::endl; //LCOV_EXCL_LINE
+    }
     createCurrentModuleAssignNets();
   } 
   nextObjectAttributes_.clear();
@@ -557,6 +560,11 @@ void SNLVRLConstructor::addInstance(const naja::verilog::Identifier& instance) {
     //might be a good idea to create a cache <Name, SNLDesign*> here
     //in particular for primitives
     currentInstance_ = SNLInstance::create(currentModule_, model, NLName(instance.name_));
+    if (config_.verbose_) {
+      //LCOV_EXCL_START
+      std::cerr << "Current Instance: " << currentInstance_->getDescription() << std::endl;
+      //LCOV_EXCL_STOP
+    }
     collectAttributes(currentInstance_, nextObjectAttributes_);
   }
   nextObjectAttributes_.clear();
@@ -692,23 +700,31 @@ void SNLVRLConstructor::addInstanceConnection(
   const naja::verilog::Identifier& port,
   const naja::verilog::Expression& expression) {
   if (not inFirstPass()) {
+    if (config_.verbose_) {
+      //LCOV_EXCL_START
+      std::cerr << "addInstanceConnection port:"
+        << port.getDescription() 
+        << " expression: "
+        << expression.getDescription() << std::endl;
+      //LCOV_EXCL_STOP
+    }
     assert(currentInstance_);
     SNLDesign* model = currentInstance_->getModel();
     SNLTerm* term = model->getTerm(NLName(port.name_));
     if (not term) {
       if (model->isAutoBlackBox()) {
-        if (expression.getSize() > 1) {
+        if (not expression.valid_ or expression.getSize() <= 1) {
+          term = SNLScalarTerm::create(
+            model,
+            SNLTerm::Direction::Undefined,
+            NLName(port.name_));
+        } else {
           term = SNLBusTerm::create(
             model,
             SNLTerm::Direction::Undefined,
             expression.getSize()-1,
             0,
             NLName(port.name_));
-        } else {
-        term = SNLScalarTerm::create(
-          model,
-          SNLTerm::Direction::Undefined,
-          NLName(port.name_));
         }
       } else {
         std::ostringstream reason;
@@ -904,7 +920,7 @@ void SNLVRLConstructor::endModule() {
                 auto instanceTerm = instance->getInstTerm(scalarTerm);
                 if (instanceTerm) {
                   auto net = instanceTerm->getNet();
-                  if (net->isConstant()) {
+                  if (net and net->isConstant()) {
                     scalarTerm->setDirection(SNLTerm::Direction::Input);
                   }
                 }

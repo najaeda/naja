@@ -4,7 +4,7 @@
 * of the blackbox generation process.
 */
 
-module test0();
+module test1();
   wire[3:0] net0, net1;
   
   auto_blackbox0 ins0(
