@@ -83,6 +83,12 @@ jobs:
             python: 313t
             platform_id: macosx_arm64
             free_threaded_support: True
+
+          # Windows x86_64 wheels
+          - os: windows-latest
+            python: 313
+            platform_id: win_amd64
+
     steps:
       # build steps
       - uses: actions/checkout@v4
