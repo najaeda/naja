@@ -187,7 +187,18 @@ PyObject* PyNLDB_loadVerilog(PyNLDB* self, PyObject* args, PyObject* kwargs) {
     const std::filesystem::path path(pathStr);
     inputPaths.push_back(path);
   }
-  constructor.construct(inputPaths);
+  try {
+    constructor.construct(inputPaths);
+  } catch (const std::exception& e) {
+    const auto location = constructor.getCurrentLocation();
+    std::ostringstream error;
+    error << "Error while parsing Verilog: "
+      << location.currentPath_.string() << ":"
+      << location.line_ << ":"
+      << location.column_ << ": ";
+    setError(error.str() + e.what());
+    return nullptr;
+  }
   if (not keep_assigns) {
     db->mergeAssigns();
   }
