@@ -111,19 +111,20 @@ before-all = '''
 
 [tool.cibuildwheel.windows]
 build-frontend = "build"
-before-build = "rmdir /S /Q build dist 2>nul || true"
+before-build = "Remove-Item -Recurse -Force build, dist -ErrorAction SilentlyContinue"
 before-all = '''
-  echo "Installing vcpkg (latest)"
-  git clone https://github.com/microsoft/vcpkg.git %USERPROFILE%/vcpkg
-  call %USERPROFILE%/vcpkg/bootstrap-vcpkg.bat
+  Write-Host "Installing vcpkg (latest)"
 
-  rem Install dependencies (latest)
-  %USERPROFILE%/vcpkg/vcpkg install capnproto:x64-windows
-  %USERPROFILE%/vcpkg/vcpkg install tbb:x64-windows
-  %USERPROFILE%/vcpkg/vcpkg install flex:x64-windows
-  %USERPROFILE%/vcpkg/vcpkg install bison:x64-windows
+  git clone https://github.com/microsoft/vcpkg.git $env:USERPROFILE/vcpkg
+  & "$env:USERPROFILE/vcpkg/bootstrap-vcpkg.bat"
 
-  rem Export vcpkg toolchain to environment
-  echo CMAKE_TOOLCHAIN_FILE=%USERPROFILE%/vcpkg/scripts/buildsystems/vcpkg.cmake>> %GITHUB_ENV%
-  echo VCPKG_ROOT=%USERPROFILE%/vcpkg>> %GITHUB_ENV%
+  # Install dependencies
+  & "$env:USERPROFILE/vcpkg/vcpkg.exe" install capnproto:x64-windows
+  & "$env:USERPROFILE/vcpkg/vcpkg.exe" install tbb:x64-windows
+  & "$env:USERPROFILE/vcpkg/vcpkg.exe" install flex:x64-windows
+  & "$env:USERPROFILE/vcpkg/vcpkg.exe" install bison:x64-windows
+
+  # Export for CMake
+  Add-Content $env:GITHUB_ENV "CMAKE_TOOLCHAIN_FILE=$env:USERPROFILE/vcpkg/scripts/buildsystems/vcpkg.cmake"
+  Add-Content $env:GITHUB_ENV "VCPKG_ROOT=$env:USERPROFILE/vcpkg"
 '''
