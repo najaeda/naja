@@ -7,16 +7,8 @@ import unittest
 import faulthandler
 from najaeda import netlist
 
-# Get the PYTHONPATH environment variable
 pythonpath = os.environ.get('PYTHONPATH')
-
-if pythonpath:
-    # os.pathsep is the separator used in PYTHONPATH (':' on Unix, ';' on Windows)
-    paths = pythonpath.split(os.pathsep)
-    print("PYTHONPATH contains the following directories:")
-    for path in paths:
-        print(path)
-else:
+if not pythonpath:
     print("PYTHONPATH is not set.")
 
 liberty_benchmarks = os.environ.get('LIBERTY_BENCHMARKS_PATH')
@@ -48,8 +40,8 @@ class NajaNetlistTestGates0(unittest.TestCase):
         design_files = [os.path.join(verilog_benchmarks, "test_gates0.v")]
         netlist.load_primitives('xilinx')
         netlist.load_verilog(design_files)
-        print("Max logic level:", netlist.get_max_logic_level()[0])
-        print("Max fanout:", netlist.get_max_fanout()[0])
+        #print("Max logic level:", netlist.get_max_logic_level()[0])
+        #print("Max fanout:", netlist.get_max_fanout()[0])
        
         
 if __name__ == '__main__':
