@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2024 The Naja authors
+# SPDX-FileCopyrightText: 2025 The Naja authors
 # SPDX-License-Identifier: Apache-2.0
 
 """
@@ -6,10 +6,7 @@ Serialization helpers for exposing NajaEDA objects over the WebSocket API.
 These functions convert internal objects into JSON-serializable dicts.
 """
 
-#from __future__ import annotations
-
-#from typing import Optional, Dict, Any
-
+from typing import TypedDict
 from najaeda import naja
 
 
@@ -27,8 +24,12 @@ def direction_to_int(direction: naja.SNLTerm.Direction) -> int:
     else:
         return 2
 
+class SerializedDesignRef(TypedDict):
+    db_id: int
+    library_id: int
+    design_id: int
 
-def serialize_design_ref(model: naja.SNLDesign):
+def serialize_design_ref(model: naja.SNLDesign) -> SerializedDesignRef:
     """
     Serialize a design reference into db / library / design IDs.
     """
@@ -39,7 +40,17 @@ def serialize_design_ref(model: naja.SNLDesign):
     }
 
 
-def serialize_model(model: naja.SNLDesign, child_id: int, name: str):
+class SerializedModel(TypedDict):
+    name: str
+    child_id: int
+    model_name: str
+    design_ref: SerializedDesignRef
+    has_terms: bool
+    has_primitives: bool
+    has_instances: bool
+
+
+def serialize_model(model: naja.SNLDesign, child_id: int, name: str)-> SerializedModel:
     """
     Serialize a model (SNLDesign) plus its position as a child instance (child_id, name).
     """
@@ -53,8 +64,16 @@ def serialize_model(model: naja.SNLDesign, child_id: int, name: str):
         "has_instances": model.hasNonPrimitiveInstances(),
     }
 
+class SerializedTerm(TypedDict):
+    name: str
+    child_id: int
+    direction: int
+    msb: int | None
+    lsb: int | None
+    bit: int | None
 
-def serialize_term(term: naja.SNLTerm):
+
+def serialize_term(term: naja.SNLTerm) -> SerializedTerm:
     """
     Serialize a top-level term (design term).
     """
@@ -79,7 +98,15 @@ def serialize_term(term: naja.SNLTerm):
     }
 
 
-def serialize_equipotential_occurrence(occ: naja.SNLOccurrence):
+class SerializedOccurrence(TypedDict):
+    path: list[list[str | int]]
+    term_id: int
+    name: str
+    direction: int
+    bit: int | None
+
+
+def serialize_equipotential_occurrence(occ: naja.SNLOccurrence) -> SerializedOccurrence:
     """
     Serialize a SNLOccurrence for an inst-term that belongs to an equipotential.
     """
