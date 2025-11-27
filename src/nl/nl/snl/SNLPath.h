@@ -10,6 +10,7 @@
 #include "NajaCollection.h"
 
 #include "NLID.h"
+#include "NLName.h"
 
 
 namespace naja { namespace NL {
@@ -132,6 +133,10 @@ class SNLPath {
     std::string getDescription(const char separator='/') const;
 
     std::vector<NLID::DesignObjectID> getPathIDs() const;
+
+    PathStringDescriptor getPathDescriptor() const;
+
+    std::vector<NLName> getPathNames() const;
 
   private:
     static SNLSharedPath* createInstanceSharedPath(SNLInstance* instance);

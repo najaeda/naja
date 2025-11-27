@@ -254,4 +254,29 @@ std::vector<NLID::DesignObjectID> SNLPath::getPathIDs() const {
   return sharedPath_->getPathIDs();
 }
 
+SNLPath::PathStringDescriptor SNLPath::getPathDescriptor() const {
+  PathStringDescriptor descriptor;
+  if (sharedPath_) {
+    auto sharedPath = sharedPath_;
+    while (sharedPath) {
+      descriptor.push_back(
+          sharedPath->getHeadInstance()->getName().getString());
+      sharedPath = sharedPath->getTailSharedPath();
+    }
+  }
+  return descriptor;
+}
+
+std::vector<NLName> SNLPath::getPathNames() const {
+  std::vector<NLName> names;
+  if (sharedPath_) {
+    auto sharedPath = sharedPath_;
+    while (sharedPath) {
+      names.push_back(sharedPath->getHeadInstance()->getName());
+      sharedPath = sharedPath->getTailSharedPath();
+    }
+  }
+  return names; 
+}
+
 }}  // namespace NL // namespace naja
