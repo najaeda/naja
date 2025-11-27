@@ -853,14 +853,16 @@ TEST_F(DNLTests,
                              .getIsoID();
   {
     auto pathDescriptor = dnl->getTop()
-                    .getChildInstance(subinst)
-                    .getTerminalFromBitTerm(subsuboutTerm).getFullPathIDs();
+                             .getChildInstance(subinst)
+                             .getChildInstance(subsubinst)
+                             .getTerminalFromBitTerm(subsuboutTerm).getFullPathIDs();
     pathDescriptor.pop_back();
     pathDescriptor.pop_back();
     SNLPath path(mod, pathDescriptor);
 
     EXPECT_TRUE(path == dnl->getTop()
-                    .getChildInstance(subinst).getPath());
+                             .getChildInstance(subinst)
+                             .getChildInstance(subsubinst).getPath());
   }
   EXPECT_EQ(inIsoID, subinIsoID);
   EXPECT_EQ(subinIsoID, subsubInIsoID);

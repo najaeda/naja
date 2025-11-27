@@ -4,8 +4,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "DNL.h"
-#include "RemoveLoadlessLogic.h"
 #include "NLException.h"
+#include "NLUniverse.h"
+#include "NetlistGraph.h"
+#include "RemoveLoadlessLogic.h"
 #include "SNLBitNetOccurrence.h"
 #include "SNLBitTermOccurrence.h"
 #include "SNLEquipotential.h"
@@ -13,10 +15,8 @@
 #include "SNLPath.h"
 #include "SNLScalarNet.h"
 #include "SNLScalarTerm.h"
-#include "NLUniverse.h"
 #include "gtest/gtest.h"
 #include "tbb/scalable_allocator.h"
-#include "NetlistGraph.h"
 
 using namespace naja;
 using namespace naja::DNL;
@@ -332,14 +332,12 @@ TEST_F(LoadlessRemoveLogicTests, simple_2_loadless_2_levels) {
       SNLInstance::create(mod, bbNoOutputNoInput, NLName("bbnoni"));
 
   SNLDesign* hierNoOutput = SNLDesign::create(library, NLName("hierNoOutput"));
-  auto inTermHIno = SNLScalarTerm::create(hierNoOutput, SNLTerm::Direction::Input,
-                                          NLName("in"));
-  
-  SNLInstance* bb3 =
-      SNLInstance::create(hierNoOutput, bb, NLName("bb1"));
-  SNLInstance* bb4 =
-      SNLInstance::create(hierNoOutput, bb, NLName("bb2"));
-  
+  auto inTermHIno = SNLScalarTerm::create(
+      hierNoOutput, SNLTerm::Direction::Input, NLName("in"));
+
+  SNLInstance* bb3 = SNLInstance::create(hierNoOutput, bb, NLName("bb1"));
+  SNLInstance* bb4 = SNLInstance::create(hierNoOutput, bb, NLName("bb2"));
+
   auto inNet1 = SNLScalarNet::create(mod, NLName("inNet1"));
   bb1->getInstTerm(inTermBB)->setNet(inNet1);
   bb2->getInstTerm(inTermBBno)->setNet(inNet1);
@@ -380,7 +378,7 @@ TEST_F(LoadlessRemoveLogicTests, simple_2_loadless_3_levels) {
   SNLDesign* top = SNLDesign::create(library, NLName("top"));
   univ->setTopDesign(top);
   SNLDesign* mod = SNLDesign::create(library, NLName("mod"));
- 
+
   auto inTerm =
       SNLScalarTerm::create(mod, SNLTerm::Direction::Input, NLName("in"));
   auto outTerm =
@@ -404,14 +402,12 @@ TEST_F(LoadlessRemoveLogicTests, simple_2_loadless_3_levels) {
       SNLInstance::create(mod, bbNoOutputNoInput, NLName("bbnoni"));
 
   SNLDesign* hierNoOutput = SNLDesign::create(library, NLName("hierNoOutput"));
-  auto inTermHIno = SNLScalarTerm::create(hierNoOutput, SNLTerm::Direction::Input,
-                                          NLName("in"));
-  
-  SNLInstance* bb3 =
-      SNLInstance::create(hierNoOutput, bb, NLName("bb1"));
-  SNLInstance* bb4 =
-      SNLInstance::create(hierNoOutput, bb, NLName("bb2"));
-  
+  auto inTermHIno = SNLScalarTerm::create(
+      hierNoOutput, SNLTerm::Direction::Input, NLName("in"));
+
+  SNLInstance* bb3 = SNLInstance::create(hierNoOutput, bb, NLName("bb1"));
+  SNLInstance* bb4 = SNLInstance::create(hierNoOutput, bb, NLName("bb2"));
+
   auto inNet1 = SNLScalarNet::create(mod, NLName("inNet1"));
   bb1->getInstTerm(inTermBB)->setNet(inNet1);
   bb2->getInstTerm(inTermBBno)->setNet(inNet1);
@@ -444,7 +440,6 @@ TEST_F(LoadlessRemoveLogicTests, simple_2_loadless_3_levels) {
   destroy();
 }
 
-
 // Building a test like the prvious only with 3 levels of hierarchy
 TEST_F(LoadlessRemoveLogicTests, simple_2_loadless_3_levels_bne) {
   // Create a simple logic with a single
@@ -455,7 +450,7 @@ TEST_F(LoadlessRemoveLogicTests, simple_2_loadless_3_levels_bne) {
   SNLDesign* top = SNLDesign::create(library, NLName("top"));
   univ->setTopDesign(top);
   SNLDesign* mod = SNLDesign::create(library, NLName("mod"));
- 
+
   auto inTerm =
       SNLScalarTerm::create(mod, SNLTerm::Direction::Input, NLName("in"));
   auto outTerm =
@@ -479,14 +474,12 @@ TEST_F(LoadlessRemoveLogicTests, simple_2_loadless_3_levels_bne) {
       SNLInstance::create(mod, bbNoOutputNoInput, NLName("bbnoni"));
 
   SNLDesign* hierNoOutput = SNLDesign::create(library, NLName("hierNoOutput"));
-  auto inTermHIno = SNLScalarTerm::create(hierNoOutput, SNLTerm::Direction::Input,
-                                          NLName("in"));
-  
-  SNLInstance* bb3 =
-      SNLInstance::create(hierNoOutput, bb, NLName("bb1"));
-  SNLInstance* bb4 =
-      SNLInstance::create(hierNoOutput, bb, NLName("bb2"));
-  
+  auto inTermHIno = SNLScalarTerm::create(
+      hierNoOutput, SNLTerm::Direction::Input, NLName("in"));
+
+  SNLInstance* bb3 = SNLInstance::create(hierNoOutput, bb, NLName("bb1"));
+  SNLInstance* bb4 = SNLInstance::create(hierNoOutput, bb, NLName("bb2"));
+
   auto inNet1 = SNLScalarNet::create(mod, NLName("inNet1"));
   bb1->getInstTerm(inTermBB)->setNet(inNet1);
   bb2->getInstTerm(inTermBBno)->setNet(inNet1);
@@ -502,6 +495,23 @@ TEST_F(LoadlessRemoveLogicTests, simple_2_loadless_3_levels_bne) {
   SNLInstance* modInst1 = SNLInstance::create(top, mod, NLName("modInst1"));
   SNLInstance* modInst2 = SNLInstance::create(top, mod, NLName("modInst2"));
   DNLFull* dnl = get();
+  std::vector<SNLEquipotential> equipotentials;
+  for (const auto& term : get()->getDNLTerms()) {
+    if (term.isNull()) {
+      continue;
+    }
+    equipotentials.push_back(term.getEquipotential());
+  }
+  std::string dotFileNameEquis(
+      std::string(std::string("./testBusEquis") + std::string(".dot")));
+  std::string svgFileNameEquis(
+      std::string(std::string("./testBusEquis") + std::string(".svg")));
+  SnlVisualiser snl2(top, equipotentials);
+  snl2.process();
+  snl2.getNetlistGraph().dumpDotFile(dotFileNameEquis.c_str());
+  executeCommand(std::string(std::string("dot -Tsvg ") + dotFileNameEquis +
+                             std::string(" -o ") + svgFileNameEquis)
+                     .c_str());
   LoadlessLogicRemover remover;
   remover.setNormalizedUniquification(true);
   // Verify each function of remover
@@ -513,9 +523,8 @@ TEST_F(LoadlessRemoveLogicTests, simple_2_loadless_3_levels_bne) {
   // EXPECT_EQ(loadlessNets.size(), 1);
   auto loadlessInstances = remover.getLoadlessInstances(*dnl, tracedIsos);
   EXPECT_EQ(loadlessInstances.size(), 10);
-  //destroy();
+  // destroy();
   remover.process();
   // Check that the loadless logic is removed
   destroy();
 }
-

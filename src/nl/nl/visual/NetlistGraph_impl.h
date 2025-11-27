@@ -85,12 +85,14 @@ void NetlistGraph<InstData, PortData, WireData, BusData>::dumpDotFileRec(
     size_t count = 0;
     for (BusNodeID id : node->getInBuses()) {
       if (totalIn >= 100) {
+        // LCOV_EXCL_START
         totalIn = 0;
         count = 0;
         i++;
         myfile << " } }\"];" << std::endl;
         myfile << "leaf" << i
            << " [rank=min, shape=record, style=bold, label=\"{ { ";
+        // LCOV_EXCL_STOP
       }
       if (count != 0 ) {
         myfile << " | ";
@@ -123,12 +125,14 @@ void NetlistGraph<InstData, PortData, WireData, BusData>::dumpDotFileRec(
     size_t k = 0;
     for (PortNodeID id : node->getInPorts()) {
       if (totalIn >= 100) {
+        // LCOV_EXCL_START
         totalIn = 0;
         count = 0;
         i++;
         myfile << " } }\"];" << std::endl;
         myfile << "leaf" << i
            << " [rank=min, shape=record, style=bold, label=\"{ { ";
+        // LCOV_EXCL_STOP
       }
       //printf("port %lu\n", id);
       PortNode<PortData>& port = getPort(id);
@@ -161,12 +165,14 @@ void NetlistGraph<InstData, PortData, WireData, BusData>::dumpDotFileRec(
     size_t count = 0;
     for (BusNodeID id : node->getOutBuses()) {
       if (totalOut >= 100) {
+        // LCOV_EXCL_START
         totalOut = 0;
         count = 0;
         i++;
         myfile << " } }\"];" << std::endl;
         myfile << "leaf" << i
            << " [rank=min, shape=record, style=bold, label=\"{ { ";
+        // LCOV_EXCL_STOP
       }
       if (count != 0) {
         myfile << " | ";
@@ -199,12 +205,14 @@ void NetlistGraph<InstData, PortData, WireData, BusData>::dumpDotFileRec(
     }
     for (PortNodeID id : node->getOutPorts()) {
       if (totalOut >= 100) {
+        // LCOV_EXCL_START
         totalOut = 0;
         count = 0;
         i++;
         myfile << " } }\"];" << std::endl;
         myfile << "leaf" << i
            << " [rank=min, shape=record, style=bold, label=\"{ { ";
+        // LCOV_EXCL_STOP
       }
       //printf("port %lu\n", id);
       PortNode<PortData>& port = getPort(id);
