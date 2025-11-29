@@ -109,5 +109,5 @@ before-all = '''
   cd ..
 '''
 
-[tool.scikit-build.cmake]
-toolchain = "{env:CMAKE_TOOLCHAIN_FILE}"
+[tool.scikit-build]
+cmake.toolchain-file = "{env:CMAKE_TOOLCHAIN_FILE}"
