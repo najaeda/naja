@@ -115,6 +115,7 @@ jobs:
           CIBW_MANYLINUX_X86_64_IMAGE: ${{ matrix.manylinux_image }}
           CIBW_MANYLINUX_I686_IMAGE: ${{ matrix.manylinux_image }}
           CIBW_BEFORE_ALL_WINDOWS: "pwsh -File {project}/windows_setup.ps1"
+          CIBW_BEFORE_BUILD_WINDOWS: "pwsh -Command \"Remove-Item -Recurse -Force build, dist -ErrorAction SilentlyContinue\""
           CIBW_TEST_REQUIRES: "pytest"
           CIBW_TEST_COMMAND: >
             bash -c '
