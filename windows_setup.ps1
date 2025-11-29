@@ -12,7 +12,7 @@ git clone https://github.com/microsoft/vcpkg.git $env:USERPROFILE/vcpkg
 & "$env:USERPROFILE/vcpkg/vcpkg.exe" install tbb:x64-windows
 & "$env:USERPROFILE/vcpkg/vcpkg.exe" install flex:x64-windows
 & "$env:USERPROFILE/vcpkg/vcpkg.exe" install bison:x64-windows
-& "$env:USERPROFILE/vcpkg/vcpkg.exe" install boost:x64-windows
+& "$env:USERPROFILE/vcpkg/vcpkg.exe" install boost-intrusive:x64-windows
 
 # Export for CMake
 Add-Content $env:GITHUB_ENV "CMAKE_TOOLCHAIN_FILE=$env:USERPROFILE/vcpkg/scripts/buildsystems/vcpkg.cmake"
