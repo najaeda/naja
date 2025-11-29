@@ -110,11 +110,11 @@ jobs:
         env:
           CIBW_FREE_THREADED_SUPPORT: ${{ matrix.free_threaded_support }}
           CIBW_ENVIRONMENT: SKLEARN_SKIP_NETWORK_TESTS=1
-          CIBW_BUILD: cp${{ matrix.python }}-${{ matrix.platform_id }}
+          CIBW_BUILD: cp ${{ matrix.python }}-${{ matrix.platform_id }}
           CIBW_ARCHS: 'all'
           CIBW_MANYLINUX_X86_64_IMAGE: ${{ matrix.manylinux_image }}
           CIBW_MANYLINUX_I686_IMAGE: ${{ matrix.manylinux_image }}
-          CIBW_BEFORE_ALL_WINDOWS: "pwsh -File .github/windows_setup.ps1"
+          CIBW_BEFORE_ALL_WINDOWS: "pwsh -File {project}/.github/windows_setup.ps1"
           CIBW_TEST_REQUIRES: "pytest"
           CIBW_TEST_COMMAND: >
             bash -c '
