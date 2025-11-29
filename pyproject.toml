@@ -110,4 +110,4 @@ before-all = '''
 '''
 
 [tool.scikit-build]
-cmake.toolchain-file = "{env:CMAKE_TOOLCHAIN_FILE}"
+cmake.args = ["-DCMAKE_TOOLCHAIN_FILE={env:CMAKE_TOOLCHAIN_FILE}"]
