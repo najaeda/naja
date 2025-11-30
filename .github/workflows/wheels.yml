@@ -120,7 +120,6 @@ jobs:
             cmake.define.BISON_EXECUTABLE=C:/Users/runneradmin/vcpkg/installed/x64-windows/tools/winflexbison/win_bison.exe;
             cmake.define.FLEX_EXECUTABLE=C:/Users/runneradmin/vcpkg/installed/x64-windows/tools/winflexbison/win_flex.exe;
             cmake.args=-DCMAKE_TOOLCHAIN_FILE=C:/Users/runneradmin/vcpkg/scripts/buildsystems/vcpkg.cmake
-          CIBW_ENVIRONMENT_WINDOWS: 'PATH="$PATH;C:/Users/runneradmin/vcpkg/installed/x64-windows/tools/bison;C:/Users/runneradmin/vcpkg/installed/x64-windows/tools/flex"'
           CIBW_TEST_REQUIRES: "pytest"
           CIBW_TEST_COMMAND: >
             bash -c '
