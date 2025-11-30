@@ -30,22 +30,24 @@ $msysBin = Join-Path $msysRoot.FullName "usr/bin"
 $tools = "$env:USERPROFILE/vcpkg/installed/x64-windows/tools/winflexbison"
 
 Write-Host "Found MSYS2 at $msysRoot"
-Write-Host "Copying MSYS2 DLLs from $msysBin to $tools..."
+Write-Host "Copying all MSYS2 runtime DLLs from $msysBin to $tools..."
 
-$requiredDlls = @(
-    "msys-2.0.dll",
-    "msys-intl-8.dll",
-    "msys-iconv-2.dll"
-)
+$msysDlls = Get-ChildItem -Path $msysBin -Filter "msys-*.dll" -File
 
-foreach ($dll in $requiredDlls) {
-    $src = Join-Path $msysBin $dll
-    if (Test-Path $src) {
-        Copy-Item $src $tools -Force
-        Write-Host "Copied $dll"
-    } else {
-        Write-Host "WARNING: Missing $dll in $msysBin" -ForegroundColor Yellow
+if (-not $msysDlls) {
+    Write-Host "WARNING: no msys-*.dll files found in $msysBin" -ForegroundColor Yellow
+} else {
+    foreach ($dll in $msysDlls) {
+        Copy-Item $dll.FullName $tools -Force
+        Write-Host "Copied $($dll.Name)"
     }
+}
+
+Write-Host "Testing win_bison.exe --version..."
+& "$tools/win_bison.exe" --version
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "ERROR: win_bison.exe --version failed after copying DLLs" -ForegroundColor Red
+    exit 1
 }
 
 # Export for CMake
