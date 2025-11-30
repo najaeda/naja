@@ -14,9 +14,9 @@ git clone https://github.com/microsoft/vcpkg.git $env:USERPROFILE/vcpkg
 
 Write-Host "Installing winflexbison manually (official binary release)"
 
-$wfbZip = "$env:TEMP\winflexbison.zip"
+$wfbZip = "$env:TEMP\winflexbison-win64.zip"
 Invoke-WebRequest `
-  -Uri "https://github.com/lexxmark/winflexbison/releases/download/v2.5.24/winflexbison-2.5.24.zip" `
+  -Uri "https://github.com/lexxmark/winflexbison/releases/download/v2.5.28/winflexbison-win64.zip" `
   -OutFile $wfbZip
 
 $tools = "$env:USERPROFILE/vcpkg/installed/x64-windows/tools/winflexbison"
