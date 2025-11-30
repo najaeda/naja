@@ -20,13 +20,16 @@ concurrency:
 
 jobs:
   generate-parser:
+    concurrency:
+      group: "parser-generation-${{ github.run_id }}"
+      cancel-in-progress: false
     runs-on: ubuntu-latest
-
     outputs:
       artifact_name: parser-generated-sources
-
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: true
 
       - name: Install flex & bison
         run: sudo apt-get update && sudo apt-get install -y flex bison cmake
@@ -47,8 +50,8 @@ jobs:
           name: parser-generated-sources
           path: thirdparty/naja-verilog/src/generated/*
 
-
   build_wheels:
+    needs: generate-parser
     name: Build wheel for cp${{ matrix.python }}-${{ matrix.platform_id }}-${{ matrix.manylinux_image }}
     runs-on: ${{ matrix.os }}
     strategy:
@@ -122,31 +125,7 @@ jobs:
       # build steps
       - uses: actions/checkout@v4
         with:
-          submodules: recursive
-          fetch-depth: 0
-          fetch-tags: true
-      - name: Generate Flex/Bison sources (Windows)
-        if: runner.os == 'Windows'
-        run: |
-          echo "Generating lexer and parser files on Windows..."
-
-          if (Test-Path "thirdparty/naja-verilog") {
-            Set-Location thirdparty/naja-verilog
-            cmake -E make_directory build
-            Set-Location build
-            cmake ..  # will pick up winflexbison installed in windows_setup.ps1
-            cmake --build . --target generate_parsers || echo "Parser generation failed but continuing"
-            Set-Location ../../..
-          }
-
-          if (Test-Path "thirdparty/lefdef") {
-            Set-Location thirdparty/lefdef
-            cmake -E make_directory build
-            Set-Location build
-            cmake ..
-            cmake --build . --target generate_parsers || echo "Parser generation failed but continuing"
-            Set-Location ../../..
-          }
+          submodules: true
       - name: Configure macOS Environment
         if: runner.os == 'macOS'
         run: |
