@@ -40,7 +40,7 @@ jobs:
           mkdir build_parser
           cd build_parser
           cmake ../thirdparty/naja-verilog
-          make VerilogParser.cpp VerilogScanner.cpp
+          make VerilogParser VerilogScanner
 
           mkdir -p ../thirdparty/naja-verilog/src/generated
           cp VerilogParser.cpp VerilogParser.hpp VerilogScanner.cpp ../thirdparty/naja-verilog/src/generated/
