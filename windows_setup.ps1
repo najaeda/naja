@@ -33,11 +33,13 @@ Rename-Item "$tools\win_flex.exe" "$tools\flex.exe" -Force
 
 # Create wrapper scripts to fix version output (CMake requires stdout)
 Set-Content "$tools\bison.cmd" '@echo off
-"%~dp0\bison.exe" %* 2>&1
+"%~dp0\bison.exe" --version 2>&1
 '
 Set-Content "$tools\flex.cmd" '@echo off
-"%~dp0\flex.exe" %* 2>&1
+"%~dp0\flex.exe" --version 2>&1
 '
+
+Write-Host "Testing bison.cmd..."; & "$tools\bison.cmd"
 
 Write-Host "Testing bison.exe..."
 & "$tools\bison.exe" --version
@@ -50,6 +52,8 @@ Write-Host "Testing flex.exe..."
 if ($LASTEXITCODE -ne 0) {
     throw "flex.exe failed to run after rename"
 }
+
+Write-Host "Testing flex.cmd..."; & "$tools\flex.cmd"
 
 # Export for CMake
 Add-Content $env:GITHUB_ENV "CMAKE_TOOLCHAIN_FILE=$env:USERPROFILE/vcpkg/scripts/buildsystems/vcpkg.cmake"
