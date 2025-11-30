@@ -14,10 +14,6 @@ git clone https://github.com/microsoft/vcpkg.git $env:USERPROFILE/vcpkg
 & "$env:USERPROFILE/vcpkg/vcpkg.exe" install bison:x64-windows
 & "$env:USERPROFILE/vcpkg/vcpkg.exe" install boost-intrusive:x64-windows
 
-# Add vcpkg tools (bison & flex) to PATH for CMake detection
-$env:PATH += ";$env:USERPROFILE/vcpkg/installed/x64-windows/tools/bison"
-$env:PATH += ";$env:USERPROFILE/vcpkg/installed/x64-windows/tools/flex"
-
 # Export for CMake
 Add-Content $env:GITHUB_ENV "CMAKE_TOOLCHAIN_FILE=$env:USERPROFILE/vcpkg/scripts/buildsystems/vcpkg.cmake"
 Add-Content $env:GITHUB_ENV "VCPKG_ROOT=$env:USERPROFILE/vcpkg"
