@@ -32,7 +32,8 @@ jobs:
           submodules: true
 
       - name: Install flex & bison
-        run: sudo apt-get update && sudo apt-get install -y flex bison cmake
+        run: |
+          sudo apt-get update && sudo apt-get install -yq libfl-dev
 
       - name: Generate parser sources
         run: |
