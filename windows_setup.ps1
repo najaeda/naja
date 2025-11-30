@@ -27,10 +27,28 @@ Expand-Archive -Path $wfbZip -DestinationPath $tools -Force
 $inner = Get-ChildItem $tools | Where-Object { $_.PSIsContainer } | Select-Object -First 1
 Copy-Item "$($inner.FullName)\*" $tools -Recurse -Force
 
-Write-Host "Testing win_bison.exe..."
-& "$tools\win_bison.exe" --version
+# Rename executables to GNU-standard names
+Rename-Item "$tools\win_bison.exe" "$tools\bison.exe" -Force
+Rename-Item "$tools\win_flex.exe" "$tools\flex.exe" -Force
+
+# Create wrapper scripts to fix version output (CMake requires stdout)
+Set-Content "$tools\bison.cmd" '@echo off
+"%~dp0\bison.exe" %* 2>&1
+'
+Set-Content "$tools\flex.cmd" '@echo off
+"%~dp0\flex.exe" %* 2>&1
+'
+
+Write-Host "Testing bison.exe..."
+& "$tools\bison.exe" --version
 if ($LASTEXITCODE -ne 0) {
-    throw "win_bison.exe failed to run even after manual install"
+    throw "bison.exe failed to run after rename"
+}
+
+Write-Host "Testing flex.exe..."
+& "$tools\flex.exe" --version
+if ($LASTEXITCODE -ne 0) {
+    throw "flex.exe failed to run after rename"
 }
 
 # Export for CMake
