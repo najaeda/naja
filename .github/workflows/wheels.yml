@@ -19,6 +19,35 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  generate-parser:
+    runs-on: ubuntu-latest
+
+    outputs:
+      artifact_name: parser-generated-sources
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install flex & bison
+        run: sudo apt-get update && sudo apt-get install -y flex bison cmake
+
+      - name: Generate parser sources
+        run: |
+          mkdir build_parser
+          cd build_parser
+          cmake ../thirdparty/naja-verilog
+          make VerilogParser.cpp VerilogScanner.cpp
+
+          mkdir -p ../thirdparty/naja-verilog/src/generated
+          cp VerilogParser.cpp VerilogParser.hpp VerilogScanner.cpp ../thirdparty/naja-verilog/src/generated/
+
+      - name: Upload parser artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: parser-generated-sources
+          path: thirdparty/naja-verilog/src/generated/*
+
+
   build_wheels:
     name: Build wheel for cp${{ matrix.python }}-${{ matrix.platform_id }}-${{ matrix.manylinux_image }}
     runs-on: ${{ matrix.os }}
@@ -96,6 +125,28 @@ jobs:
           submodules: recursive
           fetch-depth: 0
           fetch-tags: true
+      - name: Generate Flex/Bison sources (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          echo "Generating lexer and parser files on Windows..."
+
+          if (Test-Path "thirdparty/naja-verilog") {
+            Set-Location thirdparty/naja-verilog
+            cmake -E make_directory build
+            Set-Location build
+            cmake ..  # will pick up winflexbison installed in windows_setup.ps1
+            cmake --build . --target generate_parsers || echo "Parser generation failed but continuing"
+            Set-Location ../../..
+          }
+
+          if (Test-Path "thirdparty/lefdef") {
+            Set-Location thirdparty/lefdef
+            cmake -E make_directory build
+            Set-Location build
+            cmake ..
+            cmake --build . --target generate_parsers || echo "Parser generation failed but continuing"
+            Set-Location ../../..
+          }
       - name: Configure macOS Environment
         if: runner.os == 'macOS'
         run: |
@@ -106,6 +157,26 @@ jobs:
             echo "/opt/homebrew/opt/flex/bin" >> $GITHUB_PATH; echo "/opt/homebrew/opt/bison/bin" >> $GITHUB_PATH
       - name: Install cibuildwheel
         run: python -m pip install cibuildwheel==2.22.0
+      - name: Generate Flex/Bison sources (non‑Windows)
+        if: runner.os != 'Windows'
+        run: |
+          echo "Generating lexer and parser files..."
+          # Best‑effort generic generation — adjust commands if project uses different locations
+          if [ -d "thirdparty/naja-verilog" ]; then
+            cd thirdparty/naja-verilog
+            cmake -E make_directory build
+            cd build
+            cmake ..
+            cmake --build . --target generate_parsers || true
+          fi
+
+          if [ -d "thirdparty/lefdef" ]; then
+            cd ../../thirdparty/lefdef
+            cmake -E make_directory build
+            cd build
+            cmake ..
+            cmake --build . --target generate_parsers || true
+          fi
       - name: Build wheels
         env:
           CIBW_FREE_THREADED_SUPPORT: ${{ matrix.free_threaded_support }}
@@ -116,10 +187,8 @@ jobs:
           CIBW_MANYLINUX_I686_IMAGE: ${{ matrix.manylinux_image }}
           CIBW_BEFORE_ALL_WINDOWS: "pwsh -File {project}/windows_setup.ps1"
           CIBW_BEFORE_BUILD_WINDOWS: "pwsh -Command \"foreach($d in 'build','dist'){ if(Test-Path $d){ Remove-Item -Recurse -Force $d -ErrorAction SilentlyContinue } }\""
-          CIBW_CONFIG_SETTINGS_WINDOWS: >
-            cmake.define.BISON_EXECUTABLE=C:/Users/runneradmin/vcpkg/installed/x64-windows/tools/winflexbison/win_bison.exe;
-            cmake.define.FLEX_EXECUTABLE=C:/Users/runneradmin/vcpkg/installed/x64-windows/tools/winflexbison/win_flex.exe;
-            cmake.args=-DCMAKE_TOOLCHAIN_FILE=C:/Users/runneradmin/vcpkg/scripts/buildsystems/vcpkg.cmake
+          #CIBW_CONFIG_SETTINGS_WINDOWS: >
+          #  cmake.args=-DCMAKE_TOOLCHAIN_FILE=C:/Users/runneradmin/vcpkg/scripts/buildsystems/vcpkg.cmake
           CIBW_TEST_REQUIRES: "pytest"
           CIBW_TEST_COMMAND: >
             bash -c '
