@@ -108,6 +108,3 @@ before-all = '''
   echo "::endgroup::"
   cd ..
 '''
-
-[tool.scikit-build]
-cmake.args = ["-DCMAKE_TOOLCHAIN_FILE={env:CMAKE_TOOLCHAIN_FILE}"]
