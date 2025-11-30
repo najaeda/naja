@@ -37,19 +37,16 @@ jobs:
 
       - name: Generate parser sources
         run: |
-          mkdir build_parser
-          cd build_parser
-          cmake ../thirdparty/naja-verilog
-          make VerilogParser VerilogScanner
-
-          mkdir -p ../thirdparty/naja-verilog/src/generated
-          cp VerilogParser.cpp VerilogParser.hpp VerilogScanner.cpp ../thirdparty/naja-verilog/src/generated/
+          cmake -B build -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --config Release
+          mkdir -p generated
+          cp build/src/VerilogParser.cpp build/src/VerilogParser.hpp build/src/VerilogScanner.cpp generated
 
       - name: Upload parser artifact
         uses: actions/upload-artifact@v4
         with:
           name: parser-generated-sources
-          path: thirdparty/naja-verilog/src/generated/*
+          path: generated/*
 
   build_wheels:
     needs: generate-parser
@@ -137,26 +134,6 @@ jobs:
             echo "/opt/homebrew/opt/flex/bin" >> $GITHUB_PATH; echo "/opt/homebrew/opt/bison/bin" >> $GITHUB_PATH
       - name: Install cibuildwheel
         run: python -m pip install cibuildwheel==2.22.0
-      - name: Generate Flex/Bison sources (non‑Windows)
-        if: runner.os != 'Windows'
-        run: |
-          echo "Generating lexer and parser files..."
-          # Best‑effort generic generation — adjust commands if project uses different locations
-          if [ -d "thirdparty/naja-verilog" ]; then
-            cd thirdparty/naja-verilog
-            cmake -E make_directory build
-            cd build
-            cmake ..
-            cmake --build . --target generate_parsers || true
-          fi
-
-          if [ -d "thirdparty/lefdef" ]; then
-            cd ../../thirdparty/lefdef
-            cmake -E make_directory build
-            cd build
-            cmake ..
-            cmake --build . --target generate_parsers || true
-          fi
       - name: Build wheels
         env:
           CIBW_FREE_THREADED_SUPPORT: ${{ matrix.free_threaded_support }}
