@@ -192,7 +192,7 @@ bool DriveWithConstantAction::operator<(const Action& action) const {
 
 DeleteAction::DeleteAction(
     const std::vector<NLID::DesignObjectID>& pathToDelete)
-    : Action(ActionType::DELETE) {
+    : Action(ActionType::DELETE_ACTION) {
   assert(!pathToDelete.empty());
   toDelete_ = pathToDelete.back();
   context_ = pathToDelete;
@@ -204,7 +204,7 @@ void DeleteAction::processOnContext(SNLDesign* design) {
 }
 
 bool DeleteAction::operator==(const Action& action) const {
-  if (action.getType() != ActionType::DELETE) {
+  if (action.getType() != ActionType::DELETE_ACTION) {
     // LCOV_EXCL_START
     return false;
     // LCOV_EXCL_STOP
@@ -214,7 +214,7 @@ bool DeleteAction::operator==(const Action& action) const {
 }
 
 bool DeleteAction::operator<(const Action& action) const {
-  if (action.getType() != ActionType::DELETE) {
+  if (action.getType() != ActionType::DELETE_ACTION) {
     // LCOV_EXCL_START
     return getType() < action.getType();
     // LCOV_EXCL_STOP
@@ -287,6 +287,7 @@ bool ReductionAction::operator==(const Action& action) const {
          result_ == reductionAction.result_;
   // LCOV_EXCL_STOP
 }
+
 bool ReductionAction::operator<(const Action& action) const {
   // LCOV_EXCL_START
   if (action.getType() != ActionType::REDUCTION) {
