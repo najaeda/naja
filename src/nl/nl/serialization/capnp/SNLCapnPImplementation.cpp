@@ -4,6 +4,10 @@
 
 #include "SNLCapnP.h"
 
+#ifdef _WIN32
+#include <io.h>
+#endif
+
 #include <fcntl.h>
 #include <iostream>
 #include <sstream>
