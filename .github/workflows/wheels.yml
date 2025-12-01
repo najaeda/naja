@@ -41,8 +41,8 @@ jobs:
           cmake -B build -DCMAKE_BUILD_TYPE=Release
           cmake --build build --config Release
           mkdir -p ../../generated
-          cp build/src/VerilogParser.cpp build/src/VerilogParser.hpp build/src/VerilogScanner.cpp ../../generated
-          cp /usr/include/FlexLexer.h ../../generated
+          cp -v build/src/VerilogParser.cpp build/src/VerilogParser.hpp build/src/VerilogScanner.cpp ../../generated
+          cp -v /usr/include/FlexLexer.h ../../generated
 
       - name: Upload parser artifact
         uses: actions/upload-artifact@v4
