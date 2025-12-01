@@ -42,6 +42,7 @@ jobs:
           cmake --build build --config Release
           mkdir -p ../../generated
           cp -v build/src/VerilogParser.cpp build/src/VerilogParser.hpp build/src/VerilogScanner.cpp ../../generated
+          cp -v build/src/*.hh ../../generated
           cp -v /usr/include/FlexLexer.h ../../generated
 
       - name: Upload parser artifact
