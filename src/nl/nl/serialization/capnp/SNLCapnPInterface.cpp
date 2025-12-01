@@ -453,13 +453,29 @@ void SNLCapnP::dumpInterface(const NLDB* snlDB, int fileDescriptor, NLID::DBID f
 }
 
 void SNLCapnP::dumpInterface(const NLDB* snlDB, const std::filesystem::path& interfacePath) {
+#ifdef _WIN32
+  int fd = _open(
+    interfacePath.string().c_str(),
+    _O_CREAT | _O_WRONLY | _O_BINARY,
+    _S_IREAD | _S_IWRITE);
+#else
   int fd = open(
     interfacePath.c_str(),
     O_CREAT | O_WRONLY,
     S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
-  
+#endif
+
+  if (fd < 0) {
+    throw NLException("Failed to open interface file for writing");
+  }
+
   dumpInterface(snlDB, fd);
+
+#ifdef _WIN32
+  _close(fd);
+#else
   close(fd);
+#endif
 }
 
 //Need to find a proper way to test serialization on the wire
@@ -542,7 +558,12 @@ NLDB* SNLCapnP::loadInterface(int fileDescriptor, bool primitivesAreLoaded) {
 
 NLDB* SNLCapnP::loadInterface(const std::filesystem::path& interfacePath, bool primitivesAreLoaded) {
   //FIXME: verify if file can be opened
-  int fd = open(interfacePath.c_str(), O_RDONLY);
+  int fd = 0;
+#ifdef _WIN32
+  fd = _open(interfacePath.string().c_str(), _O_RDONLY | _O_BINARY);
+#else
+  fd = open(interfacePath.c_str(), O_RDONLY);
+#endif
   return loadInterface(fd, primitivesAreLoaded);
 }
 

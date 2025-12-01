@@ -42,6 +42,7 @@ jobs:
           cmake --build build --config Release
           mkdir -p ../../generated
           cp build/src/VerilogParser.cpp build/src/VerilogParser.hpp build/src/VerilogScanner.cpp ../../generated
+          cp /usr/include/FlexLexer.h ../../generated
 
       - name: Upload parser artifact
         uses: actions/upload-artifact@v4
@@ -136,6 +137,7 @@ jobs:
         run: |
           echo "Copying generated parser files into thirdparty/naja-verilog/src"
           cp -R generated thirdparty/naja-verilog/src/
+          
       - name: Configure macOS Environment
         if: runner.os == 'macOS'
         run: |

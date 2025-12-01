@@ -490,12 +490,23 @@ void SNLCapnP::dumpImplementation(const NLDB* snlDB, int fileDescriptor, NLID::D
 }
 
 void SNLCapnP::dumpImplementation(const NLDB* snlDB, const std::filesystem::path& implementationPath) {
+#ifdef _WIN32
+  int fd = _open(
+    implementationPath.string().c_str(),
+    _O_CREAT | _O_WRONLY | _O_BINARY,
+    _S_IREAD | _S_IWRITE);
+#else
   int fd = open(
     implementationPath.c_str(),
     O_CREAT | O_WRONLY,
     S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+#endif
   dumpImplementation(snlDB, fd);
+#ifdef _WIN32
+  _close(fd);
+#else
   close(fd);
+#endif
 }
 
 //LCOV_EXCL_START
@@ -544,8 +555,11 @@ NLDB* SNLCapnP::loadImplementation(int fileDescriptor) {
 }
 
 NLDB* SNLCapnP::loadImplementation(const std::filesystem::path& implementationPath) {
-  //FIXME: verify if file can be opened
+#ifdef _WIN32
+  int fd = _open(implementationPath.string().c_str(), _O_RDONLY | _O_BINARY);
+#else
   int fd = open(implementationPath.c_str(), O_RDONLY);
+#endif
   return loadImplementation(fd);
 }
 
