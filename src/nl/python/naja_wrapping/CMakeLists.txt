@@ -27,7 +27,6 @@ set(SOURCES
   PySNLOccurrences.cpp
   PySNLEquipotential.cpp PySNLUniquifier.cpp
   NajaPythonProperty.cpp
-  PyNaja.cpp
 )
 
 add_library(naja_python SHARED ${SOURCES})
@@ -56,7 +55,7 @@ target_include_directories(naja_python
   PRIVATE ${Python3_INCLUDE_DIRS}
 )
 
-Python3_add_library(naja MODULE empty.cpp)
+Python3_add_library(naja MODULE PyNaja.cpp)
 target_link_libraries(naja PRIVATE naja_python)
 
 if(BUILD_NAJA_PYTHON)
