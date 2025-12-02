@@ -7,7 +7,10 @@
 
 #include <Python.h>
 #include "NajaPythonExport.h"
-#include "NLDB.h"
+
+namespace naja::NL {
+  class NLDB;
+}
 
 namespace PYNAJA {
 

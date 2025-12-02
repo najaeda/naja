@@ -7,7 +7,10 @@
 
 #include <Python.h>
 #include "NajaPythonExport.h"
-#include "NLUniverse.h"
+
+namespace naja::NL {
+  class NLUniverse;
+}
 
 namespace PYNAJA {
 

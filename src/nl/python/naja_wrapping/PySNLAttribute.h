@@ -7,7 +7,10 @@
 
 #include <Python.h>
 #include "NajaPythonExport.h"
-#include "SNLAttributes.h"
+
+namespace naja::NL {
+  class SNLAttribute;
+}
 
 namespace PYNAJA {
 

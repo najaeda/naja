@@ -6,8 +6,8 @@
 #define __PY_SNL_DESIGNS_H_
 
 #include <Python.h>
-#include "NajaPythonExport.h"
 #include "NajaCollection.h"
+#include "NajaPythonExport.h"
 
 namespace naja::NL {
   class SNLDesign;

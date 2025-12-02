@@ -5,25 +5,24 @@
 
 #include "PyNLDB.h"
 
-#include "PyInterface.h"
-#include "PyNLUniverse.h"
-#include "PyNLLibraries.h"
-#include "PyNLLibrary.h"
-
-#include "PySNLDesign.h"
-
-#include "NLDB.h"
-
 #include <Python.h>
 #include <filesystem>
+#include <fstream>
+#include <iostream>
+
+#include "NLUniverse.h"
+#include "NLDB.h"
 #include "SNLCapnP.h"
 #include "SNLLibertyConstructor.h"
 #include "SNLUtils.h"
 #include "SNLVRLConstructor.h"
 #include "SNLVRLDumper.h"
 
-#include <fstream>
-#include <iostream>
+#include "PyInterface.h"
+#include "PyNLUniverse.h"
+#include "PyNLLibraries.h"
+#include "PyNLLibrary.h"
+#include "PySNLDesign.h"
 
 namespace PYNAJA {
 

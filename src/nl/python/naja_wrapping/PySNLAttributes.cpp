@@ -4,6 +4,8 @@
 
 #include "PySNLAttributes.h"
 
+#include "SNLAttributes.h"
+
 #include "PyInterface.h"
 #include "PySNLAttribute.h"
 
