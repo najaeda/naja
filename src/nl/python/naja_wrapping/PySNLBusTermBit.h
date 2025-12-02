@@ -7,7 +7,10 @@
 
 #include "NajaPythonExport.h"
 #include "PySNLBitTerm.h"
-#include "SNLBusTermBit.h"
+
+namespace naja::NL {
+  class SNLBusTermBit;
+}
 
 namespace PYNAJA {
 

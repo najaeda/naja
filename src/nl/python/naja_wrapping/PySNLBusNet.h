@@ -7,7 +7,10 @@
 
 #include "PySNLNet.h"
 #include "NajaPythonExport.h"
-#include "SNLBusNet.h"
+
+namespace naja::NL {
+  class SNLBusNet;
+}
 
 namespace PYNAJA {
 

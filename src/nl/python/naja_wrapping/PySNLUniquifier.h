@@ -6,8 +6,11 @@
 #define __PY_SNL_UNIQUIFIER_H_
 
 #include <Python.h>
-#include "SNLUniquifier.h"
 #include "NajaPythonExport.h"
+
+namespace naja::NL {
+  class SNLUniquifier;
+}
 
 namespace PYNAJA {
 

@@ -6,8 +6,11 @@
 #define __PY_SNL_SCALAR_NET_H_
 
 #include "PySNLBitNet.h"
-#include "SNLScalarNet.h"
 #include "NajaPythonExport.h"
+
+namespace naja::NL {
+  class SNLScalarNet;
+}
 
 namespace PYNAJA {
 

@@ -6,8 +6,11 @@
 #define __PY_SNL_INSTANCE_H_
 
 #include "PySNLDesignObject.h"
-#include "SNLInstance.h"
 #include "NajaPythonExport.h"
+
+namespace naja::NL {
+  class SNLInstance;
+}
 
 namespace PYNAJA {
 

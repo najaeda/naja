@@ -7,7 +7,10 @@
 
 #include "PySNLBitNet.h"
 #include "NajaPythonExport.h"
-#include "SNLBusNetBit.h"
+
+namespace naja::NL {
+  class SNLBusNetBit;
+}
 
 namespace PYNAJA {
 

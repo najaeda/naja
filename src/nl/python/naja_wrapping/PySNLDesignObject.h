@@ -7,7 +7,10 @@
 
 #include "Python.h"
 #include "NajaPythonExport.h"
-#include "SNLDesignObject.h"
+
+namespace naja::NL {
+  class SNLDesignObject;
+}
 
 namespace PYNAJA {
 

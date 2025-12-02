@@ -6,8 +6,11 @@
 #define __PY_SNL_SCALAR_TERM_H_
 
 #include "PySNLBitTerm.h"
-#include "SNLScalarTerm.h"
 #include "NajaPythonExport.h"
+
+namespace naja::NL {
+  class SNLScalarTerm;
+}
 
 namespace PYNAJA {
 

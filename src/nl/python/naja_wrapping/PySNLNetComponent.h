@@ -6,8 +6,11 @@
 #define __PY_SNL_NET_COMPONENT_H_
 
 #include "PySNLDesignObject.h"
-#include "SNLNetComponent.h"
 #include "NajaPythonExport.h"
+
+namespace naja::NL {
+  class SNLNetComponent;
+}
 
 namespace PYNAJA {
 

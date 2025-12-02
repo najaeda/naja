@@ -6,8 +6,11 @@
 #define __PY_SNL_INSTTERM_H_
 
 #include "PySNLNetComponent.h"
-#include "SNLInstTerm.h"
 #include "NajaPythonExport.h"
+
+namespace naja::NL {
+  class SNLInstTerm;
+}
 
 namespace PYNAJA {
 
