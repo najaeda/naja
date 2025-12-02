@@ -6,6 +6,7 @@
 #define __PY_SNL_BUS_TERMS_H_
 
 #include <Python.h>
+#include "NajaPythonExport.h"
 #include "NajaCollection.h"
 
 namespace naja::NL {
@@ -25,8 +26,8 @@ typedef struct {
   PySNLBusTerms* container_;
 } PySNLBusTermsIterator;
 
-extern PyTypeObject PyTypeSNLBusTerms;
-extern PyTypeObject PyTypeSNLBusTermsIterator;
+NAJA_PY_EXPORT extern PyTypeObject PyTypeSNLBusTerms;
+NAJA_PY_EXPORT extern PyTypeObject PyTypeSNLBusTermsIterator;
 
 extern void PySNLBusTerms_LinkPyType();
 

@@ -6,6 +6,7 @@
 #define __PY_SNL_DESIGNS_H_
 
 #include <Python.h>
+#include "NajaPythonExport.h"
 #include "NajaCollection.h"
 
 namespace naja::NL {
@@ -25,8 +26,8 @@ typedef struct {
   PySNLDesigns* container_;
 } PySNLDesignsIterator;
 
-extern PyTypeObject PyTypeSNLDesigns;
-extern PyTypeObject PyTypeSNLDesignsIterator;
+NAJA_PY_EXPORT extern PyTypeObject PyTypeSNLDesigns;
+NAJA_PY_EXPORT extern PyTypeObject PyTypeSNLDesignsIterator;
 
 extern void PySNLDesigns_LinkPyType();
 

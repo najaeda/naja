@@ -6,6 +6,7 @@
 #define __PY_SNL_ATTRIBUTES_H_
 
 #include <Python.h>
+#include "NajaPythonExport.h"
 #include "NajaCollection.h"
 
 namespace naja::NL {
@@ -25,8 +26,8 @@ typedef struct {
   PySNLAttributes* container_;
 } PySNLAttributesIterator;
 
-extern PyTypeObject PyTypeSNLAttributes;
-extern PyTypeObject PyTypeSNLAttributesIterator;
+NAJA_PY_EXPORT extern PyTypeObject PyTypeSNLAttributes;
+NAJA_PY_EXPORT extern PyTypeObject PyTypeSNLAttributesIterator;
 
 extern void PySNLAttributes_LinkPyType();
 

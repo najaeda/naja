@@ -6,6 +6,7 @@
 #define __PY_SNL_BUS_NET_BIT_H_
 
 #include "PySNLBitNet.h"
+#include "NajaPythonExport.h"
 #include "SNLBusNetBit.h"
 
 namespace PYNAJA {
@@ -14,7 +15,7 @@ typedef struct {
   PySNLBitNet parent_;
 } PySNLBusNetBit;
 
-extern PyTypeObject PyTypeSNLBusNetBit;
+NAJA_PY_EXPORT extern PyTypeObject PyTypeSNLBusNetBit;
 
 extern PyObject*    PySNLBusNetBit_Link(naja::NL::SNLBusNetBit* n);
 extern void         PySNLBusNetBit_LinkPyType();

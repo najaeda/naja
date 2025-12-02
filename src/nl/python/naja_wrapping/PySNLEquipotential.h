@@ -6,6 +6,7 @@
 #define __PY_SNL_EQUIPOTENTIAL_H_
 
 #include <Python.h>
+#include "NajaPythonExport.h"
 
 namespace naja::NL {
   class SNLEquipotential;
@@ -18,7 +19,7 @@ typedef struct {
   naja::NL::SNLEquipotential* object_;
 } PySNLEquipotential;
 
-extern PyTypeObject PyTypeSNLEquipotential;
+NAJA_PY_EXPORT extern PyTypeObject PyTypeSNLEquipotential;
 
 extern PyObject*  PySNLEquipotential_Link(naja::NL::SNLEquipotential* equipotential);
 extern void       PySNLEquipotential_LinkPyType();

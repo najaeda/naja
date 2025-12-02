@@ -6,6 +6,7 @@
 #define __PY_NL_LIBRARIES_H_
 
 #include <Python.h>
+#include "NajaPythonExport.h"
 #include "NajaCollection.h"
 
 namespace naja::NL {
@@ -25,8 +26,8 @@ typedef struct {
   PyNLLibraries* container_;
 } PyNLLibrariesIterator;
 
-extern PyTypeObject PyTypeNLLibraries;
-extern PyTypeObject PyTypeNLLibrariesIterator;
+NAJA_PY_EXPORT extern PyTypeObject PyTypeNLLibraries;
+NAJA_PY_EXPORT extern PyTypeObject PyTypeNLLibrariesIterator;
 
 extern void PyNLLibraries_LinkPyType();
 

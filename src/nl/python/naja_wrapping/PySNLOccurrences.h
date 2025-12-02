@@ -6,6 +6,7 @@
 
 #include <Python.h>
 #include "NajaCollection.h"
+#include "NajaPythonExport.h"
 
 namespace naja::NL {
   class SNLOccurrence;
@@ -24,8 +25,8 @@ typedef struct {
   PySNLOccurrences* container_;
 } PySNLOccurrencesIterator;
 
-extern PyTypeObject PyTypeSNLOccurrences;
-extern PyTypeObject PyTypeSNLOccurrencesIterator;
+NAJA_PY_EXPORT extern PyTypeObject PyTypeSNLOccurrences;
+NAJA_PY_EXPORT extern PyTypeObject PyTypeSNLOccurrencesIterator;
 
 extern void PySNLOccurrences_LinkPyType();
 

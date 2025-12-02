@@ -7,6 +7,7 @@
 
 #include "PyInterface.h"
 #include "SNLTerm.h"
+#include "NajaPythonExport.h"
 
 namespace PYNAJA {
 
@@ -15,7 +16,7 @@ typedef struct {
   naja::NL::SNLTerm::Direction* object_;
 } PySNLTermDirection;
 
-extern PyTypeObject PyTypeSNLTermDirection;
+NAJA_PY_EXPORT extern PyTypeObject PyTypeSNLTermDirection;
 
 extern PyObject*    PySNLTermDirection_Link(naja::NL::SNLTerm::Direction*);
 extern void         PySNLTermDirection_LinkPyType();

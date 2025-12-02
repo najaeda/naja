@@ -6,6 +6,7 @@
 #define __PY_SNL_BIT_TERM_H_
 
 #include "PySNLTerm.h"
+#include "NajaPythonExport.h"
 #include "SNLBitTerm.h"
 
 namespace PYNAJA {
@@ -14,7 +15,7 @@ typedef struct {
   PySNLTerm parent_;
 } PySNLBitTerm;
 
-extern PyTypeObject PyTypeSNLBitTerm;
+NAJA_PY_EXPORT extern PyTypeObject PyTypeSNLBitTerm;
 
 extern PyObject*    PySNLBitTerm_Link(naja::NL::SNLBitTerm*);
 extern void         PySNLBitTerm_LinkPyType();

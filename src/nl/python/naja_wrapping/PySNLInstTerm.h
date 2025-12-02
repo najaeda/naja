@@ -7,6 +7,7 @@
 
 #include "PySNLNetComponent.h"
 #include "SNLInstTerm.h"
+#include "NajaPythonExport.h"
 
 namespace PYNAJA {
 
@@ -14,7 +15,7 @@ typedef struct {
   PySNLNetComponent parent_;
 } PySNLInstTerm;
 
-extern PyTypeObject PyTypeSNLInstTerm;
+NAJA_PY_EXPORT extern PyTypeObject PyTypeSNLInstTerm;
 
 extern PyObject* PySNLInstTerm_Link(naja::NL::SNLInstTerm*);
 extern void PySNLInstTerm_LinkPyType();

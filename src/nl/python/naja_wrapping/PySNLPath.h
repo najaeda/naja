@@ -6,6 +6,7 @@
 #define __PY_SNL_PATH_H_
 
 #include <Python.h>
+#include "NajaPythonExport.h"
 
 namespace naja::NL {
   class SNLPath;
@@ -18,7 +19,7 @@ typedef struct {
   naja::NL::SNLPath* object_;
 } PySNLPath;
 
-extern PyTypeObject PyTypeSNLPath;
+NAJA_PY_EXPORT extern PyTypeObject PyTypeSNLPath;
 
 extern PyObject*  PySNLPath_Link(const naja::NL::SNLPath& path);
 extern void       PySNLPath_LinkPyType();

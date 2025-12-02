@@ -469,10 +469,6 @@ void SNLCapnP::dumpInterface(const NLDB* snlDB, const std::filesystem::path& int
     S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 #endif
 
-  if (fd < 0) {
-    throw NLException("Failed to open interface file for writing");
-  }
-
   dumpInterface(snlDB, fd);
 
 #ifdef _WIN32
