@@ -19,7 +19,40 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  generate-parser:
+    concurrency:
+      group: "parser-generation-${{ github.run_id }}"
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    outputs:
+      artifact_name: parser-generated-sources
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Install flex & bison
+        run: |
+          sudo apt-get update && sudo apt-get install -yq libfl-dev
+
+      - name: Generate parser sources
+        run: |
+          cd thirdparty/naja-verilog
+          cmake -B build -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --config Release
+          mkdir -p ../../generated
+          cp -v build/src/VerilogParser.cpp build/src/VerilogParser.hpp build/src/VerilogScanner.cpp ../../generated
+          cp -v build/src/*.hh ../../generated
+          cp -v /usr/include/FlexLexer.h ../../generated
+
+      - name: Upload parser artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: parser-generated-sources
+          path: generated/*
+
   build_wheels:
+    needs: generate-parser
     name: Build wheel for cp${{ matrix.python }}-${{ matrix.platform_id }}-${{ matrix.manylinux_image }}
     runs-on: ${{ matrix.os }}
     strategy:
@@ -83,13 +116,29 @@ jobs:
             python: 313t
             platform_id: macosx_arm64
             free_threaded_support: True
+
+          # Windows x86_64 wheels
+          - os: windows-latest
+            python: 313
+            platform_id: win_amd64
+
     steps:
       # build steps
       - uses: actions/checkout@v4
         with:
-          submodules: recursive
-          fetch-depth: 0
-          fetch-tags: true
+          submodules: true
+      - name: Download parser-generated sources
+        if: runner.os == 'Windows'
+        uses: actions/download-artifact@v4
+        with:
+          name: parser-generated-sources
+          path: generated
+      - name: Install generated parser sources into tree
+        if: runner.os == 'Windows'
+        run: |
+          echo "Copying generated parser files into thirdparty/naja-verilog/src"
+          cp -R generated thirdparty/naja-verilog/src/
+          
       - name: Configure macOS Environment
         if: runner.os == 'macOS'
         run: |
@@ -108,6 +157,10 @@ jobs:
           CIBW_ARCHS: 'all'
           CIBW_MANYLINUX_X86_64_IMAGE: ${{ matrix.manylinux_image }}
           CIBW_MANYLINUX_I686_IMAGE: ${{ matrix.manylinux_image }}
+          CIBW_BEFORE_ALL_WINDOWS: "pwsh -File {project}/windows_setup.ps1"
+          CIBW_BEFORE_BUILD_WINDOWS: "pwsh -Command \"foreach($d in 'build','dist'){ if(Test-Path $d){ Remove-Item -Recurse -Force $d -ErrorAction SilentlyContinue } }\""
+          CIBW_CONFIG_SETTINGS_WINDOWS: >
+            cmake.args=-DCMAKE_TOOLCHAIN_FILE=C:/Users/runneradmin/vcpkg/scripts/buildsystems/vcpkg.cmake
           CIBW_TEST_REQUIRES: "pytest"
           CIBW_TEST_COMMAND: >
             bash -c '

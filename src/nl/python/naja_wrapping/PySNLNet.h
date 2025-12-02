@@ -6,6 +6,7 @@
 #define __PY_SNL_NET_H_
 
 #include "PySNLDesignObject.h"
+#include "NajaPythonExport.h"
 
 namespace naja::NL {
   class SNLNet;
@@ -17,7 +18,7 @@ typedef struct {
   PySNLDesignObject parent_;
 } PySNLNet;
 
-extern PyTypeObject PyTypeSNLNet;
+NAJA_PY_EXPORT extern PyTypeObject PyTypeSNLNet;
 
 extern PyObject*    PySNLNet_Link(naja::NL::SNLNet*);
 extern void         PySNLNet_LinkPyType();

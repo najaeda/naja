@@ -7,6 +7,7 @@
 
 #include <Python.h>
 #include "NajaCollection.h"
+#include "NajaPythonExport.h"
 
 namespace naja::NL {
   class NLDB;
@@ -25,8 +26,8 @@ typedef struct {
   PyNLDBs* container_;
 } PyNLDBsIterator;
 
-extern PyTypeObject PyTypeNLDBs;
-extern PyTypeObject PyTypeNLDBsIterator;
+NAJA_PY_EXPORT extern PyTypeObject PyTypeNLDBs;
+NAJA_PY_EXPORT extern PyTypeObject PyTypeNLDBsIterator;
 
 extern void PyNLDBs_LinkPyType();
 

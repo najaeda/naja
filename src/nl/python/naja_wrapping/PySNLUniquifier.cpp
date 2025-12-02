@@ -4,6 +4,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "PySNLUniquifier.h"
+
+#include "SNLUniquifier.h"
+
 #include "PyInterface.h"
 #include "PySNLInstances.h"
 #include "PySNLPath.h"

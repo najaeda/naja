@@ -5,6 +5,7 @@
 #pragma once
 
 #include <Python.h>
+#include "NajaPythonExport.h"
 
 namespace naja::NL {
   class SNLOccurrence;
@@ -17,7 +18,7 @@ typedef struct {
   naja::NL::SNLOccurrence* object_;
 } PySNLOccurrence;
 
-extern PyTypeObject PyTypeSNLOccurrence;
+NAJA_PY_EXPORT extern PyTypeObject PyTypeSNLOccurrence;
 
 extern PyObject*  PySNLOccurrence_Link(const naja::NL::SNLOccurrence& occurrence);
 extern void       PySNLOccurrence_LinkPyType();

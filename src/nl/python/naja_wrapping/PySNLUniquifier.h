@@ -6,7 +6,11 @@
 #define __PY_SNL_UNIQUIFIER_H_
 
 #include <Python.h>
-#include "SNLUniquifier.h"
+#include "NajaPythonExport.h"
+
+namespace naja::NL {
+  class SNLUniquifier;
+}
 
 namespace PYNAJA {
 
@@ -15,7 +19,7 @@ typedef struct {
   naja::NL::SNLUniquifier* object_;
 } PySNLUniquifier;
 
-extern PyTypeObject PyTypeSNLUniquifier;
+NAJA_PY_EXPORT extern PyTypeObject PyTypeSNLUniquifier;
 
 extern PyObject*  PySNLUniquifier_Link(const naja::NL::SNLUniquifier& uniquifier);
 extern void       PySNLUniquifier_LinkPyType();

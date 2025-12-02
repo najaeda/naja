@@ -50,6 +50,8 @@ else(BUILD_NAJA_PYTHON)
   )
 endif(BUILD_NAJA_PYTHON)
 
+target_compile_definitions(naja_python PRIVATE NAJA_PYTHON_EXPORTS)
+
 target_include_directories(naja_python
   PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
   PRIVATE ${Python3_INCLUDE_DIRS}

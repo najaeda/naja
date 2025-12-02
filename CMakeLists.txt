@@ -100,6 +100,10 @@ if(PROJECT_IS_TOP_LEVEL AND NOT BUILD_NAJA_PYTHON)
   enable_testing()
   add_subdirectory(test)
 endif()
+
+if(WIN32)
+  set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
+endif()
   
 if(BUILD_ONLY_DOC)
   option(BUILD_SPHINX_DOCUMENTATION "Build Sphinx documentation" OFF)

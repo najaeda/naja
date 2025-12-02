@@ -6,6 +6,7 @@
 #define __PY_SNL_BIT_TERMS_H_
 
 #include <Python.h>
+#include "NajaPythonExport.h"
 #include "NajaCollection.h"
 
 namespace naja::NL {
@@ -25,8 +26,8 @@ typedef struct {
   PySNLBitTerms* container_;
 } PySNLBitTermsIterator;
 
-extern PyTypeObject PyTypeSNLBitTerms;
-extern PyTypeObject PyTypeSNLBitTermsIterator;
+NAJA_PY_EXPORT extern PyTypeObject PyTypeSNLBitTerms;
+NAJA_PY_EXPORT extern PyTypeObject PyTypeSNLBitTermsIterator;
 
 extern void PySNLBitTerms_LinkPyType();
 

@@ -4,6 +4,9 @@
 
 #include "PySNLTerm.h"
 
+#include "SNLScalarTerm.h"
+#include "SNLBusTerm.h"
+
 #include "PyInterface.h"
 #include "PySNLBusTerm.h"
 #include "PySNLScalarTerm.h"

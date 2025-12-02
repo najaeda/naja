@@ -6,7 +6,11 @@
 #define __PY_SNL_DESIGN_OBJECT_H_
 
 #include "Python.h"
-#include "SNLDesignObject.h"
+#include "NajaPythonExport.h"
+
+namespace naja::NL {
+  class SNLDesignObject;
+}
 
 namespace PYNAJA {
 
@@ -15,7 +19,7 @@ typedef struct {
   naja::NL::SNLDesignObject* object_;
 } PySNLDesignObject;
 
-extern PyTypeObject PyTypeSNLDesignObject;
+NAJA_PY_EXPORT extern PyTypeObject PyTypeSNLDesignObject;
 
 extern void         PySNLDesignObject_LinkPyType();
 

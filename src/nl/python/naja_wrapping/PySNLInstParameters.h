@@ -7,6 +7,7 @@
 
 #include <Python.h>
 #include "NajaCollection.h"
+#include "NajaPythonExport.h"
 
 namespace naja::NL {
   class SNLInstParameter;
@@ -25,8 +26,8 @@ typedef struct {
   PySNLInstParameters* container_;
 } PySNLInstParametersIterator;
 
-extern PyTypeObject PyTypeSNLInstParameters;
-extern PyTypeObject PyTypeSNLInstParametersIterator;
+NAJA_PY_EXPORT extern PyTypeObject PyTypeSNLInstParameters;
+NAJA_PY_EXPORT extern PyTypeObject PyTypeSNLInstParametersIterator;
 
 extern void PySNLInstParameters_LinkPyType();
 

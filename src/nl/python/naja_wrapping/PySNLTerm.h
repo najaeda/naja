@@ -6,6 +6,7 @@
 #define __PY_SNL_TERM_H_
 
 #include "PySNLNetComponent.h"
+#include "NajaPythonExport.h"
 
 namespace naja::NL {
   class SNLTerm;
@@ -17,7 +18,7 @@ typedef struct {
   PySNLNetComponent parent_;
 } PySNLTerm;
 
-extern PyTypeObject PyTypeSNLTerm;
+NAJA_PY_EXPORT extern PyTypeObject PyTypeSNLTerm;
 
 extern PyObject* PySNLTerm_Link(naja::NL::SNLTerm*);
 extern void PySNLTerm_LinkPyType();

@@ -4,6 +4,8 @@
 
 #include "PySNLBusNetBit.h"
 
+#include "SNLBusNetBit.h"
+
 #include "PyInterface.h"
 #include "PySNLDesign.h"
 #include "PySNLBusNet.h"

@@ -6,7 +6,11 @@
 #define __PY_SNL_ATTRIBUTE_H_
 
 #include <Python.h>
-#include "SNLAttributes.h"
+#include "NajaPythonExport.h"
+
+namespace naja::NL {
+  class SNLAttribute;
+}
 
 namespace PYNAJA {
 
@@ -15,7 +19,7 @@ typedef struct {
   naja::NL::SNLAttribute* object_;
 } PySNLAttribute;
 
-extern PyTypeObject PyTypeSNLAttribute;
+NAJA_PY_EXPORT extern PyTypeObject PyTypeSNLAttribute;
 
 extern PyObject*  PySNLAttribute_Link(const naja::NL::SNLAttribute& attribute);
 extern void       PySNLAttribute_LinkPyType();
