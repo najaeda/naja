@@ -6,6 +6,7 @@
 #define __PY_NL_DB_H_
 
 #include <Python.h>
+#include "NajaPythonExport.h"
 #include "NLDB.h"
 
 namespace PYNAJA {
@@ -15,7 +16,7 @@ typedef struct {
   naja::NL::NLDB* object_;
 } PyNLDB;
 
-extern PyTypeObject PyTypeNLDB;
+NAJA_PY_EXPORT extern PyTypeObject PyTypeNLDB;
 
 extern PyObject*    PyNLDB_Link(naja::NL::NLDB* u);
 extern void         PyNLDB_LinkPyType();

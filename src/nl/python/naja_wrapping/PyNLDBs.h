@@ -6,6 +6,7 @@
 #define __PY_NL_DBS_H_
 
 #include <Python.h>
+#include "NajaPythonExport.h"
 #include "NajaCollection.h"
 
 namespace naja::NL {
@@ -25,8 +26,8 @@ typedef struct {
   PyNLDBs* container_;
 } PyNLDBsIterator;
 
-extern PyTypeObject PyTypeNLDBs;
-extern PyTypeObject PyTypeNLDBsIterator;
+NAJA_PY_EXPORT extern PyTypeObject PyTypeNLDBs;
+NAJA_PY_EXPORT extern PyTypeObject PyTypeNLDBsIterator;
 
 extern void PyNLDBs_LinkPyType();
 
