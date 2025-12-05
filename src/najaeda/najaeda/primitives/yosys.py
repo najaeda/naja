@@ -30,6 +30,14 @@ def constructXOR(lib):
     xor2.setTruthTable(0x6)
 
 
+def constructXNOR(lib):
+    xnor2 = naja.SNLDesign.createPrimitive(lib, "$_XNOR_")
+    naja.SNLScalarTerm.create(xnor2, naja.SNLTerm.Direction.Input, "A")
+    naja.SNLScalarTerm.create(xnor2, naja.SNLTerm.Direction.Input, "B")
+    naja.SNLScalarTerm.create(xnor2, naja.SNLTerm.Direction.Output, "Y")
+    xnor2.setTruthTable(0x9)
+
+
 def constructMUX(lib):
     mux2 = naja.SNLDesign.createPrimitive(lib, "$_MUX_")
     naja.SNLScalarTerm.create(mux2, naja.SNLTerm.Direction.Input, "A")
@@ -70,11 +78,27 @@ def constructDFFE_PN(lib):
 
 
 def constructDFF_PP0(lib):
-    dffe_pp0 = naja.SNLDesign.createPrimitive(lib, "$_DFF_PP0_")
-    naja.SNLScalarTerm.create(dffe_pp0, naja.SNLTerm.Direction.Input, "C")
-    naja.SNLScalarTerm.create(dffe_pp0, naja.SNLTerm.Direction.Input, "D")
-    naja.SNLScalarTerm.create(dffe_pp0, naja.SNLTerm.Direction.Output, "Q")
-    naja.SNLScalarTerm.create(dffe_pp0, naja.SNLTerm.Direction.Input, "R")
+    dff_pp0 = naja.SNLDesign.createPrimitive(lib, "$_DFF_PP0_")
+    naja.SNLScalarTerm.create(dff_pp0, naja.SNLTerm.Direction.Input, "C")
+    naja.SNLScalarTerm.create(dff_pp0, naja.SNLTerm.Direction.Input, "D")
+    naja.SNLScalarTerm.create(dff_pp0, naja.SNLTerm.Direction.Output, "Q")
+    naja.SNLScalarTerm.create(dff_pp0, naja.SNLTerm.Direction.Input, "R")
+
+
+def constructDFF_PN0(lib):
+    dff_pn0 = naja.SNLDesign.createPrimitive(lib, "$_DFF_PN0_")
+    naja.SNLScalarTerm.create(dff_pn0, naja.SNLTerm.Direction.Input, "C")
+    naja.SNLScalarTerm.create(dff_pn0, naja.SNLTerm.Direction.Input, "D")
+    naja.SNLScalarTerm.create(dff_pn0, naja.SNLTerm.Direction.Output, "Q")
+    naja.SNLScalarTerm.create(dff_pn0, naja.SNLTerm.Direction.Input, "R")
+
+
+def constructDFF_PN1(lib):
+    dff_pn1 = naja.SNLDesign.createPrimitive(lib, "$_DFF_PN1_")
+    naja.SNLScalarTerm.create(dff_pn1, naja.SNLTerm.Direction.Input, "C")
+    naja.SNLScalarTerm.create(dff_pn1, naja.SNLTerm.Direction.Input, "D")
+    naja.SNLScalarTerm.create(dff_pn1, naja.SNLTerm.Direction.Output, "Q")
+    naja.SNLScalarTerm.create(dff_pn1, naja.SNLTerm.Direction.Input, "R")
 
 
 def constructDFF_PP1(lib):
@@ -110,6 +134,33 @@ def constructDFFE_PP0N(lib):
     naja.SNLScalarTerm.create(dffe_pp0n, naja.SNLTerm.Direction.Input, "E")
     naja.SNLScalarTerm.create(dffe_pp0n, naja.SNLTerm.Direction.Output, "Q")
     naja.SNLScalarTerm.create(dffe_pp0n, naja.SNLTerm.Direction.Input, "R")
+
+
+def constructDFFE_PN0P(lib):
+    dffe_pn0p = naja.SNLDesign.createPrimitive(lib, "$_DFFE_PN0P_")
+    naja.SNLScalarTerm.create(dffe_pn0p, naja.SNLTerm.Direction.Input, "C")
+    naja.SNLScalarTerm.create(dffe_pn0p, naja.SNLTerm.Direction.Input, "D")
+    naja.SNLScalarTerm.create(dffe_pn0p, naja.SNLTerm.Direction.Input, "E")
+    naja.SNLScalarTerm.create(dffe_pn0p, naja.SNLTerm.Direction.Output, "Q")
+    naja.SNLScalarTerm.create(dffe_pn0p, naja.SNLTerm.Direction.Input, "R")
+
+
+def constructDFFE_PN0N(lib):
+    dffe_pn0n = naja.SNLDesign.createPrimitive(lib, "$_DFFE_PN0N_")
+    naja.SNLScalarTerm.create(dffe_pn0n, naja.SNLTerm.Direction.Input, "C")
+    naja.SNLScalarTerm.create(dffe_pn0n, naja.SNLTerm.Direction.Input, "D")
+    naja.SNLScalarTerm.create(dffe_pn0n, naja.SNLTerm.Direction.Input, "E")
+    naja.SNLScalarTerm.create(dffe_pn0n, naja.SNLTerm.Direction.Output, "Q")
+    naja.SNLScalarTerm.create(dffe_pn0n, naja.SNLTerm.Direction.Input, "R")
+
+
+def constructDFFE_PN1P(lib):
+    dffe_pn1p = naja.SNLDesign.createPrimitive(lib, "$_DFFE_PN1P_")
+    naja.SNLScalarTerm.create(dffe_pn1p, naja.SNLTerm.Direction.Input, "C")
+    naja.SNLScalarTerm.create(dffe_pn1p, naja.SNLTerm.Direction.Input, "D")
+    naja.SNLScalarTerm.create(dffe_pn1p, naja.SNLTerm.Direction.Input, "E")
+    naja.SNLScalarTerm.create(dffe_pn1p, naja.SNLTerm.Direction.Output, "Q")
+    naja.SNLScalarTerm.create(dffe_pn1p, naja.SNLTerm.Direction.Input, "R")
 
 
 def constructSDFF_PP0(lib):
@@ -156,6 +207,15 @@ def constructSDFFCE_PP0P(lib):
     naja.SNLScalarTerm.create(sdffce_pp0p, naja.SNLTerm.Direction.Input, "R")
 
 
+def constructSDFFCE_PP1P(lib):
+    sdffce_pp1p = naja.SNLDesign.createPrimitive(lib, "$_SDFFCE_PP1P_")
+    naja.SNLScalarTerm.create(sdffce_pp1p, naja.SNLTerm.Direction.Input, "C")
+    naja.SNLScalarTerm.create(sdffce_pp1p, naja.SNLTerm.Direction.Input, "D")
+    naja.SNLScalarTerm.create(sdffce_pp1p, naja.SNLTerm.Direction.Input, "E")
+    naja.SNLScalarTerm.create(sdffce_pp1p, naja.SNLTerm.Direction.Output, "Q")
+    naja.SNLScalarTerm.create(sdffce_pp1p, naja.SNLTerm.Direction.Input, "R")
+
+
 def constructSDFFCE_PN0N(lib):
     sdffce_pn0n = naja.SNLDesign.createPrimitive(lib, "$_SDFFCE_PN0N_")
     naja.SNLScalarTerm.create(sdffce_pn0n, naja.SNLTerm.Direction.Input, "C")
@@ -165,25 +225,42 @@ def constructSDFFCE_PN0N(lib):
     naja.SNLScalarTerm.create(sdffce_pn0n, naja.SNLTerm.Direction.Input, "R")
 
 
+def constructSDFFCE_PN1P(lib):
+    sdffce_pn1p = naja.SNLDesign.createPrimitive(lib, "$_SDFFCE_PN1P_")
+    naja.SNLScalarTerm.create(sdffce_pn1p, naja.SNLTerm.Direction.Input, "C")
+    naja.SNLScalarTerm.create(sdffce_pn1p, naja.SNLTerm.Direction.Input, "D")
+    naja.SNLScalarTerm.create(sdffce_pn1p, naja.SNLTerm.Direction.Input, "E")
+    naja.SNLScalarTerm.create(sdffce_pn1p, naja.SNLTerm.Direction.Output, "Q")
+    naja.SNLScalarTerm.create(sdffce_pn1p, naja.SNLTerm.Direction.Input, "R")
+
+
 def load(db):
     logging.info("Loading Yosys primitives")
     lib = naja.NLLibrary.createPrimitives(db, "yosys")
     constructAND(lib)
     constructOR(lib)
     constructXOR(lib)
+    constructXNOR(lib)
     constructMUX(lib)
     constructNOT(lib)
     constructDFFP(lib)
     constructDFFE_PP(lib)
     constructDFFE_PN(lib)
     constructDFF_PP0(lib)
+    constructDFF_PN0(lib)
+    constructDFF_PN1(lib)
     constructDFF_PP1(lib)
     constructDFFE_PP0P(lib)
     constructDFFE_PP1P(lib)
     constructDFFE_PP0N(lib)
+    constructDFFE_PN0P(lib)
+    constructDFFE_PN0N(lib)
+    constructDFFE_PN1P(lib)
     constructSDFF_PP0(lib)
     constructSDFFE_PP0N(lib)
     constructSDFFE_PN0P(lib)
     constructSDFFE_PN0N(lib)
     constructSDFFCE_PP0P(lib)
+    constructSDFFCE_PP1P(lib)
     constructSDFFCE_PN0N(lib)
+    constructSDFFCE_PN1P(lib)
