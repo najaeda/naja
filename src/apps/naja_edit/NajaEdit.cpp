@@ -474,9 +474,9 @@ int main(int argc, char* argv[]) {
       }
     }
   } catch (const NLException& e) {
-    //SPDLOG_CRITICAL("Caught SNL error: {}\n{}",
-    //  e.what(), e.trace().to_string()); 
-    SPDLOG_CRITICAL("Caught SNL error: {}\n", e.what());
+    SPDLOG_CRITICAL("Caught Naja error: {}\n{}",
+      e.what(), e.trace().to_string()); 
+    //SPDLOG_CRITICAL("Caught SNL error: {}\n", e.what());
     std::exit(EXIT_FAILURE);
   }
   const auto najaEditEnd{std::chrono::steady_clock::now()};
