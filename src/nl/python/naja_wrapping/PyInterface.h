@@ -7,6 +7,7 @@
 
 #include <iostream>
 #include <sstream>
+#include <format>
 
 #define PY_SSIZE_T_CLEAN /* Make "s#" use Py_ssize_t rather than int. */
 #include <Python.h>
