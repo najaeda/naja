@@ -4,20 +4,7 @@
 
 import logging
 from najaeda import naja
-
-
-def constructSequentialPrimitive(design, clk):
-    input_terms = []
-    output_terms = []
-    for term in design.getBitTerms():
-        if term == clk:
-            pass
-        if term.getDirection() == naja.SNLTerm.Direction.Input:
-            input_terms.append(term)
-        elif term.getDirection() == naja.SNLTerm.Direction.Output:
-            output_terms.append(term)
-    naja.SNLDesign.addClockToOutputsArcs(clk, output_terms)
-    naja.SNLDesign.addInputsToClockArcs(input_terms, clk)
+from . import utils
 
 
 def constructIBUF(lib):
@@ -111,7 +98,7 @@ def constructDSP48E1(lib):
     naja.SNLParameter.create_boolean(dsp48e1, "USE_DPORT", False)
     naja.SNLParameter.create_string(dsp48e1, "USE_MULT", "MULTIPLY")
     naja.SNLParameter.create_string(dsp48e1, "USE_SIMD", "ONE48")
-    constructSequentialPrimitive(dsp48e1, clk)
+    utils.constructSequentialPrimitive(dsp48e1, clk)
 
 
 def constructINV(lib):
