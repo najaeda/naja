@@ -7,7 +7,6 @@
 
 #include <iostream>
 #include <sstream>
-#include <format>
 
 #define PY_SSIZE_T_CLEAN /* Make "s#" use Py_ssize_t rather than int. */
 #include <Python.h>
@@ -101,9 +100,10 @@ PyObject* richCompare(T left, T right, int op) {
 
 #define NLCATCH \
   } catch (const naja::NL::NLException& e) { \
-    auto error = std::format("Naja error: {}\n{}", \
-      e.getReason(), e.trace().to_string()); \
-    setError(error); \
+    std::ostringstream error; \
+    error << "Naja NL error: " << e.getReason() \
+      << "\n" << e.trace().to_string(); \
+    setError(error.str()); \
     return nullptr; \
   } catch (const std::exception& e) {                   \
     setError("Exception " + std::string(e.what()));     \
