@@ -16,7 +16,6 @@
 
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
-#include <argparse/argparse.hpp>
 
 #include "NajaVersion.h"
 #include "NajaPerf.h"
