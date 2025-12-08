@@ -55,6 +55,15 @@ static PyObject* getGitHash(PyObject* self, PyObject* args) {
   return PyUnicode_FromString(naja::NAJA_GIT_HASH.c_str());
 }
 
+static PyObject* logInfo(PyObject* self, PyObject* args) {
+  const char* message;
+  if (!PyArg_ParseTuple(args, "s", &message)) {
+    return nullptr;
+  }
+  SPDLOG_INFO(std::string(message));
+  Py_RETURN_NONE;
+}
+
 static PyMethodDef NajaMethods[] = {
   { "getVersion", getVersion, METH_NOARGS, "get the version of Naja" },
   { "getGitHash", getGitHash, METH_NOARGS, "get the Naja git hash" },
