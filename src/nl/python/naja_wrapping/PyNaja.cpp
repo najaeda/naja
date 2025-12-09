@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#include <spdlog/spdlog.h>
 
 #include "PyNLUniverse.h"
 #include "PyNLDB.h"
@@ -57,16 +58,30 @@ static PyObject* getGitHash(PyObject* self, PyObject* args) {
 
 static PyObject* logInfo(PyObject* self, PyObject* args) {
   const char* message;
+
   if (!PyArg_ParseTuple(args, "s", &message)) {
+    setError("Failed to parse arguments in logInfo");
     return nullptr;
   }
-  SPDLOG_INFO(std::string(message));
+  spdlog::info(std::string(message));
+  Py_RETURN_NONE;
+}
+
+static PyObject* logCritical(PyObject* self, PyObject* args) {
+  const char* message;
+  if (!PyArg_ParseTuple(args, "s", &message)) {
+    setError("Failed to parse arguments in logCritical");
+    return nullptr;
+  }
+  spdlog::critical(std::string(message));
   Py_RETURN_NONE;
 }
 
 static PyMethodDef NajaMethods[] = {
   { "getVersion", getVersion, METH_NOARGS, "get the version of Naja" },
   { "getGitHash", getGitHash, METH_NOARGS, "get the Naja git hash" },
+  { "logInfo", logInfo, METH_VARARGS, "log an info message" },
+  { "logCritical", logCritical, METH_VARARGS, "log a critical message" },
   {NULL, NULL, 0, NULL}        /* Sentinel */
 };
 
