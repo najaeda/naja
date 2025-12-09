@@ -68,6 +68,8 @@ static PyObject* PySNLEquipotential_dumpDotFile(PySNLEquipotential* self, PyObje
 
 GetContainerMethod(SNLEquipotential, SNLBitTerm*, SNLBitTerms, Terms)
 GetContainerMethod(SNLEquipotential, SNLOccurrence, SNLOccurrences, InstTermOccurrences)
+GetBoolAttribute(SNLEquipotential, isConst0)
+GetBoolAttribute(SNLEquipotential, isConst1)
 
 //LCOV_EXCL_START
 ManagedTypeLinkCreateMethod(SNLEquipotential) 
@@ -75,12 +77,16 @@ ManagedTypeLinkCreateMethod(SNLEquipotential)
 ManagedTypeDeallocMethod(SNLEquipotential)
 
 PyMethodDef PySNLEquipotential_Methods[] = {
-  {"getTerms", (PyCFunction)PySNLEquipotential_getTerms, METH_NOARGS,
-    "Returns the equi top terms."},
-  {"getInstTermOccurrences", (PyCFunction)PySNLEquipotential_getInstTermOccurrences, METH_NOARGS,
-    "Returns the equi inst terms."},
-  {"dumpDotFile", (PyCFunction)PySNLEquipotential_dumpDotFile, METH_VARARGS,
-    "Dump the dot file."},
+  {  "getTerms", (PyCFunction)PySNLEquipotential_getTerms, METH_NOARGS,
+     "Returns the equi top terms."},
+  {  "getInstTermOccurrences", (PyCFunction)PySNLEquipotential_getInstTermOccurrences, METH_NOARGS,
+     "Returns the equi inst terms."},
+  {  "isConst0", (PyCFunction)PySNLEquipotential_isConst0, METH_NOARGS,
+     "Returns True if the equipotential is constant 0."},
+  {  "isConst1", (PyCFunction)PySNLEquipotential_isConst1, METH_NOARGS,
+     "Returns True if the equipotential is constant 1."},
+  {  "dumpDotFile", (PyCFunction)PySNLEquipotential_dumpDotFile, METH_VARARGS,
+     "Dump the dot file."},
   {NULL, NULL, 0, NULL} /* sentinel */
 };
 

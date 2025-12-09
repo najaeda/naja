@@ -218,7 +218,7 @@ class Equipotential:
         :rtype: bool
         """
         if self.equi is not None:
-            return self.equi.isConstant0()
+            return self.equi.isConst0()
         return False
     
     def is_const1(self) -> bool:
@@ -228,7 +228,7 @@ class Equipotential:
         :rtype: bool
         """
         if self.equi is not None:
-            return self.equi.isConstant1()
+            return self.equi.isConst1()
         return False
 
 
