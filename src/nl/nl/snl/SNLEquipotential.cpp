@@ -140,6 +140,14 @@ SNLEquipotential::SNLEquipotential(const SNLOccurrence& netComponentOccurrence) 
   extractor.extractNetFromNetComponentOccurrence(netComponentOccurrence, true);
 }
 
+bool SNLEquipotential::isConst0() const {
+  return type_.isConst0();
+}
+
+bool SNLEquipotential::isConst1() const {
+  return type_.isConst1();
+}
+
 std::string SNLEquipotential::getString() const {
   std::ostringstream stream;
   stream << "SNLEquipotential: " << type_.getString() << ", ";

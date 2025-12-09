@@ -30,6 +30,8 @@ class SNLEquipotential {
     NajaCollection<SNLBitTerm*> getTerms() const;
     NajaCollection<SNLOccurrence> getInstTermOccurrences() const;
     SNLNet::Type getType() const { return type_; }
+    bool isConst0() const;
+    bool isConst1() const;
     std::string getString() const;
     //Comparators
     bool operator==(const SNLEquipotential& other) const {
