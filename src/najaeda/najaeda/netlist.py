@@ -201,6 +201,36 @@ class Equipotential:
                 if direction != naja.SNLTerm.Direction.Output:
                     yield Term([], term)
 
+    def is_const(self) -> bool:
+        """Check if this equipotential is a constant generator.
+
+        :return: True if this equipotential is a constant generator.
+        :rtype: bool
+        """
+        if self.equi is not None:
+            return self.equi.isConstant()
+        return False
+    
+    def is_const0(self) -> bool:
+        """Check if this equipotential is a constant 0 generator.
+
+        :return: True if this equipotential is a constant 0 generator.
+        :rtype: bool
+        """
+        if self.equi is not None:
+            return self.equi.isConstant0()
+        return False
+    
+    def is_const1(self) -> bool:
+        """Check if this equipotential is a constant 1 generator.
+
+        :return: True if this equipotential is a constant 1 generator.
+        :rtype: bool
+        """
+        if self.equi is not None:
+            return self.equi.isConstant1()
+        return False
+
 
 class Net:
     class Type(Enum):
@@ -348,6 +378,26 @@ class Net:
             return self.net.isConstant()
         else:
             return all(net.isConstant() for net in self.net_concat)
+
+    def is_const0(self) -> bool:
+        """
+        :return: True if the net is a constant 0 generator.
+        :rtype: bool
+        """
+        if hasattr(self, "net"):
+            return self.net.isConstant0()
+        else:
+            return all(net.isConstant0() for net in self.net_concat)
+
+    def is_const1(self) -> bool:
+        """
+        :return: True if the net is a constant 1 generator.
+        :rtype: bool
+        """
+        if hasattr(self, "net"):
+            return self.net.isConstant1()
+        else:
+            return all(net.isConstant1() for net in self.net_concat)
 
     def set_type(self, net_type: Type):
         """
