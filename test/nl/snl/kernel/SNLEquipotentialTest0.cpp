@@ -19,14 +19,14 @@ using namespace naja::NL;
 #define SNL_BENCHS_PATH "Undefined"
 #endif
 
-class SNLEquipotentialTest: public ::testing::Test {
+class SNLEquipotentialTest0: public ::testing::Test {
   protected:
     void SetUp() override {
       auto universe = NLUniverse::create();
       db_ = NLDB::create(universe);
 
       auto equipotentialDesignPath = std::filesystem::path(SNL_BENCHS_PATH);
-      equipotentialDesignPath /= "equipotential_design.py";
+      equipotentialDesignPath /= "equipotential_design0.py";
       SNLPyLoader::loadDB(db_, equipotentialDesignPath);
       
     }
@@ -36,7 +36,7 @@ class SNLEquipotentialTest: public ::testing::Test {
     NLDB* db_;
 };
 
-TEST_F(SNLEquipotentialTest, test) {
+TEST_F(SNLEquipotentialTest0, test) {
   ASSERT_NE(db_, nullptr);
   auto lib = db_->getLibrary(NLID::LibraryID(1));
   ASSERT_NE(lib, nullptr);
@@ -105,16 +105,16 @@ TEST_F(SNLEquipotentialTest, test) {
   EXPECT_EQ(equipotentialTopOut.getInstTermOccurrences() ==  naja::NajaCollection(new naja::NajaSTLCollection(&instTermOccurrences1)), false);
   EXPECT_EQ(equipotentialTopOut.getInstTermOccurrences() == naja::NajaCollection(new naja::NajaSTLCollection(&instTermOccurrences2)), false);
 
-  //Test compaerators
-  EXPECT_EQ(equipotentialTopI0 == equipotentialTopI1, true);
-  EXPECT_EQ(equipotentialTopI0 == equipotentialTopOut, true);
-  EXPECT_EQ(equipotentialTopI1 == equipotentialTopOut, true);
-  EXPECT_EQ(equipotentialTopI0 <= equipotentialTopI1, true);
-  EXPECT_EQ(equipotentialTopI0 <= equipotentialTopOut, true);
-  EXPECT_EQ(equipotentialTopI1 <= equipotentialTopOut, true);
-  EXPECT_EQ(equipotentialTopI0 >= equipotentialTopI1, true);
-  EXPECT_EQ(equipotentialTopI0 >= equipotentialTopOut, true);
-  EXPECT_EQ(equipotentialTopI1 >= equipotentialTopOut, true);
+  //Test comparators
+  EXPECT_EQ(equipotentialTopI0, equipotentialTopI1);
+  EXPECT_EQ(equipotentialTopI0, equipotentialTopOut);
+  EXPECT_EQ(equipotentialTopI1, equipotentialTopOut);
+  EXPECT_LE(equipotentialTopI0, equipotentialTopI1);
+  EXPECT_LE(equipotentialTopI0, equipotentialTopOut);
+  EXPECT_LE(equipotentialTopI1, equipotentialTopOut);
+  EXPECT_GE(equipotentialTopI0, equipotentialTopI1);
+  EXPECT_GE(equipotentialTopI0, equipotentialTopOut);
+  EXPECT_GE(equipotentialTopI1, equipotentialTopOut);
   EXPECT_EQ(equipotentialTopI0 < equipotentialTopI1, false);
   EXPECT_EQ(equipotentialTopI0 < equipotentialTopOut, false);
   EXPECT_EQ(equipotentialTopI1 < equipotentialTopOut, false);

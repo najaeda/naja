@@ -52,7 +52,6 @@ PyMethodDef PySNLBitNet_Methods[] = {
     "get the type of this Net."},
   { "getTypeAsString", (PyCFunction)PySNLBitNet_getTypeAsString, METH_NOARGS,
     "get the type of this Net as a string."},
-
   { "getComponents", (PyCFunction)PySNLBitNet_getComponents, METH_NOARGS,
     "get a container of Net Components."},
   { "getInstTerms", (PyCFunction)PySNLBitNet_getInstTerms, METH_NOARGS,
