@@ -452,52 +452,49 @@ void DNLIso::addReader(DNLID reader) {
 void DNLIso::display(std::ostream& stream) const {
   for (auto& driver : drivers_) {
     if ((*get()).getDNLTerminalFromID(driver).isTopPort()) {
-      stream << "driver top port "
+      stream << "driver top port: "
              << (*get())
                     .getDNLTerminalFromID(driver)
                     .getSnlBitTerm()
-                    ->getName()
-                    .getString()
+                    ->getString()
              << std::endl;
       continue;
     }
     stream
-        << "driver instance "
+        << "driver instance: "
         << (*get())
                .getDNLTerminalFromID(driver)
                .getSnlTerm()
                ->getInstance()
-               ->getName()
-               .getString()
+               ->getString()
         << std::endl
         << (*get()).getDNLTerminalFromID(driver).getDNLInstance().getFullPath()
         << std::endl;
     ;
-    stream << "driver "
+    stream << "driver: "
            << (*get()).getDNLTerminalFromID(driver).getSnlTerm()->getString()
            << std::endl;
     stream
-        << "driver "
+        << "driver: "
         << (*get()).getDNLTerminalFromID(driver).getSnlTerm()->getDescription()
         << std::endl;
   }
   for (auto& reader : readers_) {
     if ((*get()).getDNLTerminalFromID(reader).isTopPort()) {
-      stream << "reader top port "
+      stream << "reader top port: "
              << (*get())
                     .getDNLTerminalFromID(reader)
                     .getSnlBitTerm()
-                    ->getName()
-                    .getString()
+                    ->getString()
              << std::endl;
       continue;
     }
     stream
-        << "reader instance"
+        << "reader instance: "
         << (*get()).getDNLTerminalFromID(reader).getDNLInstance().getFullPath()
         << std::endl;
     ;
-    stream << "reader"
+    stream << "reader: "
            << (*get()).getDNLTerminalFromID(reader).getSnlTerm()->getString()
            << std::endl;
     ;
