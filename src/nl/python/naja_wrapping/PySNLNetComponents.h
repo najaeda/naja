@@ -7,6 +7,7 @@
 
 #include <Python.h>
 #include "NajaCollection.h"
+#include "NajaPythonExport.h"
 
 namespace naja::NL {
   class SNLNetComponent;
@@ -25,8 +26,8 @@ typedef struct {
   PySNLNetComponents* container_;
 } PySNLNetComponentsIterator;
 
-extern PyTypeObject PyTypeSNLNetComponents;
-extern PyTypeObject PyTypeSNLNetComponentsIterator;
+NAJA_PY_EXPORT extern PyTypeObject PyTypeSNLNetComponents;
+NAJA_PY_EXPORT extern PyTypeObject PyTypeSNLNetComponentsIterator;
 
 extern void PySNLNetComponents_LinkPyType();
 

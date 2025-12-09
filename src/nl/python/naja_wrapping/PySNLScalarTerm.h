@@ -6,7 +6,11 @@
 #define __PY_SNL_SCALAR_TERM_H_
 
 #include "PySNLBitTerm.h"
-#include "SNLScalarTerm.h"
+#include "NajaPythonExport.h"
+
+namespace naja::NL {
+  class SNLScalarTerm;
+}
 
 namespace PYNAJA {
 
@@ -14,7 +18,7 @@ typedef struct {
   PySNLBitTerm parent_;
 } PySNLScalarTerm;
 
-extern PyTypeObject PyTypeSNLScalarTerm;
+NAJA_PY_EXPORT extern PyTypeObject PyTypeSNLScalarTerm;
 
 extern PyObject*    PySNLScalarTerm_Link(naja::NL::SNLScalarTerm* t);
 extern void         PySNLScalarTerm_LinkPyType();

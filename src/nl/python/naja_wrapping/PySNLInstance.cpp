@@ -5,6 +5,7 @@
 #include "PySNLInstance.h"
 
 #include "SNLInstance.h"
+#include "SNLInstTerm.h"
 
 #include "PyInterface.h"
 

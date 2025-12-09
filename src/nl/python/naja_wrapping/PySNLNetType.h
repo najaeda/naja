@@ -7,6 +7,7 @@
 
 #include "PyInterface.h"
 #include "SNLNet.h"
+#include "NajaPythonExport.h"
 
 namespace PYNAJA {
 
@@ -15,7 +16,7 @@ typedef struct {
   naja::NL::SNLNet::Type* object_;
 } PySNLNetType;
 
-extern PyTypeObject PyTypeSNLNetType;
+NAJA_PY_EXPORT extern PyTypeObject PyTypeSNLNetType;
 
 extern PyObject*    PySNLNetType_Link(naja::NL::SNLNet::Type*);
 extern void         PySNLNetType_LinkPyType();

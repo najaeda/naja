@@ -7,6 +7,7 @@
 
 #include <Python.h>
 #include "NajaCollection.h"
+#include "NajaPythonExport.h"
 
 namespace naja::NL {
   class SNLScalarTerm;
@@ -25,8 +26,8 @@ typedef struct {
   PySNLScalarTerms* container_;
 } PySNLScalarTermsIterator;
 
-extern PyTypeObject PyTypeSNLScalarTerms;
-extern PyTypeObject PyTypeSNLScalarTermsIterator;
+NAJA_PY_EXPORT extern PyTypeObject PyTypeSNLScalarTerms;
+NAJA_PY_EXPORT extern PyTypeObject PyTypeSNLScalarTermsIterator;
 
 extern void PySNLScalarTerms_LinkPyType();
 

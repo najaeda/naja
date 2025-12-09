@@ -7,6 +7,7 @@
 
 #include <Python.h>
 #include "NajaCollection.h"
+#include "NajaPythonExport.h"
 
 namespace naja::NL {
   class SNLInstTerm;
@@ -25,8 +26,8 @@ typedef struct {
   PySNLInstTerms* container_;
 } PySNLInstTermsIterator;
 
-extern PyTypeObject PyTypeSNLInstTerms;
-extern PyTypeObject PyTypeSNLInstTermsIterator;
+NAJA_PY_EXPORT extern PyTypeObject PyTypeSNLInstTerms;
+NAJA_PY_EXPORT extern PyTypeObject PyTypeSNLInstTermsIterator;
 
 extern void PySNLInstTerms_LinkPyType();
 

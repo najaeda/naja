@@ -132,7 +132,8 @@ class SNLPath {
 
     std::string getDescription(const char separator='/') const;
 
-    std::vector<NLID::DesignObjectID> getPathIDs() const;
+    std::vector<NLID::DesignObjectID> getInstanceIDs() const;
+    std::vector<SNLInstance*> getInstances() const;
 
     PathStringDescriptor getPathDescriptor() const;
 

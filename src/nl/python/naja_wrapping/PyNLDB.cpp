@@ -5,25 +5,24 @@
 
 #include "PyNLDB.h"
 
-#include "PyInterface.h"
-#include "PyNLUniverse.h"
-#include "PyNLLibraries.h"
-#include "PyNLLibrary.h"
-
-#include "PySNLDesign.h"
-
-#include "NLDB.h"
-
 #include <Python.h>
 #include <filesystem>
+#include <fstream>
+#include <iostream>
+
+#include "NLUniverse.h"
+#include "NLDB.h"
 #include "SNLCapnP.h"
 #include "SNLLibertyConstructor.h"
 #include "SNLUtils.h"
 #include "SNLVRLConstructor.h"
 #include "SNLVRLDumper.h"
 
-#include <fstream>
-#include <iostream>
+#include "PyInterface.h"
+#include "PyNLUniverse.h"
+#include "PyNLLibraries.h"
+#include "PyNLLibrary.h"
+#include "PySNLDesign.h"
 
 namespace PYNAJA {
 
@@ -187,7 +186,18 @@ PyObject* PyNLDB_loadVerilog(PyNLDB* self, PyObject* args, PyObject* kwargs) {
     const std::filesystem::path path(pathStr);
     inputPaths.push_back(path);
   }
-  constructor.construct(inputPaths);
+  try {
+    constructor.construct(inputPaths);
+  } catch (const std::exception& e) {
+    const auto location = constructor.getCurrentLocation();
+    std::ostringstream error;
+    error << "Error while parsing Verilog: "
+      << location.currentPath_.string() << ":"
+      << location.line_ << ":"
+      << location.column_ << ": ";
+    setError(error.str() + e.what());
+    return nullptr;
+  }
   if (not keep_assigns) {
     db->mergeAssigns();
   }

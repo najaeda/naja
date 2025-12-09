@@ -6,7 +6,11 @@
 #define __PY_SNL_SCALAR_NET_H_
 
 #include "PySNLBitNet.h"
-#include "SNLScalarNet.h"
+#include "NajaPythonExport.h"
+
+namespace naja::NL {
+  class SNLScalarNet;
+}
 
 namespace PYNAJA {
 
@@ -14,7 +18,7 @@ typedef struct {
   PySNLBitNet parent_;
 } PySNLScalarNet;
 
-extern PyTypeObject PyTypeSNLScalarNet;
+NAJA_PY_EXPORT extern PyTypeObject PyTypeSNLScalarNet;
 
 extern PyObject*    PySNLScalarNet_Link(naja::NL::SNLScalarNet* n);
 extern void         PySNLScalarNet_LinkPyType();

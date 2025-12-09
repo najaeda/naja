@@ -4,6 +4,9 @@
 
 #include "PySNLBitNet.h"
 
+#include "SNLScalarNet.h"
+#include "SNLBusNetBit.h"
+
 #include "PyInterface.h"
 #include "PySNLScalarNet.h"
 #include "PySNLBusNetBit.h"

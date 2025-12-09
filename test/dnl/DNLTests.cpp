@@ -9,8 +9,7 @@
 
 #include "NLException.h"
 #include "NLUniverse.h"
-#include "SNLBitNetOccurrence.h"
-#include "SNLBitTermOccurrence.h"
+#include "SNLOccurrence.h"
 #include "SNLEquipotential.h"
 #include "SNLInstTerm.h"
 #include "SNLPath.h"
@@ -819,7 +818,7 @@ TEST_F(DNLTests,
   }
   std::reverse(stringsPath.begin(), stringsPath.end());
   naja::NL::SNLPath snlPath(dnl->getTop().getSNLModel(), stringsPath);
-  naja::NL::SNLNetComponentOccurrence occurrence(
+  naja::NL::SNLOccurrence occurrence(
       snlPath, dnl->getTop()
                    .getChildInstance(subinst)
                    .getTerminalFromBitTerm(subinTerm)

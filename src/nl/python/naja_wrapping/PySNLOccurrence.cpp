@@ -8,6 +8,7 @@
 #include "SNLDesignObject.h"
 #include "PySNLDesignObject.h"
 #include "PySNLPath.h"
+#include "PySNLInstTerm.h"
 #include "SNLDesignObject.h"
 #include "SNLPath.h"
 #include "SNLOccurrence.h"
@@ -52,7 +53,17 @@ ManagedTypeLinkCreateMethod(SNLOccurrence)
 //LCOV_EXCL_STOP
 ManagedTypeDeallocMethod(SNLOccurrence)
 
+GetObjectMethod(SNLOccurrence, SNLNetComponent, getNetComponent)
+GetObjectMethod(SNLOccurrence, SNLInstTerm, getInstTerm)
+GetObjectMethod(SNLOccurrence, SNLPath, getPath)
+
 PyMethodDef PySNLOccurrence_Methods[] = {
+  { "getNetComponent", (PyCFunction)PySNLOccurrence_getNetComponent, METH_NOARGS,
+    "get the SNLNetComponent of the SNLOccurrence."},
+  { "getInstTerm", (PyCFunction)PySNLOccurrence_getInstTerm, METH_NOARGS,
+    "get the SNLInstTerm of the SNLOccurrence."},
+  { "getPath", (PyCFunction)PySNLOccurrence_getPath, METH_NOARGS,
+    "get the SNLPath of the SNLInstTermOccurrence."},
   {NULL, NULL, 0, NULL} /* sentinel */
 };
 

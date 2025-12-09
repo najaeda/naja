@@ -6,6 +6,7 @@
 #define __PY_SNL_BITNETS_H_
 
 #include <Python.h>
+#include "NajaPythonExport.h"
 #include "NajaCollection.h"
 
 namespace naja::NL {
@@ -25,8 +26,8 @@ typedef struct {
   PySNLBitNets* container_;
 } PySNLBitNetsIterator;
 
-extern PyTypeObject PyTypeSNLBitNets;
-extern PyTypeObject PyTypeSNLBitNetsIterator;
+NAJA_PY_EXPORT extern PyTypeObject PyTypeSNLBitNets;
+NAJA_PY_EXPORT extern PyTypeObject PyTypeSNLBitNetsIterator;
 
 extern void PySNLBitNets_LinkPyType();
 

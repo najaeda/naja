@@ -21,7 +21,7 @@ using namespace naja::NL;
 #define SNL_VRL_BENCHMARKS_PATH "Undefined"
 #endif
 
-class SNLVRLConstructorTestAutoBlackBox1: public ::testing::Test {
+class SNLVRLConstructorTestAutoBlackBox2: public ::testing::Test {
   protected:
     void SetUp() override {
       NLUniverse* universe = NLUniverse::create();
@@ -38,19 +38,17 @@ class SNLVRLConstructorTestAutoBlackBox1: public ::testing::Test {
     NLLibrary*      library_;
 };
 
-TEST_F(SNLVRLConstructorTestAutoBlackBox1, test0) {
+TEST_F(SNLVRLConstructorTestAutoBlackBox2, test0) {
   auto db = NLDB::create(NLUniverse::get());
   SNLVRLConstructor constructor(library_);
   constructor.config_.allowUnknownDesigns_ = true;
   std::filesystem::path benchmarksPath(SNL_VRL_BENCHMARKS_PATH);
-  constructor.construct(benchmarksPath/"auto_blackbox_test1.v");
-  auto test1 = library_->getSNLDesign(NLName("test1"));
-
-  ASSERT_NE(nullptr, test1);
+  constructor.construct(benchmarksPath/"auto_blackbox_test2.v");
+  auto test2 = library_->getSNLDesign(NLName("test2"));
 
   using Instances = std::vector<SNLInstance*>;
-  Instances instances(test1->getInstances().begin(), test1->getInstances().end());
-  ASSERT_EQ(2, instances.size());
+  Instances instances(test2->getInstances().begin(), test2->getInstances().end());
+  ASSERT_EQ(1, instances.size());
   auto ins0 = instances[0];
   ASSERT_NE(ins0, nullptr);
   EXPECT_FALSE(ins0->isUnnamed());
@@ -59,13 +57,13 @@ TEST_F(SNLVRLConstructorTestAutoBlackBox1, test0) {
   ASSERT_NE(model, nullptr);
   EXPECT_TRUE(model->isAutoBlackBox());
   EXPECT_TRUE(model->isBlackBox());
-  EXPECT_EQ(5, model->getTerms().size());
+  EXPECT_EQ(1, model->getTerms().size());
   
   auto aTerm = model->getTerm(NLName("A"));
   ASSERT_NE(aTerm, nullptr);
   EXPECT_EQ(aTerm->getWidth(), 1);
   EXPECT_EQ(aTerm->getBits().size(), 1);
-  EXPECT_EQ(SNLTerm::Direction::Input, aTerm->getDirection());
+  EXPECT_EQ(SNLTerm::Direction::Undefined, aTerm->getDirection());
 
   auto ins1 = instances[0];
   ASSERT_NE(ins1, nullptr);
@@ -75,23 +73,23 @@ TEST_F(SNLVRLConstructorTestAutoBlackBox1, test0) {
 
 }
 
-TEST_F(SNLVRLConstructorTestAutoBlackBox1, test0LoadAndDump) {
+TEST_F(SNLVRLConstructorTestAutoBlackBox2, testLoadAndDump) {
   auto db = NLDB::create(NLUniverse::get());
   SNLVRLConstructor constructor(library_);
   constructor.config_.allowUnknownDesigns_ = true;
   std::filesystem::path benchmarksPath(SNL_VRL_BENCHMARKS_PATH);
-  constructor.construct(benchmarksPath/"auto_blackbox_test1.v");
-  auto test1 = library_->getSNLDesign(NLName("test1"));
-  EXPECT_NE(nullptr, test1);
+  constructor.construct(benchmarksPath/"auto_blackbox_test2.v");
+  auto test2 = library_->getSNLDesign(NLName("test2"));
+  EXPECT_NE(nullptr, test2);
 
   std::filesystem::path outPath(SNL_VRL_DUMPER_TEST_PATH);
-  outPath = outPath / "auto_blackbox_test1";
+  outPath = outPath / "auto_blackbox_test2";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
   SNLVRLDumper dumper;
-  dumper.setTopFileName("test1.v");
+  dumper.setTopFileName("test2.v");
   dumper.setSingleFile(true);
-  dumper.dumpDesign(test1, outPath);
+  dumper.dumpDesign(test2, outPath);
 }

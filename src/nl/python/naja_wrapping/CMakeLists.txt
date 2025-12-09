@@ -24,7 +24,7 @@ set(SOURCES
   PySNLTerms.cpp PySNLBitTerms.cpp PySNLScalarTerms.cpp PySNLBusTerms.cpp
   PySNLNets.cpp PySNLBitNets.cpp PySNLScalarNets.cpp PySNLBusNets.cpp
   PySNLInstances.cpp PySNLInstTerms.cpp PySNLPath.cpp PySNLOccurrence.cpp
-  PySNLNetComponentOccurrence.cpp PySNLInstTermOccurrence.cpp PySNLInstTermOccurrences.cpp
+  PySNLOccurrences.cpp
   PySNLEquipotential.cpp PySNLUniquifier.cpp
   NajaPythonProperty.cpp
 )
@@ -49,6 +49,8 @@ else(BUILD_NAJA_PYTHON)
     Python3::Python
   )
 endif(BUILD_NAJA_PYTHON)
+
+target_compile_definitions(naja_python PRIVATE NAJA_PYTHON_EXPORTS)
 
 target_include_directories(naja_python
   PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}

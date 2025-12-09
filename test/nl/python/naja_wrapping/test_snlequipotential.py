@@ -12,6 +12,7 @@ class SNLEquiTest(unittest.TestCase):
     lib = naja.NLLibrary.create(db)
     self.primitives = naja.NLLibrary.createPrimitives(db)
     self.top = naja.SNLDesign.create(lib)
+    self.top_out = naja.SNLScalarTerm.create(self.top, naja.SNLTerm.Direction.Output, "OUT")
     self.model = naja.SNLDesign.create(lib, "model")
     self.submodel = naja.SNLDesign.createPrimitive(self.primitives, "submodel")
     self.i0 = naja.SNLScalarTerm.create(self.model, naja.SNLTerm.Direction.Input, "I0")
@@ -38,29 +39,40 @@ class SNLEquiTest(unittest.TestCase):
 
     instTerms = tuple(ins1.getInstTerms())
     i0Net = naja.SNLScalarNet.create(self.top, "I0")
+    self.top_out.setNet(i0Net)
     instTerms[0].setNet(i0Net)  
     i0Netsub = naja.SNLScalarNet.create(self.model, "I0")
     subinstTerms = tuple(ins2.getInstTerms())
     subinstTerms[0].setNet(i0Netsub)  
     self.i0.setNet(i0Netsub)  
-    print(instTerms[0])  
+    #print(instTerms[0])  
     path1 = naja.SNLPath(path0, ins1)
     path2 = naja.SNLPath(path1, ins2)
-    netcomponentoccurrence = naja.SNLNetComponentOccurrence()
-    netcomponentoccurrence1 = naja.SNLNetComponentOccurrence(path1, subinstTerms[0])
+    netcomponentoccurrence1 = naja.SNLOccurrence(path1, subinstTerms[0])
 
     #insttermoccurrence1 = naja.SNLInstTermOccurrence(path0, instTerms[0])
 
-    equi = naja.SNLEquipotential(netcomponentoccurrence1)
-    print(equi)
-    topTerms = equi.getTerms()
-    for t in topTerms :
-      print(t)
-    insttermoccurrences = equi.getInstTermOccurrences()
-    for t in insttermoccurrences :
-      print(t)
+    equi0 = naja.SNLEquipotential(netcomponentoccurrence1)
+    topTerms = [t for t in equi0.getTerms()]
+    self.assertListEqual([self.top_out], topTerms)
+    insttermoccurrences = [i for i in equi0.getInstTermOccurrences()]
+    self.assertEqual(1, len(insttermoccurrences))
+    self.assertListEqual([netcomponentoccurrence1], insttermoccurrences)
+
+    equi1 = naja.SNLEquipotential(self.top_out)
+    topTerms = [t for t in equi1.getTerms()]
+    self.assertListEqual([self.top_out], topTerms)
+    insttermoccurrences = [i for i in equi1.getInstTermOccurrences()]
+    self.assertEqual(1, len(insttermoccurrences))
+    self.assertListEqual([netcomponentoccurrence1], insttermoccurrences)
     
-    with self.assertRaises(RuntimeError) as context: naja.SNLEquipotential(path1)
+  def testErrors(self):
+    ins = naja.SNLInstance.create(self.model, self.submodel, "ins")
+    with self.assertRaises(RuntimeError) as context: naja.SNLEquipotential(0)
+    with self.assertRaises(RuntimeError) as context: naja.SNLEquipotential(ins)
+    with self.assertRaises(RuntimeError) as context: naja.SNLEquipotential(naja.SNLOccurrence(ins))
+    with self.assertRaises(RuntimeError) as context: naja.SNLEquipotential(naja.SNLPath())
+    with self.assertRaises(RuntimeError) as context: naja.SNLEquipotential(naja.SNLOccurrence())
     with self.assertRaises(RuntimeError) as context: naja.SNLEquipotential(-1, -1, -1)
     with self.assertRaises(RuntimeError) as context: naja.SNLEquipotential()
     

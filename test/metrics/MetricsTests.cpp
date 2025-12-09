@@ -3,22 +3,22 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#include "gtest/gtest.h"
+#include "tbb/scalable_allocator.h"
+
 #include "DNL.h"
 #include "FanoutComputer.h"
 #include "LogicLevelComputer.h"
 #include "NLException.h"
 #include "NLUniverse.h"
 #include "NetlistGraph.h"
-#include "SNLBitNetOccurrence.h"
-#include "SNLBitTermOccurrence.h"
+#include "SNLOccurrence.h"
 #include "SNLDesignModeling.h"
 #include "SNLEquipotential.h"
 #include "SNLInstTerm.h"
 #include "SNLPath.h"
 #include "SNLScalarNet.h"
 #include "SNLScalarTerm.h"
-#include "gtest/gtest.h"
-#include "tbb/scalable_allocator.h"
 
 using namespace naja;
 using namespace naja::DNL;

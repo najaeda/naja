@@ -9,8 +9,10 @@
 #include "NLException.h"
 
 #include "SNLDesign.h"
+#include "SNLBitNet.h"
+#include "SNLBitTerm.h"
+#include "SNLInstTerm.h"
 #include "SNLPath.h"
-#include "SNLDesignObject.h"
 
 namespace naja { namespace NL {
 
@@ -77,11 +79,46 @@ SNLPath SNLOccurrence::getPath() const {
   return SNLPath();
 }
 
+bool SNLOccurrence::isNetComponentOccurrence() const {
+  return dynamic_cast<SNLNetComponent*>(getObject()) != nullptr;
+}
+
+SNLNetComponent* SNLOccurrence::getNetComponent() const {
+  return dynamic_cast<SNLNetComponent*>(getObject());
+}
+
+SNLInstTerm* SNLOccurrence::getInstTerm() const {
+  return dynamic_cast<SNLInstTerm*>(getObject());
+}
+
+SNLBitTerm* SNLOccurrence::getBitTerm() const {
+  return dynamic_cast<SNLBitTerm*>(getObject());
+}
+
+SNLOccurrence SNLOccurrence::getComponentBitNetOccurrence() const {
+  auto net = getComponentBitNet();
+  if (net) {
+    return SNLOccurrence(getPath(), net);
+  }
+  return SNLOccurrence();
+}
+
+SNLBitNet* SNLOccurrence::getComponentBitNet() const {
+  auto component = dynamic_cast<SNLNetComponent*>(getObject());
+  if (component) {
+    return component->getNet();
+  }
+  return nullptr;
+}
+
 std::string SNLOccurrence::getString(const char separator) const {
   std::ostringstream oss;
   oss << getPath().getString(separator);
   if (object_) {
-    oss << separator << object_->getString();
+    if (not oss.str().empty()) {
+      oss << separator;
+    }
+    oss << object_->getString();
   }
   return oss.str();
 }

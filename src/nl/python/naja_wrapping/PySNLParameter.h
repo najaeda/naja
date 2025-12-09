@@ -6,6 +6,7 @@
 #define __PY_SNL_PARAMETER_H_
 
 #include <Python.h>
+#include "NajaPythonExport.h"
 
 namespace naja::NL {
   class SNLParameter;
@@ -18,7 +19,7 @@ typedef struct {
   naja::NL::SNLParameter* object_;
 } PySNLParameter;
 
-extern PyTypeObject PyTypeSNLParameter;
+NAJA_PY_EXPORT extern PyTypeObject PyTypeSNLParameter;
 
 extern PyObject* PySNLParameter_Link(naja::NL::SNLParameter* u);
 extern void PySNLParameter_LinkPyType();

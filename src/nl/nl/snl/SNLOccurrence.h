@@ -12,6 +12,10 @@ namespace naja { namespace NL {
 class SNLPath;
 class SNLSharedPath;
 class SNLDesignObject;
+class SNLBitNet;
+class SNLNetComponent;
+class SNLBitTerm;
+class SNLInstTerm;
 
 /**
  * \brief SNLOccurrence is the representation of a SNLDesignObject in a specific hierarchical context.
@@ -42,6 +46,19 @@ class SNLOccurrence {
     SNLDesignObject* getObject() const { return object_; }
     /// \return true if this SNLOccurrence is valid.
     bool isValid() const { return object_ != nullptr; }
+    /// \return true if this SNLOccurrence references a SNLNetComponent.
+    bool isNetComponentOccurrence() const;
+
+    /// \return the corresponding SNLOccurrence of the SNLBitNet referenced by this SNLOccurrence.
+    SNLOccurrence getComponentBitNetOccurrence() const;
+    /// \return the SNLBitNet referenced by this SNLOccurrence if the object is a SNLNetComponent.
+    SNLBitNet* getComponentBitNet() const;
+    /// \return the SNLNetComponent referenced by this SNLOccurrence if the object is a SNLNetComponent.
+    SNLNetComponent* getNetComponent() const;
+    /// \return the SNLInstTerm referenced by this SNLOccurrence if the object is a SNLInstTerm.
+    SNLInstTerm* getInstTerm() const;
+    /// \return the SNLBitTerm referenced by this SNLOccurrence if the object is a SNLBitTerm.
+    SNLBitTerm* getBitTerm() const;
 
     bool operator==(const SNLOccurrence& occurrence) const;
     bool operator<(const SNLOccurrence& occurrence) const;

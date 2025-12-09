@@ -6,7 +6,11 @@
 #define __PY_SNL_INSTANCE_H_
 
 #include "PySNLDesignObject.h"
-#include "SNLInstance.h"
+#include "NajaPythonExport.h"
+
+namespace naja::NL {
+  class SNLInstance;
+}
 
 namespace PYNAJA {
 
@@ -14,7 +18,7 @@ typedef struct {
   PySNLDesignObject parent_;
 } PySNLInstance;
 
-extern PyTypeObject PyTypeSNLInstance;
+NAJA_PY_EXPORT extern PyTypeObject PyTypeSNLInstance;
 
 extern PyObject*    PySNLInstance_Link(naja::NL::SNLInstance* u);
 extern void         PySNLInstance_LinkPyType();

@@ -7,6 +7,7 @@
 
 #include <Python.h>
 #include "NajaCollection.h"
+#include "NajaPythonExport.h"
 
 namespace naja::NL {
   class SNLInstance;
@@ -25,8 +26,8 @@ typedef struct {
   PySNLInstances* container_;
 } PySNLInstancesIterator;
 
-extern PyTypeObject PyTypeSNLInstances;
-extern PyTypeObject PyTypeSNLInstancesIterator;
+NAJA_PY_EXPORT extern PyTypeObject PyTypeSNLInstances;
+NAJA_PY_EXPORT extern PyTypeObject PyTypeSNLInstancesIterator;
 
 extern void PySNLInstances_LinkPyType();
 

@@ -4,4 +4,6 @@
 
 add_subdirectory(liberty)
 add_subdirectory(verilog)
-add_subdirectory(lefdef)
+IF (NOT BUILD_NAJA_PYTHON)
+  add_subdirectory(lefdef)
+ENDIF()
