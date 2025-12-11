@@ -166,6 +166,7 @@ jobs:
         run: |
           echo "Copying generated parser files into thirdparty/naja-verilog/src"
           cp -R generated thirdparty/naja-verilog/src/
+          ls -Rall .
           
       - name: Configure macOS Environment
         if: runner.os == 'macOS'
