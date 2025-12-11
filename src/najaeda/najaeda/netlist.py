@@ -210,7 +210,7 @@ class Equipotential:
         if self.equi is not None:
             return self.equi.isConstant()
         return False
-    
+ 
     def is_const0(self) -> bool:
         """Check if this equipotential is a constant 0 generator.
 
@@ -220,7 +220,7 @@ class Equipotential:
         if self.equi is not None:
             return self.equi.isConst0()
         return False
-    
+
     def is_const1(self) -> bool:
         """Check if this equipotential is a constant 1 generator.
 

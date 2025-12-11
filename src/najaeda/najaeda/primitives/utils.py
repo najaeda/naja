@@ -4,6 +4,7 @@
 
 from najaeda import naja
 
+
 def constructSequentialPrimitive(design, clk):
     input_terms = []
     output_terms = []
