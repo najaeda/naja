@@ -124,6 +124,57 @@ bool NLDB0::isDB0Primitive(const SNLDesign* design) {
   return design and isDB0Library(design->getLibrary());
 }
 
+SNLTruthTable NLDB0::getPrimitiveTruthTable(const SNLDesign* design) {
+  if (isGate(design)) {
+    auto type = GateType(design->getLibrary()->getName().getString());
+    switch (type) {
+      case GateType::And: {
+        size_t size = design->getBusTerm(NLID::DesignObjectID(1))->getWidth();
+        if (size > 6) {
+          throw NLException("NLDB0::getPrimitiveTruthTable: And gate with more than 6 inputs");
+        }
+        uint64_t bits = (1ull << (1ull << size)) - 1;
+        bits &= ~(1ull); // set output 0 for input 0 to 0
+        SNLTruthTable tt(size, bits);
+        return tt;
+      }
+      case GateType::Or: {
+        size_t size = design->getBusTerm(NLID::DesignObjectID(1))->getWidth();
+        if (size > 6) {
+          throw NLException("NLDB0::getPrimitiveTruthTable: Or gate with more than 6 inputs");
+        }
+        uint64_t bits = (1ull << (1ull << size)) - 1;
+        bits &= ~(1ull << ((1ull << size) - 1)); // set output 0 for input 11..1
+        SNLTruthTable tt(size, bits);
+        return tt;
+      }
+      case GateType::Xor: {
+        size_t size = design->getBusTerm(NLID::DesignObjectID(1))->getWidth();
+        if (size > 6) {
+          throw NLException("NLDB0::getPrimitiveTruthTable: Xor gate with more than 6 inputs");
+        }
+        uint64_t bits = 0;
+        for (size_t i = 0; i < (1ull << size); ++i) {
+          size_t count = 0;
+          for (size_t j = 0; j < size; ++j) {
+            if (i & (1ull << j)) {
+              ++count;
+            }
+          }
+          if (count % 2 == 1) {
+            bits |= (1ull << i);
+          }
+        }
+        SNLTruthTable tt(size, bits);
+        return tt;
+      }
+      default:
+        throw NLException("NLDB0::getPrimitiveTruthTable: unsupported gate type");
+    }
+  }
+  throw NLException("NLDB0::getPrimitiveTruthTable: unsupported primitive type");
+}
+
 SNLDesign* NLDB0::getAssign() {
   auto primitives = getDB0RootLibrary();
   if (primitives) {

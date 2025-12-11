@@ -12,6 +12,7 @@
 #include "NajaDumpableProperty.h"
 #include "NajaPrivateProperty.h"
 
+#include "NLDB0.h"
 #include "SNLDesign.h"
 #include "SNLInstTerm.h"
 
@@ -913,6 +914,9 @@ size_t SNLDesignModeling::getTruthTableCount(const SNLDesign* design) {
 }
 
 SNLTruthTable SNLDesignModeling::getTruthTable(const SNLDesign* design) {
+  if (NLDB0::isDB0Primitive(design)) {
+    return NLDB0::getPrimitiveTruthTable(design);
+  }
   auto property = getTruthTableProperty(design);
   if (property) {
     size_t tableSize = property->getValues().size() - 1;

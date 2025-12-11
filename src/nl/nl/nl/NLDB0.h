@@ -5,7 +5,7 @@
 #ifndef __NL_DB0_H_
 #define __NL_DB0_H_
 
-#include <string>
+#include "SNLTruthTable.h"
 
 namespace naja { namespace NL {
 
@@ -54,6 +54,8 @@ class NLDB0 {
     static NLLibrary* getDB0RootLibrary();
     static bool isDB0Library(const NLLibrary* library);
     static bool isDB0Primitive(const SNLDesign* design);
+
+    static SNLTruthTable getPrimitiveTruthTable(const SNLDesign* design);
 
     static SNLDesign* getAssign(); 
     static bool isAssign(const SNLDesign* design);

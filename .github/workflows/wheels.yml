@@ -84,6 +84,15 @@ jobs:
             platform_id: manylinux_x86_64
             manylinux_image: manylinux2014
             free_threaded_support: True
+          - os: ubuntu-latest
+            python: 314
+            platform_id: manylinux_x86_64
+            manylinux_image: manylinux2014
+          - os: ubuntu-latest
+            python: 314t
+            platform_id: manylinux_x86_64
+            manylinux_image: manylinux2014
+            free_threaded_support: True
 
           - os: ubuntu-24.04-arm
             python: 312
@@ -92,6 +101,11 @@ jobs:
             cibw_arch: aarch64
           - os: ubuntu-24.04-arm
             python: 313
+            platform_id: manylinux_aarch64
+            manylinux_image: manylinux2014
+            cibw_arch: aarch64
+          - os: ubuntu-24.04-arm
+            python: 314
             platform_id: manylinux_aarch64
             manylinux_image: manylinux2014
             cibw_arch: aarch64
@@ -116,10 +130,20 @@ jobs:
             python: 313t
             platform_id: macosx_arm64
             free_threaded_support: True
+          - os: macos-14
+            python: 314
+            platform_id: macosx_arm64
+          - os: macos-14
+            python: 314t
+            platform_id: macosx_arm64
+            free_threaded_support: True
 
           # Windows x86_64 wheels
           - os: windows-latest
             python: 313
+            platform_id: win_amd64
+          - os: windows-latest
+            python: 314
             platform_id: win_amd64
 
     steps:
