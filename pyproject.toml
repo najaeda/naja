@@ -71,6 +71,7 @@ before-all = '''
 build-frontend = "build"
 before-all = '''
   #yum -y install wget boost-devel flex
+  yum -y install wget boost-devel
   echo "::group::Installing TBB"
   wget -q https://github.com/oneapi-src/oneTBB/archive/refs/tags/v2022.1.0.tar.gz
   tar -xzf v2022.1.0.tar.gz
