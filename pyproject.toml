@@ -33,6 +33,7 @@ classifiers = [
 [tool.scikit-build.cmake.define]
 CMAKE_BUILD_TYPE="Release"
 BUILD_NAJA_PYTHON="ON"
+PREGENERATED_PARSER_SOURCES="ON"
 
 [project.urls]
 Homepage = "https://github.com/najaeda/naja"
