@@ -190,10 +190,7 @@ jobs:
           CIBW_CONFIG_SETTINGS_WINDOWS: >
             cmake.args=-DCMAKE_TOOLCHAIN_FILE=C:/Users/runneradmin/vcpkg/scripts/buildsystems/vcpkg.cmake
           CIBW_REPAIR_WHEEL_COMMAND_WINDOWS: >
-            delvewheel repair -v
-              --add-path C:\Users\runneradmin\vcpkg\installed\x64-windows\bin
-              --add-path {wheel_dir}
-              -w {dest_dir} {wheel}
+            delvewheel repair -v --add-path "C:\Users\runneradmin\vcpkg\installed\x64-windows\bin;{wheel_dir}" -w {dest_dir} {wheel}
           CIBW_TEST_REQUIRES: "pytest"
           CIBW_TEST_COMMAND: >
             bash -c '
