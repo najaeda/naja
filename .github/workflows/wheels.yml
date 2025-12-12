@@ -1,4 +1,3 @@
-# Workflow to build and test wheels
 name: najaeda Wheel builder
 
 on:
@@ -196,13 +195,9 @@ jobs:
             bash -c '
               set -e
               export PYTHONPATH=""
-              python - <<EOF
-              import najaeda, os
-              print("Imported najaeda from:", najaeda.__file__)
-              if "site-packages" not in najaeda.__file__:
-                  raise RuntimeError("najaeda was NOT imported from the wheel")
-              print("najaeda version:", getattr(najaeda, "__version__", "unknown"))
-              EOF
+              python -c "import najaeda; p=najaeda.__file__; print('Imported najaeda from:', p);\
+              (('site-packages' in p) or (_ for _ in ()).throw(RuntimeError('najaeda was NOT imported from the wheel')));\
+              print('najaeda version:', getattr(najaeda, '__version__', 'unknown'))"
               export VERILOG_BENCHMARKS_PATH="{project}/test/nl/formats/verilog/benchmarks"
               export LIBERTY_BENCHMARKS_PATH="{project}/test/nl/formats/liberty/benchmarks"
               export NAJAEDA_TEST_PATH="{project}/test/najaeda"
