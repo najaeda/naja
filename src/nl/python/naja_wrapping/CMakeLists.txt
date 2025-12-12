@@ -58,6 +58,9 @@ target_include_directories(naja_python
 )
 
 Python3_add_library(naja MODULE PyNaja.cpp)
+if (MSVC)
+  target_compile_options(naja PRIVATE /utf-8)
+endif()
 target_link_libraries(naja PRIVATE naja_python)
 
 if(BUILD_NAJA_PYTHON)
