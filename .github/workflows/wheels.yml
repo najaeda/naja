@@ -189,8 +189,16 @@ jobs:
           CIBW_BEFORE_BUILD_WINDOWS: "pwsh -Command \"foreach($d in 'build','dist'){ if(Test-Path $d){ Remove-Item -Recurse -Force $d -ErrorAction SilentlyContinue } }\""
           CIBW_CONFIG_SETTINGS_WINDOWS: >
             cmake.args=-DCMAKE_TOOLCHAIN_FILE=C:/Users/runneradmin/vcpkg/scripts/buildsystems/vcpkg.cmake
-          CIBW_REPAIR_WHEEL_COMMAND_WINDOWS: >
-            delvewheel repair -v --exclude "naja_*.dll" --add-path "C:\Users\runneradmin\vcpkg\installed\x64-windows\bin" -w {dest_dir} {wheel}
+          CIBW_REPAIR_WHEEL_COMMAND_WINDOWS: >-
+            delvewheel repair -v
+            --exclude naja_python.dll
+            --exclude naja_nl.dll
+            --exclude naja_dnl.dll
+            --exclude naja_bne.dll
+            --exclude naja_opt.dll
+            --exclude naja_metrics.dll
+            --add-path "C:\Users\runneradmin\vcpkg\installed\x64-windows\bin"
+            -w {dest_dir} {wheel}
           CIBW_TEST_REQUIRES: "pytest"
           CIBW_TEST_COMMAND: >
             bash -c '
