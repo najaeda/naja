@@ -195,7 +195,7 @@ jobs:
             Write-Host '=== Wheel extracted content ===';
             Get-ChildItem -Recurse .;
             Write-Host '=== Running delvewheel ===';
-            delvewheel repair -v -w {dest_dir} {wheel}"
+            delvewheel repair -v --add-path najaeda -w {dest_dir} {wheel}"
           #CIBW_REPAIR_WHEEL_COMMAND_WINDOWS: "delvewheel repair -v -w {dest_dir} {wheel}"
           CIBW_TEST_REQUIRES: "pytest"
           CIBW_TEST_COMMAND: >
