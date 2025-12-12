@@ -193,20 +193,16 @@ jobs:
           CIBW_TEST_REQUIRES: "pytest"
           CIBW_TEST_COMMAND: >
             bash -c '
-              set -e
+              set -ex
               export PYTHONPATH=""
-
-              cat > /tmp/cibw_check.py << "EOF"
-              import najaeda
-              
-              p = najaeda.__file__
-              print("Imported najaeda from:", p)
-              
-              if "site-packages" not in p:
-                  raise RuntimeError("najaeda was NOT imported from the wheel")
-              
-              print("najaeda version:", getattr(najaeda, "__version__", "unknown"))
-              EOF
+              printf '%s\n' \
+              'import najaeda' \
+              'p = najaeda.__file__' \
+              'print("Imported najaeda from:", p)' \
+              'if "site-packages" not in p:' \
+              '    raise RuntimeError("najaeda was NOT imported from the wheel")' \
+              'print("najaeda version:", getattr(najaeda, "__version__", "unknown"))' \
+              > /tmp/cibw_check.py
               
               python /tmp/cibw_check.py
 
