@@ -195,6 +195,14 @@ jobs:
           CIBW_TEST_COMMAND: >
             bash -c '
               set -e
+              export PYTHONPATH=""
+              python - <<EOF
+              import najaeda, os
+              print("Imported najaeda from:", najaeda.__file__)
+              if "site-packages" not in najaeda.__file__:
+                  raise RuntimeError("najaeda was NOT imported from the wheel")
+              print("najaeda version:", getattr(najaeda, "__version__", "unknown"))
+              EOF
               export VERILOG_BENCHMARKS_PATH="{project}/test/nl/formats/verilog/benchmarks"
               export LIBERTY_BENCHMARKS_PATH="{project}/test/nl/formats/liberty/benchmarks"
               export NAJAEDA_TEST_PATH="{project}/test/najaeda"
