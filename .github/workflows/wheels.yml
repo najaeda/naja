@@ -189,14 +189,18 @@ jobs:
           CIBW_BEFORE_BUILD_WINDOWS: "pwsh -Command \"foreach($d in 'build','dist'){ if(Test-Path $d){ Remove-Item -Recurse -Force $d -ErrorAction SilentlyContinue } }\""
           CIBW_CONFIG_SETTINGS_WINDOWS: >
             cmake.args=-DCMAKE_TOOLCHAIN_FILE=C:/Users/runneradmin/vcpkg/scripts/buildsystems/vcpkg.cmake
-          #CIBW_REPAIR_WHEEL_COMMAND_WINDOWS: "delvewheel repair -v -w {dest_dir} {wheel}"
+          CIBW_REPAIR_WHEEL_COMMAND_WINDOWS: >
+            delvewheel repair -v
+              --add-path C:\Users\runneradmin\vcpkg\installed\x64-windows\bin
+              --add-path {wheel_dir}
+              -w {dest_dir} {wheel}
           CIBW_TEST_REQUIRES: "pytest"
           CIBW_TEST_COMMAND: >
             bash -c '
               set -ex
               export PYTHONPATH=""
               python {project}/ci/check_wheel_import.py
-              
+
               export VERILOG_BENCHMARKS_PATH="{project}/test/nl/formats/verilog/benchmarks"
               export LIBERTY_BENCHMARKS_PATH="{project}/test/nl/formats/liberty/benchmarks"
               export NAJAEDA_TEST_PATH="{project}/test/najaeda"
@@ -210,6 +214,23 @@ jobs:
               cd {project}/src/najaeda/native_examples
               python run_regress.py > run_native_regress.log
             '
+          CIBW_TEST_COMMAND_WINDOWS: >
+            pwsh -Command "
+              $env:PYTHONPATH='';
+              python {project}\ci\check_wheel_import.py;
+
+              $env:VERILOG_BENCHMARKS_PATH="{project}/test/nl/formats/verilog/benchmarks"
+              $env:LIBERTY_BENCHMARKS_PATH="{project}/test/nl/formats/liberty/benchmarks"
+              $env:NAJAEDA_TEST_PATH="{project}/test/najaeda"
+              $env:NAJAEDA_SOURCE_TEST_PATH="{project}/test/najaeda"
+              python -m pytest {project}\test\najaeda
+
+              cd {project}\src\najaeda\examples
+              python run_regress.py > run_regress.log
+
+              cd {project}\src\najaeda\native_examples
+              python run_regress.py > run_native_regress.log
+            "
         run: python -m cibuildwheel --output-dir wheelhouse
       #Reminder!!: actions/upload-artifact and actions/download-artifact
       #need to have same version
