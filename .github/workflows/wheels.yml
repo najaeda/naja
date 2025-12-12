@@ -195,17 +195,8 @@ jobs:
             bash -c '
               set -ex
               export PYTHONPATH=""
-              printf '%s\n' \
-              'import najaeda' \
-              'p = najaeda.__file__' \
-              'print("Imported najaeda from:", p)' \
-              'if "site-packages" not in p:' \
-              '    raise RuntimeError("najaeda was NOT imported from the wheel")' \
-              'print("najaeda version:", getattr(najaeda, "__version__", "unknown"))' \
-              > /tmp/cibw_check.py
+              python {project}/ci/check_wheel_import.py
               
-              python /tmp/cibw_check.py
-
               export VERILOG_BENCHMARKS_PATH="{project}/test/nl/formats/verilog/benchmarks"
               export LIBERTY_BENCHMARKS_PATH="{project}/test/nl/formats/liberty/benchmarks"
               export NAJAEDA_TEST_PATH="{project}/test/najaeda"
