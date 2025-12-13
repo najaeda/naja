@@ -191,6 +191,7 @@ jobs:
             cmake.args=-DCMAKE_TOOLCHAIN_FILE=C:/Users/runneradmin/vcpkg/scripts/buildsystems/vcpkg.cmake
           CIBW_REPAIR_WHEEL_COMMAND_WINDOWS: >-
             delvewheel repair -v
+            --include-imports
             --exclude naja_python.dll
             --exclude naja_nl.dll
             --exclude naja_dnl.dll
