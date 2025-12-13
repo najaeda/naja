@@ -190,8 +190,10 @@ jobs:
           CIBW_CONFIG_SETTINGS_WINDOWS: >
             cmake.args=-DCMAKE_TOOLCHAIN_FILE=C:/Users/runneradmin/vcpkg/scripts/buildsystems/vcpkg.cmake
           CIBW_REPAIR_WHEEL_COMMAND_WINDOWS: >-
-            delvewheel repair -v --include-imports
-            -L najaeda
+            delvewheel repair -v
+            --ignore-existing
+            --analyze-existing
+            --include-imports
             --add-path "C:\Users\runneradmin\vcpkg\installed\x64-windows\bin"
             -w {dest_dir} {wheel}
           CIBW_TEST_REQUIRES: "pytest"
