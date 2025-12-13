@@ -190,14 +190,8 @@ jobs:
           CIBW_CONFIG_SETTINGS_WINDOWS: >
             cmake.args=-DCMAKE_TOOLCHAIN_FILE=C:/Users/runneradmin/vcpkg/scripts/buildsystems/vcpkg.cmake
           CIBW_REPAIR_WHEEL_COMMAND_WINDOWS: >-
-            delvewheel repair -v
-            --include-imports
-            --exclude naja_python.dll
-            --exclude naja_nl.dll
-            --exclude naja_dnl.dll
-            --exclude naja_bne.dll
-            --exclude naja_opt.dll
-            --exclude naja_metrics.dll
+            delvewheel repair -v --include-imports
+            --add-path "{wheel_dir}\najaeda"
             --add-path "C:\Users\runneradmin\vcpkg\installed\x64-windows\bin"
             -w {dest_dir} {wheel}
           CIBW_TEST_REQUIRES: "pytest"
