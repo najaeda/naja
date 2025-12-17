@@ -10,19 +10,16 @@
 #include "NajaPrivateProperty.h"
 
 #include <cstdint>
-#include <variant>
-#include <vector>
+#include <cstddef>
 
 namespace naja {
-
-#define F_PY_OWNED (1 << 0)
 
 class NajaPythonProperty : public NajaPrivateProperty {
   public:
     static const inline std::string Name = "NajaPythonProperty";
     static const std::string& getPropertyName() { return name_; }
-    static int getOffset() { return offset_; };
-    static void setOffset(int offset);
+    static std::ptrdiff_t getOffset() { return offset_; };
+    static void setOffset(std::ptrdiff_t offset);
     static NajaPythonProperty* create(void* shadow = NULL);
 
     NajaPythonProperty(const NajaPythonProperty&) = delete;
@@ -30,7 +27,9 @@ class NajaPythonProperty : public NajaPrivateProperty {
 
     void* getShadow() const { return shadow_; };
     void* getShadowMember() const {
-      return (void*)((unsigned long)shadow_ + offset_);
+      if (!shadow_ || offset_ < 0) return nullptr;
+      auto* base = reinterpret_cast<std::byte*>(shadow_);
+      return reinterpret_cast<void*>(base + static_cast<std::ptrdiff_t>(offset_));
     };
 
     std::string getName() const override { return getPropertyName(); }
@@ -40,21 +39,21 @@ class NajaPythonProperty : public NajaPrivateProperty {
     std::string getString() const override;
 
   private:
-    static std::string  name_;
-    static int          offset_;
-    NajaObject*         owner_  {nullptr};
-    void*               shadow_ {nullptr};
+    static std::string    name_;
+    static std::ptrdiff_t offset_;
+    NajaObject*           owner_  {nullptr};
+    void*                 shadow_ {nullptr};
 
     NajaPythonProperty() = default;
     NajaPythonProperty(void* shadow);
     void preDestroy() override;
 };
 
-#define CHECK_OFFSET(PY_STRUCT, TYPE)                  \
-  if (naja::NajaPythonProperty::getOffset() < 0) {       \
-    naja::NajaPythonProperty::setOffset(                 \
-        (unsigned long)(&(PY_STRUCT->ACCESS_OBJECT)) - \
-        (unsigned long)PY_STRUCT);                     \
+#define CHECK_OFFSET(PY_STRUCT, TYPE) \
+  if (naja::NajaPythonProperty::getOffset() < 0) { \
+    auto* base = reinterpret_cast<std::byte*>(PY_STRUCT); \
+    auto* member = reinterpret_cast<std::byte*>(&(PY_STRUCT->ACCESS_OBJECT)); \
+    naja::NajaPythonProperty::setOffset(static_cast<std::ptrdiff_t>(member - base)); \
   }
 
 }  // namespace naja
