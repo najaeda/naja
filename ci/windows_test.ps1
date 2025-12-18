@@ -2,7 +2,12 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+
 $ErrorActionPreference = 'Stop'
+Set-PSDebug -Trace 1
+Write-Host "=== ENTER test_windows.ps1 ==="
+Write-Host "Script root: $PSScriptRoot"
+Write-Host "PWD: $(Get-Location)"
 
 Write-Host "PowerShell test command started"
 
@@ -15,7 +20,7 @@ $env:LIBERTY_BENCHMARKS_PATH = "$PSScriptRoot\..\test\nl\formats\liberty\benchma
 $env:NAJAEDA_TEST_PATH = "$PSScriptRoot\..\test\najaeda"
 $env:NAJAEDA_SOURCE_TEST_PATH = "$PSScriptRoot\..\test\najaeda"
 
-python -m pytest "$PSScriptRoot\..\test\najaeda"
+python -m pytest -vv "$PSScriptRoot\..\test\najaeda"
 
 Set-Location "$PSScriptRoot\..\src\najaeda\examples"
 python run_regress.py
