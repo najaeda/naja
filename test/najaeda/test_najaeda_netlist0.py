@@ -256,7 +256,7 @@ class NajaNetlistTest0(unittest.TestCase):
 
         path0 = naja.SNLPath()
 
-        self.assertEqual(self.noNameBusTop, netlist.get_snl_term_for_ids_with_path(path0, [self.noNameBusTop.getID(), netlist.get_none_existent()]))
+        self.assertEqual(self.noNameBusTop, netlist.get_snl_term_for_ids_with_path(path0, self.noNameBusTop.getID(), None))
 
         #print(path0)
         self.assertIsNotNone(path0)
@@ -323,13 +323,13 @@ class NajaNetlistTest0(unittest.TestCase):
 
         for t in equi.get_top_terms():
             to_compare_with = naja_top_terms.pop(0)
-            self.assertTrue(netlist.get_snl_term_for_ids(t.pathIDs, t.termIDs) == to_compare_with) 
-            self.assertTrue(netlist.get_snl_term_for_ids_with_path(netlist.get_snl_path_from_id_list(t.pathIDs), t.termIDs) == to_compare_with)
+            self.assertTrue(t.get_snl_term() == to_compare_with) 
+            self.assertTrue(netlist.get_snl_term_for_ids_with_path(netlist.get_snl_path_from_id_list(t.pathIDs), t.termID, t.bit) == to_compare_with)
 
         for t in equi.get_inst_terms():
             to_compare_with = naja_inst_term_occurrences.pop(0)
-            self.assertTrue(netlist.get_snl_term_for_ids_with_path(netlist.get_snl_path_from_id_list(t.pathIDs), t.termIDs) == to_compare_with.getInstTerm().getBitTerm())
-            self.assertTrue(netlist.get_snl_term_for_ids(t.pathIDs, t.termIDs) == to_compare_with.getInstTerm().getBitTerm())
+            self.assertTrue(netlist.get_snl_term_for_ids_with_path(netlist.get_snl_path_from_id_list(t.pathIDs), t.termID, t.bit) == to_compare_with.getInstTerm().getBitTerm())
+            self.assertTrue(t.get_snl_term() == to_compare_with.getInstTerm().getBitTerm())
             self.assertTrue(netlist.get_snl_path_from_id_list(t.pathIDs).getHeadPath() == to_compare_with.getPath())
 
         instance = netlist.Instance(path1)

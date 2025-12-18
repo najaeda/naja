@@ -76,7 +76,6 @@ class SNLDesignTest(unittest.TestCase):
     self.assertEqual(i0, terms[0])
     self.assertEqual(i1, terms[1])
     self.assertEqual(0, terms[0].getID())
-    self.assertEqual(0, terms[0].getBit())
 
     i2 = naja.SNLScalarTerm.create(design, naja.SNLTerm.Direction.Input, "I2")
     self.assertEqual(i2, design.getTerm("I2"))
