@@ -185,7 +185,9 @@ jobs:
           CIBW_ARCHS: 'all'
           CIBW_MANYLINUX_X86_64_IMAGE: ${{ matrix.manylinux_image }}
           CIBW_MANYLINUX_I686_IMAGE: ${{ matrix.manylinux_image }}
-          CIBW_BEFORE_ALL_WINDOWS: "pwsh -File {project}/windows_setup.ps1"
+          CIBW_BEFORE_ALL_WINDOWS: >
+            pwsh -NoProfile -NonInteractive -ExecutionPolicy Bypass
+            -File {project}\ci\windows_setup.ps1
           CIBW_BEFORE_BUILD_WINDOWS: "pwsh -Command \"foreach($d in 'build','dist'){ if(Test-Path $d){ Remove-Item -Recurse -Force $d -ErrorAction SilentlyContinue } }\""
           CIBW_CONFIG_SETTINGS_WINDOWS: >
             cmake.args=-DCMAKE_TOOLCHAIN_FILE=C:/Users/runneradmin/vcpkg/scripts/buildsystems/vcpkg.cmake
@@ -217,26 +219,8 @@ jobs:
               python run_regress.py > run_native_regress.log
             '
           CIBW_TEST_COMMAND_WINDOWS: >
-            pwsh -NoProfile -NonInteractive -Command "
-              $ErrorActionPreference = 'Stop';
-              Write-Host "PowerShell test command started";
-
-              $env:PYTHONPATH='';
-              python {project}\ci\check_wheel_import.py;
-
-              $env:VERILOG_BENCHMARKS_PATH='{project}\test\nl\formats\verilog\benchmarks';
-              $env:LIBERTY_BENCHMARKS_PATH='{project}\test\nl\formats\liberty\benchmarks';
-              $env:NAJAEDA_TEST_PATH='{project}\test\najaeda';
-              $env:NAJAEDA_SOURCE_TEST_PATH='{project}\test\najaeda';
-
-              python -m pytest {project}\test\najaeda;
-
-              cd {project}\src\najaeda\examples;
-              python run_regress.py;
-
-              cd {project}\src\najaeda\native_examples;
-              python run_regress.py;
-            "
+            pwsh -NoProfile -NonInteractive -ExecutionPolicy Bypass
+              -File {project}\ci\test_windows.ps1
         run: python -m cibuildwheel --output-dir wheelhouse
       #Reminder!!: actions/upload-artifact and actions/download-artifact
       #need to have same version
