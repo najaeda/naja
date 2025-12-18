@@ -545,8 +545,21 @@ class Term:
             term.getBit() if isinstance(term, naja.SNLBusTermBit) else None
         )
 
+    def key(self) -> tuple:
+        """
+        Unique, hashable identity of this Term.
+        Stable within a design revision.
+        """
+        return (
+            tuple(self.pathIDs),
+            self.termID,
+            self.bit,
+        )
+
     def __eq__(self, other) -> bool:
-        return self.pathIDs == other.pathIDs and self.termID == other.termID and self.bit == other.bit
+        if not isinstance(other, Term):
+            return NotImplemented
+        return self.key() == other.key()
 
     def __ne__(self, other) -> bool:
         return not self == other
