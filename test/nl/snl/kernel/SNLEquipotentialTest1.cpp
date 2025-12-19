@@ -74,6 +74,7 @@ TEST_F(SNLEquipotentialTest1, testConst0) {
   EXPECT_EQ(equipotentialTopOut.getTerms(), naja::NajaCollection(new naja::NajaSTLCollection(&terms)));
   EXPECT_EQ(equipotentialTopOut.getInstTermOccurrences(), naja::NajaCollection(new naja::NajaSTLCollection(&instTermOccurrences)));
   EXPECT_TRUE(equipotentialTopOut.getType() == SNLNet::Type::Assign0);
+  EXPECT_TRUE(equipotentialTopOut.isConst0());
 }
 
 TEST_F(SNLEquipotentialTest1, testConst1) {
@@ -95,4 +96,5 @@ TEST_F(SNLEquipotentialTest1, testConst1) {
 
   SNLEquipotential equipotentialTopOut(topout);
   EXPECT_TRUE(equipotentialTopOut.getType() == SNLNet::Type::Assign1);
+  EXPECT_TRUE(equipotentialTopOut.isConst1());
 }

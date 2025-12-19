@@ -113,7 +113,9 @@ NLLibrary* NLDB0::getDB0RootLibrary() {
 
 bool NLDB0::isDB0Library(const NLLibrary* library) {
   auto topLibrary = getDB0RootLibrary();
-  return library == topLibrary;
+  if (library == topLibrary) {
+    return true;
+  }
   if (library->isRoot()) {
     return false;
   }

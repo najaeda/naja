@@ -7,6 +7,7 @@
 
 #include "NLUniverse.h"
 #include "NLDB0.h"
+#include "SNLDesignModeling.h"
 using namespace naja::NL;
 
 class SNLGateTruthTableTest: public ::testing::Test {
@@ -60,6 +61,8 @@ TEST_F(SNLGateTruthTableTest, testOrGate) {
     tt = NLDB0::getPrimitiveTruthTable(or5);
     EXPECT_EQ(tt.size(), 5);
     EXPECT_EQ(static_cast<uint64_t>(tt.bits()), 0xFFFFFFFE);
+
+    EXPECT_EQ(SNLDesignModeling::getTruthTable(or5), tt);
 }
 
 TEST_F(SNLGateTruthTableTest, testNorGate) {
