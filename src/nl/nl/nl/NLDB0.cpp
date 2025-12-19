@@ -180,12 +180,21 @@ SNLTruthTable NLDB0::getPrimitiveTruthTable(const SNLDesign* design) {
             bits |= (1ULL << i);
           }
         }
-
         SNLTruthTable tt(size, bits);
         return tt;
       }
-      default:
-        throw NLException("NLDB0::getPrimitiveTruthTable: unsupported gate type");
+      case GateType::Xnor: {
+        uint64_t bits = 0;
+        const size_t combinations = (1ULL << size);
+        for (size_t i = 0; i < combinations; ++i) {
+          // XNOR: output 1 if an even number of input bits are set
+          if (not parity64(i)) {
+            bits |= (1ULL << i);
+          }
+        }
+        SNLTruthTable tt(size, bits);
+        return tt;  
+      }
     }
   }
   throw NLException("NLDB0::getPrimitiveTruthTable: unsupported primitive type");

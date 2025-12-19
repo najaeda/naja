@@ -105,8 +105,32 @@ TEST_F(SNLGateTruthTableTest, testXorGate) {
     EXPECT_EQ(static_cast<uint64_t>(tt.bits()), 0x6996);
 }
 
+TEST_F(SNLGateTruthTableTest, testXnorGate) {
+    auto xnor2 = NLDB0::getOrCreateNInputGate(NLDB0::GateType::Xnor, 2);
+    ASSERT_NE(xnor2, nullptr);
+    auto tt = NLDB0::getPrimitiveTruthTable(xnor2);
+    EXPECT_EQ(tt.size(), 2);
+    EXPECT_EQ(static_cast<uint64_t>(tt.bits()), 0x9);
+
+    auto xnor3 = NLDB0::getOrCreateNInputGate(NLDB0::GateType::Xnor, 3);
+    ASSERT_NE(xnor3, nullptr);
+    tt = NLDB0::getPrimitiveTruthTable(xnor3);
+    EXPECT_EQ(tt.size(), 3);
+    EXPECT_EQ(static_cast<uint64_t>(tt.bits()), 0x69);
+
+    auto xnor4 = NLDB0::getOrCreateNInputGate(NLDB0::GateType::Xnor, 4);
+    ASSERT_NE(xnor4, nullptr);
+    tt = NLDB0::getPrimitiveTruthTable(xnor4);
+    EXPECT_EQ(tt.size(), 4);
+    EXPECT_EQ(static_cast<uint64_t>(tt.bits()), 0x9669);
+}
+
 TEST_F(SNLGateTruthTableTest, testUnsupportedGates) {
     auto andGate = NLDB0::getOrCreateNInputGate(NLDB0::GateType::And, 10);
     ASSERT_NE(andGate, nullptr);
     EXPECT_THROW(NLDB0::getPrimitiveTruthTable(andGate), NLException);
+
+    auto bufGate = NLDB0::getOrCreateNInputGate(NLDB0::GateType::Buf, 2);
+    ASSERT_NE(bufGate, nullptr);
+    EXPECT_THROW(NLDB0::getPrimitiveTruthTable(bufGate), NLException);
 }
