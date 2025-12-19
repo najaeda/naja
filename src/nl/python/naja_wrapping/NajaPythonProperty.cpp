@@ -59,7 +59,11 @@ void NajaPythonProperty::preDestroy() {
     // Defensive: ensure we are writing to an address aligned for a pointer.
     if ((reinterpret_cast<std::uintptr_t>(addr) % alignof(void*)) != 0) {
       // If this triggers, the offset computation is wrong or the struct packing differs.
-      throw NL::NLException("NajaPythonProperty::preDestroy(): shadow member offset is misaligned (likely non-portable offset / packing issue).");
+      // LCOV_EXCL_START
+      throw NL::NLException(
+        "NajaPythonProperty::preDestroy(): shadow member offset is misaligned (likely non-portable offset / packing issue)."
+      );
+      // LCOV_EXCL_STOP
     }
 
     auto** shadowMember = reinterpret_cast<void**>(addr);
@@ -68,8 +72,9 @@ void NajaPythonProperty::preDestroy() {
 }
 
 void NajaPythonProperty::onCapturedBy(NajaObject* owner) {
-  if (owner_ and (owner_ != owner))
+  if (owner_ and (owner_ != owner)) {
     throw NL::NLException(getString().c_str());
+  }
 
   owner_ = owner;
 }
@@ -85,8 +90,9 @@ void NajaPythonProperty::onNotOwned() {
 }
 
 void NajaPythonProperty::setOffset(std::ptrdiff_t offset) {
-  if (offset_ >= 0)
-    throw NL::NLException(twiceSetOffset);
+  if (offset_ >= 0) {
+    throw NL::NLException(twiceSetOffset); // LCOV_EXCL_LINE
+  }
 
   offset_ = offset;
 }

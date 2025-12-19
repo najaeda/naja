@@ -133,8 +133,9 @@ SNLTruthTable NLDB0::getPrimitiveTruthTable(const SNLDesign* design) {
         if (size > 6) {
           throw NLException("NLDB0::getPrimitiveTruthTable: And gate with more than 6 inputs");
         }
-        uint64_t bits = (1ull << (1ull << size)) - 1;
-        bits &= ~(1ull); // set output 0 for input 0 to 0
+        // Only input 11..1 produces output 1
+        uint64_t bits = 1ULL << ((1ULL << size) - 1);
+
         SNLTruthTable tt(size, bits);
         return tt;
       }
@@ -143,8 +144,23 @@ SNLTruthTable NLDB0::getPrimitiveTruthTable(const SNLDesign* design) {
         if (size > 6) {
           throw NLException("NLDB0::getPrimitiveTruthTable: Or gate with more than 6 inputs");
         }
-        uint64_t bits = (1ull << (1ull << size)) - 1;
-        bits &= ~(1ull << ((1ull << size) - 1)); // set output 0 for input 11..1
+
+        // All combinations except 00..0 produce output 1
+        uint64_t bits = (1ULL << (1ULL << size)) - 1;
+        bits &= ~1ULL; // clear bit for input 00..0
+
+        SNLTruthTable tt(size, bits);
+        return tt;
+      }
+      case GateType::Nor: {
+        size_t size = design->getBusTerm(NLID::DesignObjectID(1))->getWidth();
+        if (size > 6) {
+          throw NLException("NLDB0::getPrimitiveTruthTable: Nor gate with more than 6 inputs");
+        }
+
+        // Only input 00..0 produces output 1
+        uint64_t bits = 1ULL;
+
         SNLTruthTable tt(size, bits);
         return tt;
       }
@@ -153,18 +169,16 @@ SNLTruthTable NLDB0::getPrimitiveTruthTable(const SNLDesign* design) {
         if (size > 6) {
           throw NLException("NLDB0::getPrimitiveTruthTable: Xor gate with more than 6 inputs");
         }
+
         uint64_t bits = 0;
-        for (size_t i = 0; i < (1ull << size); ++i) {
-          size_t count = 0;
-          for (size_t j = 0; j < size; ++j) {
-            if (i & (1ull << j)) {
-              ++count;
-            }
-          }
-          if (count % 2 == 1) {
-            bits |= (1ull << i);
+        const size_t combinations = (1ULL << size);
+        for (size_t i = 0; i < combinations; ++i) {
+          // XOR: output 1 if an odd number of input bits are set
+          if (__builtin_parityll(i)) {
+            bits |= (1ULL << i);
           }
         }
+
         SNLTruthTable tt(size, bits);
         return tt;
       }
@@ -241,7 +255,9 @@ bool NLDB0::isGateLibrary(const NLLibrary* library) {
 
 SNLDesign* NLDB0::getOrCreateNOutputGate(const GateType& type, size_t nbOutputs) {
   if (not type.isNOutput()) {
-    throw NLException("NLDB0::getOrCreateNOutputGate: type is not an NOutput gate");
+    throw NLException(
+      "NLDB0::getOrCreateNOutputGate: type " + type.getString() + " is not an NOutput gate" 
+    );
   }
   if (nbOutputs == 0) {
     throw NLException("NLDB0::getOrCreateNOutputGate: nbOutputs is 0");

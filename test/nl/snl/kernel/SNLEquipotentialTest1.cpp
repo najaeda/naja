@@ -36,7 +36,7 @@ class SNLEquipotentialTest1: public ::testing::Test {
     NLDB* db_;
 };
 
-TEST_F(SNLEquipotentialTest1, test) {
+TEST_F(SNLEquipotentialTest1, testConst0) {
   ASSERT_NE(db_, nullptr);
   auto lib = db_->getLibrary(NLID::LibraryID(1));
   ASSERT_NE(lib, nullptr);
@@ -74,4 +74,25 @@ TEST_F(SNLEquipotentialTest1, test) {
   EXPECT_EQ(equipotentialTopOut.getTerms(), naja::NajaCollection(new naja::NajaSTLCollection(&terms)));
   EXPECT_EQ(equipotentialTopOut.getInstTermOccurrences(), naja::NajaCollection(new naja::NajaSTLCollection(&instTermOccurrences)));
   EXPECT_TRUE(equipotentialTopOut.getType() == SNLNet::Type::Assign0);
+}
+
+TEST_F(SNLEquipotentialTest1, testConst1) {
+  ASSERT_NE(db_, nullptr);
+  auto lib = db_->getLibrary(NLID::LibraryID(1));
+  ASSERT_NE(lib, nullptr);
+  auto top = lib->getSNLDesign(NLName("TOP"));
+  ASSERT_NE(top, nullptr);
+  auto topout = top->getScalarTerm(NLName("out"));
+  ASSERT_NE(topout, nullptr);
+
+  //get AA
+  auto aa = lib->getSNLDesign(NLName("AA"));
+  ASSERT_NE(aa, nullptr);
+  auto aan = aa->getScalarNet(NLName("n"));
+  ASSERT_NE(aan, nullptr);
+  EXPECT_TRUE(aan->isAssign0());
+  aan->setType(SNLNet::Type::Assign1);
+
+  SNLEquipotential equipotentialTopOut(topout);
+  EXPECT_TRUE(equipotentialTopOut.getType() == SNLNet::Type::Assign1);
 }
