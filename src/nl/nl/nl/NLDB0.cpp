@@ -141,7 +141,7 @@ bool NLDB0::isDB0Primitive(const SNLDesign* design) {
 }
 
 SNLTruthTable NLDB0::getPrimitiveTruthTable(const SNLDesign* design) {
-  if (isGate(design)) {
+  if (isNInputGate(design)) {
     size_t size = design->getBusTerm(NLID::DesignObjectID(1))->getWidth();
     if (size > 6) {
       throw NLException("NLDB0::getPrimitiveTruthTable: gate with more than 6 inputs is not supported");
@@ -195,6 +195,8 @@ SNLTruthTable NLDB0::getPrimitiveTruthTable(const SNLDesign* design) {
         SNLTruthTable tt(size, bits);
         return tt;  
       }
+      default:
+        break;
     }
   }
   throw NLException("NLDB0::getPrimitiveTruthTable: unsupported primitive type");

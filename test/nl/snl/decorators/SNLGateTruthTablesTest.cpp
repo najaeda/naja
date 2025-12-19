@@ -130,7 +130,7 @@ TEST_F(SNLGateTruthTableTest, testUnsupportedGates) {
     ASSERT_NE(andGate, nullptr);
     EXPECT_THROW(NLDB0::getPrimitiveTruthTable(andGate), NLException);
 
-    auto bufGate = NLDB0::getOrCreateNInputGate(NLDB0::GateType::Buf, 2);
+    auto bufGate = NLDB0::getOrCreateNOutputGate(NLDB0::GateType::Buf, 2);
     ASSERT_NE(bufGate, nullptr);
     EXPECT_THROW(NLDB0::getPrimitiveTruthTable(bufGate), NLException);
 }
