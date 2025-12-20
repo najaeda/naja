@@ -7,6 +7,7 @@
 #define __SNL_EQUIPOTENTIAL_H_
 
 #include <set>
+#include "SNLNet.h"
 #include "SNLBitTerm.h"
 #include "SNLOccurrence.h"
 
@@ -16,11 +17,11 @@ class SNLNetComponent;
 
 class SNLEquipotential {
   public:
-    //SNLEquipotential()=delete;
-    //SNLEquipotential(const SNLEquipotential&)=delete;
     using InstTermOccurrences = std::set<SNLOccurrence>;
     using Terms = std::set<SNLBitTerm*, SNLDesignObject::PointerLess>;
 
+    SNLEquipotential()=default;
+    SNLEquipotential(const SNLEquipotential&)=default;
     SNLEquipotential(SNLNetComponent* netComponent);
     SNLEquipotential(const SNLOccurrence& netComponentOccurrence);
 
@@ -28,6 +29,9 @@ class SNLEquipotential {
     const InstTermOccurrences& getInstTermOccurrencesSet() const { return instTermOccurrences_; }
     NajaCollection<SNLBitTerm*> getTerms() const;
     NajaCollection<SNLOccurrence> getInstTermOccurrences() const;
+    SNLNet::Type getType() const { return type_; }
+    bool isConst0() const;
+    bool isConst1() const;
     std::string getString() const;
     //Comparators
     bool operator==(const SNLEquipotential& other) const {
@@ -53,6 +57,7 @@ class SNLEquipotential {
   private:
     InstTermOccurrences instTermOccurrences_  {};
     Terms               terms_                {};
+    SNLNet::Type        type_                 {SNLNet::Type::Standard};
 };
 
 }} // namespace NL // namespace naja

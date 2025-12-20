@@ -98,10 +98,13 @@ PyObject* richCompare(T left, T right, int op) {
 
 #define TRY try {
 
-#define NLCATCH                                        \
-  } catch (const naja::NL::NLException& e) {          \
-    setError("SNL exception: " + e.getReason());        \
-    return nullptr;                                     \
+#define NLCATCH \
+  } catch (const naja::NL::NLException& e) { \
+    std::ostringstream error; \
+    error << "Naja NL error: " << e.getReason(); \
+    /* << "\n" << e.trace().to_string(); */ \
+    setError(error.str()); \
+    return nullptr; \
   } catch (const std::exception& e) {                   \
     setError("Exception " + std::string(e.what()));     \
     return nullptr;                                     \

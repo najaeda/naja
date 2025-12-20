@@ -22,7 +22,8 @@ SET(snl_tests
 )
 
 SET(snl_tests_with_pyloader
-  SNLEquipotentialTest.cpp
+  SNLEquipotentialTest0.cpp
+  SNLEquipotentialTest1.cpp
 )
 
 ADD_EXECUTABLE(snlTests ${snl_tests})

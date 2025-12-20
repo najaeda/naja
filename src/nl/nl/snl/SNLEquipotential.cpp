@@ -18,9 +18,11 @@ using namespace naja::NL;
 struct SNLEquipotentialExtractor {
   explicit SNLEquipotentialExtractor(
     SNLEquipotential::InstTermOccurrences& instTermOccurrences,
-    SNLEquipotential::Terms& terms
+    SNLEquipotential::Terms& terms,
+    SNLNet::Type& type
   ): instTermOccurrences_(instTermOccurrences),
-  terms_(terms)
+    terms_(terms),
+    type_(type)
   {}
 
   void extractNetComponentsFromNetOccurrence(
@@ -34,6 +36,9 @@ struct SNLEquipotentialExtractor {
     }
     visitedNetOccurrences_.insert(netOccurrence);
     auto net = dynamic_cast<const SNLBitNet*>(netOccurrence.getObject());
+    if (net->getType() != SNLNet::Type::Standard) {
+      type_ = net->getType();
+    }
     auto path = netOccurrence.getPath();
     for (auto component: net->getComponents()) {
       if (not start and component == comingFromComponent.getObject()) {
@@ -117,6 +122,7 @@ struct SNLEquipotentialExtractor {
   private:
     SNLEquipotential::InstTermOccurrences&  instTermOccurrences_;
     SNLEquipotential::Terms&                terms_;
+    SNLNet::Type&                           type_;
     using NetOccurrences = std::set<SNLOccurrence>;
     NetOccurrences                          visitedNetOccurrences_  {};
 };
@@ -130,12 +136,21 @@ SNLEquipotential::SNLEquipotential(SNLNetComponent* netComponent):
 {}
 
 SNLEquipotential::SNLEquipotential(const SNLOccurrence& netComponentOccurrence) {
-  SNLEquipotentialExtractor extractor(instTermOccurrences_, terms_);
+  SNLEquipotentialExtractor extractor(instTermOccurrences_, terms_, type_);
   extractor.extractNetFromNetComponentOccurrence(netComponentOccurrence, true);
+}
+
+bool SNLEquipotential::isConst0() const {
+  return type_.isConst0();
+}
+
+bool SNLEquipotential::isConst1() const {
+  return type_.isConst1();
 }
 
 std::string SNLEquipotential::getString() const {
   std::ostringstream stream;
+  stream << "SNLEquipotential: " << type_.getString() << ", ";
   stream << "InstTermOccurrences: [";
   bool first = true;
   for (const auto& instTermOccurrence: instTermOccurrences_) {

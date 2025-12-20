@@ -10,6 +10,7 @@ SET(snl_decorators_tests
   SNLDesignTruthTablesTest0.cpp
   SNLDesignTruthTablesTest1.cpp
   SNLLibraryTruthTablesTest.cpp
+  SNLGateTruthTablesTest.cpp
 )
 
 ADD_EXECUTABLE(snlDecoratorsTests ${snl_decorators_tests})

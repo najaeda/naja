@@ -16,7 +16,6 @@
 
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
-#include <argparse/argparse.hpp>
 
 #include "NajaVersion.h"
 #include "NajaPerf.h"
@@ -474,7 +473,7 @@ int main(int argc, char* argv[]) {
       }
     }
   } catch (const NLException& e) {
-    //SPDLOG_CRITICAL("Caught SNL error: {}\n{}",
+    //SPDLOG_CRITICAL("Caught Naja error: {}\n{}",
     //  e.what(), e.trace().to_string()); 
     SPDLOG_CRITICAL("Caught SNL error: {}\n", e.what());
     std::exit(EXIT_FAILURE);

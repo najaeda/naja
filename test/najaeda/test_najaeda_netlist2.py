@@ -306,6 +306,10 @@ class NajaNetlistTest2(unittest.TestCase):
         self.assertIsNone(modI0Net.get_bit(4))
         modI0Net.set_type(netlist.Net.Type.ASSIGN0)
         self.assertTrue(modI0Net.is_const())
+        self.assertTrue(modI0Net.is_const0())
+        modI0Net.set_type(netlist.Net.Type.ASSIGN1)
+        self.assertTrue(modI0Net.is_const())
+        self.assertTrue(modI0Net.is_const1())
 
         for i in range(4):
             # modIO.get_bit(i) is the connected to I0_{3-i} scalar net
@@ -327,6 +331,28 @@ class NajaNetlistTest2(unittest.TestCase):
         for i in range(4):
             # modI1.get_bit(i) is the connected to I0_{i} scalar net
             self.assertEqual(modI1Net.get_bit(i).get_name(), top.get_net(f'I1_{i}').get_name())
+        for i in range(4):
+            modI1Net.get_bit(i).set_type(netlist.Net.Type.ASSIGN0)
+        self.assertTrue(modI1Net.is_const())
+        self.assertTrue(modI1Net.is_const0())
+        #one bit set to 1
+        modI1Net.get_bit(2).set_type(netlist.Net.Type.ASSIGN1)
+        self.assertFalse(modI1Net.is_const0())
+        self.assertFalse(modI1Net.is_const1())
+        self.assertTrue(modI1Net.is_const())
+        modI1Net.get_bit(2).set_type(netlist.Net.Type.STANDARD)
+        self.assertFalse(modI1Net.is_const())
+        self.assertFalse(modI1Net.is_const0())
+        self.assertFalse(modI1Net.is_const1())
+        for i in range(4):
+            modI1Net.get_bit(i).set_type(netlist.Net.Type.ASSIGN1)
+        self.assertTrue(modI1Net.is_const())
+        self.assertTrue(modI1Net.is_const1())
+        #one bit set to 0
+        modI1Net.get_bit(1).set_type(netlist.Net.Type.ASSIGN0)
+        self.assertFalse(modI1Net.is_const0())
+        self.assertFalse(modI1Net.is_const1())
+        self.assertTrue(modI1Net.is_const())
 
         # delete modI1Net
         modI1Net.delete()
