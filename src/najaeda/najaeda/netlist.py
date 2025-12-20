@@ -199,9 +199,7 @@ class Equipotential:
         :return: True if this equipotential is a constant 0 generator.
         :rtype: bool
         """
-        if self.equi is not None:
-            return self.equi.isConst0()
-        return False
+        return self.equi.isConst0()
 
     def is_const1(self) -> bool:
         """Check if this equipotential is a constant 1 generator.
@@ -209,9 +207,7 @@ class Equipotential:
         :return: True if this equipotential is a constant 1 generator.
         :rtype: bool
         """
-        if self.equi is not None:
-            return self.equi.isConst1()
-        return False
+        return self.equi.isConst1()
 
 
 class Net:

@@ -51,6 +51,34 @@ class NajaNetlistTestSimple(unittest.TestCase):
         self.assertEqual(top.get_term('inout_bus').get_msb(), 1)
         self.assertEqual(top.get_term('inout_bus').get_lsb(), 1)
 
+    def test_equipotential_on_bus_term_error(self):
+        top = netlist.create_top('Top')
+        bus_term = top.create_input_bus_term('in_bus', 3, 0)
+        with self.assertRaises(ValueError):
+            bus_term.get_equipotential()
+
+    def test_comparison(self):
+        top = netlist.create_top('Top')
+        term1 = top.create_input_term('in_term1')
+        term2 = top.create_input_bus_term('in_term2', 31, 0)
+
+        net1 = top.create_net('net1')
+        net2 = top.create_bus_net('net2', 31, 0)
+
+        term1.connect_lower_net(net1)
+        term2.connect_lower_net(net2)
+
+        self.assertEqual(net1, net1)
+        self.assertNotEqual(net1, net2)
+        self.assertEqual(term1, term1)
+        self.assertNotEqual(term1, term2)
+        self.assertNotEqual(term1, net1)
+        self.assertNotEqual(net1, term1)
+        self.assertTrue(net1 != term1)
+
+        self.assertLess(term1, term2)
+        self.assertGreater(term2, term1)
+
 if __name__ == '__main__':
     faulthandler.enable()
     unittest.main()
