@@ -235,16 +235,20 @@ class Net:
         elif net_concat is not None:
             self.net_concat = net_concat
 
+    def key(self):
+        """Stable, hashable identity for Net."""
+        if hasattr(self, "net"):
+            return (tuple(self.pathIDs), ("net", self.net))
+        else:
+            return (tuple(self.pathIDs), ("concat", tuple(self.net_concat)))
+
     def __eq__(self, other):
         if not isinstance(other, Net):
             return NotImplemented
-        return vars(self) == vars(other)
+        return self.key() == other.key()
 
-    def __ne__(self, other):
-        eq_result = self.__eq__(other)
-        if eq_result is NotImplemented:
-            return NotImplemented
-        return not eq_result
+    def __hash__(self):
+        return hash(self.key())
 
     def __str__(self):
         if self.is_concat():
@@ -538,40 +542,45 @@ class Term:
             self.bit,
         )
 
-    def __eq__(self, other) -> bool:
+    def __eq__(self, other):
         if not isinstance(other, Term):
             return NotImplemented
         return self.key() == other.key()
 
-    def __ne__(self, other) -> bool:
-        return not self == other
+    def __ne__(self, other):
+        eq = self.__eq__(other)
+        if eq is NotImplemented:
+            return NotImplemented
+        return not eq
 
-    def __lt__(self, other) -> bool:
+    def __lt__(self, other):
         if not isinstance(other, Term):
             return NotImplemented
+        return self.key() < other.key()
 
-        if self.pathIDs != other.pathIDs:
-            return self.pathIDs < other.pathIDs
+    def __le__(self, other):
+        if not isinstance(other, Term):
+            return NotImplemented
+        eq = self.__eq__(other)
+        if eq is NotImplemented:
+            return NotImplemented
+        return eq or self.__lt__(other)
 
-        if self.termID != other.termID:
-            return self.termID < other.termID
+    def __gt__(self, other):
+        if not isinstance(other, Term):
+            return NotImplemented
+        le = self.__le__(other)
+        if le is NotImplemented:
+            return NotImplemented
+        return not le
 
-        # Define ordering: bus term (bit=None) comes before its bits
-        if self.bit is None:
-            return other.bit is not None
-        if other.bit is None:
-            return False
-
-        return self.bit < other.bit
-
-    def __le__(self, other) -> bool:
-        return self < other or self == other
-
-    def __gt__(self, other) -> bool:
-        return not self <= other
-
-    def __ge__(self, other) -> bool:
-        return not self < other
+    def __ge__(self, other):
+        if not isinstance(other, Term):
+            return NotImplemented
+        lt = self.__lt__(other)
+        if lt is NotImplemented:
+            return NotImplemented
+        return not lt
 
     def __hash__(self):
         termIDs = []

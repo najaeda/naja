@@ -78,6 +78,17 @@ class NajaNetlistTestSimple(unittest.TestCase):
 
         self.assertLess(term1, term2)
         self.assertGreater(term2, term1)
+        self.assertNotEqual(term1, net1)
+
+        term1_bit2 = term2.get_bit(2)
+        term1_bit10 = term2.get_bit(10)
+        self.assertNotEqual(term1_bit2, term1_bit10)
+        self.assertLess(term1_bit2, term1_bit10)
+        self.assertGreater(term1_bit10, term1_bit2)
+        self.assertLess(term1, term1_bit2)
+        self.assertGreater(term1_bit2, term1)
+        self.assertLess(term1, term1_bit10)
+        self.assertGreater(term1_bit10, term1)
 
 if __name__ == '__main__':
     faulthandler.enable()

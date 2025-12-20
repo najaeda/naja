@@ -307,35 +307,33 @@ class SNLDesignTest(unittest.TestCase):
   
   def testSetTruthTablesExceptions(self):
     design = naja.SNLDesign.create(self.lib, "DESIGN")
-    
     # add output
     o = naja.SNLScalarTerm.create(design, naja.SNLTerm.Direction.Output, "O")
-
     # Missing argument
     with self.assertRaises(RuntimeError): design.setTruthTables()
-
     # Incorrect type: None
     with self.assertRaises(RuntimeError): design.setTruthTables(None)
-
     # Incorrect type: string
     with self.assertRaises(RuntimeError): design.setTruthTables("not a list")
-
     # Incorrect type: dict
     with self.assertRaises(RuntimeError): design.setTruthTables({"size": 4, "mask": 0b1010})
-
     # Incorrect structure: flat list
     with self.assertRaises(RuntimeError): design.setTruthTables([4, 0b1010])
-
     # Incorrect item types: list of floats
     with self.assertRaises(RuntimeError): design.setTruthTables([4.0, 0b1010])
-
     # Incorrect item types: list of mixed types
     with self.assertRaises(RuntimeError): design.setTruthTables([4, "0b1010"])
-
     # Uneven number of elements in list (incomplete size/mask pair)
     with self.assertRaises(RuntimeError): design.setTruthTables([4])
-    
     with self.assertRaises(RuntimeError): design.setTruthTable(4)
+
+def test_object_clashes(self):
+  universe = naja.NLUniverse.create()
+  db = naja.NLDB.create(universe)
+  design = naja.SNLDesign.create(self.lib, "DESIGN")
+  bus_term1 = naja.SNLBusTerm.create(design, naja.SNLTerm.Direction.Input, "TERM", 31, 0)
+  with unittest.TestCase().assertRaises(RuntimeError):
+    bus_term2 = naja.SNLBusTerm.create(design, naja.SNLTerm.Direction.Input, "TERM", 31, 0)
 
 if __name__ == '__main__':
   unittest.main()
