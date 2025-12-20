@@ -74,7 +74,24 @@ class NajaNetlistTestSimple(unittest.TestCase):
         self.assertNotEqual(term1, term2)
         self.assertNotEqual(term1, net1)
         self.assertNotEqual(net1, term1)
-        self.assertTrue(net1 != term1)
+        self.assertNotEqual(net1, term1)
+
+        with self.assertRaises(TypeError):
+            term1 < net1
+        with self.assertRaises(TypeError):
+            net1 < term1
+        with self.assertRaises(TypeError):
+            term1 > net1
+        with self.assertRaises(TypeError):
+            net1 > term1
+        with self.assertRaises(TypeError):
+            term1 <= net1
+        with self.assertRaises(TypeError):
+            net1 <= term1
+        with self.assertRaises(TypeError):
+            term1 >= net1
+        with self.assertRaises(TypeError):
+            net1 >= term1
 
         self.assertLess(term1, term2)
         self.assertGreater(term2, term1)

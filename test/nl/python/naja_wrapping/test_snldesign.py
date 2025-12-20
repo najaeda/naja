@@ -333,7 +333,7 @@ def test_object_clashes(self):
   design = naja.SNLDesign.create(self.lib, "DESIGN")
   bus_term1 = naja.SNLBusTerm.create(design, naja.SNLTerm.Direction.Input, "TERM", 31, 0)
   with unittest.TestCase().assertRaises(RuntimeError):
-    bus_term2 = naja.SNLBusTerm.create(design, naja.SNLTerm.Direction.Input, "TERM", 31, 0)
+    naja.SNLBusTerm.create(design, naja.SNLTerm.Direction.Input, "TERM", 31, 0)
 
 if __name__ == '__main__':
   unittest.main()
