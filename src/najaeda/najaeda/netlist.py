@@ -105,27 +105,15 @@ class Equipotential:
     def __init__(self, term):
         path = get_snl_path_from_id_list(term.pathIDs)
         snl_term = get_snl_term_for_ids_with_path(path, term.termID, term.bit)
-        inst_term = None
         if isinstance(snl_term, naja.SNLBusTerm):
             raise ValueError("Equipotential cannot be constructed on bus term")
         if len(term.pathIDs) == 0:
-            net = term.get_lower_net()
-            if net is None:
-                self.equi = None
-                return
-            inst_term = next(net.get_inst_terms(), None)
-            if inst_term is None:
-                self.equi = None
-                return
-            else:
-                path = naja.SNLPath(path, get_snl_instance_from_id_list(inst_term.pathIDs))
-                snl_term = inst_term.get_snl_term()
+            self.equi = naja.SNLEquipotential(snl_term)
         else:
-            inst_term = term
-        ito = naja.SNLOccurrence(
-            path.getHeadPath(), path.getTailInstance().getInstTerm(snl_term)
-        )
-        self.equi = naja.SNLEquipotential(ito)
+            ito = naja.SNLOccurrence(
+                path.getHeadPath(), path.getTailInstance().getInstTerm(snl_term)
+            )
+            self.equi = naja.SNLEquipotential(ito)
 
     def __eq__(self, value):
         return self.equi == value.equi
@@ -203,9 +191,7 @@ class Equipotential:
         :return: True if this equipotential is a constant generator.
         :rtype: bool
         """
-        if self.equi is not None:
-            return self.equi.isConstant()
-        return False
+        return self.is_const0() or self.is_const1()
 
     def is_const0(self) -> bool:
         """Check if this equipotential is a constant 0 generator.

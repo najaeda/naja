@@ -195,8 +195,10 @@ SNLTruthTable NLDB0::getPrimitiveTruthTable(const SNLDesign* design) {
         SNLTruthTable tt(size, bits);
         return tt;  
       }
+      // LCOV_EXCL_START
       default:
         break;
+      // LCOV_EXCL_STOP
     }
   }
   throw NLException("NLDB0::getPrimitiveTruthTable: unsupported primitive type");
