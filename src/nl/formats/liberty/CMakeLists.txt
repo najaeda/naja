@@ -12,8 +12,8 @@ set(HEADERS
 )
 
 # Find Boost iostreams and zlib (non-fatal; we will link if found)
-find_package(Boost COMPONENTS iostreams QUIET)
-find_package(ZLIB QUIET)
+find_package(Boost COMPONENTS iostreams REQUIRED)
+find_package(ZLIB REQUIRED)
 
 # Create static library
 add_library(naja_snl_liberty STATIC ${SOURCES})
@@ -26,8 +26,8 @@ target_include_directories(naja_snl_liberty PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 # Keep yosys_liberty PUBLIC so its include interface is available to consumers/tests.
 target_link_libraries(naja_snl_liberty
   PUBLIC
-    naja_nl
-    yosys_liberty
+  naja_nl
+  yosys_liberty
 )
 
 # Conditionally link Boost.Iostreams (prefer imported target if available)
@@ -50,7 +50,7 @@ endif()
 
 # Compile settings
 target_compile_features(naja_snl_liberty PUBLIC cxx_std_17)
-if (CMAKE_CXX_COMPILER_ID MATCHES "Clang|AppleClang|GNU")
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|AppleClang|GNU")
   target_compile_options(naja_snl_liberty PRIVATE -Wall -Wextra -Wno-unused-parameter)
 endif()
 
