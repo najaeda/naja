@@ -73,6 +73,13 @@ class SNLEquiTest(unittest.TestCase):
     equi = naja.SNLEquipotential(self.top_out)
     self.assertTrue(equi.isConst0())
 
+  def testConstant1TopTerm(self):
+    i0Net = naja.SNLScalarNet.create(self.top, "I0")
+    i0Net.setType(naja.SNLNet.Type.Assign1)
+    self.top_out.setNet(i0Net)
+    equi = naja.SNLEquipotential(self.top_out)
+    self.assertTrue(equi.isConst1())
+
   def testErrors(self):
     ins = naja.SNLInstance.create(self.model, self.submodel, "ins")
     with self.assertRaises(RuntimeError) as context: naja.SNLEquipotential(0)

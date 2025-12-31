@@ -74,11 +74,6 @@ PyObject* PySNLBusTerm_getBusTermBit(PySNLBusTerm* self, PyObject* args) {
   return PySNLBusTermBit_Link(bitTerm);
 }
 
-// Function named getBit with no args that returns -1 int
-PyObject* PySNLBusTerm_getBit(PySNLBusTerm* self) {
-  return PyLong_FromLong(std::numeric_limits<long>::max());
-}
-
 DirectGetIntMethod(PySNLBusTerm_getMSB, getMSB, PySNLBusTerm, SNLBusTerm)
 DirectGetIntMethod(PySNLBusTerm_getLSB, getLSB, PySNLBusTerm, SNLBusTerm)
 DirectGetIntMethod(PySNLBusTerm_getID, getID, PySNLBusTerm, SNLBusTerm)
@@ -97,8 +92,6 @@ PyMethodDef PySNLBusTerm_Methods[] = {
     "get SNLBusTerm MSB value"},
   { "getLSB", (PyCFunction)PySNLBusTerm_getLSB, METH_NOARGS,
     "get SNLBusTerm LSB value"},
-  { "getBit", (PyCFunction)PySNLBusTerm_getBit, METH_NOARGS,
-    "retruns -1"},
   { "getBusTermBit", (PyCFunction)PySNLBusTerm_getBusTermBit, METH_VARARGS,
     "get SNLBusTerm Bit, returns SNLBusTermBit"},
   { "getID", (PyCFunction)PySNLBusTerm_getID, METH_NOARGS,

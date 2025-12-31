@@ -56,6 +56,7 @@ static PyObject* getGitHash(PyObject* self, PyObject* args) {
   return PyUnicode_FromString(naja::NAJA_GIT_HASH.c_str());
 }
 
+// LCOV_EXCL_START
 static PyObject* logInfo(PyObject* self, PyObject* args) {
   const char* message;
 
@@ -66,7 +67,9 @@ static PyObject* logInfo(PyObject* self, PyObject* args) {
   spdlog::info(std::string(message));
   Py_RETURN_NONE;
 }
+// LCOV_EXCL_STOP
 
+// LCOV_EXCL_START
 static PyObject* logCritical(PyObject* self, PyObject* args) {
   const char* message;
   if (!PyArg_ParseTuple(args, "s", &message)) {
@@ -76,6 +79,7 @@ static PyObject* logCritical(PyObject* self, PyObject* args) {
   spdlog::critical(std::string(message));
   Py_RETURN_NONE;
 }
+// LCOV_EXCL_STOP
 
 static PyMethodDef NajaMethods[] = {
   { "getVersion", getVersion, METH_NOARGS, "get the version of Naja" },

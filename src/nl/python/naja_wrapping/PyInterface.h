@@ -101,8 +101,8 @@ PyObject* richCompare(T left, T right, int op) {
 #define NLCATCH \
   } catch (const naja::NL::NLException& e) { \
     std::ostringstream error; \
-    error << "Naja NL error: " << e.getReason() \
-      << "\n" << e.trace().to_string(); \
+    error << "Naja NL error: " << e.getReason(); \
+    /* << "\n" << e.trace().to_string(); */ \
     setError(error.str()); \
     return nullptr; \
   } catch (const std::exception& e) {                   \

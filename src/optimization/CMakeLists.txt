@@ -30,7 +30,10 @@ target_include_directories(naja_opt PUBLIC ${SPDLOG_DIR})
 set_target_properties(naja_opt PROPERTIES PUBLIC_HEADER "${naja_opt_HEADERS}")
 
 if(BUILD_NAJA_PYTHON)
-  install(TARGETS naja_opt LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/najaeda)
+  install(TARGETS naja_opt
+    LIBRARY DESTINATION najaeda
+    RUNTIME DESTINATION najaeda
+  )
 else(BUILD_NAJA_PYTHON)
 install(TARGETS naja_opt
   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}

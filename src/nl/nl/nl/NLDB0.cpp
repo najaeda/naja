@@ -12,6 +12,20 @@
 #include "SNLScalarNet.h"
 #include "SNLDesignModeling.h"
 
+#include <cstdint>
+#if defined(_MSC_VER)
+  #include <intrin.h>
+#endif
+namespace {
+  inline bool parity64(uint64_t x) {
+#if defined(_MSC_VER)
+    return (__popcnt64(x) & 1) != 0;
+#else
+    return __builtin_parityll(x);
+#endif
+  }
+}
+
 namespace naja { namespace NL {
 
 NLDB0::GateType::GateType(const GateTypeEnum& typeEnum):
@@ -113,7 +127,9 @@ NLLibrary* NLDB0::getDB0RootLibrary() {
 
 bool NLDB0::isDB0Library(const NLLibrary* library) {
   auto topLibrary = getDB0RootLibrary();
-  return library == topLibrary;
+  if (library == topLibrary) {
+    return true;
+  }
   if (library->isRoot()) {
     return false;
   }
@@ -122,6 +138,70 @@ bool NLDB0::isDB0Library(const NLLibrary* library) {
 
 bool NLDB0::isDB0Primitive(const SNLDesign* design) {
   return design and isDB0Library(design->getLibrary());
+}
+
+SNLTruthTable NLDB0::getPrimitiveTruthTable(const SNLDesign* design) {
+  if (isNInputGate(design)) {
+    size_t size = design->getBusTerm(NLID::DesignObjectID(1))->getWidth();
+    if (size > 6) {
+      throw NLException("NLDB0::getPrimitiveTruthTable: gate with more than 6 inputs is not supported");
+    }
+    auto type = GateType(design->getLibrary()->getName().getString());
+    switch (type) {
+      case GateType::And: {
+
+        // Only input 11..1 produces output 1
+        uint64_t bits = 1ULL << ((1ULL << size) - 1);
+
+        SNLTruthTable tt(size, bits);
+        return tt;
+      }
+      case GateType::Or: {
+        // All combinations except 00..0 produce output 1
+        uint64_t bits = (1ULL << (1ULL << size)) - 1;
+        bits &= ~1ULL; // clear bit for input 00..0
+
+        SNLTruthTable tt(size, bits);
+        return tt;
+      }
+      case GateType::Nor: {
+        // Only input 00..0 produces output 1
+        uint64_t bits = 1ULL;
+
+        SNLTruthTable tt(size, bits);
+        return tt;
+      }
+      case GateType::Xor: {
+        uint64_t bits = 0;
+        const size_t combinations = (1ULL << size);
+        for (size_t i = 0; i < combinations; ++i) {
+          // XOR: output 1 if an odd number of input bits are set
+          if (parity64(i)) {
+            bits |= (1ULL << i);
+          }
+        }
+        SNLTruthTable tt(size, bits);
+        return tt;
+      }
+      case GateType::Xnor: {
+        uint64_t bits = 0;
+        const size_t combinations = (1ULL << size);
+        for (size_t i = 0; i < combinations; ++i) {
+          // XNOR: output 1 if an even number of input bits are set
+          if (not parity64(i)) {
+            bits |= (1ULL << i);
+          }
+        }
+        SNLTruthTable tt(size, bits);
+        return tt;  
+      }
+      // LCOV_EXCL_START
+      default:
+        break;
+      // LCOV_EXCL_STOP
+    }
+  }
+  throw NLException("NLDB0::getPrimitiveTruthTable: unsupported primitive type");
 }
 
 SNLDesign* NLDB0::getAssign() {
@@ -190,7 +270,9 @@ bool NLDB0::isGateLibrary(const NLLibrary* library) {
 
 SNLDesign* NLDB0::getOrCreateNOutputGate(const GateType& type, size_t nbOutputs) {
   if (not type.isNOutput()) {
-    throw NLException("NLDB0::getOrCreateNOutputGate: type is not an NOutput gate");
+    throw NLException(
+      "NLDB0::getOrCreateNOutputGate: type " + type.getString() + " is not an NOutput gate" 
+    );
   }
   if (nbOutputs == 0) {
     throw NLException("NLDB0::getOrCreateNOutputGate: nbOutputs is 0");

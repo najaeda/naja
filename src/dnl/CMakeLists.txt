@@ -30,7 +30,10 @@ target_include_directories(naja_dnl SYSTEM BEFORE PUBLIC ${TBB_INCLUDE_DIR})
 target_include_directories(naja_dnl PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 if(BUILD_NAJA_PYTHON)
-  install(TARGETS naja_dnl LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/najaeda)
+  install(TARGETS naja_dnl
+    LIBRARY DESTINATION najaeda
+    RUNTIME DESTINATION najaeda
+  )
 else(BUILD_NAJA_PYTHON)
   set_target_properties(naja_dnl PROPERTIES PUBLIC_HEADER "${DNL_HEADERS}")
   install(TARGETS naja_dnl

@@ -49,11 +49,11 @@ if __name__ == '__main__':
                 if driver.is_sequential() or driver.get_instance().is_top():
                     continue
                 instance = driver.get_instance()
-                key = (tuple(driver.pathIDs), tuple(driver.termIDs))
+                key = driver.key()
                 if key in path2ll and path2ll[key] > len(path):
                     continue
                 if path is not None:
-                    path2ll[(tuple(driver.pathIDs), tuple(driver.termIDs))] = len(path)
+                    path2ll[key] = len(path)
                 input_terms = driver.get_combinatorial_inputs()
                 for input_term in input_terms:
                     if path is not None and input_term in path:
@@ -69,6 +69,3 @@ if __name__ == '__main__':
     print(global_max_logic_level)
     end = time.time()
     print('LL count done in', end - start, 'seconds')
-    
-    
-    
