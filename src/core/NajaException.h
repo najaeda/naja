@@ -6,7 +6,7 @@
 #ifndef __NAJA_EXCEPTION_H_
 #define __NAJA_EXCEPTION_H_
 
-#include <cpptrace/cpptrace.hpp>
+//#include <cpptrace/cpptrace.hpp>
 
 namespace naja {
 
