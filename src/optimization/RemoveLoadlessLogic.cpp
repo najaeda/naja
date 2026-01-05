@@ -26,7 +26,7 @@ using namespace naja::BNE;
 using namespace naja::NAJA_OPT;
 
 // Constructor
-LoadlessLogicRemover::LoadlessLogicRemover() {}
+LoadlessLogicRemover::LoadlessLogicRemover() { dnl_ = DNL::get(); }
 
 // Given a DNL, getting all isos connected to top output.
 std::vector<DNLID> LoadlessLogicRemover::getTopOutputIsos(
@@ -338,7 +338,7 @@ void LoadlessLogicRemover::removeLoadlessInstances(
   //  LCOV_EXCL_START
   std::cout << "Deleted " << loadlessInstances.size() << " leaf instances out of " << dnl_->getLeaves().size() << std::endl;
   // LCOV_EXCL_STOP
-  /// #endif
+  // #endif
 }
 
 // Given a DNL, remove all loadless logic

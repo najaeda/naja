@@ -83,7 +83,9 @@ DNL<DNLInstanceFull, DNLTerminalFull>* get() {
 }
 
 void destroy() {
-  delete dnlFull_;
+  if (dnlFull_ != nullptr) {
+    delete dnlFull_;;
+  }
   dnlFull_ = nullptr;
 }
 }  // namespace naja::DNL
