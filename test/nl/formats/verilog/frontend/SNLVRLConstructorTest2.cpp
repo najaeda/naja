@@ -87,8 +87,8 @@ TEST_F(SNLVRLConstructorTest2, test) {
   EXPECT_EQ(top, test);
   using Instances = std::vector<SNLInstance*>;
   Instances instances(top->getInstances().begin(), top->getInstances().end());
-  //6 standard instances, 3 assigns
-  ASSERT_EQ(9, instances.size());
+  //6 standard instances, 4 assigns
+  ASSERT_EQ(10, instances.size());
   ASSERT_EQ(1, model0->getInstances().size());
   auto lut = model0->getInstance(NLName("lut"));
   ASSERT_NE(lut, nullptr);

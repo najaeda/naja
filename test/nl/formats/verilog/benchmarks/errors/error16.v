@@ -3,5 +3,6 @@
 */
 
 module test();
+  wire n0;
   assign n1 = n0[3];
 endmodule
