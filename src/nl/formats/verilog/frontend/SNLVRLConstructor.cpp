@@ -189,9 +189,31 @@ naja::NL::SNLDesign* getOrCreateAutoBlackBox(
   return model;
 }
 
-}
+
+
+} //end anonymous namespace
 
 namespace naja { namespace NL {
+
+naja::NL::SNLNet* SNLVRLConstructor::getNetOrCreateImplicitNet(
+  naja::NL::SNLDesign* design,
+  const naja::verilog::RangeIdentifier& identifier) {
+  naja::NL::NLName netName(identifier.identifier_.name_);
+  auto net = design->getNet(netName);
+  if (not net) {
+    if (identifier.range_.valid_) {
+      std::ostringstream reason;
+      reason << getLocationString();
+      reason << ": bus net \"" << netName.getString()
+        << "\" cannot be found in "
+        << design->getName().getString();
+      throw SNLVRLConstructorException(reason.str());
+    } else {
+      net = naja::NL::SNLScalarNet::create(design, netName);
+    }
+  }
+  return net;
+}
 
 void SNLVRLConstructor::GateInstance::reset() {
   gateType_ = NLDB0::GateType::Unknown;
@@ -469,15 +491,7 @@ void SNLVRLConstructor::addAssign(
       case naja::verilog::Expression::Type::RANGEIDENTIFIER: {
         auto identifier = std::get<naja::verilog::RangeIdentifier>(expression.value_);
         std::string name = identifier.identifier_.name_;
-        SNLNet* net = currentModule_->getNet(NLName(name));
-        if (not net) {
-          std::ostringstream reason;
-          reason << getLocationString();
-          reason << ": net \"" <<  name
-            << "\" cannot be found in "
-            << currentModule_->getName().getString();
-          throw SNLVRLConstructorException(reason.str());
-        }
+        auto net = getNetOrCreateImplicitNet(currentModule_, identifier);
         if (identifier.range_.valid_) {
           SNLBusNet* busNet = dynamic_cast<SNLBusNet*>(net);
           if (not busNet) {
@@ -635,15 +649,7 @@ void SNLVRLConstructor::currentInstancePortConnection(
       case naja::verilog::Expression::Type::RANGEIDENTIFIER: {
         auto identifier = std::get<naja::verilog::RangeIdentifier>(expression.value_);
         std::string name = identifier.identifier_.name_;
-        SNLNet* net = currentInstance_->getDesign()->getNet(NLName(name));
-        if (not net) {
-          std::ostringstream reason;
-          reason << getLocationString();
-          reason << ": net \"" <<  name
-            << "\" cannot be found in "
-            << currentInstance_->getDesign()->getName().getString();
-          throw SNLVRLConstructorException(reason.str());
-        }
+        auto net = getNetOrCreateImplicitNet(currentInstance_->getDesign(), identifier);
         if (identifier.range_.valid_) {
           SNLBusNet* busNet = dynamic_cast<SNLBusNet*>(net);
           if (not busNet) {
@@ -966,17 +972,7 @@ void SNLVRLConstructor::collectConcatenationBitNets(
       case naja::verilog::Expression::RANGEIDENTIFIER: {
         auto identifier =
           std::get<naja::verilog::Expression::Type::RANGEIDENTIFIER>(expression.value_);
-        std::string name = identifier.identifier_.name_;
-        SNLNet* net = currentModule_->getNet(NLName(name));
-        if (not net) {
-          std::ostringstream reason;
-          reason << getLocationString();
-          reason << ": net \"" <<  name
-            << "\" cannot be found in \""
-            << currentModule_->getName().getString()
-            << "\"";
-          throw SNLVRLConstructorException(reason.str());
-        }
+        auto net = getNetOrCreateImplicitNet(currentModule_, identifier);
         if (auto scalarNet = dynamic_cast<SNLScalarNet*>(net)) {
           if (identifier.range_.valid_) {
             std::ostringstream reason;

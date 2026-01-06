@@ -101,6 +101,9 @@ class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
     void endModule() override;
 
   private:
+    SNLNet* getNetOrCreateImplicitNet(
+      SNLDesign* design,
+      const naja::verilog::RangeIdentifier& identifier);
     void createCurrentModuleAssignNets();
     void createConstantNets(
       const naja::verilog::Number& number,
