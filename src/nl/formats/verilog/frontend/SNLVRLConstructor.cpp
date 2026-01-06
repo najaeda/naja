@@ -203,8 +203,8 @@ naja::NL::SNLNet* SNLVRLConstructor::getNetOrCreateImplicitNet(
   if (not net) {
     if (identifier.range_.valid_) {
       std::ostringstream reason;
-      reason << getLocationString();
-      reason << ": bus net \"" << netName.getString()
+      reason << getLocationString()
+        << ": bus net \"" << netName.getString()
         << "\" cannot be found in "
         << design->getName().getString();
       throw SNLVRLConstructorException(reason.str());
@@ -734,8 +734,8 @@ void SNLVRLConstructor::addInstanceConnection(
         }
       } else {
         std::ostringstream reason;
-        reason << getLocationString();
-        reason << ": " << port.getString()
+        reason << getLocationString()
+          << ": " << port.getString()
           << " port cannot be found in " << model->getName().getString()
           << " model";
         throw SNLVRLConstructorException(reason.str());
@@ -958,8 +958,8 @@ void SNLVRLConstructor::collectConcatenationBitNets(
   for (auto expression: concatenation.expressions_) {
     if (not expression.supported_ or not expression.valid_) {
       std::ostringstream reason;
-      reason << naja::NL::SNLVRLConstructor::getLocationString();
-      reason << ": " << expression.getString() << " is not supported";
+      reason << naja::NL::SNLVRLConstructor::getLocationString()
+        << ": " << expression.getString() << " is not supported";
       throw SNLVRLConstructorException(reason.str());
     }
     switch (expression.value_.index()) {
@@ -1016,8 +1016,8 @@ void SNLVRLConstructor::collectIdentifierNets(
   SNLNet* net = currentModule_->getNet(NLName(name));
   if (not net) {
     std::ostringstream reason;
-    reason << getLocationString();
-    reason << ": net \"" <<  name
+    reason << getLocationString()
+      << ": net \"" <<  name
       << "\" cannot be found in "
       << currentModule_->getName().getString();
     throw SNLVRLConstructorException(reason.str());
