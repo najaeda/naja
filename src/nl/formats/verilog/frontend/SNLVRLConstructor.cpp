@@ -506,7 +506,8 @@ void SNLVRLConstructor::addAssign(
           SNLBusNet* busNet = dynamic_cast<SNLBusNet*>(net);
           if (not busNet) {
             std::ostringstream reason;
-            reason << getLocationString() << " NOT BUSNET"; 
+            reason << getLocationString()
+              << ": net " << name << " is not a bus";
             throw SNLVRLConstructorException(reason.str());
           }
           int netMSB = identifier.range_.msb_;
@@ -573,8 +574,8 @@ void SNLVRLConstructor::addInstance(const naja::verilog::Identifier& instance) {
         model = getOrCreateAutoBlackBox(autoBlackBoxLibrary, modelName);
       } else {
         std::ostringstream reason;
-        reason << getLocationString();
-        reason << ": " << currentModelName_
+        reason << getLocationString()
+          << ": " << currentModelName_
           << " cannot be found in SNL while constructing instance "
           << instance.getString();
         throw SNLVRLConstructorException(reason.str());
