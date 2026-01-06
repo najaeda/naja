@@ -195,6 +195,16 @@ naja::NL::SNLDesign* getOrCreateAutoBlackBox(
 
 namespace naja { namespace NL {
 
+//4.5 Implicit declarations
+//- If an identifier is used in the terminal list of a primitive instance or a module instance, and that
+//  identifier has not been declared previously in the scope where the instantiation appears or in any
+//  scope whose declarations can be directly referenced from the scope where the instantiation appears
+//  (see 12.7), then an implicit scalar net of default net type shall be assumed.
+//— If an identifier appears on the left-hand side of a continuous assignment statement, and that identifier
+//  has not been declared previously in the scope where the continuous assignment statement appears or
+//  in any scope whose declarations can be directly referenced from the scope where the continuous
+//  assignment statement appears (see 12.7), then an implicit scalar net of default net type shall be
+//  assumed. See 6.1.2 for a discussion of continuous assignment statements.
 naja::NL::SNLNet* SNLVRLConstructor::getNetOrCreateImplicitNet(
   naja::NL::SNLDesign* design,
   const naja::verilog::RangeIdentifier& identifier) {
@@ -1012,16 +1022,7 @@ void SNLVRLConstructor::collectConcatenationBitNets(
 void SNLVRLConstructor::collectIdentifierNets(
   const naja::verilog::RangeIdentifier& identifier,
   SNLInstance::Nets& bitNets) {
-  std::string name = identifier.identifier_.name_;
-  SNLNet* net = currentModule_->getNet(NLName(name));
-  if (not net) {
-    std::ostringstream reason;
-    reason << getLocationString()
-      << ": net \"" <<  name
-      << "\" cannot be found in "
-      << currentModule_->getName().getString();
-    throw SNLVRLConstructorException(reason.str());
-  }
+  auto net = getNetOrCreateImplicitNet(currentModule_, identifier);
   if (identifier.range_.valid_) {
     SNLBusNet* busNet = dynamic_cast<SNLBusNet*>(net);
     if (not busNet) {
