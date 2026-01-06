@@ -492,7 +492,7 @@ void SNLVRLConstructor::addAssign(
       throw SNLVRLConstructorException(reason.str());
     }
     switch (expression.value_.index()) {
-      case naja::verilog::Expression::NUMBER: {
+      case naja::verilog::Expression::Type::NUMBER: {
         auto number =
           std::get<naja::verilog::Expression::Type::NUMBER>(expression.value_);
         createConstantNets(number, rightNets);
@@ -529,7 +529,7 @@ void SNLVRLConstructor::addAssign(
       }
       default: {
         std::ostringstream reason;
-        reason << expression.getString() << " type is not supported in instance connection";
+        reason << expression.getString() << " is not supported in instance connection";
         throw SNLVRLConstructorException(reason.str());
       }
     }
@@ -705,7 +705,7 @@ void SNLVRLConstructor::currentInstancePortConnection(
       }
       default: {
         std::ostringstream reason;
-        reason << expression.getString() << " type is not supported in instance connection";
+        reason << expression.getString() << " is not supported in instance connection";
         throw SNLVRLConstructorException(reason.str());
       }
     }
