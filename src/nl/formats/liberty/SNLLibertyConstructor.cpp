@@ -18,6 +18,10 @@
 #include "SNLDesignModeling.h"
 #include "SNLLibertyConstructorException.h"
 
+#include <boost/iostreams/filtering_stream.hpp>
+#include <boost/iostreams/filter/gzip.hpp>
+#include <stdexcept>
+
 namespace {
 
 using namespace naja::NL;
@@ -239,20 +243,34 @@ SNLLibertyConstructor::SNLLibertyConstructor(NLLibrary* library):
 
 void SNLLibertyConstructor::construct(const std::filesystem::path& path) {
   if (not std::filesystem::exists(path)) {
-    std::string reason("Liberty parser: " + path.string() + " does not exist");
-    throw SNLLibertyConstructorException(reason);
+    throw SNLLibertyConstructorException("Liberty parser: " + path.string() + " does not exist");
   }
-  std::ifstream inFile(path);
-  auto parser = std::make_unique<Yosys::LibertyParser>(inFile);
+
+  // Open underlying file in binary mode; must outlive filtering_istream
+  std::ifstream file(path, std::ios::in | std::ios::binary);
+  if (!file) {
+    throw SNLLibertyConstructorException("Liberty parser: failed to open file: " + path.string());
+  }
+
+  // Build filtering stream: gzip_decompressor only for .gz files
+  boost::iostreams::filtering_istream in;
+  try {
+    if (path.extension() == ".gz") {
+      in.push(boost::iostreams::gzip_decompressor());
+    }
+    in.push(file);
+  } catch (const std::exception &e) {
+    throw SNLLibertyConstructorException(std::string("Liberty parser: gzip error: ") + e.what());
+  }
+
+  // Use the same parser API that accepts an istream
+  auto parser = std::make_unique<Yosys::LibertyParser>(in);
   auto ast = parser->ast;
-  //LCOV_EXCL_START
   if (ast == nullptr) {
-    std::string reason("Liberty parser: failed to parse the file: " + path.string());
-    throw SNLLibertyConstructorException(reason);
+    throw SNLLibertyConstructorException("Liberty parser: failed to parse the file: " + path.string());
   }
-  //LCOV_EXCL_STOP
+
   auto libraryName = ast->args[0];
-  //find a policy for multiple libs
   library_->setName(NLName(libraryName));
   parseCells(library_, ast);
 }
