@@ -968,10 +968,12 @@ void SNLVRLConstructor::collectConcatenationBitNets(
   SNLInstance::Nets& bitNets) {
   for (auto expression: concatenation.expressions_) {
     if (not expression.supported_ or not expression.valid_) {
+      //LCOV_EXCL_START
       std::ostringstream reason;
       reason << naja::NL::SNLVRLConstructor::getLocationString()
-        << ": " << expression.getString() << " is not supported";
+        << ": " << expression.getString() << " is not supported in concatenation";
       throw SNLVRLConstructorException(reason.str());
+      //LCOV_EXCL_STOP
     }
     switch (expression.value_.index()) {
       case naja::verilog::Expression::NUMBER: {
@@ -987,7 +989,8 @@ void SNLVRLConstructor::collectConcatenationBitNets(
         if (auto scalarNet = dynamic_cast<SNLScalarNet*>(net)) {
           if (identifier.range_.valid_) {
             std::ostringstream reason;
-            reason << expression.getString() << " is not supported (scalar-range)";
+            reason << getLocationString() << ": "
+              << expression.getString() << ", wrong range connection to a scalar net";
             throw SNLVRLConstructorException(reason.str());
           }
           bitNets.push_back(scalarNet);
@@ -1013,7 +1016,9 @@ void SNLVRLConstructor::collectConcatenationBitNets(
       }
       default: {
         std::ostringstream reason;
-        reason << expression.getString() << " type is not supported";
+        reason << getLocationString()
+          << ": "
+          << expression.getString() << " is not supported in concatenation";
         throw SNLVRLConstructorException(reason.str());
       }
     }

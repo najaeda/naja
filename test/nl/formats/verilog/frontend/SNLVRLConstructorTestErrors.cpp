@@ -172,3 +172,19 @@ TEST_F(SNLVRLConstructorTestErrors, test16) {
     constructor.construct(benchmarksPath/"errors"/"error16.v"),
     SNLVRLConstructorException);
 }
+
+TEST_F(SNLVRLConstructorTestErrors, test17) {
+  SNLVRLConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_VRL_BENCHMARKS_PATH);
+  EXPECT_THROW(
+    constructor.construct(benchmarksPath/"errors"/"error17.v"),
+    SNLVRLConstructorException);
+}
+
+TEST_F(SNLVRLConstructorTestErrors, test18) {
+  SNLVRLConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_VRL_BENCHMARKS_PATH);
+  EXPECT_THROW(
+    constructor.construct(benchmarksPath/"errors"/"error18.v"),
+    SNLVRLConstructorException);
+}
