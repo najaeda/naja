@@ -23,6 +23,7 @@
 #include "SNLAttributes.h"
 #include "SNLMacros.h"
 #include "SNLDesignModeling.h"
+#include "SNLExceptions.h"
 
 namespace naja { namespace NL {
 
@@ -108,7 +109,7 @@ void SNLDesign::preCreate(const NLLibrary* library, Type type, const NLName& nam
   //test if design with same name exists in library
   if (not name.empty() and library->getSNLDesign(name)) {
     std::string reason = "NLLibrary " + library->getString() + " contains already a SNLDesign named: " + name.getString();
-    throw NLException(reason);
+    throw SNLDesignNameConflictException(reason);
   }
 }
 

@@ -23,9 +23,17 @@ class SNLScalarNet;
 class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
   public:
     struct Config {
-      bool verbose_             {false};  ///< If true, print debug information.
-      bool blackboxDetection_   {true};   ///< If true, detect blackbox designs.
-      bool allowUnknownDesigns_ {false};  ///< If true, allow unknown designs to be created as blackbox.
+      enum class ConflictingDesignNamePolicy {
+        Forbid,        ///< Throw if a design with the same name already exists in the library.
+        FirstOne,      ///< Keep the first definition and ignore subsequent ones (emit a warning).
+        LastOne,       ///< Override the previous definition with the last one (emit a warning).
+        VerifyEquality ///< Load the new definition into a temporary design and verify it matches the existing one.
+      };
+
+      bool                        verbose_                      {false};  ///< If true, print debug information.
+      bool                        blackboxDetection_            {true};   ///< If true, detect blackbox designs.
+      bool                        allowUnknownDesigns_          {false};  ///< If true, allow unknown designs to be created as blackbox.
+      ConflictingDesignNamePolicy conflictingDesignNamePolicy_  {ConflictingDesignNamePolicy::Forbid};
     };
 
     Config  config_ {};

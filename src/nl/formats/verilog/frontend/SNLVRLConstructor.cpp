@@ -22,6 +22,7 @@
 #include "SNLInstTerm.h"
 #include "SNLInstParameter.h"
 #include "SNLAttributes.h"
+#include "SNLExceptions.h"
 
 #include "SNLVRLConstructorUtils.h"
 #include "SNLVRLConstructorException.h"
@@ -344,7 +345,57 @@ void SNLVRLConstructor::construct(const std::filesystem::path& path) {
 
 void SNLVRLConstructor::startModule(const naja::verilog::Identifier& module) {
   if (inFirstPass()) {
-    currentModule_ = SNLDesign::create(library_, NLName(module.name_));
+    try {
+      currentModule_ = SNLDesign::create(library_, NLName(module.name_));
+    } catch (const SNLDesignNameConflictException& exception) {
+      switch (config_.conflictingDesignNamePolicy_) {
+        case Config::ConflictingDesignNamePolicy::Forbid: {
+          std::ostringstream reason;
+          reason << getLocationString();
+          reason << ": " << exception.getReason();
+          throw SNLVRLConstructorException(reason.str());
+        }
+        case Config::ConflictingDesignNamePolicy::FirstOne: {
+          if (config_.verbose_) {
+            std::cerr << "Warning: In SNLVRLConstructor first pass, "
+              << module.getString()
+              << " module already exists in library "
+              << library_->getDescription()
+              << ", ignoring this definition." << std::endl; //LCOV_EXCL_LINE
+          }
+          currentModule_ = library_->getSNLDesign(NLName(module.name_));
+          break;
+        }
+        case Config::ConflictingDesignNamePolicy::LastOne: {
+          if (config_.verbose_) {
+            std::cerr << "Warning: In SNLVRLConstructor first pass, "
+              << module.getString()
+              << " module already exists in library "
+              << library_->getDescription()
+              << ", overriding with this definition." << std::endl; //LCOV_EXCL_LINE
+          }
+          auto existingModule = library_->getSNLDesign(NLName(module.name_));
+          //ensure that exising module has no slave instances
+          if (not existingModule->getSlaveInstances().empty()) {
+            std::ostringstream reason;
+            reason << getLocationString();
+            reason << ": cannot override module " << module.getString();
+            reason << " because it has instances in other designs.";
+            throw SNLVRLConstructorException(reason.str());
+          }
+          //delete existing module
+          existingModule->destroy();
+          currentModule_ = SNLDesign::create(library_, NLName(module.name_));
+          break;
+        }
+        case Config::ConflictingDesignNamePolicy::VerifyEquality: {
+          std::ostringstream reason;
+          reason << getLocationString();
+          reason << ": ConflictingDesignNamePolicy::VerifyEquality is not yet implemented.";
+          throw SNLVRLConstructorException(reason.str());
+        }
+      }
+    }
     collectAttributes(currentModule_, nextObjectAttributes_);
     if (config_.verbose_) {
       std::cerr << "Construct Module: " << module.getString() << std::endl; //LCOV_EXCL_LINE

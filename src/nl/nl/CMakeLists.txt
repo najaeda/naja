@@ -79,6 +79,7 @@ set(HEADERS
   snl/SNLUtils.h
   snl/SNLOccurrence.h
   snl/SNLEquipotential.h
+  snl/SNLExceptions.h
   pnl/PNLPoint.h
   pnl/PNLDesign.h
   pnl/PNLInstance.h
