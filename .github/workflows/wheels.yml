@@ -139,6 +139,15 @@ jobs:
 
           # Windows x86_64 wheels
           - os: windows-latest
+            python: 310
+            platform_id: win_amd64
+          - os: windows-latest
+            python: 311
+            platform_id: win_amd64
+          - os: windows-latest
+            python: 312
+            platform_id: win_amd64
+          - os: windows-latest
             python: 313
             platform_id: win_amd64
           - os: windows-latest
