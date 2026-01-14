@@ -7,6 +7,7 @@
 
 #include "VerilogConstructor.h"
 
+#include <unordered_map>
 
 #include "NLDB0.h"
 #include "SNLInstance.h"
