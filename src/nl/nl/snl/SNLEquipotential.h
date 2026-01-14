@@ -1,10 +1,8 @@
 // SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
 //
 // SPDX-License-Identifier: Apache-2.0
-//
 
-#ifndef __SNL_EQUIPOTENTIAL_H_
-#define __SNL_EQUIPOTENTIAL_H_
+#pragma once
 
 #include <set>
 #include "SNLNet.h"
@@ -61,5 +59,3 @@ class SNLEquipotential {
 };
 
 }} // namespace NL // namespace naja
-
-#endif // __SNL_EQUIPOTENTIAL_H_
