@@ -368,10 +368,19 @@ SNLVRLConstructor::SNLVRLConstructor(NLLibrary* library):
 {}
 
 void SNLVRLConstructor::construct(const Paths& paths) {
-  setFirstPass(true);
-  parse(paths);
-  setFirstPass(false);
-  parse(paths);
+  try {
+    setFirstPass(true);
+    parse(paths);
+    setFirstPass(false);
+    parse(paths);
+  } catch (const SNLVRLConstructorException& e) {
+    throw;
+  } catch (const std::exception& e) {
+    std::ostringstream reason;
+    reason << "In SNLVRLConstructor construct: ";
+    reason << e.what();
+    throw SNLVRLConstructorException(reason.str());
+  }
 }
 
 void SNLVRLConstructor::construct(const std::filesystem::path& path) {
