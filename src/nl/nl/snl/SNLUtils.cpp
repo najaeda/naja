@@ -66,8 +66,14 @@ SNLDesign* SNLUtils::findTop(const NLLibrary* library) {
         tops.push_back(design);
     }
   }
-  std::cerr << "Debug: Found " << tops.size() << " top designs in library "
-    << library->getDescription() << std::endl; //LCOV_EXCL_LINE
+  //Special case: if no top was found accept blackboxes and empty modules
+  if (tops.empty()) {
+    for (auto design: library->getSNLDesigns()) {
+      if (not design->isPrimitive()) {
+        tops.push_back(design);
+      }
+    }
+  }
   if (tops.size() == 1) {
     return tops.front();
   }

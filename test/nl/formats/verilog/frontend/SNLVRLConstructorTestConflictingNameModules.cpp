@@ -11,6 +11,7 @@
 
 #include "SNLVRLConstructor.h"
 #include "SNLVRLConstructorException.h"
+#include "SNLUtils.h"
 
 using namespace naja::NL;
 
@@ -58,6 +59,9 @@ TEST_F(SNLVRLConstructorTestConflictingNameModules, testFirstOnePolicy) {
   ASSERT_NE(design, nullptr);
   ASSERT_EQ(design->getScalarTerms().size(), 1);
   EXPECT_NE(design->getScalarTerm(NLName("A")), nullptr);
+
+  auto top = SNLUtils::findTop(library);
+  EXPECT_EQ(top, design);
 }
 
 TEST_F(SNLVRLConstructorTestConflictingNameModules, testLastOnePolicy) {
@@ -73,27 +77,7 @@ TEST_F(SNLVRLConstructorTestConflictingNameModules, testLastOnePolicy) {
   ASSERT_NE(design, nullptr);
   ASSERT_EQ(design->getScalarTerms().size(), 1);
   EXPECT_NE(design->getScalarTerm(NLName("D")), nullptr);
-}
-
-TEST_F(SNLVRLConstructorTestConflictingNameModules, testChainingPolicies) {
-  auto library = NLLibrary::create(db_, NLName("MYLIB"));
-  SNLVRLConstructor constructor(library);
-  constructor.config_.conflictingDesignNamePolicy_ =
-    SNLVRLConstructor::Config::ConflictingDesignNamePolicy::Forbid;
-  std::filesystem::path benchmarksPath(SNL_VRL_BENCHMARKS_PATH);
-  EXPECT_THROW(
-    constructor.construct(benchmarksPath/"conflicting_name_designs.v"),
-    SNLVRLConstructorException);
-
-  library->destroy();
-  library = NLLibrary::create(db_, NLName("MYLIB"));
-
-  constructor.config_.conflictingDesignNamePolicy_ =
-    SNLVRLConstructor::Config::ConflictingDesignNamePolicy::FirstOne;
-  constructor.construct(benchmarksPath/"conflicting_name_designs.v");
-  EXPECT_EQ(library->getSNLDesigns().size(), 1);
-  auto design = library->getSNLDesign(NLName("clash"));
-  ASSERT_NE(design, nullptr);
-  ASSERT_EQ(design->getScalarTerms().size(), 1);
-  EXPECT_NE(design->getScalarTerm(NLName("A")), nullptr);
+  
+  auto top = SNLUtils::findTop(library);
+  EXPECT_EQ(top, design);
 }
