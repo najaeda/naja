@@ -22,22 +22,20 @@ class SNLVRLConstructorTestConflictingNameModules: public ::testing::Test {
   protected:
     void SetUp() override {
       NLUniverse* universe = NLUniverse::create();
-      auto db = NLDB::create(universe);
-      library_ = NLLibrary::create(db, NLName("MYLIB"));
+      db_ = NLDB::create(universe);
     }
     void TearDown() override {
       if (NLUniverse::get()) {
         NLUniverse::get()->destroy();
       }
-      library_ = nullptr;
     }
-  protected:
-    NLLibrary*      library_;
+    protected:
+      NLDB* db_ = nullptr;
 };
 
 TEST_F(SNLVRLConstructorTestConflictingNameModules, testForbidPolicy) {
-  auto db = NLDB::create(NLUniverse::get());
-  SNLVRLConstructor constructor(library_);
+  auto library = NLLibrary::create(db_, NLName("MYLIB"));
+  SNLVRLConstructor constructor(library);
   constructor.config_.conflictingDesignNamePolicy_ =
     SNLVRLConstructor::Config::ConflictingDesignNamePolicy::Forbid;
 
@@ -48,32 +46,54 @@ TEST_F(SNLVRLConstructorTestConflictingNameModules, testForbidPolicy) {
 }
 
 TEST_F(SNLVRLConstructorTestConflictingNameModules, testFirstOnePolicy) {
-  auto db = NLDB::create(NLUniverse::get());
-  SNLVRLConstructor constructor(library_);
+  auto library = NLLibrary::create(db_, NLName("MYLIB"));
+  SNLVRLConstructor constructor(library);
   constructor.config_.conflictingDesignNamePolicy_ =
     SNLVRLConstructor::Config::ConflictingDesignNamePolicy::FirstOne;
-
   std::filesystem::path benchmarksPath(SNL_VRL_BENCHMARKS_PATH);
   constructor.construct(benchmarksPath/"conflicting_name_designs.v");
 
-  EXPECT_EQ(library_->getSNLDesigns().size(), 1);
-  auto design = library_->getSNLDesign(NLName("clash"));
+  EXPECT_EQ(library->getSNLDesigns().size(), 1);
+  auto design = library->getSNLDesign(NLName("clash"));
   ASSERT_NE(design, nullptr);
   ASSERT_EQ(design->getScalarTerms().size(), 1);
   EXPECT_NE(design->getScalarTerm(NLName("A")), nullptr);
 }
 
 TEST_F(SNLVRLConstructorTestConflictingNameModules, testLastOnePolicy) {
-  auto db = NLDB::create(NLUniverse::get());
-  SNLVRLConstructor constructor(library_);
+  auto library = NLLibrary::create(db_, NLName("MYLIB"));
+  SNLVRLConstructor constructor(library);
   constructor.config_.conflictingDesignNamePolicy_ =
     SNLVRLConstructor::Config::ConflictingDesignNamePolicy::LastOne;
   std::filesystem::path benchmarksPath(SNL_VRL_BENCHMARKS_PATH);
   constructor.construct(benchmarksPath/"conflicting_name_designs.v");
 
-  EXPECT_EQ(library_->getSNLDesigns().size(), 1);
-  auto design = library_->getSNLDesign(NLName("clash"));
+  EXPECT_EQ(library->getSNLDesigns().size(), 1);
+  auto design = library->getSNLDesign(NLName("clash"));
   ASSERT_NE(design, nullptr);
   ASSERT_EQ(design->getScalarTerms().size(), 1);
   EXPECT_NE(design->getScalarTerm(NLName("D")), nullptr);
+}
+
+TEST_F(SNLVRLConstructorTestConflictingNameModules, testChainingPolicies) {
+  auto library = NLLibrary::create(db_, NLName("MYLIB"));
+  SNLVRLConstructor constructor(library);
+  constructor.config_.conflictingDesignNamePolicy_ =
+    SNLVRLConstructor::Config::ConflictingDesignNamePolicy::Forbid;
+  std::filesystem::path benchmarksPath(SNL_VRL_BENCHMARKS_PATH);
+  EXPECT_THROW(
+    constructor.construct(benchmarksPath/"conflicting_name_designs.v"),
+    SNLVRLConstructorException);
+
+  library->destroy();
+  library = NLLibrary::create(db_, NLName("MYLIB"));
+
+  constructor.config_.conflictingDesignNamePolicy_ =
+    SNLVRLConstructor::Config::ConflictingDesignNamePolicy::FirstOne;
+  constructor.construct(benchmarksPath/"conflicting_name_designs.v");
+  EXPECT_EQ(library->getSNLDesigns().size(), 1);
+  auto design = library->getSNLDesign(NLName("clash"));
+  ASSERT_NE(design, nullptr);
+  ASSERT_EQ(design->getScalarTerms().size(), 1);
+  EXPECT_NE(design->getScalarTerm(NLName("A")), nullptr);
 }

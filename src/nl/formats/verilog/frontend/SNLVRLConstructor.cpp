@@ -373,12 +373,16 @@ void SNLVRLConstructor::construct(const Paths& paths) {
     parse(paths);
     setFirstPass(false);
     parse(paths);
+    resetPerModuleState();
+    selectedModuleDefs_.clear();
   } catch (const SNLVRLConstructorException& e) {
+    selectedModuleDefs_.clear();
     throw;
   } catch (const std::exception& e) {
+    selectedModuleDefs_.clear();
     std::ostringstream reason;
-    reason << "In SNLVRLConstructor construct: ";
-    reason << e.what();
+    reason << "In SNLVRLConstructor construct: "
+      << e.what();
     throw SNLVRLConstructorException(reason.str());
   }
 }
@@ -402,9 +406,9 @@ void SNLVRLConstructor::startModule(const naja::verilog::Identifier& module) {
       switch (config_.conflictingDesignNamePolicy_) {
         case Config::ConflictingDesignNamePolicy::Forbid: {
           std::ostringstream reason;
-          reason << getLocationString();
-          reason << ": NLLibrary " << library_->getString()
-                 << " contains already a SNLDesign named: " << moduleName.getString();
+          reason << getLocationString()
+            << ": NLLibrary " << library_->getString()
+            << " contains already a SNLDesign named: " << moduleName.getString();
           throw SNLVRLConstructorException(reason.str());
         }
         case Config::ConflictingDesignNamePolicy::FirstOne: {

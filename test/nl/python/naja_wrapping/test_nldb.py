@@ -41,6 +41,19 @@ class SNLDBTest(unittest.TestCase):
     with self.assertRaises(RuntimeError) as context: db.dumpVerilog(-1)
     with self.assertRaises(RuntimeError) as context: db.loadLibertyPrimitives("./error.lib")
 
+  def testVerilogLoadingOptions(self):
+    u = naja.NLUniverse.get()
+    db = naja.NLDB.create(u) 
+    self.assertIsNotNone(u)
+    formats_path = os.environ.get('FORMATS_PATH')
+    self.assertIsNotNone(formats_path)
+    verilogs = [os.path.join(formats_path, "verilog", "benchmarks", "conflicting_name_designs.v")]
+    #with self.assertRaises(RuntimeError) as context: db.loadVerilog(verilogs, conflicting_design_name_policy="forbid")
+
+    db.destroy()
+    db = naja.NLDB.create(u)
+    db.loadVerilog(verilogs, conflicting_design_name_policy="first")
+
   def testSNLFormat(self):
     u = naja.NLUniverse.get()
     db = naja.NLDB.create(u) 
