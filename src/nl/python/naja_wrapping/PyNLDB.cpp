@@ -164,6 +164,7 @@ PyObject* PyNLDB_loadVerilog(PyNLDB* self, PyObject* args, PyObject* kwargs) {
     return nullptr;
   }
   NLDB* db = self->object_;
+  SNLDesign* top = nullptr;
   TRY
   //loadVerilog can be called multiple times
   //last one gets top
@@ -231,7 +232,7 @@ PyObject* PyNLDB_loadVerilog(PyNLDB* self, PyObject* args, PyObject* kwargs) {
   if (not keep_assigns) {
     db->mergeAssigns();
   }
-  auto top = SNLUtils::findTop(designLibrary);
+  top = SNLUtils::findTop(designLibrary);
   if (top) {
     NLUniverse::get()->setTopDesign(top);
     NLUniverse::get()->setTopDB(top->getDB());
@@ -240,7 +241,7 @@ PyObject* PyNLDB_loadVerilog(PyNLDB* self, PyObject* args, PyObject* kwargs) {
     return nullptr; //LCOV_EXCL_LINE
   }
   NLCATCH
-  Py_RETURN_NONE;
+  return PySNLDesign_Link(top);
 }
 
 PyObject* PyNLDB_dumpVerilog(PyNLDB* self, PyObject* args) {

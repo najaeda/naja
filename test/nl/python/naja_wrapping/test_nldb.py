@@ -47,12 +47,40 @@ class SNLDBTest(unittest.TestCase):
     self.assertIsNotNone(u)
     formats_path = os.environ.get('FORMATS_PATH')
     self.assertIsNotNone(formats_path)
+
     verilogs = [os.path.join(formats_path, "verilog", "benchmarks", "conflicting_name_designs.v")]
-    #with self.assertRaises(RuntimeError) as context: db.loadVerilog(verilogs, conflicting_design_name_policy="forbid")
+    with self.assertRaises(RuntimeError) as context: db.loadVerilog(verilogs, conflicting_design_name_policy="forbid")
 
     db.destroy()
     db = naja.NLDB.create(u)
-    db.loadVerilog(verilogs, conflicting_design_name_policy="first")
+    top = db.loadVerilog(verilogs, conflicting_design_name_policy="first")
+    self.assertIsNotNone(top)
+    self.assertEqual(top.getName(), 'clash')
+    self.assertEqual(1, sum(1 for t in top.getTerms()))
+    self.assertEqual(1, sum(1 for t in top.getScalarTerms()))
+    term = next(iter(top.getScalarTerms()))
+    self.assertIsNotNone(term)
+    self.assertEqual(term.getName(), 'A')
+
+    db.destroy()
+    db = naja.NLDB.create(u)
+    top = db.loadVerilog(verilogs, conflicting_design_name_policy="last")
+    self.assertIsNotNone(top)
+    self.assertEqual(top.getName(), 'clash')
+    self.assertEqual(1, sum(1 for t in top.getTerms()))
+    self.assertEqual(1, sum(1 for t in top.getScalarTerms()))
+    term = next(iter(top.getScalarTerms()))
+    self.assertIsNotNone(term)
+    self.assertEqual(term.getName(), 'D') 
+
+    #errors
+    db.destroy()
+    db = naja.NLDB.create(u)
+    with self.assertRaises(RuntimeError) as context: db.loadVerilog(verilogs, conflicting_design_name_policy='verify') 
+
+    db.destroy()
+    db = naja.NLDB.create(u)
+    with self.assertRaises(RuntimeError) as context: db.loadVerilog(verilogs, conflicting_design_name_policy=1)
 
   def testSNLFormat(self):
     u = naja.NLUniverse.get()
