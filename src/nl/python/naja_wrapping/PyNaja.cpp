@@ -2,7 +2,11 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include <spdlog/spdlog.h>
+#include <algorithm>
+#include <cctype>
+#include <string>
+
+#include "NajaLog.h"
 
 #include "PyNLUniverse.h"
 #include "PyNLDB.h"
@@ -56,6 +60,19 @@ static PyObject* getGitHash(PyObject* self, PyObject* args) {
   return PyUnicode_FromString(naja::NAJA_GIT_HASH.c_str());
 }
 
+static bool parseLogLevel_(const char* levelName,
+                           spdlog::level::level_enum& level) {
+  std::string levelStr(levelName ? levelName : "");
+  level = naja::log::levelFromString(levelStr);
+  std::string lowered = levelStr;
+  std::transform(lowered.begin(), lowered.end(), lowered.begin(),
+                 [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+  if (level == spdlog::level::off && lowered != "off") {
+    return false;
+  }
+  return true;
+}
+
 // LCOV_EXCL_START
 static PyObject* logInfo(PyObject* self, PyObject* args) {
   const char* message;
@@ -64,7 +81,7 @@ static PyObject* logInfo(PyObject* self, PyObject* args) {
     setError("Failed to parse arguments in logInfo");
     return nullptr;
   }
-  spdlog::info(std::string(message));
+  NAJA_LOG_INFO("{}", message);
   Py_RETURN_NONE;
 }
 // LCOV_EXCL_STOP
@@ -76,16 +93,77 @@ static PyObject* logCritical(PyObject* self, PyObject* args) {
     setError("Failed to parse arguments in logCritical");
     return nullptr;
   }
-  spdlog::critical(std::string(message));
+  NAJA_LOG_CRITICAL("{}", message);
   Py_RETURN_NONE;
 }
 // LCOV_EXCL_STOP
+
+static PyObject* logMessage(PyObject* self, PyObject* args) {
+  const char* levelName = nullptr;
+  const char* message = nullptr;
+  if (!PyArg_ParseTuple(args, "ss", &levelName, &message)) {
+    setError("Failed to parse arguments in log");
+    return nullptr;
+  }
+  spdlog::level::level_enum level;
+  if (!parseLogLevel_(levelName, level)) {
+    setError("Invalid log level");
+    return nullptr;
+  }
+  naja::log::get()->log(level, message);
+  Py_RETURN_NONE;
+}
+
+static PyObject* setLogLevel(PyObject* self, PyObject* args) {
+  const char* levelName = nullptr;
+  if (!PyArg_ParseTuple(args, "s", &levelName)) {
+    setError("Failed to parse arguments in setLogLevel");
+    return nullptr;
+  }
+  spdlog::level::level_enum level;
+  if (!parseLogLevel_(levelName, level)) {
+    setError("Invalid log level");
+    return nullptr;
+  }
+  naja::log::setLevel(level);
+  Py_RETURN_NONE;
+}
+
+static PyObject* setLogPattern(PyObject* self, PyObject* args) {
+  const char* pattern = nullptr;
+  if (!PyArg_ParseTuple(args, "s", &pattern)) {
+    setError("Failed to parse arguments in setLogPattern");
+    return nullptr;
+  }
+  naja::log::setPattern(pattern);
+  Py_RETURN_NONE;
+}
+
+static PyObject* addLogFile(PyObject* self, PyObject* args) {
+  const char* path = nullptr;
+  const char* levelName = nullptr;
+  if (!PyArg_ParseTuple(args, "s|s", &path, &levelName)) {
+    setError("Failed to parse arguments in addLogFile");
+    return nullptr;
+  }
+  spdlog::level::level_enum level = spdlog::level::trace;
+  if (levelName && !parseLogLevel_(levelName, level)) {
+    setError("Invalid log level");
+    return nullptr;
+  }
+  naja::log::addFileSink(path, level);
+  Py_RETURN_NONE;
+}
 
 static PyMethodDef NajaMethods[] = {
   { "getVersion", getVersion, METH_NOARGS, "get the version of Naja" },
   { "getGitHash", getGitHash, METH_NOARGS, "get the Naja git hash" },
   { "logInfo", logInfo, METH_VARARGS, "log an info message" },
   { "logCritical", logCritical, METH_VARARGS, "log a critical message" },
+  { "log", logMessage, METH_VARARGS, "log a message with a given level" },
+  { "setLogLevel", setLogLevel, METH_VARARGS, "set the global log level" },
+  { "setLogPattern", setLogPattern, METH_VARARGS, "set the log pattern" },
+  { "addLogFile", addLogFile, METH_VARARGS, "add a file sink to the logger" },
   {NULL, NULL, 0, NULL}        /* Sentinel */
 };
 
@@ -98,6 +176,8 @@ static struct PyModuleDef najaModule = {
 };
 
 PyMODINIT_FUNC PyInit_naja(void) {
+  naja::log::initFromEnv();
+
   PyNLUniverse_LinkPyType();
   PyNLDB_LinkPyType();
   PyNLLibrary_LinkPyType();

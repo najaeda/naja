@@ -32,6 +32,7 @@ set(SOURCES
   NajaPrivateProperty.cpp
   NajaDumpableProperty.cpp
   NajaPerf.cpp
+  NajaLog.cpp
 )
 
 set(NAJA_CORE_HEADERS
@@ -41,6 +42,7 @@ set(NAJA_CORE_HEADERS
   NajaDumpableProperty.h
   NajaException.h
   NajaPerf.h
+  NajaLog.h
 )
 
 list(APPEND NAJA_CORE_HEADERS ${CMAKE_CURRENT_BINARY_DIR}/NajaVersion.h)
@@ -57,6 +59,7 @@ target_include_directories(naja_core PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}
   ${CMAKE_CURRENT_BINARY_DIR}
 )
+target_include_directories(naja_core PUBLIC ${SPDLOG_DIR})
 
 if(NOT BUILD_NAJA_PYTHON)
   set_target_properties(naja_core PROPERTIES PUBLIC_HEADER "${NAJA_CORE_HEADERS}")
