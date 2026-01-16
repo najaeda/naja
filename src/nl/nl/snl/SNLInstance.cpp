@@ -4,9 +4,9 @@
 
 #include "SNLInstance.h"
 
-#include <iostream>
 #include <sstream>
 
+#include "NajaLog.h"
 #include "NLException.h"
 
 #include "SNLDesign.h"
@@ -299,9 +299,7 @@ void SNLInstance::setTermNet(SNLTerm* term, SNLNet* net) {
 }
 
 void SNLInstance::commonPreDestroy() {
-#ifdef SNL_DESTROY_DEBUG
-  std::cerr << "commonPreDestroy " << getDescription() << std::endl; 
-#endif
+  NAJA_LOG_TRACE("commonPreDestroy {}", getDescription());
 
   for (const auto& sharedPathsElement: sharedPaths_) {
     sharedPathsElement.second->destroyFromInstance();
@@ -321,18 +319,14 @@ void SNLInstance::commonPreDestroy() {
 }
 
 void SNLInstance::destroyFromModel() {
-#ifdef SNL_DESTROY_DEBUG
-  std::cerr << "Destroying from Model " << getDescription() << std::endl; 
-#endif
+  NAJA_LOG_TRACE("Destroying from Model {}", getDescription());
   getDesign()->removeInstance(this);
   commonPreDestroy();
   delete this;
 }
 
 void SNLInstance::destroyFromDesign() {
-#ifdef SNL_DESTROY_DEBUG
-  std::cerr << "Destroying from Design " << getDescription() << std::endl; 
-#endif
+  NAJA_LOG_TRACE("Destroying from Design {}", getDescription());
   if (not getModel()->isPrimitive()) {
     getModel()->removeSlaveInstance(this);
   }

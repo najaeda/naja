@@ -4,8 +4,9 @@
 
 #include "SNLScalarTerm.h"
 
-#include <iostream>
 #include <sstream>
+
+#include "NajaLog.h"
 
 #include "NLException.h"
 
@@ -74,9 +75,7 @@ void SNLScalarTerm::postCreate() {
 }
 
 void SNLScalarTerm::commonPreDestroy() {
-#ifdef SNL_DESTROY_DEBUG
-  std::cerr << "Destroying " << getDescription() << std::endl; 
-#endif
+  NAJA_LOG_TRACE("Destroying {}", getDescription());
   super::preDestroy();
 }
 
