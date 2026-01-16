@@ -4,13 +4,18 @@
 */
 
 module clash(input A);
+  Foo foo();
 endmodule
 
 module clash(input B);
+endmodule
+
+module Foo();
 endmodule
 
 module clash(input C);
 endmodule
 
 module clash(input D);
+  Foo foo();
 endmodule

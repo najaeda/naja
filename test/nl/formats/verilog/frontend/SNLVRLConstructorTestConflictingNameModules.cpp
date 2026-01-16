@@ -54,7 +54,7 @@ TEST_F(SNLVRLConstructorTestConflictingNameModules, testFirstOnePolicy) {
   std::filesystem::path benchmarksPath(SNL_VRL_BENCHMARKS_PATH);
   constructor.construct(benchmarksPath/"conflicting_name_designs.v");
 
-  EXPECT_EQ(library->getSNLDesigns().size(), 1);
+  EXPECT_EQ(library->getSNLDesigns().size(), 2);
   auto design = library->getSNLDesign(NLName("clash"));
   ASSERT_NE(design, nullptr);
   ASSERT_EQ(design->getScalarTerms().size(), 1);
@@ -72,7 +72,7 @@ TEST_F(SNLVRLConstructorTestConflictingNameModules, testLastOnePolicy) {
   std::filesystem::path benchmarksPath(SNL_VRL_BENCHMARKS_PATH);
   constructor.construct(benchmarksPath/"conflicting_name_designs.v");
 
-  EXPECT_EQ(library->getSNLDesigns().size(), 1);
+  EXPECT_EQ(library->getSNLDesigns().size(), 2);
   auto design = library->getSNLDesign(NLName("clash"));
   ASSERT_NE(design, nullptr);
   ASSERT_EQ(design->getScalarTerms().size(), 1);

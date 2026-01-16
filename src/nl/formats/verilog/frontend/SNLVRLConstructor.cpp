@@ -345,7 +345,14 @@ bool SNLVRLConstructor::isCurrentModuleSelected(const NLName& moduleName) const 
   }
   auto it = selectedModuleDefs_.find(moduleName.getString());
   if (it == selectedModuleDefs_.end()) {
-    return false;
+    //LCOV_EXCL_START
+    std::ostringstream reason;
+    reason << getLocationString()
+      << ": no selected module definition found for "
+      << moduleName.getString()
+      << " (inconsistent pass state)";
+    throw SNLVRLConstructorException(reason.str());
+    //LCOV_EXCL_STOP
   }
   return it->second == getCurrentModuleDefKey();
 }
