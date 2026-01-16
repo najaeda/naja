@@ -98,22 +98,6 @@ static PyObject* logCritical(PyObject* self, PyObject* args) {
 }
 // LCOV_EXCL_STOP
 
-static PyObject* logMessage(PyObject* self, PyObject* args) {
-  const char* levelName = nullptr;
-  const char* message = nullptr;
-  if (!PyArg_ParseTuple(args, "ss", &levelName, &message)) {
-    setError("Failed to parse arguments in log");
-    return nullptr;
-  }
-  spdlog::level::level_enum level;
-  if (!parseLogLevel_(levelName, level)) {
-    setError("Invalid log level");
-    return nullptr;
-  }
-  naja::log::get()->log(level, message);
-  Py_RETURN_NONE;
-}
-
 static PyObject* setLogLevel(PyObject* self, PyObject* args) {
   const char* levelName = nullptr;
   if (!PyArg_ParseTuple(args, "s", &levelName)) {
@@ -160,9 +144,7 @@ static PyMethodDef NajaMethods[] = {
   { "getGitHash", getGitHash, METH_NOARGS, "get the Naja git hash" },
   { "logInfo", logInfo, METH_VARARGS, "log an info message" },
   { "logCritical", logCritical, METH_VARARGS, "log a critical message" },
-  { "log", logMessage, METH_VARARGS, "log a message with a given level" },
   { "setLogLevel", setLogLevel, METH_VARARGS, "set the global log level" },
-  { "setLogPattern", setLogPattern, METH_VARARGS, "set the log pattern" },
   { "addLogFile", addLogFile, METH_VARARGS, "add a file sink to the logger" },
   {NULL, NULL, 0, NULL}        /* Sentinel */
 };
