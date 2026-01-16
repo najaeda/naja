@@ -77,10 +77,9 @@ class SNLDBTest(unittest.TestCase):
     db.destroy()
     db = naja.NLDB.create(u)
     with self.assertRaises(RuntimeError) as context: db.loadVerilog(verilogs, conflicting_design_name_policy='verify') 
-
-    db.destroy()
-    db = naja.NLDB.create(u)
     with self.assertRaises(RuntimeError) as context: db.loadVerilog(verilogs, conflicting_design_name_policy=1)
+    with self.assertRaises(RuntimeError) as context: db.loadVerilog(verilogs, conflicting_design_name_policy='foo')
+
 
   def testSNLFormat(self):
     u = naja.NLUniverse.get()

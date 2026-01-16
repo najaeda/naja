@@ -94,6 +94,16 @@ jobs:
             free_threaded_support: True
 
           - os: ubuntu-24.04-arm
+            python: 310
+            platform_id: manylinux_aarch64
+            manylinux_image: manylinux2014
+            cibw_arch: aarch64
+          - os: ubuntu-24.04-arm
+            python: 311
+            platform_id: manylinux_aarch64
+            manylinux_image: manylinux2014
+            cibw_arch: aarch64
+          - os: ubuntu-24.04-arm
             python: 312
             platform_id: manylinux_aarch64
             manylinux_image: manylinux2014

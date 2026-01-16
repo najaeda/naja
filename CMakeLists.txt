@@ -54,7 +54,7 @@ set(CMAKE_CXX_STANDARD 20)
 option(BUILD_ONLY_DOC "Only configure to build Doxygen documentation" OFF)
 
 set(ARGPARSE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/argparse-3.1/include)
-set(SPDLOG_DIR ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/spdlog-1.15.3/include)
+set(SPDLOG_DIR ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/spdlog-1.17.0/include)
 set(LEFDEF_DIR ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/lefdef)
 
 add_library(coverage_config INTERFACE)

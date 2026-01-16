@@ -379,11 +379,13 @@ void SNLVRLConstructor::construct(const Paths& paths) {
     selectedModuleDefs_.clear();
     throw;
   } catch (const std::exception& e) {
+    //LCOV_EXCL_START
     selectedModuleDefs_.clear();
     std::ostringstream reason;
     reason << "In SNLVRLConstructor construct: "
       << e.what();
     throw SNLVRLConstructorException(reason.str());
+    //LCOV_EXCL_STOP
   }
 }
 
@@ -433,11 +435,13 @@ void SNLVRLConstructor::startModule(const naja::verilog::Identifier& module) {
           }
           auto existingModule = library_->getSNLDesign(moduleName);
           if (existingModule and not existingModule->getSlaveInstances().empty()) {
+            //LCOV_EXCL_START
             std::ostringstream reason;
             reason << getLocationString();
             reason << ": cannot override module " << module.getString();
             reason << " because it has instances in other designs.";
             throw SNLVRLConstructorException(reason.str());
+            //LCOV_EXCL_STOP
           }
           if (existingModule) {
             existingModule->destroy();
