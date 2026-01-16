@@ -5,8 +5,9 @@
 #include "SNLDesign.h"
 
 #include <list>
-#include <iostream>
 #include <sstream>
+
+#include "NajaLog.h"
 
 #include "NLException.h"
 #include "NLDB.h" 
@@ -133,9 +134,7 @@ void SNLDesign::postCreateAndSetID() {
 }
 
 void SNLDesign::commonPreDestroy() {
-#ifdef SNL_DESTROY_DEBUG
-  std::cerr << "Destroying " << getDescription() << std::endl; 
-#endif
+  NAJA_LOG_TRACE("Destroying {}", getDescription());
   struct destroyInstanceFromDesign {
     void operator()(SNLInstance* instance) {
       instance->destroyFromDesign();

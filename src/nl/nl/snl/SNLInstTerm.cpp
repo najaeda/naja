@@ -5,7 +5,8 @@
 #include "SNLInstTerm.h"
 
 #include <sstream>
-#include <iostream>
+
+#include "NajaLog.h"
 
 #include "NLException.h"
 
@@ -39,9 +40,7 @@ void SNLInstTerm::postCreate() {
 }
 
 void SNLInstTerm::preDestroy() {
-#ifdef SNL_DESTROY_DEBUG
-  std::cerr << "Destroying " << getDescription() << std::endl; 
-#endif
+  NAJA_LOG_TRACE("Destroying {}", getDescription());
   super::preDestroy();
 }
 

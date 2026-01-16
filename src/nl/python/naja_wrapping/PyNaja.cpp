@@ -293,8 +293,7 @@ PyMODINIT_FUNC PyInit_naja(void) {
 
   if (not mod) {
     //LCOV_EXCL_START
-    std::cerr << "[ERROR]\n"
-      << "  Failed to initialize Naja python module." << std::endl;
+    NAJA_LOG_ERROR("Failed to initialize Naja python module.");
     return nullptr;
     //LCOV_EXCL_STOP
   }

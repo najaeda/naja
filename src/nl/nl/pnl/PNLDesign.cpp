@@ -7,6 +7,8 @@
 
 #include <sstream>
 
+#include "NajaLog.h"
+
 #include "NLDB.h"
 #include "NLException.h"
 #include "NLLibrary.h"
@@ -229,9 +231,7 @@ NLID PNLDesign::getNLID() const {
 }
 
 void PNLDesign::commonPreDestroy() {
-#ifdef PNL_DESTROY_DEBUG
-  std::cerr << "Destroying " << getDescription() << std::endl;
-#endif
+  NAJA_LOG_TRACE("Destroying {}", getDescription());
   struct destroyInstanceFromDesign {
     void operator()(PNLInstance* instance) { instance->destroyFromDesign(); }
   };

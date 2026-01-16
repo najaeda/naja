@@ -7,15 +7,15 @@
 
 #include <sstream>
 
+#include "NajaLog.h"
+
 #include "PNLDesign.h"
 #include "PNLInstTerm.h"
 #include "PNLBitTerm.h"
 #include "NLException.h"
 #include "NLName.h"
 
-
-namespace naja {
-namespace NL {
+namespace naja::NL {
 
 PNLInstance::PNLInstance(PNLDesign* design, PNLDesign* model, const NLName& name):
   super(),
@@ -96,18 +96,14 @@ void PNLInstance::commonPostCreate() {
 }
 
 void PNLInstance::destroyFromModel() {
-#ifdef PNL_DESTROY_DEBUG
-  std::cerr << "Destroying from Model " << getDescription() << std::endl; 
-#endif
+  NAJA_LOG_TRACE("Destroying from Model {}", getDescription());
   getDesign()->removeInstance(this);
   commonPreDestroy();
   delete this;
 }
 
 void PNLInstance::destroyFromDesign() {
-#ifdef PNL_DESTROY_DEBUG
-  std::cerr << "Destroying from Design " << getDescription() << std::endl; 
-#endif
+  NAJA_LOG_TRACE("Destroying from Design {}", getDescription());
   if (not getModel()->isPrimitive()) {
     getModel()->removeSlaveInstance(this);
   }
@@ -161,9 +157,7 @@ void PNLInstance::preDestroy() {
 }
 
 void PNLInstance::commonPreDestroy() {
-#ifdef PNL_DESTROY_DEBUG
-  std::cerr << "commonPreDestroy " << getDescription() << std::endl;
-#endif
+  NAJA_LOG_TRACE("commonPreDestroy {}", getDescription());
 
   // for (const auto& sharedPathsElement : sharedPaths_) {
   //   sharedPathsElement.second->destroyFromInstance();
@@ -226,5 +220,4 @@ bool PNLInstance::isPrimitive() const { return model_->isPrimitive(); }
 
 bool PNLInstance::isLeaf() const { return model_->isLeaf(); }
 
-}  // namespace NL
-}  // namespace naja
+}  // namespace naja::NL
