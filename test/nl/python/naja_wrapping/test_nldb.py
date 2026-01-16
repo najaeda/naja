@@ -141,9 +141,12 @@ class SNLDBTest(unittest.TestCase):
     with self.assertRaises(RuntimeError) as context: naja.NLDB.loadNajaIF("./test_verilogError.v")
     primitives = [1]
     designs = [2]
-    primitivesNoExtension = ["../../../../../test/naja/formats/liberty/benchmarks/asap7_excerpt/test0"]
-    primitivesCorrect = ["../../../../../test/naja/formats/liberty/benchmarks/asap7_excerpt/test0.lib"]
-    primitivesWrongExtension = ["../../../../../test/naja/formats/liberty/benchmarks/asap7_excerpt/test0.sd"]
+    formats_path = os.environ.get('FORMATS_PATH')
+    self.assertIsNotNone(formats_path)
+    liberty_path = os.path.join(formats_path, 'liberty')
+    primitivesNoExtension = [os.path.join(liberty_path, "benchmarks/asap7_excerpt/test0")]
+    primitivesCorrect = [os.path.join(liberty_path, "benchmarks/asap7_excerpt/test0.lib")]
+    primitivesWrongExtension = [os.path.join(liberty_path, "benchmarks/asap7_excerpt/test0.sd")]
     with self.assertRaises(RuntimeError) as context: db.loadVerilog("Error", "Error")
     with self.assertRaises(RuntimeError) as context: db.loadLibertyPrimitives("Error", "Error")
     with self.assertRaises(RuntimeError) as context: db.loadVerilog("Error")

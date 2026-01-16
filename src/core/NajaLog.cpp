@@ -87,6 +87,13 @@ void flushEvery(std::chrono::seconds interval) {
   spdlog::flush_every(interval);
 }
 
+void clearSinks() {
+  auto logger = ensureLogger();
+  logger->flush();
+  logger->sinks().clear();
+  addConsoleSink(spdlog::level::info);
+}
+
 void shutdown() {
   std::lock_guard<std::mutex> lock(logger_mutex_);
   logger_.reset();

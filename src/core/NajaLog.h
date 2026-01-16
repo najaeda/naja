@@ -23,6 +23,7 @@ void addConsoleSink(spdlog::level::level_enum level = spdlog::level::info);
 void addFileSink(const std::string& path,
                  spdlog::level::level_enum level = spdlog::level::trace);
 void flushEvery(std::chrono::seconds interval);
+void clearSinks();
 void shutdown();
 
 spdlog::level::level_enum levelFromString(const std::string& level);

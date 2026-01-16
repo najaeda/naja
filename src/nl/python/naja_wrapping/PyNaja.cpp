@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <fstream>
 #include <string>
 
 #include "NajaLog.h"
@@ -98,6 +99,18 @@ static PyObject* logCritical(PyObject* self, PyObject* args) {
 }
 // LCOV_EXCL_STOP
 
+// LCOV_EXCL_START
+static PyObject* logWarn(PyObject* self, PyObject* args) {
+  const char* message;
+  if (!PyArg_ParseTuple(args, "s", &message)) {
+    setError("Failed to parse arguments in logWarning");
+    return nullptr;
+  }
+  NAJA_LOG_WARN("{}", message);
+  Py_RETURN_NONE;
+}
+// LCOV_EXCL_STOP
+
 static PyObject* setLogLevel(PyObject* self, PyObject* args) {
   const char* levelName = nullptr;
   if (!PyArg_ParseTuple(args, "s", &levelName)) {
@@ -113,16 +126,6 @@ static PyObject* setLogLevel(PyObject* self, PyObject* args) {
   Py_RETURN_NONE;
 }
 
-static PyObject* setLogPattern(PyObject* self, PyObject* args) {
-  const char* pattern = nullptr;
-  if (!PyArg_ParseTuple(args, "s", &pattern)) {
-    setError("Failed to parse arguments in setLogPattern");
-    return nullptr;
-  }
-  naja::log::setPattern(pattern);
-  Py_RETURN_NONE;
-}
-
 static PyObject* addLogFile(PyObject* self, PyObject* args) {
   const char* path = nullptr;
   const char* levelName = nullptr;
@@ -130,6 +133,12 @@ static PyObject* addLogFile(PyObject* self, PyObject* args) {
     setError("Failed to parse arguments in addLogFile");
     return nullptr;
   }
+  std::ofstream testStream(path, std::ios::app);
+  if (!testStream.is_open()) {
+    NAJA_LOG_WARN("Log file not writable: {}", path);
+    Py_RETURN_NONE;
+  }
+  testStream.close();
   spdlog::level::level_enum level = spdlog::level::trace;
   if (levelName && !parseLogLevel_(levelName, level)) {
     setError("Invalid log level");
@@ -139,13 +148,24 @@ static PyObject* addLogFile(PyObject* self, PyObject* args) {
   Py_RETURN_NONE;
 }
 
+static PyObject* clearLogSinks(PyObject* self, PyObject* args) {
+  if (args && PyTuple_Check(args) && PyTuple_Size(args) != 0) {
+    setError("clearLogSinks does not take arguments");
+    return nullptr;
+  }
+  naja::log::clearSinks();
+  Py_RETURN_NONE;
+}
+
 static PyMethodDef NajaMethods[] = {
   { "getVersion", getVersion, METH_NOARGS, "get the version of Naja" },
   { "getGitHash", getGitHash, METH_NOARGS, "get the Naja git hash" },
   { "logInfo", logInfo, METH_VARARGS, "log an info message" },
+  { "logWarn", logWarn, METH_VARARGS, "log a warning message" },
   { "logCritical", logCritical, METH_VARARGS, "log a critical message" },
   { "setLogLevel", setLogLevel, METH_VARARGS, "set the global log level" },
   { "addLogFile", addLogFile, METH_VARARGS, "add a file sink to the logger" },
+  { "clearLogSinks", clearLogSinks, METH_NOARGS, "clear all log sinks" },
   {NULL, NULL, 0, NULL}        /* Sentinel */
 };
 
