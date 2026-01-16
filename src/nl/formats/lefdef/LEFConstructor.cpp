@@ -10,6 +10,7 @@
 #include <fstream>
 #include <iostream>
 #include <memory>
+#include "NajaLog.h"
 #include "NLDB.h"
 #include "NLLibrary.h"
 #include "NLName.h"
@@ -33,7 +34,9 @@ using namespace naja::NL;
 namespace {
 
 void logFunction_(const char* message) {
-  std::cout << message << std::endl;
+  if (message) {
+    NAJA_LOG_INFO("{}", message);
+  }
 }
 
 void pinStdPostProcess_() {}

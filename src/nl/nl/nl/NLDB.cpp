@@ -5,8 +5,9 @@
 #include "NLDB.h"
 
 #include <list>
-#include <iostream>
 #include <sstream>
+
+#include "NajaLog.h"
 
 #include "NLUniverse.h"
 #include "NLDB0.h"
@@ -58,9 +59,7 @@ void NLDB::postCreate(NLUniverse* universe) {
 }
 
 void NLDB::commonPreDrestroy() {
-#ifdef SNL_DESTROY_DEBUG
-  std::cerr << "Destroying " << getDescription() << std::endl; 
-#endif
+  NAJA_LOG_TRACE("Destroying {}", getDescription());
   struct destroyLibraryFromDB {
     void operator()(NL::NLLibrary* library) {
       library->destroyFromDB();

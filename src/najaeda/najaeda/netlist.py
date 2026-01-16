@@ -1771,6 +1771,18 @@ def create_top(name: str) -> Instance:
 class VerilogConfig:
     keep_assigns: bool = True
     allow_unknown_designs: bool = False
+    # How to handle duplicate module names in the same library.
+    # Accepted values: "forbid" (default), "first", "last", "verify".
+    conflicting_design_name_policy: str = "forbid"
+
+    def __post_init__(self):
+        allowed = {"forbid", "first", "last", "verify"}
+        if self.conflicting_design_name_policy not in allowed:
+            raise ValueError(
+                "Invalid conflicting_design_name_policy: "
+                f"{self.conflicting_design_name_policy!r}. "
+                "Expected one of: forbid, first, last, verify."
+            )
 
 
 def load_verilog(files: Union[str, List[str]], config: VerilogConfig = None) -> Instance:
@@ -1793,7 +1805,8 @@ def load_verilog(files: Union[str, List[str]], config: VerilogConfig = None) -> 
     __get_top_db().loadVerilog(
         files,
         keep_assigns=config.keep_assigns,
-        allow_unknown_designs=config.allow_unknown_designs
+        allow_unknown_designs=config.allow_unknown_designs,
+        conflicting_design_name_policy=config.conflicting_design_name_policy,
     )
     execution_time = time.time() - start_time
     logging.info(f"Loading done in {execution_time:.2f} seconds")

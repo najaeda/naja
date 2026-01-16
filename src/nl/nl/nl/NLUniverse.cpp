@@ -4,7 +4,8 @@
 
 #include "NLUniverse.h"
 
-#include <iostream>
+#include "NajaLog.h"
+
 #include "NLDB0.h"
 #include "SNLScalarNet.h"
 #include "SNLBusNet.h"
@@ -41,9 +42,7 @@ void NLUniverse::postCreate() {
 }
 
 void NLUniverse::preDestroy() {
-#ifdef NL_DESTROY_DEBUG
-  std::cerr << "Destroying " << getDescription() << std::endl; 
-#endif
+  NAJA_LOG_TRACE("Destroying {}", getDescription());
   struct destroyDBFromUniverse {
     void operator()(NL::NLDB* db) {
       db->destroyFromUniverse();

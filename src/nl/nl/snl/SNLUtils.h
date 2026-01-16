@@ -2,12 +2,11 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __SNL_UTILS_H_
-#define __SNL_UTILS_H_
+#pragma once
 
 #include "SNLDesign.h"
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 class NLLibrary;
 class SNLDesign;
@@ -23,6 +22,4 @@ class SNLUtils {
     static SNLDesign* findTop(const NLLibrary* library);
 };
 
-}} // namespace NL // namespace naja
-
-#endif // __SNL_UTILS_H_
+} // namespace naja::NL

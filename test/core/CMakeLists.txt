@@ -7,6 +7,7 @@ INCLUDE(GoogleTest)
 SET(core_tests
     NajaPrivatePropertyTest.cpp
     NajaPerfTests.cpp
+    NajaLogTests.cpp
 )
 
 ADD_EXECUTABLE(najaCoreTests ${core_tests})

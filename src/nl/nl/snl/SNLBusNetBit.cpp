@@ -4,8 +4,6 @@
 
 #include "SNLBusNetBit.h"
 
-#include <iostream>
-
 #include "NajaCollection.h"
 #include "NLException.h"
 
