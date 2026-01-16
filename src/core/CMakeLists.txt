@@ -53,6 +53,9 @@ set_property(TARGET naja_core PROPERTY POSITION_INDEPENDENT_CODE ON)
 target_link_libraries(naja_core PUBLIC coverage_config sanitizers_config)
 
 target_compile_options(naja_core PRIVATE ${NAJA_CXX_WARNINGS}) 
+if(MSVC)
+  target_compile_options(naja_core PRIVATE /utf-8)
+endif()
 
 target_include_directories(naja_core SYSTEM BEFORE PUBLIC ${Boost_INCLUDE_DIR})
 target_include_directories(naja_core PUBLIC
