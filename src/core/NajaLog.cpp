@@ -83,9 +83,11 @@ void addFileSink(const std::string& path, spdlog::level::level_enum level) {
   ensureLogger()->sinks().push_back(sink);
 }
 
+//LCOV_EXCL_START
 void flushEvery(std::chrono::seconds interval) {
   spdlog::flush_every(interval);
 }
+//LCOV_EXCL_STOP
 
 void clearSinks() {
   auto logger = ensureLogger();

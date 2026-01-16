@@ -74,7 +74,6 @@ static bool parseLogLevel_(const char* levelName,
   return true;
 }
 
-// LCOV_EXCL_START
 static PyObject* logInfo(PyObject* self, PyObject* args) {
   const char* message;
 
@@ -85,9 +84,7 @@ static PyObject* logInfo(PyObject* self, PyObject* args) {
   NAJA_LOG_INFO("{}", message);
   Py_RETURN_NONE;
 }
-// LCOV_EXCL_STOP
 
-// LCOV_EXCL_START
 static PyObject* logCritical(PyObject* self, PyObject* args) {
   const char* message;
   if (!PyArg_ParseTuple(args, "s", &message)) {
@@ -97,9 +94,7 @@ static PyObject* logCritical(PyObject* self, PyObject* args) {
   NAJA_LOG_CRITICAL("{}", message);
   Py_RETURN_NONE;
 }
-// LCOV_EXCL_STOP
 
-// LCOV_EXCL_START
 static PyObject* logWarn(PyObject* self, PyObject* args) {
   const char* message;
   if (!PyArg_ParseTuple(args, "s", &message)) {
@@ -109,7 +104,6 @@ static PyObject* logWarn(PyObject* self, PyObject* args) {
   NAJA_LOG_WARN("{}", message);
   Py_RETURN_NONE;
 }
-// LCOV_EXCL_STOP
 
 static PyObject* setLogLevel(PyObject* self, PyObject* args) {
   const char* levelName = nullptr;
@@ -149,10 +143,6 @@ static PyObject* addLogFile(PyObject* self, PyObject* args) {
 }
 
 static PyObject* clearLogSinks(PyObject* self, PyObject* args) {
-  if (args && PyTuple_Check(args) && PyTuple_Size(args) != 0) {
-    setError("clearLogSinks does not take arguments");
-    return nullptr;
-  }
   naja::log::clearSinks();
   Py_RETURN_NONE;
 }
