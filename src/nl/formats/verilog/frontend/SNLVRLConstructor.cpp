@@ -11,6 +11,7 @@
 #include "NLUniverse.h"
 #include "NLDB0.h"
 #include "NLLibrary.h"
+#include "NajaLog.h"
 
 #include "SNLDesign.h"
 #include "SNLBusTerm.h"
@@ -414,25 +415,21 @@ void SNLVRLConstructor::startModule(const naja::verilog::Identifier& module) {
           throw SNLVRLConstructorException(reason.str());
         }
         case Config::ConflictingDesignNamePolicy::FirstOne: {
-          if (config_.verbose_) {
-            std::cerr << "Warning: In SNLVRLConstructor first pass, "
-              << module.getString()
-              << " module already exists in library "
-              << library_->getDescription()
-              << ", ignoring this definition." << std::endl; //LCOV_EXCL_LINE
-          }
+          NAJA_LOG_WARN(
+            "In SNLVRLConstructor first pass, {} module already exists in "
+            "library {}, ignoring this definition.",
+            module.getString(),
+            library_->getDescription());
           skipCurrentModule_ = true;
           currentModule_ = library_->getSNLDesign(moduleName);
           break;
         }
         case Config::ConflictingDesignNamePolicy::LastOne: {
-          if (config_.verbose_) {
-            std::cerr << "Warning: In SNLVRLConstructor first pass, "
-              << module.getString()
-              << " module already exists in library "
-              << library_->getDescription()
-              << ", overriding with this definition." << std::endl; //LCOV_EXCL_LINE
-          }
+          NAJA_LOG_WARN(
+            "In SNLVRLConstructor first pass, {} module already exists in "
+            "library {}, overriding with this definition.",
+            module.getString(),
+            library_->getDescription());
           auto existingModule = library_->getSNLDesign(moduleName);
           if (existingModule and not existingModule->getSlaveInstances().empty()) {
             //LCOV_EXCL_START
@@ -452,13 +449,11 @@ void SNLVRLConstructor::startModule(const naja::verilog::Identifier& module) {
           break;
         }
         case Config::ConflictingDesignNamePolicy::VerifyEquality: {
-          if (config_.verbose_) {
-            std::cerr << "Warning: In SNLVRLConstructor first pass, "
-              << module.getString()
-              << " module already exists in library "
-              << library_->getDescription()
-              << ", verifying equality (not implemented), skipping." << std::endl; //LCOV_EXCL_LINE
-          }
+          NAJA_LOG_WARN(
+            "In SNLVRLConstructor first pass, {} module already exists in "
+            "library {}, verifying equality (not implemented), skipping.",
+            module.getString(),
+            library_->getDescription());
           skipCurrentModule_ = true;
           currentModule_ = library_->getSNLDesign(moduleName);
           break;
@@ -466,9 +461,7 @@ void SNLVRLConstructor::startModule(const naja::verilog::Identifier& module) {
       }
     }
     collectAttributes(currentModule_, nextObjectAttributes_);
-    if (config_.verbose_) {
-      std::cerr << "Construct Module: " << module.getString() << std::endl; //LCOV_EXCL_LINE
-    }
+    NAJA_LOG_TRACE("Construct Module: {}", module.getString());
   } else {
     // In second pass, only elaborate the module definition that was selected in first pass.
     if (not isCurrentModuleSelected(moduleName)) {
@@ -492,9 +485,7 @@ void SNLVRLConstructor::startModule(const naja::verilog::Identifier& module) {
       reason << module.getString() << " module should no contain any net";
       throw SNLVRLConstructorException(reason.str());
     }
-    if (config_.verbose_) {
-      std::cerr << "Second pass Construct Module: " << currentModule_->getDescription() << std::endl; //LCOV_EXCL_LINE
-    }
+    NAJA_LOG_TRACE("Second pass Construct Module: {}", currentModule_->getDescription());
     createCurrentModuleAssignNets();
   }
   nextObjectAttributes_.clear();
@@ -503,9 +494,7 @@ void SNLVRLConstructor::startModule(const naja::verilog::Identifier& module) {
 void SNLVRLConstructor::moduleInterfaceSimplePort(const naja::verilog::Identifier& port) {
   if (skipCurrentModule_) { nextObjectAttributes_.clear(); return; }
   if (inFirstPass()) {
-    if (config_.verbose_) {
-      std::cerr << "Add port: " << port.getString() << std::endl; //LCOV_EXCL_LINE
-    }
+    NAJA_LOG_TRACE("Add port: {}", port.getString());
     if (currentModuleInterfacePortsMap_.find(port.name_) != currentModuleInterfacePortsMap_.end()) {
       std::ostringstream reason;
       reason << getLocationString();
@@ -522,12 +511,7 @@ void SNLVRLConstructor::moduleInterfaceSimplePort(const naja::verilog::Identifie
 void SNLVRLConstructor::moduleImplementationPort(const naja::verilog::Port& port) {
   if (skipCurrentModule_) { nextObjectAttributes_.clear(); return; }
   if (inFirstPass()) {
-    if (config_.verbose_) {
-      //LCOV_EXCL_START
-      std::cerr << "Add implementation port: "
-        << port.getString() << std::endl;
-      //LCOV_EXCL_STOP
-    }
+    NAJA_LOG_TRACE("Add implementation port: {}", port.getString());
     auto it = currentModuleInterfacePortsMap_.find(port.identifier_.name_);
     if (it == currentModuleInterfacePortsMap_.end()) {
       std::ostringstream reason;
@@ -557,9 +541,7 @@ void SNLVRLConstructor::moduleInterfaceCompletePort(const naja::verilog::Port& p
 void SNLVRLConstructor::addNet(const naja::verilog::Net& net) {
   if (skipCurrentModule_) { nextObjectAttributes_.clear(); return; }
   if (not inFirstPass()) {
-    if (config_.verbose_) {
-      std::cerr << "Add net: " << net.getString() << std::endl; //LCOV_EXCL_LINE
-    }
+    NAJA_LOG_TRACE("Add net: {}", net.getString());
     auto netName = NLName(net.identifier_.name_);
     auto existingNet = currentModule_->getNet(netName);
     if (existingNet) {
@@ -605,18 +587,12 @@ void SNLVRLConstructor::addAssign(
   using BitNets = std::vector<SNLBitNet*>;
   BitNets leftNets;
   BitNets rightNets;
-  if (config_.verbose_) {
-    std::cerr << "Assign: " << std::endl; //LCOV_EXCL_LINE
-  }
+  NAJA_LOG_TRACE("Assign:");
   for (auto id: identifiers) {
     collectIdentifierNets(id, leftNets);
-    if (config_.verbose_) {
-      std::cerr << "ID: " << id.getString() << std::endl; //LCOV_EXCL_LINE
-    }
+    NAJA_LOG_TRACE("ID: {}", id.getString());
   }
-  if (config_.verbose_) {
-    std::cerr << expression.getString() << std::endl; //LCOV_EXCL_LINE
-  }
+  NAJA_LOG_TRACE("{}", expression.getString());
   if (expression.valid_) {
     if (not expression.supported_) {
       std::ostringstream reason;
@@ -682,9 +658,7 @@ void SNLVRLConstructor::startInstantiation(const naja::verilog::Identifier& mode
   if (skipCurrentModule_) { return; }
   if (not inFirstPass()) {
     currentModelName_ = model.name_;
-    if (config_.verbose_) {
-      std::cerr << "Start Instantiation: " << model.getString() << std::endl; //LCOV_EXCL_LINE
-    }
+    NAJA_LOG_TRACE("Start Instantiation: {}", model.getString());
   }
 }
 
@@ -702,9 +676,7 @@ void SNLVRLConstructor::addInstance(const naja::verilog::Identifier& instance) {
     }
     if (not model) {
       if (config_.allowUnknownDesigns_) {
-        if (config_.verbose_) {
-          std::cerr << "Unknown design: " << modelName.getString() << std::endl; //LCOV_EXCL_LINE
-        }
+        NAJA_LOG_TRACE("Unknown design: {}", modelName.getString());
         auto autoBlackBoxLibrary = getOrCreateAutoBlackBoxLibrary(library_);
         model = getOrCreateAutoBlackBox(autoBlackBoxLibrary, modelName);
       } else {
@@ -720,11 +692,7 @@ void SNLVRLConstructor::addInstance(const naja::verilog::Identifier& instance) {
     //might be a good idea to create a cache <Name, SNLDesign*> here
     //in particular for primitives
     currentInstance_ = SNLInstance::create(currentModule_, model, NLName(instance.name_));
-    if (config_.verbose_) {
-      //LCOV_EXCL_START
-      std::cerr << "Current Instance: " << currentInstance_->getDescription() << std::endl;
-      //LCOV_EXCL_STOP
-    }
+    NAJA_LOG_TRACE("Current Instance: {}", currentInstance_->getDescription());
     collectAttributes(currentInstance_, nextObjectAttributes_);
   }
   nextObjectAttributes_.clear();
@@ -743,12 +711,7 @@ void SNLVRLConstructor::endInstantiation() {
   if (skipCurrentModule_) { return; }
   if (not inFirstPass()) {
     assert(currentInstance_);
-    if (config_.verbose_) {
-      //LCOV_EXCL_START
-      std::cerr << "End " << currentInstance_->getString() 
-        << " instantiation" << std::endl;
-      //LCOV_EXCL_STOP
-    }
+    NAJA_LOG_TRACE("End {} instantiation", currentInstance_->getString());
     //Save current Parameter assignments
     for (auto parameterValue: currentInstanceParameterValues_) {
       auto parameterName = NLName(parameterValue.first);
@@ -855,14 +818,8 @@ void SNLVRLConstructor::addInstanceConnection(
   const naja::verilog::Expression& expression) {
   if (skipCurrentModule_) { nextObjectAttributes_.clear(); return; }
   if (not inFirstPass()) {
-    if (config_.verbose_) {
-      //LCOV_EXCL_START
-      std::cerr << "addInstanceConnection port:"
-        << port.getDescription() 
-        << " expression: "
-        << expression.getDescription() << std::endl;
-      //LCOV_EXCL_STOP
-    }
+    NAJA_LOG_TRACE("addInstanceConnection port: {} expresion: {}",
+      port.getDescription(), expression.getDescription());
     assert(currentInstance_);
     SNLDesign* model = currentInstance_->getModel();
     SNLTerm* term = model->getTerm(NLName(port.name_));
@@ -891,14 +848,8 @@ void SNLVRLConstructor::addInstanceConnection(
       }
     }
     currentInstancePortConnection(term, expression);
-    if (config_.verbose_) {
-      //LCOV_EXCL_START
-      std::cerr << "Instance connection: "
-        << currentInstance_->getString()
-        << " - " << term->getString() << " connection"
-        << std::endl;
-      //LCOV_EXCL_STOP
-    }
+    NAJA_LOG_TRACE("Instance connection: {}  - connection",
+      currentInstance_->getString(),  term->getString());
   }
 }
 
@@ -911,14 +862,8 @@ void SNLVRLConstructor::addOrderedInstanceConnection(
     SNLDesign* model = currentInstance_->getModel();
     SNLTerm* term = model->getTerm(NLID::DesignObjectID(portIndex));
     currentInstancePortConnection(term, expression);
-    if (config_.verbose_) {
-      //LCOV_EXCL_START
-      std::cerr << "Instance connection: "
-        << currentInstance_->getString()
-        << " - " << term->getString() << " connection"
-        << std::endl;
-      //LCOV_EXCL_STOP
-    }
+    NAJA_LOG_TRACE("Instance connection: {}  - connection",
+      currentInstance_->getString(),  term->getString());
   }
 }
 
@@ -926,9 +871,7 @@ void SNLVRLConstructor::startGateInstantiation(const naja::verilog::GateType& ga
   if (skipCurrentModule_) { return; }
   if (not inFirstPass()) {
     currentGateInstance_.gateType_ = najaVerilogToNLDB0GateType(gateType);
-    if (config_.verbose_) {
-      std::cerr << "Start Instantiation: " << gateType.getString() << std::endl; //LCOV_EXCL_LINE
-    }
+    NAJA_LOG_TRACE("Start Instantiation: {}", gateType.getString());
   }
 }
 
@@ -976,12 +919,7 @@ void SNLVRLConstructor::endGateInstantiation() {
   if (skipCurrentModule_) { return; }
   if (not inFirstPass()) {
     assert(currentGateInstance_.isValid());
-    if (config_.verbose_) {
-      //LCOV_EXCL_START
-      std::cerr << "End " << currentGateInstance_.getString() 
-        << " instantiation" << std::endl;
-      //LCOV_EXCL_STOP
-    }
+    NAJA_LOG_TRACE("End {} instantiation", currentGateInstance_.getString());
     //create gate instance
     SNLDesign* gate = nullptr;
     size_t nbTerms = currentGateInstance_.connections_.size();
@@ -1035,12 +973,7 @@ void SNLVRLConstructor::endModule() {
    resetPerModuleState();
     return;
   }
-  if (config_.verbose_) {
-    //LCOV_EXCL_START
-    std::cerr << "End module: "
-      << currentModule_->getString() << std::endl;
-    //LCOV_EXCL_STOP
-  }
+  NAJA_LOG_TRACE("End module: {}", currentModule_->getString());
   if (inFirstPass()) {
     //construct interface declared ports if existing
     //verify that all ports declared interface

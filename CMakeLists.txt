@@ -67,6 +67,7 @@ if(CODE_COVERAGE)
     --coverage # sets all required flags
   )
   target_link_options(coverage_config INTERFACE --coverage)
+  target_compile_definitions(coverage_config INTERFACE SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_INFO)
 endif(CODE_COVERAGE)
 
 add_library(sanitizers_config INTERFACE)
