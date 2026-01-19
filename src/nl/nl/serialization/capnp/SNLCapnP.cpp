@@ -8,7 +8,7 @@
 
 //using boost::asio::ip::tcp;
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 void SNLCapnP::dump(const NLDB* db, const std::filesystem::path& path) {
   std::filesystem::create_directory(path);
@@ -64,4 +64,4 @@ NLDB* SNLCapnP::load(const std::filesystem::path& path, bool primitivesAreLoded)
 //}
 //LCOV_EXCL_STOP
 
-}} // namespace NL // namespace naja
+}  // namespace naja::NL

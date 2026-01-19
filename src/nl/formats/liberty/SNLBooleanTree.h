@@ -4,13 +4,12 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __SNL_BOOLEAN_TREE_H_
-#define __SNL_BOOLEAN_TREE_H_
 
+#pragma once
 #include "SNLBitTerm.h"
 #include "SNLTruthTable.h"
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 class SNLDesign;
 class SNLBitTerm;
@@ -114,6 +113,4 @@ class SNLBooleanTree {
     SNLBooleanTreeFunctionNode* root_       {nullptr};  
 };
 
-}} // namespace NL // namespace naja
-
-#endif // __SNL_BOOLEAN_TREE_H_
+}  // namespace naja::NL

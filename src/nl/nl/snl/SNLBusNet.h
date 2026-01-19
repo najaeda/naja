@@ -2,15 +2,14 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __SNL_BUS_NET_H_
-#define __SNL_BUS_NET_H_
 
+#pragma once
 #include <vector>
 
 #include "SNLNet.h"
 #include "NajaCollection.h"
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 class SNLBusNetBit;
 
@@ -119,6 +118,4 @@ class SNLBusNet final: public SNLNet {
     Bits                  bits_   {};
 };
 
-}} // namespace NL // namespace naja
-
-#endif // __SNL_BUS_NET_H_
+}  // namespace naja::NL

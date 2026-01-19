@@ -14,7 +14,7 @@
 #include "NLException.h"
 #include "SNLMacros.h"
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 NLDB::NLDB(NLID::DBID id):
   id_(id)
@@ -251,4 +251,4 @@ void NLDB::debugDump(size_t indent, bool recursive, std::ostream& stream) const 
 }
 //LCOV_EXCL_STOP
 
-}} // namespace NL // namespace naja
+}  // namespace naja::NL

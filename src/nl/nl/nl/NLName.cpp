@@ -7,7 +7,7 @@
 #include "NLException.h"
 #include "NLUniverse.h"
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 NLName::NLName(const std::string& name) {
   auto universe = NLUniverse::get();
@@ -29,4 +29,4 @@ const std::string& NLName::getStringRef() const {
   return empty;
 }
 
-}} // namespace NL // namespace naja
+}  // namespace naja::NL

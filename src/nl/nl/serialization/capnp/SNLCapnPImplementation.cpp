@@ -472,7 +472,7 @@ void loadLibraryImplementation(NLDB* db, const DBImplementation::LibraryImplemen
 
 }
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 void SNLCapnP::dumpImplementation(const NLDB* snlDB, int fileDescriptor) {
   dumpImplementation(snlDB, fileDescriptor, snlDB->getID());
@@ -585,4 +585,4 @@ NLDB* SNLCapnP::loadImplementation(const std::filesystem::path& implementationPa
 //}
 //LCOV_EXCL_STOP
 
-}} // namespace NL // namespace naja
+}  // namespace naja::NL

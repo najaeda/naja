@@ -54,7 +54,7 @@ NLLibraryModelingProperty* getProperty(const naja::NL::NLLibrary* library) {
 
 } // namespace
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 NLLibraryTruthTables::LibraryTruthTables NLLibraryTruthTables::construct(NLLibrary* library) {
   if (library->getType() != NLLibrary::Type::Primitives) {
@@ -115,4 +115,4 @@ NLLibraryTruthTables::getDesignForTruthTable(const NLLibrary* library, const SNL
   return std::pair(primitives[0], indexes);
 }
 
-}} // namespace NL // namespace naja
+}  // namespace naja::NL

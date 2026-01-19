@@ -2,14 +2,13 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __SNL_CAPNP_H_
-#define __SNL_CAPNP_H_
 
+#pragma once
 #include <filesystem>
 //#include <boost/asio.hpp>
 #include "NLID.h"
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 class NLDB;
 
@@ -50,6 +49,4 @@ class SNLCapnP {
     //static NLDB* receiveImplementation(boost::asio::ip::tcp::socket& socket); 
 };
 
-}} // namespace NL // namespace naja
-
-#endif // __SNL_CAPNP_H_
+}  // namespace naja::NL

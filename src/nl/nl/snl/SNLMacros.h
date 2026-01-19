@@ -2,9 +2,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __SNL_MACROS_H_
-#define __SNL_MACROS_H_
 
+#pragma once
 #include <sstream>
 
 //
@@ -169,4 +168,3 @@ void OWNER::rename(TYPE* object, const NLName& previousName) { \
   } \
 }
 
-#endif // __SNL_MACROS_H_

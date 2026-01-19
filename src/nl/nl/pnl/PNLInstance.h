@@ -10,7 +10,7 @@
 #include "PNLInstTerm.h"
 #include "PNLTransform.h"
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 class PNLBitTerm;
 
@@ -82,4 +82,4 @@ class PNLInstance final: public PNLDesignObject {
     boost::intrusive::set_member_hook<> designSlaveInstancesHook_ {};
 };
 
-}} // namespace NL // namespace naja
+}  // namespace naja::NL

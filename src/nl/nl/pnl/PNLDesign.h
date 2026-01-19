@@ -12,7 +12,7 @@
 #include "PNLScalarNet.h"
 #include "PNLBox.h"
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 class NLDB;
 class NLLibrary;
@@ -234,4 +234,4 @@ class PNLDesign final: public NLObject {
     Symmetry                            Symmetry_ = NONE;
 };
 
-}} // namespace NL // namespace naja
+}  // namespace naja::NL

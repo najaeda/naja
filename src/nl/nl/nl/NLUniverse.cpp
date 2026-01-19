@@ -19,7 +19,7 @@
 
 #include <limits>
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 NLUniverse* NLUniverse::universe_ = nullptr;
 
@@ -350,4 +350,4 @@ void NLUniverse::debugDump(size_t indent, bool recursive, std::ostream& stream) 
 }
 //LCOV_EXCL_STOP
 
-}} // namespace NL // namespace naja
+}  // namespace naja::NL

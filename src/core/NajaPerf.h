@@ -3,9 +3,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __NAJA_PERF_H_
-#define __NAJA_PERF_H_
 
+#pragma once
 #include <stack>
 #include <chrono>
 #include <filesystem>
@@ -140,4 +139,3 @@ class NajaPerf {
 
 } // namespace naja
 
-#endif // __NAJA_PERF_H_

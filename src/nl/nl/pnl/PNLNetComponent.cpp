@@ -7,7 +7,7 @@
 #include "PNLBitNet.h"
 #include "PNLDesign.h"
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 PNLNetComponent::Direction::Direction(const DirectionEnum& dirEnum):
   dirEnum_(dirEnum) 
@@ -39,4 +39,4 @@ void PNLNetComponent::preDestroy() {
   super::preDestroy();
 }
 
-}} // namespace NL // namespace naja
+}  // namespace naja::NL

@@ -6,7 +6,7 @@
 
 #include "NLID.h"
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 class NLDesign {
   public:
@@ -38,4 +38,4 @@ class NLDesign {
     };
 };
 
-}} // namespace NL // namespace naja
+}  // namespace naja::NL

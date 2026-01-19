@@ -2,12 +2,11 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __SNL_DUMP_H_
-#define __SNL_DUMP_H_
 
+#pragma once
 #include <string>
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 class SNLDesign;
 
@@ -39,6 +38,4 @@ class SNLDump {
     //static constexpr std::string_view DesignDBName = "design.db";
 };
 
-}} // namespace NL // namespace naja
-
-#endif // __SNL_DUMP_H_
+}  // namespace naja::NL

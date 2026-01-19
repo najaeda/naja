@@ -422,7 +422,7 @@ void loadLibraryInterface(NajaObject* parent, const DBInterface::LibraryInterfac
 
 }
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 void SNLCapnP::dumpInterface(const NLDB* snlDB, int fileDescriptor) {
   dumpInterface(snlDB, fileDescriptor, snlDB->getID());
@@ -587,4 +587,4 @@ NLDB* SNLCapnP::loadInterface(const std::filesystem::path& interfacePath, bool p
 //}
 //LCOV_EXCL_STOP
 
-}} // namespace NL // namespace naja
+}  // namespace naja::NL

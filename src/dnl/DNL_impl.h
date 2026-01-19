@@ -3,9 +3,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef DNL_IMPL_H
-#define DNL_IMPL_H
 
+#pragma once
 #include "DNL.h"
 
 // #define DEBUG_PRINTS
@@ -531,4 +530,3 @@ void DNL<DNLInstance, DNLTerminal>::getCustomIso(DNLID dnlIsoId,
                     DNLIso, visitedDB);
 }
 
-#endif  // DNL_IMPL_H

@@ -6,7 +6,7 @@
 
 #include "PNLDesign.h"
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 PNLNet::Type::Type(const TypeEnum& typeEnum):
   typeEnum_(typeEnum) 
@@ -43,4 +43,4 @@ NLID::DesignObjectReference PNLNet::getReference() const {
   return NLID::DesignObjectReference(getDesign()->getReference(), getID());
 }
 
-}} // namespace NL // namespace naja
+}  // namespace naja::NL

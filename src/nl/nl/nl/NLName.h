@@ -2,13 +2,12 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __NL_NAME_H_
-#define __NL_NAME_H_
 
+#pragma once
 #include <cstdint>
 #include <string>
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 class NLName {
   public:
@@ -59,6 +58,4 @@ struct NLNameComp {
   }
 };
 
-}} // namespace NL // namespace naja
-
-#endif // __NL_NAME_H_
+}  // namespace naja::NL

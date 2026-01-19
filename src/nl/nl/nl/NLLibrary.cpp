@@ -12,7 +12,7 @@
 #include "NLException.h"
 #include "SNLMacros.h"
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 NLLibrary::Type::Type(const TypeEnum& typeEnum):
   typeEnum_(typeEnum) 
@@ -473,4 +473,4 @@ NLID NLLibrary::getNLID() const {
   return NLID(getDB()->getID(), getID());
 }
 
-}} // namespace NL // namespace naja
+}  // namespace naja::NL

@@ -11,7 +11,7 @@
 #include "SNLInstance.h"
 #include "SNLPath.h"
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 SNLUniquifier::SNLUniquifier(const SNLPath& path, bool uniquifyTail):
   uniquifyTail_(uniquifyTail) {
@@ -81,4 +81,4 @@ std::string SNLUniquifier::getFullPath() const {
 }
 // LCOV_EXCL_STOP
 
-}} // namespace NL // namespace naja
+}  // namespace naja::NL

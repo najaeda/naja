@@ -14,7 +14,7 @@
 //#include "PNLAttributes.h"
 #include "SNLMacros.h"
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 PNLScalarTerm::PNLScalarTerm(PNLDesign* design, Direction direction, const NLName& name):
   super(),
@@ -180,4 +180,4 @@ void PNLScalarTerm::debugDump(size_t indent, bool recursive, std::ostream& strea
 //   //return PNLAttributes::compareAttributes(this, other, reason);
 // }
 
-}} // namespace NL // namespace naja
+}  // namespace naja::NL

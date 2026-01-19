@@ -3,15 +3,13 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __PNL_SITE_H_
-#define __PNL_SITE_H_
 
+#pragma once
 #include "NLID.h"
 #include "NLName.h"
 #include "PNLBox.h"
 
-namespace naja {
-namespace NL {
+namespace naja::NL {
 
 class PNLTechnology;
 
@@ -68,7 +66,4 @@ class PNLSite {
   Symmetry symmetry_ = Symmetry::NONE;
 };
 
-}  // namespace NL
-}  // namespace naja
-
-#endif  // __PNL_SITE_H_
+}  // namespace naja::NL

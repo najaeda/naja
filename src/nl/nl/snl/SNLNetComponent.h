@@ -2,14 +2,13 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __SNL_NET_COMPONENT_H_
-#define __SNL_NET_COMPONENT_H_
 
+#pragma once
 #include <boost/intrusive/set.hpp>
 
 #include "SNLDesignObject.h"
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 class SNLNet;
 class SNLBitNet;
@@ -65,6 +64,4 @@ class SNLNetComponent: public SNLDesignObject {
     boost::intrusive::set_member_hook<> netComponentsHook_  {};
 };
 
-}} // namespace NL // namespace naja
-
-#endif // __SNL_NET_COMPONENT_H_
+}  // namespace naja::NL

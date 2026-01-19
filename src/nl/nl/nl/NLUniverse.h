@@ -2,9 +2,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __NL_UNIVERSE_H_
-#define __NL_UNIVERSE_H_
 
+#pragma once
 #include <memory>
 #include <string>
 #include <string_view>
@@ -13,7 +12,7 @@
 
 #include "NLDB.h"
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 class SNLBusTermBit;
 class PNLTechnology;
@@ -145,6 +144,4 @@ class NLUniverse final: public NLObject {
     PNLTechnology*      technology_   {nullptr};
 };
 
-}} // namespace NL // namespace naja
-
-#endif // __NL_UNIVERSE_H_
+}  // namespace naja::NL

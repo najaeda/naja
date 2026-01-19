@@ -9,7 +9,7 @@
 #include "SNLBitTerm.h"
 #include "SNLOccurrence.h"
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 class SNLNetComponent;
 
@@ -58,4 +58,4 @@ class SNLEquipotential {
     SNLNet::Type        type_                 {SNLNet::Type::Standard};
 };
 
-}} // namespace NL // namespace naja
+}  // namespace naja::NL

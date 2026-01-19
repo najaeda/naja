@@ -8,8 +8,7 @@
 #include "NLException.h"
 #include "PNLTechnology.h"
 
-namespace naja {
-namespace NL {
+namespace naja::NL {
 
 PNLSite* PNLSite::create(PNLTechnology* owner,
                          const NLName& name,
@@ -28,5 +27,4 @@ PNLSite* PNLSite::create(PNLTechnology* owner,
   return site;
 }
 
-}  // namespace NL
-}  // namespace naja
+}  // namespace naja::NL

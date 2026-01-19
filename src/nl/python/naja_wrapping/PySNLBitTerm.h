@@ -2,9 +2,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __PY_SNL_BIT_TERM_H_
-#define __PY_SNL_BIT_TERM_H_
 
+#pragma once
 #include "PySNLTerm.h"
 #include "NajaPythonExport.h"
 
@@ -29,4 +28,3 @@ extern void         PySNLBitTerm_LinkPyType();
 
 } /* PYNAJA namespace */
  
-#endif /* __PY_SNL_BIT_TERM_H_ */
