@@ -15,6 +15,9 @@
 #include "SNLBusTermBit.h"
 #include "SNLInstTerm.h"
 #include "NLException.h"
+#include "PNLTechnology.h"
+
+#include <limits>
 
 namespace naja { namespace NL {
 
@@ -36,6 +39,8 @@ void NLUniverse::preCreate() {
 
 void NLUniverse::postCreate() {
   super::postCreate();
+  nameTable_.names.push_back(std::make_unique<std::string>());
+  nameTable_.nameToId.emplace(std::string_view(*nameTable_.names.front()), 0);
   //create the special DB0 which holds the NL managed libraries
   //such as assign cell
   db0_ = NLDB0::create(this);
@@ -53,6 +58,10 @@ void NLUniverse::preDestroy() {
     dbs_.erase_and_dispose(++dbs_.begin(), dbs_.end(), destroyDBFromUniverse());
   }
   dbs_.clear_and_dispose(destroyDBFromUniverse());
+  delete technology_;
+  technology_ = nullptr;
+  nameTable_.nameToId.clear();
+  nameTable_.names.clear();
   universe_ = nullptr;
   super::preDestroy();
 }
@@ -278,6 +287,36 @@ void NLUniverse::mergeAssigns() {
   for (auto db: getUserDBs()) {
     db->mergeAssigns();
   }
+}
+
+NLName::ID NLUniverse::getOrCreateNameID(const std::string& name) {
+  if (name.empty()) {
+    return 0;
+  }
+  auto it = nameTable_.nameToId.find(std::string_view(name));
+  if (it != nameTable_.nameToId.end()) {
+    return it->second;
+  }
+  if (nameTable_.names.size() >= std::numeric_limits<NLName::ID>::max()) {
+    throw NLException("NLUniverse name table overflow");
+  }
+  NLName::ID id = static_cast<NLName::ID>(nameTable_.names.size());
+  nameTable_.names.push_back(std::make_unique<std::string>(name));
+  const std::string& stored = *nameTable_.names.back();
+  nameTable_.nameToId.emplace(std::string_view(stored), id);
+  return id;
+}
+
+const std::string& NLUniverse::getNameString(NLName::ID id) const {
+  if (id < nameTable_.names.size()) {
+    return *nameTable_.names[id];
+  }
+  static const std::string empty;
+  return empty;
+}
+
+PNLTechnology* NLUniverse::getTechnology() const {
+  return technology_;
 }
 
 //LCOV_EXCL_START

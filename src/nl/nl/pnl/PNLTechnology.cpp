@@ -4,30 +4,32 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "PNLTechnology.h"
-#include "PNLSite.h"
-#include <algorithm>
+#include "NLException.h"
+#include "NLUniverse.h"
 
 using namespace naja::NL;
-
-PNLTechnology* PNLTechnology::tech_ = nullptr;
-
-void PNLTechnology::addSite(PNLSite* site) {
-  site->setID((NLID::DesignObjectID)sites_.size());
-  sites_.push_back(site);
-}
-
-void PNLTechnology::removeSite(PNLSite* site) {
-  auto it = std::remove(sites_.begin(), sites_.end(), site);
-  if (it != sites_.end()) {
-    sites_.erase(it, sites_.end());
-  }
-}
 
 PNLTechnology::~PNLTechnology() {
   for (auto site : sites_) {
     delete site;
   }
   sites_.clear();
+}
+
+void PNLTechnology::addSite(PNLSite* site) {
+  site->setID((NLID::DesignObjectID)sites_.size());
+  sites_.push_back(site);
+}
+
+PNLTechnology* PNLTechnology::create(NLUniverse* universe) {
+  if (not universe) {
+    throw NLException("PNLTechnology::create: null universe");
+  }
+  if (universe->technology_) {
+    throw NLException("PNLTechnology already exists");
+  }
+  universe->technology_ = new PNLTechnology(universe);
+  return universe->technology_;
 }
 
 PNLSite* PNLTechnology::getSiteByName(const NLName& name) const {

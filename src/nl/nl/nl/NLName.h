@@ -5,40 +5,48 @@
 #ifndef __NL_NAME_H_
 #define __NL_NAME_H_
 
+#include <cstdint>
 #include <string>
 
 namespace naja { namespace NL {
 
 class NLName {
   public:
-    // cppcheck-suppress noExplicitConstructor
-    NLName(const std::string& name = std::string()):
-      string_(name)
-    {}
+    using ID = std::uint32_t;
+    explicit NLName(const std::string& name = std::string());
+    NLName(const NLName& other) = default;
+    NLName& operator=(const NLName& other) = default;
+    NLName(NLName&&) = default;
+    NLName& operator=(NLName&&) = default;
+    ~NLName() = default;
 
     /// \return the string representation of this NLName.
     std::string getString() const {
-      return string_;
+      return getStringRef();
     }
 
     /// \return true if this NLName is empty, false otherwise.
     bool empty() const {
-      return string_.empty();
+      return getStringRef().empty();
     }
+    /// \return the unique ID of this NLName.
+    ID getID() const { return id_; }
     friend bool operator< (const NLName& lname, const NLName& rname) {
-      return lname.getString() < rname.getString();
+      return lname.id_ < rname.id_;
     }
     friend bool operator> (const NLName& lname, const NLName& rname) {
-      return lname.getString() > rname.getString();
+      return lname.id_ > rname.id_;
     }
     friend bool operator== (const NLName& lname, const NLName& rname) {
-      return lname.getString() == rname.getString();
+      return lname.id_ == rname.id_;
     }
     friend bool operator!= (const NLName& lname, const NLName& rname) {
-      return lname.getString() != rname.getString();
+      return lname.id_ != rname.id_;
     }
   private:
-    std::string string_;
+    const std::string& getStringRef() const;
+
+    ID id_ {0};
 };
 
 template<typename T>

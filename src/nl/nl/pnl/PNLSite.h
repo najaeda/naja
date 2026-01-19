@@ -8,11 +8,12 @@
 
 #include "NLID.h"
 #include "NLName.h"
-#include "PNLTechnology.h"
 #include "PNLBox.h"
 
 namespace naja {
 namespace NL {
+
+class PNLTechnology;
 
 class PNLSite {
  public:
@@ -32,10 +33,11 @@ class PNLSite {
    Pad
  };
 
-  PNLSite() = default;
-  ~PNLSite();
+  PNLSite(const PNLSite&) = delete;
+  PNLSite& operator=(const PNLSite&) = delete;
 
-  static PNLSite* create(const NLName& name,
+  static PNLSite* create(PNLTechnology* owner,
+                         const NLName& name,
                          ClassType siteClass,
                          const PNLBox::Unit& width,
                          const PNLBox::Unit& height);
@@ -53,6 +55,11 @@ class PNLSite {
   Symmetry getSymmetry() const { return symmetry_; }
 
  private:
+  friend class PNLTechnology;
+  explicit PNLSite(PNLTechnology* owner): owner_(owner) {}
+  ~PNLSite() = default;
+
+  PNLTechnology* owner_ {nullptr};
   NLName name_;
   ClassType class_;
   NLID::DesignObjectID id_ = (NLID::DesignObjectID)-1;

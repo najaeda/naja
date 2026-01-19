@@ -4,22 +4,29 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "PNLSite.h"
+
+#include "NLException.h"
 #include "PNLTechnology.h"
 
-using namespace naja::NL;
+namespace naja {
+namespace NL {
 
-PNLSite* PNLSite::create(const NLName& name, ClassType siteClass,
-                  const PNLBox::Unit& width,
-                  const PNLBox::Unit& height) {
-    PNLSite* site = new PNLSite();
-    site->name_ = name;
-    site->width_ = width;
-    site->height_ = height;
-    site->class_ = siteClass;
-    PNLTechnology::getOrCreate()->addSite(site);
-    return site;
+PNLSite* PNLSite::create(PNLTechnology* owner,
+                         const NLName& name,
+                         ClassType siteClass,
+                         const PNLBox::Unit& width,
+                         const PNLBox::Unit& height) {
+  if (not owner) {
+    throw NLException("PNLSite::create: null technology");
   }
+  auto site = new PNLSite(owner);
+  site->name_ = name;
+  site->width_ = width;
+  site->height_ = height;
+  site->class_ = siteClass;
+  owner->addSite(site);
+  return site;
+}
 
-  PNLSite::~PNLSite() {
-    PNLTechnology::getOrCreate()->removeSite(this);
-  }
+}  // namespace NL
+}  // namespace naja

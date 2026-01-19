@@ -6,29 +6,19 @@
 #ifndef __PNL_TECHNOLOGY_H_
 #define __PNL_TECHNOLOGY_H_
 
-// #include "PNLSite.h"
 #include <vector>
+#include "PNLSite.h"
 #include "PNLBox.h"
 
 namespace naja {
 namespace NL {
 
-class PNLSite;
 class NLName;
+class NLUniverse;
 
-// Singlton class
 class PNLTechnology {
  public:
-  static PNLTechnology* getOrCreate() {
-    if (tech_ == nullptr) {
-      tech_ = new PNLTechnology();
-    }
-    return tech_;
-  }
-
-  void addSite(PNLSite* site);
-
-  void removeSite(PNLSite* site);
+  static PNLTechnology* create(NLUniverse* universe);
 
   const std::vector<PNLSite*>& getSites() const { return sites_; }
 
@@ -39,15 +29,11 @@ class PNLTechnology {
   PNLBox::Unit getManufacturingGrid() const { return manufacturingGrid_; }
   void setManufacturingGrid(PNLBox::Unit grid) { manufacturingGrid_ = grid; }
 
-  void destroy() {
-    delete this;
-  }
-
  private:
-  PNLTechnology() {};  // Private constructor
-  ~PNLTechnology();           // Private destructor
-
-  static PNLTechnology* tech_;
+  friend class NLUniverse;
+  friend class PNLSite;
+  explicit PNLTechnology(NLUniverse* owner): owner_(owner) {}
+  ~PNLTechnology();
 
   // Delete copy constructor and assignment operator
   PNLTechnology(const PNLTechnology&) = delete;
@@ -56,6 +42,9 @@ class PNLTechnology {
   std::vector<PNLSite*> sites_;
 
   PNLBox::Unit manufacturingGrid_ = 0;
+  NLUniverse* owner_ {nullptr};
+
+  void addSite(PNLSite* site);
 };
 
 }  // namespace NL

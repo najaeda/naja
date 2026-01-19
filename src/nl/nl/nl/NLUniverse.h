@@ -5,11 +5,18 @@
 #ifndef __NL_UNIVERSE_H_
 #define __NL_UNIVERSE_H_
 
+#include <memory>
+#include <string>
+#include <string_view>
+#include <unordered_map>
+#include <vector>
+
 #include "NLDB.h"
 
 namespace naja { namespace NL {
 
 class SNLBusTermBit;
+class PNLTechnology;
 
 /**
  * \brief NLUniverse is a singleton class, root holder of a NL data structure.
@@ -20,6 +27,8 @@ class NLUniverse final: public NLObject {
   public:
     friend class NLDB;
     friend class NLDB0;
+    friend class NLName;
+    friend class PNLTechnology;
     using super = NLObject;
     NLUniverse(const NLUniverse&) = delete;
 
@@ -93,6 +102,9 @@ class NLUniverse final: public NLObject {
     
     /// \brief merge all assigns and corresponding SNLBitNets in all NLDBs.
     void mergeAssigns();
+
+    /// \return the PNLTechnology owned by this universe or null if not created.
+    PNLTechnology* getTechnology() const;
     
     const char* getTypeName() const override;
     std::string getString() const override;
@@ -107,15 +119,30 @@ class NLUniverse final: public NLObject {
     void addDBAndSetID(NLDB* db);
     void addDB(NLDB* db);
     void removeDB(NLDB* db);
+
+    /// \return the unique ID for name, creating it if needed.
+    NLName::ID getOrCreateNameID(const std::string& name);
+    /// \return the shared string for a name ID.
+    const std::string& getNameString(NLName::ID id) const;
     
     using NLUniverseDBsHook =
       boost::intrusive::member_hook<NLDB, boost::intrusive::set_member_hook<>, &NLDB::universeDBsHook_>;
     using NLUniverseDBs = boost::intrusive::set<NLDB, NLUniverseDBsHook>;
 
+    struct NameTable {
+      using NameStorage = std::vector<std::unique_ptr<std::string>>;
+      using NameMap = std::unordered_map<std::string_view, NLName::ID,
+        std::hash<std::string_view>, std::equal_to<>>;
+      NameStorage names     {};
+      NameMap     nameToId  {};
+    };
+
     static NLUniverse*  universe_;
+    NameTable           nameTable_    {};
     NLUniverseDBs       dbs_          {};
     NLDB*               db0_          {nullptr};
     NLDB*               topDB_        {nullptr};
+    PNLTechnology*      technology_   {nullptr};
 };
 
 }} // namespace NL // namespace naja
