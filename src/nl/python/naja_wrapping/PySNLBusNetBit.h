@@ -2,8 +2,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-
 #pragma once
+
 #include "PySNLBitNet.h"
 #include "NajaPythonExport.h"
 
