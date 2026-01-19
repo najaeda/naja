@@ -5,6 +5,7 @@
 #include "gtest/gtest.h"
 
 #include "NLUniverse.h"
+#include "NLException.h"
 #include "PNLTechnology.h"
 #include "PNLSite.h"
 using namespace naja::NL;
@@ -16,7 +17,10 @@ class PNLTechnologyTest: public ::testing::Test {
       auto universe = NLUniverse::create();
     }
     void TearDown() override {
-      NLUniverse::get()->destroy();
+      auto universe = NLUniverse::get();
+      if (universe) {
+        universe->destroy();
+      }
     }
 };
 
@@ -37,3 +41,11 @@ TEST_F(PNLTechnologyTest, testCreateTechnologyAndSites) {
   EXPECT_EQ(tech->getSiteByName(NLName("site1")), nullptr);
 }
 
+TEST_F(PNLTechnologyTest, testErrors) {
+  EXPECT_NE(NLUniverse::get(), nullptr);
+  auto tech = PNLTechnology::create(NLUniverse::get());
+  EXPECT_NE(tech, nullptr);
+  EXPECT_THROW(PNLTechnology::create(NLUniverse::get()), NLException);
+
+  EXPECT_THROW(PNLTechnology::create(nullptr), NLException);
+}
