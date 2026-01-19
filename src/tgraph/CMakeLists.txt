@@ -3,6 +3,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 set(GRAPH_SOURCES
+  Edge.cpp
+  Graph.cpp
   Node.cpp
 )
 
