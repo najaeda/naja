@@ -58,8 +58,10 @@ void NLUniverse::preDestroy() {
     dbs_.erase_and_dispose(++dbs_.begin(), dbs_.end(), destroyDBFromUniverse());
   }
   dbs_.clear_and_dispose(destroyDBFromUniverse());
-  delete technology_;
-  technology_ = nullptr;
+  if (technology_) {
+    technology_->destroy();
+    technology_ = nullptr;
+  }
   nameTable_.nameToId.clear();
   nameTable_.names.clear();
   universe_ = nullptr;

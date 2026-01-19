@@ -3,51 +3,57 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __PNL_TECHNOLOGY_H_
-#define __PNL_TECHNOLOGY_H_
+#pragma once
 
-#include <vector>
+#include "NLObject.h"
 #include "PNLSite.h"
 #include "PNLBox.h"
 
-namespace naja {
-namespace NL {
+namespace naja::NL {
 
 class NLName;
 class NLUniverse;
 
-class PNLTechnology {
- public:
-  static PNLTechnology* create(NLUniverse* universe);
+class PNLTechnology: public NLObject {
+  public:
+    using super = NLObject;
+    static PNLTechnology* create(NLUniverse* universe);
 
-  const std::vector<PNLSite*>& getSites() const { return sites_; }
+    const std::vector<PNLSite*>& getSites() const { return sites_; }
 
-  PNLSite* getSiteByName(const NLName& name) const;
+    PNLSite* getSiteByName(const NLName& name) const;
 
 //   PNLSite* getSiteByClass(const std::string& siteClass) const;
 
-  PNLBox::Unit getManufacturingGrid() const { return manufacturingGrid_; }
-  void setManufacturingGrid(PNLBox::Unit grid) { manufacturingGrid_ = grid; }
+    PNLBox::Unit getManufacturingGrid() const { return manufacturingGrid_; }
+    void setManufacturingGrid(PNLBox::Unit grid) { manufacturingGrid_ = grid; }
 
- private:
-  friend class NLUniverse;
-  friend class PNLSite;
-  explicit PNLTechnology(NLUniverse* owner): owner_(owner) {}
-  ~PNLTechnology();
+    const char* getTypeName() const override;
+    std::string getString() const override;
+    std::string getDescription() const override;
+    void debugDump(size_t indent, bool recursive=true, std::ostream& stream=std::cerr) const override;
 
-  // Delete copy constructor and assignment operator
-  PNLTechnology(const PNLTechnology&) = delete;
-  PNLTechnology& operator=(const PNLTechnology&) = delete;
+  private:
+    friend class NLUniverse;
+    friend class PNLSite;
+    
+    explicit PNLTechnology(NLUniverse* owner): owner_(owner) {}
+    ~PNLTechnology();
 
-  std::vector<PNLSite*> sites_;
+    // Delete copy constructor and assignment operator
+    PNLTechnology(const PNLTechnology&) = delete;
+    PNLTechnology& operator=(const PNLTechnology&) = delete;
 
-  PNLBox::Unit manufacturingGrid_ = 0;
-  NLUniverse* owner_ {nullptr};
+    static void preCreate(NLUniverse* universe);
+    void postCreate() override;
+    void preDestroy() override;
 
-  void addSite(PNLSite* site);
+    std::vector<PNLSite*> sites_;
+
+    PNLBox::Unit manufacturingGrid_ = 0;
+    NLUniverse* owner_ {nullptr};
+
+    void addSite(PNLSite* site);
 };
 
-}  // namespace NL
-}  // namespace naja
-
-#endif  // __PNL_TECHNOLOGY_H_
+}  // namespace naja::NL
