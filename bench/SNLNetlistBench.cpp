@@ -127,8 +127,8 @@ static void BM_LoadVerilogFile(benchmark::State& state, const char* filename) {
   state.SetBytesProcessed(state.iterations() * file_size);
 }
 BENCHMARK_CAPTURE(BM_LoadVerilogFile, Gates0, "test_gates0.v");
-BENCHMARK_CAPTURE(BM_LoadVerilogFile, Test1, "test1.v");
 BENCHMARK_CAPTURE(BM_LoadVerilogFile, FullAdder, "fulladder.v");
+BENCHMARK_CAPTURE(BM_LoadVerilogFile, Gates2, "test_gates2.v");
 BENCHMARK_CAPTURE(BM_LoadVerilogFile, LargeHierGates, "large_hier_gates.v");
 
 static void BM_HierarchyTraversal(benchmark::State& state) {
