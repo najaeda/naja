@@ -10,9 +10,20 @@
 
 using namespace naja::NL;
 
-TEST(NLNameTest, testInternedIDs) {
-  auto universe = NLUniverse::create();
+class NLNameTest: public ::testing::Test {
+  protected:
+    void SetUp() override {
+      NLUniverse::create();
+    }
+    void TearDown() override {
+      if (NLUniverse::get()) {
+        NLUniverse::get()->destroy();
+      }
+    }
+};
 
+
+TEST_F(NLNameTest, testInternedIDs) {
   NLName name0("alpha");
   NLName name1("alpha");
   NLName name2("beta");
@@ -20,13 +31,15 @@ TEST(NLNameTest, testInternedIDs) {
 
   EXPECT_EQ(name0.getID(), name1.getID());
   EXPECT_NE(name0.getID(), name2.getID());
+  EXPECT_EQ(name0.getString(), "alpha");
+  EXPECT_EQ(name1.getString(), "alpha");
+  EXPECT_EQ(name2.getString(), "beta");
+  EXPECT_EQ(emptyName.getString(), "");
   EXPECT_EQ(0, emptyName.getID());
   EXPECT_TRUE(emptyName.empty());
-
-  NLUniverse::get()->destroy();
 }
 
-TEST(NLNameTest, testRequiresUniverse) {
+TEST_F(NLNameTest, testRequiresUniverse) {
   if (NLUniverse::get()) {
     NLUniverse::get()->destroy();
   }

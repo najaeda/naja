@@ -5,6 +5,7 @@
 #include "gtest/gtest.h"
 
 #include "NLUniverse.h"
+#include "NLException.h"
 #include "PNLTechnology.h"
 using namespace naja::NL;
 
@@ -35,4 +36,11 @@ TEST_F(PNLSiteTest, test0) {
   EXPECT_EQ(site1->getHeight(), 20);
   EXPECT_EQ(site1->getClass(), PNLSite::ClassType::Pad);
   EXPECT_EQ(site1->getID(), (NLID::DesignObjectID)1);
+}
+
+TEST_F(PNLSiteTest, testErrors) {
+  EXPECT_THROW(
+    PNLSite::create(nullptr, NLName("site0"), PNLSite::ClassType::Core, 5, 10),
+    NLException
+  );
 }
