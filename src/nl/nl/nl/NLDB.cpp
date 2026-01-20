@@ -44,7 +44,10 @@ void NLDB::preCreate(NLUniverse* universe) {
 void NLDB::preCreate(NLUniverse* universe, NLID::DBID id) {
   preCreate(universe);
   if (NLUniverse::get()->getDB(id)) {
-    throw NLException("DB collision");
+    std::ostringstream oss;
+    oss << "DB collision: duplicate or conflicting entry detected (id="
+        << static_cast<unsigned int>(id) << ")";
+    throw NLException(oss.str());
   }
 }
 

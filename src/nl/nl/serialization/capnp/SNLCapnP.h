@@ -14,13 +14,22 @@ class NLDB;
 
 class SNLCapnP {
   public:
+    struct LoadingConfiguration {
+      enum class PrimitiveConflictPolicy {
+        PreferExisting,
+        ForbidConflicts
+      };
+      PrimitiveConflictPolicy primitiveConflictPolicy_;
+      LoadingConfiguration(): primitiveConflictPolicy_(PrimitiveConflictPolicy::PreferExisting) {}
+    };
+
     //static boost::asio::ip::tcp::socket getSocket(uint16_t port=0); 
     static constexpr std::string_view InterfaceName = "db_interface.snl";
     static constexpr std::string_view ImplementationName = "db_implementation.snl";
     static void dump(const NLDB* db, const std::filesystem::path& dumpPath);
     //static void send(const NLDB* db, const std::string& ipAddress, uint16_t port);
     //static void send(const NLDB* db, const std::string& ipAddress, uint16_t port, NLID::DBID forceDBID);
-    static NLDB* load(const std::filesystem::path& dumpPath, bool primitivesAreLoaded = false);  
+    static NLDB* load(const std::filesystem::path& dumpPath, LoadingConfiguration loadingConfiguration=LoadingConfiguration());  
     //static NLDB* receive(boost::asio::ip::tcp::socket& socket);
     //static NLDB* receive(uint16_t port);
 
@@ -31,8 +40,8 @@ class SNLCapnP {
     //static void sendInterface(const NLDB* db, boost::asio::ip::tcp::socket& socket); 
     //static void sendInterface(const NLDB* db, boost::asio::ip::tcp::socket& socket, NLID::DBID forceDBID); 
 
-    static NLDB* loadInterface(int fileDescriptor, bool primitivesAreLoaded = false);
-    static NLDB* loadInterface(const std::filesystem::path& interfacePath, bool primitivesAreLoaded = false);
+    static NLDB* loadInterface(int fileDescriptor, LoadingConfiguration loadingConfiguration);
+    static NLDB* loadInterface(const std::filesystem::path& interfacePath, LoadingConfiguration loadingConfiguration);
     //static NLDB* receiveInterface(uint16_t port);
     //static NLDB* receiveInterface(boost::asio::ip::tcp::socket& socket); 
 
@@ -43,8 +52,8 @@ class SNLCapnP {
     //static void sendImplementation(const NLDB* db, boost::asio::ip::tcp::socket& socket);
     //static void sendImplementation(const NLDB* db, boost::asio::ip::tcp::socket& socket, NLID::DBID forceDBID);
 
-    static NLDB* loadImplementation(int fileDescriptor);
-    static NLDB* loadImplementation(const std::filesystem::path& implementationPath);
+    static NLDB* loadImplementation(int fileDescriptor, LoadingConfiguration loadingConfiguration);
+    static NLDB* loadImplementation(const std::filesystem::path& implementationPath, LoadingConfiguration loadingConfiguration);
     //static NLDB* receiveImplementation(uint16_t port);
     //static NLDB* receiveImplementation(boost::asio::ip::tcp::socket& socket); 
 };

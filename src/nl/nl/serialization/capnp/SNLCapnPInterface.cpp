@@ -353,7 +353,10 @@ void loadDesignInterface(
   }
 }
 
-void loadLibraryInterface(NajaObject* parent, const DBInterface::LibraryInterface::Reader& libraryInterface, bool primitivesAreLoaded = false) {
+void loadLibraryInterface(
+  NajaObject* parent,
+  const DBInterface::LibraryInterface::Reader& libraryInterface,
+  SNLCapnP::LoadingConfiguration loadingConfiguration) {
   NLLibrary* parentLibrary = nullptr;
   NLDB* parentDB = dynamic_cast<NLDB*>(parent);
   if (not parentDB) {
@@ -361,32 +364,34 @@ void loadLibraryInterface(NajaObject* parent, const DBInterface::LibraryInterfac
   }
   auto libraryID = libraryInterface.getId();
   auto libraryType = libraryInterface.getType();
-  if (primitivesAreLoaded) {
-    if (libraryType == DBInterface::LibraryType::PRIMITIVES) {
-      // verify this library is already loaded
-      auto universe = NLUniverse::get();
-      // LCOV_EXCL_START
-      if (not universe) {
+  if (libraryType == DBInterface::LibraryType::PRIMITIVES) {
+    auto universe = NLUniverse::get();
+    // LCOV_EXCL_START
+    if (not universe) {
+      std::ostringstream reason;
+      reason << "Cannot load library interface: no existing universe";
+      throw NLException(reason.str());
+    }
+    // LCOV_EXCL_STOP
+    NLLibrary* existingPrimitives = nullptr;
+    if (parentDB) {
+      existingPrimitives = universe->getLibrary(parentDB->getID(), libraryInterface.getId());
+    // LCOV_EXCL_START
+    } else {
+      existingPrimitives = universe->getLibrary(parentLibrary->getDB()->getID(), libraryInterface.getId());
+    }
+    // LCOV_EXCL_STOP
+    if (existingPrimitives) {
+      if (loadingConfiguration.primitiveConflictPolicy_ ==
+          SNLCapnP::LoadingConfiguration::PrimitiveConflictPolicy::PreferExisting) {
+        return;
+      }
+      if (loadingConfiguration.primitiveConflictPolicy_ ==
+          SNLCapnP::LoadingConfiguration::PrimitiveConflictPolicy::ForbidConflicts) {
         std::ostringstream reason;
-        reason << "Cannot load library interface: no existing universe";
+        reason << "Cannot load library interface: primitives library already loaded";
         throw NLException(reason.str());
       }
-      // LCOV_EXCL_STOP
-      // Get DB id
-      NLLibrary* snlLibrary = nullptr;
-      if (parentDB) {
-        snlLibrary = universe->getLibrary(parentDB->getID(), libraryInterface.getId());
-      // LCOV_EXCL_START
-      } else {
-        snlLibrary = universe->getLibrary(parentLibrary->getDB()->getID(), libraryInterface.getId());
-      }
-      // LCOV_EXCL_STOP
-      if (not snlLibrary) {
-        std::ostringstream reason;
-        reason << "Cannot load library interface: no primitives library found in universe";
-        throw NLException(reason.str());
-      }
-      return;
     }
   }
   NLName snlName;
@@ -412,7 +417,7 @@ void loadLibraryInterface(NajaObject* parent, const DBInterface::LibraryInterfac
   }
   if (libraryInterface.hasLibraryInterfaces()) {
     for (auto subLibraryInterface: libraryInterface.getLibraryInterfaces()) {
-      loadLibraryInterface(snlLibrary, subLibraryInterface, primitivesAreLoaded);
+      loadLibraryInterface(snlLibrary, subLibraryInterface, loadingConfiguration);
     }
   }
   if (snlLibrary->isPrimitives()) {
@@ -500,7 +505,9 @@ void SNLCapnP::dumpInterface(const NLDB* snlDB, const std::filesystem::path& int
 //}
 //LCOV_EXCL_STOP
 
-NLDB* SNLCapnP::loadInterface(int fileDescriptor, bool primitivesAreLoaded) {
+NLDB* SNLCapnP::loadInterface(
+  int fileDescriptor,
+  LoadingConfiguration loadingConfiguration) {
   ::capnp::PackedFdMessageReader message(fileDescriptor);
 
   DBInterface::Reader dbInterface = message.getRoot<DBInterface>();
@@ -509,18 +516,8 @@ NLDB* SNLCapnP::loadInterface(int fileDescriptor, bool primitivesAreLoaded) {
   if (not universe) {
     universe = NLUniverse::create();
   }
-  NLDB* snldb = nullptr;
-  if (primitivesAreLoaded) {
-    snldb = universe->getDB(dbID);
-    // LCOV_EXCL_START
-    if (not snldb) {
-      std::ostringstream reason;
-      reason << "No DB exist even tough primitives should be loaded: "
-             << "dbID: " << dbID;
-      throw NLException(reason.str());
-    }
-    // LCOV_EXCL_STOP
-  } else {
+  NLDB* snldb = universe->getDB(dbID);
+  if (not snldb) {
     snldb = NLDB::create(universe, dbID);
   }
   
@@ -533,7 +530,7 @@ NLDB* SNLCapnP::loadInterface(int fileDescriptor, bool primitivesAreLoaded) {
   
   if (dbInterface.hasLibraryInterfaces()) {
     for (auto libraryInterface: dbInterface.getLibraryInterfaces()) {
-      loadLibraryInterface(snldb, libraryInterface, primitivesAreLoaded);
+      loadLibraryInterface(snldb, libraryInterface, loadingConfiguration);
     }
   }
   if (dbInterface.hasTopDesignReference()) {
@@ -556,7 +553,9 @@ NLDB* SNLCapnP::loadInterface(int fileDescriptor, bool primitivesAreLoaded) {
   return snldb;
 }
 
-NLDB* SNLCapnP::loadInterface(const std::filesystem::path& interfacePath, bool primitivesAreLoaded) {
+NLDB* SNLCapnP::loadInterface(
+  const std::filesystem::path& interfacePath,
+  LoadingConfiguration loadingConfiguration) {
   //FIXME: verify if file can be opened
   int fd = 0;
 #ifdef _WIN32
@@ -564,7 +563,7 @@ NLDB* SNLCapnP::loadInterface(const std::filesystem::path& interfacePath, bool p
 #else
   fd = open(interfacePath.c_str(), O_RDONLY);
 #endif
-  return loadInterface(fd, primitivesAreLoaded);
+  return loadInterface(fd, loadingConfiguration);
 }
 
 //LCOV_EXCL_START
