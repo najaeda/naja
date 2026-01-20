@@ -13,8 +13,7 @@
 
 using namespace std;
 
-namespace naja {
-namespace NL {
+namespace naja::NL {
 
 class PNLDesign;
 class NLLibrary;
@@ -43,5 +42,4 @@ class LEFDumper {
   int status_;
 };
 
-}  // namespace NL
-}  // namespace naja
+}  // namespace naja::NL

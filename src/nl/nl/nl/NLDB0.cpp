@@ -26,7 +26,7 @@ namespace {
   }
 }
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 NLDB0::GateType::GateType(const GateTypeEnum& typeEnum):
   gateTypeEnum_(typeEnum) 
@@ -375,4 +375,4 @@ SNLBusTerm* NLDB0::getGateNTerms(const SNLDesign* gate) {
   return nullptr;
 }
 
-}} // namespace NL // namespace naja
+}  // namespace naja::NL

@@ -3,13 +3,12 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __SNL_VRL_CONSTRUCTOR_UTILS_H_
-#define __SNL_VRL_CONSTRUCTOR_UTILS_H_
 
+#pragma once
 #include "VerilogTypes.h"
 #include <boost/dynamic_bitset.hpp>
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 class SNLVRLConstructorUtils {
   public:
@@ -21,6 +20,4 @@ class SNLVRLConstructorUtils {
     static boost::dynamic_bitset<> numberToBits(const naja::verilog::BasedNumber& number);
 };
 
-}} // namespace NL // namespace naja
-
-#endif /* __SNL_VRL_CONSTRUCTOR_UTILS_H_ */
+}  // namespace naja::NL

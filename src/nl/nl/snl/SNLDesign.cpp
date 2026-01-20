@@ -26,7 +26,7 @@
 #include "SNLDesignModeling.h"
 #include "SNLExceptions.h"
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 SNLDesign::Type::Type(const TypeEnum& typeEnum):
   typeEnum_(typeEnum) 
@@ -753,4 +753,4 @@ void SNLDesign::setOrderIDs() {
 }
 
 
-}} // namespace NL // namespace naja
+}  // namespace naja::NL

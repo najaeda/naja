@@ -9,8 +9,7 @@
 #include <string>
 #include "PNLBox.h"
 
-namespace naja {
-namespace NL {
+namespace naja::NL {
 
 class PNLDesign;
 class PNLOrientation;
@@ -52,5 +51,4 @@ class DEFDumper {
   uint32_t flags_;
   int status_;
 };
-}  // namespace NL
-}  // namespace naja
+}  // namespace naja::NL

@@ -3,9 +3,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef NETLIST_GRAPH_H
-#define NETLIST_GRAPH_H
 
+#pragma once
 #include <filesystem>
 #include <iostream>
 #include <ostream>
@@ -636,4 +635,3 @@ class SnlVisualiser {
 };
 #include "NetlistGraph_impl.h"
 }  // namespace naja
-#endif // 

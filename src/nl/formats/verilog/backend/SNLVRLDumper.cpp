@@ -193,7 +193,7 @@ std::string getBitNetString(const naja::NL::SNLBitNet* bitNet) {
 
 }
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 void SNLVRLDumper::setSingleFile(bool mode) {
   configuration_.setSingleFile(mode);
@@ -948,4 +948,4 @@ std::string SNLVRLDumper::binStrToHexStr(std::string binStr) {
   return hexStr;
 }
 
-}} // namespace NL // namespace naja
+} // namespace naja::NL

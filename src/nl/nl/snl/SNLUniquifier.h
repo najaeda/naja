@@ -2,14 +2,13 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __SNL_UNIQUIFIER_H_
-#define __SNL_UNIQUIFIER_H_
 
+#pragma once
 #include "NajaCollection.h"
 
 #include "NLID.h"
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 class SNLPath;
 class SNLInstance;
@@ -51,6 +50,4 @@ class SNLUniquifier {
     bool uniquifyTail_ = false;
 };
 
-}} // namespace NL // namespace naja
-
-#endif  // __SNL_UNIQUIFIER_H_
+}  // namespace naja::NL

@@ -146,7 +146,7 @@ bool reduce(
 
 } // namespace
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 SNLBooleanTreeFunctionNode::~SNLBooleanTreeFunctionNode() {
   for (auto input: inputs_) {
@@ -396,4 +396,4 @@ SNLBooleanTree::~SNLBooleanTree() {
   delete constant1_;
 }
 
-}} // namespace SNL // namespace naja
+} // namespace naja::NL

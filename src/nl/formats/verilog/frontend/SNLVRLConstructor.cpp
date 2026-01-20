@@ -195,7 +195,7 @@ naja::NL::SNLDesign* getOrCreateAutoBlackBox(
 
 } //end anonymous namespace
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 //4.5 Implicit declarations
 //- If an identifier is used in the terminal list of a primitive instance or a module instance, and that
@@ -1166,4 +1166,4 @@ void SNLVRLConstructor::addDefParameterAssignment(
   }
 }
 
-}} // namespace NL // namespace naja
+}  // namespace naja::NL

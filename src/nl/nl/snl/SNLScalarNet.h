@@ -2,12 +2,11 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __SNL_SCALAR_NET_H_
-#define __SNL_SCALAR_NET_H_
 
+#pragma once
 #include "SNLBitNet.h"
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 class SNLScalarNet final: public SNLBitNet {
   public:
@@ -69,6 +68,4 @@ class SNLScalarNet final: public SNLBitNet {
     NLName                              name_;
 };
 
-}} // namespace NL // namespace naja
-
-#endif // __SNL_SCALAR_NET_H_
+}  // namespace naja::NL

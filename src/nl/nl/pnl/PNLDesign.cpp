@@ -18,8 +18,7 @@
 #include "PNLTerm.h"
 #include "SNLMacros.h"
 
-namespace naja {
-namespace NL {
+namespace naja::NL {
 
 PNLDesign::Type::Type(const TypeEnum& typeEnum) : typeEnum_(typeEnum) {}
 PNLDesign::ClassType::ClassType(const ClassTypeEnum& typeEnum)
@@ -657,5 +656,4 @@ void PNLDesign::setName(const naja::NL::NLName& name) {
   getLibrary()->rename(this, previousName);
 }
 
-}  // namespace NL
-}  // namespace naja
+}  // namespace naja::NL
