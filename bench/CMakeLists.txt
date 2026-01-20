@@ -15,5 +15,11 @@ target_include_directories(snl_bench PRIVATE
 
 target_link_libraries(snl_bench PRIVATE
   benchmark::benchmark
+  naja_snl_verilog
+  naja_nl_dump
   naja_nl
+)
+
+target_compile_definitions(snl_bench PRIVATE
+  SNL_VRL_BENCHMARKS_PATH="${CMAKE_SOURCE_DIR}/test/nl/formats/verilog/benchmarks"
 )
