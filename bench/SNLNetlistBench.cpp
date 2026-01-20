@@ -170,13 +170,21 @@ static void BM_CapnPSerialize(benchmark::State& state) {
     state.ResumeTiming();
 
     SNLCapnP::dump(db, out_path);
+    state.PauseTiming();
+    if (NLUniverse::get()) {
+      NLUniverse::get()->destroy();
+    }
+    state.ResumeTiming();
+
     auto loaded = SNLCapnP::load(out_path);
     benchmark::DoNotOptimize(loaded);
 
     state.PauseTiming();
     bytes = getDumpSize(out_path);
     std::filesystem::remove_all(out_path, ec);
-    NLUniverse::get()->destroy();
+    if (NLUniverse::get()) {
+      NLUniverse::get()->destroy();
+    }
     state.ResumeTiming();
   }
   if (bytes > 0) {
