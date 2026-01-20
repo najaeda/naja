@@ -18,6 +18,7 @@
 #include "PNLTechnology.h"
 
 #include <limits>
+#include <string>
 
 namespace naja::NL {
 
@@ -292,15 +293,18 @@ void NLUniverse::mergeAssigns() {
 }
 
 NLName::ID NLUniverse::getOrCreateNameID(const std::string& name) {
+  // Redundant guard: callers (NLName) already filter empty names.
+  //LCOV_EXCL_START
   if (name.empty()) {
     return 0;
   }
+  //LCOV_EXCL_STOP
   auto it = nameTable_.nameToId.find(std::string_view(name));
   if (it != nameTable_.nameToId.end()) {
     return it->second;
   }
   if (nameTable_.names.size() >= std::numeric_limits<NLName::ID>::max()) {
-    throw NLException("NLUniverse name table overflow");
+    throw NLException("NLUniverse name table overflow"); //LCOV_EXCL_LINE
   }
   NLName::ID id = static_cast<NLName::ID>(nameTable_.names.size());
   nameTable_.names.push_back(std::make_unique<std::string>(name));
@@ -313,8 +317,7 @@ const std::string& NLUniverse::getNameString(NLName::ID id) const {
   if (id < nameTable_.names.size()) {
     return *nameTable_.names[id];
   }
-  static const std::string empty;
-  return empty;
+  throw NLException("NLUniverse invalid NLName ID: " + std::to_string(id));
 }
 
 PNLTechnology* NLUniverse::getTechnology() const {

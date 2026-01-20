@@ -22,11 +22,11 @@ NLName::NLName(const std::string& name) {
 }
 
 const std::string& NLName::getStringRef() const {
-  if (auto universe = NLUniverse::get()) {
-    return universe->getNameString(id_);
+  auto universe = NLUniverse::get();
+  if (not universe) {
+    throw NLException("NLName access requires NLUniverse");
   }
-  static const std::string empty;
-  return empty;
+  return universe->getNameString(id_);
 }
 
 }  // namespace naja::NL
