@@ -31,6 +31,12 @@ jobs:
       - name: Run benchmarks
         run: ${{github.workspace}}/build/bench/snl_bench --benchmark_format=json --benchmark_out=${{github.workspace}}/benchmark.json
 
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-json
+          path: ${{github.workspace}}/benchmark.json
+
       - name: Publish benchmark results
         uses: benchmark-action/github-action-benchmark@v1
         with:
