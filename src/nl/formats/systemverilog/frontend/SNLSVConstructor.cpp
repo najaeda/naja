@@ -11,6 +11,7 @@
 #include <unordered_map>
 
 #include "NLID.h"
+#include "NLDB0.h"
 #include "NLName.h"
 #include "NLLibrary.h"
 #include "SNLBusNet.h"
@@ -27,9 +28,13 @@
 
 #include "slang/ast/Compilation.h"
 #include "slang/ast/SemanticFacts.h"
+#include "slang/ast/expressions/AssignmentExpressions.h"
+#include "slang/ast/expressions/ConversionExpression.h"
 #include "slang/ast/expressions/MiscExpressions.h"
+#include "slang/ast/expressions/OperatorExpressions.h"
 #include "slang/ast/symbols/CompilationUnitSymbols.h"
 #include "slang/ast/symbols/InstanceSymbols.h"
+#include "slang/ast/symbols/MemberSymbols.h"
 #include "slang/ast/symbols/PortSymbols.h"
 #include "slang/ast/symbols/VariableSymbols.h"
 #include "slang/ast/types/Type.h"
@@ -49,6 +54,51 @@ using slang::ast::Symbol;
 using slang::ast::SymbolKind;
 using slang::ast::Type;
 using slang::ast::ValueSymbol;
+
+const Expression* stripConversions(const Expression& expr) {
+  const Expression* current = &expr;
+  while (current && current->kind == slang::ast::ExpressionKind::Conversion) {
+    current = &current->as<slang::ast::ConversionExpression>().operand();
+  }
+  return current;
+}
+
+bool collectBinaryOperands(const Expression& expr, slang::ast::BinaryOperator op,
+                           std::vector<const Expression*>& operands) {
+  const Expression* current = stripConversions(expr);
+  if (!current) {
+    return false;
+  }
+  if (current->kind == slang::ast::ExpressionKind::BinaryOp) {
+    const auto& binaryExpr = current->as<slang::ast::BinaryExpression>();
+    if (binaryExpr.op == op) {
+      if (!collectBinaryOperands(binaryExpr.left(), op, operands)) {
+        return false;
+      }
+      if (!collectBinaryOperands(binaryExpr.right(), op, operands)) {
+        return false;
+      }
+      return true;
+    }
+  }
+  operands.push_back(current);
+  return true;
+}
+
+std::optional<NLDB0::GateType> gateTypeFromBinary(slang::ast::BinaryOperator op) {
+  switch (op) {
+    case slang::ast::BinaryOperator::BinaryAnd:
+      return NLDB0::GateType(NLDB0::GateType::And);
+    case slang::ast::BinaryOperator::BinaryOr:
+      return NLDB0::GateType(NLDB0::GateType::Or);
+    case slang::ast::BinaryOperator::BinaryXor:
+      return NLDB0::GateType(NLDB0::GateType::Xor);
+    case slang::ast::BinaryOperator::BinaryXnor:
+      return NLDB0::GateType(NLDB0::GateType::Xnor);
+    default:
+      return std::nullopt;
+  }
+}
 
 SNLTerm::Direction toSNLDirection(ArgumentDirection direction) {
   switch (direction) {
@@ -89,8 +139,24 @@ SNLNet* getOrCreateNet(SNLDesign* design, const std::string& name, const Type& t
 }
 
 SNLNet* resolveExpressionNet(SNLDesign* design, const Expression& expr) {
-  if (slang::ast::ValueExpressionBase::isKind(expr.kind)) {
-    const auto& valueExpr = expr.as<slang::ast::ValueExpressionBase>();
+  const Expression* current = &expr;
+  while (current) {
+    if (current->kind == slang::ast::ExpressionKind::Conversion) {
+      current = &current->as<slang::ast::ConversionExpression>().operand();
+      continue;
+    }
+    if (current->kind == slang::ast::ExpressionKind::Assignment) {
+      const auto& assign = current->as<slang::ast::AssignmentExpression>();
+      if (assign.isLValueArg()) {
+        current = &assign.left();
+        continue;
+      }
+    }
+    break;
+  }
+  current = current ? stripConversions(*current) : nullptr;
+  if (current && slang::ast::ValueExpressionBase::isKind(current->kind)) {
+    const auto& valueExpr = current->as<slang::ast::ValueExpressionBase>();
     const auto& symbol = valueExpr.symbol;
     return getOrCreateNet(design, std::string(symbol.name), symbol.getType());
   }
@@ -150,6 +216,7 @@ class SNLSVConstructorImpl {
       createTerms(design, body);
       createNets(design, body);
       connectTermsToNets(design);
+      createContinuousAssigns(design, body);
       createInstances(design, body);
 
       return design;
@@ -184,6 +251,143 @@ class SNLSVConstructorImpl {
           std::string name(valueSym.name);
           getOrCreateNet(design, name, valueSym.getType());
         }
+      }
+    }
+
+    SNLInstance* createGateInstance(SNLDesign* design, const NLDB0::GateType& type,
+                                    const std::vector<SNLNet*>& inputNets, SNLNet*& outNet) {
+      if (inputNets.empty()) {
+        return nullptr;
+      }
+      auto gate = NLDB0::getOrCreateNInputGate(type, inputNets.size());
+      auto inst = SNLInstance::create(design, gate);
+      auto inputs = NLDB0::getGateNTerms(gate);
+      auto output = NLDB0::getGateSingleTerm(gate);
+      if (!inputs || !output) {
+        return nullptr;
+      }
+      for (size_t i = 0; i < inputNets.size(); ++i) {
+        auto bit = inputs->getBitAtPosition(i);
+        if (!bit) {
+          continue;
+        }
+        auto instTerm = inst->getInstTerm(bit);
+        if (instTerm) {
+          instTerm->setNet(inputNets[i]);
+        }
+      }
+      outNet = SNLScalarNet::create(design);
+      if (auto outTerm = inst->getInstTerm(output)) {
+        outTerm->setNet(outNet);
+      }
+      return inst;
+    }
+
+    SNLInstance* createAssignInstance(SNLDesign* design, SNLNet* inNet, SNLNet* outNet) {
+      auto assignGate = NLDB0::getAssign();
+      auto assignInst = SNLInstance::create(design, assignGate);
+      auto assignInput = NLDB0::getAssignInput();
+      auto assignOutput = NLDB0::getAssignOutput();
+      if (assignInput) {
+        if (auto inTerm = assignInst->getInstTerm(assignInput)) {
+          inTerm->setNet(inNet);
+        }
+      }
+      if (assignOutput) {
+        if (auto outTerm = assignInst->getInstTerm(assignOutput)) {
+          outTerm->setNet(outNet);
+        }
+      }
+      return assignInst;
+    }
+
+    void createContinuousAssigns(SNLDesign* design, const InstanceBodySymbol& body) {
+      for (const auto& sym : body.members()) {
+        if (sym.kind != SymbolKind::ContinuousAssign) {
+          continue;
+        }
+        const auto& continuousAssign = sym.as<slang::ast::ContinuousAssignSymbol>();
+        const auto& assignment = continuousAssign.getAssignment();
+        if (assignment.kind != slang::ast::ExpressionKind::Assignment) {
+          continue;
+        }
+        const auto& assignExpr = assignment.as<slang::ast::AssignmentExpression>();
+        auto lhsNet = resolveExpressionNet(design, assignExpr.left());
+        if (!lhsNet || !dynamic_cast<SNLScalarNet*>(lhsNet)) {
+          continue;
+        }
+
+        const auto* rhs = stripConversions(assignExpr.right());
+        if (!rhs) {
+          continue;
+        }
+
+        std::optional<NLDB0::GateType> gateType;
+        std::vector<const Expression*> operands;
+        if (rhs->kind == slang::ast::ExpressionKind::BinaryOp) {
+          const auto& binaryExpr = rhs->as<slang::ast::BinaryExpression>();
+          gateType = gateTypeFromBinary(binaryExpr.op);
+          if (gateType && !collectBinaryOperands(*rhs, binaryExpr.op, operands)) {
+            continue;
+          }
+        } else if (rhs->kind == slang::ast::ExpressionKind::UnaryOp) {
+          const auto& unaryExpr = rhs->as<slang::ast::UnaryExpression>();
+          const auto* operandExpr = stripConversions(unaryExpr.operand());
+          if (unaryExpr.op == slang::ast::UnaryOperator::BitwiseNot && operandExpr &&
+              operandExpr->kind == slang::ast::ExpressionKind::BinaryOp) {
+            const auto& binaryExpr = operandExpr->as<slang::ast::BinaryExpression>();
+            switch (binaryExpr.op) {
+              case slang::ast::BinaryOperator::BinaryAnd:
+                gateType = NLDB0::GateType(NLDB0::GateType::Nand);
+                break;
+              case slang::ast::BinaryOperator::BinaryOr:
+                gateType = NLDB0::GateType(NLDB0::GateType::Nor);
+                break;
+              case slang::ast::BinaryOperator::BinaryXor:
+                gateType = NLDB0::GateType(NLDB0::GateType::Xnor);
+                break;
+              default:
+                break;
+            }
+            if (gateType && !collectBinaryOperands(*operandExpr, binaryExpr.op, operands)) {
+              continue;
+            }
+          } else if (unaryExpr.op == slang::ast::UnaryOperator::BitwiseNot) {
+            gateType = NLDB0::GateType(NLDB0::GateType::Not);
+            if (operandExpr) {
+              operands.push_back(operandExpr);
+            }
+          }
+        }
+
+        if (!gateType || operands.empty()) {
+          continue;
+        }
+
+        std::vector<SNLNet*> inputNets;
+        inputNets.reserve(operands.size());
+        bool ok = true;
+        for (const auto* operand : operands) {
+          if (!operand) {
+            ok = false;
+            break;
+          }
+          auto net = resolveExpressionNet(design, *operand);
+          if (!net) {
+            ok = false;
+            break;
+          }
+          inputNets.push_back(net);
+        }
+        if (!ok) {
+          continue;
+        }
+
+        SNLNet* tmpNet = nullptr;
+        if (!createGateInstance(design, *gateType, inputNets, tmpNet) || !tmpNet) {
+          continue;
+        }
+        createAssignInstance(design, tmpNet, lhsNet);
       }
     }
 
