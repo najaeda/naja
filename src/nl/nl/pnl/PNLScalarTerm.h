@@ -2,12 +2,11 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __PNL_SCALAR_TERM_H_
-#define __PNL_SCALAR_TERM_H_
 
+#pragma once
 #include "PNLBitTerm.h"
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 class PNLScalarTerm final: public PNLBitTerm {
   public:
@@ -75,6 +74,4 @@ class PNLScalarTerm final: public PNLBitTerm {
     PNLTerm::Direction    direction_;  
 };
 
-}} // namespace NL // namespace naja
-
-#endif // __PNL_SCALAR_TERM_H_
+}  // namespace naja::NL

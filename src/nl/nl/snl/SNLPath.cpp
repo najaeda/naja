@@ -13,7 +13,7 @@
 #include "SNLInstance.h"
 #include "SNLSharedPath.h"
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 SNLPath::SNLPath(SNLSharedPath* sharedPath) : sharedPath_(sharedPath) {}
 
@@ -240,4 +240,4 @@ std::vector<SNLInstance*> SNLPath::getInstances() const {
   return sharedPath_->getInstances();
 }
 
-}}  // namespace NL // namespace naja
+}  // namespace naja::NL

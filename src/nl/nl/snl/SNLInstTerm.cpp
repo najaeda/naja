@@ -17,7 +17,7 @@
 #include "SNLBitNet.h"
 #include "SNLMacros.h"
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 SNLInstTerm::SNLInstTerm(SNLInstance* instance, SNLBitTerm* bitTerm):
   instance_(instance),
@@ -145,4 +145,4 @@ bool SNLInstTerm::deepCompare(const SNLNetComponent* other, std::string& reason)
   return true;
 }
 
-}} // namespace NL // namespace naja
+}  // namespace naja::NL

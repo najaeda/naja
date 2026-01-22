@@ -14,7 +14,7 @@
 #include "SNLInstTerm.h"
 #include "SNLPath.h"
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 SNLOccurrence::SNLOccurrence(SNLDesignObject* object):
   object_(object)
@@ -138,4 +138,4 @@ std::string SNLOccurrence::getDescription() const {
 }
 //LCOV_EXCL_STOP
 
-}} // namespace NL // namespace naja
+}  // namespace naja::NL

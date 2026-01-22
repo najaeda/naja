@@ -3,9 +3,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __NAJA_PRIVATE_PROPERTY_H_
-#define __NAJA_PRIVATE_PROPERTY_H_
 
+#pragma once
 #include "NajaProperty.h"
 
 namespace naja {
@@ -29,4 +28,3 @@ class NajaPrivateProperty: public NajaProperty {
 
 } // namespace naja
 
-#endif /* __NAJA_PRIVATE_PROPERTY_H_ */

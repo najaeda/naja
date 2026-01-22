@@ -4,9 +4,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __NAJA_PYTHON_PROPERTY_H_
-#define __NAJA_PYTHON_PROPERTY_H_
 
+#pragma once
 #include "NajaPrivateProperty.h"
 
 #include <cstdint>
@@ -58,4 +57,3 @@ class NajaPythonProperty : public NajaPrivateProperty {
 
 }  // namespace naja
 
-#endif /* __NAJA_PYTHON_PROPERTY_H_ */

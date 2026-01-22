@@ -2,12 +2,11 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __NL_EXCEPTION_H_
-#define __NL_EXCEPTION_H_
 
+#pragma once
 #include "NajaException.h"
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 struct NLException: public NajaException {
   public:
@@ -19,6 +18,4 @@ struct NLException: public NajaException {
     {}
 };
 
-}} // namespace NL // namespace naja
-
-#endif // __NL_EXCEPTION_H_
+}  // namespace naja::NL

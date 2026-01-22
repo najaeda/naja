@@ -3,12 +3,11 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __SNL_LIBERTY_CONSTRUCTOR_H_
-#define __SNL_LIBERTY_CONSTRUCTOR_H_
 
+#pragma once
 #include <filesystem>
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 class NLLibrary;
 
@@ -23,6 +22,4 @@ class SNLLibertyConstructor {
     NLLibrary*  library_;
 };
 
-}} // namespace SNL // namespace naja
-
-#endif // __SNL_LIBERTY_CONSTRUCTOR_H_
+} // namespace naja::NL

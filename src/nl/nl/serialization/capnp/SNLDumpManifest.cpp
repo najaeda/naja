@@ -25,7 +25,7 @@ Tokens extractTokens(const std::string& s) {
 
 }
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 void SNLDumpManifest::dump(const std::filesystem::path& snlDir) {
   std::filesystem::path manifestPath(snlDir/ManifestFileName);
@@ -77,4 +77,4 @@ SNLDumpManifest SNLDumpManifest::load(const std::filesystem::path& snlDir) {
   return manifest;
 }
 
-}} // namespace NL // namespace naja
+}  // namespace naja::NL

@@ -3,8 +3,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __NAJA_OBJECT_H_
-#define __NAJA_OBJECT_H_
+#pragma once
 
 #include <map>
 #include <string>
@@ -17,7 +16,6 @@ class NajaDumpableProperty;
 
 class NajaObject {
   public:
-    friend class NajaPrivateProperty;
     using Properties = std::map<std::string, NajaProperty*>;
 
     ///\return a string describing the object type
@@ -53,6 +51,8 @@ class NajaObject {
     virtual void preDestroy();
 
   private:
+    friend class NajaPrivateProperty;
+
     void addProperty(NajaProperty* property);
     void removeProperty(NajaProperty* property);
 
@@ -60,5 +60,3 @@ class NajaObject {
 };
 
 } // namespace naja
-
-#endif // __NAJA_OBJECT_H_

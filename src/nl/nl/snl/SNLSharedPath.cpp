@@ -10,7 +10,7 @@
 
 #include "SNLDesign.h"
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 SNLSharedPath::SNLSharedPath(SNLInstance* tailInstance, SNLSharedPath* headSharedPath):
   headSharedPath_(headSharedPath),
@@ -150,4 +150,4 @@ std::vector<SNLInstance*> SNLSharedPath::getInstances() const {
   return result; //LCOV_EXCL_LINE
 }
 
-}} // namespace NL // namespace naja
+}  // namespace naja::NL

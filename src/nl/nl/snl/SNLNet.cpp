@@ -6,7 +6,7 @@
 
 #include "SNLDesign.h"
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 SNLNet::Type::Type(const TypeEnum& typeEnum):
   typeEnum_(typeEnum) 
@@ -41,4 +41,4 @@ NLID::DesignObjectReference SNLNet::getReference() const {
   return NLID::DesignObjectReference(getDesign()->getReference(), getID());
 }
 
-}} // namespace NL // namespace naja
+}  // namespace naja::NL

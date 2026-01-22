@@ -174,3 +174,35 @@ TEST_F(SNLCapNpTest1, test0) {
   EXPECT_FALSE(prims3->isUnnamed());
   EXPECT_EQ(NLName("prims3"), prims3->getName());
 }
+
+TEST(SNLCapnPPreferExistingTest, preferExistingPrimitivesLibrary) {
+  std::filesystem::path outPath(SNL_CAPNP_TEST_PATH);
+  outPath /= "SNLCapnPPreferExisting_test0.snl";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+
+  {
+    NLUniverse* universe = NLUniverse::create();
+    auto db = NLDB::create(universe);
+    NLLibrary::create(db, NLID::LibraryID(0), NLLibrary::Type::Primitives, NLName("PRIMITIVES"));
+    SNLCapnP::dump(db, outPath);
+    universe->destroy();
+  }
+
+  {
+    NLUniverse* universe = NLUniverse::create();
+    auto db = NLDB::create(universe);
+    auto existingPrimitives =
+      NLLibrary::create(db, NLID::LibraryID(0), NLLibrary::Type::Primitives, NLName("PRIMITIVES"));
+    SNLCapnP::LoadingConfiguration config;
+    config.primitiveConflictPolicy_ =
+      SNLCapnP::LoadingConfiguration::PrimitiveConflictPolicy::PreferExisting;
+    SNLCapnP::loadInterface(outPath/SNLCapnP::InterfaceName, config);
+    EXPECT_EQ(1, db->getLibraries().size());
+    auto library = *(db->getLibraries().begin());
+    EXPECT_EQ(existingPrimitives, library);
+    EXPECT_TRUE(library->isPrimitives());
+    universe->destroy();
+  }
+}

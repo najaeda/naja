@@ -8,8 +8,7 @@
 #include "NLID.h"
 #include <cstdint>
 
-namespace naja {
-namespace NL {
+namespace naja::NL {
 
 class NLBitDependencies {
  public:
@@ -25,6 +24,4 @@ class NLBitDependencies {
   static bool isSimple(const std::vector<uint64_t>& blocks);
 };
 
-}  // namespace NL
-
-}  // namespace naja
+}  // namespace naja::NL

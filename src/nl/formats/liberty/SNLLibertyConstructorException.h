@@ -3,12 +3,11 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __SNL_LIBERTY_CONSTRUCTOR_EXCEPTION_H_
-#define __SNL_LIBERTY_CONSTRUCTOR_EXCEPTION_H_
 
+#pragma once
 #include "NLException.h"
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 struct SNLLibertyConstructorException: public NLException {
   public:
@@ -20,6 +19,4 @@ struct SNLLibertyConstructorException: public NLException {
     {}
 };
 
-}} // namespace NL // namespace naja
-
-#endif // __SNL_LIBERTY_CONSTRUCTOR_EXCEPTION_H_
+}  // namespace naja::NL

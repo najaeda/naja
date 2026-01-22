@@ -3,9 +3,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __SNL_TRUTH_TABLE_H_
-#define __SNL_TRUTH_TABLE_H_
 
+#pragma once
 #include <algorithm>
 #include <cstdint>
 #include <iostream>
@@ -18,8 +17,7 @@
 #include "NLException.h"
 #include "NLBitDependencies.h"
 
-namespace naja {
-namespace NL {
+namespace naja::NL {
 
 class SNLTruthTable {
  public:
@@ -290,7 +288,4 @@ class SNLTruthTable {
   std::vector<uint64_t> dependencies_{};
 };
 
-}  // namespace NL
-}  // namespace naja
-
-#endif  // __SNL_TRUTH_TABLE_H_
+}  // namespace naja::NL

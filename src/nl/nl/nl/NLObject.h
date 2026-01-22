@@ -2,15 +2,14 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __NL_OBJECT_H_
-#define __NL_OBJECT_H_
+#pragma once
 
 #include <ostream>
 #include <iostream>
 
 #include "NajaObject.h"
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 /**
  * \brief NLObject is the root object of Naja database objects.
@@ -37,6 +36,4 @@ class NLObject: public NajaObject {
     void preDestroy() override;
 };
 
-}} // namespace NL // namespace naja
-
-#endif // __SNL_OBJECT_H_
+}  // namespace naja::NL

@@ -44,7 +44,7 @@ void printTerms(const naja::NL::SNLInstance::Terms& terms, std::ostream& stream)
 
 }
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 SNLInstance::SNLInstance(SNLDesign* design, SNLDesign* model, const NLName& name):
   super(),
@@ -616,4 +616,4 @@ void SNLInstance::debugDump(size_t indent, bool recursive, std::ostream& stream)
 }
 //LCOV_EXCL_STOP
 
-}} // namespace NL // namespace naja
+}  // namespace naja::NL

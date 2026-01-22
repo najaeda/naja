@@ -2,15 +2,14 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __SNL_TERM_H_
-#define __SNL_TERM_H_
 
+#pragma once
 #include <boost/intrusive/set.hpp>
 
 #include "NLName.h"
 #include "SNLNetComponent.h"
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 class SNLBitTerm;
 
@@ -64,6 +63,4 @@ class SNLTerm: public SNLNetComponent {
     virtual SNLTerm* clone(SNLDesign* design) const = 0;
 };
 
-}} // namespace NL // namespace naja
-
-#endif // __SNL_TERM_H_
+}  // namespace naja::NL

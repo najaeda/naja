@@ -9,16 +9,15 @@
 // Exposes: >>, |=, &, ==, <, and conversion to uint64_t.
 // Fully RAII-safe via std::variant, no manual union management.
 
-#ifndef NAJA_NL_BitVecDynamic_H_
-#define NAJA_NL_BitVecDynamic_H_
 
+#pragma once
 #include <cstdint>
 #include <vector>
 #include <variant>
 #include <algorithm>
 #include "NLException.h"
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 class NLBitVecDynamic {
 public:
@@ -194,6 +193,4 @@ private:
   std::variant<uint64_t, std::vector<bool>> data_;
 };
 
-}} // namespace naja::NL
-
-#endif // NAJA_NL_BitVecDynamic_H_
+}  // namespace naja::NL

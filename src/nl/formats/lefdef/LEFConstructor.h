@@ -11,8 +11,7 @@
 
 using namespace std;
 
-namespace naja {
-namespace NL {
+namespace naja::NL {
 class NLLibrary;
 class PNLDesign;
 class PNLNet;
@@ -80,5 +79,4 @@ class LEFConstructor {
   vector<string> errors_;
 };
 
-}  // namespace NL
-}  // namespace naja
+}  // namespace naja::NL

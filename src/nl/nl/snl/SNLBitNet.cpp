@@ -16,7 +16,7 @@
 #include "SNLDesign.h"
 #include "SNLMacros.h"
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 void SNLBitNet::preCreate() {
   super::preCreate();
@@ -124,4 +124,4 @@ bool SNLBitNet::compareComponents(
 }
 
 
-}} // namespace NL // namespace naja
+}  // namespace naja::NL

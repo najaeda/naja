@@ -2,15 +2,14 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __SNL_DESIGN_OBJECT_H_
-#define __SNL_DESIGN_OBJECT_H_
 
+#pragma once
 #include "NLObject.h"
 #include "NLID.h"
 #include "NLName.h"
 #include "SNLAttributes.h"
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 class NLDB;
 class NLLibrary;
@@ -74,6 +73,4 @@ class SNLDesignObject: public NLObject {
     void preDestroy() override;
 };
 
-}} // namespace NL // namespace naja
-
-#endif // __SNL_DESIGN_OBJECT_H_
+}  // namespace naja::NL

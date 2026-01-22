@@ -4,7 +4,7 @@
 
 #include "NLDesign.h"
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 NLDesign::CompareType::CompareType(const CompareTypeEnum& typeEnum):
   typeEnum_(typeEnum) 
@@ -20,4 +20,4 @@ std::string NLDesign::CompareType::getString() const {
   return "Unknown";
 }
 //LCOV_EXCL_STOP
-}} // namespace NL // namespace naja
+}  // namespace naja::NL

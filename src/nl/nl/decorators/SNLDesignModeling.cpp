@@ -438,8 +438,7 @@ naja::NajaCollection<naja::NL::SNLBitTerm*> getCombinatorialDepsFromTruthTable(
 
 }  // namespace
 
-namespace naja {
-namespace NL {
+namespace naja::NL {
 
 SNLDesignModeling::SNLDesignModeling(Type type) : type_(type) {
   if (type_ == NO_PARAMETER) {
@@ -1157,5 +1156,4 @@ bool SNLDesignModeling::isBuf(const SNLDesign* design) {
   return truthTable.isInitialized() && truthTable == SNLTruthTable::Buf();
 }
 
-}  // namespace NL
-}  // namespace naja
+}  // namespace naja::NL

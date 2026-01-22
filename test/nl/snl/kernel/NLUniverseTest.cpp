@@ -5,7 +5,9 @@
 #include "gtest/gtest.h"
 
 #include "NLUniverse.h"
+
 #include "NLException.h"
+#include "PNLTechnology.h"
 using namespace naja::NL;
 
 class NLUniverseTest: public ::testing::Test {
@@ -47,4 +49,21 @@ TEST_F(NLUniverseTest, testEmptyUniverse) {
   ASSERT_EQ(nullptr, NLUniverse::get());
   EXPECT_EQ(nullptr, NLUniverse::getTopDB());
   EXPECT_EQ(nullptr, NLUniverse::getTopDesign());
+}
+
+TEST_F(NLUniverseTest, testNameStringAndTechnology) {
+  ASSERT_EQ(nullptr, NLUniverse::get());
+  NLUniverse::create();
+  auto universe = NLUniverse::get();
+  ASSERT_NE(nullptr, universe);
+
+  NLName name("foo");
+  EXPECT_EQ("foo", name.getString());
+}
+
+TEST_F(NLUniverseTest, testTechnologyCreation) {
+  auto universe = NLUniverse::create();
+  EXPECT_EQ(nullptr, universe->getTechnology());
+  auto tech = PNLTechnology::create(universe);
+  EXPECT_EQ(tech, universe->getTechnology());
 }

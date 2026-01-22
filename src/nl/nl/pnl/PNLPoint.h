@@ -4,7 +4,7 @@
 
 #pragma once
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 class PNLPoint {
   public:
@@ -37,4 +37,4 @@ class PNLPoint {
     Unit  y_;
 };
 
-}} // namespace NL // namespace naja
+}  // namespace naja::NL

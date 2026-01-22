@@ -6,6 +6,7 @@ INCLUDE(GoogleTest)
 
 SET(snl_tests
   NLIDTest.cpp
+  NLNameTest.cpp
   NLUniverseTest.cpp NLDBTest.cpp NLLibraryTest.cpp
   NLDB0Test.cpp
   SNLDesignTest.cpp SNLDesignCloneTest.cpp

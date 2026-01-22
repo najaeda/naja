@@ -4,7 +4,7 @@
 
 #include "NLObject.h"
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 void NLObject::preCreate() {
   super::preCreate();
@@ -18,4 +18,4 @@ void NLObject::preDestroy() {
   super::preDestroy();
 }
 
-}} // namespace NL // namespace naja
+}  // namespace naja::NL

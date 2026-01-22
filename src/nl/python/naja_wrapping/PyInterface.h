@@ -2,9 +2,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __PY_INTERFACE_H
-#define __PY_INTERFACE_H
 
+#pragma once
 #include <iostream>
 #include <sstream>
 
@@ -611,4 +610,3 @@ PyObject* richCompare(T left, T right, int op) {
   setError("malformed " #OWNER_TYPE "." #GETTER " method"); \
   return nullptr;
 
-#endif /* __PY_INTERFACE_H */

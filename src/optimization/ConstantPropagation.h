@@ -3,6 +3,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#pragma once
 #include "DNL.h"
 #include <unordered_map>
 #include "SNLTruthTable.h"

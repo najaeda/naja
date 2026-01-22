@@ -2,15 +2,14 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __NL_LIBRARY_H_
-#define __NL_LIBRARY_H_
 
+#pragma once
 #include <map>
 #include "NajaCollection.h"
 #include "SNLDesign.h"
 #include "PNLDesign.h"
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 class NLDB;
 
@@ -208,6 +207,4 @@ class NLLibrary final: public NLObject {
     PNLDesignNameIDMap                  pnlDesignNameIDMap_   {};
 };
 
-}} // namespace NL // namespace naja
-
-#endif // __NL_LIBRARY_H_
+}  // namespace naja::NL

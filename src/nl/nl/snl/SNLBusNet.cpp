@@ -17,7 +17,7 @@
 #include "SNLUtils.h"
 #include "SNLMacros.h"
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 SNLBusNet::SNLBusNet(
     SNLDesign* design,
@@ -316,4 +316,4 @@ void SNLBusNet::debugDump(size_t indent, bool recursive, std::ostream& stream) c
 }
 //LCOV_EXCL_STOP
 
-}} // namespace NL // namespace naja
+}  // namespace naja::NL

@@ -6,6 +6,7 @@ add_subdirectory(serialization)
 add_subdirectory(visual)
 
 set(NL_SOURCES
+  nl/NLName.cpp
   nl/NLObject.cpp
   nl/NLUniverse.cpp
   nl/NLDB.cpp nl/NLDB0.cpp

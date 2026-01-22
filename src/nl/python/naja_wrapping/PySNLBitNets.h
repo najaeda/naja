@@ -2,9 +2,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __PY_SNL_BITNETS_H_
-#define __PY_SNL_BITNETS_H_
 
+#pragma once
 #include <Python.h>
 #include "NajaPythonExport.h"
 #include "NajaCollection.h"
@@ -33,4 +32,3 @@ extern void PySNLBitNets_LinkPyType();
 
 } /* PYNAJA namespace */
  
-#endif /* __PY_SNL_BITNETS_H_ */

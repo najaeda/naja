@@ -6,27 +6,27 @@
 
 #pragma once
 
+#include <cstddef>
+#include <cstdint>
 #include <map>
-#include <sstream>
 #include <string>
 #include <tuple>
 #include <vector>
 #include "PNLBox.h"
+#include "PNLOrientation.h"
+#include "PNLTransform.h"
 
 using namespace std;
 
-namespace naja {
-
-namespace NL {
-class PNLDesign;
+namespace naja::NL {
+  
 class NLDB;
-class PNLNet;
 class NLLibrary;
+class PNLDesign;
+class PNLNet;
 class PNLTransform;
 class PNLOrientation;
-}  // namespace NL
 
-namespace NL {
 typedef tuple<PNLNet*, uint32_t> PNLNetDatas;
 typedef tuple<PNLDesign*, uint32_t> ViaDatas;
 class DEFConstructor {
@@ -102,5 +102,5 @@ class DEFConstructor {
   naja::NL::NLLibrary* library_;
   naja::NL::NLDB* db_ = nullptr;
 };
-}  // namespace NL
-}  // namespace naja
+
+}  // namespace naja::NL

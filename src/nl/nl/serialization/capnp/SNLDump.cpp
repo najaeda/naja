@@ -4,7 +4,7 @@
 
 #include "SNLDump.h"
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 const SNLDump::Version SNLDump::version_ = SNLDump::Version(0, 1, 0);
 
@@ -16,4 +16,4 @@ std::string SNLDump::Version::getString() {
 }
 //LCOV_EXCL_STOP
 
-}} // namespace NL // namespace naja
+}  // namespace naja::NL

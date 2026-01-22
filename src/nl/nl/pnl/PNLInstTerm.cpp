@@ -15,7 +15,7 @@
 #include "PNLBitNet.h"
 #include "SNLMacros.h"
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 PNLInstTerm::PNLInstTerm(PNLInstance* instance, PNLBitTerm* bitTerm):
   instance_(instance),
@@ -112,4 +112,4 @@ NLName PNLInstTerm::getName() const {
   return getBitTerm()->getName();
 }
 
-}} // namespace NL // namespace naja
+}  // namespace naja::NL

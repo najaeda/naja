@@ -2,8 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __SNL_VRL_DUMPER_H_
-#define __SNL_VRL_DUMPER_H_
+#pragma once
 
 #include <filesystem>
 #include <vector>
@@ -12,7 +11,7 @@
 
 #include "SNLTerm.h"
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 class SNLDesign;
 class SNLParameter;
@@ -152,6 +151,4 @@ class SNLVRLDumper {
     DesignsAnonynousNaming  designsAnonymousNaming_ {};
 };
 
-}} // namespace NL // namespace naja
-
-#endif // __SNL_VRL_DUMPER_H_
+} // namespace naja::NL

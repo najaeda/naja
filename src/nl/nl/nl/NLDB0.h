@@ -2,12 +2,11 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __NL_DB0_H_
-#define __NL_DB0_H_
 
+#pragma once
 #include "SNLTruthTable.h"
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 class NLName;
 class NLUniverse;
@@ -80,6 +79,4 @@ class NLDB0 {
     static constexpr char RootLibraryName[] { "PRIMITIVES" };
 };
 
-}} // namespace NL // namespace naja
-
-#endif // __NL_DB0_H_
+}  // namespace naja::NL

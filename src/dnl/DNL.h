@@ -3,9 +3,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef DNL_H
-#define DNL_H
 
+#pragma once
 #include <fstream>
 #include <iostream>
 #include <limits>
@@ -21,21 +20,18 @@
 #include "tbb/enumerable_thread_specific.h"
 
 #include "NLUniverse.h"
-#include "SNLBitNet.h"
 #include "SNLBitTerm.h"
 #include "SNLInstTerm.h"
 #include "SNLInstance.h"
 
 using namespace naja::NL;
 
-namespace naja {
-namespace NL {
-class SNLBitNet;
-class SNLPath;
-class SNLEquipotential;
-class SNLOccurrence;
-}
-}  // namespace naja
+namespace naja::NL {
+  class SNLBitNet;
+  class SNLPath;
+  class SNLEquipotential;
+  class SNLOccurrence;
+} // namespace naja::NL
 
 namespace naja {
 
@@ -635,4 +631,3 @@ class DNL {
 
 }  // namespace DNL
 }  // namespace naja
-#endif // DNL_H

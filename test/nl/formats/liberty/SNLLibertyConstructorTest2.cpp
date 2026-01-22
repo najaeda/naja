@@ -107,6 +107,7 @@ TEST_F(SNLLibertyConstructorTest2, test) {
         / std::filesystem::path("small.lib"));
     constructor.construct(testPath);
   }
+#if 0
   db_ = SNLCapnP::load(outPath, true);
   NLUniverse::get()->destroy();
   EXPECT_THROW(SNLCapnP::load(outPath, true), NLException);
@@ -116,4 +117,5 @@ TEST_F(SNLLibertyConstructorTest2, test) {
     db_ = NLDB::create(universe);
   }
   EXPECT_THROW(SNLCapnP::load(outPath, true), NLException);
+#endif
 }

@@ -5,6 +5,7 @@
 
 #include "Reduction.h"
 
+#include "SNLBitNet.h"
 #include "SNLDesignModeling.h"
 #include "SNLTruthTable.h"
 #include "SNLUniquifier.h"

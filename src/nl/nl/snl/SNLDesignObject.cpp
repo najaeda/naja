@@ -8,7 +8,7 @@
 #include "NLLibrary.h"
 #include "SNLDesign.h"
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 void SNLDesignObject::postCreate() {
   super::postCreate();
@@ -44,4 +44,4 @@ NajaCollection<SNLAttribute> SNLDesignObject::getAttributes() const {
   return SNLAttributes::getAttributes(this);
 }
 
-}} // namespace NL // namespace naja
+}  // namespace naja::NL

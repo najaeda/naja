@@ -2,18 +2,15 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __SNL_PYEDIT_H_
-#define __SNL_PYEDIT_H_
 
+#pragma once
 #include <filesystem>
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 class SNLPyEdit {
   public:
     static void edit(const std::filesystem::path& scriptPath);
 };
 
-}} // namespace NL // namespace naja
-
-#endif // __SNL_PYEDIT_H_
+}  // namespace naja::NL

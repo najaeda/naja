@@ -2,9 +2,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __PY_SNL_INST_PARAMETER_H_
-#define __PY_SNL_INST_PARAMETER_H_
 
+#pragma once
 #include <Python.h>
 #include "NajaPythonExport.h"
 
@@ -31,4 +30,3 @@ extern void PySNLInstParameter_postModuleInit();
 
 } /* PYNAJA namespace */
  
-#endif /* __PY_SNL_INST_PARAMETER_H_ */

@@ -2,12 +2,10 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __NL_UNIVERSE_SNIPPET_H_
-#define __NL_UNIVERSE_SNIPPET_H_
 
+#pragma once
 class NLUniverseSnippet {
   public:
     static void create();
 };
 
-#endif /* __NL_UNIVERSE_SNIPPET_H_ */

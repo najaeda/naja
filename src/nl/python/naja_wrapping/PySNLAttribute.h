@@ -2,9 +2,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __PY_SNL_ATTRIBUTE_H_
-#define __PY_SNL_ATTRIBUTE_H_
 
+#pragma once
 #include <Python.h>
 #include "NajaPythonExport.h"
 
@@ -30,4 +29,3 @@ extern void       PySNLAttribute_LinkPyType();
 
 } // PYNAJA namespace
  
-#endif // __PY_SNL_ATTRIBUTE_H_

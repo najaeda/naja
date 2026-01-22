@@ -3,15 +3,13 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __PNL_TRANSFORM_H_
-#define __PNL_TRANSFORM_H_
 
+#pragma once
 #include "PNLOrientation.h"
 #include "PNLPoint.h"
 #include "PNLBox.h"
 
-namespace naja {
-namespace NL {
+namespace naja::NL {
 
 static const int A[8] = {1, 0, -1, 0, -1, 0, 1, 0};
 static const int B[8] = {0, -1, 0, 1, 0, -1, 0, 1};
@@ -159,7 +157,4 @@ class PNLTransform {
   PNLOrientation orientation_;
 };
 
-}  // namespace NL
-}  // namespace naja
-
-#endif  // __PNL_TRANSFORM_H_
+}  // namespace naja::NL

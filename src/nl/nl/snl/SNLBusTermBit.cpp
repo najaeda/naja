@@ -10,7 +10,7 @@
 
 #include "SNLBusTerm.h"
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 SNLBusTermBit::SNLBusTermBit(
     SNLBusTerm* bus,
@@ -144,4 +144,4 @@ bool SNLBusTermBit::deepCompare(const SNLNetComponent* other, std::string& reaso
   return true;
 }
 
-}} // namespace NL // namespace naja
+}  // namespace naja::NL

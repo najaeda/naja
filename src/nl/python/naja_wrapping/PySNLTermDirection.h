@@ -2,9 +2,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __PY_SNL_TERM_DIRECTION_H_
-#define __PY_SNL_TERM_DIRECTION_H_
 
+#pragma once
 #include "PyInterface.h"
 #include "SNLTerm.h"
 #include "NajaPythonExport.h"
@@ -29,4 +28,3 @@ extern void         PySNLTermDirection_postModuleInit();
 
 } /* PYNAJA namespace */
 
-#endif /* __PY_SNL_TERM_DIRECTION_H_ */

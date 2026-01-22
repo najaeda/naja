@@ -64,7 +64,7 @@ class SNLAttributesPrivateProperty: public naja::NajaPrivateProperty {
 
 }
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 SNLAttribute::SNLAttribute(
   const NLName& name,
@@ -161,4 +161,4 @@ void SNLAttributes::clearAttributes(NLObject* object) {
   }
 }
 
-}} // namespace NL // namespace naja
+}  // namespace naja::NL

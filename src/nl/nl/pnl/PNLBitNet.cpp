@@ -17,7 +17,7 @@
 #include "PNLBitTerm.h"
 #include "PNLScalarTerm.h"
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 void PNLBitNet::preCreate() {
   super::preCreate();
@@ -117,4 +117,4 @@ void PNLBitNet::removeComponent(PNLNetComponent* component) {
 //   components_.clear();
 // }
 
-}} // namespace NL // namespace naja
+}  // namespace naja::NL

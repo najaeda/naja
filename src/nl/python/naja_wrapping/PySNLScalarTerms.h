@@ -2,9 +2,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __PY_SNL_SCALAR_TERMS_H_
-#define __PY_SNL_SCALAR_TERMS_H_
 
+#pragma once
 #include <Python.h>
 #include "NajaCollection.h"
 #include "NajaPythonExport.h"
@@ -33,4 +32,3 @@ extern void PySNLScalarTerms_LinkPyType();
 
 } /* PYNAJA namespace */
  
-#endif /* __PY_SNL_SCALAR_TERMS_H_ */

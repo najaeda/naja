@@ -129,7 +129,7 @@ struct SNLEquipotentialExtractor {
 
 }
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 SNLEquipotential::SNLEquipotential(SNLNetComponent* netComponent):
   SNLEquipotential(SNLOccurrence(netComponent))
@@ -181,4 +181,4 @@ NajaCollection<SNLOccurrence> SNLEquipotential::getInstTermOccurrences() const {
   return NajaCollection(new NajaSTLCollection(&instTermOccurrences_));
 }
 
-}} // namespace NL // namespace naja
+}  // namespace naja::NL

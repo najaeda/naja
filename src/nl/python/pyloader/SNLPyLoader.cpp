@@ -105,7 +105,7 @@ PyObject* loadModule(const std::filesystem::path& path) {
 
 }
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 void SNLPyLoader::loadDB(
     NLDB* db,
@@ -272,4 +272,4 @@ void SNLPyEdit::edit(const std::filesystem::path& path) {
   Py_Finalize();
 }
 
-}} // namespace NL // namespace naja
+}  // namespace naja::NL

@@ -2,13 +2,12 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __SNL_ATTRIBUTES_H_
-#define __SNL_ATTRIBUTES_H_
 
+#pragma once
 #include "NajaCollection.h"
 #include "NLName.h"
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 class NLObject;
 class SNLDesign;
@@ -96,6 +95,4 @@ class SNLAttributes {
     static NajaCollection<SNLAttribute> getAttributes(const NLObject* object);
 };
 
-}} // namespace NL // namespace naja
-
-#endif // __SNL_ATTRIBUTES_H_
+}  // namespace naja::NL
