@@ -8,7 +8,7 @@ Serialization helpers for exposing NajaEDA objects over the WebSocket API.
 These functions convert internal objects into JSON-serializable dicts.
 """
 
-from typing import TypedDict
+from typing import List, Optional, TypedDict, Union
 from najaeda import naja
 
 
@@ -73,9 +73,9 @@ class SerializedTerm(TypedDict):
     name: str
     child_id: int
     direction: int
-    msb: int | None
-    lsb: int | None
-    bit: int | None
+    msb: Optional[int]
+    lsb: Optional[int]
+    bit: Optional[int]
 
 
 def serialize_term(term: naja.SNLTerm) -> SerializedTerm:
@@ -104,11 +104,11 @@ def serialize_term(term: naja.SNLTerm) -> SerializedTerm:
 
 
 class SerializedOccurrence(TypedDict):
-    path: list[list[str | int]]
+    path: List[List[Union[str, int]]]
     term_id: int
     name: str
     direction: int
-    bit: int | None
+    bit: Optional[int]
 
 
 def serialize_equipotential_occurrence(occ: naja.SNLOccurrence) -> SerializedOccurrence:
