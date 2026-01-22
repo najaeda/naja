@@ -50,17 +50,30 @@ else(BUILD_NAJA_PYTHON)
   )
 endif(BUILD_NAJA_PYTHON)
 
+target_compile_definitions(naja_python PRIVATE NAJA_PYTHON_EXPORTS)
+
 target_include_directories(naja_python
   PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
   PRIVATE ${Python3_INCLUDE_DIRS}
 )
 
 Python3_add_library(naja MODULE PyNaja.cpp)
+if (MSVC)
+  target_compile_options(naja PRIVATE /utf-8)
+endif()
 target_link_libraries(naja PRIVATE naja_python)
 
 if(BUILD_NAJA_PYTHON)
-  install(TARGETS naja LIBRARY DESTINATION DESTINATION ${CMAKE_INSTALL_PREFIX}/najaeda)
-  install(TARGETS naja_python LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/najaeda)
+  #install(TARGETS naja LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/najaeda)
+  #install(TARGETS naja_python
+  #  LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/najaeda
+  #  RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/najaeda
+  #)
+  install(TARGETS naja LIBRARY DESTINATION najaeda)
+  install(TARGETS naja_python
+    LIBRARY DESTINATION najaeda
+    RUNTIME DESTINATION najaeda
+  )
 else(BUILD_NAJA_PYTHON)
   install(TARGETS naja LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}/python/naja)
   install(TARGETS naja LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}/python/najaeda)

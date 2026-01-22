@@ -2,11 +2,14 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __PY_SNL_BUS_TERM_H_
-#define __PY_SNL_BUS_TERM_H_
 
+#pragma once
+#include "NajaPythonExport.h"
 #include "PySNLTerm.h"
-#include "SNLBusTerm.h"
+
+namespace naja::NL {
+  class SNLBusTerm;
+}
 
 namespace PYNAJA {
 
@@ -14,7 +17,7 @@ typedef struct {
   PySNLTerm parent_;
 } PySNLBusTerm;
 
-extern PyTypeObject PyTypeSNLBusTerm;
+NAJA_PY_EXPORT extern PyTypeObject PyTypeSNLBusTerm;
 
 extern PyObject*    PySNLBusTerm_Link(naja::NL::SNLBusTerm* t);
 extern void         PySNLBusTerm_LinkPyType();
@@ -25,4 +28,3 @@ extern void         PySNLBusTerm_LinkPyType();
 
 } // PYNAJA namespace
  
-#endif // __PY_SNL_BUS_TERM_H_

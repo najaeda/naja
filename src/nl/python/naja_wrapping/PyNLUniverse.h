@@ -2,11 +2,14 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __PY_NL_UNIVERSE_H_
-#define __PY_NL_UNIVERSE_H_
 
+#pragma once
 #include <Python.h>
-#include "NLUniverse.h"
+#include "NajaPythonExport.h"
+
+namespace naja::NL {
+  class NLUniverse;
+}
 
 namespace PYNAJA {
 
@@ -15,7 +18,7 @@ typedef struct {
   naja::NL::NLUniverse* object_;
 } PyNLUniverse;
 
-extern PyTypeObject PyTypeNLUniverse;
+extern NAJA_PY_EXPORT PyTypeObject PyTypeNLUniverse;
 
 extern PyObject*    PyNLUniverse_Link(naja::NL::NLUniverse* u);
 extern void         PyNLUniverse_LinkPyType();
@@ -26,4 +29,3 @@ extern void         PyNLUniverse_LinkPyType();
 
 } // PYNAJA namespace
  
-#endif // __PY_NL_UNIVERSE_H_

@@ -4,6 +4,8 @@
 
 #include "PySNLDesignObject.h"
 
+#include "SNLDesignObject.h"
+
 #include "PyInterface.h"
 
 #include "PySNLDesign.h"

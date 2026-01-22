@@ -2,11 +2,11 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __PY_SNL_SCALAR_TERMS_H_
-#define __PY_SNL_SCALAR_TERMS_H_
 
+#pragma once
 #include <Python.h>
 #include "NajaCollection.h"
+#include "NajaPythonExport.h"
 
 namespace naja::NL {
   class SNLScalarTerm;
@@ -25,11 +25,10 @@ typedef struct {
   PySNLScalarTerms* container_;
 } PySNLScalarTermsIterator;
 
-extern PyTypeObject PyTypeSNLScalarTerms;
-extern PyTypeObject PyTypeSNLScalarTermsIterator;
+NAJA_PY_EXPORT extern PyTypeObject PyTypeSNLScalarTerms;
+NAJA_PY_EXPORT extern PyTypeObject PyTypeSNLScalarTermsIterator;
 
 extern void PySNLScalarTerms_LinkPyType();
 
 } /* PYNAJA namespace */
  
-#endif /* __PY_SNL_SCALAR_TERMS_H_ */

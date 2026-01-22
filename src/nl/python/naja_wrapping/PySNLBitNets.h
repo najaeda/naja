@@ -2,10 +2,10 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __PY_SNL_BITNETS_H_
-#define __PY_SNL_BITNETS_H_
 
+#pragma once
 #include <Python.h>
+#include "NajaPythonExport.h"
 #include "NajaCollection.h"
 
 namespace naja::NL {
@@ -25,11 +25,10 @@ typedef struct {
   PySNLBitNets* container_;
 } PySNLBitNetsIterator;
 
-extern PyTypeObject PyTypeSNLBitNets;
-extern PyTypeObject PyTypeSNLBitNetsIterator;
+NAJA_PY_EXPORT extern PyTypeObject PyTypeSNLBitNets;
+NAJA_PY_EXPORT extern PyTypeObject PyTypeSNLBitNetsIterator;
 
 extern void PySNLBitNets_LinkPyType();
 
 } /* PYNAJA namespace */
  
-#endif /* __PY_SNL_BITNETS_H_ */

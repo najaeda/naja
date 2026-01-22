@@ -1,26 +1,25 @@
 // SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
 //
 // SPDX-License-Identifier: Apache-2.0
-//
 
-#ifndef __SNL_EQUIPOTENTIAL_H_
-#define __SNL_EQUIPOTENTIAL_H_
+#pragma once
 
 #include <set>
+#include "SNLNet.h"
 #include "SNLBitTerm.h"
 #include "SNLOccurrence.h"
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 class SNLNetComponent;
 
 class SNLEquipotential {
   public:
-    //SNLEquipotential()=delete;
-    //SNLEquipotential(const SNLEquipotential&)=delete;
     using InstTermOccurrences = std::set<SNLOccurrence>;
     using Terms = std::set<SNLBitTerm*, SNLDesignObject::PointerLess>;
 
+    SNLEquipotential()=default;
+    SNLEquipotential(const SNLEquipotential&)=default;
     SNLEquipotential(SNLNetComponent* netComponent);
     SNLEquipotential(const SNLOccurrence& netComponentOccurrence);
 
@@ -28,6 +27,9 @@ class SNLEquipotential {
     const InstTermOccurrences& getInstTermOccurrencesSet() const { return instTermOccurrences_; }
     NajaCollection<SNLBitTerm*> getTerms() const;
     NajaCollection<SNLOccurrence> getInstTermOccurrences() const;
+    SNLNet::Type getType() const { return type_; }
+    bool isConst0() const;
+    bool isConst1() const;
     std::string getString() const;
     //Comparators
     bool operator==(const SNLEquipotential& other) const {
@@ -53,8 +55,7 @@ class SNLEquipotential {
   private:
     InstTermOccurrences instTermOccurrences_  {};
     Terms               terms_                {};
+    SNLNet::Type        type_                 {SNLNet::Type::Standard};
 };
 
-}} // namespace NL // namespace naja
-
-#endif // __SNL_EQUIPOTENTIAL_H_
+}  // namespace naja::NL

@@ -48,7 +48,6 @@ static PyObject* PySNLScalarTerm_create(PyObject*, PyObject* args) {
 
 DirectGetIntMethod(PySNLScalarTerm_getID, getID, PySNLScalarTerm, SNLScalarTerm)
 DirectGetIntMethod(PySNLScalarTerm_getFlatID, getFlatID, PySNLScalarTerm, SNLScalarTerm)
-DirectGetIntMethod(PySNLScalarTerm_getBit, getBit, PySNLScalarTerm, SNLScalarTerm)
 
 PyMethodDef PySNLScalarTerm_Methods[] = {
   { "create", (PyCFunction)PySNLScalarTerm_create, METH_VARARGS|METH_STATIC,
@@ -57,8 +56,6 @@ PyMethodDef PySNLScalarTerm_Methods[] = {
     "Get the NLID::DesignObjectID of the term."},
   { "getFlatID", (PyCFunction)PySNLScalarTerm_getFlatID, METH_NOARGS,
     "Get the flat ID of the term."},
-  { "getBit", (PyCFunction)PySNLScalarTerm_getBit, METH_NOARGS,
-    "Get the bit of the term."},
   {NULL, NULL, 0, NULL}           /* sentinel */
 };
 

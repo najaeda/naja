@@ -3,18 +3,18 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __SNL_VRL_CONSTRUCTOR_H_
-#define __SNL_VRL_CONSTRUCTOR_H_
+#pragma once
 
 #include "VerilogConstructor.h"
 
+#include <unordered_map>
 
 #include "NLDB0.h"
 #include "SNLInstance.h"
 #include "SNLNet.h"
 #include "SNLTerm.h"
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 class NLLibrary;
 class SNLDesign;
@@ -23,9 +23,16 @@ class SNLScalarNet;
 class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
   public:
     struct Config {
-      bool verbose_             {false};  ///< If true, print debug information.
-      bool blackboxDetection_   {true};   ///< If true, detect blackbox designs.
-      bool allowUnknownDesigns_ {false};  ///< If true, allow unknown designs to be created as blackbox.
+      enum class ConflictingDesignNamePolicy {
+        Forbid,        ///< Throw if a design with the same name already exists in the library.
+        FirstOne,      ///< Keep the first definition and ignore subsequent ones (emit a warning).
+        LastOne,       ///< Override the previous definition with the last one (emit a warning).
+        VerifyEquality ///< Load the new definition into a temporary design and verify it matches the existing one.
+      };
+
+      bool                        blackboxDetection_            {true};   ///< If true, detect blackbox designs.
+      bool                        allowUnknownDesigns_          {false};  ///< If true, allow unknown designs to be created as blackbox.
+      ConflictingDesignNamePolicy conflictingDesignNamePolicy_  {ConflictingDesignNamePolicy::Forbid};
     };
 
     Config  config_ {};
@@ -101,6 +108,9 @@ class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
     void endModule() override;
 
   private:
+    SNLNet* getNetOrCreateImplicitNet(
+      SNLDesign* design,
+      const naja::verilog::RangeIdentifier& identifier);
     void createCurrentModuleAssignNets();
     void createConstantNets(
       const naja::verilog::Number& number,
@@ -117,24 +127,40 @@ class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
     
     std::string getLocationString() const;
 
-    bool              firstPass_                      {true};
-    bool              parseAttributes_                {true};
-    NLLibrary*        library_                        {nullptr};
-    Attributes        nextObjectAttributes_           {};
-    SNLDesign*        currentModule_                  {nullptr};
-    std::string       currentModelName_               {};
-    GateInstance      currentGateInstance_            {};
-    SNLInstance*      currentInstance_                {nullptr};
+    struct ModuleDefKey {
+      std::filesystem::path path_  {};
+      size_t                line_  {0};
+      size_t                column_{0};
+
+      bool operator==(const ModuleDefKey& other) const {
+        return path_ == other.path_ && line_ == other.line_ && column_ == other.column_;
+      }
+      bool operator!=(const ModuleDefKey& other) const { return not (*this == other); }
+    };
+
+    ModuleDefKey getCurrentModuleDefKey() const;
+    bool isCurrentModuleSelected(const NLName& moduleName) const;
+    void resetPerModuleState();
+
+    bool                firstPass_                      {true};
+    using SelectedModuleDefs = std::unordered_map<std::string, ModuleDefKey>;
+    SelectedModuleDefs  selectedModuleDefs_             {};
+    bool                skipCurrentModule_              {false};
+    bool                parseAttributes_                {true};
+    NLLibrary*          library_                        {nullptr};
+    Attributes          nextObjectAttributes_           {};
+    SNLDesign*          currentModule_                  {nullptr};
+    std::string         currentModelName_               {};
+    GateInstance        currentGateInstance_            {};
+    SNLInstance*        currentInstance_                {nullptr};
     using ParameterValues = std::map<std::string, std::string>;
-    ParameterValues   currentInstanceParameterValues_ {};
-    SNLScalarNet*     currentModuleAssign0_           {nullptr};
-    SNLScalarNet*     currentModuleAssign1_           {nullptr};
+    ParameterValues     currentInstanceParameterValues_ {};
+    SNLScalarNet*       currentModuleAssign0_           {nullptr};
+    SNLScalarNet*       currentModuleAssign1_           {nullptr};
     using InterfacePorts = std::vector<std::unique_ptr<naja::verilog::Port>>;
     using InterfacePortsMap = std::map<std::string, size_t>;
-    InterfacePorts    currentModuleInterfacePorts_    {};
-    InterfacePortsMap currentModuleInterfacePortsMap_ {};
+    InterfacePorts      currentModuleInterfacePorts_    {};
+    InterfacePortsMap   currentModuleInterfacePortsMap_ {};
 };
 
-}} // namespace NL // namespace naja
-
-#endif // __NAJA_VERILOG_CONSTRUCTOR_H_
+} // namespace naja::NL

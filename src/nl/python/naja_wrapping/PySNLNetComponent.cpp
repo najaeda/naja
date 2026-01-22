@@ -4,6 +4,10 @@
 
 #include "PySNLNetComponent.h"
 
+#include "SNLNet.h"
+#include "SNLBitTerm.h"
+#include "SNLInstTerm.h"
+
 #include "PyInterface.h"
 #include "PySNLInstTerm.h"
 #include "PySNLBitTerm.h"

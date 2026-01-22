@@ -2,11 +2,11 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __PY_SNL_NET_TYPE_H_
-#define __PY_SNL_NET_TYPE_H_
 
+#pragma once
 #include "PyInterface.h"
 #include "SNLNet.h"
+#include "NajaPythonExport.h"
 
 namespace PYNAJA {
 
@@ -15,7 +15,7 @@ typedef struct {
   naja::NL::SNLNet::Type* object_;
 } PySNLNetType;
 
-extern PyTypeObject PyTypeSNLNetType;
+NAJA_PY_EXPORT extern PyTypeObject PyTypeSNLNetType;
 
 extern PyObject*    PySNLNetType_Link(naja::NL::SNLNet::Type*);
 extern void         PySNLNetType_LinkPyType();
@@ -27,4 +27,3 @@ extern void         PySNLNetType_postModuleInit();
 
 } /* PYNAJA namespace */
 
-#endif /* __PY_SNL_NET_TYPE_H_ */

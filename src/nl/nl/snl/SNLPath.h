@@ -2,9 +2,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __SNL_PATH_H_
-#define __SNL_PATH_H_
 
+#pragma once
 #include <vector>
 
 #include "NajaCollection.h"
@@ -12,7 +11,7 @@
 #include "NLID.h"
 
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 class SNLDesign;
 class SNLInstance;
@@ -140,6 +139,4 @@ class SNLPath {
     SNLSharedPath*  sharedPath_ {nullptr};
 };
 
-}} // namespace NL // namespace naja
-
-#endif // __SNL_PATH_H_
+}  // namespace naja::NL

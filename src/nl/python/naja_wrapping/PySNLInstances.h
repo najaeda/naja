@@ -2,11 +2,11 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __PY_SNL_INSTANCES_H_
-#define __PY_SNL_INSTANCES_H_
 
+#pragma once
 #include <Python.h>
 #include "NajaCollection.h"
+#include "NajaPythonExport.h"
 
 namespace naja::NL {
   class SNLInstance;
@@ -25,11 +25,10 @@ typedef struct {
   PySNLInstances* container_;
 } PySNLInstancesIterator;
 
-extern PyTypeObject PyTypeSNLInstances;
-extern PyTypeObject PyTypeSNLInstancesIterator;
+NAJA_PY_EXPORT extern PyTypeObject PyTypeSNLInstances;
+NAJA_PY_EXPORT extern PyTypeObject PyTypeSNLInstancesIterator;
 
 extern void PySNLInstances_LinkPyType();
 
 } /* PYNAJA namespace */
  
-#endif /* __PY_SNL_INSTANCES_H_ */

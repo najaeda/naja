@@ -138,6 +138,10 @@ class SNLInstanceTest(unittest.TestCase):
     inst_p0 = naja.SNLInstParameter.create(ins1, p0, '58')
     self.assertIsNotNone(inst_p0)
     with self.assertRaises(RuntimeError) as context: inst_p0.setValue(p0)
+
+    model2 = naja.SNLDesign.create(self.top.getLibrary())
+    ins_model2 = naja.SNLInstance.create(self.top, model2, "ins_model2")
+    with self.assertRaises(RuntimeError) as context: naja.SNLInstParameter.create(ins_model2, p0, '58')
   
   def testDestroyInstance(self):
     ins1 = naja.SNLInstance.create(self.top, self.model, "ins1")

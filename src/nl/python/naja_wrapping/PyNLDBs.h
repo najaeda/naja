@@ -2,11 +2,11 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __PY_NL_DBS_H_
-#define __PY_NL_DBS_H_
 
+#pragma once
 #include <Python.h>
 #include "NajaCollection.h"
+#include "NajaPythonExport.h"
 
 namespace naja::NL {
   class NLDB;
@@ -25,11 +25,10 @@ typedef struct {
   PyNLDBs* container_;
 } PyNLDBsIterator;
 
-extern PyTypeObject PyTypeNLDBs;
-extern PyTypeObject PyTypeNLDBsIterator;
+NAJA_PY_EXPORT extern PyTypeObject PyTypeNLDBs;
+NAJA_PY_EXPORT extern PyTypeObject PyTypeNLDBsIterator;
 
 extern void PyNLDBs_LinkPyType();
 
 } /* PYNAJA namespace */
  
-#endif /* __PY_NL_DBS_H_ */

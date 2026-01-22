@@ -2,10 +2,10 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __PY_SNL_BIT_TERMS_H_
-#define __PY_SNL_BIT_TERMS_H_
 
+#pragma once
 #include <Python.h>
+#include "NajaPythonExport.h"
 #include "NajaCollection.h"
 
 namespace naja::NL {
@@ -25,11 +25,10 @@ typedef struct {
   PySNLBitTerms* container_;
 } PySNLBitTermsIterator;
 
-extern PyTypeObject PyTypeSNLBitTerms;
-extern PyTypeObject PyTypeSNLBitTermsIterator;
+NAJA_PY_EXPORT extern PyTypeObject PyTypeSNLBitTerms;
+NAJA_PY_EXPORT extern PyTypeObject PyTypeSNLBitTermsIterator;
 
 extern void PySNLBitTerms_LinkPyType();
 
 } /* PYNAJA namespace */
  
-#endif /* __PY_SNL_BIT_TERMS_H_ */

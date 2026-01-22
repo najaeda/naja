@@ -2,11 +2,14 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __PY_SNL_DESIGN_OBJECT_H_
-#define __PY_SNL_DESIGN_OBJECT_H_
 
+#pragma once
 #include "Python.h"
-#include "SNLDesignObject.h"
+#include "NajaPythonExport.h"
+
+namespace naja::NL {
+  class SNLDesignObject;
+}
 
 namespace PYNAJA {
 
@@ -15,7 +18,7 @@ typedef struct {
   naja::NL::SNLDesignObject* object_;
 } PySNLDesignObject;
 
-extern PyTypeObject PyTypeSNLDesignObject;
+NAJA_PY_EXPORT extern PyTypeObject PyTypeSNLDesignObject;
 
 extern void         PySNLDesignObject_LinkPyType();
 
@@ -25,4 +28,3 @@ extern void         PySNLDesignObject_LinkPyType();
 
 } /* PYNAJA namespace */
  
-#endif /* __PY_SNL_DESIGN_OBJECT_H_ */

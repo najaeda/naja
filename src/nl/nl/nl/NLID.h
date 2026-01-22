@@ -2,14 +2,13 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __NL_ID_H_
-#define __NL_ID_H_
 
+#pragma once
 #include <string>
 #include <tuple>
 #include <cstdint>
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 /**
  * \brief The NLID structure allows global comparison between the various NL objects
@@ -322,6 +321,4 @@ struct NLIDComp {
   }
 };
 
-}} // namespace NL // namespace naja
-
-#endif // __NL_ID_H_
+}  // namespace naja::NL

@@ -2,10 +2,10 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __PY_SNL_INST_PARAMETER_H_
-#define __PY_SNL_INST_PARAMETER_H_
 
+#pragma once
 #include <Python.h>
+#include "NajaPythonExport.h"
 
 namespace naja::NL {
   class SNLInstParameter;
@@ -18,7 +18,7 @@ typedef struct {
   naja::NL::SNLInstParameter* object_;
 } PySNLInstParameter;
 
-extern PyTypeObject PyTypeSNLInstParameter;
+NAJA_PY_EXPORT extern PyTypeObject PyTypeSNLInstParameter;
 
 extern PyObject* PySNLInstParameter_Link(naja::NL::SNLInstParameter* u);
 extern void PySNLInstParameter_LinkPyType();
@@ -30,4 +30,3 @@ extern void PySNLInstParameter_postModuleInit();
 
 } /* PYNAJA namespace */
  
-#endif /* __PY_SNL_INST_PARAMETER_H_ */

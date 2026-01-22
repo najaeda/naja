@@ -7,8 +7,7 @@
 #include "NLDB.h"
 #include "NLLibrary.h"
 
-namespace naja {
-namespace NL {
+namespace naja::NL {
 
 naja::NL::NLID PNLDesignObject::getNLID(const naja::NL::NLID::Type& type,
                                 naja::NL::NLID::DesignObjectID objectID,
@@ -30,5 +29,4 @@ void PNLDesignObject::preCreate() {}
 
 void PNLDesignObject::postCreate() {}
 
-}  // namespace NL
-}  // namespace naja
+}  // namespace naja::NL

@@ -1,4 +1,3 @@
-# Workflow to build and test wheels
 name: najaeda Wheel builder
 
 on:
@@ -19,7 +18,40 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  generate-parser:
+    concurrency:
+      group: "parser-generation-${{ github.run_id }}"
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    outputs:
+      artifact_name: parser-generated-sources
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: true
+
+      - name: Install flex & bison
+        run: |
+          sudo apt-get update && sudo apt-get install -yq libfl-dev
+
+      - name: Generate parser sources
+        run: |
+          cd thirdparty/naja-verilog
+          cmake -B build -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --config Release
+          mkdir -p ../../generated
+          cp -v build/src/VerilogParser.cpp build/src/VerilogParser.hpp build/src/VerilogScanner.cpp ../../generated
+          cp -v build/src/*.hh ../../generated
+          cp -v /usr/include/FlexLexer.h ../../generated
+
+      - name: Upload parser artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: parser-generated-sources
+          path: generated/*
+
   build_wheels:
+    needs: generate-parser
     name: Build wheel for cp${{ matrix.python }}-${{ matrix.platform_id }}-${{ matrix.manylinux_image }}
     runs-on: ${{ matrix.os }}
     strategy:
@@ -51,7 +83,26 @@ jobs:
             platform_id: manylinux_x86_64
             manylinux_image: manylinux2014
             free_threaded_support: True
+          - os: ubuntu-latest
+            python: 314
+            platform_id: manylinux_x86_64
+            manylinux_image: manylinux2014
+          - os: ubuntu-latest
+            python: 314t
+            platform_id: manylinux_x86_64
+            manylinux_image: manylinux2014
+            free_threaded_support: True
 
+          - os: ubuntu-24.04-arm
+            python: 310
+            platform_id: manylinux_aarch64
+            manylinux_image: manylinux2014
+            cibw_arch: aarch64
+          - os: ubuntu-24.04-arm
+            python: 311
+            platform_id: manylinux_aarch64
+            manylinux_image: manylinux2014
+            cibw_arch: aarch64
           - os: ubuntu-24.04-arm
             python: 312
             platform_id: manylinux_aarch64
@@ -59,6 +110,11 @@ jobs:
             cibw_arch: aarch64
           - os: ubuntu-24.04-arm
             python: 313
+            platform_id: manylinux_aarch64
+            manylinux_image: manylinux2014
+            cibw_arch: aarch64
+          - os: ubuntu-24.04-arm
+            python: 314
             platform_id: manylinux_aarch64
             manylinux_image: manylinux2014
             cibw_arch: aarch64
@@ -83,35 +139,91 @@ jobs:
             python: 313t
             platform_id: macosx_arm64
             free_threaded_support: True
+          - os: macos-14
+            python: 314
+            platform_id: macosx_arm64
+          - os: macos-14
+            python: 314t
+            platform_id: macosx_arm64
+            free_threaded_support: True
+
+          # Windows x86_64 wheels
+          - os: windows-latest
+            python: 310
+            platform_id: win_amd64
+          - os: windows-latest
+            python: 311
+            platform_id: win_amd64
+          - os: windows-latest
+            python: 312
+            platform_id: win_amd64
+          - os: windows-latest
+            python: 313
+            platform_id: win_amd64
+          - os: windows-latest
+            python: 314
+            platform_id: win_amd64
+
     steps:
       # build steps
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
-          submodules: recursive
-          fetch-depth: 0
-          fetch-tags: true
+          submodules: true
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11" 
+      - name: Download parser-generated sources
+        # if: runner.os == 'Windows'
+        uses: actions/download-artifact@v4
+        with:
+          name: parser-generated-sources
+          path: generated
+      - name: Install generated parser sources into tree
+        #if: runner.os == 'Windows'
+        run: |
+          echo "Copying generated parser files into thirdparty/naja-verilog/src"
+          cp -R generated thirdparty/naja-verilog/src/
+          
       - name: Configure macOS Environment
         if: runner.os == 'macOS'
         run: |
             export HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_CLEANUP=1 HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK=1 HOMEBREW_NO_ENV_HINTS=1
             eval "$(brew shellenv)"
-            brew install -q boost flex bison
-            echo "/usr/local/opt/flex/bin" >> $GITHUB_PATH; echo "/usr/local/opt/bison/bin" >> $GITHUB_PATH;
-            echo "/opt/homebrew/opt/flex/bin" >> $GITHUB_PATH; echo "/opt/homebrew/opt/bison/bin" >> $GITHUB_PATH
-      - name: Install cibuildwheel
-        run: python -m pip install cibuildwheel==2.22.0
+            brew install -q boost
+            #brew install -q boost flex bison
+            #echo "/usr/local/opt/flex/bin" >> $GITHUB_PATH; echo "/usr/local/opt/bison/bin" >> $GITHUB_PATH;
+            #echo "/opt/homebrew/opt/flex/bin" >> $GITHUB_PATH; echo "/opt/homebrew/opt/bison/bin" >> $GITHUB_PATH
+      - name: Install cibuildwheel (and delvewheel for Windows)
+        run: python -m pip install cibuildwheel==3.3.0 delvewheel
       - name: Build wheels
         env:
-          CIBW_FREE_THREADED_SUPPORT: ${{ matrix.free_threaded_support }}
+          CIBW_ENABLE: ${{ matrix.free_threaded_support && 'cpython-freethreading' || '' }}
           CIBW_ENVIRONMENT: SKLEARN_SKIP_NETWORK_TESTS=1
           CIBW_BUILD: cp${{ matrix.python }}-${{ matrix.platform_id }}
           CIBW_ARCHS: 'all'
           CIBW_MANYLINUX_X86_64_IMAGE: ${{ matrix.manylinux_image }}
           CIBW_MANYLINUX_I686_IMAGE: ${{ matrix.manylinux_image }}
+          CIBW_BEFORE_ALL_WINDOWS: >
+            pwsh -NoProfile -NonInteractive -ExecutionPolicy Bypass
+            -File {project}\ci\windows_setup.ps1
+          CIBW_BEFORE_BUILD_WINDOWS: "pwsh -Command \"foreach($d in 'build','dist'){ if(Test-Path $d){ Remove-Item -Recurse -Force $d -ErrorAction SilentlyContinue } }\""
+          CIBW_CONFIG_SETTINGS_WINDOWS: >
+            cmake.args=-DCMAKE_TOOLCHAIN_FILE=C:/Users/runneradmin/vcpkg/scripts/buildsystems/vcpkg.cmake
+          CIBW_REPAIR_WHEEL_COMMAND_WINDOWS: >-
+            delvewheel repair -v
+            --ignore-existing
+            --analyze-existing
+            --include-imports
+            --add-path "C:\Users\runneradmin\vcpkg\installed\x64-windows\bin"
+            -w {dest_dir} {wheel}
           CIBW_TEST_REQUIRES: "pytest"
           CIBW_TEST_COMMAND: >
             bash -c '
-              set -e
+              set -ex
+              export PYTHONPATH=""
+              python {project}/ci/check_wheel_import.py
+
               export VERILOG_BENCHMARKS_PATH="{project}/test/nl/formats/verilog/benchmarks"
               export LIBERTY_BENCHMARKS_PATH="{project}/test/nl/formats/liberty/benchmarks"
               export NAJAEDA_TEST_PATH="{project}/test/najaeda"
@@ -119,9 +231,14 @@ jobs:
 
               python -m pytest {project}/test/najaeda
 
-              cd {project}/src/najaeda/examples && python run_regress.py > run_regress.log
-              cd {project}/src/najaeda/native_examples && python run_regress.py > run_native_regress.log
+              cd {project}/src/najaeda/examples
+              python run_regress.py > run_regress.log
+
+              cd {project}/src/najaeda/native_examples
+              python run_regress.py > run_native_regress.log
             '
+          CIBW_TEST_COMMAND_WINDOWS: >
+            pwsh -NoProfile -NonInteractive -ExecutionPolicy Bypass -File {project}\ci\windows_test.ps1
         run: python -m cibuildwheel --output-dir wheelhouse
       #Reminder!!: actions/upload-artifact and actions/download-artifact
       #need to have same version

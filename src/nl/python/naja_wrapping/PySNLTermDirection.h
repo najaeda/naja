@@ -2,11 +2,11 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __PY_SNL_TERM_DIRECTION_H_
-#define __PY_SNL_TERM_DIRECTION_H_
 
+#pragma once
 #include "PyInterface.h"
 #include "SNLTerm.h"
+#include "NajaPythonExport.h"
 
 namespace PYNAJA {
 
@@ -15,7 +15,7 @@ typedef struct {
   naja::NL::SNLTerm::Direction* object_;
 } PySNLTermDirection;
 
-extern PyTypeObject PyTypeSNLTermDirection;
+NAJA_PY_EXPORT extern PyTypeObject PyTypeSNLTermDirection;
 
 extern PyObject*    PySNLTermDirection_Link(naja::NL::SNLTerm::Direction*);
 extern void         PySNLTermDirection_LinkPyType();
@@ -28,4 +28,3 @@ extern void         PySNLTermDirection_postModuleInit();
 
 } /* PYNAJA namespace */
 
-#endif /* __PY_SNL_TERM_DIRECTION_H_ */

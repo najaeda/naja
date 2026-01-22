@@ -2,11 +2,11 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __PY_SNL_TERMS_H_
-#define __PY_SNL_TERMS_H_
 
+#pragma once
 #include <Python.h>
 #include "NajaCollection.h"
+#include "NajaPythonExport.h"
 
 namespace naja::NL {
   class SNLTerm;
@@ -25,11 +25,10 @@ typedef struct {
   PySNLTerms* container_;
 } PySNLTermsIterator;
 
-extern PyTypeObject PyTypeSNLTerms;
-extern PyTypeObject PyTypeSNLTermsIterator;
+NAJA_PY_EXPORT extern PyTypeObject PyTypeSNLTerms;
+NAJA_PY_EXPORT extern PyTypeObject PyTypeSNLTermsIterator;
 
 extern void PySNLTerms_LinkPyType();
 
 } /* PYNAJA namespace */
  
-#endif /* __PY_SNL_TERMS_H_ */

@@ -2,11 +2,14 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __PY_SNL_INSTTERM_H_
-#define __PY_SNL_INSTTERM_H_
 
+#pragma once
 #include "PySNLNetComponent.h"
-#include "SNLInstTerm.h"
+#include "NajaPythonExport.h"
+
+namespace naja::NL {
+  class SNLInstTerm;
+}
 
 namespace PYNAJA {
 
@@ -14,7 +17,7 @@ typedef struct {
   PySNLNetComponent parent_;
 } PySNLInstTerm;
 
-extern PyTypeObject PyTypeSNLInstTerm;
+NAJA_PY_EXPORT extern PyTypeObject PyTypeSNLInstTerm;
 
 extern PyObject* PySNLInstTerm_Link(naja::NL::SNLInstTerm*);
 extern void PySNLInstTerm_LinkPyType();
@@ -26,4 +29,3 @@ extern void PySNLInstTerm_postModuleInit();
 
 } /* PYNAJA namespace */
  
-#endif /* __PY_SNL_INSTTERM_H_ */

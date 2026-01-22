@@ -2,12 +2,11 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __NL_DB0_H_
-#define __NL_DB0_H_
 
-#include <string>
+#pragma once
+#include "SNLTruthTable.h"
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 class NLName;
 class NLUniverse;
@@ -55,6 +54,8 @@ class NLDB0 {
     static bool isDB0Library(const NLLibrary* library);
     static bool isDB0Primitive(const SNLDesign* design);
 
+    static SNLTruthTable getPrimitiveTruthTable(const SNLDesign* design);
+
     static SNLDesign* getAssign(); 
     static bool isAssign(const SNLDesign* design);
     static SNLScalarTerm* getAssignInput();
@@ -78,6 +79,4 @@ class NLDB0 {
     static constexpr char RootLibraryName[] { "PRIMITIVES" };
 };
 
-}} // namespace NL // namespace naja
-
-#endif // __NL_DB0_H_
+}  // namespace naja::NL

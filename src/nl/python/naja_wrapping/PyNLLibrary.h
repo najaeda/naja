@@ -2,10 +2,10 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __PY_NL_LIBRARY_H_
-#define __PY_NL_LIBRARY_H_
 
+#pragma once
 #include <Python.h>
+#include "NajaPythonExport.h"
 
 namespace naja::NL {
   class NLLibrary;
@@ -18,7 +18,7 @@ typedef struct {
   naja::NL::NLLibrary* object_;
 } PyNLLibrary;
 
-extern PyTypeObject PyTypeNLLibrary;
+NAJA_PY_EXPORT extern PyTypeObject PyTypeNLLibrary;
 
 extern PyObject*    PyNLLibrary_Link(naja::NL::NLLibrary* u);
 extern void         PyNLLibrary_LinkPyType();
@@ -29,4 +29,3 @@ extern void         PyNLLibrary_LinkPyType();
 
 } /* PYNAJA namespace */
  
-#endif /* __PY_NL_LIBRARY_H_ */

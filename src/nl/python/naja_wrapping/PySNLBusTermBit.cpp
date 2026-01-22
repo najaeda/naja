@@ -4,6 +4,8 @@
 
 #include "PySNLBusTermBit.h"
 
+#include "SNLBusTermBit.h"
+
 #include "PyInterface.h"
 #include "PySNLDesign.h"
 #include "PySNLBusTerm.h"

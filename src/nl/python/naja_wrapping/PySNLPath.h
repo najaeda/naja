@@ -2,10 +2,10 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __PY_SNL_PATH_H_
-#define __PY_SNL_PATH_H_
 
+#pragma once
 #include <Python.h>
+#include "NajaPythonExport.h"
 
 namespace naja::NL {
   class SNLPath;
@@ -18,7 +18,7 @@ typedef struct {
   naja::NL::SNLPath* object_;
 } PySNLPath;
 
-extern PyTypeObject PyTypeSNLPath;
+NAJA_PY_EXPORT extern PyTypeObject PyTypeSNLPath;
 
 extern PyObject*  PySNLPath_Link(const naja::NL::SNLPath& path);
 extern void       PySNLPath_LinkPyType();
@@ -29,4 +29,3 @@ extern void       PySNLPath_LinkPyType();
 
 } // PYNAJA namespace
  
-#endif // __PY_SNL_INSTANCE_H_

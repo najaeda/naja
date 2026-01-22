@@ -4,6 +4,8 @@
 
 #include "PySNLInstParameter.h"
 
+#include "SNLInstance.h"
+
 #include "PyInterface.h"
 #include "PySNLInstance.h"
 #include "PySNLParameter.h"

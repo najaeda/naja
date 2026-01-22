@@ -6,6 +6,7 @@ INCLUDE(GoogleTest)
 
 SET(snl_tests
   NLIDTest.cpp
+  NLNameTest.cpp
   NLUniverseTest.cpp NLDBTest.cpp NLLibraryTest.cpp
   NLDB0Test.cpp
   SNLDesignTest.cpp SNLDesignCloneTest.cpp
@@ -22,7 +23,8 @@ SET(snl_tests
 )
 
 SET(snl_tests_with_pyloader
-  SNLEquipotentialTest.cpp
+  SNLEquipotentialTest0.cpp
+  SNLEquipotentialTest1.cpp
 )
 
 ADD_EXECUTABLE(snlTests ${snl_tests})

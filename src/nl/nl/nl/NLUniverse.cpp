@@ -4,7 +4,8 @@
 
 #include "NLUniverse.h"
 
-#include <iostream>
+#include "NajaLog.h"
+
 #include "NLDB0.h"
 #include "SNLScalarNet.h"
 #include "SNLBusNet.h"
@@ -14,8 +15,12 @@
 #include "SNLBusTermBit.h"
 #include "SNLInstTerm.h"
 #include "NLException.h"
+#include "PNLTechnology.h"
 
-namespace naja { namespace NL {
+#include <limits>
+#include <string>
+
+namespace naja::NL {
 
 NLUniverse* NLUniverse::universe_ = nullptr;
 
@@ -35,15 +40,15 @@ void NLUniverse::preCreate() {
 
 void NLUniverse::postCreate() {
   super::postCreate();
+  nameTable_.names.push_back(std::make_unique<std::string>());
+  nameTable_.nameToId.emplace(std::string_view(*nameTable_.names.front()), 0);
   //create the special DB0 which holds the NL managed libraries
   //such as assign cell
   db0_ = NLDB0::create(this);
 }
 
 void NLUniverse::preDestroy() {
-#ifdef NL_DESTROY_DEBUG
-  std::cerr << "Destroying " << getDescription() << std::endl; 
-#endif
+  NAJA_LOG_TRACE("Destroying {}", getDescription());
   struct destroyDBFromUniverse {
     void operator()(NL::NLDB* db) {
       db->destroyFromUniverse();
@@ -54,6 +59,12 @@ void NLUniverse::preDestroy() {
     dbs_.erase_and_dispose(++dbs_.begin(), dbs_.end(), destroyDBFromUniverse());
   }
   dbs_.clear_and_dispose(destroyDBFromUniverse());
+  if (technology_) {
+    technology_->destroy();
+    technology_ = nullptr;
+  }
+  nameTable_.nameToId.clear();
+  nameTable_.names.clear();
   universe_ = nullptr;
   super::preDestroy();
 }
@@ -281,6 +292,38 @@ void NLUniverse::mergeAssigns() {
   }
 }
 
+NLName::ID NLUniverse::getOrCreateNameID(const std::string& name) {
+  // Redundant guard: callers (NLName) already filter empty names.
+  //LCOV_EXCL_START
+  if (name.empty()) {
+    return 0;
+  }
+  //LCOV_EXCL_STOP
+  auto it = nameTable_.nameToId.find(std::string_view(name));
+  if (it != nameTable_.nameToId.end()) {
+    return it->second;
+  }
+  if (nameTable_.names.size() >= std::numeric_limits<NLName::ID>::max()) {
+    throw NLException("NLUniverse name table overflow"); //LCOV_EXCL_LINE
+  }
+  NLName::ID id = static_cast<NLName::ID>(nameTable_.names.size());
+  nameTable_.names.push_back(std::make_unique<std::string>(name));
+  const std::string& stored = *nameTable_.names.back();
+  nameTable_.nameToId.emplace(std::string_view(stored), id);
+  return id;
+}
+
+const std::string& NLUniverse::getNameString(NLName::ID id) const {
+  if (id < nameTable_.names.size()) {
+    return *nameTable_.names[id];
+  }
+  throw NLException("NLUniverse invalid NLName ID: " + std::to_string(id));
+}
+
+PNLTechnology* NLUniverse::getTechnology() const {
+  return technology_;
+}
+
 //LCOV_EXCL_START
 const char* NLUniverse::getTypeName() const {
   return "NLUniverse";
@@ -310,4 +353,4 @@ void NLUniverse::debugDump(size_t indent, bool recursive, std::ostream& stream) 
 }
 //LCOV_EXCL_STOP
 
-}} // namespace NL // namespace naja
+}  // namespace naja::NL

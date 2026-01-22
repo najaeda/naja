@@ -17,7 +17,7 @@ using namespace naja::NL;
 namespace naja::BNE {
 
 // enum type for actions
-enum ActionType { DELETE, DRIVE_WITH_CONSTANT, REDUCTION, NONE };
+enum ActionType { DELETE_ACTION, DRIVE_WITH_CONSTANT, REDUCTION, NONE };
 
 class Action {
  public:
@@ -111,7 +111,7 @@ class DeleteAction : public Action {
   }
   // copy constructor
   DeleteAction(const DeleteAction& action)
-      : Action(ActionType::DELETE),
+      : Action(ActionType::DELETE_ACTION),
         toDelete_(action.toDelete_),
         context_(action.context_) {}
   // comparator

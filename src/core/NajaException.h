@@ -3,21 +3,21 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __NAJA_EXCEPTION_H_
-#define __NAJA_EXCEPTION_H_
 
 //#include <cpptrace/cpptrace.hpp>
 
+#pragma once
 namespace naja {
 
-struct NajaException: public std::exception { // cpptrace::lazy_exception {
+struct NajaException: public std::exception {
+//public cpptrace::lazy_exception {
   public:
     NajaException() = delete;
     NajaException(const NajaException&) = default;
 
     NajaException(const std::string& reason):
-      //cpptrace::lazy_exception(),
       std::exception(),
+      //cpptrace::lazy_exception(),
       reason_(reason)
     {}
 
@@ -39,4 +39,3 @@ struct NajaException: public std::exception { // cpptrace::lazy_exception {
 
 } // namespace naja
 
-#endif // __NAJA_EXCEPTION_H_

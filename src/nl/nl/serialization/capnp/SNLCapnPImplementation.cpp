@@ -4,6 +4,10 @@
 
 #include "SNLCapnP.h"
 
+#ifdef _WIN32
+#include <io.h>
+#endif
+
 #include <fcntl.h>
 #include <iostream>
 #include <sstream>
@@ -241,8 +245,9 @@ void loadInstParameter(
   //LCOV_EXCL_START
   if (not parameter) {
     std::ostringstream reason;
-    reason << "cannot deserialize instance: no parameter " << std::string(name);
-    reason << " exists in " << instance->getDescription() << " model";
+    reason << "cannot deserialize instance parameter '" << std::string(name) << "'";
+    reason << " for " << instance->getDescription();
+    reason << " (model " << instance->getModel()->getDescription() << ")";
     throw NLException(reason.str());
   }
   //LCOV_EXCL_STOP
@@ -267,7 +272,11 @@ void loadInstance(
   //LCOV_EXCL_START
   if (not model) {
     std::ostringstream reason;
-    reason << "cannot deserialize instance: no model found with provided reference";
+    reason << "cannot deserialize instance " << instanceID << ": model not found";
+    reason << " (reference dbID " << snlModelReference.dbID_;
+    reason << ", libraryID " << snlModelReference.libraryID_;
+    reason << ", designID " << snlModelReference.designID_ << ")";
+    reason << " in design " << design->getDescription();
     throw NLException(reason.str());
   }
   //LCOV_EXCL_STOP
@@ -288,7 +297,9 @@ void loadTermReference(
   //LCOV_EXCL_START
   if (not term) {
     std::ostringstream reason;
-    reason << "cannot deserialize term reference: no term found with provided reference";
+    reason << "cannot deserialize term reference: no term with ID ";
+    reason << termReference.getTermID();
+    reason << " in design " << design->getDescription();
     throw NLException(reason.str());
   }
   //LCOV_EXCL_STOP
@@ -301,7 +312,10 @@ void loadTermReference(
     //LCOV_EXCL_START
     if (not busTermBit) {
       std::ostringstream reason;
-      reason << "cannot deserialize term reference: no bus term bit found with provided reference";
+      reason << "cannot deserialize term reference: no bus term bit";
+      reason << " (termID " << termReference.getTermID();
+      reason << ", bit " << termReference.getBit();
+      reason << ", design " << design->getDescription() << ")";
       throw NLException(reason.str());
     }
     //LCOV_EXCL_STOP
@@ -318,8 +332,9 @@ void loadInstTermReference(
   //LCOV_EXCL_START
   if (not instance) {
     std::ostringstream reason;
-    reason << "cannot deserialize instance term reference, no instance found with ID ";
+    reason << "cannot deserialize instance term reference: no instance with ID ";
     reason << instanceID << " in design " << design->getDescription();
+    reason << " (net " << net->getDescription() << ")";
     throw NLException(reason.str());
   }
   //LCOV_EXCL_STOP
@@ -330,8 +345,9 @@ void loadInstTermReference(
   if (not term) {
     std::ostringstream reason;
     reason << "cannot deserialize instance " << instance->getDescription();
-    reason << " term reference: no term found with ID ";
-    reason << termID << " in model " << model->getDescription();
+    reason << " term reference: no term with ID " << termID;
+    reason << " in model " << model->getDescription();
+    reason << " (net " << net->getDescription() << ")";
     throw NLException(reason.str());
   }
   //LCOV_EXCL_STOP
@@ -343,7 +359,12 @@ void loadInstTermReference(
     //LCOV_EXCL_START
     if (not bitTerm) {
       std::ostringstream reason;
-      reason << "cannot deserialize instance term reference: no bit found in bus term with provided reference";
+      reason << "cannot deserialize instance term reference: no bit found in bus term";
+      reason << " (instance " << instance->getDescription();
+      reason << ", model " << model->getDescription();
+      reason << ", term " << busTerm->getDescription();
+      reason << ", bit " << instTermReference.getBit();
+      reason << ", net " << net->getDescription() << ")";
       throw NLException(reason.str());
     }
     //LCOV_EXCL_STOP
@@ -368,7 +389,8 @@ void loadBusNet(
       //LCOV_EXCL_START
       if (not busNetBit) {
         std::ostringstream reason;
-        reason << "cannot deserialize bus net bit: no bit found in bus term with provided reference";
+        reason << "cannot deserialize bus net bit: no bit ";
+        reason << bit << " in " << busNet->getDescription();
         throw NLException(reason.str());
       }
       //LCOV_EXCL_STOP
@@ -418,7 +440,8 @@ void loadDesignImplementation(
   //LCOV_EXCL_START
   if (not snlDesign) {
     std::ostringstream reason;
-    reason << "cannot deserialize design: no design found in library with provided id";
+    reason << "cannot deserialize design: no design with ID ";
+    reason << designID << " in library " << library->getDescription();
     throw NLException(reason.str());
   }
   //LCOV_EXCL_STOP
@@ -451,7 +474,7 @@ void loadLibraryImplementation(NLDB* db, const DBImplementation::LibraryImplemen
     if (db->getLibraries().empty()) {
       reason << ", no libraries in this db.";
     } else {
-      reason << ", existing libraires are: " << std::endl;
+      reason << ", existing libraries are: " << std::endl;
       for (auto lib: db->getLibraries()) {
         reason << lib->getDescription() << std::endl;
       }
@@ -468,7 +491,7 @@ void loadLibraryImplementation(NLDB* db, const DBImplementation::LibraryImplemen
 
 }
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 void SNLCapnP::dumpImplementation(const NLDB* snlDB, int fileDescriptor) {
   dumpImplementation(snlDB, fileDescriptor, snlDB->getID());
@@ -490,12 +513,23 @@ void SNLCapnP::dumpImplementation(const NLDB* snlDB, int fileDescriptor, NLID::D
 }
 
 void SNLCapnP::dumpImplementation(const NLDB* snlDB, const std::filesystem::path& implementationPath) {
+#ifdef _WIN32
+  int fd = _open(
+    implementationPath.string().c_str(),
+    _O_CREAT | _O_WRONLY | _O_BINARY,
+    _S_IREAD | _S_IWRITE);
+#else
   int fd = open(
     implementationPath.c_str(),
     O_CREAT | O_WRONLY,
     S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+#endif
   dumpImplementation(snlDB, fd);
+#ifdef _WIN32
+  _close(fd);
+#else
   close(fd);
+#endif
 }
 
 //LCOV_EXCL_START
@@ -519,7 +553,9 @@ void SNLCapnP::dumpImplementation(const NLDB* snlDB, const std::filesystem::path
 //}
 //LCOV_EXCL_STOP
 
-NLDB* SNLCapnP::loadImplementation(int fileDescriptor) {
+NLDB* SNLCapnP::loadImplementation(
+  int fileDescriptor,
+  LoadingConfiguration loadingConfiguration) {
   ::capnp::ReaderOptions options;
   options.traversalLimitInWords = std::numeric_limits<uint64_t>::max();
   ::capnp::PackedFdMessageReader message(fileDescriptor, options);
@@ -531,6 +567,7 @@ NLDB* SNLCapnP::loadImplementation(int fileDescriptor) {
   if (not universe) {
     std::ostringstream reason;
     reason << "cannot deserialize DB implementation: no existing universe";
+    reason << " (call NLUniverse::create() before loadImplementation)";
     throw NLException(reason.str());
   }
   //LCOV_EXCL_STOP
@@ -543,10 +580,15 @@ NLDB* SNLCapnP::loadImplementation(int fileDescriptor) {
   return snldb;
 }
 
-NLDB* SNLCapnP::loadImplementation(const std::filesystem::path& implementationPath) {
-  //FIXME: verify if file can be opened
+NLDB* SNLCapnP::loadImplementation(
+  const std::filesystem::path& implementationPath,
+  LoadingConfiguration loadingConfiguration) {
+#ifdef _WIN32
+  int fd = _open(implementationPath.string().c_str(), _O_RDONLY | _O_BINARY);
+#else
   int fd = open(implementationPath.c_str(), O_RDONLY);
-  return loadImplementation(fd);
+#endif
+  return loadImplementation(fd, loadingConfiguration);
 }
 
 //LCOV_EXCL_START
@@ -567,4 +609,4 @@ NLDB* SNLCapnP::loadImplementation(const std::filesystem::path& implementationPa
 //}
 //LCOV_EXCL_STOP
 
-}} // namespace NL // namespace naja
+}  // namespace naja::NL

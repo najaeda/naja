@@ -12,6 +12,7 @@
 #include "NajaDumpableProperty.h"
 #include "NajaPrivateProperty.h"
 
+#include "NLDB0.h"
 #include "SNLDesign.h"
 #include "SNLInstTerm.h"
 
@@ -437,8 +438,7 @@ naja::NajaCollection<naja::NL::SNLBitTerm*> getCombinatorialDepsFromTruthTable(
 
 }  // namespace
 
-namespace naja {
-namespace NL {
+namespace naja::NL {
 
 SNLDesignModeling::SNLDesignModeling(Type type) : type_(type) {
   if (type_ == NO_PARAMETER) {
@@ -913,6 +913,9 @@ size_t SNLDesignModeling::getTruthTableCount(const SNLDesign* design) {
 }
 
 SNLTruthTable SNLDesignModeling::getTruthTable(const SNLDesign* design) {
+  if (NLDB0::isDB0Primitive(design)) {
+    return NLDB0::getPrimitiveTruthTable(design);
+  }
   auto property = getTruthTableProperty(design);
   if (property) {
     size_t tableSize = property->getValues().size() - 1;
@@ -1153,5 +1156,4 @@ bool SNLDesignModeling::isBuf(const SNLDesign* design) {
   return truthTable.isInitialized() && truthTable == SNLTruthTable::Buf();
 }
 
-}  // namespace NL
-}  // namespace naja
+}  // namespace naja::NL

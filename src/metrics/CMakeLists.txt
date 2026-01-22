@@ -25,12 +25,14 @@ target_include_directories(naja_metrics SYSTEM BEFORE PUBLIC ${Boost_INCLUDE_DIR
 target_include_directories(naja_metrics PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_include_directories(naja_metrics PUBLIC ${SPDLOG_DIR})
 
-set_target_properties(naja_metrics PROPERTIES PUBLIC_HEADER "${naja_metrics_HEADERS}")
-
 if(BUILD_NAJA_PYTHON)
-  install(TARGETS naja_metrics LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/najaeda)
+  install(TARGETS naja_metrics
+    LIBRARY DESTINATION najaeda
+    RUNTIME DESTINATION najaeda
+  )
 else(BUILD_NAJA_PYTHON)
-install(TARGETS naja_metrics
-  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-  PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+  set_target_properties(naja_metrics PROPERTIES PUBLIC_HEADER "${naja_metrics_HEADERS}")
+  install(TARGETS naja_metrics
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 endif(BUILD_NAJA_PYTHON)

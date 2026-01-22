@@ -248,7 +248,7 @@ class NajaNetlistTest0(unittest.TestCase):
 
         path0 = naja.SNLPath()
 
-        self.assertEqual(self.noNameBusTop, netlist.get_snl_term_for_ids_with_path(path0, [self.noNameBusTop.getID(), netlist.get_none_existent()]))
+        self.assertEqual(self.noNameBusTop, netlist.get_snl_term_for_ids_with_path(path0, self.noNameBusTop.getID(), None))
 
         #print(path0)
         self.assertIsNotNone(path0)
@@ -315,13 +315,13 @@ class NajaNetlistTest0(unittest.TestCase):
 
         for t in equi.get_top_terms():
             to_compare_with = naja_top_terms.pop(0)
-            self.assertTrue(netlist.get_snl_term_for_ids(t.pathIDs, t.termIDs) == to_compare_with) 
-            self.assertTrue(netlist.get_snl_term_for_ids_with_path(netlist.get_snl_path_from_id_list(t.pathIDs), t.termIDs) == to_compare_with)
+            self.assertTrue(t.get_snl_term() == to_compare_with) 
+            self.assertTrue(netlist.get_snl_term_for_ids_with_path(netlist.get_snl_path_from_id_list(t.pathIDs), t.termID, t.bit) == to_compare_with)
 
         for t in equi.get_inst_terms():
             to_compare_with = naja_inst_term_occurrences.pop(0)
-            self.assertTrue(netlist.get_snl_term_for_ids_with_path(netlist.get_snl_path_from_id_list(t.pathIDs), t.termIDs) == to_compare_with.getInstTerm().getBitTerm())
-            self.assertTrue(netlist.get_snl_term_for_ids(t.pathIDs, t.termIDs) == to_compare_with.getInstTerm().getBitTerm())
+            self.assertTrue(netlist.get_snl_term_for_ids_with_path(netlist.get_snl_path_from_id_list(t.pathIDs), t.termID, t.bit) == to_compare_with.getInstTerm().getBitTerm())
+            self.assertTrue(t.get_snl_term() == to_compare_with.getInstTerm().getBitTerm())
             self.assertTrue(netlist.get_snl_path_from_id_list(t.pathIDs).getHeadPath() == to_compare_with.getPath())
 
         instance = netlist.Instance(path1)
@@ -419,13 +419,13 @@ class NajaNetlistTest0(unittest.TestCase):
         terms.add(top_term)
         terms.add(top_term2)
         self.assertEqual(2, len(terms))
-        self.assertEqual(None, top_term.get_equipotential().equi)
+        self.assertIsNotNone(top_term.get_equipotential().equi)
 
         net = netlist.get_top().create_net("netI1") 
 
         top_term.connect_lower_net(net)
 
-        self.assertEqual(None, top_term.get_equipotential().equi)
+        self.assertIsNotNone(top_term.get_equipotential().equi)
 
         self.assertEqual(top_term, top_term)
         self.assertNotEqual(top_term, top_term2)
@@ -542,6 +542,39 @@ class NajaNetlistTest0(unittest.TestCase):
         self.assertEqual(truth_table, [2,4])
         with self.assertRaises(Exception) as context: prim.setTruthTables([2,4])
         with self.assertRaises(Exception) as context: prim.setTruthTable(2,)
+
+    def test_const_nets(self):
+        universe = naja.NLUniverse.create()
+        db = naja.NLDB.create(universe)
+        top = netlist.create_top('Top')
+        self.assertIsNotNone(top)
+        net = top.create_net('net')
+        self.assertIsNotNone(net)
+        net.set_type(netlist.Net.Type.ASSIGN0)
+        self.assertTrue(net.is_const())
+        self.assertTrue(net.is_const0())
+        net.set_type(netlist.Net.Type.ASSIGN1)
+        self.assertTrue(net.is_const())
+        self.assertTrue(net.is_const1())
+        top_i0 = top.create_input_term('I0')
+        self.assertIsNotNone(top_i0)
+        top_i0.connect_lower_net(net)
+        self.assertIsNotNone(top_i0.get_lower_net())
+        self.assertTrue(top_i0.get_lower_net().is_const())
+        self.assertTrue(top_i0.get_lower_net().is_const1())
+        equi = top_i0.get_equipotential()
+        self.assertIsNotNone(equi)
+        self.assertListEqual(list(equi.get_top_terms()), [top_i0])
+        self.assertTrue(equi.is_const1())
+        self.assertFalse(equi.is_const0())
+        self.assertTrue(equi.is_const())
+        net.set_type(netlist.Net.Type.ASSIGN0)
+        equi = top_i0.get_equipotential()
+        self.assertIsNotNone(equi)
+        self.assertListEqual(list(equi.get_top_terms()), [top_i0])
+        self.assertTrue(equi.is_const0())
+        self.assertFalse(equi.is_const1())
+        self.assertTrue(equi.is_const())
         
 if __name__ == '__main__':
     faulthandler.enable()

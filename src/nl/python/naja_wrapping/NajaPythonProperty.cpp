@@ -7,6 +7,8 @@
 #include "NajaPythonProperty.h"
 
 #include <sstream>
+#include <cstddef>
+#include <cstdint>
 
 #include "NajaProperty.h"
 #include "NajaObject.h"
@@ -25,7 +27,7 @@ const char* twiceSetOffset =
 // Class : "SNLProxyProperty".
 
 std::string NajaPythonProperty::name_ = "Naja::SNLProxyProperty";
-int NajaPythonProperty::offset_ = -1;
+std::ptrdiff_t NajaPythonProperty::offset_ = -1;
 
 NajaPythonProperty::NajaPythonProperty(void* shadow):
   shadow_(shadow)
@@ -48,15 +50,31 @@ void NajaPythonProperty::preDestroy() {
   if (owner_) {
     owner_->onDestroyed(this);
   }
-  if (offset_ > 0) {
-    void** shadowMember = ((void**)((unsigned long)shadow_ + offset_));
+  if (offset_ >= 0) {
+    // Portable pointer arithmetic: Windows is LLP64 (unsigned long is 32-bit),
+    // so never cast pointers to unsigned long.
+    auto* base = reinterpret_cast<std::byte*>(shadow_);
+    auto* addr = base + static_cast<std::ptrdiff_t>(offset_);
+
+    // Defensive: ensure we are writing to an address aligned for a pointer.
+    if ((reinterpret_cast<std::uintptr_t>(addr) % alignof(void*)) != 0) {
+      // If this triggers, the offset computation is wrong or the struct packing differs.
+      // LCOV_EXCL_START
+      throw NL::NLException(
+        "NajaPythonProperty::preDestroy(): shadow member offset is misaligned (likely non-portable offset / packing issue)."
+      );
+      // LCOV_EXCL_STOP
+    }
+
+    auto** shadowMember = reinterpret_cast<void**>(addr);
     *shadowMember = nullptr;
   }
 }
 
 void NajaPythonProperty::onCapturedBy(NajaObject* owner) {
-  if (owner_ and (owner_ != owner))
+  if (owner_ and (owner_ != owner)) {
     throw NL::NLException(getString().c_str());
+  }
 
   owner_ = owner;
 }
@@ -71,9 +89,10 @@ void NajaPythonProperty::onNotOwned() {
   destroy();
 }
 
-void NajaPythonProperty::setOffset(int offset) {
-  if (offset_ >= 0)
-    throw NL::NLException(twiceSetOffset);
+void NajaPythonProperty::setOffset(std::ptrdiff_t offset) {
+  if (offset_ >= 0) {
+    throw NL::NLException(twiceSetOffset); // LCOV_EXCL_LINE
+  }
 
   offset_ = offset;
 }

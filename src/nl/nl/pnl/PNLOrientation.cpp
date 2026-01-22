@@ -4,7 +4,7 @@
 
 #include "PNLOrientation.h"
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 PNLOrientation::Type::Type(const TypeEnum& typeEnum):
   typeEnum_(typeEnum) 
@@ -26,4 +26,4 @@ std::string PNLOrientation::Type::getString() const {
   // LCOV_EXCL_STOP
 }
 
-}} // namespace PNL // namespace naja
+} // namespace naja::PNL

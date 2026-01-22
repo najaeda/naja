@@ -2,11 +2,14 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __PY_SNL_BUS_NET_BIT_H_
-#define __PY_SNL_BUS_NET_BIT_H_
+#pragma once
 
 #include "PySNLBitNet.h"
-#include "SNLBusNetBit.h"
+#include "NajaPythonExport.h"
+
+namespace naja::NL {
+  class SNLBusNetBit;
+}
 
 namespace PYNAJA {
 
@@ -14,7 +17,7 @@ typedef struct {
   PySNLBitNet parent_;
 } PySNLBusNetBit;
 
-extern PyTypeObject PyTypeSNLBusNetBit;
+NAJA_PY_EXPORT extern PyTypeObject PyTypeSNLBusNetBit;
 
 extern PyObject*    PySNLBusNetBit_Link(naja::NL::SNLBusNetBit* n);
 extern void         PySNLBusNetBit_LinkPyType();
@@ -25,4 +28,3 @@ extern void         PySNLBusNetBit_LinkPyType();
 
 } /* PYNAJA namespace */
  
-#endif /* __PY_SNL_BUS_NET_BIT_H_ */

@@ -2,15 +2,14 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __PNL_NET_H_
-#define __PNL_NET_H_
 
+#pragma once
 #include <boost/intrusive/set.hpp>
 
 #include "NLName.h"
 #include "PNLDesignObject.h"
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 class PNLBitNet;
 
@@ -103,6 +102,4 @@ class PNLNet: public PNLDesignObject {
     private: bool isExternal_;
 };
 
-}} // namespace NL // namespace naja
-
-#endif // __PNL_NET_H_
+}  // namespace naja::NL

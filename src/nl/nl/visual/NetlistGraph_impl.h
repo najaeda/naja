@@ -4,9 +4,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef NETLIST_GTAPH_IMPL_H
-#define NETLIST_GTAPH_IMPL_H
 
+#pragma once
 #include "NetlistGraph.h"
 
 template <class InstData, class PortData, class WireData, class BusData>
@@ -219,4 +218,3 @@ void NetlistGraph<InstData, PortData, WireData, BusData>::addConnectivity(
     }
   }
 }
-#endif  // NETLIST_GTAPH_IMPL_H
