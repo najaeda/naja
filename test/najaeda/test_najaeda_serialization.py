@@ -106,6 +106,40 @@ class TestSerialization(unittest.TestCase):
         self.assertEqual(p["name"], "CLK")
         self.assertEqual(p["direction"], 0)
 
+    # ------------------------------------------------------------
+    # serialize_equipotential_occurrence
+    # ------------------------------------------------------------
+    def test_serialize_equipotential_occurrence(self):
+        mid = naja.SNLDesign.create(self.lib, "Mid")
+        leaf = naja.SNLDesign.create(self.lib, "Leaf")
+        leaf_in = naja.SNLScalarTerm.create(
+            leaf,
+            naja.SNLTerm.Direction.Input,
+            "IN"
+        )
+
+        inst1 = naja.SNLInstance.create(self.design, mid, "inst1")
+        inst2 = naja.SNLInstance.create(mid, leaf, "inst2")
+
+        path0 = naja.SNLPath()
+        path1 = naja.SNLPath(path0, inst1)
+        inst_terms = tuple(inst2.getInstTerms())
+        inst_term = inst_terms[0]
+        occ = naja.SNLOccurrence(path1, inst_term)
+
+        payload = serialize_equipotential_occurrence(occ)
+        self.assertEqual(
+            payload["path"],
+            [
+                [inst1.getName(), inst1.getID()],
+                [inst2.getName(), inst2.getID()],
+            ],
+        )
+        self.assertEqual(payload["term_id"], leaf_in.getID())
+        self.assertEqual(payload["name"], leaf_in.getName())
+        self.assertEqual(payload["direction"], direction_to_int(leaf_in.getDirection()))
+        self.assertIsNone(payload["bit"])
+
 
 if __name__ == "__main__":
     unittest.main()
