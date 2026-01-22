@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1769080067414,
+  "lastUpdate": 1769082353231,
   "repoUrl": "https://github.com/najaeda/naja",
   "entries": {
     "SNL Benchmarks": [
@@ -738,6 +738,104 @@ window.BENCHMARK_DATA = {
             "value": 167499.9234601284,
             "unit": "ns/iter",
             "extra": "iterations: 4220\ncpu: 165451.07654029698 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "najaeda",
+            "username": "najaeda"
+          },
+          "committer": {
+            "name": "najaeda",
+            "username": "najaeda"
+          },
+          "id": "6fa86cf9cd4fdd1ddb2250591a5a6d0868cf3420",
+          "message": "Najaeda netlist remote server",
+          "timestamp": "2026-01-22T11:03:58Z",
+          "url": "https://github.com/najaeda/naja/pull/324/commits/6fa86cf9cd4fdd1ddb2250591a5a6d0868cf3420"
+        },
+        "date": 1769082352596,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "BM_CreateNetlist0",
+            "value": 18097.46817658351,
+            "unit": "ns/iter",
+            "extra": "iterations: 39075\ncpu: 18096.048214971208 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_CreateInstances/100",
+            "value": 89547.34002557347,
+            "unit": "ns/iter",
+            "extra": "iterations: 7820\ncpu: 89540.0851662404 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_CreateInstances/1000",
+            "value": 1216764.2586805213,
+            "unit": "ns/iter",
+            "extra": "iterations: 576\ncpu: 1216699.9409722222 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_CreateInstances/10000",
+            "value": 19226280.789473847,
+            "unit": "ns/iter",
+            "extra": "iterations: 38\ncpu: 19223489.000000004 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_TraversalInstances/100",
+            "value": 1499.9206685862464,
+            "unit": "ns/iter",
+            "extra": "iterations: 466776\ncpu: 1499.8720842545456 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_TraversalInstances/1000",
+            "value": 14838.760995886087,
+            "unit": "ns/iter",
+            "extra": "iterations: 47154\ncpu: 14837.894494634598 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_TraversalInstances/10000",
+            "value": 235051.23858986457,
+            "unit": "ns/iter",
+            "extra": "iterations: 3177\ncpu: 235040.91155177852 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_LoadVerilogFile/Gates0",
+            "value": 212674.18353658155,
+            "unit": "ns/iter",
+            "extra": "iterations: 3280\ncpu: 212652.7878048781 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_LoadVerilogFile/FullAdder",
+            "value": 171775.56542055515,
+            "unit": "ns/iter",
+            "extra": "iterations: 4066\ncpu: 171767.19404820475 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_LoadVerilogFile/Gates2",
+            "value": 106221.3614787715,
+            "unit": "ns/iter",
+            "extra": "iterations: 6573\ncpu: 106212.14605203128 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_LoadVerilogFile/LargeHierGates",
+            "value": 57902430.00000145,
+            "unit": "ns/iter",
+            "extra": "iterations: 10\ncpu: 57897574.10000007 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_HierarchyTraversal",
+            "value": 24048.452051977114,
+            "unit": "ns/iter",
+            "extra": "iterations: 29167\ncpu: 24045.84297322314 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_CapnPSerialize",
+            "value": 167768.71155208186,
+            "unit": "ns/iter",
+            "extra": "iterations: 4129\ncpu: 167622.2598692364 ns\nthreads: 1"
           }
         ]
       }
