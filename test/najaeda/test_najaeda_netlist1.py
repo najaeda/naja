@@ -282,7 +282,8 @@ class NajaNetlistTest1(unittest.TestCase):
 
         # Define the callback to execute at each node
         def callback(instance):
-            print(f"Visited instance: {instance}")
+            pass
+            #print(f"Visited instance: {instance}")
 
         visitor_config = instance_visitor.VisitorConfig(callback=callback)
         instance_visitor.visit(top, visitor_config)
