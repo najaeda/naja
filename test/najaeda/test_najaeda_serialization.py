@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+#
+# SPDX-License-Identifier: Apache-2.0
+
 import unittest
 from najaeda.remote.serialization import (
     direction_to_int,
@@ -8,7 +12,6 @@ from najaeda.remote.serialization import (
     serialize_equipotential_occurrence,
 )
 from najaeda import naja
-
 
 class TestSerialization(unittest.TestCase):
 

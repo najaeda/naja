@@ -1,4 +1,6 @@
-# SPDX-FileCopyrightText: 2025 The Naja authors
+# SPDX-FileCopyrightText: 2024 The Naja authors
+# <https://github.com/najaeda/naja/blob/main/AUTHORS>
+#
 # SPDX-License-Identifier: Apache-2.0
 
 """
@@ -24,10 +26,12 @@ def direction_to_int(direction: naja.SNLTerm.Direction) -> int:
     else:
         return 2
 
+
 class SerializedDesignRef(TypedDict):
     db_id: int
     library_id: int
     design_id: int
+
 
 def serialize_design_ref(model: naja.SNLDesign) -> SerializedDesignRef:
     """
@@ -50,7 +54,7 @@ class SerializedModel(TypedDict):
     has_instances: bool
 
 
-def serialize_model(model: naja.SNLDesign, child_id: int, name: str)-> SerializedModel:
+def serialize_model(model: naja.SNLDesign, child_id: int, name: str) -> SerializedModel:
     """
     Serialize a model (SNLDesign) plus its position as a child instance (child_id, name).
     """
@@ -63,6 +67,7 @@ def serialize_model(model: naja.SNLDesign, child_id: int, name: str)-> Serialize
         "has_primitives": model.hasPrimitiveInstances(),
         "has_instances": model.hasNonPrimitiveInstances(),
     }
+
 
 class SerializedTerm(TypedDict):
     name: str

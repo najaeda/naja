@@ -1,7 +1,10 @@
+# SPDX-FileCopyrightText: 2024 The Naja authors
+# <https://github.com/najaeda/naja/blob/main/AUTHORS>
+#
 # SPDX-License-Identifier: Apache-2.0
 
 """
-WebSocket protocol layer for NajaEDA remote access.
+WebSocket protocol layer for najaeda remote access.
 
 This module knows how to:
 - interpret incoming JSON requests
@@ -9,19 +12,18 @@ This module knows how to:
 - return JSON-serializable responses via the websocket
 """
 
-#from __future__ import annotations
-
 import json
 import logging
-#from typing import Any, Dict, Optional, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
-#from najaeda import naja
-#from najaeda.remote.serializer import (
-#    serialize_model,
-#    serialize_term,
-#    serialize_equipotential_occurrence,
-#    serialize_equipotential_term,
-#)
+from najaeda import naja
+
+from .serialization import (
+    serialize_equipotential_occurrence,
+    serialize_equipotential_term,
+    serialize_model,
+    serialize_term,
+)
 
 logger = logging.getLogger(__name__)
 
