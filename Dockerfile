@@ -29,7 +29,7 @@ RUN ctest -j8 --output-on-failure
 FROM alpine:3.19.1 as release
 RUN apk --no-cache add ca-certificates
 RUN apk add --no-cache \
-    libstdc++ capnproto python3
+    libstdc++ capnproto python3 onetbb
 
 RUN addgroup -S naja && adduser -S naja -G naja
 USER naja
