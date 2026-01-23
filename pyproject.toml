@@ -13,7 +13,7 @@ authors = [{name = "Naja Authors", email = "contact@keplertech.io"}]
 readme = "src/najaeda/README.rst"
 requires-python = ">=3.8"
 license = {text = "Apache License 2.0"}
-version = "0.3.3"
+dynamic = ["version"]
 
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -35,6 +35,11 @@ classifiers = [
 CMAKE_BUILD_TYPE="Release"
 BUILD_NAJA_PYTHON="ON"
 PREGENERATED_PARSER_SOURCES="ON"
+
+[tool.scikit-build.metadata.version]
+provider = "scikit_build_core.metadata.regex"
+input = "src/core/NajaVersion.h.in"
+regex = 'NAJA_VERSION\s*\{\s*"(?P<value>[^"]+)"\s*\}'
 
 [project.urls]
 Homepage = "https://github.com/najaeda/naja"

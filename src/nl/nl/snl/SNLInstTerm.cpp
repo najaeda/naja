@@ -5,7 +5,8 @@
 #include "SNLInstTerm.h"
 
 #include <sstream>
-#include <iostream>
+
+#include "NajaLog.h"
 
 #include "NLException.h"
 
@@ -16,7 +17,7 @@
 #include "SNLBitNet.h"
 #include "SNLMacros.h"
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 SNLInstTerm::SNLInstTerm(SNLInstance* instance, SNLBitTerm* bitTerm):
   instance_(instance),
@@ -39,9 +40,7 @@ void SNLInstTerm::postCreate() {
 }
 
 void SNLInstTerm::preDestroy() {
-#ifdef SNL_DESTROY_DEBUG
-  std::cerr << "Destroying " << getDescription() << std::endl; 
-#endif
+  NAJA_LOG_TRACE("Destroying {}", getDescription());
   super::preDestroy();
 }
 
@@ -146,4 +145,4 @@ bool SNLInstTerm::deepCompare(const SNLNetComponent* other, std::string& reason)
   return true;
 }
 
-}} // namespace NL // namespace naja
+}  // namespace naja::NL

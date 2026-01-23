@@ -13,7 +13,7 @@
 #include "SNLInstance.h"
 #include "SNLSharedPath.h"
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 SNLPath::SNLPath(SNLSharedPath* sharedPath) : sharedPath_(sharedPath) {}
 

@@ -2,9 +2,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __PY_SNL_NET_COMPONENTS_H_
-#define __PY_SNL_NET_COMPONENTS_H_
 
+#pragma once
 #include <Python.h>
 #include "NajaCollection.h"
 #include "NajaPythonExport.h"
@@ -33,4 +32,3 @@ extern void PySNLNetComponents_LinkPyType();
 
 } /* PYNAJA namespace */
  
-#endif /* __PY_SNL_NET_COMPONENTS_H_ */

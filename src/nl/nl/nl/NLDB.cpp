@@ -5,15 +5,16 @@
 #include "NLDB.h"
 
 #include <list>
-#include <iostream>
 #include <sstream>
+
+#include "NajaLog.h"
 
 #include "NLUniverse.h"
 #include "NLDB0.h"
 #include "NLException.h"
 #include "SNLMacros.h"
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 NLDB::NLDB(NLID::DBID id):
   id_(id)
@@ -43,7 +44,10 @@ void NLDB::preCreate(NLUniverse* universe) {
 void NLDB::preCreate(NLUniverse* universe, NLID::DBID id) {
   preCreate(universe);
   if (NLUniverse::get()->getDB(id)) {
-    throw NLException("DB collision");
+    std::ostringstream oss;
+    oss << "DB collision: duplicate or conflicting entry detected (id="
+        << static_cast<unsigned int>(id) << ")";
+    throw NLException(oss.str());
   }
 }
 
@@ -58,9 +62,7 @@ void NLDB::postCreate(NLUniverse* universe) {
 }
 
 void NLDB::commonPreDrestroy() {
-#ifdef SNL_DESTROY_DEBUG
-  std::cerr << "Destroying " << getDescription() << std::endl; 
-#endif
+  NAJA_LOG_TRACE("Destroying {}", getDescription());
   struct destroyLibraryFromDB {
     void operator()(NL::NLLibrary* library) {
       library->destroyFromDB();
@@ -252,4 +254,4 @@ void NLDB::debugDump(size_t indent, bool recursive, std::ostream& stream) const 
 }
 //LCOV_EXCL_STOP
 
-}} // namespace NL // namespace naja
+}  // namespace naja::NL

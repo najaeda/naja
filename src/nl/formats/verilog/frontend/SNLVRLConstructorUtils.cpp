@@ -8,7 +8,7 @@
 #include <sstream>
 #include "SNLVRLConstructorException.h"
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 void SNLVRLConstructorUtils::setBit(boost::dynamic_bitset<>& bits, size_t i) {
   if (i<bits.size()) {
@@ -88,4 +88,4 @@ boost::dynamic_bitset<> SNLVRLConstructorUtils::numberToBits(const naja::verilog
   return boost::dynamic_bitset<>();
 }
 
-}} // namespace SNL // namespace naja
+} // namespace naja::NL

@@ -13,7 +13,7 @@
 #include "SNLDesign.h"
 #include "SNLMacros.h"
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 SNLScalarNet::SNLScalarNet(SNLDesign* design, const NLName& name):
   super(),
@@ -178,4 +178,4 @@ void SNLScalarNet::debugDump(size_t indent, bool recursive, std::ostream& stream
 }
 //LCOV_EXCL_STOP
 
-}} // namespace NL // namespace naja
+}  // namespace naja::NL

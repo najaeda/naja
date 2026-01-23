@@ -235,7 +235,7 @@ void parseCells(NLLibrary* library, const Yosys::LibertyAst* ast) {
 
 }
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 SNLLibertyConstructor::SNLLibertyConstructor(NLLibrary* library):
   library_(library)
@@ -275,4 +275,4 @@ void SNLLibertyConstructor::construct(const std::filesystem::path& path) {
   parseCells(library_, ast);
 }
 
-}} // namespace NL // namespace naja
+}  // namespace naja::NL

@@ -11,8 +11,7 @@
 #include "PNLBitNet.h"
 #include "SNLMacros.h"
 
-namespace naja {
-namespace NL {
+namespace naja::NL {
 
 void PNLBitTerm::preCreate() {
   super::preCreate();
@@ -28,5 +27,4 @@ void PNLBitTerm::preDestroy() {
 
 PNL_NET_COMPONENT_SET_NET(PNLBitTerm)
 
-}  // namespace NL
-}  // namespace naja
+}  // namespace naja::NL

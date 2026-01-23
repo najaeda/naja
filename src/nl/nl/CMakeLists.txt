@@ -6,6 +6,7 @@ add_subdirectory(serialization)
 add_subdirectory(visual)
 
 set(NL_SOURCES
+  nl/NLName.cpp
   nl/NLObject.cpp
   nl/NLUniverse.cpp
   nl/NLDB.cpp nl/NLDB0.cpp
@@ -79,6 +80,7 @@ set(HEADERS
   snl/SNLUtils.h
   snl/SNLOccurrence.h
   snl/SNLEquipotential.h
+  snl/SNLExceptions.h
   pnl/PNLPoint.h
   pnl/PNLDesign.h
   pnl/PNLInstance.h
@@ -108,8 +110,6 @@ add_library(naja_nl SHARED
 
 target_link_libraries(naja_nl PUBLIC naja_core)
 target_compile_options(naja_nl PRIVATE ${NAJA_CXX_WARNINGS}) 
-
-#target_compile_definitions(naja_snl PRIVATE SNL_DESTROY_DEBUG)
 
 target_include_directories(naja_nl SYSTEM BEFORE PUBLIC ${Boost_INCLUDE_DIR})
 target_include_directories(naja_nl PUBLIC

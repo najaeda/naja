@@ -7,7 +7,7 @@
 #include "PNLPoint.h"
 #include <limits>
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 class PNLBox {
   public:
@@ -85,4 +85,4 @@ class PNLBox {
       Unit top_     {std::numeric_limits<Unit>::min()};
 };
 
-}} // namespace NL // namespace naja
+}  // namespace naja::NL

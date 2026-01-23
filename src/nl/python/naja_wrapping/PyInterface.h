@@ -2,9 +2,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __PY_INTERFACE_H
-#define __PY_INTERFACE_H
 
+#pragma once
 #include <iostream>
 #include <sstream>
 
@@ -418,19 +417,17 @@ PyObject* richCompare(T left, T right, int op) {
  PyDict_SetItemString(DICTIONARY, CONSTANT_NAME, constant);         \
  Py_DECREF(constant);
 
-#define PYTYPE_READY(TYPE)                                        \
-  if (PyType_Ready(&PyType##TYPE) < 0) {                          \
-    std::cerr << "[ERROR] Failed to initialize <Py" #TYPE ">."    \
-      << std::endl;                                               \
-    return nullptr;                                               \
+#define PYTYPE_READY(TYPE) \
+  if (PyType_Ready(&PyType##TYPE) < 0) { \
+    NAJA_LOG_ERROR("Failed to initialize <Py" #TYPE ">."); \
+    return nullptr; \
   }
 
-#define  PYTYPE_READY_SUB(TYPE, TYPE_BASE)                        \
-  PyType##TYPE.tp_base = &PyType##TYPE_BASE;                      \
-  if (PyType_Ready(&PyType##TYPE) < 0) {                          \
-    std::cerr << "[ERROR]\n"                                      \
-         << "  Failed to initialize <Py" #TYPE ">." << std::endl; \
-    return nullptr;                                               \
+#define PYTYPE_READY_SUB(TYPE, TYPE_BASE) \
+  PyType##TYPE.tp_base = &PyType##TYPE_BASE; \
+  if (PyType_Ready(&PyType##TYPE) < 0) { \
+    NAJA_LOG_ERROR("Failed to initialize <Py" #TYPE ">."); \
+    return nullptr; \
   }
 
 #define PyTypeObjectDefinitions(SELF_TYPE) \
@@ -613,4 +610,3 @@ PyObject* richCompare(T left, T right, int op) {
   setError("malformed " #OWNER_TYPE "." #GETTER " method"); \
   return nullptr;
 
-#endif /* __PY_INTERFACE_H */

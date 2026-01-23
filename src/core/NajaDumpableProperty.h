@@ -3,9 +3,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __NAJA_DUMPABLE_PROPERTY_H_
-#define __NAJA_DUMPABLE_PROPERTY_H_
 
+#pragma once
 #include "NajaPrivateProperty.h"
 
 #include <cstdint>
@@ -54,4 +53,3 @@ class NajaDumpableProperty: public NajaPrivateProperty {
 
 } // namespace naja
 
-#endif /* __NAJA_DUMPABLE_PROPERTY_H_ */

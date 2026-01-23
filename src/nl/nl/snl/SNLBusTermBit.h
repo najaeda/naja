@@ -2,12 +2,11 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __SNL_BUS_TERM_BIT_H_
-#define __SNL_BUS_TERM_BIT_H_
 
+#pragma once
 #include "SNLBitTerm.h"
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 class SNLBusTerm;
 
@@ -57,6 +56,4 @@ class SNLBusTermBit final: public SNLBitTerm {
     NLID::Bit   bit_;
 };
 
-}} // namespace NL // namespace naja
-
-#endif // __SNL_BUS_TERM_H_
+}  // namespace naja::NL

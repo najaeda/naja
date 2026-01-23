@@ -2,14 +2,13 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __NL_LIBRARY_TRUTH_TABLES_H_
-#define __NL_LIBRARY_TRUTH_TABLES_H_
 
+#pragma once
 #include <vector>
 #include <map>
 #include "SNLTruthTable.h"
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 class NLLibrary;
 class SNLDesign;
@@ -24,6 +23,4 @@ class NLLibraryTruthTables {
       static std::pair<SNLDesign*, Indexes> getDesignForTruthTable(const NLLibrary* library, const SNLTruthTable& tt);
 };
 
-}} // namespace NL // namespace naja
-
-#endif // __NL_LIBRARY_TRUTH_TABLES_H_
+}  // namespace naja::NL

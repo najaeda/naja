@@ -4,16 +4,19 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "LEFConstructor.h"
+
 #include <boost/algorithm/string.hpp>
 #include <cstdio>
 #include <cstring>
-#include <fstream>
 #include <iostream>
 #include <memory>
+#include <sstream>
+#include "NajaLog.h"
 #include "NLDB.h"
 #include "NLLibrary.h"
 #include "NLName.h"
 #include "NLUniverse.h"
+#include "PNLTechnology.h"
 #include "PNLBox.h"
 #include "PNLDesign.h"
 #include "PNLNet.h"
@@ -22,18 +25,14 @@
 #include "PNLTerm.h"
 #include "lefrReader.hpp"
 
-// sstream
-#include <sstream>
-using std::cerr;
-using std::endl;
-using std::string;
-using namespace std;
 using namespace naja::NL;
 
 namespace {
 
 void logFunction_(const char* message) {
-  std::cout << message << std::endl;
+  if (message) {
+    NAJA_LOG_INFO("{}", message);
+  }
 }
 
 void pinStdPostProcess_() {}
@@ -75,7 +74,12 @@ int siteCbk_(lefrCallbackType_e c, lefiSite* site, lefiUserData ud) {
                       // );
   PNLBox::Unit lefSiteHeight =
       site->sizeY();  // PNLBox::fromPhysical( site->sizeY(), PNLBox::Micro
-  auto pnlSite = PNLSite::create(NLName(site->name()), siteClass, lefSiteWidth,
+  auto universe = NLUniverse::get();
+  auto tech = universe->getTechnology();
+  if (not tech) {
+    tech = PNLTechnology::create(universe);
+  }
+  auto pnlSite = PNLSite::create(tech, NLName(site->name()), siteClass, lefSiteWidth,
                                  lefSiteHeight);
   if (site->hasXSymmetry() && site->hasYSymmetry()) {
     pnlSite->setSymmetry(PNLSite::Symmetry::X_Y);
@@ -258,8 +262,12 @@ int macroCbk_(lefrCallbackType_e c, lefiMacro* macro, lefiUserData ud) {
   string gaugeName = "Unknown SITE";
   if (macro->hasSiteName()) {
     std::string siteName = macro->siteName();
-    PNLSite* site =
-        PNLTechnology::getOrCreate()->getSiteByName(NLName(siteName));
+    auto universe = NLUniverse::get();
+    auto tech = universe->getTechnology();
+    if (not tech) {
+      tech = PNLTechnology::create(universe);
+    }
+    PNLSite* site = tech->getSiteByName(NLName(siteName));
     cell->setSite(site);
     if (site->getClass() == PNLSite::ClassType::Pad) {
       isPad = true;
@@ -288,7 +296,12 @@ int viaCbk_(lefrCallbackType_e type, lefiVia* via, lefiUserData) {
 int manufacturingCB_(lefrCallbackType_e /* unused: c */,
                      double num,
                      lefiUserData ud) {
-  PNLTechnology::getOrCreate()->setManufacturingGrid(num);
+  auto universe = NLUniverse::get();
+  auto tech = universe->getTechnology();
+  if (not tech) {
+    tech = PNLTechnology::create(universe);
+  }
+  tech->setManufacturingGrid(num);
   return 0;
 }
 

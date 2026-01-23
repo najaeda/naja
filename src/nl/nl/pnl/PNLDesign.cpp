@@ -7,6 +7,8 @@
 
 #include <sstream>
 
+#include "NajaLog.h"
+
 #include "NLDB.h"
 #include "NLException.h"
 #include "NLLibrary.h"
@@ -16,8 +18,7 @@
 #include "PNLTerm.h"
 #include "SNLMacros.h"
 
-namespace naja {
-namespace NL {
+namespace naja::NL {
 
 PNLDesign::Type::Type(const TypeEnum& typeEnum) : typeEnum_(typeEnum) {}
 PNLDesign::ClassType::ClassType(const ClassTypeEnum& typeEnum)
@@ -229,9 +230,7 @@ NLID PNLDesign::getNLID() const {
 }
 
 void PNLDesign::commonPreDestroy() {
-#ifdef PNL_DESTROY_DEBUG
-  std::cerr << "Destroying " << getDescription() << std::endl;
-#endif
+  NAJA_LOG_TRACE("Destroying {}", getDescription());
   struct destroyInstanceFromDesign {
     void operator()(PNLInstance* instance) { instance->destroyFromDesign(); }
   };
@@ -657,5 +656,4 @@ void PNLDesign::setName(const naja::NL::NLName& name) {
   getLibrary()->rename(this, previousName);
 }
 
-}  // namespace NL
-}  // namespace naja
+}  // namespace naja::NL

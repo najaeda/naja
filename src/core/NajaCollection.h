@@ -3,9 +3,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __NAJA_COLLECTION_H_
-#define __NAJA_COLLECTION_H_
 
+#pragma once
 #include <vector>
 #include <stack>
 #include <memory>
@@ -1102,4 +1101,3 @@ template<class Type> class NajaCollection {
 
 } // namespace naja
 
-#endif // __NAJA_COLLECTION_H_

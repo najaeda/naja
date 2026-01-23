@@ -41,6 +41,46 @@ class SNLDBTest(unittest.TestCase):
     with self.assertRaises(RuntimeError) as context: db.dumpVerilog(-1)
     with self.assertRaises(RuntimeError) as context: db.loadLibertyPrimitives("./error.lib")
 
+  def testVerilogLoadingOptions(self):
+    u = naja.NLUniverse.get()
+    db = naja.NLDB.create(u) 
+    self.assertIsNotNone(u)
+    formats_path = os.environ.get('FORMATS_PATH')
+    self.assertIsNotNone(formats_path)
+
+    verilogs = [os.path.join(formats_path, "verilog", "benchmarks", "conflicting_name_designs.v")]
+    with self.assertRaises(RuntimeError) as context: db.loadVerilog(verilogs, conflicting_design_name_policy="forbid")
+
+    db.destroy()
+    db = naja.NLDB.create(u)
+    top = db.loadVerilog(verilogs, conflicting_design_name_policy="first")
+    self.assertIsNotNone(top)
+    self.assertEqual(top.getName(), 'clash')
+    self.assertEqual(1, sum(1 for t in top.getTerms()))
+    self.assertEqual(1, sum(1 for t in top.getScalarTerms()))
+    term = next(iter(top.getScalarTerms()))
+    self.assertIsNotNone(term)
+    self.assertEqual(term.getName(), 'A')
+
+    db.destroy()
+    db = naja.NLDB.create(u)
+    top = db.loadVerilog(verilogs, conflicting_design_name_policy="last")
+    self.assertIsNotNone(top)
+    self.assertEqual(top.getName(), 'clash')
+    self.assertEqual(1, sum(1 for t in top.getTerms()))
+    self.assertEqual(1, sum(1 for t in top.getScalarTerms()))
+    term = next(iter(top.getScalarTerms()))
+    self.assertIsNotNone(term)
+    self.assertEqual(term.getName(), 'D') 
+
+    #errors
+    db.destroy()
+    db = naja.NLDB.create(u)
+    with self.assertRaises(RuntimeError) as context: db.loadVerilog(verilogs, conflicting_design_name_policy='verify') 
+    with self.assertRaises(RuntimeError) as context: db.loadVerilog(verilogs, conflicting_design_name_policy=1)
+    with self.assertRaises(RuntimeError) as context: db.loadVerilog(verilogs, conflicting_design_name_policy='foo')
+
+
   def testSNLFormat(self):
     u = naja.NLUniverse.get()
     db = naja.NLDB.create(u) 
@@ -101,9 +141,12 @@ class SNLDBTest(unittest.TestCase):
     with self.assertRaises(RuntimeError) as context: naja.NLDB.loadNajaIF("./test_verilogError.v")
     primitives = [1]
     designs = [2]
-    primitivesNoExtension = ["../../../../../test/naja/formats/liberty/benchmarks/asap7_excerpt/test0"]
-    primitivesCorrect = ["../../../../../test/naja/formats/liberty/benchmarks/asap7_excerpt/test0.lib"]
-    primitivesWrongExtension = ["../../../../../test/naja/formats/liberty/benchmarks/asap7_excerpt/test0.sd"]
+    formats_path = os.environ.get('FORMATS_PATH')
+    self.assertIsNotNone(formats_path)
+    liberty_path = os.path.join(formats_path, 'liberty')
+    primitivesNoExtension = [os.path.join(liberty_path, "benchmarks/asap7_excerpt/test0")]
+    primitivesCorrect = [os.path.join(liberty_path, "benchmarks/asap7_excerpt/test0.lib")]
+    primitivesWrongExtension = [os.path.join(liberty_path, "benchmarks/asap7_excerpt/test0.sd")]
     with self.assertRaises(RuntimeError) as context: db.loadVerilog("Error", "Error")
     with self.assertRaises(RuntimeError) as context: db.loadLibertyPrimitives("Error", "Error")
     with self.assertRaises(RuntimeError) as context: db.loadVerilog("Error")

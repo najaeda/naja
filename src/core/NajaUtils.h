@@ -3,9 +3,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __NAJA_UTILS_H_
-#define __NAJA_UTILS_H_
 
+#pragma once
 #include <ostream>
 
 namespace naja {
@@ -17,4 +16,3 @@ class NajaUtils {
 
 } // namespace naja
 
-#endif // __NAJA_UTILS_H_
