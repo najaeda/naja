@@ -287,4 +287,4 @@ std::vector<NLName> SNLPath::getPathNames() const {
   return names; 
 }
 
-}}  // namespace NL // namespace naja
+}  // namespace naja::NL
