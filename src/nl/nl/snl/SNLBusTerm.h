@@ -62,6 +62,10 @@ class SNLBusTerm final: public SNLTerm {
     NLID::Bit getMSB() const { return msb_; }
     ///\return LSB (Most Significant Bit) or right hand side of the bus range.
     NLID::Bit getLSB() const { return lsb_; }
+    /// \brief Change MSB, shrinking the bus when allowed.
+    void setMSB(NLID::Bit msb);
+    /// \brief Change LSB, shrinking the bus when allowed.
+    void setLSB(NLID::Bit lsb);
     NLID::Bit getWidth() const override;
     SNLBusTermBit* getBit(NLID::Bit bit) const;
     SNLBusTermBit* getBitAtPosition(size_t position) const;

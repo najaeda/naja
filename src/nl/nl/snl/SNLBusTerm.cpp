@@ -4,12 +4,16 @@
 
 #include "SNLBusTerm.h"
 
+#include <cstddef>
+#include <sstream>
+
 #include "NLException.h"
 
 #include "SNLDesign.h"
 #include "SNLBusTermBit.h"
 #include "SNLBusNet.h"
 #include "SNLBusNetBit.h"
+#include "SNLInstTerm.h"
 #include "SNLAttributes.h"
 #include "SNLUtils.h"
 #include "SNLMacros.h"
@@ -172,6 +176,130 @@ void SNLBusTerm::setNet(SNLNet* net) {
       busNet->getMSB()>busNet->getLSB()?--netIt:++netIt;
     }
   }
+}
+
+void SNLBusTerm::setMSB(NLID::Bit msb) {
+  if (msb == msb_) {
+    return;
+  }
+  if (not SNLDesign::isBetween(msb, getMSB(), getLSB())) {
+    std::ostringstream reason;
+    reason << "setMSB error: " << getString() << " cannot be resized to [" << msb << ":" << getLSB() << "]";
+    throw NLException(reason.str());
+  }
+  size_t removeCount = static_cast<size_t>(std::abs(getMSB() - msb));
+  if (removeCount == 0) {
+    return;
+  }
+
+  std::vector<SNLBusTermBit*> removedBits(bits_.begin(), bits_.begin() + removeCount);
+  for (auto bit: removedBits) {
+    if (auto net = bit->getNet()) {
+      if (not net->isConstant()) {
+        std::ostringstream reason;
+        reason << "setMSB error: " << bit->getString() << " is connected to a non-constant net";
+        throw NLException(reason.str());
+      }
+      if (not net->getInstTerms().empty()) {
+        std::ostringstream reason;
+        reason << "setMSB error: " << bit->getString() << " net is connected to instances";
+        throw NLException(reason.str());
+      }
+    }
+  }
+
+  for (auto instance: getDesign()->getSlaveInstances()) {
+    for (auto bit: removedBits) {
+      auto instTerm = instance->getInstTerm(bit);
+      if (instTerm and instTerm->getNet()) {
+        std::ostringstream reason;
+        reason << "setMSB error: " << instTerm->getString() << " is connected";
+        throw NLException(reason.str());
+      }
+    }
+  }
+
+  for (auto instance: getDesign()->getSlaveInstances()) {
+    for (auto bit: removedBits) {
+      instance->removeInstTerm(bit);
+    }
+    size_t base = getFlatID();
+    size_t oldWidth = bits_.size();
+    for (size_t i=removeCount; i<oldWidth; ++i) {
+      size_t from = base + i;
+      size_t to = base + i - removeCount;
+      if (from == to) {
+        continue;
+      }
+      instance->instTerms_[to] = instance->instTerms_[from];
+      instance->instTerms_[from] = nullptr;
+    }
+  }
+
+  for (auto bit: removedBits) {
+    bit->setNet(nullptr);
+    bit->destroyFromBus();
+  }
+
+  bits_.erase(bits_.begin(), bits_.begin() + removeCount);
+  msb_ = msb;
+}
+
+void SNLBusTerm::setLSB(NLID::Bit lsb) {
+  if (lsb == lsb_) {
+    return;
+  }
+  if (not SNLDesign::isBetween(lsb, getMSB(), getLSB())) {
+    std::ostringstream reason;
+    reason << "setLSB error: " << getString() << " cannot be resized to [" << getMSB() << ":" << lsb << "]";
+    throw NLException(reason.str());
+  }
+  size_t removeCount = static_cast<size_t>(std::abs(getLSB() - lsb));
+  if (removeCount == 0) {
+    return;
+  }
+
+  auto eraseBegin = bits_.end() - static_cast<std::ptrdiff_t>(removeCount);
+  std::vector<SNLBusTermBit*> removedBits(eraseBegin, bits_.end());
+  for (auto bit: removedBits) {
+    if (auto net = bit->getNet()) {
+      if (not net->isConstant()) {
+        std::ostringstream reason;
+        reason << "setLSB error: " << bit->getString() << " is connected to a non-constant net";
+        throw NLException(reason.str());
+      }
+      if (not net->getInstTerms().empty()) {
+        std::ostringstream reason;
+        reason << "setLSB error: " << bit->getString() << " net is connected to instances";
+        throw NLException(reason.str());
+      }
+    }
+  }
+
+  for (auto instance: getDesign()->getSlaveInstances()) {
+    for (auto bit: removedBits) {
+      auto instTerm = instance->getInstTerm(bit);
+      if (instTerm and instTerm->getNet()) {
+        std::ostringstream reason;
+        reason << "setLSB error: " << instTerm->getString() << " is connected";
+        throw NLException(reason.str());
+      }
+    }
+  }
+
+  for (auto instance: getDesign()->getSlaveInstances()) {
+    for (auto bit: removedBits) {
+      instance->removeInstTerm(bit);
+    }
+  }
+
+  for (auto bit: removedBits) {
+    bit->setNet(nullptr);
+    bit->destroyFromBus();
+  }
+
+  bits_.erase(eraseBegin, bits_.end());
+  lsb_ = lsb;
 }
 
 NLID::Bit SNLBusTerm::getWidth() const {

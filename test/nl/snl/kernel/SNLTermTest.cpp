@@ -15,6 +15,9 @@ using ::testing::ElementsAre;
 #include "SNLScalarNet.h"
 #include "SNLBusNet.h"
 #include "SNLBusNetBit.h"
+#include "SNLDesign.h"
+#include "SNLInstance.h"
+#include "SNLInstTerm.h"
 using namespace naja::NL;
 
 class SNLTermTest: public ::testing::Test {
@@ -329,4 +332,94 @@ TEST_F(SNLTermTest, testDestroy) {
   EXPECT_THAT(term1Bits,
     ::testing::Each(::testing::Property(
         &SNLBusTermBit::getNet, ::testing::IsNull())));
+}
+
+TEST_F(SNLTermTest, testResizeMSBSuccessWithSlaveInstance) {
+  NLLibrary* library = db_->getLibrary(NLName("MYLIB"));
+  ASSERT_NE(library, nullptr);
+  auto model = SNLDesign::create(library, NLName("model"));
+  auto term = SNLBusTerm::create(model, SNLTerm::Direction::InOut, 3, 0, NLName("bus"));
+
+  auto top = SNLDesign::create(library, NLName("top"));
+  auto inst = SNLInstance::create(top, model, NLName("u0"));
+
+  term->setMSB(1);
+  EXPECT_EQ(1, term->getMSB());
+  EXPECT_EQ(0, term->getLSB());
+  EXPECT_EQ(2, term->getWidth());
+  EXPECT_NE(nullptr, term->getBit(1));
+  EXPECT_NE(nullptr, term->getBit(0));
+  EXPECT_EQ(nullptr, term->getBit(2));
+
+  auto instTerm1 = inst->getInstTerm(term->getBit(1));
+  auto instTerm0 = inst->getInstTerm(term->getBit(0));
+  EXPECT_NE(nullptr, instTerm1);
+  EXPECT_NE(nullptr, instTerm0);
+  EXPECT_EQ(nullptr, instTerm1->getNet());
+  EXPECT_EQ(nullptr, instTerm0->getNet());
+}
+
+TEST_F(SNLTermTest, testResizeLSBSuccessWithSlaveInstance) {
+  NLLibrary* library = db_->getLibrary(NLName("MYLIB"));
+  ASSERT_NE(library, nullptr);
+  auto model = SNLDesign::create(library, NLName("model"));
+  auto term = SNLBusTerm::create(model, SNLTerm::Direction::InOut, 3, 0, NLName("bus"));
+
+  auto top = SNLDesign::create(library, NLName("top"));
+  auto inst = SNLInstance::create(top, model, NLName("u0"));
+
+  term->setLSB(2);
+  EXPECT_EQ(3, term->getMSB());
+  EXPECT_EQ(2, term->getLSB());
+  EXPECT_EQ(2, term->getWidth());
+  EXPECT_NE(nullptr, term->getBit(3));
+  EXPECT_NE(nullptr, term->getBit(2));
+  EXPECT_EQ(nullptr, term->getBit(1));
+
+  auto instTerm3 = inst->getInstTerm(term->getBit(3));
+  auto instTerm2 = inst->getInstTerm(term->getBit(2));
+  EXPECT_NE(nullptr, instTerm3);
+  EXPECT_NE(nullptr, instTerm2);
+}
+
+TEST_F(SNLTermTest, testResizeFailsOnNonConstantNet) {
+  NLLibrary* library = db_->getLibrary(NLName("MYLIB"));
+  ASSERT_NE(library, nullptr);
+  auto design = SNLDesign::create(library, NLName("design"));
+  auto term = SNLBusTerm::create(design, SNLTerm::Direction::InOut, 3, 0, NLName("bus"));
+  auto net = SNLBusNet::create(design, 3, 0, NLName("n0"));
+  term->setNet(net);
+  EXPECT_THROW(term->setMSB(1), NLException);
+}
+
+TEST_F(SNLTermTest, testResizeFailsOnInternalInstanceConnection) {
+  NLLibrary* library = db_->getLibrary(NLName("MYLIB"));
+  ASSERT_NE(library, nullptr);
+  auto model = SNLDesign::create(library, NLName("model"));
+  auto term = SNLBusTerm::create(model, SNLTerm::Direction::InOut, 3, 0, NLName("bus"));
+  auto net = SNLBusNet::create(model, 3, 0, NLName("n0"));
+  net->setType(SNLNet::Type::Assign0);
+  term->setNet(net);
+
+  auto leaf = SNLDesign::create(library, NLName("leaf"));
+  auto leafTerm = SNLScalarTerm::create(leaf, SNLTerm::Direction::InOut, NLName("t"));
+  auto inst = SNLInstance::create(model, leaf, NLName("u0"));
+  inst->setTermNet(leafTerm, net->getBit(3));
+
+  EXPECT_THROW(term->setMSB(2), NLException);
+}
+
+TEST_F(SNLTermTest, testResizeFailsOnSlaveInstanceConnected) {
+  NLLibrary* library = db_->getLibrary(NLName("MYLIB"));
+  ASSERT_NE(library, nullptr);
+  auto model = SNLDesign::create(library, NLName("model"));
+  auto term = SNLBusTerm::create(model, SNLTerm::Direction::InOut, 3, 0, NLName("bus"));
+
+  auto top = SNLDesign::create(library, NLName("top"));
+  auto inst = SNLInstance::create(top, model, NLName("u0"));
+  auto topNet = SNLScalarNet::create(top, NLName("n0"));
+  auto instTerm = inst->getInstTerm(term->getBit(3));
+  instTerm->setNet(topNet);
+
+  EXPECT_THROW(term->setMSB(2), NLException);
 }
