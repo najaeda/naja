@@ -309,6 +309,16 @@ TEST_F(SNLNetTest, testResizeBusNetSuccess) {
   EXPECT_EQ(1, net0->getWidth());
   EXPECT_NE(nullptr, net0->getBit(1));
   EXPECT_EQ(nullptr, net0->getBit(0));
+
+  // no-op
+  net0->setLSB(1);
+  EXPECT_EQ(1, net0->getMSB());
+  EXPECT_EQ(1, net0->getLSB());
+
+  // no-op
+  net0->setMSB(1);
+  EXPECT_EQ(1, net0->getMSB());
+  EXPECT_EQ(1, net0->getLSB());
 }
 
 TEST_F(SNLNetTest, testResizeBusNetFailsWithTermConnection) {
@@ -329,6 +339,16 @@ TEST_F(SNLNetTest, testResizeBusNetFailsWithInstTermConnection) {
   inst->setTermNet(modelTerm, net0->getBit(3));
 
   EXPECT_THROW(net0->setMSB(2), NLException);
+}
+
+TEST_F(SNLNetTest, testResizeBusNetInvalidLSB) {
+  auto net0 = SNLBusNet::create(design_, 3, 0, NLName("net0"));
+  EXPECT_THROW(net0->setLSB(4), NLException);
+}
+
+TEST_F(SNLNetTest, testResizeBusNetInvalidMSB) {
+  auto net0 = SNLBusNet::create(design_, 3, 0, NLName("net0"));
+  EXPECT_THROW(net0->setMSB(-1), NLException);
 }
 
 TEST_F(SNLNetTest, testNetType) {
