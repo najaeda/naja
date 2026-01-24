@@ -5,7 +5,9 @@
 #include "SNLBusNet.h"
 
 #include <algorithm>
+#include <cstddef>
 #include <limits>
+#include <sstream>
 
 #include "NLDB.h"
 #include "NLLibrary.h"
@@ -135,6 +137,73 @@ void SNLBusNet::removeBit(SNLBusNetBit* bit) {
   if (pos < bits_.size()) {
     bits_[pos] = nullptr;
   }
+}
+
+void SNLBusNet::setMSB(NLID::Bit msb) {
+  if (msb == msb_) {
+    return;
+  }
+  if (not SNLDesign::isBetween(msb, getMSB(), getLSB())) {
+    std::ostringstream reason;
+    reason << "setMSB error: " << getString() << " cannot be resized to [" << msb << ":" << getLSB() << "]";
+    throw NLException(reason.str());
+  }
+  size_t removeCount = static_cast<size_t>(std::abs(getMSB() - msb));
+  if (removeCount == 0) {
+    return;
+  }
+
+  std::vector<SNLBusNetBit*> removedBits(bits_.begin(), bits_.begin() + removeCount);
+  for (auto bit: removedBits) {
+    if (not bit->getComponents().empty()
+        or not bit->getInstTerms().empty()
+        or not bit->getBitTerms().empty()) {
+      std::ostringstream reason;
+      reason << "setMSB error: " << bit->getString() << " is connected";
+      throw NLException(reason.str());
+    }
+  }
+
+  for (auto bit: removedBits) {
+    bit->destroyFromBus();
+  }
+
+  bits_.erase(bits_.begin(), bits_.begin() + removeCount);
+  msb_ = msb;
+}
+
+void SNLBusNet::setLSB(NLID::Bit lsb) {
+  if (lsb == lsb_) {
+    return;
+  }
+  if (not SNLDesign::isBetween(lsb, getMSB(), getLSB())) {
+    std::ostringstream reason;
+    reason << "setLSB error: " << getString() << " cannot be resized to [" << getMSB() << ":" << lsb << "]";
+    throw NLException(reason.str());
+  }
+  size_t removeCount = static_cast<size_t>(std::abs(getLSB() - lsb));
+  if (removeCount == 0) {
+    return;
+  }
+
+  auto eraseBegin = bits_.end() - static_cast<std::ptrdiff_t>(removeCount);
+  std::vector<SNLBusNetBit*> removedBits(eraseBegin, bits_.end());
+  for (auto bit: removedBits) {
+    if (not bit->getComponents().empty()
+        or not bit->getInstTerms().empty()
+        or not bit->getBitTerms().empty()) {
+      std::ostringstream reason;
+      reason << "setLSB error: " << bit->getString() << " is connected";
+      throw NLException(reason.str());
+    }
+  }
+
+  for (auto bit: removedBits) {
+    bit->destroyFromBus();
+  }
+
+  bits_.erase(eraseBegin, bits_.end());
+  lsb_ = lsb;
 }
 
 SNLNet* SNLBusNet::clone(SNLDesign* design) const {

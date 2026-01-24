@@ -14,6 +14,7 @@ using ::testing::ElementsAre;
 #include "SNLScalarNet.h"
 #include "SNLBusNet.h"
 #include "SNLBusNetBit.h"
+#include "SNLInstance.h"
 
 using namespace naja::NL;
 
@@ -290,6 +291,44 @@ TEST_F(SNLNetTest, testBusNetBitDestruction) {
   EXPECT_EQ(nullptr, bit3);
   EXPECT_EQ(31, net0->getBits().size());
   EXPECT_EQ(nullptr, net0->getBitAtPosition(bit3Position));
+}
+
+TEST_F(SNLNetTest, testResizeBusNetSuccess) {
+  auto net0 = SNLBusNet::create(design_, 3, 0, NLName("net0"));
+  net0->setMSB(1);
+  EXPECT_EQ(1, net0->getMSB());
+  EXPECT_EQ(0, net0->getLSB());
+  EXPECT_EQ(2, net0->getWidth());
+  EXPECT_NE(nullptr, net0->getBit(1));
+  EXPECT_NE(nullptr, net0->getBit(0));
+  EXPECT_EQ(nullptr, net0->getBit(2));
+
+  net0->setLSB(1);
+  EXPECT_EQ(1, net0->getMSB());
+  EXPECT_EQ(1, net0->getLSB());
+  EXPECT_EQ(1, net0->getWidth());
+  EXPECT_NE(nullptr, net0->getBit(1));
+  EXPECT_EQ(nullptr, net0->getBit(0));
+}
+
+TEST_F(SNLNetTest, testResizeBusNetFailsWithTermConnection) {
+  auto net0 = SNLBusNet::create(design_, 3, 0, NLName("net0"));
+  auto term0 = SNLBusTerm::create(design_, SNLTerm::Direction::InOut, 3, 0, NLName("t0"));
+  term0->setNet(net0);
+  EXPECT_THROW(net0->setMSB(1), NLException);
+}
+
+TEST_F(SNLNetTest, testResizeBusNetFailsWithInstTermConnection) {
+  auto primitives = design_->getDB()->getLibrary(NLName("PRIMITIVES"));
+  ASSERT_NE(primitives, nullptr);
+  auto model = SNLDesign::create(primitives, SNLDesign::Type::Primitive);
+  auto modelTerm = SNLScalarTerm::create(model, SNLTerm::Direction::Input, NLName("i0"));
+
+  auto inst = SNLInstance::create(design_, model, NLName("u0"));
+  auto net0 = SNLBusNet::create(design_, 3, 0, NLName("net0"));
+  inst->setTermNet(modelTerm, net0->getBit(3));
+
+  EXPECT_THROW(net0->setMSB(2), NLException);
 }
 
 TEST_F(SNLNetTest, testNetType) {
