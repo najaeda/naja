@@ -350,6 +350,9 @@ void LoadlessLogicRemover::removeLoadlessLogic() {
   report_ = collectStatistics();
   removeLoadlessInstances(NLUniverse::get()->getTopDesign(),
                           loadlessInstances_);
+  if (getRemoveLoadlessNets()) {
+    removeLoadlessNets();
+  }
   //spdlog::info(report_);
   DNL::destroy();
 }
@@ -369,15 +372,21 @@ std::string LoadlessLogicRemover::collectStatistics() const {
 }
 
 void LoadlessLogicRemover::removeLoadlessNets() {
-  SNLDesign* top = NLUniverse::get()->getTopDesign();
-  std::vector<SNLNet*> netsToDelete;
-  for (SNLNet* net : top->getNets()) {
-    if (net->getInstTerms().size() == 0 &&
-        net->getBitTerms().size() == 0) {
-      netsToDelete.push_back(net);
+  auto top = NLUniverse::get()->getTopDesign();
+  std::stack<SNLDesign*> modelToProcess;
+  modelToProcess.push(top);
+  while (!modelToProcess.empty()) {
+    SNLDesign* currentModel = modelToProcess.top();
+    modelToProcess.pop();
+    for (auto inst : currentModel->getInstances()) {
+      if (inst->getModel()->getInstances().size() > 0) {
+        modelToProcess.push(inst->getModel());
+      }
     }
-  }
-  for (SNLNet* net : netsToDelete) {
-    net->destroy();
+    for (auto net : currentModel->getBitNets()) {
+      if (net->getInstTerms().size() + net->getBitTerms().size() == 0) {
+        net->destroy();
+      }
+    }
   }
 }
