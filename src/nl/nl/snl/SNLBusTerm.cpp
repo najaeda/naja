@@ -188,9 +188,6 @@ void SNLBusTerm::setMSB(NLID::Bit msb) {
     throw NLException(reason.str());
   }
   size_t removeCount = static_cast<size_t>(std::abs(getMSB() - msb));
-  if (removeCount == 0) {
-    return;
-  }
 
   std::vector<SNLBusTermBit*> removedBits(bits_.begin(), bits_.begin() + removeCount);
   for (auto bit: removedBits) {
@@ -255,9 +252,6 @@ void SNLBusTerm::setLSB(NLID::Bit lsb) {
     throw NLException(reason.str());
   }
   size_t removeCount = static_cast<size_t>(std::abs(getLSB() - lsb));
-  if (removeCount == 0) {
-    return;
-  }
 
   auto eraseBegin = bits_.end() - static_cast<std::ptrdiff_t>(removeCount);
   std::vector<SNLBusTermBit*> removedBits(eraseBegin, bits_.end());

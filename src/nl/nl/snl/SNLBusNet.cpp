@@ -152,9 +152,7 @@ void SNLBusNet::setMSB(NLID::Bit msb) {
 
   std::vector<SNLBusNetBit*> removedBits(bits_.begin(), bits_.begin() + removeCount);
   for (auto bit: removedBits) {
-    if (not bit->getComponents().empty()
-        or not bit->getInstTerms().empty()
-        or not bit->getBitTerms().empty()) {
+    if (not bit->getComponents().empty()) {
       std::ostringstream reason;
       reason << "setMSB error: " << bit->getString() << " is connected";
       throw NLException(reason.str());
@@ -183,9 +181,7 @@ void SNLBusNet::setLSB(NLID::Bit lsb) {
   auto eraseBegin = bits_.end() - static_cast<std::ptrdiff_t>(removeCount);
   std::vector<SNLBusNetBit*> removedBits(eraseBegin, bits_.end());
   for (auto bit: removedBits) {
-    if (not bit->getComponents().empty()
-        or not bit->getInstTerms().empty()
-        or not bit->getBitTerms().empty()) {
+    if (not bit->getComponents().empty()) {
       std::ostringstream reason;
       reason << "setLSB error: " << bit->getString() << " is connected";
       throw NLException(reason.str());

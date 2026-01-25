@@ -359,6 +359,27 @@ TEST_F(SNLTermTest, testResizeMSBSuccessWithSlaveInstance) {
   EXPECT_EQ(nullptr, instTerm0->getNet());
 }
 
+TEST_F(SNLTermTest, testResizeMSBNoOp) {
+  NLLibrary* library = db_->getLibrary(NLName("MYLIB"));
+  ASSERT_NE(library, nullptr);
+  auto design = SNLDesign::create(library, NLName("design"));
+  auto term = SNLBusTerm::create(design, SNLTerm::Direction::InOut, 3, 0, NLName("bus"));
+
+  term->setMSB(3);
+  EXPECT_EQ(3, term->getMSB());
+  EXPECT_EQ(0, term->getLSB());
+  EXPECT_EQ(4, term->getWidth());
+}
+
+TEST_F(SNLTermTest, testResizeMSBInvalid) {
+  NLLibrary* library = db_->getLibrary(NLName("MYLIB"));
+  ASSERT_NE(library, nullptr);
+  auto design = SNLDesign::create(library, NLName("design"));
+  auto term = SNLBusTerm::create(design, SNLTerm::Direction::InOut, 3, 0, NLName("bus"));
+
+  EXPECT_THROW(term->setMSB(-1), NLException);
+}
+
 TEST_F(SNLTermTest, testResizeLSBSuccessWithSlaveInstance) {
   NLLibrary* library = db_->getLibrary(NLName("MYLIB"));
   ASSERT_NE(library, nullptr);
@@ -380,6 +401,27 @@ TEST_F(SNLTermTest, testResizeLSBSuccessWithSlaveInstance) {
   auto instTerm2 = inst->getInstTerm(term->getBit(2));
   EXPECT_NE(nullptr, instTerm3);
   EXPECT_NE(nullptr, instTerm2);
+}
+
+TEST_F(SNLTermTest, testResizeLSBNoOp) {
+  NLLibrary* library = db_->getLibrary(NLName("MYLIB"));
+  ASSERT_NE(library, nullptr);
+  auto design = SNLDesign::create(library, NLName("design"));
+  auto term = SNLBusTerm::create(design, SNLTerm::Direction::InOut, 3, 0, NLName("bus"));
+
+  term->setLSB(0);
+  EXPECT_EQ(3, term->getMSB());
+  EXPECT_EQ(0, term->getLSB());
+  EXPECT_EQ(4, term->getWidth());
+}
+
+TEST_F(SNLTermTest, testResizeLSBInvalid) {
+  NLLibrary* library = db_->getLibrary(NLName("MYLIB"));
+  ASSERT_NE(library, nullptr);
+  auto design = SNLDesign::create(library, NLName("design"));
+  auto term = SNLBusTerm::create(design, SNLTerm::Direction::InOut, 3, 0, NLName("bus"));
+
+  EXPECT_THROW(term->setLSB(4), NLException);
 }
 
 TEST_F(SNLTermTest, testResizeFailsOnNonConstantNet) {

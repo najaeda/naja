@@ -328,6 +328,20 @@ TEST_F(SNLNetTest, testResizeBusNetFailsWithTermConnection) {
   EXPECT_THROW(net0->setMSB(1), NLException);
 }
 
+TEST_F(SNLNetTest, testResizeBusNetFailsWithConnectedMSBBit) {
+  auto net0 = SNLBusNet::create(design_, 3, 0, NLName("net0"));
+  auto term0 = SNLScalarTerm::create(design_, SNLTerm::Direction::InOut, NLName("t0"));
+  term0->setNet(net0->getBit(3));
+  EXPECT_THROW(net0->setMSB(2), NLException);
+}
+
+TEST_F(SNLNetTest, testResizeBusNetFailsWithConnectedLSBBit) {
+  auto net0 = SNLBusNet::create(design_, 3, 0, NLName("net0"));
+  auto term0 = SNLScalarTerm::create(design_, SNLTerm::Direction::InOut, NLName("t0"));
+  term0->setNet(net0->getBit(0));
+  EXPECT_THROW(net0->setLSB(1), NLException);
+}
+
 TEST_F(SNLNetTest, testResizeBusNetFailsWithInstTermConnection) {
   auto primitives = design_->getDB()->getLibrary(NLName("PRIMITIVES"));
   ASSERT_NE(primitives, nullptr);
