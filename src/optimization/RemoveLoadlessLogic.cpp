@@ -367,3 +367,17 @@ std::string LoadlessLogicRemover::collectStatistics() const {
   return ss.str();*/
   return std::string();
 }
+
+void LoadlessLogicRemover::removeLoadlessNets() {
+  SNLDesign* top = NLUniverse::get()->getTopDesign();
+  std::vector<SNLNet*> netsToDelete;
+  for (SNLNet* net : top->getNets()) {
+    if (net->getInstTerms().size() == 0 &&
+        net->getBitTerms().size() == 0) {
+      netsToDelete.push_back(net);
+    }
+  }
+  for (SNLNet* net : netsToDelete) {
+    net->destroy();
+  }
+}

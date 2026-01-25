@@ -42,6 +42,7 @@ class LoadlessLogicRemover {
   void setNormalizedUniquification(bool normalizedUniquification) {
     normalizedUniquification_ = normalizedUniquification;
   }
+  void removeLoadlessNets();
  private:
   naja::DNL::DNL<DNLInstanceFull, DNLTerminalFull>* dnl_;
   std::vector<std::pair<std::vector<NLID::DesignObjectID>, DNLID>> loadlessInstances_;

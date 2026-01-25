@@ -256,16 +256,6 @@ def constructSDFFCE_PN1P(lib):
     utils.constructSequentialPrimitive(sdffce_pn1p, c)
 
 
-def constructSDFFCE_PN1P(lib):
-    sdffce_pn1p = naja.SNLDesign.createPrimitive(lib, "$_SDFFCE_PN1P_")
-    c = naja.SNLScalarTerm.create(sdffce_pn1p, naja.SNLTerm.Direction.Input, "C")
-    naja.SNLScalarTerm.create(sdffce_pn1p, naja.SNLTerm.Direction.Input, "D")
-    naja.SNLScalarTerm.create(sdffce_pn1p, naja.SNLTerm.Direction.Input, "E")
-    naja.SNLScalarTerm.create(sdffce_pn1p, naja.SNLTerm.Direction.Output, "Q")
-    naja.SNLScalarTerm.create(sdffce_pn1p, naja.SNLTerm.Direction.Input, "R")
-    utils.constructSequentialPrimitive(sdffce_pn1p, c)
-    
-
 def load(db):
     logging.info("Loading Yosys primitives")
     lib = naja.NLLibrary.createPrimitives(db, "yosys")
