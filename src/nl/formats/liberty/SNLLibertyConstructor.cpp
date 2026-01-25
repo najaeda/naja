@@ -100,7 +100,6 @@ void parseTerms(
           }
         }
       }
-      bool foundDirection = false;
       SNLScalarTerm* constructedScalarTerm = nullptr;
       SNLBusTerm* constructedBusTerm = nullptr;
       auto directionNode = child->find("direction");
@@ -249,7 +248,9 @@ void SNLLibertyConstructor::construct(const std::filesystem::path& path) {
   // Open underlying file in binary mode; must outlive filtering_istream
   std::ifstream file(path, std::ios::in | std::ios::binary);
   if (!file) {
+    // LCOV_EXCL_START
     throw SNLLibertyConstructorException("Liberty parser: failed to open file: " + path.string());
+    // LCOV_EXCL_STOP
   }
 
   // Build filtering stream: gzip_decompressor only for .gz files
@@ -260,14 +261,18 @@ void SNLLibertyConstructor::construct(const std::filesystem::path& path) {
     }
     in.push(file);
   } catch (const std::exception &e) {
+    // LCOV_EXCL_START
     throw SNLLibertyConstructorException(std::string("Liberty parser: gzip error: ") + e.what());
+    // LCOV_EXCL_STOP
   }
 
   // Use the same parser API that accepts an istream
   auto parser = std::make_unique<Yosys::LibertyParser>(in);
   auto ast = parser->ast;
   if (ast == nullptr) {
+    // LCOV_EXCL_START
     throw SNLLibertyConstructorException("Liberty parser: failed to parse the file: " + path.string());
+    // LCOV_EXCL_STOP
   }
 
   auto libraryName = ast->args[0];
