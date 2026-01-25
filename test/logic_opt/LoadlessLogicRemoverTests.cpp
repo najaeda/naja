@@ -527,6 +527,7 @@ TEST_F(LoadlessRemoveLogicTests, simple_2_loadless_3_levels_bne) {
   auto loadlessInstances = remover.getLoadlessInstances(*dnl, tracedIsos);
   EXPECT_EQ(loadlessInstances.size(), 10);
   // destroy();
+  remover.setRemoveLoadlessNets(true);
   remover.process();
   // Check that the loadless logic is removed
   destroy();
