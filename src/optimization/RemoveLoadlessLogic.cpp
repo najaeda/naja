@@ -383,7 +383,11 @@ void LoadlessLogicRemover::removeLoadlessNets() {
         modelToProcess.push(inst->getModel());
       }
     }
+    std::vector<SNLBitNet*> nets;
     for (auto net : currentModel->getBitNets()) {
+      nets.push_back(net);
+    }
+    for (auto net : nets) {
       if (net->getInstTerms().size() + net->getBitTerms().size() == 0) {
         net->destroy();
       }
