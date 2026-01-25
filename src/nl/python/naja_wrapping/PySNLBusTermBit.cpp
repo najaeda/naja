@@ -20,11 +20,11 @@ using namespace naja::NL;
 #define  ACCESS_CLASS(_pyObject)  &(_pyObject->parent_)
 #define  METHOD_HEAD(function) GENERIC_METHOD_HEAD(SNLBusTermBit, function)
 
-DirectGetIntMethod(PySNLBusTermBit_getBit, getBit, PySNLBusTermBit, SNLBusTermBit)
+DirectGetNumericMethod(PySNLBusTermBit_getBit, getBit, PySNLBusTermBit, SNLBusTermBit)
 GetObjectMethod(SNLBusTermBit, SNLBusTerm, getBus)
 
-DirectGetIntMethod(PySNLBusTermBit_getID, getID, PySNLBusTermBit, SNLBusTermBit)
-DirectGetIntMethod(PySNLBusTermBit_getFlatID, getFlatID, PySNLBusTermBit, SNLBusTermBit)
+DirectGetNumericMethod(PySNLBusTermBit_getID, getID, PySNLBusTermBit, SNLBusTermBit)
+DirectGetNumericMethod(PySNLBusTermBit_getFlatID, getFlatID, PySNLBusTermBit, SNLBusTermBit)
 
 PyMethodDef PySNLBusTermBit_Methods[] = {
   { "getBit", (PyCFunction)PySNLBusTermBit_getBit, METH_NOARGS,

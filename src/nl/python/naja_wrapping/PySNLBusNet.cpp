@@ -46,8 +46,36 @@ static PyObject* PySNLBusNet_create(PyObject*, PyObject* args) {
   return PySNLBusNet_Link(net);
 }
 
-DirectGetIntMethod(PySNLBusNet_getMSB, getMSB, PySNLBusNet, SNLBusNet)
-DirectGetIntMethod(PySNLBusNet_getLSB, getLSB, PySNLBusNet, SNLBusNet)
+DirectGetNumericMethod(PySNLBusNet_getMSB, getMSB, PySNLBusNet, SNLBusNet)
+DirectGetNumericMethod(PySNLBusNet_getLSB, getLSB, PySNLBusNet, SNLBusNet)
+
+static PyObject* PySNLBusNet_setMSB(PySNLBusNet* self, PyObject* arg) {
+  METHOD_HEAD("SNLBusNet.setMSB()")
+  if (PyLong_Check(arg)) {
+    NLID::Bit msb = static_cast<NLID::Bit>(PyLong_AsLong(arg));
+    TRY
+    selfObject->setMSB(msb);
+    NLCATCH
+  } else {
+    setError("SNLBusNet setMSB expects an integer argument");
+    return nullptr;
+  }
+  Py_RETURN_NONE;
+}
+
+static PyObject* PySNLBusNet_setLSB(PySNLBusNet* self, PyObject* arg) {
+  METHOD_HEAD("SNLBusNet.setLSB()")
+  if (PyLong_Check(arg)) {
+    NLID::Bit lsb = static_cast<NLID::Bit>(PyLong_AsLong(arg));
+    TRY
+    selfObject->setLSB(lsb);
+    NLCATCH
+  } else {
+    setError("SNLBusNet setLSB expects an integer argument");
+    return nullptr;
+  }
+  Py_RETURN_NONE;
+}
 
 GetObjectByIndex(SNLBusNet, SNLBusNetBit, Bit)
 GetObjectByIndex(SNLBusNet, SNLBusNetBit, BitAtPosition)
@@ -64,6 +92,10 @@ PyMethodDef PySNLBusNet_Methods[] = {
     "get SNLBusNet MSB value"},
   { "getLSB", (PyCFunction)PySNLBusNet_getLSB, METH_NOARGS,
     "get SNLBusNet LSB value"},
+  { "setMSB", (PyCFunction)PySNLBusNet_setMSB, METH_O,
+    "set SNLBusNet MSB value"},
+  { "setLSB", (PyCFunction)PySNLBusNet_setLSB, METH_O,
+    "set SNLBusNet LSB value"},
   { "getBit", (PyCFunction)PySNLBusNet_getBit, METH_VARARGS,
     "get SNLBusNetBit at bit position"},
   { "getBitAtPosition", (PyCFunction)PySNLBusNet_getBitAtPosition, METH_VARARGS,

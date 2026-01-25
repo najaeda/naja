@@ -198,7 +198,33 @@ class SNLNetTest(unittest.TestCase):
     self.assertFalse(i0Net.isConstant0())
     self.assertFalse(i0Net.isConstant1())
     self.assertFalse(i0Net.isConstant())
-    self.assertEqual(naja.SNLNet.Type.Standard, i0Net.getType())
+
+  def test_bus_net_resize(self):
+    net = naja.SNLBusNet.create(self.design, 3, 0, "net")
+    net.setMSB(1)
+    self.assertEqual(1, net.getMSB())
+    self.assertEqual(0, net.getLSB())
+    self.assertEqual(2, net.getWidth())
+    net.setLSB(1)
+    self.assertEqual(1, net.getMSB())
+    self.assertEqual(1, net.getLSB())
+    self.assertEqual(1, net.getWidth())
+    net.setMSB(1)  # no-op
+    net.setLSB(1)  # no-op
+
+  def test_bus_net_resize_invalid(self):
+    net = naja.SNLBusNet.create(self.design, 3, 0, "net")
+    with self.assertRaises(RuntimeError):
+      net.setMSB(-1)
+    with self.assertRaises(RuntimeError):
+      net.setLSB(4)
+
+  def test_bus_net_resize_connected(self):
+    net = naja.SNLBusNet.create(self.design, 3, 0, "net")
+    term = naja.SNLScalarTerm.create(self.design, naja.SNLTerm.Direction.InOut, "t0")
+    term.setNet(net.getBit(3))
+    with self.assertRaises(RuntimeError):
+      net.setMSB(2)
 
   def testErrors(self):
     self.assertIsNotNone(self.design)

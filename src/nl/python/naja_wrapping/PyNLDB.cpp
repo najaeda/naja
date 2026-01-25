@@ -277,7 +277,7 @@ PyObject* PyNLDB_getLibrary(PyNLDB* self, PyObject* arg) {
   return PyNLLibrary_Link(lib);
 }
 
-DirectGetIntMethod(PyNLDB_getID, getID, PyNLDB, NLDB)
+DirectGetNumericMethod(PyNLDB_getID, getID, PyNLDB, NLDB)
 
 GetBoolAttribute(NLDB, isTopDB)
 GetObjectMethod(NLDB, SNLDesign, getTopDesign)
