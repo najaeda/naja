@@ -46,7 +46,7 @@ class LoadlessLogicRemover {
   void setRemoveLoadlessNets(bool removeLoadlessNets) {
     removeLoadlessNets_ = removeLoadlessNets;
   }
-  //bool getRemoveLoadlessNets() const { return removeLoadlessNets_; }
+  bool getRemoveLoadlessNets() const { return removeLoadlessNets_; }
  private:
   naja::DNL::DNL<DNLInstanceFull, DNLTerminalFull>* dnl_;
   std::vector<std::pair<std::vector<NLID::DesignObjectID>, DNLID>> loadlessInstances_;
