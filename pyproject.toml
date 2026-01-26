@@ -77,9 +77,30 @@ before-all = '''
 [tool.cibuildwheel.linux]
 build-frontend = "build"
 before-all = '''
-  set -e
+  set -euo pipefail
+  echo "::group::Updating AlmaLinux repos to use official baseurl"
+  # Prefer AlmaLinux official repo baseurl over mirrorlist/metalink to avoid stale mirrors (seen on aarch64).
+  shopt -s nullglob
+  for f in /etc/yum.repos.d/AlmaLinux*.repo /etc/yum.repos.d/almalinux*.repo; do
+    # Disable dynamic mirror selection
+    sed -i 's|^mirrorlist=|#mirrorlist=|g' "$f"
+    sed -i 's|^metalink=|#metalink=|g' "$f"
+
+    # Ensure we have an active baseurl pointing at the official origin.
+    # Covers both commented and uncommented forms.
+    sed -i 's|^#baseurl=http://repo\.almalinux\.org/almalinux|baseurl=https://repo.almalinux.org/almalinux|g' "$f"
+    sed -i 's|^#baseurl=https://repo\.almalinux\.org/almalinux|baseurl=https://repo.almalinux.org/almalinux|g' "$f"
+    sed -i 's|^baseurl=http://repo\.almalinux\.org/almalinux|baseurl=https://repo.almalinux.org/almalinux|g' "$f"
+  done
+
   yum clean all
+  rm -rf /var/cache/dnf/* /var/cache/yum/* || true
+  echo "::endgroup::"
+
+  echo "::group::Installing dependencies"
   yum -y install wget boost-devel
+  echo "::endgroup::"
+
   echo "::group::Installing TBB"
   wget -q https://github.com/oneapi-src/oneTBB/archive/refs/tags/v2022.1.0.tar.gz
   tar -xzf v2022.1.0.tar.gz
@@ -89,24 +110,6 @@ before-all = '''
   make -j$(nproc)
   make install
   echo "::endgroup::"
-  cd ..
-  #echo "::group::Installing flex"
-  #wget -q https://github.com/westes/flex/releases/download/v2.6.4/flex-2.6.4.tar.gz
-  #tar -xzf flex-2.6.4.tar.gz
-  #cd flex-2.6.4
-  #./configure
-  #make
-  #make install
-  #echo "::endgroup::"
-  #cd ..
-  #echo "::group::Installing bison"
-  #wget https://ftp.snt.utwente.nl/pub/software/gnu/bison/bison-3.8.2.tar.gz
-  #tar -xzf bison-3.8.2.tar.gz
-  #cd bison-3.8.2
-  #./configure
-  #make
-  #make install
-  #echo "::endgroup::"
   cd ..
   echo "::group::Installing capnproto"
   curl -O https://capnproto.org/capnproto-c++-1.1.0.tar.gz
