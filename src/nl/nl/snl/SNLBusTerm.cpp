@@ -225,9 +225,6 @@ void SNLBusTerm::setMSB(NLID::Bit msb) {
     for (size_t i=removeCount; i<oldWidth; ++i) {
       size_t from = base + i;
       size_t to = base + i - removeCount;
-      if (from == to) {
-        continue;
-      }
       instance->instTerms_[to] = instance->instTerms_[from];
       instance->instTerms_[from] = nullptr;
     }

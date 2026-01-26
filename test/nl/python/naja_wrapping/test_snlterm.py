@@ -38,6 +38,10 @@ class SNLTermResizeTest(unittest.TestCase):
       term.setMSB(-1)
     with self.assertRaises(RuntimeError):
       term.setLSB(4)
+    with self.assertRaisesRegex(RuntimeError, r"SNLBusTerm\.setMSB\(\) expects an integer argument"):
+      term.setMSB("2")
+    with self.assertRaisesRegex(RuntimeError, r"SNLBusTerm\.setLSB\(\) expects an integer argument"):
+      term.setLSB("1")
 
 
 

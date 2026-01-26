@@ -291,6 +291,61 @@ TEST_F(SNLNetTest, testBusNetBitDestruction) {
   EXPECT_EQ(nullptr, bit3);
   EXPECT_EQ(31, net0->getBits().size());
   EXPECT_EQ(nullptr, net0->getBitAtPosition(bit3Position));
+
+  //destroy MSB bit
+  auto msbBit = net0->getBit(31);
+  auto msbPosition = net0->getBitPosition(msbBit->getBit());
+  ASSERT_NE(nullptr, msbBit);
+  EXPECT_EQ(msbBit, net0->getBitAtPosition(msbPosition));
+  msbBit->destroy();
+  EXPECT_EQ(nullptr, net0->getBit(31));
+  EXPECT_EQ(30, net0->getBits().size());
+  EXPECT_EQ(nullptr, net0->getBitAtPosition(msbPosition));
+
+  //destroy LSB bit
+  auto lsbBit = net0->getBit(0);
+  auto lsbPosition = net0->getBitPosition(lsbBit->getBit());
+  ASSERT_NE(nullptr, lsbBit);
+  EXPECT_EQ(lsbBit, net0->getBitAtPosition(lsbPosition));
+  lsbBit->destroy();
+  EXPECT_EQ(nullptr, net0->getBit(0));
+  EXPECT_EQ(29, net0->getBits().size());
+  EXPECT_EQ(nullptr, net0->getBitAtPosition(lsbPosition));
+
+  //bus with negative LSB
+  SNLBusNet* net1 = SNLBusNet::create(design_, 3, -2, NLName("net1"));
+  EXPECT_EQ(6, net1->getWidth());
+  EXPECT_EQ(6, net1->getBits().size());
+  EXPECT_NE(nullptr, net1->getBit(3));
+  EXPECT_NE(nullptr, net1->getBit(0));
+  EXPECT_NE(nullptr, net1->getBit(-2));
+
+  //destroy a middle bit in negative range
+  auto net1Bit0 = net1->getBit(0);
+  auto net1Bit0Position = net1->getBitPosition(net1Bit0->getBit());
+  ASSERT_NE(nullptr, net1Bit0);
+  EXPECT_EQ(net1Bit0, net1->getBitAtPosition(net1Bit0Position));
+  net1Bit0->destroy();
+  EXPECT_EQ(nullptr, net1->getBit(0));
+  EXPECT_EQ(5, net1->getBits().size());
+  EXPECT_EQ(nullptr, net1->getBitAtPosition(net1Bit0Position));
+
+  //destroy MSB/LSB in negative range
+  auto net1Msb = net1->getBit(3);
+  auto net1MsbPosition = net1->getBitPosition(net1Msb->getBit());
+  ASSERT_NE(nullptr, net1Msb);
+  net1Msb->destroy();
+  EXPECT_EQ(nullptr, net1->getBit(3));
+  EXPECT_EQ(4, net1->getBits().size());
+  EXPECT_EQ(nullptr, net1->getBitAtPosition(net1MsbPosition));
+
+  auto net1Lsb = net1->getBit(-2);
+  auto net1LsbPosition = net1->getBitPosition(net1Lsb->getBit());
+  ASSERT_NE(nullptr, net1Lsb);
+  net1Lsb->destroy();
+  EXPECT_EQ(nullptr, net1->getBit(-2));
+  EXPECT_EQ(3, net1->getBits().size());
+  EXPECT_EQ(nullptr, net1->getBitAtPosition(net1LsbPosition));
 }
 
 TEST_F(SNLNetTest, testResizeBusNetSuccess) {

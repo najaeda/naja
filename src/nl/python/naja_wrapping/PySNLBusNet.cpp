@@ -57,7 +57,7 @@ static PyObject* PySNLBusNet_setMSB(PySNLBusNet* self, PyObject* arg) {
     selfObject->setMSB(msb);
     NLCATCH
   } else {
-    setError("SNLBusNet setMSB expects an integer argument");
+    setError("SNLBusNet.setMSB() expects an integer argument");
     return nullptr;
   }
   Py_RETURN_NONE;
@@ -71,7 +71,7 @@ static PyObject* PySNLBusNet_setLSB(PySNLBusNet* self, PyObject* arg) {
     selfObject->setLSB(lsb);
     NLCATCH
   } else {
-    setError("SNLBusNet setLSB expects an integer argument");
+    setError("SNLBusNet.setLSB() expects an integer argument");
     return nullptr;
   }
   Py_RETURN_NONE;

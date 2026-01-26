@@ -87,7 +87,7 @@ static PyObject* PySNLBusTerm_setMSB(PySNLBusTerm* self, PyObject* arg) {
     selfObject->setMSB(msb);
     NLCATCH
   } else {
-    setError("SNLBusTerm setMSB expects an integer argument");
+    setError("SNLBusTerm.setMSB() expects an integer argument");
     return nullptr;
   }
   Py_RETURN_NONE;
@@ -101,7 +101,7 @@ static PyObject* PySNLBusTerm_setLSB(PySNLBusTerm* self, PyObject* arg) {
     selfObject->setLSB(lsb);
     NLCATCH
   } else {
-    setError("SNLBusTerm setLSB expects an integer argument");
+    setError("SNLBusTerm.setLSB() expects an integer argument");
     return nullptr;
   }
   Py_RETURN_NONE;

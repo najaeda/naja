@@ -218,6 +218,10 @@ class SNLNetTest(unittest.TestCase):
       net.setMSB(-1)
     with self.assertRaises(RuntimeError):
       net.setLSB(4)
+    with self.assertRaisesRegex(RuntimeError, r"SNLBusNet\.setMSB\(\) expects an integer argument"):
+      net.setMSB("1")
+    with self.assertRaisesRegex(RuntimeError, r"SNLBusNet\.setLSB\(\) expects an integer argument"):
+      net.setLSB("0")
 
   def test_bus_net_resize_connected(self):
     net = naja.SNLBusNet.create(self.design, 3, 0, "net")
