@@ -32,7 +32,7 @@ jobs:
 
       - name: Install flex & bison
         run: |
-          sudo apt-get update && sudo apt-get install -yq libfl-dev
+          sudo apt-get update && sudo apt-get install -yq libfl-dev libboost-all-dev
 
       - name: Generate parser sources
         run: |
