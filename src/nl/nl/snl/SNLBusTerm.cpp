@@ -121,7 +121,9 @@ void SNLBusTerm::postCreate() {
 void SNLBusTerm::commonPreDestroy() {
   super::preDestroy();
   for (SNLBusTermBit* bit: bits_) {
-    bit->destroyFromBus();
+    if (bit) {
+      bit->destroyFromBus();
+    }
   }
 }
 
@@ -133,6 +135,19 @@ void SNLBusTerm::destroyFromDesign() {
 void SNLBusTerm::preDestroy() {
   getDesign()->removeTerm(this);
   commonPreDestroy();
+}
+
+void SNLBusTerm::removeBit(SNLBusTermBit* bit) {
+  if (not bit) {
+    return;
+  }
+  size_t pos = bit->getPositionInBus();
+  if (pos < bits_.size()) {
+    bits_[pos] = nullptr;
+  }
+  for (auto instance: getDesign()->getSlaveInstances()) {
+    instance->removeInstTerm(bit);
+  }
 }
 
 SNLTerm* SNLBusTerm::clone(SNLDesign* design) const {
@@ -149,7 +164,9 @@ void SNLBusTerm::setNet(SNLNet* net) {
   if (not net) {
     //disconnect all
     for (SNLBusTermBit* bit: bits_) {
-      bit->setNet(nullptr);
+      if (bit) {
+        bit->setNet(nullptr);
+      }
     }
     return;
   }
@@ -346,7 +363,8 @@ SNLBusTermBit* SNLBusTerm::getBitAtPosition(size_t position) const {
 }
 
 NajaCollection<SNLBusTermBit*> SNLBusTerm::getBusBits() const {
-  return NajaCollection(new NajaSTLCollection(&bits_));
+  auto filter = [](const SNLBusTermBit* bit) { return bit != nullptr; };
+  return NajaCollection(new NajaSTLCollection(&bits_)).getSubCollection(filter);
 }
 
 NajaCollection<SNLBitTerm*> SNLBusTerm::getBits() const {

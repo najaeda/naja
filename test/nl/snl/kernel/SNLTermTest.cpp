@@ -109,7 +109,53 @@ TEST_F(SNLTermTest, testCreation) {
   EXPECT_EQ(nullptr, NLUniverse::get()->getBusTermBit(NLID(NLID::Type::TermBit, 1, 0, 0, 0, 0, -5)));
   EXPECT_EQ(nullptr, NLUniverse::get()->getObject(NLID(NLID::Type::TermBit, 1, 0, 0, 0, 0, -5)));
 
-  EXPECT_THROW(term0->getBit(-4)->destroy(), NLException);
+  term0->getBit(-4)->destroy();
+  EXPECT_EQ(nullptr, term0->getBit(-4));
+  EXPECT_EQ(3, term0->getBits().size());
+}
+
+TEST_F(SNLTermTest, testBusTermBitDestroyWithInternalNet) {
+  NLLibrary* library = db_->getLibrary(NLName("MYLIB"));
+  ASSERT_NE(library, nullptr);
+  auto design = SNLDesign::create(library, NLName("design"));
+  auto term = SNLBusTerm::create(design, SNLTerm::Direction::InOut, 3, 0, NLName("bus"));
+  auto net = SNLBusNet::create(design, 3, 0, NLName("net"));
+  term->setNet(net);
+
+  auto bit = term->getBit(2);
+  ASSERT_NE(nullptr, bit);
+  auto netBit = net->getBit(2);
+  ASSERT_NE(nullptr, netBit);
+  EXPECT_EQ(1, netBit->getComponents().size());
+
+  bit->destroy();
+  EXPECT_EQ(nullptr, term->getBit(2));
+  EXPECT_EQ(0, netBit->getComponents().size());
+  EXPECT_EQ(3, term->getBits().size());
+}
+
+TEST_F(SNLTermTest, testBusTermBitDestroyWithSlaveInstanceConnection) {
+  NLLibrary* library = db_->getLibrary(NLName("MYLIB"));
+  ASSERT_NE(library, nullptr);
+  auto model = SNLDesign::create(library, NLName("model"));
+  auto term = SNLBusTerm::create(model, SNLTerm::Direction::InOut, 3, 0, NLName("bus"));
+
+  auto top = SNLDesign::create(library, NLName("top"));
+  auto inst = SNLInstance::create(top, model, NLName("u0"));
+  auto topNet = SNLScalarNet::create(top, NLName("n0"));
+
+  auto bit = term->getBit(1);
+  ASSERT_NE(nullptr, bit);
+  auto instTerm = inst->getInstTerm(bit);
+  ASSERT_NE(nullptr, instTerm);
+  instTerm->setNet(topNet);
+  EXPECT_EQ(1, topNet->getComponents().size());
+  EXPECT_EQ(4, inst->getInstTerms().size());
+
+  bit->destroy();
+  EXPECT_EQ(nullptr, term->getBit(1));
+  EXPECT_EQ(0, topNet->getComponents().size());
+  EXPECT_EQ(3, inst->getInstTerms().size());
 }
 
 TEST_F(SNLTermTest, testSetNet0) {

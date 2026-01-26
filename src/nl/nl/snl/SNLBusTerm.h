@@ -17,6 +17,7 @@ class SNLBusTermBit;
 class SNLBusTerm final: public SNLTerm {
   public:
     friend class SNLDesign;
+    friend class SNLBusTermBit;
     using super = SNLTerm;
 
     /**
@@ -112,6 +113,7 @@ class SNLBusTerm final: public SNLTerm {
     SNLTerm* clone(SNLDesign* design) const override;
     void commonPreDestroy();
     void preDestroy() override;
+    void removeBit(SNLBusTermBit* bit);
 
     void setID(NLID::DesignObjectID id) override { id_ = id; }
     void setFlatID(size_t flatID) override { flatID_ = flatID; }
