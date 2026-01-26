@@ -33,7 +33,13 @@ jobs:
       - name: Install flex & bison
         run: |
           sudo apt-get update && sudo apt-get install -yq libfl-dev libboost-all-dev
-
+      - name: Install flex, bison, and Boost
+        run: |
+            sudo apt-get update
+            sudo apt-get install -y software-properties-common
+            sudo add-apt-repository -y ppa:mhier/libboost-latest
+            sudo apt-get update
+            sudo apt-get install -y libfl-dev libboost-all-dev
       - name: Generate parser sources
         run: |
           cd thirdparty/naja-verilog
