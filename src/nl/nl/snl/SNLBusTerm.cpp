@@ -138,9 +138,6 @@ void SNLBusTerm::preDestroy() {
 }
 
 void SNLBusTerm::removeBit(SNLBusTermBit* bit) {
-  if (not bit) {
-    return;
-  }
   size_t pos = bit->getPositionInBus();
   if (pos < bits_.size()) {
     bits_[pos] = nullptr;

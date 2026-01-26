@@ -214,6 +214,27 @@ class NajaNetlistTestSimple(unittest.TestCase):
             bus_net.get_bit(1).set_msb(1)
         with self.assertRaises(ValueError):
             bus_net.get_bit(1).set_lsb(1)
+        net_a = top.create_net('n2')
+        net_b = top.create_net('n3')
+        concat = netlist.Net([], net_concat=[net_a.net, net_b.net])
+        with self.assertRaises(ValueError):
+            concat.set_msb(1)
+        with self.assertRaises(ValueError):
+            concat.set_lsb(0)
+
+    def test_net_set_msb_lsb_intermediate(self):
+        top = netlist.create_top('Top')
+        top_design = naja.NLUniverse.get().getTopDesign()
+        lib = top_design.getLibrary()
+        model = naja.SNLDesign.create(lib, "M1")
+        naja.SNLBusNet.create(model, 3, 0, "bus")
+        inst = top.create_child_instance("M1", "u1")
+        net = inst.get_net("bus")
+        self.assertIsNotNone(net)
+        net.set_msb(2)
+        self.assertEqual(2, net.get_msb())
+        net.set_lsb(1)
+        self.assertEqual(1, net.get_lsb())
 
 if __name__ == '__main__':
     faulthandler.enable()
