@@ -78,25 +78,7 @@ before-all = '''
 build-frontend = "build"
 before-all = '''
   set -euo pipefail
-  echo "::group::Updating AlmaLinux repos to use official baseurl"
-  # Prefer AlmaLinux official repo baseurl over mirrorlist/metalink to avoid stale mirrors (seen on aarch64).
-  shopt -s nullglob
-  for f in /etc/yum.repos.d/AlmaLinux*.repo /etc/yum.repos.d/almalinux*.repo; do
-    # Disable dynamic mirror selection
-    sed -i 's|^mirrorlist=|#mirrorlist=|g' "$f"
-    sed -i 's|^metalink=|#metalink=|g' "$f"
-
-    # Ensure we have an active baseurl pointing at the official origin.
-    # Covers both commented and uncommented forms.
-    sed -i 's|^#baseurl=http://repo\.almalinux\.org/almalinux|baseurl=https://repo.almalinux.org/almalinux|g' "$f"
-    sed -i 's|^#baseurl=https://repo\.almalinux\.org/almalinux|baseurl=https://repo.almalinux.org/almalinux|g' "$f"
-    sed -i 's|^baseurl=http://repo\.almalinux\.org/almalinux|baseurl=https://repo.almalinux.org/almalinux|g' "$f"
-  done
-
   yum clean all
-  rm -rf /var/cache/dnf/* /var/cache/yum/* || true
-  echo "::endgroup::"
-
   echo "::group::Installing dependencies"
   yum -y install wget boost-devel
   echo "::endgroup::"
