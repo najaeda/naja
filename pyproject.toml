@@ -79,11 +79,13 @@ build-frontend = "build"
 before-all = '''
   set -euo pipefail
   # AlmaLinux mirrors can lag; pin to official baseurl to avoid 404s on aarch64.
-  if ls /etc/yum.repos.d/AlmaLinux*.repo >/dev/null 2>&1; then
-    for f in /etc/yum.repos.d/AlmaLinux*.repo; do
-      sed -i 's|^mirrorlist=|#mirrorlist=|g' "$f"
-      sed -i 's|^#baseurl=http://repo.almalinux.org|baseurl=https://repo.almalinux.org|g' "$f"
-      sed -i 's|^#baseurl=https://repo.almalinux.org|baseurl=https://repo.almalinux.org|g' "$f"
+  if ls /etc/yum.repos.d/*almalinux*.repo >/dev/null 2>&1; then
+    for f in /etc/yum.repos.d/*almalinux*.repo; do
+      # Disable mirrorlist/metalink and force baseurl.
+      sed -i -E 's|^mirrorlist=|#mirrorlist=|g' "$f"
+      sed -i -E 's|^metalink=|#metalink=|g' "$f"
+      sed -i -E 's|^#?baseurl=|baseurl=|g' "$f"
+      sed -i -E 's|^baseurl=http://repo.almalinux.org|baseurl=https://repo.almalinux.org|g' "$f"
     done
   fi
   yum clean all
