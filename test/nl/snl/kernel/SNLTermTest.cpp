@@ -158,6 +158,52 @@ TEST_F(SNLTermTest, testBusTermBitDestroyWithSlaveInstanceConnection) {
   EXPECT_EQ(3, inst->getInstTerms().size());
 }
 
+TEST_F(SNLTermTest, testGetBitTermsWithAllBusBitsDestroyed) {
+  NLLibrary* library = db_->getLibrary(NLName("MYLIB"));
+  ASSERT_NE(library, nullptr);
+  auto design = SNLDesign::create(library, NLName("design"));
+
+  auto term0 = SNLBusTerm::create(design, SNLTerm::Direction::InOut, 1, 0, NLName("term0"));
+  ASSERT_EQ(2, term0->getBits().size());
+
+  auto bit1 = term0->getBit(1);
+  auto bit0 = term0->getBit(0);
+  ASSERT_NE(nullptr, bit1);
+  ASSERT_NE(nullptr, bit0);
+  bit1->destroy();
+  bit0->destroy();
+
+  EXPECT_EQ(0, term0->getBits().size());
+  EXPECT_TRUE(term0->getBusBits().empty());
+
+  // This currently triggers an assert in NajaFlatCollection when flattening empty bus bits.
+  EXPECT_TRUE(design->getBitTerms().empty());
+}
+
+TEST_F(SNLTermTest, testGetBitTermsWithAllBitsDestroyedAcrossBuses) {
+  NLLibrary* library = db_->getLibrary(NLName("MYLIB"));
+  ASSERT_NE(library, nullptr);
+  auto design = SNLDesign::create(library, NLName("design"));
+
+  auto term0 = SNLBusTerm::create(design, SNLTerm::Direction::InOut, 1, 0, NLName("term0"));
+  auto term1 = SNLBusTerm::create(design, SNLTerm::Direction::Input, 3, 2, NLName("term1"));
+  ASSERT_EQ(2, term0->getBits().size());
+  ASSERT_EQ(2, term1->getBits().size());
+
+  term0->getBit(1)->destroy();
+  term0->getBit(0)->destroy();
+  term1->getBit(3)->destroy();
+  term1->getBit(2)->destroy();
+
+  EXPECT_EQ(0, term0->getBits().size());
+  EXPECT_TRUE(term0->getBusBits().empty());
+  EXPECT_EQ(0, term1->getBits().size());
+  EXPECT_TRUE(term1->getBusBits().empty());
+
+  EXPECT_TRUE(design->getBitTerms().empty());
+  EXPECT_EQ(0, design->getBitTerms().size());
+}
+
 TEST_F(SNLTermTest, testSetNet0) {
   //SetNet for TermBus size > 1
   NLLibrary* library = db_->getLibrary(NLName("MYLIB"));

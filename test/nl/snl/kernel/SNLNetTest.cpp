@@ -348,6 +348,44 @@ TEST_F(SNLNetTest, testBusNetBitDestruction) {
   EXPECT_EQ(nullptr, net1->getBitAtPosition(net1LsbPosition));
 }
 
+TEST_F(SNLNetTest, testGetBitNetsWithAllBusBitsDestroyed) {
+  auto net0 = SNLBusNet::create(design_, 1, 0, NLName("net0"));
+  ASSERT_EQ(2, net0->getBits().size());
+
+  auto bit1 = net0->getBit(1);
+  auto bit0 = net0->getBit(0);
+  ASSERT_NE(nullptr, bit1);
+  ASSERT_NE(nullptr, bit0);
+  bit1->destroy();
+  bit0->destroy();
+
+  EXPECT_EQ(0, net0->getBits().size());
+  EXPECT_TRUE(net0->getBusBits().empty());
+
+  // This currently triggers an assert in NajaFlatCollection when flattening empty bus bits.
+  EXPECT_TRUE(design_->getBitNets().empty());
+}
+
+TEST_F(SNLNetTest, testGetBitNetsWithAllBitsDestroyedAcrossBuses) {
+  auto net0 = SNLBusNet::create(design_, 1, 0, NLName("net0"));
+  auto net1 = SNLBusNet::create(design_, 3, 2, NLName("net1"));
+  ASSERT_EQ(2, net0->getBits().size());
+  ASSERT_EQ(2, net1->getBits().size());
+
+  net0->getBit(1)->destroy();
+  net0->getBit(0)->destroy();
+  net1->getBit(3)->destroy();
+  net1->getBit(2)->destroy();
+
+  EXPECT_EQ(0, net0->getBits().size());
+  EXPECT_TRUE(net0->getBusBits().empty());
+  EXPECT_EQ(0, net1->getBits().size());
+  EXPECT_TRUE(net1->getBusBits().empty());
+
+  EXPECT_TRUE(design_->getBitNets().empty());
+  EXPECT_EQ(0, design_->getBitNets().size());
+}
+
 TEST_F(SNLNetTest, testResizeBusNetSuccess) {
   auto net0 = SNLBusNet::create(design_, 3, 0, NLName("net0"));
   net0->setMSB(1);
