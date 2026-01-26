@@ -18,7 +18,6 @@ set(HEADERS
 # Find Boost iostreams and zlib (non-fatal; we will link if found)
 find_package(Boost COMPONENTS iostreams REQUIRED)
 find_package(ZLIB REQUIRED)
-find_package(Boost 1.75 REQUIRED COMPONENTS iostreams)
 
 # Create static library
 add_library(naja_snl_liberty STATIC ${SOURCES})
