@@ -32,7 +32,7 @@ target_link_libraries(naja_snl_liberty
   PUBLIC
   naja_nl
   yosys_liberty
-  PRIVATE Boost::iostreams
+  Boost::iostreams
 )
 
 # Conditionally link Boost.Iostreams (prefer imported target if available)

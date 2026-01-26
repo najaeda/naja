@@ -18,6 +18,8 @@
 #include "SNLDesignModeling.h"
 #include "SNLLibertyConstructorException.h"
 
+#include <boost/iostreams/detail/config/auto_link.hpp>
+#include <boost/iostreams/detail/config/disable_warnings.hpp>
 #include <boost/iostreams/filtering_stream.hpp>
 #include <boost/iostreams/filter/gzip.hpp>
 #include <stdexcept>
