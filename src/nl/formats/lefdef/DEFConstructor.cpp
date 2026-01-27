@@ -3,7 +3,6 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include <boost/algorithm/string.hpp>
 #include <cstdio>
 #include <cstring>
 #include <memory>

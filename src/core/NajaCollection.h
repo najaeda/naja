@@ -627,17 +627,7 @@ class NajaFlatCollection: public NajaBaseCollection<ReturnType> {
               element_ = nullptr;
             } else {
               it_ = collection->begin();
-              if (it_->isValid()) {
-                Type e = it_->getElement();
-                if (auto r = dynamic_cast<ReturnType>(e)) {
-                  element_ = r;
-                } else {
-                  MasterType master = static_cast<MasterType>(e);
-                  flattenIt_ = flattener_(master).begin_();
-                  assert(flattenIt_->isValid());
-                  element_ = flattenIt_->getElement();
-                }
-              }
+              findNextElement(false);
             }
           }
         }
@@ -665,35 +655,7 @@ class NajaFlatCollection: public NajaBaseCollection<ReturnType> {
         ReturnType getElement() const override { return element_; } 
         void progress() override {
           if (isValid()) {
-            element_ = nullptr;
-            if (flattenIt_ and flattenIt_->isValid()) {
-              flattenIt_->progress();
-              if (flattenIt_->isValid()) {
-                element_ = flattenIt_->getElement();
-                return;
-              } else {
-                delete flattenIt_;
-                flattenIt_ = nullptr;
-              }
-            }
-            if (it_->isValid()) {
-              it_->progress();
-            }
-            if (it_->isValid()) {
-              Type e = it_->getElement();
-              if (auto r = dynamic_cast<ReturnType>(e)) {
-                element_ = r;
-                if (flattenIt_) {
-                  delete flattenIt_;
-                }
-                flattenIt_ = nullptr;
-              } else {
-                MasterType master = static_cast<MasterType>(e);
-                flattenIt_ = flattener_(master).begin_();
-                assert(flattenIt_->isValid());
-                element_ = flattenIt_->getElement();
-              }
-            }
+            findNextElement(true);
           }
         }
         bool isEqual(const NajaBaseIterator<ReturnType>* r) const override {
@@ -714,6 +676,44 @@ class NajaFlatCollection: public NajaBaseCollection<ReturnType> {
           return element_ != nullptr;
         }
       private:
+        void findNextElement(bool advance) {
+          element_ = nullptr;
+
+          if (flattenIt_) {
+            if (advance) {
+              flattenIt_->progress();
+            }
+            if (flattenIt_->isValid()) {
+              element_ = flattenIt_->getElement();
+              return;
+            }
+            delete flattenIt_;
+            flattenIt_ = nullptr;
+          }
+
+          if (advance and it_ and it_->isValid()) {
+            it_->progress();
+          }
+
+          while (it_ and it_->isValid()) {
+            Type e = it_->getElement();
+            if (auto r = dynamic_cast<ReturnType>(e)) {
+              element_ = r;
+              return;
+            }
+
+            MasterType master = static_cast<MasterType>(e);
+            flattenIt_ = flattener_(master).begin_();
+            if (flattenIt_->isValid()) {
+              element_ = flattenIt_->getElement();
+              return;
+            }
+            delete flattenIt_;
+            flattenIt_ = nullptr;
+
+            it_->progress();
+          }
+        }
 
         NajaBaseIterator<Type>*     it_         {nullptr};
         NajaBaseIterator<Type>*     endIt_      {nullptr};
@@ -1100,4 +1100,3 @@ template<class Type> class NajaCollection {
 };
 
 } // namespace naja
-

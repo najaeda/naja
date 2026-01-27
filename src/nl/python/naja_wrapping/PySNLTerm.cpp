@@ -25,7 +25,7 @@ using namespace naja::NL;
 
 GetNameMethod(SNLTerm)
 GetContainerMethodWithMethodName(Term, BitTerm, getBits)
-DirectGetIntMethod(PySNLTerm_getWidth, getWidth, PySNLTerm, SNLTerm)
+DirectGetNumericMethod(PySNLTerm_getWidth, getWidth, PySNLTerm, SNLTerm)
 
 PyMethodDef PySNLTerm_Methods[] = {
   { "getName", (PyCFunction)PySNLTerm_getName, METH_NOARGS,
