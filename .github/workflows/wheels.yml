@@ -32,8 +32,7 @@ jobs:
 
       - name: Install flex & bison
         run: |
-          sudo apt-get update && sudo apt-get install -yq libfl-dev libboost-all-dev libboost-iostreams-dev
-
+          sudo apt-get update && sudo apt-get install -yq libboost-iostreams-dev libboost-dev libboost-all-dev libfl-dev capnproto libcapnp-dev valgrind libtbb-dev
       - name: Generate parser sources
         run: |
           cd thirdparty/naja-verilog
