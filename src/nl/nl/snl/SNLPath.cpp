@@ -102,6 +102,28 @@ SNLPath::SNLPath(const SNLDesign* top, const PathStringDescriptor& descriptor)
   }
 }
 
+SNLPath ::SNLPath(const SNLDesign* top, const PathIDDescriptor& descriptor)
+    : SNLPath() {
+  if (top and not descriptor.empty()) {
+    using Instances = std::vector<SNLInstance*>;
+    Instances instances;
+    auto design = top;
+    for (auto instanceID : descriptor) {
+      auto instance = design->getInstance(instanceID);
+      if (not instance) {
+        throw NLException("Unfound instance in SNLPath constructor.");
+      }
+      instances.push_back(instance);
+      design = instance->getModel();
+    }
+    SNLPath path;
+    for (auto instance : instances) {
+      path = SNLPath(path, instance);
+    }
+    sharedPath_ = path.sharedPath_;
+  }
+}
+
 SNLPath::PathIDDescriptor SNLPath::getIDDescriptor() const {
   SNLPath::PathIDDescriptor descriptor;
   if (sharedPath_) {
@@ -238,6 +260,31 @@ std::vector<SNLInstance*> SNLPath::getInstances() const {
     return instances;
   }
   return sharedPath_->getInstances();
+}
+
+SNLPath::PathStringDescriptor SNLPath::getPathDescriptor() const {
+  PathStringDescriptor descriptor;
+  if (sharedPath_) {
+    auto sharedPath = sharedPath_;
+    while (sharedPath) {
+      descriptor.push_back(
+          sharedPath->getHeadInstance()->getName().getString());
+      sharedPath = sharedPath->getTailSharedPath();
+    }
+  }
+  return descriptor;
+}
+
+std::vector<NLName> SNLPath::getPathNames() const {
+  std::vector<NLName> names;
+  if (sharedPath_) {
+    auto sharedPath = sharedPath_;
+    while (sharedPath) {
+      names.push_back(sharedPath->getHeadInstance()->getName());
+      sharedPath = sharedPath->getTailSharedPath();
+    }
+  }
+  return names; 
 }
 
 }  // namespace naja::NL

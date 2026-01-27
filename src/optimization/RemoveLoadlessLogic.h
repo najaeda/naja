@@ -42,11 +42,17 @@ class LoadlessLogicRemover {
   void setNormalizedUniquification(bool normalizedUniquification) {
     normalizedUniquification_ = normalizedUniquification;
   }
+  void removeLoadlessNets();
+  void setRemoveLoadlessNets(bool removeLoadlessNets) {
+    removeLoadlessNets_ = removeLoadlessNets;
+  }
+  bool getRemoveLoadlessNets() const { return removeLoadlessNets_; }
  private:
   naja::DNL::DNL<DNLInstanceFull, DNLTerminalFull>* dnl_;
   std::vector<std::pair<std::vector<NLID::DesignObjectID>, DNLID>> loadlessInstances_;
   std::string report_;
   bool normalizedUniquification_ = true;
+  bool removeLoadlessNets_ = false;
 };
 
 }  // namespace naja::NAJA_OPT
