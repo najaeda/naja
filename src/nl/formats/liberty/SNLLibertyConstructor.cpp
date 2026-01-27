@@ -7,6 +7,8 @@
 
 #include <fstream>
 #include <sstream>
+#include <vector>
+#include <zlib.h>
 
 #include "YosysLibertyParser.h"
 
@@ -18,11 +20,9 @@
 #include "SNLDesignModeling.h"
 #include "SNLLibertyConstructorException.h"
 
-#include <boost/iostreams/detail/config/auto_link.hpp>
-#include <boost/iostreams/detail/config/disable_warnings.hpp>
-#include <boost/iostreams/filtering_stream.hpp>
-#include <boost/iostreams/filter/gzip.hpp>
-#include <stdexcept>
+// Note: removed Boost.Iostreams gzip usage to avoid allocator/rebind issues
+// with some std::allocator implementations when compiling with modern C++.
+// We use zlib (gzread/gzopen) for .gz files and std::ifstream for plain files.
 
 namespace {
 
@@ -234,7 +234,7 @@ void parseCells(NLLibrary* library, const Yosys::LibertyAst* ast) {
   }
 }
 
-}
+} // anonymous namespace
 
 namespace naja::NL {
 
@@ -247,34 +247,58 @@ void SNLLibertyConstructor::construct(const std::filesystem::path& path) {
     throw SNLLibertyConstructorException("Liberty parser: " + path.string() + " does not exist");
   }
 
-  // Open underlying file in binary mode; must outlive filtering_istream
+  // Open underlying file in binary mode; must outlive parser input stream
+  if (path.extension() == ".gz") {
+    // Decompress with zlib (gzread) into memory, then parse from an istringstream.
+    gzFile gz = gzopen(path.string().c_str(), "rb");
+    if (!gz) {
+      throw SNLLibertyConstructorException("Liberty parser: failed to open gzip file: " + path.string());
+    }
+
+    std::vector<char> outbuf;
+    const size_t chunk = 16384;
+    std::vector<char> tmp(chunk);
+
+    int bytes = 0;
+    while ((bytes = gzread(gz, tmp.data(), static_cast<unsigned int>(tmp.size()))) > 0) {
+      outbuf.insert(outbuf.end(), tmp.data(), tmp.data() + bytes);
+    }
+    if (bytes < 0) {
+      int errnum = 0;
+      const char* errstr = gzerror(gz, &errnum);
+      gzclose(gz);
+      std::string msg = "Liberty parser: gzip read error: ";
+      msg += (errstr ? errstr : "unknown");
+      throw SNLLibertyConstructorException(msg);
+    }
+    gzclose(gz);
+
+    std::string s(outbuf.begin(), outbuf.end());
+    std::istringstream in(s, std::ios::in | std::ios::binary);
+
+    // Use the same parser API that accepts an istream
+    auto parser = std::make_unique<Yosys::LibertyParser>(in);
+    auto ast = parser->ast;
+    if (ast == nullptr) {
+      throw SNLLibertyConstructorException("Liberty parser: failed to parse the file: " + path.string());
+    }
+
+    auto libraryName = ast->args[0];
+    library_->setName(NLName(libraryName));
+    parseCells(library_, ast);
+    return;
+  }
+
+  // Non-gzipped path: open file and pass to parser directly
   std::ifstream file(path, std::ios::in | std::ios::binary);
   if (!file) {
-    // LCOV_EXCL_START
     throw SNLLibertyConstructorException("Liberty parser: failed to open file: " + path.string());
-    // LCOV_EXCL_STOP
   }
 
-  // Build filtering stream: gzip_decompressor only for .gz files
-  boost::iostreams::filtering_istream in;
-  try {
-    if (path.extension() == ".gz") {
-      in.push(boost::iostreams::gzip_decompressor());
-    }
-    in.push(file);
-  } catch (const std::exception &e) {
-    // LCOV_EXCL_START
-    throw SNLLibertyConstructorException(std::string("Liberty parser: gzip error: ") + e.what());
-    // LCOV_EXCL_STOP
-  }
-
-  // Use the same parser API that accepts an istream
-  auto parser = std::make_unique<Yosys::LibertyParser>(in);
+  auto parser = std::make_unique<Yosys::LibertyParser>(file);
   auto ast = parser->ast;
   if (ast == nullptr) {
-    // LCOV_EXCL_START
     throw SNLLibertyConstructorException("Liberty parser: failed to parse the file: " + path.string());
-    // LCOV_EXCL_STOP
   }
 
   auto libraryName = ast->args[0];
