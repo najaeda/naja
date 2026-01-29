@@ -38,7 +38,7 @@ RUN cmake -DCMAKE_BUILD_TYPE=Release .. \
     && cmake --install . --prefix /naja/install
 RUN ctest -j8 --output-on-failure
 
-FROM rockylinux:10 AS release
+FROM rockylinux:9 AS release
 RUN dnf -y update \
     && dnf -y install epel-release \
     && dnf -y config-manager --set-enabled crb \
