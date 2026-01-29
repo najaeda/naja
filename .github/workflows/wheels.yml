@@ -172,7 +172,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v6
         with:
-          python-version: "3.11" 
+          python-version: ${{ matrix.python }}
       - name: Download parser-generated sources
         # if: runner.os == 'Windows'
         uses: actions/download-artifact@v4
@@ -188,8 +188,7 @@ jobs:
       - name: Configure macOS Environment
         if: runner.os == 'macOS'
         run: |
-            export MACOSX_DEPLOYMENT_TARGET=14.0
-            export HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_CLEANUP=1 HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK=1 HOMEBREW_NO_ENV_HINTS=1
+            export HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_CLEANUP=1 HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK=1 HOMEBREW_NO_ENV_HINTS=1 MACOSX_DEPLOYMENT_TARGET=14.0
             eval "$(brew shellenv)"
             brew install -q boost
       - name: Install cibuildwheel (and delvewheel for Windows)
@@ -237,6 +236,8 @@ jobs:
             '
           CIBW_TEST_COMMAND_WINDOWS: >
             pwsh -NoProfile -NonInteractive -ExecutionPolicy Bypass -File {project}\ci\windows_test.ps1
+          MACOSX_DEPLOYMENT_TARGET: "14.0"
+          CMAKE_OSX_DEPLOYMENT_TARGET: "14.0"
         run: python -m cibuildwheel --output-dir wheelhouse
       #Reminder!!: actions/upload-artifact and actions/download-artifact
       #need to have same version
