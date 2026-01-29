@@ -1,12 +1,16 @@
 name: najaeda Wheel builder
 
 on:
+  # Save CI by only running this on release branches or tags.
   push:
     branches:
       - main
     tags:
       - v*
+  # Also allow running this action on PRs if requested by applying the
+  # "Run cibuildwheel" label.
   pull_request:
+  # Manual run
   workflow_dispatch:
 
 concurrency:
@@ -28,8 +32,7 @@ jobs:
 
       - name: Install flex & bison
         run: |
-          sudo apt-get update
-          sudo apt-get install -yq libboost-iostreams-dev libboost-dev libboost-all-dev libfl-dev capnproto libcapnp-dev valgrind libtbb-dev
+          sudo apt-get update && sudo apt-get install -yq libfl-dev
 
       - name: Generate parser sources
         run: |
@@ -39,6 +42,7 @@ jobs:
           mkdir -p ../../generated
           cp -v build/src/VerilogParser.cpp build/src/VerilogParser.hpp build/src/VerilogScanner.cpp ../../generated
           cp -v build/src/*.hh ../../generated
+          cp -v /usr/include/FlexLexer.h ../../generated
 
       - name: Upload parser artifact
         uses: actions/upload-artifact@v4
@@ -53,67 +57,69 @@ jobs:
     strategy:
       matrix:
         include:
+          # Linux 64 bit manylinux2014
           - os: ubuntu-latest
             python: 39
             platform_id: manylinux_x86_64
-            manylinux_image: manylinux_2_28
+            manylinux_image: manylinux2014
           - os: ubuntu-latest
             python: 310
             platform_id: manylinux_x86_64
-            manylinux_image: manylinux_2_28
+            manylinux_image: manylinux2014
           - os: ubuntu-latest
             python: 311
             platform_id: manylinux_x86_64
-            manylinux_image: manylinux_2_28
+            manylinux_image: manylinux2014
           - os: ubuntu-latest
             python: 312
             platform_id: manylinux_x86_64
-            manylinux_image: manylinux_2_28
+            manylinux_image: manylinux2014
           - os: ubuntu-latest
             python: 313
             platform_id: manylinux_x86_64
-            manylinux_image: manylinux_2_28
+            manylinux_image: manylinux2014
           - os: ubuntu-latest
             python: 313t
             platform_id: manylinux_x86_64
-            manylinux_image: manylinux_2_28
+            manylinux_image: manylinux2014
             free_threaded_support: True
           - os: ubuntu-latest
             python: 314
             platform_id: manylinux_x86_64
-            manylinux_image: manylinux_2_28
+            manylinux_image: manylinux2014
           - os: ubuntu-latest
             python: 314t
             platform_id: manylinux_x86_64
-            manylinux_image: manylinux_2_28
+            manylinux_image: manylinux2014
             free_threaded_support: True
 
           - os: ubuntu-24.04-arm
             python: 310
             platform_id: manylinux_aarch64
-            manylinux_image: manylinux_2_28
+            manylinux_image: manylinux2014
             cibw_arch: aarch64
           - os: ubuntu-24.04-arm
             python: 311
             platform_id: manylinux_aarch64
-            manylinux_image: manylinux_2_28
+            manylinux_image: manylinux2014
             cibw_arch: aarch64
           - os: ubuntu-24.04-arm
             python: 312
             platform_id: manylinux_aarch64
-            manylinux_image: manylinux_2_28
+            manylinux_image: manylinux2014
             cibw_arch: aarch64
           - os: ubuntu-24.04-arm
             python: 313
             platform_id: manylinux_aarch64
-            manylinux_image: manylinux_2_28
+            manylinux_image: manylinux2014
             cibw_arch: aarch64
           - os: ubuntu-24.04-arm
             python: 314
             platform_id: manylinux_aarch64
-            manylinux_image: manylinux_2_28
+            manylinux_image: manylinux2014
             cibw_arch: aarch64
 
+          # MacOS arm64
           - os: macos-14
             python: 39
             platform_id: macosx_arm64
@@ -141,6 +147,7 @@ jobs:
             platform_id: macosx_arm64
             free_threaded_support: True
 
+          # Windows x86_64 wheels
           - os: windows-latest
             python: 310
             platform_id: win_amd64
@@ -158,154 +165,38 @@ jobs:
             platform_id: win_amd64
 
     steps:
+      # build steps
       - uses: actions/checkout@v5
         with:
           submodules: true
-
       - name: Setup Python
         uses: actions/setup-python@v6
         with:
-          python-version: "3.11"
-
+          python-version: "3.11" 
       - name: Download parser-generated sources
+        # if: runner.os == 'Windows'
         uses: actions/download-artifact@v4
         with:
           name: parser-generated-sources
           path: generated
-
       - name: Install generated parser sources into tree
+        #if: runner.os == 'Windows'
         run: |
           echo "Copying generated parser files into thirdparty/naja-verilog/src"
           cp -R generated thirdparty/naja-verilog/src/
-
+          
       - name: Configure macOS Environment
         if: runner.os == 'macOS'
         run: |
-          export HOMEBREW_NO_AUTO_UPDATE=1
-          export HOMEBREW_NO_INSTALL_CLEANUP=1
-          export HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK=1
-          export HOMEBREW_NO_ENV_HINTS=1
-          eval "$(brew shellenv)"
-          brew install -q doxygen capnp tbb bison flex boost
-
+            export HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_CLEANUP=1 HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK=1 HOMEBREW_NO_ENV_HINTS=1
+            eval "$(brew shellenv)"
+            brew install -q boost
       - name: Install cibuildwheel (and delvewheel for Windows)
         run: python -m pip install cibuildwheel==3.3.0 delvewheel
-
-      - name: Setup vcpkg on Windows
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          git clone https://github.com/microsoft/vcpkg.git vcpkg
-          Set-Location vcpkg
-          .\bootstrap-vcpkg.bat
-          # optionally preinstall packages:
-          # .\vcpkg.exe install boost-iostreams:x64-windows tbb:x64-windows
-
       - name: Build wheels
         env:
-          MACOSX_DEPLOYMENT_TARGET: '14.0'
           CIBW_ENABLE: ${{ matrix.free_threaded_support && 'cpython-freethreading' || '' }}
           CIBW_ENVIRONMENT: SKLEARN_SKIP_NETWORK_TESTS=1
-
-          # manylinux: use vcpkg to install TBB and Boost for the correct triplet and point CMake at vcpkg prefix
-          CIBW_BEFORE_ALL_LINUX: >
-            bash -lc "
-              set -ex
-
-              # Try distro package managers for Boost and TBB (best-effort)
-              if command -v apt-get >/dev/null 2>&1; then
-                DEBIAN_FRONTEND=noninteractive apt-get update || true
-                DEBIAN_FRONTEND=noninteractive apt-get install -yq libboost-iostreams-dev libboost-dev zlib1g-dev libtbb-dev || true
-              elif command -v dnf >/dev/null 2>&1; then
-                dnf -y install boost-devel boost-iostreams-devel zlib-devel tbb-devel || true
-              elif command -v yum >/dev/null 2>&1; then
-                yum -y install boost-devel boost-iostreams-devel zlib-devel tbb-devel || true
-              fi
-
-              # If TBB package config not present, bootstrap vcpkg and install tbb + boost components for the correct triplet
-              if ! ls /usr/lib*/cmake/tbb >/dev/null 2>&1 && ! ls /usr/local/lib*/cmake/tbb >/dev/null 2>&1; then
-                git clone --depth 1 https://github.com/microsoft/vcpkg.git vcpkg || true
-                ./vcpkg/bootstrap-vcpkg.sh || true
-
-                # detect architecture and choose vcpkg triplet
-                ARCH=$(uname -m)
-                case \"$ARCH\" in
-                  x86_64) TRIPLET=x64-linux ;;
-                  aarch64|arm64) TRIPLET=aarch64-linux ;;
-                  *) TRIPLET=x64-linux ;;
-                esac
-                echo \"Using vcpkg triplet: ${TRIPLET}\"
-
-                # install tbb and boost components for the triplet
-                ./vcpkg/vcpkg install tbb:${TRIPLET} boost-headers:${TRIPLET} boost-iostreams:${TRIPLET} boost-filesystem:${TRIPLET} || true
-
-                # show what vcpkg installed
-                ./vcpkg/vcpkg list || true
-              fi
-
-              # Diagnostics for CI logs
-              echo '=== TBB diagnostics ==='
-              ls -la /usr/lib*/cmake/tbb 2>/dev/null || true
-              ls -la /usr/local/lib*/cmake/tbb 2>/dev/null || true
-              ls -la ./vcpkg/installed/*/lib*/cmake/tbb 2>/dev/null || true
-              echo '=== Boost diagnostics ==='
-              ls -la /usr/include/boost 2>/dev/null || true
-              ls -la /usr/local/include/boost 2>/dev/null || true
-              ls -la ./vcpkg/installed/*/include/boost 2>/dev/null || true
-
-              echo 'CIBW_BEFORE_ALL_LINUX finished'
-            "
-
-          # manylinux: set CMake args to use vcpkg toolchain and vcpkg installed prefix (triplet-specific)
-          CIBW_BEFORE_BUILD_LINUX: >
-            bash -lc "
-              set -ex
-
-              if [ -d ./vcpkg ]; then
-                VCPKG_PREFIX=$(ls -d ./vcpkg/installed/* 2>/dev/null | head -n1 || true)
-                if [ -n \"$VCPKG_PREFIX\" ]; then
-                  # prefer package-config locations for TBB
-                  if [ -d \"$VCPKG_PREFIX/share/tbb\" ]; then
-                    TBB_DIR=\"$VCPKG_PREFIX/share/tbb\"
-                  elif [ -d \"$VCPKG_PREFIX/lib/cmake/tbb\" ]; then
-                    TBB_DIR=\"$VCPKG_PREFIX/lib/cmake/tbb\"
-                  else
-                    TBB_DIR=\"\"
-                  fi
-
-                  if [ -n \"$TBB_DIR\" ]; then
-                    export CMAKE_ARGS=\"${CMAKE_ARGS:-} -DCMAKE_TOOLCHAIN_FILE=./vcpkg/scripts/buildsystems/vcpkg.cmake -DCMAKE_PREFIX_PATH=${VCPKG_PREFIX} -DTBB_DIR=${TBB_DIR} -DBoost_DEBUG=ON\"
-                    echo \"Using vcpkg prefix ${VCPKG_PREFIX}; TBB_DIR=${TBB_DIR}\"
-                  else
-                    export CMAKE_ARGS=\"${CMAKE_ARGS:-} -DCMAKE_TOOLCHAIN_FILE=./vcpkg/scripts/buildsystems/vcpkg.cmake -DCMAKE_PREFIX_PATH=${VCPKG_PREFIX} -DBoost_DEBUG=ON\"
-                    echo \"Using vcpkg prefix ${VCPKG_PREFIX}; TBB_DIR not found\"
-                  fi
-                else
-                  export CMAKE_ARGS=\"${CMAKE_ARGS:-} -DCMAKE_TOOLCHAIN_FILE=./vcpkg/scripts/buildsystems/vcpkg.cmake -DBoost_DEBUG=ON\"
-                  echo 'vcpkg present but no installed prefix found'
-                fi
-
-                # diagnostics
-                echo '=== vcpkg installed tree ==='
-                ls -la ./vcpkg/installed 2>/dev/null || true
-                echo '=== possible TBB locations ==='
-                ls -la ./vcpkg/installed/*/share/tbb 2>/dev/null || true
-                ls -la ./vcpkg/installed/*/lib*/cmake/tbb 2>/dev/null || true
-              else
-                export CMAKE_ARGS=\"${CMAKE_ARGS:-} -DBoost_DEBUG=ON\"
-                echo 'vcpkg not present; using default CMAKE_ARGS'
-              fi
-
-              echo CMAKE_ARGS=\"$CMAKE_ARGS\"
-              cmake --version || true
-            "
-
-          # Windows: use repo-relative vcpkg toolchain and repair path (no absolute paths)
-          CIBW_CONFIG_SETTINGS_WINDOWS: >
-            cmake.args=-DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}\vcpkg\scripts\buildsystems\vcpkg.cmake
-          CIBW_REPAIR_WHEEL_COMMAND_WINDOWS: >-
-            pwsh -Command "delvewheel repair -v --ignore-existing --analyze-existing --include-imports --add-path '${{ github.workspace }}\\vcpkg\\installed\\x64-windows\\bin' -w {dest_dir} {wheel}"
-
           CIBW_BUILD: cp${{ matrix.python }}-${{ matrix.platform_id }}
           CIBW_ARCHS: 'all'
           CIBW_MANYLINUX_X86_64_IMAGE: ${{ matrix.manylinux_image }}
@@ -314,6 +205,15 @@ jobs:
             pwsh -NoProfile -NonInteractive -ExecutionPolicy Bypass
             -File {project}\ci\windows_setup.ps1
           CIBW_BEFORE_BUILD_WINDOWS: "pwsh -Command \"foreach($d in 'build','dist'){ if(Test-Path $d){ Remove-Item -Recurse -Force $d -ErrorAction SilentlyContinue } }\""
+          CIBW_CONFIG_SETTINGS_WINDOWS: >
+            cmake.args=-DCMAKE_TOOLCHAIN_FILE=C:/Users/runneradmin/vcpkg/scripts/buildsystems/vcpkg.cmake
+          CIBW_REPAIR_WHEEL_COMMAND_WINDOWS: >-
+            delvewheel repair -v
+            --ignore-existing
+            --analyze-existing
+            --include-imports
+            --add-path "C:\Users\runneradmin\vcpkg\installed\x64-windows\bin"
+            -w {dest_dir} {wheel}
           CIBW_TEST_REQUIRES: "pytest"
           CIBW_TEST_COMMAND: >
             bash -c '
@@ -337,18 +237,24 @@ jobs:
           CIBW_TEST_COMMAND_WINDOWS: >
             pwsh -NoProfile -NonInteractive -ExecutionPolicy Bypass -File {project}\ci\windows_test.ps1
         run: python -m cibuildwheel --output-dir wheelhouse
-
+      #Reminder!!: actions/upload-artifact and actions/download-artifact
+      #need to have same version
       - uses: actions/upload-artifact@v4
         with:
           name: cibw-wheels-cp${{ matrix.python }}-${{ matrix.platform_id }}
           path: ./wheelhouse/*.whl
 
+  
   test_upload_pypi:
+    # TODO: create an sdist that can build without a custom environment
     needs: [build_wheels]
     runs-on: ubuntu-latest
+    #environment: pypi
     permissions:
       id-token: write
     steps:
+      #Reminder!!: actions/upload-artifact and actions/download-artifact
+      #need to have same version
       - uses: actions/download-artifact@v4
         with:
           pattern: cibw-*
@@ -367,7 +273,7 @@ jobs:
     name: Upload release to PyPI
     runs-on: ubuntu-latest
     permissions:
-      id-token: write
+      id-token: write  # IMPORTANT: this permission is mandatory for trusted publishing
     steps:
       - uses: actions/download-artifact@v4
         with:

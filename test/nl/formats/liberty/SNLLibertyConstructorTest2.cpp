@@ -119,3 +119,13 @@ TEST_F(SNLLibertyConstructorTest2, test) {
   EXPECT_THROW(SNLCapnP::load(outPath, true), NLException);
 #endif
 }
+
+TEST_F(SNLLibertyConstructorTest2, TestGZ) {
+  SNLLibertyConstructor constructor(library_);
+  std::filesystem::path testPath(
+      std::filesystem::path(SNL_LIBERTY_BENCHMARKS)
+      / std::filesystem::path("benchmarks")
+      / std::filesystem::path("tests")
+      / std::filesystem::path("asap7sc7p5t_SIMPLE_LVT_FF_nldm_211120.lib.gz"));
+  constructor.construct(testPath);
+}
