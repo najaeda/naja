@@ -1,16 +1,12 @@
 name: najaeda Wheel builder
 
 on:
-  # Save CI by only running this on release branches or tags.
   push:
     branches:
       - main
     tags:
       - v*
-  # Also allow running this action on PRs if requested by applying the
-  # "Run cibuildwheel" label.
   pull_request:
-  # Manual run
   workflow_dispatch:
 
 concurrency:
@@ -33,6 +29,7 @@ jobs:
       - name: Install flex & bison
         run: |
           sudo apt-get update && sudo apt-get install -yq libboost-iostreams-dev libboost-dev libboost-all-dev libfl-dev capnproto libcapnp-dev valgrind libtbb-dev
+
       - name: Generate parser sources
         run: |
           cd thirdparty/naja-verilog
@@ -56,7 +53,6 @@ jobs:
     strategy:
       matrix:
         include:
-          # Linux 64 bit manylinux_2_28
           - os: ubuntu-latest
             python: 39
             platform_id: manylinux_x86_64
@@ -118,7 +114,6 @@ jobs:
             manylinux_image: manylinux_2_28
             cibw_arch: aarch64
 
-          # MacOS arm64
           - os: macos-14
             python: 39
             platform_id: macosx_arm64
@@ -146,7 +141,6 @@ jobs:
             platform_id: macosx_arm64
             free_threaded_support: True
 
-          # Windows x86_64 wheels
           - os: windows-latest
             python: 310
             platform_id: win_amd64
@@ -164,22 +158,22 @@ jobs:
             platform_id: win_amd64
 
     steps:
-      # build steps
       - uses: actions/checkout@v5
         with:
           submodules: true
+
       - name: Setup Python
         uses: actions/setup-python@v6
         with:
           python-version: "3.11"
+
       - name: Download parser-generated sources
-        # if: runner.os == 'Windows'
         uses: actions/download-artifact@v4
         with:
           name: parser-generated-sources
           path: generated
+
       - name: Install generated parser sources into tree
-        #if: runner.os == 'Windows'
         run: |
           echo "Copying generated parser files into thirdparty/naja-verilog/src"
           cp -R generated thirdparty/naja-verilog/src/
@@ -190,45 +184,47 @@ jobs:
           export HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_CLEANUP=1 HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK=1 HOMEBREW_NO_ENV_HINTS=1
           eval "$(brew shellenv)"
           brew install -q boost
+
       - name: Install cibuildwheel (and delvewheel for Windows)
         run: python -m pip install cibuildwheel==3.3.0 delvewheel
+
       - name: Build wheels
         env:
           MACOSX_DEPLOYMENT_TARGET: '14.0'
           CIBW_ENABLE: ${{ matrix.free_threaded_support && 'cpython-freethreading' || '' }}
           CIBW_ENVIRONMENT: SKLEARN_SKIP_NETWORK_TESTS=1
-          # Robust, minimal fix: ensure distro Boost packages are installed in the manylinux container
-          CIBW_BEFORE_ALL_LINUX: >
+          # Robust, minimal change: ensure manylinux container installs distro boost dev packages if possible
+          CIBW_BEFORE_ALL_LINUX: |
             bash -lc "
-              set -ex
-              # Try common package managers to install distro boost dev packages and zlib dev
-              if command -v yum >/dev/null 2>&1; then
-                yum -y update || true
-                yum -y install boost-devel boost-iostreams-devel zlib-devel || true
-              elif command -v dnf >/dev/null 2>&1; then
-                dnf -y install boost-devel boost-iostreams-devel zlib-devel || true
-              elif command -v microdnf >/dev/null 2>&1; then
-                microdnf -y install boost-devel boost-iostreams-devel zlib-devel || true
-              elif command -v apt-get >/dev/null 2>&1; then
-                apt-get update || true
-                DEBIAN_FRONTEND=noninteractive apt-get install -yq libboost-iostreams-dev libboost-dev zlib1g-dev || true
-              else
-                echo 'No known package manager found; skipping distro boost install'
-              fi
-              # show what was installed (safe debug)
-              echo '=== Boost headers (if present) ==='
-              ls -d /usr/include/boost* /usr/local/include/boost* 2>/dev/null || true
-              echo '=== package list (if available) ==='
-              if command -v rpm >/dev/null 2>&1; then rpm -qa | grep -E \"boost|zlib\" || true; fi
+            set -ex
+            if command -v microdnf >/dev/null 2>&1; then
+              microdnf -y install boost-devel boost-iostreams-devel zlib-devel || true
+            elif command -v dnf >/dev/null 2>&1; then
+              dnf -y install boost-devel boost-iostreams-devel zlib-devel || true
+            elif command -v yum >/dev/null 2>&1; then
+              yum -y install boost-devel boost-iostreams-devel zlib-devel || true
+            elif command -v apt-get >/dev/null 2>&1; then
+              apt-get update || true
+              DEBIAN_FRONTEND=noninteractive apt-get install -yq libboost-iostreams-dev libboost-dev zlib1g-dev || true
+            else
+              echo No known package manager found; skipping boost install
+            fi
+            echo '=== boost header locations (if present) ==='
+            ls -d /usr/include/boost* /usr/local/include/boost* 2>/dev/null || true
+            if command -v rpm >/dev/null 2>&1; then rpm -qa | grep -E \"boost|zlib\" || true; fi
+            if command -v dpkg >/dev/null 2>&1; then dpkg -l | grep -E \"boost|zlib\" || true; fi
             "
-          CIBW_BEFORE_BUILD_LINUX: >
+
+          # Ask CMake to print FindBoost debug info at configure time (diagnostic, safe)
+          CIBW_BEFORE_BUILD_LINUX: |
             bash -lc "
-              set -ex
-              # no absolute paths; leave environment variables unchanged unless already set
-              # optional debug: show compiler and cmake versions
-              g++ --version || true
-              cmake --version || true
+            set -ex
+            export CMAKE_ARGS=\"${CMAKE_ARGS:-} -DBoost_DEBUG=ON\"
+            echo CMAKE_ARGS=\"$CMAKE_ARGS\"
+            g++ --version || true
+            cmake --version || true
             "
+
           CIBW_BUILD: cp${{ matrix.python }}-${{ matrix.platform_id }}
           CIBW_ARCHS: 'all'
           CIBW_MANYLINUX_X86_64_IMAGE: ${{ matrix.manylinux_image }}
@@ -269,15 +265,13 @@ jobs:
           CIBW_TEST_COMMAND_WINDOWS: >
             pwsh -NoProfile -NonInteractive -ExecutionPolicy Bypass -File {project}\ci\windows_test.ps1
         run: python -m cibuildwheel --output-dir wheelhouse
-      #Reminder!!: actions/upload-artifact and actions/download-artifact
-      #need to have same version
+
       - uses: actions/upload-artifact@v4
         with:
           name: cibw-wheels-cp${{ matrix.python }}-${{ matrix.platform_id }}
           path: ./wheelhouse/*.whl
 
   test_upload_pypi:
-    # TODO: create an sdist that can build without a custom environment
     needs: [build_wheels]
     runs-on: ubuntu-latest
     permissions:
