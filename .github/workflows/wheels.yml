@@ -186,7 +186,7 @@ jobs:
           export HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK=1
           export HOMEBREW_NO_ENV_HINTS=1
           eval "$(brew shellenv)"
-          brew install -q boost tbb
+          brew install -q doxygen capnp tbb bison flex boost
 
       - name: Install cibuildwheel (and delvewheel for Windows)
         run: python -m pip install cibuildwheel==3.3.0 delvewheel
