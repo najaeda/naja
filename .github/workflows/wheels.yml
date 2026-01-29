@@ -195,7 +195,6 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          # bootstrap vcpkg into the repository workspace so we can reference it without absolute paths
           git clone https://github.com/microsoft/vcpkg.git vcpkg
           Set-Location vcpkg
           .\bootstrap-vcpkg.bat
@@ -208,64 +207,23 @@ jobs:
           CIBW_ENABLE: ${{ matrix.free_threaded_support && 'cpython-freethreading' || '' }}
           CIBW_ENVIRONMENT: SKLEARN_SKIP_NETWORK_TESTS=1
 
-          # manylinux: attempt distro installs, provide Boost header fallback, bootstrap vcpkg and install TBB for the correct triplet,
-          # then pass vcpkg toolchain + TBB_DIR/CMAKE_PREFIX_PATH to CMake so find_package(TBB) succeeds.
+          # manylinux: use vcpkg to install TBB and Boost for the correct triplet and point CMake at vcpkg prefix
           CIBW_BEFORE_ALL_LINUX: >
             bash -lc "
               set -ex
 
-              # Try distro package managers for Boost and TBB
-              if command -v microdnf >/dev/null 2>&1; then
-                microdnf -y install boost-devel boost-iostreams-devel zlib-devel tbb-devel || true
+              # Try distro package managers for Boost and TBB (best-effort)
+              if command -v apt-get >/dev/null 2>&1; then
+                DEBIAN_FRONTEND=noninteractive apt-get update || true
+                DEBIAN_FRONTEND=noninteractive apt-get install -yq libboost-iostreams-dev libboost-dev zlib1g-dev libtbb-dev || true
               elif command -v dnf >/dev/null 2>&1; then
                 dnf -y install boost-devel boost-iostreams-devel zlib-devel tbb-devel || true
-                dnf module enable boost -y || true
-                dnf -y install boost-devel || true
               elif command -v yum >/dev/null 2>&1; then
                 yum -y install boost-devel boost-iostreams-devel zlib-devel tbb-devel || true
-              elif command -v apt-get >/dev/null 2>&1; then
-                apt-get update || true
-                DEBIAN_FRONTEND=noninteractive apt-get install -yq libboost-iostreams-dev libboost-dev zlib1g-dev libtbb-dev || true
-              elif command -v zypper >/dev/null 2>&1; then
-                zypper --non-interactive install -y boost-devel boost-iostreams-devel zlib-devel tbb-devel || true
-              else
-                echo 'No known package manager found; skipping package install'
               fi
 
-              # Diagnostics: show whether headers and cmake files exist and what packages are installed
-              echo '=== /usr/include/boost (if present) ==='
-              ls -la /usr/include/boost 2>/dev/null || true
-              echo '=== /usr/local/include/boost (if present) ==='
-              ls -la /usr/local/include/boost 2>/dev/null || true
-              echo '=== TBB include and cmake locations ==='
-              ls -la /usr/include/tbb 2>/dev/null || true
-              ls -la /usr/lib*/cmake/tbb 2>/dev/null || true
-              ls -la /usr/local/lib*/cmake/tbb 2>/dev/null || true
-              if command -v rpm >/dev/null 2>&1; then rpm -qa | grep -E \"boost|zlib|tbb|intel-tbb\" || true; fi
-              if command -v dpkg >/dev/null 2>&1; then dpkg -l | grep -E \"boost|zlib|tbb|intel-tbb\" || true; fi
-
-              # Fallback: if Boost headers still missing, download Boost headers only (no build) and place in /usr/local/include
-              if [ ! -d /usr/include/boost ] && [ ! -d /usr/local/include/boost ]; then
-                echo 'Boost headers not found via package manager — downloading Boost headers as fallback'
-                TMPDIR=$(mktemp -d)
-                cd \"$TMPDIR\"
-                BOOST_VER=1.82.0
-                BOOST_TAR=boost_${BOOST_VER//./_}.tar.gz
-                curl -sSLO https://boostorg.jfrog.io/artifactory/main/release/${BOOST_VER}/source/${BOOST_TAR} || true
-                if [ -f \"$BOOST_TAR\" ]; then
-                  tar -xzf \"$BOOST_TAR\"
-                  cp -r boost_${BOOST_VER//./_}/boost /usr/local/include/ || true
-                  echo 'Copied Boost headers to /usr/local/include/boost'
-                else
-                  echo 'Failed to download Boost source tarball; skipping header fallback'
-                fi
-                cd /
-                rm -rf \"$TMPDIR\" || true
-              fi
-
-              # If TBB CMake config not found, bootstrap vcpkg and install tbb for the correct triplet
+              # If TBB package config not present, bootstrap vcpkg and install tbb + boost components for the correct triplet
               if ! ls /usr/lib*/cmake/tbb >/dev/null 2>&1 && ! ls /usr/local/lib*/cmake/tbb >/dev/null 2>&1; then
-                echo 'TBB CMake config not found; bootstrapping vcpkg and installing tbb as fallback'
                 git clone --depth 1 https://github.com/microsoft/vcpkg.git vcpkg || true
                 ./vcpkg/bootstrap-vcpkg.sh || true
 
@@ -274,30 +232,39 @@ jobs:
                 case \"$ARCH\" in
                   x86_64) TRIPLET=x64-linux ;;
                   aarch64|arm64) TRIPLET=aarch64-linux ;;
-                  *) TRIPLET=x64-linux ;; # fallback
+                  *) TRIPLET=x64-linux ;;
                 esac
                 echo \"Using vcpkg triplet: ${TRIPLET}\"
 
-                # install tbb and optionally boost headers via vcpkg for the triplet
-                ./vcpkg/vcpkg install tbb:${TRIPLET} || ./vcpkg/vcpkg install tbb || true
-                ./vcpkg/vcpkg install boost-headers:${TRIPLET} boost-iostreams:${TRIPLET} || true
+                # install tbb and boost components for the triplet
+                ./vcpkg/vcpkg install tbb:${TRIPLET} boost-headers:${TRIPLET} boost-iostreams:${TRIPLET} boost-filesystem:${TRIPLET} || true
 
-                echo 'vcpkg installed packages:'
+                # show what vcpkg installed
                 ./vcpkg/vcpkg list || true
               fi
+
+              # Diagnostics for CI logs
+              echo '=== TBB diagnostics ==='
+              ls -la /usr/lib*/cmake/tbb 2>/dev/null || true
+              ls -la /usr/local/lib*/cmake/tbb 2>/dev/null || true
+              ls -la ./vcpkg/installed/*/lib*/cmake/tbb 2>/dev/null || true
+              echo '=== Boost diagnostics ==='
+              ls -la /usr/include/boost 2>/dev/null || true
+              ls -la /usr/local/include/boost 2>/dev/null || true
+              ls -la ./vcpkg/installed/*/include/boost 2>/dev/null || true
 
               echo 'CIBW_BEFORE_ALL_LINUX finished'
             "
 
-          # manylinux: enable FindBoost debug output and, if vcpkg used, set toolchain and TBB_DIR/CMAKE_PREFIX_PATH (repo-relative)
+          # manylinux: set CMake args to use vcpkg toolchain and vcpkg installed prefix (triplet-specific)
           CIBW_BEFORE_BUILD_LINUX: >
             bash -lc "
               set -ex
+
               if [ -d ./vcpkg ]; then
-                # detect triplet-installed prefix
                 VCPKG_PREFIX=$(ls -d ./vcpkg/installed/* 2>/dev/null | head -n1 || true)
                 if [ -n \"$VCPKG_PREFIX\" ]; then
-                  # prefer share/tbb (TBB_DIR) but also set CMAKE_PREFIX_PATH and Boost include hint
+                  # prefer package-config locations for TBB
                   if [ -d \"$VCPKG_PREFIX/share/tbb\" ]; then
                     TBB_DIR=\"$VCPKG_PREFIX/share/tbb\"
                   elif [ -d \"$VCPKG_PREFIX/lib/cmake/tbb\" ]; then
@@ -307,15 +274,15 @@ jobs:
                   fi
 
                   if [ -n \"$TBB_DIR\" ]; then
-                    export CMAKE_ARGS=\"${CMAKE_ARGS:-} -DCMAKE_TOOLCHAIN_FILE=./vcpkg/scripts/buildsystems/vcpkg.cmake -DTBB_DIR=${TBB_DIR} -DCMAKE_PREFIX_PATH=${VCPKG_PREFIX} -DBoost_DEBUG=ON -DBoost_INCLUDE_DIR=/usr/local/include -DBOOST_ROOT=/usr/local\"
-                    echo \"Using vcpkg toolchain; TBB_DIR=${TBB_DIR}; CMAKE_PREFIX_PATH=${VCPKG_PREFIX}\"
+                    export CMAKE_ARGS=\"${CMAKE_ARGS:-} -DCMAKE_TOOLCHAIN_FILE=./vcpkg/scripts/buildsystems/vcpkg.cmake -DCMAKE_PREFIX_PATH=${VCPKG_PREFIX} -DTBB_DIR=${TBB_DIR} -DBoost_DEBUG=ON\"
+                    echo \"Using vcpkg prefix ${VCPKG_PREFIX}; TBB_DIR=${TBB_DIR}\"
                   else
-                    export CMAKE_ARGS=\"${CMAKE_ARGS:-} -DCMAKE_TOOLCHAIN_FILE=./vcpkg/scripts/buildsystems/vcpkg.cmake -DCMAKE_PREFIX_PATH=${VCPKG_PREFIX} -DBoost_DEBUG=ON -DBoost_INCLUDE_DIR=/usr/local/include -DBOOST_ROOT=/usr/local\"
-                    echo \"Using vcpkg toolchain; CMAKE_PREFIX_PATH=${VCPKG_PREFIX} (TBB_DIR not found)\"
+                    export CMAKE_ARGS=\"${CMAKE_ARGS:-} -DCMAKE_TOOLCHAIN_FILE=./vcpkg/scripts/buildsystems/vcpkg.cmake -DCMAKE_PREFIX_PATH=${VCPKG_PREFIX} -DBoost_DEBUG=ON\"
+                    echo \"Using vcpkg prefix ${VCPKG_PREFIX}; TBB_DIR not found\"
                   fi
                 else
-                  export CMAKE_ARGS=\"${CMAKE_ARGS:-} -DCMAKE_TOOLCHAIN_FILE=./vcpkg/scripts/buildsystems/vcpkg.cmake -DBoost_DEBUG=ON -DBoost_INCLUDE_DIR=/usr/local/include -DBOOST_ROOT=/usr/local\"
-                  echo 'Using vcpkg toolchain (no installed prefix found)'
+                  export CMAKE_ARGS=\"${CMAKE_ARGS:-} -DCMAKE_TOOLCHAIN_FILE=./vcpkg/scripts/buildsystems/vcpkg.cmake -DBoost_DEBUG=ON\"
+                  echo 'vcpkg present but no installed prefix found'
                 fi
 
                 # diagnostics
@@ -324,14 +291,12 @@ jobs:
                 echo '=== possible TBB locations ==='
                 ls -la ./vcpkg/installed/*/share/tbb 2>/dev/null || true
                 ls -la ./vcpkg/installed/*/lib*/cmake/tbb 2>/dev/null || true
-                ls -la ./vcpkg/installed/*/include/boost 2>/dev/null || true
               else
-                # ensure CMake has a Boost include hint if we copied headers to /usr/local
-                export CMAKE_ARGS=\"${CMAKE_ARGS:-} -DBoost_DEBUG=ON -DBoost_INCLUDE_DIR=/usr/local/include -DBOOST_ROOT=/usr/local\"
-                echo 'vcpkg not present; using default CMAKE_ARGS with Boost include hints'
+                export CMAKE_ARGS=\"${CMAKE_ARGS:-} -DBoost_DEBUG=ON\"
+                echo 'vcpkg not present; using default CMAKE_ARGS'
               fi
+
               echo CMAKE_ARGS=\"$CMAKE_ARGS\"
-              g++ --version || true
               cmake --version || true
             "
 
