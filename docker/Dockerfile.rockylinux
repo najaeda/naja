@@ -1,0 +1,61 @@
+# SPDX-FileCopyrightText: 2024 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+#
+# SPDX-License-Identifier: Apache-2.0
+
+FROM rockylinux:9 AS builder
+
+# Install required packages
+RUN dnf -y update \
+    && dnf -y install epel-release \
+    && dnf -y config-manager --set-enabled crb \
+    && dnf -y install \
+        ca-certificates \
+        git \
+        cmake \
+        make \
+        gcc-c++ \
+        python3-devel \
+        capnproto \
+        capnproto-devel \
+        bison \
+        flex \
+        boost-devel \
+        tbb-devel \
+    && dnf clean all
+
+# Set the working directory
+WORKDIR /naja
+COPY CMakeLists.txt /naja/
+COPY src /naja/src
+COPY test /naja/test
+COPY cmake /naja/cmake
+COPY primitives /naja/primitives
+COPY thirdparty /naja/thirdparty
+
+WORKDIR /naja/build
+RUN cmake -DCMAKE_BUILD_TYPE=Release .. \
+    && cmake --build . --parallel 8 \
+    && cmake --install . --prefix /naja/install
+RUN ctest -j8 --output-on-failure
+
+FROM rockylinux:9 AS release
+RUN dnf -y update \
+    && dnf -y install \
+        ca-certificates \
+        libstdc++ \
+        capnproto \
+        python3 \
+        tbb \
+    && dnf clean all
+
+RUN useradd -r -u 10001 -g root naja
+USER naja
+COPY --chown=naja:root --from=builder \
+    /naja/install/bin/naja_edit \
+    /naja/
+COPY --chown=naja:root --from=builder \
+    /naja/install/lib \
+    /naja/lib
+ENV LD_LIBRARY_PATH=/naja/lib
+ENV PYTHONPATH=/naja/lib/python
+ENTRYPOINT [ "/naja/naja_edit" ]
