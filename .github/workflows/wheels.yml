@@ -188,6 +188,7 @@ jobs:
       - name: Configure macOS Environment
         if: runner.os == 'macOS'
         run: |
+            export MACOSX_DEPLOYMENT_TARGET=14.0
             export HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_CLEANUP=1 HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK=1 HOMEBREW_NO_ENV_HINTS=1
             eval "$(brew shellenv)"
             brew install -q boost
