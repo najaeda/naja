@@ -208,7 +208,7 @@ jobs:
           CIBW_ENABLE: ${{ matrix.free_threaded_support && 'cpython-freethreading' || '' }}
           CIBW_ENVIRONMENT: SKLEARN_SKIP_NETWORK_TESTS=1
 
-          # Option A: manylinux — attempt to install distro Boost and TBB dev packages inside the container (no absolute paths)
+          # manylinux: attempt to install distro Boost and TBB dev packages inside the container (no absolute paths)
           CIBW_BEFORE_ALL_LINUX: >
             bash -lc "
               set -ex
