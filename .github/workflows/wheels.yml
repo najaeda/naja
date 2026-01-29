@@ -1,16 +1,12 @@
 name: najaeda Wheel builder
 
 on:
-  # Save CI by only running this on release branches or tags.
   push:
     branches:
       - main
     tags:
       - v*
-  # Also allow running this action on PRs if requested by applying the
-  # "Run cibuildwheel" label.
   pull_request:
-  # Manual run
   workflow_dispatch:
 
 concurrency:
@@ -32,7 +28,8 @@ jobs:
 
       - name: Install flex & bison
         run: |
-          sudo apt-get update && sudo apt-get install -yq libboost-iostreams-dev libboost-dev libboost-all-dev libfl-dev capnproto libcapnp-dev valgrind libtbb-dev
+          sudo apt-get update
+          sudo apt-get install -yq libboost-iostreams-dev libboost-dev libboost-all-dev libfl-dev capnproto libcapnp-dev valgrind libtbb-dev
 
       - name: Generate parser sources
         run: |
@@ -42,7 +39,6 @@ jobs:
           mkdir -p ../../generated
           cp -v build/src/VerilogParser.cpp build/src/VerilogParser.hpp build/src/VerilogScanner.cpp ../../generated
           cp -v build/src/*.hh ../../generated
-          cp -v /usr/include/FlexLexer.h ../../generated
 
       - name: Upload parser artifact
         uses: actions/upload-artifact@v4
@@ -57,7 +53,6 @@ jobs:
     strategy:
       matrix:
         include:
-          # Linux 64 bit manylinux_2_28
           - os: ubuntu-latest
             python: 39
             platform_id: manylinux_x86_64
@@ -119,7 +114,6 @@ jobs:
             manylinux_image: manylinux_2_28
             cibw_arch: aarch64
 
-          # MacOS arm64
           - os: macos-14
             python: 39
             platform_id: macosx_arm64
@@ -147,7 +141,6 @@ jobs:
             platform_id: macosx_arm64
             free_threaded_support: True
 
-          # Windows x86_64 wheels
           - os: windows-latest
             python: 310
             platform_id: win_amd64
@@ -165,19 +158,21 @@ jobs:
             platform_id: win_amd64
 
     steps:
-      # build steps
       - uses: actions/checkout@v5
         with:
           submodules: true
+
       - name: Setup Python
         uses: actions/setup-python@v6
         with:
           python-version: "3.11"
+
       - name: Download parser-generated sources
         uses: actions/download-artifact@v4
         with:
           name: parser-generated-sources
           path: generated
+
       - name: Install generated parser sources into tree
         run: |
           echo "Copying generated parser files into thirdparty/naja-verilog/src"
@@ -186,9 +181,13 @@ jobs:
       - name: Configure macOS Environment
         if: runner.os == 'macOS'
         run: |
-          export HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_CLEANUP=1 HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK=1 HOMEBREW_NO_ENV_HINTS=1
+          export HOMEBREW_NO_AUTO_UPDATE=1
+          export HOMEBREW_NO_INSTALL_CLEANUP=1
+          export HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK=1
+          export HOMEBREW_NO_ENV_HINTS=1
           eval "$(brew shellenv)"
           brew install -q boost
+
       - name: Install cibuildwheel (and delvewheel for Windows)
         run: python -m pip install cibuildwheel==3.3.0 delvewheel
 
@@ -198,11 +197,11 @@ jobs:
           CIBW_ENABLE: ${{ matrix.free_threaded_support && 'cpython-freethreading' || '' }}
           CIBW_ENVIRONMENT: SKLEARN_SKIP_NETWORK_TESTS=1
 
-          # Minimal, non-invasive: attempt to install distro Boost dev packages inside the manylinux container
+          # Attempt to install distro Boost dev packages inside the manylinux container.
+          # This does not add any hardcoded include or prefix paths to the workflow.
           CIBW_BEFORE_ALL_LINUX: >
             bash -lc "
               set -ex
-              # try common package managers and package names; be permissive and tolerant of failures
               if command -v microdnf >/dev/null 2>&1; then
                 microdnf -y install boost-devel boost-iostreams-devel zlib-devel || true
               elif command -v dnf >/dev/null 2>&1; then
@@ -217,7 +216,7 @@ jobs:
               fi
             "
 
-          # Enable FindBoost debug output at configure time; no absolute paths or hints are added
+          # Enable FindBoost debug output at configure time. No include hints or absolute paths are added.
           CIBW_BEFORE_BUILD_LINUX: >
             bash -lc "
               set -ex
@@ -267,6 +266,7 @@ jobs:
           CIBW_TEST_COMMAND_WINDOWS: >
             pwsh -NoProfile -NonInteractive -ExecutionPolicy Bypass -File {project}\ci\windows_test.ps1
         run: python -m cibuildwheel --output-dir wheelhouse
+
       - uses: actions/upload-artifact@v4
         with:
           name: cibw-wheels-cp${{ matrix.python }}-${{ matrix.platform_id }}
