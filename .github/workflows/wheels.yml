@@ -56,66 +56,66 @@ jobs:
     strategy:
       matrix:
         include:
-          # Linux 64 bit manylinux2014
+          # Linux 64 bit manylinux_2_28
           - os: ubuntu-latest
             python: 39
             platform_id: manylinux_x86_64
-            manylinux_image: manylinux2014
+            manylinux_image: manylinux_2_28
           - os: ubuntu-latest
             python: 310
             platform_id: manylinux_x86_64
-            manylinux_image: manylinux2014
+            manylinux_image: manylinux_2_28
           - os: ubuntu-latest
             python: 311
             platform_id: manylinux_x86_64
-            manylinux_image: manylinux2014
+            manylinux_image: manylinux_2_28
           - os: ubuntu-latest
             python: 312
             platform_id: manylinux_x86_64
-            manylinux_image: manylinux2014
+            manylinux_image: manylinux_2_28
           - os: ubuntu-latest
             python: 313
             platform_id: manylinux_x86_64
-            manylinux_image: manylinux2014
+            manylinux_image: manylinux_2_28
           - os: ubuntu-latest
             python: 313t
             platform_id: manylinux_x86_64
-            manylinux_image: manylinux2014
+            manylinux_image: manylinux_2_28
             free_threaded_support: True
           - os: ubuntu-latest
             python: 314
             platform_id: manylinux_x86_64
-            manylinux_image: manylinux2014
+            manylinux_image: manylinux_2_28
           - os: ubuntu-latest
             python: 314t
             platform_id: manylinux_x86_64
-            manylinux_image: manylinux2014
+            manylinux_image: manylinux_2_28
             free_threaded_support: True
 
           - os: ubuntu-24.04-arm
             python: 310
             platform_id: manylinux_aarch64
-            manylinux_image: manylinux2014
+            manylinux_image: manylinux_2_28
             cibw_arch: aarch64
           - os: ubuntu-24.04-arm
             python: 311
             platform_id: manylinux_aarch64
-            manylinux_image: manylinux2014
+            manylinux_image: manylinux_2_28
             cibw_arch: aarch64
           - os: ubuntu-24.04-arm
             python: 312
             platform_id: manylinux_aarch64
-            manylinux_image: manylinux2014
+            manylinux_image: manylinux_2_28
             cibw_arch: aarch64
           - os: ubuntu-24.04-arm
             python: 313
             platform_id: manylinux_aarch64
-            manylinux_image: manylinux2014
+            manylinux_image: manylinux_2_28
             cibw_arch: aarch64
           - os: ubuntu-24.04-arm
             python: 314
             platform_id: manylinux_aarch64
-            manylinux_image: manylinux2014
+            manylinux_image: manylinux_2_28
             cibw_arch: aarch64
 
           # MacOS arm64
