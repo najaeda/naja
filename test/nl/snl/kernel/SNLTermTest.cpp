@@ -15,6 +15,9 @@ using ::testing::ElementsAre;
 #include "SNLScalarNet.h"
 #include "SNLBusNet.h"
 #include "SNLBusNetBit.h"
+#include "SNLDesign.h"
+#include "SNLInstance.h"
+#include "SNLInstTerm.h"
 using namespace naja::NL;
 
 class SNLTermTest: public ::testing::Test {
@@ -106,7 +109,99 @@ TEST_F(SNLTermTest, testCreation) {
   EXPECT_EQ(nullptr, NLUniverse::get()->getBusTermBit(NLID(NLID::Type::TermBit, 1, 0, 0, 0, 0, -5)));
   EXPECT_EQ(nullptr, NLUniverse::get()->getObject(NLID(NLID::Type::TermBit, 1, 0, 0, 0, 0, -5)));
 
-  EXPECT_THROW(term0->getBit(-4)->destroy(), NLException);
+  term0->getBit(-4)->destroy();
+  EXPECT_EQ(nullptr, term0->getBit(-4));
+  EXPECT_EQ(3, term0->getBits().size());
+}
+
+TEST_F(SNLTermTest, testBusTermBitDestroyWithInternalNet) {
+  NLLibrary* library = db_->getLibrary(NLName("MYLIB"));
+  ASSERT_NE(library, nullptr);
+  auto design = SNLDesign::create(library, NLName("design"));
+  auto term = SNLBusTerm::create(design, SNLTerm::Direction::InOut, 3, 0, NLName("bus"));
+  auto net = SNLBusNet::create(design, 3, 0, NLName("net"));
+  term->setNet(net);
+
+  auto bit = term->getBit(2);
+  ASSERT_NE(nullptr, bit);
+  auto netBit = net->getBit(2);
+  ASSERT_NE(nullptr, netBit);
+  EXPECT_EQ(1, netBit->getComponents().size());
+
+  bit->destroy();
+  EXPECT_EQ(nullptr, term->getBit(2));
+  EXPECT_EQ(0, netBit->getComponents().size());
+  EXPECT_EQ(3, term->getBits().size());
+}
+
+TEST_F(SNLTermTest, testBusTermBitDestroyWithSlaveInstanceConnection) {
+  NLLibrary* library = db_->getLibrary(NLName("MYLIB"));
+  ASSERT_NE(library, nullptr);
+  auto model = SNLDesign::create(library, NLName("model"));
+  auto term = SNLBusTerm::create(model, SNLTerm::Direction::InOut, 3, 0, NLName("bus"));
+
+  auto top = SNLDesign::create(library, NLName("top"));
+  auto inst = SNLInstance::create(top, model, NLName("u0"));
+  auto topNet = SNLScalarNet::create(top, NLName("n0"));
+
+  auto bit = term->getBit(1);
+  ASSERT_NE(nullptr, bit);
+  auto instTerm = inst->getInstTerm(bit);
+  ASSERT_NE(nullptr, instTerm);
+  instTerm->setNet(topNet);
+  EXPECT_EQ(1, topNet->getComponents().size());
+  EXPECT_EQ(4, inst->getInstTerms().size());
+
+  bit->destroy();
+  EXPECT_EQ(nullptr, term->getBit(1));
+  EXPECT_EQ(0, topNet->getComponents().size());
+  EXPECT_EQ(3, inst->getInstTerms().size());
+}
+
+TEST_F(SNLTermTest, testGetBitTermsWithAllBusBitsDestroyed) {
+  NLLibrary* library = db_->getLibrary(NLName("MYLIB"));
+  ASSERT_NE(library, nullptr);
+  auto design = SNLDesign::create(library, NLName("design"));
+
+  auto term0 = SNLBusTerm::create(design, SNLTerm::Direction::InOut, 1, 0, NLName("term0"));
+  ASSERT_EQ(2, term0->getBits().size());
+
+  auto bit1 = term0->getBit(1);
+  auto bit0 = term0->getBit(0);
+  ASSERT_NE(nullptr, bit1);
+  ASSERT_NE(nullptr, bit0);
+  bit1->destroy();
+  bit0->destroy();
+
+  EXPECT_EQ(0, term0->getBits().size());
+  EXPECT_TRUE(term0->getBusBits().empty());
+
+  // This currently triggers an assert in NajaFlatCollection when flattening empty bus bits.
+  EXPECT_TRUE(design->getBitTerms().empty());
+}
+
+TEST_F(SNLTermTest, testGetBitTermsWithAllBitsDestroyedAcrossBuses) {
+  NLLibrary* library = db_->getLibrary(NLName("MYLIB"));
+  ASSERT_NE(library, nullptr);
+  auto design = SNLDesign::create(library, NLName("design"));
+
+  auto term0 = SNLBusTerm::create(design, SNLTerm::Direction::InOut, 1, 0, NLName("term0"));
+  auto term1 = SNLBusTerm::create(design, SNLTerm::Direction::Input, 3, 2, NLName("term1"));
+  ASSERT_EQ(2, term0->getBits().size());
+  ASSERT_EQ(2, term1->getBits().size());
+
+  term0->getBit(1)->destroy();
+  term0->getBit(0)->destroy();
+  term1->getBit(3)->destroy();
+  term1->getBit(2)->destroy();
+
+  EXPECT_EQ(0, term0->getBits().size());
+  EXPECT_TRUE(term0->getBusBits().empty());
+  EXPECT_EQ(0, term1->getBits().size());
+  EXPECT_TRUE(term1->getBusBits().empty());
+
+  EXPECT_TRUE(design->getBitTerms().empty());
+  EXPECT_EQ(0, design->getBitTerms().size());
 }
 
 TEST_F(SNLTermTest, testSetNet0) {
@@ -329,4 +424,178 @@ TEST_F(SNLTermTest, testDestroy) {
   EXPECT_THAT(term1Bits,
     ::testing::Each(::testing::Property(
         &SNLBusTermBit::getNet, ::testing::IsNull())));
+}
+
+TEST_F(SNLTermTest, testResizeMSBSuccessWithSlaveInstance) {
+  NLLibrary* library = db_->getLibrary(NLName("MYLIB"));
+  ASSERT_NE(library, nullptr);
+  auto model = SNLDesign::create(library, NLName("model"));
+  auto term = SNLBusTerm::create(model, SNLTerm::Direction::InOut, 3, 0, NLName("bus"));
+
+  auto top = SNLDesign::create(library, NLName("top"));
+  auto inst = SNLInstance::create(top, model, NLName("u0"));
+
+  term->setMSB(1);
+  EXPECT_EQ(1, term->getMSB());
+  EXPECT_EQ(0, term->getLSB());
+  EXPECT_EQ(2, term->getWidth());
+  EXPECT_NE(nullptr, term->getBit(1));
+  EXPECT_NE(nullptr, term->getBit(0));
+  EXPECT_EQ(nullptr, term->getBit(2));
+
+  auto instTerm1 = inst->getInstTerm(term->getBit(1));
+  auto instTerm0 = inst->getInstTerm(term->getBit(0));
+  EXPECT_NE(nullptr, instTerm1);
+  EXPECT_NE(nullptr, instTerm0);
+  EXPECT_EQ(nullptr, instTerm1->getNet());
+  EXPECT_EQ(nullptr, instTerm0->getNet());
+}
+
+TEST_F(SNLTermTest, testResizeMSBNoOp) {
+  NLLibrary* library = db_->getLibrary(NLName("MYLIB"));
+  ASSERT_NE(library, nullptr);
+  auto design = SNLDesign::create(library, NLName("design"));
+  auto term = SNLBusTerm::create(design, SNLTerm::Direction::InOut, 3, 0, NLName("bus"));
+
+  term->setMSB(3);
+  EXPECT_EQ(3, term->getMSB());
+  EXPECT_EQ(0, term->getLSB());
+  EXPECT_EQ(4, term->getWidth());
+}
+
+TEST_F(SNLTermTest, testResizeMSBInvalid) {
+  NLLibrary* library = db_->getLibrary(NLName("MYLIB"));
+  ASSERT_NE(library, nullptr);
+  auto design = SNLDesign::create(library, NLName("design"));
+  auto term = SNLBusTerm::create(design, SNLTerm::Direction::InOut, 3, 0, NLName("bus"));
+
+  EXPECT_THROW(term->setMSB(-1), NLException);
+}
+
+TEST_F(SNLTermTest, testResizeLSBSuccessWithSlaveInstance) {
+  NLLibrary* library = db_->getLibrary(NLName("MYLIB"));
+  ASSERT_NE(library, nullptr);
+  auto model = SNLDesign::create(library, NLName("model"));
+  auto term = SNLBusTerm::create(model, SNLTerm::Direction::InOut, 3, 0, NLName("bus"));
+
+  auto top = SNLDesign::create(library, NLName("top"));
+  auto inst = SNLInstance::create(top, model, NLName("u0"));
+
+  term->setLSB(2);
+  EXPECT_EQ(3, term->getMSB());
+  EXPECT_EQ(2, term->getLSB());
+  EXPECT_EQ(2, term->getWidth());
+  EXPECT_NE(nullptr, term->getBit(3));
+  EXPECT_NE(nullptr, term->getBit(2));
+  EXPECT_EQ(nullptr, term->getBit(1));
+
+  auto instTerm3 = inst->getInstTerm(term->getBit(3));
+  auto instTerm2 = inst->getInstTerm(term->getBit(2));
+  EXPECT_NE(nullptr, instTerm3);
+  EXPECT_NE(nullptr, instTerm2);
+}
+
+TEST_F(SNLTermTest, testResizeLSBNoOp) {
+  NLLibrary* library = db_->getLibrary(NLName("MYLIB"));
+  ASSERT_NE(library, nullptr);
+  auto design = SNLDesign::create(library, NLName("design"));
+  auto term = SNLBusTerm::create(design, SNLTerm::Direction::InOut, 3, 0, NLName("bus"));
+
+  term->setLSB(0);
+  EXPECT_EQ(3, term->getMSB());
+  EXPECT_EQ(0, term->getLSB());
+  EXPECT_EQ(4, term->getWidth());
+}
+
+TEST_F(SNLTermTest, testResizeLSBInvalid) {
+  NLLibrary* library = db_->getLibrary(NLName("MYLIB"));
+  ASSERT_NE(library, nullptr);
+  auto design = SNLDesign::create(library, NLName("design"));
+  auto term = SNLBusTerm::create(design, SNLTerm::Direction::InOut, 3, 0, NLName("bus"));
+
+  EXPECT_THROW(term->setLSB(4), NLException);
+}
+
+TEST_F(SNLTermTest, testResizeFailsOnNonConstantNet) {
+  NLLibrary* library = db_->getLibrary(NLName("MYLIB"));
+  ASSERT_NE(library, nullptr);
+  auto design = SNLDesign::create(library, NLName("design"));
+  auto term = SNLBusTerm::create(design, SNLTerm::Direction::InOut, 3, 0, NLName("bus"));
+  auto net = SNLBusNet::create(design, 3, 0, NLName("n0"));
+  term->setNet(net);
+  EXPECT_THROW(term->setMSB(1), NLException);
+}
+
+TEST_F(SNLTermTest, testResizeLSBFailsOnNonConstantNet) {
+  NLLibrary* library = db_->getLibrary(NLName("MYLIB"));
+  ASSERT_NE(library, nullptr);
+  auto design = SNLDesign::create(library, NLName("design"));
+  auto term = SNLBusTerm::create(design, SNLTerm::Direction::InOut, 3, 0, NLName("bus"));
+  auto net = SNLBusNet::create(design, 3, 0, NLName("n0"));
+  term->setNet(net);
+  EXPECT_THROW(term->setLSB(2), NLException);
+}
+
+TEST_F(SNLTermTest, testResizeFailsOnInternalInstanceConnection) {
+  NLLibrary* library = db_->getLibrary(NLName("MYLIB"));
+  ASSERT_NE(library, nullptr);
+  auto model = SNLDesign::create(library, NLName("model"));
+  auto term = SNLBusTerm::create(model, SNLTerm::Direction::InOut, 3, 0, NLName("bus"));
+  auto net = SNLBusNet::create(model, 3, 0, NLName("n0"));
+  net->setType(SNLNet::Type::Assign0);
+  term->setNet(net);
+
+  auto leaf = SNLDesign::create(library, NLName("leaf"));
+  auto leafTerm = SNLScalarTerm::create(leaf, SNLTerm::Direction::InOut, NLName("t"));
+  auto inst = SNLInstance::create(model, leaf, NLName("u0"));
+  inst->setTermNet(leafTerm, net->getBit(3));
+
+  EXPECT_THROW(term->setMSB(2), NLException);
+}
+
+TEST_F(SNLTermTest, testResizeLSBFailsOnInternalInstanceConnection) {
+  NLLibrary* library = db_->getLibrary(NLName("MYLIB"));
+  ASSERT_NE(library, nullptr);
+  auto model = SNLDesign::create(library, NLName("model"));
+  auto term = SNLBusTerm::create(model, SNLTerm::Direction::InOut, 3, 0, NLName("bus"));
+  auto net = SNLBusNet::create(model, 3, 0, NLName("n0"));
+  net->setType(SNLNet::Type::Assign0);
+  term->setNet(net);
+
+  auto leaf = SNLDesign::create(library, NLName("leaf"));
+  auto leafTerm = SNLScalarTerm::create(leaf, SNLTerm::Direction::InOut, NLName("t"));
+  auto inst = SNLInstance::create(model, leaf, NLName("u0"));
+  inst->setTermNet(leafTerm, net->getBit(0));
+
+  EXPECT_THROW(term->setLSB(1), NLException);
+}
+
+TEST_F(SNLTermTest, testResizeFailsOnSlaveInstanceConnected) {
+  NLLibrary* library = db_->getLibrary(NLName("MYLIB"));
+  ASSERT_NE(library, nullptr);
+  auto model = SNLDesign::create(library, NLName("model"));
+  auto term = SNLBusTerm::create(model, SNLTerm::Direction::InOut, 3, 0, NLName("bus"));
+
+  auto top = SNLDesign::create(library, NLName("top"));
+  auto inst = SNLInstance::create(top, model, NLName("u0"));
+  auto topNet = SNLScalarNet::create(top, NLName("n0"));
+  auto instTerm = inst->getInstTerm(term->getBit(3));
+  instTerm->setNet(topNet);
+
+  EXPECT_THROW(term->setMSB(2), NLException);
+}
+
+TEST_F(SNLTermTest, testResizeLSBFailsOnSlaveInstanceConnected) {
+  NLLibrary* library = db_->getLibrary(NLName("MYLIB"));
+  ASSERT_NE(library, nullptr);
+  auto model = SNLDesign::create(library, NLName("model"));
+  auto term = SNLBusTerm::create(model, SNLTerm::Direction::InOut, 3, 0, NLName("bus"));
+
+  auto top = SNLDesign::create(library, NLName("top"));
+  auto inst = SNLInstance::create(top, model, NLName("u0"));
+  auto topNet = SNLScalarNet::create(top, NLName("n0"));
+  auto instTerm = inst->getInstTerm(term->getBit(0));
+  instTerm->setNet(topNet);
+
+  EXPECT_THROW(term->setLSB(1), NLException);
 }

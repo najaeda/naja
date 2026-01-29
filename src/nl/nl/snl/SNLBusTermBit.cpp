@@ -35,17 +35,19 @@ void SNLBusTermBit::postCreate() {
   super::postCreate();
 }
 
+void SNLBusTermBit::commonPreDestroy() {
+  setNet(nullptr);
+  super::preDestroy();
+}
+
 void SNLBusTermBit::destroyFromBus() {
-  preDestroy();
+  commonPreDestroy();
   delete this;
 }
 
-void SNLBusTermBit::destroy() {
-  throw NLException("Unauthorized destroy of SNLBusTermBit");
-}
-
 void SNLBusTermBit::preDestroy() {
-  super::preDestroy();
+  commonPreDestroy();
+  getBus()->removeBit(this);
 }
 
 NLID::DesignObjectID SNLBusTermBit::getID() const {

@@ -46,8 +46,8 @@ static PyObject* PySNLScalarTerm_create(PyObject*, PyObject* args) {
   return PySNLScalarTerm_Link(term);
 }
 
-DirectGetIntMethod(PySNLScalarTerm_getID, getID, PySNLScalarTerm, SNLScalarTerm)
-DirectGetIntMethod(PySNLScalarTerm_getFlatID, getFlatID, PySNLScalarTerm, SNLScalarTerm)
+DirectGetNumericMethod(PySNLScalarTerm_getID, getID, PySNLScalarTerm, SNLScalarTerm)
+DirectGetNumericMethod(PySNLScalarTerm_getFlatID, getFlatID, PySNLScalarTerm, SNLScalarTerm)
 
 PyMethodDef PySNLScalarTerm_Methods[] = {
   { "create", (PyCFunction)PySNLScalarTerm_create, METH_VARARGS|METH_STATIC,
