@@ -16,7 +16,7 @@ set(HEADERS
 )
 
 # Find Boost iostreams and zlib (non-fatal; we will link if found)
-find_package(Boost COMPONENTS iostreams REQUIRED)
+#find_package(Boost COMPONENTS iostreams REQUIRED)
 find_package(ZLIB REQUIRED)
 
 # Create static library
@@ -32,7 +32,7 @@ target_link_libraries(naja_snl_liberty
   PUBLIC
   naja_nl
   yosys_liberty
-  Boost::iostreams
+  #Boost::iostreams
 )
 
 # Conditionally link Boost.Iostreams (prefer imported target if available)
