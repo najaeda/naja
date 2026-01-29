@@ -40,10 +40,12 @@ RUN ctest -j8 --output-on-failure
 
 FROM rockylinux:9 AS release
 RUN dnf -y update \
+    && dnf -y install epel-release \
+    && dnf -y config-manager --set-enabled crb \
     && dnf -y install \
         ca-certificates \
         libstdc++ \
-        capnproto \
+        capnproto-libs \
         python3 \
         tbb \
     && dnf clean all
