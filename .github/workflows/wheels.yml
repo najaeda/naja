@@ -214,15 +214,13 @@ jobs:
               set -ex
 
               # Try distro package managers for Boost and TBB
-              if command -v microdnf >/dev/null 2>&1; then
-                microdnf -y install boost-devel boost-iostreams-devel zlib-devel tbb-devel || true
+              if command -v apt-get >/dev/null 2>&1; then
+                DEBIAN_FRONTEND=noninteractive apt-get update || true
+                DEBIAN_FRONTEND=noninteractive apt-get install -yq libboost-iostreams-dev libboost-dev zlib1g-dev libtbb-dev || true
               elif command -v dnf >/dev/null 2>&1; then
                 dnf -y install boost-devel boost-iostreams-devel zlib-devel tbb-devel || true
               elif command -v yum >/dev/null 2>&1; then
                 yum -y install boost-devel boost-iostreams-devel zlib-devel tbb-devel || true
-              elif command -v apt-get >/dev/null 2>&1; then
-                apt-get update || true
-                DEBIAN_FRONTEND=noninteractive apt-get install -yq libboost-iostreams-dev libboost-dev zlib1g-dev libtbb-dev || true
               elif command -v zypper >/dev/null 2>&1; then
                 zypper --non-interactive install -y boost-devel boost-iostreams-devel zlib-devel tbb-devel || true
               else
@@ -272,7 +270,11 @@ jobs:
                 esac
                 echo \"Using vcpkg triplet: ${TRIPLET}\"
 
+                # install tbb and (optionally) boost headers via vcpkg for the triplet
                 ./vcpkg/vcpkg install tbb:${TRIPLET} || ./vcpkg/vcpkg install tbb || true
+                # optionally install boost components via vcpkg if distro boost is insufficient
+                ./vcpkg/vcpkg install boost-headers:${TRIPLET} boost-iostreams:${TRIPLET} || true
+
                 echo 'vcpkg installed packages:'
                 ./vcpkg/vcpkg list || true
               fi
@@ -288,27 +290,29 @@ jobs:
                 # detect triplet-installed prefix
                 VCPKG_PREFIX=$(ls -d ./vcpkg/installed/* 2>/dev/null | head -n1 || true)
                 if [ -n \"$VCPKG_PREFIX\" ]; then
-                  # prefer share/tbb (TBB_DIR) but also set CMAKE_PREFIX_PATH
+                  # prefer share/tbb (TBB_DIR) but also set CMAKE_PREFIX_PATH and Boost include hint
                   TBB_DIR=$(ls -d \"$VCPKG_PREFIX\"/share/tbb 2>/dev/null | head -n1 || true)
                   if [ -n \"$TBB_DIR\" ]; then
-                    export CMAKE_ARGS=\"${CMAKE_ARGS:-} -DCMAKE_TOOLCHAIN_FILE=./vcpkg/scripts/buildsystems/vcpkg.cmake -DTBB_DIR=${TBB_DIR} -DCMAKE_PREFIX_PATH=${VCPKG_PREFIX} -DBoost_DEBUG=ON\"
+                    export CMAKE_ARGS=\"${CMAKE_ARGS:-} -DCMAKE_TOOLCHAIN_FILE=./vcpkg/scripts/buildsystems/vcpkg.cmake -DTBB_DIR=${TBB_DIR} -DCMAKE_PREFIX_PATH=${VCPKG_PREFIX} -DBoost_DEBUG=ON -DBoost_INCLUDE_DIR=/usr/local/include -DBOOST_ROOT=/usr/local\"
                     echo \"Using vcpkg toolchain; TBB_DIR=${TBB_DIR}; CMAKE_PREFIX_PATH=${VCPKG_PREFIX}\"
                   else
-                    export CMAKE_ARGS=\"${CMAKE_ARGS:-} -DCMAKE_TOOLCHAIN_FILE=./vcpkg/scripts/buildsystems/vcpkg.cmake -DCMAKE_PREFIX_PATH=${VCPKG_PREFIX} -DBoost_DEBUG=ON\"
+                    export CMAKE_ARGS=\"${CMAKE_ARGS:-} -DCMAKE_TOOLCHAIN_FILE=./vcpkg/scripts/buildsystems/vcpkg.cmake -DCMAKE_PREFIX_PATH=${VCPKG_PREFIX} -DBoost_DEBUG=ON -DBoost_INCLUDE_DIR=/usr/local/include -DBOOST_ROOT=/usr/local\"
                     echo \"Using vcpkg toolchain; CMAKE_PREFIX_PATH=${VCPKG_PREFIX} (TBB_DIR not found)\"
                   fi
                 else
-                  export CMAKE_ARGS=\"${CMAKE_ARGS:-} -DCMAKE_TOOLCHAIN_FILE=./vcpkg/scripts/buildsystems/vcpkg.cmake -DBoost_DEBUG=ON\"
+                  export CMAKE_ARGS=\"${CMAKE_ARGS:-} -DCMAKE_TOOLCHAIN_FILE=./vcpkg/scripts/buildsystems/vcpkg.cmake -DBoost_DEBUG=ON -DBoost_INCLUDE_DIR=/usr/local/include -DBOOST_ROOT=/usr/local\"
                   echo 'Using vcpkg toolchain (no installed prefix found)'
                 fi
 
                 # diagnostics
                 ls -la ./vcpkg/installed/* 2>/dev/null || true
                 ls -la ./vcpkg/installed/*/share/tbb 2>/dev/null || true
+                ls -la ./vcpkg/installed/*/include/boost 2>/dev/null || true
                 ls -la ./vcpkg/installed/*/lib*/cmake/tbb 2>/dev/null || true
               else
-                export CMAKE_ARGS=\"${CMAKE_ARGS:-} -DBoost_DEBUG=ON\"
-                echo 'vcpkg not present; using default CMAKE_ARGS'
+                # ensure CMake has a Boost include hint if we copied headers to /usr/local
+                export CMAKE_ARGS=\"${CMAKE_ARGS:-} -DBoost_DEBUG=ON -DBoost_INCLUDE_DIR=/usr/local/include -DBOOST_ROOT=/usr/local\"
+                echo 'vcpkg not present; using default CMAKE_ARGS with Boost include hints'
               fi
               echo CMAKE_ARGS=\"$CMAKE_ARGS\"
               g++ --version || true
