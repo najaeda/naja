@@ -191,14 +191,24 @@ jobs:
       - name: Install cibuildwheel (and delvewheel for Windows)
         run: python -m pip install cibuildwheel==3.3.0 delvewheel
 
+      - name: Setup vcpkg on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          # bootstrap vcpkg into the repository workspace so we can reference it without absolute paths
+          git clone https://github.com/microsoft/vcpkg.git vcpkg
+          Set-Location vcpkg
+          .\bootstrap-vcpkg.bat
+          # optionally install required packages via vcpkg here if you want them preinstalled
+          # .\vcpkg.exe install boost-iostreams:x64-windows
+
       - name: Build wheels
         env:
           MACOSX_DEPLOYMENT_TARGET: '14.0'
           CIBW_ENABLE: ${{ matrix.free_threaded_support && 'cpython-freethreading' || '' }}
           CIBW_ENVIRONMENT: SKLEARN_SKIP_NETWORK_TESTS=1
 
-          # Attempt to install distro Boost dev packages inside the manylinux container.
-          # This does not add any hardcoded include or prefix paths to the workflow.
+          # manylinux: attempt to install distro Boost dev packages inside the container (no absolute paths)
           CIBW_BEFORE_ALL_LINUX: >
             bash -lc "
               set -ex
@@ -214,9 +224,14 @@ jobs:
               else
                 echo 'No known package manager found; skipping boost install'
               fi
+              # quick diagnostic
+              ls -la /usr/include/boost 2>/dev/null || true
+              ls -la /usr/local/include/boost 2>/dev/null || true
+              if command -v rpm >/dev/null 2>&1; then rpm -qa | grep -E \"boost|zlib\" || true; fi
+              if command -v dpkg >/dev/null 2>&1; then dpkg -l | grep -E \"boost|zlib\" || true; fi
             "
 
-          # Enable FindBoost debug output at configure time. No include hints or absolute paths are added.
+          # manylinux: enable FindBoost debug output (no absolute paths)
           CIBW_BEFORE_BUILD_LINUX: >
             bash -lc "
               set -ex
@@ -226,6 +241,12 @@ jobs:
               cmake --version || true
             "
 
+          # Windows: use repo-relative vcpkg toolchain and repair path (no absolute paths)
+          CIBW_CONFIG_SETTINGS_WINDOWS: >
+            cmake.args=-DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}\vcpkg\scripts\buildsystems\vcpkg.cmake
+          CIBW_REPAIR_WHEEL_COMMAND_WINDOWS: >-
+            pwsh -Command "delvewheel repair -v --ignore-existing --analyze-existing --include-imports --add-path '${{ github.workspace }}\\vcpkg\\installed\\x64-windows\\bin' -w {dest_dir} {wheel}"
+
           CIBW_BUILD: cp${{ matrix.python }}-${{ matrix.platform_id }}
           CIBW_ARCHS: 'all'
           CIBW_MANYLINUX_X86_64_IMAGE: ${{ matrix.manylinux_image }}
@@ -234,15 +255,6 @@ jobs:
             pwsh -NoProfile -NonInteractive -ExecutionPolicy Bypass
             -File {project}\ci\windows_setup.ps1
           CIBW_BEFORE_BUILD_WINDOWS: "pwsh -Command \"foreach($d in 'build','dist'){ if(Test-Path $d){ Remove-Item -Recurse -Force $d -ErrorAction SilentlyContinue } }\""
-          CIBW_CONFIG_SETTINGS_WINDOWS: >
-            cmake.args=-DCMAKE_TOOLCHAIN_FILE=C:/Users/runneradmin/vcpkg/scripts/buildsystems/vcpkg.cmake
-          CIBW_REPAIR_WHEEL_COMMAND_WINDOWS: >-
-            delvewheel repair -v
-            --ignore-existing
-            --analyze-existing
-            --include-imports
-            --add-path "C:\Users\runneradmin\vcpkg\installed\x64-windows\bin"
-            -w {dest_dir} {wheel}
           CIBW_TEST_REQUIRES: "pytest"
           CIBW_TEST_COMMAND: >
             bash -c '
