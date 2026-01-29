@@ -26,7 +26,7 @@ using namespace naja::BNE;
 using namespace naja::NAJA_OPT;
 
 // Constructor
-LoadlessLogicRemover::LoadlessLogicRemover() {}
+LoadlessLogicRemover::LoadlessLogicRemover() { dnl_ = DNL::get(); }
 
 // Given a DNL, getting all isos connected to top output.
 std::vector<DNLID> LoadlessLogicRemover::getTopOutputIsos(
@@ -338,7 +338,7 @@ void LoadlessLogicRemover::removeLoadlessInstances(
   //  LCOV_EXCL_START
   std::cout << "Deleted " << loadlessInstances.size() << " leaf instances out of " << dnl_->getLeaves().size() << std::endl;
   // LCOV_EXCL_STOP
-  /// #endif
+  // #endif
 }
 
 // Given a DNL, remove all loadless logic
@@ -350,6 +350,9 @@ void LoadlessLogicRemover::removeLoadlessLogic() {
   report_ = collectStatistics();
   removeLoadlessInstances(NLUniverse::get()->getTopDesign(),
                           loadlessInstances_);
+  if (getRemoveLoadlessNets()) {
+    removeLoadlessNets();
+  }
   //spdlog::info(report_);
   DNL::destroy();
 }
@@ -366,4 +369,28 @@ std::string LoadlessLogicRemover::collectStatistics() const {
   }
   return ss.str();*/
   return std::string();
+}
+
+void LoadlessLogicRemover::removeLoadlessNets() {
+  auto top = NLUniverse::get()->getTopDesign();
+  std::stack<SNLDesign*> modelToProcess;
+  modelToProcess.push(top);
+  while (!modelToProcess.empty()) {
+    SNLDesign* currentModel = modelToProcess.top();
+    modelToProcess.pop();
+    for (auto inst : currentModel->getInstances()) {
+      if (inst->getModel()->getInstances().size() > 0) {
+        modelToProcess.push(inst->getModel());
+      }
+    }
+    std::vector<SNLBitNet*> nets;
+    for (auto net : currentModel->getBitNets()) {
+      nets.push_back(net);
+    }
+    for (auto net : nets) {
+      if (net->getInstTerms().size() + net->getBitTerms().size() == 0) {
+        net->destroy();
+      }
+    }
+  }
 }

@@ -7,6 +7,8 @@
 
 #include <fstream>
 #include <sstream>
+#include <memory>
+#include <vector>
 
 #include "YosysLibertyParser.h"
 
@@ -17,6 +19,9 @@
 #include "SNLBooleanTree.h"
 #include "SNLDesignModeling.h"
 #include "SNLLibertyConstructorException.h"
+
+#include <zlib.h>
+#include <stdexcept>
 
 namespace {
 
@@ -96,7 +101,6 @@ void parseTerms(
           }
         }
       }
-      bool foundDirection = false;
       SNLScalarTerm* constructedScalarTerm = nullptr;
       SNLBusTerm* constructedBusTerm = nullptr;
       auto directionNode = child->find("direction");
@@ -229,7 +233,7 @@ void parseCells(NLLibrary* library, const Yosys::LibertyAst* ast) {
   }
 }
 
-}
+} // anonymous namespace
 
 namespace naja::NL {
 
@@ -239,20 +243,63 @@ SNLLibertyConstructor::SNLLibertyConstructor(NLLibrary* library):
 
 void SNLLibertyConstructor::construct(const std::filesystem::path& path) {
   if (not std::filesystem::exists(path)) {
-    std::string reason("Liberty parser: " + path.string() + " does not exist");
-    throw SNLLibertyConstructorException(reason);
+    throw SNLLibertyConstructorException("Liberty parser: " + path.string() + " does not exist");
   }
-  std::ifstream inFile(path);
-  auto parser = std::make_unique<Yosys::LibertyParser>(inFile);
+
+  // Create an istream that will remain valid for the parser lifetime
+  std::unique_ptr<std::istream> in_ptr;
+
+  try {
+    if (path.extension() == ".gz") {
+      // Read entire gz file into memory using zlib and hand an istringstream to the parser
+      gzFile gz = gzopen(path.string().c_str(), "rb");
+      if (!gz) {
+        throw SNLLibertyConstructorException("Liberty parser: failed to open gzip file: " + path.string());
+      }
+
+      std::string decompressed;
+      const std::size_t CHUNK = 1 << 14; // 16 KiB
+      std::vector<char> buf(CHUNK);
+
+      while (true) {
+        int bytes = gzread(gz, buf.data(), static_cast<unsigned>(buf.size()));
+        if (bytes < 0) {
+          int errnum = 0;
+          const char* errstr = gzerror(gz, &errnum);
+          gzclose(gz);
+          throw SNLLibertyConstructorException(std::string("Liberty parser: gzread error: ") + (errstr ? errstr : "unknown"));
+        }
+        if (bytes == 0) break; // EOF
+        decompressed.append(buf.data(), static_cast<std::size_t>(bytes));
+      }
+
+      gzclose(gz);
+
+      auto iss = std::make_unique<std::istringstream>(std::move(decompressed));
+      in_ptr = std::move(iss);
+
+    } else {
+      // Plain file
+      auto file = std::make_unique<std::ifstream>(path, std::ios::in | std::ios::binary);
+      if (!file->is_open()) {
+        throw SNLLibertyConstructorException("Liberty parser: failed to open file: " + path.string());
+      }
+      in_ptr = std::move(file);
+    }
+  } catch (const SNLLibertyConstructorException&) {
+    throw;
+  } catch (const std::exception& e) {
+    throw SNLLibertyConstructorException(std::string("Liberty parser: gzip/file open error: ") + e.what());
+  }
+
+  // Use the same parser API that accepts an istream
+  auto parser = std::make_unique<Yosys::LibertyParser>(*in_ptr);
   auto ast = parser->ast;
-  //LCOV_EXCL_START
   if (ast == nullptr) {
-    std::string reason("Liberty parser: failed to parse the file: " + path.string());
-    throw SNLLibertyConstructorException(reason);
+    throw SNLLibertyConstructorException("Liberty parser: failed to parse the file: " + path.string());
   }
-  //LCOV_EXCL_STOP
+
   auto libraryName = ast->args[0];
-  //find a policy for multiple libs
   library_->setName(NLName(libraryName));
   parseCells(library_, ast);
 }
