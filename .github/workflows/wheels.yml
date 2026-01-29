@@ -208,27 +208,57 @@ jobs:
           CIBW_ENABLE: ${{ matrix.free_threaded_support && 'cpython-freethreading' || '' }}
           CIBW_ENVIRONMENT: SKLEARN_SKIP_NETWORK_TESTS=1
 
-          # manylinux: attempt to install distro Boost dev packages inside the container (no absolute paths)
+          # Option A: manylinux — attempt to install distro Boost dev packages inside the container (no absolute paths)
           CIBW_BEFORE_ALL_LINUX: >
             bash -lc "
               set -ex
+
+              # Try common package managers first
               if command -v microdnf >/dev/null 2>&1; then
                 microdnf -y install boost-devel boost-iostreams-devel zlib-devel || true
               elif command -v dnf >/dev/null 2>&1; then
                 dnf -y install boost-devel boost-iostreams-devel zlib-devel || true
+                dnf module enable boost -y || true
+                dnf -y install boost-devel || true
               elif command -v yum >/dev/null 2>&1; then
                 yum -y install boost-devel boost-iostreams-devel zlib-devel || true
               elif command -v apt-get >/dev/null 2>&1; then
                 apt-get update || true
                 DEBIAN_FRONTEND=noninteractive apt-get install -yq libboost-iostreams-dev libboost-dev zlib1g-dev || true
+              elif command -v zypper >/dev/null 2>&1; then
+                zypper --non-interactive install -y boost-devel boost-iostreams-devel zlib-devel || true
               else
-                echo 'No known package manager found; skipping boost install'
+                echo 'No known package manager found; skipping package install'
               fi
-              # quick diagnostic
+
+              # Diagnostics: show whether headers exist and what packages are installed
+              echo '=== /usr/include/boost (if present) ==='
               ls -la /usr/include/boost 2>/dev/null || true
+              echo '=== /usr/local/include/boost (if present) ==='
               ls -la /usr/local/include/boost 2>/dev/null || true
               if command -v rpm >/dev/null 2>&1; then rpm -qa | grep -E \"boost|zlib\" || true; fi
               if command -v dpkg >/dev/null 2>&1; then dpkg -l | grep -E \"boost|zlib\" || true; fi
+
+              # Fallback: if headers still missing, download Boost headers only (no build) and place in /usr/local/include
+              if [ ! -d /usr/include/boost ] && [ ! -d /usr/local/include/boost ]; then
+                echo 'Boost headers not found via package manager — downloading Boost headers as fallback'
+                TMPDIR=$(mktemp -d)
+                cd \"$TMPDIR\"
+                BOOST_VER=1.82.0
+                BOOST_TAR=boost_${BOOST_VER//./_}.tar.gz
+                curl -sSLO https://boostorg.jfrog.io/artifactory/main/release/${BOOST_VER}/source/${BOOST_TAR} || true
+                if [ -f \"$BOOST_TAR\" ]; then
+                  tar -xzf \"$BOOST_TAR\"
+                  cp -r boost_${BOOST_VER//./_}/boost /usr/local/include/ || true
+                  echo 'Copied Boost headers to /usr/local/include/boost'
+                else
+                  echo 'Failed to download Boost source tarball; skipping header fallback'
+                fi
+                cd /
+                rm -rf \"$TMPDIR\" || true
+              fi
+
+              echo 'CIBW_BEFORE_ALL_LINUX finished'
             "
 
           # manylinux: enable FindBoost debug output (no absolute paths)
