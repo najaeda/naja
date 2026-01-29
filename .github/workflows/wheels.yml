@@ -171,7 +171,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v6
         with:
-          python-version: "3.11" 
+          python-version: "3.11"
       - name: Download parser-generated sources
         # if: runner.os == 'Windows'
         uses: actions/download-artifact@v4
@@ -183,38 +183,52 @@ jobs:
         run: |
           echo "Copying generated parser files into thirdparty/naja-verilog/src"
           cp -R generated thirdparty/naja-verilog/src/
-          
+
       - name: Configure macOS Environment
         if: runner.os == 'macOS'
         run: |
-            export HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_CLEANUP=1 HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK=1 HOMEBREW_NO_ENV_HINTS=1
-            eval "$(brew shellenv)"
-            brew install -q boost
+          export HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_CLEANUP=1 HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK=1 HOMEBREW_NO_ENV_HINTS=1
+          eval "$(brew shellenv)"
+          brew install -q boost
       - name: Install cibuildwheel (and delvewheel for Windows)
         run: python -m pip install cibuildwheel==3.3.0 delvewheel
       - name: Build wheels
         env:
-          MACOSX_DEPLOYMENT_TARGET: '14.0' 
+          MACOSX_DEPLOYMENT_TARGET: '14.0'
           CIBW_ENABLE: ${{ matrix.free_threaded_support && 'cpython-freethreading' || '' }}
           CIBW_ENVIRONMENT: SKLEARN_SKIP_NETWORK_TESTS=1
-          # Minimal, clean fix: ensure the manylinux container has the distro Boost packages installed
+          # Robust, minimal fix: ensure distro Boost packages are installed in the manylinux container
           CIBW_BEFORE_ALL_LINUX: >
-            bash -lc '
+            bash -lc "
               set -ex
-              # install distro boost packages so CMake's find_package(Boost ...) resolves the same Boost used in other workflows
-              yum -y update || true
-              yum -y install boost-devel boost-iostreams-devel zlib-devel || true
-            '
+              # Try common package managers to install distro boost dev packages and zlib dev
+              if command -v yum >/dev/null 2>&1; then
+                yum -y update || true
+                yum -y install boost-devel boost-iostreams-devel zlib-devel || true
+              elif command -v dnf >/dev/null 2>&1; then
+                dnf -y install boost-devel boost-iostreams-devel zlib-devel || true
+              elif command -v microdnf >/dev/null 2>&1; then
+                microdnf -y install boost-devel boost-iostreams-devel zlib-devel || true
+              elif command -v apt-get >/dev/null 2>&1; then
+                apt-get update || true
+                DEBIAN_FRONTEND=noninteractive apt-get install -yq libboost-iostreams-dev libboost-dev zlib1g-dev || true
+              else
+                echo 'No known package manager found; skipping distro boost install'
+              fi
+              # show what was installed (safe debug)
+              echo '=== Boost headers (if present) ==='
+              ls -d /usr/include/boost* /usr/local/include/boost* 2>/dev/null || true
+              echo '=== package list (if available) ==='
+              if command -v rpm >/dev/null 2>&1; then rpm -qa | grep -E \"boost|zlib\" || true; fi
+            "
           CIBW_BEFORE_BUILD_LINUX: >
-            bash -lc '
+            bash -lc "
               set -ex
-              # make sure CMake will see the distro-installed Boost (no absolute paths)
-              # this exports standard variables used by CMake's FindBoost if needed
-              export BOOST_ROOT="${BOOST_ROOT:-}"
-              export CMAKE_PREFIX_PATH="${CMAKE_PREFIX_PATH:-}"
-              # optional debug output (safe): list boost headers if present
-              ls -d /usr/include/boost || true
-            '
+              # no absolute paths; leave environment variables unchanged unless already set
+              # optional debug: show compiler and cmake versions
+              g++ --version || true
+              cmake --version || true
+            "
           CIBW_BUILD: cp${{ matrix.python }}-${{ matrix.platform_id }}
           CIBW_ARCHS: 'all'
           CIBW_MANYLINUX_X86_64_IMAGE: ${{ matrix.manylinux_image }}
@@ -262,17 +276,13 @@ jobs:
           name: cibw-wheels-cp${{ matrix.python }}-${{ matrix.platform_id }}
           path: ./wheelhouse/*.whl
 
-  
   test_upload_pypi:
     # TODO: create an sdist that can build without a custom environment
     needs: [build_wheels]
     runs-on: ubuntu-latest
-    #environment: pypi
     permissions:
       id-token: write
     steps:
-      #Reminder!!: actions/upload-artifact and actions/download-artifact
-      #need to have same version
       - uses: actions/download-artifact@v4
         with:
           pattern: cibw-*
@@ -291,7 +301,7 @@ jobs:
     name: Upload release to PyPI
     runs-on: ubuntu-latest
     permissions:
-      id-token: write  # IMPORTANT: this permission is mandatory for trusted publishing
+      id-token: write
     steps:
       - uses: actions/download-artifact@v4
         with:
