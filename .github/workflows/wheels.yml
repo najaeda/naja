@@ -213,7 +213,7 @@ jobs:
             bash -lc "
               set -ex
 
-              # Try common package managers for Boost and TBB
+              # Try distro package managers for TBB (and Boost where needed)
               if command -v microdnf >/dev/null 2>&1; then
                 microdnf -y install boost-devel boost-iostreams-devel zlib-devel tbb-devel || true
               elif command -v dnf >/dev/null 2>&1; then
@@ -262,9 +262,9 @@ jobs:
                 rm -rf \"$TMPDIR\" || true
               fi
 
-              # If TBB CMake config not found, try bootstrapping vcpkg and installing tbb as a fallback
-              if [ ! -d /usr/lib*/cmake/tbb ] && [ ! -d /usr/local/lib*/cmake/tbb ]; then
-                echo 'TBB CMake config not found; attempting vcpkg bootstrap and install as fallback'
+              # If TBB CMake config not found, bootstrap vcpkg and install tbb as a fallback
+              if ! ls /usr/lib*/cmake/tbb >/dev/null 2>&1 && ! ls /usr/local/lib*/cmake/tbb >/dev/null 2>&1; then
+                echo 'TBB CMake config not found; bootstrapping vcpkg and installing tbb as fallback'
                 git clone --depth 1 https://github.com/microsoft/vcpkg.git vcpkg || true
                 ./vcpkg/bootstrap-vcpkg.sh || true
                 ./vcpkg/vcpkg install tbb || true
@@ -275,13 +275,23 @@ jobs:
               echo 'CIBW_BEFORE_ALL_LINUX finished'
             "
 
-          # manylinux: enable FindBoost debug output and, if vcpkg used, set toolchain (no absolute paths)
+          # manylinux: enable FindBoost debug output and, if vcpkg used, set toolchain and TBB_DIR (no absolute paths)
           CIBW_BEFORE_BUILD_LINUX: >
             bash -lc "
               set -ex
-              # If vcpkg was bootstrapped in the workspace, instruct CMake to use it; otherwise just enable Boost debug
+              # If vcpkg was bootstrapped in the workspace, instruct CMake to use it and point to the vcpkg-installed TBB
               if [ -d ./vcpkg ]; then
-                export CMAKE_ARGS=\"${CMAKE_ARGS:-} -DCMAKE_TOOLCHAIN_FILE=./vcpkg/scripts/buildsystems/vcpkg.cmake -DBoost_DEBUG=ON\"
+                # attempt to locate the vcpkg-installed tbb share directory (triplet-specific)
+                TBB_DIR=$(ls -d ./vcpkg/installed/*/share/tbb 2>/dev/null | head -n1 || true)
+                if [ -n \"$TBB_DIR\" ]; then
+                  export CMAKE_ARGS=\"${CMAKE_ARGS:-} -DCMAKE_TOOLCHAIN_FILE=./vcpkg/scripts/buildsystems/vcpkg.cmake -DTBB_DIR=${TBB_DIR} -DBoost_DEBUG=ON\"
+                  echo \"Using vcpkg toolchain and TBB_DIR=${TBB_DIR}\"
+                else
+                  export CMAKE_ARGS=\"${CMAKE_ARGS:-} -DCMAKE_TOOLCHAIN_FILE=./vcpkg/scripts/buildsystems/vcpkg.cmake -DBoost_DEBUG=ON\"
+                  echo 'Using vcpkg toolchain (TBB_DIR not found)'
+                fi
+                ls -la ./vcpkg/installed/*/share/tbb 2>/dev/null || true
+                ls -la ./vcpkg/installed/*/lib*/cmake/tbb 2>/dev/null || true
               else
                 export CMAKE_ARGS=\"${CMAKE_ARGS:-} -DBoost_DEBUG=ON\"
               fi
