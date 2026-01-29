@@ -197,13 +197,23 @@ jobs:
           MACOSX_DEPLOYMENT_TARGET: '14.0' 
           CIBW_ENABLE: ${{ matrix.free_threaded_support && 'cpython-freethreading' || '' }}
           CIBW_ENVIRONMENT: SKLEARN_SKIP_NETWORK_TESTS=1
-          # Minimal, clean fix: install system Boost packages inside the manylinux container
+          # Minimal, clean fix: ensure the manylinux container has the distro Boost packages installed
           CIBW_BEFORE_ALL_LINUX: >
             bash -lc '
               set -ex
-              # ensure distro boost packages are present so CMake finds the same Boost as other workflows
+              # install distro boost packages so CMake's find_package(Boost ...) resolves the same Boost used in other workflows
               yum -y update || true
-              yum -y install boost-devel boost-static boost-iostreams-devel zlib-devel || true
+              yum -y install boost-devel boost-iostreams-devel zlib-devel || true
+            '
+          CIBW_BEFORE_BUILD_LINUX: >
+            bash -lc '
+              set -ex
+              # make sure CMake will see the distro-installed Boost (no absolute paths)
+              # this exports standard variables used by CMake's FindBoost if needed
+              export BOOST_ROOT="${BOOST_ROOT:-}"
+              export CMAKE_PREFIX_PATH="${CMAKE_PREFIX_PATH:-}"
+              # optional debug output (safe): list boost headers if present
+              ls -d /usr/include/boost || true
             '
           CIBW_BUILD: cp${{ matrix.python }}-${{ matrix.platform_id }}
           CIBW_ARCHS: 'all'
