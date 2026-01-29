@@ -186,7 +186,7 @@ jobs:
           export HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK=1
           export HOMEBREW_NO_ENV_HINTS=1
           eval "$(brew shellenv)"
-          brew install -q boost
+          brew install -q boost tbb
 
       - name: Install cibuildwheel (and delvewheel for Windows)
         run: python -m pip install cibuildwheel==3.3.0 delvewheel
@@ -200,7 +200,7 @@ jobs:
           Set-Location vcpkg
           .\bootstrap-vcpkg.bat
           # optionally install required packages via vcpkg here if you want them preinstalled
-          # .\vcpkg.exe install boost-iostreams:x64-windows
+          # .\vcpkg.exe install boost-iostreams:x64-windows tbb:x64-windows
 
       - name: Build wheels
         env:
@@ -208,38 +208,42 @@ jobs:
           CIBW_ENABLE: ${{ matrix.free_threaded_support && 'cpython-freethreading' || '' }}
           CIBW_ENVIRONMENT: SKLEARN_SKIP_NETWORK_TESTS=1
 
-          # Option A: manylinux — attempt to install distro Boost dev packages inside the container (no absolute paths)
+          # Option A: manylinux — attempt to install distro Boost and TBB dev packages inside the container (no absolute paths)
           CIBW_BEFORE_ALL_LINUX: >
             bash -lc "
               set -ex
 
-              # Try common package managers first
+              # Try common package managers for Boost and TBB
               if command -v microdnf >/dev/null 2>&1; then
-                microdnf -y install boost-devel boost-iostreams-devel zlib-devel || true
+                microdnf -y install boost-devel boost-iostreams-devel zlib-devel tbb-devel || true
               elif command -v dnf >/dev/null 2>&1; then
-                dnf -y install boost-devel boost-iostreams-devel zlib-devel || true
+                dnf -y install boost-devel boost-iostreams-devel zlib-devel tbb-devel || true
                 dnf module enable boost -y || true
                 dnf -y install boost-devel || true
               elif command -v yum >/dev/null 2>&1; then
-                yum -y install boost-devel boost-iostreams-devel zlib-devel || true
+                yum -y install boost-devel boost-iostreams-devel zlib-devel tbb-devel || true
               elif command -v apt-get >/dev/null 2>&1; then
                 apt-get update || true
-                DEBIAN_FRONTEND=noninteractive apt-get install -yq libboost-iostreams-dev libboost-dev zlib1g-dev || true
+                DEBIAN_FRONTEND=noninteractive apt-get install -yq libboost-iostreams-dev libboost-dev zlib1g-dev libtbb-dev || true
               elif command -v zypper >/dev/null 2>&1; then
-                zypper --non-interactive install -y boost-devel boost-iostreams-devel zlib-devel || true
+                zypper --non-interactive install -y boost-devel boost-iostreams-devel zlib-devel tbb-devel || true
               else
                 echo 'No known package manager found; skipping package install'
               fi
 
-              # Diagnostics: show whether headers exist and what packages are installed
+              # Diagnostics: show whether headers and cmake files exist and what packages are installed
               echo '=== /usr/include/boost (if present) ==='
               ls -la /usr/include/boost 2>/dev/null || true
               echo '=== /usr/local/include/boost (if present) ==='
               ls -la /usr/local/include/boost 2>/dev/null || true
-              if command -v rpm >/dev/null 2>&1; then rpm -qa | grep -E \"boost|zlib\" || true; fi
-              if command -v dpkg >/dev/null 2>&1; then dpkg -l | grep -E \"boost|zlib\" || true; fi
+              echo '=== TBB include and cmake locations ==='
+              ls -la /usr/include/tbb 2>/dev/null || true
+              ls -la /usr/lib*/cmake/tbb 2>/dev/null || true
+              ls -la /usr/local/lib*/cmake/tbb 2>/dev/null || true
+              if command -v rpm >/dev/null 2>&1; then rpm -qa | grep -E \"boost|zlib|tbb|intel-tbb\" || true; fi
+              if command -v dpkg >/dev/null 2>&1; then dpkg -l | grep -E \"boost|zlib|tbb|intel-tbb\" || true; fi
 
-              # Fallback: if headers still missing, download Boost headers only (no build) and place in /usr/local/include
+              # Fallback: if Boost headers still missing, download Boost headers only (no build) and place in /usr/local/include
               if [ ! -d /usr/include/boost ] && [ ! -d /usr/local/include/boost ]; then
                 echo 'Boost headers not found via package manager — downloading Boost headers as fallback'
                 TMPDIR=$(mktemp -d)
@@ -258,14 +262,29 @@ jobs:
                 rm -rf \"$TMPDIR\" || true
               fi
 
+              # If TBB CMake config not found, try bootstrapping vcpkg and installing tbb as a fallback
+              if [ ! -d /usr/lib*/cmake/tbb ] && [ ! -d /usr/local/lib*/cmake/tbb ]; then
+                echo 'TBB CMake config not found; attempting vcpkg bootstrap and install as fallback'
+                git clone --depth 1 https://github.com/microsoft/vcpkg.git vcpkg || true
+                ./vcpkg/bootstrap-vcpkg.sh || true
+                ./vcpkg/vcpkg install tbb || true
+                echo 'vcpkg installed packages:'
+                ./vcpkg/vcpkg list || true
+              fi
+
               echo 'CIBW_BEFORE_ALL_LINUX finished'
             "
 
-          # manylinux: enable FindBoost debug output (no absolute paths)
+          # manylinux: enable FindBoost debug output and, if vcpkg used, set toolchain (no absolute paths)
           CIBW_BEFORE_BUILD_LINUX: >
             bash -lc "
               set -ex
-              export CMAKE_ARGS=\"${CMAKE_ARGS:-} -DBoost_DEBUG=ON\"
+              # If vcpkg was bootstrapped in the workspace, instruct CMake to use it; otherwise just enable Boost debug
+              if [ -d ./vcpkg ]; then
+                export CMAKE_ARGS=\"${CMAKE_ARGS:-} -DCMAKE_TOOLCHAIN_FILE=./vcpkg/scripts/buildsystems/vcpkg.cmake -DBoost_DEBUG=ON\"
+              else
+                export CMAKE_ARGS=\"${CMAKE_ARGS:-} -DBoost_DEBUG=ON\"
+              fi
               echo CMAKE_ARGS=\"$CMAKE_ARGS\"
               g++ --version || true
               cmake --version || true
