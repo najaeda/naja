@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-FROM rockylinux:10 AS builder
+FROM rockylinux:9 AS builder
 
 # Install required packages
 RUN dnf -y update \
