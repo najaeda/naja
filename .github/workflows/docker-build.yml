@@ -2,15 +2,22 @@ name: docker-build
 
 on:
   push:
-    branches:
-      - '**'
+    branches: [ main ]
   pull_request:
-    branches:
-      - '**'
+    branches: [ main ]
 
 jobs:
   docker:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - distro: alpine
+            dockerfile: docker/Dockerfile.alpine
+            tag: latest
+          - distro: rockylinux9
+            dockerfile: docker/Dockerfile.rockylinux
+            tag: rockylinux-9
     steps:
       -
         name: Set up QEMU
@@ -30,14 +37,16 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           load: true
-          tags: christophealex/naja_edit:latest
+          file: ${{ matrix.dockerfile }}
+          tags: christophealex/naja_edit:${{ matrix.tag }}
       -
         name: Run naja_edit smoke test
-        run: docker run --rm christophealex/naja_edit:latest --help
+        run: docker run --rm christophealex/naja_edit:${{ matrix.tag }} --help
       -
         name: Build and push
         uses: docker/build-push-action@v5
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         with:
           push: true
-          tags: christophealex/naja_edit:latest
+          file: ${{ matrix.dockerfile }}
+          tags: christophealex/naja_edit:${{ matrix.tag }}
