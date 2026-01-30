@@ -33,7 +33,7 @@ COPY primitives /naja/primitives
 COPY thirdparty /naja/thirdparty
 
 WORKDIR /naja/build
-RUN cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS="-DTBB_PREVIEW_CONCURRENT_ORDERED_CONTAINERS=1" .. \
+RUN cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS="-DTBB_PREVIEW_CONCURRENT_ORDERED_CONTAINERS=1" -DCMAKE_INSTALL_LIBDIR=lib .. \
     && cmake --build . --parallel 8 \
     && cmake --install . --prefix /naja/install
 RUN ctest -j8 --output-on-failure
