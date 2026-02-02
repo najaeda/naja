@@ -30,6 +30,7 @@ class SNLVRLConstructor: public naja::verilog::VerilogConstructor {
         VerifyEquality ///< Load the new definition into a temporary design and verify it matches the existing one.
       };
 
+      bool                        preprocessEnabled_            {false};  ///< If true, preprocess Verilog sources before parsing.
       bool                        blackboxDetection_            {true};   ///< If true, detect blackbox designs.
       bool                        allowUnknownDesigns_          {false};  ///< If true, allow unknown designs to be created as blackbox.
       ConflictingDesignNamePolicy conflictingDesignNamePolicy_  {ConflictingDesignNamePolicy::Forbid};

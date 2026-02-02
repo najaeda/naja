@@ -1837,6 +1837,8 @@ def create_top(name: str) -> Instance:
 class VerilogConfig:
     keep_assigns: bool = True
     allow_unknown_designs: bool = False
+    # Enable Verilog preprocessing (e.g. `define/ifdef/include).
+    preprocess_enabled: bool = False
     # How to handle duplicate module names in the same library.
     # Accepted values: "forbid" (default), "first", "last", "verify".
     conflicting_design_name_policy: str = "forbid"
@@ -1872,6 +1874,7 @@ def load_verilog(files: Union[str, List[str]], config: VerilogConfig = None) -> 
         files,
         keep_assigns=config.keep_assigns,
         allow_unknown_designs=config.allow_unknown_designs,
+        preprocess_enabled=config.preprocess_enabled,
         conflicting_design_name_policy=config.conflicting_design_name_policy,
     )
     execution_time = time.time() - start_time
