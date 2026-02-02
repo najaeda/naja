@@ -376,6 +376,7 @@ SNLVRLConstructor::SNLVRLConstructor(NLLibrary* library):
 {}
 
 void SNLVRLConstructor::construct(const Paths& paths) {
+  setPreprocessEnabled(config_.preprocessEnabled_);
   try {
     setFirstPass(true);
     parse(paths);

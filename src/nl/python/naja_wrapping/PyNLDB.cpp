@@ -144,17 +144,20 @@ PyObject* PyNLDB_loadVerilog(PyNLDB* self, PyObject* args, PyObject* kwargs) {
   PyObject* files = nullptr;
   int keep_assigns = 1;  // Default: true
   int allow_unknown_designs = 0; // Default: false
+  int preprocess_enabled = 0; // Default: false
   PyObject* conflicting_design_name_policy = nullptr; // Optional: string
 
   static const char* const kwords[] = {
-    "files", "keep_assigns", "allow_unknown_designs", "conflicting_design_name_policy",
+    "files", "keep_assigns", "allow_unknown_designs", "preprocess_enabled",
+    "conflicting_design_name_policy",
     nullptr
   };
 
   if (not PyArg_ParseTupleAndKeywords(
-    args, kwargs, "O|ppO:NLDB.loadVerilog",
+    args, kwargs, "O|pppO:NLDB.loadVerilog",
     const_cast<char**>(kwords),
-    &files, &keep_assigns, &allow_unknown_designs, &conflicting_design_name_policy)) {
+    &files, &keep_assigns, &allow_unknown_designs, &preprocess_enabled,
+    &conflicting_design_name_policy)) {
     setError("malformed NLDB loadVerilog");
     return nullptr;
   }
@@ -175,6 +178,9 @@ PyObject* PyNLDB_loadVerilog(PyNLDB* self, PyObject* args, PyObject* kwargs) {
   SNLVRLConstructor constructor(designLibrary);
   if (allow_unknown_designs) {
     constructor.config_.allowUnknownDesigns_ = true;
+  }
+  if (preprocess_enabled) {
+    constructor.config_.preprocessEnabled_ = true;
   }
   // Conflicting design name policy (optional)
   if (conflicting_design_name_policy != nullptr && conflicting_design_name_policy != Py_None) {
@@ -309,6 +315,7 @@ PyMethodDef PyNLDB_Methods[] = {
     "  files (list[str]): input Verilog files\n"
     "  keep_assigns (bool, optional): keep continuous assigns (default True)\n"
     "  allow_unknown_designs (bool, optional): create unknown modules as blackboxes (default False)\n"
+    "  preprocess_enabled (bool, optional): enable Verilog preprocessing (default False)\n"
     "  conflicting_design_name_policy (str, optional): how to handle duplicate module names in the same library. "
     "Accepted values: 'forbid' (default), 'first', 'last', 'verify'."},
   { "dumpVerilog", (PyCFunction)PyNLDB_dumpVerilog, METH_VARARGS,
