@@ -19,6 +19,8 @@ target_link_libraries(naja_snl_liberty
   ZLIB::ZLIB
 )
 
+target_compile_definitions(naja_snl_liberty PRIVATE NAJA_HAVE_ZLIB)
+
 target_include_directories(naja_snl_liberty PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 if(NOT BUILD_NAJA_PYTHON)

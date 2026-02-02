@@ -122,10 +122,12 @@ PyObject* PyNLDB_loadLibertyPrimitives(PyNLDB* self, PyObject* args) {
     const std::filesystem::path path(pathStr);
 
     auto extension = path.extension();
+    auto stemExtension = path.stem().extension();
     if (extension.empty()) {
       setError("NLDB loadLibertyPrimitives design path has no extension");
       return nullptr;
-    } else if (extension == ".lib") {
+    } else if (extension == ".lib"
+      || (extension == ".gz" && stemExtension == ".lib")) {
       // LCOV_EXCL_START
       TRY
       SNLLibertyConstructor constructor(primitivesLibrary);
