@@ -18,6 +18,8 @@
 #include "SNLDesignModeling.h"
 #include "SNLLibertyConstructorException.h"
 
+#include <zlib.h>
+
 namespace {
 
 using namespace naja::NL;
@@ -229,6 +231,79 @@ void parseCells(NLLibrary* library, const Yosys::LibertyAst* ast) {
   }
 }
 
+class GzipStreamBuf final : public std::streambuf {
+  public:
+    explicit GzipStreamBuf(const std::filesystem::path& path) {
+      file_ = gzopen(path.string().c_str(), "rb");
+      if (file_ == nullptr) {
+        std::string reason("Liberty parser: failed to open gzip file: " + path.string());
+        throw SNLLibertyConstructorException(reason);
+      }
+      setg(buffer_, buffer_ + kBufferSize, buffer_ + kBufferSize);
+    }
+    ~GzipStreamBuf() override {
+      if (file_ != nullptr) {
+        gzclose(file_);
+      }
+    }
+  protected:
+    int_type underflow() override {
+      if (gptr() < egptr()) {
+        return traits_type::to_int_type(*gptr()); // LCOV_EXCL_LINE
+      }
+      if (file_ == nullptr) {
+        return traits_type::eof(); // LCOV_EXCL_LINE
+      }
+      int bytesRead = gzread(file_, buffer_, kBufferSize);
+      if (bytesRead == 0) {
+        return traits_type::eof();
+      }
+      if (bytesRead < 0) {
+        int errnum = 0;
+        const char* errorMessage = gzerror(file_, &errnum);
+        std::ostringstream reason;
+        reason << "Liberty parser: failed to read gzip file";
+        if (errorMessage != nullptr and errnum != Z_OK) {
+          reason << " (" << errorMessage << ")";
+        }
+        throw SNLLibertyConstructorException(reason.str());
+      }
+      setg(buffer_, buffer_, buffer_ + bytesRead);
+      return traits_type::to_int_type(*gptr());
+    }
+  private:
+    static constexpr int kBufferSize = 64 * 1024;
+    gzFile file_{nullptr};
+    char buffer_[kBufferSize];
+};
+
+class GzipIStream final : public std::istream {
+  public:
+    explicit GzipIStream(const std::filesystem::path& path)
+      : std::istream(nullptr), buffer_(path) {
+      rdbuf(&buffer_);
+    }
+  private:
+    GzipStreamBuf buffer_;
+};
+
+std::unique_ptr<std::istream> openLibertyStream(const std::filesystem::path& path) {
+  auto extension = path.extension().string();
+  if (extension == ".gz") {
+    return std::make_unique<GzipIStream>(path);
+  }
+  if (extension == ".zip") {
+    std::string reason("Liberty parser: zip archives are not supported: " + path.string());
+    throw SNLLibertyConstructorException(reason);
+  }
+  auto inFile = std::make_unique<std::ifstream>(path);
+  if (not inFile->is_open()) {
+    std::string reason("Liberty parser: failed to open file: " + path.string());
+    throw SNLLibertyConstructorException(reason);
+  }
+  return inFile;
+}
+
 }
 
 namespace naja::NL {
@@ -242,8 +317,8 @@ void SNLLibertyConstructor::construct(const std::filesystem::path& path) {
     std::string reason("Liberty parser: " + path.string() + " does not exist");
     throw SNLLibertyConstructorException(reason);
   }
-  std::ifstream inFile(path);
-  auto parser = std::make_unique<Yosys::LibertyParser>(inFile);
+  auto inStream = openLibertyStream(path);
+  auto parser = std::make_unique<Yosys::LibertyParser>(*inStream);
   auto ast = parser->ast;
   //LCOV_EXCL_START
   if (ast == nullptr) {

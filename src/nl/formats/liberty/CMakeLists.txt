@@ -11,7 +11,13 @@ SET(HEADERS SNLLibertyConstructor.h)
 add_library(naja_snl_liberty STATIC ${SOURCES})
 set_property(TARGET naja_snl_liberty PROPERTY POSITION_INDEPENDENT_CODE ON)
 
-target_link_libraries(naja_snl_liberty naja_nl yosys_liberty)
+target_link_libraries(naja_snl_liberty
+  PUBLIC
+  naja_nl
+  yosys_liberty
+  PRIVATE
+  ZLIB::ZLIB
+)
 
 target_include_directories(naja_snl_liberty PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 

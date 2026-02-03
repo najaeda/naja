@@ -21,6 +21,7 @@ RUN dnf -y update \
         flex \
         boost-devel \
         tbb-devel \
+        zlib-devel \
     && dnf clean all
 
 # Set the working directory
@@ -48,6 +49,7 @@ RUN dnf -y update \
         capnproto-libs \
         python3 \
         tbb \
+        zlib \
     && dnf clean all
 
 RUN useradd -r -u 10001 -g root naja
