@@ -129,13 +129,31 @@ TEST_F(SNLLibertyConstructorZlibTest, testGzipEof) {
 
 TEST_F(SNLLibertyConstructorZlibTest, testGzipOpenFailure) {
   auto gzPath = makeTempGzipPath();
+  {
+    gzFile out = gzopen(gzPath.string().c_str(), "wb");
+    ASSERT_NE(nullptr, out);
+    int closeStatus = gzclose(out);
+    ASSERT_EQ(Z_OK, closeStatus);
+  }
+
   std::error_code ec;
-  std::filesystem::create_directory(gzPath, ec);
+  std::filesystem::permissions(gzPath, std::filesystem::perms::none, ec);
   if (ec) {
-    GTEST_SKIP() << "Failed to create temp directory";
+    std::filesystem::remove(gzPath, ec);
+    GTEST_SKIP() << "Permissions not supported on this platform";
+  }
+
+  {
+    std::ifstream probe(gzPath, std::ios::binary);
+    if (probe.is_open()) {
+      std::filesystem::permissions(gzPath, std::filesystem::perms::owner_all, ec);
+      std::filesystem::remove(gzPath, ec);
+      GTEST_SKIP() << "Unreadable gzip file still readable (likely running as root)";
+    }
   }
 
   SNLLibertyConstructor constructor(library_);
   EXPECT_THROW(constructor.construct(gzPath), SNLLibertyConstructorException);
-  std::filesystem::remove_all(gzPath, ec);
+  std::filesystem::permissions(gzPath, std::filesystem::perms::owner_all, ec);
+  std::filesystem::remove(gzPath, ec);
 }
