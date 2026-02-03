@@ -10,6 +10,8 @@
 
 #include "YosysLibertyParser.h"
 
+#include "NajaPerf.h"
+
 #include "NLLibrary.h"
 
 #include "SNLScalarTerm.h"
@@ -313,23 +315,30 @@ SNLLibertyConstructor::SNLLibertyConstructor(NLLibrary* library):
 {}
 
 void SNLLibertyConstructor::construct(const std::filesystem::path& path) {
-  if (not std::filesystem::exists(path)) {
-    std::string reason("Liberty parser: " + path.string() + " does not exist");
-    throw SNLLibertyConstructorException(reason);
+  construct(Paths{path});
+}
+
+void SNLLibertyConstructor::construct(const Paths& paths) {
+  NajaPerf::Scope scope("Liberty construct");
+  for (const auto& path : paths) {
+    if (not std::filesystem::exists(path)) {
+      std::string reason("Liberty parser: " + path.string() + " does not exist");
+      throw SNLLibertyConstructorException(reason);
+    }
+    auto inStream = openLibertyStream(path);
+    auto parser = std::make_unique<Yosys::LibertyParser>(*inStream);
+    auto ast = parser->ast;
+    //LCOV_EXCL_START
+    if (ast == nullptr) {
+      std::string reason("Liberty parser: failed to parse the file: " + path.string());
+      throw SNLLibertyConstructorException(reason);
+    }
+    //LCOV_EXCL_STOP
+    auto libraryName = ast->args[0];
+    //find a policy for multiple libs
+    library_->setName(NLName(libraryName));
+    parseCells(library_, ast);
   }
-  auto inStream = openLibertyStream(path);
-  auto parser = std::make_unique<Yosys::LibertyParser>(*inStream);
-  auto ast = parser->ast;
-  //LCOV_EXCL_START
-  if (ast == nullptr) {
-    std::string reason("Liberty parser: failed to parse the file: " + path.string());
-    throw SNLLibertyConstructorException(reason);
-  }
-  //LCOV_EXCL_STOP
-  auto libraryName = ast->args[0];
-  //find a policy for multiple libs
-  library_->setName(NLName(libraryName));
-  parseCells(library_, ast);
 }
 
 }  // namespace naja::NL

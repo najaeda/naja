@@ -12,6 +12,7 @@
 #include "NLDB0.h"
 #include "NLLibrary.h"
 #include "NajaLog.h"
+#include "NajaPerf.h"
 
 #include "SNLDesign.h"
 #include "SNLBusTerm.h"
@@ -376,6 +377,7 @@ SNLVRLConstructor::SNLVRLConstructor(NLLibrary* library):
 {}
 
 void SNLVRLConstructor::construct(const Paths& paths) {
+  NajaPerf::Scope scope("Verilog construct");
   setPreprocessEnabled(config_.preprocessEnabled_);
   try {
     setFirstPass(true);

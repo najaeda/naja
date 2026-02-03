@@ -10,6 +10,8 @@
 
 #include "tbb/enumerable_thread_specific.h"
 
+#include "NajaPerf.h"
+
 #include "NLUniverse.h"
 #include "NLDB0.h"
 #include "SNLBusNetBit.h"
@@ -343,6 +345,7 @@ void LoadlessLogicRemover::removeLoadlessInstances(
 
 // Given a DNL, remove all loadless logic
 void LoadlessLogicRemover::removeLoadlessLogic() {
+  NajaPerf::Scope scope("RemoveLoadlessLogic");
   dnl_ = DNL::get();
   tbb::concurrent_unordered_set<DNLID> tracedIsos = getTracedIsos(*dnl_);
   std::vector<DNLID> untracedIsos = getUntracedIsos(*dnl_, tracedIsos);

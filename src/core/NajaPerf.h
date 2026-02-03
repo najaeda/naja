@@ -26,20 +26,26 @@ class NajaPerf {
       public:
         Scope(const std::string& phase): phase_(phase) {
           auto perf = NajaPerf::get();
-          if (perf == nullptr) {
-            throw NajaException("NajaPerf is not initialized"); //LCOV_EXCL_LINE
+          if (perf != nullptr) {
+            perf->start(this);
+            started_ = true;
           }
-          perf->start(this);
         }
         ~Scope() {
+          if (!started_) {
+            return;
+          }
           auto perf = NajaPerf::get();
-          perf->end(this);
+          if (perf != nullptr) {
+            perf->end(this);
+          }
         }
         Scope(const Scope&) = delete;
       private:
         std::string phase_;
         MemoryUsage startMemoryUsage_   { NajaPerf::UnknownMemoryUsage, NajaPerf::UnknownMemoryUsage };
         Clock       startClock_;
+        bool        started_ {false};
     };
     static MemoryUsage getMemoryUsage();
     static NajaPerf* create(const std::filesystem::path& logPath, const std::string& topName) {
@@ -138,4 +144,3 @@ class NajaPerf {
 };
 
 } // namespace naja
-
