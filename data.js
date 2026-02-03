@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1770042662965,
+  "lastUpdate": 1770108617573,
   "repoUrl": "https://github.com/najaeda/naja",
   "entries": {
     "SNL Benchmarks": [
@@ -408,6 +408,108 @@ window.BENCHMARK_DATA = {
             "value": 165866.2923445585,
             "unit": "ns/iter",
             "extra": "iterations: 4180\ncpu: 165735.38660288742 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "christophe.alexandre@keplertech.io",
+            "name": "Christophe Alexandre",
+            "username": "xtofalex"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "43e5519d690220a0f015605038e7f33c7baf3a6d",
+          "message": "Liberty zlib support (#331)\n\n* towards 0.4.0 adding zlib support in liberty parsing\n\n* more testing\n\n* install zlib on rockylinux\n\n* cleaning coverage\n\n* coverage\n\n* coverage",
+          "timestamp": "2026-02-03T09:46:11+01:00",
+          "tree_id": "a939b506831fd318dce800f3d585f61eb006a838",
+          "url": "https://github.com/najaeda/naja/commit/43e5519d690220a0f015605038e7f33c7baf3a6d"
+        },
+        "date": 1770108617000,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "BM_CreateNetlist0",
+            "value": 19537.62726213762,
+            "unit": "ns/iter",
+            "extra": "iterations: 35199\ncpu: 19536.188386033697 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_CreateInstances/100",
+            "value": 90626.48643059944,
+            "unit": "ns/iter",
+            "extra": "iterations: 7738\ncpu: 90615.70715947275 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_CreateInstances/1000",
+            "value": 1196769.7858407302,
+            "unit": "ns/iter",
+            "extra": "iterations: 565\ncpu: 1196666.391150442 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_CreateInstances/10000",
+            "value": 17861554.4864857,
+            "unit": "ns/iter",
+            "extra": "iterations: 37\ncpu: 17860576.75675675 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_TraversalInstances/100",
+            "value": 1581.0783709030968,
+            "unit": "ns/iter",
+            "extra": "iterations: 443264\ncpu: 1580.9866896477038 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_TraversalInstances/1000",
+            "value": 15549.163411327272,
+            "unit": "ns/iter",
+            "extra": "iterations: 45003\ncpu: 15547.192987134204 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_TraversalInstances/10000",
+            "value": 161077.6494916845,
+            "unit": "ns/iter",
+            "extra": "iterations: 4328\ncpu: 161055.23059149724 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_LoadVerilogFile/Gates0",
+            "value": 179916.49600413765,
+            "unit": "ns/iter",
+            "extra": "iterations: 3879\ncpu: 179910.33513792214 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_LoadVerilogFile/FullAdder",
+            "value": 141661.10787879338,
+            "unit": "ns/iter",
+            "extra": "iterations: 4950\ncpu: 141654.0353535352 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_LoadVerilogFile/Gates2",
+            "value": 87996.67988848308,
+            "unit": "ns/iter",
+            "extra": "iterations: 7891\ncpu: 87991.41097452797 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_LoadVerilogFile/LargeHierGates",
+            "value": 63518354.99999777,
+            "unit": "ns/iter",
+            "extra": "iterations: 9\ncpu: 63516069.22222213 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_HierarchyTraversal",
+            "value": 25740.833026509972,
+            "unit": "ns/iter",
+            "extra": "iterations: 27160\ncpu: 25739.4840942563 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_CapnPSerialize",
+            "value": 157061.5196942931,
+            "unit": "ns/iter",
+            "extra": "iterations: 4443\ncpu: 156990.89354043495 ns\nthreads: 1"
           }
         ]
       }
