@@ -14,6 +14,7 @@
 
 #include "NLUniverse.h"
 #include "SNLLibertyConstructor.h"
+#include "SNLLibertyConstructorException.h"
 
 using namespace naja::NL;
 
@@ -93,4 +94,21 @@ TEST_F(SNLLibertyConstructorZlibTest, testGzipParsing) {
   EXPECT_EQ(2, library_->getSNLDesigns().size());
   auto and2 = library_->getSNLDesign(NLName("and2"));
   EXPECT_NE(nullptr, and2);
+}
+
+TEST_F(SNLLibertyConstructorZlibTest, testGzipReadError) {
+  auto gzPath = makeTempGzipPath();
+  TempFileGuard guard(gzPath);
+
+  {
+    std::ofstream output(gzPath, std::ios::binary);
+    const unsigned char badHeader[] = {
+      0x1f, 0x8b, 0x08, 0xe0, 0x00,
+      0x00, 0x00, 0x00, 0x00, 0x03
+    };
+    output.write(reinterpret_cast<const char*>(badHeader), sizeof(badHeader));
+  }
+
+  SNLLibertyConstructor constructor(library_);
+  EXPECT_THROW(constructor.construct(gzPath), SNLLibertyConstructorException);
 }
