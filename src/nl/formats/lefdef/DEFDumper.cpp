@@ -24,12 +24,9 @@
 #include "defwWriterCalls.hpp"
 #include "lefwWriter.hpp"
 
-using namespace std;
 using namespace naja::NL;
 using naja::NL::NLLibrary;
 using naja::NL::PNLTransform;
-using std::cerr;
-using std::endl;
 
 namespace {
 

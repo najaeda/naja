@@ -23,13 +23,7 @@
 #include "defrReader.hpp"
 #include "lefrReader.hpp"
 
-using namespace std;
 using namespace naja::NL;
-using namespace naja::NL;
-using std::cerr;
-using std::endl;
-using std::string;
-using namespace std;
 
 namespace {
 
