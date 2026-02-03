@@ -9,6 +9,7 @@
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <system_error>
 
 #include <zlib.h>
 
@@ -111,4 +112,30 @@ TEST_F(SNLLibertyConstructorZlibTest, testGzipReadError) {
 
   SNLLibertyConstructor constructor(library_);
   EXPECT_THROW(constructor.construct(gzPath), SNLLibertyConstructorException);
+}
+
+TEST_F(SNLLibertyConstructorZlibTest, testGzipEof) {
+  auto gzPath = makeTempGzipPath();
+  TempFileGuard guard(gzPath);
+
+  gzFile out = gzopen(gzPath.string().c_str(), "wb");
+  ASSERT_NE(nullptr, out);
+  int closeStatus = gzclose(out);
+  ASSERT_EQ(Z_OK, closeStatus);
+
+  SNLLibertyConstructor constructor(library_);
+  EXPECT_ANY_THROW(constructor.construct(gzPath));
+}
+
+TEST_F(SNLLibertyConstructorZlibTest, testGzipOpenFailure) {
+  auto gzPath = makeTempGzipPath();
+  std::error_code ec;
+  std::filesystem::create_directory(gzPath, ec);
+  if (ec) {
+    GTEST_SKIP() << "Failed to create temp directory";
+  }
+
+  SNLLibertyConstructor constructor(library_);
+  EXPECT_THROW(constructor.construct(gzPath), SNLLibertyConstructorException);
+  std::filesystem::remove_all(gzPath, ec);
 }
