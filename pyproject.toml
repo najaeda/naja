@@ -13,7 +13,7 @@ authors = [{name = "Naja Authors", email = "contact@keplertech.io"}]
 readme = "src/najaeda/README.rst"
 requires-python = ">=3.8"
 license = {text = "Apache License 2.0"}
-version = "0.3.3"
+dynamic = ["version"]
 
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -35,6 +35,11 @@ classifiers = [
 CMAKE_BUILD_TYPE="Release"
 BUILD_NAJA_PYTHON="ON"
 PREGENERATED_PARSER_SOURCES="ON"
+
+[tool.scikit-build.metadata.version]
+provider = "scikit_build_core.metadata.regex"
+input = "src/core/NajaVersion.h.in"
+regex = 'NAJA_VERSION\s*\{\s*"(?P<value>[^"]+)"\s*\}'
 
 [project.urls]
 Homepage = "https://github.com/najaeda/naja"
@@ -72,8 +77,12 @@ before-all = '''
 [tool.cibuildwheel.linux]
 build-frontend = "build"
 before-all = '''
-  #yum -y install wget boost-devel flex
+  set -euo pipefail
+  yum clean all
+  echo "::group::Installing dependencies"
   yum -y install wget boost-devel
+  echo "::endgroup::"
+
   echo "::group::Installing TBB"
   wget -q https://github.com/oneapi-src/oneTBB/archive/refs/tags/v2022.1.0.tar.gz
   tar -xzf v2022.1.0.tar.gz
@@ -83,24 +92,6 @@ before-all = '''
   make -j$(nproc)
   make install
   echo "::endgroup::"
-  cd ..
-  #echo "::group::Installing flex"
-  #wget -q https://github.com/westes/flex/releases/download/v2.6.4/flex-2.6.4.tar.gz
-  #tar -xzf flex-2.6.4.tar.gz
-  #cd flex-2.6.4
-  #./configure
-  #make
-  #make install
-  #echo "::endgroup::"
-  #cd ..
-  #echo "::group::Installing bison"
-  #wget https://ftp.snt.utwente.nl/pub/software/gnu/bison/bison-3.8.2.tar.gz
-  #tar -xzf bison-3.8.2.tar.gz
-  #cd bison-3.8.2
-  #./configure
-  #make
-  #make install
-  #echo "::endgroup::"
   cd ..
   echo "::group::Installing capnproto"
   curl -O https://capnproto.org/capnproto-c++-1.1.0.tar.gz

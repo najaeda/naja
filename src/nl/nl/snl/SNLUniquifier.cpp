@@ -4,12 +4,14 @@
 
 #include "SNLUniquifier.h"
 
+#include "NajaLog.h"
+
 #include "NLUniverse.h"
 
 #include "SNLInstance.h"
 #include "SNLPath.h"
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 SNLUniquifier::SNLUniquifier(const SNLPath& path, bool uniquifyTail):
   uniquifyTail_(uniquifyTail) {
@@ -23,26 +25,18 @@ SNLUniquifier::SNLUniquifier(const SNLPath& path, bool uniquifyTail):
 }
 
 void SNLUniquifier::process() {
-#ifdef DEBUG_PRINTS
-  // LCOV_EXCL_START
-  printf("SNLUniquifier::process() - dnlid %s\n", id_);
-  printf("SNLUniquifier::process() - final inst %s\n",
+  NAJA_LOG_TRACE("SNLUniquifier::process() - dnlid {}", id_);
+  NAJA_LOG_TRACE("SNLUniquifier::process() - final inst {}",
     path_.back()->getName().getString().c_str());
-  // LCOV_EXCL_STOP
-#endif
   SNLDesign *currentDesign = NLUniverse::get()->getTopDesign();
   for (size_t i = 0; i < path_.size(); i++) {
-#ifdef DEBUG_PRINTS
-    // LCOV_EXCL_START
-    printf("SNLUniquifier::process() - - looking now at inst %s\n",
-      path_[i]->getName().getString().c_str());
-    printf("SNLUniquifier::process() - - looking now at design %s\n",
-      path_[i]->getDesign()->getName().getString().c_str());
+    NAJA_LOG_TRACE("SNLUniquifier::process() - - looking now at inst {}",
+        path_[i]->getName().getString().c_str());
+    NAJA_LOG_TRACE("SNLUniquifier::process() - - looking now at design {}",
+        path_[i]->getDesign()->getName().getString().c_str());
     for (auto inst: currentDesign->getInstances()) {
-      printf(" - child inst %s\n", inst->getName().getString().c_str());
+      NAJA_LOG_TRACE(" - child inst {}", inst->getName().getString().c_str());
     }
-    // LCOV_EXCL_STOP
-#endif
     SNLInstance *inst = currentDesign->getInstance(path_[i]);
     inst->getModel()->recursiveRevisionIncrement();
     if ((i == path_.size() - 1) && !uniquifyTail_) {
@@ -51,9 +45,7 @@ void SNLUniquifier::process() {
       break;
     }
     //assert(!inst->getModel()->getInstances().empty());
-#ifdef DEBUG_PRINTS
-    printf("%u(%lu) ", path_[i], inst->getModel()->getSlaveInstances().size());
-#endif
+    NAJA_LOG_TRACE("{}({}) ", path_[i], inst->getModel()->getSlaveInstances().size());
     //For primitives slave instances are not cached
     assert(inst->getModel()->getSlaveInstances().size() > 0 || inst->getModel()->isPrimitive());
     if (inst->getModel()->getSlaveInstances().size() == 1 || inst->getModel()->isPrimitive()) {
@@ -67,9 +59,6 @@ void SNLUniquifier::process() {
     assert(pathUniq_.back()->getModel()->getSlaveInstances().size() == 1 || inst->getModel()->isPrimitive());
     currentDesign = pathUniq_.back()->getModel();
   }
-#ifdef DEBUG_PRINTS
-  printf("\n");
-#endif
 }
 
 SNLInstance* SNLUniquifier::replaceWithClone(SNLInstance* inst) {
@@ -92,4 +81,4 @@ std::string SNLUniquifier::getFullPath() const {
 }
 // LCOV_EXCL_STOP
 
-}} // namespace NL // namespace naja
+}  // namespace naja::NL

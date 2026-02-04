@@ -4,16 +4,20 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "LEFConstructor.h"
-#include <boost/algorithm/string.hpp>
+
+#include <algorithm>
+#include <cctype>
 #include <cstdio>
 #include <cstring>
-#include <fstream>
-#include <iostream>
 #include <memory>
+#include <sstream>
+
+#include "NajaLog.h"
 #include "NLDB.h"
 #include "NLLibrary.h"
 #include "NLName.h"
 #include "NLUniverse.h"
+#include "PNLTechnology.h"
 #include "PNLBox.h"
 #include "PNLDesign.h"
 #include "PNLNet.h"
@@ -22,32 +26,32 @@
 #include "PNLTerm.h"
 #include "lefrReader.hpp"
 
-// sstream
-#include <sstream>
-using std::cerr;
-using std::endl;
-using std::string;
-using namespace std;
 using namespace naja::NL;
 
 namespace {
 
 void logFunction_(const char* message) {
-  std::cout << message << std::endl;
+  if (message) {
+    NAJA_LOG_INFO("{}", message);
+  }
 }
 
 void pinStdPostProcess_() {}
 
 void pinPadPostProcess_() {}
 
+void toUpperInPlace_(std::string& value) {
+  std::transform(value.begin(), value.end(), value.begin(),
+                 [](unsigned char ch) { return static_cast<char>(std::toupper(ch)); });
+}
+
 int unitsCbk_(lefrCallbackType_e c, lefiUnits* units, lefiUserData ud) {
   LEFConstructor* parser = (LEFConstructor*)ud;
 
   if (units->hasDatabase()) {
     parser->setUnitsMicrons(1.0 / units->databaseNumber());
-    cerr << "     - Precision: " << parser->getUnitsMicrons()
-         << " (LEF MICRONS scale factor:" << units->databaseNumber() << ")"
-         << endl;
+    NAJA_LOG_INFO("     - Precision: {} (LEF MICRONS scale factor:{})",
+                  parser->getUnitsMicrons(), units->databaseNumber());
   }
   return 0;
 }
@@ -61,7 +65,7 @@ int siteCbk_(lefrCallbackType_e c, lefiSite* site, lefiUserData ud) {
   PNLSite::ClassType siteClass = PNLSite::ClassType::Unknown;
   if (site->hasClass()) {
     std::string classType = site->siteClass();
-    boost::to_upper(classType);
+    toUpperInPlace_(classType);
     if (classType == "CORE") {
       siteClass = PNLSite::ClassType::Core;
     } else if (classType == "PAD") {
@@ -75,7 +79,12 @@ int siteCbk_(lefrCallbackType_e c, lefiSite* site, lefiUserData ud) {
                       // );
   PNLBox::Unit lefSiteHeight =
       site->sizeY();  // PNLBox::fromPhysical( site->sizeY(), PNLBox::Micro
-  auto pnlSite = PNLSite::create(NLName(site->name()), siteClass, lefSiteWidth,
+  auto universe = NLUniverse::get();
+  auto tech = universe->getTechnology();
+  if (not tech) {
+    tech = PNLTechnology::create(universe);
+  }
+  auto pnlSite = PNLSite::create(tech, NLName(site->name()), siteClass, lefSiteWidth,
                                  lefSiteHeight);
   if (site->hasXSymmetry() && site->hasYSymmetry()) {
     pnlSite->setSymmetry(PNLSite::Symmetry::X_Y);
@@ -258,8 +267,12 @@ int macroCbk_(lefrCallbackType_e c, lefiMacro* macro, lefiUserData ud) {
   string gaugeName = "Unknown SITE";
   if (macro->hasSiteName()) {
     std::string siteName = macro->siteName();
-    PNLSite* site =
-        PNLTechnology::getOrCreate()->getSiteByName(NLName(siteName));
+    auto universe = NLUniverse::get();
+    auto tech = universe->getTechnology();
+    if (not tech) {
+      tech = PNLTechnology::create(universe);
+    }
+    PNLSite* site = tech->getSiteByName(NLName(siteName));
     cell->setSite(site);
     if (site->getClass() == PNLSite::ClassType::Pad) {
       isPad = true;
@@ -271,9 +284,10 @@ int macroCbk_(lefrCallbackType_e c, lefiMacro* macro, lefiUserData ud) {
   else
     pinPadPostProcess_();
   parser->clearPinComponents();
-  if (isPad)
-    cerr << " (PAD)";
-  cerr << endl;
+  //if (isPad) {
+  //  cerr << " (PAD)";
+  //}
+  //cerr << endl;
   cell->setTerminalNetlist(true);
   parser->setPNLDesign(nullptr);
   parser->setGdsPower(nullptr);
@@ -288,7 +302,12 @@ int viaCbk_(lefrCallbackType_e type, lefiVia* via, lefiUserData) {
 int manufacturingCB_(lefrCallbackType_e /* unused: c */,
                      double num,
                      lefiUserData ud) {
-  PNLTechnology::getOrCreate()->setManufacturingGrid(num);
+  auto universe = NLUniverse::get();
+  auto tech = universe->getTechnology();
+  if (not tech) {
+    tech = PNLTechnology::create(universe);
+  }
+  tech->setManufacturingGrid(num);
   return 0;
 }
 
@@ -311,7 +330,7 @@ int pinCbk_(lefrCallbackType_e c, lefiPin* pin, lefiUserData ud) {
   PNLNet::Type netType = PNLNet::Type::TypeEnum::Undefined;
   if (pin->hasUse()) {
     string lefUse = pin->use();
-    boost::to_upper(lefUse);
+    toUpperInPlace_(lefUse);
 
     if (lefUse == "SIGNAL") {
       netType = PNLNet::Type::TypeEnum::Logical;
@@ -349,7 +368,7 @@ int pinCbk_(lefrCallbackType_e c, lefiPin* pin, lefiUserData ud) {
 
   if (pin->hasDirection()) {
     string lefDir = pin->direction();
-    boost::to_upper(lefDir);
+    toUpperInPlace_(lefDir);
 
     if (lefDir == "INPUT")
       term->setDirection(PNLNetComponent::Direction::Input);

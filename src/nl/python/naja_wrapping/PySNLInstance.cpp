@@ -119,7 +119,7 @@ static PyObject* PySNLInstance_getInstTerm(PySNLInstance* self, PyObject* args) 
 GetContainerMethod(SNLInstance, SNLInstTerm*, SNLInstTerms, InstTerms)
 GetContainerMethod(SNLInstance, SNLInstParameter*, SNLInstParameters, InstParameters)
 
-DirectGetIntMethod(PySNLInstance_getID, getID, PySNLInstance, SNLInstance)
+DirectGetNumericMethod(PySNLInstance_getID, getID, PySNLInstance, SNLInstance)
 
 PyMethodDef PySNLInstance_Methods[] = {
   { "create", (PyCFunction)PySNLInstance_create, METH_VARARGS|METH_STATIC,

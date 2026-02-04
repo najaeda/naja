@@ -4,8 +4,9 @@
 
 #include "SNLScalarTerm.h"
 
-#include <iostream>
 #include <sstream>
+
+#include "NajaLog.h"
 
 #include "NLException.h"
 
@@ -13,7 +14,7 @@
 #include "SNLAttributes.h"
 #include "SNLMacros.h"
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 SNLScalarTerm::SNLScalarTerm(SNLDesign* design, Direction direction, const NLName& name):
   super(),
@@ -74,9 +75,7 @@ void SNLScalarTerm::postCreate() {
 }
 
 void SNLScalarTerm::commonPreDestroy() {
-#ifdef SNL_DESTROY_DEBUG
-  std::cerr << "Destroying " << getDescription() << std::endl; 
-#endif
+  NAJA_LOG_TRACE("Destroying {}", getDescription());
   super::preDestroy();
 }
 
@@ -174,4 +173,4 @@ bool SNLScalarTerm::deepCompare(const SNLNetComponent* other, std::string& reaso
   return SNLAttributes::compareAttributes(this, other, reason);
 }
 
-}} // namespace NL // namespace naja
+}  // namespace naja::NL

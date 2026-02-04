@@ -3,12 +3,12 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __SNL_LIBERTY_CONSTRUCTOR_H_
-#define __SNL_LIBERTY_CONSTRUCTOR_H_
 
+#pragma once
 #include <filesystem>
+#include <vector>
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 class NLLibrary;
 
@@ -18,11 +18,11 @@ class SNLLibertyConstructor {
     SNLLibertyConstructor(const SNLLibertyConstructor&) = delete;
     SNLLibertyConstructor(NLLibrary* library);
 
+    using Paths = std::vector<std::filesystem::path>;
+    void construct(const Paths& paths);
     void construct(const std::filesystem::path& path);
   private:
     NLLibrary*  library_;
 };
 
-}} // namespace SNL // namespace naja
-
-#endif // __SNL_LIBERTY_CONSTRUCTOR_H_
+} // namespace naja::NL

@@ -2,12 +2,11 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __SNL_BUS_TERM_BIT_H_
-#define __SNL_BUS_TERM_BIT_H_
 
+#pragma once
 #include "SNLBitTerm.h"
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 class SNLBusTerm;
 
@@ -38,7 +37,6 @@ class SNLBusTermBit final: public SNLBitTerm {
     bool deepCompare(const SNLNetComponent* other, std::string& reason) const override;
     void debugDump(size_t indent, bool recursive=true, std::ostream& stream=std::cerr) const override;
 
-    void destroy() override;
   private:
     static SNLBusTermBit* create(SNLBusTerm* bus, NLID::Bit bit);
 
@@ -47,6 +45,7 @@ class SNLBusTermBit final: public SNLBitTerm {
 
     SNLBusTermBit(SNLBusTerm* bus, NLID::Bit bit);
     static void preCreate(const SNLBusTerm* bus, NLID::Bit bit);
+    void commonPreDestroy();
     void postCreate() override;
     void destroyFromBus();
     void destroyFromDesign() override {} //LCOV_EXCL_LINE
@@ -57,6 +56,4 @@ class SNLBusTermBit final: public SNLBitTerm {
     NLID::Bit   bit_;
 };
 
-}} // namespace NL // namespace naja
-
-#endif // __SNL_BUS_TERM_H_
+}  // namespace naja::NL

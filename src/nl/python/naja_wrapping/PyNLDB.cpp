@@ -9,6 +9,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <vector>
 
 #include "NLUniverse.h"
 #include "NLDB.h"
@@ -112,6 +113,8 @@ PyObject* PyNLDB_loadLibertyPrimitives(PyNLDB* self, PyObject* args) {
     primitivesLibrary =
       NLLibrary::create(selfObject, NLLibrary::Type::Primitives, NLName("PRIMS"));
   }
+  SNLLibertyConstructor::Paths paths;
+  paths.reserve(static_cast<size_t>(PyList_Size(arg0)));
   for (int i = 0; i < PyList_Size(arg0); ++i) {
     PyObject* object = PyList_GetItem(arg0, i);
     if (not PyUnicode_Check(object)) {
@@ -119,24 +122,14 @@ PyObject* PyNLDB_loadLibertyPrimitives(PyNLDB* self, PyObject* args) {
       return nullptr;
     }
     std::string pathStr = PyUnicode_AsUTF8(object);
-    const std::filesystem::path path(pathStr);
-
-    auto extension = path.extension();
-    if (extension.empty()) {
-      setError("NLDB loadLibertyPrimitives design path has no extension");
-      return nullptr;
-    } else if (extension == ".lib") {
-      // LCOV_EXCL_START
-      TRY
-      SNLLibertyConstructor constructor(primitivesLibrary);
-      constructor.construct(path);
-      NLCATCH
-      // LCOV_EXCL_STOP
-    } else {
-      setError("NLDB loadLibertyPrimitives");
-      return nullptr;
-    }
+    paths.emplace_back(pathStr);
   }
+  // LCOV_EXCL_START
+  TRY
+  SNLLibertyConstructor constructor(primitivesLibrary);
+  constructor.construct(paths);
+  NLCATCH
+  // LCOV_EXCL_STOP
   Py_RETURN_NONE;
 }
 
@@ -144,16 +137,20 @@ PyObject* PyNLDB_loadVerilog(PyNLDB* self, PyObject* args, PyObject* kwargs) {
   PyObject* files = nullptr;
   int keep_assigns = 1;  // Default: true
   int allow_unknown_designs = 0; // Default: false
+  int preprocess_enabled = 0; // Default: false
+  PyObject* conflicting_design_name_policy = nullptr; // Optional: string
 
   static const char* const kwords[] = {
-    "files", "keep_assigns", "allow_unknown_designs",
+    "files", "keep_assigns", "allow_unknown_designs", "preprocess_enabled",
+    "conflicting_design_name_policy",
     nullptr
   };
 
   if (not PyArg_ParseTupleAndKeywords(
-    args, kwargs, "O|pp:NLDB.loadVerilog",
-    const_cast<char**>(kwords), 
-    &files, &keep_assigns, &allow_unknown_designs)) {
+    args, kwargs, "O|pppO:NLDB.loadVerilog",
+    const_cast<char**>(kwords),
+    &files, &keep_assigns, &allow_unknown_designs, &preprocess_enabled,
+    &conflicting_design_name_policy)) {
     setError("malformed NLDB loadVerilog");
     return nullptr;
   }
@@ -163,6 +160,7 @@ PyObject* PyNLDB_loadVerilog(PyNLDB* self, PyObject* args, PyObject* kwargs) {
     return nullptr;
   }
   NLDB* db = self->object_;
+  SNLDesign* top = nullptr;
   TRY
   //loadVerilog can be called multiple times
   //last one gets top
@@ -173,6 +171,38 @@ PyObject* PyNLDB_loadVerilog(PyNLDB* self, PyObject* args, PyObject* kwargs) {
   SNLVRLConstructor constructor(designLibrary);
   if (allow_unknown_designs) {
     constructor.config_.allowUnknownDesigns_ = true;
+  }
+  if (preprocess_enabled) {
+    constructor.config_.preprocessEnabled_ = true;
+  }
+  // Conflicting design name policy (optional)
+  if (conflicting_design_name_policy != nullptr && conflicting_design_name_policy != Py_None) {
+    using Policy = SNLVRLConstructor::Config::ConflictingDesignNamePolicy;
+
+    if (!PyUnicode_Check(conflicting_design_name_policy)) {
+      std::ostringstream oss;
+      oss << "NLDB.loadVerilog: conflicting_design_name_policy must be a str, got: "
+          << getStringForPyObject(conflicting_design_name_policy);
+      setError(oss.str());
+      return nullptr;
+    }
+
+    const std::string s = PyUnicode_AsUTF8(conflicting_design_name_policy);
+    if (s == "forbid") {
+      constructor.config_.conflictingDesignNamePolicy_ = Policy::Forbid;
+    } else if (s == "first") {
+      constructor.config_.conflictingDesignNamePolicy_ = Policy::FirstOne;
+    } else if (s == "last") {
+      constructor.config_.conflictingDesignNamePolicy_ = Policy::LastOne;
+    } else if (s == "verify") {
+      constructor.config_.conflictingDesignNamePolicy_ = Policy::VerifyEquality;
+    } else {
+      std::ostringstream oss;
+      oss << "NLDB.loadVerilog: invalid conflicting_design_name_policy '" << s
+          << "' (expected one of: forbid, first, last, verify)";
+      setError(oss.str());
+      return nullptr;
+    }
   }
   using Paths = std::vector<std::filesystem::path>;
   Paths inputPaths;
@@ -201,7 +231,7 @@ PyObject* PyNLDB_loadVerilog(PyNLDB* self, PyObject* args, PyObject* kwargs) {
   if (not keep_assigns) {
     db->mergeAssigns();
   }
-  auto top = SNLUtils::findTop(designLibrary);
+  top = SNLUtils::findTop(designLibrary);
   if (top) {
     NLUniverse::get()->setTopDesign(top);
     NLUniverse::get()->setTopDB(top->getDB());
@@ -210,7 +240,7 @@ PyObject* PyNLDB_loadVerilog(PyNLDB* self, PyObject* args, PyObject* kwargs) {
     return nullptr; //LCOV_EXCL_LINE
   }
   NLCATCH
-  Py_RETURN_NONE;
+  return PySNLDesign_Link(top);
 }
 
 PyObject* PyNLDB_dumpVerilog(PyNLDB* self, PyObject* args) {
@@ -246,7 +276,7 @@ PyObject* PyNLDB_getLibrary(PyNLDB* self, PyObject* arg) {
   return PyNLLibrary_Link(lib);
 }
 
-DirectGetIntMethod(PyNLDB_getID, getID, PyNLDB, NLDB)
+DirectGetNumericMethod(PyNLDB_getID, getID, PyNLDB, NLDB)
 
 GetBoolAttribute(NLDB, isTopDB)
 GetObjectMethod(NLDB, SNLDesign, getTopDesign)
@@ -273,7 +303,14 @@ PyMethodDef PyNLDB_Methods[] = {
   { "loadLibertyPrimitives", (PyCFunction)PyNLDB_loadLibertyPrimitives, METH_VARARGS,
     "import primitives from Liberty format."},
   { "loadVerilog", (PyCFunction)PyNLDB_loadVerilog, METH_VARARGS|METH_KEYWORDS,
-    "create a design from Verilog format."},
+    "create a design from Verilog format.\n\n"
+    "Args:\n"
+    "  files (list[str]): input Verilog files\n"
+    "  keep_assigns (bool, optional): keep continuous assigns (default True)\n"
+    "  allow_unknown_designs (bool, optional): create unknown modules as blackboxes (default False)\n"
+    "  preprocess_enabled (bool, optional): enable Verilog preprocessing (default False)\n"
+    "  conflicting_design_name_policy (str, optional): how to handle duplicate module names in the same library. "
+    "Accepted values: 'forbid' (default), 'first', 'last', 'verify'."},
   { "dumpVerilog", (PyCFunction)PyNLDB_dumpVerilog, METH_VARARGS,
     "dump this NLDB to SNL format."},
   { "getLibrary", (PyCFunction)PyNLDB_getLibrary, METH_O,

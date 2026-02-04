@@ -2,9 +2,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __SNL_DESIGN_MODELING_H_
-#define __SNL_DESIGN_MODELING_H_
 
+#pragma once
 #include <set>
 #include <list>
 #include <variant>
@@ -12,7 +11,7 @@
 #include "SNLBitTerm.h"
 #include "SNLTruthTable.h"
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 class SNLInstance;
 class SNLInstTerm;
@@ -99,6 +98,4 @@ class SNLDesignModeling {
     TimingModel   model_      {};
 };
 
-}} // namespace NL // namespace naja
-
-#endif // __SNL_DESIGN_MODELING_H_
+}  // namespace naja::NL

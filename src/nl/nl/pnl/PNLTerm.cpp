@@ -6,7 +6,7 @@
 
 #include "PNLDesign.h"
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 void PNLTerm::preCreate() {
   super::preCreate();
@@ -24,4 +24,4 @@ NLID::DesignObjectReference PNLTerm::getReference() const {
   return NLID::DesignObjectReference(getDesign()->getReference(), getID());
 }
 
-}} // namespace NL // namespace naja
+}  // namespace naja::NL

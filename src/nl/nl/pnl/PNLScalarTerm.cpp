@@ -4,8 +4,9 @@
 
 #include "PNLScalarTerm.h"
 
-#include <iostream>
 #include <sstream>
+
+#include "NajaLog.h"
 
 #include "NLException.h"
 
@@ -13,7 +14,7 @@
 //#include "PNLAttributes.h"
 #include "SNLMacros.h"
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 PNLScalarTerm::PNLScalarTerm(PNLDesign* design, Direction direction, const NLName& name):
   super(),
@@ -74,9 +75,7 @@ void PNLScalarTerm::postCreate() {
 }
 
 void PNLScalarTerm::commonPreDestroy() {
-#ifdef PNL_DESTROY_DEBUG
-  std::cerr << "Destroying " << getDescription() << std::endl; 
-#endif
+  NAJA_LOG_TRACE("Destroying {}", getDescription());
   super::preDestroy();
 }
 
@@ -181,4 +180,4 @@ void PNLScalarTerm::debugDump(size_t indent, bool recursive, std::ostream& strea
 //   //return PNLAttributes::compareAttributes(this, other, reason);
 // }
 
-}} // namespace NL // namespace naja
+}  // namespace naja::NL

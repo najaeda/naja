@@ -10,7 +10,7 @@
 
 #include "SNLBusTerm.h"
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 SNLBusTermBit::SNLBusTermBit(
     SNLBusTerm* bus,
@@ -35,17 +35,19 @@ void SNLBusTermBit::postCreate() {
   super::postCreate();
 }
 
+void SNLBusTermBit::commonPreDestroy() {
+  setNet(nullptr);
+  super::preDestroy();
+}
+
 void SNLBusTermBit::destroyFromBus() {
-  preDestroy();
+  commonPreDestroy();
   delete this;
 }
 
-void SNLBusTermBit::destroy() {
-  throw NLException("Unauthorized destroy of SNLBusTermBit");
-}
-
 void SNLBusTermBit::preDestroy() {
-  super::preDestroy();
+  commonPreDestroy();
+  getBus()->removeBit(this);
 }
 
 NLID::DesignObjectID SNLBusTermBit::getID() const {
@@ -144,4 +146,4 @@ bool SNLBusTermBit::deepCompare(const SNLNetComponent* other, std::string& reaso
   return true;
 }
 
-}} // namespace NL // namespace naja
+}  // namespace naja::NL

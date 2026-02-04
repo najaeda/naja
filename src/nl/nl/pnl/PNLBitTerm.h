@@ -2,12 +2,11 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __PNL_BIT_TERM_H_
-#define __PNL_BIT_TERM_H_
 
+#pragma once
 #include "PNLTerm.h"
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 class PNLBitTerm: public PNLTerm {
   public:
@@ -38,6 +37,4 @@ class PNLBitTerm: public PNLTerm {
     NLID::DesignObjectID  orderID_  { (NLID::DesignObjectID) -1 };
 };
 
-}} // namespace NL // namespace naja
-
-#endif // __PNL_BIT_TERM_H_
+}  // namespace naja::NL

@@ -2,12 +2,11 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __SNL_OCCURRENCE_H_
-#define __SNL_OCCURRENCE_H_
 
+#pragma once
 #include <string>
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 class SNLPath;
 class SNLSharedPath;
@@ -89,6 +88,4 @@ class SNLOccurrence {
     SNLDesignObject*    object_ {nullptr};
 };
 
-}} // namespace NL // namespace naja
-
-#endif // __SNL_OCCURRENCE_H_
+}  // namespace naja::NL

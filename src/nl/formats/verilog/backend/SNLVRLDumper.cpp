@@ -11,6 +11,7 @@
 #include <unordered_set>
 
 #include "NajaUtils.h"
+#include "NajaPerf.h"
 
 #include "NLDB0.h"
 #include "NLLibrary.h"
@@ -193,7 +194,7 @@ std::string getBitNetString(const naja::NL::SNLBitNet* bitNet) {
 
 }
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 void SNLVRLDumper::setSingleFile(bool mode) {
   configuration_.setSingleFile(mode);
@@ -835,6 +836,7 @@ std::string SNLVRLDumper::getLibraryFileName(const NLLibrary* library) const {
 } 
 
 void SNLVRLDumper::dumpDesign(const SNLDesign* design, const std::filesystem::path& path) {
+  NajaPerf::Scope scope("SNLVRLDumper::dumpDesign");
   if (not std::filesystem::exists(path)) {
     std::ostringstream reason;
     if (not design->isUnnamed()) {
@@ -948,4 +950,4 @@ std::string SNLVRLDumper::binStrToHexStr(std::string binStr) {
   return hexStr;
 }
 
-}} // namespace NL // namespace naja
+} // namespace naja::NL

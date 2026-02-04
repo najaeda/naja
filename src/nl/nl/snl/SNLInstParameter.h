@@ -2,15 +2,14 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __SNL_INST_PARAMETER_H_
-#define __SNL_INST_PARAMETER_H_
 
+#pragma once
 #include <boost/intrusive/set.hpp>
 
 #include "NLName.h"
 #include "NajaObject.h"
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 class SNLInstance;
 class SNLParameter;
@@ -70,6 +69,4 @@ class SNLInstParameter : public NajaObject {
     boost::intrusive::set_member_hook<> instParametersHook_ {};
 };
 
-}} // namespace NL // namespace naja
-
-#endif // __SNL_INST_PARAMETER_H_
+}  // namespace naja::NL

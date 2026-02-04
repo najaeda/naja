@@ -4,14 +4,12 @@
 
 #include "SNLBusNetBit.h"
 
-#include <iostream>
-
 #include "NajaCollection.h"
 #include "NLException.h"
 
 #include "SNLBusNet.h"
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 SNLBusNetBit::SNLBusNetBit(
     SNLBusNet* bus,
@@ -126,4 +124,4 @@ void SNLBusNetBit::setName(const NLName& name) {
   throw NLException("Unauthorized setName of SNLBusNetBit");  
 }
 
-}} // namespace NL // namespace naja
+}  // namespace naja::NL

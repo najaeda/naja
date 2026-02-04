@@ -6,10 +6,30 @@ namespace naja {
 
 #include <string>
 
-const std::string NAJA_MAJOR { "0" };
-const std::string NAJA_MINOR { "3" };
-const std::string NAJA_PATCH { "3" };
-const std::string NAJA_VERSION { NAJA_MAJOR + "." + NAJA_MINOR + "." + NAJA_PATCH };
+namespace detail {
+
+inline std::string getVersionPart(const std::string& version, int index) {
+  std::string::size_type start = 0;
+  for (int i = 0; i < index; ++i) {
+    std::string::size_type dot = version.find('.', start);
+    if (dot == std::string::npos) {
+      return std::string {};
+    }
+    start = dot + 1;
+  }
+  std::string::size_type end = version.find('.', start);
+  if (end == std::string::npos) {
+    end = version.size();
+  }
+  return version.substr(start, end - start);
+}
+
+} // namespace detail
+
+const std::string NAJA_VERSION { "0.4.1" };
+const std::string NAJA_MAJOR { detail::getVersionPart(NAJA_VERSION, 0) };
+const std::string NAJA_MINOR { detail::getVersionPart(NAJA_VERSION, 1) };
+const std::string NAJA_PATCH { detail::getVersionPart(NAJA_VERSION, 2) };
 
 const std::string NAJA_GIT_HASH { "@NAJA_GIT_HASH@" };
 

@@ -26,7 +26,7 @@ namespace {
   }
 }
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 NLDB0::GateType::GateType(const GateTypeEnum& typeEnum):
   gateTypeEnum_(typeEnum) 
@@ -141,6 +141,10 @@ bool NLDB0::isDB0Primitive(const SNLDesign* design) {
 }
 
 SNLTruthTable NLDB0::getPrimitiveTruthTable(const SNLDesign* design) {
+  if (isAssign(design)) {
+    return SNLTruthTable::Buf();
+  }
+
   if (isNInputGate(design)) {
     size_t size = design->getBusTerm(NLID::DesignObjectID(1))->getWidth();
     if (size > 6) {
@@ -375,4 +379,4 @@ SNLBusTerm* NLDB0::getGateNTerms(const SNLDesign* gate) {
   return nullptr;
 }
 
-}} // namespace NL // namespace naja
+}  // namespace naja::NL

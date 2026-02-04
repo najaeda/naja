@@ -2,9 +2,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __SNL_DESIGN_H_
-#define __SNL_DESIGN_H_
 
+#pragma once
 #include <map>
 
 #include "NajaCollection.h"
@@ -14,7 +13,7 @@
 #include "SNLInstance.h"
 #include "SNLParameter.h"
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 class NLLibrary;
 class SNLScalarNet;
@@ -362,6 +361,4 @@ class SNLDesign final: public NLObject {
     SNLDesignParameters                 parameters_         {};
 };
 
-}} // namespace NL // namespace naja
-
-#endif // __SNL_DESIGN_H_
+}  // namespace naja::NL

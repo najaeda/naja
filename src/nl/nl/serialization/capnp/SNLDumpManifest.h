@@ -2,13 +2,12 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __SNL_DUMP_MANIFEST_H_
-#define __SNL_DUMP_MANIFEST_H_
 
+#pragma once
 #include <filesystem>
 #include "SNLDump.h"
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 class SNLDumpManifest {
   public:
@@ -21,6 +20,4 @@ class SNLDumpManifest {
     SNLDump::Version  version_;
 };
 
-}} // namespace NL // namespace naja
-
-#endif // __SNL_DUMP_MANIFEST_H_
+}  // namespace naja::NL

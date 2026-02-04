@@ -94,6 +94,16 @@ jobs:
             free_threaded_support: True
 
           - os: ubuntu-24.04-arm
+            python: 310
+            platform_id: manylinux_aarch64
+            manylinux_image: manylinux2014
+            cibw_arch: aarch64
+          - os: ubuntu-24.04-arm
+            python: 311
+            platform_id: manylinux_aarch64
+            manylinux_image: manylinux2014
+            cibw_arch: aarch64
+          - os: ubuntu-24.04-arm
             python: 312
             platform_id: manylinux_aarch64
             manylinux_image: manylinux2014
@@ -139,6 +149,15 @@ jobs:
 
           # Windows x86_64 wheels
           - os: windows-latest
+            python: 310
+            platform_id: win_amd64
+          - os: windows-latest
+            python: 311
+            platform_id: win_amd64
+          - os: windows-latest
+            python: 312
+            platform_id: win_amd64
+          - os: windows-latest
             python: 313
             platform_id: win_amd64
           - os: windows-latest
@@ -172,9 +191,6 @@ jobs:
             export HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_CLEANUP=1 HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK=1 HOMEBREW_NO_ENV_HINTS=1
             eval "$(brew shellenv)"
             brew install -q boost
-            #brew install -q boost flex bison
-            #echo "/usr/local/opt/flex/bin" >> $GITHUB_PATH; echo "/usr/local/opt/bison/bin" >> $GITHUB_PATH;
-            #echo "/opt/homebrew/opt/flex/bin" >> $GITHUB_PATH; echo "/opt/homebrew/opt/bison/bin" >> $GITHUB_PATH
       - name: Install cibuildwheel (and delvewheel for Windows)
         run: python -m pip install cibuildwheel==3.3.0 delvewheel
       - name: Build wheels

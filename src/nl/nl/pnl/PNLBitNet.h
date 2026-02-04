@@ -2,14 +2,13 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __PNL_BIT_NET_H_
-#define __PNL_BIT_NET_H_
 
+#pragma once
 #include "PNLNet.h"
 #include "PNLNetComponent.h"
 #include "NajaCollection.h"
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 class PNLInstTerm;
 class PNLBitTerm;
@@ -57,6 +56,4 @@ class PNLBitNet: public PNLNet {
     PNLBitNetComponents components_ {};
 };
 
-}} // namespace NL // namespace naja
-
-#endif // __PNL_BIT_NET_H_
+}  // namespace naja::NL

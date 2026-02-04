@@ -2,9 +2,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __SNL_INSTANCE_H_
-#define __SNL_INSTANCE_H_
 
+#pragma once
 #include <vector>
 #include <map>
 #include <boost/intrusive/set.hpp>
@@ -16,13 +15,14 @@
 #include "SNLSharedPath.h"
 #include "SNLInstParameter.h"
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 class SNLTerm;
 class SNLNet;
 class SNLBitTerm;
 class SNLBitNet;
 class SNLInstTerm;
+class SNLBusTerm;
 
 class SNLInstance final: public SNLDesignObject {
   public:
@@ -30,6 +30,7 @@ class SNLInstance final: public SNLDesignObject {
     friend class SNLInstParameter;
     friend class SNLSharedPath;
     friend class SNLPath;
+    friend class SNLBusTerm;
     using super = SNLDesignObject;
     using SNLInstanceInstTerms = std::vector<SNLInstTerm*>;
     using SNLInstParametersHook =
@@ -187,6 +188,4 @@ class SNLInstance final: public SNLDesignObject {
     NLID::DesignObjectID                orderID_                  {(NLID::DesignObjectID)-1};
 };
 
-}} // namespace NL // namespace naja
-
-#endif // __SNL_INSTANCE_H_ 
+}  // namespace naja::NL

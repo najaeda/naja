@@ -2,12 +2,11 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef __PNL_ORIENTATION_H_
-#define __PNL_ORIENTATION_H_
 
+#pragma once
 #include <string>
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 class PNLOrientation {
   public:
@@ -80,6 +79,4 @@ class PNLOrientation {
     Type orientationType_;
 };
 
-}} // namespace PNL // namespace naja
-
-#endif // __PNL_POINT_H_
+} // namespace naja::PNL

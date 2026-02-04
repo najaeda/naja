@@ -7,6 +7,7 @@
 #include <memory>
 #include <set>
 #include "NLLibrary.h"
+#include "NLUniverse.h"
 #include "PNLBox.h"
 #include "PNLDesign.h"
 #include "PNLNet.h"
@@ -17,13 +18,9 @@
 #include "lefwWriter.hpp"
 #include "lefwWriterCalls.hpp"
 
-using namespace std;
 using namespace naja::NL;
 using naja::NL::NLLibrary;
 using naja::NL::PNLTransform;
-using std::cerr;
-using std::endl;
-using std::string;
 
 struct Comparator {
   bool operator()(PNLDesign* a, PNLDesign* b) const {
@@ -88,9 +85,10 @@ int unitsCbk_(lefwCallbackType_e, lefiUserData udata) {
 
   status = lefwEndUnits();
 
+  auto tech = NLUniverse::get()->getTechnology();
+  auto grid = tech ? tech->getManufacturingGrid() : 0;
   status = lefwManufacturingGrid(
-      PNLTechnology::getOrCreate()
-          ->getManufacturingGrid() /*LEFDumper::toLefUnits(PNLBox::fromGrid(1.0))*/);
+      grid /*LEFDumper::toLefUnits(PNLBox::fromGrid(1.0))*/);
 
   if (status != 0)
     return dumpr->checkStatus(status);
@@ -105,7 +103,11 @@ int layerCbk_(lefwCallbackType_e, lefiUserData udata) {
 int siteCbk_(lefwCallbackType_e, lefiUserData udata) {
   LEFDumper* dumpr = (LEFDumper*)udata;
 
-  for (PNLSite* site : PNLTechnology::getOrCreate()->getSites()) {
+  auto tech = NLUniverse::get()->getTechnology();
+  if (not tech) {
+    return 0;
+  }
+  for (PNLSite* site : tech->getSites()) {
     // Call lefwSite
     std::string symmetry = "";
     switch (site->getSymmetry()) {

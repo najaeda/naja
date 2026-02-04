@@ -4,14 +4,15 @@
 
 #include "NLLibrary.h"
 
-#include <iostream>
 #include <sstream>
+
+#include "NajaLog.h"
 
 #include "NLDB.h"
 #include "NLException.h"
 #include "SNLMacros.h"
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 NLLibrary::Type::Type(const TypeEnum& typeEnum):
   typeEnum_(typeEnum) 
@@ -163,9 +164,7 @@ void NLLibrary::postCreate() {
 }
 
 void NLLibrary::commonPreDestroy() {
-#ifdef SNL_DESTROY_DEBUG
-  std::cerr << "Destroying " << getDescription() << std::endl; 
-#endif
+  NAJA_LOG_TRACE("Destroying {}", getDescription());
   struct destroySNLDesignFromLibrary {
     void operator()(SNLDesign* design) {
       design->destroyFromLibrary();
@@ -474,4 +473,4 @@ NLID NLLibrary::getNLID() const {
   return NLID(getDB()->getID(), getID());
 }
 
-}} // namespace NL // namespace naja
+}  // namespace naja::NL

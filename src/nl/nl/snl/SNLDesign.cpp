@@ -5,8 +5,9 @@
 #include "SNLDesign.h"
 
 #include <list>
-#include <iostream>
 #include <sstream>
+
+#include "NajaLog.h"
 
 #include "NLException.h"
 #include "NLDB.h" 
@@ -23,8 +24,9 @@
 #include "SNLAttributes.h"
 #include "SNLMacros.h"
 #include "SNLDesignModeling.h"
+#include "SNLExceptions.h"
 
-namespace naja { namespace NL {
+namespace naja::NL {
 
 SNLDesign::Type::Type(const TypeEnum& typeEnum):
   typeEnum_(typeEnum) 
@@ -108,7 +110,7 @@ void SNLDesign::preCreate(const NLLibrary* library, Type type, const NLName& nam
   //test if design with same name exists in library
   if (not name.empty() and library->getSNLDesign(name)) {
     std::string reason = "NLLibrary " + library->getString() + " contains already a SNLDesign named: " + name.getString();
-    throw NLException(reason);
+    throw SNLDesignNameConflictException(reason);
   }
 }
 
@@ -132,9 +134,7 @@ void SNLDesign::postCreateAndSetID() {
 }
 
 void SNLDesign::commonPreDestroy() {
-#ifdef SNL_DESTROY_DEBUG
-  std::cerr << "Destroying " << getDescription() << std::endl; 
-#endif
+  NAJA_LOG_TRACE("Destroying {}", getDescription());
   struct destroyInstanceFromDesign {
     void operator()(SNLInstance* instance) {
       instance->destroyFromDesign();
@@ -752,4 +752,5 @@ void SNLDesign::setOrderIDs() {
   }
 }
 
-}} // namespace NL // namespace naja
+
+}  // namespace naja::NL
