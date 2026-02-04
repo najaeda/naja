@@ -23,7 +23,14 @@ find_package(ZLIB REQUIRED)
 add_library(naja_snl_liberty STATIC ${SOURCES})
 set_property(TARGET naja_snl_liberty PROPERTY POSITION_INDEPENDENT_CODE ON)
 
-# Public include directory for consumers/tests
+target_link_libraries(naja_snl_liberty
+  PUBLIC
+  naja_nl
+  yosys_liberty
+  PRIVATE
+  ZLIB::ZLIB
+)
+
 target_include_directories(naja_snl_liberty PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 # Always link internal project deps (these should be existing targets in the superproject)
@@ -63,10 +70,6 @@ endif()
 if(NOT BUILD_NAJA_PYTHON)
   set_target_properties(naja_snl_liberty PROPERTIES PUBLIC_HEADER "${HEADERS}")
   install(TARGETS naja_snl_liberty
-    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-  )
-endif()
-
-# Optional alias for consumers
-add_library(naja::snl_liberty ALIAS naja_snl_liberty)
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+endif(NOT BUILD_NAJA_PYTHON)

@@ -9,6 +9,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <vector>
 
 #include "NLUniverse.h"
 #include "NLDB.h"
@@ -112,6 +113,8 @@ PyObject* PyNLDB_loadLibertyPrimitives(PyNLDB* self, PyObject* args) {
     primitivesLibrary =
       NLLibrary::create(selfObject, NLLibrary::Type::Primitives, NLName("PRIMS"));
   }
+  SNLLibertyConstructor::Paths paths;
+  paths.reserve(static_cast<size_t>(PyList_Size(arg0)));
   for (int i = 0; i < PyList_Size(arg0); ++i) {
     PyObject* object = PyList_GetItem(arg0, i);
     if (not PyUnicode_Check(object)) {
@@ -119,24 +122,14 @@ PyObject* PyNLDB_loadLibertyPrimitives(PyNLDB* self, PyObject* args) {
       return nullptr;
     }
     std::string pathStr = PyUnicode_AsUTF8(object);
-    const std::filesystem::path path(pathStr);
-
-    auto extension = path.extension();
-    if (extension.empty()) {
-      setError("NLDB loadLibertyPrimitives design path has no extension");
-      return nullptr;
-    } else if (extension == ".lib") {
-      // LCOV_EXCL_START
-      TRY
-      SNLLibertyConstructor constructor(primitivesLibrary);
-      constructor.construct(path);
-      NLCATCH
-      // LCOV_EXCL_STOP
-    } else {
-      setError("NLDB loadLibertyPrimitives");
-      return nullptr;
-    }
+    paths.emplace_back(pathStr);
   }
+  // LCOV_EXCL_START
+  TRY
+  SNLLibertyConstructor constructor(primitivesLibrary);
+  constructor.construct(paths);
+  NLCATCH
+  // LCOV_EXCL_STOP
   Py_RETURN_NONE;
 }
 
