@@ -6,30 +6,28 @@
 
 #pragma once
 #include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <ostream>
-#include <string>
-#include <vector>
-#include <fstream>
 #include <set>
 #include <sstream>
-#include <chrono>
+#include <string>
+#include <vector>
 
-#include "NLUniverse.h"
 #include "NLID.h"
+#include "NLUniverse.h"
 
 #include "SNLBitNet.h"
 #include "SNLBitTerm.h"
 #include "SNLBusTerm.h"
 #include "SNLBusTermBit.h"
 #include "SNLDesign.h"
+#include "SNLEquipotential.h"
 #include "SNLInstTerm.h"
 #include "SNLInstance.h"
-#include "SNLScalarTerm.h"
-#include "SNLBusTermBit.h"
-#include "SNLScalarNet.h"
-#include "SNLEquipotential.h"
 #include "SNLPath.h"
+#include "SNLScalarNet.h"
+#include "SNLScalarTerm.h"
 
 using namespace naja::NL;
 
@@ -78,8 +76,8 @@ class InstNode {
   std::vector<BusNodeID> _outBuses;
   InstData _data;
   std::vector<size_t> _leavesIds;
-  size_t _inPortLeafID = (size_t) -1;
-  size_t _outPortLeafID = (size_t) -1;
+  size_t _inPortLeafID = (size_t)-1;
+  size_t _outPortLeafID = (size_t)-1;
   std::map<std::string, size_t> _portName2PortId;
 };
 
@@ -97,7 +95,7 @@ class PortNode {
   const std::string& getPortDotName() const { return _portDotName; }
 
  private:
-  WireEdgeID _wireId = (WireEdgeID) -1;
+  WireEdgeID _wireId = (WireEdgeID)-1;
   PortNodeID _id = 0;
   PortData _data;
   std::string _portDotName;
@@ -140,7 +138,7 @@ class WireEdge {
 
 class InstData {
  public:
-  InstData(){};
+  InstData() {};
   virtual std::string getName() const = 0;
   virtual std::string getModelName() const = 0;
   virtual std::string getInstName() const = 0;
@@ -148,19 +146,19 @@ class InstData {
 
 class PortData {
  public:
-  PortData(){};
+  PortData() {};
   virtual std::string getName() const = 0;
 };
 
 class WireData {
  public:
-  WireData(){};
+  WireData() {};
   virtual std::string getName() const = 0;
 };
 
 class BusData {
  public:
-  BusData(){};
+  BusData() {};
   virtual std::string getName() const = 0;
 };
 
@@ -192,8 +190,10 @@ class NetlistGraph {
     if (bitNet == (size_t)-1) {
       return;
     }
-    size_t net = (size_t) -1;
-    { net = bitNet; }
+    size_t net = (size_t)-1;
+    {
+      net = bitNet;
+    }
     auto it = nets.find(net);
     if (it == nets.end()) {
       // FIXME: ERROR
@@ -453,30 +453,76 @@ class NetlistGraph {
   void dumpDotFileRec(InstNode<InstData>* node,
                       std::fstream& myfile,
                       size_t& i);
-  void alignRec(InstNode<InstData>* node, std::fstream& myfile) {
+  void alignRec(InstNode<InstData>* node, std::fstream& myfile, int& count) {
     if (node->getInPortLeafId() != -1) {
+      if (count > 100) {
+        // LCOV_EXCL_START
+        // new line
+        if (node != &getTop()) {
+          if (count) {
+            myfile << "->";
+          }
+        }
+        myfile << "leaf" << node->getInPortLeafId();
+        myfile << "[ constraint=true  style=invis ];" << std::endl;
+        count = 0;
+        // LCOV_EXCL_STOP
+      }
       if (node != &getTop()) {
-        myfile << "->";
+        if (count) {
+          myfile << "->";
+        }
       }
       myfile << "leaf" << node->getInPortLeafId();
+      count++;
     }
     for (size_t child : node->getChildren()) {
-      //printf("alignRec child\n");
-      alignRec(&getInst(child), myfile);
+      // printf("alignRec child\n");
+      if (count > 100) {
+        // LCOV_EXCL_START
+        myfile << "[ constraint=true  style=invis ];" << std::endl;
+        count = 0;
+        // LCOV_EXCL_STOP
+      }
+      alignRec(&getInst(child), myfile, count);
     }
-    size_t count = 0;
+    size_t localLeaf = 0;
     for (auto id : node->getLeaves()) {
-      if (count) {
-        myfile << ",";
-      } else {
+      if (count > 100) {
+        // LCOV_EXCL_START
+        if (count) {
+          myfile << "->";
+        }
+        myfile << "leaf" << node->getInPortLeafId();
+        myfile << "[ constraint=true  style=invis ];" << std::endl;
+        count = 0;
+        // LCOV_EXCL_STOP
+      }
+      if (localLeaf) {
+        myfile << ",";  // If not first local leaf so wrap them together
+      } else if (count) {
         myfile << "->";
       }
       myfile << "leaf" << id;
       count++;
+      localLeaf++;
     }
     if (node->getOutPortLeafId() != -1) {
-      myfile << "->";
+      if (count > 100) {
+        // LCOV_EXCL_START
+        if (count) {
+          myfile << "->";
+        }
+        myfile << "leaf" << node->getInPortLeafId();
+        myfile << "[ constraint=true  style=invis ];" << std::endl;
+        count = 0;
+        // LCOV_EXCL_STOP
+      } 
+      if (count) {
+        myfile << "->";
+      }
       myfile << "leaf" << node->getOutPortLeafId();
+      count++;
     }
   }
   void addConnectivity(std::fstream& myfile);
@@ -504,15 +550,15 @@ class NetlistGraph {
   std::vector<PortNode<PortData>> _ports;
   std::vector<BusNode<BusData, PortData>> _buses;
   std::vector<WireEdge<WireData>> _wires;
-  InstNodeID _top = (InstNodeID) -1;
+  InstNodeID _top = (InstNodeID)-1;
 };
 
 class InstDataSnl : InstData {
  public:
   InstDataSnl() : InstData() {}
   InstDataSnl(SNLInstance* snlInst)
-      : InstData(), _snlInst(snlInst), _snlModel(snlInst->getModel()){};
-  InstDataSnl(SNLDesign* snlDesign) : InstData(), _snlModel(snlDesign){};
+      : InstData(), _snlInst(snlInst), _snlModel(snlInst->getModel()) {};
+  InstDataSnl(SNLDesign* snlDesign) : InstData(), _snlModel(snlDesign) {};
   std::string getName() const {
     // LCOV_EXCL_START
     std::string name("");
@@ -530,33 +576,33 @@ class InstDataSnl : InstData {
   auto getSnlModel() const { return _snlModel; }
   std::string getModelName() const {
     std::string name = _snlModel->getName().getString();
-    //LCOV_EXCL_START
+    // LCOV_EXCL_START
     if (name == std::string("")) {
       if (_snlModel->isAssign()) {
         return std::string(std::string("assign_") +
-                       std::to_string(_snlModel->getID()));
+                           std::to_string(_snlModel->getID()));
       }
       std::string nameAnon(std::string("anonymous_") +
-                       std::to_string(_snlModel->getID()));
+                           std::to_string(_snlModel->getID()));
       return nameAnon;
     }
-    //LCOV_EXCL_STOP
+    // LCOV_EXCL_STOP
     return name;
   }
 
   std::string getInstName() const {
     std::string name = _snlInst->getName().getString();
-    //LCOV_EXCL_START
+    // LCOV_EXCL_START
     if (name == std::string("")) {
       if (_snlModel->isAssign()) {
         return std::string(std::string("assign_") +
-                       std::to_string(_snlInst->getID()));
+                           std::to_string(_snlInst->getID()));
       }
       std::string nameAnon(std::string("anonymous_") +
-                       std::to_string(_snlInst->getID()));
+                           std::to_string(_snlInst->getID()));
       return nameAnon;
     }
-    //LCOV_EXCL_STOP
+    // LCOV_EXCL_STOP
     return name;
   }
 
@@ -581,6 +627,7 @@ class PortDataSnl : PortData {
     return name;
   }
   auto getSnlTerm() const { return _snlTerm; }
+  size_t getId() const { return _snlTerm->getFlatID(); }
 
  private:
   SNLTerm* _snlTerm;
@@ -614,11 +661,18 @@ class WireDataSnl : WireData {
 
 class SnlVisualiser {
  public:
-  SnlVisualiser(SNLDesign* top, bool recursive = true, SNLEquipotential* equi = nullptr) : 
-    _topSnl(top), _recursive(recursive) { if (equi != nullptr) { _equis.push_back(*equi); } }
-  SnlVisualiser(SNLDesign* top, std::vector<SNLEquipotential> equis, bool recursive = true) :
-    _topSnl(top), _recursive(recursive), _equis(equis) {
+  SnlVisualiser(SNLDesign* top,
+                bool recursive = true,
+                SNLEquipotential* equi = nullptr)
+      : _topSnl(top), _recursive(recursive) {
+    if (equi != nullptr) {
+      _equis.push_back(*equi);
+    }
   }
+  SnlVisualiser(SNLDesign* top,
+                std::vector<SNLEquipotential> equis,
+                bool recursive = true)
+      : _topSnl(top), _recursive(recursive), _equis(equis) {}
   void process();
   void processRec(InstNodeID instId, const SNLPath& path);
   auto& getNetlistGraph() { return _snlNetlistGraph; }
@@ -628,7 +682,7 @@ class SnlVisualiser {
       _snlNetlistGraph;
   SNLDesign* _topSnl;
   bool _recursive = true;
-  //SNLEquipotential* _equi = nullptr;
+  // SNLEquipotential* _equi = nullptr;
   std::vector<SNLEquipotential> _equis;
   std::set<SNLPath> _equiPaths;
   std::set<SNLBitNet*> _equiNets;
