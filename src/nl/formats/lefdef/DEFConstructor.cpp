@@ -3,7 +3,6 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include <boost/algorithm/string.hpp>
 #include <cstdio>
 #include <cstring>
 #include <memory>
@@ -24,13 +23,7 @@
 #include "defrReader.hpp"
 #include "lefrReader.hpp"
 
-using namespace std;
 using namespace naja::NL;
-using namespace naja::NL;
-using std::cerr;
-using std::endl;
-using std::string;
-using namespace std;
 
 namespace {
 

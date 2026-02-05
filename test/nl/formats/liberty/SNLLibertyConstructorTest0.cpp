@@ -4,6 +4,9 @@
 
 #include "gtest/gtest.h"
 
+#include <fstream>
+#include <system_error>
+
 #include "NLUniverse.h"
 
 #include "SNLScalarTerm.h"
@@ -128,6 +131,48 @@ TEST_F(SNLLibertyConstructorTest0, testWrongSyntaxFile) {
       / std::filesystem::path("errors")
       / std::filesystem::path("syntax_error.lib"));
   EXPECT_THROW(constructor.construct(testPath), naja::liberty::YosysLibertyException);
+}
+
+TEST_F(SNLLibertyConstructorTest0, testZipNotSupported) {
+  auto tempPath = std::filesystem::temp_directory_path()
+    / std::filesystem::path("naja_liberty_test.lib.zip");
+  {
+    std::ofstream output(tempPath, std::ios::binary);
+    output << "PK";
+  }
+  SNLLibertyConstructor constructor(library_);
+  EXPECT_THROW(constructor.construct(tempPath), SNLLibertyConstructorException);
+  std::error_code ec;
+  std::filesystem::remove(tempPath, ec);
+}
+
+TEST_F(SNLLibertyConstructorTest0, testUnreadableFile) {
+  auto tempPath = std::filesystem::temp_directory_path()
+    / std::filesystem::path("naja_liberty_unreadable.lib");
+  {
+    std::ofstream output(tempPath, std::ios::binary);
+    output << "library (x) { }";
+  }
+  std::error_code ec;
+  std::filesystem::permissions(tempPath, std::filesystem::perms::none, ec);
+  if (ec) {
+    std::filesystem::remove(tempPath, ec);
+    GTEST_SKIP() << "Permissions not supported on this platform";
+  }
+
+  {
+    std::ifstream probe(tempPath, std::ios::binary);
+    if (probe.is_open()) {
+      std::filesystem::permissions(tempPath, std::filesystem::perms::owner_all, ec);
+      std::filesystem::remove(tempPath, ec);
+      GTEST_SKIP() << "Unreadable file still readable (likely running as root)";
+    }
+  }
+
+  SNLLibertyConstructor constructor(library_);
+  EXPECT_THROW(constructor.construct(tempPath), SNLLibertyConstructorException);
+  std::filesystem::permissions(tempPath, std::filesystem::perms::owner_all, ec);
+  std::filesystem::remove(tempPath, ec);
 }
 
 TEST_F(SNLLibertyConstructorTest0, testWrongDirection) {

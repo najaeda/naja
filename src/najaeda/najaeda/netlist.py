@@ -44,12 +44,6 @@ def consistent_hash(obj):
 
 def get_snl_instance_from_id_list(id_list: list) -> naja.SNLInstance:
     design = naja.NLUniverse.get().getTopDesign()
-    # instance = None
-    # for id in id_list:
-    #     instance = design.getInstanceByID(id)
-    #     assert instance is not None
-    #     design = instance.getModel()
-    # return instance
     return design.getInstanceByIDList(id_list)
 
 
@@ -315,6 +309,48 @@ class Net:
         if hasattr(self, "net") and isinstance(self.net, naja.SNLBusNet):
             return self.net.getLSB()
         return None
+
+    def set_msb(self, msb: int):
+        """
+        :param int msb: the msb to set for this Net.
+        """
+        if self.is_concat():
+            raise ValueError(
+                f"set_msb of {self}: cannot set msb for a concatenated net. "
+                "Use the individual nets instead."
+            )
+        if self.is_bus_bit():
+            raise ValueError(
+                f"set_msb of {self}: cannot set msb for a bus bit. "
+                "Use the bus net instead."
+            )
+        if not self.is_bus():
+            raise ValueError(f"set_msb of {self}: not a bus net")
+        path = get_snl_path_from_id_list(self.pathIDs)
+        if path.size():
+            naja.SNLUniquifier(path.getHeadPath())
+        self.net.setMSB(msb)
+
+    def set_lsb(self, lsb: int):
+        """
+        :param int lsb: the lsb to set for this Net.
+        """
+        if self.is_concat():
+            raise ValueError(
+                f"set_lsb of {self}: cannot set lsb for a concatenated net. "
+                "Use the individual nets instead."
+            )
+        if self.is_bus_bit():
+            raise ValueError(
+                f"set_lsb of {self}: cannot set lsb for a bus bit. "
+                "Use the bus net instead."
+            )
+        if not self.is_bus():
+            raise ValueError(f"set_lsb of {self}: not a bus net")
+        path = get_snl_path_from_id_list(self.pathIDs)
+        if path.size():
+            naja.SNLUniquifier(path.getHeadPath())
+        self.net.setLSB(lsb)
 
     def is_bus(self) -> bool:
         """
@@ -705,6 +741,30 @@ class Term:
             return snl_term.getLSB()
         return None
 
+    def set_msb(self, msb: int):
+        """
+        :param int msb: the msb to set for this Term.
+        """
+        snl_term = self.get_snl_term()
+        if isinstance(snl_term, naja.SNLBusTermBit):
+            raise ValueError("set_msb: cannot set msb on a bus bit")
+        if not isinstance(snl_term, naja.SNLBusTerm):
+            raise ValueError("set_msb: not a bus term")
+        self.__make_unique()
+        snl_term.setMSB(msb)
+
+    def set_lsb(self, lsb: int):
+        """
+        :param int lsb: the lsb to set for this Term.
+        """
+        snl_term = self.get_snl_term()
+        if isinstance(snl_term, naja.SNLBusTermBit):
+            raise ValueError("set_lsb: cannot set lsb on a bus bit")
+        if not isinstance(snl_term, naja.SNLBusTerm):
+            raise ValueError("set_lsb: not a bus term")
+        self.__make_unique()
+        snl_term.setLSB(lsb)
+
     def get_width(self) -> int:
         """
         :return: the width of the term. 1 if scalar.
@@ -756,6 +816,12 @@ class Term:
         :rtype: int
         """
         return sum(1 for _ in self.get_attributes())
+
+    def delete(self):
+        """Delete this Term."""
+        self.__make_unique()
+        snlterm = self.get_snl_term()
+        snlterm.destroy()
 
     def get_combinatorial_inputs(self):
         """Get all combinatorial input terms of this instance.
@@ -1771,6 +1837,8 @@ def create_top(name: str) -> Instance:
 class VerilogConfig:
     keep_assigns: bool = True
     allow_unknown_designs: bool = False
+    # Enable Verilog preprocessing (e.g. `define/ifdef/include).
+    preprocess_enabled: bool = False
     # How to handle duplicate module names in the same library.
     # Accepted values: "forbid" (default), "first", "last", "verify".
     conflicting_design_name_policy: str = "forbid"
@@ -1806,6 +1874,7 @@ def load_verilog(files: Union[str, List[str]], config: VerilogConfig = None) -> 
         files,
         keep_assigns=config.keep_assigns,
         allow_unknown_designs=config.allow_unknown_designs,
+        preprocess_enabled=config.preprocess_enabled,
         conflicting_design_name_policy=config.conflicting_design_name_policy,
     )
     execution_time = time.time() - start_time

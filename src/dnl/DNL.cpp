@@ -16,6 +16,8 @@
 #include <tbb/task_arena.h>
 #include "tbb/parallel_for.h"
 
+#include "NajaPerf.h"
+
 #include "NLUniverse.h"
 #include "SNLBitNet.h"
 #include "SNLBitTerm.h"
@@ -69,6 +71,7 @@ bool isCreated() {
 }
 DNL<DNLInstanceFull, DNLTerminalFull>* create() {
   assert(NLUniverse::get());
+  NajaPerf::Scope scope("DNL::create");
   dnlFull_ = new DNL<DNLInstanceFull, DNLTerminalFull>(
       NLUniverse::get()->getTopDesign());
   dnlFull_->process();
