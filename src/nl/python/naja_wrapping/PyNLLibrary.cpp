@@ -74,7 +74,7 @@ static PyObject* PyNLLibrary_getSNLDesign(PyNLLibrary* self, PyObject* arg) {
 GetObjectMethod(NLLibrary, NLDB, getDB)
 GetObjectByName(NLLibrary, NLLibrary, getLibrary)
 
-DirectGetIntMethod(PyNLLibrary_getID, getID, PyNLLibrary, NLLibrary)
+DirectGetNumericMethod(PyNLLibrary_getID, getID, PyNLLibrary, NLLibrary)
 
 GetBoolAttribute(NLLibrary, isStandard)
 GetBoolAttribute(NLLibrary, isPrimitives)

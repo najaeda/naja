@@ -39,6 +39,7 @@ jobs:
 
       - name: Publish benchmark results
         uses: benchmark-action/github-action-benchmark@v1
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         with:
           name: SNL Benchmarks
           tool: googlecpp
@@ -47,3 +48,4 @@ jobs:
           auto-push: true
           fail-on-alert: true
           comment-on-alert: true
+          benchmark-data-dir-path: .

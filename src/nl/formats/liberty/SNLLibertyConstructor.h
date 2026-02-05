@@ -6,6 +6,7 @@
 
 #pragma once
 #include <filesystem>
+#include <vector>
 
 namespace naja::NL {
 
@@ -17,6 +18,8 @@ class SNLLibertyConstructor {
     SNLLibertyConstructor(const SNLLibertyConstructor&) = delete;
     SNLLibertyConstructor(NLLibrary* library);
 
+    using Paths = std::vector<std::filesystem::path>;
+    void construct(const Paths& paths);
     void construct(const std::filesystem::path& path);
   private:
     NLLibrary*  library_;

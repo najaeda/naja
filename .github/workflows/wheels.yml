@@ -191,9 +191,6 @@ jobs:
             export HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_CLEANUP=1 HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK=1 HOMEBREW_NO_ENV_HINTS=1
             eval "$(brew shellenv)"
             brew install -q boost
-            #brew install -q boost flex bison
-            #echo "/usr/local/opt/flex/bin" >> $GITHUB_PATH; echo "/usr/local/opt/bison/bin" >> $GITHUB_PATH;
-            #echo "/opt/homebrew/opt/flex/bin" >> $GITHUB_PATH; echo "/opt/homebrew/opt/bison/bin" >> $GITHUB_PATH
       - name: Install cibuildwheel (and delvewheel for Windows)
         run: python -m pip install cibuildwheel==3.3.0 delvewheel
       - name: Build wheels

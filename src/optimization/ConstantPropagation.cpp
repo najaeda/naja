@@ -10,6 +10,8 @@
 #include <stack>
 #include <vector>
 
+#include "NajaPerf.h"
+
 #include "SNLDesignModeling.h"
 #include "NLLibraryTruthTables.h"
 #include "SNLScalarNet.h"
@@ -1155,6 +1157,7 @@ void ConstantPropagation::propagateConstants() {
 }
 
 void ConstantPropagation::run() {
+  NajaPerf::Scope scope("ConstantPropagation");
   destroy();
   dnl_ = get();
   initializeTypesID();

@@ -6,6 +6,7 @@
 #pragma once
 #include <iostream>
 #include <sstream>
+#include <type_traits>
 
 #define PY_SSIZE_T_CLEAN /* Make "s#" use Py_ssize_t rather than int. */
 #include <Python.h>
@@ -86,6 +87,18 @@ PyObject* richCompare(T left, T right, int op) {
   if ((op == Py_GT) and (left >  right)) Py_RETURN_TRUE;
   if ((op == Py_GE) and (left >= right)) Py_RETURN_TRUE;
   Py_RETURN_FALSE; 
+}
+
+template <typename T>
+PyObject* toPyLong(T value) {
+  if constexpr (std::is_enum_v<T>) {
+    using Underlying = std::underlying_type_t<T>;
+    return toPyLong(static_cast<Underlying>(value));
+  } else if constexpr (std::is_signed_v<T>) {
+    return PyLong_FromLongLong(static_cast<long long>(value));
+  } else {
+    return PyLong_FromUnsignedLongLong(static_cast<unsigned long long>(value));
+  }
 }
 
 }
@@ -174,10 +187,10 @@ PyObject* richCompare(T left, T right, int op) {
     return (long)self->ACCESS_OBJECT;                                        \
   }
 
-#define DirectGetIntMethod(PY_FUNC_NAME, FUNC_NAME, PY_SELF_TYPE, SELF_TYPE) \
+#define DirectGetNumericMethod(PY_FUNC_NAME, FUNC_NAME, PY_SELF_TYPE, SELF_TYPE) \
   static PyObject* PY_FUNC_NAME(PY_SELF_TYPE* self, PyObject *args) { \
     GENERIC_METHOD_HEAD(SELF_TYPE, #FUNC_NAME"()") \
-    return Py_BuildValue("i", selfObject->FUNC_NAME()); \
+    return PYNAJA::toPyLong(selfObject->FUNC_NAME()); \
   }
 
 // -------------------------------------------------------------------
@@ -609,4 +622,3 @@ PyObject* richCompare(T left, T right, int op) {
   } \
   setError("malformed " #OWNER_TYPE "." #GETTER " method"); \
   return nullptr;
-

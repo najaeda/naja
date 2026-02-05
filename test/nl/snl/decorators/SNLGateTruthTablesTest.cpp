@@ -134,3 +134,10 @@ TEST_F(SNLGateTruthTableTest, testUnsupportedGates) {
     ASSERT_NE(bufGate, nullptr);
     EXPECT_THROW(NLDB0::getPrimitiveTruthTable(bufGate), NLException);
 }
+
+TEST_F(SNLGateTruthTableTest, testAssignTruthTable) {
+    auto assign = NLDB0::getAssign();
+    ASSERT_NE(assign, nullptr);
+    auto tt = NLDB0::getPrimitiveTruthTable(assign);
+    EXPECT_EQ(SNLTruthTable::Buf(), tt);
+}

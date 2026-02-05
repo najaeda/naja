@@ -20,7 +20,7 @@ using namespace naja::NL;
 #define  ACCESS_CLASS(_pyObject) &(_pyObject->parent_)
 #define  METHOD_HEAD(function) GENERIC_METHOD_HEAD(SNLBusNetBit, function)
 
-DirectGetIntMethod(PySNLBusNetBit_getBit, getBit, PySNLBusNetBit, SNLBusNetBit)
+DirectGetNumericMethod(PySNLBusNetBit_getBit, getBit, PySNLBusNetBit, SNLBusNetBit)
 GetObjectMethod(SNLBusNetBit, SNLBusNet, getBus)
 
 PyMethodDef PySNLBusNetBit_Methods[] = {

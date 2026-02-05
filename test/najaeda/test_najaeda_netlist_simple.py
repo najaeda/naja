@@ -107,6 +107,135 @@ class NajaNetlistTestSimple(unittest.TestCase):
         self.assertLess(term1, term1_bit10)
         self.assertGreater(term1_bit10, term1)
 
+    def test_term_delete(self):
+        top = netlist.create_top('Top')
+        scalar = top.create_input_term('in_term')
+        bus = top.create_input_bus_term('bus', 3, 0)
+
+        self.assertEqual(2, top.count_terms())
+        self.assertEqual(5, top.count_bit_terms())
+
+        scalar.delete()
+        self.assertIsNone(top.get_term('in_term'))
+        self.assertEqual(1, top.count_terms())
+        self.assertEqual(4, top.count_bit_terms())
+
+        bit2 = bus.get_bit(2)
+        self.assertIsNotNone(bit2)
+        bit2.delete()
+        self.assertEqual(3, bus.get_msb())
+        self.assertEqual(0, bus.get_lsb())
+        self.assertEqual(4, bus.get_width())
+        bit_numbers = [b.get_bit_number() for b in bus.get_bits()]
+        self.assertNotIn(2, bit_numbers)
+        self.assertEqual(3, top.count_bit_terms())
+
+        bus.delete()
+        self.assertIsNone(top.get_term('bus'))
+        self.assertEqual(0, top.count_terms())
+        self.assertEqual(0, top.count_bit_terms())
+
+    def test_term_delete_intermediate_hierarchy(self):
+        top = netlist.create_top('Top')
+        top_design = naja.NLUniverse.get().getTopDesign()
+        lib = top_design.getLibrary()
+        model1 = naja.SNLDesign.create(lib, "M1")
+        model2 = naja.SNLDesign.create(lib, "M2")
+
+        scalar = naja.SNLScalarTerm.create(model2, naja.SNLTerm.Direction.Input, "in_term")
+        bus = naja.SNLBusTerm.create(model2, naja.SNLTerm.Direction.Input, 3, 0, "bus")
+
+        inst2 = naja.SNLInstance.create(model1, model2, "u2")
+        inst1 = naja.SNLInstance.create(top_design, model1, "u1")
+        path1 = naja.SNLPath(inst1)
+        path2 = naja.SNLPath(path1, inst2)
+        inst2_wrapped = netlist.Instance(path2)
+
+        self.assertEqual(2, inst2_wrapped.count_terms())
+        self.assertEqual(5, inst2_wrapped.count_bit_terms())
+
+        inst2_wrapped.get_term("in_term").delete()
+        self.assertIsNone(inst2_wrapped.get_term("in_term"))
+        self.assertEqual(1, inst2_wrapped.count_terms())
+        self.assertEqual(4, inst2_wrapped.count_bit_terms())
+
+        bit2 = inst2_wrapped.get_term("bus").get_bit(2)
+        self.assertIsNotNone(bit2)
+        bit2.delete()
+        self.assertEqual(3, inst2_wrapped.get_term("bus").get_msb())
+        self.assertEqual(0, inst2_wrapped.get_term("bus").get_lsb())
+        bit_numbers = [b.get_bit_number() for b in inst2_wrapped.get_term("bus").get_bits()]
+        self.assertNotIn(2, bit_numbers)
+        self.assertEqual(3, inst2_wrapped.count_bit_terms())
+
+        inst2_wrapped.get_term("bus").delete()
+        self.assertIsNone(inst2_wrapped.get_term("bus"))
+        self.assertEqual(0, inst2_wrapped.count_terms())
+        self.assertEqual(0, inst2_wrapped.count_bit_terms())
+
+    def test_term_set_msb_lsb(self):
+        top = netlist.create_top('Top')
+        scalar = top.create_input_term('in_term')
+        bus = top.create_input_bus_term('bus', 3, 0)
+
+        bus.set_msb(2)
+        self.assertEqual(2, bus.get_msb())
+        self.assertEqual(0, bus.get_lsb())
+        bus.set_lsb(1)
+        self.assertEqual(2, bus.get_msb())
+        self.assertEqual(1, bus.get_lsb())
+
+        with self.assertRaises(ValueError):
+            scalar.set_msb(0)
+        with self.assertRaises(ValueError):
+            scalar.set_lsb(0)
+        with self.assertRaises(ValueError):
+            bus.get_bit(1).set_msb(1)
+        with self.assertRaises(ValueError):
+            bus.get_bit(1).set_lsb(1)
+
+    def test_net_set_msb_lsb(self):
+        top = netlist.create_top('Top')
+        scalar_net = top.create_net('n0')
+        bus_net = top.create_bus_net('n1', 3, 0)
+
+        bus_net.set_msb(2)
+        self.assertEqual(2, bus_net.get_msb())
+        self.assertEqual(0, bus_net.get_lsb())
+        bus_net.set_lsb(1)
+        self.assertEqual(2, bus_net.get_msb())
+        self.assertEqual(1, bus_net.get_lsb())
+
+        with self.assertRaises(ValueError):
+            scalar_net.set_msb(0)
+        with self.assertRaises(ValueError):
+            scalar_net.set_lsb(0)
+        with self.assertRaises(ValueError):
+            bus_net.get_bit(1).set_msb(1)
+        with self.assertRaises(ValueError):
+            bus_net.get_bit(1).set_lsb(1)
+        net_a = top.create_net('n2')
+        net_b = top.create_net('n3')
+        concat = netlist.Net([], net_concat=[net_a.net, net_b.net])
+        with self.assertRaises(ValueError):
+            concat.set_msb(1)
+        with self.assertRaises(ValueError):
+            concat.set_lsb(0)
+
+    def test_net_set_msb_lsb_intermediate(self):
+        top = netlist.create_top('Top')
+        top_design = naja.NLUniverse.get().getTopDesign()
+        lib = top_design.getLibrary()
+        model = naja.SNLDesign.create(lib, "M1")
+        naja.SNLBusNet.create(model, 3, 0, "bus")
+        inst = top.create_child_instance("M1", "u1")
+        net = inst.get_net("bus")
+        self.assertIsNotNone(net)
+        net.set_msb(2)
+        self.assertEqual(2, net.get_msb())
+        net.set_lsb(1)
+        self.assertEqual(1, net.get_lsb())
+
 if __name__ == '__main__':
     faulthandler.enable()
     unittest.main()

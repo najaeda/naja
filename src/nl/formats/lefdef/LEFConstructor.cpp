@@ -5,12 +5,13 @@
 
 #include "LEFConstructor.h"
 
-#include <boost/algorithm/string.hpp>
+#include <algorithm>
+#include <cctype>
 #include <cstdio>
 #include <cstring>
-#include <iostream>
 #include <memory>
 #include <sstream>
+
 #include "NajaLog.h"
 #include "NLDB.h"
 #include "NLLibrary.h"
@@ -39,14 +40,18 @@ void pinStdPostProcess_() {}
 
 void pinPadPostProcess_() {}
 
+void toUpperInPlace_(std::string& value) {
+  std::transform(value.begin(), value.end(), value.begin(),
+                 [](unsigned char ch) { return static_cast<char>(std::toupper(ch)); });
+}
+
 int unitsCbk_(lefrCallbackType_e c, lefiUnits* units, lefiUserData ud) {
   LEFConstructor* parser = (LEFConstructor*)ud;
 
   if (units->hasDatabase()) {
     parser->setUnitsMicrons(1.0 / units->databaseNumber());
-    cerr << "     - Precision: " << parser->getUnitsMicrons()
-         << " (LEF MICRONS scale factor:" << units->databaseNumber() << ")"
-         << endl;
+    NAJA_LOG_INFO("     - Precision: {} (LEF MICRONS scale factor:{})",
+                  parser->getUnitsMicrons(), units->databaseNumber());
   }
   return 0;
 }
@@ -60,7 +65,7 @@ int siteCbk_(lefrCallbackType_e c, lefiSite* site, lefiUserData ud) {
   PNLSite::ClassType siteClass = PNLSite::ClassType::Unknown;
   if (site->hasClass()) {
     std::string classType = site->siteClass();
-    boost::to_upper(classType);
+    toUpperInPlace_(classType);
     if (classType == "CORE") {
       siteClass = PNLSite::ClassType::Core;
     } else if (classType == "PAD") {
@@ -279,9 +284,10 @@ int macroCbk_(lefrCallbackType_e c, lefiMacro* macro, lefiUserData ud) {
   else
     pinPadPostProcess_();
   parser->clearPinComponents();
-  if (isPad)
-    cerr << " (PAD)";
-  cerr << endl;
+  //if (isPad) {
+  //  cerr << " (PAD)";
+  //}
+  //cerr << endl;
   cell->setTerminalNetlist(true);
   parser->setPNLDesign(nullptr);
   parser->setGdsPower(nullptr);
@@ -324,7 +330,7 @@ int pinCbk_(lefrCallbackType_e c, lefiPin* pin, lefiUserData ud) {
   PNLNet::Type netType = PNLNet::Type::TypeEnum::Undefined;
   if (pin->hasUse()) {
     string lefUse = pin->use();
-    boost::to_upper(lefUse);
+    toUpperInPlace_(lefUse);
 
     if (lefUse == "SIGNAL") {
       netType = PNLNet::Type::TypeEnum::Logical;
@@ -362,7 +368,7 @@ int pinCbk_(lefrCallbackType_e c, lefiPin* pin, lefiUserData ud) {
 
   if (pin->hasDirection()) {
     string lefDir = pin->direction();
-    boost::to_upper(lefDir);
+    toUpperInPlace_(lefDir);
 
     if (lefDir == "INPUT")
       term->setDirection(PNLNetComponent::Direction::Input);

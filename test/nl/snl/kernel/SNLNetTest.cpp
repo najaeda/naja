@@ -14,6 +14,7 @@ using ::testing::ElementsAre;
 #include "SNLScalarNet.h"
 #include "SNLBusNet.h"
 #include "SNLBusNetBit.h"
+#include "SNLInstance.h"
 
 using namespace naja::NL;
 
@@ -290,6 +291,171 @@ TEST_F(SNLNetTest, testBusNetBitDestruction) {
   EXPECT_EQ(nullptr, bit3);
   EXPECT_EQ(31, net0->getBits().size());
   EXPECT_EQ(nullptr, net0->getBitAtPosition(bit3Position));
+
+  //destroy MSB bit
+  auto msbBit = net0->getBit(31);
+  auto msbPosition = net0->getBitPosition(msbBit->getBit());
+  ASSERT_NE(nullptr, msbBit);
+  EXPECT_EQ(msbBit, net0->getBitAtPosition(msbPosition));
+  msbBit->destroy();
+  EXPECT_EQ(nullptr, net0->getBit(31));
+  EXPECT_EQ(30, net0->getBits().size());
+  EXPECT_EQ(nullptr, net0->getBitAtPosition(msbPosition));
+
+  //destroy LSB bit
+  auto lsbBit = net0->getBit(0);
+  auto lsbPosition = net0->getBitPosition(lsbBit->getBit());
+  ASSERT_NE(nullptr, lsbBit);
+  EXPECT_EQ(lsbBit, net0->getBitAtPosition(lsbPosition));
+  lsbBit->destroy();
+  EXPECT_EQ(nullptr, net0->getBit(0));
+  EXPECT_EQ(29, net0->getBits().size());
+  EXPECT_EQ(nullptr, net0->getBitAtPosition(lsbPosition));
+
+  //bus with negative LSB
+  SNLBusNet* net1 = SNLBusNet::create(design_, 3, -2, NLName("net1"));
+  EXPECT_EQ(6, net1->getWidth());
+  EXPECT_EQ(6, net1->getBits().size());
+  EXPECT_NE(nullptr, net1->getBit(3));
+  EXPECT_NE(nullptr, net1->getBit(0));
+  EXPECT_NE(nullptr, net1->getBit(-2));
+
+  //destroy a middle bit in negative range
+  auto net1Bit0 = net1->getBit(0);
+  auto net1Bit0Position = net1->getBitPosition(net1Bit0->getBit());
+  ASSERT_NE(nullptr, net1Bit0);
+  EXPECT_EQ(net1Bit0, net1->getBitAtPosition(net1Bit0Position));
+  net1Bit0->destroy();
+  EXPECT_EQ(nullptr, net1->getBit(0));
+  EXPECT_EQ(5, net1->getBits().size());
+  EXPECT_EQ(nullptr, net1->getBitAtPosition(net1Bit0Position));
+
+  //destroy MSB/LSB in negative range
+  auto net1Msb = net1->getBit(3);
+  auto net1MsbPosition = net1->getBitPosition(net1Msb->getBit());
+  ASSERT_NE(nullptr, net1Msb);
+  net1Msb->destroy();
+  EXPECT_EQ(nullptr, net1->getBit(3));
+  EXPECT_EQ(4, net1->getBits().size());
+  EXPECT_EQ(nullptr, net1->getBitAtPosition(net1MsbPosition));
+
+  auto net1Lsb = net1->getBit(-2);
+  auto net1LsbPosition = net1->getBitPosition(net1Lsb->getBit());
+  ASSERT_NE(nullptr, net1Lsb);
+  net1Lsb->destroy();
+  EXPECT_EQ(nullptr, net1->getBit(-2));
+  EXPECT_EQ(3, net1->getBits().size());
+  EXPECT_EQ(nullptr, net1->getBitAtPosition(net1LsbPosition));
+}
+
+TEST_F(SNLNetTest, testGetBitNetsWithAllBusBitsDestroyed) {
+  auto net0 = SNLBusNet::create(design_, 1, 0, NLName("net0"));
+  ASSERT_EQ(2, net0->getBits().size());
+
+  auto bit1 = net0->getBit(1);
+  auto bit0 = net0->getBit(0);
+  ASSERT_NE(nullptr, bit1);
+  ASSERT_NE(nullptr, bit0);
+  bit1->destroy();
+  bit0->destroy();
+
+  EXPECT_EQ(0, net0->getBits().size());
+  EXPECT_TRUE(net0->getBusBits().empty());
+
+  // This currently triggers an assert in NajaFlatCollection when flattening empty bus bits.
+  EXPECT_TRUE(design_->getBitNets().empty());
+}
+
+TEST_F(SNLNetTest, testGetBitNetsWithAllBitsDestroyedAcrossBuses) {
+  auto net0 = SNLBusNet::create(design_, 1, 0, NLName("net0"));
+  auto net1 = SNLBusNet::create(design_, 3, 2, NLName("net1"));
+  ASSERT_EQ(2, net0->getBits().size());
+  ASSERT_EQ(2, net1->getBits().size());
+
+  net0->getBit(1)->destroy();
+  net0->getBit(0)->destroy();
+  net1->getBit(3)->destroy();
+  net1->getBit(2)->destroy();
+
+  EXPECT_EQ(0, net0->getBits().size());
+  EXPECT_TRUE(net0->getBusBits().empty());
+  EXPECT_EQ(0, net1->getBits().size());
+  EXPECT_TRUE(net1->getBusBits().empty());
+
+  EXPECT_TRUE(design_->getBitNets().empty());
+  EXPECT_EQ(0, design_->getBitNets().size());
+}
+
+TEST_F(SNLNetTest, testResizeBusNetSuccess) {
+  auto net0 = SNLBusNet::create(design_, 3, 0, NLName("net0"));
+  net0->setMSB(1);
+  EXPECT_EQ(1, net0->getMSB());
+  EXPECT_EQ(0, net0->getLSB());
+  EXPECT_EQ(2, net0->getWidth());
+  EXPECT_NE(nullptr, net0->getBit(1));
+  EXPECT_NE(nullptr, net0->getBit(0));
+  EXPECT_EQ(nullptr, net0->getBit(2));
+
+  net0->setLSB(1);
+  EXPECT_EQ(1, net0->getMSB());
+  EXPECT_EQ(1, net0->getLSB());
+  EXPECT_EQ(1, net0->getWidth());
+  EXPECT_NE(nullptr, net0->getBit(1));
+  EXPECT_EQ(nullptr, net0->getBit(0));
+
+  // no-op
+  net0->setLSB(1);
+  EXPECT_EQ(1, net0->getMSB());
+  EXPECT_EQ(1, net0->getLSB());
+
+  // no-op
+  net0->setMSB(1);
+  EXPECT_EQ(1, net0->getMSB());
+  EXPECT_EQ(1, net0->getLSB());
+}
+
+TEST_F(SNLNetTest, testResizeBusNetFailsWithTermConnection) {
+  auto net0 = SNLBusNet::create(design_, 3, 0, NLName("net0"));
+  auto term0 = SNLBusTerm::create(design_, SNLTerm::Direction::InOut, 3, 0, NLName("t0"));
+  term0->setNet(net0);
+  EXPECT_THROW(net0->setMSB(1), NLException);
+}
+
+TEST_F(SNLNetTest, testResizeBusNetFailsWithConnectedMSBBit) {
+  auto net0 = SNLBusNet::create(design_, 3, 0, NLName("net0"));
+  auto term0 = SNLScalarTerm::create(design_, SNLTerm::Direction::InOut, NLName("t0"));
+  term0->setNet(net0->getBit(3));
+  EXPECT_THROW(net0->setMSB(2), NLException);
+}
+
+TEST_F(SNLNetTest, testResizeBusNetFailsWithConnectedLSBBit) {
+  auto net0 = SNLBusNet::create(design_, 3, 0, NLName("net0"));
+  auto term0 = SNLScalarTerm::create(design_, SNLTerm::Direction::InOut, NLName("t0"));
+  term0->setNet(net0->getBit(0));
+  EXPECT_THROW(net0->setLSB(1), NLException);
+}
+
+TEST_F(SNLNetTest, testResizeBusNetFailsWithInstTermConnection) {
+  auto primitives = design_->getDB()->getLibrary(NLName("PRIMITIVES"));
+  ASSERT_NE(primitives, nullptr);
+  auto model = SNLDesign::create(primitives, SNLDesign::Type::Primitive);
+  auto modelTerm = SNLScalarTerm::create(model, SNLTerm::Direction::Input, NLName("i0"));
+
+  auto inst = SNLInstance::create(design_, model, NLName("u0"));
+  auto net0 = SNLBusNet::create(design_, 3, 0, NLName("net0"));
+  inst->setTermNet(modelTerm, net0->getBit(3));
+
+  EXPECT_THROW(net0->setMSB(2), NLException);
+}
+
+TEST_F(SNLNetTest, testResizeBusNetInvalidLSB) {
+  auto net0 = SNLBusNet::create(design_, 3, 0, NLName("net0"));
+  EXPECT_THROW(net0->setLSB(4), NLException);
+}
+
+TEST_F(SNLNetTest, testResizeBusNetInvalidMSB) {
+  auto net0 = SNLBusNet::create(design_, 3, 0, NLName("net0"));
+  EXPECT_THROW(net0->setMSB(-1), NLException);
 }
 
 TEST_F(SNLNetTest, testNetType) {

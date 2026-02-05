@@ -4,10 +4,12 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstdlib>
 #include <fstream>
 #include <string>
 
 #include "NajaLog.h"
+#include "NajaPerf.h"
 
 #include "PyNLUniverse.h"
 #include "PyNLDB.h"
@@ -169,6 +171,15 @@ static struct PyModuleDef najaModule = {
 
 PyMODINIT_FUNC PyInit_naja(void) {
   naja::log::initFromEnv();
+  if (const char* perfEnv = std::getenv("NAJA_PERF")) {
+    //LCOV_EXCL_START
+    std::string perfPath(perfEnv);
+    if (perfPath.empty() || perfPath == "1") {
+      perfPath = "naja_perf.log";
+    }
+    naja::NajaPerf::create(perfPath, "naja_python");
+    //LCOV_EXCL_STOP
+  }
 
   PyNLUniverse_LinkPyType();
   PyNLDB_LinkPyType();

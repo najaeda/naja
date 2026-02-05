@@ -56,7 +56,7 @@ static PyObject* setType(PySNLNet* self, PyObject* arg) {
 
 PyTypeInheritedObjectDefinitions(SNLNet, SNLDesignObject)
 
-DirectGetIntMethod(PySNLNet_getWidth, getWidth, PySNLNet, SNLNet)
+DirectGetNumericMethod(PySNLNet_getWidth, getWidth, PySNLNet, SNLNet)
 GetBoolAttribute(SNLNet, isConstant0)
 GetBoolAttribute(SNLNet, isConstant1)
 GetBoolAttribute(SNLNet, isConstant)

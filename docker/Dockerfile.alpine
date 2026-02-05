@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-FROM alpine:3.19.1 as builder
+FROM alpine:3.23.2 AS builder
 
 # Install required packages
 RUN apk --no-cache add ca-certificates
@@ -26,10 +26,10 @@ RUN cmake -DCMAKE_BUILD_TYPE=Release .. && \
     cmake --install . --prefix /naja/install    
 RUN ctest -j8 --output-on-failure
 
-FROM alpine:3.19.1 as release
+FROM alpine:3.23.2 AS release
 RUN apk --no-cache add ca-certificates
 RUN apk add --no-cache \
-    libstdc++ capnproto python3
+    libstdc++ capnproto python3 onetbb
 
 RUN addgroup -S naja && adduser -S naja -G naja
 USER naja
@@ -39,6 +39,6 @@ COPY --chown=naja:naja --from=builder \
 COPY --chown=naja:naja --from=builder \
     ./naja/install/lib \
     ./naja/lib
-ENV LD_LIBRARY_PATH /naja/lib
-ENV PYTHONPATH /naja/lib/python
+ENV LD_LIBRARY_PATH=/naja/lib
+ENV PYTHONPATH=/naja/lib/python
 ENTRYPOINT [ "./naja/naja_edit" ]

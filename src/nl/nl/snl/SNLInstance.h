@@ -22,6 +22,7 @@ class SNLNet;
 class SNLBitTerm;
 class SNLBitNet;
 class SNLInstTerm;
+class SNLBusTerm;
 
 class SNLInstance final: public SNLDesignObject {
   public:
@@ -29,6 +30,7 @@ class SNLInstance final: public SNLDesignObject {
     friend class SNLInstParameter;
     friend class SNLSharedPath;
     friend class SNLPath;
+    friend class SNLBusTerm;
     using super = SNLDesignObject;
     using SNLInstanceInstTerms = std::vector<SNLInstTerm*>;
     using SNLInstParametersHook =

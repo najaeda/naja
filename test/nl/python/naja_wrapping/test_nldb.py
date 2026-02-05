@@ -125,6 +125,31 @@ class SNLDBTest(unittest.TestCase):
     db.loadVerilog(verilogs, keep_assigns=False)
     with self.assertRaises(RuntimeError) as context: db.loadVerilog(verilogs, keep_assign=False)
 
+  def testVerilogPreprocessEnabled(self):
+    u = naja.NLUniverse.get()
+    db = naja.NLDB.create(u)
+    self.assertIsNotNone(u)
+    formats_path = os.environ.get('FORMATS_PATH')
+    self.assertIsNotNone(formats_path)
+    verilogs = [os.path.join(formats_path, "verilog", "benchmarks", "preprocess_top.v")]
+
+    with self.assertRaises(RuntimeError) as context: db.loadVerilog(verilogs)
+
+    db.destroy()
+    db = naja.NLDB.create(u)
+    top = db.loadVerilog(verilogs, preprocess_enabled=True)
+    self.assertIsNotNone(top)
+    self.assertEqual("top", top.getName())
+    self.assertEqual(1, sum(1 for _ in top.getInstances()))
+    inst = top.getInstance("u0")
+    self.assertIsNotNone(inst)
+    self.assertEqual("child", inst.getModel().getName())
+    a = top.getBusTerm("a")
+    self.assertIsNotNone(a)
+    self.assertEqual(1, a.getMSB())
+    self.assertEqual(0, a.getLSB())
+    self.assertEqual(2, a.getWidth())
+
   def testDestroy(self):
     u = naja.NLUniverse.get()
     self.assertIsNotNone(u)
