@@ -12,6 +12,7 @@
 #include "SNLBusTerm.h"
 #include "SNLBusTermBit.h"
 #include "SNLInstTerm.h"
+#include "SNLVRLDumper.h"
 
 #include "SNLSVConstructor.h"
 
@@ -19,6 +20,9 @@ using namespace naja::NL;
 
 #ifndef SNL_SV_BENCHMARKS_PATH
 #define SNL_SV_BENCHMARKS_PATH "Undefined"
+#endif
+#ifndef SNL_SV_DUMPER_TEST_PATH
+#define SNL_SV_DUMPER_TEST_PATH "Undefined"
 #endif
 
 class SNLSVConstructorTestElab: public ::testing::Test {
@@ -75,4 +79,15 @@ TEST_F(SNLSVConstructorTestElab, elaborateParameterizedPorts) {
   ASSERT_NE(instYBit0, nullptr);
   EXPECT_EQ(topA->getBit(0), instABit0->getNet());
   EXPECT_EQ(topY->getBit(0), instYBit0->getNet());
+
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "elaborateParameterizedPorts";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+  SNLVRLDumper dumper;
+  dumper.setTopFileName(top->getName().getString() + ".v");
+  dumper.setSingleFile(true);
+  dumper.dumpDesign(top, outPath);
 }

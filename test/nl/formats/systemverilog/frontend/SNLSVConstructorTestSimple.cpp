@@ -17,6 +17,7 @@
 #include "SNLScalarTerm.h"
 #include "SNLTerm.h"
 #include "SNLUtils.h"
+#include "SNLVRLDumper.h"
 
 #include "SNLSVConstructor.h"
 
@@ -24,6 +25,9 @@ using namespace naja::NL;
 
 #ifndef SNL_SV_BENCHMARKS_PATH
 #define SNL_SV_BENCHMARKS_PATH "Undefined"
+#endif
+#ifndef SNL_SV_DUMPER_TEST_PATH
+#define SNL_SV_DUMPER_TEST_PATH "Undefined"
 #endif
 
 class SNLSVConstructorTestSimple: public ::testing::Test {
@@ -113,4 +117,65 @@ TEST_F(SNLSVConstructorTestSimple, parseSimpleModule) {
   EXPECT_EQ(andIn0->getNet(), aBitNet);
   EXPECT_EQ(andIn1->getNet(), bBitNet);
   EXPECT_EQ(assignInTerm->getNet(), andOut->getNet());
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseUpCounter) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  constructor.construct(benchmarksPath/"up_counter.sv");
+
+  auto top = library_->getSNLDesign(NLName("up_counter"));
+  ASSERT_NE(top, nullptr);
+
+  auto outTerm = top->getBusTerm(NLName("out"));
+  ASSERT_NE(outTerm, nullptr);
+  EXPECT_EQ(8, outTerm->getWidth());
+  EXPECT_EQ(SNLTerm::Direction::Output, outTerm->getDirection());
+
+  auto enableTerm = top->getTerm(NLName("enable"));
+  ASSERT_NE(enableTerm, nullptr);
+  EXPECT_EQ(SNLTerm::Direction::Input, enableTerm->getDirection());
+
+  auto clkTerm = top->getTerm(NLName("clk"));
+  ASSERT_NE(clkTerm, nullptr);
+  EXPECT_EQ(SNLTerm::Direction::Input, clkTerm->getDirection());
+
+  auto resetTerm = top->getTerm(NLName("reset"));
+  ASSERT_NE(resetTerm, nullptr);
+  EXPECT_EQ(SNLTerm::Direction::Input, resetTerm->getDirection());
+
+  auto outNet = top->getNet(NLName("out"));
+  ASSERT_NE(outNet, nullptr);
+  EXPECT_EQ(8, outNet->getWidth());
+  EXPECT_NE(top->getNet(NLName("enable")), nullptr);
+  EXPECT_NE(top->getNet(NLName("clk")), nullptr);
+  EXPECT_NE(top->getNet(NLName("reset")), nullptr);
+
+  auto dffModel = NLDB0::getDFF();
+  ASSERT_NE(dffModel, nullptr);
+  size_t dffCount = 0;
+  size_t gateCount = 0;
+  for (auto inst : top->getInstances()) {
+    auto model = inst->getModel();
+    if (model == dffModel) {
+      ++dffCount;
+      continue;
+    }
+    if (NLDB0::isGate(model)) {
+      ++gateCount;
+    }
+  }
+  EXPECT_EQ(8, dffCount);
+  EXPECT_GT(gateCount, 0u);
+
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "up_counter";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+  SNLVRLDumper dumper;
+  dumper.setTopFileName(top->getName().getString() + ".v");
+  dumper.setSingleFile(true);
+  dumper.dumpDesign(top, outPath);
 }

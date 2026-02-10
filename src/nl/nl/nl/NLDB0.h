@@ -60,7 +60,16 @@ class NLDB0 {
     static bool isAssign(const SNLDesign* design);
     static SNLScalarTerm* getAssignInput();
     static SNLScalarTerm* getAssignOutput();
-
+    static SNLDesign* getMux2();
+    static bool isMux2(const SNLDesign* design);
+    static SNLScalarTerm* getMux2InputA();
+    static SNLScalarTerm* getMux2InputB();
+    static SNLScalarTerm* getMux2Select();
+    static SNLScalarTerm* getMux2Output();
+    static SNLDesign* getDFF();
+    static SNLScalarTerm* getDFFClock();
+    static SNLScalarTerm* getDFFData();
+    static SNLScalarTerm* getDFFOutput();
     static NLLibrary* getGateLibrary(const GateType& type);
     static bool isGateLibrary(const NLLibrary* lib);
     static NLLibrary* getOrCreateGateLibrary(const GateType& type);

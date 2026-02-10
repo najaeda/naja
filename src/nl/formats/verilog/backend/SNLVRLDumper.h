@@ -119,6 +119,7 @@ class SNLVRLDumper {
     static std::string createInstanceName(const SNLInstance* instance, DesignInsideAnonymousNaming& naming);
     static NLName createNetName(const SNLNet* net, DesignInsideAnonymousNaming& naming);
     static NLName getNetName(const SNLNet* net, const DesignInsideAnonymousNaming& naming);
+    static std::string getBitNetString(const SNLBitNet* bitNet, const DesignInsideAnonymousNaming& naming);
     void dumpOneDesign(const SNLDesign* design, std::ostream& o);
     void dumpParameter(const SNLParameter* parameter, std::ostream& o);
     void dumpParameters(const SNLDesign* design, std::ostream& o);

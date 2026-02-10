@@ -24,6 +24,38 @@ namespace {
     return __builtin_parityll(x);
 #endif
   }
+
+  void createAssignPrimitive(naja::NL::NLLibrary* rootLibrary) {
+    using namespace naja::NL;
+    auto assign = SNLDesign::create(rootLibrary, SNLDesign::Type::Primitive);
+    auto assignInput = SNLScalarTerm::create(assign, SNLTerm::Direction::Input);
+    auto assignOutput = SNLScalarTerm::create(assign, SNLTerm::Direction::Output);
+
+    auto assignFT = SNLScalarNet::create(assign);
+    assignInput->setNet(assignFT);
+    assignOutput->setNet(assignFT);
+    SNLDesignModeling::addCombinatorialArcs({assignInput}, {assignOutput});
+  }
+
+  void createDFFPrimitive(naja::NL::NLLibrary* rootLibrary) {
+    using namespace naja::NL;
+    auto dff = SNLDesign::create(rootLibrary, SNLDesign::Type::Primitive, NLName("dff"));
+    auto dffClock = SNLScalarTerm::create(dff, SNLTerm::Direction::Input, NLName("C"));
+    auto dffData = SNLScalarTerm::create(dff, SNLTerm::Direction::Input, NLName("D"));
+    auto dffOutput = SNLScalarTerm::create(dff, SNLTerm::Direction::Output, NLName("Q"));
+    SNLDesignModeling::addClockToOutputsArcs(dffClock, {dffOutput});
+    SNLDesignModeling::addInputsToClockArcs({dffData}, dffClock);
+  }
+
+  void createMux2Primitive(naja::NL::NLLibrary* rootLibrary) {
+    using namespace naja::NL;
+    auto mux2 = SNLDesign::create(rootLibrary, SNLDesign::Type::Primitive, NLName("mux2"));
+    auto inA = SNLScalarTerm::create(mux2, SNLTerm::Direction::Input, NLName("A"));
+    auto inB = SNLScalarTerm::create(mux2, SNLTerm::Direction::Input, NLName("B"));
+    auto sel = SNLScalarTerm::create(mux2, SNLTerm::Direction::Input, NLName("S"));
+    auto out = SNLScalarTerm::create(mux2, SNLTerm::Direction::Output, NLName("Y"));
+    SNLDesignModeling::addCombinatorialArcs({inA, inB, sel}, {out});
+  }
 }
 
 namespace naja::NL {
@@ -98,14 +130,10 @@ NLDB* NLDB0::create(NLUniverse* universe) {
   auto rootLibrary =
     NLLibrary::create(db, NLLibrary::Type::Primitives, NLName(RootLibraryName));
 
-  auto assign = SNLDesign::create(rootLibrary, SNLDesign::Type::Primitive);
-  auto assignInput = SNLScalarTerm::create(assign, SNLTerm::Direction::Input);
-  auto assignOutput = SNLScalarTerm::create(assign, SNLTerm::Direction::Output);
+  createAssignPrimitive(rootLibrary);
+  createMux2Primitive(rootLibrary);
+  createDFFPrimitive(rootLibrary);
 
-  SNLScalarNet* assignFT = SNLScalarNet::create(assign);
-  assignInput->setNet(assignFT);
-  assignOutput->setNet(assignFT);
-  SNLDesignModeling::addCombinatorialArcs({assignInput}, {assignOutput});
   return db;
 }
 
@@ -143,6 +171,19 @@ bool NLDB0::isDB0Primitive(const SNLDesign* design) {
 SNLTruthTable NLDB0::getPrimitiveTruthTable(const SNLDesign* design) {
   if (isAssign(design)) {
     return SNLTruthTable::Buf();
+  }
+  if (isMux2(design)) {
+    uint64_t bits = 0;
+    for (uint64_t i = 0; i < 8; ++i) {
+      bool a = (i & 0x1) != 0;
+      bool b = (i & 0x2) != 0;
+      bool s = (i & 0x4) != 0;
+      bool y = s ? b : a;
+      if (y) {
+        bits |= (1ULL << i);
+      }
+    }
+    return SNLTruthTable(3, bits);
   }
 
   if (isNInputGate(design)) {
@@ -232,6 +273,82 @@ SNLScalarTerm* NLDB0::getAssignOutput() {
   auto assign = getAssign();
   if (assign) {
     return assign->getScalarTerm(NLID::DesignObjectID(1));
+  }
+  return nullptr;
+}
+
+SNLDesign* NLDB0::getMux2() {
+  auto primitives = getDB0RootLibrary();
+  if (primitives) {
+    return primitives->getSNLDesign(NLName("mux2"));
+  }
+  return nullptr;
+}
+
+bool NLDB0::isMux2(const SNLDesign* design) {
+  return design and design == getMux2();
+}
+
+SNLScalarTerm* NLDB0::getMux2InputA() {
+  auto mux2 = getMux2();
+  if (mux2) {
+    return mux2->getScalarTerm(NLName("A"));
+  }
+  return nullptr;
+}
+
+SNLScalarTerm* NLDB0::getMux2InputB() {
+  auto mux2 = getMux2();
+  if (mux2) {
+    return mux2->getScalarTerm(NLName("B"));
+  }
+  return nullptr;
+}
+
+SNLScalarTerm* NLDB0::getMux2Select() {
+  auto mux2 = getMux2();
+  if (mux2) {
+    return mux2->getScalarTerm(NLName("S"));
+  }
+  return nullptr;
+}
+
+SNLScalarTerm* NLDB0::getMux2Output() {
+  auto mux2 = getMux2();
+  if (mux2) {
+    return mux2->getScalarTerm(NLName("Y"));
+  }
+  return nullptr;
+}
+
+SNLDesign* NLDB0::getDFF() {
+  auto primitives = getDB0RootLibrary();
+  if (primitives) {
+    return primitives->getSNLDesign(NLName("dff"));
+  }
+  return nullptr;
+}
+
+SNLScalarTerm* NLDB0::getDFFClock() {
+  auto dff = getDFF();
+  if (dff) {
+    return dff->getScalarTerm(NLName("C"));
+  }
+  return nullptr;
+}
+
+SNLScalarTerm* NLDB0::getDFFData() {
+  auto dff = getDFF();
+  if (dff) {
+    return dff->getScalarTerm(NLName("D"));
+  }
+  return nullptr;
+}
+
+SNLScalarTerm* NLDB0::getDFFOutput() {
+  auto dff = getDFF();
+  if (dff) {
+    return dff->getScalarTerm(NLName("Q"));
   }
   return nullptr;
 }
