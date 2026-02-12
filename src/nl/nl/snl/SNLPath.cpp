@@ -280,7 +280,11 @@ std::vector<NLName> SNLPath::getPathNames() const {
   if (sharedPath_) {
     auto sharedPath = sharedPath_;
     while (sharedPath) {
-      names.push_back(sharedPath->getHeadInstance()->getName());
+      if (!sharedPath->getHeadInstance()->getName().empty()) {
+        names.push_back(sharedPath->getHeadInstance()->getName());
+      } else {
+        names.push_back(NLName(std::to_string(sharedPath->getHeadInstance()->getID()))); 
+      }
       sharedPath = sharedPath->getTailSharedPath();
     }
   }
