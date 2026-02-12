@@ -56,10 +56,21 @@ class NLDB0 {
 
     static SNLTruthTable getPrimitiveTruthTable(const SNLDesign* design);
 
-    static SNLDesign* getAssign(); 
+    static SNLDesign* getAssign();
     static bool isAssign(const SNLDesign* design);
     static SNLScalarTerm* getAssignInput();
     static SNLScalarTerm* getAssignOutput();
+    static SNLDesign* getFA();
+    static bool isFA(const SNLDesign* design);
+    static SNLScalarTerm* getFAInputA();
+    static SNLScalarTerm* getFAInputB();
+    static SNLScalarTerm* getFAInputCI();
+    static SNLScalarTerm* getFAOutputS();
+    static SNLScalarTerm* getFAOutputCO();
+    ///\return truth table for Sum output: A XOR B XOR CI (3 inputs, bits=0x96)
+    static SNLTruthTable getFASumTruthTable();
+    ///\return truth table for Carry-out output: majority(A,B,CI) (3 inputs, bits=0xE8)
+    static SNLTruthTable getFACoutTruthTable();
     static SNLDesign* getMux2();
     static bool isMux2(const SNLDesign* design);
     static SNLScalarTerm* getMux2InputA();

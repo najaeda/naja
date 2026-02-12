@@ -86,12 +86,65 @@ TEST_F(NLDB0Test, testAND) {
   EXPECT_EQ(48, and48Inputs->getWidth());
 }
 
+TEST_F(NLDB0Test, testFA) {
+  NLUniverse::create();
+  ASSERT_NE(nullptr, NLUniverse::get());
+
+  auto fa = NLDB0::getFA();
+  ASSERT_NE(nullptr, fa);
+  EXPECT_TRUE(NLDB0::isFA(fa));
+  EXPECT_TRUE(NLDB0::isDB0Primitive(fa));
+  EXPECT_FALSE(NLDB0::isAssign(fa));
+  EXPECT_FALSE(NLDB0::isMux2(fa));
+
+  auto inA = NLDB0::getFAInputA();
+  ASSERT_NE(nullptr, inA);
+  EXPECT_EQ(NLName("A"), inA->getName());
+  EXPECT_EQ(SNLTerm::Direction::Input, inA->getDirection());
+
+  auto inB = NLDB0::getFAInputB();
+  ASSERT_NE(nullptr, inB);
+  EXPECT_EQ(NLName("B"), inB->getName());
+  EXPECT_EQ(SNLTerm::Direction::Input, inB->getDirection());
+
+  auto inCI = NLDB0::getFAInputCI();
+  ASSERT_NE(nullptr, inCI);
+  EXPECT_EQ(NLName("CI"), inCI->getName());
+  EXPECT_EQ(SNLTerm::Direction::Input, inCI->getDirection());
+
+  auto outS = NLDB0::getFAOutputS();
+  ASSERT_NE(nullptr, outS);
+  EXPECT_EQ(NLName("S"), outS->getName());
+  EXPECT_EQ(SNLTerm::Direction::Output, outS->getDirection());
+
+  auto outCO = NLDB0::getFAOutputCO();
+  ASSERT_NE(nullptr, outCO);
+  EXPECT_EQ(NLName("CO"), outCO->getName());
+  EXPECT_EQ(SNLTerm::Direction::Output, outCO->getDirection());
+
+  // all 5 terminals belong to the same design
+  EXPECT_EQ(fa, inA->getDesign());
+  EXPECT_EQ(fa, inB->getDesign());
+  EXPECT_EQ(fa, inCI->getDesign());
+  EXPECT_EQ(fa, outS->getDesign());
+  EXPECT_EQ(fa, outCO->getDesign());
+
+  // getPrimitiveTruthTable must throw for FA (two outputs)
+  EXPECT_THROW(NLDB0::getPrimitiveTruthTable(fa), NLException);
+}
+
 TEST_F(NLDB0Test, testNULLUniverse) {
   EXPECT_EQ(nullptr, NLUniverse::get());
   EXPECT_FALSE(NLUniverse::isDB0(nullptr));
   EXPECT_EQ(nullptr, NLDB0::getAssign());
   EXPECT_EQ(nullptr, NLDB0::getAssignInput());
   EXPECT_EQ(nullptr, NLDB0::getAssignOutput());
+  EXPECT_EQ(nullptr, NLDB0::getFA());
+  EXPECT_EQ(nullptr, NLDB0::getFAInputA());
+  EXPECT_EQ(nullptr, NLDB0::getFAInputB());
+  EXPECT_EQ(nullptr, NLDB0::getFAInputCI());
+  EXPECT_EQ(nullptr, NLDB0::getFAOutputS());
+  EXPECT_EQ(nullptr, NLDB0::getFAOutputCO());
   EXPECT_EQ(nullptr, NLDB0::getGateLibrary(NLDB0::GateType::And));
   EXPECT_THROW(NLDB0::getOrCreateNInputGate(NLDB0::GateType::And, 2), NLException);
 }

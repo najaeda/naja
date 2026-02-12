@@ -37,6 +37,17 @@ namespace {
     SNLDesignModeling::addCombinatorialArcs({assignInput}, {assignOutput});
   }
 
+  void createFAPrimitive(naja::NL::NLLibrary* rootLibrary) {
+    using namespace naja::NL;
+    auto fa = SNLDesign::create(rootLibrary, SNLDesign::Type::Primitive, NLName("fa"));
+    auto inA  = SNLScalarTerm::create(fa, SNLTerm::Direction::Input,  NLName("A"));
+    auto inB  = SNLScalarTerm::create(fa, SNLTerm::Direction::Input,  NLName("B"));
+    auto inCI = SNLScalarTerm::create(fa, SNLTerm::Direction::Input,  NLName("CI"));
+    auto outS = SNLScalarTerm::create(fa, SNLTerm::Direction::Output, NLName("S"));
+    auto outCO= SNLScalarTerm::create(fa, SNLTerm::Direction::Output, NLName("CO"));
+    SNLDesignModeling::addCombinatorialArcs({inA, inB, inCI}, {outS, outCO});
+  }
+
   void createDFFPrimitive(naja::NL::NLLibrary* rootLibrary) {
     using namespace naja::NL;
     auto dff = SNLDesign::create(rootLibrary, SNLDesign::Type::Primitive, NLName("dff"));
@@ -131,6 +142,7 @@ NLDB* NLDB0::create(NLUniverse* universe) {
     NLLibrary::create(db, NLLibrary::Type::Primitives, NLName(RootLibraryName));
 
   createAssignPrimitive(rootLibrary);
+  createFAPrimitive(rootLibrary);
   createMux2Primitive(rootLibrary);
   createDFFPrimitive(rootLibrary);
 
@@ -171,6 +183,9 @@ bool NLDB0::isDB0Primitive(const SNLDesign* design) {
 SNLTruthTable NLDB0::getPrimitiveTruthTable(const SNLDesign* design) {
   if (isAssign(design)) {
     return SNLTruthTable::Buf();
+  }
+  if (isFA(design)) {
+    throw NLException("NLDB0::getPrimitiveTruthTable: FA has two outputs, use getFASumTruthTable/getFACoutTruthTable");
   }
   if (isMux2(design)) {
     uint64_t bits = 0;
@@ -275,6 +290,63 @@ SNLScalarTerm* NLDB0::getAssignOutput() {
     return assign->getScalarTerm(NLID::DesignObjectID(1));
   }
   return nullptr;
+}
+
+SNLDesign* NLDB0::getFA() {
+  auto primitives = getDB0RootLibrary();
+  if (primitives) {
+    return primitives->getSNLDesign(NLName("fa"));
+  }
+  return nullptr;
+}
+
+bool NLDB0::isFA(const SNLDesign* design) {
+  return design and design == getFA();
+}
+
+SNLScalarTerm* NLDB0::getFAInputA() {
+  auto fa = getFA();
+  if (fa) { return fa->getScalarTerm(NLName("A")); }
+  return nullptr;
+}
+
+SNLScalarTerm* NLDB0::getFAInputB() {
+  auto fa = getFA();
+  if (fa) { return fa->getScalarTerm(NLName("B")); }
+  return nullptr;
+}
+
+SNLScalarTerm* NLDB0::getFAInputCI() {
+  auto fa = getFA();
+  if (fa) { return fa->getScalarTerm(NLName("CI")); }
+  return nullptr;
+}
+
+SNLScalarTerm* NLDB0::getFAOutputS() {
+  auto fa = getFA();
+  if (fa) { return fa->getScalarTerm(NLName("S")); }
+  return nullptr;
+}
+
+SNLScalarTerm* NLDB0::getFAOutputCO() {
+  auto fa = getFA();
+  if (fa) { return fa->getScalarTerm(NLName("CO")); }
+  return nullptr;
+}
+
+// Sum = A XOR B XOR CI: odd-parity of 3 inputs
+// Row encoding: bit i of 'bits' is the output for input combination i
+// i=0b000->0, 001->1, 010->1, 011->0, 100->1, 101->0, 110->0, 111->1
+// bits = 0b10010110 = 0x96
+SNLTruthTable NLDB0::getFASumTruthTable() {
+  return SNLTruthTable(3, 0x96ULL);
+}
+
+// Cout = majority(A,B,CI): output 1 when at least 2 inputs are 1
+// i=0b000->0, 001->0, 010->0, 011->1, 100->0, 101->1, 110->1, 111->1
+// bits = 0b11101000 = 0xE8
+SNLTruthTable NLDB0::getFACoutTruthTable() {
+  return SNLTruthTable(3, 0xE8ULL);
 }
 
 SNLDesign* NLDB0::getMux2() {
