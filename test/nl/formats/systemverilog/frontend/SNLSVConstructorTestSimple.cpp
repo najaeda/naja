@@ -5,11 +5,14 @@
 #include "gtest/gtest.h"
 
 #include <filesystem>
+#include <fstream>
+#include <iterator>
 
 #include "NLUniverse.h"
 #include "NLDB0.h"
 #include "SNLBusTerm.h"
 #include "SNLBusTermBit.h"
+#include "SNLAttributes.h"
 #include "SNLBitNet.h"
 #include "SNLInstTerm.h"
 #include "SNLInstance.h"
@@ -29,6 +32,19 @@ using namespace naja::NL;
 #ifndef SNL_SV_DUMPER_TEST_PATH
 #define SNL_SV_DUMPER_TEST_PATH "Undefined"
 #endif
+
+namespace {
+
+bool hasAttribute(const NLObject* object, const std::string& name) {
+  for (const auto& attribute : SNLAttributes::getAttributes(object)) {
+    if (attribute.getName().getString() == name) {
+      return true;
+    }
+  }
+  return false;
+}
+
+}
 
 class SNLSVConstructorTestSimple: public ::testing::Test {
   protected:
@@ -52,9 +68,13 @@ TEST_F(SNLSVConstructorTestSimple, parseSimpleModule) {
 
   auto top = library_->getSNLDesign(NLName("top"));
   ASSERT_NE(top, nullptr);
+  EXPECT_TRUE(hasAttribute(top, "sv_src_file"));
+  EXPECT_TRUE(hasAttribute(top, "sv_src_line"));
+  EXPECT_TRUE(hasAttribute(top, "sv_src_column"));
   EXPECT_EQ(3, top->getTerms().size());
   auto a = top->getTerm(NLName("a"));
   ASSERT_NE(a, nullptr);
+  EXPECT_TRUE(hasAttribute(a, "sv_src_file"));
   EXPECT_EQ(SNLTerm::Direction::Input, a->getDirection());
   auto b = top->getTerm(NLName("b"));
   ASSERT_NE(b, nullptr);
@@ -87,6 +107,8 @@ TEST_F(SNLSVConstructorTestSimple, parseSimpleModule) {
   }
   ASSERT_NE(assignInst, nullptr);
   ASSERT_NE(andInst, nullptr);
+  EXPECT_TRUE(hasAttribute(assignInst, "sv_src_line"));
+  EXPECT_TRUE(hasAttribute(andInst, "sv_src_line"));
 
   auto assignInput = NLDB0::getAssignInput();
   auto assignOutput = NLDB0::getAssignOutput();
@@ -122,7 +144,17 @@ TEST_F(SNLSVConstructorTestSimple, parseSimpleModule) {
 TEST_F(SNLSVConstructorTestSimple, parseUpCounter) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
-  constructor.construct(benchmarksPath/"up_counter.sv");
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "up_counter";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  auto jsonPath = outPath / "up_counter_elaborated_ast.json";
+  SNLSVConstructor::ConstructOptions options;
+  options.elaboratedASTJsonPath = jsonPath;
+  constructor.construct(benchmarksPath/"up_counter.sv", options);
 
   auto top = library_->getSNLDesign(NLName("up_counter"));
   ASSERT_NE(top, nullptr);
@@ -155,10 +187,14 @@ TEST_F(SNLSVConstructorTestSimple, parseUpCounter) {
   ASSERT_NE(dffModel, nullptr);
   size_t dffCount = 0;
   size_t gateCount = 0;
+  bool dffHasSource = false;
   for (auto inst : top->getInstances()) {
     auto model = inst->getModel();
     if (model == dffModel) {
       ++dffCount;
+      if (hasAttribute(inst, "sv_src_line")) {
+        dffHasSource = true;
+      }
       continue;
     }
     if (NLDB0::isGate(model)) {
@@ -166,16 +202,45 @@ TEST_F(SNLSVConstructorTestSimple, parseUpCounter) {
     }
   }
   EXPECT_EQ(8, dffCount);
+  EXPECT_TRUE(dffHasSource);
   EXPECT_GT(gateCount, 0u);
 
-  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath = outPath / "up_counter";
-  if (std::filesystem::exists(outPath)) {
-    std::filesystem::remove_all(outPath);
-  }
-  std::filesystem::create_directory(outPath);
   SNLVRLDumper dumper;
   dumper.setTopFileName(top->getName().getString() + ".v");
   dumper.setSingleFile(true);
   dumper.dumpDesign(top, outPath);
+
+  ASSERT_TRUE(std::filesystem::exists(jsonPath));
+  std::ifstream jsonFile(jsonPath);
+  ASSERT_TRUE(jsonFile.good());
+  std::string json{
+    std::istreambuf_iterator<char>(jsonFile),
+    std::istreambuf_iterator<char>()};
+  EXPECT_FALSE(json.empty());
+  EXPECT_NE(json.find("\"up_counter\""), std::string::npos);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSimpleModuleDumpElaboratedASTJson) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "simple_ast_json";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  auto jsonPath = outPath / "simple_elaborated_ast.json";
+  SNLSVConstructor::ConstructOptions options;
+  options.elaboratedASTJsonPath = jsonPath;
+  constructor.construct(benchmarksPath / "simple.sv", options);
+
+  ASSERT_TRUE(std::filesystem::exists(jsonPath));
+  std::ifstream jsonFile(jsonPath);
+  ASSERT_TRUE(jsonFile.good());
+  std::string json{
+    std::istreambuf_iterator<char>(jsonFile),
+    std::istreambuf_iterator<char>()};
+  EXPECT_FALSE(json.empty());
+  EXPECT_NE(json.find("\"top\""), std::string::npos);
 }

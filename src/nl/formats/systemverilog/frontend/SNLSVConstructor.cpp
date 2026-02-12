@@ -4,10 +4,12 @@
 
 #include "SNLSVConstructor.h"
 
+#include <fstream>
 #include <memory>
 #include <optional>
 #include <sstream>
 #include <string>
+#include <system_error>
 #include <unordered_map>
 
 #include "NLID.h"
@@ -18,7 +20,9 @@
 #include "SNLBusNetBit.h"
 #include "SNLBusTermBit.h"
 #include "SNLBusTerm.h"
+#include "SNLAttributes.h"
 #include "SNLDesign.h"
+#include "SNLDesignObject.h"
 #include "SNLInstance.h"
 #include "SNLInstTerm.h"
 #include "SNLScalarNet.h"
@@ -27,6 +31,7 @@
 #include "SNLSVConstructorException.h"
 
 #include "slang/ast/Compilation.h"
+#include "slang/ast/ASTSerializer.h"
 #include "slang/ast/SemanticFacts.h"
 #include "slang/ast/Statement.h"
 #include "slang/ast/TimingControl.h"
@@ -46,6 +51,8 @@
 #include "slang/ast/types/Type.h"
 #include "slang/diagnostics/Diagnostics.h"
 #include "slang/syntax/SyntaxTree.h"
+#include "slang/text/Json.h"
+#include "slang/text/SourceManager.h"
 
 namespace naja::NL {
 
@@ -175,7 +182,12 @@ SNLNet* resolveExpressionNet(SNLDesign* design, const Expression& expr) {
 
 class SNLSVConstructorImpl {
   public:
-    explicit SNLSVConstructorImpl(NLLibrary* library): library_(library) {}
+    explicit SNLSVConstructorImpl(
+      NLLibrary* library,
+      const SNLSVConstructor::ConstructOptions& options):
+      library_(library),
+      options_(options)
+    {}
 
     void construct(const SNLSVConstructor::Paths& paths) {
       if (!library_) {
@@ -206,9 +218,52 @@ class SNLSVConstructorImpl {
       for (const auto* top : root.topInstances) {
         buildDesign(top->body);
       }
+
+      dumpElaboratedASTJson(root);
     }
 
   private:
+    void dumpElaboratedASTJson(const slang::ast::RootSymbol& root) const {
+      if (!options_.elaboratedASTJsonPath) {
+        return;
+      }
+      const auto& jsonPath = *options_.elaboratedASTJsonPath;
+      if (jsonPath.empty()) {
+        throw SNLSVConstructorException("Empty path for elaborated AST JSON dump");
+      }
+
+      auto parent = jsonPath.parent_path();
+      if (!parent.empty()) {
+        std::error_code ec;
+        std::filesystem::create_directories(parent, ec);
+        if (ec) {
+          std::ostringstream reason;
+          reason << "Failed to create elaborated AST JSON directory: " << parent.string();
+          throw SNLSVConstructorException(reason.str());
+        }
+      }
+
+      slang::JsonWriter writer;
+      writer.setPrettyPrint(options_.prettyPrintElaboratedASTJson);
+      auto& compilation = *compilation_;
+      slang::ast::ASTSerializer serializer(compilation, writer);
+      serializer.setIncludeSourceInfo(options_.includeSourceInfoInElaboratedASTJson);
+      serializer.serialize(root);
+
+      std::ofstream output(jsonPath, std::ios::out | std::ios::trunc);
+      if (!output) {
+        std::ostringstream reason;
+        reason << "Failed to create elaborated AST JSON file: " << jsonPath.string();
+        throw SNLSVConstructorException(reason.str());
+      }
+      output << writer.view();
+      if (!output.good()) {
+        std::ostringstream reason;
+        reason << "Failed to write elaborated AST JSON file: " << jsonPath.string();
+        throw SNLSVConstructorException(reason.str());
+      }
+    }
+
     SNLDesign* buildDesign(const InstanceBodySymbol& body) {
       const auto& definition = body.getDefinition();
       std::string defName(definition.name);
@@ -220,6 +275,7 @@ class SNLSVConstructorImpl {
       auto design = SNLDesign::create(library_, NLName(defName));
       nameToDesign_[defName] = design;
       bodyToDesign_[&body] = design;
+      annotateSourceInfo(design, getSourceRange(definition));
 
       createTerms(design, body);
       createNets(design, body);
@@ -229,6 +285,146 @@ class SNLSVConstructorImpl {
       createSequentialLogic(design, body);
 
       return design;
+    }
+
+    struct SourceInfo {
+      std::string file;
+      size_t line {0};
+      size_t column {0};
+      size_t endLine {0};
+      size_t endColumn {0};
+    };
+
+    std::optional<slang::SourceRange> getSourceRange(const Symbol& symbol) const {
+      if (auto syntax = symbol.getSyntax()) {
+        auto range = syntax->sourceRange();
+        if (range.start().valid()) {
+          return range;
+        }
+      }
+      if (symbol.location.valid()) {
+        return slang::SourceRange(symbol.location, symbol.location);
+      }
+      return std::nullopt;
+    }
+
+    std::optional<slang::SourceRange> getSourceRange(const Expression& expression) const {
+      if (expression.sourceRange.start().valid()) {
+        return expression.sourceRange;
+      }
+      return std::nullopt;
+    }
+
+    std::optional<slang::SourceRange> getSourceRange(const Statement& statement) const {
+      if (statement.sourceRange.start().valid()) {
+        return statement.sourceRange;
+      }
+      return std::nullopt;
+    }
+
+    std::optional<slang::SourceRange> getSourceRange(const TimingControl& timing) const {
+      if (timing.sourceRange.start().valid()) {
+        return timing.sourceRange;
+      }
+      return std::nullopt;
+    }
+
+    std::optional<SourceInfo> getSourceInfo(
+      const std::optional<slang::SourceRange>& maybeRange) const {
+      if (!maybeRange || !compilation_) {
+        return std::nullopt;
+      }
+      auto sourceManager = compilation_->getSourceManager();
+      if (!sourceManager) {
+        return std::nullopt;
+      }
+
+      auto sourceRange = sourceManager->getFullyOriginalRange(*maybeRange);
+      auto start = sourceRange.start();
+      auto end = sourceRange.end();
+      if (!start.valid()) {
+        return std::nullopt;
+      }
+
+      start = sourceManager->getFullyOriginalLoc(start);
+      if (!start.valid() || !sourceManager->isFileLoc(start)) {
+        return std::nullopt;
+      }
+
+      if (end.valid()) {
+        end = sourceManager->getFullyOriginalLoc(end);
+      }
+      if (!end.valid() || !sourceManager->isFileLoc(end) || end < start) {
+        end = start;
+      } else if (end > start) {
+        // sourceRange end is exclusive: map to the previous character.
+        end -= 1;
+      }
+
+      SourceInfo sourceInfo;
+      sourceInfo.file = sourceManager->getFileName(start);
+      if (sourceInfo.file.empty()) {
+        sourceInfo.file = sourceManager->getRawFileName(start.buffer());
+      }
+      sourceInfo.line = sourceManager->getLineNumber(start);
+      sourceInfo.column = sourceManager->getColumnNumber(start);
+      sourceInfo.endLine = sourceManager->getLineNumber(end);
+      sourceInfo.endColumn = sourceManager->getColumnNumber(end);
+      return sourceInfo;
+    }
+
+    void addAttribute(
+      NLObject* object,
+      const char* name,
+      SNLAttributeValue::Type type,
+      const std::string& value) const {
+      if (!object) {
+        return;
+      }
+      SNLAttribute attribute(
+        NLName(name),
+        SNLAttributeValue(type, value));
+      if (auto design = dynamic_cast<SNLDesign*>(object)) {
+        SNLAttributes::addAttribute(design, attribute);
+        return;
+      }
+      if (auto designObject = dynamic_cast<SNLDesignObject*>(object)) {
+        SNLAttributes::addAttribute(designObject, attribute);
+      }
+    }
+
+    void annotateSourceInfo(
+      NLObject* object,
+      const std::optional<slang::SourceRange>& maybeRange) const {
+      auto sourceInfo = getSourceInfo(maybeRange);
+      if (!sourceInfo) {
+        return;
+      }
+      addAttribute(
+        object,
+        "sv_src_file",
+        SNLAttributeValue::Type::STRING,
+        sourceInfo->file);
+      addAttribute(
+        object,
+        "sv_src_line",
+        SNLAttributeValue::Type::NUMBER,
+        std::to_string(sourceInfo->line));
+      addAttribute(
+        object,
+        "sv_src_column",
+        SNLAttributeValue::Type::NUMBER,
+        std::to_string(sourceInfo->column));
+      addAttribute(
+        object,
+        "sv_src_end_line",
+        SNLAttributeValue::Type::NUMBER,
+        std::to_string(sourceInfo->endLine));
+      addAttribute(
+        object,
+        "sv_src_end_column",
+        SNLAttributeValue::Type::NUMBER,
+        std::to_string(sourceInfo->endColumn));
     }
 
     void createTerms(SNLDesign* design, const InstanceBodySymbol& body) {
@@ -241,14 +437,16 @@ class SNLSVConstructorImpl {
         auto direction = toSNLDirection(port.direction);
         auto range = getRangeFromType(port.getType());
         if (range && range->width() > 1) {
-          SNLBusTerm::create(
+          auto term = SNLBusTerm::create(
             design,
             direction,
             static_cast<NLID::Bit>(range->left),
             static_cast<NLID::Bit>(range->right),
             NLName(portName));
+          annotateSourceInfo(term, getSourceRange(port));
         } else {
-          SNLScalarTerm::create(design, direction, NLName(portName));
+          auto term = SNLScalarTerm::create(design, direction, NLName(portName));
+          annotateSourceInfo(term, getSourceRange(port));
         }
       }
     }
@@ -258,19 +456,25 @@ class SNLSVConstructorImpl {
         if (sym.kind == SymbolKind::Net || sym.kind == SymbolKind::Variable) {
           const auto& valueSym = sym.as<ValueSymbol>();
           std::string name(valueSym.name);
-          getOrCreateNet(design, name, valueSym.getType());
+          if (design->getNet(NLName(name))) {
+            continue;
+          }
+          auto net = getOrCreateNet(design, name, valueSym.getType());
+          annotateSourceInfo(net, getSourceRange(valueSym));
         }
       }
     }
 
     SNLInstance* createGateInstance(SNLDesign* design, const NLDB0::GateType& type,
-                                    const std::vector<SNLNet*>& inputNets, SNLNet*& outNet) {
+                                    const std::vector<SNLNet*>& inputNets, SNLNet*& outNet,
+                                    const std::optional<slang::SourceRange>& sourceRange = std::nullopt) {
       if (inputNets.empty()) {
         return nullptr;
       }
       if (type.isNInput()) {
         auto gate = NLDB0::getOrCreateNInputGate(type, inputNets.size());
         auto inst = SNLInstance::create(design, gate);
+        annotateSourceInfo(inst, sourceRange);
         auto inputs = NLDB0::getGateNTerms(gate);
         auto output = NLDB0::getGateSingleTerm(gate);
         if (!inputs || !output) {
@@ -288,6 +492,7 @@ class SNLSVConstructorImpl {
         }
         if (!outNet) {
           outNet = SNLScalarNet::create(design);
+          annotateSourceInfo(outNet, sourceRange);
         }
         if (auto outTerm = inst->getInstTerm(output)) {
           outTerm->setNet(outNet);
@@ -300,6 +505,7 @@ class SNLSVConstructorImpl {
         }
         auto gate = NLDB0::getOrCreateNOutputGate(type, 1);
         auto inst = SNLInstance::create(design, gate);
+        annotateSourceInfo(inst, sourceRange);
         auto input = NLDB0::getGateSingleTerm(gate);
         auto outputs = NLDB0::getGateNTerms(gate);
         if (!input || !outputs) {
@@ -310,6 +516,7 @@ class SNLSVConstructorImpl {
         }
         if (!outNet) {
           outNet = SNLScalarNet::create(design);
+          annotateSourceInfo(outNet, sourceRange);
         }
         if (auto outBit = outputs->getBitAtPosition(0)) {
           if (auto outTerm = inst->getInstTerm(outBit)) {
@@ -321,9 +528,14 @@ class SNLSVConstructorImpl {
       return nullptr;
     }
 
-    SNLInstance* createAssignInstance(SNLDesign* design, SNLNet* inNet, SNLNet* outNet) {
+    SNLInstance* createAssignInstance(
+      SNLDesign* design,
+      SNLNet* inNet,
+      SNLNet* outNet,
+      const std::optional<slang::SourceRange>& sourceRange = std::nullopt) {
       auto assignGate = NLDB0::getAssign();
       auto assignInst = SNLInstance::create(design, assignGate);
+      annotateSourceInfo(assignInst, sourceRange);
       auto assignInput = NLDB0::getAssignInput();
       auto assignOutput = NLDB0::getAssignOutput();
       if (assignInput) {
@@ -339,7 +551,11 @@ class SNLSVConstructorImpl {
       return assignInst;
     }
 
-    bool createDirectAssign(SNLDesign* design, SNLNet* rhsNet, SNLNet* lhsNet) {
+    bool createDirectAssign(
+      SNLDesign* design,
+      SNLNet* rhsNet,
+      SNLNet* lhsNet,
+      const std::optional<slang::SourceRange>& sourceRange = std::nullopt) {
       if (!rhsNet || !lhsNet) {
         return false;
       }
@@ -348,7 +564,7 @@ class SNLSVConstructorImpl {
         if (!rhsScalar) {
           return false;
         }
-        createAssignInstance(design, rhsScalar, lhsScalar);
+        createAssignInstance(design, rhsScalar, lhsScalar, sourceRange);
         return true;
       }
       auto lhsBus = dynamic_cast<SNLBusNet*>(lhsNet);
@@ -370,7 +586,7 @@ class SNLSVConstructorImpl {
         auto lhsNetBit = lhsBus->getBit(lhsBit);
         auto rhsNetBit = rhsBus->getBit(rhsBit);
         if (lhsNetBit && rhsNetBit) {
-          createAssignInstance(design, rhsNetBit, lhsNetBit);
+          createAssignInstance(design, rhsNetBit, lhsNetBit, sourceRange);
         }
         lhsDesc ? --lhsBit : ++lhsBit;
         rhsDesc ? --rhsBit : ++rhsBit;
@@ -461,7 +677,11 @@ class SNLSVConstructorImpl {
       return dynamic_cast<const SNLScalarNet*>(net) != nullptr;
     }
 
-    SNLNet* getOrCreateNamedNet(SNLDesign* design, const std::string& baseName, const SNLNet* like) {
+    SNLNet* getOrCreateNamedNet(
+      SNLDesign* design,
+      const std::string& baseName,
+      const SNLNet* like,
+      const std::optional<slang::SourceRange>& sourceRange = std::nullopt) {
       auto name = baseName.empty() ? std::string("tmp") : baseName;
       int suffix = 0;
       while (true) {
@@ -471,13 +691,17 @@ class SNLSVConstructorImpl {
           }
         } else {
           if (auto likeBus = dynamic_cast<const SNLBusNet*>(like)) {
-            return SNLBusNet::create(
+            auto net = SNLBusNet::create(
               design,
               likeBus->getMSB(),
               likeBus->getLSB(),
               NLName(name));
+            annotateSourceInfo(net, sourceRange);
+            return net;
           }
-          return SNLScalarNet::create(design, NLName(name));
+          auto net = SNLScalarNet::create(design, NLName(name));
+          annotateSourceInfo(net, sourceRange);
+          return net;
         }
         name = baseName + "_" + std::to_string(suffix++);
       }
@@ -489,10 +713,11 @@ class SNLSVConstructorImpl {
       const NLDB0::GateType& type,
       SNLNet* in0,
       SNLNet* in1,
-      SNLBitNet* outNet = nullptr) {
+      SNLBitNet* outNet = nullptr,
+      const std::optional<slang::SourceRange>& sourceRange = std::nullopt) {
       std::vector<SNLNet*> inputs { in0, in1 };
       SNLNet* gateOutNet = outNet;
-      createGateInstance(design, type, inputs, gateOutNet);
+      createGateInstance(design, type, inputs, gateOutNet, sourceRange);
       return gateOutNet;
     }
 
@@ -500,10 +725,11 @@ class SNLSVConstructorImpl {
       SNLDesign* design,
       const NLDB0::GateType& type,
       SNLNet* in0,
-      SNLBitNet* outNet = nullptr) {
+      SNLBitNet* outNet = nullptr,
+      const std::optional<slang::SourceRange>& sourceRange = std::nullopt) {
       std::vector<SNLNet*> inputs { in0 };
       SNLNet* gateOutNet = outNet;
-      createGateInstance(design, type, inputs, gateOutNet);
+      createGateInstance(design, type, inputs, gateOutNet, sourceRange);
       return gateOutNet;
     }
 
@@ -512,7 +738,8 @@ class SNLSVConstructorImpl {
       SNLBitNet* select,
       SNLBitNet* inA,
       SNLBitNet* inB,
-      SNLBitNet* outNet) {
+      SNLBitNet* outNet,
+      const std::optional<slang::SourceRange>& sourceRange = std::nullopt) {
       if (!design || !select || !inA || !inB || !outNet) {
         return false;
       }
@@ -521,6 +748,7 @@ class SNLSVConstructorImpl {
         return false;
       }
       auto inst = SNLInstance::create(design, mux2);
+      annotateSourceInfo(inst, sourceRange);
       auto aTerm = NLDB0::getMux2InputA();
       auto bTerm = NLDB0::getMux2InputB();
       auto sTerm = NLDB0::getMux2Select();
@@ -543,19 +771,49 @@ class SNLSVConstructorImpl {
       return true;
     }
 
-    SNLNet* createMux(SNLDesign* design, SNLNet* sel, SNLNet* a, SNLNet* b) {
+    SNLNet* createMux(
+      SNLDesign* design,
+      SNLNet* sel,
+      SNLNet* a,
+      SNLNet* b,
+      const std::optional<slang::SourceRange>& sourceRange = std::nullopt) {
       auto one = getConstNet(design, true);
-      auto selNot = createBinaryGate(design, NLDB0::GateType(NLDB0::GateType::Xor), sel, one);
-      auto t0 = createBinaryGate(design, NLDB0::GateType(NLDB0::GateType::And), selNot, a);
-      auto t1 = createBinaryGate(design, NLDB0::GateType(NLDB0::GateType::And), sel, b);
-      return createBinaryGate(design, NLDB0::GateType(NLDB0::GateType::Or), t0, t1);
+      auto selNot = createBinaryGate(
+        design,
+        NLDB0::GateType(NLDB0::GateType::Xor),
+        sel,
+        one,
+        nullptr,
+        sourceRange);
+      auto t0 = createBinaryGate(
+        design,
+        NLDB0::GateType(NLDB0::GateType::And),
+        selNot,
+        a,
+        nullptr,
+        sourceRange);
+      auto t1 = createBinaryGate(
+        design,
+        NLDB0::GateType(NLDB0::GateType::And),
+        sel,
+        b,
+        nullptr,
+        sourceRange);
+      return createBinaryGate(
+        design,
+        NLDB0::GateType(NLDB0::GateType::Or),
+        t0,
+        t1,
+        nullptr,
+        sourceRange);
     }
 
     std::vector<SNLBitNet*> buildIncrementer(
       SNLDesign* design,
       const std::vector<SNLBitNet*>& inBits,
       const std::vector<SNLBitNet*>* sumOutBits = nullptr,
-      const std::vector<SNLBitNet*>* carryOutBits = nullptr) {
+      const std::vector<SNLBitNet*>* carryOutBits = nullptr,
+      const std::optional<slang::SourceRange>& sourceRange = std::nullopt) {
       std::vector<SNLBitNet*> sumBits;
       sumBits.reserve(inBits.size());
       const bool useSumOut = sumOutBits && sumOutBits->size() == inBits.size();
@@ -565,13 +823,20 @@ class SNLSVConstructorImpl {
         auto bit = inBits[i];
         auto sumOut = useSumOut ? (*sumOutBits)[i] : nullptr;
         auto carryOut = useCarryOut ? (*carryOutBits)[i] : nullptr;
-        auto sum = createBinaryGate(design, NLDB0::GateType(NLDB0::GateType::Xor), bit, carry, sumOut);
+        auto sum = createBinaryGate(
+          design,
+          NLDB0::GateType(NLDB0::GateType::Xor),
+          bit,
+          carry,
+          sumOut,
+          sourceRange);
         auto nextCarry = createBinaryGate(
           design,
           NLDB0::GateType(NLDB0::GateType::And),
           bit,
           carry,
-          carryOut);
+          carryOut,
+          sourceRange);
         sumBits.push_back(static_cast<SNLBitNet*>(sum));
         carry = nextCarry;
       }
@@ -773,12 +1038,13 @@ class SNLSVConstructorImpl {
       const AssignAction& action,
       SNLNet* lhsNet,
       const std::vector<SNLBitNet*>& lhsBits,
-      const std::vector<SNLBitNet*>* incrementerBits = nullptr) {
+      const std::vector<SNLBitNet*>* incrementerBits = nullptr,
+      const std::optional<slang::SourceRange>& sourceRange = std::nullopt) {
       if (action.increment) {
         if (incrementerBits && !incrementerBits->empty()) {
           return *incrementerBits;
         }
-        return buildIncrementer(design, lhsBits);
+        return buildIncrementer(design, lhsBits, nullptr, nullptr, sourceRange);
       }
       if (action.rhs) {
         const auto* rhsExpr = stripConversions(*action.rhs);
@@ -797,13 +1063,13 @@ class SNLSVConstructorImpl {
               if (incrementerBits && !incrementerBits->empty()) {
                 return *incrementerBits;
               }
-              return buildIncrementer(design, lhsBits);
+              return buildIncrementer(design, lhsBits, nullptr, nullptr, sourceRange);
             }
             if (rightNet == lhsNet && leftNet && getConstantBit(bin.left(), constOne) && constOne) {
               if (incrementerBits && !incrementerBits->empty()) {
                 return *incrementerBits;
               }
-              return buildIncrementer(design, lhsBits);
+              return buildIncrementer(design, lhsBits, nullptr, nullptr, sourceRange);
             }
           }
         }
@@ -836,12 +1102,18 @@ class SNLSVConstructorImpl {
       return nullptr;
     }
 
-    void createDFFInstance(SNLDesign* design, SNLNet* clkNet, SNLNet* dNet, SNLNet* qNet) {
+    void createDFFInstance(
+      SNLDesign* design,
+      SNLNet* clkNet,
+      SNLNet* dNet,
+      SNLNet* qNet,
+      const std::optional<slang::SourceRange>& sourceRange = std::nullopt) {
       auto dff = NLDB0::getDFF();
       if (!dff) {
         return;
       }
       auto inst = SNLInstance::create(design, dff);
+      annotateSourceInfo(inst, sourceRange);
       auto cTerm = NLDB0::getDFFClock();
       auto dTerm = NLDB0::getDFFData();
       auto qTerm = NLDB0::getDFFOutput();
@@ -868,6 +1140,7 @@ class SNLSVConstructorImpl {
           continue;
         }
         const auto& block = sym.as<slang::ast::ProceduralBlockSymbol>();
+        auto blockSourceRange = getSourceRange(block);
         if (block.procedureKind != slang::ast::ProceduralBlockKind::AlwaysFF &&
             block.procedureKind != slang::ast::ProceduralBlockKind::Always) {
           continue;
@@ -882,6 +1155,7 @@ class SNLSVConstructorImpl {
           }
         }
         stmt = stmt ? unwrapStatement(*stmt) : nullptr;
+        auto statementSourceRange = stmt ? getSourceRange(*stmt) : blockSourceRange;
 
         SNLBitNet* clkNet = nullptr;
         if (timing) {
@@ -915,6 +1189,22 @@ class SNLSVConstructorImpl {
           baseName = lhsNet->getName().getString();
         }
 
+        auto getActionSourceRange = [&](const AssignAction& action) {
+          if (action.rhs) {
+            return getSourceRange(*action.rhs);
+          }
+          return statementSourceRange;
+        };
+        auto defaultSourceRange = chain.hasDefault
+          ? getActionSourceRange(chain.defaultAction)
+          : statementSourceRange;
+        auto enableSourceRange = chain.enableCond
+          ? getSourceRange(*chain.enableCond)
+          : statementSourceRange;
+        auto resetSourceRange = chain.resetCond
+          ? getSourceRange(*chain.resetCond)
+          : statementSourceRange;
+
         auto needsIncrementer = [&](const AssignAction& action) -> bool {
           if (action.increment) {
             return true;
@@ -945,20 +1235,44 @@ class SNLSVConstructorImpl {
         std::vector<SNLBitNet*> incrementerBits;
         if (needsIncrementer(chain.resetAction) || needsIncrementer(chain.enableAction) ||
             (chain.hasDefault && needsIncrementer(chain.defaultAction))) {
-          auto incNet = getOrCreateNamedNet(design, joinName("inc", baseName), lhsNet);
+          auto incNet = getOrCreateNamedNet(
+            design,
+            joinName("inc", baseName),
+            lhsNet,
+            statementSourceRange);
           auto incBits = collectBits(incNet);
-          auto incCarryNet = getOrCreateNamedNet(design, joinName("inc_carry", baseName), lhsNet);
+          auto incCarryNet = getOrCreateNamedNet(
+            design,
+            joinName("inc_carry", baseName),
+            lhsNet,
+            statementSourceRange);
           auto carryBits = collectBits(incCarryNet);
           if (incBits.size() == lhsBits.size() && carryBits.size() == lhsBits.size()) {
-            incrementerBits = buildIncrementer(design, lhsBits, &incBits, &carryBits);
+            incrementerBits = buildIncrementer(
+              design,
+              lhsBits,
+              &incBits,
+              &carryBits,
+              statementSourceRange);
           } else {
-            incrementerBits = buildIncrementer(design, lhsBits);
+            incrementerBits = buildIncrementer(
+              design,
+              lhsBits,
+              nullptr,
+              nullptr,
+              statementSourceRange);
           }
         }
 
         std::vector<SNLBitNet*> defaultBits;
         if (chain.hasDefault) {
-          defaultBits = buildAssignBits(design, chain.defaultAction, lhsNet, lhsBits, &incrementerBits);
+          defaultBits = buildAssignBits(
+            design,
+            chain.defaultAction,
+            lhsNet,
+            lhsBits,
+            &incrementerBits,
+            defaultSourceRange);
           if (defaultBits.empty()) {
             continue;
           }
@@ -968,7 +1282,13 @@ class SNLSVConstructorImpl {
 
         std::vector<SNLBitNet*> enableBits;
         if (chain.enableCond) {
-          enableBits = buildAssignBits(design, chain.enableAction, lhsNet, lhsBits, &incrementerBits);
+          enableBits = buildAssignBits(
+            design,
+            chain.enableAction,
+            lhsNet,
+            lhsBits,
+            &incrementerBits,
+            getActionSourceRange(chain.enableAction));
           if (enableBits.empty()) {
             continue;
           }
@@ -976,7 +1296,13 @@ class SNLSVConstructorImpl {
 
         std::vector<SNLBitNet*> resetBits;
         if (chain.resetCond) {
-          resetBits = buildAssignBits(design, chain.resetAction, lhsNet, lhsBits, &incrementerBits);
+          resetBits = buildAssignBits(
+            design,
+            chain.resetAction,
+            lhsNet,
+            lhsBits,
+            &incrementerBits,
+            getActionSourceRange(chain.resetAction));
           if (resetBits.empty()) {
             continue;
           }
@@ -988,16 +1314,31 @@ class SNLSVConstructorImpl {
           if (!enableNet) {
             continue;
           }
-          auto enNet = getOrCreateNamedNet(design, joinName("en", baseName), lhsNet);
+          auto enNet = getOrCreateNamedNet(
+            design,
+            joinName("en", baseName),
+            lhsNet,
+            enableSourceRange);
           auto enBits = collectBits(enNet);
           if (enBits.size() != dataBits.size()) {
             continue;
           }
           for (size_t i = 0; i < dataBits.size(); ++i) {
-            if (!createMux2Instance(design, enableNet, dataBits[i], enableBits[i], enBits[i])) {
-              auto muxed = createMux(design, enableNet, dataBits[i], enableBits[i]);
+            if (!createMux2Instance(
+                  design,
+                  enableNet,
+                  dataBits[i],
+                  enableBits[i],
+                  enBits[i],
+                  enableSourceRange)) {
+              auto muxed = createMux(
+                design,
+                enableNet,
+                dataBits[i],
+                enableBits[i],
+                enableSourceRange);
               if (muxed && enBits[i]) {
-                createAssignInstance(design, muxed, enBits[i]);
+                createAssignInstance(design, muxed, enBits[i], enableSourceRange);
               }
             }
           }
@@ -1009,16 +1350,31 @@ class SNLSVConstructorImpl {
           if (!resetNet) {
             continue;
           }
-          auto rstNet = getOrCreateNamedNet(design, joinName("rst", baseName), lhsNet);
+          auto rstNet = getOrCreateNamedNet(
+            design,
+            joinName("rst", baseName),
+            lhsNet,
+            resetSourceRange);
           auto rstBits = collectBits(rstNet);
           if (rstBits.size() != dataBits.size()) {
             continue;
           }
           for (size_t i = 0; i < dataBits.size(); ++i) {
-            if (!createMux2Instance(design, resetNet, dataBits[i], resetBits[i], rstBits[i])) {
-              auto muxed = createMux(design, resetNet, dataBits[i], resetBits[i]);
+            if (!createMux2Instance(
+                  design,
+                  resetNet,
+                  dataBits[i],
+                  resetBits[i],
+                  rstBits[i],
+                  resetSourceRange)) {
+              auto muxed = createMux(
+                design,
+                resetNet,
+                dataBits[i],
+                resetBits[i],
+                resetSourceRange);
               if (muxed && rstBits[i]) {
-                createAssignInstance(design, muxed, rstBits[i]);
+                createAssignInstance(design, muxed, rstBits[i], resetSourceRange);
               }
             }
           }
@@ -1026,7 +1382,7 @@ class SNLSVConstructorImpl {
         }
 
         for (size_t i = 0; i < lhsBits.size(); ++i) {
-          createDFFInstance(design, clkNet, dataBits[i], lhsBits[i]);
+          createDFFInstance(design, clkNet, dataBits[i], lhsBits[i], statementSourceRange);
         }
       }
     }
@@ -1042,6 +1398,7 @@ class SNLSVConstructorImpl {
           continue;
         }
         const auto& assignExpr = assignment.as<slang::ast::AssignmentExpression>();
+        auto assignSourceRange = getSourceRange(assignExpr);
         auto lhsNet = resolveExpressionNet(design, assignExpr.left());
         if (!lhsNet) {
           continue;
@@ -1121,11 +1478,21 @@ class SNLSVConstructorImpl {
           if (gateOutName.empty()) {
             gateOutName = gateType->getString();
           }
-          SNLNet* gateOutNet = getOrCreateNamedNet(design, gateOutName, lhsNet);
-          if (!createGateInstance(design, *gateType, inputNets, gateOutNet) || !gateOutNet) {
+          SNLNet* gateOutNet = getOrCreateNamedNet(
+            design,
+            gateOutName,
+            lhsNet,
+            assignSourceRange);
+          if (!createGateInstance(
+                design,
+                *gateType,
+                inputNets,
+                gateOutNet,
+                assignSourceRange) ||
+              !gateOutNet) {
             continue;
           }
-          createAssignInstance(design, gateOutNet, lhsNet);
+          createAssignInstance(design, gateOutNet, lhsNet, assignSourceRange);
           continue;
         }
 
@@ -1133,7 +1500,7 @@ class SNLSVConstructorImpl {
         if (!rhsNet) {
           continue;
         }
-        createDirectAssign(design, rhsNet, lhsNet);
+        createDirectAssign(design, rhsNet, lhsNet, assignSourceRange);
       }
     }
 
@@ -1151,6 +1518,7 @@ class SNLSVConstructorImpl {
           } else {
             net = SNLScalarNet::create(design, NLName(name));
           }
+          SNLAttributes::cloneAttributes(term, net);
         }
         term->setNet(net);
       }
@@ -1167,6 +1535,7 @@ class SNLSVConstructorImpl {
           design,
           modelDesign,
           NLName(std::string(instance.name)));
+        annotateSourceInfo(inst, getSourceRange(instance));
         connectInstance(inst, instance);
       }
     }
@@ -1224,6 +1593,7 @@ class SNLSVConstructorImpl {
 
   private:
     NLLibrary* library_ {nullptr};
+    SNLSVConstructor::ConstructOptions options_ {};
     std::unordered_map<SNLDesign*, SNLScalarNet*> const0Nets_ {};
     std::unordered_map<SNLDesign*, SNLScalarNet*> const1Nets_ {};
     std::unique_ptr<slang::ast::Compilation> compilation_;
@@ -1237,12 +1607,20 @@ SNLSVConstructor::SNLSVConstructor(NLLibrary* library):
 {}
 
 void SNLSVConstructor::construct(const Paths& paths) {
-  SNLSVConstructorImpl impl(library_);
-  impl.construct(paths);
+  construct(paths, ConstructOptions{});
 }
 
 void SNLSVConstructor::construct(const std::filesystem::path& path) {
-  construct(Paths{path});
+  construct(path, ConstructOptions{});
+}
+
+void SNLSVConstructor::construct(const Paths& paths, const ConstructOptions& options) {
+  SNLSVConstructorImpl impl(library_, options);
+  impl.construct(paths);
+}
+
+void SNLSVConstructor::construct(const std::filesystem::path& path, const ConstructOptions& options) {
+  construct(Paths{path}, options);
 }
 
 }  // namespace naja::NL

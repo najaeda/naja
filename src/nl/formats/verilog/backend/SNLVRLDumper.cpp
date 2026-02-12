@@ -278,10 +278,11 @@ void SNLVRLDumper::dumpAttributes(const NLObject* object, std::ostream& o) {
     o << "(* ";
     o << attribute.getName().getString();
     if (attribute.hasValue()) {
+      o << "=";
       if (attribute.getValue().isString()) {
-        o << "=\"";
+        o << "\"";
       }
-      o << "=" << attribute.getValue().getString();
+      o << attribute.getValue().getString();
       if (attribute.getValue().isString()) {
         o << "\"";
       }
