@@ -252,14 +252,14 @@ std::string DNLInstanceFull::getFullPath() const {
 }
 
 SNLPath DNLInstanceFull::getPath() const {
-  std::vector<std::string> path;
+  std::vector<naja::NL::NLID::DesignObjectID> pathIDs;
   naja::DNL::DNLInstanceFull currentInstance = *this;
   while (currentInstance.isTop() == false) {
-    path.push_back(currentInstance.getSNLInstance()->getName().getString());
+    pathIDs.push_back(currentInstance.getSNLInstance()->getID());
     currentInstance = currentInstance.getParentInstance();
   }
-  std::reverse(path.begin(), path.end());
-  SNLPath snlPath(NLUniverse::get()->getTopDesign(), path);
+  std::reverse(pathIDs.begin(), pathIDs.end());
+  SNLPath snlPath(NLUniverse::get()->getTopDesign(), pathIDs);
   return snlPath;
 }
 
