@@ -16,6 +16,42 @@ jobs:
 
     steps:
     - uses: actions/checkout@v5
+      with:
+        submodules: true
+
+    - name: Set up Python
+      uses: actions/setup-python@v6
+      with:
+        python-version: "3.12"
+
+    - name: Install build dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -yq libboost-dev libfl-dev capnproto libcapnp-dev libtbb-dev
+
+    - name: Configure CMake
+      run: |
+        cmake -B ${{ github.workspace }}/build \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DENABLE_SANITIZERS=OFF \
+          -DLONG_TESTS=OFF \
+          -DPython3_EXECUTABLE=$(which python3)
+
+    - name: Build naja Python module
+      run: cmake --build ${{ github.workspace }}/build --target naja --config Release -j$(nproc)
+
+    - name: Prepare najaeda Python package for script execution
+      run: |
+        mkdir -p ${{ github.workspace }}/build/test/najaeda
+        cp -R ${{ github.workspace }}/src/najaeda/najaeda ${{ github.workspace }}/build/test/najaeda/
+        ln -sf ${{ github.workspace }}/build/src/nl/python/naja_wrapping/naja.so \
+          ${{ github.workspace }}/build/test/najaeda/najaeda/naja.so
+
+    - name: Generate Verilog from SystemVerilog with najaeda
+      env:
+        PYTHONPATH: ${{ github.workspace }}/build/test/najaeda
+      run: |
+        python3 ${{ github.workspace }}/test/nl/formats/systemverilog/benchmarks/generate_najaeda_verilog.py
 
     - name: Simulate SV benchmarks
       run: |
@@ -24,3 +60,22 @@ jobs:
           --entrypoint /bin/bash \
           verilator/verilator:v5.022 \
           -c "cd /work/test/nl/formats/systemverilog/benchmarks && make sim"
+
+    - name: Simulate generated Verilog benchmarks
+      run: |
+        docker run --rm \
+          -v ${{ github.workspace }}:/work \
+          --entrypoint /bin/bash \
+          verilator/verilator:v5.022 \
+          -c 'set -euo pipefail
+              cd /work/test/nl/formats/systemverilog/benchmarks
+              primitives_sv=../najaeda_primitives.v
+              for bench in simple up_counter param_inst; do
+                case "$bench" in
+                  simple) generated_sv=simple_naja.v ;;
+                  up_counter) generated_sv=up_counter_naja.v ;;
+                  param_inst) generated_sv=param_inst_naja.v ;;
+                esac
+                make -C "$bench" clean
+                make -C "$bench" sim SV="$generated_sv $primitives_sv"
+              done'

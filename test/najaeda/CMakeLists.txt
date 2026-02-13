@@ -23,5 +23,5 @@ add_test(NAME najaeda-python-tests
 #add_dependencies(naja-python-tests simulate_package_structure)
 
 set_tests_properties(najaeda-python-tests PROPERTIES
-    ENVIRONMENT "PYTHONPATH=${CMAKE_CURRENT_BINARY_DIR};VERILOG_BENCHMARKS_PATH=${CMAKE_SOURCE_DIR}/test/nl/formats/verilog/benchmarks;LIBERTY_BENCHMARKS_PATH=${CMAKE_SOURCE_DIR}/test/nl/formats/liberty/benchmarks;NAJAEDA_TEST_PATH=${CMAKE_CURRENT_BINARY_DIR};NAJAEDA_SOURCE_TEST_PATH=${CMAKE_CURRENT_SOURCE_DIR}"
+    ENVIRONMENT "PYTHONPATH=${CMAKE_CURRENT_BINARY_DIR};VERILOG_BENCHMARKS_PATH=${CMAKE_SOURCE_DIR}/test/nl/formats/verilog/benchmarks;SYSTEMVERILOG_BENCHMARKS_PATH=${CMAKE_SOURCE_DIR}/test/nl/formats/systemverilog/benchmarks;LIBERTY_BENCHMARKS_PATH=${CMAKE_SOURCE_DIR}/test/nl/formats/liberty/benchmarks;NAJAEDA_TEST_PATH=${CMAKE_CURRENT_BINARY_DIR};NAJAEDA_SOURCE_TEST_PATH=${CMAKE_CURRENT_SOURCE_DIR}"
 )

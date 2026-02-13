@@ -21,6 +21,8 @@ class NajaNetlistTestErrors(unittest.TestCase):
     def test_missing_verilog(self):
         self.assertRaises(Exception, netlist.load_verilog)
         self.assertRaises(Exception, netlist.load_verilog, [])
+        self.assertRaises(Exception, netlist.load_systemverilog)
+        self.assertRaises(Exception, netlist.load_systemverilog, [])
 
     def test_width_mismatch(self):
         top = netlist.create_top('Top')
