@@ -7,6 +7,8 @@
 
 #include <fstream>
 #include <sstream>
+#include <memory>
+#include <vector>
 
 #include "YosysLibertyParser.h"
 
@@ -100,7 +102,6 @@ void parseTerms(
           }
         }
       }
-      bool foundDirection = false;
       SNLScalarTerm* constructedScalarTerm = nullptr;
       SNLBusTerm* constructedBusTerm = nullptr;
       auto directionNode = child->find("direction");
