@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # Shared Verilator simulation rules for SV benchmarks.
 # Each benchmark Makefile defines TOP, SV, TB then includes this file.
 

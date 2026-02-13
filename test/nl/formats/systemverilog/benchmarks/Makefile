@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+#
+# SPDX-License-Identifier: Apache-2.0
+
 BENCHMARKS := simple up_counter param_inst
 
 .PHONY: sim clean $(BENCHMARKS)
