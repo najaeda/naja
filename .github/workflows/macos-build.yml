@@ -31,7 +31,7 @@ jobs:
       run: |
         brew uninstall --ignore-dependencies cmake || true
         brew untap homebrew/local || true
-        brew install cmake doxygen capnp tbb bison flex boost
+        brew install cmake doxygen capnp tbb bison flex boost zlib
 
     - name: Install llvm (macos-14)
       if: matrix.os == 'macos-14'
@@ -55,12 +55,20 @@ jobs:
           echo "Homebrew llvm not found"
           exit 1
         fi
+        if [ -d /opt/homebrew/opt/zlib ]; then
+          ZLIB_ROOT=/opt/homebrew/opt/zlib
+        elif [ -d /usr/local/opt/zlib ]; then
+          ZLIB_ROOT=/usr/local/opt/zlib
+        else
+          echo "Homebrew zlib not found"
+          exit 1
+        fi
         echo "$LLVM_PREFIX/bin" >> $GITHUB_PATH
         echo "LLVM_PREFIX=$LLVM_PREFIX" >> $GITHUB_ENV
+        echo "ZLIB_ROOT=$ZLIB_ROOT" >> $GITHUB_ENV
         echo "CC=$LLVM_PREFIX/bin/clang" >> $GITHUB_ENV
         echo "CXX=$LLVM_PREFIX/bin/clang++" >> $GITHUB_ENV
         # Homebrew clang on macOS needs explicit Homebrew libc++ link path.
-        echo "CPPFLAGS=-isystem $LLVM_PREFIX/include/c++/v1" >> $GITHUB_ENV
         echo "LDFLAGS=-L$LLVM_PREFIX/lib/c++ -Wl,-rpath,$LLVM_PREFIX/lib/c++" >> $GITHUB_ENV
 
     - name: Configure CMake (macos-14 llvm)
@@ -70,10 +78,7 @@ jobs:
           -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
           -DCMAKE_C_COMPILER=$CC \
           -DCMAKE_CXX_COMPILER=$CXX \
-          -DCMAKE_CXX_FLAGS="-stdlib=libc++ $CPPFLAGS" \
-          -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS -stdlib=libc++" \
-          -DCMAKE_SHARED_LINKER_FLAGS="$LDFLAGS -stdlib=libc++" \
-          -DCMAKE_MODULE_LINKER_FLAGS="$LDFLAGS -stdlib=libc++" \
+          -DZLIB_ROOT=$ZLIB_ROOT \
           -DLONG_TESTS=ON \
           -DENABLE_SANITIZERS=OFF
 
