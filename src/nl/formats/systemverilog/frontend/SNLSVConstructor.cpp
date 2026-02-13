@@ -771,6 +771,34 @@ class SNLSVConstructorImpl {
       return true;
     }
 
+    bool createFAInstance(
+      SNLDesign* design,
+      SNLBitNet* inA,
+      SNLBitNet* inB,
+      SNLBitNet* inCI,
+      SNLBitNet*& outS,
+      SNLBitNet*& outCO,
+      const std::optional<slang::SourceRange>& sourceRange = std::nullopt) {
+      auto fa = NLDB0::getFA();
+      if (!fa) { return false; }
+      auto inst = SNLInstance::create(design, fa);
+      annotateSourceInfo(inst, sourceRange);
+      if (auto t = NLDB0::getFAInputA())  { if (auto it = inst->getInstTerm(t)) it->setNet(inA); }
+      if (auto t = NLDB0::getFAInputB())  { if (auto it = inst->getInstTerm(t)) it->setNet(inB); }
+      if (auto t = NLDB0::getFAInputCI()) { if (auto it = inst->getInstTerm(t)) it->setNet(inCI); }
+      if (!outS) {
+        outS = static_cast<SNLBitNet*>(SNLScalarNet::create(design));
+        annotateSourceInfo(outS, sourceRange);
+      }
+      if (!outCO) {
+        outCO = static_cast<SNLBitNet*>(SNLScalarNet::create(design));
+        annotateSourceInfo(outCO, sourceRange);
+      }
+      if (auto t = NLDB0::getFAOutputS())  { if (auto it = inst->getInstTerm(t)) it->setNet(outS); }
+      if (auto t = NLDB0::getFAOutputCO()) { if (auto it = inst->getInstTerm(t)) it->setNet(outCO); }
+      return true;
+    }
+
     SNLNet* createMux(
       SNLDesign* design,
       SNLNet* sel,
@@ -818,27 +846,15 @@ class SNLSVConstructorImpl {
       sumBits.reserve(inBits.size());
       const bool useSumOut = sumOutBits && sumOutBits->size() == inBits.size();
       const bool useCarryOut = carryOutBits && carryOutBits->size() == inBits.size();
-      SNLNet* carry = getConstNet(design, true);
+      // Incrementing by 1: FA(A=bit, B=0, CI=carry), CI_lsb=1
+      auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
+      auto* carry   = static_cast<SNLBitNet*>(getConstNet(design, true));
       for (size_t i = 0; i < inBits.size(); ++i) {
-        auto bit = inBits[i];
-        auto sumOut = useSumOut ? (*sumOutBits)[i] : nullptr;
-        auto carryOut = useCarryOut ? (*carryOutBits)[i] : nullptr;
-        auto sum = createBinaryGate(
-          design,
-          NLDB0::GateType(NLDB0::GateType::Xor),
-          bit,
-          carry,
-          sumOut,
-          sourceRange);
-        auto nextCarry = createBinaryGate(
-          design,
-          NLDB0::GateType(NLDB0::GateType::And),
-          bit,
-          carry,
-          carryOut,
-          sourceRange);
-        sumBits.push_back(static_cast<SNLBitNet*>(sum));
-        carry = nextCarry;
+        SNLBitNet* sumNet   = useSumOut   ? (*sumOutBits)[i]   : nullptr;
+        SNLBitNet* carryNet = useCarryOut ? (*carryOutBits)[i] : nullptr;
+        createFAInstance(design, inBits[i], const0, carry, sumNet, carryNet, sourceRange);
+        sumBits.push_back(sumNet);
+        carry = carryNet;
       }
       return sumBits;
     }

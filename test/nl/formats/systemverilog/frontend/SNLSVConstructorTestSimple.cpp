@@ -197,7 +197,7 @@ TEST_F(SNLSVConstructorTestSimple, parseUpCounter) {
       }
       continue;
     }
-    if (NLDB0::isGate(model)) {
+    if (NLDB0::isGate(model) || NLDB0::isFA(model)) {
       ++gateCount;
     }
   }
