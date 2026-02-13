@@ -15,6 +15,7 @@ add_library(naja_snl_systemverilog STATIC ${SOURCES})
 set_property(TARGET naja_snl_systemverilog PROPERTY POSITION_INDEPENDENT_CODE ON)
 
 target_link_libraries(naja_snl_systemverilog naja_nl slang::slang)
+add_dependencies(naja_snl_systemverilog slang_external)
 
 target_include_directories(naja_snl_systemverilog PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/frontend)
