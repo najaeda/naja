@@ -56,12 +56,26 @@ jobs:
           exit 1
         fi
         echo "$LLVM_PREFIX/bin" >> $GITHUB_PATH
+        echo "LLVM_PREFIX=$LLVM_PREFIX" >> $GITHUB_ENV
         echo "CC=$LLVM_PREFIX/bin/clang" >> $GITHUB_ENV
         echo "CXX=$LLVM_PREFIX/bin/clang++" >> $GITHUB_ENV
+        # Homebrew clang on macOS needs explicit Homebrew libc++ link path.
+        echo "CPPFLAGS=-isystem $LLVM_PREFIX/include/c++/v1" >> $GITHUB_ENV
+        echo "LDFLAGS=-L$LLVM_PREFIX/lib/c++ -Wl,-rpath,$LLVM_PREFIX/lib/c++" >> $GITHUB_ENV
 
     - name: Configure CMake (macos-14 llvm)
       if: matrix.os == 'macos-14'
-      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_C_COMPILER=$CC -DCMAKE_CXX_COMPILER=$CXX -DLONG_TESTS=ON -DENABLE_SANITIZERS=OFF
+      run: |
+        cmake -B ${{github.workspace}}/build \
+          -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
+          -DCMAKE_C_COMPILER=$CC \
+          -DCMAKE_CXX_COMPILER=$CXX \
+          -DCMAKE_CXX_FLAGS="-stdlib=libc++ $CPPFLAGS" \
+          -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS -stdlib=libc++" \
+          -DCMAKE_SHARED_LINKER_FLAGS="$LDFLAGS -stdlib=libc++" \
+          -DCMAKE_MODULE_LINKER_FLAGS="$LDFLAGS -stdlib=libc++" \
+          -DLONG_TESTS=ON \
+          -DENABLE_SANITIZERS=OFF
 
     - name: Configure CMake
       if: matrix.os != 'macos-14'
