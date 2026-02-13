@@ -64,7 +64,7 @@ class SNLSVConstructorTestSimple: public ::testing::Test {
 TEST_F(SNLSVConstructorTestSimple, parseSimpleModule) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
-  constructor.construct(benchmarksPath/"simple.sv");
+  constructor.construct(benchmarksPath/"simple"/"simple.sv");
 
   auto top = library_->getSNLDesign(NLName("top"));
   ASSERT_NE(top, nullptr);
@@ -154,7 +154,7 @@ TEST_F(SNLSVConstructorTestSimple, parseUpCounter) {
   auto jsonPath = outPath / "up_counter_elaborated_ast.json";
   SNLSVConstructor::ConstructOptions options;
   options.elaboratedASTJsonPath = jsonPath;
-  constructor.construct(benchmarksPath/"up_counter.sv", options);
+  constructor.construct(benchmarksPath/"up_counter"/"up_counter.sv", options);
 
   auto top = library_->getSNLDesign(NLName("up_counter"));
   ASSERT_NE(top, nullptr);
@@ -233,7 +233,7 @@ TEST_F(SNLSVConstructorTestSimple, parseSimpleModuleDumpElaboratedASTJson) {
   auto jsonPath = outPath / "simple_elaborated_ast.json";
   SNLSVConstructor::ConstructOptions options;
   options.elaboratedASTJsonPath = jsonPath;
-  constructor.construct(benchmarksPath / "simple.sv", options);
+  constructor.construct(benchmarksPath / "simple" / "simple.sv", options);
 
   ASSERT_TRUE(std::filesystem::exists(jsonPath));
   std::ifstream jsonFile(jsonPath);

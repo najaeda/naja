@@ -1,0 +1,26 @@
+name: SV Simulation
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  simulate:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v5
+
+    - name: Simulate SV benchmarks
+      run: |
+        docker run --rm \
+          -v ${{ github.workspace }}:/work \
+          --entrypoint /bin/bash \
+          verilator/verilator:v5.022 \
+          -c "cd /work/test/nl/formats/systemverilog/benchmarks && make sim"
