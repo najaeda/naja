@@ -150,6 +150,28 @@ class SNLDBTest(unittest.TestCase):
     self.assertEqual(0, a.getLSB())
     self.assertEqual(2, a.getWidth())
 
+  def testSystemVerilog(self):
+    u = naja.NLUniverse.get()
+    db = naja.NLDB.create(u)
+    self.assertIsNotNone(u)
+    formats_path = os.environ.get('FORMATS_PATH')
+    self.assertIsNotNone(formats_path)
+    sv_file = os.path.join(formats_path, "systemverilog", "benchmarks", "simple", "simple.sv")
+    output_path = os.environ.get('SNL_WRAPPING_TEST_PATH')
+    self.assertIsNotNone(output_path)
+    json_path = os.path.join(output_path, "simple_elaborated_ast_python.json")
+
+    top = db.loadSystemVerilog([sv_file], elaborated_ast_json_path=json_path)
+    self.assertIsNotNone(top)
+    self.assertEqual("top", top.getName())
+    self.assertEqual(3, sum(1 for _ in top.getTerms()))
+    self.assertTrue(os.path.exists(json_path))
+
+    db.destroy()
+    db = naja.NLDB.create(u)
+    top = db.loadSystemVerilog([sv_file], keep_assigns=False)
+    self.assertIsNotNone(top)
+
   def testDestroy(self):
     u = naja.NLUniverse.get()
     self.assertIsNotNone(u)
@@ -172,7 +194,13 @@ class SNLDBTest(unittest.TestCase):
     primitivesNoExtension = [os.path.join(liberty_path, "benchmarks/asap7_excerpt/test0")]
     primitivesCorrect = [os.path.join(liberty_path, "benchmarks/asap7_excerpt/test0.lib")]
     primitivesWrongExtension = [os.path.join(liberty_path, "benchmarks/asap7_excerpt/test0.sd")]
+    systemverilog_path = os.path.join(formats_path, "systemverilog")
+    svFile = os.path.join(systemverilog_path, "benchmarks/simple/simple.sv")
     with self.assertRaises(RuntimeError) as context: db.loadVerilog("Error", "Error")
+    with self.assertRaises(RuntimeError) as context: db.loadSystemVerilog("Error")
+    with self.assertRaises(RuntimeError) as context: db.loadSystemVerilog(designs)
+    with self.assertRaises(RuntimeError) as context: db.loadSystemVerilog([1])
+    with self.assertRaises(RuntimeError) as context: db.loadSystemVerilog([svFile], elaborated_ast_json_path=1)
     with self.assertRaises(RuntimeError) as context: db.loadLibertyPrimitives("Error", "Error")
     with self.assertRaises(RuntimeError) as context: db.loadVerilog("Error")
     with self.assertRaises(RuntimeError) as context: db.loadLibertyPrimitives("Error")

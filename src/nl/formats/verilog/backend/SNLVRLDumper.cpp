@@ -181,17 +181,6 @@ void dumpRange(ContiguousNetBits& bits, bool& firstElement, bool& concatenation,
   }
 }
 
-std::string getBitNetString(const naja::NL::SNLBitNet* bitNet) {
-  if (auto scalarNet = dynamic_cast<const naja::NL::SNLScalarNet*>(bitNet)) {
-    return dumpName(scalarNet->getName().getString());
-  } else {
-    auto busNetBit = static_cast<const naja::NL::SNLBusNetBit*>(bitNet);
-    auto bus = busNetBit->getBus();
-    auto busName = dumpName(bus->getName().getString());
-    return busName + "[" + std::to_string(busNetBit->getBit()) + "]";
-  }
-}
-
 }
 
 namespace naja::NL {
@@ -262,15 +251,38 @@ NLName SNLVRLDumper::getNetName(const SNLNet* net, const DesignInsideAnonymousNa
   }
 }
 
+std::string SNLVRLDumper::getBitNetString(
+  const SNLBitNet* bitNet,
+  const DesignInsideAnonymousNaming& naming) {
+  if (!bitNet) {
+    return "DUMMY";
+  }
+  if (bitNet->isAssign0()) {
+    return "1'b0";
+  }
+  if (bitNet->isAssign1()) {
+    return "1'b1";
+  }
+  if (auto scalarNet = dynamic_cast<const SNLScalarNet*>(bitNet)) {
+    auto netName = getNetName(scalarNet, naming);
+    return dumpName(netName.getString());
+  }
+  auto busNetBit = static_cast<const SNLBusNetBit*>(bitNet);
+  auto bus = busNetBit->getBus();
+  auto busName = getNetName(bus, naming);
+  return dumpName(busName.getString()) + "[" + std::to_string(busNetBit->getBit()) + "]";
+}
+
 void SNLVRLDumper::dumpAttributes(const NLObject* object, std::ostream& o) {
   for (const auto& attribute: SNLAttributes::getAttributes(object)) {
     o << "(* ";
     o << attribute.getName().getString();
     if (attribute.hasValue()) {
+      o << "=";
       if (attribute.getValue().isString()) {
-        o << "=\"";
+        o << "\"";
       }
-      o << "=" << attribute.getValue().getString();
+      o << attribute.getValue().getString();
       if (attribute.getValue().isString()) {
         o << "\"";
       }
@@ -547,11 +559,7 @@ bool SNLVRLDumper::dumpInstance(
         o << ", ";
       }
       auto net = instTerm->getNet();
-      if (net) {
-        o << getBitNetString(net);
-      } else {
-        o << "DUMMY";
-      }
+      o << getBitNetString(net, naming);
     }
     o << ");";
     o << std::endl;
@@ -566,9 +574,9 @@ bool SNLVRLDumper::dumpInstance(
       } else if (inputNet->isConstant1()) {
         inputNetString = "1'b1";
       } else {
-        inputNetString = getBitNetString(inputNet);
+        inputNetString = getBitNetString(inputNet, naming);
       }
-      auto outputNetString = getBitNetString(outputNet);
+      auto outputNetString = getBitNetString(outputNet, naming);
       o << "assign " << outputNetString << " = " << inputNetString << ";" << std::endl;
       return true;
     } else {

@@ -1853,6 +1853,14 @@ class VerilogConfig:
             )
 
 
+@dataclass
+class SystemVerilogConfig:
+    keep_assigns: bool = True
+    elaborated_ast_json_path: str = None
+    pretty_print_elaborated_ast_json: bool = True
+    include_source_info_in_elaborated_ast_json: bool = True
+
+
 def load_verilog(files: Union[str, List[str]], config: VerilogConfig = None) -> Instance:
     """Load verilog files into the top design.
 
@@ -1880,6 +1888,42 @@ def load_verilog(files: Union[str, List[str]], config: VerilogConfig = None) -> 
     execution_time = time.time() - start_time
     logging.info(f"Loading done in {execution_time:.2f} seconds")
     return get_top()
+
+
+def load_systemverilog(
+        files: Union[str, List[str]],
+        config: SystemVerilogConfig = None) -> Instance:
+    """Load SystemVerilog files into the top design.
+
+    :param files: a list of SystemVerilog files to load or a single file.
+    :param config: the configuration to use when loading the files.
+    :return: the top Instance.
+    :rtype: Instance
+    :raises Exception: if no files are provided.
+    """
+    if isinstance(files, str):
+        files = [files]
+    if not files or len(files) == 0:
+        raise Exception("No systemverilog files provided")
+    if config is None:
+        config = SystemVerilogConfig()
+    start_time = time.time()
+    logging.info(f"Loading systemverilog: {', '.join(files)}")
+    __get_top_db().loadSystemVerilog(
+        files,
+        keep_assigns=config.keep_assigns,
+        elaborated_ast_json_path=config.elaborated_ast_json_path,
+        pretty_print_elaborated_ast_json=config.pretty_print_elaborated_ast_json,
+        include_source_info_in_elaborated_ast_json=(
+            config.include_source_info_in_elaborated_ast_json),
+    )
+    execution_time = time.time() - start_time
+    logging.info(f"Loading done in {execution_time:.2f} seconds")
+    return get_top()
+
+
+# Compatibility alias for Python naming preference.
+load_system_verilog = load_systemverilog
 
 
 def load_liberty(files: Union[str, List[str]]):
