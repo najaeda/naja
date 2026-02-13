@@ -32,13 +32,39 @@ jobs:
         brew uninstall --ignore-dependencies cmake || true
         brew untap homebrew/local || true
         brew install cmake doxygen capnp tbb bison flex boost
+
+    - name: Install llvm (macos-14)
+      if: matrix.os == 'macos-14'
+      # Added after slang integration: use Homebrew LLVM on macos-14 for full build compatibility.
+      run: brew install llvm
     
     - name: set env variable
       run: |
         echo "/usr/local/opt/flex/bin" >> $GITHUB_PATH; echo "/usr/local/opt/bison/bin" >> $GITHUB_PATH;
         echo "/opt/homebrew/opt/flex/bin" >> $GITHUB_PATH; echo "/opt/homebrew/opt/bison/bin" >> $GITHUB_PATH
 
+    - name: Set llvm toolchain (macos-14)
+      if: matrix.os == 'macos-14'
+      # Added after slang integration: build all targets with LLVM instead of AppleClang on macos-14.
+      run: |
+        if [ -x /opt/homebrew/opt/llvm/bin/clang ]; then
+          LLVM_PREFIX=/opt/homebrew/opt/llvm
+        elif [ -x /usr/local/opt/llvm/bin/clang ]; then
+          LLVM_PREFIX=/usr/local/opt/llvm
+        else
+          echo "Homebrew llvm not found"
+          exit 1
+        fi
+        echo "$LLVM_PREFIX/bin" >> $GITHUB_PATH
+        echo "CC=$LLVM_PREFIX/bin/clang" >> $GITHUB_ENV
+        echo "CXX=$LLVM_PREFIX/bin/clang++" >> $GITHUB_ENV
+
+    - name: Configure CMake (macos-14 llvm)
+      if: matrix.os == 'macos-14'
+      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_C_COMPILER=$CC -DCMAKE_CXX_COMPILER=$CXX -DLONG_TESTS=ON -DENABLE_SANITIZERS=OFF
+
     - name: Configure CMake
+      if: matrix.os != 'macos-14'
       run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DLONG_TESTS=ON -DENABLE_SANITIZERS=OFF
 
     - name: Build
