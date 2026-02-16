@@ -4,6 +4,7 @@
 
 add_subdirectory(yosys-liberty)
 add_subdirectory(naja-verilog)
+add_subdirectory(slang)
 add_subdirectory(googletest EXCLUDE_FROM_ALL)
 if (NOT BUILD_EMSCRIPTEN AND NOT BUILD_NAJA_PYTHON)
   add_subdirectory(lefdef EXCLUDE_FROM_ALL)
