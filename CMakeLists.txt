@@ -102,6 +102,9 @@ if(NOT BUILD_ONLY_DOC)
   else()
     find_package(Python3 3.9...<3.99 COMPONENTS Interpreter Development.Module REQUIRED)
   endif()
+  # Keep the exact interpreter used during configure and reuse it in test commands.
+  set(NAJA_PYTHON_EXECUTABLE "${Python3_EXECUTABLE}" CACHE INTERNAL "Python interpreter for Naja tests")
+  message(STATUS "Naja test Python interpreter: ${NAJA_PYTHON_EXECUTABLE}")
 endif(NOT BUILD_ONLY_DOC)
 
 if(PROJECT_IS_TOP_LEVEL AND NOT BUILD_NAJA_PYTHON)
