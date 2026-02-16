@@ -120,29 +120,29 @@ jobs:
             cibw_arch: aarch64
 
           # MacOS arm64
-          - os: macos-14
+          - os: macos-15
             python: 39
             platform_id: macosx_arm64
-          - os: macos-14
+          - os: macos-15
             python: 310
             platform_id: macosx_arm64
-          - os: macos-14
+          - os: macos-15
             python: 311
             platform_id: macosx_arm64
-          - os: macos-14
+          - os: macos-15
             python: 312
             platform_id: macosx_arm64
-          - os: macos-14
+          - os: macos-15
             python: 313
             platform_id: macosx_arm64
-          - os: macos-14
+          - os: macos-15
             python: 313t
             platform_id: macosx_arm64
             free_threaded_support: True
-          - os: macos-14
+          - os: macos-15
             python: 314
             platform_id: macosx_arm64
-          - os: macos-14
+          - os: macos-15
             python: 314t
             platform_id: macosx_arm64
             free_threaded_support: True
@@ -197,6 +197,7 @@ jobs:
         env:
           CIBW_ENABLE: ${{ matrix.free_threaded_support && 'cpython-freethreading' || '' }}
           CIBW_ENVIRONMENT: SKLEARN_SKIP_NETWORK_TESTS=1
+          CIBW_ENVIRONMENT_MACOS: SKLEARN_SKIP_NETWORK_TESTS=1 MACOSX_DEPLOYMENT_TARGET=11.0
           CIBW_BUILD: cp${{ matrix.python }}-${{ matrix.platform_id }}
           CIBW_ARCHS: 'all'
           CIBW_MANYLINUX_X86_64_IMAGE: ${{ matrix.manylinux_image }}
@@ -237,6 +238,42 @@ jobs:
           CIBW_TEST_COMMAND_WINDOWS: >
             pwsh -NoProfile -NonInteractive -ExecutionPolicy Bypass -File {project}\ci\windows_test.ps1
         run: python -m cibuildwheel --output-dir wheelhouse
+      - name: Verify macOS wheel compatibility tag
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+
+          wheels=(wheelhouse/*.whl)
+          if [ ${#wheels[@]} -eq 0 ]; then
+            echo "No wheels found in wheelhouse/"
+            exit 1
+          fi
+
+          unexpected=0
+          for wheel in "${wheels[@]}"; do
+            filename="$(basename "$wheel")"
+
+            if [[ "$filename" != *macosx_11_0_arm64.whl ]]; then
+              echo "Unexpected macOS wheel tag (expected macosx_11_0_arm64): $filename"
+              unexpected=1
+            fi
+
+            if [[ "$filename" =~ macosx_([0-9]+)_([0-9]+)_arm64 ]]; then
+              major="${BASH_REMATCH[1]}"
+              minor="${BASH_REMATCH[2]}"
+              if (( major > 11 || (major == 11 && minor > 0) )); then
+                echo "Unsupported macOS baseline tag detected (>=12.0): $filename"
+                unexpected=1
+              fi
+            fi
+          done
+
+          if [ "$unexpected" -ne 0 ]; then
+            echo "macOS wheel compatibility check failed."
+            exit 1
+          fi
       #Reminder!!: actions/upload-artifact and actions/download-artifact
       #need to have same version
       - uses: actions/upload-artifact@v4
