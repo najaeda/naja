@@ -49,14 +49,6 @@ endif()
 
 ######
 
-if(APPLE)
-  # ExternalProject slang installs to the build tree; add its lib dir once to
-  # build-time rpath so test discovery executables can load libsvlang.<major>.dylib.
-  list(APPEND CMAKE_BUILD_RPATH
-    "${CMAKE_BINARY_DIR}/thirdparty/slang-install/${CMAKE_INSTALL_LIBDIR}")
-  list(REMOVE_DUPLICATES CMAKE_BUILD_RPATH)
-endif()
-
 set(CMAKE_CXX_STANDARD 20)
 
 option(BUILD_ONLY_DOC "Only configure to build Doxygen documentation" OFF)
