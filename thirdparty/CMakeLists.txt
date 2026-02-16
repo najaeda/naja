@@ -4,6 +4,9 @@
 
 add_subdirectory(yosys-liberty)
 add_subdirectory(naja-verilog)
+# libnaja_python is dlopened by Python; on musl (Alpine), slang+mimalloc can
+# trigger "initial-exec TLS resolves to dynamic definition" relocation errors.
+set(SLANG_USE_MIMALLOC OFF CACHE BOOL "Disable mimalloc in embedded slang" FORCE)
 set(SLANG_PIC_ON ON CACHE BOOL "Enable position independent code for slang" FORCE)
 add_subdirectory(slang)
 add_subdirectory(googletest EXCLUDE_FROM_ALL)
