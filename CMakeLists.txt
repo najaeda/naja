@@ -86,7 +86,14 @@ if(ENABLE_SANITIZERS)
 endif(ENABLE_SANITIZERS)
 
 if(NOT BUILD_ONLY_DOC)
-  find_package(Boost REQUIRED)
+  # Do not call find_package(Boost) here because thirdparty/slang can
+  # intentionally provide its own Boost::headers target fallback when Boost
+  # >= 1.87 is unavailable. Creating Boost::headers in the top-level project
+  # causes a target-name collision in that fallback path.
+  find_path(Boost_INCLUDE_DIR
+    NAMES boost/version.hpp
+    REQUIRED)
+  set(Boost_INCLUDE_DIRS "${Boost_INCLUDE_DIR}")
   find_package(TBB REQUIRED)
   find_package(CapnProto REQUIRED)
   find_package(ZLIB REQUIRED)
