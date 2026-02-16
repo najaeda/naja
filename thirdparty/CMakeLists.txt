@@ -4,7 +4,7 @@
 
 add_subdirectory(yosys-liberty)
 add_subdirectory(naja-verilog)
-set(SLANG_INCLUDE_PYLIB ON CACHE BOOL "Include pyslang in thirdparty/slang build" FORCE)
+set(SLANG_PIC_ON ON CACHE BOOL "Enable position independent code for slang" FORCE)
 add_subdirectory(slang)
 add_subdirectory(googletest EXCLUDE_FROM_ALL)
 if (NOT BUILD_EMSCRIPTEN AND NOT BUILD_NAJA_PYTHON)
