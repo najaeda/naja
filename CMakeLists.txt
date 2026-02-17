@@ -20,6 +20,11 @@ endif()
 include(GNUInstallDirs)
 
 option(BUILD_NAJA_PYTHON "Build Naja Python package" OFF)
+if(BUILD_NAJA_PYTHON AND WIN32)
+  # Make imported targets from find_package() globally visible so parent
+  # directories can consume fmt exported by thirdparty/slang.
+  set(CMAKE_FIND_PACKAGE_TARGETS_GLOBAL TRUE)
+endif()
 
 #RPATH settings
 if(BUILD_NAJA_PYTHON)
@@ -141,6 +146,17 @@ endif()
 
 if(NOT BUILD_ONLY_DOC)
   add_subdirectory(thirdparty)
+  add_library(naja_fmt INTERFACE)
+  if(BUILD_NAJA_PYTHON AND WIN32)
+    if(TARGET fmt AND NOT TARGET fmt::fmt)
+      add_library(fmt::fmt ALIAS fmt)
+    endif()
+    if(NOT TARGET fmt::fmt)
+      message(FATAL_ERROR "Expected fmt target (fmt::fmt) for Windows Python build")
+    endif()
+    target_link_libraries(naja_fmt INTERFACE fmt::fmt)
+    target_compile_definitions(naja_fmt INTERFACE SPDLOG_FMT_EXTERNAL)
+  endif()
   add_subdirectory(src)
   if(PROJECT_IS_TOP_LEVEL AND BUILD_BENCHMARKS)
     add_subdirectory(bench)
