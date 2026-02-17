@@ -51,7 +51,7 @@ add_library(naja_core STATIC ${SOURCES})
 set_property(TARGET naja_core PROPERTY POSITION_INDEPENDENT_CODE ON)
 #target_link_libraries(naja_core PUBLIC cpptrace::cpptrace coverage_config sanitizers_config)
 target_link_libraries(naja_core PUBLIC coverage_config sanitizers_config)
-if(BUILD_NAJA_PYTHON)
+if(BUILD_NAJA_PYTHON AND WIN32)
   target_compile_definitions(naja_core PUBLIC SPDLOG_FMT_EXTERNAL)
 endif()
 
