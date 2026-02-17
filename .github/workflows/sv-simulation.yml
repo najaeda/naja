@@ -61,7 +61,7 @@ jobs:
           verilator/verilator:v5.022 \
           -c 'set -euo pipefail
               cd /work/test/nl/formats/systemverilog/benchmarks
-              for bench in simple up_counter param_inst binary_ops_supported; do
+              for bench in simple up_counter param_inst binary_ops_supported byte_ports; do
                 make -C "$bench" clean
                 make -C "$bench" sim
               done'
@@ -75,11 +75,13 @@ jobs:
           -c 'set -euo pipefail
               cd /work/test/nl/formats/systemverilog/benchmarks
               primitives_sv=../najaeda_primitives.v
-              for bench in simple up_counter param_inst; do
+              for bench in simple up_counter param_inst binary_ops_supported byte_ports; do
                 case "$bench" in
                   simple) generated_sv=simple_naja.v ;;
                   up_counter) generated_sv=up_counter_naja.v ;;
                   param_inst) generated_sv=param_inst_naja.v ;;
+                  binary_ops_supported) generated_sv=binary_ops_supported_naja.v ;;
+                  byte_ports) generated_sv=byte_ports_naja.v ;;
                 esac
                 make -C "$bench" clean
                 make -C "$bench" sim SV="$generated_sv $primitives_sv"

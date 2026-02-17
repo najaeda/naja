@@ -12,6 +12,8 @@ BENCHMARKS = (
     ("simple/simple.sv", "simple/simple_naja.v"),
     ("up_counter/up_counter.sv", "up_counter/up_counter_naja.v"),
     ("param_inst/param_inst.sv", "param_inst/param_inst_naja.v"),
+    ("binary_ops_supported/binary_ops_supported.sv", "binary_ops_supported/binary_ops_supported_naja.v"),
+    ("byte_ports/byte_ports.sv", "byte_ports/byte_ports_naja.v"),
 )
 
 

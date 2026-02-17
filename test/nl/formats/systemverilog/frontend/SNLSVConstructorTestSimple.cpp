@@ -11,6 +11,7 @@
 
 #include "NLUniverse.h"
 #include "NLDB0.h"
+#include "SNLBusNet.h"
 #include "SNLBusTerm.h"
 #include "SNLBusTermBit.h"
 #include "SNLAttributes.h"
@@ -141,6 +142,45 @@ TEST_F(SNLSVConstructorTestSimple, parseSimpleModule) {
   EXPECT_EQ(andIn0->getNet(), aBitNet);
   EXPECT_EQ(andIn1->getNet(), bBitNet);
   EXPECT_EQ(assignInTerm->getNet(), andOut->getNet());
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseBytePortsInferRangeFromWidth) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "byte_ports";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+  constructor.construct(benchmarksPath / "byte_ports" / "byte_ports.sv");
+
+  auto top = library_->getSNLDesign(NLName("byte_ports_top"));
+  ASSERT_NE(top, nullptr);
+
+  auto aTerm = top->getBusTerm(NLName("a"));
+  auto yTerm = top->getBusTerm(NLName("y"));
+  ASSERT_NE(aTerm, nullptr);
+  ASSERT_NE(yTerm, nullptr);
+  EXPECT_EQ(8, aTerm->getWidth());
+  EXPECT_EQ(8, yTerm->getWidth());
+  EXPECT_EQ(7, aTerm->getMSB());
+  EXPECT_EQ(0, aTerm->getLSB());
+  EXPECT_EQ(7, yTerm->getMSB());
+  EXPECT_EQ(0, yTerm->getLSB());
+
+  auto aNet = top->getBusNet(NLName("a"));
+  auto yNet = top->getBusNet(NLName("y"));
+  ASSERT_NE(aNet, nullptr);
+  ASSERT_NE(yNet, nullptr);
+  EXPECT_EQ(8, aNet->getWidth());
+  EXPECT_EQ(8, yNet->getWidth());
+
+  SNLVRLDumper dumper;
+  dumper.setTopFileName(top->getName().getString() + ".v");
+  dumper.setSingleFile(true);
+  dumper.dumpDesign(top, outPath);
+  EXPECT_TRUE(std::filesystem::exists(outPath / "byte_ports_top.v"));
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseBinaryOperatorsSupported) {
