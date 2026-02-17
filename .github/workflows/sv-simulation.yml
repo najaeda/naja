@@ -59,7 +59,12 @@ jobs:
           -v ${{ github.workspace }}:/work \
           --entrypoint /bin/bash \
           verilator/verilator:v5.022 \
-          -c "cd /work/test/nl/formats/systemverilog/benchmarks && make sim"
+          -c 'set -euo pipefail
+              cd /work/test/nl/formats/systemverilog/benchmarks
+              for bench in simple up_counter param_inst binary_ops_supported; do
+                make -C "$bench" clean
+                make -C "$bench" sim
+              done'
 
     - name: Simulate generated Verilog benchmarks
       run: |

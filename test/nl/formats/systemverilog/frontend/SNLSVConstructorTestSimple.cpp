@@ -4,6 +4,7 @@
 
 #include "gtest/gtest.h"
 
+#include <array>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
@@ -23,6 +24,7 @@
 #include "SNLVRLDumper.h"
 
 #include "SNLSVConstructor.h"
+#include "SNLSVConstructorException.h"
 
 using namespace naja::NL;
 
@@ -139,6 +141,88 @@ TEST_F(SNLSVConstructorTestSimple, parseSimpleModule) {
   EXPECT_EQ(andIn0->getNet(), aBitNet);
   EXPECT_EQ(andIn1->getNet(), bBitNet);
   EXPECT_EQ(assignInTerm->getNet(), andOut->getNet());
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseBinaryOperatorsSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "binary_ops_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+  constructor.construct(benchmarksPath / "binary_ops_supported" / "binary_ops_supported.sv");
+
+  auto top = library_->getSNLDesign(NLName("binary_ops_supported_top"));
+  ASSERT_NE(top, nullptr);
+  const std::array<const char*, 4> supportedBinaryOpOutputs{
+    "y_and",
+    "y_or",
+    "y_xor",
+    "y_xnor"};
+  for (const auto* output : supportedBinaryOpOutputs) {
+    auto net = top->getNet(NLName(output));
+    ASSERT_NE(net, nullptr);
+    auto bitNet = dynamic_cast<SNLBitNet*>(net);
+    ASSERT_NE(bitNet, nullptr);
+    EXPECT_FALSE(bitNet->getInstTerms().empty());
+  }
+
+  size_t andGateCount = 0;
+  size_t orGateCount = 0;
+  size_t xorGateCount = 0;
+  size_t xnorGateCount = 0;
+  size_t otherGateCount = 0;
+  size_t assignCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (NLDB0::isAssign(inst->getModel())) {
+      ++assignCount;
+      continue;
+    }
+    if (!NLDB0::isGate(inst->getModel())) {
+      continue;
+    }
+    auto gateName = NLDB0::getGateName(inst->getModel());
+    if (gateName == "and") {
+      ++andGateCount;
+    } else if (gateName == "or") {
+      ++orGateCount;
+    } else if (gateName == "xor") {
+      ++xorGateCount;
+    } else if (gateName == "xnor") {
+      ++xnorGateCount;
+    } else {
+      ++otherGateCount;
+    }
+  }
+
+  EXPECT_EQ(1u, andGateCount);
+  EXPECT_EQ(1u, orGateCount);
+  EXPECT_EQ(1u, xorGateCount);
+  EXPECT_EQ(1u, xnorGateCount);
+  EXPECT_EQ(0u, otherGateCount);
+  EXPECT_EQ(supportedBinaryOpOutputs.size(), assignCount);
+  EXPECT_EQ(8u, top->getInstances().size());
+
+  SNLVRLDumper dumper;
+  dumper.setTopFileName(top->getName().getString() + ".v");
+  dumper.setSingleFile(true);
+  dumper.dumpDesign(top, outPath);
+  EXPECT_TRUE(std::filesystem::exists(outPath / "binary_ops_supported_top.v"));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseBinaryOperatorsUnsupportedFails) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  try {
+    constructor.construct(
+      benchmarksPath / "binary_ops_unsupported" / "binary_ops_unsupported.sv");
+    FAIL() << "Expected unsupported binary operator exception";
+  } catch (const SNLSVConstructorException& e) {
+    const std::string reason = e.what();
+    EXPECT_NE(std::string::npos, reason.find("Unsupported binary operator in continuous assign"));
+  }
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseUpCounter) {

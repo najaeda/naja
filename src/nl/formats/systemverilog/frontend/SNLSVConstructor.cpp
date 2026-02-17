@@ -1071,23 +1071,31 @@ class SNLSVConstructorImpl {
         }
         if (rhsExpr && rhsExpr->kind == slang::ast::ExpressionKind::BinaryOp) {
           const auto& bin = rhsExpr->as<slang::ast::BinaryExpression>();
-          if (bin.op == slang::ast::BinaryOperator::Add) {
-            auto leftNet = resolveExpressionNet(design, bin.left());
-            auto rightNet = resolveExpressionNet(design, bin.right());
-            bool constOne = false;
-            if (leftNet == lhsNet && rightNet && getConstantBit(bin.right(), constOne) && constOne) {
-              if (incrementerBits && !incrementerBits->empty()) {
-                return *incrementerBits;
-              }
-              return buildIncrementer(design, lhsBits, nullptr, nullptr, sourceRange);
-            }
-            if (rightNet == lhsNet && leftNet && getConstantBit(bin.left(), constOne) && constOne) {
-              if (incrementerBits && !incrementerBits->empty()) {
-                return *incrementerBits;
-              }
-              return buildIncrementer(design, lhsBits, nullptr, nullptr, sourceRange);
-            }
+          if (bin.op != slang::ast::BinaryOperator::Add) {
+            std::ostringstream reason;
+            reason << "Unsupported binary operator in sequential assignment: "
+                   << slang::ast::OpInfo::getText(bin.op);
+            throw SNLSVConstructorException(reason.str());
           }
+          auto leftNet = resolveExpressionNet(design, bin.left());
+          auto rightNet = resolveExpressionNet(design, bin.right());
+          bool constOne = false;
+          if (leftNet == lhsNet && rightNet && getConstantBit(bin.right(), constOne) && constOne) {
+            if (incrementerBits && !incrementerBits->empty()) {
+              return *incrementerBits;
+            }
+            return buildIncrementer(design, lhsBits, nullptr, nullptr, sourceRange);
+          }
+          if (rightNet == lhsNet && leftNet && getConstantBit(bin.left(), constOne) && constOne) {
+            if (incrementerBits && !incrementerBits->empty()) {
+              return *incrementerBits;
+            }
+            return buildIncrementer(design, lhsBits, nullptr, nullptr, sourceRange);
+          }
+          std::ostringstream reason;
+          reason << "Unsupported binary expression in sequential assignment: "
+                 << slang::ast::OpInfo::getText(bin.op);
+          throw SNLSVConstructorException(reason.str());
         }
         if (!rhsExpr) {
           return {};
@@ -1430,7 +1438,13 @@ class SNLSVConstructorImpl {
         if (rhs->kind == slang::ast::ExpressionKind::BinaryOp) {
           const auto& binaryExpr = rhs->as<slang::ast::BinaryExpression>();
           gateType = gateTypeFromBinary(binaryExpr.op);
-          if (gateType && !collectBinaryOperands(*rhs, binaryExpr.op, operands)) {
+          if (!gateType) {
+            std::ostringstream reason;
+            reason << "Unsupported binary operator in continuous assign: "
+                   << slang::ast::OpInfo::getText(binaryExpr.op);
+            throw SNLSVConstructorException(reason.str());
+          }
+          if (!collectBinaryOperands(*rhs, binaryExpr.op, operands)) {
             continue;
           }
         } else if (rhs->kind == slang::ast::ExpressionKind::UnaryOp) {
@@ -1450,7 +1464,10 @@ class SNLSVConstructorImpl {
                 gateType = NLDB0::GateType(NLDB0::GateType::Xnor);
                 break;
               default:
-                break;
+                std::ostringstream reason;
+                reason << "Unsupported binary operator under bitwise not in continuous assign: "
+                       << slang::ast::OpInfo::getText(binaryExpr.op);
+                throw SNLSVConstructorException(reason.str());
             }
             if (gateType && !collectBinaryOperands(*operandExpr, binaryExpr.op, operands)) {
               continue;

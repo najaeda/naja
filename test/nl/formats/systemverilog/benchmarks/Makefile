@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-BENCHMARKS := simple up_counter param_inst
+BENCHMARKS := simple up_counter param_inst binary_ops_supported
 
 .PHONY: sim clean $(BENCHMARKS)
 
