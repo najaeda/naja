@@ -192,6 +192,191 @@ std::string getBitNetString(const naja::NL::SNLBitNet* bitNet) {
   }
 }
 
+bool isContiguousBitDelta(const naja::NL::NLID::Bit delta) {
+  return delta == 1 or delta == -1;
+}
+
+bool getAssignConnectivity(
+  const naja::NL::SNLInstance* instance,
+  const naja::NL::SNLBitNet*& inputNet,
+  const naja::NL::SNLBitNet*& outputNet) {
+  inputNet = nullptr;
+  outputNet = nullptr;
+  auto inputTerm = instance->getInstTerm(naja::NL::NLDB0::getAssignInput());
+  auto outputTerm = instance->getInstTerm(naja::NL::NLDB0::getAssignOutput());
+  if (inputTerm and outputTerm) {
+    inputNet = inputTerm->getNet();
+    outputNet = outputTerm->getNet();
+  }
+  return inputNet and outputNet;
+}
+
+bool dumpSingleAssign(
+  const naja::NL::SNLBitNet* inputNet,
+  const naja::NL::SNLBitNet* outputNet,
+  std::ostream& o) {
+  if (not inputNet or not outputNet) {
+    return false;
+  }
+  std::string inputNetString;
+  if (inputNet->isConstant0()) {
+    inputNetString = "1'b0";
+  } else if (inputNet->isConstant1()) {
+    inputNetString = "1'b1";
+  } else {
+    inputNetString = getBitNetString(inputNet);
+  }
+  auto outputNetString = getBitNetString(outputNet);
+  o << "assign " << outputNetString << " = " << inputNetString << ";" << std::endl;
+  return true;
+}
+
+std::string getBusBitRangeString(const std::vector<const naja::NL::SNLBusNetBit*>& bits) {
+  assert(not bits.empty());
+  auto firstBit = bits.front();
+  auto lastBit = bits.back();
+  auto bus = firstBit->getBus();
+  assert(bus == lastBit->getBus());
+  auto busName = dumpName(bus->getName().getString());
+  if (firstBit->getBit() == bus->getMSB() and lastBit->getBit() == bus->getLSB()) {
+    return busName;
+  }
+  if (firstBit->getBit() == lastBit->getBit()) {
+    return busName + "[" + std::to_string(firstBit->getBit()) + "]";
+  }
+  return busName + "[" + std::to_string(firstBit->getBit()) + ":" + std::to_string(lastBit->getBit()) + "]";
+}
+
+std::string getAssignConstantString(const std::vector<const naja::NL::SNLBitNet*>& bits) {
+  assert(not bits.empty());
+  std::string bitString;
+  bitString.reserve(bits.size());
+  for (auto bit: bits) {
+    if (bit->getType() == naja::NL::SNLNet::Type::Assign0) {
+      bitString += "0";
+    } else if (bit->getType() == naja::NL::SNLNet::Type::Assign1) {
+      bitString += "1";
+    } else {
+      throw naja::NL::SNLVRLDumperException("ERROR");
+    }
+  }
+  return std::to_string(bits.size()) + "'b" + bitString;
+}
+
+enum class AssignInputMode {
+  Bus,
+  Constant
+};
+
+struct AssignGroup {
+  AssignInputMode                              inputMode_ {AssignInputMode::Bus};
+  std::vector<const naja::NL::SNLBitNet*>      inputBits_ {};
+  std::vector<const naja::NL::SNLBusNetBit*>   outputBits_{};
+  bool                                          hasOutputStep_{false};
+  naja::NL::NLID::Bit                           outputStep_{0};
+  bool                                          hasInputStep_ {false};
+  naja::NL::NLID::Bit                           inputStep_ {0};
+};
+
+bool initializeAssignGroup(
+  const naja::NL::SNLBitNet* inputNet,
+  const naja::NL::SNLBitNet* outputNet,
+  AssignGroup& group) {
+  auto outputBusBit = dynamic_cast<const naja::NL::SNLBusNetBit*>(outputNet);
+  if (not outputBusBit) {
+    return false;
+  }
+  if (inputNet->isAssignConstant()) {
+    group.inputMode_ = AssignInputMode::Constant;
+  } else {
+    auto inputBusBit = dynamic_cast<const naja::NL::SNLBusNetBit*>(inputNet);
+    if (not inputBusBit) {
+      return false;
+    }
+    group.inputMode_ = AssignInputMode::Bus;
+  }
+  group.inputBits_.push_back(inputNet);
+  group.outputBits_.push_back(outputBusBit);
+  return true;
+}
+
+bool appendAssignGroup(
+  AssignGroup& group,
+  const naja::NL::SNLBitNet* inputNet,
+  const naja::NL::SNLBitNet* outputNet) {
+  auto outputBusBit = dynamic_cast<const naja::NL::SNLBusNetBit*>(outputNet);
+  if (not outputBusBit) {
+    return false;
+  }
+
+  auto previousOutputBit = group.outputBits_.back();
+  if (outputBusBit->getBus() != previousOutputBit->getBus()) {
+    return false;
+  }
+
+  auto outputDelta = outputBusBit->getBit() - previousOutputBit->getBit();
+  if (not isContiguousBitDelta(outputDelta)) {
+    return false;
+  }
+  if (group.hasOutputStep_ and outputDelta != group.outputStep_) {
+    return false;
+  }
+
+  if (group.inputMode_ == AssignInputMode::Constant) {
+    if (not inputNet->isAssignConstant()) {
+      return false;
+    }
+  } else {
+    auto inputBusBit = dynamic_cast<const naja::NL::SNLBusNetBit*>(inputNet);
+    if (not inputBusBit) {
+      return false;
+    }
+    auto previousInputBusBit = static_cast<const naja::NL::SNLBusNetBit*>(group.inputBits_.back());
+    if (inputBusBit->getBus() != previousInputBusBit->getBus()) {
+      return false;
+    }
+    auto inputDelta = inputBusBit->getBit() - previousInputBusBit->getBit();
+    if (not isContiguousBitDelta(inputDelta)) {
+      return false;
+    }
+    if (group.hasInputStep_ and inputDelta != group.inputStep_) {
+      return false;
+    }
+    if (not group.hasInputStep_) {
+      group.inputStep_ = inputDelta;
+      group.hasInputStep_ = true;
+    }
+  }
+
+  if (not group.hasOutputStep_) {
+    group.outputStep_ = outputDelta;
+    group.hasOutputStep_ = true;
+  }
+  group.inputBits_.push_back(inputNet);
+  group.outputBits_.push_back(outputBusBit);
+  return true;
+}
+
+bool dumpAssignGroup(const AssignGroup& group, std::ostream& o) {
+  if (group.outputBits_.size() <= 1) {
+    return false;
+  }
+  auto outputString = getBusBitRangeString(group.outputBits_);
+  std::string inputString;
+  if (group.inputMode_ == AssignInputMode::Constant) {
+    inputString = getAssignConstantString(group.inputBits_);
+  } else {
+    std::vector<const naja::NL::SNLBusNetBit*> inputBits;
+    inputBits.reserve(group.inputBits_.size());
+    for (auto inputBit: group.inputBits_) {
+      inputBits.push_back(static_cast<const naja::NL::SNLBusNetBit*>(inputBit));
+    }
+    inputString = getBusBitRangeString(inputBits);
+  }
+  o << "assign " << outputString << " = " << inputString << ";" << std::endl;
+  return true;
+}
+
 }
 
 namespace naja::NL {
@@ -557,23 +742,12 @@ bool SNLVRLDumper::dumpInstance(
     o << std::endl;
     return true;
   } else if (NLDB0::isAssign(instance->getModel())) {
-    auto inputNet = instance->getInstTerm(NLDB0::getAssignInput())->getNet();
-    auto outputNet = instance->getInstTerm(NLDB0::getAssignOutput())->getNet();
-    if (inputNet and outputNet) {
-      std::string inputNetString;
-      if (inputNet->isConstant0()) {
-        inputNetString = "1'b0";
-      } else if (inputNet->isConstant1()) {
-        inputNetString = "1'b1";
-      } else {
-        inputNetString = getBitNetString(inputNet);
-      }
-      auto outputNetString = getBitNetString(outputNet);
-      o << "assign " << outputNetString << " = " << inputNetString << ";" << std::endl;
-      return true;
-    } else {
+    const SNLBitNet* inputNet = nullptr;
+    const SNLBitNet* outputNet = nullptr;
+    if (not getAssignConnectivity(instance, inputNet, outputNet)) {
       return false;
     }
+    return dumpSingleAssign(inputNet, outputNet, o);
   }
   std::string instanceName;
   if (instance->isUnnamed()) {
@@ -595,11 +769,70 @@ bool SNLVRLDumper::dumpInstance(
 
 void SNLVRLDumper::dumpInstances(const SNLDesign* design, std::ostream& o, DesignInsideAnonymousNaming& naming) {
   bool blankLine = false;
+  auto dumpAssignInstances = [&](const std::vector<const SNLInstance*>& assignInstances) {
+    size_t i = 0;
+    while (i < assignInstances.size()) {
+      const SNLBitNet* inputNet = nullptr;
+      const SNLBitNet* outputNet = nullptr;
+      if (not getAssignConnectivity(assignInstances[i], inputNet, outputNet)) {
+        ++i;
+        continue;
+      }
+      AssignGroup group;
+      if (not initializeAssignGroup(inputNet, outputNet, group)) {
+        if (blankLine) {
+          o << std::endl;
+        }
+        blankLine = dumpSingleAssign(inputNet, outputNet, o);
+        ++i;
+        continue;
+      }
+
+      size_t groupSize = 1;
+      while (i + groupSize < assignInstances.size()) {
+        const SNLBitNet* nextInputNet = nullptr;
+        const SNLBitNet* nextOutputNet = nullptr;
+        if (not getAssignConnectivity(assignInstances[i + groupSize], nextInputNet, nextOutputNet)) {
+          break;
+        }
+        if (not appendAssignGroup(group, nextInputNet, nextOutputNet)) {
+          break;
+        }
+        ++groupSize;
+      }
+
+      if (group.outputBits_.size() > 1) {
+        if (blankLine) {
+          o << std::endl;
+        }
+        blankLine = dumpAssignGroup(group, o);
+      } else {
+        if (blankLine) {
+          o << std::endl;
+        }
+        blankLine = dumpSingleAssign(inputNet, outputNet, o);
+      }
+      i += groupSize;
+    }
+  };
+
+  std::vector<const SNLInstance*> assignInstances;
   for (auto instance: design->getInstances()) {
+    if (NLDB0::isAssign(instance->getModel())) {
+      assignInstances.push_back(instance);
+      continue;
+    }
+    if (not assignInstances.empty()) {
+      dumpAssignInstances(assignInstances);
+      assignInstances.clear();
+    }
     if (blankLine) {
       o << std::endl;
     }
     blankLine = dumpInstance(instance, o, naming);
+  }
+  if (not assignInstances.empty()) {
+    dumpAssignInstances(assignInstances);
   }
 }
 

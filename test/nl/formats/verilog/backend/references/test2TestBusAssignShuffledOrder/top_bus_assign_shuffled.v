@@ -1,0 +1,17 @@
+////////////////////////////////////////////////////////////////////////////////
+#IGNORE#
+#IGNORE#
+#IGNORE#
+#IGNORE#
+////////////////////////////////////////////////////////////////////////////////
+
+module top_bus_assign_shuffled();
+wire [3:0] source_bus;
+wire [3:0] sink_bus;
+
+assign sink_bus[3] = source_bus[3];
+
+assign sink_bus[1:2] = source_bus[1:2];
+
+assign sink_bus[0] = source_bus[0];
+endmodule //top_bus_assign_shuffled
