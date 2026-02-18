@@ -397,9 +397,8 @@ bool appendAssignGroup(
 }
 
 bool dumpAssignGroup(const AssignGroup& group, std::ostream& o) {
-  if (group.outputBits_.size() <= 1) {
-    return false;
-  }
+  assert(group.inputBits_.size() == group.outputBits_.size());
+  assert(group.outputBits_.size() > 1);
   auto inputBits = group.inputBits_;
   auto outputBits = group.outputBits_;
   normalizeAssignGroupOutputOrder(inputBits, outputBits);
@@ -787,14 +786,8 @@ bool SNLVRLDumper::dumpInstance(
     o << ");";
     o << std::endl;
     return true;
-  } else if (NLDB0::isAssign(instance->getModel())) {
-    const SNLBitNet* inputNet = nullptr;
-    const SNLBitNet* outputNet = nullptr;
-    if (not getAssignConnectivity(instance, inputNet, outputNet)) {
-      return false;
-    }
-    return dumpSingleAssign(inputNet, outputNet, o);
   }
+  assert(not NLDB0::isAssign(instance->getModel()));
   std::string instanceName;
   if (instance->isUnnamed()) {
     instanceName = createInstanceName(instance, naming);

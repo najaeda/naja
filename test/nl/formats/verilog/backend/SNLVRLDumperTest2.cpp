@@ -246,6 +246,16 @@ class SNLVRLDumperTest2: public ::testing::Test {
       and2->getInstTerm(and2Inputs->getBitAtPosition(0))->setNet(sinkBusBeforeGate->getBit(0));
       and2->getInstTerm(and2Inputs->getBitAtPosition(1))->setNet(sinkBusBeforeGate->getBit(1));
 
+      SNLDesign* unnamedInstanceModel = SNLDesign::create(library, NLName("unnamed_instance_model"));
+      auto modelInput = SNLScalarTerm::create(unnamedInstanceModel, SNLTerm::Direction::Input, NLName("i"));
+      auto modelOutput = SNLScalarTerm::create(unnamedInstanceModel, SNLTerm::Direction::Output, NLName("o"));
+      SNLDesign* topUnnamedInstanceName = SNLDesign::create(library, NLName("top_unnamed_instance_name"));
+      auto inputNet = SNLScalarNet::create(topUnnamedInstanceName, NLName("input_net"));
+      auto outputNet = SNLScalarNet::create(topUnnamedInstanceName, NLName("output_net"));
+      auto unnamedInstance = SNLInstance::create(topUnnamedInstanceName, unnamedInstanceModel);
+      unnamedInstance->getInstTerm(modelInput)->setNet(inputNet);
+      unnamedInstance->getInstTerm(modelOutput)->setNet(outputNet);
+
     }
     void TearDown() override {
       NLUniverse::get()->destroy();
@@ -722,6 +732,32 @@ TEST_F(SNLVRLDumperTest2, testAssignsBeforeGate) {
 
   std::filesystem::path referencePath(SNL_VRL_DUMPER_REFERENCES_PATH);
   referencePath = referencePath / "test2TestAssignsBeforeGate" / "top_assigns_before_gate.v";
+  ASSERT_TRUE(std::filesystem::exists(referencePath));
+  std::string command = std::string(NAJA_DIFF) + " " + outPath.string() + " " + referencePath.string();
+  EXPECT_FALSE(std::system(command.c_str()));
+}
+
+TEST_F(SNLVRLDumperTest2, testUnnamedInstanceName) {
+  auto lib = db_->getLibrary(NLName("MYLIB"));
+  ASSERT_TRUE(lib);
+  auto top = lib->getSNLDesign(NLName("top_unnamed_instance_name"));
+  ASSERT_TRUE(top);
+
+  std::filesystem::path outPath(SNL_VRL_DUMPER_TEST_PATH);
+  outPath = outPath / "test2TestUnnamedInstanceName";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+  SNLVRLDumper dumper;
+  dumper.setTopFileName(top->getName().getString() + ".v");
+  dumper.setSingleFile(true);
+  dumper.dumpDesign(top, outPath);
+
+  outPath = outPath / (top->getName().getString() + ".v");
+
+  std::filesystem::path referencePath(SNL_VRL_DUMPER_REFERENCES_PATH);
+  referencePath = referencePath / "test2TestUnnamedInstanceName" / "top_unnamed_instance_name.v";
   ASSERT_TRUE(std::filesystem::exists(referencePath));
   std::string command = std::string(NAJA_DIFF) + " " + outPath.string() + " " + referencePath.string();
   EXPECT_FALSE(std::system(command.c_str()));
