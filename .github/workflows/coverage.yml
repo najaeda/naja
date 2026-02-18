@@ -1,4 +1,7 @@
 name: coverage
+# Local equivalent:
+#   ./ci/coverage_local.sh
+# (supports faster local reruns via RUN_CONFIGURE/RUN_BUILD/RUN_TESTS env vars)
 
 on:
   push:

@@ -141,6 +141,13 @@ class SNLVRLDumperTest2: public ::testing::Test {
         assign->getInstTerm(NLDB0::getAssignOutput())->setNet(sinkBusConstReversed->getBit(outputBit));
       }
 
+      SNLDesign* topScalarAssignOutput = SNLDesign::create(library, NLName("top_scalar_assign_output"));
+      auto sourceBusScalarOutput = SNLBusNet::create(topScalarAssignOutput, 1, 0, NLName("source_bus"));
+      auto scalarSink = SNLScalarNet::create(topScalarAssignOutput, NLName("scalar_sink"));
+      auto assignScalarOutput = SNLInstance::create(topScalarAssignOutput, NLDB0::getAssign());
+      assignScalarOutput->getInstTerm(NLDB0::getAssignInput())->setNet(sourceBusScalarOutput->getBit(0));
+      assignScalarOutput->getInstTerm(NLDB0::getAssignOutput())->setNet(scalarSink);
+
       SNLDesign* topAssignsBeforeGate = SNLDesign::create(library, NLName("top_assigns_before_gate"));
       auto sourceBusBeforeGate = SNLBusNet::create(topAssignsBeforeGate, 1, 0, NLName("source_bus"));
       auto sinkBusBeforeGate = SNLBusNet::create(topAssignsBeforeGate, 1, 0, NLName("sink_bus"));
@@ -401,6 +408,32 @@ TEST_F(SNLVRLDumperTest2, testConstAssignReversed) {
 
   std::filesystem::path referencePath(SNL_VRL_DUMPER_REFERENCES_PATH);
   referencePath = referencePath / "test2TestConstAssignReversed" / "top_const_assign_reversed.v";
+  ASSERT_TRUE(std::filesystem::exists(referencePath));
+  std::string command = std::string(NAJA_DIFF) + " " + outPath.string() + " " + referencePath.string();
+  EXPECT_FALSE(std::system(command.c_str()));
+}
+
+TEST_F(SNLVRLDumperTest2, testScalarAssignOutput) {
+  auto lib = db_->getLibrary(NLName("MYLIB"));
+  ASSERT_TRUE(lib);
+  auto top = lib->getSNLDesign(NLName("top_scalar_assign_output"));
+  ASSERT_TRUE(top);
+
+  std::filesystem::path outPath(SNL_VRL_DUMPER_TEST_PATH);
+  outPath = outPath / "test2TestScalarAssignOutput";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+  SNLVRLDumper dumper;
+  dumper.setTopFileName(top->getName().getString() + ".v");
+  dumper.setSingleFile(true);
+  dumper.dumpDesign(top, outPath);
+
+  outPath = outPath / (top->getName().getString() + ".v");
+
+  std::filesystem::path referencePath(SNL_VRL_DUMPER_REFERENCES_PATH);
+  referencePath = referencePath / "test2TestScalarAssignOutput" / "top_scalar_assign_output.v";
   ASSERT_TRUE(std::filesystem::exists(referencePath));
   std::string command = std::string(NAJA_DIFF) + " " + outPath.string() + " " + referencePath.string();
   EXPECT_FALSE(std::system(command.c_str()));

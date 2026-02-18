@@ -292,9 +292,6 @@ std::string getBusBitRangeString(const std::vector<const naja::NL::SNLBusNetBit*
   if (firstBit->getBit() == bus->getMSB() and lastBit->getBit() == bus->getLSB()) {
     return busName;
   }
-  if (firstBit->getBit() == lastBit->getBit()) {
-    return busName + "[" + std::to_string(firstBit->getBit()) + "]";
-  }
   return busName + "[" + std::to_string(firstBit->getBit()) + ":" + std::to_string(lastBit->getBit()) + "]";
 }
 
