@@ -141,6 +141,24 @@ class SNLVRLDumperTest2: public ::testing::Test {
         assign->getInstTerm(NLDB0::getAssignOutput())->setNet(sinkBusConstReversed->getBit(outputBit));
       }
 
+      SNLDesign* topAssignsBeforeGate = SNLDesign::create(library, NLName("top_assigns_before_gate"));
+      auto sourceBusBeforeGate = SNLBusNet::create(topAssignsBeforeGate, 1, 0, NLName("source_bus"));
+      auto sinkBusBeforeGate = SNLBusNet::create(topAssignsBeforeGate, 1, 0, NLName("sink_bus"));
+      auto gateOutBeforeGate = SNLScalarNet::create(topAssignsBeforeGate, NLName("gate_out"));
+      for (int bit = 1; bit >= 0; --bit) {
+        auto assign = SNLInstance::create(topAssignsBeforeGate, NLDB0::getAssign());
+        assign->getInstTerm(NLDB0::getAssignInput())->setNet(sourceBusBeforeGate->getBit(bit));
+        assign->getInstTerm(NLDB0::getAssignOutput())->setNet(sinkBusBeforeGate->getBit(bit));
+      }
+      auto and2 = SNLInstance::create(
+        topAssignsBeforeGate,
+        NLDB0::getOrCreateNInputGate(NLDB0::GateType::And, 2),
+        NLName("and2"));
+      and2->getInstTerm(NLDB0::getGateSingleTerm(and2->getModel()))->setNet(gateOutBeforeGate);
+      auto and2Inputs = NLDB0::getGateNTerms(and2->getModel());
+      and2->getInstTerm(and2Inputs->getBitAtPosition(0))->setNet(sinkBusBeforeGate->getBit(0));
+      and2->getInstTerm(and2Inputs->getBitAtPosition(1))->setNet(sinkBusBeforeGate->getBit(1));
+
     }
     void TearDown() override {
       NLUniverse::get()->destroy();
@@ -383,6 +401,32 @@ TEST_F(SNLVRLDumperTest2, testConstAssignReversed) {
 
   std::filesystem::path referencePath(SNL_VRL_DUMPER_REFERENCES_PATH);
   referencePath = referencePath / "test2TestConstAssignReversed" / "top_const_assign_reversed.v";
+  ASSERT_TRUE(std::filesystem::exists(referencePath));
+  std::string command = std::string(NAJA_DIFF) + " " + outPath.string() + " " + referencePath.string();
+  EXPECT_FALSE(std::system(command.c_str()));
+}
+
+TEST_F(SNLVRLDumperTest2, testAssignsBeforeGate) {
+  auto lib = db_->getLibrary(NLName("MYLIB"));
+  ASSERT_TRUE(lib);
+  auto top = lib->getSNLDesign(NLName("top_assigns_before_gate"));
+  ASSERT_TRUE(top);
+
+  std::filesystem::path outPath(SNL_VRL_DUMPER_TEST_PATH);
+  outPath = outPath / "test2TestAssignsBeforeGate";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+  SNLVRLDumper dumper;
+  dumper.setTopFileName(top->getName().getString() + ".v");
+  dumper.setSingleFile(true);
+  dumper.dumpDesign(top, outPath);
+
+  outPath = outPath / (top->getName().getString() + ".v");
+
+  std::filesystem::path referencePath(SNL_VRL_DUMPER_REFERENCES_PATH);
+  referencePath = referencePath / "test2TestAssignsBeforeGate" / "top_assigns_before_gate.v";
   ASSERT_TRUE(std::filesystem::exists(referencePath));
   std::string command = std::string(NAJA_DIFF) + " " + outPath.string() + " " + referencePath.string();
   EXPECT_FALSE(std::system(command.c_str()));

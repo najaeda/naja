@@ -9,5 +9,5 @@ module top_bus_assign_reversed();
 wire [3:0] source_bus;
 wire [3:0] sink_bus;
 
-assign sink_bus = source_bus[0:3];
+assign sink_bus = {source_bus[0], source_bus[1], source_bus[2], source_bus[3]};
 endmodule //top_bus_assign_reversed

@@ -47,6 +47,18 @@ size_t dumpDirection(const naja::NL::SNLTerm* term, std::ostream& o) {
 }
 
 using ContiguousNetBits = std::vector<naja::NL::SNLBitNet*>;
+
+char getAssignConstantBitValue(const naja::NL::SNLBitNet* bit) {
+  switch (bit->getType()) {
+    case naja::NL::SNLNet::Type::Assign0:
+      return '0';
+    case naja::NL::SNLNet::Type::Assign1:
+      return '1';
+    default:
+      throw naja::NL::SNLVRLDumperException("ERROR"); //LCOV_EXCL_LINE
+  }
+}
+
 void dumpConstantRange(ContiguousNetBits& bits, bool& firstElement, bool& concatenation, std::string& o) {
   if (not bits.empty()) {
     if (not firstElement) {
@@ -57,13 +69,7 @@ void dumpConstantRange(ContiguousNetBits& bits, bool& firstElement, bool& concat
     }
     std::string constantStr;
     for (auto bit: bits) {
-      if (bit->getType() == naja::NL::SNLNet::Type::Assign0) {
-        constantStr += "0";
-      } else if (bit->getType() == naja::NL::SNLNet::Type::Assign1) {
-        constantStr += "1";
-      } else {
-        throw naja::NL::SNLVRLDumperException("ERROR");
-      }
+      constantStr += getAssignConstantBitValue(bit);
     }
     if (constantStr.size() < 4) {
       //binary
@@ -192,6 +198,51 @@ std::string getBitNetString(const naja::NL::SNLBitNet* bitNet) {
   }
 }
 
+std::string getBusBitConcatenationString(const std::vector<const naja::NL::SNLBusNetBit*>& bits) {
+  assert(not bits.empty());
+  std::string concatenation = "{";
+  for (size_t i = 0; i < bits.size(); ++i) {
+    if (i != 0) {
+      concatenation += ", ";
+    }
+    concatenation += getBitNetString(bits[i]);
+  }
+  concatenation += "}";
+  return concatenation;
+}
+
+naja::NL::NLID::Bit getCanonicalRangeStep(const naja::NL::SNLBusNet* bus) {
+  return (bus->getMSB() > bus->getLSB()) ? -1 : 1;
+}
+
+bool isCanonicalBusRangeOrder(const std::vector<const naja::NL::SNLBusNetBit*>& bits) {
+  assert(not bits.empty());
+  if (bits.size() == 1) {
+    return true;
+  }
+  auto bus = bits.front()->getBus();
+  auto expectedStep = getCanonicalRangeStep(bus);
+  auto actualStep = bits[1]->getBit() - bits[0]->getBit();
+  return actualStep == expectedStep;
+}
+
+void normalizeAssignGroupOutputOrder(
+  std::vector<const naja::NL::SNLBitNet*>& inputBits,
+  std::vector<const naja::NL::SNLBusNetBit*>& outputBits) {
+  assert(inputBits.size() == outputBits.size());
+  assert(not outputBits.empty());
+  if (outputBits.size() == 1) {
+    return;
+  }
+  auto outputBus = outputBits.front()->getBus();
+  auto expectedOutputStep = getCanonicalRangeStep(outputBus);
+  auto outputStep = outputBits[1]->getBit() - outputBits[0]->getBit();
+  if (outputStep != expectedOutputStep) {
+    std::reverse(inputBits.begin(), inputBits.end());
+    std::reverse(outputBits.begin(), outputBits.end());
+  }
+}
+
 bool isContiguousBitDelta(const naja::NL::NLID::Bit delta) {
   return delta == 1 or delta == -1;
 }
@@ -252,13 +303,7 @@ std::string getAssignConstantString(const std::vector<const naja::NL::SNLBitNet*
   std::string bitString;
   bitString.reserve(bits.size());
   for (auto bit: bits) {
-    if (bit->getType() == naja::NL::SNLNet::Type::Assign0) {
-      bitString += "0";
-    } else if (bit->getType() == naja::NL::SNLNet::Type::Assign1) {
-      bitString += "1";
-    } else {
-      throw naja::NL::SNLVRLDumperException("ERROR");
-    }
+    bitString += getAssignConstantBitValue(bit);
   }
   return std::to_string(bits.size()) + "'b" + bitString;
 }
@@ -361,17 +406,24 @@ bool dumpAssignGroup(const AssignGroup& group, std::ostream& o) {
   if (group.outputBits_.size() <= 1) {
     return false;
   }
-  auto outputString = getBusBitRangeString(group.outputBits_);
+  auto inputBits = group.inputBits_;
+  auto outputBits = group.outputBits_;
+  normalizeAssignGroupOutputOrder(inputBits, outputBits);
+  auto outputString = getBusBitRangeString(outputBits);
   std::string inputString;
   if (group.inputMode_ == AssignInputMode::Constant) {
-    inputString = getAssignConstantString(group.inputBits_);
+    inputString = getAssignConstantString(inputBits);
   } else {
-    std::vector<const naja::NL::SNLBusNetBit*> inputBits;
-    inputBits.reserve(group.inputBits_.size());
-    for (auto inputBit: group.inputBits_) {
-      inputBits.push_back(static_cast<const naja::NL::SNLBusNetBit*>(inputBit));
+    std::vector<const naja::NL::SNLBusNetBit*> inputBusBits;
+    inputBusBits.reserve(inputBits.size());
+    for (auto inputBit: inputBits) {
+      inputBusBits.push_back(static_cast<const naja::NL::SNLBusNetBit*>(inputBit));
     }
-    inputString = getBusBitRangeString(inputBits);
+    if (isCanonicalBusRangeOrder(inputBusBits)) {
+      inputString = getBusBitRangeString(inputBusBits);
+    } else {
+      inputString = getBusBitConcatenationString(inputBusBits);
+    }
   }
   o << "assign " << outputString << " = " << inputString << ";" << std::endl;
   return true;
