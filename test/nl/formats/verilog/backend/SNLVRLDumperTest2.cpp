@@ -102,6 +102,45 @@ class SNLVRLDumperTest2: public ::testing::Test {
         assign->getInstTerm(NLDB0::getAssignOutput())->setNet(sinkBusShuffled->getBit(outputBit));
       }
 
+      SNLDesign* topConstAssignCompression = SNLDesign::create(library, NLName("top_const_assign_compression"));
+      auto const0Compression = SNLScalarNet::create(topConstAssignCompression);
+      const0Compression->setType(SNLNet::Type::Assign0);
+      auto const1Compression = SNLScalarNet::create(topConstAssignCompression);
+      const1Compression->setType(SNLNet::Type::Assign1);
+      auto sinkBusConstCompression = SNLBusNet::create(topConstAssignCompression, 3, 0, NLName("sink_bus"));
+      for (int outputBit = 3; outputBit >= 0; --outputBit) {
+        auto assign = SNLInstance::create(topConstAssignCompression, NLDB0::getAssign());
+        auto inputNet = (outputBit % 2 == 1) ? const1Compression : const0Compression;
+        assign->getInstTerm(NLDB0::getAssignInput())->setNet(inputNet);
+        assign->getInstTerm(NLDB0::getAssignOutput())->setNet(sinkBusConstCompression->getBit(outputBit));
+      }
+
+      SNLDesign* topConstAssignNonContiguous = SNLDesign::create(library, NLName("top_const_assign_non_contiguous"));
+      auto const0NonContiguous = SNLScalarNet::create(topConstAssignNonContiguous);
+      const0NonContiguous->setType(SNLNet::Type::Assign0);
+      auto const1NonContiguous = SNLScalarNet::create(topConstAssignNonContiguous);
+      const1NonContiguous->setType(SNLNet::Type::Assign1);
+      auto sinkBusConstNonContiguous = SNLBusNet::create(topConstAssignNonContiguous, 5, 0, NLName("sink_bus"));
+      for (auto outputBit: {5, 4, 2, 1, 0}) {
+        auto assign = SNLInstance::create(topConstAssignNonContiguous, NLDB0::getAssign());
+        auto inputNet = (outputBit == 5 or outputBit == 2 or outputBit == 0) ? const1NonContiguous : const0NonContiguous;
+        assign->getInstTerm(NLDB0::getAssignInput())->setNet(inputNet);
+        assign->getInstTerm(NLDB0::getAssignOutput())->setNet(sinkBusConstNonContiguous->getBit(outputBit));
+      }
+
+      SNLDesign* topConstAssignReversed = SNLDesign::create(library, NLName("top_const_assign_reversed"));
+      auto const0Reversed = SNLScalarNet::create(topConstAssignReversed);
+      const0Reversed->setType(SNLNet::Type::Assign0);
+      auto const1Reversed = SNLScalarNet::create(topConstAssignReversed);
+      const1Reversed->setType(SNLNet::Type::Assign1);
+      auto sinkBusConstReversed = SNLBusNet::create(topConstAssignReversed, 3, 0, NLName("sink_bus"));
+      for (int outputBit = 0; outputBit <= 3; ++outputBit) {
+        auto assign = SNLInstance::create(topConstAssignReversed, NLDB0::getAssign());
+        auto inputNet = (outputBit % 2 == 0) ? const1Reversed : const0Reversed;
+        assign->getInstTerm(NLDB0::getAssignInput())->setNet(inputNet);
+        assign->getInstTerm(NLDB0::getAssignOutput())->setNet(sinkBusConstReversed->getBit(outputBit));
+      }
+
     }
     void TearDown() override {
       NLUniverse::get()->destroy();
@@ -266,6 +305,84 @@ TEST_F(SNLVRLDumperTest2, testBusAssignShuffledOrder) {
 
   std::filesystem::path referencePath(SNL_VRL_DUMPER_REFERENCES_PATH);
   referencePath = referencePath / "test2TestBusAssignShuffledOrder" / "top_bus_assign_shuffled.v";
+  ASSERT_TRUE(std::filesystem::exists(referencePath));
+  std::string command = std::string(NAJA_DIFF) + " " + outPath.string() + " " + referencePath.string();
+  EXPECT_FALSE(std::system(command.c_str()));
+}
+
+TEST_F(SNLVRLDumperTest2, testConstAssignCompression) {
+  auto lib = db_->getLibrary(NLName("MYLIB"));
+  ASSERT_TRUE(lib);
+  auto top = lib->getSNLDesign(NLName("top_const_assign_compression"));
+  ASSERT_TRUE(top);
+
+  std::filesystem::path outPath(SNL_VRL_DUMPER_TEST_PATH);
+  outPath = outPath / "test2TestConstAssignCompression";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+  SNLVRLDumper dumper;
+  dumper.setTopFileName(top->getName().getString() + ".v");
+  dumper.setSingleFile(true);
+  dumper.dumpDesign(top, outPath);
+
+  outPath = outPath / (top->getName().getString() + ".v");
+
+  std::filesystem::path referencePath(SNL_VRL_DUMPER_REFERENCES_PATH);
+  referencePath = referencePath / "test2TestConstAssignCompression" / "top_const_assign_compression.v";
+  ASSERT_TRUE(std::filesystem::exists(referencePath));
+  std::string command = std::string(NAJA_DIFF) + " " + outPath.string() + " " + referencePath.string();
+  EXPECT_FALSE(std::system(command.c_str()));
+}
+
+TEST_F(SNLVRLDumperTest2, testConstAssignNonContiguous) {
+  auto lib = db_->getLibrary(NLName("MYLIB"));
+  ASSERT_TRUE(lib);
+  auto top = lib->getSNLDesign(NLName("top_const_assign_non_contiguous"));
+  ASSERT_TRUE(top);
+
+  std::filesystem::path outPath(SNL_VRL_DUMPER_TEST_PATH);
+  outPath = outPath / "test2TestConstAssignNonContiguous";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+  SNLVRLDumper dumper;
+  dumper.setTopFileName(top->getName().getString() + ".v");
+  dumper.setSingleFile(true);
+  dumper.dumpDesign(top, outPath);
+
+  outPath = outPath / (top->getName().getString() + ".v");
+
+  std::filesystem::path referencePath(SNL_VRL_DUMPER_REFERENCES_PATH);
+  referencePath = referencePath / "test2TestConstAssignNonContiguous" / "top_const_assign_non_contiguous.v";
+  ASSERT_TRUE(std::filesystem::exists(referencePath));
+  std::string command = std::string(NAJA_DIFF) + " " + outPath.string() + " " + referencePath.string();
+  EXPECT_FALSE(std::system(command.c_str()));
+}
+
+TEST_F(SNLVRLDumperTest2, testConstAssignReversed) {
+  auto lib = db_->getLibrary(NLName("MYLIB"));
+  ASSERT_TRUE(lib);
+  auto top = lib->getSNLDesign(NLName("top_const_assign_reversed"));
+  ASSERT_TRUE(top);
+
+  std::filesystem::path outPath(SNL_VRL_DUMPER_TEST_PATH);
+  outPath = outPath / "test2TestConstAssignReversed";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+  SNLVRLDumper dumper;
+  dumper.setTopFileName(top->getName().getString() + ".v");
+  dumper.setSingleFile(true);
+  dumper.dumpDesign(top, outPath);
+
+  outPath = outPath / (top->getName().getString() + ".v");
+
+  std::filesystem::path referencePath(SNL_VRL_DUMPER_REFERENCES_PATH);
+  referencePath = referencePath / "test2TestConstAssignReversed" / "top_const_assign_reversed.v";
   ASSERT_TRUE(std::filesystem::exists(referencePath));
   std::string command = std::string(NAJA_DIFF) + " " + outPath.string() + " " + referencePath.string();
   EXPECT_FALSE(std::system(command.c_str()));
