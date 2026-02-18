@@ -266,9 +266,6 @@ bool dumpSingleAssign(
   const naja::NL::SNLBitNet* inputNet,
   const naja::NL::SNLBitNet* outputNet,
   std::ostream& o) {
-  if (not inputNet or not outputNet) {
-    return false;
-  }
   std::string inputNetString;
   if (inputNet->isConstant0()) {
     inputNetString = "1'b0";

@@ -148,6 +148,52 @@ class SNLVRLDumperTest2: public ::testing::Test {
       assignScalarOutput->getInstTerm(NLDB0::getAssignInput())->setNet(sourceBusScalarOutput->getBit(0));
       assignScalarOutput->getInstTerm(NLDB0::getAssignOutput())->setNet(scalarSink);
 
+      SNLDesign* topAppendAssignScalarOutput = SNLDesign::create(library, NLName("top_append_assign_scalar_output"));
+      auto sourceBusAppendScalarOutput = SNLBusNet::create(topAppendAssignScalarOutput, 1, 0, NLName("source_bus"));
+      auto sinkBusAppendScalarOutput = SNLBusNet::create(topAppendAssignScalarOutput, 1, 0, NLName("sink_bus"));
+      auto scalarSinkAppendScalarOutput = SNLScalarNet::create(topAppendAssignScalarOutput, NLName("scalar_sink"));
+      auto appendAssign0 = SNLInstance::create(topAppendAssignScalarOutput, NLDB0::getAssign());
+      appendAssign0->getInstTerm(NLDB0::getAssignInput())->setNet(sourceBusAppendScalarOutput->getBit(1));
+      appendAssign0->getInstTerm(NLDB0::getAssignOutput())->setNet(sinkBusAppendScalarOutput->getBit(1));
+      auto appendAssign1 = SNLInstance::create(topAppendAssignScalarOutput, NLDB0::getAssign());
+      appendAssign1->getInstTerm(NLDB0::getAssignInput())->setNet(sourceBusAppendScalarOutput->getBit(0));
+      appendAssign1->getInstTerm(NLDB0::getAssignOutput())->setNet(scalarSinkAppendScalarOutput);
+
+      SNLDesign* topAppendAssignDifferentOutputBus = SNLDesign::create(library, NLName("top_append_assign_different_output_bus"));
+      auto sourceBusDifferentOutputBus = SNLBusNet::create(topAppendAssignDifferentOutputBus, 1, 0, NLName("source_bus"));
+      auto sinkBusA = SNLBusNet::create(topAppendAssignDifferentOutputBus, 1, 0, NLName("sink_bus_a"));
+      auto sinkBusB = SNLBusNet::create(topAppendAssignDifferentOutputBus, 1, 0, NLName("sink_bus_b"));
+      auto appendDifferentOutputBusAssign0 = SNLInstance::create(topAppendAssignDifferentOutputBus, NLDB0::getAssign());
+      appendDifferentOutputBusAssign0->getInstTerm(NLDB0::getAssignInput())->setNet(sourceBusDifferentOutputBus->getBit(1));
+      appendDifferentOutputBusAssign0->getInstTerm(NLDB0::getAssignOutput())->setNet(sinkBusA->getBit(1));
+      auto appendDifferentOutputBusAssign1 = SNLInstance::create(topAppendAssignDifferentOutputBus, NLDB0::getAssign());
+      appendDifferentOutputBusAssign1->getInstTerm(NLDB0::getAssignInput())->setNet(sourceBusDifferentOutputBus->getBit(0));
+      appendDifferentOutputBusAssign1->getInstTerm(NLDB0::getAssignOutput())->setNet(sinkBusB->getBit(0));
+
+      SNLDesign* topAppendAssignOutputStepMismatch = SNLDesign::create(library, NLName("top_append_assign_output_step_mismatch"));
+      auto sourceBusOutputStepMismatch = SNLBusNet::create(topAppendAssignOutputStepMismatch, 3, 0, NLName("source_bus"));
+      auto sinkBusOutputStepMismatch = SNLBusNet::create(topAppendAssignOutputStepMismatch, 3, 0, NLName("sink_bus"));
+      auto outputStepMismatchAssign0 = SNLInstance::create(topAppendAssignOutputStepMismatch, NLDB0::getAssign());
+      outputStepMismatchAssign0->getInstTerm(NLDB0::getAssignInput())->setNet(sourceBusOutputStepMismatch->getBit(3));
+      outputStepMismatchAssign0->getInstTerm(NLDB0::getAssignOutput())->setNet(sinkBusOutputStepMismatch->getBit(3));
+      auto outputStepMismatchAssign1 = SNLInstance::create(topAppendAssignOutputStepMismatch, NLDB0::getAssign());
+      outputStepMismatchAssign1->getInstTerm(NLDB0::getAssignInput())->setNet(sourceBusOutputStepMismatch->getBit(2));
+      outputStepMismatchAssign1->getInstTerm(NLDB0::getAssignOutput())->setNet(sinkBusOutputStepMismatch->getBit(2));
+      auto outputStepMismatchAssign2 = SNLInstance::create(topAppendAssignOutputStepMismatch, NLDB0::getAssign());
+      outputStepMismatchAssign2->getInstTerm(NLDB0::getAssignInput())->setNet(sourceBusOutputStepMismatch->getBit(1));
+      outputStepMismatchAssign2->getInstTerm(NLDB0::getAssignOutput())->setNet(sinkBusOutputStepMismatch->getBit(3));
+
+      SNLDesign* topAppendAssignScalarInput = SNLDesign::create(library, NLName("top_append_assign_scalar_input"));
+      auto sourceBusScalarInput = SNLBusNet::create(topAppendAssignScalarInput, 1, 0, NLName("source_bus"));
+      auto sinkBusScalarInput = SNLBusNet::create(topAppendAssignScalarInput, 1, 0, NLName("sink_bus"));
+      auto scalarInput = SNLScalarNet::create(topAppendAssignScalarInput, NLName("scalar_in"));
+      auto appendScalarInputAssign0 = SNLInstance::create(topAppendAssignScalarInput, NLDB0::getAssign());
+      appendScalarInputAssign0->getInstTerm(NLDB0::getAssignInput())->setNet(sourceBusScalarInput->getBit(1));
+      appendScalarInputAssign0->getInstTerm(NLDB0::getAssignOutput())->setNet(sinkBusScalarInput->getBit(1));
+      auto appendScalarInputAssign1 = SNLInstance::create(topAppendAssignScalarInput, NLDB0::getAssign());
+      appendScalarInputAssign1->getInstTerm(NLDB0::getAssignInput())->setNet(scalarInput);
+      appendScalarInputAssign1->getInstTerm(NLDB0::getAssignOutput())->setNet(sinkBusScalarInput->getBit(0));
+
       SNLDesign* topAssignsBeforeGate = SNLDesign::create(library, NLName("top_assigns_before_gate"));
       auto sourceBusBeforeGate = SNLBusNet::create(topAssignsBeforeGate, 1, 0, NLName("source_bus"));
       auto sinkBusBeforeGate = SNLBusNet::create(topAssignsBeforeGate, 1, 0, NLName("sink_bus"));
@@ -434,6 +480,110 @@ TEST_F(SNLVRLDumperTest2, testScalarAssignOutput) {
 
   std::filesystem::path referencePath(SNL_VRL_DUMPER_REFERENCES_PATH);
   referencePath = referencePath / "test2TestScalarAssignOutput" / "top_scalar_assign_output.v";
+  ASSERT_TRUE(std::filesystem::exists(referencePath));
+  std::string command = std::string(NAJA_DIFF) + " " + outPath.string() + " " + referencePath.string();
+  EXPECT_FALSE(std::system(command.c_str()));
+}
+
+TEST_F(SNLVRLDumperTest2, testAppendAssignScalarOutput) {
+  auto lib = db_->getLibrary(NLName("MYLIB"));
+  ASSERT_TRUE(lib);
+  auto top = lib->getSNLDesign(NLName("top_append_assign_scalar_output"));
+  ASSERT_TRUE(top);
+
+  std::filesystem::path outPath(SNL_VRL_DUMPER_TEST_PATH);
+  outPath = outPath / "test2TestAppendAssignScalarOutput";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+  SNLVRLDumper dumper;
+  dumper.setTopFileName(top->getName().getString() + ".v");
+  dumper.setSingleFile(true);
+  dumper.dumpDesign(top, outPath);
+
+  outPath = outPath / (top->getName().getString() + ".v");
+
+  std::filesystem::path referencePath(SNL_VRL_DUMPER_REFERENCES_PATH);
+  referencePath = referencePath / "test2TestAppendAssignScalarOutput" / "top_append_assign_scalar_output.v";
+  ASSERT_TRUE(std::filesystem::exists(referencePath));
+  std::string command = std::string(NAJA_DIFF) + " " + outPath.string() + " " + referencePath.string();
+  EXPECT_FALSE(std::system(command.c_str()));
+}
+
+TEST_F(SNLVRLDumperTest2, testAppendAssignDifferentOutputBus) {
+  auto lib = db_->getLibrary(NLName("MYLIB"));
+  ASSERT_TRUE(lib);
+  auto top = lib->getSNLDesign(NLName("top_append_assign_different_output_bus"));
+  ASSERT_TRUE(top);
+
+  std::filesystem::path outPath(SNL_VRL_DUMPER_TEST_PATH);
+  outPath = outPath / "test2TestAppendAssignDifferentOutputBus";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+  SNLVRLDumper dumper;
+  dumper.setTopFileName(top->getName().getString() + ".v");
+  dumper.setSingleFile(true);
+  dumper.dumpDesign(top, outPath);
+
+  outPath = outPath / (top->getName().getString() + ".v");
+
+  std::filesystem::path referencePath(SNL_VRL_DUMPER_REFERENCES_PATH);
+  referencePath = referencePath / "test2TestAppendAssignDifferentOutputBus" / "top_append_assign_different_output_bus.v";
+  ASSERT_TRUE(std::filesystem::exists(referencePath));
+  std::string command = std::string(NAJA_DIFF) + " " + outPath.string() + " " + referencePath.string();
+  EXPECT_FALSE(std::system(command.c_str()));
+}
+
+TEST_F(SNLVRLDumperTest2, testAppendAssignOutputStepMismatch) {
+  auto lib = db_->getLibrary(NLName("MYLIB"));
+  ASSERT_TRUE(lib);
+  auto top = lib->getSNLDesign(NLName("top_append_assign_output_step_mismatch"));
+  ASSERT_TRUE(top);
+
+  std::filesystem::path outPath(SNL_VRL_DUMPER_TEST_PATH);
+  outPath = outPath / "test2TestAppendAssignOutputStepMismatch";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+  SNLVRLDumper dumper;
+  dumper.setTopFileName(top->getName().getString() + ".v");
+  dumper.setSingleFile(true);
+  dumper.dumpDesign(top, outPath);
+
+  outPath = outPath / (top->getName().getString() + ".v");
+
+  std::filesystem::path referencePath(SNL_VRL_DUMPER_REFERENCES_PATH);
+  referencePath = referencePath / "test2TestAppendAssignOutputStepMismatch" / "top_append_assign_output_step_mismatch.v";
+  ASSERT_TRUE(std::filesystem::exists(referencePath));
+  std::string command = std::string(NAJA_DIFF) + " " + outPath.string() + " " + referencePath.string();
+  EXPECT_FALSE(std::system(command.c_str()));
+}
+
+TEST_F(SNLVRLDumperTest2, testAppendAssignScalarInput) {
+  auto lib = db_->getLibrary(NLName("MYLIB"));
+  ASSERT_TRUE(lib);
+  auto top = lib->getSNLDesign(NLName("top_append_assign_scalar_input"));
+  ASSERT_TRUE(top);
+
+  std::filesystem::path outPath(SNL_VRL_DUMPER_TEST_PATH);
+  outPath = outPath / "test2TestAppendAssignScalarInput";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+  SNLVRLDumper dumper;
+  dumper.setTopFileName(top->getName().getString() + ".v");
+  dumper.setSingleFile(true);
+  dumper.dumpDesign(top, outPath);
+
+  outPath = outPath / (top->getName().getString() + ".v");
+
+  std::filesystem::path referencePath(SNL_VRL_DUMPER_REFERENCES_PATH);
+  referencePath = referencePath / "test2TestAppendAssignScalarInput" / "top_append_assign_scalar_input.v";
   ASSERT_TRUE(std::filesystem::exists(referencePath));
   std::string command = std::string(NAJA_DIFF) + " " + outPath.string() + " " + referencePath.string();
   EXPECT_FALSE(std::system(command.c_str()));
