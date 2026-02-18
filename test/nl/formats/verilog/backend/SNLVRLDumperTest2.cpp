@@ -170,6 +170,40 @@ class SNLVRLDumperTest2: public ::testing::Test {
       appendDifferentOutputBusAssign1->getInstTerm(NLDB0::getAssignInput())->setNet(sourceBusDifferentOutputBus->getBit(0));
       appendDifferentOutputBusAssign1->getInstTerm(NLDB0::getAssignOutput())->setNet(sinkBusB->getBit(0));
 
+      SNLDesign* topAppendAssignDifferentInputBus = SNLDesign::create(library, NLName("top_append_assign_different_input_bus"));
+      auto sourceBusAForDifferentInputBus = SNLBusNet::create(topAppendAssignDifferentInputBus, 1, 0, NLName("source_bus_a"));
+      auto sourceBusBForDifferentInputBus = SNLBusNet::create(topAppendAssignDifferentInputBus, 1, 0, NLName("source_bus_b"));
+      auto sinkBusForDifferentInputBus = SNLBusNet::create(topAppendAssignDifferentInputBus, 1, 0, NLName("sink_bus"));
+      auto appendDifferentInputBusAssign0 = SNLInstance::create(topAppendAssignDifferentInputBus, NLDB0::getAssign());
+      appendDifferentInputBusAssign0->getInstTerm(NLDB0::getAssignInput())->setNet(sourceBusAForDifferentInputBus->getBit(1));
+      appendDifferentInputBusAssign0->getInstTerm(NLDB0::getAssignOutput())->setNet(sinkBusForDifferentInputBus->getBit(1));
+      auto appendDifferentInputBusAssign1 = SNLInstance::create(topAppendAssignDifferentInputBus, NLDB0::getAssign());
+      appendDifferentInputBusAssign1->getInstTerm(NLDB0::getAssignInput())->setNet(sourceBusBForDifferentInputBus->getBit(0));
+      appendDifferentInputBusAssign1->getInstTerm(NLDB0::getAssignOutput())->setNet(sinkBusForDifferentInputBus->getBit(0));
+
+      SNLDesign* topAppendAssignInputNonContiguous = SNLDesign::create(library, NLName("top_append_assign_input_non_contiguous"));
+      auto sourceBusInputNonContiguous = SNLBusNet::create(topAppendAssignInputNonContiguous, 3, 0, NLName("source_bus"));
+      auto sinkBusInputNonContiguous = SNLBusNet::create(topAppendAssignInputNonContiguous, 3, 0, NLName("sink_bus"));
+      auto appendInputNonContiguousAssign0 = SNLInstance::create(topAppendAssignInputNonContiguous, NLDB0::getAssign());
+      appendInputNonContiguousAssign0->getInstTerm(NLDB0::getAssignInput())->setNet(sourceBusInputNonContiguous->getBit(3));
+      appendInputNonContiguousAssign0->getInstTerm(NLDB0::getAssignOutput())->setNet(sinkBusInputNonContiguous->getBit(3));
+      auto appendInputNonContiguousAssign1 = SNLInstance::create(topAppendAssignInputNonContiguous, NLDB0::getAssign());
+      appendInputNonContiguousAssign1->getInstTerm(NLDB0::getAssignInput())->setNet(sourceBusInputNonContiguous->getBit(1));
+      appendInputNonContiguousAssign1->getInstTerm(NLDB0::getAssignOutput())->setNet(sinkBusInputNonContiguous->getBit(2));
+
+      SNLDesign* topAppendAssignInputStepMismatch = SNLDesign::create(library, NLName("top_append_assign_input_step_mismatch"));
+      auto sourceBusInputStepMismatch = SNLBusNet::create(topAppendAssignInputStepMismatch, 3, 0, NLName("source_bus"));
+      auto sinkBusInputStepMismatch = SNLBusNet::create(topAppendAssignInputStepMismatch, 3, 0, NLName("sink_bus"));
+      auto appendInputStepMismatchAssign0 = SNLInstance::create(topAppendAssignInputStepMismatch, NLDB0::getAssign());
+      appendInputStepMismatchAssign0->getInstTerm(NLDB0::getAssignInput())->setNet(sourceBusInputStepMismatch->getBit(3));
+      appendInputStepMismatchAssign0->getInstTerm(NLDB0::getAssignOutput())->setNet(sinkBusInputStepMismatch->getBit(3));
+      auto appendInputStepMismatchAssign1 = SNLInstance::create(topAppendAssignInputStepMismatch, NLDB0::getAssign());
+      appendInputStepMismatchAssign1->getInstTerm(NLDB0::getAssignInput())->setNet(sourceBusInputStepMismatch->getBit(2));
+      appendInputStepMismatchAssign1->getInstTerm(NLDB0::getAssignOutput())->setNet(sinkBusInputStepMismatch->getBit(2));
+      auto appendInputStepMismatchAssign2 = SNLInstance::create(topAppendAssignInputStepMismatch, NLDB0::getAssign());
+      appendInputStepMismatchAssign2->getInstTerm(NLDB0::getAssignInput())->setNet(sourceBusInputStepMismatch->getBit(3));
+      appendInputStepMismatchAssign2->getInstTerm(NLDB0::getAssignOutput())->setNet(sinkBusInputStepMismatch->getBit(1));
+
       SNLDesign* topAppendAssignOutputStepMismatch = SNLDesign::create(library, NLName("top_append_assign_output_step_mismatch"));
       auto sourceBusOutputStepMismatch = SNLBusNet::create(topAppendAssignOutputStepMismatch, 3, 0, NLName("source_bus"));
       auto sinkBusOutputStepMismatch = SNLBusNet::create(topAppendAssignOutputStepMismatch, 3, 0, NLName("sink_bus"));
@@ -532,6 +566,84 @@ TEST_F(SNLVRLDumperTest2, testAppendAssignDifferentOutputBus) {
 
   std::filesystem::path referencePath(SNL_VRL_DUMPER_REFERENCES_PATH);
   referencePath = referencePath / "test2TestAppendAssignDifferentOutputBus" / "top_append_assign_different_output_bus.v";
+  ASSERT_TRUE(std::filesystem::exists(referencePath));
+  std::string command = std::string(NAJA_DIFF) + " " + outPath.string() + " " + referencePath.string();
+  EXPECT_FALSE(std::system(command.c_str()));
+}
+
+TEST_F(SNLVRLDumperTest2, testAppendAssignDifferentInputBus) {
+  auto lib = db_->getLibrary(NLName("MYLIB"));
+  ASSERT_TRUE(lib);
+  auto top = lib->getSNLDesign(NLName("top_append_assign_different_input_bus"));
+  ASSERT_TRUE(top);
+
+  std::filesystem::path outPath(SNL_VRL_DUMPER_TEST_PATH);
+  outPath = outPath / "test2TestAppendAssignDifferentInputBus";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+  SNLVRLDumper dumper;
+  dumper.setTopFileName(top->getName().getString() + ".v");
+  dumper.setSingleFile(true);
+  dumper.dumpDesign(top, outPath);
+
+  outPath = outPath / (top->getName().getString() + ".v");
+
+  std::filesystem::path referencePath(SNL_VRL_DUMPER_REFERENCES_PATH);
+  referencePath = referencePath / "test2TestAppendAssignDifferentInputBus" / "top_append_assign_different_input_bus.v";
+  ASSERT_TRUE(std::filesystem::exists(referencePath));
+  std::string command = std::string(NAJA_DIFF) + " " + outPath.string() + " " + referencePath.string();
+  EXPECT_FALSE(std::system(command.c_str()));
+}
+
+TEST_F(SNLVRLDumperTest2, testAppendAssignInputNonContiguous) {
+  auto lib = db_->getLibrary(NLName("MYLIB"));
+  ASSERT_TRUE(lib);
+  auto top = lib->getSNLDesign(NLName("top_append_assign_input_non_contiguous"));
+  ASSERT_TRUE(top);
+
+  std::filesystem::path outPath(SNL_VRL_DUMPER_TEST_PATH);
+  outPath = outPath / "test2TestAppendAssignInputNonContiguous";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+  SNLVRLDumper dumper;
+  dumper.setTopFileName(top->getName().getString() + ".v");
+  dumper.setSingleFile(true);
+  dumper.dumpDesign(top, outPath);
+
+  outPath = outPath / (top->getName().getString() + ".v");
+
+  std::filesystem::path referencePath(SNL_VRL_DUMPER_REFERENCES_PATH);
+  referencePath = referencePath / "test2TestAppendAssignInputNonContiguous" / "top_append_assign_input_non_contiguous.v";
+  ASSERT_TRUE(std::filesystem::exists(referencePath));
+  std::string command = std::string(NAJA_DIFF) + " " + outPath.string() + " " + referencePath.string();
+  EXPECT_FALSE(std::system(command.c_str()));
+}
+
+TEST_F(SNLVRLDumperTest2, testAppendAssignInputStepMismatch) {
+  auto lib = db_->getLibrary(NLName("MYLIB"));
+  ASSERT_TRUE(lib);
+  auto top = lib->getSNLDesign(NLName("top_append_assign_input_step_mismatch"));
+  ASSERT_TRUE(top);
+
+  std::filesystem::path outPath(SNL_VRL_DUMPER_TEST_PATH);
+  outPath = outPath / "test2TestAppendAssignInputStepMismatch";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+  SNLVRLDumper dumper;
+  dumper.setTopFileName(top->getName().getString() + ".v");
+  dumper.setSingleFile(true);
+  dumper.dumpDesign(top, outPath);
+
+  outPath = outPath / (top->getName().getString() + ".v");
+
+  std::filesystem::path referencePath(SNL_VRL_DUMPER_REFERENCES_PATH);
+  referencePath = referencePath / "test2TestAppendAssignInputStepMismatch" / "top_append_assign_input_step_mismatch.v";
   ASSERT_TRUE(std::filesystem::exists(referencePath));
   std::string command = std::string(NAJA_DIFF) + " " + outPath.string() + " " + referencePath.string();
   EXPECT_FALSE(std::system(command.c_str()));
