@@ -5,6 +5,8 @@
 
 #include "SNLBooleanTree.h"
 #include <cmath>
+#include <iomanip>
+#include <sstream>
 #include "SNLDesign.h"
 #include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
@@ -78,7 +80,6 @@ bool reduce(
     return true;
   }
 
-#if 0
   if (0 <= top-1 and stack[top-1].type_ == 2 and stack[top].type_ == 2) {
     //Top two stack elements are of type 2
     auto andNode = new SNLBooleanTreeFunctionNode(SNLBooleanTreeFunctionNode::Type::AND);
@@ -89,7 +90,6 @@ bool reduce(
     stack.push_back(Token(2, andNode));
     return true;
   }
-#endif
 
   if (0 <= top-2 and stack[top-2].type_ == 2
     and (stack[top-1].type_ == '*' or stack[top-1].type_ == '&')
@@ -283,7 +283,10 @@ void SNLBooleanTree::parse(const SNLDesign* primitive, const std::string& functi
   while (reduce(primitive, stack, Token('.'))) {}
 
   if (stack.size() != 1 || stack.back().type_ != 3) {
-    throw SNLLibertyConstructorException("Parser error in function expr `" + function + "'.");  
+    std::ostringstream reason;
+    reason << "Parser error in function expr. failing expression="
+           << std::quoted(function);
+    throw SNLLibertyConstructorException(reason.str());
   }
 
   auto root = stack.back().node_;
