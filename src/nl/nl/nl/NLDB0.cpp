@@ -267,6 +267,7 @@ SNLTruthTable NLDB0::getPrimitiveTruthTable(const SNLDesign* design) {
 SNLDesign* NLDB0::getAssign() {
   auto primitives = getDB0RootLibrary();
   if (primitives) {
+    // Static primitive, created first in NLDB0::create().
     return primitives->getSNLDesign(NLID::DesignID(0));
   }
   return nullptr;
@@ -279,6 +280,7 @@ bool NLDB0::isAssign(const SNLDesign* design) {
 SNLScalarTerm* NLDB0::getAssignInput() {
   auto assign = getAssign();
   if (assign) {
+    // Static term, created first in createAssignPrimitive().
     return assign->getScalarTerm(NLID::DesignObjectID(0));
   }
   return nullptr;
@@ -287,6 +289,7 @@ SNLScalarTerm* NLDB0::getAssignInput() {
 SNLScalarTerm* NLDB0::getAssignOutput() {
   auto assign = getAssign();
   if (assign) {
+    // Static term, created second in createAssignPrimitive().
     return assign->getScalarTerm(NLID::DesignObjectID(1));
   }
   return nullptr;
@@ -295,7 +298,8 @@ SNLScalarTerm* NLDB0::getAssignOutput() {
 SNLDesign* NLDB0::getFA() {
   auto primitives = getDB0RootLibrary();
   if (primitives) {
-    return primitives->getSNLDesign(NLName("fa"));
+    // Static primitive, created second in NLDB0::create().
+    return primitives->getSNLDesign(NLID::DesignID(1));
   }
   return nullptr;
 }
@@ -306,31 +310,31 @@ bool NLDB0::isFA(const SNLDesign* design) {
 
 SNLScalarTerm* NLDB0::getFAInputA() {
   auto fa = getFA();
-  if (fa) { return fa->getScalarTerm(NLName("A")); }
+  if (fa) { return fa->getScalarTerm(NLID::DesignObjectID(0)); }
   return nullptr;
 }
 
 SNLScalarTerm* NLDB0::getFAInputB() {
   auto fa = getFA();
-  if (fa) { return fa->getScalarTerm(NLName("B")); }
+  if (fa) { return fa->getScalarTerm(NLID::DesignObjectID(1)); }
   return nullptr;
 }
 
 SNLScalarTerm* NLDB0::getFAInputCI() {
   auto fa = getFA();
-  if (fa) { return fa->getScalarTerm(NLName("CI")); }
+  if (fa) { return fa->getScalarTerm(NLID::DesignObjectID(2)); }
   return nullptr;
 }
 
 SNLScalarTerm* NLDB0::getFAOutputS() {
   auto fa = getFA();
-  if (fa) { return fa->getScalarTerm(NLName("S")); }
+  if (fa) { return fa->getScalarTerm(NLID::DesignObjectID(3)); }
   return nullptr;
 }
 
 SNLScalarTerm* NLDB0::getFAOutputCO() {
   auto fa = getFA();
-  if (fa) { return fa->getScalarTerm(NLName("CO")); }
+  if (fa) { return fa->getScalarTerm(NLID::DesignObjectID(4)); }
   return nullptr;
 }
 
@@ -352,7 +356,8 @@ SNLTruthTable NLDB0::getFACoutTruthTable() {
 SNLDesign* NLDB0::getMux2() {
   auto primitives = getDB0RootLibrary();
   if (primitives) {
-    return primitives->getSNLDesign(NLName("mux2"));
+    // Static primitive, created third in NLDB0::create().
+    return primitives->getSNLDesign(NLID::DesignID(2));
   }
   return nullptr;
 }
@@ -364,7 +369,7 @@ bool NLDB0::isMux2(const SNLDesign* design) {
 SNLScalarTerm* NLDB0::getMux2InputA() {
   auto mux2 = getMux2();
   if (mux2) {
-    return mux2->getScalarTerm(NLName("A"));
+    return mux2->getScalarTerm(NLID::DesignObjectID(0));
   }
   return nullptr;
 }
@@ -372,7 +377,7 @@ SNLScalarTerm* NLDB0::getMux2InputA() {
 SNLScalarTerm* NLDB0::getMux2InputB() {
   auto mux2 = getMux2();
   if (mux2) {
-    return mux2->getScalarTerm(NLName("B"));
+    return mux2->getScalarTerm(NLID::DesignObjectID(1));
   }
   return nullptr;
 }
@@ -380,7 +385,7 @@ SNLScalarTerm* NLDB0::getMux2InputB() {
 SNLScalarTerm* NLDB0::getMux2Select() {
   auto mux2 = getMux2();
   if (mux2) {
-    return mux2->getScalarTerm(NLName("S"));
+    return mux2->getScalarTerm(NLID::DesignObjectID(2));
   }
   return nullptr;
 }
@@ -388,7 +393,7 @@ SNLScalarTerm* NLDB0::getMux2Select() {
 SNLScalarTerm* NLDB0::getMux2Output() {
   auto mux2 = getMux2();
   if (mux2) {
-    return mux2->getScalarTerm(NLName("Y"));
+    return mux2->getScalarTerm(NLID::DesignObjectID(3));
   }
   return nullptr;
 }
@@ -396,7 +401,8 @@ SNLScalarTerm* NLDB0::getMux2Output() {
 SNLDesign* NLDB0::getDFF() {
   auto primitives = getDB0RootLibrary();
   if (primitives) {
-    return primitives->getSNLDesign(NLName("dff"));
+    // Static primitive, created fourth in NLDB0::create().
+    return primitives->getSNLDesign(NLID::DesignID(3));
   }
   return nullptr;
 }
@@ -404,7 +410,7 @@ SNLDesign* NLDB0::getDFF() {
 SNLScalarTerm* NLDB0::getDFFClock() {
   auto dff = getDFF();
   if (dff) {
-    return dff->getScalarTerm(NLName("C"));
+    return dff->getScalarTerm(NLID::DesignObjectID(0));
   }
   return nullptr;
 }
@@ -412,7 +418,7 @@ SNLScalarTerm* NLDB0::getDFFClock() {
 SNLScalarTerm* NLDB0::getDFFData() {
   auto dff = getDFF();
   if (dff) {
-    return dff->getScalarTerm(NLName("D"));
+    return dff->getScalarTerm(NLID::DesignObjectID(1));
   }
   return nullptr;
 }
@@ -420,7 +426,7 @@ SNLScalarTerm* NLDB0::getDFFData() {
 SNLScalarTerm* NLDB0::getDFFOutput() {
   auto dff = getDFF();
   if (dff) {
-    return dff->getScalarTerm(NLName("Q"));
+    return dff->getScalarTerm(NLID::DesignObjectID(2));
   }
   return nullptr;
 }
