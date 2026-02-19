@@ -183,6 +183,58 @@ TEST_F(SNLSVConstructorTestSimple, parseBytePortsInferRangeFromWidth) {
   EXPECT_TRUE(std::filesystem::exists(outPath / "byte_ports_top.v"));
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseInoutPortDirection) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  constructor.construct(benchmarksPath / "port_directions" / "port_directions.sv");
+
+  auto top = library_->getSNLDesign(NLName("port_directions_top"));
+  ASSERT_NE(top, nullptr);
+
+  auto inputTerm = top->getTerm(NLName("i"));
+  ASSERT_NE(inputTerm, nullptr);
+  EXPECT_EQ(SNLTerm::Direction::Input, inputTerm->getDirection());
+
+  auto outputTerm = top->getTerm(NLName("o"));
+  ASSERT_NE(outputTerm, nullptr);
+  EXPECT_EQ(SNLTerm::Direction::Output, outputTerm->getDirection());
+
+  auto inoutTerm = top->getTerm(NLName("io"));
+  ASSERT_NE(inoutTerm, nullptr);
+  EXPECT_EQ(SNLTerm::Direction::InOut, inoutTerm->getDirection());
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseUnsupportedElementsReportedAtEnd) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "unsupported_elements";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "unsupported_elements.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << "module unsupported_elements(ref logic r0, ref logic r1, input logic a, input logic b, output logic y);\n"
+    << "  assign y = a + b;\n"
+    << "endmodule\n";
+  svFile.close();
+
+  try {
+    constructor.construct(svPath);
+    FAIL() << "Expected aggregated unsupported language elements exception";
+  } catch (const SNLSVConstructorException& e) {
+    const std::string reason = e.what();
+    EXPECT_NE(std::string::npos, reason.find("Unsupported SystemVerilog elements encountered"));
+    EXPECT_NE(std::string::npos, reason.find("Unsupported SystemVerilog port direction"));
+    EXPECT_NE(std::string::npos, reason.find("for port: r0"));
+    EXPECT_NE(std::string::npos, reason.find("for port: r1"));
+    EXPECT_NE(std::string::npos, reason.find("Unsupported binary operator in continuous assign: +"));
+  }
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseBinaryOperatorsSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);

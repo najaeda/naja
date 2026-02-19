@@ -115,7 +115,7 @@ std::optional<NLDB0::GateType> gateTypeFromBinary(slang::ast::BinaryOperator op)
   }
 }
 
-SNLTerm::Direction toSNLDirection(ArgumentDirection direction) {
+std::optional<SNLTerm::Direction> toSNLDirection(ArgumentDirection direction) {
   switch (direction) {
     case ArgumentDirection::In:
       return SNLTerm::Direction::Input;
@@ -124,7 +124,7 @@ SNLTerm::Direction toSNLDirection(ArgumentDirection direction) {
     case ArgumentDirection::InOut:
       return SNLTerm::Direction::InOut;
     default:
-      return SNLTerm::Direction::Undefined;
+      return std::nullopt;
   }
 }
 
@@ -194,6 +194,7 @@ class SNLSVConstructorImpl {
         throw SNLSVConstructorException("SNLSVConstructor requires a valid NLLibrary");
       }
       syntaxTrees_.clear();
+      unsupportedElements_.clear();
       compilation_ = std::make_unique<slang::ast::Compilation>();
 
       for (const auto& path : paths) {
@@ -220,6 +221,7 @@ class SNLSVConstructorImpl {
       }
 
       dumpElaboratedASTJson(root);
+      throwIfUnsupportedElements();
     }
 
   private:
@@ -373,6 +375,31 @@ class SNLSVConstructorImpl {
       return sourceInfo;
     }
 
+    void reportUnsupportedElement(
+      const std::string& reason,
+      const std::optional<slang::SourceRange>& maybeRange = std::nullopt) {
+      std::ostringstream message;
+      if (auto sourceInfo = getSourceInfo(maybeRange)) {
+        message << sourceInfo->file << ":" << sourceInfo->line << ":" << sourceInfo->column
+                << ": ";
+      }
+      message << reason;
+      unsupportedElements_.push_back(message.str());
+    }
+
+    void throwIfUnsupportedElements() const {
+      if (unsupportedElements_.empty()) {
+        return;
+      }
+      std::ostringstream reason;
+      reason << "Unsupported SystemVerilog elements encountered (" << unsupportedElements_.size()
+             << "):";
+      for (const auto& unsupported : unsupportedElements_) {
+        reason << "\n - " << unsupported;
+      }
+      throw SNLSVConstructorException(reason.str());
+    }
+
     void addAttribute(
       NLObject* object,
       const char* name,
@@ -435,17 +462,27 @@ class SNLSVConstructorImpl {
         const auto& port = sym->as<PortSymbol>();
         std::string portName(port.name);
         auto direction = toSNLDirection(port.direction);
+        if (!direction) {
+          std::ostringstream reason;
+          reason << "Unsupported SystemVerilog port direction";
+          if (port.direction == ArgumentDirection::Ref) {
+            reason << " 'ref'";
+          }
+          reason << " for port: " << portName;
+          reportUnsupportedElement(reason.str(), getSourceRange(port));
+          continue;
+        }
         auto range = getRangeFromType(port.getType());
         if (range && range->width() > 1) {
           auto term = SNLBusTerm::create(
             design,
-            direction,
+            *direction,
             static_cast<NLID::Bit>(range->left),
             static_cast<NLID::Bit>(range->right),
             NLName(portName));
           annotateSourceInfo(term, getSourceRange(port));
         } else {
-          auto term = SNLScalarTerm::create(design, direction, NLName(portName));
+          auto term = SNLScalarTerm::create(design, *direction, NLName(portName));
           annotateSourceInfo(term, getSourceRange(port));
         }
       }
@@ -1075,7 +1112,8 @@ class SNLSVConstructorImpl {
             std::ostringstream reason;
             reason << "Unsupported binary operator in sequential assignment: "
                    << slang::ast::OpInfo::getText(bin.op);
-            throw SNLSVConstructorException(reason.str());
+            reportUnsupportedElement(reason.str(), sourceRange);
+            return {};
           }
           auto leftNet = resolveExpressionNet(design, bin.left());
           auto rightNet = resolveExpressionNet(design, bin.right());
@@ -1095,7 +1133,8 @@ class SNLSVConstructorImpl {
           std::ostringstream reason;
           reason << "Unsupported binary expression in sequential assignment: "
                  << slang::ast::OpInfo::getText(bin.op);
-          throw SNLSVConstructorException(reason.str());
+          reportUnsupportedElement(reason.str(), sourceRange);
+          return {};
         }
         if (!rhsExpr) {
           return {};
@@ -1442,7 +1481,8 @@ class SNLSVConstructorImpl {
             std::ostringstream reason;
             reason << "Unsupported binary operator in continuous assign: "
                    << slang::ast::OpInfo::getText(binaryExpr.op);
-            throw SNLSVConstructorException(reason.str());
+            reportUnsupportedElement(reason.str(), assignSourceRange);
+            continue;
           }
           if (!collectBinaryOperands(*rhs, binaryExpr.op, operands)) {
             continue;
@@ -1467,7 +1507,8 @@ class SNLSVConstructorImpl {
                 std::ostringstream reason;
                 reason << "Unsupported binary operator under bitwise not in continuous assign: "
                        << slang::ast::OpInfo::getText(binaryExpr.op);
-                throw SNLSVConstructorException(reason.str());
+                reportUnsupportedElement(reason.str(), assignSourceRange);
+                continue;
             }
             if (gateType && !collectBinaryOperands(*operandExpr, binaryExpr.op, operands)) {
               continue;
@@ -1633,6 +1674,7 @@ class SNLSVConstructorImpl {
     std::vector<std::shared_ptr<slang::syntax::SyntaxTree>> syntaxTrees_;
     std::unordered_map<std::string, SNLDesign*> nameToDesign_;
     std::unordered_map<const InstanceBodySymbol*, SNLDesign*> bodyToDesign_;
+    std::vector<std::string> unsupportedElements_;
 };
 
 SNLSVConstructor::SNLSVConstructor(NLLibrary* library):
