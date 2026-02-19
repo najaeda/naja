@@ -74,6 +74,23 @@ enum class FunctionParsingType {
   Combinational
 };
 
+std::string buildFunctionParseErrorReason(
+  const std::string& pinName,
+  const std::string& cellName,
+  const std::filesystem::path& sourcePath,
+  const std::string& parserReason) {
+  std::ostringstream reason;
+  reason << "While parsing function for pin `";
+  reason << pinName;
+  reason << "` in cell `";
+  reason << cellName;
+  reason << "` from file `";
+  reason << sourcePath.string();
+  reason << "`: ";
+  reason << parserReason;
+  return reason.str();
+}
+
 void parseTerms(
   SNLDesign* primitive,
   const Yosys::LibertyAst* top,
@@ -201,12 +218,9 @@ void parseTerms(
       auto truthTable = tree->getTruthTable(terms);
       naja::NL::SNLDesignModeling::setTruthTable(primitive, truthTable);
     } catch (const SNLLibertyConstructorException& e) {
-      std::ostringstream reason;
-      reason << "While parsing function for pin `" << pinName
-             << "` in cell `" << cellName
-             << "` from file `" << sourcePath.string() << "`: "
-             << e.getReason();
-      throw SNLLibertyConstructorException(reason.str());
+      auto reason = buildFunctionParseErrorReason(
+        pinName, cellName, sourcePath, e.getReason());
+      throw SNLLibertyConstructorException(reason);
     }
   } else if (termFunctions.size() > 1) {  
     std::vector<SNLTruthTable> truthTables;
@@ -228,12 +242,9 @@ void parseTerms(
         auto truthTable = tree->getTruthTable(terms);
         truthTables.push_back(truthTable);
       } catch (const SNLLibertyConstructorException& e) {
-        std::ostringstream reason;
-        reason << "While parsing function for pin `" << pinName
-               << "` in cell `" << cellName
-               << "` from file `" << sourcePath.string() << "`: "
-               << e.getReason();
-        throw SNLLibertyConstructorException(reason.str());
+        auto reason = buildFunctionParseErrorReason(
+          pinName, cellName, sourcePath, e.getReason());
+        throw SNLLibertyConstructorException(reason);
       }
     }
     naja::NL::SNLDesignModeling::setTruthTables(primitive, truthTables);
