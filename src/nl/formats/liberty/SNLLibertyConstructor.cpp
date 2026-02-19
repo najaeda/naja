@@ -9,6 +9,7 @@
 #include <sstream>
 
 #include "YosysLibertyParser.h"
+#include "YosysLibertyException.h"
 
 #include "NajaPerf.h"
 
@@ -73,13 +74,44 @@ enum class FunctionParsingType {
   Combinational
 };
 
+std::string buildFunctionParseErrorReason(
+  const std::string& pinName,
+  const std::string& cellName,
+  const std::filesystem::path& sourcePath,
+  const std::string& parserReason) {
+  std::ostringstream reason;
+  reason << "While parsing function for pin `";
+  reason << pinName;
+  reason << "` in cell `";
+  reason << cellName;
+  reason << "` from file `";
+  reason << sourcePath.string();
+  reason << "`: ";
+  reason << parserReason;
+  return reason.str();
+}
+
+std::string buildParserFileErrorReason(
+  const std::filesystem::path& sourcePath,
+  const std::string& parserReason) {
+  std::ostringstream reason;
+  reason << "Liberty parser error in file `";
+  reason << sourcePath.string();
+  reason << "`: ";
+  reason << parserReason;
+  return reason.str();
+}
+
 void parseTerms(
   SNLDesign* primitive,
   const Yosys::LibertyAst* top,
   const Yosys::LibertyAst* cell,
+  const std::filesystem::path& sourcePath,
   FunctionParsingType functionParsingType = FunctionParsingType::Ignore) {
   using TermFunctions = std::map<SNLScalarTerm*, std::string, SNLScalarTerm::PointerLess>;
+  using TermPins = std::map<SNLScalarTerm*, std::string, SNLScalarTerm::PointerLess>;
   TermFunctions termFunctions;
+  TermPins termFunctionPins;
   TermFunctions seqTermClocks; //for sequential terms, key is clock term name
   for (auto child: cell->children) {
     if (child->id == "pin" or child->id == "bus") {
@@ -147,6 +179,7 @@ void parseTerms(
         and constructedScalarTerm
         and constructedScalarTerm->getDirection() == SNLTerm::Direction::Output) {
         termFunctions[constructedScalarTerm] = pinName;
+        termFunctionPins[constructedScalarTerm] = pinName;
         //parse function
         auto functionNode = child->find("function");
         if (functionNode) {
@@ -178,24 +211,12 @@ void parseTerms(
       }
     }
   } else if (termFunctions.size() == 1) {
+    auto outputTerm = termFunctions.begin()->first;
+    auto pinName = termFunctionPins[outputTerm];
+    auto cellName = primitive->getName().getString();
     auto function = termFunctions.begin()->second;
     auto tree = std::make_unique<naja::NL::SNLBooleanTree>();
-    //std::cerr << "Parsing function: " << function << std::endl;
-    tree->parse(primitive, function);
-    naja::NL::SNLBooleanTree::Terms terms;
-    for (auto term: primitive->getBitTerms()) {
-      if (term->getDirection() == SNLTerm::Direction::Input) {
-        terms.push_back(term);
-      }
-    }
-    std::reverse(terms.begin(), terms.end());
-    auto truthTable = tree->getTruthTable(terms);
-    naja::NL::SNLDesignModeling::setTruthTable(primitive, truthTable);
-  } else if (termFunctions.size() > 1) {  
-    std::vector<SNLTruthTable> truthTables;
-    // Assuming termFunctions is ordered based on termIDs!
-    for (auto& [term, function]: termFunctions) {
-      auto tree = std::make_unique<naja::NL::SNLBooleanTree>();
+    try {
       //std::cerr << "Parsing function: " << function << std::endl;
       tree->parse(primitive, function);
       naja::NL::SNLBooleanTree::Terms terms;
@@ -206,13 +227,46 @@ void parseTerms(
       }
       std::reverse(terms.begin(), terms.end());
       auto truthTable = tree->getTruthTable(terms);
-      truthTables.push_back(truthTable);
+      naja::NL::SNLDesignModeling::setTruthTable(primitive, truthTable);
+    } catch (const SNLLibertyConstructorException& e) {
+      auto reason = buildFunctionParseErrorReason(
+        pinName, cellName, sourcePath, e.getReason());
+      throw SNLLibertyConstructorException(reason);
+    }
+  } else if (termFunctions.size() > 1) {  
+    std::vector<SNLTruthTable> truthTables;
+    auto cellName = primitive->getName().getString();
+    // Assuming termFunctions is ordered based on termIDs!
+    for (auto& [term, function]: termFunctions) {
+      auto pinName = termFunctionPins[term];
+      auto tree = std::make_unique<naja::NL::SNLBooleanTree>();
+      try {
+        //std::cerr << "Parsing function: " << function << std::endl;
+        tree->parse(primitive, function);
+        naja::NL::SNLBooleanTree::Terms terms;
+        for (auto term: primitive->getBitTerms()) {
+          if (term->getDirection() == SNLTerm::Direction::Input) {
+            terms.push_back(term);
+          }
+        }
+        std::reverse(terms.begin(), terms.end());
+        auto truthTable = tree->getTruthTable(terms);
+        truthTables.push_back(truthTable);
+      } catch (const SNLLibertyConstructorException& e) {
+        auto reason = buildFunctionParseErrorReason(
+          pinName, cellName, sourcePath, e.getReason());
+        throw SNLLibertyConstructorException(reason);
+      }
     }
     naja::NL::SNLDesignModeling::setTruthTables(primitive, truthTables);
   }
 }
 
-void parseCell(NLLibrary* library, const Yosys::LibertyAst* top, Yosys::LibertyAst* cell) {
+void parseCell(
+  NLLibrary* library,
+  const Yosys::LibertyAst* top,
+  Yosys::LibertyAst* cell,
+  const std::filesystem::path& sourcePath) {
   auto cellName = cell->args[0];
   auto primitive = SNLDesign::create(library, SNLDesign::Type::Primitive, NLName(cellName));
   //std::cerr << "Parse cell: " << cellName << std::endl;
@@ -222,13 +276,16 @@ void parseCell(NLLibrary* library, const Yosys::LibertyAst* top, Yosys::LibertyA
   } else if (cell->find("latch")) {
     type = FunctionParsingType::Ignore; //LCOV_EXCL_LINE
   }
-  parseTerms(primitive, top, cell, type);
+  parseTerms(primitive, top, cell, sourcePath, type);
 }
 
-void parseCells(NLLibrary* library, const Yosys::LibertyAst* ast) {
+void parseCells(
+  NLLibrary* library,
+  const Yosys::LibertyAst* ast,
+  const std::filesystem::path& sourcePath) {
   for (auto child: ast->children) {
     if (child->id == "cell") {
-      parseCell(library, ast, child);
+      parseCell(library, ast, child, sourcePath);
     }
   }
 }
@@ -326,7 +383,13 @@ void SNLLibertyConstructor::construct(const Paths& paths) {
       throw SNLLibertyConstructorException(reason);
     }
     auto inStream = openLibertyStream(path);
-    auto parser = std::make_unique<Yosys::LibertyParser>(*inStream);
+    std::unique_ptr<Yosys::LibertyParser> parser;
+    try {
+      parser = std::make_unique<Yosys::LibertyParser>(*inStream);
+    } catch (const naja::liberty::YosysLibertyException& e) {
+      auto reason = buildParserFileErrorReason(path, e.getReason());
+      throw naja::liberty::YosysLibertyException(reason);
+    }
     auto ast = parser->ast;
     //LCOV_EXCL_START
     if (ast == nullptr) {
@@ -337,7 +400,7 @@ void SNLLibertyConstructor::construct(const Paths& paths) {
     auto libraryName = ast->args[0];
     //find a policy for multiple libs
     library_->setName(NLName(libraryName));
-    parseCells(library_, ast);
+    parseCells(library_, ast, path);
   }
 }
 

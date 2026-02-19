@@ -5,6 +5,9 @@
 
 #include "SNLBooleanTree.h"
 #include <cmath>
+#include <iomanip>
+#include <set>
+#include <sstream>
 #include "SNLDesign.h"
 #include "SNLScalarTerm.h"
 #include "SNLBusTerm.h"
@@ -27,6 +30,21 @@ struct Token {
 using Stack = std::vector<Token>;
 
 using namespace naja::NL;
+
+void cleanupStack(Stack& stack) {
+  std::set<SNLBooleanTreeFunctionNode*> functionNodes;
+  for (const auto& token: stack) {
+    auto functionNode = dynamic_cast<SNLBooleanTreeFunctionNode*>(token.node_);
+    if (functionNode != nullptr) {
+      functionNodes.insert(functionNode);
+    }
+  }
+
+  for (auto* functionNode: functionNodes) {
+    delete functionNode;
+  }
+  stack.clear();
+}
 
 bool reduce(
   const SNLDesign* primitive,
@@ -78,7 +96,6 @@ bool reduce(
     return true;
   }
 
-#if 0
   if (0 <= top-1 and stack[top-1].type_ == 2 and stack[top].type_ == 2) {
     //Top two stack elements are of type 2
     auto andNode = new SNLBooleanTreeFunctionNode(SNLBooleanTreeFunctionNode::Type::AND);
@@ -89,7 +106,6 @@ bool reduce(
     stack.push_back(Token(2, andNode));
     return true;
   }
-#endif
 
   if (0 <= top-2 and stack[top-2].type_ == 2
     and (stack[top-1].type_ == '*' or stack[top-1].type_ == '&')
@@ -250,49 +266,57 @@ void SNLBooleanTree::parse(const SNLDesign* primitive, const std::string& functi
   function_ = function;
   size_t pos = 0;
   Stack stack;
-  while (pos < function.size()) {
-    const char& car = function[pos];
-    if (std::isspace(car) or car == '"') {
-      pos++;
-      continue;
+  try {
+    while (pos < function.size()) {
+      const char& car = function[pos];
+      if (std::isspace(car) or car == '"') {
+        pos++;
+        continue;
+      }
+      Token nextToken(0);
+      switch (car) {
+        case '(':
+        case ')':
+        case '\'':
+        case '!':
+        case '^':
+        case '*':
+        case '+':
+        case '|':
+        case '&':
+          nextToken = Token(car);
+          ++pos;
+          break;
+        default:
+          {
+            auto input = parseInput(primitive, function, pos);
+            nextToken = Token(0, input);
+          }
+          break;
+      }
+      while (reduce(primitive, stack, nextToken)) {}
+      stack.push_back(nextToken);
     }
-    Token nextToken(0);
-    switch (car) {
-      case '(':
-      case ')':
-      case '\'':
-      case '!':
-      case '^':
-      case '*':
-      case '+':
-      case '|':
-      case '&':
-        nextToken = Token(car);
-        ++pos;
-        break;
-      default:
-        {
-          auto input = parseInput(primitive, function, pos);
-          nextToken = Token(0, input);
-        }
-        break;
+    while (reduce(primitive, stack, Token('.'))) {}
+
+    if (stack.size() != 1 || stack.back().type_ != 3) {
+      std::ostringstream reason;
+      reason << "Parser error in function expr. failing expression="
+             << std::quoted(function);
+      throw SNLLibertyConstructorException(reason.str());
     }
-    while (reduce(primitive, stack, nextToken)) {}
-    stack.push_back(nextToken);
-  }
-  while (reduce(primitive, stack, Token('.'))) {}
 
-  if (stack.size() != 1 || stack.back().type_ != 3) {
-    throw SNLLibertyConstructorException("Parser error in function expr `" + function + "'.");  
-  }
-
-  auto root = stack.back().node_;
-  auto inputNode = dynamic_cast<SNLBooleanTreeInputNode*>(root);
-  if (inputNode) {
-    root_ = new SNLBooleanTreeFunctionNode(SNLBooleanTreeFunctionNode::Type::BUFFER);
-    root_->addInput(inputNode);
-  } else {
-    root_ = static_cast<SNLBooleanTreeFunctionNode*>(stack.back().node_);
+    auto root = stack.back().node_;
+    auto inputNode = dynamic_cast<SNLBooleanTreeInputNode*>(root);
+    if (inputNode) {
+      root_ = new SNLBooleanTreeFunctionNode(SNLBooleanTreeFunctionNode::Type::BUFFER);
+      root_->addInput(inputNode);
+    } else {
+      root_ = static_cast<SNLBooleanTreeFunctionNode*>(stack.back().node_);
+    }
+  } catch (...) {
+    cleanupStack(stack);
+    throw;
   }
 }
 
