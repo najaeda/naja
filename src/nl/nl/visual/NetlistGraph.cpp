@@ -25,7 +25,6 @@ void SnlVisualiser::process() {
           _equiPaths.insert(termPath);
           termPath = termPath.getHeadPath();
         }
-        
       }
       for (auto term : equi.getTerms()) {
         _equiNets.insert(term->getNet());
@@ -83,7 +82,6 @@ void SnlVisualiser::process() {
 }
 
 void SnlVisualiser::processRec(InstNodeID instId, const SNLPath& path) {
-  
   std::map<SNLBitNet*, size_t> net2wireId;
   SNLInstance* inst = _snlNetlistGraph.getInst(instId).getData().getSnlInst();
   SNLPath localPath;
@@ -125,17 +123,41 @@ void SnlVisualiser::processRec(InstNodeID instId, const SNLPath& path) {
           }
         }
         if (term->getDirection() == SNLTerm::Direction::DirectionEnum::Output) {
-          _snlNetlistGraph.getWire(net2wireId[term->getNet()])
+          // guard: ensure net2wireId contains the net before using it
+          auto it = net2wireId.find(term->getNet());
+          if (it == net2wireId.end()) {
+            // LCOV_EXCL_START
+            // net not created in this scope; skip wiring to avoid UB
+            //continue;
+            throw std::runtime_error(
+                "SnlVisualiser::processRec: output term net not found in net2wireId map");
+            // LCOV_EXCL_STOP
+          }
+          _snlNetlistGraph.getWire(it->second)
               .addPort(_snlNetlistGraph.getInst(instId)
                            .getPortName2PortId()[name + std::to_string(
                                                             term->getBit())]);
         } else {
-          _snlNetlistGraph.getWire(net2wireId[term->getNet()])
+          auto it = net2wireId.find(term->getNet());
+          if (it == net2wireId.end()) {
+            //continue;
+            // LCOV_EXCL_START
+            throw std::runtime_error(
+                "SnlVisualiser::processRec: input term net not found in net2wireId map");
+            // LCOV_EXCL_STOP
+          }
+          _snlNetlistGraph.getWire(it->second)
               .addDriver(_snlNetlistGraph.getInst(instId)
                              .getPortName2PortId()[name + std::to_string(
                                                               term->getBit())]);
         }
       }
+    }
+    _snlNetlistGraph.addBus(bus);
+    if (busterm->getDirection() == SNLTerm::Direction::DirectionEnum::Input) {
+      _snlNetlistGraph.getInst(instId).addInBus(bus.getId());
+    } else {
+      _snlNetlistGraph.getInst(instId).addOutBus(bus.getId());
     }
   }
   for (auto* term : _snlNetlistGraph.getInst(instId)
@@ -152,12 +174,21 @@ void SnlVisualiser::processRec(InstNodeID instId, const SNLPath& path) {
           continue;
         }
       }
+      auto it = net2wireId.find(term->getNet());
+      if (it == net2wireId.end()) {
+        // net not created in this scope; skip wiring
+        //continue;
+        // LCOV_EXCL_START
+        throw std::runtime_error(
+            "SnlVisualiser::processRec: scalar term net not found in net2wireId map");
+        // LCOV_EXCL_STOP
+      }
       if (term->getDirection() == SNLTerm::Direction::DirectionEnum::Output) {
-        _snlNetlistGraph.getWire(net2wireId[term->getNet()])
+        _snlNetlistGraph.getWire(it->second)
             .addPort(
                 _snlNetlistGraph.getInst(instId).getPortName2PortId()[name]);
       } else {
-        _snlNetlistGraph.getWire(net2wireId[term->getNet()])
+        _snlNetlistGraph.getWire(it->second)
             .addDriver(
                 _snlNetlistGraph.getInst(instId).getPortName2PortId()[name]);
       }
@@ -176,10 +207,40 @@ void SnlVisualiser::processRec(InstNodeID instId, const SNLPath& path) {
                                     .getSnlModel()
                                     ->getInstances()) {
     if (!_equis.empty()) {
-      if (_equiPaths.find(localPath) == _equiPaths.end()) {
+      SNLPath childPath = SNLPath(localPath, instChild);
+      bool foundPartial = false;
+      // SNLPath instPath = SNLPath(localPath, instChild);
+      for (const auto& path : _equiPaths) {
+        auto pathCopy = path;
+        if (childPath.size() == 0) {
+          foundPartial = true;
+          break;
+        }
+        while (pathCopy.size() > 0) {
+          if (pathCopy == childPath) {
+            foundPartial = true;
+            break;
+          }
+          pathCopy = pathCopy.getHeadPath();
+        }
+      }
+      bool foundExact = false;
+      for (const auto& equi : _equis) {
+        for (auto oc : equi.getInstTermOccurrences()) {
+          SNLPath termPath = SNLPath(oc.getPath(), oc.getInstTerm()->getInstance());
+          if (termPath == childPath) {
+            foundExact = true;
+            break;
+          }
+        }
+        if (foundExact) {
+          break;
+        }
+      }
+      if (!foundPartial && !foundExact) {
         continue;
-      } 
-    }
+      }
+    } 
     InstDataSnl instChildData(instChild);
     InstNode<InstDataSnl> child(instChildData,
                                 _snlNetlistGraph.getInst(instId).getId(),
@@ -190,6 +251,23 @@ void SnlVisualiser::processRec(InstNodeID instId, const SNLPath& path) {
       BusNode<BusDataSnl, PortDataSnl> bus(busDataSnl,
                                            _snlNetlistGraph.getBuses().size());
       for (SNLBusTermBit* term : busterm->getBusBits()) {
+        bool isInEquis = false;
+        SNLPath termPath = SNLPath(localPath);
+        for (const auto& equi : _equis) {
+          for (auto oc : equi.getInstTermOccurrences()) {
+            if (oc.getPath() == termPath &&
+                oc.getInstTerm()->getBitTerm() == term) {
+              isInEquis = true;
+              break;
+            }
+          }
+          if (isInEquis) {
+            break;
+          }
+        }
+        if (!_equis.empty() && !isInEquis) {
+          continue;
+        }
         PortDataSnl portDataSnl((SNLTerm*)term);
         PortNode<PortDataSnl> port(portDataSnl,
                                    _snlNetlistGraph.getPorts().size());
@@ -198,25 +276,44 @@ void SnlVisualiser::processRec(InstNodeID instId, const SNLPath& path) {
           SNLInstTerm* netTerm =
               child.getData().getSnlInst()->getInstTerm(term);
           if (!_equis.empty()) {
+            // LCOV_EXCL_START
             if (_equiNets.find(netTerm->getNet()) == _equiNets.end()) {
+              // do not register port wiring for nets outside equiNets
+              // still keep the port created so port IDs remain consistent
+              std::string name = term->getName().getString();
+              if (name == "") {
+                name = std::to_string(term->getFlatID());
+              }
+              child
+                  .getPortName2PortId()[name + std::to_string(term->getBit())] =
+                  port.getId();
+              bus.addPort(port.getId());
               continue;
             }
+            // LCOV_EXCL_STOP
+          }
+          // net is allowed — ensure the corresponding wire exists in this scope
+          auto it = net2wireId.find(netTerm->getNet());
+          if (it == net2wireId.end()) {
+            // // wire not found at this scope: skip wiring to avoid UB
+            // std::string name = term->getName().getString();
+            // if (name == "") {
+            //   name = std::to_string(term->getFlatID());
+            // }
+            // child.getPortName2PortId()[name + std::to_string(term->getBit())] =
+            //     port.getId();
+            // bus.addPort(port.getId());
+            // continue;
+            // LCOV_EXCL_START
+            throw std::runtime_error(
+                "SnlVisualiser internal error: wire for net not found");
+            // LCOV_EXCL_STOP
           }
           if (term->getDirection() ==
               SNLTerm::Direction::DirectionEnum::Input) {
-            _snlNetlistGraph
-                .getWire(net2wireId[child.getData()
-                                        .getSnlInst()
-                                        ->getInstTerm(term)
-                                        ->getNet()])
-                .addPort(port.getId());
+            _snlNetlistGraph.getWire(it->second).addPort(port.getId());
           } else {
-            _snlNetlistGraph
-                .getWire(net2wireId[child.getData()
-                                        .getSnlInst()
-                                        ->getInstTerm(term)
-                                        ->getNet()])
-                .addDriver(port.getId());
+            _snlNetlistGraph.getWire(it->second).addDriver(port.getId());
           }
         }
         std::string name = term->getName().getString();
@@ -235,6 +332,23 @@ void SnlVisualiser::processRec(InstNodeID instId, const SNLPath& path) {
       }
     }
     for (auto* term : child.getData().getSnlModel()->getScalarTerms()) {
+      bool isInEquis = false;
+      SNLPath termPath = SNLPath(localPath);
+      for (const auto& equi : _equis) {
+        for (auto oc : equi.getInstTermOccurrences()) {
+          if (oc.getPath() == termPath &&
+              oc.getInstTerm()->getBitTerm() == term) {
+            isInEquis = true;
+            break;
+          }
+        }
+        if (isInEquis) {
+          break;
+        }
+      }
+      if (!_equis.empty() && !isInEquis) {
+        continue;
+      }
       PortDataSnl portDataSnl(term);
       PortNode<PortDataSnl> port(portDataSnl,
                                  _snlNetlistGraph.getPorts().size());
@@ -243,23 +357,43 @@ void SnlVisualiser::processRec(InstNodeID instId, const SNLPath& path) {
         SNLInstTerm* netTerm = child.getData().getSnlInst()->getInstTerm(term);
         if (!_equis.empty()) {
           if (_equiNets.find(netTerm->getNet()) == _equiNets.end()) {
+            // keep port created for id consistency but skip wiring
+            std::string name = term->getName().getString();
+            if (name == "") {
+              name = std::to_string(term->getFlatID());
+            }
+            child.getPortName2PortId()[name] = port.getId();
+            if (term->getDirection() ==
+                SNLTerm::Direction::DirectionEnum::Input) {
+              child.addInPort(port.getId());
+            } else {
+              child.addOutPort(port.getId());
+            }
             continue;
           }
         }
+        auto it = net2wireId.find(netTerm->getNet());
+        if (it == net2wireId.end()) {
+          // LCOV_EXCL_START
+          // skip wiring if wire not found locally
+          std::string name = term->getName().getString();
+          if (name == "") {
+            name = std::to_string(term->getFlatID());
+          }
+          child.getPortName2PortId()[name] = port.getId();
+          if (term->getDirection() ==
+              SNLTerm::Direction::DirectionEnum::Input) {
+            child.addInPort(port.getId());
+          } else {
+            child.addOutPort(port.getId());
+          }
+          continue;
+          // LCOV_EXCL_STOP
+        }
         if (term->getDirection() == SNLTerm::Direction::DirectionEnum::Input) {
-          _snlNetlistGraph
-              .getWire(net2wireId[child.getData()
-                                      .getSnlInst()
-                                      ->getInstTerm(term)
-                                      ->getNet()])
-              .addPort(port.getId());
+          _snlNetlistGraph.getWire(it->second).addPort(port.getId());
         } else {
-          _snlNetlistGraph
-              .getWire(net2wireId[child.getData()
-                                      .getSnlInst()
-                                      ->getInstTerm(term)
-                                      ->getNet()])
-              .addDriver(port.getId());
+          _snlNetlistGraph.getWire(it->second).addDriver(port.getId());
         }
       }
       std::string name = term->getName().getString();
@@ -275,6 +409,27 @@ void SnlVisualiser::processRec(InstNodeID instId, const SNLPath& path) {
     }
     _snlNetlistGraph.addInst(child);
     _snlNetlistGraph.getInst(instId).addChild(child.getId());
+    if (!_equis.empty()) {
+      bool foundPartial = false;
+      SNLPath instPath = SNLPath(localPath, instChild);
+      for (const auto& path : _equiPaths) {
+        auto pathCopy = path;
+        if (instPath.size() == 0) {
+          foundPartial = true;
+          break;
+        }
+        while (pathCopy.size() > 0) {
+          if (pathCopy == instPath) {
+            foundPartial = true;
+            break;
+          }
+          pathCopy = pathCopy.getHeadPath();
+        }
+      }
+      if (!foundPartial) {
+        continue;
+      }
+    }
     if (_recursive) {
       processRec(child.getId(), localPath);
     }

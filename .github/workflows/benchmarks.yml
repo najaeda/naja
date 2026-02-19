@@ -20,7 +20,7 @@ jobs:
           submodules: true
 
       - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install -yq libboost-dev libfl-dev capnproto libcapnp-dev libtbb-dev libbenchmark-dev
+        run: sudo apt-get update && sudo apt-get install -yq libboost-iostreams-dev libboost-dev libfl-dev capnproto libcapnp-dev libtbb-dev libbenchmark-dev
 
       - name: Configure CMake
         run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=Release -DBUILD_BENCHMARKS=ON -DENABLE_SANITIZERS=OFF -DLONG_TESTS=OFF

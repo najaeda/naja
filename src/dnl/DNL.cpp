@@ -86,7 +86,9 @@ DNL<DNLInstanceFull, DNLTerminalFull>* get() {
 }
 
 void destroy() {
-  delete dnlFull_;
+  if (dnlFull_ != nullptr) {
+    delete dnlFull_;;
+  }
   dnlFull_ = nullptr;
 }
 }  // namespace naja::DNL
@@ -125,9 +127,10 @@ DNLID DNLInstanceFull::getParentID() const {
 const SNLDesign* DNLInstanceFull::getSNLModel() const {
   if (instance_) {
     return instance_->getModel();
-  } else {
+  } else if (isTop()) {
     return NLUniverse::get()->getTopDesign();
   }
+  return nullptr;
 }
 
 SNLInstance* DNLInstanceFull::getSNLInstance() const {
@@ -249,14 +252,14 @@ std::string DNLInstanceFull::getFullPath() const {
 }
 
 SNLPath DNLInstanceFull::getPath() const {
-  std::vector<std::string> path;
+  std::vector<naja::NL::NLID::DesignObjectID> pathIDs;
   naja::DNL::DNLInstanceFull currentInstance = *this;
   while (currentInstance.isTop() == false) {
-    path.push_back(currentInstance.getSNLInstance()->getName().getString());
+    pathIDs.push_back(currentInstance.getSNLInstance()->getID());
     currentInstance = currentInstance.getParentInstance();
   }
-  std::reverse(path.begin(), path.end());
-  SNLPath snlPath(NLUniverse::get()->getTopDesign(), path);
+  std::reverse(pathIDs.begin(), pathIDs.end());
+  SNLPath snlPath(NLUniverse::get()->getTopDesign(), pathIDs);
   return snlPath;
 }
 
@@ -303,6 +306,14 @@ bool DNLTerminalFull::isSequential() const {
     }
   }
   return false;
+}
+
+std::vector<naja::NL::NLID::DesignObjectID> DNLTerminalFull::getFullPathIDs() const {
+  auto path = this->getDNLInstance().getPath();
+  std::vector<naja::NL::NLID::DesignObjectID> fullPathIDs = path.getInstanceIDs();
+  fullPathIDs.push_back(this->getSnlBitTerm()->getID());
+  fullPathIDs.push_back(this->getSnlBitTerm()->getBit());
+  return fullPathIDs;
 }
 
 bool DNLTerminalFull::isCombinatorial() const {

@@ -1009,6 +1009,11 @@ SNLTruthTable SNLDesignModeling::getTruthTable(const SNLDesign* design,
     }
     bitTermIdx++;
   }
+  if (termID2outputID.size() == 1) {
+    if (NLDB0::isDB0Primitive(design)) {
+      return NLDB0::getPrimitiveTruthTable(design);
+    }
+  }
   if (termID2outputID.find(flatTermID) == termID2outputID.end()) {
     std::ostringstream reason;
     reason << "Term ID " << flatTermID << " is not an output in design <"
