@@ -144,6 +144,22 @@ TEST_F(SNLSVConstructorTestSimple, parseSimpleModule) {
   EXPECT_EQ(assignInTerm->getNet(), andOut->getNet());
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseMissingFileThrowsLoadError) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  auto missingPath = benchmarksPath / "does_not_exist" / "missing.sv";
+  ASSERT_FALSE(std::filesystem::exists(missingPath));
+
+  try {
+    constructor.construct(missingPath);
+    FAIL() << "Expected load failure exception";
+  } catch (const SNLSVConstructorException& e) {
+    const std::string reason = e.what();
+    EXPECT_NE(std::string::npos, reason.find("Failed to load SystemVerilog file: "));
+    EXPECT_NE(std::string::npos, reason.find(missingPath.string()));
+  }
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseBytePortsInferRangeFromWidth) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
