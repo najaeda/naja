@@ -1115,61 +1115,69 @@ class SNLSVConstructorImpl {
       const std::vector<SNLBitNet*>& lhsBits,
       const std::vector<SNLBitNet*>* incrementerBits = nullptr,
       const std::optional<slang::SourceRange>& sourceRange = std::nullopt) {
+      auto getIncrementerBits = [&]() -> const std::vector<SNLBitNet*>& {
+        if (!incrementerBits || incrementerBits->empty()) {
+          throw SNLSVConstructorException(
+            "Internal error: missing precomputed incrementer bits in sequential assignment"); // LCOV_EXCL_LINE
+        }
+        return *incrementerBits;
+      };
       if (action.increment) {
-        if (incrementerBits && !incrementerBits->empty()) {
-          return *incrementerBits;
-        }
-        return buildIncrementer(design, lhsBits, nullptr, nullptr, sourceRange);
+        return getIncrementerBits();
       }
-      if (action.rhs) {
-        const auto* rhsExpr = stripConversions(*action.rhs);
-        bool constValue = false;
-        if (rhsExpr && getConstantBit(*rhsExpr, constValue)) {
-          auto constantNet = getConstNet(design, constValue);
-          return std::vector<SNLBitNet*>(lhsBits.size(), constantNet);
-        }
-        if (rhsExpr && rhsExpr->kind == slang::ast::ExpressionKind::BinaryOp) {
-          const auto& bin = rhsExpr->as<slang::ast::BinaryExpression>();
-          if (bin.op != slang::ast::BinaryOperator::Add) {
-            std::ostringstream reason;
-            reason << "Unsupported binary operator in sequential assignment: "
-                   << slang::ast::OpInfo::getText(bin.op);
-            reportUnsupportedElement(reason.str(), sourceRange);
-            return {};
-          }
-          auto leftNet = resolveExpressionNet(design, bin.left());
-          auto rightNet = resolveExpressionNet(design, bin.right());
-          bool constOne = false;
-          if (leftNet == lhsNet && rightNet && getConstantBit(bin.right(), constOne) && constOne) {
-            if (incrementerBits && !incrementerBits->empty()) {
-              return *incrementerBits;
-            }
-            return buildIncrementer(design, lhsBits, nullptr, nullptr, sourceRange);
-          }
-          if (rightNet == lhsNet && leftNet && getConstantBit(bin.left(), constOne) && constOne) {
-            if (incrementerBits && !incrementerBits->empty()) {
-              return *incrementerBits;
-            }
-            return buildIncrementer(design, lhsBits, nullptr, nullptr, sourceRange);
-          }
+      if (!action.rhs) {
+        throw SNLSVConstructorException(
+          "Internal error: missing RHS expression in sequential assignment"); // LCOV_EXCL_LINE
+      }
+      const auto* rhsExpr = stripConversions(*action.rhs);
+      bool constValue = false;
+      if (rhsExpr && getConstantBit(*rhsExpr, constValue)) {
+        auto constantNet = getConstNet(design, constValue);
+        return std::vector<SNLBitNet*>(lhsBits.size(), constantNet);
+      }
+      if (rhsExpr && rhsExpr->kind == slang::ast::ExpressionKind::BinaryOp) {
+        const auto& bin = rhsExpr->as<slang::ast::BinaryExpression>();
+        if (bin.op != slang::ast::BinaryOperator::Add) {
           std::ostringstream reason;
-          reason << "Unsupported binary expression in sequential assignment: "
+          reason << "Unsupported binary operator in sequential assignment: "
                  << slang::ast::OpInfo::getText(bin.op);
           reportUnsupportedElement(reason.str(), sourceRange);
           return {};
         }
-        if (!rhsExpr) {
-          return {};
+        auto leftNet = resolveExpressionNet(design, bin.left());
+        auto rightNet = resolveExpressionNet(design, bin.right());
+        const auto* leftExpr = stripConversions(bin.left());
+        const auto* rightExpr = stripConversions(bin.right());
+        bool constOne = false;
+        if (leftNet == lhsNet && rightExpr && getConstantBit(*rightExpr, constOne) && constOne) {
+          return getIncrementerBits();
         }
-        auto rhsNet = resolveExpressionNet(design, *rhsExpr);
-        if (rhsNet) {
-          auto rhsBits = collectBits(rhsNet);
-          if (rhsBits.size() == lhsBits.size()) {
-            return rhsBits;
-          }
+        if (rightNet == lhsNet && leftExpr && getConstantBit(*leftExpr, constOne) && constOne) {
+          return getIncrementerBits();
         }
+        std::ostringstream reason;
+        reason << "Unsupported binary expression in sequential assignment: "
+               << slang::ast::OpInfo::getText(bin.op);
+        reportUnsupportedElement(reason.str(), sourceRange);
+        return {};
       }
-      return {};
+      if (!rhsExpr) {
+        throw SNLSVConstructorException("Internal error: null RHS expression in sequential assignment"); // LCOV_EXCL_LINE
+      }
+      auto rhsNet = resolveExpressionNet(design, *rhsExpr);
+      if (!rhsNet) {
+        reportUnsupportedElement("Unsupported RHS in sequential assignment", sourceRange);
+        return {};
+      }
+      auto rhsBits = collectBits(rhsNet);
+      if (rhsBits.size() != lhsBits.size()) {
+        std::ostringstream reason;
+        reason << "Unsupported width mismatch in sequential assignment: lhs=" << lhsBits.size()
+               << " rhs=" << rhsBits.size();
+        reportUnsupportedElement(reason.str(), sourceRange);
+        return {};
+      }
+      return rhsBits;
     }
 
     const Expression* getClockExpression(const TimingControl& timing) const {
@@ -1307,11 +1315,13 @@ class SNLSVConstructorImpl {
           }
           auto leftNet = resolveExpressionNet(design, bin.left());
           auto rightNet = resolveExpressionNet(design, bin.right());
+          const auto* leftExpr = stripConversions(bin.left());
+          const auto* rightExpr = stripConversions(bin.right());
           bool constOne = false;
-          if (leftNet == lhsNet && rightNet && getConstantBit(bin.right(), constOne) && constOne) {
+          if (leftNet == lhsNet && rightExpr && getConstantBit(*rightExpr, constOne) && constOne) {
             return true;
           }
-          if (rightNet == lhsNet && leftNet && getConstantBit(bin.left(), constOne) && constOne) {
+          if (rightNet == lhsNet && leftExpr && getConstantBit(*leftExpr, constOne) && constOne) {
             return true;
           }
           return false;

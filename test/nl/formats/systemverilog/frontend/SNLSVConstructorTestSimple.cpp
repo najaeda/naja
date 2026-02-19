@@ -47,6 +47,23 @@ bool hasAttribute(const NLObject* object, const std::string& name) {
   return false;
 }
 
+std::filesystem::path dumpTopAndGetVerilogPath(const SNLDesign* top,
+                                               const std::string& outDirName) {
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath /= outDirName;
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  SNLVRLDumper dumper;
+  auto fileName = top->getName().getString() + ".v";
+  dumper.setTopFileName(fileName);
+  dumper.setSingleFile(true);
+  dumper.dumpDesign(top, outPath);
+  return outPath / fileName;
+}
+
 }
 
 class SNLSVConstructorTestSimple: public ::testing::Test {
@@ -142,6 +159,9 @@ TEST_F(SNLSVConstructorTestSimple, parseSimpleModule) {
   EXPECT_EQ(andIn0->getNet(), aBitNet);
   EXPECT_EQ(andIn1->getNet(), bBitNet);
   EXPECT_EQ(assignInTerm->getNet(), andOut->getNet());
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "simple_module");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseMissingFileThrowsLoadError) {
@@ -163,12 +183,6 @@ TEST_F(SNLSVConstructorTestSimple, parseMissingFileThrowsLoadError) {
 TEST_F(SNLSVConstructorTestSimple, parseBytePortsInferRangeFromWidth) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
-  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath = outPath / "byte_ports";
-  if (std::filesystem::exists(outPath)) {
-    std::filesystem::remove_all(outPath);
-  }
-  std::filesystem::create_directory(outPath);
   constructor.construct(benchmarksPath / "byte_ports" / "byte_ports.sv");
 
   auto top = library_->getSNLDesign(NLName("byte_ports_top"));
@@ -192,11 +206,8 @@ TEST_F(SNLSVConstructorTestSimple, parseBytePortsInferRangeFromWidth) {
   EXPECT_EQ(8, aNet->getWidth());
   EXPECT_EQ(8, yNet->getWidth());
 
-  SNLVRLDumper dumper;
-  dumper.setTopFileName(top->getName().getString() + ".v");
-  dumper.setSingleFile(true);
-  dumper.dumpDesign(top, outPath);
-  EXPECT_TRUE(std::filesystem::exists(outPath / "byte_ports_top.v"));
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "byte_ports");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseImplicitWidthPortsInferRangeFromWidth) {
@@ -221,6 +232,9 @@ TEST_F(SNLSVConstructorTestSimple, parseImplicitWidthPortsInferRangeFromWidth) {
   auto bitTerm = top->getTerm(NLName("bit_i"));
   ASSERT_NE(bitTerm, nullptr);
   EXPECT_NE(dynamic_cast<SNLScalarTerm*>(bitTerm), nullptr);
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "implicit_width_ports");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseUnsupportedPortTypesReportedAtEnd) {
@@ -258,6 +272,9 @@ TEST_F(SNLSVConstructorTestSimple, parseInoutPortDirection) {
   auto inoutTerm = top->getTerm(NLName("io"));
   ASSERT_NE(inoutTerm, nullptr);
   EXPECT_EQ(SNLTerm::Direction::InOut, inoutTerm->getDirection());
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "port_directions");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseInterfacePortReportedUnsupportedAtEnd) {
@@ -307,12 +324,6 @@ TEST_F(SNLSVConstructorTestSimple, parseUnsupportedElementsReportedAtEnd) {
 TEST_F(SNLSVConstructorTestSimple, parseBinaryOperatorsSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
-  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath = outPath / "binary_ops_supported";
-  if (std::filesystem::exists(outPath)) {
-    std::filesystem::remove_all(outPath);
-  }
-  std::filesystem::create_directory(outPath);
   constructor.construct(benchmarksPath / "binary_ops_supported" / "binary_ops_supported.sv");
 
   auto top = library_->getSNLDesign(NLName("binary_ops_supported_top"));
@@ -366,11 +377,8 @@ TEST_F(SNLSVConstructorTestSimple, parseBinaryOperatorsSupported) {
   EXPECT_EQ(supportedBinaryOpOutputs.size(), assignCount);
   EXPECT_EQ(8u, top->getInstances().size());
 
-  SNLVRLDumper dumper;
-  dumper.setTopFileName(top->getName().getString() + ".v");
-  dumper.setSingleFile(true);
-  dumper.dumpDesign(top, outPath);
-  EXPECT_TRUE(std::filesystem::exists(outPath / "binary_ops_supported_top.v"));
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "binary_ops_supported");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseUnaryNotCreatesNOutputGate) {
@@ -396,6 +404,9 @@ TEST_F(SNLSVConstructorTestSimple, parseUnaryNotCreatesNOutputGate) {
 
   EXPECT_EQ(1u, notGateCount);
   EXPECT_EQ(1u, assignCount);
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "unary_not");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseBinaryOperatorsUnsupportedFails) {
@@ -475,10 +486,8 @@ TEST_F(SNLSVConstructorTestSimple, parseUpCounter) {
   EXPECT_TRUE(dffHasSource);
   EXPECT_GT(gateCount, 0u);
 
-  SNLVRLDumper dumper;
-  dumper.setTopFileName(top->getName().getString() + ".v");
-  dumper.setSingleFile(true);
-  dumper.dumpDesign(top, outPath);
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "up_counter_dump");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
 
   ASSERT_TRUE(std::filesystem::exists(jsonPath));
   std::ifstream jsonFile(jsonPath);
@@ -488,6 +497,143 @@ TEST_F(SNLSVConstructorTestSimple, parseUpCounter) {
     std::istreambuf_iterator<char>()};
   EXPECT_FALSE(json.empty());
   EXPECT_NE(json.find("\"up_counter\""), std::string::npos);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialAddOutPlusOne) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  constructor.construct(
+    benchmarksPath / "seq_add_out_plus_one" / "seq_add_out_plus_one.sv");
+
+  auto top = library_->getSNLDesign(NLName("seq_add_out_plus_one"));
+  ASSERT_NE(top, nullptr);
+
+  size_t faCount = 0;
+  size_t dffCount = 0;
+  auto dffModel = NLDB0::getDFF();
+  ASSERT_NE(dffModel, nullptr);
+  for (auto inst : top->getInstances()) {
+    if (NLDB0::isFA(inst->getModel())) {
+      ++faCount;
+    }
+    if (inst->getModel() == dffModel) {
+      ++dffCount;
+    }
+  }
+  EXPECT_GT(faCount, 0u);
+  EXPECT_EQ(8u, dffCount);
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "seq_add_out_plus_one");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialAddOnePlusOut) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  constructor.construct(
+    benchmarksPath / "seq_add_one_plus_out" / "seq_add_one_plus_out.sv");
+
+  auto top = library_->getSNLDesign(NLName("seq_add_one_plus_out"));
+  ASSERT_NE(top, nullptr);
+
+  size_t faCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (NLDB0::isFA(inst->getModel())) {
+      ++faCount;
+    }
+  }
+  EXPECT_GT(faCount, 0u);
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "seq_add_one_plus_out");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialBinaryNonAddUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  try {
+    constructor.construct(
+      benchmarksPath / "seq_binary_non_add" / "seq_binary_non_add.sv");
+    FAIL() << "Expected unsupported sequential binary operator exception";
+  } catch (const SNLSVConstructorException& e) {
+    const std::string reason = e.what();
+    EXPECT_NE(
+      std::string::npos,
+      reason.find("Unsupported binary operator in sequential assignment: &"));
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialAddNonIncrementUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  try {
+    constructor.construct(
+      benchmarksPath / "seq_add_non_increment" / "seq_add_non_increment.sv");
+    FAIL() << "Expected unsupported sequential add expression exception";
+  } catch (const SNLSVConstructorException& e) {
+    const std::string reason = e.what();
+    EXPECT_NE(
+      std::string::npos,
+      reason.find("Unsupported binary expression in sequential assignment: +"));
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialRHSUnresolvedUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  try {
+    constructor.construct(
+      benchmarksPath / "seq_rhs_unresolved" / "seq_rhs_unresolved.sv");
+    FAIL() << "Expected unsupported sequential RHS exception";
+  } catch (const SNLSVConstructorException& e) {
+    const std::string reason = e.what();
+    EXPECT_NE(
+      std::string::npos,
+      reason.find("Unsupported RHS in sequential assignment"));
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialRHSWidthMismatchUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  try {
+    constructor.construct(
+      benchmarksPath / "seq_rhs_width_mismatch" / "seq_rhs_width_mismatch.sv");
+    FAIL() << "Expected sequential width mismatch exception";
+  } catch (const SNLSVConstructorException& e) {
+    const std::string reason = e.what();
+    EXPECT_NE(
+      std::string::npos,
+      reason.find("Unsupported width mismatch in sequential assignment"));
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialRHSDirectMatchSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  constructor.construct(
+    benchmarksPath / "seq_rhs_direct_match" / "seq_rhs_direct_match.sv");
+
+  auto top = library_->getSNLDesign(NLName("seq_rhs_direct_match"));
+  ASSERT_NE(top, nullptr);
+
+  auto dffModel = NLDB0::getDFF();
+  ASSERT_NE(dffModel, nullptr);
+  size_t dffCount = 0;
+  size_t faCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dffModel) {
+      ++dffCount;
+    }
+    if (NLDB0::isFA(inst->getModel())) {
+      ++faCount;
+    }
+  }
+  EXPECT_EQ(8u, dffCount);
+  EXPECT_EQ(0u, faCount);
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "seq_rhs_direct_match");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseSimpleModuleDumpElaboratedASTJson) {
@@ -504,6 +650,11 @@ TEST_F(SNLSVConstructorTestSimple, parseSimpleModuleDumpElaboratedASTJson) {
   SNLSVConstructor::ConstructOptions options;
   options.elaboratedASTJsonPath = jsonPath;
   constructor.construct(benchmarksPath / "simple" / "simple.sv", options);
+
+  auto top = library_->getSNLDesign(NLName("top"));
+  ASSERT_NE(top, nullptr);
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "simple_ast_json_dump");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
 
   ASSERT_TRUE(std::filesystem::exists(jsonPath));
   std::ifstream jsonFile(jsonPath);

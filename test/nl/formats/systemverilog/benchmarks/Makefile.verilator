@@ -16,7 +16,7 @@ sim: $(VBIN)
 	@echo "PASS: $(TOP)"
 
 $(VBIN): $(SV) $(TB)
-	$(VERILATOR) --cc --exe --build --top-module $(TOP) -j 0 -o V$(TOP) $(SV) $(TB)
+	$(VERILATOR) --cc --exe --build --top-module $(TOP) -j 0 -o V$(TOP) $(VERILATOR_FLAGS) $(SV) $(TB)
 
 clean:
 	rm -rf $(OBJ_DIR)
