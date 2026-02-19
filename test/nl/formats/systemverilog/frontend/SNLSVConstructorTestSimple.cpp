@@ -183,6 +183,46 @@ TEST_F(SNLSVConstructorTestSimple, parseBytePortsInferRangeFromWidth) {
   EXPECT_TRUE(std::filesystem::exists(outPath / "byte_ports_top.v"));
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseImplicitWidthPortsInferRangeFromWidth) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  constructor.construct(benchmarksPath / "implicit_width_ports" / "implicit_width_ports.sv");
+
+  auto top = library_->getSNLDesign(NLName("implicit_width_ports_top"));
+  ASSERT_NE(top, nullptr);
+
+  auto wideInput = top->getBusTerm(NLName("wide_i"));
+  auto wideOutput = top->getBusTerm(NLName("wide_o"));
+  ASSERT_NE(wideInput, nullptr);
+  ASSERT_NE(wideOutput, nullptr);
+  EXPECT_EQ(32, wideInput->getWidth());
+  EXPECT_EQ(32, wideOutput->getWidth());
+  EXPECT_EQ(31, wideInput->getMSB());
+  EXPECT_EQ(0, wideInput->getLSB());
+  EXPECT_EQ(31, wideOutput->getMSB());
+  EXPECT_EQ(0, wideOutput->getLSB());
+
+  auto bitTerm = top->getTerm(NLName("bit_i"));
+  ASSERT_NE(bitTerm, nullptr);
+  EXPECT_NE(dynamic_cast<SNLScalarTerm*>(bitTerm), nullptr);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseUnsupportedPortTypesReportedAtEnd) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  try {
+    constructor.construct(
+      benchmarksPath / "unsupported_port_types" / "unsupported_port_types.sv");
+    FAIL() << "Expected unsupported port type exception";
+  } catch (const SNLSVConstructorException& e) {
+    const std::string reason = e.what();
+    EXPECT_NE(std::string::npos, reason.find("Unsupported SystemVerilog floating-point type"));
+    EXPECT_NE(std::string::npos, reason.find("Unsupported SystemVerilog type 'string'"));
+    EXPECT_NE(std::string::npos, reason.find("wide_f"));
+    EXPECT_NE(std::string::npos, reason.find("str_i"));
+  }
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseInoutPortDirection) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
@@ -202,6 +242,19 @@ TEST_F(SNLSVConstructorTestSimple, parseInoutPortDirection) {
   auto inoutTerm = top->getTerm(NLName("io"));
   ASSERT_NE(inoutTerm, nullptr);
   EXPECT_EQ(SNLTerm::Direction::InOut, inoutTerm->getDirection());
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseInterfacePortReportedUnsupportedAtEnd) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  try {
+    constructor.construct(benchmarksPath / "interface_port_skip" / "interface_port_skip.sv");
+    FAIL() << "Expected unsupported interface port exception";
+  } catch (const SNLSVConstructorException& e) {
+    const std::string reason = e.what();
+    EXPECT_NE(std::string::npos, reason.find("Unsupported SystemVerilog interface port declaration"));
+    EXPECT_NE(std::string::npos, reason.find("for port: bus"));
+  }
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseUnsupportedElementsReportedAtEnd) {
@@ -302,6 +355,31 @@ TEST_F(SNLSVConstructorTestSimple, parseBinaryOperatorsSupported) {
   dumper.setSingleFile(true);
   dumper.dumpDesign(top, outPath);
   EXPECT_TRUE(std::filesystem::exists(outPath / "binary_ops_supported_top.v"));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseUnaryNotCreatesNOutputGate) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  constructor.construct(benchmarksPath / "unary_not" / "unary_not.sv");
+
+  auto top = library_->getSNLDesign(NLName("unary_not_top"));
+  ASSERT_NE(top, nullptr);
+
+  size_t notGateCount = 0;
+  size_t assignCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (NLDB0::isAssign(inst->getModel())) {
+      ++assignCount;
+      continue;
+    }
+    if (NLDB0::isGate(inst->getModel()) &&
+        NLDB0::getGateName(inst->getModel()) == "not") {
+      ++notGateCount;
+    }
+  }
+
+  EXPECT_EQ(1u, notGateCount);
+  EXPECT_EQ(1u, assignCount);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseBinaryOperatorsUnsupportedFails) {

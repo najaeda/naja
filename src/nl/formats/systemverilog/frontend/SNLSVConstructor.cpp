@@ -128,6 +128,34 @@ std::optional<SNLTerm::Direction> toSNLDirection(ArgumentDirection direction) {
   }
 }
 
+const char* getPortKindLabel(SymbolKind kind) {
+  switch (kind) {
+    case SymbolKind::InterfacePort:
+      return "interface port";
+    case SymbolKind::MultiPort:
+      return "multi-port";
+    case SymbolKind::Port:
+      return "port";
+    default:
+      return "non-port";
+  }
+}
+
+std::optional<std::string> getUnsupportedTypeReason(const Type& type) {
+  const auto& canonical = type.getCanonicalType();
+  if (canonical.isString()) {
+    return "Unsupported SystemVerilog type 'string'";
+  }
+  if (canonical.isFloating()) {
+    return "Unsupported SystemVerilog floating-point type";
+  }
+  // Conservative policy: only accept plain 2/4-state bit-vectors and predefined integers.
+  if (!canonical.isSimpleBitVector()) {
+    return "Unsupported SystemVerilog type not representable in SNL";
+  }
+  return std::nullopt;
+}
+
 std::optional<slang::ConstantRange> getRangeFromType(const Type& type) {
   if (type.hasFixedRange()) {
     return type.getFixedRange();
@@ -151,31 +179,6 @@ SNLNet* getOrCreateNet(SNLDesign* design, const std::string& name, const Type& t
       NLName(name));
   }
   return SNLScalarNet::create(design, NLName(name));
-}
-
-SNLNet* resolveExpressionNet(SNLDesign* design, const Expression& expr) {
-  const Expression* current = &expr;
-  while (current) {
-    if (current->kind == slang::ast::ExpressionKind::Conversion) {
-      current = &current->as<slang::ast::ConversionExpression>().operand();
-      continue;
-    }
-    if (current->kind == slang::ast::ExpressionKind::Assignment) {
-      const auto& assign = current->as<slang::ast::AssignmentExpression>();
-      if (assign.isLValueArg()) {
-        current = &assign.left();
-        continue;
-      }
-    }
-    break;
-  }
-  current = current ? stripConversions(*current) : nullptr;
-  if (current && slang::ast::ValueExpressionBase::isKind(current->kind)) {
-    const auto& valueExpr = current->as<slang::ast::ValueExpressionBase>();
-    const auto& symbol = valueExpr.symbol;
-    return getOrCreateNet(design, std::string(symbol.name), symbol.getType());
-  }
-  return nullptr;
 }
 
 }  // namespace
@@ -298,16 +301,17 @@ class SNLSVConstructorImpl {
     };
 
     std::optional<slang::SourceRange> getSourceRange(const Symbol& symbol) const {
+      std::optional<slang::SourceRange> range;
+      if (symbol.location.valid()) {
+        range = slang::SourceRange(symbol.location, symbol.location);
+      }
       if (auto syntax = symbol.getSyntax()) {
-        auto range = syntax->sourceRange();
-        if (range.start().valid()) {
-          return range;
+        auto syntaxRange = syntax->sourceRange();
+        if (syntaxRange.start().valid()) {
+          range = syntaxRange;
         }
       }
-      if (symbol.location.valid()) {
-        return slang::SourceRange(symbol.location, symbol.location);
-      }
-      return std::nullopt;
+      return range;
     }
 
     std::optional<slang::SourceRange> getSourceRange(const Expression& expression) const {
@@ -454,9 +458,48 @@ class SNLSVConstructorImpl {
         std::to_string(sourceInfo->endColumn));
     }
 
+    SNLNet* resolveExpressionNet(SNLDesign* design, const Expression& expr) {
+      const Expression* current = &expr;
+      while (current) {
+        if (current->kind == slang::ast::ExpressionKind::Conversion) {
+          current = &current->as<slang::ast::ConversionExpression>().operand();
+          continue;
+        }
+        if (current->kind == slang::ast::ExpressionKind::Assignment) {
+          const auto& assign = current->as<slang::ast::AssignmentExpression>();
+          if (assign.isLValueArg()) {
+            current = &assign.left();
+            continue;
+          }
+        }
+        break;
+      }
+      current = current ? stripConversions(*current) : nullptr;
+      if (current && slang::ast::ValueExpressionBase::isKind(current->kind)) {
+        const auto& valueExpr = current->as<slang::ast::ValueExpressionBase>();
+        const auto& symbol = valueExpr.symbol;
+        if (auto unsupportedTypeReason = getUnsupportedTypeReason(symbol.getType())) {
+          std::ostringstream reason;
+          reason << *unsupportedTypeReason << " for symbol: " << std::string(symbol.name);
+          reportUnsupportedElement(reason.str(), getSourceRange(expr));
+          return nullptr;
+        }
+        return getOrCreateNet(design, std::string(symbol.name), symbol.getType());
+      }
+      return nullptr;
+    }
+
     void createTerms(SNLDesign* design, const InstanceBodySymbol& body) {
       for (const auto& sym : body.getPortList()) {
         if (sym->kind != SymbolKind::Port) {
+          std::string portName(sym->name);
+          if (portName.empty()) {
+            portName = "<anonymous>";
+          }
+          std::ostringstream reason;
+          reason << "Unsupported SystemVerilog " << getPortKindLabel(sym->kind)
+                 << " declaration for port: " << portName;
+          reportUnsupportedElement(reason.str(), getSourceRange(*sym));
           continue;
         }
         const auto& port = sym->as<PortSymbol>();
@@ -469,6 +512,12 @@ class SNLSVConstructorImpl {
             reason << " 'ref'";
           }
           reason << " for port: " << portName;
+          reportUnsupportedElement(reason.str(), getSourceRange(port));
+          continue;
+        }
+        if (auto unsupportedTypeReason = getUnsupportedTypeReason(port.getType())) {
+          std::ostringstream reason;
+          reason << *unsupportedTypeReason << " for port: " << portName;
           reportUnsupportedElement(reason.str(), getSourceRange(port));
           continue;
         }
@@ -494,6 +543,12 @@ class SNLSVConstructorImpl {
           const auto& valueSym = sym.as<ValueSymbol>();
           std::string name(valueSym.name);
           if (design->getNet(NLName(name))) {
+            continue;
+          }
+          if (auto unsupportedTypeReason = getUnsupportedTypeReason(valueSym.getType())) {
+            std::ostringstream reason;
+            reason << *unsupportedTypeReason << " for net/variable: " << name;
+            reportUnsupportedElement(reason.str(), getSourceRange(valueSym));
             continue;
           }
           auto net = getOrCreateNet(design, name, valueSym.getType());
@@ -834,43 +889,6 @@ class SNLSVConstructorImpl {
       if (auto t = NLDB0::getFAOutputS())  { if (auto it = inst->getInstTerm(t)) it->setNet(outS); }
       if (auto t = NLDB0::getFAOutputCO()) { if (auto it = inst->getInstTerm(t)) it->setNet(outCO); }
       return true;
-    }
-
-    SNLNet* createMux(
-      SNLDesign* design,
-      SNLNet* sel,
-      SNLNet* a,
-      SNLNet* b,
-      const std::optional<slang::SourceRange>& sourceRange = std::nullopt) {
-      auto one = getConstNet(design, true);
-      auto selNot = createBinaryGate(
-        design,
-        NLDB0::GateType(NLDB0::GateType::Xor),
-        sel,
-        one,
-        nullptr,
-        sourceRange);
-      auto t0 = createBinaryGate(
-        design,
-        NLDB0::GateType(NLDB0::GateType::And),
-        selNot,
-        a,
-        nullptr,
-        sourceRange);
-      auto t1 = createBinaryGate(
-        design,
-        NLDB0::GateType(NLDB0::GateType::And),
-        sel,
-        b,
-        nullptr,
-        sourceRange);
-      return createBinaryGate(
-        design,
-        NLDB0::GateType(NLDB0::GateType::Or),
-        t0,
-        t1,
-        nullptr,
-        sourceRange);
     }
 
     std::vector<SNLBitNet*> buildIncrementer(
@@ -1386,6 +1404,7 @@ class SNLSVConstructorImpl {
           if (enBits.size() != dataBits.size()) {
             continue;
           }
+          bool muxCreationFailed = false;
           for (size_t i = 0; i < dataBits.size(); ++i) {
             if (!createMux2Instance(
                   design,
@@ -1394,16 +1413,15 @@ class SNLSVConstructorImpl {
                   enableBits[i],
                   enBits[i],
                   enableSourceRange)) {
-              auto muxed = createMux(
-                design,
-                enableNet,
-                dataBits[i],
-                enableBits[i],
+              reportUnsupportedElement(
+                "Failed to create mux2 primitive for enable assignment",
                 enableSourceRange);
-              if (muxed && enBits[i]) {
-                createAssignInstance(design, muxed, enBits[i], enableSourceRange);
-              }
+              muxCreationFailed = true;
+              break;
             }
+          }
+          if (muxCreationFailed) {
+            continue;
           }
           dataBits = std::move(enBits);
         }
@@ -1422,6 +1440,7 @@ class SNLSVConstructorImpl {
           if (rstBits.size() != dataBits.size()) {
             continue;
           }
+          bool muxCreationFailed = false;
           for (size_t i = 0; i < dataBits.size(); ++i) {
             if (!createMux2Instance(
                   design,
@@ -1430,16 +1449,15 @@ class SNLSVConstructorImpl {
                   resetBits[i],
                   rstBits[i],
                   resetSourceRange)) {
-              auto muxed = createMux(
-                design,
-                resetNet,
-                dataBits[i],
-                resetBits[i],
+              reportUnsupportedElement(
+                "Failed to create mux2 primitive for reset assignment",
                 resetSourceRange);
-              if (muxed && rstBits[i]) {
-                createAssignInstance(design, muxed, rstBits[i], resetSourceRange);
-              }
+              muxCreationFailed = true;
+              break;
             }
+          }
+          if (muxCreationFailed) {
+            continue;
           }
           dataBits = std::move(rstBits);
         }
@@ -1544,19 +1562,22 @@ class SNLSVConstructorImpl {
             continue;
           }
 
-          std::string baseName = getExpressionBaseName(assignExpr.left());
-          if (baseName.empty() && !lhsNet->isUnnamed()) {
-            baseName = lhsNet->getName().getString();
+          SNLNet* gateOutNet = nullptr;
+          if (!gateType->isNOutput()) {
+            std::string baseName = getExpressionBaseName(assignExpr.left());
+            if (baseName.empty() && !lhsNet->isUnnamed()) {
+              baseName = lhsNet->getName().getString();
+            }
+            std::string gateOutName = joinName(gateType->getString(), baseName);
+            if (gateOutName.empty()) {
+              gateOutName = gateType->getString();
+            }
+            gateOutNet = getOrCreateNamedNet(
+              design,
+              gateOutName,
+              lhsNet,
+              assignSourceRange);
           }
-          std::string gateOutName = joinName(gateType->getString(), baseName);
-          if (gateOutName.empty()) {
-            gateOutName = gateType->getString();
-          }
-          SNLNet* gateOutNet = getOrCreateNamedNet(
-            design,
-            gateOutName,
-            lhsNet,
-            assignSourceRange);
           if (!createGateInstance(
                 design,
                 *gateType,
