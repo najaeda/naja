@@ -256,17 +256,21 @@ class SNLSVConstructorImpl {
       serializer.serialize(root);
 
       std::ofstream output(jsonPath, std::ios::out | std::ios::trunc);
+      // LCOV_EXCL_START
       if (!output) {
         std::ostringstream reason;
         reason << "Failed to create elaborated AST JSON file: " << jsonPath.string();
         throw SNLSVConstructorException(reason.str());
       }
+      // LCOV_EXCL_STOP
       output << writer.view();
+      // LCOV_EXCL_START
       if (!output.good()) {
         std::ostringstream reason;
         reason << "Failed to write elaborated AST JSON file: " << jsonPath.string();
         throw SNLSVConstructorException(reason.str());
       }
+      // LCOV_EXCL_STOP
     }
 
     SNLDesign* buildDesign(const InstanceBodySymbol& body) {
