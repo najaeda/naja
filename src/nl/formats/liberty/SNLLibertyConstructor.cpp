@@ -91,6 +91,17 @@ std::string buildFunctionParseErrorReason(
   return reason.str();
 }
 
+std::string buildParserFileErrorReason(
+  const std::filesystem::path& sourcePath,
+  const std::string& parserReason) {
+  std::ostringstream reason;
+  reason << "Liberty parser error in file `";
+  reason << sourcePath.string();
+  reason << "`: ";
+  reason << parserReason;
+  return reason.str();
+}
+
 void parseTerms(
   SNLDesign* primitive,
   const Yosys::LibertyAst* top,
@@ -376,10 +387,8 @@ void SNLLibertyConstructor::construct(const Paths& paths) {
     try {
       parser = std::make_unique<Yosys::LibertyParser>(*inStream);
     } catch (const naja::liberty::YosysLibertyException& e) {
-      std::ostringstream reason;
-      reason << "Liberty parser error in file `" << path.string() << "`: "
-             << e.getReason();
-      throw naja::liberty::YosysLibertyException(reason.str());
+      auto reason = buildParserFileErrorReason(path, e.getReason());
+      throw naja::liberty::YosysLibertyException(reason);
     }
     auto ast = parser->ast;
     //LCOV_EXCL_START
