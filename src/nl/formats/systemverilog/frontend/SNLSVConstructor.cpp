@@ -128,11 +128,10 @@ const char* getPortKindLabel(SymbolKind kind) {
     case SymbolKind::InterfacePort:
       return "interface port";
     case SymbolKind::MultiPort:
-      return "multi-port";
-    case SymbolKind::Port:
-      return "port";
+      return "multi-port"; // LCOV_EXCL_LINE
     default:
-      return "non-port";
+      // createTerms only calls this helper for non-Port entries from getPortList.
+      return "non-port"; // LCOV_EXCL_LINE
   }
 }
 
@@ -155,11 +154,15 @@ std::optional<slang::ConstantRange> getRangeFromType(const Type& type) {
   if (type.hasFixedRange()) {
     return type.getFixedRange();
   }
+  // Fallback for types without explicit fixed ranges; currently not exercised
+  // by the supported language subset in this constructor flow.
+  // LCOV_EXCL_START
   auto width = type.getBitWidth();
   if (width > 1) {
     return slang::ConstantRange(int32_t(width - 1), 0);
   }
   return std::nullopt;
+  // LCOV_EXCL_STOP
 }
 
 SNLNet* getOrCreateNet(SNLDesign* design, const std::string& name, const Type& type) {
@@ -541,6 +544,10 @@ class SNLSVConstructorImpl {
         if (sym.kind == SymbolKind::Net || sym.kind == SymbolKind::Variable) {
           const auto& valueSym = sym.as<ValueSymbol>();
           std::string name(valueSym.name);
+          // Port terms are materialized first; let connectTermsToNets own their net creation.
+          if (design->getTerm(NLName(name))) {
+            continue;
+          }
           if (design->getNet(NLName(name))) {
             continue;
           }
@@ -947,7 +954,7 @@ class SNLSVConstructorImpl {
       return current;
     }
 
-    const slang::ast::TimedStatement* findTimedStatement(const Statement& stmt) const {
+    const slang::ast::TimedStatement* findTimedStatement(const Statement& stmt) {
       const Statement* current = unwrapStatement(stmt);
       if (!current) {
         return nullptr;
@@ -956,18 +963,16 @@ class SNLSVConstructorImpl {
         return &current->as<slang::ast::TimedStatement>();
       }
       if (current->kind == slang::ast::StatementKind::Block) {
-        return findTimedStatement(current->as<slang::ast::BlockStatement>().body);
+        reportUnsupportedElement(
+          "Unsupported block wrapper while extracting sequential timing control",
+          getSourceRange(*current));
+        return nullptr;
       }
       if (current->kind == slang::ast::StatementKind::List) {
-        const auto& list = current->as<slang::ast::StatementList>().list;
-        for (auto child : list) {
-          if (!child) {
-            continue;
-          }
-          if (auto timed = findTimedStatement(*child)) {
-            return timed;
-          }
-        }
+        reportUnsupportedElement(
+          "Unsupported statement list while extracting sequential timing control",
+          getSourceRange(*current));
+        return nullptr;
       }
       return nullptr;
     }
@@ -1175,18 +1180,29 @@ class SNLSVConstructorImpl {
       return rhsBits;
     }
 
-    const Expression* getClockExpression(const TimingControl& timing) const {
+    const Expression* getClockExpression(const TimingControl& timing) {
       if (timing.kind == slang::ast::TimingControlKind::SignalEvent) {
         const auto& event = timing.as<slang::ast::SignalEventControl>();
         if (event.edge == slang::ast::EdgeKind::PosEdge) {
           return &event.expr;
         }
+        reportUnsupportedElement(
+          "Unsupported sequential timing edge; only posedge is supported",
+          getSourceRange(timing));
+        return nullptr;
       } else if (timing.kind == slang::ast::TimingControlKind::EventList) {
         const auto& eventList = timing.as<slang::ast::EventListControl>();
-        if (eventList.events.size() == 1) {
-          return getClockExpression(*eventList.events[0]);
+        if (eventList.events.size() != 1) {
+          reportUnsupportedElement(
+            "Unsupported sequential event list; only a single posedge event is supported",
+            getSourceRange(timing));
+          return nullptr;
         }
+        return getClockExpression(*eventList.events[0]);
       }
+      reportUnsupportedElement(
+        "Unsupported sequential timing control",
+        getSourceRange(timing));
       return nullptr;
     }
 

@@ -19,6 +19,7 @@
 #include "SNLInstTerm.h"
 #include "SNLInstance.h"
 #include "SNLNet.h"
+#include "SNLScalarNet.h"
 #include "SNLScalarTerm.h"
 #include "SNLTerm.h"
 #include "SNLUtils.h"
@@ -180,6 +181,32 @@ TEST_F(SNLSVConstructorTestSimple, parseMissingFileThrowsLoadError) {
   }
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseSyntaxErrorThrowsCompilationError) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "syntax_error";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "syntax_error.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile << "module syntax_error(input logic a, output logic y)\n"
+         << "  assign y = a;\n"
+         << "endmodule\n";
+  svFile.close();
+
+  try {
+    constructor.construct(svPath);
+    FAIL() << "Expected SystemVerilog compilation failure";
+  } catch (const SNLSVConstructorException& e) {
+    const std::string reason = e.what();
+    EXPECT_NE(std::string::npos, reason.find("SystemVerilog compilation failed"));
+  }
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseBytePortsInferRangeFromWidth) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
@@ -274,6 +301,46 @@ TEST_F(SNLSVConstructorTestSimple, parseInoutPortDirection) {
   EXPECT_EQ(SNLTerm::Direction::InOut, inoutTerm->getDirection());
 
   auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "port_directions");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseNonAnsiPortsCreateTermNets) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  constructor.construct(benchmarksPath / "non_ansi_ports" / "non_ansi_ports.sv");
+
+  auto top = library_->getSNLDesign(NLName("non_ansi_ports_top"));
+  ASSERT_NE(top, nullptr);
+
+  auto aTerm = top->getTerm(NLName("a"));
+  auto bTerm = top->getBusTerm(NLName("b"));
+  auto yTerm = top->getTerm(NLName("y"));
+  auto zTerm = top->getBusTerm(NLName("z"));
+  ASSERT_NE(aTerm, nullptr);
+  ASSERT_NE(bTerm, nullptr);
+  ASSERT_NE(yTerm, nullptr);
+  ASSERT_NE(zTerm, nullptr);
+
+  auto aNet = top->getNet(NLName("a"));
+  auto bNet = top->getBusNet(NLName("b"));
+  auto yNet = top->getNet(NLName("y"));
+  auto zNet = top->getBusNet(NLName("z"));
+  ASSERT_NE(aNet, nullptr);
+  ASSERT_NE(bNet, nullptr);
+  ASSERT_NE(yNet, nullptr);
+  ASSERT_NE(zNet, nullptr);
+
+  EXPECT_NE(dynamic_cast<SNLScalarNet*>(aNet), nullptr);
+  EXPECT_NE(dynamic_cast<SNLScalarNet*>(yNet), nullptr);
+  EXPECT_EQ(4, bNet->getWidth());
+  EXPECT_EQ(4, zNet->getWidth());
+
+  EXPECT_TRUE(hasAttribute(aNet, "sv_src_file"));
+  EXPECT_TRUE(hasAttribute(bNet, "sv_src_file"));
+  EXPECT_TRUE(hasAttribute(yNet, "sv_src_file"));
+  EXPECT_TRUE(hasAttribute(zNet, "sv_src_file"));
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "non_ansi_ports");
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
 }
 
