@@ -597,6 +597,33 @@ TEST_F(SNLSVConstructorTestSimple, parseCompatibleNetNullLikeFallback) {
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseGateOnBusLHSIsSkipped) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  constructor.construct(benchmarksPath / "gate_lhs_bus_skip" / "gate_lhs_bus_skip.sv");
+
+  auto top = library_->getSNLDesign(NLName("gate_lhs_bus_skip_top"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_EQ(0u, top->getInstances().size());
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "gate_lhs_bus_skip");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseGateOperandUnresolvedIsSkipped) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  constructor.construct(
+    benchmarksPath / "gate_operand_unresolved_skip" / "gate_operand_unresolved_skip.sv");
+
+  auto top = library_->getSNLDesign(NLName("gate_operand_unresolved_skip_top"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_EQ(0u, top->getInstances().size());
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "gate_operand_unresolved_skip");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseUnaryNotCreatesNOutputGate) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
@@ -969,4 +996,21 @@ TEST_F(SNLSVConstructorTestSimple, parseSimpleModuleDumpElaboratedASTJson) {
     std::istreambuf_iterator<char>()};
   EXPECT_FALSE(json.empty());
   EXPECT_NE(json.find("\"top\""), std::string::npos);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseEmptyElaboratedASTJsonPathThrows) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  SNLSVConstructor::ConstructOptions options;
+  options.elaboratedASTJsonPath = std::filesystem::path();
+
+  try {
+    constructor.construct(benchmarksPath / "simple" / "simple.sv", options);
+    FAIL() << "Expected empty elaborated AST JSON path exception";
+  } catch (const SNLSVConstructorException& e) {
+    const std::string reason = e.what();
+    EXPECT_NE(
+      std::string::npos,
+      reason.find("Empty path for elaborated AST JSON dump"));
+  }
 }

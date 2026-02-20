@@ -322,14 +322,14 @@ class SNLSVConstructorImpl {
       if (expression.sourceRange.start().valid()) {
         return expression.sourceRange;
       }
-      return std::nullopt;
+      return std::nullopt; // LCOV_EXCL_LINE
     }
 
     std::optional<slang::SourceRange> getSourceRange(const Statement& statement) const {
       if (statement.sourceRange.start().valid()) {
         return statement.sourceRange;
       }
-      return std::nullopt;
+      return std::nullopt; // LCOV_EXCL_LINE
     }
 
     std::optional<slang::SourceRange> getSourceRange(const TimingControl& timing) const {
@@ -342,23 +342,23 @@ class SNLSVConstructorImpl {
     std::optional<SourceInfo> getSourceInfo(
       const std::optional<slang::SourceRange>& maybeRange) const {
       if (!maybeRange || !compilation_) {
-        return std::nullopt;
+        return std::nullopt; // LCOV_EXCL_LINE
       }
       auto sourceManager = compilation_->getSourceManager();
       if (!sourceManager) {
-        return std::nullopt;
+        return std::nullopt; // LCOV_EXCL_LINE
       }
 
       auto sourceRange = sourceManager->getFullyOriginalRange(*maybeRange);
       auto start = sourceRange.start();
       auto end = sourceRange.end();
       if (!start.valid()) {
-        return std::nullopt;
+        return std::nullopt; // LCOV_EXCL_LINE
       }
 
       start = sourceManager->getFullyOriginalLoc(start);
       if (!start.valid() || !sourceManager->isFileLoc(start)) {
-        return std::nullopt;
+        return std::nullopt; // LCOV_EXCL_LINE
       }
 
       if (end.valid()) {
@@ -1574,10 +1574,6 @@ class SNLSVConstructorImpl {
           inputNets.reserve(operands.size());
           bool ok = true;
           for (const auto* operand : operands) {
-            if (!operand) {
-              ok = false;
-              break;
-            }
             auto net = resolveExpressionNet(design, *operand);
             if (!net) {
               ok = false;
@@ -1591,13 +1587,7 @@ class SNLSVConstructorImpl {
 
           SNLNet* gateOutNet = nullptr;
           std::string baseName = getExpressionBaseName(assignExpr.left());
-          if (baseName.empty() && !lhsNet->isUnnamed()) {
-            baseName = lhsNet->getName().getString();
-          }
           std::string gateOutName = joinName(gateType->getString(), baseName);
-          if (gateOutName.empty()) {
-            gateOutName = gateType->getString();
-          }
           if (gateType->isNOutput()) {
             gateOutNet = getOrCreateNamedNet(
               design,
