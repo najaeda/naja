@@ -30,10 +30,10 @@ def count_leaves(instance, leaves):
             leaves["count"] += 1
 visitor_config = instance_visitor.VisitorConfig(callback=count_leaves, args=(leaves,))
 instance_visitor.visit(top, visitor_config)
-print(f"{top} leaves count")
-print(f"nb_assigns={leaves['assigns']}")
-print(f"nb constants={leaves['constants']}")
-print(f"nb other leaves={leaves['count']}")
+logging.info(f"{top} leaves count")
+logging.info(f"nb_assigns={leaves['assigns']}")
+logging.info(f"nb constants={leaves['constants']}")
+logging.info(f"nb other leaves={leaves['count']}")
 # snippet-end: count_leaves
 
 sys.exit(0)

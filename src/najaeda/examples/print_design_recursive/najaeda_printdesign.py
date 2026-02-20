@@ -14,7 +14,7 @@ logging.basicConfig(level=logging.INFO)
 # snippet-start: print_design_recursive
 def print_netlist(instance):
     for child_instance in instance.get_child_instances():
-        print(f"{child_instance}:{child_instance.get_model_name()}")
+        logging.info(f"{child_instance}:{child_instance.get_model_name()}")
         print_netlist(child_instance)
 # snippet-end: print_design_recursive
 

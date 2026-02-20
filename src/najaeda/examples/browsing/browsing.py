@@ -33,10 +33,10 @@ if __name__ == '__main__':
     
     for term in instance.get_terms():
         if term.is_bus():
-            print("Bus Term: ", term.get_name(), " with width: ", term.get_width())
+            logging.info(f"Bus Term: {term.get_name()} with width: {term.get_width()}")
         else:
-            print("Scalar Term: ", term.get_name())
+            logging.info(f"Scalar Term: {term.get_name()}")
     for child in instance.get_child_instances():
         if child.is_assign():
             continue
-        print("Child instance: ", child.get_name(), " of model ", child.get_model_name())
+        logging.info(f"Child instance: {child.get_name()} of model {child.get_model_name()}")
