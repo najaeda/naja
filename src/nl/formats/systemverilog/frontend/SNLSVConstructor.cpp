@@ -78,26 +78,21 @@ const Expression* stripConversions(const Expression& expr) {
   return current;
 }
 
-bool collectBinaryOperands(const Expression& expr, slang::ast::BinaryOperator op,
+void collectBinaryOperands(const Expression& expr, slang::ast::BinaryOperator op,
                            std::vector<const Expression*>& operands) {
   const Expression* current = stripConversions(expr);
   if (!current) {
-    return false;
+    return; // LCOV_EXCL_LINE
   }
   if (current->kind == slang::ast::ExpressionKind::BinaryOp) {
     const auto& binaryExpr = current->as<slang::ast::BinaryExpression>();
     if (binaryExpr.op == op) {
-      if (!collectBinaryOperands(binaryExpr.left(), op, operands)) {
-        return false;
-      }
-      if (!collectBinaryOperands(binaryExpr.right(), op, operands)) {
-        return false;
-      }
-      return true;
+      collectBinaryOperands(binaryExpr.left(), op, operands);
+      collectBinaryOperands(binaryExpr.right(), op, operands);
+      return;
     }
   }
   operands.push_back(current);
-  return true;
 }
 
 std::optional<NLDB0::GateType> gateTypeFromBinary(slang::ast::BinaryOperator op) {
@@ -1516,9 +1511,7 @@ class SNLSVConstructorImpl {
             reportUnsupportedElement(reason.str(), assignSourceRange);
             continue;
           }
-          if (!collectBinaryOperands(*rhs, binaryExpr.op, operands)) {
-            continue;
-          }
+          collectBinaryOperands(*rhs, binaryExpr.op, operands);
         } else if (rhs->kind == slang::ast::ExpressionKind::UnaryOp) {
           const auto& unaryExpr = rhs->as<slang::ast::UnaryExpression>();
           const auto* operandExpr = stripConversions(unaryExpr.operand());
@@ -1542,8 +1535,8 @@ class SNLSVConstructorImpl {
                 reportUnsupportedElement(reason.str(), assignSourceRange);
                 continue;
             }
-            if (gateType && !collectBinaryOperands(*operandExpr, binaryExpr.op, operands)) {
-              continue;
+            if (gateType) {
+              collectBinaryOperands(*operandExpr, binaryExpr.op, operands);
             }
           } else if (unaryExpr.op == slang::ast::UnaryOperator::BitwiseNot) {
             gateType = NLDB0::GateType(NLDB0::GateType::Not);

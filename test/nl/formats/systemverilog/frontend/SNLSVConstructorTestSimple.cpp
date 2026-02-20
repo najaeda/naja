@@ -409,6 +409,81 @@ TEST_F(SNLSVConstructorTestSimple, parseUnaryNotCreatesNOutputGate) {
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseUnaryNotOnBinaryOperatorsSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  constructor.construct(
+    benchmarksPath / "unary_not_binary_supported" / "unary_not_binary_supported.sv");
+
+  auto top = library_->getSNLDesign(NLName("unary_not_binary_supported_top"));
+  ASSERT_NE(top, nullptr);
+  const std::array<const char*, 3> outputs{
+    "y_nand",
+    "y_nor",
+    "y_xnor"};
+  for (const auto* output : outputs) {
+    auto net = top->getNet(NLName(output));
+    ASSERT_NE(net, nullptr);
+    auto bitNet = dynamic_cast<SNLBitNet*>(net);
+    ASSERT_NE(bitNet, nullptr);
+    EXPECT_FALSE(bitNet->getInstTerms().empty());
+  }
+
+  size_t nandGateCount = 0;
+  size_t norGateCount = 0;
+  size_t xnorGateCount = 0;
+  size_t otherGateCount = 0;
+  size_t assignCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (NLDB0::isAssign(inst->getModel())) {
+      ++assignCount;
+      continue;
+    }
+    if (!NLDB0::isGate(inst->getModel())) {
+      continue;
+    }
+    auto gateName = NLDB0::getGateName(inst->getModel());
+    if (gateName == "nand") {
+      ++nandGateCount;
+    } else if (gateName == "nor") {
+      ++norGateCount;
+    } else if (gateName == "xnor") {
+      ++xnorGateCount;
+    } else {
+      ++otherGateCount;
+    }
+  }
+
+  EXPECT_EQ(1u, nandGateCount);
+  EXPECT_EQ(1u, norGateCount);
+  EXPECT_EQ(1u, xnorGateCount);
+  EXPECT_EQ(0u, otherGateCount);
+  EXPECT_EQ(outputs.size(), assignCount);
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "unary_not_binary_supported");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseUnaryNotOnUnsupportedBinaryOperatorFails) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  try {
+    constructor.construct(
+      benchmarksPath / "unary_not_binary_unsupported" / "unary_not_binary_unsupported.sv");
+    FAIL() << "Expected unsupported unary-not binary operator exception";
+  } catch (const SNLSVConstructorException& e) {
+    const std::string reason = e.what();
+    EXPECT_NE(
+      std::string::npos,
+      reason.find("Unsupported binary operator under bitwise not in continuous assign: +"));
+
+    auto top = library_->getSNLDesign(NLName("unary_not_binary_unsupported_top"));
+    ASSERT_NE(top, nullptr);
+    auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "unary_not_binary_unsupported");
+    EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+  }
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseBinaryOperatorsUnsupportedFails) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);

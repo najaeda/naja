@@ -67,6 +67,8 @@ jobs:
                 param_inst \
                 binary_ops_supported \
                 byte_ports \
+                unary_not_binary_supported \
+                unary_not_binary_unsupported \
                 seq_add_out_plus_one \
                 seq_add_one_plus_out \
                 seq_binary_non_add \
@@ -93,6 +95,7 @@ jobs:
                 param_inst \
                 binary_ops_supported \
                 byte_ports \
+                unary_not_binary_supported \
                 seq_add_out_plus_one \
                 seq_add_one_plus_out \
                 seq_rhs_direct_match; do
@@ -102,6 +105,7 @@ jobs:
                   param_inst) generated_sv=param_inst_naja.v ;;
                   binary_ops_supported) generated_sv=binary_ops_supported_naja.v ;;
                   byte_ports) generated_sv=byte_ports_naja.v ;;
+                  unary_not_binary_supported) generated_sv=unary_not_binary_supported_naja.v ;;
                   seq_add_out_plus_one) generated_sv=seq_add_out_plus_one_naja.v ;;
                   seq_add_one_plus_out) generated_sv=seq_add_one_plus_out_naja.v ;;
                   seq_rhs_direct_match) generated_sv=seq_rhs_direct_match_naja.v ;;

@@ -14,6 +14,8 @@ BENCHMARKS = (
     ("param_inst/param_inst.sv", "param_inst/param_inst_naja.v"),
     ("binary_ops_supported/binary_ops_supported.sv", "binary_ops_supported/binary_ops_supported_naja.v"),
     ("byte_ports/byte_ports.sv", "byte_ports/byte_ports_naja.v"),
+    ("unary_not_binary_supported/unary_not_binary_supported.sv",
+     "unary_not_binary_supported/unary_not_binary_supported_naja.v"),
     ("seq_add_out_plus_one/seq_add_out_plus_one.sv", "seq_add_out_plus_one/seq_add_out_plus_one_naja.v"),
     ("seq_add_one_plus_out/seq_add_one_plus_out.sv", "seq_add_one_plus_out/seq_add_one_plus_out_naja.v"),
     ("seq_rhs_direct_match/seq_rhs_direct_match.sv", "seq_rhs_direct_match/seq_rhs_direct_match_naja.v"),
