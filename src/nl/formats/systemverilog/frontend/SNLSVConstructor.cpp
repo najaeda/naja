@@ -239,11 +239,13 @@ class SNLSVConstructorImpl {
       if (!parent.empty()) {
         std::error_code ec;
         std::filesystem::create_directories(parent, ec);
+        // LCOV_EXCL_START
         if (ec) {
           std::ostringstream reason;
           reason << "Failed to create elaborated AST JSON directory: " << parent.string();
           throw SNLSVConstructorException(reason.str());
         }
+        // LCOV_EXCL_STOP
       }
 
       slang::JsonWriter writer;
@@ -331,10 +333,10 @@ class SNLSVConstructorImpl {
     }
 
     std::optional<slang::SourceRange> getSourceRange(const TimingControl& timing) const {
-      if (timing.sourceRange.start().valid()) {
-        return timing.sourceRange;
+      if (!timing.sourceRange.start().valid()) {
+        return std::nullopt; // LCOV_EXCL_LINE
       }
-      return std::nullopt;
+      return timing.sourceRange;
     }
 
     std::optional<SourceInfo> getSourceInfo(
@@ -371,9 +373,11 @@ class SNLSVConstructorImpl {
 
       SourceInfo sourceInfo;
       sourceInfo.file = sourceManager->getFileName(start);
+      // LCOV_EXCL_START
       if (sourceInfo.file.empty()) {
         sourceInfo.file = sourceManager->getRawFileName(start.buffer());
       }
+      // LCOV_EXCL_STOP
       sourceInfo.line = sourceManager->getLineNumber(start);
       sourceInfo.column = sourceManager->getColumnNumber(start);
       sourceInfo.endLine = sourceManager->getLineNumber(end);
@@ -431,7 +435,7 @@ class SNLSVConstructorImpl {
       const std::optional<slang::SourceRange>& maybeRange) const {
       auto sourceInfo = getSourceInfo(maybeRange);
       if (!sourceInfo) {
-        return;
+        return; // LCOV_EXCL_LINE
       }
       addAttribute(
         object,
@@ -1586,15 +1590,21 @@ class SNLSVConstructorImpl {
           }
 
           SNLNet* gateOutNet = nullptr;
-          if (!gateType->isNOutput()) {
-            std::string baseName = getExpressionBaseName(assignExpr.left());
-            if (baseName.empty() && !lhsNet->isUnnamed()) {
-              baseName = lhsNet->getName().getString();
-            }
-            std::string gateOutName = joinName(gateType->getString(), baseName);
-            if (gateOutName.empty()) {
-              gateOutName = gateType->getString();
-            }
+          std::string baseName = getExpressionBaseName(assignExpr.left());
+          if (baseName.empty() && !lhsNet->isUnnamed()) {
+            baseName = lhsNet->getName().getString();
+          }
+          std::string gateOutName = joinName(gateType->getString(), baseName);
+          if (gateOutName.empty()) {
+            gateOutName = gateType->getString();
+          }
+          if (gateType->isNOutput()) {
+            gateOutNet = getOrCreateNamedNet(
+              design,
+              gateOutName,
+              nullptr,
+              assignSourceRange);
+          } else {
             gateOutNet = getOrCreateNamedNet(
               design,
               gateOutName,

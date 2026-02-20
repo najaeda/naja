@@ -280,6 +280,22 @@ TEST_F(SNLSVConstructorTestSimple, parseUnsupportedPortTypesReportedAtEnd) {
   }
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseUnsupportedSymbolInExpressionReportedAtEnd) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  try {
+    constructor.construct(
+      benchmarksPath / "unsupported_symbol_expr" / "unsupported_symbol_expr.sv");
+    FAIL() << "Expected unsupported symbol type exception";
+  } catch (const SNLSVConstructorException& e) {
+    const std::string reason = e.what();
+    EXPECT_NE(std::string::npos, reason.find("Unsupported SystemVerilog elements encountered"));
+    EXPECT_NE(std::string::npos, reason.find("Unsupported SystemVerilog floating-point type"));
+    EXPECT_NE(std::string::npos, reason.find("for net/variable: wide_f"));
+    EXPECT_NE(std::string::npos, reason.find("for symbol: wide_f"));
+  }
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseInoutPortDirection) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
@@ -344,6 +360,27 @@ TEST_F(SNLSVConstructorTestSimple, parseNonAnsiPortsCreateTermNets) {
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseModelReuseBuildDesignCache) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  constructor.construct(benchmarksPath / "model_reuse" / "model_reuse.sv");
+
+  auto top = library_->getSNLDesign(NLName("model_reuse_top"));
+  auto child = library_->getSNLDesign(NLName("child"));
+  ASSERT_NE(top, nullptr);
+  ASSERT_NE(child, nullptr);
+
+  auto u0 = top->getInstance(NLName("u0"));
+  auto u1 = top->getInstance(NLName("u1"));
+  ASSERT_NE(u0, nullptr);
+  ASSERT_NE(u1, nullptr);
+  EXPECT_EQ(child, u0->getModel());
+  EXPECT_EQ(child, u1->getModel());
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "model_reuse");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseInterfacePortReportedUnsupportedAtEnd) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
@@ -354,6 +391,22 @@ TEST_F(SNLSVConstructorTestSimple, parseInterfacePortReportedUnsupportedAtEnd) {
     const std::string reason = e.what();
     EXPECT_NE(std::string::npos, reason.find("Unsupported SystemVerilog interface port declaration"));
     EXPECT_NE(std::string::npos, reason.find("for port: bus"));
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseNonAnsiUnnamedMultiPortReportedUnsupportedAtEnd) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  try {
+    constructor.construct(
+      benchmarksPath / "non_ansi_unnamed_multiport" / "non_ansi_unnamed_multiport.sv");
+    FAIL() << "Expected unsupported unnamed multi-port exception";
+  } catch (const SNLSVConstructorException& e) {
+    const std::string reason = e.what();
+    EXPECT_NE(std::string::npos, reason.find("Unsupported SystemVerilog elements encountered"));
+    EXPECT_NE(
+      std::string::npos,
+      reason.find("Unsupported SystemVerilog multi-port declaration for port: <anonymous>"));
   }
 }
 
@@ -445,6 +498,102 @@ TEST_F(SNLSVConstructorTestSimple, parseBinaryOperatorsSupported) {
   EXPECT_EQ(8u, top->getInstances().size());
 
   auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "binary_ops_supported");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseCompatibleNetScalarReuse) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  constructor.construct(
+    benchmarksPath / "compatible_net_scalar_reuse" / "compatible_net_scalar_reuse.sv");
+
+  auto top = library_->getSNLDesign(NLName("compatible_net_scalar_reuse_top"));
+  ASSERT_NE(top, nullptr);
+
+  auto andY = top->getNet(NLName("and_y"));
+  ASSERT_NE(andY, nullptr);
+  EXPECT_NE(dynamic_cast<SNLScalarNet*>(andY), nullptr);
+  EXPECT_EQ(top->getNet(NLName("and_y_0")), nullptr);
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "compatible_net_scalar_reuse");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseCompatibleNetScalarMismatch) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  constructor.construct(
+    benchmarksPath / "compatible_net_scalar_mismatch" / "compatible_net_scalar_mismatch.sv");
+
+  auto top = library_->getSNLDesign(NLName("compatible_net_scalar_mismatch_top"));
+  ASSERT_NE(top, nullptr);
+
+  auto andY = top->getNet(NLName("and_y"));
+  ASSERT_NE(andY, nullptr);
+  EXPECT_NE(dynamic_cast<SNLBusNet*>(andY), nullptr);
+  auto andYSuffixed = top->getNet(NLName("and_y_0"));
+  ASSERT_NE(andYSuffixed, nullptr);
+  EXPECT_NE(dynamic_cast<SNLScalarNet*>(andYSuffixed), nullptr);
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "compatible_net_scalar_mismatch");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseCompatibleNetBusReuse) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  constructor.construct(benchmarksPath / "compatible_net_bus_reuse" / "compatible_net_bus_reuse.sv");
+
+  auto top = library_->getSNLDesign(NLName("compatible_net_bus_reuse_top"));
+  ASSERT_NE(top, nullptr);
+
+  auto incOut = top->getNet(NLName("inc_out"));
+  ASSERT_NE(incOut, nullptr);
+  auto incOutBus = dynamic_cast<SNLBusNet*>(incOut);
+  ASSERT_NE(incOutBus, nullptr);
+  EXPECT_EQ(4, incOutBus->getWidth());
+  EXPECT_EQ(top->getNet(NLName("inc_out_0")), nullptr);
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "compatible_net_bus_reuse");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseCompatibleNetBusMismatch) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  constructor.construct(
+    benchmarksPath / "compatible_net_bus_mismatch" / "compatible_net_bus_mismatch.sv");
+
+  auto top = library_->getSNLDesign(NLName("compatible_net_bus_mismatch_top"));
+  ASSERT_NE(top, nullptr);
+
+  auto incOut = top->getNet(NLName("inc_out"));
+  ASSERT_NE(incOut, nullptr);
+  EXPECT_NE(dynamic_cast<SNLScalarNet*>(incOut), nullptr);
+  auto incOutSuffixed = top->getNet(NLName("inc_out_0"));
+  ASSERT_NE(incOutSuffixed, nullptr);
+  EXPECT_NE(dynamic_cast<SNLBusNet*>(incOutSuffixed), nullptr);
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "compatible_net_bus_mismatch");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseCompatibleNetNullLikeFallback) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  constructor.construct(benchmarksPath / "compatible_net_null_like" / "compatible_net_null_like.sv");
+
+  auto top = library_->getSNLDesign(NLName("compatible_net_null_like_top"));
+  ASSERT_NE(top, nullptr);
+
+  auto notY = top->getNet(NLName("not_y"));
+  ASSERT_NE(notY, nullptr);
+  EXPECT_NE(dynamic_cast<SNLScalarNet*>(notY), nullptr);
+  auto notYSuffixed = top->getNet(NLName("not_y_0"));
+  ASSERT_NE(notYSuffixed, nullptr);
+  EXPECT_NE(dynamic_cast<SNLScalarNet*>(notYSuffixed), nullptr);
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "compatible_net_null_like");
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
 }
 
@@ -702,6 +851,20 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialBinaryNonAddUnsupported) {
     EXPECT_NE(
       std::string::npos,
       reason.find("Unsupported binary operator in sequential assignment: &"));
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialNegedgeTimingUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  try {
+    constructor.construct(
+      benchmarksPath / "seq_timing_negedge_unsupported" / "seq_timing_negedge_unsupported.sv");
+    FAIL() << "Expected unsupported timing edge exception";
+  } catch (const SNLSVConstructorException& e) {
+    const std::string reason = e.what();
+    EXPECT_NE(std::string::npos, reason.find("Unsupported sequential timing edge"));
+    EXPECT_NE(std::string::npos, reason.find("only posedge is supported"));
   }
 }
 
