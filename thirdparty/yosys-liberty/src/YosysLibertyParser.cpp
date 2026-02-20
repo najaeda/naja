@@ -20,6 +20,7 @@
 #include "YosysLibertyParser.h"
 
 #include <istream>
+#include <sstream>
 #include "YosysLibertyException.h"
 
 namespace Yosys {
@@ -40,11 +41,15 @@ LibertyAst *LibertyAst::find(std::string name)
 }
 
 void LibertyParser::error() {
-  throw naja::liberty::YosysLibertyException("LibertyParser error");
+  std::ostringstream reason;
+  reason << "LibertyParser error at line " << line;
+  throw naja::liberty::YosysLibertyException(reason.str());
 }
 
 void LibertyParser::error(const std::string &str) {
-  throw naja::liberty::YosysLibertyException(str);
+  std::ostringstream reason;
+  reason << "LibertyParser error at line " << line << ": " << str;
+  throw naja::liberty::YosysLibertyException(reason.str());
 }
 
 int LibertyParser::lexer(std::string &str)
