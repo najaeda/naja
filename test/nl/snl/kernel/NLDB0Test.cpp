@@ -133,6 +133,31 @@ TEST_F(NLDB0Test, testFA) {
   EXPECT_THROW(NLDB0::getPrimitiveTruthTable(fa), NLException);
 }
 
+TEST_F(NLDB0Test, testMux2TruthTable) {
+  NLUniverse::create();
+  ASSERT_NE(nullptr, NLUniverse::get());
+
+  auto mux2 = NLDB0::getMux2();
+  ASSERT_NE(nullptr, mux2);
+  EXPECT_TRUE(NLDB0::isMux2(mux2));
+  ASSERT_NE(nullptr, NLDB0::getMux2InputA());
+  ASSERT_NE(nullptr, NLDB0::getMux2InputB());
+  ASSERT_NE(nullptr, NLDB0::getMux2Select());
+  ASSERT_NE(nullptr, NLDB0::getMux2Output());
+
+  auto tt = NLDB0::getPrimitiveTruthTable(mux2);
+  EXPECT_EQ(3u, tt.size());
+
+  uint64_t bits = 0;
+  for (uint64_t i = 0; i < (1ULL << tt.size()); ++i) {
+    if (tt.bits().bit(i)) {
+      bits |= (1ULL << i);
+    }
+  }
+  // Truth table for Y = S ? B : A, with A/B/S mapped to input bits 0/1/2.
+  EXPECT_EQ(0xCAULL, bits);
+}
+
 TEST_F(NLDB0Test, testNULLUniverse) {
   EXPECT_EQ(nullptr, NLUniverse::get());
   EXPECT_FALSE(NLUniverse::isDB0(nullptr));
