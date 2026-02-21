@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+//
+// SPDX-License-Identifier: Apache-2.0
+
 module seq_reset_cond_bus2_skipped(
   input logic clk,
   input logic [1:0] rst,

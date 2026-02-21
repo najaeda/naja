@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
+import tempfile
 import unittest
 import naja
 import faulthandler 
@@ -196,7 +197,23 @@ class SNLDBTest(unittest.TestCase):
     primitivesWrongExtension = [os.path.join(liberty_path, "benchmarks/asap7_excerpt/test0.sd")]
     systemverilog_path = os.path.join(formats_path, "systemverilog")
     svFile = os.path.join(systemverilog_path, "benchmarks/simple/simple.sv")
+    missingSvFile = os.path.join(systemverilog_path, "benchmarks/missing/missing.sv")
+    with tempfile.NamedTemporaryFile("w", suffix=".sv", delete=False) as multiTopFile:
+      multiTopFile.write("module top_a; endmodule\n")
+      multiTopFile.write("module top_b; endmodule\n")
+      multiTopPath = multiTopFile.name
     with self.assertRaises(RuntimeError) as context: db.loadVerilog("Error", "Error")
+    with self.assertRaises(RuntimeError) as context: db.loadSystemVerilog()
+    with self.assertRaises(RuntimeError) as context:
+      db.loadSystemVerilog([missingSvFile])
+    self.assertIn("Error while parsing SystemVerilog:", str(context.exception))
+    try:
+      with self.assertRaises(RuntimeError) as context:
+        db.loadSystemVerilog([multiTopPath])
+      self.assertIn("No top design was found after parsing systemverilog", str(context.exception))
+    finally:
+      if os.path.exists(multiTopPath):
+        os.remove(multiTopPath)
     with self.assertRaises(RuntimeError) as context: db.loadSystemVerilog("Error")
     with self.assertRaises(RuntimeError) as context: db.loadSystemVerilog(designs)
     with self.assertRaises(RuntimeError) as context: db.loadSystemVerilog([1])

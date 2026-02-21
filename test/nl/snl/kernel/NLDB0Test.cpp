@@ -170,6 +170,16 @@ TEST_F(NLDB0Test, testNULLUniverse) {
   EXPECT_EQ(nullptr, NLDB0::getFAInputCI());
   EXPECT_EQ(nullptr, NLDB0::getFAOutputS());
   EXPECT_EQ(nullptr, NLDB0::getFAOutputCO());
+  EXPECT_EQ(nullptr, NLDB0::getMux2());
+  EXPECT_FALSE(NLDB0::isMux2(nullptr));
+  EXPECT_EQ(nullptr, NLDB0::getMux2InputA());
+  EXPECT_EQ(nullptr, NLDB0::getMux2InputB());
+  EXPECT_EQ(nullptr, NLDB0::getMux2Select());
+  EXPECT_EQ(nullptr, NLDB0::getMux2Output());
+  EXPECT_EQ(nullptr, NLDB0::getDFF());
+  EXPECT_EQ(nullptr, NLDB0::getDFFClock());
+  EXPECT_EQ(nullptr, NLDB0::getDFFData());
+  EXPECT_EQ(nullptr, NLDB0::getDFFOutput());
   EXPECT_EQ(nullptr, NLDB0::getGateLibrary(NLDB0::GateType::And));
   EXPECT_THROW(NLDB0::getOrCreateNInputGate(NLDB0::GateType::And, 2), NLException);
 }

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+//
+// SPDX-License-Identifier: Apache-2.0
+
 module gate_mixed_binary_tree_skip(
   input logic a,
   input logic b,

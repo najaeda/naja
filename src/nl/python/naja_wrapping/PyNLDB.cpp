@@ -272,6 +272,13 @@ PyObject* PyNLDB_loadSystemVerilog(PyNLDB* self, PyObject* args, PyObject* kwarg
     return nullptr;
   }
 
+  if (PyErr_WarnEx(
+        PyExc_UserWarning,
+        "NLDB.loadSystemVerilog is under active development and currently in early beta mode.",
+        1) < 0) {
+    return nullptr;
+  }
+
   NLDB* db = self->object_;
   SNLDesign* top = nullptr;
   TRY
@@ -406,6 +413,8 @@ PyMethodDef PyNLDB_Methods[] = {
     "Accepted values: 'forbid' (default), 'first', 'last', 'verify'."},
   { "loadSystemVerilog", (PyCFunction)PyNLDB_loadSystemVerilog, METH_VARARGS|METH_KEYWORDS,
     "create a design from SystemVerilog format.\n\n"
+    "Warning:\n"
+    "  SystemVerilog support is under active development and in early beta mode.\n\n"
     "Args:\n"
     "  files (list[str]): input SystemVerilog files\n"
     "  keep_assigns (bool, optional): keep continuous assigns (default True)\n"

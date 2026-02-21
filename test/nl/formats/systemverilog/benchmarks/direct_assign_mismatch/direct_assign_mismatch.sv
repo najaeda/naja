@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2023 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+//
+// SPDX-License-Identifier: Apache-2.0
+
 module direct_assign_mismatch(
   input logic in_s,
   input logic [1:0] in_b2,
