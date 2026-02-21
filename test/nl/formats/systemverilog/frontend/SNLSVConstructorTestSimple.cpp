@@ -165,6 +165,19 @@ TEST_F(SNLSVConstructorTestSimple, parseSimpleModule) {
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseSimpleModuleViaPathsOverload) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  SNLSVConstructor::Paths paths { benchmarksPath / "simple" / "simple.sv" };
+  constructor.construct(paths);
+
+  auto top = library_->getSNLDesign(NLName("top"));
+  ASSERT_NE(top, nullptr);
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "simple_module_via_paths");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseMissingFileThrowsLoadError) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
@@ -280,6 +293,33 @@ TEST_F(SNLSVConstructorTestSimple, parseUnsupportedPortTypesReportedAtEnd) {
   }
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseContinuousAssignUnsupportedLHSTypeReportedAtEnd) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  try {
+    constructor.construct(
+      benchmarksPath / "continuous_assign_unsupported_lhs" / "continuous_assign_unsupported_lhs.sv");
+    FAIL() << "Expected unsupported continuous-assign LHS type exception";
+  } catch (const SNLSVConstructorException& e) {
+    (void)e;
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseUnsupportedGenericTypeReportedAtEnd) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  try {
+    constructor.construct(
+      benchmarksPath / "unsupported_generic_type" / "unsupported_generic_type.sv");
+    FAIL() << "Expected unsupported generic type exception";
+  } catch (const SNLSVConstructorException& e) {
+    const std::string reason = e.what();
+    EXPECT_NE(
+      std::string::npos,
+      reason.find("Unsupported SystemVerilog type not representable in SNL"));
+  }
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseUnsupportedSymbolInExpressionReportedAtEnd) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
@@ -378,6 +418,38 @@ TEST_F(SNLSVConstructorTestSimple, parseModelReuseBuildDesignCache) {
   EXPECT_EQ(child, u1->getModel());
 
   auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "model_reuse");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseInstanceConnectionEdgeCases) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  constructor.construct(
+    benchmarksPath / "instance_connection_edge_cases" / "instance_connection_edge_cases.sv");
+
+  auto top = library_->getSNLDesign(NLName("instance_connection_edge_cases"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_EQ(4u, top->getInstances().size());
+
+  auto uNull = top->getInstance(NLName("u_null"));
+  ASSERT_NE(uNull, nullptr);
+  auto aScalar = dynamic_cast<SNLScalarTerm*>(uNull->getModel()->getTerm(NLName("a")));
+  ASSERT_NE(aScalar, nullptr);
+  auto uNullATerm = uNull->getInstTerm(aScalar);
+  ASSERT_NE(uNullATerm, nullptr);
+  EXPECT_EQ(nullptr, uNullATerm->getNet());
+
+  auto uBus = top->getInstance(NLName("u_bus"));
+  ASSERT_NE(uBus, nullptr);
+  auto aBus = dynamic_cast<SNLBusTerm*>(uBus->getModel()->getTerm(NLName("a")));
+  ASSERT_NE(aBus, nullptr);
+  auto aBusBit0 = aBus->getBit(aBus->getLSB());
+  ASSERT_NE(aBusBit0, nullptr);
+  auto uBusA0Term = uBus->getInstTerm(aBusBit0);
+  ASSERT_NE(uBusA0Term, nullptr);
+  EXPECT_EQ(nullptr, uBusA0Term->getNet());
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "instance_connection_edge_cases");
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
 }
 
@@ -622,6 +694,93 @@ TEST_F(SNLSVConstructorTestSimple, parseGateOperandUnresolvedIsSkipped) {
 
   auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "gate_operand_unresolved_skip");
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseGateMixedBinaryTreeIsSkipped) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  constructor.construct(
+    benchmarksPath / "gate_mixed_binary_tree_skip" / "gate_mixed_binary_tree_skip.sv");
+
+  auto top = library_->getSNLDesign(NLName("gate_mixed_binary_tree_skip"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_EQ(0u, top->getInstances().size());
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "gate_mixed_binary_tree_skip");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseDirectAssignMismatchSkipped) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  constructor.construct(
+    benchmarksPath / "direct_assign_mismatch" / "direct_assign_mismatch.sv");
+
+  auto top = library_->getSNLDesign(NLName("direct_assign_mismatch"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_EQ(0u, top->getInstances().size());
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "direct_assign_mismatch");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseContinuousAssignConcatLHSSkipped) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  constructor.construct(
+    benchmarksPath / "continuous_assign_concat_lhs_skip" / "continuous_assign_concat_lhs_skip.sv");
+
+  auto top = library_->getSNLDesign(NLName("continuous_assign_concat_lhs_skip"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_EQ(0u, top->getInstances().size());
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "continuous_assign_concat_lhs_skip");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseAlwaysCombIgnored) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  constructor.construct(
+    benchmarksPath / "always_comb_ignored" / "always_comb_ignored.sv");
+
+  auto top = library_->getSNLDesign(NLName("always_comb_ignored"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_EQ(0u, top->getInstances().size());
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "always_comb_ignored");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseAlwaysNoTimingNoClkSkipped) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  try {
+    constructor.construct(
+      benchmarksPath / "always_no_timing_no_clk_skipped" / "always_no_timing_no_clk_skipped.sv");
+    FAIL() << "Expected unsupported untimed sequential statement exception";
+  } catch (const SNLSVConstructorException& e) {
+    const std::string reason = e.what();
+    EXPECT_NE(
+      std::string::npos,
+      reason.find("Unsupported statement while extracting sequential timing control"));
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialListSingleEmptyStatementUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  try {
+    constructor.construct(
+      benchmarksPath / "seq_list_single_empty_stmt_unsupported" /
+      "seq_list_single_empty_stmt_unsupported.sv");
+    FAIL() << "Expected unsupported single-list empty statement exception";
+  } catch (const SNLSVConstructorException& e) {
+    const std::string reason = e.what();
+    EXPECT_NE(
+      std::string::npos,
+      reason.find("Unsupported statement while extracting sequential timing control"));
+  }
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseUnaryNotCreatesNOutputGate) {
@@ -988,6 +1147,329 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableBus2Skipped) {
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseSequentialPreincrementSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  constructor.construct(
+    benchmarksPath / "seq_preincrement_supported" / "seq_preincrement_supported.sv");
+
+  auto top = library_->getSNLDesign(NLName("seq_preincrement_supported"));
+  ASSERT_NE(top, nullptr);
+
+  auto dffModel = NLDB0::getDFF();
+  ASSERT_NE(dffModel, nullptr);
+  size_t dffCount = 0;
+  size_t faCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dffModel) {
+      ++dffCount;
+    }
+    if (NLDB0::isFA(inst->getModel())) {
+      ++faCount;
+    }
+  }
+  EXPECT_EQ(8u, dffCount);
+  EXPECT_GT(faCount, 0u);
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "seq_preincrement_supported");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialDecrementSkipped) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  constructor.construct(
+    benchmarksPath / "seq_decrement_skipped" / "seq_decrement_skipped.sv");
+
+  auto top = library_->getSNLDesign(NLName("seq_decrement_skipped"));
+  ASSERT_NE(top, nullptr);
+
+  auto dffModel = NLDB0::getDFF();
+  ASSERT_NE(dffModel, nullptr);
+  size_t dffCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dffModel) {
+      ++dffCount;
+    }
+  }
+  EXPECT_EQ(0u, dffCount);
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "seq_decrement_skipped");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialResetOnlySupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  constructor.construct(
+    benchmarksPath / "seq_reset_only_supported" / "seq_reset_only_supported.sv");
+
+  auto top = library_->getSNLDesign(NLName("seq_reset_only_supported"));
+  ASSERT_NE(top, nullptr);
+
+  auto dffModel = NLDB0::getDFF();
+  ASSERT_NE(dffModel, nullptr);
+  size_t dffCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dffModel) {
+      ++dffCount;
+    }
+  }
+  EXPECT_EQ(8u, dffCount);
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "seq_reset_only_supported");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialConcatLHSSkipped) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  constructor.construct(
+    benchmarksPath / "seq_concat_lhs_skipped" / "seq_concat_lhs_skipped.sv");
+
+  auto top = library_->getSNLDesign(NLName("seq_concat_lhs_skipped"));
+  ASSERT_NE(top, nullptr);
+
+  auto dffModel = NLDB0::getDFF();
+  ASSERT_NE(dffModel, nullptr);
+  size_t dffCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dffModel) {
+      ++dffCount;
+    }
+  }
+  EXPECT_EQ(0u, dffCount);
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "seq_concat_lhs_skipped");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialLHSElementSelectSkipped) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  constructor.construct(
+    benchmarksPath / "seq_lhs_element_select_skipped" / "seq_lhs_element_select_skipped.sv");
+
+  auto top = library_->getSNLDesign(NLName("seq_lhs_element_select_skipped"));
+  ASSERT_NE(top, nullptr);
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "seq_lhs_element_select_skipped");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialResetNonAssignmentSkipped) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  constructor.construct(
+    benchmarksPath / "seq_reset_non_assignment_skipped" /
+    "seq_reset_non_assignment_skipped.sv");
+
+  auto top = library_->getSNLDesign(NLName("seq_reset_non_assignment_skipped"));
+  ASSERT_NE(top, nullptr);
+
+  auto dffModel = NLDB0::getDFF();
+  ASSERT_NE(dffModel, nullptr);
+  size_t dffCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dffModel) {
+      ++dffCount;
+    }
+  }
+  EXPECT_EQ(0u, dffCount);
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "seq_reset_non_assignment_skipped");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableIfTrueNonAssignmentSkipped) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  constructor.construct(
+    benchmarksPath / "seq_enable_iftrue_non_assignment_skipped" /
+    "seq_enable_iftrue_non_assignment_skipped.sv");
+
+  auto top = library_->getSNLDesign(NLName("seq_enable_iftrue_non_assignment_skipped"));
+  ASSERT_NE(top, nullptr);
+
+  auto dffModel = NLDB0::getDFF();
+  ASSERT_NE(dffModel, nullptr);
+  size_t dffCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dffModel) {
+      ++dffCount;
+    }
+  }
+  EXPECT_EQ(0u, dffCount);
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "seq_enable_iftrue_non_assignment_skipped");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableLHSMismatchNoDefaultSkipped) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  constructor.construct(
+    benchmarksPath / "seq_enable_lhs_mismatch_no_default" /
+    "seq_enable_lhs_mismatch_no_default.sv");
+
+  auto top = library_->getSNLDesign(NLName("seq_enable_lhs_mismatch_no_default"));
+  ASSERT_NE(top, nullptr);
+
+  auto dffModel = NLDB0::getDFF();
+  ASSERT_NE(dffModel, nullptr);
+  size_t dffCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dffModel) {
+      ++dffCount;
+    }
+  }
+  EXPECT_EQ(0u, dffCount);
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "seq_enable_lhs_mismatch_no_default");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialDefaultLHSMismatchSkipped) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  constructor.construct(
+    benchmarksPath / "seq_default_lhs_mismatch_skipped" /
+    "seq_default_lhs_mismatch_skipped.sv");
+
+  auto top = library_->getSNLDesign(NLName("seq_default_lhs_mismatch_skipped"));
+  ASSERT_NE(top, nullptr);
+
+  auto dffModel = NLDB0::getDFF();
+  ASSERT_NE(dffModel, nullptr);
+  size_t dffCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dffModel) {
+      ++dffCount;
+    }
+  }
+  EXPECT_EQ(0u, dffCount);
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "seq_default_lhs_mismatch_skipped");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialDefaultNonAssignmentSkipped) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  constructor.construct(
+    benchmarksPath / "seq_default_non_assignment_skipped" /
+    "seq_default_non_assignment_skipped.sv");
+
+  auto top = library_->getSNLDesign(NLName("seq_default_non_assignment_skipped"));
+  ASSERT_NE(top, nullptr);
+
+  auto dffModel = NLDB0::getDFF();
+  ASSERT_NE(dffModel, nullptr);
+  size_t dffCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dffModel) {
+      ++dffCount;
+    }
+  }
+  EXPECT_EQ(0u, dffCount);
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "seq_default_non_assignment_skipped");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableCondBinarySkipped) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  constructor.construct(
+    benchmarksPath / "seq_enable_cond_binary_skipped" / "seq_enable_cond_binary_skipped.sv");
+
+  auto top = library_->getSNLDesign(NLName("seq_enable_cond_binary_skipped"));
+  ASSERT_NE(top, nullptr);
+
+  auto dffModel = NLDB0::getDFF();
+  ASSERT_NE(dffModel, nullptr);
+  size_t dffCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dffModel) {
+      ++dffCount;
+    }
+  }
+  EXPECT_EQ(0u, dffCount);
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "seq_enable_cond_binary_skipped");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialResetCondBus2Skipped) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  constructor.construct(
+    benchmarksPath / "seq_reset_cond_bus2_skipped" / "seq_reset_cond_bus2_skipped.sv");
+
+  auto top = library_->getSNLDesign(NLName("seq_reset_cond_bus2_skipped"));
+  ASSERT_NE(top, nullptr);
+
+  auto dffModel = NLDB0::getDFF();
+  ASSERT_NE(dffModel, nullptr);
+  size_t dffCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dffModel) {
+      ++dffCount;
+    }
+  }
+  EXPECT_EQ(0u, dffCount);
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "seq_reset_cond_bus2_skipped");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialListSingleWrapperSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  constructor.construct(
+    benchmarksPath / "seq_list_single_wrapper_supported" /
+    "seq_list_single_wrapper_supported.sv");
+
+  auto top = library_->getSNLDesign(NLName("seq_list_single_wrapper_supported"));
+  ASSERT_NE(top, nullptr);
+
+  auto dffModel = NLDB0::getDFF();
+  ASSERT_NE(dffModel, nullptr);
+  size_t dffCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dffModel) {
+      ++dffCount;
+    }
+  }
+  EXPECT_EQ(8u, dffCount);
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "seq_list_single_wrapper_supported");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialNestedBeginWrapperSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  constructor.construct(
+    benchmarksPath / "seq_nested_begin_wrapper_supported" / "seq_nested_begin_wrapper_supported.sv");
+
+  auto top = library_->getSNLDesign(NLName("seq_nested_begin_wrapper_supported"));
+  ASSERT_NE(top, nullptr);
+
+  auto dffModel = NLDB0::getDFF();
+  ASSERT_NE(dffModel, nullptr);
+  size_t dffCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dffModel) {
+      ++dffCount;
+    }
+  }
+  EXPECT_EQ(8u, dffCount);
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "seq_nested_begin_wrapper_supported");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseSequentialBinaryNonAddUnsupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
@@ -1044,6 +1526,94 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialTimingMissingUnsupported) {
     EXPECT_NE(
       std::string::npos,
       reason.find("Unsupported statement while extracting sequential timing control"));
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialTimingEventListUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  try {
+    constructor.construct(
+      benchmarksPath / "seq_timing_event_list_unsupported" /
+      "seq_timing_event_list_unsupported.sv");
+    FAIL() << "Expected unsupported event-list timing exception";
+  } catch (const SNLSVConstructorException& e) {
+    const std::string reason = e.what();
+    EXPECT_NE(std::string::npos, reason.find("Unsupported sequential event list"));
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialTimingDelayUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  try {
+    constructor.construct(
+      benchmarksPath / "seq_timing_delay_unsupported" / "seq_timing_delay_unsupported.sv");
+    FAIL() << "Expected unsupported delay timing exception";
+  } catch (const SNLSVConstructorException& e) {
+    const std::string reason = e.what();
+    EXPECT_NE(std::string::npos, reason.find("Unsupported sequential timing control"));
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableActionUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  try {
+    constructor.construct(
+      benchmarksPath / "seq_enable_action_unsupported" / "seq_enable_action_unsupported.sv");
+    FAIL() << "Expected unsupported enable action exception";
+  } catch (const SNLSVConstructorException& e) {
+    const std::string reason = e.what();
+    EXPECT_NE(
+      std::string::npos,
+      reason.find("Unsupported binary expression in sequential assignment: +"));
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialResetActionUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  try {
+    constructor.construct(
+      benchmarksPath / "seq_reset_action_unsupported" / "seq_reset_action_unsupported.sv");
+    FAIL() << "Expected unsupported reset action exception";
+  } catch (const SNLSVConstructorException& e) {
+    const std::string reason = e.what();
+    EXPECT_NE(
+      std::string::npos,
+      reason.find("Unsupported binary expression in sequential assignment: +"));
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialAddConstTwoUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  try {
+    constructor.construct(
+      benchmarksPath / "seq_add_const_two_unsupported" / "seq_add_const_two_unsupported.sv");
+    FAIL() << "Expected unsupported add-constant action exception";
+  } catch (const SNLSVConstructorException& e) {
+    const std::string reason = e.what();
+    EXPECT_NE(
+      std::string::npos,
+      reason.find("Unsupported binary expression in sequential assignment: +"));
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialAddWithXLiteralUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  try {
+    constructor.construct(
+      benchmarksPath / "seq_add_with_x_literal_unsupported" /
+      "seq_add_with_x_literal_unsupported.sv");
+    FAIL() << "Expected unsupported add with x-literal exception";
+  } catch (const SNLSVConstructorException& e) {
+    const std::string reason = e.what();
+    EXPECT_NE(
+      std::string::npos,
+      reason.find("Unsupported binary expression in sequential assignment: +"));
   }
 }
 

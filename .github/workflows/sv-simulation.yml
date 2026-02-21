@@ -67,10 +67,21 @@ jobs:
                 param_inst \
                 binary_ops_supported \
                 byte_ports \
+                implicit_width_ports \
+                port_directions \
+                non_ansi_ports \
+                model_reuse \
+                unary_not \
                 unary_not_binary_supported \
                 unary_not_binary_unsupported \
                 seq_add_out_plus_one \
                 seq_add_one_plus_out \
+                seq_enable_else_default \
+                seq_enable_bus1_supported \
+                seq_preincrement_supported \
+                seq_reset_only_supported \
+                seq_list_single_wrapper_supported \
+                seq_nested_begin_wrapper_supported \
                 seq_binary_non_add \
                 seq_add_non_increment \
                 seq_rhs_unresolved \
@@ -95,21 +106,22 @@ jobs:
                 param_inst \
                 binary_ops_supported \
                 byte_ports \
+                implicit_width_ports \
+                port_directions \
+                non_ansi_ports \
+                model_reuse \
+                unary_not \
                 unary_not_binary_supported \
                 seq_add_out_plus_one \
                 seq_add_one_plus_out \
+                seq_enable_else_default \
+                seq_enable_bus1_supported \
+                seq_preincrement_supported \
+                seq_reset_only_supported \
+                seq_list_single_wrapper_supported \
+                seq_nested_begin_wrapper_supported \
                 seq_rhs_direct_match; do
-                case "$bench" in
-                  simple) generated_sv=simple_naja.v ;;
-                  up_counter) generated_sv=up_counter_naja.v ;;
-                  param_inst) generated_sv=param_inst_naja.v ;;
-                  binary_ops_supported) generated_sv=binary_ops_supported_naja.v ;;
-                  byte_ports) generated_sv=byte_ports_naja.v ;;
-                  unary_not_binary_supported) generated_sv=unary_not_binary_supported_naja.v ;;
-                  seq_add_out_plus_one) generated_sv=seq_add_out_plus_one_naja.v ;;
-                  seq_add_one_plus_out) generated_sv=seq_add_one_plus_out_naja.v ;;
-                  seq_rhs_direct_match) generated_sv=seq_rhs_direct_match_naja.v ;;
-                esac
+                generated_sv="${bench}_naja.v"
                 make -C "$bench" clean
                 make -C "$bench" sim SV="$generated_sv $primitives_sv"
               done'
