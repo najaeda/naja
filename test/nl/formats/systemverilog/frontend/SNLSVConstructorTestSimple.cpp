@@ -866,6 +866,128 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialAddOnePlusOut) {
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableElseDefaultSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  constructor.construct(
+    benchmarksPath / "seq_enable_else_default" / "seq_enable_else_default.sv");
+
+  auto top = library_->getSNLDesign(NLName("seq_enable_else_default"));
+  ASSERT_NE(top, nullptr);
+
+  auto dffModel = NLDB0::getDFF();
+  ASSERT_NE(dffModel, nullptr);
+  size_t dffCount = 0;
+  size_t faCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dffModel) {
+      ++dffCount;
+    }
+    if (NLDB0::isFA(inst->getModel())) {
+      ++faCount;
+    }
+  }
+  EXPECT_EQ(8u, dffCount);
+  EXPECT_GT(faCount, 0u);
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "seq_enable_else_default");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableElseDefaultNonAssignmentSkipped) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  constructor.construct(
+    benchmarksPath / "seq_enable_else_default_non_assignment" /
+    "seq_enable_else_default_non_assignment.sv");
+
+  auto top = library_->getSNLDesign(NLName("seq_enable_else_default_non_assignment"));
+  ASSERT_NE(top, nullptr);
+
+  auto dffModel = NLDB0::getDFF();
+  ASSERT_NE(dffModel, nullptr);
+  size_t dffCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dffModel) {
+      ++dffCount;
+    }
+  }
+  EXPECT_EQ(0u, dffCount);
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "seq_enable_else_default_non_assignment");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableElseDefaultLHSMismatchSkipped) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  constructor.construct(
+    benchmarksPath / "seq_enable_else_default_lhs_mismatch" /
+    "seq_enable_else_default_lhs_mismatch.sv");
+
+  auto top = library_->getSNLDesign(NLName("seq_enable_else_default_lhs_mismatch"));
+  ASSERT_NE(top, nullptr);
+
+  auto dffModel = NLDB0::getDFF();
+  ASSERT_NE(dffModel, nullptr);
+  size_t dffCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dffModel) {
+      ++dffCount;
+    }
+  }
+  EXPECT_EQ(0u, dffCount);
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "seq_enable_else_default_lhs_mismatch");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableBus1Supported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  constructor.construct(
+    benchmarksPath / "seq_enable_bus1_supported" / "seq_enable_bus1_supported.sv");
+
+  auto top = library_->getSNLDesign(NLName("seq_enable_bus1_supported"));
+  ASSERT_NE(top, nullptr);
+
+  auto dffModel = NLDB0::getDFF();
+  ASSERT_NE(dffModel, nullptr);
+  size_t dffCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dffModel) {
+      ++dffCount;
+    }
+  }
+  EXPECT_EQ(8u, dffCount);
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "seq_enable_bus1_supported");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableBus2Skipped) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  constructor.construct(
+    benchmarksPath / "seq_enable_bus2_skipped" / "seq_enable_bus2_skipped.sv");
+
+  auto top = library_->getSNLDesign(NLName("seq_enable_bus2_skipped"));
+  ASSERT_NE(top, nullptr);
+
+  auto dffModel = NLDB0::getDFF();
+  ASSERT_NE(dffModel, nullptr);
+  size_t dffCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dffModel) {
+      ++dffCount;
+    }
+  }
+  EXPECT_EQ(0u, dffCount);
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "seq_enable_bus2_skipped");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseSequentialBinaryNonAddUnsupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
@@ -892,6 +1014,36 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialNegedgeTimingUnsupported) {
     const std::string reason = e.what();
     EXPECT_NE(std::string::npos, reason.find("Unsupported sequential timing edge"));
     EXPECT_NE(std::string::npos, reason.find("only posedge is supported"));
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialTimingListUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  try {
+    constructor.construct(
+      benchmarksPath / "seq_timing_list_unsupported" / "seq_timing_list_unsupported.sv");
+    FAIL() << "Expected unsupported statement-list timing extraction exception";
+  } catch (const SNLSVConstructorException& e) {
+    const std::string reason = e.what();
+    EXPECT_NE(
+      std::string::npos,
+      reason.find("Unsupported statement list while extracting sequential timing control"));
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialTimingMissingUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  try {
+    constructor.construct(
+      benchmarksPath / "seq_timing_missing_unsupported" / "seq_timing_missing_unsupported.sv");
+    FAIL() << "Expected unsupported missing timing control exception";
+  } catch (const SNLSVConstructorException& e) {
+    const std::string reason = e.what();
+    EXPECT_NE(
+      std::string::npos,
+      reason.find("Unsupported statement while extracting sequential timing control"));
   }
 }
 
