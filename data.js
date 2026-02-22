@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1771540639598,
+  "lastUpdate": 1771726332942,
   "repoUrl": "https://github.com/najaeda/naja",
   "entries": {
     "SNL Benchmarks": [
@@ -918,6 +918,108 @@ window.BENCHMARK_DATA = {
             "value": 158022.35637160216,
             "unit": "ns/iter",
             "extra": "iterations: 4442\ncpu: 157910.16434039795 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "christophe.alexandre@keplertech.io",
+            "name": "Christophe Alexandre",
+            "username": "xtofalex"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8ae43f5ce018d863660064ea99759c8a246b565b",
+          "message": "Slang testing (#333)\n\n* init sv support\n\n* more testing\n\n* bump slang version\n\n* some progress\n\n* Add FA (Full Adder) primitive to NLDB0\n\n- Ports: A, B, CI (inputs), S (sum), CO (carry-out)\n- Combinatorial arcs from all inputs to both outputs\n- getFASumTruthTable() -> SNLTruthTable(3, 0x96) [XOR-3]\n- getFACoutTruthTable() -> SNLTruthTable(3, 0xE8) [majority]\n- getPrimitiveTruthTable throws for FA (two outputs, use dedicated methods)\n- Unit tests in NLDB0Test and SNLGateTruthTablesTest\n\n* add source info and option for json post elaboration generation\n\n* Use FA\n\n* refactor sv test start action with simulation\n\n* bump slang version\n\n* add system verilog round testing through najaeda\n\n* add license\n\n* use external build for slang\n\n* macos-14 build\n\n* new attempt\n\n* new attempt\n\n* new version\n\n* revert changes on macos build\n\n* cleaning compile\n\n* -fPIC on slang build\n\n* removing macos-14 soon to be discontinued on github\n\n* new attempt\n\n* switch to najaeda fork and add PIC option in slang\n\n* update slang\n\n* new attempt\n\n* new attempt\n\n* update compile\n\n* add boost unordered to windows setup\n\n* new version\n\n* new attempt\n\n* restrain to windows\n\n* FMT clash\n\n* cleaning binary ops tests\n\n* more testing\n\n* error reporting and testing\n\n* cleaning gates support\n\n* NLDB0 cleaning\n\n* test wrong file when loading SV\n\n* coverage\n\n* more testing\n\n* more testing\n\n* coverage\n\n* improve testing and coverage\n\n* logging cleaning\n\n* coverage\n\n* more coverage\n\n* more testing\n\n* mux2 cover\n\n* bump slang version\n\n* license and coverage\n\n* verilator support",
+          "timestamp": "2026-02-22T03:08:23+01:00",
+          "tree_id": "505f65bf0bac3226f66007b2a185cde3a28b62aa",
+          "url": "https://github.com/najaeda/naja/commit/8ae43f5ce018d863660064ea99759c8a246b565b"
+        },
+        "date": 1771726332313,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "BM_CreateNetlist0",
+            "value": 29617.92011566306,
+            "unit": "ns/iter",
+            "extra": "iterations: 23171\ncpu: 29611.499417375166 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_CreateInstances/100",
+            "value": 97138.22367515446,
+            "unit": "ns/iter",
+            "extra": "iterations: 7265\ncpu: 97087.94439091533 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_CreateInstances/1000",
+            "value": 1194050.8406779773,
+            "unit": "ns/iter",
+            "extra": "iterations: 590\ncpu: 1193769.2898305086 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_CreateInstances/10000",
+            "value": 17656752.736842774,
+            "unit": "ns/iter",
+            "extra": "iterations: 38\ncpu: 17655370.342105262 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_TraversalInstances/100",
+            "value": 1456.5288526349516,
+            "unit": "ns/iter",
+            "extra": "iterations: 480684\ncpu: 1456.2430806933457 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_TraversalInstances/1000",
+            "value": 14248.469869458191,
+            "unit": "ns/iter",
+            "extra": "iterations: 49103\ncpu: 14247.808158360984 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_TraversalInstances/10000",
+            "value": 216242.2778497464,
+            "unit": "ns/iter",
+            "extra": "iterations: 3088\ncpu: 216221.41418393762 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_LoadVerilogFile/Gates0",
+            "value": 240742.9858395256,
+            "unit": "ns/iter",
+            "extra": "iterations: 2966\ncpu: 240263.05461901543 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_LoadVerilogFile/FullAdder",
+            "value": 189511.29261597272,
+            "unit": "ns/iter",
+            "extra": "iterations: 3643\ncpu: 189506.7452648918 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_LoadVerilogFile/Gates2",
+            "value": 123161.31846235291,
+            "unit": "ns/iter",
+            "extra": "iterations: 5671\ncpu: 123156.314582966 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_LoadVerilogFile/LargeHierGates",
+            "value": 64980475.44444161,
+            "unit": "ns/iter",
+            "extra": "iterations: 9\ncpu: 64977042.66666678 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_HierarchyTraversal",
+            "value": 24669.47512715116,
+            "unit": "ns/iter",
+            "extra": "iterations: 28706\ncpu: 24668.841775238612 ns\nthreads: 1"
+          },
+          {
+            "name": "BM_CapnPSerialize",
+            "value": 180716.75468378956,
+            "unit": "ns/iter",
+            "extra": "iterations: 3897\ncpu: 180511.5563253975 ns\nthreads: 1"
           }
         ]
       }
