@@ -86,12 +86,100 @@ TEST_F(NLDB0Test, testAND) {
   EXPECT_EQ(48, and48Inputs->getWidth());
 }
 
+TEST_F(NLDB0Test, testFA) {
+  NLUniverse::create();
+  ASSERT_NE(nullptr, NLUniverse::get());
+
+  auto fa = NLDB0::getFA();
+  ASSERT_NE(nullptr, fa);
+  EXPECT_TRUE(NLDB0::isFA(fa));
+  EXPECT_TRUE(NLDB0::isDB0Primitive(fa));
+  EXPECT_FALSE(NLDB0::isAssign(fa));
+  EXPECT_FALSE(NLDB0::isMux2(fa));
+
+  auto inA = NLDB0::getFAInputA();
+  ASSERT_NE(nullptr, inA);
+  EXPECT_EQ(NLName("A"), inA->getName());
+  EXPECT_EQ(SNLTerm::Direction::Input, inA->getDirection());
+
+  auto inB = NLDB0::getFAInputB();
+  ASSERT_NE(nullptr, inB);
+  EXPECT_EQ(NLName("B"), inB->getName());
+  EXPECT_EQ(SNLTerm::Direction::Input, inB->getDirection());
+
+  auto inCI = NLDB0::getFAInputCI();
+  ASSERT_NE(nullptr, inCI);
+  EXPECT_EQ(NLName("CI"), inCI->getName());
+  EXPECT_EQ(SNLTerm::Direction::Input, inCI->getDirection());
+
+  auto outS = NLDB0::getFAOutputS();
+  ASSERT_NE(nullptr, outS);
+  EXPECT_EQ(NLName("S"), outS->getName());
+  EXPECT_EQ(SNLTerm::Direction::Output, outS->getDirection());
+
+  auto outCO = NLDB0::getFAOutputCO();
+  ASSERT_NE(nullptr, outCO);
+  EXPECT_EQ(NLName("CO"), outCO->getName());
+  EXPECT_EQ(SNLTerm::Direction::Output, outCO->getDirection());
+
+  // all 5 terminals belong to the same design
+  EXPECT_EQ(fa, inA->getDesign());
+  EXPECT_EQ(fa, inB->getDesign());
+  EXPECT_EQ(fa, inCI->getDesign());
+  EXPECT_EQ(fa, outS->getDesign());
+  EXPECT_EQ(fa, outCO->getDesign());
+
+  // getPrimitiveTruthTable must throw for FA (two outputs)
+  EXPECT_THROW(NLDB0::getPrimitiveTruthTable(fa), NLException);
+}
+
+TEST_F(NLDB0Test, testMux2TruthTable) {
+  NLUniverse::create();
+  ASSERT_NE(nullptr, NLUniverse::get());
+
+  auto mux2 = NLDB0::getMux2();
+  ASSERT_NE(nullptr, mux2);
+  EXPECT_TRUE(NLDB0::isMux2(mux2));
+  ASSERT_NE(nullptr, NLDB0::getMux2InputA());
+  ASSERT_NE(nullptr, NLDB0::getMux2InputB());
+  ASSERT_NE(nullptr, NLDB0::getMux2Select());
+  ASSERT_NE(nullptr, NLDB0::getMux2Output());
+
+  auto tt = NLDB0::getPrimitiveTruthTable(mux2);
+  EXPECT_EQ(3u, tt.size());
+
+  uint64_t bits = 0;
+  for (uint64_t i = 0; i < (1ULL << tt.size()); ++i) {
+    if (tt.bits().bit(i)) {
+      bits |= (1ULL << i);
+    }
+  }
+  // Truth table for Y = S ? B : A, with A/B/S mapped to input bits 0/1/2.
+  EXPECT_EQ(0xCAULL, bits);
+}
+
 TEST_F(NLDB0Test, testNULLUniverse) {
   EXPECT_EQ(nullptr, NLUniverse::get());
   EXPECT_FALSE(NLUniverse::isDB0(nullptr));
   EXPECT_EQ(nullptr, NLDB0::getAssign());
   EXPECT_EQ(nullptr, NLDB0::getAssignInput());
   EXPECT_EQ(nullptr, NLDB0::getAssignOutput());
+  EXPECT_EQ(nullptr, NLDB0::getFA());
+  EXPECT_EQ(nullptr, NLDB0::getFAInputA());
+  EXPECT_EQ(nullptr, NLDB0::getFAInputB());
+  EXPECT_EQ(nullptr, NLDB0::getFAInputCI());
+  EXPECT_EQ(nullptr, NLDB0::getFAOutputS());
+  EXPECT_EQ(nullptr, NLDB0::getFAOutputCO());
+  EXPECT_EQ(nullptr, NLDB0::getMux2());
+  EXPECT_FALSE(NLDB0::isMux2(nullptr));
+  EXPECT_EQ(nullptr, NLDB0::getMux2InputA());
+  EXPECT_EQ(nullptr, NLDB0::getMux2InputB());
+  EXPECT_EQ(nullptr, NLDB0::getMux2Select());
+  EXPECT_EQ(nullptr, NLDB0::getMux2Output());
+  EXPECT_EQ(nullptr, NLDB0::getDFF());
+  EXPECT_EQ(nullptr, NLDB0::getDFFClock());
+  EXPECT_EQ(nullptr, NLDB0::getDFFData());
+  EXPECT_EQ(nullptr, NLDB0::getDFFOutput());
   EXPECT_EQ(nullptr, NLDB0::getGateLibrary(NLDB0::GateType::And));
   EXPECT_THROW(NLDB0::getOrCreateNInputGate(NLDB0::GateType::And, 2), NLException);
 }

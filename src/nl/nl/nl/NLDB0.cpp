@@ -24,6 +24,49 @@ namespace {
     return __builtin_parityll(x);
 #endif
   }
+
+  void createAssignPrimitive(naja::NL::NLLibrary* rootLibrary) {
+    using namespace naja::NL;
+    auto assign = SNLDesign::create(rootLibrary, SNLDesign::Type::Primitive);
+    auto assignInput = SNLScalarTerm::create(assign, SNLTerm::Direction::Input);
+    auto assignOutput = SNLScalarTerm::create(assign, SNLTerm::Direction::Output);
+
+    auto assignFT = SNLScalarNet::create(assign);
+    assignInput->setNet(assignFT);
+    assignOutput->setNet(assignFT);
+    SNLDesignModeling::addCombinatorialArcs({assignInput}, {assignOutput});
+  }
+
+  void createFAPrimitive(naja::NL::NLLibrary* rootLibrary) {
+    using namespace naja::NL;
+    auto fa = SNLDesign::create(rootLibrary, SNLDesign::Type::Primitive, NLName("fa"));
+    auto inA  = SNLScalarTerm::create(fa, SNLTerm::Direction::Input,  NLName("A"));
+    auto inB  = SNLScalarTerm::create(fa, SNLTerm::Direction::Input,  NLName("B"));
+    auto inCI = SNLScalarTerm::create(fa, SNLTerm::Direction::Input,  NLName("CI"));
+    auto outS = SNLScalarTerm::create(fa, SNLTerm::Direction::Output, NLName("S"));
+    auto outCO= SNLScalarTerm::create(fa, SNLTerm::Direction::Output, NLName("CO"));
+    SNLDesignModeling::addCombinatorialArcs({inA, inB, inCI}, {outS, outCO});
+  }
+
+  void createDFFPrimitive(naja::NL::NLLibrary* rootLibrary) {
+    using namespace naja::NL;
+    auto dff = SNLDesign::create(rootLibrary, SNLDesign::Type::Primitive, NLName("dff"));
+    auto dffClock = SNLScalarTerm::create(dff, SNLTerm::Direction::Input, NLName("C"));
+    auto dffData = SNLScalarTerm::create(dff, SNLTerm::Direction::Input, NLName("D"));
+    auto dffOutput = SNLScalarTerm::create(dff, SNLTerm::Direction::Output, NLName("Q"));
+    SNLDesignModeling::addClockToOutputsArcs(dffClock, {dffOutput});
+    SNLDesignModeling::addInputsToClockArcs({dffData}, dffClock);
+  }
+
+  void createMux2Primitive(naja::NL::NLLibrary* rootLibrary) {
+    using namespace naja::NL;
+    auto mux2 = SNLDesign::create(rootLibrary, SNLDesign::Type::Primitive, NLName("mux2"));
+    auto inA = SNLScalarTerm::create(mux2, SNLTerm::Direction::Input, NLName("A"));
+    auto inB = SNLScalarTerm::create(mux2, SNLTerm::Direction::Input, NLName("B"));
+    auto sel = SNLScalarTerm::create(mux2, SNLTerm::Direction::Input, NLName("S"));
+    auto out = SNLScalarTerm::create(mux2, SNLTerm::Direction::Output, NLName("Y"));
+    SNLDesignModeling::addCombinatorialArcs({inA, inB, sel}, {out});
+  }
 }
 
 namespace naja::NL {
@@ -98,14 +141,11 @@ NLDB* NLDB0::create(NLUniverse* universe) {
   auto rootLibrary =
     NLLibrary::create(db, NLLibrary::Type::Primitives, NLName(RootLibraryName));
 
-  auto assign = SNLDesign::create(rootLibrary, SNLDesign::Type::Primitive);
-  auto assignInput = SNLScalarTerm::create(assign, SNLTerm::Direction::Input);
-  auto assignOutput = SNLScalarTerm::create(assign, SNLTerm::Direction::Output);
+  createAssignPrimitive(rootLibrary);
+  createFAPrimitive(rootLibrary);
+  createMux2Primitive(rootLibrary);
+  createDFFPrimitive(rootLibrary);
 
-  SNLScalarNet* assignFT = SNLScalarNet::create(assign);
-  assignInput->setNet(assignFT);
-  assignOutput->setNet(assignFT);
-  SNLDesignModeling::addCombinatorialArcs({assignInput}, {assignOutput});
   return db;
 }
 
@@ -143,6 +183,22 @@ bool NLDB0::isDB0Primitive(const SNLDesign* design) {
 SNLTruthTable NLDB0::getPrimitiveTruthTable(const SNLDesign* design) {
   if (isAssign(design)) {
     return SNLTruthTable::Buf();
+  }
+  if (isFA(design)) {
+    throw NLException("NLDB0::getPrimitiveTruthTable: FA has two outputs, use getFASumTruthTable/getFACoutTruthTable");
+  }
+  if (isMux2(design)) {
+    uint64_t bits = 0;
+    for (uint64_t i = 0; i < 8; ++i) {
+      bool a = (i & 0x1) != 0;
+      bool b = (i & 0x2) != 0;
+      bool s = (i & 0x4) != 0;
+      bool y = s ? b : a;
+      if (y) {
+        bits |= (1ULL << i);
+      }
+    }
+    return SNLTruthTable(3, bits);
   }
 
   if (isNInputGate(design)) {
@@ -211,6 +267,7 @@ SNLTruthTable NLDB0::getPrimitiveTruthTable(const SNLDesign* design) {
 SNLDesign* NLDB0::getAssign() {
   auto primitives = getDB0RootLibrary();
   if (primitives) {
+    // Static primitive, created first in NLDB0::create().
     return primitives->getSNLDesign(NLID::DesignID(0));
   }
   return nullptr;
@@ -223,6 +280,7 @@ bool NLDB0::isAssign(const SNLDesign* design) {
 SNLScalarTerm* NLDB0::getAssignInput() {
   auto assign = getAssign();
   if (assign) {
+    // Static term, created first in createAssignPrimitive().
     return assign->getScalarTerm(NLID::DesignObjectID(0));
   }
   return nullptr;
@@ -231,7 +289,144 @@ SNLScalarTerm* NLDB0::getAssignInput() {
 SNLScalarTerm* NLDB0::getAssignOutput() {
   auto assign = getAssign();
   if (assign) {
+    // Static term, created second in createAssignPrimitive().
     return assign->getScalarTerm(NLID::DesignObjectID(1));
+  }
+  return nullptr;
+}
+
+SNLDesign* NLDB0::getFA() {
+  auto primitives = getDB0RootLibrary();
+  if (primitives) {
+    // Static primitive, created second in NLDB0::create().
+    return primitives->getSNLDesign(NLID::DesignID(1));
+  }
+  return nullptr;
+}
+
+bool NLDB0::isFA(const SNLDesign* design) {
+  return design and design == getFA();
+}
+
+SNLScalarTerm* NLDB0::getFAInputA() {
+  auto fa = getFA();
+  if (fa) { return fa->getScalarTerm(NLID::DesignObjectID(0)); }
+  return nullptr;
+}
+
+SNLScalarTerm* NLDB0::getFAInputB() {
+  auto fa = getFA();
+  if (fa) { return fa->getScalarTerm(NLID::DesignObjectID(1)); }
+  return nullptr;
+}
+
+SNLScalarTerm* NLDB0::getFAInputCI() {
+  auto fa = getFA();
+  if (fa) { return fa->getScalarTerm(NLID::DesignObjectID(2)); }
+  return nullptr;
+}
+
+SNLScalarTerm* NLDB0::getFAOutputS() {
+  auto fa = getFA();
+  if (fa) { return fa->getScalarTerm(NLID::DesignObjectID(3)); }
+  return nullptr;
+}
+
+SNLScalarTerm* NLDB0::getFAOutputCO() {
+  auto fa = getFA();
+  if (fa) { return fa->getScalarTerm(NLID::DesignObjectID(4)); }
+  return nullptr;
+}
+
+// Sum = A XOR B XOR CI: odd-parity of 3 inputs
+// Row encoding: bit i of 'bits' is the output for input combination i
+// i=0b000->0, 001->1, 010->1, 011->0, 100->1, 101->0, 110->0, 111->1
+// bits = 0b10010110 = 0x96
+SNLTruthTable NLDB0::getFASumTruthTable() {
+  return SNLTruthTable(3, 0x96ULL);
+}
+
+// Cout = majority(A,B,CI): output 1 when at least 2 inputs are 1
+// i=0b000->0, 001->0, 010->0, 011->1, 100->0, 101->1, 110->1, 111->1
+// bits = 0b11101000 = 0xE8
+SNLTruthTable NLDB0::getFACoutTruthTable() {
+  return SNLTruthTable(3, 0xE8ULL);
+}
+
+SNLDesign* NLDB0::getMux2() {
+  auto primitives = getDB0RootLibrary();
+  if (primitives) {
+    // Static primitive, created third in NLDB0::create().
+    return primitives->getSNLDesign(NLID::DesignID(2));
+  }
+  return nullptr;
+}
+
+bool NLDB0::isMux2(const SNLDesign* design) {
+  return design and design == getMux2();
+}
+
+SNLScalarTerm* NLDB0::getMux2InputA() {
+  auto mux2 = getMux2();
+  if (mux2) {
+    return mux2->getScalarTerm(NLID::DesignObjectID(0));
+  }
+  return nullptr;
+}
+
+SNLScalarTerm* NLDB0::getMux2InputB() {
+  auto mux2 = getMux2();
+  if (mux2) {
+    return mux2->getScalarTerm(NLID::DesignObjectID(1));
+  }
+  return nullptr;
+}
+
+SNLScalarTerm* NLDB0::getMux2Select() {
+  auto mux2 = getMux2();
+  if (mux2) {
+    return mux2->getScalarTerm(NLID::DesignObjectID(2));
+  }
+  return nullptr;
+}
+
+SNLScalarTerm* NLDB0::getMux2Output() {
+  auto mux2 = getMux2();
+  if (mux2) {
+    return mux2->getScalarTerm(NLID::DesignObjectID(3));
+  }
+  return nullptr;
+}
+
+SNLDesign* NLDB0::getDFF() {
+  auto primitives = getDB0RootLibrary();
+  if (primitives) {
+    // Static primitive, created fourth in NLDB0::create().
+    return primitives->getSNLDesign(NLID::DesignID(3));
+  }
+  return nullptr;
+}
+
+SNLScalarTerm* NLDB0::getDFFClock() {
+  auto dff = getDFF();
+  if (dff) {
+    return dff->getScalarTerm(NLID::DesignObjectID(0));
+  }
+  return nullptr;
+}
+
+SNLScalarTerm* NLDB0::getDFFData() {
+  auto dff = getDFF();
+  if (dff) {
+    return dff->getScalarTerm(NLID::DesignObjectID(1));
+  }
+  return nullptr;
+}
+
+SNLScalarTerm* NLDB0::getDFFOutput() {
+  auto dff = getDFF();
+  if (dff) {
+    return dff->getScalarTerm(NLID::DesignObjectID(2));
   }
   return nullptr;
 }

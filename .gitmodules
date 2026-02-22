@@ -10,3 +10,6 @@
 [submodule "thirdparty/naja-if"]
 	path = thirdparty/naja-if
 	url = https://github.com/najaeda/naja-if
+[submodule "thirdparty/slang"]
+	path = thirdparty/slang
+	url = https://github.com/najaeda/slang

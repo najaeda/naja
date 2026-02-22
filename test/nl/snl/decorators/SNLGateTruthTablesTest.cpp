@@ -7,6 +7,7 @@
 
 #include "NLUniverse.h"
 #include "NLDB0.h"
+#include "NLException.h"
 #include "SNLDesignModeling.h"
 using namespace naja::NL;
 
@@ -140,4 +141,34 @@ TEST_F(SNLGateTruthTableTest, testAssignTruthTable) {
     ASSERT_NE(assign, nullptr);
     auto tt = NLDB0::getPrimitiveTruthTable(assign);
     EXPECT_EQ(SNLTruthTable::Buf(), tt);
+}
+
+TEST_F(SNLGateTruthTableTest, testFATruthTables) {
+    auto fa = NLDB0::getFA();
+    ASSERT_NE(nullptr, fa);
+
+    // Sum = A XOR B XOR CI: same truth table as XOR-3
+    auto sumTT = NLDB0::getFASumTruthTable();
+    EXPECT_EQ(3, sumTT.size());
+    EXPECT_EQ(0x96ULL, static_cast<uint64_t>(sumTT.bits()));
+
+    // Cross-check: Sum truth table equals the XOR-3 truth table
+    auto xor3 = NLDB0::getOrCreateNInputGate(NLDB0::GateType::Xor, 3);
+    ASSERT_NE(nullptr, xor3);
+    EXPECT_EQ(sumTT, NLDB0::getPrimitiveTruthTable(xor3));
+
+    // Cout = majority(A,B,CI): output 1 when at least 2 inputs are 1
+    auto coutTT = NLDB0::getFACoutTruthTable();
+    EXPECT_EQ(3, coutTT.size());
+    EXPECT_EQ(0xE8ULL, static_cast<uint64_t>(coutTT.bits()));
+
+    // Verify majority row by row: Cout=1 iff popcount(i)>=2
+    for (uint64_t i = 0; i < 8; ++i) {
+        bool expected = (__builtin_popcountll(i) >= 2);
+        bool actual   = ((coutTT.bits() >> i) & 1ULL) != 0;
+        EXPECT_EQ(expected, actual) << "row " << i;
+    }
+
+    // getPrimitiveTruthTable must throw for FA (two outputs)
+    EXPECT_THROW(NLDB0::getPrimitiveTruthTable(fa), NLException);
 }

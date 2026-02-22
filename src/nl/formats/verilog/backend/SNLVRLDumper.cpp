@@ -187,25 +187,16 @@ void dumpRange(ContiguousNetBits& bits, bool& firstElement, bool& concatenation,
   }
 }
 
-std::string getBitNetString(const naja::NL::SNLBitNet* bitNet) {
-  if (auto scalarNet = dynamic_cast<const naja::NL::SNLScalarNet*>(bitNet)) {
-    return dumpName(scalarNet->getName().getString());
-  } else {
-    auto busNetBit = static_cast<const naja::NL::SNLBusNetBit*>(bitNet);
-    auto bus = busNetBit->getBus();
-    auto busName = dumpName(bus->getName().getString());
-    return busName + "[" + std::to_string(busNetBit->getBit()) + "]";
-  }
-}
-
-std::string getBusBitConcatenationString(const std::vector<const naja::NL::SNLBusNetBit*>& bits) {
+std::string getBusBitConcatenationString(
+  const std::vector<const naja::NL::SNLBusNetBit*>& bits,
+  const auto& bitNetToString) {
   assert(not bits.empty());
   std::string concatenation = "{";
   for (size_t i = 0; i < bits.size(); ++i) {
     if (i != 0) {
       concatenation += ", ";
     }
-    concatenation += getBitNetString(bits[i]);
+    concatenation += bitNetToString(bits[i]);
   }
   concatenation += "}";
   return concatenation;
@@ -265,27 +256,30 @@ bool getAssignConnectivity(
 bool dumpSingleAssign(
   const naja::NL::SNLBitNet* inputNet,
   const naja::NL::SNLBitNet* outputNet,
-  std::ostream& o) {
+  std::ostream& o,
+  const auto& bitNetToString) {
   std::string inputNetString;
   if (inputNet->isConstant0()) {
     inputNetString = "1'b0";
   } else if (inputNet->isConstant1()) {
     inputNetString = "1'b1";
   } else {
-    inputNetString = getBitNetString(inputNet);
+    inputNetString = bitNetToString(inputNet);
   }
-  auto outputNetString = getBitNetString(outputNet);
+  auto outputNetString = bitNetToString(outputNet);
   o << "assign " << outputNetString << " = " << inputNetString << ";" << std::endl;
   return true;
 }
 
-std::string getBusBitRangeString(const std::vector<const naja::NL::SNLBusNetBit*>& bits) {
+std::string getBusBitRangeString(
+  const std::vector<const naja::NL::SNLBusNetBit*>& bits,
+  const auto& busNetToString) {
   assert(not bits.empty());
   auto firstBit = bits.front();
   auto lastBit = bits.back();
   auto bus = firstBit->getBus();
   assert(bus == lastBit->getBus());
-  auto busName = dumpName(bus->getName().getString());
+  auto busName = busNetToString(bus);
   if (firstBit->getBit() == bus->getMSB() and lastBit->getBit() == bus->getLSB()) {
     return busName;
   }
@@ -396,13 +390,17 @@ bool appendAssignGroup(
   return true;
 }
 
-bool dumpAssignGroup(const AssignGroup& group, std::ostream& o) {
+bool dumpAssignGroup(
+  const AssignGroup& group,
+  std::ostream& o,
+  const auto& bitNetToString,
+  const auto& busNetToString) {
   assert(group.inputBits_.size() == group.outputBits_.size());
   assert(group.outputBits_.size() > 1);
   auto inputBits = group.inputBits_;
   auto outputBits = group.outputBits_;
   normalizeAssignGroupOutputOrder(inputBits, outputBits);
-  auto outputString = getBusBitRangeString(outputBits);
+  auto outputString = getBusBitRangeString(outputBits, busNetToString);
   std::string inputString;
   if (group.inputMode_ == AssignInputMode::Constant) {
     inputString = getAssignConstantString(inputBits);
@@ -413,9 +411,9 @@ bool dumpAssignGroup(const AssignGroup& group, std::ostream& o) {
       inputBusBits.push_back(static_cast<const naja::NL::SNLBusNetBit*>(inputBit));
     }
     if (isCanonicalBusRangeOrder(inputBusBits)) {
-      inputString = getBusBitRangeString(inputBusBits);
+      inputString = getBusBitRangeString(inputBusBits, busNetToString);
     } else {
-      inputString = getBusBitConcatenationString(inputBusBits);
+      inputString = getBusBitConcatenationString(inputBusBits, bitNetToString);
     }
   }
   o << "assign " << outputString << " = " << inputString << ";" << std::endl;
@@ -492,15 +490,38 @@ NLName SNLVRLDumper::getNetName(const SNLNet* net, const DesignInsideAnonymousNa
   }
 }
 
+std::string SNLVRLDumper::getBitNetString(
+  const SNLBitNet* bitNet,
+  const DesignInsideAnonymousNaming& naming) {
+  if (!bitNet) {
+    return "DUMMY";
+  }
+  if (bitNet->isAssign0()) {
+    return "1'b0";
+  }
+  if (bitNet->isAssign1()) {
+    return "1'b1";
+  }
+  if (auto scalarNet = dynamic_cast<const SNLScalarNet*>(bitNet)) {
+    auto netName = getNetName(scalarNet, naming);
+    return dumpName(netName.getString());
+  }
+  auto busNetBit = static_cast<const SNLBusNetBit*>(bitNet);
+  auto bus = busNetBit->getBus();
+  auto busName = getNetName(bus, naming);
+  return dumpName(busName.getString()) + "[" + std::to_string(busNetBit->getBit()) + "]";
+}
+
 void SNLVRLDumper::dumpAttributes(const NLObject* object, std::ostream& o) {
   for (const auto& attribute: SNLAttributes::getAttributes(object)) {
     o << "(* ";
     o << attribute.getName().getString();
     if (attribute.hasValue()) {
+      o << "=";
       if (attribute.getValue().isString()) {
-        o << "=\"";
+        o << "\"";
       }
-      o << "=" << attribute.getValue().getString();
+      o << attribute.getValue().getString();
       if (attribute.getValue().isString()) {
         o << "\"";
       }
@@ -777,11 +798,7 @@ bool SNLVRLDumper::dumpInstance(
         o << ", ";
       }
       auto net = instTerm->getNet();
-      if (net) {
-        o << getBitNetString(net);
-      } else {
-        o << "DUMMY";
-      }
+      o << getBitNetString(net, naming);
     }
     o << ");";
     o << std::endl;
@@ -808,6 +825,13 @@ bool SNLVRLDumper::dumpInstance(
 
 void SNLVRLDumper::dumpInstances(const SNLDesign* design, std::ostream& o, DesignInsideAnonymousNaming& naming) {
   bool blankLine = false;
+  auto bitNetToString = [&](const SNLBitNet* bitNet) {
+    return getBitNetString(bitNet, naming);
+  };
+  auto busNetToString = [&](const SNLBusNet* busNet) {
+    auto busName = getNetName(busNet, naming);
+    return dumpName(busName.getString());
+  };
   auto dumpAssignInstances = [&](const std::vector<const SNLInstance*>& assignInstances) {
     size_t i = 0;
     while (i < assignInstances.size()) {
@@ -822,7 +846,7 @@ void SNLVRLDumper::dumpInstances(const SNLDesign* design, std::ostream& o, Desig
         if (blankLine) {
           o << std::endl;
         }
-        blankLine = dumpSingleAssign(inputNet, outputNet, o);
+        blankLine = dumpSingleAssign(inputNet, outputNet, o, bitNetToString);
         ++i;
         continue;
       }
@@ -844,12 +868,12 @@ void SNLVRLDumper::dumpInstances(const SNLDesign* design, std::ostream& o, Desig
         if (blankLine) {
           o << std::endl;
         }
-        blankLine = dumpAssignGroup(group, o);
+        blankLine = dumpAssignGroup(group, o, bitNetToString, busNetToString);
       } else {
         if (blankLine) {
           o << std::endl;
         }
-        blankLine = dumpSingleAssign(inputNet, outputNet, o);
+        blankLine = dumpSingleAssign(inputNet, outputNet, o, bitNetToString);
       }
       i += groupSize;
     }

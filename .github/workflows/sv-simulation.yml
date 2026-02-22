@@ -1,0 +1,127 @@
+name: SV Simulation
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  simulate:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v5
+      with:
+        submodules: true
+
+    - name: Set up Python
+      uses: actions/setup-python@v6
+      with:
+        python-version: "3.12"
+
+    - name: Install build dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -yq libboost-dev libfl-dev capnproto libcapnp-dev libtbb-dev
+
+    - name: Configure CMake
+      run: |
+        cmake -B ${{ github.workspace }}/build \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DENABLE_SANITIZERS=OFF \
+          -DLONG_TESTS=OFF \
+          -DPython3_EXECUTABLE=$(which python3)
+
+    - name: Build naja Python module
+      run: cmake --build ${{ github.workspace }}/build --target naja --config Release -j$(nproc)
+
+    - name: Prepare najaeda Python package for script execution
+      run: |
+        mkdir -p ${{ github.workspace }}/build/test/najaeda
+        cp -R ${{ github.workspace }}/src/najaeda/najaeda ${{ github.workspace }}/build/test/najaeda/
+        ln -sf ${{ github.workspace }}/build/src/nl/python/naja_wrapping/naja.so \
+          ${{ github.workspace }}/build/test/najaeda/najaeda/naja.so
+
+    - name: Generate Verilog from SystemVerilog with najaeda
+      env:
+        PYTHONPATH: ${{ github.workspace }}/build/test/najaeda
+      run: |
+        python3 ${{ github.workspace }}/test/nl/formats/systemverilog/benchmarks/generate_najaeda_verilog.py
+
+    - name: Simulate SV benchmarks
+      run: |
+        docker run --rm \
+          -v ${{ github.workspace }}:/work \
+          --entrypoint /bin/bash \
+          verilator/verilator:v5.022 \
+          -c 'set -euo pipefail
+              cd /work/test/nl/formats/systemverilog/benchmarks
+              for bench in \
+                simple \
+                up_counter \
+                param_inst \
+                binary_ops_supported \
+                byte_ports \
+                implicit_width_ports \
+                port_directions \
+                non_ansi_ports \
+                model_reuse \
+                unary_not \
+                unary_not_binary_supported \
+                unary_not_binary_unsupported \
+                seq_add_out_plus_one \
+                seq_add_one_plus_out \
+                seq_enable_else_default \
+                seq_enable_bus1_supported \
+                seq_preincrement_supported \
+                seq_reset_only_supported \
+                seq_list_single_wrapper_supported \
+                seq_nested_begin_wrapper_supported \
+                seq_binary_non_add \
+                seq_add_non_increment \
+                seq_rhs_unresolved \
+                seq_rhs_width_mismatch \
+                seq_rhs_direct_match; do
+                make -C "$bench" clean
+                make -C "$bench" sim
+              done'
+
+    - name: Simulate generated Verilog benchmarks
+      run: |
+        docker run --rm \
+          -v ${{ github.workspace }}:/work \
+          --entrypoint /bin/bash \
+          verilator/verilator:v5.022 \
+          -c 'set -euo pipefail
+              cd /work/test/nl/formats/systemverilog/benchmarks
+              primitives_sv=../najaeda_primitives.v
+              for bench in \
+                simple \
+                up_counter \
+                param_inst \
+                binary_ops_supported \
+                byte_ports \
+                implicit_width_ports \
+                port_directions \
+                non_ansi_ports \
+                model_reuse \
+                unary_not \
+                unary_not_binary_supported \
+                seq_add_out_plus_one \
+                seq_add_one_plus_out \
+                seq_enable_else_default \
+                seq_enable_bus1_supported \
+                seq_preincrement_supported \
+                seq_reset_only_supported \
+                seq_list_single_wrapper_supported \
+                seq_nested_begin_wrapper_supported \
+                seq_rhs_direct_match; do
+                generated_sv="${bench}_naja.v"
+                make -C "$bench" clean
+                make -C "$bench" sim SV="$generated_sv $primitives_sv"
+              done'

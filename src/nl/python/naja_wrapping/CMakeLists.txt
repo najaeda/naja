@@ -34,7 +34,7 @@ if (BUILD_NAJA_PYTHON)
   target_link_libraries(naja_python
     PUBLIC
     naja_nl_dump
-    naja_snl_verilog naja_snl_liberty naja_snl_visual
+    naja_snl_verilog naja_snl_systemverilog naja_snl_liberty naja_snl_visual
     naja_opt
     naja_metrics
     Python3::Module
@@ -43,7 +43,7 @@ else(BUILD_NAJA_PYTHON)
   target_link_libraries(naja_python
     PUBLIC
     naja_nl_dump
-    naja_snl_verilog naja_snl_liberty naja_snl_visual
+    naja_snl_verilog naja_snl_systemverilog naja_snl_liberty naja_snl_visual
     naja_opt
     naja_metrics
     Python3::Python

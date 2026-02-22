@@ -1,0 +1,22 @@
+# SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS>
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Shared Verilator simulation rules for SV benchmarks.
+# Each benchmark Makefile defines TOP, SV, TB then includes this file.
+
+VERILATOR ?= verilator
+OBJ_DIR   := obj_dir
+VBIN      := $(OBJ_DIR)/V$(TOP)
+
+.PHONY: sim clean
+
+sim: $(VBIN)
+	./$(VBIN)
+	@echo "PASS: $(TOP)"
+
+$(VBIN): $(SV) $(TB)
+	$(VERILATOR) --cc --exe --build --top-module $(TOP) -j 0 -o V$(TOP) $(VERILATOR_FLAGS) $(SV) $(TB)
+
+clean:
+	rm -rf $(OBJ_DIR)
