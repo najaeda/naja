@@ -11,6 +11,7 @@
 #include <string>
 #include <system_error>
 #include <unordered_map>
+#include <utility>
 
 #include "NLID.h"
 #include "NLDB0.h"
@@ -49,7 +50,9 @@
 #include "slang/ast/symbols/PortSymbols.h"
 #include "slang/ast/symbols/VariableSymbols.h"
 #include "slang/ast/types/Type.h"
+#include "slang/diagnostics/DiagnosticEngine.h"
 #include "slang/diagnostics/Diagnostics.h"
+#include "slang/driver/Driver.h"
 #include "slang/syntax/SyntaxTree.h"
 #include "slang/text/Json.h"
 #include "slang/text/SourceManager.h"
@@ -69,6 +72,75 @@ using slang::ast::SymbolKind;
 using slang::ast::TimingControl;
 using slang::ast::Type;
 using slang::ast::ValueSymbol;
+
+std::string getCompilationDiagnosticsReport(slang::ast::Compilation& compilation) {
+  const auto& diags = compilation.getAllDiagnostics();
+  if (diags.empty()) {
+    return {};
+  }
+  if (const auto* sourceManager = compilation.getSourceManager()) {
+    return slang::DiagnosticEngine::reportAll(*sourceManager, diags);
+  }
+  return {};
+}
+
+std::optional<std::string> getCompilationFailureDetails(
+  slang::ast::Compilation& compilation) {
+  const auto& diags = compilation.getAllDiagnostics();
+  bool hasError = false;
+  for (const auto& diag : diags) {
+    if (diag.isError()) {
+      hasError = true;
+      break;
+    }
+  }
+  if (!hasError) {
+    return std::nullopt;
+  }
+
+  std::ostringstream reason;
+  reason << "SystemVerilog compilation failed";
+  if (const auto* sourceManager = compilation.getSourceManager()) {
+    const auto details = slang::DiagnosticEngine::reportAll(*sourceManager, diags);
+    if (!details.empty()) {
+      reason << ":\n" << details;
+    }
+  }
+  return reason.str();
+}
+
+std::optional<std::string> getDriverFailureDetails(
+  const slang::driver::Driver& driver) {
+  std::ostringstream details;
+  bool hasDetails = false;
+
+  for (const auto& error : driver.sourceLoader.getErrors()) {
+    details << error << "\n";
+    hasDetails = true;
+  }
+
+  slang::Diagnostics parseDiags;
+  for (const auto& tree : driver.syntaxTrees) {
+    parseDiags.append_range(tree->diagnostics());
+  }
+  if (!parseDiags.empty()) {
+    parseDiags.sort(driver.sourceManager);
+    const auto parseDetails =
+      slang::DiagnosticEngine::reportAll(driver.sourceManager, parseDiags);
+    if (!parseDetails.empty()) {
+      details << parseDetails;
+      hasDetails = true;
+    }
+  }
+
+  if (!hasDetails) {
+    return std::nullopt;
+  }
+
+  std::ostringstream reason;
+  reason << "SystemVerilog compilation failed:\n" << details.str();
+  return reason.str();
+}
 
 const Expression* stripConversions(const Expression& expr) {
   const Expression* current = &expr;
@@ -194,26 +266,29 @@ class SNLSVConstructorImpl {
       if (!library_) {
         throw SNLSVConstructorException("SNLSVConstructor requires a valid NLLibrary");
       }
+      driver_.reset();
       syntaxTrees_.clear();
       unsupportedElements_.clear();
-      compilation_ = std::make_unique<slang::ast::Compilation>();
+      if (containsCommandFileOption(paths)) {
+        constructWithSlangDriver(paths);
+      } else {
+        compilation_ = std::make_unique<slang::ast::Compilation>();
 
-      for (const auto& path : paths) {
-        auto treeOrError = slang::syntax::SyntaxTree::fromFile(path.string());
-        if (!treeOrError) {
-          std::ostringstream reason;
-          reason << "Failed to load SystemVerilog file: " << path.string();
-          throw SNLSVConstructorException(reason.str());
+        for (const auto& path : paths) {
+          auto treeOrError = slang::syntax::SyntaxTree::fromFile(path.string());
+          if (!treeOrError) {
+            std::ostringstream reason;
+            reason << "Failed to load SystemVerilog file: " << path.string();
+            throw SNLSVConstructorException(reason.str());
+          }
+          syntaxTrees_.push_back(*treeOrError);
+          compilation_->addSyntaxTree(*treeOrError);
         }
-        syntaxTrees_.push_back(*treeOrError);
-        compilation_->addSyntaxTree(*treeOrError);
       }
 
-      auto& diags = compilation_->getAllDiagnostics();
-      for (const auto& diag : diags) {
-        if (diag.isError()) {
-          throw SNLSVConstructorException("SystemVerilog compilation failed");
-        }
+      dumpDiagnosticsReport(getCompilationDiagnosticsReport(*compilation_));
+      if (auto failure = getCompilationFailureDetails(*compilation_)) {
+        throw SNLSVConstructorException(*failure);
       }
 
       const auto& root = compilation_->getRoot();
@@ -226,6 +301,99 @@ class SNLSVConstructorImpl {
     }
 
   private:
+    static bool containsCommandFileOption(const SNLSVConstructor::Paths& paths) {
+      for (const auto& path : paths) {
+        const auto option = path.string();
+        if (option == "-f" || option == "-F" || option == "-C") {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    void constructWithSlangDriver(const SNLSVConstructor::Paths& paths) {
+      driver_ = std::make_unique<slang::driver::Driver>();
+      auto& driver = *driver_;
+      driver.addStandardArgs();
+
+      std::vector<std::string> args;
+      args.reserve(paths.size() + 1);
+      args.emplace_back("snl_sv_constructor");
+      for (const auto& path : paths) {
+        args.emplace_back(path.string());
+      }
+
+      std::vector<const char*> argv;
+      argv.reserve(args.size());
+      for (const auto& arg : args) {
+        argv.push_back(arg.c_str());
+      }
+
+      if (!driver.parseCommandLine(static_cast<int>(argv.size()), argv.data()) ||
+          !driver.processOptions() ||
+          !driver.parseAllSources()) {
+        if (auto failure = getDriverFailureDetails(driver)) {
+          dumpDiagnosticsReport(*failure);
+          throw SNLSVConstructorException(*failure);
+        }
+        dumpDiagnosticsReport("SystemVerilog compilation failed");
+        throw SNLSVConstructorException("SystemVerilog compilation failed");
+      }
+
+      for (const auto& tree : driver.syntaxTrees) {
+        syntaxTrees_.push_back(tree);
+      }
+      // Preserve driver-resolved compilation options from command files
+      // (for example: --top, -G parameter overrides, library maps).
+      compilation_ = driver.createCompilation();
+    }
+
+    void dumpDiagnosticsReport(const std::string& report) const {
+      if (!options_.diagnosticsReportPath) {
+        return;
+      }
+      const auto& reportPath = *options_.diagnosticsReportPath;
+      if (reportPath.empty()) {
+        throw SNLSVConstructorException("Empty path for diagnostics report dump");
+      }
+
+      auto parent = reportPath.parent_path();
+      if (!parent.empty()) {
+        std::error_code ec;
+        std::filesystem::create_directories(parent, ec);
+        // LCOV_EXCL_START
+        if (ec) {
+          std::ostringstream reason;
+          reason << "Failed to create diagnostics report directory: " << parent.string();
+          throw SNLSVConstructorException(reason.str());
+        }
+        // LCOV_EXCL_STOP
+      }
+
+      std::ofstream output(reportPath, std::ios::out | std::ios::trunc);
+      // LCOV_EXCL_START
+      if (!output) {
+        std::ostringstream reason;
+        reason << "Failed to create diagnostics report file: " << reportPath.string();
+        throw SNLSVConstructorException(reason.str());
+      }
+      // LCOV_EXCL_STOP
+
+      if (!report.empty()) {
+        output << report;
+      } else {
+        output << "No SystemVerilog diagnostics.\n";
+      }
+
+      // LCOV_EXCL_START
+      if (!output.good()) {
+        std::ostringstream reason;
+        reason << "Failed to write diagnostics report file: " << reportPath.string();
+        throw SNLSVConstructorException(reason.str());
+      }
+      // LCOV_EXCL_STOP
+    }
+
     void dumpElaboratedASTJson(const slang::ast::RootSymbol& root) const {
       if (!options_.elaboratedASTJsonPath) {
         return;
@@ -1665,6 +1833,7 @@ class SNLSVConstructorImpl {
     SNLSVConstructor::ConstructOptions options_ {};
     std::unordered_map<SNLDesign*, SNLScalarNet*> const0Nets_ {};
     std::unordered_map<SNLDesign*, SNLScalarNet*> const1Nets_ {};
+    std::unique_ptr<slang::driver::Driver> driver_;
     std::unique_ptr<slang::ast::Compilation> compilation_;
     std::vector<std::shared_ptr<slang::syntax::SyntaxTree>> syntaxTrees_;
     std::unordered_map<std::string, SNLDesign*> nameToDesign_;

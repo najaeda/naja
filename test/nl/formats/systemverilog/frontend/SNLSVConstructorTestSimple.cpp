@@ -178,6 +178,73 @@ TEST_F(SNLSVConstructorTestSimple, parseSimpleModuleViaPathsOverload) {
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseSimpleModuleViaFList) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath /= "simple_module_via_flist";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto flistPath = outPath / "sources.f";
+  std::ofstream flist(flistPath);
+  ASSERT_TRUE(flist.good());
+  flist << (benchmarksPath / "simple" / "simple.sv").string() << "\n";
+  flist.close();
+
+  SNLSVConstructor::Paths paths { std::filesystem::path("-f"), flistPath };
+  constructor.construct(paths);
+
+  auto top = library_->getSNLDesign(NLName("top"));
+  ASSERT_NE(top, nullptr);
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "simple_module_via_flist_dump");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseFListTopOptionRestrictsElaboration) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath /= "flist_top_option_restricts_elaboration";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto genericPath = outPath / "generic.sv";
+  std::ofstream generic(genericPath);
+  ASSERT_TRUE(generic.good());
+  generic << "module generic #(parameter type T = logic) (input T i, output logic y);\n"
+          << "  assign y = i.foo;\n"
+          << "endmodule\n";
+  generic.close();
+
+  const auto topPath = outPath / "top2.sv";
+  std::ofstream top(topPath);
+  ASSERT_TRUE(top.good());
+  top << "module top2(input logic a, output logic y);\n"
+      << "  assign y = a;\n"
+      << "endmodule\n";
+  top.close();
+
+  const auto flistPath = outPath / "sources.f";
+  std::ofstream flist(flistPath);
+  ASSERT_TRUE(flist.good());
+  flist << "--top top2\n";
+  flist << genericPath.string() << "\n";
+  flist << topPath.string() << "\n";
+  flist.close();
+
+  SNLSVConstructor::Paths paths { std::filesystem::path("-f"), flistPath };
+  constructor.construct(paths);
+
+  auto top2 = library_->getSNLDesign(NLName("top2"));
+  ASSERT_NE(top2, nullptr);
+  EXPECT_EQ(nullptr, library_->getSNLDesign(NLName("generic")));
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseMissingFileThrowsLoadError) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);

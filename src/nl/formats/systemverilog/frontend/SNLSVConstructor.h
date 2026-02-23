@@ -17,6 +17,7 @@ class SNLSVConstructor {
     using Paths = std::vector<std::filesystem::path>;
     struct ConstructOptions {
       std::optional<std::filesystem::path> elaboratedASTJsonPath {};
+      std::optional<std::filesystem::path> diagnosticsReportPath {};
       bool prettyPrintElaboratedASTJson {true};
       bool includeSourceInfoInElaboratedASTJson {true};
     };
