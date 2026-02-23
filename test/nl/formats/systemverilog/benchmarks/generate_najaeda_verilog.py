@@ -32,6 +32,8 @@ BENCHMARKS = (
      "seq_preincrement_supported/seq_preincrement_supported_naja.v"),
     ("seq_reset_only_supported/seq_reset_only_supported.sv",
      "seq_reset_only_supported/seq_reset_only_supported_naja.v"),
+    ("seq_reset_all_zero_literal_wide_supported/seq_reset_all_zero_literal_wide_supported.sv",
+     "seq_reset_all_zero_literal_wide_supported/seq_reset_all_zero_literal_wide_supported_naja.v"),
     ("seq_list_single_wrapper_supported/seq_list_single_wrapper_supported.sv",
      "seq_list_single_wrapper_supported/seq_list_single_wrapper_supported_naja.v"),
     ("seq_nested_begin_wrapper_supported/seq_nested_begin_wrapper_supported.sv",

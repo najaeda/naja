@@ -1450,10 +1450,23 @@ class SNLSVConstructorImpl {
     }
 
     bool getConstantBit(const Expression& expr, bool& value) const {
-      if (expr.kind != slang::ast::ExpressionKind::IntegerLiteral) {
+      const auto* stripped = stripConversions(expr);
+      if (!stripped) {
         return false;
       }
-      const auto& literal = expr.as<slang::ast::IntegerLiteral>();
+      if (stripped->kind == slang::ast::ExpressionKind::UnbasedUnsizedIntegerLiteral) {
+        const auto bitValue =
+          stripped->as<slang::ast::UnbasedUnsizedIntegerLiteral>().getLiteralValue();
+        if (bitValue.isUnknown()) {
+          return false;
+        }
+        value = static_cast<bool>(bitValue);
+        return true;
+      }
+      if (stripped->kind != slang::ast::ExpressionKind::IntegerLiteral) {
+        return false;
+      }
+      const auto& literal = stripped->as<slang::ast::IntegerLiteral>();
       auto maybeValue = literal.getValue().as<uint64_t>();
       if (!maybeValue) {
         return false;

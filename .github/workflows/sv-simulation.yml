@@ -80,6 +80,7 @@ jobs:
                 seq_enable_bus1_supported \
                 seq_preincrement_supported \
                 seq_reset_only_supported \
+                seq_reset_all_zero_literal_wide_supported \
                 seq_list_single_wrapper_supported \
                 seq_nested_begin_wrapper_supported \
                 seq_concurrent_assertion_ignored \
@@ -123,6 +124,7 @@ jobs:
                 seq_enable_bus1_supported \
                 seq_preincrement_supported \
                 seq_reset_only_supported \
+                seq_reset_all_zero_literal_wide_supported \
                 seq_list_single_wrapper_supported \
                 seq_nested_begin_wrapper_supported \
                 seq_concurrent_assertion_ignored \
