@@ -765,6 +765,91 @@ TEST_F(SNLSVConstructorTestSimple, parseContinuousAddSupported) {
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseContinuousEqualitySupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  constructor.construct(
+    benchmarksPath / "continuous_eq_supported" / "continuous_eq_supported.sv");
+
+  auto top = library_->getSNLDesign(NLName("continuous_eq_supported_top"));
+  ASSERT_NE(top, nullptr);
+
+  const std::array<const char*, 4> outputs{
+    "y_eq1",
+    "y_eq4",
+    "y_eq2",
+    "y_eq_enum"};
+  for (const auto* output : outputs) {
+    auto net = top->getNet(NLName(output));
+    ASSERT_NE(net, nullptr);
+    auto bitNet = dynamic_cast<SNLBitNet*>(net);
+    ASSERT_NE(bitNet, nullptr);
+    EXPECT_FALSE(bitNet->getInstTerms().empty());
+  }
+
+  size_t andGateCount = 0;
+  size_t xnorGateCount = 0;
+  size_t assignCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (NLDB0::isAssign(inst->getModel())) {
+      ++assignCount;
+      continue;
+    }
+    if (!NLDB0::isGate(inst->getModel())) {
+      continue;
+    }
+    const auto gateName = NLDB0::getGateName(inst->getModel());
+    if (gateName == "and") {
+      ++andGateCount;
+    } else if (gateName == "xnor") {
+      ++xnorGateCount;
+    }
+  }
+
+  EXPECT_EQ(3u, andGateCount);
+  EXPECT_EQ(9u, xnorGateCount);
+  EXPECT_EQ(1u, assignCount);
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "continuous_eq_supported");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseContinuousEqualityMemberAccessSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  constructor.construct(
+    benchmarksPath / "continuous_eq_member_access_supported" /
+    "continuous_eq_member_access_supported.sv");
+
+  auto top = library_->getSNLDesign(NLName("continuous_eq_member_access_supported_top"));
+  ASSERT_NE(top, nullptr);
+
+  auto net = top->getNet(NLName("cvxif_req_allowed"));
+  ASSERT_NE(net, nullptr);
+  auto bitNet = dynamic_cast<SNLBitNet*>(net);
+  ASSERT_NE(bitNet, nullptr);
+  EXPECT_FALSE(bitNet->getInstTerms().empty());
+
+  size_t andGateCount = 0;
+  size_t xnorGateCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (!NLDB0::isGate(inst->getModel())) {
+      continue;
+    }
+    const auto gateName = NLDB0::getGateName(inst->getModel());
+    if (gateName == "and") {
+      ++andGateCount;
+    } else if (gateName == "xnor") {
+      ++xnorGateCount;
+    }
+  }
+  EXPECT_EQ(1u, andGateCount);
+  EXPECT_EQ(2u, xnorGateCount);
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "continuous_eq_member_access_supported");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseCompatibleNetScalarReuse) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
@@ -1440,6 +1525,48 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialResetAllZeroLiteralWideSupport
   EXPECT_EQ(128u, mux2Count);
 
   auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "seq_reset_all_zero_literal_wide_supported");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialResetStructDefaultZeroSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  constructor.construct(
+    benchmarksPath / "seq_reset_struct_default_zero_supported" /
+    "seq_reset_struct_default_zero_supported.sv");
+
+  auto top = library_->getSNLDesign(NLName("seq_reset_struct_default_zero_supported"));
+  ASSERT_NE(top, nullptr);
+
+  auto out = top->getBusNet(NLName("q_out"));
+  ASSERT_NE(out, nullptr);
+  EXPECT_EQ(12, out->getWidth());
+  auto valid = top->getNet(NLName("valid_out"));
+  ASSERT_NE(valid, nullptr);
+
+  auto dffModel = NLDB0::getDFF();
+  auto dffrnModel = NLDB0::getDFFRN();
+  auto mux2Model = NLDB0::getMux2();
+  ASSERT_NE(dffModel, nullptr);
+  ASSERT_NE(dffrnModel, nullptr);
+  ASSERT_NE(mux2Model, nullptr);
+  size_t dffCount = 0;
+  size_t dffrnCount = 0;
+  size_t mux2Count = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dffModel) {
+      ++dffCount;
+    } else if (inst->getModel() == dffrnModel) {
+      ++dffrnCount;
+    } else if (inst->getModel() == mux2Model) {
+      ++mux2Count;
+    }
+  }
+  EXPECT_EQ(0u, dffCount);
+  EXPECT_EQ(13u, dffrnCount);
+  EXPECT_EQ(0u, mux2Count);
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "seq_reset_struct_default_zero_supported");
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
 }
 
