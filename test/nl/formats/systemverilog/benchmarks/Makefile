@@ -10,7 +10,8 @@ BENCHMARKS := simple up_counter param_inst binary_ops_supported byte_ports \
 	seq_reset_only_supported seq_list_single_wrapper_supported \
 	seq_nested_begin_wrapper_supported seq_rhs_direct_match \
 	seq_binary_non_add seq_add_non_increment seq_rhs_unresolved \
-	seq_rhs_width_mismatch
+	seq_rhs_width_mismatch packed_struct_enum_ports \
+	fixed_unpacked_array_variable unsupported_generic_type
 
 .PHONY: sim clean $(BENCHMARKS)
 

@@ -37,6 +37,12 @@ BENCHMARKS = (
     ("seq_nested_begin_wrapper_supported/seq_nested_begin_wrapper_supported.sv",
      "seq_nested_begin_wrapper_supported/seq_nested_begin_wrapper_supported_naja.v"),
     ("seq_rhs_direct_match/seq_rhs_direct_match.sv", "seq_rhs_direct_match/seq_rhs_direct_match_naja.v"),
+    ("packed_struct_enum_ports/packed_struct_enum_ports.sv",
+     "packed_struct_enum_ports/packed_struct_enum_ports_naja.v"),
+    ("fixed_unpacked_array_variable/fixed_unpacked_array_variable.sv",
+     "fixed_unpacked_array_variable/fixed_unpacked_array_variable_naja.v"),
+    ("unsupported_generic_type/unsupported_generic_type.sv",
+     "unsupported_generic_type/unsupported_generic_type_naja.v"),
 )
 
 

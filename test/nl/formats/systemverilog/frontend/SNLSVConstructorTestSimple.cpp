@@ -426,19 +426,54 @@ TEST_F(SNLSVConstructorTestSimple, parseContinuousAssignUnsupportedLHSTypeReport
   }
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseUnsupportedGenericTypeReportedAtEnd) {
+TEST_F(SNLSVConstructorTestSimple, parseFixedUnpackedArrayPortSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
-  try {
-    constructor.construct(
-      benchmarksPath / "unsupported_generic_type" / "unsupported_generic_type.sv");
-    FAIL() << "Expected unsupported generic type exception";
-  } catch (const SNLSVConstructorException& e) {
-    const std::string reason = e.what();
-    EXPECT_NE(
-      std::string::npos,
-      reason.find("Unsupported SystemVerilog type not representable in SNL"));
+  constructor.construct(
+    benchmarksPath / "unsupported_generic_type" / "unsupported_generic_type.sv");
+
+  auto top = library_->getSNLDesign(NLName("unsupported_generic_type"));
+  ASSERT_NE(top, nullptr);
+
+  auto arr = top->getBusTerm(NLName("arr"));
+  ASSERT_NE(arr, nullptr);
+  EXPECT_EQ(8, arr->getWidth());
+  EXPECT_EQ(7, arr->getMSB());
+  EXPECT_EQ(0, arr->getLSB());
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseFixedUnpackedArrayVariableSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "fixed_unpacked_array_variable";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
   }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "fixed_unpacked_array_variable.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile << "module fixed_unpacked_array_variable(\n"
+         << "  input logic [31:0] in0,\n"
+         << "  input logic [31:0] in1,\n"
+         << "  output logic [31:0] y\n"
+         << ");\n"
+         << "  logic [31:0] fetch_instructions [1:0];\n"
+         << "  assign fetch_instructions[0] = in0;\n"
+         << "  assign fetch_instructions[1] = in1;\n"
+         << "  assign y = in0;\n"
+         << "endmodule\n";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("fixed_unpacked_array_variable"));
+  ASSERT_NE(top, nullptr);
+
+  auto fetchInstructions = top->getBusNet(NLName("fetch_instructions"));
+  ASSERT_NE(fetchInstructions, nullptr);
+  EXPECT_EQ(64, fetchInstructions->getWidth());
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseUnsupportedSymbolInExpressionReportedAtEnd) {

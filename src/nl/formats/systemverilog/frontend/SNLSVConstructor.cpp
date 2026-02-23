@@ -5,7 +5,9 @@
 #include "SNLSVConstructor.h"
 
 #include <fstream>
+#include <functional>
 #include <memory>
+#include <limits>
 #include <optional>
 #include <sstream>
 #include <string>
@@ -215,28 +217,81 @@ std::optional<std::string> getUnsupportedTypeReason(const Type& type) {
   if (canonical.isFloating()) {
     return "Unsupported SystemVerilog floating-point type";
   }
-  // Keep support conservative but include packed aggregates / enums by relying on
-  // slang's integral classification (which still excludes unpacked arrays, classes,
-  // strings, interfaces, etc).
-  if (!canonical.isIntegral()) {
+  // Keep support conservative but include fixed-size unpacked arrays of representable
+  // element types by flattening them to a single SNL bus.
+  std::function<std::optional<slang::bitwidth_t>(const Type&)> getRepresentableBitWidth =
+    [&](const Type& currentType) -> std::optional<slang::bitwidth_t> {
+    const auto& current = currentType.getCanonicalType();
+    if (current.isIntegral()) {
+      return current.getBitWidth();
+    }
+    if (!current.isUnpackedArray() || !current.hasFixedRange()) {
+      return std::nullopt;
+    }
+    const auto* elementType = current.getArrayElementType();
+    if (!elementType) {
+      return std::nullopt; // LCOV_EXCL_LINE
+    }
+    auto elementWidth = getRepresentableBitWidth(*elementType);
+    if (!elementWidth) {
+      return std::nullopt;
+    }
+    const auto dimensionWidth = static_cast<uint64_t>(current.getFixedRange().width());
+    const auto totalWidth = static_cast<uint64_t>(*elementWidth) * dimensionWidth;
+    if (totalWidth > std::numeric_limits<slang::bitwidth_t>::max()) {
+      return std::nullopt; // LCOV_EXCL_LINE
+    }
+    return static_cast<slang::bitwidth_t>(totalWidth);
+  };
+
+  if (!getRepresentableBitWidth(canonical)) {
     return "Unsupported SystemVerilog type not representable in SNL";
   }
   return std::nullopt;
 }
 
 std::optional<slang::ConstantRange> getRangeFromType(const Type& type) {
-  if (type.hasFixedRange()) {
-    return type.getFixedRange();
+  const auto& canonical = type.getCanonicalType();
+
+  std::function<std::optional<slang::bitwidth_t>(const Type&)> getRepresentableBitWidth =
+    [&](const Type& currentType) -> std::optional<slang::bitwidth_t> {
+    const auto& current = currentType.getCanonicalType();
+    if (current.isIntegral()) {
+      return current.getBitWidth();
+    }
+    if (!current.isUnpackedArray() || !current.hasFixedRange()) {
+      return std::nullopt;
+    }
+    const auto* elementType = current.getArrayElementType();
+    if (!elementType) {
+      return std::nullopt; // LCOV_EXCL_LINE
+    }
+    auto elementWidth = getRepresentableBitWidth(*elementType);
+    if (!elementWidth) {
+      return std::nullopt;
+    }
+    const auto dimensionWidth = static_cast<uint64_t>(current.getFixedRange().width());
+    const auto totalWidth = static_cast<uint64_t>(*elementWidth) * dimensionWidth;
+    if (totalWidth > std::numeric_limits<slang::bitwidth_t>::max()) {
+      return std::nullopt; // LCOV_EXCL_LINE
+    }
+    return static_cast<slang::bitwidth_t>(totalWidth);
+  };
+
+  // Preserve declared packed ranges whenever available.
+  if (!canonical.isUnpackedArray() && canonical.hasFixedRange()) {
+    return canonical.getFixedRange();
   }
-  // Fallback for types without explicit fixed ranges; currently not exercised
-  // by the supported language subset in this constructor flow.
-  // LCOV_EXCL_START
-  auto width = type.getBitWidth();
-  if (width > 1) {
-    return slang::ConstantRange(int32_t(width - 1), 0);
+
+  auto width = getRepresentableBitWidth(canonical);
+  if (!width || *width <= 1) {
+    return std::nullopt;
   }
-  return std::nullopt;
-  // LCOV_EXCL_STOP
+  const auto maxBit = static_cast<uint64_t>(*width) - 1;
+  if (maxBit > static_cast<uint64_t>(std::numeric_limits<int32_t>::max())) {
+    return std::nullopt; // LCOV_EXCL_LINE
+  }
+  return slang::ConstantRange(static_cast<int32_t>(maxBit), 0);
 }
 
 SNLNet* getOrCreateNet(SNLDesign* design, const std::string& name, const Type& type) {
