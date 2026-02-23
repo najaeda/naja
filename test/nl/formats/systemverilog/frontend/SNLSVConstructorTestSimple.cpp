@@ -665,7 +665,6 @@ TEST_F(SNLSVConstructorTestSimple, parseUnsupportedElementsReportedAtEnd) {
     EXPECT_NE(std::string::npos, reason.find("Unsupported SystemVerilog port direction"));
     EXPECT_NE(std::string::npos, reason.find("for port: r0"));
     EXPECT_NE(std::string::npos, reason.find("for port: r1"));
-    EXPECT_NE(std::string::npos, reason.find("Unsupported binary operator in continuous assign: +"));
   }
 }
 
@@ -731,6 +730,38 @@ TEST_F(SNLSVConstructorTestSimple, parseBinaryOperatorsSupported) {
   EXPECT_EQ(16u, top->getInstances().size());
 
   auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "binary_ops_supported");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseContinuousAddSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  constructor.construct(benchmarksPath / "continuous_add_supported" / "continuous_add_supported.sv");
+
+  auto top = library_->getSNLDesign(NLName("continuous_add_supported_top"));
+  ASSERT_NE(top, nullptr);
+
+  auto ySum = top->getBusNet(NLName("y_sum"));
+  ASSERT_NE(ySum, nullptr);
+  EXPECT_EQ(4, ySum->getWidth());
+
+  auto yInc = top->getBusNet(NLName("y_inc"));
+  ASSERT_NE(yInc, nullptr);
+  EXPECT_EQ(4, yInc->getWidth());
+
+  auto yCount = top->getBusNet(NLName("y_count"));
+  ASSERT_NE(yCount, nullptr);
+  EXPECT_EQ(2, yCount->getWidth());
+
+  size_t faCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (NLDB0::isFA(inst->getModel())) {
+      ++faCount;
+    }
+  }
+  EXPECT_EQ(10u, faCount);
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "continuous_add_supported");
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
 }
 

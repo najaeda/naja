@@ -35,6 +35,7 @@
 
 #include "slang/ast/Compilation.h"
 #include "slang/ast/ASTSerializer.h"
+#include "slang/ast/EvalContext.h"
 #include "slang/ast/SemanticFacts.h"
 #include "slang/ast/Statement.h"
 #include "slang/ast/TimingControl.h"
@@ -43,6 +44,7 @@
 #include "slang/ast/expressions/LiteralExpressions.h"
 #include "slang/ast/expressions/MiscExpressions.h"
 #include "slang/ast/expressions/OperatorExpressions.h"
+#include "slang/ast/expressions/SelectExpressions.h"
 #include "slang/ast/statements/ConditionalStatements.h"
 #include "slang/ast/statements/MiscStatements.h"
 #include "slang/ast/symbols/BlockSymbols.h"
@@ -937,6 +939,171 @@ class SNLSVConstructorImpl {
         return false;
       }
       value = *maybeValue;
+      return true;
+    }
+
+    void resizeBitsToWidth(
+      std::vector<SNLBitNet*>& bits,
+      size_t width,
+      SNLBitNet* fillBit) const {
+      if (bits.size() > width) {
+        bits.resize(width);
+      } else if (bits.size() < width) {
+        bits.resize(width, fillBit);
+      }
+    }
+
+    bool resolveSelectBits(
+      SNLDesign* design,
+      const Expression& selectExpr,
+      std::vector<SNLBitNet*>& bits) {
+      const Expression* valueExpr = nullptr;
+      if (selectExpr.kind == slang::ast::ExpressionKind::ElementSelect) {
+        valueExpr = &selectExpr.as<slang::ast::ElementSelectExpression>().value();
+      } else if (selectExpr.kind == slang::ast::ExpressionKind::RangeSelect) {
+        valueExpr = &selectExpr.as<slang::ast::RangeSelectExpression>().value();
+      } else {
+        return false; // LCOV_EXCL_LINE
+      }
+
+      auto valueNet = resolveExpressionNet(design, *valueExpr);
+      if (!valueNet) {
+        return false;
+      }
+      auto valueBits = collectBits(valueNet);
+      if (valueBits.empty()) {
+        return false; // LCOV_EXCL_LINE
+      }
+
+      const auto* symbolRef = selectExpr.getSymbolReference();
+      if (!symbolRef) {
+        symbolRef = valueExpr->getSymbolReference();
+      }
+      if (!symbolRef) {
+        return false;
+      }
+
+      slang::ast::EvalContext evalContext(*symbolRef);
+      auto selectedRange = selectExpr.evalSelector(evalContext, true);
+      if (!selectedRange) {
+        return false;
+      }
+
+      auto baseRange = slang::ConstantRange(0, 0);
+      if (auto valueBus = dynamic_cast<SNLBusNet*>(valueNet)) {
+        baseRange = slang::ConstantRange(
+          static_cast<int32_t>(valueBus->getMSB()),
+          static_cast<int32_t>(valueBus->getLSB()));
+      }
+
+      bits.clear();
+      bits.reserve(selectedRange->width());
+      int32_t index = selectedRange->right;
+      const int32_t end = selectedRange->left;
+      const int32_t step = index <= end ? 1 : -1;
+      while (index != end + step) {
+        const auto translated = baseRange.translateIndex(index);
+        if (translated < 0 ||
+            translated >= static_cast<int32_t>(valueBits.size())) {
+          return false;
+        }
+        bits.push_back(valueBits[static_cast<size_t>(translated)]);
+        index += step;
+      }
+      return true;
+    }
+
+    bool resolveExpressionBits(
+      SNLDesign* design,
+      const Expression& expr,
+      size_t targetWidth,
+      std::vector<SNLBitNet*>& bits) {
+      bits.clear();
+      if (!targetWidth) {
+        return false; // LCOV_EXCL_LINE
+      }
+      const auto* stripped = stripConversions(expr);
+      if (!stripped) {
+        return false; // LCOV_EXCL_LINE
+      }
+
+      if (stripped->kind == slang::ast::ExpressionKind::UnbasedUnsizedIntegerLiteral) {
+        const auto value =
+          stripped->as<slang::ast::UnbasedUnsizedIntegerLiteral>().getLiteralValue();
+        if (value.isUnknown()) {
+          return false;
+        }
+        bits.assign(
+          targetWidth,
+          static_cast<SNLBitNet*>(getConstNet(design, static_cast<bool>(value))));
+        return true;
+      }
+
+      uint64_t constantValue = 0;
+      if (getConstantUnsigned(*stripped, constantValue)) {
+        bits.reserve(targetWidth);
+        for (size_t i = 0; i < targetWidth; ++i) {
+          const bool one = i < 64 && ((constantValue >> i) & 1ULL);
+          bits.push_back(static_cast<SNLBitNet*>(getConstNet(design, one)));
+        }
+        return true;
+      }
+
+      if (stripped->kind == slang::ast::ExpressionKind::ElementSelect ||
+          stripped->kind == slang::ast::ExpressionKind::RangeSelect) {
+        if (!resolveSelectBits(design, *stripped, bits)) {
+          return false;
+        }
+        resizeBitsToWidth(bits, targetWidth, static_cast<SNLBitNet*>(getConstNet(design, false)));
+        return true;
+      }
+
+      auto net = resolveExpressionNet(design, *stripped);
+      if (!net) {
+        return false;
+      }
+      bits = collectBits(net);
+      if (bits.empty()) {
+        return false; // LCOV_EXCL_LINE
+      }
+      resizeBitsToWidth(bits, targetWidth, static_cast<SNLBitNet*>(getConstNet(design, false)));
+      return true;
+    }
+
+    bool createAddAssign(
+      SNLDesign* design,
+      SNLNet* lhsNet,
+      const Expression& leftExpr,
+      const Expression& rightExpr,
+      const std::optional<slang::SourceRange>& sourceRange = std::nullopt) {
+      auto lhsBits = collectBits(lhsNet);
+      if (lhsBits.empty()) {
+        return false; // LCOV_EXCL_LINE
+      }
+
+      std::vector<SNLBitNet*> leftBits;
+      std::vector<SNLBitNet*> rightBits;
+      if (!resolveExpressionBits(design, leftExpr, lhsBits.size(), leftBits) ||
+          !resolveExpressionBits(design, rightExpr, lhsBits.size(), rightBits)) {
+        return false;
+      }
+
+      auto* carry = static_cast<SNLBitNet*>(getConstNet(design, false));
+      for (size_t bitIndex = 0; bitIndex < lhsBits.size(); ++bitIndex) {
+        auto* carryOut = SNLScalarNet::create(design);
+        annotateSourceInfo(carryOut, sourceRange);
+        if (!createFAInstance(
+              design,
+              leftBits[bitIndex],
+              rightBits[bitIndex],
+              carry,
+              lhsBits[bitIndex],
+              carryOut,
+              sourceRange)) {
+          return false;
+        }
+        carry = carryOut;
+      }
       return true;
     }
 
@@ -2014,6 +2181,19 @@ class SNLSVConstructorImpl {
                   binaryExpr.right(),
                   assignSourceRange)) {
               continue;
+            }
+            continue;
+          }
+          if (binaryExpr.op == slang::ast::BinaryOperator::Add) {
+            if (!createAddAssign(
+                  design,
+                  lhsNet,
+                  binaryExpr.left(),
+                  binaryExpr.right(),
+                  assignSourceRange)) {
+              reportUnsupportedElement(
+                "Unsupported binary expression in continuous assign: +",
+                assignSourceRange);
             }
             continue;
           }
