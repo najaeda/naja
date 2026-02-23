@@ -37,6 +37,8 @@ BENCHMARKS = (
     ("seq_nested_begin_wrapper_supported/seq_nested_begin_wrapper_supported.sv",
      "seq_nested_begin_wrapper_supported/seq_nested_begin_wrapper_supported_naja.v"),
     ("seq_rhs_direct_match/seq_rhs_direct_match.sv", "seq_rhs_direct_match/seq_rhs_direct_match_naja.v"),
+    ("seq_concurrent_assertion_ignored/seq_concurrent_assertion_ignored.sv",
+     "seq_concurrent_assertion_ignored/seq_concurrent_assertion_ignored_naja.v"),
     ("seq_timing_event_list_negedge_reset_supported/seq_timing_event_list_negedge_reset_supported.sv",
      "seq_timing_event_list_negedge_reset_supported/seq_timing_event_list_negedge_reset_supported_naja.v"),
     ("packed_struct_enum_ports/packed_struct_enum_ports.sv",

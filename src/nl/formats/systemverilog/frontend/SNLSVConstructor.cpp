@@ -1264,6 +1264,17 @@ class SNLSVConstructorImpl {
       return current;
     }
 
+    bool isIgnorableSequentialTimingStatement(const Statement& stmt) const {
+      switch (stmt.kind) {
+        case slang::ast::StatementKind::ConcurrentAssertion:
+        case slang::ast::StatementKind::ImmediateAssertion:
+        case slang::ast::StatementKind::Empty:
+          return true;
+        default:
+          return false;
+      }
+    }
+
     const slang::ast::TimedStatement* findTimedStatement(const Statement& stmt) {
       const Statement* current = unwrapStatement(stmt);
       if (!current) {
@@ -1273,13 +1284,56 @@ class SNLSVConstructorImpl {
         return &current->as<slang::ast::TimedStatement>();
       }
       if (current->kind == slang::ast::StatementKind::List) {
+        const auto& list = current->as<slang::ast::StatementList>().list;
+        const slang::ast::TimedStatement* timedStatement = nullptr;
+        const Statement* unsupportedStatement = nullptr;
+        for (const auto* item : list) {
+          if (!item) {
+            continue; // LCOV_EXCL_LINE
+          }
+          const Statement* unwrapped = unwrapStatement(*item);
+          if (!unwrapped) {
+            continue; // LCOV_EXCL_LINE
+          }
+          if (unwrapped->kind == slang::ast::StatementKind::Timed) {
+            if (timedStatement) {
+              unsupportedStatement = unwrapped;
+              break;
+            }
+            timedStatement = &unwrapped->as<slang::ast::TimedStatement>();
+            continue;
+          }
+          if (isIgnorableSequentialTimingStatement(*unwrapped)) {
+            continue;
+          }
+          unsupportedStatement = unwrapped;
+          break;
+        }
+        if (!unsupportedStatement) {
+          return timedStatement;
+        }
+        std::ostringstream reason;
+        reason << "Unsupported statement list while extracting sequential timing control"
+               << " (size=" << list.size();
+        if (!list.empty() && list[0]) {
+          reason << ", first kind=" << list[0]->kind;
+        }
+        reason << ", unsupported kind=" << unsupportedStatement->kind;
+        reason << ")";
         reportUnsupportedElement(
-          "Unsupported statement list while extracting sequential timing control",
+          reason.str(),
           getSourceRange(*current));
         return nullptr;
       }
+      if (isIgnorableSequentialTimingStatement(*current)) {
+        return nullptr;
+      }
+      std::ostringstream reason;
+      reason << "Unsupported statement while extracting sequential timing control"
+             << " (kind=" << current->kind
+             << ", expected timed '@(...)' statement)";
       reportUnsupportedElement(
-        "Unsupported statement while extracting sequential timing control",
+        reason.str(),
         getSourceRange(*current));
       return nullptr;
     }

@@ -1672,6 +1672,8 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialTimingListUnsupported) {
     EXPECT_NE(
       std::string::npos,
       reason.find("Unsupported statement list while extracting sequential timing control"));
+    EXPECT_NE(std::string::npos, reason.find("size="));
+    EXPECT_NE(std::string::npos, reason.find("first kind="));
   }
 }
 
@@ -1687,7 +1689,33 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialTimingMissingUnsupported) {
     EXPECT_NE(
       std::string::npos,
       reason.find("Unsupported statement while extracting sequential timing control"));
+    EXPECT_NE(std::string::npos, reason.find("kind=Conditional"));
+    EXPECT_NE(std::string::npos, reason.find("expected timed '@(...)' statement"));
   }
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialConcurrentAssertionIgnored) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  constructor.construct(
+    benchmarksPath / "seq_concurrent_assertion_ignored" /
+    "seq_concurrent_assertion_ignored.sv");
+
+  auto top = library_->getSNLDesign(NLName("seq_concurrent_assertion_ignored"));
+  ASSERT_NE(top, nullptr);
+
+  auto dffModel = NLDB0::getDFF();
+  ASSERT_NE(dffModel, nullptr);
+  size_t dffCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dffModel) {
+      ++dffCount;
+    }
+  }
+  EXPECT_EQ(1u, dffCount);
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "seq_concurrent_assertion_ignored");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseSequentialTimingEventListNegedgeResetSupported) {
