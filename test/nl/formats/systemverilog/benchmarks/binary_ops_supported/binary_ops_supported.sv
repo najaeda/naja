@@ -6,12 +6,16 @@ module binary_ops_supported_top(
   input logic a,
   input logic b,
   output logic y_and,
+  output logic y_land,
   output logic y_or,
+  output logic y_lor,
   output logic y_xor,
   output logic y_xnor
 );
   assign y_and = a & b;
+  assign y_land = a && b;
   assign y_or = a | b;
+  assign y_lor = a || b;
   assign y_xor = a ^ b;
   assign y_xnor = a ~^ b;
 endmodule

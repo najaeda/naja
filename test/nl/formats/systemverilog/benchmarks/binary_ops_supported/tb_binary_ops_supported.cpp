@@ -25,7 +25,9 @@ int main(int argc, char** argv) {
       dut->eval();
 
       check("y_and", a, b, dut->y_and, a & b);
+      check("y_land", a, b, dut->y_land, a && b);
       check("y_or", a, b, dut->y_or, a | b);
+      check("y_lor", a, b, dut->y_lor, a || b);
       check("y_xor", a, b, dut->y_xor, a ^ b);
       check("y_xnor", a, b, dut->y_xnor, (a == b) ? 1 : 0);
     }

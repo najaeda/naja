@@ -172,8 +172,10 @@ void collectBinaryOperands(const Expression& expr, slang::ast::BinaryOperator op
 std::optional<NLDB0::GateType> gateTypeFromBinary(slang::ast::BinaryOperator op) {
   switch (op) {
     case slang::ast::BinaryOperator::BinaryAnd:
+    case slang::ast::BinaryOperator::LogicalAnd:
       return NLDB0::GateType(NLDB0::GateType::And);
     case slang::ast::BinaryOperator::BinaryOr:
+    case slang::ast::BinaryOperator::LogicalOr:
       return NLDB0::GateType(NLDB0::GateType::Or);
     case slang::ast::BinaryOperator::BinaryXor:
       return NLDB0::GateType(NLDB0::GateType::Xor);

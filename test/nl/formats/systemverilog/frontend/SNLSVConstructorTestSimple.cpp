@@ -676,9 +676,11 @@ TEST_F(SNLSVConstructorTestSimple, parseBinaryOperatorsSupported) {
 
   auto top = library_->getSNLDesign(NLName("binary_ops_supported_top"));
   ASSERT_NE(top, nullptr);
-  const std::array<const char*, 4> supportedBinaryOpOutputs{
+  const std::array<const char*, 6> supportedBinaryOpOutputs{
     "y_and",
+    "y_land",
     "y_or",
+    "y_lor",
     "y_xor",
     "y_xnor"};
   for (const auto* output : supportedBinaryOpOutputs) {
@@ -717,13 +719,13 @@ TEST_F(SNLSVConstructorTestSimple, parseBinaryOperatorsSupported) {
     }
   }
 
-  EXPECT_EQ(1u, andGateCount);
-  EXPECT_EQ(1u, orGateCount);
+  EXPECT_EQ(2u, andGateCount);
+  EXPECT_EQ(2u, orGateCount);
   EXPECT_EQ(1u, xorGateCount);
   EXPECT_EQ(1u, xnorGateCount);
   EXPECT_EQ(0u, otherGateCount);
   EXPECT_EQ(supportedBinaryOpOutputs.size(), assignCount);
-  EXPECT_EQ(8u, top->getInstances().size());
+  EXPECT_EQ(12u, top->getInstances().size());
 
   auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "binary_ops_supported");
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
