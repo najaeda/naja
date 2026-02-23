@@ -344,6 +344,60 @@ TEST_F(SNLSVConstructorTestSimple, parseImplicitWidthPortsInferRangeFromWidth) {
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
 }
 
+TEST_F(SNLSVConstructorTestSimple, parsePackedStructAndEnumPortsInferRangeFromWidth) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "packed_struct_enum_ports";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "packed_struct_enum_ports.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile << "typedef struct packed {\n"
+         << "  logic [3:0] a;\n"
+         << "  logic b;\n"
+         << "} st_t;\n"
+         << "typedef enum logic [1:0] {\n"
+         << "  IDLE = 2'b00,\n"
+         << "  BUSY = 2'b01\n"
+         << "} state_t;\n"
+         << "module packed_struct_enum_ports(\n"
+         << "  input st_t in_s,\n"
+         << "  input state_t st_i,\n"
+         << "  output st_t out_s,\n"
+         << "  output state_t st_o\n"
+         << ");\n"
+         << "  assign out_s = in_s;\n"
+         << "  assign st_o = st_i;\n"
+         << "endmodule\n";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("packed_struct_enum_ports"));
+  ASSERT_NE(top, nullptr);
+
+  auto inStruct = top->getBusTerm(NLName("in_s"));
+  auto outStruct = top->getBusTerm(NLName("out_s"));
+  auto inEnum = top->getBusTerm(NLName("st_i"));
+  auto outEnum = top->getBusTerm(NLName("st_o"));
+  ASSERT_NE(inStruct, nullptr);
+  ASSERT_NE(outStruct, nullptr);
+  ASSERT_NE(inEnum, nullptr);
+  ASSERT_NE(outEnum, nullptr);
+
+  EXPECT_EQ(5, inStruct->getWidth());
+  EXPECT_EQ(5, outStruct->getWidth());
+  EXPECT_EQ(2, inEnum->getWidth());
+  EXPECT_EQ(2, outEnum->getWidth());
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "packed_struct_enum_ports_dump");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseUnsupportedPortTypesReportedAtEnd) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);

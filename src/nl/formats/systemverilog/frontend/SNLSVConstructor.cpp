@@ -215,8 +215,10 @@ std::optional<std::string> getUnsupportedTypeReason(const Type& type) {
   if (canonical.isFloating()) {
     return "Unsupported SystemVerilog floating-point type";
   }
-  // Conservative policy: only accept plain 2/4-state bit-vectors and predefined integers.
-  if (!canonical.isSimpleBitVector()) {
+  // Keep support conservative but include packed aggregates / enums by relying on
+  // slang's integral classification (which still excludes unpacked arrays, classes,
+  // strings, interfaces, etc).
+  if (!canonical.isIntegral()) {
     return "Unsupported SystemVerilog type not representable in SNL";
   }
   return std::nullopt;
