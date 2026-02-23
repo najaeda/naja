@@ -925,6 +925,56 @@ class SNLSVConstructorImpl {
       return true;
     }
 
+    bool getConstantUnsigned(const Expression& expr, uint64_t& value) const {
+      const auto* stripped = stripConversions(expr);
+      if (!stripped ||
+          stripped->kind != slang::ast::ExpressionKind::IntegerLiteral) {
+        return false;
+      }
+      const auto& literal = stripped->as<slang::ast::IntegerLiteral>();
+      auto maybeValue = literal.getValue().as<uint64_t>();
+      if (!maybeValue) {
+        return false;
+      }
+      value = *maybeValue;
+      return true;
+    }
+
+    bool createLogicalRightShiftAssign(
+      SNLDesign* design,
+      SNLNet* lhsNet,
+      const Expression& valueExpr,
+      const Expression& shiftAmountExpr,
+      const std::optional<slang::SourceRange>& sourceRange = std::nullopt) {
+      auto rhsNet = resolveExpressionNet(design, valueExpr);
+      if (!rhsNet) {
+        return false;
+      }
+
+      uint64_t shiftAmount = 0;
+      if (!getConstantUnsigned(shiftAmountExpr, shiftAmount)) {
+        reportUnsupportedElement(
+          "Unsupported shift amount in continuous assign: >> requires constant integer literal",
+          sourceRange);
+        return false;
+      }
+
+      auto lhsBits = collectBits(lhsNet);
+      auto rhsBits = collectBits(rhsNet);
+      if (lhsBits.empty() || rhsBits.empty()) {
+        return false; // LCOV_EXCL_LINE
+      }
+
+      auto* constZero = static_cast<SNLBitNet*>(getConstNet(design, false));
+      const auto rhsWidth = static_cast<uint64_t>(rhsBits.size());
+      for (size_t bitIndex = 0; bitIndex < lhsBits.size(); ++bitIndex) {
+        const auto srcIndex = static_cast<uint64_t>(bitIndex) + shiftAmount;
+        auto* srcBit = srcIndex < rhsWidth ? rhsBits[static_cast<size_t>(srcIndex)] : constZero;
+        createAssignInstance(design, srcBit, lhsBits[bitIndex], sourceRange);
+      }
+      return true;
+    }
+
     SNLScalarNet* getConstNet(SNLDesign* design, bool one) {
       auto& cache = one ? const1Nets_ : const0Nets_;
       auto it = cache.find(design);
@@ -1701,6 +1751,17 @@ class SNLSVConstructorImpl {
         std::vector<const Expression*> operands;
         if (rhs->kind == slang::ast::ExpressionKind::BinaryOp) {
           const auto& binaryExpr = rhs->as<slang::ast::BinaryExpression>();
+          if (binaryExpr.op == slang::ast::BinaryOperator::LogicalShiftRight) {
+            if (!createLogicalRightShiftAssign(
+                  design,
+                  lhsNet,
+                  binaryExpr.left(),
+                  binaryExpr.right(),
+                  assignSourceRange)) {
+              continue;
+            }
+            continue;
+          }
           gateType = gateTypeFromBinary(binaryExpr.op);
           if (!gateType) {
             std::ostringstream reason;

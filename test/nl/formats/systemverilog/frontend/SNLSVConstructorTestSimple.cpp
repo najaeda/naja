@@ -690,6 +690,9 @@ TEST_F(SNLSVConstructorTestSimple, parseBinaryOperatorsSupported) {
     ASSERT_NE(bitNet, nullptr);
     EXPECT_FALSE(bitNet->getInstTerms().empty());
   }
+  auto yShr = top->getBusNet(NLName("y_shr"));
+  ASSERT_NE(yShr, nullptr);
+  EXPECT_EQ(4, yShr->getWidth());
 
   size_t andGateCount = 0;
   size_t orGateCount = 0;
@@ -724,8 +727,8 @@ TEST_F(SNLSVConstructorTestSimple, parseBinaryOperatorsSupported) {
   EXPECT_EQ(1u, xorGateCount);
   EXPECT_EQ(1u, xnorGateCount);
   EXPECT_EQ(0u, otherGateCount);
-  EXPECT_EQ(supportedBinaryOpOutputs.size(), assignCount);
-  EXPECT_EQ(12u, top->getInstances().size());
+  EXPECT_EQ(10u, assignCount);
+  EXPECT_EQ(16u, top->getInstances().size());
 
   auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "binary_ops_supported");
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
