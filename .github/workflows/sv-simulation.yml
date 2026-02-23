@@ -82,6 +82,7 @@ jobs:
                 seq_reset_only_supported \
                 seq_list_single_wrapper_supported \
                 seq_nested_begin_wrapper_supported \
+                seq_timing_event_list_negedge_reset_supported \
                 seq_binary_non_add \
                 seq_add_non_increment \
                 seq_rhs_unresolved \
@@ -123,6 +124,7 @@ jobs:
                 seq_reset_only_supported \
                 seq_list_single_wrapper_supported \
                 seq_nested_begin_wrapper_supported \
+                seq_timing_event_list_negedge_reset_supported \
                 seq_rhs_direct_match \
                 packed_struct_enum_ports \
                 fixed_unpacked_array_variable \

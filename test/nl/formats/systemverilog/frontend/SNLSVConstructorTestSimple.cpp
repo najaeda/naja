@@ -1690,6 +1690,44 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialTimingMissingUnsupported) {
   }
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseSequentialTimingEventListNegedgeResetSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  constructor.construct(
+    benchmarksPath / "seq_timing_event_list_negedge_reset_supported" /
+    "seq_timing_event_list_negedge_reset_supported.sv");
+
+  auto top = library_->getSNLDesign(NLName("seq_timing_event_list_negedge_reset_supported"));
+  ASSERT_NE(top, nullptr);
+
+  auto dffModel = NLDB0::getDFF();
+  auto dffrnModel = NLDB0::getDFFRN();
+  auto mux2Model = NLDB0::getMux2();
+  ASSERT_NE(dffModel, nullptr);
+  ASSERT_NE(dffrnModel, nullptr);
+  ASSERT_NE(mux2Model, nullptr);
+  size_t dffCount = 0;
+  size_t dffrnCount = 0;
+  size_t mux2Count = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dffModel) {
+      ++dffCount;
+    } else if (inst->getModel() == dffrnModel) {
+      ++dffrnCount;
+    } else if (inst->getModel() == mux2Model) {
+      ++mux2Count;
+    }
+  }
+  EXPECT_EQ(0u, dffCount);
+  EXPECT_EQ(8u, dffrnCount);
+  EXPECT_EQ(0u, mux2Count);
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(
+    top,
+    "seq_timing_event_list_negedge_reset_supported");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseSequentialTimingEventListUnsupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);

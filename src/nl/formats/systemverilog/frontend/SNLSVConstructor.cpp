@@ -1025,6 +1025,47 @@ class SNLSVConstructorImpl {
       return bus->getBit(bus->getMSB()); // LCOV_EXCL_LINE
     }
 
+    SNLBitNet* resolveConditionNet(
+      SNLDesign* design,
+      const Expression& conditionExpr,
+      const std::string& condBaseName,
+      const std::optional<slang::SourceRange>& sourceRange = std::nullopt) {
+      const auto* stripped = stripConversions(conditionExpr);
+      if (!stripped) {
+        return nullptr; // LCOV_EXCL_LINE
+      }
+
+      if (stripped->kind == slang::ast::ExpressionKind::UnaryOp) {
+        const auto& unaryExpr = stripped->as<slang::ast::UnaryExpression>();
+        if (unaryExpr.op == slang::ast::UnaryOperator::LogicalNot ||
+            unaryExpr.op == slang::ast::UnaryOperator::BitwiseNot) {
+          auto operandNet = getSingleBitNet(resolveExpressionNet(design, unaryExpr.operand()));
+          if (!operandNet) {
+            return nullptr;
+          }
+
+          auto condNet = getOrCreateNamedNet(
+            design,
+            joinName("cond_not", condBaseName),
+            nullptr,
+            sourceRange);
+          auto condBit = getSingleBitNet(condNet);
+          if (!condBit) {
+            return nullptr; // LCOV_EXCL_LINE
+          }
+          createUnaryGate(
+            design,
+            NLDB0::GateType(NLDB0::GateType::Not),
+            operandNet,
+            condBit,
+            sourceRange);
+          return condBit;
+        }
+      }
+
+      return getSingleBitNet(resolveExpressionNet(design, conditionExpr));
+    }
+
     std::string getExpressionBaseName(const Expression& expr) const {
       const auto* stripped = stripConversions(expr);
       if (stripped && slang::ast::ValueExpressionBase::isKind(stripped->kind)) {
@@ -1456,18 +1497,90 @@ class SNLSVConstructorImpl {
         return nullptr;
       } else if (timing.kind == slang::ast::TimingControlKind::EventList) {
         const auto& eventList = timing.as<slang::ast::EventListControl>();
-        if (eventList.events.size() != 1) {
+        const Expression* clockExpr = nullptr;
+        for (const auto* eventCtrl : eventList.events) {
+          if (!eventCtrl ||
+              eventCtrl->kind != slang::ast::TimingControlKind::SignalEvent) {
+            reportUnsupportedElement(
+              "Unsupported sequential event list; only signal events are supported",
+              getSourceRange(timing));
+            return nullptr;
+          }
+
+          const auto& event = eventCtrl->as<slang::ast::SignalEventControl>();
+          if (event.edge == slang::ast::EdgeKind::PosEdge) {
+            if (clockExpr) {
+              reportUnsupportedElement(
+                "Unsupported sequential event list; only one posedge clock event is supported",
+                getSourceRange(timing));
+              return nullptr;
+            }
+            clockExpr = &event.expr;
+            continue;
+          }
+
+          if (event.edge == slang::ast::EdgeKind::NegEdge) {
+            // Allow common async-reset sensitivity lists:
+            //   @(posedge clk or negedge rst_n)
+            // while still using only the posedge event as DFF clock.
+            continue;
+          }
+
           reportUnsupportedElement(
-            "Unsupported sequential event list; only a single posedge event is supported",
-            getSourceRange(timing));
+            "Unsupported sequential timing edge in event list; only posedge/negedge are supported",
+            getSourceRange(*eventCtrl));
           return nullptr;
         }
-        return getClockExpression(*eventList.events[0]); // LCOV_EXCL_LINE
+        if (clockExpr) {
+          return clockExpr;
+        }
+
+        reportUnsupportedElement(
+          "Unsupported sequential event list; missing posedge clock event",
+          getSourceRange(timing));
+        return nullptr;
       }
       reportUnsupportedElement(
         "Unsupported sequential timing control",
         getSourceRange(timing));
       return nullptr;
+    }
+
+    const Expression* getSingleNegedgeEventExpression(const TimingControl& timing) const {
+      if (timing.kind != slang::ast::TimingControlKind::EventList) {
+        return nullptr;
+      }
+      const auto& eventList = timing.as<slang::ast::EventListControl>();
+      const Expression* negedgeExpr = nullptr;
+      for (const auto* eventCtrl : eventList.events) {
+        if (!eventCtrl ||
+            eventCtrl->kind != slang::ast::TimingControlKind::SignalEvent) {
+          continue;
+        }
+        const auto& event = eventCtrl->as<slang::ast::SignalEventControl>();
+        if (event.edge == slang::ast::EdgeKind::NegEdge) {
+          if (negedgeExpr) {
+            return nullptr;
+          }
+          negedgeExpr = &event.expr;
+        }
+      }
+      return negedgeExpr;
+    }
+
+    bool isActiveLowResetConditionForSignal(
+      const Expression& resetConditionExpr,
+      const Expression& resetSignalExpr) const {
+      const auto* condition = stripConversions(resetConditionExpr);
+      if (!condition || condition->kind != slang::ast::ExpressionKind::UnaryOp) {
+        return false;
+      }
+      const auto& unaryExpr = condition->as<slang::ast::UnaryExpression>();
+      if (unaryExpr.op != slang::ast::UnaryOperator::LogicalNot &&
+          unaryExpr.op != slang::ast::UnaryOperator::BitwiseNot) {
+        return false;
+      }
+      return sameLhs(&unaryExpr.operand(), &resetSignalExpr);
     }
 
     void createDFFInstance(
@@ -1490,6 +1603,42 @@ class SNLSVConstructorImpl {
       if (dTerm) {
         if (auto instTerm = inst->getInstTerm(dTerm)) {
           instTerm->setNet(dNet);
+        }
+      }
+      if (qTerm) {
+        if (auto instTerm = inst->getInstTerm(qTerm)) {
+          instTerm->setNet(qNet);
+        }
+      }
+    }
+
+    void createDFFRNInstance(
+      SNLDesign* design,
+      SNLNet* clkNet,
+      SNLNet* dNet,
+      SNLNet* resetNNet,
+      SNLNet* qNet,
+      const std::optional<slang::SourceRange>& sourceRange = std::nullopt) {
+      auto dffrn = NLDB0::getDFFRN();
+      auto inst = SNLInstance::create(design, dffrn);
+      annotateSourceInfo(inst, sourceRange);
+      auto cTerm = NLDB0::getDFFRNClock();
+      auto dTerm = NLDB0::getDFFRNData();
+      auto rnTerm = NLDB0::getDFFRNResetN();
+      auto qTerm = NLDB0::getDFFRNOutput();
+      if (cTerm) {
+        if (auto instTerm = inst->getInstTerm(cTerm)) {
+          instTerm->setNet(clkNet);
+        }
+      }
+      if (dTerm) {
+        if (auto instTerm = inst->getInstTerm(dTerm)) {
+          instTerm->setNet(dNet);
+        }
+      }
+      if (rnTerm) {
+        if (auto instTerm = inst->getInstTerm(rnTerm)) {
+          instTerm->setNet(resetNNet);
         }
       }
       if (qTerm) {
@@ -1523,10 +1672,12 @@ class SNLSVConstructorImpl {
         auto statementSourceRange = stmt ? getSourceRange(*stmt) : blockSourceRange;
 
         SNLBitNet* clkNet = nullptr;
+        const Expression* asyncResetEventExpr = nullptr;
         if (timing) {
           const auto* clockExpr = getClockExpression(*timing);
           if (clockExpr) {
             clkNet = getSingleBitNet(resolveExpressionNet(design, *clockExpr));
+            asyncResetEventExpr = getSingleNegedgeEventExpression(*timing);
           }
         }
         if (!clkNet) {
@@ -1668,7 +1819,11 @@ class SNLSVConstructorImpl {
 
         std::vector<SNLBitNet*> dataBits = defaultBits;
         if (chain.enableCond) {
-          auto enableNet = getSingleBitNet(resolveExpressionNet(design, *chain.enableCond));
+          auto enableNet = resolveConditionNet(
+            design,
+            *chain.enableCond,
+            joinName("en", baseName),
+            enableSourceRange);
           if (!enableNet) {
             continue;
           }
@@ -1693,8 +1848,31 @@ class SNLSVConstructorImpl {
           dataBits = std::move(enBits);
         }
 
-        if (chain.resetCond) {
-          auto resetNet = getSingleBitNet(resolveExpressionNet(design, *chain.resetCond));
+        bool useAsyncResetDFFRN = false;
+        SNLBitNet* asyncResetNNet = nullptr;
+        if (chain.resetCond && asyncResetEventExpr && !resetBits.empty()) {
+          auto* constZero = static_cast<SNLBitNet*>(getConstNet(design, false));
+          bool resetToZero = true;
+          for (auto* bit : resetBits) {
+            if (bit != constZero) {
+              resetToZero = false;
+              break;
+            }
+          }
+          if (resetToZero &&
+              NLDB0::getDFFRN() &&
+              isActiveLowResetConditionForSignal(*chain.resetCond, *asyncResetEventExpr)) {
+            asyncResetNNet = getSingleBitNet(resolveExpressionNet(design, *asyncResetEventExpr));
+            useAsyncResetDFFRN = asyncResetNNet != nullptr;
+          }
+        }
+
+        if (chain.resetCond && !useAsyncResetDFFRN) {
+          auto resetNet = resolveConditionNet(
+            design,
+            *chain.resetCond,
+            joinName("rst", baseName),
+            resetSourceRange);
           if (!resetNet) {
             continue;
           }
@@ -1720,7 +1898,17 @@ class SNLSVConstructorImpl {
         }
 
         for (size_t i = 0; i < lhsBits.size(); ++i) {
-          createDFFInstance(design, clkNet, dataBits[i], lhsBits[i], statementSourceRange);
+          if (useAsyncResetDFFRN) {
+            createDFFRNInstance(
+              design,
+              clkNet,
+              dataBits[i],
+              asyncResetNNet,
+              lhsBits[i],
+              statementSourceRange);
+          } else {
+            createDFFInstance(design, clkNet, dataBits[i], lhsBits[i], statementSourceRange);
+          }
         }
       }
     }
