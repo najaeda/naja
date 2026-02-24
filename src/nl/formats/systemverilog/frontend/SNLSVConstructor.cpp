@@ -17,6 +17,8 @@
 #include <unordered_map>
 #include <utility>
 
+#include "NajaPerf.h"
+
 #include "NLID.h"
 #include "NLDB0.h"
 #include "NLName.h"
@@ -2160,7 +2162,6 @@ class SNLSVConstructorImpl {
       switch (stmt.kind) {
         case slang::ast::StatementKind::ConcurrentAssertion:
         case slang::ast::StatementKind::ImmediateAssertion:
-        case slang::ast::StatementKind::Empty:
           return true;
         default:
           return false;
@@ -3288,6 +3289,7 @@ void SNLSVConstructor::construct(const std::filesystem::path& path) {
 }
 
 void SNLSVConstructor::construct(const Paths& paths, const ConstructOptions& options) {
+  NajaPerf::Scope scope("SNLSVConstructor::construct");
   SNLSVConstructorImpl impl(library_, options);
   impl.construct(paths);
 }
