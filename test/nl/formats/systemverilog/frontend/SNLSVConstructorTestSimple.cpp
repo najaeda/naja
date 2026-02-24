@@ -351,6 +351,51 @@ TEST_F(SNLSVConstructorTestSimple, parseCommandFileMissingSourceIncludesDriverFa
   }
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseElementSelectIndexVariants) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "element_select_index_variants";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "element_select_index_variants.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << "module element_select_index_variants_top(\n"
+    << "  input logic [1:0][3:0] a,\n"
+    << "  input logic idx,\n"
+    << "  output logic [3:0] y_ok,\n"
+    << "  output logic [3:0] y_dyn,\n"
+    << "  output logic [3:0] y_big\n"
+    << ");\n"
+    << "  localparam int IDX_OK = $clog2(2) - 1;\n"
+    << "  localparam longint IDX_BIG = 64'd2147483648;\n"
+    << "\n"
+    << "  assign y_ok = a[IDX_OK];\n"
+    << "  assign y_dyn = a[idx];\n"
+    << "  assign y_big = a[IDX_BIG];\n"
+    << "endmodule\n";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("element_select_index_variants_top"));
+  ASSERT_NE(top, nullptr);
+
+  auto yOk = top->getNet(NLName("y_ok"));
+  auto yDyn = top->getNet(NLName("y_dyn"));
+  auto yBig = top->getNet(NLName("y_big"));
+  ASSERT_NE(yOk, nullptr);
+  ASSERT_NE(yDyn, nullptr);
+  ASSERT_NE(yBig, nullptr);
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "element_select_index_variants");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseBytePortsInferRangeFromWidth) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
