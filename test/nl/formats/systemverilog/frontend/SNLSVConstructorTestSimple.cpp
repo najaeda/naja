@@ -287,6 +287,70 @@ TEST_F(SNLSVConstructorTestSimple, parseSyntaxErrorThrowsCompilationError) {
   }
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseCommandFileSyntaxErrorIncludesDriverFailureDetails) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "syntax_error_command_file";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "syntax_error_command_file.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile << "module syntax_error_command_file(input logic a, output logic y)\n"
+         << "  assign y = a;\n"
+         << "endmodule\n";
+  svFile.close();
+
+  const auto flistPath = outPath / "syntax_error_command_file.f";
+  std::ofstream flistFile(flistPath);
+  ASSERT_TRUE(flistFile.good());
+  flistFile << svPath.string() << "\n";
+  flistFile.close();
+
+  SNLSVConstructor::Paths paths{std::filesystem::path("-f"), flistPath};
+  try {
+    constructor.construct(paths);
+    FAIL() << "Expected SystemVerilog compilation failure through driver path";
+  } catch (const SNLSVConstructorException& e) {
+    const std::string reason = e.what();
+    EXPECT_NE(std::string::npos, reason.find("SystemVerilog compilation failed:\n"));
+    EXPECT_NE(std::string::npos, reason.find(svPath.filename().string()));
+    EXPECT_NE(std::string::npos, reason.find("error"));
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseCommandFileMissingSourceIncludesDriverFailureDetails) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "missing_source_command_file";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto missingPath = outPath / "does_not_exist.sv";
+  ASSERT_FALSE(std::filesystem::exists(missingPath));
+
+  const auto flistPath = outPath / "missing_source_command_file.f";
+  std::ofstream flistFile(flistPath);
+  ASSERT_TRUE(flistFile.good());
+  flistFile << missingPath.string() << "\n";
+  flistFile.close();
+
+  SNLSVConstructor::Paths paths{std::filesystem::path("-f"), flistPath};
+  try {
+    constructor.construct(paths);
+    FAIL() << "Expected missing source failure through driver path";
+  } catch (const SNLSVConstructorException& e) {
+    const std::string reason = e.what();
+    EXPECT_NE(std::string::npos, reason.find("SystemVerilog compilation failed:\n"));
+    EXPECT_NE(std::string::npos, reason.find(missingPath.filename().string()));
+  }
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseBytePortsInferRangeFromWidth) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);

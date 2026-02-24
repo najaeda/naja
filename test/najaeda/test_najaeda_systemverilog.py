@@ -89,6 +89,16 @@ class NajaEDASystemVerilogTest(unittest.TestCase):
             self.assertIsNotNone(top)
             self.assertEqual("top2", top.get_model_name())
 
+    def test_load_systemverilog_with_non_string_top_raises(self):
+        design_files = [os.path.join(systemverilog_benchmarks, "simple", "simple.sv")]
+        with self.assertRaisesRegex(
+                ValueError,
+                r"SystemVerilogConfig\.top must be a str \(got int\)"):
+            netlist.load_systemverilog(
+                design_files,
+                config=netlist.SystemVerilogConfig(top=123),
+            )
+
     def test_load_systemverilog_with_flist_and_top(self):
         with tempfile.TemporaryDirectory(dir=najaeda_test_path) as temp_dir:
             generic_sv = os.path.join(temp_dir, "generic.sv")
