@@ -42,6 +42,7 @@
 #include "slang/ast/Statement.h"
 #include "slang/ast/TimingControl.h"
 #include "slang/ast/expressions/AssignmentExpressions.h"
+#include "slang/ast/expressions/CallExpression.h"
 #include "slang/ast/expressions/ConversionExpression.h"
 #include "slang/ast/expressions/LiteralExpressions.h"
 #include "slang/ast/expressions/MiscExpressions.h"
@@ -791,6 +792,12 @@ class SNLSVConstructorImpl {
             continue; // LCOV_EXCL_LINE
           }
           if (auto unsupportedTypeReason = getUnsupportedTypeReason(valueSym.getType())) {
+            const auto& canonical = valueSym.getType().getCanonicalType();
+            // Ignore simulation-only dynamically sized unpacked variables
+            // (queues, dynamic arrays, associative arrays) at net creation time.
+            if (canonical.isUnpackedArray() && !canonical.hasFixedRange()) {
+              continue;
+            }
             std::ostringstream reason;
             reason << *unsupportedTypeReason << " for net/variable: " << name;
             reportUnsupportedElement(reason.str(), getSourceRange(valueSym));
@@ -1159,6 +1166,31 @@ class SNLSVConstructorImpl {
       if (!targetWidth) {
         return false; // LCOV_EXCL_LINE
       }
+
+      // Preserve signedness semantics of explicit casts (e.g. $signed(...))
+      // when extending to a wider destination width.
+      if (expr.kind == slang::ast::ExpressionKind::Conversion) {
+        const auto& conversionExpr = expr.as<slang::ast::ConversionExpression>();
+        const auto& targetType = expr.type->getCanonicalType();
+        if (targetType.isIntegral()) {
+          auto operandWidth = getIntegralExpressionBitWidth(conversionExpr.operand());
+          if (!operandWidth || !*operandWidth) {
+            return false;
+          }
+          std::vector<SNLBitNet*> operandBits;
+          if (!resolveExpressionBits(design, conversionExpr.operand(), *operandWidth, operandBits)) {
+            return false;
+          }
+          auto* fillBit = static_cast<SNLBitNet*>(getConstNet(design, false));
+          if (targetType.isSigned() && !operandBits.empty()) {
+            fillBit = operandBits.back();
+          }
+          bits = std::move(operandBits);
+          resizeBitsToWidth(bits, targetWidth, fillBit);
+          return true;
+        }
+      }
+
       const auto* stripped = stripConversions(expr);
       if (!stripped) {
         return false; // LCOV_EXCL_LINE
@@ -1226,6 +1258,93 @@ class SNLSVConstructorImpl {
           }
           bits.push_back(static_cast<SNLBitNet*>(getConstNet(design, one)));
         }
+        return true;
+      }
+
+      if (stripped->kind == slang::ast::ExpressionKind::Call) {
+        const auto& callExpr = stripped->as<slang::ast::CallExpression>();
+        const auto subroutineName = callExpr.getSubroutineName();
+        const bool isSignedCast =
+          (subroutineName == "$signed" || subroutineName == "signed");
+        const bool isUnsignedCast =
+          (subroutineName == "$unsigned" || subroutineName == "unsigned");
+        if (isSignedCast || isUnsignedCast) {
+          auto args = callExpr.arguments();
+          if (args.size() != 1 || !args[0]) {
+            return false;
+          }
+          auto argWidth = getIntegralExpressionBitWidth(*args[0]);
+          if (!argWidth || !*argWidth) {
+            return false;
+          }
+          std::vector<SNLBitNet*> argBits;
+          if (!resolveExpressionBits(design, *args[0], *argWidth, argBits)) {
+            return false;
+          }
+          auto* fillBit = static_cast<SNLBitNet*>(getConstNet(design, false));
+          if (isSignedCast && !argBits.empty()) {
+            fillBit = argBits.back();
+          }
+          bits = std::move(argBits);
+          resizeBitsToWidth(bits, targetWidth, fillBit);
+          return true;
+        }
+      }
+
+      if (stripped->kind == slang::ast::ExpressionKind::BinaryOp) {
+        const auto& binaryExpr = stripped->as<slang::ast::BinaryExpression>();
+        auto gateType = gateTypeFromBinary(binaryExpr.op);
+        if (gateType) {
+          std::vector<SNLBitNet*> leftBits;
+          std::vector<SNLBitNet*> rightBits;
+          if (!resolveExpressionBits(design, binaryExpr.left(), targetWidth, leftBits) ||
+              !resolveExpressionBits(design, binaryExpr.right(), targetWidth, rightBits)) {
+            return false;
+          }
+          bits.clear();
+          bits.reserve(targetWidth);
+          auto binarySourceRange = getSourceRange(*stripped);
+          for (size_t bitIndex = 0; bitIndex < targetWidth; ++bitIndex) {
+            auto* outBit = SNLScalarNet::create(design);
+            annotateSourceInfo(outBit, binarySourceRange);
+            if (!createBinaryGate(
+                  design,
+                  *gateType,
+                  leftBits[bitIndex],
+                  rightBits[bitIndex],
+                  outBit,
+                  binarySourceRange)) {
+              return false;
+            }
+            bits.push_back(outBit);
+          }
+          return true;
+        }
+      }
+
+      if (stripped->kind == slang::ast::ExpressionKind::Concatenation) {
+        const auto& concatExpr = stripped->as<slang::ast::ConcatenationExpression>();
+        auto operands = concatExpr.operands();
+        if (operands.empty()) {
+          return false; // LCOV_EXCL_LINE
+        }
+        bits.clear();
+        for (auto it = operands.rbegin(); it != operands.rend(); ++it) {
+          auto* operand = *it;
+          if (!operand) {
+            return false; // LCOV_EXCL_LINE
+          }
+          auto operandWidth = getIntegralExpressionBitWidth(*operand);
+          if (!operandWidth || !*operandWidth) {
+            return false;
+          }
+          std::vector<SNLBitNet*> operandBits;
+          if (!resolveExpressionBits(design, *operand, *operandWidth, operandBits)) {
+            return false;
+          }
+          bits.insert(bits.end(), operandBits.begin(), operandBits.end());
+        }
+        resizeBitsToWidth(bits, targetWidth, static_cast<SNLBitNet*>(getConstNet(design, false)));
         return true;
       }
 
@@ -1353,6 +1472,193 @@ class SNLSVConstructorImpl {
       return true;
     }
 
+    bool addBitVectors(
+      SNLDesign* design,
+      const std::vector<SNLBitNet*>& leftBits,
+      const std::vector<SNLBitNet*>& rightBits,
+      std::vector<SNLBitNet*>& sumBits,
+      const std::optional<slang::SourceRange>& sourceRange = std::nullopt) {
+      if (leftBits.size() != rightBits.size()) {
+        return false; // LCOV_EXCL_LINE
+      }
+
+      sumBits.clear();
+      sumBits.reserve(leftBits.size());
+      auto* carry = static_cast<SNLBitNet*>(getConstNet(design, false));
+      for (size_t bitIndex = 0; bitIndex < leftBits.size(); ++bitIndex) {
+        auto* sumBit = SNLScalarNet::create(design);
+        auto* carryOut = SNLScalarNet::create(design);
+        annotateSourceInfo(sumBit, sourceRange);
+        annotateSourceInfo(carryOut, sourceRange);
+        if (!createFAInstance(
+              design,
+              leftBits[bitIndex],
+              rightBits[bitIndex],
+              carry,
+              sumBit,
+              carryOut,
+              sourceRange)) {
+          return false;
+        }
+        sumBits.push_back(sumBit);
+        carry = carryOut;
+      }
+      return true;
+    }
+
+    bool createMultiplyAssign(
+      SNLDesign* design,
+      SNLNet* lhsNet,
+      const Expression& leftExpr,
+      const Expression& rightExpr,
+      const std::optional<slang::SourceRange>& sourceRange = std::nullopt) {
+      auto lhsBits = collectBits(lhsNet);
+      if (lhsBits.empty()) {
+        return false; // LCOV_EXCL_LINE
+      }
+
+      std::vector<SNLBitNet*> leftBits;
+      std::vector<SNLBitNet*> rightBits;
+      if (!resolveExpressionBits(design, leftExpr, lhsBits.size(), leftBits)) {
+        return false;
+      }
+      if (!resolveExpressionBits(design, rightExpr, lhsBits.size(), rightBits)) {
+        return false;
+      }
+
+      auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
+      auto* const1 = static_cast<SNLBitNet*>(getConstNet(design, true));
+
+      std::vector<SNLBitNet*> accumulatedBits;
+      bool hasAccumulated = false;
+      for (size_t row = 0; row < lhsBits.size(); ++row) {
+        auto* rowEnableBit = rightBits[row];
+        if (rowEnableBit == const0) {
+          continue;
+        }
+
+        std::vector<SNLBitNet*> partialBits(lhsBits.size(), const0);
+        for (size_t col = 0; col + row < lhsBits.size(); ++col) {
+          auto* multiplicandBit = leftBits[col];
+          const auto outIndex = col + row;
+          if (rowEnableBit == const1) {
+            partialBits[outIndex] = multiplicandBit;
+            continue;
+          }
+          if (multiplicandBit == const0) {
+            partialBits[outIndex] = const0;
+            continue;
+          }
+          if (multiplicandBit == const1) {
+            partialBits[outIndex] = rowEnableBit;
+            continue;
+          }
+
+          auto* andBit = SNLScalarNet::create(design);
+          annotateSourceInfo(andBit, sourceRange);
+          if (!createBinaryGate(
+                design,
+                NLDB0::GateType(NLDB0::GateType::And),
+                multiplicandBit,
+                rowEnableBit,
+                andBit,
+                sourceRange)) {
+            return false;
+          }
+          partialBits[outIndex] = andBit;
+        }
+
+        bool rowHasSignal = false;
+        for (auto* bit : partialBits) {
+          if (bit != const0) {
+            rowHasSignal = true;
+            break;
+          }
+        }
+        if (!rowHasSignal) {
+          continue;
+        }
+
+        if (!hasAccumulated) {
+          accumulatedBits = std::move(partialBits);
+          hasAccumulated = true;
+          continue;
+        }
+
+        std::vector<SNLBitNet*> sumBits;
+        if (!addBitVectors(design, accumulatedBits, partialBits, sumBits, sourceRange)) {
+          return false;
+        }
+        accumulatedBits = std::move(sumBits);
+      }
+
+      if (!hasAccumulated) {
+        for (size_t bitIndex = 0; bitIndex < lhsBits.size(); ++bitIndex) {
+          createAssignInstance(design, const0, lhsBits[bitIndex], sourceRange);
+        }
+        return true;
+      }
+
+      for (size_t bitIndex = 0; bitIndex < lhsBits.size(); ++bitIndex) {
+        createAssignInstance(design, accumulatedBits[bitIndex], lhsBits[bitIndex], sourceRange);
+      }
+      return true;
+    }
+
+    bool createSubAssign(
+      SNLDesign* design,
+      SNLNet* lhsNet,
+      const Expression& leftExpr,
+      const Expression& rightExpr,
+      const std::optional<slang::SourceRange>& sourceRange = std::nullopt) {
+      auto lhsBits = collectBits(lhsNet);
+      if (lhsBits.empty()) {
+        return false; // LCOV_EXCL_LINE
+      }
+
+      std::vector<SNLBitNet*> leftBits;
+      std::vector<SNLBitNet*> rightBits;
+      if (!resolveExpressionBits(design, leftExpr, lhsBits.size(), leftBits) ||
+          !resolveExpressionBits(design, rightExpr, lhsBits.size(), rightBits)) {
+        return false;
+      }
+
+      std::vector<SNLBitNet*> invertedRightBits;
+      invertedRightBits.reserve(rightBits.size());
+      for (auto* rightBit : rightBits) {
+        auto* invertedBit = SNLScalarNet::create(design);
+        annotateSourceInfo(invertedBit, sourceRange);
+        if (!createUnaryGate(
+              design,
+              NLDB0::GateType(NLDB0::GateType::Not),
+              rightBit,
+              invertedBit,
+              sourceRange)) {
+          return false;
+        }
+        invertedRightBits.push_back(invertedBit);
+      }
+
+      // Two's-complement subtraction: A - B == A + (~B) + 1.
+      auto* carry = static_cast<SNLBitNet*>(getConstNet(design, true));
+      for (size_t bitIndex = 0; bitIndex < lhsBits.size(); ++bitIndex) {
+        auto* carryOut = SNLScalarNet::create(design);
+        annotateSourceInfo(carryOut, sourceRange);
+        if (!createFAInstance(
+              design,
+              leftBits[bitIndex],
+              invertedRightBits[bitIndex],
+              carry,
+              lhsBits[bitIndex],
+              carryOut,
+              sourceRange)) {
+          return false;
+        }
+        carry = carryOut;
+      }
+      return true;
+    }
+
     bool createEqualityAssign(
       SNLDesign* design,
       SNLNet* lhsNet,
@@ -1417,6 +1723,33 @@ class SNLSVConstructorImpl {
       return true;
     }
 
+    bool createInequalityAssign(
+      SNLDesign* design,
+      SNLNet* lhsNet,
+      const Expression& leftExpr,
+      const Expression& rightExpr,
+      const std::optional<slang::SourceRange>& sourceRange = std::nullopt) {
+      auto* lhsBit = getSingleBitNet(lhsNet);
+      if (!lhsBit) {
+        return false;
+      }
+
+      auto* eqBit = SNLScalarNet::create(design);
+      annotateSourceInfo(eqBit, sourceRange);
+      if (!createEqualityAssign(design, eqBit, leftExpr, rightExpr, sourceRange)) {
+        return false;
+      }
+      if (!createUnaryGate(
+            design,
+            NLDB0::GateType(NLDB0::GateType::Not),
+            eqBit,
+            lhsBit,
+            sourceRange)) {
+        return false;
+      }
+      return true;
+    }
+
     bool createLogicalRightShiftAssign(
       SNLDesign* design,
       SNLNet* lhsNet,
@@ -1448,6 +1781,88 @@ class SNLSVConstructorImpl {
         const auto srcIndex = static_cast<uint64_t>(bitIndex) + shiftAmount;
         auto* srcBit = srcIndex < rhsWidth ? rhsBits[static_cast<size_t>(srcIndex)] : constZero;
         createAssignInstance(design, srcBit, lhsBits[bitIndex], sourceRange);
+      }
+      return true;
+    }
+
+    bool createLogicalLeftShiftAssign(
+      SNLDesign* design,
+      SNLNet* lhsNet,
+      const Expression& valueExpr,
+      const Expression& shiftAmountExpr,
+      const std::optional<slang::SourceRange>& sourceRange = std::nullopt) {
+      auto lhsBits = collectBits(lhsNet);
+      if (lhsBits.empty()) {
+        return false; // LCOV_EXCL_LINE
+      }
+
+      std::vector<SNLBitNet*> valueBits;
+      if (!resolveExpressionBits(design, valueExpr, lhsBits.size(), valueBits)) {
+        return false;
+      }
+
+      auto* constZero = static_cast<SNLBitNet*>(getConstNet(design, false));
+
+      uint64_t shiftAmount = 0;
+      if (getConstantUnsigned(shiftAmountExpr, shiftAmount)) {
+        for (size_t bitIndex = 0; bitIndex < lhsBits.size(); ++bitIndex) {
+          auto* srcBit = constZero;
+          if (shiftAmount <= bitIndex) {
+            const auto srcIndex = bitIndex - static_cast<size_t>(shiftAmount);
+            srcBit = valueBits[srcIndex];
+          }
+          createAssignInstance(design, srcBit, lhsBits[bitIndex], sourceRange);
+        }
+        return true;
+      }
+
+      auto shiftWidth = getIntegralExpressionBitWidth(shiftAmountExpr);
+      if (!shiftWidth || !*shiftWidth) {
+        return false;
+      }
+
+      std::vector<SNLBitNet*> shiftBits;
+      if (!resolveExpressionBits(design, shiftAmountExpr, *shiftWidth, shiftBits) ||
+          shiftBits.empty()) {
+        return false;
+      }
+
+      std::vector<SNLBitNet*> stageBits = valueBits;
+      for (size_t stageIndex = 0; stageIndex < shiftBits.size(); ++stageIndex) {
+        bool shiftAll = stageIndex >= 63;
+        size_t stageShift = 0;
+        if (!shiftAll) {
+          const auto rawShift = uint64_t {1} << stageIndex;
+          if (rawShift >= lhsBits.size()) {
+            shiftAll = true;
+          } else {
+            stageShift = static_cast<size_t>(rawShift);
+          }
+        }
+
+        std::vector<SNLBitNet*> nextBits;
+        nextBits.reserve(lhsBits.size());
+        const bool isLastStage = stageIndex + 1 == shiftBits.size();
+        for (size_t bitIndex = 0; bitIndex < lhsBits.size(); ++bitIndex) {
+          auto* shiftedBit = constZero;
+          if (!shiftAll && bitIndex >= stageShift) {
+            shiftedBit = stageBits[bitIndex - stageShift];
+          }
+
+          auto* outBit = isLastStage ? lhsBits[bitIndex] : SNLScalarNet::create(design);
+          if (!isLastStage) {
+            annotateSourceInfo(outBit, sourceRange);
+          }
+          createMux2Instance(
+            design,
+            shiftBits[stageIndex],
+            stageBits[bitIndex],
+            shiftedBit,
+            outBit,
+            sourceRange);
+          nextBits.push_back(outBit);
+        }
+        stageBits = std::move(nextBits);
       }
       return true;
     }
@@ -2581,6 +2996,21 @@ class SNLSVConstructorImpl {
             }
             continue;
           }
+          if (binaryExpr.op == slang::ast::BinaryOperator::LogicalShiftLeft ||
+              binaryExpr.op == slang::ast::BinaryOperator::ArithmeticShiftLeft) {
+            if (!createLogicalLeftShiftAssign(
+                  design,
+                  lhsNet,
+                  binaryExpr.left(),
+                  binaryExpr.right(),
+                  assignSourceRange)) {
+              std::ostringstream reason;
+              reason << "Unsupported binary expression in continuous assign: "
+                     << slang::ast::OpInfo::getText(binaryExpr.op);
+              reportUnsupportedElement(reason.str(), assignSourceRange);
+            }
+            continue;
+          }
           if (binaryExpr.op == slang::ast::BinaryOperator::Add) {
             if (!createAddAssign(
                   design,
@@ -2594,6 +3024,32 @@ class SNLSVConstructorImpl {
             }
             continue;
           }
+          if (binaryExpr.op == slang::ast::BinaryOperator::Multiply) {
+            if (!createMultiplyAssign(
+                  design,
+                  lhsNet,
+                  binaryExpr.left(),
+                  binaryExpr.right(),
+                  assignSourceRange)) {
+              reportUnsupportedElement(
+                "Unsupported binary expression in continuous assign: *",
+                assignSourceRange);
+            }
+            continue;
+          }
+          if (binaryExpr.op == slang::ast::BinaryOperator::Subtract) {
+            if (!createSubAssign(
+                  design,
+                  lhsNet,
+                  binaryExpr.left(),
+                  binaryExpr.right(),
+                  assignSourceRange)) {
+              reportUnsupportedElement(
+                "Unsupported binary expression in continuous assign: -",
+                assignSourceRange);
+            }
+            continue;
+          }
           if (binaryExpr.op == slang::ast::BinaryOperator::Equality) {
             if (!createEqualityAssign(
                   design,
@@ -2603,6 +3059,19 @@ class SNLSVConstructorImpl {
                   assignSourceRange)) {
               reportUnsupportedElement(
                 "Unsupported binary expression in continuous assign: ==",
+                assignSourceRange);
+            }
+            continue;
+          }
+          if (binaryExpr.op == slang::ast::BinaryOperator::Inequality) {
+            if (!createInequalityAssign(
+                  design,
+                  lhsNet,
+                  binaryExpr.left(),
+                  binaryExpr.right(),
+                  assignSourceRange)) {
+              reportUnsupportedElement(
+                "Unsupported binary expression in continuous assign: !=",
                 assignSourceRange);
             }
             continue;

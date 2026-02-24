@@ -476,6 +476,29 @@ TEST_F(SNLSVConstructorTestSimple, parseFixedUnpackedArrayVariableSupported) {
   EXPECT_EQ(64, fetchInstructions->getWidth());
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseDynamicUnpackedVariablesIgnoredInNetCreation) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  constructor.construct(
+    benchmarksPath / "dynamic_unpacked_variables_ignored" /
+    "dynamic_unpacked_variables_ignored.sv");
+
+  auto top = library_->getSNLDesign(NLName("dynamic_unpacked_variables_ignored_top"));
+  ASSERT_NE(top, nullptr);
+
+  auto a = top->getNet(NLName("a"));
+  auto y = top->getNet(NLName("y"));
+  ASSERT_NE(a, nullptr);
+  ASSERT_NE(y, nullptr);
+
+  EXPECT_EQ(nullptr, top->getNet(NLName("decode_queue")));
+  EXPECT_EQ(nullptr, top->getNet(NLName("issue_queue")));
+  EXPECT_EQ(nullptr, top->getNet(NLName("scoreboard_queue")));
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "dynamic_unpacked_variables_ignored");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseUnsupportedSymbolInExpressionReportedAtEnd) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
@@ -765,6 +788,131 @@ TEST_F(SNLSVConstructorTestSimple, parseContinuousAddSupported) {
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseContinuousMultiplySupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  constructor.construct(
+    benchmarksPath / "continuous_mul_supported" / "continuous_mul_supported.sv");
+
+  auto top = library_->getSNLDesign(NLName("continuous_mul_supported_top"));
+  ASSERT_NE(top, nullptr);
+
+  auto yMul = top->getBusNet(NLName("y_mul"));
+  ASSERT_NE(yMul, nullptr);
+  EXPECT_EQ(8, yMul->getWidth());
+
+  auto ySignedMul = top->getBusNet(NLName("y_signed_mul"));
+  ASSERT_NE(ySignedMul, nullptr);
+  EXPECT_EQ(8, ySignedMul->getWidth());
+
+  size_t faCount = 0;
+  size_t andGateCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (NLDB0::isFA(inst->getModel())) {
+      ++faCount;
+      continue;
+    }
+    if (!NLDB0::isGate(inst->getModel())) {
+      continue;
+    }
+    const auto gateName = NLDB0::getGateName(inst->getModel());
+    if (gateName == "and") {
+      ++andGateCount;
+    }
+  }
+  EXPECT_GT(faCount, 0u);
+  EXPECT_GT(andGateCount, 0u);
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "continuous_mul_supported");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseContinuousSubSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  constructor.construct(benchmarksPath / "continuous_sub_supported" / "continuous_sub_supported.sv");
+
+  auto top = library_->getSNLDesign(NLName("continuous_sub_supported_top"));
+  ASSERT_NE(top, nullptr);
+
+  auto ySub = top->getBusNet(NLName("y_sub"));
+  ASSERT_NE(ySub, nullptr);
+  EXPECT_EQ(4, ySub->getWidth());
+
+  auto yDec = top->getBusNet(NLName("y_dec"));
+  ASSERT_NE(yDec, nullptr);
+  EXPECT_EQ(4, yDec->getWidth());
+
+  auto ySmall = top->getBusNet(NLName("y_small"));
+  ASSERT_NE(ySmall, nullptr);
+  EXPECT_EQ(2, ySmall->getWidth());
+
+  auto yConcatSub = top->getBusNet(NLName("y_concat_sub"));
+  ASSERT_NE(yConcatSub, nullptr);
+  EXPECT_EQ(6, yConcatSub->getWidth());
+
+  size_t faCount = 0;
+  size_t notGateCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (NLDB0::isFA(inst->getModel())) {
+      ++faCount;
+      continue;
+    }
+    if (!NLDB0::isGate(inst->getModel())) {
+      continue;
+    }
+    const auto gateName = NLDB0::getGateName(inst->getModel());
+    if (gateName == "not") {
+      ++notGateCount;
+    }
+  }
+  EXPECT_EQ(16u, faCount);
+  EXPECT_EQ(16u, notGateCount);
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "continuous_sub_supported");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseContinuousShiftLeftSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  constructor.construct(
+    benchmarksPath / "continuous_shift_left_supported" / "continuous_shift_left_supported.sv");
+
+  auto top = library_->getSNLDesign(NLName("continuous_shift_left_supported_top"));
+  ASSERT_NE(top, nullptr);
+
+  auto yConst = top->getBusNet(NLName("y_const"));
+  ASSERT_NE(yConst, nullptr);
+  EXPECT_EQ(8, yConst->getWidth());
+
+  auto yVar = top->getBusNet(NLName("y_var"));
+  ASSERT_NE(yVar, nullptr);
+  EXPECT_EQ(8, yVar->getWidth());
+
+  auto yLogical = top->getBusNet(NLName("y_logical"));
+  ASSERT_NE(yLogical, nullptr);
+  EXPECT_EQ(8, yLogical->getWidth());
+
+  auto mux2Model = NLDB0::getMux2();
+  ASSERT_NE(mux2Model, nullptr);
+
+  size_t mux2Count = 0;
+  size_t assignCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == mux2Model) {
+      ++mux2Count;
+    } else if (NLDB0::isAssign(inst->getModel())) {
+      ++assignCount;
+    }
+  }
+  EXPECT_EQ(48u, mux2Count);
+  EXPECT_EQ(8u, assignCount);
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "continuous_shift_left_supported");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseContinuousEqualitySupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
@@ -811,6 +959,59 @@ TEST_F(SNLSVConstructorTestSimple, parseContinuousEqualitySupported) {
   EXPECT_EQ(1u, assignCount);
 
   auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "continuous_eq_supported");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseContinuousInequalitySupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  constructor.construct(
+    benchmarksPath / "continuous_ne_supported" / "continuous_ne_supported.sv");
+
+  auto top = library_->getSNLDesign(NLName("continuous_ne_supported_top"));
+  ASSERT_NE(top, nullptr);
+
+  const std::array<const char*, 4> outputs{
+    "y_ne1",
+    "y_ne4",
+    "y_ne2",
+    "y_ne_enum"};
+  for (const auto* output : outputs) {
+    auto net = top->getNet(NLName(output));
+    ASSERT_NE(net, nullptr);
+    auto bitNet = dynamic_cast<SNLBitNet*>(net);
+    ASSERT_NE(bitNet, nullptr);
+    EXPECT_FALSE(bitNet->getInstTerms().empty());
+  }
+
+  size_t andGateCount = 0;
+  size_t xnorGateCount = 0;
+  size_t notGateCount = 0;
+  size_t assignCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (NLDB0::isAssign(inst->getModel())) {
+      ++assignCount;
+      continue;
+    }
+    if (!NLDB0::isGate(inst->getModel())) {
+      continue;
+    }
+    const auto gateName = NLDB0::getGateName(inst->getModel());
+    if (gateName == "and") {
+      ++andGateCount;
+    } else if (gateName == "xnor") {
+      ++xnorGateCount;
+    } else if (gateName == "not") {
+      ++notGateCount;
+    }
+  }
+
+  EXPECT_EQ(3u, andGateCount);
+  EXPECT_EQ(9u, xnorGateCount);
+  EXPECT_EQ(4u, notGateCount);
+  EXPECT_EQ(1u, assignCount);
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "continuous_ne_supported");
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
 }
 
