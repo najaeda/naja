@@ -968,6 +968,39 @@ class SNLSVConstructorImpl {
       }
     }
 
+    std::optional<bool> resolveUnbasedOrStructuredPatternBits(
+      SNLDesign* design,
+      const Expression& stripped,
+      size_t targetWidth,
+      std::vector<SNLBitNet*>& bits) {
+      if (stripped.kind == slang::ast::ExpressionKind::UnbasedUnsizedIntegerLiteral) {
+        const auto value =
+          stripped.as<slang::ast::UnbasedUnsizedIntegerLiteral>().getLiteralValue();
+        if (value.isUnknown()) {
+          return false;
+        }
+        bits.assign(
+          targetWidth,
+          static_cast<SNLBitNet*>(getConstNet(design, static_cast<bool>(value))));
+        return true;
+      }
+
+      if (stripped.kind == slang::ast::ExpressionKind::StructuredAssignmentPattern) {
+        const auto& pattern =
+          stripped.as<slang::ast::StructuredAssignmentPatternExpression>();
+        if (pattern.defaultSetter && pattern.memberSetters.empty() &&
+            pattern.typeSetters.empty() && pattern.indexSetters.empty()) {
+          bool defaultBit = false;
+          if (getConstantBit(*pattern.defaultSetter, defaultBit)) {
+            bits.assign(targetWidth, static_cast<SNLBitNet*>(getConstNet(design, defaultBit)));
+            return true;
+          }
+        }
+      }
+
+      return std::nullopt;
+    }
+
     std::optional<size_t> getIntegralExpressionBitWidth(const Expression& expr) const {
       const auto* stripped = stripConversions(expr);
       if (!stripped) {
@@ -1196,29 +1229,8 @@ class SNLSVConstructorImpl {
         return false; // LCOV_EXCL_LINE
       }
 
-      if (stripped->kind == slang::ast::ExpressionKind::UnbasedUnsizedIntegerLiteral) {
-        const auto value =
-          stripped->as<slang::ast::UnbasedUnsizedIntegerLiteral>().getLiteralValue();
-        if (value.isUnknown()) {
-          return false;
-        }
-        bits.assign(
-          targetWidth,
-          static_cast<SNLBitNet*>(getConstNet(design, static_cast<bool>(value))));
-        return true;
-      }
-
-      if (stripped->kind == slang::ast::ExpressionKind::StructuredAssignmentPattern) {
-        const auto& pattern =
-          stripped->as<slang::ast::StructuredAssignmentPatternExpression>();
-        if (pattern.defaultSetter && pattern.memberSetters.empty() &&
-            pattern.typeSetters.empty() && pattern.indexSetters.empty()) {
-          bool defaultBit = false;
-          if (getConstantBit(*pattern.defaultSetter, defaultBit)) {
-            bits.assign(targetWidth, static_cast<SNLBitNet*>(getConstNet(design, defaultBit)));
-            return true;
-          }
-        }
+      if (auto resolved = resolveUnbasedOrStructuredPatternBits(design, *stripped, targetWidth, bits)) {
+        return *resolved;
       }
 
       uint64_t constantValue = 0;
@@ -2387,29 +2399,8 @@ class SNLSVConstructorImpl {
         return false; // LCOV_EXCL_LINE
       }
 
-      if (stripped->kind == slang::ast::ExpressionKind::UnbasedUnsizedIntegerLiteral) {
-        const auto value =
-          stripped->as<slang::ast::UnbasedUnsizedIntegerLiteral>().getLiteralValue();
-        if (value.isUnknown()) {
-          return false;
-        }
-        bits.assign(
-          targetWidth,
-          static_cast<SNLBitNet*>(getConstNet(design, static_cast<bool>(value))));
-        return true;
-      }
-
-      if (stripped->kind == slang::ast::ExpressionKind::StructuredAssignmentPattern) {
-        const auto& pattern =
-          stripped->as<slang::ast::StructuredAssignmentPatternExpression>();
-        if (pattern.defaultSetter && pattern.memberSetters.empty() &&
-            pattern.typeSetters.empty() && pattern.indexSetters.empty()) {
-          bool defaultBit = false;
-          if (getConstantBit(*pattern.defaultSetter, defaultBit)) {
-            bits.assign(targetWidth, static_cast<SNLBitNet*>(getConstNet(design, defaultBit)));
-            return true;
-          }
-        }
+      if (auto resolved = resolveUnbasedOrStructuredPatternBits(design, *stripped, targetWidth, bits)) {
+        return *resolved;
       }
 
       uint64_t constantValue = 0;
