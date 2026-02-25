@@ -204,21 +204,30 @@ LibertyAst *LibertyParser::parse()
 			break;
 
 		if (tok == ':' && ast->value.empty()) {
-			tok = lexer(ast->value);
-			if (tok == 'v') {
-    				tok = lexer(str);
-			}
-			while (tok == '+' || tok == '-' || tok == '*' || tok == '/' || tok == '!') {
-				ast->value += tok;
-				tok = lexer(str);
-				if (tok != 'v') {
+			// Compatibility note:
+			// Some Liberty files in the wild use unquoted boolean expressions in
+			// key/value pairs (for example: `enable : (clk&a);`) even though the
+			// strict Liberty style often uses quoted strings for such expressions.
+			// We therefore accept a broader operator/token set here and consume the
+			// value until ';' or end-of-line, so these libraries can still be parsed.
+			tok = lexer(str);
+			while ((tok != ';') && (tok != 'n')) {
+				if (tok == 'v') {
+					ast->value += str;
+				} else if (tok == '+' || tok == '-' || tok == '*' || tok == '/' || tok == '!' ||
+				           tok == '&' || tok == '|' || tok == '^' ||
+				           tok == '(' || tok == ')' || tok == '\'' ||
+				           tok == '<' || tok == '>' || tok == '=' ||
+				           tok == '?' || tok == ':' || tok == '%' ||
+				           tok == '[' || tok == ']') {
+					ast->value += static_cast<char>(tok);
+				} else {
 					delete ast;
 					error();
 				}
-				ast->value += str;
 				tok = lexer(str);
 			}
-			
+
 			// In a liberty file, all key : value pairs should end in ';'
 			// However, there are some liberty files in the wild that
 			// just have a newline. We'll be kind and accept a newline

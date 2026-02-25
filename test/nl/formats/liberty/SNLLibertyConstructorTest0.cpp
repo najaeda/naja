@@ -141,6 +141,20 @@ TEST_F(SNLLibertyConstructorTest0, testWrongSyntaxFile) {
   }
 }
 
+TEST_F(SNLLibertyConstructorTest0, testUnquotedLatchEnableExpression) {
+  std::filesystem::path testPath(
+      std::filesystem::path(SNL_LIBERTY_BENCHMARKS)
+      / std::filesystem::path("benchmarks")
+      / std::filesystem::path("tests")
+      / std::filesystem::path("latch_unquoted_enable_test.lib"));
+  SNLLibertyConstructor constructor(library_);
+  ASSERT_NO_THROW(constructor.construct(testPath));
+  auto design = library_->getSNLDesign(NLName("cell1"));
+  ASSERT_NE(nullptr, design);
+  EXPECT_NE(nullptr, design->getScalarTerm(NLName("clk")));
+  EXPECT_NE(nullptr, design->getScalarTerm(NLName("g")));
+}
+
 TEST_F(SNLLibertyConstructorTest0, testDetailedParserErrorMessage) {
   const auto stamp = std::chrono::steady_clock::now().time_since_epoch().count();
   auto tempPath = std::filesystem::temp_directory_path()
