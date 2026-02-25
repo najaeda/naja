@@ -2900,6 +2900,88 @@ TEST_F(SNLSVConstructorTestSimple, parseSimpleModuleDumpElaboratedASTJson) {
   EXPECT_NE(json.find("\"top\""), std::string::npos);
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseSimpleModuleDumpDiagnosticsReportNoDiagnostics) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "simple_diagnostics_report";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  auto reportPath = outPath / "reports" / "diagnostics.txt";
+  SNLSVConstructor::ConstructOptions options;
+  options.diagnosticsReportPath = reportPath;
+  constructor.construct(benchmarksPath / "simple" / "simple.sv", options);
+
+  auto top = library_->getSNLDesign(NLName("top"));
+  ASSERT_NE(top, nullptr);
+
+  ASSERT_TRUE(std::filesystem::exists(reportPath));
+  std::ifstream reportFile(reportPath);
+  ASSERT_TRUE(reportFile.good());
+  std::string report{
+    std::istreambuf_iterator<char>(reportFile),
+    std::istreambuf_iterator<char>()};
+  EXPECT_NE(report.find("No SystemVerilog diagnostics."), std::string::npos);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSyntaxErrorDumpDiagnosticsReportWithDetails) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "syntax_error_diagnostics_report";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "syntax_error_diagnostics_report.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile << "module syntax_error_diagnostics_report(input logic a, output logic y)\n"
+         << "  assign y = a;\n"
+         << "endmodule\n";
+  svFile.close();
+
+  auto reportPath = outPath / "reports" / "diagnostics.txt";
+  SNLSVConstructor::ConstructOptions options;
+  options.diagnosticsReportPath = reportPath;
+
+  try {
+    constructor.construct(svPath, options);
+    FAIL() << "Expected SystemVerilog compilation failure";
+  } catch (const SNLSVConstructorException& e) {
+    const std::string reason = e.what();
+    EXPECT_NE(std::string::npos, reason.find("SystemVerilog compilation failed"));
+  }
+
+  ASSERT_TRUE(std::filesystem::exists(reportPath));
+  std::ifstream reportFile(reportPath);
+  ASSERT_TRUE(reportFile.good());
+  std::string report{
+    std::istreambuf_iterator<char>(reportFile),
+    std::istreambuf_iterator<char>()};
+  EXPECT_NE(report.find("error"), std::string::npos);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseEmptyDiagnosticsReportPathThrows) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  SNLSVConstructor::ConstructOptions options;
+  options.diagnosticsReportPath = std::filesystem::path();
+
+  try {
+    constructor.construct(benchmarksPath / "simple" / "simple.sv", options);
+    FAIL() << "Expected empty diagnostics report path exception";
+  } catch (const SNLSVConstructorException& e) {
+    const std::string reason = e.what();
+    EXPECT_NE(
+      std::string::npos,
+      reason.find("Empty path for diagnostics report dump"));
+  }
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseEmptyElaboratedASTJsonPathThrows) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);

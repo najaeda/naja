@@ -21,6 +21,9 @@ are still expected in real designs:
   `resolveExpressionBits` fallback failures in continuous assign for unknown
   integer constants, call-cast recursion, nested binary recursion,
   concatenation recursion, and member-access base resolution.
+- Diagnostics report option paths are covered with explicit tests for:
+  no-diagnostics content, non-empty diagnostics content, and empty report-path
+  validation.
 
 ## Deliberate LCOV Exclusions
 
@@ -59,3 +62,6 @@ the current architecture:
   driver failure modes report via `sourceLoader` / argument parsing and keep
   `syntaxTrees` empty, so parse-diagnostics formatting lines are treated as
   near-unreachable.
+- `dumpDiagnosticsReport`: filesystem I/O failure branches (directory creation,
+  report file creation, report file final write-check) are defensive and
+  environment-dependent, so they remain excluded.

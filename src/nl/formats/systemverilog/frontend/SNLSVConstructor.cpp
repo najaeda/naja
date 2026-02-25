@@ -432,21 +432,21 @@ class SNLSVConstructorImpl {
         std::error_code ec;
         std::filesystem::create_directories(parent, ec);
         // LCOV_EXCL_START
-        if (ec) {
-          std::ostringstream reason;
-          reason << "Failed to create diagnostics report directory: " << parent.string();
-          throw SNLSVConstructorException(reason.str());
-        }
+        if (ec) { // LCOV_EXCL_LINE
+          std::ostringstream reason; // LCOV_EXCL_LINE
+          reason << "Failed to create diagnostics report directory: " << parent.string(); // LCOV_EXCL_LINE
+          throw SNLSVConstructorException(reason.str()); // LCOV_EXCL_LINE
+        } // LCOV_EXCL_LINE
         // LCOV_EXCL_STOP
       }
 
       std::ofstream output(reportPath, std::ios::out | std::ios::trunc);
       // LCOV_EXCL_START
-      if (!output) {
-        std::ostringstream reason;
-        reason << "Failed to create diagnostics report file: " << reportPath.string();
-        throw SNLSVConstructorException(reason.str());
-      }
+      if (!output) { // LCOV_EXCL_LINE
+        std::ostringstream reason; // LCOV_EXCL_LINE
+        reason << "Failed to create diagnostics report file: " << reportPath.string(); // LCOV_EXCL_LINE
+        throw SNLSVConstructorException(reason.str()); // LCOV_EXCL_LINE
+      } // LCOV_EXCL_LINE
       // LCOV_EXCL_STOP
 
       if (!report.empty()) {
@@ -456,11 +456,11 @@ class SNLSVConstructorImpl {
       }
 
       // LCOV_EXCL_START
-      if (!output.good()) {
-        std::ostringstream reason;
-        reason << "Failed to write diagnostics report file: " << reportPath.string();
-        throw SNLSVConstructorException(reason.str());
-      }
+      if (!output.good()) { // LCOV_EXCL_LINE
+        std::ostringstream reason; // LCOV_EXCL_LINE
+        reason << "Failed to write diagnostics report file: " << reportPath.string(); // LCOV_EXCL_LINE
+        throw SNLSVConstructorException(reason.str()); // LCOV_EXCL_LINE
+      } // LCOV_EXCL_LINE
       // LCOV_EXCL_STOP
     }
 
