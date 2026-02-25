@@ -1,0 +1,21 @@
+library (latch_unquoted_enable_test) {
+  cell (cell1) {
+    latch (IQ2,IQN2) {
+      enable : (clk&a);
+      data_in : IQ1;
+    }
+    pin (a) {
+      direction : input;
+    }
+    pin (clk) {
+      direction : input;
+    }
+    pin (IQ1) {
+      direction : input;
+    }
+    pin (g) {
+      direction : output;
+      function : IQ2;
+    }
+  }
+}
