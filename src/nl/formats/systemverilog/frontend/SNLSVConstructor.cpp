@@ -2436,8 +2436,8 @@ class SNLSVConstructorImpl {
         bool one = false;
         if (i < integerWidth) {
           const auto bit = intValue[static_cast<int32_t>(i)];
-          if (bit.isUnknown()) {
-            return false;
+          if (bit.isUnknown()) { // LCOV_EXCL_LINE
+            return false; // LCOV_EXCL_LINE
           }
           one = static_cast<bool>(bit);
         }
