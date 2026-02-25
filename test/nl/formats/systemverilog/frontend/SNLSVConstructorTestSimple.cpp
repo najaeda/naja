@@ -1640,6 +1640,35 @@ TEST_F(SNLSVConstructorTestSimple, parseBinaryOperatorsUnsupportedFails) {
   }
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseContinuousBinaryExpressionFallbacksUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  try {
+    constructor.construct(
+      benchmarksPath /
+      "continuous_binary_expression_fallbacks_unsupported" /
+      "continuous_binary_expression_fallbacks_unsupported.sv");
+    FAIL() << "Expected unsupported continuous binary expression fallbacks";
+  } catch (const SNLSVConstructorException& e) {
+    const std::string reason = e.what();
+    EXPECT_NE(
+      std::string::npos,
+      reason.find("Unsupported binary expression in continuous assign: <<<"));
+    EXPECT_NE(
+      std::string::npos,
+      reason.find("Unsupported binary expression in continuous assign: *"));
+    EXPECT_NE(
+      std::string::npos,
+      reason.find("Unsupported binary expression in continuous assign: -"));
+    EXPECT_NE(
+      std::string::npos,
+      reason.find("Unsupported binary expression in continuous assign: =="));
+    EXPECT_NE(
+      std::string::npos,
+      reason.find("Unsupported binary expression in continuous assign: !="));
+  }
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseUpCounter) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
