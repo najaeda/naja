@@ -1003,9 +1003,7 @@ class SNLSVConstructorImpl {
       if ((!constant || !constant->isInteger()) && stripped->getSymbolReference()) {
         slang::ast::EvalContext evalContext(*stripped->getSymbolReference());
         evaluatedConstant = stripped->eval(evalContext);
-        if (evaluatedConstant && evaluatedConstant.isInteger()) {
-          constant = &evaluatedConstant;
-        }
+        constant = (evaluatedConstant && evaluatedConstant.isInteger()) ? &evaluatedConstant : constant;
       }
       if (!constant || !constant->isInteger()) {
         return false;
