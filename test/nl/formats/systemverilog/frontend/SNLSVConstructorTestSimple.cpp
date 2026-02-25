@@ -2213,6 +2213,67 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableCondBinarySkipped) {
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableCondUnaryNotSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  constructor.construct(
+    benchmarksPath / "seq_enable_cond_unary_not_supported" /
+    "seq_enable_cond_unary_not_supported.sv");
+
+  auto top = library_->getSNLDesign(NLName("seq_enable_cond_unary_not_supported"));
+  ASSERT_NE(top, nullptr);
+
+  auto dffModel = NLDB0::getDFF();
+  auto mux2Model = NLDB0::getMux2();
+  ASSERT_NE(dffModel, nullptr);
+  ASSERT_NE(mux2Model, nullptr);
+
+  size_t dffCount = 0;
+  size_t mux2Count = 0;
+  size_t notGateCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dffModel) {
+      ++dffCount;
+    } else if (inst->getModel() == mux2Model) {
+      ++mux2Count;
+    } else if (NLDB0::isGate(inst->getModel()) &&
+               NLDB0::getGateName(inst->getModel()) == "not") {
+      ++notGateCount;
+    }
+  }
+  EXPECT_EQ(16u, dffCount);
+  EXPECT_EQ(32u, mux2Count);
+  EXPECT_EQ(4u, notGateCount);
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "seq_enable_cond_unary_not_supported");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableCondUnaryEdgeCasesSkipped) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  constructor.construct(
+    benchmarksPath / "seq_enable_cond_unary_edge_cases_skipped" /
+    "seq_enable_cond_unary_edge_cases_skipped.sv");
+
+  auto top = library_->getSNLDesign(NLName("seq_enable_cond_unary_edge_cases_skipped"));
+  ASSERT_NE(top, nullptr);
+
+  auto dffModel = NLDB0::getDFF();
+  ASSERT_NE(dffModel, nullptr);
+  size_t dffCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dffModel) {
+      ++dffCount;
+    }
+  }
+  EXPECT_EQ(0u, dffCount);
+
+  auto dumpedVerilog =
+    dumpTopAndGetVerilogPath(top, "seq_enable_cond_unary_edge_cases_skipped");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseSequentialResetCondBus2Skipped) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
