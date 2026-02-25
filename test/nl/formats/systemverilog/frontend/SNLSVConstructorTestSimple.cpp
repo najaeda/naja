@@ -351,6 +351,59 @@ TEST_F(SNLSVConstructorTestSimple, parseCommandFileMissingSourceIncludesDriverFa
   }
 }
 
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseCommandFileMixedValidAndMissingSourceIncludesDriverFailureDetails) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "mixed_source_command_file";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto validPath = outPath / "mixed_source_valid.sv";
+  std::ofstream validFile(validPath);
+  ASSERT_TRUE(validFile.good());
+  validFile << "module mixed_source_valid(input logic a, output logic y);\n"
+            << "  assign y = a;\n"
+            << "endmodule\n";
+  validFile.close();
+
+  const auto missingPath = outPath / "mixed_source_missing.sv";
+  ASSERT_FALSE(std::filesystem::exists(missingPath));
+
+  const auto flistPath = outPath / "mixed_source_command_file.f";
+  std::ofstream flistFile(flistPath);
+  ASSERT_TRUE(flistFile.good());
+  flistFile << validPath.string() << "\n";
+  flistFile << missingPath.string() << "\n";
+  flistFile.close();
+
+  SNLSVConstructor::Paths paths{std::filesystem::path("-f"), flistPath};
+  try {
+    constructor.construct(paths);
+    FAIL() << "Expected mixed valid/missing source failure through driver path";
+  } catch (const SNLSVConstructorException& e) {
+    const std::string reason = e.what();
+    EXPECT_NE(std::string::npos, reason.find("SystemVerilog compilation failed:\n"));
+    EXPECT_NE(std::string::npos, reason.find(missingPath.filename().string()));
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseCommandFileOptionMissingArgumentFallsBackToGenericFailure) {
+  SNLSVConstructor constructor(library_);
+  SNLSVConstructor::Paths paths{std::filesystem::path("-f")};
+
+  try {
+    constructor.construct(paths);
+    FAIL() << "Expected command-file option parsing failure";
+  } catch (const SNLSVConstructorException& e) {
+    const std::string reason = e.what();
+    EXPECT_NE(std::string::npos, reason.find("SystemVerilog compilation failed"));
+  }
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseElementSelectIndexVariants) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
@@ -1090,6 +1143,31 @@ TEST_F(SNLSVConstructorTestSimple, parseContinuousMultiplySupported) {
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseContinuousMultiplyZeroSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  constructor.construct(
+    benchmarksPath / "continuous_mul_zero_supported" / "continuous_mul_zero_supported.sv");
+
+  auto top = library_->getSNLDesign(NLName("continuous_mul_zero_supported_top"));
+  ASSERT_NE(top, nullptr);
+
+  auto y = top->getBusNet(NLName("y"));
+  ASSERT_NE(y, nullptr);
+  EXPECT_EQ(4, y->getWidth());
+
+  size_t assignCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (NLDB0::isAssign(inst->getModel())) {
+      ++assignCount;
+    }
+  }
+  EXPECT_EQ(4u, assignCount);
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "continuous_mul_zero_supported");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseContinuousSubSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
@@ -1174,6 +1252,40 @@ TEST_F(SNLSVConstructorTestSimple, parseContinuousShiftLeftSupported) {
 
   auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "continuous_shift_left_supported");
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseContinuousShiftRightUnresolvedSkipped) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  constructor.construct(
+    benchmarksPath / "continuous_shift_right_unresolved_skipped" /
+    "continuous_shift_right_unresolved_skipped.sv");
+
+  auto top = library_->getSNLDesign(NLName("continuous_shift_right_unresolved_skipped_top"));
+  ASSERT_NE(top, nullptr);
+
+  auto y = top->getBusNet(NLName("y"));
+  ASSERT_NE(y, nullptr);
+  EXPECT_EQ(4, y->getWidth());
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "continuous_shift_right_unresolved_skipped");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseContinuousShiftLeftUnknownAmountUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  try {
+    constructor.construct(
+      benchmarksPath / "continuous_shift_left_unknown_amount_unsupported" /
+      "continuous_shift_left_unknown_amount_unsupported.sv");
+    FAIL() << "Expected unsupported unknown left-shift amount expression";
+  } catch (const SNLSVConstructorException& e) {
+    const std::string reason = e.what();
+    EXPECT_NE(
+      std::string::npos,
+      reason.find("Unsupported binary expression in continuous assign: <<<"));
+  }
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseContinuousEqualitySupported) {
@@ -1276,6 +1388,25 @@ TEST_F(SNLSVConstructorTestSimple, parseContinuousInequalitySupported) {
 
   auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "continuous_ne_supported");
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseContinuousEqNeFailurePathsUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  try {
+    constructor.construct(
+      benchmarksPath / "continuous_eq_ne_failure_paths_unsupported" /
+      "continuous_eq_ne_failure_paths_unsupported.sv");
+    FAIL() << "Expected unsupported equality/inequality failure paths";
+  } catch (const SNLSVConstructorException& e) {
+    const std::string reason = e.what();
+    EXPECT_NE(
+      std::string::npos,
+      reason.find("Unsupported binary expression in continuous assign: =="));
+    EXPECT_NE(
+      std::string::npos,
+      reason.find("Unsupported binary expression in continuous assign: !="));
+  }
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseContinuousEqualityMemberAccessSupported) {
@@ -1666,6 +1797,28 @@ TEST_F(SNLSVConstructorTestSimple, parseContinuousBinaryExpressionFallbacksUnsup
     EXPECT_NE(
       std::string::npos,
       reason.find("Unsupported binary expression in continuous assign: !="));
+  }
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseContinuousResolveExpressionBitsFailurePathsUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  try {
+    constructor.construct(
+      benchmarksPath /
+      "continuous_resolve_expression_bits_failure_paths_unsupported" /
+      "continuous_resolve_expression_bits_failure_paths_unsupported.sv");
+    FAIL() << "Expected unsupported resolveExpressionBits continuous-assign paths";
+  } catch (const SNLSVConstructorException& e) {
+    const std::string reason = e.what();
+    EXPECT_NE(
+      std::string::npos,
+      reason.find("Unsupported binary expression in continuous assign: +"));
+    EXPECT_NE(
+      std::string::npos,
+      reason.find("Unsupported binary expression in continuous assign: =="));
   }
 }
 
@@ -2419,6 +2572,48 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialTimingListUnsupported) {
   }
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseSequentialTimingListTimedAssertionSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  constructor.construct(
+    benchmarksPath / "seq_timing_list_timed_assertion_supported" /
+    "seq_timing_list_timed_assertion_supported.sv");
+
+  auto top = library_->getSNLDesign(NLName("seq_timing_list_timed_assertion_supported"));
+  ASSERT_NE(top, nullptr);
+
+  auto dffModel = NLDB0::getDFF();
+  ASSERT_NE(dffModel, nullptr);
+  size_t dffCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dffModel) {
+      ++dffCount;
+    }
+  }
+  EXPECT_EQ(1u, dffCount);
+
+  auto dumpedVerilog =
+    dumpTopAndGetVerilogPath(top, "seq_timing_list_timed_assertion_supported");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialTimingListTwoTimedUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  try {
+    constructor.construct(
+      benchmarksPath / "seq_timing_list_two_timed_unsupported" /
+      "seq_timing_list_two_timed_unsupported.sv");
+    FAIL() << "Expected unsupported multi-timed statement-list extraction exception";
+  } catch (const SNLSVConstructorException& e) {
+    const std::string reason = e.what();
+    EXPECT_NE(
+      std::string::npos,
+      reason.find("Unsupported statement list while extracting sequential timing control"));
+    EXPECT_NE(std::string::npos, reason.find("unsupported kind=Timed"));
+  }
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseSequentialTimingMissingUnsupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
@@ -2578,6 +2773,22 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialAddWithXLiteralUnsupported) {
       benchmarksPath / "seq_add_with_x_literal_unsupported" /
       "seq_add_with_x_literal_unsupported.sv");
     FAIL() << "Expected unsupported add with x-literal exception";
+  } catch (const SNLSVConstructorException& e) {
+    const std::string reason = e.what();
+    EXPECT_NE(
+      std::string::npos,
+      reason.find("Unsupported binary expression in sequential assignment: +"));
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialAddWithUnbasedXLiteralUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  try {
+    constructor.construct(
+      benchmarksPath / "seq_add_unbased_x_literal_unsupported" /
+      "seq_add_unbased_x_literal_unsupported.sv");
+    FAIL() << "Expected unsupported unbased unknown literal in sequential add";
   } catch (const SNLSVConstructorException& e) {
     const std::string reason = e.what();
     EXPECT_NE(
