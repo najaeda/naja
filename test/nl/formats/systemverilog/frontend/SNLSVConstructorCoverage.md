@@ -1,3 +1,6 @@
+<!-- SPDX-FileCopyrightText: 2026 The Naja authors <https://github.com/najaeda/naja/blob/main/AUTHORS> -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
 # SNLSVConstructor Coverage Notes
 
 This document tracks deliberate coverage exclusions and targeted fallback tests
