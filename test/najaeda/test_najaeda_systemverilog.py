@@ -105,6 +105,16 @@ class NajaEDASystemVerilogTest(unittest.TestCase):
                 config=netlist.SystemVerilogConfig(top=123),
             )
 
+    def test_load_systemverilog_with_empty_top_raises(self):
+        design_files = [os.path.join(systemverilog_benchmarks, "simple", "simple.sv")]
+        with self.assertRaisesRegex(
+                ValueError,
+                r"SystemVerilogConfig\.top must not be empty"):
+            netlist.load_systemverilog(
+                design_files,
+                config=netlist.SystemVerilogConfig(top=""),
+            )
+
     def test_load_systemverilog_with_flist_and_top(self):
         with tempfile.TemporaryDirectory(dir=najaeda_test_path) as temp_dir:
             generic_sv = os.path.join(temp_dir, "generic.sv")

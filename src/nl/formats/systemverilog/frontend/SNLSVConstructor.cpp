@@ -1317,15 +1317,14 @@ class SNLSVConstructorImpl {
           bits.reserve(targetWidth);
           auto binarySourceRange = getSourceRange(*stripped);
           for (size_t bitIndex = 0; bitIndex < targetWidth; ++bitIndex) {
-            auto* outBit = SNLScalarNet::create(design);
-            annotateSourceInfo(outBit, binarySourceRange);
-            if (!createBinaryGate(
-                  design,
-                  *gateType,
-                  leftBits[bitIndex],
-                  rightBits[bitIndex],
-                  outBit,
-                  binarySourceRange)) {
+            auto* outBit = getSingleBitNet(createBinaryGate(
+              design,
+              *gateType,
+              leftBits[bitIndex],
+              rightBits[bitIndex],
+              nullptr,
+              binarySourceRange));
+            if (!outBit) {
               return false; // LCOV_EXCL_LINE
             }
             bits.push_back(outBit);
