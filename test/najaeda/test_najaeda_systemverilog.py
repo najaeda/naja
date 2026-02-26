@@ -33,6 +33,12 @@ class NajaEDASystemVerilogTest(unittest.TestCase):
         self.assertEqual(2, top.count_input_terms())
         self.assertEqual(1, top.count_output_terms())
 
+    def test_load_systemverilog_single_arg(self):
+        design_file = os.path.join(systemverilog_benchmarks, "simple", "simple.sv")
+        top = netlist.load_systemverilog(design_file)
+        self.assertIsNotNone(top)
+        self.assertEqual("top", top.get_model_name())
+
     def test_load_systemverilog_with_ast_json_dump(self):
         design_files = [os.path.join(systemverilog_benchmarks, "simple", "simple.sv")]
         json_path = os.path.join(najaeda_test_path, "simple_elaborated_ast_najaeda.json")
