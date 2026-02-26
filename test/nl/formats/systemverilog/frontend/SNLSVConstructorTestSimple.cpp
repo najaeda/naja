@@ -603,6 +603,338 @@ TEST_F(SNLSVConstructorTestSimple, parseElementSelectMaskedZeroIndexUnderAdd) {
   }
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseElementSelectLiteralOutOfInt32IndexUnderAdd) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "element_select_literal_out_of_int32_index_under_add";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "element_select_literal_out_of_int32_index_under_add.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << "module element_select_literal_out_of_int32_index_under_add_top(\n"
+    << "  input logic [1:0][3:0] a,\n"
+    << "  output logic [3:0] y\n"
+    << ");\n"
+    << "  assign y = a[32'd2147483648] + 4'h1;\n"
+    << "endmodule\n";
+  svFile.close();
+
+  try {
+    constructor.construct(svPath);
+    FAIL() << "Expected unsupported out-of-int32 literal index under add failure";
+  } catch (const SNLSVConstructorException& e) {
+    const std::string reason = e.what();
+    EXPECT_NE(std::string::npos, reason.find("Unsupported binary expression in continuous assign: +"));
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseElementSelectConstLongintOutOfInt32IndexUnderAdd) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "element_select_const_longint_out_of_int32_index_under_add";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "element_select_const_longint_out_of_int32_index_under_add.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << "module element_select_const_longint_out_of_int32_index_under_add_top(\n"
+    << "  input logic [1:0][3:0] a,\n"
+    << "  output logic [3:0] y\n"
+    << ");\n"
+    << "  const longint IDX = 64'd2147483648;\n"
+    << "  assign y = a[IDX] + 4'h1;\n"
+    << "endmodule\n";
+  svFile.close();
+
+  try {
+    constructor.construct(svPath);
+    FAIL() << "Expected unsupported out-of-int32 const-longint index under add failure";
+  } catch (const SNLSVConstructorException& e) {
+    const std::string reason = e.what();
+    EXPECT_NE(std::string::npos, reason.find("Unsupported binary expression in continuous assign: +"));
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseElementSelectConstTooWideIndexUnderAdd) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "element_select_const_too_wide_index_under_add";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "element_select_const_too_wide_index_under_add.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << "module element_select_const_too_wide_index_under_add_top(\n"
+    << "  input logic [1:0][3:0] a,\n"
+    << "  output logic [3:0] y\n"
+    << ");\n"
+    << "  const logic [127:0] IDX = 128'h00000000000000000000000100000000;\n"
+    << "  assign y = a[IDX] + 4'h1;\n"
+    << "endmodule\n";
+  svFile.close();
+
+  try {
+    constructor.construct(svPath);
+    FAIL() << "Expected unsupported too-wide const index under add failure";
+  } catch (const SNLSVConstructorException& e) {
+    const std::string reason = e.what();
+    EXPECT_NE(std::string::npos, reason.find("Unsupported binary expression in continuous assign: +"));
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseElementSelectBinaryBaseUnderAddUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "element_select_binary_base_under_add_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "element_select_binary_base_under_add_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << "module element_select_binary_base_under_add_unsupported_top(\n"
+    << "  input logic [3:0] a,\n"
+    << "  input logic [3:0] b,\n"
+    << "  output logic y\n"
+    << ");\n"
+    << "  assign y = ((a & b)[0]) + 1'b1;\n"
+    << "endmodule\n";
+  svFile.close();
+
+  try {
+    constructor.construct(svPath);
+    FAIL() << "Expected unsupported select-on-binary-base under add failure";
+  } catch (const SNLSVConstructorException&) {
+  }
+}
+
+
+TEST_F(SNLSVConstructorTestSimple, parseElementSelectNegativeOutOfInt32IndexUnderAdd) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "element_select_negative_out_of_int32_index_under_add";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "element_select_negative_out_of_int32_index_under_add.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module element_select_negative_out_of_int32_index_under_add_top(
+  input logic [1:0][3:0] a,
+  output logic [3:0] y
+);
+  const longint signed IDX = -64'sd2147483649;
+  assign y = a[IDX] + 4'h1;
+endmodule
+)";
+  svFile.close();
+
+  try {
+    constructor.construct(svPath);
+    FAIL() << "Expected unsupported negative out-of-int32 index under add failure";
+  } catch (const SNLSVConstructorException& e) {
+    const std::string reason = e.what();
+    EXPECT_NE(std::string::npos, reason.find("Unsupported binary expression in continuous assign: +"));
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseElementSelectUnknownConstIndexUnderAdd) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "element_select_unknown_const_index_under_add";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "element_select_unknown_const_index_under_add.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module element_select_unknown_const_index_under_add_top(
+  input logic [1:0][3:0] a,
+  output logic [3:0] y
+);
+  const logic [3:0] IDX = 4'b1x00;
+  assign y = a[IDX] + 4'h1;
+endmodule
+)";
+  svFile.close();
+
+  try {
+    constructor.construct(svPath);
+    FAIL() << "Expected unsupported unknown const index under add failure";
+  } catch (const SNLSVConstructorException& e) {
+    const std::string reason = e.what();
+    EXPECT_NE(std::string::npos, reason.find("Unsupported binary expression in continuous assign: +"));
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseElementSelectConcatBaseUnderAddUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "element_select_concat_base_under_add_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "element_select_concat_base_under_add_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module element_select_concat_base_under_add_unsupported_top(
+  input logic [3:0] a,
+  input logic [3:0] b,
+  output logic y
+);
+  assign y = ({a, b})[0] + 1'b1;
+endmodule
+)";
+  svFile.close();
+
+  EXPECT_THROW(constructor.construct(svPath), SNLSVConstructorException);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseScalarBitPortsGetScalarTerms) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "scalar_bit_ports_get_scalar_terms";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "scalar_bit_ports_get_scalar_terms.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module scalar_bit_ports_get_scalar_terms_top(
+  input bit a,
+  output bit y
+);
+  assign y = a;
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("scalar_bit_ports_get_scalar_terms_top"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getScalarTerm(NLName("a")), nullptr);
+  EXPECT_NE(top->getScalarTerm(NLName("y")), nullptr);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseElementSelectHugeLiteralIndexUnderAdd) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "element_select_huge_literal_index_under_add";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "element_select_huge_literal_index_under_add.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module element_select_huge_literal_index_under_add_top(
+  input logic [1:0][3:0] a,
+  output logic [3:0] y
+);
+  assign y = a[128'd18446744073709551616] + 4'h1;
+endmodule
+)";
+  svFile.close();
+
+  try {
+    constructor.construct(svPath);
+    FAIL() << "Expected unsupported huge literal index under add failure";
+  } catch (const SNLSVConstructorException& e) {
+    const std::string reason = e.what();
+    EXPECT_NE(std::string::npos, reason.find("Unsupported binary expression in continuous assign: +"));
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseElementSelectNegativeLiteralOutOfInt32UnderAdd) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "element_select_negative_literal_out_of_int32_under_add";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "element_select_negative_literal_out_of_int32_under_add.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module element_select_negative_literal_out_of_int32_under_add_top(
+  input logic [1:0][3:0] a,
+  output logic [3:0] y
+);
+  assign y = a[-64'sd2147483649] + 4'h1;
+endmodule
+)";
+  svFile.close();
+
+  try {
+    constructor.construct(svPath);
+    FAIL() << "Expected unsupported negative literal out-of-int32 index under add failure";
+  } catch (const SNLSVConstructorException& e) {
+    const std::string reason = e.what();
+    EXPECT_NE(std::string::npos, reason.find("Unsupported binary expression in continuous assign: +"));
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseElementSelectFunctionCallBaseUnderAddUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "element_select_function_call_base_under_add_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "element_select_function_call_base_under_add_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module element_select_function_call_base_under_add_unsupported_top(
+  input logic [3:0] a,
+  output logic y
+);
+  function automatic logic [3:0] id(input logic [3:0] x);
+    id = x;
+  endfunction
+  assign y = id(a)[0] + 1'b1;
+endmodule
+)";
+  svFile.close();
+
+  EXPECT_THROW(constructor.construct(svPath), SNLSVConstructorException);
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseBytePortsInferRangeFromWidth) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
@@ -712,6 +1044,37 @@ TEST_F(SNLSVConstructorTestSimple, parsePackedStructAndEnumPortsInferRangeFromWi
 
   auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "packed_struct_enum_ports_dump");
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseUnsupportedNestedFixedDynamicPortTypeReportedAtEnd) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "unsupported_nested_fixed_dynamic_port_type";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "unsupported_nested_fixed_dynamic_port_type.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << "module unsupported_nested_fixed_dynamic_port_type(\n"
+    << "  input logic [3:0] arr [0:1] [],\n"
+    << "  output logic y\n"
+    << ");\n"
+    << "  assign y = 1'b0;\n"
+    << "endmodule\n";
+  svFile.close();
+
+  try {
+    constructor.construct(svPath);
+    FAIL() << "Expected unsupported nested fixed/dynamic unpacked port type exception";
+  } catch (const SNLSVConstructorException& e) {
+    const std::string reason = e.what();
+    EXPECT_NE(std::string::npos, reason.find("Unsupported SystemVerilog type not representable in SNL"));
+    EXPECT_NE(std::string::npos, reason.find("arr"));
+  }
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseUnsupportedPortTypesReportedAtEnd) {
@@ -2853,6 +3216,55 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialAddWithXLiteralUnsupported) {
     EXPECT_NE(
       std::string::npos,
       reason.find("Unsupported binary expression in sequential assignment: +"));
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialResetStructDefaultUnknownUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "seq_reset_struct_default_unknown_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "seq_reset_struct_default_unknown_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << "module seq_reset_struct_default_unknown_unsupported (\n"
+    << "  input  logic        clk,\n"
+    << "  input  logic        rst_ni,\n"
+    << "  input  logic [11:0] d,\n"
+    << "  input  logic        en,\n"
+    << "  output logic [11:0] q_out\n"
+    << ");\n"
+    << "  struct packed {\n"
+    << "    logic [11:0] csr_address;\n"
+    << "  } q, n;\n"
+    << "  always_comb begin\n"
+    << "    n = q;\n"
+    << "    if (en) begin\n"
+    << "      n.csr_address = d;\n"
+    << "    end\n"
+    << "  end\n"
+    << "  always_ff @(posedge clk or negedge rst_ni) begin\n"
+    << "    if (~rst_ni) begin\n"
+    << "      q <= '{default: 'x};\n"
+    << "    end else begin\n"
+    << "      q <= n;\n"
+    << "    end\n"
+    << "  end\n"
+    << "  assign q_out = q.csr_address;\n"
+    << "endmodule\n";
+  svFile.close();
+
+  try {
+    constructor.construct(svPath);
+    FAIL() << "Expected unsupported struct default unknown reset assignment";
+  } catch (const SNLSVConstructorException& e) {
+    const std::string reason = e.what();
+    EXPECT_NE(std::string::npos, reason.find("Unsupported RHS in sequential assignment"));
   }
 }
 
