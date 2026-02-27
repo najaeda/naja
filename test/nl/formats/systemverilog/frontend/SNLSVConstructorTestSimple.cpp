@@ -1657,6 +1657,150 @@ TEST_F(SNLSVConstructorTestSimple, parseContinuousShiftRightUnresolvedSkipped) {
     {"Unsupported binary expression in continuous assign: >>"});
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseContinuousShiftRightSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "continuous_shift_right_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "continuous_shift_right_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module continuous_shift_right_supported(
+  input logic [31:0] data,
+  input logic [1:0] shamt,
+  output logic [31:0] y_const,
+  output logic [31:0] y_var
+);
+  assign y_const = data >> 3;
+  assign y_var = data >> {shamt, 2'b0};
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("continuous_shift_right_supported"));
+  ASSERT_NE(top, nullptr);
+
+  auto yConst = top->getBusNet(NLName("y_const"));
+  ASSERT_NE(yConst, nullptr);
+  EXPECT_EQ(32, yConst->getWidth());
+
+  auto yVar = top->getBusNet(NLName("y_var"));
+  ASSERT_NE(yVar, nullptr);
+  EXPECT_EQ(32, yVar->getWidth());
+
+  auto mux2Model = NLDB0::getMux2();
+  ASSERT_NE(mux2Model, nullptr);
+
+  size_t mux2Count = 0;
+  size_t assignCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == mux2Model) {
+      ++mux2Count;
+    } else if (NLDB0::isAssign(inst->getModel())) {
+      ++assignCount;
+    }
+  }
+  EXPECT_EQ(128u, mux2Count);
+  EXPECT_EQ(32u, assignCount);
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "continuous_shift_right_supported");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseContinuousShiftRightConcatZeroWidthOperandSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "continuous_shift_right_concat_zero_width_operand_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "continuous_shift_right_concat_zero_width_operand_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module continuous_shift_right_concat_zero_width_operand_supported(
+  input logic [31:0] data,
+  output logic [31:0] y
+);
+  logic [$clog2(1)-1:0] shamt;
+  assign y = data >> {shamt, 4'b0};
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("continuous_shift_right_concat_zero_width_operand_supported"));
+  ASSERT_NE(top, nullptr);
+
+  auto y = top->getBusNet(NLName("y"));
+  ASSERT_NE(y, nullptr);
+  EXPECT_EQ(32, y->getWidth());
+
+  auto dumpedVerilog =
+    dumpTopAndGetVerilogPath(top, "continuous_shift_right_concat_zero_width_operand_supported");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseContinuousShiftRightMemberConcatSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "continuous_shift_right_member_concat_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "continuous_shift_right_member_concat_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(typedef struct packed {
+  logic [31:0] data;
+  logic        valid;
+} icache_req_t;
+
+module continuous_shift_right_member_concat_supported(
+  input  icache_req_t  icache_dreq_i,
+  input  logic [1:0]   shamt,
+  output logic [31:0]  icache_data
+);
+  assign icache_data = icache_dreq_i.data >> {shamt, 2'b0};
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("continuous_shift_right_member_concat_supported"));
+  ASSERT_NE(top, nullptr);
+
+  auto icacheData = top->getBusNet(NLName("icache_data"));
+  ASSERT_NE(icacheData, nullptr);
+  EXPECT_EQ(32, icacheData->getWidth());
+
+  auto mux2Model = NLDB0::getMux2();
+  ASSERT_NE(mux2Model, nullptr);
+  size_t mux2Count = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == mux2Model) {
+      ++mux2Count;
+    }
+  }
+  EXPECT_EQ(128u, mux2Count);
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseContinuousLHSElementSelectSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
@@ -2228,6 +2372,57 @@ endmodule
   EXPECT_EQ(1u, andGateCount);
   EXPECT_GE(orGateCount, 3u);
   EXPECT_EQ(1u, notGateCount);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseGateOperandCaseEqualitySupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "gate_operand_case_equality_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "gate_operand_case_equality_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module gate_operand_case_equality_supported(
+  input logic a,
+  input logic b,
+  input logic c,
+  output logic y
+);
+  assign y = a && (b === c);
+endmodule
+)";
+  svFile.close();
+
+  testing::internal::CaptureStdout();
+  constructor.construct(svPath);
+  const std::string stdoutOutput = testing::internal::GetCapturedStdout();
+  EXPECT_NE(
+    std::string::npos,
+    stdoutOutput.find("Case comparison operator '===' lowered as 2-state comparison in SNL"));
+
+  auto top = library_->getSNLDesign(NLName("gate_operand_case_equality_supported"));
+  ASSERT_NE(top, nullptr);
+
+  size_t andGateCount = 0;
+  size_t xnorGateCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (!NLDB0::isGate(inst->getModel())) {
+      continue;
+    }
+    const auto gateName = NLDB0::getGateName(inst->getModel());
+    if (gateName == "and") {
+      ++andGateCount;
+    } else if (gateName == "xnor") {
+      ++xnorGateCount;
+    }
+  }
+  EXPECT_EQ(1u, andGateCount);
+  EXPECT_EQ(1u, xnorGateCount);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseDirectAssignMismatchSkipped) {
