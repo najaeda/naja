@@ -1451,6 +1451,101 @@ class SNLSVConstructorImpl {
       return true;
     }
 
+    bool resolveGateOperandBits(
+      SNLDesign* design,
+      const Expression& expr,
+      size_t targetWidth,
+      std::vector<SNLBitNet*>& bits,
+      const std::optional<slang::SourceRange>& sourceRange = std::nullopt) {
+      const auto* stripped = stripConversions(expr);
+      if (!stripped) {
+        return false; // LCOV_EXCL_LINE
+      }
+      if (stripped->kind == slang::ast::ExpressionKind::UnaryOp) {
+        const auto& unary = stripped->as<slang::ast::UnaryExpression>();
+        if (unary.op == slang::ast::UnaryOperator::BitwiseNot) {
+          std::vector<SNLBitNet*> operandBits;
+          if (!resolveExpressionBits(design, unary.operand(), targetWidth, operandBits) ||
+              operandBits.size() != targetWidth) {
+            return false;
+          }
+
+          auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
+          auto* const1 = static_cast<SNLBitNet*>(getConstNet(design, true));
+          bits.clear();
+          bits.reserve(targetWidth);
+          for (auto* operandBit : operandBits) {
+            if (operandBit == const0) {
+              bits.push_back(const1);
+              continue;
+            }
+            if (operandBit == const1) {
+              bits.push_back(const0);
+              continue;
+            }
+            auto* notBit = SNLScalarNet::create(design);
+            annotateSourceInfo(notBit, sourceRange);
+            if (!createUnaryGate(
+                  design,
+                  NLDB0::GateType(NLDB0::GateType::Not),
+                  operandBit,
+                  notBit,
+                  sourceRange)) {
+              return false; // LCOV_EXCL_LINE
+            }
+            bits.push_back(notBit);
+          }
+          return true;
+        }
+      }
+
+      return resolveExpressionBits(design, *stripped, targetWidth, bits);
+    }
+
+    bool createBitwiseGateAssign(
+      SNLDesign* design,
+      const NLDB0::GateType& gateType,
+      const std::vector<const Expression*>& operands,
+      const std::vector<SNLBitNet*>& lhsBits,
+      const std::optional<slang::SourceRange>& sourceRange = std::nullopt) {
+      if (lhsBits.empty() || operands.empty()) {
+        return false; // LCOV_EXCL_LINE
+      }
+      const auto bitWidth = lhsBits.size();
+      std::vector<std::vector<SNLBitNet*>> operandBitsByOperand;
+      operandBitsByOperand.reserve(operands.size());
+      for (const auto* operand : operands) {
+        if (!operand) {
+          return false; // LCOV_EXCL_LINE
+        }
+        std::vector<SNLBitNet*> operandBits;
+        if (!resolveGateOperandBits(design, *operand, bitWidth, operandBits, sourceRange) ||
+            operandBits.size() != bitWidth) {
+          return false;
+        }
+        operandBitsByOperand.push_back(std::move(operandBits));
+      }
+
+      for (size_t bitIndex = 0; bitIndex < bitWidth; ++bitIndex) {
+        std::vector<SNLNet*> inputs;
+        inputs.reserve(operandBitsByOperand.size());
+        for (const auto& operandBits : operandBitsByOperand) {
+          inputs.push_back(operandBits[bitIndex]);
+        }
+        SNLNet* gateOut = lhsBits[bitIndex];
+        if (!createGateInstance(
+              design,
+              gateType,
+              inputs,
+              gateOut,
+              sourceRange) ||
+            !gateOut) {
+          return false; // LCOV_EXCL_LINE
+        }
+      }
+      return true;
+    }
+
     bool createAddAssign(
       SNLDesign* design,
       SNLNet* lhsNet,
@@ -3191,6 +3286,27 @@ class SNLSVConstructorImpl {
         }
 
         if (gateType && !operands.empty()) {
+          std::vector<SNLBitNet*> lhsGateBits;
+          if (lhsResolvedAsBitSlice) {
+            lhsGateBits = lhsBits;
+          } else if (lhsNet) {
+            lhsGateBits = collectBits(lhsNet);
+          }
+
+          if (lhsResolvedAsBitSlice || lhsGateBits.size() > 1) {
+            if (!createBitwiseGateAssign(
+                  design,
+                  *gateType,
+                  operands,
+                  lhsGateBits,
+                  assignSourceRange)) {
+              reportUnsupportedElement(
+                "Unsupported gate construction in continuous assign",
+                assignSourceRange);
+            }
+            continue;
+          }
+
           if (!dynamic_cast<SNLScalarNet*>(lhsNet)) {
             reportUnsupportedElement(
               "Unsupported LHS in continuous gate assign: expected scalar net",
@@ -3201,12 +3317,18 @@ class SNLSVConstructorImpl {
           inputNets.reserve(operands.size());
           bool ok = true;
           for (const auto* operand : operands) {
-            auto net = resolveExpressionNet(design, *operand);
-            if (!net) {
+            std::vector<SNLBitNet*> operandBits;
+            if (!resolveGateOperandBits(
+                  design,
+                  *operand,
+                  1,
+                  operandBits,
+                  assignSourceRange) ||
+                operandBits.size() != 1) {
               ok = false;
               break;
             }
-            inputNets.push_back(net);
+            inputNets.push_back(operandBits.front());
           }
           if (!ok) {
             reportUnsupportedElement(

@@ -1974,28 +1974,109 @@ TEST_F(SNLSVConstructorTestSimple, parseCompatibleNetNullLikeFallback) {
 TEST_F(SNLSVConstructorTestSimple, parseGateOnBusLHSIsSkipped) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
-  expectUnsupportedConstruct(
-    constructor,
-    benchmarksPath / "gate_lhs_bus_skip" / "gate_lhs_bus_skip.sv",
-    {"Unsupported LHS in continuous gate assign: expected scalar net"});
+  constructor.construct(benchmarksPath / "gate_lhs_bus_skip" / "gate_lhs_bus_skip.sv");
+
+  auto top = library_->getSNLDesign(NLName("gate_lhs_bus_skip_top"));
+  ASSERT_NE(top, nullptr);
+
+  size_t andGateCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (NLDB0::isGate(inst->getModel()) &&
+        NLDB0::getGateName(inst->getModel()) == "and") {
+      ++andGateCount;
+    }
+  }
+  EXPECT_EQ(2u, andGateCount);
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseGateOperandUnresolvedIsSkipped) {
+TEST_F(SNLSVConstructorTestSimple, parseGateOnBusLHSUnaryOperandSupported) {
   SNLSVConstructor constructor(library_);
-  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
-  expectUnsupportedConstruct(
-    constructor,
-    benchmarksPath / "gate_operand_unresolved_skip" / "gate_operand_unresolved_skip.sv",
-    {"Unsupported operand in continuous gate assign"});
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "gate_lhs_bus_unary_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "gate_lhs_bus_unary_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module gate_lhs_bus_unary_supported(
+  input logic [3:0] a,
+  input logic [3:0] b,
+  output logic [3:0] y
+);
+  assign y = a & ~b;
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("gate_lhs_bus_unary_supported"));
+  ASSERT_NE(top, nullptr);
+
+  size_t andGateCount = 0;
+  size_t notGateCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (!NLDB0::isGate(inst->getModel())) {
+      continue;
+    }
+    const auto gateName = NLDB0::getGateName(inst->getModel());
+    if (gateName == "and") {
+      ++andGateCount;
+    } else if (gateName == "not") {
+      ++notGateCount;
+    }
+  }
+  EXPECT_EQ(4u, andGateCount);
+  EXPECT_EQ(4u, notGateCount);
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseGateMixedBinaryTreeIsSkipped) {
+TEST_F(SNLSVConstructorTestSimple, parseGateOperandLiteralSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
-  expectUnsupportedConstruct(
-    constructor,
-    benchmarksPath / "gate_mixed_binary_tree_skip" / "gate_mixed_binary_tree_skip.sv",
-    {"Unsupported operand in continuous gate assign"});
+  constructor.construct(
+    benchmarksPath / "gate_operand_unresolved_skip" / "gate_operand_unresolved_skip.sv");
+
+  auto top = library_->getSNLDesign(NLName("gate_operand_unresolved_skip_top"));
+  ASSERT_NE(top, nullptr);
+
+  size_t andGateCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (NLDB0::isGate(inst->getModel()) &&
+        NLDB0::getGateName(inst->getModel()) == "and") {
+      ++andGateCount;
+    }
+  }
+  EXPECT_EQ(1u, andGateCount);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseGateMixedBinaryTreeSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
+  constructor.construct(
+    benchmarksPath / "gate_mixed_binary_tree_skip" / "gate_mixed_binary_tree_skip.sv");
+
+  auto top = library_->getSNLDesign(NLName("gate_mixed_binary_tree_skip"));
+  ASSERT_NE(top, nullptr);
+
+  size_t andGateCount = 0;
+  size_t orGateCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (!NLDB0::isGate(inst->getModel())) {
+      continue;
+    }
+    const auto gateName = NLDB0::getGateName(inst->getModel());
+    if (gateName == "and") {
+      ++andGateCount;
+    } else if (gateName == "or") {
+      ++orGateCount;
+    }
+  }
+  EXPECT_EQ(1u, andGateCount);
+  EXPECT_EQ(1u, orGateCount);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseDirectAssignMismatchSkipped) {
