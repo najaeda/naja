@@ -2128,6 +2128,108 @@ TEST_F(SNLSVConstructorTestSimple, parseGateMixedBinaryTreeSupported) {
   EXPECT_EQ(1u, orGateCount);
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseGateLogicalNotOperandTreeSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "gate_logical_not_operand_tree_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "gate_logical_not_operand_tree_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module gate_logical_not_operand_tree_supported(
+  input logic a,
+  input logic b,
+  input logic c,
+  input logic d,
+  output logic y
+);
+  assign y = (a && !b || c) && !d;
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("gate_logical_not_operand_tree_supported"));
+  ASSERT_NE(top, nullptr);
+
+  size_t andGateCount = 0;
+  size_t orGateCount = 0;
+  size_t notGateCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (!NLDB0::isGate(inst->getModel())) {
+      continue;
+    }
+    const auto gateName = NLDB0::getGateName(inst->getModel());
+    if (gateName == "and") {
+      ++andGateCount;
+    } else if (gateName == "or") {
+      ++orGateCount;
+    } else if (gateName == "not") {
+      ++notGateCount;
+    }
+  }
+  EXPECT_EQ(2u, andGateCount);
+  EXPECT_EQ(1u, orGateCount);
+  EXPECT_EQ(2u, notGateCount);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseGateReductionOrOperandTreeSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "gate_reduction_or_operand_tree_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "gate_reduction_or_operand_tree_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module gate_reduction_or_operand_tree_supported(
+  input logic a,
+  input logic b,
+  input logic [2:0] is_branch,
+  input logic [1:0] is_return,
+  output logic y
+);
+  assign y = (a || |is_branch || |is_return) && !b;
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("gate_reduction_or_operand_tree_supported"));
+  ASSERT_NE(top, nullptr);
+
+  size_t andGateCount = 0;
+  size_t orGateCount = 0;
+  size_t notGateCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (!NLDB0::isGate(inst->getModel())) {
+      continue;
+    }
+    const auto gateName = NLDB0::getGateName(inst->getModel());
+    if (gateName == "and") {
+      ++andGateCount;
+    } else if (gateName == "or") {
+      ++orGateCount;
+    } else if (gateName == "not") {
+      ++notGateCount;
+    }
+  }
+  EXPECT_EQ(1u, andGateCount);
+  EXPECT_GE(orGateCount, 3u);
+  EXPECT_EQ(1u, notGateCount);
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseDirectAssignMismatchSkipped) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);

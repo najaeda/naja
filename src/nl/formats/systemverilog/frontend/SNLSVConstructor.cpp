@@ -1308,6 +1308,267 @@ class SNLSVConstructorImpl {
         }
       } // LCOV_EXCL_LINE
 
+      if (stripped->kind == slang::ast::ExpressionKind::UnaryOp) {
+        const auto& unaryExpr = stripped->as<slang::ast::UnaryExpression>();
+        auto unarySourceRange = getSourceRange(*stripped);
+        auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
+        auto* const1 = static_cast<SNLBitNet*>(getConstNet(design, true));
+
+        if (unaryExpr.op == slang::ast::UnaryOperator::BitwiseNot) {
+          std::vector<SNLBitNet*> operandBits;
+          if (!resolveExpressionBits(design, unaryExpr.operand(), targetWidth, operandBits) ||
+              operandBits.size() != targetWidth) {
+            return false;
+          }
+          bits.clear();
+          bits.reserve(targetWidth);
+          for (auto* operandBit : operandBits) {
+            if (operandBit == const0) {
+              bits.push_back(const1);
+              continue;
+            }
+            if (operandBit == const1) {
+              bits.push_back(const0);
+              continue;
+            }
+            auto* notBit = SNLScalarNet::create(design);
+            annotateSourceInfo(notBit, unarySourceRange);
+            if (!createUnaryGate(
+                  design,
+                  NLDB0::GateType(NLDB0::GateType::Not),
+                  operandBit,
+                  notBit,
+                  unarySourceRange)) {
+              return false; // LCOV_EXCL_LINE
+            }
+            bits.push_back(notBit);
+          }
+          return true;
+        }
+
+        if (unaryExpr.op == slang::ast::UnaryOperator::BitwiseOr ||
+            unaryExpr.op == slang::ast::UnaryOperator::BitwiseAnd ||
+            unaryExpr.op == slang::ast::UnaryOperator::BitwiseXor ||
+            unaryExpr.op == slang::ast::UnaryOperator::BitwiseNor ||
+            unaryExpr.op == slang::ast::UnaryOperator::BitwiseNand ||
+            unaryExpr.op == slang::ast::UnaryOperator::BitwiseXnor) {
+          auto operandWidth = getIntegralExpressionBitWidth(unaryExpr.operand());
+          if (!operandWidth || !*operandWidth) {
+            return false;
+          }
+          std::vector<SNLBitNet*> operandBits;
+          if (!resolveExpressionBits(
+                design,
+                unaryExpr.operand(),
+                static_cast<size_t>(*operandWidth),
+                operandBits) ||
+              operandBits.empty()) {
+            return false;
+          }
+
+          SNLBitNet* reducedBit = nullptr;
+          const bool isOrReduction =
+            unaryExpr.op == slang::ast::UnaryOperator::BitwiseOr ||
+            unaryExpr.op == slang::ast::UnaryOperator::BitwiseNor;
+          const bool isAndReduction =
+            unaryExpr.op == slang::ast::UnaryOperator::BitwiseAnd ||
+            unaryExpr.op == slang::ast::UnaryOperator::BitwiseNand;
+
+          if (isOrReduction || isAndReduction) {
+            reducedBit = isOrReduction ? const0 : const1;
+            for (auto* operandBit : operandBits) {
+              if (operandBit == const0) {
+                if (isOrReduction) {
+                  continue;
+                }
+                reducedBit = const0;
+                break;
+              }
+              if (operandBit == const1) {
+                if (isAndReduction) {
+                  continue;
+                }
+                reducedBit = const1;
+                break;
+              }
+              if (reducedBit == const0 && isOrReduction) {
+                reducedBit = operandBit;
+                continue;
+              }
+              if (reducedBit == const1 && isAndReduction) {
+                reducedBit = operandBit;
+                continue;
+              }
+              auto* nextBit = SNLScalarNet::create(design);
+              annotateSourceInfo(nextBit, unarySourceRange);
+              if (!createBinaryGate(
+                    design,
+                    isOrReduction
+                      ? NLDB0::GateType(NLDB0::GateType::Or)
+                      : NLDB0::GateType(NLDB0::GateType::And),
+                    reducedBit,
+                    operandBit,
+                    nextBit,
+                    unarySourceRange)) {
+                return false; // LCOV_EXCL_LINE
+              }
+              reducedBit = nextBit;
+            }
+          } else {
+            reducedBit = const0;
+            for (auto* operandBit : operandBits) {
+              if (operandBit == const0) {
+                continue;
+              }
+              if (operandBit == const1) {
+                if (reducedBit == const0) {
+                  reducedBit = const1;
+                } else if (reducedBit == const1) {
+                  reducedBit = const0;
+                } else {
+                  auto* notBit = SNLScalarNet::create(design);
+                  annotateSourceInfo(notBit, unarySourceRange);
+                  if (!createUnaryGate(
+                        design,
+                        NLDB0::GateType(NLDB0::GateType::Not),
+                        reducedBit,
+                        notBit,
+                        unarySourceRange)) {
+                    return false; // LCOV_EXCL_LINE
+                  }
+                  reducedBit = notBit;
+                }
+                continue;
+              }
+              if (reducedBit == const0) {
+                reducedBit = operandBit;
+                continue;
+              }
+              if (reducedBit == const1) {
+                auto* notBit = SNLScalarNet::create(design);
+                annotateSourceInfo(notBit, unarySourceRange);
+                if (!createUnaryGate(
+                      design,
+                      NLDB0::GateType(NLDB0::GateType::Not),
+                      operandBit,
+                      notBit,
+                      unarySourceRange)) {
+                  return false; // LCOV_EXCL_LINE
+                }
+                reducedBit = notBit;
+                continue;
+              }
+              auto* nextBit = SNLScalarNet::create(design);
+              annotateSourceInfo(nextBit, unarySourceRange);
+              if (!createBinaryGate(
+                    design,
+                    NLDB0::GateType(NLDB0::GateType::Xor),
+                    reducedBit,
+                    operandBit,
+                    nextBit,
+                    unarySourceRange)) {
+                return false; // LCOV_EXCL_LINE
+              }
+              reducedBit = nextBit;
+            }
+          }
+
+          const bool invertReduction =
+            unaryExpr.op == slang::ast::UnaryOperator::BitwiseNor ||
+            unaryExpr.op == slang::ast::UnaryOperator::BitwiseNand ||
+            unaryExpr.op == slang::ast::UnaryOperator::BitwiseXnor;
+          if (invertReduction) {
+            if (reducedBit == const0) {
+              reducedBit = const1;
+            } else if (reducedBit == const1) {
+              reducedBit = const0;
+            } else {
+              auto* notBit = SNLScalarNet::create(design);
+              annotateSourceInfo(notBit, unarySourceRange);
+              if (!createUnaryGate(
+                    design,
+                    NLDB0::GateType(NLDB0::GateType::Not),
+                    reducedBit,
+                    notBit,
+                    unarySourceRange)) {
+                return false; // LCOV_EXCL_LINE
+              }
+              reducedBit = notBit;
+            }
+          }
+
+          bits.clear();
+          bits.push_back(reducedBit);
+          resizeBitsToWidth(bits, targetWidth, const0);
+          return true;
+        }
+
+        if (unaryExpr.op == slang::ast::UnaryOperator::LogicalNot) {
+          auto operandWidth = getIntegralExpressionBitWidth(unaryExpr.operand());
+          if (!operandWidth || !*operandWidth) {
+            return false;
+          }
+          std::vector<SNLBitNet*> operandBits;
+          if (!resolveExpressionBits(
+                design,
+                unaryExpr.operand(),
+                static_cast<size_t>(*operandWidth),
+                operandBits) ||
+              operandBits.empty()) {
+            return false;
+          }
+
+          SNLBitNet* reductionOr = const0;
+          for (auto* operandBit : operandBits) {
+            if (operandBit == const1) {
+              reductionOr = const1;
+              break;
+            }
+            if (operandBit == const0) {
+              continue;
+            }
+            if (reductionOr == const0) {
+              reductionOr = operandBit;
+              continue;
+            }
+            auto* nextOr = SNLScalarNet::create(design);
+            annotateSourceInfo(nextOr, unarySourceRange);
+            if (!createBinaryGate(
+                  design,
+                  NLDB0::GateType(NLDB0::GateType::Or),
+                  reductionOr,
+                  operandBit,
+                  nextOr,
+                  unarySourceRange)) {
+              return false; // LCOV_EXCL_LINE
+            }
+            reductionOr = nextOr;
+          }
+
+          bits.clear();
+          bits.reserve(1);
+          if (reductionOr == const0) {
+            bits.push_back(const1);
+          } else if (reductionOr == const1) {
+            bits.push_back(const0);
+          } else {
+            auto* notBit = SNLScalarNet::create(design);
+            annotateSourceInfo(notBit, unarySourceRange);
+            if (!createUnaryGate(
+                  design,
+                  NLDB0::GateType(NLDB0::GateType::Not),
+                  reductionOr,
+                  notBit,
+                  unarySourceRange)) {
+              return false; // LCOV_EXCL_LINE
+            }
+            bits.push_back(notBit);
+          }
+          resizeBitsToWidth(bits, targetWidth, const0);
+          return true;
+        }
+      }
+
       if (stripped->kind == slang::ast::ExpressionKind::ConditionalOp) {
         const auto& conditionalExpr = stripped->as<slang::ast::ConditionalExpression>();
         if (const auto* knownSide = conditionalExpr.knownSide()) {
@@ -1505,17 +1766,36 @@ class SNLSVConstructorImpl {
       const Expression& expr,
       size_t targetWidth,
       std::vector<SNLBitNet*>& bits,
-      const std::optional<slang::SourceRange>& sourceRange = std::nullopt) {
+      const std::optional<slang::SourceRange>& sourceRange = std::nullopt,
+      std::string* failureReason = nullptr) {
+      auto setFailureReason = [&](std::string reason) {
+        if (failureReason) {
+          *failureReason = std::move(reason);
+        }
+      };
       const auto* stripped = stripConversions(expr);
       if (!stripped) {
+        setFailureReason("stripConversions returned null");
         return false; // LCOV_EXCL_LINE
       }
       if (stripped->kind == slang::ast::ExpressionKind::UnaryOp) {
         const auto& unary = stripped->as<slang::ast::UnaryExpression>();
         if (unary.op == slang::ast::UnaryOperator::BitwiseNot) {
           std::vector<SNLBitNet*> operandBits;
-          if (!resolveExpressionBits(design, unary.operand(), targetWidth, operandBits) ||
-              operandBits.size() != targetWidth) {
+          if (!resolveExpressionBits(design, unary.operand(), targetWidth, operandBits)) {
+            std::ostringstream reason;
+            reason << "failed to resolve bitwise-not operand bits ("
+                   << describeExpression(unary.operand())
+                   << ", target_width=" << targetWidth << ")";
+            setFailureReason(reason.str());
+            return false;
+          }
+          if (operandBits.size() != targetWidth) {
+            std::ostringstream reason;
+            reason << "bitwise-not operand width mismatch: expected " << targetWidth
+                   << ", got " << operandBits.size()
+                   << " (" << describeExpression(unary.operand()) << ")";
+            setFailureReason(reason.str());
             return false;
           }
 
@@ -1540,6 +1820,10 @@ class SNLSVConstructorImpl {
                   operandBit,
                   notBit,
                   sourceRange)) {
+              std::ostringstream reason;
+              reason << "failed to create NOT gate for bitwise-not operand at bit "
+                     << bits.size();
+              setFailureReason(reason.str());
               return false; // LCOV_EXCL_LINE
             }
             bits.push_back(notBit);
@@ -1548,7 +1832,14 @@ class SNLSVConstructorImpl {
         }
       }
 
-      return resolveExpressionBits(design, *stripped, targetWidth, bits);
+      if (!resolveExpressionBits(design, *stripped, targetWidth, bits)) {
+        std::ostringstream reason;
+        reason << "failed to resolve operand bits (" << describeExpression(*stripped)
+               << ", target_width=" << targetWidth << ")";
+        setFailureReason(reason.str());
+        return false;
+      }
+      return true;
     }
 
     bool createBitwiseGateAssign(
@@ -1556,23 +1847,55 @@ class SNLSVConstructorImpl {
       const NLDB0::GateType& gateType,
       const std::vector<const Expression*>& operands,
       const std::vector<SNLBitNet*>& lhsBits,
-      const std::optional<slang::SourceRange>& sourceRange = std::nullopt) {
+      const std::optional<slang::SourceRange>& sourceRange = std::nullopt,
+      std::string* failureReason = nullptr) {
+      auto setFailureReason = [&](std::string reason) {
+        if (failureReason) {
+          *failureReason = std::move(reason);
+        }
+      };
       if (lhsBits.empty() || operands.empty()) {
+        setFailureReason("empty LHS bits or empty operand list");
         return false; // LCOV_EXCL_LINE
       }
       const auto bitWidth = lhsBits.size();
       std::vector<std::vector<SNLBitNet*>> operandBitsByOperand;
       operandBitsByOperand.reserve(operands.size());
+      size_t operandIndex = 0;
       for (const auto* operand : operands) {
         if (!operand) {
+          std::ostringstream reason;
+          reason << "operand#" << operandIndex << " is null";
+          setFailureReason(reason.str());
           return false; // LCOV_EXCL_LINE
         }
         std::vector<SNLBitNet*> operandBits;
-        if (!resolveGateOperandBits(design, *operand, bitWidth, operandBits, sourceRange) ||
-            operandBits.size() != bitWidth) {
+        std::string operandFailureReason;
+        if (!resolveGateOperandBits(
+              design,
+              *operand,
+              bitWidth,
+              operandBits,
+              sourceRange,
+              &operandFailureReason)) {
+          std::ostringstream reason;
+          reason << "operand#" << operandIndex << " (" << describeExpression(*operand) << ")";
+          if (!operandFailureReason.empty()) {
+            reason << ": " << operandFailureReason;
+          }
+          setFailureReason(reason.str());
+          return false;
+        }
+        if (operandBits.size() != bitWidth) {
+          std::ostringstream reason;
+          reason << "operand#" << operandIndex << " width mismatch: expected " << bitWidth
+                 << ", got " << operandBits.size()
+                 << " (" << describeExpression(*operand) << ")";
+          setFailureReason(reason.str());
           return false;
         }
         operandBitsByOperand.push_back(std::move(operandBits));
+        ++operandIndex;
       }
 
       for (size_t bitIndex = 0; bitIndex < bitWidth; ++bitIndex) {
@@ -1589,6 +1912,10 @@ class SNLSVConstructorImpl {
               gateOut,
               sourceRange) ||
             !gateOut) {
+          std::ostringstream reason;
+          reason << "failed to create gate '" << gateType.getString() << "' at bit "
+                 << bitIndex << " with " << inputs.size() << " inputs";
+          setFailureReason(reason.str());
           return false; // LCOV_EXCL_LINE
         }
       }
@@ -2157,6 +2484,78 @@ class SNLSVConstructorImpl {
         return std::string(valueExpr.symbol.name);
       }
       return {}; // LCOV_EXCL_LINE
+    }
+
+    std::string describeExpressionKind(slang::ast::ExpressionKind kind) const {
+      if (kind == slang::ast::ExpressionKind::UnaryOp) {
+        return "UnaryOp";
+      }
+      if (kind == slang::ast::ExpressionKind::BinaryOp) {
+        return "BinaryOp";
+      }
+      if (kind == slang::ast::ExpressionKind::ElementSelect) {
+        return "ElementSelect";
+      }
+      if (kind == slang::ast::ExpressionKind::RangeSelect) {
+        return "RangeSelect";
+      }
+      if (kind == slang::ast::ExpressionKind::MemberAccess) {
+        return "MemberAccess";
+      }
+      if (kind == slang::ast::ExpressionKind::Concatenation) {
+        return "Concatenation";
+      }
+      if (kind == slang::ast::ExpressionKind::ConditionalOp) {
+        return "ConditionalOp";
+      }
+      if (kind == slang::ast::ExpressionKind::IntegerLiteral) {
+        return "IntegerLiteral";
+      }
+      if (kind == slang::ast::ExpressionKind::UnbasedUnsizedIntegerLiteral) {
+        return "UnbasedUnsizedIntegerLiteral";
+      }
+      if (kind == slang::ast::ExpressionKind::Conversion) {
+        return "Conversion";
+      }
+      std::ostringstream fallback;
+      fallback << "kind#" << static_cast<int>(kind);
+      return fallback.str();
+    }
+
+    std::string describeUnaryOperator(slang::ast::UnaryOperator op) const {
+      if (op == slang::ast::UnaryOperator::BitwiseNot) {
+        return "~";
+      }
+      if (op == slang::ast::UnaryOperator::LogicalNot) {
+        return "!";
+      }
+      std::ostringstream fallback;
+      fallback << "op#" << static_cast<int>(op);
+      return fallback.str();
+    }
+
+    std::string describeExpression(const Expression& expr) const {
+      const auto* stripped = stripConversions(expr);
+      if (!stripped) {
+        return "expr=<null>"; // LCOV_EXCL_LINE
+      }
+      std::ostringstream description;
+      description << describeExpressionKind(stripped->kind);
+      if (stripped->kind == slang::ast::ExpressionKind::BinaryOp) {
+        const auto& binaryExpr = stripped->as<slang::ast::BinaryExpression>();
+        description << " op=" << slang::ast::OpInfo::getText(binaryExpr.op);
+      } else if (stripped->kind == slang::ast::ExpressionKind::UnaryOp) {
+        const auto& unaryExpr = stripped->as<slang::ast::UnaryExpression>();
+        description << " op=" << describeUnaryOperator(unaryExpr.op);
+      }
+      if (auto width = getIntegralExpressionBitWidth(*stripped)) {
+        description << " width=" << *width;
+      }
+      auto baseName = getExpressionBaseName(*stripped);
+      if (!baseName.empty()) {
+        description << " base=" << baseName;
+      }
+      return description.str();
     }
 
     std::string joinName(const std::string& prefix, const std::string& base) const {
@@ -3375,15 +3774,23 @@ class SNLSVConstructorImpl {
           }
 
           if (lhsResolvedAsBitSlice || lhsGateBits.size() > 1) {
+            std::string gateFailureReason;
             if (!createBitwiseGateAssign(
                   design,
                   *gateType,
                   operands,
                   lhsGateBits,
-                  assignSourceRange)) {
-              reportUnsupportedElement(
-                "Unsupported gate construction in continuous assign",
-                assignSourceRange);
+                  assignSourceRange,
+                  &gateFailureReason)) {
+              std::ostringstream reason;
+              reason << "Unsupported gate construction in continuous assign"
+                     << " (gate=" << gateType->getString()
+                     << ", lhs_width=" << lhsGateBits.size();
+              if (!gateFailureReason.empty()) {
+                reason << ", " << gateFailureReason;
+              }
+              reason << ")";
+              reportUnsupportedElement(reason.str(), assignSourceRange);
             }
             continue;
           }
@@ -3397,24 +3804,49 @@ class SNLSVConstructorImpl {
           std::vector<SNLNet*> inputNets;
           inputNets.reserve(operands.size());
           bool ok = true;
-          for (const auto* operand : operands) {
+          size_t failedOperandIndex = 0;
+          std::string failedOperandReason;
+          for (size_t operandIndex = 0; operandIndex < operands.size(); ++operandIndex) {
+            const auto* operand = operands[operandIndex];
             std::vector<SNLBitNet*> operandBits;
+            std::string operandFailureReason;
             if (!resolveGateOperandBits(
                   design,
                   *operand,
                   1,
                   operandBits,
-                  assignSourceRange) ||
-                operandBits.size() != 1) {
+                  assignSourceRange,
+                  &operandFailureReason)) {
+              failedOperandIndex = operandIndex;
+              if (operandFailureReason.empty()) {
+                failedOperandReason = describeExpression(*operand);
+              } else {
+                failedOperandReason = operandFailureReason;
+              }
+              ok = false;
+              break;
+            }
+            if (operandBits.size() != 1) {
+              std::ostringstream widthReason;
+              widthReason << "width mismatch: expected 1, got " << operandBits.size()
+                          << " (" << describeExpression(*operand) << ")";
+              failedOperandIndex = operandIndex;
+              failedOperandReason = widthReason.str();
               ok = false;
               break;
             }
             inputNets.push_back(operandBits.front());
           }
           if (!ok) {
-            reportUnsupportedElement(
-              "Unsupported operand in continuous gate assign",
-              assignSourceRange);
+            std::ostringstream reason;
+            reason << "Unsupported operand in continuous gate assign"
+                   << " (gate=" << gateType->getString()
+                   << ", operand#" << failedOperandIndex;
+            if (!failedOperandReason.empty()) {
+              reason << ", " << failedOperandReason;
+            }
+            reason << ")";
+            reportUnsupportedElement(reason.str(), assignSourceRange);
             continue;
           }
 
@@ -3441,9 +3873,13 @@ class SNLSVConstructorImpl {
                 gateOutNet,
                 assignSourceRange) ||
               !gateOutNet) {
-            reportUnsupportedElement(
-              "Unsupported gate construction in continuous assign",
-              assignSourceRange);
+            std::ostringstream reason;
+            reason << "Unsupported gate construction in continuous assign"
+                   << " (gate=" << gateType->getString()
+                   << ", input_count=" << inputNets.size()
+                   << ", output_name=" << gateOutName
+                   << ", reason=createGateInstance failed)";
+            reportUnsupportedElement(reason.str(), assignSourceRange);
             continue; // LCOV_EXCL_LINE
           }
           createAssignInstance(design, gateOutNet, lhsNet, assignSourceRange);
