@@ -1531,6 +1531,72 @@ TEST_F(SNLSVConstructorTestSimple, parseContinuousMultiplyZeroSupported) {
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseContinuousMultiplyRightConstOneBitShortcutSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "continuous_mul_right_const_one_bit_shortcut_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "continuous_mul_right_const_one_bit_shortcut_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module continuous_mul_right_const_one_bit_shortcut_supported_top(
+  input logic [3:0] a,
+  input logic [1:0] s,
+  output logic [3:0] y
+);
+  // Exercises rowEnableBit == const1 shortcut in createMultiplyAssign.
+  assign y = a * $signed({1'b1, s});
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("continuous_mul_right_const_one_bit_shortcut_supported_top"));
+  ASSERT_NE(top, nullptr);
+  auto y = top->getBusNet(NLName("y"));
+  ASSERT_NE(y, nullptr);
+  EXPECT_EQ(4, y->getWidth());
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseContinuousMultiplyLeftConstOneBitShortcutSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "continuous_mul_left_const_one_bit_shortcut_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "continuous_mul_left_const_one_bit_shortcut_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module continuous_mul_left_const_one_bit_shortcut_supported_top(
+  input logic [1:0] s,
+  input logic [3:0] b,
+  output logic [3:0] y
+);
+  // Exercises multiplicandBit == const1 shortcut in createMultiplyAssign.
+  assign y = $signed({1'b1, s}) * b;
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("continuous_mul_left_const_one_bit_shortcut_supported_top"));
+  ASSERT_NE(top, nullptr);
+  auto y = top->getBusNet(NLName("y"));
+  ASSERT_NE(y, nullptr);
+  EXPECT_EQ(4, y->getWidth());
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseContinuousSubSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
@@ -2704,6 +2770,58 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialRHSWideConstantSupported) {
 
   auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "seq_rhs_wide_const_supported");
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialRHSUint64ConstantBranchSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "seq_rhs_uint64_constant_branch_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "seq_rhs_uint64_constant_branch_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module seq_rhs_uint64_constant_branch_supported(
+  input  logic        clk,
+  input  logic        rst,
+  output logic [15:0] q
+);
+  // Exercises resolveConstantExpressionBits() branch that expands a uint64 literal.
+  always_ff @(posedge clk) begin
+    if (rst) begin
+      q <= 16'hA55A;
+    end else begin
+      q <= 16'h1357;
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("seq_rhs_uint64_constant_branch_supported"));
+  ASSERT_NE(top, nullptr);
+
+  auto dffModel = NLDB0::getDFF();
+  auto mux2Model = NLDB0::getMux2();
+  ASSERT_NE(dffModel, nullptr);
+  ASSERT_NE(mux2Model, nullptr);
+  size_t dffCount = 0;
+  size_t mux2Count = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dffModel) {
+      ++dffCount;
+    } else if (inst->getModel() == mux2Model) {
+      ++mux2Count;
+    }
+  }
+  EXPECT_EQ(16u, dffCount);
+  EXPECT_EQ(16u, mux2Count);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseSequentialRHSWideUnknownConstantLocalparamFallbackSupported) {
