@@ -1641,13 +1641,20 @@ class SNLSVConstructorImpl {
           return false;
         }
 
-        auto* selectBit = resolveConditionNet(
+        auto* selectBit = resolveCombinationalConditionNet(
           design,
-          *conditionalExpr.conditions.front().expr,
-          getExpressionBaseName(conditionalExpr.left()),
-          getSourceRange(*stripped));
+          *conditionalExpr.conditions.front().expr);
         if (!selectBit) {
           return false;
+        }
+
+        auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
+        auto* const1 = static_cast<SNLBitNet*>(getConstNet(design, true));
+        if (selectBit == const1) {
+          return resolveExpressionBits(design, conditionalExpr.left(), targetWidth, bits);
+        }
+        if (selectBit == const0) {
+          return resolveExpressionBits(design, conditionalExpr.right(), targetWidth, bits);
         }
 
         std::vector<SNLBitNet*> leftBits;
@@ -1710,6 +1717,68 @@ class SNLSVConstructorImpl {
             bits,
             targetWidth,
             static_cast<SNLBitNet*>(getConstNet(design, false)));
+          return true;
+        }
+        if (binaryExpr.op == slang::ast::BinaryOperator::Add ||
+            binaryExpr.op == slang::ast::BinaryOperator::Subtract) {
+          std::vector<SNLBitNet*> leftBits;
+          std::vector<SNLBitNet*> rightBits;
+          if (!resolveExpressionBits(design, binaryExpr.left(), targetWidth, leftBits) ||
+              !resolveExpressionBits(design, binaryExpr.right(), targetWidth, rightBits)) {
+            return false;
+          }
+          bits.clear();
+          bits.reserve(targetWidth);
+          auto binarySourceRange = getSourceRange(*stripped);
+          if (binaryExpr.op == slang::ast::BinaryOperator::Add) {
+            return addBitVectors(design, leftBits, rightBits, bits, binarySourceRange);
+          }
+
+          auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
+          auto* const1 = static_cast<SNLBitNet*>(getConstNet(design, true));
+          std::vector<SNLBitNet*> invertedRightBits;
+          invertedRightBits.reserve(rightBits.size());
+          for (auto* rightBit : rightBits) {
+            if (rightBit == const0) {
+              invertedRightBits.push_back(const1);
+              continue;
+            }
+            if (rightBit == const1) {
+              invertedRightBits.push_back(const0);
+              continue;
+            }
+            auto* invertedBit = SNLScalarNet::create(design);
+            annotateSourceInfo(invertedBit, binarySourceRange);
+            if (!createUnaryGate(
+                  design,
+                  NLDB0::GateType(NLDB0::GateType::Not),
+                  rightBit,
+                  invertedBit,
+                  binarySourceRange)) {
+              return false; // LCOV_EXCL_LINE
+            }
+            invertedRightBits.push_back(invertedBit);
+          }
+
+          auto* carry = const1;
+          for (size_t bitIndex = 0; bitIndex < targetWidth; ++bitIndex) {
+            auto* diffBit = SNLScalarNet::create(design);
+            auto* carryOut = SNLScalarNet::create(design);
+            annotateSourceInfo(diffBit, binarySourceRange);
+            annotateSourceInfo(carryOut, binarySourceRange);
+            if (!createFAInstance(
+                  design,
+                  leftBits[bitIndex],
+                  invertedRightBits[bitIndex],
+                  carry,
+                  diffBit,
+                  carryOut,
+                  binarySourceRange)) {
+              return false; // LCOV_EXCL_LINE
+            }
+            bits.push_back(diffBit);
+            carry = carryOut;
+          }
           return true;
         }
 
@@ -1792,30 +1861,158 @@ class SNLSVConstructorImpl {
             auto valueNet = resolveExpressionNet(design, *valueExpr);
             auto valueBits = collectBits(valueNet);
             if (!valueBits.empty()) {
-              const auto* elementType = valueType.getArrayElementType();
-              if (elementType) {
-                auto elementRange = getRangeFromType(*elementType);
-                const auto elementWidth = elementRange ? static_cast<size_t>(elementRange->width()) : 1u;
-                int32_t selectedIndex = 0;
-                const auto indexOk = elementWidth > 0 &&
-                  getConstantInt32(elementExpr.selector(), selectedIndex);
-                if (indexOk) {
-                  const auto translated = valueType.getFixedRange().translateIndex(selectedIndex);
-                  if (translated >= 0 &&
-                      translated < static_cast<int32_t>(valueType.getFixedRange().width())) {
-                    const auto offset = static_cast<size_t>(translated) * elementWidth;
-                    if (offset + elementWidth <= valueBits.size()) {
-                      bits.assign(
-                        valueBits.begin() + static_cast<std::ptrdiff_t>(offset),
-                        valueBits.begin() + static_cast<std::ptrdiff_t>(offset + elementWidth));
-                      resizeBitsToWidth(
-                        bits,
-                        targetWidth,
-                        static_cast<SNLBitNet*>(getConstNet(design, false)));
-                      return true;
-                    }
-                  } // LCOV_EXCL_LINE
+              size_t elementWidth = 0;
+              if (auto selectedWidth = getIntegralExpressionBitWidth(*stripped)) {
+                elementWidth = *selectedWidth;
+              } else if (const auto* elementType = valueType.getArrayElementType()) {
+                if (auto elementRange = getRangeFromType(*elementType)) {
+                  elementWidth = static_cast<size_t>(elementRange->width());
+                }
+              }
+              if (!elementWidth) {
+                const auto arrayWidth = static_cast<size_t>(valueType.getFixedRange().width());
+                if (arrayWidth > 0 && (valueBits.size() % arrayWidth) == 0) {
+                  elementWidth = valueBits.size() / arrayWidth;
+                }
+              }
+
+              int32_t selectedIndex = 0;
+              const auto indexOk = elementWidth > 0 &&
+                getConstantInt32(elementExpr.selector(), selectedIndex);
+              if (indexOk) {
+                const auto translated = valueType.getFixedRange().translateIndex(selectedIndex);
+                if (translated >= 0 &&
+                    translated < static_cast<int32_t>(valueType.getFixedRange().width())) {
+                  const auto offset = static_cast<size_t>(translated) * elementWidth;
+                  if (offset + elementWidth <= valueBits.size()) {
+                    bits.assign(
+                      valueBits.begin() + static_cast<std::ptrdiff_t>(offset),
+                      valueBits.begin() + static_cast<std::ptrdiff_t>(offset + elementWidth));
+                    resizeBitsToWidth(
+                      bits,
+                      targetWidth,
+                      static_cast<SNLBitNet*>(getConstNet(design, false)));
+                    return true;
+                  }
                 } // LCOV_EXCL_LINE
+              } // LCOV_EXCL_LINE
+              if (elementWidth > 0 &&
+                  valueBits.size() >=
+                    elementWidth * static_cast<size_t>(valueType.getFixedRange().width())) {
+                auto selectorWidth = getIntegralExpressionBitWidth(elementExpr.selector());
+                if (selectorWidth && *selectorWidth > 0) {
+                  std::vector<SNLBitNet*> selectorBits;
+                  if (resolveExpressionBits(
+                        design,
+                        elementExpr.selector(),
+                        static_cast<size_t>(*selectorWidth),
+                        selectorBits) &&
+                      selectorBits.size() == static_cast<size_t>(*selectorWidth)) {
+                    auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
+                    auto* const1 = static_cast<SNLBitNet*>(getConstNet(design, true));
+                    auto elementSourceRange = getSourceRange(*stripped);
+
+                    std::vector<SNLBitNet*> selectedBits(elementWidth, const0);
+                    int32_t index = valueType.getFixedRange().right;
+                    const int32_t end = valueType.getFixedRange().left;
+                    const int32_t step = index <= end ? 1 : -1;
+                    while (index != end + step) {
+                      const auto translated = valueType.getFixedRange().translateIndex(index);
+                      if (translated >= 0 &&
+                          translated < static_cast<int32_t>(valueType.getFixedRange().width())) {
+                        const auto offset = static_cast<size_t>(translated) * elementWidth;
+                        if (offset + elementWidth > valueBits.size()) {
+                          return false; // LCOV_EXCL_LINE
+                        }
+
+                        SNLBitNet* equalsIndexBit = const1;
+                        for (size_t bitIndex = 0; bitIndex < selectorBits.size(); ++bitIndex) {
+                          const bool indexOne =
+                            ((static_cast<uint64_t>(static_cast<uint32_t>(index)) >> bitIndex) &
+                             1ULL) != 0ULL;
+                          auto* selectorBit = selectorBits[bitIndex];
+                          auto* expectedBit = indexOne ? const1 : const0;
+
+                          SNLBitNet* bitEquals = nullptr;
+                          if (selectorBit == expectedBit) {
+                            bitEquals = const1;
+                          } else if (selectorBit == (indexOne ? const0 : const1)) {
+                            bitEquals = const0;
+                          } else {
+                            auto* xnorBit = SNLScalarNet::create(design);
+                            annotateSourceInfo(xnorBit, elementSourceRange);
+                            bitEquals = getSingleBitNet(createBinaryGate(
+                              design,
+                              NLDB0::GateType(NLDB0::GateType::Xnor),
+                              selectorBit,
+                              expectedBit,
+                              xnorBit,
+                              elementSourceRange));
+                            if (!bitEquals) {
+                              return false; // LCOV_EXCL_LINE
+                            }
+                          }
+
+                          if (equalsIndexBit == const0 || bitEquals == const0) {
+                            equalsIndexBit = const0;
+                            break;
+                          }
+                          if (equalsIndexBit == const1) {
+                            equalsIndexBit = bitEquals;
+                            continue;
+                          }
+                          if (bitEquals == const1) {
+                            continue;
+                          }
+
+                          auto* andBit = SNLScalarNet::create(design);
+                          annotateSourceInfo(andBit, elementSourceRange);
+                          equalsIndexBit = getSingleBitNet(createBinaryGate(
+                            design,
+                            NLDB0::GateType(NLDB0::GateType::And),
+                            equalsIndexBit,
+                            bitEquals,
+                            andBit,
+                            elementSourceRange));
+                          if (!equalsIndexBit) {
+                            return false; // LCOV_EXCL_LINE
+                          }
+                        }
+
+                        if (equalsIndexBit == const0) {
+                          index += step;
+                          continue;
+                        }
+
+                        for (size_t elemBit = 0; elemBit < elementWidth; ++elemBit) {
+                          auto* candidateBit = valueBits[offset + elemBit];
+                          if (equalsIndexBit == const1) {
+                            selectedBits[elemBit] = candidateBit;
+                            continue;
+                          }
+                          if (selectedBits[elemBit] == candidateBit) {
+                            continue;
+                          }
+                          auto* outBit = SNLScalarNet::create(design);
+                          annotateSourceInfo(outBit, elementSourceRange);
+                          createMux2Instance(
+                            design,
+                            equalsIndexBit,
+                            selectedBits[elemBit],
+                            candidateBit,
+                            outBit,
+                            elementSourceRange);
+                          selectedBits[elemBit] = outBit;
+                        }
+                      }
+                      index += step;
+                    }
+
+                    bits = std::move(selectedBits);
+                    resizeBitsToWidth(bits, targetWidth, const0);
+                    return true;
+                  }
+                }
               }
             }
           }
@@ -3482,6 +3679,18 @@ class SNLSVConstructorImpl {
                << describeExpression(lhsExpr);
         setFailureReason(reason.str());
         return false;
+      }
+
+      if (strippedLHS->kind == slang::ast::ExpressionKind::ElementSelect) {
+        const auto& lhsElementExpr = strippedLHS->as<slang::ast::ElementSelectExpression>();
+        int32_t selectedIndex = 0;
+        if (!getConstantInt32(lhsElementExpr.selector(), selectedIndex)) {
+          std::ostringstream reason;
+          reason << "unsupported dynamic index in always_comb assignment LHS: "
+                 << describeExpression(lhsExpr);
+          setFailureReason(reason.str());
+          return false;
+        }
       }
 
       auto lhsWidth = getIntegralExpressionBitWidth(lhsExpr);

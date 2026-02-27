@@ -2555,6 +2555,160 @@ TEST_F(SNLSVConstructorTestSimple, parseAlwaysCombSupported) {
   EXPECT_EQ(1u, andGateCount);
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseAlwaysCombConditionSubtractSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_condition_subtract_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "always_comb_condition_subtract_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_condition_subtract_supported(
+  input  logic [3:0] a,
+  input  logic [3:0] b,
+  output logic       y
+);
+  always_comb begin
+    y = 1'b0;
+    if (a == (b - 4'd1)) begin
+      y = 1'b1;
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("always_comb_condition_subtract_supported"));
+  ASSERT_NE(top, nullptr);
+
+  size_t faCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (NLDB0::isFA(inst->getModel())) {
+      ++faCount;
+    }
+  }
+  EXPECT_GT(faCount, 0u);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseAlwaysCombRHSConditionalParamEqSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_rhs_conditional_param_eq_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "always_comb_rhs_conditional_param_eq_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_rhs_conditional_param_eq_supported #(
+  parameter int unsigned DEPTH = 4
+) (
+  input  logic [63:0] a,
+  input  logic [63:0] b,
+  output logic [63:0] y
+);
+  always_comb begin
+    y = (DEPTH == 0) ? a : b;
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("always_comb_rhs_conditional_param_eq_supported"));
+  ASSERT_NE(top, nullptr);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseAlwaysCombRHSConditionalUnpackedDynamicSelectSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_rhs_conditional_unpacked_dynamic_select_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "always_comb_rhs_conditional_unpacked_dynamic_select_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_rhs_conditional_unpacked_dynamic_select_supported(
+  input  logic [63:0] in0,
+  input  logic [63:0] in1,
+  input  logic        idx,
+  input  logic        sel,
+  output logic [63:0] y
+);
+  logic [63:0] mem [0:1];
+  always_comb begin
+    mem[0] = in0;
+    mem[1] = in1;
+    y = sel ? mem[idx] : in0;
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top =
+    library_->getSNLDesign(NLName("always_comb_rhs_conditional_unpacked_dynamic_select_supported"));
+  ASSERT_NE(top, nullptr);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseAlwaysCombRHSConditionalUnpackedDynamicSelectTypeParamSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath =
+    outPath / "always_comb_rhs_conditional_unpacked_dynamic_select_type_param_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "always_comb_rhs_conditional_unpacked_dynamic_select_type_param_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_rhs_conditional_unpacked_dynamic_select_type_param_supported #(
+  parameter int unsigned DATA_WIDTH = 32,
+  parameter int unsigned DEPTH = 8,
+  parameter type dtype = logic [DATA_WIDTH-1:0],
+  parameter int unsigned ADDR_DEPTH = (DEPTH > 1) ? $clog2(DEPTH) : 1
+) (
+  input  dtype                     data_i,
+  input  logic [ADDR_DEPTH-1:0]    read_pointer_q,
+  output dtype                     data_o
+);
+  dtype [((DEPTH > 0) ? DEPTH : 1) - 1:0] mem_q;
+  always_comb begin
+    data_o = (DEPTH == 0) ? data_i : mem_q[read_pointer_q];
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName(
+    "always_comb_rhs_conditional_unpacked_dynamic_select_type_param_supported"));
+  ASSERT_NE(top, nullptr);
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseAlwaysNoTimingNoClkSkipped) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
