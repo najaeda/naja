@@ -782,6 +782,7 @@ class SNLSVConstructorImpl {
     }
 
     void createNets(SNLDesign* design, const InstanceBodySymbol& body) {
+      const auto moduleName = design->getName().getString();
       for (const auto& sym : body.members()) {
         if (sym.kind == SymbolKind::Net || sym.kind == SymbolKind::Variable) {
           const auto& valueSym = sym.as<ValueSymbol>();
@@ -795,13 +796,13 @@ class SNLSVConstructorImpl {
           }
           if (auto unsupportedTypeReason = getUnsupportedTypeReason(valueSym.getType())) {
             const auto& canonical = valueSym.getType().getCanonicalType();
-            // Ignore simulation-only dynamically sized unpacked variables
-            // (queues, dynamic arrays, associative arrays) at net creation time.
-            if (canonical.isUnpackedArray() && !canonical.hasFixedRange()) {
-              continue;
-            }
+            // Dynamically sized unpacked variables are currently not representable in SNL.
             std::ostringstream reason;
             reason << *unsupportedTypeReason << " for net/variable: " << name;
+            if (canonical.isUnpackedArray() && !canonical.hasFixedRange()) {
+              reason << " (dynamic unpacked array/queue/associative array)";
+            }
+            reason << " in module '" << moduleName << "'";
             reportUnsupportedElement(reason.str(), getSourceRange(valueSym));
             continue;
           }
@@ -2888,6 +2889,10 @@ class SNLSVConstructorImpl {
             joinName("en", baseName),
             enableSourceRange);
           if (!enableNet) {
+            std::ostringstream reason;
+            reason << "Unsupported sequential block in module '" << moduleName
+                   << "': unable to resolve enable condition net";
+            reportUnsupportedElement(reason.str(), enableSourceRange);
             continue;
           }
           auto enNet = getOrCreateNamedNet(
@@ -2897,6 +2902,10 @@ class SNLSVConstructorImpl {
             enableSourceRange);
           auto enBits = collectBits(enNet);
           if (enBits.size() != dataBits.size()) {
+            std::ostringstream reason;
+            reason << "Unsupported sequential block in module '" << moduleName
+                   << "': enable mux width mismatch";
+            reportUnsupportedElement(reason.str(), enableSourceRange);
             continue; // LCOV_EXCL_LINE
           }
           for (size_t i = 0; i < dataBits.size(); ++i) {
@@ -2937,6 +2946,10 @@ class SNLSVConstructorImpl {
             joinName("rst", baseName),
             resetSourceRange);
           if (!resetNet) {
+            std::ostringstream reason;
+            reason << "Unsupported sequential block in module '" << moduleName
+                   << "': unable to resolve reset condition net";
+            reportUnsupportedElement(reason.str(), resetSourceRange);
             continue;
           }
           auto rstNet = getOrCreateNamedNet(
@@ -2946,6 +2959,10 @@ class SNLSVConstructorImpl {
             resetSourceRange);
           auto rstBits = collectBits(rstNet);
           if (rstBits.size() != dataBits.size()) {
+            std::ostringstream reason;
+            reason << "Unsupported sequential block in module '" << moduleName
+                   << "': reset mux width mismatch";
+            reportUnsupportedElement(reason.str(), resetSourceRange);
             continue; // LCOV_EXCL_LINE
           }
           for (size_t i = 0; i < dataBits.size(); ++i) {
@@ -2977,6 +2994,7 @@ class SNLSVConstructorImpl {
     }
 
     void createContinuousAssigns(SNLDesign* design, const InstanceBodySymbol& body) {
+      const auto moduleName = design->getName().getString();
       for (const auto& sym : body.members()) {
         if (sym.kind != SymbolKind::ContinuousAssign) {
           continue;
@@ -2984,18 +3002,27 @@ class SNLSVConstructorImpl {
         const auto& continuousAssign = sym.as<slang::ast::ContinuousAssignSymbol>();
         const auto& assignment = continuousAssign.getAssignment();
         if (assignment.kind != slang::ast::ExpressionKind::Assignment) {
-          continue; // LCOV_EXCL_LINE
+          reportUnsupportedElement(
+            "Unsupported continuous assignment form (expected assignment expression)",
+            getSourceRange(continuousAssign));
+          continue;
         }
         const auto& assignExpr = assignment.as<slang::ast::AssignmentExpression>();
         auto assignSourceRange = getSourceRange(assignExpr);
         auto lhsNet = resolveExpressionNet(design, assignExpr.left());
         if (!lhsNet) {
+          std::ostringstream reason;
+          reason << "Unsupported LHS in continuous assign in module '" << moduleName << "'";
+          reportUnsupportedElement(reason.str(), assignSourceRange);
           continue;
         }
 
         const auto* rhs = stripConversions(assignExpr.right());
         if (!rhs) {
-          continue; // LCOV_EXCL_LINE
+          std::ostringstream reason;
+          reason << "Unsupported RHS in continuous assign in module '" << moduleName << "'";
+          reportUnsupportedElement(reason.str(), assignSourceRange);
+          continue;
         }
 
         std::optional<NLDB0::GateType> gateType;
@@ -3009,6 +3036,9 @@ class SNLSVConstructorImpl {
                   binaryExpr.left(),
                   binaryExpr.right(),
                   assignSourceRange)) {
+              reportUnsupportedElement(
+                "Unsupported binary expression in continuous assign: >>",
+                assignSourceRange);
               continue;
             }
             continue;
@@ -3138,6 +3168,9 @@ class SNLSVConstructorImpl {
 
         if (gateType && !operands.empty()) {
           if (!dynamic_cast<SNLScalarNet*>(lhsNet)) {
+            reportUnsupportedElement(
+              "Unsupported LHS in continuous gate assign: expected scalar net",
+              assignSourceRange);
             continue;
           }
           std::vector<SNLNet*> inputNets;
@@ -3152,6 +3185,9 @@ class SNLSVConstructorImpl {
             inputNets.push_back(net);
           }
           if (!ok) {
+            reportUnsupportedElement(
+              "Unsupported operand in continuous gate assign",
+              assignSourceRange);
             continue;
           }
 
@@ -3178,6 +3214,9 @@ class SNLSVConstructorImpl {
                 gateOutNet,
                 assignSourceRange) ||
               !gateOutNet) {
+            reportUnsupportedElement(
+              "Unsupported gate construction in continuous assign",
+              assignSourceRange);
             continue; // LCOV_EXCL_LINE
           }
           createAssignInstance(design, gateOutNet, lhsNet, assignSourceRange);
@@ -3186,9 +3225,16 @@ class SNLSVConstructorImpl {
 
         auto rhsNet = resolveExpressionNet(design, *rhs);
         if (!rhsNet) {
+          std::ostringstream reason;
+          reason << "Unsupported RHS in continuous assign in module '" << moduleName << "'";
+          reportUnsupportedElement(reason.str(), assignSourceRange);
           continue;
         }
-        createDirectAssign(design, rhsNet, lhsNet, assignSourceRange);
+        if (!createDirectAssign(design, rhsNet, lhsNet, assignSourceRange)) {
+          reportUnsupportedElement(
+            "Unsupported net compatibility in continuous assign",
+            assignSourceRange);
+        }
       }
     }
 
@@ -3240,6 +3286,10 @@ class SNLSVConstructorImpl {
         }
         auto term = model->getTerm(NLName(portName));
         if (!term) {
+          std::ostringstream reason;
+          reason << "Unsupported instance connection: missing term '" << portName
+                 << "' on model '" << model->getName().getString() << "'";
+          reportUnsupportedElement(reason.str(), getSourceRange(instance));
           continue; // LCOV_EXCL_LINE
         }
         const Expression* expr = conn->getExpression();
@@ -3248,6 +3298,10 @@ class SNLSVConstructorImpl {
         }
         auto net = resolveExpressionNet(inst->getDesign(), *expr);
         if (!net) {
+          std::ostringstream reason;
+          reason << "Unsupported instance connection expression for port '" << portName
+                 << "' on instance '" << inst->getName().getString() << "'";
+          reportUnsupportedElement(reason.str(), getSourceRange(*expr));
           continue;
         }
         if (auto scalarTerm = dynamic_cast<SNLScalarTerm*>(term)) {
@@ -3260,6 +3314,10 @@ class SNLSVConstructorImpl {
         auto busTerm = dynamic_cast<SNLBusTerm*>(term);
         auto busNet = dynamic_cast<SNLBusNet*>(net);
         if (!busTerm || !busNet) {
+          std::ostringstream reason;
+          reason << "Unsupported instance connection net/term compatibility for port '"
+                 << portName << "' on instance '" << inst->getName().getString() << "'";
+          reportUnsupportedElement(reason.str(), getSourceRange(*expr));
           continue;
         }
         auto termBit = busTerm->getMSB();
