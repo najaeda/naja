@@ -3105,6 +3105,493 @@ class SNLSVConstructorImpl {
       return true;
     }
 
+    bool needsIncrementerForAction(
+      SNLDesign* design,
+      SNLNet* lhsNet,
+      const AssignAction& action) {
+      if (action.increment) {
+        return true;
+      }
+      if (!action.rhs) {
+        return false;
+      }
+      const auto* rhsExpr = stripConversions(*action.rhs);
+      if (!rhsExpr || rhsExpr->kind != slang::ast::ExpressionKind::BinaryOp) {
+        return false;
+      }
+      const auto& bin = rhsExpr->as<slang::ast::BinaryExpression>();
+      if (bin.op != slang::ast::BinaryOperator::Add) {
+        return false;
+      }
+      auto leftNet = resolveExpressionNet(design, bin.left());
+      auto rightNet = resolveExpressionNet(design, bin.right());
+      const auto* leftExpr = stripConversions(bin.left());
+      const auto* rightExpr = stripConversions(bin.right());
+      bool constOne = false;
+      if (leftNet == lhsNet && rightExpr && getConstantBit(*rightExpr, constOne) && constOne) {
+        return true;
+      }
+      if (rightNet == lhsNet && leftExpr && getConstantBit(*leftExpr, constOne) && constOne) {
+        return true;
+      }
+      return false;
+    }
+
+    bool collectDirectAssignments(
+      const Statement& stmt,
+      std::vector<std::pair<const Expression*, AssignAction>>& assignments,
+      std::string* failureReason = nullptr) const {
+      auto setFailureReason = [&](std::string reason) {
+        if (failureReason) {
+          *failureReason = std::move(reason);
+        }
+      };
+
+      const Statement* current = unwrapStatement(stmt);
+      if (!current) {
+        return true;
+      }
+      if (isIgnorableSequentialTimingStatement(*current)) {
+        return true;
+      }
+      if (current->kind == slang::ast::StatementKind::Block) {
+        return collectDirectAssignments(
+          current->as<slang::ast::BlockStatement>().body,
+          assignments,
+          failureReason);
+      }
+      if (current->kind == slang::ast::StatementKind::List) {
+        const auto& list = current->as<slang::ast::StatementList>().list;
+        for (const auto* item : list) {
+          if (!item) {
+            continue; // LCOV_EXCL_LINE
+          }
+          if (!collectDirectAssignments(*item, assignments, failureReason)) {
+            return false;
+          }
+        }
+        return true;
+      }
+
+      const Expression* lhs = nullptr;
+      AssignAction action;
+      if (extractAssignment(*current, lhs, action)) {
+        assignments.emplace_back(lhs, action);
+        return true;
+      }
+
+      std::ostringstream reason;
+      reason << "expected direct assignment statement in reset branch (kind="
+             << current->kind << ")";
+      setFailureReason(reason.str());
+      return false;
+    }
+
+    bool applySequentialStatementForLhs(
+      SNLDesign* design,
+      const Statement& stmt,
+      const Expression& lhsExpr,
+      SNLNet* lhsNet,
+      const std::vector<SNLBitNet*>& lhsBits,
+      const std::string& baseName,
+      std::vector<SNLBitNet*>& dataBits,
+      std::vector<SNLBitNet*>& incrementerBits,
+      size_t& tempIndex,
+      std::string& failureReason) {
+      const Statement* current = unwrapStatement(stmt);
+      if (!current) {
+        return true;
+      }
+      if (isIgnorableSequentialTimingStatement(*current)) {
+        return true;
+      }
+
+      if (current->kind == slang::ast::StatementKind::Block) {
+        return applySequentialStatementForLhs(
+          design,
+          current->as<slang::ast::BlockStatement>().body,
+          lhsExpr,
+          lhsNet,
+          lhsBits,
+          baseName,
+          dataBits,
+          incrementerBits,
+          tempIndex,
+          failureReason);
+      }
+
+      if (current->kind == slang::ast::StatementKind::List) {
+        const auto& list = current->as<slang::ast::StatementList>().list;
+        for (const auto* item : list) {
+          if (!item) {
+            continue; // LCOV_EXCL_LINE
+          }
+          if (!applySequentialStatementForLhs(
+                design,
+                *item,
+                lhsExpr,
+                lhsNet,
+                lhsBits,
+                baseName,
+                dataBits,
+                incrementerBits,
+                tempIndex,
+                failureReason)) {
+            return false;
+          }
+        }
+        return true;
+      }
+
+      if (current->kind == slang::ast::StatementKind::Conditional) {
+        const auto& condStmt = current->as<slang::ast::ConditionalStatement>();
+        if (condStmt.conditions.size() != 1) {
+          std::ostringstream reason;
+          reason << "unsupported conditional statement while lowering sequential block"
+                 << " (conditions=" << condStmt.conditions.size() << ")";
+          failureReason = reason.str();
+          return false;
+        }
+
+        std::vector<SNLBitNet*> trueBits = dataBits;
+        if (!applySequentialStatementForLhs(
+              design,
+              condStmt.ifTrue,
+              lhsExpr,
+              lhsNet,
+              lhsBits,
+              baseName,
+              trueBits,
+              incrementerBits,
+              tempIndex,
+              failureReason)) {
+          return false;
+        }
+
+        std::vector<SNLBitNet*> falseBits = dataBits;
+        if (condStmt.ifFalse) {
+          if (!applySequentialStatementForLhs(
+                design,
+                *condStmt.ifFalse,
+                lhsExpr,
+                lhsNet,
+                lhsBits,
+                baseName,
+                falseBits,
+                incrementerBits,
+                tempIndex,
+                failureReason)) {
+            return false;
+          }
+        }
+
+        if (trueBits.size() != lhsBits.size() || falseBits.size() != lhsBits.size()) {
+          failureReason = "width mismatch while lowering conditional statement";
+          return false;
+        }
+        auto condSourceRange = getSourceRange(condStmt);
+        auto condBaseName = joinName("cond" + std::to_string(tempIndex++), baseName);
+        auto* condNet = resolveConditionNet(
+          design,
+          *condStmt.conditions[0].expr,
+          condBaseName,
+          condSourceRange);
+        if (!condNet) {
+          std::ostringstream reason;
+          reason << "unable to resolve single-bit condition net while lowering conditional"
+                 << " (" << describeExpression(*condStmt.conditions[0].expr) << ")";
+          failureReason = reason.str();
+          return false;
+        }
+
+        std::vector<SNLBitNet*> mergedBits;
+        mergedBits.reserve(lhsBits.size());
+        for (size_t i = 0; i < lhsBits.size(); ++i) {
+          auto* outBit = SNLScalarNet::create(design);
+          annotateSourceInfo(outBit, condSourceRange);
+          createMux2Instance(
+            design,
+            condNet,
+            falseBits[i],
+            trueBits[i],
+            outBit,
+            condSourceRange);
+          mergedBits.push_back(outBit);
+        }
+        dataBits = std::move(mergedBits);
+        return true;
+      }
+
+      const Expression* assignedLHS = nullptr;
+      AssignAction action;
+      if (extractAssignment(*current, assignedLHS, action)) {
+        if (!sameLhs(assignedLHS, &lhsExpr)) {
+          return true;
+        }
+        auto statementSourceRange = getSourceRange(*current);
+        if (needsIncrementerForAction(design, lhsNet, action) && incrementerBits.empty()) {
+          auto incNet = getOrCreateNamedNet(
+            design,
+            joinName("inc", baseName),
+            lhsNet,
+            statementSourceRange);
+          auto incBits = collectBits(incNet);
+          auto incCarryNet = getOrCreateNamedNet(
+            design,
+            joinName("inc_carry", baseName),
+            lhsNet,
+            statementSourceRange);
+          auto carryBits = collectBits(incCarryNet);
+          incrementerBits = buildIncrementer(
+            design,
+            lhsBits,
+            incBits,
+            carryBits,
+            statementSourceRange);
+        }
+
+        auto actionSourceRange = action.rhs
+          ? getSourceRange(*action.rhs)
+          : statementSourceRange;
+        auto assignedBits = buildAssignBits(
+          design,
+          action,
+          lhsNet,
+          lhsBits,
+          incrementerBits.empty() ? nullptr : &incrementerBits,
+          actionSourceRange);
+        if (assignedBits.empty()) {
+          std::ostringstream reason;
+          reason << "failed to lower assignment action for LHS '"
+                 << getExpressionBaseName(lhsExpr) << "'";
+          failureReason = reason.str();
+          return false;
+        }
+        dataBits = std::move(assignedBits);
+        return true;
+      }
+
+      std::ostringstream reason;
+      reason << "unsupported statement kind while lowering sequential block"
+             << " (kind=" << current->kind << ")";
+      failureReason = reason.str();
+      return false;
+    }
+
+    bool lowerSequentialMultiAssignmentConditional(
+      SNLDesign* design,
+      const Statement& stmt,
+      SNLBitNet* clkNet,
+      const Expression* asyncResetEventExpr,
+      const std::optional<slang::SourceRange>& blockSourceRange,
+      std::string& failureReason) {
+      const Statement* current = unwrapStatement(stmt);
+      if (!current || current->kind != slang::ast::StatementKind::Conditional) {
+        failureReason = "top-level statement is not a conditional";
+        return false;
+      }
+
+      const auto& topCond = current->as<slang::ast::ConditionalStatement>();
+      if (topCond.conditions.size() != 1) {
+        std::ostringstream reason;
+        reason << "top-level conditional has unsupported condition count: "
+               << topCond.conditions.size();
+        failureReason = reason.str();
+        return false;
+      }
+
+      std::vector<std::pair<const Expression*, AssignAction>> resetAssignments;
+      if (!collectDirectAssignments(topCond.ifTrue, resetAssignments, &failureReason)) {
+        return false;
+      }
+      if (resetAssignments.empty()) {
+        failureReason = "reset branch does not contain direct assignments";
+        return false;
+      }
+
+      std::vector<std::pair<const Expression*, AssignAction>> plans;
+      for (const auto& [lhs, action] : resetAssignments) {
+        bool found = false;
+        for (auto& [existingLHS, existingAction] : plans) {
+          if (sameLhs(existingLHS, lhs)) {
+            existingAction = action;
+            found = true;
+            break;
+          }
+        }
+        if (!found) {
+          plans.emplace_back(lhs, action);
+        }
+      }
+      if (plans.size() < 2) {
+        failureReason = "fallback currently supports only multi-LHS reset branches";
+        return false;
+      }
+
+      for (const auto& [lhsExpr, resetAction] : plans) {
+        auto* lhsNet = resolveExpressionNet(design, *lhsExpr);
+        if (!lhsNet) {
+          std::ostringstream reason;
+          reason << "unable to resolve assignment LHS net for '"
+                 << getExpressionBaseName(*lhsExpr) << "'";
+          failureReason = reason.str();
+          return false;
+        }
+        auto lhsBits = collectBits(lhsNet);
+        if (lhsBits.empty()) {
+          std::ostringstream reason;
+          reason << "unable to collect LHS bits for '" << getExpressionBaseName(*lhsExpr) << "'";
+          failureReason = reason.str();
+          return false;
+        }
+
+        auto baseName = getExpressionBaseName(*lhsExpr);
+        if (baseName.empty() && !lhsNet->isUnnamed()) { // LCOV_EXCL_LINE
+          baseName = lhsNet->getName().getString(); // LCOV_EXCL_LINE
+        } // LCOV_EXCL_LINE
+
+        std::vector<SNLBitNet*> dataBits = lhsBits;
+        std::vector<SNLBitNet*> incrementerBits;
+        size_t tempIndex = 0;
+        if (topCond.ifFalse) {
+          if (!applySequentialStatementForLhs(
+                design,
+                *topCond.ifFalse,
+                *lhsExpr,
+                lhsNet,
+                lhsBits,
+                baseName,
+                dataBits,
+                incrementerBits,
+                tempIndex,
+                failureReason)) {
+            return false;
+          }
+        }
+
+        auto resetSourceRange = getSourceRange(*topCond.conditions[0].expr);
+        if (needsIncrementerForAction(design, lhsNet, resetAction) &&
+            incrementerBits.empty()) {
+          auto incNet = getOrCreateNamedNet(
+            design,
+            joinName("inc", baseName),
+            lhsNet,
+            resetSourceRange);
+          auto incBits = collectBits(incNet);
+          auto incCarryNet = getOrCreateNamedNet(
+            design,
+            joinName("inc_carry", baseName),
+            lhsNet,
+            resetSourceRange);
+          auto carryBits = collectBits(incCarryNet);
+          incrementerBits = buildIncrementer(
+            design,
+            lhsBits,
+            incBits,
+            carryBits,
+            resetSourceRange);
+        }
+
+        auto actionSourceRange = resetAction.rhs
+          ? getSourceRange(*resetAction.rhs)
+          : resetSourceRange;
+        auto resetBits = buildAssignBits(
+          design,
+          resetAction,
+          lhsNet,
+          lhsBits,
+          incrementerBits.empty() ? nullptr : &incrementerBits,
+          actionSourceRange);
+        if (resetBits.empty()) {
+          std::ostringstream reason;
+          reason << "failed to lower reset assignment for '"
+                 << getExpressionBaseName(*lhsExpr) << "'";
+          failureReason = reason.str();
+          return false;
+        }
+
+        bool useAsyncResetDFFRN = false;
+        SNLBitNet* asyncResetNNet = nullptr;
+        if (asyncResetEventExpr && !resetBits.empty()) {
+          auto* constZero = static_cast<SNLBitNet*>(getConstNet(design, false));
+          bool resetToZero = true;
+          for (auto* bit : resetBits) {
+            if (bit != constZero) {
+              resetToZero = false;
+              break;
+            }
+          }
+          if (resetToZero &&
+              NLDB0::getDFFRN() &&
+              isActiveLowResetConditionForSignal(
+                *topCond.conditions[0].expr,
+                *asyncResetEventExpr)) {
+            asyncResetNNet =
+              getSingleBitNet(resolveExpressionNet(design, *asyncResetEventExpr));
+            useAsyncResetDFFRN = asyncResetNNet != nullptr;
+          }
+        }
+
+        if (!useAsyncResetDFFRN) {
+          auto* resetNet = resolveConditionNet(
+            design,
+            *topCond.conditions[0].expr,
+            joinName("rst", baseName),
+            resetSourceRange);
+          if (!resetNet) {
+            std::ostringstream reason;
+            reason << "unable to resolve reset condition net for '"
+                   << getExpressionBaseName(*lhsExpr) << "'";
+            failureReason = reason.str();
+            return false;
+          }
+          auto rstNet = getOrCreateNamedNet(
+            design,
+            joinName("rst", baseName),
+            lhsNet,
+            resetSourceRange);
+          auto rstBits = collectBits(rstNet);
+          if (rstBits.size() != dataBits.size()) {
+            std::ostringstream reason;
+            reason << "reset mux width mismatch for '" << getExpressionBaseName(*lhsExpr) << "'";
+            failureReason = reason.str();
+            return false; // LCOV_EXCL_LINE
+          }
+          for (size_t i = 0; i < dataBits.size(); ++i) {
+            createMux2Instance(
+              design,
+              resetNet,
+              dataBits[i],
+              resetBits[i],
+              rstBits[i],
+              resetSourceRange);
+          }
+          dataBits = std::move(rstBits);
+        }
+
+        for (size_t i = 0; i < lhsBits.size(); ++i) {
+          if (useAsyncResetDFFRN) {
+            createDFFRNInstance(
+              design,
+              clkNet,
+              dataBits[i],
+              asyncResetNNet,
+              lhsBits[i],
+              blockSourceRange);
+          } else {
+            createDFFInstance(
+              design,
+              clkNet,
+              dataBits[i],
+              lhsBits[i],
+              blockSourceRange);
+          }
+        }
+      }
+
+      return true;
+    }
+
     bool getConstantBit(const Expression& expr, bool& value) const {
       const auto* stripped = stripConversions(expr);
       if (!stripped) {
@@ -3490,9 +3977,23 @@ class SNLSVConstructorImpl {
 
         AlwaysFFChain chain;
         if (!stmt || !extractAlwaysFFChain(*stmt, chain)) {
+          std::string multiAssignFailureReason;
+          if (stmt &&
+              lowerSequentialMultiAssignmentConditional(
+                design,
+                *stmt,
+                clkNet,
+                asyncResetEventExpr,
+                statementSourceRange,
+                multiAssignFailureReason)) {
+            continue;
+          }
           std::ostringstream reason;
           reason << "Unsupported sequential block in module '" << moduleName
                  << "': unsupported statement pattern for sequential lowering";
+          if (!multiAssignFailureReason.empty()) {
+            reason << " (" << multiAssignFailureReason << ")";
+          }
           reportUnsupportedElement(reason.str(), statementSourceRange);
           continue;
         }
@@ -4195,22 +4696,73 @@ class SNLSVConstructorImpl {
           continue;
         }
         auto net = resolveExpressionNet(inst->getDesign(), *expr);
-        if (!net) {
+
+        auto resolveSelectableConnectionBits =
+          [&](size_t targetWidth, std::vector<SNLBitNet*>& bits) -> bool {
+          const auto* strippedExpr = stripConversions(*expr);
+          if (!strippedExpr) {
+            return false; // LCOV_EXCL_LINE
+          }
+          const bool isSelectable =
+            strippedExpr->kind == slang::ast::ExpressionKind::ElementSelect ||
+            strippedExpr->kind == slang::ast::ExpressionKind::RangeSelect ||
+            strippedExpr->kind == slang::ast::ExpressionKind::MemberAccess;
+          if (!isSelectable) {
+            return false;
+          }
+          if (!resolveExpressionBits(inst->getDesign(), *strippedExpr, targetWidth, bits)) {
+            return false;
+          }
+          return bits.size() == targetWidth;
+        };
+
+        auto connectBusBits =
+          [&](SNLBusTerm* busTerm, const std::vector<SNLBitNet*>& bits) {
+          auto termMSB = busTerm->getMSB();
+          auto termLSB = busTerm->getLSB();
+          auto termStep = termLSB <= termMSB ? 1 : -1;
+          size_t bitIndex = 0;
+          for (auto termBit = termLSB; termBit != termMSB + termStep; termBit += termStep) {
+            auto* bitTerm = busTerm->getBit(termBit);
+            auto* instTerm = inst->getInstTerm(bitTerm);
+            if (instTerm) {
+              instTerm->setNet(bits[bitIndex]);
+            }
+            ++bitIndex;
+          }
+        };
+
+        if (auto scalarTerm = dynamic_cast<SNLScalarTerm*>(term)) {
+          if (net) {
+            auto instTerm = inst->getInstTerm(scalarTerm);
+            if (instTerm) {
+              instTerm->setNet(net);
+            }
+            continue;
+          }
+          std::vector<SNLBitNet*> connectionBits;
+          if (resolveSelectableConnectionBits(1, connectionBits)) {
+            auto instTerm = inst->getInstTerm(scalarTerm);
+            if (instTerm) {
+              instTerm->setNet(connectionBits.front());
+            }
+            continue;
+          }
           std::ostringstream reason;
           reason << "Unsupported instance connection expression for port '" << portName
                  << "' on instance '" << inst->getName().getString() << "'";
           reportUnsupportedElement(reason.str(), getSourceRange(*expr));
           continue;
         }
-        if (auto scalarTerm = dynamic_cast<SNLScalarTerm*>(term)) {
-          auto instTerm = inst->getInstTerm(scalarTerm);
-          if (instTerm) {
-            instTerm->setNet(net);
-          }
-          continue;
-        }
         auto busTerm = dynamic_cast<SNLBusTerm*>(term);
         auto busNet = dynamic_cast<SNLBusNet*>(net);
+        if (busTerm && !busNet) {
+          std::vector<SNLBitNet*> connectionBits;
+          if (resolveSelectableConnectionBits(busTerm->getWidth(), connectionBits)) {
+            connectBusBits(busTerm, connectionBits);
+            continue;
+          }
+        }
         if (!busTerm || !busNet) {
           std::ostringstream reason;
           reason << "Unsupported instance connection net/term compatibility for port '"
@@ -4218,20 +4770,7 @@ class SNLSVConstructorImpl {
           reportUnsupportedElement(reason.str(), getSourceRange(*expr));
           continue;
         }
-        auto termBit = busTerm->getMSB();
-        auto netBit = busNet->getMSB();
-        auto termStop = busTerm->getMSB() > busTerm->getLSB() ? -1 : 1;
-        auto netStop = busNet->getMSB() > busNet->getLSB() ? -1 : 1;
-        while (termBit != busTerm->getLSB() + termStop &&
-               netBit != busNet->getLSB() + netStop) {
-          auto bitTerm = busTerm->getBit(termBit);
-          auto instTerm = inst->getInstTerm(bitTerm);
-          if (instTerm) {
-            instTerm->setNet(busNet->getBit(netBit));
-          }
-          busTerm->getMSB() > busTerm->getLSB() ? --termBit : ++termBit;
-          busNet->getMSB() > busNet->getLSB() ? --netBit : ++netBit;
-        }
+        connectBusBits(busTerm, collectBits(busNet));
       }
     }
 

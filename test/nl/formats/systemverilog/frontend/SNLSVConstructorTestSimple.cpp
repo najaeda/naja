@@ -1275,6 +1275,58 @@ TEST_F(SNLSVConstructorTestSimple, parseInstanceConnectionEdgeCases) {
     {"Unsupported instance connection"});
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseInstanceConnectionMemberAccessSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "instance_connection_member_access_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "instance_connection_member_access_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(typedef struct packed {
+  logic kill_s2;
+  logic req;
+} dreq_t;
+
+module child_flush(
+  input  logic flush_i,
+  output logic y
+);
+  assign y = flush_i;
+endmodule
+
+module instance_connection_member_access_supported(
+  input  dreq_t icache_dreq_o,
+  output logic y
+);
+  child_flush i_instr_realign(
+    .flush_i(icache_dreq_o.kill_s2),
+    .y(y)
+  );
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("instance_connection_member_access_supported"));
+  ASSERT_NE(top, nullptr);
+  auto child = library_->getSNLDesign(NLName("child_flush"));
+  ASSERT_NE(child, nullptr);
+  auto inst = top->getInstance(NLName("i_instr_realign"));
+  ASSERT_NE(inst, nullptr);
+  EXPECT_EQ(child, inst->getModel());
+
+  auto dumpedVerilog =
+    dumpTopAndGetVerilogPath(top, "instance_connection_member_access_supported");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseInterfacePortReportedUnsupportedAtEnd) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
@@ -2941,6 +2993,78 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableElseDefaultSupported) {
   EXPECT_GT(faCount, 0u);
 
   auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "seq_enable_else_default");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialMultiAssignmentElseBlockSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "seq_multi_assignment_else_block_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "seq_multi_assignment_else_block_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module seq_multi_assignment_else_block_supported(
+  input  logic       clk_i,
+  input  logic       rst_ni,
+  input  logic       valid_i,
+  input  logic       flush_i,
+  input  logic       q0_d,
+  input  logic [7:0] q1_d,
+  input  logic [7:0] q2_d,
+  output logic       q0,
+  output logic [7:0] q1,
+  output logic [7:0] q2
+);
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (~rst_ni) begin
+      q0 <= 1'b0;
+      q1 <= '0;
+      q2 <= '0;
+    end else begin
+      if (valid_i) begin
+        q1 <= q1_d;
+        q2 <= q2_d;
+      end
+      if (flush_i) begin
+        q0 <= 1'b0;
+      end else if (valid_i) begin
+        q0 <= q0_d;
+      end
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("seq_multi_assignment_else_block_supported"));
+  ASSERT_NE(top, nullptr);
+
+  auto dffModel = NLDB0::getDFF();
+  auto dffrnModel = NLDB0::getDFFRN();
+  size_t ffCount = 0;
+  size_t muxCount = 0;
+  for (auto inst : top->getInstances()) {
+    if ((dffModel && inst->getModel() == dffModel) ||
+        (dffrnModel && inst->getModel() == dffrnModel)) {
+      ++ffCount;
+    }
+    if (inst->getModel() == NLDB0::getMux2()) {
+      ++muxCount;
+    }
+  }
+  EXPECT_EQ(17u, ffCount);
+  EXPECT_GE(muxCount, 18u);
+
+  auto dumpedVerilog =
+    dumpTopAndGetVerilogPath(top, "seq_multi_assignment_else_block_supported");
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
 }
 
