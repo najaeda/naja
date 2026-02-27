@@ -3378,6 +3378,398 @@ class SNLSVConstructorImpl {
       return false;
     }
 
+    bool collectAssignedLHSExpressions(
+      const Statement& stmt,
+      std::vector<const Expression*>& lhsExpressions,
+      std::string* failureReason = nullptr) const {
+      auto setFailureReason = [&](std::string reason) {
+        if (failureReason) {
+          *failureReason = std::move(reason);
+        }
+      };
+
+      const Statement* current = unwrapStatement(stmt);
+      if (!current) {
+        return true;
+      }
+      if (isIgnorableSequentialTimingStatement(*current)) {
+        return true;
+      }
+
+      if (current->kind == slang::ast::StatementKind::Block) {
+        return collectAssignedLHSExpressions(
+          current->as<slang::ast::BlockStatement>().body,
+          lhsExpressions,
+          failureReason);
+      }
+
+      if (current->kind == slang::ast::StatementKind::List) {
+        const auto& list = current->as<slang::ast::StatementList>().list;
+        for (const auto* item : list) {
+          if (!item) {
+            continue; // LCOV_EXCL_LINE
+          }
+          if (!collectAssignedLHSExpressions(*item, lhsExpressions, failureReason)) {
+            return false;
+          }
+        }
+        return true;
+      }
+
+      if (current->kind == slang::ast::StatementKind::Conditional) {
+        const auto& conditional = current->as<slang::ast::ConditionalStatement>();
+        if (!collectAssignedLHSExpressions(conditional.ifTrue, lhsExpressions, failureReason)) {
+          return false;
+        }
+        if (conditional.ifFalse &&
+            !collectAssignedLHSExpressions(*conditional.ifFalse, lhsExpressions, failureReason)) {
+          return false;
+        }
+        return true;
+      }
+
+      const Expression* lhsExpr = nullptr;
+      AssignAction action;
+      if (extractAssignment(*current, lhsExpr, action)) {
+        bool alreadyPresent = false;
+        for (const auto* existing : lhsExpressions) {
+          if (sameLhs(existing, lhsExpr)) {
+            alreadyPresent = true;
+            break;
+          }
+        }
+        if (!alreadyPresent) {
+          lhsExpressions.push_back(lhsExpr);
+        }
+        return true;
+      }
+
+      std::ostringstream reason;
+      reason << "unsupported statement kind while collecting always_comb assignments"
+             << " (kind=" << current->kind << ")";
+      setFailureReason(reason.str());
+      return false;
+    }
+
+    bool resolveAssignmentLHSBits(
+      SNLDesign* design,
+      const Expression& lhsExpr,
+      std::vector<SNLBitNet*>& lhsBits,
+      std::string* failureReason = nullptr) {
+      auto setFailureReason = [&](std::string reason) {
+        if (failureReason) {
+          *failureReason = std::move(reason);
+        }
+      };
+
+      lhsBits.clear();
+      if (auto* lhsNet = resolveExpressionNet(design, lhsExpr)) {
+        lhsBits = collectBits(lhsNet);
+        if (!lhsBits.empty()) {
+          return true;
+        }
+      }
+
+      const auto* strippedLHS = stripConversions(lhsExpr);
+      const bool lhsIsSupportedSlice =
+        strippedLHS &&
+        (strippedLHS->kind == slang::ast::ExpressionKind::ElementSelect ||
+         strippedLHS->kind == slang::ast::ExpressionKind::RangeSelect ||
+         strippedLHS->kind == slang::ast::ExpressionKind::MemberAccess);
+      if (!lhsIsSupportedSlice) {
+        std::ostringstream reason;
+        reason << "unsupported always_comb assignment LHS: "
+               << describeExpression(lhsExpr);
+        setFailureReason(reason.str());
+        return false;
+      }
+
+      auto lhsWidth = getIntegralExpressionBitWidth(lhsExpr);
+      if (!lhsWidth || !*lhsWidth) {
+        std::ostringstream reason;
+        reason << "unable to resolve always_comb assignment LHS width for "
+               << describeExpression(lhsExpr);
+        setFailureReason(reason.str());
+        return false;
+      }
+
+      const auto lhsWidthBits = static_cast<size_t>(*lhsWidth);
+      if (!resolveExpressionBits(design, lhsExpr, lhsWidthBits, lhsBits) ||
+          lhsBits.size() != lhsWidthBits ||
+          lhsBits.empty()) {
+        std::ostringstream reason;
+        reason << "failed to resolve always_comb assignment LHS bits for "
+               << describeExpression(lhsExpr)
+               << " (target_width=" << lhsWidthBits << ")";
+        setFailureReason(reason.str());
+        return false;
+      }
+      return true;
+    }
+
+    SNLBitNet* resolveCombinationalConditionNet(
+      SNLDesign* design,
+      const Expression& conditionExpr,
+      std::string* failureReason = nullptr) {
+      auto setFailureReason = [&](std::string reason) {
+        if (failureReason) {
+          *failureReason = std::move(reason);
+        }
+      };
+
+      bool constantBit = false;
+      if (getConstantBit(conditionExpr, constantBit)) {
+        return static_cast<SNLBitNet*>(getConstNet(design, constantBit));
+      }
+
+      std::vector<SNLBitNet*> conditionBits;
+      if (!resolveExpressionBits(design, conditionExpr, 1, conditionBits) ||
+          conditionBits.size() != 1) {
+        std::ostringstream reason;
+        reason << "unable to resolve always_comb condition bit for "
+               << describeExpression(conditionExpr);
+        setFailureReason(reason.str());
+        return nullptr;
+      }
+      return conditionBits.front();
+    }
+
+    bool buildCombinationalAssignBits(
+      SNLDesign* design,
+      const AssignAction& action,
+      const std::vector<SNLBitNet*>& lhsBits,
+      std::vector<SNLBitNet*>& assignedBits,
+      std::string& failureReason) {
+      if (action.increment) {
+        failureReason = "unsupported increment/decrement assignment in always_comb";
+        return false;
+      }
+      if (!action.rhs) {
+        failureReason = "missing RHS expression in always_comb assignment";
+        return false;
+      }
+      if (!resolveExpressionBits(design, *action.rhs, lhsBits.size(), assignedBits) ||
+          assignedBits.size() != lhsBits.size()) {
+        std::ostringstream reason;
+        reason << "unable to resolve always_comb RHS bits for "
+               << describeExpression(*action.rhs)
+               << " (target_width=" << lhsBits.size() << ")";
+        failureReason = reason.str();
+        return false;
+      }
+      return true;
+    }
+
+    bool applyCombinationalStatementForLhs(
+      SNLDesign* design,
+      const Statement& stmt,
+      const Expression& lhsExpr,
+      const std::vector<SNLBitNet*>& lhsBits,
+      std::vector<SNLBitNet*>& dataBits,
+      size_t& tempIndex,
+      std::string& failureReason) {
+      const Statement* current = unwrapStatement(stmt);
+      if (!current) {
+        return true;
+      }
+      if (isIgnorableSequentialTimingStatement(*current)) {
+        return true;
+      }
+
+      if (current->kind == slang::ast::StatementKind::Block) {
+        return applyCombinationalStatementForLhs(
+          design,
+          current->as<slang::ast::BlockStatement>().body,
+          lhsExpr,
+          lhsBits,
+          dataBits,
+          tempIndex,
+          failureReason);
+      }
+
+      if (current->kind == slang::ast::StatementKind::List) {
+        const auto& list = current->as<slang::ast::StatementList>().list;
+        for (const auto* item : list) {
+          if (!item) {
+            continue; // LCOV_EXCL_LINE
+          }
+          if (!applyCombinationalStatementForLhs(
+                design,
+                *item,
+                lhsExpr,
+                lhsBits,
+                dataBits,
+                tempIndex,
+                failureReason)) {
+            return false;
+          }
+        }
+        return true;
+      }
+
+      if (current->kind == slang::ast::StatementKind::Conditional) {
+        const auto& condStmt = current->as<slang::ast::ConditionalStatement>();
+        if (condStmt.conditions.size() != 1) {
+          std::ostringstream reason;
+          reason << "unsupported always_comb conditional with condition count "
+                 << condStmt.conditions.size();
+          failureReason = reason.str();
+          return false;
+        }
+
+        std::vector<SNLBitNet*> trueBits = dataBits;
+        if (!applyCombinationalStatementForLhs(
+              design,
+              condStmt.ifTrue,
+              lhsExpr,
+              lhsBits,
+              trueBits,
+              tempIndex,
+              failureReason)) {
+          return false;
+        }
+
+        std::vector<SNLBitNet*> falseBits = dataBits;
+        if (condStmt.ifFalse) {
+          if (!applyCombinationalStatementForLhs(
+                design,
+                *condStmt.ifFalse,
+                lhsExpr,
+                lhsBits,
+                falseBits,
+                tempIndex,
+                failureReason)) {
+            return false;
+          }
+        }
+
+        if (trueBits.size() != lhsBits.size() || falseBits.size() != lhsBits.size()) {
+          failureReason = "width mismatch while lowering always_comb conditional";
+          return false;
+        }
+
+        std::string conditionFailureReason;
+        auto* conditionBit = resolveCombinationalConditionNet(
+          design,
+          *condStmt.conditions[0].expr,
+          &conditionFailureReason);
+        if (!conditionBit) {
+          failureReason = conditionFailureReason;
+          return false;
+        }
+
+        auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
+        auto* const1 = static_cast<SNLBitNet*>(getConstNet(design, true));
+        if (conditionBit == const1) {
+          dataBits = std::move(trueBits);
+          return true;
+        }
+        if (conditionBit == const0) {
+          dataBits = std::move(falseBits);
+          return true;
+        }
+
+        std::vector<SNLBitNet*> mergedBits;
+        mergedBits.reserve(lhsBits.size());
+        auto condSourceRange = getSourceRange(condStmt);
+        for (size_t i = 0; i < lhsBits.size(); ++i) {
+          if (trueBits[i] == falseBits[i]) {
+            mergedBits.push_back(trueBits[i]);
+            continue;
+          }
+          auto* outBit = SNLScalarNet::create(design);
+          annotateSourceInfo(outBit, condSourceRange);
+          createMux2Instance(
+            design,
+            conditionBit,
+            falseBits[i],
+            trueBits[i],
+            outBit,
+            condSourceRange);
+          mergedBits.push_back(outBit);
+        }
+        dataBits = std::move(mergedBits);
+        ++tempIndex;
+        return true;
+      }
+
+      const Expression* assignedLHS = nullptr;
+      AssignAction action;
+      if (extractAssignment(*current, assignedLHS, action)) {
+        if (!sameLhs(assignedLHS, &lhsExpr)) {
+          return true;
+        }
+        std::vector<SNLBitNet*> assignedBits;
+        if (!buildCombinationalAssignBits(
+              design,
+              action,
+              lhsBits,
+              assignedBits,
+              failureReason)) {
+          return false;
+        }
+        dataBits = std::move(assignedBits);
+        return true;
+      }
+
+      std::ostringstream reason;
+      reason << "unsupported statement kind while lowering always_comb"
+             << " (kind=" << current->kind << ")";
+      failureReason = reason.str();
+      return false;
+    }
+
+    bool lowerCombinationalProceduralBlock(
+      SNLDesign* design,
+      const Statement& stmt,
+      const std::optional<slang::SourceRange>& sourceRange,
+      std::string& failureReason) {
+      std::vector<const Expression*> lhsExpressions;
+      if (!collectAssignedLHSExpressions(stmt, lhsExpressions, &failureReason)) {
+        return false;
+      }
+
+      for (const auto* lhsExpr : lhsExpressions) {
+        if (!lhsExpr) {
+          continue; // LCOV_EXCL_LINE
+        }
+        std::vector<SNLBitNet*> lhsBits;
+        if (!resolveAssignmentLHSBits(design, *lhsExpr, lhsBits, &failureReason)) {
+          return false;
+        }
+        if (lhsBits.empty()) {
+          continue; // LCOV_EXCL_LINE
+        }
+
+        std::vector<SNLBitNet*> dataBits = lhsBits;
+        size_t tempIndex = 0;
+        if (!applyCombinationalStatementForLhs(
+              design,
+              stmt,
+              *lhsExpr,
+              lhsBits,
+              dataBits,
+              tempIndex,
+              failureReason)) {
+          return false;
+        }
+        if (dataBits.size() != lhsBits.size()) {
+          std::ostringstream reason;
+          reason << "width mismatch while lowering always_comb for LHS "
+                 << describeExpression(*lhsExpr);
+          failureReason = reason.str();
+          return false;
+        }
+        for (size_t i = 0; i < lhsBits.size(); ++i) {
+          if (dataBits[i] == lhsBits[i]) {
+            continue;
+          }
+          createAssignInstance(design, dataBits[i], lhsBits[i], sourceRange);
+        }
+      }
+      return true;
+    }
+
     bool lowerSequentialMultiAssignmentConditional(
       SNLDesign* design,
       const Statement& stmt,
@@ -3934,12 +4326,29 @@ class SNLSVConstructorImpl {
         }
         const auto& block = sym.as<slang::ast::ProceduralBlockSymbol>();
         auto blockSourceRange = getSourceRange(block);
+        if (block.procedureKind == slang::ast::ProceduralBlockKind::AlwaysComb) {
+          std::string combFailureReason;
+          if (!lowerCombinationalProceduralBlock(
+                design,
+                block.getBody(),
+                blockSourceRange,
+                combFailureReason)) {
+            std::ostringstream reason;
+            reason << "Unsupported combinational block in module '" << moduleName << "'";
+            if (!combFailureReason.empty()) {
+              reason << ": " << combFailureReason;
+            }
+            reportUnsupportedElement(reason.str(), blockSourceRange);
+          }
+          continue;
+        }
+
         if (block.procedureKind != slang::ast::ProceduralBlockKind::AlwaysFF &&
             block.procedureKind != slang::ast::ProceduralBlockKind::Always) {
           std::ostringstream reason;
           reason << "Unsupported procedural block in module '" << moduleName
                  << "': unsupported procedure kind " << block.procedureKind
-                 << " (only always/always_ff are currently lowered)";
+                 << " (only always/always_ff/always_comb are currently lowered)";
           reportUnsupportedElement(reason.str(), blockSourceRange);
           continue;
         }
@@ -4624,6 +5033,16 @@ class SNLSVConstructorImpl {
 
         auto rhsNet = resolveExpressionNet(design, *rhs);
         if (!rhsNet) {
+          auto lhsAssignBits = collectBits(lhsNet);
+          std::vector<SNLBitNet*> rhsBits;
+          if (!lhsAssignBits.empty() &&
+              resolveExpressionBits(design, *rhs, lhsAssignBits.size(), rhsBits) &&
+              rhsBits.size() == lhsAssignBits.size()) {
+            for (size_t i = 0; i < lhsAssignBits.size(); ++i) {
+              createAssignInstance(design, rhsBits[i], lhsAssignBits[i], assignSourceRange);
+            }
+            continue;
+          }
           std::ostringstream reason;
           reason << "Unsupported RHS in continuous assign in module '" << moduleName << "'";
           reportUnsupportedElement(reason.str(), assignSourceRange);

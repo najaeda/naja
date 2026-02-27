@@ -2426,6 +2426,45 @@ endmodule
   EXPECT_EQ(1u, notGateCount);
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseContinuousReductionOrRHSSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "continuous_reduction_or_rhs_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "continuous_reduction_or_rhs_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module continuous_reduction_or_rhs_supported(
+  input logic [3:0] in,
+  output logic y
+);
+  assign y = |in;
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("continuous_reduction_or_rhs_supported"));
+  ASSERT_NE(top, nullptr);
+
+  size_t orGateCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (!NLDB0::isGate(inst->getModel())) {
+      continue;
+    }
+    if (NLDB0::getGateName(inst->getModel()) == "or") {
+      ++orGateCount;
+    }
+  }
+  EXPECT_GE(orGateCount, 1u);
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseGateOperandCaseEqualitySupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
@@ -2495,13 +2534,25 @@ TEST_F(SNLSVConstructorTestSimple, parseContinuousAssignConcatLHSSkipped) {
     {"Unsupported LHS in continuous assign"});
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseAlwaysCombIgnored) {
+TEST_F(SNLSVConstructorTestSimple, parseAlwaysCombSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
-  expectUnsupportedConstruct(
-    constructor,
-    benchmarksPath / "always_comb_ignored" / "always_comb_ignored.sv",
-    {"unsupported procedure kind AlwaysComb"});
+  constructor.construct(
+    benchmarksPath / "always_comb_ignored" / "always_comb_ignored.sv");
+
+  auto top = library_->getSNLDesign(NLName("always_comb_ignored"));
+  ASSERT_NE(top, nullptr);
+
+  size_t andGateCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (!NLDB0::isGate(inst->getModel())) {
+      continue;
+    }
+    if (NLDB0::getGateName(inst->getModel()) == "and") {
+      ++andGateCount;
+    }
+  }
+  EXPECT_EQ(1u, andGateCount);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseAlwaysNoTimingNoClkSkipped) {
@@ -3321,11 +3372,22 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialRHSWideUnknownConstantLocalpar
 TEST_F(SNLSVConstructorTestSimple, parseSequentialResetStructDefaultZeroSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
-  expectUnsupportedConstruct(
-    constructor,
+  constructor.construct(
     benchmarksPath / "seq_reset_struct_default_zero_supported" /
-      "seq_reset_struct_default_zero_supported.sv",
-    {"unsupported procedure kind AlwaysComb"});
+      "seq_reset_struct_default_zero_supported.sv");
+
+  auto top = library_->getSNLDesign(NLName("seq_reset_struct_default_zero_supported"));
+  ASSERT_NE(top, nullptr);
+
+  auto dffrnModel = NLDB0::getDFFRN();
+  ASSERT_NE(dffrnModel, nullptr);
+  size_t dffrnCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dffrnModel) {
+      ++dffrnCount;
+    }
+  }
+  EXPECT_EQ(13u, dffrnCount);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseSequentialConcatLHSSkipped) {
