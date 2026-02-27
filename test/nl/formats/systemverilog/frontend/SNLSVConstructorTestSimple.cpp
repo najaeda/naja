@@ -1145,10 +1145,14 @@ TEST_F(SNLSVConstructorTestSimple, parseFixedUnpackedArrayVariableSupported) {
          << "endmodule\n";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"Unsupported LHS in continuous assign"});
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("fixed_unpacked_array_variable"));
+  ASSERT_NE(top, nullptr);
+
+  auto fetchInstructions = top->getBusNet(NLName("fetch_instructions"));
+  ASSERT_NE(fetchInstructions, nullptr);
+  EXPECT_EQ(64, fetchInstructions->getWidth());
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseDynamicUnpackedVariablesIgnoredInNetCreation) {
@@ -1651,6 +1655,51 @@ TEST_F(SNLSVConstructorTestSimple, parseContinuousShiftRightUnresolvedSkipped) {
     benchmarksPath / "continuous_shift_right_unresolved_skipped" /
       "continuous_shift_right_unresolved_skipped.sv",
     {"Unsupported binary expression in continuous assign: >>"});
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseContinuousLHSElementSelectSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "continuous_lhs_element_select_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "continuous_lhs_element_select_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module continuous_lhs_element_select_supported(
+  input  logic [3:0] in0,
+  input  logic [3:0] in1,
+  output logic [1:0][3:0] out_bus
+);
+  localparam int SLOT0 = 0;
+  localparam int SLOT1 = 1;
+
+  assign out_bus[SLOT0] = in0;
+  assign out_bus[SLOT1] = in1;
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("continuous_lhs_element_select_supported"));
+  ASSERT_NE(top, nullptr);
+
+  auto outBus = top->getBusNet(NLName("out_bus"));
+  ASSERT_NE(outBus, nullptr);
+  EXPECT_EQ(8, outBus->getWidth());
+
+  size_t assignCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (NLDB0::isAssign(inst->getModel())) {
+      ++assignCount;
+    }
+  }
+  EXPECT_EQ(8u, assignCount);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseContinuousShiftLeftUnknownAmountUnsupported) {

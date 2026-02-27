@@ -3010,11 +3010,35 @@ class SNLSVConstructorImpl {
         const auto& assignExpr = assignment.as<slang::ast::AssignmentExpression>();
         auto assignSourceRange = getSourceRange(assignExpr);
         auto lhsNet = resolveExpressionNet(design, assignExpr.left());
+        std::vector<SNLBitNet*> lhsBits;
+        bool lhsResolvedAsBitSlice = false;
         if (!lhsNet) {
-          std::ostringstream reason;
-          reason << "Unsupported LHS in continuous assign in module '" << moduleName << "'";
-          reportUnsupportedElement(reason.str(), assignSourceRange);
-          continue;
+          const auto* lhsExpr = stripConversions(assignExpr.left());
+          const bool lhsIsSupportedSlice =
+            lhsExpr &&
+            (lhsExpr->kind == slang::ast::ExpressionKind::ElementSelect ||
+             lhsExpr->kind == slang::ast::ExpressionKind::RangeSelect ||
+             lhsExpr->kind == slang::ast::ExpressionKind::MemberAccess);
+          if (lhsIsSupportedSlice) {
+            auto lhsWidth = getIntegralExpressionBitWidth(assignExpr.left());
+            if (lhsWidth && *lhsWidth) {
+              const auto lhsWidthBits = static_cast<size_t>(*lhsWidth);
+              if (resolveExpressionBits(design, assignExpr.left(), lhsWidthBits, lhsBits) &&
+                  lhsBits.size() == lhsWidthBits &&
+                  !lhsBits.empty()) {
+                lhsResolvedAsBitSlice = true;
+                if (lhsBits.size() == 1) {
+                  lhsNet = lhsBits.front();
+                }
+              }
+            }
+          }
+          if (!lhsResolvedAsBitSlice) {
+            std::ostringstream reason;
+            reason << "Unsupported LHS in continuous assign in module '" << moduleName << "'";
+            reportUnsupportedElement(reason.str(), assignSourceRange);
+            continue;
+          }
         }
 
         const auto* rhs = stripConversions(assignExpr.right());
@@ -3220,6 +3244,30 @@ class SNLSVConstructorImpl {
             continue; // LCOV_EXCL_LINE
           }
           createAssignInstance(design, gateOutNet, lhsNet, assignSourceRange);
+          continue;
+        }
+
+        if (lhsResolvedAsBitSlice) {
+          auto rhsWidth = getIntegralExpressionBitWidth(*rhs);
+          if (!rhsWidth || !*rhsWidth ||
+              static_cast<size_t>(*rhsWidth) != lhsBits.size()) {
+            reportUnsupportedElement(
+              "Unsupported net compatibility in continuous assign",
+              assignSourceRange);
+            continue;
+          }
+          const auto rhsWidthBits = static_cast<size_t>(*rhsWidth);
+          std::vector<SNLBitNet*> rhsBits;
+          if (!resolveExpressionBits(design, *rhs, rhsWidthBits, rhsBits) ||
+              rhsBits.size() != lhsBits.size()) {
+            std::ostringstream reason;
+            reason << "Unsupported RHS in continuous assign in module '" << moduleName << "'";
+            reportUnsupportedElement(reason.str(), assignSourceRange);
+            continue;
+          }
+          for (size_t i = 0; i < lhsBits.size(); ++i) {
+            createAssignInstance(design, rhsBits[i], lhsBits[i], assignSourceRange);
+          }
           continue;
         }
 
