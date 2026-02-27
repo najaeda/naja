@@ -2690,6 +2690,7 @@ class SNLSVConstructorImpl {
     }
 
     void createSequentialLogic(SNLDesign* design, const InstanceBodySymbol& body) {
+      const auto moduleName = design->getName().getString();
       for (const auto& sym : body.members()) {
         if (sym.kind != SymbolKind::ProceduralBlock) {
           continue;
@@ -2698,6 +2699,11 @@ class SNLSVConstructorImpl {
         auto blockSourceRange = getSourceRange(block);
         if (block.procedureKind != slang::ast::ProceduralBlockKind::AlwaysFF &&
             block.procedureKind != slang::ast::ProceduralBlockKind::Always) {
+          std::ostringstream reason;
+          reason << "Unsupported procedural block in module '" << moduleName
+                 << "': unsupported procedure kind " << block.procedureKind
+                 << " (only always/always_ff are currently lowered)";
+          reportUnsupportedElement(reason.str(), blockSourceRange);
           continue;
         }
 
@@ -2725,19 +2731,35 @@ class SNLSVConstructorImpl {
           clkNet = getSingleBitNet(design->getNet(NLName("clk")));
         }
         if (!clkNet) {
+          std::ostringstream reason;
+          reason << "Unsupported sequential block in module '" << moduleName
+                 << "': unable to resolve a single-bit clock net";
+          reportUnsupportedElement(reason.str(), blockSourceRange);
           continue;
         }
 
         AlwaysFFChain chain;
         if (!stmt || !extractAlwaysFFChain(*stmt, chain)) {
+          std::ostringstream reason;
+          reason << "Unsupported sequential block in module '" << moduleName
+                 << "': unsupported statement pattern for sequential lowering";
+          reportUnsupportedElement(reason.str(), statementSourceRange);
           continue;
         }
         auto lhsNet = resolveExpressionNet(design, *chain.lhs);
         if (!lhsNet) {
+          std::ostringstream reason;
+          reason << "Unsupported sequential block in module '" << moduleName
+                 << "': unable to resolve assignment LHS net";
+          reportUnsupportedElement(reason.str(), statementSourceRange);
           continue;
         }
         auto lhsBits = collectBits(lhsNet);
         if (lhsBits.empty()) {
+          std::ostringstream reason;
+          reason << "Unsupported sequential block in module '" << moduleName
+                 << "': unable to collect LHS bits";
+          reportUnsupportedElement(reason.str(), statementSourceRange);
           continue; // LCOV_EXCL_LINE
         }
 
