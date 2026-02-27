@@ -18,16 +18,26 @@ int main(int argc, char** argv) {
     }
   };
 
-  for (int a = 0; a <= 1; ++a) {
-    for (int b = 0; b <= 1; ++b) {
-      dut->a = a;
-      dut->b = b;
-      dut->eval();
+  for (int s = 0; s < 16; ++s) {
+    dut->s = s;
+    for (int a = 0; a <= 1; ++a) {
+      for (int b = 0; b <= 1; ++b) {
+        dut->a = a;
+        dut->b = b;
+        dut->eval();
 
-      check("y_and", a, b, dut->y_and, a & b);
-      check("y_or", a, b, dut->y_or, a | b);
-      check("y_xor", a, b, dut->y_xor, a ^ b);
-      check("y_xnor", a, b, dut->y_xnor, (a == b) ? 1 : 0);
+        check("y_and", a, b, dut->y_and, a & b);
+        check("y_land", a, b, dut->y_land, a && b);
+        check("y_or", a, b, dut->y_or, a | b);
+        check("y_lor", a, b, dut->y_lor, a || b);
+        check("y_xor", a, b, dut->y_xor, a ^ b);
+        check("y_xnor", a, b, dut->y_xnor, (a == b) ? 1 : 0);
+        if ((dut->y_shr & 0xF) != ((s >> 1) & 0xF)) {
+          std::printf("FAIL: y_shr s=0x%x expected=0x%x got=0x%x\n",
+                      s, (s >> 1) & 0xF, static_cast<int>(dut->y_shr & 0xF));
+          ++errors;
+        }
+      }
     }
   }
 
