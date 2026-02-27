@@ -1308,6 +1308,55 @@ class SNLSVConstructorImpl {
         }
       } // LCOV_EXCL_LINE
 
+      if (stripped->kind == slang::ast::ExpressionKind::ConditionalOp) {
+        const auto& conditionalExpr = stripped->as<slang::ast::ConditionalExpression>();
+        if (const auto* knownSide = conditionalExpr.knownSide()) {
+          return resolveExpressionBits(design, *knownSide, targetWidth, bits);
+        }
+        if (conditionalExpr.conditions.size() != 1 || conditionalExpr.conditions.front().pattern) {
+          return false;
+        }
+
+        auto* selectBit = resolveConditionNet(
+          design,
+          *conditionalExpr.conditions.front().expr,
+          getExpressionBaseName(conditionalExpr.left()),
+          getSourceRange(*stripped));
+        if (!selectBit) {
+          return false;
+        }
+
+        std::vector<SNLBitNet*> leftBits;
+        std::vector<SNLBitNet*> rightBits;
+        if (!resolveExpressionBits(design, conditionalExpr.left(), targetWidth, leftBits) ||
+            !resolveExpressionBits(design, conditionalExpr.right(), targetWidth, rightBits) ||
+            leftBits.size() != targetWidth ||
+            rightBits.size() != targetWidth) {
+          return false;
+        }
+
+        bits.clear();
+        bits.reserve(targetWidth);
+        auto conditionalSourceRange = getSourceRange(*stripped);
+        for (size_t bitIndex = 0; bitIndex < targetWidth; ++bitIndex) {
+          if (leftBits[bitIndex] == rightBits[bitIndex]) {
+            bits.push_back(leftBits[bitIndex]);
+            continue;
+          }
+          auto* outBit = SNLScalarNet::create(design);
+          annotateSourceInfo(outBit, conditionalSourceRange);
+          createMux2Instance(
+            design,
+            selectBit,
+            rightBits[bitIndex],
+            leftBits[bitIndex],
+            outBit,
+            conditionalSourceRange);
+          bits.push_back(outBit);
+        }
+        return true;
+      }
+
       if (stripped->kind == slang::ast::ExpressionKind::BinaryOp) {
         const auto& binaryExpr = stripped->as<slang::ast::BinaryExpression>();
         auto gateType = gateTypeFromBinary(binaryExpr.op);
@@ -2038,11 +2087,43 @@ class SNLSVConstructorImpl {
         return nullptr; // LCOV_EXCL_LINE
       }
 
+      auto resolveSingleBitExpression = [&](const Expression& expr) -> SNLBitNet* {
+        const auto* strippedExpr = stripConversions(expr);
+        if (!strippedExpr) {
+          return nullptr; // LCOV_EXCL_LINE
+        }
+        // Keep sequential condition support conservative: do not lower binary
+        // or nested conditional trees here.
+        if (strippedExpr->kind == slang::ast::ExpressionKind::BinaryOp ||
+            strippedExpr->kind == slang::ast::ExpressionKind::ConditionalOp) {
+          return nullptr;
+        }
+        if (auto* bit = getSingleBitNet(resolveExpressionNet(design, *strippedExpr))) {
+          return bit;
+        }
+        const bool isSelectableExpr =
+          strippedExpr->kind == slang::ast::ExpressionKind::ElementSelect ||
+          strippedExpr->kind == slang::ast::ExpressionKind::RangeSelect ||
+          strippedExpr->kind == slang::ast::ExpressionKind::MemberAccess;
+        if (!isSelectableExpr) {
+          return nullptr;
+        }
+        auto exprWidth = getIntegralExpressionBitWidth(*strippedExpr);
+        if (!exprWidth || *exprWidth != 1) {
+          return nullptr;
+        }
+        std::vector<SNLBitNet*> exprBits;
+        if (!resolveExpressionBits(design, *strippedExpr, 1, exprBits) || exprBits.size() != 1) {
+          return nullptr;
+        }
+        return exprBits.front();
+      };
+
       if (stripped->kind == slang::ast::ExpressionKind::UnaryOp) {
         const auto& unaryExpr = stripped->as<slang::ast::UnaryExpression>();
         if (unaryExpr.op == slang::ast::UnaryOperator::LogicalNot ||
             unaryExpr.op == slang::ast::UnaryOperator::BitwiseNot) {
-          auto operandNet = getSingleBitNet(resolveExpressionNet(design, unaryExpr.operand()));
+          auto operandNet = resolveSingleBitExpression(unaryExpr.operand());
           if (!operandNet) {
             return nullptr;
           }
@@ -2066,7 +2147,7 @@ class SNLSVConstructorImpl {
         }
       }
 
-      return getSingleBitNet(resolveExpressionNet(design, conditionExpr));
+      return resolveSingleBitExpression(conditionExpr);
     }
 
     std::string getExpressionBaseName(const Expression& expr) const {
@@ -3366,6 +3447,34 @@ class SNLSVConstructorImpl {
             continue; // LCOV_EXCL_LINE
           }
           createAssignInstance(design, gateOutNet, lhsNet, assignSourceRange);
+          continue;
+        }
+
+        if (rhs->kind == slang::ast::ExpressionKind::ConditionalOp) {
+          std::vector<SNLBitNet*> lhsAssignBits;
+          if (lhsResolvedAsBitSlice) {
+            lhsAssignBits = lhsBits;
+          } else if (lhsNet) {
+            lhsAssignBits = collectBits(lhsNet);
+          }
+          if (lhsAssignBits.empty()) {
+            std::ostringstream reason;
+            reason << "Unsupported LHS in continuous assign in module '" << moduleName << "'";
+            reportUnsupportedElement(reason.str(), assignSourceRange);
+            continue;
+          }
+
+          std::vector<SNLBitNet*> rhsBits;
+          if (!resolveExpressionBits(design, *rhs, lhsAssignBits.size(), rhsBits) ||
+              rhsBits.size() != lhsAssignBits.size()) {
+            std::ostringstream reason;
+            reason << "Unsupported RHS in continuous assign in module '" << moduleName << "'";
+            reportUnsupportedElement(reason.str(), assignSourceRange);
+            continue;
+          }
+          for (size_t i = 0; i < lhsAssignBits.size(); ++i) {
+            createAssignInstance(design, rhsBits[i], lhsAssignBits[i], assignSourceRange);
+          }
           continue;
         }
 

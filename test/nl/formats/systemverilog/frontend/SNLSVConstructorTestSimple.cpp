@@ -1702,6 +1702,55 @@ endmodule
   EXPECT_EQ(8u, assignCount);
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseContinuousConditionalMemberSelectSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "continuous_conditional_member_select_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "continuous_conditional_member_select_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(typedef struct packed {
+  logic [7:0] data;
+  logic data_req;
+} dcache_req_o_t;
+
+module continuous_conditional_member_select_supported(
+  input  dcache_req_o_t [0:3] req_ports_ex,
+  input  dcache_req_o_t       req_ports_acc,
+  output dcache_req_o_t       req_out
+);
+  assign req_out = req_ports_ex[2].data_req ? req_ports_ex[2] : req_ports_acc;
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("continuous_conditional_member_select_supported"));
+  ASSERT_NE(top, nullptr);
+
+  auto reqOut = top->getBusNet(NLName("req_out"));
+  ASSERT_NE(reqOut, nullptr);
+  EXPECT_EQ(9, reqOut->getWidth());
+
+  auto mux2Model = NLDB0::getMux2();
+  ASSERT_NE(mux2Model, nullptr);
+
+  size_t mux2Count = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == mux2Model) {
+      ++mux2Count;
+    }
+  }
+  EXPECT_EQ(9u, mux2Count);
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseContinuousShiftLeftUnknownAmountUnsupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
