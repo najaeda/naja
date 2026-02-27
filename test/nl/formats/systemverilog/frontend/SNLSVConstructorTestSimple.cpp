@@ -3419,6 +3419,43 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialTimingEventListUnsupported) {
   }
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseSequentialTimingEventListMissingPosedgeUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "seq_timing_event_list_missing_posedge_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "seq_timing_event_list_missing_posedge_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module seq_timing_event_list_missing_posedge_unsupported(
+  input logic rst_n,
+  input logic hold_n,
+  input logic d,
+  output logic q
+);
+  always @(negedge rst_n or negedge hold_n) begin
+    q <= d;
+  end
+endmodule
+)";
+  svFile.close();
+
+  try {
+    constructor.construct(svPath);
+    FAIL() << "Expected unsupported event-list timing with missing posedge clock";
+  } catch (const SNLSVConstructorException& e) {
+    const std::string reason = e.what();
+    EXPECT_NE(
+      std::string::npos,
+      reason.find("Unsupported sequential event list; missing posedge clock event"));
+  }
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseSequentialTimingDelayUnsupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
@@ -3758,4 +3795,100 @@ TEST_F(SNLSVConstructorTestSimple, parseEmptyElaboratedASTJsonPathThrows) {
       std::string::npos,
       reason.find("Empty path for elaborated AST JSON dump"));
   }
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialTimingEventListImplicitEdgeUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "seq_timing_event_list_implicit_edge_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "seq_timing_event_list_implicit_edge_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module seq_timing_event_list_implicit_edge_unsupported(
+  input logic clk,
+  input logic rst_n,
+  input logic d,
+  output logic q
+);
+  always @(clk or negedge rst_n) begin
+    q <= d;
+  end
+endmodule
+)";
+  svFile.close();
+
+  try {
+    constructor.construct(svPath);
+    FAIL() << "Expected unsupported event-list timing edge exception";
+  } catch (const SNLSVConstructorException& e) {
+    const std::string reason = e.what();
+    EXPECT_NE(
+      std::string::npos,
+      reason.find("Unsupported sequential timing edge in event list; only posedge/negedge are supported"));
+  }
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialTimingEventListNegedgeResetNonZeroUsesMuxDFF) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "seq_timing_event_list_negedge_reset_nonzero_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "seq_timing_event_list_negedge_reset_nonzero_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module seq_timing_event_list_negedge_reset_nonzero_supported(
+  input logic clk,
+  input logic rst_n,
+  input logic d,
+  output logic q
+);
+  always @(posedge clk or negedge rst_n) begin
+    if (!rst_n)
+      q <= 1'b1;
+    else
+      q <= d;
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("seq_timing_event_list_negedge_reset_nonzero_supported"));
+  ASSERT_NE(top, nullptr);
+
+  auto dffModel = NLDB0::getDFF();
+  auto dffrnModel = NLDB0::getDFFRN();
+  auto mux2Model = NLDB0::getMux2();
+  ASSERT_NE(dffModel, nullptr);
+  ASSERT_NE(dffrnModel, nullptr);
+  ASSERT_NE(mux2Model, nullptr);
+
+  size_t dffCount = 0;
+  size_t dffrnCount = 0;
+  size_t mux2Count = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dffModel) {
+      ++dffCount;
+    } else if (inst->getModel() == dffrnModel) {
+      ++dffrnCount;
+    } else if (inst->getModel() == mux2Model) {
+      ++mux2Count;
+    }
+  }
+
+  EXPECT_EQ(1u, dffCount);
+  EXPECT_EQ(0u, dffrnCount);
+  EXPECT_EQ(1u, mux2Count);
 }
