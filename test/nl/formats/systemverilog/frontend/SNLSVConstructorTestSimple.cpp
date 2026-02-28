@@ -2709,6 +2709,96 @@ endmodule
   ASSERT_NE(top, nullptr);
 }
 
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseAlwaysCombLHSDynamicElementSelectTypeParamSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath =
+    outPath / "always_comb_lhs_dynamic_element_select_type_param_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "always_comb_lhs_dynamic_element_select_type_param_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_lhs_dynamic_element_select_type_param_supported #(
+  parameter int unsigned DATA_WIDTH = 64,
+  parameter int unsigned DEPTH = 8,
+  parameter type dtype = logic [DATA_WIDTH-1:0],
+  parameter int unsigned ADDR_DEPTH = (DEPTH > 1) ? $clog2(DEPTH) : 1
+) (
+  input  dtype                     data_i,
+  input  logic [ADDR_DEPTH-1:0]    write_pointer_q
+);
+  dtype [((DEPTH > 0) ? DEPTH : 1) - 1:0] mem_q;
+  dtype [((DEPTH > 0) ? DEPTH : 1) - 1:0] mem_n;
+  always_comb begin
+    mem_n = mem_q;
+    mem_n[write_pointer_q] = data_i;
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName(
+    "always_comb_lhs_dynamic_element_select_type_param_supported"));
+  ASSERT_NE(top, nullptr);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseSequentialResetBranchNestedConditionalSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "sequential_reset_branch_nested_conditional_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "sequential_reset_branch_nested_conditional_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module sequential_reset_branch_nested_conditional_supported(
+  input  logic       clk,
+  input  logic       rst_n,
+  input  logic       guard,
+  input  logic [7:0] next_a,
+  input  logic [7:0] next_b,
+  output logic [7:0] a,
+  output logic [7:0] b,
+  output logic [7:0] c
+);
+  always_ff @(posedge clk or negedge rst_n) begin
+    if (!rst_n) begin
+      a <= '0;
+      b <= '0;
+      if (guard) c <= '0;
+    end else begin
+      a <= next_a;
+      b <= next_b;
+      if (guard) c <= next_a;
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top =
+    library_->getSNLDesign(NLName("sequential_reset_branch_nested_conditional_supported"));
+  ASSERT_NE(top, nullptr);
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseAlwaysNoTimingNoClkSkipped) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
@@ -4397,4 +4487,80 @@ endmodule
   EXPECT_EQ(1u, dffCount);
   EXPECT_EQ(0u, dffrnCount);
   EXPECT_EQ(1u, mux2Count);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseTranslateOffInitialIgnored) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "translate_off_initial_ignored";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "translate_off_initial_ignored.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module translate_off_initial_ignored(
+  input logic clk,
+  input logic rst_n,
+  input logic d,
+  output logic q
+);
+  // pragma translate_off
+  initial begin
+    assert (1) else $error("disabled");
+  end
+  // pragma translate_on
+
+  always_ff @(posedge clk or negedge rst_n) begin
+    if (!rst_n)
+      q <= 1'b0;
+    else
+      q <= d;
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("translate_off_initial_ignored"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("q")), nullptr);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseAlwaysCombTranslateOffStatementIgnored) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_translate_off_statement_ignored";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "always_comb_translate_off_statement_ignored.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_translate_off_statement_ignored(
+  input logic a,
+  output logic y
+);
+  always_comb begin
+    // pragma translate_off
+    assert (a) else $error("disabled");
+    // pragma translate_on
+    y = a;
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("always_comb_translate_off_statement_ignored"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("y")), nullptr);
 }
