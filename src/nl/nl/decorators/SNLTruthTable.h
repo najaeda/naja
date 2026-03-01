@@ -123,7 +123,7 @@ class SNLTruthTable {
 
   bool isInitialized() const {
     return 
-        !(size_ == 0 && bits_.size() == 2 && dependencies_.empty());
+        !(size_ == 0 && bits_.size() == 0 && dependencies_.empty());
   }
 
   using ConstantInput = std::pair<uint32_t, bool>;
@@ -285,7 +285,7 @@ class SNLTruthTable {
 
  private:
   uint32_t size_{0};
-  NLBitVecDynamic bits_{0, /*length=*/1};
+  NLBitVecDynamic bits_{0};
   std::vector<uint64_t> dependencies_{};
 };
 
