@@ -321,6 +321,21 @@ TEST_F(SNLLibertyConstructorTest0, testMissingDirection) {
   EXPECT_THROW(constructor.construct(testPath), SNLLibertyConstructorException);
 }
 
+TEST_F(SNLLibertyConstructorTest0, testInconsistentBusChildDirections) {
+  SNLLibertyConstructor constructor(library_);
+  std::filesystem::path testPath(
+      std::filesystem::path(SNL_LIBERTY_BENCHMARKS)
+      / std::filesystem::path("benchmarks")
+      / std::filesystem::path("errors")
+      / std::filesystem::path("inconsistent_bus_direction_error.lib"));
+  try {
+    constructor.construct(testPath);
+    FAIL() << "Expected SNLLibertyConstructorException";
+  } catch (const SNLLibertyConstructorException& e) {
+    EXPECT_NE(std::string::npos, e.getReason().find("Inconsistent child pin directions for bus DRV"));
+  }
+}
+
 TEST_F(SNLLibertyConstructorTest0, testMissingBusType) {
   SNLLibertyConstructor constructor(library_);
   std::filesystem::path testPath(
