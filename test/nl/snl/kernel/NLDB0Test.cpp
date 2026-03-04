@@ -158,6 +158,34 @@ TEST_F(NLDB0Test, testMux2TruthTable) {
   EXPECT_EQ(0xCAULL, bits);
 }
 
+TEST_F(NLDB0Test, testDFFRN) {
+  NLUniverse::create();
+  ASSERT_NE(nullptr, NLUniverse::get());
+
+  auto dffrn = NLDB0::getDFFRN();
+  ASSERT_NE(nullptr, dffrn);
+  EXPECT_TRUE(NLDB0::isDFFRN(dffrn));
+  EXPECT_TRUE(NLDB0::isDB0Primitive(dffrn));
+  EXPECT_FALSE(NLDB0::isDFFRN(NLDB0::getDFF()));
+
+  auto clock = NLDB0::getDFFRNClock();
+  auto data = NLDB0::getDFFRNData();
+  auto resetN = NLDB0::getDFFRNResetN();
+  auto output = NLDB0::getDFFRNOutput();
+  ASSERT_NE(nullptr, clock);
+  ASSERT_NE(nullptr, data);
+  ASSERT_NE(nullptr, resetN);
+  ASSERT_NE(nullptr, output);
+  EXPECT_EQ(NLName("C"), clock->getName());
+  EXPECT_EQ(NLName("D"), data->getName());
+  EXPECT_EQ(NLName("RN"), resetN->getName());
+  EXPECT_EQ(NLName("Q"), output->getName());
+  EXPECT_EQ(SNLTerm::Direction::Input, clock->getDirection());
+  EXPECT_EQ(SNLTerm::Direction::Input, data->getDirection());
+  EXPECT_EQ(SNLTerm::Direction::Input, resetN->getDirection());
+  EXPECT_EQ(SNLTerm::Direction::Output, output->getDirection());
+}
+
 TEST_F(NLDB0Test, testNULLUniverse) {
   EXPECT_EQ(nullptr, NLUniverse::get());
   EXPECT_FALSE(NLUniverse::isDB0(nullptr));
@@ -180,6 +208,12 @@ TEST_F(NLDB0Test, testNULLUniverse) {
   EXPECT_EQ(nullptr, NLDB0::getDFFClock());
   EXPECT_EQ(nullptr, NLDB0::getDFFData());
   EXPECT_EQ(nullptr, NLDB0::getDFFOutput());
+  EXPECT_EQ(nullptr, NLDB0::getDFFRN());
+  EXPECT_FALSE(NLDB0::isDFFRN(nullptr));
+  EXPECT_EQ(nullptr, NLDB0::getDFFRNClock());
+  EXPECT_EQ(nullptr, NLDB0::getDFFRNData());
+  EXPECT_EQ(nullptr, NLDB0::getDFFRNResetN());
+  EXPECT_EQ(nullptr, NLDB0::getDFFRNOutput());
   EXPECT_EQ(nullptr, NLDB0::getGateLibrary(NLDB0::GateType::And));
   EXPECT_THROW(NLDB0::getOrCreateNInputGate(NLDB0::GateType::And, 2), NLException);
 }

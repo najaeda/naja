@@ -60,6 +60,50 @@ TEST_F(SNLLibertyConstructorTest1, testBusses) {
   EXPECT_EQ(0, rd_out->getLSB());
 }
 
+TEST_F(SNLLibertyConstructorTest1, testBusDirectionInheritedFromChildPins) {
+  SNLLibertyConstructor constructor(library_);
+  std::filesystem::path testPath(
+      std::filesystem::path(SNL_LIBERTY_BENCHMARKS)
+      / std::filesystem::path("benchmarks")
+      / std::filesystem::path("tests")
+      / std::filesystem::path("bus_direction_from_pins.lib"));
+  constructor.construct(testPath);
+  EXPECT_EQ(NLName("test_gpio_bus_direction_bug"), library_->getName());
+  EXPECT_EQ(library_->getSNLDesigns().size(), 1);
+  auto design = library_->getSNLDesign(NLName("PADCELL_DRV_BUG"));
+  ASSERT_NE(nullptr, design);
+  EXPECT_EQ(3, design->getTerms().size());
+  EXPECT_EQ(2, design->getScalarTerms().size());
+  EXPECT_EQ(1, design->getBusTerms().size());
+  auto drv = design->getBusTerm(NLName("DRV"));
+  ASSERT_NE(nullptr, drv);
+  EXPECT_EQ(SNLTerm::Direction::Input, drv->getDirection());
+  EXPECT_EQ(1, drv->getMSB());
+  EXPECT_EQ(0, drv->getLSB());
+}
+
+TEST_F(SNLLibertyConstructorTest1, testBusDirectionInheritedSkippingChildWithoutDirection) {
+  SNLLibertyConstructor constructor(library_);
+  std::filesystem::path testPath(
+      std::filesystem::path(SNL_LIBERTY_BENCHMARKS)
+      / std::filesystem::path("benchmarks")
+      / std::filesystem::path("tests")
+      / std::filesystem::path("bus_direction_from_partial_pins.lib"));
+  constructor.construct(testPath);
+  EXPECT_EQ(NLName("test_gpio_bus_direction_partial"), library_->getName());
+  EXPECT_EQ(library_->getSNLDesigns().size(), 1);
+  auto design = library_->getSNLDesign(NLName("PADCELL_DRV_PARTIAL"));
+  ASSERT_NE(nullptr, design);
+  EXPECT_EQ(3, design->getTerms().size());
+  EXPECT_EQ(2, design->getScalarTerms().size());
+  EXPECT_EQ(1, design->getBusTerms().size());
+  auto drv = design->getBusTerm(NLName("DRV"));
+  ASSERT_NE(nullptr, drv);
+  EXPECT_EQ(SNLTerm::Direction::Input, drv->getDirection());
+  EXPECT_EQ(1, drv->getMSB());
+  EXPECT_EQ(0, drv->getLSB());
+}
+
 TEST_F(SNLLibertyConstructorTest1, testBufferFunction) {
   SNLLibertyConstructor constructor(library_);
   std::filesystem::path testPath(

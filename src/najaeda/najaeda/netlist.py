@@ -9,6 +9,7 @@ import hashlib
 import struct
 import sys
 import os
+import tempfile
 from enum import Enum
 from typing import Union, List, Iterator
 from dataclasses import dataclass
@@ -1857,8 +1858,11 @@ class VerilogConfig:
 class SystemVerilogConfig:
     keep_assigns: bool = True
     elaborated_ast_json_path: str = None
+    diagnostics_report_path: str = None
     pretty_print_elaborated_ast_json: bool = True
     include_source_info_in_elaborated_ast_json: bool = True
+    flist: str = None
+    top: str = None
 
 
 def load_verilog(files: Union[str, List[str]], config: VerilogConfig = None) -> Instance:
@@ -1901,22 +1905,56 @@ def load_systemverilog(
     :rtype: Instance
     :raises Exception: if no files are provided.
     """
+    if config is None:
+        config = SystemVerilogConfig()
     if isinstance(files, str):
         files = [files]
     if not files or len(files) == 0:
-        raise Exception("No systemverilog files provided")
-    if config is None:
-        config = SystemVerilogConfig()
+        if not config.flist:
+            raise Exception("No systemverilog files provided")
+        files = []
     start_time = time.time()
-    logging.info(f"Loading systemverilog: {', '.join(files)}")
-    __get_top_db().loadSystemVerilog(
-        files,
-        keep_assigns=config.keep_assigns,
-        elaborated_ast_json_path=config.elaborated_ast_json_path,
-        pretty_print_elaborated_ast_json=config.pretty_print_elaborated_ast_json,
-        include_source_info_in_elaborated_ast_json=(
-            config.include_source_info_in_elaborated_ast_json),
-    )
+    if files:
+        logging.info(f"Loading systemverilog: {', '.join(files)}")
+    else:
+        logging.info(f"Loading systemverilog from flist: {config.flist}")
+
+    if config.top is not None and not isinstance(config.top, str):
+        raise ValueError(
+            "SystemVerilogConfig.top must be a str "
+            f"(got {type(config.top).__name__})")
+    if isinstance(config.top, str) and not config.top.strip():
+        raise ValueError("SystemVerilogConfig.top must not be empty")
+
+    effective_flist = config.flist
+    temp_flist_path = None
+    if config.top is not None:
+        # Expose top selection at najaeda layer without changing the C++ API:
+        # build a temporary command file that injects slang --top.
+        with tempfile.NamedTemporaryFile(
+                "w", suffix=".f", delete=False, encoding="utf-8") as top_flist:
+            temp_flist_path = top_flist.name
+            top_flist.write(f"--top {config.top}\n")
+            if config.flist:
+                quoted_flist = config.flist.replace("\\", "\\\\").replace("\"", "\\\"")
+                top_flist.write(f"-f \"{quoted_flist}\"\n")
+        effective_flist = temp_flist_path
+
+    try:
+        __get_top_db().loadSystemVerilog(
+            files,
+            keep_assigns=config.keep_assigns,
+            elaborated_ast_json_path=config.elaborated_ast_json_path,
+            diagnostics_report_path=config.diagnostics_report_path,
+            pretty_print_elaborated_ast_json=config.pretty_print_elaborated_ast_json,
+            include_source_info_in_elaborated_ast_json=(
+                config.include_source_info_in_elaborated_ast_json),
+            flist=effective_flist,
+        )
+    finally:
+        if temp_flist_path and os.path.exists(temp_flist_path):
+            os.remove(temp_flist_path)
+
     execution_time = time.time() - start_time
     logging.info(f"Loading done in {execution_time:.2f} seconds")
     return get_top()

@@ -1,0 +1,31 @@
+library (inconsistent_bus_direction_error) {
+  type (bus_DRV_1_0) {
+    base_type : array;
+    data_type : bit;
+    bit_width : 2;
+    bit_from  : 1;
+    bit_to    : 0;
+    downto    : true;
+  }
+
+  cell (PADCELL_DRV_MIXED) {
+    pin (C) {
+      direction : input;
+    }
+
+    bus (DRV) {
+      bus_type : bus_DRV_1_0;
+      pin (DRV[1]) {
+        direction : input;
+      }
+      pin (DRV[0]) {
+        direction : output;
+      }
+    }
+
+    pin (Y) {
+      direction : output;
+      function : "C";
+    }
+  }
+}

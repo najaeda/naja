@@ -20,6 +20,7 @@
 #include "SNLPyLoader.h"
 #include "SNLUtils.h"
 #include "SNLLibertyConstructor.h"
+#include "SNLSVConstructor.h"
 #include "SNLVRLConstructor.h"
 #include "SNLVRLDumper.h"
 
@@ -35,12 +36,14 @@ using namespace naja::NAJA_OPT;
 
 namespace {
 
-enum class FormatType { NOT_PROVIDED, UNKNOWN, VERILOG, SNL, DOT, SVG};
+enum class FormatType { NOT_PROVIDED, UNKNOWN, VERILOG, SYSTEMVERILOG, SNL, DOT, SVG};
 FormatType argToFormatType(const std::string& inputFormat) {
   if (inputFormat.empty()) {
     return FormatType::NOT_PROVIDED;
   } else if (inputFormat == "verilog") {
     return FormatType::VERILOG;
+  } else if (inputFormat == "systemverilog" || inputFormat == "sv") {
+    return FormatType::SYSTEMVERILOG;
   } else if (inputFormat == "snl") {
     return FormatType::SNL;
   } else if (inputFormat == "dot") {
@@ -74,7 +77,8 @@ int main(int argc, char* argv[]) {
   argparse::ArgumentParser program("naja_edit", naja::NAJA_VERSION);
   program.add_description(
       "Edit gate level netlists using python script and apply optimizations");
-  program.add_argument("-f", "--from_format").help("from/input format");
+  program.add_argument("-f", "--from_format")
+    .help("from/input format (verilog|systemverilog|sv|snl)");
   program.add_argument("-t", "--to_format").help("to/output format");
   program.add_argument("-i", "--input").append().help("input netlist paths");
   program.add_argument("-o", "--output").help("output netlist");
@@ -101,6 +105,22 @@ int main(int argc, char* argv[]) {
   program.add_argument("-s", "--stats")
     .default_value(std::string("naja_stats.log"))
     .help("Dump stats log file named: naja_stats.log");
+  program.add_argument("--sv_flist")
+    .help("SystemVerilog slang command file path (passed as -f <file>)");
+  program.add_argument("--sv_top")
+    .help("SystemVerilog top module name (injected as --top)");
+  program.add_argument("--sv_elaborated_ast_json_path")
+    .help("Dump Slang elaborated AST JSON for SystemVerilog parsing");
+  program.add_argument("--sv_diagnostics_report_path")
+    .help("Dump SystemVerilog diagnostics report path");
+  program.add_argument("--sv_no_pretty_print_elaborated_ast_json")
+    .default_value(false)
+    .implicit_value(true)
+    .help("Disable pretty-print formatting for SystemVerilog elaborated AST JSON dump");
+  program.add_argument("--sv_no_source_info_in_elaborated_ast_json")
+    .default_value(false)
+    .implicit_value(true)
+    .help("Disable source info in SystemVerilog elaborated AST JSON dump");
 
   try {
     program.parse_args(argc, argv);
@@ -193,11 +213,59 @@ int main(int argc, char* argv[]) {
         return std::filesystem::path(str);
       }
     );
-  } else {
-    if (inputFormatType != FormatType::SNL and inputFormatType != FormatType::NOT_PROVIDED) {
-      NAJA_LOG_CRITICAL("primitives option (-p) is mandatory when the input format is not 'SNL'");
+  }
+
+  bool hasSvFlistPath = false;
+  std::filesystem::path svFlistPath;
+  if (auto svFlist = program.present("--sv_flist")) {
+    hasSvFlistPath = true;
+    svFlistPath = std::filesystem::path(*svFlist);
+  }
+
+  bool hasSvTop = false;
+  std::string svTop;
+  if (auto svTopArg = program.present("--sv_top")) {
+    hasSvTop = true;
+    svTop = *svTopArg;
+    if (svTop.empty()) {
+      NAJA_LOG_CRITICAL("SystemVerilog top name (--sv_top) cannot be empty");
       argError = true;
     }
+  }
+
+  bool hasSvElaboratedASTJsonPath = false;
+  std::filesystem::path svElaboratedASTJsonPath;
+  if (auto svAstPath = program.present("--sv_elaborated_ast_json_path")) {
+    hasSvElaboratedASTJsonPath = true;
+    svElaboratedASTJsonPath = std::filesystem::path(*svAstPath);
+  }
+
+  bool hasSvDiagnosticsReportPath = false;
+  std::filesystem::path svDiagnosticsReportPath;
+  if (auto svDiagPath = program.present("--sv_diagnostics_report_path")) {
+    hasSvDiagnosticsReportPath = true;
+    svDiagnosticsReportPath = std::filesystem::path(*svDiagPath);
+  }
+
+  const bool svPrettyPrintElaboratedASTJson =
+    !program.get<bool>("--sv_no_pretty_print_elaborated_ast_json");
+  const bool svIncludeSourceInfoInElaboratedASTJson =
+    !program.get<bool>("--sv_no_source_info_in_elaborated_ast_json");
+
+  const bool hasSystemVerilogSpecificOption =
+    hasSvFlistPath || hasSvTop || hasSvElaboratedASTJsonPath || hasSvDiagnosticsReportPath ||
+    !svPrettyPrintElaboratedASTJson || !svIncludeSourceInfoInElaboratedASTJson;
+  if (hasSystemVerilogSpecificOption && inputFormatType != FormatType::SYSTEMVERILOG) {
+    NAJA_LOG_CRITICAL(
+      "SystemVerilog parsing options (--sv_*) are only valid with input format "
+      "'systemverilog' (or 'sv')");
+    argError = true;
+  }
+  if (inputFormatType == FormatType::SYSTEMVERILOG &&
+      !program.present("-i") && !hasSvFlistPath) {
+    NAJA_LOG_CRITICAL(
+      "For SystemVerilog input, provide at least one --input (-i) file or --sv_flist");
+    argError = true;
   }
 
   OptimizationType optimizationType = OptimizationType::NOT_PROVIDED;
@@ -238,6 +306,30 @@ int main(int argc, char* argv[]) {
   try {
     NLDB* db = nullptr;
     NLLibrary* primitivesLibrary = nullptr;
+    auto loadPrimitivesLibrary = [&](NLDB* currentDB) -> NLLibrary* {
+      if (primitivesPaths.empty()) {
+        return nullptr;
+      }
+      auto* currentPrimitivesLibrary =
+        NLLibrary::create(currentDB, NLLibrary::Type::Primitives, NLName("PRIMS"));
+      for (const auto& path : primitivesPaths) {
+        NAJA_LOG_INFO("Parsing primitives file: {}", path.string());
+        auto extension = path.extension();
+        if (extension.empty()) {
+          NAJA_LOG_CRITICAL("Primitives path should end with an extension");
+          std::exit(EXIT_FAILURE);
+        } else if (extension == ".py") {
+          SNLPyLoader::loadPrimitives(currentPrimitivesLibrary, path);
+        } else if (extension == ".lib") {
+          SNLLibertyConstructor constructor(currentPrimitivesLibrary);
+          constructor.construct(path);
+        } else {
+          NAJA_LOG_CRITICAL("Unknow extension in Primitives path");
+          std::exit(EXIT_FAILURE);
+        }
+      }
+      return currentPrimitivesLibrary;
+    };
     {
       naja::NajaPerf::Scope scope("SNL Creation");
       NLUniverse::create();
@@ -262,24 +354,7 @@ int main(int argc, char* argv[]) {
       } else if (inputFormatType == FormatType::VERILOG) {
         naja::NajaPerf::Scope scope("Parsing verilog");
         db = NLDB::create(NLUniverse::get());
-        primitivesLibrary = NLLibrary::create(db, NLLibrary::Type::Primitives,
-                                               NLName("PRIMS"));
-        for (const auto& path : primitivesPaths) {
-          NAJA_LOG_INFO("Parsing primitives file: {}", path.string());
-          auto extension = path.extension();
-          if (extension.empty()) {
-            NAJA_LOG_CRITICAL("Primitives path should end with an extension");
-            std::exit(EXIT_FAILURE);
-          } else if (extension == ".py") {
-            SNLPyLoader::loadPrimitives(primitivesLibrary, path);
-          } else if (extension == ".lib") {
-            SNLLibertyConstructor constructor(primitivesLibrary);
-            constructor.construct(path);
-          } else {
-            NAJA_LOG_CRITICAL("Unknow extension in Primitives path");
-            std::exit(EXIT_FAILURE);
-          }
-        }
+        primitivesLibrary = loadPrimitivesLibrary(db);
 
         auto designLibrary = NLLibrary::create(db, NLName("DESIGN"));
         SNLVRLConstructor constructor(designLibrary);
@@ -304,6 +379,116 @@ int main(int argc, char* argv[]) {
           NAJA_LOG_INFO("Found top design: " + top->getString());
         } else {
           NAJA_LOG_ERROR("No top design was found after parsing verilog");
+        }
+        const auto end{std::chrono::steady_clock::now()};
+        const std::chrono::duration<double> elapsed_seconds{end - start};
+        {
+          std::ostringstream oss;
+          oss << "Parsing done in: " << elapsed_seconds.count() << "s";
+          NAJA_LOG_INFO(oss.str());
+        }
+      } else if (inputFormatType == FormatType::SYSTEMVERILOG) {
+        naja::NajaPerf::Scope scope("Parsing systemverilog");
+        db = NLDB::create(NLUniverse::get());
+        primitivesLibrary = loadPrimitivesLibrary(db);
+
+        auto designLibrary = NLLibrary::create(db, NLName("DESIGN"));
+        SNLSVConstructor constructor(designLibrary);
+        SNLSVConstructor::ConstructOptions options;
+        options.prettyPrintElaboratedASTJson = svPrettyPrintElaboratedASTJson;
+        options.includeSourceInfoInElaboratedASTJson =
+          svIncludeSourceInfoInElaboratedASTJson;
+        if (hasSvElaboratedASTJsonPath) {
+          options.elaboratedASTJsonPath = svElaboratedASTJsonPath;
+        }
+        if (hasSvDiagnosticsReportPath) {
+          options.diagnosticsReportPath = svDiagnosticsReportPath;
+        }
+
+        Paths svInputPaths = inputPaths;
+        bool removeTemporaryTopFlist = false;
+        std::filesystem::path temporaryTopFlistPath;
+        auto removeTemporaryTopFlistIfNeeded = [&]() {
+          if (!removeTemporaryTopFlist) {
+            return;
+          }
+          std::error_code ec;
+          std::filesystem::remove(temporaryTopFlistPath, ec);
+        };
+
+        const auto quotePathForSlangCommandFile = [](const std::filesystem::path& path) {
+          std::string quoted;
+          quoted.reserve(path.string().size() + 2);
+          quoted.push_back('"');
+          for (const auto c : path.string()) {
+            if (c == '\\' || c == '"') {
+              quoted.push_back('\\');
+            }
+            quoted.push_back(c);
+          }
+          quoted.push_back('"');
+          return quoted;
+        };
+
+        if (hasSvTop) {
+          temporaryTopFlistPath =
+            std::filesystem::temp_directory_path() /
+            std::filesystem::path(
+              "naja_edit_sv_top_" +
+              std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) +
+              ".f");
+          std::ofstream topFlist(temporaryTopFlistPath, std::ios::out | std::ios::trunc);
+          if (!topFlist) {
+            NAJA_LOG_CRITICAL(
+              "Failed to create temporary SystemVerilog command file: {}",
+              temporaryTopFlistPath.string());
+            std::exit(EXIT_FAILURE);
+          }
+          topFlist << "--top " << svTop << "\n";
+          if (hasSvFlistPath) {
+            topFlist << "-f " << quotePathForSlangCommandFile(svFlistPath) << "\n";
+          }
+          for (const auto& svInputPath : inputPaths) {
+            topFlist << quotePathForSlangCommandFile(svInputPath) << "\n";
+          }
+          topFlist.close();
+          svInputPaths.clear();
+          svInputPaths.emplace_back(std::filesystem::path("-f"));
+          svInputPaths.emplace_back(temporaryTopFlistPath);
+          removeTemporaryTopFlist = true;
+        } else if (hasSvFlistPath) {
+          svInputPaths.insert(svInputPaths.begin(), svFlistPath);
+          svInputPaths.insert(svInputPaths.begin(), std::filesystem::path("-f"));
+        }
+
+        const auto start{std::chrono::steady_clock::now()};
+        {
+          std::ostringstream oss;
+          oss << "Parsing SystemVerilog input(s): ";
+          size_t i = 0;
+          for (const auto& path : svInputPaths) {
+            if (i++ >= 4) {
+              oss << std::endl;
+              i = 0;
+            }
+            oss << path << " ";
+          }
+          NAJA_LOG_INFO(oss.str());
+        }
+        try {
+          constructor.construct(svInputPaths, options);
+        } catch (...) {
+          removeTemporaryTopFlistIfNeeded();
+          throw;
+        }
+        removeTemporaryTopFlistIfNeeded();
+
+        auto top = SNLUtils::findTop(designLibrary);
+        if (top) {
+          NLUniverse::get()->setTopDesign(top);
+          NAJA_LOG_INFO("Found top design: " + top->getString());
+        } else {
+          NAJA_LOG_ERROR("No top design was found after parsing systemverilog");
         }
         const auto end{std::chrono::steady_clock::now()};
         const std::chrono::duration<double> elapsed_seconds{end - start};

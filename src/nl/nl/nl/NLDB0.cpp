@@ -58,6 +58,17 @@ namespace {
     SNLDesignModeling::addInputsToClockArcs({dffData}, dffClock);
   }
 
+  void createDFFRNPrimitive(naja::NL::NLLibrary* rootLibrary) {
+    using namespace naja::NL;
+    auto dffrn = SNLDesign::create(rootLibrary, SNLDesign::Type::Primitive, NLName("dffrn"));
+    auto dffrnClock = SNLScalarTerm::create(dffrn, SNLTerm::Direction::Input, NLName("C"));
+    auto dffrnData = SNLScalarTerm::create(dffrn, SNLTerm::Direction::Input, NLName("D"));
+    auto dffrnResetN = SNLScalarTerm::create(dffrn, SNLTerm::Direction::Input, NLName("RN"));
+    auto dffrnOutput = SNLScalarTerm::create(dffrn, SNLTerm::Direction::Output, NLName("Q"));
+    SNLDesignModeling::addClockToOutputsArcs(dffrnClock, {dffrnOutput});
+    SNLDesignModeling::addInputsToClockArcs({dffrnData, dffrnResetN}, dffrnClock);
+  }
+
   void createMux2Primitive(naja::NL::NLLibrary* rootLibrary) {
     using namespace naja::NL;
     auto mux2 = SNLDesign::create(rootLibrary, SNLDesign::Type::Primitive, NLName("mux2"));
@@ -145,6 +156,7 @@ NLDB* NLDB0::create(NLUniverse* universe) {
   createFAPrimitive(rootLibrary);
   createMux2Primitive(rootLibrary);
   createDFFPrimitive(rootLibrary);
+  createDFFRNPrimitive(rootLibrary);
 
   return db;
 }
@@ -427,6 +439,51 @@ SNLScalarTerm* NLDB0::getDFFOutput() {
   auto dff = getDFF();
   if (dff) {
     return dff->getScalarTerm(NLID::DesignObjectID(2));
+  }
+  return nullptr;
+}
+
+SNLDesign* NLDB0::getDFFRN() {
+  auto primitives = getDB0RootLibrary();
+  if (primitives) {
+    // Static primitive, created fifth in NLDB0::create().
+    return primitives->getSNLDesign(NLID::DesignID(4));
+  }
+  return nullptr;
+}
+
+bool NLDB0::isDFFRN(const SNLDesign* design) {
+  return design and design == getDFFRN();
+}
+
+SNLScalarTerm* NLDB0::getDFFRNClock() {
+  auto dffrn = getDFFRN();
+  if (dffrn) {
+    return dffrn->getScalarTerm(NLID::DesignObjectID(0));
+  }
+  return nullptr;
+}
+
+SNLScalarTerm* NLDB0::getDFFRNData() {
+  auto dffrn = getDFFRN();
+  if (dffrn) {
+    return dffrn->getScalarTerm(NLID::DesignObjectID(1));
+  }
+  return nullptr;
+}
+
+SNLScalarTerm* NLDB0::getDFFRNResetN() {
+  auto dffrn = getDFFRN();
+  if (dffrn) {
+    return dffrn->getScalarTerm(NLID::DesignObjectID(2));
+  }
+  return nullptr;
+}
+
+SNLScalarTerm* NLDB0::getDFFRNOutput() {
+  auto dffrn = getDFFRN();
+  if (dffrn) {
+    return dffrn->getScalarTerm(NLID::DesignObjectID(3));
   }
   return nullptr;
 }

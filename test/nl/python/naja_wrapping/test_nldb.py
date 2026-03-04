@@ -161,17 +161,31 @@ class SNLDBTest(unittest.TestCase):
     output_path = os.environ.get('SNL_WRAPPING_TEST_PATH')
     self.assertIsNotNone(output_path)
     json_path = os.path.join(output_path, "simple_elaborated_ast_python.json")
+    diagnostics_path = os.path.join(output_path, "simple_diagnostics_python.txt")
 
-    top = db.loadSystemVerilog([sv_file], elaborated_ast_json_path=json_path)
+    top = db.loadSystemVerilog(
+      [sv_file],
+      elaborated_ast_json_path=json_path,
+      diagnostics_report_path=diagnostics_path)
     self.assertIsNotNone(top)
     self.assertEqual("top", top.getName())
     self.assertEqual(3, sum(1 for _ in top.getTerms()))
     self.assertTrue(os.path.exists(json_path))
+    self.assertTrue(os.path.exists(diagnostics_path))
 
     db.destroy()
     db = naja.NLDB.create(u)
     top = db.loadSystemVerilog([sv_file], keep_assigns=False)
     self.assertIsNotNone(top)
+
+    db.destroy()
+    db = naja.NLDB.create(u)
+    flist_path = os.path.join(output_path, "simple_systemverilog_python.f")
+    with open(flist_path, "w", encoding="utf-8") as flist:
+      flist.write(f"{sv_file}\n")
+    top = db.loadSystemVerilog([], flist=flist_path)
+    self.assertIsNotNone(top)
+    self.assertEqual("top", top.getName())
 
   def testDestroy(self):
     u = naja.NLUniverse.get()
@@ -218,6 +232,8 @@ class SNLDBTest(unittest.TestCase):
     with self.assertRaises(RuntimeError) as context: db.loadSystemVerilog(designs)
     with self.assertRaises(RuntimeError) as context: db.loadSystemVerilog([1])
     with self.assertRaises(RuntimeError) as context: db.loadSystemVerilog([svFile], elaborated_ast_json_path=1)
+    with self.assertRaises(RuntimeError) as context: db.loadSystemVerilog([svFile], diagnostics_report_path=1)
+    with self.assertRaises(RuntimeError) as context: db.loadSystemVerilog([svFile], flist=1)
     with self.assertRaises(RuntimeError) as context: db.loadLibertyPrimitives("Error", "Error")
     with self.assertRaises(RuntimeError) as context: db.loadVerilog("Error")
     with self.assertRaises(RuntimeError) as context: db.loadLibertyPrimitives("Error")

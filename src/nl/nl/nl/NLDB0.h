@@ -81,6 +81,12 @@ class NLDB0 {
     static SNLScalarTerm* getDFFClock();
     static SNLScalarTerm* getDFFData();
     static SNLScalarTerm* getDFFOutput();
+    static SNLDesign* getDFFRN();
+    static bool isDFFRN(const SNLDesign* design);
+    static SNLScalarTerm* getDFFRNClock();
+    static SNLScalarTerm* getDFFRNData();
+    static SNLScalarTerm* getDFFRNResetN();
+    static SNLScalarTerm* getDFFRNOutput();
     static NLLibrary* getGateLibrary(const GateType& type);
     static bool isGateLibrary(const NLLibrary* lib);
     static NLLibrary* getOrCreateGateLibrary(const GateType& type);
