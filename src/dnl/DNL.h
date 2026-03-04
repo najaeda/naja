@@ -166,7 +166,7 @@ class DNLInstanceFull {
    * \brief Check if the DNLInstanceFull is top.
    * \return True if the DNLInstanceFull is top.
    */
-  bool isTop() const { return parent_ == (DNLID)DNLID_MAX; }
+  bool isTop() const { return id_ == 0; }
   const std::pair<DNLID, DNLID>& getChildren() const {
     return childrenIndexes_;
   }
@@ -229,6 +229,11 @@ class DNLTerminalFull {
    * \return The DNLInstanceFull of the DNLTerminalFull.
    */
   const DNLInstanceFull& getDNLInstance() const;
+  /**
+   * \brief Get the full unique ID of the DNLTerminalFull.
+   * \return full unique ID of the DNLTerminalFull.
+   */
+  std::vector<naja::NL::NLID::DesignObjectID> getFullPathIDs() const;
   /**
    * \brief Check if the DNLTerminalFull is null.
    * \return True if the DNLTerminalFull is null.

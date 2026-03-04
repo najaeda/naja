@@ -21,7 +21,7 @@ namespace naja::NL {
 
 class SNLTruthTable {
  public:
-  SNLTruthTable() : size_(std::numeric_limits<uint32_t>::max()) {}
+  SNLTruthTable() : size_(0) {}
 
   // user‐provided copy‐ctor
   SNLTruthTable(const SNLTruthTable& o)
@@ -122,7 +122,8 @@ class SNLTruthTable {
   }
 
   bool isInitialized() const {
-    return size_ != std::numeric_limits<uint32_t>::max();
+    return 
+        !(size_ == 0 && bits_.size() == 0 && dependencies_.empty());
   }
 
   using ConstantInput = std::pair<uint32_t, bool>;
@@ -283,8 +284,8 @@ class SNLTruthTable {
   }
 
  private:
-  uint32_t size_{std::numeric_limits<uint32_t>::max()};
-  NLBitVecDynamic bits_{0, /*length=*/1};
+  uint32_t size_{0};
+  NLBitVecDynamic bits_{0};
   std::vector<uint64_t> dependencies_{};
 };
 
