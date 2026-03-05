@@ -778,7 +778,7 @@ class SNLSVConstructorImpl {
         std::to_string(sourceInfo->endColumn));
     }
 
-    SNLNet* resolveExpressionNet(SNLDesign* design, const Expression& expr) {
+    const Expression* stripConnectionLValueArgConversions(const Expression& expr) const {
       const Expression* current = &expr;
       while (current) {
         if (current->kind == slang::ast::ExpressionKind::Conversion) {
@@ -794,7 +794,11 @@ class SNLSVConstructorImpl {
         } // LCOV_EXCL_LINE
         break;
       }
-      current = current ? stripConversions(*current) : nullptr;
+      return current ? stripConversions(*current) : nullptr;
+    }
+
+    SNLNet* resolveExpressionNet(SNLDesign* design, const Expression& expr) {
+      const Expression* current = stripConnectionLValueArgConversions(expr);
       if (current && slang::ast::ValueExpressionBase::isKind(current->kind)) {
         const auto& valueExpr = current->as<slang::ast::ValueExpressionBase>();
         const auto& symbol = valueExpr.symbol;
@@ -6848,38 +6852,38 @@ class SNLSVConstructorImpl {
         if (!expr) {
           continue;
         }
-        auto net = resolveExpressionNet(inst->getDesign(), *expr);
+        const Expression* connectionExpr = stripConnectionLValueArgConversions(*expr);
+        if (!connectionExpr) {
+          std::ostringstream reason;
+          reason << "Unsupported instance connection expression for port '" << portName
+                 << "' on instance '" << inst->getName().getString() << "'";
+          reportUnsupportedElement(reason.str(), getSourceRange(*expr));
+          continue;
+        }
+        auto net = resolveExpressionNet(inst->getDesign(), *connectionExpr);
 
         auto resolveSelectableConnectionBits =
           [&](size_t targetWidth, std::vector<SNLBitNet*>& bits) -> bool {
-          const auto* strippedExpr = stripConversions(*expr);
-          if (!strippedExpr) {
-            return false; // LCOV_EXCL_LINE
-          }
           const bool isSelectable =
-            strippedExpr->kind == slang::ast::ExpressionKind::ElementSelect ||
-            strippedExpr->kind == slang::ast::ExpressionKind::RangeSelect ||
-            strippedExpr->kind == slang::ast::ExpressionKind::MemberAccess;
+            connectionExpr->kind == slang::ast::ExpressionKind::ElementSelect ||
+            connectionExpr->kind == slang::ast::ExpressionKind::RangeSelect ||
+            connectionExpr->kind == slang::ast::ExpressionKind::MemberAccess;
           if (!isSelectable) {
             return false;
           }
-          if (!resolveExpressionBits(inst->getDesign(), *strippedExpr, targetWidth, bits)) {
+          if (!resolveExpressionBits(inst->getDesign(), *connectionExpr, targetWidth, bits)) {
             return false;
           }
           return bits.size() == targetWidth;
         };
         auto resolveExactWidthConnectionBits =
           [&](size_t targetWidth, std::vector<SNLBitNet*>& bits) -> bool {
-          const auto* strippedExpr = stripConversions(*expr);
-          if (!strippedExpr) {
-            return false; // LCOV_EXCL_LINE
-          }
-          auto exprWidth = getIntegralExpressionBitWidth(*strippedExpr);
+          auto exprWidth = getIntegralExpressionBitWidth(*connectionExpr);
           if (!exprWidth || *exprWidth <= 0 ||
               static_cast<size_t>(*exprWidth) != targetWidth) {
             return false;
           }
-          if (!resolveExpressionBits(inst->getDesign(), *strippedExpr, targetWidth, bits)) {
+          if (!resolveExpressionBits(inst->getDesign(), *connectionExpr, targetWidth, bits)) {
             return false;
           }
           return bits.size() == targetWidth;

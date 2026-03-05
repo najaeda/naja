@@ -1431,6 +1431,58 @@ endmodule
   EXPECT_EQ(child, inst->getModel());
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseInstanceConnectionOutputElementSelectSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "instance_connection_output_element_select_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "instance_connection_output_element_select_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module child_output_slice(
+  output logic [8:0] d_o
+);
+endmodule
+
+module instance_connection_output_element_select_supported(
+  output logic [2:0][8:0] y
+);
+  child_output_slice i_load_unit (
+    .d_o(y[1])
+  );
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("instance_connection_output_element_select_supported"));
+  ASSERT_NE(top, nullptr);
+  auto child = library_->getSNLDesign(NLName("child_output_slice"));
+  ASSERT_NE(child, nullptr);
+  auto inst = top->getInstance(NLName("i_load_unit"));
+  ASSERT_NE(inst, nullptr);
+  EXPECT_EQ(child, inst->getModel());
+
+  auto yNet = top->getBusNet(NLName("y"));
+  ASSERT_NE(yNet, nullptr);
+  EXPECT_EQ(27, yNet->getWidth());
+
+  auto dTerm = child->getBusTerm(NLName("d_o"));
+  ASSERT_NE(dTerm, nullptr);
+  auto dTermBit0 = dTerm->getBit(0);
+  ASSERT_NE(dTermBit0, nullptr);
+  auto dBit0InstTerm = inst->getInstTerm(dTermBit0);
+  ASSERT_NE(dBit0InstTerm, nullptr);
+  ASSERT_NE(dBit0InstTerm->getNet(), nullptr);
+  EXPECT_EQ(static_cast<void*>(yNet->getBit(9)), static_cast<void*>(dBit0InstTerm->getNet()));
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseInterfacePortReportedUnsupportedAtEnd) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
