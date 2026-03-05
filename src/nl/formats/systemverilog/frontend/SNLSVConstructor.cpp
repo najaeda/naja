@@ -1782,6 +1782,68 @@ class SNLSVConstructorImpl {
         return true;
       }
 
+      if (stripped->kind == slang::ast::ExpressionKind::Inside) {
+        const auto& insideExpr = stripped->as<slang::ast::InsideExpression>();
+        auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
+        auto* const1 = static_cast<SNLBitNet*>(getConstNet(design, true));
+        auto insideSourceRange = getSourceRange(*stripped);
+        SNLBitNet* insideBit = const0;
+        for (const auto* rangeExpr : insideExpr.rangeList()) {
+          if (!rangeExpr) {
+            continue; // LCOV_EXCL_LINE
+          }
+          const auto* strippedRangeExpr = stripConversions(*rangeExpr);
+          if (!strippedRangeExpr ||
+              strippedRangeExpr->kind == slang::ast::ExpressionKind::ValueRange) {
+            return false;
+          }
+
+          SNLNet* eqNet = SNLScalarNet::create(design);
+          annotateSourceInfo(eqNet, insideSourceRange);
+          if (!createEqualityAssign(
+                design,
+                eqNet,
+                insideExpr.left(),
+                *strippedRangeExpr,
+                insideSourceRange)) {
+            return false;
+          }
+          auto* eqBit = getSingleBitNet(eqNet);
+          if (!eqBit) {
+            return false; // LCOV_EXCL_LINE
+          }
+
+          if (insideBit == const1 || eqBit == const1) {
+            insideBit = const1;
+            continue;
+          }
+          if (eqBit == const0) {
+            continue;
+          }
+          if (insideBit == const0) {
+            insideBit = eqBit;
+            continue;
+          }
+
+          auto* nextOr = SNLScalarNet::create(design);
+          annotateSourceInfo(nextOr, insideSourceRange);
+          if (!createBinaryGate(
+                design,
+                NLDB0::GateType(NLDB0::GateType::Or),
+                insideBit,
+                eqBit,
+                nextOr,
+                insideSourceRange)) {
+            return false; // LCOV_EXCL_LINE
+          }
+          insideBit = nextOr;
+        }
+
+        bits.assign(targetWidth, const0);
+        bits.front() = insideBit;
+        return true;
+      }
+
       if (stripped->kind == slang::ast::ExpressionKind::BinaryOp) {
         const auto& binaryExpr = stripped->as<slang::ast::BinaryExpression>();
         if (isEqualityBinaryOp(binaryExpr.op) || isInequalityBinaryOp(binaryExpr.op)) {
@@ -3185,11 +3247,17 @@ class SNLSVConstructorImpl {
       if (kind == slang::ast::ExpressionKind::ConditionalOp) {
         return "ConditionalOp";
       }
+      if (kind == slang::ast::ExpressionKind::Inside) {
+        return "Inside";
+      }
       if (kind == slang::ast::ExpressionKind::IntegerLiteral) {
         return "IntegerLiteral";
       }
       if (kind == slang::ast::ExpressionKind::UnbasedUnsizedIntegerLiteral) {
         return "UnbasedUnsizedIntegerLiteral";
+      }
+      if (kind == slang::ast::ExpressionKind::ValueRange) {
+        return "ValueRange";
       }
       if (kind == slang::ast::ExpressionKind::Conversion) {
         return "Conversion";

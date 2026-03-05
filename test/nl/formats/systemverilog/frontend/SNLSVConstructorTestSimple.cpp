@@ -2672,6 +2672,36 @@ endmodule
   EXPECT_EQ(1u, xnorGateCount);
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseGateOperandInsideSetSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "gate_operand_inside_set_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "gate_operand_inside_set_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module gate_operand_inside_set_supported(
+  input logic a,
+  input logic [2:0] op,
+  output logic y
+);
+  assign y = a && (op inside {3'd1, 3'd2, 3'd5});
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("gate_operand_inside_set_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("y")), nullptr);
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseDirectAssignMismatchSkipped) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
