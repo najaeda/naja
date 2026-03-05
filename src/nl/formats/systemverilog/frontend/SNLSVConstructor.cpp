@@ -2610,6 +2610,111 @@ class SNLSVConstructorImpl {
       return true;
     }
 
+    bool createArithmeticRightShiftAssign(
+      SNLDesign* design,
+      SNLNet* lhsNet,
+      const Expression& valueExpr,
+      const Expression& shiftAmountExpr,
+      const std::optional<slang::SourceRange>& sourceRange = std::nullopt,
+      std::string* failureReason = nullptr) {
+      auto setFailureReason = [&](std::string reason) {
+        if (failureReason) {
+          *failureReason = std::move(reason);
+        }
+      };
+      auto lhsBits = collectBits(lhsNet);
+      if (lhsBits.empty()) {
+        setFailureReason("failed to resolve LHS bits");
+        return false; // LCOV_EXCL_LINE
+      }
+
+      std::vector<SNLBitNet*> valueBits;
+      if (!resolveExpressionBits(design, valueExpr, lhsBits.size(), valueBits)) {
+        std::ostringstream reason;
+        reason << "failed to resolve value bits (" << describeExpression(valueExpr)
+               << ", target_width=" << lhsBits.size() << ")";
+        setFailureReason(reason.str());
+        return false;
+      }
+      if (valueBits.empty()) {
+        setFailureReason("failed to resolve non-empty value bits");
+        return false; // LCOV_EXCL_LINE
+      }
+
+      auto* signFillBit = valueBits.back();
+
+      uint64_t shiftAmount = 0;
+      if (getConstantUnsigned(shiftAmountExpr, shiftAmount)) {
+        for (size_t bitIndex = 0; bitIndex < lhsBits.size(); ++bitIndex) {
+          const auto srcIndex = static_cast<uint64_t>(bitIndex) + shiftAmount;
+          auto* srcBit = srcIndex < lhsBits.size()
+            ? valueBits[static_cast<size_t>(srcIndex)]
+            : signFillBit;
+          createAssignInstance(design, srcBit, lhsBits[bitIndex], sourceRange);
+        }
+        return true;
+      }
+
+      auto shiftWidth = getIntegralExpressionBitWidth(shiftAmountExpr);
+      if (!shiftWidth || !*shiftWidth) {
+        std::ostringstream reason;
+        reason << "failed to resolve shift amount width ("
+               << describeExpression(shiftAmountExpr) << ")";
+        setFailureReason(reason.str());
+        return false; // LCOV_EXCL_LINE
+      }
+
+      std::vector<SNLBitNet*> shiftBits;
+      if (!resolveExpressionBits(design, shiftAmountExpr, *shiftWidth, shiftBits) ||
+          shiftBits.empty()) {
+        std::ostringstream reason;
+        reason << "failed to resolve shift amount bits ("
+               << describeExpression(shiftAmountExpr)
+               << ", target_width=" << *shiftWidth << ")";
+        setFailureReason(reason.str());
+        return false;
+      }
+
+      std::vector<SNLBitNet*> stageBits = valueBits;
+      for (size_t stageIndex = 0; stageIndex < shiftBits.size(); ++stageIndex) {
+        bool shiftAll = stageIndex >= 63;
+        size_t stageShift = 0;
+        if (!shiftAll) {
+          const auto rawShift = uint64_t {1} << stageIndex;
+          if (rawShift >= lhsBits.size()) {
+            shiftAll = true;
+          } else {
+            stageShift = static_cast<size_t>(rawShift);
+          }
+        }
+
+        std::vector<SNLBitNet*> nextBits;
+        nextBits.reserve(lhsBits.size());
+        const bool isLastStage = stageIndex + 1 == shiftBits.size();
+        for (size_t bitIndex = 0; bitIndex < lhsBits.size(); ++bitIndex) {
+          auto* shiftedBit = stageBits.back();
+          if (!shiftAll && bitIndex + stageShift < lhsBits.size()) {
+            shiftedBit = stageBits[bitIndex + stageShift];
+          }
+
+          auto* outBit = isLastStage ? lhsBits[bitIndex] : SNLScalarNet::create(design);
+          if (!isLastStage) {
+            annotateSourceInfo(outBit, sourceRange);
+          }
+          createMux2Instance(
+            design,
+            shiftBits[stageIndex],
+            stageBits[bitIndex],
+            shiftedBit,
+            outBit,
+            sourceRange);
+          nextBits.push_back(outBit);
+        }
+        stageBits = std::move(nextBits);
+      }
+      return true;
+    }
+
     bool createLogicalLeftShiftAssign(
       SNLDesign* design,
       SNLNet* lhsNet,
@@ -5329,6 +5434,83 @@ class SNLSVConstructorImpl {
           continue;
         }
 
+        auto unwrapSignedUnsignedCastCall = [&](const Expression* exprPtr) -> const Expression* {
+          const Expression* current = exprPtr;
+          while (current && current->kind == slang::ast::ExpressionKind::Call) {
+            const auto& callExpr = current->as<slang::ast::CallExpression>();
+            const auto subroutineName = callExpr.getSubroutineName();
+            const bool isSignedCast =
+              (subroutineName == "$signed" || subroutineName == "signed");
+            const bool isUnsignedCast =
+              (subroutineName == "$unsigned" || subroutineName == "unsigned");
+            if (!isSignedCast && !isUnsignedCast) {
+              break;
+            }
+            auto args = callExpr.arguments();
+            if (args.size() != 1 || !args[0]) {
+              break;
+            }
+            current = stripConversions(*args[0]);
+          }
+          return current;
+        };
+
+        const auto* rhsCastUnwrapped = unwrapSignedUnsignedCastCall(rhs);
+        if (rhsCastUnwrapped && rhsCastUnwrapped->kind == slang::ast::ExpressionKind::BinaryOp) {
+          const auto& binaryExpr = rhsCastUnwrapped->as<slang::ast::BinaryExpression>();
+          if (binaryExpr.op == slang::ast::BinaryOperator::LogicalShiftRight) {
+            std::string shiftFailureReason;
+            if (!createLogicalRightShiftAssign(
+                  design,
+                  lhsNet,
+                  binaryExpr.left(),
+                  binaryExpr.right(),
+                  assignSourceRange,
+                  &shiftFailureReason)) {
+              std::ostringstream reason;
+              reason << "Unsupported binary expression in continuous assign: >>";
+              if (!shiftFailureReason.empty()) {
+                reason << " (" << shiftFailureReason << ")";
+              }
+              reportUnsupportedElement(reason.str(), assignSourceRange);
+            }
+            continue;
+          }
+          if (binaryExpr.op == slang::ast::BinaryOperator::ArithmeticShiftRight) {
+            std::string shiftFailureReason;
+            if (!createArithmeticRightShiftAssign(
+                  design,
+                  lhsNet,
+                  binaryExpr.left(),
+                  binaryExpr.right(),
+                  assignSourceRange,
+                  &shiftFailureReason)) {
+              std::ostringstream reason;
+              reason << "Unsupported binary expression in continuous assign: >>>";
+              if (!shiftFailureReason.empty()) {
+                reason << " (" << shiftFailureReason << ")";
+              }
+              reportUnsupportedElement(reason.str(), assignSourceRange);
+            }
+            continue;
+          }
+          if (binaryExpr.op == slang::ast::BinaryOperator::LogicalShiftLeft ||
+              binaryExpr.op == slang::ast::BinaryOperator::ArithmeticShiftLeft) {
+            if (!createLogicalLeftShiftAssign(
+                  design,
+                  lhsNet,
+                  binaryExpr.left(),
+                  binaryExpr.right(),
+                  assignSourceRange)) {
+              std::ostringstream reason;
+              reason << "Unsupported binary expression in continuous assign: "
+                     << slang::ast::OpInfo::getText(binaryExpr.op);
+              reportUnsupportedElement(reason.str(), assignSourceRange);
+            }
+            continue;
+          }
+        }
+
         std::optional<NLDB0::GateType> gateType;
         std::vector<const Expression*> operands;
         if (rhs->kind == slang::ast::ExpressionKind::BinaryOp) {
@@ -5344,6 +5526,25 @@ class SNLSVConstructorImpl {
                   &shiftFailureReason)) {
               std::ostringstream reason;
               reason << "Unsupported binary expression in continuous assign: >>";
+              if (!shiftFailureReason.empty()) {
+                reason << " (" << shiftFailureReason << ")";
+              }
+              reportUnsupportedElement(reason.str(), assignSourceRange);
+              continue;
+            }
+            continue;
+          }
+          if (binaryExpr.op == slang::ast::BinaryOperator::ArithmeticShiftRight) {
+            std::string shiftFailureReason;
+            if (!createArithmeticRightShiftAssign(
+                  design,
+                  lhsNet,
+                  binaryExpr.left(),
+                  binaryExpr.right(),
+                  assignSourceRange,
+                  &shiftFailureReason)) {
+              std::ostringstream reason;
+              reason << "Unsupported binary expression in continuous assign: >>>";
               if (!shiftFailureReason.empty()) {
                 reason << " (" << shiftFailureReason << ")";
               }
@@ -5755,6 +5956,22 @@ class SNLSVConstructorImpl {
           }
           return bits.size() == targetWidth;
         };
+        auto resolveExactWidthConnectionBits =
+          [&](size_t targetWidth, std::vector<SNLBitNet*>& bits) -> bool {
+          const auto* strippedExpr = stripConversions(*expr);
+          if (!strippedExpr) {
+            return false; // LCOV_EXCL_LINE
+          }
+          auto exprWidth = getIntegralExpressionBitWidth(*strippedExpr);
+          if (!exprWidth || *exprWidth <= 0 ||
+              static_cast<size_t>(*exprWidth) != targetWidth) {
+            return false;
+          }
+          if (!resolveExpressionBits(inst->getDesign(), *strippedExpr, targetWidth, bits)) {
+            return false;
+          }
+          return bits.size() == targetWidth;
+        };
 
         auto connectBusBits =
           [&](SNLBusTerm* busTerm, const std::vector<SNLBitNet*>& bits) {
@@ -5798,7 +6015,8 @@ class SNLSVConstructorImpl {
         auto busNet = dynamic_cast<SNLBusNet*>(net);
         if (busTerm && !busNet) {
           std::vector<SNLBitNet*> connectionBits;
-          if (resolveSelectableConnectionBits(busTerm->getWidth(), connectionBits)) {
+          if (resolveSelectableConnectionBits(busTerm->getWidth(), connectionBits) ||
+              resolveExactWidthConnectionBits(busTerm->getWidth(), connectionBits)) {
             connectBusBits(busTerm, connectionBits);
             continue;
           }

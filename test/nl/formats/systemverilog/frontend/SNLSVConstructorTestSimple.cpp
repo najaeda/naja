@@ -1327,6 +1327,60 @@ endmodule
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseInstanceConnectionTypeParamConcatToBusSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "instance_connection_type_param_concat_to_bus_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "instance_connection_type_param_concat_to_bus_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module shift_reg #(
+  parameter type dtype = logic
+) (
+  input  dtype d_i,
+  output dtype d_o
+);
+  assign d_o = d_i;
+endmodule
+
+module instance_connection_type_param_concat_to_bus_supported(
+  input  logic a,
+  input  logic b,
+  input  logic c,
+  output logic [2:0] y
+);
+  shift_reg #(
+    .dtype(logic [2:0])
+  ) i_pipe_reg_load (
+    .d_i({a, b, c}),
+    .d_o(y)
+  );
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("instance_connection_type_param_concat_to_bus_supported"));
+  ASSERT_NE(top, nullptr);
+  auto yNet = top->getBusNet(NLName("y"));
+  ASSERT_NE(yNet, nullptr);
+  EXPECT_EQ(3, yNet->getWidth());
+
+  auto child = library_->getSNLDesign(NLName("shift_reg"));
+  ASSERT_NE(child, nullptr);
+  auto inst = top->getInstance(NLName("i_pipe_reg_load"));
+  ASSERT_NE(inst, nullptr);
+  EXPECT_EQ(child, inst->getModel());
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseInterfacePortReportedUnsupportedAtEnd) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
@@ -1699,14 +1753,18 @@ TEST_F(SNLSVConstructorTestSimple, parseContinuousShiftLeftSupported) {
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseContinuousShiftRightUnresolvedSkipped) {
+TEST_F(SNLSVConstructorTestSimple, parseContinuousShiftRightDynamicElementSelectSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
-  expectUnsupportedConstruct(
-    constructor,
+  constructor.construct(
     benchmarksPath / "continuous_shift_right_unresolved_skipped" /
-      "continuous_shift_right_unresolved_skipped.sv",
-    {"Unsupported binary expression in continuous assign: >>"});
+      "continuous_shift_right_unresolved_skipped.sv");
+
+  auto top = library_->getSNLDesign(NLName("continuous_shift_right_unresolved_skipped_top"));
+  ASSERT_NE(top, nullptr);
+  auto y = top->getBusNet(NLName("y"));
+  ASSERT_NE(y, nullptr);
+  EXPECT_EQ(4, y->getWidth());
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseContinuousShiftRightSupported) {
@@ -1763,6 +1821,54 @@ endmodule
   EXPECT_EQ(32u, assignCount);
 
   auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "continuous_shift_right_supported");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseContinuousShiftRightCastWrappedArithmeticSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "continuous_shift_right_cast_wrapped_arithmetic_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "continuous_shift_right_cast_wrapped_arithmetic_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module continuous_shift_right_cast_wrapped_arithmetic_supported(
+  input logic sign_i,
+  input logic [7:0] data_i,
+  input logic [2:0] shamt_i,
+  output logic [8:0] y_var,
+  output logic [8:0] y_const
+);
+  logic [8:0] data_ext;
+  assign data_ext = {sign_i, data_i};
+  assign y_var = $unsigned($signed(data_ext) >>> shamt_i);
+  assign y_const = $unsigned($signed(data_ext) >>> 3'd2);
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top =
+    library_->getSNLDesign(NLName("continuous_shift_right_cast_wrapped_arithmetic_supported"));
+  ASSERT_NE(top, nullptr);
+
+  auto yVar = top->getBusNet(NLName("y_var"));
+  ASSERT_NE(yVar, nullptr);
+  EXPECT_EQ(9, yVar->getWidth());
+
+  auto yConst = top->getBusNet(NLName("y_const"));
+  ASSERT_NE(yConst, nullptr);
+  EXPECT_EQ(9, yConst->getWidth());
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(
+    top,
+    "continuous_shift_right_cast_wrapped_arithmetic_supported");
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
 }
 
