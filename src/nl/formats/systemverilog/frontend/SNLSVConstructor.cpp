@@ -1411,8 +1411,9 @@ class SNLSVConstructorImpl {
 
       const slang::ConstantValue* constant = stripped->getConstant();
       slang::ConstantValue evaluatedConstant;
-      if ((!constant || !constant->isInteger()) && stripped->getSymbolReference()) {
-        slang::ast::EvalContext evalContext(*stripped->getSymbolReference());
+      const Symbol* evalSymbol = stripped->getSymbolReference();
+      if ((!constant || !constant->isInteger()) && evalSymbol) {
+        slang::ast::EvalContext evalContext(*evalSymbol);
         evaluatedConstant = stripped->eval(evalContext);
         if (evaluatedConstant && evaluatedConstant.isInteger()) {
           constant = &evaluatedConstant;
