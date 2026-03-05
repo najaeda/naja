@@ -3717,6 +3717,18 @@ class SNLSVConstructorImpl {
         return true;
       }
 
+      if (current->kind == slang::ast::StatementKind::VariableDeclaration) {
+        const auto& declStmt = current->as<slang::ast::VariableDeclStatement>();
+        if (declStmt.symbol.getInitializer()) {
+          std::ostringstream reason;
+          reason << "unsupported variable declaration initializer while collecting assignments"
+                 << " (name=" << std::string(declStmt.symbol.name) << ")";
+          setFailureReason(reason.str());
+          return false;
+        }
+        return true;
+      }
+
       const Expression* lhsExpr = nullptr;
       AssignAction action;
       if (extractAssignment(*current, lhsExpr, action)) {
@@ -4303,6 +4315,18 @@ class SNLSVConstructorImpl {
         }
 
         dataBits = std::move(mergedBits);
+        return true;
+      }
+
+      if (current->kind == slang::ast::StatementKind::VariableDeclaration) {
+        const auto& declStmt = current->as<slang::ast::VariableDeclStatement>();
+        if (declStmt.symbol.getInitializer()) {
+          std::ostringstream reason;
+          reason << "unsupported variable declaration initializer while lowering always_comb"
+                 << " (name=" << std::string(declStmt.symbol.name) << ")";
+          failureReason = reason.str();
+          return false;
+        }
         return true;
       }
 

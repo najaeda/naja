@@ -2555,6 +2555,56 @@ TEST_F(SNLSVConstructorTestSimple, parseAlwaysCombSupported) {
   EXPECT_EQ(1u, andGateCount);
 }
 
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseAlwaysCombAutomaticVariableDeclarationsSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_automatic_variable_declarations_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "always_comb_automatic_variable_declarations_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_automatic_variable_declarations_supported(
+  input  logic a,
+  input  logic b,
+  output logic y
+);
+  always_comb begin
+    automatic logic tmp_a;
+    automatic logic tmp_b;
+    tmp_a = a;
+    tmp_b = b;
+    y = tmp_a & tmp_b;
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top =
+    library_->getSNLDesign(NLName("always_comb_automatic_variable_declarations_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("y")), nullptr);
+
+  size_t andGateCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (!NLDB0::isGate(inst->getModel())) {
+      continue;
+    }
+    if (NLDB0::getGateName(inst->getModel()) == "and") {
+      ++andGateCount;
+    }
+  }
+  EXPECT_EQ(1u, andGateCount);
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseAlwaysCombCaseSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
