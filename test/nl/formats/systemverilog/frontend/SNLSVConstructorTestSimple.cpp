@@ -2555,6 +2555,114 @@ TEST_F(SNLSVConstructorTestSimple, parseAlwaysCombSupported) {
   EXPECT_EQ(1u, andGateCount);
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseAlwaysCombCaseSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_case_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "always_comb_case_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_case_supported(
+  input  logic [1:0] sel,
+  input  logic       a,
+  input  logic       b,
+  input  logic       c,
+  input  logic       d,
+  output logic       y,
+  output logic       z
+);
+  always_comb begin
+    y = 1'b0;
+    z = 1'b0;
+    case (sel)
+      2'b00: y = a;
+      2'b01, 2'b10: begin
+        y = b;
+        z = c;
+      end
+      default: z = d;
+    endcase
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("always_comb_case_supported"));
+  ASSERT_NE(top, nullptr);
+
+  size_t xnorGateCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (!NLDB0::isGate(inst->getModel())) {
+      continue;
+    }
+    if (NLDB0::getGateName(inst->getModel()) == "xnor") {
+      ++xnorGateCount;
+    }
+  }
+  EXPECT_GT(xnorGateCount, 0u);
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "always_comb_case_supported");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseAlwaysCombEnumCaseNo2StateWarning) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_enum_case_no_2state_warning";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "always_comb_enum_case_no_2state_warning.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_enum_case_no_2state_warning(
+  input  logic trig_i,
+  output logic y_o
+);
+  typedef enum logic [1:0] {
+    IDLE = 2'b00,
+    RUN  = 2'b01,
+    DONE = 2'b10
+  } state_t;
+
+  state_t state_q;
+  assign state_q = trig_i ? RUN : IDLE;
+
+  always_comb begin
+    y_o = 1'b0;
+    unique case (state_q)
+      IDLE: y_o = 1'b0;
+      RUN:  y_o = 1'b1;
+      DONE: y_o = 1'b1;
+      default: y_o = 1'b0;
+    endcase
+  end
+endmodule
+)";
+  svFile.close();
+
+  testing::internal::CaptureStdout();
+  constructor.construct(svPath);
+  const std::string stdoutOutput = testing::internal::GetCapturedStdout();
+  EXPECT_EQ(
+    std::string::npos,
+    stdoutOutput.find("Case comparison operator '===' lowered as 2-state comparison in SNL"));
+
+  auto top = library_->getSNLDesign(NLName("always_comb_enum_case_no_2state_warning"));
+  ASSERT_NE(top, nullptr);
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseAlwaysCombConditionSubtractSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);

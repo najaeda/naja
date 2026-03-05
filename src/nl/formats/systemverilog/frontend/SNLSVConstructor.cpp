@@ -225,6 +225,23 @@ bool isCaseComparisonBinaryOp(slang::ast::BinaryOperator op) {
   }
 }
 
+bool isKnown2StateConstantExpr(const Expression& expr) {
+  const auto* stripped = stripConversions(expr);
+  if (!stripped) {
+    return false; // LCOV_EXCL_LINE
+  }
+  if (const auto* symbol = stripped->getSymbolReference()) {
+    if (symbol->kind == SymbolKind::EnumValue) {
+      return true;
+    }
+  }
+  const auto* constant = stripped->getConstant();
+  if (!constant || !constant->isInteger()) {
+    return false;
+  }
+  return !constant->integer().hasUnknown();
+}
+
 std::optional<SNLTerm::Direction> toSNLDirection(ArgumentDirection direction) {
   switch (direction) {
     case ArgumentDirection::In:
@@ -673,6 +690,24 @@ class SNLSVConstructorImpl {
       reason << "Case comparison operator '" << slang::ast::OpInfo::getText(op)
              << "' lowered as 2-state comparison in SNL (X/Z distinction is not preserved)";
       reportWarning(reason.str(), maybeRange);
+    }
+
+    bool shouldSuppressCaseComparison2StateWarning(
+      const slang::ast::CaseStatement& caseStmt) const {
+      if (caseStmt.condition != slang::ast::CaseStatementCondition::Normal) {
+        return false;
+      }
+      if (!caseStmt.expr.type->getCanonicalType().isEnum()) {
+        return false;
+      }
+      for (const auto& item : caseStmt.items) {
+        for (const auto* itemExpr : item.expressions) {
+          if (!itemExpr || !isKnown2StateConstantExpr(*itemExpr)) {
+            return false;
+          }
+        }
+      }
+      return true;
     }
 
     void throwIfUnsupportedElements() const {
@@ -3369,6 +3404,9 @@ class SNLSVConstructorImpl {
       if (isIgnorableSequentialTimingStatement(*current)) {
         return true;
       }
+      if (current->kind == slang::ast::StatementKind::Empty) {
+        return true;
+      }
       if (current->kind == slang::ast::StatementKind::Block) {
         return collectDirectAssignments(
           current->as<slang::ast::BlockStatement>().body,
@@ -3657,6 +3695,28 @@ class SNLSVConstructorImpl {
         return true;
       }
 
+      if (current->kind == slang::ast::StatementKind::Case) {
+        const auto& caseStmt = current->as<slang::ast::CaseStatement>();
+        for (const auto& item : caseStmt.items) {
+          if (!collectAssignedLHSExpressions(
+                *item.stmt,
+                lhsExpressions,
+                failureReason,
+                trackAlwaysCombDynamicLHS)) {
+            return false;
+          }
+        }
+        if (caseStmt.defaultCase &&
+            !collectAssignedLHSExpressions(
+              *caseStmt.defaultCase,
+              lhsExpressions,
+              failureReason,
+              trackAlwaysCombDynamicLHS)) {
+          return false;
+        }
+        return true;
+      }
+
       const Expression* lhsExpr = nullptr;
       AssignAction action;
       if (extractAssignment(*current, lhsExpr, action)) {
@@ -3776,6 +3836,76 @@ class SNLSVConstructorImpl {
         return nullptr;
       }
       return conditionBits.front();
+    }
+
+    SNLBitNet* buildCaseItemMatchBit(
+      SNLDesign* design,
+      const Expression& caseExpr,
+      const slang::ast::CaseStatement& caseStmt,
+      const slang::ast::CaseStatement::ItemGroup& item,
+      std::string& failureReason) {
+      if (caseStmt.condition != slang::ast::CaseStatementCondition::Normal) {
+        std::ostringstream reason;
+        reason << "unsupported always_comb case condition kind "
+               << static_cast<int>(caseStmt.condition);
+        failureReason = reason.str();
+        return nullptr;
+      }
+      if (item.expressions.empty()) {
+        failureReason = "unsupported empty always_comb case item";
+        return nullptr;
+      }
+
+      auto caseSourceRange = getSourceRange(caseStmt);
+      if (!shouldSuppressCaseComparison2StateWarning(caseStmt)) {
+        reportCaseComparison2StateWarning(
+          slang::ast::BinaryOperator::CaseEquality,
+          caseSourceRange);
+      }
+
+      auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
+      SNLBitNet* itemMatchBit = const0;
+      for (const auto* itemExpr : item.expressions) {
+        if (!itemExpr) {
+          failureReason = "unsupported null always_comb case item expression";
+          return nullptr; // LCOV_EXCL_LINE
+        }
+
+        auto* exprMatchBit = SNLScalarNet::create(design);
+        annotateSourceInfo(exprMatchBit, caseSourceRange);
+        if (!createEqualityAssign(
+              design,
+              exprMatchBit,
+              caseExpr,
+              *itemExpr,
+              caseSourceRange)) {
+          std::ostringstream reason;
+          reason << "unable to resolve always_comb case item match for "
+                 << describeExpression(*itemExpr);
+          failureReason = reason.str();
+          return nullptr;
+        }
+
+        if (itemMatchBit == const0) {
+          itemMatchBit = exprMatchBit;
+          continue;
+        }
+
+        auto* orBit = SNLScalarNet::create(design);
+        annotateSourceInfo(orBit, caseSourceRange);
+        itemMatchBit = getSingleBitNet(createBinaryGate(
+          design,
+          NLDB0::GateType(NLDB0::GateType::Or),
+          itemMatchBit,
+          exprMatchBit,
+          orBit,
+          caseSourceRange));
+        if (!itemMatchBit) {
+          failureReason = "failed to build always_comb case item match";
+          return nullptr; // LCOV_EXCL_LINE
+        }
+      }
+      return itemMatchBit;
     }
 
     bool buildCombinationalAssignBits(
@@ -4086,6 +4216,93 @@ class SNLSVConstructorImpl {
         }
         dataBits = std::move(mergedBits);
         ++tempIndex;
+        return true;
+      }
+
+      if (current->kind == slang::ast::StatementKind::Case) {
+        const auto& caseStmt = current->as<slang::ast::CaseStatement>();
+
+        std::vector<SNLBitNet*> mergedBits = dataBits;
+        if (caseStmt.defaultCase) {
+          std::vector<SNLBitNet*> defaultBits = dataBits;
+          if (!applyCombinationalStatementForLhs(
+                design,
+                *caseStmt.defaultCase,
+                lhsExpr,
+                lhsBits,
+                defaultBits,
+                tempIndex,
+                failureReason)) {
+            return false;
+          }
+          if (defaultBits.size() != lhsBits.size()) {
+            failureReason = "width mismatch while lowering always_comb default case";
+            return false;
+          }
+          mergedBits = std::move(defaultBits);
+        }
+
+        auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
+        auto* const1 = static_cast<SNLBitNet*>(getConstNet(design, true));
+        for (auto itemIt = caseStmt.items.rbegin(); itemIt != caseStmt.items.rend(); ++itemIt) {
+          std::vector<SNLBitNet*> itemBits = dataBits;
+          if (!applyCombinationalStatementForLhs(
+                design,
+                *itemIt->stmt,
+                lhsExpr,
+                lhsBits,
+                itemBits,
+                tempIndex,
+                failureReason)) {
+            return false;
+          }
+          if (itemBits.size() != lhsBits.size() || mergedBits.size() != lhsBits.size()) {
+            failureReason = "width mismatch while lowering always_comb case item";
+            return false;
+          }
+
+          auto* itemMatchBit = buildCaseItemMatchBit(
+            design,
+            caseStmt.expr,
+            caseStmt,
+            *itemIt,
+            failureReason);
+          if (!itemMatchBit) {
+            return false;
+          }
+
+          if (itemMatchBit == const0) {
+            continue;
+          }
+          if (itemMatchBit == const1) {
+            mergedBits = std::move(itemBits);
+            continue;
+          }
+
+          std::vector<SNLBitNet*> selectedBits;
+          selectedBits.reserve(lhsBits.size());
+          auto itemSourceRange = getSourceRange(*itemIt->stmt);
+          for (size_t i = 0; i < lhsBits.size(); ++i) {
+            if (itemBits[i] == mergedBits[i]) {
+              selectedBits.push_back(itemBits[i]);
+              continue;
+            }
+            auto* outBit = SNLScalarNet::create(design);
+            annotateSourceInfo(outBit, itemSourceRange);
+            createMux2Instance(
+              design,
+              itemMatchBit,
+              mergedBits[i],
+              itemBits[i],
+              outBit,
+              itemSourceRange);
+            selectedBits.push_back(outBit);
+          }
+          mergedBits = std::move(selectedBits);
+          ++tempIndex;
+        }
+
+        dataBits = std::move(mergedBits);
         return true;
       }
 
