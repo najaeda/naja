@@ -1904,6 +1904,53 @@ class SNLSVConstructorImpl {
         }
       } // LCOV_EXCL_LINE
 
+      if (stripped->kind == slang::ast::ExpressionKind::Replication) {
+        const auto& replicationExpr = stripped->as<slang::ast::ReplicationExpression>();
+        int32_t repeatCountSigned = 0;
+        if (!getConstantInt32(replicationExpr.count(), repeatCountSigned) || repeatCountSigned < 0) {
+          return false;
+        }
+        const auto repeatCount = static_cast<size_t>(repeatCountSigned);
+
+        size_t concatWidth = 0;
+        if (auto concatExprWidth = getIntegralExpressionBitWidth(replicationExpr.concat())) {
+          concatWidth = *concatExprWidth;
+        } else {
+          const auto& concatCanonical = replicationExpr.concat().type->getCanonicalType();
+          if (!concatCanonical.isIntegral()) {
+            return false; // LCOV_EXCL_LINE
+          }
+          const auto bitWidth = concatCanonical.getBitWidth();
+          if (bitWidth < 0) {
+            return false; // LCOV_EXCL_LINE
+          }
+          concatWidth = static_cast<size_t>(bitWidth);
+        }
+
+        if (concatWidth == 0 || repeatCount == 0) {
+          bits.clear();
+          resizeBitsToWidth(bits, targetWidth, static_cast<SNLBitNet*>(getConstNet(design, false)));
+          return true;
+        }
+        if (repeatCount > (std::numeric_limits<size_t>::max() / concatWidth)) {
+          return false; // LCOV_EXCL_LINE
+        }
+
+        std::vector<SNLBitNet*> concatBits;
+        if (!resolveExpressionBits(design, replicationExpr.concat(), concatWidth, concatBits) ||
+            concatBits.size() != concatWidth) {
+          return false;
+        }
+
+        bits.clear();
+        bits.reserve(concatWidth * repeatCount);
+        for (size_t i = 0; i < repeatCount; ++i) {
+          bits.insert(bits.end(), concatBits.begin(), concatBits.end());
+        }
+        resizeBitsToWidth(bits, targetWidth, static_cast<SNLBitNet*>(getConstNet(design, false)));
+        return true;
+      }
+
       if (stripped->kind == slang::ast::ExpressionKind::Concatenation) {
         const auto& concatExpr = stripped->as<slang::ast::ConcatenationExpression>();
         auto operands = concatExpr.operands();
@@ -2938,17 +2985,119 @@ class SNLSVConstructorImpl {
       if (!stripped) {
         return nullptr; // LCOV_EXCL_LINE
       }
+      bool constantBit = false;
+      if (getConstantBit(*stripped, constantBit)) {
+        return static_cast<SNLBitNet*>(getConstNet(design, constantBit));
+      }
 
       auto resolveSingleBitExpression = [&](const Expression& expr) -> SNLBitNet* {
         const auto* strippedExpr = stripConversions(expr);
         if (!strippedExpr) {
           return nullptr; // LCOV_EXCL_LINE
         }
-        // Keep sequential condition support conservative: do not lower binary
-        // or nested conditional trees here.
-        if (strippedExpr->kind == slang::ast::ExpressionKind::BinaryOp ||
-            strippedExpr->kind == slang::ast::ExpressionKind::ConditionalOp) {
+        if (strippedExpr->kind == slang::ast::ExpressionKind::ConditionalOp) {
           return nullptr;
+        }
+        if (strippedExpr->kind == slang::ast::ExpressionKind::BinaryOp) {
+          const auto& binaryExpr = strippedExpr->as<slang::ast::BinaryExpression>();
+          const auto logicalOp =
+            (binaryExpr.op == slang::ast::BinaryOperator::LogicalAnd) ||
+            (binaryExpr.op == slang::ast::BinaryOperator::LogicalOr);
+          if (logicalOp) {
+            auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
+            auto* const1 = static_cast<SNLBitNet*>(getConstNet(design, true));
+            auto* lhsBit = resolveConditionNet(
+              design,
+              binaryExpr.left(),
+              joinName("cond_l", condBaseName),
+              sourceRange);
+            if (!lhsBit) {
+              return nullptr;
+            }
+
+            if (binaryExpr.op == slang::ast::BinaryOperator::LogicalAnd && lhsBit == const0) {
+              return const0;
+            }
+            if (binaryExpr.op == slang::ast::BinaryOperator::LogicalOr && lhsBit == const1) {
+              return const1;
+            }
+
+            auto* rhsBit = resolveConditionNet(
+              design,
+              binaryExpr.right(),
+              joinName("cond_r", condBaseName),
+              sourceRange);
+            if (!rhsBit) {
+              return nullptr;
+            }
+
+            if (binaryExpr.op == slang::ast::BinaryOperator::LogicalAnd) {
+              if (rhsBit == const0) {
+                return const0;
+              }
+              if (lhsBit == const1) {
+                return rhsBit;
+              }
+              if (rhsBit == const1) {
+                return lhsBit;
+              }
+              if (lhsBit == rhsBit) {
+                return lhsBit;
+              }
+            } else {
+              if (rhsBit == const1) {
+                return const1;
+              }
+              if (lhsBit == const0) {
+                return rhsBit;
+              }
+              if (rhsBit == const0) {
+                return lhsBit;
+              }
+              if (lhsBit == rhsBit) {
+                return lhsBit;
+              }
+            }
+
+            auto logicalSourceRange = sourceRange ? sourceRange : getSourceRange(*strippedExpr);
+            auto* outBit = SNLScalarNet::create(design);
+            annotateSourceInfo(outBit, logicalSourceRange);
+            const auto gateType = binaryExpr.op == slang::ast::BinaryOperator::LogicalAnd
+              ? NLDB0::GateType(NLDB0::GateType::And)
+              : NLDB0::GateType(NLDB0::GateType::Or);
+            return getSingleBitNet(createBinaryGate(
+              design,
+              gateType,
+              lhsBit,
+              rhsBit,
+              outBit,
+              logicalSourceRange));
+          }
+
+          if (!isEqualityBinaryOp(binaryExpr.op) && !isInequalityBinaryOp(binaryExpr.op)) {
+            return nullptr;
+          }
+          auto* compareBit = SNLScalarNet::create(design);
+          auto compareSourceRange = sourceRange ? sourceRange : getSourceRange(*strippedExpr);
+          annotateSourceInfo(compareBit, compareSourceRange);
+          reportCaseComparison2StateWarning(binaryExpr.op, compareSourceRange);
+          const bool ok = isInequalityBinaryOp(binaryExpr.op)
+            ? createInequalityAssign(
+                design,
+                compareBit,
+                binaryExpr.left(),
+                binaryExpr.right(),
+                compareSourceRange)
+            : createEqualityAssign(
+                design,
+                compareBit,
+                binaryExpr.left(),
+                binaryExpr.right(),
+                compareSourceRange);
+          if (!ok) {
+            return nullptr;
+          }
+          return compareBit;
         }
         if (auto* bit = getSingleBitNet(resolveExpressionNet(design, *strippedExpr))) {
           return bit;
@@ -3029,6 +3178,9 @@ class SNLSVConstructorImpl {
       }
       if (kind == slang::ast::ExpressionKind::Concatenation) {
         return "Concatenation";
+      }
+      if (kind == slang::ast::ExpressionKind::Replication) {
+        return "Replication";
       }
       if (kind == slang::ast::ExpressionKind::ConditionalOp) {
         return "ConditionalOp";
@@ -4005,6 +4157,9 @@ class SNLSVConstructorImpl {
       if (isIgnorableSequentialTimingStatement(*current)) {
         return true;
       }
+      if (current->kind == slang::ast::StatementKind::Empty) {
+        return true;
+      }
 
       if (current->kind == slang::ast::StatementKind::Block) {
         return applySequentialStatementForLhs(
@@ -4194,6 +4349,9 @@ class SNLSVConstructorImpl {
         return true;
       }
       if (isIgnorableSequentialTimingStatement(*current)) {
+        return true;
+      }
+      if (current->kind == slang::ast::StatementKind::Empty) {
         return true;
       }
 
@@ -4818,6 +4976,9 @@ class SNLSVConstructorImpl {
         return true;
       }
       if (isIgnorableSequentialTimingStatement(*current)) {
+        return true;
+      }
+      if (current->kind == slang::ast::StatementKind::Empty) {
         return true;
       }
 
@@ -5488,19 +5649,29 @@ class SNLSVConstructorImpl {
         throw SNLSVConstructorException("Internal error: null RHS expression in sequential assignment"); // LCOV_EXCL_LINE
       }
       auto rhsNet = resolveExpressionNet(design, *rhsExpr);
+      std::vector<SNLBitNet*> rhsBits;
+      if (rhsNet) {
+        rhsBits = collectBits(rhsNet);
+        if (rhsBits.size() == lhsBits.size()) {
+          return rhsBits;
+        }
+      }
+
+      std::vector<SNLBitNet*> resolvedBits;
+      if (resolveExpressionBits(design, *rhsExpr, lhsBits.size(), resolvedBits) &&
+          resolvedBits.size() == lhsBits.size()) {
+        return resolvedBits;
+      }
+
       if (!rhsNet) {
         reportUnsupportedElement("Unsupported RHS in sequential assignment", sourceRange);
         return {};
       }
-      auto rhsBits = collectBits(rhsNet);
-      if (rhsBits.size() != lhsBits.size()) {
-        std::ostringstream reason;
-        reason << "Unsupported width mismatch in sequential assignment: lhs=" << lhsBits.size()
-               << " rhs=" << rhsBits.size();
-        reportUnsupportedElement(reason.str(), sourceRange);
-        return {};
-      }
-      return rhsBits;
+      std::ostringstream reason;
+      reason << "Unsupported width mismatch in sequential assignment: lhs=" << lhsBits.size()
+             << " rhs=" << rhsBits.size();
+      reportUnsupportedElement(reason.str(), sourceRange);
+      return {};
     }
 
     const Expression* getClockExpression(const TimingControl& timing) {
