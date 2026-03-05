@@ -2711,6 +2711,45 @@ endmodule
   EXPECT_EQ(1u, andGateCount);
 }
 
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseAlwaysCombForLoopIntInitializerAdvancesToForLoopUnsupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_for_loop_int_initializer_advances_to_forloop_unsupported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "always_comb_for_loop_int_initializer_advances_to_forloop_unsupported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_for_loop_int_initializer_advances_to_forloop_unsupported(
+  input  logic [3:0] in,
+  output logic       y
+);
+  always_comb begin
+    y = 1'b0;
+    for (int i = 0; i < 4; i++) begin
+      y |= in[i];
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  expectUnsupportedConstruct(
+    constructor,
+    svPath,
+    {
+      "Unsupported combinational block",
+      "unsupported statement kind while collecting assignments (kind=ForLoop)"
+    });
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseAlwaysCombCaseSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);

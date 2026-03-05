@@ -3823,14 +3823,9 @@ class SNLSVConstructorImpl {
       }
 
       if (current->kind == slang::ast::StatementKind::VariableDeclaration) {
-        const auto& declStmt = current->as<slang::ast::VariableDeclStatement>();
-        if (declStmt.symbol.getInitializer()) {
-          std::ostringstream reason;
-          reason << "unsupported variable declaration initializer while collecting assignments"
-                 << " (name=" << std::string(declStmt.symbol.name) << ")";
-          setFailureReason(reason.str());
-          return false;
-        }
+        // Local variable declarations in always_comb (including initializer forms
+        // like "int i = 0" used by for-loop indices) do not directly write tracked
+        // design LHS targets and can be ignored by assignment collection.
         return true;
       }
 
@@ -4424,14 +4419,8 @@ class SNLSVConstructorImpl {
       }
 
       if (current->kind == slang::ast::StatementKind::VariableDeclaration) {
-        const auto& declStmt = current->as<slang::ast::VariableDeclStatement>();
-        if (declStmt.symbol.getInitializer()) {
-          std::ostringstream reason;
-          reason << "unsupported variable declaration initializer while lowering always_comb"
-                 << " (name=" << std::string(declStmt.symbol.name) << ")";
-          failureReason = reason.str();
-          return false;
-        }
+        // Local variable declarations in always_comb are bookkeeping only from the
+        // point of view of tracked LHS rewriting; they are ignored here.
         return true;
       }
 
