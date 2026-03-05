@@ -5987,7 +5987,8 @@ class SNLSVConstructorImpl {
             continue;
           }
           std::vector<SNLBitNet*> connectionBits;
-          if (resolveSelectableConnectionBits(1, connectionBits)) {
+          if (resolveSelectableConnectionBits(1, connectionBits) ||
+              resolveExactWidthConnectionBits(1, connectionBits)) {
             auto instTerm = inst->getInstTerm(scalarTerm);
             if (instTerm) {
               instTerm->setNet(connectionBits.front());

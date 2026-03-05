@@ -1327,6 +1327,56 @@ endmodule
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseInstanceConnectionScalarConstSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "instance_connection_scalar_const_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "instance_connection_scalar_const_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module child_testmode(
+  input  logic testmode_i,
+  output logic y
+);
+  assign y = testmode_i;
+endmodule
+
+module instance_connection_scalar_const_supported(
+  output logic y
+);
+  child_testmode i_fifo_address (
+    .testmode_i(1'b0),
+    .y(y)
+  );
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("instance_connection_scalar_const_supported"));
+  ASSERT_NE(top, nullptr);
+  auto child = library_->getSNLDesign(NLName("child_testmode"));
+  ASSERT_NE(child, nullptr);
+  auto inst = top->getInstance(NLName("i_fifo_address"));
+  ASSERT_NE(inst, nullptr);
+  EXPECT_EQ(child, inst->getModel());
+
+  auto testmodeTerm = child->getScalarTerm(NLName("testmode_i"));
+  ASSERT_NE(testmodeTerm, nullptr);
+  auto instTerm = inst->getInstTerm(testmodeTerm);
+  ASSERT_NE(instTerm, nullptr);
+  auto net = instTerm->getNet();
+  ASSERT_NE(net, nullptr);
+  EXPECT_EQ(SNLNet::Type::Assign0, net->getType());
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseInstanceConnectionTypeParamConcatToBusSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
