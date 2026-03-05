@@ -1875,6 +1875,55 @@ class SNLSVConstructorImpl {
             static_cast<SNLBitNet*>(getConstNet(design, false)));
           return true;
         }
+        if (binaryExpr.op == slang::ast::BinaryOperator::LogicalShiftLeft ||
+            binaryExpr.op == slang::ast::BinaryOperator::ArithmeticShiftLeft ||
+            binaryExpr.op == slang::ast::BinaryOperator::LogicalShiftRight ||
+            binaryExpr.op == slang::ast::BinaryOperator::ArithmeticShiftRight) {
+          SNLNet* shiftNet = nullptr;
+          if (targetWidth == 1) {
+            shiftNet = SNLScalarNet::create(design);
+          } else {
+            shiftNet = SNLBusNet::create(
+              design,
+              static_cast<NLID::Bit>(targetWidth - 1),
+              0);
+          }
+          annotateSourceInfo(shiftNet, getSourceRange(*stripped));
+
+          bool ok = false;
+          std::string shiftFailureReason;
+          if (binaryExpr.op == slang::ast::BinaryOperator::LogicalShiftLeft ||
+              binaryExpr.op == slang::ast::BinaryOperator::ArithmeticShiftLeft) {
+            ok = createLogicalLeftShiftAssign(
+              design,
+              shiftNet,
+              binaryExpr.left(),
+              binaryExpr.right(),
+              getSourceRange(*stripped));
+          } else if (binaryExpr.op == slang::ast::BinaryOperator::LogicalShiftRight) {
+            ok = createLogicalRightShiftAssign(
+              design,
+              shiftNet,
+              binaryExpr.left(),
+              binaryExpr.right(),
+              getSourceRange(*stripped),
+              &shiftFailureReason);
+          } else {
+            ok = createArithmeticRightShiftAssign(
+              design,
+              shiftNet,
+              binaryExpr.left(),
+              binaryExpr.right(),
+              getSourceRange(*stripped),
+              &shiftFailureReason);
+          }
+          if (!ok) {
+            return false;
+          }
+
+          bits = collectBits(shiftNet);
+          return bits.size() == targetWidth;
+        }
         if (binaryExpr.op == slang::ast::BinaryOperator::Add ||
             binaryExpr.op == slang::ast::BinaryOperator::Subtract) {
           std::vector<SNLBitNet*> leftBits;
