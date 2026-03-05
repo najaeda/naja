@@ -41,6 +41,43 @@ SNLTerm::Direction getSNLDirection(const std::string& direction) {
   }
 }
 
+const Yosys::LibertyAst* findDirectChild(const Yosys::LibertyAst* node, const std::string& id) {
+  for (auto child: node->children) {
+    if (child->id == id) {
+      return child;
+    }
+  }
+  return nullptr;
+}
+
+const Yosys::LibertyAst* findDirectionNode(const Yosys::LibertyAst* node) {
+  auto directionNode = findDirectChild(node, "direction");
+  if (directionNode != nullptr or node->id != "bus") {
+    return directionNode;
+  }
+
+  const Yosys::LibertyAst* inferredDirectionNode = nullptr;
+  for (auto child: node->children) {
+    if (child->id != "pin") {
+      continue;
+    }
+    auto childDirectionNode = findDirectChild(child, "direction");
+    if (childDirectionNode == nullptr) {
+      continue;
+    }
+    if (inferredDirectionNode == nullptr) {
+      inferredDirectionNode = childDirectionNode;
+      continue;
+    }
+    if (inferredDirectionNode->value != childDirectionNode->value) {
+      std::ostringstream reason;
+      reason << "Inconsistent child pin directions for bus " << node->args[0];
+      throw SNLLibertyConstructorException(reason.str());
+    }
+  }
+  return inferredDirectionNode;
+}
+
 struct BusType {
   std::string name  {};
   int msb           {0};
@@ -132,10 +169,9 @@ void parseTerms(
           }
         }
       }
-      bool foundDirection = false;
       SNLScalarTerm* constructedScalarTerm = nullptr;
       SNLBusTerm* constructedBusTerm = nullptr;
-      auto directionNode = child->find("direction");
+      auto directionNode = findDirectionNode(child);
       if (directionNode) {
         auto direction = directionNode->value;
         if (direction == "internal") {
