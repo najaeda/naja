@@ -2763,41 +2763,78 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
-  parseAlwaysCombForLoopIntInitializerAdvancesToForLoopUnsupported) {
+  parseAlwaysCombForLoopIntInitializerSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
-  outPath = outPath / "always_comb_for_loop_int_initializer_advances_to_forloop_unsupported";
+  outPath = outPath / "always_comb_for_loop_int_initializer_supported";
   if (std::filesystem::exists(outPath)) {
     std::filesystem::remove_all(outPath);
   }
   std::filesystem::create_directory(outPath);
 
-  const auto svPath =
-    outPath / "always_comb_for_loop_int_initializer_advances_to_forloop_unsupported.sv";
+  const auto svPath = outPath / "always_comb_for_loop_int_initializer_supported.sv";
   std::ofstream svFile(svPath);
   ASSERT_TRUE(svFile.good());
   svFile
-    << R"(module always_comb_for_loop_int_initializer_advances_to_forloop_unsupported(
+    << R"(module always_comb_for_loop_int_initializer_supported(
   input  logic [3:0] in,
-  output logic       y
+  output logic [3:0] y
 );
   always_comb begin
-    y = 1'b0;
+    y = 4'b0;
     for (int i = 0; i < 4; i++) begin
-      y |= in[i];
+      if (in[i]) begin
+        y[i] = 1'b1;
+      end
     end
   end
 endmodule
 )";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {
-      "Unsupported combinational block",
-      "unsupported statement kind while collecting assignments (kind=ForLoop)"
-    });
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("always_comb_for_loop_int_initializer_supported"));
+  ASSERT_NE(top, nullptr);
+  auto yNet = top->getBusNet(NLName("y"));
+  ASSERT_NE(yNet, nullptr);
+  EXPECT_EQ(4, yNet->getWidth());
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseAlwaysCombForLoopCompoundOrAssignmentSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_for_loop_compound_or_assignment_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "always_comb_for_loop_compound_or_assignment_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_for_loop_compound_or_assignment_supported(
+  input  logic [3:0] push_instr,
+  output logic       push_address
+);
+  always_comb begin
+    push_address = 1'b0;
+    for (int i = 0; i < 4; i++) begin
+      push_address |= push_instr[i];
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("always_comb_for_loop_compound_or_assignment_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("push_address")), nullptr);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseAlwaysCombCaseSupported) {

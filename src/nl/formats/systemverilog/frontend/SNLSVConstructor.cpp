@@ -53,6 +53,7 @@
 #include "slang/ast/expressions/OperatorExpressions.h"
 #include "slang/ast/expressions/SelectExpressions.h"
 #include "slang/ast/statements/ConditionalStatements.h"
+#include "slang/ast/statements/LoopStatements.h"
 #include "slang/ast/statements/MiscStatements.h"
 #include "slang/ast/symbols/BlockSymbols.h"
 #include "slang/ast/symbols/CompilationUnitSymbols.h"
@@ -1018,7 +1019,28 @@ class SNLSVConstructorImpl {
       return true;
     }
 
+    std::optional<int64_t> getActiveForLoopConstant(const Expression& expr) const {
+      const auto* stripped = stripConversions(expr);
+      if (!stripped || !slang::ast::ValueExpressionBase::isKind(stripped->kind)) {
+        return std::nullopt;
+      }
+      const auto& symbol = stripped->as<slang::ast::ValueExpressionBase>().symbol;
+      for (auto it = activeForLoopConstants_.rbegin(); it != activeForLoopConstants_.rend(); ++it) {
+        if (it->first == &symbol) {
+          return it->second;
+        }
+      }
+      return std::nullopt;
+    }
+
     bool getConstantUnsigned(const Expression& expr, uint64_t& value) const {
+      if (auto loopValue = getActiveForLoopConstant(expr)) {
+        if (*loopValue < 0) {
+          return false;
+        }
+        value = static_cast<uint64_t>(*loopValue);
+        return true;
+      }
       const auto* stripped = stripConversions(expr);
       if (!stripped ||
           stripped->kind != slang::ast::ExpressionKind::IntegerLiteral) {
@@ -1030,6 +1052,57 @@ class SNLSVConstructorImpl {
         return false;
       }
       value = *maybeValue;
+      return true;
+    }
+
+    bool getConstantInt64(const Expression& expr, int64_t& value) const {
+      if (auto loopValue = getActiveForLoopConstant(expr)) {
+        value = *loopValue;
+        return true;
+      }
+
+      const auto* stripped = stripConversions(expr);
+      if (!stripped) {
+        return false; // LCOV_EXCL_LINE
+      }
+
+      if (stripped->kind == slang::ast::ExpressionKind::IntegerLiteral) {
+        const auto& literal = stripped->as<slang::ast::IntegerLiteral>();
+        if (auto maybeSigned = literal.getValue().as<int64_t>()) {
+          value = *maybeSigned;
+          return true;
+        }
+        if (auto maybeUnsigned = literal.getValue().as<uint64_t>()) {
+          if (*maybeUnsigned > static_cast<uint64_t>(std::numeric_limits<int64_t>::max())) {
+            return false;
+          }
+          value = static_cast<int64_t>(*maybeUnsigned);
+          return true;
+        }
+        return false;
+      }
+
+      const slang::ConstantValue* constant = stripped->getConstant();
+      slang::ConstantValue evaluatedConstant;
+      if ((!constant || !constant->isInteger()) && stripped->getSymbolReference()) {
+        slang::ast::EvalContext evalContext(*stripped->getSymbolReference());
+        evaluatedConstant = stripped->eval(evalContext);
+        constant = (evaluatedConstant && evaluatedConstant.isInteger()) ? &evaluatedConstant : constant;
+      }
+      if (!constant || !constant->isInteger()) {
+        return false;
+      }
+      const auto maybeSigned = constant->integer().as<int64_t>();
+      if (maybeSigned) {
+        value = *maybeSigned;
+        return true;
+      }
+      const auto maybeUnsigned = constant->integer().as<uint64_t>();
+      if (!maybeUnsigned ||
+          *maybeUnsigned > static_cast<uint64_t>(std::numeric_limits<int64_t>::max())) {
+        return false;
+      }
+      value = static_cast<int64_t>(*maybeUnsigned);
       return true;
     }
 
@@ -1094,6 +1167,15 @@ class SNLSVConstructorImpl {
     }
 
     bool getConstantInt32(const Expression& expr, int32_t& value) const {
+      if (auto loopValue = getActiveForLoopConstant(expr)) {
+        if (*loopValue < static_cast<int64_t>(std::numeric_limits<int32_t>::min()) ||
+            *loopValue > static_cast<int64_t>(std::numeric_limits<int32_t>::max())) {
+          return false;
+        }
+        value = static_cast<int32_t>(*loopValue);
+        return true;
+      }
+
       uint64_t unsignedValue = 0;
       if (getConstantUnsigned(expr, unsignedValue)) {
         if (unsignedValue > static_cast<uint64_t>(std::numeric_limits<int32_t>::max())) {
@@ -3157,8 +3239,10 @@ class SNLSVConstructorImpl {
     }
 
     struct AssignAction {
+      const Expression* lhs {nullptr};
       const Expression* rhs {nullptr};
       bool increment {false};
+      std::optional<slang::ast::BinaryOperator> compoundOp {};
     };
 
     struct AlwaysFFChain {
@@ -3275,8 +3359,10 @@ class SNLSVConstructorImpl {
       if (expr.kind == slang::ast::ExpressionKind::Assignment) {
         const auto& assign = expr.as<slang::ast::AssignmentExpression>();
         lhs = &assign.left();
+        action.lhs = lhs;
         action.rhs = &assign.right();
         action.increment = false;
+        action.compoundOp = assign.op;
         return true;
       }
       if (expr.kind == slang::ast::ExpressionKind::UnaryOp) {
@@ -3284,8 +3370,10 @@ class SNLSVConstructorImpl {
         if (unary.op == slang::ast::UnaryOperator::Postincrement ||
             unary.op == slang::ast::UnaryOperator::Preincrement) {
           lhs = &unary.operand();
+          action.lhs = lhs;
           action.rhs = &unary.operand();
           action.increment = true;
+          action.compoundOp = std::nullopt;
           return true;
         }
       }
@@ -3308,6 +3396,354 @@ class SNLSVConstructorImpl {
       return left == right;
     }
 
+    bool isForLoopControlSymbolRef(const Expression& expr, const Symbol& symbol) const {
+      const auto* stripped = stripConversions(expr);
+      if (!stripped || !slang::ast::ValueExpressionBase::isKind(stripped->kind)) {
+        return false;
+      }
+      const auto& exprSymbol = stripped->as<slang::ast::ValueExpressionBase>().symbol;
+      return &exprSymbol == &symbol;
+    }
+
+    bool isActiveForLoopVariableExpr(const Expression& expr) const {
+      return getActiveForLoopConstant(expr).has_value();
+    }
+
+    bool extractForLoopInitializerValue(
+      const Expression& initializerExpr,
+      const Symbol* expectedLoopSymbol,
+      const Symbol*& resolvedLoopSymbol,
+      int64_t& loopValue) const {
+      resolvedLoopSymbol = expectedLoopSymbol;
+      if (getConstantInt64(initializerExpr, loopValue)) {
+        return resolvedLoopSymbol != nullptr;
+      }
+
+      const auto* strippedInit = stripConversions(initializerExpr);
+      if (!strippedInit || strippedInit->kind != slang::ast::ExpressionKind::Assignment) {
+        return false;
+      }
+
+      const auto& assignExpr = strippedInit->as<slang::ast::AssignmentExpression>();
+      const auto* lhsExpr = stripConversions(assignExpr.left());
+      if (!lhsExpr || !slang::ast::ValueExpressionBase::isKind(lhsExpr->kind)) {
+        return false;
+      }
+
+      const auto& lhsSymbol = lhsExpr->as<slang::ast::ValueExpressionBase>().symbol;
+      if (expectedLoopSymbol && &lhsSymbol != expectedLoopSymbol) {
+        return false;
+      }
+
+      if (!getConstantInt64(assignExpr.right(), loopValue)) {
+        return false;
+      }
+
+      resolvedLoopSymbol = &lhsSymbol;
+      return true;
+    }
+
+    bool extractForLoopControl(
+      const slang::ast::ForLoopStatement& forStmt,
+      const Symbol*& loopSymbol,
+      int64_t& loopValue,
+      std::string& failureReason) const {
+      loopSymbol = nullptr;
+      loopValue = 0;
+
+      if (forStmt.loopVars.size() == 1 && forStmt.initializers.size() <= 1) {
+        const auto* loopVar = forStmt.loopVars.front();
+        if (!loopVar) {
+          failureReason = "unsupported for-loop with null control variable";
+          return false; // LCOV_EXCL_LINE
+        }
+
+        const Expression* initializer = loopVar->getInitializer();
+        if (!initializer && forStmt.initializers.size() == 1) {
+          initializer = forStmt.initializers.front();
+        }
+        if (!initializer) {
+          std::ostringstream reason;
+          reason << "unsupported for-loop control variable without initializer"
+                 << " (name=" << std::string(loopVar->name) << ")";
+          failureReason = reason.str();
+          return false;
+        }
+        const Symbol* resolvedLoopSymbol = loopVar;
+        if (!extractForLoopInitializerValue(*initializer, loopVar, resolvedLoopSymbol, loopValue)) {
+          std::ostringstream reason;
+          reason << "unsupported non-constant for-loop initializer for control variable '"
+                 << std::string(loopVar->name) << "'";
+          failureReason = reason.str();
+          return false;
+        }
+        loopSymbol = resolvedLoopSymbol;
+        return true;
+      }
+
+      if (forStmt.loopVars.empty() && forStmt.initializers.size() == 1) {
+        const auto* initializer = forStmt.initializers.front();
+        if (!initializer) {
+          failureReason = "unsupported for-loop initializer expression";
+          return false;
+        }
+        const Symbol* resolvedLoopSymbol = nullptr;
+        if (!extractForLoopInitializerValue(*initializer, nullptr, resolvedLoopSymbol, loopValue)) {
+          failureReason = "unsupported non-constant for-loop initializer RHS expression";
+          return false;
+        }
+        loopSymbol = resolvedLoopSymbol;
+        return true;
+      }
+
+      std::ostringstream reason;
+      reason << "unsupported for-loop initializer structure"
+             << " (loop_vars=" << forStmt.loopVars.size()
+             << ", initializers=" << forStmt.initializers.size() << ")";
+      failureReason = reason.str();
+      return false;
+    }
+
+    bool evaluateForLoopStopCondition(
+      const Expression& stopExpr,
+      const Symbol& loopSymbol,
+      int64_t loopValue,
+      bool& shouldExecuteBody,
+      std::string& failureReason) const {
+      const auto* strippedStopExpr = stripConversions(stopExpr);
+      if (!strippedStopExpr ||
+          strippedStopExpr->kind != slang::ast::ExpressionKind::BinaryOp) {
+        failureReason = "unsupported for-loop stop expression (expected binary comparison)";
+        return false;
+      }
+
+      const auto& binaryExpr = strippedStopExpr->as<slang::ast::BinaryExpression>();
+      const bool leftIsLoopVar = isForLoopControlSymbolRef(binaryExpr.left(), loopSymbol);
+      const bool rightIsLoopVar = isForLoopControlSymbolRef(binaryExpr.right(), loopSymbol);
+      if (leftIsLoopVar == rightIsLoopVar) {
+        failureReason = "unsupported for-loop stop expression (control variable not isolated)";
+        return false;
+      }
+
+      int64_t otherValue = 0;
+      if (!getConstantInt64(leftIsLoopVar ? binaryExpr.right() : binaryExpr.left(), otherValue)) {
+        failureReason = "unsupported non-constant for-loop bound expression";
+        return false;
+      }
+
+      const int64_t lhsValue = leftIsLoopVar ? loopValue : otherValue;
+      const int64_t rhsValue = leftIsLoopVar ? otherValue : loopValue;
+      switch (binaryExpr.op) {
+        case slang::ast::BinaryOperator::LessThan:
+          shouldExecuteBody = lhsValue < rhsValue;
+          return true;
+        case slang::ast::BinaryOperator::LessThanEqual:
+          shouldExecuteBody = lhsValue <= rhsValue;
+          return true;
+        case slang::ast::BinaryOperator::GreaterThan:
+          shouldExecuteBody = lhsValue > rhsValue;
+          return true;
+        case slang::ast::BinaryOperator::GreaterThanEqual:
+          shouldExecuteBody = lhsValue >= rhsValue;
+          return true;
+        case slang::ast::BinaryOperator::Equality:
+          shouldExecuteBody = lhsValue == rhsValue;
+          return true;
+        case slang::ast::BinaryOperator::Inequality:
+          shouldExecuteBody = lhsValue != rhsValue;
+          return true;
+        default:
+          break;
+      }
+
+      std::ostringstream reason;
+      reason << "unsupported for-loop comparison operator in stop expression: "
+             << slang::ast::OpInfo::getText(binaryExpr.op);
+      failureReason = reason.str();
+      return false;
+    }
+
+    bool evaluateForLoopStepRHS(
+      const Expression& rhsExpr,
+      const Symbol& loopSymbol,
+      int64_t loopValue,
+      int64_t& nextLoopValue) const {
+      if (isForLoopControlSymbolRef(rhsExpr, loopSymbol)) {
+        nextLoopValue = loopValue;
+        return true;
+      }
+
+      if (getConstantInt64(rhsExpr, nextLoopValue)) {
+        return true;
+      }
+
+      const auto* strippedRHSExpr = stripConversions(rhsExpr);
+      if (!strippedRHSExpr ||
+          strippedRHSExpr->kind != slang::ast::ExpressionKind::BinaryOp) {
+        return false;
+      }
+
+      const auto& rhsBinaryExpr = strippedRHSExpr->as<slang::ast::BinaryExpression>();
+      int64_t constantOperand = 0;
+      switch (rhsBinaryExpr.op) {
+        case slang::ast::BinaryOperator::Add:
+          if (isForLoopControlSymbolRef(rhsBinaryExpr.left(), loopSymbol) &&
+              getConstantInt64(rhsBinaryExpr.right(), constantOperand)) {
+            nextLoopValue = loopValue + constantOperand;
+            return true;
+          }
+          if (isForLoopControlSymbolRef(rhsBinaryExpr.right(), loopSymbol) &&
+              getConstantInt64(rhsBinaryExpr.left(), constantOperand)) {
+            nextLoopValue = constantOperand + loopValue;
+            return true;
+          }
+          return false;
+        case slang::ast::BinaryOperator::Subtract:
+          if (isForLoopControlSymbolRef(rhsBinaryExpr.left(), loopSymbol) &&
+              getConstantInt64(rhsBinaryExpr.right(), constantOperand)) {
+            nextLoopValue = loopValue - constantOperand;
+            return true;
+          }
+          if (isForLoopControlSymbolRef(rhsBinaryExpr.right(), loopSymbol) &&
+              getConstantInt64(rhsBinaryExpr.left(), constantOperand)) {
+            nextLoopValue = constantOperand - loopValue;
+            return true;
+          }
+          return false;
+        default:
+          return false;
+      }
+    }
+
+    bool applyForLoopStepExpression(
+      const Expression& stepExpr,
+      const Symbol& loopSymbol,
+      int64_t& loopValue,
+      std::string& failureReason) const {
+      const auto* strippedStepExpr = stripConversions(stepExpr);
+      if (!strippedStepExpr) {
+        failureReason = "unsupported null for-loop step expression";
+        return false; // LCOV_EXCL_LINE
+      }
+
+      if (strippedStepExpr->kind == slang::ast::ExpressionKind::UnaryOp) {
+        const auto& unaryExpr = strippedStepExpr->as<slang::ast::UnaryExpression>();
+        if (!isForLoopControlSymbolRef(unaryExpr.operand(), loopSymbol)) {
+          failureReason = "unsupported for-loop unary step on non-control variable";
+          return false;
+        }
+        if (unaryExpr.op == slang::ast::UnaryOperator::Preincrement ||
+            unaryExpr.op == slang::ast::UnaryOperator::Postincrement) {
+          ++loopValue;
+          return true;
+        }
+        if (unaryExpr.op == slang::ast::UnaryOperator::Predecrement ||
+            unaryExpr.op == slang::ast::UnaryOperator::Postdecrement) {
+          --loopValue;
+          return true;
+        }
+      }
+
+      if (strippedStepExpr->kind == slang::ast::ExpressionKind::Assignment) {
+        const auto& assignExpr = strippedStepExpr->as<slang::ast::AssignmentExpression>();
+        if (!isForLoopControlSymbolRef(assignExpr.left(), loopSymbol)) {
+          failureReason = "unsupported for-loop assignment step on non-control variable";
+          return false;
+        }
+
+        if (assignExpr.isCompound()) {
+          int64_t rhsValue = 0;
+          if (!getConstantInt64(assignExpr.right(), rhsValue)) {
+            failureReason = "unsupported non-constant compound for-loop assignment step";
+            return false;
+          }
+          if (*assignExpr.op == slang::ast::BinaryOperator::Add) {
+            loopValue += rhsValue;
+            return true;
+          }
+          if (*assignExpr.op == slang::ast::BinaryOperator::Subtract) {
+            loopValue -= rhsValue;
+            return true;
+          }
+          std::ostringstream reason;
+          reason << "unsupported compound for-loop assignment operator: "
+                 << slang::ast::OpInfo::getText(*assignExpr.op);
+          failureReason = reason.str();
+          return false;
+        }
+
+        int64_t nextLoopValue = 0;
+        if (evaluateForLoopStepRHS(assignExpr.right(), loopSymbol, loopValue, nextLoopValue)) {
+          loopValue = nextLoopValue;
+          return true;
+        }
+      }
+
+      failureReason = "unsupported for-loop step expression";
+      return false;
+    }
+
+    bool unrollForLoopStatement(
+      const slang::ast::ForLoopStatement& forStmt,
+      const std::function<bool()>& bodyCallback,
+      std::string& failureReason) const {
+      const Symbol* loopSymbol = nullptr;
+      int64_t loopValue = 0;
+      if (!extractForLoopControl(forStmt, loopSymbol, loopValue, failureReason)) {
+        return false;
+      }
+
+      if (!forStmt.stopExpr) {
+        failureReason = "unsupported for-loop without stop condition";
+        return false;
+      }
+      if (forStmt.steps.size() != 1 || !forStmt.steps.front()) {
+        failureReason = "unsupported for-loop step count (only one step expression is supported)";
+        return false;
+      }
+
+      constexpr size_t kMaxForLoopUnrollIterations = 4096;
+      size_t iterationCount = 0;
+      while (true) {
+        bool shouldExecuteBody = false;
+        if (!evaluateForLoopStopCondition(
+              *forStmt.stopExpr,
+              *loopSymbol,
+              loopValue,
+              shouldExecuteBody,
+              failureReason)) {
+          return false;
+        }
+
+        if (!shouldExecuteBody) {
+          return true;
+        }
+
+        if (iterationCount++ >= kMaxForLoopUnrollIterations) {
+          std::ostringstream reason;
+          reason << "for-loop unroll iteration limit exceeded (" << kMaxForLoopUnrollIterations
+                 << ")";
+          failureReason = reason.str();
+          return false;
+        }
+
+        activeForLoopConstants_.emplace_back(loopSymbol, loopValue);
+        const bool bodyOk = bodyCallback();
+        activeForLoopConstants_.pop_back();
+        if (!bodyOk) {
+          return false;
+        }
+
+        if (!applyForLoopStepExpression(
+              *forStmt.steps.front(),
+              *loopSymbol,
+              loopValue,
+              failureReason)) {
+          return false;
+        }
+      }
+    }
+
     const Expression* getTrackedAlwaysCombLHS(const Expression* lhsExpr) const {
       if (!lhsExpr) {
         return nullptr; // LCOV_EXCL_LINE
@@ -3318,6 +3754,12 @@ class SNLSVConstructorImpl {
       }
 
       const auto& elementExpr = stripped->as<slang::ast::ElementSelectExpression>();
+      if (isActiveForLoopVariableExpr(elementExpr.selector())) {
+        const auto* baseExpr = stripConversions(elementExpr.value());
+        if (baseExpr && slang::ast::ValueExpressionBase::isKind(baseExpr->kind)) {
+          return baseExpr;
+        }
+      }
       int32_t selectedIndex = 0;
       if (getConstantInt32(elementExpr.selector(), selectedIndex)) {
         return lhsExpr;
@@ -3780,6 +4222,25 @@ class SNLSVConstructorImpl {
         return true;
       }
 
+      if (current->kind == slang::ast::StatementKind::ForLoop) {
+        const auto& forStmt = current->as<slang::ast::ForLoopStatement>();
+        std::string forLoopFailureReason;
+        if (!unrollForLoopStatement(
+              forStmt,
+              [&]() {
+                return collectAssignedLHSExpressions(
+                  forStmt.body,
+                  lhsExpressions,
+                  failureReason,
+                  trackAlwaysCombDynamicLHS);
+              },
+              forLoopFailureReason)) {
+          setFailureReason(forLoopFailureReason);
+          return false;
+        }
+        return true;
+      }
+
       if (current->kind == slang::ast::StatementKind::Conditional) {
         const auto& conditional = current->as<slang::ast::ConditionalStatement>();
         if (!collectAssignedLHSExpressions(
@@ -4025,6 +4486,7 @@ class SNLSVConstructorImpl {
       const AssignAction& action,
       size_t targetWidth,
       std::vector<SNLBitNet*>& assignedBits,
+      const std::vector<SNLBitNet*>* currentBits,
       std::string& failureReason) {
       if (action.increment) {
         failureReason = "unsupported increment/decrement assignment in always_comb";
@@ -4034,6 +4496,150 @@ class SNLSVConstructorImpl {
         failureReason = "missing RHS expression in always_comb assignment";
         return false;
       }
+      if (action.compoundOp) {
+        if (!currentBits || currentBits->size() != targetWidth) {
+          failureReason =
+            "unsupported compound assignment in always_comb without current LHS bits";
+          return false;
+        }
+
+        const Expression* compoundRhsExpr = action.rhs;
+        std::vector<SNLBitNet*> rhsBits;
+        const auto resolveCompoundRhs = [&](const Expression& rhsExpr) {
+          rhsBits.clear();
+          return resolveExpressionBits(design, rhsExpr, targetWidth, rhsBits) &&
+                 rhsBits.size() == targetWidth;
+        };
+        if (!resolveCompoundRhs(*compoundRhsExpr)) {
+          const auto* strippedCompoundRhs = stripConversions(*action.rhs);
+          if (action.lhs &&
+              strippedCompoundRhs &&
+              strippedCompoundRhs->kind == slang::ast::ExpressionKind::BinaryOp) {
+            const auto& binaryExpr = strippedCompoundRhs->as<slang::ast::BinaryExpression>();
+            if (binaryExpr.op == *action.compoundOp) {
+              const Expression* recoveredCompoundRhs = nullptr;
+              if (sameLhs(action.lhs, &binaryExpr.left())) {
+                recoveredCompoundRhs = &binaryExpr.right();
+              } else if (sameLhs(action.lhs, &binaryExpr.right())) {
+                recoveredCompoundRhs = &binaryExpr.left();
+              }
+              if (!recoveredCompoundRhs) {
+                std::vector<SNLBitNet*> probeBits;
+                const auto canResolveSide = [&](const Expression& expr) {
+                  probeBits.clear();
+                  return resolveExpressionBits(design, expr, targetWidth, probeBits) &&
+                         probeBits.size() == targetWidth;
+                };
+                const bool leftResolves = canResolveSide(binaryExpr.left());
+                const bool rightResolves = canResolveSide(binaryExpr.right());
+                if (!leftResolves && rightResolves) {
+                  recoveredCompoundRhs = &binaryExpr.right();
+                } else if (leftResolves && !rightResolves) {
+                  recoveredCompoundRhs = &binaryExpr.left();
+                }
+              }
+              if (recoveredCompoundRhs && resolveCompoundRhs(*recoveredCompoundRhs)) {
+                compoundRhsExpr = recoveredCompoundRhs;
+              }
+            }
+          }
+        }
+        if (rhsBits.size() != targetWidth) {
+          std::ostringstream reason;
+          reason << "unable to resolve always_comb compound assignment RHS bits for "
+                 << describeExpression(*compoundRhsExpr)
+                 << " (target_width=" << targetWidth << ")";
+          failureReason = reason.str();
+          return false;
+        }
+
+        auto sourceRange = getSourceRange(*compoundRhsExpr);
+        if (*action.compoundOp == slang::ast::BinaryOperator::Add) {
+          return addBitVectors(
+            design,
+            *currentBits,
+            rhsBits,
+            assignedBits,
+            sourceRange);
+        }
+        if (*action.compoundOp == slang::ast::BinaryOperator::Subtract) {
+          auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
+          auto* const1 = static_cast<SNLBitNet*>(getConstNet(design, true));
+          std::vector<SNLBitNet*> invertedRightBits;
+          invertedRightBits.reserve(rhsBits.size());
+          for (auto* rightBit : rhsBits) {
+            if (rightBit == const0) {
+              invertedRightBits.push_back(const1);
+              continue;
+            }
+            if (rightBit == const1) {
+              invertedRightBits.push_back(const0);
+              continue;
+            }
+            auto* invertedBit = SNLScalarNet::create(design);
+            annotateSourceInfo(invertedBit, sourceRange);
+            if (!createUnaryGate(
+                  design,
+                  NLDB0::GateType(NLDB0::GateType::Not),
+                  rightBit,
+                  invertedBit,
+                  sourceRange)) {
+              return false; // LCOV_EXCL_LINE
+            }
+            invertedRightBits.push_back(invertedBit);
+          }
+
+          assignedBits.clear();
+          assignedBits.reserve(targetWidth);
+          auto* carry = const1;
+          for (size_t bitIndex = 0; bitIndex < targetWidth; ++bitIndex) {
+            auto* diffBit = SNLScalarNet::create(design);
+            auto* carryOut = SNLScalarNet::create(design);
+            annotateSourceInfo(diffBit, sourceRange);
+            annotateSourceInfo(carryOut, sourceRange);
+            if (!createFAInstance(
+                  design,
+                  (*currentBits)[bitIndex],
+                  invertedRightBits[bitIndex],
+                  carry,
+                  diffBit,
+                  carryOut,
+                  sourceRange)) {
+              return false; // LCOV_EXCL_LINE
+            }
+            assignedBits.push_back(diffBit);
+            carry = carryOut;
+          }
+          return true;
+        }
+
+        auto gateType = gateTypeFromBinary(*action.compoundOp);
+        if (!gateType) {
+          std::ostringstream reason;
+          reason << "unsupported compound assignment operator in always_comb: "
+                 << slang::ast::OpInfo::getText(*action.compoundOp);
+          failureReason = reason.str();
+          return false;
+        }
+
+        assignedBits.clear();
+        assignedBits.reserve(targetWidth);
+        for (size_t bitIndex = 0; bitIndex < targetWidth; ++bitIndex) {
+          auto* outBit = getSingleBitNet(createBinaryGate(
+            design,
+            *gateType,
+            (*currentBits)[bitIndex],
+            rhsBits[bitIndex],
+            nullptr,
+            sourceRange));
+          if (!outBit) {
+            return false; // LCOV_EXCL_LINE
+          }
+          assignedBits.push_back(outBit);
+        }
+        return true;
+      }
+
       if (!resolveExpressionBits(design, *action.rhs, targetWidth, assignedBits) ||
           assignedBits.size() != targetWidth) {
         std::ostringstream reason;
@@ -4105,6 +4711,7 @@ class SNLSVConstructorImpl {
             action,
             static_cast<size_t>(*elementWidth),
             assignedBits,
+            nullptr,
             failureReason)) {
         return false;
       }
@@ -4243,6 +4850,23 @@ class SNLSVConstructorImpl {
           }
         }
         return true;
+      }
+
+      if (current->kind == slang::ast::StatementKind::ForLoop) {
+        const auto& forStmt = current->as<slang::ast::ForLoopStatement>();
+        return unrollForLoopStatement(
+          forStmt,
+          [&]() {
+            return applyCombinationalStatementForLhs(
+              design,
+              forStmt.body,
+              lhsExpr,
+              lhsBits,
+              dataBits,
+              tempIndex,
+              failureReason);
+          },
+          failureReason);
       }
 
       if (current->kind == slang::ast::StatementKind::Conditional) {
@@ -4451,6 +5075,7 @@ class SNLSVConstructorImpl {
               action,
               lhsBits.size(),
               assignedBits,
+              &dataBits,
               failureReason)) {
           return false;
         }
@@ -4700,6 +5325,16 @@ class SNLSVConstructorImpl {
     }
 
     bool getConstantBit(const Expression& expr, bool& value) const {
+      if (auto loopValue = getActiveForLoopConstant(expr)) {
+        if (*loopValue == 0) {
+          value = false;
+          return true;
+        }
+        if (*loopValue == 1) {
+          value = true;
+          return true;
+        }
+      }
       const auto* stripped = stripConversions(expr);
       if (!stripped) {
         return false; // LCOV_EXCL_LINE
@@ -6027,6 +6662,7 @@ class SNLSVConstructorImpl {
     SNLSVConstructor::ConstructOptions options_ {};
     std::unordered_map<SNLDesign*, SNLScalarNet*> const0Nets_ {};
     std::unordered_map<SNLDesign*, SNLScalarNet*> const1Nets_ {};
+    mutable std::vector<std::pair<const Symbol*, int64_t>> activeForLoopConstants_ {};
     std::unique_ptr<slang::driver::Driver> driver_;
     std::unique_ptr<slang::ast::Compilation> compilation_;
     std::vector<std::shared_ptr<slang::syntax::SyntaxTree>> syntaxTrees_;
