@@ -414,10 +414,14 @@ class SNLSVConstructorImpl {
       driver.addStandardArgs();
 
       std::vector<std::string> args;
-      args.reserve(paths.size() + 3);
+      args.reserve(paths.size() + 7);
       args.emplace_back("snl_sv_constructor");
       args.emplace_back("--translate-off-format");
       args.emplace_back("pragma,translate_off,translate_on");
+      args.emplace_back("--translate-off-format");
+      args.emplace_back("synthesis,translate_off,translate_on");
+      args.emplace_back("--translate-off-format");
+      args.emplace_back("synopsys,translate_off,translate_on");
       for (const auto& path : paths) {
         args.emplace_back(path.string());
       }

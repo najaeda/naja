@@ -5259,3 +5259,59 @@ endmodule
   ASSERT_NE(top, nullptr);
   EXPECT_NE(top->getNet(NLName("y")), nullptr);
 }
+
+TEST_F(SNLSVConstructorTestSimple, parseSynthesisTranslateOffSequentialUnsupportedIgnored) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "synthesis_translate_off_sequential_ignored";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "synthesis_translate_off_sequential_ignored.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module synthesis_translate_off_sequential_ignored(
+  input logic clk,
+  input logic rst_n,
+  input logic d,
+  output logic q
+);
+  logic q_main;
+  logic dbg_q;
+
+  // synthesis translate_off
+  always_ff @(posedge clk or negedge rst_n) begin
+    if (!rst_n) begin
+      dbg_q <= 1'b0;
+    end else begin
+      if (d) begin
+        dbg_q <= 1'b1;
+        for (int i = 0; i < 2; i++) begin
+          dbg_q <= dbg_q & 1'b1;
+        end
+      end
+    end
+  end
+  // synthesis translate_on
+
+  always_ff @(posedge clk or negedge rst_n) begin
+    if (!rst_n)
+      q_main <= 1'b0;
+    else
+      q_main <= d;
+  end
+
+  assign q = q_main;
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("synthesis_translate_off_sequential_ignored"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("q")), nullptr);
+}
