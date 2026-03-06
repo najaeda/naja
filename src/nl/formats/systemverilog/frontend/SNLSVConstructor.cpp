@@ -1041,6 +1041,31 @@ class SNLSVConstructorImpl {
       return std::nullopt;
     }
 
+    bool hasActiveForLoopContext() const {
+      return !activeForLoopBreaks_.empty();
+    }
+
+    bool isCurrentForLoopBreakRequested() const {
+      return hasActiveForLoopContext() && activeForLoopBreaks_.back();
+    }
+
+    void setCurrentForLoopBreakRequested(bool value) const {
+      if (hasActiveForLoopContext()) {
+        activeForLoopBreaks_.back() = value;
+      }
+    }
+
+    bool requestCurrentForLoopBreak(std::string* failureReason = nullptr) const {
+      if (!hasActiveForLoopContext()) {
+        if (failureReason) {
+          *failureReason = "unsupported break statement outside for-loop";
+        }
+        return false;
+      }
+      activeForLoopBreaks_.back() = true;
+      return true;
+    }
+
     bool getConstantUnsigned(const Expression& expr, uint64_t& value) const {
       if (auto loopValue = getActiveForLoopConstant(expr)) {
         if (*loopValue < 0) {
@@ -3980,9 +4005,18 @@ class SNLSVConstructorImpl {
         return false;
       }
 
+      activeForLoopBreaks_.push_back(false);
+      auto popBreakContext = [&]() {
+        if (!activeForLoopBreaks_.empty()) {
+          activeForLoopBreaks_.pop_back();
+        }
+      };
+
       constexpr size_t kMaxForLoopUnrollIterations = 4096;
       size_t iterationCount = 0;
       while (true) {
+        setCurrentForLoopBreakRequested(false);
+
         bool shouldExecuteBody = false;
         if (!evaluateForLoopStopCondition(
               *forStmt.stopExpr,
@@ -3990,10 +4024,12 @@ class SNLSVConstructorImpl {
               loopValue,
               shouldExecuteBody,
               failureReason)) {
+          popBreakContext();
           return false;
         }
 
         if (!shouldExecuteBody) {
+          popBreakContext();
           return true;
         }
 
@@ -4002,6 +4038,7 @@ class SNLSVConstructorImpl {
           reason << "for-loop unroll iteration limit exceeded (" << kMaxForLoopUnrollIterations
                  << ")";
           failureReason = reason.str();
+          popBreakContext();
           return false;
         }
 
@@ -4009,7 +4046,12 @@ class SNLSVConstructorImpl {
         const bool bodyOk = bodyCallback();
         activeForLoopConstants_.pop_back();
         if (!bodyOk) {
+          popBreakContext();
           return false;
+        }
+        if (isCurrentForLoopBreakRequested()) {
+          popBreakContext();
+          return true;
         }
 
         if (!applyForLoopStepExpression(
@@ -4017,6 +4059,7 @@ class SNLSVConstructorImpl {
               *loopSymbol,
               loopValue,
               failureReason)) {
+          popBreakContext();
           return false;
         }
       }
@@ -4502,6 +4545,9 @@ class SNLSVConstructorImpl {
                 trackAlwaysCombDynamicLHS)) {
             return false;
           }
+          if (isCurrentForLoopBreakRequested()) {
+            break;
+          }
         }
         return true;
       }
@@ -4527,6 +4573,11 @@ class SNLSVConstructorImpl {
 
       if (current->kind == slang::ast::StatementKind::Conditional) {
         const auto& conditional = current->as<slang::ast::ConditionalStatement>();
+        const bool hasLoopContext = hasActiveForLoopContext();
+        const bool incomingBreak = hasLoopContext ? isCurrentForLoopBreakRequested() : false;
+        if (hasLoopContext) {
+          setCurrentForLoopBreakRequested(false);
+        }
         if (!collectAssignedLHSExpressions(
               conditional.ifTrue,
               lhsExpressions,
@@ -4534,6 +4585,11 @@ class SNLSVConstructorImpl {
               trackAlwaysCombDynamicLHS)) {
           return false;
         }
+        const bool trueBreak = hasLoopContext ? isCurrentForLoopBreakRequested() : false;
+        if (hasLoopContext) {
+          setCurrentForLoopBreakRequested(false);
+        }
+        bool falseBreak = false;
         if (conditional.ifFalse &&
             !collectAssignedLHSExpressions(
               *conditional.ifFalse,
@@ -4541,6 +4597,12 @@ class SNLSVConstructorImpl {
               failureReason,
               trackAlwaysCombDynamicLHS)) {
           return false;
+        }
+        if (hasLoopContext) {
+          falseBreak = isCurrentForLoopBreakRequested();
+          // A break that appears only in one branch remains conditional and does
+          // not unconditionally terminate the enclosing loop.
+          setCurrentForLoopBreakRequested(incomingBreak || (trueBreak && falseBreak));
         }
         return true;
       }
@@ -4571,6 +4633,15 @@ class SNLSVConstructorImpl {
         // Local variable declarations in always_comb (including initializer forms
         // like "int i = 0" used by for-loop indices) do not directly write tracked
         // design LHS targets and can be ignored by assignment collection.
+        return true;
+      }
+
+      if (current->kind == slang::ast::StatementKind::Break) {
+        std::string breakFailureReason;
+        if (!requestCurrentForLoopBreak(&breakFailureReason)) {
+          setFailureReason(std::move(breakFailureReason));
+          return false;
+        }
         return true;
       }
 
@@ -5135,6 +5206,9 @@ class SNLSVConstructorImpl {
                 failureReason)) {
             return false;
           }
+          if (isCurrentForLoopBreakRequested()) {
+            break;
+          }
         }
         return true;
       }
@@ -5166,6 +5240,12 @@ class SNLSVConstructorImpl {
           return false;
         }
 
+        const bool hasLoopContext = hasActiveForLoopContext();
+        const bool incomingBreak = hasLoopContext ? isCurrentForLoopBreakRequested() : false;
+        if (hasLoopContext) {
+          setCurrentForLoopBreakRequested(false);
+        }
+
         std::vector<SNLBitNet*> trueBits = dataBits;
         if (!applyCombinationalStatementForLhs(
               design,
@@ -5176,6 +5256,10 @@ class SNLSVConstructorImpl {
               tempIndex,
               failureReason)) {
           return false;
+        }
+        const bool trueBreak = hasLoopContext ? isCurrentForLoopBreakRequested() : false;
+        if (hasLoopContext) {
+          setCurrentForLoopBreakRequested(false);
         }
 
         std::vector<SNLBitNet*> falseBits = dataBits;
@@ -5191,6 +5275,7 @@ class SNLSVConstructorImpl {
             return false;
           }
         }
+        const bool falseBreak = hasLoopContext ? isCurrentForLoopBreakRequested() : false;
 
         if (trueBits.size() != lhsBits.size() || falseBits.size() != lhsBits.size()) {
           failureReason = "width mismatch while lowering always_comb conditional";
@@ -5211,10 +5296,16 @@ class SNLSVConstructorImpl {
         auto* const1 = static_cast<SNLBitNet*>(getConstNet(design, true));
         if (conditionBit == const1) {
           dataBits = std::move(trueBits);
+          if (hasLoopContext) {
+            setCurrentForLoopBreakRequested(incomingBreak || trueBreak);
+          }
           return true;
         }
         if (conditionBit == const0) {
           dataBits = std::move(falseBits);
+          if (hasLoopContext) {
+            setCurrentForLoopBreakRequested(incomingBreak || falseBreak);
+          }
           return true;
         }
 
@@ -5239,6 +5330,10 @@ class SNLSVConstructorImpl {
         }
         dataBits = std::move(mergedBits);
         ++tempIndex;
+        if (hasLoopContext) {
+          // Only propagate breaks that are unconditional across branches.
+          setCurrentForLoopBreakRequested(incomingBreak || (trueBreak && falseBreak));
+        }
         return true;
       }
 
@@ -5333,6 +5428,10 @@ class SNLSVConstructorImpl {
         // Local variable declarations in always_comb are bookkeeping only from the
         // point of view of tracked LHS rewriting; they are ignored here.
         return true;
+      }
+
+      if (current->kind == slang::ast::StatementKind::Break) {
+        return requestCurrentForLoopBreak(&failureReason);
       }
 
       const Expression* assignedLHS = nullptr;
@@ -6960,6 +7059,7 @@ class SNLSVConstructorImpl {
     std::unordered_map<SNLDesign*, SNLScalarNet*> const0Nets_ {};
     std::unordered_map<SNLDesign*, SNLScalarNet*> const1Nets_ {};
     mutable std::vector<std::pair<const Symbol*, int64_t>> activeForLoopConstants_ {};
+    mutable std::vector<bool> activeForLoopBreaks_ {};
     std::unique_ptr<slang::driver::Driver> driver_;
     std::unique_ptr<slang::ast::Compilation> compilation_;
     std::vector<std::shared_ptr<slang::syntax::SyntaxTree>> syntaxTrees_;
