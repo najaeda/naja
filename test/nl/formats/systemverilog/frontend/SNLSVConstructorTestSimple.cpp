@@ -3422,6 +3422,50 @@ endmodule
   EXPECT_NE(top->getNet(NLName("flu_result_o")), nullptr);
 }
 
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseAlwaysCombConstantConditionSkipsOutOfRangeElementSelectBranch) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_const_cond_skips_oob_element_select_branch";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "always_comb_const_cond_skips_oob_element_select_branch.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_const_cond_skips_oob_element_select_branch(
+  output logic y
+);
+  typedef struct packed {
+    logic none, load, store, alu, alu2, ctrl_flow, mult, csr, fpu, fpu_vec, cvxif, accel, aes;
+  } fus_busy_t;
+
+  localparam bit SUPER = 1'b0;
+  localparam int unsigned N = SUPER ? 2 : 1;
+  fus_busy_t [N-1:0] fus_busy;
+
+  always_comb begin
+    fus_busy = '0;
+    if (SUPER) begin
+      fus_busy[1] = '1;
+    end
+    y = fus_busy[0].none;
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("always_comb_const_cond_skips_oob_element_select_branch"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("y")), nullptr);
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseAlwaysCombShiftLeftSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);

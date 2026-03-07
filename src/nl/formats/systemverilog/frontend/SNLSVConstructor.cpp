@@ -6643,6 +6643,54 @@ class SNLSVConstructorImpl {
           return false;
         }
 
+        std::string conditionFailureReason;
+        auto* conditionBit = resolveCombinationalConditionNet(
+          design,
+          *condStmt.conditions[0].expr,
+          &conditionFailureReason);
+        if (!conditionBit) {
+          failureReason = conditionFailureReason;
+          return false;
+        }
+
+        auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
+        auto* const1 = static_cast<SNLBitNet*>(getConstNet(design, true));
+        if (conditionBit == const1 || conditionBit == const0) {
+          const bool hasLoopContext = hasActiveForLoopContext();
+          const bool incomingBreak = hasLoopContext ? isCurrentForLoopBreakRequested() : false;
+          if (hasLoopContext) {
+            setCurrentForLoopBreakRequested(false);
+          }
+
+          const Statement* selectedStmt =
+            (conditionBit == const1) ? &condStmt.ifTrue : condStmt.ifFalse;
+          if (!selectedStmt) {
+            if (hasLoopContext) {
+              setCurrentForLoopBreakRequested(incomingBreak);
+            }
+            return true;
+          }
+
+          std::vector<SNLBitNet*> selectedBits = dataBits;
+          if (!applyCombinationalStatementForLhs(
+                design,
+                *selectedStmt,
+                lhsExpr,
+                lhsBits,
+                selectedBits,
+                tempIndex,
+                failureReason)) {
+            return false;
+          }
+
+          const bool selectedBreak = hasLoopContext ? isCurrentForLoopBreakRequested() : false;
+          dataBits = std::move(selectedBits);
+          if (hasLoopContext) {
+            setCurrentForLoopBreakRequested(incomingBreak || selectedBreak);
+          }
+          return true;
+        }
+
         const bool hasLoopContext = hasActiveForLoopContext();
         const bool incomingBreak = hasLoopContext ? isCurrentForLoopBreakRequested() : false;
         if (hasLoopContext) {
@@ -6683,33 +6731,6 @@ class SNLSVConstructorImpl {
         if (trueBits.size() != lhsBits.size() || falseBits.size() != lhsBits.size()) {
           failureReason = "width mismatch while lowering always_comb conditional";
           return false;
-        }
-
-        std::string conditionFailureReason;
-        auto* conditionBit = resolveCombinationalConditionNet(
-          design,
-          *condStmt.conditions[0].expr,
-          &conditionFailureReason);
-        if (!conditionBit) {
-          failureReason = conditionFailureReason;
-          return false;
-        }
-
-        auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
-        auto* const1 = static_cast<SNLBitNet*>(getConstNet(design, true));
-        if (conditionBit == const1) {
-          dataBits = std::move(trueBits);
-          if (hasLoopContext) {
-            setCurrentForLoopBreakRequested(incomingBreak || trueBreak);
-          }
-          return true;
-        }
-        if (conditionBit == const0) {
-          dataBits = std::move(falseBits);
-          if (hasLoopContext) {
-            setCurrentForLoopBreakRequested(incomingBreak || falseBreak);
-          }
-          return true;
         }
 
         std::vector<SNLBitNet*> mergedBits;
