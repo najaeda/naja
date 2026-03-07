@@ -3768,6 +3768,79 @@ endmodule
   EXPECT_GT(faCount, 0u);
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseAlwaysCombConditionUnaryNotLogicalAndSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_condition_unary_not_logical_and_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "always_comb_condition_unary_not_logical_and_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_condition_unary_not_logical_and_supported #(
+  parameter bit DBG_EN = 1'b1
+) (
+  input  logic dbg_mode,
+  output logic y
+);
+  always_comb begin
+    y = 1'b0;
+    if (!(DBG_EN && dbg_mode)) begin
+      y = 1'b1;
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top =
+    library_->getSNLDesign(NLName("always_comb_condition_unary_not_logical_and_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("y")), nullptr);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseAlwaysCombConditionInsideRangeBitwiseOrSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_condition_inside_range_bitwise_or_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "always_comb_condition_inside_range_bitwise_or_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_condition_inside_range_bitwise_or_supported(
+  input  logic [11:0] csr_addr_i,
+  output logic        hit
+);
+  always_comb begin
+    hit = 1'b0;
+    if (csr_addr_i inside {[12'hC03:12'hC1F]} |
+        csr_addr_i inside {[12'hC83:12'hC9F]}) begin
+      hit = 1'b1;
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top =
+    library_->getSNLDesign(NLName("always_comb_condition_inside_range_bitwise_or_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("hit")), nullptr);
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseAlwaysCombRHSConditionalParamEqSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);

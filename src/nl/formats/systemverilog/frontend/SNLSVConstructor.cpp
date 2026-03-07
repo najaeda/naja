@@ -3034,25 +3034,15 @@ class SNLSVConstructorImpl {
           if (!rangeExpr) {
             continue; // LCOV_EXCL_LINE
           }
-          const auto* strippedRangeExpr = stripConversions(*rangeExpr);
-          if (!strippedRangeExpr ||
-              strippedRangeExpr->kind == slang::ast::ExpressionKind::ValueRange) {
-            return false;
-          }
-
-          SNLNet* eqNet = SNLScalarNet::create(design);
-          annotateSourceInfo(eqNet, insideSourceRange);
-          if (!createEqualityAssign(
+          SNLBitNet* eqBit = nullptr;
+          if (!buildCaseInsideMatchBit(
                 design,
-                eqNet,
                 insideExpr.left(),
-                *strippedRangeExpr,
-                insideSourceRange)) {
+                *rangeExpr,
+                eqBit,
+                insideSourceRange) ||
+              !eqBit) {
             return false;
-          }
-          auto* eqBit = getSingleBitNet(eqNet);
-          if (!eqBit) {
-            return false; // LCOV_EXCL_LINE
           }
 
           if (insideBit == const1 || eqBit == const1) {
@@ -3088,6 +3078,69 @@ class SNLSVConstructorImpl {
 
       if (stripped->kind == slang::ast::ExpressionKind::BinaryOp) {
         const auto& binaryExpr = stripped->as<slang::ast::BinaryExpression>();
+        if (binaryExpr.op == slang::ast::BinaryOperator::LogicalAnd ||
+            binaryExpr.op == slang::ast::BinaryOperator::LogicalOr) {
+          auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
+          auto* const1 = static_cast<SNLBitNet*>(getConstNet(design, true));
+          auto* lhsBit = resolveCombinationalConditionNet(design, binaryExpr.left());
+          if (!lhsBit) {
+            return false;
+          }
+
+          SNLBitNet* logicBit = nullptr;
+          if (binaryExpr.op == slang::ast::BinaryOperator::LogicalAnd && lhsBit == const0) {
+            logicBit = const0;
+          } else if (binaryExpr.op == slang::ast::BinaryOperator::LogicalOr && lhsBit == const1) {
+            logicBit = const1;
+          } else {
+            auto* rhsBit = resolveCombinationalConditionNet(design, binaryExpr.right());
+            if (!rhsBit) {
+              return false;
+            }
+
+            if (binaryExpr.op == slang::ast::BinaryOperator::LogicalAnd) {
+              if (rhsBit == const0) {
+                logicBit = const0;
+              } else if (lhsBit == const1) {
+                logicBit = rhsBit;
+              } else if (rhsBit == const1 || lhsBit == rhsBit) {
+                logicBit = lhsBit;
+              }
+            } else {
+              if (rhsBit == const1) {
+                logicBit = const1;
+              } else if (lhsBit == const0) {
+                logicBit = rhsBit;
+              } else if (rhsBit == const0 || lhsBit == rhsBit) {
+                logicBit = lhsBit;
+              }
+            }
+
+            if (!logicBit) {
+              auto binarySourceRange = getSourceRange(*stripped);
+              auto* outBit = SNLScalarNet::create(design);
+              annotateSourceInfo(outBit, binarySourceRange);
+              auto gateType = binaryExpr.op == slang::ast::BinaryOperator::LogicalAnd
+                ? NLDB0::GateType(NLDB0::GateType::And)
+                : NLDB0::GateType(NLDB0::GateType::Or);
+              logicBit = getSingleBitNet(createBinaryGate(
+                design,
+                gateType,
+                lhsBit,
+                rhsBit,
+                outBit,
+                binarySourceRange));
+              if (!logicBit) {
+                return false; // LCOV_EXCL_LINE
+              }
+            }
+          }
+
+          bits.clear();
+          bits.push_back(logicBit);
+          resizeBitsToWidth(bits, targetWidth, const0);
+          return true;
+        }
         if (isEqualityBinaryOp(binaryExpr.op) || isInequalityBinaryOp(binaryExpr.op)) {
           auto binarySourceRange = getSourceRange(*stripped);
           reportCaseComparison2StateWarning(binaryExpr.op, binarySourceRange);
@@ -6725,6 +6778,98 @@ class SNLSVConstructorImpl {
       bool constantBit = false;
       if (getConstantBit(conditionExpr, constantBit)) {
         return static_cast<SNLBitNet*>(getConstNet(design, constantBit));
+      }
+
+      const auto* stripped = stripConversions(conditionExpr);
+      auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
+      auto* const1 = static_cast<SNLBitNet*>(getConstNet(design, true));
+      if (stripped) {
+        if (stripped->kind == slang::ast::ExpressionKind::UnaryOp) {
+          const auto& unaryExpr = stripped->as<slang::ast::UnaryExpression>();
+          if (unaryExpr.op == slang::ast::UnaryOperator::LogicalNot ||
+              unaryExpr.op == slang::ast::UnaryOperator::BitwiseNot) {
+            auto* operandBit =
+              resolveCombinationalConditionNet(design, unaryExpr.operand(), failureReason);
+            if (!operandBit) {
+              return nullptr;
+            }
+            if (operandBit == const0) {
+              return const1;
+            }
+            if (operandBit == const1) {
+              return const0;
+            }
+            auto unarySourceRange = getSourceRange(*stripped);
+            auto* outBit = SNLScalarNet::create(design);
+            annotateSourceInfo(outBit, unarySourceRange);
+            if (!createUnaryGate(
+                  design,
+                  NLDB0::GateType(NLDB0::GateType::Not),
+                  operandBit,
+                  outBit,
+                  unarySourceRange)) {
+              return nullptr; // LCOV_EXCL_LINE
+            }
+            return outBit;
+          }
+        } else if (stripped->kind == slang::ast::ExpressionKind::BinaryOp) {
+          const auto& binaryExpr = stripped->as<slang::ast::BinaryExpression>();
+          if (binaryExpr.op == slang::ast::BinaryOperator::LogicalAnd ||
+              binaryExpr.op == slang::ast::BinaryOperator::LogicalOr) {
+            auto* lhsBit =
+              resolveCombinationalConditionNet(design, binaryExpr.left(), failureReason);
+            if (!lhsBit) {
+              return nullptr;
+            }
+            if (binaryExpr.op == slang::ast::BinaryOperator::LogicalAnd && lhsBit == const0) {
+              return const0;
+            }
+            if (binaryExpr.op == slang::ast::BinaryOperator::LogicalOr && lhsBit == const1) {
+              return const1;
+            }
+
+            auto* rhsBit =
+              resolveCombinationalConditionNet(design, binaryExpr.right(), failureReason);
+            if (!rhsBit) {
+              return nullptr;
+            }
+            if (binaryExpr.op == slang::ast::BinaryOperator::LogicalAnd) {
+              if (rhsBit == const0) {
+                return const0;
+              }
+              if (lhsBit == const1) {
+                return rhsBit;
+              }
+              if (rhsBit == const1 || lhsBit == rhsBit) {
+                return lhsBit;
+              }
+            } else {
+              if (rhsBit == const1) {
+                return const1;
+              }
+              if (lhsBit == const0) {
+                return rhsBit;
+              }
+              if (rhsBit == const0 || lhsBit == rhsBit) {
+                return lhsBit;
+              }
+            }
+
+            auto binarySourceRange = getSourceRange(*stripped);
+            auto* outBit = SNLScalarNet::create(design);
+            annotateSourceInfo(outBit, binarySourceRange);
+            auto gateType = binaryExpr.op == slang::ast::BinaryOperator::LogicalAnd
+              ? NLDB0::GateType(NLDB0::GateType::And)
+              : NLDB0::GateType(NLDB0::GateType::Or);
+            return getSingleBitNet(createBinaryGate(
+              design,
+              gateType,
+              lhsBit,
+              rhsBit,
+              outBit,
+              binarySourceRange));
+          }
+        }
       }
 
       std::vector<SNLBitNet*> conditionBits;
