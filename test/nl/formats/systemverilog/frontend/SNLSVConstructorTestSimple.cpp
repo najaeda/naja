@@ -942,6 +942,50 @@ endmodule
   EXPECT_THROW(constructor.construct(svPath), SNLSVConstructorException);
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseContinuousAssignFunctionCaseInsideRangeSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "continuous_assign_function_case_inside_range_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "continuous_assign_function_case_inside_range_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module continuous_assign_function_case_inside_range_supported(
+  input logic [5:0] op,
+  output logic y
+);
+  function automatic logic is_amo(input logic [5:0] op_i);
+    case (op_i) inside
+      [6'd4 : 6'd17]: begin
+        return 1'b1;
+      end
+      default: return 1'b0;
+    endcase
+  endfunction
+  assign y = is_amo(op);
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top =
+    library_->getSNLDesign(NLName("continuous_assign_function_case_inside_range_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("op")), nullptr);
+  EXPECT_NE(top->getNet(NLName("y")), nullptr);
+
+  auto dumpedVerilog = dumpTopAndGetVerilogPath(
+    top,
+    "continuous_assign_function_case_inside_range_supported");
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseBytePortsInferRangeFromWidth) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);

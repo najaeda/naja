@@ -61,6 +61,7 @@
 #include "slang/ast/symbols/InstanceSymbols.h"
 #include "slang/ast/symbols/MemberSymbols.h"
 #include "slang/ast/symbols/PortSymbols.h"
+#include "slang/ast/symbols/SubroutineSymbols.h"
 #include "slang/ast/symbols/VariableSymbols.h"
 #include "slang/ast/types/Type.h"
 #include "slang/diagnostics/DiagnosticEngine.h"
@@ -1398,6 +1399,258 @@ class SNLSVConstructorImpl {
       return true;
     }
 
+    bool extractFunctionReturnConstantBit(const Statement& stmt, bool& value) const {
+      const Statement* unwrapped = unwrapStatement(stmt);
+      if (!unwrapped ||
+          unwrapped->kind != slang::ast::StatementKind::Return) {
+        return false;
+      }
+      const auto& returnStmt = unwrapped->as<slang::ast::ReturnStatement>();
+      return returnStmt.expr && getConstantBit(*returnStmt.expr, value);
+    }
+
+    bool buildCaseInsideMatchBit(
+      SNLDesign* design,
+      const Expression& valueExpr,
+      const Expression& itemExpr,
+      SNLBitNet*& matchBit,
+      const std::optional<slang::SourceRange>& sourceRange = std::nullopt) {
+      matchBit = nullptr;
+
+      const auto* strippedItemExpr = stripConversions(itemExpr);
+      if (!strippedItemExpr) {
+        return false; // LCOV_EXCL_LINE
+      }
+
+      auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
+      auto* const1 = static_cast<SNLBitNet*>(getConstNet(design, true));
+
+      if (strippedItemExpr->kind == slang::ast::ExpressionKind::ValueRange) {
+        const auto& valueRangeExpr = strippedItemExpr->as<slang::ast::ValueRangeExpression>();
+        if (valueRangeExpr.rangeKind != slang::ast::ValueRangeKind::Simple) {
+          return false;
+        }
+
+        auto* geNet = SNLScalarNet::create(design);
+        annotateSourceInfo(geNet, sourceRange);
+        if (!createRelationalAssign(
+              design,
+              geNet,
+              valueExpr,
+              valueRangeExpr.left(),
+              slang::ast::BinaryOperator::GreaterThanEqual,
+              sourceRange)) {
+          return false;
+        }
+
+        auto* leNet = SNLScalarNet::create(design);
+        annotateSourceInfo(leNet, sourceRange);
+        if (!createRelationalAssign(
+              design,
+              leNet,
+              valueExpr,
+              valueRangeExpr.right(),
+              slang::ast::BinaryOperator::LessThanEqual,
+              sourceRange)) {
+          return false;
+        }
+
+        auto* geBit = getSingleBitNet(geNet);
+        auto* leBit = getSingleBitNet(leNet);
+        if (!geBit || !leBit) {
+          return false; // LCOV_EXCL_LINE
+        }
+
+        if (geBit == const0 || leBit == const0) {
+          matchBit = const0;
+          return true;
+        }
+        if (geBit == const1) {
+          matchBit = leBit;
+          return true;
+        }
+        if (leBit == const1) {
+          matchBit = geBit;
+          return true;
+        }
+
+        auto* andNet = SNLScalarNet::create(design);
+        annotateSourceInfo(andNet, sourceRange);
+        matchBit = getSingleBitNet(createBinaryGate(
+          design,
+          NLDB0::GateType(NLDB0::GateType::And),
+          geBit,
+          leBit,
+          andNet,
+          sourceRange));
+        return matchBit != nullptr;
+      }
+
+      auto* eqNet = SNLScalarNet::create(design);
+      annotateSourceInfo(eqNet, sourceRange);
+      if (!createEqualityAssign(
+            design,
+            eqNet,
+            valueExpr,
+            *strippedItemExpr,
+            sourceRange)) {
+        return false;
+      }
+      matchBit = getSingleBitNet(eqNet);
+      return matchBit != nullptr;
+    }
+
+    bool resolveSimpleCaseInsideFunctionCallBit(
+      SNLDesign* design,
+      const slang::ast::CallExpression& callExpr,
+      SNLBitNet*& resultBit,
+      const std::optional<slang::SourceRange>& sourceRange = std::nullopt) {
+      resultBit = nullptr;
+      if (callExpr.isSystemCall() || callExpr.subroutine.index() != 0) {
+        return false;
+      }
+
+      const auto* subroutine = std::get<0>(callExpr.subroutine);
+      if (!subroutine || subroutine->subroutineKind != slang::ast::SubroutineKind::Function ||
+          subroutine->hasOutputArgs()) {
+        return false;
+      }
+
+      auto formalArgs = subroutine->getArguments();
+      auto callArgs = callExpr.arguments();
+      if (formalArgs.size() != 1 || !formalArgs.front() ||
+          callArgs.size() != 1 || !callArgs.front()) {
+        return false;
+      }
+      if (formalArgs.front()->direction != ArgumentDirection::In) {
+        return false;
+      }
+
+      const Statement* bodyStmt = unwrapStatement(subroutine->getBody());
+      if (!bodyStmt || bodyStmt->kind != slang::ast::StatementKind::Case) {
+        return false;
+      }
+
+      const auto& caseStmt = bodyStmt->as<slang::ast::CaseStatement>();
+      if (caseStmt.condition != slang::ast::CaseStatementCondition::Inside) {
+        return false;
+      }
+
+      const auto* caseExpr = stripConversions(caseStmt.expr);
+      if (!caseExpr || !slang::ast::ValueExpressionBase::isKind(caseExpr->kind) ||
+          &caseExpr->as<slang::ast::ValueExpressionBase>().symbol != formalArgs.front()) {
+        return false;
+      }
+
+      if (!caseStmt.defaultCase) {
+        return false;
+      }
+      bool defaultValue = false;
+      if (!extractFunctionReturnConstantBit(*caseStmt.defaultCase, defaultValue)) {
+        return false;
+      }
+
+      auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
+      auto* const1 = static_cast<SNLBitNet*>(getConstNet(design, true));
+
+      auto mergeOr = [&](SNLBitNet* leftBit, SNLBitNet* rightBit) -> SNLBitNet* {
+        if (!leftBit || !rightBit) {
+          return nullptr;
+        }
+        if (leftBit == const1 || rightBit == const1) {
+          return const1;
+        }
+        if (leftBit == const0) {
+          return rightBit;
+        }
+        if (rightBit == const0 || leftBit == rightBit) {
+          return leftBit;
+        }
+        auto* orNet = SNLScalarNet::create(design);
+        annotateSourceInfo(orNet, sourceRange);
+        return getSingleBitNet(createBinaryGate(
+          design,
+          NLDB0::GateType(NLDB0::GateType::Or),
+          leftBit,
+          rightBit,
+          orNet,
+          sourceRange));
+      };
+
+      auto makeNot = [&](SNLBitNet* inputBit) -> SNLBitNet* {
+        if (!inputBit) {
+          return nullptr;
+        }
+        if (inputBit == const0) {
+          return const1;
+        }
+        if (inputBit == const1) {
+          return const0;
+        }
+        auto* notNet = SNLScalarNet::create(design);
+        annotateSourceInfo(notNet, sourceRange);
+        if (!createUnaryGate(
+              design,
+              NLDB0::GateType(NLDB0::GateType::Not),
+              inputBit,
+              notNet,
+              sourceRange)) {
+          return nullptr; // LCOV_EXCL_LINE
+        }
+        return notNet;
+      };
+
+      SNLBitNet* oppositeMatchBit = const0;
+      bool sawOppositeCase = false;
+      for (const auto& item : caseStmt.items) {
+        if (item.expressions.empty() || !item.stmt) {
+          return false;
+        }
+
+        bool itemValue = false;
+        if (!extractFunctionReturnConstantBit(*item.stmt, itemValue)) {
+          return false;
+        }
+        if (itemValue == defaultValue) {
+          continue;
+        }
+
+        SNLBitNet* itemMatchBit = const0;
+        for (const auto* itemExpr : item.expressions) {
+          if (!itemExpr) {
+            return false; // LCOV_EXCL_LINE
+          }
+          SNLBitNet* exprMatchBit = nullptr;
+          if (!buildCaseInsideMatchBit(
+                design,
+                *callArgs.front(),
+                *itemExpr,
+                exprMatchBit,
+                sourceRange)) {
+            return false;
+          }
+          itemMatchBit = mergeOr(itemMatchBit, exprMatchBit);
+          if (!itemMatchBit) {
+            return false; // LCOV_EXCL_LINE
+          }
+        }
+
+        oppositeMatchBit = mergeOr(oppositeMatchBit, itemMatchBit);
+        if (!oppositeMatchBit) {
+          return false; // LCOV_EXCL_LINE
+        }
+        sawOppositeCase = true;
+      }
+
+      if (!sawOppositeCase) {
+        resultBit = defaultValue ? const1 : const0;
+        return true;
+      }
+
+      resultBit = defaultValue ? makeNot(oppositeMatchBit) : oppositeMatchBit;
+      return resultBit != nullptr;
+    }
+
     bool resolveExpressionBits(
       SNLDesign* design,
       const Expression& expr,
@@ -1507,6 +1760,18 @@ class SNLSVConstructorImpl {
           }
           bits = std::move(argBits);
           resizeBitsToWidth(bits, targetWidth, fillBit);
+          return true;
+        }
+
+        SNLBitNet* callBit = nullptr;
+        if (resolveSimpleCaseInsideFunctionCallBit(
+              design,
+              callExpr,
+              callBit,
+              getSourceRange(*stripped))) {
+          auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
+          bits.assign(targetWidth, const0);
+          bits.front() = callBit;
           return true;
         }
       } // LCOV_EXCL_LINE
