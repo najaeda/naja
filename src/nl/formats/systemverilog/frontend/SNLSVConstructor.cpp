@@ -3378,6 +3378,15 @@ class SNLSVConstructorImpl {
           if (valueType.hasFixedRange()) {
             auto valueNet = resolveExpressionNet(design, *valueExpr);
             auto valueBits = collectBits(valueNet);
+            if (valueBits.empty() &&
+                valueExpr->kind == slang::ast::ExpressionKind::MemberAccess) {
+              if (auto valueWidth = getIntegralExpressionBitWidth(*valueExpr)) {
+                if (!resolveExpressionBits(design, *valueExpr, *valueWidth, valueBits) ||
+                    valueBits.size() != *valueWidth) {
+                  valueBits.clear();
+                }
+              }
+            }
             if (!valueBits.empty()) {
               size_t elementWidth = 0;
               if (auto selectedWidth = getIntegralExpressionBitWidth(*stripped)) {
