@@ -3841,6 +3841,52 @@ endmodule
   EXPECT_NE(top->getNet(NLName("hit")), nullptr);
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseAlwaysCombConditionalFunctionCallRHSSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_conditional_function_call_rhs_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "always_comb_conditional_function_call_rhs_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_conditional_function_call_rhs_supported #(
+  parameter bit RVA = 1'b1
+) (
+  input  logic [2:0]  addr_i,
+  input  logic        instr_is_amo_i,
+  input  logic [63:0] data_i,
+  output logic [63:0] data_o
+);
+  function automatic [63:0] data_align(logic [2:0] addr, logic [63:0] data);
+    logic [63:0] data_tmp = {64{1'b0}};
+    case (addr)
+      3'b000: data_tmp[63:0] = data[63:0];
+      3'b001: data_tmp[63:0] = {data[55:0], data[63:56]};
+      default: data_tmp = data;
+    endcase
+    return data_tmp[63:0];
+  endfunction
+
+  always_comb begin
+    data_o = ((RVA && instr_is_amo_i) ? data_i : data_align(addr_i, data_i));
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top =
+    library_->getSNLDesign(NLName("always_comb_conditional_function_call_rhs_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("data_o")), nullptr);
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseAlwaysCombRHSConditionalParamEqSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
