@@ -3250,6 +3250,52 @@ endmodule
   EXPECT_NE(top->getNet(NLName("hit")), nullptr);
 }
 
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseAlwaysCombForLoopStructParameterDivisionBoundSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_for_loop_struct_parameter_division_bound_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "always_comb_for_loop_struct_parameter_division_bound_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_for_loop_struct_parameter_division_bound_supported(
+  input  logic [63:0] in,
+  output logic [63:0] y
+);
+  typedef struct packed {
+    int unsigned XLEN;
+  } cfg_t;
+
+  parameter cfg_t Cfg = '{XLEN: 64};
+
+  always_comb begin
+    y = '0;
+    for (int i = 0; i < Cfg.XLEN / 8; i++) begin
+      y[i] = in[i];
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("always_comb_for_loop_struct_parameter_division_bound_supported"));
+  ASSERT_NE(top, nullptr);
+  auto yNet = top->getBusNet(NLName("y"));
+  ASSERT_NE(yNet, nullptr);
+  EXPECT_EQ(64, yNet->getWidth());
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseAlwaysCombCaseSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
@@ -3518,6 +3564,48 @@ endmodule
     NLName("always_comb_case_simple_return_function_range_select_arg_supported"));
   ASSERT_NE(top, nullptr);
   EXPECT_NE(top->getNet(NLName("result_o")), nullptr);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseAlwaysCombCaseReturnFunctionCallSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_case_return_function_call_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "always_comb_case_return_function_call_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_case_return_function_call_supported(
+  input  logic [3:0] op_i,
+  output logic [1:0] data_size_o
+);
+  function automatic logic [1:0] extract_transfer_size(input logic [3:0] op);
+    unique case (op)
+      4'h0: return 2'b00;
+      4'h1: return 2'b01;
+      4'h2: return 2'b10;
+      default: return 2'b11;
+    endcase
+  endfunction
+
+  always_comb begin
+    data_size_o = extract_transfer_size(op_i);
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("always_comb_case_return_function_call_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("data_size_o")), nullptr);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseAlwaysCombShiftLeftSupported) {

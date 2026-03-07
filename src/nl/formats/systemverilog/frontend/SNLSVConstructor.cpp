@@ -1146,6 +1146,97 @@ class SNLSVConstructorImpl {
         constant = (evaluatedConstant && evaluatedConstant.isInteger()) ? &evaluatedConstant : constant;
       }
       if (!constant || !constant->isInteger()) {
+        if (stripped->kind == slang::ast::ExpressionKind::UnaryOp) {
+          const auto& unaryExpr = stripped->as<slang::ast::UnaryExpression>();
+          int64_t operandValue = 0;
+          if (!getConstantInt64(unaryExpr.operand(), operandValue)) {
+            return false;
+          }
+          switch (unaryExpr.op) {
+            case slang::ast::UnaryOperator::Plus:
+              value = operandValue;
+              return true;
+            case slang::ast::UnaryOperator::Minus:
+              value = -operandValue;
+              return true;
+            case slang::ast::UnaryOperator::BitwiseNot:
+              value = ~operandValue;
+              return true;
+            case slang::ast::UnaryOperator::LogicalNot:
+              value = operandValue ? 0 : 1;
+              return true;
+            default:
+              return false;
+          }
+        }
+
+        if (stripped->kind == slang::ast::ExpressionKind::BinaryOp) {
+          const auto& binaryExpr = stripped->as<slang::ast::BinaryExpression>();
+          int64_t leftValue = 0;
+          int64_t rightValue = 0;
+          if (!getConstantInt64(binaryExpr.left(), leftValue) ||
+              !getConstantInt64(binaryExpr.right(), rightValue)) {
+            return false;
+          }
+          switch (binaryExpr.op) {
+            case slang::ast::BinaryOperator::Add:
+              value = leftValue + rightValue;
+              return true;
+            case slang::ast::BinaryOperator::Subtract:
+              value = leftValue - rightValue;
+              return true;
+            case slang::ast::BinaryOperator::Multiply:
+              value = leftValue * rightValue;
+              return true;
+            case slang::ast::BinaryOperator::Divide:
+              if (rightValue == 0) {
+                return false;
+              }
+              value = leftValue / rightValue;
+              return true;
+            case slang::ast::BinaryOperator::Mod:
+              if (rightValue == 0) {
+                return false;
+              }
+              value = leftValue % rightValue;
+              return true;
+            case slang::ast::BinaryOperator::LogicalShiftLeft:
+              if (rightValue < 0 ||
+                  rightValue >= static_cast<int64_t>(sizeof(int64_t) * 8)) {
+                return false;
+              }
+              value = leftValue << rightValue;
+              return true;
+            case slang::ast::BinaryOperator::LogicalShiftRight: {
+              if (rightValue < 0 ||
+                  rightValue >= static_cast<int64_t>(sizeof(int64_t) * 8)) {
+                return false;
+              }
+              const auto unsignedLeft = static_cast<uint64_t>(leftValue);
+              value = static_cast<int64_t>(unsignedLeft >> rightValue);
+              return true;
+            }
+            case slang::ast::BinaryOperator::ArithmeticShiftRight:
+              if (rightValue < 0 ||
+                  rightValue >= static_cast<int64_t>(sizeof(int64_t) * 8)) {
+                return false;
+              }
+              value = leftValue >> rightValue;
+              return true;
+            case slang::ast::BinaryOperator::BinaryAnd:
+              value = leftValue & rightValue;
+              return true;
+            case slang::ast::BinaryOperator::BinaryOr:
+              value = leftValue | rightValue;
+              return true;
+            case slang::ast::BinaryOperator::BinaryXor:
+              value = leftValue ^ rightValue;
+              return true;
+            default:
+              return false;
+          }
+        }
+
         return false;
       }
       const auto maybeSigned = constant->integer().as<int64_t>();
@@ -1416,6 +1507,20 @@ class SNLSVConstructorImpl {
       }
       const auto& returnStmt = unwrapped->as<slang::ast::ReturnStatement>();
       return returnStmt.expr && getConstantBit(*returnStmt.expr, value);
+    }
+
+    bool extractFunctionReturnExpression(const Statement& stmt, const Expression*& expr) const {
+      expr = nullptr;
+      const Statement* unwrapped = unwrapStatement(stmt);
+      if (!unwrapped || unwrapped->kind != slang::ast::StatementKind::Return) {
+        return false;
+      }
+      const auto& returnStmt = unwrapped->as<slang::ast::ReturnStatement>();
+      if (!returnStmt.expr) {
+        return false;
+      }
+      expr = returnStmt.expr;
+      return true;
     }
 
     bool getExpressionConstantValue(
@@ -2178,6 +2283,148 @@ class SNLSVConstructorImpl {
              bits.size() == targetWidth;
     }
 
+    bool resolveSimpleCaseReturnFunctionCallBits(
+      SNLDesign* design,
+      const slang::ast::CallExpression& callExpr,
+      size_t targetWidth,
+      std::vector<SNLBitNet*>& bits) {
+      bits.clear();
+      if (callExpr.isSystemCall() || callExpr.subroutine.index() != 0 || !targetWidth) {
+        return false;
+      }
+
+      const auto* subroutine = std::get<0>(callExpr.subroutine);
+      if (!subroutine || subroutine->subroutineKind != slang::ast::SubroutineKind::Function ||
+          subroutine->hasOutputArgs()) {
+        return false;
+      }
+
+      auto formalArgs = subroutine->getArguments();
+      auto callArgs = callExpr.arguments();
+      if (formalArgs.size() != 1 || !formalArgs.front() ||
+          callArgs.size() != 1 || !callArgs.front() ||
+          formalArgs.front()->direction != ArgumentDirection::In) {
+        return false;
+      }
+
+      const Statement* bodyStmt = unwrapStatement(subroutine->getBody());
+      if (!bodyStmt || bodyStmt->kind != slang::ast::StatementKind::Case) {
+        return false;
+      }
+
+      const auto& caseStmt = bodyStmt->as<slang::ast::CaseStatement>();
+      if (caseStmt.condition != slang::ast::CaseStatementCondition::Normal) {
+        return false;
+      }
+
+      const auto* caseExpr = stripConversions(caseStmt.expr);
+      if (!caseExpr || !slang::ast::ValueExpressionBase::isKind(caseExpr->kind) ||
+          &caseExpr->as<slang::ast::ValueExpressionBase>().symbol != formalArgs.front()) {
+        return false;
+      }
+
+      if (!caseStmt.defaultCase) {
+        return false;
+      }
+      const Expression* defaultReturnExpr = nullptr;
+      if (!extractFunctionReturnExpression(*caseStmt.defaultCase, defaultReturnExpr)) {
+        return false;
+      }
+      if (!resolveExpressionBits(design, *defaultReturnExpr, targetWidth, bits) ||
+          bits.size() != targetWidth) {
+        return false;
+      }
+
+      auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
+      auto* const1 = static_cast<SNLBitNet*>(getConstNet(design, true));
+      auto mergeOr = [&](SNLBitNet* leftBit, SNLBitNet* rightBit) -> SNLBitNet* {
+        if (!leftBit || !rightBit) {
+          return nullptr;
+        }
+        if (leftBit == const1 || rightBit == const1) {
+          return const1;
+        }
+        if (leftBit == const0) {
+          return rightBit;
+        }
+        if (rightBit == const0 || leftBit == rightBit) {
+          return leftBit;
+        }
+        auto* orNet = SNLScalarNet::create(design);
+        annotateSourceInfo(orNet, getSourceRange(callExpr));
+        return getSingleBitNet(createBinaryGate(
+          design,
+          NLDB0::GateType(NLDB0::GateType::Or),
+          leftBit,
+          rightBit,
+          orNet,
+          getSourceRange(callExpr)));
+      };
+
+      for (const auto& item : caseStmt.items) {
+        if (item.expressions.empty() || !item.stmt) {
+          return false;
+        }
+
+        const Expression* itemReturnExpr = nullptr;
+        if (!extractFunctionReturnExpression(*item.stmt, itemReturnExpr)) {
+          return false;
+        }
+        std::vector<SNLBitNet*> itemBits;
+        if (!resolveExpressionBits(design, *itemReturnExpr, targetWidth, itemBits) ||
+            itemBits.size() != targetWidth) {
+          return false;
+        }
+
+        SNLBitNet* itemMatchBit = const0;
+        for (const auto* itemExpr : item.expressions) {
+          if (!itemExpr) {
+            return false; // LCOV_EXCL_LINE
+          }
+          auto* eqNet = SNLScalarNet::create(design);
+          annotateSourceInfo(eqNet, getSourceRange(*itemExpr));
+          if (!createEqualityAssign(
+                design,
+                eqNet,
+                *callArgs.front(),
+                *itemExpr,
+                getSourceRange(*itemExpr))) {
+            return false;
+          }
+          auto* eqBit = getSingleBitNet(eqNet);
+          itemMatchBit = mergeOr(itemMatchBit, eqBit);
+          if (!itemMatchBit) {
+            return false; // LCOV_EXCL_LINE
+          }
+        }
+
+        if (itemMatchBit == const0) {
+          continue;
+        }
+        for (size_t i = 0; i < targetWidth; ++i) {
+          if (itemMatchBit == const1) {
+            bits[i] = itemBits[i];
+            continue;
+          }
+          if (bits[i] == itemBits[i]) {
+            continue;
+          }
+          auto* outBit = SNLScalarNet::create(design);
+          annotateSourceInfo(outBit, getSourceRange(callExpr));
+          createMux2Instance(
+            design,
+            itemMatchBit,
+            bits[i],
+            itemBits[i],
+            outBit,
+            getSourceRange(callExpr));
+          bits[i] = outBit;
+        }
+      }
+
+      return bits.size() == targetWidth;
+    }
+
     bool resolveExpressionBits(
       SNLDesign* design,
       const Expression& expr,
@@ -2314,6 +2561,14 @@ class SNLSVConstructorImpl {
         }
 
         if (resolveSimpleReturnFunctionCallBits(
+              design,
+              callExpr,
+              targetWidth,
+              bits)) {
+          return true;
+        }
+
+        if (resolveSimpleCaseReturnFunctionCallBits(
               design,
               callExpr,
               targetWidth,
