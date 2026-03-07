@@ -3282,6 +3282,37 @@ endmodule
   ASSERT_NE(top, nullptr);
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseAlwaysCombRHSUnpackedIndexedRangeSelectSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_rhs_unpacked_indexed_range_select_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "always_comb_rhs_unpacked_indexed_range_select_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_rhs_unpacked_indexed_range_select_supported(
+  input  logic [3:0] idx,
+  output logic [63:0] y
+);
+  logic [63:0][7:0] arr;
+  always_comb begin
+    y = arr[idx*4+:8];
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("always_comb_rhs_unpacked_indexed_range_select_supported"));
+  ASSERT_NE(top, nullptr);
+}
+
 TEST_F(
   SNLSVConstructorTestSimple,
   parseAlwaysCombRHSConditionalUnpackedDynamicSelectTypeParamSupported) {
@@ -3559,6 +3590,49 @@ TEST_F(SNLSVConstructorTestSimple, parseBinaryOperatorsUnsupportedFails) {
     const std::string reason = e.what();
     EXPECT_NE(std::string::npos, reason.find("Unsupported binary operator in continuous assign"));
   }
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseContinuousRelationalOpsSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "continuous_relational_ops_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "continuous_relational_ops_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module continuous_relational_ops_supported(
+  input  logic [3:0] a,
+  input  logic [3:0] b,
+  input  logic       inv,
+  output logic       gt,
+  output logic       ge,
+  output logic       lt,
+  output logic       le,
+  output logic       mix
+);
+  assign gt = a > b;
+  assign ge = a >= b;
+  assign lt = a < b;
+  assign le = a <= b;
+  assign mix = ((a == b) | ((a > b) ^ inv)) & ((|a) | (b == 4'b0));
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("continuous_relational_ops_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("gt")), nullptr);
+  EXPECT_NE(top->getNet(NLName("ge")), nullptr);
+  EXPECT_NE(top->getNet(NLName("lt")), nullptr);
+  EXPECT_NE(top->getNet(NLName("le")), nullptr);
+  EXPECT_NE(top->getNet(NLName("mix")), nullptr);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseContinuousBinaryExpressionFallbacksUnsupported) {

@@ -226,6 +226,18 @@ bool isCaseComparisonBinaryOp(slang::ast::BinaryOperator op) {
   }
 }
 
+bool isRelationalBinaryOp(slang::ast::BinaryOperator op) {
+  switch (op) {
+    case slang::ast::BinaryOperator::LessThan:
+    case slang::ast::BinaryOperator::LessThanEqual:
+    case slang::ast::BinaryOperator::GreaterThan:
+    case slang::ast::BinaryOperator::GreaterThanEqual:
+      return true;
+    default:
+      return false;
+  }
+}
+
 bool isKnown2StateConstantExpr(const Expression& expr) {
   const auto* stripped = stripConversions(expr);
   if (!stripped) {
@@ -1909,6 +1921,27 @@ class SNLSVConstructorImpl {
             static_cast<SNLBitNet*>(getConstNet(design, false)));
           return true;
         }
+        if (isRelationalBinaryOp(binaryExpr.op)) {
+          auto binarySourceRange = getSourceRange(*stripped);
+          auto* compareBit = SNLScalarNet::create(design);
+          annotateSourceInfo(compareBit, binarySourceRange);
+          if (!createRelationalAssign(
+                design,
+                compareBit,
+                binaryExpr.left(),
+                binaryExpr.right(),
+                binaryExpr.op,
+                binarySourceRange)) {
+            return false;
+          }
+          bits.clear();
+          bits.push_back(compareBit);
+          resizeBitsToWidth(
+            bits,
+            targetWidth,
+            static_cast<SNLBitNet*>(getConstNet(design, false)));
+          return true;
+        }
         if (binaryExpr.op == slang::ast::BinaryOperator::LogicalShiftLeft ||
             binaryExpr.op == slang::ast::BinaryOperator::ArithmeticShiftLeft ||
             binaryExpr.op == slang::ast::BinaryOperator::LogicalShiftRight ||
@@ -2252,6 +2285,190 @@ class SNLSVConstructorImpl {
                     bits = std::move(selectedBits);
                     resizeBitsToWidth(bits, targetWidth, const0);
                     return true;
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+
+      if (stripped->kind == slang::ast::ExpressionKind::RangeSelect) {
+        const auto& rangeExpr = stripped->as<slang::ast::RangeSelectExpression>();
+        const auto selectionKind = rangeExpr.getSelectionKind();
+        if (selectionKind == slang::ast::RangeSelectionKind::IndexedUp ||
+            selectionKind == slang::ast::RangeSelectionKind::IndexedDown) {
+          const auto* valueExpr = stripConversions(rangeExpr.value());
+          if (valueExpr) {
+            const auto& valueType = valueExpr->type->getCanonicalType();
+            if (valueType.hasFixedRange()) {
+              auto valueNet = resolveExpressionNet(design, *valueExpr);
+              auto valueBits = collectBits(valueNet);
+              const auto arrayWidth = static_cast<size_t>(valueType.getFixedRange().width());
+              if (!valueBits.empty() && arrayWidth > 0) {
+                size_t elementWidth = 0;
+                if (valueBits.size() % arrayWidth == 0) {
+                  elementWidth = valueBits.size() / arrayWidth;
+                }
+
+                size_t selectedWidth = 0;
+                if (auto selectedWidthBits = getIntegralExpressionBitWidth(*stripped)) {
+                  selectedWidth = *selectedWidthBits;
+                }
+                if (elementWidth > 0 &&
+                    selectedWidth > 0 &&
+                    selectedWidth % elementWidth == 0) {
+                  size_t sliceElements = selectedWidth / elementWidth;
+                  int32_t constantSliceElements = 0;
+                  if (getConstantInt32(rangeExpr.right(), constantSliceElements) &&
+                      constantSliceElements > 0) {
+                    const auto rhsSliceElements = static_cast<size_t>(constantSliceElements);
+                    if (rhsSliceElements * elementWidth == selectedWidth) {
+                      sliceElements = rhsSliceElements;
+                    }
+                  }
+
+                  auto selectorWidth = getIntegralExpressionBitWidth(rangeExpr.left());
+                  if (sliceElements > 0 && selectorWidth && *selectorWidth > 0) {
+                    std::vector<SNLBitNet*> selectorBits;
+                    const auto resolveSelectorBits = [&](const Expression& selectorExpr) {
+                      if (resolveExpressionBits(
+                            design,
+                            selectorExpr,
+                            static_cast<size_t>(*selectorWidth),
+                            selectorBits) &&
+                          selectorBits.size() == static_cast<size_t>(*selectorWidth)) {
+                        return true;
+                      }
+
+                      const auto* strippedSelector = stripConversions(selectorExpr);
+                      if (!strippedSelector ||
+                          strippedSelector->kind != slang::ast::ExpressionKind::BinaryOp) {
+                        return false;
+                      }
+                      const auto& selectorBinaryExpr =
+                        strippedSelector->as<slang::ast::BinaryExpression>();
+                      if (selectorBinaryExpr.op != slang::ast::BinaryOperator::Multiply) {
+                        return false;
+                      }
+
+                      uint64_t factor = 0;
+                      const Expression* baseExpr = nullptr;
+                      if (getConstantUnsigned(selectorBinaryExpr.left(), factor)) {
+                        baseExpr = &selectorBinaryExpr.right();
+                      } else if (getConstantUnsigned(selectorBinaryExpr.right(), factor)) {
+                        baseExpr = &selectorBinaryExpr.left();
+                      }
+                      if (!baseExpr || factor == 0 || (factor & (factor - 1ULL)) != 0ULL) {
+                        return false;
+                      }
+
+                      size_t shiftAmount = 0;
+                      while ((factor >> shiftAmount) > 1ULL) {
+                        ++shiftAmount;
+                      }
+
+                      std::vector<SNLBitNet*> baseBits;
+                      if (!resolveExpressionBits(
+                            design,
+                            *baseExpr,
+                            static_cast<size_t>(*selectorWidth),
+                            baseBits) ||
+                          baseBits.size() != static_cast<size_t>(*selectorWidth)) {
+                        return false;
+                      }
+
+                      auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
+                      selectorBits.assign(static_cast<size_t>(*selectorWidth), const0);
+                      if (shiftAmount < static_cast<size_t>(*selectorWidth)) {
+                        for (size_t bit = shiftAmount; bit < static_cast<size_t>(*selectorWidth);
+                             ++bit) {
+                          selectorBits[bit] = baseBits[bit - shiftAmount];
+                        }
+                      }
+                      return true;
+                    };
+
+                    if (resolveSelectorBits(rangeExpr.left())) {
+                      auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
+                      auto* const1 = static_cast<SNLBitNet*>(getConstNet(design, true));
+                      auto rangeSourceRange = getSourceRange(*stripped);
+
+                      std::vector<SNLBitNet*> selectedBits(selectedWidth, const0);
+                      int32_t startIndex = valueType.getFixedRange().right;
+                      const int32_t endIndex = valueType.getFixedRange().left;
+                      const int32_t step = startIndex <= endIndex ? 1 : -1;
+                      while (startIndex != endIndex + step) {
+                        int64_t lsbIndex = static_cast<int64_t>(startIndex);
+                        if (selectionKind == slang::ast::RangeSelectionKind::IndexedDown) {
+                          lsbIndex -= static_cast<int64_t>(sliceElements - 1);
+                        }
+
+                        std::vector<SNLBitNet*> candidateBits;
+                        candidateBits.reserve(selectedWidth);
+                        bool validCandidate = true;
+                        for (size_t elem = 0; elem < sliceElements; ++elem) {
+                          const int64_t elemIndex = lsbIndex + static_cast<int64_t>(elem);
+                          if (elemIndex < std::numeric_limits<int32_t>::min() ||
+                              elemIndex > std::numeric_limits<int32_t>::max()) {
+                            validCandidate = false;
+                            break;
+                          }
+                          const auto translated =
+                            valueType.getFixedRange().translateIndex(static_cast<int32_t>(elemIndex));
+                          if (translated < 0 || translated >= static_cast<int32_t>(arrayWidth)) {
+                            validCandidate = false;
+                            break;
+                          }
+                          const auto offset = static_cast<size_t>(translated) * elementWidth;
+                          if (offset + elementWidth > valueBits.size()) {
+                            validCandidate = false;
+                            break; // LCOV_EXCL_LINE
+                          }
+                          for (size_t bit = 0; bit < elementWidth; ++bit) {
+                            candidateBits.push_back(valueBits[offset + bit]);
+                          }
+                        }
+
+                        if (validCandidate && candidateBits.size() == selectedWidth) {
+                          auto* equalsIndexBit = buildSelectorEqualsIndexBit(
+                            design,
+                            selectorBits,
+                            startIndex,
+                            rangeSourceRange);
+                          if (!equalsIndexBit) {
+                            return false; // LCOV_EXCL_LINE
+                          }
+                          if (equalsIndexBit != const0) {
+                            for (size_t bit = 0; bit < selectedWidth; ++bit) {
+                              auto* candidateBit = candidateBits[bit];
+                              if (equalsIndexBit == const1) {
+                                selectedBits[bit] = candidateBit;
+                                continue;
+                              }
+                              if (selectedBits[bit] == candidateBit) {
+                                continue;
+                              }
+                              auto* outBit = SNLScalarNet::create(design);
+                              annotateSourceInfo(outBit, rangeSourceRange);
+                              createMux2Instance(
+                                design,
+                                equalsIndexBit,
+                                selectedBits[bit],
+                                candidateBit,
+                                outBit,
+                                rangeSourceRange);
+                              selectedBits[bit] = outBit;
+                            }
+                          }
+                        }
+                        startIndex += step;
+                      }
+
+                      bits = std::move(selectedBits);
+                      resizeBitsToWidth(bits, targetWidth, const0);
+                      return true;
+                    }
                   }
                 }
               }
@@ -2781,6 +2998,245 @@ class SNLSVConstructorImpl {
             sourceRange)) {
         return false; // LCOV_EXCL_LINE
       }
+      return true;
+    }
+
+    bool createRelationalAssign(
+      SNLDesign* design,
+      SNLNet* lhsNet,
+      const Expression& leftExpr,
+      const Expression& rightExpr,
+      slang::ast::BinaryOperator op,
+      const std::optional<slang::SourceRange>& sourceRange = std::nullopt) {
+      auto* lhsBit = getSingleBitNet(lhsNet);
+      if (!lhsBit || !isRelationalBinaryOp(op)) {
+        return false;
+      }
+
+      auto leftWidth = getIntegralExpressionBitWidth(leftExpr);
+      auto rightWidth = getIntegralExpressionBitWidth(rightExpr);
+      if (!leftWidth || !rightWidth) {
+        return false;
+      }
+      const auto compareWidth = std::max(*leftWidth, *rightWidth);
+      if (!compareWidth) {
+        return false; // LCOV_EXCL_LINE
+      }
+
+      std::vector<SNLBitNet*> leftBits;
+      std::vector<SNLBitNet*> rightBits;
+      if (!resolveExpressionBits(design, leftExpr, compareWidth, leftBits) ||
+          !resolveExpressionBits(design, rightExpr, compareWidth, rightBits) ||
+          leftBits.size() != compareWidth ||
+          rightBits.size() != compareWidth) {
+        return false;
+      }
+
+      auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
+      auto* const1 = static_cast<SNLBitNet*>(getConstNet(design, true));
+      auto makeNot = [&](SNLBitNet* inBit) -> SNLBitNet* {
+        if (!inBit) {
+          return nullptr;
+        }
+        if (inBit == const0) {
+          return const1;
+        }
+        if (inBit == const1) {
+          return const0;
+        }
+        auto* outBit = SNLScalarNet::create(design);
+        annotateSourceInfo(outBit, sourceRange);
+        if (!createUnaryGate(
+              design,
+              NLDB0::GateType(NLDB0::GateType::Not),
+              inBit,
+              outBit,
+              sourceRange)) {
+          return nullptr; // LCOV_EXCL_LINE
+        }
+        return outBit;
+      };
+
+      auto makeAnd = [&](SNLBitNet* leftBit, SNLBitNet* rightBit) -> SNLBitNet* {
+        if (!leftBit || !rightBit) {
+          return nullptr;
+        }
+        if (leftBit == const0 || rightBit == const0) {
+          return const0;
+        }
+        if (leftBit == const1) {
+          return rightBit;
+        }
+        if (rightBit == const1) {
+          return leftBit;
+        }
+        if (leftBit == rightBit) {
+          return leftBit;
+        }
+        auto* outBit = SNLScalarNet::create(design);
+        annotateSourceInfo(outBit, sourceRange);
+        if (!createBinaryGate(
+              design,
+              NLDB0::GateType(NLDB0::GateType::And),
+              leftBit,
+              rightBit,
+              outBit,
+              sourceRange)) {
+          return nullptr; // LCOV_EXCL_LINE
+        }
+        return outBit;
+      };
+
+      auto makeOr = [&](SNLBitNet* leftBit, SNLBitNet* rightBit) -> SNLBitNet* {
+        if (!leftBit || !rightBit) {
+          return nullptr;
+        }
+        if (leftBit == const1 || rightBit == const1) {
+          return const1;
+        }
+        if (leftBit == const0) {
+          return rightBit;
+        }
+        if (rightBit == const0) {
+          return leftBit;
+        }
+        if (leftBit == rightBit) {
+          return leftBit;
+        }
+        auto* outBit = SNLScalarNet::create(design);
+        annotateSourceInfo(outBit, sourceRange);
+        if (!createBinaryGate(
+              design,
+              NLDB0::GateType(NLDB0::GateType::Or),
+              leftBit,
+              rightBit,
+              outBit,
+              sourceRange)) {
+          return nullptr; // LCOV_EXCL_LINE
+        }
+        return outBit;
+      };
+
+      auto makeXnor = [&](SNLBitNet* leftBit, SNLBitNet* rightBit) -> SNLBitNet* {
+        if (!leftBit || !rightBit) {
+          return nullptr;
+        }
+        if (leftBit == rightBit) {
+          return const1;
+        }
+        if (leftBit == const0) {
+          return makeNot(rightBit);
+        }
+        if (rightBit == const0) {
+          return makeNot(leftBit);
+        }
+        if (leftBit == const1) {
+          return rightBit;
+        }
+        if (rightBit == const1) {
+          return leftBit;
+        }
+        auto* outBit = SNLScalarNet::create(design);
+        annotateSourceInfo(outBit, sourceRange);
+        if (!createBinaryGate(
+              design,
+              NLDB0::GateType(NLDB0::GateType::Xnor),
+              leftBit,
+              rightBit,
+              outBit,
+              sourceRange)) {
+          return nullptr; // LCOV_EXCL_LINE
+        }
+        return outBit;
+      };
+
+      SNLBitNet* eqBit = const1;
+      SNLBitNet* gtBit = const0;
+      SNLBitNet* ltBit = const0;
+      for (size_t bitIndex = compareWidth; bitIndex-- > 0;) {
+        auto* leftBit = leftBits[bitIndex];
+        auto* rightBit = rightBits[bitIndex];
+        auto* notLeft = makeNot(leftBit);
+        auto* notRight = makeNot(rightBit);
+        if (!notLeft || !notRight) {
+          return false;
+        }
+        auto* leftGtRight = makeAnd(leftBit, notRight);
+        auto* leftLtRight = makeAnd(notLeft, rightBit);
+        if (!leftGtRight || !leftLtRight) {
+          return false;
+        }
+        auto* eqAndGt = makeAnd(eqBit, leftGtRight);
+        auto* eqAndLt = makeAnd(eqBit, leftLtRight);
+        if (!eqAndGt || !eqAndLt) {
+          return false;
+        }
+        gtBit = makeOr(gtBit, eqAndGt);
+        ltBit = makeOr(ltBit, eqAndLt);
+        auto* bitEq = makeXnor(leftBit, rightBit);
+        if (!gtBit || !ltBit || !bitEq) {
+          return false;
+        }
+        eqBit = makeAnd(eqBit, bitEq);
+        if (!eqBit) {
+          return false;
+        }
+      }
+
+      const auto& leftType = leftExpr.type->getCanonicalType();
+      const auto& rightType = rightExpr.type->getCanonicalType();
+      const bool signedCompare =
+        leftType.isIntegral() && rightType.isIntegral() &&
+        leftType.isSigned() && rightType.isSigned();
+      if (signedCompare) {
+        auto* signLeft = leftBits.back();
+        auto* signRight = rightBits.back();
+        auto* sameSign = makeXnor(signLeft, signRight);
+        auto* differentSign = makeNot(sameSign);
+        auto* notSignLeft = makeNot(signLeft);
+        auto* notSignRight = makeNot(signRight);
+        if (!sameSign || !differentSign || !notSignLeft || !notSignRight) {
+          return false;
+        }
+        auto* leftPositiveRightNegative = makeAnd(notSignLeft, signRight);
+        auto* leftNegativeRightPositive = makeAnd(signLeft, notSignRight);
+        auto* gtIfSameSign = makeAnd(sameSign, gtBit);
+        auto* gtIfDifferentSign = makeAnd(differentSign, leftPositiveRightNegative);
+        auto* ltIfSameSign = makeAnd(sameSign, ltBit);
+        auto* ltIfDifferentSign = makeAnd(differentSign, leftNegativeRightPositive);
+        if (!leftPositiveRightNegative || !leftNegativeRightPositive ||
+            !gtIfSameSign || !gtIfDifferentSign || !ltIfSameSign || !ltIfDifferentSign) {
+          return false;
+        }
+        gtBit = makeOr(gtIfSameSign, gtIfDifferentSign);
+        ltBit = makeOr(ltIfSameSign, ltIfDifferentSign);
+        if (!gtBit || !ltBit) {
+          return false;
+        }
+      }
+
+      SNLBitNet* relationBit = nullptr;
+      switch (op) {
+        case slang::ast::BinaryOperator::LessThan:
+          relationBit = ltBit;
+          break;
+        case slang::ast::BinaryOperator::LessThanEqual:
+          relationBit = makeOr(ltBit, eqBit);
+          break;
+        case slang::ast::BinaryOperator::GreaterThan:
+          relationBit = gtBit;
+          break;
+        case slang::ast::BinaryOperator::GreaterThanEqual:
+          relationBit = makeOr(gtBit, eqBit);
+          break;
+        default:
+          return false; // LCOV_EXCL_LINE
+      }
+      if (!relationBit) {
+        return false;
+      }
+
+      createAssignInstance(design, relationBit, lhsBit, sourceRange);
       return true;
     }
 
@@ -6649,6 +7105,21 @@ class SNLSVConstructorImpl {
                   lhsNet,
                   binaryExpr.left(),
                   binaryExpr.right(),
+                  assignSourceRange)) {
+              std::ostringstream reason;
+              reason << "Unsupported binary expression in continuous assign: "
+                     << slang::ast::OpInfo::getText(binaryExpr.op);
+              reportUnsupportedElement(reason.str(), assignSourceRange);
+            }
+            continue;
+          }
+          if (isRelationalBinaryOp(binaryExpr.op)) {
+            if (!createRelationalAssign(
+                  design,
+                  lhsNet,
+                  binaryExpr.left(),
+                  binaryExpr.right(),
+                  binaryExpr.op,
                   assignSourceRange)) {
               std::ostringstream reason;
               reason << "Unsupported binary expression in continuous assign: "
