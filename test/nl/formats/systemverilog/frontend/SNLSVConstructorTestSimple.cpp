@@ -1026,6 +1026,66 @@ endmodule
   EXPECT_NE(top->getNet(NLName("div_result")), nullptr);
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseContinuousAssignConfigRangeCheckFunctionSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "continuous_assign_config_range_check_function_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "continuous_assign_config_range_check_function_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(package cfg_pkg;
+  localparam int unsigned NrMaxRules = 2;
+
+  typedef struct packed {
+    int unsigned                  NrNonIdempotentRules;
+    logic [NrMaxRules-1:0][63:0] NonIdempotentAddrBase;
+    logic [NrMaxRules-1:0][63:0] NonIdempotentLength;
+  } cfg_t;
+
+  function automatic logic range_check(logic [63:0] base, logic [63:0] len, logic [63:0] address);
+    return (address >= base) && (({1'b0, address}) < (65'(base) + len));
+  endfunction
+
+  function automatic logic is_inside_nonidempotent_regions(cfg_t Cfg, logic [63:0] address);
+    logic [NrMaxRules-1:0] pass;
+    pass = '0;
+    for (int unsigned k = 0; k < Cfg.NrNonIdempotentRules; k++) begin
+      pass[k] = range_check(Cfg.NonIdempotentAddrBase[k], Cfg.NonIdempotentLength[k], address);
+    end
+    return |pass;
+  endfunction
+endpackage
+
+module continuous_assign_config_range_check_function_supported(
+  input logic [63:0] addr,
+  output logic inside_o
+);
+  localparam cfg_pkg::cfg_t Cfg = '{
+    NrNonIdempotentRules: 2,
+    NonIdempotentAddrBase: '{64'h0000000000001000, 64'h0000000000000000},
+    NonIdempotentLength: '{64'h0000000000000100, 64'h0000000000000080}
+  };
+
+  assign inside_o = cfg_pkg::is_inside_nonidempotent_regions(Cfg, addr);
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top =
+    library_->getSNLDesign(NLName("continuous_assign_config_range_check_function_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("addr")), nullptr);
+  EXPECT_NE(top->getNet(NLName("inside_o")), nullptr);
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseContinuousAssignConditionalUnaryMinusSignedSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
