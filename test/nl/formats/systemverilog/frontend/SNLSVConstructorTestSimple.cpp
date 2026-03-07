@@ -986,6 +986,46 @@ endmodule
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseContinuousAssignConditionalWithFunctionReturnExprSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "continuous_assign_conditional_with_function_return_expr_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "continuous_assign_conditional_with_function_return_expr_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module continuous_assign_conditional_with_function_return_expr_supported #(
+  parameter bit IS_XLEN64 = 1'b1
+) (
+  input logic [63:0] result,
+  input logic        word_op_q,
+  output logic [63:0] div_result
+);
+  function automatic logic [63:0] sext32to64(logic [63:0] operand);
+    return {{32{operand[31]}}, operand[31:0]};
+  endfunction
+
+  assign div_result = (IS_XLEN64 && word_op_q) ? sext32to64(result) : result;
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("continuous_assign_conditional_with_function_return_expr_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("result")), nullptr);
+  EXPECT_NE(top->getNet(NLName("word_op_q")), nullptr);
+  EXPECT_NE(top->getNet(NLName("div_result")), nullptr);
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseBytePortsInferRangeFromWidth) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);

@@ -70,6 +70,7 @@
 #include "slang/syntax/SyntaxTree.h"
 #include "slang/text/Json.h"
 #include "slang/text/SourceManager.h"
+#include "slang/util/ScopeGuard.h"
 
 namespace naja::NL {
 
@@ -820,6 +821,14 @@ class SNLSVConstructorImpl {
       if (current && slang::ast::ValueExpressionBase::isKind(current->kind)) {
         const auto& valueExpr = current->as<slang::ast::ValueExpressionBase>();
         const auto& symbol = valueExpr.symbol;
+        for (auto it = activeFunctionArgumentNets_.rbegin();
+             it != activeFunctionArgumentNets_.rend();
+             ++it) {
+          auto found = it->find(&symbol);
+          if (found != it->end()) {
+            return found->second;
+          }
+        }
         if (auto unsupportedTypeReason = getUnsupportedTypeReason(symbol.getType())) {
           std::ostringstream reason;
           reason << *unsupportedTypeReason << " for symbol: " << std::string(symbol.name);
@@ -1651,6 +1660,69 @@ class SNLSVConstructorImpl {
       return resultBit != nullptr;
     }
 
+    bool resolveSimpleReturnFunctionCallBits(
+      SNLDesign* design,
+      const slang::ast::CallExpression& callExpr,
+      size_t targetWidth,
+      std::vector<SNLBitNet*>& bits) {
+      bits.clear();
+      if (callExpr.isSystemCall() || callExpr.subroutine.index() != 0) {
+        return false;
+      }
+
+      const auto* subroutine = std::get<0>(callExpr.subroutine);
+      if (!subroutine || subroutine->subroutineKind != slang::ast::SubroutineKind::Function ||
+          subroutine->hasOutputArgs()) {
+        return false;
+      }
+      for (auto* activeSubroutine : activeInlinedCallSubroutines_) {
+        if (activeSubroutine == subroutine) {
+          return false;
+        }
+      }
+
+      const Statement* bodyStmt = unwrapStatement(subroutine->getBody());
+      if (!bodyStmt || bodyStmt->kind != slang::ast::StatementKind::Return) {
+        return false;
+      }
+      const auto& returnStmt = bodyStmt->as<slang::ast::ReturnStatement>();
+      if (!returnStmt.expr) {
+        return false;
+      }
+
+      auto formalArgs = subroutine->getArguments();
+      auto callArgs = callExpr.arguments();
+      if (formalArgs.size() != callArgs.size()) {
+        return false;
+      }
+
+      std::unordered_map<const Symbol*, SNLNet*> argumentNets;
+      argumentNets.reserve(formalArgs.size());
+      for (size_t i = 0; i < formalArgs.size(); ++i) {
+        const auto* formalArg = formalArgs[i];
+        const auto* callArg = callArgs[i];
+        if (!formalArg || !callArg ||
+            formalArg->direction != ArgumentDirection::In) {
+          return false;
+        }
+        auto* argumentNet = resolveExpressionNet(design, *callArg);
+        if (!argumentNet) {
+          return false;
+        }
+        argumentNets.emplace(formalArg, argumentNet);
+      }
+
+      activeFunctionArgumentNets_.push_back(std::move(argumentNets));
+      activeInlinedCallSubroutines_.push_back(subroutine);
+      const auto guard = slang::ScopeGuard([&]() {
+        activeInlinedCallSubroutines_.pop_back();
+        activeFunctionArgumentNets_.pop_back();
+      });
+
+      return resolveExpressionBits(design, *returnStmt.expr, targetWidth, bits) &&
+             bits.size() == targetWidth;
+    }
+
     bool resolveExpressionBits(
       SNLDesign* design,
       const Expression& expr,
@@ -1772,6 +1844,14 @@ class SNLSVConstructorImpl {
           auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
           bits.assign(targetWidth, const0);
           bits.front() = callBit;
+          return true;
+        }
+
+        if (resolveSimpleReturnFunctionCallBits(
+              design,
+              callExpr,
+              targetWidth,
+              bits)) {
           return true;
         }
       } // LCOV_EXCL_LINE
@@ -7938,6 +8018,8 @@ class SNLSVConstructorImpl {
     std::unordered_map<SNLDesign*, SNLScalarNet*> const1Nets_ {};
     mutable std::vector<std::pair<const Symbol*, int64_t>> activeForLoopConstants_ {};
     mutable std::vector<bool> activeForLoopBreaks_ {};
+    mutable std::vector<std::unordered_map<const Symbol*, SNLNet*>> activeFunctionArgumentNets_ {};
+    mutable std::vector<const slang::ast::SubroutineSymbol*> activeInlinedCallSubroutines_ {};
     std::unique_ptr<slang::driver::Driver> driver_;
     std::unique_ptr<slang::ast::Compilation> compilation_;
     std::vector<std::shared_ptr<slang::syntax::SyntaxTree>> syntaxTrees_;
