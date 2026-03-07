@@ -1291,6 +1291,21 @@ class SNLSVConstructorImpl {
             bits.assign(targetWidth, static_cast<SNLBitNet*>(getConstNet(design, defaultBit)));
             return true;
           }
+
+          if (auto defaultWidth = getIntegralExpressionBitWidth(*pattern.defaultSetter)) {
+            std::vector<SNLBitNet*> defaultBits;
+            if (resolveExpressionBits(design, *pattern.defaultSetter, *defaultWidth, defaultBits) &&
+                defaultBits.size() == *defaultWidth && !defaultBits.empty()) {
+              if (targetWidth % defaultBits.size() == 0) {
+                bits.clear();
+                bits.reserve(targetWidth);
+                while (bits.size() < targetWidth) {
+                  bits.insert(bits.end(), defaultBits.begin(), defaultBits.end());
+                }
+                return true;
+              }
+            }
+          }
         }
       }
 
@@ -6019,6 +6034,11 @@ class SNLSVConstructorImpl {
         return true;
       }
       if (current->kind == slang::ast::StatementKind::Empty) {
+        return true;
+      }
+      if (current->kind == slang::ast::StatementKind::VariableDeclaration) {
+        // Local variable declarations inside always_ff blocks are bookkeeping
+        // statements and do not directly drive tracked sequential LHS targets.
         return true;
       }
 

@@ -3098,6 +3098,42 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
+  parseAlwaysCombStructuredAssignmentPatternDefaultSignalSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_structured_assignment_pattern_default_signal_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "always_comb_structured_assignment_pattern_default_signal_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_structured_assignment_pattern_default_signal_supported(
+  input  logic stall_i,
+  output logic [3:0] stall_raw
+);
+  always_comb begin
+    stall_raw = '{default: stall_i};
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("always_comb_structured_assignment_pattern_default_signal_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("stall_raw")), nullptr);
+  EXPECT_NE(top->getNet(NLName("stall_i")), nullptr);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
   parseAlwaysCombAutomaticVariableIncDecSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
@@ -4652,6 +4688,66 @@ endmodule
   auto dumpedVerilog =
     dumpTopAndGetVerilogPath(top, "seq_multi_assignment_else_block_supported");
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseSequentialMultiAssignmentElseBlockVariableDeclarationsSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "seq_multi_assignment_else_block_variable_declarations_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "seq_multi_assignment_else_block_variable_declarations_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module seq_multi_assignment_else_block_variable_declarations_supported(
+  input  logic       clk_i,
+  input  logic       rst_ni,
+  input  logic       valid_i,
+  input  logic       q0_d,
+  input  logic [7:0] q1_d,
+  output logic       q0,
+  output logic [7:0] q1
+);
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (~rst_ni) begin
+      logic reset_local;
+      q0 <= 1'b0;
+      q1 <= '0;
+    end else begin
+      logic enable_local;
+      if (valid_i) begin
+        q0 <= q0_d;
+        q1 <= q1_d;
+      end
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("seq_multi_assignment_else_block_variable_declarations_supported"));
+  ASSERT_NE(top, nullptr);
+
+  size_t ffCount = 0;
+  auto dffModel = NLDB0::getDFF();
+  auto dffrnModel = NLDB0::getDFFRN();
+  for (auto inst : top->getInstances()) {
+    if ((dffModel && inst->getModel() == dffModel) ||
+        (dffrnModel && inst->getModel() == dffrnModel)) {
+      ++ffCount;
+    }
+  }
+  EXPECT_EQ(9u, ffCount);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableElseDefaultNonAssignmentSkipped) {
