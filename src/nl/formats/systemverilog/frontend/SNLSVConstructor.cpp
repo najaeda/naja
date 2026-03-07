@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <cstdint>
 #include <fstream>
 #include <functional>
 #include <memory>
@@ -4078,7 +4079,7 @@ class SNLSVConstructorImpl {
     struct AssignAction {
       const Expression* lhs {nullptr};
       const Expression* rhs {nullptr};
-      bool increment {false};
+      int8_t stepDelta {0};
       std::optional<slang::ast::BinaryOperator> compoundOp {};
     };
 
@@ -4198,18 +4199,24 @@ class SNLSVConstructorImpl {
         lhs = &assign.left();
         action.lhs = lhs;
         action.rhs = &assign.right();
-        action.increment = false;
+        action.stepDelta = 0;
         action.compoundOp = assign.op;
         return true;
       }
       if (expr.kind == slang::ast::ExpressionKind::UnaryOp) {
         const auto& unary = expr.as<slang::ast::UnaryExpression>();
         if (unary.op == slang::ast::UnaryOperator::Postincrement ||
-            unary.op == slang::ast::UnaryOperator::Preincrement) {
+            unary.op == slang::ast::UnaryOperator::Preincrement ||
+            unary.op == slang::ast::UnaryOperator::Postdecrement ||
+            unary.op == slang::ast::UnaryOperator::Predecrement) {
           lhs = &unary.operand();
           action.lhs = lhs;
           action.rhs = &unary.operand();
-          action.increment = true;
+          action.stepDelta =
+            (unary.op == slang::ast::UnaryOperator::Postdecrement ||
+             unary.op == slang::ast::UnaryOperator::Predecrement)
+            ? static_cast<int8_t>(-1)
+            : static_cast<int8_t>(1);
           action.compoundOp = std::nullopt;
           return true;
         }
@@ -4761,7 +4768,7 @@ class SNLSVConstructorImpl {
       SNLDesign* design,
       SNLNet* lhsNet,
       const AssignAction& action) {
-      if (action.increment) {
+      if (action.stepDelta > 0) {
         return true;
       }
       if (!action.rhs) {
@@ -5377,9 +5384,60 @@ class SNLSVConstructorImpl {
       std::vector<SNLBitNet*>& assignedBits,
       const std::vector<SNLBitNet*>* currentBits,
       std::string& failureReason) {
-      if (action.increment) {
-        failureReason = "unsupported increment/decrement assignment in always_comb";
-        return false;
+      if (action.stepDelta != 0) {
+        if (!currentBits || currentBits->size() != targetWidth) {
+          failureReason =
+            "unsupported increment/decrement assignment in always_comb without current LHS bits";
+          return false;
+        }
+
+        auto sourceRange = action.rhs ? getSourceRange(*action.rhs) : std::optional<slang::SourceRange> {};
+        auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
+        auto* const1 = static_cast<SNLBitNet*>(getConstNet(design, true));
+        std::vector<SNLBitNet*> oneBits(targetWidth, const0);
+        oneBits.front() = const1;
+
+        if (action.stepDelta > 0) {
+          return addBitVectors(
+            design,
+            *currentBits,
+            oneBits,
+            assignedBits,
+            sourceRange);
+        }
+
+        std::vector<SNLBitNet*> invertedOneBits;
+        invertedOneBits.reserve(oneBits.size());
+        for (auto* oneBit : oneBits) {
+          if (oneBit == const0) {
+            invertedOneBits.push_back(const1);
+            continue;
+          }
+          invertedOneBits.push_back(const0);
+        }
+
+        assignedBits.clear();
+        assignedBits.reserve(targetWidth);
+        auto* carry = const1;
+        for (size_t bitIndex = 0; bitIndex < targetWidth; ++bitIndex) {
+          auto* diffBit = SNLScalarNet::create(design);
+          auto* carryOut = SNLScalarNet::create(design);
+          annotateSourceInfo(diffBit, sourceRange);
+          annotateSourceInfo(carryOut, sourceRange);
+          if (!createFAInstance(
+                design,
+                (*currentBits)[bitIndex],
+                invertedOneBits[bitIndex],
+                carry,
+                diffBit,
+                carryOut,
+                sourceRange)) {
+            return false; // LCOV_EXCL_LINE
+          }
+          assignedBits.push_back(diffBit);
+          carry = carryOut;
+        }
+        return true;
       }
       if (!action.rhs) {
         failureReason = "missing RHS expression in always_comb assignment";
@@ -6361,8 +6419,14 @@ class SNLSVConstructorImpl {
         }
         return *incrementerBits;
       }; // LCOV_EXCL_LINE
-      if (action.increment) {
+      if (action.stepDelta > 0) {
         return getIncrementerBits();
+      }
+      if (action.stepDelta < 0) {
+        reportUnsupportedElement(
+          "Unsupported decrement assignment in sequential block",
+          sourceRange);
+        return {};
       }
       if (!action.rhs) {
         throw SNLSVConstructorException("Internal error: missing RHS expression in sequential assignment"); // LCOV_EXCL_LINE
@@ -6725,7 +6789,7 @@ class SNLSVConstructorImpl {
           : statementSourceRange; // LCOV_EXCL_LINE
 
         auto needsIncrementer = [&](const AssignAction& action) -> bool {
-          if (action.increment) {
+          if (action.stepDelta > 0) {
             return true;
           }
           if (!action.rhs) {

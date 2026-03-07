@@ -2845,6 +2845,45 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
+  parseAlwaysCombAutomaticVariableIncDecSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_automatic_variable_inc_dec_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "always_comb_automatic_variable_inc_dec_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_automatic_variable_inc_dec_supported(
+  input  logic [3:0] in,
+  input  logic       inc,
+  input  logic       dec,
+  output logic [3:0] y
+);
+  always_comb begin
+    automatic logic [3:0] cnt;
+    cnt = in;
+    if (inc) cnt++;
+    if (dec) cnt--;
+    y = cnt;
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("always_comb_automatic_variable_inc_dec_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("y")), nullptr);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
   parseAlwaysCombForLoopIntInitializerSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
@@ -4169,7 +4208,7 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialDecrementSkipped) {
   expectUnsupportedConstruct(
     constructor,
     benchmarksPath / "seq_decrement_skipped" / "seq_decrement_skipped.sv",
-    {"unsupported statement pattern for sequential lowering"});
+    {"Unsupported decrement assignment in sequential block"});
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseSequentialResetOnlySupported) {
