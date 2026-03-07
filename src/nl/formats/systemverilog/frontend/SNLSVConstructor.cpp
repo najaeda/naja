@@ -1232,6 +1232,30 @@ class SNLSVConstructorImpl {
             case slang::ast::BinaryOperator::BinaryXor:
               value = leftValue ^ rightValue;
               return true;
+            case slang::ast::BinaryOperator::LessThan:
+              value = leftValue < rightValue ? 1 : 0;
+              return true;
+            case slang::ast::BinaryOperator::LessThanEqual:
+              value = leftValue <= rightValue ? 1 : 0;
+              return true;
+            case slang::ast::BinaryOperator::GreaterThan:
+              value = leftValue > rightValue ? 1 : 0;
+              return true;
+            case slang::ast::BinaryOperator::GreaterThanEqual:
+              value = leftValue >= rightValue ? 1 : 0;
+              return true;
+            case slang::ast::BinaryOperator::Equality:
+              value = leftValue == rightValue ? 1 : 0;
+              return true;
+            case slang::ast::BinaryOperator::Inequality:
+              value = leftValue != rightValue ? 1 : 0;
+              return true;
+            case slang::ast::BinaryOperator::LogicalAnd:
+              value = (leftValue != 0 && rightValue != 0) ? 1 : 0;
+              return true;
+            case slang::ast::BinaryOperator::LogicalOr:
+              value = (leftValue != 0 || rightValue != 0) ? 1 : 0;
+              return true;
             default:
               return false;
           }
@@ -1284,27 +1308,72 @@ class SNLSVConstructorImpl {
       if (stripped.kind == slang::ast::ExpressionKind::StructuredAssignmentPattern) {
         const auto& pattern =
           stripped.as<slang::ast::StructuredAssignmentPatternExpression>();
-        if (pattern.defaultSetter && pattern.memberSetters.empty() &&
-            pattern.typeSetters.empty() && pattern.indexSetters.empty()) {
-          bool defaultBit = false;
-          if (getConstantBit(*pattern.defaultSetter, defaultBit)) {
-            bits.assign(targetWidth, static_cast<SNLBitNet*>(getConstNet(design, defaultBit)));
-            return true;
-          }
-
-          if (auto defaultWidth = getIntegralExpressionBitWidth(*pattern.defaultSetter)) {
-            std::vector<SNLBitNet*> defaultBits;
-            if (resolveExpressionBits(design, *pattern.defaultSetter, *defaultWidth, defaultBits) &&
-                defaultBits.size() == *defaultWidth && !defaultBits.empty()) {
-              if (targetWidth % defaultBits.size() == 0) {
-                bits.clear();
-                bits.reserve(targetWidth);
-                while (bits.size() < targetWidth) {
-                  bits.insert(bits.end(), defaultBits.begin(), defaultBits.end());
+        if (pattern.typeSetters.empty() && pattern.indexSetters.empty()) {
+          bool initialized = false;
+          if (pattern.defaultSetter) {
+            bool defaultBit = false;
+            if (getConstantBit(*pattern.defaultSetter, defaultBit)) {
+              bits.assign(targetWidth, static_cast<SNLBitNet*>(getConstNet(design, defaultBit)));
+              initialized = true;
+            } else if (auto defaultWidth = getIntegralExpressionBitWidth(*pattern.defaultSetter)) {
+              std::vector<SNLBitNet*> defaultBits;
+              if (resolveExpressionBits(
+                    design,
+                    *pattern.defaultSetter,
+                    *defaultWidth,
+                    defaultBits) &&
+                  defaultBits.size() == *defaultWidth && !defaultBits.empty()) {
+                if (defaultBits.size() == targetWidth) {
+                  bits = std::move(defaultBits);
+                  initialized = true;
+                } else if (targetWidth % defaultBits.size() == 0) {
+                  bits.clear();
+                  bits.reserve(targetWidth);
+                  while (bits.size() < targetWidth) {
+                    bits.insert(bits.end(), defaultBits.begin(), defaultBits.end());
+                  }
+                  initialized = true;
                 }
-                return true;
               }
             }
+          }
+
+          if (!initialized) {
+            if (!pattern.defaultSetter || !pattern.memberSetters.empty()) {
+              return std::nullopt;
+            }
+          }
+
+          for (const auto& setter : pattern.memberSetters) {
+            if (setter.member->kind != SymbolKind::Field) {
+              return std::nullopt;
+            }
+            const auto& field = setter.member->as<slang::ast::FieldSymbol>();
+            const auto& fieldType = field.getType().getCanonicalType();
+            if (!fieldType.isIntegral()) {
+              return std::nullopt;
+            }
+            const auto memberWidthBits = fieldType.getBitWidth();
+            if (memberWidthBits <= 0) {
+              return std::nullopt;
+            }
+            const auto memberWidth = static_cast<size_t>(memberWidthBits);
+
+            std::vector<SNLBitNet*> memberBits;
+            if (!resolveExpressionBits(design, *setter.expr, memberWidth, memberBits) ||
+                memberBits.size() != memberWidth) {
+              return std::nullopt;
+            }
+
+            const auto offset = static_cast<size_t>(field.bitOffset);
+            if (offset + memberWidth > bits.size()) {
+              return std::nullopt;
+            }
+            std::copy(memberBits.begin(), memberBits.end(), bits.begin() + offset);
+          }
+
+          if (initialized || !pattern.memberSetters.empty()) {
+            return true;
           }
         }
       }
@@ -6079,6 +6148,26 @@ class SNLSVConstructorImpl {
         return true;
       }
 
+      if (current->kind == slang::ast::StatementKind::ForLoop) {
+        const auto& forStmt = current->as<slang::ast::ForLoopStatement>();
+        return unrollForLoopStatement(
+          forStmt,
+          [&]() {
+            return applySequentialStatementForLhs(
+              design,
+              forStmt.body,
+              lhsExpr,
+              lhsNet,
+              lhsBits,
+              baseName,
+              dataBits,
+              incrementerBits,
+              tempIndex,
+              failureReason);
+          },
+          failureReason);
+      }
+
       if (current->kind == slang::ast::StatementKind::Conditional) {
         const auto& condStmt = current->as<slang::ast::ConditionalStatement>();
         if (condStmt.conditions.size() != 1) {
@@ -6087,6 +6176,25 @@ class SNLSVConstructorImpl {
                  << " (conditions=" << condStmt.conditions.size() << ")";
           failureReason = reason.str();
           return false;
+        }
+        const auto& conditionExpr = *condStmt.conditions[0].expr;
+        int64_t constantConditionValue = 0;
+        if (getConstantInt64(conditionExpr, constantConditionValue)) {
+          const Statement* selectedStmt = constantConditionValue ? &condStmt.ifTrue : condStmt.ifFalse;
+          if (!selectedStmt) {
+            return true;
+          }
+          return applySequentialStatementForLhs(
+            design,
+            *selectedStmt,
+            lhsExpr,
+            lhsNet,
+            lhsBits,
+            baseName,
+            dataBits,
+            incrementerBits,
+            tempIndex,
+            failureReason);
         }
 
         std::vector<SNLBitNet*> trueBits = dataBits;
@@ -6129,13 +6237,13 @@ class SNLSVConstructorImpl {
         auto condBaseName = joinName("cond" + std::to_string(tempIndex++), baseName);
         auto* condNet = resolveConditionNet(
           design,
-          *condStmt.conditions[0].expr,
+          conditionExpr,
           condBaseName,
           condSourceRange);
         if (!condNet) {
           std::ostringstream reason;
           reason << "unable to resolve single-bit condition net while lowering conditional"
-                 << " (" << describeExpression(*condStmt.conditions[0].expr) << ")";
+                 << " (" << describeExpression(conditionExpr) << ")";
           failureReason = reason.str();
           return false;
         }
@@ -6162,6 +6270,159 @@ class SNLSVConstructorImpl {
       AssignAction action;
       if (extractAssignment(*current, assignedLHS, action)) {
         if (!sameLhs(assignedLHS, &lhsExpr)) {
+          const auto* strippedAssignedLHS = stripConversions(*assignedLHS);
+          if (strippedAssignedLHS &&
+              strippedAssignedLHS->kind == slang::ast::ExpressionKind::ElementSelect) {
+            const auto& elementExpr =
+              strippedAssignedLHS->as<slang::ast::ElementSelectExpression>();
+            const auto* baseExpr = stripConversions(elementExpr.value());
+            if (baseExpr && sameLhs(baseExpr, &lhsExpr)) {
+              const auto& baseType = baseExpr->type->getCanonicalType();
+              if (!baseType.hasFixedRange()) {
+                std::ostringstream reason;
+                reason
+                  << "unsupported sequential element-select assignment base without fixed range: "
+                  << describeExpression(*assignedLHS);
+                failureReason = reason.str();
+                return false;
+              }
+
+              auto elementWidth = getIntegralExpressionBitWidth(*assignedLHS);
+              if (!elementWidth || !*elementWidth) {
+                std::ostringstream reason;
+                reason << "unable to resolve sequential element-select assignment width for "
+                       << describeExpression(*assignedLHS);
+                failureReason = reason.str();
+                return false;
+              }
+
+              const auto arrayWidth = static_cast<size_t>(baseType.getFixedRange().width());
+              const auto totalSelectedWidth = static_cast<size_t>(*elementWidth) * arrayWidth;
+              if (lhsBits.size() < totalSelectedWidth || dataBits.size() != lhsBits.size()) {
+                std::ostringstream reason;
+                reason
+                  << "width mismatch while lowering sequential element-select assignment for "
+                  << describeExpression(*assignedLHS);
+                failureReason = reason.str();
+                return false;
+              }
+
+              if (action.compoundOp || action.stepDelta != 0 || !action.rhs) {
+                std::ostringstream reason;
+                reason << "unsupported sequential assignment action for element-select LHS "
+                       << describeExpression(*assignedLHS);
+                failureReason = reason.str();
+                return false;
+              }
+
+              std::vector<SNLBitNet*> assignedBits;
+              if (!resolveExpressionBits(
+                    design,
+                    *action.rhs,
+                    static_cast<size_t>(*elementWidth),
+                    assignedBits) ||
+                  assignedBits.size() != static_cast<size_t>(*elementWidth)) {
+                std::ostringstream reason;
+                reason << "unable to resolve sequential element-select RHS bits for "
+                       << describeExpression(*action.rhs)
+                       << " (target_width=" << *elementWidth << ")";
+                failureReason = reason.str();
+                return false;
+              }
+
+              auto* const0 = static_cast<SNLBitNet*>(getConstNet(design, false));
+              auto* const1 = static_cast<SNLBitNet*>(getConstNet(design, true));
+              auto elementSourceRange = getSourceRange(*assignedLHS);
+              auto updateSlice = [&](size_t offset, SNLBitNet* selectBit) {
+                for (size_t elemBit = 0; elemBit < static_cast<size_t>(*elementWidth); ++elemBit) {
+                  auto* candidateBit = assignedBits[elemBit];
+                  if (selectBit == const1) {
+                    dataBits[offset + elemBit] = candidateBit;
+                    continue;
+                  }
+                  if (selectBit == const0 || dataBits[offset + elemBit] == candidateBit) {
+                    continue;
+                  }
+                  auto* outBit = SNLScalarNet::create(design);
+                  annotateSourceInfo(outBit, elementSourceRange);
+                  createMux2Instance(
+                    design,
+                    selectBit,
+                    dataBits[offset + elemBit],
+                    candidateBit,
+                    outBit,
+                    elementSourceRange);
+                  dataBits[offset + elemBit] = outBit;
+                }
+              };
+
+              int32_t selectedIndex = 0;
+              if (getConstantInt32(elementExpr.selector(), selectedIndex)) {
+                const auto translated = baseType.getFixedRange().translateIndex(selectedIndex);
+                if (translated < 0 ||
+                    translated >= static_cast<int32_t>(baseType.getFixedRange().width())) {
+                  std::ostringstream reason;
+                  reason << "constant element-select index out of range in sequential assignment: "
+                         << describeExpression(*assignedLHS);
+                  failureReason = reason.str();
+                  return false;
+                }
+                updateSlice(
+                  static_cast<size_t>(translated) * static_cast<size_t>(*elementWidth),
+                  const1);
+                return true;
+              }
+
+              auto selectorWidth = getIntegralExpressionBitWidth(elementExpr.selector());
+              if (!selectorWidth || !*selectorWidth) {
+                std::ostringstream reason;
+                reason << "unable to resolve dynamic index width in sequential assignment LHS: "
+                       << describeExpression(*assignedLHS);
+                failureReason = reason.str();
+                return false;
+              }
+
+              std::vector<SNLBitNet*> selectorBits;
+              if (!resolveExpressionBits(
+                    design,
+                    elementExpr.selector(),
+                    static_cast<size_t>(*selectorWidth),
+                    selectorBits) ||
+                  selectorBits.size() != static_cast<size_t>(*selectorWidth)) {
+                std::ostringstream reason;
+                reason << "unable to resolve dynamic index bits in sequential assignment LHS: "
+                       << describeExpression(*assignedLHS);
+                failureReason = reason.str();
+                return false;
+              }
+
+              int32_t index = baseType.getFixedRange().right;
+              const int32_t end = baseType.getFixedRange().left;
+              const int32_t step = index <= end ? 1 : -1;
+              while (index != end + step) {
+                const auto translated = baseType.getFixedRange().translateIndex(index);
+                if (translated >= 0 &&
+                    translated < static_cast<int32_t>(baseType.getFixedRange().width())) {
+                  auto* equalsIndexBit = buildSelectorEqualsIndexBit(
+                    design,
+                    selectorBits,
+                    index,
+                    elementSourceRange);
+                  if (!equalsIndexBit) {
+                    failureReason =
+                      "failed to build selector decode while lowering sequential "
+                      "element-select assignment";
+                    return false;
+                  }
+                  updateSlice(
+                    static_cast<size_t>(translated) * static_cast<size_t>(*elementWidth),
+                    equalsIndexBit);
+                }
+                index += step;
+              }
+              return true;
+            }
+          }
           return true;
         }
         auto statementSourceRange = getSourceRange(*current);
@@ -7334,7 +7595,11 @@ class SNLSVConstructorImpl {
       }
 
       std::vector<const Expression*> resetLHSExpressions;
-      if (!collectAssignedLHSExpressions(topCond.ifTrue, resetLHSExpressions, &failureReason)) {
+      if (!collectAssignedLHSExpressions(
+            topCond.ifTrue,
+            resetLHSExpressions,
+            &failureReason,
+            true)) {
         return false;
       }
       if (resetLHSExpressions.empty()) {
@@ -7572,6 +7837,13 @@ class SNLSVConstructorImpl {
         evaluatedConstant = stripped->eval(evalContext);
         if (evaluatedConstant && evaluatedConstant.isInteger()) {
           constant = &evaluatedConstant;
+        }
+      }
+      slang::ConstantValue convertedConstant;
+      if (constant && !constant->isInteger()) {
+        convertedConstant = constant->convertToInt();
+        if (convertedConstant && convertedConstant.isInteger()) {
+          constant = &convertedConstant;
         }
       }
       if (!constant || !constant->isInteger()) {

@@ -4750,6 +4750,149 @@ endmodule
   EXPECT_EQ(9u, ffCount);
 }
 
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseSequentialMultiAssignmentElseBlockForLoopSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "seq_multi_assignment_else_block_for_loop_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "seq_multi_assignment_else_block_for_loop_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module seq_multi_assignment_else_block_for_loop_supported(
+  input  logic       clk_i,
+  input  logic       rst_ni,
+  input  logic       q0_d,
+  input  logic [7:0] q1_d,
+  output logic       q0,
+  output logic [7:0] q1
+);
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (~rst_ni) begin
+      for (int i = 0; i < 2; i++) begin
+        if (i < 1) begin
+          q0 <= 1'b0;
+          q1 <= '0;
+        end else begin
+          q0 <= 1'b0;
+          q1 <= '0;
+        end
+      end
+    end else begin
+      for (int i = 0; i < 2; i++) begin
+        if (i < 1) begin
+          q0 <= q0_d;
+          q1 <= q1_d;
+        end else begin
+          q0 <= q0_d;
+          q1 <= q1_d;
+        end
+      end
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("seq_multi_assignment_else_block_for_loop_supported"));
+  ASSERT_NE(top, nullptr);
+
+  size_t ffCount = 0;
+  auto dffModel = NLDB0::getDFF();
+  auto dffrnModel = NLDB0::getDFFRN();
+  for (auto inst : top->getInstances()) {
+    if ((dffModel && inst->getModel() == dffModel) ||
+        (dffrnModel && inst->getModel() == dffrnModel)) {
+      ++ffCount;
+    }
+  }
+  EXPECT_EQ(9u, ffCount);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseSequentialMultiAssignmentResetForLoopElementSelectSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "seq_multi_assignment_reset_for_loop_element_select_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "seq_multi_assignment_reset_for_loop_element_select_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module seq_multi_assignment_reset_for_loop_element_select_supported(
+  input  logic       clk_i,
+  input  logic       rst_ni,
+  input  logic [7:0] q0_d,
+  input  logic [7:0] q1_d,
+  input  logic [7:0] r0_d,
+  input  logic [7:0] r1_d,
+  output logic [7:0] q0,
+  output logic [7:0] q1,
+  output logic [7:0] r0,
+  output logic [7:0] r1
+);
+  logic [7:0] q [0:1];
+  logic [7:0] r [0:1];
+
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (~rst_ni) begin
+      for (int i = 0; i < 2; i++) begin
+        if (i < 1) begin
+          q[i] <= 8'h01;
+          r[i] <= 8'h10;
+        end else begin
+          q[i] <= 8'h02;
+          r[i] <= 8'h20;
+        end
+      end
+    end else begin
+      q[0] <= q0_d;
+      q[1] <= q1_d;
+      r[0] <= r0_d;
+      r[1] <= r1_d;
+    end
+  end
+
+  assign q0 = q[0];
+  assign q1 = q[1];
+  assign r0 = r[0];
+  assign r1 = r[1];
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("seq_multi_assignment_reset_for_loop_element_select_supported"));
+  ASSERT_NE(top, nullptr);
+
+  size_t ffCount = 0;
+  auto dffModel = NLDB0::getDFF();
+  auto dffrnModel = NLDB0::getDFFRN();
+  for (auto inst : top->getInstances()) {
+    if ((dffModel && inst->getModel() == dffModel) ||
+        (dffrnModel && inst->getModel() == dffrnModel)) {
+      ++ffCount;
+    }
+  }
+  EXPECT_EQ(32u, ffCount);
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableElseDefaultNonAssignmentSkipped) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
@@ -5019,6 +5162,74 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialResetStructDefaultZeroSupporte
     }
   }
   EXPECT_EQ(13u, dffrnCount);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseSequentialResetStructMemberSettersWithDefaultZeroSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "seq_reset_struct_member_setters_with_default_zero_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "seq_reset_struct_member_setters_with_default_zero_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module seq_reset_struct_member_setters_with_default_zero_supported(
+  input  logic clk,
+  input  logic rst_n,
+  input  logic [6:0] d_bits,
+  output logic [6:0] q_bits
+);
+  typedef struct packed {
+    logic [3:0] xdebugver;
+    logic [1:0] prv;
+    logic       step;
+  } dcsr_t;
+
+  dcsr_t q, d;
+  assign d = dcsr_t'(d_bits);
+  assign q_bits = q;
+
+  always_ff @(posedge clk or negedge rst_n) begin
+    if (!rst_n) begin
+      q <= '{xdebugver: 4'h4, prv: 2'b11, default: '0};
+    end else begin
+      q <= d;
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("seq_reset_struct_member_setters_with_default_zero_supported"));
+  ASSERT_NE(top, nullptr);
+
+  auto dffModel = NLDB0::getDFF();
+  auto dffrnModel = NLDB0::getDFFRN();
+  auto mux2Model = NLDB0::getMux2();
+  ASSERT_NE(dffModel, nullptr);
+  ASSERT_NE(dffrnModel, nullptr);
+  ASSERT_NE(mux2Model, nullptr);
+  size_t ffCount = 0;
+  size_t mux2Count = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dffModel || inst->getModel() == dffrnModel) {
+      ++ffCount;
+    } else if (inst->getModel() == mux2Model) {
+      ++mux2Count;
+    }
+  }
+  EXPECT_EQ(7u, ffCount);
+  EXPECT_EQ(7u, mux2Count);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseSequentialConcatLHSSkipped) {
