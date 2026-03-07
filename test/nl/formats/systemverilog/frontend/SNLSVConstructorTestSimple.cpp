@@ -1086,6 +1086,81 @@ endmodule
   EXPECT_NE(top->getNet(NLName("inside_o")), nullptr);
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseContinuousAssignConfigExecuteRegionsFunctionSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "continuous_assign_config_execute_regions_function_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "continuous_assign_config_execute_regions_function_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(package cfg_exec_pkg;
+  localparam int unsigned NrMaxRules = 2;
+
+  typedef struct packed {
+    int unsigned                  PLEN;
+    int unsigned                  NrExecuteRegionRules;
+    logic [NrMaxRules-1:0][63:0] ExecuteRegionAddrBase;
+    logic [NrMaxRules-1:0][63:0] ExecuteRegionLength;
+  } cfg_t;
+
+  function automatic logic range_check(logic [63:0] base, logic [63:0] len, logic [63:0] address);
+    return (address >= base) && (({1'b0, address}) < (65'(base) + len));
+  endfunction
+
+  function automatic logic is_inside_execute_regions(cfg_t Cfg, logic [63:0] address);
+    logic [NrMaxRules-1:0] pass;
+    if (Cfg.NrExecuteRegionRules != 0) begin
+      pass = '0;
+      for (int unsigned k = 0; k < Cfg.NrExecuteRegionRules; k++) begin
+        pass[k] = range_check(Cfg.ExecuteRegionAddrBase[k], Cfg.ExecuteRegionLength[k], address);
+      end
+      return |pass;
+    end else begin
+      return 1'b1;
+    end
+  endfunction
+endpackage
+
+module continuous_assign_config_execute_regions_function_supported(
+  input logic [55:0] fetch_paddr_i,
+  output logic       match_o
+);
+  typedef struct packed {
+    logic [55:0] fetch_paddr;
+  } icache_areq_t;
+
+  icache_areq_t icache_areq_i;
+  assign icache_areq_i.fetch_paddr = fetch_paddr_i;
+
+  localparam cfg_exec_pkg::cfg_t Cfg = '{
+    PLEN: 56,
+    NrExecuteRegionRules: 1,
+    ExecuteRegionAddrBase: '{64'h0000000000000000, 64'h0000000000000000},
+    ExecuteRegionLength: '{64'h00000000FFFFFFFF, 64'h0000000000000000}
+  };
+
+  assign match_o = cfg_exec_pkg::is_inside_execute_regions(
+      Cfg, {{64 - Cfg.PLEN{1'b0}}, icache_areq_i.fetch_paddr}
+  );
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top =
+    library_->getSNLDesign(NLName("continuous_assign_config_execute_regions_function_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("fetch_paddr_i")), nullptr);
+  EXPECT_NE(top->getNet(NLName("match_o")), nullptr);
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseContinuousAssignConditionalUnaryMinusSignedSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);

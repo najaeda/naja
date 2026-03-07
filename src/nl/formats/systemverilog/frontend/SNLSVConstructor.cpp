@@ -1718,6 +1718,15 @@ class SNLSVConstructorImpl {
 
       bool defaultWhenNoRules = false;
       const Statement* searchStmt = bodyStmt;
+      if (searchStmt->kind == slang::ast::StatementKind::List) {
+        for (const auto* nested : searchStmt->as<slang::ast::StatementList>().list) {
+          const Statement* unwrapped = nested ? unwrapStatement(*nested) : nullptr;
+          if (unwrapped && unwrapped->kind == slang::ast::StatementKind::Conditional) {
+            searchStmt = unwrapped;
+            break;
+          }
+        }
+      }
       if (searchStmt->kind == slang::ast::StatementKind::Conditional) {
         const auto& conditional = searchStmt->as<slang::ast::ConditionalStatement>();
         if (!conditional.ifFalse ||
