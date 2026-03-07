@@ -3380,6 +3380,48 @@ endmodule
   EXPECT_NE(top->getNet(NLName("npc_d")), nullptr);
 }
 
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseAlwaysCombConcatenationZeroWidthReplicationSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_concat_zero_width_replication_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "always_comb_concat_zero_width_replication_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_concat_zero_width_replication_supported(
+  input  logic [63:0] branch_result,
+  output logic [63:0] flu_result_o
+);
+  typedef struct packed {
+    int unsigned XLEN;
+    int unsigned VLEN;
+  } cfg_t;
+
+  localparam cfg_t Cfg = '{XLEN: 64, VLEN: 64};
+
+  always_comb begin
+    flu_result_o = {{Cfg.XLEN - Cfg.VLEN{1'b0}}, branch_result};
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top =
+    library_->getSNLDesign(NLName("always_comb_concat_zero_width_replication_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("branch_result")), nullptr);
+  EXPECT_NE(top->getNet(NLName("flu_result_o")), nullptr);
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseAlwaysCombShiftLeftSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);

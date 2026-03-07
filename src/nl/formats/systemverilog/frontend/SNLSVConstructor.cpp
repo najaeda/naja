@@ -2941,10 +2941,21 @@ class SNLSVConstructorImpl {
           if (!operand) {
             return false; // LCOV_EXCL_LINE
           }
+          const auto* strippedOperand = stripConversions(*operand);
           size_t operandWidthBits = 0;
           if (auto operandWidth = getIntegralExpressionBitWidth(*operand)) {
             operandWidthBits = *operandWidth;
           } else {
+            if (strippedOperand &&
+                strippedOperand->kind == slang::ast::ExpressionKind::Replication) {
+              const auto& replicationOperand =
+                strippedOperand->as<slang::ast::ReplicationExpression>();
+              int32_t repeatCountSigned = 0;
+              if (getConstantInt32(replicationOperand.count(), repeatCountSigned) &&
+                  repeatCountSigned == 0) {
+                continue;
+              }
+            }
             const auto& operandCanonical = operand->type->getCanonicalType();
             if (!operandCanonical.isIntegral()) {
               return false; // LCOV_EXCL_LINE
