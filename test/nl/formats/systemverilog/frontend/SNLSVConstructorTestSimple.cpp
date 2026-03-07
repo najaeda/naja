@@ -1026,6 +1026,40 @@ endmodule
   EXPECT_NE(top->getNet(NLName("div_result")), nullptr);
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseContinuousAssignConditionalUnaryMinusSignedSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "continuous_assign_conditional_unary_minus_signed_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "continuous_assign_conditional_unary_minus_signed_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module continuous_assign_conditional_unary_minus_signed_supported(
+  input logic        res_inv_q,
+  input logic [63:0] out_mux,
+  output logic [63:0] res_o
+);
+  assign res_o = (res_inv_q) ? -$signed(out_mux) : out_mux;
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("continuous_assign_conditional_unary_minus_signed_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("res_inv_q")), nullptr);
+  EXPECT_NE(top->getNet(NLName("out_mux")), nullptr);
+  EXPECT_NE(top->getNet(NLName("res_o")), nullptr);
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseBytePortsInferRangeFromWidth) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);

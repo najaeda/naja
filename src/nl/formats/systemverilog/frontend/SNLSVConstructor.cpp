@@ -1894,6 +1894,52 @@ class SNLSVConstructorImpl {
           return true;
         }
 
+        if (unaryExpr.op == slang::ast::UnaryOperator::Plus ||
+            unaryExpr.op == slang::ast::UnaryOperator::Minus) {
+          std::vector<SNLBitNet*> operandBits;
+          if (!resolveExpressionBits(design, unaryExpr.operand(), targetWidth, operandBits) ||
+              operandBits.size() != targetWidth) {
+            return false;
+          }
+          if (unaryExpr.op == slang::ast::UnaryOperator::Plus) {
+            bits = std::move(operandBits);
+            return true;
+          }
+
+          std::vector<SNLBitNet*> invertedBits;
+          invertedBits.reserve(targetWidth);
+          for (auto* operandBit : operandBits) {
+            if (operandBit == const0) {
+              invertedBits.push_back(const1);
+              continue;
+            }
+            if (operandBit == const1) {
+              invertedBits.push_back(const0);
+              continue;
+            }
+            auto* notBit = SNLScalarNet::create(design);
+            annotateSourceInfo(notBit, unarySourceRange);
+            if (!createUnaryGate(
+                  design,
+                  NLDB0::GateType(NLDB0::GateType::Not),
+                  operandBit,
+                  notBit,
+                  unarySourceRange)) {
+              return false; // LCOV_EXCL_LINE
+            }
+            invertedBits.push_back(notBit);
+          }
+
+          std::vector<SNLBitNet*> oneBits(targetWidth, const0);
+          oneBits.front() = const1;
+          return addBitVectors(
+            design,
+            invertedBits,
+            oneBits,
+            bits,
+            unarySourceRange);
+        }
+
         if (unaryExpr.op == slang::ast::UnaryOperator::BitwiseOr ||
             unaryExpr.op == slang::ast::UnaryOperator::BitwiseAnd ||
             unaryExpr.op == slang::ast::UnaryOperator::BitwiseXor ||
