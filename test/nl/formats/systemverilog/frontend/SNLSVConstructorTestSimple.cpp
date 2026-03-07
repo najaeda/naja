@@ -3313,6 +3313,37 @@ endmodule
   ASSERT_NE(top, nullptr);
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseAlwaysCombRHSStreamingConcatenationSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_rhs_streaming_concatenation_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "always_comb_rhs_streaming_concatenation_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_rhs_streaming_concatenation_supported(
+  input  logic [15:0] data_i,
+  output logic [15:0] data_o
+);
+  always_comb begin
+    data_o = {<<8{data_i}};
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("always_comb_rhs_streaming_concatenation_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("data_o")), nullptr);
+}
+
 TEST_F(
   SNLSVConstructorTestSimple,
   parseAlwaysCombRHSConditionalUnpackedDynamicSelectTypeParamSupported) {

@@ -1414,20 +1414,19 @@ class SNLSVConstructorImpl {
         const auto& targetType = expr.type->getCanonicalType();
         if (targetType.isIntegral()) {
           auto operandWidth = getIntegralExpressionBitWidth(conversionExpr.operand());
-          if (!operandWidth || !*operandWidth) {
-            return false;
+          if (operandWidth && *operandWidth) {
+            std::vector<SNLBitNet*> operandBits;
+            if (!resolveExpressionBits(design, conversionExpr.operand(), *operandWidth, operandBits)) {
+              return false;
+            }
+            auto* fillBit = static_cast<SNLBitNet*>(getConstNet(design, false));
+            if (targetType.isSigned() && !operandBits.empty()) {
+              fillBit = operandBits.back();
+            }
+            bits = std::move(operandBits);
+            resizeBitsToWidth(bits, targetWidth, fillBit);
+            return true;
           }
-          std::vector<SNLBitNet*> operandBits;
-          if (!resolveExpressionBits(design, conversionExpr.operand(), *operandWidth, operandBits)) {
-            return false;
-          }
-          auto* fillBit = static_cast<SNLBitNet*>(getConstNet(design, false));
-          if (targetType.isSigned() && !operandBits.empty()) {
-            fillBit = operandBits.back();
-          }
-          bits = std::move(operandBits);
-          resizeBitsToWidth(bits, targetWidth, fillBit);
-          return true;
         }
       }
 
@@ -2167,6 +2166,82 @@ class SNLSVConstructorImpl {
           }
           bits.insert(bits.end(), operandBits.begin(), operandBits.end());
         }
+        resizeBitsToWidth(bits, targetWidth, static_cast<SNLBitNet*>(getConstNet(design, false)));
+        return true;
+      }
+
+      if (stripped->kind == slang::ast::ExpressionKind::Streaming) {
+        const auto& streamingExpr =
+          stripped->as<slang::ast::StreamingConcatenationExpression>();
+        if (!streamingExpr.isFixedSize()) {
+          return false;
+        }
+
+        const auto bitstreamWidth = streamingExpr.getBitstreamWidth();
+        if (bitstreamWidth > std::numeric_limits<size_t>::max()) {
+          return false; // LCOV_EXCL_LINE
+        }
+
+        auto streams = streamingExpr.streams();
+        std::vector<SNLBitNet*> streamBits;
+        streamBits.reserve(static_cast<size_t>(bitstreamWidth));
+        for (size_t streamIndex = streams.size(); streamIndex > 0; --streamIndex) {
+          const auto& stream = streams[streamIndex - 1];
+
+          const Expression* operandExpr = stream.operand.get();
+          if (stream.withExpr) {
+            operandExpr = stream.withExpr;
+          }
+
+          size_t operandWidthBits = 0;
+          if (stream.constantWithWidth && stream.withExpr) {
+            if (*stream.constantWithWidth <= 0) {
+              continue;
+            }
+            operandWidthBits = static_cast<size_t>(*stream.constantWithWidth);
+          } else if (auto operandWidth = getIntegralExpressionBitWidth(*operandExpr)) {
+            operandWidthBits = *operandWidth;
+          }
+          if (!operandWidthBits) {
+            return false;
+          }
+
+          std::vector<SNLBitNet*> operandBits;
+          if (!resolveExpressionBits(design, *operandExpr, operandWidthBits, operandBits) ||
+              operandBits.size() != operandWidthBits) {
+            return false;
+          }
+          streamBits.insert(streamBits.end(), operandBits.begin(), operandBits.end());
+        }
+        resizeBitsToWidth(
+          streamBits,
+          static_cast<size_t>(bitstreamWidth),
+          static_cast<SNLBitNet*>(getConstNet(design, false)));
+
+        const auto sliceSize64 = streamingExpr.getSliceSize();
+        if (!sliceSize64) {
+          bits = std::move(streamBits);
+        } else {
+          if (sliceSize64 > std::numeric_limits<size_t>::max()) {
+            return false; // LCOV_EXCL_LINE
+          }
+          const auto sliceSize = static_cast<size_t>(sliceSize64);
+          std::vector<std::pair<size_t, size_t>> slices;
+          slices.reserve((streamBits.size() + sliceSize - 1) / sliceSize);
+          for (size_t offset = 0; offset < streamBits.size(); offset += sliceSize) {
+            const auto sliceWidth = std::min(sliceSize, streamBits.size() - offset);
+            slices.emplace_back(offset, sliceWidth);
+          }
+
+          bits.clear();
+          bits.reserve(streamBits.size());
+          for (auto it = slices.rbegin(); it != slices.rend(); ++it) {
+            const auto begin = streamBits.begin() + static_cast<std::ptrdiff_t>(it->first);
+            const auto end = begin + static_cast<std::ptrdiff_t>(it->second);
+            bits.insert(bits.end(), begin, end);
+          }
+        }
+
         resizeBitsToWidth(bits, targetWidth, static_cast<SNLBitNet*>(getConstNet(design, false)));
         return true;
       }
@@ -3779,6 +3854,9 @@ class SNLSVConstructorImpl {
       }
       if (kind == slang::ast::ExpressionKind::Concatenation) {
         return "Concatenation";
+      }
+      if (kind == slang::ast::ExpressionKind::Streaming) {
+        return "Streaming";
       }
       if (kind == slang::ast::ExpressionKind::Replication) {
         return "Replication";
