@@ -5353,12 +5353,25 @@ class SNLSVConstructorImpl {
       }
       const auto* leftExpr = stripConversions(*left);
       const auto* rightExpr = stripConversions(*right);
+      if (!leftExpr || !rightExpr) {
+        return false; // LCOV_EXCL_LINE
+      }
       if (leftExpr && rightExpr &&
           slang::ast::ValueExpressionBase::isKind(leftExpr->kind) &&
           slang::ast::ValueExpressionBase::isKind(rightExpr->kind)) {
         const auto& leftSym = leftExpr->as<slang::ast::ValueExpressionBase>().symbol;
         const auto& rightSym = rightExpr->as<slang::ast::ValueExpressionBase>().symbol;
         return &leftSym == &rightSym || leftSym.name == rightSym.name;
+      }
+      if (leftExpr->kind == slang::ast::ExpressionKind::MemberAccess &&
+          rightExpr->kind == slang::ast::ExpressionKind::MemberAccess) {
+        const auto& leftMember = leftExpr->as<slang::ast::MemberAccessExpression>();
+        const auto& rightMember = rightExpr->as<slang::ast::MemberAccessExpression>();
+        if (&leftMember.member != &rightMember.member &&
+            leftMember.member.name != rightMember.member.name) {
+          return false;
+        }
+        return sameLhs(&leftMember.value(), &rightMember.value());
       }
       return left == right;
     }
@@ -5739,19 +5752,25 @@ class SNLSVConstructorImpl {
       }
 
       const auto& elementExpr = stripped->as<slang::ast::ElementSelectExpression>();
+      const auto* baseExpr = stripConversions(elementExpr.value());
       if (isActiveForLoopVariableExpr(elementExpr.selector())) {
-        const auto* baseExpr = stripConversions(elementExpr.value());
-        if (baseExpr && slang::ast::ValueExpressionBase::isKind(baseExpr->kind)) {
+        if (baseExpr &&
+            (slang::ast::ValueExpressionBase::isKind(baseExpr->kind) ||
+             baseExpr->kind == slang::ast::ExpressionKind::MemberAccess)) {
           return baseExpr;
         }
       }
+
       int32_t selectedIndex = 0;
       if (getConstantInt32(elementExpr.selector(), selectedIndex)) {
         return lhsExpr;
       }
 
-      const auto* baseExpr = stripConversions(elementExpr.value());
-      if (!baseExpr || !slang::ast::ValueExpressionBase::isKind(baseExpr->kind)) {
+      if (!baseExpr) {
+        return lhsExpr; // LCOV_EXCL_LINE
+      }
+      if (!slang::ast::ValueExpressionBase::isKind(baseExpr->kind) &&
+          baseExpr->kind != slang::ast::ExpressionKind::MemberAccess) {
         return lhsExpr;
       }
       return baseExpr;

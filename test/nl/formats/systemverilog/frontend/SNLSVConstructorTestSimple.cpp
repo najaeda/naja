@@ -3951,6 +3951,57 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
+  parseAlwaysCombLHSDynamicElementSelectMemberAccessSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath =
+    outPath / "always_comb_lhs_dynamic_element_select_member_access_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "always_comb_lhs_dynamic_element_select_member_access_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_lhs_dynamic_element_select_member_access_supported #(
+  parameter int unsigned DATA_WIDTH = 64
+) (
+  input  logic [DATA_WIDTH-1:0] data_i,
+  input  logic                  sel_i,
+  output logic [DATA_WIDTH-1:0] out_o
+);
+  typedef struct packed {
+    logic [1:0][DATA_WIDTH-1:0] slot;
+  } state_t;
+
+  state_t q;
+  state_t d;
+
+  always_comb begin
+    d = q;
+    for (int i = 0; i < 2; i++) begin
+      if (sel_i)
+        d.slot[i] = data_i;
+    end
+    out_o = d.slot[0];
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName(
+    "always_comb_lhs_dynamic_element_select_member_access_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("out_o")), nullptr);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
   parseSequentialResetBranchNestedConditionalSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
