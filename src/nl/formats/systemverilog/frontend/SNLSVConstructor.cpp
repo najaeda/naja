@@ -2094,6 +2094,62 @@ class SNLSVConstructorImpl {
         return false;
       }
 
+      auto materializeArgumentExpressionNet =
+        [&](const slang::ast::FormalArgumentSymbol& formalArg,
+            const Expression& callArg,
+            SNLNet*& argumentNet) -> bool {
+        argumentNet = nullptr;
+        const auto& canonicalArgType = formalArg.getType().getCanonicalType();
+        if (!canonicalArgType.isIntegral()) {
+          return false;
+        }
+        const auto argBitWidth = canonicalArgType.getBitWidth();
+        if (argBitWidth <= 0) {
+          return false;
+        }
+        const auto argWidth = static_cast<size_t>(argBitWidth);
+
+        std::vector<SNLBitNet*> argumentBits;
+        if (!resolveExpressionBits(design, callArg, argWidth, argumentBits) ||
+            argumentBits.size() != argWidth) {
+          return false;
+        }
+
+        const auto argumentSourceRange = getSourceRange(callArg);
+        if (argWidth == 1) {
+          auto* scalarArgumentNet = SNLScalarNet::create(design);
+          annotateSourceInfo(scalarArgumentNet, argumentSourceRange);
+          argumentNet = scalarArgumentNet;
+          if (argumentBits.front() != scalarArgumentNet) {
+            createAssignInstance(
+              design,
+              argumentBits.front(),
+              scalarArgumentNet,
+              argumentSourceRange);
+          }
+          return true;
+        }
+
+        auto* busArgumentNet =
+          SNLBusNet::create(design, static_cast<NLID::Bit>(argWidth - 1), 0);
+        annotateSourceInfo(busArgumentNet, argumentSourceRange);
+        auto busArgumentBits = collectBits(busArgumentNet);
+        if (busArgumentBits.size() != argWidth) {
+          return false; // LCOV_EXCL_LINE
+        }
+        for (size_t i = 0; i < argWidth; ++i) {
+          if (argumentBits[i] != busArgumentBits[i]) {
+            createAssignInstance(
+              design,
+              argumentBits[i],
+              busArgumentBits[i],
+              argumentSourceRange);
+          }
+        }
+        argumentNet = busArgumentNet;
+        return true;
+      };
+
       std::unordered_map<const Symbol*, SNLNet*> argumentNets;
       argumentNets.reserve(formalArgs.size());
       for (size_t i = 0; i < formalArgs.size(); ++i) {
@@ -2104,7 +2160,8 @@ class SNLSVConstructorImpl {
           return false;
         }
         auto* argumentNet = resolveExpressionNet(design, *callArg);
-        if (!argumentNet) {
+        if (!argumentNet &&
+            !materializeArgumentExpressionNet(*formalArg, *callArg, argumentNet)) {
           return false;
         }
         argumentNets.emplace(formalArg, argumentNet);

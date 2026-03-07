@@ -3466,6 +3466,60 @@ endmodule
   EXPECT_NE(top->getNet(NLName("y")), nullptr);
 }
 
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseAlwaysCombCaseSimpleReturnFunctionRangeSelectArgSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "always_comb_case_simple_return_function_range_select_arg_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "always_comb_case_simple_return_function_range_select_arg_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_case_simple_return_function_range_select_arg_supported(
+  input  logic [1:0]   operator_q,
+  input  logic [127:0] mult_result_q,
+  input  logic [63:0]  clmul_q,
+  input  logic [63:0]  clmulr_q,
+  output logic [63:0]  result_o
+);
+  localparam bit IS_XLEN64 = 1'b1;
+  localparam logic [1:0] MULW = 2'b01;
+  localparam logic [1:0] CLMUL = 2'b10;
+  localparam logic [1:0] CLMULH = 2'b11;
+
+  function automatic logic [63:0] sext32to64(logic [31:0] operand);
+    return {{32{operand[31]}}, operand[31:0]};
+  endfunction
+
+  always_comb begin
+    unique case (operator_q)
+      CLMUL:               result_o = clmul_q;
+      CLMULH:              result_o = clmulr_q >> 1;
+      default: begin
+        if (operator_q == MULW && IS_XLEN64) result_o = sext32to64(mult_result_q[31:0]);
+        else result_o = mult_result_q[63:0];
+      end
+    endcase
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("always_comb_case_simple_return_function_range_select_arg_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("result_o")), nullptr);
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseAlwaysCombShiftLeftSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
