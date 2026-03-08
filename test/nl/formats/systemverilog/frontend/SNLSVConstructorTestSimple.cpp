@@ -3134,6 +3134,67 @@ endmodule
 
 TEST_F(
   SNLSVConstructorTestSimple,
+  parseAlwaysCombStructuredAssignmentPatternMemberSettersNoDefaultSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath /
+            "always_comb_structured_assignment_pattern_member_setters_no_default_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath /
+    "always_comb_structured_assignment_pattern_member_setters_no_default_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_structured_assignment_pattern_member_setters_no_default_supported(
+  input  logic       fp_present_i,
+  input  logic [3:0] op_i,
+  input  logic [3:0] data_i,
+  output logic [6:0] out_o
+);
+  typedef struct packed {
+    logic       issued;
+    logic       cancelled;
+    logic       is_rd_fpr_flag;
+    logic [3:0] sbe;
+  } sb_mem_t;
+
+  function automatic logic is_rd_fpr(input logic [3:0] op);
+    case (op)
+      4'd1: return 1'b1;
+      default: return 1'b0;
+    endcase
+  endfunction
+
+  sb_mem_t mem_n;
+  assign out_o = mem_n;
+
+  always_comb begin
+    mem_n = '{
+      issued: 1'b1,
+      cancelled: 1'b0,
+      is_rd_fpr_flag: fp_present_i && is_rd_fpr(op_i),
+      sbe: data_i
+    };
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("always_comb_structured_assignment_pattern_member_setters_no_default_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("out_o")), nullptr);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
   parseAlwaysCombAutomaticVariableIncDecSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);

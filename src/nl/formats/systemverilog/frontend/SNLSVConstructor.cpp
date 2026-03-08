@@ -643,6 +643,7 @@ class SNLSVConstructorImpl {
       warnings_.clear();
       emittedWarnings_.clear();
       unsupportedElements_.clear();
+      dynamicElementSelectCache_.clear();
       try {
         {
           NajaPerf::Scope scope("SNLSVConstructorImpl::constructWithSlangDriver");
@@ -1684,6 +1685,9 @@ class SNLSVConstructorImpl {
           stripped.as<slang::ast::StructuredAssignmentPatternExpression>();
         if (pattern.typeSetters.empty() && pattern.indexSetters.empty()) {
           bool initialized = false;
+          bool requiresFullMemberCoverage = false;
+          size_t coveredMemberBits = 0;
+          std::unordered_set<const Symbol*> coveredMembers;
           if (pattern.defaultSetter) {
             bool defaultBit = false;
             if (getConstantBit(*pattern.defaultSetter, defaultBit)) {
@@ -1713,7 +1717,11 @@ class SNLSVConstructorImpl {
           }
 
           if (!initialized) {
-            if (!pattern.defaultSetter || !pattern.memberSetters.empty()) {
+            if (!pattern.defaultSetter && !pattern.memberSetters.empty()) {
+              bits.assign(targetWidth, nullptr);
+              initialized = true;
+              requiresFullMemberCoverage = true;
+            } else if (!pattern.defaultSetter || !pattern.memberSetters.empty()) {
               return std::nullopt;
             }
           }
@@ -1743,7 +1751,19 @@ class SNLSVConstructorImpl {
             if (offset + memberWidth > bits.size()) {
               return std::nullopt;
             }
+            if (requiresFullMemberCoverage) {
+              if (!coveredMembers.insert(setter.member).second) {
+                return std::nullopt;
+              }
+              coveredMemberBits += memberWidth;
+              if (coveredMemberBits > targetWidth) {
+                return std::nullopt;
+              }
+            }
             std::copy(memberBits.begin(), memberBits.end(), bits.begin() + offset);
+          }
+          if (requiresFullMemberCoverage && coveredMemberBits != targetWidth) {
+            return std::nullopt;
           }
 
           if (initialized || !pattern.memberSetters.empty()) {
@@ -4173,6 +4193,22 @@ class SNLSVConstructorImpl {
                     auto* const1 = static_cast<SNLBitNet*>(getConstNet(design, true));
                     auto elementSourceRange = getSourceRange(*stripped);
 
+                    DynamicElementSelectCacheKey cacheKey;
+                    const bool canUseCache = valueNet != nullptr;
+                    if (canUseCache) {
+                      cacheKey.design = design;
+                      cacheKey.valueNet = valueNet;
+                      cacheKey.targetWidth = targetWidth;
+                      cacheKey.rangeLeft = valueType.getFixedRange().left;
+                      cacheKey.rangeRight = valueType.getFixedRange().right;
+                      cacheKey.selectorBits = selectorBits;
+                      if (auto cacheIt = dynamicElementSelectCache_.find(cacheKey);
+                          cacheIt != dynamicElementSelectCache_.end()) {
+                        bits = cacheIt->second;
+                        return true;
+                      }
+                    }
+
                     std::vector<SNLBitNet*> selectedBits(elementWidth, const0);
                     int32_t index = valueType.getFixedRange().right;
                     const int32_t end = valueType.getFixedRange().left;
@@ -4186,14 +4222,14 @@ class SNLSVConstructorImpl {
                           return false; // LCOV_EXCL_LINE
                         }
 
-                          auto* equalsIndexBit = buildSelectorEqualsIndexBit(
-                            design,
-                            selectorBits,
-                            index,
-                            elementSourceRange);
-                          if (!equalsIndexBit) {
-                            return false; // LCOV_EXCL_LINE
-                          }
+                        auto* equalsIndexBit = buildSelectorEqualsIndexBit(
+                          design,
+                          selectorBits,
+                          index,
+                          elementSourceRange);
+                        if (!equalsIndexBit) {
+                          return false; // LCOV_EXCL_LINE
+                        }
 
                         if (equalsIndexBit == const0) {
                           index += step;
@@ -4226,6 +4262,9 @@ class SNLSVConstructorImpl {
 
                     bits = std::move(selectedBits);
                     resizeBitsToWidth(bits, targetWidth, const0);
+                    if (canUseCache) {
+                      dynamicElementSelectCache_.emplace(std::move(cacheKey), bits);
+                    }
                     return true;
                   }
                 }
@@ -5746,6 +5785,15 @@ class SNLSVConstructorImpl {
       if (kind == slang::ast::ExpressionKind::Conversion) {
         return "Conversion";
       }
+      if (kind == slang::ast::ExpressionKind::SimpleAssignmentPattern) {
+        return "SimpleAssignmentPattern";
+      }
+      if (kind == slang::ast::ExpressionKind::StructuredAssignmentPattern) {
+        return "StructuredAssignmentPattern";
+      }
+      if (kind == slang::ast::ExpressionKind::ReplicatedAssignmentPattern) {
+        return "ReplicatedAssignmentPattern";
+      }
       std::ostringstream fallback;
       fallback << "kind#" << static_cast<int>(kind);
       return fallback.str();
@@ -6518,6 +6566,47 @@ class SNLSVConstructorImpl {
       }
       return baseExpr;
     }
+
+    static size_t hashCombine(size_t seed, size_t value) {
+      return seed ^ (value + 0x9e3779b9 + (seed << 6) + (seed >> 2));
+    }
+
+    struct DynamicElementSelectCacheKey {
+      SNLDesign* design {nullptr};
+      SNLNet* valueNet {nullptr};
+      size_t targetWidth {0};
+      int32_t rangeLeft {0};
+      int32_t rangeRight {0};
+      std::vector<SNLBitNet*> selectorBits {};
+
+      bool operator==(const DynamicElementSelectCacheKey& other) const {
+        return design == other.design &&
+               valueNet == other.valueNet &&
+               targetWidth == other.targetWidth &&
+               rangeLeft == other.rangeLeft &&
+               rangeRight == other.rangeRight &&
+               selectorBits == other.selectorBits;
+      }
+    };
+
+    struct DynamicElementSelectCacheKeyHash {
+      size_t operator()(const DynamicElementSelectCacheKey& key) const noexcept {
+        size_t hashValue = std::hash<SNLDesign*>{}(key.design);
+        hashValue =
+          SNLSVConstructorImpl::hashCombine(hashValue, std::hash<SNLNet*>{}(key.valueNet));
+        hashValue =
+          SNLSVConstructorImpl::hashCombine(hashValue, std::hash<size_t>{}(key.targetWidth));
+        hashValue =
+          SNLSVConstructorImpl::hashCombine(hashValue, std::hash<int32_t>{}(key.rangeLeft));
+        hashValue =
+          SNLSVConstructorImpl::hashCombine(hashValue, std::hash<int32_t>{}(key.rangeRight));
+        for (auto* bit : key.selectorBits) {
+          hashValue =
+            SNLSVConstructorImpl::hashCombine(hashValue, std::hash<SNLBitNet*>{}(bit));
+        }
+        return hashValue;
+      }
+    };
 
     SNLBitNet* buildSelectorEqualsIndexBit(
       SNLDesign* design,
@@ -9951,6 +10040,11 @@ class SNLSVConstructorImpl {
     mutable std::vector<bool> activeForLoopBreaks_ {};
     mutable std::vector<std::unordered_map<const Symbol*, SNLNet*>> activeFunctionArgumentNets_ {};
     mutable std::vector<const slang::ast::SubroutineSymbol*> activeInlinedCallSubroutines_ {};
+    std::unordered_map<
+      DynamicElementSelectCacheKey,
+      std::vector<SNLBitNet*>,
+      DynamicElementSelectCacheKeyHash>
+      dynamicElementSelectCache_ {};
     std::unique_ptr<slang::driver::Driver> driver_;
     std::unique_ptr<slang::ast::Compilation> compilation_;
     std::vector<std::shared_ptr<slang::syntax::SyntaxTree>> syntaxTrees_;
