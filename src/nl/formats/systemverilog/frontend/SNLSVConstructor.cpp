@@ -406,7 +406,10 @@ class SNLSVConstructorImpl {
       warnings_.clear();
       emittedWarnings_.clear();
       unsupportedElements_.clear();
-      constructWithSlangDriver(paths);
+      {
+        NajaPerf::Scope scope("SNLSVConstructorImpl::constructWithSlangDriver");
+        constructWithSlangDriver(paths);
+      }
 
       dumpDiagnosticsReport(getCompilationDiagnosticsReport(*compilation_));
       if (auto failure = getCompilationFailureDetails(*compilation_)) {
@@ -414,11 +417,15 @@ class SNLSVConstructorImpl {
       }
 
       const auto& root = compilation_->getRoot();
-      for (const auto* top : root.topInstances) {
-        buildDesign(top->body);
+      {
+        NajaPerf::Scope scope("SNLSVConstructorImpl::buildTopDesigns");
+        for (const auto* top : root.topInstances) {
+          buildDesign(top->body);
+        }
       }
 
       dumpElaboratedASTJson(root);
+
       throwIfUnsupportedElements();
     }
 
