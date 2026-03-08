@@ -5,10 +5,15 @@
 #include "SNLSVConstructor.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
+#include <ctime>
+#include <exception>
 #include <fstream>
 #include <functional>
+#include <iomanip>
 #include <memory>
 #include <limits>
 #include <optional>
@@ -386,6 +391,19 @@ SNLNet* getOrCreateNet(SNLDesign* design, const std::string& name, const Type& t
   return SNLScalarNet::create(design, NLName(name));
 }
 
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+double toMilliseconds(std::chrono::nanoseconds duration) {
+  return std::chrono::duration<double, std::milli>(duration).count();
+}
+
+std::string toSingleLine(const std::string& text) {
+  std::string line = text;
+  std::replace(line.begin(), line.end(), '\n', ' ');
+  std::replace(line.begin(), line.end(), '\r', ' ');
+  return line;
+}
+#endif
+
 }  // namespace
 
 class SNLSVConstructorImpl {
@@ -397,36 +415,311 @@ class SNLSVConstructorImpl {
       options_(options)
     {}
 
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+    struct SVPerfReport {
+      bool enabled {false};
+      std::filesystem::path reportPath {};
+      std::chrono::steady_clock::time_point constructStart {};
+
+      std::chrono::nanoseconds constructDuration {0};
+      std::chrono::nanoseconds parseDuration {0};
+      std::chrono::nanoseconds diagnosticsReportDuration {0};
+      std::chrono::nanoseconds buildTopDesignsDuration {0};
+      std::chrono::nanoseconds elaboratedASTDumpDuration {0};
+      std::chrono::nanoseconds unsupportedCheckDuration {0};
+
+      std::chrono::nanoseconds buildDesignDuration {0};
+      std::chrono::nanoseconds createTermsDuration {0};
+      std::chrono::nanoseconds createNetsDuration {0};
+      std::chrono::nanoseconds connectTermsToNetsDuration {0};
+      std::chrono::nanoseconds createContinuousAssignsDuration {0};
+      std::chrono::nanoseconds createInstancesDuration {0};
+      std::chrono::nanoseconds createSequentialLogicDuration {0};
+
+      size_t inputPathCount {0};
+      size_t topInstanceCount {0};
+      size_t buildDesignCalls {0};
+      size_t buildDesignCacheHits {0};
+      size_t createTermsCalls {0};
+      size_t createNetsCalls {0};
+      size_t connectTermsToNetsCalls {0};
+      size_t createContinuousAssignsCalls {0};
+      size_t createInstancesCalls {0};
+      size_t createSequentialLogicCalls {0};
+      size_t portSymbolsVisited {0};
+      size_t portsCreated {0};
+      size_t netOrVariableSymbolsVisited {0};
+      size_t netsCreated {0};
+      size_t continuousAssignsVisited {0};
+      size_t instanceSymbolsVisited {0};
+      size_t instancesCreated {0};
+      size_t proceduralBlocksVisited {0};
+      size_t alwaysCombBlocksVisited {0};
+      size_t alwaysCombBlocksLowered {0};
+      size_t sequentialBlocksVisited {0};
+      size_t sequentialBlocksLowered {0};
+      size_t warningCount {0};
+      size_t unsupportedCount {0};
+
+      bool success {false};
+      std::string failureReason {};
+      std::string firstUnsupported {};
+      std::string firstWarning {};
+    };
+
+    class SVPerfScopedTimer {
+      public:
+        SVPerfScopedTimer(SVPerfReport& report, std::chrono::nanoseconds& bucket):
+          report_((report.enabled) ? &report : nullptr),
+          bucket_((report.enabled) ? &bucket : nullptr) {
+          if (report_) {
+            start_ = std::chrono::steady_clock::now();
+          }
+        }
+
+        ~SVPerfScopedTimer() {
+          if (report_) {
+            *bucket_ += std::chrono::steady_clock::now() - start_;
+          }
+        }
+
+      private:
+        SVPerfReport* report_ {nullptr};
+        std::chrono::nanoseconds* bucket_ {nullptr};
+        std::chrono::steady_clock::time_point start_ {};
+    };
+
+    void initializeSVPerfReport(const SNLSVConstructor::Paths& paths) {
+      svPerfReport_ = SVPerfReport {};
+
+      const char* reportEnv = std::getenv("NAJA_SV_CONSTRUCTOR_REPORT");
+      if (!reportEnv) {
+        return;
+      }
+
+      std::string reportPath(reportEnv);
+      if (reportPath.empty() || reportPath == "1") {
+        reportPath = "sv_constructor_perf.log";
+      }
+
+      svPerfReport_.enabled = true;
+      svPerfReport_.reportPath = reportPath;
+      svPerfReport_.constructStart = std::chrono::steady_clock::now();
+      svPerfReport_.inputPathCount = paths.size();
+    }
+
+    void finalizeSVPerfReport() {
+      if (!svPerfReport_.enabled) {
+        return;
+      }
+
+      svPerfReport_.constructDuration =
+        std::chrono::steady_clock::now() - svPerfReport_.constructStart;
+      svPerfReport_.warningCount = warnings_.size();
+      svPerfReport_.unsupportedCount = unsupportedElements_.size();
+      if (svPerfReport_.firstWarning.empty() && !warnings_.empty()) {
+        svPerfReport_.firstWarning = warnings_.front();
+      }
+      if (svPerfReport_.firstUnsupported.empty() && !unsupportedElements_.empty()) {
+        svPerfReport_.firstUnsupported = unsupportedElements_.front();
+      }
+
+      std::ofstream output(
+        svPerfReport_.reportPath,
+        std::ios::out | std::ios::app);
+      if (!output) {
+        NAJA_LOG_WARN(
+          "Unable to write SV constructor performance report: {}",
+          svPerfReport_.reportPath.string());
+        return;
+      }
+
+      const auto now = std::chrono::system_clock::now();
+      const auto nowTime = std::chrono::system_clock::to_time_t(now);
+      std::tm localTime {};
+#if defined(_WIN32)
+      localtime_s(&localTime, &nowTime);
+#else
+      if (const auto* tm = std::localtime(&nowTime)) {
+        localTime = *tm;
+      }
+#endif
+
+      output << "=== SNLSVConstructor Perf Report "
+             << std::put_time(&localTime, "%Y-%m-%d %H:%M:%S") << " ===\n";
+      output << "result=" << (svPerfReport_.success ? "success" : "failure") << "\n";
+      if (!svPerfReport_.failureReason.empty()) {
+        output << "failure_reason=" << toSingleLine(svPerfReport_.failureReason) << "\n";
+      }
+      output << "inputs.path_count=" << svPerfReport_.inputPathCount << "\n";
+      output << "inputs.top_instance_count=" << svPerfReport_.topInstanceCount << "\n";
+
+      output << std::fixed << std::setprecision(3);
+      output << "time.construct.total_ms=" << toMilliseconds(svPerfReport_.constructDuration)
+             << "\n";
+      output << "time.phase.parse_ms=" << toMilliseconds(svPerfReport_.parseDuration) << "\n";
+      output << "time.phase.diagnostics_report_ms="
+             << toMilliseconds(svPerfReport_.diagnosticsReportDuration) << "\n";
+      output << "time.phase.build_top_designs_ms="
+             << toMilliseconds(svPerfReport_.buildTopDesignsDuration) << "\n";
+      output << "time.phase.dump_elaborated_ast_ms="
+             << toMilliseconds(svPerfReport_.elaboratedASTDumpDuration) << "\n";
+      output << "time.phase.unsupported_check_ms="
+             << toMilliseconds(svPerfReport_.unsupportedCheckDuration) << "\n";
+      output << "time.lowering.build_design_ms="
+             << toMilliseconds(svPerfReport_.buildDesignDuration) << "\n";
+      output << "time.lowering.create_terms_ms="
+             << toMilliseconds(svPerfReport_.createTermsDuration) << "\n";
+      output << "time.lowering.create_nets_ms="
+             << toMilliseconds(svPerfReport_.createNetsDuration) << "\n";
+      output << "time.lowering.connect_terms_to_nets_ms="
+             << toMilliseconds(svPerfReport_.connectTermsToNetsDuration) << "\n";
+      output << "time.lowering.create_continuous_assigns_ms="
+             << toMilliseconds(svPerfReport_.createContinuousAssignsDuration) << "\n";
+      output << "time.lowering.create_instances_ms="
+             << toMilliseconds(svPerfReport_.createInstancesDuration) << "\n";
+      output << "time.lowering.create_sequential_logic_ms="
+             << toMilliseconds(svPerfReport_.createSequentialLogicDuration) << "\n";
+
+      output << "count.design.build_calls=" << svPerfReport_.buildDesignCalls << "\n";
+      output << "count.design.build_cache_hits=" << svPerfReport_.buildDesignCacheHits << "\n";
+      output << "count.design.unique_built="
+             << (svPerfReport_.buildDesignCalls - svPerfReport_.buildDesignCacheHits) << "\n";
+      output << "count.lowering.create_terms_calls=" << svPerfReport_.createTermsCalls << "\n";
+      output << "count.lowering.create_nets_calls=" << svPerfReport_.createNetsCalls << "\n";
+      output << "count.lowering.connect_terms_to_nets_calls="
+             << svPerfReport_.connectTermsToNetsCalls << "\n";
+      output << "count.lowering.create_continuous_assigns_calls="
+             << svPerfReport_.createContinuousAssignsCalls << "\n";
+      output << "count.lowering.create_instances_calls="
+             << svPerfReport_.createInstancesCalls << "\n";
+      output << "count.lowering.create_sequential_logic_calls="
+             << svPerfReport_.createSequentialLogicCalls << "\n";
+      output << "count.symbol.port_visited=" << svPerfReport_.portSymbolsVisited << "\n";
+      output << "count.symbol.port_created=" << svPerfReport_.portsCreated << "\n";
+      output << "count.symbol.net_or_variable_visited="
+             << svPerfReport_.netOrVariableSymbolsVisited << "\n";
+      output << "count.symbol.net_created=" << svPerfReport_.netsCreated << "\n";
+      output << "count.symbol.continuous_assign_visited="
+             << svPerfReport_.continuousAssignsVisited << "\n";
+      output << "count.symbol.instance_visited=" << svPerfReport_.instanceSymbolsVisited << "\n";
+      output << "count.symbol.instance_created=" << svPerfReport_.instancesCreated << "\n";
+      output << "count.symbol.procedural_block_visited="
+             << svPerfReport_.proceduralBlocksVisited << "\n";
+      output << "count.block.always_comb_visited="
+             << svPerfReport_.alwaysCombBlocksVisited << "\n";
+      output << "count.block.always_comb_lowered="
+             << svPerfReport_.alwaysCombBlocksLowered << "\n";
+      output << "count.block.sequential_visited="
+             << svPerfReport_.sequentialBlocksVisited << "\n";
+      output << "count.block.sequential_lowered="
+             << svPerfReport_.sequentialBlocksLowered << "\n";
+      output << "count.warning=" << svPerfReport_.warningCount << "\n";
+      output << "count.unsupported=" << svPerfReport_.unsupportedCount << "\n";
+
+      if (!svPerfReport_.firstWarning.empty()) {
+        output << "first_warning=" << toSingleLine(svPerfReport_.firstWarning) << "\n";
+      }
+      if (!svPerfReport_.firstUnsupported.empty()) {
+        output << "first_unsupported=" << toSingleLine(svPerfReport_.firstUnsupported) << "\n";
+      }
+      output << "\n";
+    }
+#endif
+
     void construct(const SNLSVConstructor::Paths& paths) {
       if (!library_) {
         throw SNLSVConstructorException("SNLSVConstructor requires a valid NLLibrary");
       }
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+      initializeSVPerfReport(paths);
+      const auto perfReportGuard = slang::ScopeGuard([&]() {
+        finalizeSVPerfReport();
+      });
+#endif
+
       driver_.reset();
       syntaxTrees_.clear();
       warnings_.clear();
       emittedWarnings_.clear();
       unsupportedElements_.clear();
-      {
-        NajaPerf::Scope scope("SNLSVConstructorImpl::constructWithSlangDriver");
-        constructWithSlangDriver(paths);
-      }
-
-      dumpDiagnosticsReport(getCompilationDiagnosticsReport(*compilation_));
-      if (auto failure = getCompilationFailureDetails(*compilation_)) {
-        throw SNLSVConstructorException(*failure);
-      }
-
-      const auto& root = compilation_->getRoot();
-      {
-        NajaPerf::Scope scope("SNLSVConstructorImpl::buildTopDesigns");
-        for (const auto* top : root.topInstances) {
-          buildDesign(top->body);
+      try {
+        {
+          NajaPerf::Scope scope("SNLSVConstructorImpl::constructWithSlangDriver");
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+          const SVPerfScopedTimer timer(svPerfReport_, svPerfReport_.parseDuration);
+#endif
+          constructWithSlangDriver(paths);
         }
+
+        {
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+          const SVPerfScopedTimer timer(
+            svPerfReport_,
+            svPerfReport_.diagnosticsReportDuration);
+#endif
+          dumpDiagnosticsReport(getCompilationDiagnosticsReport(*compilation_));
+        }
+        if (auto failure = getCompilationFailureDetails(*compilation_)) {
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+          if (svPerfReport_.failureReason.empty()) {
+            svPerfReport_.failureReason = *failure;
+          }
+#endif
+          throw SNLSVConstructorException(*failure);
+        }
+
+        const auto& root = compilation_->getRoot();
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+        svPerfReport_.topInstanceCount = root.topInstances.size();
+#endif
+        {
+          NajaPerf::Scope scope("SNLSVConstructorImpl::buildTopDesigns");
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+          const SVPerfScopedTimer timer(
+            svPerfReport_,
+            svPerfReport_.buildTopDesignsDuration);
+#endif
+          for (const auto* top : root.topInstances) {
+            buildDesign(top->body);
+          }
+        }
+
+        {
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+          const SVPerfScopedTimer timer(
+            svPerfReport_,
+            svPerfReport_.elaboratedASTDumpDuration);
+#endif
+          dumpElaboratedASTJson(root);
+        }
+
+        {
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+          const SVPerfScopedTimer timer(
+            svPerfReport_,
+            svPerfReport_.unsupportedCheckDuration);
+#endif
+          throwIfUnsupportedElements();
+        }
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+        svPerfReport_.success = true;
+#endif
+      } catch (const std::exception& e) {
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+        if (svPerfReport_.failureReason.empty()) {
+          svPerfReport_.failureReason = e.what();
+        }
+#endif
+        throw;
+      } catch (...) { // LCOV_EXCL_LINE
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+        if (svPerfReport_.failureReason.empty()) {
+          svPerfReport_.failureReason = "unknown non-std exception";
+        }
+#endif
+        throw; // LCOV_EXCL_LINE
       }
-
-      dumpElaboratedASTJson(root);
-
-      throwIfUnsupportedElements();
     }
 
   private:
@@ -567,24 +860,75 @@ class SNLSVConstructorImpl {
     }
 
     SNLDesign* buildDesign(const InstanceBodySymbol& body) {
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+      ++svPerfReport_.buildDesignCalls;
+#endif
       const auto& definition = body.getDefinition();
       std::string defName(definition.name);
       auto existingIt = nameToDesign_.find(defName);
       if (existingIt != nameToDesign_.end()) {
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+        ++svPerfReport_.buildDesignCacheHits;
+#endif
         return existingIt->second;
       }
 
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+      const SVPerfScopedTimer designTimer(svPerfReport_, svPerfReport_.buildDesignDuration);
+#endif
       auto design = SNLDesign::create(library_, NLName(defName));
       nameToDesign_[defName] = design;
       bodyToDesign_[&body] = design;
       annotateSourceInfo(design, getSourceRange(definition));
 
-      createTerms(design, body);
-      createNets(design, body);
-      connectTermsToNets(design);
-      createContinuousAssigns(design, body);
-      createInstances(design, body);
-      createSequentialLogic(design, body);
+      {
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+        ++svPerfReport_.createTermsCalls;
+        const SVPerfScopedTimer timer(svPerfReport_, svPerfReport_.createTermsDuration);
+#endif
+        createTerms(design, body);
+      }
+      {
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+        ++svPerfReport_.createNetsCalls;
+        const SVPerfScopedTimer timer(svPerfReport_, svPerfReport_.createNetsDuration);
+#endif
+        createNets(design, body);
+      }
+      {
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+        ++svPerfReport_.connectTermsToNetsCalls;
+        const SVPerfScopedTimer timer(
+          svPerfReport_,
+          svPerfReport_.connectTermsToNetsDuration);
+#endif
+        connectTermsToNets(design);
+      }
+      {
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+        ++svPerfReport_.createContinuousAssignsCalls;
+        const SVPerfScopedTimer timer(
+          svPerfReport_,
+          svPerfReport_.createContinuousAssignsDuration);
+#endif
+        createContinuousAssigns(design, body);
+      }
+      {
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+        ++svPerfReport_.createInstancesCalls;
+        const SVPerfScopedTimer timer(svPerfReport_, svPerfReport_.createInstancesDuration);
+#endif
+        createInstances(design, body);
+      }
+      {
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+        ++svPerfReport_.createSequentialLogicCalls;
+        const SVPerfScopedTimer timer(
+          svPerfReport_,
+          svPerfReport_.createSequentialLogicDuration);
+#endif
+        createSequentialLogic(design, body);
+      }
 
       return design;
     }
@@ -687,7 +1031,13 @@ class SNLSVConstructorImpl {
                 << ": ";
       }
       message << reason;
-      unsupportedElements_.push_back(message.str());
+      auto unsupported = message.str();
+      unsupportedElements_.push_back(unsupported);
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+      if (svPerfReport_.enabled && svPerfReport_.firstUnsupported.empty()) {
+        svPerfReport_.firstUnsupported = unsupported;
+      }
+#endif
     }
 
     void reportWarning(
@@ -704,6 +1054,11 @@ class SNLSVConstructorImpl {
         return;
       }
       warnings_.push_back(warning);
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+      if (svPerfReport_.enabled && svPerfReport_.firstWarning.empty()) {
+        svPerfReport_.firstWarning = warning;
+      }
+#endif
       NAJA_LOG_WARN("{}", warning);
     }
 
@@ -849,6 +1204,9 @@ class SNLSVConstructorImpl {
 
     void createTerms(SNLDesign* design, const InstanceBodySymbol& body) {
       for (const auto& sym : body.getPortList()) {
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+        ++svPerfReport_.portSymbolsVisited;
+#endif
         if (sym->kind != SymbolKind::Port) {
           std::string portName(sym->name);
           if (portName.empty()) {
@@ -892,6 +1250,9 @@ class SNLSVConstructorImpl {
           auto term = SNLScalarTerm::create(design, *direction, NLName(portName));
           annotateSourceInfo(term, getSourceRange(port));
         }
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+        ++svPerfReport_.portsCreated;
+#endif
       }
     }
 
@@ -899,6 +1260,9 @@ class SNLSVConstructorImpl {
       const auto moduleName = design->getName().getString();
       for (const auto& sym : body.members()) {
         if (sym.kind == SymbolKind::Net || sym.kind == SymbolKind::Variable) {
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+          ++svPerfReport_.netOrVariableSymbolsVisited;
+#endif
           const auto& valueSym = sym.as<ValueSymbol>();
           std::string name(valueSym.name);
           // Port terms are materialized first; let connectTermsToNets own their net creation.
@@ -922,6 +1286,9 @@ class SNLSVConstructorImpl {
           }
           auto net = getOrCreateNet(design, name, valueSym.getType());
           annotateSourceInfo(net, getSourceRange(valueSym));
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+          ++svPerfReport_.netsCreated;
+#endif
         }
       }
     }
@@ -8552,9 +8919,15 @@ class SNLSVConstructorImpl {
         if (sym.kind != SymbolKind::ProceduralBlock) {
           continue;
         }
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+        ++svPerfReport_.proceduralBlocksVisited;
+#endif
         const auto& block = sym.as<slang::ast::ProceduralBlockSymbol>();
         auto blockSourceRange = getSourceRange(block);
         if (block.procedureKind == slang::ast::ProceduralBlockKind::AlwaysComb) {
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+          ++svPerfReport_.alwaysCombBlocksVisited;
+#endif
           std::string combFailureReason;
           if (!lowerCombinationalProceduralBlock(
                 design,
@@ -8567,6 +8940,10 @@ class SNLSVConstructorImpl {
               reason << ": " << combFailureReason;
             }
             reportUnsupportedElement(reason.str(), blockSourceRange);
+          } else {
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+            ++svPerfReport_.alwaysCombBlocksLowered;
+#endif
           }
           continue;
         }
@@ -8580,6 +8957,9 @@ class SNLSVConstructorImpl {
           reportUnsupportedElement(reason.str(), blockSourceRange);
           continue;
         }
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+        ++svPerfReport_.sequentialBlocksVisited;
+#endif
 
         const Statement* stmt = &block.getBody();
         const TimingControl* timing = nullptr;
@@ -8877,6 +9257,9 @@ class SNLSVConstructorImpl {
             createDFFInstance(design, clkNet, dataBits[i], lhsBits[i], statementSourceRange);
           }
         }
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+        ++svPerfReport_.sequentialBlocksLowered;
+#endif
       }
     }
 
@@ -8886,6 +9269,9 @@ class SNLSVConstructorImpl {
         if (sym.kind != SymbolKind::ContinuousAssign) {
           continue;
         }
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+        ++svPerfReport_.continuousAssignsVisited;
+#endif
         const auto& continuousAssign = sym.as<slang::ast::ContinuousAssignSymbol>();
         const auto& assignment = continuousAssign.getAssignment();
         if (assignment.kind != slang::ast::ExpressionKind::Assignment) {
@@ -9420,6 +9806,9 @@ class SNLSVConstructorImpl {
         if (sym.kind != SymbolKind::Instance) {
           continue;
         }
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+        ++svPerfReport_.instanceSymbolsVisited;
+#endif
         const auto& instance = sym.as<InstanceSymbol>();
         auto modelDesign = buildDesign(instance.body);
         auto inst = SNLInstance::create(
@@ -9428,6 +9817,9 @@ class SNLSVConstructorImpl {
           NLName(std::string(instance.name)));
         annotateSourceInfo(inst, getSourceRange(instance));
         connectInstance(inst, instance);
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+        ++svPerfReport_.instancesCreated;
+#endif
       }
     }
 
@@ -9567,6 +9959,9 @@ class SNLSVConstructorImpl {
     std::vector<std::string> warnings_;
     std::unordered_set<std::string> emittedWarnings_;
     std::vector<std::string> unsupportedElements_;
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+    SVPerfReport svPerfReport_ {};
+#endif
 };
 
 SNLSVConstructor::SNLSVConstructor(NLLibrary* library):
