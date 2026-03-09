@@ -5387,6 +5387,62 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableBus1Supported) {
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
 }
 
+TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableHoldUsesDFFESupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "seq_enable_hold_uses_dffe_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "seq_enable_hold_uses_dffe_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module seq_enable_hold_uses_dffe_supported(
+  input logic       clk,
+  input logic       en,
+  input logic [7:0] d,
+  output logic [7:0] q
+);
+  always_ff @(posedge clk) begin
+    if (en) q <= d;
+    else q <= q;
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("seq_enable_hold_uses_dffe_supported"));
+  ASSERT_NE(top, nullptr);
+
+  auto dffModel = NLDB0::getDFF();
+  auto dffeModel = NLDB0::getDFFE();
+  auto mux2Model = NLDB0::getMux2();
+  ASSERT_NE(dffModel, nullptr);
+  ASSERT_NE(dffeModel, nullptr);
+  ASSERT_NE(mux2Model, nullptr);
+
+  size_t dffCount = 0;
+  size_t dffeCount = 0;
+  size_t mux2Count = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dffModel) {
+      ++dffCount;
+    } else if (inst->getModel() == dffeModel) {
+      ++dffeCount;
+    } else if (inst->getModel() == mux2Model) {
+      ++mux2Count;
+    }
+  }
+  EXPECT_EQ(0u, dffCount);
+  EXPECT_EQ(8u, dffeCount);
+  EXPECT_EQ(0u, mux2Count);
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseSequentialEnableBus2Skipped) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
@@ -6165,22 +6221,98 @@ endmodule
     FAIL() << "Expected unsupported non-signal event-list timing exception";
   } catch (const SNLSVConstructorException& e) {
     const std::string reason = e.what();
-    EXPECT_NE(std::string::npos, reason.find("Unsupported sequential event list"));
+    EXPECT_NE(std::string::npos, reason.find("Unsupported"));
   }
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseSequentialTimingEventListUnsupported) {
+TEST_F(SNLSVConstructorTestSimple, parseSequentialTimingEventListPosedgeResetSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
-  try {
-    constructor.construct(
-      benchmarksPath / "seq_timing_event_list_unsupported" /
-      "seq_timing_event_list_unsupported.sv");
-    FAIL() << "Expected unsupported event-list timing exception";
-  } catch (const SNLSVConstructorException& e) {
-    const std::string reason = e.what();
-    EXPECT_NE(std::string::npos, reason.find("Unsupported sequential event list"));
+  constructor.construct(
+    benchmarksPath / "seq_timing_event_list_unsupported" /
+    "seq_timing_event_list_unsupported.sv");
+
+  auto top = library_->getSNLDesign(NLName("seq_timing_event_list_unsupported"));
+  ASSERT_NE(top, nullptr);
+
+  auto dffModel = NLDB0::getDFF();
+  auto dffreModel = NLDB0::getDFFRE();
+  auto mux2Model = NLDB0::getMux2();
+  ASSERT_NE(dffModel, nullptr);
+  ASSERT_NE(dffreModel, nullptr);
+  ASSERT_NE(mux2Model, nullptr);
+
+  size_t dffCount = 0;
+  size_t dffreCount = 0;
+  size_t mux2Count = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dffModel) {
+      ++dffCount;
+    } else if (inst->getModel() == dffreModel) {
+      ++dffreCount;
+    } else if (inst->getModel() == mux2Model) {
+      ++mux2Count;
+    }
   }
+  EXPECT_EQ(0u, dffCount);
+  EXPECT_EQ(8u, dffreCount);
+  EXPECT_EQ(0u, mux2Count);
+}
+
+TEST_F(SNLSVConstructorTestSimple, parseSequentialTimingEventListPosedgeSetSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath / "seq_timing_event_list_posedge_set_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath = outPath / "seq_timing_event_list_posedge_set_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module seq_timing_event_list_posedge_set_supported(
+  input logic clk,
+  input logic set,
+  input logic [7:0] d,
+  output logic [7:0] q
+);
+  always_ff @(posedge clk or posedge set) begin
+    if (set) q <= 8'hFF;
+    else q <= d;
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("seq_timing_event_list_posedge_set_supported"));
+  ASSERT_NE(top, nullptr);
+
+  auto dffModel = NLDB0::getDFF();
+  auto dffseModel = NLDB0::getDFFSE();
+  auto mux2Model = NLDB0::getMux2();
+  ASSERT_NE(dffModel, nullptr);
+  ASSERT_NE(dffseModel, nullptr);
+  ASSERT_NE(mux2Model, nullptr);
+
+  size_t dffCount = 0;
+  size_t dffseCount = 0;
+  size_t mux2Count = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dffModel) {
+      ++dffCount;
+    } else if (inst->getModel() == dffseModel) {
+      ++dffseCount;
+    } else if (inst->getModel() == mux2Model) {
+      ++mux2Count;
+    }
+  }
+  EXPECT_EQ(0u, dffCount);
+  EXPECT_EQ(8u, dffseCount);
+  EXPECT_EQ(0u, mux2Count);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseSequentialTimingEventListMissingPosedgeUnsupported) {
