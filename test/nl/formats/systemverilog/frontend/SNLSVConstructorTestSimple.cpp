@@ -15,11 +15,13 @@
 #include "SNLBusNet.h"
 #include "SNLBusTerm.h"
 #include "SNLBusTermBit.h"
-#include "SNLAttributes.h"
 #include "SNLBitNet.h"
 #include "SNLInstTerm.h"
 #include "SNLInstance.h"
 #include "SNLNet.h"
+#include "SNLDesign.h"
+#include "SNLDesignObject.h"
+#include "SNLRTLInfos.h"
 #include "SNLScalarNet.h"
 #include "SNLScalarTerm.h"
 #include "SNLTerm.h"
@@ -40,17 +42,24 @@ using namespace naja::NL;
 
 namespace {
 
-bool hasAttribute(const NLObject* object, const std::string& name) {
-  for (const auto& attribute : SNLAttributes::getAttributes(object)) {
-    if (attribute.getName().getString() == name) {
-      return true;
-    }
+const SNLRTLInfos* getRTLInfos(const NLObject* object) {
+  if (auto design = dynamic_cast<const SNLDesign*>(object)) {
+    return design->getRTLInfos();
   }
-  return false;
+  if (auto designObject = dynamic_cast<const SNLDesignObject*>(object)) {
+    return designObject->getRTLInfos();
+  }
+  return nullptr;
+}
+
+bool hasRTLInfo(const NLObject* object, const std::string& name) {
+  auto rtlInfos = getRTLInfos(object);
+  return rtlInfos && rtlInfos->hasInfo(NLName(name));
 }
 
 std::filesystem::path dumpTopAndGetVerilogPath(const SNLDesign* top,
-                                               const std::string& outDirName) {
+                                               const std::string& outDirName,
+                                               bool dumpRTLInfosAsAttributes = false) {
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
   outPath /= outDirName;
   if (std::filesystem::exists(outPath)) {
@@ -62,6 +71,7 @@ std::filesystem::path dumpTopAndGetVerilogPath(const SNLDesign* top,
   auto fileName = top->getName().getString() + ".v";
   dumper.setTopFileName(fileName);
   dumper.setSingleFile(true);
+  dumper.setDumpRTLInfosAsAttributes(dumpRTLInfosAsAttributes);
   dumper.dumpDesign(top, outPath);
   return outPath / fileName;
 }
@@ -106,13 +116,19 @@ TEST_F(SNLSVConstructorTestSimple, parseSimpleModule) {
 
   auto top = library_->getSNLDesign(NLName("top"));
   ASSERT_NE(top, nullptr);
-  EXPECT_TRUE(hasAttribute(top, "sv_src_file"));
-  EXPECT_TRUE(hasAttribute(top, "sv_src_line"));
-  EXPECT_TRUE(hasAttribute(top, "sv_src_column"));
+  EXPECT_TRUE(hasRTLInfo(top, "sv_src_file"));
+  EXPECT_TRUE(hasRTLInfo(top, "sv_src_line"));
+  EXPECT_TRUE(hasRTLInfo(top, "sv_src_column"));
+  ASSERT_TRUE(top->hasRTLInfos());
+  EXPECT_TRUE(top->getRTLInfos()->hasInfo(NLName("sv_src_file")));
+  EXPECT_TRUE(top->getRTLInfos()->hasInfo(NLName("sv_src_line")));
+  EXPECT_FALSE(top->getRTLInfos()->getInfo(NLName("sv_src_line")).empty());
   EXPECT_EQ(3, top->getTerms().size());
   auto a = top->getTerm(NLName("a"));
   ASSERT_NE(a, nullptr);
-  EXPECT_TRUE(hasAttribute(a, "sv_src_file"));
+  EXPECT_TRUE(hasRTLInfo(a, "sv_src_file"));
+  ASSERT_TRUE(a->hasRTLInfos());
+  EXPECT_TRUE(a->getRTLInfos()->hasInfo(NLName("sv_src_file")));
   EXPECT_EQ(SNLTerm::Direction::Input, a->getDirection());
   auto b = top->getTerm(NLName("b"));
   ASSERT_NE(b, nullptr);
@@ -145,8 +161,10 @@ TEST_F(SNLSVConstructorTestSimple, parseSimpleModule) {
   }
   ASSERT_NE(assignInst, nullptr);
   ASSERT_NE(andInst, nullptr);
-  EXPECT_TRUE(hasAttribute(assignInst, "sv_src_line"));
-  EXPECT_TRUE(hasAttribute(andInst, "sv_src_line"));
+  EXPECT_TRUE(hasRTLInfo(assignInst, "sv_src_line"));
+  EXPECT_TRUE(hasRTLInfo(andInst, "sv_src_line"));
+  ASSERT_TRUE(assignInst->hasRTLInfos());
+  EXPECT_TRUE(assignInst->getRTLInfos()->hasInfo(NLName("sv_src_line")));
 
   auto assignInput = NLDB0::getAssignInput();
   auto assignOutput = NLDB0::getAssignOutput();
@@ -180,6 +198,22 @@ TEST_F(SNLSVConstructorTestSimple, parseSimpleModule) {
 
   auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "simple_module");
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
+  std::ifstream dumpedFile(dumpedVerilog);
+  ASSERT_TRUE(dumpedFile.good());
+  std::string dumpedText{
+    std::istreambuf_iterator<char>(dumpedFile),
+    std::istreambuf_iterator<char>()};
+  EXPECT_EQ(dumpedText.find("sv_src_file"), std::string::npos);
+
+  auto dumpedVerilogWithRTLInfos =
+    dumpTopAndGetVerilogPath(top, "simple_module_with_rtl_infos", true);
+  EXPECT_TRUE(std::filesystem::exists(dumpedVerilogWithRTLInfos));
+  std::ifstream dumpedWithRTLInfosFile(dumpedVerilogWithRTLInfos);
+  ASSERT_TRUE(dumpedWithRTLInfosFile.good());
+  std::string dumpedWithRTLInfosText{
+    std::istreambuf_iterator<char>(dumpedWithRTLInfosFile),
+    std::istreambuf_iterator<char>()};
+  EXPECT_NE(dumpedWithRTLInfosText.find("sv_src_file"), std::string::npos);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseSimpleModuleViaPathsOverload) {
@@ -1489,10 +1523,10 @@ TEST_F(SNLSVConstructorTestSimple, parseNonAnsiPortsCreateTermNets) {
   EXPECT_EQ(4, bNet->getWidth());
   EXPECT_EQ(4, zNet->getWidth());
 
-  EXPECT_TRUE(hasAttribute(aNet, "sv_src_file"));
-  EXPECT_TRUE(hasAttribute(bNet, "sv_src_file"));
-  EXPECT_TRUE(hasAttribute(yNet, "sv_src_file"));
-  EXPECT_TRUE(hasAttribute(zNet, "sv_src_file"));
+  EXPECT_TRUE(hasRTLInfo(aNet, "sv_src_file"));
+  EXPECT_TRUE(hasRTLInfo(bNet, "sv_src_file"));
+  EXPECT_TRUE(hasRTLInfo(yNet, "sv_src_file"));
+  EXPECT_TRUE(hasRTLInfo(zNet, "sv_src_file"));
 
   auto dumpedVerilog = dumpTopAndGetVerilogPath(top, "non_ansi_ports");
   EXPECT_TRUE(std::filesystem::exists(dumpedVerilog));
@@ -4932,7 +4966,7 @@ TEST_F(SNLSVConstructorTestSimple, parseUpCounter) {
     auto model = inst->getModel();
     if (model == dffModel) {
       ++dffCount;
-      if (hasAttribute(inst, "sv_src_line")) {
+      if (hasRTLInfo(inst, "sv_src_line")) {
         dffHasSource = true;
       }
       continue;

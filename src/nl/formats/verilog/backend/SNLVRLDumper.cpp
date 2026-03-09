@@ -7,6 +7,7 @@
 #include <cassert>
 #include <algorithm>
 #include <chrono>
+#include <cctype>
 #include <cstdlib>
 #include <iomanip>
 #include <sstream>
@@ -30,6 +31,8 @@
 #include "SNLBusNetBit.h"
 #include "SNLInstTerm.h"
 #include "SNLAttributes.h"
+#include "SNLDesignObject.h"
+#include "SNLRTLInfos.h"
 #include "SNLUtils.h"
 
 namespace {
@@ -91,6 +94,16 @@ void dumpConstantRange(ContiguousNetBits& bits, bool& firstElement, bool& concat
     }
   }
   bits.clear();
+}
+
+bool isUnsignedDecimal(const std::string& value) {
+  if (value.empty()) {
+    return false;
+  }
+  return std::all_of(
+    value.begin(),
+    value.end(),
+    [](unsigned char c) { return std::isdigit(c) != 0; });
 }
 
 std::string dumpName(const std::string& name) {
@@ -521,12 +534,34 @@ void SNLVRLDumper::finalizeDetailedPerfSession() {
   output << "count.dumpAttributes_nonempty_calls="
          << detailedPerfReport_.dumpAttributesNonEmptyCalls << "\n";
   output << "count.dumped_attributes=" << detailedPerfReport_.dumpedAttributesCount << "\n";
+  output << "time.dumpAttributes_snl_attributes_ms="
+         << toMilliseconds(detailedPerfReport_.dumpAttributesSNLAttributesDuration) << "\n";
+  output << "count.dumped_snl_attributes="
+         << detailedPerfReport_.dumpedSNLAttributesCount << "\n";
+  output << "time.dumpAttributes_rtl_infos_ms="
+         << toMilliseconds(detailedPerfReport_.dumpAttributesRTLInfosDuration) << "\n";
+  output << "count.dumped_rtl_infos="
+         << detailedPerfReport_.dumpedRTLInfosCount << "\n";
   if (detailedPerfReport_.dumpedAttributesCount > 0) {
     const double dumpAttributesMicros =
       std::chrono::duration<double, std::micro>(
         detailedPerfReport_.dumpAttributesDuration).count();
     output << "derived.dumpAttributes_us_per_attribute="
            << (dumpAttributesMicros / detailedPerfReport_.dumpedAttributesCount) << "\n";
+  }
+  if (detailedPerfReport_.dumpedSNLAttributesCount > 0) {
+    const double dumpSNLAttributesMicros =
+      std::chrono::duration<double, std::micro>(
+        detailedPerfReport_.dumpAttributesSNLAttributesDuration).count();
+    output << "derived.dumpAttributes_snl_attributes_us_per_attribute="
+           << (dumpSNLAttributesMicros / detailedPerfReport_.dumpedSNLAttributesCount) << "\n";
+  }
+  if (detailedPerfReport_.dumpedRTLInfosCount > 0) {
+    const double dumpRTLInfosMicros =
+      std::chrono::duration<double, std::micro>(
+        detailedPerfReport_.dumpAttributesRTLInfosDuration).count();
+    output << "derived.dumpAttributes_rtl_infos_us_per_attribute="
+           << (dumpRTLInfosMicros / detailedPerfReport_.dumpedRTLInfosCount) << "\n";
   }
   output << "time.dumpAttributes_design_ms="
          << toMilliseconds(detailedPerfReport_.dumpAttributesDesignDuration) << "\n";
@@ -609,6 +644,10 @@ void SNLVRLDumper::finalizeDetailedPerfSession() {
   std::vector<PhaseStat> phases {
     {"dumpAttributes", detailedPerfReport_.dumpAttributesDuration,
       detailedPerfReport_.dumpAttributesCalls},
+    {"dumpAttributes_snl_attributes", detailedPerfReport_.dumpAttributesSNLAttributesDuration,
+      detailedPerfReport_.dumpAttributesCalls},
+    {"dumpAttributes_rtl_infos", detailedPerfReport_.dumpAttributesRTLInfosDuration,
+      detailedPerfReport_.dumpAttributesCalls},
     {"dumpInterface", detailedPerfReport_.dumpInterfaceDuration,
       detailedPerfReport_.dumpInterfaceCalls},
     {"dumpNets", detailedPerfReport_.dumpNetsDuration,
@@ -675,6 +714,10 @@ void SNLVRLDumper::setTopFileName(const std::string& name) {
 
 void SNLVRLDumper::setDumpHierarchy(bool mode) {
   configuration_.setDumpHierarchy(mode);
+}
+
+void SNLVRLDumper::setDumpRTLInfosAsAttributes(bool mode) {
+  configuration_.setDumpRTLInfosAsAttributes(mode);
 }
 
 std::string SNLVRLDumper::createDesignName(const SNLDesign* design) {
@@ -773,9 +816,14 @@ void SNLVRLDumper::dumpAttributes(
         break;
     }
   }
-  size_t dumpedAttributes = 0;
+  size_t dumpedSNLAttributes = 0;
+  size_t dumpedRTLInfos = 0;
+  std::chrono::steady_clock::time_point snlAttributesStart {};
+  if (perfActive) {
+    snlAttributesStart = std::chrono::steady_clock::now();
+  }
   for (const auto& attribute: SNLAttributes::getAttributes(object)) {
-    ++dumpedAttributes;
+    ++dumpedSNLAttributes;
     o << "(* ";
     o << attribute.getName().getString();
     if (attribute.hasValue()) {
@@ -791,12 +839,54 @@ void SNLVRLDumper::dumpAttributes(
     o << " *)\n";
   }
   if (perfActive) {
+    detailedPerfReport_.dumpAttributesSNLAttributesDuration +=
+      std::chrono::steady_clock::now() - snlAttributesStart;
+  }
+  if (configuration_.isDumpRTLInfosAsAttributes()) {
+    const SNLRTLInfos* rtlInfos = nullptr;
+    if (auto design = dynamic_cast<const SNLDesign*>(object)) {
+      rtlInfos = design->getRTLInfos();
+    } else if (auto designObject = dynamic_cast<const SNLDesignObject*>(object)) {
+      rtlInfos = designObject->getRTLInfos();
+    }
+    std::chrono::steady_clock::time_point rtlInfosStart {};
+    if (perfActive) {
+      rtlInfosStart = std::chrono::steady_clock::now();
+    }
+    if (rtlInfos) {
+      for (const auto& info : rtlInfos->getInfos()) {
+        ++dumpedRTLInfos;
+        o << "(* ";
+        o << info.first.getString();
+        if (!info.second.empty()) {
+          o << "=";
+          const bool valueIsNumber = isUnsignedDecimal(info.second);
+          if (!valueIsNumber) {
+            o << "\"";
+          }
+          o << info.second;
+          if (!valueIsNumber) {
+            o << "\"";
+          }
+        }
+        o << " *)\n";
+      }
+    }
+    if (perfActive) {
+      detailedPerfReport_.dumpAttributesRTLInfosDuration +=
+        std::chrono::steady_clock::now() - rtlInfosStart;
+    }
+  }
+  const size_t dumpedAttributes = dumpedSNLAttributes + dumpedRTLInfos;
+  if (perfActive) {
     if (dumpedAttributes == 0) {
       ++detailedPerfReport_.dumpAttributesEmptyCalls;
     } else {
       ++detailedPerfReport_.dumpAttributesNonEmptyCalls;
     }
     detailedPerfReport_.dumpedAttributesCount += dumpedAttributes;
+    detailedPerfReport_.dumpedSNLAttributesCount += dumpedSNLAttributes;
+    detailedPerfReport_.dumpedRTLInfosCount += dumpedRTLInfos;
     const auto siteDuration = std::chrono::steady_clock::now() - siteStart;
     switch (site) {
       case AttributeDumpSite::Design:

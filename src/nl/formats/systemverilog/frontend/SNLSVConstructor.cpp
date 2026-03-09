@@ -40,6 +40,7 @@
 #include "SNLDesignObject.h"
 #include "SNLInstance.h"
 #include "SNLInstTerm.h"
+#include "SNLRTLInfos.h"
 #include "SNLScalarNet.h"
 #include "SNLScalarTerm.h"
 
@@ -435,6 +436,8 @@ class SNLSVConstructorImpl {
       std::chrono::nanoseconds createContinuousAssignsDuration {0};
       std::chrono::nanoseconds createInstancesDuration {0};
       std::chrono::nanoseconds createSequentialLogicDuration {0};
+      std::chrono::nanoseconds annotateSourceInfoDuration {0};
+      std::chrono::nanoseconds cloneRTLInfosDuration {0};
 
       size_t inputPathCount {0};
       size_t topInstanceCount {0};
@@ -446,6 +449,12 @@ class SNLSVConstructorImpl {
       size_t createContinuousAssignsCalls {0};
       size_t createInstancesCalls {0};
       size_t createSequentialLogicCalls {0};
+      size_t annotateSourceInfoCalls {0};
+      size_t rtlInfoCreateDesignCalls {0};
+      size_t rtlInfoCreateDesignObjectCalls {0};
+      size_t rtlInfoSetCalls {0};
+      size_t rtlInfoCloneCalls {0};
+      size_t rtlInfoClonedEntries {0};
       size_t portSymbolsVisited {0};
       size_t portsCreated {0};
       size_t netOrVariableSymbolsVisited {0};
@@ -580,6 +589,10 @@ class SNLSVConstructorImpl {
              << toMilliseconds(svPerfReport_.createInstancesDuration) << "\n";
       output << "time.lowering.create_sequential_logic_ms="
              << toMilliseconds(svPerfReport_.createSequentialLogicDuration) << "\n";
+      output << "time.lowering.annotate_source_info_ms="
+             << toMilliseconds(svPerfReport_.annotateSourceInfoDuration) << "\n";
+      output << "time.lowering.clone_rtl_infos_ms="
+             << toMilliseconds(svPerfReport_.cloneRTLInfosDuration) << "\n";
 
       output << "count.design.build_calls=" << svPerfReport_.buildDesignCalls << "\n";
       output << "count.design.build_cache_hits=" << svPerfReport_.buildDesignCacheHits << "\n";
@@ -595,6 +608,16 @@ class SNLSVConstructorImpl {
              << svPerfReport_.createInstancesCalls << "\n";
       output << "count.lowering.create_sequential_logic_calls="
              << svPerfReport_.createSequentialLogicCalls << "\n";
+      output << "count.lowering.annotate_source_info_calls="
+             << svPerfReport_.annotateSourceInfoCalls << "\n";
+      output << "count.rtl_info.create_design_calls="
+             << svPerfReport_.rtlInfoCreateDesignCalls << "\n";
+      output << "count.rtl_info.create_design_object_calls="
+             << svPerfReport_.rtlInfoCreateDesignObjectCalls << "\n";
+      output << "count.rtl_info.set_calls=" << svPerfReport_.rtlInfoSetCalls << "\n";
+      output << "count.rtl_info.clone_calls=" << svPerfReport_.rtlInfoCloneCalls << "\n";
+      output << "count.rtl_info.cloned_entries="
+             << svPerfReport_.rtlInfoClonedEntries << "\n";
       output << "count.symbol.port_visited=" << svPerfReport_.portSymbolsVisited << "\n";
       output << "count.symbol.port_created=" << svPerfReport_.portsCreated << "\n";
       output << "count.symbol.net_or_variable_visited="
@@ -1106,24 +1129,90 @@ class SNLSVConstructorImpl {
       throw SNLSVConstructorException(reason.str());
     }
 
-    void addAttribute(
-      NLObject* object,
+    SNLRTLInfos* getOrCreateRTLInfos(SNLDesign* design) const {
+      if (!design) {
+        return nullptr; // LCOV_EXCL_LINE
+      }
+      auto* rtlInfos = design->getRTLInfos();
+      if (!rtlInfos) {
+        rtlInfos = SNLRTLInfos::create(design);
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+        ++svPerfReport_.rtlInfoCreateDesignCalls;
+#endif
+      }
+      return rtlInfos;
+    }
+
+    SNLRTLInfos* getOrCreateRTLInfos(SNLDesignObject* designObject) const {
+      if (!designObject) {
+        return nullptr; // LCOV_EXCL_LINE
+      }
+      auto* rtlInfos = designObject->getRTLInfos();
+      if (!rtlInfos) {
+        rtlInfos = SNLRTLInfos::create(designObject);
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+        ++svPerfReport_.rtlInfoCreateDesignObjectCalls;
+#endif
+      }
+      return rtlInfos;
+    }
+
+    void addRTLInfo(
+      SNLRTLInfos* rtlInfos,
       const char* name,
-      SNLAttributeValue::Type type,
       const std::string& value) const {
-      if (!object) {
+      if (!rtlInfos) {
         return; // LCOV_EXCL_LINE
       }
-      SNLAttribute attribute(
-        NLName(name),
-        SNLAttributeValue(type, value));
-      if (auto design = dynamic_cast<SNLDesign*>(object)) {
-        SNLAttributes::addAttribute(design, attribute);
+      rtlInfos->setInfo(NLName(name), value);
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+      ++svPerfReport_.rtlInfoSetCalls;
+#endif
+    }
+
+    void cloneRTLInfos(
+      const SNLDesignObject* from,
+      SNLDesignObject* to) const {
+      if (!from || !to) {
+        return; // LCOV_EXCL_LINE
+      }
+      auto* fromInfos = from->getRTLInfos();
+      if (!fromInfos) {
         return;
       }
-      if (auto designObject = dynamic_cast<SNLDesignObject*>(object)) {
-        SNLAttributes::addAttribute(designObject, attribute);
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+      ++svPerfReport_.rtlInfoCloneCalls;
+      svPerfReport_.rtlInfoClonedEntries += fromInfos->getInfos().size();
+      const SVPerfScopedTimer timer(svPerfReport_, svPerfReport_.cloneRTLInfosDuration);
+#endif
+      auto* toInfos = to->getRTLInfos();
+      if (!toInfos) {
+        toInfos = SNLRTLInfos::create(to);
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+        ++svPerfReport_.rtlInfoCreateDesignObjectCalls;
+#endif
       }
+      toInfos->cloneInfos(*fromInfos);
+    }
+
+    template<typename TObject>
+    void annotateSourceInfo(
+      TObject* object,
+      const SourceInfo& sourceInfo) const {
+#ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
+      ++svPerfReport_.annotateSourceInfoCalls;
+      const SVPerfScopedTimer timer(svPerfReport_, svPerfReport_.annotateSourceInfoDuration);
+#endif
+      auto* rtlInfos = getOrCreateRTLInfos(object);
+      addRTLInfo(rtlInfos, "sv_src_file", sourceInfo.file);
+      const auto line = std::to_string(sourceInfo.line);
+      addRTLInfo(rtlInfos, "sv_src_line", line);
+      const auto column = std::to_string(sourceInfo.column);
+      addRTLInfo(rtlInfos, "sv_src_column", column);
+      const auto endLine = std::to_string(sourceInfo.endLine);
+      addRTLInfo(rtlInfos, "sv_src_end_line", endLine);
+      const auto endColumn = std::to_string(sourceInfo.endColumn);
+      addRTLInfo(rtlInfos, "sv_src_end_column", endColumn);
     }
 
     void annotateSourceInfo(
@@ -1133,31 +1222,13 @@ class SNLSVConstructorImpl {
       if (!sourceInfo) {
         return; // LCOV_EXCL_LINE
       }
-      addAttribute(
-        object,
-        "sv_src_file",
-        SNLAttributeValue::Type::STRING,
-        sourceInfo->file);
-      addAttribute(
-        object,
-        "sv_src_line",
-        SNLAttributeValue::Type::NUMBER,
-        std::to_string(sourceInfo->line));
-      addAttribute(
-        object,
-        "sv_src_column",
-        SNLAttributeValue::Type::NUMBER,
-        std::to_string(sourceInfo->column));
-      addAttribute(
-        object,
-        "sv_src_end_line",
-        SNLAttributeValue::Type::NUMBER,
-        std::to_string(sourceInfo->endLine));
-      addAttribute(
-        object,
-        "sv_src_end_column",
-        SNLAttributeValue::Type::NUMBER,
-        std::to_string(sourceInfo->endColumn));
+      if (auto* design = dynamic_cast<SNLDesign*>(object)) {
+        annotateSourceInfo(design, *sourceInfo);
+        return;
+      }
+      if (auto* designObject = dynamic_cast<SNLDesignObject*>(object)) {
+        annotateSourceInfo(designObject, *sourceInfo);
+      }
     }
 
     const Expression* stripConnectionLValueArgConversions(const Expression& expr) const {
@@ -10176,6 +10247,7 @@ class SNLSVConstructorImpl {
             net = SNLScalarNet::create(design, NLName(name));
           }
           SNLAttributes::cloneAttributes(term, net);
+          cloneRTLInfos(term, net);
         }
         term->setNet(net);
       }
@@ -10345,7 +10417,7 @@ class SNLSVConstructorImpl {
     std::unordered_set<std::string> emittedWarnings_;
     std::vector<std::string> unsupportedElements_;
 #ifdef NAJA_ENABLE_SV_CONSTRUCTOR_PERF_REPORT
-    SVPerfReport svPerfReport_ {};
+    mutable SVPerfReport svPerfReport_ {};
 #endif
 };
 

@@ -67,11 +67,14 @@ class SNLVRLDumper {
         bool hasLibraryFileName() const { return not libraryFileName_.empty(); }
         void setDumpHierarchy(bool mode) { dumpHierarchy_ = mode; }
         bool isDumpHierarchy() const { return dumpHierarchy_; }
+        void setDumpRTLInfosAsAttributes(bool mode) { dumpRTLInfosAsAttributes_ = mode; }
+        bool isDumpRTLInfosAsAttributes() const { return dumpRTLInfosAsAttributes_; }
       private:
         bool        singleFile_       {true};
         std::string topFileName_      {};
         std::string libraryFileName_  {};
         bool        dumpHierarchy_    {true};
+        bool        dumpRTLInfosAsAttributes_ {false};
     }; 
     void setConfiguration(const Configuration& configuration) { configuration_ = configuration; }
     // controls if dumper will dump a single file or a file per module. 
@@ -84,6 +87,7 @@ class SNLVRLDumper {
     void setTopFileName(const std::string& name);
     void setLibraryFileName(const std::string& name);
     void setDumpHierarchy(bool mode);
+    void setDumpRTLInfosAsAttributes(bool mode);
 
     /**
      * \param design SNLDesign to dump.
@@ -121,6 +125,10 @@ class SNLVRLDumper {
       size_t dumpAttributesEmptyCalls {0};
       size_t dumpAttributesNonEmptyCalls {0};
       size_t dumpedAttributesCount {0};
+      std::chrono::nanoseconds dumpAttributesSNLAttributesDuration {0};
+      size_t dumpedSNLAttributesCount {0};
+      std::chrono::nanoseconds dumpAttributesRTLInfosDuration {0};
+      size_t dumpedRTLInfosCount {0};
 
       std::chrono::nanoseconds dumpAttributesDesignDuration {0};
       size_t dumpAttributesDesignCalls {0};

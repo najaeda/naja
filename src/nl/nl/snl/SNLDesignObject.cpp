@@ -7,6 +7,7 @@
 #include "NLDB.h"
 #include "NLLibrary.h"
 #include "SNLDesign.h"
+#include "SNLRTLInfos.h"
 
 namespace naja::NL {
 
@@ -15,6 +16,9 @@ void SNLDesignObject::postCreate() {
 }
 
 void SNLDesignObject::preDestroy() {
+  if (rtlInfos_) {
+    rtlInfos_->destroy();
+  }
   super::preDestroy();
 }
 

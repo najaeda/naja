@@ -14,10 +14,12 @@ namespace naja::NL {
 class NLDB;
 class NLLibrary;
 class NLDesign;
+class SNLRTLInfos;
 
 class SNLDesignObject: public NLObject {
   public:
     using super = NLObject;
+    friend class SNLRTLInfos;
     SNLDesignObject(const SNLDesignObject&) = delete;
     SNLDesignObject(const SNLDesignObject&&) = delete;
 
@@ -39,6 +41,8 @@ class SNLDesignObject: public NLObject {
     NLLibrary* getLibrary() const;
 
     NajaCollection<SNLAttribute> getAttributes() const;
+    SNLRTLInfos* getRTLInfos() const { return rtlInfos_; }
+    bool hasRTLInfos() const { return rtlInfos_ != nullptr; }
 
     /// \return the owner NLDB of this SNLDesignObject.
     NLDB* getDB() const;
@@ -71,6 +75,9 @@ class SNLDesignObject: public NLObject {
 
     void postCreate() override;
     void preDestroy() override;
+
+  private:
+    SNLRTLInfos* rtlInfos_ {nullptr};
 };
 
 }  // namespace naja::NL
