@@ -4,7 +4,9 @@
 
 #pragma once
 
+#include <chrono>
 #include <filesystem>
+#include <string>
 #include <vector>
 #include <map>
 #include <set>
@@ -47,6 +49,8 @@ struct SNLVRLDumperException: public std::exception {
 
 class SNLVRLDumper {
   public:
+    SNLVRLDumper();
+
     class Configuration {
       public:
         Configuration() = default;
@@ -81,7 +85,6 @@ class SNLVRLDumper {
     void setLibraryFileName(const std::string& name);
     void setDumpHierarchy(bool mode);
 
-    void dumpAttributes(const NLObject*, std::ostream& o);
     /**
      * \param design SNLDesign to dump.
      * \param path directory path in which the dump will be created.
@@ -97,6 +100,99 @@ class SNLVRLDumper {
 
     static std::string binStrToHexStr(std::string binStr);
   private:
+    enum class AttributeDumpSite {
+      Design,
+      Instance,
+      Net
+    };
+
+    void dumpAttributes(const NLObject*, std::ostream& o, AttributeDumpSite site);
+
+    struct DetailedPerfReport {
+      bool enabled {false};
+      bool sessionActive {false};
+      std::filesystem::path reportPath {};
+      std::string context {};
+      std::chrono::steady_clock::time_point sessionStart {};
+      std::chrono::nanoseconds totalDuration {0};
+
+      std::chrono::nanoseconds dumpAttributesDuration {0};
+      size_t dumpAttributesCalls {0};
+      size_t dumpAttributesEmptyCalls {0};
+      size_t dumpAttributesNonEmptyCalls {0};
+      size_t dumpedAttributesCount {0};
+
+      std::chrono::nanoseconds dumpAttributesDesignDuration {0};
+      size_t dumpAttributesDesignCalls {0};
+      size_t dumpedAttributesDesignCount {0};
+
+      std::chrono::nanoseconds dumpAttributesInstanceDuration {0};
+      size_t dumpAttributesInstanceCalls {0};
+      size_t dumpedAttributesInstanceCount {0};
+
+      std::chrono::nanoseconds dumpAttributesNetDuration {0};
+      size_t dumpAttributesNetCalls {0};
+      size_t dumpedAttributesNetCount {0};
+
+      std::chrono::nanoseconds dumpInterfaceDuration {0};
+      size_t dumpInterfaceCalls {0};
+
+      std::chrono::nanoseconds dumpNetsDuration {0};
+      size_t dumpNetsCalls {0};
+
+      std::chrono::nanoseconds dumpInstancesDuration {0};
+      size_t dumpInstancesCalls {0};
+
+      std::chrono::nanoseconds dumpTermAssignsDuration {0};
+      size_t dumpTermAssignsCalls {0};
+
+      std::chrono::nanoseconds dumpParametersDuration {0};
+      size_t dumpParametersCalls {0};
+
+      std::chrono::nanoseconds dumpOneDesignDuration {0};
+      size_t dumpOneDesignCalls {0};
+
+      std::chrono::nanoseconds dumpDesignStreamDuration {0};
+      size_t dumpDesignStreamCalls {0};
+
+      std::chrono::nanoseconds dumpDesignPathDuration {0};
+      size_t dumpDesignPathCalls {0};
+
+      std::chrono::nanoseconds dumpLibraryStreamDuration {0};
+      size_t dumpLibraryStreamCalls {0};
+
+      std::chrono::nanoseconds dumpLibraryPathDuration {0};
+      size_t dumpLibraryPathCalls {0};
+    };
+
+    class DetailedPerfScopedTimer {
+      public:
+        DetailedPerfScopedTimer(
+          DetailedPerfReport& report,
+          std::chrono::nanoseconds& bucket,
+          size_t& calls);
+        ~DetailedPerfScopedTimer();
+
+      private:
+        DetailedPerfReport* report_ {nullptr};
+        std::chrono::nanoseconds* bucket_ {nullptr};
+        std::chrono::steady_clock::time_point start_ {};
+    };
+
+    class DetailedPerfSessionGuard {
+      public:
+        DetailedPerfSessionGuard(SNLVRLDumper& dumper, const std::string& context);
+        ~DetailedPerfSessionGuard();
+
+      private:
+        SNLVRLDumper* dumper_ {nullptr};
+        bool started_ {false};
+    };
+
+    void initializeDetailedPerfConfig();
+    bool beginDetailedPerfSession(const std::string& context);
+    void finalizeDetailedPerfSession();
+
     std::string getTopFileName(const SNLDesign* top) const;
     std::string getLibraryFileName(const NLLibrary* library) const;
     struct DesignAnonymousNaming {
@@ -150,6 +246,7 @@ class SNLVRLDumper {
 
     Configuration           configuration_          {};
     DesignsAnonynousNaming  designsAnonymousNaming_ {};
+    DetailedPerfReport      detailedPerfReport_     {};
 };
 
 } // namespace naja::NL

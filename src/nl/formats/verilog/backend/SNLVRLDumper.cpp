@@ -6,10 +6,14 @@
 
 #include <cassert>
 #include <algorithm>
+#include <chrono>
+#include <cstdlib>
+#include <iomanip>
 #include <sstream>
 #include <fstream>
 #include <unordered_set>
 
+#include "NajaLog.h"
 #include "NajaUtils.h"
 #include "NajaPerf.h"
 
@@ -29,6 +33,10 @@
 #include "SNLUtils.h"
 
 namespace {
+
+double toMilliseconds(const std::chrono::nanoseconds& duration) {
+  return std::chrono::duration<double, std::milli>(duration).count();
+}
 
 size_t dumpDirection(const naja::NL::SNLTerm* term, std::ostream& o) {
   switch (term->getDirection()) {
@@ -267,7 +275,7 @@ bool dumpSingleAssign(
     inputNetString = bitNetToString(inputNet);
   }
   auto outputNetString = bitNetToString(outputNet);
-  o << "assign " << outputNetString << " = " << inputNetString << ";" << std::endl;
+  o << "assign " << outputNetString << " = " << inputNetString << ";" << '\n';
   return true;
 }
 
@@ -416,13 +424,242 @@ bool dumpAssignGroup(
       inputString = getBusBitConcatenationString(inputBusBits, bitNetToString);
     }
   }
-  o << "assign " << outputString << " = " << inputString << ";" << std::endl;
+  o << "assign " << outputString << " = " << inputString << ";" << '\n';
   return true;
 }
 
 }
 
 namespace naja::NL {
+
+SNLVRLDumper::SNLVRLDumper() {
+  initializeDetailedPerfConfig();
+}
+
+SNLVRLDumper::DetailedPerfScopedTimer::DetailedPerfScopedTimer(
+  DetailedPerfReport& report,
+  std::chrono::nanoseconds& bucket,
+  size_t& calls):
+  report_((report.enabled && report.sessionActive) ? &report : nullptr),
+  bucket_((report.enabled && report.sessionActive) ? &bucket : nullptr) {
+  if (report_) {
+    ++calls;
+    start_ = std::chrono::steady_clock::now();
+  }
+}
+
+SNLVRLDumper::DetailedPerfScopedTimer::~DetailedPerfScopedTimer() {
+  if (report_) {
+    *bucket_ += std::chrono::steady_clock::now() - start_;
+  }
+}
+
+SNLVRLDumper::DetailedPerfSessionGuard::DetailedPerfSessionGuard(
+  SNLVRLDumper& dumper,
+  const std::string& context):
+  dumper_(&dumper),
+  started_(dumper.beginDetailedPerfSession(context)) {}
+
+SNLVRLDumper::DetailedPerfSessionGuard::~DetailedPerfSessionGuard() {
+  if (dumper_ && started_) {
+    dumper_->finalizeDetailedPerfSession();
+  }
+}
+
+void SNLVRLDumper::initializeDetailedPerfConfig() {
+  const char* reportEnv = std::getenv("NAJA_VRL_DUMPER_REPORT");
+  if (!reportEnv) {
+    return;
+  }
+  std::string reportPath(reportEnv);
+  if (reportPath.empty() || reportPath == "1") {
+    reportPath = "vrl_dumper_perf.log";
+  }
+  detailedPerfReport_.enabled = true;
+  detailedPerfReport_.reportPath = reportPath;
+}
+
+bool SNLVRLDumper::beginDetailedPerfSession(const std::string& context) {
+  if (!detailedPerfReport_.enabled || detailedPerfReport_.sessionActive) {
+    return false;
+  }
+  auto reportPath = detailedPerfReport_.reportPath;
+  detailedPerfReport_ = DetailedPerfReport {};
+  detailedPerfReport_.enabled = true;
+  detailedPerfReport_.sessionActive = true;
+  detailedPerfReport_.reportPath = std::move(reportPath);
+  detailedPerfReport_.context = context;
+  detailedPerfReport_.sessionStart = std::chrono::steady_clock::now();
+  return true;
+}
+
+void SNLVRLDumper::finalizeDetailedPerfSession() {
+  if (!detailedPerfReport_.enabled || !detailedPerfReport_.sessionActive) {
+    return;
+  }
+  detailedPerfReport_.totalDuration =
+    std::chrono::steady_clock::now() - detailedPerfReport_.sessionStart;
+  detailedPerfReport_.sessionActive = false;
+
+  std::ofstream output(detailedPerfReport_.reportPath, std::ios::out | std::ios::app);
+  if (!output) {
+    NAJA_LOG_WARN(
+      "Unable to write Verilog dumper performance report: {}",
+      detailedPerfReport_.reportPath.string());
+    return;
+  }
+
+  output << "=== SNLVRLDumper Perf Report ===\n";
+  output << "context=" << detailedPerfReport_.context << "\n";
+  output << std::fixed << std::setprecision(3);
+  output << "time.total_ms=" << toMilliseconds(detailedPerfReport_.totalDuration) << "\n";
+  output << "time.dumpAttributes_ms="
+         << toMilliseconds(detailedPerfReport_.dumpAttributesDuration) << "\n";
+  output << "count.dumpAttributes_calls=" << detailedPerfReport_.dumpAttributesCalls << "\n";
+  output << "count.dumpAttributes_empty_calls="
+         << detailedPerfReport_.dumpAttributesEmptyCalls << "\n";
+  output << "count.dumpAttributes_nonempty_calls="
+         << detailedPerfReport_.dumpAttributesNonEmptyCalls << "\n";
+  output << "count.dumped_attributes=" << detailedPerfReport_.dumpedAttributesCount << "\n";
+  if (detailedPerfReport_.dumpedAttributesCount > 0) {
+    const double dumpAttributesMicros =
+      std::chrono::duration<double, std::micro>(
+        detailedPerfReport_.dumpAttributesDuration).count();
+    output << "derived.dumpAttributes_us_per_attribute="
+           << (dumpAttributesMicros / detailedPerfReport_.dumpedAttributesCount) << "\n";
+  }
+  output << "time.dumpAttributes_design_ms="
+         << toMilliseconds(detailedPerfReport_.dumpAttributesDesignDuration) << "\n";
+  output << "count.dumpAttributes_design_calls="
+         << detailedPerfReport_.dumpAttributesDesignCalls << "\n";
+  output << "count.dumped_attributes_design="
+         << detailedPerfReport_.dumpedAttributesDesignCount << "\n";
+  if (detailedPerfReport_.dumpedAttributesDesignCount > 0) {
+    const double dumpAttributesDesignMicros =
+      std::chrono::duration<double, std::micro>(
+        detailedPerfReport_.dumpAttributesDesignDuration).count();
+    output << "derived.dumpAttributes_design_us_per_attribute="
+           << (dumpAttributesDesignMicros / detailedPerfReport_.dumpedAttributesDesignCount)
+           << "\n";
+  }
+  output << "time.dumpAttributes_instance_ms="
+         << toMilliseconds(detailedPerfReport_.dumpAttributesInstanceDuration) << "\n";
+  output << "count.dumpAttributes_instance_calls="
+         << detailedPerfReport_.dumpAttributesInstanceCalls << "\n";
+  output << "count.dumped_attributes_instance="
+         << detailedPerfReport_.dumpedAttributesInstanceCount << "\n";
+  if (detailedPerfReport_.dumpedAttributesInstanceCount > 0) {
+    const double dumpAttributesInstanceMicros =
+      std::chrono::duration<double, std::micro>(
+        detailedPerfReport_.dumpAttributesInstanceDuration).count();
+    output << "derived.dumpAttributes_instance_us_per_attribute="
+           << (dumpAttributesInstanceMicros / detailedPerfReport_.dumpedAttributesInstanceCount)
+           << "\n";
+  }
+  output << "time.dumpAttributes_net_ms="
+         << toMilliseconds(detailedPerfReport_.dumpAttributesNetDuration) << "\n";
+  output << "count.dumpAttributes_net_calls="
+         << detailedPerfReport_.dumpAttributesNetCalls << "\n";
+  output << "count.dumped_attributes_net="
+         << detailedPerfReport_.dumpedAttributesNetCount << "\n";
+  if (detailedPerfReport_.dumpedAttributesNetCount > 0) {
+    const double dumpAttributesNetMicros =
+      std::chrono::duration<double, std::micro>(
+        detailedPerfReport_.dumpAttributesNetDuration).count();
+    output << "derived.dumpAttributes_net_us_per_attribute="
+           << (dumpAttributesNetMicros / detailedPerfReport_.dumpedAttributesNetCount)
+           << "\n";
+  }
+  output << "time.dumpInterface_ms="
+         << toMilliseconds(detailedPerfReport_.dumpInterfaceDuration) << "\n";
+  output << "count.dumpInterface_calls=" << detailedPerfReport_.dumpInterfaceCalls << "\n";
+  output << "time.dumpNets_ms=" << toMilliseconds(detailedPerfReport_.dumpNetsDuration) << "\n";
+  output << "count.dumpNets_calls=" << detailedPerfReport_.dumpNetsCalls << "\n";
+  output << "time.dumpInstances_ms="
+         << toMilliseconds(detailedPerfReport_.dumpInstancesDuration) << "\n";
+  output << "count.dumpInstances_calls=" << detailedPerfReport_.dumpInstancesCalls << "\n";
+  output << "time.dumpTermAssigns_ms="
+         << toMilliseconds(detailedPerfReport_.dumpTermAssignsDuration) << "\n";
+  output << "count.dumpTermAssigns_calls=" << detailedPerfReport_.dumpTermAssignsCalls << "\n";
+  output << "time.dumpParameters_ms="
+         << toMilliseconds(detailedPerfReport_.dumpParametersDuration) << "\n";
+  output << "count.dumpParameters_calls=" << detailedPerfReport_.dumpParametersCalls << "\n";
+  output << "time.dumpOneDesign_ms="
+         << toMilliseconds(detailedPerfReport_.dumpOneDesignDuration) << "\n";
+  output << "count.dumpOneDesign_calls=" << detailedPerfReport_.dumpOneDesignCalls << "\n";
+  output << "time.dumpDesign_stream_ms="
+         << toMilliseconds(detailedPerfReport_.dumpDesignStreamDuration) << "\n";
+  output << "count.dumpDesign_stream_calls=" << detailedPerfReport_.dumpDesignStreamCalls << "\n";
+  output << "time.dumpDesign_path_ms="
+         << toMilliseconds(detailedPerfReport_.dumpDesignPathDuration) << "\n";
+  output << "count.dumpDesign_path_calls=" << detailedPerfReport_.dumpDesignPathCalls << "\n";
+  output << "time.dumpLibrary_stream_ms="
+         << toMilliseconds(detailedPerfReport_.dumpLibraryStreamDuration) << "\n";
+  output << "count.dumpLibrary_stream_calls=" << detailedPerfReport_.dumpLibraryStreamCalls
+         << "\n";
+  output << "time.dumpLibrary_path_ms="
+         << toMilliseconds(detailedPerfReport_.dumpLibraryPathDuration) << "\n";
+  output << "count.dumpLibrary_path_calls=" << detailedPerfReport_.dumpLibraryPathCalls << "\n";
+
+  struct PhaseStat {
+    const char* name;
+    std::chrono::nanoseconds duration;
+    size_t calls;
+  };
+  std::vector<PhaseStat> phases {
+    {"dumpAttributes", detailedPerfReport_.dumpAttributesDuration,
+      detailedPerfReport_.dumpAttributesCalls},
+    {"dumpInterface", detailedPerfReport_.dumpInterfaceDuration,
+      detailedPerfReport_.dumpInterfaceCalls},
+    {"dumpNets", detailedPerfReport_.dumpNetsDuration,
+      detailedPerfReport_.dumpNetsCalls},
+    {"dumpInstances", detailedPerfReport_.dumpInstancesDuration,
+      detailedPerfReport_.dumpInstancesCalls},
+    {"dumpTermAssigns", detailedPerfReport_.dumpTermAssignsDuration,
+      detailedPerfReport_.dumpTermAssignsCalls},
+    {"dumpParameters", detailedPerfReport_.dumpParametersDuration,
+      detailedPerfReport_.dumpParametersCalls},
+    {"dumpOneDesign", detailedPerfReport_.dumpOneDesignDuration,
+      detailedPerfReport_.dumpOneDesignCalls},
+    {"dumpDesign_stream", detailedPerfReport_.dumpDesignStreamDuration,
+      detailedPerfReport_.dumpDesignStreamCalls},
+    {"dumpDesign_path", detailedPerfReport_.dumpDesignPathDuration,
+      detailedPerfReport_.dumpDesignPathCalls},
+    {"dumpLibrary_stream", detailedPerfReport_.dumpLibraryStreamDuration,
+      detailedPerfReport_.dumpLibraryStreamCalls},
+    {"dumpLibrary_path", detailedPerfReport_.dumpLibraryPathDuration,
+      detailedPerfReport_.dumpLibraryPathCalls},
+  };
+  std::sort(phases.begin(), phases.end(),
+    [](const PhaseStat& lhs, const PhaseStat& rhs) {
+      return lhs.duration > rhs.duration;
+    });
+
+  const double totalMs = toMilliseconds(detailedPerfReport_.totalDuration);
+  output << "hotspots.top_by_time=\n";
+  size_t rank = 1;
+  for (const auto& phase: phases) {
+    if (phase.duration.count() == 0 && phase.calls == 0) {
+      continue;
+    }
+    const double phaseMs = toMilliseconds(phase.duration);
+    const double pctTotal = totalMs > 0.0 ? (100.0 * phaseMs / totalMs) : 0.0;
+    const double phaseMicros =
+      std::chrono::duration<double, std::micro>(phase.duration).count();
+    const double avgMicrosPerCall = phase.calls > 0
+      ? (phaseMicros / phase.calls)
+      : 0.0;
+    output << "hotspot." << rank
+           << "=" << phase.name
+           << " time_ms=" << phaseMs
+           << " pct_total=" << pctTotal
+           << " calls=" << phase.calls
+           << " avg_us_per_call=" << avgMicrosPerCall
+           << "\n";
+    ++rank;
+  }
+  output << "\n";
+}
 
 void SNLVRLDumper::setSingleFile(bool mode) {
   configuration_.setSingleFile(mode);
@@ -512,8 +749,33 @@ std::string SNLVRLDumper::getBitNetString(
   return dumpName(busName.getString()) + "[" + std::to_string(busNetBit->getBit()) + "]";
 }
 
-void SNLVRLDumper::dumpAttributes(const NLObject* object, std::ostream& o) {
+void SNLVRLDumper::dumpAttributes(
+  const NLObject* object,
+  std::ostream& o,
+  AttributeDumpSite site) {
+  DetailedPerfScopedTimer timer(
+    detailedPerfReport_,
+    detailedPerfReport_.dumpAttributesDuration,
+    detailedPerfReport_.dumpAttributesCalls);
+  const bool perfActive = detailedPerfReport_.enabled && detailedPerfReport_.sessionActive;
+  std::chrono::steady_clock::time_point siteStart {};
+  if (perfActive) {
+    siteStart = std::chrono::steady_clock::now();
+    switch (site) {
+      case AttributeDumpSite::Design:
+        ++detailedPerfReport_.dumpAttributesDesignCalls;
+        break;
+      case AttributeDumpSite::Instance:
+        ++detailedPerfReport_.dumpAttributesInstanceCalls;
+        break;
+      case AttributeDumpSite::Net:
+        ++detailedPerfReport_.dumpAttributesNetCalls;
+        break;
+    }
+  }
+  size_t dumpedAttributes = 0;
   for (const auto& attribute: SNLAttributes::getAttributes(object)) {
+    ++dumpedAttributes;
     o << "(* ";
     o << attribute.getName().getString();
     if (attribute.hasValue()) {
@@ -526,11 +788,38 @@ void SNLVRLDumper::dumpAttributes(const NLObject* object, std::ostream& o) {
         o << "\"";
       }
     }
-    o << " *)" << std::endl;
+    o << " *)\n";
+  }
+  if (perfActive) {
+    if (dumpedAttributes == 0) {
+      ++detailedPerfReport_.dumpAttributesEmptyCalls;
+    } else {
+      ++detailedPerfReport_.dumpAttributesNonEmptyCalls;
+    }
+    detailedPerfReport_.dumpedAttributesCount += dumpedAttributes;
+    const auto siteDuration = std::chrono::steady_clock::now() - siteStart;
+    switch (site) {
+      case AttributeDumpSite::Design:
+        detailedPerfReport_.dumpAttributesDesignDuration += siteDuration;
+        detailedPerfReport_.dumpedAttributesDesignCount += dumpedAttributes;
+        break;
+      case AttributeDumpSite::Instance:
+        detailedPerfReport_.dumpAttributesInstanceDuration += siteDuration;
+        detailedPerfReport_.dumpedAttributesInstanceCount += dumpedAttributes;
+        break;
+      case AttributeDumpSite::Net:
+        detailedPerfReport_.dumpAttributesNetDuration += siteDuration;
+        detailedPerfReport_.dumpedAttributesNetCount += dumpedAttributes;
+        break;
+    }
   }
 }
 
 void SNLVRLDumper::dumpInterface(const SNLDesign* design, std::ostream& o, DesignInsideAnonymousNaming& naming) {
+  DetailedPerfScopedTimer timer(
+    detailedPerfReport_,
+    detailedPerfReport_.dumpInterfaceDuration,
+    detailedPerfReport_.dumpInterfaceCalls);
   size_t nbChars = std::char_traits<char>::length("module  (");
   nbChars += design->getName().getString().size();
   o << "(";
@@ -540,7 +829,7 @@ void SNLVRLDumper::dumpInterface(const SNLDesign* design, std::ostream& o, Desig
       o << ",";
       nbChars += 1;
       if (nbChars > 80) {
-        o << std::endl;
+        o << '\n';
         nbChars = 0;
       }
       nbChars += 1;
@@ -571,17 +860,21 @@ bool SNLVRLDumper::dumpNet(const SNLNet* net, std::ostream& o, DesignInsideAnony
   } else {
     netName = net->getName();
   }
-  dumpAttributes(net, o);
+  dumpAttributes(net, o, AttributeDumpSite::Net);
   o << "wire ";
   if (auto bus = dynamic_cast<const SNLBusNet*>(net)) {
     o << "[" << bus->getMSB() << ":" << bus->getLSB() << "] ";
   }
   o << dumpName(netName.getString());
-  o << ";" << std::endl;
+  o << ";" << '\n';
   return true;
 }
 
 void SNLVRLDumper::dumpNets(const SNLDesign* design, std::ostream& o, DesignInsideAnonymousNaming& naming) {
+  DetailedPerfScopedTimer timer(
+    detailedPerfReport_,
+    detailedPerfReport_.dumpNetsDuration,
+    detailedPerfReport_.dumpNetsCalls);
   bool atLeastOne = false;
   for (auto net: design->getNets()) {
     if (not net->isUnnamed()) {
@@ -597,7 +890,7 @@ void SNLVRLDumper::dumpNets(const SNLDesign* design, std::ostream& o, DesignInsi
     }
   }
   if (atLeastOne) {
-    o << std::endl;
+    o << '\n';
   }
 }
 
@@ -718,7 +1011,7 @@ void SNLVRLDumper::dumpInstanceInterface(
           } else {
             o << ",";
           }
-          o << std::endl;
+          o << '\n';
           dumpInsTermConnectivity(previousTerm, termNets, o, naming);
         }
       }
@@ -734,11 +1027,11 @@ void SNLVRLDumper::dumpInstanceInterface(
       } else {
         o << ",";
       }
-      o << std::endl;
+      o << '\n';
       dumpInsTermConnectivity(previousTerm, termNets, o, naming);
     }
   }
-  o <<  std::endl << ")";
+  o << '\n' << ")";
 }
 
 void SNLVRLDumper::dumpInstParameters(
@@ -746,10 +1039,10 @@ void SNLVRLDumper::dumpInstParameters(
   std::ostream& o) {
   if (not instance->getInstParameters().empty()) {
     bool first = true;
-    o << "#(" << std::endl;
+    o << "#(" << '\n';
     for (auto instParameter: instance->getInstParameters()) {
       if (not first) {
-        o << "," << std::endl;
+        o << "," << '\n';
       }
       first = false;
       o << "  ." << instParameter->getName().getString();
@@ -775,7 +1068,7 @@ void SNLVRLDumper::dumpInstParameters(
       }
       o << ")";
     }
-    o << std::endl << ") ";
+    o << '\n' << ") ";
   }
 }
 
@@ -801,7 +1094,7 @@ bool SNLVRLDumper::dumpInstance(
       o << getBitNetString(net, naming);
     }
     o << ");";
-    o << std::endl;
+    o << '\n';
     return true;
   }
   assert(not NLDB0::isAssign(instance->getModel()));
@@ -811,7 +1104,7 @@ bool SNLVRLDumper::dumpInstance(
   } else {
     instanceName = instance->getName().getString();
   }
-  dumpAttributes(instance, o);
+  dumpAttributes(instance, o, AttributeDumpSite::Instance);
   auto model = instance->getModel();
   if (not model->isUnnamed()) { //FIXME !!
     o << dumpName(model->getName().getString()) << " ";
@@ -819,11 +1112,15 @@ bool SNLVRLDumper::dumpInstance(
   dumpInstParameters(instance, o);
   o << dumpName(instanceName);
   dumpInstanceInterface(instance, o, naming);
-  o << ";" << std::endl;
+  o << ";" << '\n';
   return true;
 }
 
 void SNLVRLDumper::dumpInstances(const SNLDesign* design, std::ostream& o, DesignInsideAnonymousNaming& naming) {
+  DetailedPerfScopedTimer timer(
+    detailedPerfReport_,
+    detailedPerfReport_.dumpInstancesDuration,
+    detailedPerfReport_.dumpInstancesCalls);
   bool blankLine = false;
   auto bitNetToString = [&](const SNLBitNet* bitNet) {
     return getBitNetString(bitNet, naming);
@@ -844,7 +1141,7 @@ void SNLVRLDumper::dumpInstances(const SNLDesign* design, std::ostream& o, Desig
       AssignGroup group;
       if (not initializeAssignGroup(inputNet, outputNet, group)) {
         if (blankLine) {
-          o << std::endl;
+          o << '\n';
         }
         blankLine = dumpSingleAssign(inputNet, outputNet, o, bitNetToString);
         ++i;
@@ -866,12 +1163,12 @@ void SNLVRLDumper::dumpInstances(const SNLDesign* design, std::ostream& o, Desig
 
       if (group.outputBits_.size() > 1) {
         if (blankLine) {
-          o << std::endl;
+          o << '\n';
         }
         blankLine = dumpAssignGroup(group, o, bitNetToString, busNetToString);
       } else {
         if (blankLine) {
-          o << std::endl;
+          o << '\n';
         }
         blankLine = dumpSingleAssign(inputNet, outputNet, o, bitNetToString);
       }
@@ -890,7 +1187,7 @@ void SNLVRLDumper::dumpInstances(const SNLDesign* design, std::ostream& o, Desig
       assignInstances.clear();
     }
     if (blankLine) {
-      o << std::endl;
+      o << '\n';
     }
     blankLine = dumpInstance(instance, o, naming);
   }
@@ -907,10 +1204,10 @@ void SNLVRLDumper::dumpTermNetAssign(
   std::ostream& o) {
     switch (direction) {
       case SNLTerm::Direction::Input:
-        o << "assign " << netName << " = " << termNetName << ";" << std::endl;
+        o << "assign " << netName << " = " << termNetName << ";" << '\n';
         break;
       case SNLTerm::Direction::Output:
-        o << "assign " << termNetName << " = " << netName << ";" << std::endl;
+        o << "assign " << termNetName << " = " << netName << ";" << '\n';
         break;
       default:
         {
@@ -925,6 +1222,10 @@ void SNLVRLDumper::dumpTermNetAssign(
 }
 
 void SNLVRLDumper::dumpTermAssigns(const SNLDesign* design, std::ostream& o) {
+  DetailedPerfScopedTimer timer(
+    detailedPerfReport_,
+    detailedPerfReport_.dumpTermAssignsDuration,
+    detailedPerfReport_.dumpTermAssignsCalls);
   bool atLeastOne = false;
   for (auto term: design->getBitTerms()) {
     auto net = term->getNet();
@@ -1018,7 +1319,7 @@ void SNLVRLDumper::dumpTermAssigns(const SNLDesign* design, std::ostream& o) {
     }
   }
   if (atLeastOne) {
-    o << std::endl;
+    o << '\n';
   }
 }
 
@@ -1040,21 +1341,29 @@ void SNLVRLDumper::dumpParameter(const SNLParameter* parameter, std::ostream& o)
   } else {
     o << parameter->getValue();
   }
-  o << " ;" << std::endl;
+  o << " ;" << '\n';
 }
 
 void SNLVRLDumper::dumpParameters(const SNLDesign* design, std::ostream& o) {
+  DetailedPerfScopedTimer timer(
+    detailedPerfReport_,
+    detailedPerfReport_.dumpParametersDuration,
+    detailedPerfReport_.dumpParametersCalls);
   bool atLeastOne = false;
   for (auto parameter: design->getParameters()) {
     atLeastOne = true;
     dumpParameter(parameter, o);
   }
   if (atLeastOne) {
-    o << std::endl;
+    o << '\n';
   }
 }
 
 void SNLVRLDumper::dumpOneDesign(const SNLDesign* design, std::ostream& o) {
+  DetailedPerfScopedTimer timer(
+    detailedPerfReport_,
+    detailedPerfReport_.dumpOneDesignDuration,
+    detailedPerfReport_.dumpOneDesignCalls);
   DesignInsideAnonymousNaming naming;
   for (auto term: design->getTerms()) {
     if (not term->isUnnamed()) {
@@ -1069,11 +1378,11 @@ void SNLVRLDumper::dumpOneDesign(const SNLDesign* design, std::ostream& o) {
   if (design->isUnnamed()) {
     createDesignName(design);
   }
-  dumpAttributes(design, o);
+  dumpAttributes(design, o, AttributeDumpSite::Design);
   o << "module " << dumpName(design->getName().getString());
 
   dumpInterface(design, o, naming);
-  o << std::endl;
+  o << '\n';
 
   dumpParameters(design, o);
   dumpNets(design, o, naming);
@@ -1082,10 +1391,17 @@ void SNLVRLDumper::dumpOneDesign(const SNLDesign* design, std::ostream& o) {
   dumpInstances(design, o, naming);
 
   o << "endmodule //" << design->getName().getString();
-  o << std::endl;
+  o << '\n';
 }
 
 void SNLVRLDumper::dumpDesign(const SNLDesign* design, std::ostream& o) {
+  std::string context("dumpDesign(stream): ");
+  context += design->isUnnamed() ? "anonymous_design" : design->getName().getString();
+  DetailedPerfSessionGuard sessionGuard(*this, context);
+  DetailedPerfScopedTimer timer(
+    detailedPerfReport_,
+    detailedPerfReport_.dumpDesignStreamDuration,
+    detailedPerfReport_.dumpDesignStreamCalls);
   if (configuration_.isDumpHierarchy()) {
     SNLUtils::SortedDesigns designs;
     SNLUtils::getDesignsSortedByHierarchicalLevel(design, designs);
@@ -1094,7 +1410,7 @@ void SNLVRLDumper::dumpDesign(const SNLDesign* design, std::ostream& o) {
       const SNLDesign* design = designLevel.first;
       if (not design->isPrimitive()) {
         if (not first) {
-          o << std::endl;
+          o << '\n';
         }
         first = false;
         dumpOneDesign(design, o);
@@ -1106,6 +1422,13 @@ void SNLVRLDumper::dumpDesign(const SNLDesign* design, std::ostream& o) {
 }
 
 void SNLVRLDumper::dumpLibrary(const NLLibrary* library, std::ostream& o) {
+  std::string context("dumpLibrary(stream): ");
+  context += library->isUnnamed() ? "anonymous_library" : library->getName().getString();
+  DetailedPerfSessionGuard sessionGuard(*this, context);
+  DetailedPerfScopedTimer timer(
+    detailedPerfReport_,
+    detailedPerfReport_.dumpLibraryStreamDuration,
+    detailedPerfReport_.dumpLibraryStreamCalls);
   for (auto design: library->getSNLDesigns()) {
     dumpOneDesign(design, o);
   }
@@ -1132,6 +1455,15 @@ std::string SNLVRLDumper::getLibraryFileName(const NLLibrary* library) const {
 } 
 
 void SNLVRLDumper::dumpDesign(const SNLDesign* design, const std::filesystem::path& path) {
+  std::string context("dumpDesign(path): ");
+  context += design->isUnnamed() ? "anonymous_design" : design->getName().getString();
+  context += " -> ";
+  context += path.string();
+  DetailedPerfSessionGuard sessionGuard(*this, context);
+  DetailedPerfScopedTimer timer(
+    detailedPerfReport_,
+    detailedPerfReport_.dumpDesignPathDuration,
+    detailedPerfReport_.dumpDesignPathCalls);
   NajaPerf::Scope scope("SNLVRLDumper::dumpDesign");
   if (not std::filesystem::exists(path)) {
     std::ostringstream reason;
@@ -1154,7 +1486,7 @@ void SNLVRLDumper::dumpDesign(const SNLDesign* design, const std::filesystem::pa
       "Verilog file for " + design->getName().getString(),
       "//"
     );
-    outFile << std::endl;
+    outFile << '\n';
     dumpDesign(design, outFile);
   } else {
     SNLVRLDumper streamDumper;
@@ -1173,13 +1505,22 @@ void SNLVRLDumper::dumpDesign(const SNLDesign* design, const std::filesystem::pa
         "Verilog file for " + design->getName().getString(),
         "//"
       );
-      outFile << std::endl;
+      outFile << '\n';
       streamDumper.dumpDesign(design, outFile);
     }
   }
 }
 
 void SNLVRLDumper::dumpLibrary(const NLLibrary* library, const std::filesystem::path& path) {
+  std::string context("dumpLibrary(path): ");
+  context += library->isUnnamed() ? "anonymous_library" : library->getName().getString();
+  context += " -> ";
+  context += path.string();
+  DetailedPerfSessionGuard sessionGuard(*this, context);
+  DetailedPerfScopedTimer timer(
+    detailedPerfReport_,
+    detailedPerfReport_.dumpLibraryPathDuration,
+    detailedPerfReport_.dumpLibraryPathCalls);
   if (not std::filesystem::exists(path)) {
     std::ostringstream reason;
     if (not library->isUnnamed()) {
@@ -1201,7 +1542,7 @@ void SNLVRLDumper::dumpLibrary(const NLLibrary* library, const std::filesystem::
       "Verilog file for " + library->getName().getString(),
       "//"
     );
-    outFile << std::endl;
+    outFile << '\n';
     dumpLibrary(library, outFile);
   } else {
     for (auto design: library->getSNLDesigns()) {
