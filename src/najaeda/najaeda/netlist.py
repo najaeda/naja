@@ -1750,10 +1750,12 @@ class Instance:
         dir_path = os.path.dirname(path) or "."
         if not os.path.exists(dir_path):
             raise FileNotFoundError(f"The directory {dir_path} does not exist")
+        top_name = get_top().get_name()
+        logging.info(
+            f"Starting gate-level Verilog dumping for top '{top_name}' to '{path}'")
         start_time = time.time()
         self.__get_snl_model().dumpVerilog(dir_path, os.path.basename(path))
         execution_time = time.time() - start_time
-        top_name = get_top().get_name()
         logging.info(
             f"Gate-level Verilog dumping done for top '{top_name}' to '{path}' "
             f"in {execution_time:.2f} seconds")
@@ -1887,7 +1889,7 @@ def load_verilog(files: Union[str, List[str]], config: VerilogConfig = None) -> 
     if config is None:
         config = VerilogConfig()  # Use default settings
     start_time = time.time()
-    logging.info(f"Loading verilog: {', '.join(files)}")
+    logging.info(f"Starting gate-level Verilog loading for files: {', '.join(files)}")
     __get_top_db().loadVerilog(
         files,
         keep_assigns=config.keep_assigns,
@@ -1924,9 +1926,11 @@ def load_systemverilog(
         files = []
     start_time = time.time()
     if files:
-        logging.info(f"Loading systemverilog: {', '.join(files)}")
+        logging.info(f"Starting SystemVerilog loading for files: {', '.join(files)}")
     else:
-        logging.info(f"Loading systemverilog from flist: {config.flist}")
+        logging.info(f"Starting SystemVerilog loading from flist: {config.flist}")
+    if config.top is not None:
+        logging.info(f"SystemVerilog loading top override requested: {config.top}")
 
     if config.top is not None and not isinstance(config.top, str):
         raise ValueError(
