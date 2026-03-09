@@ -3981,6 +3981,243 @@ endmodule
   ASSERT_NE(top, nullptr);
 }
 
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseAlwaysCombConditionNegatedParamStructMemberAccessSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath =
+    outPath / "always_comb_condition_negated_param_struct_member_access_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath / "always_comb_condition_negated_param_struct_member_access_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(typedef struct packed {
+  logic DebugEn;
+} cfg_t;
+
+module always_comb_condition_negated_param_struct_member_access_supported #(
+  parameter cfg_t Cfg = '{DebugEn: 1'b1}
+) (
+  input  logic       debug_mode_q,
+  input  logic [7:0] a_i,
+  input  logic [7:0] b_i,
+  output logic [7:0] y_o
+);
+  always_comb begin
+    y_o = a_i;
+    if (!(Cfg.DebugEn && debug_mode_q)) begin
+      y_o = b_i;
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName(
+    "always_comb_condition_negated_param_struct_member_access_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("y_o")), nullptr);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseAlwaysCombConditionMemberAccessDynamicIndexMulSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath /
+            "always_comb_condition_member_access_dynamic_index_mul_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath /
+    "always_comb_condition_member_access_dynamic_index_mul_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(typedef struct packed {
+  logic       locked;
+  logic [6:0] pad;
+} pmpcfg_t;
+
+module always_comb_condition_member_access_dynamic_index_mul_supported(
+  input  logic [11:0] idx_i,
+  output logic        y_o
+);
+  pmpcfg_t [63:0] pmpcfg_q;
+
+  always_comb begin
+    automatic logic [11:0] index = idx_i;
+    y_o = 1'b0;
+    for (int i = 0; i < 2; i++) begin
+      if (!pmpcfg_q[index*4+i].locked) begin
+        y_o = 1'b1;
+      end
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("always_comb_condition_member_access_dynamic_index_mul_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("y_o")), nullptr);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseAlwaysCombRHSIndexedRangeSelectLoopConstBaseSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath /
+            "always_comb_rhs_indexed_range_select_loop_const_base_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath /
+    "always_comb_rhs_indexed_range_select_loop_const_base_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(typedef struct packed {
+  logic       locked;
+  logic [6:0] pad;
+} pmpcfg_t;
+
+module always_comb_rhs_indexed_range_select_loop_const_base_supported(
+  input  logic [11:0] idx_i,
+  input  logic [63:0] csr_wdata_i,
+  output logic [7:0]  y_o
+);
+  pmpcfg_t [63:0] pmpcfg_q, pmpcfg_d;
+
+  always_comb begin
+    automatic logic [11:0] index = idx_i;
+    pmpcfg_d = pmpcfg_q;
+    y_o = '0;
+    for (int i = 0; i < 2; i++) begin
+      if (!pmpcfg_q[index*4+i].locked) begin
+        pmpcfg_d[index*4+i] = csr_wdata_i[i*8+:8];
+        y_o = csr_wdata_i[i*8+:8];
+      end
+    end
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("always_comb_rhs_indexed_range_select_loop_const_base_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("y_o")), nullptr);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseAlwaysCombRHSIndexedRangeSelectMemberBaseSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath /
+            "always_comb_rhs_indexed_range_select_member_base_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath /
+    "always_comb_rhs_indexed_range_select_member_base_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(typedef struct packed {
+  logic [63:0] data;
+} data_wrap_t;
+
+module always_comb_rhs_indexed_range_select_member_base_supported(
+  input  logic [3:0] idx_i,
+  input  logic [63:0] data_i,
+  output logic [7:0] y_o
+);
+  data_wrap_t wrap_q;
+  always_comb begin
+    wrap_q.data = data_i;
+    y_o = wrap_q.data[idx_i*8+:8];
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("always_comb_rhs_indexed_range_select_member_base_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("y_o")), nullptr);
+}
+
+TEST_F(
+  SNLSVConstructorTestSimple,
+  parseAlwaysCombRHSIndexedRangeSelectLoopNonPowerConstantFactorSupported) {
+  SNLSVConstructor constructor(library_);
+  std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
+  outPath = outPath /
+            "always_comb_rhs_indexed_range_select_loop_non_power_constant_factor_supported";
+  if (std::filesystem::exists(outPath)) {
+    std::filesystem::remove_all(outPath);
+  }
+  std::filesystem::create_directory(outPath);
+
+  const auto svPath =
+    outPath /
+    "always_comb_rhs_indexed_range_select_loop_non_power_constant_factor_supported.sv";
+  std::ofstream svFile(svPath);
+  ASSERT_TRUE(svFile.good());
+  svFile
+    << R"(module always_comb_rhs_indexed_range_select_loop_non_power_constant_factor_supported(
+  input  logic [63:0] data_i,
+  output logic [7:0]  y_o
+);
+  logic [7:0] tmp [0:3];
+
+  always_comb begin
+    for (int i = 0; i < 4; i++) begin
+      tmp[i] = data_i[i*8+:8];
+    end
+    y_o = tmp[3];
+  end
+endmodule
+)";
+  svFile.close();
+
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName(
+      "always_comb_rhs_indexed_range_select_loop_non_power_constant_factor_supported"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("y_o")), nullptr);
+}
+
 TEST_F(SNLSVConstructorTestSimple, parseAlwaysCombRHSConditionalUnpackedDynamicSelectSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path outPath(SNL_SV_DUMPER_TEST_PATH);
