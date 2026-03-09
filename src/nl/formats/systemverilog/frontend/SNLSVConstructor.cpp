@@ -2653,25 +2653,34 @@ class SNLSVConstructorImpl {
         }
         return outBit;
       };
+      struct UnsignedConstant65 {
+        uint64_t lowValue{0};
+        bool highBit{false};
+      };
       auto buildUnsignedLessThanConstant = [&](const std::vector<SNLBitNet*>& lhsBits,
-                                               unsigned __int128 constantValue) -> SNLBitNet* {
+                                               const UnsignedConstant65& constantValue) -> SNLBitNet* {
         const auto width = lhsBits.size();
-        if (!width) {
+        if (!width || width > 65) {
           return nullptr; // LCOV_EXCL_LINE
         }
-
-        const auto maxValue = (static_cast<unsigned __int128>(1) << width);
-        if (constantValue >= maxValue) {
+        if (width < 64) {
+          const auto maxValue = (uint64_t{1} << width);
+          if (constantValue.highBit || constantValue.lowValue >= maxValue) {
+            return const1;
+          }
+        } else if (width == 64 && constantValue.highBit) {
           return const1;
         }
-        if (constantValue == 0) {
+        if (!constantValue.highBit && constantValue.lowValue == 0) {
           return const0;
         }
 
         SNLBitNet* ltBit = const0;
         SNLBitNet* eqBit = const1;
         for (size_t bitIndex = width; bitIndex-- > 0;) {
-          const bool constantBit = ((constantValue >> bitIndex) & 1) != 0;
+          const bool constantBit =
+            (bitIndex == 64) ? constantValue.highBit
+                             : ((constantValue.lowValue >> bitIndex) & 1U) != 0;
           auto* lhsBit = lhsBits[bitIndex];
           auto* notLhs = makeNot(lhsBit);
           if (!notLhs) {
@@ -2713,7 +2722,7 @@ class SNLSVConstructorImpl {
 
         auto* ltBase = buildUnsignedLessThanConstant(
           addressBits64,
-          static_cast<unsigned __int128>(*maybeBase));
+          UnsignedConstant65{*maybeBase, false});
         auto* geBase = makeNot(ltBase);
         if (!ltBase || !geBase) {
           return false;
@@ -2721,9 +2730,9 @@ class SNLSVConstructorImpl {
 
         std::vector<SNLBitNet*> addressBits65 = addressBits64;
         addressBits65.push_back(const0);
-        const unsigned __int128 limitValue =
-          static_cast<unsigned __int128>(*maybeBase) +
-          static_cast<unsigned __int128>(*maybeLen);
+        const uint64_t limitLowValue = *maybeBase + *maybeLen;
+        const bool limitHighBit = limitLowValue < *maybeBase;
+        const UnsignedConstant65 limitValue{limitLowValue, limitHighBit};
         auto* ltLimit = buildUnsignedLessThanConstant(addressBits65, limitValue);
         if (!ltLimit) {
           return false;
