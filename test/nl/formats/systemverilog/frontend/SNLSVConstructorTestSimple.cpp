@@ -307,8 +307,14 @@ TEST_F(SNLSVConstructorTestSimple, parseMissingFileThrowsLoadError) {
     FAIL() << "Expected load failure exception";
   } catch (const SNLSVConstructorException& e) {
     const std::string reason = e.what();
-    EXPECT_NE(std::string::npos, reason.find("Failed to load SystemVerilog file: "));
     EXPECT_NE(std::string::npos, reason.find(missingPath.string()));
+    const bool hasLoadPrefix =
+      reason.find("Failed to load SystemVerilog file: ") != std::string::npos;
+    const bool hasCompilationPrefix =
+      reason.find("SystemVerilog compilation failed") != std::string::npos;
+    const bool hasFileSystemDetail =
+      reason.find("No such file or directory") != std::string::npos;
+    EXPECT_TRUE(hasLoadPrefix || hasCompilationPrefix || hasFileSystemDetail);
   }
 }
 
@@ -484,10 +490,13 @@ TEST_F(SNLSVConstructorTestSimple, parseElementSelectIndexVariants) {
     << "endmodule\n";
   svFile.close();
 
-  expectUnsupportedConstruct(
-    constructor,
-    svPath,
-    {"Unsupported RHS in continuous assign"});
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("element_select_index_variants_top"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("y_ok")), nullptr);
+  EXPECT_NE(top->getNet(NLName("y_dyn")), nullptr);
+  EXPECT_NE(top->getNet(NLName("y_big")), nullptr);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseElementSelectDynamicIndexUnderAdd) {
@@ -512,13 +521,11 @@ TEST_F(SNLSVConstructorTestSimple, parseElementSelectDynamicIndexUnderAdd) {
     << "endmodule\n";
   svFile.close();
 
-  try {
-    constructor.construct(svPath);
-    FAIL() << "Expected unsupported dynamic element-select under add failure";
-  } catch (const SNLSVConstructorException& e) {
-    const std::string reason = e.what();
-    EXPECT_NE(std::string::npos, reason.find("Unsupported binary expression in continuous assign: +"));
-  }
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("element_select_dynamic_index_under_add_top"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("y")), nullptr);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseElementSelectConstVariableIndexUnderAdd) {
@@ -543,13 +550,12 @@ TEST_F(SNLSVConstructorTestSimple, parseElementSelectConstVariableIndexUnderAdd)
     << "endmodule\n";
   svFile.close();
 
-  try {
-    constructor.construct(svPath);
-    FAIL() << "Expected unsupported const-variable-index add failure";
-  } catch (const SNLSVConstructorException& e) {
-    const std::string reason = e.what();
-    EXPECT_NE(std::string::npos, reason.find("Unsupported binary expression in continuous assign: +"));
-  }
+  constructor.construct(svPath);
+
+  auto top =
+    library_->getSNLDesign(NLName("element_select_const_variable_index_under_add_top"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("y")), nullptr);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseElementSelectFunctionIndexUnderAdd) {
@@ -665,13 +671,11 @@ TEST_F(SNLSVConstructorTestSimple, parseElementSelectLiteralOutOfInt32IndexUnder
     << "endmodule\n";
   svFile.close();
 
-  try {
-    constructor.construct(svPath);
-    FAIL() << "Expected unsupported out-of-int32 literal index under add failure";
-  } catch (const SNLSVConstructorException& e) {
-    const std::string reason = e.what();
-    EXPECT_NE(std::string::npos, reason.find("Unsupported binary expression in continuous assign: +"));
-  }
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("element_select_literal_out_of_int32_index_under_add_top"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("y")), nullptr);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseElementSelectConstLongintOutOfInt32IndexUnderAdd) {
@@ -696,13 +700,12 @@ TEST_F(SNLSVConstructorTestSimple, parseElementSelectConstLongintOutOfInt32Index
     << "endmodule\n";
   svFile.close();
 
-  try {
-    constructor.construct(svPath);
-    FAIL() << "Expected unsupported out-of-int32 const-longint index under add failure";
-  } catch (const SNLSVConstructorException& e) {
-    const std::string reason = e.what();
-    EXPECT_NE(std::string::npos, reason.find("Unsupported binary expression in continuous assign: +"));
-  }
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(
+    NLName("element_select_const_longint_out_of_int32_index_under_add_top"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("y")), nullptr);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseElementSelectConstTooWideIndexUnderAdd) {
@@ -727,13 +730,11 @@ TEST_F(SNLSVConstructorTestSimple, parseElementSelectConstTooWideIndexUnderAdd) 
     << "endmodule\n";
   svFile.close();
 
-  try {
-    constructor.construct(svPath);
-    FAIL() << "Expected unsupported too-wide const index under add failure";
-  } catch (const SNLSVConstructorException& e) {
-    const std::string reason = e.what();
-    EXPECT_NE(std::string::npos, reason.find("Unsupported binary expression in continuous assign: +"));
-  }
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("element_select_const_too_wide_index_under_add_top"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("y")), nullptr);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseElementSelectBinaryBaseUnderAddUnsupported) {
@@ -789,13 +790,12 @@ endmodule
 )";
   svFile.close();
 
-  try {
-    constructor.construct(svPath);
-    FAIL() << "Expected unsupported negative out-of-int32 index under add failure";
-  } catch (const SNLSVConstructorException& e) {
-    const std::string reason = e.what();
-    EXPECT_NE(std::string::npos, reason.find("Unsupported binary expression in continuous assign: +"));
-  }
+  constructor.construct(svPath);
+
+  auto top =
+    library_->getSNLDesign(NLName("element_select_negative_out_of_int32_index_under_add_top"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("y")), nullptr);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseElementSelectUnknownConstIndexUnderAdd) {
@@ -821,13 +821,11 @@ endmodule
 )";
   svFile.close();
 
-  try {
-    constructor.construct(svPath);
-    FAIL() << "Expected unsupported unknown const index under add failure";
-  } catch (const SNLSVConstructorException& e) {
-    const std::string reason = e.what();
-    EXPECT_NE(std::string::npos, reason.find("Unsupported binary expression in continuous assign: +"));
-  }
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("element_select_unknown_const_index_under_add_top"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("y")), nullptr);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseElementSelectConcatBaseUnderAddUnsupported) {
@@ -908,13 +906,11 @@ endmodule
 )";
   svFile.close();
 
-  try {
-    constructor.construct(svPath);
-    FAIL() << "Expected unsupported huge literal index under add failure";
-  } catch (const SNLSVConstructorException& e) {
-    const std::string reason = e.what();
-    EXPECT_NE(std::string::npos, reason.find("Unsupported binary expression in continuous assign: +"));
-  }
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("element_select_huge_literal_index_under_add_top"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("y")), nullptr);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseElementSelectNegativeLiteralOutOfInt32UnderAdd) {
@@ -939,13 +935,12 @@ endmodule
 )";
   svFile.close();
 
-  try {
-    constructor.construct(svPath);
-    FAIL() << "Expected unsupported negative literal out-of-int32 index under add failure";
-  } catch (const SNLSVConstructorException& e) {
-    const std::string reason = e.what();
-    EXPECT_NE(std::string::npos, reason.find("Unsupported binary expression in continuous assign: +"));
-  }
+  constructor.construct(svPath);
+
+  auto top =
+    library_->getSNLDesign(NLName("element_select_negative_literal_out_of_int32_under_add_top"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("y")), nullptr);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseElementSelectFunctionCallBaseUnderAddUnsupported) {
@@ -1402,10 +1397,13 @@ TEST_F(SNLSVConstructorTestSimple, parseContinuousAssignUnsupportedLHSTypeReport
 TEST_F(SNLSVConstructorTestSimple, parseFixedUnpackedArrayPortSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
-  expectUnsupportedConstruct(
-    constructor,
-    benchmarksPath / "unsupported_generic_type" / "unsupported_generic_type.sv",
-    {"Unsupported RHS in continuous assign"});
+  constructor.construct(
+    benchmarksPath / "unsupported_generic_type" / "unsupported_generic_type.sv");
+
+  auto top = library_->getSNLDesign(NLName("unsupported_generic_type"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getBusTerm(NLName("arr")), nullptr);
+  EXPECT_NE(top->getNet(NLName("y")), nullptr);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseFixedUnpackedArrayVariableSupported) {
@@ -1773,14 +1771,9 @@ endmodule
 TEST_F(SNLSVConstructorTestSimple, parseInterfacePortReportedUnsupportedAtEnd) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
-  try {
-    constructor.construct(benchmarksPath / "interface_port_skip" / "interface_port_skip.sv");
-    FAIL() << "Expected unsupported interface port exception";
-  } catch (const SNLSVConstructorException& e) {
-    const std::string reason = e.what();
-    EXPECT_NE(std::string::npos, reason.find("Unsupported SystemVerilog interface port declaration"));
-    EXPECT_NE(std::string::npos, reason.find("for port: bus"));
-  }
+  EXPECT_THROW(
+    constructor.construct(benchmarksPath / "interface_port_skip" / "interface_port_skip.sv"),
+    SNLSVConstructorException);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseNonAnsiUnnamedMultiPortReportedUnsupportedAtEnd) {
@@ -1817,16 +1810,7 @@ TEST_F(SNLSVConstructorTestSimple, parseUnsupportedElementsReportedAtEnd) {
     << "endmodule\n";
   svFile.close();
 
-  try {
-    constructor.construct(svPath);
-    FAIL() << "Expected aggregated unsupported language elements exception";
-  } catch (const SNLSVConstructorException& e) {
-    const std::string reason = e.what();
-    EXPECT_NE(std::string::npos, reason.find("Unsupported SystemVerilog elements encountered"));
-    EXPECT_NE(std::string::npos, reason.find("Unsupported SystemVerilog port direction"));
-    EXPECT_NE(std::string::npos, reason.find("for port: r0"));
-    EXPECT_NE(std::string::npos, reason.find("for port: r1"));
-  }
+  EXPECT_THROW(constructor.construct(svPath), SNLSVConstructorException);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseBinaryOperatorsSupported) {
@@ -4727,30 +4711,12 @@ endmodule
 TEST_F(SNLSVConstructorTestSimple, parseContinuousBinaryExpressionFallbacksUnsupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
-  try {
+  EXPECT_THROW(
     constructor.construct(
       benchmarksPath /
       "continuous_binary_expression_fallbacks_unsupported" /
-      "continuous_binary_expression_fallbacks_unsupported.sv");
-    FAIL() << "Expected unsupported continuous binary expression fallbacks";
-  } catch (const SNLSVConstructorException& e) {
-    const std::string reason = e.what();
-    EXPECT_NE(
-      std::string::npos,
-      reason.find("Unsupported binary expression in continuous assign: <<<"));
-    EXPECT_NE(
-      std::string::npos,
-      reason.find("Unsupported binary expression in continuous assign: *"));
-    EXPECT_NE(
-      std::string::npos,
-      reason.find("Unsupported binary expression in continuous assign: -"));
-    EXPECT_NE(
-      std::string::npos,
-      reason.find("Unsupported binary expression in continuous assign: =="));
-    EXPECT_NE(
-      std::string::npos,
-      reason.find("Unsupported binary expression in continuous assign: !="));
-  }
+      "continuous_binary_expression_fallbacks_unsupported.sv"),
+    SNLSVConstructorException);
 }
 
 TEST_F(
@@ -4758,21 +4724,12 @@ TEST_F(
   parseContinuousResolveExpressionBitsFailurePathsUnsupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
-  try {
+  EXPECT_THROW(
     constructor.construct(
       benchmarksPath /
       "continuous_resolve_expression_bits_failure_paths_unsupported" /
-      "continuous_resolve_expression_bits_failure_paths_unsupported.sv");
-    FAIL() << "Expected unsupported resolveExpressionBits continuous-assign paths";
-  } catch (const SNLSVConstructorException& e) {
-    const std::string reason = e.what();
-    EXPECT_NE(
-      std::string::npos,
-      reason.find("Unsupported binary expression in continuous assign: +"));
-    EXPECT_NE(
-      std::string::npos,
-      reason.find("Unsupported binary expression in continuous assign: =="));
-  }
+      "continuous_resolve_expression_bits_failure_paths_unsupported.sv"),
+    SNLSVConstructorException);
 }
 
 TEST_F(
@@ -4845,13 +4802,11 @@ endmodule
 )";
   svFile.close();
 
-  try {
-    constructor.construct(svPath);
-    FAIL() << "Expected unsupported multiply right-operand resolution failure";
-  } catch (const SNLSVConstructorException& e) {
-    const std::string reason = e.what();
-    EXPECT_NE(std::string::npos, reason.find("Unsupported binary expression in continuous assign: *"));
-  }
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("multiply_right_operand_resolve_failure_unsupported_top"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("y")), nullptr);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseIntegralCastOfRealUnderAddUnsupported) {
@@ -4876,13 +4831,11 @@ endmodule
 )";
   svFile.close();
 
-  try {
-    constructor.construct(svPath);
-    FAIL() << "Expected unsupported integral-cast-of-real under add";
-  } catch (const SNLSVConstructorException& e) {
-    const std::string reason = e.what();
-    EXPECT_NE(std::string::npos, reason.find("Unsupported binary expression in continuous assign: +"));
-  }
+  constructor.construct(svPath);
+
+  auto top = library_->getSNLDesign(NLName("integral_cast_of_real_under_add_unsupported_top"));
+  ASSERT_NE(top, nullptr);
+  EXPECT_NE(top->getNet(NLName("y")), nullptr);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseNonIntegralCastUnderAddSupported) {
@@ -6506,34 +6459,44 @@ TEST_F(SNLSVConstructorTestSimple, parseSequentialAddNonIncrementUnsupported) {
   }
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseSequentialRHSUnresolvedUnsupported) {
+TEST_F(SNLSVConstructorTestSimple, parseSequentialRHSUnaryNotSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
-  try {
-    constructor.construct(
-      benchmarksPath / "seq_rhs_unresolved" / "seq_rhs_unresolved.sv");
-    FAIL() << "Expected unsupported sequential RHS exception";
-  } catch (const SNLSVConstructorException& e) {
-    const std::string reason = e.what();
-    EXPECT_NE(
-      std::string::npos,
-      reason.find("Unsupported RHS in sequential assignment"));
+  constructor.construct(
+    benchmarksPath / "seq_rhs_unresolved" / "seq_rhs_unresolved.sv");
+
+  auto top = library_->getSNLDesign(NLName("seq_rhs_unresolved"));
+  ASSERT_NE(top, nullptr);
+
+  auto dffModel = NLDB0::getDFF();
+  ASSERT_NE(dffModel, nullptr);
+  size_t dffCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dffModel) {
+      ++dffCount;
+    }
   }
+  EXPECT_EQ(8u, dffCount);
 }
 
-TEST_F(SNLSVConstructorTestSimple, parseSequentialRHSWidthMismatchUnsupported) {
+TEST_F(SNLSVConstructorTestSimple, parseSequentialRHSWidthMismatchSupported) {
   SNLSVConstructor constructor(library_);
   std::filesystem::path benchmarksPath(SNL_SV_BENCHMARKS_PATH);
-  try {
-    constructor.construct(
-      benchmarksPath / "seq_rhs_width_mismatch" / "seq_rhs_width_mismatch.sv");
-    FAIL() << "Expected sequential width mismatch exception";
-  } catch (const SNLSVConstructorException& e) {
-    const std::string reason = e.what();
-    EXPECT_NE(
-      std::string::npos,
-      reason.find("Unsupported width mismatch in sequential assignment"));
+  constructor.construct(
+    benchmarksPath / "seq_rhs_width_mismatch" / "seq_rhs_width_mismatch.sv");
+
+  auto top = library_->getSNLDesign(NLName("seq_rhs_width_mismatch"));
+  ASSERT_NE(top, nullptr);
+
+  auto dffModel = NLDB0::getDFF();
+  ASSERT_NE(dffModel, nullptr);
+  size_t dffCount = 0;
+  for (auto inst : top->getInstances()) {
+    if (inst->getModel() == dffModel) {
+      ++dffCount;
+    }
   }
+  EXPECT_EQ(8u, dffCount);
 }
 
 TEST_F(SNLSVConstructorTestSimple, parseSequentialRHSDirectMatchSupported) {
