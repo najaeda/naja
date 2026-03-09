@@ -1750,7 +1750,13 @@ class Instance:
         dir_path = os.path.dirname(path) or "."
         if not os.path.exists(dir_path):
             raise FileNotFoundError(f"The directory {dir_path} does not exist")
+        start_time = time.time()
         self.__get_snl_model().dumpVerilog(dir_path, os.path.basename(path))
+        execution_time = time.time() - start_time
+        top_name = get_top().get_name()
+        logging.info(
+            f"Gate-level Verilog dumping done for top '{top_name}' to '{path}' "
+            f"in {execution_time:.2f} seconds")
 
     def get_truth_table(self):
         """
@@ -1890,8 +1896,11 @@ def load_verilog(files: Union[str, List[str]], config: VerilogConfig = None) -> 
         conflicting_design_name_policy=config.conflicting_design_name_policy,
     )
     execution_time = time.time() - start_time
-    logging.info(f"Loading done in {execution_time:.2f} seconds")
-    return get_top()
+    top = get_top()
+    logging.info(
+        f"Gate-level Verilog loading done for top '{top.get_name()}' in "
+        f"{execution_time:.2f} seconds")
+    return top
 
 
 def load_systemverilog(
@@ -1956,8 +1965,10 @@ def load_systemverilog(
             os.remove(temp_flist_path)
 
     execution_time = time.time() - start_time
-    logging.info(f"Loading done in {execution_time:.2f} seconds")
-    return get_top()
+    top = get_top()
+    logging.info(
+        f"SystemVerilog loading done for top '{top.get_name()}' in {execution_time:.2f} seconds")
+    return top
 
 
 # Compatibility alias for Python naming preference.
