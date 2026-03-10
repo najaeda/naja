@@ -62,3 +62,17 @@ TEST_F(SNLRTLInfosTest, createWithExistingDesignRTLInfosThrows) {
   EXPECT_FALSE(design->hasRTLInfos());
 }
 
+TEST_F(SNLRTLInfosTest, getInfoMissingKeyReturnsEmptyValue) {
+  auto* design = SNLDesign::create(library_, NLName("TOP"));
+  ASSERT_NE(nullptr, design);
+
+  auto* infos = SNLRTLInfos::create(design);
+  ASSERT_NE(nullptr, infos);
+  infos->setInfo(NLName("known"), "value");
+
+  const auto missing = infos->getInfo(NLName("missing"));
+  EXPECT_TRUE(missing.empty());
+  EXPECT_EQ("value", infos->getInfo(NLName("known")));
+
+  infos->destroy();
+}
