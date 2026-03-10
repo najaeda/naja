@@ -37,9 +37,11 @@
 
 namespace {
 
+// LCOV_EXCL_START
 double toMilliseconds(const std::chrono::nanoseconds& duration) {
   return std::chrono::duration<double, std::milli>(duration).count();
 }
+// LCOV_EXCL_STOP
 
 size_t dumpDirection(const naja::NL::SNLTerm* term, std::ostream& o) {
   switch (term->getDirection()) {
@@ -456,14 +458,16 @@ SNLVRLDumper::DetailedPerfScopedTimer::DetailedPerfScopedTimer(
   report_((report.enabled && report.sessionActive) ? &report : nullptr),
   bucket_((report.enabled && report.sessionActive) ? &bucket : nullptr) {
   if (report_) {
+    // LCOV_EXCL_START
     ++calls;
     start_ = std::chrono::steady_clock::now();
+    // LCOV_EXCL_STOP
   }
 }
 
 SNLVRLDumper::DetailedPerfScopedTimer::~DetailedPerfScopedTimer() {
   if (report_) {
-    *bucket_ += std::chrono::steady_clock::now() - start_;
+    *bucket_ += std::chrono::steady_clock::now() - start_; // LCOV_EXCL_LINE
   }
 }
 
@@ -475,7 +479,7 @@ SNLVRLDumper::DetailedPerfSessionGuard::DetailedPerfSessionGuard(
 
 SNLVRLDumper::DetailedPerfSessionGuard::~DetailedPerfSessionGuard() {
   if (dumper_ && started_) {
-    dumper_->finalizeDetailedPerfSession();
+    dumper_->finalizeDetailedPerfSession(); // LCOV_EXCL_LINE
   }
 }
 
@@ -484,18 +488,21 @@ void SNLVRLDumper::initializeDetailedPerfConfig() {
   if (!reportEnv) {
     return;
   }
+  // LCOV_EXCL_START
   std::string reportPath(reportEnv);
   if (reportPath.empty() || reportPath == "1") {
     reportPath = "vrl_dumper_perf.log";
   }
   detailedPerfReport_.enabled = true;
   detailedPerfReport_.reportPath = reportPath;
+  // LCOV_EXCL_STOP
 }
 
 bool SNLVRLDumper::beginDetailedPerfSession(const std::string& context) {
   if (!detailedPerfReport_.enabled || detailedPerfReport_.sessionActive) {
     return false;
   }
+  // LCOV_EXCL_START
   auto reportPath = detailedPerfReport_.reportPath;
   detailedPerfReport_ = DetailedPerfReport {};
   detailedPerfReport_.enabled = true;
@@ -504,8 +511,10 @@ bool SNLVRLDumper::beginDetailedPerfSession(const std::string& context) {
   detailedPerfReport_.context = context;
   detailedPerfReport_.sessionStart = std::chrono::steady_clock::now();
   return true;
+  // LCOV_EXCL_STOP
 }
 
+// LCOV_EXCL_START
 void SNLVRLDumper::finalizeDetailedPerfSession() {
   if (!detailedPerfReport_.enabled || !detailedPerfReport_.sessionActive) {
     return;
@@ -699,6 +708,7 @@ void SNLVRLDumper::finalizeDetailedPerfSession() {
   }
   output << "\n";
 }
+// LCOV_EXCL_STOP
 
 void SNLVRLDumper::setSingleFile(bool mode) {
   configuration_.setSingleFile(mode);
@@ -796,6 +806,7 @@ void SNLVRLDumper::dumpAttributes(
   const NLObject* object,
   std::ostream& o,
   AttributeDumpSite site) {
+  // LCOV_EXCL_START
   DetailedPerfScopedTimer timer(
     detailedPerfReport_,
     detailedPerfReport_.dumpAttributesDuration,
@@ -803,6 +814,7 @@ void SNLVRLDumper::dumpAttributes(
   const bool perfActive = detailedPerfReport_.enabled && detailedPerfReport_.sessionActive;
   std::chrono::steady_clock::time_point siteStart {};
   if (perfActive) {
+    // LCOV_EXCL_START
     siteStart = std::chrono::steady_clock::now();
     switch (site) {
       case AttributeDumpSite::Design:
@@ -814,13 +826,14 @@ void SNLVRLDumper::dumpAttributes(
       case AttributeDumpSite::Net:
         ++detailedPerfReport_.dumpAttributesNetCalls;
         break;
+      // LCOV_EXCL_STOP
     }
   }
   size_t dumpedSNLAttributes = 0;
   size_t dumpedRTLInfos = 0;
   std::chrono::steady_clock::time_point snlAttributesStart {};
   if (perfActive) {
-    snlAttributesStart = std::chrono::steady_clock::now();
+    snlAttributesStart = std::chrono::steady_clock::now(); // LCOV_EXCL_LINE
   }
   for (const auto& attribute: SNLAttributes::getAttributes(object)) {
     ++dumpedSNLAttributes;
@@ -839,8 +852,10 @@ void SNLVRLDumper::dumpAttributes(
     o << " *)\n";
   }
   if (perfActive) {
+    // LCOV_EXCL_START
     detailedPerfReport_.dumpAttributesSNLAttributesDuration +=
       std::chrono::steady_clock::now() - snlAttributesStart;
+    // LCOV_EXCL_STOP
   }
   if (configuration_.isDumpRTLInfosAsAttributes()) {
     const SNLRTLInfos* rtlInfos = nullptr;
@@ -851,7 +866,7 @@ void SNLVRLDumper::dumpAttributes(
     }
     std::chrono::steady_clock::time_point rtlInfosStart {};
     if (perfActive) {
-      rtlInfosStart = std::chrono::steady_clock::now();
+      rtlInfosStart = std::chrono::steady_clock::now(); // LCOV_EXCL_LINE
     }
     if (rtlInfos) {
       for (const auto& info : rtlInfos->getInfos()) {
@@ -873,12 +888,15 @@ void SNLVRLDumper::dumpAttributes(
       }
     }
     if (perfActive) {
+      // LCOV_EXCL_START
       detailedPerfReport_.dumpAttributesRTLInfosDuration +=
         std::chrono::steady_clock::now() - rtlInfosStart;
+      // LCOV_EXCL_STOP
     }
   }
   const size_t dumpedAttributes = dumpedSNLAttributes + dumpedRTLInfos;
   if (perfActive) {
+    // LCOV_EXCL_START
     if (dumpedAttributes == 0) {
       ++detailedPerfReport_.dumpAttributesEmptyCalls;
     } else {
@@ -902,6 +920,7 @@ void SNLVRLDumper::dumpAttributes(
         detailedPerfReport_.dumpedAttributesNetCount += dumpedAttributes;
         break;
     }
+    // LCOV_EXCL_STOP
   }
 }
 

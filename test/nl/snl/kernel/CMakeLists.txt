@@ -18,6 +18,7 @@ SET(snl_tests
   SNLPathTest0.cpp SNLPathTest1.cpp SNLPathTest2.cpp
   SNLOccurrenceTest.cpp SNLParameterTest.cpp
   SNLAttributesTest.cpp
+  SNLRTLInfosTest.cpp
   SNLMergeAssignsTest.cpp
   SNLUtilsTest.cpp
 )

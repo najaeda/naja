@@ -93,17 +93,6 @@ const SNLRTLInfos::Infos& SNLRTLInfos::getInfos() const {
   return infos_;
 }
 
-void SNLRTLInfos::clearInfo(const InfoName& name) {
-  auto it = infos_.find(name);
-  if (it != infos_.end()) {
-    infos_.erase(it);
-  }
-}
-
-void SNLRTLInfos::clearInfos() {
-  infos_.clear();
-}
-
 void SNLRTLInfos::cloneInfos(const SNLRTLInfos& from) {
   infos_ = from.infos_;
 }

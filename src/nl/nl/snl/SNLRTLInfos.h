@@ -37,8 +37,6 @@ class SNLRTLInfos {
     bool hasInfo(const InfoName& name) const;
     InfoValue getInfo(const InfoName& name) const;
     const Infos& getInfos() const;
-    void clearInfo(const InfoName& name);
-    void clearInfos();
     void cloneInfos(const SNLRTLInfos& from);
 
   private:
