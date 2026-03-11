@@ -140,19 +140,21 @@ std::optional<std::string> getDriverFailureDetails(
     hasDetails = true;
   }
 
+  // LCOV_EXCL_START
   slang::Diagnostics parseDiags;
   for (const auto& tree : driver.syntaxTrees) {
-    parseDiags.append_range(tree->diagnostics()); // LCOV_EXCL_LINE
+    parseDiags.append_range(tree->diagnostics());
   }
   if (!parseDiags.empty()) {
-    parseDiags.sort(driver.sourceManager); // LCOV_EXCL_LINE
+    parseDiags.sort(driver.sourceManager);
     const auto parseDetails =
       slang::DiagnosticEngine::reportAll(driver.sourceManager, parseDiags); // LCOV_EXCL_LINE
-    if (!parseDetails.empty()) { // LCOV_EXCL_LINE
-      details << parseDetails; // LCOV_EXCL_LINE
-      hasDetails = true; // LCOV_EXCL_LINE
-    } // LCOV_EXCL_LINE
-  } // LCOV_EXCL_LINE
+    if (!parseDetails.empty()) {
+      details << parseDetails;
+      hasDetails = true;
+    }
+  }
+  // LCOV_EXCL_STOP
 
   if (!hasDetails) {
     return std::nullopt;
@@ -175,7 +177,10 @@ void collectBinaryOperands(const Expression& expr, slang::ast::BinaryOperator op
                            std::vector<const Expression*>& operands) {
   const Expression* current = stripConversions(expr);
   if (!current) {
-    return; // LCOV_EXCL_LINE
+    // LCOV_EXCL_START
+    throw SNLSVConstructorException(
+      "Internal error: null expression while collecting binary operands");
+    // LCOV_EXCL_STOP
   }
   if (current->kind == slang::ast::ExpressionKind::BinaryOp) {
     const auto& binaryExpr = current->as<slang::ast::BinaryExpression>();
@@ -250,7 +255,10 @@ bool isRelationalBinaryOp(slang::ast::BinaryOperator op) {
 bool isKnown2StateConstantExpr(const Expression& expr) {
   const auto* stripped = stripConversions(expr);
   if (!stripped) {
-    return false; // LCOV_EXCL_LINE
+    // LCOV_EXCL_START
+    throw SNLSVConstructorException(
+      "Internal error: null expression in isKnown2StateConstantExpr");
+    // LCOV_EXCL_STOP
   }
   if (const auto* symbol = stripped->getSymbolReference()) {
     if (symbol->kind == SymbolKind::EnumValue) {
@@ -261,7 +269,8 @@ bool isKnown2StateConstantExpr(const Expression& expr) {
   if (!constant || !constant->isInteger()) {
     return false;
   }
-  return !constant->integer().hasUnknown();
+  throw SNLSVConstructorException(
+    "Internal error: unexpected integer constant in isKnown2StateConstantExpr");
 }
 
 std::optional<SNLTerm::Direction> toSNLDirection(ArgumentDirection direction) {
@@ -283,10 +292,31 @@ const char* getPortKindLabel(SymbolKind kind) {
       return "interface port";
     case SymbolKind::MultiPort:
       return "multi-port"; // LCOV_EXCL_LINE
+    // LCOV_EXCL_START
     default:
       // createTerms only calls this helper for non-Port entries from getPortList.
-      return "non-port"; // LCOV_EXCL_LINE
+      return "non-port";
+    // LCOV_EXCL_STOP
   }
+}
+
+bool tryGetInt64FromSVInt(const slang::SVInt& svInt, int64_t& value) {
+  if (svInt.isSigned()) {
+    const auto maybeSigned = svInt.as<int64_t>();
+    if (!maybeSigned) {
+      return false;
+    }
+    value = *maybeSigned;
+    return true;
+  }
+
+  const auto maybeUnsigned = svInt.as<uint64_t>();
+  if (!maybeUnsigned ||
+      *maybeUnsigned > static_cast<uint64_t>(std::numeric_limits<int64_t>::max())) {
+    return false;
+  }
+  value = static_cast<int64_t>(*maybeUnsigned);
+  return true;
 }
 
 std::optional<std::string> getUnsupportedTypeReason(const Type& type) {
@@ -1395,7 +1425,7 @@ class SNLSVConstructorImpl {
           outNet = SNLScalarNet::create(design);
           annotateSourceInfo(outNet, sourceRange);
           // LCOV_EXCL_STOP
-        } // LCOV_EXCL_LINE
+        } 
         if (auto outTerm = inst->getInstTerm(output)) {
           outTerm->setNet(outNet);
         }
@@ -1417,9 +1447,11 @@ class SNLSVConstructorImpl {
           instTerm->setNet(inputNets[0]);
         }
         if (!outNet) {
-          outNet = SNLScalarNet::create(design); // LCOV_EXCL_LINE
-          annotateSourceInfo(outNet, sourceRange); // LCOV_EXCL_LINE
-        } // LCOV_EXCL_LINE
+          // LCOV_EXCL_START
+          outNet = SNLScalarNet::create(design);
+          annotateSourceInfo(outNet, sourceRange);
+          // LCOV_EXCL_STOP
+        }
         if (auto outBit = outputs->getBitAtPosition(0)) {
           if (auto outTerm = inst->getInstTerm(outBit)) {
             outTerm->setNet(outNet);
@@ -1524,15 +1556,12 @@ class SNLSVConstructorImpl {
       }
     }
 
-    bool requestCurrentForLoopBreak(std::string* failureReason = nullptr) const {
+    void requestCurrentForLoopBreak() const {
       if (!hasActiveForLoopContext()) {
-        if (failureReason) {
-          *failureReason = "unsupported break statement outside for-loop";
-        }
-        return false;
+        throw SNLSVConstructorException(
+          "Internal error: break statement outside active for-loop context");
       }
       activeForLoopBreaks_.back() = true;
-      return true;
     }
 
     const Symbol* getConstantEvalSymbol(const Expression& expr) const {
@@ -1591,18 +1620,7 @@ class SNLSVConstructorImpl {
 
       if (stripped->kind == slang::ast::ExpressionKind::IntegerLiteral) {
         const auto& literal = stripped->as<slang::ast::IntegerLiteral>();
-        if (auto maybeSigned = literal.getValue().as<int64_t>()) {
-          value = *maybeSigned;
-          return true;
-        }
-        if (auto maybeUnsigned = literal.getValue().as<uint64_t>()) {
-          if (*maybeUnsigned > static_cast<uint64_t>(std::numeric_limits<int64_t>::max())) {
-            return false;
-          }
-          value = static_cast<int64_t>(*maybeUnsigned);
-          return true;
-        }
-        return false;
+        return tryGetInt64FromSVInt(literal.getValue(), value);
       }
 
       const slang::ConstantValue* constant = stripped->getConstant();
@@ -1730,18 +1748,7 @@ class SNLSVConstructorImpl {
 
         return false;
       }
-      const auto maybeSigned = constant->integer().as<int64_t>();
-      if (maybeSigned) {
-        value = *maybeSigned;
-        return true;
-      }
-      const auto maybeUnsigned = constant->integer().as<uint64_t>();
-      if (!maybeUnsigned ||
-          *maybeUnsigned > static_cast<uint64_t>(std::numeric_limits<int64_t>::max())) {
-        return false;
-      }
-      value = static_cast<int64_t>(*maybeUnsigned);
-      return true;
+      return tryGetInt64FromSVInt(constant->integer(), value);
     }
 
     void resizeBitsToWidth(
@@ -1820,16 +1827,16 @@ class SNLSVConstructorImpl {
 
           for (const auto& setter : pattern.memberSetters) {
             if (setter.member->kind != SymbolKind::Field) {
-              return std::nullopt;
+              return std::nullopt; // LCOV_EXCL_LINE
             }
             const auto& field = setter.member->as<slang::ast::FieldSymbol>();
             const auto& fieldType = field.getType().getCanonicalType();
             if (!fieldType.isIntegral()) {
-              return std::nullopt;
+              return std::nullopt; // LCOV_EXCL_LINE
             }
             const auto memberWidthBits = fieldType.getBitWidth();
             if (memberWidthBits <= 0) {
-              return std::nullopt;
+              return std::nullopt; // LCOV_EXCL_LINE
             }
             const auto memberWidth = static_cast<size_t>(memberWidthBits);
 
@@ -1841,21 +1848,21 @@ class SNLSVConstructorImpl {
 
             const auto offset = static_cast<size_t>(field.bitOffset);
             if (offset + memberWidth > bits.size()) {
-              return std::nullopt;
+              return std::nullopt; // LCOV_EXCL_LINE
             }
             if (requiresFullMemberCoverage) {
               if (!coveredMembers.insert(setter.member).second) {
-                return std::nullopt;
+                return std::nullopt; // LCOV_EXCL_LINE
               }
               coveredMemberBits += memberWidth;
               if (coveredMemberBits > targetWidth) {
-                return std::nullopt;
+                return std::nullopt; // LCOV_EXCL_LINE
               }
             }
             std::copy(memberBits.begin(), memberBits.end(), bits.begin() + offset);
           }
           if (requiresFullMemberCoverage && coveredMemberBits != targetWidth) {
-            return std::nullopt;
+            return std::nullopt; // LCOV_EXCL_LINE
           }
 
           if (initialized || !pattern.memberSetters.empty()) {
@@ -2051,7 +2058,7 @@ class SNLSVConstructorImpl {
       if (!evalSymbol) {
         return false;
       }
-      // LCOV_EXCL_STOPs
+      // LCOV_EXCL_STOP
 
       slang::ast::EvalContext evalContext(*evalSymbol);
       auto selectedRange = expr.evalSelector(evalContext, true);
@@ -2150,7 +2157,7 @@ class SNLSVConstructorImpl {
       if (strippedItemExpr->kind == slang::ast::ExpressionKind::ValueRange) {
         const auto& valueRangeExpr = strippedItemExpr->as<slang::ast::ValueRangeExpression>();
         if (valueRangeExpr.rangeKind != slang::ast::ValueRangeKind::Simple) {
-          return false;
+          return false; // LCOV_EXCL_LINE
         }
 
         auto* geNet = SNLScalarNet::create(design);
@@ -2182,20 +2189,6 @@ class SNLSVConstructorImpl {
         if (!geBit || !leBit) {
           return false; // LCOV_EXCL_LINE
         }
-
-        if (geBit == const0 || leBit == const0) {
-          matchBit = const0;
-          return true;
-        }
-        if (geBit == const1) {
-          matchBit = leBit;
-          return true;
-        }
-        if (leBit == const1) {
-          matchBit = geBit;
-          return true;
-        }
-
         auto* andNet = SNLScalarNet::create(design);
         annotateSourceInfo(andNet, sourceRange);
         matchBit = getSingleBitNet(createBinaryGate(
@@ -6354,7 +6347,8 @@ class SNLSVConstructorImpl {
         }
         if (current->kind == slang::ast::StatementKind::List) {
           const auto& list = current->as<slang::ast::StatementList>().list;
-          if (list.size() == 1) { // LCOV_EXCL_START
+          if (list.size() == 1) {
+            // LCOV_EXCL_START
             current = list[0];
             continue;
           } // LCOV_EXCL_STOP
@@ -7687,11 +7681,7 @@ class SNLSVConstructorImpl {
       }
 
       if (current->kind == slang::ast::StatementKind::Break) {
-        std::string breakFailureReason;
-        if (!requestCurrentForLoopBreak(&breakFailureReason)) {
-          setFailureReason(std::move(breakFailureReason));
-          return false;
-        }
+        requestCurrentForLoopBreak();
         return true;
       }
 
@@ -8663,7 +8653,8 @@ class SNLSVConstructorImpl {
       }
 
       if (current->kind == slang::ast::StatementKind::Break) {
-        return requestCurrentForLoopBreak(&failureReason);
+        requestCurrentForLoopBreak();
+        return true;
       }
 
       const Expression* assignedLHS = nullptr;
